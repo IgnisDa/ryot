@@ -51,7 +51,7 @@ import {
 	sameSchemaOwner,
 	showEpisodicKindConfig,
 } from "./lifecycle-expressions";
-import { mediaNumberSelection, mediaWatchProviderSelection } from "./media-recipes";
+import { mediaNumberSelection } from "./media-recipes";
 import { builtinMediaEntitySchemaSlugs } from "./media-schema-slugs";
 
 const NextUpSeasonNumber = Schema.NullOr(Schema.Finite);
@@ -132,7 +132,7 @@ const consumedOnSuggestions = (input: {
 /**
  * What the Log activity sheet needs about one media entity: its lifecycle state, progress, totals
  * for unit hints, recent `consumedOn` values (this entity first, then the schema's most recent),
- * streaming providers, and for shows and podcasts the next-up episode plus a show's seasons.
+ * and for shows and podcasts the next-up episode plus a show's seasons.
  */
 export const mediaActivityLogContextRecipe = defineRecipe(
 	(input: { readonly reference: PluginIdentityReference; readonly entityId: string }) => {
@@ -188,7 +188,6 @@ export const mediaActivityLogContextRecipe = defineRecipe(
 					selection: {
 						...entityIdentitySelection(entity),
 						...mediaNumberSelection("pages", "runtime", "episodes", "chapters")(entity),
-						...mediaWatchProviderSelection(entity),
 						position: selectedField(lifecycle.position, Schema.NullOr(Schema.Finite)),
 						progressPercent: selectedField(lifecycle.progressPercent, Schema.NullOr(Schema.Finite)),
 						state: selectedField(

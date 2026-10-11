@@ -39,7 +39,6 @@ const targetRow = (overrides: Record<string, unknown> = {}) => ({
 	position: null,
 	state: "untracked",
 	schemaSlug: "movie",
-	watchProviders: null,
 	progressPercent: null,
 	seasons: includeRows([]),
 	populationStatus: "ready",
@@ -68,6 +67,11 @@ const valid = (recipe: { readonly document: Parameters<typeof validateRyotQLDocu
 describe("media activity log context recipe", () => {
 	it("validates the document", () => {
 		valid(mediaActivityLogContextRecipe({ reference, entityId: "entity-1" }));
+	});
+
+	it("leaves streaming providers out of the target", () => {
+		const { queries } = mediaActivityLogContextRecipe({ reference, entityId: "entity-1" }).document;
+		expect(JSON.stringify(queries["target"])).not.toContain("watchProviders");
 	});
 
 	it("scopes suggestions to the entity first and to its schema's episodes for shows and podcasts", () => {

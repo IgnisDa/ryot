@@ -16,14 +16,13 @@ import {
 	activityRuntimeHint,
 	activityStatusNote,
 	backfillSummary,
+	convertedAmount,
 	defaultSeasonNumber,
 	initialActivityDraft,
 	type MediaActivityLogger,
 	parseTimeSpent,
-	percentFromUnit,
 	resolveActivityWhen,
 	selectedEpisode,
-	unitFromPercent,
 } from "./state";
 
 const copy = { verb: "watch", noun: "movie", gerund: "watching", participle: "watched" };
@@ -88,11 +87,12 @@ describe("intents", () => {
 
 	it("defaults progress from the entity's current state", () => {
 		expect(initialActivityDraft(flat, loaded(), TODAY)).toMatchObject({
-			percent: "30",
+			amount: "30",
+			amountUnit: "percent",
 			progressMode: "started",
 		});
 		expect(initialActivityDraft(flat, loaded({ progressPercent: 42.4 }), TODAY)).toMatchObject({
-			percent: "42",
+			amount: "42",
 			progressMode: "amount",
 		});
 		expect(initialActivityDraft(positional, loaded(), TODAY).position).toBe(1);
@@ -102,6 +102,11 @@ describe("intents", () => {
 		expect(
 			initialActivityDraft(positional, loaded({ position: 28, episodes: 28 }), TODAY).position,
 		).toBe(28);
+	});
+
+	it("defaults the status to the first one the entity is not already in", () => {
+		expect(initialActivityDraft(flat, loaded(), TODAY).status).toBe("backlog");
+		expect(initialActivityDraft(flat, loaded({ state: "backlog" }), TODAY).status).toBe("on_hold");
 	});
 });
 
@@ -208,13 +213,24 @@ describe("validation", () => {
 		).toEqual({});
 	});
 
+	it("blocks setting the status the entity already has", () => {
+		const status = draft({ intent: "status", status: "backlog" });
+		expect(errors(status, flat, { state: "backlog" }).status).toBe("It already has this status.");
+		expect(errors({ ...status, status: "dropped" }, flat, { state: "backlog" })).toEqual({});
+	});
+
 	it("bounds percent, position, time and source", () => {
 		const progress = draft({ intent: "progress", progressMode: "amount" });
-		expect(errors({ ...progress, percent: "0" }).percent).toBeDefined();
-		expect(errors({ ...progress, percent: "101" }).percent).toBeDefined();
-		expect(errors({ ...progress, percent: "x" }).percent).toBeDefined();
-		expect(errors({ ...progress, percent: "100" })).toEqual({});
-		expect(errors({ ...progress, percent: "x", progressMode: "started" })).toEqual({});
+		expect(errors({ ...progress, amount: "0" }).percent).toBeDefined();
+		expect(errors({ ...progress, amount: "101" }).percent).toBeDefined();
+		expect(errors({ ...progress, amount: "x" }).percent).toBeDefined();
+		expect(errors({ ...progress, amount: "100" })).toEqual({});
+		expect(errors({ ...progress, amount: "x", progressMode: "started" })).toEqual({});
+		const minutes = { ...progress, amountUnit: "unit" as const };
+		expect(errors({ ...minutes, amount: "171" }, flat, { runtime: 170 }).percent).toBe(
+			"Enter minutes above 0 and up to 170.",
+		);
+		expect(errors({ ...minutes, amount: "170" }, flat, { runtime: 170 })).toEqual({});
 		const position = draft({ intent: "progress" });
 		expect(errors({ ...position, position: 0 }, positional).position).toBeDefined();
 		expect(errors({ ...position, position: undefined }, positional).position).toBeDefined();
@@ -242,7 +258,15 @@ const entry = (
 	value: Partial<ActivityDraft>,
 	logger: MediaActivityLogger = flat,
 	episodeEntityIds: readonly string[] = [],
-) => activityEntryDraft({ logger, episodeEntityIds, draft: draft(value), entityId: "entity-1" });
+	extra: Record<string, unknown> = {},
+) =>
+	activityEntryDraft({
+		logger,
+		episodeEntityIds,
+		draft: draft(value),
+		entityId: "entity-1",
+		context: loaded(extra),
+	});
 
 describe("entries", () => {
 	it("builds Finished with trimmed source and time", () => {
@@ -269,11 +293,22 @@ describe("entries", () => {
 			kind: "progress",
 			entityId: "entity-1",
 		});
-		expect(entry({ percent: "42.5", intent: "progress", progressMode: "amount" })).toEqual({
+		expect(entry({ amount: "42.5", intent: "progress", progressMode: "amount" })).toEqual({
 			kind: "progress",
 			entityId: "entity-1",
 			progressPercent: 42.5,
 		});
+	});
+
+	it("sends a unit amount as the same percent", () => {
+		expect(
+			entry(
+				{ amount: "85", amountUnit: "unit", intent: "progress", progressMode: "amount" },
+				flat,
+				[],
+				{ runtime: 170 },
+			),
+		).toEqual({ kind: "progress", progressPercent: 50, entityId: "entity-1" });
 	});
 
 	it("builds positional progress with a position and no percent", () => {
@@ -324,6 +359,7 @@ const labels = (value: ActivityDraft, logger: MediaActivityLogger = flat, count 
 		logger,
 		name: "Heat",
 		draft: value,
+		context: loaded(),
 		episodeCount: count,
 		episodeCode: "S2·E5",
 	});
@@ -408,7 +444,7 @@ describe("episodes and copy", () => {
 			success: "Marked as watching.",
 		});
 		expect(
-			labels(draft({ percent: "40", intent: "progress", progressMode: "amount" })),
+			labels(draft({ amount: "40", intent: "progress", progressMode: "amount" })),
 		).toMatchObject({ submit: "Save progress", success: "Progress saved at 40%." });
 		expect(labels(draft({ position: 13, intent: "progress" }), positional).success).toBe(
 			"Now watched through episode 13.",
@@ -440,12 +476,10 @@ describe("episodes and copy", () => {
 		);
 	});
 
-	it("converts between percent and a unit amount", () => {
-		expect(percentFromUnit("85", 170)).toBe("50");
-		expect(percentFromUnit("0", 170)).toBeUndefined();
-		expect(percentFromUnit("500", 170)).toBe("100");
-		expect(unitFromPercent("50", 170)).toBe("85");
-		expect(unitFromPercent("x", 170)).toBe("");
+	it("keeps the amount's meaning when switching units", () => {
+		expect(convertedAmount(draft({ amount: "50" }), "unit", 170)).toBe("85");
+		expect(convertedAmount(draft({ amount: "85", amountUnit: "unit" }), "percent", 170)).toBe("50");
+		expect(convertedAmount(draft({ amount: "x" }), "unit", 170)).toBe("x");
 	});
 
 	it("hints the runtime only when known", () => {

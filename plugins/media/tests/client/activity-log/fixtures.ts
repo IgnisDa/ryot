@@ -29,7 +29,6 @@ export const contextTarget = (overrides: Row = {}) => ({
 	position: null,
 	state: "untracked",
 	schemaSlug: "movie",
-	watchProviders: null,
 	progressPercent: null,
 	seasons: includeRows([]),
 	populationStatus: "ready",

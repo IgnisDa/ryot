@@ -276,8 +276,8 @@ it.live("logs Book progress from the empty Activity tab without a reload", () =>
 			.getByRole("radiogroup", { name: "What happened" })
 			.getByRole("radio", { name: "Progress" })
 			.click();
-		yield* dialog.getByRole("radio", { name: "Set amount" }).click();
-		yield* dialog.getByLabel("Percent").fill("40");
+		yield* dialog.getByRole("button", { exact: true, name: "Add an amount" }).click();
+		yield* dialog.getByLabel("How far along?").fill("40");
 		yield* dialog.getByRole("button", { exact: true, name: "Save progress" }).click();
 		yield* dialog
 			.getByText("Progress saved at 40%.", { exact: true })

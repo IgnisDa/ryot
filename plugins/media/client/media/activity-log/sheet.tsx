@@ -45,7 +45,6 @@ import {
 	activityIntents,
 	activityPositionTotal,
 	activityRuntimeHint,
-	activitySources,
 	activityStatusNote,
 	activityStatusOptions,
 	activityUnitTotal,
@@ -53,6 +52,7 @@ import {
 	BACKFILL_LIMIT,
 	backfillSummary,
 	capitalized,
+	convertedAmount,
 	defaultSeasonNumber,
 	EARLIER_MAX_PAGES,
 	episodeCode,
@@ -60,10 +60,8 @@ import {
 	hasActivityErrors,
 	initialActivityDraft,
 	type MediaActivityLogger,
-	percentFromUnit,
 	seasonLabel,
 	selectedEpisode,
-	unitFromPercent,
 } from "./state";
 
 type EpisodePager = {
@@ -104,15 +102,6 @@ const whenOptions = (episode: boolean) =>
 		readonly label: string;
 		readonly content: string;
 	}[];
-
-const progressModeOptions = [
-	{ value: "started", label: "Just started", content: "Just started" },
-	{ value: "amount", label: "Set amount", content: "Set amount" },
-] as const satisfies readonly {
-	readonly content: string;
-	readonly label: string;
-	readonly value: ActivityDraft["progressMode"];
-}[];
 
 function ShowEpisodes(props: {
 	readonly entityId: string;
@@ -407,7 +396,7 @@ function WhenField(props: {
 				onChange={(when) => props.onChange({ when })}
 			/>
 			{draft.when === "date" ? (
-				<div className="grid grid-cols-2 gap-3">
+				<div className="grid grid-cols-[repeat(2,minmax(0,1fr))] gap-3">
 					{episode ? null : (
 						<Field optional label="Started">
 							{(control) => (
@@ -454,51 +443,59 @@ function FlatProgress(props: {
 	const { draft, logger, context } = props;
 	const total = activityUnitTotal(logger, context);
 	const unit = logger.family === "flat" ? logger.progressUnit : undefined;
-	return (
-		<div className="flex flex-col gap-3">
-			<SegmentedControl
-				label="Progress type"
-				className="self-start"
-				optionClassName="px-3"
-				value={draft.progressMode}
-				options={progressModeOptions}
-				onChange={(progressMode) => props.onChange({ progressMode })}
-			/>
-			{draft.progressMode === "started" ? (
+	if (draft.progressMode === "started") {
+		return (
+			<div className="flex flex-col items-start gap-2">
 				<p className="text-text-muted">
 					Marks it as in progress without an amount. You can set one later.
 				</p>
-			) : (
-				<div className="grid grid-cols-2 gap-3">
-					<Field label="Percent" error={props.error}>
-						{(control) => (
-							<TextField
-								{...control}
-								type="text"
-								inputMode="decimal"
-								value={draft.percent}
-								onChange={(event) => props.onChange({ percent: event.currentTarget.value })}
+				<Button variant="link" onClick={() => props.onChange({ progressMode: "amount" })}>
+					Add an amount
+				</Button>
+			</div>
+		);
+	}
+	let hint: string | undefined;
+	if (unit !== undefined && total !== null) {
+		hint =
+			draft.amountUnit === "unit"
+				? `of ${total} ${unit.plural}`
+				: `${total} ${unit.plural} in total`;
+	}
+	return (
+		<div className="flex flex-col items-start gap-2">
+			<Field hint={hint} className="w-full" error={props.error} label="How far along?">
+				{(control) => (
+					<div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2">
+						<TextField
+							{...control}
+							type="text"
+							inputMode="decimal"
+							value={draft.amount}
+							onChange={(event) => props.onChange({ amount: event.currentTarget.value })}
+						/>
+						{unit === undefined || total === null ? (
+							<span className="text-text-muted">%</span>
+						) : (
+							<SegmentedControl
+								label="Unit"
+								optionClassName="px-3"
+								value={draft.amountUnit}
+								onChange={(amountUnit) =>
+									props.onChange({ amountUnit, amount: convertedAmount(draft, amountUnit, total) })
+								}
+								options={[
+									{ content: "%", value: "percent", label: "Percent" },
+									{ value: "unit", content: unit.plural, label: capitalized(unit.plural) },
+								]}
 							/>
 						)}
-					</Field>
-					{unit === undefined || total === null ? null : (
-						<Field label={capitalized(unit.plural)} hint={`of ${total} ${unit.plural}`}>
-							{(control) => (
-								<TextField
-									{...control}
-									type="text"
-									inputMode="numeric"
-									value={unitFromPercent(draft.percent, total)}
-									onChange={(event) => {
-										const percent = percentFromUnit(event.currentTarget.value, total);
-										props.onChange({ percent: percent ?? "" });
-									}}
-								/>
-							)}
-						</Field>
-					)}
-				</div>
-			)}
+					</div>
+				)}
+			</Field>
+			<Button variant="link" onClick={() => props.onChange({ progressMode: "started" })}>
+				Just started? Skip the amount
+			</Button>
 		</div>
 	);
 }
@@ -561,12 +558,20 @@ function StatusPicker(props: {
 				label="Status"
 				value={props.draft.status}
 				className="flex flex-col gap-2"
-				options={activityStatusOptions(props.logger)}
 				onChange={(status) => props.onChange({ status })}
+				options={activityStatusOptions(props.logger).map((option) => {
+					const current = option.value === props.context.state;
+					return Object.assign({}, option, {
+						disabled: current,
+						detail: current ? "Current status" : option.detail,
+					});
+				})}
 				renderOption={(option, selected) => ({
 					className: clsx(
 						"flex w-full items-center gap-3 rounded-lg border px-3.5 py-3 text-left",
 						selected ? "border-accent-border bg-accent-soft" : "border-border bg-surface",
+
+						option.disabled && "opacity-60",
 					),
 					content: (
 						<>
@@ -745,7 +750,7 @@ function ActivityLogFields(props: Body) {
 					logger={logger}
 					value={draft.consumedOn}
 					error={errors.consumedOn}
-					suggestions={activitySources(context)}
+					suggestions={context.consumedOn}
 					onChange={(consumedOn) => props.onChange({ consumedOn })}
 				/>
 			)}
@@ -840,6 +845,7 @@ function ActivityLogDialog(props: {
 		const labels = activityCopyLabels({
 			draft,
 			logger,
+			context,
 			name: props.name,
 			episodeCount: episodeEntityIds.length,
 			episodeCode: selected === undefined ? undefined : episodeCode(logger, selected),
@@ -849,7 +855,7 @@ function ActivityLogDialog(props: {
 				return;
 			}
 			setDone({ text: labels.success, offerReview: labels.offerReview });
-			log.submit(activityEntryDraft({ draft, logger, entityId, episodeEntityIds }));
+			log.submit(activityEntryDraft({ draft, logger, context, entityId, episodeEntityIds }));
 		};
 		return (
 			<Dialog
@@ -863,7 +869,7 @@ function ActivityLogDialog(props: {
 					saved ? (
 						<Button onClick={props.onClose}>Done</Button>
 					) : (
-						<div className="flex gap-2">
+						<>
 							<Button variant="secondary" onClick={props.onClose} disabled={log.isPending}>
 								Cancel
 							</Button>
@@ -878,7 +884,7 @@ function ActivityLogDialog(props: {
 									{labels.submit}
 								</Button>
 							)}
-						</div>
+						</>
 					)
 				}
 			>
