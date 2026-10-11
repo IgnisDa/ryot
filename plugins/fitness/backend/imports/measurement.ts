@@ -1,19 +1,8 @@
 import type { GenericImportWriteItem } from "@ryot-app/sandbox-sdk/imports";
 
+import { measurementMetricUnit } from "../../shared/measurement-metrics";
 import { measurementOperationId, measurementRecordId } from "./identity";
 import type { OpenScaleNormalizedItem } from "./open-scale";
-
-const openScaleUnits: Readonly<Record<string, string>> = {
-	fat: "%",
-	hip: "cm",
-	lbm: "kg",
-	bone: "kg",
-	water: "%",
-	muscle: "%",
-	waist: "cm",
-	bmi: "kg/m²",
-	weight: "kg",
-};
 
 export const toMeasurementWriteItem = (
 	measurement: OpenScaleNormalizedItem,
@@ -43,7 +32,7 @@ export const toMeasurementWriteItem = (
 			...(index === 0 ? { outcome: { unit: "measurements", recordKind: "measurements" } } : {}),
 		})),
 		entities: statistics.map((statistic, index) => {
-			const unit = openScaleUnits[statistic.key];
+			const unit = measurementMetricUnit(statistic.key);
 			return {
 				name: statistic.label,
 				scope: "user" as const,

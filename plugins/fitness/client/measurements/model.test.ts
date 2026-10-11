@@ -20,6 +20,7 @@ const now = new Date("2026-10-12T12:00:00.000Z");
 
 const summary = (id: string, overrides: Partial<MeasurementSummary> = {}): MeasurementSummary => ({
 	id,
+	key: id,
 	name: id,
 	unit: "kg",
 	rangeCount: 0,

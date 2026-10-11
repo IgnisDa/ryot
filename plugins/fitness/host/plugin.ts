@@ -1,6 +1,7 @@
 import { CLIENT_API_VERSION, definePlugin } from "@ryot-app/contract/modules/plugins/manifest";
 
 import { exerciseNoteOperationSlugs } from "../shared/exercise-note-operations";
+import { measurementMetricCreateOperationSlug } from "../shared/measurement-metric-operations";
 import { fitnessConfigSchema } from "./config";
 import { fitnessSavedViews } from "./saved-views";
 import { fitnessEntitySchemas } from "./schemas/entity";
@@ -68,6 +69,13 @@ export const fitnessPlugin = definePlugin({
 		{ slug: "import-merge", scriptSlug: "workflow.import-merge" },
 	],
 	operations: [
+		{
+			auth: "user",
+			demoAccess: "protected",
+			slug: measurementMetricCreateOperationSlug,
+			description: "Create a measurement metric",
+			scriptSlug: "operation.measurement-metric-create",
+		},
 		{
 			auth: "user",
 			demoAccess: "protected",
