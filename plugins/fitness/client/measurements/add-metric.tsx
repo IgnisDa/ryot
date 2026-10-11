@@ -32,7 +32,7 @@ const createMetricMutation = createRyotMutation<
 				input,
 				output: MeasurementMetricCreateOutput,
 				slug: measurementMetricCreateOperationSlug,
-				pluginId: client.pluginIdentity(PluginPackageId.make(PLUGIN_PACKAGE_ID)).pluginId,
+				packageId: PluginPackageId.make(PLUGIN_PACKAGE_ID),
 			}),
 		),
 		Effect.tap(() => Effect.sync(onCreated)),

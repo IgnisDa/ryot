@@ -86,7 +86,7 @@ const program = Effect.gen(function* () {
 	const archiveAssembled = Stream.mergeAll(
 		slugs.map((slug) =>
 			fs
-				.watch(path.join(pluginRoot(slug), "dist"))
+				.watch(path.join(pluginRoot(slug), "dist"), { recursive: true })
 				.pipe(Stream.filter((event) => path.basename(event.path).endsWith(".zip"))),
 		),
 		{ concurrency: "unbounded" },

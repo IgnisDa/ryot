@@ -25,11 +25,23 @@ const recordingHost = (changes: ChangeUserRelationshipBatch[], pinnedIds: readon
 			}),
 		executeRyotql: measurementRyotql({
 			...measurementTables,
-			relationship: pinnedIds.map((metricId) => ({ id: `pin-${metricId}`, ...pin(metricId) })),
+			relationship: pinnedIds.map((metricId) => ({
+				id: `pin-${metricId}`,
+				...pin(metricId),
+				relationshipSchemaPluginId: "fitness-owner",
+			})),
 			entity: [
 				...(measurementTables.entity ?? []),
-				{ id: "hip", entitySchemaSlug: "measurement-metric" },
-				{ id: "bmi", entitySchemaSlug: "measurement-metric" },
+				{
+					id: "hip",
+					entitySchemaPluginId: "fitness-owner",
+					entitySchemaSlug: "measurement-metric",
+				},
+				{
+					id: "bmi",
+					entitySchemaPluginId: "fitness-owner",
+					entitySchemaSlug: "measurement-metric",
+				},
 			],
 		}),
 	});

@@ -1,5 +1,3 @@
-export const mediaPluginSlug = "media";
-
 export const builtinMediaEntitySchemaSlugs = [
 	"book",
 	"comic-book",

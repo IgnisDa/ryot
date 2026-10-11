@@ -33,7 +33,6 @@ export const fixturePlugin = definePlugin({
 	],
 	metadata: {
 		icon: "puzzle",
-		slug: "fixture",
 		name: "Fixture",
 		version: "1.0.0",
 		packageId: PluginPackageId.make(PLUGIN_PACKAGE_ID),

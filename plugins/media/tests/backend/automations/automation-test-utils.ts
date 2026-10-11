@@ -118,7 +118,6 @@ export const entitySchemaRecord = (
 	name: "Entity",
 	slug: "entity",
 	isBuiltin: true,
-	pluginSlug: "media",
 	propertiesSchema: {},
 	id: "entity-schema-1",
 	pluginId: PluginId.make("media-owner"),
