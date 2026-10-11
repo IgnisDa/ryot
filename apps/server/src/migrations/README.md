@@ -83,6 +83,8 @@ Seen-history copying and description normalization each defer their table's non-
 
 After Drizzle creates V2 schema, each phase appends structured rows to `migration_report`: sequence, timestamp, phase, level, message, optional count, elapsed seconds, and — on anomalies only — a stable `code`. The table remains for inspection; pre-schema table renames cannot report there.
 
+Bulk-copy boundaries log committed report rows before later phases finish. Elapsed seconds measure the containing phase, including asset transfer and workout recalculation; several rows can share one phase duration, so do not sum report-row timings. Measure build, assembly, restore, and migration-only wall time separately. Reuse built artifacts between dump validations unless their inputs change.
+
 A warning also writes one row per offending record to `migration_report_detail`, keyed to its summary by `report_seq`. Legacy tables are dropped when the migration finishes, so each detail row denormalises everything needed to explain that record — including workout-set completion details. Emission is uncapped; the instance-admin API serves the first 100 details per summary alongside the true total, and the rest stay queryable in SQL. Only a sample reaches the terminal log.
 
 Warnings are allowed by `code`, never by message text, so report copy can be rewritten without changing abort behaviour:
@@ -113,6 +115,9 @@ Use disposable PostgreSQL, Redis, and object storage. `just restore-db` clears i
 Redis, and S3 bucket; the asset phase also deletes copied legacy keys after commit. Never use production
 storage for validation. Rebuild shipped plugin archives and run server assembly before migration-only
 mode; `run-migration` builds the kernel runtime and renderers, not the Fitness archive.
+
+For asset validation, run `just sync-s3` after restoring the dump to seed the disposable local bucket
+from its cached or remote source.
 
 ```bash
 just restore-db 'tmp/file.sql'
