@@ -13,19 +13,13 @@ describe("buildViewExpressions", () => {
 				expr: { type: "column", field: "properties", tableAlias: "entity" },
 			},
 		});
-		expect(buildViewExpressions("workout").table.image).toBeNull();
+		expect(buildViewExpressions("workout-template").table.image).toBeNull();
 	});
 
 	it.each([
 		["exercise", ["Name", "Level"]],
-		["workout", ["Name", "Started At", "Ended At"]],
+		["workout-template", ["Name", "Created At", "Comment"]],
 	] as const)("builds the expected %s table columns", (slug, labels) => {
 		expect(buildViewExpressions(slug).table.columns.map(({ label }) => label)).toEqual(labels);
-	});
-
-	it("assigns date display kinds to persisted workout timestamps", () => {
-		expect(
-			buildViewExpressions("workout").table.columns.map(({ displayKind }) => displayKind),
-		).toEqual(["text", "date", "date"]);
 	});
 });

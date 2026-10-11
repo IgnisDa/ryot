@@ -133,7 +133,7 @@ it.live("retries a committed workout after a lost response and reload without du
 		const page = yield* (yield* Playwright.Browser).newPage();
 		yield* signInThroughHostedOAuth(page, email, password);
 		const frame = yield* openFitnessPage(page, "/v/p/ryot/fitness/all-workouts");
-		yield* frame.getByRole("button", { exact: true, name: "Add" }).click();
+		yield* frame.getByRole("button", { exact: true, name: "Start workout" }).click();
 		yield* renameDraft(frame, WORKOUT_DETAILS, name);
 		yield* frame.getByRole("button", { exact: true, name: "Add exercises" }).click();
 		const picker = overlay(frame, "Add exercises");
@@ -280,7 +280,7 @@ it.live("starts workouts from list Add and templates while guarding another draf
 		const page = yield* browser.newPage();
 		yield* signInThroughHostedOAuth(page, email, password);
 		const frame = yield* openFitnessPage(page, "/v/p/ryot/fitness/all-workouts");
-		yield* frame.getByRole("button", { exact: true, name: "Add" }).click();
+		yield* frame.getByRole("button", { exact: true, name: "Start workout" }).click();
 		yield* renameDraft(frame, WORKOUT_DETAILS, "Retained new workout");
 		yield* page.goto(`${getFrontendUrl()}/e/${workoutTemplateId}`);
 		yield* frame.getByRole("button", { exact: true, name: "Start workout" }).click();

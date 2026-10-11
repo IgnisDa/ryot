@@ -38,6 +38,10 @@
 			"types": "./shared/workout-details-recipes.ts",
 			"default": "./shared/workout-details-recipes.ts"
 		},
+		"./workout-list-recipes": {
+			"types": "./shared/workout-list-recipes.ts",
+			"default": "./shared/workout-list-recipes.ts"
+		},
 		"./exercise-details-recipes": {
 			"types": "./shared/exercise-details-recipes.ts",
 			"default": "./shared/exercise-details-recipes.ts"

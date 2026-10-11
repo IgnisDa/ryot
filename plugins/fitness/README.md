@@ -7,8 +7,8 @@ Generic package, manifest, and sandbox authoring rules belong to the
 
 Fitness list and detail recipes live in `shared/query-recipes.ts`; the user-library recipe and
 library-link predicate live in `shared/library-recipes.ts`. Shared entity selections in
-`shared/entity-selections.ts` and their table-neutral property expressions are reused by the archived
-workout presentation query. List recipes share input types with pagination derived from RyotQL query
+`shared/entity-selections.ts` and their table-neutral property expressions are reused by the workout
+card recipes. List recipes share input types with pagination derived from RyotQL query
 inputs. The shared sources use the neutral Plugin Kit imports so both plugin compilers can resolve
 them.
 
@@ -173,6 +173,32 @@ Import reuse still requires both a matching normalized name and key.
 
 Metric cards and rows show the latest reading, such as `73.6 kg · 8 Oct`, taken from the metric's
 newest `measurement-reading` event.
+
+## All Workouts
+
+The All Workouts saved view renders the `workouts` client page (`client/workouts/`), which takes only
+the view's name and icon from the page context and has no data sources or settings. Layout (`grid`,
+`list`, `table`) and the normalized name search live in the page search. Filters are not available
+yet. It queries the recipes in `shared/workout-list-recipes.ts`:
+
+- `workoutCardsRecipe` pages workouts 20 at a time, newest `startedAt` first, optionally narrowed by
+  name and workout ids. Set count, distinct exercise count, volume, and personal-best count are
+  server aggregates; the included sets are bounded to 100 and only feed each exercise's best set and
+  record mark. Each row carries its comparison origin: the `workout-repeated-from` target, or for a
+  workout started from a template, the latest earlier workout linked to the same template.
+- `workoutComparisonsRecipe` and `workoutExerciseTargetsRecipe` resolve origin volumes and exercise
+  targets for the loaded page in batches of 100. Muscles exclude stabilizers, as on workout details.
+- `workoutWeeksRecipe` totals workouts, active duration, volume, and personal bests per week in the
+  viewer's time zone for the loaded span, with the same search, so split pages keep full week totals.
+- `workoutSummaryRecipe` totals a 7-day, 30-day, 90-day, or 365-day period and the period before it,
+  the latest personal-best set, and daily totals for the 26-week consistency heatmap.
+- `workoutCountRecipe` counts matching workouts for Count all.
+
+Cards and rows show active duration when recorded, otherwise elapsed time labeled as elapsed. Volume
+follows `unitSystem`: full numbers on cards, rows, and the table, compact numbers in tiles and week
+totals. A workout without an origin shows no comparison. The `workout-card` and `workout-row` entity
+presentations, used wherever workouts appear outside this page, load the same card data by workout id
+and render the same grid card and list row.
 
 ## Imports
 
