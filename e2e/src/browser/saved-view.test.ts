@@ -34,6 +34,7 @@ const IMPORTED_NAME = `Saved View Imported ${SUITE_ID}`;
 const FIRST_EXTERNAL_ID = `saved-view-add-first-${SUITE_ID}`;
 const FIRST_RESULT_TITLE = `Saved View Result One ${SUITE_ID}`;
 const ENTITY_SCHEMA_SLUG = `saved-view-add-record-${SUITE_ID}`;
+const LIBRARY_SCHEMA_SLUG = `saved-view-add-library-${SUITE_ID}`;
 const SECOND_EXTERNAL_ID = `saved-view-add-second-${SUITE_ID}`;
 const SECOND_RESULT_TITLE = `Saved View Result Two ${SUITE_ID}`;
 
@@ -155,6 +156,10 @@ beforeAll(() =>
 					schema: {
 						owner: definitionOwner(ownerPluginId),
 						slug: makeEntitySchemaSlug(ENTITY_SCHEMA_SLUG),
+					},
+					library: {
+						librarySchemaSlug: LIBRARY_SCHEMA_SLUG,
+						relationshipSlug: `in-${LIBRARY_SCHEMA_SLUG}`,
 					},
 				},
 			};

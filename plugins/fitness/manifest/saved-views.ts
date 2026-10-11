@@ -22,7 +22,7 @@ import {
 } from "@ryot-app/ryotql-recipes/saved-views";
 
 import { fitnessPresentationSource } from "../shared/entity-presentations";
-import { fitnessLibraryLinkExists } from "../shared/library-recipes";
+import { fitnessLibraryMembership, fitnessLibraryLinkExists } from "../shared/library-recipes";
 import { PLUGIN_PACKAGE_ID } from "../shared/plugin-identity";
 import { fitnessEntitySchemas } from "./schemas/entity";
 import { buildViewExpressions } from "./view-helpers";
@@ -31,6 +31,7 @@ const addAction = (slug: string): JsonValue =>
 	slug === "exercise"
 		? {
 				type: "provider-search",
+				library: fitnessLibraryMembership,
 				schema: { owner: { kind: "self" }, slug: EntitySchemaSlug.make(slug) },
 			}
 		: { search: {}, type: "plugin-route", path: "/templates/new", packageId: PLUGIN_PACKAGE_ID };

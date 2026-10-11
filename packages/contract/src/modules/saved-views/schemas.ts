@@ -155,7 +155,11 @@ export type AuthoredEntityBrowserAddAction = typeof AuthoredEntityBrowserAddActi
 export const mapEntityBrowserAddActionSchema = <Schema, Mapped>(
 	action:
 		| typeof EntityBrowserPluginRouteAddAction.Type
-		| { readonly type: "provider-search"; readonly schema: Schema }
+		| {
+				readonly schema: Schema;
+				readonly type: "provider-search";
+				readonly library: ProviderLibraryMembership;
+		  }
 		| null,
 	mapSchema: (schema: Schema) => Mapped,
 ) =>
