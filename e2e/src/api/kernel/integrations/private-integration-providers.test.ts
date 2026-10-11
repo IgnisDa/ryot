@@ -1,3 +1,4 @@
+import { definitionOwner } from "@ryot-app/contract/modules/plugins/references";
 import { integrationProvidersRecipe } from "@ryot-app/ryotql-recipes/integration-providers";
 import { Effect, Option } from "effect";
 
@@ -57,17 +58,11 @@ describe("private integration providers", () => {
 				lot: "push",
 				hasScript: true,
 				slug: plugin.providerSlug,
-				reference: {
-					slug: plugin.providerSlug,
-					owner: { kind: "plugin", pluginId: plugin.pluginId },
-				},
+				reference: { slug: plugin.providerSlug, owner: definitionOwner(plugin.pluginId) },
 			});
 			expect(outsiderProviders.map(({ slug }) => slug)).not.toContain(plugin.providerSlug);
 
-			const provider = {
-				slug: plugin.providerSlug,
-				owner: { kind: "plugin" as const, pluginId: plugin.pluginId },
-			};
+			const provider = { slug: plugin.providerSlug, owner: definitionOwner(plugin.pluginId) };
 			const created = yield* scopedIntegration(owner.client, provider);
 			const detail = requirePresent(
 				Option.getOrUndefined(yield* getIntegration(owner.client, created.id)),
@@ -133,11 +128,11 @@ describe("private integration providers", () => {
 
 			const firstIntegration = yield* scopedIntegration(first.client, {
 				slug: providerSlug,
-				owner: { kind: "plugin", pluginId: firstPlugin.pluginId },
+				owner: definitionOwner(firstPlugin.pluginId),
 			});
 			const secondIntegration = yield* scopedIntegration(second.client, {
 				slug: providerSlug,
-				owner: { kind: "plugin", pluginId: secondPlugin.pluginId },
+				owner: definitionOwner(secondPlugin.pluginId),
 			});
 
 			expect((yield* listIntegrations(first.client)).map(({ id }) => id)).toEqual([
@@ -177,7 +172,7 @@ describe("private integration providers", () => {
 			const { client } = yield* createAuthenticatedClient();
 			const plugin = yield* Effect.acquireRelease(
 				installPrivateIntegrationPlugin({ client }),
-				({ pluginSlug }) => releasePrivatePlugin(client, pluginSlug),
+				({ installationId }) => releasePrivatePlugin(client, installationId),
 			);
 
 			yield* updatePluginState(client, plugin.installationId, { isHidden: true });
@@ -188,10 +183,7 @@ describe("private integration providers", () => {
 			const failure = yield* Effect.flip(
 				createIntegration(client, {
 					providerSpecifics,
-					provider: {
-						slug: plugin.providerSlug,
-						owner: { kind: "plugin", pluginId: plugin.pluginId },
-					},
+					provider: { slug: plugin.providerSlug, owner: definitionOwner(plugin.pluginId) },
 				}),
 			);
 			assertTaggedError(failure, "IntegrationRequestError");
