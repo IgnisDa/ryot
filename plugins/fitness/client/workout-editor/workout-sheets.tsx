@@ -158,7 +158,7 @@ export function WorkoutPreferencesSheet(
 						disabled={props.disabled}
 						onClick={() => props.onChange((draft) => ({ ...draft, localPreferences: undefined }))}
 					>
-						Use Fitness preferences
+						Reset to default
 					</Button>
 					<Button onClick={props.onClose}>Done</Button>
 				</>

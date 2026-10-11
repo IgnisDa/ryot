@@ -3,6 +3,7 @@ import { Effect } from "@ryot-app/plugin-client-sdk/effect";
 const soundSources = {
 	check: new URL("./sounds/check.mp3", import.meta.url).href,
 	"add-set": new URL("./sounds/add-set.mp3", import.meta.url).href,
+	"delete-set": new URL("./sounds/delete-set.mp3", import.meta.url).href,
 	"timer-started": new URL("./sounds/timer-started.mp3", import.meta.url).href,
 	"timer-completed": new URL("./sounds/timer-completed.mp3", import.meta.url).href,
 } as const;

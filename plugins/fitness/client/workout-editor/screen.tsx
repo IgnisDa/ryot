@@ -357,14 +357,14 @@ export function WorkoutEditorScreen(props: {
 			editorDraft.activeSetId === undefined
 				? `occurrence-${editorDraft.activeOccurrenceId}`
 				: `set-${editorDraft.activeSetId}`;
-		scrollToEditorTarget(targetId);
+		scrollToEditorTarget(targetId, `occurrence-${editorDraft.activeOccurrenceId}`);
 	}, [editorDraft?.activeOccurrenceId, editorDraft?.activeSetId, isActive, scrollToEditorTarget]);
 	const change = (transform: (draft: WorkoutEditorDraft) => WorkoutEditorDraft) => {
 		setMessage(undefined);
 		return controller.change(transform);
 	};
 	const muted = editorDraft?.localPreferences?.muteSounds ?? context?.settings.muteSounds ?? false;
-	const feedback = (sound: "check" | "add-set" | "timer-started") => run(sounds.play(sound, muted));
+	const feedback = (sound: Parameters<typeof sounds.play>[0]) => run(sounds.play(sound, muted));
 	const currentOccurrence =
 		typeof overlay === "object"
 			? editorDraft?.occurrences.find(({ clientId }) => clientId === overlay.occurrenceId)
@@ -589,24 +589,28 @@ export function WorkoutEditorScreen(props: {
 		if (currentOccurrence === undefined) {
 			return;
 		}
-		change((draft) =>
-			updateOccurrence(draft, currentOccurrence.clientId, (occurrence) =>
-				occurrence.exerciseId !== currentOccurrence.exerciseId
+		let firstSetId: string | undefined;
+		const appended = change((draft) =>
+			updateOccurrence(draft, currentOccurrence.clientId, (occurrence) => {
+				if (occurrence.exerciseId !== currentOccurrence.exerciseId) {
+					return occurrence;
+				}
+				const sets = rows.flatMap((row) => {
+					const set = historySetForOccurrence(row, occurrence, crypto.randomUUID());
+					return set === undefined ? [] : [{ ...set, included: draft.mode.kind === "historical" }];
+				});
+				firstSetId = sets[0]?.clientId;
+				return sets.length === 0
 					? occurrence
-					: {
-							...occurrence,
-							sets: [
-								...occurrence.sets,
-								...rows.flatMap((row) => {
-									const set = historySetForOccurrence(row, occurrence, crypto.randomUUID());
-									return set === undefined
-										? []
-										: [{ ...set, included: draft.mode.kind === "historical" }];
-								}),
-							],
-						},
-			),
+					: { ...occurrence, isCollapsed: false, sets: [...occurrence.sets, ...sets] };
+			}),
 		);
+		if (appended) {
+			feedback("add-set");
+			if (firstSetId !== undefined) {
+				scrollToEditorTarget(`set-${firstSetId}`);
+			}
+		}
 		setOverlay(undefined);
 	};
 	const applyExercises = (selected: readonly WorkoutExercisePickerResult["items"][number][]) => {
@@ -661,7 +665,14 @@ export function WorkoutEditorScreen(props: {
 				),
 			}),
 		);
-		change((draft) => ({ ...draft, occurrences: [...draft.occurrences, ...initialized] }));
+		const firstAddition = initialized[0];
+		if (
+			firstAddition !== undefined &&
+			change((draft) => ({ ...draft, occurrences: [...draft.occurrences, ...initialized] }))
+		) {
+			feedback("add-set");
+			scrollToEditorTarget(`occurrence-${firstAddition.clientId}`);
+		}
 		for (const occurrence of initialized) {
 			run(
 				Effect.gen(function* () {
@@ -797,12 +808,16 @@ export function WorkoutEditorScreen(props: {
 				settings={context.settings}
 				currentSetId={currentSetId}
 				safeAreaBottom={safeAreaBottom}
-				onAddedSet={() => feedback("add-set")}
+				onDeletedSet={() => feedback("delete-set")}
 				onPrevious={(set) => copyPrevious(occurrence, set)}
 				onConfirm={(set) => confirm(occurrence, set, true)}
 				onStartExecution={(set) => confirm(occurrence, set, false)}
 				countdownEnabled={local?.startTimerForDurationExercises ?? false}
 				exercise={exercises.data?.find(({ id }) => id === occurrence.exerciseId)}
+				onAddedSet={(setId) => {
+					feedback("add-set");
+					scrollToEditorTarget(`set-${setId}`);
+				}}
 				onManage={(kind) => {
 					setManagementOccurrenceId(occurrence.clientId);
 					setOverlay(kind);
@@ -981,7 +996,7 @@ export function WorkoutEditorScreen(props: {
 				];
 	const alert = <AppIcon size={16} name="circle-alert" />;
 	const notices = (
-		<>
+		<MotionList className="grid gap-3 empty:hidden">
 			{conflict !== undefined && editorDraft !== undefined ? (
 				<Notice
 					icon={alert}
@@ -1169,7 +1184,7 @@ export function WorkoutEditorScreen(props: {
 					Your measurements couldn't be loaded.
 				</Notice>
 			) : null}
-		</>
+		</MotionList>
 	);
 	const states = (
 		<>
@@ -1266,12 +1281,6 @@ export function WorkoutEditorScreen(props: {
 			</ManagedAssetProvider>
 		</fieldset>
 	) : null;
-	let headerLine = "Tap to add a comment";
-	if (live) {
-		headerLine = `Started ${clockTime(editorDraft.startedAt) ?? "now"} · tap to add a reflection`;
-	} else if (historical) {
-		headerLine = "Tap to edit details";
-	}
 	let eyebrow = "Workout in progress";
 	if (template) {
 		eyebrow = "Template";
@@ -1372,7 +1381,11 @@ export function WorkoutEditorScreen(props: {
 								{title}
 							</button>
 						</h1>
-						<p className="-mt-2.5 text-xs text-text-muted">{headerLine}</p>
+						{live ? (
+							<p className="-mt-2.5 text-xs text-text-muted">
+								Started {clockTime(editorDraft.startedAt) ?? "now"}
+							</p>
+						) : null}
 						<EditorStats
 							compact
 							now={now}
@@ -1720,6 +1733,7 @@ export function WorkoutEditorScreen(props: {
 							onChange={change}
 							draft={editorDraft}
 							safeAreaBottom={safeAreaBottom}
+							onDeletedSets={() => feedback("delete-set")}
 							initialOccurrenceId={managementOccurrenceId}
 						/>
 					) : null}

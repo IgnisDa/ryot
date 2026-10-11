@@ -2,10 +2,12 @@ import { createRyotQuery, useRyotQuery } from "@ryot-app/plugin-client-sdk/react
 import {
 	Button,
 	Card,
+	Collapse,
 	Dialog,
 	Checkbox,
 	EmptyState,
 	IconButton,
+	MotionList,
 	MotionPresence,
 	Notice,
 	RadioGroup,
@@ -227,14 +229,16 @@ export function HistoryOverlay(props: {
 			}
 		>
 			<div className="grid gap-3">
-				{sessions.map((session) => (
-					<HistorySession
-						key={session.id}
-						session={session}
-						onAppend={props.onAppend}
-						exerciseId={props.exerciseId}
-					/>
-				))}
+				<MotionList className="grid gap-3 empty:hidden">
+					{sessions.map((session) => (
+						<HistorySession
+							key={session.id}
+							session={session}
+							onAppend={props.onAppend}
+							exerciseId={props.exerciseId}
+						/>
+					))}
+				</MotionList>
 				{sessions.length === 0 && result.isSuccess ? (
 					<EmptyState
 						title="No earlier sessions"
@@ -302,7 +306,6 @@ export function ReorderOverlay(
 			title="Reorder exercises"
 			closeLabel="Close reorder"
 			safeAreaBottom={props.safeAreaBottom}
-			description="Changes apply right away."
 			closeIcon={<AppIcon name="x" size={18} />}
 			placement={props.compact ? "sheet" : "center"}
 			footer={<Button onClick={props.onClose}>Done</Button>}
@@ -381,7 +384,9 @@ export function ReorderOverlay(
 const toggleSelection = (values: readonly string[], id: string) =>
 	values.includes(id) ? values.filter((value) => value !== id) : [...values, id];
 
-export function BulkDeleteOverlay(props: DraftOverlayProps) {
+export function BulkDeleteOverlay(
+	props: DraftOverlayProps & { readonly onDeletedSets: () => void },
+) {
 	const [occurrences, setOccurrences] = useState<readonly string[]>(() =>
 		props.initialOccurrenceId === undefined ? [] : [props.initialOccurrenceId],
 	);
@@ -470,12 +475,15 @@ export function BulkDeleteOverlay(props: DraftOverlayProps) {
 						title="Delete selected items?"
 						confirmLabel="Delete selected"
 						onClose={() => setConfirming(false)}
+						description={`Delete ${selectedExercises.length} ${selectedExercises.length === 1 ? "exercise" : "exercises"} and ${selectedSetCount} individual ${selectedSetCount === 1 ? "set" : "sets"}?`}
 						onConfirm={() => {
 							props.onChange((draft) => removeWorkoutItems(draft, occurrences, sets));
+							if (selectedSetCount > 0) {
+								props.onDeletedSets();
+							}
 							setConfirming(false);
 							props.onClose();
 						}}
-						description={`Delete ${selectedExercises.length} ${selectedExercises.length === 1 ? "exercise" : "exercises"} and ${selectedSetCount} individual ${selectedSetCount === 1 ? "set" : "sets"}?`}
 					/>
 				) : null}
 			</MotionPresence>
@@ -548,53 +556,55 @@ export function SupersetOverlay(props: DraftOverlayProps) {
 			}
 		>
 			<div className="grid gap-5">
-				{props.draft.supersets.length === 0 ? null : (
+				<Collapse open={props.draft.supersets.length > 0}>
 					<section className="grid gap-2">
 						<h3 className={sectionHeading}>Current</h3>
-						{props.draft.supersets.map((group) => {
-							const name = groups.get(group.clientId) ?? "Superset";
-							return (
-								<Card
-									padding="none"
-									key={group.clientId}
-									className="flex items-center gap-2.5 px-3 py-2.5"
-								>
-									<span
-										aria-hidden="true"
-										className="size-2.5 shrink-0 rounded-[3px]"
-										style={{ backgroundColor: supersetColorVariable(group.color) }}
-									/>
-									<div className="min-w-0 flex-1 text-sm">
-										<p className="font-semibold">{name}</p>
-										<p className="text-text-muted [overflow-wrap:anywhere]">
-											{memberNames(group.occurrenceIds)}
-										</p>
-									</div>
-									<Button
-										size="sm"
-										variant="ghost"
-										aria-label={`Edit ${name}`}
-										onClick={() => {
-											setEditing(group.clientId);
-											setSelected(group.occurrenceIds);
-											setColor(supersetColor(group.color));
-										}}
+						<MotionList className="grid gap-2">
+							{props.draft.supersets.map((group) => {
+								const name = groups.get(group.clientId) ?? "Superset";
+								return (
+									<Card
+										padding="none"
+										key={group.clientId}
+										className="flex items-center gap-2.5 px-3 py-2.5"
 									>
-										Edit
-									</Button>
-									<IconButton
-										size="sm"
-										tone="danger"
-										label={`Delete ${name}`}
-										onClick={() => setDeleting(group.clientId)}
-									>
-										<AppIcon size={16} name="trash-2" />
-									</IconButton>
-								</Card>
-							);
-						})}
+										<span
+											aria-hidden="true"
+											className="size-2.5 shrink-0 rounded-[3px]"
+											style={{ backgroundColor: supersetColorVariable(group.color) }}
+										/>
+										<div className="min-w-0 flex-1 text-sm">
+											<p className="font-semibold">{name}</p>
+											<p className="text-text-muted [overflow-wrap:anywhere]">
+												{memberNames(group.occurrenceIds)}
+											</p>
+										</div>
+										<Button
+											size="sm"
+											variant="ghost"
+											aria-label={`Edit ${name}`}
+											onClick={() => {
+												setEditing(group.clientId);
+												setSelected(group.occurrenceIds);
+												setColor(supersetColor(group.color));
+											}}
+										>
+											Edit
+										</Button>
+										<IconButton
+											size="sm"
+											tone="danger"
+											label={`Delete ${name}`}
+											onClick={() => setDeleting(group.clientId)}
+										>
+											<AppIcon size={16} name="trash-2" />
+										</IconButton>
+									</Card>
+								);
+							})}
+						</MotionList>
 					</section>
-				)}
+				</Collapse>
 				<section className="grid gap-2">
 					<h3 className={sectionHeading}>
 						{editing === undefined

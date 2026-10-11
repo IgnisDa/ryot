@@ -166,8 +166,10 @@ describe("workout editor sounds", () => {
 				const loadedSources: string[] = [];
 				const sounds = createSounds(() => fake.context, loadedSources);
 
-				expect(yield* sounds.play("timer-started", false)).toBe(true);
-				expect(yield* sounds.play("timer-started", false)).toBe(true);
+				expect(yield* sounds.play("delete-set", true)).toBe(false);
+				expect(loadedSources).toHaveLength(0);
+				expect(yield* sounds.play("delete-set", false)).toBe(true);
+				expect(yield* sounds.play("delete-set", false)).toBe(true);
 				expect(loadedSources).toHaveLength(1);
 				expect(fake.record.decodeCalls).toBe(1);
 				expect(fake.record.sources).toHaveLength(2);

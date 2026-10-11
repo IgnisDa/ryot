@@ -60,6 +60,91 @@ it.live(
 );
 
 for (const reducedMotion of ["reduce", "no-preference"] as const) {
+	it.live(`brings the next superset exercise into view with motion ${reducedMotion}`, () =>
+		Effect.gen(function* () {
+			const { email, client, password } = yield* createAuthenticatedClient();
+			const names = [
+				`Superset first ${crypto.randomUUID()}`,
+				`Superset next ${crypto.randomUUID()}`,
+			];
+			for (const name of names) {
+				const { exerciseId } = yield* createExerciseEntityFixture(client, { name });
+				yield* updateExerciseOverrides(client, {
+					exerciseId,
+					remove: [],
+					set: { normalRestTime: 0 },
+				});
+			}
+			const page = yield* (yield* Playwright.Browser).newPage();
+			yield* page.setViewportSize({ width: 390, height: 844 });
+			yield* page.use((raw) => raw.emulateMedia({ reducedMotion }));
+			yield* signInThroughHostedOAuth(page, email, password);
+			const frame = yield* openFitnessPage(page, "/p/ryot/fitness/workouts/new");
+			yield* frame.getByRole("button", { exact: true, name: "Add exercises" }).click();
+			const picker = frame.getByRole("dialog", { exact: true, name: "Add exercises" });
+			for (const name of names) {
+				yield* picker.getByRole("searchbox", { name: "Search exercises" }).fill(name);
+				yield* picker.getByRole("checkbox", { name, exact: true }).check();
+			}
+			yield* picker.getByRole("button", { exact: true, name: "Add 2 exercises" }).click();
+			yield* picker.waitFor({ state: "hidden" });
+			for (const name of names) {
+				const exercise = frame.getByRole("region", { name, exact: true });
+				for (let index = 1; index < 5; index += 1) {
+					yield* exercise.getByRole("button", { exact: true, name: "Add set" }).click();
+				}
+			}
+			yield* frame.getByRole("button", { exact: true, name: "Workout actions" }).click();
+			yield* frame.getByRole("menuitem", { exact: true, name: "Supersets" }).click();
+			const supersets = frame.getByRole("dialog", {
+				exact: true,
+				name: "Supersets",
+				includeHidden: true,
+			});
+			for (const name of names) {
+				yield* supersets.getByRole("checkbox", { name, exact: false }).check();
+			}
+			yield* supersets.getByRole("button", { exact: true, name: "Create superset" }).click();
+			yield* supersets.getByRole("button", { exact: true, name: "Done" }).click();
+			yield* supersets.waitFor({ state: "hidden" });
+			for (let index = 1; index <= 2; index += 1) {
+				for (const [position, name] of names.entries()) {
+					const exercise = frame.getByRole("region", { name, exact: true });
+					yield* exercise
+						.getByRole("textbox", { exact: true, name: `Set ${index} reps` })
+						.fill("8");
+					yield* exercise
+						.getByRole("textbox", { exact: true, name: `Set ${index} weight (kg)` })
+						.fill("20");
+					yield* exercise
+						.getByRole("button", { exact: true, name: `Complete set ${index}` })
+						.click();
+					const next = frame.getByRole("region", {
+						exact: true,
+						name: names[(position + 1) % names.length],
+					});
+					yield* next
+						.getByRole("group", { exact: true, name: `Set ${position === 0 ? index : index + 1}` })
+						.waitForFunction((set) => {
+							const root = set.closest("[data-motion-scroll-root]");
+							const header = root
+								?.querySelector('[data-scroll-obstruction="top"]')
+								?.getBoundingClientRect();
+							const dock = root?.parentElement
+								?.querySelector('[data-scroll-obstruction="bottom"]')
+								?.getBoundingClientRect();
+							const bounds = set.getBoundingClientRect();
+							return (
+								header !== undefined &&
+								dock !== undefined &&
+								bounds.top >= header.bottom &&
+								bounds.bottom <= dock.top
+							);
+						});
+				}
+			}
+		}).pipe(PlaywrightSpawner.withBrowser),
+	);
 	it.live(
 		`progresses, collapses and scrolls above the floating timer with motion ${reducedMotion}`,
 		() =>
@@ -92,6 +177,18 @@ for (const reducedMotion of ["reduce", "no-preference"] as const) {
 				for (let index = 1; index < 6; index += 1) {
 					yield* first.getByRole("button", { exact: true, name: "Add set" }).click();
 				}
+				const editing = first.getByRole("textbox", { exact: true, name: "Set 6 reps" });
+				yield* editing.fill("8");
+				yield* page.setViewportSize({ width: 390, height: 500 });
+				yield* editing.waitForFunction((field) => {
+					const root = field.closest("[data-motion-scroll-root]");
+					const dock = root?.parentElement
+						?.querySelector('[data-scroll-obstruction="bottom"]')
+						?.getBoundingClientRect();
+					const bounds = field.getBoundingClientRect();
+					return dock !== undefined && bounds.top >= 0 && bounds.bottom <= dock.top;
+				});
+				yield* page.setViewportSize({ width: 390, height: 844 });
 				for (let index = 1; index <= 6; index += 1) {
 					yield* first.getByRole("textbox", { exact: true, name: `Set ${index} reps` }).fill("8");
 					yield* first
