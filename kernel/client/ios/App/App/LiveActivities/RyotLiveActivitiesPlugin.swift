@@ -1,8 +1,10 @@
 import Capacitor
 import Foundation
+import os
 
 @objc(RyotLiveActivitiesPlugin)
 public class RyotLiveActivitiesPlugin: CAPPlugin, CAPBridgedPlugin {
+    private static let logger = Logger(subsystem: "Ryot", category: "LiveActivities")
     public let identifier = "RyotLiveActivitiesPlugin"
     public let jsName = "RyotLiveActivities"
     public let pluginMethods: [CAPPluginMethod] = [
@@ -22,8 +24,15 @@ public class RyotLiveActivitiesPlugin: CAPPlugin, CAPBridgedPlugin {
         }
         Task { @MainActor in
             do {
-                call.resolve(try await RyotLiveActivitiesManager.shared.request(owner: owner, request: request))
+                let result = try await RyotLiveActivitiesManager.shared.request(owner: owner, request: request)
+                if let action = request["action"] as? String,
+                   let status = result["status"] as? String,
+                   (action != "list" && action != "update") || (status != "active" && status != "done") {
+                    Self.logger.notice("Request \(action, privacy: .public): \(status, privacy: .public)")
+                }
+                call.resolve(result)
             } catch {
+                Self.logger.error("Request failed: \(String(describing: error), privacy: .public)")
                 call.reject("Live Activity request failed", nil, error)
             }
         }
