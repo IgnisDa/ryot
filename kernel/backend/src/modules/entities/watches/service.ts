@@ -32,10 +32,7 @@ export class InterestService extends Context.Service<InterestService>()("Interes
 		}) {
 			const terminal: ReconciledCompletion[] = [];
 			for (const pending of chunk(input.pending, MAX_ROOT_PAGE_SIZE)) {
-				const result = yield* reconciler.reconcile(
-					input.principal,
-					pending.map(({ entityId }) => entityId),
-				);
+				const result = yield* reconciler.reconcile(input.principal, pending);
 				const visibleIds = new Set<string>(result.reconciledEntityIds);
 				const visible = pending.filter(({ entityId }) => visibleIds.has(entityId));
 				yield* store.removePending({
@@ -65,6 +62,7 @@ export class InterestService extends Context.Service<InterestService>()("Interes
 					return yield* notFound("Unknown session");
 				}
 				const result = yield* store.replaceInterest({
+					foregroundIds: [],
 					entityIds: input.entityIds,
 					sessionId: input.sessionId,
 					revision: metadata.revision + 1,

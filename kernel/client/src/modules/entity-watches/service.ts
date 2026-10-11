@@ -2,6 +2,7 @@ import {
 	decodeEntityWatchServerMessage,
 	encodeEntityWatchClientMessage,
 	type EntityWatchClientMessage,
+	MAX_FOREGROUND_ENTITY_IDS,
 	MAX_INTEREST_ENTITY_IDS,
 } from "@ryot-app/contract/modules/entity-watches/messages";
 import type { EntityWatch, RyotClient } from "@ryot-app/plugin-client-sdk";
@@ -97,6 +98,8 @@ export class EntityWatchService extends Context.Service<EntityWatchService>()(
 				let reportedOverflow = false;
 				let applied = new Set<string>();
 				let effective = new Set<string>();
+				let appliedForeground = new Set<string>();
+				let effectiveForeground = new Set<string>();
 				let batch: (() => void) | undefined;
 				let retry: (() => void) | undefined;
 				let socket: InterestSocket | undefined;
@@ -104,7 +107,7 @@ export class EntityWatchService extends Context.Service<EntityWatchService>()(
 				const grace = new Map<string, () => void>();
 				let ticketFiber: Fiber.Fiber<void> | undefined;
 				let socketListeners: AbortController | undefined;
-				let pending: { revision: number; ids: Set<string> } | undefined;
+				let pending: { revision: number; ids: Set<string>; foreground: Set<string> } | undefined;
 
 				const stop = () => {
 					attempt++;
@@ -147,16 +150,39 @@ export class EntityWatchService extends Context.Service<EntityWatchService>()(
 						return;
 					}
 					const ids = new Set(effective);
+					const foreground = new Set([...effectiveForeground].filter((id) => ids.has(id)));
 					const add = [...ids].filter((id) => !applied.has(id)).sort();
 					const remove = [...applied].filter((id) => !ids.has(id)).sort();
-					if (revision && !add.length && !remove.length) {
+					const addForeground = [...foreground].filter((id) => !appliedForeground.has(id)).sort();
+					const removeForeground = [...appliedForeground]
+						.filter((id) => ids.has(id) && !foreground.has(id))
+						.sort();
+					if (
+						revision &&
+						!add.length &&
+						!remove.length &&
+						!addForeground.length &&
+						!removeForeground.length
+					) {
 						return;
 					}
-					pending = { ids, revision: revision + 1 };
+					pending = { ids, foreground, revision: revision + 1 };
 					send(
 						revision === 0
-							? { revision: 1, type: "replace", entityIds: [...ids].sort() }
-							: { add, remove, type: "update", revision: revision + 1 },
+							? {
+									revision: 1,
+									type: "replace",
+									entityIds: [...ids].sort(),
+									foregroundIds: [...foreground].sort(),
+								}
+							: {
+									add,
+									remove,
+									addForeground,
+									type: "update",
+									removeForeground,
+									revision: revision + 1,
+								},
 					);
 				};
 				const refresh = () => {
@@ -164,10 +190,8 @@ export class EntityWatchService extends Context.Service<EntityWatchService>()(
 						return;
 					}
 					const owners = [...(declarations.get(key) ?? [])];
-					const ordered = [
-						owners.filter((owner) => owner.active()),
-						owners.filter((owner) => !owner.active()),
-					];
+					const activeOwners = owners.filter((owner) => owner.active());
+					const ordered = [activeOwners, owners.filter((owner) => !owner.active())];
 					const selected = new Set(
 						ordered.flatMap((group) =>
 							(["foreground", "visible"] as const).flatMap((priority) =>
@@ -193,6 +217,7 @@ export class EntityWatchService extends Context.Service<EntityWatchService>()(
 								io.schedule(2000, () => {
 									grace.delete(id);
 									effective.delete(id);
+									effectiveForeground.delete(id);
 									flush();
 								}),
 							);
@@ -206,9 +231,24 @@ export class EntityWatchService extends Context.Service<EntityWatchService>()(
 							grace.delete(id);
 						}
 					}
+					const foreground = new Set(
+						[...new Set(activeOwners.flatMap((owner) => owner.interest.foreground))]
+							.sort()
+							.filter((id) => next.has(id))
+							.slice(0, MAX_FOREGROUND_ENTITY_IDS),
+					);
+					for (const id of grace.keys()) {
+						if (foreground.size < MAX_FOREGROUND_ENTITY_IDS && effectiveForeground.has(id)) {
+							foreground.add(id);
+						}
+					}
 					const changed =
-						next.size !== effective.size || [...next].some((id) => !effective.has(id));
+						next.size !== effective.size ||
+						[...next].some((id) => !effective.has(id)) ||
+						foreground.size !== effectiveForeground.size ||
+						[...foreground].some((id) => !effectiveForeground.has(id));
 					effective = next;
+					effectiveForeground = foreground;
 					if (changed && !batch) {
 						batch = io.schedule(100, () => {
 							batch = undefined;
@@ -276,6 +316,7 @@ export class EntityWatchService extends Context.Service<EntityWatchService>()(
 												ready = true;
 												failures = revision = 0;
 												applied = new Set();
+												appliedForeground = new Set();
 												deadline?.();
 												heartbeatMs = message.heartbeatIntervalMs * 3;
 												deadline = io.schedule(heartbeatMs, failed);
@@ -289,6 +330,7 @@ export class EntityWatchService extends Context.Service<EntityWatchService>()(
 													return;
 												}
 												applied = pending.ids;
+												appliedForeground = pending.foreground;
 												revision = pending.revision;
 												pending = undefined;
 												flush();

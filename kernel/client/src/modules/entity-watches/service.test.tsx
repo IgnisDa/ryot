@@ -219,6 +219,8 @@ describe("entity interest session", () => {
 					revision: 2,
 					add: ["new"],
 					type: "update",
+					removeForeground: [],
+					addForeground: ["new"],
 				});
 				firstRelease();
 				firstRelease();
@@ -233,7 +235,12 @@ describe("entity interest session", () => {
 				yield* Effect.promise(() => settle());
 				test.socket().ready();
 				test.socket().frame({ entityId: "new", reason: "populated", type: "entity-updated" });
-				expect(test.socket().sent.at(-1)).toEqual({ revision: 1, entityIds: [], type: "replace" });
+				expect(test.socket().sent.at(-1)).toEqual({
+					revision: 1,
+					entityIds: [],
+					type: "replace",
+					foregroundIds: [],
+				});
 				expect(updates).toEqual([{ entityId: "new", reason: "translated" }]);
 			}),
 	);
@@ -271,7 +278,12 @@ describe("entity interest session", () => {
 				expect(events).toEqual(["watch:a", "acquire", "watch:a", "acquire"]);
 				const first = test.socket();
 				first.ready();
-				expect(first.sent.at(-1)).toEqual({ revision: 1, type: "replace", entityIds: ["a"] });
+				expect(first.sent.at(-1)).toEqual({
+					revision: 1,
+					type: "replace",
+					entityIds: ["a"],
+					foregroundIds: ["a"],
+				});
 				first.frame({ entityId: "a", reason: "populated", type: "entity-updated" });
 				view.rerender(tree("b"));
 				view.rerender(tree("b"));
@@ -284,7 +296,12 @@ describe("entity interest session", () => {
 				yield* Effect.promise(() => act(settle));
 				const resumed = test.socket();
 				resumed.ready();
-				expect(resumed.sent.at(-1)).toEqual({ revision: 1, type: "replace", entityIds: ["b"] });
+				expect(resumed.sent.at(-1)).toEqual({
+					revision: 1,
+					type: "replace",
+					entityIds: ["b"],
+					foregroundIds: ["b"],
+				});
 				resumed.frame({ entityId: "a", reason: "translated", type: "entity-updated" });
 				resumed.frame({ entityId: "b", reason: "translated", type: "entity-updated" });
 				view.unmount();
@@ -344,7 +361,12 @@ describe("entity interest session", () => {
 			socket.ready();
 			expect(oldSocket.closed).toBe(true);
 			expect(socket.closed).toBe(false);
-			expect(socket.sent.at(-1)).toEqual({ revision: 1, type: "replace", entityIds: ["b"] });
+			expect(socket.sent.at(-1)).toEqual({
+				revision: 1,
+				type: "replace",
+				entityIds: ["b"],
+				foregroundIds: [],
+			});
 			socket.frame({ entityId: "b", reason: "translated", type: "entity-updated" });
 			socket.frame({ entityId: "a", reason: "populated", type: "entity-updated" });
 			expect(oldUpdates).toBe(0);
@@ -399,7 +421,12 @@ describe("entity interest session", () => {
 				test.socket().ready();
 				expect(test.socket().sent).toEqual([
 					{ ticket: "ticket-1", type: "authenticate" },
-					{ revision: 1, type: "replace", entityIds: ["foreground", ...visible.slice(0, 499)] },
+					{
+						revision: 1,
+						type: "replace",
+						foregroundIds: ["foreground"],
+						entityIds: ["foreground", ...visible.slice(0, 499)],
+					},
 				]);
 			}),
 	);
@@ -431,6 +458,7 @@ describe("entity interest session", () => {
 			expect(socket.sent.at(-1)).toEqual({
 				revision: 1,
 				type: "replace",
+				foregroundIds: ["zz-active"],
 				entityIds: [...retained.slice(0, 499), "zz-active"].sort(),
 			});
 			socket.frame({ revision: 1, type: "applied" });
@@ -441,7 +469,9 @@ describe("entity interest session", () => {
 			expect(socket.sent.at(-1)).toEqual({
 				revision: 2,
 				type: "update",
+				addForeground: [],
 				add: [retained[499]],
+				removeForeground: [],
 				remove: ["zz-active"],
 			});
 			socket.frame({ revision: 2, type: "applied" });
@@ -453,9 +483,54 @@ describe("entity interest session", () => {
 				revision: 3,
 				type: "update",
 				add: ["zz-active"],
+				removeForeground: [],
 				remove: [retained[499]],
+				addForeground: ["zz-active"],
 			});
 		}),
+	);
+
+	it.live(
+		"sends at most 50 foreground IDs, only from active owners, and diffs priority changes",
+		() =>
+			Effect.gen(function* () {
+				const test = setup();
+				let retainedActive = false;
+				const foreground = Array.from(
+					{ length: 60 },
+					(_, index) => `foreground-${String(index).padStart(2, "0")}`,
+				);
+				test.service.watch(scope, { foreground, visible: ["card"] }, () => {});
+				test.service.watch(
+					scope,
+					{ visible: [], foreground: ["aa-retained"] },
+					() => {},
+					() => retainedActive,
+				);
+				test.service.acquire(scope);
+				yield* Effect.promise(() => settle());
+				const socket = test.socket();
+				socket.ready();
+				expect(socket.sent.at(-1)).toEqual({
+					revision: 1,
+					type: "replace",
+					foregroundIds: foreground.slice(0, 50),
+					entityIds: ["aa-retained", "card", ...foreground],
+				});
+				socket.frame({ revision: 1, type: "applied" });
+
+				retainedActive = true;
+				test.service.refresh(scope);
+				test.advance(100);
+				expect(socket.sent.at(-1)).toEqual({
+					add: [],
+					remove: [],
+					revision: 2,
+					type: "update",
+					addForeground: ["aa-retained"],
+					removeForeground: ["foreground-49"],
+				});
+			}),
 	);
 
 	it.live("batches additions, serializes acknowledgements, and removes only after grace", () =>
@@ -470,18 +545,39 @@ describe("entity interest session", () => {
 			test.advance(100);
 			expect(socket.sent).toHaveLength(2);
 			socket.frame({ revision: 1, type: "applied" });
-			expect(socket.sent.at(-1)).toEqual({ add: ["b"], remove: [], revision: 2, type: "update" });
+			expect(socket.sent.at(-1)).toEqual({
+				add: ["b"],
+				remove: [],
+				revision: 2,
+				type: "update",
+				addForeground: ["b"],
+				removeForeground: [],
+			});
 			owner.update({ visible: [], foreground: ["b", "c"] });
 			test.advance(99);
 			socket.frame({ revision: 2, type: "applied" });
 			expect(socket.sent).toHaveLength(3);
 			test.advance(1);
-			expect(socket.sent.at(-1)).toEqual({ add: ["c"], remove: [], revision: 3, type: "update" });
+			expect(socket.sent.at(-1)).toEqual({
+				add: ["c"],
+				remove: [],
+				revision: 3,
+				type: "update",
+				addForeground: ["c"],
+				removeForeground: [],
+			});
 			socket.frame({ revision: 3, type: "applied" });
 			test.advance(1899);
 			expect(socket.sent).toHaveLength(4);
 			test.advance(1);
-			expect(socket.sent.at(-1)).toEqual({ add: [], revision: 4, remove: ["a"], type: "update" });
+			expect(socket.sent.at(-1)).toEqual({
+				add: [],
+				revision: 4,
+				remove: ["a"],
+				type: "update",
+				addForeground: [],
+				removeForeground: [],
+			});
 		}),
 	);
 
@@ -502,6 +598,8 @@ describe("entity interest session", () => {
 				add: ["new"],
 				type: "update",
 				remove: ["id-0"],
+				removeForeground: [],
+				addForeground: ["new"],
 			});
 			socket.frame({ revision: 2, type: "applied" });
 			owner.update(empty);
@@ -543,7 +641,12 @@ describe("entity interest session", () => {
 						data: yield* encodeJson({ entityId: "a", reason: "populated", type: "entity-updated" }),
 					}),
 				);
-				expect(test.socket().sent.at(-1)).toEqual({ revision: 1, entityIds: [], type: "replace" });
+				expect(test.socket().sent.at(-1)).toEqual({
+					revision: 1,
+					entityIds: [],
+					type: "replace",
+					foregroundIds: [],
+				});
 				expect(updates).toEqual([
 					{ entityId: "a", reason: "populated" },
 					{ entityId: "b", reason: "translated" },
@@ -570,7 +673,7 @@ describe("entity interest session", () => {
 				test.socket().ready();
 				expect(test.socket().sent).toEqual([
 					{ ticket: "ticket-2", type: "authenticate" },
-					{ revision: 1, type: "replace", entityIds: ["a"] },
+					{ revision: 1, type: "replace", entityIds: ["a"], foregroundIds: ["a"] },
 				]);
 				test.lifecycle(false);
 				expect(test.socket().closed).toBe(true);

@@ -40,6 +40,7 @@ export const decodeEntityUpdatedMessage = Schema.decodeUnknownResult(
 );
 
 export const MAX_INTEREST_ENTITY_IDS = 500;
+export const MAX_FOREGROUND_ENTITY_IDS = 50;
 
 const Revision = Schema.Finite.pipe(
 	Schema.check(Schema.isInt()),
@@ -58,28 +59,63 @@ export const EntityWatchAuthenticateMessage = Schema.Struct({
 });
 export type EntityWatchAuthenticateMessage = typeof EntityWatchAuthenticateMessage.Type;
 
+const disjoint = (left: readonly string[], right: readonly string[]) => {
+	const rightIds = new Set(right);
+	return left.every((entityId) => !rightIds.has(entityId));
+};
+
+const FOREGROUND_LIMIT_MESSAGE = `Expected at most ${MAX_FOREGROUND_ENTITY_IDS} foreground entity IDs`;
+
 export const EntityWatchReplaceMessage = Schema.Struct({
 	revision: Revision,
 	entityIds: EntityIds,
+	foregroundIds: EntityIds,
 	type: Schema.Literal("replace"),
-});
+}).pipe(
+	Schema.check(
+		Schema.makeFilter(({ entityIds, foregroundIds }) => {
+			if (foregroundIds.length > MAX_FOREGROUND_ENTITY_IDS) {
+				return FOREGROUND_LIMIT_MESSAGE;
+			}
+			const members = new Set(entityIds);
+			return foregroundIds.every((entityId) => members.has(entityId))
+				? true
+				: "Expected foreground entity IDs to be a subset of entity IDs";
+		}),
+	),
+);
 export type EntityWatchReplaceMessage = typeof EntityWatchReplaceMessage.Type;
 
 export const EntityWatchUpdateMessage = Schema.Struct({
 	add: EntityIds,
 	remove: EntityIds,
 	revision: Revision,
+	addForeground: EntityIds,
+	removeForeground: EntityIds,
 	type: Schema.Literal("update"),
 }).pipe(
 	Schema.check(
-		Schema.makeFilter(({ add, remove }) => {
-			if (add.length === 0 && remove.length === 0) {
-				return "Expected at least one added or removed entity ID";
+		Schema.makeFilter(({ add, remove, addForeground, removeForeground }) => {
+			if (
+				add.length === 0 &&
+				remove.length === 0 &&
+				addForeground.length === 0 &&
+				removeForeground.length === 0
+			) {
+				return "Expected at least one membership or foreground change";
 			}
-			const removed = new Set(remove);
-			return add.every((entityId) => !removed.has(entityId))
+			if (addForeground.length > MAX_FOREGROUND_ENTITY_IDS) {
+				return FOREGROUND_LIMIT_MESSAGE;
+			}
+			if (!disjoint(add, remove)) {
+				return "Expected added and removed entity IDs not to overlap";
+			}
+			if (!disjoint(addForeground, removeForeground)) {
+				return "Expected added and removed foreground entity IDs not to overlap";
+			}
+			return disjoint(addForeground, remove) && disjoint(removeForeground, remove)
 				? true
-				: "Expected added and removed entity IDs not to overlap";
+				: "Expected foreground changes not to name removed entity IDs";
 		}),
 	),
 );

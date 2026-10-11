@@ -1,5 +1,8 @@
 import { notFound } from "@ryot-app/contract/errors";
-import { MAX_INTEREST_ENTITY_IDS } from "@ryot-app/contract/modules/entity-watches/messages";
+import {
+	MAX_FOREGROUND_ENTITY_IDS,
+	MAX_INTEREST_ENTITY_IDS,
+} from "@ryot-app/contract/modules/entity-watches/messages";
 import { AccountGeneration } from "@ryot-app/contract/schema/account-generation";
 import { UserId } from "@ryot-app/contract/schema/brands";
 import { Clock, Context, Effect, Layer, Schema } from "effect";
@@ -21,7 +24,38 @@ redis.call('EXPIRE', KEYS[1], ARGV[3])
 return 'ok'
 `;
 
-const REPLACE_INTEREST_SCRIPT = `
+const PRIORITY_TOKEN_FUNCTIONS = `
+local function tokenPriority(token)
+  return token and string.match(token, ':([fv])$')
+end
+local function setPriority(key, entityId, priority, revision)
+  local current = redis.call('HGET', key, entityId)
+  local currentPriority = tokenPriority(current)
+  if currentPriority == priority then
+    return
+  end
+  if priority == 'v' and current and string.match(current, '^watching:') then
+    redis.call('HSET', key, entityId, 'watching:v')
+  else
+    redis.call('HSET', key, entityId, 'pending:' .. revision .. ':' .. priority)
+  end
+end
+local function appliedResult(key, revision)
+  local result = { 'applied', revision }
+  local memberships = redis.call('HGETALL', key)
+  for index = 1, #memberships, 2 do
+    local pendingRevision, priority = string.match(memberships[index + 1], '^pending:(%d+):([fv])$')
+    if pendingRevision then
+      table.insert(result, memberships[index])
+      table.insert(result, pendingRevision)
+      table.insert(result, priority)
+    end
+  end
+  return result
+end
+`;
+
+const REPLACE_INTEREST_SCRIPT = `${PRIORITY_TOKEN_FUNCTIONS}
 if redis.call('EXISTS', KEYS[1]) == 0 then
   return { 'missing-session' }
 end
@@ -30,16 +64,29 @@ local incomingRevision = tonumber(ARGV[1])
 if not currentRevision or incomingRevision ~= currentRevision + 1 then
   return { 'revision-mismatch' }
 end
+local entityCount = tonumber(ARGV[9])
 local requested = {}
 local requestedIds = {}
-for index = 8, #ARGV do
+for index = 10, 9 + entityCount do
   local entityId = ARGV[index]
   if not requested[entityId] then
     requested[entityId] = true
     table.insert(requestedIds, entityId)
   end
 end
-if #requestedIds > tonumber(ARGV[5]) then
+local foreground = {}
+local foregroundCount = 0
+for index = 10 + entityCount, #ARGV do
+  local entityId = ARGV[index]
+  if not requested[entityId] then
+    return { 'invalid-foreground' }
+  end
+  if not foreground[entityId] then
+    foreground[entityId] = true
+    foregroundCount = foregroundCount + 1
+  end
+end
+if #requestedIds > tonumber(ARGV[5]) or foregroundCount > tonumber(ARGV[8]) then
   return { 'limit-exceeded' }
 end
 local current = redis.call('HKEYS', KEYS[2])
@@ -50,9 +97,7 @@ for _, entityId in ipairs(current) do
   end
 end
 for _, entityId in ipairs(requestedIds) do
-  if redis.call('HEXISTS', KEYS[2], entityId) == 0 then
-    redis.call('HSET', KEYS[2], entityId, 'pending:' .. ARGV[1])
-  end
+  setPriority(KEYS[2], entityId, foreground[entityId] and 'f' or 'v', ARGV[1])
   redis.call('ZADD', ARGV[6] .. entityId .. ARGV[7], ARGV[3], ARGV[2])
 end
 redis.call('HSET', KEYS[1], 'revision', ARGV[1])
@@ -60,19 +105,10 @@ redis.call('EXPIRE', KEYS[1], ARGV[4])
 if redis.call('EXISTS', KEYS[2]) == 1 then
   redis.call('EXPIRE', KEYS[2], ARGV[4])
 end
-local result = { 'applied', ARGV[1] }
-local memberships = redis.call('HGETALL', KEYS[2])
-for index = 1, #memberships, 2 do
-  local revision = string.match(memberships[index + 1], '^pending:(%d+)$')
-  if revision then
-    table.insert(result, memberships[index])
-    table.insert(result, revision)
-  end
-end
-return result
+return appliedResult(KEYS[2], ARGV[1])
 `;
 
-const UPDATE_INTEREST_SCRIPT = `
+const UPDATE_INTEREST_SCRIPT = `${PRIORITY_TOKEN_FUNCTIONS}
 if redis.call('EXISTS', KEYS[1]) == 0 then
   return { 'missing-session' }
 end
@@ -81,49 +117,83 @@ local incomingRevision = tonumber(ARGV[1])
 if not currentRevision or incomingRevision ~= currentRevision + 1 then
   return { 'revision-mismatch' }
 end
-local addCount = tonumber(ARGV[8])
-local add = {}
-local addIds = {}
-for index = 9, 8 + addCount do
-  local entityId = ARGV[index]
-  if not add[entityId] then
-    add[entityId] = true
-    table.insert(addIds, entityId)
+local addEnd = 12 + tonumber(ARGV[9])
+local removeEnd = addEnd + tonumber(ARGV[10])
+local addForegroundEnd = removeEnd + tonumber(ARGV[11])
+local function collect(first, last)
+  local set = {}
+  local ids = {}
+  for index = first, last - 1 do
+    local entityId = ARGV[index]
+    if not set[entityId] then
+      set[entityId] = true
+      table.insert(ids, entityId)
+    end
   end
+  return set, ids
 end
-local remove = {}
-local removeIds = {}
-for index = 9 + addCount, #ARGV do
-  local entityId = ARGV[index]
+local add, addIds = collect(12, addEnd)
+local remove, removeIds = collect(addEnd, removeEnd)
+local addForeground, addForegroundIds = collect(removeEnd, addForegroundEnd)
+local removeForeground, removeForegroundIds = collect(addForegroundEnd, #ARGV + 1)
+for _, entityId in ipairs(removeIds) do
   if add[entityId] then
     return { 'overlap' }
   end
-  if not remove[entityId] then
-    remove[entityId] = true
-    table.insert(removeIds, entityId)
+end
+for _, entityId in ipairs(removeForegroundIds) do
+  if addForeground[entityId] then
+    return { 'overlap' }
   end
 end
-local finalCount = redis.call('HLEN', KEYS[2])
-for _, entityId in ipairs(removeIds) do
-  if redis.call('HEXISTS', KEYS[2], entityId) == 1 then
-    finalCount = finalCount - 1
+local currentPriority = {}
+local memberships = redis.call('HGETALL', KEYS[2])
+for index = 1, #memberships, 2 do
+  currentPriority[memberships[index]] = tokenPriority(memberships[index + 1]) or 'v'
+end
+local function isFinalMember(entityId)
+  return not remove[entityId] and (add[entityId] or currentPriority[entityId] ~= nil)
+end
+for _, ids in ipairs({ addForegroundIds, removeForegroundIds }) do
+  for _, entityId in ipairs(ids) do
+    if not isFinalMember(entityId) then
+      return { 'invalid-foreground' }
+    end
   end
 end
-for _, entityId in ipairs(addIds) do
-  if redis.call('HEXISTS', KEYS[2], entityId) == 0 then
-    finalCount = finalCount + 1
+local function finalPriority(entityId)
+  if addForeground[entityId] then
+    return 'f'
+  end
+  if removeForeground[entityId] then
+    return 'v'
+  end
+  return currentPriority[entityId] or 'v'
+end
+local finalCount = 0
+local foregroundCount = 0
+local counted = {}
+for _, ids in ipairs({ addIds, redis.call('HKEYS', KEYS[2]) }) do
+  for _, entityId in ipairs(ids) do
+    if not counted[entityId] and isFinalMember(entityId) then
+      counted[entityId] = true
+      finalCount = finalCount + 1
+      if finalPriority(entityId) == 'f' then
+        foregroundCount = foregroundCount + 1
+      end
+    end
   end
 end
-if finalCount > tonumber(ARGV[5]) then
+if finalCount > tonumber(ARGV[5]) or foregroundCount > tonumber(ARGV[8]) then
   return { 'limit-exceeded' }
 end
 for _, entityId in ipairs(removeIds) do
   redis.call('HDEL', KEYS[2], entityId)
   redis.call('ZREM', ARGV[6] .. entityId .. ARGV[7], ARGV[2])
 end
-for _, entityId in ipairs(addIds) do
-  if redis.call('HEXISTS', KEYS[2], entityId) == 0 then
-    redis.call('HSET', KEYS[2], entityId, 'pending:' .. ARGV[1])
+for _, ids in ipairs({ addIds, addForegroundIds, removeForegroundIds }) do
+  for _, entityId in ipairs(ids) do
+    setPriority(KEYS[2], entityId, finalPriority(entityId), ARGV[1])
   end
 end
 local current = redis.call('HKEYS', KEYS[2])
@@ -135,25 +205,16 @@ redis.call('EXPIRE', KEYS[1], ARGV[4])
 if redis.call('EXISTS', KEYS[2]) == 1 then
   redis.call('EXPIRE', KEYS[2], ARGV[4])
 end
-local result = { 'applied', ARGV[1] }
-local memberships = redis.call('HGETALL', KEYS[2])
-for index = 1, #memberships, 2 do
-  local revision = string.match(memberships[index + 1], '^pending:(%d+)$')
-  if revision then
-    table.insert(result, memberships[index])
-    table.insert(result, revision)
-  end
-end
-return result
+return appliedResult(KEYS[2], ARGV[1])
 `;
 
 const MARK_RECONCILED_SCRIPT = `
 local reconciled = {}
-for index = 1, #ARGV, 2 do
+for index = 1, #ARGV, 3 do
   local entityId = ARGV[index]
-  local expected = 'pending:' .. ARGV[index + 1]
+  local expected = 'pending:' .. ARGV[index + 1] .. ':' .. ARGV[index + 2]
   if redis.call('HGET', KEYS[1], entityId) == expected then
-    redis.call('HSET', KEYS[1], entityId, 'watching')
+    redis.call('HSET', KEYS[1], entityId, 'watching:' .. ARGV[index + 2])
     table.insert(reconciled, entityId)
   end
 end
@@ -162,9 +223,9 @@ return reconciled
 
 const REMOVE_PENDING_SCRIPT = `
 local removed = {}
-for index = 4, #ARGV, 2 do
+for index = 4, #ARGV, 3 do
   local entityId = ARGV[index]
-  local expected = 'pending:' .. ARGV[index + 1]
+  local expected = 'pending:' .. ARGV[index + 1] .. ':' .. ARGV[index + 2]
   if redis.call('HGET', KEYS[1], entityId) == expected then
     redis.call('HDEL', KEYS[1], entityId)
     redis.call('ZREM', ARGV[2] .. entityId .. ARGV[3], ARGV[1])
@@ -177,8 +238,10 @@ return removed
 const MARK_PENDING_SCRIPT = `
 for index = 1, #KEYS, 2 do
   local revision = redis.call('HGET', KEYS[index], 'revision')
-  if revision and redis.call('HEXISTS', KEYS[index + 1], ARGV[1]) == 1 then
-    redis.call('HSET', KEYS[index + 1], ARGV[1], 'pending:' .. revision)
+  local current = redis.call('HGET', KEYS[index + 1], ARGV[1])
+  if revision and current then
+    local priority = string.match(current, ':([fv])$') or 'v'
+    redis.call('HSET', KEYS[index + 1], ARGV[1], 'pending:' .. revision .. ':' .. priority)
   end
 end
 return 1
@@ -227,17 +290,33 @@ for _, sessionId in ipairs(sessionIds) do
   local sessionKey = ARGV[3] .. sessionId
   if redis.call('EXISTS', sessionKey) == 0 then
     redis.call('ZREM', KEYS[1], sessionId)
-  elseif redis.call('HGET', sessionKey .. ':entities', ARGV[2]) == 'watching' then
+  elseif string.match(redis.call('HGET', sessionKey .. ':entities', ARGV[2]) or '', '^watching:') then
     table.insert(watching, sessionId)
   end
 end
 return watching
 `;
 
-export type PendingInterest = { readonly revision: number; readonly entityId: string };
+export type InterestPriority = "foreground" | "visible";
+
+export type PendingInterest = {
+	readonly revision: number;
+	readonly entityId: string;
+	readonly priority: InterestPriority;
+};
+
+const priorityToken = (priority: InterestPriority) => (priority === "foreground" ? "f" : "v");
+
+const pendingArgs = (pending: readonly PendingInterest[]) =>
+	pending.flatMap(({ entityId, revision, priority }) => [
+		entityId,
+		String(revision),
+		priorityToken(priority),
+	]);
 
 type InterestCommandOutcome =
 	| { readonly status: "overlap" }
+	| { readonly status: "invalid-foreground" }
 	| { readonly status: "limit-exceeded" }
 	| { readonly status: "missing-session" }
 	| { readonly status: "revision-mismatch" }
@@ -270,22 +349,32 @@ const parseCommandOutcome = (result: unknown): InterestCommandOutcome => {
 		status === "missing-session" ||
 		status === "revision-mismatch" ||
 		status === "limit-exceeded" ||
+		status === "invalid-foreground" ||
 		status === "overlap"
 	) {
 		return { status };
 	}
 	const revision = Number(rawRevision);
-	if (status !== "applied" || !Number.isSafeInteger(revision) || rawPending.length % 2 !== 0) {
+	if (status !== "applied" || !Number.isSafeInteger(revision) || rawPending.length % 3 !== 0) {
 		throw new Error("Redis returned an invalid entity interest command outcome");
 	}
 	const pending: PendingInterest[] = [];
-	for (let index = 0; index < rawPending.length; index += 2) {
+	for (let index = 0; index < rawPending.length; index += 3) {
 		const entityId = rawPending[index];
 		const pendingRevision = Number(rawPending[index + 1]);
-		if (entityId === undefined || !Number.isSafeInteger(pendingRevision)) {
+		const priority = rawPending[index + 2];
+		if (
+			entityId === undefined ||
+			!Number.isSafeInteger(pendingRevision) ||
+			(priority !== "f" && priority !== "v")
+		) {
 			throw new Error("Redis returned an invalid pending interest token");
 		}
-		pending.push({ entityId, revision: pendingRevision });
+		pending.push({
+			entityId,
+			revision: pendingRevision,
+			priority: priority === "f" ? "foreground" : "visible",
+		});
 	}
 	return { status, pending, revision };
 };
@@ -307,6 +396,7 @@ export class EntityWatchStore extends Context.Service<EntityWatchStore>()("Entit
 				String(MAX_INTEREST_ENTITY_IDS),
 				REVERSE_KEY_PREFIX,
 				REVERSE_KEY_SUFFIX,
+				String(MAX_FOREGROUND_ENTITY_IDS),
 			];
 		});
 
@@ -336,12 +426,15 @@ export class EntityWatchStore extends Context.Service<EntityWatchStore>()("Entit
 			readonly revision: number;
 			readonly sessionId: string;
 			readonly entityIds: readonly string[];
+			readonly foregroundIds: readonly string[];
 		}) {
 			const args = yield* commandArgs(input.sessionId, input.revision);
 			return parseCommandOutcome(
 				yield* evaluate(REPLACE_INTEREST_SCRIPT, sessionKeys(input.sessionId), [
 					...args,
+					String(input.entityIds.length),
 					...input.entityIds,
+					...input.foregroundIds,
 				]),
 			);
 		});
@@ -351,14 +444,20 @@ export class EntityWatchStore extends Context.Service<EntityWatchStore>()("Entit
 			readonly sessionId: string;
 			readonly add: readonly string[];
 			readonly remove: readonly string[];
+			readonly addForeground: readonly string[];
+			readonly removeForeground: readonly string[];
 		}) {
 			const args = yield* commandArgs(input.sessionId, input.revision);
 			return parseCommandOutcome(
 				yield* evaluate(UPDATE_INTEREST_SCRIPT, sessionKeys(input.sessionId), [
 					...args,
 					String(input.add.length),
+					String(input.remove.length),
+					String(input.addForeground.length),
 					...input.add,
 					...input.remove,
+					...input.addForeground,
+					...input.removeForeground,
 				]),
 			);
 		});
@@ -373,7 +472,7 @@ export class EntityWatchStore extends Context.Service<EntityWatchStore>()("Entit
 			const result = yield* evaluate(
 				MARK_RECONCILED_SCRIPT,
 				[redisKeys.entityWatchSessionEntities(input.sessionId)],
-				input.pending.flatMap(({ entityId, revision }) => [entityId, String(revision)]),
+				pendingArgs(input.pending),
 			);
 			if (
 				!Array.isArray(result) ||
@@ -404,12 +503,7 @@ export class EntityWatchStore extends Context.Service<EntityWatchStore>()("Entit
 			const result = yield* evaluate(
 				REMOVE_PENDING_SCRIPT,
 				[redisKeys.entityWatchSessionEntities(input.sessionId)],
-				[
-					input.sessionId,
-					REVERSE_KEY_PREFIX,
-					REVERSE_KEY_SUFFIX,
-					...input.pending.flatMap(({ entityId, revision }) => [entityId, String(revision)]),
-				],
+				[input.sessionId, REVERSE_KEY_PREFIX, REVERSE_KEY_SUFFIX, ...pendingArgs(input.pending)],
 			);
 			if (
 				!Array.isArray(result) ||
