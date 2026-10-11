@@ -1,7 +1,14 @@
 import { RyotClientError } from "@ryot-app/client-sdk";
 import { Effect, Result, Schema } from "@ryot-app/client-sdk/effect";
 import { createRyotMutation, useRyotMutation } from "@ryot-app/client-sdk/react";
-import { Button, FieldMessage, Modal, StatusMessage, TextField } from "@ryot-app/client-ui-sdk";
+import {
+	ActionForm,
+	Button,
+	FieldMessage,
+	Modal,
+	StatusMessage,
+	TextField,
+} from "@ryot-app/client-ui-sdk";
 import { useId, useRef, useState, type RefObject } from "react";
 
 import {
@@ -73,13 +80,7 @@ export function AddMetricDialog(props: {
 			containerClassName="items-center justify-center p-4"
 			className="w-full max-w-md rounded-xl border border-border bg-raised p-5 font-ui"
 		>
-			<form
-				className="flex flex-col gap-4"
-				onSubmit={(event) => {
-					event.preventDefault();
-					save();
-				}}
-			>
+			<ActionForm onSubmit={save} label="Add metric" className="flex flex-col gap-4">
 				<h2 className="font-display text-xl font-semibold text-text">Add metric</h2>
 				<fieldset disabled={create.isPending} className="flex flex-col gap-4">
 					<div className="flex flex-col gap-1.5">
@@ -133,11 +134,11 @@ export function AddMetricDialog(props: {
 					>
 						Cancel
 					</Button>
-					<Button type="submit" disabled={create.isPending || duplicate}>
+					<Button type="button" onClick={save} disabled={create.isPending || duplicate}>
 						{create.isPending ? "Adding…" : "Add metric"}
 					</Button>
 				</div>
-			</form>
+			</ActionForm>
 		</Modal>
 	);
 }

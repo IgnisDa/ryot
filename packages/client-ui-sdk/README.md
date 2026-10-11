@@ -14,6 +14,9 @@ a component using `outline-none` must provide an equivalent focus indicator.
 
 Touch-layout text inputs stay at least 16px to prevent persistent iOS page zoom.
 
+`ActionForm` provides named form semantics and Enter-to-submit behavior without native form submission.
+Use it in plugin documents, whose iframe sandbox does not grant the `allow-forms` capability.
+
 Heavy or optional surfaces remain on subpaths:
 
 | Subpath         | Contents                                              |
