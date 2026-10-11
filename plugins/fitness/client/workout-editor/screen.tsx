@@ -243,7 +243,7 @@ export function WorkoutEditorScreen(props: {
 	const [saved, setSaved] = useState<SavedEntityId>();
 	const [useExisting, setUseExisting] = useState(false);
 	const [requestHandled, setRequestHandled] = useState(false);
-	const [conflict, setConflict] = useState(false);
+	const [conflict, setConflict] = useState<{ readonly reloadable: boolean }>();
 	const [invalid, setInvalid] = useState<InvalidSet>();
 	const starting = useRef(false);
 	const active = useRef(isActive);
@@ -488,16 +488,15 @@ export function WorkoutEditorScreen(props: {
 					return;
 				}
 				const editable = yield* controller.rejectSubmission(result);
-				setConflict(result.kind === "conflict" && editable);
+				setConflict(result.kind === "conflict" ? { reloadable: editable } : undefined);
 				setOverlay(undefined);
-				let saveError: string;
+				let saveError: string | undefined;
 				switch (result.kind) {
 					case "pro-required":
 						saveError = "This change requires Pro. Your data has been retained.";
 						break;
 					case "conflict":
-						saveError =
-							"The newer version was not overwritten. Reload it or keep editing your draft.";
+						saveError = undefined;
 						break;
 					case "invalid":
 						saveError = `This workout could not be saved: ${result.code.replaceAll("-", " ")}.`;
@@ -983,13 +982,13 @@ export function WorkoutEditorScreen(props: {
 	const alert = <AppIcon size={16} name="circle-alert" />;
 	const notices = (
 		<>
-			{conflict && editorDraft !== undefined ? (
+			{conflict !== undefined && editorDraft !== undefined ? (
 				<Notice
 					icon={alert}
 					tone="danger"
 					title="This workout changed elsewhere"
 					action={
-						disabled ? undefined : (
+						disabled || !conflict.reloadable ? undefined : (
 							<Button size="sm" variant="secondary" onClick={() => setOverlay("reload")}>
 								Reload saved version
 							</Button>
@@ -1793,7 +1792,7 @@ export function WorkoutEditorScreen(props: {
 										if (yield* controller.discard()) {
 											yield* controller.start(loaded.draft);
 											setUseExisting(true);
-											setConflict(false);
+											setConflict(undefined);
 											setMessage(undefined);
 											close();
 										}
