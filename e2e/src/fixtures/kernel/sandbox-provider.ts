@@ -96,7 +96,7 @@ type TestProviderPlugin = {
 
 type TestPluginManifestInput = Parameters<typeof testPluginManifest>[0];
 
-export type TestProviderDeclaration = {
+type TestProviderDeclaration = {
 	readonly files: Readonly<Record<string, string>>;
 	readonly scripts: NonNullable<TestPluginManifestInput["scripts"]>;
 	readonly provider: NonNullable<TestPluginManifestInput["providers"]>[number];
