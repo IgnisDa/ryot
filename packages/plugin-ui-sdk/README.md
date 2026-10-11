@@ -156,6 +156,11 @@ and scrims through their exit. Exiting controls are inert and hidden from assist
 background locks last until the exit completes. Nested dialogs share lock ownership and restore focus
 only when another overlay has not already taken it.
 
+`useFocusedFieldVisibility` runs once per document, shared by mounted callers. Kernel startup and
+`RyotProvider` install it for their own realms. Focus and viewport changes reveal editable fields
+inside their scroll containers, clear of pinned chrome. Native iOS keyboard resizing requires a
+second reveal after WebKit resets its scroll insets; sandboxed plugin focus is not visible to the kernel.
+
 `useShortcut` ignores single-key shortcuts while editable content has focus and registers each
 shortcut in the nearest `OverlayScope`. Only the top scope runs, so callers do not gate shortcuts on
 whether another overlay is open.

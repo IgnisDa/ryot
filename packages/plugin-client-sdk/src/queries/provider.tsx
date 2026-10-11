@@ -1,6 +1,6 @@
 import { RegistryProvider } from "@effect/atom-react";
 import type { PluginPackageId } from "@ryot-app/contract/schema/brands";
-import { OverlayBackProvider } from "@ryot-app/plugin-ui-sdk";
+import { OverlayBackProvider, useFocusedFieldVisibility } from "@ryot-app/plugin-ui-sdk";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import {
@@ -45,6 +45,7 @@ export const RyotProvider = ({
 	runtime: RyotRuntime;
 	readonly hostServices?: unknown;
 }) => {
+	useFocusedFieldVisibility();
 	const runtimeValue = useMemo(
 		() =>
 			runtime.runSync(

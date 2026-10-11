@@ -22,6 +22,7 @@ Architecture and rationale live in `README.md`.
 - Use `ScreenFrame` as the only mobile header. Accept plugin title publication only from the active installation and current history entry.
 - Keep the skip link and route announcer in `__root.tsx`. Every branch renders exactly one element carrying `mainContentProps` and one `usePageTitle` owner.
 - Use UI SDK overlay, focus, Escape, shortcut, and scroll-lock primitives. Make background content inert. Back interception remains kernel-owned and is injected into the SDK.
+- Install shared focused-field visibility handling in the kernel document; do not implement route-specific keyboard scrolling.
 - Model React-state overlays with `BackInterceptor`; model URL-state overlays as pushed history entries and close them by pop, with replace only for direct entry.
 - Render icons through `@ryot-app/plugin-ui-sdk/icon`, never direct `lucide-react` imports or inline SVG.
 - Keep selected uploads as `Blob` or `File` through transport and use the client SDK upload capability. The kernel performs plugin uploads too, so no upload URL or header crosses the bridge. The backup archive download is the only code that may obtain a bearer header directly.
