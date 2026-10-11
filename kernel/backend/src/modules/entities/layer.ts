@@ -8,12 +8,14 @@ import { EventsService } from "#modules/events/service";
 
 import { EntitiesRepositoryLive } from "./repository";
 import { EntitiesService } from "./service";
+import { DomainWriteChecksLive } from "./write-context";
 
 const EventsServiceMigrationLive = EventsService.layer.pipe(
 	Layer.provide(
 		Layer.mergeAll(
 			EventsRepository.layer,
 			EntitiesRepositoryLive,
+			DomainWriteChecksLive,
 			EventSchemasRepositoryLive,
 			MigrationLifecycleServicesLive,
 		),
@@ -24,6 +26,7 @@ export const EntitiesServiceRuntimeLive = EntitiesService.layerRuntime.pipe(
 	Layer.provide(
 		Layer.mergeAll(
 			EntitiesRepositoryLive,
+			DomainWriteChecksLive,
 			EventsRepository.layer,
 			EventsServiceLive,
 			LifecycleServicesLive,
@@ -35,6 +38,7 @@ export const EntitiesServiceMigrationLive = EntitiesService.layerMigration.pipe(
 	Layer.provide(
 		Layer.mergeAll(
 			EntitiesRepositoryLive,
+			DomainWriteChecksLive,
 			EventsRepository.layer,
 			EventsServiceMigrationLive,
 			MigrationLifecycleServicesLive,

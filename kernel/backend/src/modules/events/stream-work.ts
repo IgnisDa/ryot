@@ -32,7 +32,7 @@ import {
 } from "#lib/infrastructure/sandbox-runtime/execution-principal";
 import { implementWorkflow, makeActivity } from "#lib/infrastructure/workflow-scope";
 import { EntitiesRepository } from "#modules/entities/repository";
-import { DomainLifecycleCommand, makeDomainWriteChecks } from "#modules/entities/write-context";
+import { DomainLifecycleCommand, DomainWriteChecks } from "#modules/entities/write-context";
 import { EventSchemasRepository } from "#modules/event-schemas/repository";
 import { MutationReceipts } from "#modules/mutations/receipts";
 import { dispatchAdmittedWorkflow } from "#modules/mutations/workflow-dispatch";
@@ -86,7 +86,7 @@ export class EventStreamWorkService extends Context.Service<EventStreamWorkServi
 	{
 		make: Effect.gen(function* () {
 			const session = yield* DatabaseSession;
-			const writes = makeDomainWriteChecks(session);
+			const writes = yield* DomainWriteChecks;
 			const repository = yield* EventStreamRepository;
 			const events = yield* EventsService;
 			const eventRows = yield* EventsRepository;
@@ -123,7 +123,7 @@ export class EventStreamWorkService extends Context.Service<EventStreamWorkServi
 						eventSchemaSlug: input.request.eventSchemaSlug,
 					},
 				}).pipe(
-					Effect.provideService(DatabaseSession, session),
+					Effect.provideService(DomainWriteChecks, writes),
 					Effect.provideService(EntitiesRepository, entities),
 					Effect.provideService(EventSchemasRepository, eventSchemas),
 				);

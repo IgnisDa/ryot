@@ -37,7 +37,10 @@ import { DefinitionRepository } from "#modules/definition-registry/repository";
 import type { EntityRelationshipDefinitions } from "#modules/definition-registry/snapshot";
 import { EntitiesRepository } from "#modules/entities/repository";
 import { EntitiesService } from "#modules/entities/service";
-import type { DomainLifecycleCommand } from "#modules/entities/write-context";
+import {
+	type DomainLifecycleCommand,
+	DomainWriteChecksLive,
+} from "#modules/entities/write-context";
 import {
 	installRevisionPackage,
 	revisionDatabaseLayer,
@@ -604,6 +607,7 @@ const rootPopulationLayer = Layer.unwrap(
 		const instance = WorkflowInstance.initial(ProviderEntityPopulationWorkflow, "population-root");
 		return Layer.mergeAll(
 			transaction.database,
+			DomainWriteChecksLive.pipe(Layer.provide(transaction.database)),
 			definitionsLayer,
 			Layer.succeed(WorkflowInstance, instance),
 			Layer.succeed(WorkflowEngine, makeWorkflowActivityEngine(instance)),

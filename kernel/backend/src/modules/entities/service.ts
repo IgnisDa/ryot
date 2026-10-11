@@ -70,7 +70,7 @@ import { EntitiesRepository } from "./repository";
 import {
 	DomainLifecycleCommand,
 	DomainWriteConflict,
-	makeDomainWriteChecks,
+	DomainWriteChecks,
 	writerPropertiesSchema,
 } from "./write-context";
 
@@ -235,7 +235,7 @@ const receiptConflict = (error: DbError | MutationReceiptIdentityConflict) =>
 export class EntitiesService extends Context.Service<EntitiesService>()("EntitiesService", {
 	make: Effect.gen(function* () {
 		const session = yield* DatabaseSession;
-		const writeChecks = makeDomainWriteChecks(session);
+		const writeChecks = yield* DomainWriteChecks;
 		const planner = yield* LifecyclePlanner;
 		const repository = yield* EntitiesRepository;
 		const eventsRepository = yield* EventsRepository;

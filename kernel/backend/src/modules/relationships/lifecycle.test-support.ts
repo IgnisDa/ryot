@@ -30,6 +30,7 @@ import { DefinitionRepository } from "#modules/definition-registry/repository";
 import type { DefinitionSource } from "#modules/definition-registry/snapshot";
 import { EntitiesRepository } from "#modules/entities/repository";
 import { EntitiesService } from "#modules/entities/service";
+import { DomainWriteChecksLive } from "#modules/entities/write-context";
 import { EventSchemasRepository } from "#modules/event-schemas/repository";
 import { EventsRepository } from "#modules/events/repository";
 import { EventsService } from "#modules/events/service";
@@ -231,6 +232,7 @@ export const relationshipDatabaseLayer = (
 			const runtime = Layer.merge(dependencies, runtimeOnly);
 			const ownerDependencies = Layer.mergeAll(
 				EntitiesRepository.layer,
+				DomainWriteChecksLive,
 				LifecyclePlannerServiceLive,
 			).pipe(
 				Layer.provideMerge(runtime),

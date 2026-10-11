@@ -33,6 +33,7 @@ import {
 	withLifecycleBatchPlanning,
 	withLifecycleDispatch,
 } from "#modules/automations/lifecycle.test-support";
+import { DomainWriteChecksLive } from "#modules/entities/write-context";
 import { PluginRuntimeResolver } from "#modules/plugins/runtime-resolver";
 import { SandboxExecutionService } from "#modules/sandbox/service";
 
@@ -135,14 +136,16 @@ const execution = withLifecycleDispatch({
 			}));
 		}),
 });
+const databaseLayer = Layer.succeed(DatabaseSession, database);
 const operationsLayer = EntityImportWorkflowOperationsLive.pipe(
 	Layer.provide(
 		Layer.mergeAll(
-			Layer.succeed(DatabaseSession, database),
+			databaseLayer,
 			Layer.succeed(LifecyclePlanner, planner),
 			Layer.succeed(LifecycleExecution, execution),
 			Layer.mock(SandboxExecutionService)({}),
 			Layer.mock(PluginRuntimeResolver)({}),
+			DomainWriteChecksLive.pipe(Layer.provide(databaseLayer)),
 		),
 	),
 );

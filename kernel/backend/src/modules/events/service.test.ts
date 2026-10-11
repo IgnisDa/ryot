@@ -19,6 +19,7 @@ import { createWorkflowJobId, deriveJobIdSecret } from "#lib/shared/job-id";
 import { makeAppConfigLayer, makeWorkflowEngine } from "#lib/test-utils/effect";
 import { mutationAdmissionTestLayer } from "#lib/test-utils/mutation-admission";
 import { EntitiesRepository } from "#modules/entities/repository";
+import { DomainWriteChecks } from "#modules/entities/write-context";
 import { EventSchemasRepository } from "#modules/event-schemas/repository";
 
 import { EventCreateWorkflow } from "./event-create-workflow";
@@ -54,6 +55,7 @@ const serviceLayer = EventsService.layer.pipe(
 				getCreateProgress: () => Effect.succeed({ writtenCount: 1, requiredPending: true }),
 			}),
 			Layer.mock(EntitiesRepository)({}),
+			Layer.mock(DomainWriteChecks)({}),
 			Layer.mock(EventSchemasRepository)({}),
 			mutationAdmissionTestLayer,
 			Layer.mock(LifecyclePlanner)({}),
@@ -156,6 +158,7 @@ const completedServiceLayer = EventsService.layer.pipe(
 				getCreateProgress: () => Effect.succeed({ writtenCount: 1, requiredPending: false }),
 			}),
 			Layer.mock(EntitiesRepository)({}),
+			Layer.mock(DomainWriteChecks)({}),
 			Layer.mock(EventSchemasRepository)({}),
 			mutationAdmissionTestLayer,
 			Layer.mock(LifecyclePlanner)({}),

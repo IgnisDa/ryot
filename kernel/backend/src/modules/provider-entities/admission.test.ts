@@ -18,6 +18,7 @@ import { WorkflowExecutionNotifications } from "#lib/infrastructure/workflow-exe
 import { makeAppConfigLayer, makeWorkflowEngine } from "#lib/test-utils/effect";
 import { ClientArtifactsRepository } from "#modules/client-artifacts/repository";
 import { DefinitionRepository } from "#modules/definition-registry/repository";
+import { DomainWriteChecksLive } from "#modules/entities/write-context";
 import { PluginConfigEncryptionKey } from "#modules/plugins/config-encryption-key";
 import { PluginConfigRevisions } from "#modules/plugins/config-revisions";
 import { PluginInstallationRepository } from "#modules/plugins/installation-repository";
@@ -144,7 +145,7 @@ const fixturesLayer = Layer.effect(
 ).pipe(Layer.provideMerge(catalogueLayer));
 
 const admissionLayer = ProviderImportAdmission.layer.pipe(
-	Layer.provide(SandboxExecutionServiceLive),
+	Layer.provide(Layer.merge(SandboxExecutionServiceLive, DomainWriteChecksLive)),
 	Layer.provide(makeAppConfigLayer()),
 	Layer.provideMerge(recordingEngineLayer),
 	Layer.provideMerge(WorkflowExecutionNotifications.layer),

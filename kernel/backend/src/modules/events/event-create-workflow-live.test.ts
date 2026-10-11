@@ -43,6 +43,7 @@ import {
 	withLifecycleDispatch,
 } from "#modules/automations/lifecycle.test-support";
 import { EntitiesRepository } from "#modules/entities/repository";
+import { DomainWriteChecksLive } from "#modules/entities/write-context";
 import { EventSchemasRepository } from "#modules/event-schemas/repository";
 
 import { EventCreateWorkflow, type EventCreateWorkflowPayload } from "./event-create-workflow";
@@ -414,6 +415,7 @@ const harnessLayer = (initialOptions: HarnessOptions = {}) =>
 			return Layer.mergeAll(
 				database,
 				planner.pipe(Layer.provide(database)),
+				DomainWriteChecksLive.pipe(Layer.provide(database)),
 				Layer.succeed(LifecycleExecution, execution),
 				Layer.succeed(WorkflowEngine, engine),
 				Layer.mock(EntitiesRepository)({

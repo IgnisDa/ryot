@@ -3,6 +3,7 @@ import { Layer } from "effect";
 import { LifecycleServicesLive } from "#modules/automations/layer";
 import { DefinitionRepository } from "#modules/definition-registry/repository";
 import { EntitiesRepositoryLive } from "#modules/entities/repository";
+import { DomainWriteChecksLive } from "#modules/entities/write-context";
 import { PluginRuntimeResolverLive } from "#modules/plugins/runtime-resolver";
 import { RelationshipsRepository } from "#modules/relationships/repository";
 import { SandboxExecutionServiceLive } from "#modules/sandbox/layer";
@@ -21,13 +22,21 @@ export const EntityImportServiceLive = EntityImportService.layer.pipe(
 	Layer.provide(Layer.merge(EntitiesRepositoryLive, PluginRuntimeResolverLive)),
 	Layer.provide(
 		ProviderImportAdmission.liveLayer.pipe(
-			Layer.provide(Layer.merge(SandboxExecutionServiceLive, PluginRuntimeResolverLive)),
+			Layer.provide(
+				Layer.mergeAll(
+					SandboxExecutionServiceLive,
+					PluginRuntimeResolverLive,
+					DomainWriteChecksLive,
+				),
+			),
 		),
 	),
 );
 
 export const EntityImportWorkflowOperationsProvidedLive = EntityImportWorkflowOperationsLive.pipe(
-	Layer.provide(Layer.mergeAll(LifecycleServicesLive, SandboxExecutionServiceLive)),
+	Layer.provide(
+		Layer.mergeAll(LifecycleServicesLive, SandboxExecutionServiceLive, DomainWriteChecksLive),
+	),
 	Layer.provide(PluginRuntimeResolverLive),
 	Layer.provide(DefinitionRepository.layer),
 );
@@ -38,6 +47,7 @@ export const ProviderEntityPopulationWorkflowDefinitionsProvidedLive =
 			Layer.mergeAll(
 				DefinitionRepository.layer,
 				EntitiesRepositoryLive,
+				DomainWriteChecksLive,
 				PluginRuntimeResolverLive,
 				RelationshipsRepository.layer,
 			),

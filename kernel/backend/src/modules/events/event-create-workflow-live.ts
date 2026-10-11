@@ -34,7 +34,7 @@ import type { DurableSchema } from "#lib/infrastructure/workflow";
 import { implementWorkflow, makeActivity } from "#lib/infrastructure/workflow-scope";
 import { parseAppSchemaProperties } from "#lib/property-schema/property-schema-runtime";
 import { EntitiesRepository } from "#modules/entities/repository";
-import { makeDomainWriteChecks, writerPropertiesSchema } from "#modules/entities/write-context";
+import { DomainWriteChecks, writerPropertiesSchema } from "#modules/entities/write-context";
 import { EventSchemasRepository } from "#modules/event-schemas/repository";
 import { type MutationReceiptIdentity, MutationReceipts } from "#modules/mutations/receipts";
 import { admitWorkflow } from "#modules/mutations/workflow-dispatch";
@@ -100,7 +100,7 @@ const prepareItem = Effect.fn("prepareEventCreateItem")(function* (
 ) {
 	const planner = yield* LifecyclePlanner;
 	const session = yield* DatabaseSession;
-	const writes = makeDomainWriteChecks(session);
+	const writes = yield* DomainWriteChecks;
 	const eventSchemas = yield* EventSchemasRepository;
 	const receipts = yield* MutationReceipts.make;
 	const item = payload.payload[index];
@@ -246,7 +246,7 @@ const writeEvent = Effect.fn("writeEventCreateItem")(function* (
 	const eventSchemas = yield* EventSchemasRepository;
 	const planner = yield* LifecyclePlanner;
 	const session = yield* DatabaseSession;
-	const writes = makeDomainWriteChecks(session);
+	const writes = yield* DomainWriteChecks;
 	const receipts = yield* MutationReceipts.make;
 	const command = eventCreateItemCommand(payload.command, index, payload.itemIdentities?.[index]);
 	const item = payload.payload[index];

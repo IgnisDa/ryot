@@ -7,7 +7,7 @@ import { WorkflowEngine } from "effect/workflow/WorkflowEngine";
 import { AppConfig } from "#lib/infrastructure/config/service";
 import { DatabaseSession } from "#lib/infrastructure/db/session";
 import { WorkflowExecutionNotifications } from "#lib/infrastructure/workflow-execution-notifications";
-import { makeDomainWriteChecks } from "#modules/entities/write-context";
+import { DomainWriteChecks } from "#modules/entities/write-context";
 import { MutationReceipts } from "#modules/mutations/receipts";
 import { dispatchAdmittedWorkflow } from "#modules/mutations/workflow-dispatch";
 import { PluginRuntimeResolver } from "#modules/plugins/runtime-resolver";
@@ -37,7 +37,7 @@ export class ProviderImportAdmission extends Context.Service<ProviderImportAdmis
 			const receipts = yield* MutationReceipts.make;
 			const sandbox = yield* SandboxExecutionService;
 			const runtime = yield* PluginRuntimeResolver;
-			const checks = makeDomainWriteChecks(session);
+			const checks = yield* DomainWriteChecks;
 			const notifications = yield* WorkflowExecutionNotifications;
 			const completionWaiters = yield* FiberMap.make<string, void>();
 			const limit = config.sandbox.importConcurrency;

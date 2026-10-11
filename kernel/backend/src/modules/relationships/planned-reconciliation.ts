@@ -15,10 +15,7 @@ import {
 	type LifecycleDispatchPlan,
 } from "#lib/domain/lifecycle";
 import { lifecycleTrigger } from "#lib/domain/lifecycle-command";
-import {
-	makeDomainWriteChecks,
-	type DomainLifecycleCommand,
-} from "#modules/entities/write-context";
+import type { DomainLifecycleCommand } from "#modules/entities/write-context";
 import { mutationReceiptIdentity, mutationReceiptOwner } from "#modules/mutations/receipts";
 import { catalogDefinitionFingerprint } from "#modules/plugins/runtime-resolver";
 
@@ -52,9 +49,9 @@ import {
 export const makePlannedRelationshipReconciliation = (
 	dependencies: RelationshipMutationDependencies,
 ) => {
-	const { session, planner, runtime, entities, receipts, repository, definitions } = dependencies;
+	const { writes, session, planner, runtime, entities, receipts, repository, definitions } =
+		dependencies;
 	const primitives = makeRelationshipMutationPrimitives(dependencies);
-	const writes = makeDomainWriteChecks(session);
 	const GroupResult = Schema.Struct({
 		created: Schema.Finite,
 		updated: Schema.Finite,

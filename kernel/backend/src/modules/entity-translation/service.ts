@@ -8,7 +8,7 @@ import { WorkflowEngine } from "effect/workflow/WorkflowEngine";
 import { rootLifecycleCommand } from "#lib/domain/lifecycle-command";
 import type * as schema from "#lib/infrastructure/db/schema/tables/combined";
 import { DatabaseSession } from "#lib/infrastructure/db/session";
-import { makeDomainWriteChecks } from "#modules/entities/write-context";
+import { DomainWriteChecks } from "#modules/entities/write-context";
 import { PluginRuntimeResolver } from "#modules/plugins/runtime-resolver";
 import { SandboxExecutionService } from "#modules/sandbox/service";
 
@@ -46,7 +46,7 @@ export class TranslationsService extends Context.Service<TranslationsService>()(
 			const session = yield* DatabaseSession;
 			const runtime = yield* PluginRuntimeResolver;
 			const sandbox = yield* SandboxExecutionService;
-			const checks = makeDomainWriteChecks(session);
+			const checks = yield* DomainWriteChecks;
 			const requestFill = Effect.fn("TranslationsService.requestFill")(function* (
 				input: RequestFillInput,
 			) {
