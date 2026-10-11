@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
 	PLUGIN_CLIENT_ASSET_MIME_TYPES,
 	PLUGIN_CLIENT_FILE_EXTENSIONS,
+	isPluginClientArtifactContentType,
 	isPluginClientTextSource,
 	isPluginSourceFile,
 	pluginClientAssetMimeType,
@@ -23,6 +24,7 @@ describe("plugin client file policy", () => {
 			".webp",
 			".avif",
 			".ico",
+			".mp3",
 			".woff2",
 			".wasm",
 		]);
@@ -30,6 +32,7 @@ describe("plugin client file policy", () => {
 			".png": "image/png",
 			".gif": "image/gif",
 			".jpg": "image/jpeg",
+			".mp3": "audio/mpeg",
 			".jpeg": "image/jpeg",
 			".avif": "image/avif",
 			".webp": "image/webp",
@@ -44,6 +47,9 @@ describe("plugin client file policy", () => {
 		expect(isPluginClientTextSource("client/index.tsx")).toBe(true);
 		expect(isPluginClientTextSource("client/logo.svg")).toBe(false);
 		expect(pluginClientAssetMimeType("client/font.woff2")).toBe("font/woff2");
+		expect(pluginClientAssetMimeType("client/sound.mp3")).toBe("audio/mpeg");
+		expect(isPluginClientArtifactContentType("audio/mpeg")).toBe(true);
+		expect(isPluginClientArtifactContentType("audio/wav")).toBe(false);
 		expect(pluginClientAssetMimeType("client/index.ts")).toBeUndefined();
 		expect(pluginClientFileExtension("client/logo.PNG")).toBeUndefined();
 		expect(pluginClientFileExtension("client/index.js")).toBeUndefined();
@@ -58,6 +64,7 @@ describe("plugin client file policy", () => {
 				"client/index.tsx",
 				"client/styles.css",
 				"client/logo.svg",
+				"client/workout-editor/sounds/add-set.mp3",
 			].every(isPluginSourceFile),
 		).toBe(true);
 		expect(
