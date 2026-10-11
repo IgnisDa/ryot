@@ -85,8 +85,14 @@ describe("Saved views lifecycle E2E", () => {
 				queries: {
 					savedView: {
 						where: {
-							right: { type: "literal", value: "collection" },
-							left: { tableAlias: "entity", field: "entitySchemaSlug" },
+							type: "and",
+							predicates: [
+								{
+									right: { type: "literal", value: "collection" },
+									left: { tableAlias: "entity", field: "entitySchemaSlug" },
+								},
+								{ type: "isNull", expr: { tableAlias: "entity", field: "entitySchemaPluginId" } },
+							],
 						},
 					},
 				},

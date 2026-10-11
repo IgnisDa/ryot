@@ -81,10 +81,10 @@ describe("Exercises E2E", () => {
 			);
 
 			expect(allExercisesView).toMatchObject({
-				pluginId,
 				isBuiltin: true,
 				name: "All Exercises",
 				renderer: { kind: "kernel", name: "entity-browser" },
+				reference: { pluginId, kind: "plugin", slug: "all-exercises" },
 				settings: {
 					pageSize: 20,
 					defaultLayout: "grid",
@@ -100,8 +100,7 @@ describe("Exercises E2E", () => {
 					],
 					addAction: {
 						type: "provider-search",
-						ownerPluginId: pluginId,
-						entitySchemaSlug: "exercise",
+						schema: { slug: "exercise", owner: { pluginId, kind: "plugin" } },
 					},
 				},
 			});
@@ -132,25 +131,25 @@ describe("Exercises E2E", () => {
 								left: { type: "column", tableAlias: "entity", field: "entitySchemaSlug" },
 							}),
 							expect.objectContaining({
-								type: "exists",
-								query: expect.objectContaining({
-									where: expect.objectContaining({
-										predicates: expect.arrayContaining([
-											expect.objectContaining({
-												right: { type: "literal", value: "in-fitness-library" },
-											}),
-											expect.objectContaining({
-												right: { type: "literal", value: "fitness-library" },
-											}),
-										]),
-									}),
-								}),
+								right: { type: "pluginId", reference: { pluginId, kind: "local" } },
+								left: { type: "column", tableAlias: "entity", field: "entitySchemaPluginId" },
 							}),
 						]),
 					}),
 					expect.objectContaining({
-						right: { type: "literal", value: pluginId },
-						left: { type: "column", tableAlias: "entity", field: "entitySchemaPluginId" },
+						type: "exists",
+						query: expect.objectContaining({
+							where: expect.objectContaining({
+								predicates: expect.arrayContaining([
+									expect.objectContaining({
+										right: { type: "literal", value: "in-fitness-library" },
+									}),
+									expect.objectContaining({
+										right: { type: "literal", value: "fitness-library" },
+									}),
+								]),
+							}),
+						}),
 					}),
 				]),
 			});

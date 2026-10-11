@@ -78,12 +78,12 @@ describe("Measurements E2E", () => {
 				assertPresent(allMeasurementsView, "Expected the built-in All Measurements saved view");
 
 				expect(allMeasurementsView).toMatchObject({
-					pluginId,
 					settings: {},
 					isBuiltin: true,
 					dataSources: null,
 					name: "All Measurements",
 					renderer: { kind: "plugin", exportName: "measurements" },
+					reference: { pluginId, kind: "plugin", slug: "all-measurements" },
 				});
 			}),
 	);
