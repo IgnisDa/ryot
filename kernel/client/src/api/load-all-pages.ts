@@ -1,6 +1,6 @@
 import { Data, Effect } from "effect";
 
-export class MissingNextCursorError extends Data.TaggedError("MissingNextCursorError") {}
+class MissingNextCursorError extends Data.TaggedError("MissingNextCursorError") {}
 
 type Page<Item> = {
 	readonly items: readonly Item[];
