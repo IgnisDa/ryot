@@ -175,7 +175,8 @@ baked Tailwind utilities.
 is loading. Callers supply labels and optional icon content; the component does not depend on query
 or transport services.
 
-`RadioGroup` owns radiogroup semantics, roving focus, and Arrow/Home/End selection. Consumers provide
+`RadioGroup` owns radiogroup semantics, roving focus, and Arrow/Home/End selection; disabled options
+are announced but never selected, focused by arrows, or used as the tab stop. Consumers provide
 visuals through `renderOption`; menus are not radiogroups. `Select` closes on activation, while a
 radio picker stays open for keyboard selection. `ChipRadioGroup` is that composition for chip rows
 that scroll or wrap.
