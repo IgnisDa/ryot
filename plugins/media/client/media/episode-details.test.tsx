@@ -165,7 +165,9 @@ type Operation = { readonly slug: string; readonly input: unknown };
 const mountDetails = (options: {
 	readonly state?: string;
 	readonly publishDate?: string | null;
-	readonly refresh?: () => Effect.Effect<unknown, RyotClientError>;
+	readonly refresh?: (
+		answer: Effect.Effect<unknown, RyotClientError>,
+	) => Effect.Effect<unknown, RyotClientError>;
 	readonly podcast?: Parameters<typeof activityLogQuery>[0]["podcast"];
 	readonly result?: (attempt: number) => Effect.Effect<unknown, RyotClientError>;
 }) => {
@@ -207,7 +209,7 @@ const mountDetails = (options: {
 				}
 				contexts.push(contexts.length);
 				return contexts.length > 1 && options.refresh !== undefined
-					? options.refresh()
+					? options.refresh(logQuery(document))
 					: logQuery(document);
 			},
 		},
@@ -262,17 +264,20 @@ describe("episode details actions", () => {
 		}),
 	);
 
-	for (const [label, state, refresh] of [
-		["a refresh that succeeds", "untracked", Effect.succeed({})],
-		["a refresh that succeeds for an already complete episode", "complete", Effect.succeed({})],
-		["a refresh that fails", "untracked", Effect.fail(new RyotClientError("operation-failed"))],
+	for (const [label, state, fails] of [
+		["a refresh that succeeds", "untracked", false],
+		["a refresh that succeeds for an already complete episode", "complete", false],
+		["a refresh that fails", "untracked", true],
 	] as const) {
 		it.live(`keeps Mark disabled until the context settles after ${label}`, () =>
 			Effect.gen(function* () {
 				const release = yield* Deferred.make<void>();
 				const mounted = mountDetails({
 					state,
-					refresh: () => Deferred.await(release).pipe(Effect.andThen(refresh)),
+					refresh: (answer) =>
+						Deferred.await(release).pipe(
+							Effect.andThen(fails ? Effect.fail(new RyotClientError("operation-failed")) : answer),
+						),
 				});
 				const dialog = yield* openDetails(mounted);
 				const mark = () => getByRole(dialog, "button", { name: "Mark listened" });
