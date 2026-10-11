@@ -12,7 +12,6 @@ const item = {
 	syncOwnership: true,
 	minimumProgress: 2.5,
 	provider: "provider-1",
-	pluginSlug: "plugin-1",
 	pluginId: "media-plugin",
 	name: "Primary integration",
 	createdAt: "2026-01-01T01:00:00+02:00",
@@ -20,7 +19,7 @@ const item = {
 	lastFinishedAt: "2026-01-03T01:00:00+02:00",
 	extraSettings: { disableOnContinuousErrors: true },
 };
-const kernelItem = { ...item, pluginId: null, pluginSlug: null, id: "kernel-integration" };
+const kernelItem = { ...item, pluginId: null, id: "kernel-integration" };
 const pageInfo = { limit: 2, hasMore: true, nextCursor: "next" };
 const rows = (items: readonly unknown[], limit = 2) => rowsResult(items, { ...pageInfo, limit });
 

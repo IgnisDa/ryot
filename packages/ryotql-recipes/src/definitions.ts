@@ -6,7 +6,6 @@ import {
 import {
 	EntitySchemaSlug,
 	EventSchemaSlug,
-	PluginSlug,
 	RelationshipSchemaSlug,
 	SandboxProviderId,
 	SignalSchemaSlug,
@@ -49,7 +48,6 @@ export const entityDefinitionsRecipe = defineRecipe(
 					slug: selectedField(column(entity, "slug"), EntitySchemaSlug),
 					propertiesSchema: selectedField(column(entity, "propertiesSchema"), AppSchema),
 					pluginId: selectedField(column(entity, "pluginId"), Schema.NullOr(Schema.String)),
-					pluginSlug: selectedField(column(entity, "pluginSlug"), Schema.NullOr(PluginSlug)),
 					userState: selectedField(
 						column(entity, "userState"),
 						Schema.NullOr(PluginEntityUserStatePolicy),
@@ -105,7 +103,6 @@ export const relationshipDefinitionsRecipe = defineRecipe(
 					slug: selectedField(column(relationship, "slug"), RelationshipSchemaSlug),
 					propertiesSchema: selectedField(column(relationship, "propertiesSchema"), AppSchema),
 					pluginId: selectedField(column(relationship, "pluginId"), Schema.NullOr(Schema.String)),
-					pluginSlug: selectedField(column(relationship, "pluginSlug"), Schema.NullOr(PluginSlug)),
 					sourceEntitySchemaSlug: selectedField(
 						column(relationship, "sourceEntitySchemaSlug"),
 						Schema.NullOr(EntitySchemaSlug),
@@ -136,7 +133,6 @@ export const activeSignalSchemasRecipe = defineRecipe(
 					propertiesSchema: selectedField(column(signal, "propertiesSchema"), AppSchema),
 					catalogState: selectedField(column(signal, "catalogState"), SignalCatalogState),
 					pluginId: selectedField(column(signal, "pluginId"), Schema.NullOr(Schema.String)),
-					pluginSlug: selectedField(column(signal, "pluginSlug"), Schema.NullOr(PluginSlug)),
 					audiencePolicy: selectedField(
 						column(signal, "audiencePolicy"),
 						PluginSignalAudiencePolicy,

@@ -16,7 +16,7 @@ const response = {
 				name: "Movies",
 				slug: "movies",
 				isHidden: false,
-				pluginSlug: "media",
+				packageId: "ryot/media",
 				pluginInstallationId: "media-workspace",
 				reference: { kind: "plugin", slug: "movies", pluginId: "media-owner" },
 			},
@@ -30,7 +30,7 @@ describe("navigation recipe", () => {
 
 		expect(Object.keys(document.queries)).toEqual(["collections", "savedViews"]);
 		expect(requireRowsQuery(document.queries.savedViews).output.orderBy).toEqual([
-			{ direction: "asc", expr: { type: "column", field: "pluginSlug", tableAlias: "savedView" } },
+			{ direction: "asc", expr: { type: "column", field: "packageId", tableAlias: "savedView" } },
 			{ direction: "asc", expr: { type: "column", field: "sortOrder", tableAlias: "savedView" } },
 			{ direction: "asc", expr: { field: "slug", type: "column", tableAlias: "savedView" } },
 		]);
@@ -53,8 +53,8 @@ describe("navigation recipe", () => {
 					sortOrder: 0,
 					reference: null,
 					isHidden: false,
+					packageId: null,
 					icon: "layers-3",
-					pluginSlug: null,
 					slug: "collection-1",
 					name: "Sci-Fi Essentials",
 					pluginInstallationId: null,
@@ -67,7 +67,7 @@ describe("navigation recipe", () => {
 					name: "Movies",
 					slug: "movies",
 					isHidden: false,
-					pluginSlug: "media",
+					packageId: "ryot/media",
 					pluginInstallationId: "media-workspace",
 					reference: { kind: "plugin", slug: "movies", pluginId: "media-owner" },
 				},

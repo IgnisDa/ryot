@@ -20,7 +20,7 @@ describe("user media library recipe", () => {
 	it.each(["system", "user"] satisfies readonly PluginPackageReference["scope"][])(
 		"keeps the explicit %s package scope in the library query",
 		(scope) => {
-			const packageId = PluginPackageId.make("b9e38f86-52b1-4f29-aadb-e60a5f3a4e9c");
+			const packageId = PluginPackageId.make("test/library");
 			const query = userMediaLibraryRecipe({ scope, packageId, kind: "package" }).document.queries
 				.mediaLibrary;
 			expect(query?.where).toMatchObject({

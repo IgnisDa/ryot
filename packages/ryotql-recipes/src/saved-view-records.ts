@@ -1,7 +1,7 @@
 import { SavedViewReference } from "@ryot-app/contract/modules/plugins/references";
 import { RyotQLDocument } from "@ryot-app/contract/modules/ryotql/language";
 import { SavedViewRenderer } from "@ryot-app/contract/modules/saved-views/schemas";
-import { PluginSlug, SavedViewId } from "@ryot-app/contract/schema/brands";
+import { PluginPackageId, SavedViewId } from "@ryot-app/contract/schema/brands";
 import { JsonValue } from "@ryot-app/contract/schema/json";
 import {
 	and,
@@ -31,9 +31,9 @@ const selection = {
 	isBuiltin: selectedField(column(savedView, "isBuiltin"), Schema.Boolean),
 	renderer: selectedField(column(savedView, "renderer"), SavedViewRenderer),
 	reference: selectedField(column(savedView, "reference"), SavedViewReference),
-	pluginSlug: selectedField(column(savedView, "pluginSlug"), Schema.NullOr(PluginSlug)),
 	createdAt: selectedField(column(savedView, "createdAt"), Schema.NullOr(IsoDateString)),
 	updatedAt: selectedField(column(savedView, "updatedAt"), Schema.NullOr(IsoDateString)),
+	packageId: selectedField(column(savedView, "packageId"), Schema.NullOr(PluginPackageId)),
 	dataSources: selectedField(column(savedView, "dataSources"), Schema.NullOr(RyotQLDocument)),
 	settings: selectedField(column(savedView, "settings"), Schema.Record(Schema.String, JsonValue)),
 };
@@ -60,7 +60,7 @@ export const savedViewRecordsRecipe = defineRecipe(
 					limit: input.limit,
 					where: predicates.length > 0 ? and(...predicates) : undefined,
 					orderBy: [
-						ascending(column(savedView, "pluginSlug")),
+						ascending(column(savedView, "packageId")),
 						ascending(column(savedView, "sortOrder")),
 						ascending(column(savedView, "slug")),
 					],
