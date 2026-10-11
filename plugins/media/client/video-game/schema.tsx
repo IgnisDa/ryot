@@ -94,4 +94,9 @@ export const videoGameSchema = defineFlatMediaSchema({
 		companies: "Developers & publishers",
 		notice: "Credits, companies and recommendations",
 	},
+	logActivity: {
+		family: "flat",
+		timePrimary: true,
+		copy: { verb: "play", noun: "game", gerund: "playing", participle: "played" },
+	},
 });

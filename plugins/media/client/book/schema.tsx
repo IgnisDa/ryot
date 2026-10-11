@@ -38,4 +38,9 @@ export const bookSchema = defineFlatMediaSchema({
 		people: "Authors & contributors",
 		notice: "Authors, publishers and recommendations",
 	},
+	logActivity: {
+		family: "flat",
+		progressUnit: { field: "pages", plural: "pages", singular: "page" },
+		copy: { verb: "read", noun: "book", gerund: "reading", participle: "read" },
+	},
 });

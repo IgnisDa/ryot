@@ -51,7 +51,12 @@ it.live(
 						facts: [],
 						links: [],
 						identityDetail: undefined,
-						rail: { logActivity: true },
+						rail: {
+							logActivity: {
+								family: "flat",
+								copy: { verb: "watch", noun: "movie", gerund: "watching", participle: "watched" },
+							},
+						},
 					}}
 				/>,
 			);

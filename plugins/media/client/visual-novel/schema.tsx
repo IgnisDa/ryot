@@ -38,4 +38,8 @@ export const visualNovelSchema = defineFlatMediaSchema({
 		companies: "Publishers",
 		notice: "Developers and recommendations",
 	},
+	logActivity: {
+		family: "flat",
+		copy: { verb: "read", gerund: "reading", participle: "read", noun: "visual novel" },
+	},
 });

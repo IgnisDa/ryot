@@ -39,4 +39,9 @@ export const movieSchema = defineFlatMediaSchema({
 		companies: "Production companies",
 		notice: "Cast, companies and recommendations",
 	},
+	logActivity: {
+		family: "flat",
+		progressUnit: { field: "runtime", plural: "minutes", singular: "minute" },
+		copy: { verb: "watch", noun: "movie", gerund: "watching", participle: "watched" },
+	},
 });

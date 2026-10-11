@@ -28,6 +28,10 @@ export const comicBookSchema = defineFlatMediaSchema({
 	group: { actionLabel: "View series", title: (name) => `Part of ${name}` },
 	nouns: { title: "Comic Book", plural: "comic books", singular: "comic book" },
 	overviewLoadingDetail: "Fetching the credits, series and recommendations for this comic book.",
+	logActivity: {
+		family: "flat",
+		copy: { verb: "read", gerund: "reading", participle: "read", noun: "comic book" },
+	},
 	creditCopy: {
 		companies: "Publishers",
 		people: "Writers & artists",

@@ -76,6 +76,11 @@ export const mangaSchema = defineFlatMediaSchema({
 		people: "Authors & artists",
 		notice: "Credits and recommendations",
 	},
+	logActivity: {
+		family: "positional",
+		copy: { verb: "read", noun: "manga", gerund: "reading", participle: "read" },
+		progressUnit: { field: "chapters", plural: "chapters", singular: "chapter" },
+	},
 	activityCopy: mediaFlatActivityCopy<MangaProgressPosition & MangaListStateSnapshot>({
 		verb: "read",
 		noun: "manga",

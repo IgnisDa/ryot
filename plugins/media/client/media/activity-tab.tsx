@@ -7,6 +7,8 @@ import clsx from "clsx";
 import type { ReactNode } from "react";
 
 import { MediaHistoryButton } from "./activity-history";
+import { MediaLogActivityButton } from "./activity-log/button";
+import type { MediaActivityLogger } from "./activity-log/state";
 import {
 	type MediaActivityFigure,
 	type MediaActivityRowRender,
@@ -21,7 +23,7 @@ import {
 	type MediaActivityTimeline,
 } from "./activity-timeline";
 import type { MediaCursorPage } from "./cursor-page-state";
-import { MediaLinkButton, MediaRefreshStatus, MediaStatusMessage } from "./primitives";
+import { MediaRefreshStatus, MediaStatusMessage } from "./primitives";
 import { MediaReviewButton } from "./review";
 
 export type MediaActivityCopy = {
@@ -30,7 +32,7 @@ export type MediaActivityCopy = {
 	readonly loadingDetail: string;
 };
 
-export type MediaActivityEmptyAction = "log-activity" | "write-review";
+export type MediaActivityEmptyAction = MediaActivityLogger | "write-review";
 
 function MediaActivityFooter(props: { readonly partial: boolean; readonly history?: ReactNode }) {
 	if (!props.partial && !props.history) {
@@ -50,6 +52,7 @@ function MediaActivityFooter(props: { readonly partial: boolean; readonly histor
 
 function MediaActivityEmpty(props: {
 	readonly detail: string;
+	readonly compact: boolean;
 	readonly entityId: string;
 	readonly action: MediaActivityEmptyAction;
 }) {
@@ -57,13 +60,15 @@ function MediaActivityEmpty(props: {
 		<div className="flex min-h-96 flex-col items-center justify-center gap-3 px-6">
 			<p className="text-center font-ui font-medium text-base text-text">No activity yet</p>
 			<p className="max-w-xl text-center font-ui text-sm text-text-muted">{props.detail}</p>
-			{props.action === "log-activity" ? (
-				<MediaLinkButton
-					label="Log activity"
-					onClick={() => console.log("TODO: open activity form")}
-				/>
-			) : (
+			{props.action === "write-review" ? (
 				<MediaReviewButton link entityId={props.entityId} />
+			) : (
+				<MediaLogActivityButton
+					link
+					logger={props.action}
+					compact={props.compact}
+					entityId={props.entityId}
+				/>
 			)}
 		</div>
 	);
@@ -127,6 +132,7 @@ export function MediaActivity<View>(props: {
 	if (state.status === "empty") {
 		return (
 			<MediaActivityEmpty
+				compact={props.compact}
 				entityId={props.entityId}
 				action={props.emptyAction}
 				detail={props.copy.emptyDetail}

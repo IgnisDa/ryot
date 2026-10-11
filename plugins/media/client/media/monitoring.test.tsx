@@ -25,7 +25,7 @@ function Header(props: { readonly media: MediaEntitySummaryValue }) {
 				facts: [],
 				links: [],
 				identityDetail: undefined,
-				rail: { logActivity: false },
+				rail: { logActivity: undefined },
 			}}
 		/>
 	);

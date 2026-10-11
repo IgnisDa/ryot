@@ -253,7 +253,7 @@ export const defineGroupMediaSchema = <
 				(fact) => fact !== undefined,
 			),
 			rail: {
-				logActivity: false,
+				logActivity: undefined,
 				status:
 					status === undefined
 						? undefined

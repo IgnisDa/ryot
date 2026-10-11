@@ -130,7 +130,7 @@ export const defineCreatorMediaSchema = <
 
 	const header = (summary: Summary): MediaSummaryHeaderDetail => ({
 		identityDetail: undefined,
-		rail: { logActivity: false },
+		rail: { logActivity: undefined },
 		facts: descriptor.facts(summary),
 		links: descriptor.links(summary),
 		chips: (summary.alternateNames ?? []).slice(0, ALIAS_CHIP_LIMIT),

@@ -26,6 +26,10 @@ const defineFixtureSchema = (overviewRails?: () => readonly MediaOverviewRail[])
 		facts: () => [{ value: "3", icon: "hash", label: "Fixture count" }],
 		group: { actionLabel: "View group", title: (name) => `Part of ${name}` },
 		creditCopy: { people: "People", notice: "Credits", companies: "Companies" },
+		logActivity: {
+			family: "flat",
+			copy: { verb: "use", noun: "item", gerund: "using", participle: "used" },
+		},
 		activityCopy: {
 			segmentNoun: "Pass",
 			progressVerb: "done",
@@ -70,6 +74,10 @@ export const ungroupedFixtureSchema = defineFlatMediaSchema({
 	measureFigure: { label: "Time", value: mediaActivityTimeLabel },
 	nouns: { plural: "items", singular: "item", title: "Ungrouped" },
 	creditCopy: { people: "People", notice: "Credits", companies: "Companies" },
+	logActivity: {
+		family: "flat",
+		copy: { verb: "use", noun: "item", gerund: "using", participle: "used" },
+	},
 	activityCopy: {
 		segmentNoun: "Pass",
 		progressVerb: "done",

@@ -22,7 +22,13 @@ const label = (items: readonly { id: string; name: string }[], hasMore = false) 
 
 describe("media summary state", () => {
 	it("maps genre names to chips and marks a truncated genre list", () => {
-		const detail = mediaSummaryHeaderDetail({ facts: () => [] });
+		const detail = mediaSummaryHeaderDetail({
+			facts: () => [],
+			logActivity: {
+				family: "show",
+				copy: { noun: "show", verb: "watch", gerund: "watching", participle: "watched" },
+			},
+		});
 
 		expect(detail(decodeShowSummary()).chips).toEqual(["Crime", "Drama"]);
 		expect(

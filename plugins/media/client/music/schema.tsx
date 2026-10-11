@@ -45,4 +45,8 @@ export const musicSchema = defineFlatMediaSchema({
 		people: "Artists & credits",
 		notice: "Artists, labels and recommendations",
 	},
+	logActivity: {
+		family: "flat",
+		copy: { noun: "track", verb: "listen to", gerund: "listening", participle: "listened" },
+	},
 });
