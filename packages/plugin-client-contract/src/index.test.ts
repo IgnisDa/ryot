@@ -953,6 +953,32 @@ describe("plugin client bridge contract", () => {
 		);
 	});
 
+	it("names only a plugin in user settings requests and returns a settings record", () => {
+		const decodeClient = Schema.decodeUnknownResult(PluginBridgeClientMessage);
+		const decodeHost = Schema.decodeUnknownResult(PluginBridgeHostMessage);
+		const request = {
+			pluginId: "media",
+			requestId: "settings-1",
+			type: "user-settings-request" as const,
+		};
+		expect(Result.isSuccess(decodeClient(request))).toBe(true);
+		expect(Result.isFailure(decodeClient({ ...request, installationId: "other" }))).toBe(true);
+		expect(Result.isFailure(decodeClient({ ...request, userId: "other" }))).toBe(true);
+		expect(Result.isFailure(decodeHost(request))).toBe(true);
+
+		const result = { requestId: "settings-1", type: "user-settings-result" as const };
+		expect(
+			Result.isSuccess(decodeHost({ ...result, outcome: "success", settings: { limit: 3 } })),
+		).toBe(true);
+		expect(
+			Result.isSuccess(decodeHost({ ...result, outcome: "failure", reason: "invalid-request" })),
+		).toBe(true);
+		expect(Result.isFailure(decodeHost({ ...result, outcome: "success" }))).toBe(true);
+		expect(Result.isFailure(decodeHost({ ...result, reason: "quota", outcome: "failure" }))).toBe(
+			true,
+		);
+	});
+
 	it("decodes only the strict RyotQL cancellation message", () => {
 		const decode = Schema.decodeUnknownResult(PluginBridgeRyotQLCancel);
 

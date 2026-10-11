@@ -11,6 +11,7 @@ import {
 	literal,
 	type Recipe,
 	selectedField,
+	selectedOptionalRow,
 	selectedRows,
 	table,
 } from "@ryot-app/ryotql";
@@ -52,3 +53,30 @@ export const pluginUserSettingsRecipe = defineRecipe(
 );
 
 export type PluginUserSettingsPage = Recipe.Success<typeof pluginUserSettingsRecipe>;
+
+export const pluginInstallationUserSettingsRecipe = defineRecipe(
+	(input: { readonly pluginId: string }) => ({
+		map: ({ installation: row }) => Result.succeed(row),
+		queries: {
+			installation: selectedOptionalRow(installation, {
+				orderBy: [ascending(column(installation, "id"))],
+				joins: [join("inner", plugin, eq(column(plugin, "id"), column(installation, "pluginId")))],
+				where: and(
+					eq(column(installation, "pluginId"), literal(input.pluginId)),
+					eq(column(plugin, "status"), literal("active")),
+				),
+				selection: {
+					id: selectedField(column(installation, "id"), Schema.String),
+					settings: selectedField(
+						column(installation, "userSettings"),
+						Schema.Record(Schema.String, JsonValue),
+					),
+					settingsSchema: selectedField(
+						column(plugin, "userSettingsSchema"),
+						Schema.NullOr(PluginUserSettingsSchema),
+					),
+				},
+			}),
+		},
+	}),
+);

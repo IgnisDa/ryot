@@ -16,7 +16,7 @@ import {
 } from "@ryot-app/contract/modules/entities/editor";
 import { EntityUpdatedMessage } from "@ryot-app/contract/modules/entity-watches/messages";
 import type { PluginId, PluginPackageId } from "@ryot-app/contract/schema/brands";
-import { isJsonValue, type JsonValue } from "@ryot-app/contract/schema/json";
+import { isJsonValue, JsonValue } from "@ryot-app/contract/schema/json";
 import {
 	AddToCollectionOutcome,
 	AddToCollectionRequest,
@@ -201,6 +201,19 @@ export const createRyotClient = (adapter: RyotClientAdapter) => {
 			}
 			return value;
 		});
+	const readUserSettings = (
+		pluginId: PluginId,
+	): Effect.Effect<Readonly<Record<string, JsonValue>>, RyotClientError> =>
+		Effect.gen(function* () {
+			const read = adapter.readUserSettings;
+			if (!read) {
+				return yield* new RyotClientError("unsupported-capability");
+			}
+			return yield* decodeCapability(
+				Schema.Record(Schema.String, JsonValue),
+				yield* adapterEffect(() => read(pluginId)),
+			);
+		});
 	let themeSnapshotInput: unknown;
 	let themeSnapshot: PluginThemeSnapshot | undefined;
 	const decodeThemeSnapshot = (value: unknown): PluginThemeSnapshot => {
@@ -321,6 +334,7 @@ export const createRyotClient = (adapter: RyotClientAdapter) => {
 	return {
 		overlayBack,
 		mutationCompleted,
+		userSettings: readUserSettings,
 		screens: { pickEntity, editCollection, addToCollection },
 		calendarSources: { setVisibility: setCalendarSourceVisibility },
 		uploads: { uploadPermanent, uploadTemporary, cleanup: cleanupUpload },

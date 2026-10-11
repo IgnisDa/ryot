@@ -24,6 +24,7 @@ import {
 } from "react";
 
 import { PagesApi } from "#/api/pages";
+import { RyotQLApi } from "#/api/ryotql";
 import type { ApiScope } from "#/api/scope";
 import { ManagedAssetsService } from "#/modules/assets/managed-assets";
 import { Uploads } from "#/modules/assets/uploads";
@@ -42,6 +43,7 @@ import { PluginOperationsService } from "#/modules/pages/bridge/operations";
 import { PluginQueriesService } from "#/modules/pages/bridge/queries";
 import type { PluginBridgeNavigationState } from "#/modules/pages/bridge/session";
 import { PluginStorage } from "#/modules/pages/bridge/storage";
+import { pluginUserSettingsOutcome } from "#/modules/pages/bridge/user-settings";
 import { renderClientDocument } from "#/modules/pages/documents/srcdoc";
 import {
 	type ClientPageDocument,
@@ -450,6 +452,7 @@ function ClientPageFrame(props: {
 	const router = useRouter();
 	const navigate = useNavigate();
 	const active = useRef(props.active);
+	const frameScope = useRef<ApiScope | undefined>(props.scope);
 	const frameKey = `${props.owner}:${props.navigation.key}`;
 	const flush = useRef<(() => Effect.Effect<boolean>) | undefined>(undefined);
 	useBlocker({
@@ -491,6 +494,12 @@ function ClientPageFrame(props: {
 			),
 		[props.runtime, props.scope],
 	);
+	useLayoutEffect(() => {
+		frameScope.current = props.scope;
+		return () => {
+			frameScope.current = undefined;
+		};
+	}, [props.scope]);
 	useLayoutEffect(() => {
 		active.current = props.active;
 		props.runtime.runSync(
@@ -593,6 +602,15 @@ function ClientPageFrame(props: {
 					.runSync(PagesApi)
 					.document(props.scope, { payload: { identity } })
 					.pipe(Effect.map((document) => renderClientDocument(document, props.scope.serverUrl)))
+			}
+			onUserSettings={(request) =>
+				pluginUserSettingsOutcome({
+					request,
+					scope: props.scope,
+					contributors: identity.contributors,
+					api: props.runtime.runSync(RyotQLApi),
+					currentScope: () => frameScope.current,
+				})
 			}
 			onCalendarSourceVisibility={(request) =>
 				props.runtime

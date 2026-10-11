@@ -29,6 +29,7 @@ export {
 	useRyotTheme,
 } from "./queries/provider";
 export { usePluginStorage, type PluginStorageState } from "./queries/storage";
+export { usePluginUserSettings } from "./queries/user-settings";
 export type { RyotSubmission } from "./queries/submission";
 export { useRyotSubmission } from "./queries/submission-hook";
 export { usePagination, useRyotInfiniteQuery } from "./queries/pagination-hook";

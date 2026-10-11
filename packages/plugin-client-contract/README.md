@@ -57,6 +57,11 @@ JSON value. Result success returns the value or null (always null for set/remove
 `PLUGIN_STORAGE_VALUE_MAX_BYTES` is host policy. Scope, persistence, and hook behavior belong to the
 [SDK storage API](../plugin-client-sdk/README.md#capabilities).
 
+`user-settings-request` carries only a local plugin ID, never an installation or user. Result success
+returns the settings record; failures use `invalid-request` or `transport`. Installation resolution
+and defaults belong to the kernel host; hook behavior belongs to the
+[SDK user settings API](../plugin-client-sdk/README.md#capabilities).
+
 `calendar-source-visibility-request` carries the `SetCalendarSourceVisibilityBody` (local plugin ID,
 source slug, hidden flag). Its result is bare success or `invalid-request` (the document is not the
 kernel calendar, or the source is not effective for the user), `malformed-result`, or `transport`.

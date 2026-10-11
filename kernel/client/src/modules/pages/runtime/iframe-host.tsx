@@ -32,6 +32,8 @@ import type {
 	PluginStorageRequest,
 	PluginUploadOutcome,
 	PluginUploadRequest,
+	PluginUserSettingsOutcome,
+	PluginUserSettingsRequest,
 } from "@ryot-app/plugin-client-contract";
 import type { RyotClient } from "@ryot-app/plugin-client-sdk";
 import { Button, ScreenFrame, StatusMessage, useShortcut } from "@ryot-app/plugin-ui-sdk";
@@ -136,6 +138,9 @@ export function PageIframeHost(props: {
 		request: PluginOperationRequest,
 	) => Effect.Effect<PluginOperationDispatchOutcome>;
 	readonly onStorage: (request: PluginStorageRequest) => Effect.Effect<PluginStorageOutcome>;
+	readonly onUserSettings: (
+		request: PluginUserSettingsRequest,
+	) => Effect.Effect<PluginUserSettingsOutcome>;
 	readonly onDevice: (request: PluginDeviceRequest) => Effect.Effect<PluginDeviceOutcome>;
 	readonly onIosLiveActivity: (
 		request: PluginIosLiveActivityRequest,
@@ -398,6 +403,7 @@ export function PageIframeHost(props: {
 			onCollection: (request) => latest.current.onCollection(request),
 			onEntitySave: (request) => latest.current.onEntitySave(request),
 			onPickEntity: (request) => latest.current.onPickEntity(request),
+			onUserSettings: (request) => latest.current.onUserSettings(request),
 			onExternalLink: (request) => latest.current.onExternalLink(request),
 			onEditCollection: (request) => latest.current.onEditCollection(request),
 			onAddToCollection: (request) => latest.current.onAddToCollection(request),
