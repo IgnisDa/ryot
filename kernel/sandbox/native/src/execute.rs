@@ -24,7 +24,7 @@ use crate::protocol::{
     ChunkedType, Finished, HostOutcome, LimitKind, NAME_LENGTH, Outbound, Outcome, Phase, Run,
     Usage,
 };
-use crate::registry::{Entry, Meter};
+use crate::registry::{Entry, Meter, StopCause};
 use crate::snapshots::Snapshot;
 use crate::surface::{
     Bridge, ConsoleSinkHandle, ExecutionClock, HostBridge, HostFuture, ResolutionRejection, ryot,
@@ -526,7 +526,7 @@ impl Executor {
                 paused: Default::default(),
                 paused_since: None,
             });
-            if state.cancelled || state.limit.is_some() {
+            if state.stopping.is_some() {
                 state.terminate_isolate();
             }
         }
@@ -556,12 +556,10 @@ impl Executor {
         }
 
         let state = entry.state();
-        let outcome = if state.cancelled {
-            Outcome::Cancelled
-        } else if let Some((limit, message)) = state.limit.clone() {
-            Outcome::Limit(limit, message)
-        } else {
-            match result {
+        let outcome = match state.stopping.as_ref().map(|stopping| &stopping.cause) {
+            Some(StopCause::Cancelled) => Outcome::Cancelled,
+            Some(StopCause::Limit { kind, message }) => Outcome::Limit(*kind, message.clone()),
+            None => match result {
                 Some(Ok(value)) if value.len() > RESULT_BYTES => Outcome::Failed(
                     Phase::Result,
                     format!("result exceeds {RESULT_BYTES} bytes"),
@@ -572,7 +570,7 @@ impl Executor {
                 },
                 Some(Err((phase, message))) => Outcome::Failed(phase, bounded(message)),
                 None => Outcome::Failed(Phase::Execution, "execution was stopped".to_owned()),
-            }
+            },
         };
         let usage = Usage {
             heap_bytes: peak.heap.load(Ordering::SeqCst) as u64,
