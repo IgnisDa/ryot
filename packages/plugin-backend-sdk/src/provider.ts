@@ -102,6 +102,7 @@ export const providerSearchOptionsResultSchema = strictStruct({
 export const providerDetailsInputSchema = strictStruct({
 	externalId: trimmedNonEmptyString,
 	existingProperties: Schema.optional(jsonValueSchema),
+	level: Schema.optional(Schema.Literals(["base", "full"])),
 });
 export const providerDetailsRelatedEntitySchema = strictStruct({
 	name: Schema.String,
