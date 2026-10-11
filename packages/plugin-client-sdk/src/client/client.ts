@@ -23,6 +23,7 @@ import {
 	PluginManagedAssetResolution,
 	PluginStorageRequest,
 	PluginThemeSnapshot,
+	ProviderSearchScreenOutcome,
 	ProviderSearchScreenRequest,
 } from "@ryot-app/plugin-client-contract";
 import type { PreparedRecipe } from "@ryot-app/ryotql";
@@ -177,16 +178,15 @@ export const createRyotClient = (adapter: RyotClientAdapter) => {
 	const openProviderSearch = (request: RyotProviderSearchScreenRequest) => {
 		const decoded = Schema.decodeResult(ProviderSearchScreenRequest)(request);
 		if (Result.isFailure(decoded)) {
-			throw new RyotClientError("invalid-input");
+			return Effect.fail(new RyotClientError("invalid-input"));
 		}
-		if (!adapter.openProviderSearch) {
-			throw new RyotClientError("unsupported-capability");
+		const open = adapter.openProviderSearch;
+		if (!open) {
+			return Effect.fail(new RyotClientError("unsupported-capability"));
 		}
-		try {
-			adapter.openProviderSearch(decoded.success);
-		} catch (error) {
-			throw asTransportError(error);
-		}
+		return adapterEffect(() => open(decoded.success)).pipe(
+			Effect.flatMap((outcome) => decodeCapability(ProviderSearchScreenOutcome, outcome)),
+		);
 	};
 
 	return {

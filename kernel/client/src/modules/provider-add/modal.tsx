@@ -2,7 +2,8 @@ import {
 	definitionKey,
 	type EntitySchemaReference,
 } from "@ryot-app/contract/modules/plugins/references";
-import type { SandboxProviderId } from "@ryot-app/contract/schema/brands";
+import type { EntityId, SandboxProviderId } from "@ryot-app/contract/schema/brands";
+import type { ProviderSearchScreenOutcome } from "@ryot-app/plugin-client-contract";
 import { useRyot } from "@ryot-app/plugin-client-sdk/react";
 import { Modal } from "@ryot-app/plugin-ui-sdk";
 import { useRouteContext } from "@tanstack/react-router";
@@ -25,6 +26,7 @@ export const PROVIDER_ADD_TITLE = "Add from a provider";
 
 type ProviderAddModalProps = {
 	readonly onClose: () => void;
+	readonly onComplete?: (outcome: ProviderSearchScreenOutcome) => void;
 	readonly initialQuery?: string | undefined;
 	readonly schema: EntitySchemaReference;
 };
@@ -55,6 +57,7 @@ export function ProviderAddModal(props: ProviderAddModalProps) {
 	const clientStorage = runtime.runSync(ClientStorage);
 	const libraryMembership = resolveLibraryMembership(ownerPluginId, entitySchemaSlug);
 	const imported = useRef(false);
+	const completed = useRef(false);
 	const [state, setState] = useState<ProviderAddModalState>({
 		selectedProviderId: undefined,
 		providers: { status: "loading" },
@@ -148,11 +151,24 @@ export function ProviderAddModal(props: ProviderAddModalProps) {
 								new Map(links.map((link) => [link.externalId, link.entityId])),
 						),
 					);
+	const complete = (outcome: ProviderSearchScreenOutcome) => {
+		if (props.onComplete === undefined || completed.current) {
+			return false;
+		}
+		completed.current = true;
+		props.onComplete(outcome);
+		return true;
+	};
+	const close = () => {
+		if (!complete({ kind: "cancelled" })) {
+			props.onClose();
+		}
+	};
 
 	return (
 		<Modal
+			onClose={close}
 			closeLabel="Close"
-			onClose={props.onClose}
 			label={PROVIDER_ADD_TITLE}
 			containerClassName="md:items-center md:justify-center md:p-6"
 			className="flex w-full flex-1 flex-col overflow-hidden bg-bg pt-[env(safe-area-inset-top)] md:max-h-[85%] md:max-w-2xl md:flex-initial md:rounded-xl md:border md:border-border md:bg-surface md:shadow-card md:pt-0"
@@ -161,8 +177,8 @@ export function ProviderAddModal(props: ProviderAddModalProps) {
 				<div className="p-4">
 					<ProviderSearchPanel
 						search={search}
+						onClose={close}
 						uploadFile={uploadFile}
-						onClose={props.onClose}
 						providers={state.providers}
 						importEntity={importEntity}
 						onSelectProvider={selectProvider}
@@ -173,8 +189,9 @@ export function ProviderAddModal(props: ProviderAddModalProps) {
 						selectedProviderId={state.selectedProviderId}
 						relationshipSlug={libraryMembership.relationshipSlug}
 						librarySchemaSlug={libraryMembership.librarySchemaSlug}
-						onImported={() => {
+						onImported={(entityId: EntityId) => {
 							imported.current = true;
+							complete({ kind: "added", entityIds: [entityId] });
 						}}
 					/>
 				</div>
