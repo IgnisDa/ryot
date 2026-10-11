@@ -91,7 +91,7 @@ export function WorkoutGridCard(props: { readonly card: WorkoutCard }) {
 						<WorkoutName card={card} className="text-[18px]" />
 						{card.day === null ? null : (
 							<span className="text-[13px] text-text-muted tabular-nums">
-								{card.day} · {card.time}
+								<span>{card.day}</span> · <span>{card.time}</span>
 							</span>
 						)}
 					</div>
@@ -119,7 +119,7 @@ export function WorkoutGridCard(props: { readonly card: WorkoutCard }) {
 						{card.top.map((line) => (
 							<li key={line.key} className="flex items-baseline gap-2.5">
 								<span className="min-w-0 flex-1 truncate text-text">
-									{line.name}
+									<span>{line.name}</span>
 									{line.record ? <span className="ml-1.5 text-accent-text">★</span> : null}
 								</span>
 								<span
@@ -238,7 +238,7 @@ export function WorkoutListRow(props: { readonly card: WorkoutCard }) {
 							{card.lines.map((line) => (
 								<tr key={line.key} className="border-t border-border">
 									<td className="px-3 py-2 text-text">
-										{line.name}
+										<span>{line.name}</span>
 										{line.record ? (
 											<span className="ml-1.5 text-[12px] text-accent-text">★ PR</span>
 										) : null}
