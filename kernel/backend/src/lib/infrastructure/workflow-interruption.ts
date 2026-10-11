@@ -12,19 +12,33 @@ export const workflowInterruptRequested = Effect.flatMap(WorkflowEngine, (engine
 	engine.deferredResult(interruptSignal),
 ).pipe(Effect.map(Option.isSome));
 
-export const interruptWorkflowAndWait = Effect.fn("workflow.interruptAndWait")(function* (
-	workflow: Workflow.Any,
-	executionId: string,
-	options: { readonly requireReply?: boolean } = {},
-) {
-	const engine = yield* WorkflowEngine;
-	const completion = Workflow.make(workflow._tag, {
+const completionWorkflow = (workflow: Workflow.Any, executionId: string) =>
+	Workflow.make(workflow._tag, {
 		error: Schema.Unknown,
 		success: Schema.Unknown,
 		payload: Schema.Struct({}),
 		annotations: workflow.annotations,
 		idempotencyKey: () => executionId,
 	});
+
+export const isWorkflowSettled = Effect.fn("workflow.isSettled")(function* (
+	workflow: Workflow.Any,
+	executionId: string,
+) {
+	const result = yield* (yield* WorkflowEngine).poll(
+		completionWorkflow(workflow, executionId),
+		executionId,
+	);
+	return Option.isSome(result) && result.value._tag === "Complete";
+});
+
+export const interruptWorkflowAndWait = Effect.fn("workflow.interruptAndWait")(function* (
+	workflow: Workflow.Any,
+	executionId: string,
+	options: { readonly requireReply?: boolean } = {},
+) {
+	const engine = yield* WorkflowEngine;
+	const completion = completionWorkflow(workflow, executionId);
 	yield* engine.interrupt(workflow, executionId);
 	yield* awaitWorkflowSettled({
 		backstop: "1 second",

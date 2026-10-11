@@ -1,9 +1,10 @@
-import { expect, layer } from "@effect/vitest";
+import { assert, expect, layer } from "@effect/vitest";
+import { definitionOwner } from "@ryot-app/contract/modules/plugins/references";
 import {
 	AutomationExecutionId,
 	EntityId,
 	EntitySchemaSlug,
-	SandboxProviderId,
+	PluginId,
 	type UserId,
 } from "@ryot-app/contract/schema/brands";
 import { IsoUtcString } from "@ryot-app/contract/schema/utils";
@@ -15,6 +16,15 @@ import { describe } from "vitest";
 import { rootLifecycleCommand } from "#lib/domain/lifecycle-command";
 import { WorkflowExecutionNotifications } from "#lib/infrastructure/workflow-execution-notifications";
 import { makeAppConfigLayer, makeWorkflowEngine } from "#lib/test-utils/effect";
+import { ClientArtifactsRepository } from "#modules/client-artifacts/repository";
+import { DefinitionRepository } from "#modules/definition-registry/repository";
+import { PluginConfigEncryptionKey } from "#modules/plugins/config-encryption-key";
+import { PluginConfigRevisions } from "#modules/plugins/config-revisions";
+import { PluginInstallationRepository } from "#modules/plugins/installation-repository";
+import { PluginRepository } from "#modules/plugins/repository";
+import { installRevisionPackage, revisionPackage } from "#modules/plugins/revision.test-support";
+import { PluginRuntimeResolver } from "#modules/plugins/runtime-resolver";
+import { SandboxExecutionServiceLive } from "#modules/sandbox/layer";
 
 import { ProviderImportAdmission } from "./admission";
 import { admissionDatabaseLayer, alice, bob } from "./admission.test-support";
@@ -30,6 +40,7 @@ const listedEntity = {
 	createdAt: "2026-01-01T00:00:00.000Z",
 	updatedAt: "2026-01-01T00:00:00.000Z",
 	entitySchemaSlug: EntitySchemaSlug.make("book"),
+	entitySchemaPluginId: PluginId.make("fixture-result-owner"),
 };
 
 /** Records starts and interrupts; a started workflow stays suspended until the test settles it. */
@@ -89,35 +100,86 @@ const recordingEngineLayer = Layer.effectContext(
 	}),
 );
 
+const catalogueDependencies = Layer.mergeAll(
+	ClientArtifactsRepository.layer,
+	DefinitionRepository.layer,
+	PluginConfigEncryptionKey.layer,
+	PluginConfigRevisions.layer,
+	PluginInstallationRepository.layer,
+);
+const pluginsLayer = PluginRepository.layer.pipe(Layer.provide(catalogueDependencies));
+const catalogueLayer = Layer.mergeAll(
+	catalogueDependencies,
+	pluginsLayer,
+	PluginRuntimeResolver.layer.pipe(Layer.provide(Layer.merge(catalogueDependencies, pluginsLayer))),
+).pipe(Layer.provideMerge(admissionDatabaseLayer));
+
+class AdmissionProviders extends Context.Service<
+	AdmissionProviders,
+	ReadonlyMap<
+		UserId,
+		NonNullable<
+			Effect.Success<ReturnType<PluginRuntimeResolver["Service"]["findProviderAvailableToUser"]>>
+		>
+	>
+>()("test/AdmissionProviders") {}
+const fixturesLayer = Layer.effect(
+	AdmissionProviders,
+	Effect.gen(function* () {
+		const runtime = yield* PluginRuntimeResolver;
+		const source = revisionPackage("admission", "v1", "book");
+		const entries = yield* Effect.forEach([alice, bob], (userId) =>
+			Effect.gen(function* () {
+				const installed = yield* installRevisionPackage(source, userId);
+				const provider = yield* runtime.findProviderAvailableToUserByReference(userId, {
+					slug: "admission-provider",
+					owner: definitionOwner(installed.pluginId),
+				});
+				assert(provider);
+				return [userId, provider] as const;
+			}),
+		);
+		return new Map(entries);
+	}),
+).pipe(Layer.provideMerge(catalogueLayer));
+
 const admissionLayer = ProviderImportAdmission.layer.pipe(
+	Layer.provide(SandboxExecutionServiceLive),
 	Layer.provide(makeAppConfigLayer()),
 	Layer.provideMerge(recordingEngineLayer),
 	Layer.provideMerge(WorkflowExecutionNotifications.layer),
-	Layer.provideMerge(admissionDatabaseLayer),
+	Layer.provideMerge(fixturesLayer),
 );
 
 const submit = (executionId: string, userId: UserId) =>
-	Effect.flatMap(ProviderImportAdmission, (admission) =>
-		admission.submit({
+	Effect.gen(function* () {
+		const admission = yield* ProviderImportAdmission;
+		const provider = (yield* AdmissionProviders).get(userId);
+		assert(provider);
+		return yield* admission.submit({
 			userId,
 			payload: {
 				executionId,
 				externalId: executionId,
+				providerId: provider.id,
 				entityScope: { userId, type: "user" },
-				providerId: SandboxProviderId.make("provider"),
+				pluginId: PluginId.make(provider.pluginId),
 				entitySchemaSlug: EntitySchemaSlug.make("book"),
-				command: rootLifecycleCommand({
-					source: "api",
-					lane: "interactive",
-					itemIdentity: executionId,
-					initiator: { id: userId, kind: "user" },
-					executionId: AutomationExecutionId.make(executionId),
-					occurredAt: IsoUtcString.make("2026-01-01T00:00:00.000Z"),
-					accountGeneration: { userId, token: "test-account-generation" },
-				}),
+				command: {
+					...rootLifecycleCommand({
+						source: "api",
+						lane: "interactive",
+						itemIdentity: executionId,
+						initiator: { id: userId, kind: "user" },
+						executionId: AutomationExecutionId.make(executionId),
+						occurredAt: IsoUtcString.make("2026-01-01T00:00:00.000Z"),
+						accountGeneration: { userId, token: "test-account-generation" },
+					}),
+					writeContext: null,
+				},
 			},
-		}),
-	);
+		});
+	});
 
 const reconcile = Effect.flatMap(ProviderImportAdmission, (admission) => admission.reconcile);
 

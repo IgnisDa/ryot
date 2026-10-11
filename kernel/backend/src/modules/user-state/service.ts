@@ -1,6 +1,7 @@
 import type { CurrentUserValue } from "@ryot-app/contract/auth-middleware";
 import { DbError } from "@ryot-app/contract/errors";
 import type { LifecycleCommand } from "@ryot-app/contract/modules/automations/lifecycle";
+import { definitionKey, definitionOwner } from "@ryot-app/contract/modules/plugins/references";
 import type {
 	RelationshipBadRequest,
 	RelationshipNotFound,
@@ -23,6 +24,7 @@ import { DatabaseSession } from "#lib/infrastructure/db/session";
 import { trimToNull } from "#lib/shared/validation";
 import { DefinitionRepository } from "#modules/definition-registry/repository";
 import { EntitiesRepository } from "#modules/entities/repository";
+import type { DomainLifecycleCommand } from "#modules/entities/write-context";
 import { EventsRepository } from "#modules/events/repository";
 import {
 	EventsService,
@@ -41,10 +43,10 @@ import type {
 import { RelationshipsRepository } from "#modules/relationships/repository";
 import { RelationshipsService } from "#modules/relationships/service";
 
-const itemCommand = (command: LifecycleCommand, identity: string): LifecycleCommand => ({
-	...command,
-	itemIdentity: `${command.itemIdentity}:${identity}`,
-});
+const itemCommand = (
+	command: DomainLifecycleCommand,
+	identity: string,
+): DomainLifecycleCommand => ({ ...command, itemIdentity: `${command.itemIdentity}:${identity}` });
 
 const lifecyclePersistenceFailure = (error: LifecyclePersistenceError) =>
 	new DbError({ message: `User-state lifecycle persistence failed: ${error.code}` });
@@ -95,7 +97,7 @@ export class UserStateService extends Context.Service<UserStateService>()("UserS
 			ReturnType<typeof relationshipsRepository.listUserRelationshipsForEntityWithProvenance>
 		>[number];
 		const withBatches = Effect.fnUntraced(function* (
-			command: LifecycleCommand,
+			command: DomainLifecycleCommand,
 			eventDispatch: ReadonlyArray<LifecycleDispatchPlan>,
 			relationshipDispatch: ReadonlyArray<LifecycleDispatchPlan>,
 		) {
@@ -116,7 +118,7 @@ export class UserStateService extends Context.Service<UserStateService>()("UserS
 			mergeFrom: EntityId;
 			mergeInto: EntityId;
 			userId: CurrentUserValue["id"];
-			command: LifecycleCommand;
+			command: DomainLifecycleCommand;
 		}) {
 			const { userId, command, mergeFrom, mergeInto, relationship } = input;
 			const sourceEntityId =
@@ -133,8 +135,10 @@ export class UserStateService extends Context.Service<UserStateService>()("UserS
 							sourceEntityId,
 							targetEntityId,
 							properties: relationship.properties,
-							relationshipSchemaSlug: relationship.relationshipSchemaSlug,
-							relationshipSchemaPluginId: relationship.relationshipSchemaPluginId,
+							relationshipSchema: {
+								slug: relationship.relationshipSchemaSlug,
+								owner: definitionOwner(relationship.relationshipSchemaPluginId),
+							},
 						},
 						itemCommand(command, `relationship:${relationship.id}:create`),
 					)
@@ -148,8 +152,10 @@ export class UserStateService extends Context.Service<UserStateService>()("UserS
 						scope: "user",
 						sourceEntityId: relationship.sourceEntityId,
 						targetEntityId: relationship.targetEntityId,
-						relationshipSchemaSlug: relationship.relationshipSchemaSlug,
-						relationshipSchemaPluginId: relationship.relationshipSchemaPluginId,
+						relationshipSchema: {
+							slug: relationship.relationshipSchemaSlug,
+							owner: definitionOwner(relationship.relationshipSchemaPluginId),
+						},
 					},
 					itemCommand(command, `relationship:${relationship.id}:delete`),
 				)
@@ -160,7 +166,7 @@ export class UserStateService extends Context.Service<UserStateService>()("UserS
 		const clearUserState = Effect.fn("UserStateService.clearUserState")(function* (
 			user: CurrentUserValue,
 			entityIdInput: EntityId,
-			command: LifecycleCommand,
+			command: DomainLifecycleCommand,
 		) {
 			const trimmedEntityId = trimToNull(entityIdInput);
 			if (!trimmedEntityId) {
@@ -188,9 +194,15 @@ export class UserStateService extends Context.Service<UserStateService>()("UserS
 				});
 			}
 
+			const entitySchemaReference = {
+				slug: scope.entitySchemaSlug,
+				owner: definitionOwner(scope.entitySchemaPluginId),
+			};
 			const entitySchema = (yield* definitions
-				.findUserEntitySchemas(user.id, [scope.entitySchemaSlug])
-				.pipe(Effect.orDie))[scope.entitySchemaSlug];
+				.findUserEntitySchemas(user.id, [entitySchemaReference])
+				.pipe(Effect.orDie))[
+				definitionKey("entity", entitySchemaReference.owner, entitySchemaReference.slug)
+			];
 			if (entitySchema?.userState?.deniedOperations.includes("clear")) {
 				return yield* new UserStateBadRequest({
 					reason: { operation: "clear", code: "operation-denied" },
@@ -225,8 +237,10 @@ export class UserStateService extends Context.Service<UserStateService>()("UserS
 							userId: user.id,
 							sourceEntityId: relationship.sourceEntityId,
 							targetEntityId: relationship.targetEntityId,
-							relationshipSchemaSlug: relationship.relationshipSchemaSlug,
-							relationshipSchemaPluginId: relationship.relationshipSchemaPluginId,
+							relationshipSchema: {
+								slug: relationship.relationshipSchemaSlug,
+								owner: definitionOwner(relationship.relationshipSchemaPluginId),
+							},
 						},
 						itemCommand(command, `relationship:${relationship.id}:delete`),
 					)
@@ -288,7 +302,7 @@ export class UserStateService extends Context.Service<UserStateService>()("UserS
 		const mergeUserState = Effect.fn("UserStateService.mergeUserState")(function* (
 			user: CurrentUserValue,
 			payload: MergeUserStateBody,
-			command: LifecycleCommand,
+			command: DomainLifecycleCommand,
 		) {
 			const trimmedMergeFrom = trimToNull(payload.mergeFrom);
 			const trimmedMergeInto = trimToNull(payload.mergeInto);
@@ -330,11 +344,25 @@ export class UserStateService extends Context.Service<UserStateService>()("UserS
 					reason: { code: "entity-not-found", entityIds: [mergeFrom, mergeInto] },
 				});
 			}
+			const fromEntitySchemaReference = {
+				slug: fromScope.entitySchemaSlug,
+				owner: definitionOwner(fromScope.entitySchemaPluginId),
+			};
+			const intoEntitySchemaReference = {
+				slug: intoScope.entitySchemaSlug,
+				owner: definitionOwner(intoScope.entitySchemaPluginId),
+			};
 			const entitySchemas = yield* definitions
-				.findUserEntitySchemas(user.id, [fromScope.entitySchemaSlug, intoScope.entitySchemaSlug])
+				.findUserEntitySchemas(user.id, [fromEntitySchemaReference, intoEntitySchemaReference])
 				.pipe(Effect.orDie);
-			const fromEntitySchema = entitySchemas[fromScope.entitySchemaSlug];
-			const intoEntitySchema = entitySchemas[intoScope.entitySchemaSlug];
+			const fromEntitySchema =
+				entitySchemas[
+					definitionKey("entity", fromEntitySchemaReference.owner, fromEntitySchemaReference.slug)
+				];
+			const intoEntitySchema =
+				entitySchemas[
+					definitionKey("entity", intoEntitySchemaReference.owner, intoEntitySchemaReference.slug)
+				];
 			if (
 				fromEntitySchema?.userState?.deniedOperations.includes("merge") ||
 				intoEntitySchema?.userState?.deniedOperations.includes("merge")
@@ -343,7 +371,10 @@ export class UserStateService extends Context.Service<UserStateService>()("UserS
 					reason: { operation: "merge", code: "operation-denied" },
 				});
 			}
-			if (fromScope.entitySchemaSlug !== intoScope.entitySchemaSlug) {
+			if (
+				fromScope.entitySchemaSlug !== intoScope.entitySchemaSlug ||
+				fromScope.entitySchemaPluginId !== intoScope.entitySchemaPluginId
+			) {
 				return yield* new UserStateBadRequest({ reason: { code: "entity-schema-mismatch" } });
 			}
 			if (!fromEntitySchema) {
@@ -463,7 +494,7 @@ export class UserStateService extends Context.Service<UserStateService>()("UserS
 
 		return {
 			clearUserState: (user: CurrentUserValue, entityId: EntityId, command: LifecycleCommand) =>
-				clearUserState(user, entityId, command).pipe(
+				clearUserState(user, entityId, { ...command, writeContext: null }).pipe(
 					Effect.catchTag("LifecyclePersistenceError", lifecyclePersistenceFailure),
 				),
 			mergeUserState: (
@@ -471,7 +502,7 @@ export class UserStateService extends Context.Service<UserStateService>()("UserS
 				payload: MergeUserStateBody,
 				command: LifecycleCommand,
 			) =>
-				mergeUserState(user, payload, command).pipe(
+				mergeUserState(user, payload, { ...command, writeContext: null }).pipe(
 					Effect.catchTag("LifecyclePersistenceError", lifecyclePersistenceFailure),
 				),
 		};

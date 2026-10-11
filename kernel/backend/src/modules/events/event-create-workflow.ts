@@ -1,5 +1,4 @@
 import { DbError } from "@ryot-app/contract/errors";
-import { LifecycleCommand } from "@ryot-app/contract/modules/automations/lifecycle";
 import {
 	CreateEventItem,
 	CreateEventsResponse,
@@ -13,13 +12,14 @@ import { Workflow } from "effect/workflow";
 import { WorkflowEngine } from "effect/workflow/WorkflowEngine";
 
 import type { DurableSchema } from "#lib/infrastructure/workflow";
+import { DomainLifecycleCommand } from "#modules/entities/write-context";
 import { MutationReceipts } from "#modules/mutations/receipts";
 import { dispatchAdmittedWorkflow } from "#modules/mutations/workflow-dispatch";
 
 export const EventCreateWorkflowError = Schema.Union([DbError, EventCreateItemError]);
 export const EventCreateWorkflowPayload = Schema.Struct({
 	userId: UserId,
-	command: LifecycleCommand,
+	command: DomainLifecycleCommand,
 	payload: Schema.Array(CreateEventItem),
 	itemIdentities: Schema.optional(Schema.Array(Schema.NonEmptyString)),
 }).pipe(

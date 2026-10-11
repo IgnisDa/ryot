@@ -1,8 +1,8 @@
 import type {
 	AutomationRelationshipRequestPayload,
 	AutomationRelationshipSnapshot,
-	LifecycleCommand,
 } from "@ryot-app/contract/modules/automations/lifecycle";
+import { definitionKey } from "@ryot-app/contract/modules/plugins/references";
 import {
 	RelationshipBadRequest,
 	RelationshipNotFound,
@@ -15,6 +15,11 @@ import {
 	type LifecycleDispatchPlan,
 } from "#lib/domain/lifecycle";
 import { lifecycleTrigger } from "#lib/domain/lifecycle-command";
+import {
+	DomainWriteConflict,
+	makeDomainWriteChecks,
+	type DomainLifecycleCommand,
+} from "#modules/entities/write-context";
 import { mutationReceiptIdentity, mutationReceiptOwner } from "#modules/mutations/receipts";
 import { catalogDefinitionFingerprint } from "#modules/plugins/runtime-resolver";
 
@@ -49,6 +54,7 @@ export const makePlannedRelationshipReconciliation = (
 ) => {
 	const { session, planner, runtime, entities, receipts, repository, definitions } = dependencies;
 	const primitives = makeRelationshipMutationPrimitives(dependencies);
+	const writes = makeDomainWriteChecks(session);
 	const GroupResult = Schema.Struct({
 		created: Schema.Finite,
 		updated: Schema.Finite,
@@ -60,17 +66,32 @@ export const makePlannedRelationshipReconciliation = (
 		"RelationshipsService.persistPlannedReconciliation",
 	)(function* (
 		groups: ReadonlyArray<ReconcileGlobalRelationshipGroup>,
-		command: LifecycleCommand,
+		command: DomainLifecycleCommand,
 		scope: RelationshipReconciliationScope,
 	) {
 		yield* assertActiveTransaction;
 		const scopeUserId = scope.scope === "user" ? scope.userId : null;
+		for (const group of groups) {
+			yield* writes
+				.check(command, group.relationshipSchema.owner, scopeUserId, true)
+				.pipe(
+					Effect.mapError(
+						(error) =>
+							new RelationshipBadRequest({
+								reason:
+									error instanceof DomainWriteConflict
+										? error.reason
+										: { code: "concurrent-relationship-change" },
+							}),
+					),
+				);
+		}
 		const groupReceipts = groups.map((_, groupIndex) =>
 			mutationReceiptIdentity({
 				scopeUserId,
-				input: { scope, groups },
 				commandKind: "relationship:reconcile",
 				ownerUserId: mutationReceiptOwner(command, scopeUserId),
+				input: { scope, groups, writeContext: command.writeContext },
 				command: { ...command, itemIdentity: `${command.itemIdentity}:group:${groupIndex}` },
 			}),
 		);
@@ -86,11 +107,11 @@ export const makePlannedRelationshipReconciliation = (
 			} satisfies CommittedLifecycleWork<PlannedRelationshipReconciliationResult>;
 		}
 		yield* runtime.lockCatalog();
-		const slugs = groups.map(({ relationshipSchemaSlug }) => relationshipSchemaSlug);
+		const references = groups.map((group) => group.relationshipSchema);
 		const schemas =
 			scope.scope === "user"
-				? yield* definitions.findUserRelationshipSchemas(scope.userId, slugs)
-				: yield* definitions.findGlobalRelationshipSchemas(slugs);
+				? yield* definitions.findUserRelationshipSchemas(scope.userId, references)
+				: yield* definitions.findGlobalRelationshipSchemas(references);
 		const dispatch: LifecycleDispatchPlan[] = [];
 		const result: Array<PlannedRelationshipReconciliationResult[number]> = [];
 		for (const [groupIndex, group] of groups.entries()) {
@@ -104,19 +125,17 @@ export const makePlannedRelationshipReconciliation = (
 				dispatch.push(...previous.dispatch);
 				continue;
 			}
-			const definition = schemas[group.relationshipSchemaSlug];
+			const reference = group.relationshipSchema;
+			const definition = schemas[definitionKey("relationship", reference.owner, reference.slug)];
 			if (!definition) {
 				return yield* new RelationshipNotFound({
-					reason: {
-						code: "relationship-schema-not-found",
-						relationshipSchemaSlug: group.relationshipSchemaSlug,
-					},
+					reason: { schema: reference, code: "relationship-schema-not-found" },
 				});
 			}
 			const selector = {
 				...group.selector,
 				...scope,
-				relationshipSchemaSlug: group.relationshipSchemaSlug,
+				relationshipSchemaSlug: group.relationshipSchema.slug,
 				relationshipSchemaPluginId: definition.pluginId ?? null,
 			} satisfies RelationshipReconciliationListInput;
 			const seen = new Set<string>();
@@ -157,7 +176,7 @@ export const makePlannedRelationshipReconciliation = (
 			const mutations: Array<{
 				input: RelationshipIdentityInput;
 				mode: "upsert" | "delete";
-				command: LifecycleCommand;
+				command: DomainLifecycleCommand;
 				properties: Record<string, unknown>;
 			}> = [
 				...desired.map((input) => ({
@@ -173,7 +192,7 @@ export const makePlannedRelationshipReconciliation = (
 					const input = {
 						...change.input,
 						...scope,
-						relationshipSchemaSlug: group.relationshipSchemaSlug,
+						relationshipSchemaSlug: group.relationshipSchema.slug,
 						relationshipSchemaPluginId: definition.pluginId ?? null,
 					};
 					return {
@@ -206,10 +225,10 @@ export const makePlannedRelationshipReconciliation = (
 			const prepared: Array<{
 				input: RelationshipIdentityInput;
 				mode: "upsert" | "delete";
-				command: LifecycleCommand;
+				command: DomainLifecycleCommand;
 				before: AutomationRelationshipSnapshot | null;
 				request: AutomationRelationshipRequestPayload | null;
-				requestId: LifecycleCommand["causation"]["parentTriggerId"];
+				requestId: DomainLifecycleCommand["causation"]["parentTriggerId"];
 			}> = [];
 			for (const [index, mutation] of mutations.entries()) {
 				if (itemReplays[index]) {

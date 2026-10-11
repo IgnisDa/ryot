@@ -3,8 +3,8 @@ import {
 	AutomationRelationshipSnapshot,
 	AutomationRelationshipRequestPayload,
 	AutomationTrigger,
-	type LifecycleCommand,
 } from "@ryot-app/contract/modules/automations/lifecycle";
+import { definitionKey, definitionOwner } from "@ryot-app/contract/modules/plugins/references";
 import {
 	RelationshipBadRequest,
 	RelationshipBatchResult,
@@ -28,6 +28,11 @@ import {
 import { DefinitionRepository } from "#modules/definition-registry/repository";
 import type { RelationshipSchemaDefinition } from "#modules/definition-registry/snapshot";
 import { EntitiesRepository } from "#modules/entities/repository";
+import {
+	DomainWriteConflict,
+	makeDomainWriteChecks,
+	type DomainLifecycleCommand,
+} from "#modules/entities/write-context";
 import {
 	mutationReceiptIdentity,
 	mutationReceiptOwner,
@@ -55,6 +60,7 @@ import {
 	rootTransactionGuard,
 	snapshot,
 	validateUserRelationshipEntities,
+	relationshipSchemaReference,
 	type ChangeUserRelationshipBatch,
 	type Mutation,
 	type ReconcileGlobalRelationshipGroup,
@@ -182,6 +188,7 @@ export class RelationshipMutationPipeline extends Context.Service<RelationshipMu
 			const runtime = yield* PluginRuntimeResolver;
 			const definitions = yield* DefinitionRepository;
 			const session = yield* DatabaseSession;
+			const writes = makeDomainWriteChecks(session);
 			const planner = yield* LifecyclePlanner;
 			const execution = yield* LifecycleExecution;
 			const receipts = yield* MutationReceipts.make;
@@ -207,15 +214,13 @@ export class RelationshipMutationPipeline extends Context.Service<RelationshipMu
 				userId: UserId,
 				input: UserRelationshipIdentity,
 			) {
-				const definition = (yield* definitions.findUserRelationshipSchemas(userId, [
-					input.relationshipSchemaSlug,
-				]))[input.relationshipSchemaSlug];
+				const reference = input.relationshipSchema;
+				const definition = (yield* definitions.findUserRelationshipSchemas(userId, [reference]))[
+					definitionKey("relationship", reference.owner, reference.slug)
+				];
 				if (!definition) {
 					return yield* new RelationshipNotFound({
-						reason: {
-							code: "relationship-schema-not-found",
-							relationshipSchemaSlug: input.relationshipSchemaSlug,
-						},
+						reason: { schema: reference, code: "relationship-schema-not-found" },
 					});
 				}
 				yield* validateUserRelationshipEntities(entities, userId, input, definition);
@@ -258,6 +263,26 @@ export class RelationshipMutationPipeline extends Context.Service<RelationshipMu
 				rootDecision: MutationReceiptIdentity | null = null,
 				rootFinal = false,
 			) {
+				for (const mutation of mutations) {
+					yield* writes
+						.check(
+							mutation.command,
+							relationshipSchemaReference(mutation.input).owner,
+							mutation.input.scope === "user" ? mutation.input.userId : null,
+							true,
+						)
+						.pipe(
+							Effect.mapError(
+								(error) =>
+									new RelationshipBadRequest({
+										reason:
+											error instanceof DomainWriteConflict
+												? error.reason
+												: { code: "concurrent-relationship-change" },
+									}),
+							),
+						);
+				}
 				if (rootDecision) {
 					yield* receipts
 						.beginBatch({ pins: [], maxItems: 0, identity: rootDecision })
@@ -361,6 +386,26 @@ export class RelationshipMutationPipeline extends Context.Service<RelationshipMu
 			const commitMutationsInTransaction = Effect.fn(
 				"RelationshipsService.commitMutationsInTransaction",
 			)(function* (pending: PendingRelationshipMutations) {
+				for (const { mutation } of pending.items) {
+					yield* writes
+						.check(
+							mutation.command,
+							relationshipSchemaReference(mutation.input).owner,
+							mutation.input.scope === "user" ? mutation.input.userId : null,
+							true,
+						)
+						.pipe(
+							Effect.mapError(
+								(error) =>
+									new RelationshipBadRequest({
+										reason:
+											error instanceof DomainWriteConflict
+												? error.reason
+												: { code: "concurrent-relationship-change" },
+									}),
+							),
+						);
+				}
 				if (pending.aggregate) {
 					const aggregate = pending.aggregate;
 					const recorded = yield* receipts
@@ -445,7 +490,8 @@ export class RelationshipMutationPipeline extends Context.Service<RelationshipMu
 									reason: { code: "concurrent-relationship-change" },
 								});
 							}
-							const slug = mutation.input.relationshipSchemaSlug;
+							const reference = relationshipSchemaReference(mutation.input);
+							const key = definitionKey("relationship", reference.owner, reference.slug);
 							let definition: RelationshipSchemaDefinition | null | undefined;
 							if (mutation.input.scope === "user") {
 								const userId = mutation.input.userId;
@@ -455,18 +501,21 @@ export class RelationshipMutationPipeline extends Context.Service<RelationshipMu
 										userId,
 										pending.items.flatMap(({ mutation: candidate }) =>
 											candidate.input.scope === "user" && candidate.input.userId === userId
-												? [candidate.input.relationshipSchemaSlug]
+												? [relationshipSchemaReference(candidate.input)]
 												: [],
 										),
 									);
 									userCatalogs.set(userId, catalog);
 								}
-								definition = catalog[slug];
+								definition = catalog[key];
 							} else {
-								if (!globalSchemas.has(slug)) {
-									globalSchemas.set(slug, yield* definitions.findGlobalRelationshipSchema(slug));
+								if (!globalSchemas.has(key)) {
+									globalSchemas.set(
+										key,
+										yield* definitions.findGlobalRelationshipSchema(reference),
+									);
 								}
-								definition = globalSchemas.get(slug);
+								definition = globalSchemas.get(key);
 							}
 							return {
 								...item,
@@ -638,26 +687,41 @@ export class RelationshipMutationPipeline extends Context.Service<RelationshipMu
 				userId: UserId,
 				batch: ChangeUserRelationshipBatch,
 				index: number,
-				command: LifecycleCommand,
+				command: DomainLifecycleCommand,
 				allBatches: ReadonlyArray<ChangeUserRelationshipBatch> = [batch],
 			) => {
 				const rootDecision = mutationReceiptIdentity({
 					command,
-					input: allBatches,
 					ownerUserId: userId,
 					scopeUserId: userId,
 					commandKind: "relationship:change-user",
+					input: { batches: allBatches, writeContext: command.writeContext },
 				});
 				const rootFinal = index === allBatches.length - 1;
 				return Effect.gen(function* () {
+					for (const input of [...batch.creates, ...batch.deletes]) {
+						yield* writes
+							.check(command, input.relationshipSchema.owner, userId)
+							.pipe(
+								Effect.mapError(
+									(error) =>
+										new RelationshipBadRequest({
+											reason:
+												error instanceof DomainWriteConflict
+													? error.reason
+													: { code: "concurrent-relationship-change" },
+										}),
+								),
+							);
+					}
 					yield* receipts
 						.peekBatch(rootDecision)
 						.pipe(Effect.mapError(classifyRelationshipReceiptConflict));
 					const aggregate = mutationReceiptIdentity({
-						input: batch,
 						ownerUserId: userId,
 						scopeUserId: userId,
 						commandKind: "relationship:change-user-batch",
+						input: { batch, writeContext: command.writeContext },
 						command: { ...command, itemIdentity: `${command.itemIdentity}:batch:${index}` },
 					});
 					const replay = yield* receipts
@@ -690,6 +754,7 @@ export class RelationshipMutationPipeline extends Context.Service<RelationshipMu
 											userId,
 											scope: "user" as const,
 											relationshipSchemaPluginId: definition.pluginId ?? null,
+											relationshipSchemaSlug: change.input.relationshipSchema.slug,
 										};
 										return {
 											input,
@@ -718,14 +783,27 @@ export class RelationshipMutationPipeline extends Context.Service<RelationshipMu
 			const changeUser = Effect.fn("RelationshipsService.changeUser")(function* (
 				userId: UserId,
 				batches: ReadonlyArray<ChangeUserRelationshipBatch>,
-				command: LifecycleCommand,
+				command: DomainLifecycleCommand,
 			) {
+				yield* writes
+					.check(command, definitionOwner(command.writeContext?.pluginRevision?.id ?? null), userId)
+					.pipe(
+						Effect.mapError(
+							(error) =>
+								new RelationshipBadRequest({
+									reason:
+										error instanceof DomainWriteConflict
+											? error.reason
+											: { code: "concurrent-relationship-change" },
+								}),
+						),
+					);
 				const rootDecision = mutationReceiptIdentity({
 					command,
-					input: batches,
 					ownerUserId: userId,
 					scopeUserId: userId,
 					commandKind: "relationship:change-user",
+					input: { batches, writeContext: command.writeContext },
 				});
 				yield* receipts
 					.peekBatch(rootDecision)
@@ -756,26 +834,39 @@ export class RelationshipMutationPipeline extends Context.Service<RelationshipMu
 			const prepareReconcileGlobalGroup = (
 				group: ReconcileGlobalRelationshipGroup,
 				index: number,
-				command: LifecycleCommand,
+				command: DomainLifecycleCommand,
 				allGroups: ReadonlyArray<ReconcileGlobalRelationshipGroup> = [group],
 			) => {
 				const rootDecision = mutationReceiptIdentity({
 					command,
-					input: allGroups,
 					scopeUserId: null,
 					commandKind: "relationship:reconcile-global",
 					ownerUserId: mutationReceiptOwner(command, null),
+					input: { groups: allGroups, writeContext: command.writeContext },
 				});
 				const rootFinal = index === allGroups.length - 1;
 				return Effect.gen(function* () {
+					yield* writes
+						.check(command, group.relationshipSchema.owner, null)
+						.pipe(
+							Effect.mapError(
+								(error) =>
+									new RelationshipBadRequest({
+										reason:
+											error instanceof DomainWriteConflict
+												? error.reason
+												: { code: "concurrent-relationship-change" },
+									}),
+							),
+						);
 					yield* receipts
 						.peekBatch(rootDecision)
 						.pipe(Effect.mapError(classifyRelationshipReceiptConflict));
 					const aggregate = mutationReceiptIdentity({
-						input: group,
 						scopeUserId: null,
 						commandKind: "relationship:reconcile-group",
 						ownerUserId: mutationReceiptOwner(command, null),
+						input: { group, writeContext: command.writeContext },
 						command: { ...command, itemIdentity: `${command.itemIdentity}:group:${index}` },
 					});
 					const replay = yield* receipts
@@ -787,19 +878,19 @@ export class RelationshipMutationPipeline extends Context.Service<RelationshipMu
 					return yield* prepareProjectedRelationshipMutations(
 						Effect.gen(function* () {
 							const definition = yield* definitions.findGlobalRelationshipSchema(
-								group.relationshipSchemaSlug,
+								group.relationshipSchema,
 							);
 							if (!definition) {
 								return yield* new RelationshipNotFound({
 									reason: {
+										schema: group.relationshipSchema,
 										code: "relationship-schema-not-found",
-										relationshipSchemaSlug: group.relationshipSchemaSlug,
 									},
 								});
 							}
 							const selector = {
 								...group.selector,
-								relationshipSchemaSlug: group.relationshipSchemaSlug,
+								relationshipSchemaSlug: group.relationshipSchema.slug,
 								relationshipSchemaPluginId: definition.pluginId ?? null,
 							};
 							const seen = new Set<string>();
@@ -836,7 +927,7 @@ export class RelationshipMutationPipeline extends Context.Service<RelationshipMu
 								const input = {
 									...change.input,
 									scope: "global" as const,
-									relationshipSchemaSlug: group.relationshipSchemaSlug,
+									relationshipSchemaSlug: group.relationshipSchema.slug,
 									relationshipSchemaPluginId: definition.pluginId ?? null,
 								};
 								return {
@@ -868,15 +959,28 @@ export class RelationshipMutationPipeline extends Context.Service<RelationshipMu
 
 			const reconcileGlobal = Effect.fn("RelationshipsService.reconcileGlobal")(function* (
 				groups: ReadonlyArray<ReconcileGlobalRelationshipGroup>,
-				command: LifecycleCommand,
+				command: DomainLifecycleCommand,
 			) {
 				yield* assertRootTransaction;
+				yield* writes
+					.check(command, definitionOwner(command.writeContext?.pluginRevision?.id ?? null), null)
+					.pipe(
+						Effect.mapError(
+							(error) =>
+								new RelationshipBadRequest({
+									reason:
+										error instanceof DomainWriteConflict
+											? error.reason
+											: { code: "concurrent-relationship-change" },
+								}),
+						),
+					);
 				const rootDecision = mutationReceiptIdentity({
 					command,
-					input: groups,
 					scopeUserId: null,
 					commandKind: "relationship:reconcile-global",
 					ownerUserId: mutationReceiptOwner(command, null),
+					input: { groups, writeContext: command.writeContext },
 				});
 				yield* receipts
 					.peekBatch(rootDecision)

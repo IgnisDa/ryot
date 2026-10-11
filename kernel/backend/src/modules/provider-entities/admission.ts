@@ -1,3 +1,5 @@
+import { DbError } from "@ryot-app/contract/errors";
+import { definitionOwner } from "@ryot-app/contract/modules/plugins/references";
 import type { UserId } from "@ryot-app/contract/schema/brands";
 import { Cause, Context, Duration, Effect, FiberMap, Layer, Option, Queue, Schema } from "effect";
 import { WorkflowEngine } from "effect/workflow/WorkflowEngine";
@@ -5,8 +7,11 @@ import { WorkflowEngine } from "effect/workflow/WorkflowEngine";
 import { AppConfig } from "#lib/infrastructure/config/service";
 import { DatabaseSession } from "#lib/infrastructure/db/session";
 import { WorkflowExecutionNotifications } from "#lib/infrastructure/workflow-execution-notifications";
+import { makeDomainWriteChecks } from "#modules/entities/write-context";
 import { MutationReceipts } from "#modules/mutations/receipts";
 import { dispatchAdmittedWorkflow } from "#modules/mutations/workflow-dispatch";
+import { PluginRuntimeResolver } from "#modules/plugins/runtime-resolver";
+import { SandboxExecutionService } from "#modules/sandbox/service";
 
 import { ProviderImportAdmissionRepository } from "./admission-repository";
 import { EntityImportWorkflow } from "./entity-import-workflow";
@@ -30,6 +35,9 @@ export class ProviderImportAdmission extends Context.Service<ProviderImportAdmis
 			const engine = yield* WorkflowEngine;
 			const repository = yield* ProviderImportAdmissionRepository;
 			const receipts = yield* MutationReceipts.make;
+			const sandbox = yield* SandboxExecutionService;
+			const runtime = yield* PluginRuntimeResolver;
+			const checks = makeDomainWriteChecks(session);
 			const notifications = yield* WorkflowExecutionNotifications;
 			const completionWaiters = yield* FiberMap.make<string, void>();
 			const limit = config.sandbox.importConcurrency;
@@ -130,18 +138,76 @@ export class ProviderImportAdmission extends Context.Service<ProviderImportAdmis
 				payload: ProviderEntityImportWorkflowPayload;
 				userId: UserId;
 			}) {
-				const encoded = yield* encodePayload(input.payload).pipe(Effect.orDie);
-				const outcome = yield* session.transaction(
-					repository.enqueue({
-						payload: encoded,
-						userId: input.userId,
-						id: input.payload.executionId,
-						externalId: input.payload.externalId,
-						providerId: input.payload.providerId,
-						backlogLimit: PROVIDER_IMPORT_USER_BACKLOG_LIMIT,
-						entitySchemaSlug: input.payload.entitySchemaSlug,
-					}),
-				);
+				const details = yield* runtime
+					.resolveUserDetailsScript(input.userId, input.payload.providerId)
+					.pipe(Effect.mapError((error) => new DbError({ message: error.message })));
+				const generation = input.payload.command.accountGeneration;
+				if (!generation || generation.userId !== input.userId) {
+					return yield* new DbError({
+						message: "Provider import account authority is unavailable",
+					});
+				}
+				const pin = yield* sandbox
+					.preRegisterPluginWorkflow({
+						scriptId: details.id,
+						executingUserId: input.userId,
+						accountGeneration: generation,
+						pluginId: input.payload.pluginId,
+						executionId: input.payload.executionId,
+					})
+					.pipe(Effect.mapError((error) => new DbError({ message: error.message })));
+				const outcome = yield* session
+					.transaction(
+						Effect.gen(function* () {
+							yield* runtime.lockCatalog();
+							const provider = yield* checks.checkProvider(
+								input.payload.providerId,
+								definitionOwner(input.payload.pluginId),
+							);
+							if (
+								provider.rootEntitySchemaSlug !== input.payload.entitySchemaSlug ||
+								(pin.pluginRevision.scope === "user" && input.payload.entityScope.type !== "user")
+							) {
+								return yield* new DbError({
+									message: "Provider import owner or scope is unavailable",
+								});
+							}
+							const payload = {
+								...input.payload,
+								command: { ...input.payload.command, writeContext: pin.principal },
+							};
+							yield* checks
+								.check(
+									payload.command,
+									definitionOwner(payload.pluginId),
+									payload.entityScope.type === "user" ? input.userId : null,
+									true,
+								)
+								.pipe(Effect.mapError((error) => new DbError({ message: error.message })));
+							const encoded = yield* encodePayload(payload).pipe(Effect.orDie);
+							const admitted = yield* repository.enqueue({
+								payload: encoded,
+								userId: input.userId,
+								id: payload.executionId,
+								externalId: payload.externalId,
+								providerId: payload.providerId,
+								entitySchemaSlug: payload.entitySchemaSlug,
+								backlogLimit: PROVIDER_IMPORT_USER_BACKLOG_LIMIT,
+							});
+							if (
+								admitted.status !== "queued" &&
+								!(admitted.status === "duplicate" && admitted.id === payload.executionId)
+							) {
+								yield* sandbox.releaseWorkflowRegistration(payload.executionId);
+							}
+							return admitted;
+						}),
+					)
+					.pipe(
+						Effect.onError(() =>
+							sandbox.releaseWorkflowRegistration(input.payload.executionId).pipe(Effect.orDie),
+						),
+					);
 				if (outcome.status === "queued") {
 					yield* wake;
 				}
@@ -157,6 +223,9 @@ export class ProviderImportAdmission extends Context.Service<ProviderImportAdmis
 				userId: UserId;
 			}) {
 				const removed = yield* repository.cancelQueued(input);
+				if (removed) {
+					yield* sandbox.releaseWorkflowRegistration(input.id);
+				}
 				const admitted = removed ? null : yield* repository.find(input);
 				if (admitted) {
 					yield* engine.interrupt(EntityImportWorkflow, input.id);

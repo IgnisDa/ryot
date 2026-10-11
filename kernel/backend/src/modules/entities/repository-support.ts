@@ -1,5 +1,10 @@
 import type { SandboxScriptId, UserId } from "@ryot-app/contract/schema/brands";
-import { EntityId, EntitySchemaSlug, SandboxProviderId } from "@ryot-app/contract/schema/brands";
+import {
+	EntityId,
+	EntitySchemaSlug,
+	PluginId,
+	SandboxProviderId,
+} from "@ryot-app/contract/schema/brands";
 import type { AppSchema } from "@ryot-app/contract/schema/property-schema";
 import { eq, isNull, or } from "drizzle-orm";
 
@@ -16,6 +21,7 @@ type EntityRow = Pick<
 	| "populatedAt"
 	| "providerId"
 	| "entitySchemaSlug"
+	| "entitySchemaPluginId"
 >;
 
 export type EntitySchemaScope = {
@@ -50,6 +56,7 @@ export const entitySelection = {
 	externalId: schema.entity.externalId,
 	populatedAt: schema.entity.populatedAt,
 	entitySchemaSlug: schema.entity.entitySchemaSlug,
+	entitySchemaPluginId: schema.entity.entitySchemaPluginId,
 };
 
 export const entityVisibleToUserClause = (userId: UserId) =>
@@ -65,4 +72,6 @@ export const toListedEntity = (row: EntityRow) => ({
 	populatedAt: row.populatedAt?.toISOString() ?? null,
 	entitySchemaSlug: EntitySchemaSlug.make(row.entitySchemaSlug),
 	providerId: row.providerId ? SandboxProviderId.make(row.providerId) : null,
+	entitySchemaPluginId:
+		row.entitySchemaPluginId === null ? null : PluginId.make(row.entitySchemaPluginId),
 });

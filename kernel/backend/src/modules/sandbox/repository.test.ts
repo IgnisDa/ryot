@@ -1,5 +1,5 @@
-import { describe, expect, it, layer } from "@effect/vitest";
-import { SandboxScriptId } from "@ryot-app/contract/schema/brands";
+import { assert, describe, expect, it, layer } from "@effect/vitest";
+import { PluginPackageId, SandboxScriptId, UserId } from "@ryot-app/contract/schema/brands";
 import type { WorkflowDurableCallRequest } from "@ryot-app/sandbox-sdk/workflow";
 import type { SQL } from "drizzle-orm";
 import { PgDialect } from "drizzle-orm/pg-core";
@@ -44,6 +44,8 @@ const configSchema = {
 	unknownKeys: "strict",
 } satisfies PluginSandboxAuthority["configSchema"];
 
+const packageId = PluginPackageId.make("fa771a62-89c1-46f9-a4d6-f98cdfca9ad1");
+
 const manifest = {
 	configSchema,
 	entitySchemas: [],
@@ -56,11 +58,17 @@ const manifest = {
 const environmentConfigRevisionId = (): string | null => "config-1";
 
 const sandboxAuthority = {
+	packageId,
 	configSchema: manifest.configSchema,
 	scriptKinds: { "plugin.script": "script" },
 	userBootstrapScriptSlugs: ["plugin.script"],
 	workflowScripts: { "plugin-workflow": "plugin.workflow" },
-	schemaScope: { eventSchemas: [], entitySchemaSlugs: [], relationshipSchemaSlugs: [] },
+	schemaScope: {
+		eventSchemas: [],
+		entitySchemaSlugs: [],
+		signalSchemaSlugs: [],
+		relationshipSchemaSlugs: [],
+	},
 } satisfies PluginSandboxAuthority;
 
 const pluginPinRow = {
@@ -72,7 +80,9 @@ const pluginPinRow = {
 	slug: "plugin.script",
 	pluginStatus: "active",
 	providerId: "provider-id",
+	pluginPackageId: packageId,
 	contentHash: "current-hash",
+	manifestPackageId: packageId,
 	providerPluginId: "plugin-id",
 	pluginRevisionId: "revision-1",
 	activeRevisionId: "revision-1",
@@ -113,6 +123,7 @@ const pinDatabaseLayer = (rows: PinRows) =>
 					from: (table: unknown) => {
 						const builder = {
 							leftJoin: () => builder,
+							innerJoin: () => builder,
 							where: (condition: SQLCondition) =>
 								Object.assign(query(table, condition), { limit: () => query(table, condition) }),
 						};
@@ -156,11 +167,242 @@ const getPin = Effect.fnUntraced(function* (
 });
 
 layer(pinRepositoryLayer)((test) => {
+	test.effect(
+		"admits only the exact hidden unfinished installation bootstrap and rejects stale activations",
+		() =>
+			Effect.gen(function* () {
+				const database = yield* PinDatabase;
+				const repository = yield* SandboxRepository;
+				const userId = UserId.make("initializer-owner");
+				const subject = {
+					userId,
+					type: "user",
+					accountGeneration: { userId, token: "active-account" },
+				} as const;
+				const row = { ...pluginPinRow, pluginOwnerId: userId, activationId: "activation-1" };
+				const state = {
+					isHidden: true,
+					disabledAt: null,
+					uninstalledAt: null,
+					health: "installing",
+					isInitialized: false,
+					id: "hidden-installation",
+					incompatibilityReason: null,
+					activeConfigRevisionId: "config-1",
+				};
+				yield* database.respondWith((table) => {
+					if (table === tables.user) {
+						return [{ disabledAt: null, accountGeneration: "active-account" }];
+					}
+					if (table === tables.pluginInstallation) {
+						return [state];
+					}
+					if (table === tables.pluginConfigRevision) {
+						return [{ ...config, ownerUserId: userId }];
+					}
+					return [row];
+				});
+				const binding = { installationId: state.id, activationId: row.activationId };
+				const pin = yield* repository.getScriptPin(
+					SandboxScriptId.make(row.id),
+					undefined,
+					subject,
+					binding,
+				);
+				expect(pin).toMatchObject({
+					initialization: binding,
+					pluginRevision: { ownerId: userId, userBootstrapScriptSlugs: ["plugin.script"] },
+				});
+				expect(
+					yield* Effect.flip(
+						repository.getScriptPin(SandboxScriptId.make(row.id), undefined, subject),
+					),
+				).toMatchObject({ data: { code: "installation-unavailable" } });
+				expect(
+					yield* Effect.flip(
+						repository.getScriptPin(
+							SandboxScriptId.make(row.id),
+							pin?.pluginRevision ?? undefined,
+							subject,
+							{ ...binding, activationId: "old-activation" },
+						),
+					),
+				).toMatchObject({ data: { code: "installation-unavailable" } });
+				yield* database.respondWith((table) => {
+					if (table === tables.user) {
+						return [{ disabledAt: null, accountGeneration: "active-account" }];
+					}
+					if (table === tables.pluginInstallation) {
+						return [{ ...state, isInitialized: true }];
+					}
+					if (table === tables.pluginConfigRevision) {
+						return [{ ...config, ownerUserId: userId }];
+					}
+					return [row];
+				});
+				expect(
+					yield* Effect.flip(
+						repository.getScriptPin(
+							SandboxScriptId.make(row.id),
+							pin?.pluginRevision ?? undefined,
+							subject,
+							binding,
+						),
+					),
+				).toMatchObject({ data: { code: "installation-unavailable" } });
+			}),
+	);
+	test.effect(
+		"keeps private bootstrap and historical pins but blocks current quarantine and account revocation",
+		() =>
+			Effect.gen(function* () {
+				const database = yield* PinDatabase;
+				const repository = yield* SandboxRepository;
+				const userId = UserId.make("private-owner");
+				const subject = {
+					userId,
+					type: "user",
+					accountGeneration: { userId, token: "current-account" },
+				} as const;
+				const row = {
+					...pluginPinRow,
+					slug: "plugin.job",
+					pluginOwnerId: userId,
+					metadata: { runtimeImports: [], kind: "workflow" as const },
+					sandboxAuthority: {
+						...sandboxAuthority,
+						scriptKinds: { ...sandboxAuthority.scriptKinds, "plugin.job": "workflow" as const },
+					},
+				};
+				const installation = {
+					health: "ready",
+					isHidden: false,
+					disabledAt: null,
+					uninstalledAt: null,
+					id: "private-installation",
+					incompatibilityReason: null,
+					activeConfigRevisionId: "config-1",
+				};
+				const respond =
+					(state: typeof installation, disabled = false): PinRows =>
+					(table) => {
+						if (table === tables.user) {
+							return [
+								{ accountGeneration: "current-account", disabledAt: disabled ? new Date(0) : null },
+							];
+						}
+						if (table === tables.pluginInstallation) {
+							return [state];
+						}
+						if (table === tables.pluginConfigRevision) {
+							return [{ ...config, ownerUserId: userId }];
+						}
+						return [row];
+					};
+				yield* database.respondWith(respond(installation));
+				const original = yield* repository.getScriptPin(
+					SandboxScriptId.make(row.id),
+					undefined,
+					subject,
+				);
+				assert(original?.pluginRevision);
+				expect(original.pluginRevision.userBootstrapScriptSlugs).toEqual(["plugin.script"]);
+				yield* database.respondWith((table, condition) =>
+					table === tables.sandboxScript
+						? [{ ...row, activeRevisionId: "revision-2" }]
+						: respond(installation)(table, condition),
+				);
+				expect(
+					yield* repository.getScriptPin(
+						SandboxScriptId.make(row.id),
+						original.pluginRevision,
+						subject,
+					),
+				).toMatchObject({
+					pluginRevision: { revisionId: "revision-1", configRevisionId: "config-1" },
+				});
+				yield* database.respondWith((table, condition) => {
+					if (table === tables.pluginInstallation) {
+						return [{ ...installation, health: "installing" }];
+					}
+					if (table === tables.sandboxScript) {
+						return [{ ...row, activeRevisionId: "revision-2" }];
+					}
+					return respond(installation)(table, condition);
+				});
+				expect(
+					yield* repository.getScriptPin(
+						SandboxScriptId.make(row.id),
+						original.pluginRevision,
+						subject,
+					),
+				).toMatchObject({
+					scriptSlug: "plugin.job",
+					pluginRevision: { revisionId: "revision-1", configRevisionId: "config-1" },
+				});
+				expect(
+					yield* repository.getScriptPin(SandboxScriptId.make(row.id), undefined, subject),
+				).toBeNull();
+				yield* database.respondWith((table, condition) => {
+					if (table === tables.pluginInstallation) {
+						return [
+							{ ...installation, activeConfigRevisionId: null, health: "needs-configuration" },
+						];
+					}
+					if (table === tables.sandboxScript) {
+						return [{ ...row, activeRevisionId: "revision-2" }];
+					}
+					return respond(installation)(table, condition);
+				});
+				expect(
+					yield* repository.getScriptPin(
+						SandboxScriptId.make(row.id),
+						original.pluginRevision,
+						subject,
+					),
+				).toMatchObject({
+					pluginRevision: { revisionId: "revision-1", configRevisionId: "config-1" },
+				});
+				expect(
+					yield* repository.getScriptPin(SandboxScriptId.make(row.id), undefined, subject),
+				).toBeNull();
+				yield* database.respondWith((table, condition) =>
+					table === tables.pluginInstallation
+						? [
+								{
+									...installation,
+									health: "incompatible",
+									incompatibilityReason: "package-identity-conflict",
+								},
+							]
+						: respond(installation)(table, condition),
+				);
+				const rejected = yield* Effect.flip(
+					repository.getScriptPin(SandboxScriptId.make(row.id), original.pluginRevision, subject),
+				);
+				expect(rejected).toMatchObject({
+					data: {
+						pluginId: "plugin-id",
+						code: "package-identity-conflict",
+						installationId: "private-installation",
+					},
+				});
+				yield* database.respondWith(respond(installation, true));
+				expect(
+					yield* repository.getScriptPin(
+						SandboxScriptId.make(row.id),
+						original.pluginRevision,
+						subject,
+					),
+				).toBeNull();
+			}),
+	);
 	test.effect("pins active current plugin identity and exact bootstrap declaration", () =>
 		Effect.gen(function* () {
 			expect(yield* getPin(pluginPinRow)).toMatchObject({
 				scriptSlug: "plugin.script",
 				pluginRevision: {
+					packageId,
 					ownerId: null,
 					id: "plugin-id",
 					scope: "system",
@@ -181,6 +423,14 @@ layer(pinRepositoryLayer)((test) => {
 				{ ...pluginPinRow, pluginStatus: "inactive" },
 				{ ...pluginPinRow, activeRevisionId: "revision-2" },
 				{ ...pluginPinRow, providerPluginId: "foreign-plugin-id" },
+				{
+					...pluginPinRow,
+					pluginPackageId: PluginPackageId.make("77c33129-4f39-4e58-aee5-5f783d98001b"),
+				},
+				{
+					...pluginPinRow,
+					manifestPackageId: PluginPackageId.make("77c33129-4f39-4e58-aee5-5f783d98001b"),
+				},
 			]) {
 				expect(yield* getPin(row)).toBeNull();
 			}
@@ -247,6 +497,7 @@ const root = {
 		]),
 		schemaScope: {
 			eventSchemas: [],
+			signalSchemaSlugs: [],
 			relationshipSchemaSlugs: [],
 			entitySchemaSlugs: ["original-entity"],
 		},
@@ -262,6 +513,7 @@ const replacedRoot = {
 		]),
 		schemaScope: {
 			eventSchemas: [],
+			signalSchemaSlugs: [],
 			relationshipSchemaSlugs: [],
 			entitySchemaSlugs: ["replacement-entity"],
 		},

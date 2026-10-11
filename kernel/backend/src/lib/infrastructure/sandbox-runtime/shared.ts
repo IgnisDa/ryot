@@ -29,6 +29,7 @@ import {
 	rootLifecycleCausation,
 } from "#lib/domain/lifecycle-command";
 import type { SandboxPinnedJournal } from "#lib/infrastructure/sandbox-journal-store";
+import type { DomainLifecycleCommand } from "#modules/entities/write-context";
 
 import {
 	sandboxCapabilityRequirement,
@@ -176,6 +177,14 @@ export const sandboxStartedAt = Effect.map(Clock.currentTimeMillis, (millis) =>
 export const sandboxRunUserId = (input: SandboxRunInput) =>
 	sandboxSubjectUserId(input.principal.subject);
 
+export const sandboxDefinitionReadContext = (input: SandboxRunInput) =>
+	input.principal.pluginRevision === null
+		? undefined
+		: {
+				pluginId: input.principal.pluginRevision.id,
+				pluginRevisionId: input.principal.pluginRevision.revisionId,
+			};
+
 export const sandboxRunIntegrationId = (input: UserSandboxRunInput) => {
 	if (input.principal.subject.type === "user") {
 		return input.principal.subject.integrationId ?? null;
@@ -194,7 +203,7 @@ export const sandboxLifecycleCommand = (
 	input: SandboxRunInput,
 	source: Exclude<AutomationSource, "automation">,
 	itemIdentity: string,
-): Effect.Effect<LifecycleCommand, SandboxHostError> =>
+): Effect.Effect<DomainLifecycleCommand, SandboxHostError> =>
 	Effect.gen(function* () {
 		if (input.hostCallDiscriminator === undefined || input.workflowExecutionId === undefined) {
 			return yield* sandboxHostFailure("Lifecycle writes require a trusted durable host call");
@@ -226,7 +235,10 @@ export const sandboxLifecycleCommand = (
 					subject,
 					AutomationExecutionId.make(`${subject.runId}-host-${input.hostCallDiscriminator}`),
 				),
-			}).pipe(Effect.mapError(() => toSandboxHostError("Invalid automation lifecycle command")));
+			}).pipe(
+				Effect.mapError(() => toSandboxHostError("Invalid automation lifecycle command")),
+				Effect.map((command) => ({ ...command, writeContext: input.principal })),
+			);
 		}
 
 		const executionId = AutomationExecutionId.make(
@@ -248,7 +260,10 @@ export const sandboxLifecycleCommand = (
 					? { providerExecutionId: AutomationExecutionId.make(input.workflowExecutionId) }
 					: {}),
 			}),
-		}).pipe(Effect.mapError(() => toSandboxHostError("Invalid root lifecycle command")));
+		}).pipe(
+			Effect.mapError(() => toSandboxHostError("Invalid root lifecycle command")),
+			Effect.map((command) => ({ ...command, writeContext: input.principal })),
+		);
 	});
 
 export const reportSandboxLifecycleWarnings = (
@@ -342,10 +357,10 @@ const sandboxCapabilityError = (
 		return `${capability} system access requires a pinned system plugin script`;
 	}
 	if (
-		requirement.requiresSystemUserBootstrap &&
+		requirement.requiresUserBootstrap &&
 		!input.principal.pluginRevision?.userBootstrapScriptSlugs.includes(input.principal.scriptSlug)
 	) {
-		return `${capability} is available only to pinned system user bootstrap scripts`;
+		return `${capability} is available only to pinned user bootstrap scripts`;
 	}
 	return undefined;
 };

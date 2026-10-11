@@ -1,5 +1,6 @@
 import { describe, expect, it, layer } from "@effect/vitest";
 import { DbError } from "@ryot-app/contract/errors";
+import { definitionKey } from "@ryot-app/contract/modules/plugins/references";
 import type { RyotQLDocument } from "@ryot-app/contract/modules/ryotql/language";
 import type {
 	SandboxExecutionSubject,
@@ -175,6 +176,7 @@ const runInput = (
 		workflowExecutionId: "workflow-1",
 		startedAt: "2026-01-01T00:00:00.000Z",
 		principal: {
+			...(otherPrincipalFacts.pluginRevision ? {} : { kernelScript: true as const }),
 			subject,
 			contentHash: "",
 			providerId: null,
@@ -275,10 +277,12 @@ const systemPluginRevision = {
 	scope: "system" as const,
 	userBootstrapScriptSlugs: [],
 	id: PluginId.make("plugin-id"),
+	packageId: fixtureManifest().metadata.packageId,
 	revisionId: PluginRevisionId.make("revision-1"),
 	configRevisionId: PluginConfigRevisionId.make("config-1"),
 	configSchema: { fields: {}, unknownKeys: "strict" as const },
 	schemaScope: {
+		signalSchemaSlugs: [],
 		eventSchemas: systemPluginScope.eventSchemas,
 		entitySchemaSlugs: systemPluginScope.entitySchemaSlugs,
 		relationshipSchemaSlugs: systemPluginScope.relationshipSchemaSlugs,
@@ -419,11 +423,18 @@ const hostFunctionsLayer = (
 					useDefinitions: (source) => Ref.set(snapshot, buildDefinitionSnapshot(source)),
 				}),
 				Layer.mock(DefinitionRepository)({
+					getSnapshotForContext: () => Ref.get(snapshot),
 					findUserEntitySchemas: () => Effect.map(Ref.get(snapshot), (all) => all.entitySchemas),
 					findUserRelationshipSchemas: () =>
 						Effect.map(Ref.get(snapshot), (all) => all.relationshipSchemas),
-					findGlobalRelationshipSchema: (slug) =>
-						Effect.map(Ref.get(snapshot), (all) => all.relationshipSchemas[slug] ?? null),
+					findGlobalRelationshipSchema: (reference) =>
+						Effect.map(
+							Ref.get(snapshot),
+							(all) =>
+								all.relationshipSchemas[
+									definitionKey("relationship", reference.owner, reference.slug)
+								] ?? null,
+						),
 				}),
 				Layer.mock(IntegrationsRepository)({
 					getForUser: (input) =>
@@ -548,7 +559,11 @@ const hostFunctionsLayer = (
 									id: EntityId.make("created-id"),
 									createdAt: "2026-01-01T00:00:00.000Z",
 									updatedAt: "2026-01-01T00:00:00.000Z",
-									entitySchemaSlug: input.entitySchemaSlug,
+									entitySchemaSlug: input.entitySchema.slug,
+									entitySchemaPluginId:
+										input.entitySchema.owner.kind === "plugin"
+											? input.entitySchema.owner.pluginId
+											: null,
 								},
 							}),
 						),
@@ -567,6 +582,10 @@ const hostFunctionsLayer = (
 											createdAt: "2026-07-28T00:00:00.000Z",
 											updatedAt: "2026-07-28T00:00:00.000Z",
 											id: RelationshipId.make("relationship-1"),
+											relationshipSchemaPluginId:
+												input.relationshipSchemaPluginId === null
+													? null
+													: PluginId.make(input.relationshipSchemaPluginId),
 										}),
 							),
 						),
@@ -704,6 +723,10 @@ describe("requestEventStreamWork", () => {
 						accountGeneration,
 						pluginPin: systemPluginRevision,
 						processorScriptId: SandboxScriptId.make("processor-script"),
+						command: expect.objectContaining({
+							writeContext: input.principal,
+							itemIdentity: "requestEventStreamWork",
+						}),
 					},
 				]);
 
@@ -1479,6 +1502,7 @@ describe("executeRyotql", () => {
 				const pinnedRevision = { ...systemPluginRevision, schemaScope: activeManifest.schemaScope };
 				activeManifest.schemaScope = {
 					eventSchemas: [],
+					signalSchemaSlugs: [],
 					relationshipSchemaSlugs: [],
 					entitySchemaSlugs: ["replacement"],
 				};
@@ -1498,9 +1522,11 @@ describe("executeRyotql", () => {
 						document: ryotqlDocument,
 						scope: {
 							eventSchemas: [],
-							pluginSlug: "example",
+							signalSchemaSlugs: [],
 							entitySchemaSlugs: ["example"],
+							pluginId: systemPluginRevision.id,
 							relationshipSchemaSlugs: ["example-monitoring"],
+							pluginRevisionId: systemPluginRevision.revisionId,
 						},
 					},
 				]);
@@ -1612,6 +1638,7 @@ describe("changeUserRelationships", () => {
 						targetEntityId: "collection-1",
 						relationshipSchemaPluginId: null,
 						relationshipSchemaSlug: "member-of",
+						relationshipSchema: { slug: "member-of", owner: { kind: "kernel" } },
 					},
 				]);
 			}),
@@ -1636,6 +1663,7 @@ describe("changeUserRelationships", () => {
 						targetEntityId: "collection-1",
 						relationshipSchemaPluginId: null,
 						relationshipSchemaSlug: "member-of",
+						relationshipSchema: { slug: "member-of", owner: { kind: "kernel" } },
 					},
 				]);
 			}),
@@ -1825,8 +1853,11 @@ describe("createUserEntity", () => {
 							scope: "user",
 							userId: "trusted-user",
 							name: "Another workspace",
-							entitySchemaSlug: "workspace",
 							properties: { key: "another" },
+							entitySchema: {
+								slug: "workspace",
+								owner: { kind: "plugin", pluginId: systemPluginRevision.id },
+							},
 							lifecycle: {
 								itemIdentity: "createUserEntity",
 								causation: { lane: "interactive", executionId: "workflow-1-host-0" },
@@ -1913,11 +1944,29 @@ describe("ensureUserEntities", () => {
 				expect(yield* (yield* HostFunctionCalls).ensuredEntities).toMatchObject([
 					{
 						userId: "trusted-user",
-						items: [{ properties: {}, name: "Workspace", entitySchemaSlug: "workspace" }],
+						items: [
+							{
+								properties: {},
+								name: "Workspace",
+								entitySchema: {
+									slug: "workspace",
+									owner: { kind: "plugin", pluginId: systemPluginRevision.id },
+								},
+							},
+						],
 					},
 					{
 						userId: "trusted-user",
-						items: [{ properties: {}, name: "Workspace", entitySchemaSlug: "workspace" }],
+						items: [
+							{
+								properties: {},
+								name: "Workspace",
+								entitySchema: {
+									slug: "workspace",
+									owner: { kind: "plugin", pluginId: systemPluginRevision.id },
+								},
+							},
+						],
 					},
 				]);
 			}),
@@ -1957,7 +2006,7 @@ describe("ensureUserEntities", () => {
 				for (const [result, message] of [
 					[delegated, "available only to user executions"],
 					[system, "not available for system executions"],
-					[untrusted, "available only to pinned system user bootstrap scripts"],
+					[untrusted, "available only to pinned user bootstrap scripts"],
 				] as const) {
 					const failure = Option.getOrThrow(Result.getFailure(result));
 					expect(failure.message).toContain(message);
@@ -2011,7 +2060,7 @@ describe("ensureUserEntities", () => {
 				});
 
 				const failure = Option.getOrThrow(Result.getFailure(declared));
-				expect(failure.message).toContain("available only to pinned system user bootstrap scripts");
+				expect(failure.message).toContain("available only to pinned user bootstrap scripts");
 				expect(failure.data).toEqual({
 					code: "unavailable-operation",
 					operation: "ensureUserEntities",

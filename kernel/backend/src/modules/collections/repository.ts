@@ -1,3 +1,7 @@
+import type {
+	EntitySchemaReference,
+	EventSchemaReference,
+} from "@ryot-app/contract/modules/plugins/references";
 import type { UserId } from "@ryot-app/contract/schema/brands";
 import {
 	EntityId,
@@ -40,6 +44,7 @@ const toCollectionResponse = (row: CollectionRow) => ({
 	id: EntityId.make(row.id),
 	properties: row.properties,
 	externalId: row.externalId,
+	entitySchemaPluginId: null,
 	createdAt: row.createdAt.toISOString(),
 	updatedAt: row.updatedAt.toISOString(),
 	entitySchemaSlug: EntitySchemaSlug.make(row.entitySchemaSlug),
@@ -55,12 +60,19 @@ export class CollectionsRepository extends Context.Service<CollectionsRepository
 			const getBuiltinCollectionSchema = Effect.fn(
 				"CollectionsRepository.getBuiltinCollectionSchema",
 			)(function* () {
-				const definition = yield* definitions.findGlobalEntitySchema("collection");
+				const definition = yield* definitions.findGlobalEntitySchema({
+					owner: { kind: "kernel" },
+					slug: EntitySchemaSlug.make("collection"),
+				});
 				return definition
 					? {
 							id: EntitySchemaSlug.make(definition.slug),
 							propertiesSchema: definition.propertiesSchema,
 							entitySchemaSlug: EntitySchemaSlug.make(definition.slug),
+							entitySchema: {
+								owner: { kind: "kernel" },
+								slug: EntitySchemaSlug.make(definition.slug),
+							} satisfies EntitySchemaReference,
 						}
 					: null;
 			});
@@ -79,6 +91,7 @@ export class CollectionsRepository extends Context.Service<CollectionsRepository
 								isNull(schema.entity.externalId),
 								isNull(schema.entity.providerId),
 								eq(schema.entity.entitySchemaSlug, input.entitySchemaSlug),
+								isNull(schema.entity.entitySchemaPluginId),
 							),
 						)
 						.limit(1),
@@ -100,6 +113,7 @@ export class CollectionsRepository extends Context.Service<CollectionsRepository
 								eq(schema.entity.id, collectionId),
 								eq(schema.entity.userId, userId),
 								eq(schema.entity.entitySchemaSlug, "collection"),
+								isNull(schema.entity.entitySchemaPluginId),
 							),
 						)
 						.limit(1),
@@ -116,6 +130,7 @@ export class CollectionsRepository extends Context.Service<CollectionsRepository
 								id: schema.entity.id,
 								userId: schema.entity.userId,
 								entitySchemaSlug: schema.entity.entitySchemaSlug,
+								entitySchemaPluginId: schema.entity.entitySchemaPluginId,
 							})
 							.from(schema.entity)
 							.where(
@@ -133,8 +148,8 @@ export class CollectionsRepository extends Context.Service<CollectionsRepository
 
 			const findBuiltinEventSchemaBySlug = Effect.fn(
 				"CollectionsRepository.findBuiltinEventSchemaBySlug",
-			)(function* (entitySchemaSlug: EntitySchemaSlug, slug: string) {
-				const event = yield* definitions.findGlobalEventSchema(entitySchemaSlug, slug);
+			)(function* (reference: EventSchemaReference) {
+				const event = yield* definitions.findGlobalEventSchema(reference);
 				return event ? { ...event, id: EventSchemaSlug.make(event.slug) } : null;
 			});
 

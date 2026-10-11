@@ -6,14 +6,13 @@ import {
 	EntityId,
 	EventId,
 	EventSchemaSlug,
-	PluginConfigRevisionId,
 	PluginId,
-	PluginRevisionId,
 	SandboxScriptId,
 	UserId,
 } from "@ryot-app/contract/schema/brands";
+import { emptySandboxExecutionMetadata } from "@ryot-app/contract/testing";
 import { eq } from "drizzle-orm";
-import { Context, DateTime, Effect, Layer, Option, Ref } from "effect";
+import { Context, DateTime, Effect, Layer, Option, Ref, Schema } from "effect";
 import { TestClock } from "effect/testing";
 import { WorkflowEngine, WorkflowInstance } from "effect/workflow/WorkflowEngine";
 
@@ -22,7 +21,10 @@ import { rootLifecycleCommand } from "#lib/domain/lifecycle-command";
 import { LifecycleExecution } from "#lib/domain/lifecycle-execution";
 import * as tables from "#lib/infrastructure/db/schema/tables/combined";
 import { DatabaseSession } from "#lib/infrastructure/db/session";
-import type { SandboxPluginRevision } from "#lib/infrastructure/sandbox-runtime/execution-principal";
+import {
+	SandboxExecutionPrincipal,
+	type SandboxPluginRevision,
+} from "#lib/infrastructure/sandbox-runtime/execution-principal";
 import { WorkflowExecutionNotifications } from "#lib/infrastructure/workflow-execution-notifications";
 import { assertExitFails } from "#lib/test-utils/assertions";
 import { makeAppConfigLayer, makeWorkflowEngine } from "#lib/test-utils/effect";
@@ -44,8 +46,10 @@ import {
 	installRevisionPackage,
 	revisionDatabaseLayer,
 } from "#modules/plugins/revision.test-support";
+import { PluginRuntimeResolver } from "#modules/plugins/runtime-resolver";
 import { fixtureManifest } from "#modules/plugins/test-support";
 import type { NormalizedPlugin } from "#modules/plugins/types";
+import { SandboxRepository } from "#modules/sandbox/repository";
 
 const userId = UserId.make("owner");
 const accountToken = "test-account-generation";
@@ -72,14 +76,21 @@ const fixturePackage = (): NormalizedPlugin => {
 	const fixture = fixtureManifest();
 	const [entitySchema] = fixture.entitySchemas;
 	assert(entitySchema);
+	const script = {
+		...emptySandboxExecutionMetadata,
+		name: "Processor",
+		kind: "script" as const,
+		slug: "stream-fixture-processor",
+	};
+	const entry = "backend/processor.sandbox.ts";
 	const manifest: PluginManifest = {
 		...fixture,
 		hooks: [],
-		scripts: [],
 		workflows: [],
 		providers: [],
 		signalSchemas: [],
 		relationshipSchemas: [],
+		scripts: [{ ...script, entry }],
 		metadata: { ...fixture.metadata, slug: "stream-fixture" },
 		entitySchemas: [
 			{
@@ -90,7 +101,21 @@ const fixturePackage = (): NormalizedPlugin => {
 			},
 		],
 	};
-	return { manifest, scripts: [], sourceHash: "stream-fixture-source" };
+	return {
+		manifest,
+		sourceHash: "stream-fixture-source",
+		scripts: [
+			{
+				entry,
+				metadata: script,
+				name: script.name,
+				slug: script.slug,
+				compiledFormat: 1,
+				compiledCode: "processor",
+				contentHash: "processor-hash",
+			},
+		],
+	};
 };
 
 type StreamClaim = Parameters<EventStreamProcessor["Service"]["execute"]>[0];
@@ -101,6 +126,8 @@ class StreamWorkFixture extends Context.Service<
 	{
 		pluginId: PluginId;
 		pluginPin: SandboxPluginRevision;
+		principal: SandboxExecutionPrincipal;
+		processorScriptId: SandboxScriptId;
 		accountGeneration: { userId: UserId; token: string };
 		entitySchemaSlug: typeof entitySchemaSlug;
 	}
@@ -138,27 +165,27 @@ const fixtureLayer = Layer.effect(
 				.where(eq(tables.plugin.id, pluginId)),
 		);
 		assert(plugin?.configRevisionId);
+		const script = yield* (yield* PluginRuntimeResolver).findScriptAvailableToUser(
+			userId,
+			pluginId,
+			"stream-fixture-processor",
+		);
+		assert(script);
+		const subject = {
+			userId,
+			type: "user" as const,
+			accountGeneration: { userId, token: accountToken },
+		};
+		const pin = yield* (yield* SandboxRepository).getScriptPin(script.id, undefined, subject);
+		assert(pin?.pluginRevision);
+		const principal = yield* Schema.decodeEffect(SandboxExecutionPrincipal)({ ...pin, subject });
 		return {
 			pluginId,
+			principal,
 			entitySchemaSlug,
+			processorScriptId: script.id,
+			pluginPin: pin.pluginRevision,
 			accountGeneration: { userId, token: accountToken },
-			pluginPin: {
-				id: pluginId,
-				ownerId: null,
-				scope: "system",
-				compiledHashes: {},
-				workflowScripts: {},
-				slug: "stream-fixture",
-				userBootstrapScriptSlugs: [],
-				configSchema: fixturePackage().manifest.configSchema,
-				revisionId: PluginRevisionId.make(installed.revisionId),
-				configRevisionId: PluginConfigRevisionId.make(plugin.configRevisionId),
-				schemaScope: {
-					relationshipSchemaSlugs: [],
-					entitySchemaSlugs: [entitySchemaSlug],
-					eventSchemas: [{ eventSchemaSlug, entitySchemaSlug }],
-				},
-			},
 		};
 	}),
 ).pipe(Layer.provideMerge(revisionDatabaseLayer));
@@ -289,8 +316,8 @@ const streamWorkTestLayer = Layer.unwrap(
 	}),
 );
 
-const command = (id: string) =>
-	rootLifecycleCommand({
+const command = (id: string) => ({
+	...rootLifecycleCommand({
 		source: "api",
 		itemIdentity: id,
 		lane: "interactive",
@@ -298,7 +325,9 @@ const command = (id: string) =>
 		initiator: { id: userId, kind: "user" },
 		accountGeneration: { userId, token: accountToken },
 		executionId: AutomationExecutionId.make(`stream-work-${id}`),
-	});
+	}),
+	writeContext: null,
+});
 
 const seedStream = (suffix: string) =>
 	Effect.gen(function* () {
@@ -337,8 +366,9 @@ const seedStream = (suffix: string) =>
 		const id = yield* service.request({
 			pluginPin: fixture.pluginPin,
 			accountGeneration: fixture.accountGeneration,
-			processorScriptId: SandboxScriptId.make("stream-fixture-processor"),
+			processorScriptId: fixture.processorScriptId,
 			request: { entityId, eventSchemaSlug, outputProperties: ["rating"] },
+			command: { ...command(`request-${suffix}`), writeContext: fixture.principal },
 		});
 		return { id, eventId, fixture, entityId };
 	});
@@ -357,7 +387,7 @@ layer(streamWorkTestLayer)((test) => {
 			const stream = yield* (yield* EventStreamRepository).get(id);
 			assert(stream);
 			expect(stream.key.eventSchemaPluginId).toBe(fixture.pluginId);
-			expect(stream.pluginPin).toEqual(fixture.pluginPin);
+			expect(stream.pluginPin).toEqual({ ...fixture.pluginPin, writeContext: fixture.principal });
 			expect(stream.outputProperties).toEqual(["rating"]);
 
 			const wrongOwner = yield* Effect.exit(
@@ -365,6 +395,7 @@ layer(streamWorkTestLayer)((test) => {
 					accountGeneration: fixture.accountGeneration,
 					processorScriptId: SandboxScriptId.make("foreign-processor"),
 					pluginPin: { ...fixture.pluginPin, id: PluginId.make("foreign-plugin") },
+					command: { ...command("foreign-request"), writeContext: fixture.principal },
 					request: {
 						eventSchemaSlug,
 						outputProperties: ["rating"],
@@ -375,7 +406,7 @@ layer(streamWorkTestLayer)((test) => {
 			assertExitFails(
 				wrongOwner,
 				new DbError({
-					message: "Event stream processor must own its schema and declared output properties",
+					message: "Event stream request requires its exact persisted execution authority",
 				}),
 			);
 
@@ -384,6 +415,7 @@ layer(streamWorkTestLayer)((test) => {
 					pluginPin: fixture.pluginPin,
 					accountGeneration: fixture.accountGeneration,
 					processorScriptId: SandboxScriptId.make("undeclared-processor"),
+					command: { ...command("undeclared-request"), writeContext: fixture.principal },
 					request: {
 						eventSchemaSlug,
 						outputProperties: ["not-declared"],

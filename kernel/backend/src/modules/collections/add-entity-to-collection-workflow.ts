@@ -1,5 +1,4 @@
 import { DbError } from "@ryot-app/contract/errors";
-import { LifecycleCommand } from "@ryot-app/contract/modules/automations/lifecycle";
 import {
 	CollectionBadRequest,
 	CollectionNotFound,
@@ -10,6 +9,7 @@ import { Schema } from "effect";
 import { Workflow } from "effect/workflow";
 
 import type { DurableSchema } from "#lib/infrastructure/workflow";
+import { DomainLifecycleCommand } from "#modules/entities/write-context";
 import { RelationshipSingleResult } from "#modules/relationships/mutation-pipeline";
 
 const CollectionMembershipWorkflowResult = Schema.Struct({
@@ -29,8 +29,8 @@ export const AddEntityToCollectionWorkflowPayload = Schema.Struct({
 	userId: UserId,
 	entityId: EntityId,
 	collectionId: EntityId,
-	command: LifecycleCommand,
 	executionId: Schema.String,
+	command: DomainLifecycleCommand,
 	properties: Schema.optional(Schema.Unknown),
 });
 

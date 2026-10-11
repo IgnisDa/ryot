@@ -5,7 +5,9 @@ import { EntityId, SandboxProviderId, UserId } from "@ryot-app/contract/schema/b
 import { Schema } from "effect";
 import { Workflow } from "effect/workflow";
 
+import { SandboxExecutionPrincipal } from "#lib/infrastructure/sandbox-runtime/execution-principal";
 import type { DurableSchema } from "#lib/infrastructure/workflow";
+import { DomainLifecycleCommand } from "#modules/entities/write-context";
 
 export const TranslateEntityWorkflowPayload = Schema.Struct({
 	userId: UserId,
@@ -16,11 +18,20 @@ export const TranslateEntityWorkflowPayload = Schema.Struct({
 	properties: Schema.Unknown,
 	executionId: Schema.String,
 	providerId: SandboxProviderId,
+	command: DomainLifecycleCommand,
 	entitySchemaSlug: Schema.String,
 	accountGeneration: AccountGeneration,
+	entitySchemaPluginId: Schema.NullOr(Schema.String),
 });
 
 export type TranslateEntityWorkflowPayload = typeof TranslateEntityWorkflowPayload.Type;
+
+export const TranslationExecution = Schema.Struct({
+	properties: Schema.Unknown,
+	principal: SandboxExecutionPrincipal,
+	entityScopeUserId: Schema.NullOr(UserId),
+});
+export type TranslationExecution = typeof TranslationExecution.Type;
 
 export const translateEntityExecutionId = (input: { entityId: EntityId; language: string }) =>
 	`translate-${input.entityId}-${input.language}`;

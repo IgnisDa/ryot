@@ -1,10 +1,8 @@
 import { SandboxRunError, mapDbErrorToSandbox } from "@ryot-app/contract/errors";
-import type {
-	AutomationPopulationContext,
-	LifecycleCommand,
-} from "@ryot-app/contract/modules/automations/lifecycle";
+import type { AutomationPopulationContext } from "@ryot-app/contract/modules/automations/lifecycle";
 import { ListedEntity } from "@ryot-app/contract/modules/entities/schemas";
 import { encodeEntityUpdatedMessage } from "@ryot-app/contract/modules/entity-interest/messages";
+import { definitionKey, definitionOwner } from "@ryot-app/contract/modules/plugins/references";
 import { EntityId, type EntitySchemaSlug, type UserId } from "@ryot-app/contract/schema/brands";
 import {
 	providerDetailsChildEntitySchema,
@@ -32,6 +30,10 @@ import { EntityRelationshipDefinitions } from "#modules/definition-registry/snap
 import { EntitySnapshotResult } from "#modules/entities/mutation-outcomes";
 import { EntitiesRepository } from "#modules/entities/repository";
 import { EntitiesService } from "#modules/entities/service";
+import {
+	makeDomainWriteChecks,
+	type DomainLifecycleCommand,
+} from "#modules/entities/write-context";
 import { MutationReceipts } from "#modules/mutations/receipts";
 import { admitWorkflow } from "#modules/mutations/workflow-dispatch";
 
@@ -64,6 +66,7 @@ type ChildEntitySetScope = {
 	parentProperties: unknown;
 	expectedChildEntitySchemaSlug?: string;
 	parentEntitySchemaSlug: EntitySchemaSlug;
+	parentEntitySchemaPluginId: AutomationPopulationContext["scopeEntity"]["entitySchemaPluginId"];
 	scopeEntity: AutomationPopulationContext["scopeEntity"];
 	childEntities: ReadonlyArray<ProviderDetailsChildEntity>;
 };
@@ -87,6 +90,7 @@ const RelationshipSyncEnvelope = Schema.Struct({
 
 const resolveProviderEntityDefinitions = (
 	entityScope: { scope: "global" } | { scope: "user"; userId: UserId },
+	payload: EntityImportPayload,
 ) =>
 	makeActivity({
 		name: "resolve-provider-entity-definitions",
@@ -94,6 +98,35 @@ const resolveProviderEntityDefinitions = (
 		success: EntityRelationshipDefinitions satisfies DurableSchema,
 		execute: Effect.gen(function* () {
 			const definitions = yield* DefinitionRepository;
+			const checks = makeDomainWriteChecks(yield* DatabaseSession);
+			const manifest = yield* checks
+				.check(
+					payload.command,
+					definitionOwner(payload.pluginId),
+					entityScope.scope === "user" ? entityScope.userId : null,
+				)
+				.pipe(
+					Effect.mapError(
+						(error) => new SandboxRunError({ kind: "script-failure", message: error.message }),
+					),
+				);
+			if (manifest) {
+				const owner = definitionOwner(payload.pluginId);
+				return {
+					entitySchemas: Object.fromEntries(
+						manifest.entitySchemas.map(({ slug }) => [
+							definitionKey("entity", owner, slug),
+							{ slug, pluginId: payload.pluginId },
+						]),
+					),
+					relationshipSchemas: Object.fromEntries(
+						manifest.relationshipSchemas.map((definition) => [
+							definitionKey("relationship", owner, definition.slug),
+							{ ...definition, pluginId: payload.pluginId },
+						]),
+					),
+				};
+			}
 			return yield* (
 				entityScope.scope === "user"
 					? definitions.getUserEntityRelationshipDefinitions(entityScope.userId)
@@ -108,7 +141,10 @@ const checkExistingEntity = Effect.fn("checkExistingEntity")(function* (
 	definitions: EntityRelationshipDefinitions,
 ) {
 	const repository = yield* EntitiesRepository;
-	const schema = definitions.entitySchemas[payload.entitySchemaSlug];
+	const schema =
+		definitions.entitySchemas[
+			definitionKey("entity", definitionOwner(payload.pluginId), payload.entitySchemaSlug)
+		];
 	if (!schema) {
 		return yield* new SandboxRunError({
 			kind: "script-failure",
@@ -166,7 +202,10 @@ const getEntityWriteScope = (payload: EntityImportPayload) =>
 		? ({ scope: "user", userId: payload.entityScope.userId } as const)
 		: ({ scope: "global" } as const);
 
-const providerEntityIdFor = (command: LifecycleCommand, itemIdentity: ReadonlyArray<string>) =>
+const providerEntityIdFor = (
+	command: DomainLifecycleCommand,
+	itemIdentity: ReadonlyArray<string>,
+) =>
 	EntityId.make(
 		`ent_${sha256Base64Url(
 			stableStringify([
@@ -225,9 +264,15 @@ const upsertRootEntity = Effect.fn("upsertProviderRootEntity")(function* (
 						externalId: payload.externalId,
 						properties: details.properties,
 						providerId: payload.providerId,
-						entitySchemaSlug: payload.entitySchemaSlug,
 						updateExisting: options.mode !== "refresh",
-						lifecycle: populationLifecycleCommand(payload.command, ["root", "upsert"], population),
+						entitySchema: {
+							slug: payload.entitySchemaSlug,
+							owner: definitionOwner(payload.pluginId),
+						},
+						lifecycle: {
+							...payload.command,
+							...populationLifecycleCommand(payload.command, ["root", "upsert"], population),
+						},
 					}),
 				),
 			).pipe(mapDbErrorToSandbox);
@@ -255,6 +300,7 @@ const syncRelatedEntityGroupScope = Effect.fn("syncProviderRelatedEntityGroupSco
 			population,
 			definitions,
 			command: payload.command,
+			pluginId: payload.pluginId,
 			primaryEntityId: entity.id,
 			primaryEntitySchemaSlug: payload.entitySchemaSlug,
 		}).pipe(mapDbErrorToSandbox),
@@ -283,6 +329,7 @@ const writeChildEntitySetScope = Effect.fn("writeChildEntitySetScope")(function*
 			...entityScope,
 			definitions,
 			command: payload.command,
+			pluginId: payload.pluginId,
 			providerId: payload.providerId,
 			childEntities: scope.childEntities,
 			parentEntityId: scope.parentEntityId,
@@ -295,6 +342,7 @@ const writeChildEntitySetScope = Effect.fn("writeChildEntitySetScope")(function*
 				parentEntity: {
 					name: scope.parentName,
 					entitySchemaSlug: scope.parentEntitySchemaSlug,
+					entitySchemaPluginId: scope.parentEntitySchemaPluginId,
 					properties: toSandboxJsonObject(scope.parentProperties),
 				},
 			},
@@ -333,8 +381,14 @@ const stampRootPopulatedAt = Effect.fn("stampProviderRootPopulatedAt")(function*
 						properties: details.properties,
 						externalId: payload.externalId,
 						providerId: payload.providerId,
-						entitySchemaSlug: payload.entitySchemaSlug,
-						lifecycle: populationLifecycleCommand(payload.command, ["root", "stamp"], population),
+						entitySchema: {
+							slug: payload.entitySchemaSlug,
+							owner: definitionOwner(payload.pluginId),
+						},
+						lifecycle: {
+							...payload.command,
+							...populationLifecycleCommand(payload.command, ["root", "stamp"], population),
+						},
 					}),
 				),
 			).pipe(mapDbErrorToSandbox);
@@ -405,6 +459,7 @@ const writeChildEntityScopes = Effect.fn("writeChildEntityScopes")(function* (
 				parentProperties: child.entity.properties,
 				parentEntitySchemaSlug: child.entitySchemaSlug,
 				childEntities: childEntity.childEntities ?? [],
+				parentEntitySchemaPluginId: child.entity.entitySchemaPluginId,
 				...(childEntity.expectedChildEntitySchemaSlug
 					? { expectedChildEntitySchemaSlug: childEntity.expectedChildEntitySchemaSlug }
 					: {}),
@@ -437,6 +492,7 @@ const synchronizeEntityGraph = Effect.fn("synchronizeEntityGraph")(function* (
 	const rootPreviouslyPopulated = existing !== null && existing.populatedAt !== null;
 	const scopeEntity = {
 		name: details.name,
+		entitySchemaPluginId: payload.pluginId,
 		entitySchemaSlug: options.entitySchemaSlug,
 		id: existing?.id ?? providerEntityIdFor(payload.command, ["root", "upsert"]),
 	};
@@ -455,6 +511,7 @@ const synchronizeEntityGraph = Effect.fn("synchronizeEntityGraph")(function* (
 		parentExternalId: payload.externalId,
 		childEntities: details.childEntities,
 		parentEntitySchemaSlug: options.entitySchemaSlug,
+		parentEntitySchemaPluginId: entity.entitySchemaPluginId,
 		...(details.expectedChildEntitySchemaSlug
 			? { expectedChildEntitySchemaSlug: details.expectedChildEntitySchemaSlug }
 			: {}),
@@ -487,6 +544,26 @@ export const ProviderEntityPopulationWorkflow = Workflow.make("ProviderEntityPop
 export const runProviderEntityPopulationWorkflow = Effect.fn("ProviderEntityPopulationWorkflow")(
 	function* (payload: ProviderEntityPopulationPayload, executionId: string) {
 		const receipts = yield* MutationReceipts.make;
+		if (payload.command.writeContext?.pluginRevision?.id !== payload.pluginId) {
+			return yield* new SandboxRunError({
+				kind: "invalid-input",
+				message: "Provider population requires its exact persisted plugin authority",
+			});
+		}
+		const checks = makeDomainWriteChecks(yield* DatabaseSession);
+		const provider = yield* checks
+			.checkProvider(payload.providerId, definitionOwner(payload.pluginId))
+			.pipe(
+				Effect.mapError(
+					(error) => new SandboxRunError({ kind: "invalid-input", message: error.message }),
+				),
+			);
+		if (provider.rootEntitySchemaSlug !== payload.entitySchemaSlug) {
+			return yield* new SandboxRunError({
+				kind: "invalid-input",
+				message: "Provider root schema does not match its exact owner",
+			});
+		}
 		yield* admitWorkflow(
 			receipts,
 			ProviderEntityPopulationWorkflow,
@@ -508,7 +585,7 @@ export const runProviderEntityPopulationWorkflow = Effect.fn("ProviderEntityPopu
 			...(payload.entityScope.userId ? { userId: payload.entityScope.userId } : {}),
 		});
 		const entityScope = getEntityWriteScope(payload);
-		const definitions = yield* resolveProviderEntityDefinitions(entityScope);
+		const definitions = yield* resolveProviderEntityDefinitions(entityScope, payload);
 		const existing = yield* checkExistingEntity(payload, entityScope, definitions);
 		if (payload.mode === "ensure") {
 			if (existing && existing.populatedAt !== null) {

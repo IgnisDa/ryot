@@ -1,11 +1,9 @@
-import { expect, layer } from "@effect/vitest";
-import type {
-	AutomationPopulationContext,
-	LifecycleCommand,
-} from "@ryot-app/contract/modules/automations/lifecycle";
+import { assert, expect, layer } from "@effect/vitest";
+import { DbError } from "@ryot-app/contract/errors";
+import type { AutomationPopulationContext } from "@ryot-app/contract/modules/automations/lifecycle";
 import type { ListedEntity } from "@ryot-app/contract/modules/entities/schemas";
+import { definitionKey, definitionOwner } from "@ryot-app/contract/modules/plugins/references";
 import { RelationshipBadRequest } from "@ryot-app/contract/modules/relationships/schemas";
-import type { JsonValue } from "@ryot-app/contract/modules/ryotql/language";
 import {
 	AutomationExecutionId,
 	EntityId,
@@ -14,16 +12,20 @@ import {
 	SandboxProviderId,
 	SandboxScriptId,
 	UserId,
+	PluginId,
 } from "@ryot-app/contract/schema/brands";
+import { JsonValue } from "@ryot-app/contract/schema/json";
 import { IsoUtcString } from "@ryot-app/contract/schema/utils";
-import { Context, Effect, Exit, Layer, Ref } from "effect";
+import { Context, Effect, Exit, Layer, Ref, Schema } from "effect";
 import { WorkflowEngine, WorkflowInstance } from "effect/workflow/WorkflowEngine";
 
 import { toLifecycleDispatchPlan } from "#lib/domain/lifecycle";
 import { rootLifecycleCommand } from "#lib/domain/lifecycle-command";
 import { LifecycleExecution } from "#lib/domain/lifecycle-execution";
+import * as tables from "#lib/infrastructure/db/schema/tables/combined";
 import { DatabaseSession } from "#lib/infrastructure/db/session";
 import { RedisService } from "#lib/infrastructure/redis";
+import { SandboxExecutionPrincipal } from "#lib/infrastructure/sandbox-runtime/execution-principal";
 import { makeRedisService, makeWorkflowActivityEngine } from "#lib/test-utils/effect";
 import { mutationAdmissionTestLayer } from "#lib/test-utils/mutation-admission";
 import { planFixture } from "#modules/automations/lifecycle.test-support";
@@ -31,48 +33,61 @@ import { DefinitionRepository } from "#modules/definition-registry/repository";
 import type { EntityRelationshipDefinitions } from "#modules/definition-registry/snapshot";
 import { EntitiesRepository } from "#modules/entities/repository";
 import { EntitiesService } from "#modules/entities/service";
+import type { DomainLifecycleCommand } from "#modules/entities/write-context";
+import {
+	installRevisionPackage,
+	revisionDatabaseLayer,
+	revisionPackage,
+} from "#modules/plugins/revision.test-support";
 import { PluginRuntimeResolver } from "#modules/plugins/runtime-resolver";
 import { RelationshipsRepository } from "#modules/relationships/repository";
 import { RelationshipsService } from "#modules/relationships/service";
+import { SandboxRepository } from "#modules/sandbox/repository";
 
 import { EntityImportWorkflowOperations } from "./operations-workflow";
 import { writeChildEntitySet } from "./population";
 import {
 	ProviderEntityPopulationWorkflow,
 	runProviderEntityPopulationWorkflow,
+	type ProviderEntityPopulationPayload,
 } from "./provider-entity-population-workflow";
 import { syncRelatedEntityGroup } from "./relationship-population";
 
 const now = IsoUtcString.make("2026-09-16T00:00:00.000Z");
 const userId = UserId.make("user-1");
 const providerId = SandboxProviderId.make("provider-1");
+const pluginId = PluginId.make("private-plugin");
+const owner = definitionOwner(pluginId);
 const rootEntityId = EntityId.make("root-1");
 const rootSchemaSlug = EntitySchemaSlug.make("record");
 const childSchemaSlug = EntitySchemaSlug.make("part");
 const relationshipSchemaSlug = RelationshipSchemaSlug.make("record-part");
 const epoch = new Date(0);
 
-const command = rootLifecycleCommand({
-	occurredAt: now,
-	lane: "background",
-	source: "provider-refresh",
-	itemIdentity: "provider-population",
-	initiator: { id: userId, kind: "user" },
-	executionId: AutomationExecutionId.make("provider-population"),
-	accountGeneration: { userId, token: "test-account-generation" },
-	providerExecutionId: AutomationExecutionId.make("provider-workflow"),
-});
+const command = {
+	...rootLifecycleCommand({
+		occurredAt: now,
+		lane: "background",
+		source: "provider-refresh",
+		itemIdentity: "provider-population",
+		initiator: { id: userId, kind: "user" },
+		executionId: AutomationExecutionId.make("provider-population"),
+		accountGeneration: { userId, token: "test-account-generation" },
+		providerExecutionId: AutomationExecutionId.make("provider-workflow"),
+	}),
+	writeContext: null,
+};
 
-const entityDefinition = (slug: string) => ({ slug, pluginId: null });
+const entityDefinition = (slug: string) => ({ slug, pluginId });
 
 const definitions = {
 	entitySchemas: {
-		person: entityDefinition("person"),
-		[rootSchemaSlug]: entityDefinition(rootSchemaSlug),
-		[childSchemaSlug]: entityDefinition(childSchemaSlug),
+		[definitionKey("entity", owner, "person")]: entityDefinition("person"),
+		[definitionKey("entity", owner, rootSchemaSlug)]: entityDefinition(rootSchemaSlug),
+		[definitionKey("entity", owner, childSchemaSlug)]: entityDefinition(childSchemaSlug),
 	},
 	relationshipSchemas: {
-		credits: {
+		[definitionKey("relationship", owner, "credits")]: {
 			slug: "credits",
 			name: "Credits",
 			pluginId: "private-plugin",
@@ -80,7 +95,8 @@ const definitions = {
 			targetEntitySchemaSlug: "person",
 			sourceEntitySchemaSlug: rootSchemaSlug,
 		},
-		[relationshipSchemaSlug]: {
+		[definitionKey("relationship", owner, relationshipSchemaSlug)]: {
+			pluginId,
 			name: "Parts",
 			slug: relationshipSchemaSlug,
 			propertiesSchema: { fields: {} },
@@ -92,25 +108,43 @@ const definitions = {
 const definitionsWithoutChildSchema = {
 	...definitions,
 	entitySchemas: {
-		person: entityDefinition("person"),
-		[rootSchemaSlug]: entityDefinition(rootSchemaSlug),
+		[definitionKey("entity", owner, "person")]: entityDefinition("person"),
+		[definitionKey("entity", owner, rootSchemaSlug)]: entityDefinition(rootSchemaSlug),
 	},
 } satisfies EntityRelationshipDefinitions;
 const definitionsWithoutChildRelationship = {
 	...definitions,
-	relationshipSchemas: { credits: definitions.relationshipSchemas.credits },
+	relationshipSchemas: Object.fromEntries(
+		Object.entries(definitions.relationshipSchemas).filter(
+			([, definition]) => definition.slug === "credits",
+		),
+	),
 } satisfies EntityRelationshipDefinitions;
 const definitionsLayer = Layer.mock(DefinitionRepository)({
 	getGlobalEntityRelationshipDefinitions: Effect.succeed(definitions),
 	getUserEntityRelationshipDefinitions: () => Effect.succeed(definitions),
-	findGlobalRelationshipSchema: (slug) =>
-		Effect.succeed(definitions.relationshipSchemas[slug] ?? null),
+	findGlobalRelationshipSchema: (reference) =>
+		Effect.succeed(
+			definitions.relationshipSchemas[
+				definitionKey("relationship", reference.owner, reference.slug)
+			] ?? null,
+		),
 });
 
 const population = {
 	rootPreviouslyPopulated: true,
-	parentEntity: { name: "Record", properties: {}, entitySchemaSlug: rootSchemaSlug },
-	scopeEntity: { name: "Record", id: rootEntityId, entitySchemaSlug: rootSchemaSlug },
+	parentEntity: {
+		name: "Record",
+		properties: {},
+		entitySchemaPluginId: pluginId,
+		entitySchemaSlug: rootSchemaSlug,
+	},
+	scopeEntity: {
+		name: "Record",
+		id: rootEntityId,
+		entitySchemaPluginId: pluginId,
+		entitySchemaSlug: rootSchemaSlug,
+	},
 } satisfies AutomationPopulationContext;
 
 const listedEntity = (input: {
@@ -121,6 +155,7 @@ const listedEntity = (input: {
 	populatedAt?: string | null;
 	entitySchemaSlug: EntitySchemaSlug;
 	providerId?: SandboxProviderId;
+	entitySchemaPluginId?: ListedEntity["entitySchemaPluginId"];
 }) =>
 	({
 		id: input.id,
@@ -132,6 +167,8 @@ const listedEntity = (input: {
 		entitySchemaSlug: input.entitySchemaSlug,
 		providerId: input.providerId ?? providerId,
 		populatedAt: input.populatedAt === undefined ? now : input.populatedAt,
+		entitySchemaPluginId:
+			input.entitySchemaPluginId === undefined ? pluginId : input.entitySchemaPluginId,
 	}) satisfies ListedEntity;
 
 const childEntityWork = (
@@ -141,11 +178,12 @@ const childEntityWork = (
 		name: input.name,
 		externalId: input.externalId,
 		providerId: input.providerId,
-		entitySchemaSlug: input.entitySchemaSlug,
+		entitySchemaSlug: input.entitySchema.slug,
 		id: EntityId.make(`entity-${input.externalId}`),
 		populatedAt: input.populatedAt?.toISOString() ?? null,
-		// oxlint-disable-next-line typescript/no-unsafe-type-assertion -- provider upsert input carries the plain JSON records these tests supply
-		properties: input.properties as Record<string, JsonValue>,
+		properties: Schema.decodeUnknownSync(Schema.Record(Schema.String, JsonValue))(input.properties),
+		entitySchemaPluginId:
+			input.entitySchema.owner.kind === "plugin" ? input.entitySchema.owner.pluginId : null,
 	});
 	return {
 		result: { entity },
@@ -165,9 +203,10 @@ type Reconciliation = {
 };
 
 /** A failed transaction discards the rows persisted so far, like a rollback. */
-const makeTransaction = <Row>() =>
+const makeTransaction = <Row>(provided?: DatabaseSession["Service"]) =>
 	Effect.gen(function* () {
-		const session = Context.get(yield* Layer.build(mutationAdmissionTestLayer), DatabaseSession);
+		const session =
+			provided ?? Context.get(yield* Layer.build(mutationAdmissionTestLayer), DatabaseSession);
 		const inTransaction = yield* Ref.make(false);
 		const persisted = yield* Ref.make<ReadonlyArray<Row>>([]);
 		const database = Layer.succeed(DatabaseSession, {
@@ -212,7 +251,7 @@ const providerWritesLayer = (options: {
 				definitionsLayer,
 				Layer.mock(PluginRuntimeResolver)({
 					...(privateProvider && {
-						findProviderAvailableToUserBySlug: () =>
+						findProviderAvailableToUserByReference: () =>
 							transaction
 								.expectTransaction(false)
 								.pipe(
@@ -296,6 +335,7 @@ layer(
 		Effect.gen(function* () {
 			const result = yield* writeChildEntitySet({
 				command,
+				pluginId,
 				population,
 				providerId,
 				definitions,
@@ -347,6 +387,7 @@ layer(providerWritesLayer({ reconciled: "fail" }))((it) => {
 			const exit = yield* Effect.exit(
 				writeChildEntitySet({
 					command,
+					pluginId,
 					population,
 					providerId,
 					definitions,
@@ -372,6 +413,7 @@ layer(providerWritesLayer({ reconciled: { result: [], dispatch: [] } }))((it) =>
 			const error = yield* Effect.flip(
 				writeChildEntitySet({
 					command,
+					pluginId,
 					population,
 					providerId,
 					scope: "global",
@@ -393,6 +435,7 @@ layer(providerWritesLayer({ reconciled: { result: [], dispatch: [] } }))((it) =>
 				const error = yield* Effect.flip(
 					writeChildEntitySet({
 						command,
+						pluginId,
 						population,
 						providerId,
 						scope: "global",
@@ -419,6 +462,7 @@ layer(
 			const result = yield* syncRelatedEntityGroup({
 				userId,
 				command,
+				pluginId,
 				population,
 				definitions,
 				scope: "user",
@@ -460,7 +504,7 @@ layer(
 		reconciled: "fail",
 		relationshipsRepository: Layer.mock(RelationshipsRepository)({}),
 		entitiesRepository: Layer.mock(EntitiesRepository)({
-			findEntitySchemaProviderBySlug: () =>
+			findEntitySchemaProviderByReference: () =>
 				Effect.succeed({
 					entitySchemaSlug: EntitySchemaSlug.make("person"),
 					providerId: SandboxProviderId.make("person-provider"),
@@ -474,6 +518,7 @@ layer(
 			const exit = yield* Effect.exit(
 				syncRelatedEntityGroup({
 					command,
+					pluginId,
 					population,
 					definitions,
 					scope: "global",
@@ -499,14 +544,59 @@ layer(
 class FakeRootPopulation extends Context.Service<
 	FakeRootPopulation,
 	{
-		readonly commands: Effect.Effect<ReadonlyArray<LifecycleCommand>>;
+		readonly commands: Effect.Effect<ReadonlyArray<DomainLifecycleCommand>>;
 		readonly postCommitCount: Effect.Effect<number>;
+		readonly payload: ProviderEntityPopulationPayload;
 	}
 >()("test/FakeRootPopulation") {}
 
 const rootPopulationLayer = Layer.unwrap(
 	Effect.gen(function* () {
-		const transaction = yield* makeTransaction<LifecycleCommand>();
+		const session = yield* DatabaseSession;
+		yield* session.run((db) =>
+			db
+				.insert(tables.user)
+				.values({
+					id: userId,
+					name: "User",
+					email: "root-population@example.test",
+					accountGeneration: "test-account-generation",
+				}),
+		);
+		const installed = yield* installRevisionPackage(
+			revisionPackage("root-population", "v1", rootSchemaSlug),
+			userId,
+		);
+		const runtime = yield* PluginRuntimeResolver;
+		const provider = yield* runtime.findProviderAvailableToUserByReference(userId, {
+			slug: "root-population-provider",
+			owner: definitionOwner(installed.pluginId),
+		});
+		if (!provider) {
+			return yield* Effect.die("Missing provider fixture");
+		}
+		const script = yield* runtime.resolveUserDetailsScript(userId, provider.id);
+		const subject = {
+			userId,
+			type: "user" as const,
+			accountGeneration: { userId, token: "test-account-generation" },
+		};
+		const pin = yield* (yield* SandboxRepository.make).getScriptPin(script.id, undefined, subject);
+		if (!pin?.pluginRevision) {
+			return yield* Effect.die("Missing provider fixture pin");
+		}
+		const principal = yield* Schema.decodeEffect(SandboxExecutionPrincipal)({ ...pin, subject });
+		const payload: ProviderEntityPopulationPayload = {
+			mode: "refresh",
+			externalId: "record-1",
+			providerId: provider.id,
+			executionId: "population-root",
+			entitySchemaSlug: rootSchemaSlug,
+			entityScope: { userId, type: "user" },
+			pluginId: PluginId.make(installed.pluginId),
+			command: { ...command, writeContext: principal },
+		};
+		const transaction = yield* makeTransaction<DomainLifecycleCommand>(session);
 		const postCommitCount = yield* Ref.make(0);
 		const instance = WorkflowInstance.initial(ProviderEntityPopulationWorkflow, "population-root");
 		return Layer.mergeAll(
@@ -546,15 +636,26 @@ const rootPopulationLayer = Layer.unwrap(
 					Effect.gen(function* () {
 						yield* transaction.expectTransaction(true);
 						yield* transaction.persist(input.lifecycle);
+						const scopeEntity = input.lifecycle.population?.scopeEntity;
+						assert(scopeEntity);
 						const entity = listedEntity({
 							name: input.name,
+							id: scopeEntity.id,
 							externalId: input.externalId,
 							providerId: input.providerId,
-							entitySchemaSlug: input.entitySchemaSlug,
+							entitySchemaSlug: input.entitySchema.slug,
 							populatedAt: input.populatedAt?.toISOString() ?? null,
-							// oxlint-disable-next-line typescript/no-unsafe-type-assertion -- provider upsert input carries the plain JSON records these tests supply
-							properties: input.properties as Record<string, JsonValue>,
-							id: input.lifecycle.population?.scopeEntity.id ?? rootEntityId,
+							entitySchemaPluginId:
+								input.entitySchema.owner.kind === "plugin"
+									? input.entitySchema.owner.pluginId
+									: null,
+							properties: yield* Schema.decodeUnknownEffect(
+								Schema.Record(Schema.String, JsonValue),
+							)(input.properties).pipe(
+								Effect.mapError(
+									() => new DbError({ message: "Invalid provider entity fixture properties" }),
+								),
+							),
 						});
 						return { dispatch: [], result: { entity } } satisfies PlannedEntityWork;
 					}),
@@ -569,28 +670,20 @@ const rootPopulationLayer = Layer.unwrap(
 						.pipe(Effect.andThen(Ref.update(postCommitCount, (count) => count + 1)), Effect.as([])),
 			}),
 			Layer.succeed(FakeRootPopulation, {
+				payload,
 				commands: transaction.persisted,
 				postCommitCount: Ref.get(postCommitCount),
 			}),
 		);
 	}),
-);
+).pipe(Layer.provideMerge(revisionDatabaseLayer));
 
 layer(rootPopulationLayer)((it) => {
 	it.effect("uses command causation for deterministic root and final lifecycle writes", () => {
-		const payload = {
-			command,
-			providerId,
-			externalId: "record-1",
-			mode: "refresh" as const,
-			executionId: "population-root",
-			entitySchemaSlug: rootSchemaSlug,
-			entityScope: { userId, type: "global" as const },
-		};
-
 		return Effect.gen(function* () {
-			const result = yield* runProviderEntityPopulationWorkflow(payload, payload.executionId);
 			const fake = yield* FakeRootPopulation;
+			const payload = fake.payload;
+			const result = yield* runProviderEntityPopulationWorkflow(payload, payload.executionId);
 			const commands = yield* fake.commands;
 			expect(result.populatedAt).not.toBeNull();
 			expect(commands).toHaveLength(2);

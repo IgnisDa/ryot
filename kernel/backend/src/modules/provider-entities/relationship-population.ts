@@ -1,14 +1,13 @@
 import { SandboxRunError, mapDbErrorToSandbox } from "@ryot-app/contract/errors";
-import type {
-	AutomationPopulationContext,
-	LifecycleCommand,
-} from "@ryot-app/contract/modules/automations/lifecycle";
+import type { AutomationPopulationContext } from "@ryot-app/contract/modules/automations/lifecycle";
+import { definitionKey, definitionOwner } from "@ryot-app/contract/modules/plugins/references";
 import {
 	EntitySchemaSlug,
 	RelationshipSchemaSlug,
 	type EntityId,
 	type SandboxProviderId,
 	type UserId,
+	type PluginId,
 } from "@ryot-app/contract/schema/brands";
 import type {
 	ProviderDetailsRelatedEntity,
@@ -24,13 +23,16 @@ import { parseAppSchemaProperties } from "#lib/property-schema/property-schema-r
 import type { EntityRelationshipDefinitions } from "#modules/definition-registry/snapshot";
 import { EntitiesRepository, providerEntityMutationLockKey } from "#modules/entities/repository";
 import { EntitiesService } from "#modules/entities/service";
+import type { DomainLifecycleCommand } from "#modules/entities/write-context";
 import { PluginRuntimeResolver } from "#modules/plugins/runtime-resolver";
 
+import { makeProviderExecutionReads } from "./execution-reads";
 import { persistPlannedRelationshipSynchronization } from "./relationship-synchronization";
 
 export const syncRelatedEntityGroup = Effect.fn("syncRelatedEntityGroup")(function* (
 	input: {
-		command: LifecycleCommand;
+		command: DomainLifecycleCommand;
+		pluginId: PluginId;
 		definitions: EntityRelationshipDefinitions;
 		population: AutomationPopulationContext;
 		primaryEntityId: EntityId;
@@ -39,11 +41,18 @@ export const syncRelatedEntityGroup = Effect.fn("syncRelatedEntityGroup")(functi
 	} & ({ scope: "global" } | { scope: "user"; userId: UserId }),
 ) {
 	const session = yield* DatabaseSession;
+	const reads = makeProviderExecutionReads(session);
 	const entities = yield* EntitiesService;
 	const repository = yield* EntitiesRepository;
 	const pluginRuntime = yield* PluginRuntimeResolver;
 	const relationshipDefinition =
-		input.definitions.relationshipSchemas[input.group.relationshipSchemaSlug];
+		input.definitions.relationshipSchemas[
+			definitionKey(
+				"relationship",
+				definitionOwner(input.pluginId),
+				input.group.relationshipSchemaSlug,
+			)
+		];
 	if (!relationshipDefinition) {
 		return yield* new SandboxRunError({
 			kind: "script-failure",
@@ -64,7 +73,13 @@ export const syncRelatedEntityGroup = Effect.fn("syncRelatedEntityGroup")(functi
 	const uniqueRelatedEntities = new Map<string, ProviderDetailsRelatedEntity>();
 	for (const relatedEntity of input.group.entities) {
 		uniqueRelatedEntities.set(
-			`${relatedEntity.providerSlug}:${relatedEntity.externalId}`,
+			stableStringify([
+				input.scope,
+				input.scope === "user" ? input.userId : null,
+				input.pluginId,
+				relatedEntity.providerSlug,
+				relatedEntity.externalId,
+			]),
 			relatedEntity,
 		);
 	}
@@ -86,13 +101,38 @@ export const syncRelatedEntityGroup = Effect.fn("syncRelatedEntityGroup")(functi
 		if (memoized !== undefined) {
 			return memoized;
 		}
+		const pin = input.command.writeContext?.pluginRevision;
+		if (pin) {
+			const provider = yield* reads.findPinnedProvider(
+				{ slug: providerSlug, owner: definitionOwner(input.pluginId) },
+				pin.revisionId,
+			);
+			if (!provider) {
+				return yield* new SandboxRunError({
+					kind: "script-failure",
+					message: `Provider is not declared by the pinned owner: ${providerSlug}`,
+				});
+			}
+			const resolved = {
+				providerId: provider.id,
+				entitySchemaSlug: EntitySchemaSlug.make(provider.rootEntitySchemaSlug),
+			};
+			schemaProviderBySlug.set(providerSlug, resolved);
+			return resolved;
+		}
 		const availableProvider =
 			input.scope === "user"
-				? yield* pluginRuntime.findProviderAvailableToUserBySlug(input.userId, providerSlug)
+				? yield* pluginRuntime.findProviderAvailableToUserByReference(input.userId, {
+						slug: providerSlug,
+						owner: definitionOwner(input.pluginId),
+					})
 				: null;
 		const persistedSchemaProvider =
 			input.scope === "global"
-				? yield* repository.findEntitySchemaProviderBySlug(providerSlug)
+				? yield* repository.findEntitySchemaProviderByReference({
+						slug: providerSlug,
+						owner: definitionOwner(input.pluginId),
+					})
 				: null;
 		const resolved = availableProvider
 			? ({
@@ -144,6 +184,7 @@ export const syncRelatedEntityGroup = Effect.fn("syncRelatedEntityGroup")(functi
 			),
 		);
 		const lockInput = {
+			entitySchemaPluginId: input.pluginId,
 			externalId: relatedEntity.externalId,
 			providerId: schemaProvider.providerId,
 			entitySchemaSlug: schemaProvider.entitySchemaSlug,
@@ -185,12 +226,18 @@ export const syncRelatedEntityGroup = Effect.fn("syncRelatedEntityGroup")(functi
 						externalId: relatedEntity.externalId,
 						providerId: schemaProvider.providerId,
 						properties: relatedEntity.properties ?? {},
-						entitySchemaSlug: schemaProvider.entitySchemaSlug,
-						lifecycle: populationLifecycleCommand(
-							input.command,
-							[...itemIdentity, relatedEntity.providerSlug, relatedEntity.externalId],
-							input.population,
-						),
+						entitySchema: {
+							slug: schemaProvider.entitySchemaSlug,
+							owner: definitionOwner(input.pluginId),
+						},
+						lifecycle: {
+							...populationLifecycleCommand(
+								input.command,
+								[...itemIdentity, relatedEntity.providerSlug, relatedEntity.externalId],
+								input.population,
+							),
+							writeContext: input.command.writeContext,
+						},
 					})),
 				});
 				const entityDispatch = upserts.dispatch;
@@ -212,18 +259,21 @@ export const syncRelatedEntityGroup = Effect.fn("syncRelatedEntityGroup")(functi
 					relationshipSchemaPluginId: relationshipSchema.pluginId,
 					onConflict:
 						input.group.synchronization === "additive" ? "preserveExisting" : "replaceProperties",
-					command: populationLifecycleCommand(input.command, itemIdentity, {
-						...input.population,
-						batch: {
-							afterCount: 0,
-							beforeCount: 0,
-							isLeader: true,
-							createdCount: 0,
-							deletedCount: 0,
-							updatedCount: 0,
-							id: stableStringify([input.command.causation.executionId, ...itemIdentity]),
-						},
-					}),
+					command: {
+						...populationLifecycleCommand(input.command, itemIdentity, {
+							...input.population,
+							batch: {
+								afterCount: 0,
+								beforeCount: 0,
+								isLeader: true,
+								createdCount: 0,
+								deletedCount: 0,
+								updatedCount: 0,
+								id: stableStringify([input.command.causation.executionId, ...itemIdentity]),
+							},
+						}),
+						writeContext: input.command.writeContext,
+					},
 				});
 				return {
 					entityDispatch,

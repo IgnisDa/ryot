@@ -13,6 +13,7 @@ import {
 } from "../runtime-metrics";
 import { bindSandboxHostFunctions } from "./bridge-adapter";
 import { isSandboxCapability } from "./capability-policy";
+import { SandboxExecutionAuthority } from "./execution-principal";
 import { SandboxFileService } from "./file-service";
 import { isSandboxFilesystemGrantCapability } from "./filesystem-grants";
 import { SandboxHostCallGate } from "./host-call-gate";
@@ -30,6 +31,7 @@ import {
 } from "./observability-host-functions";
 import {
 	isSandboxCapabilityAllowed,
+	toSandboxHostError,
 	sandboxPlatformFailureKind,
 	type BoundHostFunction,
 	type SandboxRunInput,
@@ -90,6 +92,7 @@ export class SandboxService extends Context.Service<SandboxService>()("SandboxSe
 		const files = yield* SandboxFileService;
 		const hosts = yield* SandboxHostImplementations;
 		const apiFunctions = { ...hosts.runtime, ...hosts.additional, ...hosts.automation };
+		const authority = yield* SandboxExecutionAuthority;
 		const run = Effect.fn("SandboxService.run")(function* (input: SandboxRunInput) {
 			const executionStartedAt = yield* Clock.currentTimeMillis;
 			const kind = sandboxMetricKind(input.principal.metadata);
@@ -153,7 +156,15 @@ export class SandboxService extends Context.Service<SandboxService>()("SandboxSe
 										input,
 										parentSpan,
 										files: access,
-										apiFunctions: selected,
+										apiFunctions: Object.fromEntries(
+											Object.entries(selected).map(([name, host]) => [
+												name,
+												(args: ReadonlyArray<unknown>) =>
+													authority
+														.resolve(input.principal)
+														.pipe(Effect.mapError(toSandboxHostError), Effect.andThen(host(args))),
+											]),
+										),
 									})
 									.pipe(
 										Effect.mapError(

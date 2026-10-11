@@ -1,4 +1,4 @@
-import type { LifecycleCommand } from "@ryot-app/contract/modules/automations/lifecycle";
+import { definitionKey } from "@ryot-app/contract/modules/plugins/references";
 import {
 	RelationshipBadRequest,
 	RelationshipNotFound,
@@ -18,6 +18,11 @@ import {
 } from "#lib/infrastructure/lifecycle-workflow-step";
 import { DefinitionRepository } from "#modules/definition-registry/repository";
 import { EntitiesRepository } from "#modules/entities/repository";
+import {
+	DomainWriteConflict,
+	makeDomainWriteChecks,
+	type DomainLifecycleCommand,
+} from "#modules/entities/write-context";
 import {
 	mutationReceiptIdentity,
 	MutationReceipts,
@@ -43,8 +48,11 @@ import {
 	rootTransactionGuard,
 	RelationshipRecordedResult,
 	validateUserRelationshipEntities,
+	relationshipSchemaReference,
+	relationshipIdentity,
 	type ChangeUserRelationshipBatch,
 	type CreateRelationshipInput,
+	type DeleteRelationshipInput,
 	type Mutation,
 	type ReconcileGlobalRelationshipGroup,
 	type UpdateRelationshipInput,
@@ -61,6 +69,7 @@ export class RelationshipsService extends Context.Service<RelationshipsService>(
 			const entities = yield* EntitiesRepository;
 			const definitions = yield* DefinitionRepository;
 			const session = yield* DatabaseSession;
+			const writes = makeDomainWriteChecks(session);
 			const planner = yield* LifecyclePlanner;
 			const execution = yield* LifecycleExecution;
 			const receipts = yield* MutationReceipts.make;
@@ -68,7 +77,7 @@ export class RelationshipsService extends Context.Service<RelationshipsService>(
 			const assertRootTransaction = rootTransactionGuard(session);
 			const prepareSingle = (
 				input: RelationshipIdentityInput,
-				command: LifecycleCommand,
+				command: DomainLifecycleCommand,
 				mode: Mutation["mode"],
 				properties?: unknown,
 				propertiesSchema?: AppSchema,
@@ -91,11 +100,25 @@ export class RelationshipsService extends Context.Service<RelationshipsService>(
 				);
 			const prepareSingleWithCatalog = Effect.fnUntraced(function* (
 				input: RelationshipIdentityInput,
-				command: LifecycleCommand,
+				command: DomainLifecycleCommand,
 				mode: Exclude<Mutation["mode"], "delete">,
 				properties?: unknown,
 			) {
 				yield* assertRootTransaction;
+				const reference = relationshipSchemaReference(input);
+				yield* writes
+					.check(command, reference.owner, input.scope === "user" ? input.userId : null)
+					.pipe(
+						Effect.mapError(
+							(error) =>
+								new RelationshipBadRequest({
+									reason:
+										error instanceof DomainWriteConflict
+											? error.reason
+											: { code: "concurrent-relationship-change" },
+								}),
+						),
+					);
 				const replay = yield* mutations.committedReplay(input, command, mode, properties);
 				if (replay) {
 					const batch = yield* transaction(
@@ -113,22 +136,19 @@ export class RelationshipsService extends Context.Service<RelationshipsService>(
 				}
 				const definition =
 					input.scope === "user"
-						? (yield* definitions.findUserRelationshipSchemas(input.userId, [
-								input.relationshipSchemaSlug,
-							]))[input.relationshipSchemaSlug]
-						: yield* definitions.findGlobalRelationshipSchema(input.relationshipSchemaSlug);
+						? (yield* definitions.findUserRelationshipSchemas(input.userId, [reference]))[
+								definitionKey("relationship", reference.owner, reference.slug)
+							]
+						: yield* definitions.findGlobalRelationshipSchema(reference);
 				if (!definition) {
 					return yield* new RelationshipNotFound({
-						reason: {
-							code: "relationship-schema-not-found",
-							relationshipSchemaSlug: input.relationshipSchemaSlug,
-						},
+						reason: { schema: reference, code: "relationship-schema-not-found" },
 					});
 				}
 				const pluginId = definition.pluginId ?? null;
 				if (
-					input.relationshipSchemaPluginId !== undefined &&
-					input.relationshipSchemaPluginId !== pluginId
+					!Object.is(input.relationshipSchemaPluginId, undefined) &&
+					!Object.is(input.relationshipSchemaPluginId, pluginId)
 				) {
 					return yield* new RelationshipBadRequest({
 						reason: { code: "concurrent-relationship-change" },
@@ -149,15 +169,15 @@ export class RelationshipsService extends Context.Service<RelationshipsService>(
 			const prepareDeleteUserRelationshipById = Effect.fnUntraced(function* (
 				userId: UserId,
 				relationshipId: RelationshipId,
-				command: LifecycleCommand,
+				command: DomainLifecycleCommand,
 			) {
 				yield* assertRootTransaction;
 				const identity = mutationReceiptIdentity({
 					command,
 					ownerUserId: userId,
 					scopeUserId: userId,
-					input: { relationshipId },
 					commandKind: "relationship:delete-by-id",
+					input: { relationshipId, writeContext: command.writeContext },
 				});
 				const recorded = yield* receipts
 					.peek(identity, RelationshipRecordedResult)
@@ -232,66 +252,94 @@ export class RelationshipsService extends Context.Service<RelationshipsService>(
 				persistPreparedUserCreate: mutations.persistPreparedUserCreate,
 				persistPreparedUserDelete: mutations.persistPreparedUserDelete,
 				persistPlannedReconciliation: mutations.persistPlannedReconciliation,
-				delete: (input: RelationshipIdentityInput, command: LifecycleCommand) =>
-					single(prepareSingle(input, command, "delete")),
 				commitBatch: (pending: PendingRelationshipMutations) =>
 					mutations.commitProjected(pending, summarizeRelationshipMutations),
-				prepareCreate: (input: CreateRelationshipInput, command: LifecycleCommand) =>
-					prepareSingleWithCatalog(input, command, "upsert", input.properties),
-				create: (input: CreateRelationshipInput, command: LifecycleCommand) =>
-					single(prepareSingleWithCatalog(input, command, "upsert", input.properties)),
-				update: (input: UpdateRelationshipInput, command: LifecycleCommand) =>
-					single(prepareSingleWithCatalog(input, command, "update", input.properties)),
+				delete: (input: DeleteRelationshipInput, command: DomainLifecycleCommand) =>
+					single(prepareSingle(relationshipIdentity(input), command, "delete")),
 				commitReconciliation: (pending: PendingRelationshipMutations, upserted: number) =>
 					mutations.commitProjected(pending, reconciliationSummary(upserted)),
 				reconcileGlobal: (
 					groups: ReadonlyArray<ReconcileGlobalRelationshipGroup>,
-					command: LifecycleCommand,
+					command: DomainLifecycleCommand,
 				) => mutations.reconcileGlobal(groups, command),
 				changeUser: (
 					userId: UserId,
 					batches: ReadonlyArray<ChangeUserRelationshipBatch>,
-					command: LifecycleCommand,
+					command: DomainLifecycleCommand,
 				) => mutations.changeUser(userId, batches, command),
-				prepareMergeUserProperties: (
-					input: CreateRelationshipInput & { userId: UserId },
-					command: LifecycleCommand,
-				) => prepareSingleWithCatalog(input, command, "merge", input.properties),
-				mergeUserProperties: (
-					input: CreateRelationshipInput & { userId: UserId },
-					command: LifecycleCommand,
-				) => single(prepareSingleWithCatalog(input, command, "merge", input.properties)),
 				prepareDeleteUserRelationshipById: (
 					userId: UserId,
 					relationshipId: RelationshipId,
-					command: LifecycleCommand,
+					command: DomainLifecycleCommand,
 				) => prepareDeleteUserRelationshipById(userId, relationshipId, command),
 				deleteUserRelationshipById: (
 					userId: UserId,
 					relationshipId: RelationshipId,
-					command: LifecycleCommand,
+					command: DomainLifecycleCommand,
 				) => single(prepareDeleteUserRelationshipById(userId, relationshipId, command)),
+				prepareCreate: (input: CreateRelationshipInput, command: DomainLifecycleCommand) =>
+					prepareSingleWithCatalog(
+						relationshipIdentity(input),
+						command,
+						"upsert",
+						input.properties,
+					),
+				prepareMergeUserProperties: (
+					input: CreateRelationshipInput & { userId: UserId },
+					command: DomainLifecycleCommand,
+				) =>
+					prepareSingleWithCatalog(relationshipIdentity(input), command, "merge", input.properties),
+				create: (input: CreateRelationshipInput, command: DomainLifecycleCommand) =>
+					single(
+						prepareSingleWithCatalog(
+							relationshipIdentity(input),
+							command,
+							"upsert",
+							input.properties,
+						),
+					),
+				update: (input: UpdateRelationshipInput, command: DomainLifecycleCommand) =>
+					single(
+						prepareSingleWithCatalog(
+							relationshipIdentity(input),
+							command,
+							"update",
+							input.properties,
+						),
+					),
+				mergeUserProperties: (
+					input: CreateRelationshipInput & { userId: UserId },
+					command: DomainLifecycleCommand,
+				) =>
+					single(
+						prepareSingleWithCatalog(
+							relationshipIdentity(input),
+							command,
+							"merge",
+							input.properties,
+						),
+					),
 				prepareReconcileGlobalGroup: (
 					group: ReconcileGlobalRelationshipGroup,
 					index: number,
-					command: LifecycleCommand,
+					command: DomainLifecycleCommand,
 					allGroups?: ReadonlyArray<ReconcileGlobalRelationshipGroup>,
 				) => mutations.prepareReconcileGlobalGroup(group, index, command, allGroups),
 				prepareChangeUserBatch: (
 					userId: UserId,
 					batch: ChangeUserRelationshipBatch,
 					index: number,
-					command: LifecycleCommand,
+					command: DomainLifecycleCommand,
 					allBatches?: ReadonlyArray<ChangeUserRelationshipBatch>,
 				) => mutations.prepareChangeUserBatch(userId, batch, index, command, allBatches),
 				createUser: (
 					userId: UserId,
 					input: UserRelationshipIdentity & { properties?: unknown },
-					command: LifecycleCommand,
+					command: DomainLifecycleCommand,
 				) =>
 					single(
 						prepareSingleWithCatalog(
-							{ ...input, userId, scope: "user" },
+							relationshipIdentity({ ...input, userId, scope: "user" }),
 							command,
 							"upsert",
 							input.properties ?? {},

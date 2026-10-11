@@ -57,6 +57,7 @@ const entity = {
 	entitySchemaSlug,
 	externalId: "external-1",
 	id: EntityId.make("entity-1"),
+	entitySchemaPluginId: PluginId.make("plugin-1"),
 };
 
 const makeRun = (trigger: AutomationTrigger) =>
@@ -98,7 +99,10 @@ const database = DatabaseSession.of({
 	requireTransaction: Effect.void,
 	acquireUserWriteLock: () => Effect.void,
 	isTransactionActive: Effect.sync(() => inTransaction),
-	run: (statement) => mapDatabaseErrors(statement(Object.create(null))),
+	run: (statement) =>
+		mapDatabaseErrors(
+			statement(Object.assign(Object.create(null), { execute: () => Effect.void })),
+		),
 	transaction: (work) =>
 		Effect.suspend(() => {
 			inTransaction = true;
@@ -192,11 +196,12 @@ layer(
 				for (const [index, command] of commands.entries()) {
 					yield* operations.completeProviderEntityImport(
 						{
-							command,
 							providerId,
 							entitySchemaSlug,
 							externalId: entity.externalId,
+							pluginId: PluginId.make("plugin-1"),
 							entityScope: { userId, type: "global" },
+							command: { ...command, writeContext: null },
 							executionId: `provider-completion-${index}`,
 						},
 						entity,
@@ -220,6 +225,7 @@ layer(
 							operation: "complete",
 							externalId: entity.externalId,
 							resource: "provider-entity-import",
+							entitySchemaPluginId: entity.entitySchemaPluginId,
 						},
 					})),
 				);

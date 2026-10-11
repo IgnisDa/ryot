@@ -25,7 +25,10 @@ import {
 	decodeSandboxHostArguments,
 	normalizeOptionalNull,
 } from "#lib/infrastructure/sandbox-runtime/bridge-adapter";
-import { SandboxExecutionPrincipal } from "#lib/infrastructure/sandbox-runtime/execution-principal";
+import {
+	SandboxExecutionAuthority,
+	SandboxExecutionPrincipal,
+} from "#lib/infrastructure/sandbox-runtime/execution-principal";
 import { SandboxHostImplementations } from "#lib/infrastructure/sandbox-runtime/host-implementations";
 import type { SandboxHttpProgress } from "#lib/infrastructure/sandbox-runtime/http-progress";
 import type { SandboxInlineProgress } from "#lib/infrastructure/sandbox-runtime/inline-progress";
@@ -322,7 +325,12 @@ export const prepareSandboxLifecycleHostInput = Effect.fn("prepareSandboxLifecyc
 		if (validated.failure instanceof SandboxRunError) {
 			return yield* validated.failure;
 		}
-		return { _tag: "Failure" as const, message: validated.failure.message };
+		const data = "data" in validated.failure ? validated.failure.data : undefined;
+		return {
+			_tag: "Failure" as const,
+			message: validated.failure.message,
+			...(data === undefined ? {} : { data }),
+		};
 	},
 );
 
@@ -376,6 +384,7 @@ export const SandboxDurableHostServiceWorkflow = Workflow.make(
 
 export const runSandboxDurableHostServiceWorkflow = Effect.fn("SandboxDurableHostServiceWorkflow")(
 	function* (payload: typeof SandboxDurableHostServiceWorkflowPayload.Type) {
+		yield* (yield* SandboxExecutionAuthority).resolve(payload.principal);
 		return yield* dispatchSandboxHostActivity(
 			yield* SandboxHostImplementations,
 			payload.request,
