@@ -193,7 +193,6 @@ function ProviderChips(props: {
 function ProviderSearchResultList(props: {
 	readonly providerId: SandboxProviderId;
 	readonly entitySchemaSlug: EntitySchemaSlug;
-	readonly libraryName: string;
 	readonly relationshipSlug: string;
 	readonly librarySchemaSlug: string;
 	readonly onAdd: (externalId: string) => void;
@@ -257,7 +256,6 @@ function ProviderSearchResultList(props: {
 				<ProviderSearchResultRow
 					item={item}
 					key={item.externalId}
-					libraryName={props.libraryName}
 					onAdd={() => props.onAdd(item.externalId)}
 					linkedEntityId={links?.get(item.externalId)}
 					entry={providerEntityImportEntry(props.importState, item.externalId)}
@@ -272,7 +270,6 @@ function ProviderSearchResults(props: {
 	readonly state: ProviderSearchState;
 	readonly providerId: SandboxProviderId;
 	readonly entitySchemaSlug: EntitySchemaSlug;
-	readonly libraryName: string;
 	readonly relationshipSlug: string;
 	readonly librarySchemaSlug: string;
 	readonly onAdd: (externalId: string) => void;
@@ -289,7 +286,6 @@ function ProviderSearchResults(props: {
 				items={props.state.items}
 				providerId={props.providerId}
 				importState={props.importState}
-				libraryName={props.libraryName}
 				loadEntityLinks={props.loadEntityLinks}
 				entitySchemaSlug={props.entitySchemaSlug}
 				relationshipSlug={props.relationshipSlug}
@@ -308,8 +304,6 @@ function ProviderSearchResults(props: {
 export function ProviderSearchPanel(props: ProviderSearchPanelProps) {
 	const available = props.providers.status === "ready" ? props.providers.providers : [];
 	const selected = selectPreferredProvider(available, props.selectedProviderId ?? null);
-	const libraryName =
-		props.librarySchemaSlug === "fitness-library" ? "fitness library" : "media library";
 
 	const [advancedOptionsOpen, setAdvancedOptionsOpen] = useState(false);
 	const [importState, setImportState] = useState(createProviderEntityImportState);
@@ -641,7 +635,6 @@ export function ProviderSearchPanel(props: ProviderSearchPanelProps) {
 								state={state}
 								onAdd={addProviderEntity}
 								importState={importState}
-								libraryName={libraryName}
 								providerId={selected.providerId}
 								loadEntityLinks={props.loadEntityLinks}
 								entitySchemaSlug={props.entitySchemaSlug}
