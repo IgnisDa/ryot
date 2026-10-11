@@ -51,7 +51,7 @@ import { PluginConfigRevisions } from "#modules/plugins/configuration/revisions"
 import { PluginInstallationRepository } from "#modules/plugins/installations/repository";
 import { PluginRepository } from "#modules/plugins/packages/repository";
 import { revisionPackage } from "#modules/plugins/packages/revision.test-support";
-import { pluginSandboxAuthority } from "#modules/scripts/authorization/plugin-authority";
+import { insertPluginRevision } from "#modules/plugins/test-support";
 import { DatabaseSession } from "#platform/db/session";
 import { WorkflowExecutionNotifications } from "#platform/workflow/execution-notifications";
 import * as tables from "#schema/tables/combined";
@@ -1063,16 +1063,12 @@ describe("EntitiesService committed lifecycle", () => {
 							id: "provider-plugin",
 							packageId: manifest.metadata.packageId,
 						});
-					yield* db
-						.insert(tables.pluginRevision)
-						.values({
-							manifest,
-							id: "provider-revision",
-							pluginId: "provider-plugin",
-							contentHash: "provider-source",
-							clientConfigSchema: { fields: {} },
-							sandboxAuthority: pluginSandboxAuthority(manifest),
-						});
+					yield* insertPluginRevision(db, {
+						manifest,
+						id: "provider-revision",
+						pluginId: "provider-plugin",
+						contentHash: "provider-source",
+					});
 					yield* db
 						.update(tables.plugin)
 						.set({ status: "active", activeRevisionId: "provider-revision" })

@@ -106,87 +106,36 @@ export const pluginUninstallReceipt = snakeCase.table("plugin_uninstall_receipt"
 export const pluginRevision = snakeCase.table(
 	"plugin_revision",
 	{
+		name: text(),
+		icon: text(),
+		description: text(),
+		version: text().notNull(),
 		clientArtifactHash: text(),
 		pluginId: text().notNull(),
 		contentHash: text().notNull(),
-		manifest: jsonb().$type<PluginManifest>().notNull(),
+		client: jsonb().$type<PluginManifest["client"]>(),
+		packageId: text().$type<PluginPackageId>().notNull(),
 		clientConfigSchema: jsonb().$type<AppSchema>().notNull(),
+		hooks: jsonb().$type<PluginManifest["hooks"]>().notNull(),
+		crons: jsonb().$type<PluginManifest["crons"]>().notNull(),
+		scripts: jsonb().$type<PluginManifest["scripts"]>().notNull(),
 		id: text()
 			.primaryKey()
 			.$defaultFn(() => generateId()),
+		workflows: jsonb().$type<PluginManifest["workflows"]>().notNull(),
+		providers: jsonb().$type<PluginManifest["providers"]>().notNull(),
+		oauthProviders: jsonb().$type<PluginManifest["oauthProviders"]>(),
 		sandboxAuthority: jsonb().$type<PluginSandboxAuthority>().notNull(),
-		name: text().generatedAlwaysAs(sql`manifest -> 'metadata' ->> 'name'`),
-		icon: text().generatedAlwaysAs(sql`manifest -> 'metadata' ->> 'icon'`),
+		operations: jsonb().$type<PluginManifest["operations"]>().notNull(),
+		configSchema: jsonb().$type<PluginManifest["configSchema"]>().notNull(),
+		signalSchemas: jsonb().$type<PluginManifest["signalSchemas"]>().notNull(),
+		entitySchemas: jsonb().$type<PluginManifest["entitySchemas"]>().notNull(),
+		userBootstrap: jsonb().$type<PluginManifest["userBootstrap"]>().notNull(),
+		userSettingsSchema: jsonb().$type<PluginManifest["userSettingsSchema"]>(),
+		httpRateLimits: jsonb().$type<PluginManifest["httpRateLimits"]>().notNull(),
 		createdAt: timestamp({ precision: 3, withTimezone: true }).defaultNow().notNull(),
-		description: text().generatedAlwaysAs(sql`manifest -> 'metadata' ->> 'description'`),
-		version: text()
-			.notNull()
-			.generatedAlwaysAs(sql`manifest -> 'metadata' ->> 'version'`),
-		client: jsonb()
-			.$type<PluginManifest["client"]>()
-			.generatedAlwaysAs(sql`manifest -> 'client'`),
-		hooks: jsonb()
-			.$type<PluginManifest["hooks"]>()
-			.notNull()
-			.generatedAlwaysAs(sql`manifest -> 'hooks'`),
-		crons: jsonb()
-			.$type<PluginManifest["crons"]>()
-			.notNull()
-			.generatedAlwaysAs(sql`manifest -> 'crons'`),
-		scripts: jsonb()
-			.$type<PluginManifest["scripts"]>()
-			.notNull()
-			.generatedAlwaysAs(sql`manifest -> 'scripts'`),
-		workflows: jsonb()
-			.$type<PluginManifest["workflows"]>()
-			.notNull()
-			.generatedAlwaysAs(sql`manifest -> 'workflows'`),
-		providers: jsonb()
-			.$type<PluginManifest["providers"]>()
-			.notNull()
-			.generatedAlwaysAs(sql`manifest -> 'providers'`),
-		oauthProviders: jsonb()
-			.$type<PluginManifest["oauthProviders"]>()
-			.generatedAlwaysAs(sql`manifest -> 'oauthProviders'`),
-		packageId: text()
-			.$type<PluginPackageId>()
-			.notNull()
-			.generatedAlwaysAs(sql`manifest -> 'metadata' ->> 'packageId'`),
-		operations: jsonb()
-			.$type<PluginManifest["operations"]>()
-			.notNull()
-			.generatedAlwaysAs(sql`manifest -> 'operations'`),
-		configSchema: jsonb()
-			.$type<PluginManifest["configSchema"]>()
-			.notNull()
-			.generatedAlwaysAs(sql`manifest -> 'configSchema'`),
-		signalSchemas: jsonb()
-			.$type<PluginManifest["signalSchemas"]>()
-			.notNull()
-			.generatedAlwaysAs(sql`manifest -> 'signalSchemas'`),
-		entitySchemas: jsonb()
-			.$type<PluginManifest["entitySchemas"]>()
-			.notNull()
-			.generatedAlwaysAs(sql`manifest -> 'entitySchemas'`),
-		userBootstrap: jsonb()
-			.$type<PluginManifest["userBootstrap"]>()
-			.notNull()
-			.generatedAlwaysAs(sql`manifest -> 'userBootstrap'`),
-		userSettingsSchema: jsonb()
-			.$type<PluginManifest["userSettingsSchema"]>()
-			.generatedAlwaysAs(sql`manifest -> 'userSettingsSchema'`),
-		httpRateLimits: jsonb()
-			.$type<PluginManifest["httpRateLimits"]>()
-			.notNull()
-			.generatedAlwaysAs(sql`manifest -> 'httpRateLimits'`),
-		relationshipSchemas: jsonb()
-			.$type<PluginManifest["relationshipSchemas"]>()
-			.notNull()
-			.generatedAlwaysAs(sql`manifest -> 'relationshipSchemas'`),
-		integrationProviders: jsonb()
-			.$type<PluginManifest["integrationProviders"]>()
-			.notNull()
-			.generatedAlwaysAs(sql`manifest -> 'integrationProviders'`),
+		relationshipSchemas: jsonb().$type<PluginManifest["relationshipSchemas"]>().notNull(),
+		integrationProviders: jsonb().$type<PluginManifest["integrationProviders"]>().notNull(),
 	},
 	(table): PgTableExtraConfigValue[] => [
 		unique("plugin_revision_plugin_content_unique").on(table.pluginId, table.contentHash),
@@ -205,6 +154,13 @@ export const pluginRevision = snakeCase.table(
 		}),
 	],
 );
+
+export const pluginRevisionManifest = snakeCase.table("plugin_revision_manifest", {
+	manifest: jsonb().$type<PluginManifest>().notNull(),
+	pluginRevisionId: text()
+		.primaryKey()
+		.references(() => pluginRevision.id, { onDelete: "cascade" }),
+});
 
 export const pluginInstallation = snakeCase.table(
 	"plugin_installation",

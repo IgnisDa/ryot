@@ -13,8 +13,7 @@ import {
 	revisionDatabaseLayer,
 	revisionPackage,
 } from "#modules/plugins/packages/revision.test-support";
-import { testPluginPackageId } from "#modules/plugins/test-support";
-import { pluginSandboxAuthority } from "#modules/scripts/authorization/plugin-authority";
+import { insertPluginRevision, testPluginPackageId } from "#modules/plugins/test-support";
 import { DatabaseSession } from "#platform/db/session";
 
 import * as tables from "./tables/combined";
@@ -94,15 +93,12 @@ describe("plugin namespaces in the generated migration baseline", () => {
 				const mismatchedRevisionIdentity = yield* Effect.result(
 					session.run((db) =>
 						db.transaction((tx) =>
-							tx
-								.insert(tables.pluginRevision)
-								.values({
-									pluginId: system.pluginId,
-									manifest: otherPackage.manifest,
-									clientConfigSchema: { fields: {} },
-									contentHash: otherPackage.contentHash,
-									sandboxAuthority: pluginSandboxAuthority(otherPackage.manifest),
-								}),
+							insertPluginRevision(tx, {
+								pluginId: system.pluginId,
+								id: "mismatched-revision",
+								manifest: otherPackage.manifest,
+								contentHash: otherPackage.contentHash,
+							}),
 						),
 					),
 				);
@@ -110,19 +106,33 @@ describe("plugin namespaces in the generated migration baseline", () => {
 				assert(mismatchedRevisionIdentity.failure instanceof DbError);
 				expect(mismatchedRevisionIdentity.failure.code).toBe("23503");
 
-				const changedRevisionManifest = yield* Effect.result(
+				const changedRevisionSection = yield* Effect.result(
 					session.run((db) =>
 						db.transaction((tx) =>
 							tx
 								.update(tables.pluginRevision)
-								.set({ manifest: otherPackage.manifest })
+								.set({ hooks: [] })
 								.where(eq(tables.pluginRevision.id, system.revisionId)),
+						),
+					),
+				);
+				assert(Result.isFailure(changedRevisionSection));
+				assert(changedRevisionSection.failure instanceof DbError);
+				expect(changedRevisionSection.failure.code).toBe("P0001");
+
+				const changedRevisionManifest = yield* Effect.result(
+					session.run((db) =>
+						db.transaction((tx) =>
+							tx
+								.update(tables.pluginRevisionManifest)
+								.set({ manifest: otherPackage.manifest })
+								.where(eq(tables.pluginRevisionManifest.pluginRevisionId, system.revisionId)),
 						),
 					),
 				);
 				assert(Result.isFailure(changedRevisionManifest));
 				assert(changedRevisionManifest.failure instanceof DbError);
-				expect(changedRevisionManifest.failure.code).toBe("23503");
+				expect(changedRevisionManifest.failure.code).toBe("P0001");
 
 				const mismatchedActiveRevision = yield* Effect.result(
 					session.run((db) =>

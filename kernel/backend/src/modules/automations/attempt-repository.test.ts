@@ -8,15 +8,13 @@ import { eq } from "drizzle-orm";
 import { DateTime, Effect, Layer } from "effect";
 import { assert, describe, expect, it as unit } from "vitest";
 
-import { fixtureManifest } from "#modules/plugins/test-support";
-import { pluginSandboxAuthority } from "#modules/scripts/authorization/plugin-authority";
+import { insertPluginRevision, fixtureManifest } from "#modules/plugins/test-support";
 import { DatabaseSession } from "#platform/db/session";
 import { user } from "#schema/tables/auth";
 import { automationRun, automationRunAttempt, automationTrigger } from "#schema/tables/automations";
 import {
 	sandboxScript,
 	plugin,
-	pluginRevision,
 	pluginConfigRevision,
 	pluginConfigEncryptionKey,
 } from "#schema/tables/core";
@@ -434,16 +432,12 @@ describe("AutomationAttemptRepository (PostgreSQL)", () => {
 									status: "inactive",
 									packageId: fixtureManifest().metadata.packageId,
 								});
-							yield* db
-								.insert(pluginRevision)
-								.values({
-									id: "revision",
-									pluginId: "plugin",
-									contentHash: "source",
-									manifest: fixtureManifest(),
-									clientConfigSchema: { fields: {} },
-									sandboxAuthority: pluginSandboxAuthority(fixtureManifest()),
-								});
+							yield* insertPluginRevision(db, {
+								id: "revision",
+								pluginId: "plugin",
+								contentHash: "source",
+								manifest: fixtureManifest(),
+							});
 							yield* db
 								.insert(pluginConfigRevision)
 								.values({

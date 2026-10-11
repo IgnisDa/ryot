@@ -799,37 +799,41 @@ CREATE TABLE "plugin_installation" (
 );
 --> statement-breakpoint
 CREATE TABLE "plugin_revision" (
+	"name" text,
+	"icon" text,
+	"description" text,
+	"version" text NOT NULL,
 	"client_artifact_hash" text,
 	"plugin_id" text NOT NULL,
 	"content_hash" text NOT NULL,
-	"manifest" jsonb NOT NULL,
+	"client" jsonb,
+	"package_id" text NOT NULL,
 	"client_config_schema" jsonb NOT NULL,
+	"hooks" jsonb NOT NULL,
+	"crons" jsonb NOT NULL,
+	"scripts" jsonb NOT NULL,
 	"id" text PRIMARY KEY,
+	"workflows" jsonb NOT NULL,
+	"providers" jsonb NOT NULL,
+	"oauth_providers" jsonb,
 	"sandbox_authority" jsonb NOT NULL,
-	"name" text GENERATED ALWAYS AS (manifest -> 'metadata' ->> 'name') STORED,
-	"icon" text GENERATED ALWAYS AS (manifest -> 'metadata' ->> 'icon') STORED,
+	"operations" jsonb NOT NULL,
+	"config_schema" jsonb NOT NULL,
+	"signal_schemas" jsonb NOT NULL,
+	"entity_schemas" jsonb NOT NULL,
+	"user_bootstrap" jsonb NOT NULL,
+	"user_settings_schema" jsonb,
+	"http_rate_limits" jsonb NOT NULL,
 	"created_at" timestamp(3) with time zone DEFAULT now() NOT NULL,
-	"description" text GENERATED ALWAYS AS (manifest -> 'metadata' ->> 'description') STORED,
-	"version" text GENERATED ALWAYS AS (manifest -> 'metadata' ->> 'version') STORED NOT NULL,
-	"client" jsonb GENERATED ALWAYS AS (manifest -> 'client') STORED,
-	"hooks" jsonb GENERATED ALWAYS AS (manifest -> 'hooks') STORED NOT NULL,
-	"crons" jsonb GENERATED ALWAYS AS (manifest -> 'crons') STORED NOT NULL,
-	"scripts" jsonb GENERATED ALWAYS AS (manifest -> 'scripts') STORED NOT NULL,
-	"workflows" jsonb GENERATED ALWAYS AS (manifest -> 'workflows') STORED NOT NULL,
-	"providers" jsonb GENERATED ALWAYS AS (manifest -> 'providers') STORED NOT NULL,
-	"oauth_providers" jsonb GENERATED ALWAYS AS (manifest -> 'oauthProviders') STORED,
-	"package_id" text GENERATED ALWAYS AS (manifest -> 'metadata' ->> 'packageId') STORED NOT NULL,
-	"operations" jsonb GENERATED ALWAYS AS (manifest -> 'operations') STORED NOT NULL,
-	"config_schema" jsonb GENERATED ALWAYS AS (manifest -> 'configSchema') STORED NOT NULL,
-	"signal_schemas" jsonb GENERATED ALWAYS AS (manifest -> 'signalSchemas') STORED NOT NULL,
-	"entity_schemas" jsonb GENERATED ALWAYS AS (manifest -> 'entitySchemas') STORED NOT NULL,
-	"user_bootstrap" jsonb GENERATED ALWAYS AS (manifest -> 'userBootstrap') STORED NOT NULL,
-	"user_settings_schema" jsonb GENERATED ALWAYS AS (manifest -> 'userSettingsSchema') STORED,
-	"http_rate_limits" jsonb GENERATED ALWAYS AS (manifest -> 'httpRateLimits') STORED NOT NULL,
-	"relationship_schemas" jsonb GENERATED ALWAYS AS (manifest -> 'relationshipSchemas') STORED NOT NULL,
-	"integration_providers" jsonb GENERATED ALWAYS AS (manifest -> 'integrationProviders') STORED NOT NULL,
+	"relationship_schemas" jsonb NOT NULL,
+	"integration_providers" jsonb NOT NULL,
 	CONSTRAINT "plugin_revision_plugin_content_unique" UNIQUE("plugin_id","content_hash"),
 	CONSTRAINT "plugin_revision_id_plugin_unique" UNIQUE("id","plugin_id")
+);
+--> statement-breakpoint
+CREATE TABLE "plugin_revision_manifest" (
+	"manifest" jsonb NOT NULL,
+	"plugin_revision_id" text PRIMARY KEY
 );
 --> statement-breakpoint
 CREATE TABLE "plugin_uninstall_receipt" (
@@ -1235,6 +1239,7 @@ ALTER TABLE "plugin_installation" ADD CONSTRAINT "plugin_installation_Y0qNbD8s1J
 ALTER TABLE "plugin_installation" ADD CONSTRAINT "plugin_installation_plugin_id_plugin_id_fkey" FOREIGN KEY ("plugin_id") REFERENCES "plugin"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "plugin_revision" ADD CONSTRAINT "plugin_revision_owner_package_fk" FOREIGN KEY ("plugin_id","package_id") REFERENCES "plugin"("id","package_id") ON DELETE CASCADE ON UPDATE RESTRICT;--> statement-breakpoint
 ALTER TABLE "plugin_revision" ADD CONSTRAINT "plugin_revision_client_artifact_package_fk" FOREIGN KEY ("client_artifact_hash","package_id") REFERENCES "client_artifact"("hash","package_id");--> statement-breakpoint
+ALTER TABLE "plugin_revision_manifest" ADD CONSTRAINT "plugin_revision_manifest_aTR5v120ANTP_fkey" FOREIGN KEY ("plugin_revision_id") REFERENCES "plugin_revision"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "plugin_uninstall_receipt" ADD CONSTRAINT "plugin_uninstall_receipt_owner_user_id_user_id_fkey" FOREIGN KEY ("owner_user_id") REFERENCES "user"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "provider_import_admission" ADD CONSTRAINT "provider_import_admission_user_id_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "user"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "relationship" ADD CONSTRAINT "relationship_user_id_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "user"("id") ON DELETE CASCADE;--> statement-breakpoint

@@ -68,7 +68,6 @@ const makeServiceLayer = (
 						},
 					}
 				: execution.principal;
-			const manifest = fixtureManifest(execution.principal.pluginRevision.packageId);
 			const sandboxAuthority = {
 				packageId: execution.principal.pluginRevision.packageId,
 				schemaScope: execution.principal.pluginRevision.schemaScope,
@@ -129,7 +128,7 @@ const makeServiceLayer = (
 								];
 							}
 							if (table === tables.pluginRevision) {
-								return [{ manifest }];
+								return [{ id: principal.pluginRevision.revisionId }];
 							}
 							if (table === tables.pluginInstallation) {
 								return [

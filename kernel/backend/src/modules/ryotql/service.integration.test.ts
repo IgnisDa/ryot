@@ -37,8 +37,11 @@ import { Effect, Layer, Result, Option } from "effect";
 import { assert } from "vitest";
 
 import { redactPluginConfig } from "#modules/plugins/configuration/redaction";
-import { fixtureManifest, testPluginPackageId } from "#modules/plugins/test-support";
-import { pluginSandboxAuthority } from "#modules/scripts/authorization/plugin-authority";
+import {
+	insertPluginRevision,
+	fixtureManifest,
+	testPluginPackageId,
+} from "#modules/plugins/test-support";
 import { DatabaseSession } from "#platform/db/session";
 import { account, user } from "#schema/tables/auth";
 import {
@@ -53,7 +56,6 @@ import {
 	plugin,
 	pluginConfigRevision,
 	pluginInstallation,
-	pluginRevision,
 	sandboxScript,
 } from "#schema/tables/core";
 import {
@@ -186,18 +188,15 @@ const insertPlugin = Effect.fn(function* (input: {
 			yield* db
 				.insert(plugin)
 				.values({ packageId, id: input.id, status: "disabled", ownerId: input.ownerId });
-			yield* db
-				.insert(pluginRevision)
-				.values({
-					id: revisionId,
-					pluginId: input.id,
-					manifest: revisionManifest,
-					contentHash: `${input.id}-hash`,
-					sandboxAuthority: pluginSandboxAuthority(revisionManifest),
-					clientConfigSchema: input.configSchema
-						? redactPluginConfig(input.configSchema, {}).configSchema
-						: { fields: {}, unknownKeys: "strict" },
-				});
+			yield* insertPluginRevision(db, {
+				id: revisionId,
+				pluginId: input.id,
+				manifest: revisionManifest,
+				contentHash: `${input.id}-hash`,
+				clientConfigSchema: input.configSchema
+					? redactPluginConfig(input.configSchema, {}).configSchema
+					: { fields: {}, unknownKeys: "strict" },
+			});
 			yield* db
 				.update(plugin)
 				.set({ status: "active", activeRevisionId: revisionId })
