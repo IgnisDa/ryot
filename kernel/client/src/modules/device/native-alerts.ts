@@ -20,6 +20,19 @@ export const cancelNativeAlert = Effect.fn("cancelNativeAlert")(function* (
 	yield* Effect.tryPromise(() => platform.removeDeliveredNotificationsById({ ids: [id] }));
 });
 
+export const removeDeliveredNativeAlerts = Effect.fn("removeDeliveredNativeAlerts")(function* (
+	platform: Pick<
+		LocalNotificationsPlugin,
+		"getDeliveredNotifications" | "removeDeliveredNotificationsById"
+	>,
+) {
+	const delivered = yield* Effect.tryPromise(() => platform.getDeliveredNotifications());
+	const ids = delivered.notifications.map(({ id }) => id);
+	if (ids.length > 0) {
+		yield* Effect.tryPromise(() => platform.removeDeliveredNotificationsById({ ids }));
+	}
+});
+
 export const scheduleNativeAlert = Effect.fn("scheduleNativeAlert")(function* (
 	platform: NativeAlerts,
 	android: boolean,

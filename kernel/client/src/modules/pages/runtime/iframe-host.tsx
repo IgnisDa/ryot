@@ -24,7 +24,7 @@ import type {
 	PluginDeviceOutcome,
 } from "@ryot-app/plugin-client-contract";
 import type { RyotClient } from "@ryot-app/plugin-client-sdk";
-import { Button, ScreenFrame, useShortcut } from "@ryot-app/plugin-ui-sdk";
+import { Button, ScreenFrame, StatusMessage, useShortcut } from "@ryot-app/plugin-ui-sdk";
 import clsx from "clsx";
 import { Effect } from "effect";
 import {
@@ -64,6 +64,18 @@ const noticeMessages: Record<PluginHostStatus, string> = {
 	loading: "Preparing this plugin...",
 	"handshake-failure": "This plugin stopped working.",
 };
+
+const afterFlush = (
+	session: PluginBridgeSession | undefined,
+	act: (flushed: boolean) => void,
+	signal?: AbortSignal,
+) =>
+	Effect.runFork(
+		(session?.requestFlush() ?? Effect.succeed(true)).pipe(
+			Effect.tap((flushed) => Effect.sync(() => act(flushed))),
+		),
+		{ signal },
+	);
 
 export function PageIframeHost(props: {
 	readonly active: boolean;
@@ -151,19 +163,13 @@ export function PageIframeHost(props: {
 		latest.current.onOverlayState(0);
 	};
 	const retryDocument = () => {
-		Effect.runFork(
-			(bridge.current?.requestFlush() ?? Effect.succeed(true)).pipe(
-				Effect.tap((flushed) =>
-					Effect.sync(() => {
-						setPersistenceFailed(!flushed);
-						if (flushed) {
-							closeBridge();
-							latest.current.onReloadCurrent();
-						}
-					}),
-				),
-			),
-		);
+		afterFlush(bridge.current, (flushed) => {
+			setPersistenceFailed(!flushed);
+			if (flushed) {
+				closeBridge();
+				latest.current.onReloadCurrent();
+			}
+		});
 	};
 	const failHandshake = useEffectEvent(() => {
 		closeBridge();
@@ -246,38 +252,34 @@ export function PageIframeHost(props: {
 		}
 		const requestedKey = props.documentKey;
 		const controller = new AbortController();
-		Effect.runFork(
-			(bridge.current?.requestFlush() ?? Effect.succeed(true)).pipe(
-				Effect.tap((flushed) =>
-					Effect.sync(() => {
-						if (latest.current.documentKey !== requestedKey) {
-							return;
-						}
-						if (!flushed) {
-							setPersistenceFailed(true);
-							return;
-						}
-						setPersistenceFailed(false);
-						documentKey.current = requestedKey;
-						const current = latest.current;
-						setUpdateAvailable(false);
-						setOverlayCount(0);
-						setPageShortcuts([]);
-						current.onOverlayState(0);
-						current.onScreenState(null);
-						current.onHeader({
-							title: null,
-							key: current.navigation.key,
-							index: current.navigation.index,
-						});
-						if (current.page) {
-							current.onReleaseResources?.();
-							bridge.current?.sendDocument(current.documentKey, current.page, current.navigation);
-						}
-					}),
-				),
-			),
-			{ signal: controller.signal },
+		afterFlush(
+			bridge.current,
+			(flushed) => {
+				if (latest.current.documentKey !== requestedKey) {
+					return;
+				}
+				setPersistenceFailed(!flushed);
+				if (!flushed) {
+					return;
+				}
+				documentKey.current = requestedKey;
+				const current = latest.current;
+				setUpdateAvailable(false);
+				setOverlayCount(0);
+				setPageShortcuts([]);
+				current.onOverlayState(0);
+				current.onScreenState(null);
+				current.onHeader({
+					title: null,
+					key: current.navigation.key,
+					index: current.navigation.index,
+				});
+				if (current.page) {
+					current.onReleaseResources?.();
+					bridge.current?.sendDocument(current.documentKey, current.page, current.navigation);
+				}
+			},
+			controller.signal,
 		);
 		return () => controller.abort();
 	}, [props.documentKey]);
@@ -465,11 +467,8 @@ export function PageIframeHost(props: {
 	return (
 		<div className="relative h-full w-full">
 			{persistenceFailed && (
-				<div
-					role="alert"
-					className="absolute top-0 right-0 left-0 z-10 flex items-center justify-between gap-2 bg-surface px-4 py-2 text-sm text-text"
-				>
-					<span>Your draft could not be saved. Your work is still open.</span>
+				<div className="absolute top-0 right-0 left-0 z-10 flex items-center justify-between gap-2 bg-surface px-4 py-2 text-sm">
+					<StatusMessage tone="error">Your changes could not be saved.</StatusMessage>
 					<Button type="button" variant="secondary" onClick={retryDocument}>
 						Retry
 					</Button>

@@ -55,7 +55,7 @@ import { ServerService } from "#/modules/server/service";
 import { CustomizeSidebarService } from "#/modules/shell/customize/service";
 import type { ThemeStore } from "#/modules/theme/store";
 import { ClientStorage } from "#/persistence/storage";
-import { makeClientStorageStub } from "#/persistence/storage.test-layer";
+import { makeClientStorage, makeClientStorageStub } from "#/persistence/storage.test-layer";
 
 export const server = decodeServerOrigin("https://ryot.example");
 
@@ -126,15 +126,14 @@ export const NavigationRouteStubs = Layer.succeed(NavigationService, {
 });
 
 export const DeviceRouteStubs = DeviceService.layer.pipe(
+	Layer.provide(makeClientStorage()),
 	Layer.provide(
 		Layer.succeed(DevicePlatform, {
 			haptic: Effect.void,
-			write: () => Effect.void,
 			awake: () => Effect.void,
 			cancel: () => Effect.void,
 			listen: () => Effect.succeed(() => {}),
 			schedule: () => Effect.succeed({ status: "unsupported" }),
-			read: Effect.succeed({ nextId: 1, alerts: [], shortcuts: [] }),
 		}),
 	),
 );
