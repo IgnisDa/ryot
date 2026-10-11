@@ -213,19 +213,23 @@ const listResponse = (
 	},
 });
 
-const runsResponse = (runs: readonly Record<string, unknown>[]) => ({
+const runsResponse = (
+	runs: readonly Record<string, unknown>[],
+	hasMore = false,
+	limit = RUNS_LIMIT,
+) => ({
 	data: {
 		importRuns: {
 			items: runs,
 			type: "rows" as const,
-			pageInfo: { hasMore: false, nextCursor: null, limit: RUNS_LIMIT },
+			pageInfo: { limit, hasMore, nextCursor: hasMore ? "next" : null },
 		},
 	},
 });
 
 const makeIntegrationQueries = (
 	options: {
-		readonly runs?: () => ReturnType<typeof runsResponse>;
+		readonly runs?: (limit: number) => ReturnType<typeof runsResponse>;
 		readonly list?: (limit: number) => ReturnType<typeof listResponse>;
 		readonly listEffect?: (limit: number) => Effect.Effect<ReturnType<typeof listResponse>>;
 		readonly providers?: () => Effect.Effect<
@@ -290,7 +294,16 @@ const makeIntegrationQueries = (
 					},
 				}));
 			}
-			return Effect.succeed(options.runs?.() ?? runsResponse([]));
+			if ("importRuns" in request.payload.queries) {
+				const importRuns = request.payload.queries.importRuns;
+				if (importRuns.output.type !== "rows") {
+					return Effect.die("Expected import runs rows query");
+				}
+				return Effect.succeed(
+					options.runs?.(importRuns.output.pagination.limit) ?? runsResponse([]),
+				);
+			}
+			return Effect.succeed(runsResponse([]));
 		},
 	});
 
@@ -760,6 +773,38 @@ describe("integration detail", () => {
 					"reading events: 12 created · 0 updated · 0 unchanged · 0 skipped · 0 unsuccessful",
 				),
 			).not.toBeNull();
+		}),
+	);
+
+	it.live("shows older runs by expanding the run list", () =>
+		Effect.gen(function* () {
+			const limits: number[] = [];
+			mountView(
+				"/settings/integrations/int_1",
+				makeIntegrationsApi(),
+				makeIntegrationQueries({
+					runs: (limit) => {
+						limits.push(limit);
+						return limit === RUNS_LIMIT
+							? runsResponse([completedRun], true, limit)
+							: runsResponse(
+									[completedRun, { ...completedRun, id: ImportRunId.make("run_2") }],
+									false,
+									limit,
+								);
+					},
+				}),
+			);
+
+			fireEvent.click(
+				yield* Effect.promise(() => screen.findByRole("button", { name: "Show older runs" })),
+			);
+
+			yield* Effect.promise(() =>
+				waitFor(() => expect(screen.getAllByRole("img", { name: "Completed" })).toHaveLength(2)),
+			);
+			expect(limits).toEqual([RUNS_LIMIT, RUNS_LIMIT * 2]);
+			expect(screen.queryByRole("button", { name: "Show older runs" })).toBeNull();
 		}),
 	);
 

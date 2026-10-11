@@ -166,14 +166,12 @@ export const integrationsQuery = createRyotQuery<
 );
 
 export const integrationRunsQuery = createRyotQuery<
-	string,
+	{ readonly limit: number; readonly integrationId: string },
 	ImportRunList,
 	KernelHostServices,
 	IntegrationsLoadError
 >(({ input, client, hostServices }) =>
-	hostServices.runtime
-		.runSync(IntegrationsService)
-		.loadRuns(client, { integrationId: input, limit: INTEGRATION_RUNS_PAGE_SIZE }),
+	hostServices.runtime.runSync(IntegrationsService).loadRuns(client, input),
 );
 
 export const integrationProvidersQuery = createRyotQuery<

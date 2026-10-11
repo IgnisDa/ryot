@@ -1,5 +1,5 @@
 import { useSchemaAssetUpload } from "@ryot-app/plugin-client-sdk/react";
-import { Button, FieldMessage } from "@ryot-app/plugin-ui-sdk";
+import { Button, FieldMessage, LoadMoreButton } from "@ryot-app/plugin-ui-sdk";
 import { AppIcon } from "@ryot-app/plugin-ui-sdk/icon";
 import type {
 	SchemaFileUpload,
@@ -87,6 +87,10 @@ export function IntegrationDetailView(props: {
 	readonly integration: IntegrationClientDetail;
 	readonly onCopy: (value: string) => void;
 	readonly runs: readonly ImportRunSummary[];
+	readonly hasMoreRuns: boolean;
+	readonly isFetchingRuns: boolean;
+	readonly isFetchingNextRuns: boolean;
+	readonly onShowOlderRuns: () => void;
 	readonly provider: IntegrationProviderItem | undefined;
 	readonly connectOAuth: SchemaOAuthConnect;
 	readonly oauthDisabledReason: string | undefined;
@@ -161,6 +165,19 @@ export function IntegrationDetailView(props: {
 						))}
 					</div>
 				)}
+				{props.hasMoreRuns ? (
+					<LoadMoreButton
+						type="button"
+						variant="ghost"
+						label="Show older runs"
+						aria-label="Show older runs"
+						onClick={props.onShowOlderRuns}
+						disabled={props.isFetchingRuns}
+						loadingLabel="Loading older runs..."
+						isFetchingNextPage={props.isFetchingNextRuns}
+						className="self-start py-2 text-sm font-medium text-accent-text"
+					/>
+				) : null}
 			</div>
 		</div>
 	);

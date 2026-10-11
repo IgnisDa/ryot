@@ -1,5 +1,9 @@
 import { definitionOwner } from "@ryot-app/contract/modules/plugins/references";
-import { useRyotMutation, useRyotQuery } from "@ryot-app/plugin-client-sdk/react";
+import {
+	useRyotInfiniteQuery,
+	useRyotMutation,
+	useRyotQuery,
+} from "@ryot-app/plugin-client-sdk/react";
 import { Button, DestructiveConfirmation, Menu, type MenuItem } from "@ryot-app/plugin-ui-sdk";
 import { AppIcon } from "@ryot-app/plugin-ui-sdk/icon";
 import { type SchemaFormValues, useSchemaForm } from "@ryot-app/plugin-ui-sdk/schema-form";
@@ -26,6 +30,7 @@ import type { IntegrationClientDetail } from "#/modules/integrations/service";
 import {
 	deleteIntegrationMutation,
 	getIntegration,
+	INTEGRATION_RUNS_PAGE_SIZE,
 	integrationDetailQuery,
 	integrationProvidersQuery,
 	integrationRunsQuery,
@@ -119,7 +124,13 @@ function StandardIntegrationDetail(props: { readonly integration: IntegrationCli
 	const detail = useRyotQuery(integrationDetailQuery, props.integration.id);
 	const providers = useRyotQuery(integrationProvidersQuery);
 	const integration = detail.data ?? props.integration;
-	const runs = useRyotQuery(integrationRunsQuery, integration.id);
+	const runs = useRyotInfiniteQuery(integrationRunsQuery, integration.id, {
+		mode: "replace",
+		initialPageParam: INTEGRATION_RUNS_PAGE_SIZE,
+		getPageInput: (integrationId, limit) => ({ limit, integrationId }),
+		getNextPageParam: (page, limit) =>
+			page.pageInfo.hasMore ? limit + INTEGRATION_RUNS_PAGE_SIZE : null,
+	});
 	const update = useRyotMutation(updateIntegrationMutation);
 	const remove = useRyotMutation(deleteIntegrationMutation);
 	const providerNames = integrationProviderNames(providers.data ?? []);
@@ -282,9 +293,19 @@ function StandardIntegrationDetail(props: { readonly integration: IntegrationCli
 				saving={update.isPending}
 				connectOAuth={oauth.connect}
 				runs={runs.data?.items ?? []}
+				isFetchingRuns={runs.isFetching}
 				onSave={() => void form.handleSubmit()}
 				oauthDisabledReason={oauth.disabledReason}
+				isFetchingNextRuns={runs.isFetchingNextPage}
+				hasMoreRuns={runs.data?.pageInfo.hasMore === true}
 				onCopy={(value) => void navigator.clipboard.writeText(value)}
+				onShowOlderRuns={() => {
+					if (runs.errorOperation === "append") {
+						runs.retry();
+					} else {
+						runs.fetchNextPage();
+					}
+				}}
 			/>
 			{isConfirming && (
 				<DestructiveConfirmation
