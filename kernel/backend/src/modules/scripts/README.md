@@ -85,7 +85,7 @@ Cache namespaces use canonical JSON tuples with the executing user, tagged local
 | All valid subjects                | `log`, `span`, `httpCall`, `getCachedValue`, `setCachedValue`, `getPersistentValue`, `getPluginConfig`, `claimPersistentValue`                                                                                                        |
 | User or user automation run       | `createEvents`, `getEntitySchemas`, `listEventSchemas`, `listIntegrations`, `getUserPreferences`, `getUserSettings`, `getProAvailability`, `verifyManagedAssets`, `getCurrentIntegration`, `changeUserRelationships`, `executeRyotql` |
 | Designated user-bootstrap script  | `ensureUserEntities` for that plugin's entity schemas, in either plugin scope                                                                                                                                                         |
-| User-subject plugin script        | `createUserEntity`, `updateUserEntity`, `deleteUserEntity` for user-owned entities whose schemas belong to that plugin                                                                                                                |
+| User-subject plugin script        | `createUserEntity`, `updateUserEntity`, `deleteUserEntity`, `saveUserEntity`, `mergeUserEntityData` for user-owned entities whose schemas belong to that plugin                                                                       |
 | Pinned system-scope plugin script | `executeRyotql`, `upsertGlobalEntities`, `upsertGlobalRelationships` within plugin ownership                                                                                                                                          |
 | User or system automation run     | `emitSignal`; `sendNotification` is available only to user automation runs                                                                                                                                                            |
 | Integration run of its own plugin | `getOAuthAccessToken` and `invalidateOAuthAccessToken` for OAuth fields its current settings schema declares                                                                                                                          |
@@ -97,14 +97,39 @@ Features own their capability implementations beside their services; assets use 
 `createUserEntity` creates one user-owned entity; `updateUserEntity` updates an exact user-owned
 entity against its expected `{ name, updatedAt, properties }`. `deleteUserEntity` deletes an exact
 user-owned entity of the requested schema through the entity lifecycle, including its referencing events.
-All three require the schema to belong to
+`createUserEntity`, `updateUserEntity`, and `deleteUserEntity` require the schema to belong to
 the plugin in its pinned scope and the user's effective definitions. The host binds ownership;
 validation, policy hooks, and mutation receipts use the entity service. Scripts cannot set ownership,
 global scope, provider provenance, or `populatedAt`. Before-stage policies and system subjects cannot
 create user entities through this capability.
 
-`createUserEntity`, `updateUserEntity`, `deleteUserEntity`, `createEvents`, `updateEvents`, `deleteEvents`, and
-`changeUserRelationships` accept optional `{ submittedAt, idempotencyKey }` options. Stable writes
+`saveUserEntity` creates or updates one user-owned entity and replaces its outgoing user relationships
+for the listed relationship schemas in one transaction. The entity schema and every relationship schema
+must belong to the plugin in its pinned scope, and each relationship schema's source schema must be the
+saved entity's schema. An update requires a stored entity that is user-owned and of that schema,
+checked against `expected` after the lookup. For each listed schema the submitted targets become the
+user's outgoing relationships from the entity: removed targets are deleted and new or changed targets
+are created with replaced properties, while incoming relationships and unlisted schemas stay untouched.
+The whole save has one `entity-editor:save` receipt that stores the entity ID and the full dispatch list,
+so a replay after a crash re-dispatches the same work. A relationship set that changed since it was read
+yields `stale`, as does an `expected` mismatch or a concurrent change. Invalid properties, an immutable
+property change, a forbidden asset, relationship validation failures, duplicate targets, more than 200
+targets, and more than 100 relationship changes yield `invalid`. Foreign schemas and entities that are
+missing or not owned fail the host call. The command keeps the sandbox principal as its write context and
+is never a kernel collection command.
+
+`mergeUserEntityData` moves the user's events and relationships from one user-owned entity to another
+of the same schema, returning `{ movedEventsCount, movedRelationshipsCount }`. The schema must belong
+to the plugin in its pinned scope, both entities must be of that schema and owned by that plugin, and
+the source must be user-owned. It runs the same merge as the HTTP route, including `deniedOperations`
+and merge identity properties, but keeps the sandbox principal as the write context and marks the
+command as a kernel collection command. Events of the plugin's own schemas and kernel events
+(reviews, collection events) and `member-of` memberships therefore move, while events or
+relationships owned by another plugin fail with `owner-mismatch`. The merge moves every user
+relationship of the source, so scripts delete relationships they do not want carried over first.
+
+`createUserEntity`, `updateUserEntity`, `deleteUserEntity`, `saveUserEntity`, `mergeUserEntityData`, `createEvents`, `updateEvents`,
+`deleteEvents`, and `changeUserRelationships` accept optional `{ submittedAt, idempotencyKey }` options. Stable writes
 are scoped by account generation, installation, script, and capability. A retry must preserve the
 ordered submitted data, timestamp, and key; reusing a key with changed committed data conflicts.
 Omitting the options keeps execution-scoped write identities. Event update items may include an

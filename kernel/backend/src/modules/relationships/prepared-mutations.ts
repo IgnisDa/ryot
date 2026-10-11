@@ -10,12 +10,17 @@ import { Cause, Effect, Schema } from "effect";
 import { lifecycleTrigger } from "#modules/automations/lifecycle/command";
 import type { LifecycleDispatchPlan } from "#modules/automations/lifecycle/planning";
 import { mutationReceiptRecord } from "#modules/entities/mutation-persistence";
+import {
+	type PreparedEntityCreate,
+	preparedEntityCreateData,
+} from "#modules/entities/prepared-entity-create";
 import { DomainLifecycleCommand } from "#modules/entities/write-context";
 import { catalogDefinitionFingerprint } from "#modules/plugins/catalog/runtime-resolver";
 
 import {
 	classifyRelationshipReceiptConflict,
 	makeRelationshipMutationPrimitives,
+	type MutationEntities,
 	mutationWriteCheck,
 } from "./mutation-primitives";
 import {
@@ -56,6 +61,35 @@ export type PreparedUserRelationshipDelete = {
 	readonly [preparedUserRelationshipDelete]: PreparedData;
 };
 
+// The source of a relationship to an entity that its caller creates in the same commit does not exist yet,
+// so its schema is taken from the creation token. Persistence validates against the stored source.
+const withCreatedSource = (
+	reads: MutationEntities,
+	mutation: Mutation,
+	sourceCreate: PreparedEntityCreate | undefined,
+): MutationEntities => {
+	if (!sourceCreate || mutation.input.scope !== "user") {
+		return reads;
+	}
+	const created = preparedEntityCreateData(sourceCreate);
+	if (
+		created.entityId !== mutation.input.sourceEntityId ||
+		created.userId !== mutation.input.userId
+	) {
+		return reads;
+	}
+	const scopes = new Map(reads.users.get(created.userId));
+	scopes.set(created.entityId, {
+		entityName: "",
+		entityId: created.entityId,
+		entityUserId: created.userId,
+		entitySchemaSlug: created.entitySchemaSlug,
+		isBuiltin: created.entitySchemaPluginId === null,
+		entitySchemaPluginId: created.entitySchemaPluginId,
+	});
+	return { ...reads, users: new Map(reads.users).set(created.userId, scopes) };
+};
+
 // The caller owns the larger commit and seals its resource batches after all prepared items.
 export const makePreparedRelationshipMutations = (
 	dependencies: RelationshipMutationDependencies,
@@ -82,6 +116,7 @@ export const makePreparedRelationshipMutations = (
 		submitted: CreateRelationshipInput | DeleteRelationshipInput,
 		commandInput: DomainLifecycleCommand,
 		mode: "create" | "delete",
+		sourceCreate?: PreparedEntityCreate,
 	) {
 		yield* assertRootTransaction;
 		const input = relationshipIdentity(submitted);
@@ -146,7 +181,7 @@ export const makePreparedRelationshipMutations = (
 				yield* primitives.lockMutations([mutation]);
 				const validated = yield* primitives.validateMutation(
 					mutation,
-					yield* primitives.readEntities([mutation]),
+					withCreatedSource(yield* primitives.readEntities([mutation]), mutation, sourceCreate),
 					pinOf(mutation),
 				);
 				const row = yield* repository.findRelationship(mutation.input);
@@ -198,8 +233,9 @@ export const makePreparedRelationshipMutations = (
 	const prepareUserCreate = Effect.fn("RelationshipsService.prepareUserCreate")(function* (
 		input: CreateRelationshipInput,
 		command: DomainLifecycleCommand,
+		sourceCreate?: PreparedEntityCreate,
 	) {
-		const value = yield* prepareUserMutation(input, command, "create");
+		const value = yield* prepareUserMutation(input, command, "create", sourceCreate);
 		return value === null ? null : Object.freeze({ [preparedUserRelationshipCreate]: value });
 	});
 	const prepareUserDelete = Effect.fn("RelationshipsService.prepareUserDelete")(function* (

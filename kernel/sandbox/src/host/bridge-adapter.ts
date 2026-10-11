@@ -284,6 +284,12 @@ export const bindSandboxHostFunctions = <Input>(
 			domainSandboxHostContracts.requestEventStreamWork,
 			implementations.requestEventStreamWork,
 		),
+		saveUserEntity: bind(
+			"saveUserEntity",
+			domainSandboxHostContracts.saveUserEntity,
+			implementations.saveUserEntity,
+			{ failure: preserveWriteFailure },
+		),
 		executeRyotql: bind(
 			"executeRyotql",
 			domainSandboxHostContracts.executeRyotql,
@@ -323,6 +329,12 @@ export const bindSandboxHostFunctions = <Input>(
 			coreSandboxHostContracts.verifyManagedAssets,
 			implementations.verifyManagedAssets,
 			{ failure: preserveAssetFailure },
+		),
+		mergeUserEntityData: bind(
+			"mergeUserEntityData",
+			domainSandboxHostContracts.mergeUserEntityData,
+			implementations.mergeUserEntityData,
+			{ failure: preserveWriteFailure },
 		),
 		httpCall: bind("httpCall", coreSandboxHostContracts.httpCall, implementations.httpCall, {
 			failure: preserveHttpFailureDetails,

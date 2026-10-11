@@ -29,6 +29,12 @@ import {
 	entitySchemaRecordSchema,
 	getEntitySchemasArgsSchema,
 	getEntitySchemasResultSchema,
+	mergeUserEntityDataArgsSchema,
+	mergeUserEntityDataDataSchema,
+	mergeUserEntityDataResultSchema,
+	saveUserEntityArgsSchema,
+	saveUserEntityDataSchema,
+	saveUserEntityResultSchema,
 	upsertGlobalEntitiesArgsSchema,
 	upsertGlobalEntitiesDataSchema,
 	upsertGlobalEntitiesResultSchema,
@@ -205,6 +211,11 @@ export const domainSandboxHostContracts = {
 		result: deleteEventsResultSchema,
 		success: deleteEventsResultDataSchema,
 	},
+	saveUserEntity: {
+		args: saveUserEntityArgsSchema,
+		success: saveUserEntityDataSchema,
+		result: saveUserEntityResultSchema,
+	},
 	listEventSchemas: {
 		args: listEventSchemasArgsSchema,
 		success: listEventSchemasDataSchema,
@@ -239,6 +250,11 @@ export const domainSandboxHostContracts = {
 		args: ensureUserEntitiesArgsSchema,
 		success: ensureUserEntitiesDataSchema,
 		result: ensureUserEntitiesResultSchema,
+	},
+	mergeUserEntityData: {
+		args: mergeUserEntityDataArgsSchema,
+		success: mergeUserEntityDataDataSchema,
+		result: mergeUserEntityDataResultSchema,
 	},
 	getCurrentIntegration: {
 		success: integrationRecordSchema,

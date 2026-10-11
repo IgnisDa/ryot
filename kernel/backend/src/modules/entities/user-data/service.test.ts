@@ -20,6 +20,7 @@ import {
 	UserId,
 } from "@ryot-app/contract/schema/brands";
 import { IsoUtcString } from "@ryot-app/contract/schema/utils";
+import { makeUserSubject } from "@ryot-app/sandbox/host/run-input.test-support";
 import { assertExitFails } from "@ryot-app/testing/effect-assertions";
 import { Context, Effect, Layer, Ref, Schema } from "effect";
 import { assert } from "vitest";
@@ -39,6 +40,7 @@ import {
 import { DefinitionRepository } from "#modules/definitions/repository";
 import { buildDefinitionSnapshot, type DefinitionSource } from "#modules/definitions/snapshot";
 import { EntitiesRepository } from "#modules/entities/repository";
+import type { DomainLifecycleCommand } from "#modules/entities/write-context";
 import { EventsRepository } from "#modules/events/repository";
 import {
 	EventsService,
@@ -48,6 +50,10 @@ import {
 import { mutationReceiptIdentity, MutationReceipts } from "#modules/mutations/receipts";
 import { RelationshipsRepository } from "#modules/relationships/repository";
 import { RelationshipsService } from "#modules/relationships/service";
+import {
+	makeUserPluginRevision,
+	makeUserPrincipal,
+} from "#modules/scripts/authorization/principal.test-support";
 import { DatabaseSession } from "#platform/db/session";
 import type { MockOverrides } from "#testing/effect";
 import { databaseLayer } from "#testing/effect";
@@ -943,5 +949,103 @@ layer(
 					new EntityUserDataBadRequest({ reason: { code: "relationship-merge-failed" } }),
 				);
 			}),
+	);
+});
+
+const pluginRevision = makeUserPluginRevision({
+	ownerId: user.id,
+	compiledHashes: {},
+	slug: "merge-plugin",
+});
+const pluginPrincipal = makeUserPrincipal({ pluginRevision, subject: makeUserSubject(user.id) });
+const pluginCommand = {
+	...command,
+	writeContext: pluginPrincipal,
+	kernelCollection: true as const,
+};
+const pluginMergeScope = (
+	entityId: EntityId,
+	overrides: { entityUserId?: UserId | null } = {},
+) => ({
+	...makeMergeScope({
+		entityId,
+		entitySchemaSlug: "record",
+		entitySchemaPluginId: pluginRevision.id,
+	}),
+	...overrides,
+});
+const pluginPayload = { mergeFrom, mergeInto, entitySchemaSlug: EntitySchemaSlug.make("record") };
+
+const commandRecordings = recordingServiceLayer<DomainLifecycleCommand>(({ record }) => ({
+	definitions: makeDefinitionsLayer([], {}, [pluginRevision.id]),
+	eventsRepository: makeEventsRepository({
+		listUserEventIdsForEntity: () => Effect.succeed([EventId.make("event-1")]),
+	}),
+	relationshipsRepository: makeRelationshipsRepository({
+		listUserRelationshipsForEntityWithProvenance: () => Effect.succeed([]),
+	}),
+	entitiesRepository: makeEntitiesRepository({
+		getEntityMergeScopeForUser: ({ entityId }) => Effect.succeed(pluginMergeScope(entityId)),
+	}),
+	eventsService: makeEventsService({
+		prepareMoveReferences: (_input, item) =>
+			record(item).pipe(Effect.as(preparedEventMoveReferences)),
+		persistPreparedMoveReferences: () =>
+			Effect.succeed({ dispatch: [], result: EventId.make("updated-event") }),
+	}),
+}));
+
+layer(commandRecordings.layer)((test) => {
+	test.effect("keeps the plugin write context and kernel collection flag for script merges", () =>
+		Effect.gen(function* () {
+			const service = yield* EntityUserDataService;
+			const result = yield* service.mergeEntityUserDataForCommand(
+				user.id,
+				pluginPayload,
+				pluginCommand,
+			);
+
+			expect(result).toMatchObject({ movedEventsCount: 1, movedRelationshipsCount: 0 });
+			const recorded = (yield* commandRecordings.recorded).at(-1);
+			expect(recorded?.writeContext).toBe(pluginPrincipal);
+			expect(recorded?.kernelCollection).toBe(true);
+		}),
+	);
+
+	test.effect("drops the write context for HTTP merges", () =>
+		Effect.gen(function* () {
+			const service = yield* EntityUserDataService;
+			yield* service.mergeEntityUserData(user, { mergeFrom, mergeInto }, pluginCommand);
+
+			const recorded = (yield* commandRecordings.recorded).at(-1);
+			expect(recorded?.writeContext).toBeNull();
+		}),
+	);
+});
+
+const scriptMergeRefusals = recordingServiceLayer<string>(({ record }) => ({
+	definitions: makeDefinitionsLayer([], { record: ["merge"] }, [pluginRevision.id]),
+	eventsRepository: makeEventsRepository({
+		listUserEventIdsForEntity: () => record("list-events").pipe(Effect.as([])),
+	}),
+	entitiesRepository: makeEntitiesRepository({
+		getEntityMergeScopeForUser: ({ entityId }) => Effect.succeed(pluginMergeScope(entityId)),
+	}),
+}));
+
+layer(scriptMergeRefusals.layer)((test) => {
+	test.effect("refuses script merges when the schema denies merge", () =>
+		Effect.gen(function* () {
+			const service = yield* EntityUserDataService;
+			const exit = yield* Effect.exit(
+				service.mergeEntityUserDataForCommand(user.id, pluginPayload, pluginCommand),
+			);
+
+			assertExitFails(
+				exit,
+				new EntityUserDataBadRequest({ reason: { operation: "merge", code: "operation-denied" } }),
+			);
+			expect(yield* scriptMergeRefusals.recorded).toEqual([]);
+		}),
 	);
 });

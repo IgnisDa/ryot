@@ -27,6 +27,12 @@ export {
 	entityStaleReasonSchema,
 	getEntitySchemasArgsSchema,
 	getEntitySchemasResultSchema,
+	mergeUserEntityDataArgsSchema,
+	mergeUserEntityDataDataSchema,
+	mergeUserEntityDataResultSchema,
+	saveUserEntityArgsSchema,
+	saveUserEntityDataSchema,
+	saveUserEntityResultSchema,
 	upsertGlobalEntitiesArgsSchema,
 	upsertGlobalEntitiesDataSchema,
 	upsertGlobalEntitiesOptionsSchema,
@@ -116,6 +122,7 @@ export {
 } from "./core/integrations";
 export type { IntegrationRecord, ListIntegrationsOptions } from "./core/integrations";
 export {
+	ENTITY_EDITOR_SANDBOX_LIMITS,
 	EVENT_MUTATION_SANDBOX_LIMITS,
 	GLOBAL_WRITE_SANDBOX_LIMITS,
 	MANAGED_ASSET_VERIFY_SANDBOX_LIMITS,
