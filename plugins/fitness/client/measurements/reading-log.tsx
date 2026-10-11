@@ -1,8 +1,15 @@
-import { useRyotQuery } from "@ryot-app/client-sdk/react";
-import { Button, StatusMessage } from "@ryot-app/client-ui-sdk";
+import { RyotClientError } from "@ryot-app/client-sdk";
+import { Effect, Schema } from "@ryot-app/client-sdk/effect";
+import { createRyotMutation, useRyotMutation, useRyotQuery } from "@ryot-app/client-sdk/react";
+import { Button, DestructiveConfirmation, StatusMessage } from "@ryot-app/client-ui-sdk";
 import clsx from "clsx";
-import { Fragment, useMemo, useState } from "react";
+import { Fragment, useMemo, useRef, useState } from "react";
 
+import {
+	MeasurementReadingDeleteInput,
+	MeasurementReadingDeleteOutput,
+	measurementReadingDeleteOperationSlug,
+} from "../../shared/measurement-reading-operations";
 import { sectionHeadingClass } from "../exercise/styles";
 import {
 	formatDay,
@@ -14,6 +21,7 @@ import {
 	rangePhrase,
 	type MonthSection,
 	type RangeKey,
+	type ReadingGroup,
 	type ReadingValue,
 } from "./model";
 import { readingsQuery } from "./queries";
@@ -39,6 +47,85 @@ function ValueCell(props: { readonly reading: ReadingValue | undefined }) {
 						: `${difference > 0 ? "▲" : "▼"} ${formatNumber(Math.abs(difference))}`}
 				</span>
 			)}
+		</td>
+	);
+}
+
+const deleteReadingsMutation = createRyotMutation<
+	{ readonly readings: MeasurementReadingDeleteInput; readonly onDeleted: () => void },
+	typeof MeasurementReadingDeleteOutput.Type
+>(({ client, input: { readings, onDeleted } }) =>
+	Schema.encodeEffect(Schema.toCodecJson(MeasurementReadingDeleteInput))(readings).pipe(
+		Effect.mapError(() => new RyotClientError("invalid-input")),
+		Effect.flatMap((input) =>
+			client.operations.invoke({
+				input,
+				pluginSlug: "fitness",
+				output: MeasurementReadingDeleteOutput,
+				slug: measurementReadingDeleteOperationSlug,
+			}),
+		),
+		Effect.tap(() => Effect.sync(onDeleted)),
+	),
+);
+
+const deleteFailureMessage = (error: Error | null) => {
+	if (error === null) {
+		return undefined;
+	}
+	return error instanceof RyotClientError && error.reason === "operation-failed"
+		? "The server declined this change. Demo accounts can't delete measurements."
+		: "The measurement couldn't be deleted. Try again.";
+};
+
+const actionButtonClass = "rounded-md border border-border px-2 py-0.5 text-[12px] text-text-muted";
+
+function ReadingActions(props: { readonly timeZone: string; readonly group: ReadingGroup }) {
+	const { group, timeZone } = props;
+	const deleteTrigger = useRef<HTMLButtonElement>(null);
+	const [confirming, setConfirming] = useState(false);
+	const remove = useRyotMutation(deleteReadingsMutation);
+	const takenAt = `${formatDay(group.occurredAt, timeZone)} ${formatTime(group.occurredAt, timeZone)}`;
+	const count = group.values.size;
+	return (
+		<td className="px-3 py-2 text-right whitespace-nowrap">
+			<button
+				type="button"
+				className={clsx(actionButtonClass, "mr-1")}
+				onClick={() => console.log("TODO: edit measurement")}
+			>
+				Edit
+			</button>
+			<button
+				type="button"
+				ref={deleteTrigger}
+				className={actionButtonClass}
+				aria-label={`Delete measurement from ${takenAt}`}
+				onClick={() => {
+					remove.reset();
+					setConfirming(true);
+				}}
+			>
+				Delete
+			</button>
+			{confirming ? (
+				<DestructiveConfirmation
+					pendingLabel="Deleting…"
+					pending={remove.isPending}
+					triggerRef={deleteTrigger}
+					title="Delete measurement?"
+					actionLabel="Delete measurement"
+					onClose={() => setConfirming(false)}
+					errorMessage={deleteFailureMessage(remove.error)}
+					detail={`The ${count === 1 ? "reading" : `${count} readings`} taken on ${takenAt} will be removed permanently.`}
+					onConfirm={() =>
+						remove.mutate({
+							onDeleted: () => setConfirming(false),
+							readings: { readingIds: [...group.values.values()].map(({ id }) => id) },
+						})
+					}
+				/>
+			) : null}
 		</td>
 	);
 }
@@ -135,22 +222,7 @@ export function ReadingLogTable(props: {
 												)}
 											</td>
 											<td className="px-3 py-2">{group.comment}</td>
-											<td className="px-3 py-2 text-right whitespace-nowrap">
-												<button
-													type="button"
-													onClick={() => console.log("TODO: edit measurement")}
-													className="mr-1 rounded-md border border-border px-2 py-0.5 text-[12px] text-text-muted"
-												>
-													Edit
-												</button>
-												<button
-													type="button"
-													onClick={() => console.log("TODO: delete measurement")}
-													className="rounded-md border border-border px-2 py-0.5 text-[12px] text-text-muted"
-												>
-													Delete
-												</button>
-											</td>
+											<ReadingActions group={group} timeZone={timeZone} />
 										</tr>
 										{open ? (
 											<tr>

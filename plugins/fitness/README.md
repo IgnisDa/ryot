@@ -102,8 +102,13 @@ settings. It queries three recipes from `shared/`:
 
 The page ranks the four metrics with the most readings in range as tiles and log columns. Trend
 lines and sparklines are a trailing rolling average of the bucket averages, over 7 points when there
-are more than 40 and 3 otherwise. Logging, editing, deleting, and pinning are not implemented and
-log a `TODO` to the console.
+are more than 40 and 3 otherwise. Logging, editing, and pinning are not implemented and log a `TODO`
+to the console.
+
+Delete on a log row confirms, then sends every reading ID in that row to
+`measurement-reading-delete`. The operation rejects the whole request unless every ID is a
+`measurement-reading` event on a `measurement-metric` entity visible to the caller, then deletes them
+in one `deleteEvents` call. A row split across a page boundary deletes only its loaded readings.
 
 Add metric opens a name and optional unit form. `measurement-metric-create` creates only a user-owned
 metric through the sandbox `createUserEntity` capability. Shared rules in
