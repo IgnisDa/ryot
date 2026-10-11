@@ -303,7 +303,6 @@ layer(
 			const dispatched = yield* references.execute(
 				KERNEL_EVENT_STREAM_WORKFLOW,
 				{ id: "owned-work" },
-				subject,
 				"background",
 				"trusted-child-execution",
 				"parent-execution",
@@ -318,7 +317,6 @@ layer(
 				references.execute(
 					KERNEL_EVENT_STREAM_WORKFLOW,
 					{ id: "foreign-work" },
-					subject,
 					"background",
 					"foreign-child-execution",
 					"parent-execution",
@@ -377,11 +375,6 @@ layer(
 						handle: "deleted-temporary-handle",
 					},
 				},
-				{
-					type: "user",
-					userId: UserId.make("user-1"),
-					accountGeneration: { userId: UserId.make("user-1"), token: "test-account-generation" },
-				},
 				"background",
 				"capture-child",
 				"run-1-import",
@@ -429,7 +422,6 @@ layer(
 					origin: { kind: "import" },
 					userId: "attacker-selected-user",
 				},
-				subject,
 				"interactive",
 				"entity-import-execution",
 				"parent-execution",
@@ -438,7 +430,6 @@ layer(
 			yield* references.execute(
 				KERNEL_EVENT_CREATE_WORKFLOW,
 				{ payload: [], origin: "import", userId: "attacker-selected-user" },
-				subject,
 				"interactive",
 				"event-create-execution",
 				"parent-execution",
@@ -498,14 +489,6 @@ layer(
 					origin: { kind: "import" },
 					providerSlug: "group.alpha",
 					entitySchemaSlug: "attacker-selected-schema",
-				},
-				{
-					type: "user",
-					userId: UserId.make("trusted-user"),
-					accountGeneration: {
-						token: "test-account-generation",
-						userId: UserId.make("trusted-user"),
-					},
 				},
 				"interactive",
 				"entity-import-execution",
@@ -589,14 +572,6 @@ layer(
 						inputFingerprint: "fingerprint",
 					},
 				},
-				{
-					type: "user",
-					userId: UserId.make("trusted-user"),
-					accountGeneration: {
-						token: "test-account-generation",
-						userId: UserId.make("trusted-user"),
-					},
-				},
 				"background",
 				"child-execution",
 				"parent/execution",
@@ -640,7 +615,6 @@ layer(referencesLayer(unownedRepositories).pipe(Layer.provideMerge(unusedEngineL
 						origin: { kind: "import" },
 						userId: "attacker-selected-user",
 					},
-					{ type: "system" },
 					"interactive",
 					"entity-import-execution",
 					"parent-execution",
@@ -666,14 +640,6 @@ layer(referencesLayer(unownedRepositories).pipe(Layer.provideMerge(unusedEngineL
 						writeItemCount: 0,
 						runId: "victim-run",
 						chunkHandles: ["harvest-handle-0"],
-					},
-					{
-						type: "user",
-						userId: UserId.make("trusted-user"),
-						accountGeneration: {
-							token: "test-account-generation",
-							userId: UserId.make("trusted-user"),
-						},
 					},
 					"background",
 					"entity-import-execution",
@@ -704,15 +670,6 @@ layer(referencesLayer(unownedRepositories).pipe(Layer.provideMerge(unusedEngineL
 				references.execute(
 					KERNEL_EVENT_CREATE_WORKFLOW,
 					{ payload: [] },
-					{
-						type: "user",
-						userId: UserId.make("trusted-user"),
-						integrationId: IntegrationId.make("victim-integration"),
-						accountGeneration: {
-							token: "test-account-generation",
-							userId: UserId.make("trusted-user"),
-						},
-					},
 					"interactive",
 					"event-create-execution",
 					"parent-execution",
@@ -766,7 +723,6 @@ layer(
 							},
 						],
 					},
-					{ type: "system" },
 					"interactive",
 					"population-reference",
 					"parent-execution",
@@ -834,7 +790,6 @@ layer(
 							providerId: "provider-record-catalog",
 						})),
 					},
-					{ type: "system" },
 					"interactive",
 					"population-reference",
 					"parent-execution",
@@ -877,7 +832,6 @@ layer(
 				yield* (yield* KernelWorkflowReferences).execute(
 					KERNEL_PROVIDER_ENTITY_POPULATION_WORKFLOW,
 					populationInput,
-					subject,
 					"background",
 					"private-population",
 					"private-parent",
@@ -906,11 +860,6 @@ layer(
 				references.execute(
 					KERNEL_PROVIDER_ENTITY_POPULATION_WORKFLOW,
 					populationInput,
-					{
-						type: "user",
-						userId: UserId.make("user-1"),
-						accountGeneration: { userId: UserId.make("user-1"), token: "test-account-generation" },
-					},
 					"interactive",
 					"user-call",
 					"parent-execution",
@@ -927,7 +876,6 @@ layer(
 				references.execute(
 					KERNEL_PROVIDER_ENTITY_POPULATION_WORKFLOW,
 					populationInput,
-					{ type: "system" },
 					"interactive",
 					"foreign-call",
 					"parent-execution",
@@ -960,7 +908,6 @@ layer(
 							{ providerId: "foreign", externalId: "record-2", entitySchemaSlug: "record" },
 						],
 					},
-					{ type: "system" },
 					"interactive",
 					"population-reference",
 					"parent-execution",
@@ -999,7 +946,6 @@ layer(
 					yield* references.execute(
 						KERNEL_PROVIDER_ENTITY_POPULATION_WORKFLOW,
 						{ items, mode: "ensure" },
-						{ type: "system" },
 						"interactive",
 						`valid-batch-${items.length}`,
 						"parent-execution",
@@ -1013,7 +959,6 @@ layer(
 						references.execute(
 							KERNEL_PROVIDER_ENTITY_POPULATION_WORKFLOW,
 							{ items, mode: "ensure" },
-							{ type: "system" },
 							"interactive",
 							"invalid-batch",
 							"parent-execution",

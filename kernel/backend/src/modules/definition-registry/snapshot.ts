@@ -146,20 +146,48 @@ const deepFreeze = <Value>(value: Value): Value => {
 	return Object.freeze(value);
 };
 
-const assertUniqueSlugs = (
-	kind: string,
-	definitions: ReadonlyArray<{ readonly slug: string; readonly pluginId: string | null }>,
+const definitionLabels = {
+	entity: "entity schema",
+	signal: "signal schema",
+	"saved-view": "saved view",
+	relationship: "relationship schema",
+} as const;
+
+export type DefinitionKind = keyof typeof definitionLabels;
+
+export const definitionRecord = <
+	Definition extends { readonly slug: string; readonly pluginId: string | null },
+>(
+	kind: DefinitionKind,
+	definitions: ReadonlyArray<Definition>,
 ) => {
-	const slugs = new Set<string>();
+	const record: Record<string, Definition> = {};
 	for (const definition of definitions) {
 		if (definition.slug.includes("/")) {
-			throw new Error(`${kind} slug cannot contain '/': ${definition.slug}`);
+			throw new Error(`${definitionLabels[kind]} slug cannot contain '/': ${definition.slug}`);
 		}
 		const key = definitionKey(kind, definitionOwner(definition.pluginId), definition.slug);
-		if (slugs.has(key)) {
-			throw new Error(`Duplicate ${kind} slug: ${definition.slug}`);
+		if (Object.hasOwn(record, key)) {
+			throw new Error(`Duplicate ${definitionLabels[kind]} slug: ${definition.slug}`);
 		}
-		slugs.add(key);
+		record[key] = definition;
+	}
+	return record;
+};
+
+const assertUniqueEventSlugs = (
+	entitySchemaSlug: string,
+	eventSchemas: ReadonlyArray<{ readonly slug: string }>,
+) => {
+	const slugs = new Set<string>();
+	for (const { slug } of eventSchemas) {
+		if (slug.includes("/")) {
+			throw new Error(`event schema for ${entitySchemaSlug} slug cannot contain '/': ${slug}`);
+		}
+		if (slugs.has(slug)) {
+			throw new Error(`Duplicate event schema for ${entitySchemaSlug} slug: ${slug}`);
+		}
+		slugs.add(slug);
 	}
 };
 
@@ -206,23 +234,11 @@ const validateSavedViewDefinition = (savedView: SavedViewDefinition) => {
 	}
 };
 
-const validateDefinitionSource = (source: DefinitionSource) => {
-	assertUniqueSlugs("entity schema", source.entitySchemas);
-	assertUniqueSlugs("relationship schema", source.relationshipSchemas);
-	assertUniqueSlugs("signal schema", source.signalSchemas);
-	assertUniqueSlugs("saved view", source.savedViews);
-
-	const entitySchemaSlugs = new Set(
-		source.entitySchemas.map(({ slug, pluginId }) =>
-			definitionKey("entity", definitionOwner(pluginId), slug),
-		),
-	);
-	const relationshipSchemaSlugs = new Set(
-		source.relationshipSchemas.map(({ slug, pluginId }) =>
-			definitionKey("relationship", definitionOwner(pluginId), slug),
-		),
-	);
-
+const validateDefinitionSource = (
+	source: DefinitionSource,
+	entitySchemas: Record<string, unknown>,
+	relationshipSchemas: Record<string, unknown>,
+) => {
 	for (const savedView of source.savedViews) {
 		validateSavedViewDefinition(savedView);
 	}
@@ -246,7 +262,7 @@ const validateDefinitionSource = (source: DefinitionSource) => {
 				);
 			}
 		}
-		assertUniqueSlugs(`event schema for ${entitySchema.slug}`, entitySchema.eventSchemas);
+		assertUniqueEventSlugs(entitySchema.slug, entitySchema.eventSchemas);
 		for (const eventSchema of entitySchema.eventSchemas) {
 			if (eventSchema.pluginId !== entitySchema.pluginId) {
 				throw new Error(`Event schema ${eventSchema.slug} owner does not match its entity schema`);
@@ -271,7 +287,8 @@ const validateDefinitionSource = (source: DefinitionSource) => {
 		]) {
 			if (
 				entitySchemaSlug !== null &&
-				!entitySchemaSlugs.has(
+				!Object.hasOwn(
+					entitySchemas,
 					definitionKey("entity", definitionOwner(relationshipSchema.pluginId), entitySchemaSlug),
 				)
 			) {
@@ -286,7 +303,8 @@ const validateDefinitionSource = (source: DefinitionSource) => {
 		assertSchemaDefinition("signal", signalSchema.slug, signalSchema.propertiesSchema);
 		if (
 			signalSchema.audiencePolicy.kind === "related_users" &&
-			!relationshipSchemaSlugs.has(
+			!Object.hasOwn(
+				relationshipSchemas,
 				definitionKey(
 					"relationship",
 					definitionOwner(signalSchema.pluginId),
@@ -301,27 +319,20 @@ const validateDefinitionSource = (source: DefinitionSource) => {
 	}
 };
 
-const toRecord = <Definition extends { readonly slug: string; readonly pluginId: string | null }>(
-	kind: string,
-	definitions: ReadonlyArray<Definition>,
-) =>
-	Object.fromEntries(
-		definitions.map((definition) => [
-			definitionKey(kind, definitionOwner(definition.pluginId), definition.slug),
-			definition,
-		]),
-	);
-
 export const buildDefinitionSnapshot = (source: DefinitionSource): DefinitionSnapshot => {
-	validateDefinitionSource(source);
 	const cloned = structuredClone(source);
+	const savedViews = definitionRecord("saved-view", cloned.savedViews);
+	const signalSchemas = definitionRecord("signal", cloned.signalSchemas);
+	const entitySchemas = definitionRecord("entity", cloned.entitySchemas);
+	const relationshipSchemas = definitionRecord("relationship", cloned.relationshipSchemas);
+	validateDefinitionSource(cloned, entitySchemas, relationshipSchemas);
 	return deepFreeze({
-		savedViews: toRecord("saved-view", cloned.savedViews),
-		signalSchemas: toRecord("signal", cloned.signalSchemas),
-		relationshipSchemas: toRecord("relationship", cloned.relationshipSchemas),
+		savedViews,
+		signalSchemas,
+		relationshipSchemas,
 		entitySchemas: Object.fromEntries(
-			cloned.entitySchemas.map(({ eventSchemas, ...entitySchema }) => [
-				definitionKey("entity", definitionOwner(entitySchema.pluginId), entitySchema.slug),
+			Object.entries(entitySchemas).map(([key, { eventSchemas, ...entitySchema }]) => [
+				key,
 				{
 					...entitySchema,
 					mergeIdentityProperties: entitySchema.mergeIdentityProperties ?? [],

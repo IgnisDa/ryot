@@ -4,7 +4,7 @@ import { HttpApiEndpoint, HttpApiGroup, HttpApiSchema, OpenApi } from "effect/ht
 import { AuthMiddleware } from "../../auth-middleware";
 import { AuthenticatedMutationEndpoint } from "../../authenticated-mutation-endpoint";
 import { LogRouteTemplate } from "../../http-annotations";
-import { OAuthConnectionId, PluginId } from "../../schema/brands";
+import { OAuthConnectionId } from "../../schema/brands";
 import {
 	CompleteOAuthConnectionBody,
 	CreateOAuthConnectionBody,
@@ -56,10 +56,10 @@ export const OAuthConnectionsGroup = HttpApiGroup.make("oauthConnections")
 	.add(
 		HttpApiEndpoint.get(
 			"callback",
-			"/oauth-connections/providers/:pluginId/:oauthProviderSlug/callback",
+			"/oauth-connections/providers/:publisher/:name/:oauthProviderSlug/callback",
 			{
 				query: OAuthConnectionCallbackQuery,
-				params: { pluginId: PluginId, oauthProviderSlug: Schema.String },
+				params: { name: Schema.String, publisher: Schema.String, oauthProviderSlug: Schema.String },
 			},
 		)
 			.annotate(LogRouteTemplate, true)

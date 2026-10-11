@@ -1,11 +1,10 @@
 import {
 	definitionKey,
-	definitionOwner,
 	type DeclarationReference,
 	type DefinitionOwner,
 	type EventSchemaReference,
 } from "@ryot-app/contract/modules/plugins/references";
-import type { UserId } from "@ryot-app/contract/schema/brands";
+import type { PluginPackageId, UserId } from "@ryot-app/contract/schema/brands";
 import {
 	and,
 	asc,
@@ -15,7 +14,6 @@ import {
 	inArray,
 	isNull,
 	notInArray,
-	or,
 	sql,
 	type InferSelectViewModel,
 	type SQL,
@@ -23,19 +21,26 @@ import {
 import type { PgColumn } from "drizzle-orm/pg-core";
 import { Context, Effect, Layer } from "effect";
 
+import {
+	ownerWhere,
+	referenceWhere,
+	referencesWhere,
+} from "#lib/infrastructure/db/definition-owner";
 import * as schema from "#lib/infrastructure/db/schema/tables/combined";
 import { DatabaseSession } from "#lib/infrastructure/db/session";
 
 import { DefinitionReadUnavailable, type DefinitionReadContext } from "./read-context";
-import type {
-	EntityRelationshipDefinitions,
-	DefinitionSnapshot,
-	DefinitionSource,
-	EntitySchemaSnapshot,
-	EventSchemaDefinition,
-	RelationshipSchemaDefinition,
-	SavedViewDefinition,
-	SignalSchemaDefinition,
+import {
+	definitionRecord,
+	type DefinitionKind,
+	type DefinitionSnapshot,
+	type DefinitionSource,
+	type EntityRelationshipDefinitions,
+	type EntitySchemaSnapshot,
+	type EventSchemaDefinition,
+	type RelationshipSchemaDefinition,
+	type SavedViewDefinition,
+	type SignalSchemaDefinition,
 } from "./snapshot";
 import type { RevisionDefinitions } from "./source";
 
@@ -118,20 +123,9 @@ const toSavedView = (row: SavedViewRow): SavedViewDefinition => ({
 const recordByIdentity = <
 	Definition extends { readonly slug: string; readonly pluginId: string | null },
 >(
-	kind: string,
+	kind: DefinitionKind,
 	definitions: ReadonlyArray<Definition>,
-) =>
-	Effect.suspend(() => {
-		const record: Record<string, Definition> = {};
-		for (const definition of definitions) {
-			const key = definitionKey(kind, definitionOwner(definition.pluginId), definition.slug);
-			if (Object.hasOwn(record, key)) {
-				return Effect.die(new Error(`Duplicate ${kind} slug: ${definition.slug}`));
-			}
-			record[key] = definition;
-		}
-		return Effect.succeed(record);
-	});
+) => Effect.sync(() => definitionRecord(kind, definitions));
 
 const eventsByEntitySchema = (rows: ReadonlyArray<EventSchemaFields>) => {
 	const grouped = new Map<string, Array<EventSchemaFields>>();
@@ -219,17 +213,6 @@ const userWhere = (
 	);
 
 const effective = { listed: false } as const;
-
-const ownerWhere = (column: PgColumn, owner: DefinitionOwner) =>
-	owner.kind === "kernel" ? isNull(column) : eq(column, owner.pluginId);
-const referenceWhere = (
-	view: { pluginId: PgColumn; slug: PgColumn },
-	reference: DeclarationReference,
-) => and(ownerWhere(view.pluginId, reference.owner), eq(view.slug, reference.slug));
-const referencesWhere = (
-	view: { pluginId: PgColumn; slug: PgColumn },
-	references: ReadonlyArray<DeclarationReference>,
-) => or(...references.map((reference) => referenceWhere(view, reference)));
 
 export class DefinitionRepository extends Context.Service<DefinitionRepository>()(
 	"DefinitionRepository",
@@ -691,7 +674,7 @@ export class DefinitionRepository extends Context.Service<DefinitionRepository>(
 						.select({
 							...getTableColumns(schema.definitionEntitySchema),
 							pluginId: sql<string | null>`null::text`,
-							packageId: sql<string | null>`null::text`,
+							packageId: sql<PluginPackageId | null>`null::text`,
 						})
 						.from(schema.definitionEntitySchema)
 						.where(isNull(schema.definitionEntitySchema.pluginRevisionId))
@@ -717,7 +700,7 @@ export class DefinitionRepository extends Context.Service<DefinitionRepository>(
 						.select({
 							...getTableColumns(schema.definitionRelationshipSchema),
 							pluginId: sql<string | null>`null::text`,
-							packageId: sql<string | null>`null::text`,
+							packageId: sql<PluginPackageId | null>`null::text`,
 						})
 						.from(schema.definitionRelationshipSchema)
 						.where(isNull(schema.definitionRelationshipSchema.pluginRevisionId))
@@ -728,7 +711,7 @@ export class DefinitionRepository extends Context.Service<DefinitionRepository>(
 						.select({
 							...getTableColumns(schema.definitionSignalSchema),
 							pluginId: sql<string | null>`null::text`,
-							packageId: sql<string | null>`null::text`,
+							packageId: sql<PluginPackageId | null>`null::text`,
 						})
 						.from(schema.definitionSignalSchema)
 						.where(isNull(schema.definitionSignalSchema.pluginRevisionId))
@@ -739,7 +722,7 @@ export class DefinitionRepository extends Context.Service<DefinitionRepository>(
 						.select({
 							...getTableColumns(schema.definitionSavedView),
 							pluginId: sql<string | null>`null::text`,
-							packageId: sql<string | null>`null::text`,
+							packageId: sql<PluginPackageId | null>`null::text`,
 						})
 						.from(schema.definitionSavedView)
 						.where(isNull(schema.definitionSavedView.pluginRevisionId))

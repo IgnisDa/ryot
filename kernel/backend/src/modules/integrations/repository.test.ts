@@ -166,7 +166,7 @@ describe("integration client settings projection", () => {
 					yield* (yield* DatabaseSession).transaction(
 						(yield* PluginIngestionLock).persistUserPlugin(
 							providerPackage("v2", true, original.manifest.metadata.packageId),
-							{ scope: "user", ownerId: owner, packageId: original.manifest.metadata.packageId },
+							{ scope: "user", ownerId: owner },
 						),
 					);
 					expect(yield* client).toEqual({ kind: "notes" });
@@ -246,11 +246,7 @@ describe("integration client settings projection", () => {
 							Effect.gen(function* () {
 								yield* (yield* PluginIngestionLock).persistUserPlugin(
 									providerPackage("v2", true, original.manifest.metadata.packageId),
-									{
-										scope: "user",
-										ownerId: owner,
-										packageId: original.manifest.metadata.packageId,
-									},
+									{ scope: "user", ownerId: owner },
 								);
 								yield* Deferred.succeed(persisted, undefined);
 								yield* Deferred.await(release);

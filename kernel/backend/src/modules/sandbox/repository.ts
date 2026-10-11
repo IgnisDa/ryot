@@ -125,7 +125,6 @@ export class SandboxRepository extends Context.Service<SandboxRepository>()("San
 						environmentConfigRevisionId: schema.plugin.environmentConfigRevisionId,
 						sourcePresent: sql<boolean>`${schema.sandboxScript.source} is not null`,
 						sandboxAuthority: schema.pluginRevisionSandboxAuthority.sandboxAuthority,
-						manifestPackageId: sql<string>`${schema.pluginRevision.manifest} -> 'metadata' ->> 'packageId'`,
 					})
 					.from(schema.sandboxScript)
 					.leftJoin(schema.kernelScript, eq(schema.kernelScript.scriptId, schema.sandboxScript.id))
@@ -173,10 +172,7 @@ export class SandboxRepository extends Context.Service<SandboxRepository>()("San
 				return null;
 			}
 			const authority = decodedAuthority.value;
-			if (
-				authority.packageId !== row.pluginPackageId ||
-				authority.packageId !== row.manifestPackageId
-			) {
+			if (authority.packageId !== row.pluginPackageId) {
 				return null;
 			}
 			if (

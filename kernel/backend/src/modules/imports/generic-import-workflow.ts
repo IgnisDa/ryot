@@ -44,7 +44,10 @@ import {
 	runLifecycleWriteStep,
 	type LifecyclePreparedStep,
 } from "#lib/infrastructure/lifecycle-workflow-step";
-import type { SandboxPluginRevision } from "#lib/infrastructure/sandbox-runtime/execution-principal";
+import {
+	sameRevisionPin,
+	type SandboxPluginRevision,
+} from "#lib/infrastructure/sandbox-runtime/execution-principal";
 import type { DurableSchema } from "#lib/infrastructure/workflow";
 import { implementWorkflow, makeActivity } from "#lib/infrastructure/workflow-scope";
 import { slugify } from "#lib/shared/slug";
@@ -871,10 +874,7 @@ export const runProcessGenericImportChunksWorkflow = Effect.fn(
 		const admitted = yield* repository.getIngestionRun(scope);
 		if (
 			payload.command.writeContext?.pluginRevision?.id !== sourceState.pluginId ||
-			payload.command.writeContext.pluginRevision.revisionId !==
-				sourceState.pluginRevision.revisionId ||
-			payload.command.writeContext.pluginRevision.configRevisionId !==
-				sourceState.pluginRevision.configRevisionId
+			!sameRevisionPin(payload.command.writeContext.pluginRevision, sourceState.pluginRevision)
 		) {
 			return yield* new ImportRunError({
 				message: "Generic import requires the original trusted caller authority",

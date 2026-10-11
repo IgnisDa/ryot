@@ -1,4 +1,5 @@
 import type { SandboxRunError } from "@ryot-app/contract/errors";
+import { definitionOwner } from "@ryot-app/contract/modules/plugins/references";
 import {
 	SandboxExecutionSubject,
 	SandboxScriptMetadata,
@@ -48,11 +49,30 @@ export const SandboxPluginRevision = Schema.Struct({
 
 export type SandboxPluginRevision = Schema.Schema.Type<typeof SandboxPluginRevision>;
 
+type PluginRevisionPin = Pick<SandboxPluginRevision, "revisionId" | "configRevisionId">;
+
+export const sameRevisionPin = (left: PluginRevisionPin, right: PluginRevisionPin) =>
+	left.revisionId === right.revisionId && left.configRevisionId === right.configRevisionId;
+
+export const samePluginPin = (
+	revision: PluginRevisionPin,
+	pins: {
+		readonly pluginRevisionId: string | null;
+		readonly pluginConfigRevisionId: string | null;
+	},
+) =>
+	revision.revisionId === pins.pluginRevisionId &&
+	revision.configRevisionId === pins.pluginConfigRevisionId;
+
 export const SandboxInstallationInitialization = Schema.Struct({
 	activationId: Schema.String,
 	installationId: Schema.String,
 });
 export type SandboxInstallationInitialization = typeof SandboxInstallationInitialization.Type;
+
+export const principalOwner = (
+	principal: { readonly pluginRevision: { readonly id: string } | null } | null | undefined,
+) => definitionOwner(principal?.pluginRevision?.id ?? null);
 
 export const SandboxExecutionPrincipal = Schema.Struct({
 	scriptId: SandboxScriptId,

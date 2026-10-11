@@ -29,10 +29,11 @@ import { stableStringify } from "@ryot-app/ts-utils/json";
 import { and, asc, desc, eq, gt, lte, inArray, isNotNull, isNull, or, sql } from "drizzle-orm";
 import { Context, Effect, Layer, Schema } from "effect";
 
-import { PLUGIN_INGESTION_ADVISORY_LOCK_KEY } from "#lib/infrastructure/db/advisory-locks";
+import { lockPluginIngestionShared } from "#lib/infrastructure/db/advisory-locks";
 import { isUniqueConstraintError } from "#lib/infrastructure/db/errors";
 import * as schema from "#lib/infrastructure/db/schema/tables/combined";
 import { DatabaseSession } from "#lib/infrastructure/db/session";
+import { samePluginPin } from "#lib/infrastructure/sandbox-runtime/execution-principal";
 import { PluginConfigEncryptionKey } from "#modules/plugins/config-encryption-key";
 import type { PluginIngestionRetirementPolicy } from "#modules/plugins/ingestion-retirement";
 
@@ -117,11 +118,7 @@ export class ImportsRepository extends Context.Service<ImportsRepository>()("Imp
 			}) {
 				yield* database.requireTransaction;
 				if (input.pluginInstallationId !== null) {
-					yield* database.run((db) =>
-						db.execute(
-							sql`select pg_advisory_xact_lock_shared(hashtext(${PLUGIN_INGESTION_ADVISORY_LOCK_KEY}))`,
-						),
-					);
+					yield* lockPluginIngestionShared(database);
 				}
 				yield* database.acquireUserWriteLock(input.userId);
 				const integrationId = input.integrationId;
@@ -463,11 +460,7 @@ export class ImportsRepository extends Context.Service<ImportsRepository>()("Imp
 			scope: IngestionScope,
 		) {
 			yield* database.requireTransaction;
-			yield* database.run((db) =>
-				db.execute(
-					sql`select pg_advisory_xact_lock_shared(hashtext(${PLUGIN_INGESTION_ADVISORY_LOCK_KEY}))`,
-				),
-			);
+			yield* lockPluginIngestionShared(database);
 			const [owner] = yield* database.run((db) =>
 				db
 					.select({
@@ -1702,8 +1695,7 @@ export class ImportsRepository extends Context.Service<ImportsRepository>()("Imp
 			if (
 				prepared &&
 				(prepared.state.workflowScriptId !== pins.scriptId ||
-					prepared.state.pluginRevision.revisionId !== pins.pluginRevisionId ||
-					prepared.state.pluginRevision.configRevisionId !== pins.pluginConfigRevisionId)
+					!samePluginPin(prepared.state.pluginRevision, pins))
 			) {
 				return yield* new DbError({
 					message: "Ingestion prepared release does not match retained pins",

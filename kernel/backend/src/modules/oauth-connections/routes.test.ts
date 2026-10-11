@@ -34,7 +34,7 @@ it.effect("redirects provider callbacks without caching, referrers, or provider 
 					const response = yield* Effect.promise(() =>
 						handler(
 							new Request(
-								"http://server.test/oauth-connections/providers/media/spotify/callback?code=provider-code&state=state-1&error_description=%3Cscript%3E",
+								"http://server.test/oauth-connections/providers/ryot/media/spotify/callback?code=provider-code&state=state-1&error_description=%3Cscript%3E",
 							),
 						),
 					);
@@ -51,7 +51,7 @@ it.effect("redirects provider callbacks without caching, referrers, or provider 
 		expect(yield* Ref.get(received)).toEqual([
 			{
 				query: { state: "state-1", code: "provider-code" },
-				path: { pluginId: "media", oauthProviderSlug: "spotify" },
+				path: { name: "media", publisher: "ryot", oauthProviderSlug: "spotify" },
 			},
 		]);
 	}),

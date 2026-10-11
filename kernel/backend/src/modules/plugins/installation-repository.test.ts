@@ -90,11 +90,7 @@ describe("installation revision persistence", () => {
 				const privateInstallation = yield* session.transaction(
 					Effect.gen(function* () {
 						yield* plugins.lockIngestion();
-						const pluginId = yield* plugins.persist(plugin, {
-							scope: "user",
-							ownerId: owner,
-							packageId: plugin.manifest.metadata.packageId,
-						});
+						const pluginId = yield* plugins.persist(plugin, { scope: "user", ownerId: owner });
 						return yield* installations.create({
 							pluginId,
 							config: {},
@@ -109,11 +105,7 @@ describe("installation revision persistence", () => {
 				const quarantined = yield* session.transaction(
 					Effect.gen(function* () {
 						yield* plugins.lockIngestion();
-						yield* plugins.persist(plugin, {
-							ownerId: null,
-							scope: "system",
-							packageId: plugin.manifest.metadata.packageId,
-						});
+						yield* plugins.persist(plugin, { ownerId: null, scope: "system" });
 						return yield* installations.quarantinePackageIdentityConflicts(
 							plugin.manifest.metadata.packageId,
 						);
@@ -221,11 +213,7 @@ describe("installation revision persistence", () => {
 						Effect.gen(function* () {
 							yield* plugins.lockIngestion();
 							const pluginIds = yield* Effect.forEach([empty, seeded], (plugin) =>
-								plugins.persist(plugin, {
-									ownerId: null,
-									scope: "system",
-									packageId: plugin.manifest.metadata.packageId,
-								}),
+								plugins.persist(plugin, { ownerId: null, scope: "system" }),
 							);
 							yield* installations.provisionSystemInstallationsForUser(owner);
 							return pluginIds;
@@ -459,7 +447,6 @@ describe("installation revision persistence", () => {
 						(yield* PluginIngestionLock).persistUserPlugin(configuredPackage("v2", true), {
 							scope: "user",
 							ownerId: owner,
-							packageId: fixtureManifest().metadata.packageId,
 						}),
 					);
 					expect(yield* (yield* RecordedActivations).activated).toEqual([pluginId]);

@@ -17,8 +17,9 @@ export type HttpRateLimitLookups = Readonly<{
 	byOrigin: Readonly<Record<string, CanonicalHttpRateLimitPolicy>>;
 }>;
 
-const normalizeOrigin = (origin: string) => {
-	const url = new URL(origin);
+// The URL parser lowercases hosts, drops default ports and canonicalizes IP literals, but keeps
+// a fully qualified name's trailing dot, which reaches the same host.
+export const canonicalOrigin = (url: URL) => {
 	url.hostname = url.hostname.replace(/\.+$/, "");
 	return url.origin;
 };
@@ -32,13 +33,12 @@ const canonicalizeHttpRateLimitDeclaration = (declaration: PluginHttpRateLimit) 
 		key: declaration.key,
 		requests: declaration.requests,
 		intervalMs: declaration.intervalMs,
-		origins: declaration.origins.map(normalizeOrigin).sort(),
+		origins: declaration.origins.map((origin) => canonicalOrigin(new URL(origin))).sort(),
 	}) satisfies PluginHttpRateLimit;
 
 export const buildHttpRateLimitLookups = (
 	plugins: ReadonlyArray<{
 		readonly owner: DefinitionOwner;
-		readonly scope: "system" | "user";
 		readonly packageId: string;
 		readonly httpRateLimits: ReadonlyArray<PluginHttpRateLimit>;
 	}>,
@@ -48,12 +48,6 @@ export const buildHttpRateLimitLookups = (
 	const byKey: Record<string, CanonicalHttpRateLimitPolicy> = {};
 	const byOrigin: Record<string, CanonicalHttpRateLimitPolicy> = {};
 	for (const plugin of plugins) {
-		if (plugin.scope === "user" && plugin.httpRateLimits.length > 0) {
-			throw new Error("Private plugins cannot declare deployment HTTP policies");
-		}
-		if (plugin.owner.kind === "kernel") {
-			throw new Error("Deployment HTTP policies require a plugin owner");
-		}
 		for (const declaration of plugin.httpRateLimits) {
 			const canonical = canonicalizeHttpRateLimitDeclaration(declaration);
 			const policy = { declaration: canonical, hash: hashCanonicalDeclaration(canonical) };

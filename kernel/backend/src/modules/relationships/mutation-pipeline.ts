@@ -4,7 +4,7 @@ import {
 	AutomationRelationshipRequestPayload,
 	AutomationTrigger,
 } from "@ryot-app/contract/modules/automations/lifecycle";
-import { definitionKey, definitionOwner } from "@ryot-app/contract/modules/plugins/references";
+import { definitionKey } from "@ryot-app/contract/modules/plugins/references";
 import {
 	RelationshipBadRequest,
 	RelationshipBatchResult,
@@ -25,6 +25,7 @@ import {
 	type LifecycleCommittedStep,
 	type LifecyclePreparedStep,
 } from "#lib/infrastructure/lifecycle-workflow-step";
+import { principalOwner } from "#lib/infrastructure/sandbox-runtime/execution-principal";
 import { DefinitionRepository } from "#modules/definition-registry/repository";
 import type { RelationshipSchemaDefinition } from "#modules/definition-registry/snapshot";
 import { EntitiesRepository } from "#modules/entities/repository";
@@ -786,7 +787,7 @@ export class RelationshipMutationPipeline extends Context.Service<RelationshipMu
 				command: DomainLifecycleCommand,
 			) {
 				yield* writes
-					.check(command, definitionOwner(command.writeContext?.pluginRevision?.id ?? null), userId)
+					.check(command, principalOwner(command.writeContext), userId)
 					.pipe(
 						Effect.mapError(
 							(error) =>
@@ -963,7 +964,7 @@ export class RelationshipMutationPipeline extends Context.Service<RelationshipMu
 			) {
 				yield* assertRootTransaction;
 				yield* writes
-					.check(command, definitionOwner(command.writeContext?.pluginRevision?.id ?? null), null)
+					.check(command, principalOwner(command.writeContext), null)
 					.pipe(
 						Effect.mapError(
 							(error) =>

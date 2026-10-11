@@ -8,6 +8,8 @@ export const PluginInstallationUnavailableReason = Schema.Struct({
 	code: Schema.Literals(["installation-unavailable", "package-identity-conflict"]),
 });
 
+export type PluginInstallationUnavailableReason = typeof PluginInstallationUnavailableReason.Type;
+
 export const SandboxBoundaryReason = Schema.Union([
 	PluginInstallationUnavailableReason,
 	Schema.Struct({

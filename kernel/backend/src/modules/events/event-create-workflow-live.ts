@@ -29,6 +29,7 @@ import {
 import { lifecycleTrigger } from "#lib/domain/lifecycle-command";
 import { LifecycleExecution } from "#lib/domain/lifecycle-execution";
 import { DatabaseSession } from "#lib/infrastructure/db/session";
+import { principalOwner } from "#lib/infrastructure/sandbox-runtime/execution-principal";
 import type { DurableSchema } from "#lib/infrastructure/workflow";
 import { implementWorkflow, makeActivity } from "#lib/infrastructure/workflow-scope";
 import { parseAppSchemaProperties } from "#lib/property-schema/property-schema-runtime";
@@ -119,7 +120,7 @@ const prepareItem = Effect.fn("prepareEventCreateItem")(function* (
 				yield* writes
 					.check(
 						payload.command,
-						definitionOwner(payload.command.writeContext?.pluginRevision?.id ?? null),
+						principalOwner(payload.command.writeContext),
 						payload.userId,
 						true,
 					)

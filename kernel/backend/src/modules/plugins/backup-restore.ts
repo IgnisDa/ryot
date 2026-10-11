@@ -94,7 +94,6 @@ export class PluginBackupRestore extends Context.Service<PluginBackupRestore>()(
 					const pluginId = yield* plugins.persist(item.normalized, {
 						scope: "user",
 						ownerId: userId,
-						packageId: item.packageId,
 					});
 					pluginIdByKey.set(item.key, pluginId);
 				}

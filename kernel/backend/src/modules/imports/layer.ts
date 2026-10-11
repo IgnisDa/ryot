@@ -1,6 +1,7 @@
 import { SandboxRunError } from "@ryot-app/contract/errors";
 import { Effect, Layer } from "effect";
 
+import { samePluginPin } from "#lib/infrastructure/sandbox-runtime/execution-principal";
 import { AuthRepository } from "#modules/auth/repository";
 import { DefinitionRepository } from "#modules/definition-registry/repository";
 import { EntitiesRepositoryLive } from "#modules/entities/repository";
@@ -51,9 +52,8 @@ export const ImportWorkflowPinningLive = Layer.effect(
 						Effect.gen(function* () {
 							if (
 								principal.scriptId !== input.expectedPins.scriptId ||
-								principal.pluginRevision?.revisionId !== input.expectedPins.pluginRevisionId ||
-								principal.pluginRevision.configRevisionId !==
-									input.expectedPins.pluginConfigRevisionId ||
+								!principal.pluginRevision ||
+								!samePluginPin(principal.pluginRevision, input.expectedPins) ||
 								input.executionId !== input.expectedPins.executionId
 							) {
 								return yield* new SandboxRunError({
