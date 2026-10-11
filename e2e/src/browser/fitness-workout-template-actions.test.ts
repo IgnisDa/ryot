@@ -26,6 +26,12 @@ it.live("adds a workout template to a collection and confirms permanent deletion
 		const add = page.getByRole("dialog", { exact: true, name: `Add to ${collection.name}` });
 		yield* add.getByRole("button", { exact: true, name: "Add to collection" }).click();
 		yield* add.waitFor({ state: "hidden" });
+		const manager = page.getByRole("dialog", { exact: true, name: `Collections for ${name}` });
+		yield* manager
+			.getByRole("button", { name: new RegExp(`${collection.name}.*Added`) })
+			.waitFor({ state: "visible" });
+		yield* manager.getByRole("button", { exact: true, name: "Done" }).click();
+		yield* manager.waitFor({ state: "hidden" });
 		yield* more.click();
 		yield* frame.getByRole("menuitem", { exact: true, name: "Delete template" }).click();
 		const deletion = frame.getByRole("dialog", { exact: true, name: "Delete template?" });

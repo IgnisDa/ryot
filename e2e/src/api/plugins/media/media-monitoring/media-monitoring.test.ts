@@ -254,21 +254,19 @@ describe("media monitoring endpoints", () => {
 				}),
 				seedMediaEntity({
 					properties: {},
+					providerId: null,
 					name: "Custom Movie",
 					userId: owner.userId,
 					client: owner.client,
 					entitySchemaSlug: movieSchemaId,
-					providerId: provider.providerId,
-					externalId: `media-monitoring-custom-${crypto.randomUUID()}`,
 				}),
 				seedMediaEntity({
 					properties: {},
+					providerId: null,
 					userId: other.userId,
 					client: other.client,
 					name: "Other User Movie",
 					entitySchemaSlug: movieSchemaId,
-					providerId: provider.providerId,
-					externalId: `media-monitoring-invisible-${crypto.randomUUID()}`,
 				}),
 				seedMediaEntity({
 					properties: {},
