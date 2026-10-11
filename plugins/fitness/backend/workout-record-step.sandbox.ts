@@ -55,8 +55,10 @@ const nextCursor = (page: {
 
 const normalizePage = (rows: readonly WorkoutRecordRow[]): EventStreamStepResult["updates"] =>
 	rows.flatMap((row) => {
-		const occurredAt = row.confirmedAt ?? row.workoutStartedAt;
-		return row.occurredAt === occurredAt ? [] : [{ eventId: row.id, patch: { occurredAt } }];
+		const occurredAt = row.confirmedAt;
+		return occurredAt === null || row.occurredAt === occurredAt
+			? []
+			: [{ eventId: row.id, patch: { occurredAt } }];
 	});
 
 const measurementsOf = (row: WorkoutRecordRow) => ({

@@ -7,9 +7,7 @@ export const manifest = defineManifest({
 	automationType: "automation",
 	name: "Workout Created Detector",
 	slug: "automation.workout-created",
-	inputProjection: {
-		entity: { properties: [], compareProperties: [], parentEntityProperties: [] },
-	},
+	inputProjection: { event: { compareProperties: [], properties: ["workoutName"] } },
 });
 
 export default defineAutomation({
@@ -18,18 +16,23 @@ export default defineAutomation({
 		Effect.gen(function* () {
 			const payload = automation.payload;
 			if (
-				payload.resource !== "entity" ||
+				payload.resource !== "event" ||
 				payload.operation !== "create" ||
-				payload.after.entitySchemaSlug !== "workout"
+				payload.after.entitySchemaSlug !== "workout" ||
+				payload.after.eventSchemaSlug !== "workout-completed"
 			) {
 				return null;
 			}
-			const entity = payload.after;
+			const workoutId = payload.after.entityId;
+			const workoutName = payload.after.properties["workoutName"];
+			if (typeof workoutName !== "string" || workoutName.length === 0) {
+				return null;
+			}
 
 			return yield* host.emitSignal({
-				discriminator: entity.id,
+				discriminator: workoutId,
 				schemaSlug: "workout.created",
-				properties: { workoutId: entity.id, workoutName: entity.name },
+				properties: { workoutId, workoutName },
 			});
 		}),
 });

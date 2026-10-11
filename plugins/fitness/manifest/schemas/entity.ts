@@ -86,8 +86,24 @@ export const fitnessEntitySchemas = [
 		slug: "workout",
 		name: "Workout",
 		icon: "dumbbell",
-		eventSchemas: [],
 		propertiesSchema: workoutPropertiesSchema,
+		eventSchemas: [
+			{
+				slug: "workout-completed",
+				name: "Workout completed",
+				propertiesSchema: {
+					unknownKeys: "strict",
+					fields: {
+						workoutName: {
+							type: "string",
+							label: "Workout name",
+							description: "Workout name at completion",
+							validation: { minLength: 1, required: true },
+						},
+					},
+				},
+			},
+		],
 	},
 	{
 		eventSchemas: [],

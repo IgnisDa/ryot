@@ -11,6 +11,12 @@ import {
 	measurementReadingUpdateOperationSlug,
 } from "../shared/measurement-reading-operations";
 import { PLUGIN_PACKAGE_ID } from "../shared/plugin-identity";
+import {
+	exerciseOverrideUpdateOperationSlug,
+	workoutEditorContextOperationSlug,
+	workoutEditorSaveOperationSlug,
+	workoutTimeCorrectionOperationSlug,
+} from "../shared/workout-editor-context-operations";
 import { fitnessConfigSchema } from "./config";
 import { fitnessSavedViews } from "./saved-views";
 import { fitnessEntitySchemas } from "./schemas/entity";
@@ -219,6 +225,34 @@ export const fitnessPlugin = definePlugin({
 		{
 			auth: "user",
 			demoAccess: "protected",
+			slug: workoutEditorSaveOperationSlug,
+			description: "Save a workout or template",
+			scriptSlug: "operation.workout-editor-save",
+		},
+		{
+			auth: "user",
+			demoAccess: "allowed",
+			slug: workoutEditorContextOperationSlug,
+			scriptSlug: "operation.workout-editor-context",
+			description: "Read workout editor preferences and availability",
+		},
+		{
+			auth: "user",
+			demoAccess: "protected",
+			slug: exerciseOverrideUpdateOperationSlug,
+			description: "Update exercise preferences",
+			scriptSlug: "operation.exercise-override-update",
+		},
+		{
+			auth: "user",
+			demoAccess: "protected",
+			description: "Correct workout times",
+			slug: workoutTimeCorrectionOperationSlug,
+			scriptSlug: "operation.workout-time-correction",
+		},
+		{
+			auth: "user",
+			demoAccess: "protected",
 			slug: measurementMetricCreateOperationSlug,
 			description: "Create a measurement metric",
 			scriptSlug: "operation.measurement-metric-create",
@@ -360,7 +394,14 @@ export const fitnessPlugin = definePlugin({
 			causationSources: ["api"],
 			slug: "fitness.workout-created",
 			scriptSlug: "automation.workout-created",
-			targets: [{ resource: "entity", operation: "create", entitySchemaSlug: "workout" }],
+			targets: [
+				{
+					resource: "event",
+					operation: "create",
+					entitySchemaSlug: "workout",
+					eventSchemaSlug: "workout-completed",
+				},
+			],
 		},
 		{
 			stage: "after",
