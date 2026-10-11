@@ -171,7 +171,6 @@ const decodeInvocationResponse = Schema.decodeUnknownSync(
 const decodeJsonValue = Schema.decodeUnknownEffect(JsonValue, strictOptions);
 const decodeManifest = Schema.decodeUnknownEffect(sandboxManifestSchema, strictOptions);
 const decodeExecutionMetadata = Schema.decodeUnknownEffect(SandboxExecutionMetadata, strictOptions);
-const durablePending = Symbol("sandbox-durable-call-pending");
 
 const hasOwn = objectHasOwn;
 const pushArray = <A>(values: A[], value: A) => {
@@ -865,7 +864,7 @@ const createDurableHost = (
 		output?: Output,
 	): Effect.Effect<unknown, unknown, Output["DecodingServices"]> => {
 		if (pendingObserved) {
-			return Effect.fail(durablePending);
+			return Effect.interrupt;
 		}
 		const decodedRequest = Schema.decodeUnknownResult(
 			workflowDurableCallRequestSchema,
@@ -900,7 +899,7 @@ const createDurableHost = (
 				pendingObserved = true;
 				call.settled = true;
 				yield* Effect.yieldNow;
-				return yield* Effect.fail(durablePending);
+				return yield* Effect.interrupt;
 			}
 			const result = yield* decodeDurableResult(value).pipe(
 				Effect.mapError((error) =>
@@ -1112,25 +1111,29 @@ const executeDefinition = Effect.fnUntraced(function* (
 	}
 	const nanos = nativeBigInt(millis) * 1_000_000n;
 	const clock = yield* Clock.Clock;
-	const outcome = yield* Effect.match(execution, {
-		onSuccess: (value) => ({ value, success: true as const }),
-		onFailure: (error) => ({ error, success: false as const }),
-	}).pipe(
-		Effect.provideService(Clock.Clock, {
-			currentTimeNanosUnsafe: () => nanos,
-			currentTimeMillisUnsafe: () => millis,
-			currentTimeNanos: Effect.succeed(nanos),
-			currentTimeMillis: Effect.succeed(millis),
-			sleep: (duration) => clock.sleep(duration),
-			monotonicTimeNanos: clock.monotonicTimeNanos,
-			monotonicTimeNanosUnsafe: () => clock.monotonicTimeNanosUnsafe(),
-		}),
+	const capturedExit = yield* Effect.exit(
+		Effect.match(execution, {
+			onSuccess: (value) => ({ value, success: true as const }),
+			onFailure: (error) => ({ error, success: false as const }),
+		}).pipe(
+			Effect.provideService(Clock.Clock, {
+				currentTimeNanosUnsafe: () => nanos,
+				currentTimeMillisUnsafe: () => millis,
+				currentTimeNanos: Effect.succeed(nanos),
+				currentTimeMillis: Effect.succeed(millis),
+				sleep: (duration) => clock.sleep(duration),
+				monotonicTimeNanos: clock.monotonicTimeNanos,
+				monotonicTimeNanosUnsafe: () => clock.monotonicTimeNanosUnsafe(),
+			}),
+		),
 	);
 
+	if (durable?.isPending()) {
+		return { state: "pending", requests: durable.requests, journalLength: durable.journalLength };
+	}
+	const outcome = yield* capturedExit;
+
 	if (durable) {
-		if (durable.isPending()) {
-			return { state: "pending", requests: durable.requests, journalLength: durable.journalLength };
-		}
 		const detachedError = durable.detachedError();
 		if (detachedError) {
 			return {
