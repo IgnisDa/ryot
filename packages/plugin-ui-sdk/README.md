@@ -79,8 +79,21 @@ curve.
 - `Card` frames an object; `RowGroup` with `Row` holds settings and fact lists as divided rows.
 - `Badge` tones encode status with a dot and text, never color alone. `Notice` is persistent inline
   feedback; danger notices are alerts. `EmptyState` and `Skeleton` cover empty and loading content.
-- `Dialog` is the standard modal panel, centred or as a side sheet, built on `Modal`. `Tooltip` names
-  icon-only controls for fine pointers and is hidden on touch.
+- `Dialog` is the standard modal panel, centred, as a side sheet, or as a bottom sheet, built on
+  `Modal`. Callers choose `sheet` when `compact` and pass `safeAreaBottom`, which pads the footer;
+  a sheet's footer buttons share its width. `Tooltip` names icon-only controls for fine pointers and is
+  hidden on touch.
+- `ActionDock` is the floating bottom bar for a screen's next action. Mount it through the screen's
+  floating root, pass `safeAreaBottom`, and pad the scrolled content so the dock never covers the end.
+- `Stepper` edits a whole number with − and + buttons; Arrow keys step and Page keys step four times.
+  Pass `clockFormat.format` and `clockFormat.parse` to show and type seconds as m:ss.
+- `ProgressBar` is a thin determinate bar for timers, in `accent` or `info`.
+- `CompletionToggle` is the repeated row check: `complete` is a pressed toggle with a success fill,
+  `start` an accent outline that starts work, and `include` a checkbox. Keep its label stable and let
+  pressed state carry the change.
+- `group-*` colors (`blue`, `purple`, `teal`, `orange`, `crimson`) and their `-soft` fills mark
+  superset and grouping identity in both themes. Pair a color with its name or a label, never color
+  alone.
 - `DataTable` stays unstyled; tables use 12px subtle headers, divided rows, `hover` row fill, and
   right-aligned tabular numbers.
 

@@ -53,7 +53,12 @@ const contrastRatio = (palette: Map<string, string>, foreground: string, backgro
 
 const readableSurfaces = ["--bg", "--surface", "--surface-2", "--raised"] as const;
 
+const groupColors = ["blue", "teal", "purple", "orange", "crimson"] as const;
+
 const textPairs = [
+	...groupColors.map(
+		(color) => [`--group-${color}`, [...readableSurfaces, `--group-${color}-soft`]] as const,
+	),
 	["--info", [...readableSurfaces, "--info-soft"]],
 	["--danger", [...readableSurfaces, "--danger-soft"]],
 	["--accent-ink", ["--accent"]],
@@ -67,6 +72,7 @@ const textPairs = [
 ] as const;
 
 const boundaryPairs = [
+	...groupColors.map((color) => [`--group-${color}`, readableSurfaces] as const),
 	["--focus", readableSurfaces],
 	["--translate", ["--bg", "--surface"]],
 	["--border-strong", readableSurfaces],
