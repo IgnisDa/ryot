@@ -100,9 +100,17 @@ settings. It queries three recipes from `shared/`:
   share `occurredAt` into one row and groups rows by month. Show more preserves loaded rows while
   fetching; a failed later page shows an error and retry. Missing or repeated cursors fail loading.
 
-The page ranks the four metrics with the most readings in range as tiles and log columns. Trend
-lines and sparklines are a trailing rolling average of the bucket averages, over 7 points when there
-are more than 40 and 3 otherwise. Pinning is not implemented and logs a `TODO` to the console.
+Pinned metrics are the page's tiles and log columns, ordered by pin time; a dashed card asks for more
+pins until three are pinned. The chart opens on the first pinned metric. Trend lines and sparklines
+are a trailing rolling average of the bucket averages, over 7 points when there are more than 40 and
+3 otherwise.
+
+A pin is a user `measurement-metric-pinned` relationship from the metric to the user's Fitness
+Library; `measurementSummaryRecipe` returns its creation time as `pinnedAt`. The star on each metric
+row calls `measurement-metric-pin`, which verifies the metric, treats a request matching the current
+state as a no-op, and rejects a fourth pin. The limit is checked before writing, so concurrent
+requests can exceed it. `measurement-metric-create` pins the new metric when the caller had fewer
+than two metrics; imports do not pin.
 
 `client/measurements/reading-composer.tsx` exports `MeasurementComposer`, a page-independent form for
 one timestamp, per-metric values, and an optional comment, so the workout logger can embed it.
@@ -111,7 +119,7 @@ unchanged timestamp keeps the original seconds. Input stays after validation or 
 dialogs close only on success, and the mutation completion refreshes the page queries.
 `client/measurements/mutations.ts` owns the log, update, and delete mutations.
 
-Log measurement prefills the tile metrics (or the first metric when there are none) and offers the
+Log measurement prefills the pinned metrics (or the first metric when there are none) and offers the
 rest through Add metric value. `measurement-reading-log` checks every metric ID is a
 `measurement-metric` visible to the caller, then writes all readings in one `createEvents` call.
 Retrying after a lost response writes the readings again; operations have no replay identity yet.

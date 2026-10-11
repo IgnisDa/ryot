@@ -22,6 +22,7 @@ import {
 	createMeasurementReadingFixture,
 	deleteMeasurementReadings,
 	logMeasurementReadings,
+	pinMeasurementMetric,
 	updateMeasurementReadings,
 } from "~/fixtures/plugins/fitness";
 import { assertPresent, assertTaggedError, requirePresent } from "~/support/assertions";
@@ -275,6 +276,56 @@ describe("Measurements E2E", () => {
 				measurementSummaryRecipe({ rangeStart: "1970-01-01T00:00:00.000Z" }),
 			);
 			expect(otherSummary.items).toEqual([]);
+		}),
+	);
+
+	it.live("auto-pins the first two created metrics and limits pins to three", () =>
+		Effect.gen(function* () {
+			const { client } = yield* createAuthenticatedClient();
+			const { client: otherClient } = yield* createAuthenticatedClient();
+			const weight = yield* createMeasurementMetric(client, { name: "Weight" });
+			const waist = yield* createMeasurementMetric(client, { name: "Waist" });
+			const hip = yield* createMeasurementMetric(client, { name: "Hip" });
+			const bmi = yield* createMeasurementMetric(client, { name: "BMI" });
+			const pinnedIds = () =>
+				executeRyotQLRecipe(
+					client,
+					measurementSummaryRecipe({ rangeStart: "1970-01-01T00:00:00.000Z" }),
+				).pipe(
+					Effect.map(({ items }) =>
+						items
+							.flatMap(({ id, pinnedAt }) => (pinnedAt === null ? [] : [{ id, pinnedAt }]))
+							.sort((left, right) => Date.parse(left.pinnedAt) - Date.parse(right.pinnedAt))
+							.map(({ id }) => id),
+					),
+				);
+
+			expect(yield* pinnedIds()).toEqual([weight.entityId, waist.entityId]);
+
+			expect(yield* pinMeasurementMetric(client, { pinned: true, metricId: hip.entityId })).toEqual(
+				{ pinned: true },
+			);
+			expect(yield* pinnedIds()).toEqual([weight.entityId, waist.entityId, hip.entityId]);
+
+			const limited = yield* Effect.flip(
+				pinMeasurementMetric(client, { pinned: true, metricId: bmi.entityId }),
+			);
+			assertTaggedError(limited, "PluginInvocationError");
+			expect(limited.reason).toMatchObject({ code: "runtime-failed" });
+			expect(yield* pinnedIds()).toEqual([weight.entityId, waist.entityId, hip.entityId]);
+
+			const foreign = yield* Effect.flip(
+				pinMeasurementMetric(otherClient, { pinned: true, metricId: bmi.entityId }),
+			);
+			assertTaggedError(foreign, "PluginInvocationError");
+
+			expect(
+				yield* pinMeasurementMetric(client, { pinned: false, metricId: weight.entityId }),
+			).toEqual({ pinned: false });
+			expect(yield* pinMeasurementMetric(client, { pinned: true, metricId: bmi.entityId })).toEqual(
+				{ pinned: true },
+			);
+			expect(yield* pinnedIds()).toEqual([waist.entityId, hip.entityId, bmi.entityId]);
 		}),
 	);
 

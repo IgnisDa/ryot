@@ -2,6 +2,7 @@ import { PluginSlug } from "@ryot-app/contract/schema/brands";
 import type { JsonValue } from "@ryot-app/contract/schema/json";
 import {
 	measurementMetricCreateRecipe,
+	measurementMetricPinRecipe,
 	measurementReadingDeleteRecipe,
 	measurementReadingLogRecipe,
 	measurementReadingUpdateRecipe,
@@ -36,6 +37,11 @@ export const createMeasurementMetric = (
 	client: Client,
 	input: typeof measurementMetricCreateRecipe.input.Type,
 ) => invokeMeasurementOperation(client, measurementMetricCreateRecipe, input);
+
+export const pinMeasurementMetric = (
+	client: Client,
+	input: typeof measurementMetricPinRecipe.input.Type,
+) => invokeMeasurementOperation(client, measurementMetricPinRecipe, input);
 
 export const logMeasurementReadings = (
 	client: Client,
