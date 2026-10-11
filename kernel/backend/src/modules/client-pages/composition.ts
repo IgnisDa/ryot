@@ -53,14 +53,14 @@ export const composeClientPage = (input: {
 			addImport(
 				`@ryot-app/kernel-renderers/${contributor.name}`,
 				file(contributor.artifactHash, "module.js"),
-				"Export0",
+				"page",
 			);
 		} else {
-			for (const [index, declaration] of contributor.exports.entries()) {
+			for (const declaration of contributor.exports) {
 				addImport(
 					pluginExportSpecifier(contributor, declaration.name),
 					file(contributor.clientArtifactHash, "module.js"),
-					`Export${index}`,
+					declaration.name,
 				);
 			}
 		}

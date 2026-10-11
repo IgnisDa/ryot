@@ -56,7 +56,7 @@ const entityBrowserSettings = (prepared: PreparedClientPage) => {
 	return Result.isSuccess(decoded) ? decoded.success : null;
 };
 
-export const Route = createFileRoute("/_authenticated/v")({
+export const Route = createFileRoute("/_authenticated/v/$")({
 	staleTime: 30_000,
 	shouldReload: true,
 	component: SavedViewPage,

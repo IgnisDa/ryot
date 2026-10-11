@@ -317,6 +317,76 @@ describe("client page routes", () => {
 		}),
 	);
 
+	it.live("reprepares same-composition saved views when only the path changes", () =>
+		Effect.gen(function* () {
+			const view = mount({ entry: "/v/c/first-view" });
+			const frame = yield* Effect.promise(() =>
+				screen.findByTitle<HTMLIFrameElement>("Fixture View plugin"),
+			);
+			const bridge = connectFrame(frame);
+			yield* Effect.promise(() => waitFor(() => expect(bridge.messages).toHaveLength(1)));
+			const srcDoc = frame.getAttribute("srcdoc");
+			yield* Effect.promise(() => view.router.navigate({ href: "/v/c/second-view" }));
+			yield* Effect.promise(() =>
+				waitFor(() =>
+					expect(bridge.messages).toContainEqual(
+						expect.objectContaining({
+							type: "document",
+							page: expect.objectContaining({
+								target: {
+									kind: "saved-view",
+									reference: { kind: "custom", savedViewId: "second-view" },
+								},
+							}),
+						}),
+					),
+				),
+			);
+			expect(view.targets).toEqual([
+				{ kind: "saved-view", reference: { kind: "custom", savedViewId: "first-view" } },
+				{ kind: "saved-view", reference: { kind: "custom", savedViewId: "second-view" } },
+			]);
+			expect(screen.getByTitle<HTMLIFrameElement>("Fixture View plugin")).toBe(frame);
+			expect(frame.getAttribute("srcdoc")).toBe(srcDoc);
+			expect(view.getDocumentLoads()).toBe(1);
+		}),
+	);
+
+	it.live("keeps pending search updates when another page-search request arrives", () =>
+		Effect.gen(function* () {
+			let preparations = 0;
+			const view = mount({
+				entry: "/v/c/fixture-view?keep=1",
+				prepare: () => {
+					preparations++;
+					return preparations === 2
+						? Effect.never
+						: Effect.succeed(preparedSavedView(SavedViewId.make("fixture-view")));
+				},
+			});
+			const bridge = connectFrame(
+				yield* Effect.promise(() => screen.findByTitle<HTMLIFrameElement>("Fixture View plugin")),
+			);
+			yield* Effect.promise(() => waitFor(() => expect(bridge.messages).toHaveLength(1)));
+			bridge.port.postMessage({
+				mode: "replace",
+				type: "page-search",
+				update: { sort: "name-desc" },
+			});
+			yield* Effect.promise(() => waitFor(() => expect(preparations).toBe(2)));
+			bridge.port.postMessage({ mode: "replace", type: "page-search", update: { layout: "list" } });
+			yield* Effect.promise(() =>
+				waitFor(() =>
+					expect(view.router.state.location.search).toMatchObject({
+						keep: 1,
+						layout: "list",
+						sort: "name-desc",
+					}),
+				),
+			);
+		}),
+	);
+
 	it.live("uses prepared saved-view metadata and the route slug for local layout", () =>
 		Effect.gen(function* () {
 			const layoutKeys: string[] = [];
