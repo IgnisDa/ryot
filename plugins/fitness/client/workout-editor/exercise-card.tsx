@@ -51,6 +51,7 @@ export function ExerciseCard(props: {
 		field: "reps" | "weight" | "duration" | "distance",
 	) => void;
 	readonly onHistory: () => void;
+	readonly onMedia: () => void;
 	readonly onReplace: () => void;
 	readonly onDelete: () => void;
 	readonly onOverrides: () => void;
@@ -201,6 +202,9 @@ export function ExerciseCard(props: {
 							/>
 						</label>
 					</details>
+					<Button variant="secondary" onClick={props.onMedia}>
+						Exercise attachments ({occurrence.images.length + occurrence.videos.length})
+					</Button>
 					<ol className="flex flex-col gap-3">
 						{occurrence.sets.map((set, index) => {
 							const rest = resolveWorkoutRestTime({
