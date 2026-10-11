@@ -4,7 +4,7 @@ import type { WorkoutEditorContextOutputSchema } from "../../shared/workout-edit
 import type { WorkoutEditorDraft } from "../../shared/workout-editor-draft";
 import { MeasurementDialogs, type useMeasurementLogger } from "../measurements/measurement-logger";
 import { changeOccurrenceDisplay, removeWorkoutItems } from "./actions";
-import type { WorkoutEditorControllerSnapshot } from "./controller-types";
+import { isWorkoutEditorSaving, type WorkoutEditorControllerSnapshot } from "./controller-types";
 import { updateOccurrence } from "./draft-ops";
 import type { ExerciseSheet } from "./exercise-card";
 import { ExercisePicker } from "./exercise-picker";
@@ -294,7 +294,7 @@ export function EditorOverlays(props: {
 					onClose={onClose}
 					names={props.names}
 					onSave={props.onSave}
-					saving={snapshot.status === "ready" && snapshot.saving}
+					saving={isWorkoutEditorSaving(snapshot)}
 				/>
 			) : null}
 			{kind === "discard" ? (

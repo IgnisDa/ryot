@@ -3,7 +3,7 @@ import { AppIcon } from "@ryot-app/plugin-ui-sdk/icon";
 
 import type { WorkoutEditorDraft } from "../../shared/workout-editor-draft";
 import { clockTime } from "./clock";
-import type { WorkoutEditorControllerSnapshot } from "./controller-types";
+import { isWorkoutEditorSaving, type WorkoutEditorControllerSnapshot } from "./controller-types";
 import type { SavedEntityId } from "./use-editor-actions";
 
 const alert = <AppIcon size={16} name="circle-alert" />;
@@ -191,7 +191,7 @@ export function EditorNotices(props: {
 					title={saved === undefined ? "Saving didn't finish" : "Workout saved"}
 					icon={<AppIcon size={16} name={saved === undefined ? "refresh-cw" : "circle-check"} />}
 					action={
-						<Button size="sm" onClick={props.onSave} disabled={snapshot.saving}>
+						<Button size="sm" onClick={props.onSave} disabled={isWorkoutEditorSaving(snapshot)}>
 							{saved === undefined ? "Retry save" : "Finish local cleanup"}
 						</Button>
 					}

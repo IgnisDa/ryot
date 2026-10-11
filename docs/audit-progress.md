@@ -13,7 +13,7 @@
 
 ## Status
 
-**17 implemented, 1 in progress, 65 pending; 3 excluded.**
+**18 implemented, 0 in progress, 65 pending; 3 excluded.**
 
 “Implemented” means affected checks and tests passed and the change is committed with this tracker. Batch-wide acceptance is recorded separately below. Rows follow the audit's ranked order; sequencing can change to respect dependencies and keep changes reviewable.
 
@@ -32,7 +32,7 @@
 | B19-R1 | Implemented | One read-only selection snapshot governs preparation and freshness without materializing during freshness checks. See this finding's `audit:` commit. |
 | B07-R2 | Implemented | Restored data and run completion share one transaction; completed status governs replay and ambiguous-commit recovery. See this finding's `audit:` commit. |
 | F03-R2 | Implemented | One pure expiry reconciliation owns completion and feedback; invalid expiry clears execution without confirmation, rest, or progression. See this finding's `audit:` commit. |
-| F03-R1 | In progress | One workout-editor save owner. |
+| F03-R1 | Implemented | Controller save owns admission, busy state, durable retries, acknowledgement, and local cleanup across consumers. See this finding's `audit:` commit. |
 | C04-R1 | Implemented | Registration scopes release each acquired listener on failure, interruption, stop, or disposal, including late handles. See this finding's `audit:` commit. |
 | C05-R1 | Implemented | Input-free catalogs serve picker and local exact-declaration readiness; explicit catalog/OAuth refresh preserves form input. See this finding's `audit:` commit. |
 | F05-R1 | Implemented | One target-ID aggregate preserves equal-name histories and all-role recency; tiles use IDs. See this finding's `audit:` commit. |
@@ -171,3 +171,4 @@
 - C04-R1: each DOM/native listener is acquired with an immediate scoped finalizer; partial failure, interruption, stop, and disposal close registration scopes and release late handles. Scoped device type/format/lint checks passed before four files / 33 tests. Read-only review reported no findings. Full client type checking passed; full lint initially encountered concurrent C05-R1 edits and must be rerun for batch acceptance. Physical-device behavior was not tested. Native promises that never settle can still delay cleanup; removal remains best-effort.
 - M05-R2: shared images require one of the seven manifest purposes. Removed gallery Other and the optional badge branch; locator-only presentation assets and artwork order are unchanged. Providers, seed data, and legacy mappings already emit tags; malformed fixtures were corrected directly. Media check passed before 15 focused files / 179 tests, then all 218 files / 1,546 tests passed. Read-only review reported no findings. Existing untagged images now fail decoding as intended; no compatibility decoder was added.
 - C05-R1: input-free catalogs supply synchronous exact-declaration readiness. Removed both settings-keyed scans; OAuth success, catalog events, visibility, mutations, and manual retry refresh the snapshot. Removal/failure preserves edits while readiness blocks submission. Recipes check passed before 126 tests; full client check passed before all 136 files / 1,052 tests, also clearing C04-R1's transient full-lint blocker. Read-only review reported no findings. Updated the authoring README to the item-evaluator API.
+- F03-R1: shared controller save admits before any await and declines concurrent callers. It retains busy/acknowledgement through cleanup; failed cleanup retries locally without repeating an acknowledged backend call. Durable submission identity/input/time and persist-before-invoke are unchanged; only definite business rejection unlocks edits. Save remains uninterruptible across consumer teardown. Review found one coverage gap, resolved with Deferred-controlled interruption/unmount tests during persistence, invocation, and acknowledged cleanup; no extra review round. Fitness check passed before all 16 editor files / 169 tests. After main-session cleanup, fitness check and all 85 files / 543 tests passed. Full runtime reload still relies on the durable frozen submission and backend idempotency.

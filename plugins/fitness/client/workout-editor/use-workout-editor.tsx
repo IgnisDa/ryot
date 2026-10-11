@@ -9,8 +9,14 @@ import { useRyot, useRyotSchedule } from "@ryot-app/plugin-client-sdk/react";
 import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
 
 import { PLUGIN_PACKAGE_ID } from "../../shared/plugin-identity";
+import { workoutEditorSaveOperationSlug } from "../../shared/workout-editor-context-operations";
+import {
+	WorkoutEditorSaveInputSchema,
+	WorkoutEditorSaveOutputSchema,
+} from "../../shared/workout-editor-operations";
 import { invokeWorkoutEditorContext } from "./context-query";
 import { createWorkoutEditorController } from "./controller";
+import { isWorkoutEditorSaving } from "./controller-types";
 import { DRAFT_STORAGE_KEY } from "./draft-storage";
 import { createWorkoutEditorSounds } from "./sounds";
 
@@ -62,6 +68,26 @@ const createEditorSession = (
 			remove: client.storage.remove(pluginId, DRAFT_STORAGE_KEY),
 			write: (value) => client.storage.set(pluginId, DRAFT_STORAGE_KEY, value),
 		},
+		save: (submission) =>
+			client.operations
+				.invoke({
+					input: submission,
+					refreshOnSuccess: false,
+					packageId: PLUGIN_PACKAGE_ID,
+					slug: workoutEditorSaveOperationSlug,
+					output: WorkoutEditorSaveOutputSchema,
+					idempotencyKey: submission.submissionId,
+					inputSchema: WorkoutEditorSaveInputSchema,
+				})
+				.pipe(
+					Effect.tap((result) =>
+						Effect.sync(() => {
+							if (result.kind === "saved") {
+								client.mutationCompleted.hint();
+							}
+						}),
+					),
+				),
 	});
 	const synchronizeAwake = () =>
 		schedule.run(
@@ -179,5 +205,14 @@ export const useWorkoutEditor = (target: PluginNavigationTarget) => {
 	usePageRefresh(() => session.reconcile().pipe(Effect.ignore));
 	useEffect(() => session.acquire(key), [key, session]);
 	useEffect(() => session.activate(key, isActive), [isActive, key, session]);
-	return { snapshot, sounds: session.sounds, controller: session.controller };
+	return {
+		snapshot,
+		sounds: session.sounds,
+		controller: session.controller,
+		saving: isWorkoutEditorSaving(snapshot),
+		saved:
+			snapshot.saveState.phase === "acknowledged-awaiting-cleanup"
+				? snapshot.saveState.result.entityId
+				: undefined,
+	};
 };
