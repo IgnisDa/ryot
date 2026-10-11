@@ -48,41 +48,40 @@ const fixtureCatalogEntry = (client: Parameters<typeof executeRyotQLRecipe>[0]) 
 		);
 	});
 
-beforeAll(
-	() =>
-		runPromise(
-			Effect.gen(function* () {
-				const [infrastructure, port] = yield* Effect.all(
-					[
-						startCoreTestInfrastructure({ bucketName: S3_BUCKET_NAME }),
-						Effect.promise(() => getPort()),
-					],
-					{ concurrency: "unbounded" },
-				);
-				apiPort = port;
-				coreInfrastructure = infrastructure;
-				const apiOrigin = `http://127.0.0.1:${apiPort}`;
-				apiProcess = spawnApiProcess(
-					buildApiEnv({
-						port: apiPort,
-						label: API_LABEL,
-						frontendUrl: apiOrigin,
-						dbUrl: infrastructure.dbUrl,
-						s3BucketName: S3_BUCKET_NAME,
-						redisUrl: infrastructure.redisUrl,
-						s3Endpoint: infrastructure.s3Endpoint,
-					}),
-				);
-				yield* waitForHealthCheck(`${apiOrigin}/api/system/health`, API_LABEL, apiProcess, 90);
-			}).pipe(
-				Effect.onError(() =>
-					Effect.gen(function* () {
-						yield* stopApiProcess(apiProcess);
-						yield* stopCoreTestInfrastructure(coreInfrastructure).pipe(Effect.ignore);
-					}),
-				),
+beforeAll(() =>
+	runPromise(
+		Effect.gen(function* () {
+			const [infrastructure, port] = yield* Effect.all(
+				[
+					startCoreTestInfrastructure({ bucketName: S3_BUCKET_NAME }),
+					Effect.promise(() => getPort()),
+				],
+				{ concurrency: "unbounded" },
+			);
+			apiPort = port;
+			coreInfrastructure = infrastructure;
+			const apiOrigin = `http://127.0.0.1:${apiPort}`;
+			apiProcess = spawnApiProcess(
+				buildApiEnv({
+					port: apiPort,
+					label: API_LABEL,
+					frontendUrl: apiOrigin,
+					dbUrl: infrastructure.dbUrl,
+					s3BucketName: S3_BUCKET_NAME,
+					redisUrl: infrastructure.redisUrl,
+					s3Endpoint: infrastructure.s3Endpoint,
+				}),
+			);
+			yield* waitForHealthCheck(`${apiOrigin}/api/system/health`, API_LABEL, apiProcess, 90);
+		}).pipe(
+			Effect.onError(() =>
+				Effect.gen(function* () {
+					yield* stopApiProcess(apiProcess);
+					yield* stopCoreTestInfrastructure(coreInfrastructure).pipe(Effect.ignore);
+				}),
 			),
 		),
+	),
 );
 
 afterAll(() =>

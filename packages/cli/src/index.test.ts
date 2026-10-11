@@ -587,40 +587,38 @@ export default ${helper}({ manifest, run: () => Effect.succeed(${automationType 
 });
 
 layer(BunServices.layer, { excludeTestServices: true })("ryot plugin build --watch", (test) => {
-	test.effect(
-		"rebuilds after a watched backend change",
-		() =>
-			Effect.gen(function* () {
-				const path = yield* Path.Path;
-				const fs = yield* FileSystem.FileSystem;
-				const spawner = yield* ChildProcessSpawner.ChildProcessSpawner;
-				const plugin = yield* createPlugin();
-				const output = path.join(plugin, "watch-output.zip");
-				const entry = yield* path.fromFileUrl(new URL("./index.ts", import.meta.url));
-				const child = yield* spawner.spawn(
-					ChildProcess.make(
-						process.execPath,
-						[entry, "plugin", "build", "--output", output, "--watch"],
-						{ cwd: plugin, stderr: "ignore", stdout: "ignore" },
-					),
-				);
-				yield* Effect.addFinalizer(() => child.kill().pipe(Effect.ignore));
+	test.effect("rebuilds after a watched backend change", () =>
+		Effect.gen(function* () {
+			const path = yield* Path.Path;
+			const fs = yield* FileSystem.FileSystem;
+			const spawner = yield* ChildProcessSpawner.ChildProcessSpawner;
+			const plugin = yield* createPlugin();
+			const output = path.join(plugin, "watch-output.zip");
+			const entry = yield* path.fromFileUrl(new URL("./index.ts", import.meta.url));
+			const child = yield* spawner.spawn(
+				ChildProcess.make(
+					process.execPath,
+					[entry, "plugin", "build", "--output", output, "--watch"],
+					{ cwd: plugin, stderr: "ignore", stdout: "ignore" },
+				),
+			);
+			yield* Effect.addFinalizer(() => child.kill().pipe(Effect.ignore));
 
-				yield* waitFor(fs.exists(output));
-				const mainPath = path.join(plugin, "backend", "main.sandbox.ts");
-				const main = yield* fs.readFileString(mainPath);
-				yield* fs.writeFileString(mainPath, main.replace('"initial"', '"updated"'));
-				yield* waitFor(
-					Effect.gen(function* () {
-						if (!(yield* fs.exists(output))) {
-							return false;
-						}
-						const pluginPackage = yield* readPluginArchive(yield* fs.readFile(output));
-						return pluginPackage.compiledScripts.some(({ javascript }) =>
-							javascript.includes('"updated"'),
-						);
-					}),
-				);
-			}),
+			yield* waitFor(fs.exists(output));
+			const mainPath = path.join(plugin, "backend", "main.sandbox.ts");
+			const main = yield* fs.readFileString(mainPath);
+			yield* fs.writeFileString(mainPath, main.replace('"initial"', '"updated"'));
+			yield* waitFor(
+				Effect.gen(function* () {
+					if (!(yield* fs.exists(output))) {
+						return false;
+					}
+					const pluginPackage = yield* readPluginArchive(yield* fs.readFile(output));
+					return pluginPackage.compiledScripts.some(({ javascript }) =>
+						javascript.includes('"updated"'),
+					);
+				}),
+			);
+		}),
 	);
 });

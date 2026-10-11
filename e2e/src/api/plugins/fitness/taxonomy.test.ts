@@ -33,14 +33,13 @@ import { startIsolatedHarness } from "~/support/isolated-harness";
 let harness: Effect.Success<ReturnType<typeof startIsolatedHarness>> | undefined;
 let fitnessProviders: Effect.Success<ReturnType<typeof shippedPluginTestProviders>>;
 
-beforeAll(
-	() =>
-		runPromise(
-			Effect.gen(function* () {
-				harness = yield* startIsolatedHarness("Fitness Taxonomy");
-				fitnessProviders = yield* shippedPluginTestProviders(fitnessPlugin.metadata.packageId);
-			}),
-		),
+beforeAll(() =>
+	runPromise(
+		Effect.gen(function* () {
+			harness = yield* startIsolatedHarness("Fitness Taxonomy");
+			fitnessProviders = yield* shippedPluginTestProviders(fitnessPlugin.metadata.packageId);
+		}),
+	),
 );
 
 afterAll(() => runPromise(harness?.stop ?? Effect.void));

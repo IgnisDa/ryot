@@ -93,51 +93,50 @@ function requireFake(instance: ScenarioInstance) {
 	return requirePresent(instance.fake, "Fake Unkey server is not initialised for this scenario");
 }
 
-beforeAll(
-	() =>
-		runPromise(
-			Effect.gen(function* () {
-				coreInfrastructure = yield* startCoreTestInfrastructure({ bucketName: S3_BUCKET_NAME });
-				const infrastructure = requirePresent(
-					coreInfrastructure,
-					"Pro key test infrastructure is not initialised",
-				);
+beforeAll(() =>
+	runPromise(
+		Effect.gen(function* () {
+			coreInfrastructure = yield* startCoreTestInfrastructure({ bucketName: S3_BUCKET_NAME });
+			const infrastructure = requirePresent(
+				coreInfrastructure,
+				"Pro key test infrastructure is not initialised",
+			);
 
-				// Spawned sequentially, not via Promise.all: each api boot (migrations, plugin catalog,
-				// scheduler, sandbox runtime) is heavy enough that eight concurrent boots starve each other of
-				// CPU and stall past any reasonable health-check budget. Each instance is registered in
-				// `scenarios` immediately after it is spawned (before awaiting its health check) so a failure
-				// partway through still leaves every already-started process reachable for `afterAll` cleanup.
-				for (const name of scenarioNames) {
-					const config = scenarioConfigs[name];
-					const port = yield* Effect.promise(() => getPort());
-					const fake = config.unreachable ? undefined : yield* startFakeHttpServer(config.respond);
-					const verificationUrl = config.unreachable
-						? `http://127.0.0.1:${yield* Effect.promise(() => getPort())}`
-						: requirePresent(fake, `Fake Unkey server missing for scenario '${name}'`).url;
-					const apiOrigin = `http://127.0.0.1:${port}`;
-					const process = spawnApiProcess(
-						buildApiEnv({
-							port,
-							frontendUrl: apiOrigin,
-							label: `Pro key ${name}`,
-							dbUrl: infrastructure.dbUrl,
-							s3BucketName: S3_BUCKET_NAME,
-							redisUrl: infrastructure.redisUrl,
-							s3Endpoint: infrastructure.s3Endpoint,
-							extraEnv: { SERVER_PRO_KEY_VERIFICATION_URL: verificationUrl, ...config.extraEnv },
-						}),
-					);
-					scenarios.set(name, { fake, process, apiUrl: `${apiOrigin}/api` });
-					yield* waitForHealthCheck(
-						`${apiOrigin}/api/system/health`,
-						`Pro key ${name} setup`,
-						process,
-						90,
-					);
-				}
-			}),
-		),
+			// Spawned sequentially, not via Promise.all: each api boot (migrations, plugin catalog,
+			// scheduler, sandbox runtime) is heavy enough that eight concurrent boots starve each other of
+			// CPU and stall past any reasonable health-check budget. Each instance is registered in
+			// `scenarios` immediately after it is spawned (before awaiting its health check) so a failure
+			// partway through still leaves every already-started process reachable for `afterAll` cleanup.
+			for (const name of scenarioNames) {
+				const config = scenarioConfigs[name];
+				const port = yield* Effect.promise(() => getPort());
+				const fake = config.unreachable ? undefined : yield* startFakeHttpServer(config.respond);
+				const verificationUrl = config.unreachable
+					? `http://127.0.0.1:${yield* Effect.promise(() => getPort())}`
+					: requirePresent(fake, `Fake Unkey server missing for scenario '${name}'`).url;
+				const apiOrigin = `http://127.0.0.1:${port}`;
+				const process = spawnApiProcess(
+					buildApiEnv({
+						port,
+						frontendUrl: apiOrigin,
+						label: `Pro key ${name}`,
+						dbUrl: infrastructure.dbUrl,
+						s3BucketName: S3_BUCKET_NAME,
+						redisUrl: infrastructure.redisUrl,
+						s3Endpoint: infrastructure.s3Endpoint,
+						extraEnv: { SERVER_PRO_KEY_VERIFICATION_URL: verificationUrl, ...config.extraEnv },
+					}),
+				);
+				scenarios.set(name, { fake, process, apiUrl: `${apiOrigin}/api` });
+				yield* waitForHealthCheck(
+					`${apiOrigin}/api/system/health`,
+					`Pro key ${name} setup`,
+					process,
+					90,
+				);
+			}
+		}),
+	),
 );
 
 afterAll(() =>

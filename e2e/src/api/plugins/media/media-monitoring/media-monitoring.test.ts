@@ -74,64 +74,63 @@ let media: Effect.Success<ReturnType<typeof shippedPluginTestProviders>>;
 let provider: AttachedTestProvider;
 let discoveryProvider: AttachedTestProvider;
 
-beforeAll(
-	() =>
-		runPromise(
-			Effect.gen(function* () {
-				fakeApprise = yield* startFakeAppriseServer;
-				harness = yield* startIsolatedHarness("Media Monitoring");
-				media = yield* shippedPluginTestProviders(mediaPlugin.metadata.packageId);
-				({ movie: provider, show: discoveryProvider } = yield* media.attach({
-					movie: {
-						name: providerName,
-						rootEntitySchemaSlug: "movie",
-						details: providerDetails("Continuing"),
-					},
-					show: {
-						rootEntitySchemaSlug: "show",
-						name: `${providerName} Discovery`,
-						details: discoveryProviderDetails(0),
-					},
-				}));
-				const { client } = yield* createAuthenticatedClient();
-				const { schema: movieSchema } = yield* findMediaEntitySchema(client, "movie");
-				movieSchemaId = movieSchema.id;
-				const { schema: showSchema } = yield* findMediaEntitySchema(client, "show");
-				const showSchemaId = showSchema.id;
-				const apiEntity = yield* seedMediaEntity({
-					properties: {},
-					externalId: apiExternalId,
-					entitySchemaSlug: movieSchemaId,
-					providerId: provider.providerId,
-					name: "Media Monitoring API Target",
-				});
-				const cronEntity = yield* seedMediaEntity({
-					properties: {},
-					externalId: cronExternalId,
-					entitySchemaSlug: movieSchemaId,
-					providerId: provider.providerId,
-					name: "Media Monitoring Cron Target",
-				});
-				const discoveryEntity = yield* seedMediaEntity({
-					properties: {},
-					entitySchemaSlug: showSchemaId,
-					externalId: discoveryExternalId,
-					providerId: discoveryProvider.providerId,
-					name: "Media Monitoring Discovery Target",
-				});
-				apiEntityId = apiEntity.id;
-				cronEntityId = cronEntity.id;
-				discoveryEntityId = discoveryEntity.id;
-				yield* getApiClient().call(
-					(c) =>
-						c.testSupport.setEntityPopulatedAt({
-							params: { entityId: EntityId.make(apiEntityId) },
-							payload: { populatedAt: new Date().toISOString() },
-						}),
-					adminHeaders(),
-				);
-			}),
-		),
+beforeAll(() =>
+	runPromise(
+		Effect.gen(function* () {
+			fakeApprise = yield* startFakeAppriseServer;
+			harness = yield* startIsolatedHarness("Media Monitoring");
+			media = yield* shippedPluginTestProviders(mediaPlugin.metadata.packageId);
+			({ movie: provider, show: discoveryProvider } = yield* media.attach({
+				movie: {
+					name: providerName,
+					rootEntitySchemaSlug: "movie",
+					details: providerDetails("Continuing"),
+				},
+				show: {
+					rootEntitySchemaSlug: "show",
+					name: `${providerName} Discovery`,
+					details: discoveryProviderDetails(0),
+				},
+			}));
+			const { client } = yield* createAuthenticatedClient();
+			const { schema: movieSchema } = yield* findMediaEntitySchema(client, "movie");
+			movieSchemaId = movieSchema.id;
+			const { schema: showSchema } = yield* findMediaEntitySchema(client, "show");
+			const showSchemaId = showSchema.id;
+			const apiEntity = yield* seedMediaEntity({
+				properties: {},
+				externalId: apiExternalId,
+				entitySchemaSlug: movieSchemaId,
+				providerId: provider.providerId,
+				name: "Media Monitoring API Target",
+			});
+			const cronEntity = yield* seedMediaEntity({
+				properties: {},
+				externalId: cronExternalId,
+				entitySchemaSlug: movieSchemaId,
+				providerId: provider.providerId,
+				name: "Media Monitoring Cron Target",
+			});
+			const discoveryEntity = yield* seedMediaEntity({
+				properties: {},
+				entitySchemaSlug: showSchemaId,
+				externalId: discoveryExternalId,
+				providerId: discoveryProvider.providerId,
+				name: "Media Monitoring Discovery Target",
+			});
+			apiEntityId = apiEntity.id;
+			cronEntityId = cronEntity.id;
+			discoveryEntityId = discoveryEntity.id;
+			yield* getApiClient().call(
+				(c) =>
+					c.testSupport.setEntityPopulatedAt({
+						params: { entityId: EntityId.make(apiEntityId) },
+						payload: { populatedAt: new Date().toISOString() },
+					}),
+				adminHeaders(),
+			);
+		}),
+	),
 );
 
 afterAll(() =>

@@ -215,53 +215,49 @@ const getDemoToken = (sessionCookie: string) =>
 		return tokens.access_token;
 	});
 
-beforeAll(
-	() =>
-		runPromise(
-			Effect.gen(function* () {
-				const port = yield* Effect.promise(() => getPort());
-				apiOrigin = `http://127.0.0.1:${port}`;
-				apiUrl = `${apiOrigin}/api`;
-				infrastructure = yield* startCoreTestInfrastructure({ bucketName: S3_BUCKET_NAME });
+beforeAll(() =>
+	runPromise(
+		Effect.gen(function* () {
+			const port = yield* Effect.promise(() => getPort());
+			apiOrigin = `http://127.0.0.1:${port}`;
+			apiUrl = `${apiOrigin}/api`;
+			infrastructure = yield* startCoreTestInfrastructure({ bucketName: S3_BUCKET_NAME });
 
-				yield* startApi({ USERS_ALLOW_REGISTRATION: "true", USERS_DEMO_ACCOUNT_ID: undefined });
-				const seeded = yield* createTestUser(apiUrl);
-				demoUserId = seeded.userId;
-				demoEmail = seeded.email;
-				demoPassword = seeded.password;
-				ownerSessionCookie = seeded.sessionCookie;
-				demoApiKey = yield* createApiKey(seeded.sessionCookie, "Demo account key", apiUrl);
-				const owner = makeSession(apiUrl, { Authorization: `Bearer ${seeded.token}` });
-				const integration = yield* createKodiIntegration(owner);
-				integrationId = integration.id;
-				const detail = requirePresent(
-					Option.getOrUndefined(
-						yield* executeRyotQLRecipe(owner, integrationRecipe({ id: integrationId })),
-					),
-					"Seeded integration detail is missing",
-				);
-				const { frontendOrigin } = yield* owner.call((c) => c.system.config());
-				integrationWebhookUrl = buildIntegrationWebhookUrl(
-					frontendOrigin,
-					requirePresent(
-						detail.webhookToken,
-						"Seeded integration did not expose its webhook token",
-					),
-				);
+			yield* startApi({ USERS_ALLOW_REGISTRATION: "true", USERS_DEMO_ACCOUNT_ID: undefined });
+			const seeded = yield* createTestUser(apiUrl);
+			demoUserId = seeded.userId;
+			demoEmail = seeded.email;
+			demoPassword = seeded.password;
+			ownerSessionCookie = seeded.sessionCookie;
+			demoApiKey = yield* createApiKey(seeded.sessionCookie, "Demo account key", apiUrl);
+			const owner = makeSession(apiUrl, { Authorization: `Bearer ${seeded.token}` });
+			const integration = yield* createKodiIntegration(owner);
+			integrationId = integration.id;
+			const detail = requirePresent(
+				Option.getOrUndefined(
+					yield* executeRyotQLRecipe(owner, integrationRecipe({ id: integrationId })),
+				),
+				"Seeded integration detail is missing",
+			);
+			const { frontendOrigin } = yield* owner.call((c) => c.system.config());
+			integrationWebhookUrl = buildIntegrationWebhookUrl(
+				frontendOrigin,
+				requirePresent(detail.webhookToken, "Seeded integration did not expose its webhook token"),
+			);
 
-				yield* stopApiProcess(apiProcess);
-				apiProcess = undefined;
-				const env = yield* startApi({
-					USERS_ALLOW_REGISTRATION: "false",
-					USERS_DEMO_ACCOUNT_ID: demoUserId,
-				});
-				restoreHarnessTarget = yield* retargetHarness({
-					origin: apiOrigin,
-					serverLogFile: env.SERVER_LOG_FILE,
-					adminAccessToken: requirePresent(env.SERVER_ADMIN_ACCESS_TOKEN, "Admin token missing"),
-				});
-			}),
-		),
+			yield* stopApiProcess(apiProcess);
+			apiProcess = undefined;
+			const env = yield* startApi({
+				USERS_ALLOW_REGISTRATION: "false",
+				USERS_DEMO_ACCOUNT_ID: demoUserId,
+			});
+			restoreHarnessTarget = yield* retargetHarness({
+				origin: apiOrigin,
+				serverLogFile: env.SERVER_LOG_FILE,
+				adminAccessToken: requirePresent(env.SERVER_ADMIN_ACCESS_TOKEN, "Admin token missing"),
+			});
+		}),
+	),
 );
 
 afterAll(() =>
