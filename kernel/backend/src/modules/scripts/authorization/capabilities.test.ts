@@ -167,6 +167,35 @@ describe("requireSandboxCapabilityInput", () => {
 		});
 	});
 
+	it("limits user settings writes to declared direct user executions", () => {
+		const userId = UserId.make("user_1");
+		const subject = {
+			userId,
+			type: "user" as const,
+			accountGeneration: { userId, token: "test-account-generation" },
+		};
+		expect(isSandboxCapabilityAllowed(makeSubjectRunInput(subject), "updateUserSettings")).toBe(
+			true,
+		);
+		expect(
+			isSandboxCapabilityAllowed(
+				makeSubjectRunInput(subject, null, { capabilities: ["getUserSettings"] }),
+				"updateUserSettings",
+			),
+		).toBe(false);
+		for (const other of [
+			automationRunSubject("after", userId),
+			automationRunSubject("before", userId),
+			automationRunSubject("after", null),
+			{ type: "system" as const },
+			{ ...subject, type: "event-projection" as const },
+		]) {
+			expect(isSandboxCapabilityAllowed(makeSubjectRunInput(other), "updateUserSettings")).toBe(
+				false,
+			);
+		}
+	});
+
 	it("accepts system script capabilities and requires provider scope when declared", () => {
 		const input = makeSubjectRunInput(
 			{ type: "system" },

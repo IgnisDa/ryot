@@ -8,6 +8,7 @@ export const CORE_SANDBOX_HOST_CAPABILITIES = [
 	"getProAvailability",
 	"getUserPreferences",
 	"getUserSettings",
+	"updateUserSettings",
 	"verifyManagedAssets",
 	"claimPersistentValue",
 	"getPersistentValue",

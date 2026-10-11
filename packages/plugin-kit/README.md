@@ -194,7 +194,21 @@ User-scoped backend scripts declare `getUserSettings` and call `host.getUserSett
 own plugin's current settings with defaults applied. Decode the JSON record with plugin-owned Effect
 schemas. Retained execution reads use the pinned manifest schema; durable activity replay retains the
 recorded read. System execution without a user cannot read user settings. `getUserPreferences` exposes
-the kernel-owned `disableIntegrations`; entity language remains a kernel preference.
+the kernel-owned `disableIntegrations`; entity language remains a kernel preference. Client code
+reads the same resolved settings with the client SDK's `usePluginUserSettings(pluginId)`.
+
+Direct user executions, such as operations, declare `updateUserSettings` and call
+`host.updateUserSettings(patch)` to change the execution user's settings for their own plugin. The
+kernel selects the installation from the executing plugin and user, never from the patch. Each
+top-level key replaces the stored value; keys must exist in the pinned manifest schema, and the merged
+document must validate against the active schema and stay within 64 KiB. The call returns
+`{ saved: true }`; re-read with `getUserSettings` when needed. Integration, import, bootstrap,
+automation, event-projection, and system executions cannot write settings, and one execution may make
+at most four calls.
+
+There is no compare-and-set. Saves from the settings page replace the whole document, a durable run's
+recorded `getUserSettings` read may be stale, and at-least-once re-execution can reapply a patch over an
+intervening edit of the same key.
 
 ### Calendar Sources
 

@@ -44,6 +44,7 @@ const makeImplementations = (
 	deleteUserEntity: () => Effect.fail({ message: "unused" }),
 	updateUserEntity: () => Effect.fail({ message: "unused" }),
 	commitUserChanges: () => Effect.fail({ message: "unused" }),
+	updateUserSettings: () => Effect.fail({ message: "unused" }),
 	getPersistentValue: () => Effect.fail({ message: "unused" }),
 	getUserPreferences: () => Effect.fail({ message: "unused" }),
 	getProAvailability: () => Effect.fail({ message: "unused" }),
@@ -254,6 +255,32 @@ describe("bindSandboxHostFunctions", () => {
 				error: "getUserSettings received an invalid number of arguments",
 			});
 			expect(calls).toEqual([input]);
+		}),
+	);
+
+	it.effect("binds a user settings patch to the run input and acknowledges it", () =>
+		Effect.gen(function* () {
+			const calls: unknown[] = [];
+			const bound = bindSandboxHostFunctions(
+				makeImplementations({
+					updateUserSettings: (runInput, patch) => {
+						calls.push({ patch, runInput });
+						return Effect.succeed({ saved: true as const });
+					},
+				}),
+				input,
+			);
+
+			expect(yield* bound.updateUserSettings([{ allowNsfw: true }])).toEqual({
+				success: true,
+				data: { saved: true },
+			});
+			expect(yield* bound.updateUserSettings([])).toEqual({
+				success: false,
+				error: "updateUserSettings received an invalid number of arguments",
+			});
+			expect(yield* bound.updateUserSettings(["allowNsfw"])).toMatchObject({ success: false });
+			expect(calls).toEqual([{ runInput: input, patch: { allowNsfw: true } }]);
 		}),
 	);
 

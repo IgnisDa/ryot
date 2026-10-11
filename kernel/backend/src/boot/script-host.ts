@@ -24,10 +24,12 @@ import { NotificationsServiceLive } from "#modules/notifications/layer";
 import { makeNotificationScriptHost } from "#modules/notifications/script-host";
 import { OAuthConnectionsServiceLive } from "#modules/oauth-connections/layer";
 import { makeOAuthConnectionScriptHost } from "#modules/oauth-connections/script-host";
+import { PluginCatalogInvalidatorLive } from "#modules/plugins/catalog/events";
 import { PluginHttpRateLimitAuthority } from "#modules/plugins/catalog/http-rate-limit-authority";
 import { PluginRuntimeResolverLive } from "#modules/plugins/catalog/runtime-resolver";
 import { PluginInstallationRepository } from "#modules/plugins/installations/repository";
 import { PluginRepository } from "#modules/plugins/packages/repository";
+import { PluginUserSettingsWriter } from "#modules/plugins/preferences/user-settings-writer";
 import { makePluginScriptHost } from "#modules/plugins/script-host";
 import { RelationshipMutationPipelineLive } from "#modules/relationships/layer";
 import { RelationshipMutationPipeline } from "#modules/relationships/mutation-pipeline";
@@ -125,6 +127,8 @@ export const ScriptHostImplementationsLive = Layer.effect(
 	Layer.provide(LifecycleServicesLive),
 	Layer.provide(EntitiesRepositoryLive),
 	Layer.provide(SandboxSubmissionCommands.layer),
+	Layer.provide(PluginUserSettingsWriter.layer),
+	Layer.provide(PluginCatalogInvalidatorLive),
 	Layer.provide(PluginRuntimeResolverLive),
 	Layer.provide(PluginHttpRateLimitAuthority.layer),
 	Layer.provide(PluginRepository.layer),

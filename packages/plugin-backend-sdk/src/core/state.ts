@@ -43,3 +43,6 @@ export const getUserPreferencesArgsSchema = Schema.Tuple([]);
 export const getUserPreferencesResultSchema = hostResultSchema(userPreferencesSchema);
 export const getUserSettingsArgsSchema = Schema.Tuple([]);
 export const getUserSettingsResultSchema = hostResultSchema(configValuesSchema);
+export const updateUserSettingsArgsSchema = Schema.Tuple([configValuesSchema]);
+export const updateUserSettingsDataSchema = strictStruct({ saved: Schema.Literal(true) });
+export const updateUserSettingsResultSchema = hostResultSchema(updateUserSettingsDataSchema);

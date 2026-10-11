@@ -40,7 +40,7 @@ const userSettingsOperationSource = (input: { readonly name: string; readonly sl
 import { defineManifest } from "@ryot-app/plugin-backend-sdk/driver";
 import { defineOperation } from "@ryot-app/plugin-backend-sdk/operation";
 import { jsonValueSchema } from "@ryot-app/plugin-backend-sdk/wire";
-import { Schema } from "@ryot-app/plugin-backend-sdk/effect";
+import { Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
 
 export const manifest = defineManifest({
   kind: "operation",
@@ -50,9 +50,14 @@ export const manifest = defineManifest({
 
 export default defineOperation({
   manifest,
-  input: Schema.Struct({}),
+  input: Schema.Struct({
+    patches: Schema.optional(Schema.Array(Schema.Record(Schema.String, jsonValueSchema))),
+  }),
   output: Schema.Record(Schema.String, jsonValueSchema),
-  run: (_input, host) => host.getUserSettings(),
+  run: (input, host) =>
+    Effect.forEach(input.patches ?? [], (patch) => host.updateUserSettings(patch), {
+      discard: true,
+    }).pipe(Effect.andThen(() => host.getUserSettings())),
 });
 `;
 
@@ -76,7 +81,11 @@ export const preferencePrivatePluginPackage = (
 			configSchema: { ...pluginPackage.manifest.configSchema, fields: {} },
 			metadata: { ...pluginPackage.manifest.metadata, name: "Preference test plugin" },
 			scripts: [
-				{ ...script, requiredPluginConfigKeys: [], capabilities: ["getUserSettings"] as const },
+				{
+					...script,
+					requiredPluginConfigKeys: [],
+					capabilities: ["getUserSettings", "updateUserSettings"] as const,
+				},
 			],
 		},
 	};

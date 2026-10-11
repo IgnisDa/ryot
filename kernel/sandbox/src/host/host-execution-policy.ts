@@ -12,6 +12,7 @@ export const SANDBOX_HOST_EXECUTION_POLICY = {
 	getEntitySchemas: { resultBytes: null, dispatch: "activity" },
 	listEventSchemas: { resultBytes: null, dispatch: "activity" },
 	listIntegrations: { resultBytes: null, dispatch: "activity" },
+	updateUserSettings: { resultBytes: KiB, dispatch: "activity" },
 	getUserPreferences: { resultBytes: KiB, dispatch: "activity" },
 	getProAvailability: { resultBytes: KiB, dispatch: "activity" },
 	createEvents: { resultBytes: null, dispatch: "event-workflow" },

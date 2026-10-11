@@ -81,7 +81,7 @@ Runtime and compiler limits are set by their owners, not environment settings.
 | Compiler diagnostics                                               |                      100 entries / 256 KiB |
 | Local replay timeout / context / final result                      |                30 seconds / 64 KiB / 4 MiB |
 | Runner request                                                     |                                      2 MiB |
-| Host calls / HTTP subset / concurrent in-flight calls              |                             1,000 / 50 / 4 |
+| Host calls / HTTP subset / `updateUserSettings` / in-flight calls  |                         1,000 / 50 / 4 / 4 |
 | Journal / entry / chunk / maximum reads / fetched data             | 100 MiB / 12 MiB / 1 MiB / 2,048 / 200 MiB |
 | Host-call request / response / durable response                    |                    1 MiB / 10 MiB / 12 MiB |
 | HTTP request / streamed response / attempt timeout                 |                 1 MiB / 10 MiB / 8 seconds |
