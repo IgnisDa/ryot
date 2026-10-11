@@ -404,7 +404,6 @@ export const preparePluginPage = (
 			settings: {},
 			dataSources: null,
 			route: { params: {} },
-			renderer: { pluginId, kind: "plugin", exportName: "page" },
 			target:
 				target.kind === "entity"
 					? {
@@ -413,6 +412,14 @@ export const preparePluginPage = (
 							entitySchemaSlug: EntitySchemaSlug.make("book"),
 						}
 					: target,
+			renderer: {
+				kind: "plugin",
+				exportName: "page",
+				pluginId:
+					target.kind === "plugin-route"
+						? PluginId.make(target.packageId.replace("test/", ""))
+						: pluginId,
+			},
 		},
 	};
 };
