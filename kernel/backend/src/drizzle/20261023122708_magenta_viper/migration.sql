@@ -910,6 +910,7 @@ CREATE TABLE "provider_import_admission" (
 );
 --> statement-breakpoint
 CREATE TABLE "relationship" (
+	"sync_generation" text,
 	"updated_at" timestamp(3) with time zone DEFAULT now() NOT NULL,
 	"relationship_schema_slug" text NOT NULL,
 	"created_at" timestamp(3) with time zone DEFAULT now() NOT NULL,
@@ -920,6 +921,16 @@ CREATE TABLE "relationship" (
 	"source_entity_id" text NOT NULL,
 	"target_entity_id" text NOT NULL,
 	CONSTRAINT "relationship_identity_unique" UNIQUE NULLS NOT DISTINCT("user_id","source_entity_id","target_entity_id","relationship_schema_slug","relationship_schema_plugin_id")
+);
+--> statement-breakpoint
+CREATE TABLE "relationship_sync_generation" (
+	"generation" text NOT NULL,
+	"started_at" timestamp(3) with time zone NOT NULL,
+	"relationship_schema_slug" text NOT NULL,
+	"direction" text NOT NULL,
+	"relationship_schema_plugin_id" text,
+	"anchor_entity_id" text NOT NULL,
+	CONSTRAINT "relationship_sync_generation_group_unique" UNIQUE NULLS NOT DISTINCT("anchor_entity_id","relationship_schema_slug","relationship_schema_plugin_id","direction")
 );
 --> statement-breakpoint
 CREATE TABLE "sandbox_provider" (
@@ -1338,6 +1349,8 @@ ALTER TABLE "relationship" ADD CONSTRAINT "relationship_user_id_user_id_fkey" FO
 ALTER TABLE "relationship" ADD CONSTRAINT "relationship_relationship_schema_plugin_id_plugin_id_fkey" FOREIGN KEY ("relationship_schema_plugin_id") REFERENCES "plugin"("id") ON DELETE RESTRICT;--> statement-breakpoint
 ALTER TABLE "relationship" ADD CONSTRAINT "relationship_source_entity_id_entity_id_fkey" FOREIGN KEY ("source_entity_id") REFERENCES "entity"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "relationship" ADD CONSTRAINT "relationship_target_entity_id_entity_id_fkey" FOREIGN KEY ("target_entity_id") REFERENCES "entity"("id") ON DELETE CASCADE;--> statement-breakpoint
+ALTER TABLE "relationship_sync_generation" ADD CONSTRAINT "relationship_sync_generation_Rk8B2C4LFptu_fkey" FOREIGN KEY ("relationship_schema_plugin_id") REFERENCES "plugin"("id") ON DELETE RESTRICT;--> statement-breakpoint
+ALTER TABLE "relationship_sync_generation" ADD CONSTRAINT "relationship_sync_generation_anchor_entity_id_entity_id_fkey" FOREIGN KEY ("anchor_entity_id") REFERENCES "entity"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "sandbox_provider" ADD CONSTRAINT "sandbox_provider_plugin_id_plugin_id_fkey" FOREIGN KEY ("plugin_id") REFERENCES "plugin"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "sandbox_script" ADD CONSTRAINT "sandbox_script_provider_id_sandbox_provider_id_fkey" FOREIGN KEY ("provider_id") REFERENCES "sandbox_provider"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "sandbox_script" ADD CONSTRAINT "sandbox_script_plugin_revision_id_plugin_revision_id_fkey" FOREIGN KEY ("plugin_revision_id") REFERENCES "plugin_revision"("id") ON DELETE CASCADE;--> statement-breakpoint

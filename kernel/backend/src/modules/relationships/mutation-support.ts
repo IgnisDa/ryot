@@ -94,6 +94,11 @@ export type ReconcileGlobalRelationshipGroup = {
 		sourceEntityId: EntityId;
 		targetEntityId: EntityId;
 	}>;
+	/**
+	 * Paged synchronization: a "page" upserts only its relationships, stamps them with the generation
+	 * and deletes nothing; a "sweep" deletes the relationships not stamped with the generation.
+	 */
+	generation?: { kind: "page" | "sweep"; value: string; preserveExisting: boolean };
 };
 export type RelationshipReconciliationScope =
 	{ readonly scope: "global" } | { readonly scope: "user"; readonly userId: UserId };

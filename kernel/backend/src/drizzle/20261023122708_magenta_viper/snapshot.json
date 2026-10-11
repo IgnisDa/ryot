@@ -1,7 +1,7 @@
 {
 	"version": "8",
 	"dialect": "postgres",
-	"id": "a544037f-bdcd-4868-bf85-d6e742826811",
+	"id": "ca8ef1a9-401b-46b9-80dd-4b6e01f7261b",
 	"prevIds": ["00000000-0000-0000-0000-000000000000"],
 	"ddl": [
 		{ "isRlsEnabled": false, "name": "account", "entityType": "tables", "schema": "public" },
@@ -277,6 +277,12 @@
 			"schema": "public"
 		},
 		{ "isRlsEnabled": false, "name": "relationship", "entityType": "tables", "schema": "public" },
+		{
+			"isRlsEnabled": false,
+			"name": "relationship_sync_generation",
+			"entityType": "tables",
+			"schema": "public"
+		},
 		{
 			"isRlsEnabled": false,
 			"name": "sandbox_provider",
@@ -8640,6 +8646,19 @@
 			"table": "provider_import_admission"
 		},
 		{
+			"type": "text",
+			"typeSchema": null,
+			"notNull": false,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
+			"name": "sync_generation",
+			"entityType": "columns",
+			"schema": "public",
+			"table": "relationship"
+		},
+		{
 			"type": "timestamp(3) with time zone",
 			"typeSchema": null,
 			"notNull": true,
@@ -8755,6 +8774,84 @@
 			"entityType": "columns",
 			"schema": "public",
 			"table": "relationship"
+		},
+		{
+			"type": "text",
+			"typeSchema": null,
+			"notNull": true,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
+			"name": "generation",
+			"entityType": "columns",
+			"schema": "public",
+			"table": "relationship_sync_generation"
+		},
+		{
+			"type": "timestamp(3) with time zone",
+			"typeSchema": null,
+			"notNull": true,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
+			"name": "started_at",
+			"entityType": "columns",
+			"schema": "public",
+			"table": "relationship_sync_generation"
+		},
+		{
+			"type": "text",
+			"typeSchema": null,
+			"notNull": true,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
+			"name": "relationship_schema_slug",
+			"entityType": "columns",
+			"schema": "public",
+			"table": "relationship_sync_generation"
+		},
+		{
+			"type": "text",
+			"typeSchema": null,
+			"notNull": true,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
+			"name": "direction",
+			"entityType": "columns",
+			"schema": "public",
+			"table": "relationship_sync_generation"
+		},
+		{
+			"type": "text",
+			"typeSchema": null,
+			"notNull": false,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
+			"name": "relationship_schema_plugin_id",
+			"entityType": "columns",
+			"schema": "public",
+			"table": "relationship_sync_generation"
+		},
+		{
+			"type": "text",
+			"typeSchema": null,
+			"notNull": true,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
+			"name": "anchor_entity_id",
+			"entityType": "columns",
+			"schema": "public",
+			"table": "relationship_sync_generation"
 		},
 		{
 			"type": "text",
@@ -14777,6 +14874,32 @@
 		},
 		{
 			"nameExplicit": false,
+			"columns": ["relationship_schema_plugin_id"],
+			"schemaTo": "public",
+			"tableTo": "plugin",
+			"columnsTo": ["id"],
+			"onUpdate": "NO ACTION",
+			"onDelete": "RESTRICT",
+			"name": "relationship_sync_generation_Rk8B2C4LFptu_fkey",
+			"entityType": "fks",
+			"schema": "public",
+			"table": "relationship_sync_generation"
+		},
+		{
+			"nameExplicit": false,
+			"columns": ["anchor_entity_id"],
+			"schemaTo": "public",
+			"tableTo": "entity",
+			"columnsTo": ["id"],
+			"onUpdate": "NO ACTION",
+			"onDelete": "CASCADE",
+			"name": "relationship_sync_generation_anchor_entity_id_entity_id_fkey",
+			"entityType": "fks",
+			"schema": "public",
+			"table": "relationship_sync_generation"
+		},
+		{
+			"nameExplicit": false,
 			"columns": ["plugin_id"],
 			"schemaTo": "public",
 			"tableTo": "plugin",
@@ -15786,6 +15909,20 @@
 			"entityType": "uniques",
 			"schema": "public",
 			"table": "relationship"
+		},
+		{
+			"nameExplicit": true,
+			"columns": [
+				"anchor_entity_id",
+				"relationship_schema_slug",
+				"relationship_schema_plugin_id",
+				"direction"
+			],
+			"nullsNotDistinct": true,
+			"name": "relationship_sync_generation_group_unique",
+			"entityType": "uniques",
+			"schema": "public",
+			"table": "relationship_sync_generation"
 		},
 		{
 			"nameExplicit": true,
