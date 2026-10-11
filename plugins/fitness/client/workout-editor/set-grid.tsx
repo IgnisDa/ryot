@@ -1,4 +1,4 @@
-import { CellInput, CompletionToggle } from "@ryot-app/plugin-ui-sdk";
+import { CellInput } from "@ryot-app/plugin-ui-sdk";
 import { AppIcon } from "@ryot-app/plugin-ui-sdk/icon";
 import clsx from "clsx";
 
@@ -8,6 +8,7 @@ import type {
 	WorkoutEditorSet,
 } from "../../shared/workout-editor-draft";
 import { requiredWorkoutMeasurementsByKind, type WorkoutSetLot } from "../../shared/workout-set";
+import { CompletionToggle } from "./completion-toggle";
 import { formatEditorSeconds } from "./session-timers";
 
 type SetMeasurement =
