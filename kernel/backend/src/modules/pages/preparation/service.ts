@@ -108,7 +108,7 @@ export class PagesService extends Context.Service<PagesService>()("PagesService"
 					});
 				}
 				const graph = yield* resolveKernelRendererGraph(available, kernel);
-				return { ...resolved, graph, operationTargets: clientPageOperationTargets(available) };
+				return { ...resolved, graph };
 			}
 			const graph = yield* resolveClientPageGraph({
 				plugins: available,
@@ -117,7 +117,7 @@ export class PagesService extends Context.Service<PagesService>()("PagesService"
 				exportName: resolved.exportName,
 				application: target.kind === "plugin-route" ? "plugin-route" : "page",
 			});
-			return { ...resolved, graph, operationTargets: clientPageOperationTargets(available) };
+			return { ...resolved, graph };
 		});
 		const compositionFor = (
 			composition: Effect.Success<ReturnType<typeof compositions.getOrMaterialize>>,
@@ -177,62 +177,87 @@ export class PagesService extends Context.Service<PagesService>()("PagesService"
 				(client.homeView === null ? null : builtinSavedViewReference(plugin.id, client.homeView));
 			return reference === null ? null : { reference, kind: "saved-view" as const };
 		});
+		const resolveSelection = Effect.fn(function* (
+			userId: CurrentUserValue["id"],
+			requestedTarget: ClientPageTarget,
+			available: ReadonlyArray<AvailablePlugin>,
+		) {
+			const target =
+				(yield* resolveSavedTarget(userId, requestedTarget, available)) ?? requestedTarget;
+			const operationTargets = clientPageOperationTargets(available);
+			if (target.kind === "saved-view") {
+				const prepared = yield* repository.findPreparedTarget(userId, target.reference);
+				if (!prepared) {
+					return yield* savedViewUnavailable();
+				}
+				const renderer = yield* rendererGraph(available, prepared.view.renderer);
+				return {
+					target,
+					renderer,
+					prepared,
+					requestedTarget,
+					operationTargets,
+					graph: renderer.graph,
+					kind: "saved-view" as const,
+				};
+			}
+			const page = yield* resolvePluginTarget(userId, target, available);
+			return { page, target, operationTargets, graph: page.graph, kind: "page" as const };
+		});
 		const prepare = Effect.fn("Pages.prepare")(function* (
 			user: Pick<CurrentUserValue, "id">,
 			requestedTarget: ClientPageTarget,
 		) {
 			const available = yield* listAvailable(user.id);
-			const target =
-				(yield* resolveSavedTarget(user.id, requestedTarget, available)) ?? requestedTarget;
-			if (target.kind === "saved-view") {
-				const prepared = yield* repository
-					.findPreparedTarget(user.id, target.reference)
-					.pipe(Effect.withSpan("Pages.resolve-target"));
-				if (!prepared) {
-					return yield* savedViewUnavailable();
-				}
-				const resolved = yield* rendererGraph(available, prepared.view.renderer);
-				const composition = yield* compositions.getOrMaterialize(resolved.graph);
+			const selection = yield* resolveSelection(user.id, requestedTarget, available).pipe(
+				Effect.withSpan("Pages.resolve-target"),
+			);
+			const composition = yield* compositions.getOrMaterialize(selection.graph);
+			if (selection.kind === "saved-view") {
+				const { prepared, renderer } = selection;
 				const base = {
 					savedViewId: prepared.viewId,
 					viewRevision: prepared.view.revision,
 					compositionHash: composition.compositionHash,
-					compositionKey: resolved.graph.compositionKey,
-					operationTargets: clientPageOperationTargets(available),
-					target: requestedTarget.kind === "plugin-route" ? requestedTarget : target,
-					contributors: clientPageCodeContributors(resolved.graph.identity, available),
+					operationTargets: selection.operationTargets,
+					compositionKey: selection.graph.compositionKey,
+					contributors: clientPageCodeContributors(selection.graph.identity, available),
+					target:
+						selection.requestedTarget.kind === "plugin-route"
+							? selection.requestedTarget
+							: selection.target,
 				};
 				let rendererContext: PreparedClientPage["context"]["renderer"];
 				let identity: PreparedClientPage["identity"];
-				if (resolved.kind === "kernel") {
-					rendererContext = { kind: "kernel", name: resolved.kernel.name };
+				if (renderer.kind === "kernel") {
+					rendererContext = { kind: "kernel", name: renderer.kernel.name };
 					identity = {
 						...base,
 						kind: "kernel-saved-view",
-						rendererName: resolved.kernel.name,
-						sourceHash: resolved.kernel.sourceHash,
+						rendererName: renderer.kernel.name,
+						sourceHash: renderer.kernel.sourceHash,
 					};
 				} else {
 					rendererContext = {
 						kind: "plugin",
-						pluginId: resolved.plugin.id,
-						exportName: resolved.exportName,
+						pluginId: renderer.plugin.id,
+						exportName: renderer.exportName,
 					};
 					identity = {
 						...base,
 						kind: "plugin-saved-view",
-						pluginId: resolved.plugin.id,
-						exportName: resolved.exportName,
-						contentHash: resolved.plugin.contentHash,
-						installationId: resolved.plugin.installationId,
+						pluginId: renderer.plugin.id,
+						exportName: renderer.exportName,
+						contentHash: renderer.plugin.contentHash,
+						installationId: renderer.plugin.installationId,
 					};
 				}
 				return {
 					identity,
 					composition: compositionFor(composition),
 					context: {
-						target,
 						route: { params: {} },
+						target: selection.target,
 						renderer: rendererContext,
 						contributors: base.contributors,
 						settings: prepared.view.settings,
@@ -241,24 +266,21 @@ export class PagesService extends Context.Service<PagesService>()("PagesService"
 					},
 				};
 			}
-			const resolved = yield* resolvePluginTarget(user.id, target, available).pipe(
-				Effect.withSpan("Pages.resolve-target"),
-			);
-			const composition = yield* compositions.getOrMaterialize(resolved.graph);
+			const resolved = selection.page;
 			const contextTarget =
-				target.kind === "entity" && resolved.entity
+				selection.target.kind === "entity" && resolved.entity
 					? {
-							...target,
+							...selection.target,
 							entitySchemaSlug: resolved.entity.entitySchemaSlug,
 							entitySchemaPluginId: resolved.entity.ownerPluginId,
 						}
-					: target;
+					: selection.target;
 			const base = {
-				target,
-				operationTargets: resolved.operationTargets,
+				target: selection.target,
+				operationTargets: selection.operationTargets,
 				compositionHash: composition.compositionHash,
-				compositionKey: resolved.graph.compositionKey,
-				contributors: clientPageCodeContributors(resolved.graph.identity, available),
+				compositionKey: selection.graph.compositionKey,
+				contributors: clientPageCodeContributors(selection.graph.identity, available),
 			};
 			return {
 				composition: compositionFor(composition),
@@ -322,61 +344,58 @@ export class PagesService extends Context.Service<PagesService>()("PagesService"
 			if (!operationTargetsCurrent(available, identity.operationTargets)) {
 				return null;
 			}
-			if (identity.kind === "kernel-saved-view" || identity.kind === "plugin-saved-view") {
-				const target = yield* resolveSavedTarget(userId, identity.target, available);
-				if (target === null) {
+			const selection = yield* resolveSelection(userId, identity.target, available);
+			if (selection.kind === "saved-view") {
+				const { prepared, renderer } = selection;
+				if (identity.kind !== "kernel-saved-view" && identity.kind !== "plugin-saved-view") {
 					return null;
 				}
-				const prepared = yield* repository.findPreparedTarget(userId, target.reference);
 				if (
-					!prepared ||
 					prepared.viewId !== identity.savedViewId ||
 					prepared.view.revision !== identity.viewRevision
 				) {
 					return null;
 				}
-				const resolved = yield* rendererGraph(available, prepared.view.renderer);
 				if (
-					identity.kind === "kernel-saved-view" &&
-					(resolved.kind !== "kernel" ||
-						resolved.kernel.name !== identity.rendererName ||
-						resolved.kernel.sourceHash !== identity.sourceHash)
+					renderer.kind === "kernel" &&
+					(identity.kind !== "kernel-saved-view" ||
+						renderer.kernel.name !== identity.rendererName ||
+						renderer.kernel.sourceHash !== identity.sourceHash)
 				) {
 					return null;
 				}
 				if (
-					identity.kind === "plugin-saved-view" &&
-					(resolved.kind !== "plugin" ||
-						resolved.plugin.id !== identity.pluginId ||
-						resolved.plugin.contentHash !== identity.contentHash ||
-						resolved.plugin.installationId !== identity.installationId ||
-						resolved.exportName !== identity.exportName)
+					renderer.kind === "plugin" &&
+					(identity.kind !== "plugin-saved-view" ||
+						renderer.plugin.id !== identity.pluginId ||
+						renderer.plugin.contentHash !== identity.contentHash ||
+						renderer.plugin.installationId !== identity.installationId ||
+						renderer.exportName !== identity.exportName)
 				) {
 					return null;
 				}
-				return yield* matchingComposition(available, resolved.graph, identity);
+				return yield* matchingComposition(available, selection.graph, identity);
 			}
-			const resolved = yield* resolvePluginTarget(userId, identity.target, available);
-			if (
-				identity.kind === "kernel-entity-page" &&
-				(resolved.kind !== "kernel-entity" ||
+			const resolved = selection.page;
+			if (resolved.kind === "kernel-entity") {
+				if (
+					identity.kind !== "kernel-entity-page" ||
 					resolved.rendererName !== identity.rendererName ||
 					resolved.sourceHash !== identity.sourceHash ||
-					resolved.entity.entitySchemaSlug !== identity.entitySchemaSlug)
+					resolved.entity.entitySchemaSlug !== identity.entitySchemaSlug
+				) {
+					return null;
+				}
+			} else if (
+				identity.kind !== "plugin-page" ||
+				resolved.plugin.id !== identity.pluginId ||
+				resolved.plugin.contentHash !== identity.contentHash ||
+				resolved.plugin.installationId !== identity.installationId ||
+				resolved.exportName !== identity.exportName
 			) {
 				return null;
 			}
-			if (
-				identity.kind === "plugin-page" &&
-				(resolved.kind !== "plugin" ||
-					resolved.plugin.id !== identity.pluginId ||
-					resolved.plugin.contentHash !== identity.contentHash ||
-					resolved.plugin.installationId !== identity.installationId ||
-					resolved.exportName !== identity.exportName)
-			) {
-				return null;
-			}
-			return yield* matchingComposition(available, resolved.graph, identity);
+			return yield* matchingComposition(available, selection.graph, identity);
 		});
 		const isIdentityCurrent = Effect.fn(function* (
 			userId: CurrentUserValue["id"],

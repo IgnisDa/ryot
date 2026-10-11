@@ -13,7 +13,7 @@
 
 ## Status
 
-**10 implemented, 0 in progress, 73 pending; 3 excluded.**
+**11 implemented, 0 in progress, 72 pending; 3 excluded.**
 
 “Implemented” means affected checks and tests passed and the change is committed with this tracker. Batch-wide acceptance is recorded separately below. Rows follow the audit's ranked order; sequencing can change to respect dependencies and keep changes reviewable.
 
@@ -29,7 +29,7 @@
 | P07-R1 | Implemented | Authored ASTs enforce import and asset policy without multiline bypasses or inert-text false positives. `123aa8be21`. |
 | C01-R1 | Implemented | One per-server authorization owner fences token writes, profile publication, and detached work. Rotation retains identity; replacement and clear invalidate predecessor work. `628a6a0b55`. |
 | B04-R1 | Implemented | Account generation is the sole bootstrap identity; reset joins the independent creation/reconciliation workflow root. See this finding's `audit:` commit. |
-| B19-R1 | Pending | Agree on selected home/route targets during preparation and freshness checks. |
+| B19-R1 | Implemented | One read-only selection snapshot governs preparation and freshness without materializing during freshness checks. See this finding's `audit:` commit. |
 | B07-R2 | Pending | Commit restore data and completion bookkeeping together. |
 | F03-R2 | Pending | One duration-expiry completion action. |
 | F03-R1 | Pending | One workout-editor save owner. |
@@ -153,4 +153,12 @@
 - Final repository-wide `bun run check` passed across 30 projects; `bun turbo --filter='!@ryot-app/e2e' test` passed, 51/51 tasks.
 - Main-session cleanup from `628a6a0b55` removed redundant stage-completion logging (net two lines removed), while retaining the requested failure diagnostics. No new suppressions or bypass casts. Excluded apps unchanged. No push performed.
 
-Stopped after B04-R1 at the user's request. Next ranked finding, not started: B19-R1 (selected home/route target ownership).
+### Batch 5: B19-R1 — accepted
+
+- Preparation and freshness now consume one read-only selection snapshot containing the requested and resolved target, selected renderer or page, graph, view state, and operation targets. Preparation alone materializes compositions; freshness only looks up an existing composition and issues no artifact grants.
+- Direct `/` routes become stale when a home view is selected, saved-view pages become stale when the selection changes or clears, and the original route becomes current again after clearing. View revision and renderer changes use the same selection path.
+- Backend and e2e checks passed. All page-preparation tests passed: eight files, 31 tests. The affected uncached e2e file passed: `page-freshness.test.ts`, two tests.
+- Repository-wide `bun run check` passed across 30 projects; `bun turbo --filter='!@ryot-app/e2e' test` passed, 51/51 tasks.
+- Main-session cleanup removed duplicate operation-target construction and an unused direct-page snapshot field (net one line removed). No suppressions or bypass casts were added. Excluded apps unchanged. No push performed.
+
+Stopped after B19-R1 at the user's request. Next ranked finding, not started: B07-R2 (atomic restore data and completion bookkeeping).
