@@ -3,7 +3,7 @@ import { Context, Data, Effect, Layer } from "effect";
 import { PluginInstallationsApi } from "#/api/plugin-installations";
 import { SavedViewsApi } from "#/api/saved-views";
 import type { ApiScope } from "#/api/scope";
-import type { CustomizePlan } from "#/modules/navigation/customize/customize-plan";
+import type { CustomizePlan } from "#/modules/shell/customize/customize-plan";
 
 export class CustomizeSaveError extends Data.TaggedError("CustomizeSaveError")<{
 	readonly cause: unknown;

@@ -3,8 +3,8 @@ import clsx from "clsx";
 import { useSyncExternalStore } from "react";
 
 import type { AuthSessionStore } from "#/modules/auth/service";
-import { Avatar } from "#/modules/navigation/avatar";
 import { activateLink } from "#/modules/navigation/link-activation";
+import { Avatar } from "#/modules/shell/avatar";
 
 type AccountSummaryProps = {
 	readonly isPro: boolean;

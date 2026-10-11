@@ -17,11 +17,11 @@ import { type RefObject, useEffect, useRef, useState } from "react";
 import { flushSync } from "react-dom";
 
 import type { AuthSessionStore } from "#/modules/auth/service";
-import { AccountSummary } from "#/modules/navigation/account-summary";
 import { gestureSpring } from "#/modules/navigation/drawer-metrics";
-import { SidebarNav } from "#/modules/navigation/sidebar-nav";
-import type { SidebarEntry, SidebarSections } from "#/modules/navigation/sidebar-sections";
 import type { WorkspaceTarget } from "#/modules/navigation/workspace-state";
+import { AccountSummary } from "#/modules/shell/account-summary";
+import { SidebarNav } from "#/modules/shell/sidebar-nav";
+import type { SidebarEntry, SidebarSections } from "#/modules/shell/sidebar-sections";
 
 type MobileDrawerProps = {
 	readonly isPro: boolean;

@@ -17,25 +17,29 @@ import {
 } from "@tanstack/react-router";
 import { Effect } from "effect";
 import { motion, useMotionValue, useTransform } from "motion/react";
-import {
-	useCallback,
-	useEffect,
-	useId,
-	useMemo,
-	useRef,
-	useState,
-	useSyncExternalStore,
-} from "react";
+import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 
-import {
-	awaitDocumentVisible,
-	waitForImpersonationExpiry,
-} from "#/modules/auth/impersonation-expiry";
-import { oauthTokenKey } from "#/modules/auth/oauth-storage";
-import { RuntimeOAuthClientService } from "#/modules/auth/runtime-client";
-import { AuthService } from "#/modules/auth/service";
-import { subscribeOAuthSessionBoundary } from "#/modules/auth/token-identity";
+import { useAuthenticatedSession } from "#/modules/auth/session-boundary";
 import { useIsDemoSession } from "#/modules/demo-protection";
+import { CONTENT_SHIFT } from "#/modules/navigation/drawer-metrics";
+import { EdgeGesture } from "#/modules/navigation/edge-gesture";
+import {
+	hasWorkspaceChrome,
+	isCustomizeSidebarPath,
+	isSettingsPath,
+	resolveEdge,
+} from "#/modules/navigation/edge-intent";
+import { impactLight } from "#/modules/navigation/haptics";
+import { historyEntry } from "#/modules/navigation/history-entry";
+import {
+	isWorkspaceRoot,
+	resolveRememberedWorkspace,
+	type WorkspaceTarget,
+} from "#/modules/navigation/workspace-state";
+import { ClientPageDocumentProvider } from "#/modules/pages/documents/state";
+import { ClientPageDocumentHost } from "#/modules/pages/runtime/document-host";
+import { effectiveCatalogPlugin } from "#/modules/plugins/catalog/location";
+import { usePluginCatalog } from "#/modules/plugins/catalog/provider";
 import {
 	CustomizeContext,
 	ClientPageOverlayContext,
@@ -50,41 +54,22 @@ import {
 	type PluginHeaderState,
 	createClientDocumentControllers,
 	type ShellChrome,
-} from "#/modules/navigation/authenticated-shell-context";
-import { useDesktopEffect, useIsDesktop } from "#/modules/navigation/breakpoint";
-import { CustomizeSidebarPanel } from "#/modules/navigation/customize/customize-sidebar-panel";
+} from "#/modules/shell/authenticated-shell-context";
+import { useDesktopEffect, useIsDesktop } from "#/modules/shell/breakpoint";
+import { CustomizeSidebarPanel } from "#/modules/shell/customize/customize-sidebar-panel";
 import {
 	customizeSearchSection,
 	type CustomizeSection,
-} from "#/modules/navigation/customize/customize-state";
-import { useCustomizeDraft } from "#/modules/navigation/customize/use-customize-draft";
-import { DesktopSidebar } from "#/modules/navigation/desktop-sidebar";
-import { CONTENT_SHIFT } from "#/modules/navigation/drawer-metrics";
-import { EdgeGesture } from "#/modules/navigation/edge-gesture";
-import {
-	hasWorkspaceChrome,
-	isCustomizeSidebarPath,
-	isSettingsPath,
-	resolveEdge,
-} from "#/modules/navigation/edge-intent";
-import { impactLight } from "#/modules/navigation/haptics";
-import { historyEntry } from "#/modules/navigation/history-entry";
-import { MobileDrawer } from "#/modules/navigation/mobile-drawer";
-import { useSafeAreaInsets } from "#/modules/navigation/safe-area";
+} from "#/modules/shell/customize/customize-state";
+import { useCustomizeDraft } from "#/modules/shell/customize/use-customize-draft";
+import { DesktopSidebar } from "#/modules/shell/desktop-sidebar";
+import { MobileDrawer } from "#/modules/shell/mobile-drawer";
+import { useSafeAreaInsets } from "#/modules/shell/safe-area";
 import {
 	navigationViewHref,
 	sidebarSections,
 	type SidebarEntry,
-} from "#/modules/navigation/sidebar-sections";
-import {
-	isWorkspaceRoot,
-	resolveRememberedWorkspace,
-	type WorkspaceTarget,
-} from "#/modules/navigation/workspace-state";
-import { ClientPageDocumentProvider } from "#/modules/pages/documents/state";
-import { ClientPageDocumentHost } from "#/modules/pages/runtime/document-host";
-import { effectiveCatalogPlugin } from "#/modules/plugins/catalog/location";
-import { usePluginCatalog } from "#/modules/plugins/catalog/provider";
+} from "#/modules/shell/sidebar-sections";
 import { useStableHandler } from "#/modules/ui/use-stable-handler";
 import { ClientStorage } from "#/persistence/storage";
 
@@ -197,60 +182,9 @@ export function AuthenticatedShell(props: {
 		pluginHeader !== null && pluginHeader.index === entry.index && pluginHeader.key === entry.key
 			? pluginHeader.title
 			: null;
-	const auth = runtime.runSync(AuthService);
-	const session = auth.session(server);
-	const authSnapshot = useSyncExternalStore(
-		session.subscribe,
-		session.getSnapshot,
-		session.getSnapshot,
-	);
-	const impersonation =
-		authSnapshot.status === "authenticated" ? authSnapshot.impersonation : undefined;
+	const { session, stopError, stopPending, authSnapshot, impersonation, stopImpersonation } =
+		useAuthenticatedSession(runtime, server);
 	const isDemo = useIsDemoSession(session);
-	const [stopPending, setStopPending] = useState(false);
-	const [stopError, setStopError] = useState<string>();
-	const stopImpersonation = () => {
-		setStopPending(true);
-		setStopError(undefined);
-		runtime.runFork(
-			auth.signOut(server).pipe(
-				Effect.matchCause({
-					onFailure: () => {
-						setStopPending(false);
-						setStopError("Could not stop impersonation. Please try again.");
-					},
-					onSuccess: (launched) => {
-						setStopPending(false);
-						if (!launched) {
-							setStopError("Could not open the server logout page. Please try again.");
-						}
-					},
-				}),
-			),
-		);
-	};
-	useEffect(() => {
-		if (runtime.runSync(RuntimeOAuthClientService).isNative) {
-			return undefined;
-		}
-		return subscribeOAuthSessionBoundary(window, oauthTokenKey(server), () =>
-			window.location.reload(),
-		);
-	}, [runtime, server]);
-	useEffect(() => {
-		if (impersonation === undefined) {
-			return undefined;
-		}
-		const controller = new AbortController();
-		runtime.runFork(
-			waitForImpersonationExpiry(impersonation.expiresAt, awaitDocumentVisible).pipe(
-				Effect.andThen(auth.clearSession(server)),
-				Effect.andThen(Effect.sync(() => window.location.replace("/instance-admin/users"))),
-			),
-			{ signal: controller.signal },
-		);
-		return () => controller.abort();
-	}, [auth, impersonation, runtime, server]);
 	const selectWorkspace = ({ pluginId, packageId }: WorkspaceTarget) => {
 		impactLight();
 		return runtime.runPromise(

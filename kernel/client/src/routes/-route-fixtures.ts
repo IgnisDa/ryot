@@ -44,7 +44,6 @@ import {
 import { OAuthConnectService } from "#/modules/integrations/oauth-connect";
 import { makeOAuthReturnCapture, OAuthReturnCapture } from "#/modules/integrations/oauth-return";
 import { IntegrationsService } from "#/modules/integrations/service";
-import { CustomizeSidebarService } from "#/modules/navigation/customize/service";
 import { DeepLinkClaims } from "#/modules/navigation/deep-link";
 import { NavigationService } from "#/modules/navigation/service";
 import { NotificationChannelsService } from "#/modules/notifications/service";
@@ -52,6 +51,7 @@ import { ClientPageFreshness } from "#/modules/pages/preparation/freshness";
 import { ProviderAddService } from "#/modules/provider-add/service";
 import { SavedViewsService } from "#/modules/saved-views/service";
 import { ServerService } from "#/modules/server/service";
+import { CustomizeSidebarService } from "#/modules/shell/customize/service";
 import type { ThemeStore } from "#/modules/theme/store";
 import { ClientStorage } from "#/persistence/storage";
 import { makeClientStorageStub } from "#/persistence/storage.test-layer";

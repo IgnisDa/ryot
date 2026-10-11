@@ -15,19 +15,6 @@ import { ManagedAssetsService } from "#/modules/assets/managed-assets";
 import { TemporaryUploads } from "#/modules/assets/temporary-uploads";
 import { EntityWatchService, type WatchEntities } from "#/modules/entity-watches/service";
 import { ExternalLinks } from "#/modules/external-links/service";
-import { useScreenLeadingControl } from "#/modules/navigation/app-screen";
-import {
-	type ClientPageOverlayController,
-	type ClientPageScreenController,
-	type PluginHeaderController,
-	type ShellChrome,
-	useClientPageOverlay,
-	useClientPageScreen,
-	useEdge,
-	usePluginHeader,
-	usePluginTitle,
-	useShellChrome,
-} from "#/modules/navigation/authenticated-shell-context";
 import type { BackInterceptors } from "#/modules/navigation/back-interceptors";
 import { historyEntry } from "#/modules/navigation/history-entry";
 import { usePageTitle } from "#/modules/navigation/page-title";
@@ -45,6 +32,19 @@ import { ClientPageFreshness } from "#/modules/pages/preparation/freshness";
 import { PageIframeHost } from "#/modules/pages/runtime/iframe-host";
 import { toPluginLocation } from "#/modules/plugins/catalog/location";
 import { usePluginCatalog } from "#/modules/plugins/catalog/provider";
+import { useScreenLeadingControl } from "#/modules/shell/app-screen";
+import {
+	type ClientPageOverlayController,
+	type ClientPageScreenController,
+	type PluginHeaderController,
+	type ShellChrome,
+	useClientPageOverlay,
+	useClientPageScreen,
+	useEdge,
+	usePluginHeader,
+	usePluginTitle,
+	useShellChrome,
+} from "#/modules/shell/authenticated-shell-context";
 import type { ThemeStore } from "#/modules/theme/store";
 import type { FileRoutesById } from "#/routeTree.gen";
 import type { ClientRuntime } from "#/runtime";

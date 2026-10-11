@@ -9,8 +9,10 @@ import type {
 import clsx from "clsx";
 import type { ReactNode } from "react";
 
-import type { CustomizeSection } from "#/modules/navigation/customize/customize-state";
 import { activateLink } from "#/modules/navigation/link-activation";
+import type { WorkspaceTarget } from "#/modules/navigation/workspace-state";
+import { WorkspaceSwitcher } from "#/modules/navigation/workspace-switcher";
+import type { CustomizeSection } from "#/modules/shell/customize/customize-state";
 import {
 	navigationViewHref,
 	sidebarItemKey,
@@ -18,9 +20,7 @@ import {
 	type SidebarItem,
 	type SidebarSections,
 	workspaceSummary,
-} from "#/modules/navigation/sidebar-sections";
-import type { WorkspaceTarget } from "#/modules/navigation/workspace-state";
-import { WorkspaceSwitcher } from "#/modules/navigation/workspace-switcher";
+} from "#/modules/shell/sidebar-sections";
 
 type SidebarNavProps = {
 	readonly activeHome: boolean;

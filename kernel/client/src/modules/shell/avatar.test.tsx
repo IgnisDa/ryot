@@ -1,7 +1,7 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
-import { Avatar } from "#/modules/navigation/avatar";
+import { Avatar } from "#/modules/shell/avatar";
 
 describe("avatar", () => {
 	it("renders the session image with an accessible name", () => {

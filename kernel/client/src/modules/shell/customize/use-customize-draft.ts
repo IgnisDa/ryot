@@ -4,7 +4,7 @@ import { useRouteContext } from "@tanstack/react-router";
 import { Effect } from "effect";
 import { useState } from "react";
 
-import { buildCustomizePlan } from "#/modules/navigation/customize/customize-plan";
+import { buildCustomizePlan } from "#/modules/shell/customize/customize-plan";
 import {
 	initCustomizeDraft,
 	isCustomizeDraftDirty,
@@ -12,8 +12,8 @@ import {
 	toggleCustomizeItem,
 	type CustomizeDraft,
 	type CustomizeSection,
-} from "#/modules/navigation/customize/customize-state";
-import { CustomizeSidebarService } from "#/modules/navigation/customize/service";
+} from "#/modules/shell/customize/customize-state";
+import { CustomizeSidebarService } from "#/modules/shell/customize/service";
 
 const SAVE_ERROR = "Could not save sidebar changes.";
 

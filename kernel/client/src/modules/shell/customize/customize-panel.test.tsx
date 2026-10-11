@@ -5,12 +5,12 @@ import { Effect } from "effect";
 import { useState } from "react";
 import { axe } from "vitest-axe";
 
-import { CustomizePanel } from "#/modules/navigation/customize/customize-panel";
+import { CustomizePanel } from "#/modules/shell/customize/customize-panel";
 import {
 	moveCustomizeItem,
 	toggleCustomizeItem,
 	type CustomizeDraft,
-} from "#/modules/navigation/customize/customize-state";
+} from "#/modules/shell/customize/customize-state";
 
 const item = (slug: string, pluginInstallationId: string | null, isHidden = false) => ({
 	slug,
