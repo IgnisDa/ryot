@@ -9,9 +9,9 @@ import { ReorderableList } from "./reorderable-list";
 type Row = { readonly slug: string; readonly name: string };
 
 const rows: readonly Row[] = [
-	{ slug: "shows", name: "Shows" },
-	{ slug: "movies", name: "Movies" },
-	{ slug: "books", name: "Books" },
+	{ slug: "parts", name: "Parts" },
+	{ slug: "records", name: "Records" },
+	{ slug: "items", name: "Items" },
 ];
 
 function Harness(props: {
@@ -58,7 +58,7 @@ describe("ReorderableList", () => {
 
 		expect(
 			screen.getAllByRole("button").map((handle) => handle.getAttribute("aria-label")),
-		).toEqual(["Reorder Shows", "Reorder Movies", "Reorder Books"]);
+		).toEqual(["Reorder Parts", "Reorder Records", "Reorder Items"]);
 	});
 
 	it("moves a row down and back up with the arrow keys", () => {
@@ -71,11 +71,11 @@ describe("ReorderableList", () => {
 			/>,
 		);
 
-		fireEvent.keyDown(screen.getByRole("button", { name: "Reorder Shows" }), { key: "ArrowDown" });
-		expect(names()).toEqual(["Movies", "Shows", "Books"]);
+		fireEvent.keyDown(screen.getByRole("button", { name: "Reorder Parts" }), { key: "ArrowDown" });
+		expect(names()).toEqual(["Records", "Parts", "Items"]);
 
-		fireEvent.keyDown(screen.getByRole("button", { name: "Reorder Shows" }), { key: "ArrowUp" });
-		expect(names()).toEqual(["Shows", "Movies", "Books"]);
+		fireEvent.keyDown(screen.getByRole("button", { name: "Reorder Parts" }), { key: "ArrowUp" });
+		expect(names()).toEqual(["Parts", "Records", "Items"]);
 		expect(moves).toEqual([
 			[0, 1],
 			[1, 0],
@@ -86,31 +86,31 @@ describe("ReorderableList", () => {
 	it("sends a row to either end with Home and End", () => {
 		render(<Harness />);
 
-		fireEvent.keyDown(screen.getByRole("button", { name: "Reorder Shows" }), { key: "End" });
-		expect(names()).toEqual(["Movies", "Books", "Shows"]);
+		fireEvent.keyDown(screen.getByRole("button", { name: "Reorder Parts" }), { key: "End" });
+		expect(names()).toEqual(["Records", "Items", "Parts"]);
 
-		fireEvent.keyDown(screen.getByRole("button", { name: "Reorder Shows" }), { key: "Home" });
-		expect(names()).toEqual(["Shows", "Movies", "Books"]);
+		fireEvent.keyDown(screen.getByRole("button", { name: "Reorder Parts" }), { key: "Home" });
+		expect(names()).toEqual(["Parts", "Records", "Items"]);
 	});
 
 	it("ignores a keyboard move that would leave the list", () => {
 		const moves: Array<[number, number]> = [];
 		render(<Harness onReorder={(from, to) => moves.push([from, to])} />);
 
-		fireEvent.keyDown(screen.getByRole("button", { name: "Reorder Shows" }), { key: "ArrowUp" });
-		fireEvent.keyDown(screen.getByRole("button", { name: "Reorder Books" }), { key: "ArrowDown" });
+		fireEvent.keyDown(screen.getByRole("button", { name: "Reorder Parts" }), { key: "ArrowUp" });
+		fireEvent.keyDown(screen.getByRole("button", { name: "Reorder Items" }), { key: "ArrowDown" });
 
 		expect(moves).toEqual([]);
-		expect(names()).toEqual(["Shows", "Movies", "Books"]);
+		expect(names()).toEqual(["Parts", "Records", "Items"]);
 	});
 
 	it("announces the new position and keeps focus on the moved row's handle", () => {
 		render(<Harness />);
 
-		fireEvent.keyDown(screen.getByRole("button", { name: "Reorder Shows" }), { key: "End" });
+		fireEvent.keyDown(screen.getByRole("button", { name: "Reorder Parts" }), { key: "End" });
 
-		expect(screen.getByText("Shows, position 3 of 3")).toBeDefined();
-		expect(document.activeElement).toBe(screen.getByRole("button", { name: "Reorder Shows" }));
+		expect(screen.getByText("Parts, position 3 of 3")).toBeDefined();
+		expect(document.activeElement).toBe(screen.getByRole("button", { name: "Reorder Parts" }));
 	});
 
 	it.live("passes an axe pass", () =>

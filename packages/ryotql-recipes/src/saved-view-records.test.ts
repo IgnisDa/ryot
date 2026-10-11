@@ -15,7 +15,7 @@ const item = {
 	icon: "bookmark",
 	isBuiltin: false,
 	dataSources: null,
-	packageId: "ryot/media",
+	packageId: "ryot/fixture",
 	createdAt: "2026-01-01T01:00:00+02:00",
 	updatedAt: "2026-01-02T01:00:00+02:00",
 	reference: { kind: "custom", savedViewId: "view-1" },
@@ -31,7 +31,7 @@ describe("saved-view record recipes", () => {
 				limit: 7,
 				after: "cursor",
 				includeHidden: false,
-				pluginId: "media-owner",
+				pluginId: "fixture-owner",
 			}).document.queries.savedViews,
 		);
 
@@ -55,7 +55,7 @@ describe("saved-view record recipes", () => {
 		expect(query.where).toMatchObject({
 			predicates: [
 				{ right: { value: false }, left: { field: "isHidden" } },
-				{ left: { field: "pluginId" }, right: { value: "media-owner" } },
+				{ left: { field: "pluginId" }, right: { value: "fixture-owner" } },
 			],
 		});
 	});

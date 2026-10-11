@@ -216,9 +216,9 @@ describe("lifecycle payload boundaries", () => {
 					entitySchemaPluginId: null,
 				},
 				parentEntity: {
-					name: "Season",
-					properties: { season: 2 },
-					entitySchemaSlug: "season",
+					name: "Part",
+					properties: { part: 2 },
+					entitySchemaSlug: "part",
 					entitySchemaPluginId: null,
 				},
 				batch: {
@@ -314,7 +314,7 @@ describe("lifecycle payload boundaries", () => {
 			signal: { properties: ["message"] },
 			entity: {
 				properties: ["title", "status"],
-				parentEntityProperties: ["season"],
+				parentEntityProperties: ["part"],
 				compareProperties: [
 					{ equality: "json", property: "status" },
 					{ property: "tags", equality: "unordered-array" },

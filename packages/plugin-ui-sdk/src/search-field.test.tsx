@@ -12,15 +12,15 @@ describe("SearchField", () => {
 			<SearchField
 				{...icons}
 				value=""
-				label="Search Books"
+				label="Search Items"
 				onChange={(value) => changes.push(value)}
 			/>,
 		);
 
-		const input = screen.getByRole("searchbox", { name: "Search Books" });
+		const input = screen.getByRole("searchbox", { name: "Search Items" });
 		fireEvent.change(input, { target: { value: "du" } });
 
-		expect(input.getAttribute("placeholder")).toBe("Search Books");
+		expect(input.getAttribute("placeholder")).toBe("Search Items");
 		expect(changes).toEqual(["du"]);
 	});
 

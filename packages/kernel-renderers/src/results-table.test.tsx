@@ -51,7 +51,7 @@ const answerRows = (
 				resultsTable: {
 					type: "rows",
 					pageInfo: { limit: 10, hasMore: false, nextCursor: null },
-					items: items.map(({ note }) => ({ note, entityId: "book-1", occurredAt: "2026-08-12" })),
+					items: items.map(({ note }) => ({ note, entityId: "item-1", occurredAt: "2026-08-12" })),
 				},
 			},
 		},
@@ -169,7 +169,7 @@ describe("results table", () => {
 									resultsTable: {
 										type: "rows",
 										pageInfo: { limit: 10, hasMore: false, nextCursor: null },
-										items: [{ note: "Finished", entityId: "book-1", occurredAt: "2026-08-12" }],
+										items: [{ note: "Finished", entityId: "item-1", occurredAt: "2026-08-12" }],
 									},
 								},
 							},

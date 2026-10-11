@@ -92,7 +92,7 @@ describe("filter schemas", () => {
 			tableColumns: null,
 			sourceName: "rows",
 			defaultLayout: "grid",
-			subject: { entityAlias: "entity", schemas: [{ slug: "book", owner: { kind: "kernel" } }] },
+			subject: { entityAlias: "entity", schemas: [{ slug: "item", owner: { kind: "kernel" } }] },
 		};
 		expect(decodes(EntityBrowserSavedViewSettings, browser)).toBe(true);
 		expect(decodes(EntityBrowserSavedViewSettings, { ...browser, filterFields: [field] })).toBe(

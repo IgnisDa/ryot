@@ -8,7 +8,7 @@ import { integrationProvidersRecipe } from "./integration-providers";
 import { rowsResult } from "./test-utils";
 
 const owner = { kind: "plugin", pluginId: PluginId.make("plugin-owner") } satisfies DefinitionOwner;
-const packageId = PluginPackageId.make("ryot/media");
+const packageId = PluginPackageId.make("ryot/fixture");
 
 const script = (slug: string, keys: ReadonlyArray<string> = []) => ({
 	slug,

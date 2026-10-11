@@ -8,10 +8,10 @@ import { rowsResponse } from "./test-utils";
 const pageInfo = { limit: 2, hasMore: false, nextCursor: null };
 const recipe = providerEntityLinksRecipe({
 	reference: { kind: "self" },
-	librarySchemaSlug: "media-library",
-	relationshipSlug: "in-media-library",
+	librarySchemaSlug: "fixture-library",
+	relationshipSlug: "in-fixture-library",
 	externalIds: ["external-1", "external-2"],
-	entitySchemaSlug: EntitySchemaSlug.make("book"),
+	entitySchemaSlug: EntitySchemaSlug.make("item"),
 	providerId: SandboxProviderId.make("provider-1"),
 });
 const responseWithItems = (items: readonly unknown[]) => rowsResponse("links", items, pageInfo);
@@ -29,7 +29,7 @@ describe("provider entity links recipe", () => {
 			predicates: [
 				{
 					predicates: [
-						{ right: { value: "book" } },
+						{ right: { value: "item" } },
 						{
 							left: { field: "entitySchemaPluginId" },
 							right: { type: "pluginId", reference: { kind: "self" } },

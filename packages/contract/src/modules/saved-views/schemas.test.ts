@@ -21,7 +21,7 @@ const browserSettings = {
 	searchFields: ["name"],
 	subject: {
 		entityAlias: "entity",
-		schemas: [{ slug: "movie", owner: { kind: "plugin", pluginId: "media-plugin" } }],
+		schemas: [{ slug: "record", owner: { kind: "plugin", pluginId: "plugin-a" } }],
 	},
 } as const;
 
@@ -45,14 +45,14 @@ describe("saved-view schemas", () => {
 		expect(
 			Schema.decodeSync(SavedViewDisplayValue)({
 				displayKind: "managed-asset",
-				value: { type: "local", key: "covers/book.webp" },
+				value: { type: "local", key: "covers/item.webp" },
 			}),
-		).toEqual({ displayKind: "managed-asset", value: { type: "local", key: "covers/book.webp" } });
+		).toEqual({ displayKind: "managed-asset", value: { type: "local", key: "covers/item.webp" } });
 		expect(
 			Result.isFailure(
 				Schema.decodeUnknownResult(SavedViewDisplayValue)({
 					displayKind: "managed-asset",
-					value: { type: "local", url: "https://example.com/book.webp" },
+					value: { type: "local", url: "https://example.com/item.webp" },
 				}),
 			),
 		).toBe(true);
@@ -71,12 +71,12 @@ describe("saved-view schemas", () => {
 			],
 			subject: {
 				entityAlias: "entity",
-				schemas: [{ slug: "movie", owner: { kind: "plugin", pluginId: "media-plugin" } }],
+				schemas: [{ slug: "record", owner: { kind: "plugin", pluginId: "plugin-a" } }],
 			},
 			addAction: {
 				type: "provider-search",
-				schema: { slug: "movie", owner: { kind: "plugin", pluginId: "media-plugin" } },
-				library: { librarySchemaSlug: "media-library", relationshipSlug: "in-media-library" },
+				schema: { slug: "record", owner: { kind: "plugin", pluginId: "plugin-a" } },
+				library: { librarySchemaSlug: "fixture-library", relationshipSlug: "in-fixture-library" },
 			},
 		});
 		const resultsInput = {

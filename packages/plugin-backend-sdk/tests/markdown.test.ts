@@ -52,24 +52,24 @@ test("keeps nested spoiler directives and drops authored attributes and unknown 
 test("resolves relative links and keeps only HTTP and HTTPS destinations", () => {
 	expect(
 		normalizeMarkdown(
-			"[relative](../book) [root](/cover) [web](https://example.org) [bad](javascript:alert) [mail](mailto:a@b.com)",
+			"[relative](../item) [root](/cover) [web](https://example.org) [bad](javascript:alert) [mail](mailto:a@b.com)",
 			{ baseUrl: "https://example.com/library/page" },
 		),
 	).toBe(
-		"[relative](https://example.com/book) [root](https://example.com/cover) [web](https://example.org/) bad mail",
+		"[relative](https://example.com/item) [root](https://example.com/cover) [web](https://example.org/) bad mail",
 	);
-	expect(normalizeMarkdown("[relative](/book) [broken](https://[invalid)")).toBe("relative broken");
+	expect(normalizeMarkdown("[relative](/item) [broken](https://[invalid)")).toBe("relative broken");
 	expect(
-		normalizeMarkdown('<a href="//example.org/book">book</a><a href="data:text/html,bad">bad</a>', {
+		normalizeMarkdown('<a href="//example.org/item">item</a><a href="data:text/html,bad">bad</a>', {
 			baseUrl: "https://example.com/",
 		}),
-	).toBe("[book](https://example.org/book)bad");
+	).toBe("[item](https://example.org/item)bad");
 	expect(normalizeMarkdown("[reference][id]\n\n[id]: https://example.com")).toBe(
 		"[reference](https://example.com/)",
 	);
 });
 
-test("flattens tables and code, keeps image alt text, and removes executable and media content", () => {
+test("flattens tables and code, keeps image alt text, and removes executable and fixture content", () => {
 	expect(
 		normalizeMarkdown(
 			"<table><tr><th>Name</th><th>Value</th></tr><tr><td>A &amp; B</td><td><b>Two</b></td></tr></table>",

@@ -100,8 +100,8 @@ describe("RankedBarList", () => {
 			<RankedBarList
 				formatValue={(row) => `${row.value} events`}
 				rows={[
-					{ value: 5, key: "book", label: "Books" },
-					{ value: 20, key: "movie", label: "Movies" },
+					{ value: 5, key: "unit", label: "Units" },
+					{ value: 20, key: "record", label: "Records" },
 					{ value: 10, key: "show", label: "Shows" },
 				]}
 			/>,
@@ -109,9 +109,9 @@ describe("RankedBarList", () => {
 
 		const items = within(screen.getByRole("list")).getAllByRole("listitem");
 		expect(items.map((item) => item.textContent)).toEqual([
-			"Movies20 events",
+			"Records20 events",
 			"Shows10 events",
-			"Books5 events",
+			"Units5 events",
 		]);
 		expect(
 			items.map((item) => item.querySelector<HTMLElement>(".bg-chart-accent")?.style.width),

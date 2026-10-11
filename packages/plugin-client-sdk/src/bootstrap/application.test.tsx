@@ -132,7 +132,7 @@ const OverlayHome = () => {
 	);
 };
 
-const MovieRenderer = ({ entityId, entitySchemaSlug }: EntityRendererProps) => (
+const RecordRenderer = ({ entityId, entitySchemaSlug }: EntityRendererProps) => (
 	<p>{`${entityId}:${entitySchemaSlug}`}</p>
 );
 
@@ -596,18 +596,22 @@ describe("bootstrapClientPlugin", () => {
 				new MessageEvent("message", {
 					source: window.parent,
 					ports: [channel.port2],
-					data: { ...init, page: replacementPage("Movies") },
+					data: { ...init, page: replacementPage("Records") },
 				}),
 			);
 			channel.port1.postMessage(navigation);
 			yield* Effect.promise(() =>
-				waitFor(() => expect(document.getElementById("app")?.textContent).toBe("Movies:0:pending")),
+				waitFor(() =>
+					expect(document.getElementById("app")?.textContent).toBe("Records:0:pending"),
+				),
 			);
 			const button = document.querySelector("button");
 			assert(button);
 			fireEvent.click(button);
 			yield* Effect.promise(() =>
-				waitFor(() => expect(document.getElementById("app")?.textContent).toBe("Movies:1:pending")),
+				waitFor(() =>
+					expect(document.getElementById("app")?.textContent).toBe("Records:1:pending"),
+				),
 			);
 			channel.port1.postMessage({
 				navigation,
@@ -851,7 +855,7 @@ describe("bootstrapClientPlugin", () => {
 			bootstraps.push(
 				bootstrapClientPlugin({
 					home: { component: StaticHome },
-					entities: { "media-movie": { component: MovieRenderer } },
+					entities: { "fixture-record": { component: RecordRenderer } },
 				}),
 			);
 			const channel = new MessageChannel();
@@ -862,7 +866,7 @@ describe("bootstrapClientPlugin", () => {
 			);
 			channel.port1.postMessage({
 				index: 0,
-				key: "movie",
+				key: "record",
 				compact: false,
 				edgeBack: false,
 				type: "location",
@@ -870,14 +874,14 @@ describe("bootstrapClientPlugin", () => {
 				location: {
 					search: "",
 					kind: "entity",
-					entityId: "movie-1",
-					entitySchemaSlug: "media-movie",
+					entityId: "record-1",
+					entitySchemaSlug: "fixture-record",
 				},
 			});
 
 			yield* Effect.promise(() =>
 				waitFor(() =>
-					expect(document.getElementById("app")?.textContent).toBe("movie-1:media-movie"),
+					expect(document.getElementById("app")?.textContent).toBe("record-1:fixture-record"),
 				),
 			);
 		}),

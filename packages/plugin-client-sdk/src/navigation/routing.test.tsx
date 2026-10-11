@@ -500,13 +500,13 @@ describe("PluginRouter", () => {
 			const { store, container, sendEntityLocation } = mount([
 				{ component: ItemRoute, path: "/items/$itemId" },
 			]);
-			sendEntityLocation("entity-1", "media-movie");
+			sendEntityLocation("entity-1", "fixture-sample");
 			yield* Effect.promise(() =>
 				waitFor(() => expect(container.textContent).toContain("Entity renderer unavailable")),
 			);
 			const component = store.getSnapshot().screens[0]?.element.type;
 
-			sendEntityLocation("entity-2", "media-movie", { index: 0, key: "k0" });
+			sendEntityLocation("entity-2", "fixture-sample", { index: 0, key: "k0" });
 			yield* Effect.promise(() =>
 				waitFor(() => expect(container.textContent).toContain("Entity renderer unavailable")),
 			);
@@ -520,13 +520,13 @@ describe("PluginRouter", () => {
 		Effect.gen(function* () {
 			const channel = openChannel({
 				home: { component: Home },
-				entities: { "media-movie": { component: EntityRenderer } },
+				entities: { "fixture-sample": { component: EntityRenderer } },
 			});
 			const container = renderRouter(channel);
 
-			act(() => channel.sendEntity("movie-1", "media-movie"));
+			act(() => channel.sendEntity("sample-1", "fixture-sample"));
 			yield* Effect.promise(() =>
-				waitFor(() => expect(container.textContent).toContain("movie-1:media-movie:0")),
+				waitFor(() => expect(container.textContent).toContain("sample-1:fixture-sample:0")),
 			);
 
 			expect(channel.store.getSnapshot().screens[0]?.element.type).toBe(EntityRenderer);
@@ -538,11 +538,11 @@ describe("PluginRouter", () => {
 		Effect.gen(function* () {
 			const channel = openChannel({
 				home: { component: Home },
-				entities: { "media-movie": { component: EntityRenderer } },
+				entities: { "fixture-sample": { component: EntityRenderer } },
 			});
 			const container = renderRouter(channel);
 
-			act(() => channel.sendEntity("show-1", "media-show"));
+			act(() => channel.sendEntity("show-1", "fixture-show"));
 			yield* Effect.promise(() =>
 				waitFor(() => expect(container.textContent).toContain("Entity renderer unavailable")),
 			);
@@ -555,13 +555,13 @@ describe("PluginRouter", () => {
 		Effect.gen(function* () {
 			const channel = openChannel({
 				home: { component: Home },
-				entities: { "media-movie": { component: EntityRenderer } },
+				entities: { "fixture-sample": { component: EntityRenderer } },
 			});
 			const container = renderRouter(channel);
 
-			act(() => channel.sendEntity("movie-1", "media-movie", { index: 0, key: "movie-1" }));
+			act(() => channel.sendEntity("sample-1", "fixture-sample", { index: 0, key: "sample-1" }));
 			yield* Effect.promise(() =>
-				waitFor(() => expect(container.textContent).toContain("movie-1:media-movie:0")),
+				waitFor(() => expect(container.textContent).toContain("sample-1:fixture-sample:0")),
 			);
 			const increment = container.querySelector("button");
 			if (!increment) {
@@ -569,18 +569,18 @@ describe("PluginRouter", () => {
 			}
 			void act(() => increment.dispatchEvent(new MouseEvent("click", { bubbles: true })));
 			yield* Effect.promise(() =>
-				waitFor(() => expect(container.textContent).toContain("movie-1:media-movie:1")),
+				waitFor(() => expect(container.textContent).toContain("sample-1:fixture-sample:1")),
 			);
 
-			act(() => channel.sendEntity("movie-2", "media-movie", { index: 1, key: "movie-2" }));
+			act(() => channel.sendEntity("sample-2", "fixture-sample", { index: 1, key: "sample-2" }));
 			yield* Effect.promise(() =>
-				waitFor(() => expect(container.textContent).toContain("movie-2:media-movie:0")),
+				waitFor(() => expect(container.textContent).toContain("sample-2:fixture-sample:0")),
 			);
 			expect(entityMountCount).toBe(2);
 
-			act(() => channel.sendEntity("movie-1", "media-movie", { index: 0, key: "movie-1" }));
+			act(() => channel.sendEntity("sample-1", "fixture-sample", { index: 0, key: "sample-1" }));
 			yield* Effect.promise(() =>
-				waitFor(() => expect(container.textContent).toContain("movie-1:media-movie:1")),
+				waitFor(() => expect(container.textContent).toContain("sample-1:fixture-sample:1")),
 			);
 
 			expect(entityMountCount).toBe(2);
@@ -593,7 +593,7 @@ describe("PluginRouter", () => {
 			const channel = openChannel(undefined, () => ({ params: {}, element: <LocationProbe /> }));
 			const container = renderRouter(channel);
 
-			channel.sendEntity("entity-1", "media-movie", { search: "dialog=details" });
+			channel.sendEntity("entity-1", "fixture-sample", { search: "dialog=details" });
 			yield* Effect.promise(() =>
 				waitFor(() => expect(container.textContent).toBe("entity:dialog=details")),
 			);
@@ -602,7 +602,7 @@ describe("PluginRouter", () => {
 				kind: "entity",
 				entityId: "entity-1",
 				search: "dialog=details",
-				entitySchemaSlug: "media-movie",
+				entitySchemaSlug: "fixture-sample",
 			});
 			expect(observedParams).toEqual({});
 			expect(observedSearch?.toString()).toBe("dialog=details");

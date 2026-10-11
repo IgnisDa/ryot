@@ -12,21 +12,21 @@ describe("provider entity boundary schemas", () => {
 		const body = {
 			page: 1,
 			pageSize: 20,
-			query: "book",
+			query: "item",
 			providerId: "provider_1",
 			options: { passRawQuery: true },
 		};
 		const response = {
-			providerName: "Books",
+			providerName: "Items",
 			providerId: "provider_1",
-			rootEntitySchemaSlug: "book",
+			rootEntitySchemaSlug: "item",
 			details: { totalItems: 0, nextPage: null },
 			items: [
 				{
 					title: "The Work",
-					externalId: "book_1",
+					externalId: "item_1",
 					metadata: ["Author", 2024],
-					imageUrl: "https://images.test/book.jpg",
+					imageUrl: "https://images.test/item.jpg",
 				},
 			],
 		};
@@ -36,16 +36,16 @@ describe("provider entity boundary schemas", () => {
 	});
 
 	it("rejects legacy and excess provider search fields", () => {
-		const body = { page: 1, pageSize: 20, query: "book", providerId: "provider_1" };
+		const body = { page: 1, pageSize: 20, query: "item", providerId: "provider_1" };
 		const response = {
 			items: [],
-			providerName: "Books",
+			providerName: "Items",
 			providerId: "provider_1",
-			rootEntitySchemaSlug: "book",
+			rootEntitySchemaSlug: "item",
 		};
 
 		expect(() =>
-			Schema.decodeUnknownSync(SearchProviderEntitiesBody)({ ...body, savedViewSlug: "all-books" }),
+			Schema.decodeUnknownSync(SearchProviderEntitiesBody)({ ...body, savedViewSlug: "all-items" }),
 		).toThrow();
 		expect(() =>
 			Schema.decodeUnknownSync(SearchProviderEntitiesBody)({ ...body, options: [] }),
@@ -59,29 +59,29 @@ describe("provider entity boundary schemas", () => {
 		expect(() =>
 			Schema.decodeUnknownSync(SearchProviderEntitiesResponse)({
 				...response,
-				entitySchemaSlug: "book",
+				entitySchemaSlug: "item",
 			}),
 		).toThrow();
 		expect(() =>
 			Schema.decodeUnknownSync(SearchProviderEntitiesResponse)({
 				...response,
-				items: [{ metadata: [], title: "The Work", externalId: "book_1" }],
+				items: [{ metadata: [], title: "The Work", externalId: "item_1" }],
 			}),
 		).toThrow();
 		expect(() =>
 			Schema.decodeUnknownSync(SearchProviderEntitiesResponse)({
 				...response,
-				items: [{ extraField: true, title: "The Work", externalId: "book_1" }],
+				items: [{ extraField: true, title: "The Work", externalId: "item_1" }],
 			}),
 		).toThrow();
 	});
 
 	it("accepts only the provider id and external id for imports", () => {
-		const body = { externalId: "book_1", providerId: "provider_1" };
+		const body = { externalId: "item_1", providerId: "provider_1" };
 
 		expect(Schema.decodeSync(ImportEntityBody)(body)).toEqual(body);
 		expect(() =>
-			Schema.decodeUnknownSync(ImportEntityBody)({ ...body, entitySchemaSlug: "book" }),
+			Schema.decodeUnknownSync(ImportEntityBody)({ ...body, entitySchemaSlug: "item" }),
 		).toThrow();
 	});
 });

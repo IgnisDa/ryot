@@ -25,7 +25,7 @@ const entityLocation = (entityId: string) =>
 		entityId,
 		search: "",
 		kind: "entity",
-		entitySchemaSlug: "media-movie",
+		entitySchemaSlug: "fixture-record",
 	});
 const location = (index: number, path: string, key = `k${index}`) => ({
 	compact: true,

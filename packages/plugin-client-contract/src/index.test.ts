@@ -489,8 +489,8 @@ describe("plugin client bridge contract", () => {
 			initialQuery: "Dune",
 			type: "pick-entity-screen",
 			requestId: "pick-entity-screen-1",
-			schema: { slug: "movie", owner: { kind: "plugin", pluginId: "media-installation" } },
-			library: { librarySchemaSlug: "media-library", relationshipSlug: "in-media-library" },
+			schema: { slug: "entry", owner: { kind: "plugin", pluginId: "fixture-installation" } },
+			library: { librarySchemaSlug: "fixture-library", relationshipSlug: "in-fixture-library" },
 		};
 
 		expect(Result.isSuccess(decode(request))).toBe(true);
@@ -501,7 +501,7 @@ describe("plugin client bridge contract", () => {
 			true,
 		);
 		expect(
-			Result.isFailure(decode({ ...request, schema: { slug: "movie", owner: { kind: "self" } } })),
+			Result.isFailure(decode({ ...request, schema: { slug: "entry", owner: { kind: "self" } } })),
 		).toBe(true);
 		const { library: _library, ...pickRequest } = request;
 		expect(Result.isSuccess(decode(pickRequest))).toBe(true);
@@ -907,8 +907,8 @@ describe("plugin client bridge contract", () => {
 		const decodeClient = Schema.decodeUnknownResult(PluginBridgeClientMessage);
 		const decodeHost = Schema.decodeUnknownResult(PluginBridgeHostMessage);
 		const request = {
-			pluginId: "media",
-			key: "episode-order",
+			pluginId: "fixture",
+			key: "subpart-order",
 			requestId: "storage-1",
 			type: "storage-request" as const,
 		};
@@ -957,7 +957,7 @@ describe("plugin client bridge contract", () => {
 		const decodeClient = Schema.decodeUnknownResult(PluginBridgeClientMessage);
 		const decodeHost = Schema.decodeUnknownResult(PluginBridgeHostMessage);
 		const request = {
-			pluginId: "media",
+			pluginId: "fixture",
 			requestId: "settings-1",
 			type: "user-settings-request" as const,
 		};
@@ -983,7 +983,7 @@ describe("plugin client bridge contract", () => {
 		const decodeClient = Schema.decodeUnknownResult(PluginBridgeClientMessage);
 		const decodeHost = Schema.decodeUnknownResult(PluginBridgeHostMessage);
 		const request = {
-			pluginId: "media",
+			pluginId: "fixture",
 			entityId: "entity-1",
 			requestId: "retry-1",
 			type: "retry-population-request" as const,

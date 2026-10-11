@@ -725,16 +725,16 @@ export default defineOperation({
 		}),
 	);
 
-	test.effect("compiles shared workout normalization imported by a backend entry", () =>
+	test.effect("compiles shared record normalization imported by a backend entry", () =>
 		Effect.gen(function* () {
 			const compiled = yield* compilePluginSandboxSourceEntries(
 				{
-					"shared/exercise-kinds.ts": 'export type ExerciseKind = "reps";',
-					"shared/workout-records.ts": `
+					"shared/measure-kinds.ts": 'export type MeasureKind = "reps";',
+					"shared/record-logs.ts": `
 import { roundHalfUp } from "@ryot-app/plugin-kit/schema";
-import type { ExerciseKind } from "./exercise-kinds";
+import type { MeasureKind } from "./measure-kinds";
 
-export const normalizeWorkoutMeasurement = (kind: ExerciseKind, value: number) =>
+export const normalizeRecordMeasurement = (kind: MeasureKind, value: number) =>
 	kind === "reps" ? roundHalfUp(value, 2) : value;
 `,
 					"backend/operation.sandbox.ts": `
@@ -743,7 +743,7 @@ import { Effect } from "@ryot-app/plugin-backend-sdk/effect";
 import { defineOperation } from "@ryot-app/plugin-backend-sdk/operation";
 import { Schema } from "@ryot-app/plugin-kit/effect";
 
-import { normalizeWorkoutMeasurement } from "../shared/workout-records";
+import { normalizeRecordMeasurement } from "../shared/record-logs";
 
 export const manifest = defineManifest({
 	name: "Operation",
@@ -755,7 +755,7 @@ export default defineOperation({
 	manifest,
 	input: Schema.Struct({}),
 	output: Schema.Number,
-	run: () => Effect.succeed(normalizeWorkoutMeasurement("reps", 1.23456)),
+	run: () => Effect.succeed(normalizeRecordMeasurement("reps", 1.23456)),
 });
 `,
 				},
@@ -764,8 +764,8 @@ export default defineOperation({
 
 			const javascript = compiled[0]?.compiled.javascript ?? "";
 			expect(javascript).toContain("Number.EPSILON");
-			expect(javascript).not.toContain('from "../shared/workout-records"');
-			expect(javascript).not.toContain('from "./exercise-kinds"');
+			expect(javascript).not.toContain('from "../shared/record-logs"');
+			expect(javascript).not.toContain('from "./measure-kinds"');
 		}),
 	);
 

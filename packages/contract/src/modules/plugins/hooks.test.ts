@@ -109,7 +109,7 @@ describe("lifecycle hook declarations", () => {
 				{
 					...hook,
 					position: 25,
-					metadata: { inheritedProperties: ["season"] },
+					metadata: { inheritedProperties: ["part"] },
 					targets: [
 						target,
 						{ resource: "entity", operation: "update", entitySchemaSlug: "item" },

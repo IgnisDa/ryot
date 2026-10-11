@@ -18,14 +18,14 @@ const searchOptionsSchema = {
 const pageInfo = { limit: 100, hasMore: false, nextCursor: null };
 const provider = {
 	searchOptionsSchema,
-	providerSlug: "tmdb",
-	providerName: "TMDB",
+	providerSlug: "provider",
+	providerName: "Provider",
 	providerId: "provider-1",
-	rootEntitySchemaSlug: "movie",
+	rootEntitySchemaSlug: "entry",
 };
 const recipe = providerSearchRecipe({
 	schema: {
-		slug: EntitySchemaSlug.make("movie"),
+		slug: EntitySchemaSlug.make("entry"),
 		owner: { kind: "plugin", pluginId: PluginId.make("stable-plugin-id") },
 	},
 });
@@ -52,7 +52,7 @@ describe("provider search recipe", () => {
 		]);
 		expect(query.where).toMatchObject({
 			predicates: [
-				{ right: { value: "movie" } },
+				{ right: { value: "entry" } },
 				{
 					left: { field: "pluginId", tableAlias: "provider" },
 					right: { type: "pluginId", reference: { kind: "local", pluginId: "stable-plugin-id" } },

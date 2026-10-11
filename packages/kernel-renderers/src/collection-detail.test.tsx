@@ -145,11 +145,11 @@ const encodeJson = Schema.encodeEffect(Schema.fromJsonString(Schema.Unknown));
 const filtersParam = (filter: unknown) =>
 	`filters=${Buffer.from(JSON.stringify(filter)).toString("base64url")}`;
 
-const bookGroup = {
+const itemGroup = {
 	count: 2,
-	ownerPluginId: "media",
-	ownerPluginName: "Media",
-	entitySchemaSlug: "book",
+	ownerPluginId: "fixture",
+	entitySchemaSlug: "item",
+	ownerPluginName: "Fixture",
 };
 
 const notesSchema = {
@@ -171,13 +171,13 @@ const hostScreenRequest = (
 		}),
 	);
 
-const bookMember = {
+const itemMember = {
 	name: "Dune",
 	properties: {},
-	entityId: "book-1",
+	entityId: "item-1",
 	ownerPluginId: null,
 	ownerPluginName: null,
-	entitySchemaSlug: "book",
+	entitySchemaSlug: "item",
 	populationStatus: "ready",
 	translationStatus: "ready",
 };
@@ -218,7 +218,7 @@ describe("collection detail", () => {
 	it.live("opens a member's collection details in the kernel screen", () =>
 		Effect.gen(function* () {
 			const page = openCollection();
-			yield* answerCollection(page, { name: "Road Trips", members: [bookMember] });
+			yield* answerCollection(page, { name: "Road Trips", members: [itemMember] });
 
 			const details = yield* Effect.promise(() =>
 				screen.findByRole("button", { name: "Collection details for Dune" }),
@@ -227,7 +227,7 @@ describe("collection detail", () => {
 			const add = yield* hostScreenRequest(page, "add-to-collection-screen");
 			assert(add.type === "add-to-collection-screen");
 			expect({ entityId: add.entityId, collectionId: add.collectionId }).toEqual({
-				entityId: "book-1",
+				entityId: "item-1",
 				collectionId: "col-1",
 			});
 		}),
@@ -256,9 +256,9 @@ describe("collection detail", () => {
 					groups: [
 						{
 							count: 1,
-							ownerPluginId: "media",
-							ownerPluginName: "Media",
-							entitySchemaSlug: "book",
+							ownerPluginId: "fixture",
+							entitySchemaSlug: "item",
+							ownerPluginName: "Fixture",
 						},
 						{
 							count: 1,
@@ -270,11 +270,11 @@ describe("collection detail", () => {
 					members: [
 						{
 							name: "Dune",
-							entityId: "book-1",
-							ownerPluginId: "media",
-							ownerPluginName: "Media",
-							entitySchemaSlug: "book",
+							entityId: "item-1",
+							ownerPluginId: "fixture",
+							entitySchemaSlug: "item",
 							populationStatus: "ready",
+							ownerPluginName: "Fixture",
 							translationStatus: "ready",
 							properties: { template: true },
 						},
@@ -299,7 +299,7 @@ describe("collection detail", () => {
 				yield* Effect.promise(() =>
 					waitFor(() => expect(page.container?.textContent).toContain("5 total")),
 				);
-				expect(page.container?.textContent).toContain("1 Media / book");
+				expect(page.container?.textContent).toContain("1 Fixture / item");
 				expect(page.container?.textContent).toContain("1 Collections");
 				expect(page.container?.textContent).toContain("More types not shown");
 				expect(screen.queryByRole("button", { name: "Add" })).toBeNull();
@@ -315,7 +315,7 @@ describe("collection detail", () => {
 						]),
 					),
 				);
-				expect(page.container?.textContent).toContain("Media / book");
+				expect(page.container?.textContent).toContain("Fixture / item");
 				expect(page.container?.textContent).toContain("Collections");
 			}),
 	);
@@ -350,17 +350,17 @@ describe("collection detail", () => {
 		Effect.gen(function* () {
 			const page = openCollection("col-1", "search=dune");
 			yield* answerCollection(page, {
-				name: "Books",
+				name: "Items",
 				hasMore: true,
 				members: [
 					{
 						name: "Dune",
 						properties: {},
-						entityId: "book-1",
-						ownerPluginId: "media",
-						ownerPluginName: "Media",
-						entitySchemaSlug: "book",
+						entityId: "item-1",
+						ownerPluginId: "fixture",
+						entitySchemaSlug: "item",
 						populationStatus: "ready",
+						ownerPluginName: "Fixture",
 						translationStatus: "ready",
 					},
 				],
@@ -441,11 +441,11 @@ describe("collection detail", () => {
 						{
 							name: "Dune",
 							properties: {},
-							entityId: "book-1",
-							ownerPluginId: "media",
-							ownerPluginName: "Media",
-							entitySchemaSlug: "book",
+							entityId: "item-1",
+							ownerPluginId: "fixture",
+							entitySchemaSlug: "item",
 							populationStatus: "ready",
+							ownerPluginName: "Fixture",
 							translationStatus: "ready",
 						},
 					],
@@ -474,18 +474,18 @@ describe("collection detail", () => {
 		Effect.gen(function* () {
 			const page = openCollection();
 			yield* answerCollection(page, {
-				name: "Books",
+				name: "Items",
 				hasMore: true,
-				groups: [bookGroup],
-				members: [bookMember],
+				groups: [itemGroup],
+				members: [itemMember],
 			});
 			fireEvent.click(
 				yield* Effect.promise(() => screen.findByRole("button", { name: "Load more results" })),
 			);
 			const second = yield* request(page, "members", 1);
-			replyMembers(page, second.requestId, { members: [{ ...bookMember, entityId: "book-2" }] });
+			replyMembers(page, second.requestId, { members: [{ ...itemMember, entityId: "item-2" }] });
 			yield* Effect.promise(() =>
-				waitFor(() => expect(page.container?.textContent).toContain("End of Books")),
+				waitFor(() => expect(page.container?.textContent).toContain("End of Items")),
 			);
 			expect(page.queryRequests("collection")).toHaveLength(1);
 			expect(page.queryRequests("aggregate")).toHaveLength(1);
@@ -498,20 +498,20 @@ describe("collection detail", () => {
 		Effect.gen(function* () {
 			const page = openCollection(
 				"col-1",
-				filtersParam({ field: "type", operator: "anyOf", values: ["media/book"] }),
+				filtersParam({ field: "type", operator: "anyOf", values: ["fixture/item"] }),
 			);
 			yield* answerCollection(page, {
 				total: 5,
-				name: "Books",
+				name: "Items",
 				hasMore: true,
-				groups: [bookGroup],
-				members: [bookMember],
+				groups: [itemGroup],
+				members: [itemMember],
 			});
 			yield* Effect.promise(() => screen.findByRole("button", { name: "Count all" }));
 			fireEvent.click(screen.getByRole("button", { name: "Count all" }));
 			const count = yield* request(page, "count", 1);
 			const document = yield* encodeJson(count.document);
-			expect(document).toContain("media/book");
+			expect(document).toContain("fixture/item");
 			expect(document).toContain("concat");
 			page.replyQuery(count.requestId, {
 				outcome: "success",
@@ -528,10 +528,10 @@ describe("collection detail", () => {
 			const page = openCollection();
 			yield* answerCollection(page, {
 				total: 5,
-				name: "Books",
+				name: "Items",
 				hasMore: true,
-				groups: [bookGroup],
-				members: [bookMember],
+				groups: [itemGroup],
+				members: [itemMember],
 			});
 			yield* Effect.promise(() =>
 				waitFor(() => expect(page.container?.textContent).toContain("1 of 5 results")),
@@ -552,7 +552,7 @@ describe("collection detail", () => {
 			const document = yield* encodeJson(first.document);
 			expect(document).toContain('"road"');
 			expect(document).toContain("membership.notes");
-			replyMembers(page, first.requestId, { members: [bookMember] });
+			replyMembers(page, first.requestId, { members: [itemMember] });
 			yield* Effect.promise(() =>
 				waitFor(() =>
 					expect(screen.getByRole("group", { name: "Active filters" }).textContent).toContain(
@@ -569,9 +569,9 @@ describe("collection detail", () => {
 		Effect.gen(function* () {
 			const page = openCollection();
 			yield* answerCollection(page, {
-				name: "Books",
-				groups: [bookGroup],
-				members: [bookMember],
+				name: "Items",
+				groups: [itemGroup],
+				members: [itemMember],
 				membershipPropertiesSchema: notesSchema,
 			});
 			yield* Effect.promise(() => screen.findByRole("button", { name: /^Filters/ }));
@@ -620,11 +620,11 @@ describe("collection detail", () => {
 	it.live("filters on a membership field added after a refresh", () =>
 		Effect.gen(function* () {
 			const page = openCollection("col-1", "layout=table");
-			const scored = { ...bookMember, properties: { score: 7 } };
+			const scored = { ...itemMember, properties: { score: 7 } };
 			yield* answerCollection(page, {
 				name: "Trips",
-				groups: [bookGroup],
-				members: [bookMember],
+				groups: [itemGroup],
+				members: [itemMember],
 				membershipPropertiesSchema: notesSchema,
 			});
 			const answered = new Set(page.queryRequests("members").map(({ requestId }) => requestId));
@@ -650,7 +650,7 @@ describe("collection detail", () => {
 			page.send({ type: "page-refresh" });
 			yield* answerChrome(
 				page,
-				{ name: "Trips", groups: [bookGroup], membershipPropertiesSchema: grown },
+				{ name: "Trips", groups: [itemGroup], membershipPropertiesSchema: grown },
 				1,
 			);
 			yield* Effect.promise(() =>
