@@ -24,7 +24,38 @@ const makeHost = (httpCall: TmdbHost["httpCall"]) =>
 		getPluginConfig: ({ required: keys = [] }) =>
 			Effect.succeed(Object.fromEntries(keys.map((key) => [key, "token"]))),
 	});
+type TvFixtures = {
+	show: Record<string, unknown>;
+	images?: unknown;
+	appended?: Record<string, unknown>;
+	other?: (pathname: string) => unknown;
+};
+const makeTvHost = (id: string, fixtures: TvFixtures, requests: URL[] = []) =>
+	makeHost((_method, url) => {
+		const requestUrl = new URL(url);
+		requests.push(requestUrl);
+		if (requestUrl.pathname === `/3/tv/${id}`) {
+			const keys = (requestUrl.searchParams.get("append_to_response") ?? "").split(",");
+			return httpSuccess({
+				...fixtures.show,
+				...Object.fromEntries(
+					keys.flatMap((key) =>
+						fixtures.appended && key in fixtures.appended ? [[key, fixtures.appended[key]]] : [],
+					),
+				),
+			});
+		}
+		if (requestUrl.pathname === `/3/tv/${id}/images`) {
+			return httpSuccess(fixtures.images ?? { posters: [], backdrops: [] });
+		}
+		return httpSuccess(fixtures.other?.(requestUrl.pathname) ?? {});
+	});
 const execution = { metadata: {}, sandboxScriptId: "script_test" };
+const image = (purpose: string, path: string) => ({
+	purpose,
+	type: "remote",
+	url: `https://image.tmdb.org/t/p/original${path}`,
+});
 
 describe("show.tmdb sandbox script", () => {
 	it("declares a script for each operation", () => {
@@ -67,25 +98,18 @@ describe("show.tmdb sandbox script", () => {
 	});
 
 	it("keeps TMDB recommendations as related entities", () => {
-		const host = makeHost((_method, url) => {
-			if (url.includes("/tv/1/recommendations")) {
-				return httpSuccess({
+		const host = makeTvHost("1", {
+			appended: {
+				credits: { cast: [], crew: [] },
+				"watch/providers": { results: {} },
+				recommendations: {
 					results: [
 						{ id: 2, name: "Pick One", title: "Pick One" },
 						{ id: 3, name: "Pick Two", title: "Pick Two" },
 					],
-				});
-			}
-			if (url.includes("/tv/1/credits")) {
-				return httpSuccess({ cast: [], crew: [] });
-			}
-			if (url.includes("/tv/1/watch/providers")) {
-				return httpSuccess({ results: {} });
-			}
-			if (url.includes("/tv/1/images")) {
-				return httpSuccess({ posters: [], backdrops: [] });
-			}
-			return httpSuccess({
+				},
+			},
+			show: {
 				id: 1,
 				genres: [],
 				seasons: [],
@@ -100,7 +124,7 @@ describe("show.tmdb sandbox script", () => {
 				backdrop_path: null,
 				production_companies: [],
 				first_air_date: "2024-01-01",
-			});
+			},
 		});
 		return Effect.runPromise(
 			runSandboxTestScript(details, { externalId: "1" }, host, execution).pipe(
@@ -143,30 +167,165 @@ describe("show.tmdb sandbox script", () => {
 		);
 	});
 
+	it("appends only watch providers and episode groups to the show request at base level", () => {
+		const requests: URL[] = [];
+		const host = makeTvHost(
+			"1",
+			{
+				show: { id: 1, seasons: [], name: "Source" },
+				appended: {
+					credits: { crew: [], cast: [{ id: 5, name: "Actor" }] },
+					recommendations: { results: [{ id: 2, name: "Pick" }] },
+				},
+			},
+			requests,
+		);
+		return Effect.runPromise(
+			runSandboxTestScript(details, { level: "base", externalId: "1" }, host, execution).pipe(
+				Effect.map((result) => {
+					expect(
+						requests.map(({ pathname, searchParams }) => [
+							pathname,
+							searchParams.get("append_to_response"),
+							searchParams.get("language"),
+						]),
+					).toEqual([
+						["/3/tv/1", "watch/providers,episode_groups", "en"],
+						["/3/tv/1/images", null, null],
+					]);
+					expect(
+						result.relatedEntityGroups?.map(({ relationshipSchemaSlug }) => relationshipSchemaSlug),
+					).toEqual(["company-to-show"]);
+					return undefined;
+				}),
+			),
+		);
+	});
+
+	it("appends credits and recommendations to the show request at full level and by default", () => {
+		const requests: URL[] = [];
+		const host = makeTvHost("1", { show: { id: 1, seasons: [], name: "Source" } }, requests);
+		return Effect.runPromise(
+			runSandboxTestScript(details, { externalId: "1" }, host, execution).pipe(
+				Effect.flatMap(() =>
+					runSandboxTestScript(details, { level: "full", externalId: "1" }, host, execution),
+				),
+				Effect.map(() => {
+					expect(
+						requests.map(({ searchParams }) => searchParams.get("append_to_response")),
+					).toEqual([
+						"watch/providers,episode_groups,credits,recommendations",
+						null,
+						"watch/providers,episode_groups,credits,recommendations",
+						null,
+					]);
+					return undefined;
+				}),
+			),
+		);
+	});
+
+	it("fetches seasons through show appends in chunks of at most twenty", () => {
+		const requests: URL[] = [];
+		const host = makeTvHost(
+			"1",
+			{
+				show: {
+					id: 1,
+					name: "Long Runner",
+					seasons: Array.from({ length: 25 }, (_, index) => ({ season_number: index })),
+				},
+				appended: Object.fromEntries(
+					Array.from({ length: 25 }, (_, index) => [
+						`season/${index}`,
+						{ episodes: [], id: 100 + index, season_number: index, name: `Season ${index}` },
+					]),
+				),
+			},
+			requests,
+		);
+		return Effect.runPromise(
+			runSandboxTestScript(details, { level: "base", externalId: "1" }, host, execution).pipe(
+				Effect.map((result) => {
+					const seasonRequests = requests.filter(({ searchParams }) =>
+						searchParams.get("append_to_response")?.startsWith("season/"),
+					);
+					expect(
+						seasonRequests.map(({ searchParams }) =>
+							searchParams.get("append_to_response")?.split(","),
+						),
+					).toEqual([
+						Array.from({ length: 20 }, (_, index) => `season/${index}`),
+						Array.from({ length: 5 }, (_, index) => `season/${index + 20}`),
+					]);
+					expect(result.childEntities?.map(({ name }) => name)).toEqual(
+						Array.from({ length: 25 }, (_, index) => `Season ${index}`),
+					);
+					return undefined;
+				}),
+			),
+		);
+	});
+
+	it("requests show images without a language and keeps every localized and unlocalized image", () => {
+		const requests: URL[] = [];
+		const host = makeTvHost(
+			"1",
+			{
+				show: {
+					id: 1,
+					seasons: [],
+					name: "Source",
+					poster_path: "/poster-main.jpg",
+					backdrop_path: "/backdrop-main.jpg",
+				},
+				images: {
+					backdrops: [
+						{ iso_639_1: null, file_path: "/backdrop-none.jpg" },
+						{ iso_639_1: "de", file_path: "/backdrop-de.jpg" },
+					],
+					posters: [
+						{ iso_639_1: "fr", file_path: "/poster-fr.jpg" },
+						{ iso_639_1: null, file_path: "/poster-none.jpg" },
+						{ iso_639_1: "en", file_path: "/poster-main.jpg" },
+					],
+				},
+			},
+			requests,
+		);
+		return Effect.runPromise(
+			runSandboxTestScript(details, { level: "base", externalId: "1" }, host, execution).pipe(
+				Effect.map((result) => {
+					const imagesRequest = requests.find(({ pathname }) => pathname.endsWith("/images"));
+					expect(imagesRequest?.search).toBe("");
+					expect(result.properties).toMatchObject({
+						images: [
+							image("cover", "/poster-main.jpg"),
+							image("cover", "/poster-fr.jpg"),
+							image("cover", "/poster-none.jpg"),
+							image("backdrop", "/backdrop-main.jpg"),
+							image("backdrop", "/backdrop-none.jpg"),
+							image("backdrop", "/backdrop-de.jpg"),
+						],
+					});
+					return undefined;
+				}),
+			),
+		);
+	});
+
 	it("classifies show, season, and episode images", () => {
-		const host = makeHost((_method, url) => {
-			if (url.includes("/tv/1/recommendations")) {
-				return httpSuccess({ results: [] });
-			}
-			if (url.includes("/tv/1/credits")) {
-				return httpSuccess({ cast: [], crew: [] });
-			}
-			if (url.includes("/tv/1/watch/providers")) {
-				return httpSuccess({ results: {} });
-			}
-			if (url.includes("/tv/1/images")) {
-				return httpSuccess({ posters: [], backdrops: [] });
-			}
-			if (url.includes("/tv/1/season/1")) {
-				return httpSuccess({
+		const host = makeTvHost("1", {
+			appended: {
+				"season/1": {
 					id: 101,
 					name: "Season 1",
 					season_number: 1,
 					poster_path: "/season.jpg",
 					episodes: [{ id: 11, name: "Pilot", episode_number: 1, still_path: "/still.jpg" }],
-				});
-			}
-			return httpSuccess({
+				},
+			},
+			show: {
 				id: 1,
 				genres: [],
 				networks: [],
@@ -176,7 +335,7 @@ describe("show.tmdb sandbox script", () => {
 				production_companies: [],
 				seasons: [{ season_number: 1 }],
 				backdrop_path: "/show-backdrop.jpg",
-			});
+			},
 		});
 		return Effect.runPromise(
 			runSandboxTestScript(details, { externalId: "1" }, host, execution).pipe(
@@ -230,9 +389,10 @@ describe("show.tmdb sandbox script", () => {
 	});
 
 	it("keeps the offer kinds and the country link TMDB reports for a show", () => {
-		const host = makeHost((_method, url) => {
-			if (url.includes("/tv/1/watch/providers")) {
-				return httpSuccess({
+		const host = makeTvHost("1", {
+			show: { id: 1, seasons: [], name: "Source" },
+			appended: {
+				"watch/providers": {
 					results: {
 						GB: {
 							link: "https://www.themoviedb.org/tv/1/watch?locale=GB",
@@ -240,18 +400,8 @@ describe("show.tmdb sandbox script", () => {
 							free: [{ provider_name: "Tubi", logo_path: "/tubi.jpg" }],
 						},
 					},
-				});
-			}
-			if (url.includes("/tv/1/recommendations")) {
-				return httpSuccess({ results: [] });
-			}
-			if (url.includes("/tv/1/credits")) {
-				return httpSuccess({ cast: [], crew: [] });
-			}
-			if (url.includes("/tv/1/images")) {
-				return httpSuccess({ posters: [], backdrops: [] });
-			}
-			return httpSuccess({ id: 1, seasons: [], name: "Source" });
+				},
+			},
 		});
 		return Effect.runPromise(
 			runSandboxTestScript(details, { externalId: "1" }, host, execution).pipe(
@@ -278,59 +428,60 @@ describe("show.tmdb sandbox script", () => {
 	});
 
 	it("stores TMDB episode groups as episode orders of episode ids in group order", () => {
-		const requestedPaths: string[] = [];
-		const host = makeHost((_method, url) => {
-			const requestUrl = new URL(url);
-			requestedPaths.push(requestUrl.pathname);
-			if (requestUrl.pathname === "/3/tv/1437/episode_groups") {
-				return httpSuccess({
-					id: 1437,
-					results: [
-						{
-							type: 6,
-							name: "Production Order",
-							id: "5acfb4960e0a26346d0046d2",
-							description: "The proper and intended order of Firefly episodes.",
-						},
-						{ type: 9, id: "unknown-kind", name: "Unknown Kind" },
-						{ type: 3, name: "", id: "unnamed" },
-						{ type: 3, id: "dvd-order", description: "", name: "DVD Order" },
-					],
-				});
-			}
-			if (requestUrl.pathname === "/3/tv/episode_group/5acfb4960e0a26346d0046d2") {
-				return httpSuccess({
-					groups: [
-						{
-							order: 2,
-							name: "Movie",
-							episodes: [{ order: 0, id: 1048600, season_number: 0, episode_number: 1 }],
-						},
-						{
-							order: 1,
-							name: "Season 1",
-							episodes: [
-								{ order: 1, id: 1048594, season_number: 1, episode_number: 1 },
-								{ order: 0, id: 1048593, season_number: 1, episode_number: 11 },
-								{ id: 0, order: 2 },
-								{ order: 3, id: "1048595" },
-							],
-						},
-					],
-				});
-			}
-			if (requestUrl.pathname === "/3/tv/episode_group/dvd-order") {
-				return httpSuccess({ groups: [] });
-			}
-			if (requestUrl.pathname === "/3/tv/1437") {
-				return httpSuccess({ id: 1437, seasons: [], name: "Firefly" });
-			}
-			return httpSuccess({ results: [] });
-		});
+		const requests: URL[] = [];
+		const host = makeTvHost(
+			"1437",
+			{
+				show: { id: 1437, seasons: [], name: "Firefly" },
+				appended: {
+					episode_groups: {
+						id: 1437,
+						results: [
+							{
+								type: 6,
+								name: "Production Order",
+								id: "5acfb4960e0a26346d0046d2",
+								description: "The proper and intended order of Firefly episodes.",
+							},
+							{ type: 9, id: "unknown-kind", name: "Unknown Kind" },
+							{ type: 3, name: "", id: "unnamed" },
+							{ type: 3, id: "dvd-order", description: "", name: "DVD Order" },
+						],
+					},
+				},
+				other: (pathname) =>
+					pathname === "/3/tv/episode_group/5acfb4960e0a26346d0046d2"
+						? {
+								groups: [
+									{
+										order: 2,
+										name: "Movie",
+										episodes: [{ order: 0, id: 1048600, season_number: 0, episode_number: 1 }],
+									},
+									{
+										order: 1,
+										name: "Season 1",
+										episodes: [
+											{ order: 1, id: 1048594, season_number: 1, episode_number: 1 },
+											{ order: 0, id: 1048593, season_number: 1, episode_number: 11 },
+											{ id: 0, order: 2 },
+											{ order: 3, id: "1048595" },
+										],
+									},
+								],
+							}
+						: { groups: [] },
+			},
+			requests,
+		);
 		return Effect.runPromise(
 			runSandboxTestScript(details, { externalId: "1437" }, host, execution).pipe(
 				Effect.map((result) => {
-					expect(requestedPaths.filter((path) => path.includes("/episode_group/"))).toEqual([
+					expect(
+						requests
+							.map(({ pathname }) => pathname)
+							.filter((path) => path.includes("/episode_group/")),
+					).toEqual([
 						"/3/tv/episode_group/5acfb4960e0a26346d0046d2",
 						"/3/tv/episode_group/dvd-order",
 					]);
@@ -362,29 +513,35 @@ describe("show.tmdb sandbox script", () => {
 	});
 
 	it("fetches only the episode orders the sandbox HTTP call limit leaves after seasons", () => {
-		const requestedPaths: string[] = [];
-		const host = makeHost((_method, url) => {
-			const requestUrl = new URL(url);
-			requestedPaths.push(requestUrl.pathname);
-			if (requestUrl.pathname === "/3/tv/456/episode_groups") {
-				return httpSuccess({
-					results: ["first", "second", "third"].map((id) => ({ id, type: 3, name: id })),
-				});
-			}
-			if (requestUrl.pathname === "/3/tv/456") {
-				return httpSuccess({
+		const requests: URL[] = [];
+		const host = makeTvHost(
+			"456",
+			{
+				other: () => ({ groups: [] }),
+				show: {
 					name: "The Simpsons",
 					seasons: Array.from({ length: 43 }, (_, index) => ({ season_number: index })),
-				});
-			}
-			return httpSuccess({ groups: [] });
-		});
+				},
+				appended: {
+					episode_groups: {
+						results: Array.from({ length: 60 }, (_, index) => ({
+							type: 3,
+							id: `order-${index}`,
+							name: `order-${index}`,
+						})),
+					},
+				},
+			},
+			requests,
+		);
 		return Effect.runPromise(
 			runSandboxTestScript(details, { externalId: "456" }, host, execution).pipe(
 				Effect.map((result) => {
-					expect(requestedPaths).toHaveLength(50);
+					expect(requests).toHaveLength(50);
 					expect(result.properties).toMatchObject({
-						episodeOrders: [{ groups: [], externalId: "first" }],
+						episodeOrders: Array.from({ length: 45 }, (_, index) => ({
+							externalId: `order-${index}`,
+						})),
 					});
 					return undefined;
 				}),
