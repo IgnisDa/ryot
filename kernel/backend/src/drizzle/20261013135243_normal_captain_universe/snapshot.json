@@ -1,7 +1,7 @@
 {
 	"version": "8",
 	"dialect": "postgres",
-	"id": "34001e6a-8152-4e80-8f13-510f17b70f30",
+	"id": "1a4584f0-ae41-450c-afd4-de95d6722d8e",
 	"prevIds": ["00000000-0000-0000-0000-000000000000"],
 	"ddl": [
 		{ "isRlsEnabled": false, "name": "account", "entityType": "tables", "schema": "public" },
@@ -1773,6 +1773,19 @@
 			"table": "client_artifact"
 		},
 		{
+			"type": "text",
+			"typeSchema": null,
+			"notNull": false,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
+			"name": "client_declaration_hash",
+			"entityType": "columns",
+			"schema": "public",
+			"table": "client_artifact"
+		},
+		{
 			"type": "smallint",
 			"typeSchema": null,
 			"notNull": true,
@@ -1820,6 +1833,32 @@
 			"generated": null,
 			"identity": null,
 			"name": "compiler_version",
+			"entityType": "columns",
+			"schema": "public",
+			"table": "client_artifact"
+		},
+		{
+			"type": "text",
+			"typeSchema": null,
+			"notNull": false,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
+			"name": "package_id",
+			"entityType": "columns",
+			"schema": "public",
+			"table": "client_artifact"
+		},
+		{
+			"type": "jsonb",
+			"typeSchema": null,
+			"notNull": true,
+			"dimensions": 0,
+			"default": "'[]'",
+			"generated": null,
+			"identity": null,
+			"name": "imports",
 			"entityType": "columns",
 			"schema": "public",
 			"table": "client_artifact"
@@ -6195,19 +6234,6 @@
 		{
 			"type": "text",
 			"typeSchema": null,
-			"notNull": true,
-			"dimensions": 0,
-			"default": null,
-			"generated": null,
-			"identity": null,
-			"name": "plugin_slug",
-			"entityType": "columns",
-			"schema": "public",
-			"table": "oauth_connection"
-		},
-		{
-			"type": "text",
-			"typeSchema": null,
 			"notNull": false,
 			"dimensions": 0,
 			"default": null,
@@ -7038,6 +7064,19 @@
 			"table": "plugin"
 		},
 		{
+			"type": "text",
+			"typeSchema": null,
+			"notNull": true,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
+			"name": "package_id",
+			"entityType": "columns",
+			"schema": "public",
+			"table": "plugin"
+		},
+		{
 			"type": "timestamp(3) with time zone",
 			"typeSchema": null,
 			"notNull": true,
@@ -7337,19 +7376,6 @@
 			"table": "plugin_installation"
 		},
 		{
-			"type": "text",
-			"typeSchema": null,
-			"notNull": false,
-			"dimensions": 0,
-			"default": null,
-			"generated": null,
-			"identity": null,
-			"name": "home_saved_view_slug",
-			"entityType": "columns",
-			"schema": "public",
-			"table": "plugin_installation"
-		},
-		{
 			"type": "integer",
 			"typeSchema": null,
 			"notNull": true,
@@ -7371,6 +7397,32 @@
 			"generated": null,
 			"identity": null,
 			"name": "is_hidden",
+			"entityType": "columns",
+			"schema": "public",
+			"table": "plugin_installation"
+		},
+		{
+			"type": "boolean",
+			"typeSchema": null,
+			"notNull": true,
+			"dimensions": 0,
+			"default": "false",
+			"generated": null,
+			"identity": null,
+			"name": "is_initialized",
+			"entityType": "columns",
+			"schema": "public",
+			"table": "plugin_installation"
+		},
+		{
+			"type": "jsonb",
+			"typeSchema": null,
+			"notNull": false,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
+			"name": "home_saved_view",
 			"entityType": "columns",
 			"schema": "public",
 			"table": "plugin_installation"
@@ -7410,6 +7462,19 @@
 			"generated": null,
 			"identity": null,
 			"name": "uninstalled_at",
+			"entityType": "columns",
+			"schema": "public",
+			"table": "plugin_installation"
+		},
+		{
+			"type": "text",
+			"typeSchema": null,
+			"notNull": false,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
+			"name": "incompatibility_reason",
 			"entityType": "columns",
 			"schema": "public",
 			"table": "plugin_installation"
@@ -11389,7 +11454,7 @@
 			"nameExplicit": true,
 			"columns": [
 				{
-					"value": "slug",
+					"value": "package_id",
 					"isExpression": false,
 					"asc": true,
 					"nullsFirst": false,
@@ -11408,7 +11473,7 @@
 			"with": "",
 			"method": "btree",
 			"concurrently": false,
-			"name": "plugin_owner_slug_unique",
+			"name": "plugin_owner_package_id_unique",
 			"entityType": "indexes",
 			"schema": "public",
 			"table": "plugin"
@@ -11930,6 +11995,69 @@
 			"entityType": "indexes",
 			"schema": "public",
 			"table": "saved_view"
+		},
+		{
+			"nameExplicit": true,
+			"columns": [
+				{
+					"value": "user_id",
+					"isExpression": false,
+					"asc": true,
+					"nullsFirst": false,
+					"opclass": null
+				},
+				{
+					"value": "slug",
+					"isExpression": false,
+					"asc": true,
+					"nullsFirst": false,
+					"opclass": null
+				}
+			],
+			"isUnique": true,
+			"where": "\"plugin_id\" is null",
+			"with": "",
+			"method": "btree",
+			"concurrently": false,
+			"name": "saved_view_override_kernel_unique",
+			"entityType": "indexes",
+			"schema": "public",
+			"table": "saved_view_override"
+		},
+		{
+			"nameExplicit": true,
+			"columns": [
+				{
+					"value": "user_id",
+					"isExpression": false,
+					"asc": true,
+					"nullsFirst": false,
+					"opclass": null
+				},
+				{
+					"value": "plugin_id",
+					"isExpression": false,
+					"asc": true,
+					"nullsFirst": false,
+					"opclass": null
+				},
+				{
+					"value": "slug",
+					"isExpression": false,
+					"asc": true,
+					"nullsFirst": false,
+					"opclass": null
+				}
+			],
+			"isUnique": true,
+			"where": "\"plugin_id\" is not null",
+			"with": "",
+			"method": "btree",
+			"concurrently": false,
+			"name": "saved_view_override_plugin_unique",
+			"entityType": "indexes",
+			"schema": "public",
+			"table": "saved_view_override"
 		},
 		{
 			"nameExplicit": true,
@@ -13567,14 +13695,6 @@
 			"table": "managed_asset"
 		},
 		{
-			"columns": ["user_id", "slug"],
-			"nameExplicit": false,
-			"name": "saved_view_override_pkey",
-			"entityType": "pks",
-			"schema": "public",
-			"table": "saved_view_override"
-		},
-		{
 			"columns": ["workflow_name", "execution_id"],
 			"nameExplicit": false,
 			"name": "workflow_execution_pkey",
@@ -14439,6 +14559,13 @@
 			"table": "automation_trigger"
 		},
 		{
+			"value": "(\"package_id\" is null) = (\"client_declaration_hash\" is null)",
+			"name": "client_artifact_package_declaration_check",
+			"entityType": "checks",
+			"schema": "public",
+			"table": "client_artifact"
+		},
+		{
 			"value": "(\"lot\" = 'push') = (\"script_slug\" is null)",
 			"name": "definition_integration_provider_script_check",
 			"entityType": "checks",
@@ -14670,6 +14797,13 @@
 			"table": "plugin_config_revision"
 		},
 		{
+			"value": "\"incompatibility_reason\" is null or (\"incompatibility_reason\" = 'package-identity-conflict' and \"health\" = 'incompatible')",
+			"name": "plugin_installation_incompatibility_reason_check",
+			"entityType": "checks",
+			"schema": "public",
+			"table": "plugin_installation"
+		},
+		{
 			"value": "(\"plugin_revision_id\" is null) = (\"source\" is not null)",
 			"name": "sandbox_script_source_owner_check",
 			"entityType": "checks",
@@ -14698,7 +14832,7 @@
 			"table": "workflow_execution"
 		},
 		{
-			"definition": "\n\t\t\tselect d.id, r.plugin_id, d.plugin_revision_id, g.slug as plugin_slug, d.slug, d.name, d.position, d.icon, d.properties_schema, d.user_state, d.merge_identity_properties\n\t\t\tfrom definition_entity_schema d\n\t\t\tleft join plugin_revision r on r.id = d.plugin_revision_id\n\t\t\tleft join (\n select p.id as plugin_id, p.slug, p.active_revision_id, p.environment_config_revision_id as config_revision_id, coalesce(c.owner_user_id is null and c.encrypted_payload is not null, false) as is_executable\n\tfrom plugin p\n\tleft join plugin_config_revision c on c.id = p.environment_config_revision_id\n\twhere p.owner_user_id is null and p.status = 'active'\n) g on g.plugin_id = r.plugin_id and g.active_revision_id = d.plugin_revision_id\n\t\t\twhere d.plugin_revision_id is null or g.plugin_id is not null\n\t\t",
+			"definition": "\n\t\t\tselect d.id, r.plugin_id, g.package_id, d.plugin_revision_id, g.slug as plugin_slug, d.slug, d.name, d.position, d.icon, d.properties_schema, d.user_state, d.merge_identity_properties\n\t\t\tfrom definition_entity_schema d\n\t\t\tleft join plugin_revision r on r.id = d.plugin_revision_id\n\t\t\tleft join (\n select p.id as plugin_id, p.package_id, p.slug, p.active_revision_id, p.environment_config_revision_id as config_revision_id, coalesce(c.owner_user_id is null and c.encrypted_payload is not null, false) as is_executable\n\tfrom plugin p\n\tleft join plugin_config_revision c on c.id = p.environment_config_revision_id\n\twhere p.owner_user_id is null and p.status = 'active'\n) g on g.plugin_id = r.plugin_id and g.active_revision_id = d.plugin_revision_id\n\t\t\twhere d.plugin_revision_id is null or g.plugin_id is not null\n\t\t",
 			"with": null,
 			"withNoData": null,
 			"using": null,
@@ -14709,7 +14843,7 @@
 			"schema": "public"
 		},
 		{
-			"definition": "\n\t\t\tselect v.id, v.entity_schema_id, e.slug as entity_schema_slug, e.plugin_id, v.slug, v.name, v.position, v.properties_schema\n\t\t\tfrom \"global_entity_schema\" e\n\t\t\tjoin definition_event_schema v on v.entity_schema_id = e.id\n\t\t",
+			"definition": "\n\t\t\tselect v.id, v.entity_schema_id, e.slug as entity_schema_slug, e.plugin_id, e.package_id, e.plugin_revision_id, v.slug, v.name, v.position, v.properties_schema\n\t\t\tfrom \"global_entity_schema\" e\n\t\t\tjoin definition_event_schema v on v.entity_schema_id = e.id\n\t\t",
 			"with": null,
 			"withNoData": null,
 			"using": null,
@@ -14720,7 +14854,7 @@
 			"schema": "public"
 		},
 		{
-			"definition": "\n select p.id as plugin_id, p.slug, p.active_revision_id, p.environment_config_revision_id as config_revision_id, coalesce(c.owner_user_id is null and c.encrypted_payload is not null, false) as is_executable\n\tfrom plugin p\n\tleft join plugin_config_revision c on c.id = p.environment_config_revision_id\n\twhere p.owner_user_id is null and p.status = 'active'\n",
+			"definition": "\n select p.id as plugin_id, p.package_id, p.slug, p.active_revision_id, p.environment_config_revision_id as config_revision_id, coalesce(c.owner_user_id is null and c.encrypted_payload is not null, false) as is_executable\n\tfrom plugin p\n\tleft join plugin_config_revision c on c.id = p.environment_config_revision_id\n\twhere p.owner_user_id is null and p.status = 'active'\n",
 			"with": null,
 			"withNoData": null,
 			"using": null,
@@ -14731,7 +14865,7 @@
 			"schema": "public"
 		},
 		{
-			"definition": "\n\t\t\tselect d.id, r.plugin_id, d.plugin_revision_id, g.slug as plugin_slug, d.slug, d.name, d.position, d.source_entity_schema_slug, d.target_entity_schema_slug, d.properties_schema\n\t\t\tfrom definition_relationship_schema d\n\t\t\tleft join plugin_revision r on r.id = d.plugin_revision_id\n\t\t\tleft join \"global_plugin\" g on g.plugin_id = r.plugin_id and g.active_revision_id = d.plugin_revision_id\n\t\t\twhere d.plugin_revision_id is null or g.plugin_id is not null\n\t\t",
+			"definition": "\n\t\t\tselect d.id, r.plugin_id, g.package_id, d.plugin_revision_id, g.slug as plugin_slug, d.slug, d.name, d.position, d.source_entity_schema_slug, d.target_entity_schema_slug, d.properties_schema\n\t\t\tfrom definition_relationship_schema d\n\t\t\tleft join plugin_revision r on r.id = d.plugin_revision_id\n\t\t\tleft join \"global_plugin\" g on g.plugin_id = r.plugin_id and g.active_revision_id = d.plugin_revision_id\n\t\t\twhere d.plugin_revision_id is null or g.plugin_id is not null\n\t\t",
 			"with": null,
 			"withNoData": null,
 			"using": null,
@@ -14742,7 +14876,7 @@
 			"schema": "public"
 		},
 		{
-			"definition": "\n\t\t\tselect d.id, r.plugin_id, d.plugin_revision_id, g.slug as plugin_slug, d.slug, d.name, d.position, d.icon, d.sort_order, d.data_sources, d.settings, d.renderer\n\t\t\tfrom definition_saved_view d\n\t\t\tleft join plugin_revision r on r.id = d.plugin_revision_id\n\t\t\tleft join \"global_plugin\" g on g.plugin_id = r.plugin_id and g.active_revision_id = d.plugin_revision_id\n\t\t\twhere d.plugin_revision_id is null or g.plugin_id is not null\n\t\t",
+			"definition": "\n\t\t\tselect d.id, r.plugin_id, g.package_id, d.plugin_revision_id, g.slug as plugin_slug, d.slug, d.name, d.position, d.icon, d.sort_order, d.data_sources, d.settings, d.renderer\n\t\t\tfrom definition_saved_view d\n\t\t\tleft join plugin_revision r on r.id = d.plugin_revision_id\n\t\t\tleft join \"global_plugin\" g on g.plugin_id = r.plugin_id and g.active_revision_id = d.plugin_revision_id\n\t\t\twhere d.plugin_revision_id is null or g.plugin_id is not null\n\t\t",
 			"with": null,
 			"withNoData": null,
 			"using": null,
@@ -14753,7 +14887,7 @@
 			"schema": "public"
 		},
 		{
-			"definition": "\n\t\t\tselect d.id, r.plugin_id, d.plugin_revision_id, g.slug as plugin_slug, d.slug, d.name, d.position, d.notification_hook_slug, d.properties_schema, d.audience_policy, d.catalog_state\n\t\t\tfrom definition_signal_schema d\n\t\t\tleft join plugin_revision r on r.id = d.plugin_revision_id\n\t\t\tleft join \"global_plugin\" g on g.plugin_id = r.plugin_id and g.active_revision_id = d.plugin_revision_id\n\t\t\twhere d.plugin_revision_id is null or g.plugin_id is not null\n\t\t",
+			"definition": "\n\t\t\tselect d.id, r.plugin_id, g.package_id, d.plugin_revision_id, g.slug as plugin_slug, d.slug, d.name, d.position, d.notification_hook_slug, d.properties_schema, d.audience_policy, d.catalog_state\n\t\t\tfrom definition_signal_schema d\n\t\t\tleft join plugin_revision r on r.id = d.plugin_revision_id\n\t\t\tleft join \"global_plugin\" g on g.plugin_id = r.plugin_id and g.active_revision_id = d.plugin_revision_id\n\t\t\twhere d.plugin_revision_id is null or g.plugin_id is not null\n\t\t",
 			"with": null,
 			"withNoData": null,
 			"using": null,
@@ -14764,7 +14898,7 @@
 			"schema": "public"
 		},
 		{
-			"definition": "\n\t\tselect id, case\n\t\t\twhen jsonb_typeof(manifest->'scripts') is distinct from 'array'\n\t\t\t\tor jsonb_typeof(manifest->'workflows') is distinct from 'array'\n\t\t\t\tor jsonb_typeof(manifest->'userBootstrap') is distinct from 'array'\n\t\t\t\tor jsonb_typeof(manifest->'entitySchemas') is distinct from 'array'\n\t\t\t\tor jsonb_typeof(manifest->'relationshipSchemas') is distinct from 'array'\n\t\t\tthen 'null'::jsonb\n\t\t\twhen exists (\n\t\t\t\tselect 1\n\t\t\t\tfrom jsonb_array_elements(manifest->'entitySchemas') as entities(entity_schema)\n\t\t\t\twhere jsonb_typeof(entity_schema->'eventSchemas') is distinct from 'array'\n\t\t\t)\n\t\t\tthen 'null'::jsonb\n\t\t\telse jsonb_build_object(\n\t\t\t\t'configSchema', manifest->'configSchema',\n\t\t\t\t'workflowScripts', coalesce(\n\t\t\t\t\t(\n\t\t\t\t\t\tselect jsonb_object_agg(workflow->>'slug', workflow->'scriptSlug')\n\t\t\t\t\t\tfrom jsonb_array_elements(manifest->'workflows') as workflows(workflow)\n\t\t\t\t\t),\n\t\t\t\t\t'{}'::jsonb\n\t\t\t\t),\n\t\t\t\t'userBootstrapScriptSlugs', coalesce(\n\t\t\t\t\t(\n\t\t\t\t\t\tselect jsonb_agg(bootstrap->'scriptSlug' order by bootstrap_position)\n\t\t\t\t\t\tfrom jsonb_array_elements(manifest->'userBootstrap')\n\t\t\t\t\t\t\twith ordinality as bootstraps(bootstrap, bootstrap_position)\n\t\t\t\t\t),\n\t\t\t\t\t'[]'::jsonb\n\t\t\t\t),\n\t\t\t\t'schemaScope', jsonb_build_object(\n\t\t\t\t\t'entitySchemaSlugs', coalesce(\n\t\t\t\t\t\t(\n\t\t\t\t\t\t\tselect jsonb_agg(entity_schema->'slug' order by entity_position)\n\t\t\t\t\t\t\tfrom jsonb_array_elements(manifest->'entitySchemas')\n\t\t\t\t\t\t\t\twith ordinality as entities(entity_schema, entity_position)\n\t\t\t\t\t\t),\n\t\t\t\t\t\t'[]'::jsonb\n\t\t\t\t\t),\n\t\t\t\t\t'relationshipSchemaSlugs', coalesce(\n\t\t\t\t\t\t(\n\t\t\t\t\t\t\tselect jsonb_agg(relationship_schema->'slug' order by relationship_position)\n\t\t\t\t\t\t\tfrom jsonb_array_elements(manifest->'relationshipSchemas')\n\t\t\t\t\t\t\t\twith ordinality as relationships(relationship_schema, relationship_position)\n\t\t\t\t\t\t),\n\t\t\t\t\t\t'[]'::jsonb\n\t\t\t\t\t),\n\t\t\t\t\t'eventSchemas', coalesce(\n\t\t\t\t\t\t(\n\t\t\t\t\t\t\tselect jsonb_agg(\n\t\t\t\t\t\t\t\tjsonb_build_object(\n\t\t\t\t\t\t\t\t\t'eventSchemaSlug', event_schema->'slug',\n\t\t\t\t\t\t\t\t\t'entitySchemaSlug', entity_schema->'slug'\n\t\t\t\t\t\t\t\t)\n\t\t\t\t\t\t\t\torder by entity_position, event_position\n\t\t\t\t\t\t\t)\n\t\t\t\t\t\t\tfrom jsonb_array_elements(manifest->'entitySchemas')\n\t\t\t\t\t\t\t\twith ordinality as entities(entity_schema, entity_position)\n\t\t\t\t\t\t\tcross join lateral jsonb_array_elements(entity_schema->'eventSchemas')\n\t\t\t\t\t\t\t\twith ordinality as events(event_schema, event_position)\n\t\t\t\t\t\t),\n\t\t\t\t\t\t'[]'::jsonb\n\t\t\t\t\t)\n\t\t\t\t),\n\t\t\t\t'scriptKinds', coalesce(\n\t\t\t\t\t(\n\t\t\t\t\t\tselect jsonb_object_agg(script->>'slug', script->'kind')\n\t\t\t\t\t\tfrom jsonb_array_elements(manifest->'scripts') as scripts(script)\n\t\t\t\t\t),\n\t\t\t\t\t'{}'::jsonb\n\t\t\t\t)\n\t\t\t)\n\t\tend as sandbox_authority\n\t\tfrom \"plugin_revision\"\n\t",
+			"definition": "\n\t\tselect id, case\n\t\t\twhen jsonb_typeof(manifest->'scripts') is distinct from 'array'\n\t\t\t\tor jsonb_typeof(manifest->'workflows') is distinct from 'array'\n\t\t\t\tor jsonb_typeof(manifest->'userBootstrap') is distinct from 'array'\n\t\t\t\tor jsonb_typeof(manifest->'entitySchemas') is distinct from 'array'\n\t\t\t\tor jsonb_typeof(manifest->'relationshipSchemas') is distinct from 'array'\n\t\t\t\tor jsonb_typeof(manifest->'signalSchemas') is distinct from 'array'\n\t\t\tthen 'null'::jsonb\n\t\t\twhen exists (\n\t\t\t\tselect 1\n\t\t\t\tfrom jsonb_array_elements(manifest->'entitySchemas') as entities(entity_schema)\n\t\t\t\twhere jsonb_typeof(entity_schema->'eventSchemas') is distinct from 'array'\n\t\t\t)\n\t\t\tthen 'null'::jsonb\n\t\t\telse jsonb_build_object(\n\t\t\t\t'packageId', manifest->'metadata'->'packageId',\n\t\t\t\t'configSchema', manifest->'configSchema',\n\t\t\t\t'workflowScripts', coalesce(\n\t\t\t\t\t(\n\t\t\t\t\t\tselect jsonb_object_agg(workflow->>'slug', workflow->'scriptSlug')\n\t\t\t\t\t\tfrom jsonb_array_elements(manifest->'workflows') as workflows(workflow)\n\t\t\t\t\t),\n\t\t\t\t\t'{}'::jsonb\n\t\t\t\t),\n\t\t\t\t'userBootstrapScriptSlugs', coalesce(\n\t\t\t\t\t(\n\t\t\t\t\t\tselect jsonb_agg(bootstrap->'scriptSlug' order by bootstrap_position)\n\t\t\t\t\t\tfrom jsonb_array_elements(manifest->'userBootstrap')\n\t\t\t\t\t\t\twith ordinality as bootstraps(bootstrap, bootstrap_position)\n\t\t\t\t\t),\n\t\t\t\t\t'[]'::jsonb\n\t\t\t\t),\n\t\t\t\t'schemaScope', jsonb_build_object(\n\t\t\t\t\t'signalSchemaSlugs', coalesce(\n\t\t\t\t\t\t(\n\t\t\t\t\t\t\tselect jsonb_agg(signal_schema->'slug' order by signal_position)\n\t\t\t\t\t\t\tfrom jsonb_array_elements(manifest->'signalSchemas')\n\t\t\t\t\t\t\t\twith ordinality as signals(signal_schema, signal_position)\n\t\t\t\t\t\t),\n\t\t\t\t\t\t'[]'::jsonb\n\t\t\t\t\t),\n\t\t\t\t\t'entitySchemaSlugs', coalesce(\n\t\t\t\t\t\t(\n\t\t\t\t\t\t\tselect jsonb_agg(entity_schema->'slug' order by entity_position)\n\t\t\t\t\t\t\tfrom jsonb_array_elements(manifest->'entitySchemas')\n\t\t\t\t\t\t\t\twith ordinality as entities(entity_schema, entity_position)\n\t\t\t\t\t\t),\n\t\t\t\t\t\t'[]'::jsonb\n\t\t\t\t\t),\n\t\t\t\t\t'relationshipSchemaSlugs', coalesce(\n\t\t\t\t\t\t(\n\t\t\t\t\t\t\tselect jsonb_agg(relationship_schema->'slug' order by relationship_position)\n\t\t\t\t\t\t\tfrom jsonb_array_elements(manifest->'relationshipSchemas')\n\t\t\t\t\t\t\t\twith ordinality as relationships(relationship_schema, relationship_position)\n\t\t\t\t\t\t),\n\t\t\t\t\t\t'[]'::jsonb\n\t\t\t\t\t),\n\t\t\t\t\t'eventSchemas', coalesce(\n\t\t\t\t\t\t(\n\t\t\t\t\t\t\tselect jsonb_agg(\n\t\t\t\t\t\t\t\tjsonb_build_object(\n\t\t\t\t\t\t\t\t\t'eventSchemaSlug', event_schema->'slug',\n\t\t\t\t\t\t\t\t\t'entitySchemaSlug', entity_schema->'slug'\n\t\t\t\t\t\t\t\t)\n\t\t\t\t\t\t\t\torder by entity_position, event_position\n\t\t\t\t\t\t\t)\n\t\t\t\t\t\t\tfrom jsonb_array_elements(manifest->'entitySchemas')\n\t\t\t\t\t\t\t\twith ordinality as entities(entity_schema, entity_position)\n\t\t\t\t\t\t\tcross join lateral jsonb_array_elements(entity_schema->'eventSchemas')\n\t\t\t\t\t\t\t\twith ordinality as events(event_schema, event_position)\n\t\t\t\t\t\t),\n\t\t\t\t\t\t'[]'::jsonb\n\t\t\t\t\t)\n\t\t\t\t),\n\t\t\t\t'scriptKinds', coalesce(\n\t\t\t\t\t(\n\t\t\t\t\t\tselect jsonb_object_agg(script->>'slug', script->'kind')\n\t\t\t\t\t\tfrom jsonb_array_elements(manifest->'scripts') as scripts(script)\n\t\t\t\t\t),\n\t\t\t\t\t'{}'::jsonb\n\t\t\t\t)\n\t\t\t)\n\t\tend as sandbox_authority\n\t\tfrom \"plugin_revision\"\n\t",
 			"with": null,
 			"withNoData": null,
 			"using": null,
@@ -14775,7 +14909,7 @@
 			"schema": "public"
 		},
 		{
-			"definition": "\n\t\t\tselect u.id as user_id, d.id, null::text as plugin_id, d.plugin_revision_id, null::text as plugin_slug, null::text as plugin_scope, d.slug, d.name, d.position, d.icon, d.properties_schema, d.user_state, d.merge_identity_properties, true as is_effective\n\t\t\tfrom definition_entity_schema d\n\t\t\tcross join \"user\" u\n\t\t\twhere d.plugin_revision_id is null\n\t\t\tunion all\n\t\t\tselect p.user_id, d.id, p.plugin_id, d.plugin_revision_id, p.slug, p.scope, d.slug, d.name, d.position, d.icon, d.properties_schema, d.user_state, d.merge_identity_properties, p.is_definition_effective\n\t\t\tfrom (\n\tselect i.user_id, p.id as plugin_id, i.id as installation_id, p.slug, case when p.owner_user_id is null then 'system' else 'user' end as scope, p.owner_user_id, p.active_revision_id, case when p.owner_user_id is null then p.environment_config_revision_id else i.active_config_revision_id end as config_revision_id, i.health, i.is_hidden, i.sort_order, i.health <> 'incompatible' as is_listed, not i.is_hidden and (i.health = 'ready' or (p.owner_user_id is null and i.health = 'installing')) as is_definition_effective, coalesce(not i.is_hidden and i.health = 'ready' and c.plugin_revision_id = p.active_revision_id and c.encrypted_payload is not null and case when p.owner_user_id is null then c.owner_user_id is null else c.owner_user_id = i.user_id and c.plugin_installation_id = i.id end, false) as is_executable\n\tfrom plugin_installation i\n\tjoin plugin p on p.id = i.plugin_id\n\tleft join plugin_config_revision c on c.id = case when p.owner_user_id is null then p.environment_config_revision_id else i.active_config_revision_id end\n\twhere i.uninstalled_at is null and p.status = 'active' and (p.owner_user_id is null or p.owner_user_id = i.user_id)\n) p\n\t\t\tjoin definition_entity_schema d on d.plugin_revision_id = p.active_revision_id\n\t\t\twhere p.is_listed and (p.scope = 'system' or not exists (select 1 from \"global_entity_schema\" g where g.slug = d.slug))\n\t\t",
+			"definition": "\n\t\t\tselect u.id as user_id, d.id, null::text as plugin_id, null::text as package_id, d.plugin_revision_id, null::text as plugin_slug, null::text as plugin_scope, d.slug, d.name, d.position, d.icon, d.properties_schema, d.user_state, d.merge_identity_properties, true as is_effective\n\t\t\tfrom definition_entity_schema d\n\t\t\tcross join \"user\" u\n\t\t\twhere d.plugin_revision_id is null\n\t\t\tunion all\n\t\t\tselect p.user_id, d.id, p.plugin_id, p.package_id, d.plugin_revision_id, p.slug, p.scope, d.slug, d.name, d.position, d.icon, d.properties_schema, d.user_state, d.merge_identity_properties, p.is_definition_effective\n\t\t\tfrom (\n\tselect i.user_id, p.id as plugin_id, p.package_id, i.id as installation_id, p.slug, case when p.owner_user_id is null then 'system' else 'user' end as scope, p.owner_user_id, p.active_revision_id, case when p.owner_user_id is null then p.environment_config_revision_id else i.active_config_revision_id end as config_revision_id, i.health, i.is_hidden, i.sort_order, i.health <> 'incompatible' as is_listed, not i.is_hidden and (i.health = 'ready' or (p.owner_user_id is null and i.health = 'installing')) as is_definition_effective, coalesce(not i.is_hidden and i.health = 'ready' and c.plugin_revision_id = p.active_revision_id and c.encrypted_payload is not null and case when p.owner_user_id is null then c.owner_user_id is null else c.owner_user_id = i.user_id and c.plugin_installation_id = i.id end, false) as is_executable\n\tfrom plugin_installation i\n\tjoin plugin p on p.id = i.plugin_id\n\tleft join plugin_config_revision c on c.id = case when p.owner_user_id is null then p.environment_config_revision_id else i.active_config_revision_id end\n\twhere i.uninstalled_at is null and p.status = 'active' and (p.owner_user_id is null or p.owner_user_id = i.user_id)\n) p\n\t\t\tjoin definition_entity_schema d on d.plugin_revision_id = p.active_revision_id\n\t\t\twhere p.is_listed\n\t\t",
 			"with": null,
 			"withNoData": null,
 			"using": null,
@@ -14786,7 +14920,7 @@
 			"schema": "public"
 		},
 		{
-			"definition": "\n\t\t\tselect e.user_id, v.id, v.entity_schema_id, e.slug as entity_schema_slug, e.plugin_id, v.slug, v.name, v.position, v.properties_schema, e.is_effective\n\t\t\tfrom \"user_entity_schema\" e\n\t\t\tjoin definition_event_schema v on v.entity_schema_id = e.id\n\t\t",
+			"definition": "\n\t\t\tselect e.user_id, v.id, v.entity_schema_id, e.slug as entity_schema_slug, e.plugin_id, e.package_id, e.plugin_revision_id, v.slug, v.name, v.position, v.properties_schema, e.is_effective\n\t\t\tfrom \"user_entity_schema\" e\n\t\t\tjoin definition_event_schema v on v.entity_schema_id = e.id\n\t\t",
 			"with": null,
 			"withNoData": null,
 			"using": null,
@@ -14797,7 +14931,7 @@
 			"schema": "public"
 		},
 		{
-			"definition": "\n\tselect i.user_id, p.id as plugin_id, i.id as installation_id, p.slug, case when p.owner_user_id is null then 'system' else 'user' end as scope, p.owner_user_id, p.active_revision_id, case when p.owner_user_id is null then p.environment_config_revision_id else i.active_config_revision_id end as config_revision_id, i.health, i.is_hidden, i.sort_order, i.health <> 'incompatible' as is_listed, not i.is_hidden and (i.health = 'ready' or (p.owner_user_id is null and i.health = 'installing')) as is_definition_effective, coalesce(not i.is_hidden and i.health = 'ready' and c.plugin_revision_id = p.active_revision_id and c.encrypted_payload is not null and case when p.owner_user_id is null then c.owner_user_id is null else c.owner_user_id = i.user_id and c.plugin_installation_id = i.id end, false) as is_executable\n\tfrom plugin_installation i\n\tjoin plugin p on p.id = i.plugin_id\n\tleft join plugin_config_revision c on c.id = case when p.owner_user_id is null then p.environment_config_revision_id else i.active_config_revision_id end\n\twhere i.uninstalled_at is null and p.status = 'active' and (p.owner_user_id is null or p.owner_user_id = i.user_id)\n",
+			"definition": "\n\tselect i.user_id, p.id as plugin_id, p.package_id, i.id as installation_id, p.slug, case when p.owner_user_id is null then 'system' else 'user' end as scope, p.owner_user_id, p.active_revision_id, case when p.owner_user_id is null then p.environment_config_revision_id else i.active_config_revision_id end as config_revision_id, i.health, i.is_hidden, i.sort_order, i.health <> 'incompatible' as is_listed, not i.is_hidden and (i.health = 'ready' or (p.owner_user_id is null and i.health = 'installing')) as is_definition_effective, coalesce(not i.is_hidden and i.health = 'ready' and c.plugin_revision_id = p.active_revision_id and c.encrypted_payload is not null and case when p.owner_user_id is null then c.owner_user_id is null else c.owner_user_id = i.user_id and c.plugin_installation_id = i.id end, false) as is_executable\n\tfrom plugin_installation i\n\tjoin plugin p on p.id = i.plugin_id\n\tleft join plugin_config_revision c on c.id = case when p.owner_user_id is null then p.environment_config_revision_id else i.active_config_revision_id end\n\twhere i.uninstalled_at is null and p.status = 'active' and (p.owner_user_id is null or p.owner_user_id = i.user_id)\n",
 			"with": null,
 			"withNoData": null,
 			"using": null,
@@ -14808,7 +14942,7 @@
 			"schema": "public"
 		},
 		{
-			"definition": "\n\t\t\tselect p.user_id, d.id, p.plugin_id, d.plugin_revision_id, p.slug as plugin_slug, p.scope as plugin_scope, p.installation_id, p.config_revision_id, d.slug, d.name, d.description, d.position, d.workflow_slug, s.id as workflow_script_id, d.input_schema, d.required_plugin_config_keys, d.export_help, d.plan\n\t\t\tfrom \"user_plugin\" p\n\t\t\tjoin definition_import_source d on d.plugin_revision_id = p.active_revision_id\n\t\t\tleft join sandbox_script s on s.plugin_revision_id = d.plugin_revision_id and s.slug = d.workflow_script_slug\n\t\t\twhere p.is_executable and not exists (select 1 from \"user_plugin\" sp join definition_import_source g on g.plugin_revision_id = sp.active_revision_id where sp.user_id = p.user_id and sp.plugin_id <> p.plugin_id and sp.scope = 'system' and sp.is_executable and g.slug = d.slug)\n\t\t\tunion all\n\t\t\tselect u.id, 'kernel:data-json:' || u.id, null::text, null::text, null::text, null::text, null::text, null::text, 'data-json', 'Data import', 'Import generic entities, relationships, and events from JSON.', 0, 'data-json', null::text, '{\"unknownKeys\":\"strict\",\"fields\":{\"submissionKey\":{\"type\":\"string\",\"label\":\"Submission key\",\"description\":\"Optional key to reuse the same run when retrying this submission.\"},\"uploadToken\":{\"type\":\"string\",\"label\":\"JSON file\",\"validation\":{\"required\":true},\"description\":\"A Ryot data document using existing schemas.\",\"format\":{\"kind\":\"upload\",\"allowedFileExtensions\":[\"json\"]}}}}'::jsonb, '{}'::text[], null::jsonb, null::jsonb\n\t\t\tfrom \"user\" u\n\t\t",
+			"definition": "\n\t\t\tselect p.user_id, d.id, p.plugin_id, p.package_id, d.plugin_revision_id, p.slug as plugin_slug, p.scope as plugin_scope, p.installation_id, p.config_revision_id, d.slug, d.name, d.description, d.position, d.workflow_slug, s.id as workflow_script_id, d.input_schema, d.required_plugin_config_keys, d.export_help, d.plan\n\t\t\tfrom \"user_plugin\" p\n\t\t\tjoin definition_import_source d on d.plugin_revision_id = p.active_revision_id\n\t\t\tleft join sandbox_script s on s.plugin_revision_id = d.plugin_revision_id and s.slug = d.workflow_script_slug\n\t\t\twhere p.is_executable\n\t\t\tunion all\n\t\t\tselect u.id, 'kernel:data-json:' || u.id, null::text, null::text, null::text, null::text, null::text, null::text, null::text, 'data-json', 'Data import', 'Import generic entities, relationships, and events from JSON.', 0, 'data-json', null::text, '{\"unknownKeys\":\"strict\",\"fields\":{\"submissionKey\":{\"type\":\"string\",\"label\":\"Submission key\",\"description\":\"Optional key to reuse the same run when retrying this submission.\"},\"uploadToken\":{\"type\":\"string\",\"label\":\"JSON file\",\"validation\":{\"required\":true},\"description\":\"A Ryot data document using existing schemas.\",\"format\":{\"kind\":\"upload\",\"allowedFileExtensions\":[\"json\"]}}}}'::jsonb, '{}'::text[], null::jsonb, null::jsonb\n\t\t\tfrom \"user\" u\n\t\t",
 			"with": null,
 			"withNoData": null,
 			"using": null,
@@ -14819,7 +14953,7 @@
 			"schema": "public"
 		},
 		{
-			"definition": "\n\t\t\tselect p.user_id, d.id, p.plugin_id, d.plugin_revision_id, p.slug as plugin_slug, p.scope as plugin_scope, p.installation_id, p.config_revision_id, d.slug, d.name, d.description, d.position, d.lot, d.script_slug, s.id as script_id, d.settings_schema, d.requires_pro_key, d.supports_ownership_sync\n\t\t\tfrom \"user_plugin\" p\n\t\t\tjoin definition_integration_provider d on d.plugin_revision_id = p.active_revision_id\n\t\t\tleft join sandbox_script s on s.plugin_revision_id = d.plugin_revision_id and s.slug = d.script_slug\n\t\t\twhere p.is_executable and not exists (select 1 from \"user_plugin\" sp join definition_integration_provider g on g.plugin_revision_id = sp.active_revision_id where sp.user_id = p.user_id and sp.plugin_id <> p.plugin_id and sp.scope = 'system' and sp.is_executable and g.slug = d.slug)\n\t\t\tunion all\n\t\t\tselect u.id, 'kernel:data-json:' || u.id, null::text, null::text, null::text, null::text, null::text, null::text, 'data-json', 'Data webhook', 'Receive generic entities, relationships, and events as JSON.', 0, 'sink', null::text, null::text, '{\"fields\":{},\"unknownKeys\":\"strict\"}'::jsonb, false, false\n\t\t\tfrom \"user\" u\n\t\t",
+			"definition": "\n\t\t\tselect p.user_id, d.id, p.plugin_id, p.package_id, d.plugin_revision_id, p.slug as plugin_slug, p.scope as plugin_scope, p.installation_id, p.config_revision_id, d.slug, d.name, d.description, d.position, d.lot, d.script_slug, s.id as script_id, d.settings_schema, d.requires_pro_key, d.supports_ownership_sync\n\t\t\tfrom \"user_plugin\" p\n\t\t\tjoin definition_integration_provider d on d.plugin_revision_id = p.active_revision_id\n\t\t\tleft join sandbox_script s on s.plugin_revision_id = d.plugin_revision_id and s.slug = d.script_slug\n\t\t\twhere p.is_executable\n\t\t\tunion all\n\t\t\tselect u.id, 'kernel:data-json:' || u.id, null::text, null::text, null::text, null::text, null::text, null::text, null::text, 'data-json', 'Data webhook', 'Receive generic entities, relationships, and events as JSON.', 0, 'sink', null::text, null::text, '{\"fields\":{},\"unknownKeys\":\"strict\"}'::jsonb, false, false\n\t\t\tfrom \"user\" u\n\t\t",
 			"with": null,
 			"withNoData": null,
 			"using": null,
@@ -14830,7 +14964,7 @@
 			"schema": "public"
 		},
 		{
-			"definition": "\n\t\t\tselect u.id as user_id, d.id, null::text as plugin_id, d.plugin_revision_id, null::text as plugin_slug, null::text as plugin_scope, d.slug, d.name, d.position, d.source_entity_schema_slug, d.target_entity_schema_slug, d.properties_schema, true as is_effective\n\t\t\tfrom definition_relationship_schema d\n\t\t\tcross join \"user\" u\n\t\t\twhere d.plugin_revision_id is null\n\t\t\tunion all\n\t\t\tselect p.user_id, d.id, p.plugin_id, d.plugin_revision_id, p.slug, p.scope, d.slug, d.name, d.position, d.source_entity_schema_slug, d.target_entity_schema_slug, d.properties_schema, p.is_definition_effective and (d.source_entity_schema_slug is null or exists (select 1 from \"user_entity_schema\" e where e.user_id = p.user_id and e.slug = d.source_entity_schema_slug and e.is_effective)) and (d.target_entity_schema_slug is null or exists (select 1 from \"user_entity_schema\" e where e.user_id = p.user_id and e.slug = d.target_entity_schema_slug and e.is_effective))\n\t\t\tfrom \"user_plugin\" p\n\t\t\tjoin definition_relationship_schema d on d.plugin_revision_id = p.active_revision_id\n\t\t\twhere p.is_listed and (p.scope = 'system' or not exists (select 1 from \"global_relationship_schema\" g where g.slug = d.slug)) and (d.source_entity_schema_slug is null or exists (select 1 from \"user_entity_schema\" e where e.user_id = p.user_id and e.slug = d.source_entity_schema_slug)) and (d.target_entity_schema_slug is null or exists (select 1 from \"user_entity_schema\" e where e.user_id = p.user_id and e.slug = d.target_entity_schema_slug))\n\t\t",
+			"definition": "\n\t\t\tselect u.id as user_id, d.id, null::text as plugin_id, null::text as package_id, d.plugin_revision_id, null::text as plugin_slug, null::text as plugin_scope, d.slug, d.name, d.position, d.source_entity_schema_slug, d.target_entity_schema_slug, d.properties_schema, true as is_effective\n\t\t\tfrom definition_relationship_schema d\n\t\t\tcross join \"user\" u\n\t\t\twhere d.plugin_revision_id is null\n\t\t\tunion all\n\t\t\tselect p.user_id, d.id, p.plugin_id, p.package_id, d.plugin_revision_id, p.slug, p.scope, d.slug, d.name, d.position, d.source_entity_schema_slug, d.target_entity_schema_slug, d.properties_schema, p.is_definition_effective and (d.source_entity_schema_slug is null or exists (select 1 from \"user_entity_schema\" e where e.user_id = p.user_id and e.plugin_id = p.plugin_id and e.slug = d.source_entity_schema_slug and e.is_effective)) and (d.target_entity_schema_slug is null or exists (select 1 from \"user_entity_schema\" e where e.user_id = p.user_id and e.plugin_id = p.plugin_id and e.slug = d.target_entity_schema_slug and e.is_effective))\n\t\t\tfrom \"user_plugin\" p\n\t\t\tjoin definition_relationship_schema d on d.plugin_revision_id = p.active_revision_id\n\t\t\twhere p.is_listed and (d.source_entity_schema_slug is null or exists (select 1 from \"user_entity_schema\" e where e.user_id = p.user_id and e.plugin_id = p.plugin_id and e.slug = d.source_entity_schema_slug)) and (d.target_entity_schema_slug is null or exists (select 1 from \"user_entity_schema\" e where e.user_id = p.user_id and e.plugin_id = p.plugin_id and e.slug = d.target_entity_schema_slug))\n\t\t",
 			"with": null,
 			"withNoData": null,
 			"using": null,
@@ -14841,7 +14975,7 @@
 			"schema": "public"
 		},
 		{
-			"definition": "\n\t\t\tselect p.user_id, s.id, s.plugin_id, p.scope as plugin_scope, p.installation_id, s.slug, s.name, s.root_entity_schema_slug, s.information, s.created_at, s.updated_at\n\t\t\tfrom \"user_plugin\" p\n\t\t\tjoin sandbox_provider s on s.plugin_id = p.plugin_id\n\t\t\tjoin plugin_revision r on r.id = p.active_revision_id\n\t\t\twhere p.is_executable and exists (select 1 from jsonb_array_elements(r.manifest -> 'providers') m where m ->> 'slug' = s.slug) and exists (select 1 from \"user_entity_schema\" e where e.user_id = p.user_id and e.slug = s.root_entity_schema_slug and e.is_effective)\n\t\t",
+			"definition": "\n\t\t\tselect p.user_id, s.id, s.plugin_id, p.package_id, p.scope as plugin_scope, p.installation_id, s.slug, s.name, s.root_entity_schema_slug, s.information, s.created_at, s.updated_at\n\t\t\tfrom \"user_plugin\" p\n\t\t\tjoin sandbox_provider s on s.plugin_id = p.plugin_id\n\t\t\tjoin plugin_revision r on r.id = p.active_revision_id\n\t\t\twhere p.is_executable and exists (select 1 from jsonb_array_elements(r.manifest -> 'providers') m where m ->> 'slug' = s.slug and m ->> 'rootEntitySchemaSlug' = s.root_entity_schema_slug) and exists (select 1 from \"user_entity_schema\" e where e.user_id = p.user_id and e.plugin_id = s.plugin_id and e.slug = s.root_entity_schema_slug and e.is_effective)\n\t\t",
 			"with": null,
 			"withNoData": null,
 			"using": null,
@@ -14852,7 +14986,7 @@
 			"schema": "public"
 		},
 		{
-			"definition": "\n\t\tselect provider.user_id, provider.id as provider_id,\n\t\t\tcase when operation.key = 'searchOptions' then 'search-options' else operation.key end as operation,\n\t\t\tcase when operation.key = 'search' then script.metadata -> 'searchOptionsSchema' else null end as options_schema\n\t\tfrom \"user_sandbox_provider\" provider\n\t\tjoin plugin p on p.id = provider.plugin_id\n\t\tjoin plugin_revision r on r.id = p.active_revision_id\n\t\tjoin lateral jsonb_array_elements(r.manifest -> 'providers') as definition(value) on definition.value ->> 'slug' = provider.slug\n\t\tjoin lateral jsonb_each_text(definition.value -> 'operations') as operation(key, value) on true\n\t\tjoin sandbox_script script on script.plugin_revision_id = r.id\n\t\t\tand script.slug = operation.value and script.provider_id = provider.id\n\t\t\tand script.metadata ->> 'kind' = 'provider'\n\t\t\tand script.metadata ->> 'providerOperation' = case when operation.key = 'searchOptions' then 'search-options' else operation.key end\n\t",
+			"definition": "\n\t\tselect provider.user_id, provider.id as provider_id, provider.plugin_id, provider.package_id,\n\t\t\tcase when operation.key = 'searchOptions' then 'search-options' else operation.key end as operation,\n\t\t\tcase when operation.key = 'search' then script.metadata -> 'searchOptionsSchema' else null end as options_schema\n\t\tfrom \"user_sandbox_provider\" provider\n\t\tjoin plugin p on p.id = provider.plugin_id\n\t\tjoin plugin_revision r on r.id = p.active_revision_id\n\t\tjoin lateral jsonb_array_elements(r.manifest -> 'providers') as definition(value) on definition.value ->> 'slug' = provider.slug\n\t\tjoin lateral jsonb_each_text(definition.value -> 'operations') as operation(key, value) on true\n\t\tjoin sandbox_script script on script.plugin_revision_id = r.id\n\t\t\tand script.slug = operation.value and script.provider_id = provider.id\n\t\t\tand script.metadata ->> 'kind' = 'provider'\n\t\t\tand script.metadata ->> 'providerOperation' = case when operation.key = 'searchOptions' then 'search-options' else operation.key end\n\t",
 			"with": null,
 			"withNoData": null,
 			"using": null,
@@ -14863,7 +14997,7 @@
 			"schema": "public"
 		},
 		{
-			"definition": "\n\t\t\tselect u.id as user_id, d.id, null::text as plugin_id, d.plugin_revision_id, null::text as plugin_slug, null::text as plugin_scope, d.slug, d.name, d.position, d.icon, d.sort_order, d.data_sources, d.settings, d.renderer, true as is_effective\n\t\t\tfrom definition_saved_view d\n\t\t\tcross join \"user\" u\n\t\t\twhere d.plugin_revision_id is null\n\t\t\tunion all\n\t\t\tselect p.user_id, d.id, p.plugin_id, d.plugin_revision_id, p.slug, p.scope, d.slug, d.name, d.position, d.icon, d.sort_order, d.data_sources, d.settings, d.renderer, p.is_definition_effective\n\t\t\tfrom \"user_plugin\" p\n\t\t\tjoin definition_saved_view d on d.plugin_revision_id = p.active_revision_id\n\t\t\twhere p.is_listed and (p.scope = 'system' or not exists (select 1 from \"global_saved_view\" g where g.slug = d.slug))\n\t\t",
+			"definition": "\n\t\t\tselect u.id as user_id, d.id, null::text as plugin_id, null::text as package_id, d.plugin_revision_id, null::text as plugin_slug, null::text as plugin_scope, d.slug, d.name, d.position, d.icon, d.sort_order, d.data_sources, d.settings, d.renderer, true as is_effective\n\t\t\tfrom definition_saved_view d\n\t\t\tcross join \"user\" u\n\t\t\twhere d.plugin_revision_id is null\n\t\t\tunion all\n\t\t\tselect p.user_id, d.id, p.plugin_id, p.package_id, d.plugin_revision_id, p.slug, p.scope, d.slug, d.name, d.position, d.icon, d.sort_order, d.data_sources, d.settings, d.renderer, p.is_definition_effective\n\t\t\tfrom \"user_plugin\" p\n\t\t\tjoin definition_saved_view d on d.plugin_revision_id = p.active_revision_id\n\t\t\twhere p.is_listed\n\t\t",
 			"with": null,
 			"withNoData": null,
 			"using": null,
@@ -14874,7 +15008,7 @@
 			"schema": "public"
 		},
 		{
-			"definition": "\n\tselect s.id, null::text as plugin_id, custom_plugin.slug as plugin_slug,\n\t\ts.user_id, s.slug, s.name, s.icon, s.plugin_installation_id,\n\t\ts.revision, s.sort_order, s.data_sources, false as is_builtin,\n\t\ts.is_hidden, s.renderer, s.created_at, s.settings, s.updated_at\n\tfrom \"saved_view\" s\n\tleft join \"plugin_installation\" custom_installation on custom_installation.id = s.plugin_installation_id\n\tleft join \"plugin\" custom_plugin on custom_plugin.id = custom_installation.plugin_id\n\tunion all\n\tselect 'builtin:' || d.user_id || ':' || d.slug as id, d.plugin_id, d.plugin_slug,\n\t\td.user_id, d.slug, d.name, d.icon, p.installation_id as plugin_installation_id,\n\t\thashtext(d.id || ':' || coalesce(o.revision, 0)::text) as revision,\n\t\tcoalesce(o.sort_order, d.sort_order) as sort_order, d.data_sources, true as is_builtin,\n\t\tcoalesce(o.is_hidden, false) as is_hidden, d.renderer,\n\t\tnull::timestamptz as created_at, d.settings, null::timestamptz as updated_at\n\tfrom \"user_saved_view\" d\n\tleft join \"user_plugin\" p on p.user_id = d.user_id and p.plugin_id = d.plugin_id\n\tleft join \"saved_view_override\" o on o.user_id = d.user_id and o.slug = d.slug\n\t\tand o.plugin_id is not distinct from d.plugin_id\n",
+			"definition": "\n\tselect s.id, null::text as plugin_id, custom_plugin.package_id, custom_plugin.slug as plugin_slug,\n\t\ts.user_id, s.slug, s.name, s.icon, s.plugin_installation_id,\n\t\ts.revision, s.sort_order, s.data_sources, false as is_builtin,\n\t\ts.is_hidden, s.renderer, s.created_at, s.settings, s.updated_at\n\tfrom \"saved_view\" s\n\tleft join \"plugin_installation\" custom_installation on custom_installation.id = s.plugin_installation_id\n\tleft join \"plugin\" custom_plugin on custom_plugin.id = custom_installation.plugin_id\n\tunion all\n\tselect 'builtin:' || char_length(d.user_id)::text || ':' || d.user_id || char_length(case when d.plugin_id is null then 'kernel' else 'plugin' end)::text || ':' || case when d.plugin_id is null then 'kernel' else 'plugin' end || char_length(coalesce(d.plugin_id, ''))::text || ':' || coalesce(d.plugin_id, '') || char_length(d.slug)::text || ':' || d.slug as id, d.plugin_id, d.package_id, d.plugin_slug,\n\t\td.user_id, d.slug, d.name, d.icon, p.installation_id as plugin_installation_id,\n\t\thashtext(d.id || ':' || coalesce(o.revision, 0)::text) as revision,\n\t\tcoalesce(o.sort_order, d.sort_order) as sort_order, d.data_sources, true as is_builtin,\n\t\tcoalesce(o.is_hidden, false) as is_hidden, d.renderer,\n\t\tnull::timestamptz as created_at, d.settings, null::timestamptz as updated_at\n\tfrom \"user_saved_view\" d\n\tleft join \"user_plugin\" p on p.user_id = d.user_id and p.plugin_id = d.plugin_id\n\tleft join \"saved_view_override\" o on o.user_id = d.user_id and o.slug = d.slug\n\t\tand o.plugin_id is not distinct from d.plugin_id\n",
 			"with": null,
 			"withNoData": null,
 			"using": null,
@@ -14885,7 +15019,7 @@
 			"schema": "public"
 		},
 		{
-			"definition": "\n\t\t\tselect u.id as user_id, d.id, null::text as plugin_id, d.plugin_revision_id, null::text as plugin_slug, null::text as plugin_scope, d.slug, d.name, d.position, d.notification_hook_slug, d.properties_schema, d.audience_policy, d.catalog_state, true as is_effective\n\t\t\tfrom definition_signal_schema d\n\t\t\tcross join \"user\" u\n\t\t\twhere d.plugin_revision_id is null\n\t\t\tunion all\n\t\t\tselect p.user_id, d.id, p.plugin_id, d.plugin_revision_id, p.slug, p.scope, d.slug, d.name, d.position, d.notification_hook_slug, d.properties_schema, d.audience_policy, d.catalog_state, p.is_definition_effective and (d.audience_policy ->> 'kind' <> 'related_users' or exists (select 1 from \"user_relationship_schema\" r where r.user_id = p.user_id and r.slug = d.audience_policy ->> 'relationshipSchemaSlug' and r.is_effective))\n\t\t\tfrom \"user_plugin\" p\n\t\t\tjoin definition_signal_schema d on d.plugin_revision_id = p.active_revision_id\n\t\t\twhere p.is_listed and (p.scope = 'system' or not exists (select 1 from \"global_signal_schema\" g where g.slug = d.slug)) and (d.audience_policy ->> 'kind' <> 'related_users' or exists (select 1 from \"user_relationship_schema\" r where r.user_id = p.user_id and r.slug = d.audience_policy ->> 'relationshipSchemaSlug'))\n\t\t",
+			"definition": "\n\t\t\tselect u.id as user_id, d.id, null::text as plugin_id, null::text as package_id, d.plugin_revision_id, null::text as plugin_slug, null::text as plugin_scope, d.slug, d.name, d.position, d.notification_hook_slug, d.properties_schema, d.audience_policy, d.catalog_state, true as is_effective\n\t\t\tfrom definition_signal_schema d\n\t\t\tcross join \"user\" u\n\t\t\twhere d.plugin_revision_id is null\n\t\t\tunion all\n\t\t\tselect p.user_id, d.id, p.plugin_id, p.package_id, d.plugin_revision_id, p.slug, p.scope, d.slug, d.name, d.position, d.notification_hook_slug, d.properties_schema, d.audience_policy, d.catalog_state, p.is_definition_effective and (d.audience_policy ->> 'kind' <> 'related_users' or exists (select 1 from \"user_relationship_schema\" r where r.user_id = p.user_id and r.plugin_id = p.plugin_id and r.slug = d.audience_policy ->> 'relationshipSchemaSlug' and r.is_effective))\n\t\t\tfrom \"user_plugin\" p\n\t\t\tjoin definition_signal_schema d on d.plugin_revision_id = p.active_revision_id\n\t\t\twhere p.is_listed and (d.audience_policy ->> 'kind' <> 'related_users' or exists (select 1 from \"user_relationship_schema\" r where r.user_id = p.user_id and r.plugin_id = p.plugin_id and r.slug = d.audience_policy ->> 'relationshipSchemaSlug'))\n\t\t",
 			"with": null,
 			"withNoData": null,
 			"using": null,

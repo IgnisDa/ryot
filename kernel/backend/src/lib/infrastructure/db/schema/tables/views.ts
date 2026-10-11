@@ -6,21 +6,30 @@ import type { RyotQLDocument } from "@ryot-app/contract/modules/ryotql/language"
 import type { SavedViewRenderer } from "@ryot-app/contract/modules/saved-views/schemas";
 import type { JsonValue } from "@ryot-app/contract/schema/json";
 import { generateId } from "better-auth";
+import { sql, type SQL } from "drizzle-orm";
 import {
 	boolean,
 	foreignKey,
 	index,
 	integer,
 	jsonb,
-	primaryKey,
 	snakeCase,
 	text,
 	timestamp,
 	unique,
+	uniqueIndex,
 } from "drizzle-orm/pg-core";
 
 import { user } from "./auth";
 import { pluginInstallation } from "./core";
+
+const framed = (component: SQL) => sql`char_length(${component})::text || ':' || ${component}`;
+
+export const builtinSavedViewIdSql = (userId: SQL, pluginId: SQL, slug: SQL) => {
+	const ownerKind = sql`case when ${pluginId} is null then 'kernel' else 'plugin' end`;
+	const ownerId = sql`coalesce(${pluginId}, '')`;
+	return sql<string>`'builtin:' || ${framed(userId)} || ${framed(ownerKind)} || ${framed(ownerId)} || ${framed(slug)}`;
+};
 
 export const clientPageComposition = snakeCase.table("client_page_composition", {
 	compositionKey: text().primaryKey(),
@@ -42,7 +51,6 @@ export const pluginCatalogChange = snakeCase.table(
 	(table) => [index("plugin_catalog_change_user_id_idx").on(table.userId)],
 );
 
-// TODO: Expose as an RSS feed
 export const savedView = snakeCase.table(
 	"saved_view",
 	{
@@ -93,5 +101,12 @@ export const savedViewOverride = snakeCase.table(
 			.notNull()
 			.references(() => user.id, { onDelete: "cascade" }),
 	},
-	(table) => [primaryKey({ columns: [table.userId, table.slug] })],
+	(table) => [
+		uniqueIndex("saved_view_override_kernel_unique")
+			.on(table.userId, table.slug)
+			.where(sql`${table.pluginId} is null`),
+		uniqueIndex("saved_view_override_plugin_unique")
+			.on(table.userId, table.pluginId, table.slug)
+			.where(sql`${table.pluginId} is not null`),
+	],
 );
