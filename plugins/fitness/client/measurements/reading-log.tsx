@@ -1,12 +1,12 @@
 import { useRyotMutation, useRyotQuery } from "@ryot-app/plugin-client-sdk/react";
-import { Button, DestructiveConfirmation, StatusMessage } from "@ryot-app/plugin-ui-sdk";
+import { Button, Card, DestructiveConfirmation, StatusMessage } from "@ryot-app/plugin-ui-sdk";
 import clsx from "clsx";
-import { Fragment, useMemo, useRef, useState, type RefObject } from "react";
+import { Fragment, useEffect, useMemo, useRef, useState, type RefObject } from "react";
 
 import { sectionHeadingClass } from "../exercise/styles";
+import { formatNumber } from "../workout/format";
 import {
 	formatDay,
-	formatNumber,
 	formatTime,
 	formatValue,
 	groupByMonth,
@@ -20,11 +20,9 @@ import {
 import { deleteReadingsMutation, readingFailureMessage, updateReadingsMutation } from "./mutations";
 import { readingsQuery } from "./queries";
 import { MeasurementDialog } from "./reading-composer";
+import { tableHeaderClass } from "./styles";
 
 type LogMetric = { readonly id: string; readonly name: string; readonly unit: string | null };
-
-const headerClass =
-	"bg-surface-2 px-3 py-2 text-left text-[11.5px] font-medium tracking-wider whitespace-nowrap text-text-subtle uppercase";
 
 function ValueCell(props: { readonly reading: ReadingValue | undefined }) {
 	const { reading } = props;
@@ -54,8 +52,13 @@ function EditMeasurementDialog(props: {
 	readonly metrics: readonly LogMetric[];
 	readonly triggerRef: RefObject<HTMLButtonElement | null>;
 }) {
-	const { group, metrics } = props;
+	const { group, metrics, onClose } = props;
 	const update = useRyotMutation(updateReadingsMutation);
+	useEffect(() => {
+		if (update.data !== undefined) {
+			onClose();
+		}
+	}, [update.data, onClose]);
 	const [initial] = useState(() => ({
 		comment: group.comment,
 		occurredAt: group.occurredAt,
@@ -68,20 +71,48 @@ function EditMeasurementDialog(props: {
 		<MeasurementDialog
 			initial={initial}
 			metrics={metrics}
+			onClose={onClose}
 			submitLabel="Save"
 			pendingLabel="Saving…"
 			onChange={update.reset}
-			onClose={props.onClose}
 			label="Edit measurement"
 			pending={update.isPending}
 			triggerRef={props.triggerRef}
 			errorMessage={readingFailureMessage(update.error, "edit")}
 			onSubmit={(readings) =>
-				update.mutate({
-					onSuccess: props.onClose,
-					readings: { ...readings, readingIds: [...group.values.values()].map(({ id }) => id) },
-				})
+				update.mutate({ ...readings, readingIds: [...group.values.values()].map(({ id }) => id) })
 			}
+		/>
+	);
+}
+
+function DeleteMeasurementConfirmation(props: {
+	readonly group: ReadingGroup;
+	readonly takenAt: string;
+	readonly onClose: () => void;
+	readonly triggerRef: RefObject<HTMLButtonElement | null>;
+}) {
+	const { group, onClose, takenAt } = props;
+	const remove = useRyotMutation(deleteReadingsMutation);
+	useEffect(() => {
+		if (remove.data !== undefined) {
+			onClose();
+		}
+	}, [remove.data, onClose]);
+	const count = group.values.size;
+	return (
+		<DestructiveConfirmation
+			onClose={onClose}
+			pendingLabel="Deleting…"
+			pending={remove.isPending}
+			title="Delete measurement?"
+			triggerRef={props.triggerRef}
+			actionLabel="Delete measurement"
+			errorMessage={readingFailureMessage(remove.error, "delete")}
+			onConfirm={() =>
+				remove.mutate({ readingIds: [...group.values.values()].map(({ id }) => id) })
+			}
+			detail={`The ${count === 1 ? "reading" : `${count} readings`} taken on ${takenAt} will be removed permanently.`}
 		/>
 	);
 }
@@ -96,9 +127,7 @@ function ReadingActions(props: {
 	const deleteTrigger = useRef<HTMLButtonElement>(null);
 	const [editing, setEditing] = useState(false);
 	const [confirming, setConfirming] = useState(false);
-	const remove = useRyotMutation(deleteReadingsMutation);
 	const takenAt = `${formatDay(group.occurredAt, timeZone)} ${formatTime(group.occurredAt, timeZone)}`;
-	const count = group.values.size;
 	return (
 		<td className="px-3 py-2 text-right whitespace-nowrap">
 			<button
@@ -114,30 +143,17 @@ function ReadingActions(props: {
 				type="button"
 				ref={deleteTrigger}
 				className={actionButtonClass}
+				onClick={() => setConfirming(true)}
 				aria-label={`Delete measurement from ${takenAt}`}
-				onClick={() => {
-					remove.reset();
-					setConfirming(true);
-				}}
 			>
 				Delete
 			</button>
 			{confirming ? (
-				<DestructiveConfirmation
-					pendingLabel="Deleting…"
-					pending={remove.isPending}
+				<DeleteMeasurementConfirmation
+					group={group}
+					takenAt={takenAt}
 					triggerRef={deleteTrigger}
-					title="Delete measurement?"
-					actionLabel="Delete measurement"
 					onClose={() => setConfirming(false)}
-					errorMessage={readingFailureMessage(remove.error, "delete")}
-					detail={`The ${count === 1 ? "reading" : `${count} readings`} taken on ${takenAt} will be removed permanently.`}
-					onConfirm={() =>
-						remove.mutate({
-							onSuccess: () => setConfirming(false),
-							readings: { readingIds: [...group.values.values()].map(({ id }) => id) },
-						})
-					}
 				/>
 			) : null}
 			{editing ? (
@@ -171,28 +187,28 @@ export function ReadingLogTable(props: {
 			return next;
 		});
 	return (
-		<div className="overflow-x-auto rounded-xl border border-border">
+		<Card padding="none" className="overflow-x-auto">
 			<table className="w-full min-w-150 border-collapse text-[14px]">
 				<thead>
 					<tr>
-						<th scope="col" className={headerClass}>
+						<th scope="col" className={tableHeaderClass}>
 							Date
 						</th>
 						{columns.map(({ id, name, unit }) => (
-							<th key={id} scope="col" className={clsx(headerClass, "text-right")}>
+							<th key={id} scope="col" className={clsx(tableHeaderClass, "text-right")}>
 								{name}
 								{unit === null || unit === "" ? null : (
 									<span className="tracking-normal normal-case"> ({unit})</span>
 								)}
 							</th>
 						))}
-						<th scope="col" className={headerClass}>
+						<th scope="col" className={tableHeaderClass}>
 							Other
 						</th>
-						<th scope="col" className={headerClass}>
+						<th scope="col" className={tableHeaderClass}>
 							Note
 						</th>
-						<th scope="col" className={headerClass}>
+						<th scope="col" className={tableHeaderClass}>
 							<span className="sr-only">Actions</span>
 						</th>
 					</tr>
@@ -271,7 +287,7 @@ export function ReadingLogTable(props: {
 					))}
 				</tbody>
 			</table>
-		</div>
+		</Card>
 	);
 }
 

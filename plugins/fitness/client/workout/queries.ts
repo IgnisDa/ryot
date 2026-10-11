@@ -1,3 +1,4 @@
+import { readCursorPages } from "@ryot-app/plugin-client-sdk";
 import { Effect } from "@ryot-app/plugin-client-sdk/effect";
 import { createRyotQuery } from "@ryot-app/plugin-client-sdk/react";
 
@@ -8,7 +9,9 @@ import {
 	workoutDetailsSetsRecipe,
 	type WorkoutDetails,
 } from "../../shared/workout-details-recipes";
-import { readEditorPages } from "../workout-editor/queries";
+
+const readItems = <A>(read: Parameters<typeof readCursorPages<A>>[0]) =>
+	Effect.map(readCursorPages(read), ({ items }) => items);
 
 export const workoutDetailsQuery = createRyotQuery<
 	{ readonly entityId: string },
@@ -22,10 +25,10 @@ export const workoutDetailsQuery = createRyotQuery<
 			if (workout === null) {
 				return null;
 			}
-			const exercises = yield* readEditorPages((after) =>
+			const exercises = yield* readItems((after) =>
 				client.data.query(workoutDetailsExercisesRecipe({ after, reference, workoutId })),
 			);
-			const sets = yield* readEditorPages((after) =>
+			const sets = yield* readItems((after) =>
 				client.data.query(workoutDetailsSetsRecipe({ after, reference, workoutId })),
 			);
 			const loaded = yield* Effect.forEach(
@@ -36,7 +39,7 @@ export const workoutDetailsQuery = createRyotQuery<
 						const previousSets =
 							previousWorkoutId === null
 								? []
-								: yield* readEditorPages((after) =>
+								: yield* readItems((after) =>
 										client.data.query(
 											workoutDetailsSetsRecipe({
 												after,

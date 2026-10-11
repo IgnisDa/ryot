@@ -1,4 +1,4 @@
-import { SegmentedControl, StatusMessage } from "@ryot-app/plugin-ui-sdk";
+import { Card, SegmentedControl, StatusMessage } from "@ryot-app/plugin-ui-sdk";
 import { Sparkline } from "@ryot-app/plugin-ui-sdk/charts";
 import { AppIcon } from "@ryot-app/plugin-ui-sdk/icon";
 import clsx from "clsx";
@@ -14,6 +14,7 @@ import {
 	type MetricSort,
 	type RangeKey,
 } from "./model";
+import { tableHeaderClass } from "./styles";
 
 const sortOptions = [
 	{ value: "recent", label: "Recent", content: "Recent" },
@@ -24,9 +25,6 @@ const sortOptions = [
 	readonly value: MetricSort;
 	readonly content: string;
 }[];
-
-const headerClass =
-	"bg-surface-2 px-3 py-2 text-left text-[11.5px] font-medium tracking-wider whitespace-nowrap text-text-subtle uppercase";
 
 export function MetricsTable(props: {
 	readonly range: RangeKey;
@@ -58,26 +56,26 @@ export function MetricsTable(props: {
 			{props.pinError === undefined ? null : (
 				<StatusMessage tone="error">{props.pinError}</StatusMessage>
 			)}
-			<div className="overflow-x-auto rounded-xl border border-border">
+			<Card padding="none" className="overflow-x-auto">
 				<table className="w-full min-w-155 border-collapse text-[14px]">
 					<thead>
 						<tr>
-							<th scope="col" className={clsx(headerClass, "w-9")}>
+							<th scope="col" className={clsx(tableHeaderClass, "w-9")}>
 								<span className="sr-only">Pin</span>
 							</th>
-							<th scope="col" className={headerClass}>
+							<th scope="col" className={tableHeaderClass}>
 								Metric
 							</th>
-							<th scope="col" className={clsx(headerClass, "text-right")}>
+							<th scope="col" className={clsx(tableHeaderClass, "text-right")}>
 								Latest
 							</th>
-							<th scope="col" className={clsx(headerClass, "text-right")}>
+							<th scope="col" className={clsx(tableHeaderClass, "text-right")}>
 								Change, {rangePhrase(range)}
 							</th>
-							<th scope="col" className={headerClass}>
+							<th scope="col" className={tableHeaderClass}>
 								Trend
 							</th>
-							<th scope="col" className={clsx(headerClass, "text-right")}>
+							<th scope="col" className={clsx(tableHeaderClass, "text-right")}>
 								Last logged
 							</th>
 						</tr>
@@ -146,7 +144,7 @@ export function MetricsTable(props: {
 						})}
 					</tbody>
 				</table>
-			</div>
+			</Card>
 		</section>
 	);
 }

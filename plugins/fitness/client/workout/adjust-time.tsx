@@ -15,11 +15,14 @@ import {
 	SegmentedControl,
 	TextField,
 } from "@ryot-app/plugin-ui-sdk";
-import { AppIcon } from "@ryot-app/plugin-ui-sdk/icon";
 import { useEffect, useState } from "react";
 
 import { PLUGIN_PACKAGE_ID } from "../../shared/plugin-identity";
 import { workoutTimeCorrectionOperationSlug } from "../../shared/workout-editor-context-operations";
+import {
+	WorkoutPropertiesSchema,
+	type WorkoutProperties,
+} from "../../shared/workout-editor-properties";
 import {
 	encodeWorkoutEditorBaseline,
 	workoutEditorEntityRecipe,
@@ -29,6 +32,7 @@ import {
 	WorkoutTimeCorrectionInputSchema,
 	WorkoutTimeCorrectionOutputSchema,
 } from "../../shared/workout-time-operations";
+import { fromDateTimeInput, toDateTimeInput } from "../datetime-input";
 
 type Correction = Omit<
 	typeof WorkoutTimeCorrectionInputSchema.Type,
@@ -38,58 +42,44 @@ const correctTime = createRyotMutation<
 	RyotSubmission<Correction>,
 	typeof WorkoutTimeCorrectionOutputSchema.Type
 >(({ input, client }) =>
-	Schema.encodeEffect(Schema.toCodecJson(WorkoutTimeCorrectionInputSchema))({
-		...input.input,
-		submittedAt: input.submittedAt,
-		submissionId: input.submissionId,
-	}).pipe(
-		Effect.mapError(() => new RyotClientError("invalid-input")),
-		Effect.flatMap((payload) =>
-			client.operations.invoke({
-				input: payload,
-				packageId: PLUGIN_PACKAGE_ID,
-				slug: workoutTimeCorrectionOperationSlug,
-				output: WorkoutTimeCorrectionOutputSchema,
-			}),
-		),
-	),
+	client.operations.invoke({
+		packageId: PLUGIN_PACKAGE_ID,
+		slug: workoutTimeCorrectionOperationSlug,
+		output: WorkoutTimeCorrectionOutputSchema,
+		inputSchema: WorkoutTimeCorrectionInputSchema,
+		input: { ...input.input, submittedAt: input.submittedAt, submissionId: input.submissionId },
+	}),
 );
 const timeSourceQuery = () =>
 	createRyotQuery(({ input, client }: { readonly client: RyotClient; readonly input: string }) =>
-		client.data.query(
-			workoutEditorEntityRecipe({
-				entityId: input,
-				kind: "workout",
-				reference: client.pluginIdentity(PLUGIN_PACKAGE_ID),
-			}),
-		),
+		Effect.gen(function* () {
+			const entity = yield* client.data.query(
+				workoutEditorEntityRecipe({
+					entityId: input,
+					kind: "workout",
+					reference: client.pluginIdentity(PLUGIN_PACKAGE_ID),
+				}),
+			);
+			if (entity === null) {
+				return null;
+			}
+			const properties = yield* Schema.decodeUnknownEffect(WorkoutPropertiesSchema)(
+				entity.properties,
+			).pipe(Effect.mapError(() => new RyotClientError("malformed-result")));
+			return { entity, properties };
+		}),
 	);
-
-const pad = (value: number) => String(value).padStart(2, "0");
-const timeCorrectionInputValue = (iso: string) => {
-	const date = new Date(iso);
-	return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
-};
 
 function TimeForm(props: {
-	readonly entity: WorkoutEditorBaseline["entity"];
 	readonly onClose: () => void;
+	readonly properties: WorkoutProperties;
+	readonly entity: WorkoutEditorBaseline["entity"];
 }) {
-	const { entity, onClose } = props;
-	const originalStart =
-		typeof entity.properties["startedAt"] === "string" ? entity.properties["startedAt"] : "";
-	const originalEnd =
-		typeof entity.properties["endedAt"] === "string" ? entity.properties["endedAt"] : "";
-	const initialStart = originalStart === "" ? "" : timeCorrectionInputValue(originalStart);
-	const initialEnd = originalEnd === "" ? "" : timeCorrectionInputValue(originalEnd);
-	const [start, setStart] = useState(initialStart);
-	const [end, setEnd] = useState(initialEnd);
+	const { entity, onClose, properties } = props;
+	const [start, setStart] = useState(toDateTimeInput(properties.startedAt));
+	const [end, setEnd] = useState(properties.endedAt ? toDateTimeInput(properties.endedAt) : "");
 	const [intent, setIntent] = useState("preserve");
-	const [seconds, setSeconds] = useState(
-		typeof entity.properties["activeDuration"] === "number"
-			? String(entity.properties["activeDuration"])
-			: "",
-	);
+	const [seconds, setSeconds] = useState(String(properties.activeDuration ?? ""));
 	const [message, setMessage] = useState<string>();
 	const save = useRyotSubmission(correctTime, { isComplete: (result) => result.kind === "saved" });
 	useEffect(() => {
@@ -106,11 +96,8 @@ function TimeForm(props: {
 			setMessage("Enter valid dates and times.");
 			return;
 		}
-		const startedAt = start === initialStart ? originalStart : new Date(start).toISOString();
-		let endedAt: string | undefined;
-		if (end !== "") {
-			endedAt = end === initialEnd ? originalEnd : new Date(end).toISOString();
-		}
+		const startedAt = fromDateTimeInput(start, properties.startedAt);
+		const endedAt = end === "" ? undefined : fromDateTimeInput(end, properties.endedAt);
 		if (
 			(endedAt !== undefined && Date.parse(endedAt) < Date.parse(startedAt)) ||
 			(intent === "set" &&
@@ -147,7 +134,6 @@ function TimeForm(props: {
 			title="Adjust workout time"
 			dismissible={!save.isPending}
 			closeLabel="Close time correction"
-			closeIcon={<AppIcon name="x" size={18} />}
 			description="Change session timestamps only. Set, confirmation, and rest-start times stay unchanged."
 			footer={
 				<Button
@@ -241,15 +227,16 @@ export function AdjustWorkoutTime(props: {
 	const [query] = useState(timeSourceQuery);
 	const source = useRyotQuery(query, props.entityId, { refreshOnMutation: false });
 	if (source.data) {
-		return <TimeForm entity={source.data} onClose={props.onClose} />;
+		return (
+			<TimeForm
+				onClose={props.onClose}
+				entity={source.data.entity}
+				properties={source.data.properties}
+			/>
+		);
 	}
 	return (
-		<Dialog
-			onClose={props.onClose}
-			title="Adjust workout time"
-			closeLabel="Close time correction"
-			closeIcon={<AppIcon name="x" size={18} />}
-		>
+		<Dialog onClose={props.onClose} title="Adjust workout time" closeLabel="Close time correction">
 			{source.isError ? (
 				<Notice
 					tone="danger"

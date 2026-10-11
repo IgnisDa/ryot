@@ -1,11 +1,11 @@
-import { Select } from "@ryot-app/plugin-ui-sdk";
+import { Card, Select } from "@ryot-app/plugin-ui-sdk";
 import { Sparkline, TimeSeriesChart } from "@ryot-app/plugin-ui-sdk/charts";
 import { AppIcon } from "@ryot-app/plugin-ui-sdk/icon";
 import clsx from "clsx";
 import { useMemo } from "react";
 
 import { MEASUREMENT_PIN_LIMIT } from "../../shared/measurement-metric-operations";
-import { cardClass, sectionHeadingClass } from "../exercise/styles";
+import { sectionHeadingClass } from "../exercise/styles";
 import {
 	CHART_GAP_MS,
 	formatChange,
@@ -16,9 +16,8 @@ import {
 	trendWindow,
 	type MetricRow,
 	type RangeKey,
+	unitSuffix,
 } from "./model";
-
-const unitSuffix = (unit: string | null) => (unit === null || unit === "" ? "" : ` (${unit})`);
 
 function LastLogged(props: {
 	readonly now: Date;
@@ -139,57 +138,61 @@ export function ChartCard(props: {
 		[compare],
 	);
 	return (
-		<section className={cardClass} aria-label="Metric chart">
-			<header className="flex flex-wrap items-center justify-between gap-x-5 gap-y-2">
-				<h2 className={sectionHeadingClass}>
-					{name}
-					{unitSuffix(unit)}
-					{compare === null ? null : (
-						<span className="font-ui text-[15px] font-medium text-text-muted">
-							{" "}
-							vs {compare.summary.name}
-							{unitSuffix(compare.summary.unit)}
-						</span>
-					)}
-				</h2>
-				<div className="flex items-center gap-2 text-[13px] text-text-muted">
-					<span>Compare with</span>
-					<Select
-						label="Compare with"
-						onChange={onCompareChange}
-						value={compare?.summary.id ?? ""}
-						checkIcon={<AppIcon size={14} name="check" />}
-						chevronIcon={<AppIcon size={14} name="chevron-down" />}
-						choices={[
-							{ value: "", label: "Nothing" },
-							...others.map(({ summary }) => ({ value: summary.id, label: summary.name })),
-						]}
-					/>
-				</div>
-			</header>
-			{selected.readings.length === 0 ? (
-				<p className="py-16 text-center text-[14px] text-text-muted">
-					No {name.toLowerCase()} readings in{" "}
-					{range === "All" ? "your history" : `the last ${rangePhrase(range)}`}.
-					{latestAt === null ? "" : ` The last one was on ${formatDay(latestAt, timeZone, true)}.`}
-				</p>
-			) : (
-				<>
-					<p className="text-[12.5px] text-text-muted">
-						Line is the {trendWindow(selected.readings.length)}-reading average, dots are readings,
-						and the shaded band spans low to high.
-						{compare === null ? "" : ` ${compare.summary.name} uses the right axis.`}
+		<section aria-label="Metric chart">
+			<Card padding="lg" className="flex min-w-0 flex-col gap-3 font-ui">
+				<header className="flex flex-wrap items-center justify-between gap-x-5 gap-y-2">
+					<h2 className={sectionHeadingClass}>
+						{name}
+						{unitSuffix(unit)}
+						{compare === null ? null : (
+							<span className="font-ui text-[15px] font-medium text-text-muted">
+								{" "}
+								vs {compare.summary.name}
+								{unitSuffix(compare.summary.unit)}
+							</span>
+						)}
+					</h2>
+					<div className="flex items-center gap-2 text-[13px] text-text-muted">
+						<span>Compare with</span>
+						<Select
+							label="Compare with"
+							onChange={onCompareChange}
+							value={compare?.summary.id ?? ""}
+							checkIcon={<AppIcon size={14} name="check" />}
+							chevronIcon={<AppIcon size={14} name="chevron-down" />}
+							choices={[
+								{ value: "", label: "Nothing" },
+								...others.map(({ summary }) => ({ value: summary.id, label: summary.name })),
+							]}
+						/>
+					</div>
+				</header>
+				{selected.readings.length === 0 ? (
+					<p className="py-16 text-center text-[14px] text-text-muted">
+						No {name.toLowerCase()} readings in{" "}
+						{range === "All" ? "your history" : `the last ${rangePhrase(range)}`}.
+						{latestAt === null
+							? ""
+							: ` The last one was on ${formatDay(latestAt, timeZone, true)}.`}
 					</p>
-					<TimeSeriesChart
-						range={window}
-						compact={compact}
-						primary={primary}
-						{...(compareSeries === undefined ? {} : { compare: compareSeries })}
-						gapMs={CHART_GAP_MS}
-						ariaLabel={`${name} over ${rangePhrase(range)}`}
-					/>
-				</>
-			)}
+				) : (
+					<>
+						<p className="text-[12.5px] text-text-muted">
+							Line is the {trendWindow(selected.readings.length)}-reading average, dots are
+							readings, and the shaded band spans low to high.
+							{compare === null ? "" : ` ${compare.summary.name} uses the right axis.`}
+						</p>
+						<TimeSeriesChart
+							range={window}
+							compact={compact}
+							primary={primary}
+							{...(compareSeries === undefined ? {} : { compare: compareSeries })}
+							gapMs={CHART_GAP_MS}
+							ariaLabel={`${name} over ${rangePhrase(range)}`}
+						/>
+					</>
+				)}
+			</Card>
 		</section>
 	);
 }

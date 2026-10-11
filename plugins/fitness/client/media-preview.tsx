@@ -1,8 +1,8 @@
-import { Button, Modal, StatusMessage } from "@ryot-app/plugin-ui-sdk";
+import { useAssetUrl } from "@ryot-app/plugin-client-sdk/react";
+import { Button, Dialog, StatusMessage } from "@ryot-app/plugin-ui-sdk";
 import { useEffect, useRef, useState } from "react";
 
 import type { WorkoutSetAssetLocator } from "../shared/workout-set";
-import { useAssetUrl } from "./asset-urls";
 
 export function MediaPreview(props: {
 	readonly asset: WorkoutSetAssetLocator;
@@ -66,14 +66,14 @@ export function MediaPreview(props: {
 			)}
 			{failed === undefined ? null : <StatusMessage tone="error">{failed}</StatusMessage>}
 			{expanded ? (
-				<Modal
-					label={`Preview ${props.label}`}
+				<Dialog
+					size="lg"
+					title={`Preview ${props.label}`}
 					closeLabel="Close image preview"
 					onClose={() => setExpanded(false)}
-					className="m-auto flex max-h-[90%] w-full max-w-2xl flex-col gap-4 overflow-y-auto rounded-xl border border-border bg-surface p-5 text-text shadow-card"
 				>
 					<img src={url} alt={props.label} className="max-h-[75vh] w-full object-contain" />
-				</Modal>
+				</Dialog>
 			) : null}
 		</>
 	);

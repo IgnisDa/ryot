@@ -1,9 +1,8 @@
-import { RyotClientError } from "@ryot-app/plugin-client-sdk";
-import { Effect, Schema } from "@ryot-app/plugin-client-sdk/effect";
+import type { Schema } from "@ryot-app/plugin-client-sdk/effect";
 import { createRyotMutation, type RyotSubmission } from "@ryot-app/plugin-client-sdk/react";
 
-import type { MeasurementMetricPinInput } from "../../shared/measurement-metric-operations";
 import {
+	MeasurementMetricPinInput,
 	MeasurementMetricPinOutput,
 	measurementMetricPinOperationSlug,
 } from "../../shared/measurement-metric-operations";
@@ -20,44 +19,31 @@ import {
 } from "../../shared/measurement-reading-operations";
 import { PLUGIN_PACKAGE_ID } from "../../shared/plugin-identity";
 
-const readingMutation = <A, I>(slug: string, schema: Schema.Codec<A, I>) =>
-	createRyotMutation<
-		{ readonly readings: A; readonly onSuccess: () => void },
-		typeof MeasurementReadingOutput.Type
-	>(({ client, input: { readings, onSuccess } }) =>
-		Schema.encodeEffect(Schema.toCodecJson(schema))(readings).pipe(
-			Effect.mapError(() => new RyotClientError("invalid-input")),
-			Effect.flatMap((input) =>
-				client.operations.invoke({
-					slug,
-					input,
-					packageId: PLUGIN_PACKAGE_ID,
-					output: MeasurementReadingOutput,
-				}),
-			),
-			Effect.tap(() => Effect.sync(onSuccess)),
-		),
+const readingMutation = <Input extends Schema.Codec<unknown, unknown>>(
+	slug: string,
+	inputSchema: Input,
+) =>
+	createRyotMutation<Input["Type"], typeof MeasurementReadingOutput.Type>(({ input, client }) =>
+		client.operations.invoke({
+			slug,
+			input,
+			inputSchema,
+			packageId: PLUGIN_PACKAGE_ID,
+			output: MeasurementReadingOutput,
+		}),
 	);
 
 export const logReadingsMutation = createRyotMutation<
 	RyotSubmission<MeasurementEntry>,
 	typeof MeasurementReadingLogOutput.Type
 >(({ client, input: { input, submittedAt, submissionId } }) =>
-	Schema.encodeEffect(Schema.toCodecJson(MeasurementReadingLogInput))({
-		...input,
-		submittedAt,
-		submissionId,
-	}).pipe(
-		Effect.mapError(() => new RyotClientError("invalid-input")),
-		Effect.flatMap((payload) =>
-			client.operations.invoke({
-				input: payload,
-				packageId: PLUGIN_PACKAGE_ID,
-				output: MeasurementReadingLogOutput,
-				slug: measurementReadingLogOperationSlug,
-			}),
-		),
-	),
+	client.operations.invoke({
+		packageId: PLUGIN_PACKAGE_ID,
+		output: MeasurementReadingLogOutput,
+		inputSchema: MeasurementReadingLogInput,
+		slug: measurementReadingLogOperationSlug,
+		input: { ...input, submittedAt, submissionId },
+	}),
 );
 
 export const updateReadingsMutation = readingMutation(
@@ -78,6 +64,7 @@ export const pinMetricMutation = createRyotMutation<
 		input,
 		packageId: PLUGIN_PACKAGE_ID,
 		output: MeasurementMetricPinOutput,
+		inputSchema: MeasurementMetricPinInput,
 		slug: measurementMetricPinOperationSlug,
 	}),
 );
