@@ -145,10 +145,6 @@
 	},
 	"overrides": [
 		{
-			"rules": { "no-restricted-imports": "off" },
-			"files": ["plugins/*/manifest/**/*.test.ts", "plugins/*/shared/**/*.test.ts"]
-		},
-		{
 			"files": ["kernel/sandbox/**"],
 			"rules": {
 				"no-restricted-imports": [
@@ -239,6 +235,10 @@
 					}
 				]
 			}
+		},
+		{
+			"rules": { "no-restricted-imports": "off" },
+			"files": ["plugins/*/manifest/**/*.test.ts", "plugins/*/shared/**/*.test.ts"]
 		}
 	]
 }
