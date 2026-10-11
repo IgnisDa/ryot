@@ -1,4 +1,5 @@
 import { EntityId } from "@ryot-app/contract/schema/brands";
+import { mediaPlugin } from "@ryot-app/media-plugin";
 import { Effect } from "effect";
 
 import {
@@ -8,13 +9,11 @@ import {
 	fakeProviderDetailsResult,
 	getApiClient,
 	getEntity,
-	providerSandboxSource,
-	replaceSandboxScriptCompiledRepresentation,
-	installTestProvider,
+	shippedPluginTestProviders,
 	startFakeAppriseServer,
-	type Client,
 	pollUntil,
 } from "~/fixtures/kernel";
+import type { AttachedTestProvider } from "~/fixtures/kernel/sandbox-provider";
 import {
 	countMediaMonitoringRelationships,
 	disableMediaMonitoring,
@@ -28,6 +27,7 @@ import {
 import { assertTaggedError, requireObjectRecord } from "~/support/assertions";
 import { afterAll, beforeAll, describe, expect, it, runPromise } from "~/support/effect-test";
 import type { FakeHttpServer } from "~/support/fake-http-server";
+import { startIsolatedHarness } from "~/support/isolated-harness";
 
 const providerName = "Media Monitoring E2E Provider";
 const apiExternalId = `media-monitoring-api-${crypto.randomUUID()}`;
@@ -68,71 +68,71 @@ let cronEntityId: string;
 let movieSchemaId: string;
 let discoveryEntityId: string;
 let fakeApprise: FakeHttpServer;
-let providerCompilerClient: Client;
 const extraGlobalEntityIds: string[] = [];
-let provider: Effect.Success<ReturnType<typeof installTestProvider>>;
-let discoveryProvider: Effect.Success<ReturnType<typeof installTestProvider>>;
+let harness: Effect.Success<ReturnType<typeof startIsolatedHarness>> | undefined;
+let media: Effect.Success<ReturnType<typeof shippedPluginTestProviders>>;
+let provider: AttachedTestProvider;
+let discoveryProvider: AttachedTestProvider;
 
-beforeAll(() =>
-	runPromise(
-		Effect.gen(function* () {
-			const { client } = yield* createAuthenticatedClient();
-			providerCompilerClient = client;
-			const { schema: movieSchema } = yield* findMediaEntitySchema(client, "movie");
-			movieSchemaId = movieSchema.id;
-			provider = yield* installTestProvider({
-				client,
-				scope: "system",
-				name: providerName,
-				rootEntitySchemaSlug: movieSchemaId,
-				details: providerDetails("Continuing"),
-				slug: `movie.media-monitoring-e2e-${crypto.randomUUID()}`,
-			});
-			const { schema: showSchema } = yield* findMediaEntitySchema(client, "show");
-			const showSchemaId = showSchema.id;
-			discoveryProvider = yield* installTestProvider({
-				client,
-				scope: "system",
-				name: `${providerName} Discovery`,
-				rootEntitySchemaSlug: showSchemaId,
-				details: discoveryProviderDetails(0),
-				slug: `show.media-monitoring-discovery-e2e-${crypto.randomUUID()}`,
-			});
-			const apiEntity = yield* seedMediaEntity({
-				properties: {},
-				externalId: apiExternalId,
-				entitySchemaSlug: movieSchemaId,
-				providerId: provider.providerId,
-				name: "Media Monitoring API Target",
-			});
-			const cronEntity = yield* seedMediaEntity({
-				properties: {},
-				externalId: cronExternalId,
-				entitySchemaSlug: movieSchemaId,
-				providerId: provider.providerId,
-				name: "Media Monitoring Cron Target",
-			});
-			const discoveryEntity = yield* seedMediaEntity({
-				properties: {},
-				entitySchemaSlug: showSchemaId,
-				externalId: discoveryExternalId,
-				providerId: discoveryProvider.providerId,
-				name: "Media Monitoring Discovery Target",
-			});
-			apiEntityId = apiEntity.id;
-			cronEntityId = cronEntity.id;
-			discoveryEntityId = discoveryEntity.id;
-			yield* getApiClient().call(
-				(c) =>
-					c.testSupport.setEntityPopulatedAt({
-						params: { entityId: EntityId.make(apiEntityId) },
-						payload: { populatedAt: new Date().toISOString() },
-					}),
-				adminHeaders(),
-			);
-			fakeApprise = yield* startFakeAppriseServer;
-		}),
-	),
+beforeAll(
+	() =>
+		runPromise(
+			Effect.gen(function* () {
+				fakeApprise = yield* startFakeAppriseServer;
+				harness = yield* startIsolatedHarness("Media Monitoring");
+				media = yield* shippedPluginTestProviders(mediaPlugin.metadata.packageId);
+				({ movie: provider, show: discoveryProvider } = yield* media.attach({
+					movie: {
+						name: providerName,
+						rootEntitySchemaSlug: "movie",
+						details: providerDetails("Continuing"),
+					},
+					show: {
+						rootEntitySchemaSlug: "show",
+						name: `${providerName} Discovery`,
+						details: discoveryProviderDetails(0),
+					},
+				}));
+				const { client } = yield* createAuthenticatedClient();
+				const { schema: movieSchema } = yield* findMediaEntitySchema(client, "movie");
+				movieSchemaId = movieSchema.id;
+				const { schema: showSchema } = yield* findMediaEntitySchema(client, "show");
+				const showSchemaId = showSchema.id;
+				const apiEntity = yield* seedMediaEntity({
+					properties: {},
+					externalId: apiExternalId,
+					entitySchemaSlug: movieSchemaId,
+					providerId: provider.providerId,
+					name: "Media Monitoring API Target",
+				});
+				const cronEntity = yield* seedMediaEntity({
+					properties: {},
+					externalId: cronExternalId,
+					entitySchemaSlug: movieSchemaId,
+					providerId: provider.providerId,
+					name: "Media Monitoring Cron Target",
+				});
+				const discoveryEntity = yield* seedMediaEntity({
+					properties: {},
+					entitySchemaSlug: showSchemaId,
+					externalId: discoveryExternalId,
+					providerId: discoveryProvider.providerId,
+					name: "Media Monitoring Discovery Target",
+				});
+				apiEntityId = apiEntity.id;
+				cronEntityId = cronEntity.id;
+				discoveryEntityId = discoveryEntity.id;
+				yield* getApiClient().call(
+					(c) =>
+						c.testSupport.setEntityPopulatedAt({
+							params: { entityId: EntityId.make(apiEntityId) },
+							payload: { populatedAt: new Date().toISOString() },
+						}),
+					adminHeaders(),
+				);
+			}),
+		),
+	300_000,
 );
 
 afterAll(() =>
@@ -154,6 +154,7 @@ afterAll(() =>
 					adminHeaders(),
 				);
 			}
+			yield* harness?.stop ?? Effect.void;
 		}),
 	),
 );
@@ -333,16 +334,7 @@ describe("media monitoring infrequent refresh", () => {
 				);
 				expect(fakeApprise.requests).toEqual([]);
 
-				yield* replaceSandboxScriptCompiledRepresentation(
-					providerCompilerClient,
-					provider.detailsScriptId,
-					providerSandboxSource({
-						name: providerName,
-						operation: "details",
-						result: providerDetails("Ended"),
-						slug: `${provider.providerSlug}.details`,
-					}),
-				);
+				yield* media.update(provider.providerSlug, { details: providerDetails("Ended") });
 				yield* triggerCronAndWaitForEntity(first, cronEntityId);
 				yield* pollUntil(
 					"media monitoring changed provider refresh",
@@ -386,16 +378,9 @@ describe("media monitoring infrequent refresh", () => {
 				yield* triggerCronAndWaitForEntity(owner, discoveryEntityId);
 				expect(fakeApprise.requests.filter(({ path }) => path === "/notify/discovery")).toEqual([]);
 
-				yield* replaceSandboxScriptCompiledRepresentation(
-					providerCompilerClient,
-					discoveryProvider.detailsScriptId,
-					providerSandboxSource({
-						operation: "details",
-						name: `${providerName} Discovery`,
-						result: discoveryProviderDetails(1),
-						slug: `${discoveryProvider.providerSlug}.details`,
-					}),
-				);
+				yield* media.update(discoveryProvider.providerSlug, {
+					details: discoveryProviderDetails(1),
+				});
 				yield* triggerCronAndWaitForEntity(owner, discoveryEntityId);
 				const expectedEpisodeBody =
 					"1 new episode discovered in season 1 for Media Monitoring Discovery Target";

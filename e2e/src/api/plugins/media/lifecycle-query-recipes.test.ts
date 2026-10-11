@@ -1,4 +1,5 @@
 import { EntityId } from "@ryot-app/contract/schema/brands";
+import { mediaPlugin } from "@ryot-app/media-plugin";
 import {
 	podcastEpisodicKindConfig,
 	showEpisodicKindConfig,
@@ -25,14 +26,12 @@ import {
 	fakeProviderDetailsResult,
 	getEntity,
 	insertGlobalRelationship,
-	installTestProvider,
+	shippedPluginTestProviders,
 	listAdminGlobalRelationships,
 	listEventSchemas,
 	listEventsForEntity,
 	listRelationshipSchemas,
 	pollUntil,
-	providerSandboxSource,
-	replaceSandboxScriptCompiledRepresentation,
 	requireEventSchemaBySlug,
 	requireRelationshipSchemaBySlug,
 	requireRows,
@@ -49,7 +48,8 @@ import {
 	triggerCronAndWaitForEntity,
 } from "~/fixtures/plugins/media";
 import { assertPresent } from "~/support/assertions";
-import { describe, expect, it } from "~/support/effect-test";
+import { runPromise, beforeAll, afterAll, describe, expect, it } from "~/support/effect-test";
+import { startIsolatedHarness } from "~/support/isolated-harness";
 
 const lifecycleStates = [
 	"untracked",
@@ -413,6 +413,22 @@ const readCreatedOrder = (client: Client, entityId: string, occurredAt: string) 
 				eventSchemaSlug: requireRyotQLText(item, "eventSchemaSlug"),
 			}));
 	});
+
+let harness: Effect.Success<ReturnType<typeof startIsolatedHarness>> | undefined;
+let media: Effect.Success<ReturnType<typeof shippedPluginTestProviders>>;
+
+beforeAll(
+	() =>
+		runPromise(
+			Effect.gen(function* () {
+				harness = yield* startIsolatedHarness("Media Lifecycle Query Recipes");
+				media = yield* shippedPluginTestProviders(mediaPlugin.metadata.packageId);
+			}),
+		),
+	300_000,
+);
+
+afterAll(() => runPromise(harness?.stop ?? Effect.void));
 
 describe("Media episodic lifecycle query recipes", () => {
 	it.live(
@@ -858,11 +874,9 @@ describe("Media episodic lifecycle query recipes", () => {
 							},
 						],
 					});
-				const provider = yield* installTestProvider({
-					scope: "system",
+				const provider = yield* media.attachProvider({
 					name: providerName,
 					slug: providerSlug,
-					client: auth.client,
 					rootEntitySchemaSlug: schemas.showSchemaId,
 					details: details([firstEpisodeExternalId, secondEpisodeExternalId]),
 				});
@@ -898,16 +912,7 @@ describe("Media episodic lifecycle query recipes", () => {
 				);
 				yield* assertShowState(auth.client, show.id, "in_progress");
 
-				yield* replaceSandboxScriptCompiledRepresentation(
-					auth.client,
-					provider.detailsScriptId,
-					providerSandboxSource({
-						name: providerName,
-						operation: "details",
-						slug: `${provider.providerSlug}.details`,
-						result: details([firstEpisodeExternalId]),
-					}),
-				);
+				yield* media.update(provider.providerSlug, { details: details([firstEpisodeExternalId]) });
 				yield* triggerCronAndWaitForEntity(auth, show.id);
 				const relationships = yield* listAdminGlobalRelationships({
 					type: "anchored",
