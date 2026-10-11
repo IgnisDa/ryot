@@ -104,6 +104,25 @@ describe("requireSandboxCapabilityInput", () => {
 		expect(Effect.runSync(requireSandboxCapabilityInput(input, "deleteEvents"))).toBe(input);
 	});
 
+	it("limits Pro availability and managed asset verification to user-owned runs", () => {
+		const userId = UserId.make("user_1");
+		const user = makeSubjectRunInput({
+			userId,
+			type: "user",
+			accountGeneration: { userId, token: "test-account-generation" },
+		});
+		const automation = makeSubjectRunInput(automationRunSubject("after", userId));
+		const before = makeSubjectRunInput(automationRunSubject("before", userId));
+		const system = makeSubjectRunInput({ type: "system" });
+
+		for (const capability of ["getProAvailability", "verifyManagedAssets"] as const) {
+			expect(isSandboxCapabilityAllowed(user, capability)).toBe(true);
+			expect(isSandboxCapabilityAllowed(automation, capability)).toBe(true);
+			expect(isSandboxCapabilityAllowed(before, capability)).toBe(false);
+			expect(isSandboxCapabilityAllowed(system, capability)).toBe(false);
+		}
+	});
+
 	it("rejects direct-user-only capabilities for automation runs", () => {
 		const failure = Effect.runSync(
 			Effect.flip(

@@ -80,17 +80,17 @@ Cache namespaces use canonical JSON tuples with the executing user, tagged local
 
 `authorization/` owns the execution principal and this role table, the runtime policy ceiling. A script receives only methods permitted for its trusted principal and present in its pinned compiled capability list; the host-function binder, inline durable capability list, and durable dispatch all apply it. `scratch` and `artifact-read` are filesystem grants, not host calls.
 
-| Principal or role                 | Available bridge capabilities                                                                                                                                                            |
-| --------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| All valid subjects                | `log`, `span`, `httpCall`, `getCachedValue`, `setCachedValue`, `getPersistentValue`, `getPluginConfig`, `claimPersistentValue`                                                           |
-| User or user automation run       | `createEvents`, `getEntitySchemas`, `listEventSchemas`, `listIntegrations`, `getUserPreferences`, `getUserSettings`, `getCurrentIntegration`, `changeUserRelationships`, `executeRyotql` |
-| Designated user-bootstrap script  | `ensureUserEntities` for that plugin's entity schemas, in either plugin scope                                                                                                            |
-| User-subject plugin script        | `createUserEntity` for one user-owned entity whose schema belongs to that plugin                                                                                                         |
-| Pinned system-scope plugin script | `executeRyotql`, `upsertGlobalEntities`, `upsertGlobalRelationships` within plugin ownership                                                                                             |
-| User or system automation run     | `emitSignal`; `sendNotification` is available only to user automation runs                                                                                                               |
-| Integration run of its own plugin | `getOAuthAccessToken` and `invalidateOAuthAccessToken` for OAuth fields its current settings schema declares                                                                             |
+| Principal or role                 | Available bridge capabilities                                                                                                                                                                                                         |
+| --------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| All valid subjects                | `log`, `span`, `httpCall`, `getCachedValue`, `setCachedValue`, `getPersistentValue`, `getPluginConfig`, `claimPersistentValue`                                                                                                        |
+| User or user automation run       | `createEvents`, `getEntitySchemas`, `listEventSchemas`, `listIntegrations`, `getUserPreferences`, `getUserSettings`, `getProAvailability`, `verifyManagedAssets`, `getCurrentIntegration`, `changeUserRelationships`, `executeRyotql` |
+| Designated user-bootstrap script  | `ensureUserEntities` for that plugin's entity schemas, in either plugin scope                                                                                                                                                         |
+| User-subject plugin script        | `createUserEntity` for one user-owned entity whose schema belongs to that plugin                                                                                                                                                      |
+| Pinned system-scope plugin script | `executeRyotql`, `upsertGlobalEntities`, `upsertGlobalRelationships` within plugin ownership                                                                                                                                          |
+| User or system automation run     | `emitSignal`; `sendNotification` is available only to user automation runs                                                                                                                                                            |
+| Integration run of its own plugin | `getOAuthAccessToken` and `invalidateOAuthAccessToken` for OAuth fields its current settings schema declares                                                                                                                          |
 
-Features own their capability implementations in `script-host.ts` beside their services; `boot/script-host.ts` assembles them into the one host map that inline and durable dispatch share.
+Features own their capability implementations beside their services; assets use `modules/assets/script-host.ts`, and Pro availability uses `modules/scripts/pro-key-script-host.ts`. `boot/script-host.ts` assembles them into the one host map that inline and durable dispatch share.
 
 ## Script Writes
 
