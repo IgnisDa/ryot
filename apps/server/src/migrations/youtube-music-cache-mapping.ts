@@ -41,7 +41,8 @@ ORDER BY "user_id", "id";
 
 export const migrateYoutubeMusicCache = (input: {
 	installationIds: ReadonlyArray<string>;
-	scriptId: string;
+	pluginId: string;
+	scriptSlug: string;
 }) =>
 	Effect.gen(function* () {
 		const redis = yield* RedisService;
@@ -72,13 +73,23 @@ export const migrateYoutubeMusicCache = (input: {
 					const keys = [
 						{
 							expiresAtMs: row.expiresAtMs,
-							key: redisKeys.sandboxCache(row.userId, input.scriptId, `${key}:seen`),
+						key: redisKeys.sandboxPersistentCache(
+							row.userId,
+							["plugin", input.pluginId],
+							["script", input.scriptSlug],
+							`${key}:seen`,
+						),
 						},
 					];
 					if (row.completed) {
 						keys.push({
 							expiresAtMs: row.expiresAtMs,
-							key: redisKeys.sandboxCache(row.userId, input.scriptId, `${key}:completed`),
+							key: redisKeys.sandboxPersistentCache(
+								row.userId,
+								["plugin", input.pluginId],
+								["script", input.scriptSlug],
+								`${key}:completed`,
+							),
 						});
 					}
 					return keys;

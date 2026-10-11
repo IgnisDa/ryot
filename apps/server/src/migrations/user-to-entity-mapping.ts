@@ -99,6 +99,7 @@ BEGIN
 		FROM "user_to_entity" ute
 		INNER JOIN "entity" src ON src.id = ute.entity_id
 			AND src.entity_schema_slug IN (${input.libraryEligibleEntitySchemaSlugs.map(quoteSqlString).join(", ")})
+			AND src.entity_schema_plugin_id IS NOT DISTINCT FROM ${quoteNullableSqlString(input.libraryEntitySchema.pluginId)}
 		INNER JOIN "entity" lib ON lib.user_id = ute.user_id
 			AND lib.entity_schema_slug = ${quoteSqlString(input.libraryEntitySchema.slug)}
 			AND lib.entity_schema_plugin_id IS NOT DISTINCT FROM ${quoteNullableSqlString(input.libraryEntitySchema.pluginId)}

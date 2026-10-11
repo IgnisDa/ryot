@@ -323,7 +323,7 @@ const cacheScope = (input: SandboxRunInput) => {
 };
 
 const persistentKey = (input: SandboxRunInput, key: string) =>
-	redisKeys.sandboxCache(null, "namespace", identityTupleKey(...cacheScope(input), key.trim()));
+	redisKeys.sandboxPersistentCache(...cacheScope(input), key);
 
 export const makeRuntimeSandboxApiFunctions = (
 	classify: SandboxHttpClassify,

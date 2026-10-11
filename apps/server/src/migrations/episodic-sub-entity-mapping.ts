@@ -65,6 +65,7 @@ BEGIN
 		END
 	) AS season(value)
 	WHERE m.entity_schema_slug = 'show'
+	  AND m.entity_schema_plugin_id IS NOT DISTINCT FROM ${quoteNullableSqlString(input.showSeasonEntitySchema.pluginId)}
 	  AND NULLIF(season.value ->> 'id', '') IS NOT NULL
 	  AND (season.value ->> 'season_number') ~ '^[0-9]+$';
 
@@ -140,6 +141,7 @@ BEGIN
 		END
 	) AS episode(value)
 	WHERE m.entity_schema_slug = 'podcast'
+	  AND m.entity_schema_plugin_id IS NOT DISTINCT FROM ${quoteNullableSqlString(input.podcastEpisodeEntitySchema.pluginId)}
 	  AND NULLIF(episode.value ->> 'id', '') IS NOT NULL
 	  AND (episode.value ->> 'number') ~ '^[0-9]+$';
 

@@ -1,9 +1,11 @@
+import { quoteSqlString } from "./shared";
+
 // Rebuilds the episode resolution temp tables from the migrated V2 entity graph when the episodic
 // sub-entity phase has not left them behind, so each consuming phase stays runnable on its own.
 //
 // `_legacy_*_coordinates` keeps the duplicate count that `_legacy_*_resolution` filters out, so an
 // absent position can be told apart from one claimed by several episodes.
-export const buildEpisodeResolutionFallbackSql = () => `
+export const buildEpisodeResolutionFallbackSql = (mediaPluginId: string) => `
 	IF to_regclass('pg_temp._legacy_show_episode_coordinates') IS NULL
 		OR to_regclass('pg_temp._legacy_podcast_episode_coordinates') IS NULL
 		OR to_regclass('pg_temp._legacy_show_episode_resolution') IS NULL
@@ -27,16 +29,21 @@ export const buildEpisodeResolutionFallbackSql = () => `
 			INNER JOIN "relationship" show_season_rel
 				ON  show_season_rel.source_entity_id = show_entity.id
 				AND show_season_rel.relationship_schema_slug = 'show-to-show-season'
+				AND show_season_rel.relationship_schema_plugin_id = ${quoteSqlString(mediaPluginId)}
 			INNER JOIN "entity" season
 				ON  season.id = show_season_rel.target_entity_id
 				AND season.entity_schema_slug = 'show-season'
+				AND season.entity_schema_plugin_id = ${quoteSqlString(mediaPluginId)}
 			INNER JOIN "relationship" season_episode_rel
 				ON  season_episode_rel.source_entity_id = season.id
 				AND season_episode_rel.relationship_schema_slug = 'show-season-to-show-episode'
+				AND season_episode_rel.relationship_schema_plugin_id = ${quoteSqlString(mediaPluginId)}
 			INNER JOIN "entity" episode
 				ON  episode.id = season_episode_rel.target_entity_id
 				AND episode.entity_schema_slug = 'show-episode'
+				AND episode.entity_schema_plugin_id = ${quoteSqlString(mediaPluginId)}
 			WHERE show_entity.entity_schema_slug = 'show'
+			  AND show_entity.entity_schema_plugin_id = ${quoteSqlString(mediaPluginId)}
 			  AND (show_season_rel.user_id = show_entity.user_id OR show_season_rel.user_id IS NULL)
 			  AND (season_episode_rel.user_id = show_entity.user_id OR season_episode_rel.user_id IS NULL)
 			  AND (season.user_id = show_entity.user_id OR season.user_id IS NULL)
@@ -82,10 +89,13 @@ export const buildEpisodeResolutionFallbackSql = () => `
 			INNER JOIN "relationship" podcast_episode_rel
 				ON  podcast_episode_rel.source_entity_id = podcast.id
 				AND podcast_episode_rel.relationship_schema_slug = 'podcast-to-podcast-episode'
+				AND podcast_episode_rel.relationship_schema_plugin_id = ${quoteSqlString(mediaPluginId)}
 			INNER JOIN "entity" episode
 				ON  episode.id = podcast_episode_rel.target_entity_id
 				AND episode.entity_schema_slug = 'podcast-episode'
+				AND episode.entity_schema_plugin_id = ${quoteSqlString(mediaPluginId)}
 			WHERE podcast.entity_schema_slug = 'podcast'
+			  AND podcast.entity_schema_plugin_id = ${quoteSqlString(mediaPluginId)}
 			  AND (podcast_episode_rel.user_id = podcast.user_id OR podcast_episode_rel.user_id IS NULL)
 			  AND (episode.user_id = podcast.user_id OR episode.user_id IS NULL)
 			  AND (episode.properties ->> 'episodeNumber') ~ '^[0-9]+$'
