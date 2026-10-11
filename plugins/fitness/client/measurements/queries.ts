@@ -2,6 +2,7 @@ import { readCursorPages } from "@ryot-app/plugin-client-sdk";
 import { Effect } from "@ryot-app/plugin-client-sdk/effect";
 import { createRyotQuery } from "@ryot-app/plugin-client-sdk/react";
 
+import { chunk } from "../../shared/collections";
 import {
 	MEASUREMENT_SERIES_BATCH_SIZE,
 	measurementSeriesRecipe,
@@ -14,11 +15,6 @@ import { measurementReadingListRecipe } from "../../shared/query-recipes";
 import type { MeasurementReading } from "./model";
 
 const READING_PAGE_SIZE = 100;
-
-const chunk = <T>(items: readonly T[], size: number): readonly (readonly T[])[] =>
-	Array.from({ length: Math.ceil(items.length / size) }, (_, index) =>
-		items.slice(index * size, (index + 1) * size),
-	);
 
 export const summaryQuery = createRyotQuery<
 	{ readonly rangeStart: string },
