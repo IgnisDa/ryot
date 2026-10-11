@@ -15,13 +15,16 @@ const createFakeContext = (
 ) => {
 	let state = initialState;
 	const sources: SoundSource[] = [];
+	const endings: EventTarget[] = [];
 	const record = {
 		sources,
+		endings,
 		stopCalls: 0,
 		closeCalls: 0,
 		startCalls: 0,
 		decodeCalls: 0,
 		resumeCalls: 0,
+		suspendCalls: 0,
 		disconnectCalls: 0,
 	};
 	const audioBuffer: AudioBuffer = {
@@ -45,6 +48,11 @@ const createFakeContext = (
 			record.decodeCalls += 1;
 			return Promise.resolve(audioBuffer);
 		},
+		suspend: () => {
+			record.suspendCalls += 1;
+			state = "suspended";
+			return Promise.resolve();
+		},
 		resume: () => {
 			record.resumeCalls += 1;
 			if (resumeBehavior !== undefined) {
@@ -57,6 +65,7 @@ const createFakeContext = (
 		},
 		createBufferSource: () => {
 			const events = new EventTarget();
+			record.endings.push(events);
 			const source: SoundSource = {
 				buffer: null,
 				stop: () => {
@@ -127,6 +136,26 @@ describe("workout editor sounds", () => {
 				expect(fake.record.resumeCalls).toBe(1);
 				expect(loadedSources).toHaveLength(2);
 				expect(fake.record.startCalls).toBe(2);
+			}),
+		));
+
+	it("suspends the context once the last sound ends and resumes it for the next one", () =>
+		Effect.runPromise(
+			Effect.gen(function* () {
+				const fake = createFakeContext();
+				const sounds = createSounds(() => fake.context, []);
+
+				expect(yield* sounds.play("check", false)).toBe(true);
+				expect(yield* sounds.play("add-set", false)).toBe(true);
+				fake.record.endings[0]?.dispatchEvent(new Event("ended"));
+				expect(fake.record.suspendCalls).toBe(0);
+				fake.record.endings[1]?.dispatchEvent(new Event("ended"));
+				yield* Effect.yieldNow;
+				expect(fake.record.suspendCalls).toBe(1);
+
+				expect(yield* sounds.play("check", false)).toBe(true);
+				expect(fake.record.resumeCalls).toBe(1);
+				expect(fake.record.startCalls).toBe(3);
 			}),
 		));
 
