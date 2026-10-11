@@ -4,7 +4,12 @@ import {
 	useRyotViewport,
 	type PluginNavigationTarget,
 } from "@ryot-app/plugin-client-sdk/plugin";
-import { useRyot, useRyotQuery, useRyotSchedule } from "@ryot-app/plugin-client-sdk/react";
+import {
+	ManagedAssetProvider,
+	useRyot,
+	useRyotQuery,
+	useRyotSchedule,
+} from "@ryot-app/plugin-client-sdk/react";
 import { PluginScreenFrame } from "@ryot-app/plugin-client-sdk/screen";
 import { Button, Modal, StatusMessage, TextArea } from "@ryot-app/plugin-ui-sdk";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -39,6 +44,7 @@ import {
 	type WorkoutHistorySetResult,
 } from "../../shared/workout-history-recipes";
 import { requiredWorkoutMeasurementsByKind } from "../../shared/workout-set";
+import { managedAssetBatch } from "../asset-urls";
 import { MeasurementLogger } from "../measurements/measurement-logger";
 import {
 	changeOccurrenceDisplay,
@@ -55,13 +61,20 @@ import {
 } from "./actions";
 import { EditorClocks, useEditorNow } from "./clocks";
 import { EditorField, editorModalClass } from "./controls";
-import { ExerciseCard } from "./exercise-card";
+import { ExerciseCard, exerciseArtwork, type ExerciseSheet } from "./exercise-card";
 import { ExercisePicker } from "./exercise-picker";
 import { historySetForOccurrence, previousSetIndex } from "./history-model";
+import { ExerciseNotesSheet } from "./instructions";
 import { WorkoutMediaOverlay } from "./media";
 import { removeDraftMedia, type WorkoutMediaTarget } from "./media-state";
-import { BulkDeleteOverlay, HistoryOverlay, ReorderOverlay, SupersetOverlay } from "./overlays";
-import { ExerciseDefaultsOverlay } from "./preferences";
+import {
+	BulkDeleteOverlay,
+	HistoryOverlay,
+	HistoryRequiresPro,
+	ReorderOverlay,
+	SupersetOverlay,
+} from "./overlays";
+import { UnitsAndDefaultsSheet } from "./preferences";
 import {
 	editorExercisesQuery,
 	loadEditorSource,
@@ -71,6 +84,7 @@ import {
 } from "./queries";
 import { missingMeasurements, type InvalidSet } from "./set-grid";
 import { EditorSummary } from "./summary";
+import { occurrenceSegments, SupersetGroup } from "./superset-group";
 import { startExecution, unconfirmSet } from "./timers";
 import { useWorkoutEditor } from "./use-workout-editor";
 
@@ -82,7 +96,7 @@ type EditorOverlay =
 	| "finish"
 	| "discard"
 	| "reload"
-	| { readonly kind: "history" | "replace" | "defaults"; readonly occurrenceId: string };
+	| { readonly occurrenceId: string; readonly kind: Exclude<ExerciseSheet, "attachments"> };
 type SavedEntityId = Extract<WorkoutEditorSaveOutput, { readonly kind: "saved" }>["entityId"];
 const localPreferenceLabels: Record<keyof WorkoutEditorLocalPreferences, string> = {
 	muteSounds: "Mute sounds",
@@ -717,6 +731,68 @@ export function WorkoutEditorScreen(props: {
 			? editorDraft.occurrences.flatMap(({ sets }) => sets).find(({ included }) => !included)
 					?.clientId
 			: undefined;
+	const exerciseCard = (occurrence: WorkoutEditorOccurrence, grouped: boolean) =>
+		editorDraft === undefined || context === undefined ? null : (
+			<ExerciseCard
+				now={now}
+				grouped={grouped}
+				onChange={change}
+				compact={compact}
+				invalid={invalid}
+				draft={editorDraft}
+				disabled={disabled}
+				occurrence={occurrence}
+				key={occurrence.clientId}
+				pro={context.proAvailable}
+				settings={context.settings}
+				currentSetId={currentSetId}
+				safeAreaBottom={safeAreaBottom}
+				onAddedSet={() => feedback("add-set")}
+				onPrevious={(set) => copyPrevious(occurrence, set)}
+				onConfirm={(set) => confirm(occurrence, set, true)}
+				onStartExecution={(set) => confirm(occurrence, set, false)}
+				countdownEnabled={local?.startTimerForDurationExercises ?? false}
+				exercise={exercises.data?.find(({ id }) => id === occurrence.exerciseId)}
+				onDelete={() => change((draft) => removeWorkoutItems(draft, [occurrence.clientId], []))}
+				onSetChanged={(setId) =>
+					setInvalid((current) => (current?.setId === setId ? undefined : current))
+				}
+				onSkipRest={() =>
+					change((draft) => resolvePendingRest(draft, schedule.now(), crypto.randomUUID(), true))
+				}
+				unavailable={
+					exercises.data !== undefined &&
+					!exercises.data.some(({ id }) => id === occurrence.exerciseId)
+				}
+				onStartRest={() => {
+					change((draft) => resolvePendingRest(draft, schedule.now(), crypto.randomUUID(), false));
+					feedback("timer-started");
+				}}
+				onSheet={(sheet) =>
+					sheet === "attachments"
+						? setMediaTarget({ kind: "occurrence", occurrenceId: occurrence.clientId })
+						: setOverlay({ kind: sheet, occurrenceId: occurrence.clientId })
+				}
+				onCycle={() => {
+					let targetId: string | undefined;
+					change((draft) => {
+						const target = cycleWorkoutSuperset(draft, occurrence.clientId);
+						targetId = target;
+						return {
+							...draft,
+							activeSetId: undefined,
+							activeOccurrenceId: target,
+							occurrences: draft.occurrences.map((item) =>
+								item.clientId === target ? { ...item, isCollapsed: false } : item,
+							),
+						};
+					});
+					if (targetId !== undefined) {
+						scrollToEditorTarget(`occurrence-${targetId}`);
+					}
+				}}
+			/>
+		);
 	const screenTitle = editorDraft?.name.trim();
 	return (
 		<PluginScreenFrame
@@ -1007,79 +1083,26 @@ export function WorkoutEditorScreen(props: {
 									<Button onClick={exercises.refetch}>Retry exercises</Button>
 								</>
 							) : null}
-							{editorDraft.occurrences.map((occurrence) => (
-								<ExerciseCard
-									now={now}
-									onChange={change}
-									compact={compact}
-									invalid={invalid}
-									draft={editorDraft}
-									disabled={disabled}
-									occurrence={occurrence}
-									key={occurrence.clientId}
-									pro={context.proAvailable}
-									settings={context.settings}
-									currentSetId={currentSetId}
-									safeAreaBottom={safeAreaBottom}
-									onAddedSet={() => feedback("add-set")}
-									onPrevious={(set) => copyPrevious(occurrence, set)}
-									onConfirm={(set) => confirm(occurrence, set, true)}
-									onStartExecution={(set) => confirm(occurrence, set, false)}
-									countdownEnabled={local?.startTimerForDurationExercises ?? false}
-									exercise={exercises.data?.find(({ id }) => id === occurrence.exerciseId)}
-									onReplace={() =>
-										setOverlay({ kind: "replace", occurrenceId: occurrence.clientId })
-									}
-									onOverrides={() =>
-										setOverlay({ kind: "defaults", occurrenceId: occurrence.clientId })
-									}
-									onDelete={() =>
-										change((draft) => removeWorkoutItems(draft, [occurrence.clientId], []))
-									}
-									onMedia={() =>
-										setMediaTarget({ kind: "occurrence", occurrenceId: occurrence.clientId })
-									}
-									onSetChanged={(setId) =>
-										setInvalid((current) => (current?.setId === setId ? undefined : current))
-									}
-									onSkipRest={() =>
-										change((draft) =>
-											resolvePendingRest(draft, schedule.now(), crypto.randomUUID(), true),
-										)
-									}
-									onStartRest={() => {
-										change((draft) =>
-											resolvePendingRest(draft, schedule.now(), crypto.randomUUID(), false),
-										);
-										feedback("timer-started");
-									}}
-									onHistory={() =>
-										context.proAvailable
-											? setOverlay({ kind: "history", occurrenceId: occurrence.clientId })
-											: setMessage(
-													"Inline history requires Pro. Previous values and automatic prefill are still available.",
-												)
-									}
-									onCycle={() => {
-										let targetId: string | undefined;
-										change((draft) => {
-											const target = cycleWorkoutSuperset(draft, occurrence.clientId);
-											targetId = target;
-											return {
-												...draft,
-												activeSetId: undefined,
-												activeOccurrenceId: target,
-												occurrences: draft.occurrences.map((item) =>
-													item.clientId === target ? { ...item, isCollapsed: false } : item,
-												),
-											};
-										});
-										if (targetId !== undefined) {
-											scrollToEditorTarget(`occurrence-${targetId}`);
-										}
-									}}
-								/>
-							))}
+							<ManagedAssetProvider
+								assets={managedAssetBatch(
+									(exercises.data ?? []).map((exercise) => exerciseArtwork(exercise)),
+								)}
+							>
+								{occurrenceSegments(editorDraft).map((segment) =>
+									segment.group === undefined ? (
+										segment.occurrences.map((occurrence) => exerciseCard(occurrence, false))
+									) : (
+										<SupersetGroup
+											name={segment.group.name}
+											color={segment.group.color}
+											key={segment.group.clientId}
+											count={segment.occurrences.length}
+										>
+											{segment.occurrences.map((occurrence) => exerciseCard(occurrence, true))}
+										</SupersetGroup>
+									),
+								)}
+							</ManagedAssetProvider>
 						</fieldset>
 						<Button
 							variant="secondary"
@@ -1117,10 +1140,12 @@ export function WorkoutEditorScreen(props: {
 					) : null}
 					{mediaTarget !== undefined && editorDraft !== undefined && snapshot.status === "ready" ? (
 						<WorkoutMediaOverlay
+							compact={compact}
 							label={mediaLabel}
 							draft={editorDraft}
 							target={mediaTarget}
 							uploading={snapshot.uploading}
+							safeAreaBottom={safeAreaBottom}
 							disabled={disabled || existingGuard}
 							onClose={() => setMediaTarget(undefined)}
 							onUpload={(kind, file) => controller.uploadMedia(mediaTarget, kind, file)}
@@ -1192,24 +1217,70 @@ export function WorkoutEditorScreen(props: {
 					) : null}
 					{typeof overlay === "object" &&
 					overlay.kind === "defaults" &&
-					currentExercise !== undefined ? (
-						<ExerciseDefaultsOverlay
+					currentExercise !== undefined &&
+					currentOccurrence !== undefined ? (
+						<UnitsAndDefaultsSheet
 							onClose={close}
+							compact={compact}
 							exercise={currentExercise}
 							onSaved={exercises.refetch}
+							occurrence={currentOccurrence}
+							safeAreaBottom={safeAreaBottom}
+							onDisplay={(display) =>
+								change((draft) =>
+									updateOccurrence(draft, currentOccurrence.clientId, (occurrence) =>
+										changeOccurrenceDisplay(occurrence, display),
+									),
+								)
+							}
+						/>
+					) : null}
+					{typeof overlay === "object" &&
+					overlay.kind === "notes" &&
+					currentOccurrence !== undefined ? (
+						<ExerciseNotesSheet
+							onClose={close}
+							compact={compact}
+							exercise={currentExercise}
+							occurrence={currentOccurrence}
+							safeAreaBottom={safeAreaBottom}
+							disabled={disabled || existingGuard}
+							onNotes={(notes) =>
+								change((draft) =>
+									updateOccurrence(draft, currentOccurrence.clientId, (occurrence) => ({
+										...occurrence,
+										notes,
+									})),
+								)
+							}
 						/>
 					) : null}
 					{typeof overlay === "object" &&
 					overlay.kind === "history" &&
-					currentOccurrence !== undefined ? (
+					currentOccurrence !== undefined &&
+					context?.proAvailable === true ? (
 						<HistoryOverlay
 							onClose={close}
+							compact={compact}
 							onAppend={appendHistory}
+							safeAreaBottom={safeAreaBottom}
 							beforeStartedAt={editorDraft?.startedAt}
 							exerciseId={currentOccurrence.exerciseId}
+							exerciseName={currentExercise?.name ?? "Unavailable exercise"}
 							excludeWorkoutId={
 								editorDraft?.mode.kind === "historical" ? editorDraft.mode.entityId : undefined
 							}
+						/>
+					) : null}
+					{typeof overlay === "object" &&
+					overlay.kind === "history" &&
+					currentOccurrence !== undefined &&
+					context?.proAvailable !== true ? (
+						<HistoryRequiresPro
+							onClose={close}
+							compact={compact}
+							safeAreaBottom={safeAreaBottom}
+							exerciseName={currentExercise?.name ?? "Unavailable exercise"}
 						/>
 					) : null}
 					{overlay === "reload" ? (

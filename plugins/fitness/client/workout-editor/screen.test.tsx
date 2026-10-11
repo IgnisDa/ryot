@@ -520,7 +520,8 @@ describe("WorkoutEditorScreen", () => {
 				const { page, saveInputs, answerPending } = openEditor(clock, storage);
 				yield* waitForEditor(answerPending);
 				const exercise = screen.getByRole("region", { name: "Weight exercise" });
-				click(within(exercise).getByRole("button", { name: "Exercise attachments (2)" }));
+				click(within(exercise).getByRole("button", { name: "Weight exercise actions" }));
+				click(screen.getByRole("menuitem", { name: "Attachments (2)" }));
 				const panel = screen.getByRole("dialog", { name: "Attachments for Weight exercise" });
 				const player = within(panel).getByLabelText("Weight exercise video 2");
 				expect(player.getAttribute("src")).toBe(video.url);
@@ -983,7 +984,7 @@ describe("WorkoutEditorScreen", () => {
 		}),
 	);
 
-	it.live("uses bridge Back to close the deepest select and set sheets only", () =>
+	it.live("converts units in place and uses bridge Back to close exercise sheets", () =>
 		Effect.gen(function* () {
 			const clock = createTestRyotClock();
 			try {
@@ -993,25 +994,12 @@ describe("WorkoutEditorScreen", () => {
 					value: encodeWorkoutEditorDraft(draft),
 				});
 				yield* waitForEditor(answerPending);
-				click(screen.getByRole("button", { name: "Exercise defaults" }));
-				const defaults = screen.getByRole("dialog", { name: "Exercise defaults" });
-				click(within(defaults).getByRole("button", { name: "Default duration unit: Inherit" }));
-				expect(screen.getByRole("dialog", { name: "Default duration unit" })).toBeTruthy();
-
-				dismissOverlay(page, "dismiss-select");
-				yield* Effect.promise(() =>
-					waitFor(() => {
-						answerPending();
-						expect(page.clientMessages()).toContainEqual(
-							expect.objectContaining({
-								dismissed: true,
-								requestId: "dismiss-select",
-								type: "dismiss-overlay-result",
-							}),
-						);
-						expect(screen.queryByRole("dialog", { name: "Default duration unit" })).toBeNull();
-						expect(screen.getByRole("dialog", { name: "Exercise defaults" })).toBeTruthy();
-					}),
+				click(screen.getByRole("button", { name: "Weight exercise actions" }));
+				click(screen.getByRole("menuitem", { name: "Units and rest defaults" }));
+				const defaults = screen.getByRole("dialog", { name: "Units and rest defaults" });
+				click(within(defaults).getByRole("radio", { name: "Pounds" }));
+				expect(inputValue(screen.getByRole("textbox", { name: "Set 1 weight (lb)" }))).toBe(
+					"44.092452437",
 				);
 
 				dismissOverlay(page, "dismiss-defaults");
@@ -1025,7 +1013,7 @@ describe("WorkoutEditorScreen", () => {
 								type: "dismiss-overlay-result",
 							}),
 						);
-						expect(screen.queryByRole("dialog", { name: "Exercise defaults" })).toBeNull();
+						expect(screen.queryByRole("dialog", { name: "Units and rest defaults" })).toBeNull();
 					}),
 				);
 
