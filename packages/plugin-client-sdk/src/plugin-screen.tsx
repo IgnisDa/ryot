@@ -1,6 +1,6 @@
+import type { EntityBrowserLayout } from "@ryot-app/contract/modules/saved-views/schemas";
 import { Badge, ScreenBarButton, ScreenFrame } from "@ryot-app/plugin-ui-sdk";
 import { AppIcon } from "@ryot-app/plugin-ui-sdk/icon";
-import type { EntityBrowserLayout } from "@ryot-app/contract/modules/saved-views/schemas";
 import { Match } from "effect";
 import type { ComponentProps, ReactNode, Ref } from "react";
 import { createPortal } from "react-dom";
