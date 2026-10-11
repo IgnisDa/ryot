@@ -94,7 +94,7 @@ export const composeClientPage = (input: {
 			automaticRegistry,
 			application: "plugin-route",
 			routes: {
-				home: module(routes.home),
+				...(routes.home === undefined ? {} : { home: module(routes.home) }),
 				routes: routes.routes.map(({ path, exportSpecifier }) => ({
 					path,
 					module: module(exportSpecifier),

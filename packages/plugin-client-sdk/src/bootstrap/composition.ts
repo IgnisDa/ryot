@@ -96,7 +96,7 @@ export const bootstrapComposition = (
 				descriptor.application === "page"
 					? [descriptor.entry]
 					: [
-							descriptor.routes.home,
+							...(descriptor.routes.home === undefined ? [] : [descriptor.routes.home]),
 							...descriptor.routes.routes.map((route) => route.module),
 							...(descriptor.routes.notFound === undefined ? [] : [descriptor.routes.notFound]),
 						];
@@ -126,7 +126,7 @@ export const bootstrapComposition = (
 			const { home, routes, notFound } = descriptor.routes;
 			dependencies.bootstrapPlugin(
 				{
-					home: { component: component(home) },
+					...(home === undefined ? {} : { home: { component: component(home) } }),
 					routes: routes.map((route) => ({ path: route.path, component: component(route.module) })),
 					...(notFound === undefined ? {} : { notFound: component(notFound) }),
 				},
