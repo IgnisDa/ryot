@@ -6,18 +6,18 @@ import {
 	httpCallArgsSchema,
 	httpCallResultSchema,
 	logArgsSchema,
-	partialCreateEventsResult,
+	recoverPartialCreateEvents,
 	spanArgsSchema,
 	updateEventsArgsSchema,
 	upsertGlobalEntitiesArgsSchema,
 	upsertGlobalRelationshipsArgsSchema,
 } from "@ryot-app/plugin-backend-sdk/core";
-import { Effect, Option, Schema } from "@ryot-app/plugin-backend-sdk/effect";
+import { Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
 import { defineSandboxTestHost, runSandboxTestScript } from "@ryot-app/plugin-backend-sdk/testing";
 import { describe, expect, test } from "vitest";
 
 import { defineManifest, defineScript, SANDBOX_SCRIPT_DEFINITION } from "../src/driver";
-import { jsonValueSchema } from "../src/wire";
+import { asRecord, isRecord, jsonValueSchema } from "../src/wire";
 
 const decode = <A, I>(schema: Schema.Codec<A, I>) => Schema.decodeUnknownSync(schema);
 
@@ -280,30 +280,49 @@ describe("domain host contracts", () => {
 	});
 });
 
-describe("partialCreateEventsResult", () => {
+describe("recoverPartialCreateEvents", () => {
 	const outcomes = [{ index: 0, status: "written", eventId: "event-1" }];
 
-	test("recovers the written outcomes from a partial createEvents failure", () => {
-		const recovered = partialCreateEventsResult({
-			outcomes,
-			count: 1,
-			partial: true,
-			code: "validation-failed",
-		});
+	test("recovers the written count from a partial createEvents failure", () =>
+		Effect.runPromise(
+			recoverPartialCreateEvents({
+				message: "validation failed",
+				data: { outcomes, count: 1, partial: true, code: "validation-failed" },
+			}).pipe(Effect.map((recovered) => expect(recovered).toEqual({ count: 1 }))),
+		));
 
-		expect(Option.getOrUndefined(recovered)).toMatchObject({ count: 1, outcomes });
+	test("re-fails a non-partial failure unchanged", () => {
+		const error = {
+			message: "conflict",
+			data: { outcomes, count: 1, partial: false, code: "mutation-conflict" },
+		};
+		return Effect.runPromise(
+			recoverPartialCreateEvents(error).pipe(
+				Effect.flip,
+				Effect.map((failure) => expect(failure).toBe(error)),
+			),
+		);
 	});
 
-	test("ignores a non-partial failure", () => {
-		expect(
-			Option.isNone(
-				partialCreateEventsResult({
-					outcomes,
-					count: 1,
-					partial: false,
-					code: "mutation-conflict",
-				}),
+	test("re-fails a failure without data", () => {
+		const error = { message: "boom" };
+		return Effect.runPromise(
+			recoverPartialCreateEvents(error).pipe(
+				Effect.flip,
+				Effect.map((failure) => expect(failure).toBe(error)),
 			),
-		).toBe(true);
+		);
+	});
+});
+
+describe("asRecord", () => {
+	test("returns plain objects unchanged", () => {
+		const value = { a: 1 };
+		expect(asRecord(value)).toBe(value);
+	});
+
+	test.each([null, undefined, [], [1], "text", 3, true])("rejects %j", (value) => {
+		expect(asRecord(value)).toBeNull();
+		expect(isRecord(value)).toBe(false);
 	});
 });

@@ -71,7 +71,7 @@ export {
 	listEventSchemasArgsSchema,
 	listEventSchemasDataSchema,
 	listEventSchemasResultSchema,
-	partialCreateEventsResult,
+	recoverPartialCreateEvents,
 	requestEventStreamWorkArgsSchema,
 	requestEventStreamWorkDataSchema,
 	requestEventStreamWorkResultSchema,
