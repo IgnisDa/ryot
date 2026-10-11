@@ -3,13 +3,13 @@ import { assert, describe, expect, it } from "vitest";
 
 import type { WorkoutEditorDraft } from "../../shared/workout-editor-draft";
 import { exerciseOccurrence, liveDraft, startTime } from "../../tests/client/draft-fixtures";
+import { reconcileWorkoutTimers } from "./actions";
 import {
 	confirmSet,
 	invalidateWorkoutCountdowns,
 	pauseCountdown,
 	pauseStopwatch,
 	pauseWorkout,
-	reconcileWorkoutTimers,
 	resetStopwatch,
 	resumeCountdown,
 	resumeStopwatch,
@@ -21,6 +21,12 @@ import {
 } from "./timers";
 
 const now = Date.parse(startTime);
+
+const reconcile = (
+	value: WorkoutEditorDraft,
+	observedAt: number,
+	expected?: { readonly executionClientId?: string; readonly restClientId?: string },
+) => reconcileWorkoutTimers(value, observedAt, { expected, settings: {}, prompt: false });
 
 const draft = (overrides: Partial<WorkoutEditorDraft> = {}) =>
 	liveDraft({
@@ -55,7 +61,7 @@ describe("workout editor timers", () => {
 				{ ...targetOccurrence(execution), sets: [{ ...targetSet(execution), reps: "" }] },
 			],
 		};
-		const expired = reconcileWorkoutTimers(edited, now + 300_000).draft;
+		const expired = reconcile(edited, now + 300_000).draft;
 		expect(targetSet(expired).included).toBe(false);
 		expect(expired.executionCountdown).toBeUndefined();
 		const zero = {
@@ -188,10 +194,10 @@ describe("workout editor timers", () => {
 	it("reconciles late execution exactly once at its deadline and clears expired rest", () => {
 		const execution = startExecution(draft(), "occurrence-1", "set-1", now, "execution-1");
 		expect(execution.changed).toBe(true);
-		const late = reconcileWorkoutTimers(execution.draft, now + 300_000);
+		const late = reconcile(execution.draft, now + 300_000);
 		expect(targetSet(late.draft).confirmedAt).toBe("2026-10-15T10:02:00.000Z");
 		expect(late.draft.executionCountdown).toBeUndefined();
-		expect(reconcileWorkoutTimers(late.draft, now + 300_000).changed).toBe(false);
+		expect(reconcile(late.draft, now + 300_000).changed).toBe(false);
 		const confirmed = confirmSet(execution.draft, "occurrence-1", "set-1", now);
 		const rest = startRest(
 			includedDraft(confirmed.draft),
@@ -201,7 +207,7 @@ describe("workout editor timers", () => {
 			now,
 			"rest-1",
 		);
-		expect(reconcileWorkoutTimers(rest.draft, now + 10_000).draft.restCountdown).toBeUndefined();
+		expect(reconcile(rest.draft, now + 10_000).draft.restCountdown).toBeUndefined();
 	});
 
 	it("clears timers for deleted or replaced targets and refuses stale expiry callbacks", () => {
@@ -214,15 +220,13 @@ describe("workout editor timers", () => {
 			],
 		};
 		expect(invalidateWorkoutCountdowns(replaced).draft.executionCountdown).toBeUndefined();
-		const stale = reconcileWorkoutTimers(execution.draft, now + 300_000, {
-			executionClientId: "execution-old",
-		});
+		const stale = reconcile(execution.draft, now + 300_000, { executionClientId: "execution-old" });
 		expect(stale.draft.executionCountdown?.clientId).toBe("execution-1");
 		const deleted = {
 			...execution.draft,
 			occurrences: [{ ...targetOccurrence(execution.draft), sets: [] }],
 		};
-		expect(reconcileWorkoutTimers(deleted, now).draft.executionCountdown).toBeUndefined();
+		expect(reconcile(deleted, now).draft.executionCountdown).toBeUndefined();
 	});
 
 	it("pauses workout active duration separately and clears timers for non-live drafts", () => {
@@ -241,7 +245,7 @@ describe("workout editor timers", () => {
 				entityId: EntityId.make("workout-1"),
 			},
 		};
-		expect(reconcileWorkoutTimers(historical, now).draft.executionCountdown).toBeUndefined();
+		expect(reconcile(historical, now).draft.executionCountdown).toBeUndefined();
 	});
 });
 

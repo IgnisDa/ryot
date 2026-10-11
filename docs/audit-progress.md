@@ -13,7 +13,7 @@
 
 ## Status
 
-**11 implemented, 0 in progress, 72 pending; 3 excluded.**
+**12 implemented, 4 in progress, 67 pending; 3 excluded.**
 
 “Implemented” means affected checks and tests passed and the change is committed with this tracker. Batch-wide acceptance is recorded separately below. Rows follow the audit's ranked order; sequencing can change to respect dependencies and keep changes reviewable.
 
@@ -30,12 +30,12 @@
 | C01-R1 | Implemented | One per-server authorization owner fences token writes, profile publication, and detached work. Rotation retains identity; replacement and clear invalidate predecessor work. `628a6a0b55`. |
 | B04-R1 | Implemented | Account generation is the sole bootstrap identity; reset joins the independent creation/reconciliation workflow root. See this finding's `audit:` commit. |
 | B19-R1 | Implemented | One read-only selection snapshot governs preparation and freshness without materializing during freshness checks. See this finding's `audit:` commit. |
-| B07-R2 | Pending | Commit restore data and completion bookkeeping together. |
-| F03-R2 | Pending | One duration-expiry completion action. |
+| B07-R2 | In progress | Commit restore data and completion bookkeeping together. |
+| F03-R2 | Implemented | One pure expiry reconciliation owns completion and feedback; invalid expiry clears execution without confirmation, rest, or progression. See this finding's `audit:` commit. |
 | F03-R1 | Pending | One workout-editor save owner. |
-| C04-R1 | Pending | Release partially acquired native listeners. |
-| C05-R1 | Pending | Keep form edits from reloading remote catalog pages. |
-| F05-R1 | Pending | Preserve independent activity for equal-name targets and all roles. |
+| C04-R1 | In progress | Release partially acquired native listeners. |
+| C05-R1 | In progress | Keep form edits from reloading remote catalog pages. |
+| F05-R1 | In progress | Preserve independent activity for equal-name targets and all roles. |
 | M05-R2 | Pending | Require one purpose shape across manifests and readers. |
 | P02-R1 | Pending | Validate activity inventory before lifecycle decisions. |
 | M06-R2 | Pending | Use the current query for backfill eligibility. |
@@ -161,4 +161,8 @@
 - Repository-wide `bun run check` passed across 30 projects; `bun turbo --filter='!@ryot-app/e2e' test` passed, 51/51 tasks.
 - Main-session cleanup removed duplicate operation-target construction and an unused direct-page snapshot field (net one line removed). No suppressions or bypass casts were added. Excluded apps unchanged. No push performed.
 
-Stopped after B19-R1 at the user's request. Next ranked finding, not started: B07-R2 (atomic restore data and completion bookkeeping).
+### Batch 6: B07-R2, F03-R2, F03-R1, C04-R1, C05-R1, F05-R1 — active
+
+- Resumed at the user's request with one implementation subagent per finding. Independent backup, expiry, device, readiness, and home-activity work runs in parallel; F03-R1 follows F03-R2 because they share the workout controller.
+- Each finding retains its own review and `audit:` commit. Affected validation, main-session cleanup, and final repository-wide acceptance are pending.
+- F03-R2: removed the fallback auto-confirm path. Added combined invalid-input, prompt, late-observation, replacement, and independent-rest regressions. Fitness check passed before 16 editor files / 163 tests. Read-only review reported no findings. No persisted shapes, suppressions, or bypass casts changed.

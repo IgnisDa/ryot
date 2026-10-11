@@ -1,4 +1,5 @@
 import { Schema } from "@ryot-app/plugin-kit/effect";
+import { EntityId } from "@ryot-app/plugin-kit/schema";
 import { assert, describe, expect, it } from "vitest";
 
 import {
@@ -17,10 +18,12 @@ import {
 	newWorkoutOccurrence,
 	newWorkoutSet,
 	nextWorkoutOccurrence,
+	reconcileWorkoutTimers,
 	removeWorkoutItems,
 	resolvePendingRest,
 	workoutProgressTarget,
 } from "./actions";
+import { pauseCountdown, pauseWorkout, resumeStopwatch, startExecution, startRest } from "./timers";
 
 const startedAt = "2026-10-16T10:00:00.000Z";
 const startTime = Date.parse(startedAt);
@@ -103,6 +106,205 @@ const preferences = (
 });
 
 const isoAt = (time: number) => new Date(time).toISOString();
+
+const executionDraft = () =>
+	startExecution(
+		workoutDraft({
+			activeSetId: "first-set",
+			activeOccurrenceId: "first",
+			supersets: [{ color: "blue", clientId: "superset", occurrenceIds: ["first", "second"] }],
+			occurrences: [
+				workoutOccurrence("first", {
+					sets: [workoutSet("first-set", { duration: "20" })],
+					display: { weightUnit: "kg", distanceUnit: "km", durationUnit: "seconds" },
+				}),
+				workoutOccurrence("second", { isCollapsed: true }),
+			],
+		}),
+		"first",
+		"first-set",
+		startTime,
+		"execution",
+	).draft;
+
+describe("workout timer reconciliation", () => {
+	it.each(
+		[
+			{ reps: "5", rest: "30" },
+			{ reps: "5", rest: "invalid" },
+			{ reps: "", rest: "30" },
+			{ reps: "-1", rest: "invalid" },
+		].flatMap((measurements) =>
+			[false, true].flatMap((prompt) =>
+				[500, 1500, 60_000].flatMap((delay) =>
+					[false, true].map((stale) => Object.assign({}, measurements, { delay, stale, prompt })),
+				),
+			),
+		),
+	)(
+		"reconciles rest=$rest reps=$reps prompt=$prompt delay=$delay stale=$stale atomically",
+		({ rest, reps, delay, stale, prompt }) => {
+			const running = editSet(executionDraft(), "first", "first-set", (set) => ({
+				...set,
+				reps,
+				restChoice: { seconds: rest, kind: "explicit" },
+			}));
+			const deadline = startTime + 20_000;
+			const result = reconcileWorkoutTimers(running, deadline + delay, {
+				prompt,
+				settings: preferences(),
+				expected: { executionClientId: stale ? "replaced-execution" : "execution" },
+			});
+			const completed = !stale && rest === "30" && reps === "5";
+			const set = findSet(result.draft, "first", "first-set");
+			expect({
+				included: set.included,
+				feedback: result.feedback,
+				confirmedAt: set.confirmedAt,
+				rest: result.draft.restCountdown,
+				restStartedAt: set.restTimerStartedAt,
+				activeSetId: result.draft.activeSetId,
+				pendingRest: result.draft.pendingRest,
+				activeOccurrenceId: result.draft.activeOccurrenceId,
+				executionId: result.draft.executionCountdown?.clientId,
+				firstCollapsed: findOccurrence(result.draft, "first").isCollapsed,
+				secondCollapsed: findOccurrence(result.draft, "second").isCollapsed,
+			}).toEqual({
+				included: completed,
+				firstCollapsed: completed,
+				secondCollapsed: !completed,
+				feedback: completed && delay < 1500,
+				executionId: stale ? "execution" : undefined,
+				activeOccurrenceId: completed ? "second" : "first",
+				activeSetId: completed ? "second-set" : "first-set",
+				confirmedAt: completed ? isoAt(deadline) : undefined,
+				restStartedAt: completed && !prompt ? isoAt(deadline) : undefined,
+				pendingRest:
+					completed && prompt
+						? {
+								seconds: 30,
+								setId: "first-set",
+								occurrenceId: "first",
+								exerciseId: EntityId.make("first-exercise"),
+							}
+						: undefined,
+				rest:
+					completed && !prompt && delay < 1500
+						? {
+								setId: "first-set",
+								durationSeconds: 30,
+								occurrenceId: "first",
+								clientId: "execution:rest",
+								deadline: isoAt(deadline + 30_000),
+								exerciseId: EntityId.make("first-exercise"),
+							}
+						: undefined,
+			});
+			expect(result.changed).toBe(!stale);
+			if (!stale) {
+				const repeated = reconcileWorkoutTimers(result.draft, deadline + delay, {
+					prompt,
+					settings: preferences(),
+					expected: { executionClientId: "execution" },
+				});
+				expect(repeated).toEqual({ changed: false, feedback: false, draft: result.draft });
+			}
+		},
+	);
+
+	it("invalidates a replaced execution target before attempting completion", () => {
+		const running = executionDraft();
+		const replaced = {
+			...running,
+			occurrences: running.occurrences.map((occurrence) =>
+				occurrence.clientId === "first"
+					? Object.assign({}, occurrence, { exerciseId: EntityId.make("replacement-exercise") })
+					: occurrence,
+			),
+		};
+		const result = reconcileWorkoutTimers(replaced, startTime + 20_000, {
+			prompt: true,
+			settings: preferences(),
+		});
+		expect(result.draft).toEqual({ ...replaced, executionCountdown: undefined });
+		expect(result.feedback).toBe(false);
+	});
+
+	it.each(["running", "expired", "paused", "stale"])(
+		"keeps independent %s rest, workout pause, and stopwatch state on invalid execution expiry",
+		(state) => {
+			const value = editSet(executionDraft(), "first", "first-set", (set) => ({
+				...set,
+				restChoice: { kind: "explicit", seconds: "invalid" },
+			}));
+			const included = editSet(value, "second", "second-set", (set) => ({
+				...set,
+				included: true,
+			}));
+			const resting = startRest(
+				included,
+				"second",
+				"second-set",
+				state === "running" ? 30 : 20,
+				startTime,
+				"independent-rest",
+			).draft;
+			const pausedRest =
+				state === "paused"
+					? pauseCountdown(resting, "restCountdown", startTime + 5_000).draft
+					: resting;
+			const pausedWorkout = pauseWorkout(
+				resumeStopwatch(pausedRest, startTime).draft,
+				startTime + 5_000,
+			).draft;
+			const result = reconcileWorkoutTimers(pausedWorkout, startTime + 20_500, {
+				prompt: true,
+				settings: preferences(),
+				expected:
+					state === "stale"
+						? { restClientId: "old-rest", executionClientId: "execution" }
+						: undefined,
+			});
+			expect(result.draft).toEqual({
+				...pausedWorkout,
+				executionCountdown: undefined,
+				restCountdown: state === "expired" ? undefined : pausedWorkout.restCountdown,
+			});
+			expect(result.feedback).toBe(state === "expired");
+		},
+	);
+
+	it("does not complete a paused execution even after its old deadline", () => {
+		const paused = pauseCountdown(executionDraft(), "executionCountdown", startTime + 5_000).draft;
+		expect(
+			reconcileWorkoutTimers(paused, startTime + 60_000, { prompt: true, settings: preferences() }),
+		).toEqual({ draft: paused, changed: false, feedback: false });
+	});
+
+	it("does not expire the new rest when execution replaces an overdue independent rest", () => {
+		const value = executionDraft();
+		const included = editSet(value, "second", "second-set", (set) => ({ ...set, included: true }));
+		const resting = startRest(included, "second", "second-set", 20, startTime, "old-rest").draft;
+		const completed = reconcileWorkoutTimers(resting, startTime + 20_500, {
+			prompt: false,
+			settings: preferences(),
+		});
+		expect(findSet(completed.draft, "first", "first-set").confirmedAt).toBe(
+			isoAt(startTime + 20_000),
+		);
+		expect(completed.draft.activeOccurrenceId).toBeUndefined();
+		expect(completed.draft.restCountdown).toMatchObject({
+			clientId: "execution:rest",
+			deadline: isoAt(startTime + 80_000),
+		});
+		const stale = reconcileWorkoutTimers(completed.draft, startTime + 80_000, {
+			prompt: false,
+			settings: preferences(),
+			expected: { restClientId: "old-rest" },
+		});
+		expect(stale).toEqual({ changed: false, feedback: false, draft: completed.draft });
+	});
+});
 
 describe("workout editor actions", () => {
 	it("stays on an ordinary exercise until its sets are complete and leaves finished supersets", () => {
