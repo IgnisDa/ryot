@@ -562,7 +562,13 @@ export class OAuthConnectionsService extends Context.Service<OAuthConnectionsSer
 						.pipe(Effect.andThen(Effect.fail(accessTokenError(message))));
 				const expire = repository
 					.markExpired({ ...lease, integrationId })
-					.pipe(Effect.andThen(Effect.fail(accessTokenError(OAUTH_ACCESS_TOKEN_MESSAGES.expired))));
+					.pipe(
+						Effect.flatMap((expired) =>
+							expired
+								? Effect.fail(accessTokenError(OAUTH_ACCESS_TOKEN_MESSAGES.expired))
+								: Effect.succeed(null),
+						),
+					);
 				if (connection.refreshToken === null) {
 					return yield* expire;
 				}
@@ -581,10 +587,6 @@ export class OAuthConnectionsService extends Context.Service<OAuthConnectionsSer
 				if (Result.isFailure(response)) {
 					if (response.failure.reason !== "invalid-grant") {
 						return yield* release(OAUTH_ACCESS_TOKEN_MESSAGES.failed);
-					}
-					const current = yield* repository.findById(lease.id);
-					if (current && current.tokenVersion !== connection.tokenVersion) {
-						return null;
 					}
 					return yield* expire;
 				}
