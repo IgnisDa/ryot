@@ -144,7 +144,9 @@ export const createSandboxExecutionAnalyzer = (project: TypeScriptProjectAccess)
 			);
 		};
 		const sdkOperation = (symbol: Awaited<ReturnType<typeof getSymbolAtLocation>>) =>
-			symbol?.declarations.some((handle) => handle.path.endsWith("/plugin-backend-sdk/src/core.ts"))
+			symbol?.declarations.some((handle) =>
+				handle.path.endsWith("/plugin-backend-sdk/src/core/host-contracts.ts"),
+			)
 				? operations.find((name) => name === symbol.name)
 				: undefined;
 		const hostAt = Effect.fnUntraced(function* (node: ts.Node) {

@@ -2,7 +2,7 @@ import { withApprovedDependencyRuntime } from "@ryot-app/plugin-backend-sdk/depe
 import { Effect } from "@ryot-app/plugin-backend-sdk/effect";
 import { Innertube } from "youtubei.js/web";
 
-import type { ScriptHost } from "./core";
+import type { ScriptHost } from "./core/script-host";
 
 export * from "youtubei.js/web";
 

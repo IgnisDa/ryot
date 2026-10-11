@@ -1,219 +1,18 @@
-import { SANDBOX_FAILURE_KINDS } from "@ryot-app/contract/modules/scripts/wire";
+import type { SANDBOX_FAILURE_KINDS } from "@ryot-app/contract/modules/scripts/wire";
 import { Effect as RuntimeEffect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
 
-import type { ExecutionMetadata, SandboxWorkflowReference, WorkflowManifest } from "./core";
-import { sandboxHostCapabilitySchema } from "./core";
+import type { ExecutionMetadata, WorkflowManifest } from "./core/script-manifest";
 import { SANDBOX_SCRIPT_DEFINITION } from "./driver";
+import { jsonValueSchema, type SandboxHostError } from "./wire";
 import {
-	jsonValueSchema,
-	type SandboxHostError,
-	sandboxHostErrorSchema,
-	strictStruct,
-} from "./wire";
-
-const durableCallFields = {
-	name: Schema.String.pipe(Schema.check(Schema.isMinLength(1))),
-	index: Schema.Number.pipe(
-		Schema.check(Schema.isInt()),
-		Schema.check(Schema.isGreaterThanOrEqualTo(0)),
-	),
-};
-
-export const workflowActivityRequestSchema = strictStruct({
-	...durableCallFields,
-	kind: Schema.Literal("activity"),
-	args: strictStruct({
-		input: jsonValueSchema,
-		scriptSlug: Schema.String.pipe(Schema.check(Schema.isMinLength(1))),
-	}),
-});
-export const workflowSleepRequestSchema = strictStruct({
-	...durableCallFields,
-	kind: Schema.Literal("sleep"),
-	args: strictStruct({
-		durationMs: Schema.Number.pipe(
-			Schema.check(Schema.isInt()),
-			Schema.check(Schema.isGreaterThanOrEqualTo(0)),
-		),
-	}),
-});
-export const workflowChildRequestSchema = strictStruct({
-	...durableCallFields,
-	kind: Schema.Literal("child"),
-	args: strictStruct({
-		input: jsonValueSchema,
-		workflowSlug: Schema.String.pipe(Schema.check(Schema.isMinLength(1))),
-	}),
-});
-export const workflowHostRequestSchema = strictStruct({
-	...durableCallFields,
-	kind: Schema.Literal("host"),
-	args: strictStruct({
-		args: Schema.Array(jsonValueSchema),
-		capability: sandboxHostCapabilitySchema,
-	}),
-});
-export const workflowInlineRequestSchema = Schema.Union([
-	workflowSleepRequestSchema,
-	workflowHostRequestSchema,
-]);
-export type WorkflowInlineRequest = Schema.Schema.Type<typeof workflowInlineRequestSchema>;
-export const workflowNestedChildRequestSchema = strictStruct({
-	...durableCallFields,
-	kind: Schema.Literal("workflow-child"),
-	args: strictStruct({
-		input: jsonValueSchema,
-		workflowSlug: Schema.String.pipe(Schema.check(Schema.isMinLength(1))),
-	}),
-});
-export const workflowDurableCallRequestSchema = Schema.Union([
-	workflowActivityRequestSchema,
-	workflowSleepRequestSchema,
-	workflowChildRequestSchema,
-	workflowHostRequestSchema,
-	workflowNestedChildRequestSchema,
-]);
-export type WorkflowDurableCallRequest = Schema.Schema.Type<
-	typeof workflowDurableCallRequestSchema
->;
-
-export const workflowReplayJournalEntrySchema = strictStruct({
-	value: jsonValueSchema,
-	request: workflowDurableCallRequestSchema,
-});
-export type WorkflowReplayJournalEntry = Schema.Schema.Type<
-	typeof workflowReplayJournalEntrySchema
->;
-
-export const workflowReplayEnvelopeSchema = Schema.Union([
-	strictStruct({
-		state: Schema.Literal("pending"),
-		journalLength: durableCallFields.index,
-		requests: Schema.Array(workflowDurableCallRequestSchema),
-	}),
-	strictStruct({
-		output: jsonValueSchema,
-		state: Schema.Literal("completed"),
-		journalLength: durableCallFields.index,
-		requests: Schema.Array(workflowDurableCallRequestSchema),
-	}),
-	strictStruct({
-		error: Schema.String,
-		state: Schema.Literal("failed"),
-		journalLength: durableCallFields.index,
-		kind: Schema.Literals([...SANDBOX_FAILURE_KINDS]),
-		requests: Schema.Array(workflowDurableCallRequestSchema),
-	}),
-]);
-export type WorkflowReplayEnvelope = Schema.Schema.Type<typeof workflowReplayEnvelopeSchema>;
-
-export type WorkflowReplayJournal = {
-	readonly length: number;
-	readonly read: (
-		index: number,
-	) => RuntimeEffect.Effect<WorkflowReplayJournalEntry, SandboxHostError>;
-};
-
-export type WorkflowReplayHost = {
-	readonly replayJournal: () => RuntimeEffect.Effect<WorkflowReplayJournal, SandboxHostError>;
-	readonly settleInline: (
-		requests: ReadonlyArray<Schema.Schema.Type<typeof workflowSleepRequestSchema>>,
-	) => RuntimeEffect.Effect<
-		ReadonlyArray<WorkflowReplayJournalEntry["value"]> | null,
-		SandboxHostError
-	>;
-};
-
-export type WorkflowScriptReference<
-	Input extends Schema.Constraint,
-	Output extends Schema.ConstraintDecoder<unknown>,
-> = {
-	readonly input: Input;
-	readonly output: Output;
-	readonly scriptSlug: string;
-	readonly referenceKind: "script";
-	readonly selection?: SandboxWorkflowReference<Input, Output>["selection"];
-};
-
-export type WorkflowReference<
-	Input extends Schema.Constraint,
-	Output extends Schema.ConstraintDecoder<unknown>,
-> = SandboxWorkflowReference<Input, Output>;
-
-export const defineScriptReference = <
-	const Slug extends string,
-	Input extends Schema.Constraint,
-	Output extends Schema.ConstraintDecoder<unknown>,
->(reference: {
-	readonly scriptSlug: Slug;
-	readonly input: Input;
-	readonly output: Output;
-}) => ({ ...reference, referenceKind: "script" as const });
-
-export const defineWorkflowReference = <
-	const Slug extends string,
-	Input extends Schema.Constraint,
-	Output extends Schema.ConstraintDecoder<unknown>,
->(reference: {
-	readonly workflowSlug: Slug;
-	readonly input: Input;
-	readonly output: Output;
-}) => ({ ...reference, referenceKind: "workflow" as const });
-
-type ExecutableReference =
-	| WorkflowScriptReference<Schema.Constraint, Schema.ConstraintDecoder<unknown>>
-	| WorkflowReference<Schema.Constraint, Schema.ConstraintDecoder<unknown>>;
-
-export const defineExecutableAlternatives = <
-	const Id extends string,
-	const Stage extends "settings" | "record",
-	const References extends Readonly<Record<string, ExecutableReference>>,
->(definition: {
-	readonly id: Id;
-	readonly stage: Stage;
-	readonly references: References;
-}) => definition;
-
-type SelectedReference<
-	Id extends string,
-	Stage extends "settings" | "record",
-	References extends Readonly<Record<string, ExecutableReference>>,
-> = {
-	readonly [Key in keyof References]: References[Key] & {
-		readonly selection: { readonly id: Id; readonly key: Key; readonly stage: Stage };
-	};
-}[keyof References];
-
-export function selectExecutable<
-	const Id extends string,
-	const Stage extends "settings" | "record",
-	const References extends Readonly<Record<string, ExecutableReference>>,
->(
-	definition: { readonly id: Id; readonly stage: Stage; readonly references: References },
-	key: string,
-): SelectedReference<Id, Stage, References>;
-export function selectExecutable(
-	definition: {
-		readonly id: string;
-		readonly stage: "settings" | "record";
-		readonly references: Readonly<Record<string, ExecutableReference>>;
-	},
-	key: string,
-): ExecutableReference {
-	const reference = Object.hasOwn(definition.references, key)
-		? definition.references[key]
-		: undefined;
-	if (!reference) {
-		throw new Error(`Executable selection "${definition.id}" has no alternative "${key}"`);
-	}
-	return { ...reference, selection: { key, id: definition.id, stage: definition.stage } };
-}
-
-export const workflowDurableResultSchema = Schema.Union([
-	strictStruct({ value: jsonValueSchema, state: Schema.Literal("success") }),
-	strictStruct({ error: sandboxHostErrorSchema, state: Schema.Literal("failure") }),
-]);
-export type WorkflowDurableResult = Schema.Schema.Type<typeof workflowDurableResultSchema>;
+	type WorkflowDurableCallRequest,
+	type WorkflowReplayHost,
+	type WorkflowReplayJournal,
+	type WorkflowReplayJournalEntry,
+	type WorkflowReplayEnvelope,
+	workflowReplayEnvelopeSchema,
+} from "./workflow/protocol";
+import type { WorkflowReference, WorkflowScriptReference } from "./workflow/references";
 
 const pending = Symbol("workflow-durable-call-pending");
 
@@ -464,3 +263,31 @@ export const Effect = {
 };
 export { Schema };
 export { defineManifest } from "./driver";
+export {
+	workflowActivityRequestSchema,
+	workflowChildRequestSchema,
+	workflowDurableCallRequestSchema,
+	workflowDurableResultSchema,
+	workflowHostRequestSchema,
+	workflowInlineRequestSchema,
+	workflowNestedChildRequestSchema,
+	workflowReplayEnvelopeSchema,
+	workflowReplayJournalEntrySchema,
+	workflowSleepRequestSchema,
+} from "./workflow/protocol";
+export type {
+	WorkflowDurableCallRequest,
+	WorkflowDurableResult,
+	WorkflowInlineRequest,
+	WorkflowReplayEnvelope,
+	WorkflowReplayHost,
+	WorkflowReplayJournal,
+	WorkflowReplayJournalEntry,
+} from "./workflow/protocol";
+export {
+	defineExecutableAlternatives,
+	defineScriptReference,
+	defineWorkflowReference,
+	selectExecutable,
+} from "./workflow/references";
+export type { WorkflowReference, WorkflowScriptReference } from "./workflow/references";
