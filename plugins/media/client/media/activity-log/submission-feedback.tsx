@@ -1,6 +1,6 @@
 import { useRyotQuery, useRyotSubmission } from "@ryot-app/plugin-client-sdk/react";
 import { StatusMessage } from "@ryot-app/plugin-ui-sdk";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 import { activityLogContextQuery, logActivityMutation } from "./queries";
 
@@ -10,14 +10,14 @@ export function useQuickLog(entityId: string) {
 		isComplete: (result) => result.status === "saved",
 	});
 	const saved = log.status === "idle" && log.data?.status === "saved";
-	const [refresh, setRefresh] = useState<"idle" | "awaiting" | "fetching" | "settled">("idle");
-	const { isFetching } = context;
+	const [refresh, setRefresh] = useState<"idle" | "requested" | "fetching" | "settled">("idle");
+	const { refetch, isFetching } = context;
 	let next = refresh;
 	if (!saved) {
 		next = "idle";
 	} else if (refresh === "idle") {
-		next = isFetching ? "fetching" : "awaiting";
-	} else if (refresh === "awaiting" && isFetching) {
+		next = "requested";
+	} else if (refresh === "requested" && isFetching) {
 		next = "fetching";
 	} else if (refresh === "fetching" && !isFetching) {
 		next = "settled";
@@ -25,6 +25,11 @@ export function useQuickLog(entityId: string) {
 	if (next !== refresh) {
 		setRefresh(next);
 	}
+	useEffect(() => {
+		if (saved) {
+			refetch();
+		}
+	}, [saved, refetch]);
 	return {
 		log,
 		saved,
