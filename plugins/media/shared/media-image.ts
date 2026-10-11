@@ -14,7 +14,7 @@ export const mediaImagePurposes = [
 const MediaImagePurposeSchema = Schema.Literals(mediaImagePurposes);
 
 const mediaImageVariant = <Fields extends Schema.Struct.Fields>(fields: Fields) =>
-	Schema.Struct({ ...fields, purpose: Schema.optional(MediaImagePurposeSchema) });
+	Schema.Struct({ ...fields, purpose: MediaImagePurposeSchema });
 
 export const MediaImageSchema = Schema.Union([
 	mediaImageVariant(S3AssetLocator.fields),
