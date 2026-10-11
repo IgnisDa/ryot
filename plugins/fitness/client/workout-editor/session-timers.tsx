@@ -1,5 +1,5 @@
 import { useRyotSchedule } from "@ryot-app/plugin-client-sdk/react";
-import { Badge, Button, Card, IconButton, ProgressBar } from "@ryot-app/plugin-ui-sdk";
+import { Badge, Button, Card, IconButton, MotionSwap, ProgressBar } from "@ryot-app/plugin-ui-sdk";
 import { AppIcon } from "@ryot-app/plugin-ui-sdk/icon";
 import clsx from "clsx";
 import { useEffect, useState } from "react";
@@ -334,6 +334,16 @@ const activeTimer = (props: TimerProps, dock: boolean) => {
 	return undefined;
 };
 
+const timerStateKey = (draft: WorkoutEditorDraft) => {
+	if (draft.executionCountdown !== undefined) {
+		return `execution:${draft.executionCountdown.clientId}`;
+	}
+	if (draft.pendingRest !== undefined) {
+		return `prompt:${draft.pendingRest.setId}`;
+	}
+	return draft.restCountdown === undefined ? "idle" : `rest:${draft.restCountdown.clientId}`;
+};
+
 export function DockTimers(
 	props: TimerProps & {
 		readonly onJumpToSet: (setId: string) => void;
@@ -343,55 +353,57 @@ export function DockTimers(
 	const schedule = useRyotSchedule();
 	const active = activeTimer(props, true);
 	if (active !== undefined) {
-		return active;
+		return <MotionSwap stateKey={timerStateKey(props.draft)}>{active}</MotionSwap>;
 	}
 	const running = props.draft.stopwatchStartedAt !== undefined;
 	const stopwatch = stopwatchSeconds(props.draft, props.now);
 	return (
-		<div className="flex items-center gap-2">
-			{running || stopwatch > 0 ? (
-				<button
-					type="button"
-					disabled={props.disabled}
-					aria-label={`${running ? "Pause" : "Resume"} stopwatch ${formatEditorSeconds(stopwatch)}`}
-					className="inline-flex h-8 shrink-0 items-center gap-1.5 rounded-pill border border-border-emphasis bg-surface px-3 text-[13px] font-medium tabular-nums pointer-coarse:h-10"
-					onClick={() =>
-						props.onChange(
-							(draft) =>
-								(draft.stopwatchStartedAt === undefined
-									? resumeStopwatch(draft, schedule.now())
-									: pauseStopwatch(draft, schedule.now())
-								).draft,
-						)
-					}
-				>
-					<AppIcon size={14} name={running ? "pause" : "timer"} />
-					{formatEditorSeconds(stopwatch)}
-				</button>
-			) : null}
-			{props.nextSet === undefined ? (
-				<p className="min-w-0 flex-1 text-sm font-semibold">All sets done</p>
-			) : (
-				<button
-					type="button"
-					className="min-w-0 flex-1 py-0.5 text-left"
-					onClick={() => {
-						if (props.nextSet !== undefined) {
-							props.onJumpToSet(props.nextSet.setId);
+		<MotionSwap stateKey="idle">
+			<div className="flex items-center gap-2">
+				{running || stopwatch > 0 ? (
+					<button
+						type="button"
+						disabled={props.disabled}
+						aria-label={`${running ? "Pause" : "Resume"} stopwatch ${formatEditorSeconds(stopwatch)}`}
+						className="inline-flex h-8 shrink-0 items-center gap-1.5 rounded-pill border border-border-emphasis bg-surface px-3 text-[13px] font-medium tabular-nums pointer-coarse:h-10"
+						onClick={() =>
+							props.onChange(
+								(draft) =>
+									(draft.stopwatchStartedAt === undefined
+										? resumeStopwatch(draft, schedule.now())
+										: pauseStopwatch(draft, schedule.now())
+									).draft,
+							)
 						}
-					}}
-				>
-					<span className="block text-xs text-text-muted">Up next</span>
-					<span className="block truncate text-sm font-semibold">
-						{props.nextSet.name} · set {props.nextSet.number}
-					</span>
-				</button>
-			)}
-			<Button variant="secondary" disabled={props.disabled} onClick={props.onAddExercises}>
-				<AppIcon size={16} name="plus" />
-				Exercise
-			</Button>
-		</div>
+					>
+						<AppIcon size={14} name={running ? "pause" : "timer"} />
+						{formatEditorSeconds(stopwatch)}
+					</button>
+				) : null}
+				{props.nextSet === undefined ? (
+					<p className="min-w-0 flex-1 text-sm font-semibold">All sets done</p>
+				) : (
+					<button
+						type="button"
+						className="min-w-0 flex-1 py-0.5 text-left"
+						onClick={() => {
+							if (props.nextSet !== undefined) {
+								props.onJumpToSet(props.nextSet.setId);
+							}
+						}}
+					>
+						<span className="block text-xs text-text-muted">Up next</span>
+						<span className="block truncate text-sm font-semibold">
+							{props.nextSet.name} · set {props.nextSet.number}
+						</span>
+					</button>
+				)}
+				<Button variant="secondary" disabled={props.disabled} onClick={props.onAddExercises}>
+					<AppIcon size={16} name="plus" />
+					Exercise
+				</Button>
+			</div>
+		</MotionSwap>
 	);
 }
 
@@ -438,14 +450,16 @@ export function RailTimers(props: TimerProps & { readonly startedAt: string | un
 				</Button>
 			</Card>
 			<Card className="p-3.5">
-				{active ?? (
-					<StopwatchControls
-						draft={draft}
-						now={props.now}
-						disabled={props.disabled}
-						onChange={props.onChange}
-					/>
-				)}
+				<MotionSwap stateKey={timerStateKey(draft)}>
+					{active ?? (
+						<StopwatchControls
+							draft={draft}
+							now={props.now}
+							disabled={props.disabled}
+							onChange={props.onChange}
+						/>
+					)}
+				</MotionSwap>
 			</Card>
 			{active === undefined ? null : (
 				<Card className="p-3.5">

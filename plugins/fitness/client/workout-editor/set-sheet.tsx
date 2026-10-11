@@ -3,6 +3,7 @@ import {
 	clockFormat,
 	Dialog,
 	Field,
+	MotionPresence,
 	RadioGroup,
 	SegmentedControl,
 	Stepper,
@@ -20,6 +21,7 @@ import type {
 import { workoutSetLots } from "../../shared/workout-set";
 import { formatEditorSeconds } from "./session-timers";
 import { previousSummary, setLotLabels } from "./set-grid";
+import { ConfirmDialog } from "./workout-sheets";
 
 const rpeOptions = Array.from({ length: 11 }, (_, value) => ({
 	value: String(value),
@@ -44,11 +46,14 @@ export function SetSheet(props: {
 }) {
 	const { set, onChange } = props;
 	const [rpeHelp, setRpeHelp] = useState(false);
+	const [deleteConfirmationSetId, setDeleteConfirmationSetId] = useState<string>();
 	const index = props.occurrence.sets.findIndex(({ clientId }) => clientId === set.clientId);
 	const summary = previousSummary(props.previous, props.occurrence);
 	const explicit = set.restChoice.kind === "explicit" ? set.restChoice.seconds : undefined;
 	const explicitSeconds =
 		explicit === undefined || !/^\d+$/.test(explicit.trim()) ? undefined : Number(explicit);
+	const confirmDeleteDisabled =
+		props.disabled || !set.included || set.clientId !== deleteConfirmationSetId;
 	return (
 		<Dialog
 			onClose={props.onClose}
@@ -60,7 +65,20 @@ export function SetSheet(props: {
 			placement={props.compact ? "sheet" : "center"}
 			footer={
 				<>
-					<Button variant="dangerGhost" onClick={props.onDelete} disabled={props.disabled}>
+					<Button
+						variant="dangerGhost"
+						disabled={props.disabled}
+						onClick={() => {
+							if (props.disabled) {
+								return;
+							}
+							if (set.included) {
+								setDeleteConfirmationSetId(set.clientId);
+								return;
+							}
+							props.onDelete();
+						}}
+					>
 						<AppIcon size={15} name="trash-2" />
 						Delete set
 					</Button>
@@ -208,6 +226,25 @@ export function SetSheet(props: {
 					</Button>
 				)}
 			</fieldset>
+			<MotionPresence>
+				{deleteConfirmationSetId === undefined ? null : (
+					<ConfirmDialog
+						key="delete-set"
+						cancelLabel="Cancel"
+						confirmLabel="Delete set"
+						title="Delete completed set?"
+						disabled={confirmDeleteDisabled}
+						onClose={() => setDeleteConfirmationSetId(undefined)}
+						description="This completed set will be removed. This action cannot be undone."
+						onConfirm={() => {
+							if (!confirmDeleteDisabled) {
+								props.onDelete();
+							}
+							setDeleteConfirmationSetId(undefined);
+						}}
+					/>
+				)}
+			</MotionPresence>
 		</Dialog>
 	);
 }

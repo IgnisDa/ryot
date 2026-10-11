@@ -1,7 +1,16 @@
 import { Schema } from "@ryot-app/plugin-client-sdk/effect";
-import { Button, Card, MenuButton, Notice } from "@ryot-app/plugin-ui-sdk";
+import {
+	Button,
+	Card,
+	Collapse,
+	IconButton,
+	MenuButton,
+	MotionPresence,
+	Notice,
+} from "@ryot-app/plugin-ui-sdk";
 import { AppIcon } from "@ryot-app/plugin-ui-sdk/icon";
 import { EntityArtWell } from "@ryot-app/plugin-ui-sdk/sync";
+import clsx from "clsx";
 import { useState } from "react";
 
 import type {
@@ -55,6 +64,7 @@ export function ExerciseCard(props: {
 	readonly onDelete: () => void;
 	readonly onCycle: () => void;
 	readonly onAddedSet: () => void;
+	readonly onManage: (kind: "reorder" | "bulk-delete" | "supersets") => void;
 }) {
 	const { exercise, settings, onChange, occurrence, draft: editorDraft } = props;
 	const disabled = props.disabled || exercise === undefined;
@@ -81,6 +91,10 @@ export function ExerciseCard(props: {
 	const attachments = occurrence.images.length + occurrence.videos.length;
 	const note = occurrence.notes.join("\n").trim();
 	const done = occurrence.sets.filter(({ included }) => included).length;
+	let progressTone = "text-text-muted";
+	if (!template && done > 0) {
+		progressTone = done === occurrence.sets.length ? "text-success" : "text-info";
+	}
 	const progress = template
 		? `${occurrence.sets.length} planned`
 		: `${done}/${occurrence.sets.length} done`;
@@ -88,7 +102,7 @@ export function ExerciseCard(props: {
 	const meta = [
 		exercise?.equipment.map(({ name: equipment }) => equipment).join(", "),
 		exercise?.targets.map(({ name: target }) => target).join(", "),
-		occurrence.isCollapsed ? progress : undefined,
+		progress,
 		attachments > 0
 			? `${attachments} ${attachments === 1 ? "attachment" : "attachments"}`
 			: undefined,
@@ -174,6 +188,23 @@ export function ExerciseCard(props: {
 						History
 					</Button>
 				) : null}
+				<IconButton
+					size="sm"
+					disabled={props.disabled}
+					onClick={toggleCollapsed}
+					aria-expanded={!occurrence.isCollapsed}
+					label={`${occurrence.isCollapsed ? "Expand" : "Collapse"} ${name}`}
+				>
+					<AppIcon
+						size={18}
+						name="chevron-up"
+						className={clsx(
+							"transition-transform duration-200 motion-reduce:transition-none",
+							progressTone,
+							occurrence.isCollapsed && "rotate-180",
+						)}
+					/>
+				</IconButton>
 				<MenuButton
 					label={`${name} actions`}
 					icon={<AppIcon size={18} name="more-horizontal" />}
@@ -213,6 +244,24 @@ export function ExerciseCard(props: {
 							label: occurrence.isCollapsed ? "Expand" : "Collapse",
 						},
 						{
+							key: "reorder",
+							disabled: props.disabled,
+							label: "Reorder this exercise",
+							onSelect: () => props.onManage("reorder"),
+						},
+						{
+							key: "superset",
+							disabled: props.disabled,
+							onSelect: () => props.onManage("supersets"),
+							label: props.grouped ? "Edit superset" : "Create superset",
+						},
+						{
+							key: "bulk-delete",
+							disabled: props.disabled,
+							label: "Delete exercises or sets",
+							onSelect: () => props.onManage("bulk-delete"),
+						},
+						{
 							key: "remove",
 							destructive: true,
 							disabled: props.disabled,
@@ -222,18 +271,20 @@ export function ExerciseCard(props: {
 					]}
 				/>
 			</div>
-			{occurrence.isCollapsed ? null : (
-				<>
-					{note === "" ? null : (
-						<button
-							type="button"
-							onClick={() => props.onSheet("notes")}
-							className="mx-1 flex items-start gap-2 rounded-md bg-surface-2 px-2.5 py-2 text-left text-[13px] text-text-muted"
-						>
-							<AppIcon size={14} name="sticky-note" className="mt-0.5 shrink-0" />
-							<span className="min-w-0 whitespace-pre-line [overflow-wrap:anywhere]">{note}</span>
-						</button>
-					)}
+			<Collapse open={!occurrence.isCollapsed}>
+				<div className="grid gap-2">
+					<Collapse open={note !== ""}>
+						{note === "" ? null : (
+							<button
+								type="button"
+								onClick={() => props.onSheet("notes")}
+								className="mx-1 flex items-start gap-2 rounded-md bg-surface-2 px-2.5 py-2 text-left text-[13px] text-text-muted"
+							>
+								<AppIcon size={14} name="sticky-note" className="mt-0.5 shrink-0" />
+								<span className="min-w-0 whitespace-pre-line [overflow-wrap:anywhere]">{note}</span>
+							</button>
+						)}
+					</Collapse>
 					<SetGrid
 						now={props.now}
 						draft={editorDraft}
@@ -297,41 +348,44 @@ export function ExerciseCard(props: {
 							</span>
 						) : null}
 					</div>
-				</>
-			)}
-			{openSet === undefined ? null : (
-				<SetSheet
-					set={openSet}
-					pro={props.pro}
-					exerciseName={name}
-					draft={editorDraft}
-					disabled={disabled}
-					occurrence={occurrence}
-					compact={props.compact}
-					safeAreaBottom={props.safeAreaBottom}
-					onClose={() => setOpenSetId(undefined)}
-					previous={previous.get(openSet.clientId)}
-					onCopyPrevious={() => {
-						props.onPrevious(openSet);
-						setOpenSetId(undefined);
-					}}
-					onChange={(transform) => {
-						props.onSetChanged(openSet.clientId);
-						patchSet(openSet.clientId, transform);
-					}}
-					inheritedRestSeconds={(() => {
-						const rest = restFor(openSet.setLot);
-						return rest.kind === "resolved" ? rest.seconds : 0;
-					})()}
-					onDelete={() => {
-						change((item) => ({
-							...item,
-							sets: item.sets.filter(({ clientId }) => clientId !== openSet.clientId),
-						}));
-						setOpenSetId(undefined);
-					}}
-				/>
-			)}
+				</div>
+			</Collapse>
+			<MotionPresence>
+				{openSet === undefined ? null : (
+					<SetSheet
+						set={openSet}
+						pro={props.pro}
+						key="set-options"
+						exerciseName={name}
+						draft={editorDraft}
+						disabled={disabled}
+						occurrence={occurrence}
+						compact={props.compact}
+						safeAreaBottom={props.safeAreaBottom}
+						onClose={() => setOpenSetId(undefined)}
+						previous={previous.get(openSet.clientId)}
+						onCopyPrevious={() => {
+							props.onPrevious(openSet);
+							setOpenSetId(undefined);
+						}}
+						onChange={(transform) => {
+							props.onSetChanged(openSet.clientId);
+							patchSet(openSet.clientId, transform);
+						}}
+						inheritedRestSeconds={(() => {
+							const rest = restFor(openSet.setLot);
+							return rest.kind === "resolved" ? rest.seconds : 0;
+						})()}
+						onDelete={() => {
+							change((item) => ({
+								...item,
+								sets: item.sets.filter(({ clientId }) => clientId !== openSet.clientId),
+							}));
+							setOpenSetId(undefined);
+						}}
+					/>
+				)}
+			</MotionPresence>
 		</Card>
 	);
 }

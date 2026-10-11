@@ -195,7 +195,12 @@ const replyProviderSearch = (
 		| { readonly kind: "added"; readonly entityIds: readonly EntityId[] },
 ) =>
 	act(() => {
-		page.send({ outcome, requestId, type: "provider-search-screen-result" });
+		page.send({
+			requestId,
+			value: outcome,
+			outcome: "success",
+			type: "provider-search-screen-result",
+		});
 	});
 
 afterEach(() => {

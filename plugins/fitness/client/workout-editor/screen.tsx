@@ -19,6 +19,8 @@ import {
 	Dialog,
 	EmptyState,
 	MenuButton,
+	MotionList,
+	MotionPresence,
 	Notice,
 	RowGroup,
 	ScreenBarButton,
@@ -26,7 +28,7 @@ import {
 	type MenuItem,
 } from "@ryot-app/plugin-ui-sdk";
 import { AppIcon } from "@ryot-app/plugin-ui-sdk/icon";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { PLUGIN_PACKAGE_ID } from "../../shared/plugin-identity";
 import type { WorkoutEditorContextOutputSchema } from "../../shared/workout-editor-context-operations";
@@ -71,6 +73,7 @@ import {
 	resolvePendingRest,
 	updateOccurrence,
 	updateSet,
+	workoutProgressTarget,
 } from "./actions";
 import { ExerciseCard, exerciseArtwork, type ExerciseSheet } from "./exercise-card";
 import { ExercisePicker } from "./exercise-picker";
@@ -93,6 +96,7 @@ import {
 	readHistorySets,
 	readPreviousSets,
 } from "./queries";
+import { useEditorScroll } from "./scroll";
 import {
 	DockTimers,
 	formatEditorSeconds,
@@ -235,7 +239,7 @@ export function WorkoutEditorScreen(props: {
 	const client = useRyot();
 	const schedule = useRyotSchedule();
 	const { compact, safeAreaBottom } = useRyotViewport();
-	const { isActive, scrollRootRef } = usePluginScreenSurface();
+	const { isActive, floatingRoot, scrollRootRef } = usePluginScreenSurface();
 	const { sounds, snapshot, controller } = useWorkoutEditor(props.target);
 	const [overlay, setOverlay] = useState<EditorOverlay>();
 	const [mediaTarget, setMediaTarget] = useState<WorkoutMediaTarget>();
@@ -245,6 +249,8 @@ export function WorkoutEditorScreen(props: {
 	const [requestHandled, setRequestHandled] = useState(false);
 	const [conflict, setConflict] = useState<{ readonly reloadable: boolean }>();
 	const [invalid, setInvalid] = useState<InvalidSet>();
+	const [managementOccurrenceId, setManagementOccurrenceId] = useState<string>();
+	const [deletingOccurrenceId, setDeletingOccurrenceId] = useState<string>();
 	const starting = useRef(false);
 	const active = useRef(isActive);
 	useEffect(() => {
@@ -336,27 +342,12 @@ export function WorkoutEditorScreen(props: {
 		schedule,
 		snapshot.status,
 	]);
-	const scrollToEditorTarget = useCallback(
-		(targetId: string) => {
-			const target = [...(editorRoot.current?.querySelectorAll<HTMLElement>("[id]") ?? [])].find(
-				(candidate) => candidate.id === targetId,
-			);
-			const root = scrollRootRef.current;
-			if (target === undefined || root === null) {
-				return;
-			}
-			const bounds = target.getBoundingClientRect();
-			const viewport = root.getBoundingClientRect();
-			const above = bounds.top - viewport.top - 24;
-			const below = bounds.bottom - viewport.bottom + 24;
-			if (above < 0 || bounds.height > viewport.height) {
-				root.scrollTop = Math.max(0, root.scrollTop + above);
-			} else if (below > 0) {
-				root.scrollTop += below;
-			}
-		},
-		[scrollRootRef],
-	);
+	const scrollToEditorTarget = useEditorScroll({
+		editorRoot,
+		floatingRoot,
+		active: isActive,
+		scrollRoot: scrollRootRef,
+	});
 	useEffect(() => {
 		if (editorDraft?.activeOccurrenceId === undefined || !isActive) {
 			return;
@@ -464,17 +455,15 @@ export function WorkoutEditorScreen(props: {
 				}
 				controller.change(() => candidate);
 				const input = yield* controller.beginSubmission(built.input);
-				const payload = yield* Schema.encodeEffect(
-					Schema.toCodecJson(WorkoutEditorSaveInputSchema),
-				)(input);
 				controller.setSaving(true);
 				const result = yield* client.operations
 					.invoke({
-						input: payload,
+						input,
 						refreshOnSuccess: false,
 						packageId: PLUGIN_PACKAGE_ID,
 						slug: workoutEditorSaveOperationSlug,
 						output: WorkoutEditorSaveOutputSchema,
+						inputSchema: WorkoutEditorSaveInputSchema,
 					})
 					.pipe(Effect.ensuring(Effect.sync(() => controller.setSaving(false))));
 				if (result.kind === "saved") {
@@ -531,6 +520,17 @@ export function WorkoutEditorScreen(props: {
 		if (latest.status !== "ready") {
 			return;
 		}
+		const sourceOccurrence = latest.draft.occurrences.find(
+			({ clientId }) => clientId === occurrence.clientId,
+		);
+		const currentIndex =
+			sourceOccurrence?.sets.findIndex(({ clientId }) => clientId === set.clientId) ?? -1;
+		const currentSet = sourceOccurrence?.sets[currentIndex];
+		const destination = sourceOccurrence?.sets[currentIndex + (currentSet?.included ? 1 : 0)];
+		if (destination === undefined) {
+			setMessage("There is no following set to fill. Add a set first.");
+			return;
+		}
 		const index = previousSetIndex(latest.draft.occurrences, occurrence.clientId, set.clientId);
 		if (index < 0) {
 			return;
@@ -559,13 +559,13 @@ export function WorkoutEditorScreen(props: {
 						if (current.exerciseId !== occurrence.exerciseId) {
 							return current;
 						}
-						const previous = historySetForOccurrence(row, current, set.clientId);
+						const previous = historySetForOccurrence(row, current, destination.clientId);
 						return previous === undefined
 							? current
 							: {
 									...current,
 									sets: current.sets.map((candidate) =>
-										candidate.clientId !== set.clientId
+										candidate.clientId !== destination.clientId
 											? candidate
 											: Object.assign(
 													{},
@@ -778,11 +778,8 @@ export function WorkoutEditorScreen(props: {
 		}
 	};
 	const close = () => setOverlay(undefined);
-	const currentSetId =
-		editorDraft?.mode.kind === "live"
-			? editorDraft.occurrences.flatMap(({ sets }) => sets).find(({ included }) => !included)
-					?.clientId
-			: undefined;
+	const progressTarget = editorDraft === undefined ? undefined : workoutProgressTarget(editorDraft);
+	const currentSetId = progressTarget?.set.clientId;
 	const exerciseCard = (occurrence: WorkoutEditorOccurrence, grouped: boolean) =>
 		editorDraft === undefined || context === undefined ? null : (
 			<ExerciseCard
@@ -805,7 +802,10 @@ export function WorkoutEditorScreen(props: {
 				onStartExecution={(set) => confirm(occurrence, set, false)}
 				countdownEnabled={local?.startTimerForDurationExercises ?? false}
 				exercise={exercises.data?.find(({ id }) => id === occurrence.exerciseId)}
-				onDelete={() => change((draft) => removeWorkoutItems(draft, [occurrence.clientId], []))}
+				onManage={(kind) => {
+					setManagementOccurrenceId(occurrence.clientId);
+					setOverlay(kind);
+				}}
 				onSetChanged={(setId) =>
 					setInvalid((current) => (current?.setId === setId ? undefined : current))
 				}
@@ -817,6 +817,11 @@ export function WorkoutEditorScreen(props: {
 					sheet === "attachments"
 						? setMediaTarget({ kind: "occurrence", occurrenceId: occurrence.clientId })
 						: setOverlay({ kind: sheet, occurrenceId: occurrence.clientId })
+				}
+				onDelete={() =>
+					occurrence.sets.some(({ included }) => included)
+						? setDeletingOccurrenceId(occurrence.clientId)
+						: change((draft) => removeWorkoutItems(draft, [occurrence.clientId], []))
 				}
 				onCycle={() => {
 					let targetId: string | undefined;
@@ -853,23 +858,18 @@ export function WorkoutEditorScreen(props: {
 	const stopwatch = editorDraft === undefined ? 0 : stopwatchSeconds(editorDraft, now);
 	const paused =
 		live && editorDraft.activeDurationStartedAt === undefined && editorDraft.endedAt === undefined;
-	const nextSet = (() => {
-		if (!live) {
-			return undefined;
-		}
-		for (const occurrence of editorDraft.occurrences) {
-			const index = occurrence.sets.findIndex(({ included }) => !included);
-			const set = occurrence.sets[index];
-			if (set !== undefined) {
-				return {
-					number: index + 1,
-					setId: set.clientId,
-					name: names.get(occurrence.exerciseId) ?? "Exercise",
+	const nextSet =
+		progressTarget === undefined
+			? undefined
+			: {
+					setId: progressTarget.set.clientId,
+					name: names.get(progressTarget.occurrence.exerciseId) ?? "Exercise",
+					number: progressTarget.occurrence.sets.indexOf(progressTarget.set) + 1,
 				};
-			}
-		}
-		return undefined;
-	})();
+	const openManagement = (kind: "reorder" | "supersets" | "bulk-delete") => {
+		setManagementOccurrenceId(undefined);
+		setOverlay(kind);
+	};
 	const finishExecution = () => {
 		const countdown = editorDraft?.executionCountdown;
 		const occurrence = editorDraft?.occurrences.find(
@@ -938,12 +938,12 @@ export function WorkoutEditorScreen(props: {
 						label: `Attachments (${workoutAttachments})`,
 						onSelect: () => setMediaTarget({ kind: "workout" }),
 					},
-					{ key: "reorder", label: "Reorder exercises", onSelect: () => setOverlay("reorder") },
-					{ key: "supersets", label: "Supersets", onSelect: () => setOverlay("supersets") },
+					{ key: "reorder", label: "Reorder exercises", onSelect: () => openManagement("reorder") },
+					{ key: "supersets", label: "Supersets", onSelect: () => openManagement("supersets") },
 					{
 						key: "bulk-delete",
 						label: "Delete exercises or sets",
-						onSelect: () => setOverlay("bulk-delete"),
+						onSelect: () => openManagement("bulk-delete"),
 					},
 					...(live
 						? [
@@ -1246,20 +1246,22 @@ export function WorkoutEditorScreen(props: {
 					(exercises.data ?? []).map((exercise) => exerciseArtwork(exercise)),
 				)}
 			>
-				{occurrenceSegments(editorDraft).map((segment) =>
-					segment.group === undefined ? (
-						segment.occurrences.map((occurrence) => exerciseCard(occurrence, false))
-					) : (
-						<SupersetGroup
-							name={segment.group.name}
-							color={segment.group.color}
-							key={segment.group.clientId}
-							count={segment.occurrences.length}
-						>
-							{segment.occurrences.map((occurrence) => exerciseCard(occurrence, true))}
-						</SupersetGroup>
-					),
-				)}
+				<MotionList className="grid gap-3">
+					{occurrenceSegments(editorDraft).map((segment) =>
+						segment.group === undefined ? (
+							segment.occurrences.map((occurrence) => exerciseCard(occurrence, false))
+						) : (
+							<SupersetGroup
+								name={segment.group.name}
+								color={segment.group.color}
+								count={segment.occurrences.length}
+								key={`${segment.group.clientId}:${segment.occurrences[0]?.clientId}`}
+							>
+								{segment.occurrences.map((occurrence) => exerciseCard(occurrence, true))}
+							</SupersetGroup>
+						),
+					)}
+				</MotionList>
 			</ManagedAssetProvider>
 		</fieldset>
 	) : null;
@@ -1281,31 +1283,6 @@ export function WorkoutEditorScreen(props: {
 		<PluginScreenFrame
 			title={title}
 			hideTitle={ready}
-			floatingAction={
-				ready && compact ? (
-					<ActionDock safeAreaBottom={safeAreaBottom} label={live ? "Timers" : "Editor actions"}>
-						{live ? (
-							<DockTimers
-								{...timerProps}
-								draft={editorDraft}
-								onAddExercises={() => setOverlay("picker")}
-								onJumpToSet={(setId) => scrollToEditorTarget(`set-${setId}`)}
-							/>
-						) : (
-							<div className="flex items-center gap-2">
-								<Button disabled={locked} variant="secondary" onClick={() => setOverlay("picker")}>
-									<AppIcon size={16} name="plus" />
-									Exercise
-								</Button>
-								<span className="flex-1" />
-								<Button disabled={saveBlocked} onClick={() => setOverlay("finish")}>
-									{template ? "Save template" : "Save changes"}
-								</Button>
-							</div>
-						)}
-					</ActionDock>
-				) : undefined
-			}
 			barActions={
 				ready && compact ? (
 					<>
@@ -1341,6 +1318,43 @@ export function WorkoutEditorScreen(props: {
 							{finishLabel}
 						</Button>
 					</>
+				) : undefined
+			}
+			floatingAction={
+				ready && compact ? (
+					<ActionDock safeAreaBottom={safeAreaBottom} label={live ? "Timers" : "Editor actions"}>
+						{live ? (
+							<DockTimers
+								{...timerProps}
+								draft={editorDraft}
+								onAddExercises={() => setOverlay("picker")}
+								onJumpToSet={(setId) => {
+									change((draft) => ({
+										...draft,
+										activeSetId: setId,
+										activeOccurrenceId: progressTarget?.occurrence.clientId,
+										occurrences: draft.occurrences.map((occurrence) =>
+											occurrence.sets.some(({ clientId }) => clientId === setId)
+												? { ...occurrence, isCollapsed: false }
+												: occurrence,
+										),
+									}));
+									scrollToEditorTarget(`set-${setId}`);
+								}}
+							/>
+						) : (
+							<div className="flex items-center gap-2">
+								<Button disabled={locked} variant="secondary" onClick={() => setOverlay("picker")}>
+									<AppIcon size={16} name="plus" />
+									Exercise
+								</Button>
+								<span className="flex-1" />
+								<Button disabled={saveBlocked} onClick={() => setOverlay("finish")}>
+									{template ? "Save template" : "Save changes"}
+								</Button>
+							</div>
+						)}
+					</ActionDock>
 				) : undefined
 			}
 		>
@@ -1426,7 +1440,7 @@ export function WorkoutEditorScreen(props: {
 								size="sm"
 								variant="ghost"
 								disabled={locked}
-								onClick={() => setOverlay("reorder")}
+								onClick={() => openManagement("reorder")}
 							>
 								<AppIcon size={15} name="arrow-up-down" />
 								Reorder
@@ -1435,7 +1449,7 @@ export function WorkoutEditorScreen(props: {
 								size="sm"
 								variant="ghost"
 								disabled={locked}
-								onClick={() => setOverlay("supersets")}
+								onClick={() => openManagement("supersets")}
 							>
 								<AppIcon size={15} name="link" />
 								Supersets
@@ -1445,7 +1459,7 @@ export function WorkoutEditorScreen(props: {
 								variant="ghost"
 								disabled={locked}
 								aria-label="Delete exercises or sets"
-								onClick={() => setOverlay("bulk-delete")}
+								onClick={() => openManagement("bulk-delete")}
 							>
 								<AppIcon size={15} name="trash-2" />
 								Delete…
@@ -1535,8 +1549,9 @@ export function WorkoutEditorScreen(props: {
 				</div>
 			)}
 			{isActive ? (
-				<>
+				<MotionPresence>
 					<MeasurementDialogs
+						key="measurements"
 						onClose={measurementClose}
 						dialog={measurementDialog}
 						trigger={measurementTrigger}
@@ -1544,6 +1559,7 @@ export function WorkoutEditorScreen(props: {
 					{requestBlocked && !requestHandled ? (
 						<Dialog
 							size="sm"
+							key="requires-pro"
 							title="Templates require Pro"
 							closeLabel="Return to editor"
 							description="Your current draft hasn't changed."
@@ -1565,6 +1581,7 @@ export function WorkoutEditorScreen(props: {
 					) : null}
 					{mediaTarget !== undefined && editorDraft !== undefined && snapshot.status === "ready" ? (
 						<WorkoutMediaOverlay
+							key="media"
 							compact={compact}
 							disabled={locked}
 							label={mediaLabel}
@@ -1583,6 +1600,7 @@ export function WorkoutEditorScreen(props: {
 					{existingGuard ? (
 						<Dialog
 							size="sm"
+							key="existing-draft"
 							title="You have a workout in progress"
 							closeLabel="Resume workout in progress"
 							onClose={() => {
@@ -1628,6 +1646,7 @@ export function WorkoutEditorScreen(props: {
 						overlay.kind === "replace" &&
 						currentOccurrence !== undefined) ? (
 						<ExercisePicker
+							key="picker"
 							{...(typeof overlay === "object" && currentOccurrence !== undefined
 								? {
 										replacement: {
@@ -1642,6 +1661,7 @@ export function WorkoutEditorScreen(props: {
 					) : null}
 					{overlay === "details" && editorDraft !== undefined ? (
 						<WorkoutDetailsSheet
+							key="details"
 							onClose={close}
 							compact={compact}
 							onChange={change}
@@ -1653,6 +1673,7 @@ export function WorkoutEditorScreen(props: {
 					{overlay === "preferences" && local !== undefined ? (
 						<WorkoutPreferencesSheet
 							onClose={close}
+							key="preferences"
 							compact={compact}
 							onChange={change}
 							disabled={locked}
@@ -1663,32 +1684,42 @@ export function WorkoutEditorScreen(props: {
 					) : null}
 					{overlay === "reorder" && editorDraft !== undefined ? (
 						<ReorderOverlay
+							key="reorder"
 							names={names}
 							onClose={close}
 							compact={compact}
 							onChange={change}
 							draft={editorDraft}
 							safeAreaBottom={safeAreaBottom}
+							initialOccurrenceId={managementOccurrenceId}
+							onMoved={(id) => {
+								close();
+								scrollToEditorTarget(`occurrence-${id}`);
+							}}
 						/>
 					) : null}
 					{overlay === "bulk-delete" && editorDraft !== undefined ? (
 						<BulkDeleteOverlay
 							names={names}
 							onClose={close}
+							key="bulk-delete"
 							compact={compact}
 							onChange={change}
 							draft={editorDraft}
 							safeAreaBottom={safeAreaBottom}
+							initialOccurrenceId={managementOccurrenceId}
 						/>
 					) : null}
 					{overlay === "supersets" && editorDraft !== undefined ? (
 						<SupersetOverlay
 							names={names}
+							key="supersets"
 							onClose={close}
 							compact={compact}
 							onChange={change}
 							draft={editorDraft}
 							safeAreaBottom={safeAreaBottom}
+							initialOccurrenceId={managementOccurrenceId}
 						/>
 					) : null}
 					{typeof overlay === "object" &&
@@ -1696,6 +1727,7 @@ export function WorkoutEditorScreen(props: {
 					currentExercise !== undefined &&
 					currentOccurrence !== undefined ? (
 						<UnitsAndDefaultsSheet
+							key="defaults"
 							onClose={close}
 							compact={compact}
 							exercise={currentExercise}
@@ -1715,6 +1747,7 @@ export function WorkoutEditorScreen(props: {
 					overlay.kind === "notes" &&
 					currentOccurrence !== undefined ? (
 						<ExerciseNotesSheet
+							key="notes"
 							onClose={close}
 							compact={compact}
 							exercise={currentExercise}
@@ -1736,6 +1769,7 @@ export function WorkoutEditorScreen(props: {
 					currentOccurrence !== undefined &&
 					context?.proAvailable === true ? (
 						<HistoryOverlay
+							key="history"
 							onClose={close}
 							compact={compact}
 							onAppend={appendHistory}
@@ -1754,6 +1788,7 @@ export function WorkoutEditorScreen(props: {
 					context?.proAvailable !== true ? (
 						<HistoryRequiresPro
 							onClose={close}
+							key="history-pro"
 							compact={compact}
 							safeAreaBottom={safeAreaBottom}
 							exerciseName={currentExercise?.name ?? "Unavailable exercise"}
@@ -1761,6 +1796,7 @@ export function WorkoutEditorScreen(props: {
 					) : null}
 					{overlay === "reload" ? (
 						<ConfirmDialog
+							key="reload"
 							onClose={close}
 							cancelLabel="Keep draft"
 							title="Reload the saved version?"
@@ -1803,6 +1839,7 @@ export function WorkoutEditorScreen(props: {
 					{overlay === "finish" && editorDraft !== undefined ? (
 						<FinishReview
 							now={now}
+							key="finish"
 							names={names}
 							onSave={save}
 							onClose={close}
@@ -1814,6 +1851,7 @@ export function WorkoutEditorScreen(props: {
 					) : null}
 					{overlay === "discard" ? (
 						<ConfirmDialog
+							key="discard"
 							onClose={close}
 							cancelLabel="Keep logging"
 							title={editorDraft === undefined || live ? "Discard workout?" : "Discard changes?"}
@@ -1837,7 +1875,24 @@ export function WorkoutEditorScreen(props: {
 							}
 						/>
 					) : null}
-				</>
+					{deletingOccurrenceId === undefined ? null : (
+						<ConfirmDialog
+							disabled={locked}
+							key="delete-exercise"
+							cancelLabel="Keep exercise"
+							confirmLabel="Delete exercise"
+							title="Delete exercise with completed sets?"
+							onClose={() => setDeletingOccurrenceId(undefined)}
+							description="This removes the exercise and all its sets from this draft. This cannot be undone."
+							onConfirm={() => {
+								if (!locked) {
+									change((draft) => removeWorkoutItems(draft, [deletingOccurrenceId], []));
+									setDeletingOccurrenceId(undefined);
+								}
+							}}
+						/>
+					)}
+				</MotionPresence>
 			) : null}
 		</PluginScreenFrame>
 	);
