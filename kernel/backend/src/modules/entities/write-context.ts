@@ -1,7 +1,9 @@
 import { DbError } from "@ryot-app/contract/errors";
 import { LifecycleCommand } from "@ryot-app/contract/modules/automations/lifecycle";
+import type { PluginManifest } from "@ryot-app/contract/modules/plugins/manifest";
 import { DefinitionOwner, definitionOwner } from "@ryot-app/contract/modules/plugins/references";
 import type { AppPropertyDefinition, AppSchema } from "@ryot-app/contract/schema/property-schema";
+import { stableStringify } from "@ryot-app/ts-utils/json";
 import { and, eq, isNull, sql } from "drizzle-orm";
 import { Context, Effect, Layer, Schema, Struct } from "effect";
 
@@ -14,6 +16,7 @@ import {
 	SandboxExecutionPrincipal,
 	sandboxSubjectUserId,
 } from "#lib/infrastructure/sandbox-runtime/execution-principal";
+import { parseAppSchemaProperties } from "#lib/property-schema/property-schema-runtime";
 import { SandboxRepository } from "#modules/sandbox/repository";
 import { SandboxExecutionAuthorityLive } from "#modules/sandbox/runtime-authority";
 
@@ -72,6 +75,46 @@ export const writerPropertiesSchema = (schema: AppSchema): AppSchema => ({
 		Object.entries(schema.fields).map(([key, value]) => [key, writerProperty(value)]),
 	),
 });
+
+type ManifestDeclarations = {
+	readonly entity: PluginManifest["entitySchemas"][number];
+	readonly relationship: PluginManifest["relationshipSchemas"][number];
+	readonly event: PluginManifest["entitySchemas"][number]["eventSchemas"][number];
+};
+type ManifestDeclarationSlugs = {
+	readonly entity: string;
+	readonly relationship: string;
+	readonly event: { readonly entitySchemaSlug: string; readonly eventSchemaSlug: string };
+};
+const findManifestDeclaration: {
+	readonly [K in keyof ManifestDeclarations]: (
+		manifest: PluginManifest,
+		slug: ManifestDeclarationSlugs[K],
+	) => ManifestDeclarations[K] | undefined;
+} = {
+	entity: (manifest, slug) => manifest.entitySchemas.find((schema) => schema.slug === slug),
+	relationship: (manifest, slug) =>
+		manifest.relationshipSchemas.find((schema) => schema.slug === slug),
+	event: (manifest, { eventSchemaSlug, entitySchemaSlug }) =>
+		manifest.entitySchemas
+			.find(({ slug }) => slug === entitySchemaSlug)
+			?.eventSchemas.find(({ slug }) => slug === eventSchemaSlug),
+};
+
+export const assertStableUnder = <E>(
+	kind: string,
+	propertiesSchema: AppSchema,
+	properties: Record<string, unknown>,
+	onError: (reason: "invalid" | "changed") => E,
+) =>
+	parseAppSchemaProperties({ kind, properties, propertiesSchema }).pipe(
+		Effect.mapError(() => onError("invalid")),
+		Effect.flatMap((parsed) =>
+			stableStringify(parsed) === stableStringify(properties)
+				? Effect.void
+				: Effect.fail(onError("changed")),
+		),
+	);
 
 const domainWriteOwner = (
 	command: Pick<DomainLifecycleCommand, "writeContext" | "kernelCollection">,
@@ -278,7 +321,24 @@ export class DomainWriteChecks extends Context.Service<DomainWriteChecks>()("Dom
 			}
 			return row.manifest;
 		});
-		return { check, checkProvider, activeManifest };
+		const resolvePinnedDeclaration = Effect.fnUntraced(function* <
+			K extends keyof ManifestDeclarations,
+		>(
+			kind: K,
+			manifest: PluginManifest | null,
+			owner: DefinitionOwner,
+			slug: ManifestDeclarationSlugs[K],
+		) {
+			if (!manifest || owner.kind !== "plugin") {
+				return { pinned: undefined, active: undefined };
+			}
+			const find = findManifestDeclaration[kind];
+			return {
+				pinned: find(manifest, slug),
+				active: find(yield* activeManifest(owner.pluginId), slug),
+			};
+		});
+		return { check, checkProvider, activeManifest, resolvePinnedDeclaration };
 	}),
 }) {
 	static readonly layer = Layer.effect(this, this.make);
