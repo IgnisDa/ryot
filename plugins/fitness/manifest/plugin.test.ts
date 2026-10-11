@@ -11,6 +11,7 @@ import { manifest as hevyManifest } from "../backend/imports/hevy.sandbox";
 import { manifest as openScaleManifest } from "../backend/imports/open-scale.sandbox";
 import { manifest as settingsManifest } from "../backend/imports/settings.sandbox";
 import { manifest as strongAppManifest } from "../backend/imports/strong-app.sandbox";
+import { workoutEditorRoutes } from "../shared/workout-editor-routes";
 import { FitnessCreateImportRunBody } from "./import-sources";
 import { fitnessPlugin } from "./plugin";
 
@@ -89,9 +90,9 @@ it("declares the complete fitness-owned source", () => {
 	expect(fitnessPlugin.signalSchemas.map(({ slug }) => slug)).toEqual(["workout.created"]);
 	expect(fitnessPlugin.client).toEqual({
 		homeView: null,
+		routes: workoutEditorRoutes,
 		apiVersion: CLIENT_API_VERSION,
 		entities: {
-			"workout-template": { listPresentation: "entity-row", gridPresentation: "entity-card" },
 			"measurement-metric": { listPresentation: "entity-row", gridPresentation: "entity-card" },
 			exercise: {
 				detailPage: "exercise-detail",
@@ -102,6 +103,11 @@ it("declares the complete fitness-owned source", () => {
 				detailPage: "workout-detail",
 				listPresentation: "workout-row",
 				gridPresentation: "workout-card",
+			},
+			"workout-template": {
+				listPresentation: "entity-row",
+				gridPresentation: "entity-card",
+				detailPage: "workout-template-detail",
 			},
 		},
 		exports: {
@@ -142,6 +148,18 @@ it("declares the complete fitness-owned source", () => {
 				settingsSchema: { fields: {} },
 				entry: "client/exercise/screen.tsx",
 				automaticEntityPresentations: false,
+			},
+			"workout-editor": {
+				kind: "page",
+				settingsSchema: { fields: {} },
+				automaticEntityPresentations: false,
+				entry: "client/workout-editor/page.tsx",
+			},
+			"workout-template-detail": {
+				kind: "page",
+				settingsSchema: { fields: {} },
+				automaticEntityPresentations: false,
+				entry: "client/workout-template/screen.tsx",
 			},
 		},
 	});

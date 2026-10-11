@@ -1,4 +1,5 @@
 import type { ExerciseKind } from "../../shared/exercise-kinds";
+import { kilogramsToPounds, kilometersToMiles } from "../../shared/workout-units";
 import type { MeasureUnit, WorkoutSet } from "./details-model";
 
 const numberFormat = new Intl.NumberFormat("en-US", { maximumFractionDigits: 2 });
@@ -25,34 +26,56 @@ export const formatDuration = (seconds: number) => {
 	return whole % 60 === 0 ? `${minutes} min` : formatClock(whole);
 };
 
-export const formatMeasure = (value: number, unit: MeasureUnit) => {
+export const formatMeasure = (value: number, unit: MeasureUnit, imperial = false) => {
 	if (unit === "seconds") {
 		return formatDuration(value);
+	}
+	if (imperial && unit === "kg") {
+		return `${formatNumber(kilogramsToPounds(value))} lb`;
+	}
+	if (imperial && unit === "km") {
+		return `${formatNumber(kilometersToMiles(value))} mi`;
 	}
 	return unit === "reps" ? `${formatNumber(value)} reps` : `${formatNumber(value)} ${unit}`;
 };
 
-export const formatSignedMeasure = (value: number, unit: MeasureUnit) => {
+export const formatSignedMeasure = (value: number, unit: MeasureUnit, imperial = false) => {
 	if (value === 0) {
 		return "Same as last time";
 	}
-	const magnitude = formatMeasure(Math.abs(value), unit);
+	const magnitude = formatMeasure(Math.abs(value), unit, imperial);
 	return value > 0 ? `+${magnitude}` : `−${magnitude}`;
 };
 
 export type SetMeasures = Pick<WorkoutSet, "distance" | "duration" | "reps" | "weight">;
 
-const weightReps = (set: SetMeasures) =>
-	set.weight === null || set.weight === 0
-		? `${formatNumber(set.reps ?? 0)} reps`
-		: `${formatNumber(set.weight)} kg × ${formatNumber(set.reps ?? 0)}`;
+const weightReps = (set: SetMeasures, imperial: boolean) => {
+	if (set.weight === null || set.weight === 0) {
+		return set.reps === null ? "" : `${formatNumber(set.reps)} reps`;
+	}
+	return `${formatMeasure(set.weight, "kg", imperial)}${set.reps === null ? "" : ` × ${formatNumber(set.reps)}`}`;
+};
 
-export const formatSetMain = (kind: ExerciseKind | null, set: SetMeasures) => {
+export const formatSetMain = (
+	kind: ExerciseKind | null,
+	set: SetMeasures,
+	imperial = false,
+	durationUnit?: "seconds" | "minutes" | null,
+) => {
 	const reps = set.reps === null ? null : `${formatNumber(set.reps)} reps`;
-	const duration = set.duration === null ? null : formatDuration(set.duration);
-	const distance = set.distance === null ? null : `${formatNumber(set.distance)} km`;
+	let duration: string | null = null;
+	if (set.duration !== null) {
+		duration = formatDuration(set.duration);
+		if (durationUnit === "seconds") {
+			duration = `${formatNumber(set.duration)} s`;
+		}
+		if (durationUnit === "minutes") {
+			duration = `${formatNumber(set.duration / 60)} min`;
+		}
+	}
+	const distance = set.distance === null ? null : formatMeasure(set.distance, "km", imperial);
 	if (kind === "reps_and_weight") {
-		return weightReps(set);
+		return weightReps(set, imperial);
 	}
 	if (kind === "distance_and_duration") {
 		return [distance, duration].filter((part) => part !== null).join(" in ");

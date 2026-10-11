@@ -3,6 +3,7 @@ import { EntityArtWell } from "@ryot-app/plugin-ui-sdk/sync";
 import clsx from "clsx";
 
 import { useAssetUrl } from "../asset-urls";
+import { WorkoutMediaViewer } from "../media-viewer";
 import {
 	personalBestLabels,
 	setLabels,
@@ -81,7 +82,11 @@ const wideColumns = (showOneRm: boolean, showRpe: boolean) => {
 		: "grid-cols-[2.5rem_minmax(0,1.3fr)_3.5rem_minmax(0,1.3fr)]";
 };
 
-function SetTable(props: { readonly card: ExerciseCard; readonly compact: boolean }) {
+function SetTable(props: {
+	readonly card: ExerciseCard;
+	readonly compact: boolean;
+	readonly imperial: boolean;
+}) {
 	const { card, compact } = props;
 	const labels = setLabels(card.sets);
 	const showRpe = card.sets.some((set) => set.rpe !== null);
@@ -109,7 +114,9 @@ function SetTable(props: { readonly card: ExerciseCard; readonly compact: boolea
 				const hasRecords = (set.personalBests?.length ?? 0) > 0;
 				const lot = set.setLot ?? "normal";
 				const secondary = [
-					showOneRm && set.oneRm !== null ? `${formatNumber(set.oneRm)} kg 1RM` : null,
+					showOneRm && set.oneRm !== null
+						? `${formatMeasure(set.oneRm, "kg", props.imperial)} 1RM`
+						: null,
 					set.rpe === null ? null : `RPE ${formatNumber(set.rpe)}`,
 				].filter((part) => part !== null);
 				return (
@@ -135,7 +142,12 @@ function SetTable(props: { readonly card: ExerciseCard; readonly compact: boolea
 							{labels[index]}
 						</span>
 						<span role="cell" className="font-medium text-text">
-							{formatSetMain(card.kind, set)}
+							{formatSetMain(
+								card.kind,
+								set,
+								props.imperial,
+								card.exercise.defaultDurationUnit ?? "minutes",
+							)}
 							{compact && secondary.length > 0 ? (
 								<span className="font-normal text-[13px] text-text-muted">
 									{` · ${secondary.join(" · ")}`}
@@ -146,7 +158,7 @@ function SetTable(props: { readonly card: ExerciseCard; readonly compact: boolea
 							<>
 								{showOneRm ? (
 									<span role="cell" className="text-text-muted">
-										{set.oneRm === null ? "—" : `${formatNumber(set.oneRm)} kg`}
+										{set.oneRm === null ? "—" : formatMeasure(set.oneRm, "kg", props.imperial)}
 									</span>
 								) : null}
 								{showRpe ? (
@@ -188,6 +200,7 @@ function RecordStatusNote(props: { readonly card: ExerciseCard }) {
 }
 
 export function ExerciseCardView(props: {
+	readonly imperial: boolean;
 	readonly compact: boolean;
 	readonly card: ExerciseCard;
 	readonly workoutStartedAt: string | null;
@@ -225,7 +238,7 @@ export function ExerciseCardView(props: {
 				<div className="flex shrink-0 flex-col items-end gap-0.5 text-right font-ui">
 					{card.total === null ? null : (
 						<span className="font-semibold text-[15px] text-text">
-							{formatMeasure(card.total.value, card.total.unit)}
+							{formatMeasure(card.total.value, card.total.unit, props.imperial)}
 						</span>
 					)}
 					{card.comparison === null ? null : (
@@ -235,7 +248,7 @@ export function ExerciseCardView(props: {
 								card.comparison.delta > 0 ? "text-success" : "text-text-muted",
 							)}
 						>
-							{formatSignedMeasure(card.comparison.delta, card.comparison.unit)}
+							{formatSignedMeasure(card.comparison.delta, card.comparison.unit, props.imperial)}
 							{card.comparison.delta === 0
 								? ""
 								: ` vs ${formatShortDate(card.comparison.previousStartedAt, props.workoutStartedAt)}`}
@@ -252,12 +265,20 @@ export function ExerciseCardView(props: {
 				</p>
 			))}
 			<RecordStatusNote card={card} />
-			<SetTable card={card} compact={compact} />
+			<SetTable card={card} compact={compact} imperial={props.imperial} />
+			{card.media ? (
+				<WorkoutMediaViewer
+					label={card.exercise.name}
+					images={card.media.images}
+					videos={card.media.videos}
+				/>
+			) : null}
 		</article>
 	);
 }
 
 export function ExerciseGroups(props: {
+	readonly imperial: boolean;
 	readonly compact: boolean;
 	readonly groups: readonly CardGroup[];
 	readonly workoutStartedAt: string | null;
@@ -270,6 +291,7 @@ export function ExerciseGroups(props: {
 						card={group.card}
 						key={group.card.key}
 						compact={props.compact}
+						imperial={props.imperial}
 						workoutStartedAt={props.workoutStartedAt}
 					/>
 				) : (
@@ -292,6 +314,7 @@ export function ExerciseGroups(props: {
 									card={card}
 									key={card.key}
 									compact={props.compact}
+									imperial={props.imperial}
 									workoutStartedAt={props.workoutStartedAt}
 								/>
 							))}

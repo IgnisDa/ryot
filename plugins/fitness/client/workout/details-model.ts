@@ -14,6 +14,7 @@ export type ExerciseCard = {
 	readonly order: number;
 	readonly kind: ExerciseKind | null;
 	readonly notes: readonly string[];
+	readonly media: NonNullable<WorkoutDetails["exerciseMedia"]>[number] | undefined;
 	readonly exercise: WorkoutExercise;
 	readonly sets: readonly WorkoutSet[];
 	readonly supersetTag: string | null;
@@ -40,7 +41,6 @@ export type TimelineSegment = {
 export type WorkoutTimeline = {
 	readonly segments: readonly TimelineSegment[];
 	readonly restSeconds: number;
-	readonly workingSeconds: number;
 };
 
 export type WorkoutSummary = {
@@ -141,6 +141,7 @@ export const buildExerciseGroups = (workout: WorkoutDetails): readonly CardGroup
 				key: `${order}:${exercise.id}`,
 				recordStatus: cardRecordStatus(sets),
 				total: unit === null ? null : { unit, value: sumMeasure(sets, unit) },
+				media: workout.exerciseMedia?.find(({ exerciseOrder }) => exerciseOrder === order),
 				notes:
 					workout.exerciseNotes?.find(({ exerciseOrder }) => exerciseOrder === order)?.notes ?? [],
 				supersetTag:
@@ -225,8 +226,7 @@ export const buildTimeline = (
 		});
 		cursor = finish;
 	}
-	const totalSeconds = (ended - started) / 1000;
-	return { segments, restSeconds, workingSeconds: Math.max(totalSeconds - restSeconds, 0) };
+	return { segments, restSeconds };
 };
 
 export type MuscleCount = { readonly name: string; readonly sets: number };

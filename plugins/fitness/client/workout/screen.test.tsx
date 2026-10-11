@@ -18,6 +18,52 @@ const renderDetails = (workout: Parameters<typeof WorkoutDetailsView>[0]["workou
 	});
 
 describe("workout details view", () => {
+	it.live(
+		"distinguishes active and elapsed duration and converts saved measurements without changing timestamps",
+		() =>
+			Effect.gen(function* () {
+				const workout = workoutDetails({
+					caloriesBurnt: 100,
+					activeDuration: 3000,
+					endedAt: "2026-10-16T11:00:00.000Z",
+					startedAt: "2026-10-16T10:00:00.000Z",
+					exercises: [
+						workoutExercise({
+							sets: [
+								workoutSet({
+									oneRm: 120,
+									weight: 100,
+									volume: 1000,
+									confirmedAt: "2026-10-16T10:30:00.000Z",
+								}),
+							],
+						}),
+					],
+				});
+				const page = mountPluginPage(
+					() => (
+						<WorkoutDetailsView
+							compact={false}
+							workout={workout}
+							settings={{ energyUnit: "kJ", unitSystem: "imperial" }}
+						/>
+					),
+					{ location: routeLocation("/") },
+				);
+				yield* Effect.promise(() =>
+					waitFor(() => expect(page.container?.textContent).toContain("220.46 lb")),
+				);
+				const text = page.container?.textContent ?? "";
+				expect(text).toContain("Active duration50 min");
+				expect(text).toContain("Elapsed duration1h");
+				expect(text).toContain("418.4");
+				expect(text).toContain("kJ");
+				expect(text).toContain("264.55 lb");
+				expect(text).toContain("Session flow");
+				expect(workout.startedAt).toBe("2026-10-16T10:00:00.000Z");
+				expect(workout.exercises.items[0]?.sets.items[0]?.weight).toBe(100);
+			}),
+	);
 	it.live("shows set types, RPE, records, comparisons and supersets for a logged workout", () =>
 		Effect.gen(function* () {
 			const page = renderDetails(
