@@ -11,11 +11,11 @@ import { axe } from "vitest-axe";
 import { ProviderSearchPanel } from "#/modules/provider-add/panel";
 import type { ProviderSearchSummary } from "#/modules/provider-add/service";
 
-const bookSlug = EntitySchemaSlug.make("book");
+const unitSlug = EntitySchemaSlug.make("unit");
 
 const provider = (index: number): ProviderSearchSummary => ({
 	searchOptionsSchema: null,
-	rootEntitySchemaSlug: bookSlug,
+	rootEntitySchemaSlug: unitSlug,
 	providerSlug: `provider-${index}`,
 	providerName: `Provider ${index}`,
 	providerId: SandboxProviderId.make(`provider-${index}`),
@@ -35,11 +35,11 @@ const renderPanel = (
 		<ProviderSearchPanel
 			renderAsset={() => null}
 			onClose={() => undefined}
-			entitySchemaSlug={bookSlug}
+			entitySchemaSlug={unitSlug}
 			onImported={() => undefined}
-			librarySchemaSlug="media-library"
 			onSelectProvider={() => undefined}
-			relationshipSlug="in-media-library"
+			librarySchemaSlug="fixture-library"
+			relationshipSlug="in-fixture-library"
 			onCreateCustom={options.onCreateCustom}
 			providers={{ providers, status: "ready" }}
 			selectedProviderId={providers[0].providerId}
@@ -53,7 +53,7 @@ const renderPanel = (
 	);
 
 const searchResponse = (page: number): SearchProviderEntitiesResponse => ({
-	rootEntitySchemaSlug: bookSlug,
+	rootEntitySchemaSlug: unitSlug,
 	providerId: providers[0].providerId,
 	providerName: providers[0].providerName,
 	details: { totalItems: 2, nextPage: page === 1 ? 2 : null },

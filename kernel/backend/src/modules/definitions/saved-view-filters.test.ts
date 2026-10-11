@@ -37,13 +37,13 @@ const related: FilterField = {
 };
 
 const logged: FilterField = {
-	key: "exercises",
-	label: "Exercises",
+	key: "records",
+	label: "Records",
 	kind: "session-event",
 	event: {
 		owner: { kind: "kernel" },
-		slug: EventSchemaSlug.make("workout-set"),
-		entitySchemaSlug: EntitySchemaSlug.make("exercise"),
+		slug: EventSchemaSlug.make("record-set"),
+		entitySchemaSlug: EntitySchemaSlug.make("record"),
 	},
 };
 
@@ -94,6 +94,6 @@ it("rejects relationship fields on results tables", () => {
 
 it("rejects session-event fields on results tables", () => {
 	expect(issue([logged], "results-table")).toBe(
-		"Filter field 'exercises' cannot be a session-event on a results table",
+		"Filter field 'records' cannot be a session-event on a results table",
 	);
 });

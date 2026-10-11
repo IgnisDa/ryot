@@ -540,7 +540,7 @@ const executionLimit = failed({
 	message: "httpCall limit reached",
 	data: { operation: "httpCall", code: "execution-limit" },
 });
-const rateLimited = failed({ kind: "script-failure", message: "TMDB responded 429" });
+const rateLimited = failed({ kind: "script-failure", message: "provider responded 429" });
 
 layer(failureLayer)((test) => {
 	test.effect(

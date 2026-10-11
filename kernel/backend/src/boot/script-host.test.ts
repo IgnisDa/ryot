@@ -1176,7 +1176,7 @@ describe("getCurrentIntegration", () => {
 		minimumProgress: 10,
 		maximumProgress: 80,
 		syncOwnership: false,
-		providerSpecifics: { filter: "movie", provider: "tmdb", kind: "lambda_yank" },
+		providerSpecifics: { filter: "item", kind: "lambda_yank", provider: "provider" },
 	};
 	const changedSettings = {
 		syncOwnership: true,
@@ -1233,14 +1233,14 @@ describe("getCurrentIntegration", () => {
 					const nextRun = yield* readForRun("run-2");
 
 					expect(firstRead.providerSpecifics).toEqual({
-						filter: "movie",
-						provider: "tmdb",
+						filter: "item",
 						kind: "lambda_yank",
+						provider: "provider",
 					});
 					expect(activeRun.providerSpecifics).toEqual({
-						filter: "movie",
-						provider: "tmdb",
+						filter: "item",
 						kind: "lambda_yank",
+						provider: "provider",
 					});
 					expect(activeRun.minimumProgress).toBe(10);
 					expect(activeRun.maximumProgress).toBe(80);

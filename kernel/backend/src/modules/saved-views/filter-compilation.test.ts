@@ -29,13 +29,13 @@ const filterFields = [
 	valueField("added", "date"),
 	valueField("released", "date"),
 	{
-		key: "exercises",
-		label: "Exercises",
+		key: "records",
+		label: "Records",
 		kind: "session-event",
 		event: {
 			owner: { kind: "kernel" },
-			slug: EventSchemaSlug.make("workout-set"),
-			entitySchemaSlug: EntitySchemaSlug.make("exercise"),
+			slug: EventSchemaSlug.make("record-set"),
+			entitySchemaSlug: EntitySchemaSlug.make("record"),
 		},
 	},
 ] satisfies readonly FilterField[];
@@ -71,7 +71,7 @@ const settings = {
 	sourceName: "selection",
 	subject: {
 		entityAlias: "entity",
-		schemas: [{ owner: { kind: "kernel" }, slug: EntitySchemaSlug.make("book") }],
+		schemas: [{ owner: { kind: "kernel" }, slug: EntitySchemaSlug.make("item") }],
 	},
 } as const;
 
@@ -112,11 +112,11 @@ const operatorFamilies: readonly Filter[] = [
 	{ values: ["c1"], operator: "noneOf", field: "collections" },
 	{ operator: "empty", field: "collections" },
 	{ field: "collections", operator: "notEmpty" },
-	{ operator: "anyOf", field: "exercises", values: ["e1", "e2"] },
-	{ operator: "allOf", field: "exercises", values: ["e1", "e2"] },
-	{ values: ["e1"], operator: "noneOf", field: "exercises" },
-	{ operator: "empty", field: "exercises" },
-	{ field: "exercises", operator: "notEmpty" },
+	{ field: "records", operator: "anyOf", values: ["e1", "e2"] },
+	{ field: "records", operator: "allOf", values: ["e1", "e2"] },
+	{ values: ["e1"], field: "records", operator: "noneOf" },
+	{ field: "records", operator: "empty" },
+	{ field: "records", operator: "notEmpty" },
 ];
 
 it("compiles every operator family into a document the RyotQL validator accepts", () => {
@@ -197,7 +197,7 @@ it("applies value filters to results tables and rejects the Collections field th
 				now,
 				settings: tableSettings,
 				queryDocument: selection(),
-				filter: { field: "exercises", operator: "notEmpty" },
+				filter: { field: "records", operator: "notEmpty" },
 			}),
 		),
 	).toBe(true);

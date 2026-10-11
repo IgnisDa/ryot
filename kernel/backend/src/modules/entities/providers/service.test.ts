@@ -413,7 +413,7 @@ const importedEntity = {
 	createdAt: "2026-10-10T00:00:00.000Z",
 	updatedAt: "2026-10-10T00:00:00.000Z",
 	populatedAt: "2026-10-10T00:00:00.000Z",
-	entitySchemaSlug: EntitySchemaSlug.make("book"),
+	entitySchemaSlug: EntitySchemaSlug.make("item"),
 };
 
 layer(

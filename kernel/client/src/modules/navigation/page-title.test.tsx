@@ -10,11 +10,11 @@ function Titled(props: { readonly title: string }) {
 }
 
 function Swap() {
-	const [slug, setSlug] = useState("books");
+	const [slug, setSlug] = useState("items");
 	return (
 		<>
-			<Titled key={slug} title={slug === "books" ? "Books" : "Movies"} />
-			<button type="button" onClick={() => setSlug("movies")}>
+			<Titled key={slug} title={slug === "items" ? "Items" : "Records"} />
+			<button type="button" onClick={() => setSlug("records")}>
 				navigate
 			</button>
 		</>
@@ -35,11 +35,11 @@ function Interleaved() {
 }
 
 function Navigating() {
-	const [title, setTitle] = useState("Books");
+	const [title, setTitle] = useState("Items");
 	return (
 		<>
 			<Titled title={title} />
-			<button type="button" onClick={() => setTitle("Movies")}>
+			<button type="button" onClick={() => setTitle("Records")}>
 				navigate
 			</button>
 		</>
@@ -69,11 +69,11 @@ describe("PageTitleProvider", () => {
 				<Swap />
 			</PageTitleProvider>,
 		);
-		expect(document.title).toBe("Books — Ryot");
+		expect(document.title).toBe("Items — Ryot");
 
 		fireEvent.click(screen.getByRole("button", { name: "navigate" }));
 
-		expect(document.title).toBe("Movies — Ryot");
+		expect(document.title).toBe("Records — Ryot");
 	});
 
 	it("keeps the live title when a stale registration is cleaned up after it", () => {
@@ -98,6 +98,6 @@ describe("PageTitleProvider", () => {
 
 		fireEvent.click(screen.getByRole("button", { name: "navigate" }));
 
-		expect(screen.getByTestId("route-announcer").textContent).toBe("Movies");
+		expect(screen.getByTestId("route-announcer").textContent).toBe("Records");
 	});
 });

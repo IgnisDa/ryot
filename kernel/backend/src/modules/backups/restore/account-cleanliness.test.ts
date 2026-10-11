@@ -466,7 +466,11 @@ describe("classifyAccountCleanliness", () => {
 		["entities", { entities: [{ ...entity(), externalId: "external" }] }],
 		[
 			"entities",
-			{ entities: [{ ...entity(), provider: { pluginId: "plugin", providerSlug: "movie.tmdb" } }] },
+			{
+				entities: [
+					{ ...entity(), provider: { pluginId: "plugin", providerSlug: "item.provider" } },
+				],
+			},
 		],
 		[
 			"saved-views",

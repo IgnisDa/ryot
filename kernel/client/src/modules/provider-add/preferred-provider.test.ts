@@ -9,7 +9,7 @@ const provider = (id: string): ProviderSearchSummary => ({
 	providerName: "Provider",
 	searchOptionsSchema: null,
 	providerId: SandboxProviderId.make(id),
-	rootEntitySchemaSlug: EntitySchemaSlug.make("book"),
+	rootEntitySchemaSlug: EntitySchemaSlug.make("item"),
 });
 
 describe("selectPreferredProvider", () => {

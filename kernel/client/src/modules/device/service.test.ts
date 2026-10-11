@@ -17,12 +17,12 @@ import { makeClientStorage } from "#/persistence/storage.test-layer";
 
 const scope = { userId: "user-1", serverUrl: decodeServerOrigin("https://one.test") };
 const otherScope = { ...scope, userId: "user-2" };
-const pluginId = PluginId.make("fitness");
+const pluginId = PluginId.make("other");
 const target: PluginNavigationTarget = {
 	search: "",
 	path: "/editor",
 	kind: "plugin-route",
-	packageId: PluginPackageId.make("ryot/fitness"),
+	packageId: PluginPackageId.make("ryot/other"),
 };
 const contributors: PreparedClientPage["identity"]["contributors"] = [
 	{
@@ -31,7 +31,7 @@ const contributors: PreparedClientPage["identity"]["contributors"] = [
 		contentHash: "hash",
 		revisionId: "revision-1",
 		installationId: "installation-1",
-		packageId: PluginPackageId.make("ryot/fitness"),
+		packageId: PluginPackageId.make("ryot/other"),
 	},
 ];
 const schedule: PluginDeviceRequest = {

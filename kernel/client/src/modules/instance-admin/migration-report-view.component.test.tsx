@@ -42,7 +42,7 @@ const report: InstanceAdminMigrationReport = {
 			level: "info",
 			elapsedSeconds: 1,
 			totalDetails: null,
-			phase: "exercise -> entity",
+			phase: "record -> entity",
 			message: "row(s) migrated total",
 			createdAt: "2025-01-02T03:04:04",
 			details: { items: [], pageInfo: { limit: 100, hasMore: false } },

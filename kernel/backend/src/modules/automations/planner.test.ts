@@ -1557,11 +1557,11 @@ describe("LifecyclePlanner PostgreSQL", () => {
 					);
 					const input: LifecycleBatchInput = {
 						resource: "entity",
-						identity: ["fitness-records", "entity"],
+						identity: ["item-records", "entity"],
 						command: {
-							itemIdentity: "fitness-records",
+							itemIdentity: "item-records",
 							occurredAt: "2026-09-15T00:00:00.000Z",
-							causation: triggerFixture("fitness-records").causation,
+							causation: triggerFixture("item-records").causation,
 							accountGeneration: { userId: owner, token: "test-account-generation" },
 						},
 					};
@@ -1731,7 +1731,7 @@ describe("LifecyclePlanner PostgreSQL", () => {
 									...entitySchema,
 									eventSchemas: [
 										...entitySchema.eventSchemas,
-										{ name: "Workout set", slug: "workout-set", propertiesSchema: { fields: {} } },
+										{ name: "Record set", slug: "record-set", propertiesSchema: { fields: {} } },
 									],
 								},
 							],
@@ -1740,9 +1740,9 @@ describe("LifecyclePlanner PostgreSQL", () => {
 								{
 									stage: "after",
 									frequency: "batch",
-									name: "Media batch",
 									delivery: "required",
-									slug: "fixture.media-batch",
+									name: "Fixture batch",
+									slug: "fixture.fixture-batch",
 									scriptSlug: "fixture.automation",
 									targets: [eventTarget("changed")],
 								},
@@ -1750,11 +1750,11 @@ describe("LifecyclePlanner PostgreSQL", () => {
 									stage: "after",
 									batchMaxItems: 50,
 									frequency: "batch",
+									name: "Record logs",
 									delivery: "required",
-									name: "Workout records",
-									slug: "fixture.workout-records",
+									slug: "fixture.record-logs",
 									scriptSlug: "fixture.automation",
-									targets: [eventTarget("workout-set")],
+									targets: [eventTarget("record-set")],
 								},
 							],
 						},
@@ -1763,15 +1763,15 @@ describe("LifecyclePlanner PostgreSQL", () => {
 				);
 				const input: LifecycleBatchInput = {
 					resource: "event",
-					identity: ["media-only", "events"],
+					identity: ["fixture-only", "events"],
 					command: {
-						itemIdentity: "media-only",
+						itemIdentity: "fixture-only",
 						occurredAt: "2026-09-15T00:00:00.000Z",
-						causation: triggerFixture("media-only").causation,
+						causation: triggerFixture("fixture-only").causation,
 						accountGeneration: { userId: owner, token: "test-account-generation" },
 					},
 				};
-				const ids = Array.from({ length: 60 }, (_, index) => `media-${index}`);
+				const ids = Array.from({ length: 60 }, (_, index) => `fixture-${index}`);
 				const decision = yield* nested(planner.prepareBatch({ ...input, scopes: [owner] }));
 				const candidates = yield* session.run((db) =>
 					db
@@ -1816,7 +1816,7 @@ describe("LifecyclePlanner PostgreSQL", () => {
 				expect(batches).toHaveLength(1);
 				expect(batches[0]?.items).toHaveLength(60);
 				expect(dispatch.flatMap(({ runs }) => runs).map(({ hookSlug }) => hookSlug)).toEqual([
-					"fixture.media-batch",
+					"fixture.fixture-batch",
 				]);
 			}),
 		);

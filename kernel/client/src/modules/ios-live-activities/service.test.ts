@@ -15,7 +15,7 @@ import {
 } from "#/modules/ios-live-activities/service";
 
 const scope = { userId: "user-1", serverUrl: decodeServerOrigin("https://one.test") };
-const pluginId = PluginId.make("fitness");
+const pluginId = PluginId.make("other");
 const installation = { pluginId, installationId: "installation-1" };
 const contributors: PreparedClientPage["identity"]["contributors"] = [
 	{
@@ -23,7 +23,7 @@ const contributors: PreparedClientPage["identity"]["contributors"] = [
 		kind: "plugin",
 		contentHash: "hash",
 		revisionId: "revision",
-		packageId: PluginPackageId.make("ryot/fitness"),
+		packageId: PluginPackageId.make("ryot/other"),
 	},
 ];
 const content: IosLiveActivityContent = {
@@ -37,7 +37,7 @@ const content: IosLiveActivityContent = {
 const request: PluginIosLiveActivityRequest = {
 	content,
 	pluginId,
-	key: "workout",
+	key: "session",
 	action: "start",
 };
 

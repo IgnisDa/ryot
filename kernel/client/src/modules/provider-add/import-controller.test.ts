@@ -26,7 +26,7 @@ const completed = {
 		id: EntityId.make("entity-1"),
 		createdAt: "2026-01-01T00:00:00.000Z",
 		updatedAt: "2026-01-01T00:00:00.000Z",
-		entitySchemaSlug: EntitySchemaSlug.make("book"),
+		entitySchemaSlug: EntitySchemaSlug.make("item"),
 		entitySchemaPluginId: PluginId.make("provider-owner"),
 	},
 } satisfies ImportEntityRunResult;

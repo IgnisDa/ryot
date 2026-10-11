@@ -38,9 +38,9 @@ const dataSources = document({
 		where: and(
 			eq(
 				column(entity, "entitySchemaPluginId"),
-				pluginId({ kind: "local", pluginId: PluginId.make("media-plugin-id") }),
+				pluginId({ kind: "local", pluginId: PluginId.make("plugin-a-id") }),
 			),
-			eq(column(entity, "entitySchemaSlug"), literal("book")),
+			eq(column(entity, "entitySchemaSlug"), literal("unit")),
 		),
 		fields: [
 			field("entityId", column(entity, "id")),
@@ -62,17 +62,17 @@ const browserSettings = {
 		entityAlias: "entity",
 		schemas: [
 			{
-				slug: EntitySchemaSlug.make("book"),
-				owner: { kind: "plugin", pluginId: PluginId.make("media-plugin-id") },
+				slug: EntitySchemaSlug.make("unit"),
+				owner: { kind: "plugin", pluginId: PluginId.make("plugin-a-id") },
 			},
 		],
 	},
 	addAction: {
 		type: "provider-search",
-		library: { librarySchemaSlug: "media-library", relationshipSlug: "in-media-library" },
+		library: { librarySchemaSlug: "fixture-library", relationshipSlug: "in-fixture-library" },
 		schema: {
-			slug: EntitySchemaSlug.make("book"),
-			owner: { kind: "plugin", pluginId: PluginId.make("media-plugin-id") },
+			slug: EntitySchemaSlug.make("unit"),
+			owner: { kind: "plugin", pluginId: PluginId.make("plugin-a-id") },
 		},
 	},
 } satisfies EntityBrowserSavedViewSettings;

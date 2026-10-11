@@ -18,8 +18,8 @@ describe("SavedViewsService", () => {
 			icon: "book",
 			sortOrder: 0,
 			settings: {},
-			slug: "books",
-			name: "Books",
+			slug: "items",
+			name: "Items",
 			isBuiltin: true,
 			isHidden: false,
 			packageId: null,
@@ -27,7 +27,7 @@ describe("SavedViewsService", () => {
 			pluginInstallationId: null,
 			createdAt: "2026-01-01T00:00:00.000Z",
 			updatedAt: "2026-01-01T00:00:00.000Z",
-			reference: { slug: "books", kind: "kernel" },
+			reference: { slug: "items", kind: "kernel" },
 			renderer: { kind: "kernel", name: "results-table" },
 		};
 		const client = createRyotClient(
@@ -41,11 +41,11 @@ describe("SavedViewsService", () => {
 				yield* Effect.promise(() =>
 					runtime.runPromise(
 						Effect.flatMap(SavedViewsService, (service) =>
-							service.loadRecord(client, { slug: "books", kind: "kernel" }),
+							service.loadRecord(client, { slug: "items", kind: "kernel" }),
 						),
 					),
 				),
-			).toMatchObject({ name: "Books", renderer: record.renderer });
+			).toMatchObject({ name: "Items", renderer: record.renderer });
 		}).pipe(Effect.ensuring(Effect.promise(() => runtime.dispose())));
 	});
 

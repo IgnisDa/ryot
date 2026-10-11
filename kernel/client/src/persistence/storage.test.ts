@@ -71,16 +71,16 @@ describe("browser persistence", () => {
 			return Effect.gen(function* () {
 				const service = yield* ClientStorage;
 				const storage = yield* FakeBrowserStorage;
-				yield* service.setLastWorkspace(firstScope, PluginId.make("media"));
-				yield* service.setLastWorkspace(secondUser, PluginId.make("fitness"));
-				yield* service.setLastWorkspace(secondServer, PluginId.make("books"));
+				yield* service.setLastWorkspace(firstScope, PluginId.make("fixture"));
+				yield* service.setLastWorkspace(secondUser, PluginId.make("other"));
+				yield* service.setLastWorkspace(secondServer, PluginId.make("items"));
 
 				expect(
 					(yield* storage.values).get('ryot:workspace:["https://one.example.com","user-1"]'),
-				).toBe("media");
-				expect(yield* service.getLastWorkspace(firstScope)).toBe("media");
-				expect(yield* service.getLastWorkspace(secondUser)).toBe("fitness");
-				expect(yield* service.getLastWorkspace(secondServer)).toBe("books");
+				).toBe("fixture");
+				expect(yield* service.getLastWorkspace(firstScope)).toBe("fixture");
+				expect(yield* service.getLastWorkspace(secondUser)).toBe("other");
+				expect(yield* service.getLastWorkspace(secondServer)).toBe("items");
 			});
 		});
 	});
@@ -105,24 +105,24 @@ describe("browser persistence", () => {
 			return Effect.gen(function* () {
 				const service = yield* ClientStorage;
 				const storage = yield* FakeBrowserStorage;
-				yield* service.setSavedViewLayout(firstScope, "books", "grid");
-				yield* service.setSavedViewLayout(firstScope, "movies", "list");
-				yield* service.setSavedViewLayout(secondUser, "books", "table");
-				yield* service.setSavedViewLayout(secondServer, "books", "list");
+				yield* service.setSavedViewLayout(firstScope, "items", "grid");
+				yield* service.setSavedViewLayout(firstScope, "records", "list");
+				yield* service.setSavedViewLayout(secondUser, "items", "table");
+				yield* service.setSavedViewLayout(secondServer, "items", "list");
 
-				expect(savedViewLayoutKey(firstScope, "books")).not.toBe(
-					savedViewLayoutKey(firstScope, "movies"),
+				expect(savedViewLayoutKey(firstScope, "items")).not.toBe(
+					savedViewLayoutKey(firstScope, "records"),
 				);
-				expect(savedViewLayoutKey(firstScope, "books")).not.toBe(
-					savedViewLayoutKey(secondUser, "books"),
+				expect(savedViewLayoutKey(firstScope, "items")).not.toBe(
+					savedViewLayoutKey(secondUser, "items"),
 				);
-				expect(savedViewLayoutKey(firstScope, "books")).not.toBe(
-					savedViewLayoutKey(secondServer, "books"),
+				expect(savedViewLayoutKey(firstScope, "items")).not.toBe(
+					savedViewLayoutKey(secondServer, "items"),
 				);
-				expect((yield* storage.values).get(savedViewLayoutKey(firstScope, "books"))).toBe("grid");
-				expect(yield* service.getSavedViewLayout(firstScope, "movies")).toBe("list");
-				expect(yield* service.getSavedViewLayout(secondUser, "books")).toBe("table");
-				expect(yield* service.getSavedViewLayout(secondServer, "books")).toBe("list");
+				expect((yield* storage.values).get(savedViewLayoutKey(firstScope, "items"))).toBe("grid");
+				expect(yield* service.getSavedViewLayout(firstScope, "records")).toBe("list");
+				expect(yield* service.getSavedViewLayout(secondUser, "items")).toBe("table");
+				expect(yield* service.getSavedViewLayout(secondServer, "items")).toBe("list");
 			});
 		});
 	});
@@ -134,9 +134,9 @@ describe("browser persistence", () => {
 			return Effect.gen(function* () {
 				const service = yield* ClientStorage;
 				const storage = yield* FakeBrowserStorage;
-				expect(yield* service.getSavedViewLayout(scope, "books")).toBe("grid");
-				yield* storage.seed(savedViewLayoutKey(scope, "books"), "masonry");
-				expect(yield* service.getSavedViewLayout(scope, "books")).toBe("grid");
+				expect(yield* service.getSavedViewLayout(scope, "items")).toBe("grid");
+				yield* storage.seed(savedViewLayoutKey(scope, "items"), "masonry");
+				expect(yield* service.getSavedViewLayout(scope, "items")).toBe("grid");
 			});
 		});
 	});
@@ -149,9 +149,9 @@ describe("browser persistence", () => {
 				const service = yield* ClientStorage;
 				const storage = yield* FakeBrowserStorage;
 				for (const layout of ["grid", "list", "table"] as const) {
-					yield* service.setSavedViewLayout(scope, "books", layout);
-					expect((yield* storage.values).get(savedViewLayoutKey(scope, "books"))).toBe(layout);
-					expect(yield* service.getSavedViewLayout(scope, "books")).toBe(layout);
+					yield* service.setSavedViewLayout(scope, "items", layout);
+					expect((yield* storage.values).get(savedViewLayoutKey(scope, "items"))).toBe(layout);
+					expect(yield* service.getSavedViewLayout(scope, "items")).toBe(layout);
 				}
 			});
 		});
@@ -168,40 +168,40 @@ describe("browser persistence", () => {
 				const storage = yield* FakeBrowserStorage;
 				yield* service.setRememberedProvider(
 					firstScope,
-					"book",
+					"item",
 					SandboxProviderId.make("provider-1"),
 				);
 				yield* service.setRememberedProvider(
 					firstScope,
-					"movie",
+					"entry",
 					SandboxProviderId.make("provider-2"),
 				);
 				yield* service.setRememberedProvider(
 					secondUser,
-					"book",
+					"item",
 					SandboxProviderId.make("provider-3"),
 				);
 				yield* service.setRememberedProvider(
 					secondServer,
-					"book",
+					"item",
 					SandboxProviderId.make("provider-4"),
 				);
 
-				expect(rememberedProviderKey(firstScope, "book")).not.toBe(
-					rememberedProviderKey(firstScope, "movie"),
+				expect(rememberedProviderKey(firstScope, "item")).not.toBe(
+					rememberedProviderKey(firstScope, "entry"),
 				);
-				expect(rememberedProviderKey(firstScope, "book")).not.toBe(
-					rememberedProviderKey(secondUser, "book"),
+				expect(rememberedProviderKey(firstScope, "item")).not.toBe(
+					rememberedProviderKey(secondUser, "item"),
 				);
-				expect(rememberedProviderKey(firstScope, "book")).not.toBe(
-					rememberedProviderKey(secondServer, "book"),
+				expect(rememberedProviderKey(firstScope, "item")).not.toBe(
+					rememberedProviderKey(secondServer, "item"),
 				);
-				expect((yield* storage.values).get(rememberedProviderKey(firstScope, "book"))).toBe(
+				expect((yield* storage.values).get(rememberedProviderKey(firstScope, "item"))).toBe(
 					"provider-1",
 				);
-				expect(yield* service.getRememberedProvider(firstScope, "movie")).toBe("provider-2");
-				expect(yield* service.getRememberedProvider(secondUser, "book")).toBe("provider-3");
-				expect(yield* service.getRememberedProvider(secondServer, "book")).toBe("provider-4");
+				expect(yield* service.getRememberedProvider(firstScope, "entry")).toBe("provider-2");
+				expect(yield* service.getRememberedProvider(secondUser, "item")).toBe("provider-3");
+				expect(yield* service.getRememberedProvider(secondServer, "item")).toBe("provider-4");
 			});
 		});
 	});
@@ -212,9 +212,9 @@ describe("browser persistence", () => {
 
 			return Effect.gen(function* () {
 				const service = yield* ClientStorage;
-				expect(yield* service.getRememberedProvider(scope, "book")).toBeNull();
-				yield* service.setRememberedProvider(scope, "book", SandboxProviderId.make("provider-1"));
-				expect(yield* service.getRememberedProvider(scope, "movie")).toBeNull();
+				expect(yield* service.getRememberedProvider(scope, "item")).toBeNull();
+				yield* service.setRememberedProvider(scope, "item", SandboxProviderId.make("provider-1"));
+				expect(yield* service.getRememberedProvider(scope, "entry")).toBeNull();
 			});
 		});
 	});
@@ -224,34 +224,34 @@ describe("browser persistence", () => {
 			const firstScope = { userId: "user-1", serverUrl: oneOrigin };
 			const secondUser = { userId: "user-2", serverUrl: oneOrigin };
 			const secondServer = { userId: "user-1", serverUrl: twoOrigin };
-			const media = PluginId.make("media");
-			const fitness = PluginId.make("fitness");
+			const fixture = PluginId.make("fixture");
+			const other = PluginId.make("other");
 
 			return Effect.gen(function* () {
 				const service = yield* ClientStorage;
 				const storage = yield* FakeBrowserStorage;
-				yield* service.setPluginValue(firstScope, media, "order", { order: "aired" });
-				yield* service.setPluginValue(firstScope, media, "other", 1);
-				yield* service.setPluginValue(firstScope, fitness, "order", 2);
-				yield* service.setPluginValue(secondUser, media, "order", 3);
-				yield* service.setPluginValue(secondServer, media, "order", 4);
+				yield* service.setPluginValue(firstScope, fixture, "order", { order: "aired" });
+				yield* service.setPluginValue(firstScope, fixture, "other", 1);
+				yield* service.setPluginValue(firstScope, other, "order", 2);
+				yield* service.setPluginValue(secondUser, fixture, "order", 3);
+				yield* service.setPluginValue(secondServer, fixture, "order", 4);
 
 				expect(
 					(yield* storage.values).get(
-						'ryot:plugin-storage:["https://one.example.com","user-1","media","order"]',
+						'ryot:plugin-storage:["https://one.example.com","user-1","fixture","order"]',
 					),
 				).toBe('{"order":"aired"}');
-				expect(yield* service.getPluginValue(firstScope, media, "order")).toEqual({
+				expect(yield* service.getPluginValue(firstScope, fixture, "order")).toEqual({
 					order: "aired",
 				});
-				expect(yield* service.getPluginValue(firstScope, media, "other")).toBe(1);
-				expect(yield* service.getPluginValue(firstScope, fitness, "order")).toBe(2);
-				expect(yield* service.getPluginValue(secondUser, media, "order")).toBe(3);
-				expect(yield* service.getPluginValue(secondServer, media, "order")).toBe(4);
+				expect(yield* service.getPluginValue(firstScope, fixture, "other")).toBe(1);
+				expect(yield* service.getPluginValue(firstScope, other, "order")).toBe(2);
+				expect(yield* service.getPluginValue(secondUser, fixture, "order")).toBe(3);
+				expect(yield* service.getPluginValue(secondServer, fixture, "order")).toBe(4);
 
-				yield* service.removePluginValue(firstScope, media, "order");
-				expect(yield* service.getPluginValue(firstScope, media, "order")).toBeNull();
-				expect(yield* service.getPluginValue(firstScope, media, "other")).toBe(1);
+				yield* service.removePluginValue(firstScope, fixture, "order");
+				expect(yield* service.getPluginValue(firstScope, fixture, "order")).toBeNull();
+				expect(yield* service.getPluginValue(firstScope, fixture, "other")).toBe(1);
 			});
 		});
 	});
@@ -261,16 +261,16 @@ describe("browser persistence", () => {
 			"returns null for missing values and rejects malformed data without deleting it",
 			() => {
 				const scope = { userId: "user-1", serverUrl: oneOrigin };
-				const media = PluginId.make("media");
+				const fixture = PluginId.make("fixture");
 
 				return Effect.gen(function* () {
 					const service = yield* ClientStorage;
 					const storage = yield* FakeBrowserStorage;
-					expect(yield* service.getPluginValue(scope, media, "order")).toBeNull();
-					yield* storage.seed(pluginStorageKey(scope, media, "order"), "{not json");
-					const error = yield* Effect.flip(service.getPluginValue(scope, media, "order"));
+					expect(yield* service.getPluginValue(scope, fixture, "order")).toBeNull();
+					yield* storage.seed(pluginStorageKey(scope, fixture, "order"), "{not json");
+					const error = yield* Effect.flip(service.getPluginValue(scope, fixture, "order"));
 					expect(error).toBeInstanceOf(PluginStorageAccessError);
-					expect((yield* storage.values).get(pluginStorageKey(scope, media, "order"))).toBe(
+					expect((yield* storage.values).get(pluginStorageKey(scope, fixture, "order"))).toBe(
 						"{not json",
 					);
 				});
@@ -290,12 +290,12 @@ describe("browser persistence", () => {
 	)((test) => {
 		test.effect("reports plugin read and remove access errors", () => {
 			const scope = { userId: "user-1", serverUrl: oneOrigin };
-			const media = PluginId.make("media");
+			const fixture = PluginId.make("fixture");
 
 			return Effect.gen(function* () {
 				const service = yield* ClientStorage;
-				const readError = yield* Effect.flip(service.getPluginValue(scope, media, "order"));
-				const removeError = yield* Effect.flip(service.removePluginValue(scope, media, "order"));
+				const readError = yield* Effect.flip(service.getPluginValue(scope, fixture, "order"));
+				const removeError = yield* Effect.flip(service.removePluginValue(scope, fixture, "order"));
 				expect(readError).toBeInstanceOf(PluginStorageAccessError);
 				expect(removeError).toBeInstanceOf(PluginStorageAccessError);
 			});
@@ -309,7 +309,7 @@ describe("browser persistence", () => {
 				const error = yield* Effect.flip(
 					service.setPluginValue(
 						{ userId: "user-1", serverUrl: oneOrigin },
-						PluginId.make("media"),
+						PluginId.make("fixture"),
 						"order",
 						1,
 					),
@@ -328,7 +328,7 @@ describe("browser persistence", () => {
 				[
 					pluginStorageKey(
 						{ userId: "user-1", serverUrl: oneOrigin },
-						PluginId.make("media"),
+						PluginId.make("fixture"),
 						"order",
 					),
 					'"existing"',
@@ -342,10 +342,10 @@ describe("browser persistence", () => {
 			return Effect.gen(function* () {
 				const service = yield* ClientStorage;
 				const error = yield* Effect.flip(
-					service.setPluginValue(scope, PluginId.make("media"), "order", 1),
+					service.setPluginValue(scope, PluginId.make("fixture"), "order", 1),
 				);
 				expect(error).toBeInstanceOf(PluginStorageQuotaError);
-				expect(yield* service.getPluginValue(scope, PluginId.make("media"), "order")).toBe(
+				expect(yield* service.getPluginValue(scope, PluginId.make("fixture"), "order")).toBe(
 					"existing",
 				);
 			});

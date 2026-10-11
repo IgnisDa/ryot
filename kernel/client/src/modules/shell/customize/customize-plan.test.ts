@@ -30,13 +30,13 @@ const workspace = (slug: string, isHidden = false) => ({
 });
 
 const initial: CustomizeDraft = {
-	workspaces: [workspace("media"), workspace("fitness")],
-	views: [item("shows", "media"), item("movies", "media")],
+	workspaces: [workspace("fixture"), workspace("other")],
 	savedViews: [item("recent", null), item("all", null, true)],
+	views: [item("items", "fixture"), item("records", "fixture")],
 };
 
 const build = (draft: CustomizeDraft) =>
-	buildCustomizePlan({ draft, initial, workspaceInstallationId: "media" });
+	buildCustomizePlan({ draft, initial, workspaceInstallationId: "fixture" });
 
 describe("buildCustomizePlan", () => {
 	it("plans nothing for an untouched draft", () => {
@@ -46,10 +46,10 @@ describe("buildCustomizePlan", () => {
 	it("updates only the views whose visibility changed", () => {
 		const plan = build({
 			...initial,
-			views: [item("shows", "media", true), item("movies", "media")],
+			views: [item("items", "fixture", true), item("records", "fixture")],
 		});
 
-		expect(plan.updates).toEqual([{ payload: { isHidden: true }, reference: reference("shows") }]);
+		expect(plan.updates).toEqual([{ payload: { isHidden: true }, reference: reference("items") }]);
 		expect(plan.reorders).toEqual([]);
 		expect(plan.workspaceUpdates).toEqual([]);
 	});
@@ -57,11 +57,11 @@ describe("buildCustomizePlan", () => {
 	it("updates only the workspaces whose visibility changed", () => {
 		const plan = build({
 			...initial,
-			workspaces: [workspace("media", true), workspace("fitness")],
+			workspaces: [workspace("fixture", true), workspace("other")],
 		});
 
 		expect(plan.workspaceUpdates).toEqual([
-			{ installationId: "media", payload: { isHidden: true } },
+			{ installationId: "fixture", payload: { isHidden: true } },
 		]);
 		expect(plan.updates).toEqual([]);
 		expect(plan.reorders).toEqual([]);
@@ -70,12 +70,12 @@ describe("buildCustomizePlan", () => {
 	it("updates every workspace when its order changes", () => {
 		const plan = build({
 			...initial,
-			workspaces: [workspace("fitness"), workspace("media", true)],
+			workspaces: [workspace("other"), workspace("fixture", true)],
 		});
 
 		expect(plan.workspaceUpdates).toEqual([
-			{ installationId: "fitness", payload: { sortOrder: 0 } },
-			{ installationId: "media", payload: { sortOrder: 1, isHidden: true } },
+			{ installationId: "other", payload: { sortOrder: 0 } },
+			{ installationId: "fixture", payload: { sortOrder: 1, isHidden: true } },
 		]);
 	});
 
@@ -88,12 +88,12 @@ describe("buildCustomizePlan", () => {
 	it("scopes a workspace reorder to the workspace and a global reorder to no plugin", () => {
 		const plan = build({
 			workspaces: initial.workspaces,
-			views: [item("movies", "media"), item("shows", "media")],
 			savedViews: [item("all", null, true), item("recent", null)],
+			views: [item("records", "fixture"), item("items", "fixture")],
 		});
 
 		expect(plan.reorders).toEqual([
-			{ installationId: "media", references: [reference("movies"), reference("shows")] },
+			{ installationId: "fixture", references: [reference("records"), reference("items")] },
 			{ references: [reference("all"), reference("recent")] },
 		]);
 		expect(plan.workspaceUpdates).toEqual([]);
@@ -110,7 +110,7 @@ describe("buildCustomizePlan", () => {
 		const plan = buildCustomizePlan({
 			initial,
 			workspaceInstallationId: undefined,
-			draft: { ...initial, views: [item("movies", "media"), item("shows", "media")] },
+			draft: { ...initial, views: [item("records", "fixture"), item("items", "fixture")] },
 		});
 
 		expect(plan.reorders).toEqual([]);

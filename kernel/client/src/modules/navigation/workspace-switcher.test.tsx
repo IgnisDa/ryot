@@ -30,19 +30,20 @@ const workspace = (
 ): PluginClientCatalogEntry => ({
 	icon: "film",
 	sortOrder: 0,
-	name: "Media",
+	name: "Fixture",
 	health: "ready",
 	isHidden: false,
 	clientApiVersion: 1,
 	clientEntities: null,
-	contentHash: "source-media",
-	installationId: "installation-media",
+	contentHash: "source-fixture",
+	installationId: "installation-fixture",
 	...overrides,
 	scope: overrides.scope ?? "system",
 	homeSavedView: overrides.homeSavedView ?? null,
-	packageId: overrides.packageId ?? PluginPackageId.make("ryot/media"),
+	packageId: overrides.packageId ?? PluginPackageId.make("ryot/fixture"),
 	pluginId:
-		overrides.pluginId ?? PluginId.make(`plugin-${overrides.packageId?.split("/")[1] ?? "media"}`),
+		overrides.pluginId ??
+		PluginId.make(`plugin-${overrides.packageId?.split("/")[1] ?? "fixture"}`),
 });
 
 const navigation: NavigationData = { savedViews: [], collections: [] };
@@ -58,8 +59,8 @@ const view = (name: string, sortOrder: number): NavigationData["savedViews"][num
 	reference: { kind: "custom", savedViewId: SavedViewId.make(name.toLowerCase()) },
 });
 
-const mediaPackage = PluginPackageId.make("ryot/media");
-const fitnessPackage = PluginPackageId.make("ryot/fitness");
+const fixturePackage = PluginPackageId.make("ryot/fixture");
+const otherPackage = PluginPackageId.make("ryot/other");
 
 const pickerView = (
 	overrides: Partial<NavigationData["savedViews"][number]> = {},
@@ -118,46 +119,46 @@ describe("workspace switcher", () => {
 		);
 		expect(screen.getByText("2 views")).toBeTruthy();
 
-		fireEvent.click(screen.getByRole("button", { name: /^Media workspace,/ }));
+		fireEvent.click(screen.getByRole("button", { name: /^Fixture workspace,/ }));
 
 		const menu = screen.getByRole("menu", { name: "Workspaces" });
 		expect(
 			within(menu)
 				.getAllByRole("menuitemradio")
 				.map((item) => item.getAttribute("aria-label")),
-		).toEqual(["Switch to Media workspace"]);
+		).toEqual(["Switch to Fixture workspace"]);
 		expect(within(menu).queryByRole("menuitemradio", { name: /^Switch to Hidden / })).toBeNull();
 	});
 
 	it("renders sorted workspace view summaries and keeps the trigger summary", () => {
 		const current = workspace();
-		const fitness = workspace({
+		const other = workspace({
 			sortOrder: 1,
-			name: "Fitness",
-			installationId: "installation-fitness",
-			packageId: PluginPackageId.make("test/fitness"),
+			name: "Other",
+			installationId: "installation-other",
+			packageId: PluginPackageId.make("test/other"),
 		});
 		render(
 			<WorkspaceSwitcher
 				current={current}
 				summary="3 views"
 				onSelect={() => undefined}
-				catalog={[current, fitness]}
+				catalog={[current, other]}
 				navigation={{
 					collections: [],
 					savedViews: [
-						{ ...view("Fourth", 4), pluginInstallationId: "installation-media" },
-						{ ...view("Hidden", 0), isHidden: true, pluginInstallationId: "installation-media" },
-						{ ...view("Second", 2), pluginInstallationId: "installation-media" },
-						{ ...view("First", 1), pluginInstallationId: "installation-media" },
-						{ ...view("Third", 3), pluginInstallationId: "installation-media" },
+						{ ...view("Fourth", 4), pluginInstallationId: "installation-fixture" },
+						{ ...view("Hidden", 0), isHidden: true, pluginInstallationId: "installation-fixture" },
+						{ ...view("Second", 2), pluginInstallationId: "installation-fixture" },
+						{ ...view("First", 1), pluginInstallationId: "installation-fixture" },
+						{ ...view("Third", 3), pluginInstallationId: "installation-fixture" },
 					],
 				}}
 			/>,
 		);
 
 		expect(screen.getByText("3 views")).toBeTruthy();
-		fireEvent.click(screen.getByRole("button", { name: /^Media workspace,/ }));
+		fireEvent.click(screen.getByRole("button", { name: /^Fixture workspace,/ }));
 
 		const menu = screen.getByRole("menu", { name: "Workspaces" });
 		expect(within(menu).getByText("First, Second, Third +1")).toBeTruthy();
@@ -177,9 +178,9 @@ describe("workspace switcher", () => {
 				/>,
 			);
 
-			fireEvent.click(screen.getByRole("button", { name: /^Media workspace,/ }));
+			fireEvent.click(screen.getByRole("button", { name: /^Fixture workspace,/ }));
 
-			const item = screen.getByRole("menuitemradio", { name: /^Switch to Media / });
+			const item = screen.getByRole("menuitemradio", { name: /^Switch to Fixture / });
 			yield* Effect.promise(() => waitFor(() => expect(document.activeElement).toBe(item)));
 			expect(item.getAttribute("aria-checked")).toBe("true");
 		}),
@@ -188,11 +189,11 @@ describe("workspace switcher", () => {
 	it.live("opens from its desktop shortcut and focuses the current workspace", () =>
 		Effect.gen(function* () {
 			const current = workspace();
-			const fitness = workspace({
+			const other = workspace({
 				sortOrder: 1,
-				name: "Fitness",
-				installationId: "installation-fitness",
-				packageId: PluginPackageId.make("test/fitness"),
+				name: "Other",
+				installationId: "installation-other",
+				packageId: PluginPackageId.make("test/other"),
 			});
 			render(
 				<WorkspaceSwitcher
@@ -201,20 +202,20 @@ describe("workspace switcher", () => {
 					current={current}
 					navigation={navigation}
 					onSelect={() => undefined}
-					catalog={[current, fitness]}
+					catalog={[current, other]}
 				/>,
 			);
-			const trigger = screen.getByRole("button", { name: /^Media workspace,/ });
+			const trigger = screen.getByRole("button", { name: /^Fixture workspace,/ });
 
 			fireEvent.keyDown(document, { key: " ", ctrlKey: true, shiftKey: true });
 
-			const media = screen.getByRole("menuitemradio", { name: /^Switch to Media / });
-			const fitnessItem = screen.getByRole("menuitemradio", { name: /^Switch to Fitness / });
-			yield* Effect.promise(() => waitFor(() => expect(document.activeElement).toBe(media)));
+			const fixture = screen.getByRole("menuitemradio", { name: /^Switch to Fixture / });
+			const otherItem = screen.getByRole("menuitemradio", { name: /^Switch to Other / });
+			yield* Effect.promise(() => waitFor(() => expect(document.activeElement).toBe(fixture)));
 			fireEvent.keyDown(screen.getByRole("menu"), { key: "ArrowDown" });
-			yield* Effect.promise(() => waitFor(() => expect(document.activeElement).toBe(fitnessItem)));
+			yield* Effect.promise(() => waitFor(() => expect(document.activeElement).toBe(otherItem)));
 			fireEvent.keyDown(document, { key: " ", ctrlKey: true, shiftKey: true });
-			yield* Effect.promise(() => waitFor(() => expect(document.activeElement).toBe(media)));
+			yield* Effect.promise(() => waitFor(() => expect(document.activeElement).toBe(fixture)));
 			expect(screen.getByRole("menu", { name: "Workspaces" })).toBeTruthy();
 			expect(trigger.getAttribute("aria-keyshortcuts")).toBe("Mod+Shift+Space");
 			expect(screen.getByText("⌘⇧Space")).toBeTruthy();
@@ -234,7 +235,7 @@ describe("workspace switcher", () => {
 		};
 		const rendered = render(<WorkspaceSwitcherView {...props} open />);
 
-		fireEvent.click(screen.getByRole("button", { name: /^Media workspace,/ }));
+		fireEvent.click(screen.getByRole("button", { name: /^Fixture workspace,/ }));
 
 		expect(changes).toEqual([false]);
 		expect(screen.getByRole("menu", { name: "Workspaces" })).toBeTruthy();
@@ -246,11 +247,11 @@ describe("workspace switcher", () => {
 	it.live("focuses the current workspace when externally reopened after a stale active item", () =>
 		Effect.gen(function* () {
 			const current = workspace();
-			const fitness = workspace({
+			const other = workspace({
 				sortOrder: 1,
-				name: "Fitness",
-				installationId: "installation-fitness",
-				packageId: PluginPackageId.make("test/fitness"),
+				name: "Other",
+				installationId: "installation-other",
+				packageId: PluginPackageId.make("test/other"),
 			});
 			const journal = workspace({
 				sortOrder: 2,
@@ -264,15 +265,15 @@ describe("workspace switcher", () => {
 				summary: "2 views",
 				onSelect: () => undefined,
 				onOpenChange: () => undefined,
-				catalog: [current, fitness, journal],
+				catalog: [current, other, journal],
 			};
 			const rendered = render(<WorkspaceSwitcherView {...props} open />);
-			const media = screen.getByRole("menuitemradio", { name: /^Switch to Media / });
-			const fitnessItem = screen.getByRole("menuitemradio", { name: /^Switch to Fitness / });
-			yield* Effect.promise(() => waitFor(() => expect(document.activeElement).toBe(media)));
+			const fixture = screen.getByRole("menuitemradio", { name: /^Switch to Fixture / });
+			const otherItem = screen.getByRole("menuitemradio", { name: /^Switch to Other / });
+			yield* Effect.promise(() => waitFor(() => expect(document.activeElement).toBe(fixture)));
 
 			fireEvent.keyDown(screen.getByRole("menu"), { key: "ArrowDown" });
-			yield* Effect.promise(() => waitFor(() => expect(document.activeElement).toBe(fitnessItem)));
+			yield* Effect.promise(() => waitFor(() => expect(document.activeElement).toBe(otherItem)));
 
 			rendered.rerender(<WorkspaceSwitcherView {...props} open={false} />);
 			rendered.rerender(<WorkspaceSwitcherView {...props} open current={journal} />);
@@ -298,7 +299,7 @@ describe("workspace switcher", () => {
 
 		expect(screen.queryByRole("menu")).toBeNull();
 		expect(
-			screen.getByRole("button", { name: /^Media workspace,/ }).getAttribute("aria-keyshortcuts"),
+			screen.getByRole("button", { name: /^Fixture workspace,/ }).getAttribute("aria-keyshortcuts"),
 		).toBe(null);
 	});
 
@@ -315,12 +316,12 @@ describe("workspace switcher", () => {
 					onSelect={() => undefined}
 				/>,
 			);
-			const trigger = screen.getByRole("button", { name: /^Media workspace,/ });
+			const trigger = screen.getByRole("button", { name: /^Fixture workspace,/ });
 			fireEvent.click(trigger);
 			yield* Effect.promise(() =>
 				waitFor(() =>
 					expect(document.activeElement).toBe(
-						screen.getByRole("menuitemradio", { name: /^Switch to Media / }),
+						screen.getByRole("menuitemradio", { name: /^Switch to Fixture / }),
 					),
 				),
 			);
@@ -347,12 +348,12 @@ describe("workspace switcher", () => {
 					<button type="button">Outside</button>
 				</>,
 			);
-			const trigger = screen.getByRole("button", { name: /^Media workspace,/ });
+			const trigger = screen.getByRole("button", { name: /^Fixture workspace,/ });
 			fireEvent.click(trigger);
 			yield* Effect.promise(() =>
 				waitFor(() =>
 					expect(document.activeElement).toBe(
-						screen.getByRole("menuitemradio", { name: /^Switch to Media / }),
+						screen.getByRole("menuitemradio", { name: /^Switch to Fixture / }),
 					),
 				),
 			);
@@ -381,10 +382,10 @@ describe("workspace switcher", () => {
 					}}
 				/>,
 			);
-			const trigger = screen.getByRole("button", { name: /^Media workspace,/ });
+			const trigger = screen.getByRole("button", { name: /^Fixture workspace,/ });
 			fireEvent.click(trigger);
 
-			fireEvent.click(screen.getByRole("menuitemradio", { name: /^Switch to Media / }));
+			fireEvent.click(screen.getByRole("menuitemradio", { name: /^Switch to Fixture / }));
 
 			yield* Effect.promise(() => waitFor(() => expect(document.activeElement).toBe(trigger)));
 			expect(screen.queryByRole("menu")).toBeNull();
@@ -404,9 +405,9 @@ describe("workspace switcher", () => {
 					catalog={[
 						current,
 						workspace({
-							name: "Fitness",
-							installationId: "installation-fitness",
-							packageId: PluginPackageId.make("test/fitness"),
+							name: "Other",
+							installationId: "installation-other",
+							packageId: PluginPackageId.make("test/other"),
 						}),
 					]}
 					onSelect={({ pluginId }) => {
@@ -418,14 +419,14 @@ describe("workspace switcher", () => {
 					}}
 				/>,
 			);
-			const trigger = screen.getByRole("button", { name: /^Media workspace,/ });
+			const trigger = screen.getByRole("button", { name: /^Fixture workspace,/ });
 			fireEvent.click(trigger);
 
-			fireEvent.click(screen.getByRole("menuitemradio", { name: /^Switch to Fitness / }));
+			fireEvent.click(screen.getByRole("menuitemradio", { name: /^Switch to Other / }));
 
 			yield* Effect.promise(() =>
 				waitFor(() =>
-					expect(observations).toEqual([{ open: false, focused: true, slug: "plugin-fitness" }]),
+					expect(observations).toEqual([{ open: false, focused: true, slug: "plugin-other" }]),
 				),
 			);
 		}),
@@ -443,7 +444,7 @@ describe("workspace switcher", () => {
 					onSelect={() => undefined}
 				/>,
 			);
-			const trigger = screen.getByRole("button", { name: /^Media workspace,/ });
+			const trigger = screen.getByRole("button", { name: /^Fixture workspace,/ });
 			fireEvent.click(trigger);
 
 			fireEvent.keyDown(screen.getByRole("menu"), { key: "Escape" });
@@ -466,9 +467,9 @@ describe("workspace switcher", () => {
 						current,
 						workspace({
 							sortOrder: 1,
-							name: "Fitness",
-							installationId: "installation-fitness",
-							packageId: PluginPackageId.make("test/fitness"),
+							name: "Other",
+							installationId: "installation-other",
+							packageId: PluginPackageId.make("test/other"),
 						}),
 						workspace({
 							sortOrder: 2,
@@ -479,23 +480,23 @@ describe("workspace switcher", () => {
 					]}
 				/>,
 			);
-			fireEvent.click(screen.getByRole("button", { name: /^Media workspace,/ }));
+			fireEvent.click(screen.getByRole("button", { name: /^Fixture workspace,/ }));
 			const menu = screen.getByRole("menu");
-			const media = screen.getByRole("menuitemradio", { name: /^Switch to Media / });
-			const fitness = screen.getByRole("menuitemradio", { name: /^Switch to Fitness / });
+			const fixture = screen.getByRole("menuitemradio", { name: /^Switch to Fixture / });
+			const other = screen.getByRole("menuitemradio", { name: /^Switch to Other / });
 			const journal = screen.getByRole("menuitemradio", { name: /^Switch to Journal / });
-			yield* Effect.promise(() => waitFor(() => expect(document.activeElement).toBe(media)));
+			yield* Effect.promise(() => waitFor(() => expect(document.activeElement).toBe(fixture)));
 
 			fireEvent.keyDown(menu, { key: "ArrowDown" });
-			yield* Effect.promise(() => waitFor(() => expect(document.activeElement).toBe(fitness)));
+			yield* Effect.promise(() => waitFor(() => expect(document.activeElement).toBe(other)));
 			fireEvent.keyDown(menu, { key: "End" });
 			yield* Effect.promise(() => waitFor(() => expect(document.activeElement).toBe(journal)));
 			fireEvent.keyDown(menu, { key: "ArrowDown" });
-			yield* Effect.promise(() => waitFor(() => expect(document.activeElement).toBe(media)));
+			yield* Effect.promise(() => waitFor(() => expect(document.activeElement).toBe(fixture)));
 			fireEvent.keyDown(menu, { key: "ArrowUp" });
 			yield* Effect.promise(() => waitFor(() => expect(document.activeElement).toBe(journal)));
 			fireEvent.keyDown(menu, { key: "Home" });
-			yield* Effect.promise(() => waitFor(() => expect(document.activeElement).toBe(media)));
+			yield* Effect.promise(() => waitFor(() => expect(document.activeElement).toBe(fixture)));
 		}),
 	);
 
@@ -515,11 +516,11 @@ describe("workspace switcher", () => {
 					<button type="button">After switcher</button>
 				</>,
 			);
-			fireEvent.click(screen.getByRole("button", { name: /^Media workspace,/ }));
+			fireEvent.click(screen.getByRole("button", { name: /^Fixture workspace,/ }));
 			yield* Effect.promise(() =>
 				waitFor(() =>
 					expect(document.activeElement).toBe(
-						screen.getByRole("menuitemradio", { name: /^Switch to Media / }),
+						screen.getByRole("menuitemradio", { name: /^Switch to Fixture / }),
 					),
 				),
 			);
@@ -543,7 +544,7 @@ describe("workspace switcher", () => {
 			/>,
 		);
 
-		fireEvent.click(screen.getByRole("button", { name: /^Media workspace,/ }));
+		fireEvent.click(screen.getByRole("button", { name: /^Fixture workspace,/ }));
 
 		expect(screen.queryByRole("menuitem", { name: "Customize sidebar" })).toBeNull();
 	});
@@ -562,7 +563,7 @@ describe("workspace switcher", () => {
 			/>,
 		);
 
-		fireEvent.click(screen.getByRole("button", { name: /^Media workspace,/ }));
+		fireEvent.click(screen.getByRole("button", { name: /^Fixture workspace,/ }));
 		fireEvent.click(screen.getByRole("menuitem", { name: "Customize sidebar" }));
 
 		return waitFor(() => expect(events).toEqual(["closed"]));
@@ -582,7 +583,7 @@ describe("workspace switcher", () => {
 				/>,
 			);
 
-			fireEvent.click(screen.getByRole("button", { name: /^Media workspace,/ }));
+			fireEvent.click(screen.getByRole("button", { name: /^Fixture workspace,/ }));
 			const menu = screen.getByRole("menu", { name: "Workspaces" });
 			fireEvent.keyDown(menu, { key: "ArrowDown" });
 
@@ -602,37 +603,39 @@ describe("workspace picker summary", () => {
 		const data: NavigationData = {
 			collections: [],
 			savedViews: [
-				pickerView({ sortOrder: 4, name: "Fourth", slug: "fourth", packageId: mediaPackage }),
+				pickerView({ sortOrder: 4, name: "Fourth", slug: "fourth", packageId: fixturePackage }),
 				pickerView({
 					sortOrder: 0,
 					name: "Hidden",
 					isHidden: true,
 					slug: "disabled",
-					packageId: mediaPackage,
+					packageId: fixturePackage,
 				}),
-				pickerView({ sortOrder: 2, name: "Second", slug: "second", packageId: mediaPackage }),
-				pickerView({ sortOrder: 1, name: "Other", slug: "other", packageId: fitnessPackage }),
-				pickerView({ sortOrder: 1, name: "First", slug: "first", packageId: mediaPackage }),
+				pickerView({ sortOrder: 2, name: "Second", slug: "second", packageId: fixturePackage }),
+				pickerView({ sortOrder: 1, name: "Other", slug: "other", packageId: otherPackage }),
+				pickerView({ sortOrder: 1, name: "First", slug: "first", packageId: fixturePackage }),
 			],
 		};
 
-		expect(workspacePickerSummary(data, "installation-ryot/media")).toBe("First, Second, Fourth");
-		expect(workspacePickerSummary(data, "installation-ryot/fitness")).toBe("Other");
+		expect(workspacePickerSummary(data, "installation-ryot/fixture")).toBe("First, Second, Fourth");
+		expect(workspacePickerSummary(data, "installation-ryot/other")).toBe("Other");
 	});
 
 	it("adds the remaining count and handles empty workspaces", () => {
 		const data: NavigationData = {
 			collections: [],
 			savedViews: [
-				pickerView({ sortOrder: 0, name: "First", slug: "first", packageId: mediaPackage }),
-				pickerView({ sortOrder: 1, name: "Second", slug: "second", packageId: mediaPackage }),
-				pickerView({ sortOrder: 2, name: "Third", slug: "third", packageId: mediaPackage }),
-				pickerView({ sortOrder: 3, name: "Fourth", slug: "fourth", packageId: mediaPackage }),
+				pickerView({ sortOrder: 0, name: "First", slug: "first", packageId: fixturePackage }),
+				pickerView({ sortOrder: 1, name: "Second", slug: "second", packageId: fixturePackage }),
+				pickerView({ sortOrder: 2, name: "Third", slug: "third", packageId: fixturePackage }),
+				pickerView({ sortOrder: 3, name: "Fourth", slug: "fourth", packageId: fixturePackage }),
 			],
 		};
 
-		expect(workspacePickerSummary(data, "installation-ryot/media")).toBe("First, Second, Third +1");
-		expect(workspacePickerSummary(data, "installation-ryot/fitness")).toBe(
+		expect(workspacePickerSummary(data, "installation-ryot/fixture")).toBe(
+			"First, Second, Third +1",
+		);
+		expect(workspacePickerSummary(data, "installation-ryot/other")).toBe(
 			"Custom workspace · 0 views",
 		);
 	});

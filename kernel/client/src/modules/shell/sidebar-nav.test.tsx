@@ -12,17 +12,17 @@ import type { SidebarSections } from "#/modules/shell/sidebar-sections";
 const current: PluginClientCatalogEntry = {
 	icon: "film",
 	sortOrder: 0,
-	name: "Media",
+	name: "Fixture",
 	health: "ready",
 	isHidden: false,
 	scope: "system",
 	clientApiVersion: 1,
 	homeSavedView: null,
 	clientEntities: null,
-	contentHash: "source-media",
-	installationId: "installation-media",
-	pluginId: PluginId.make("plugin-media"),
-	packageId: PluginPackageId.make("ryot/media"),
+	contentHash: "source-fixture",
+	installationId: "installation-fixture",
+	pluginId: PluginId.make("plugin-fixture"),
+	packageId: PluginPackageId.make("ryot/fixture"),
 };
 
 const navigation: NavigationData = {
@@ -32,11 +32,15 @@ const navigation: NavigationData = {
 			icon: "list",
 			sortOrder: 1,
 			isHidden: false,
-			slug: "media-queue",
-			name: "Media Queue",
-			pluginInstallationId: "installation-media",
-			packageId: PluginPackageId.make("ryot/media"),
-			reference: { kind: "plugin", slug: "media-queue", pluginId: PluginId.make("plugin-media") },
+			slug: "fixture-queue",
+			name: "Fixture Queue",
+			pluginInstallationId: "installation-fixture",
+			packageId: PluginPackageId.make("ryot/fixture"),
+			reference: {
+				kind: "plugin",
+				slug: "fixture-queue",
+				pluginId: PluginId.make("plugin-fixture"),
+			},
 		},
 	],
 };
@@ -61,11 +65,15 @@ const sections: SidebarSections = {
 			icon: "list",
 			sortOrder: 1,
 			isHidden: false,
-			name: "Media Queue",
-			slug: "media-queue",
-			pluginInstallationId: "installation-media",
-			packageId: PluginPackageId.make("ryot/media"),
-			reference: { kind: "plugin", slug: "media-queue", pluginId: PluginId.make("plugin-media") },
+			name: "Fixture Queue",
+			slug: "fixture-queue",
+			pluginInstallationId: "installation-fixture",
+			packageId: PluginPackageId.make("ryot/fixture"),
+			reference: {
+				kind: "plugin",
+				slug: "fixture-queue",
+				pluginId: PluginId.make("plugin-fixture"),
+			},
 		},
 	],
 };
@@ -94,8 +102,8 @@ const renderSidebar = (
 			onCreateCollection={onCreateCollection}
 			showSearchShortcut={showSearchShortcut}
 			onEditSection={customize?.onEditSection}
-			activeKey="view:/v/p/ryot/media/media-queue"
 			onWorkspaceSwitcherOpenChange={() => undefined}
+			activeKey="view:/v/p/ryot/fixture/fixture-queue"
 		/>,
 	);
 
@@ -112,7 +120,7 @@ describe("sidebar navigation", () => {
 		expect(within(collections).getByText("0")).toBeTruthy();
 		expect(screen.getByText("No saved views yet.")).toBeTruthy();
 		expect(screen.getByText("No collections yet.")).toBeTruthy();
-		expect(screen.getByRole("link", { name: "Media Queue" }).getAttribute("aria-current")).toBe(
+		expect(screen.getByRole("link", { name: "Fixture Queue" }).getAttribute("aria-current")).toBe(
 			"page",
 		);
 		expect(screen.getByText("⌘K")).toBeTruthy();

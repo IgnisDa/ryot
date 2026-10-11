@@ -42,14 +42,14 @@ describe("plugin logical locations", () => {
 		expect(
 			toGlobalHref(
 				{
-					path: "/shows",
+					path: "/items",
 					search: "q=dune",
 					kind: "plugin-route",
-					packageId: PluginPackageId.make("ryot/media"),
+					packageId: PluginPackageId.make("ryot/fixture"),
 				},
 				catalog,
 			),
-		).toBe("/p/ryot/media/shows?q=dune");
+		).toBe("/p/ryot/fixture/items?q=dune");
 		expect(toGlobalHref({ kind: "entity", entityId: EntityId.make("entity/1") }, catalog)).toBe(
 			"/e/entity%2F1",
 		);
@@ -84,14 +84,14 @@ describe("plugin logical locations", () => {
 					type: "navigate",
 					target: {
 						search: "",
-						path: "/shows",
+						path: "/items",
 						kind: "plugin-route",
-						packageId: PluginPackageId.make("ryot/media"),
+						packageId: PluginPackageId.make("ryot/fixture"),
 					},
 				},
 				catalog,
 			),
-		).toEqual({ replace: true, href: "/p/ryot/media/shows" });
+		).toEqual({ replace: true, href: "/p/ryot/fixture/items" });
 	});
 
 	it("navigates a kernel page target to its kernel route", () => {

@@ -105,13 +105,13 @@ const komgaProvider: IntegrationProviderItem = {
 	readinessMetadata: null,
 	readinessConnections: [],
 	supportsOwnershipSync: true,
-	installationId: "media-installation",
-	pluginId: PluginId.make("media-plugin"),
+	pluginId: PluginId.make("plugin-a"),
+	installationId: "fixture-installation",
 	commonSchema: ownershipSyncCommonSchema,
-	packageId: PluginPackageId.make("ryot/media"),
+	packageId: PluginPackageId.make("ryot/fixture"),
 	description: "Import progress and ownership from Komga",
 	readiness: { plan: null, ready: true, blockReasons: [] },
-	reference: { slug: "komga", owner: { kind: "plugin", pluginId: PluginId.make("media-plugin") } },
+	reference: { slug: "komga", owner: { kind: "plugin", pluginId: PluginId.make("plugin-a") } },
 	settingsSchema: {
 		fields: {
 			baseUrl: { ...described("Base URL"), type: "string", validation: { required: true } },
@@ -139,12 +139,12 @@ const kodiProvider: IntegrationProviderItem = {
 	readinessConnections: [],
 	supportsOwnershipSync: false,
 	settingsSchema: { fields: {} },
-	installationId: "media-installation",
-	pluginId: PluginId.make("media-plugin"),
+	pluginId: PluginId.make("plugin-a"),
+	installationId: "fixture-installation",
 	description: "Receive Kodi playback webhooks",
-	packageId: PluginPackageId.make("ryot/media"),
+	packageId: PluginPackageId.make("ryot/fixture"),
 	readiness: { plan: null, ready: true, blockReasons: [] },
-	reference: { slug: "kodi", owner: { kind: "plugin", pluginId: PluginId.make("media-plugin") } },
+	reference: { slug: "kodi", owner: { kind: "plugin", pluginId: PluginId.make("plugin-a") } },
 };
 
 const blockedProvider: IntegrationProviderItem = {
@@ -177,9 +177,9 @@ const makeSummary = (overrides: Partial<IntegrationSummary> = {}): IntegrationSu
 	lastFinishedAt: null,
 	syncOwnership: false,
 	id: IntegrationId.make("int_1"),
+	pluginId: PluginId.make("plugin-a"),
 	createdAt: "2026-08-20T10:00:00.000Z",
 	updatedAt: "2026-08-20T10:00:00.000Z",
-	pluginId: PluginId.make("media-plugin"),
 	extraSettings: { disableOnContinuousErrors: false },
 	...overrides,
 });

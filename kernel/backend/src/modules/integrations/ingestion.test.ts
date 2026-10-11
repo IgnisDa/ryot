@@ -464,7 +464,7 @@ it.effect("captures integration settings selected when a blocked run is released
 			minimumProgress: 15,
 			maximumProgress: 85,
 			syncOwnership: true,
-			providerSpecifics: { provider: "tmdb", filters: ["movie"] },
+			providerSpecifics: { filters: ["item"], provider: "provider" },
 		};
 		const test = yield* runCase();
 		const service = yield* Effect.provideContext(IntegrationIngestion, test.context);

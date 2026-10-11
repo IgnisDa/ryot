@@ -348,8 +348,8 @@ describe("PageIframeHost", () => {
 			bridge.port.postMessage({
 				type: "pick-entity-screen",
 				requestId: "pick-entity-screen-1",
-				schema: { slug: "movie", owner: { kind: "plugin", pluginId: "media-installation" } },
-				library: { librarySchemaSlug: "media-library", relationshipSlug: "in-media-library" },
+				schema: { slug: "record", owner: { kind: "plugin", pluginId: "fixture-installation" } },
+				library: { librarySchemaSlug: "fixture-library", relationshipSlug: "in-fixture-library" },
 			});
 			yield* Effect.promise(() => waitFor(() => expect(routed).toHaveLength(1)));
 
@@ -509,13 +509,13 @@ describe("PageIframeHost", () => {
 			bridge.port.postMessage({
 				mode: "push",
 				type: "navigate",
-				target: { search: "q=x", path: "/shows", kind: "plugin-route", packageId: "ryot/media" },
+				target: { search: "q=x", path: "/items", kind: "plugin-route", packageId: "ryot/fixture" },
 			});
 			bridge.port.postMessage({
 				type: "pick-entity-screen",
 				requestId: "pick-entity-screen-1",
-				schema: { slug: "movie", owner: { kind: "plugin", pluginId: "media-installation" } },
-				library: { librarySchemaSlug: "media-library", relationshipSlug: "in-media-library" },
+				schema: { slug: "record", owner: { kind: "plugin", pluginId: "fixture-installation" } },
+				library: { librarySchemaSlug: "fixture-library", relationshipSlug: "in-fixture-library" },
 			});
 			bridge.port.postMessage({
 				mode: "replace",
@@ -537,7 +537,7 @@ describe("PageIframeHost", () => {
 			});
 
 			yield* Effect.promise(() => waitFor(() => expect(host.operations).toHaveLength(1)));
-			expect(host.navigations).toEqual([{ replace: false, href: "/p/ryot/media/shows?q=x" }]);
+			expect(host.navigations).toEqual([{ replace: false, href: "/p/ryot/fixture/items?q=x" }]);
 			expect(host.searches).toEqual([
 				{ mode: "replace", type: "page-search", update: { q: "dune", dialog: null } },
 			]);
@@ -545,8 +545,8 @@ describe("PageIframeHost", () => {
 				{
 					type: "pick-entity-screen",
 					requestId: "pick-entity-screen-1",
-					schema: { slug: "movie", owner: { kind: "plugin", pluginId: "media-installation" } },
-					library: { librarySchemaSlug: "media-library", relationshipSlug: "in-media-library" },
+					schema: { slug: "record", owner: { kind: "plugin", pluginId: "fixture-installation" } },
+					library: { librarySchemaSlug: "fixture-library", relationshipSlug: "in-fixture-library" },
 				},
 			]);
 			expect(host.operations).toEqual([

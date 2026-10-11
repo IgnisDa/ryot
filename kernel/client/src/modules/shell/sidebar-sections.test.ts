@@ -8,8 +8,8 @@ import {
 	workspaceSummary,
 } from "#/modules/shell/sidebar-sections";
 
-const media = PluginPackageId.make("ryot/media");
-const fitness = PluginPackageId.make("ryot/fitness");
+const fixture = PluginPackageId.make("ryot/fixture");
+const other = PluginPackageId.make("ryot/other");
 
 const view = (overrides: Partial<NavigationView> = {}): NavigationView => ({
 	name: "View",
@@ -51,15 +51,18 @@ describe("sidebar sections", () => {
 				collection({ isHidden: true, name: "Hidden Collection", slug: "hidden-collection" }),
 			],
 			savedViews: [
-				view({ sortOrder: 4, name: "Later", slug: "later", packageId: media }),
+				view({ sortOrder: 4, name: "Later", slug: "later", packageId: fixture }),
 				view({ sortOrder: 2, name: "Global", slug: "global" }),
-				view({ name: "First", slug: "first", sortOrder: -1, packageId: media }),
-				view({ name: "Other", slug: "other", packageId: fitness }),
-				view({ name: "Hidden", slug: "hidden", isHidden: true, packageId: media }),
+				view({ name: "First", slug: "first", sortOrder: -1, packageId: fixture }),
+				view({ name: "Other", slug: "other", packageId: other }),
+				view({ name: "Hidden", slug: "hidden", isHidden: true, packageId: fixture }),
 			],
 		};
 
-		const sections = sidebarSections({ data, workspaceInstallationId: "installation-ryot/media" });
+		const sections = sidebarSections({
+			data,
+			workspaceInstallationId: "installation-ryot/fixture",
+		});
 
 		expect(sections.views.map((item) => [item.name, item.kind])).toEqual([
 			["Home", "home"],

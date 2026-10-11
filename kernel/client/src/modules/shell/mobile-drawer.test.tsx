@@ -21,19 +21,20 @@ const workspace = (
 ): PluginClientCatalogEntry => ({
 	icon: "film",
 	sortOrder: 0,
-	name: "Media",
+	name: "Fixture",
 	health: "ready",
 	isHidden: false,
 	clientApiVersion: 1,
 	clientEntities: null,
-	contentHash: "source-media",
-	installationId: "installation-media",
+	contentHash: "source-fixture",
+	installationId: "installation-fixture",
 	...overrides,
 	scope: overrides.scope ?? "system",
 	homeSavedView: overrides.homeSavedView ?? null,
-	packageId: overrides.packageId ?? PluginPackageId.make("ryot/media"),
+	packageId: overrides.packageId ?? PluginPackageId.make("ryot/fixture"),
 	pluginId:
-		overrides.pluginId ?? PluginId.make(`plugin-${overrides.packageId?.split("/")[1] ?? "media"}`),
+		overrides.pluginId ??
+		PluginId.make(`plugin-${overrides.packageId?.split("/")[1] ?? "fixture"}`),
 });
 
 const snapshot = {
@@ -163,7 +164,7 @@ describe("mobile drawer", () => {
 		Effect.gen(function* () {
 			render(<Harness />);
 			const { dialog } = yield* Effect.promise(() => openDrawer());
-			const first = screen.getByRole("button", { name: /^Media workspace,/ });
+			const first = screen.getByRole("button", { name: /^Fixture workspace,/ });
 			const last = screen.getByRole("link", { name: "Open settings" });
 
 			first.focus();
@@ -205,7 +206,7 @@ describe("mobile drawer", () => {
 		Effect.gen(function* () {
 			render(<Harness />);
 			yield* Effect.promise(() => openDrawer());
-			fireEvent.click(screen.getByRole("button", { name: /^Media workspace,/ }));
+			fireEvent.click(screen.getByRole("button", { name: /^Fixture workspace,/ }));
 			expect(screen.getByRole("menu", { name: "Workspaces" })).toBeTruthy();
 
 			fireEvent.click(screen.getByTestId("drawer-scrim"));
@@ -264,7 +265,7 @@ describe("mobile drawer", () => {
 			yield* Effect.promise(() => waitFor(() => expect(homeOpen).toBe(false)));
 
 			yield* Effect.promise(() => openDrawer());
-			fireEvent.click(screen.getByRole("button", { name: /^Media workspace,/ }));
+			fireEvent.click(screen.getByRole("button", { name: /^Fixture workspace,/ }));
 			fireEvent.click(screen.getByRole("menuitemradio", { name: /^Switch to Journal / }));
 
 			yield* Effect.promise(() =>

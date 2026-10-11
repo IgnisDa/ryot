@@ -233,7 +233,7 @@ layer(
 			const database = yield* DatabaseSession;
 			const repository = yield* ImportsRepository;
 			const scope = yield* blockedRun();
-			const releasePlan = { ...plan, selection: { provider: "tmdb" } };
+			const releasePlan = { ...plan, selection: { provider: "provider" } };
 			const marker = "prepared-release-private-value";
 			const preparedRelease = {
 				plan: releasePlan,
@@ -247,7 +247,7 @@ layer(
 							syncOwnership: true,
 							minimumProgress: 10,
 							maximumProgress: 90,
-							providerSpecifics: { token: marker, provider: "tmdb" },
+							providerSpecifics: { token: marker, provider: "provider" },
 						},
 					},
 				},

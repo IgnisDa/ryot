@@ -52,34 +52,34 @@ const toEntry = (item: ReturnType<typeof source>): CatalogEntry => ({
 	group: { key: item.packageId, heading: pluginHeading(item.packageId) },
 });
 
-const media = PluginPackageId.make("ryot/media");
-const fitnessTracker = PluginPackageId.make("test/fitness-tracker");
+const fixture = PluginPackageId.make("ryot/fixture");
+const otherTracker = PluginPackageId.make("test/other-tracker");
 
 const sources = [
-	source({ name: "Netflix", slug: "netflix", packageId: media }),
-	source({ name: "Audible", slug: "audible", packageId: media, isAvailable: false }),
-	source({ name: "Strava", slug: "strava", packageId: fitnessTracker }),
+	source({ name: "Netflix", slug: "netflix", packageId: fixture }),
+	source({ name: "Audible", slug: "audible", packageId: fixture, isAvailable: false }),
+	source({ name: "Strava", slug: "strava", packageId: otherTracker }),
 ];
 
 describe("catalog selection", () => {
 	it("titles plugin headings from the package name", () => {
-		expect(pluginHeading(media)).toBe("Media");
+		expect(pluginHeading(fixture)).toBe("Fixture");
 		expect(pluginHeading(PluginPackageId.make("test/my-other-plugin"))).toBe("My Other Plugin");
 	});
 
 	it("groups by the group each entry names and sorts entries by name", () => {
 		const groups = groupCatalogEntries(sources, "", toEntry);
 
-		expect(groups.map((group) => group.heading)).toEqual(["Media", "Fitness Tracker"]);
-		expect(groups.map((group) => group.key)).toEqual(["ryot/media", "test/fitness-tracker"]);
+		expect(groups.map((group) => group.heading)).toEqual(["Fixture", "Other Tracker"]);
+		expect(groups.map((group) => group.key)).toEqual(["ryot/fixture", "test/other-tracker"]);
 		expect(groups[0]?.entries.map((entry) => entry.name)).toEqual(["Audible", "Netflix"]);
 	});
 
 	it("keeps groups that share a key together under one heading", () => {
 		const categorised = groupCatalogEntries(
 			[
-				source({ name: "Ntfy", slug: "ntfy", packageId: media }),
-				source({ name: "Discord", slug: "discord", packageId: media }),
+				source({ name: "Ntfy", slug: "ntfy", packageId: fixture }),
+				source({ name: "Discord", slug: "discord", packageId: fixture }),
 			],
 			"",
 			(item): CatalogEntry => ({

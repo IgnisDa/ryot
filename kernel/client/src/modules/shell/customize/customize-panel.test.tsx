@@ -35,8 +35,8 @@ const workspace = (slug: string, isHidden = false) => ({
 
 const draft: CustomizeDraft = {
 	savedViews: [item("recent", null)],
-	workspaces: [workspace("media"), workspace("fitness", true)],
-	views: [item("shows", "media"), item("movies", "media", true)],
+	workspaces: [workspace("fixture"), workspace("other", true)],
+	views: [item("items", "fixture"), item("records", "fixture", true)],
 };
 
 function Harness(props: { readonly initial?: CustomizeDraft }) {
@@ -74,12 +74,12 @@ describe("CustomizePanel", () => {
 	it("reflects a hidden view in its switch and updates the count when toggled", () => {
 		render(<Harness />);
 
-		const shows = screen.getByRole("switch", { name: "Show SHOWS in sidebar" });
-		expect(screen.getByRole("switch", { name: "Show MOVIES in sidebar" }).ariaChecked).toBe(
+		const items = screen.getByRole("switch", { name: "Show ITEMS in sidebar" });
+		expect(screen.getByRole("switch", { name: "Show RECORDS in sidebar" }).ariaChecked).toBe(
 			"false",
 		);
 
-		fireEvent.click(shows);
+		fireEvent.click(items);
 
 		expect(screen.getByText("Views · 1 of 3 shown")).toBeDefined();
 	});
@@ -87,23 +87,23 @@ describe("CustomizePanel", () => {
 	it("reorders a section with the keyboard", () => {
 		render(<Harness />);
 
-		fireEvent.keyDown(screen.getByRole("button", { name: "Reorder SHOWS" }), { key: "ArrowDown" });
+		fireEvent.keyDown(screen.getByRole("button", { name: "Reorder ITEMS" }), { key: "ArrowDown" });
 
-		expect(screen.getByRole("list", { name: "Views" }).textContent).toMatch(/MOVIES.*SHOWS/);
+		expect(screen.getByRole("list", { name: "Views" }).textContent).toMatch(/RECORDS.*ITEMS/);
 	});
 
 	it("shows hidden workspaces and reorders them with the keyboard", () => {
 		render(<Harness />);
 
 		expect(
-			screen.getByRole("switch", { name: "Show FITNESS WORKSPACE in sidebar" }).ariaChecked,
+			screen.getByRole("switch", { name: "Show OTHER WORKSPACE in sidebar" }).ariaChecked,
 		).toBe("false");
-		fireEvent.keyDown(screen.getByRole("button", { name: "Reorder MEDIA WORKSPACE" }), {
+		fireEvent.keyDown(screen.getByRole("button", { name: "Reorder FIXTURE WORKSPACE" }), {
 			key: "ArrowDown",
 		});
 
 		expect(screen.getByRole("list", { name: "Workspaces" }).textContent).toMatch(
-			/FITNESS WORKSPACE.*MEDIA WORKSPACE/,
+			/OTHER WORKSPACE.*FIXTURE WORKSPACE/,
 		);
 	});
 
@@ -112,12 +112,12 @@ describe("CustomizePanel", () => {
 
 		expect(
 			screen
-				.getByRole("switch", { name: "Show MEDIA WORKSPACE in sidebar" })
+				.getByRole("switch", { name: "Show FIXTURE WORKSPACE in sidebar" })
 				.hasAttribute("disabled"),
 		).toBe(true);
 		expect(
 			screen
-				.getByRole("switch", { name: "Show FITNESS WORKSPACE in sidebar" })
+				.getByRole("switch", { name: "Show OTHER WORKSPACE in sidebar" })
 				.hasAttribute("disabled"),
 		).toBe(false);
 	});

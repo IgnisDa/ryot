@@ -8,7 +8,7 @@ import { makeConfigProviderLayer } from "#testing/effect";
 
 import { getPluginConfig } from "./access";
 
-const packageId = PluginPackageId.make("ryot/media");
+const packageId = PluginPackageId.make("ryot/fixture");
 const pluginConfigSchema = {
 	unknownKeys: "strict",
 	fields: {
@@ -148,7 +148,7 @@ describe("getPluginConfig", () => {
 	);
 	it("selects package-specific environment configuration", () => {
 		expect(pluginConfigEnvironmentKey(packageId, "apiToken")).toBe(
-			"RYOT_PLUGIN__RYOT__MEDIA__API_TOKEN",
+			"RYOT_PLUGIN__RYOT__FIXTURE__API_TOKEN",
 		);
 	});
 
