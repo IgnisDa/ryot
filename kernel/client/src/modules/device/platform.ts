@@ -4,6 +4,7 @@ import { Capacitor } from "@capacitor/core";
 import { LocalNotifications } from "@capacitor/local-notifications";
 import { Clock, Effect, Fiber, Layer, Schema } from "effect";
 
+import { synchronizeNativeAlerts } from "#/modules/device/native-alert-lifecycle";
 import { cancelNativeAlert, scheduleNativeAlert } from "#/modules/device/native-alerts";
 import { DevicePlatform, DevicePlatformError, DeviceState } from "#/modules/device/service";
 import { lightImpact } from "#/modules/navigation/haptics";
@@ -42,10 +43,6 @@ export const DevicePlatformLive = Layer.effect(
 					catch: platformError,
 					try: () => localStorage.setItem(storageKey, encodeState(state)),
 				}),
-			cancel: (id) =>
-				native
-					? cancelNativeAlert(LocalNotifications, id).pipe(Effect.mapError(platformError))
-					: Effect.sync(() => cancelWeb(id)),
 			read: Effect.try({
 				catch: platformError,
 				try: () => {
@@ -53,6 +50,13 @@ export const DevicePlatformLive = Layer.effect(
 					return value === null ? { nextId: 1, alerts: [], shortcuts: [] } : decodeState(value);
 				},
 			}),
+			cancel: (id) =>
+				native
+					? cancelNativeAlert(LocalNotifications, id).pipe(
+							Effect.tap(() => Effect.logInfo("[device-alerts] cancelled", { id })),
+							Effect.mapError(platformError),
+						)
+					: Effect.sync(() => cancelWeb(id)),
 			awake: (enabled) =>
 				Effect.gen(function* () {
 					awakeWanted = enabled;
@@ -78,9 +82,80 @@ export const DevicePlatformLive = Layer.effect(
 						}
 					}
 				}).pipe(Effect.mapError(platformError)),
+			schedule: (id, request) =>
+				Effect.gen(function* () {
+					if (Date.parse(request.deadline) <= (yield* Clock.currentTimeMillis)) {
+						return { status: "done" } as const;
+					}
+					if (!native) {
+						if (typeof Notification === "undefined") {
+							return { status: "unsupported" } as const;
+						}
+						const permission =
+							Notification.permission === "default"
+								? yield* Effect.tryPromise(() => Notification.requestPermission())
+								: Notification.permission;
+						if (permission !== "granted") {
+							return { status: "denied" } as const;
+						}
+						cancelWeb(id);
+						const deliver = Effect.sync(() => {
+							callbacks.delete(id);
+							if (document.visibilityState === "visible") {
+								return;
+							}
+							const notification = new Notification(request.title, {
+								tag: String(id),
+								body: request.body,
+								silent: !request.audible,
+							});
+							delivered.set(id, notification);
+							notification.addEventListener("click", () => {
+								window.focus();
+								onTap?.(id);
+								notification.close();
+							});
+						});
+						callbacks.set(
+							id,
+							runFork(
+								Effect.sleep(
+									Math.max(0, Date.parse(request.deadline) - (yield* Clock.currentTimeMillis)),
+								).pipe(Effect.andThen(deliver)),
+								{ onFiberStart: Fiber.runIn(scope) },
+							),
+						);
+						return { status: "inexact" } as const;
+					}
+					const result = yield* scheduleNativeAlert(LocalNotifications, android, id, request);
+					yield* Effect.logInfo("[device-alerts] scheduled", {
+						id,
+						status: result.status,
+						audible: request.audible,
+						deadline: request.deadline,
+					});
+					return result;
+				}).pipe(Effect.mapError(platformError)),
 			listen: (tap, foreground, receivedAlert) => {
 				let nativeActive = !native;
-				const visibility = () => foreground(nativeActive && document.visibilityState === "visible");
+				const visibility = () => {
+					const active = nativeActive && document.visibilityState === "visible";
+					foreground(active);
+					if (native) {
+						runFork(
+							synchronizeNativeAlerts(LocalNotifications, active).pipe(
+								Effect.catch((cause) =>
+									Effect.logWarning("[device-alerts] app state failed", cause),
+								),
+							),
+						);
+					} else if (active) {
+						for (const notification of delivered.values()) {
+							notification.close();
+						}
+						delivered.clear();
+					}
+				};
 				return Effect.gen(function* () {
 					onTap = tap;
 					document.addEventListener("visibilitychange", visibility);
@@ -117,50 +192,6 @@ export const DevicePlatformLive = Layer.effect(
 					};
 				}).pipe(Effect.mapError(platformError));
 			},
-			schedule: (id, request) =>
-				Effect.gen(function* () {
-					if (Date.parse(request.deadline) <= (yield* Clock.currentTimeMillis)) {
-						return { status: "done" } as const;
-					}
-					if (!native) {
-						if (typeof Notification === "undefined") {
-							return { status: "unsupported" } as const;
-						}
-						const permission =
-							Notification.permission === "default"
-								? yield* Effect.tryPromise(() => Notification.requestPermission())
-								: Notification.permission;
-						if (permission !== "granted") {
-							return { status: "denied" } as const;
-						}
-						cancelWeb(id);
-						const deliver = Effect.sync(() => {
-							callbacks.delete(id);
-							const notification = new Notification(request.title, {
-								tag: String(id),
-								body: request.body,
-								silent: !request.audible,
-							});
-							delivered.set(id, notification);
-							notification.addEventListener("click", () => {
-								window.focus();
-								onTap?.(id);
-								notification.close();
-							});
-						});
-						callbacks.set(
-							id,
-							runFork(
-								Effect.sleep(
-									Math.max(0, Date.parse(request.deadline) - (yield* Clock.currentTimeMillis)),
-								).pipe(Effect.andThen(deliver)),
-								{ onFiberStart: Fiber.runIn(scope) },
-							),
-						);
-						return { status: "inexact" } as const;
-					}
-					return yield* scheduleNativeAlert(LocalNotifications, android, id, request);
-				}).pipe(Effect.mapError(platformError)),
 		};
 	}),
 );
