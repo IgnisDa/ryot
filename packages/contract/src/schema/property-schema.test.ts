@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 
 import {
 	AppSchema,
+	collectImmutableProperties,
 	evaluateAppSchemaRuleCondition,
 	getAppPropertyDefinitionAtPath,
 	getAppSchemaValueAtPath,
@@ -544,5 +545,37 @@ describe("AppSchema enum choices", () => {
 				},
 			]);
 		}
+	});
+});
+
+describe("AppSchema immutable properties", () => {
+	const text = { label: "Name", type: "string", description: "A name" };
+
+	it("collects the immutable top-level properties", () => {
+		const schema = decodeSchema({ fields: { other: text, kind: { ...text, immutable: true } } });
+
+		expect(collectImmutableProperties(schema)).toEqual(["kind"]);
+	});
+
+	it("rejects immutable on nested object properties and array items", () => {
+		const immutable = { ...text, immutable: true };
+
+		expect(() =>
+			decodeSchema({
+				fields: {
+					group: {
+						type: "object",
+						label: "Group",
+						description: "A group",
+						properties: { inner: immutable },
+					},
+				},
+			}),
+		).toThrow();
+		expect(() =>
+			decodeSchema({
+				fields: { list: { type: "array", label: "List", items: immutable, description: "A list" } },
+			}),
+		).toThrow();
 	});
 });

@@ -66,6 +66,7 @@ type AppPropertyBase<TValidation> = {
 	readonly label: string;
 	readonly description: string;
 	readonly secret?: true | undefined;
+	readonly immutable?: true | undefined;
 	readonly position?: number | undefined;
 	readonly translatable?: true | undefined;
 	readonly validation?: TValidation | undefined;
@@ -309,6 +310,7 @@ const propertyBaseFields = {
 	description: nonEmptyTrimmedString,
 	position: Schema.optional(Schema.Finite),
 	secret: Schema.optional(Schema.Literal(true)),
+	immutable: Schema.optional(Schema.Literal(true)),
 	translatable: Schema.optional(Schema.Literal(true)),
 };
 
@@ -667,11 +669,32 @@ const AppSchemaRule = Schema.Union([
 	}),
 ]);
 
+const hasNestedImmutable = (property: AppPropertyDefinition): boolean => {
+	if (property.type === "object") {
+		return Object.values(property.properties).some(
+			(child) => child.immutable === true || hasNestedImmutable(child),
+		);
+	}
+	return (
+		property.type === "array" &&
+		(property.items.immutable === true || hasNestedImmutable(property.items))
+	);
+};
+
 const appSchemaBase = strictStruct({
 	rules: Schema.optional(Schema.Array(AppSchemaRule)),
 	unknownKeys: Schema.optional(AppSchemaUnknownKeysPolicy),
 	fields: Schema.Record(Schema.String, AppPropertyDefinition),
-}).pipe(Schema.annotate({ title: "App Schema", identifier: "AppSchema" }));
+}).pipe(
+	Schema.check(
+		Schema.makeFilter(
+			(schema) =>
+				!Object.values(schema.fields).some(hasNestedImmutable) ||
+				"Only top-level properties can be immutable",
+		),
+	),
+	Schema.annotate({ title: "App Schema", identifier: "AppSchema" }),
+);
 
 export const AppSchema: Schema.Codec<AppSchema, unknown> = appSchemaBase;
 
@@ -822,4 +845,13 @@ export const collectTranslatableProperties = (schema: AppSchema): ReadonlyArray<
 export const collectSecretProperties = (schema: AppSchema): ReadonlyArray<string> =>
 	Object.entries(schema.fields).flatMap(([key, definition]) =>
 		definition.secret === true ? [key] : [],
+	);
+
+/**
+ * Returns the top-level property keys a schema declares as immutable. A user update
+ * cannot change or remove a stored value for these.
+ */
+export const collectImmutableProperties = (schema: AppSchema): ReadonlyArray<string> =>
+	Object.entries(schema.fields).flatMap(([key, definition]) =>
+		definition.immutable === true ? [key] : [],
 	);
