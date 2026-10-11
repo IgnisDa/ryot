@@ -145,7 +145,6 @@ const ownedIntegration = (input: GetForUserInput): IntegrationRecord => ({
 	lastFinishedAt: null,
 	userId: input.userId,
 	syncOwnership: false,
-	pluginSlug: "fixture",
 	provider: "lambda_yank",
 	id: input.integrationId,
 	createdAt: "2026-01-01T00:00:00.000Z",
@@ -264,14 +263,12 @@ const ryotqlResponse = {
 
 const systemPluginScope = {
 	eventSchemas: [],
-	pluginSlug: "example",
 	entitySchemaSlugs: ["example"],
 	relationshipSchemaSlugs: ["example-monitoring"],
 };
 
 const systemPluginRevision = {
 	ownerId: null,
-	slug: "example",
 	compiledHashes: {},
 	workflowScripts: {},
 	scope: "system" as const,
@@ -1766,7 +1763,6 @@ const workspaceDefinitions = (schemaPluginId: string = systemPluginRevision.id) 
 			eventSchemas: [],
 			slug: "workspace",
 			name: "Workspace",
-			pluginSlug: "example",
 			pluginId: schemaPluginId,
 			mergeIdentityProperties: [],
 			propertiesSchema: { fields: {} },
@@ -1776,7 +1772,7 @@ const workspaceDefinitions = (schemaPluginId: string = systemPluginRevision.id) 
 
 const runEnsureUserEntities = (options: {
 	subject: SandboxExecutionSubject;
-	caller: { pluginSlug: string } | null;
+	caller: true | null;
 	allowedHostFunctions?: readonly string[];
 	pinnedEntitySchemaSlugs?: readonly string[];
 }) =>
@@ -1788,7 +1784,6 @@ const runEnsureUserEntities = (options: {
 						pluginRevision: options.caller
 							? {
 									...systemPluginRevision,
-									slug: options.caller.pluginSlug,
 									userBootstrapScriptSlugs: ["script"],
 									schemaScope: {
 										...systemPluginRevision.schemaScope,
@@ -1925,7 +1920,7 @@ describe("ensureUserEntities", () => {
 		test.effect("binds the direct user and preserves first-create/idempotent results", () =>
 			Effect.gen(function* () {
 				const run = runEnsureUserEntities({
-					caller: { pluginSlug: "example" },
+					caller: true,
 					subject: {
 						type: "user",
 						userId: UserId.make("trusted-user"),
@@ -1976,7 +1971,7 @@ describe("ensureUserEntities", () => {
 	layer(hostFunctionsLayer({ definitions: workspaceDefinitions() }))((test) => {
 		test.effect("rejects delegated, system, untrusted, and foreign-schema executions", () =>
 			Effect.gen(function* () {
-				const trusted = { pluginSlug: "example" };
+				const trusted = true as const;
 				const delegated = yield* runEnsureUserEntities({
 					caller: trusted,
 					subject: automationSubject({ kind: "api" }),
@@ -2028,8 +2023,8 @@ describe("ensureUserEntities", () => {
 		test.effect("rejects a current same-plugin schema outside the pinned bootstrap scope", () =>
 			Effect.gen(function* () {
 				const result = yield* runEnsureUserEntities({
+					caller: true,
 					pinnedEntitySchemaSlugs: [],
-					caller: { pluginSlug: "example" },
 					subject: {
 						type: "user",
 						userId: UserId.make("user-1"),

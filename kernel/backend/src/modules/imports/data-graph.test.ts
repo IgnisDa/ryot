@@ -32,7 +32,6 @@ const definitions = buildDefinitionSnapshot({
 			pluginId: null,
 			name: "Record",
 			slug: "record",
-			pluginSlug: null,
 			propertiesSchema: {
 				fields: {
 					parent: {
@@ -83,17 +82,10 @@ describe("Data graph dependency planning", () => {
 			...source,
 			entitySchemas: [
 				entity,
-				{
-					...entity,
-					eventSchemas: [],
-					pluginId: "first",
-					pluginSlug: "whiskey",
-					propertiesSchema: { fields: {} },
-				},
+				{ ...entity, eventSchemas: [], pluginId: "first", propertiesSchema: { fields: {} } },
 				{
 					...entity,
 					pluginId: "second",
-					pluginSlug: "whiskey",
 					eventSchemas: Array.from(entity.eventSchemas, (event) => ({
 						...event,
 						pluginId: "second",

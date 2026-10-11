@@ -46,7 +46,6 @@ export class UnsupportedProviderOperationError extends Data.TaggedError(
 export type AvailablePlugin = {
 	readonly id: string;
 	readonly packageId: PluginPackageId;
-	readonly slug: string;
 	readonly sourceHash: string;
 	readonly clientArtifactHash?: string | null;
 	readonly clientImports: readonly PluginClientImport[];
@@ -134,7 +133,7 @@ const listSystemManifestFieldForSession = (database: DatabaseSession["Service"])
 				.select({
 					value: manifestField(key),
 					pluginId: schema.plugin.id,
-					pluginSlug: schema.plugin.slug,
+					packageId: schema.plugin.packageId,
 				})
 				.from(schema.plugin)
 				.innerJoin(
@@ -145,13 +144,13 @@ const listSystemManifestFieldForSession = (database: DatabaseSession["Service"])
 		);
 	});
 
-const bySlugs = <Entry extends { readonly pluginSlug: string }>(
+const byPackageAndSlug = <Entry extends { readonly packageId: PluginPackageId }>(
 	entries: Array<Entry>,
 	slug: (entry: Entry) => string,
 ) =>
 	entries.sort(
 		(left, right) =>
-			left.pluginSlug.localeCompare(right.pluginSlug) || slug(left).localeCompare(slug(right)),
+			left.packageId.localeCompare(right.packageId) || slug(left).localeCompare(slug(right)),
 	);
 
 export class PluginRuntimeResolver extends Context.Service<PluginRuntimeResolver>()(
@@ -186,7 +185,6 @@ export class PluginRuntimeResolver extends Context.Service<PluginRuntimeResolver
 				const rows = yield* database.run((db) =>
 					db
 						.select({
-							slug: schema.userPlugin.slug,
 							id: schema.userPlugin.pluginId,
 							scope: schema.userPlugin.scope,
 							health: schema.userPlugin.health,
@@ -233,7 +231,7 @@ export class PluginRuntimeResolver extends Context.Service<PluginRuntimeResolver
 				);
 				const result = yield* Effect.forEach(rows, (row) =>
 					Effect.map(
-						decodeStoredManifest(row.manifest, row.slug).pipe(
+						decodeStoredManifest(row.manifest, row.packageId).pipe(
 							Effect.tap((manifest) =>
 								manifest.metadata.packageId === row.packageId
 									? Effect.void
@@ -252,7 +250,7 @@ export class PluginRuntimeResolver extends Context.Service<PluginRuntimeResolver
 						}),
 					),
 				);
-				return result.sort((a, b) => a.slug.localeCompare(b.slug));
+				return result.sort((a, b) => a.packageId.localeCompare(b.packageId));
 			});
 
 			const listPluginsAvailableToUser = Effect.fn(
@@ -266,7 +264,6 @@ export class PluginRuntimeResolver extends Context.Service<PluginRuntimeResolver
 						db
 							.select({
 								id: schema.plugin.id,
-								slug: schema.plugin.slug,
 								packageId: schema.plugin.packageId,
 								ownerUserId: schema.plugin.ownerId,
 								health: schema.pluginInstallation.health,
@@ -310,7 +307,7 @@ export class PluginRuntimeResolver extends Context.Service<PluginRuntimeResolver
 							),
 					);
 					return yield* Effect.forEach(rows, (row) =>
-						decodeStoredManifest(row.manifest, row.slug).pipe(
+						decodeStoredManifest(row.manifest, row.packageId).pipe(
 							Effect.tap((manifest) =>
 								manifest.metadata.packageId === row.packageId
 									? Effect.void
@@ -330,6 +327,45 @@ export class PluginRuntimeResolver extends Context.Service<PluginRuntimeResolver
 					);
 				},
 			);
+			const resolveUserPackage = Effect.fn("PluginRuntimeResolver.resolveUserPackage")(function* (
+				userId: UserId,
+				packageId: PluginPackageId,
+			) {
+				const rows = yield* database.run((db) =>
+					db
+						.select({
+							scope: schema.userPlugin.scope,
+							health: schema.userPlugin.health,
+							pluginId: schema.userPlugin.pluginId,
+							incompatibilityReason: schema.pluginInstallation.incompatibilityReason,
+						})
+						.from(schema.userPlugin)
+						.innerJoin(
+							schema.pluginInstallation,
+							eq(schema.pluginInstallation.id, schema.userPlugin.installationId),
+						)
+						.where(
+							and(eq(schema.userPlugin.userId, userId), eq(schema.userPlugin.packageId, packageId)),
+						),
+				);
+				const isQuarantined = (row: (typeof rows)[number]) =>
+					row.health === "incompatible" &&
+					row.incompatibilityReason === "package-identity-conflict";
+				const effective = rows.filter((row) => !isQuarantined(row));
+				if (effective.length > 1) {
+					return yield* Effect.die(
+						new Error(`User ${userId} has multiple effective installations of ${packageId}`),
+					);
+				}
+				const [selected] = effective;
+				if (selected) {
+					return { kind: "effective" as const, pluginId: PluginId.make(selected.pluginId) };
+				}
+				const quarantined = rows.find((row) => row.scope === "user" && isQuarantined(row));
+				return quarantined
+					? { kind: "quarantined" as const, pluginId: PluginId.make(quarantined.pluginId) }
+					: { kind: "absent" as const };
+			});
 			const findPluginAvailableToUser = Effect.fn(function* (userId: UserId, pluginId: string) {
 				const [plugin] = yield* queryAvailablePlugins(
 					userId,
@@ -378,11 +414,10 @@ export class PluginRuntimeResolver extends Context.Service<PluginRuntimeResolver
 				scriptId: SandboxScriptId,
 				executingUserId: UserId | null,
 			) {
-				const selection = { ...storedScriptFields, pluginSlug: schema.plugin.slug };
 				const [row] = yield* executingUserId === null
 					? database.run((db) =>
 							db
-								.select(selection)
+								.select(storedScriptFields)
 								.from(schema.sandboxScript)
 								.innerJoin(
 									schema.plugin,
@@ -393,7 +428,7 @@ export class PluginRuntimeResolver extends Context.Service<PluginRuntimeResolver
 						)
 					: database.run((db) =>
 							db
-								.select(selection)
+								.select(storedScriptFields)
 								.from(schema.userPlugin)
 								.innerJoin(
 									schema.sandboxScript,
@@ -435,18 +470,18 @@ export class PluginRuntimeResolver extends Context.Service<PluginRuntimeResolver
 			});
 			const listSystemCronSchedules = Effect.fn(function* () {
 				const rows = yield* listSystemManifestField("crons");
-				return bySlugs(
-					rows.flatMap(({ value, pluginId, pluginSlug }) =>
-						value.map((cron) => ({ cron, pluginId, pluginSlug })),
+				return byPackageAndSlug(
+					rows.flatMap(({ value, pluginId, packageId }) =>
+						value.map((cron) => ({ cron, pluginId, packageId })),
 					),
 					({ cron }) => cron.slug,
 				);
 			});
 			const listSystemUserBootstraps = Effect.fn(function* () {
 				const rows = yield* listSystemManifestField("userBootstrap");
-				return bySlugs(
-					rows.flatMap(({ value, pluginId, pluginSlug }) =>
-						value.map((bootstrap) => ({ pluginId, bootstrap, pluginSlug })),
+				return byPackageAndSlug(
+					rows.flatMap(({ value, pluginId, packageId }) =>
+						value.map((bootstrap) => ({ pluginId, bootstrap, packageId })),
 					),
 					({ bootstrap }) => bootstrap.slug,
 				);
@@ -457,9 +492,9 @@ export class PluginRuntimeResolver extends Context.Service<PluginRuntimeResolver
 						.select({
 							crons: manifestField("crons"),
 							userId: schema.userPlugin.userId,
-							pluginSlug: schema.userPlugin.slug,
 							pluginId: schema.userPlugin.pluginId,
 							installationId: schema.userPlugin.installationId,
+							packageId: sql<PluginPackageId>`${schema.userPlugin.packageId}`,
 						})
 						.from(schema.userPlugin)
 						.innerJoin(
@@ -469,7 +504,7 @@ export class PluginRuntimeResolver extends Context.Service<PluginRuntimeResolver
 						.where(
 							and(eq(schema.userPlugin.scope, "user"), eq(schema.userPlugin.isExecutable, true)),
 						)
-						.orderBy(asc(schema.userPlugin.userId), asc(schema.userPlugin.slug)),
+						.orderBy(asc(schema.userPlugin.userId), asc(schema.userPlugin.packageId)),
 				);
 				return rows.flatMap(({ crons, userId, ...row }) =>
 					crons.map((cron) => ({ ...row, cron, userId: UserId.make(userId) })),
@@ -484,8 +519,8 @@ export class PluginRuntimeResolver extends Context.Service<PluginRuntimeResolver
 						.select({
 							crons: manifestField("crons"),
 							userId: schema.userPlugin.userId,
-							pluginSlug: schema.userPlugin.slug,
 							revisionId: schema.userPlugin.activeRevisionId,
+							packageId: sql<PluginPackageId>`${schema.userPlugin.packageId}`,
 						})
 						.from(schema.userPlugin)
 						.innerJoin(
@@ -505,7 +540,7 @@ export class PluginRuntimeResolver extends Context.Service<PluginRuntimeResolver
 				const script =
 					row && cron ? yield* findRevisionScript(row.revisionId, cron.scriptSlug) : null;
 				return row && cron && script
-					? { cron, script, pluginSlug: row.pluginSlug, userId: UserId.make(row.userId) }
+					? { cron, script, packageId: row.packageId, userId: UserId.make(row.userId) }
 					: null;
 			});
 			const resolveInstallationBootstrap = Effect.fn(function* (installationId: string) {
@@ -765,6 +800,7 @@ export class PluginRuntimeResolver extends Context.Service<PluginRuntimeResolver
 					resolveProviderOperation(operation, userId, id);
 			return {
 				lockCatalog,
+				resolveUserPackage,
 				listSchemaProviders,
 				findActiveScriptById,
 				findActiveProviderById,

@@ -6,7 +6,6 @@ import {
 	EntityId,
 	EntitySchemaSlug,
 	PluginId,
-	PluginSlug,
 	RelationshipId,
 	RelationshipSchemaSlug,
 	SandboxProviderId,
@@ -131,11 +130,6 @@ const recordingServiceLayer = <A>(
 	};
 };
 
-const testPluginManifest = () => {
-	const manifest = fixtureManifest();
-	return { ...manifest, metadata: { ...manifest.metadata, slug: "fixture" } };
-};
-
 const persistedPluginResult = (revision: string) => ({
 	id: "plugin-id",
 	activationId: "activation-id",
@@ -152,7 +146,7 @@ const pluginInstallationResult = {
 };
 
 const systemPluginManifest = {
-	...testPluginManifest(),
+	...fixtureManifest(),
 	client: {
 		homeView: null,
 		apiVersion: 1 as const,
@@ -182,11 +176,11 @@ const systemPluginIngestion = recordingServiceLayer<SystemPluginObservation>(
 		pluginIngestion: {
 			installPlugin: (input) =>
 				record({ input, kind: "install" }).pipe(
-					Effect.as({ slug: PluginSlug.make("fixture"), pluginId: PluginId.make("plugin-id") }),
+					Effect.as({ pluginId: PluginId.make("plugin-id") }),
 				),
 			updatePlugin: (input) =>
 				record({ input, kind: "update" }).pipe(
-					Effect.as({ slug: PluginSlug.make("fixture"), pluginId: PluginId.make(input.pluginId) }),
+					Effect.as({ pluginId: PluginId.make(input.pluginId) }),
 				),
 		},
 		pluginRepository: {

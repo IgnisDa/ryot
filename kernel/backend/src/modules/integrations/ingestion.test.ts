@@ -224,7 +224,6 @@ const runCase = (
 								name: "Fixture",
 								lot: "sink" as const,
 								pluginId: "plugin-1",
-								pluginSlug: "fixture",
 								description: "Fixture",
 								pluginScope: "system" as const,
 								settingsSchema: { fields: {} },

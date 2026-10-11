@@ -27,7 +27,6 @@ export const sandboxSubjectUserId = (subject: SandboxExecutionSubject) => {
 
 export const SandboxPluginRevision = Schema.Struct({
 	id: PluginId,
-	slug: Schema.String,
 	configSchema: AppSchema,
 	packageId: PluginPackageId,
 	revisionId: PluginRevisionId,

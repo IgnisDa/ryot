@@ -56,7 +56,7 @@ it.effect("formats import input schema definition issues", () =>
 			}),
 		);
 		expect(error.issues.join("; ")).toContain(
-			"Import source fixture in plugin fixture has an invalid inputSchema",
+			"Import source fixture in plugin test/fixture has an invalid inputSchema",
 		);
 	}),
 );
@@ -85,7 +85,7 @@ it.effect("rejects import fields reserved by the runtime", () =>
 				}),
 			);
 			expect(error.issues).toContain(
-				`Import source fixture in plugin fixture declares reserved input field: ${field}`,
+				`Import source fixture in plugin test/fixture declares reserved input field: ${field}`,
 			);
 		}
 	}),
@@ -110,7 +110,7 @@ it.effect("rejects upload-token fields without upload format", () =>
 				}),
 			);
 			expect(error.issues).toContain(
-				`Import source fixture in plugin fixture declares upload token field without upload format: ${field}`,
+				`Import source fixture in plugin test/fixture declares upload token field without upload format: ${field}`,
 			);
 		}
 	}),

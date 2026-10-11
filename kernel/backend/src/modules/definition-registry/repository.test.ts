@@ -1,6 +1,6 @@
 import { expect, layer } from "@effect/vitest";
 import { definitionKey, definitionOwner } from "@ryot-app/contract/modules/plugins/references";
-import { PluginId, UserId } from "@ryot-app/contract/schema/brands";
+import { PluginId, PluginPackageId, UserId } from "@ryot-app/contract/schema/brands";
 import { and, eq, isNull } from "drizzle-orm";
 import { Effect, Exit } from "effect";
 import { assert, describe } from "vitest";
@@ -133,14 +133,16 @@ describe("definition views", () => {
 					],
 				});
 				const alpha = yield* installRevisionPackage(
-					withRelationshipSchemas(revisionPackage("alpha"), [
-						relationshipSchema("alpha-pair", "shared-source", "shared-target"),
-					]),
+					withRelationshipSchemas(
+						revisionPackage("alpha", "v1", undefined, PluginPackageId.make("test/alpha")),
+						[relationshipSchema("alpha-pair", "shared-source", "shared-target")],
+					),
 				);
 				const beta = yield* installRevisionPackage(
-					withRelationshipSchemas(revisionPackage("beta"), [
-						relationshipSchema("beta-pair", "shared-source", "shared-target"),
-					]),
+					withRelationshipSchemas(
+						revisionPackage("beta", "v1", undefined, PluginPackageId.make("test/beta")),
+						[relationshipSchema("beta-pair", "shared-source", "shared-target")],
+					),
 				);
 
 				const found = yield* definitions.findGlobalRelationshipSchemas([
@@ -321,14 +323,16 @@ describe("definition views", () => {
 						],
 					});
 					const alpha = yield* installRevisionPackage(
-						withRelationshipSchemas(revisionPackage("alpha"), [
-							relationshipSchema("alpha-pair", "shared-source", "shared-target"),
-						]),
+						withRelationshipSchemas(
+							revisionPackage("alpha", "v1", undefined, PluginPackageId.make("test/alpha")),
+							[relationshipSchema("alpha-pair", "shared-source", "shared-target")],
+						),
 					);
 					yield* installRevisionPackage(
-						withRelationshipSchemas(revisionPackage("beta"), [
-							relationshipSchema("beta-pair", "shared-source", "shared-target"),
-						]),
+						withRelationshipSchemas(
+							revisionPackage("beta", "v1", undefined, PluginPackageId.make("test/beta")),
+							[relationshipSchema("beta-pair", "shared-source", "shared-target")],
+						),
 					);
 
 					expect(
@@ -512,7 +516,6 @@ describe("definition views", () => {
 								privatePackage.manifest.metadata.packageId,
 							),
 							{
-								slug: "alpha",
 								scope: "user",
 								ownerId: owner,
 								pluginId: PluginId.make(alpha.pluginId),
@@ -542,7 +545,6 @@ describe("definition views", () => {
 							),
 							{
 								ownerId: null,
-								slug: "fixture",
 								scope: "system",
 								pluginId: PluginId.make(system.pluginId),
 								packageId: systemPackage.manifest.metadata.packageId,

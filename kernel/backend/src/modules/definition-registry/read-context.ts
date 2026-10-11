@@ -41,7 +41,7 @@ export const pinnedDefinitionSource = (
 		kind === "event"
 			? sql`definition_event_schema d join definition_entity_schema parent on parent.id = d.entity_schema_id join plugin_revision r on r.id = parent.plugin_revision_id`
 			: sql`${sql.identifier(`definition_${kind}_schema`)} d join plugin_revision r on r.id = d.plugin_revision_id`;
-	return sql`SELECT d.id, d.slug, d.name, d.position, d.properties_schema, p.id as plugin_id, p.package_id, p.slug as plugin_slug, r.id as plugin_revision_id, ${userId}::text as user_id, true as is_effective, case when p.owner_user_id is null then 'system' else 'user' end as plugin_scope, ${columns}
+	return sql`SELECT d.id, d.slug, d.name, d.position, d.properties_schema, p.id as plugin_id, p.package_id, r.id as plugin_revision_id, ${userId}::text as user_id, true as is_effective, case when p.owner_user_id is null then 'system' else 'user' end as plugin_scope, ${columns}
 		FROM ${from} join plugin p on p.id = r.plugin_id
 		WHERE r.id = ${context.pluginRevisionId} AND r.plugin_id = ${context.pluginId}`;
 };

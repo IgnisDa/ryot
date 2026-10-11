@@ -98,10 +98,7 @@ it("rejects a changed dynamic choice source", () => {
 it("accepts metadata renames and same-version compatible content", () => {
 	expect(
 		Exit.isSuccess(
-			evolve((previous) => ({
-				...previous,
-				metadata: { ...previous.metadata, name: "Renamed", slug: "renamed" },
-			})),
+			evolve((previous) => ({ ...previous, metadata: { ...previous.metadata, name: "Renamed" } })),
 		),
 	).toBe(true);
 });

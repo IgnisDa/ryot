@@ -16,7 +16,7 @@ import { assertExitFails } from "#lib/test-utils/assertions";
 import { makeAppConfigLayer, makeWorkflowEngine } from "#lib/test-utils/effect";
 import { mutationAdmissionTestLayer } from "#lib/test-utils/mutation-admission";
 import { PluginRuntimeResolver } from "#modules/plugins/runtime-resolver";
-import { fixtureManifest } from "#modules/plugins/test-support";
+import { fixtureManifest, testPluginPackageId } from "#modules/plugins/test-support";
 import type { PluginRevision, StoredPluginIdentity } from "#modules/plugins/types";
 
 import {
@@ -67,7 +67,7 @@ const normalizedPlugin = (
 	pluginSlug: string,
 	schedule: PluginCron["schedule"] = { cron: "* * * * *" },
 ): PluginRegistryEntry => {
-	const manifest = fixtureManifest(PluginPackageId.make(crypto.randomUUID()));
+	const manifest = fixtureManifest(testPluginPackageId());
 	const declared = manifest.scripts[0];
 	assert(declared);
 	const scriptSlug = `${pluginSlug}-script`;
@@ -80,7 +80,7 @@ const normalizedPlugin = (
 		entitySchemas: [],
 		signalSchemas: [],
 		relationshipSchemas: [],
-		metadata: { ...manifest.metadata, slug: pluginSlug },
+		metadata: { ...manifest.metadata },
 		crons: [
 			{ schedule, scriptSlug, slug: `${pluginSlug}-cron`, description: `${pluginSlug} cron` },
 		],
@@ -88,7 +88,6 @@ const normalizedPlugin = (
 	const { entry, ...metadata } = script;
 	return {
 		ownerId: null,
-		slug: pluginSlug,
 		id: `${pluginSlug}-id`,
 		scope: "system" as const,
 		manifest: normalizedManifest,
@@ -209,12 +208,12 @@ const makeLayer = (
 											plugin.manifest.crons.map((cron) => ({
 												cron,
 												pluginId: plugin.id,
-												pluginSlug: plugin.slug,
+												packageId: plugin.packageId,
 											})),
 										)
 										.sort(
 											(left, right) =>
-												left.pluginSlug.localeCompare(right.pluginSlug) ||
+												left.packageId.localeCompare(right.packageId) ||
 												left.cron.slug.localeCompare(right.cron.slug),
 										),
 								),
@@ -518,9 +517,9 @@ it("builds stable execution ids", () => {
 
 const privateCronSchedule = (installationId: string, userId: string) => ({
 	installationId,
-	pluginSlug: "private",
 	userId: UserId.make(userId),
 	pluginId: "private-plugin-id",
+	packageId: PluginPackageId.make("test/private"),
 	cron: {
 		slug: "private-cron",
 		description: "Private cron",
@@ -571,7 +570,7 @@ const makePrivateCronLayer = (
 								? {
 										cron: schedule.cron,
 										userId: schedule.userId,
-										pluginSlug: schedule.pluginSlug,
+										packageId: schedule.packageId,
 										script: privateCronScriptRow(installationId),
 									}
 								: null,

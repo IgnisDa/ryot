@@ -18,7 +18,6 @@ export const OperationsServiceLive = OperationsService.layer.pipe(
 		Layer.mergeAll(
 			AuthServiceLive,
 			PluginRepository.layer,
-			PluginInstallationRepository.layer,
 			PluginRuntimeResolverLive,
 			SandboxExecutionServiceLive,
 			SandboxRepository.layer,

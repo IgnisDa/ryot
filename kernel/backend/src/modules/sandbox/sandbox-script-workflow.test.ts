@@ -87,7 +87,6 @@ const recoveryIdentity = (executionId: string) => ({
 
 const pluginRevision = {
 	ownerId: null,
-	slug: "plugin",
 	compiledHashes: {},
 	workflowScripts: {},
 	scope: "system" as const,

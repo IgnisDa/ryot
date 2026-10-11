@@ -30,7 +30,6 @@ export type RegisteredIntegrationProvider = {
 	readonly pluginId: string;
 	readonly packageId: PluginPackageId;
 	readonly reference: DeclarationReference;
-	readonly pluginSlug: string;
 	readonly description: string;
 	readonly installationId: string;
 	readonly requiresProKey?: boolean;
@@ -53,7 +52,6 @@ const queryProvidersForSession = (database: DatabaseSession["Service"]) =>
 					name: provider.name,
 					pluginId: provider.pluginId,
 					script: catalogScriptFields,
-					pluginSlug: provider.pluginSlug,
 					scriptSlug: provider.scriptSlug,
 					pluginScope: provider.pluginScope,
 					description: provider.description,
@@ -94,7 +92,6 @@ const queryProvidersForSession = (database: DatabaseSession["Service"]) =>
 					script,
 					manifest,
 					pluginId,
-					pluginSlug,
 					pluginScope,
 					configSchema,
 					configuredKeys,
@@ -108,7 +105,6 @@ const queryProvidersForSession = (database: DatabaseSession["Service"]) =>
 				}> => {
 					if (
 						pluginId === null ||
-						pluginSlug === null ||
 						installationId === null ||
 						pluginRevisionId === null ||
 						pluginScope === null
@@ -134,7 +130,6 @@ const queryProvidersForSession = (database: DatabaseSession["Service"]) =>
 							)[0],
 							...row,
 							pluginId,
-							pluginSlug,
 							pluginScope,
 							installationId,
 							packageId: manifest.metadata.packageId,
@@ -156,7 +151,7 @@ const queryProvidersForSession = (database: DatabaseSession["Service"]) =>
 			)
 			.sort(
 				(left, right) =>
-					left.provider.pluginSlug.localeCompare(right.provider.pluginSlug) ||
+					left.provider.packageId.localeCompare(right.provider.packageId) ||
 					left.provider.slug.localeCompare(right.provider.slug),
 			);
 	});

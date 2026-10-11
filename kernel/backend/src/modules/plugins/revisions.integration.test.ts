@@ -151,7 +151,6 @@ describe("immutable revisions in PostgreSQL (isolated schema)", () => {
 								const pluginId = yield* session.transaction(
 									plugins.persist(packageAt("v1"), {
 										scope: "user",
-										slug: "fixture",
 										ownerId: "owner",
 										packageId: manifest.metadata.packageId,
 									}),
@@ -200,12 +199,7 @@ describe("immutable revisions in PostgreSQL (isolated schema)", () => {
 												metadata: { ...manifest.metadata, version: "mutated" },
 											},
 										},
-										{
-											scope: "user",
-											slug: "fixture",
-											ownerId: "owner",
-											packageId: manifest.metadata.packageId,
-										},
+										{ scope: "user", ownerId: "owner", packageId: manifest.metadata.packageId },
 									),
 								);
 								expect(Result.isFailure(conflict)).toBe(true);
@@ -232,12 +226,7 @@ describe("immutable revisions in PostgreSQL (isolated schema)", () => {
 												Object.assign(candidate, { compiledCode: "changed" }),
 											),
 										},
-										{
-											scope: "user",
-											slug: "fixture",
-											ownerId: "owner",
-											packageId: manifest.metadata.packageId,
-										},
+										{ scope: "user", ownerId: "owner", packageId: manifest.metadata.packageId },
 									),
 								);
 								expect(Result.isFailure(scriptConflict)).toBe(true);
@@ -246,7 +235,6 @@ describe("immutable revisions in PostgreSQL (isolated schema)", () => {
 										plugins.persist(packageAt("v2"), {
 											pluginId,
 											scope: "user",
-											slug: "fixture",
 											ownerId: "owner",
 											packageId: manifest.metadata.packageId,
 										}),
@@ -509,7 +497,6 @@ describe("immutable revisions in PostgreSQL (isolated schema)", () => {
 									plugins.persist(environmentPackage, {
 										ownerId: null,
 										scope: "system",
-										slug: "fixture",
 										packageId: environmentPackage.manifest.metadata.packageId,
 									}),
 								);

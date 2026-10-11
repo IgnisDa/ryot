@@ -21,7 +21,6 @@ const source = (pluginId: string | null): DefinitionSource => ({
 			pluginId,
 			icon: "box",
 			slug: "bottle",
-			pluginSlug: pluginId,
 			propertiesSchema: { fields: {} },
 			name: pluginId ?? "Kernel bottle",
 			eventSchemas: [

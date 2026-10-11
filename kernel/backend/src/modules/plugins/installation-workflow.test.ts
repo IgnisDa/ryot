@@ -238,7 +238,6 @@ const workflowLayer = (input: {
 								homeSavedView: null,
 								health: "installing",
 								pluginId: "plugin-1",
-								pluginSlug: "fixture",
 								createdAt: new Date(0),
 								updatedAt: new Date(0),
 								isInitialized: initialized,

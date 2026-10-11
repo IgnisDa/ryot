@@ -16,12 +16,12 @@ Plugin revisions have no source file table. Their `sourceHash` fingerprints the 
 backend entry/format/JavaScript, and exact compiled client content. It identifies package content, not
 proof that the metadata was derived from authoring source.
 
-`metadata.packageId` is the immutable authored UUID. Persisted local plugin IDs identify scope and
-owner; installation IDs identify per-user lifecycle and settings. Names and slugs are metadata and
+`metadata.packageId` is the immutable authored `publisher/name` ID. Persisted local plugin IDs identify scope and
+owner; installation IDs identify per-user lifecycle and settings. Display names are metadata and
 may change without changing either identity. Revisions are immutable and keyed by their content
 hash, not their version label.
 
-System activation quarantines private installations claiming its exact package UUID under the
+System activation quarantines private installations claiming its exact package ID under the
 ingestion lock. Their records, configuration, references, and data remain intact. Quarantine records
 `package-identity-conflict`; removing the system package does not recover them automatically.
 Explicit re-enable validates the retained archive, configuration, declarations, and dependencies
@@ -46,7 +46,7 @@ pass includes plugins that are active but are not bundled by the current server 
 
 Callers must not add a separate boot-time environment resolution pass.
 
-System config uses `RYOT_PLUGIN_<PACKAGE_UUID_WITHOUT_HYPHENS_UPPERCASE>_<NORMALIZED_KEY>`.
+System config uses `RYOT_PLUGIN__<PUBLISHER>__<NAME>__<NORMALIZED_KEY>`, with package ID segments uppercased and `-` replaced by `_`.
 Private config never reads environment values. All replicas must use the same server release and
 deployment configuration; the persisted catalog is authoritative and ingestion is serialized.
 

@@ -125,7 +125,6 @@ export class SandboxRepository extends Context.Service<SandboxRepository>()("San
 						environmentConfigRevisionId: schema.plugin.environmentConfigRevisionId,
 						sourcePresent: sql<boolean>`${schema.sandboxScript.source} is not null`,
 						sandboxAuthority: schema.pluginRevisionSandboxAuthority.sandboxAuthority,
-						pluginSlug: sql<string>`${schema.pluginRevision.manifest} -> 'metadata' ->> 'slug'`,
 						manifestPackageId: sql<string>`${schema.pluginRevision.manifest} -> 'metadata' ->> 'packageId'`,
 					})
 					.from(schema.sandboxScript)
@@ -190,7 +189,6 @@ export class SandboxRepository extends Context.Service<SandboxRepository>()("San
 			if (
 				(!expectedRevision &&
 					(row.pluginStatus !== "active" || row.activeRevisionId !== row.pluginRevisionId)) ||
-				!row.pluginSlug ||
 				!row.pluginRevisionId ||
 				!authority.scriptKinds[row.slug] ||
 				authority.scriptKinds[row.slug] !== row.metadata.kind ||
@@ -312,7 +310,6 @@ export class SandboxRepository extends Context.Service<SandboxRepository>()("San
 				providerId: row.providerId ? SandboxProviderId.make(row.providerId) : null,
 				pluginRevision: {
 					scope: pluginScope,
-					slug: row.pluginSlug,
 					id: PluginId.make(row.pluginId),
 					schemaScope: authority.schemaScope,
 					configSchema: authority.configSchema,

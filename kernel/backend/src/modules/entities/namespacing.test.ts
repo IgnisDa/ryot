@@ -7,7 +7,6 @@ import {
 	EventId,
 	EventSchemaSlug,
 	PluginId,
-	PluginPackageId,
 	RelationshipSchemaSlug,
 	UserId,
 } from "@ryot-app/contract/schema/brands";
@@ -34,6 +33,7 @@ import { EventsRepository } from "#modules/events/repository";
 import { EventsService } from "#modules/events/service";
 import { installRevisionPackage, revisionPackage } from "#modules/plugins/revision.test-support";
 import { PluginRuntimeResolver } from "#modules/plugins/runtime-resolver";
+import { testPluginPackageId } from "#modules/plugins/test-support";
 import { EntityImportWorkflowOperations } from "#modules/provider-entities/operations-workflow";
 import {
 	ProviderEntityPopulationWorkflow,
@@ -53,10 +53,7 @@ const bottle = EntitySchemaSlug.make("bottle");
 const titleProperties = {
 	fields: { title: { type: "string", label: "Title", description: "Title" } },
 } as const;
-const namespacePackage = (
-	packageId = PluginPackageId.make(crypto.randomUUID()),
-	version = "one",
-) => {
+const namespacePackage = (packageId = testPluginPackageId(), version = "one") => {
 	const source = revisionPackage("whiskey", version, bottle, packageId);
 	return {
 		...source,

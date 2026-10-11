@@ -28,7 +28,6 @@ type IntegrationRow = Omit<
 	typeof schema.integration.$inferSelect,
 	"clientProviderSpecifics" | "retiring"
 >;
-type SelectedIntegrationRow = IntegrationRow & { readonly pluginSlug: string | null };
 
 export type IntegrationRecord = IntegrationSnapshot & {
 	readonly userId: UserId;
@@ -52,12 +51,6 @@ const integrationSelection = {
 	maximumProgress: schema.integration.maximumProgress,
 	providerSpecifics: schema.integration.providerSpecifics,
 	pluginInstallationId: schema.integration.pluginInstallationId,
-	pluginSlug: sql<string | null>`(
-		select ${schema.plugin.slug}
-		from ${schema.pluginInstallation}
-		inner join ${schema.plugin} on ${schema.plugin.id} = ${schema.pluginInstallation.pluginId}
-		where ${schema.pluginInstallation.id} = ${schema.integration.pluginInstallationId}
-	)`,
 };
 
 const { webhookToken: _webhookToken, ...integrationBackupSelection } = integrationSelection;
@@ -77,7 +70,7 @@ const activeProviderDefinition = (
 		eq(schema.definitionIntegrationProvider.slug, provider),
 	);
 
-const normalizeIntegration = (row: SelectedIntegrationRow): IntegrationRecord => {
+const normalizeIntegration = (row: IntegrationRow): IntegrationRecord => {
 	if (row.lot === "sink" && row.webhookToken === null) {
 		throw new Error(`Sink integration '${row.id}' has no webhook token`);
 	}
@@ -85,7 +78,6 @@ const normalizeIntegration = (row: SelectedIntegrationRow): IntegrationRecord =>
 		lot: row.lot,
 		name: row.name,
 		provider: row.provider,
-		pluginSlug: row.pluginSlug,
 		isDisabled: row.isDisabled,
 		id: IntegrationId.make(row.id),
 		userId: UserId.make(row.userId),

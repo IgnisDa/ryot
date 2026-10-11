@@ -57,7 +57,6 @@ const mockProKey = (isValidated: boolean) =>
 
 const systemPlugin = (pluginSlug: string) =>
 	({
-		pluginSlug,
 		pluginScope: "system",
 		pluginId: `${pluginSlug}-plugin-id`,
 		packageId: fixtureManifest().metadata.packageId,
@@ -241,7 +240,6 @@ describe("update", () => {
 	const muIntegration = makeIntegration({
 		lot: "yank",
 		provider: "mu",
-		pluginSlug: "example",
 		pluginInstallationId: "example-installation-id",
 		providerSpecifics: { kind: "mu", token: "stored-token", baseUrl: "https://old.example.com" },
 	});
@@ -288,7 +286,6 @@ describe("update", () => {
 
 	const sharedProviderIntegration = makeIntegration({
 		provider: "shared-provider",
-		pluginSlug: "original-owner",
 		providerSpecifics: { token: "stored-token" },
 		pluginInstallationId: "original-owner-installation-id",
 	});
@@ -348,7 +345,6 @@ describe("update", () => {
 	const proSinkIntegration = makeIntegration({
 		lot: "sink",
 		provider: "pro-sink",
-		pluginSlug: "example",
 		pluginInstallationId: "example-installation-id",
 	});
 
@@ -484,7 +480,6 @@ describe("installation availability", () => {
 	const sinkIntegration = makeIntegration({
 		lot: "sink",
 		provider: "kodi",
-		pluginSlug: "example",
 		pluginInstallationId: "example-installation-id",
 	});
 
@@ -516,7 +511,6 @@ describe("installation availability", () => {
 	const unavailableYankIntegration = makeIntegration({
 		lot: "yank",
 		provider: "theta",
-		pluginSlug: "example",
 		pluginInstallationId: "example-installation-id",
 	});
 
@@ -545,7 +539,6 @@ describe("prepareYankRuns", () => {
 	const yankIntegration = makeIntegration({
 		lot: "yank",
 		provider: "theta",
-		pluginSlug: "example",
 		pluginInstallationId: "example-installation-id",
 	});
 	const registeredYank: RegisteredIntegrationProvider = {
@@ -748,7 +741,6 @@ describe("handleWebhook", () => {
 	const kodiIntegration = makeIntegration({
 		lot: "sink",
 		provider: "kodi",
-		pluginSlug: "example",
 		pluginInstallationId: "example-installation-id",
 	});
 	const kodiSink: RegisteredIntegrationProvider = {
@@ -835,7 +827,6 @@ describe("handleWebhook", () => {
 
 	const lambdaIntegration = makeIntegration({
 		lot: "sink",
-		pluginSlug: "example",
 		provider: "lambda_sink",
 		pluginInstallationId: "example-installation-id",
 	});

@@ -37,7 +37,7 @@ import { PluginInstallationRepository } from "#modules/plugins/installation-repo
 import { pluginSourceHash } from "#modules/plugins/pipeline";
 import { PluginRepository } from "#modules/plugins/repository";
 import { fixtureClientArtifact } from "#modules/plugins/source.test-support";
-import { fixtureManifest } from "#modules/plugins/test-support";
+import { fixtureManifest, testPluginPackageId } from "#modules/plugins/test-support";
 import { RelationshipsRepository } from "#modules/relationships/repository";
 import { SavedViewsRepository } from "#modules/saved-views/repository";
 import { ManagedAssetsService } from "#modules/uploads/managed-assets/service";
@@ -115,10 +115,7 @@ it.effect("resolves archive keys from persisted plugin IDs", () =>
 			scope: "user",
 			packageId: fixtureManifest().metadata.packageId,
 		});
-		const currentKey = pluginPackageKey({
-			scope: "user",
-			packageId: PluginPackageId.make(crypto.randomUUID()),
-		});
+		const currentKey = pluginPackageKey({ scope: "user", packageId: testPluginPackageId() });
 		const keys = new Map([
 			["persisted-plugin", persistedKey],
 			["current-plugin", currentKey],
@@ -144,7 +141,6 @@ const installationRow = (input: {
 	readonly id: string;
 	readonly pluginId: string;
 	readonly packageId: PluginPackageId;
-	readonly pluginSlug: string;
 	readonly pluginScope: "system" | "user";
 }) => ({
 	...input,
@@ -229,13 +225,12 @@ const ensureInstallationUserSettingsColumn = Effect.fn(
 });
 
 const privateRecordsEventsPath = `${tmpdir()}/backup-export-installations-${crypto.randomUUID()}.ndjson`;
-const systemPackageId = PluginPackageId.make("11111111-1111-4111-8111-111111111111");
-const defaultPackageId = PluginPackageId.make("22222222-2222-4222-8222-222222222222");
+const systemPackageId = PluginPackageId.make("test/system");
+const defaultPackageId = PluginPackageId.make("test/default");
 const systemInstallation = installationRow({
 	pluginScope: "system",
 	id: "installation-system",
 	packageId: systemPackageId,
-	pluginSlug: "system-plugin",
 	pluginId: "system-plugin-id",
 });
 const configuredSystemInstallation = {
@@ -245,22 +240,19 @@ const configuredSystemInstallation = {
 const unavailableSystemInstallation = installationRow({
 	pluginScope: "system",
 	id: "installation-unavailable",
-	pluginSlug: "unavailable-plugin",
 	pluginId: "unavailable-plugin-id",
-	packageId: PluginPackageId.make("33333333-3333-4333-8333-333333333333"),
+	packageId: PluginPackageId.make("test/unavailable"),
 });
 const defaultSystemInstallation = installationRow({
 	pluginScope: "system",
 	id: "installation-default",
 	packageId: defaultPackageId,
-	pluginSlug: "default-plugin",
 	pluginId: "default-plugin-id",
 });
 const privateInstallation = {
 	...installationRow({
 		pluginScope: "user",
 		id: "installation-private",
-		pluginSlug: "private-plugin",
 		pluginId: "private-plugin-id",
 		packageId: fixtureManifest().metadata.packageId,
 	}),
@@ -284,7 +276,7 @@ const privateManifest = {
 	signalSchemas: [],
 	userBootstrap: [],
 	relationshipSchemas: [],
-	metadata: { ...fixtureManifest().metadata, slug: "private-plugin" },
+	metadata: fixtureManifest().metadata,
 	client: {
 		homeView: null,
 		apiVersion: CLIENT_API_VERSION,
@@ -475,7 +467,7 @@ const effectiveDefinitions = buildDefinitionSnapshot(
 				},
 			],
 		},
-		[{ slug: "private-plugin", id: "different-plugin-id", manifest: differentOwnerManifest }],
+		[{ id: "different-plugin-id", manifest: differentOwnerManifest }],
 	),
 );
 const privateTimestamp = new Date("2026-08-24T12:00:00.000Z");
@@ -484,14 +476,8 @@ const privateKey = pluginPackageKey({
 	packageId: privateManifest.metadata.packageId,
 });
 const systemKey = pluginPackageKey({ scope: "system", packageId: systemPackageId });
-const storedSystemPlugin = (
-	slug: string,
-	id: string,
-	packageId: PluginPackageId,
-	sourceHash: string,
-) => ({
+const storedSystemPlugin = (id: string, packageId: PluginPackageId, sourceHash: string) => ({
 	id,
-	slug,
 	packageId,
 	sourceHash,
 	scripts: [],
@@ -501,7 +487,7 @@ const storedSystemPlugin = (
 	activationId: `${id}-activation`,
 	manifest: {
 		...fixtureManifest(packageId),
-		metadata: { ...fixtureManifest(packageId).metadata, slug, version: "1.0.0" },
+		metadata: { ...fixtureManifest(packageId).metadata, version: "1.0.0" },
 	},
 });
 
@@ -558,7 +544,6 @@ const privateRecordsExportLayer = withExportReads((reads) =>
 								lastFinishedAt: null,
 								maximumProgress: "95",
 								provider: "private-push",
-								pluginSlug: "private-plugin",
 								pluginInstallationId: "installation-private",
 								createdAt: new Date("2026-08-24T12:00:00.000Z"),
 								updatedAt: new Date("2026-08-24T12:00:00.000Z"),
@@ -630,25 +615,14 @@ const privateRecordsExportLayer = withExportReads((reads) =>
 						Effect.succeed({ compiledScripts: [], compiledClient: privateCompiledClient }),
 					listActiveSystemPlugins: () =>
 						Effect.succeed([
-							storedSystemPlugin(
-								"default-plugin",
-								"default-plugin-id",
-								defaultPackageId,
-								"b".repeat(64),
-							),
-							storedSystemPlugin(
-								"system-plugin",
-								"system-plugin-id",
-								systemPackageId,
-								"a".repeat(64),
-							),
+							storedSystemPlugin("default-plugin-id", defaultPackageId, "b".repeat(64)),
+							storedSystemPlugin("system-plugin-id", systemPackageId, "a".repeat(64)),
 						]),
 					listPrivateForUser: () =>
 						Effect.succeed([
 							{
 								scripts: [],
 								ownerId: userId,
-								slug: "private-plugin",
 								scope: "user" as const,
 								id: "private-plugin-id",
 								status: "active" as const,
@@ -693,9 +667,9 @@ layer(privateRecordsExportLayer)((test) => {
 					expect.objectContaining({
 						key: privateKey,
 						compiledScripts: [],
-						slug: "private-plugin",
 						sourceHash: privateSourceHash,
 						compiledClient: privateCompiledClient,
+						packageId: privateManifest.metadata.packageId,
 					}),
 				]);
 				expect(prepared.records.privatePlugins[0]).not.toHaveProperty("files");
@@ -757,12 +731,7 @@ layer(privateRecordsExportLayer)((test) => {
 					false,
 				);
 				expect(prepared.requiredPlugins).toMatchObject([
-					{
-						version: "1.0.0",
-						slug: "system-plugin",
-						packageId: systemPackageId,
-						sourceHash: "a".repeat(64),
-					},
+					{ version: "1.0.0", packageId: systemPackageId, sourceHash: "a".repeat(64) },
 				]);
 			}),
 	);
@@ -783,8 +752,8 @@ const eventPagesManifest = {
 	userBootstrap: [],
 	relationshipSchemas: [],
 	integrationProviders: [],
+	metadata: fixtureManifest().metadata,
 	configSchema: { fields: {}, unknownKeys: "strict" as const },
-	metadata: { ...fixtureManifest().metadata, slug: "private-plugin" },
 	entitySchemas: [
 		{
 			icon: "box",
@@ -849,13 +818,7 @@ const eventPagesExportLayer = withExportReads((reads) =>
 							buildDefinitionSnapshot(
 								mergeManifestDefinitions(
 									{ savedViews: [], entitySchemas: [], signalSchemas: [], relationshipSchemas: [] },
-									[
-										{
-											slug: "private-plugin",
-											id: "private-plugin-id",
-											manifest: eventPagesManifest,
-										},
-									],
+									[{ id: "private-plugin-id", manifest: eventPagesManifest }],
 								),
 							),
 						),
@@ -936,7 +899,6 @@ const eventPagesExportLayer = withExportReads((reads) =>
 								{
 									scripts: [],
 									ownerId: userId,
-									slug: "private-plugin",
 									scope: "user" as const,
 									id: "private-plugin-id",
 									status: "active" as const,

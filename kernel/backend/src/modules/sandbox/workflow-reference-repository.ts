@@ -61,7 +61,6 @@ export class SandboxWorkflowReferenceRepository extends Context.Service<SandboxW
 				const [plugin] = yield* database.run((db) =>
 					db
 						.select({
-							slug: schema.plugin.slug,
 							status: schema.plugin.status,
 							ownerId: schema.plugin.ownerId,
 							activationId: schema.plugin.activationId,

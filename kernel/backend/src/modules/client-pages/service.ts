@@ -8,7 +8,7 @@ import {
 } from "@ryot-app/contract/modules/client-pages/schemas";
 import { identityTupleKey } from "@ryot-app/contract/modules/plugins/references";
 import type { SavedViewRenderer } from "@ryot-app/contract/modules/saved-views/schemas";
-import { PluginId } from "@ryot-app/contract/schema/brands";
+import { PluginId, type PluginPackageId } from "@ryot-app/contract/schema/brands";
 import { Context, Effect, Layer } from "effect";
 
 import { ClientArtifactGrantService } from "#modules/client-artifacts/grant-service";
@@ -26,7 +26,11 @@ import {
 	type ResolvedClientPageGraph,
 } from "./graph";
 import { getKernelClientRenderer, getKernelEntityRenderer } from "./kernel-renderers";
-import { clientPageOperationTargets, resolvePluginPageTarget } from "./prepare";
+import {
+	clientPageOperationTargets,
+	resolvePluginPageTarget,
+	resolvePluginRoutePlugin,
+} from "./prepare";
 import { ClientPagesRepository } from "./repository";
 
 const canonicalOperationTargets = (targets: PreparedClientPage["identity"]["operationTargets"]) =>
@@ -74,6 +78,8 @@ export class ClientPagesService extends Context.Service<ClientPagesService>()(
 				pluginRuntime
 					.listPluginsAvailableToUser(userId, true)
 					.pipe(Effect.catchTag("PluginValidationError", Effect.die));
+			const resolveUserPackage = (userId: CurrentUserValue["id"]) => (packageId: PluginPackageId) =>
+				pluginRuntime.resolveUserPackage(userId, packageId);
 			const resolveKernelRendererGraph = (
 				available: ReadonlyArray<GraphPlugin>,
 				kernel: {
@@ -102,6 +108,7 @@ export class ClientPagesService extends Context.Service<ClientPagesService>()(
 				const resolved = yield* resolvePluginPageTarget({
 					target,
 					plugins: available,
+					resolvePackage: resolveUserPackage(userId),
 					findEntity: (entityId) => entities.getClientPageEntityForUser({ userId, entityId }),
 				});
 				if (resolved.kind === "kernel-entity") {
@@ -175,21 +182,20 @@ export class ClientPagesService extends Context.Service<ClientPagesService>()(
 				if (target.kind !== "plugin-route" || target.path !== "/") {
 					return null;
 				}
-				const plugin = available.find(({ id }) => id === target.pluginId);
-				if (plugin?.health !== "ready" || !plugin.manifest.client) {
-					return yield* new ClientPagePreparationError({
-						reason: { pluginId: target.pluginId, code: "plugin-unavailable" },
-					});
-				}
+				const { plugin, client } = yield* resolvePluginRoutePlugin({
+					plugins: available,
+					packageId: target.packageId,
+					resolvePackage: resolveUserPackage(userId),
+				});
 				const selected = yield* repository.findHomeSavedView(userId, plugin.id);
 				const reference =
 					selected ??
-					(plugin.manifest.client.homeView === null
+					(client.homeView === null
 						? null
 						: {
+								slug: client.homeView,
 								kind: "plugin" as const,
 								pluginId: PluginId.make(plugin.id),
-								slug: plugin.manifest.client.homeView,
 							});
 				return reference === null ? null : { reference, kind: "saved-view" as const };
 			});
