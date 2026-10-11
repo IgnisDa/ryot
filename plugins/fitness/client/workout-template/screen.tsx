@@ -1,13 +1,29 @@
 import type { RyotClient } from "@ryot-app/plugin-client-sdk";
-import { usePluginLocation } from "@ryot-app/plugin-client-sdk/plugin";
-import { createRyotQuery, useRyot, useRyotQuery } from "@ryot-app/plugin-client-sdk/react";
+import { usePluginLocation, useRyotViewport } from "@ryot-app/plugin-client-sdk/plugin";
+import {
+	createRyotQuery,
+	ManagedAssetProvider,
+	useRyot,
+	useRyotQuery,
+} from "@ryot-app/plugin-client-sdk/react";
 import { PluginScreenFrame } from "@ryot-app/plugin-client-sdk/screen";
-import { Button, StatusMessage } from "@ryot-app/plugin-ui-sdk";
+import { Button, Card, StatusMessage } from "@ryot-app/plugin-ui-sdk";
+import { EntityArtWell } from "@ryot-app/plugin-ui-sdk/sync";
+import clsx from "clsx";
 
+import type { WorkoutEditorOccurrence } from "../../shared/workout-editor-draft";
 import { fitnessRoute } from "../../shared/workout-editor-routes";
+import { managedAssetBatch, useAssetUrl } from "../asset-urls";
+import { supersetColorVariable } from "../group-colors";
 import { WorkoutMediaViewer } from "../media-viewer";
 import { workoutEditorContextQuery } from "../workout-editor/context-query";
-import { editorExercisesQuery, loadEditorSource } from "../workout-editor/queries";
+import { exerciseArtwork } from "../workout-editor/exercise-card";
+import {
+	editorExercisesQuery,
+	loadEditorSource,
+	type EditorExercise,
+} from "../workout-editor/queries";
+import { supersetNames } from "../workout-editor/superset-group";
 import { formatClock, formatSetMain } from "../workout/format";
 
 const templateQuery = createRyotQuery(
@@ -23,6 +39,7 @@ const number = (value: string | undefined) => (value === undefined ? null : Numb
 
 function TemplateDetails(props: { readonly entityId: string }) {
 	const client = useRyot();
+	const { compact } = useRyotViewport();
 	const source = useRyotQuery(templateQuery, props.entityId);
 	const context = useRyotQuery(workoutEditorContextQuery, undefined);
 	const draft = source.data?.kind === "ready" ? source.data.draft : undefined;
@@ -71,81 +88,214 @@ function TemplateDetails(props: { readonly entityId: string }) {
 			</PluginScreenFrame>
 		);
 	}
+	const names = supersetNames(draft);
+	const plannedSets = draft.occurrences.reduce((total, { sets }) => total + sets.length, 0);
 	return (
 		<PluginScreenFrame hideTitle title={draft.name}>
-			<div className="mx-auto flex w-full max-w-5xl flex-col gap-5 font-ui">
-				<header className="flex flex-wrap items-center justify-between gap-3">
-					<div>
-						<p className="text-sm text-text-muted">Workout template</p>
-						<h1 className="font-display text-3xl font-semibold">{draft.name}</h1>
-					</div>
-					<div className="flex gap-2">
-						<Button onClick={() => action("start")}>Start workout</Button>
-						<Button variant="secondary" onClick={() => action("edit")}>
-							Edit template{context.data.proAvailable ? "" : " (Pro)"}
-						</Button>
-					</div>
-				</header>
-				<p>
-					{draft.occurrences.length} exercises ·{" "}
-					{draft.occurrences.reduce((total, { sets }) => total + sets.length, 0)} planned sets
-				</p>
-				{draft.comment ? <p className="whitespace-pre-wrap">{draft.comment}</p> : null}
-				<WorkoutMediaViewer label={draft.name} images={draft.images} videos={draft.videos} />
-				<section aria-label="Planned exercises" className="flex flex-col gap-4">
-					{draft.occurrences.map((occurrence, index) => {
-						const exercise = exercises.data?.find(({ id }) => id === occurrence.exerciseId);
-						const group = draft.supersets.find(({ occurrenceIds }) =>
-							occurrenceIds.includes(occurrence.clientId),
-						);
-						return (
-							<article
-								key={occurrence.clientId}
-								className="rounded-xl border border-border bg-surface p-4"
-							>
-								<h2 className="text-lg font-semibold">
-									{index + 1}. {exercise?.name ?? "Exercise unavailable"}
-								</h2>
-								{group ? <p>Superset {draft.supersets.indexOf(group) + 1}</p> : null}
-								<p className="whitespace-pre-wrap">{occurrence.notes.join("\n")}</p>
-								{occurrence.sets.length === 0 ? (
-									<p>No planned sets.</p>
-								) : (
-									<ol>
-										{occurrence.sets.map((set, setIndex) => (
-											<li key={set.clientId} className="border-t border-border py-2">
-												Set {setIndex + 1} · {set.setLot.replaceAll("_", " ")} ·{" "}
-												{formatSetMain(
-													occurrence.exerciseKind,
-													{
-														reps: number(set.reps),
-														weight: number(set.weight),
-														distance: number(set.distance),
-														duration: number(set.duration),
-													},
-													imperial,
-													exercise?.overrides.defaultDurationUnit ?? "minutes",
-												) || "Measurements not specified"}
-												{set.restChoice.kind === "explicit"
-													? ` · Rest ${formatClock(Number(set.restChoice.seconds))}`
-													: ""}
-												{set.rpe === undefined ? "" : ` · RPE ${set.rpe}`}
-												{set.note ? <p>{set.note}</p> : null}
-											</li>
-										))}
-									</ol>
+			<ManagedAssetProvider
+				assets={managedAssetBatch(exercises.data.map((exercise) => exerciseArtwork(exercise)))}
+			>
+				<div className="mx-auto flex w-full max-w-5xl flex-col gap-6 font-ui">
+					<header
+						className={clsx(
+							"flex gap-4",
+							compact ? "flex-col" : "flex-row flex-wrap items-end justify-between",
+						)}
+					>
+						<div className="flex min-w-0 flex-col gap-2">
+							<span className="text-[13px] font-semibold tracking-wide text-accent-text uppercase">
+								Workout template
+							</span>
+							<h1
+								className={clsx(
+									"font-display font-semibold text-text [overflow-wrap:anywhere]",
+									compact ? "text-[34px] leading-tight" : "text-5xl leading-none",
 								)}
-								<WorkoutMediaViewer
-									images={occurrence.images}
-									videos={occurrence.videos}
-									label={exercise?.name ?? "Exercise"}
-								/>
-							</article>
+							>
+								{draft.name}
+							</h1>
+						</div>
+						<div className={clsx("flex gap-2", compact && "w-full")}>
+							<Button onClick={() => action("start")} className={clsx(compact && "flex-1")}>
+								Start workout
+							</Button>
+							<Button variant="secondary" onClick={() => action("edit")}>
+								Edit template{context.data.proAvailable ? "" : " (Pro)"}
+							</Button>
+						</div>
+					</header>
+					<section
+						aria-label="Summary"
+						className="grid grid-cols-2 gap-px overflow-hidden rounded-lg border border-border-card bg-border"
+					>
+						{[
+							{ label: "Exercises", value: draft.occurrences.length },
+							{ value: plannedSets, label: "Planned sets" },
+						].map((stat) => (
+							<div key={stat.label} className="flex flex-col gap-1 bg-surface p-4">
+								<span className="text-[13px] text-text-muted">{stat.label}</span>
+								<span
+									className={clsx(
+										"leading-tight font-semibold text-text tabular-nums",
+										compact ? "text-xl" : "text-[28px]",
+									)}
+								>
+									{stat.value}
+								</span>
+							</div>
+						))}
+					</section>
+					{draft.comment ? (
+						<Card className="text-[15px] whitespace-pre-wrap text-text">{draft.comment}</Card>
+					) : null}
+					<WorkoutMediaViewer label={draft.name} images={draft.images} videos={draft.videos} />
+					<section aria-label="Planned exercises" className="flex flex-col gap-4">
+						<div className="flex items-baseline justify-between">
+							<h2 className="font-display text-[22px] font-semibold text-text">Exercises</h2>
+							<span className="text-[14px] text-text-muted">
+								{draft.occurrences.length}{" "}
+								{draft.occurrences.length === 1 ? "exercise" : "exercises"} · {plannedSets}{" "}
+								{plannedSets === 1 ? "set" : "sets"}
+							</span>
+						</div>
+						<div className={clsx("grid items-start gap-4", !compact && "grid-cols-2")}>
+							{draft.occurrences.map((occurrence) => {
+								const exercise = exercises.data?.find(({ id }) => id === occurrence.exerciseId);
+								const group = draft.supersets.find(({ occurrenceIds }) =>
+									occurrenceIds.includes(occurrence.clientId),
+								);
+								return (
+									<PlannedExercise
+										compact={compact}
+										imperial={imperial}
+										exercise={exercise}
+										occurrence={occurrence}
+										key={occurrence.clientId}
+										group={
+											group === undefined
+												? undefined
+												: { color: group.color, name: names.get(group.clientId) ?? "Superset" }
+										}
+									/>
+								);
+							})}
+						</div>
+					</section>
+				</div>
+			</ManagedAssetProvider>
+		</PluginScreenFrame>
+	);
+}
+
+const setTags: Partial<Record<string, { readonly tag: string; readonly tone: string }>> = {
+	drop: { tag: "D", tone: "text-info" },
+	failure: { tag: "F", tone: "text-danger" },
+	warm_up: { tag: "W", tone: "text-warning" },
+};
+
+function PlannedExercise(props: {
+	readonly compact: boolean;
+	readonly imperial: boolean;
+	readonly occurrence: WorkoutEditorOccurrence;
+	readonly exercise: EditorExercise | undefined;
+	readonly group: { readonly name: string; readonly color: string } | undefined;
+}) {
+	const { exercise, occurrence } = props;
+	const artwork = exerciseArtwork(exercise);
+	const url = useAssetUrl(artwork);
+	const name = exercise?.name ?? "Exercise unavailable";
+	const notes = occurrence.notes.join("\n").trim();
+	const meta = [
+		exercise?.targets.map(({ name: target }) => target).join(", "),
+		exercise?.equipment.map(({ name: equipment }) => equipment).join(", "),
+	].filter((part) => part !== undefined && part !== "");
+	return (
+		<Card
+			padding="none"
+			className="min-w-0 overflow-hidden"
+			style={
+				props.group === undefined
+					? undefined
+					: { boxShadow: `inset 3px 0 0 ${supersetColorVariable(props.group.color)}` }
+			}
+		>
+			<div className="flex items-start gap-3 px-4 pt-4 pb-3">
+				<EntityArtWell
+					url={url}
+					monogram={name}
+					shape="rounded"
+					state={artwork === undefined ? "absent" : "ready"}
+					className={clsx("shrink-0", props.compact ? "size-11" : "size-14")}
+				/>
+				<div className="flex min-w-0 flex-1 flex-col gap-0.5">
+					<h3 className="text-[16px] font-semibold text-text [overflow-wrap:anywhere]">{name}</h3>
+					<p className="text-[13px] text-text-muted">
+						{[...meta].join(" · ")}
+						{props.group === undefined ? null : (
+							<span
+								className="font-semibold"
+								style={{ color: supersetColorVariable(props.group.color) }}
+							>
+								{meta.length === 0 ? "" : " · "}
+								{props.group.name}
+							</span>
+						)}
+					</p>
+				</div>
+			</div>
+			{notes === "" ? null : (
+				<p className="mx-4 mb-3 rounded-md bg-surface-2 px-3 py-2 text-[14px] whitespace-pre-wrap text-text-muted">
+					{notes}
+				</p>
+			)}
+			{occurrence.sets.length === 0 ? (
+				<p className="border-t border-border px-4 py-2.5 text-[14px] text-text-muted">
+					No planned sets.
+				</p>
+			) : (
+				<ol aria-label={`Planned sets for ${name}`}>
+					{occurrence.sets.map((set, index) => {
+						const tag = setTags[set.setLot];
+						const ordinal = occurrence.sets
+							.slice(0, index + 1)
+							.filter(({ setLot }) => setLot !== "warm_up").length;
+						return (
+							<li
+								key={set.clientId}
+								className="grid grid-cols-[2rem_minmax(0,1fr)] items-baseline gap-x-2 border-t border-border px-4 py-2.5 text-[15px]"
+							>
+								<span className={clsx("text-[13px] font-semibold", tag?.tone ?? "text-text-muted")}>
+									{tag?.tag ?? ordinal}
+								</span>
+								<span className="text-text">
+									{formatSetMain(
+										occurrence.exerciseKind,
+										{
+											reps: number(set.reps),
+											weight: number(set.weight),
+											distance: number(set.distance),
+											duration: number(set.duration),
+										},
+										props.imperial,
+										exercise?.overrides.defaultDurationUnit ?? "minutes",
+									) || "Measurements not specified"}
+									<span className="text-[13px] text-text-muted">
+										{set.restChoice.kind === "explicit"
+											? ` · Rest ${formatClock(Number(set.restChoice.seconds))}`
+											: ""}
+										{set.rpe === undefined ? "" : ` · RPE ${set.rpe}`}
+									</span>
+								</span>
+								{set.note ? (
+									<p className="col-start-2 text-[13px] text-text-muted italic">“{set.note}”</p>
+								) : null}
+							</li>
 						);
 					})}
-				</section>
-			</div>
-		</PluginScreenFrame>
+				</ol>
+			)}
+			<WorkoutMediaViewer label={name} images={occurrence.images} videos={occurrence.videos} />
+		</Card>
 	);
 }
 

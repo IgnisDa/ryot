@@ -1,6 +1,6 @@
 import { PluginLink } from "@ryot-app/plugin-client-sdk/plugin";
 import { useRyot } from "@ryot-app/plugin-client-sdk/react";
-import { Button, Menu } from "@ryot-app/plugin-ui-sdk";
+import { Button, Card, Menu } from "@ryot-app/plugin-ui-sdk";
 import { AppIcon } from "@ryot-app/plugin-ui-sdk/icon";
 import clsx from "clsx";
 import { useRef, useState } from "react";
@@ -259,7 +259,7 @@ export function WorkoutSummaryRow(props: {
 		<section
 			aria-label="Summary"
 			className={clsx(
-				"grid gap-px overflow-hidden rounded-xl border border-border bg-border",
+				"grid gap-px overflow-hidden rounded-lg border border-border-card bg-border",
 				props.compact ? "grid-cols-3" : "grid-cols-[repeat(auto-fit,minmax(9rem,1fr))]",
 			)}
 		>
@@ -310,7 +310,7 @@ const segmentTone = (segment: TimelineSegment, index: number) => {
 function SessionTimeline(props: { readonly timeline: WorkoutTimeline }) {
 	const { timeline } = props;
 	return (
-		<div className="flex min-w-0 flex-col gap-3 rounded-xl border border-border bg-surface p-5 font-ui">
+		<Card padding="lg" className="flex min-w-0 flex-col gap-3 font-ui">
 			<div className="flex flex-wrap items-baseline justify-between gap-2">
 				<h2 className="font-semibold text-[16px] text-text">Session flow</h2>
 				<span className="text-[13px] text-text-muted">
@@ -332,7 +332,7 @@ function SessionTimeline(props: { readonly timeline: WorkoutTimeline }) {
 					</li>
 				))}
 			</ol>
-		</div>
+		</Card>
 	);
 }
 
@@ -342,7 +342,7 @@ function MusclesWorked(props: {
 }) {
 	const most = props.muscles[0]?.sets ?? 1;
 	return (
-		<div className="flex min-w-0 flex-col gap-3 rounded-xl border border-border bg-surface p-5 font-ui">
+		<Card padding="lg" className="flex min-w-0 flex-col gap-3 font-ui">
 			<div className="flex items-baseline justify-between">
 				<h2 className="font-semibold text-[16px] text-text">Muscles worked</h2>
 				<span className="text-[13px] text-text-muted">sets</span>
@@ -369,7 +369,7 @@ function MusclesWorked(props: {
 					{props.equipment.map(({ name, exercises }) => `${name} ${exercises}`).join(" · ")}
 				</p>
 			)}
-		</div>
+		</Card>
 	);
 }
 
@@ -390,7 +390,7 @@ export function WorkoutSession(props: {
 				!props.compact &&
 					props.timeline !== null &&
 					props.muscles.length > 0 &&
-					"lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]",
+					"grid-cols-[minmax(0,2fr)_minmax(0,1fr)]",
 			)}
 		>
 			{props.timeline === null ? null : <SessionTimeline timeline={props.timeline} />}
@@ -405,9 +405,5 @@ export function WorkoutComment(props: { readonly comment: string | null }) {
 	if (props.comment === null || props.comment.trim() === "") {
 		return null;
 	}
-	return (
-		<p className="rounded-xl border border-border bg-surface p-4 font-ui text-[15px] text-text">
-			{props.comment}
-		</p>
-	);
+	return <Card className="font-ui text-[15px] whitespace-pre-wrap text-text">{props.comment}</Card>;
 }
