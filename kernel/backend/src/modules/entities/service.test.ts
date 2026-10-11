@@ -1,3 +1,4 @@
+import { PgClient } from "@effect/sql-pg";
 import { expect, layer } from "@effect/vitest";
 import { DbError } from "@ryot-app/contract/errors";
 import type {
@@ -6,21 +7,21 @@ import type {
 	AutomationWarning,
 } from "@ryot-app/contract/modules/automations/lifecycle";
 import {
-	definitionKey,
 	definitionOwner,
 	type EntitySchemaReference,
 } from "@ryot-app/contract/modules/plugins/references";
-import type { EntityId } from "@ryot-app/contract/schema/brands";
 import {
 	AutomationExecutionId,
 	AutomationHookSlug,
 	AutomationRunId,
+	EntityId,
 	EntitySchemaSlug,
 	EventId,
 	EventSchemaSlug,
 	SandboxProviderId,
 	UserId,
 } from "@ryot-app/contract/schema/brands";
+import type { AppSchema } from "@ryot-app/contract/schema/property-schema";
 import { IsoUtcString } from "@ryot-app/contract/schema/utils";
 import { eq, sql } from "drizzle-orm";
 import { Context, DateTime, Effect, Layer, Redacted, Ref } from "effect";
@@ -41,7 +42,7 @@ import { LifecyclePlanner } from "#modules/automations/lifecycle/planning";
 import { AutomationTriggerRepository } from "#modules/automations/trigger-repository";
 import { EventSchemaReader } from "#modules/definitions/event-schemas";
 import { DefinitionRepository } from "#modules/definitions/repository";
-import { buildDefinitionSnapshot, type DefinitionSource } from "#modules/definitions/snapshot";
+import type { DefinitionSource } from "#modules/definitions/snapshot";
 import { revisionDefinitions } from "#modules/definitions/source";
 import { EventsRepository } from "#modules/events/repository";
 import { EventsService } from "#modules/events/service";
@@ -52,6 +53,7 @@ import { PluginInstallationRepository } from "#modules/plugins/installations/rep
 import { PluginRepository } from "#modules/plugins/packages/repository";
 import { revisionPackage } from "#modules/plugins/packages/revision.test-support";
 import { insertPluginRevision } from "#modules/plugins/test-support";
+import { retryOnDeadlock } from "#platform/db/errors";
 import { DatabaseSession } from "#platform/db/session";
 import { WorkflowExecutionNotifications } from "#platform/workflow/execution-notifications";
 import * as tables from "#schema/tables/combined";
@@ -60,7 +62,12 @@ import { testDatabaseUrl } from "#testing/database";
 import { makeAppConfigLayer, makeConfigProviderLayer, makeWorkflowEngine } from "#testing/effect";
 
 import { EntitiesRepository } from "./repository";
-import { EntitiesService, type UpdateEntityInput } from "./service";
+import { EntitiesService, type UpdateEntityInput, type UpsertEntityInput } from "./service";
+import {
+	countStatementClasses,
+	recordingDatabaseLayer,
+	StatementLog,
+} from "./statement-recording.test-support";
 import { DomainWriteChecksLive } from "./write-context";
 
 const owner = UserId.make("owner");
@@ -125,7 +132,9 @@ type TestOptions = {
 	noHooks?: boolean;
 	blocked?: boolean;
 	blockedRequiredChange?: boolean;
-	activateSchemaOnWrite?: boolean;
+	activateSchemaOnLock?: number;
+	extraEntitySchemas?: number;
+	recordStatements?: { holdLocks?: RegExp };
 	deadlockOnce?: boolean;
 	lateEventOnDelete?: boolean;
 	failChange?: boolean | number;
@@ -146,39 +155,40 @@ const entitiesLayer = (options: TestOptions = {}) =>
 		Effect.gen(function* () {
 			const name = `entity_test_${crypto.randomUUID().replaceAll("-", "")}`;
 			const changePlans = yield* Ref.make(0);
-			const schemaActivated = yield* Ref.make(false);
+			const catalogLocks = yield* Ref.make(0);
 			const policyCalls = yield* Ref.make<ReadonlyArray<string>>([]);
 			const skippedPolicyTriggers = yield* Ref.make<ReadonlyArray<string>>([]);
+			const recordSchema: DefinitionSource["entitySchemas"][number] = {
+				slug,
+				pluginId: null,
+				name: "Record",
+				icon: "record",
+				eventSchemas: [
+					{ pluginId: null, name: "Progress", slug: "progress", propertiesSchema: { fields: {} } },
+				],
+				propertiesSchema: {
+					fields: {
+						title: { type: "string", label: "Title", description: "Title" },
+						score: {
+							type: "number",
+							label: "Score",
+							description: "Score",
+							normalize: { round: { scale: 2 } },
+						},
+					},
+				},
+			};
 			const source: DefinitionSource = {
 				savedViews: [],
 				signalSchemas: [],
 				relationshipSchemas: [],
 				entitySchemas: [
-					{
-						slug,
-						pluginId: null,
-						name: "Record",
-						icon: "record",
-						eventSchemas: [
-							{
-								pluginId: null,
-								name: "Progress",
-								slug: "progress",
-								propertiesSchema: { fields: {} },
-							},
-						],
-						propertiesSchema: {
-							fields: {
-								title: { type: "string", label: "Title", description: "Title" },
-								score: {
-									type: "number",
-									label: "Score",
-									description: "Score",
-									normalize: { round: { scale: 2 } },
-								},
-							},
-						},
-					},
+					recordSchema,
+					...Array.from({ length: options.extraEntitySchemas ?? 0 }, (_, index) => ({
+						...recordSchema,
+						eventSchemas: [],
+						slug: EntitySchemaSlug.make(`record-${index}`),
+					})),
 				],
 			};
 			const base = Layer.mergeAll(
@@ -187,40 +197,70 @@ const entitiesLayer = (options: TestOptions = {}) =>
 				PluginConfigRevisions.layer,
 				PluginConfigEncryptionKey.layer,
 			);
-			const runtime = options.activateSchemaOnWrite
-				? Layer.merge(
-						Layer.mock(PluginRuntimeResolver)({
-							lockCatalog: () => Ref.set(schemaActivated, true),
-						}),
-						Layer.mock(DefinitionRepository)({
-							findUserEntitySchemas: () => {
-								const key = definitionKey("entity", entitySchema.owner, slug);
-								const definition = buildDefinitionSnapshot(source).entitySchemas[key];
-								assert(definition);
-								return Effect.map(Ref.get(schemaActivated), (activated) => ({
-									[key]: activated
-										? {
-												...definition,
-												propertiesSchema: {
-													fields: {
-														...definition.propertiesSchema.fields,
-														activated: {
-															label: "Activated",
-															type: "boolean" as const,
-															description: "Activated",
-														},
-													},
-												},
-											}
-										: definition,
-								}));
-							},
-						}),
-					)
-				: Layer.merge(
-						PluginRuntimeResolver.layer.pipe(Layer.provide(base)),
-						DefinitionRepository.layer,
-					);
+			const schemaActivated = Effect.map(
+				Ref.get(catalogLocks),
+				(count) =>
+					options.activateSchemaOnLock !== undefined && count >= options.activateSchemaOnLock,
+			);
+			const activated = <D extends { propertiesSchema: AppSchema }>(definition: D) =>
+				Effect.map(schemaActivated, (active) =>
+					active
+						? {
+								...definition,
+								propertiesSchema: {
+									...definition.propertiesSchema,
+									fields: {
+										...definition.propertiesSchema.fields,
+										activated: {
+											label: "Activated",
+											type: "boolean" as const,
+											description: "Activated",
+										},
+										score: {
+											label: "Score",
+											description: "Score",
+											type: "number" as const,
+											normalize: { round: { scale: 0 } },
+										},
+									},
+								},
+							}
+						: definition,
+				);
+			const runtime =
+				options.activateSchemaOnLock === undefined
+					? Layer.merge(
+							PluginRuntimeResolver.layer.pipe(Layer.provide(base)),
+							DefinitionRepository.layer,
+						)
+					: Layer.merge(
+							Layer.mock(PluginRuntimeResolver)({
+								lockCatalog: () => Ref.update(catalogLocks, (count) => count + 1),
+							}),
+							Layer.effect(
+								DefinitionRepository,
+								Effect.map(DefinitionRepository.make, (definitions) => ({
+									...definitions,
+									findGlobalEntitySchema: (reference) =>
+										definitions
+											.findGlobalEntitySchema(reference)
+											.pipe(
+												Effect.flatMap((definition) =>
+													definition ? activated(definition) : Effect.succeed(null),
+												),
+											),
+									findUserEntitySchemas: (userId, references) =>
+										definitions.findUserEntitySchemas(userId, references).pipe(
+											Effect.flatMap((found) =>
+												Effect.forEach(Object.entries(found), ([key, definition]) =>
+													Effect.map(activated(definition), (value) => [key, value] as const),
+												),
+											),
+											Effect.map(Object.fromEntries),
+										),
+								})),
+							),
+						);
 			const repositories = Layer.mergeAll(
 				EntitiesRepository.layer.pipe(Layer.provide(Layer.merge(base, runtime))),
 				DomainWriteChecksLive,
@@ -418,7 +458,17 @@ const entitiesLayer = (options: TestOptions = {}) =>
 					Layer.provide(Layer.mergeAll(repositories, ports, execution, eventsService)),
 				),
 			).pipe(
-				Layer.provideMerge(DatabaseSession.layer),
+				Layer.provideMerge(
+					recordingDatabaseLayer(options.recordStatements).pipe(
+						Layer.provide(
+							PgClient.layer({
+								url: Redacted.make(testDatabaseUrl()),
+								maxConnections: options.recordStatements ? 4 : 1,
+								startupParameters: { search_path: `${name}, public` },
+							}),
+						),
+					),
+				),
 				Layer.provide(
 					makeAppConfigLayer({ database: { poolMax: 1, url: Redacted.make(testDatabaseUrl()) } }),
 				),
@@ -472,6 +522,13 @@ const proposal = (name: string, properties: { title: string }) => ({
 		draft: { name, properties: { remove: [], set: properties } },
 	},
 });
+
+const expectInvariant = (counts: ReadonlyArray<ReturnType<typeof countStatementClasses>>) => {
+	const [small, large] = counts;
+	assert(small && large);
+	expect(large).toEqual(small);
+	expect([small.check, small.lock, small.receipt].every((count) => count > 0)).toBe(true);
+};
 
 describe("EntitiesService committed lifecycle", () => {
 	layer(entitiesLayer())((test) => {
@@ -735,7 +792,7 @@ describe("EntitiesService committed lifecycle", () => {
 		);
 	});
 
-	layer(entitiesLayer({ activateSchemaOnWrite: true }))((test) => {
+	layer(entitiesLayer({ activateSchemaOnLock: 1 }))((test) => {
 		test.effect("revalidates the entity schema under the catalog lock before writing", () =>
 			Effect.gen(function* () {
 				const service = yield* EntitiesService;
@@ -1040,6 +1097,10 @@ describe("EntitiesService committed lifecycle", () => {
 		slug,
 		owner: definitionOwner("provider-plugin"),
 	};
+	const otherProviderEntitySchema: EntitySchemaReference = {
+		owner: definitionOwner("provider-plugin"),
+		slug: EntitySchemaSlug.make("other-record"),
+	};
 	const seedProvider = Effect.gen(function* () {
 		const session = yield* DatabaseSession;
 		const declarations = yield* DefinitionRepository.make;
@@ -1051,7 +1112,10 @@ describe("EntitiesService committed lifecycle", () => {
 			entitySchemas: Array.from(source.entitySchemas, (definition) => ({
 				...definition,
 				propertiesSchema: kernelSchema.propertiesSchema,
-			})),
+			})).flatMap((definition) => [
+				definition,
+				{ ...definition, slug: otherProviderEntitySchema.slug },
+			]),
 		};
 		yield* session.transaction(
 			session.run((db) =>
@@ -1620,6 +1684,467 @@ describe("EntitiesService committed lifecycle", () => {
 					),
 				).toEqual(["request"]);
 			}),
+		);
+	});
+
+	const providerItem = (
+		externalId: string,
+		lifecycle: ReturnType<typeof command>,
+	): UpsertEntityInput & { scope: "global" } => ({
+		providerId,
+		externalId,
+		scope: "global",
+		name: externalId,
+		populatedAt: null,
+		updateExisting: true,
+		properties: { title: externalId },
+		entitySchema: providerEntitySchema,
+		lifecycle: { ...lifecycle, itemIdentity: `${lifecycle.itemIdentity}:${externalId}` },
+	});
+	const globalItem = (externalId: string, entitySchemaReference = providerEntitySchema) => ({
+		externalId,
+		name: externalId,
+		populatedAt: null,
+		properties: { title: externalId },
+		entitySchema: entitySchemaReference,
+	});
+
+	layer(entitiesLayer({ recordStatements: {}, extraEntitySchemas: 20 }))((test) => {
+		test.effect(
+			"issues the same checks, locks, lookups and receipt statements for 2 and 20 item commits",
+			() =>
+				Effect.gen(function* () {
+					yield* seedProvider;
+					const service = yield* EntitiesService;
+					const session = yield* DatabaseSession;
+					const log = yield* StatementLog;
+					const sizes = [2, 20] as const;
+					const commitCounts = <A, E, R>(write: (size: number) => Effect.Effect<A, E, R>) =>
+						Effect.forEach(sizes, (size) =>
+							write(size).pipe(
+								Effect.andThen(log.lastTransaction),
+								Effect.map(countStatementClasses),
+							),
+						);
+					expectInvariant(
+						yield* commitCounts((size) =>
+							session.transaction(
+								service.persistPlannedProviderUpserts({
+									batch: { identity: ["children"], command: command(`provider-${size}`) },
+									items: Array.from({ length: size }, (_, index) =>
+										providerItem(`provider-${size}-${index}`, command(`provider-${size}`)),
+									),
+								}),
+							),
+						),
+					);
+					expectInvariant(
+						yield* commitCounts((size) =>
+							service.upsertGlobalEntities(
+								Array.from({ length: size }, (_, index) => globalItem(`global-${size}-${index}`)),
+								providerId,
+								command(`global-${size}`),
+								{ maximumTotal: 100 },
+							),
+						),
+					);
+					expectInvariant(
+						yield* commitCounts((size) =>
+							service.ensureUserEntities(
+								owner,
+								Array.from({ length: size }, (_, index) => ({
+									name: `ensure-${index}`,
+									properties: { title: "ensured" },
+									entitySchema: {
+										owner: { kind: "kernel" as const },
+										slug: EntitySchemaSlug.make(`record-${index}`),
+									},
+								})),
+								command(`ensure-${size}`),
+							),
+						),
+					);
+					expectInvariant(
+						yield* commitCounts((size) =>
+							Effect.gen(function* () {
+								const ids = Array.from({ length: size }, (_, index) =>
+									EntityId.make(`delete-${size}-${index}`),
+								);
+								yield* session.run((db) =>
+									db
+										.insert(tables.entity)
+										.values(
+											ids.map((id) => ({
+												id,
+												name: id,
+												userId: owner,
+												entitySchemaSlug: slug,
+												properties: { title: id },
+											})),
+										),
+								);
+								const [first, ...rest] = ids;
+								assert(first);
+								const deleted = yield* service.deleteByIds(
+									[first, ...rest],
+									command(`delete-${size}`),
+								);
+								expect(deleted.deletedCount).toBe(size);
+							}),
+						),
+					);
+				}),
+		);
+	});
+
+	layer(entitiesLayer({ noHooks: true, recordStatements: { holdLocks: /hashtextextended/ } }))(
+		(test) => {
+			test.effect(
+				"serializes single and batch provider writers on shared identities without deadlocks",
+				() =>
+					Effect.gen(function* () {
+						yield* seedProvider;
+						const service = yield* EntitiesService;
+						const session = yield* DatabaseSession;
+						const log = yield* StatementLog;
+						for (const round of ["first", "second"]) {
+							const externalId = `contended-${round}`;
+							const upsert = (id: string) => ({
+								...providerItem(externalId, command(id)),
+								lifecycle: command(id),
+							});
+							const created = yield* service.upsert(upsert(`seed-${round}`));
+							const [single, batch] = yield* Effect.all(
+								[
+									service.upsert(upsert(`single-${round}`)),
+									retryOnDeadlock(
+										session.transaction(
+											service.persistPlannedProviderUpserts({
+												items: [upsert(`batch-${round}`)],
+												batch: { identity: ["children"], command: command(`batch-${round}`) },
+											}),
+										),
+									),
+								],
+								{ concurrency: 2 },
+							);
+							const rows = yield* session.run((db) =>
+								db.select().from(tables.entity).where(eq(tables.entity.externalId, externalId)),
+							);
+							expect(rows.map(({ id }) => id)).toEqual([created.entity.id]);
+							const stored = yield* service.getByIdAnyScope(created.entity.id);
+							expect(single.entity).toEqual(stored);
+							expect(batch.results).toEqual([{ entity: stored }]);
+							const receipts = yield* session.run((db) =>
+								db
+									.select()
+									.from(tables.mutationReceipt)
+									.where(eq(tables.mutationReceipt.commandKind, "entity:upsert")),
+							);
+							for (const id of [`single-${round}`, `batch-${round}`]) {
+								const receipt = receipts.find(({ executionId }) => executionId === id);
+								assert(receipt);
+								expect(receipt.result).toEqual({ entity: stored });
+							}
+						}
+						expect(yield* log.errorCodes).not.toContain("40P01");
+					}),
+			);
+		},
+	);
+
+	layer(entitiesLayer({ activateSchemaOnLock: 3 }))((test) => {
+		test.effect(
+			"rejects a global create whose entity schema changes between planning and commit",
+			() =>
+				Effect.gen(function* () {
+					yield* seedProvider;
+					const service = yield* EntitiesService;
+					const session = yield* DatabaseSession;
+					expect(
+						yield* service
+							.upsertGlobalEntities(
+								[
+									{
+										...globalItem("schema-change"),
+										properties: { score: 25.555, title: "changed" },
+									},
+								],
+								providerId,
+								command("schema-change"),
+							)
+							.pipe(Effect.flip),
+					).toMatchObject({
+						reason: {
+							code: "mutation-conflict",
+							message: "Entity schema changed before the source write committed",
+						},
+					});
+					expect(yield* session.run((db) => db.select().from(tables.entity))).toEqual([]);
+				}),
+		);
+	});
+
+	layer(entitiesLayer())((test) => {
+		test.effect(
+			"deduplicates identical batch items and rejects conflicting duplicates before writing",
+			() =>
+				Effect.gen(function* () {
+					yield* seedProvider;
+					const service = yield* EntitiesService;
+					const session = yield* DatabaseSession;
+					const lifecycle = command("duplicates");
+					const twice = yield* session.transaction(
+						service.persistPlannedProviderUpserts({
+							batch: { command: lifecycle, identity: ["children"] },
+							items: [providerItem("same", lifecycle), providerItem("same", lifecycle)],
+						}),
+					);
+					const [first, second] = twice.results;
+					assert(first && second);
+					expect(second).toEqual(first);
+					expect(
+						twice.dispatch.filter(({ triggerId }, index, all) =>
+							all.some((other, position) => position < index && other.triggerId === triggerId),
+						),
+					).toEqual([]);
+					const conflicting = [
+						[
+							providerItem("other-command", command("duplicate-left")),
+							providerItem("other-command", command("duplicate-right")),
+						],
+						[
+							providerItem("other-input", lifecycle),
+							{ ...providerItem("other-input", lifecycle), name: "Different" },
+						],
+					];
+					for (const items of conflicting) {
+						expect(
+							yield* session
+								.transaction(
+									service.persistPlannedProviderUpserts({
+										items,
+										batch: { command: lifecycle, identity: ["conflicting"] },
+									}),
+								)
+								.pipe(Effect.flip),
+						).toMatchObject({ reason: { code: "mutation-conflict" } });
+					}
+					const globals = yield* service.upsertGlobalEntities(
+						[globalItem("global-same"), globalItem("global-same")],
+						providerId,
+						command("global-duplicates"),
+					);
+					const [left, right] = globals.results;
+					assert(left?.status === "upserted");
+					expect(right).toEqual(left);
+					expect(
+						yield* service
+							.upsertGlobalEntities(
+								[globalItem("global-other"), { ...globalItem("global-other"), name: "Different" }],
+								providerId,
+								command("global-conflict"),
+							)
+							.pipe(Effect.flip),
+					).toMatchObject({ reason: { code: "mutation-conflict" } });
+					const ensureItem = { entitySchema, name: "Ensured", properties: { title: "ensured" } };
+					const ensured = yield* service.ensureUserEntities(
+						owner,
+						[ensureItem, ensureItem],
+						command("ensure-duplicates"),
+					);
+					expect(ensured[1]).toEqual({ ...ensured[0], warnings: [] });
+					expect(
+						yield* service
+							.ensureUserEntities(
+								owner,
+								[ensureItem, { ...ensureItem, name: "Different" }],
+								command("ensure-conflict"),
+							)
+							.pipe(Effect.flip),
+					).toMatchObject({ reason: { code: "mutation-conflict" } });
+					expect(
+						(yield* session.run((db) => db.select().from(tables.entity)))
+							.map(({ name, externalId }) => externalId ?? name)
+							.sort(),
+					).toEqual(["Ensured", "global-same", "same"]);
+				}),
+		);
+	});
+	layer(entitiesLayer())((test) => {
+		test.effect("assigns maximumTotal ordinals per provenance scope after existing rows", () =>
+			Effect.gen(function* () {
+				yield* seedProvider;
+				const service = yield* EntitiesService;
+				const statuses = (
+					items: ReadonlyArray<ReturnType<typeof globalItem>>,
+					id: string,
+					maximumTotal: number,
+				) =>
+					service
+						.upsertGlobalEntities(items, providerId, command(id), { maximumTotal })
+						.pipe(Effect.map(({ results }) => results));
+				const inserted = { wasInserted: true, status: "upserted" };
+				const skipped = { status: "skipped" };
+				expect(
+					yield* statuses(
+						[
+							globalItem("a-1"),
+							globalItem("b-1", otherProviderEntitySchema),
+							globalItem("a-2"),
+							globalItem("b-2", otherProviderEntitySchema),
+						],
+						"per-scope",
+						1,
+					),
+				).toMatchObject([inserted, inserted, skipped, skipped]);
+				expect(
+					yield* statuses([globalItem("a-1"), globalItem("a-3"), globalItem("a-4")], "boundary", 2),
+				).toMatchObject([{ status: "upserted", wasInserted: false }, inserted, skipped]);
+				expect(yield* statuses([globalItem("a-5")], "at-limit", 2)).toEqual([skipped]);
+			}),
+		);
+	});
+	layer(entitiesLayer())((test) => {
+		test.effect("replays a committed provider batch without new rows or receipts", () =>
+			Effect.gen(function* () {
+				yield* seedProvider;
+				const service = yield* EntitiesService;
+				const session = yield* DatabaseSession;
+				const lifecycle = command("batch-replay");
+				const input = {
+					batch: { command: lifecycle, identity: ["children"] },
+					items: ["one", "two", "three"].map((externalId) => providerItem(externalId, lifecycle)),
+				};
+				const first = yield* session.transaction(service.persistPlannedProviderUpserts(input));
+				const snapshotRows = Effect.all([
+					session.run((db) => db.select().from(tables.entity)),
+					session.run((db) => db.select().from(tables.mutationReceipt)),
+				]);
+				const before = yield* snapshotRows;
+				expect(yield* session.transaction(service.persistPlannedProviderUpserts(input))).toEqual(
+					first,
+				);
+				expect(yield* snapshotRows).toEqual(before);
+			}),
+		);
+	});
+	layer(entitiesLayer())((test) => {
+		test.effect("matches batch rows only within each item's exact scope and owner", () =>
+			Effect.gen(function* () {
+				yield* seedProvider;
+				const service = yield* EntitiesService;
+				const session = yield* DatabaseSession;
+				const secondUser = UserId.make("second-scope-owner");
+				yield* session.run((db) =>
+					db
+						.insert(tables.user)
+						.values({
+							id: secondUser,
+							name: "Second",
+							email: "second-scope@example.test",
+							accountGeneration: "second-account-generation",
+						}),
+				);
+				const populatedAt = DateTime.toDateUtc(DateTime.makeUnsafe("2026-09-14T00:00:00.000Z"));
+				const row = (id: string, userId: UserId | null, entitySchemaPluginId: string | null) => ({
+					id,
+					userId,
+					name: id,
+					providerId,
+					populatedAt,
+					entitySchemaPluginId,
+					externalId: "shared",
+					entitySchemaSlug: slug,
+					properties: { title: id },
+				});
+				yield* session.run((db) =>
+					db
+						.insert(tables.entity)
+						.values([
+							row("global-plugin", null, "provider-plugin"),
+							row("global-kernel", null, null),
+							row("owner-plugin", owner, "provider-plugin"),
+							row("second-plugin", secondUser, "provider-plugin"),
+							{
+								id: "second-plain",
+								userId: secondUser,
+								name: "Second plain",
+								entitySchemaSlug: slug,
+								properties: { title: "second" },
+								createdAt: DateTime.toDateUtc(DateTime.makeUnsafe("2026-09-01T00:00:00.000Z")),
+							},
+							{
+								userId: owner,
+								name: "Owner newer",
+								entitySchemaSlug: slug,
+								id: "owner-plain-newer",
+								properties: { title: "newer" },
+								createdAt: DateTime.toDateUtc(DateTime.makeUnsafe("2026-09-03T00:00:00.000Z")),
+							},
+							{
+								userId: owner,
+								name: "Owner older",
+								entitySchemaSlug: slug,
+								id: "owner-plain-older",
+								properties: { title: "older" },
+								createdAt: DateTime.toDateUtc(DateTime.makeUnsafe("2026-09-02T00:00:00.000Z")),
+							},
+						]),
+				);
+				const lifecycle = command("scoped-batch");
+				const scoped = yield* session.transaction(
+					service.persistPlannedProviderUpserts({
+						batch: { command: lifecycle, identity: ["children"] },
+						items: [{ ...providerItem("shared", lifecycle), updateExisting: false }],
+					}),
+				);
+				expect(scoped.results.map(({ entity }) => entity.id)).toEqual(["global-plugin"]);
+				const global = yield* service.upsertGlobalEntities(
+					[globalItem("shared"), globalItem("fresh"), globalItem("over-limit")],
+					providerId,
+					command("scoped-global"),
+					{ maximumTotal: 2 },
+				);
+				expect(global.results).toEqual([
+					{ status: "upserted", wasInserted: false, entityId: "global-plugin" },
+					{ wasInserted: true, status: "upserted", entityId: expect.any(String) },
+					{ status: "skipped" },
+				]);
+				const ensured = yield* service.ensureUserEntities(
+					owner,
+					[{ entitySchema, name: "Ensured", properties: { title: "ensured" } }],
+					command("scoped-ensure"),
+				);
+				expect(ensured).toEqual([
+					{ warnings: [], wasInserted: false, entityId: "owner-plain-older" },
+				]);
+			}),
+		);
+	});
+	layer(entitiesLayer({ noHooks: true }))((test) => {
+		test.effect(
+			"commits a provider batch larger than one statement's bind parameter budget",
+			() =>
+				Effect.gen(function* () {
+					yield* seedProvider;
+					const service = yield* EntitiesService;
+					const session = yield* DatabaseSession;
+					const lifecycle = command("bind-budget");
+					const input = {
+						batch: { command: lifecycle, identity: ["children"] },
+						items: Array.from({ length: 4_200 }, (_, index) =>
+							providerItem(`bulk-${index}`, lifecycle),
+						),
+					};
+					const first = yield* session.transaction(service.persistPlannedProviderUpserts(input));
+					expect(new Set(first.results.map(({ entity }) => entity.id)).size).toBe(4_200);
+					expect(yield* session.transaction(service.persistPlannedProviderUpserts(input))).toEqual(
+						first,
+					);
+					expect(yield* session.run((db) => db.select().from(tables.entity))).toHaveLength(4_200);
+				}),
+			120_000,
 		);
 	});
 });
