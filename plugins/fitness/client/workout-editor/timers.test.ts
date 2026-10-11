@@ -245,20 +245,20 @@ describe("workout editor timers", () => {
 	});
 });
 
-describe("shiftCountdown", () => {
-	const restDraft = (pausedRemainingSeconds?: number) =>
-		liveDraft({
-			restCountdown: {
-				setId: "set",
-				clientId: "rest",
-				durationSeconds: 60,
-				occurrenceId: "occurrence",
-				deadline: "2026-10-15T10:00:20.000Z",
-				exerciseId: EntityId.make("exercise"),
-				...(pausedRemainingSeconds === undefined ? {} : { pausedRemainingSeconds }),
-			},
-		});
+const restDraft = (pausedRemainingSeconds?: number) =>
+	liveDraft({
+		restCountdown: {
+			setId: "set",
+			clientId: "rest",
+			durationSeconds: 60,
+			occurrenceId: "occurrence",
+			deadline: "2026-10-15T10:00:20.000Z",
+			exerciseId: EntityId.make("exercise"),
+			...(pausedRemainingSeconds === undefined ? {} : { pausedRemainingSeconds }),
+		},
+	});
 
+describe("shiftCountdown", () => {
 	it("moves a running deadline by whole steps and never before now", () => {
 		expect(
 			shiftCountdown(restDraft(), "restCountdown", "rest", 15, now).restCountdown?.deadline,
@@ -280,8 +280,8 @@ describe("shiftCountdown", () => {
 	});
 
 	it("leaves the draft unchanged for a replaced countdown", () => {
-		const draft = restDraft();
-		expect(shiftCountdown(draft, "restCountdown", "other", 15, now)).toBe(draft);
-		expect(shiftCountdown(draft, "executionCountdown", "rest", 15, now)).toBe(draft);
+		const unchanged = restDraft();
+		expect(shiftCountdown(unchanged, "restCountdown", "other", 15, now)).toBe(unchanged);
+		expect(shiftCountdown(unchanged, "executionCountdown", "rest", 15, now)).toBe(unchanged);
 	});
 });

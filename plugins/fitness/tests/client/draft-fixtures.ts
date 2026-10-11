@@ -46,6 +46,6 @@ export const exerciseOccurrence = (
 	return {
 		...occurrence,
 		...overrides,
-		sets: occurrence.sets.map((candidate) => ({ ...candidate, ...set })),
+		sets: occurrence.sets.map((candidate) => Object.assign({}, candidate, set)),
 	};
 };
