@@ -4,9 +4,8 @@ import {
 	type EntityBrowserLayout as SavedViewLayout,
 } from "@ryot-app/contract/modules/saved-views/schemas";
 import {
-	type PluginId,
+	PluginId,
 	SandboxProviderId,
-	Slug,
 	type SandboxProviderId as ProviderId,
 } from "@ryot-app/contract/schema/brands";
 import { JsonValue } from "@ryot-app/contract/schema/json";
@@ -23,8 +22,8 @@ export const lastWorkspaceKey = (scope: ApiScope) =>
 	`${RYOT_STORAGE_PREFIX}workspace:${apiScopeKey(scope)}`;
 export const savedViewLayoutKey = (scope: ApiScope, slug: string) =>
 	`${RYOT_STORAGE_PREFIX}saved-view-layout:${apiScopeKey(scope)}:${slug}`;
-export const rememberedProviderKey = (scope: ApiScope, entitySchemaSlug: string) =>
-	`${RYOT_STORAGE_PREFIX}remembered-provider:${apiScopeKey(scope)}:${entitySchemaSlug}`;
+export const rememberedProviderKey = (scope: ApiScope, schemaKey: string) =>
+	`${RYOT_STORAGE_PREFIX}remembered-provider:${apiScopeKey(scope)}:${schemaKey}`;
 
 export const pluginStorageKey = (scope: ApiScope, pluginId: PluginId, key: string) =>
 	`${RYOT_STORAGE_PREFIX}plugin-storage:${identityTupleKey(scope.serverUrl, scope.userId, pluginId, key)}`;
@@ -34,7 +33,7 @@ export class PluginStorageQuotaError extends Data.TaggedError("PluginStorageQuot
 export type BrowserStorage = Pick<Storage, "getItem" | "removeItem" | "setItem">;
 
 const browserStorage = () => (typeof localStorage === "undefined" ? undefined : localStorage);
-const isWorkspaceSlug = Schema.is(Slug);
+const isPluginId = Schema.is(PluginId);
 const isSavedViewLayout = Schema.is(EntityBrowserLayout);
 const isSandboxProviderId = Schema.is(SandboxProviderId);
 const decodePluginValue = Schema.decodeUnknownOption(Schema.fromJsonString(JsonValue));
@@ -46,41 +45,37 @@ const makeStorage = (storage: BrowserStorage | undefined): ClientStorage["Servic
 	setServerSelection: (origin) => Effect.sync(() => storage?.setItem(SERVER_SELECTION_KEY, origin)),
 	setThemePreference: (preference) =>
 		Effect.sync(() => storage?.setItem(THEME_PREFERENCE_KEY, preference)),
+	setLastWorkspace: (scope, pluginId) =>
+		Effect.sync(() => storage?.setItem(lastWorkspaceKey(scope), pluginId)),
 	setSavedViewLayout: (scope, slug, layout) =>
 		Effect.sync(() => storage?.setItem(savedViewLayoutKey(scope, slug), layout)),
 	removePluginValue: (scope, pluginId, key) =>
 		Effect.sync(() => storage?.removeItem(pluginStorageKey(scope, pluginId, key))),
-	setLastWorkspace: (scope, slug) =>
-		Effect.sync(() => {
-			if (isWorkspaceSlug(slug)) {
-				storage?.setItem(lastWorkspaceKey(scope), slug);
-			}
-		}),
+	setRememberedProvider: (scope, schemaKey, providerId) =>
+		Effect.sync(() => storage?.setItem(rememberedProviderKey(scope, schemaKey), providerId)),
 	getThemePreference: Effect.sync(() => {
 		const value = storage?.getItem(THEME_PREFERENCE_KEY);
 		return isThemePreference(value) ? value : "system";
 	}),
-	setRememberedProvider: (scope, entitySchemaSlug, providerId) =>
-		Effect.sync(() => storage?.setItem(rememberedProviderKey(scope, entitySchemaSlug), providerId)),
 	getLastWorkspace: (scope) =>
 		Effect.sync(() => {
 			const value = storage?.getItem(lastWorkspaceKey(scope));
-			return isWorkspaceSlug(value) ? value : null;
+			return isPluginId(value) ? value : null;
 		}),
 	getSavedViewLayout: (scope, slug) =>
 		Effect.sync(() => {
 			const value = storage?.getItem(savedViewLayoutKey(scope, slug));
 			return isSavedViewLayout(value) ? value : "grid";
 		}),
+	getRememberedProvider: (scope, schemaKey) =>
+		Effect.sync(() => {
+			const value = storage?.getItem(rememberedProviderKey(scope, schemaKey));
+			return isSandboxProviderId(value) ? value : null;
+		}),
 	setPluginValue: (scope, pluginId, key, value) =>
 		Effect.try({
 			catch: () => new PluginStorageQuotaError(),
 			try: () => storage?.setItem(pluginStorageKey(scope, pluginId, key), encodePluginValue(value)),
-		}),
-	getRememberedProvider: (scope, entitySchemaSlug) =>
-		Effect.sync(() => {
-			const value = storage?.getItem(rememberedProviderKey(scope, entitySchemaSlug));
-			return isSandboxProviderId(value) ? value : null;
 		}),
 	getServerSelection: Effect.sync(() => {
 		const value = storage?.getItem(SERVER_SELECTION_KEY);
@@ -107,17 +102,17 @@ export class ClientStorage extends Context.Service<
 		readonly getServerSelection: Effect.Effect<ServerOrigin | null>;
 		readonly remove: (keys: readonly string[]) => Effect.Effect<void>;
 		readonly setServerSelection: (origin: ServerOrigin) => Effect.Effect<void>;
-		readonly getLastWorkspace: (scope: ApiScope) => Effect.Effect<string | null>;
-		readonly setLastWorkspace: (scope: ApiScope, slug: string) => Effect.Effect<void>;
+		readonly getLastWorkspace: (scope: ApiScope) => Effect.Effect<PluginId | null>;
+		readonly setLastWorkspace: (scope: ApiScope, pluginId: PluginId) => Effect.Effect<void>;
 		readonly setThemePreference: (preference: ThemePreference) => Effect.Effect<void>;
 		readonly getSavedViewLayout: (scope: ApiScope, slug: string) => Effect.Effect<SavedViewLayout>;
 		readonly getRememberedProvider: (
 			scope: ApiScope,
-			entitySchemaSlug: string,
+			schemaKey: string,
 		) => Effect.Effect<ProviderId | null>;
 		readonly setRememberedProvider: (
 			scope: ApiScope,
-			entitySchemaSlug: string,
+			schemaKey: string,
 			providerId: ProviderId,
 		) => Effect.Effect<void>;
 		readonly setSavedViewLayout: (

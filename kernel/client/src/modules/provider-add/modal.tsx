@@ -66,10 +66,7 @@ export function ProviderAddModal(props: ProviderAddModalProps) {
 				Effect.gen(function* () {
 					const [remembered, result] = yield* Effect.all(
 						[
-							clientStorage.getRememberedProvider(
-								scope,
-								definitionKey("entity", schema.owner, schema.slug),
-							),
+							clientStorage.getRememberedProvider(scope, schemaKey),
 							providerService
 								.loadProviders(ryot, schema)
 								.pipe(

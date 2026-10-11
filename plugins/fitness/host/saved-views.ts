@@ -31,7 +31,7 @@ import { fitnessEntitySchemas } from "./schemas/entity";
 import { buildViewExpressions } from "./view-helpers";
 
 export const fitnessSavedViews = () => {
-	const schemas = new Map(fitnessEntitySchemas().map((schema) => [schema.slug, schema]));
+	const schemas = new Map(fitnessEntitySchemas.map((schema) => [schema.slug, schema]));
 	const entity = table("entity", "entity");
 	const workoutSet = table("event", "savedViewWorkoutSet");
 	const inputs: ReadonlyArray<{

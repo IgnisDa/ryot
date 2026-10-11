@@ -1,4 +1,3 @@
-import { PluginPackageId } from "@ryot-app/client-sdk/plugin";
 import { createRyotQuery } from "@ryot-app/client-sdk/react";
 import type { Recipe } from "@ryot-app/client-sdk/ryotql";
 import clsx from "clsx";
@@ -35,7 +34,7 @@ export const podcastEpisodesQuery = createRyotQuery<
 			podcastEpisodesRecipe({
 				containerId: input.containerId,
 				limit: PODCAST_EPISODE_PAGE_LIMIT,
-				reference: client.pluginIdentity(PluginPackageId.make(PLUGIN_PACKAGE_ID)),
+				reference: client.pluginIdentity(PLUGIN_PACKAGE_ID),
 				...(input.after === null ? {} : { after: input.after }),
 			}),
 		),

@@ -1,4 +1,3 @@
-import { PluginPackageId } from "@ryot-app/client-sdk/plugin";
 import { createRyotQuery, useRyotQuery, type RyotQueryResult } from "@ryot-app/client-sdk/react";
 import { CalendarHeatmap, RankedBarList } from "@ryot-app/client-ui-sdk/charts";
 import clsx from "clsx";
@@ -30,7 +29,7 @@ const mediaActivityQuery = createRyotQuery<MediaActivityInput, MediaActivity>(({
 			from: input.from,
 			until: input.until,
 			timeZone: input.timeZone,
-			reference: client.pluginIdentity(PluginPackageId.make(PLUGIN_PACKAGE_ID)),
+			reference: client.pluginIdentity(PLUGIN_PACKAGE_ID),
 		}),
 	),
 );

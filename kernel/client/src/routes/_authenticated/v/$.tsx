@@ -35,17 +35,6 @@ import { effectiveCatalogPlugin } from "#/modules/plugins/plugin-location";
 import { ProviderAddModal } from "#/modules/provider-add/modal";
 import { ClientStorage } from "#/persistence/storage";
 
-const validateSavedViewSearch = (search: Record<string, unknown>) => ({
-	add: search.add === true || search.add === "true" ? true : undefined,
-	q: typeof search.q === "string" && search.q !== "" ? search.q : undefined,
-	sort: typeof search.sort === "string" && search.sort !== "" ? search.sort : undefined,
-	layout: typeof search.layout === "string" && search.layout !== "" ? search.layout : undefined,
-	search: typeof search.search === "string" && search.search !== "" ? search.search : undefined,
-	dialog: typeof search.dialog === "string" && search.dialog !== "" ? search.dialog : undefined,
-	entityId:
-		typeof search.entityId === "string" && search.entityId !== "" ? search.entityId : undefined,
-});
-
 const entityBrowserSettings = (prepared: PreparedClientPage) => {
 	if (prepared.context.renderer.kind !== "kernel") {
 		return null;
@@ -64,7 +53,16 @@ export const Route = createFileRoute("/_authenticated/v/$")({
 	pendingComponent: SavedViewPending,
 	loaderDeps: ({ search }) => search,
 	notFoundComponent: SavedViewNotFound,
-	validateSearch: validateSavedViewSearch,
+	validateSearch: (search: Record<string, unknown>) => ({
+		add: search.add === true || search.add === "true" ? true : undefined,
+		q: typeof search.q === "string" && search.q !== "" ? search.q : undefined,
+		sort: typeof search.sort === "string" && search.sort !== "" ? search.sort : undefined,
+		layout: typeof search.layout === "string" && search.layout !== "" ? search.layout : undefined,
+		search: typeof search.search === "string" && search.search !== "" ? search.search : undefined,
+		dialog: typeof search.dialog === "string" && search.dialog !== "" ? search.dialog : undefined,
+		entityId:
+			typeof search.entityId === "string" && search.entityId !== "" ? search.entityId : undefined,
+	}),
 	loader: ({ context, location, abortController }) =>
 		context.runtime.runPromise(
 			Effect.gen(function* () {
@@ -79,20 +77,24 @@ export const Route = createFileRoute("/_authenticated/v/$")({
 							)
 						: undefined;
 				let reference: SavedViewReference;
-				let slug: string;
+				let viewPath: string;
 				if (segments[1] === "c" && segments[2] && segments.length === 3) {
 					reference = { kind: "custom", savedViewId: SavedViewId.make(segments[2]) };
-					slug = savedViewPath(reference);
+					viewPath = savedViewPath(reference);
 				} else if (segments[1] === "k" && segments[2] && segments.length === 3) {
 					reference = { kind: "kernel", slug: segments[2] };
-					slug = savedViewPath(reference);
+					viewPath = savedViewPath(reference);
 				} else if (plugin && segments[4]) {
 					reference = {
 						kind: "plugin",
 						slug: segments[4],
 						pluginId: PluginId.make(plugin.pluginId),
 					};
-					slug = savedViewPath({ kind: "plugin", slug: segments[4], packageId: plugin.packageId });
+					viewPath = savedViewPath({
+						kind: "plugin",
+						slug: segments[4],
+						packageId: plugin.packageId,
+					});
 				} else {
 					// oxlint-disable-next-line typescript/only-throw-error
 					throw notFound();
@@ -103,7 +105,7 @@ export const Route = createFileRoute("/_authenticated/v/$")({
 				const settings = entityBrowserSettings(prepared);
 				if (settings !== null) {
 					const storedLayout = yield* Effect.flatMap(ClientStorage, (storage) =>
-						storage.getSavedViewLayout(context.scope, slug),
+						storage.getSavedViewLayout(context.scope, viewPath),
 					);
 					if (settings.layouts.includes(storedLayout)) {
 						prepared = {
@@ -115,7 +117,7 @@ export const Route = createFileRoute("/_authenticated/v/$")({
 						};
 					}
 				}
-				return { slug, prepared };
+				return { prepared, viewPath };
 			}),
 			{ signal: abortController.signal },
 		),
@@ -175,10 +177,10 @@ function SavedViewPage() {
 		}
 		void runtime.runPromise(
 			Effect.flatMap(ClientStorage, (storage) =>
-				storage.setSavedViewLayout(scope, loaded.slug, decodedLayout.success),
+				storage.setSavedViewLayout(scope, loaded.viewPath, decodedLayout.success),
 			),
 		);
-	}, [layout, loaded.prepared, loaded.slug, runtime, scope]);
+	}, [layout, loaded.prepared, loaded.viewPath, runtime, scope]);
 	useClientPageDocument({
 		inert: addOpen,
 		prepared: loaded.prepared,

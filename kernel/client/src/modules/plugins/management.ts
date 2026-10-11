@@ -12,6 +12,7 @@ import {
 import { Context, Data, Effect, Layer, Schema } from "effect";
 
 import { AuthenticatedApiError } from "#/api/authenticated";
+import { loadAllPages } from "#/api/load-all-pages";
 import { PluginInstallationsApi } from "#/api/plugin-installations";
 import type { KernelRyotClient } from "#/api/ryot-client";
 import type { ApiScope } from "#/api/scope";
@@ -43,17 +44,53 @@ export class PluginManagementError extends Data.TaggedError("PluginManagementErr
 	readonly detail: string;
 }> {}
 
-const commandFailure = (cause: unknown) => {
-	const declared = Schema.is(
-		Schema.Union([PluginConflictError, PluginNotFoundError, PluginRequestError]),
-	);
-	return new PluginManagementError({
-		detail:
-			cause instanceof AuthenticatedApiError && declared(cause.cause)
-				? JSON.stringify(cause.cause.reason)
-				: "The plugin command failed. No other installation was selected.",
-	});
+const DeclaredPluginFailure = Schema.Union([
+	PluginConflictError,
+	PluginNotFoundError,
+	PluginRequestError,
+]);
+
+const failureDetails: Record<(typeof DeclaredPluginFailure.Type)["reason"]["code"], string> = {
+	"plugin-not-found": "This plugin no longer exists.",
+	"validation-failed": "The plugin failed validation.",
+	"home-view-hidden": "The plugin's home view is hidden.",
+	"already-installed": "This package is already installed.",
+	"package-archive-invalid": "The plugin archive is invalid.",
+	"compilation-failed": "The plugin archive failed to compile.",
+	"operation-not-found": "The plugin operation does not exist.",
+	"workflow-referenced": "Your workflows still use this plugin.",
+	"home-view-not-found": "The plugin's home view does not exist.",
+	"installation-not-found": "This installation no longer exists.",
+	"saved-view-referenced": "Your saved views still use this plugin.",
+	"integration-referenced": "Your integrations still use this plugin.",
+	"operation-scope-not-found": "The plugin operation scope does not exist.",
+	"installation-not-ready": "This installation is not ready for that change.",
+	"system-plugin": "System plugins are managed by deployment administrators.",
+	"entity-referenced": "Your library still has entities that use this plugin.",
+	"home-view-renderer-unavailable": "The plugin's home view renderer is unavailable.",
+	"package-id-mismatch": "The archive's package ID does not match this installation.",
+	"reserved-system-identity": "This package identity is reserved for system plugins.",
+	"invalid-operation-scope": "The plugin declares an operation with an invalid scope.",
+	"definition-referenced": "Your data still uses definitions this plugin would remove.",
+	"upload-unavailable": "The uploaded archive is no longer available. Upload it again.",
+	"schema-evolution-failed": "The update cannot migrate this plugin's existing schemas.",
+	"package-identity-conflict": "Another installation already uses this package identity.",
+	"unsupported-manifest-surface": "The plugin uses features this server does not support.",
+	"source-revision-stale": "This installation changed since it was loaded. Refresh and try again.",
+	"referenced-definition-incompatible":
+		"The update is incompatible with definitions your data uses.",
 };
+
+const commandFailure = (cause: unknown) =>
+	new PluginManagementError({
+		detail:
+			cause instanceof AuthenticatedApiError && Schema.is(DeclaredPluginFailure)(cause.cause)
+				? failureDetails[cause.cause.reason.code]
+				: "The plugin command failed.",
+	});
+
+export const errorDetail = (error: Error | null) =>
+	error instanceof PluginManagementError ? error.detail : error?.message;
 
 export class PluginManagementService extends Context.Service<PluginManagementService>()(
 	"PluginManagementService",
@@ -64,25 +101,13 @@ export class PluginManagementService extends Context.Service<PluginManagementSer
 			const load = Effect.fn("PluginManagement.load")(function* (
 				client: Pick<KernelRyotClient, "data">,
 			) {
-				const installations: ManagedPluginInstallation[] = [];
-				let after: string | undefined;
-				do {
-					const page = yield* client.data
-						.query(pluginInstallationsRecipe({ after, limit: 100 }))
-						.pipe(
-							Effect.mapError(
-								() => new PluginManagementError({ detail: "Could not load plugin installations." }),
-							),
-						);
-					installations.push(...page.items);
-					if (page.pageInfo.hasMore && page.pageInfo.nextCursor === null) {
-						return yield* new PluginManagementError({
-							detail: "The plugin catalog omitted its next cursor.",
-						});
-					}
-					after = page.pageInfo.nextCursor ?? undefined;
-				} while (after !== undefined);
-				return installations;
+				return yield* loadAllPages((after) =>
+					client.data.query(pluginInstallationsRecipe({ after, limit: 100 })),
+				).pipe(
+					Effect.mapError(
+						() => new PluginManagementError({ detail: "Could not load plugin installations." }),
+					),
+				);
 			});
 			const execute = Effect.fn("PluginManagement.execute")(function* (
 				scope: ApiScope,
@@ -94,12 +119,6 @@ export class PluginManagementService extends Context.Service<PluginManagementSer
 					return yield* api
 						.update(scope, { params, payload: { isHidden: action.isHidden } })
 						.pipe(Effect.mapError(commandFailure));
-				}
-				if (installation.scope !== "user") {
-					return yield* new PluginManagementError({
-						detail:
-							"Deployment administrators manage system package configuration, updates, and removal.",
-					});
 				}
 				if (action.kind === "configure") {
 					const config = yield* Schema.decodeEffect(

@@ -97,7 +97,7 @@ layer(PluginManagementService.layer.pipe(Layer.provideMerge(dependencies)))((tes
 				]);
 			}),
 	);
-	test.effect("preserves the referenced-data error with its exact owner", () =>
+	test.effect("explains why an installation that data still references cannot be removed", () =>
 		Effect.gen(function* () {
 			const service = yield* PluginManagementService;
 			const error = yield* Effect.flip(
@@ -106,12 +106,7 @@ layer(PluginManagementService.layer.pipe(Layer.provideMerge(dependencies)))((tes
 					{ kind: "uninstall", installation: managedInstallation() },
 				),
 			);
-			const detail = yield* Schema.decodeEffect(
-				Schema.fromJsonString(
-					Schema.Struct({ pluginId: Schema.String, code: Schema.Literal("entity-referenced") }),
-				),
-			)(error.detail);
-			expect(detail).toEqual({ code: "entity-referenced", pluginId: "private-owner" });
+			expect(error.detail).toBe("Your library still has entities that use this plugin.");
 		}),
 	);
 	test.effect("updates only the displayed private installation at its expected source hash", () =>

@@ -5,7 +5,6 @@ import { Effect } from "effect";
 import { decodeServerOrigin } from "#/api/origin";
 import {
 	ClientStorage,
-	lastWorkspaceKey,
 	pluginStorageKey,
 	PluginStorageQuotaError,
 	rememberedProviderKey,
@@ -70,9 +69,9 @@ describe("browser persistence", () => {
 			return Effect.gen(function* () {
 				const service = yield* ClientStorage;
 				const storage = yield* FakeBrowserStorage;
-				yield* service.setLastWorkspace(firstScope, "media");
-				yield* service.setLastWorkspace(secondUser, "fitness");
-				yield* service.setLastWorkspace(secondServer, "books");
+				yield* service.setLastWorkspace(firstScope, PluginId.make("media"));
+				yield* service.setLastWorkspace(secondUser, PluginId.make("fitness"));
+				yield* service.setLastWorkspace(secondServer, PluginId.make("books"));
 
 				expect(
 					(yield* storage.values).get('ryot:workspace:["https://one.example.com","user-1"]'),
@@ -85,16 +84,11 @@ describe("browser persistence", () => {
 	});
 
 	layer(fakeClientStorageLayer())((test) => {
-		test.effect("returns null for missing or malformed last workspaces", () => {
+		test.effect("returns null for a missing last workspace", () => {
 			const scope = { userId: "user-1", serverUrl: oneOrigin };
 
 			return Effect.gen(function* () {
 				const service = yield* ClientStorage;
-				const storage = yield* FakeBrowserStorage;
-				expect(yield* service.getLastWorkspace(scope)).toBeNull();
-				yield* service.setLastWorkspace(scope, "not/a-slug");
-				expect((yield* storage.values).has(lastWorkspaceKey(scope))).toBe(false);
-				yield* storage.seed(lastWorkspaceKey(scope), '{"slug":"media"}');
 				expect(yield* service.getLastWorkspace(scope)).toBeNull();
 			});
 		});

@@ -20,7 +20,8 @@ import type { AuthSessionStore } from "#/modules/auth/service";
 import { AccountSummary } from "#/modules/navigation/account-summary";
 import { gestureSpring } from "#/modules/navigation/drawer-metrics";
 import { SidebarNav } from "#/modules/navigation/sidebar-nav";
-import type { SidebarItem, SidebarSections } from "#/modules/navigation/sidebar-sections";
+import type { SidebarEntry, SidebarSections } from "#/modules/navigation/sidebar-sections";
+import type { WorkspaceTarget } from "#/modules/navigation/workspace-state";
 
 type MobileDrawerProps = {
 	readonly isPro: boolean;
@@ -42,8 +43,8 @@ type MobileDrawerProps = {
 	readonly triggerRef: RefObject<HTMLElement | null>;
 	readonly onNavigateHome: () => void | Promise<void>;
 	readonly onNavigateSettings: () => void | Promise<void>;
-	readonly onSelectWorkspace: (slug: string) => void | Promise<void>;
-	readonly onNavigateItem: (item: SidebarItem) => void | Promise<void>;
+	readonly onSelectWorkspace: (workspace: WorkspaceTarget) => void | Promise<void>;
+	readonly onNavigateItem: (item: SidebarEntry) => void | Promise<void>;
 };
 
 const restoreFocus = (trigger: RefObject<HTMLElement | null>) =>
@@ -130,7 +131,7 @@ export function MobileDrawer(props: MobileDrawerProps) {
 							onNavigateHome={() => closeThen(props.onNavigateHome)}
 							onWorkspaceSwitcherOpenChange={setWorkspaceSwitcherOpen}
 							onNavigateItem={(item) => closeThen(() => props.onNavigateItem(item))}
-							onSelectWorkspace={(slug) => closeThen(() => props.onSelectWorkspace(slug))}
+							onSelectWorkspace={(workspace) => closeThen(() => props.onSelectWorkspace(workspace))}
 						/>
 					</div>
 

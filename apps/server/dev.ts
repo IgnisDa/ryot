@@ -6,7 +6,8 @@ import dotenv from "dotenv";
 import { Effect, FileSystem, Layer, Path, Stream } from "effect";
 import { ChildProcess } from "effect/process";
 
-import { assemble, readShippedSlugs } from "./tooling/assemble";
+import { assemble } from "./tooling/assemble";
+import { readShippedPlugins } from "./tooling/shipped-plugins";
 import { resolveVersion } from "./tooling/version";
 
 dotenv.config();
@@ -15,8 +16,6 @@ type ProcessCommand = readonly [string, ...string[]];
 
 const repositoryRoot = Bun.fileURLToPath(new URL("../..", import.meta.url));
 const serverRoot = `${repositoryRoot}/apps/server`;
-
-const pluginRoot = (slug: string) => `${repositoryRoot}/plugins/${slug}`;
 
 const rendererSourceRoot = `${repositoryRoot}/packages/kernel-renderers/src`;
 
@@ -46,11 +45,11 @@ const turboBuild = (...packages: readonly string[]): ProcessCommand => [
 	"build",
 ];
 
-const buildPlugin = (slug: string, ...flags: readonly string[]): ProcessCommand => [
+const buildPlugin = (root: string, ...flags: readonly string[]): ProcessCommand => [
 	process.execPath,
 	"run",
 	"--cwd",
-	pluginRoot(slug),
+	root,
 	"build",
 	...flags,
 ];
@@ -62,7 +61,7 @@ const failWith = (exitCode: number) =>
 
 const program = Effect.gen(function* () {
 	const path = yield* Path.Path;
-	const slugs = yield* readShippedSlugs;
+	const plugins = yield* readShippedPlugins;
 	const fs = yield* FileSystem.FileSystem;
 	const version = yield* resolveVersion;
 
@@ -73,7 +72,7 @@ const program = Effect.gen(function* () {
 		yield* failWith(generated);
 		return;
 	}
-	const built = yield* Effect.forEach(slugs, (slug) => runCommand(buildPlugin(slug)), {
+	const built = yield* Effect.forEach(plugins, ({ root }) => runCommand(buildPlugin(root)), {
 		concurrency: "unbounded",
 	});
 	const failedBuild = built.find((exitCode) => exitCode !== 0);
@@ -84,9 +83,9 @@ const program = Effect.gen(function* () {
 	yield* assemble;
 
 	const archiveAssembled = Stream.mergeAll(
-		slugs.map((slug) =>
+		plugins.map(({ root }) =>
 			fs
-				.watch(path.join(pluginRoot(slug), "dist"), { recursive: true })
+				.watch(path.join(root, "dist"), { recursive: true })
 				.pipe(Stream.filter((event) => path.basename(event.path).endsWith(".zip"))),
 		),
 		{ concurrency: "unbounded" },
@@ -119,7 +118,7 @@ const program = Effect.gen(function* () {
 	const exitCode = yield* Effect.raceAllFirst([
 		runCommand([process.execPath, "run", sandboxRuntimeGenerator, "--watch", "--skip-initial"]),
 		watchRenderers.pipe(Effect.as(0)),
-		...slugs.map((slug) => runCommand(buildPlugin(slug, "--watch", "--skip-initial"))),
+		...plugins.map(({ root }) => runCommand(buildPlugin(root, "--watch", "--skip-initial"))),
 		runServer,
 	]);
 	yield* failWith(exitCode);

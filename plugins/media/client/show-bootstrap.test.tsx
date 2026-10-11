@@ -9,8 +9,7 @@ import {
 } from "@ryot-app/client-plugin-contract";
 import { DateTime, Effect } from "@ryot-app/client-sdk/effect";
 import { bootstrapClientPage } from "@ryot-app/client-sdk/plugin";
-import { createTestRyotClock } from "@ryot-app/client-sdk/testing";
-import { PluginId, PluginPackageId } from "@ryot-app/contract/schema/brands";
+import { createTestRyotClock, pluginContributor } from "@ryot-app/client-sdk/testing";
 import { fireEvent, waitFor } from "@testing-library/dom";
 import { act } from "react";
 
@@ -154,22 +153,19 @@ const openShow = (clock?: ReturnType<typeof createTestRyotClock>) => {
 					settings: {},
 					dataSources: null,
 					route: { params: {} },
-					renderer: { kind: "plugin", pluginId: "media", exportName: "show-detail" },
+					renderer: { kind: "plugin", pluginId: "media-owner", exportName: "show-detail" },
 					target: {
 						kind: "entity",
 						entityId: "show-1",
 						entitySchemaSlug: "show",
-						entitySchemaPluginId: "media",
+						entitySchemaPluginId: "media-owner",
 					},
 					contributors: [
-						{
-							kind: "plugin",
-							sourceHash: "media-source",
-							revisionId: "media-revision",
-							pluginId: PluginId.make("media"),
-							installationId: "media-installation",
-							packageId: PluginPackageId.make(PLUGIN_PACKAGE_ID),
-						},
+						pluginContributor({
+							name: "media",
+							pluginId: "media-owner",
+							packageId: PLUGIN_PACKAGE_ID,
+						}),
 					],
 				},
 			},

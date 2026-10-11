@@ -15,7 +15,8 @@ import clsx from "clsx";
 import { useEffect, useEffectEvent, useId, useRef, useState } from "react";
 
 import { workspacePickerSummary } from "#/modules/navigation/sidebar-sections";
-import { visibleWorkspaces } from "#/modules/navigation/workspace-state";
+import { visibleWorkspaces, type WorkspaceTarget } from "#/modules/navigation/workspace-state";
+import { pluginInstallationLabel } from "#/modules/ui/catalog/selection";
 
 type WorkspaceSwitcherProps = {
 	readonly open: boolean;
@@ -26,13 +27,10 @@ type WorkspaceSwitcherProps = {
 	readonly onOpenChange: (open: boolean) => void;
 	readonly onCustomize?: (() => void) | undefined;
 	readonly current: PluginClientCatalogEntry | null;
-	readonly onSelect: (pluginId: string) => void | Promise<void>;
+	readonly onSelect: (workspace: WorkspaceTarget) => void | Promise<void>;
 };
 
 const WORKSPACE_SHORTCUT_LABEL = "⌘⇧Space";
-
-const workspaceLabel = (workspace: PluginClientCatalogEntry) =>
-	`${workspace.name} · ${workspace.scope === "system" ? "System" : "Private"} · ${workspace.packageId}`;
 
 function WorkspaceShortcut(props: { readonly enabled: boolean; readonly onOpen: () => void }) {
 	useShortcut(KERNEL_SHORTCUTS.workspaceSwitcher, props.onOpen, { enabled: props.enabled });
@@ -70,7 +68,7 @@ export function WorkspaceSwitcher(props: WorkspaceSwitcherProps) {
 	const select = (workspace: PluginClientCatalogEntry) => {
 		close(true);
 		if (workspace.pluginId !== props.current?.pluginId) {
-			queueMicrotask(() => void props.onSelect(workspace.pluginId));
+			queueMicrotask(() => void props.onSelect(workspace));
 		}
 	};
 	const customize = () => {
@@ -132,7 +130,7 @@ export function WorkspaceSwitcher(props: WorkspaceSwitcherProps) {
 					</span>
 					<span className="min-w-0 flex-1">
 						<span className="block truncate text-sm font-medium text-text">
-							{props.current ? workspaceLabel(props.current) : "No workspace"}
+							{props.current ? pluginInstallationLabel(props.current) : "No workspace"}
 						</span>
 						<span className="block truncate text-xs text-text-muted">{props.summary}</span>
 					</span>
@@ -191,10 +189,10 @@ export function WorkspaceSwitcher(props: WorkspaceSwitcherProps) {
 									onFocus={() => setActiveIndex(index)}
 									tabIndex={index === activeIndex ? 0 : -1}
 									title={`${workspace.packageId} · ${workspace.pluginId}`}
-									aria-label={`Switch to ${workspaceLabel(workspace)} workspace`}
 									ref={(item) => {
 										items.current[index] = item;
 									}}
+									aria-label={`Switch to ${pluginInstallationLabel(workspace)} workspace`}
 									className={clsx(
 										"flex w-full items-center gap-2.5 rounded-lg px-2 py-2 text-left",
 										isCurrent ? "bg-accent-soft" : "hover:bg-surface-2",
@@ -210,7 +208,7 @@ export function WorkspaceSwitcher(props: WorkspaceSwitcherProps) {
 									</span>
 									<span className="min-w-0 flex-1">
 										<span className="block truncate text-sm text-text">
-											{workspaceLabel(workspace)}
+											{pluginInstallationLabel(workspace)}
 										</span>
 										<span className="block truncate text-xs text-text-muted">
 											{workspacePickerSummary(props.navigation, workspace.installationId)}

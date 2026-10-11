@@ -98,7 +98,7 @@ export const fixtureClientPluginPackage = (
 				...files,
 				[homeEntry]: new TextEncoder().encode(revisionHome),
 				"shared/plugin-identity.ts": new TextEncoder().encode(
-					`export const PLUGIN_PACKAGE_ID = ${yield* Schema.encodeEffect(Schema.fromJsonString(Schema.String))(packageId)};`,
+					`import { PluginPackageId } from "@ryot-app/plugin-kit/schema";\nexport const PLUGIN_PACKAGE_ID = PluginPackageId.make(${yield* Schema.encodeEffect(Schema.fromJsonString(Schema.String))(packageId)});`,
 				),
 				...(presentationEvaluationSignal && presentationBytes
 					? {

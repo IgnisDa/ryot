@@ -27,13 +27,13 @@ const source = (input: {
 it("distinguishes equal plugin names with exact owner keys and scoped package labels", () => {
 	const first = pluginCatalogGroup({
 		name: "Whiskey",
-		scope: "system",
+		pluginScope: "system",
 		packageId: PluginPackageId.make("acme/whiskey"),
 		reference: { slug: "common", owner: { kind: "plugin", pluginId: PluginId.make("owner-a") } },
 	});
 	const second = pluginCatalogGroup({
-		scope: "user",
 		name: "Whiskey",
+		pluginScope: "user",
 		packageId: PluginPackageId.make("home/whiskey"),
 		reference: { slug: "common", owner: { kind: "plugin", pluginId: PluginId.make("owner-b") } },
 	});
@@ -44,7 +44,7 @@ it("distinguishes equal plugin names with exact owner keys and scoped package la
 
 const toEntry = (item: ReturnType<typeof source>): CatalogEntry => ({
 	badge: "Badge",
-	slug: item.slug,
+	key: item.slug,
 	name: item.name,
 	description: item.description,
 	isAvailable: item.isAvailable,
@@ -84,7 +84,7 @@ describe("catalog selection", () => {
 			"",
 			(item): CatalogEntry => ({
 				badge: "Badge",
-				slug: item.slug,
+				key: item.slug,
 				name: item.name,
 				isAvailable: true,
 				requirement: undefined,
@@ -102,9 +102,7 @@ describe("catalog selection", () => {
 	it("matches the query against names and descriptions", () => {
 		expect(groupCatalogEntries(sources, "netflix", toEntry)[0]?.entries).toHaveLength(1);
 		expect(
-			groupCatalogEntries(sources, "strava description", toEntry)[0]?.entries.map(
-				({ slug }) => slug,
-			),
+			groupCatalogEntries(sources, "strava description", toEntry)[0]?.entries.map(({ key }) => key),
 		).toEqual(["strava"]);
 		expect(groupCatalogEntries(sources, "nothing here", toEntry)).toEqual([]);
 	});
@@ -115,7 +113,7 @@ describe("catalog selection", () => {
 
 	it("collects only the entries that can be chosen", () => {
 		expect(
-			availableCatalogEntries(groupCatalogEntries(sources, "", toEntry)).map(({ slug }) => slug),
+			availableCatalogEntries(groupCatalogEntries(sources, "", toEntry)).map(({ key }) => key),
 		).toEqual(["netflix", "strava"]);
 	});
 

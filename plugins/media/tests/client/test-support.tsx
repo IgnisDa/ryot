@@ -34,7 +34,7 @@ export const mountRyotClient = (adapter: Partial<RyotClientAdapter>, children: R
 			if (packageId !== PLUGIN_PACKAGE_ID) {
 				throw new Error("Unexpected contributor package");
 			}
-			return { kind: "local", pluginId: PluginId.make("media-installation") };
+			return { kind: "local", pluginId: PluginId.make("media-owner") };
 		},
 		...adapter,
 	});

@@ -1,5 +1,4 @@
 import { CLIENT_API_VERSION, definePlugin } from "@ryot-app/contract/modules/plugins/manifest";
-import { PluginPackageId } from "@ryot-app/contract/schema/brands";
 
 import { exerciseNoteOperationSlugs } from "../shared/exercise-note-operations";
 import {
@@ -55,7 +54,7 @@ export const fitnessPlugin = definePlugin({
 	integrationProviders: [],
 	savedViews: fitnessSavedViews(),
 	configSchema: fitnessConfigSchema,
-	entitySchemas: fitnessEntitySchemas(),
+	entitySchemas: fitnessEntitySchemas,
 	signalSchemas: fitnessSignalSchemas(),
 	userSettingsSchema: fitnessUserSettingsSchema,
 	relationshipSchemas: fitnessRelationshipSchemas(),
@@ -70,7 +69,7 @@ export const fitnessPlugin = definePlugin({
 		name: "Fitness",
 		version: "1.0.0",
 		icon: "heart-pulse",
-		packageId: PluginPackageId.make(PLUGIN_PACKAGE_ID),
+		packageId: PLUGIN_PACKAGE_ID,
 		description: "Track workouts, measurements, and progress.",
 	},
 	workflows: [

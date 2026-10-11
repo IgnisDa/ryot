@@ -1,4 +1,4 @@
-import { usePluginLocation, useRyotViewport, PluginPackageId } from "@ryot-app/client-sdk/plugin";
+import { usePluginLocation, useRyotViewport } from "@ryot-app/client-sdk/plugin";
 import {
 	createRyotQuery,
 	ManagedAssetProvider,
@@ -27,7 +27,7 @@ const exerciseDetailsQuery = createRyotQuery<
 			exerciseDetailsRecipe({
 				timeZone: input.timeZone,
 				exerciseId: input.entityId,
-				reference: client.pluginIdentity(PluginPackageId.make(PLUGIN_PACKAGE_ID)),
+				reference: client.pluginIdentity(PLUGIN_PACKAGE_ID),
 			}),
 		),
 	{ entityInterest: ({ input }) => ({ visible: [], foreground: [input.entityId] }) },

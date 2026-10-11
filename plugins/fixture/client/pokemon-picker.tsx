@@ -1,6 +1,6 @@
 import { Effect } from "@ryot-app/client-sdk/effect";
 import type { usePluginLocation } from "@ryot-app/client-sdk/plugin";
-import { usePluginSearch, PluginPackageId } from "@ryot-app/client-sdk/plugin";
+import { usePluginSearch } from "@ryot-app/client-sdk/plugin";
 import {
 	createRyotMutation,
 	createRyotQuery,
@@ -22,9 +22,7 @@ const collectionChoicesQuery = createRyotQuery(({ client }) =>
 );
 
 const pokemonChoicesQuery = createRyotQuery(({ client }) =>
-	client.data.query(
-		fixturePokemonChoicesRecipe(client.pluginIdentity(PluginPackageId.make(PLUGIN_PACKAGE_ID))),
-	),
+	client.data.query(fixturePokemonChoicesRecipe(client.pluginIdentity(PLUGIN_PACKAGE_ID))),
 );
 
 const addToCollectionMutation = createRyotMutation<

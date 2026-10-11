@@ -1,5 +1,5 @@
 import { Result } from "@ryot-app/client-sdk/effect";
-import { PluginPackageId, type PluginIdentityReference } from "@ryot-app/client-sdk/plugin";
+import type { PluginIdentityReference } from "@ryot-app/client-sdk/plugin";
 import { createRyotQuery } from "@ryot-app/client-sdk/react";
 import type { PreparedRecipe } from "@ryot-app/client-sdk/ryotql";
 
@@ -62,11 +62,7 @@ export const createHomeSectionQuery = <Input, Recipes extends SectionRecipes>(
 ) =>
 	createRyotQuery<Input, SectionData<Recipes>>(
 		({ input, client }) =>
-			client.data.query(
-				sectionRecipe(
-					recipes(input, client.pluginIdentity(PluginPackageId.make(PLUGIN_PACKAGE_ID))),
-				),
-			),
+			client.data.query(sectionRecipe(recipes(input, client.pluginIdentity(PLUGIN_PACKAGE_ID)))),
 		{
 			entityInterest: ({ data }) => ({
 				foreground: [],

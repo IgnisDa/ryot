@@ -1,4 +1,4 @@
-import { PluginPackageId } from "@ryot-app/contract/schema/brands";
+import { PluginId, PluginPackageId } from "@ryot-app/contract/schema/brands";
 import type {
 	PluginClientCatalog,
 	PluginClientCatalogEntry,
@@ -28,24 +28,25 @@ const workspace = (
 	scope: overrides.scope ?? "system",
 	homeSavedView: overrides.homeSavedView ?? null,
 	packageId: overrides.packageId ?? PluginPackageId.make("ryot/media"),
-	pluginId: overrides.pluginId ?? `plugin-${overrides.packageId?.split("/")[1] ?? "media"}`,
+	pluginId:
+		overrides.pluginId ?? PluginId.make(`plugin-${overrides.packageId?.split("/")[1] ?? "media"}`),
 });
 
 describe("workspace state", () => {
 	it("resolves a package route to the compatible record instead of a quarantined one", () => {
 		const system = workspace({
 			name: "Whiskey",
-			pluginId: "system-owner",
 			installationId: "system-installation",
+			pluginId: PluginId.make("system-owner"),
 			packageId: PluginPackageId.make("test/whiskey"),
 		});
 		const retained = workspace({
 			scope: "user",
 			name: "Whiskey",
 			health: "incompatible",
-			pluginId: "private-owner",
 			packageId: system.packageId,
 			installationId: "private-installation",
+			pluginId: PluginId.make("private-owner"),
 		});
 		const catalog = [retained, system];
 		expect(visibleWorkspaces(catalog)).toEqual([system]);

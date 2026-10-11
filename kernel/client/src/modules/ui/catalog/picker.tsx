@@ -38,7 +38,6 @@ function CatalogOption(props: {
 			onClick={props.onChoose}
 			disabled={!props.entry.isAvailable}
 			aria-label={props.chooseLabel(props.entry)}
-			title={`${props.entry.group.heading} · ${props.entry.slug}`}
 			className={clsx(
 				"flex w-full items-center gap-3 border-b border-border py-3 text-left",
 				props.isFirst && "border-t",
@@ -64,7 +63,7 @@ function CatalogOption(props: {
 
 export function CatalogPicker<Source extends { name: string; description: string }>(props: {
 	readonly copy: CatalogPickerCopy;
-	readonly onChoose: (slug: string) => void;
+	readonly onChoose: (key: string) => void;
 	readonly state: CatalogPickerState<Source>;
 	readonly onRetry?: (() => void) | undefined;
 	readonly toEntry: (source: Source) => CatalogEntry;
@@ -114,7 +113,7 @@ export function CatalogPicker<Source extends { name: string; description: string
 	const chooseOnly = () => {
 		const only = available.length === 1 ? available.at(0) : undefined;
 		if (only !== undefined) {
-			props.onChoose(only.slug);
+			props.onChoose(only.key);
 		}
 	};
 
@@ -155,10 +154,10 @@ export function CatalogPicker<Source extends { name: string; description: string
 							{group.entries.map((entry, index) => (
 								<CatalogOption
 									entry={entry}
-									key={entry.slug}
+									key={entry.key}
 									isFirst={index === 0}
 									chooseLabel={props.chooseLabel}
-									onChoose={() => props.onChoose(entry.slug)}
+									onChoose={() => props.onChoose(entry.key)}
 								/>
 							))}
 						</div>

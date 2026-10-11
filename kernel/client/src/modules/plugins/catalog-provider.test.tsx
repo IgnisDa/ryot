@@ -5,7 +5,7 @@ import {
 	PLUGIN_CATALOG_CONNECTED_EVENT,
 	PLUGIN_CATALOG_INVALIDATED_EVENT,
 } from "@ryot-app/contract/modules/plugins/contract";
-import { PluginPackageId } from "@ryot-app/contract/schema/brands";
+import { PluginId, PluginPackageId } from "@ryot-app/contract/schema/brands";
 import type { PluginClientCatalog } from "@ryot-app/ryotql-recipes/plugin-client-catalog";
 import { act, render, screen, waitFor } from "@testing-library/react";
 import { Deferred, Effect, Layer, ManagedRuntime, Schedule } from "effect";
@@ -30,9 +30,9 @@ const catalog: PluginClientCatalog = [
 		scope: "system",
 		clientApiVersion: 1,
 		homeSavedView: null,
-		pluginId: "plugin-1",
 		sourceHash: "source-hash",
 		installationId: "installation-1",
+		pluginId: PluginId.make("plugin-1"),
 		packageId: PluginPackageId.make("test/fixture"),
 	},
 ];
