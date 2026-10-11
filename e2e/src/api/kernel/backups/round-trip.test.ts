@@ -35,7 +35,6 @@ import {
 	getEntitySchema,
 	getNotificationSubscription,
 	getSavedView,
-	insertRelationshipRow,
 	installFixtureClientPlugin,
 	installPrivatePluginPackage,
 	installTestPluginBundle,
@@ -52,7 +51,6 @@ import {
 	providerSandboxSource,
 	requireRows,
 	requireRyotQLText,
-	requireRyotQLValue,
 	restoreBackup,
 	sendDataWebhook,
 	setPluginHomeView,
@@ -63,13 +61,15 @@ import {
 	updatePluginState,
 	waitForCreateEvents,
 	getGlobalEntityByProvenance,
+	findEntityIdByName,
+	findRelationshipBySchema,
+	testPluginEntitySchema,
 } from "~/fixtures/kernel";
 import { compilePluginPackage } from "~/fixtures/kernel/compiled-package";
-import { queryInMediaLibraryRelationship } from "~/fixtures/plugins/media";
 import {
 	assertCompleted,
+	assertPresent,
 	assertTaggedError,
-	requireObjectRecord,
 	requirePresent,
 } from "~/support/assertions";
 import { assert, describe, expect, it } from "~/support/effect-test";
@@ -89,39 +89,6 @@ const getMediaLibraryId = (client: Client) =>
 		const libraries = requireRows(result.data.libraries, "libraries");
 		expect(libraries.items).toHaveLength(1);
 		return requireRyotQLText(requirePresent(libraries.items[0], "Missing library"), "id");
-	});
-
-const getRelationship = (client: Client, relationshipId: string) =>
-	Effect.gen(function* () {
-		const relationship = table("relationship", "relationship");
-		const result = yield* executeRyotQL(
-			client,
-			document({
-				relationships: rows(relationship, {
-					limit: 1,
-					where: eq(column(relationship, "id"), literal(relationshipId)),
-					fields: [
-						field("id", column(relationship, "id")),
-						field("properties", column(relationship, "properties")),
-						field("sourceEntityId", column(relationship, "sourceEntityId")),
-						field("targetEntityId", column(relationship, "targetEntityId")),
-						field("relationshipSchemaSlug", column(relationship, "relationshipSchemaSlug")),
-					],
-				}),
-			}),
-		);
-		const relationships = requireRows(result.data.relationships, "relationships");
-		const row = requirePresent(relationships.items[0], `Missing relationship '${relationshipId}'`);
-		return {
-			id: requireRyotQLText(row, "id"),
-			sourceEntityId: requireRyotQLText(row, "sourceEntityId"),
-			targetEntityId: requireRyotQLText(row, "targetEntityId"),
-			relationshipSchemaSlug: requireRyotQLText(row, "relationshipSchemaSlug"),
-			properties: requireObjectRecord(
-				requireRyotQLValue(row, "properties"),
-				"Relationship properties must be an object",
-			),
-		};
 	});
 
 type PluginUserSettingsRecord = PluginUserSettingsPage["items"][number];
@@ -448,7 +415,7 @@ describe("backup export and restore round trip", () => {
 				entitySchema: entitySchema.reference,
 			});
 			const relationshipProperties = { weight: 7, labels: ["primary", "portable"] };
-			const relationship = yield* createRelationship(source.client, {
+			yield* createRelationship(source.client, {
 				sourceEntityId: firstEntity.id,
 				targetEntityId: secondEntity.id,
 				properties: relationshipProperties,
@@ -559,44 +526,53 @@ describe("backup export and restore round trip", () => {
 			const restoredMediaLibraryId = yield* getMediaLibraryId(target.client);
 			expect(restoredMediaLibraryId).toBe(targetMediaLibraryId);
 			expect(restoredMediaLibraryId).not.toBe(sourceMediaLibraryId);
-			const restoredFirst = yield* getEntity(target.client, firstEntity.id);
-			const restoredSecond = yield* getEntity(target.client, secondEntity.id);
+			const findRestored = (name: string) =>
+				findEntityIdByName(target.client, { name, entitySchema: restoredEntitySchemaReference });
+			const [restoredFirstId, restoredSecondId] = yield* Effect.all([
+				findRestored(firstEntity.name),
+				findRestored(secondEntity.name),
+			]);
+			const restoredFirst = yield* getEntity(target.client, restoredFirstId);
+			const restoredSecond = yield* getEntity(target.client, restoredSecondId);
 			expect(restoredFirst).toMatchObject({
-				id: firstEntity.id,
 				name: firstEntity.name,
 				properties: firstProperties,
 				entitySchemaSlug: entitySchema.schemaId,
 			});
 			expect(restoredSecond).toMatchObject({
-				id: secondEntity.id,
 				name: secondEntity.name,
 				properties: secondProperties,
 				entitySchemaSlug: entitySchema.schemaId,
 			});
-			expect(yield* getRelationship(target.client, relationship.id)).toEqual({
-				id: relationship.id,
-				sourceEntityId: firstEntity.id,
-				targetEntityId: secondEntity.id,
+			expect(
+				yield* findRelationshipBySchema(target.client, {
+					sourceEntityId: restoredFirstId,
+					targetEntityId: restoredSecondId,
+					owner: restoredEntitySchemaReference.owner,
+					relationshipSchemaSlug: relationshipSchema.id,
+				}),
+			).toEqual({
+				sourceEntityId: restoredFirstId,
+				targetEntityId: restoredSecondId,
 				properties: relationshipProperties,
-				relationshipSchemaSlug: relationshipSchema.id,
 			});
 
 			const restoredEvents = yield* listEventsForEntity(
 				target.client,
-				firstEntity.id,
+				restoredFirstId,
 				undefined,
 				100,
 			);
 			expect(restoredEvents).toEqual([
 				{
-					id: newerOutcome.eventId,
+					id: expect.any(String),
 					sessionEntityId: undefined,
 					occurredAt: newerOccurredAt,
 					properties: newerProperties,
 					eventSchemaSlug: eventSchema.id,
 				},
 				{
-					id: olderOutcome.eventId,
+					id: expect.any(String),
 					sessionEntityId: undefined,
 					occurredAt: olderOccurredAt,
 					properties: olderProperties,
@@ -695,6 +671,8 @@ describe("backup export and restore round trip", () => {
 			const detailsScriptSlug = `${providerSlug}.details`;
 			const detailsEntry = `backend/providers/${providerSlug}/details.sandbox.ts`;
 			const archivedProperties = { description: "Archived provider state" };
+			const shelfSchemaSlug = EntitySchemaSlug.make("shelf");
+			const onShelfSlug = RelationshipSchemaSlug.make("on-shelf");
 			const installProvider = (name: string, properties: { description: string }) => {
 				const scriptSource = providerSandboxSource({
 					operation: "details",
@@ -715,6 +693,15 @@ describe("backup export and restore round trip", () => {
 							operations: { details: detailsScriptSlug },
 						},
 					],
+					relationshipSchemas: [
+						{
+							name: "On shelf",
+							slug: onShelfSlug,
+							propertiesSchema: { fields: {} },
+							targetEntitySchemaSlug: shelfSchemaSlug,
+							sourceEntitySchemaSlug: entitySchemaSlug,
+						},
+					],
 					scripts: [
 						{
 							providerSlug,
@@ -728,6 +715,7 @@ describe("backup export and restore round trip", () => {
 						},
 					],
 					entitySchemas: [
+						testPluginEntitySchema({ name: "Backup Shelf", slug: shelfSchemaSlug }),
 						{
 							icon: "book",
 							eventSchemas: [],
@@ -767,19 +755,17 @@ describe("backup export and restore round trip", () => {
 				archivedImport.jobId,
 			);
 			assertCompleted(archivedResult, "archived provider entity import");
-			const sourceMediaLibraryId = yield* getMediaLibraryId(source.client);
-			const sourceMediaInstallation = yield* findPluginInstallationByPackage(source.client, {
-				scope: "system",
-				packageId: mediaPlugin.metadata.packageId,
+			const providerOwner = { kind: "plugin" as const, pluginId: providerPlugin.pluginId };
+			const shelf = yield* createEntity(source.client, {
+				properties: {},
+				name: "Backup shelf",
+				entitySchema: { owner: providerOwner, slug: shelfSchemaSlug },
 			});
-			yield* insertRelationshipRow(source.client, {
-				targetEntityId: sourceMediaLibraryId,
+			yield* createRelationship(source.client, {
+				properties: {},
+				targetEntityId: shelf.id,
 				sourceEntityId: archivedResult.data.id,
-				properties: { owned: true, ownershipSources: ["backup-round-trip"] },
-				relationshipSchema: {
-					slug: RelationshipSchemaSlug.make("in-media-library"),
-					owner: { kind: "plugin", pluginId: sourceMediaInstallation.pluginId },
-				},
+				relationshipSchema: { slug: onShelfSlug, owner: providerOwner },
 			});
 			const { bytes } = yield* exportAndDownloadBackup(source.client);
 			yield* deleteUserAndWait(source.userId);
@@ -799,12 +785,18 @@ describe("backup export and restore round trip", () => {
 			});
 			const existingAfterRestore = yield* getEntity(target.client, globalEntity.id);
 			expect(existingAfterRestore.properties).toEqual(existingBeforeRestore.properties);
-			const inMediaLibrary = yield* queryInMediaLibraryRelationship(
-				target.client,
-				globalEntity.id,
-				entitySchemaSlug,
-			);
-			expect(requireRows(inMediaLibrary.data.entity, "entity").items).toHaveLength(1);
+			const restoredShelfId = yield* findEntityIdByName(target.client, {
+				name: shelf.name,
+				entitySchema: { owner: providerOwner, slug: shelfSchemaSlug },
+			});
+			expect(
+				yield* findRelationshipBySchema(target.client, {
+					owner: providerOwner,
+					targetEntityId: restoredShelfId,
+					sourceEntityId: globalEntity.id,
+					relationshipSchemaSlug: onShelfSlug,
+				}),
+			).toMatchObject({ sourceEntityId: globalEntity.id, targetEntityId: restoredShelfId });
 		}),
 	);
 
@@ -812,7 +804,7 @@ describe("backup export and restore round trip", () => {
 		Effect.gen(function* () {
 			const source = yield* createAuthenticatedClient();
 			const target = yield* createAuthenticatedClient();
-			const integration = yield* createIntegration(source.client, {
+			yield* createIntegration(source.client, {
 				providerSpecifics: {},
 				name: "Native backup webhook",
 				provider: dataJsonSourceReference,
@@ -823,16 +815,17 @@ describe("backup export and restore round trip", () => {
 			assertCompleted(restored.run, "Data webhook restore");
 			const integrations = yield* listIntegrations(target.client, { provider: "data-json" });
 			expect(integrations).toHaveLength(1);
-			expect(integrations[0]).toMatchObject({
-				packageId: null,
+			const [restoredIntegration] = integrations;
+			assertPresent(restoredIntegration, "Restored Data webhook is missing");
+			expect(restoredIntegration).toMatchObject({
+				pluginId: null,
 				isDisabled: false,
-				id: integration.id,
 				name: "Native backup webhook",
 			});
 			const name = `Restored data collection ${crypto.randomUUID()}`;
 			const runId = yield* sendDataWebhook(
 				target.client,
-				integration,
+				restoredIntegration,
 				{
 					events: [],
 					relationships: [],
