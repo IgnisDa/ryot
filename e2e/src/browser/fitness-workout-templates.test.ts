@@ -11,6 +11,14 @@ import { requirePresent } from "~/support/assertions";
 import { signInThroughHostedOAuth } from "~/support/browser";
 import { expect, it } from "~/support/effect-test";
 
+const renameDraft = (frame: Playwright.FrameLocator, title: string, name: string) =>
+	Effect.gen(function* () {
+		yield* frame.getByRole("button", { exact: true, name: "Details" }).click();
+		const details = frame.getByRole("dialog", { exact: true, name: title });
+		yield* details.getByRole("textbox", { exact: true, name: "Name" }).fill(name);
+		yield* details.getByRole("button", { exact: true, name: "Done" }).click();
+	});
+
 it.live(
 	"creates, edits and starts templates with media and preserves confirmed sets on replacement",
 	() =>
@@ -27,7 +35,7 @@ it.live(
 			yield* page.goto(`${frontendUrl}/v/p/ryot/fitness/all-workout-templates`);
 			const frame = page.locator("iframe:visible").contentFrame();
 			yield* frame.getByRole("button", { name: "Add", exact: true }).click();
-			yield* frame.getByRole("textbox", { exact: true, name: "Name" }).fill(name);
+			yield* renameDraft(frame, "Template details", name);
 			yield* frame.getByRole("button", { exact: true, name: "Add exercises" }).click();
 			const picker = frame.getByRole("dialog", { exact: true, name: "Choose exercises" });
 			yield* picker.getByRole("checkbox", { exact: true, name: exerciseName }).check();
@@ -46,7 +54,7 @@ it.live(
 				.getByRole("textbox", { exact: true, name: "Set note" })
 				.fill("Keep the planned note");
 			yield* setOptions.getByRole("button", { exact: true, name: "Done" }).click();
-			yield* frame.getByRole("button", { exact: true, name: "Template attachments (0)" }).click();
+			yield* frame.getByRole("button", { exact: true, name: "Attachments (0)" }).click();
 			const attachments = frame.getByRole("dialog", {
 				exact: true,
 				name: "Attachments for template",
@@ -66,7 +74,7 @@ it.live(
 			yield* attachments.press("Escape");
 			yield* page.reload;
 			yield* frame
-				.getByRole("button", { exact: true, name: "Template attachments (1)" })
+				.getByRole("button", { exact: true, name: "Attachments (1)" })
 				.waitFor({ state: "visible" });
 			yield* frame.getByRole("button", { exact: true, name: "Save" }).click();
 			yield* frame.getByRole("button", { exact: true, name: "Save template" }).click();
@@ -79,7 +87,7 @@ it.live(
 				"Expected the template URL",
 			);
 			yield* frame.getByRole("button", { exact: true, name: "Edit template" }).click();
-			yield* frame.getByRole("textbox", { exact: true, name: "Name" }).fill(`${name} edited`);
+			yield* renameDraft(frame, "Template details", `${name} edited`);
 			yield* frame.getByRole("button", { exact: true, name: "Save" }).click();
 			yield* frame.getByRole("button", { exact: true, name: "Save template" }).click();
 			yield* page.waitForURL((url) => url.pathname.startsWith("/e/"));
@@ -92,12 +100,17 @@ it.live(
 				images: [{ type: "s3", key: expect.any(String) }],
 			});
 			yield* frame.getByRole("button", { exact: true, name: "Edit template" }).click();
-			yield* frame.getByRole("button", { exact: true, name: "Template attachments (1)" }).click();
+			yield* frame.getByRole("button", { exact: true, name: "Attachments (1)" }).click();
 			yield* attachments.getByRole("button", { exact: true, name: "Remove image 1" }).click();
 			yield* attachments.press("Escape");
-			yield* frame.getByRole("button", { exact: true, name: "Cancel and discard" }).click();
-			yield* frame.getByRole("button", { exact: true, name: "Discard draft" }).click();
-			yield* frame.getByText("No active draft.", { exact: true }).waitFor({ state: "visible" });
+			yield* frame.getByRole("button", { exact: true, name: "Discard changes" }).click();
+			yield* frame
+				.getByRole("dialog", { exact: true, name: "Discard changes?" })
+				.getByRole("button", { exact: true, name: "Discard changes" })
+				.click();
+			yield* frame
+				.getByText("No workout in progress", { exact: true })
+				.waitFor({ state: "visible" });
 			expect((yield* getEntity(client, templateId)).properties["images"]).toEqual(
 				savedTemplate.properties["images"],
 			);
@@ -106,7 +119,7 @@ it.live(
 				.getByRole("img", { exact: true, name: `${name} edited image 1` })
 				.waitForFunction((image) => image instanceof HTMLImageElement && image.naturalWidth > 0);
 			yield* frame.getByRole("button", { exact: true, name: "Start workout" }).click();
-			yield* frame.getByRole("textbox", { exact: true, name: "Name" }).fill(`${name} performed`);
+			yield* renameDraft(frame, "Workout details", `${name} performed`);
 			yield* exercise.getByRole("button", { exact: true, name: "Complete set 1" }).click();
 			yield* exercise.getByRole("button", { exact: true, name: `${exerciseName} actions` }).click();
 			yield* frame.getByRole("menuitem", { exact: true, name: "Replace exercise" }).click();
@@ -144,7 +157,7 @@ it.live(
 				.waitFor({ state: "visible" });
 			yield* frame.getByRole("button", { exact: true, name: "More workout actions" }).click();
 			yield* frame.getByRole("menuitem", { exact: true, name: "Create template" }).click();
-			yield* frame.getByRole("textbox", { exact: true, name: "Name" }).fill(`${name} cloned`);
+			yield* renameDraft(frame, "Template details", `${name} cloned`);
 			yield* frame.getByRole("button", { exact: true, name: "Save" }).click();
 			yield* frame.getByRole("button", { exact: true, name: "Save template" }).click();
 			yield* page.waitForURL((url) => url.pathname.startsWith("/e/"));

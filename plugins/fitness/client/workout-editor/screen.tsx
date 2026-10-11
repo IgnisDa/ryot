@@ -11,7 +11,20 @@ import {
 	useRyotSchedule,
 } from "@ryot-app/plugin-client-sdk/react";
 import { PluginScreenFrame } from "@ryot-app/plugin-client-sdk/screen";
-import { Button, Modal, StatusMessage, TextArea } from "@ryot-app/plugin-ui-sdk";
+import {
+	ActionDock,
+	Badge,
+	Button,
+	Card,
+	Dialog,
+	EmptyState,
+	Notice,
+	RowGroup,
+	ScreenBarButton,
+	Skeleton,
+	type MenuItem,
+} from "@ryot-app/plugin-ui-sdk";
+import { AppIcon } from "@ryot-app/plugin-ui-sdk/icon";
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import { PLUGIN_PACKAGE_ID } from "../../shared/plugin-identity";
@@ -19,7 +32,6 @@ import type { WorkoutEditorContextOutputSchema } from "../../shared/workout-edit
 import { workoutEditorSaveOperationSlug } from "../../shared/workout-editor-context-operations";
 import type {
 	WorkoutEditorDraft,
-	WorkoutEditorLocalPreferences,
 	WorkoutEditorOccurrence,
 	WorkoutEditorSet,
 } from "../../shared/workout-editor-draft";
@@ -45,7 +57,7 @@ import {
 } from "../../shared/workout-history-recipes";
 import { requiredWorkoutMeasurementsByKind } from "../../shared/workout-set";
 import { managedAssetBatch } from "../asset-urls";
-import { MeasurementLogger } from "../measurements/measurement-logger";
+import { MeasurementDialogs, useMeasurementLogger } from "../measurements/measurement-logger";
 import {
 	changeOccurrenceDisplay,
 	changeWorkoutEnergyUnit,
@@ -59,14 +71,13 @@ import {
 	updateOccurrence,
 	updateSet,
 } from "./actions";
-import { EditorClocks, useEditorNow } from "./clocks";
-import { EditorField, editorModalClass } from "./controls";
 import { ExerciseCard, exerciseArtwork, type ExerciseSheet } from "./exercise-card";
 import { ExercisePicker } from "./exercise-picker";
 import { historySetForOccurrence, previousSetIndex } from "./history-model";
 import { ExerciseNotesSheet } from "./instructions";
 import { WorkoutMediaOverlay } from "./media";
 import { removeDraftMedia, type WorkoutMediaTarget } from "./media-state";
+import { MenuButton } from "./menu-button";
 import {
 	BulkDeleteOverlay,
 	HistoryOverlay,
@@ -82,11 +93,32 @@ import {
 	readHistorySets,
 	readPreviousSets,
 } from "./queries";
+import {
+	DockTimers,
+	formatEditorSeconds,
+	RailTimers,
+	stopwatchSeconds,
+	useEditorNow,
+} from "./session-timers";
 import { missingMeasurements, type InvalidSet } from "./set-grid";
-import { EditorSummary } from "./summary";
+import { EditorStats } from "./summary";
 import { occurrenceSegments, SupersetGroup } from "./superset-group";
-import { startExecution, unconfirmSet } from "./timers";
+import {
+	pauseStopwatch,
+	pauseWorkout,
+	resetStopwatch,
+	resumeStopwatch,
+	resumeWorkout,
+	startExecution,
+	unconfirmSet,
+} from "./timers";
 import { useWorkoutEditor } from "./use-workout-editor";
+import {
+	ConfirmDialog,
+	FinishReview,
+	WorkoutDetailsSheet,
+	WorkoutPreferencesSheet,
+} from "./workout-sheets";
 
 type EditorOverlay =
 	| "picker"
@@ -96,13 +128,33 @@ type EditorOverlay =
 	| "finish"
 	| "discard"
 	| "reload"
+	| "details"
+	| "preferences"
 	| { readonly occurrenceId: string; readonly kind: Exclude<ExerciseSheet, "attachments"> };
+const clockTime = (iso: string | undefined) =>
+	iso === undefined
+		? undefined
+		: new Date(iso).toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" });
+
+const skeleton = (label: string) => (
+	<div role="status" aria-label={label} className="grid gap-3">
+		<Skeleton className="h-6 w-3/5" />
+		{[0, 1].map((index) => (
+			<Card key={index} className="grid gap-2.5">
+				<div className="flex items-center gap-2.5">
+					<Skeleton className="size-10 rounded-md" />
+					<div className="grid flex-1 gap-1.5">
+						<Skeleton className="h-3.5 w-2/3" />
+						<Skeleton className="h-2.5 w-2/5" />
+					</div>
+				</div>
+				<Skeleton className="h-9 pointer-coarse:h-11" />
+				<Skeleton className="h-9 pointer-coarse:h-11" />
+			</Card>
+		))}
+	</div>
+);
 type SavedEntityId = Extract<WorkoutEditorSaveOutput, { readonly kind: "saved" }>["entityId"];
-const localPreferenceLabels: Record<keyof WorkoutEditorLocalPreferences, string> = {
-	muteSounds: "Mute sounds",
-	promptForRestTimer: "Prompt before rest (Pro)",
-	startTimerForDurationExercises: "Execution countdown for duration sets",
-};
 const startInitialDraft = (input: {
 	readonly client: ReturnType<typeof useRyot>;
 	readonly context: typeof WorkoutEditorContextOutputSchema.Type;
@@ -204,6 +256,16 @@ export function WorkoutEditorScreen(props: {
 	const editorRoot = useRef<HTMLDivElement>(null);
 	const submitting = useRef(false);
 	const editorDraft = snapshot.status === "ready" ? snapshot.draft : undefined;
+	const {
+		log: measurementLog,
+		error: measurementError,
+		retry: measurementRetry,
+		close: measurementClose,
+		dialog: measurementDialog,
+		trigger: measurementTrigger,
+		setTrigger: measurementSetTrigger,
+		unavailable: measurementUnavailable,
+	} = useMeasurementLogger();
 	const now = useEditorNow(
 		isActive && editorDraft?.mode.kind === "live" && editorDraft.endedAt === undefined,
 	);
@@ -342,14 +404,6 @@ export function WorkoutEditorScreen(props: {
 		editorDraft !== undefined && context !== undefined
 			? resolveWorkoutLocalPreferences(editorDraft.localPreferences, context.settings)
 			: undefined;
-	let modeIntroduction: string | undefined;
-	if (template) {
-		modeIntroduction =
-			"Plan a reusable session. Partial measurements are allowed; clocks and confirmations are off.";
-	} else if (editorDraft?.mode.kind === "historical") {
-		modeIntroduction =
-			"Editing a saved workout. Original timestamps and active duration are preserved.";
-	}
 	const save = () => {
 		if (snapshot.status === "ready" && snapshot.uploading) {
 			setMessage("Wait for the attachment upload to finish before saving.");
@@ -443,7 +497,7 @@ export function WorkoutEditorScreen(props: {
 						break;
 					case "conflict":
 						saveError =
-							"The saved record changed. Your draft has been retained; do not overwrite the newer record.";
+							"The newer version was not overwritten. Reload it or keep editing your draft.";
 						break;
 					case "invalid":
 						saveError = `This workout could not be saved: ${result.code.replaceAll("-", " ")}.`;
@@ -757,17 +811,10 @@ export function WorkoutEditorScreen(props: {
 				onSetChanged={(setId) =>
 					setInvalid((current) => (current?.setId === setId ? undefined : current))
 				}
-				onSkipRest={() =>
-					change((draft) => resolvePendingRest(draft, schedule.now(), crypto.randomUUID(), true))
-				}
 				unavailable={
 					exercises.data !== undefined &&
 					!exercises.data.some(({ id }) => id === occurrence.exerciseId)
 				}
-				onStartRest={() => {
-					change((draft) => resolvePendingRest(draft, schedule.now(), crypto.randomUUID(), false));
-					feedback("timer-started");
-				}}
 				onSheet={(sheet) =>
 					sheet === "attachments"
 						? setMediaTarget({ kind: "occurrence", occurrenceId: occurrence.clientId })
@@ -793,360 +840,740 @@ export function WorkoutEditorScreen(props: {
 				}}
 			/>
 		);
-	const screenTitle = editorDraft?.name.trim();
-	return (
-		<PluginScreenFrame
-			title={screenTitle === undefined || screenTitle === "" ? "Workout editor" : screenTitle}
-			floatingAction={
-				editorDraft === undefined ? undefined : (
-					<Button
-						onClick={() => setOverlay("finish")}
-						className="absolute right-4 z-20 shadow-card"
-						style={{ bottom: Math.max(24, safeAreaBottom + 16) }}
-						disabled={
-							disabled ||
-							uploading ||
-							exercises.isPending ||
-							exercises.isError ||
-							editorDraft.occurrences.some((occurrence) => !names.has(occurrence.exerciseId))
-						}
-					>
-						{template || editorDraft.mode.kind === "historical" ? "Save" : "Finish"}
-					</Button>
-				)
+	const ready = snapshot.status === "ready" && editorDraft !== undefined && context !== undefined;
+	const live = editorDraft?.mode.kind === "live";
+	const historical = editorDraft?.mode.kind === "historical";
+	const locked = disabled || existingGuard;
+	const saveBlocked =
+		locked ||
+		uploading ||
+		exercises.isPending ||
+		exercises.isError ||
+		editorDraft?.occurrences.some((occurrence) => !names.has(occurrence.exerciseId)) === true;
+	const workoutAttachments =
+		editorDraft === undefined ? 0 : editorDraft.images.length + editorDraft.videos.length;
+	const stopwatch = editorDraft === undefined ? 0 : stopwatchSeconds(editorDraft, now);
+	const paused =
+		live && editorDraft.activeDurationStartedAt === undefined && editorDraft.endedAt === undefined;
+	const nextSet = (() => {
+		if (!live) {
+			return undefined;
+		}
+		for (const occurrence of editorDraft.occurrences) {
+			const index = occurrence.sets.findIndex(({ included }) => !included);
+			const set = occurrence.sets[index];
+			if (set !== undefined) {
+				return {
+					number: index + 1,
+					setId: set.clientId,
+					name: names.get(occurrence.exerciseId) ?? "Exercise",
+				};
 			}
-		>
-			<div
-				ref={editorRoot}
-				className={
-					compact
-						? "flex flex-col gap-4 font-ui"
-						: "mx-auto flex w-full max-w-5xl flex-col gap-6 font-ui"
-				}
-			>
-				{message ? <StatusMessage tone="error">{message}</StatusMessage> : null}
-				{message && snapshot.status === "empty" && props.prepareDraft !== undefined ? (
-					<Button
-						variant="secondary"
-						onClick={() => {
-							setMessage(undefined);
-						}}
-					>
-						Retry requested draft
-					</Button>
-				) : null}
-				{conflict && !disabled ? (
-					<Button variant="secondary" onClick={() => setOverlay("reload")}>
-						Reload saved version
-					</Button>
-				) : null}
-				{context === undefined &&
-				snapshot.contextError === undefined &&
-				snapshot.status !== "loading" ? (
-					<StatusMessage tone="pending">Loading Fitness settings…</StatusMessage>
-				) : null}
-				{snapshot.contextError !== undefined ? (
-					<>
-						<StatusMessage tone="error">
-							Fitness settings could not be refreshed. Your inputs are unchanged.
-						</StatusMessage>
-						<Button variant="secondary" onClick={() => run(controller.refreshContext())}>
+		}
+		return undefined;
+	})();
+	const finishExecution = () => {
+		const countdown = editorDraft?.executionCountdown;
+		const occurrence = editorDraft?.occurrences.find(
+			({ clientId }) => clientId === countdown?.occurrenceId,
+		);
+		const set = occurrence?.sets.find(({ clientId }) => clientId === countdown?.setId);
+		if (occurrence !== undefined && set !== undefined) {
+			confirm(occurrence, set, true);
+		}
+	};
+	const startRest = () => {
+		change((draft) => resolvePendingRest(draft, schedule.now(), crypto.randomUUID(), false));
+		feedback("timer-started");
+	};
+	const skipRest = () =>
+		change((draft) => resolvePendingRest(draft, schedule.now(), crypto.randomUUID(), true));
+	const togglePause = () =>
+		change(
+			(draft) =>
+				(draft.activeDurationStartedAt === undefined
+					? resumeWorkout(draft, schedule.now())
+					: pauseWorkout(draft, schedule.now())
+				).draft,
+		);
+	const toggleStopwatch = () =>
+		change(
+			(draft) =>
+				(draft.stopwatchStartedAt === undefined
+					? resumeStopwatch(draft, schedule.now())
+					: pauseStopwatch(draft, schedule.now())
+				).draft,
+		);
+	const discardLabel = live ? "Discard workout" : "Discard changes";
+	const finishLabel = live ? "Finish" : "Save";
+	const timerProps = {
+		now,
+		names,
+		nextSet,
+		onChange: change,
+		disabled: locked,
+		onSkipRest: skipRest,
+		onStartRest: startRest,
+		onFinishExecution: finishExecution,
+	};
+	const workoutMenu: MenuItem[] =
+		editorDraft === undefined
+			? []
+			: [
+					{
+						key: "details",
+						onSelect: () => setOverlay("details"),
+						label: template ? "Template details" : "Workout details",
+					},
+					...(live
+						? [
+								{
+									key: "measurement",
+									label: "Log measurement",
+									onSelect: measurementLog,
+									disabled: locked || measurementUnavailable,
+								},
+							]
+						: []),
+					{
+						key: "attachments",
+						label: `Attachments (${workoutAttachments})`,
+						onSelect: () => setMediaTarget({ kind: "workout" }),
+					},
+					{ key: "reorder", label: "Reorder exercises", onSelect: () => setOverlay("reorder") },
+					{ key: "supersets", label: "Supersets", onSelect: () => setOverlay("supersets") },
+					{
+						key: "bulk-delete",
+						label: "Delete exercises or sets",
+						onSelect: () => setOverlay("bulk-delete"),
+					},
+					...(live
+						? [
+								{
+									key: "stopwatch",
+									disabled: locked,
+									onSelect: toggleStopwatch,
+									label: `${editorDraft.stopwatchStartedAt === undefined ? "Start" : "Pause"} stopwatch (${formatEditorSeconds(stopwatch)})`,
+								},
+								...(stopwatch > 0 && editorDraft.stopwatchStartedAt === undefined
+									? [
+											{
+												disabled: locked,
+												key: "reset-stopwatch",
+												label: "Reset stopwatch",
+												onSelect: () => change((draft) => resetStopwatch(draft).draft),
+											},
+										]
+									: []),
+								{
+									key: "preferences",
+									label: "Workout preferences",
+									onSelect: () => setOverlay("preferences"),
+								},
+							]
+						: []),
+					{
+						key: "discard",
+						destructive: true,
+						label: discardLabel,
+						disabled: disabled || uploading,
+						onSelect: () => setOverlay("discard"),
+					},
+				];
+	const alert = <AppIcon size={16} name="circle-alert" />;
+	const notices = (
+		<>
+			{conflict && editorDraft !== undefined ? (
+				<Notice
+					icon={alert}
+					tone="danger"
+					title="This workout changed elsewhere"
+					action={
+						disabled ? undefined : (
+							<Button size="sm" variant="secondary" onClick={() => setOverlay("reload")}>
+								Reload saved version
+							</Button>
+						)
+					}
+				>
+					Your draft is kept. Saving won't overwrite the newer version.
+				</Notice>
+			) : null}
+			{message === undefined ? null : (
+				<Notice
+					icon={alert}
+					tone="danger"
+					action={
+						snapshot.status === "empty" && props.prepareDraft !== undefined ? (
+							<Button size="sm" variant="secondary" onClick={() => setMessage(undefined)}>
+								Retry requested draft
+							</Button>
+						) : undefined
+					}
+				>
+					{message}
+				</Notice>
+			)}
+			{snapshot.contextError === undefined ? null : (
+				<Notice
+					tone="warning"
+					title="Fitness settings couldn't refresh"
+					icon={<AppIcon size={16} name="refresh-cw" />}
+					action={
+						<Button size="sm" variant="secondary" onClick={() => run(controller.refreshContext())}>
 							Retry settings
 						</Button>
-					</>
-				) : null}
-				{snapshot.status === "loading" ? (
-					<StatusMessage tone="pending">Recovering draft…</StatusMessage>
-				) : null}
-				{snapshot.status === "empty" &&
-				prepareDraft !== undefined &&
-				!requestHandled &&
-				message === undefined &&
-				!requestBlocked ? (
-					<StatusMessage tone="pending">Preparing workout editor…</StatusMessage>
-				) : null}
-				{snapshot.status === "recovery-error" ? (
-					<>
-						<StatusMessage tone="error">
-							The stored draft could not be read. Retry recovery, or explicitly discard it to start
-							again.
-						</StatusMessage>
-						<Button onClick={() => run(controller.load())}>Retry recovery</Button>
-						<Button variant="secondary" onClick={() => setOverlay("discard")}>
-							Discard unreadable draft
+					}
+				>
+					Your entries are unchanged.
+				</Notice>
+			)}
+			{snapshot.status === "recovery-error" ? (
+				<Notice
+					icon={alert}
+					tone="danger"
+					title="Your saved draft couldn't be read"
+					action={
+						<div className="flex flex-wrap gap-1.5">
+							<Button size="sm" onClick={() => run(controller.load())}>
+								Retry recovery
+							</Button>
+							<Button size="sm" variant="dangerGhost" onClick={() => setOverlay("discard")}>
+								Discard unreadable draft
+							</Button>
+						</div>
+					}
+				>
+					Nothing has been deleted. Try again, or discard it to start fresh.
+				</Notice>
+			) : null}
+			{snapshot.status === "empty" && saved !== undefined ? (
+				<Notice tone="success" icon={<AppIcon size={16} name="circle-check" />}>
+					Saved. Personal-best processing may still be pending.
+				</Notice>
+			) : null}
+			{ready && template ? (
+				<Notice
+					tone="info"
+					title="Planning a template"
+					icon={<AppIcon size={16} name="layers-3" />}
+				>
+					Values are optional. Clocks and completion are off until you start a workout from it.
+				</Notice>
+			) : null}
+			{ready && historical ? (
+				<Notice
+					tone="info"
+					title="Editing a saved workout"
+					icon={<AppIcon size={16} name="calendar" />}
+				>
+					{editorDraft.startedAt === undefined
+						? ""
+						: `${new Date(editorDraft.startedAt).toLocaleDateString()}, ${clockTime(editorDraft.startedAt)}${editorDraft.endedAt === undefined ? "" : `–${clockTime(editorDraft.endedAt)}`}. `}
+					Times and active duration stay as recorded. Use Adjust time on the workout page to change
+					them.
+				</Notice>
+			) : null}
+			{ready && paused ? (
+				<Notice
+					tone="warning"
+					title="Workout paused"
+					icon={<AppIcon size={16} name="pause" />}
+					action={
+						<Button size="sm" disabled={locked} onClick={togglePause}>
+							Resume workout
 						</Button>
-					</>
-				) : null}
-				{snapshot.status === "empty" && saved === undefined && props.prepareDraft === undefined ? (
-					<>
-						<p>No active draft.</p>
-						<Button
-							disabled={context === undefined}
-							onClick={() => {
-								if (context !== undefined) {
-									run(
-										controller.start(
-											emptyWorkoutDraft({
-												id: crypto.randomUUID(),
-												settings: context.settings,
-												now: new Date(schedule.now()).toISOString(),
-											}),
-										),
-									);
-								}
-							}}
-						>
-							New workout
+					}
+				>
+					Active time is stopped. Timers keep their remaining time.
+				</Notice>
+			) : null}
+			{ready && snapshot.uploading ? (
+				<Notice
+					tone="info"
+					title="Uploading attachment…"
+					icon={<AppIcon size={16} name="refresh-cw" />}
+				>
+					Saving and leaving wait until the upload finishes.
+				</Notice>
+			) : null}
+			{ready && snapshot.uploadError !== undefined ? (
+				<Notice icon={alert} tone="danger" title="An attachment couldn't upload">
+					Completed uploads stay in your draft. Reopen attachments to retry, or retry draft storage
+					if needed.
+				</Notice>
+			) : null}
+			{ready && snapshot.persistenceError !== undefined ? (
+				<Notice
+					icon={alert}
+					tone="danger"
+					title="Changes aren't being saved on this device"
+					action={
+						<Button size="sm" onClick={() => run(controller.flush())}>
+							Retry draft storage
 						</Button>
-						<Button
-							variant="secondary"
-							disabled={!context?.proAvailable}
-							onClick={() => {
-								if (context !== undefined) {
-									run(
-										controller.start(
-											emptyWorkoutDraft({
-												template: true,
-												id: crypto.randomUUID(),
-												settings: context.settings,
-												now: new Date(schedule.now()).toISOString(),
-											}),
-										),
-									);
-								}
-							}}
-						>
-							New template (Pro)
+					}
+				>
+					Keep this page open and retry before leaving.
+				</Notice>
+			) : null}
+			{ready && (snapshot.deviceError !== undefined || snapshot.timerError !== undefined) ? (
+				<Notice tone="warning" icon={<AppIcon size={16} name="timer" />}>
+					Some device alerts are unavailable. The workout deadline is still retained.
+				</Notice>
+			) : null}
+			{ready && Object.values(snapshot.alertStatus).includes("inexact") ? (
+				<Notice tone="warning" icon={<AppIcon size={16} name="timer" />}>
+					Timer alerts may arrive late on this device. Rest still ends on time here.
+				</Notice>
+			) : null}
+			{ready && editorDraft.submission !== undefined ? (
+				<Notice
+					tone={saved === undefined ? "info" : "success"}
+					title={saved === undefined ? "Saving didn't finish" : "Workout saved"}
+					icon={<AppIcon size={16} name={saved === undefined ? "refresh-cw" : "circle-check"} />}
+					action={
+						<Button size="sm" onClick={save} disabled={snapshot.saving}>
+							{saved === undefined ? "Retry save" : "Finish local cleanup"}
 						</Button>
-					</>
-				) : null}
-				{snapshot.status === "empty" && saved !== undefined ? (
-					<StatusMessage tone="success">
-						Saved. Personal-best processing may still be pending.
-					</StatusMessage>
-				) : null}
-				{snapshot.status === "ready" && editorDraft !== undefined && context !== undefined ? (
-					<>
-						{modeIntroduction !== undefined ? (
-							<p className="text-sm text-text-subtle">{modeIntroduction}</p>
-						) : null}
-						{snapshot.uploading ? (
-							<StatusMessage tone="pending">
-								Uploading attachment… Wait before saving or leaving.
-							</StatusMessage>
-						) : null}
-						{snapshot.uploadError !== undefined ? (
-							<StatusMessage tone="error">
-								An attachment could not be uploaded or stored. Your draft is retained. Reopen
-								attachments to retry, or retry draft storage if needed.
-							</StatusMessage>
-						) : null}
-						{snapshot.persistenceError !== undefined ? (
-							<>
-								<StatusMessage tone="error">
-									Draft persistence failed. Keep this page open and retry.
-								</StatusMessage>
-								<Button onClick={() => run(controller.flush())}>Retry draft storage</Button>
-							</>
-						) : null}
-						{snapshot.deviceError !== undefined || snapshot.timerError !== undefined ? (
-							<StatusMessage tone="error">
-								Some device alerts are unavailable. The workout deadline is still retained.
-							</StatusMessage>
-						) : null}
-						{Object.values(snapshot.alertStatus).includes("inexact") ? (
-							<StatusMessage tone="pending">Device alerts may be delayed.</StatusMessage>
-						) : null}
-						{editorDraft.submission !== undefined ? (
-							<>
-								<StatusMessage tone="pending">
-									This submission is fixed until saving completes. Retrying will not duplicate it.
-								</StatusMessage>
-								<Button onClick={save} disabled={snapshot.saving}>
-									{saved === undefined ? "Retry save" : "Finish local cleanup"}
-								</Button>
-							</>
-						) : null}
-						<fieldset
-							disabled={disabled || existingGuard}
-							className="flex min-w-0 flex-col gap-4 border-0 p-0"
-						>
-							<EditorField
-								label="Name"
-								value={editorDraft.name}
-								onChange={(name) => change((draft) => ({ ...draft, name }))}
-							/>
-							<label className="flex flex-col gap-1 text-sm">
-								{template ? "Template comment" : "Workout reflection"}
-								<TextArea
-									value={editorDraft.comment ?? ""}
-									aria-label={template ? "Template comment" : "Workout reflection"}
-									onChange={(event) =>
-										change((draft) => ({ ...draft, comment: event.target.value }))
+					}
+				>
+					{saved === undefined
+						? "This submission is fixed until saving completes. Retrying won't create a duplicate."
+						: "Clearing the draft on this device didn't finish."}
+				</Notice>
+			) : null}
+			{ready && exercises.isError ? (
+				<Notice
+					icon={alert}
+					tone="danger"
+					title="Exercise details couldn't load"
+					action={
+						<Button size="sm" variant="secondary" onClick={exercises.refetch}>
+							Retry exercises
+						</Button>
+					}
+				>
+					Saving is paused until they load.
+				</Notice>
+			) : null}
+			{ready && live && compact && measurementError ? (
+				<Notice
+					icon={alert}
+					tone="warning"
+					action={
+						<Button size="sm" variant="secondary" onClick={measurementRetry}>
+							Try again
+						</Button>
+					}
+				>
+					Your measurements couldn't be loaded.
+				</Notice>
+			) : null}
+		</>
+	);
+	const states = (
+		<>
+			{snapshot.status === "loading" ? skeleton("Recovering your workout") : null}
+			{snapshot.status === "empty" &&
+			prepareDraft !== undefined &&
+			!requestHandled &&
+			message === undefined &&
+			!requestBlocked
+				? skeleton("Preparing workout editor")
+				: null}
+			{context === undefined && snapshot.contextError === undefined && snapshot.status !== "loading"
+				? skeleton("Loading Fitness settings")
+				: null}
+			{snapshot.status === "empty" && saved === undefined && props.prepareDraft === undefined ? (
+				<EmptyState
+					title="No workout in progress"
+					icon={<AppIcon size={20} name="dumbbell" />}
+					description="Start an empty workout and add exercises as you go, or plan a reusable template."
+					action={
+						<div className="grid w-72 max-w-full gap-2">
+							<Button
+								size="lg"
+								disabled={context === undefined}
+								onClick={() => {
+									if (context !== undefined) {
+										run(
+											controller.start(
+												emptyWorkoutDraft({
+													id: crypto.randomUUID(),
+													settings: context.settings,
+													now: new Date(schedule.now()).toISOString(),
+												}),
+											),
+										);
 									}
-								/>
-							</label>
-							{template ? null : (
-								<div className="flex flex-wrap items-end gap-2">
-									<EditorField
-										numeric
-										value={editorDraft.caloriesBurnt}
-										label={`Energy (${editorDraft.displayEnergyUnit})`}
-										onChange={(caloriesBurnt) => change((draft) => ({ ...draft, caloriesBurnt }))}
-									/>
-									<Button
-										variant="secondary"
-										onClick={() =>
-											change((draft) =>
-												changeWorkoutEnergyUnit(
-													draft,
-													draft.displayEnergyUnit === "kcal" ? "kJ" : "kcal",
-												),
-											)
-										}
-									>
-										Change energy unit
-									</Button>
-								</div>
+								}}
+							>
+								Start empty workout
+							</Button>
+							<Button
+								variant="secondary"
+								disabled={!context?.proAvailable}
+								onClick={() => {
+									if (context !== undefined) {
+										run(
+											controller.start(
+												emptyWorkoutDraft({
+													template: true,
+													id: crypto.randomUUID(),
+													settings: context.settings,
+													now: new Date(schedule.now()).toISOString(),
+												}),
+											),
+										);
+									}
+								}}
+							>
+								<AppIcon size={15} name="layers-3" />
+								New template
+							</Button>
+							{context !== undefined && !context.proAvailable ? (
+								<p className="text-xs text-text-muted">Templates require Pro.</p>
+							) : null}
+						</div>
+					}
+				/>
+			) : null}
+		</>
+	);
+	const cards = ready ? (
+		<fieldset disabled={locked} className="grid min-w-0 gap-3 border-0 p-0">
+			<ManagedAssetProvider
+				assets={managedAssetBatch(
+					(exercises.data ?? []).map((exercise) => exerciseArtwork(exercise)),
+				)}
+			>
+				{occurrenceSegments(editorDraft).map((segment) =>
+					segment.group === undefined ? (
+						segment.occurrences.map((occurrence) => exerciseCard(occurrence, false))
+					) : (
+						<SupersetGroup
+							name={segment.group.name}
+							color={segment.group.color}
+							key={segment.group.clientId}
+							count={segment.occurrences.length}
+						>
+							{segment.occurrences.map((occurrence) => exerciseCard(occurrence, true))}
+						</SupersetGroup>
+					),
+				)}
+			</ManagedAssetProvider>
+		</fieldset>
+	) : null;
+	let headerLine = "Tap to add a comment";
+	if (live) {
+		headerLine = `Started ${clockTime(editorDraft.startedAt) ?? "now"} · tap to add a reflection`;
+	} else if (historical) {
+		headerLine = "Tap to edit details";
+	}
+	let eyebrow = "Workout in progress";
+	if (template) {
+		eyebrow = "Template";
+	} else if (historical) {
+		eyebrow = "Editing saved workout";
+	}
+	const screenTitle = editorDraft?.name.trim();
+	const title = screenTitle === undefined || screenTitle === "" ? "Workout editor" : screenTitle;
+	return (
+		<PluginScreenFrame
+			title={title}
+			hideTitle={ready}
+			floatingAction={
+				ready && compact ? (
+					<ActionDock safeAreaBottom={safeAreaBottom} label={live ? "Timers" : "Editor actions"}>
+						{live ? (
+							<DockTimers
+								{...timerProps}
+								draft={editorDraft}
+								onAddExercises={() => setOverlay("picker")}
+								onJumpToSet={(setId) => scrollToEditorTarget(`set-${setId}`)}
+							/>
+						) : (
+							<div className="flex items-center gap-2">
+								<Button disabled={locked} variant="secondary" onClick={() => setOverlay("picker")}>
+									<AppIcon size={16} name="plus" />
+									Exercise
+								</Button>
+								<span className="flex-1" />
+								<Button disabled={saveBlocked} onClick={() => setOverlay("finish")}>
+									{template ? "Save template" : "Save changes"}
+								</Button>
+							</div>
+						)}
+					</ActionDock>
+				) : undefined
+			}
+			barActions={
+				ready && compact ? (
+					<>
+						{live ? (
+							<ScreenBarButton
+								disabled={locked}
+								onClick={togglePause}
+								className="text-text hover:bg-surface-2"
+								label={paused ? "Resume workout" : "Pause workout"}
+							>
+								<AppIcon size={20} name={paused ? "play" : "pause"} />
+							</ScreenBarButton>
+						) : null}
+						<MenuButton
+							items={workoutMenu}
+							label="Workout actions"
+							renderTrigger={(trigger) => (
+								<ScreenBarButton
+									{...trigger}
+									label="Workout actions"
+									className="text-text hover:bg-surface-2"
+								>
+									<AppIcon size={20} name="more-horizontal" />
+								</ScreenBarButton>
 							)}
-							<EditorSummary
+						/>
+						<Button
+							size="sm"
+							className="ml-1"
+							disabled={saveBlocked}
+							onClick={() => setOverlay("finish")}
+						>
+							{finishLabel}
+						</Button>
+					</>
+				) : undefined
+			}
+		>
+			{ready && compact ? (
+				<div ref={editorRoot} className="grid gap-4 pb-44 font-ui">
+					<header className="grid gap-3">
+						<h1 className="text-xl leading-[26px] font-semibold text-balance">
+							<button
+								type="button"
+								onClick={() => setOverlay("details")}
+								className="text-left [overflow-wrap:anywhere]"
+								aria-label={`Edit ${template ? "template" : "workout"} details, ${title}`}
+							>
+								{title}
+							</button>
+						</h1>
+						<p className="-mt-2.5 text-xs text-text-muted">{headerLine}</p>
+						<EditorStats
+							compact
+							now={now}
+							draft={editorDraft}
+							imperial={context.settings.unitSystem === "imperial"}
+						/>
+					</header>
+					{notices}
+					{cards}
+					<Button
+						disabled={locked}
+						className="w-full"
+						variant="secondary"
+						onClick={() => setOverlay("picker")}
+					>
+						<AppIcon size={16} name="plus" />
+						Add exercises
+					</Button>
+					<p className="text-center text-xs text-text-subtle">
+						{live ? "Only completed sets are saved." : null}
+						{historical ? "Unchecked sets are removed when you save." : null}
+						{template ? "Empty set rows are dropped when you save." : null}
+					</p>
+				</div>
+			) : null}
+			{ready && !compact ? (
+				<div
+					ref={editorRoot}
+					className="mx-auto grid w-full max-w-[72rem] grid-cols-[minmax(0,1fr)_20rem] items-start gap-7 pb-16 font-ui"
+				>
+					<div className="grid min-w-0 gap-4">
+						<header className="grid gap-3.5">
+							<div className="flex items-start gap-3">
+								<div className="min-w-0 flex-1">
+									<p className="text-[11px] font-semibold tracking-wider text-accent-text uppercase">
+										{eyebrow}
+									</p>
+									<h1 className="mt-1 font-display text-title font-semibold text-balance [overflow-wrap:anywhere]">
+										{title}
+									</h1>
+								</div>
+								<Button
+									size="sm"
+									variant="ghost"
+									disabled={locked}
+									onClick={() => setOverlay("details")}
+								>
+									<AppIcon size={14} name="pencil" />
+									Details
+								</Button>
+							</div>
+							<EditorStats
 								now={now}
-								compact={compact}
+								compact={false}
 								draft={editorDraft}
 								imperial={context.settings.unitSystem === "imperial"}
 							/>
-							<Button variant="secondary" onClick={() => setMediaTarget({ kind: "workout" })}>
-								{template ? "Template" : "Workout"} attachments (
-								{editorDraft.images.length + editorDraft.videos.length})
+						</header>
+						{notices}
+						<div className="flex flex-wrap gap-1">
+							<Button size="sm" disabled={locked} onClick={() => setOverlay("picker")}>
+								<AppIcon size={15} name="plus" />
+								Add exercises
 							</Button>
-							{editorDraft.mode.kind === "live" ? (
-								<MeasurementLogger disabled={disabled || existingGuard} />
-							) : null}
-							<EditorClocks now={now} onChange={change} draft={editorDraft} disabled={disabled} />
-							{editorDraft.mode.kind === "live" ? (
-								<details>
-									<summary className="cursor-pointer">Local workout preferences</summary>
-									<div className="flex flex-col gap-2">
-										{(
-											[
-												"muteSounds",
-												"promptForRestTimer",
-												"startTimerForDurationExercises",
-											] as const
-										).map((key) => (
-											<label key={key} className="flex items-center gap-2">
-												<input
-													type="checkbox"
-													checked={local?.[key] ?? false}
-													disabled={
-														key === "promptForRestTimer" &&
-														!context.proAvailable &&
-														!local?.promptForRestTimer
-													}
-													onChange={(event) =>
-														change((draft) => ({
-															...draft,
-															localPreferences: {
-																...draft.localPreferences,
-																[key]: event.target.checked,
-															},
-														}))
-													}
-												/>
-												{localPreferenceLabels[key]}
-											</label>
-										))}
-										<Button
-											variant="ghost"
-											onClick={() => change((draft) => ({ ...draft, localPreferences: undefined }))}
-										>
-											Use Fitness preferences
-										</Button>
-									</div>
-								</details>
-							) : null}
-							<div className="flex flex-wrap gap-2">
-								<Button onClick={() => setOverlay("picker")}>Add exercises</Button>
-								<Button variant="secondary" onClick={() => setOverlay("reorder")}>
-									Reorder
-								</Button>
-								<Button variant="secondary" onClick={() => setOverlay("supersets")}>
-									Supersets
-								</Button>
-								<Button variant="secondary" onClick={() => setOverlay("bulk-delete")}>
-									Bulk delete
-								</Button>
-							</div>
-							{exercises.isError ? (
-								<>
-									<StatusMessage tone="error">Exercise details could not be loaded.</StatusMessage>
-									<Button onClick={exercises.refetch}>Retry exercises</Button>
-								</>
-							) : null}
-							<ManagedAssetProvider
-								assets={managedAssetBatch(
-									(exercises.data ?? []).map((exercise) => exerciseArtwork(exercise)),
-								)}
+							<Button
+								size="sm"
+								variant="ghost"
+								disabled={locked}
+								onClick={() => setOverlay("reorder")}
 							>
-								{occurrenceSegments(editorDraft).map((segment) =>
-									segment.group === undefined ? (
-										segment.occurrences.map((occurrence) => exerciseCard(occurrence, false))
-									) : (
-										<SupersetGroup
-											name={segment.group.name}
-											color={segment.group.color}
-											key={segment.group.clientId}
-											count={segment.occurrences.length}
-										>
-											{segment.occurrences.map((occurrence) => exerciseCard(occurrence, true))}
-										</SupersetGroup>
-									),
-								)}
-							</ManagedAssetProvider>
-						</fieldset>
+								<AppIcon size={15} name="arrow-up-down" />
+								Reorder
+							</Button>
+							<Button
+								size="sm"
+								variant="ghost"
+								disabled={locked}
+								onClick={() => setOverlay("supersets")}
+							>
+								<AppIcon size={15} name="link" />
+								Supersets
+							</Button>
+							<Button
+								size="sm"
+								variant="ghost"
+								disabled={locked}
+								aria-label="Delete exercises or sets"
+								onClick={() => setOverlay("bulk-delete")}
+							>
+								<AppIcon size={15} name="trash-2" />
+								Delete…
+							</Button>
+						</div>
+						{cards}
+					</div>
+					<aside aria-label="Session" className="sticky top-5 grid gap-3">
+						{live ? (
+							<RailTimers
+								{...timerProps}
+								draft={editorDraft}
+								startedAt={clockTime(editorDraft.startedAt)}
+							/>
+						) : null}
+						<RowGroup>
+							{live ? (
+								<button
+									type="button"
+									onClick={measurementLog}
+									ref={measurementSetTrigger}
+									aria-label="Log measurement"
+									disabled={locked || measurementUnavailable}
+									className="flex min-h-12 w-full items-center gap-3 px-3.5 py-2 text-left hover:bg-hover disabled:opacity-50"
+								>
+									<AppIcon size={17} name="ruler" className="shrink-0 text-text-muted" />
+									<span className="flex-1 text-sm font-medium">Log measurement</span>
+									<span className="text-xs text-text-muted">
+										{measurementError ? "Couldn't load" : "Saves separately"}
+									</span>
+								</button>
+							) : null}
+							<button
+								type="button"
+								aria-label={`Attachments (${workoutAttachments})`}
+								onClick={() => setMediaTarget({ kind: "workout" })}
+								className="flex min-h-12 w-full items-center gap-3 px-3.5 py-2 text-left hover:bg-hover"
+							>
+								<AppIcon size={17} name="image" className="shrink-0 text-text-muted" />
+								<span className="flex-1 text-sm font-medium">Attachments</span>
+								<Badge variant="neutral">{workoutAttachments}</Badge>
+							</button>
+							{live ? (
+								<button
+									type="button"
+									onClick={() => setOverlay("preferences")}
+									className="flex min-h-12 w-full items-center gap-3 px-3.5 py-2 text-left hover:bg-hover"
+								>
+									<AppIcon
+										size={17}
+										name="sliders-horizontal"
+										className="shrink-0 text-text-muted"
+									/>
+									<span className="flex-1 text-sm font-medium">Workout preferences</span>
+									<AppIcon size={15} name="chevron-right" className="text-text-subtle" />
+								</button>
+							) : null}
+						</RowGroup>
+						{live && measurementError ? (
+							<Button size="sm" variant="secondary" onClick={measurementRetry}>
+								Retry measurements
+							</Button>
+						) : null}
 						<Button
-							variant="secondary"
-							onClick={() => setOverlay("discard")}
-							disabled={disabled || snapshot.uploading}
+							size="lg"
+							className="w-full"
+							disabled={saveBlocked}
+							onClick={() => setOverlay("finish")}
 						>
-							Cancel and discard
+							{finishLabel}
 						</Button>
-					</>
-				) : null}
-			</div>
+						<Button
+							size="sm"
+							variant="dangerGhost"
+							disabled={disabled || uploading}
+							onClick={() => setOverlay("discard")}
+						>
+							{discardLabel}
+						</Button>
+					</aside>
+				</div>
+			) : null}
+			{ready ? null : (
+				<div ref={editorRoot} className="mx-auto grid w-full max-w-3xl gap-4 pb-16 font-ui">
+					{notices}
+					{states}
+				</div>
+			)}
 			{isActive ? (
 				<>
+					<MeasurementDialogs
+						onClose={measurementClose}
+						dialog={measurementDialog}
+						trigger={measurementTrigger}
+					/>
 					{requestBlocked && !requestHandled ? (
-						<Modal
-							label="Pro required"
-							className={editorModalClass}
+						<Dialog
+							size="sm"
+							title="Templates require Pro"
 							closeLabel="Return to editor"
+							description="Your current draft hasn't changed."
 							onClose={() => {
 								setRequestHandled(true);
 								onStarted?.();
 							}}
-						>
-							<h2>Creating templates requires Pro</h2>
-							<p>Your existing draft has not been changed.</p>
-							<Button
-								onClick={() => {
-									setRequestHandled(true);
-									onStarted?.();
-								}}
-							>
-								{editorDraft === undefined ? "Return to editor" : "Resume draft"}
-							</Button>
-						</Modal>
+							footer={
+								<Button
+									onClick={() => {
+										setRequestHandled(true);
+										onStarted?.();
+									}}
+								>
+									{editorDraft === undefined ? "Return to editor" : "Resume draft"}
+								</Button>
+							}
+						/>
 					) : null}
 					{mediaTarget !== undefined && editorDraft !== undefined && snapshot.status === "ready" ? (
 						<WorkoutMediaOverlay
 							compact={compact}
+							disabled={locked}
 							label={mediaLabel}
 							draft={editorDraft}
 							target={mediaTarget}
 							uploading={snapshot.uploading}
 							safeAreaBottom={safeAreaBottom}
-							disabled={disabled || existingGuard}
 							onClose={() => setMediaTarget(undefined)}
 							onUpload={(kind, file) => controller.uploadMedia(mediaTarget, kind, file)}
 							canUpload={mediaTarget.kind !== "workout" || context?.proAvailable === true}
@@ -1156,33 +1583,47 @@ export function WorkoutEditorScreen(props: {
 						/>
 					) : null}
 					{existingGuard ? (
-						<Modal
-							label="Existing draft"
-							className={editorModalClass}
-							closeLabel="Resume existing draft"
+						<Dialog
+							size="sm"
+							title="You have a workout in progress"
+							closeLabel="Resume workout in progress"
 							onClose={() => {
 								setRequestHandled(true);
 								onStarted?.();
 							}}
-						>
-							<h2>You already have a draft</h2>
-							{disabled ? <p>Finish the pending save before starting another action.</p> : null}
-							<Button
-								onClick={() => {
-									setRequestHandled(true);
-									onStarted?.();
-								}}
-							>
-								Resume draft
-							</Button>
-							<Button
-								variant="secondary"
-								disabled={disabled}
-								onClick={() => run(controller.discard())}
-							>
-								Discard and start requested action
-							</Button>
-						</Modal>
+							footer={
+								<>
+									<Button
+										disabled={disabled}
+										variant="dangerGhost"
+										onClick={() => run(controller.discard())}
+									>
+										Discard and start
+									</Button>
+									<Button
+										onClick={() => {
+											setRequestHandled(true);
+											onStarted?.();
+										}}
+									>
+										Resume workout
+									</Button>
+								</>
+							}
+							description={
+								<>
+									{editorDraft.name} ·{" "}
+									{
+										editorDraft.occurrences
+											.flatMap(({ sets }) => sets)
+											.filter(({ included }) => included).length
+									}{" "}
+									of {editorDraft.occurrences.flatMap(({ sets }) => sets).length} sets done. Resume
+									it, or discard it to start the requested workout.
+									{disabled ? " Finish the pending save before starting another workout." : ""}
+								</>
+							}
+						/>
 					) : null}
 					{overlay === "picker" ||
 					(typeof overlay === "object" &&
@@ -1201,19 +1642,56 @@ export function WorkoutEditorScreen(props: {
 							onApply={applyExercises}
 						/>
 					) : null}
+					{overlay === "details" && editorDraft !== undefined ? (
+						<WorkoutDetailsSheet
+							onClose={close}
+							compact={compact}
+							onChange={change}
+							disabled={locked}
+							draft={editorDraft}
+							safeAreaBottom={safeAreaBottom}
+						/>
+					) : null}
+					{overlay === "preferences" && local !== undefined ? (
+						<WorkoutPreferencesSheet
+							onClose={close}
+							compact={compact}
+							onChange={change}
+							disabled={locked}
+							preferences={local}
+							safeAreaBottom={safeAreaBottom}
+							pro={context?.proAvailable === true}
+						/>
+					) : null}
 					{overlay === "reorder" && editorDraft !== undefined ? (
-						<ReorderOverlay names={names} onClose={close} onChange={change} draft={editorDraft} />
+						<ReorderOverlay
+							names={names}
+							onClose={close}
+							compact={compact}
+							onChange={change}
+							draft={editorDraft}
+							safeAreaBottom={safeAreaBottom}
+						/>
 					) : null}
 					{overlay === "bulk-delete" && editorDraft !== undefined ? (
 						<BulkDeleteOverlay
 							names={names}
 							onClose={close}
+							compact={compact}
 							onChange={change}
 							draft={editorDraft}
+							safeAreaBottom={safeAreaBottom}
 						/>
 					) : null}
 					{overlay === "supersets" && editorDraft !== undefined ? (
-						<SupersetOverlay names={names} onClose={close} onChange={change} draft={editorDraft} />
+						<SupersetOverlay
+							names={names}
+							onClose={close}
+							compact={compact}
+							onChange={change}
+							draft={editorDraft}
+							safeAreaBottom={safeAreaBottom}
+						/>
 					) : null}
 					{typeof overlay === "object" &&
 					overlay.kind === "defaults" &&
@@ -1284,140 +1762,82 @@ export function WorkoutEditorScreen(props: {
 						/>
 					) : null}
 					{overlay === "reload" ? (
-						<Modal
+						<ConfirmDialog
 							onClose={close}
-							closeLabel="Keep draft"
-							label="Reload saved version"
-							className={editorModalClass}
-						>
-							<h2>Replace this draft with the saved version?</h2>
-							<p>
-								Your unsaved changes will be discarded. The newer saved record will not be
-								overwritten.
-							</p>
-							<Button
-								onClick={() =>
-									run(
-										Effect.gen(function* () {
-											const current = controller.getSnapshot();
-											if (
-												current.status !== "ready" ||
-												(current.draft.mode.kind !== "historical" &&
-													current.draft.mode.kind !== "template-edit")
-											) {
-												return;
-											}
-											const loaded = yield* loadEditorSource(client, {
-												draftId: crypto.randomUUID(),
-												entityId: current.draft.mode.entityId,
-												kind: current.draft.mode.kind === "historical" ? "workout" : "template",
-											});
-											if (loaded.kind === "blocked") {
-												setMessage(
-													"The saved version has an unavailable exercise or invalid data. Your draft has been retained.",
-												);
-												return;
-											}
-											if (yield* controller.discard()) {
-												yield* controller.start(loaded.draft);
-												setUseExisting(true);
-												setConflict(false);
-												setMessage(undefined);
-												close();
-											}
-										}),
-									)
-								}
-							>
-								Discard changes and reload
-							</Button>
-							<Button onClick={close} variant="secondary">
-								Keep draft
-							</Button>
-						</Modal>
+							cancelLabel="Keep draft"
+							title="Reload the saved version?"
+							confirmLabel="Discard changes and reload"
+							description="Your unsaved changes will be discarded. The newer saved record will not be overwritten."
+							onConfirm={() =>
+								run(
+									Effect.gen(function* () {
+										const current = controller.getSnapshot();
+										if (
+											current.status !== "ready" ||
+											(current.draft.mode.kind !== "historical" &&
+												current.draft.mode.kind !== "template-edit")
+										) {
+											return;
+										}
+										const loaded = yield* loadEditorSource(client, {
+											draftId: crypto.randomUUID(),
+											entityId: current.draft.mode.entityId,
+											kind: current.draft.mode.kind === "historical" ? "workout" : "template",
+										});
+										if (loaded.kind === "blocked") {
+											setMessage(
+												"The saved version has an unavailable exercise or invalid data. Your draft has been retained.",
+											);
+											return;
+										}
+										if (yield* controller.discard()) {
+											yield* controller.start(loaded.draft);
+											setUseExisting(true);
+											setConflict(false);
+											setMessage(undefined);
+											close();
+										}
+									}),
+								)
+							}
+						/>
 					) : null}
 					{overlay === "finish" && editorDraft !== undefined ? (
-						<Modal
+						<FinishReview
+							now={now}
+							names={names}
+							onSave={save}
 							onClose={close}
-							label="Review save"
-							className={editorModalClass}
-							closeLabel="Continue editing"
-							dismissible={snapshot.status !== "ready" || !snapshot.saving}
-						>
-							<h2 className="text-xl font-semibold">Review {template ? "template" : "workout"}</h2>
-							{!template &&
-							editorDraft.occurrences.some(
-								(occurrence) =>
-									!occurrence.sets.some(({ included }) => included) &&
-									(occurrence.images.length > 0 || occurrence.videos.length > 0),
-							) ? (
-								<p>Attachments on exercises with no included sets will not be saved.</p>
-							) : null}
-							{template ? (
-								<p>
-									Exercise-only entries and partially specified plans are retained. Completely empty
-									set rows are omitted.
-								</p>
-							) : (
-								<p>
-									{editorDraft.occurrences.reduce(
-										(count, occurrence) =>
-											count + occurrence.sets.filter(({ included }) => included).length,
-										0,
-									)}{" "}
-									{editorDraft.mode.kind === "historical" ? "included" : "confirmed"} sets will be
-									saved;{" "}
-									{editorDraft.occurrences.reduce(
-										(count, occurrence) =>
-											count + occurrence.sets.filter(({ included }) => !included).length,
-										0,
-									)}{" "}
-									unconfirmed sets will be omitted.
-								</p>
-							)}
-							<Button onClick={save} disabled={snapshot.status !== "ready" || snapshot.saving}>
-								Save {template ? "template" : "workout"}
-							</Button>
-							<Button
-								onClick={close}
-								variant="secondary"
-								disabled={snapshot.status === "ready" && snapshot.saving}
-							>
-								Continue editing
-							</Button>
-						</Modal>
+							compact={compact}
+							draft={editorDraft}
+							safeAreaBottom={safeAreaBottom}
+							saving={snapshot.status === "ready" && snapshot.saving}
+						/>
 					) : null}
 					{overlay === "discard" ? (
-						<Modal
+						<ConfirmDialog
 							onClose={close}
-							label="Discard draft"
-							closeLabel="Keep draft"
-							className={editorModalClass}
-						>
-							<h2>Discard this draft?</h2>
-							<p>Unsaved workout changes will be lost. Saved records are not deleted.</p>
-							<Button
-								onClick={() =>
-									run(
-										controller.discard().pipe(
-											Effect.tap((removed) =>
-												Effect.sync(() => {
-													if (removed) {
-														setMediaTarget(undefined);
-														close();
-													}
-												}),
-											),
+							cancelLabel="Keep logging"
+							title={editorDraft === undefined || live ? "Discard workout?" : "Discard changes?"}
+							description="Everything in this draft is lost. Saved workouts and measurements stay as they are."
+							confirmLabel={
+								editorDraft === undefined || live ? "Discard workout" : "Discard changes"
+							}
+							onConfirm={() =>
+								run(
+									controller.discard().pipe(
+										Effect.tap((removed) =>
+											Effect.sync(() => {
+												if (removed) {
+													setMediaTarget(undefined);
+													close();
+												}
+											}),
 										),
-									)
-								}
-							>
-								Discard draft
-							</Button>
-							<Button onClick={close} variant="secondary">
-								Keep editing
-							</Button>
-						</Modal>
+									),
+								)
+							}
+						/>
 					) : null}
 				</>
 			) : null}
