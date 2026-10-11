@@ -32,6 +32,7 @@ import {
 	type PluginBridgeOverlayState,
 	PluginBridgePageSearch,
 	PluginBridgeProviderSearchScreen,
+	PluginBridgeProviderSearchScreenResult,
 	PluginBridgeStorageResult,
 	PluginBridgeUploadResult,
 	PluginBridgeRyotQLCancel,
@@ -498,6 +499,16 @@ describe("plugin client bridge contract", () => {
 			Result.isFailure(decode({ ...request, schema: { slug: "movie", owner: { kind: "self" } } })),
 		).toBe(true);
 		expect(Result.isFailure(decode({ ...request, screen: "arbitrary" }))).toBe(true);
+		const decodeResult = Schema.decodeUnknownResult(PluginBridgeProviderSearchScreenResult);
+		const result = {
+			outcome: "success",
+			requestId: "provider-search-screen-1",
+			type: "provider-search-screen-result",
+		};
+		expect(Result.isSuccess(decodeResult({ ...result, value: { kind: "create-requested" } }))).toBe(
+			true,
+		);
+		expect(Result.isFailure(decodeResult({ ...result, value: { kind: "created" } }))).toBe(true);
 		const refresh = { type: "page-refresh" };
 		expect(Result.isSuccess(Schema.decodeUnknownResult(PluginBridgePageRefresh)(refresh))).toBe(
 			true,

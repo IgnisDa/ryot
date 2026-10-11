@@ -167,6 +167,7 @@ it("exposes only approved application-table fields", () => {
 			"userSettingsSchema",
 			"activeRevisionId",
 			"clientApiVersion",
+			"clientEntities",
 			"environmentConfigRevisionId",
 		]),
 	);

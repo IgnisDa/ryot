@@ -385,7 +385,7 @@ describe("definePlugin", () => {
 			notFoundPage: "dashboard",
 			apiVersion: CLIENT_API_VERSION,
 			routes: { "/": "dashboard", "/things/$thingId": "dashboard" },
-			entities: { thing: { detailPage: "dashboard", gridPresentation: "row" } },
+			entities: { thing: { createRoute: "/", detailPage: "dashboard", gridPresentation: "row" } },
 			exports: {
 				card: {
 					entry: "client/card.tsx",
@@ -443,6 +443,7 @@ describe("definePlugin", () => {
 			},
 			{ ...client, entities: { missing: { gridPresentation: "row" } } },
 			{ ...client, entities: { thing: { gridPresentation: "card" } } },
+			{ ...client, entities: { thing: { createRoute: "/things/new" } } },
 			{ ...client, routes: { "/": "card" } },
 			{ ...client, notFoundPage: "missing" },
 		];
@@ -455,7 +456,7 @@ describe("definePlugin", () => {
 					}),
 				),
 			),
-		).toEqual([true, true, true, true, true, true, true, true, true, true, true, true]);
+		).toEqual([true, true, true, true, true, true, true, true, true, true, true, true, true]);
 	});
 
 	it("accepts plugin-owned default homes and portable plugin renderers", () => {

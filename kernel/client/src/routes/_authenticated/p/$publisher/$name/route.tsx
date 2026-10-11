@@ -1,6 +1,6 @@
 import type { PreparedClientPage } from "@ryot-app/contract/modules/pages/schemas";
 import type { PluginPackageId } from "@ryot-app/contract/schema/brands";
-import { createFileRoute, Outlet } from "@tanstack/react-router";
+import { createFileRoute, Outlet, useNavigate } from "@tanstack/react-router";
 
 import { usePageTitle } from "#/modules/navigation/page-title";
 import { mainContentProps } from "#/modules/navigation/skip-link";
@@ -39,6 +39,7 @@ export function PluginRoutePage({
 }
 
 function PluginDocument(props: { readonly title: string; readonly prepared: PreparedClientPage }) {
+	const navigate = useNavigate();
 	const { open, session } = useProviderSearchSession();
 	useClientPageDocument({ ...props, onProviderSearch: open, inert: session !== null });
 	return session === null ? null : (
@@ -47,6 +48,7 @@ function PluginDocument(props: { readonly title: string; readonly prepared: Prep
 			schema={session.request.schema}
 			library={session.request.library}
 			initialQuery={session.request.initialQuery}
+			onCreate={(href) => void navigate({ href })}
 			onClose={() => session.complete({ kind: "cancelled" })}
 		/>
 	);

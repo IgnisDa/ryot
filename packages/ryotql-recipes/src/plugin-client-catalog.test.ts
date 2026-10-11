@@ -17,6 +17,7 @@ const entry = {
 	packageId: "ryot/fitness",
 	contentHash: "source-hash",
 	installationId: "installation-1",
+	clientEntities: { book: { createRoute: "/books/new" } },
 };
 
 const response = {

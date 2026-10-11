@@ -170,6 +170,7 @@ export type PluginBridgeProviderSearchScreen = Schema.Schema.Type<
 export const ProviderSearchScreenOutcome = Schema.Union([
 	strictStruct({ kind: Schema.Literal("added"), entityIds: Schema.Array(EntityId) }),
 	strictStruct({ kind: Schema.Literal("cancelled") }),
+	strictStruct({ kind: Schema.Literal("create-requested") }),
 ]);
 
 export type ProviderSearchScreenOutcome = Schema.Schema.Type<typeof ProviderSearchScreenOutcome>;

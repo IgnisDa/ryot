@@ -47,6 +47,7 @@ const workspace = (
 	health: "ready",
 	clientApiVersion: 1,
 	homeSavedView: null,
+	clientEntities: null,
 	name: slug.toUpperCase(),
 	contentHash: `source-${slug}`,
 	installationId: `installation-${slug}`,

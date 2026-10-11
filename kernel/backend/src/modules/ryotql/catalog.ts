@@ -341,6 +341,7 @@ const plugin: CatalogTable = {
 		ingestedAt: pluginActiveRevisionField("revision.created_at", "date", true),
 		contentHash: pluginActiveRevisionField("revision.content_hash", "text", true),
 		configSchema: pluginActiveRevisionField("revision.client_config_schema", "json", true),
+		clientEntities: pluginActiveRevisionField("revision.client -> 'entities'", "json", true),
 		userSettingsSchema: pluginActiveRevisionField("revision.user_settings_schema", "json", true),
 		environmentConfigRevisionId: withAccess(
 			physicalField("environment_config_revision_id", "text"),

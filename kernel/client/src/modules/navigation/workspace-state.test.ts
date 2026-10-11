@@ -22,6 +22,7 @@ const workspace = (
 	health: "ready",
 	isHidden: false,
 	clientApiVersion: 1,
+	clientEntities: null,
 	contentHash: "source-media",
 	installationId: "installation-media",
 	...overrides,

@@ -167,6 +167,7 @@ export function SavedViewPage({
 			onComplete={session?.complete}
 			schema={providerAddAction.schema}
 			library={providerAddAction.library}
+			onCreate={(href) => void navigate({ href, replace: true })}
 		/>
 	) : null;
 }
