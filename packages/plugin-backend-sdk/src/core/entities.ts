@@ -8,7 +8,7 @@ import {
 	USER_ENTITY_WRITE_SANDBOX_LIMITS,
 } from "./limits";
 import { globalPropertiesSchema, nonEmptyString, sandboxIdSchema } from "./primitives";
-import { submissionOptionsSchema } from "./writes";
+import { optionalSubmissionOptions } from "./writes";
 
 export const sandboxEntitySchemaSlugListSchema = Schema.Array(sandboxIdSchema).pipe(
 	Schema.check(Schema.isMaxLength(USER_ENTITY_READ_SANDBOX_LIMITS.ids)),
@@ -95,13 +95,13 @@ export const ensureUserEntitiesDataSchema = Schema.Array(ensureUserEntityResultS
 export const ensureUserEntitiesResultSchema = hostResultSchema(ensureUserEntitiesDataSchema);
 export const createUserEntityArgsSchema = Schema.Tuple([
 	ensureUserEntityItemSchema,
-	Schema.optional(Schema.UndefinedOr(submissionOptionsSchema)),
+	optionalSubmissionOptions,
 ]);
 export const createUserEntityDataSchema = strictStruct({ entityId: sandboxIdSchema });
 export const createUserEntityResultSchema = hostResultSchema(createUserEntityDataSchema);
 export const deleteUserEntityArgsSchema = Schema.Tuple([
 	strictStruct({ entityId: sandboxIdSchema, entitySchemaSlug: nonEmptyString }),
-	Schema.optional(Schema.UndefinedOr(submissionOptionsSchema)),
+	optionalSubmissionOptions,
 ]);
 export const deleteUserEntityDataSchema = strictStruct({ entityId: sandboxIdSchema });
 export const deleteUserEntityResultSchema = hostResultSchema(deleteUserEntityDataSchema);
@@ -116,7 +116,7 @@ export const updateUserEntityArgsSchema = Schema.Tuple([
 			properties: ensureUserEntityItemSchema.fields.properties,
 		}),
 	}),
-	Schema.optional(Schema.UndefinedOr(submissionOptionsSchema)),
+	optionalSubmissionOptions,
 ]);
 export const updateUserEntityDataSchema = strictStruct({ entityId: sandboxIdSchema });
 export const updateUserEntityResultSchema = hostResultSchema(updateUserEntityDataSchema);

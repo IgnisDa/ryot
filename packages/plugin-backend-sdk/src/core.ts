@@ -6,21 +6,8 @@ export {
 	sendNotificationArgsSchema,
 } from "./core/automation";
 export {
-	AUTOMATION_SANDBOX_HOST_CAPABILITIES,
-	CORE_SANDBOX_HOST_CAPABILITIES,
-	DOMAIN_SANDBOX_HOST_CAPABILITIES,
-	FILESYSTEM_GRANT_SANDBOX_CAPABILITIES,
-	SANDBOX_HOST_CAPABILITIES,
 	SYSTEM_CRON_SANDBOX_HOST_CAPABILITIES,
-	coreSandboxHostCapabilitySchema,
-	domainSandboxHostCapabilitySchema,
 	sandboxHostCapabilitySchema,
-} from "./core/capabilities";
-export type {
-	AutomationSandboxHostCapability,
-	CoreSandboxHostCapability,
-	DomainSandboxHostCapability,
-	FilesystemGrantSandboxCapability,
 } from "./core/capabilities";
 export {
 	createUserEntityArgsSchema,
@@ -71,6 +58,7 @@ export {
 	listEventSchemasArgsSchema,
 	listEventSchemasDataSchema,
 	listEventSchemasResultSchema,
+	partialCreateEventsResult,
 	requestEventStreamWorkArgsSchema,
 	requestEventStreamWorkDataSchema,
 	requestEventStreamWorkResultSchema,

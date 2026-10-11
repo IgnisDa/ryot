@@ -149,6 +149,17 @@ export const AuthoredEntityBrowserAddAction = Schema.Union([
 ]);
 export type AuthoredEntityBrowserAddAction = typeof AuthoredEntityBrowserAddAction.Type;
 
+export const mapEntityBrowserAddActionSchema = <Schema, Mapped>(
+	action:
+		| typeof EntityBrowserPluginRouteAddAction.Type
+		| { readonly type: "provider-search"; readonly schema: Schema }
+		| null,
+	mapSchema: (schema: Schema) => Mapped,
+) =>
+	action === null || action.type === "plugin-route"
+		? action
+		: { ...action, schema: mapSchema(action.schema) };
+
 const SavedViewPageSize = Schema.Int.pipe(
 	Schema.check(Schema.isGreaterThan(0)),
 	Schema.check(Schema.isLessThanOrEqualTo(100)),

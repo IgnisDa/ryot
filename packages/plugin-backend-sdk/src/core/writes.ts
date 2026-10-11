@@ -9,3 +9,7 @@ export const submissionOptionsSchema = strictStruct({
 		Schema.check(Schema.isMaxLength(128)),
 	),
 });
+
+export const optionalSubmissionOptions = Schema.optional(
+	Schema.UndefinedOr(submissionOptionsSchema),
+);

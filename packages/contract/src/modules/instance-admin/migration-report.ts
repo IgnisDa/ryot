@@ -39,6 +39,15 @@ const absentFields = {
 	availableSummary: Schema.String,
 };
 
+const workoutIdentityFields = {
+	userId: Schema.String,
+	workoutId: Schema.String,
+	startedAt: Schema.String,
+	endedAt: Schema.NullOr(Schema.String),
+};
+
+const integrationCacheIdentityFields = { userId: Schema.String, legacyCacheId: Schema.String };
+
 const ambiguousFields = { ...episodeIdentityFields, candidateCount: Schema.Finite };
 
 export const MigrationReportDetail = Schema.Union([
@@ -48,15 +57,13 @@ export const MigrationReportDetail = Schema.Union([
 	Schema.Struct({ ...ambiguousFields, code: Schema.Literal("review-episode-ambiguous") }),
 	Schema.Struct({ ...episodeIdentityFields, code: Schema.Literal("seen-episode-malformed") }),
 	Schema.Struct({
-		userId: Schema.String,
-		legacyCacheId: Schema.String,
+		...integrationCacheIdentityFields,
 		legacyProvider: Schema.NullOr(Schema.String),
 		providersConsumedOn: Schema.Array(Schema.String),
 		code: Schema.Literal("integration-cache-provider-unmapped"),
 	}),
 	Schema.Struct({
-		userId: Schema.String,
-		legacyCacheId: Schema.String,
+		...integrationCacheIdentityFields,
 		parentName: Schema.NullOr(Schema.String),
 		requestedSeason: Schema.NullOr(Schema.String),
 		legacyMetadataId: Schema.NullOr(Schema.String),
@@ -74,29 +81,20 @@ export const MigrationReportDetail = Schema.Union([
 		code: Schema.Literal("exercise-ownerless-unreferenced"),
 	}),
 	Schema.Struct({
-		userId: Schema.String,
-		workoutId: Schema.String,
-		startedAt: Schema.String,
-		endedAt: Schema.NullOr(Schema.String),
+		...workoutIdentityFields,
 		setOrder: Schema.NullOr(Schema.Finite),
 		confirmedAt: Schema.NullOr(Schema.String),
 		exerciseOrder: Schema.NullOr(Schema.Finite),
 		code: Schema.Literal("workout-set-completion-outside-session"),
 	}),
 	Schema.Struct({
-		userId: Schema.String,
-		workoutId: Schema.String,
-		startedAt: Schema.String,
+		...workoutIdentityFields,
 		legacyValue: Schema.String,
-		endedAt: Schema.NullOr(Schema.String),
 		code: Schema.Literal("workout-active-duration-invalid"),
 	}),
 	Schema.Struct({
-		userId: Schema.String,
-		workoutId: Schema.String,
-		startedAt: Schema.String,
+		...workoutIdentityFields,
 		legacyValue: Schema.String,
-		endedAt: Schema.NullOr(Schema.String),
 		legacyEnergyUnit: Schema.NullOr(Schema.String),
 		code: Schema.Literal("workout-energy-invalid"),
 	}),

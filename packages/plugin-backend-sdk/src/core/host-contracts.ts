@@ -1,4 +1,10 @@
-import type { SandboxHostCapability } from "@ryot-app/contract/modules/scripts/wire";
+import type {
+	AutomationSandboxHostCapability,
+	CoreSandboxHostCapability,
+	DomainSandboxHostCapability,
+	FilesystemGrantSandboxCapability,
+	SandboxHostCapability,
+} from "@ryot-app/contract/modules/scripts/wire";
 import type { Effect } from "@ryot-app/plugin-backend-sdk/effect";
 import { Schema } from "@ryot-app/plugin-backend-sdk/effect";
 
@@ -10,12 +16,6 @@ import {
 	emitSignalResultSchema,
 	sendNotificationArgsSchema,
 } from "./automation";
-import type {
-	AutomationSandboxHostCapability,
-	CoreSandboxHostCapability,
-	DomainSandboxHostCapability,
-	FilesystemGrantSandboxCapability,
-} from "./capabilities";
 import {
 	createUserEntityArgsSchema,
 	createUserEntityDataSchema,

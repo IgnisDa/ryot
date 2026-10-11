@@ -1,5 +1,6 @@
 import {
 	CreateEventsResponse,
+	EventPropertiesPatch,
 	EventWritePrecondition,
 } from "@ryot-app/contract/modules/events/schemas";
 import {
@@ -13,7 +14,7 @@ import { hostResultSchema, jsonValueSchema, strictStruct } from "../wire";
 import { sandboxEntitySchemaSlugListSchema } from "./entities";
 import { EVENT_MUTATION_SANDBOX_LIMITS } from "./limits";
 import { nonEmptyString, sandboxIdSchema } from "./primitives";
-import { submissionOptionsSchema } from "./writes";
+import { optionalSubmissionOptions, submissionOptionsSchema } from "./writes";
 
 export const eventSchemaRecordSchema = strictStruct({
 	id: Schema.String,
@@ -49,23 +50,13 @@ export const createEventsResultDataSchema = strictStruct({
 	outcomes: CreateEventsResponse.fields.outcomes,
 	count: Schema.Number.pipe(Schema.check(Schema.isInt())),
 });
-const eventPropertiesPatchSchema = strictStruct({
-	remove: Schema.Array(Schema.String),
-	set: Schema.Record(Schema.String, jsonValueSchema),
-}).pipe(
-	Schema.check(
-		Schema.makeFilter(
-			(patch) =>
-				(patch.remove.length > 0 || Object.keys(patch.set).length > 0) &&
-				new Set(patch.remove).size === patch.remove.length &&
-				patch.remove.every((key) => !Object.hasOwn(patch.set, key)),
-		),
-	),
+export const partialCreateEventsResult = Schema.decodeUnknownOption(
+	Schema.Struct({ ...createEventsResultDataSchema.fields, partial: Schema.Literal(true) }),
 );
 const eventUpdatePatchSchema = strictStruct({
 	entityId: Schema.optional(sandboxIdSchema),
 	occurredAt: Schema.optional(Schema.String),
-	properties: Schema.optional(eventPropertiesPatchSchema),
+	properties: Schema.optional(EventPropertiesPatch),
 	sessionEntityId: Schema.optional(Schema.NullOr(sandboxIdSchema)),
 }).pipe(Schema.check(Schema.makeFilter((patch) => Object.keys(patch).length > 0)));
 export const updateEventItemSchema = strictStruct({
@@ -78,7 +69,7 @@ export const updateEventsArgsSchema = Schema.Tuple([
 	Schema.Array(updateEventItemSchema).pipe(
 		Schema.check(Schema.isMaxLength(EVENT_MUTATION_SANDBOX_LIMITS.items)),
 	),
-	Schema.optional(Schema.UndefinedOr(submissionOptionsSchema)),
+	optionalSubmissionOptions,
 ]);
 export const deleteEventsArgsSchema = Schema.Tuple([
 	Schema.Array(sandboxIdSchema).pipe(
@@ -103,7 +94,7 @@ export const listEventSchemasDataSchema = Schema.Array(eventSchemaRecordSchema);
 export const createEventsResultSchema = hostResultSchema(createEventsResultDataSchema);
 export const createEventsArgsSchema = Schema.Tuple([
 	Schema.Array(createEventItemSchema),
-	Schema.optional(Schema.UndefinedOr(submissionOptionsSchema)),
+	optionalSubmissionOptions,
 ]);
 export const requestEventStreamWorkArgsSchema = Schema.Tuple([
 	EventStreamWorkRequest,
