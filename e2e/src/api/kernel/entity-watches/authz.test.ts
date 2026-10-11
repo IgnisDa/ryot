@@ -11,12 +11,15 @@ import {
 	createAuthenticatedClient,
 	createImpersonationSession,
 	endImpersonationSession,
+	fakeProviderDetailsResult,
 	getEntity,
+	installTestProvider,
 	makeSession,
 	openInterestWebSocketScoped,
+	seedEntity,
+	testProviderEntitySchema,
+	uninstallTestProvider,
 } from "~/fixtures/kernel";
-import { findMediaEntitySchema, seedMediaEntity } from "~/fixtures/plugins/media";
-import { assertPresent } from "~/support/assertions";
 import { describe, expect, it } from "~/support/effect-test";
 import { getApiUrl } from "~/support/harness-target";
 import { webRequest } from "~/support/web-request";
@@ -76,20 +79,23 @@ describe("interest authorization", () => {
 			const authA = yield* createAuthenticatedClient();
 			const authB = yield* createAuthenticatedClient();
 
-			const { schema } = yield* findMediaEntitySchema(authA.client, "company");
-			const providerId = schema.providers.find(
-				(provider) => provider.name === "Anilist",
-			)?.providerId;
-			assertPresent(providerId, "Anilist company provider not found");
+			const provider = yield* Effect.acquireRelease(
+				installTestProvider({
+					client: authA.client,
+					rootEntitySchemaSlug: "studio",
+					details: fakeProviderDetailsResult({ name: "Populated Private Studio" }),
+				}),
+				uninstallTestProvider,
+			);
 
-			const privateEntity = yield* seedMediaEntity({
-				providerId,
+			const privateEntity = yield* seedEntity({
 				properties: {},
 				client: authA.client,
 				userId: authA.userId,
 				name: "A's Private Studio",
-				entitySchemaSlug: schema.id,
+				providerId: provider.providerId,
 				externalId: `private-${crypto.randomUUID()}`,
+				entitySchema: testProviderEntitySchema(provider),
 			});
 
 			const socketB = yield* openInterestWebSocketScoped(authB);
