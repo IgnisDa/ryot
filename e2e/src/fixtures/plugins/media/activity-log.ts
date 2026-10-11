@@ -56,7 +56,7 @@ export const mediaReferenceForEntity = (client: Client, entityId: string) =>
 const AIRED = "2020-01-01";
 const UNAIRED = "2999-01-01";
 
-export type SeededEpisodeSpec = {
+type SeededEpisodeSpec = {
 	readonly seasonNumber: number;
 	readonly episodeNumber: number;
 	readonly aired?: boolean;

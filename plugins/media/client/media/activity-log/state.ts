@@ -10,9 +10,9 @@ import {
 import { mediaActivityDurationLabel } from "../activity-timeline";
 import { type MediaWatchProviders, viewerRegion, watchProviderGroups } from "../watch-providers";
 
-export type MediaActivityStatus = (typeof mediaActivityStatuses)[number];
+type MediaActivityStatus = (typeof mediaActivityStatuses)[number];
 
-export type MediaActivityLogUnit = {
+type MediaActivityLogUnit = {
 	readonly field: "pages" | "runtime" | "episodes" | "chapters";
 	readonly singular: string;
 	readonly plural: string;
@@ -25,7 +25,6 @@ type MediaActivityLogCopy = {
 	readonly participle: string;
 };
 
-/** What the Log activity sheet needs from a schema: its intent family and vocabulary. */
 export type MediaActivityLogger =
 	| {
 			readonly family: "flat";
@@ -40,7 +39,7 @@ export type MediaActivityLogger =
 	  }
 	| { readonly family: "show" | "podcast"; readonly copy: MediaActivityLogCopy };
 
-export type ActivityIntent = "finished" | "progress" | "status" | "episode";
+type ActivityIntent = "finished" | "progress" | "status" | "episode";
 
 export type ActivityWhenKind = "now" | "date" | "unknown";
 
@@ -58,7 +57,7 @@ export type ActivityDraft = {
 	readonly status: MediaActivityStatus;
 };
 
-export type ActivityWhenDraft =
+type ActivityWhenDraft =
 	| { readonly kind: "now" }
 	| { readonly kind: "unknown" }
 	| { readonly kind: "date"; readonly finishedDay: string; readonly startedDay?: string };
@@ -134,7 +133,7 @@ const dayParts = (day: string) => {
 	return localDay(noon.getTime()) === day ? noon : undefined;
 };
 
-export const isActivityDay = (day: string) => dayParts(day) !== undefined;
+const isActivityDay = (day: string) => dayParts(day) !== undefined;
 
 export const parseTimeSpent = (hours: string, minutes: string) => {
 	const parts = [hours.trim(), minutes.trim()];
@@ -199,7 +198,7 @@ export const initialActivityDraft = (
 	};
 };
 
-export type ActivityDraftErrors = {
+type ActivityDraftErrors = {
 	readonly when?: string;
 	readonly time?: string;
 	readonly percent?: string;
