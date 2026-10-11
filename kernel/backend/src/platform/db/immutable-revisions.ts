@@ -26,13 +26,14 @@ export const pluginRevisionSections = (manifest: SQL) => ({
 
 // TODO: Drizzle cannot generate triggers (https://github.com/drizzle-team/drizzle-orm/issues/843), so startup installs these after migrations.
 export const immutableRevisionStatements = [
-	`create or replace function ryot_reject_revision_update() returns trigger language plpgsql as $$
+	`create or replace function ryot_reject_revision_update() returns trigger language plpgsql set search_path from current as $$
 begin
 	raise exception using errcode = 'P0001', message = 'plugin revisions are immutable';
 end $$`,
 	`create or replace trigger ryot_plugin_revision_immutable before update on plugin_revision for each row execute function ryot_reject_revision_update()`,
 	`create or replace trigger ryot_plugin_revision_manifest_immutable before update on plugin_revision_manifest for each row execute function ryot_reject_revision_update()`,
-	`create or replace function ryot_check_revision_manifest_sections() returns trigger language plpgsql as $$
+	`create or replace trigger ryot_plugin_revision_manifest_truncate before truncate on plugin_revision_manifest for each statement execute function ryot_reject_revision_update()`,
+	`create or replace function ryot_check_revision_manifest_sections() returns trigger language plpgsql set search_path from current as $$
 begin
 	if exists (
 		select 1 from plugin_revision r
@@ -65,7 +66,7 @@ begin
 	return null;
 end $$`,
 	`create or replace trigger ryot_revision_manifest_sections after insert on plugin_revision_manifest for each row execute function ryot_check_revision_manifest_sections()`,
-	`create or replace function ryot_require_revision_manifest() returns trigger language plpgsql as $$
+	`create or replace function ryot_require_revision_manifest() returns trigger language plpgsql set search_path from current as $$
 begin
 	if exists (
 		select 1 from plugin_revision r
@@ -78,4 +79,13 @@ begin
 end $$`,
 	`drop trigger if exists ryot_revision_manifest_present on plugin_revision`,
 	`create constraint trigger ryot_revision_manifest_present after insert on plugin_revision deferrable initially deferred for each row execute function ryot_require_revision_manifest()`,
+	`create or replace function ryot_reject_revision_manifest_delete() returns trigger language plpgsql set search_path from current as $$
+begin
+	if exists (select 1 from plugin_revision r where r.id = old.plugin_revision_id) then
+		raise exception using errcode = 'P0001', message = 'plugin revision manifests cannot be deleted while their revision exists';
+	end if;
+	return null;
+end $$`,
+	`drop trigger if exists ryot_revision_manifest_retained on plugin_revision_manifest`,
+	`create constraint trigger ryot_revision_manifest_retained after delete on plugin_revision_manifest deferrable initially deferred for each row execute function ryot_reject_revision_manifest_delete()`,
 ];

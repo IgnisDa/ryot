@@ -166,6 +166,96 @@ describe("immutable plugin revisions", () => {
 			}),
 		);
 
+		test.effect("rejects replacing the manifest of a committed revision", () =>
+			Effect.gen(function* () {
+				const session = yield* DatabaseSession;
+				const packageValue = revisionPackage("replace");
+				const installed = yield* installRevisionPackage(packageValue, owner);
+				const replaced = yield* Effect.exit(
+					session.run((db) =>
+						db.transaction((tx) =>
+							Effect.gen(function* () {
+								yield* tx
+									.delete(tables.pluginRevisionManifest)
+									.where(eq(tables.pluginRevisionManifest.pluginRevisionId, installed.revisionId));
+								yield* tx
+									.insert(tables.pluginRevisionManifest)
+									.values({
+										manifest: packageValue.manifest,
+										pluginRevisionId: installed.revisionId,
+									});
+							}),
+						),
+					),
+				);
+				assert(Exit.isFailure(replaced));
+				const commitFailure = databaseError(replaced.cause);
+				expect(commitFailure.code).toBe("P0001");
+				expect(commitFailure.message).toContain("cannot be deleted while their revision exists");
+			}),
+		);
+
+		test.effect("rejects deleting the manifest of a revision that remains", () =>
+			Effect.gen(function* () {
+				const session = yield* DatabaseSession;
+				const installed = yield* installRevisionPackage(revisionPackage("retained"), owner);
+				const deleted = yield* Effect.exit(
+					session.run((db) =>
+						db
+							.delete(tables.pluginRevisionManifest)
+							.where(eq(tables.pluginRevisionManifest.pluginRevisionId, installed.revisionId)),
+					),
+				);
+				assert(Exit.isFailure(deleted));
+				const commitFailure = databaseError(deleted.cause);
+				expect(commitFailure.code).toBe("P0001");
+				expect(commitFailure.message).toContain("cannot be deleted while their revision exists");
+				const remaining = yield* session.run((db) =>
+					db
+						.select({ id: tables.pluginRevisionManifest.pluginRevisionId })
+						.from(tables.pluginRevisionManifest)
+						.where(eq(tables.pluginRevisionManifest.pluginRevisionId, installed.revisionId)),
+				);
+				expect(remaining).toEqual([{ id: installed.revisionId }]);
+			}),
+		);
+
+		test.effect("deletes manifests when their plugin is deleted", () =>
+			Effect.gen(function* () {
+				const session = yield* DatabaseSession;
+				const installed = yield* installRevisionPackage(revisionPackage("cascade"), owner);
+				yield* session.run((db) =>
+					db.delete(tables.plugin).where(eq(tables.plugin.id, installed.pluginId)),
+				);
+				const remaining = yield* session.run((db) =>
+					db
+						.select({ id: tables.pluginRevisionManifest.pluginRevisionId })
+						.from(tables.pluginRevisionManifest)
+						.where(eq(tables.pluginRevisionManifest.pluginRevisionId, installed.revisionId)),
+				);
+				expect(remaining).toEqual([]);
+			}),
+		);
+
+		test.effect("rejects truncating revision manifests", () =>
+			Effect.gen(function* () {
+				const session = yield* DatabaseSession;
+				const installed = yield* installRevisionPackage(revisionPackage("truncate"), owner);
+				const truncated = yield* Effect.exit(
+					session.run((db) => db.execute(sql`truncate plugin_revision_manifest`)),
+				);
+				assert(Exit.isFailure(truncated));
+				expect(databaseError(truncated.cause).code).toBe("P0001");
+				const remaining = yield* session.run((db) =>
+					db
+						.select({ id: tables.pluginRevisionManifest.pluginRevisionId })
+						.from(tables.pluginRevisionManifest)
+						.where(eq(tables.pluginRevisionManifest.pluginRevisionId, installed.revisionId)),
+				);
+				expect(remaining).toEqual([{ id: installed.revisionId }]);
+			}),
+		);
+
 		test.effect("reinstalls the statement list idempotently", () =>
 			Effect.gen(function* () {
 				const session = yield* DatabaseSession;
@@ -187,7 +277,9 @@ describe("immutable plugin revisions", () => {
 				expect(triggers.map(({ name }) => name)).toEqual([
 					"ryot_plugin_revision_immutable",
 					"ryot_plugin_revision_manifest_immutable",
+					"ryot_plugin_revision_manifest_truncate",
 					"ryot_revision_manifest_present",
+					"ryot_revision_manifest_retained",
 					"ryot_revision_manifest_sections",
 				]);
 				const updated = yield* Effect.result(
