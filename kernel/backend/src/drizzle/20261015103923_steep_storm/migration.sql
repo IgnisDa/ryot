@@ -230,6 +230,7 @@ CREATE TABLE "definition_integration_provider" (
 	"position" integer NOT NULL,
 	"id" text PRIMARY KEY,
 	"script_slug" text,
+	"plan" jsonb,
 	"description" text NOT NULL,
 	"requires_pro_key" boolean NOT NULL,
 	"settings_schema" jsonb NOT NULL,
@@ -238,6 +239,22 @@ CREATE TABLE "definition_integration_provider" (
 	"plugin_revision_id" text NOT NULL,
 	CONSTRAINT "definition_integration_provider_revision_slug_unique" UNIQUE("plugin_revision_id","slug"),
 	CONSTRAINT "definition_integration_provider_script_check" CHECK (("lot" = 'push') = ("script_slug" is null))
+);
+--> statement-breakpoint
+CREATE TABLE "definition_provider" (
+	"slug" text,
+	"position" integer NOT NULL,
+	"root_entity_schema_slug" text NOT NULL,
+	"plugin_revision_id" text,
+	CONSTRAINT "definition_provider_pkey" PRIMARY KEY("plugin_revision_id","slug")
+);
+--> statement-breakpoint
+CREATE TABLE "definition_provider_operation" (
+	"operation" text,
+	"script_slug" text NOT NULL,
+	"provider_slug" text,
+	"plugin_revision_id" text,
+	CONSTRAINT "definition_provider_operation_pkey" PRIMARY KEY("plugin_revision_id","provider_slug","operation")
 );
 --> statement-breakpoint
 CREATE TABLE "definition_relationship_schema" (
@@ -1169,6 +1186,8 @@ ALTER TABLE "definition_entity_schema" ADD CONSTRAINT "definition_entity_schema_
 ALTER TABLE "definition_event_schema" ADD CONSTRAINT "definition_event_schema_teyj1WWBsLDW_fkey" FOREIGN KEY ("entity_schema_id") REFERENCES "definition_entity_schema"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "definition_import_source" ADD CONSTRAINT "definition_import_source_9QXqIT7s6wRv_fkey" FOREIGN KEY ("plugin_revision_id") REFERENCES "plugin_revision"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "definition_integration_provider" ADD CONSTRAINT "definition_integration_provider_Xf8wFlO3evuA_fkey" FOREIGN KEY ("plugin_revision_id") REFERENCES "plugin_revision"("id") ON DELETE CASCADE;--> statement-breakpoint
+ALTER TABLE "definition_provider" ADD CONSTRAINT "definition_provider_plugin_revision_id_plugin_revision_id_fkey" FOREIGN KEY ("plugin_revision_id") REFERENCES "plugin_revision"("id") ON DELETE CASCADE;--> statement-breakpoint
+ALTER TABLE "definition_provider_operation" ADD CONSTRAINT "definition_provider_operation_provider_fk" FOREIGN KEY ("plugin_revision_id","provider_slug") REFERENCES "definition_provider"("plugin_revision_id","slug") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "definition_relationship_schema" ADD CONSTRAINT "definition_relationship_schema_F2xV1mUphM5y_fkey" FOREIGN KEY ("plugin_revision_id") REFERENCES "plugin_revision"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "definition_saved_view" ADD CONSTRAINT "definition_saved_view_bGBIhUsWSMr5_fkey" FOREIGN KEY ("plugin_revision_id") REFERENCES "plugin_revision"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "definition_signal_schema" ADD CONSTRAINT "definition_signal_schema_kHnAff4N3xqs_fkey" FOREIGN KEY ("plugin_revision_id") REFERENCES "plugin_revision"("id") ON DELETE CASCADE;--> statement-breakpoint
@@ -1340,13 +1359,13 @@ CREATE VIEW "user_import_source" AS (
 			from "user" u
 		);--> statement-breakpoint
 CREATE VIEW "user_integration_provider" AS (
-			select p.user_id, d.id, p.plugin_id, p.package_id, d.plugin_revision_id, p.scope as plugin_scope, p.installation_id, p.config_revision_id, d.slug, d.name, d.description, d.position, d.lot, d.script_slug, s.id as script_id, d.settings_schema, d.requires_pro_key, d.supports_ownership_sync
+			select p.user_id, d.id, p.plugin_id, p.package_id, d.plugin_revision_id, p.scope as plugin_scope, p.installation_id, p.config_revision_id, d.slug, d.name, d.description, d.position, d.lot, d.script_slug, s.id as script_id, d.settings_schema, d.requires_pro_key, d.supports_ownership_sync, d.plan
 			from "user_plugin" p
 			join definition_integration_provider d on d.plugin_revision_id = p.active_revision_id
 			left join sandbox_script s on s.plugin_revision_id = d.plugin_revision_id and s.slug = d.script_slug
 			where p.is_executable
 			union all
-			select u.id, 'kernel:data-json:' || u.id, null::text, null::text, null::text, null::text, null::text, null::text, 'data-json', 'Data webhook', 'Receive generic entities, relationships, and events as JSON.', 0, 'sink', null::text, null::text, '{"fields":{},"unknownKeys":"strict"}'::jsonb, false, false
+			select u.id, 'kernel:data-json:' || u.id, null::text, null::text, null::text, null::text, null::text, null::text, 'data-json', 'Data webhook', 'Receive generic entities, relationships, and events as JSON.', 0, 'sink', null::text, null::text, '{"fields":{},"unknownKeys":"strict"}'::jsonb, false, false, null::jsonb
 			from "user" u
 		);--> statement-breakpoint
 CREATE VIEW "user_relationship_schema" AS (
@@ -1364,22 +1383,20 @@ CREATE VIEW "user_sandbox_provider" AS (
 			select p.user_id, s.id, s.plugin_id, p.package_id, p.scope as plugin_scope, p.installation_id, s.slug, s.name, s.root_entity_schema_slug, s.information, s.created_at, s.updated_at
 			from "user_plugin" p
 			join sandbox_provider s on s.plugin_id = p.plugin_id
-			join plugin_revision r on r.id = p.active_revision_id
-			where p.is_executable and exists (select 1 from jsonb_array_elements(r.providers) m where m ->> 'slug' = s.slug and m ->> 'rootEntitySchemaSlug' = s.root_entity_schema_slug) and exists (select 1 from "user_entity_schema" e where e.user_id = p.user_id and e.plugin_id = s.plugin_id and e.slug = s.root_entity_schema_slug and e.is_effective)
+			join definition_provider d on d.plugin_revision_id = p.active_revision_id and d.slug = s.slug and d.root_entity_schema_slug = s.root_entity_schema_slug
+			where p.is_executable and exists (select 1 from "user_entity_schema" e where e.user_id = p.user_id and e.plugin_id = s.plugin_id and e.slug = s.root_entity_schema_slug and e.is_effective)
 		);--> statement-breakpoint
 CREATE VIEW "user_sandbox_provider_operation" AS (
 		select provider.user_id, provider.id as provider_id, provider.plugin_id, provider.package_id,
-			case when operation.key = 'searchOptions' then 'search-options' else operation.key end as operation,
-			case when operation.key = 'search' then script.metadata -> 'searchOptionsSchema' else null end as options_schema
+			operation.operation,
+			case when operation.operation = 'search' then script.metadata -> 'searchOptionsSchema' else null end as options_schema
 		from "user_sandbox_provider" provider
 		join plugin p on p.id = provider.plugin_id
-		join plugin_revision r on r.id = p.active_revision_id
-		join lateral jsonb_array_elements(r.providers) as definition(value) on definition.value ->> 'slug' = provider.slug
-		join lateral jsonb_each_text(definition.value -> 'operations') as operation(key, value) on true
-		join sandbox_script script on script.plugin_revision_id = r.id
-			and script.slug = operation.value and script.provider_id = provider.id
+		join definition_provider_operation operation on operation.plugin_revision_id = p.active_revision_id and operation.provider_slug = provider.slug
+		join sandbox_script script on script.plugin_revision_id = operation.plugin_revision_id
+			and script.slug = operation.script_slug and script.provider_id = provider.id
 			and script.metadata ->> 'kind' = 'provider'
-			and script.metadata ->> 'providerOperation' = case when operation.key = 'searchOptions' then 'search-options' else operation.key end
+			and script.metadata ->> 'providerOperation' = operation.operation
 	);--> statement-breakpoint
 CREATE VIEW "user_saved_view" AS (
 			select u.id as user_id, d.id, null::text as plugin_id, null::text as package_id, d.plugin_revision_id, null::text as plugin_scope, d.slug, d.name, d.position, d.icon, d.sort_order, d.data_sources, d.settings, d.renderer, true as is_effective
