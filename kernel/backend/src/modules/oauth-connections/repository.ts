@@ -21,7 +21,6 @@ const connectionSelection = {
 	status: connection.status,
 	userId: connection.userId,
 	expiresAt: connection.expiresAt,
-	pluginSlug: connection.pluginSlug,
 	accessToken: connection.accessToken,
 	refreshToken: connection.refreshToken,
 	tokenVersion: connection.tokenVersion,
@@ -31,6 +30,7 @@ const connectionSelection = {
 	pluginInstallationId: connection.pluginInstallationId,
 	accessTokenExpiresAt: connection.accessTokenExpiresAt,
 	integrationProviderSlug: connection.integrationProviderSlug,
+	pluginId: sql<string>`(select ${schema.pluginInstallation.pluginId} from ${schema.pluginInstallation} where ${schema.pluginInstallation.id} = ${connection.pluginInstallationId} and ${schema.pluginInstallation.userId} = ${connection.userId})`,
 };
 
 const unexpiredAt = (now: Date) => gt(connection.expiresAt, now);
@@ -67,7 +67,6 @@ export class OAuthConnectionsRepository extends Context.Service<OAuthConnections
 					readonly userId: UserId;
 					readonly expiresAt: Date;
 					readonly stateHash: string;
-					readonly pluginSlug: string;
 					readonly tokenUrlOrigin: string;
 					readonly oauthProviderSlug: string;
 					readonly pluginInstallationId: string;
@@ -361,7 +360,6 @@ export class OAuthConnectionsRepository extends Context.Service<OAuthConnections
 								pins: schema.importRun.pins,
 								pluginOwnerId: schema.plugin.ownerId,
 								manifest: schema.pluginRevision.manifest,
-								installationPluginSlug: schema.plugin.slug,
 								pluginId: schema.pluginInstallation.pluginId,
 							})
 							.from(connection)
@@ -379,6 +377,7 @@ export class OAuthConnectionsRepository extends Context.Service<OAuthConnections
 								and(
 									eq(schema.importRun.integrationId, schema.integration.id),
 									eq(schema.importRun.userId, schema.integration.userId),
+									eq(schema.importRun.pluginInstallationId, connection.pluginInstallationId),
 								),
 							)
 							.innerJoin(
@@ -403,6 +402,10 @@ export class OAuthConnectionsRepository extends Context.Service<OAuthConnections
 									eq(connection.integrationId, input.integrationId),
 									eq(schema.importRun.id, input.integrationRunId),
 									eq(schema.importRun.status, "running"),
+									eq(schema.plugin.status, "active"),
+									eq(schema.pluginInstallation.health, "ready"),
+									isNull(schema.pluginInstallation.uninstalledAt),
+									eq(schema.pluginInstallation.ingestionRetiring, false),
 								),
 							)
 							.limit(1),

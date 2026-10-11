@@ -1,6 +1,7 @@
 import { DbError, type SandboxFailureKind, type SandboxRunError } from "@ryot-app/contract/errors";
 import {
 	AutomationInput,
+	AutomationAfterPayload,
 	AutomationPolicyInput,
 	AutomationPolicyOutput,
 	AutomationRunAttempt,
@@ -9,6 +10,9 @@ import {
 	type AutomationRun,
 	type AutomationTrigger,
 } from "@ryot-app/contract/modules/automations/lifecycle";
+import type { PluginHook } from "@ryot-app/contract/modules/plugins/manifest";
+import { definitionOwner } from "@ryot-app/contract/modules/plugins/references";
+import { SandboxBoundaryReason } from "@ryot-app/contract/modules/sandbox/boundary-reason";
 import {
 	SandboxExecutionSubject,
 	SandboxScriptManifest,
@@ -40,6 +44,7 @@ import {
 	type FinalizeAutomationAttempt,
 } from "./attempt-repository";
 import { projectAutomationAfterInput, projectAutomationPolicyInput } from "./input-projection";
+import { automationPayloadPluginId } from "./planner-resolver";
 import { AutomationRunRepository } from "./run-repository";
 import {
 	AutomationAttemptResult,
@@ -60,7 +65,11 @@ type PreparedAutomationRun = typeof PreparedAutomationRun.Type;
 
 class AutomationPreparationError extends Schema.TaggedError<AutomationPreparationError>()(
 	"AutomationPreparationError",
-	{ message: Schema.String, kind: Schema.Literals(["missing-artifact", "invalid-input"]) },
+	{
+		message: Schema.String,
+		data: Schema.optional(SandboxBoundaryReason),
+		kind: Schema.Literals(["missing-artifact", "invalid-input", "business-failure"]),
+	},
 ) {}
 
 const ClaimedAutomationAttempt = Schema.Struct({
@@ -87,6 +96,7 @@ export const prepareAutomationInvocation = (
 	script: Extract<SandboxScriptManifestType, { kind: "automation" }>,
 	accountGeneration: AccountGeneration | null,
 	hookMetadata?: JsonValue,
+	hookTargets: PluginHook["targets"] = [],
 ) =>
 	Effect.gen(function* () {
 		if (!trigger.payload) {
@@ -124,7 +134,29 @@ export const prepareAutomationInvocation = (
 			if (script.automationType !== "automation") {
 				return yield* projectionError(run, "has an incompatible automation declaration");
 			}
-			projected = projectAutomationAfterInput(trigger.payload, script.inputProjection);
+			const owners = new Set(
+				hookTargets.length === 0
+					? [run.pluginId]
+					: hookTargets.map((target) => {
+							const owner = "owner" in target ? target.owner : definitionOwner(run.pluginId);
+							return owner.kind === "plugin" ? owner.pluginId : null;
+						}),
+			);
+			const payloadForOwner =
+				trigger.payload.operation === "batch"
+					? yield* Schema.decodeUnknownEffect(AutomationAfterPayload)({
+							...trigger.payload,
+							items: trigger.payload.items.filter((item) => {
+								const pluginId = automationPayloadPluginId(item);
+								return pluginId !== undefined && owners.has(pluginId);
+							}),
+						}).pipe(
+							Effect.mapError(() =>
+								projectionError(run, "has no retained batch evidence for its declared owners"),
+							),
+						)
+					: trigger.payload;
+			projected = projectAutomationAfterInput(payloadForOwner, script.inputProjection);
 		}
 		if (!projected) {
 			return yield* projectionError(run, "does not declare the retained trigger resource");
@@ -249,16 +281,28 @@ export const AutomationRunWorkflowOperationsLive = Layer.effect(
 									message: "Retained automation trigger payload is unavailable",
 								});
 							}
-							const pin = yield* scripts.getScriptPin(
-								run.sandboxScriptId,
-								run.pluginId === null
-									? undefined
-									: {
-											id: run.pluginId,
-											revisionId: run.pluginRevisionId,
-											configRevisionId: run.pluginConfigRevisionId,
-										},
-							);
+							const pin = yield* scripts
+								.getScriptPin(
+									run.sandboxScriptId,
+									run.pluginId === null
+										? undefined
+										: {
+												id: run.pluginId,
+												revisionId: run.pluginRevisionId,
+												configRevisionId: run.pluginConfigRevisionId,
+											},
+								)
+								.pipe(
+									Effect.catchTag(
+										"SandboxRunError",
+										(error) =>
+											new AutomationPreparationError({
+												message: error.message,
+												kind: error.data ? "business-failure" : "missing-artifact",
+												...(error.data === undefined ? {} : { data: error.data }),
+											}),
+									),
+								);
 							if (
 								!pin ||
 								pin.contentHash !== run.scriptContentHash ||
@@ -277,6 +321,7 @@ export const AutomationRunWorkflowOperationsLive = Layer.effect(
 								return yield* projectionError(run, "has a non-automation script declaration");
 							}
 							let hookMetadata: JsonValue | undefined;
+							let hookTargets: PluginHook["targets"] = [];
 							if (run.pluginId !== null) {
 								const [revision] = yield* session.run((database) =>
 									database
@@ -304,6 +349,7 @@ export const AutomationRunWorkflowOperationsLive = Layer.effect(
 									);
 								}
 								hookMetadata = hook.metadata;
+								hookTargets = hook.targets;
 							}
 							return yield* prepareAutomationInvocation(
 								run,
@@ -312,6 +358,7 @@ export const AutomationRunWorkflowOperationsLive = Layer.effect(
 								script,
 								accountGeneration,
 								hookMetadata,
+								hookTargets,
 							);
 						}),
 					)
@@ -385,7 +432,7 @@ export const runAutomationRunWorkflow = Effect.fn("AutomationRunWorkflow")(funct
 			status: "failed",
 			returnedValue: null,
 			failureKind: prepared.kind,
-			error: { code: prepared.kind, message: prepared.message },
+			error: { message: prepared.message, code: prepared.data?.code ?? prepared.kind },
 		};
 	} else {
 		const result = yield* operations
@@ -396,7 +443,12 @@ export const runAutomationRunWorkflow = Effect.fn("AutomationRunWorkflow")(funct
 						logs: [],
 						value: null,
 						status: "completed" as const,
-						error: { kind: error.kind, message: error.message, phase: "execute" as const },
+						error: {
+							kind: error.kind,
+							message: error.message,
+							phase: "execute" as const,
+							...(error.data === undefined ? {} : { data: error.data }),
+						},
 					}),
 				),
 			);
@@ -426,7 +478,10 @@ export const runAutomationRunWorkflow = Effect.fn("AutomationRunWorkflow")(funct
 			timing: "timing" in result ? (result.timing ?? null) : null,
 			logs: result.logs.map((message) => ({ message, level: "info" as const })),
 			error: failureKind
-				? { code: failureKind, message: result.error?.message ?? "Invalid automation output" }
+				? {
+						code: result.error?.data?.code ?? failureKind,
+						message: result.error?.message ?? "Invalid automation output",
+					}
 				: null,
 			...(failureKind
 				? { failureKind, status: "failed" }

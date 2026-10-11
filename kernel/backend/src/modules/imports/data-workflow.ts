@@ -3,13 +3,8 @@ import { LifecycleCommand } from "@ryot-app/contract/modules/automations/lifecyc
 import { DataJsonDocument, dataJsonSource } from "@ryot-app/contract/modules/imports/data-json";
 import { IngestionBatch, type IngestionScope } from "@ryot-app/contract/modules/imports/ingestion";
 import { importRunFailureStages } from "@ryot-app/contract/modules/imports/types";
-import {
-	EntityId,
-	EventSchemaSlug,
-	RelationshipSchemaSlug,
-	ImportRunId,
-	UserId,
-} from "@ryot-app/contract/schema/brands";
+import { EntitySchemaReference } from "@ryot-app/contract/modules/plugins/references";
+import { EntityId, EventSchemaSlug, ImportRunId, UserId } from "@ryot-app/contract/schema/brands";
 import type { GenericImportWriteItem } from "@ryot-app/sandbox-sdk/imports";
 import { stableStringify } from "@ryot-app/ts-utils/json";
 import { Cause, DateTime, Effect, Layer, Schema } from "effect";
@@ -27,6 +22,7 @@ import { DefinitionRepository } from "#modules/definition-registry/repository";
 import { DefinitionSnapshot, definitionLookup } from "#modules/definition-registry/snapshot";
 import { EntitiesRepository } from "#modules/entities/repository";
 import { EntitiesService, PendingEntityMutation } from "#modules/entities/service";
+import { DomainLifecycleCommand } from "#modules/entities/write-context";
 import { EventsService } from "#modules/events/service";
 import { MutationReceipts } from "#modules/mutations/receipts";
 import { admitWorkflow, dispatchAdmittedWorkflow } from "#modules/mutations/workflow-dispatch";
@@ -108,14 +104,14 @@ const DataImportSegmentPayload = Schema.Struct({
 	userId: UserId,
 	runId: ImportRunId,
 	batch: IngestionBatch,
-	command: LifecycleCommand,
 	executionId: Schema.String,
 	snapshot: DefinitionSnapshot,
+	command: DomainLifecycleCommand,
 	startingCounters: DataImportCounters,
 	failedKeys: Schema.Array(Schema.String),
 	entityIds: Schema.Record(Schema.String, Schema.String),
 	relationshipIds: Schema.Record(Schema.String, Schema.String),
-	entitySchemasByKey: Schema.Record(Schema.String, Schema.String),
+	entitySchemasByKey: Schema.Record(Schema.String, EntitySchemaReference),
 });
 
 const DataImportSegmentSuccess = Schema.Struct({
@@ -377,8 +373,8 @@ export const runDataImportWorkflow = Effect.fn("runDataImportWorkflow")(
 							snapshot,
 							runId: input.runId,
 							userId: input.userId,
-							command: input.command,
 							executionId: segmentExecutionId,
+							command: { ...input.command, writeContext: null },
 							failedKeys: [...failedKeys].filter((key) => dependencies.has(key)),
 							startingCounters: { totalItems, failedItems, importedItems, processedItems },
 							entityIds: mapObject(
@@ -594,7 +590,7 @@ export const runDataImportSegmentWorkflow = Effect.fn("runDataImportSegmentWorkf
 					const locators = collectManagedAssetLocators([{ properties, propertiesSchema: schema }]);
 					yield* assets.verifyManagedAssetOwnership(input.userId, locators);
 					if (item.kind === "entity" && item.record.kind === "custom") {
-						yield* definitions.validateEntityProperties(item.record.entitySchemaSlug, properties);
+						yield* definitions.validateEntityProperties(item.record.entitySchema, properties);
 					}
 				}).pipe(Effect.mapError(toWorkflowError)),
 			}).pipe(
@@ -611,14 +607,14 @@ export const runDataImportSegmentWorkflow = Effect.fn("runDataImportSegmentWorkf
 					properties,
 					alias: record.key,
 					operationId: operation.operationId,
-					entitySchemaSlug: record.entitySchemaSlug,
+					entitySchemaSlug: record.entitySchema.slug,
 					name: record.kind === "custom" ? record.name : "",
 					...(record.kind === "existing" ? { existingOnly: true, entityId: record.entityId } : {}),
 					...(record.kind === "provider"
 						? {
 								providerResolution: {
 									value: record.value,
-									providerSlug: record.providerSlug,
+									providerSlug: record.provider.slug,
 									identifierType: record.identifierType,
 								},
 							}
@@ -631,6 +627,8 @@ export const runDataImportSegmentWorkflow = Effect.fn("runDataImportSegmentWorkf
 								input.userId,
 								command,
 								stableStringify([input.runId, "data-provider", item.record.key]),
+								record.entitySchema,
+								record.provider,
 							)
 						: undefined;
 				if (record.kind === "provider" && entityId === undefined) {
@@ -645,7 +643,7 @@ export const runDataImportSegmentWorkflow = Effect.fn("runDataImportSegmentWorkf
 						pending: PendingEntityMutation,
 						name: `create-data-entity-${index}`,
 						applyPolicies: entities.applyMutationPolicies,
-						prepare: prepareGenericImportEntity(intent, input.userId, command),
+						prepare: prepareGenericImportEntity(intent, input.userId, command, record.entitySchema),
 						commit: (pending) =>
 							entities
 								.commitMutation(pending)
@@ -675,10 +673,10 @@ export const runDataImportSegmentWorkflow = Effect.fn("runDataImportSegmentWorkf
 								userId: input.userId,
 								entityId: EntityId.make(selectedId),
 							});
-							const definition = input.snapshot.entitySchemas[record.entitySchemaSlug];
+							const definition = definitions.getEntitySchema(record.entitySchema);
 							if (
 								!selected ||
-								selected.entitySchemaSlug !== record.entitySchemaSlug ||
+								selected.entitySchemaSlug !== record.entitySchema.slug ||
 								selected.entitySchemaPluginId !== (definition?.pluginId ?? null)
 							) {
 								return yield* new ImportRunError({
@@ -711,12 +709,7 @@ export const runDataImportSegmentWorkflow = Effect.fn("runDataImportSegmentWorkf
 							sourceEntityId,
 							targetEntityId,
 							userId: input.userId,
-							relationshipSchemaSlug: RelationshipSchemaSlug.make(
-								item.record.relationshipSchemaSlug,
-							),
-							relationshipSchemaPluginId:
-								input.snapshot.relationshipSchemas[item.record.relationshipSchemaSlug]?.pluginId ??
-								null,
+							relationshipSchema: item.record.relationshipSchema,
 						},
 						command,
 					),

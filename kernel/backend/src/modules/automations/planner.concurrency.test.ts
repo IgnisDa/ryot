@@ -95,7 +95,12 @@ const seedCatalog = (statements: readonly string[]) =>
 					.values({ id: "owner", name: "Owner", email: "owner@example.test" });
 				yield* db
 					.insert(tables.plugin)
-					.values({ id: pluginId, slug: "fixture", status: "inactive" });
+					.values({
+						id: pluginId,
+						slug: "fixture",
+						status: "inactive",
+						packageId: fixtureManifest().metadata.packageId,
+					});
 				yield* db
 					.insert(tables.pluginRevision)
 					.values({

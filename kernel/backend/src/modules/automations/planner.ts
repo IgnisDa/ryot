@@ -9,6 +9,7 @@ import {
 	DEFAULT_POLICY_HOOK_POSITION,
 	PluginManifest,
 } from "@ryot-app/contract/modules/plugins/manifest";
+import { definitionOwner } from "@ryot-app/contract/modules/plugins/references";
 import { AutomationHookSlug, PluginId, type UserId } from "@ryot-app/contract/schema/brands";
 import { decodeStoredSchema } from "@ryot-app/contract/schema/core";
 import { sha256Base64Url } from "@ryot-app/ts-utils/crypto";
@@ -233,9 +234,11 @@ export const LifecyclePlannerLive = Layer.effect(
 				input.pinnedBatchCandidates
 					? input.pinnedBatchCandidates
 							.filter(
-								({ hook, executionUserId }) =>
+								({ hook, pluginId, executionUserId }) =>
 									executionUserId === trigger.scopeUserId &&
-									hook.targets.some((target) => matchesTarget(target, trigger)),
+									hook.targets.some((target) =>
+										matchesTarget(definitionOwner(pluginId), target, trigger),
+									),
 							)
 							.map(
 								({
@@ -426,21 +429,28 @@ export const LifecyclePlannerLive = Layer.effect(
 				scopeUserId,
 				trigger: lifecycleTrigger(input.command, scopeUserId, payload, `batch-evidence:${index}`),
 			}));
-			const maxItems = contents.pins.reduce((globalMaxItems, { hook, executionUserId }) => {
-				if (
-					hook.stage !== "after" ||
-					hook.frequency !== "batch" ||
-					hook.batchMaxItems === undefined
-				) {
-					return globalMaxItems;
-				}
-				const matchesCommittedItem = changeTriggers.some(
-					({ trigger, scopeUserId }) =>
-						scopeUserId === executionUserId &&
-						hook.targets.some((target) => matchesTarget(target, trigger)),
-				);
-				return matchesCommittedItem ? Math.min(globalMaxItems, hook.batchMaxItems) : globalMaxItems;
-			}, contents.maxItems);
+			const maxItems = contents.pins.reduce(
+				(globalMaxItems, { hook, pluginId, executionUserId }) => {
+					if (
+						hook.stage !== "after" ||
+						hook.frequency !== "batch" ||
+						hook.batchMaxItems === undefined
+					) {
+						return globalMaxItems;
+					}
+					const matchesCommittedItem = changeTriggers.some(
+						({ trigger, scopeUserId }) =>
+							scopeUserId === executionUserId &&
+							hook.targets.some((target) =>
+								matchesTarget(definitionOwner(pluginId), target, trigger),
+							),
+					);
+					return matchesCommittedItem
+						? Math.min(globalMaxItems, hook.batchMaxItems)
+						: globalMaxItems;
+				},
+				contents.maxItems,
+			);
 			const planned = yield* Effect.forEach(
 				lifecycleBatchTriggers(input, maxItems, changes),
 				(trigger) => plan({ trigger, pinnedBatchCandidates: contents.pins }),

@@ -1,8 +1,5 @@
 import { unknownToMessage } from "@ryot-app/contract/errors";
-import {
-	LifecycleCommand,
-	type AutomationWarning as AutomationWarningValue,
-} from "@ryot-app/contract/modules/automations/lifecycle";
+import type { AutomationWarning as AutomationWarningValue } from "@ryot-app/contract/modules/automations/lifecycle";
 import type { CreateEventItem } from "@ryot-app/contract/modules/events/schemas";
 import {
 	IngestionSummary,
@@ -11,11 +8,17 @@ import {
 import type { ImportRunFailureReason } from "@ryot-app/contract/modules/imports/schemas";
 import type { ImportRunFailureStage } from "@ryot-app/contract/modules/imports/types";
 import {
+	definitionOwner,
+	type EntitySchemaReference,
+	type ProviderReference,
+} from "@ryot-app/contract/modules/plugins/references";
+import {
 	EntityId,
 	EntitySchemaSlug,
 	EventSchemaSlug,
 	ImportRunId,
 	IntegrationId,
+	PluginId,
 	RelationshipSchemaSlug,
 	SandboxProviderId,
 	UserId,
@@ -40,6 +43,7 @@ import {
 	runLifecycleWriteStep,
 	type LifecyclePreparedStep,
 } from "#lib/infrastructure/lifecycle-workflow-step";
+import type { SandboxPluginRevision } from "#lib/infrastructure/sandbox-runtime/execution-principal";
 import type { DurableSchema } from "#lib/infrastructure/workflow";
 import { implementWorkflow, makeActivity } from "#lib/infrastructure/workflow-scope";
 import { slugify } from "#lib/shared/slug";
@@ -49,6 +53,7 @@ import { DefinitionRepository } from "#modules/definition-registry/repository";
 import { DefinitionSnapshot, definitionLookup } from "#modules/definition-registry/snapshot";
 import { EntitiesRepository } from "#modules/entities/repository";
 import { EntitiesService, PendingEntityMutation } from "#modules/entities/service";
+import { DomainLifecycleCommand } from "#modules/entities/write-context";
 import { EventsService } from "#modules/events/service";
 import { MutationReceipts } from "#modules/mutations/receipts";
 import { admitWorkflow, dispatchAdmittedWorkflow } from "#modules/mutations/workflow-dispatch";
@@ -74,15 +79,16 @@ import {
 import { IngestionCaptures } from "./capture-service";
 import { ingestionOperationCommand } from "./outcomes";
 import { ImportsRepository } from "./repository";
+import { ImportSourceStateStore } from "./runtime/source-state-store";
 import { ImportRunError, toWorkflowError } from "./runtime/workflow-errors";
 
 export const ProcessGenericImportChunksPayload = Schema.Struct({
 	userId: UserId,
 	runId: ImportRunId,
 	ordinal: Schema.Finite,
-	command: LifecycleCommand,
 	executionId: Schema.String,
 	batchId: Schema.NonEmptyString,
+	command: DomainLifecycleCommand,
 	captureId: Schema.NonEmptyString,
 	artifactOwnerExecutionId: Schema.String,
 	inputFingerprint: Schema.NonEmptyString,
@@ -128,6 +134,7 @@ export const GenericImportEntity = Schema.Struct({
 });
 
 const GenericImportProvider = Schema.Struct({
+	pluginId: PluginId,
 	id: SandboxProviderId,
 	pluginScope: Schema.Literals(["system", "user"]),
 });
@@ -163,8 +170,14 @@ export const prepareGenericImportEntity = Effect.fn("imports.prepareGenericImpor
 	function* (
 		intent: GenericImportWriteItem["entities"][number],
 		userId: UserId,
-		lifecycle: LifecycleCommand,
+		lifecycle: DomainLifecycleCommand,
+		reference: EntitySchemaReference,
 	) {
+		if (reference.slug !== intent.entitySchemaSlug) {
+			return yield* new ImportRunError({
+				message: "Import entity schema reference does not match its intent",
+			});
+		}
 		const entities = yield* EntitiesService;
 		const repository = yield* EntitiesRepository;
 		const replay = yield* entities.replayCreateStep({
@@ -172,8 +185,8 @@ export const prepareGenericImportEntity = Effect.fn("imports.prepareGenericImpor
 			lifecycle,
 			scope: "user",
 			name: intent.name,
+			entitySchema: reference,
 			properties: intent.properties,
-			entitySchemaSlug: EntitySchemaSlug.make(intent.entitySchemaSlug),
 		});
 		if (replay) {
 			return {
@@ -187,7 +200,12 @@ export const prepareGenericImportEntity = Effect.fn("imports.prepareGenericImpor
 				userId,
 				entityId: EntityId.make(intent.entityId),
 			});
-			if (!existing || existing.entitySchemaSlug !== intent.entitySchemaSlug) {
+			if (
+				!existing ||
+				existing.entitySchemaSlug !== reference.slug ||
+				existing.entitySchemaPluginId !==
+					(reference.owner.kind === "plugin" ? reference.owner.pluginId : null)
+			) {
 				return yield* new ImportRunError({
 					message: "Import entity id is unavailable or has the wrong schema",
 				});
@@ -196,7 +214,7 @@ export const prepareGenericImportEntity = Effect.fn("imports.prepareGenericImpor
 		} else if (intent.match) {
 			const candidates = yield* repository.listMatchCandidatesBySchema({
 				userId,
-				entitySchemaSlug: EntitySchemaSlug.make(intent.entitySchemaSlug),
+				entitySchema: reference,
 			});
 			const scopedCandidates = intent.scope
 				? yield* Effect.forEach(candidates, (candidate) =>
@@ -232,10 +250,14 @@ export const prepareGenericImportEntity = Effect.fn("imports.prepareGenericImpor
 			});
 		}
 		if (entityId) {
-			const reference = yield* entities.prepareReferenceStep({ userId, entityId, lifecycle });
+			const preparedReference = yield* entities.prepareReferenceStep({
+				userId,
+				entityId,
+				lifecycle,
+			});
 			return {
-				...reference,
-				result: { result: "unchanged" as const, entityId: reference.result.entity.id },
+				...preparedReference,
+				result: { result: "unchanged" as const, entityId: preparedReference.result.entity.id },
 			};
 		}
 		const prepared = yield* entities.prepareCreateStep({
@@ -243,8 +265,8 @@ export const prepareGenericImportEntity = Effect.fn("imports.prepareGenericImpor
 			lifecycle,
 			scope: "user",
 			name: intent.name,
+			entitySchema: reference,
 			properties: intent.properties,
-			entitySchemaSlug: EntitySchemaSlug.make(intent.entitySchemaSlug),
 		});
 		return mapCommittedResult(prepared, ({ entity }) => ({
 			entityId: entity.id,
@@ -257,6 +279,8 @@ const resolveGenericImportProvider = (
 	intent: GenericImportWriteItem["entities"][number],
 	userId: UserId,
 	executionId: string,
+	entitySchema: EntitySchemaReference,
+	reference: ProviderReference,
 ) =>
 	makeActivity({
 		error: ImportRunError,
@@ -268,35 +292,48 @@ const resolveGenericImportProvider = (
 				return yield* new ImportRunError({ message: "Provider resolution descriptor is missing" });
 			}
 			const runtime = yield* PluginRuntimeResolver;
-			const provider = yield* runtime.findProviderAvailableToUserBySlug(
-				userId,
-				descriptor.providerSlug,
-			);
+			const provider = yield* runtime.findProviderAvailableToUserByReference(userId, reference);
 			if (!provider) {
 				return yield* new ImportRunError({
 					message: `Provider '${descriptor.providerSlug}' is unavailable`,
 				});
 			}
-			if (provider.rootEntitySchemaSlug !== intent.entitySchemaSlug) {
+			if (
+				entitySchema.owner.kind !== "plugin" ||
+				provider.pluginId !== entitySchema.owner.pluginId ||
+				provider.rootEntitySchemaSlug !== entitySchema.slug
+			) {
 				return yield* new ImportRunError({
 					message: `Provider '${descriptor.providerSlug}' does not provide entity schema '${intent.entitySchemaSlug}'`,
 				});
 			}
-			return { id: provider.id, pluginScope: provider.pluginScope };
+			return {
+				id: provider.id,
+				pluginScope: provider.pluginScope,
+				pluginId: PluginId.make(provider.pluginId),
+			};
 		}).pipe(Effect.mapError(toWorkflowError)),
 	});
 
 export const resolveProviderEntity = Effect.fn("imports.resolveProviderEntity")(function* (
 	intent: GenericImportWriteItem["entities"][number],
 	userId: UserId,
-	command: LifecycleCommand,
+	command: DomainLifecycleCommand,
 	executionId: string,
+	entitySchema: EntitySchemaReference,
+	reference: ProviderReference,
 ) {
 	const descriptor = intent.providerResolution;
 	if (!descriptor) {
 		return undefined;
 	}
-	const provider = yield* resolveGenericImportProvider(intent, userId, executionId).pipe(
+	const provider = yield* resolveGenericImportProvider(
+		intent,
+		userId,
+		executionId,
+		entitySchema,
+		reference,
+	).pipe(
 		Effect.mapError(
 			(error) =>
 				new GenericImportProviderError({ message: error.message, stage: "provider_resolution" }),
@@ -309,6 +346,7 @@ export const resolveProviderEntity = Effect.fn("imports.resolveProviderEntity")(
 				providerId: provider.id,
 				value: descriptor.value,
 				lane: command.causation.lane,
+				writeContext: command.writeContext,
 				identifierType: descriptor.identifierType,
 				accountGeneration: command.accountGeneration,
 				userId: provider.pluginScope === "user" ? userId : null,
@@ -359,6 +397,7 @@ export const resolveProviderEntity = Effect.fn("imports.resolveProviderEntity")(
 				command,
 				executionId,
 				providerId: provider.id,
+				pluginId: provider.pluginId,
 				externalId: resolved.externalId,
 				entitySchemaSlug: EntitySchemaSlug.make(intent.entitySchemaSlug),
 				entityScope: { userId, type: provider.pluginScope === "system" ? "global" : "user" },
@@ -389,12 +428,24 @@ const validateGenericItem = (
 	userId: UserId,
 	index: number,
 	definitions: GenericImportDefinitions,
+	pluginRevision: SandboxPluginRevision,
 ) =>
 	makeActivity({
 		error: ImportRunError,
 		name: `validate-generic-import-item-${index}`,
 		execute: Effect.gen(function* () {
 			const entitiesRepository = yield* EntitiesRepository;
+			const owner = definitionOwner(pluginRevision.id);
+			for (const entity of item.entities) {
+				if (
+					!pluginRevision.schemaScope.entitySchemaSlugs.includes(entity.entitySchemaSlug) ||
+					(pluginRevision.scope === "user" && entity.scope === "global")
+				) {
+					return yield* new ImportRunError({
+						message: "Import entity exceeds the invoking plugin's write authority",
+					});
+				}
+			}
 			const entitySchemasByAlias = new Map(
 				item.entities.map(({ alias, entitySchemaSlug }) => [alias, entitySchemaSlug]),
 			);
@@ -406,7 +457,10 @@ const validateGenericItem = (
 			yield* Effect.forEach(
 				item.entities,
 				(entity) =>
-					definitions.validateEntityProperties(entity.entitySchemaSlug, entity.properties),
+					definitions.validateEntityProperties(
+						{ owner, slug: entity.entitySchemaSlug },
+						entity.properties,
+					),
 				{ discard: true },
 			);
 			for (const event of item.events) {
@@ -422,6 +476,11 @@ const validateGenericItem = (
 						message: "Import event references an unknown subject entity",
 					});
 				}
+				if (subject && subject.entitySchemaPluginId !== pluginRevision.id) {
+					return yield* new ImportRunError({
+						message: "Import event subject belongs to another definition owner",
+					});
+				}
 				const entitySchemaSlug =
 					subject?.entitySchemaSlug ?? entitySchemasByAlias.get(event.entityAlias);
 				if (!entitySchemaSlug) {
@@ -430,8 +489,11 @@ const validateGenericItem = (
 					});
 				}
 				yield* definitions.validateEventProperties(
-					entitySchemaSlug,
-					event.eventSchemaSlug,
+					{
+						owner,
+						slug: EventSchemaSlug.make(event.eventSchemaSlug),
+						entitySchemaSlug: EntitySchemaSlug.make(entitySchemaSlug),
+					},
 					event.properties,
 				);
 			}
@@ -443,9 +505,10 @@ const validateGenericItem = (
 						message: "Import relationship references an unknown entity alias",
 					});
 				}
-				const relationshipSchema = definitions.getRelationshipSchema(
-					relationship.relationshipSchemaSlug,
-				);
+				const relationshipSchema = definitions.getRelationshipSchema({
+					owner,
+					slug: relationship.relationshipSchemaSlug,
+				});
 				if (!relationshipSchema) {
 					return yield* new ImportRunError({
 						message: `Relationship schema '${relationship.relationshipSchemaSlug}' not found`,
@@ -468,7 +531,7 @@ const validateGenericItem = (
 					});
 				}
 				yield* definitions.validateRelationshipProperties(
-					relationship.relationshipSchemaSlug,
+					{ owner, slug: relationship.relationshipSchemaSlug },
 					relationship.properties,
 				);
 			}
@@ -502,14 +565,15 @@ const writeGenericItem = Effect.fn("imports.writeGenericItem")(function* (
 	userId: UserId,
 	index: number,
 	definitions: GenericImportDefinitions,
-	command: LifecycleCommand,
+	command: DomainLifecycleCommand,
+	pluginRevision: SandboxPluginRevision,
 ) {
 	const entities = yield* EntitiesService;
 	const collections = yield* CollectionsService;
 	const relationships = yield* RelationshipsService;
 	const warnings: AutomationWarningValue[] = [];
 	const writeItem = Effect.fnUntraced(function* () {
-		yield* validateGenericItem(item, userId, index, definitions);
+		yield* validateGenericItem(item, userId, index, definitions, pluginRevision);
 		const aliases = new Map<string, EntityId>();
 		for (const [intentIndex, intent] of item.entities.entries()) {
 			if (aliases.has(intent.alias)) {
@@ -527,6 +591,14 @@ const writeGenericItem = Effect.fn("imports.writeGenericItem")(function* (
 				userId,
 				ingestionOperationCommand(command, intent.operationId),
 				providerExecutionId,
+				{
+					owner: definitionOwner(pluginRevision.id),
+					slug: EntitySchemaSlug.make(intent.entitySchemaSlug),
+				},
+				{
+					owner: definitionOwner(pluginRevision.id),
+					slug: intent.providerResolution?.providerSlug ?? "",
+				},
 			);
 			if (providerEntityId) {
 				if (intent.outcome) {
@@ -544,11 +616,6 @@ const writeGenericItem = Effect.fn("imports.writeGenericItem")(function* (
 				pending: PendingEntityMutation,
 				applyPolicies: entities.applyMutationPolicies,
 				name: `generic-import-item-${index}-entity-${intentIndex}`,
-				prepare: prepareGenericImportEntity(
-					intent,
-					userId,
-					ingestionOperationCommand(command, intent.operationId),
-				),
 				commit: (pending) =>
 					entities
 						.commitMutation(pending)
@@ -558,6 +625,15 @@ const writeGenericItem = Effect.fn("imports.writeGenericItem")(function* (
 								result: { result: "created" as const, entityId: step.result.entity.id },
 							})),
 						),
+				prepare: prepareGenericImportEntity(
+					intent,
+					userId,
+					ingestionOperationCommand(command, intent.operationId),
+					{
+						owner: definitionOwner(pluginRevision.id),
+						slug: EntitySchemaSlug.make(intent.entitySchemaSlug),
+					},
+				),
 			});
 			warnings.push(...written.warnings);
 			aliases.set(intent.alias, written.result.entityId);
@@ -570,7 +646,10 @@ const writeGenericItem = Effect.fn("imports.writeGenericItem")(function* (
 					message: "Import relationship references an unknown entity alias",
 				});
 			}
-			const relationshipSchema = definitions.getRelationshipSchema(intent.relationshipSchemaSlug);
+			const relationshipSchema = definitions.getRelationshipSchema({
+				slug: intent.relationshipSchemaSlug,
+				owner: definitionOwner(pluginRevision.id),
+			});
 			if (!relationshipSchema) {
 				return yield* new ImportRunError({
 					message: `Relationship schema '${intent.relationshipSchemaSlug}' not found`,
@@ -582,8 +661,10 @@ const writeGenericItem = Effect.fn("imports.writeGenericItem")(function* (
 				sourceEntityId,
 				targetEntityId,
 				properties: intent.properties,
-				relationshipSchemaPluginId: relationshipSchema.pluginId ?? null,
-				relationshipSchemaSlug: RelationshipSchemaSlug.make(intent.relationshipSchemaSlug),
+				relationshipSchema: {
+					owner: definitionOwner(relationshipSchema.pluginId),
+					slug: RelationshipSchemaSlug.make(intent.relationshipSchemaSlug),
+				},
 			} as const;
 			const relationshipCommand = ingestionOperationCommand(command, intent.operationId);
 			const written = yield* runImportWriteStep({
@@ -667,13 +748,16 @@ const writeGenericItem = Effect.fn("imports.writeGenericItem")(function* (
 	);
 });
 
-const resolveGenericImportDefinitions = (userId: UserId) =>
+const resolveGenericImportDefinitions = (userId: UserId, pluginRevision: SandboxPluginRevision) =>
 	makeActivity({
 		name: "resolve-generic-import-definitions",
 		error: ImportRunError satisfies DurableSchema,
 		success: DefinitionSnapshot satisfies DurableSchema,
 		execute: Effect.flatMap(DefinitionRepository, (definitions) =>
-			definitions.getUserSnapshot(userId, { listed: false }),
+			definitions.getSnapshotForContext(
+				{ pluginId: pluginRevision.id, pluginRevisionId: pluginRevision.revisionId },
+				userId,
+			),
 		).pipe(Effect.mapError(toWorkflowError)),
 	});
 
@@ -781,7 +865,42 @@ export const runProcessGenericImportChunksWorkflow = Effect.fn(
 					.pipe(Effect.mapError(toWorkflowError)),
 			});
 		});
-		const snapshot = yield* resolveGenericImportDefinitions(payload.userId);
+		const sourceState = yield* (yield* ImportSourceStateStore)
+			.load(scope)
+			.pipe(Effect.mapError(toWorkflowError));
+		const admitted = yield* repository.getIngestionRun(scope);
+		if (
+			payload.command.writeContext?.pluginRevision?.id !== sourceState.pluginId ||
+			payload.command.writeContext.pluginRevision.revisionId !==
+				sourceState.pluginRevision.revisionId ||
+			payload.command.writeContext.pluginRevision.configRevisionId !==
+				sourceState.pluginRevision.configRevisionId
+		) {
+			return yield* new ImportRunError({
+				message: "Generic import requires the original trusted caller authority",
+			});
+		}
+		if (
+			!admitted?.pins ||
+			admitted.pluginInstallationId !== sourceState.pluginInstallationId ||
+			admitted.pins.executionId !== payload.artifactOwnerExecutionId ||
+			admitted.pins.pluginRevisionId !== sourceState.pluginRevision.revisionId ||
+			admitted.pins.pluginConfigRevisionId !== sourceState.pluginRevision.configRevisionId ||
+			sourceState.pluginId !== sourceState.pluginRevision.id
+		) {
+			return yield* new ImportRunError({
+				message: "Generic import caller does not match the admitted plugin pin",
+			});
+		}
+		const runtime = yield* PluginRuntimeResolver;
+		const active = yield* runtime.findPluginAvailableToUser(payload.userId, sourceState.pluginId);
+		if (active?.installationId !== sourceState.pluginInstallationId) {
+			return yield* new ImportRunError({ message: "Generic import installation is unavailable" });
+		}
+		const snapshot = yield* resolveGenericImportDefinitions(
+			payload.userId,
+			sourceState.pluginRevision,
+		);
 		const definitions = definitionLookup(snapshot);
 		for (const failure of chunk.failures) {
 			const stage = failure.stage ?? "input_transformation";
@@ -802,6 +921,7 @@ export const runProcessGenericImportChunksWorkflow = Effect.fn(
 				index,
 				definitions,
 				payload.command,
+				sourceState.pluginRevision,
 			);
 			let message = outcome._tag === "failed" ? outcome.message : null;
 			let failureCode: string | null =

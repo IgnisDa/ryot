@@ -3,7 +3,7 @@ import { assert, describe, expect, layer } from "@effect/vitest";
 import type { CurrentUserValue } from "@ryot-app/contract/auth-middleware";
 import type { OAuthConnectionClient } from "@ryot-app/contract/modules/oauth-connections/schemas";
 import { pluginConfigEnvironmentKey } from "@ryot-app/contract/modules/plugins/plugin-config";
-import type { IntegrationId } from "@ryot-app/contract/schema/brands";
+import type { IntegrationId, PluginPackageId } from "@ryot-app/contract/schema/brands";
 import { ImportRunId, OAuthConnectionId, UserId } from "@ryot-app/contract/schema/brands";
 import { CryptoHasher } from "bun";
 import { eq } from "drizzle-orm";
@@ -181,23 +181,48 @@ const serviceLayer = (isProKeyValidated = true) =>
 		Layer.provideMerge(revisionDatabaseLayer),
 	);
 
-const environmentConfig = ConfigProvider.fromUnknown(
-	Object.fromEntries(
-		["oauth-test", "oauth-other"].flatMap((slug) => [
-			[pluginConfigEnvironmentKey(slug, "clientId"), "client-1"],
-			[pluginConfigEnvironmentKey(slug, "clientSecret"), "client-secret-1"],
-		]),
-	),
-);
+const environmentConfig = (packageIds: ReadonlyArray<PluginPackageId>) =>
+	ConfigProvider.fromUnknown(
+		Object.fromEntries(
+			packageIds.flatMap((packageId) => [
+				[pluginConfigEnvironmentKey(packageId, "clientId"), "client-1"],
+				[pluginConfigEnvironmentKey(packageId, "clientSecret"), "client-secret-1"],
+			]),
+		),
+	);
 
 const installOAuthPlugin = (
 	slug: string,
 	integrationProviderSlug: string,
 	options: Parameters<typeof oauthRevisionPackage>[2] = {},
-) =>
-	installRevisionPackage(oauthRevisionPackage(slug, integrationProviderSlug, options)).pipe(
-		Effect.provideService(ConfigProvider.ConfigProvider, environmentConfig),
+) => {
+	const value = oauthRevisionPackage(slug, integrationProviderSlug, options);
+	return Effect.gen(function* () {
+		const plugins = yield* PluginRepository;
+		const installed = yield* plugins.listActiveSystemPlugins();
+		const packageIds = [
+			...new Set([
+				value.manifest.metadata.packageId,
+				...installed
+					.filter(({ manifest }) => (manifest.oauthProviders?.length ?? 0) > 0)
+					.map(({ packageId }) => packageId),
+			]),
+		];
+		return yield* installRevisionPackage(value).pipe(
+			Effect.provideService(ConfigProvider.ConfigProvider, environmentConfig(packageIds)),
+		);
+	});
+};
+
+const providerReference = Effect.fn(function* (slug: string) {
+	const rows = (yield* (yield* IntegrationProviderCatalog).listResolvedForUser(owner)).filter(
+		({ provider }) => provider.slug === slug,
 	);
+	assert(rows.length === 1);
+	const [row] = rows;
+	assert(row);
+	return row.provider.reference;
+});
 
 const fragmentOf = (location: string) => new URLSearchParams(location.split("#")[1] ?? "");
 
@@ -208,8 +233,8 @@ const authorize = Effect.fn(function* (
 	const service = yield* OAuthConnectionsService;
 	const created = yield* service.create(currentUser(user), {
 		field: options.field ?? "account",
-		integrationProvider: "oauth-yank",
 		client: options.client ?? { kind: "web" },
+		integrationProvider: yield* providerReference("oauth-yank"),
 	});
 	const state = new URL(created.authorizeUrl).searchParams.get("state");
 	assert(state);
@@ -217,12 +242,15 @@ const authorize = Effect.fn(function* (
 });
 
 const callback = (state: string, overrides: Record<string, string> = {}) =>
-	Effect.flatMap(OAuthConnectionsService, (service) =>
-		service.callback(
-			{ pluginSlug: "oauth-test", oauthProviderSlug: "account" },
+	Effect.gen(function* () {
+		const service = yield* OAuthConnectionsService;
+		const reference = yield* providerReference("oauth-yank");
+		assert(reference.owner.kind === "plugin");
+		return yield* service.callback(
+			{ oauthProviderSlug: "account", pluginId: reference.owner.pluginId },
 			{ state, code: "auth-code-1", ...overrides },
-		),
-	);
+		);
+	});
 
 const connect = Effect.fn(function* (user: UserId, field = "account") {
 	const service = yield* OAuthConnectionsService;
@@ -238,9 +266,13 @@ const createIntegration = (
 	settings: Record<string, unknown>,
 	provider = "oauth-yank",
 ) =>
-	Effect.flatMap(IntegrationsService, (integrations) =>
-		integrations.create(currentUser(user), { provider, providerSpecifics: settings }),
-	);
+	Effect.gen(function* () {
+		const integrations = yield* IntegrationsService;
+		return yield* integrations.create(currentUser(user), {
+			providerSpecifics: settings,
+			provider: yield* providerReference(provider),
+		});
+	});
 
 const startRun = Effect.fn(function* (
 	integrationId: IntegrationId,
@@ -335,13 +367,14 @@ const isolated = <A, E>(
 describe("OAuth connections", () => {
 	isolated("connects private OAuth providers through their own installation configuration", () =>
 		Effect.gen(function* () {
-			const installed = yield* installRevisionPackage(
-				oauthRevisionPackage("oauth-test", "oauth-yank"),
-				owner,
-			);
+			const value = oauthRevisionPackage("oauth-test", "oauth-yank");
+			const installed = yield* installRevisionPackage(value, owner);
 			const missing = yield* Effect.flip(
 				authorize(owner).pipe(
-					Effect.provideService(ConfigProvider.ConfigProvider, environmentConfig),
+					Effect.provideService(
+						ConfigProvider.ConfigProvider,
+						environmentConfig([value.manifest.metadata.packageId]),
+					),
 				),
 			);
 			expect(missing).toMatchObject({ reason: { code: "oauth-client-not-configured" } });
@@ -377,7 +410,7 @@ describe("OAuth connections", () => {
 					service.create(currentUser(owner), {
 						field: "account",
 						client: { kind: "web" },
-						integrationProvider: "oauth-yank",
+						integrationProvider: yield* providerReference("oauth-yank"),
 					}),
 				);
 				const connections = yield* (yield* DatabaseSession).run((db) =>
@@ -447,8 +480,7 @@ describe("OAuth connections", () => {
 				response_type: "code",
 				client_id: "client-1",
 				code_challenge_method: "S256",
-				redirect_uri:
-					"http://localhost:3000/api/oauth-connections/providers/oauth-test/account/callback",
+				redirect_uri: `http://localhost:3000/api/oauth-connections/providers/${installed.pluginId}/account/callback`,
 			});
 			expect(yield* connectionStatus(owner, connectionId)).toBe("pending");
 
@@ -568,7 +600,7 @@ describe("OAuth connections", () => {
 
 			const mismatched = yield* authorize(owner);
 			const wrongPath = yield* service.callback(
-				{ pluginSlug: "oauth-test", oauthProviderSlug: "other" },
+				{ pluginId: "wrong-plugin", oauthProviderSlug: "other" },
 				{ code: "auth-code-1", state: mismatched.state },
 			);
 			expect(Object.fromEntries(fragmentOf(wrongPath))).toEqual({
@@ -774,6 +806,9 @@ describe("OAuth connections", () => {
 		Effect.gen(function* () {
 			const installed = yield* installOAuthPlugin("oauth-test", "oauth-yank");
 			const run = yield* connectedIntegration(issuedTokens({ expires_in: 30 }));
+			const plugins = yield* PluginRepository;
+			const previous = yield* plugins.findActiveSystemPluginById(installed.pluginId);
+			assert(previous);
 			const next = oauthRevisionPackage("oauth-test", "oauth-yank");
 			yield* installRevisionPackage({
 				...next,
@@ -782,9 +817,14 @@ describe("OAuth connections", () => {
 					...next.manifest,
 					oauthProviders: [],
 					integrationProviders: [],
-					metadata: { ...next.manifest.metadata, version: "next" },
+					metadata: { ...next.manifest.metadata, version: "next", packageId: previous.packageId },
 				},
-			});
+			}).pipe(
+				Effect.provideService(
+					ConfigProvider.ConfigProvider,
+					environmentConfig([previous.packageId]),
+				),
+			);
 			expect(
 				yield* (yield* IntegrationProviderCatalog).findOwnedForUser(
 					owner,

@@ -16,6 +16,7 @@ const entityDraft = (properties: Record<string, JsonValue>) => ({
 	providerId: null,
 	populatedAt: null,
 	entitySchemaSlug: "record",
+	entitySchemaPluginId: null,
 });
 const snapshot = (properties: Record<string, JsonValue>) => ({
 	...entityDraft(properties),
@@ -33,10 +34,16 @@ it("projects update properties, population parent properties, and sorted changes
 		before: snapshot({ hidden: true, status: "old", tags: ["a", "a", { id: 1 }] }),
 		population: {
 			rootPreviouslyPopulated: false,
-			scopeEntity: { id: "entity-1", name: "Entity", entitySchemaSlug: "record" },
+			scopeEntity: {
+				id: "entity-1",
+				name: "Entity",
+				entitySchemaSlug: "record",
+				entitySchemaPluginId: null,
+			},
 			parentEntity: {
 				name: "Parent",
 				entitySchemaSlug: "group",
+				entitySchemaPluginId: null,
 				properties: { hidden: true, visible: "kept" },
 			},
 		},
@@ -74,7 +81,9 @@ it("recurses through batches in order and projects signals and provider imports"
 			occurredAt: timestamp,
 			sessionEntityId: null,
 			eventSchemaSlug: "view",
+			eventSchemaPluginId: null,
 			entitySchemaSlug: "record",
+			entitySchemaPluginId: null,
 			properties: { order: 1, hidden: true },
 		},
 	} as const;

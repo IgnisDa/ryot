@@ -97,7 +97,7 @@ export const registryImportSourceReadiness = (
 
 export const registryImportSourceMissingConfigKeys = (source: RegisteredImportSource) =>
 	registryImportSourceReadiness(source).blockReasons.map(({ key }) =>
-		source.pluginScope === "system" ? pluginConfigEnvironmentKey(source.pluginSlug, key) : key,
+		source.pluginScope === "system" ? pluginConfigEnvironmentKey(source.packageId, key) : key,
 	);
 
 export const buildImportSourcePayload = (

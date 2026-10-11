@@ -13,7 +13,7 @@ export const AutomationsRoutesLive = HttpApiBuilder.group(AppContract, "automati
 				const user = yield* CurrentUser;
 				const service = yield* NotificationSubscriptionsService;
 				return yield* service
-					.installRule({ userId: user.id, signalSchemaSlug: payload.signalSchemaSlug })
+					.installRule({ userId: user.id, signalSchema: payload.signalSchema })
 					.pipe(dieOnDbError);
 			}),
 		)

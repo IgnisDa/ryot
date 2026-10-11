@@ -3,7 +3,7 @@ import {
 	ImportRunFailureReason,
 } from "@ryot-app/contract/modules/imports/schemas";
 import { IntegrationSnapshot } from "@ryot-app/contract/modules/integrations/schemas";
-import { AutomationExecutionId, UserId } from "@ryot-app/contract/schema/brands";
+import { AutomationExecutionId, SignalSchemaSlug, UserId } from "@ryot-app/contract/schema/brands";
 import { IsoUtcString } from "@ryot-app/contract/schema/utils";
 import {
 	genericImportWorkflowInputSchema,
@@ -276,11 +276,15 @@ export const runIntegrationRunWorkflow = Effect.fn("ProcessIntegrationRunWorkflo
 		if (disabled) {
 			const signals = yield* SignalEmissionService;
 			yield* signals.emitSignal({
-				schemaSlug: "integration.disabled",
 				principal: { kind: "user", userId: payload.userId },
 				properties: { integrationId: integration.id, providerName: integration.provider },
+				reference: {
+					owner: { kind: "kernel" },
+					slug: SignalSchemaSlug.make("integration.disabled"),
+				},
 				command: {
 					...command,
+					writeContext: null,
 					occurredAt: IsoUtcString.make((yield* DateTime.nowAsDate).toISOString()),
 					itemIdentity: stableStringify([command.itemIdentity, "signal", "integration.disabled"]),
 				},

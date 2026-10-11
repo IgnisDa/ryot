@@ -2,9 +2,10 @@ import { BunFileSystem } from "@effect/platform-bun";
 import { assert, expect, it } from "@effect/vitest";
 import { DbError } from "@ryot-app/contract/errors";
 import type { IngestionCapture, IngestionRun } from "@ryot-app/contract/modules/imports/ingestion";
+import { PluginId } from "@ryot-app/contract/schema/brands";
 import { Deferred, Effect, Fiber, Layer } from "effect";
 import { TestClock } from "effect/testing";
-import { layerMemory } from "effect/workflow/WorkflowEngine";
+import { layerMemory, WorkflowEngine } from "effect/workflow/WorkflowEngine";
 
 import type { importPayloadReservation } from "#lib/infrastructure/db/schema/tables/imports";
 import { WorkflowExecutionNotifications } from "#lib/infrastructure/workflow-execution-notifications";
@@ -27,7 +28,7 @@ import { ImportsRepository } from "./repository";
 import { ImportRunError } from "./runtime/workflow-errors";
 
 const fixture = Effect.fnUntraced(function* (
-	mode: "failure" | "recovery" | "retirement" | "fenced",
+	mode: "failure" | "recovery" | "retirement" | "fenced" | "quarantine",
 ) {
 	let run = ingestionTestRun();
 	let reservation: typeof importPayloadReservation.$inferSelect | undefined;
@@ -163,7 +164,7 @@ const fixture = Effect.fnUntraced(function* (
 			write: (input) =>
 				Effect.gen(function* () {
 					yield* Deferred.succeed(started, undefined);
-					if (mode === "retirement") {
+					if (mode === "retirement" || mode === "quarantine") {
 						yield* Deferred.await(continueWrite);
 					}
 					events.push("write");
@@ -172,11 +173,25 @@ const fixture = Effect.fnUntraced(function* (
 				}),
 		}),
 	);
+	const captureEngine = Layer.effect(
+		WorkflowEngine,
+		Effect.map(WorkflowEngine, (engine) =>
+			mode === "quarantine"
+				? WorkflowEngine.of({
+						...engine,
+						interrupt: (_workflow, executionId) =>
+							Effect.sync(() => {
+								events.push(`interrupt:${executionId}`);
+							}),
+					})
+				: engine,
+		),
+	).pipe(Layer.provide(layerMemory));
 	const context = yield* Layer.build(
 		Layer.mergeAll(
 			Layer.effect(IngestionCaptures, IngestionCaptures.make),
 			IngestionCaptureWorkflowDefinitionsLive,
-		).pipe(Layer.provideMerge(dependencies), Layer.provide(layerMemory)),
+		).pipe(Layer.provideMerge(dependencies), Layer.provide(captureEngine)),
 	);
 	yield* Effect.addFinalizer(() => Deferred.succeed(continueWrite, undefined));
 	return {
@@ -189,6 +204,17 @@ const fixture = Effect.fnUntraced(function* (
 		state: () => ({ run, stored, capture, reservation }),
 		status: (status: IngestionRun["status"]) => {
 			run = { ...run, status };
+		},
+		quarantine: () => {
+			run = {
+				...run,
+				status: "cancelling",
+				failureReason: {
+					installationId: "installation-1",
+					code: "package-identity-conflict",
+					pluginId: PluginId.make("plugin-1"),
+				},
+			};
 		},
 	};
 });
@@ -253,6 +279,53 @@ it.effect(
 			expect(test.events).toEqual(["reserve", "delete", "release"]);
 			expect(test.state().capture).toBeNull();
 			expect(test.state().stored).toBeNull();
+		}),
+);
+
+it.effect(
+	"quarantine requests interruption without waiting, retains in-flight bytes, and rejects fresh capture retries with typed ownership",
+	() =>
+		Effect.gen(function* () {
+			const test = yield* fixture("quarantine");
+			const input = {
+				ordinal: 64,
+				id: "page-1",
+				maxBytes: 1024,
+				bytes: test.bytes,
+				checkpoint: { page: 1 },
+				state: "sealed" as const,
+				scope: ingestionTestScope,
+				phase: "collection" as const,
+			};
+			const publication = yield* Effect.flatMap(IngestionCaptures, (service) =>
+				service.publish(input),
+			).pipe(Effect.provideContext(test.context), Effect.forkChild);
+			yield* Deferred.await(test.started);
+			test.quarantine();
+			const reason = {
+				installationId: "installation-1",
+				code: "package-identity-conflict",
+				pluginId: PluginId.make("plugin-1"),
+			} as const;
+			yield* Effect.gen(function* () {
+				const service = yield* IngestionCaptures;
+				yield* service.stopWrites(ingestionTestScope, { reason, kind: "quarantine" });
+				expect(yield* service.canCleanup(ingestionTestScope)).toBe(false);
+				expect(test.state().reservation).toMatchObject({ retiring: true, released: false });
+				expect(test.state().reservation?.recoveryBytes).not.toBeNull();
+				for (const retry of [
+					service.publish({ ...input, id: "new-page" }),
+					service.recover(ingestionTestScope),
+				]) {
+					expect(yield* Effect.flip(retry)).toMatchObject({ reason });
+				}
+				expect(test.events).not.toContain("delete");
+				expect(test.events).not.toContain("release");
+			}).pipe(Effect.provideContext(test.context));
+			yield* Deferred.succeed(test.continueWrite, undefined);
+			expect((yield* Fiber.await(publication))._tag).toBe("Failure");
+			expect(test.state().stored).not.toBeNull();
+			expect(test.state().reservation?.released).toBe(false);
 		}),
 );
 

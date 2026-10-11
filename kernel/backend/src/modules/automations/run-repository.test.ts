@@ -138,6 +138,7 @@ unit("redacts mutation snapshots and parent population properties with their own
 		externalId: null,
 		providerId: null,
 		populatedAt: null,
+		entitySchemaPluginId: null,
 		entitySchemaSlug: "fixture-entity",
 		createdAt: "2026-09-15T00:00:00.000Z",
 		updatedAt: "2026-09-15T00:00:00.000Z",
@@ -152,9 +153,15 @@ unit("redacts mutation snapshots and parent population properties with their own
 	} as const;
 	const population = {
 		rootPreviouslyPopulated: true,
-		scopeEntity: { id: "entity", name: "Item", entitySchemaSlug: "fixture-entity" },
+		scopeEntity: {
+			id: "entity",
+			name: "Item",
+			entitySchemaPluginId: null,
+			entitySchemaSlug: "fixture-entity",
+		},
 		parentEntity: {
 			name: "Parent",
+			entitySchemaPluginId: null,
 			entitySchemaSlug: "fixture-entity",
 			properties: { count: 1, token: "hidden" },
 		},
@@ -221,6 +228,7 @@ describe("AutomationRunRepository", () => {
 										externalId: null,
 										populatedAt: null,
 										entitySchemaSlug: "record",
+										entitySchemaPluginId: null,
 									},
 								},
 							});
