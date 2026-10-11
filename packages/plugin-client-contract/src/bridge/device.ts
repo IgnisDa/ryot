@@ -7,6 +7,10 @@ import { PluginNavigationTarget } from "../navigation";
 const key = Schema.String.check(Schema.isMinLength(1), Schema.isMaxLength(128));
 const label = Schema.String.check(Schema.isMinLength(1), Schema.isMaxLength(128));
 const owner = { pluginId: PluginId };
+
+export const PluginHapticKind = Schema.Literals(["impact", "selection"]);
+export type PluginHapticKind = typeof PluginHapticKind.Type;
+
 const variants = [
 	strictStruct({
 		...owner,
@@ -20,11 +24,7 @@ const variants = [
 	}),
 	strictStruct({ ...owner, key, action: Schema.Literal("cancel") }),
 	strictStruct({ ...owner, enabled: Schema.Boolean, action: Schema.Literal("awake") }),
-	strictStruct({
-		...owner,
-		action: Schema.Literal("haptic"),
-		kind: Schema.optionalKey(Schema.Literals(["impact", "selection"])),
-	}),
+	strictStruct({ ...owner, kind: PluginHapticKind, action: Schema.Literal("haptic") }),
 	strictStruct({
 		...owner,
 		action: Schema.Literal("return-shortcut"),

@@ -1,7 +1,11 @@
 import { describe, expect, layer } from "@effect/vitest";
 import type { PreparedClientPage } from "@ryot-app/contract/modules/pages/schemas";
 import { PluginId, PluginPackageId } from "@ryot-app/contract/schema/brands";
-import type { PluginDeviceRequest, PluginNavigationTarget } from "@ryot-app/plugin-client-contract";
+import type {
+	PluginDeviceRequest,
+	PluginHapticKind,
+	PluginNavigationTarget,
+} from "@ryot-app/plugin-client-contract";
 import { Deferred, Effect, Fiber, Layer } from "effect";
 
 import { decodeServerOrigin } from "#/api/origin";
@@ -46,9 +50,7 @@ const harness = (initial: DeviceState = emptyDeviceState) => {
 	const cancelled: number[] = [];
 	const scheduled: number[] = [];
 	const awake: boolean[] = [];
-	const haptics: NonNullable<
-		Extract<PluginDeviceRequest, { readonly action: "haptic" }>["kind"]
-	>[] = [];
+	const haptics: PluginHapticKind[] = [];
 	const navigated: PluginNavigationTarget[] = [];
 	let tap: ((id: number) => void) | undefined;
 	let foreground: ((active: boolean) => void) | undefined;
@@ -110,12 +112,16 @@ const harness = (initial: DeviceState = emptyDeviceState) => {
 describe("device authority", () => {
 	const hapticRouting = harness();
 	layer(hapticRouting.layer)((test) => {
-		test.effect("routes selection haptics and defaults to impact", () =>
+		test.effect("routes impact and selection haptics", () =>
 			Effect.gen(function* () {
 				const service = yield* DeviceService;
 				yield* service.start;
 				yield* service.setScope(scope);
-				yield* service.outcome(scope, contributors, "frame", true, { pluginId, action: "haptic" });
+				yield* service.outcome(scope, contributors, "frame", true, {
+					pluginId,
+					kind: "impact",
+					action: "haptic",
+				});
 				yield* service.outcome(scope, contributors, "frame", true, {
 					pluginId,
 					action: "haptic",
