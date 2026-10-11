@@ -145,6 +145,39 @@
 	},
 	"overrides": [
 		{
+			"files": ["kernel/backend/src/**/*.ts"],
+			"rules": {
+				"ryot/no-hot-manifest-read": [
+					"error",
+					{
+						"allow": [
+							{
+								"file": "kernel/backend/src/modules/plugins/packages/repository.ts",
+								"owners": [
+									"revisionFields",
+									"loadRevisionsForSession",
+									"hasDefinitionReferences",
+									"listCompiledPackageArtifacts",
+									"findRevisionClientArtifact",
+									"persist",
+									"findReferencedRemovedDeclarations"
+								]
+							},
+							{
+								"file": "kernel/backend/src/modules/plugins/installations/repository.ts",
+								"owners": ["privateInstallation", "listPrivateInstallations"]
+							},
+							{
+								"file": "kernel/backend/src/schema/tables/core.ts",
+								"owners": ["pluginRevisionManifest"]
+							},
+							{ "file": "kernel/backend/src/platform/db/immutable-revisions.ts", "owners": "*" }
+						]
+					}
+				]
+			}
+		},
+		{
 			"files": ["kernel/sandbox/**"],
 			"rules": {
 				"no-restricted-imports": [
