@@ -1,3 +1,4 @@
+import { identityTupleKey } from "@ryot-app/contract/modules/plugins/references";
 import type {
 	IngestionActivity,
 	IngestionBlockReason,
@@ -183,8 +184,15 @@ export const humanizeImportSourceSlug = (slug: string) => {
 	return words.length === 0 ? slug : words.join(" ");
 };
 
-export const importSourceName = (slug: string, names: ReadonlyMap<string, string>) =>
-	names.get(slug) ?? humanizeImportSourceSlug(slug);
+export const importRunSourceKey = (installationId: string | null, slug: string) =>
+	identityTupleKey(installationId, slug);
+
+export const importSourceName = (
+	run: { readonly source: string; readonly pluginInstallationId: string | null },
+	names: ReadonlyMap<string, string>,
+) =>
+	names.get(importRunSourceKey(run.pluginInstallationId, run.source)) ??
+	humanizeImportSourceSlug(run.source);
 
 const importRunFileNames = (inputSummary: Record<string, unknown>) => {
 	const names = inputSummary["fileNames"];
