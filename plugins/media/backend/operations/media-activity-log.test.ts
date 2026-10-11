@@ -90,10 +90,14 @@ const run = (
 		execution,
 	);
 
-const rejects = (entry: MediaActivityEntry, host: Parameters<typeof run>[1], at = submittedAt) =>
+const rejects = (
+	expectedTag: "SchemaError" | "MediaActivityRejectedError",
+	entry: MediaActivityEntry,
+	host: Parameters<typeof run>[1],
+) =>
 	Effect.gen(function* () {
-		const result = yield* Effect.result(run({ entry, submittedAt: at }, host));
-		expect(result._tag).toBe("Failure");
+		const result = yield* Effect.result(run({ entry }, host));
+		expect(result).toMatchObject({ _tag: "Failure", failure: { _tag: expectedTag } });
 	});
 
 const episodeId = (index: number) => `episode-${String(index).padStart(3, "0")}`;
@@ -200,6 +204,7 @@ describe("media activity log", () => {
 
 			const rejected = recordingHost({ schemaSlug: "movie" });
 			yield* rejects(
+				"SchemaError",
 				{
 					kind: "complete",
 					entityId: "movie-1",
@@ -208,6 +213,7 @@ describe("media activity log", () => {
 				rejected.host,
 			);
 			yield* rejects(
+				"SchemaError",
 				{
 					kind: "complete",
 					entityId: "movie-1",
@@ -220,6 +226,7 @@ describe("media activity log", () => {
 				rejected.host,
 			);
 			yield* rejects(
+				"SchemaError",
 				{
 					kind: "episodes",
 					parentEntityId: "show-1",
@@ -278,20 +285,49 @@ describe("media activity log", () => {
 	it.live("rejects progress shapes the schema does not carry without writing", () =>
 		Effect.gen(function* () {
 			const anime = recordingHost({ schemaSlug: "anime" });
-			yield* rejects({ kind: "progress", entityId: "anime-1", progressPercent: 50 }, anime.host);
-			yield* rejects({ kind: "progress", entityId: "anime-1" }, anime.host);
 			yield* rejects(
+				"MediaActivityRejectedError",
+				{ kind: "progress", entityId: "anime-1", progressPercent: 50 },
+				anime.host,
+			);
+			yield* rejects(
+				"MediaActivityRejectedError",
+				{ kind: "progress", entityId: "anime-1" },
+				anime.host,
+			);
+			yield* rejects(
+				"SchemaError",
 				{ position: 2, kind: "progress", entityId: "anime-1", progressPercent: 50 },
 				anime.host,
 			);
 			const book = recordingHost({ schemaSlug: "book" });
-			yield* rejects({ position: 2, kind: "progress", entityId: "book-1" }, book.host);
+			yield* rejects(
+				"MediaActivityRejectedError",
+				{ position: 2, kind: "progress", entityId: "book-1" },
+				book.host,
+			);
 			const show = recordingHost({ schemaSlug: "show" });
-			yield* rejects({ kind: "progress", entityId: "show-1", progressPercent: 50 }, show.host);
-			yield* rejects({ kind: "complete", entityId: "show-1", when: { kind: "now" } }, show.host);
+			yield* rejects(
+				"MediaActivityRejectedError",
+				{ kind: "progress", entityId: "show-1", progressPercent: 50 },
+				show.host,
+			);
+			yield* rejects(
+				"MediaActivityRejectedError",
+				{ kind: "complete", entityId: "show-1", when: { kind: "now" } },
+				show.host,
+			);
 			const missing = recordingHost({});
-			yield* rejects({ kind: "progress", entityId: "gone", progressPercent: 50 }, missing.host);
-			yield* rejects({ kind: "status", entityId: "gone", status: "dropped" }, missing.host);
+			yield* rejects(
+				"MediaActivityRejectedError",
+				{ kind: "progress", entityId: "gone", progressPercent: 50 },
+				missing.host,
+			);
+			yield* rejects(
+				"MediaActivityRejectedError",
+				{ kind: "status", entityId: "gone", status: "dropped" },
+				missing.host,
+			);
 			for (const { creates } of [anime, book, show, missing]) {
 				expect(creates).toEqual([]);
 			}
@@ -364,6 +400,7 @@ describe("media activity log", () => {
 			Effect.gen(function* () {
 				const foreign = recordingHost({ memberCount: 1, schemaSlug: "show" });
 				yield* rejects(
+					"MediaActivityRejectedError",
 					{
 						kind: "episodes",
 						when: { kind: "now" },
@@ -374,6 +411,7 @@ describe("media activity log", () => {
 				);
 				const flat = recordingHost({ memberCount: 1, schemaSlug: "movie" });
 				yield* rejects(
+					"MediaActivityRejectedError",
 					{
 						kind: "episodes",
 						when: { kind: "now" },
@@ -383,6 +421,7 @@ describe("media activity log", () => {
 					flat.host,
 				);
 				yield* rejects(
+					"SchemaError",
 					{
 						kind: "episodes",
 						when: { kind: "now" },
