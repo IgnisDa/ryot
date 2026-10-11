@@ -15,7 +15,7 @@
 
 ## Status
 
-**29 implemented, 0 in progress, 54 pending; 3 excluded.**
+**30 implemented, 0 in progress, 53 pending; 3 excluded.**
 
 “Implemented” means affected checks and tests passed and the change is committed with this tracker. Batch-wide acceptance is recorded separately below. Rows follow the audit's ranked order; sequencing can change to respect dependencies and keep changes reviewable.
 
@@ -81,7 +81,7 @@
 | M04-R1 | Pending | Use the sorted-run accumulator for collection workflows. |
 | M02-R1 | Pending | Remove the synthetic ZIP round trip for decoded Trakt records. |
 | F02-R1 | Pending | Normalize the already-selected workout group once. |
-| F04-R1 | Pending | Read numeric template plans directly. |
+| F04-R1 | Implemented | Read the persisted numeric template plan directly and enrich distinct choices without editor hydration; preserve validation, units, and pro-media behavior. See this finding's audit commit. |
 | A02-R1 | Pending | One event-ID migration scan. |
 | T02-R1 | Pending | Register test resource finalizers during acquisition. |
 | T02-R2 | Pending | Bind sessions and admin authority to one server target. |
@@ -194,3 +194,4 @@
 - C06-R2: client type check and scoped format/lint passed before 83 tests across eight files; read-only review reported no findings. Pagination uses a submitted snapshot.
 - B24-R1: backend type, format, and lint checks passed before 57 tests across seven files; read-only review reported no findings. Definition registration, invalidation, and publication remain intact.
 - M06-R1: media check passed before 222 tests across 25 files; read-only review reported no findings. All locators resolve once; actual headers and the home backdrop remain.
+- F04-R1: fitness check passed before 11 tests; read-only review reported no findings. The persisted numeric plan is used directly, without editor hydration, and validation, units, and pro-media behavior are preserved.
