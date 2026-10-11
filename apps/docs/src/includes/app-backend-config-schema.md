@@ -131,20 +131,20 @@
 
 | Plugin Config Key | Variable | Label | Description | Required | Sensitive | Default |
 |---|---|---|---|---|---|---|
-| `media.anilistClientId` | `RYOT_PLUGIN_BCAD4408A7E7465EACCBC1A553C78090_ANILIST_CLIENT_ID` | AniList client ID | Client ID for AniList accounts | No | No | — |
-| `media.metronUsername` | `RYOT_PLUGIN_BCAD4408A7E7465EACCBC1A553C78090_METRON_USERNAME` | Metron username | Username used to access Metron metadata | No | No | — |
-| `media.twitchClientId` | `RYOT_PLUGIN_BCAD4408A7E7465EACCBC1A553C78090_TWITCH_CLIENT_ID` | Twitch client ID | Client ID used to access IGDB metadata | No | No | — |
-| `media.traktClientId` | `RYOT_PLUGIN_BCAD4408A7E7465EACCBC1A553C78090_TRAKT_CLIENT_ID` | Trakt client ID | Client ID used to import data from Trakt | No | No | — |
-| `media.spotifyClientId` | `RYOT_PLUGIN_BCAD4408A7E7465EACCBC1A553C78090_SPOTIFY_CLIENT_ID` | Spotify client ID | Client ID for Spotify metadata & accounts | No | No | — |
-| `media.tvdbApiKey` | `RYOT_PLUGIN_BCAD4408A7E7465EACCBC1A553C78090_TVDB_API_KEY` | TVDB API key | API key used to access TVDB metadata | No | Yes | — |
-| `media.malClientId` | `RYOT_PLUGIN_BCAD4408A7E7465EACCBC1A553C78090_MAL_CLIENT_ID` | MyAnimeList client ID | Client ID used to access MyAnimeList metadata | No | No | — |
-| `media.metronPassword` | `RYOT_PLUGIN_BCAD4408A7E7465EACCBC1A553C78090_METRON_PASSWORD` | Metron password | Password used to access Metron metadata | No | Yes | — |
-| `media.tmdbAccessToken` | `RYOT_PLUGIN_BCAD4408A7E7465EACCBC1A553C78090_TMDB_ACCESS_TOKEN` | TMDB access token | Access token used to access TMDB metadata | No | Yes | — |
-| `media.hardcoverApiKey` | `RYOT_PLUGIN_BCAD4408A7E7465EACCBC1A553C78090_HARDCOVER_API_KEY` | Hardcover API key | API key used to access Hardcover metadata | No | Yes | — |
-| `media.anilistClientSecret` | `RYOT_PLUGIN_BCAD4408A7E7465EACCBC1A553C78090_ANILIST_CLIENT_SECRET` | AniList client secret | Client secret for AniList accounts | No | Yes | — |
-| `media.giantBombApiKey` | `RYOT_PLUGIN_BCAD4408A7E7465EACCBC1A553C78090_GIANT_BOMB_API_KEY` | Giant Bomb API key | API key used to access Giant Bomb metadata | No | Yes | — |
-| `media.twitchClientSecret` | `RYOT_PLUGIN_BCAD4408A7E7465EACCBC1A553C78090_TWITCH_CLIENT_SECRET` | Twitch client secret | Client secret used to access IGDB metadata | No | Yes | — |
-| `media.googleBooksApiKey` | `RYOT_PLUGIN_BCAD4408A7E7465EACCBC1A553C78090_GOOGLE_BOOKS_API_KEY` | Google Books API key | API key used to access Google Books metadata | No | Yes | — |
-| `media.listennotesApiKey` | `RYOT_PLUGIN_BCAD4408A7E7465EACCBC1A553C78090_LISTENNOTES_API_KEY` | Listen Notes API key | API key used to access Listen Notes metadata | No | Yes | — |
-| `media.spotifyClientSecret` | `RYOT_PLUGIN_BCAD4408A7E7465EACCBC1A553C78090_SPOTIFY_CLIENT_SECRET` | Spotify client secret | Client secret for Spotify metadata & accounts | No | Yes | — |
-| `media.progressUpdateThresholdHours` | `RYOT_PLUGIN_BCAD4408A7E7465EACCBC1A553C78090_PROGRESS_UPDATE_THRESHOLD_HOURS` | Progress update threshold | Hours used to debounce repeated completion updates | No | No | `2` |
+| `ryot/media.anilistClientId` | `RYOT_PLUGIN__RYOT__MEDIA__ANILIST_CLIENT_ID` | AniList client ID | Client ID for AniList accounts | No | No | — |
+| `ryot/media.metronUsername` | `RYOT_PLUGIN__RYOT__MEDIA__METRON_USERNAME` | Metron username | Username used to access Metron metadata | No | No | — |
+| `ryot/media.twitchClientId` | `RYOT_PLUGIN__RYOT__MEDIA__TWITCH_CLIENT_ID` | Twitch client ID | Client ID used to access IGDB metadata | No | No | — |
+| `ryot/media.traktClientId` | `RYOT_PLUGIN__RYOT__MEDIA__TRAKT_CLIENT_ID` | Trakt client ID | Client ID used to import data from Trakt | No | No | — |
+| `ryot/media.spotifyClientId` | `RYOT_PLUGIN__RYOT__MEDIA__SPOTIFY_CLIENT_ID` | Spotify client ID | Client ID for Spotify metadata & accounts | No | No | — |
+| `ryot/media.tvdbApiKey` | `RYOT_PLUGIN__RYOT__MEDIA__TVDB_API_KEY` | TVDB API key | API key used to access TVDB metadata | No | Yes | — |
+| `ryot/media.malClientId` | `RYOT_PLUGIN__RYOT__MEDIA__MAL_CLIENT_ID` | MyAnimeList client ID | Client ID used to access MyAnimeList metadata | No | No | — |
+| `ryot/media.metronPassword` | `RYOT_PLUGIN__RYOT__MEDIA__METRON_PASSWORD` | Metron password | Password used to access Metron metadata | No | Yes | — |
+| `ryot/media.tmdbAccessToken` | `RYOT_PLUGIN__RYOT__MEDIA__TMDB_ACCESS_TOKEN` | TMDB access token | Access token used to access TMDB metadata | No | Yes | — |
+| `ryot/media.hardcoverApiKey` | `RYOT_PLUGIN__RYOT__MEDIA__HARDCOVER_API_KEY` | Hardcover API key | API key used to access Hardcover metadata | No | Yes | — |
+| `ryot/media.anilistClientSecret` | `RYOT_PLUGIN__RYOT__MEDIA__ANILIST_CLIENT_SECRET` | AniList client secret | Client secret for AniList accounts | No | Yes | — |
+| `ryot/media.giantBombApiKey` | `RYOT_PLUGIN__RYOT__MEDIA__GIANT_BOMB_API_KEY` | Giant Bomb API key | API key used to access Giant Bomb metadata | No | Yes | — |
+| `ryot/media.twitchClientSecret` | `RYOT_PLUGIN__RYOT__MEDIA__TWITCH_CLIENT_SECRET` | Twitch client secret | Client secret used to access IGDB metadata | No | Yes | — |
+| `ryot/media.googleBooksApiKey` | `RYOT_PLUGIN__RYOT__MEDIA__GOOGLE_BOOKS_API_KEY` | Google Books API key | API key used to access Google Books metadata | No | Yes | — |
+| `ryot/media.listennotesApiKey` | `RYOT_PLUGIN__RYOT__MEDIA__LISTENNOTES_API_KEY` | Listen Notes API key | API key used to access Listen Notes metadata | No | Yes | — |
+| `ryot/media.spotifyClientSecret` | `RYOT_PLUGIN__RYOT__MEDIA__SPOTIFY_CLIENT_SECRET` | Spotify client secret | Client secret for Spotify metadata & accounts | No | Yes | — |
+| `ryot/media.progressUpdateThresholdHours` | `RYOT_PLUGIN__RYOT__MEDIA__PROGRESS_UPDATE_THRESHOLD_HOURS` | Progress update threshold | Hours used to debounce repeated completion updates | No | No | `2` |

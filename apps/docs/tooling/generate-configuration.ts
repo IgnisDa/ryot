@@ -42,7 +42,6 @@ await Effect.runPromise(
 		);
 		const plugins = manifests.map((manifest) => ({
 			name: manifest.metadata.name,
-			slug: manifest.metadata.slug,
 			schema: manifest.configSchema,
 			packageId: manifest.metadata.packageId,
 		}));
