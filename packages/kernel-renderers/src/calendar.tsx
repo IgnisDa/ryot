@@ -8,6 +8,7 @@ import {
 } from "@ryot-app/plugin-client-sdk/plugin";
 import {
 	createRyotQuery,
+	localDay,
 	ManagedAssetProvider,
 	useAssetUrl,
 	useRyot,
@@ -69,9 +70,6 @@ type Entry = {
 
 const pad = (value: number) => String(value).padStart(2, "0");
 
-const localDayKey = (date: Date) =>
-	`${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
-
 const localMonthKey = (date: Date) => `${date.getFullYear()}-${pad(date.getMonth() + 1)}`;
 
 const parseMonth = (value: string | null) =>
@@ -104,7 +102,7 @@ const calendarWindow = (month: string): CalendarWindow => {
 const occurrenceDay = (occurrence: CalendarOccurrence) =>
 	occurrence.precision === "date"
 		? occurrence.startAt.slice(0, 10)
-		: localDayKey(new Date(occurrence.startAt));
+		: localDay(new Date(occurrence.startAt));
 
 const monthLabel = (month: string) => {
 	const { year, index } = monthParts(month);
@@ -458,11 +456,11 @@ function MonthGrid({
 				{weeks.map((dates) => (
 					<div
 						role="row"
-						key={localDayKey(dates[0] ?? new Date(year, index - 1, 1))}
+						key={localDay(dates[0] ?? new Date(year, index - 1, 1))}
 						className="grid grid-cols-7 border-b border-border last:border-b-0"
 					>
 						{dates.map((date) => {
-							const day = localDayKey(date);
+							const day = localDay(date);
 							const inMonth = date.getMonth() === index - 1;
 							const entries = inMonth ? (byDay.get(day) ?? []) : [];
 							const hidden = entries.length - MONTH_CELL_ITEMS;
@@ -708,7 +706,7 @@ export default function CalendarPage() {
 	const name = page.view?.name ?? "Calendar";
 	const icon = page.view?.icon ?? "calendar";
 	const now = new Date(schedule.now());
-	const today = localDayKey(now);
+	const today = localDay(now);
 	const params = new URLSearchParams(location.search);
 	const requested = {
 		month: parseMonth(params.get("month")) ?? localMonthKey(now),

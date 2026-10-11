@@ -1,3 +1,5 @@
+import { localDay } from "@ryot-app/plugin-client-sdk/react";
+
 import type { MediaActivityLogContext } from "../../../shared/activity-log-recipes";
 import type { EpisodeLifecycleState } from "../../../shared/lifecycle-expressions";
 import {
@@ -112,13 +114,6 @@ export const activityIntents = (logger: MediaActivityLogger) =>
 	}));
 
 export const capitalized = (text: string) => `${text.slice(0, 1).toUpperCase()}${text.slice(1)}`;
-
-const twoDigits = (value: number) => String(value).padStart(2, "0");
-
-export const localDay = (time: number) => {
-	const date = new Date(time);
-	return `${date.getFullYear()}-${twoDigits(date.getMonth() + 1)}-${twoDigits(date.getDate())}`;
-};
 
 const dayParts = (day: string) => {
 	const match = DAY.exec(day);

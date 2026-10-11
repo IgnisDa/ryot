@@ -1,12 +1,11 @@
-import { useRyotSchedule, useRyotSubmission } from "@ryot-app/plugin-client-sdk/react";
-import { Badge, Button, StatusMessage } from "@ryot-app/plugin-ui-sdk";
+import { localDay, useRyotSchedule } from "@ryot-app/plugin-client-sdk/react";
+import { Badge, Button } from "@ryot-app/plugin-ui-sdk";
 import { fieldSyncState, isTitleProvisional, SyncPip } from "@ryot-app/plugin-ui-sdk/sync";
 import clsx from "clsx";
 import { type RefObject, useRef, useState } from "react";
 
-import { logActivityMutation } from "./activity-log/queries";
 import { MediaActivityLogSheet } from "./activity-log/sheet";
-import { localDay } from "./activity-log/state";
+import { MediaSubmissionFeedback, useQuickLog } from "./activity-log/submission-feedback";
 import { MediaDetailModal } from "./detail-modal";
 import { mediaAspectClass } from "./entity-presentation";
 import type { MediaEpisodeLog, MediaEpisodeRender } from "./episodes";
@@ -18,7 +17,7 @@ import {
 	mediaEpisodeSynopsis,
 } from "./episodes-state";
 import { ManagedAssetImage } from "./managed-assets";
-import { MediaLinkButton, MediaMarkdown } from "./primitives";
+import { MediaMarkdown } from "./primitives";
 
 function MediaEpisodeActions<Episode extends MediaEpisode>(props: {
 	readonly episode: Episode;
@@ -28,9 +27,7 @@ function MediaEpisodeActions<Episode extends MediaEpisode>(props: {
 }) {
 	const { log, episode } = props;
 	const schedule = useRyotSchedule();
-	const mark = useRyotSubmission(logActivityMutation, {
-		isComplete: (result) => result.status === "saved",
-	});
+	const { locked, log: mark } = useQuickLog(log.parentEntityId);
 	const [sheetOpen, setSheetOpen] = useState(false);
 	const sheetTrigger = useRef<HTMLButtonElement>(null);
 	if (episode.publishDate !== null && episode.publishDate > localDay(schedule.now())) {
@@ -41,7 +38,7 @@ function MediaEpisodeActions<Episode extends MediaEpisode>(props: {
 		<div className="flex flex-col items-start gap-2">
 			<div className="flex flex-wrap gap-2">
 				<Button
-					disabled={mark.status !== "idle"}
+					disabled={locked}
 					onClick={() =>
 						mark.submit({
 							kind: "episodes",
@@ -57,15 +54,7 @@ function MediaEpisodeActions<Episode extends MediaEpisode>(props: {
 					Log…
 				</Button>
 			</div>
-			{mark.status === "retained" ? (
-				<div className="flex items-center gap-3">
-					<StatusMessage tone="error">Couldn't save. Try again.</StatusMessage>
-					<MediaLinkButton label="Retry" onClick={mark.retry} />
-				</div>
-			) : null}
-			{mark.status === "idle" && mark.data?.status === "saved" ? (
-				<StatusMessage tone="success">Marked {participle}.</StatusMessage>
-			) : null}
+			<MediaSubmissionFeedback log={mark} doneText={`Marked ${participle}.`} />
 			{sheetOpen ? (
 				<MediaActivityLogSheet
 					logger={log.logger}

@@ -11,6 +11,7 @@ import {
 	waitFor,
 	within,
 } from "@testing-library/dom";
+import { Deferred } from "effect";
 import { act, createRef } from "react";
 
 import {
@@ -92,17 +93,29 @@ const mountLog = (options: {
 	readonly logger: MediaActivityLogger;
 	readonly compact?: boolean;
 	readonly fake?: ActivityLogFake;
+	readonly refresh?: (document: unknown) => Effect.Effect<unknown, RyotClientError>;
 	readonly result?: (attempt: number) => Effect.Effect<unknown, RyotClientError>;
 }) => {
 	const requests: Request[] = [];
 	const queries: string[] = [];
+	const answer = activityLogQuery({ target: contextTarget(), ...options.fake }, queries);
 	const view = mountRyotClient(
 		{
 			watchEntities,
-			query: activityLogQuery({ target: contextTarget(), ...options.fake }, queries),
 			invokeOperation: (request) => {
 				requests.push(request);
 				return options.result?.(requests.length) ?? Effect.succeed(SAVED);
+			},
+			query: (document) => {
+				if (
+					options.refresh !== undefined &&
+					JSON.stringify(document).includes('"logEntity"') &&
+					queries.includes("context")
+				) {
+					queries.push("context");
+					return options.refresh(document);
+				}
+				return answer(document);
 			},
 		},
 		<MediaLogActivityButton
@@ -236,6 +249,22 @@ it.live("records a finished movie just now with its source and time under more d
 				}),
 			]);
 			yield* eventually(() => expect(getByText(dialog, "Heat marked as watched.")).toBeDefined());
+		} finally {
+			mounted.view.unmount();
+		}
+	}),
+);
+
+it.live("does not submit the log form when toggling more details", () =>
+	Effect.gen(function* () {
+		const mounted = mountLog({ logger: movie, fake: { target: contextTarget({ runtime: 170 }) } });
+		try {
+			const dialog = yield* openLog(mounted);
+			press(dialog, "More details");
+			expect(getByRole(dialog, "button", { name: "Hide details" })).toBeDefined();
+			press(dialog, "Hide details");
+			expect(getByRole(dialog, "button", { name: "More details" })).toBeDefined();
+			expect(mounted.requests).toEqual([]);
 		} finally {
 			mounted.view.unmount();
 		}
@@ -1146,6 +1175,110 @@ for (const failure of ["incomplete", "transport"] as const) {
 		}),
 	);
 }
+
+const QUICK = "Mark S2·E5 watched";
+
+const quickDisabled = (mounted: ReturnType<typeof mountLog>) =>
+	getByRole(mounted.view.container, "button", { name: QUICK }).hasAttribute("disabled");
+
+const saveQuick = (mounted: ReturnType<typeof mountLog>) =>
+	Effect.gen(function* () {
+		yield* Effect.promise(() => mounted.view.setTime(NOW));
+		clickRyotElement(yield* quickButton(mounted, QUICK));
+		yield* submitted(mounted);
+		yield* eventually(() =>
+			expect(getByText(mounted.view.container, "S2·E5 watched.")).toBeDefined(),
+		);
+	});
+
+const contextFetches = (mounted: ReturnType<typeof mountLog>) =>
+	mounted.queries.filter((query) => query === "context").length;
+
+it.live("keeps the quick action disabled until the context refresh settles", () =>
+	Effect.gen(function* () {
+		const release = yield* Deferred.make<void>();
+		const answer = activityLogQuery(showFake());
+		const mounted = mountLog({
+			logger: show,
+			fake: showFake(),
+			refresh: (document) => Deferred.await(release).pipe(Effect.andThen(answer(document))),
+		});
+		try {
+			yield* saveQuick(mounted);
+			expect(quickDisabled(mounted)).toBe(true);
+			yield* Effect.promise(() => mounted.view.advance(250));
+			yield* eventually(() => expect(contextFetches(mounted)).toBe(2));
+			clickRyotElement(getByRole(mounted.view.container, "button", { name: QUICK }));
+			expect(mounted.requests).toHaveLength(1);
+			expect(quickDisabled(mounted)).toBe(true);
+			yield* Deferred.succeed(release, undefined);
+			yield* eventually(() => expect(quickDisabled(mounted)).toBe(false));
+			clickRyotElement(getByRole(mounted.view.container, "button", { name: QUICK }));
+			yield* submitted(mounted, 2);
+		} finally {
+			mounted.view.unmount();
+		}
+	}),
+);
+
+it.live("re-enables the quick action when the context refresh fails", () =>
+	Effect.gen(function* () {
+		const release = yield* Deferred.make<void>();
+		const mounted = mountLog({
+			logger: show,
+			fake: showFake(),
+			refresh: () =>
+				Deferred.await(release).pipe(
+					Effect.andThen(Effect.fail(new RyotClientError("operation-failed"))),
+				),
+		});
+		try {
+			yield* saveQuick(mounted);
+			yield* Effect.promise(() => mounted.view.advance(250));
+			yield* eventually(() => expect(contextFetches(mounted)).toBe(2));
+			expect(quickDisabled(mounted)).toBe(true);
+			yield* Deferred.succeed(release, undefined);
+			yield* eventually(() => expect(quickDisabled(mounted)).toBe(false));
+		} finally {
+			mounted.view.unmount();
+		}
+	}),
+);
+
+it.live("keeps the retained error and Retry once the refreshed context has no quick target", () =>
+	Effect.gen(function* () {
+		const empty = activityLogQuery({ target: undefined });
+		const mounted = mountLog({
+			logger: show,
+			refresh: empty,
+			fake: showFake(),
+			result: (attempt) =>
+				attempt === 1 ? Effect.succeed({ count: 1, status: "incomplete" }) : Effect.succeed(SAVED),
+		});
+		try {
+			yield* Effect.promise(() => mounted.view.setTime(NOW));
+			clickRyotElement(yield* quickButton(mounted, QUICK));
+			yield* eventually(() =>
+				expect(getByRole(mounted.view.container, "alert").textContent).toBe(
+					"Couldn't save. Try again.",
+				),
+			);
+			yield* Effect.promise(() => mounted.view.advance(250));
+			yield* eventually(() => expect(contextFetches(mounted)).toBe(2));
+			yield* eventually(() =>
+				expect(queryByRole(mounted.view.container, "button", { name: QUICK })).toBeNull(),
+			);
+			expect(getByRole(mounted.view.container, "alert").textContent).toBe(
+				"Couldn't save. Try again.",
+			);
+			press(mounted.view.container, "Retry");
+			yield* submitted(mounted, 2);
+			yield* eventually(() => expect(queryByRole(mounted.view.container, "alert")).toBeNull());
+		} finally {
+			mounted.view.unmount();
+		}
+	}),
+);
 
 it.live("opens the sheet from the caret without writing", () =>
 	Effect.gen(function* () {

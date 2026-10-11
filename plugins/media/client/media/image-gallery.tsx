@@ -1,4 +1,4 @@
-import { Chip, Modal, useShortcut } from "@ryot-app/plugin-ui-sdk";
+import { ChipRadioGroup, Modal, useShortcut } from "@ryot-app/plugin-ui-sdk";
 import { AppIcon } from "@ryot-app/plugin-ui-sdk/icon";
 import clsx from "clsx";
 import { type RefObject, useEffect, useRef, useState } from "react";
@@ -44,25 +44,17 @@ function GalleryFilterRow(props: {
 		return null;
 	}
 	return (
-		<div className="overflow-x-auto px-4 pb-3">
-			<div role="radiogroup" aria-label="Filter images" className="flex w-max gap-2">
-				{filters.map((option) => {
-					const isSelected = option.filter === props.active;
-					return (
-						<button
-							role="radio"
-							type="button"
-							key={option.filter}
-							aria-checked={isSelected}
-							onClick={() => props.onSelect(option.filter)}
-							className="rounded-pill focus-visible:outline-2 focus-visible:outline-accent"
-						>
-							<Chip checked={isSelected} label={`${option.label} ${option.count}`} />
-						</button>
-					);
-				})}
-			</div>
-		</div>
+		<ChipRadioGroup
+			overflow="scroll"
+			value={props.active}
+			label="Filter images"
+			className="px-4 pb-3"
+			onChange={props.onSelect}
+			options={filters.map((option) => ({
+				value: option.filter,
+				label: `${option.label} ${option.count}`,
+			}))}
+		/>
 	);
 }
 

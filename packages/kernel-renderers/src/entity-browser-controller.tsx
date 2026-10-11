@@ -515,11 +515,7 @@ export function EntityBrowserController<Meta>({
 								})}
 							</span>
 							{current.pageInfo?.hasMore && !unfiltered && !showCount && count && (
-								<Button
-									variant="ghost"
-									onClick={() => setShowCount(true)}
-									className="text-sm text-accent-text"
-								>
+								<Button variant="link" onClick={() => setShowCount(true)}>
 									Count all
 								</Button>
 							)}

@@ -1,9 +1,7 @@
-import { Modal } from "@ryot-app/plugin-ui-sdk";
+import { Button, Modal } from "@ryot-app/plugin-ui-sdk";
 import { AppIcon } from "@ryot-app/plugin-ui-sdk/icon";
 import clsx from "clsx";
 import { type ComponentProps, type ReactNode, type RefObject, useRef, useState } from "react";
-
-import { MediaLinkButton } from "./primitives";
 
 export function MediaDetailModalButton({
 	triggerLabel,
@@ -15,7 +13,9 @@ export function MediaDetailModalButton({
 	const triggerRef = useRef<HTMLButtonElement>(null);
 	return (
 		<>
-			<MediaLinkButton ref={triggerRef} label={triggerLabel} onClick={() => setOpen(true)} />
+			<Button variant="link" ref={triggerRef} onClick={() => setOpen(true)}>
+				{triggerLabel}
+			</Button>
 			{open ? (
 				<MediaDetailModal
 					{...props}

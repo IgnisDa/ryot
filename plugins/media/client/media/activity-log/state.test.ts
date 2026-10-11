@@ -18,7 +18,6 @@ import {
 	backfillSummary,
 	defaultSeasonNumber,
 	initialActivityDraft,
-	localDay,
 	type MediaActivityLogger,
 	parseTimeSpent,
 	percentFromUnit,
@@ -170,10 +169,6 @@ describe("picked dates", () => {
 				},
 			})._tag,
 		).toBe("Failure");
-	});
-
-	it("formats the local day of a timestamp", () => {
-		expect(localDay(new Date(2026, 9, 5, 23, 59).getTime())).toBe("2026-10-05");
 	});
 });
 

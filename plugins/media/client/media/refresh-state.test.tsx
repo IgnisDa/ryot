@@ -1,6 +1,6 @@
 import { RyotClientError } from "@ryot-app/plugin-client-sdk";
 import { Effect } from "@ryot-app/plugin-client-sdk/effect";
-import { fireEvent, getByRole } from "@testing-library/dom";
+import { fireEvent, getAllByRole } from "@testing-library/dom";
 import { assert, describe, expect, it } from "vitest";
 
 import {
@@ -59,9 +59,9 @@ describe("show refresh failures", () => {
 			expect(view.container.textContent).toContain("Adolescence");
 			expect(view.container.textContent).toContain("Owen Cooper");
 			expect(view.container.querySelectorAll('[role="status"]')).toHaveLength(2);
-			const status = view.container.querySelector('[role="status"]');
-			assert(status instanceof HTMLElement);
-			fireEvent.click(getByRole(status, "button", { name: "Try again" }));
+			const [tryAgain] = getAllByRole(view.container, "button", { name: "Try again" });
+			assert(tryAgain instanceof HTMLElement);
+			fireEvent.click(tryAgain);
 			expect(retries).toBe(1);
 			view.unmount();
 		},

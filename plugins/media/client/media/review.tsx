@@ -19,7 +19,6 @@ import {
 	MediaReviewCreateOutput,
 } from "../../shared/media-review-operations";
 import { PLUGIN_PACKAGE_ID } from "../../shared/plugin-identity";
-import { MediaLinkButton } from "./primitives";
 
 const createReview = createRyotMutation<
 	MediaReviewCreateInput,
@@ -144,7 +143,9 @@ export function MediaReviewButton(props: { readonly entityId: string; readonly l
 	return (
 		<>
 			{props.link ? (
-				<MediaLinkButton ref={triggerRef} label="Write review" onClick={() => setOpen(true)} />
+				<Button variant="link" ref={triggerRef} onClick={() => setOpen(true)}>
+					Write review
+				</Button>
 			) : (
 				<Button ref={triggerRef} variant="secondary" onClick={() => setOpen(true)}>
 					<AppIcon size={15} name="star" />

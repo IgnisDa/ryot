@@ -1,4 +1,5 @@
 import { PluginLink } from "@ryot-app/plugin-client-sdk/plugin";
+import { Button } from "@ryot-app/plugin-ui-sdk";
 import { fieldSyncState } from "@ryot-app/plugin-ui-sdk/sync";
 import clsx from "clsx";
 import { type ReactNode, useMemo, useRef, useState } from "react";
@@ -26,7 +27,6 @@ import {
 } from "./overview-state";
 import {
 	MediaExternalLink,
-	MediaLinkButton,
 	MediaOverviewSection,
 	MediaRail,
 	MediaStatusMessage,
@@ -78,11 +78,9 @@ export function MediaImageGallerySection(props: {
 		<MediaOverviewSection
 			title="Images"
 			action={
-				<MediaLinkButton
-					ref={triggerRef}
-					label="View all images"
-					onClick={() => setGalleryOpen(true)}
-				/>
+				<Button variant="link" ref={triggerRef} onClick={() => setGalleryOpen(true)}>
+					View all images
+				</Button>
 			}
 		>
 			<MediaRail compact={props.compact}>
@@ -363,7 +361,9 @@ function MediaOverviewNotice(props: {
 				<p className="font-ui text-[13px] text-text-muted">{props.status}</p>
 				<p className="max-w-xl font-ui text-[13px] text-text-subtle">{props.detail}</p>
 				{props.onRetry === undefined ? null : (
-					<MediaLinkButton label="Try again" onClick={props.onRetry} />
+					<Button variant="link" onClick={props.onRetry}>
+						Try again
+					</Button>
 				)}
 			</div>
 		</MediaOverviewSection>

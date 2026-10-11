@@ -152,11 +152,11 @@ function ExerciseDefaultsForm(props: {
 					<div className="grid gap-1.5">
 						<span className="text-[13px] font-medium">Default duration unit</span>
 						<SegmentedControl
+							fill
 							value={duration}
-							className="w-full"
 							onChange={setDuration}
+							optionClassName="px-2"
 							label="Default duration unit"
-							optionClassName="flex-1 px-2"
 							options={[
 								{ value: "inherited", label: "Fitness setting", content: "Fitness setting" },
 								{ value: "seconds", label: "Seconds", content: "Seconds" },
@@ -236,10 +236,10 @@ export function UnitsAndDefaultsSheet(props: {
 					<h3 className={sectionHeading}>Units in this workout</h3>
 					{fields.includes("weight") ? (
 						<SegmentedControl
-							className="w-full"
+							fill
 							label="Weight unit"
+							optionClassName="px-3"
 							value={display.weightUnit}
-							optionClassName="flex-1 px-3"
 							onChange={(weightUnit) => props.onDisplay({ ...display, weightUnit })}
 							options={[
 								{ value: "kg", label: "Kilograms", content: "Kilograms" },
@@ -249,10 +249,10 @@ export function UnitsAndDefaultsSheet(props: {
 					) : null}
 					{fields.includes("distance") ? (
 						<SegmentedControl
-							className="w-full"
+							fill
 							label="Distance unit"
+							optionClassName="px-3"
 							value={display.distanceUnit}
-							optionClassName="flex-1 px-3"
 							onChange={(distanceUnit) => props.onDisplay({ ...display, distanceUnit })}
 							options={[
 								{ value: "km", label: "Kilometres", content: "Kilometres" },
@@ -262,10 +262,10 @@ export function UnitsAndDefaultsSheet(props: {
 					) : null}
 					{fields.includes("duration") ? (
 						<SegmentedControl
-							className="w-full"
+							fill
 							label="Duration unit"
+							optionClassName="px-3"
 							value={display.durationUnit}
-							optionClassName="flex-1 px-3"
 							onChange={(durationUnit) => props.onDisplay({ ...display, durationUnit })}
 							options={[
 								{ value: "minutes", label: "Minutes", content: "Minutes" },

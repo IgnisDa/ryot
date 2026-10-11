@@ -79,14 +79,14 @@ const CollectionCount = ({
 	useEffect(() => report(result.data), [result.data]);
 	if (result.isPending) {
 		return (
-			<Button disabled variant="ghost" className="text-sm text-accent-text">
+			<Button disabled variant="link">
 				Counting...
 			</Button>
 		);
 	}
 	if (result.isError) {
 		return (
-			<Button variant="ghost" onClick={result.refetch} className="text-sm text-accent-text">
+			<Button variant="link" onClick={result.refetch}>
 				Retry count
 			</Button>
 		);

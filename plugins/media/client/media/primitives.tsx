@@ -1,11 +1,11 @@
 import { Effect } from "@ryot-app/plugin-client-sdk/effect";
 import { type RyotQueryResult, useRyot } from "@ryot-app/plugin-client-sdk/react";
-import { ProgressBar } from "@ryot-app/plugin-ui-sdk";
+import { Button, ProgressBar, StatusMessage } from "@ryot-app/plugin-ui-sdk";
 import { AppIcon } from "@ryot-app/plugin-ui-sdk/icon";
 import { MarkdownContent } from "@ryot-app/plugin-ui-sdk/markdown";
 import { SyncCountLine } from "@ryot-app/plugin-ui-sdk/sync";
 import clsx from "clsx";
-import { type ReactNode, type Ref, useState } from "react";
+import { type ReactNode, useState } from "react";
 
 import type { MediaSummaryFact } from "./summary-state";
 import type { MediaSyncCounts } from "./sync-counts";
@@ -15,10 +15,13 @@ export function MediaRefreshStatus(props: { readonly result: RyotQueryResult<unk
 		return null;
 	}
 	return (
-		<div role="status" className="flex items-center gap-3 py-2 font-ui text-[12px] text-text-muted">
-			<span>Refresh failed. Showing last loaded content.</span>
-			<MediaLinkButton label="Try again" onClick={props.result.refetch} />
-		</div>
+		<StatusMessage
+			tone="pending"
+			className="py-2 font-ui text-[12px]"
+			action={{ label: "Try again", onClick: props.result.refetch }}
+		>
+			Refresh failed. Showing last loaded content.
+		</StatusMessage>
 	);
 }
 
@@ -151,30 +154,6 @@ export function MediaOverviewSection(props: {
 	);
 }
 
-export function MediaLinkButton({
-	ref,
-	...props
-}: {
-	readonly label: string;
-	readonly onClick: () => void;
-	readonly tone?: "accent" | "plain";
-	readonly ref?: Ref<HTMLButtonElement>;
-}) {
-	return (
-		<button
-			ref={ref}
-			type="button"
-			onClick={props.onClick}
-			className={clsx(
-				"font-ui font-medium text-[13px]",
-				props.tone === "plain" ? "text-text" : "text-accent-text",
-			)}
-		>
-			{props.label}
-		</button>
-	);
-}
-
 export function useMediaOpenLink() {
 	const client = useRyot();
 	const [error, setError] = useState<string | null>(null);
@@ -242,7 +221,9 @@ export function MediaStatusMessage(props: {
 			<p className="text-center font-ui font-medium text-base text-text">{props.title}</p>
 			<p className="max-w-xl text-center font-ui text-sm text-text-muted">{props.detail}</p>
 			{props.onRetry === undefined ? null : (
-				<MediaLinkButton label="Try again" onClick={props.onRetry} />
+				<Button variant="link" onClick={props.onRetry}>
+					Try again
+				</Button>
 			)}
 		</div>
 	);
