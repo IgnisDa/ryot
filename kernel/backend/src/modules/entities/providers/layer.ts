@@ -10,6 +10,8 @@ import { ScriptExecutionServiceLive } from "#modules/scripts/layer";
 
 import { ProviderImportAdmission } from "./admission";
 import { EntityImportWorkflowOperationsLive } from "./operations-workflow";
+import { EntityPopulationRetryService } from "./population-retry";
+import { EntityPopulationTriggerLive } from "./population-trigger-live";
 import {
 	ProviderEntityPopulationWorkflowDefinitionsLive,
 	ProviderRelatedPagesWorkflowDefinitionsLive,
@@ -34,6 +36,15 @@ export const EntityImportServiceLive = EntityImportService.layer.pipe(
 			),
 		),
 	),
+);
+
+export const EntityPopulationRetryServiceLive = EntityPopulationRetryService.layer.pipe(
+	Layer.provide(
+		EntityPopulationTriggerLive.pipe(
+			Layer.provide(Layer.merge(ScriptExecutionServiceLive, DomainWriteChecksLive)),
+		),
+	),
+	Layer.provide(Layer.merge(EntitiesRepositoryLive, PluginRuntimeResolverLive)),
 );
 
 export const EntityImportWorkflowOperationsProvidedLive = EntityImportWorkflowOperationsLive.pipe(

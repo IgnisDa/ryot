@@ -10,6 +10,7 @@ import { HttpApiBuilder } from "effect/http-api";
 import { rootLifecycleCommand } from "#modules/automations/lifecycle/command";
 
 import { EntityEditorService } from "./editor/service";
+import { EntityPopulationRetryService } from "./providers/population-retry";
 import { EntitiesService } from "./service";
 
 export const EntitiesRoutesLive = HttpApiBuilder.group(AppContract, "entities", (handlers) =>
@@ -51,6 +52,18 @@ export const EntitiesRoutesLive = HttpApiBuilder.group(AppContract, "entities", 
 				const editor = yield* EntityEditorService;
 				return yield* editor
 					.submit({ userId: user.id, request: payload, accountGeneration: user.accountGeneration })
+					.pipe(dieOnDbError);
+			}),
+		)
+		.handle("retryPopulation", ({ params, payload }) =>
+			Effect.gen(function* () {
+				const retries = yield* EntityPopulationRetryService;
+				return yield* retries
+					.retry({
+						user: yield* CurrentUser,
+						entityId: params.entityId,
+						pluginId: payload.pluginId,
+					})
 					.pipe(dieOnDbError);
 			}),
 		),
