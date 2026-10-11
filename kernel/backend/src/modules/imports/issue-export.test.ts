@@ -10,7 +10,7 @@ const issue = (index: number): IngestionIssue => ({
 	recordKind: "listening-event",
 	id: `issue-${String(index).padStart(3, "0")}`,
 	severity: index % 2 === 0 ? "warning" : "error",
-	reason: { key: "spotify", code: "provider-unavailable" },
+	reason: { key: "example-service", code: "provider-unavailable" },
 	attribution: { sourceLabel: "Song", recordId: `row-${index}`, sourceIdentifier: "track-1" },
 });
 
@@ -19,7 +19,7 @@ it.effect("streams bounded issue pages with complete attribution and run failure
 		const issues = Array.from({ length: 201 }, (_, index) => ({ data: issue(index) }));
 		const cursors: (string | undefined)[] = [];
 		const report = createIssuesExport({
-			source: "spotify",
+			source: "example-service",
 			runId: ImportRunId.make("run"),
 			failureReason: { code: "source-fetch-failed" },
 			listPage: (after) => {
@@ -34,7 +34,7 @@ it.effect("streams bounded issue pages with complete attribution and run failure
 		const text = chunks.map((chunk) => new TextDecoder().decode(chunk)).join("");
 		expect(yield* Schema.decodeEffect(Schema.fromJsonString(Schema.Unknown))(text)).toEqual({
 			runId: "run",
-			source: "spotify",
+			source: "example-service",
 			issues: issues.map(({ data }) => data),
 			failureReason: { code: "source-fetch-failed" },
 		});
@@ -59,8 +59,8 @@ it.effect("excludes internal payload and credential fields from exported diagnos
 			},
 		};
 		const report = createIssuesExport({
-			source: "spotify",
 			failureReason: null,
+			source: "example-service",
 			runId: ImportRunId.make("run"),
 			listPage: () => Effect.succeed([{ data }]),
 		});
@@ -68,9 +68,9 @@ it.effect("excludes internal payload and credential fields from exported diagnos
 		const text = chunks.map((chunk) => new TextDecoder().decode(chunk)).join("");
 		expect(yield* Schema.decodeEffect(Schema.fromJsonString(Schema.Unknown))(text)).toEqual({
 			runId: "run",
-			source: "spotify",
 			issues: [issue(0)],
 			failureReason: null,
+			source: "example-service",
 		});
 	}),
 );
@@ -79,8 +79,8 @@ it.effect("does not request another page after the download is interrupted", () 
 	Effect.gen(function* () {
 		const cursors: (string | undefined)[] = [];
 		const report = createIssuesExport({
-			source: "spotify",
 			failureReason: null,
+			source: "example-service",
 			runId: ImportRunId.make("run"),
 			listPage: (after) => {
 				cursors.push(after);

@@ -102,7 +102,7 @@ describe("AppSchema presentation metadata", () => {
 		{ kind: "email" },
 		{ kind: "timezone" },
 		{ kind: "upload", allowedFileExtensions: ["csv", "json"] },
-		{ provider: "spotify", kind: "oauth-connection" },
+		{ kind: "oauth-connection", provider: "example-service" },
 	])("accepts the $kind string format", (format) => {
 		expect(
 			decodeSchema({
@@ -155,7 +155,7 @@ describe("AppSchema presentation metadata", () => {
 
 	it.each([
 		{ kind: "upload", allowedFileExtensions: ["json"] },
-		{ provider: "spotify", kind: "oauth-connection" },
+		{ kind: "oauth-connection", provider: "example-service" },
 	])("rejects defaults for the $kind string format", (format) => {
 		expect(() =>
 			decodeSchema({

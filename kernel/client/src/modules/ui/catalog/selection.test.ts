@@ -56,9 +56,9 @@ const fixture = PluginPackageId.make("ryot/fixture");
 const otherTracker = PluginPackageId.make("test/other-tracker");
 
 const sources = [
-	source({ name: "Netflix", slug: "netflix", packageId: fixture }),
-	source({ name: "Audible", slug: "audible", packageId: fixture, isAvailable: false }),
-	source({ name: "Strava", slug: "strava", packageId: otherTracker }),
+	source({ packageId: fixture, name: "Beta Service", slug: "beta-service" }),
+	source({ packageId: fixture, isAvailable: false, name: "Alpha Service", slug: "alpha-service" }),
+	source({ name: "Gamma Service", slug: "gamma-service", packageId: otherTracker }),
 ];
 
 describe("catalog selection", () => {
@@ -72,7 +72,10 @@ describe("catalog selection", () => {
 
 		expect(groups.map((group) => group.heading)).toEqual(["Fixture", "Other Tracker"]);
 		expect(groups.map((group) => group.key)).toEqual(["ryot/fixture", "test/other-tracker"]);
-		expect(groups[0]?.entries.map((entry) => entry.name)).toEqual(["Audible", "Netflix"]);
+		expect(groups[0]?.entries.map((entry) => entry.name)).toEqual([
+			"Alpha Service",
+			"Beta Service",
+		]);
 	});
 
 	it("keeps groups that share a key together under one heading", () => {
@@ -100,25 +103,27 @@ describe("catalog selection", () => {
 	});
 
 	it("matches the query against names and descriptions", () => {
-		expect(groupCatalogEntries(sources, "netflix", toEntry)[0]?.entries).toHaveLength(1);
+		expect(groupCatalogEntries(sources, "beta service", toEntry)[0]?.entries).toHaveLength(1);
 		expect(
-			groupCatalogEntries(sources, "strava description", toEntry)[0]?.entries.map(({ key }) => key),
-		).toEqual(["strava"]);
+			groupCatalogEntries(sources, "gamma service description", toEntry)[0]?.entries.map(
+				({ key }) => key,
+			),
+		).toEqual(["gamma-service"]);
 		expect(groupCatalogEntries(sources, "nothing here", toEntry)).toEqual([]);
 	});
 
 	it("ignores surrounding whitespace and case in the query", () => {
-		expect(groupCatalogEntries(sources, "  NETFLIX  ", toEntry)[0]?.entries).toHaveLength(1);
+		expect(groupCatalogEntries(sources, "  BETA SERVICE  ", toEntry)[0]?.entries).toHaveLength(1);
 	});
 
 	it("collects only the entries that can be chosen", () => {
 		expect(
 			availableCatalogEntries(groupCatalogEntries(sources, "", toEntry)).map(({ key }) => key),
-		).toEqual(["netflix", "strava"]);
+		).toEqual(["beta-service", "gamma-service"]);
 	});
 
 	it("finds an item by slug", () => {
-		expect(findBySlug(sources, "strava")?.name).toBe("Strava");
+		expect(findBySlug(sources, "gamma-service")?.name).toBe("Gamma Service");
 		expect(findBySlug(sources, undefined)).toBeUndefined();
 		expect(findBySlug(sources, "missing")).toBeUndefined();
 	});

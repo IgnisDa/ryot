@@ -93,25 +93,28 @@ const ownershipSyncCommonSchema = {
 	},
 } satisfies IntegrationProviderItem["commonSchema"];
 
-const komgaProvider: IntegrationProviderItem = {
+const libraryProvider: IntegrationProviderItem = {
 	plan: null,
 	lot: "yank",
-	slug: "komga",
-	name: "Komga",
 	isCreatable: true,
-	scriptSlug: "komga",
 	pluginScope: "system",
 	requiresProKey: false,
+	slug: "sample-library",
+	name: "Sample Library",
 	readinessMetadata: null,
 	readinessConnections: [],
 	supportsOwnershipSync: true,
+	scriptSlug: "sample-library",
 	pluginId: PluginId.make("plugin-a"),
 	installationId: "fixture-installation",
 	commonSchema: ownershipSyncCommonSchema,
 	packageId: PluginPackageId.make("ryot/fixture"),
-	description: "Import progress and ownership from Komga",
 	readiness: { plan: null, ready: true, blockReasons: [] },
-	reference: { slug: "komga", owner: { kind: "plugin", pluginId: PluginId.make("plugin-a") } },
+	description: "Import progress and ownership from Sample Library",
+	reference: {
+		slug: "sample-library",
+		owner: { kind: "plugin", pluginId: PluginId.make("plugin-a") },
+	},
 	settingsSchema: {
 		fields: {
 			baseUrl: { ...described("Base URL"), type: "string", validation: { required: true } },
@@ -125,30 +128,33 @@ const komgaProvider: IntegrationProviderItem = {
 	},
 };
 
-const kodiProvider: IntegrationProviderItem = {
+const sinkProvider: IntegrationProviderItem = {
 	plan: null,
 	lot: "sink",
-	slug: "kodi",
-	name: "Kodi",
 	commonSchema,
 	isCreatable: true,
-	scriptSlug: "kodi",
+	slug: "sample-sink",
+	name: "Sample Sink",
 	pluginScope: "system",
 	requiresProKey: false,
 	readinessMetadata: null,
 	readinessConnections: [],
+	scriptSlug: "sample-sink",
 	supportsOwnershipSync: false,
 	settingsSchema: { fields: {} },
 	pluginId: PluginId.make("plugin-a"),
 	installationId: "fixture-installation",
-	description: "Receive Kodi playback webhooks",
 	packageId: PluginPackageId.make("ryot/fixture"),
+	description: "Receive Sample Sink playback webhooks",
 	readiness: { plan: null, ready: true, blockReasons: [] },
-	reference: { slug: "kodi", owner: { kind: "plugin", pluginId: PluginId.make("plugin-a") } },
+	reference: {
+		slug: "sample-sink",
+		owner: { kind: "plugin", pluginId: PluginId.make("plugin-a") },
+	},
 };
 
 const blockedProvider: IntegrationProviderItem = {
-	...komgaProvider,
+	...libraryProvider,
 	pluginScope: "user",
 	readinessMetadata: {
 		workflows: [],
@@ -160,7 +166,7 @@ const blockedProvider: IntegrationProviderItem = {
 				oauthConnectionFields: [],
 				executableDependencies: [],
 				optionalPluginConfigKeys: [],
-				slug: komgaProvider.scriptSlug ?? "komga",
+				slug: libraryProvider.scriptSlug ?? "sample-library",
 				requiredPluginConfigKeys: ["CLIENT_ID", "CLIENT_SECRET"],
 			},
 		],
@@ -170,12 +176,12 @@ const blockedProvider: IntegrationProviderItem = {
 const makeSummary = (overrides: Partial<IntegrationSummary> = {}): IntegrationSummary => ({
 	name: null,
 	lot: "yank",
-	provider: "komga",
 	isDisabled: false,
 	minimumProgress: 2,
 	maximumProgress: 95,
 	lastFinishedAt: null,
 	syncOwnership: false,
+	provider: "sample-library",
 	id: IntegrationId.make("int_1"),
 	pluginId: PluginId.make("plugin-a"),
 	createdAt: "2026-08-20T10:00:00.000Z",
@@ -189,7 +195,7 @@ type IntegrationDetailRow = IntegrationDetail extends Option.Option<infer A> ? A
 const makeDetail = (overrides: Partial<IntegrationDetailRow> = {}): IntegrationDetailRow => ({
 	...makeSummary(),
 	webhookToken: null,
-	providerSpecifics: { baseUrl: "https://komga.example" },
+	providerSpecifics: { baseUrl: "https://sample-library.example" },
 	...overrides,
 });
 
@@ -255,7 +261,7 @@ const makeIntegrationQueries = (
 			}
 			if ("providers" in request.payload.queries) {
 				return Effect.map(
-					options.providers?.() ?? Effect.succeed([komgaProvider]),
+					options.providers?.() ?? Effect.succeed([libraryProvider]),
 					(providers) => ({
 						data: {
 							providers: {
@@ -293,7 +299,6 @@ const completedRun = {
 	activities: [],
 	totalItems: 12,
 	failedItems: 0,
-	source: "komga",
 	blockReasons: [],
 	inputSummary: {},
 	importedItems: 12,
@@ -302,6 +307,7 @@ const completedRun = {
 	blockDeadline: null,
 	failureReason: null,
 	status: "completed",
+	source: "sample-library",
 	pluginInstallationId: null,
 	id: ImportRunId.make("run_1"),
 	createdAt: "2026-08-23T11:00:00.000Z",
@@ -380,7 +386,9 @@ describe("integrations list", () => {
 				),
 			);
 			expect(
-				screen.getByRole("button", { name: "Komga is unavailable" }).hasAttribute("disabled"),
+				screen
+					.getByRole("button", { name: "Sample Library is unavailable" })
+					.hasAttribute("disabled"),
 			).toBe(true);
 		}),
 	);
@@ -394,7 +402,7 @@ describe("integrations list", () => {
 			);
 
 			yield* Effect.promise(() =>
-				screen.findByRole("link", { name: "Open the Komga integration" }),
+				screen.findByRole("link", { name: "Open the Sample Library integration" }),
 			);
 			expect(
 				screen.getByText("This operation is unavailable while using the shared demo account."),
@@ -474,7 +482,7 @@ describe("integrations list", () => {
 			);
 
 			const row = yield* Effect.promise(() =>
-				screen.findByRole("link", { name: "Open the Komga integration" }),
+				screen.findByRole("link", { name: "Open the Sample Library integration" }),
 			);
 			expect(row.textContent).toContain("Active · Never synced");
 			expect(row.textContent).toContain("Scheduled");
@@ -620,9 +628,9 @@ describe("integrations list", () => {
 				screen.findByRole("dialog", { name: "Connect a service" }),
 			);
 
-			fireEvent.click(within(dialog).getByRole("button", { name: "Connect Komga" }));
+			fireEvent.click(within(dialog).getByRole("button", { name: "Connect Sample Library" }));
 			fireEvent.change(yield* Effect.promise(() => screen.findByLabelText("Base URL")), {
-				target: { value: "https://komga.example" },
+				target: { value: "https://sample-library.example" },
 			});
 			fireEvent.change(screen.getByLabelText("API key"), { target: { value: "secret" } });
 			fireEvent.click(screen.getByRole("button", { name: "Continue" }));
@@ -631,10 +639,10 @@ describe("integrations list", () => {
 			fireEvent.click(screen.getByRole("button", { name: "Connect" }));
 
 			yield* Effect.promise(() => waitFor(() => expect(created).toHaveLength(1)));
-			expect(created[0]?.provider).toEqual(komgaProvider.reference);
+			expect(created[0]?.provider).toEqual(libraryProvider.reference);
 			expect(created[0]?.providerSpecifics).toEqual({
 				apiKey: "secret",
-				baseUrl: "https://komga.example",
+				baseUrl: "https://sample-library.example",
 			});
 			yield* Effect.promise(() =>
 				screen.findByRole("link", { name: "Open the Created integration" }),
@@ -731,20 +739,20 @@ describe("integration detail", () => {
 				makeIntegrationsApi(),
 				makeIntegrationQueries({
 					runs: () => runsResponse([completedRun]),
-					providers: () => Effect.succeed([kodiProvider]),
+					providers: () => Effect.succeed([sinkProvider]),
 					detail: () =>
 						Effect.succeed(
 							makeDetail({
 								lot: "sink",
-								provider: "kodi",
 								providerSpecifics: {},
+								provider: "sample-sink",
 								webhookToken: IntegrationWebhookToken.make("webhook-token-1"),
 							}),
 						),
 				}),
 			);
 
-			yield* Effect.promise(() => screen.findByRole("heading", { level: 1, name: "Kodi" }));
+			yield* Effect.promise(() => screen.findByRole("heading", { level: 1, name: "Sample Sink" }));
 			expect(screen.getByText(`${window.location.origin}/_i/webhook-token-1`)).not.toBeNull();
 			expect(screen.getByRole("img", { name: "Completed" })).not.toBeNull();
 			expect(

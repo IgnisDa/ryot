@@ -55,11 +55,11 @@ const AuthStub = makeAuthStub();
 
 const described = (label: string) => ({ label, description: label });
 
-const hevySource: ImportSourceItem = {
+const alphaSource: ImportSourceItem = {
 	plan: null,
-	slug: "hevy",
-	name: "Hevy",
 	isStartable: true,
+	slug: "alpha-service",
+	name: "Alpha Service",
 	pluginScope: "system",
 	workflowSlug: "import",
 	readinessMetadata: null,
@@ -68,16 +68,19 @@ const hevySource: ImportSourceItem = {
 	pluginId: PluginId.make("plugin-b"),
 	installationId: "other-installation",
 	packageId: PluginPackageId.make("ryot/other"),
-	description: "Import records from a Hevy CSV export",
 	readiness: { plan: null, ready: true, blockReasons: [] },
-	exportHelp: { steps: ["Open the Hevy app", "Export your records"] },
-	reference: { slug: "hevy", owner: { kind: "plugin", pluginId: PluginId.make("plugin-b") } },
+	description: "Import records from a Alpha Service CSV export",
+	exportHelp: { steps: ["Open the Alpha Service app", "Export your records"] },
+	reference: {
+		slug: "alpha-service",
+		owner: { kind: "plugin", pluginId: PluginId.make("plugin-b") },
+	},
 	inputSchema: {
 		unknownKeys: "strict",
 		fields: {
 			uploadToken: {
 				type: "string",
-				...described("Hevy export"),
+				...described("Alpha Service export"),
 				validation: { minLength: 1, required: true },
 				format: { kind: "upload", allowedFileExtensions: ["csv"] },
 			},
@@ -85,11 +88,11 @@ const hevySource: ImportSourceItem = {
 	},
 };
 
-const traktSource: ImportSourceItem = {
+const betaSource: ImportSourceItem = {
 	plan: null,
-	slug: "trakt",
-	name: "Trakt",
 	isStartable: true,
+	slug: "beta-service",
+	name: "Beta Service",
 	pluginScope: "system",
 	workflowSlug: "import",
 	readinessMetadata: null,
@@ -99,8 +102,11 @@ const traktSource: ImportSourceItem = {
 	installationId: "fixture-installation",
 	packageId: PluginPackageId.make("ryot/fixture"),
 	readiness: { plan: null, ready: true, blockReasons: [] },
-	description: "Import watched history from a Trakt profile",
-	reference: { slug: "trakt", owner: { kind: "plugin", pluginId: PluginId.make("plugin-a") } },
+	description: "Import watched history from a Beta Service profile",
+	reference: {
+		slug: "beta-service",
+		owner: { kind: "plugin", pluginId: PluginId.make("plugin-a") },
+	},
 	inputSchema: {
 		unknownKeys: "strict",
 		fields: {
@@ -110,14 +116,14 @@ const traktSource: ImportSourceItem = {
 };
 
 const lockedSource: ImportSourceItem = {
-	...traktSource,
-	slug: "plex",
-	name: "Plex",
+	...betaSource,
 	isStartable: false,
+	slug: "gamma-service",
+	name: "Gamma Service",
 	exportHelp: undefined,
-	description: "Import watched history from Plex",
 	missingPluginConfigKeys: ["RYOT_FIXTURE_TOKEN"],
-	reference: { ...traktSource.reference, slug: "plex" },
+	description: "Import watched history from Gamma Service",
+	reference: { ...betaSource.reference, slug: "gamma-service" },
 	readiness: {
 		plan: null,
 		ready: false,
@@ -150,13 +156,13 @@ const outcomeSummary = (created: number, unsuccessful = 0): ImportRunSummary["su
 
 const makeRun = (overrides: Partial<ImportRunSummary> = {}) => ({
 	activities: [],
-	source: "hevy",
 	blockReasons: [],
 	inputSummary: {},
 	expiryReason: null,
 	blockDeadline: null,
 	failureReason: null,
 	status: "completed",
+	source: "alpha-service",
 	pluginInstallationId: null,
 	summary: outcomeSummary(12),
 	id: ImportRunId.make("run_1"),
@@ -243,7 +249,7 @@ const mountView = (
 	initialEntry: string,
 	importsApi: Layer.Layer<ImportsApi> = makeImportsApi(),
 	imports: Layer.Layer<ImportsService> = ImportsRouteStubs,
-	sources: readonly ImportSourceItem[] | null = [hevySource],
+	sources: readonly ImportSourceItem[] | null = [alphaSource],
 	issues: readonly IngestionIssue[] = [],
 ) => {
 	const events = makePluginCatalogEventsTestLayer();
@@ -308,7 +314,7 @@ describe("import data list", () => {
 			);
 
 			const row = yield* Effect.promise(() =>
-				screen.findByRole("link", { name: /Open the Hevy import from/ }),
+				screen.findByRole("link", { name: /Open the Alpha Service import from/ }),
 			);
 			expect(row.textContent).toContain("12 created");
 			expect(
@@ -358,7 +364,7 @@ describe("import data list", () => {
 			);
 
 			const card = yield* Effect.promise(() =>
-				screen.findByRole("link", { name: "Open the Hevy import in progress" }),
+				screen.findByRole("link", { name: "Open the Alpha Service import in progress" }),
 			);
 			expect(card.textContent).toContain("3 of 12 records");
 			expect(card.textContent).toContain("3 created");
@@ -399,7 +405,9 @@ describe("import data list", () => {
 			available = true;
 			fireEvent.click(screen.getByRole("button", { name: "Try again" }));
 
-			yield* Effect.promise(() => screen.findByRole("link", { name: /Open the Hevy import from/ }));
+			yield* Effect.promise(() =>
+				screen.findByRole("link", { name: /Open the Alpha Service import from/ }),
+			);
 		}),
 	);
 
@@ -417,10 +425,14 @@ describe("import data list", () => {
 				}),
 			);
 
-			yield* Effect.promise(() => screen.findByRole("link", { name: /Open the Hevy import from/ }));
+			yield* Effect.promise(() =>
+				screen.findByRole("link", { name: /Open the Alpha Service import from/ }),
+			);
 			fireEvent.click(screen.getByRole("button", { name: "Show older imports" }));
 
-			expect(screen.getByRole("link", { name: /Open the Hevy import from/ })).not.toBeNull();
+			expect(
+				screen.getByRole("link", { name: /Open the Alpha Service import from/ }),
+			).not.toBeNull();
 			yield* Effect.promise(() => waitFor(() => expect(limits).toEqual([LIMIT, LIMIT * 2])));
 		}),
 	);
@@ -442,16 +454,18 @@ describe("import data list", () => {
 						limits.push(input.limit);
 						return Effect.succeed(
 							decodeRuns(
-								limits.length < 3 ? [makeRun()] : [makeRun({ source: "trakt" })],
+								limits.length < 3 ? [makeRun()] : [makeRun({ source: "beta-service" })],
 								limits.length === 1,
 							),
 						);
 					},
 				}),
-				[hevySource, traktSource],
+				[alphaSource, betaSource],
 			);
 
-			yield* Effect.promise(() => screen.findByRole("link", { name: /Open the Hevy import from/ }));
+			yield* Effect.promise(() =>
+				screen.findByRole("link", { name: /Open the Alpha Service import from/ }),
+			);
 			fireEvent.click(screen.getByRole("button", { name: "Show older imports" }));
 			yield* Effect.promise(() => waitFor(() => expect(limits).toEqual([LIMIT, LIMIT * 2])));
 			fireEvent.click(screen.getByRole("button", { name: "Start an import" }));
@@ -463,11 +477,13 @@ describe("import data list", () => {
 			);
 
 			fireEvent.change(within(dialog).getByLabelText("Search services"), {
-				target: { value: "trakt" },
+				target: { value: "beta service" },
 			});
-			expect(within(dialog).queryByRole("button", { name: "Import from Hevy" })).toBeNull();
+			expect(
+				within(dialog).queryByRole("button", { name: "Import from Alpha Service" }),
+			).toBeNull();
 
-			fireEvent.click(within(dialog).getByRole("button", { name: "Import from Trakt" }));
+			fireEvent.click(within(dialog).getByRole("button", { name: "Import from Beta Service" }));
 			fireEvent.change(yield* Effect.promise(() => screen.findByLabelText("Username")), {
 				target: { value: "someone" },
 			});
@@ -477,9 +493,9 @@ describe("import data list", () => {
 			fireEvent.click(screen.getByRole("button", { name: "Start import" }));
 
 			yield* Effect.promise(() => waitFor(() => expect(started).toHaveLength(1)));
-			expect(started[0]).toEqual({ username: "someone", source: traktSource.reference });
+			expect(started[0]).toEqual({ username: "someone", source: betaSource.reference });
 			yield* Effect.promise(() =>
-				screen.findByRole("link", { name: /Open the Trakt import from/ }),
+				screen.findByRole("link", { name: /Open the Beta Service import from/ }),
 			);
 			expect(limits).toEqual([LIMIT, LIMIT * 2, LIMIT * 2]);
 			expect(screen.queryByRole("dialog", { name: "Start an import" })).toBeNull();
@@ -500,14 +516,14 @@ describe("import data list", () => {
 			const dialog = yield* Effect.promise(() =>
 				screen.findByRole("dialog", { name: "Start an import" }),
 			);
-			fireEvent.click(within(dialog).getByRole("button", { name: "Import from Hevy" }));
+			fireEvent.click(within(dialog).getByRole("button", { name: "Import from Alpha Service" }));
 
 			const help = yield* Effect.promise(() =>
 				screen.findByRole("button", { name: "Where do I find this file?" }),
 			);
-			expect(screen.queryByText("Open the Hevy app")).toBeNull();
+			expect(screen.queryByText("Open the Alpha Service app")).toBeNull();
 			fireEvent.click(help);
-			expect(screen.getByText("Open the Hevy app")).not.toBeNull();
+			expect(screen.getByText("Open the Alpha Service app")).not.toBeNull();
 		}),
 	);
 
@@ -527,7 +543,7 @@ describe("import data list", () => {
 				screen.findByRole("dialog", { name: "Start an import" }),
 			);
 
-			const option = within(dialog).getByRole("button", { name: "Plex is unavailable" });
+			const option = within(dialog).getByRole("button", { name: "Gamma Service is unavailable" });
 			expect(option.hasAttribute("disabled")).toBe(true);
 			expect(within(dialog).getByText("Set RYOT_FIXTURE_TOKEN on your server.")).not.toBeNull();
 		}),
@@ -541,7 +557,7 @@ describe("import data list", () => {
 					createRun: () => Effect.fail(startFailure({ field: "username", code: "invalid-input" })),
 				}),
 				makeImportsStub({ loadRuns: () => Effect.succeed(decodeRuns([])) }),
-				[traktSource],
+				[betaSource],
 			);
 
 			fireEvent.click(
@@ -550,7 +566,7 @@ describe("import data list", () => {
 			const dialog = yield* Effect.promise(() =>
 				screen.findByRole("dialog", { name: "Start an import" }),
 			);
-			fireEvent.click(within(dialog).getByRole("button", { name: "Import from Trakt" }));
+			fireEvent.click(within(dialog).getByRole("button", { name: "Import from Beta Service" }));
 			fireEvent.change(yield* Effect.promise(() => screen.findByLabelText("Username")), {
 				target: { value: "someone" },
 			});
@@ -574,7 +590,7 @@ describe("import data list", () => {
 					createRun: () =>
 						Effect.fail(
 							startFailure({
-								source: "trakt",
+								source: "beta-service",
 								code: "source-not-ready",
 								blockReasons: [
 									{ key: "CLIENT_ID", code: "configuration-required" },
@@ -584,13 +600,15 @@ describe("import data list", () => {
 						),
 				}),
 				makeImportsStub({ loadRuns: () => Effect.succeed(decodeRuns([])) }),
-				[traktSource],
+				[betaSource],
 			);
 			fireEvent.click(
 				yield* Effect.promise(() => screen.findByRole("button", { name: "Start an import" })),
 			);
 			fireEvent.click(
-				yield* Effect.promise(() => screen.findByRole("button", { name: "Import from Trakt" })),
+				yield* Effect.promise(() =>
+					screen.findByRole("button", { name: "Import from Beta Service" }),
+				),
 			);
 			fireEvent.change(yield* Effect.promise(() => screen.findByLabelText("Username")), {
 				target: { value: "someone" },
@@ -649,7 +667,7 @@ describe("import run detail", () => {
 				"/settings/import-data/run_1",
 				makeImportsApi(),
 				makeImportsStub({ loadRun: () => Effect.succeed(decodeRun([makeRun()])) }),
-				[hevySource],
+				[alphaSource],
 				issues,
 			);
 			yield* Effect.promise(() => screen.findByText("Session 0 · warning"));
@@ -681,7 +699,9 @@ describe("import run detail", () => {
 			expect(loads).toBe(1);
 			fireEvent.click(screen.getByRole("button", { name: "Try again" }));
 
-			yield* Effect.promise(() => screen.findByRole("heading", { level: 1, name: "Hevy" }));
+			yield* Effect.promise(() =>
+				screen.findByRole("heading", { level: 1, name: "Alpha Service" }),
+			);
 			expect(loads).toBe(3);
 		}),
 	);
@@ -707,7 +727,9 @@ describe("import run detail", () => {
 			retry = true;
 			fireEvent.click(screen.getByRole("button", { name: "Try again" }));
 
-			yield* Effect.promise(() => screen.findByRole("heading", { level: 1, name: "Hevy" }));
+			yield* Effect.promise(() =>
+				screen.findByRole("heading", { level: 1, name: "Alpha Service" }),
+			);
 			expect(loads).toBeGreaterThan(2);
 		}),
 	);
@@ -725,7 +747,7 @@ describe("import run detail", () => {
 							]),
 						),
 				}),
-				[hevySource],
+				[alphaSource],
 				[
 					{
 						id: "issue-1",
@@ -742,7 +764,9 @@ describe("import run detail", () => {
 				],
 			);
 
-			yield* Effect.promise(() => screen.findByRole("heading", { level: 1, name: "Hevy" }));
+			yield* Effect.promise(() =>
+				screen.findByRole("heading", { level: 1, name: "Alpha Service" }),
+			);
 			expect(screen.getByText("From a.csv")).not.toBeNull();
 			expect(screen.getByText(/records: 11 created/)).not.toBeNull();
 			yield* Effect.promise(() => screen.findByText("Bench Press · error"));
@@ -767,7 +791,9 @@ describe("import run detail", () => {
 				makeImportsStub({ loadRun: () => Effect.succeed(decodeRun([makeRun()])) }),
 			);
 
-			yield* Effect.promise(() => screen.findByRole("heading", { level: 1, name: "Hevy" }));
+			yield* Effect.promise(() =>
+				screen.findByRole("heading", { level: 1, name: "Alpha Service" }),
+			);
 			const downloadButton = screen.getByRole("button", { name: "Download issues" });
 			fireEvent.click(downloadButton);
 			yield* Effect.promise(() => screen.findByRole("alert"));
@@ -858,7 +884,9 @@ describe("import run detail", () => {
 				}),
 			);
 
-			yield* Effect.promise(() => screen.findByRole("heading", { level: 1, name: "Hevy" }));
+			yield* Effect.promise(() =>
+				screen.findByRole("heading", { level: 1, name: "Alpha Service" }),
+			);
 			fireEvent.click(screen.getByRole("button", { name: "Import actions" }));
 			fireEvent.click(
 				yield* Effect.promise(() => screen.findByRole("menuitem", { name: "Cancel import" })),

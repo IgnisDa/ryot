@@ -672,8 +672,8 @@ describe("definePlugin", () => {
 				{
 					requests: 90,
 					intervalMs: 60_000,
-					key: "catalog.anilist",
-					origins: ["HTTPS://GRAPHQL.ANILIST.CO:443/"],
+					key: "catalog.example-service",
+					origins: ["HTTPS://API.EXAMPLE.COM:443/"],
 				},
 			],
 		});
@@ -682,8 +682,8 @@ describe("definePlugin", () => {
 			{
 				requests: 90,
 				intervalMs: 60_000,
-				key: "catalog.anilist",
-				origins: ["https://graphql.anilist.co"],
+				key: "catalog.example-service",
+				origins: ["https://api.example.com"],
 			},
 		]);
 		expect(() =>
@@ -694,8 +694,8 @@ describe("definePlugin", () => {
 						requests: 90,
 						unsupported: true,
 						intervalMs: 60_000,
-						key: "catalog.anilist",
-						origins: ["https://graphql.anilist.co"],
+						key: "catalog.example-service",
+						origins: ["https://api.example.com"],
 					},
 				],
 			}),

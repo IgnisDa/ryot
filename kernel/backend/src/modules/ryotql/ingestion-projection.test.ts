@@ -124,7 +124,7 @@ layer(testLayer)((test) => {
 										operationId: id,
 										severity: "error",
 										recordKind: "play",
-										reason: { key: "spotify", code: "provider-unavailable" },
+										reason: { key: "example-service", code: "provider-unavailable" },
 										attribution: {
 											recordId: id,
 											sourceLabel: "Song",

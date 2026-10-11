@@ -60,9 +60,9 @@ it("decodes generic media write intents without admitting plugin-private event f
 						entityId: "record-1",
 						entitySchemaSlug: "record",
 						providerResolution: {
-							value: "tt2543164",
-							identifierType: "imdb",
+							value: "external-1",
 							providerSlug: "provider",
+							identifierType: "external-id",
 						},
 					},
 					{

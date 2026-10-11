@@ -520,7 +520,7 @@ describe("PageIframeHost", () => {
 			bridge.port.postMessage({
 				mode: "replace",
 				type: "page-search",
-				update: { q: "dune", dialog: null },
+				update: { q: "sample", dialog: null },
 			});
 			bridge.port.postMessage({
 				input: null,
@@ -539,7 +539,7 @@ describe("PageIframeHost", () => {
 			yield* Effect.promise(() => waitFor(() => expect(host.operations).toHaveLength(1)));
 			expect(host.navigations).toEqual([{ replace: false, href: "/p/ryot/fixture/items?q=x" }]);
 			expect(host.searches).toEqual([
-				{ mode: "replace", type: "page-search", update: { q: "dune", dialog: null } },
+				{ mode: "replace", type: "page-search", update: { q: "sample", dialog: null } },
 			]);
 			expect(host.entityPicks).toEqual([
 				{

@@ -66,7 +66,7 @@ const runInput = (
 				category: "signal",
 				signalSchemaPluginId: null,
 				actorUserId: executionUserId,
-				properties: { title: "Dune" },
+				properties: { title: "Sample" },
 				signalSchemaSlug: "review.created",
 			},
 		},
@@ -147,7 +147,7 @@ layer(automationHostLayer)((test) => {
 				yield* host.emitSignal(runInput(), {
 					discriminator: "part-1",
 					schemaSlug: "review.created",
-					properties: { title: "Dune" },
+					properties: { title: "Sample" },
 				}),
 			).toEqual({ wasCreated: true, triggerId: "signal-trigger" });
 			expect(yield* (yield* AutomationHostCalls).signalCommands).toEqual([
@@ -204,7 +204,11 @@ layer(automationHostLayer)((test) => {
 				const host = yield* makeAutomationScriptHostFunctions;
 				yield* host.emitSignal(
 					runInput(executor, { ...causation, initiator: { id: userId, kind: "user" } }),
-					{ discriminator: "part-1", schemaSlug: "review.created", properties: { title: "Dune" } },
+					{
+						discriminator: "part-1",
+						schemaSlug: "review.created",
+						properties: { title: "Sample" },
+					},
 				);
 				expect(yield* (yield* AutomationHostCalls).signalCommands).toMatchObject([
 					{
@@ -235,7 +239,7 @@ layer(automationHostLayer)((test) => {
 							{
 								discriminator: "part-1",
 								schemaSlug: "review.created",
-								properties: { title: "Dune" },
+								properties: { title: "Sample" },
 							},
 						),
 					);
@@ -286,7 +290,7 @@ layer(
 				host.emitSignal(runInput(), {
 					discriminator: "part-1",
 					schemaSlug: "review.created",
-					properties: { title: "Dune" },
+					properties: { title: "Sample" },
 				}),
 			);
 			expect(error.data).toEqual({ code: "asset-forbidden" });

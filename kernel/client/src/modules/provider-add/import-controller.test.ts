@@ -18,7 +18,7 @@ import { ProviderAddLoadError } from "#/modules/provider-add/service";
 const completed = {
 	status: "completed",
 	data: {
-		name: "Dune",
+		name: "Sample",
 		properties: {},
 		providerId: null,
 		populatedAt: null,

@@ -88,11 +88,11 @@ describe("provider search panel", () => {
 		const queries: string[] = [];
 		renderPanel({ onCreateCustom: (query) => queries.push(query) });
 		fireEvent.change(screen.getByRole("textbox", { name: "Search providers" }), {
-			target: { value: "  Dune  " },
+			target: { value: "  Sample  " },
 		});
 		fireEvent.click(screen.getByRole("button", { name: "Create custom" }));
 
-		expect(queries).toEqual(["Dune"]);
+		expect(queries).toEqual(["Sample"]);
 	});
 
 	it.live("loads numbered provider-search pages through shared pagination", () =>
@@ -106,12 +106,12 @@ describe("provider search panel", () => {
 			});
 
 			fireEvent.change(screen.getByRole("textbox", { name: "Search providers" }), {
-				target: { value: "Dune" },
+				target: { value: "Sample" },
 			});
 			expect(requests).toEqual([]);
 
 			yield* Effect.promise(() => waitFor(() => expect(requests).toHaveLength(1)));
-			expect(requests[0]).toMatchObject({ page: 1, query: "Dune" });
+			expect(requests[0]).toMatchObject({ page: 1, query: "Sample" });
 			expect(screen.getByText("Result 1")).toBeTruthy();
 
 			fireEvent.click(screen.getByRole("button", { name: "Load more results" }));

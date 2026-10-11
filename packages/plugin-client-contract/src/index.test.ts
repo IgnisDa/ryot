@@ -486,7 +486,7 @@ describe("plugin client bridge contract", () => {
 	it("admits only strict semantic entity picker requests from the plugin", () => {
 		const decode = Schema.decodeUnknownResult(PluginBridgePickEntityScreen);
 		const request = {
-			initialQuery: "Dune",
+			initialQuery: "Sample",
 			type: "pick-entity-screen",
 			requestId: "pick-entity-screen-1",
 			schema: { slug: "entry", owner: { kind: "plugin", pluginId: "fixture-installation" } },

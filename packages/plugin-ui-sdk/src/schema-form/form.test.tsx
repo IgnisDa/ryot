@@ -199,7 +199,7 @@ const oauthSchema = {
 			type: "string",
 			label: "Account",
 			description: "Account",
-			format: { provider: "spotify", kind: "oauth-connection" },
+			format: { kind: "oauth-connection", provider: "example-service" },
 		},
 	},
 } satisfies AppSchema;
@@ -468,12 +468,12 @@ describe("SchemaForm", () => {
 			expect(element.textContent).toContain("Title is required");
 			expect(submitted).toEqual([]);
 
-			fireEvent.change(screen.getByLabelText("Title"), { target: { value: "Dune" } });
+			fireEvent.change(screen.getByLabelText("Title"), { target: { value: "Sample" } });
 
 			expect(screen.queryByRole("alert")).toBeNull();
 			fireEvent.click(screen.getByRole("button", { name: "Search" }));
 			yield* Effect.promise(() =>
-				waitFor(() => expect(submitted).toEqual([{ adult: false, region: "us", title: "Dune" }])),
+				waitFor(() => expect(submitted).toEqual([{ adult: false, region: "us", title: "Sample" }])),
 			);
 		}),
 	);
@@ -483,11 +483,11 @@ describe("SchemaForm", () => {
 			const submitted: SchemaFormValues[] = [];
 			render(<SchemaFormHarness onSubmit={(values) => submitted.push(values)} />);
 
-			fireEvent.change(screen.getByLabelText("Title"), { target: { value: "Dune" } });
+			fireEvent.change(screen.getByLabelText("Title"), { target: { value: "Sample" } });
 			fireEvent.click(screen.getByRole("button", { name: "Search" }));
 
 			yield* Effect.promise(() =>
-				waitFor(() => expect(submitted).toEqual([{ adult: false, region: "us", title: "Dune" }])),
+				waitFor(() => expect(submitted).toEqual([{ adult: false, region: "us", title: "Sample" }])),
 			);
 		}),
 	);

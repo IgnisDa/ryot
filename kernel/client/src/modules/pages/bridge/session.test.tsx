@@ -643,7 +643,7 @@ describe("bridge page screens", () => {
 			yield* Effect.promise(() => waitFor(() => expect(received).toEqual([at()])));
 
 			pluginPort.postMessage({
-				initialQuery: "Dune",
+				initialQuery: "Sample",
 				type: "pick-entity-screen",
 				requestId: "pick-entity-screen-1",
 				schema: { slug: "record", owner: { kind: "plugin", pluginId: "fixture-installation" } },
@@ -667,7 +667,7 @@ describe("bridge page screens", () => {
 
 			expect(entityPicks).toEqual([
 				{
-					initialQuery: "Dune",
+					initialQuery: "Sample",
 					type: "pick-entity-screen",
 					requestId: "pick-entity-screen-1",
 					schema: { slug: "record", owner: { kind: "plugin", pluginId: "fixture-installation" } },
@@ -693,7 +693,7 @@ describe("bridge page screens", () => {
 			pluginPort.postMessage(readyFor(init));
 			yield* Effect.promise(() => waitFor(() => expect(received).toEqual([at()])));
 			pluginPort.postMessage({
-				initialQuery: "Dune",
+				initialQuery: "Sample",
 				type: "pick-entity-screen",
 				requestId: "pick-entity-screen-1",
 				schema: { slug: "record", owner: { kind: "plugin", pluginId: "fixture-installation" } },

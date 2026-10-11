@@ -791,7 +791,7 @@ describe("client page routes", () => {
 			);
 			yield* Effect.promise(() => waitFor(() => expect(bridge.messages).toHaveLength(1)));
 			bridge.port.postMessage({
-				initialQuery: "dune",
+				initialQuery: "sample",
 				type: "pick-entity-screen",
 				requestId: "pick-entity-screen-1",
 				schema: { slug: "unit", owner: { kind: "plugin", pluginId: "plugin-1" } },
@@ -801,7 +801,7 @@ describe("client page routes", () => {
 			yield* Effect.promise(() => screen.findByRole("dialog", { name: "Add from a provider" }));
 			expect(
 				screen.getByRole<HTMLInputElement>("textbox", { name: "Search providers" }).value,
-			).toBe("dune");
+			).toBe("sample");
 			expect(view.router.state.location.searchStr).toBe("?tab=home");
 			expect(view.targets).toHaveLength(1);
 			bridge.port.postMessage({
@@ -824,7 +824,7 @@ describe("client page routes", () => {
 			expect(screen.getByRole("dialog", { name: "Add from a provider" })).toBeTruthy();
 			expect(
 				screen.getByRole<HTMLInputElement>("textbox", { name: "Search providers" }).value,
-			).toBe("dune");
+			).toBe("sample");
 
 			fireEvent.click(screen.getAllByRole("button", { name: "Close" })[0]);
 			yield* Effect.promise(() =>
@@ -871,7 +871,7 @@ describe("client page routes", () => {
 			);
 			bridge.port.postMessage({
 				type: "pick-entity-screen",
-				initialQuery: "dune part two",
+				initialQuery: "sample part two",
 				requestId: "pick-entity-screen-1",
 				schema: { slug: "unit", owner: { kind: "plugin", pluginId: "plugin-1" } },
 				library: { librarySchemaSlug: "fixture-library", relationshipSlug: "in-fixture-library" },
@@ -883,7 +883,7 @@ describe("client page routes", () => {
 			yield* Effect.promise(() =>
 				waitFor(() => {
 					expect(view.router.state.location.pathname).toBe("/p/test/plugin-1/units/new");
-					expect(view.router.state.location.searchStr).toBe("?name=dune+part+two");
+					expect(view.router.state.location.searchStr).toBe("?name=sample+part+two");
 				}),
 			);
 			expect(bridge.messages).toContainEqual({
@@ -925,8 +925,8 @@ describe("client page routes", () => {
 			const completed = {
 				status: "completed",
 				data: {
-					name: "Dune",
 					id: entityId,
+					name: "Sample",
 					properties: {},
 					providerId: null,
 					populatedAt: null,
@@ -941,7 +941,7 @@ describe("client page routes", () => {
 				providerId,
 				providerName: "Provider 1",
 				rootEntitySchemaSlug: EntitySchemaSlug.make("unit"),
-				items: [{ title: "Dune", externalId: "external-1" }],
+				items: [{ title: "Sample", externalId: "external-1" }],
 			} satisfies SearchProviderEntitiesResponse;
 			const view = mount({
 				entry: "/p/test/plugin-1?tab=home",
@@ -969,15 +969,15 @@ describe("client page routes", () => {
 				yield* Effect.promise(() => screen.findByTitle<HTMLIFrameElement>("Fixture plugin")),
 			);
 			bridge.port.postMessage({
-				initialQuery: "Dune",
+				initialQuery: "Sample",
 				type: "pick-entity-screen",
 				requestId: "pick-entity-screen-1",
 				schema: { slug: "unit", owner: { kind: "plugin", pluginId: "plugin-1" } },
 				library: { librarySchemaSlug: "fixture-library", relationshipSlug: "in-fixture-library" },
 			});
 			yield* Effect.promise(() => screen.findByRole("dialog", { name: "Add from a provider" }));
-			yield* Effect.promise(() => screen.findByRole("button", { name: "Add Dune" }));
-			fireEvent.click(screen.getByRole("button", { name: "Add Dune" }));
+			yield* Effect.promise(() => screen.findByRole("button", { name: "Add Sample" }));
+			fireEvent.click(screen.getByRole("button", { name: "Add Sample" }));
 
 			yield* Effect.promise(() =>
 				waitFor(() =>
@@ -1014,7 +1014,7 @@ describe("client page routes", () => {
 	it.live("lists visible entities matching the query and returns the picked ID", () =>
 		Effect.gen(function* () {
 			const queries: string[] = [];
-			const entityId = EntityId.make("entity-dune");
+			const entityId = EntityId.make("entity-sample");
 			mount({
 				entry: "/p/test/plugin-1?tab=home",
 				providerAdd: {
@@ -1024,7 +1024,7 @@ describe("client page routes", () => {
 					loadEntities: (_client, input) => {
 						queries.push(input.query);
 						return Effect.succeed({
-							items: [{ id: entityId, name: "Dune" }],
+							items: [{ id: entityId, name: "Sample" }],
 							pageInfo: { limit: 30, hasMore: false, nextCursor: null },
 						});
 					},
@@ -1033,10 +1033,10 @@ describe("client page routes", () => {
 			const bridge = connectFrame(
 				yield* Effect.promise(() => screen.findByTitle<HTMLIFrameElement>("Fixture plugin")),
 			);
-			bridge.port.postMessage(pickRequest("Dune"));
+			bridge.port.postMessage(pickRequest("Sample"));
 
 			yield* Effect.promise(() => screen.findByRole("dialog", { name: "Choose Unit" }));
-			fireEvent.click(yield* Effect.promise(() => screen.findByRole("button", { name: "Dune" })));
+			fireEvent.click(yield* Effect.promise(() => screen.findByRole("button", { name: "Sample" })));
 
 			yield* Effect.promise(() =>
 				waitFor(() =>
@@ -1048,7 +1048,7 @@ describe("client page routes", () => {
 					}),
 				),
 			);
-			expect(queries).toEqual(["Dune"]);
+			expect(queries).toEqual(["Sample"]);
 			expect(screen.queryByRole("button", { name: /^Create/ })).toBeNull();
 		}),
 	);
@@ -1151,10 +1151,10 @@ describe("client page routes", () => {
 				const bridge = connectFrame(
 					yield* Effect.promise(() => screen.findByTitle<HTMLIFrameElement>("Fixture plugin")),
 				);
-				bridge.port.postMessage(pickRequest("dune"));
+				bridge.port.postMessage(pickRequest("sample"));
 
 				fireEvent.click(
-					yield* Effect.promise(() => screen.findByRole("button", { name: 'Create "dune"' })),
+					yield* Effect.promise(() => screen.findByRole("button", { name: 'Create "sample"' })),
 				);
 				yield* Effect.promise(() => screen.findByRole("form", { name: "New Unit" }));
 				fireEvent.change(screen.getByRole("textbox", { name: "Kind" }), {
@@ -1884,10 +1884,10 @@ describe("client page routes", () => {
 			searchBridge.port.postMessage({
 				mode: "replace",
 				type: "page-search",
-				update: { q: "dune", dialog: null },
+				update: { q: "sample", dialog: null },
 			});
 			yield* Effect.promise(() =>
-				waitFor(() => expect(searchView.router.state.location.searchStr).toBe("?keep=1&q=dune")),
+				waitFor(() => expect(searchView.router.state.location.searchStr).toBe("?keep=1&q=sample")),
 			);
 			yield* Effect.promise(() => waitFor(() => expect(searchBridge.messages).toHaveLength(2)));
 			const replacedSearch = yield* Schema.decodeUnknownEffect(PluginBridgeLocation)(
