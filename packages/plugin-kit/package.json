@@ -2,6 +2,10 @@
 	"name": "@ryot-app/plugin-kit",
 	"private": true,
 	"exports": {
+		"./compression": {
+			"types": "./src/compression.ts",
+			"default": "./src/compression.ts"
+		},
 		"./effect": {
 			"types": "./src/effect.ts",
 			"default": "./src/effect.ts"
@@ -27,7 +31,8 @@
 		"@ryot-app/contract": "workspace:*",
 		"@ryot-app/ryotql": "workspace:*",
 		"@ryot-app/ryotql-recipes": "workspace:*",
-		"effect": "4.0.0"
+		"effect": "4.0.0",
+		"fflate": "0.8.3"
 	},
 	"devDependencies": {
 		"@ryot-app/testing": "workspace:*",

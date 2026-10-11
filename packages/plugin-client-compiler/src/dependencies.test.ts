@@ -27,6 +27,7 @@ it("derives the exact trusted and neutral client import policies from the regist
 		"@ryot-app/plugin-ui-sdk/schema-form",
 	];
 	const neutral = [
+		"@ryot-app/plugin-kit/compression",
 		"@ryot-app/plugin-kit/effect",
 		"@ryot-app/plugin-kit/ryotql",
 		"@ryot-app/plugin-kit/schema",
@@ -47,6 +48,7 @@ it("derives the exact trusted and neutral client import policies from the regist
 		"@ryot-app/plugin-ui-sdk/markdown/internal",
 		"react-markdown",
 		"remark-directive",
+		"fflate",
 		"@tanstack/react-table",
 		"@tanstack/charts",
 		"@tanstack/charts/react",

@@ -190,6 +190,12 @@ it.layer(pluginClientCompilerPlatformLayer)("buildClientRuntime", (test) => {
 					/^text\/javascript/,
 				);
 			}
+			const compressionEntry = first.entries["@ryot-app/plugin-kit/compression"];
+			assertDefined(compressionEntry);
+			const compressionFile = first.artifact.files.find(({ name }) => name === compressionEntry);
+			assertDefined(compressionFile);
+			expect(text(compressionFile.contents)).toContain("deflateSync");
+			expect(text(compressionFile.contents)).toContain("inflateSync");
 			const reactEntry = first.entries.react;
 			const clsxEntry = first.entries.clsx;
 			assertDefined(reactEntry);

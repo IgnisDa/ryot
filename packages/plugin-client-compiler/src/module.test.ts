@@ -111,6 +111,36 @@ it.layer(emittedLayer('export * from "./missing.js";'))("emitted missing referen
 	);
 });
 
+it.layer(
+	emittedLayer(
+		'import { deflateSync, inflateSync } from "@ryot-app/plugin-kit/compression"; export { deflateSync, inflateSync };',
+	),
+)("shared compression shim", (test) => {
+	test.effect("allows compression shim imports from shared sources", () =>
+		Effect.gen(function* () {
+			const { artifact } = yield* compileClientPluginModule({
+				...pluginIdentity,
+				name: "Compression plugin",
+				apiVersion: CLIENT_API_VERSION,
+				publicExports: { home: { kind: "component", entry: "client/home.tsx" } },
+				files: {
+					"client/home.tsx": bytes(
+						'import { compress } from "../shared/compression"; export default function Home() { return <span>{compress.length}</span>; }',
+					),
+					"shared/compression.ts": bytes(`
+import { deflateSync, inflateSync } from "@ryot-app/plugin-kit/compression";
+
+export const compress = [deflateSync, inflateSync];
+`),
+				},
+			});
+			expect(text(requiredFile(artifact, "module.js").contents)).toContain(
+				"@ryot-app/plugin-kit/compression",
+			);
+		}),
+	);
+});
+
 it.layer(emittedLayer('import value from "./missing.js"; export default value;'))(
 	"emitted static import",
 	(test) => {
