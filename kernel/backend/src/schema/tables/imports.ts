@@ -33,7 +33,6 @@ import {
 	primaryKey,
 	snakeCase,
 	text,
-	timestamp,
 	unique,
 	uniqueIndex,
 } from "drizzle-orm/pg-core";
@@ -42,6 +41,7 @@ import type { PreparedIngestionReleaseCiphertext } from "#modules/imports/runtim
 
 import { user } from "./auth";
 import { pluginInstallation } from "./core";
+import { timestamptz, updatedAtColumn } from "./timestamps";
 
 export const integration = snakeCase.table(
 	"integration",
@@ -49,18 +49,19 @@ export const integration = snakeCase.table(
 		name: text(),
 		webhookToken: text(),
 		pluginInstallationId: text(),
+		updatedAt: updatedAtColumn(),
+		lastFinishedAt: timestamptz(),
 		retiring: boolean().notNull().default(false),
 		lot: text().notNull().$type<IntegrationLot>(),
 		isDisabled: boolean().notNull().default(false),
+		createdAt: timestamptz().defaultNow().notNull(),
 		syncOwnership: boolean().notNull().default(false),
 		minimumProgress: numeric().notNull().default("2"),
 		maximumProgress: numeric().notNull().default("95"),
 		provider: text().$type<IntegrationProvider>().notNull(),
-		lastFinishedAt: timestamp({ precision: 3, withTimezone: true }),
 		extraSettings: jsonb().$type<IntegrationExtraSettings>().notNull(),
 		providerSpecifics: jsonb().$type<IntegrationProviderSettings>().notNull(),
 		clientProviderSpecifics: jsonb().$type<IntegrationProviderSettings>().notNull(),
-		createdAt: timestamp({ precision: 3, withTimezone: true }).defaultNow().notNull(),
 		userId: text()
 			.notNull()
 			.references(() => user.id, { onDelete: "cascade" }),
@@ -68,10 +69,6 @@ export const integration = snakeCase.table(
 			.notNull()
 			.primaryKey()
 			.$defaultFn(() => /* @__PURE__ */ generateId()),
-		updatedAt: timestamp({ precision: 3, withTimezone: true })
-			.defaultNow()
-			.$onUpdate(() => /* @__PURE__ */ new Date())
-			.notNull(),
 	},
 	(table) => [
 		index("integration_user_id_created_at_idx").on(table.userId, table.createdAt.desc()),
@@ -105,22 +102,23 @@ export const integration = snakeCase.table(
 export const importRun = snakeCase.table(
 	"import_run",
 	{
+		startedAt: timestamptz(),
+		finishedAt: timestamptz(),
+		blockDeadline: timestamptz(),
+		updatedAt: updatedAtColumn(),
 		accountGeneration: text().notNull(),
 		plan: jsonb().$type<IngestionPlan>(),
 		pins: jsonb().$type<IngestionPins>(),
 		integrationLot: text().$type<IntegrationLot>(),
+		createdAt: timestamptz().defaultNow().notNull(),
 		source: text().notNull().$type<ImportRunSource>(),
 		collectionSealed: boolean().notNull().default(false),
 		expiryReason: text().$type<"setup-deadline-expired">(),
 		failureReason: jsonb().$type<ImportRunFailureReason>(),
-		startedAt: timestamp({ precision: 3, withTimezone: true }),
-		finishedAt: timestamp({ precision: 3, withTimezone: true }),
-		blockDeadline: timestamp({ precision: 3, withTimezone: true }),
 		preparedRelease: jsonb().$type<PreparedIngestionReleaseCiphertext>(),
 		status: text().notNull().$type<ImportRunStatus>().default("pending"),
 		inputSummary: jsonb().$type<Record<string, unknown>>().notNull().default({}),
 		integrationId: text().references(() => integration.id, { onDelete: "cascade" }),
-		createdAt: timestamp({ precision: 3, withTimezone: true }).defaultNow().notNull(),
 		userId: text()
 			.notNull()
 			.references(() => user.id, { onDelete: "cascade" }),
@@ -130,10 +128,6 @@ export const importRun = snakeCase.table(
 			.primaryKey()
 			.$defaultFn(() => /* @__PURE__ */ generateId()),
 		pluginInstallationId: text().references(() => pluginInstallation.id, { onDelete: "set null" }),
-		updatedAt: timestamp({ precision: 3, withTimezone: true })
-			.defaultNow()
-			.$onUpdate(() => /* @__PURE__ */ new Date())
-			.notNull(),
 	},
 	(table) => [
 		unique("import_run_owner_unique").on(table.id, table.userId, table.accountGeneration),
@@ -352,7 +346,7 @@ export const integrationAutoDisableClaim = snakeCase.table(
 	"integration_auto_disable_claim",
 	{
 		importRunId: text().notNull().primaryKey(),
-		createdAt: timestamp({ precision: 3, withTimezone: true }).defaultNow().notNull(),
+		createdAt: timestamptz().defaultNow().notNull(),
 		integrationId: text()
 			.notNull()
 			.references(() => integration.id, { onDelete: "cascade" }),

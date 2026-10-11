@@ -1,17 +1,19 @@
 import { sql } from "drizzle-orm";
-import { check, index, primaryKey, snakeCase, text, timestamp } from "drizzle-orm/pg-core";
+import { check, index, primaryKey, snakeCase, text } from "drizzle-orm/pg-core";
+
+import { timestamptz } from "./timestamps";
 
 export const workflowExecution = snakeCase.table(
 	"workflow_execution",
 	{
 		shardId: text(),
+		clearedAt: timestamptz(),
+		expiredAt: timestamptz(),
+		completedAt: timestamptz(),
 		executionId: text().notNull(),
 		workflowName: text().notNull(),
 		rootExecutionId: text().notNull(),
 		rootWorkflowName: text().notNull(),
-		clearedAt: timestamp({ precision: 3, withTimezone: true }),
-		expiredAt: timestamp({ precision: 3, withTimezone: true }),
-		completedAt: timestamp({ precision: 3, withTimezone: true }),
 		status: text().$type<"active" | "succeeded" | "failed">().notNull(),
 	},
 	(table) => [

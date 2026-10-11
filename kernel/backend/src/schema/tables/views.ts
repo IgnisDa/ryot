@@ -15,13 +15,13 @@ import {
 	jsonb,
 	snakeCase,
 	text,
-	timestamp,
 	unique,
 	uniqueIndex,
 } from "drizzle-orm/pg-core";
 
 import { user } from "./auth";
 import { pluginInstallation } from "./core";
+import { timestamptz, updatedAtColumn } from "./timestamps";
 
 const framed = (component: SQL) => sql`char_length(${component})::text || ':' || ${component}`;
 
@@ -34,19 +34,19 @@ export const builtinSavedViewIdSql = (userId: SQL, pluginId: SQL, slug: SQL) => 
 export const clientPageComposition = snakeCase.table("client_page_composition", {
 	compositionKey: text().primaryKey(),
 	compositionHash: text().notNull().unique(),
+	createdAt: timestamptz().defaultNow().notNull(),
 	identity: jsonb().$type<ClientPageCompositionIdentity>().notNull(),
 	manifest: jsonb().$type<ClientPageCompositionManifest>().notNull(),
-	createdAt: timestamp({ precision: 3, withTimezone: true }).defaultNow().notNull(),
 });
 
 export const pluginCatalogChange = snakeCase.table(
 	"plugin_catalog_change",
 	{
+		createdAt: timestamptz().defaultNow().notNull(),
 		userId: text().references(() => user.id, { onDelete: "cascade" }),
 		id: text()
 			.primaryKey()
 			.$defaultFn(() => /* @__PURE__ */ generateId()),
-		createdAt: timestamp({ precision: 3, withTimezone: true }).defaultNow().notNull(),
 	},
 	(table) => [index("plugin_catalog_change_user_id_idx").on(table.userId)],
 );
@@ -58,23 +58,20 @@ export const savedView = snakeCase.table(
 		name: text().notNull(),
 		icon: text().notNull(),
 		pluginInstallationId: text(),
+		updatedAt: updatedAtColumn(),
 		revision: integer().notNull().default(1),
 		sortOrder: integer().notNull().default(0),
 		dataSources: jsonb().$type<RyotQLDocument>(),
 		isHidden: boolean().notNull().default(false),
+		createdAt: timestamptz().defaultNow().notNull(),
 		renderer: jsonb().$type<SavedViewRenderer>().notNull(),
 		settings: jsonb().$type<Readonly<Record<string, JsonValue>>>().notNull(),
 		id: text()
 			.primaryKey()
 			.$defaultFn(() => /* @__PURE__ */ generateId()),
-		createdAt: timestamp({ precision: 3, withTimezone: true }).defaultNow().notNull(),
 		userId: text()
 			.notNull()
 			.references(() => user.id, { onDelete: "cascade" }),
-		updatedAt: timestamp({ precision: 3, withTimezone: true })
-			.defaultNow()
-			.$onUpdate(() => /* @__PURE__ */ new Date())
-			.notNull(),
 	},
 	(table) => [
 		index("saved_view_user_id_idx").on(table.userId),

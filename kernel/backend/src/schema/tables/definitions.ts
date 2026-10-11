@@ -28,12 +28,12 @@ import {
 	primaryKey,
 	snakeCase,
 	text,
-	timestamp,
 	unique,
 } from "drizzle-orm/pg-core";
 
 import { user } from "./auth";
 import { plugin, pluginInstallation, pluginRevision } from "./core";
+import { timestamptz } from "./timestamps";
 import { builtinSavedViewIdSql, savedView, savedViewOverride } from "./views";
 
 type PluginScope = "system" | "user";
@@ -515,6 +515,8 @@ export const userSavedViewEffective = snakeCase.view("user_saved_view_effective"
 	name: text().notNull(),
 	icon: text().notNull(),
 	userId: text().notNull(),
+	createdAt: timestamptz(),
+	updatedAt: timestamptz(),
 	pluginInstallationId: text(),
 	revision: integer().notNull(),
 	isHidden: boolean().notNull(),
@@ -523,8 +525,6 @@ export const userSavedViewEffective = snakeCase.view("user_saved_view_effective"
 	packageId: text().$type<PluginPackageId>(),
 	dataSources: jsonb().$type<RyotQLDocument>(),
 	renderer: jsonb().$type<SavedViewRenderer>().notNull(),
-	createdAt: timestamp({ precision: 3, withTimezone: true }),
-	updatedAt: timestamp({ precision: 3, withTimezone: true }),
 	settings: jsonb().$type<Readonly<Record<string, JsonValue>>>().notNull(),
 }).as(sql`
 	select s.id, null::text as plugin_id, custom_plugin.package_id,
@@ -617,12 +617,12 @@ export const userSandboxProvider = snakeCase
 		userId: text().notNull(),
 		pluginId: text().notNull(),
 		installationId: text().notNull(),
+		createdAt: timestamptz().notNull(),
+		updatedAt: timestamptz().notNull(),
 		rootEntitySchemaSlug: text().notNull(),
 		pluginScope: text().$type<PluginScope>().notNull(),
 		packageId: text().$type<PluginPackageId>().notNull(),
 		information: jsonb().$type<ProviderInformation>().notNull(),
-		createdAt: timestamp({ precision: 3, withTimezone: true }).notNull(),
-		updatedAt: timestamp({ precision: 3, withTimezone: true }).notNull(),
 	})
 	.as(
 		sql`

@@ -19,13 +19,13 @@ import {
 	primaryKey,
 	snakeCase,
 	text,
-	timestamp,
 	unique,
 	uniqueIndex,
 } from "drizzle-orm/pg-core";
 
 import { user } from "./auth";
 import { plugin, pluginRevision, pluginConfigRevision, sandboxScript } from "./core";
+import { timestamptz } from "./timestamps";
 
 export const automationTrigger = snakeCase.table(
 	"automation_trigger",
@@ -40,18 +40,18 @@ export const automationTrigger = snakeCase.table(
 		depth: integer().notNull(),
 		providerExecutionId: text(),
 		executionId: text().notNull(),
+		payloadPrunedAt: timestamptz(),
 		rootExecutionId: text().notNull(),
+		occurredAt: timestamptz().notNull(),
+		createdAt: timestamptz().defaultNow().notNull(),
 		payload: jsonb().$type<AutomationTrigger["payload"]>(),
-		payloadPrunedAt: timestamp({ precision: 3, withTimezone: true }),
 		blockedReason: jsonb().$type<AutomationTrigger["blockedReason"]>(),
-		occurredAt: timestamp({ precision: 3, withTimezone: true }).notNull(),
 		lane: text().$type<AutomationTrigger["causation"]["lane"]>().notNull(),
 		scopeUserId: text().references(() => user.id, { onDelete: "set null" }),
 		category: text().$type<AutomationTrigger["kind"]["category"]>().notNull(),
 		source: text().$type<AutomationTrigger["causation"]["source"]>().notNull(),
 		operation: text().$type<AutomationTrigger["kind"]["operation"]>().notNull(),
 		resourceKind: text().$type<AutomationTrigger["kind"]["resource"]>().notNull(),
-		createdAt: timestamp({ precision: 3, withTimezone: true }).defaultNow().notNull(),
 		initiatorKind: text().$type<AutomationTrigger["causation"]["initiator"]["kind"]>().notNull(),
 	},
 	(table) => [
@@ -107,26 +107,26 @@ export const automationRun = snakeCase.table(
 	"automation_run",
 	{
 		id: text().primaryKey(),
+		startedAt: timestamptz(),
+		finishedAt: timestamptz(),
 		hookSlug: text().notNull(),
 		hookName: text().notNull(),
 		scriptSlug: text().notNull(),
+		nextAttemptAt: timestamptz(),
 		scriptContentHash: text().notNull(),
 		historyPayload: jsonb().$type<JsonValue>(),
+		artifactsExpireAt: timestamptz().notNull(),
 		attemptCount: integer().notNull().default(0),
+		queuedAt: timestamptz().defaultNow().notNull(),
 		stage: text().$type<AutomationRun["stage"]>().notNull(),
 		skipReason: jsonb().$type<AutomationRun["skipReason"]>(),
-		startedAt: timestamp({ precision: 3, withTimezone: true }),
 		retryPolicy: jsonb().$type<AutomationRun["retryPolicy"]>(),
 		sandboxScriptId: text().references(() => sandboxScript.id),
-		finishedAt: timestamp({ precision: 3, withTimezone: true }),
 		historyPayloadTruncated: boolean().notNull().default(false),
 		delivery: text().$type<AutomationRun["delivery"]>().notNull(),
-		nextAttemptAt: timestamp({ precision: 3, withTimezone: true }),
 		pluginId: text().references(() => plugin.id, { onDelete: "cascade" }),
 		executionUserId: text().references(() => user.id, { onDelete: "cascade" }),
 		status: text().$type<AutomationRun["status"]>().notNull().default("queued"),
-		artifactsExpireAt: timestamp({ precision: 3, withTimezone: true }).notNull(),
-		queuedAt: timestamp({ precision: 3, withTimezone: true }).defaultNow().notNull(),
 		pluginRevisionId: text().references(() => pluginRevision.id, { onDelete: "cascade" }),
 		triggerId: text()
 			.notNull()
@@ -195,20 +195,20 @@ export const automationRunAttempt = snakeCase.table(
 	"automation_run_attempt",
 	{
 		id: text().primaryKey(),
+		finishedAt: timestamptz(),
 		retryable: boolean().notNull(),
+		artifactsPrunedAt: timestamptz(),
 		attemptNumber: integer().notNull(),
+		startedAt: timestamptz().notNull(),
 		workflowExecutionId: text().notNull(),
 		logs: jsonb().$type<AutomationRunAttempt["logs"]>(),
 		error: jsonb().$type<AutomationRunAttempt["error"]>(),
 		timing: jsonb().$type<AutomationRunAttempt["timing"]>(),
-		finishedAt: timestamp({ precision: 3, withTimezone: true }),
 		historyArtifactsTruncated: boolean().notNull().default(false),
 		historyLogs: jsonb().$type<AutomationHistoryAttempt["logs"]>(),
 		historyError: jsonb().$type<AutomationHistoryAttempt["error"]>(),
 		status: text().$type<AutomationRunAttempt["status"]>().notNull(),
 		failureKind: text().$type<AutomationRunAttempt["failureKind"]>(),
-		artifactsPrunedAt: timestamp({ precision: 3, withTimezone: true }),
-		startedAt: timestamp({ precision: 3, withTimezone: true }).notNull(),
 		returnedValue: jsonb().$type<AutomationRunAttempt["returnedValue"]>(),
 		runId: text()
 			.notNull()
@@ -233,13 +233,13 @@ export const notificationSubscription = snakeCase.table(
 	{
 		signalSchemaSlug: text().notNull(),
 		isActive: boolean().notNull().default(true),
+		createdAt: timestamptz().defaultNow().notNull(),
 		metadata: jsonb().$type<AutomationRuleMetadata>(),
-		createdAt: timestamp({ precision: 3, withTimezone: true }).defaultNow().notNull(),
 		signalSchemaPluginId: text().references(() => plugin.id, { onDelete: "restrict" }),
 		userId: text()
 			.notNull()
 			.references(() => user.id, { onDelete: "cascade" }),
-		updatedAt: timestamp({ precision: 3, withTimezone: true })
+		updatedAt: timestamptz()
 			.defaultNow()
 			.$onUpdate(() => new Date())
 			.notNull(),

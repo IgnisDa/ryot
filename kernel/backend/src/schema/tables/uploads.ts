@@ -1,18 +1,19 @@
 import type { ManagedAssetLocator } from "@ryot-app/contract/modules/assets/schemas";
-import { index, integer, primaryKey, snakeCase, text, timestamp } from "drizzle-orm/pg-core";
+import { index, integer, primaryKey, snakeCase, text } from "drizzle-orm/pg-core";
 
 import { user } from "./auth";
+import { timestamptz } from "./timestamps";
 
 export const managedAsset = snakeCase.table(
 	"managed_asset",
 	{
 		key: text().notNull(),
 		sha256: text().notNull(),
+		retiredAt: timestamptz(),
 		size: integer().notNull(),
 		contentType: text().notNull(),
-		retiredAt: timestamp({ precision: 3, withTimezone: true }),
+		createdAt: timestamptz().defaultNow().notNull(),
 		provider: text().notNull().$type<ManagedAssetLocator["type"]>(),
-		createdAt: timestamp({ precision: 3, withTimezone: true }).defaultNow().notNull(),
 		ownerUserId: text()
 			.notNull()
 			.references(() => user.id, { onDelete: "cascade" }),
