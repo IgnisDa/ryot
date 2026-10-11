@@ -1,4 +1,5 @@
 import { tmpdir } from "node:os";
+import { fileURLToPath } from "node:url";
 
 import { CreateBucketCommand, S3Client } from "@aws-sdk/client-s3";
 import {
@@ -87,6 +88,18 @@ export const stopCoreTestInfrastructure = (infrastructure?: CoreTestInfrastructu
 			{ concurrency: "unbounded" },
 		);
 	});
+
+export const harnessApiEnv = {
+	SERVER_SMTP_USER: "",
+	SERVER_SMTP_SERVER: "",
+	SERVER_SMTP_PASSWORD: "",
+	SERVER_OIDC_CLIENT_ID: "",
+	SERVER_OIDC_ISSUER_URL: "",
+	SERVER_OIDC_CLIENT_SECRET: "",
+	SERVER_DISABLE_NOTIFICATIONS: "false",
+	SERVER_SMTP_MAILBOX: "Ryot <no-reply@ryot.io>",
+	SERVER_CLIENT_DIR: fileURLToPath(new URL("../../../kernel/client/dist", import.meta.url)),
+};
 
 export function buildApiEnv(input: {
 	port: number;
