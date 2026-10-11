@@ -1,6 +1,11 @@
 import { expect, layer } from "@effect/vitest";
 import { definitionKey, definitionOwner } from "@ryot-app/contract/modules/plugins/references";
-import { PluginId, PluginPackageId, UserId } from "@ryot-app/contract/schema/brands";
+import {
+	PluginId,
+	PluginPackageId,
+	PluginRevisionId,
+	UserId,
+} from "@ryot-app/contract/schema/brands";
 import { and, eq, isNull } from "drizzle-orm";
 import { Effect, Exit } from "effect";
 import { assert, describe } from "vitest";
@@ -174,6 +179,52 @@ describe("definition views", () => {
 					]),
 				).toEqual({});
 				expect(yield* definitions.findGlobalRelationshipSchemas([])).toEqual({});
+			}),
+		);
+
+		test.effect("reads pinned relationship schemas in declaration order", () =>
+			Effect.gen(function* () {
+				const definitions = yield* DefinitionRepository;
+				yield* seedKernelDefinitions();
+				const installed = yield* installRevisionPackage(
+					withRelationshipSchemas(
+						revisionPackage("ordered", "v1", undefined, PluginPackageId.make("test/ordered")),
+						[
+							relationshipSchema("z-link", "shared-source", "shared-target"),
+							relationshipSchema("a-link", "shared-source", "shared-target"),
+						],
+					),
+				);
+				const session = yield* DatabaseSession;
+				for (const [from, to] of [
+					["z-link", "z-link-moved"],
+					["z-link-moved", "z-link"],
+				] as const) {
+					yield* session.run((db) =>
+						db
+							.update(tables.definitionRelationshipSchema)
+							.set({ slug: to })
+							.where(
+								and(
+									eq(tables.definitionRelationshipSchema.pluginRevisionId, installed.revisionId),
+									eq(tables.definitionRelationshipSchema.slug, from),
+								),
+							),
+					);
+				}
+
+				const snapshot = yield* definitions.getSnapshotForContext(
+					{
+						pluginId: PluginId.make(installed.pluginId),
+						pluginRevisionId: PluginRevisionId.make(installed.revisionId),
+					},
+					owner,
+				);
+				expect(
+					Object.values(snapshot.relationshipSchemas)
+						.filter(({ pluginId }) => pluginId === installed.pluginId)
+						.map(({ slug }) => slug),
+				).toEqual(["z-link", "a-link"]);
 			}),
 		);
 	});
