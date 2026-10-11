@@ -301,15 +301,18 @@ The subsequent phases reuse this slice's contracts, helpers, submission handling
 
 ### Phase 6 — Media and measurements
 
+**Status:** complete. Permanent managed uploads, occurrence-owned workout media, guarded abandoned-asset cleanup, media preview/playback, and independent live-workout measurement logging are implemented.
+
 **Owners:** Fitness client/operations; existing kernel upload intent and managed-asset modules; SDK upload bridge.
 
-- [ ] Extend the current uploads capability with a permanent managed-asset path returning a locator. Do not store Blob/base64 bytes in a draft.
-- [ ] Verify locator ownership on save. Track newly uploaded draft assets separately from existing references. Clean up newly abandoned assets best-effort; never present cleanup as a failed workout.
-- [ ] Use `ManagedAssetProvider` for signed URL renewal. Add image preview and video playback.
-- [ ] Reuse the working All Measurements composer and operations from the first slice inside the logger. Preserve the common timestamp, current metric units, finite values including zero, and independent save behavior.
-- [ ] Do not implement grouped-entry names, a measurements-page rewrite, pinning, or unrelated measurement editing/deletion as hidden logger dependencies.
+- [x] Extend the current uploads capability with a permanent managed-asset path returning a locator. Do not store Blob/base64 bytes in a draft.
+- [x] Verify locator ownership on save. Track newly uploaded draft assets separately from existing references. Clean up newly abandoned assets best-effort; never present cleanup as a failed workout.
+- [x] Use `ManagedAssetProvider` for signed URL renewal. Add image preview and video playback.
+- [x] Reuse the working All Measurements composer and operations from the first slice inside the logger. Preserve the common timestamp, current metric units, finite values including zero, and independent save behavior. Logging is available in live workouts only and defaults to the current time.
+- [x] Keep workout exercise media on occurrences, keyed by `exerciseOrder`, instead of duplicating it on sets. Preserve template occurrence media and update legacy mappings directly.
+- [x] Do not implement grouped-entry names, a measurements-page rewrite, pinning, or unrelated measurement editing/deletion as hidden logger dependencies.
 
-**Exit:** tests prove cancelled edits preserve saved media, media survive draft recovery, measurements save independently, and current imports remain unchanged.
+**Exit:** tests prove cancelled edits preserve saved media, media survive draft recovery, measurements save independently, and current imports remain unchanged. Cleanup uses owner/reference checks and a retired-locator tombstone so stale writes cannot restore a deleted asset.
 
 ### Phase 7 — Entry points and saved detail integration
 
