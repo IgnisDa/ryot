@@ -1,3 +1,4 @@
+import type { ContractPayload } from "@ryot-app/contract/client";
 import { NotificationChannelId, SignalSchemaSlug, UserId } from "@ryot-app/contract/schema/brands";
 import {
 	ascending,
@@ -26,6 +27,7 @@ import {
 	pollSignalTrigger,
 	pollTerminalAutomationRuns,
 	pollUntil,
+	postApiJson,
 	requireRows,
 	requireRyotQLValue,
 	startFakeAppriseServer,
@@ -55,17 +57,86 @@ beforeAll(() =>
 afterAll(() => fakeApprise.stop());
 
 describe("notification channel CRUD", () => {
+	it.live(
+		"derives listed kinds from specifics for every channel and preserves disabled creation",
+		() =>
+			Effect.gen(function* () {
+				const { client } = yield* createAuthenticatedClient();
+				const bodies = [
+					{ channelSpecifics: { kind: "apprise", key: "secret-key", baseUrl: fakeApprise.url } },
+					{
+						channelSpecifics: {
+							kind: "discord",
+							webhookUrl: "https://discord.example.com/webhook/secret",
+						},
+					},
+					{ channelSpecifics: { kind: "email", recipient: "recipient@example.com" } },
+					{
+						channelSpecifics: {
+							kind: "gotify",
+							token: "secret-token",
+							baseUrl: "https://gotify.example.com",
+						},
+					},
+					{
+						channelSpecifics: { kind: "ntfy", topic: "private-topic", accessToken: "secret-token" },
+					},
+					{ channelSpecifics: { kind: "push_bullet", accessToken: "secret-token" } },
+					{ channelSpecifics: { kind: "push_over", userKey: "secret-key" } },
+					{ channelSpecifics: { key: "secret-key", kind: "push_safer" } },
+					{
+						channelSpecifics: { kind: "telegram", chatId: "1234567890", botToken: "secret-token" },
+					},
+				] satisfies ReadonlyArray<ContractPayload<"notifications", "createChannel">>;
+				for (const body of bodies) {
+					const { id } = yield* createNotificationChannel(client, { ...body, isDisabled: true });
+					const listed = requirePresent(
+						(yield* listNotificationChannels(client)).find((channel) => channel.id === id),
+						"Expected created notification channel",
+					);
+					expect(listed.channel).toBe(body.channelSpecifics.kind);
+					expect(listed.isDisabled).toBe(true);
+					expect(listed).not.toHaveProperty("channelSpecifics");
+					expect(listed.description).not.toContain("secret");
+				}
+			}),
+	);
+
+	it.live("rejects malformed channel specifics before storing a channel", () =>
+		Effect.gen(function* () {
+			const { token, client } = yield* createAuthenticatedClient();
+			for (const channelSpecifics of [
+				{},
+				{ key: "secret", kind: "unknown" },
+				{ key: "secret", kind: "apprise" },
+				{ kind: "discord", webhookUrl: "not-a-url" },
+				{ kind: "email", recipient: "not-an-email" },
+				{ token: 123, kind: "gotify", baseUrl: "https://gotify.example.com" },
+				{ kind: "ntfy", priority: 1.5, topic: "topic" },
+				{ kind: "push_bullet" },
+				{ kind: "push_over" },
+				{ kind: "push_safer" },
+				{ chatId: "1234", kind: "telegram" },
+			]) {
+				const response = yield* postApiJson("/notifications/channels", { channelSpecifics }, token);
+				expect(response.status).toBe(400);
+			}
+			expect(yield* listNotificationChannels(client)).toEqual([]);
+		}),
+	);
+
 	it.live("creates an enabled channel and returns a safe description", () =>
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
 			yield* createNotificationChannel(client, {
-				channel: "apprise",
 				channelSpecifics: { kind: "apprise", key: "secret-key", baseUrl: fakeApprise.url },
 			});
 
 			const channels = yield* listNotificationChannels(client);
 			const channel = requirePresent(channels[0], "Expected created notification channel");
 			expect(channel.isDisabled).toBe(false);
+			expect(channel.channel).toBe("apprise");
+			expect(channel).not.toHaveProperty("channelSpecifics");
 			expect(channel.description).toBe(`Apprise at ${fakeApprise.url}`);
 			expect(channel.description).not.toContain("secret-key");
 		}),
@@ -75,7 +146,6 @@ describe("notification channel CRUD", () => {
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
 			const { id } = yield* createNotificationChannel(client, {
-				channel: "telegram",
 				channelSpecifics: { chatId: "1234", kind: "telegram", botToken: "bot-secret" },
 			});
 
@@ -96,7 +166,6 @@ describe("notification channel CRUD", () => {
 			const owner = yield* createAuthenticatedClient();
 			const other = yield* createAuthenticatedClient();
 			const { id } = yield* createNotificationChannel(owner.client, {
-				channel: "push_safer",
 				channelSpecifics: { key: "secret-key", kind: "push_safer" },
 			});
 
@@ -129,28 +198,6 @@ describe("notification channel CRUD", () => {
 			expect(yield* listNotificationChannels(owner.client)).toEqual([]);
 		}),
 	);
-
-	it.live("rejects channel and specifics mismatches", () =>
-		Effect.gen(function* () {
-			const { client } = yield* createAuthenticatedClient();
-			const mismatch = yield* Effect.flip(
-				client.call((c) =>
-					c.notifications.createChannel({
-						payload: {
-							channel: "email",
-							channelSpecifics: { key: "key", kind: "apprise", baseUrl: fakeApprise.url },
-						},
-					}),
-				),
-			);
-			assertTaggedError(mismatch, "NotificationRequestError");
-			expect(mismatch.reason).toEqual({
-				channel: "email",
-				specificsKind: "apprise",
-				code: "channel-kind-mismatch",
-			});
-		}),
-	);
 });
 
 describe("notification channel RyotQL authorization", () => {
@@ -159,11 +206,9 @@ describe("notification channel RyotQL authorization", () => {
 			const owner = yield* createAuthenticatedClient();
 			const other = yield* createAuthenticatedClient();
 			const { id: ownerChannelId } = yield* createNotificationChannel(owner.client, {
-				channel: "push_safer",
 				channelSpecifics: { kind: "push_safer", key: "owner-secret" },
 			});
 			const { id: otherChannelId } = yield* createNotificationChannel(other.client, {
-				channel: "push_safer",
 				channelSpecifics: { kind: "push_safer", key: "other-secret" },
 			});
 
@@ -262,16 +307,13 @@ describe("notification delivery", () => {
 			fakeApprise.requests.length = 0;
 			const { client } = yield* createAuthenticatedClient();
 			yield* createNotificationChannel(client, {
-				channel: "apprise",
 				channelSpecifics: { key: "success", kind: "apprise", baseUrl: fakeApprise.url },
 			});
 			yield* createNotificationChannel(client, {
-				channel: "apprise",
 				channelSpecifics: { key: "fail", kind: "apprise", baseUrl: fakeApprise.url },
 			});
 			yield* createNotificationChannel(client, {
 				isDisabled: true,
-				channel: "apprise",
 				channelSpecifics: { key: "disabled", kind: "apprise", baseUrl: fakeApprise.url },
 			});
 

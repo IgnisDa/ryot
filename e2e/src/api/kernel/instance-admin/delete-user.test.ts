@@ -277,11 +277,9 @@ describe("Delete user automation data cleanup", () => {
 				const importer = yield* createAuthenticatedClient();
 				yield* Effect.all([
 					createNotificationChannel(firstMonitor.client, {
-						channel: "apprise",
 						channelSpecifics: { key: "first", kind: "apprise", baseUrl: fakeApprise.url },
 					}),
 					createNotificationChannel(secondMonitor.client, {
-						channel: "apprise",
 						channelSpecifics: { key: "second", kind: "apprise", baseUrl: fakeApprise.url },
 					}),
 				]);

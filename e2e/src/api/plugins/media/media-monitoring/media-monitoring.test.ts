@@ -304,11 +304,9 @@ describe("media monitoring infrequent refresh", () => {
 				const second = yield* createAuthenticatedClient();
 				yield* Effect.all([
 					createNotificationChannel(first.client, {
-						channel: "apprise",
 						channelSpecifics: { key: "first", kind: "apprise", baseUrl: fakeApprise.url },
 					}),
 					createNotificationChannel(second.client, {
-						channel: "apprise",
 						channelSpecifics: { key: "second", kind: "apprise", baseUrl: fakeApprise.url },
 					}),
 				]);
@@ -366,7 +364,6 @@ describe("media monitoring infrequent refresh", () => {
 				fakeApprise.requests.length = 0;
 				const owner = yield* createAuthenticatedClient();
 				yield* createNotificationChannel(owner.client, {
-					channel: "apprise",
 					channelSpecifics: { kind: "apprise", key: "discovery", baseUrl: fakeApprise.url },
 				});
 				yield* enableMediaMonitoring(owner.client, discoveryEntityId);

@@ -85,7 +85,6 @@ describe("hierarchical media entity-update signals", () => {
 
 			const monitor = yield* createAuthenticatedClient();
 			yield* createNotificationChannel(monitor.client, {
-				channel: "apprise",
 				channelSpecifics: { kind: "apprise", key: "anime-monitor", baseUrl: fakeApprise.url },
 			});
 			yield* enableMediaMonitoring(monitor.client, anime.id);
@@ -201,7 +200,6 @@ describe("hierarchical media entity-update signals", () => {
 
 				const monitor = yield* createAuthenticatedClient();
 				yield* createNotificationChannel(monitor.client, {
-					channel: "apprise",
 					channelSpecifics: {
 						kind: "apprise",
 						baseUrl: fakeApprise.url,

@@ -2,7 +2,6 @@ import { Schema } from "effect";
 
 import { NotificationChannelId } from "../../schema/brands";
 import { Email, HttpUrl } from "../../schema/utils";
-import { NotificationChannelKind } from "./types";
 
 const AppriseSpecifics = Schema.Struct({
 	baseUrl: HttpUrl,
@@ -67,7 +66,6 @@ export const NotificationChannelSpecifics = Schema.Union([
 export type NotificationChannelSpecifics = typeof NotificationChannelSpecifics.Type;
 
 export const CreateNotificationChannelBody = Schema.Struct({
-	channel: NotificationChannelKind,
 	isDisabled: Schema.optional(Schema.Boolean),
 	channelSpecifics: NotificationChannelSpecifics,
 });
@@ -80,22 +78,9 @@ export const UpdateNotificationChannelBody = Schema.Struct({
 
 export type UpdateNotificationChannelBody = typeof UpdateNotificationChannelBody.Type;
 
-const NotificationRequestFailureReason = Schema.Union([
-	Schema.Struct({
-		channel: NotificationChannelKind,
-		specificsKind: NotificationChannelKind,
-		code: Schema.Literal("channel-kind-mismatch"),
-	}),
-]);
-
 const NotificationNotFoundReason = Schema.Union([
 	Schema.Struct({ channelId: NotificationChannelId, code: Schema.Literal("channel-not-found") }),
 ]);
-
-export class NotificationRequestError extends Schema.TaggedError<
-	NotificationRequestError,
-	{ readonly brand: unique symbol }
->()("NotificationRequestError", { reason: NotificationRequestFailureReason }) {}
 
 export class NotificationNotFoundError extends Schema.TaggedError<
 	NotificationNotFoundError,

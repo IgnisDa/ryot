@@ -105,11 +105,9 @@ it.live("notifies only a credited person's monitor once per role on first media 
 		const importer = yield* createAuthenticatedClient();
 		yield* Effect.all([
 			createNotificationChannel(personMonitor.client, {
-				channel: "apprise",
 				channelSpecifics: { kind: "apprise", key: "person-monitor", baseUrl: fakeApprise.url },
 			}),
 			createNotificationChannel(importer.client, {
-				channel: "apprise",
 				channelSpecifics: { kind: "apprise", key: "media-importer", baseUrl: fakeApprise.url },
 			}),
 		]);
@@ -239,7 +237,6 @@ describe("dual-writer canonical identity", () => {
 				const personMonitor = yield* createAuthenticatedClient();
 				const importer = yield* createAuthenticatedClient();
 				yield* createNotificationChannel(personMonitor.client, {
-					channel: "apprise",
 					channelSpecifics: {
 						kind: "apprise",
 						baseUrl: fakeApprise.url,
@@ -363,7 +360,6 @@ describe("association lifecycle via cron refresh", () => {
 
 			const personMonitor = yield* createAuthenticatedClient();
 			yield* createNotificationChannel(personMonitor.client, {
-				channel: "apprise",
 				channelSpecifics: { kind: "apprise", baseUrl: fakeApprise.url, key: "role-update-monitor" },
 			});
 			yield* enableMediaMonitoring(personMonitor.client, person.id);
@@ -457,7 +453,6 @@ describe("association lifecycle via cron refresh", () => {
 
 				const personMonitor = yield* createAuthenticatedClient();
 				yield* createNotificationChannel(personMonitor.client, {
-					channel: "apprise",
 					channelSpecifics: {
 						kind: "apprise",
 						baseUrl: fakeApprise.url,

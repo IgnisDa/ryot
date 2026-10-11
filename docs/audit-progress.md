@@ -15,7 +15,7 @@
 
 ## Status
 
-**23 implemented, 0 in progress, 60 pending; 3 excluded.**
+**24 implemented, 0 in progress, 59 pending; 3 excluded.**
 
 “Implemented” means affected checks and tests passed and the change is committed with this tracker. Batch-wide acceptance is recorded separately below. Rows follow the audit's ranked order; sequencing can change to respect dependencies and keep changes reviewable.
 
@@ -43,7 +43,7 @@
 | M06-R2 | Implemented | Stable activity form consumes enabled pagination directly; no delayed earlier-episode mirror or sentinel query remains. See this finding's `audit:` commit. |
 | C11-R1 | Implemented | Authenticated UI owns SDK runtime disposal; loader retains only the scope client and host, and equivalent scope stays stable. See this finding's audit commit. |
 | M07-R1 | Implemented | Successful count-zero owns first-run; failed counts show sections and retain stale data. See this finding's audit commit. |
-| P01-R2 | Pending | Notification specifics owns the creation discriminator. |
+| P01-R2 | Implemented | Notification specifics owns the creation discriminator; repository derives the scalar, while stored and listed delivery stay unchanged. See this finding's audit commit. |
 | C06-R2 | Pending | Provider subtree owns options, form, and submitted-search lifetime. |
 | B16-R1 | Pending | One execution/retention pin model. |
 | B16-R2 | Pending | Insert candidates as a set or bounded chunks. |
@@ -188,3 +188,4 @@
 - M05-R1: media and backend checks passed before 41 admission tests and 14 backend tests; read-only review reported no findings.
 - P02-R1: contract, SDK, and fitness checks plus scoped kernel type, format, and lint checks passed before 47 contract, 234 SDK, 12 fitness, and four kernel tests; read-only review reported no findings.
 - C11-R1: client check passed before 130 tests across four files; read-only review reported no findings.
+- P01-R2: contract, backend, client, and e2e checks passed before two contract, 10 backend, and 25 client tests; read-only review reported no findings.
