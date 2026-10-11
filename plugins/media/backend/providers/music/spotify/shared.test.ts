@@ -63,7 +63,7 @@ describe("music.spotify sandbox script", () => {
 		};
 		const host = makeHost([], {
 			httpCall: (_method, url) => {
-				if (url.includes("accounts.spotify.com")) {
+				if (new URL(url).hostname === "accounts.spotify.com") {
 					tokenPosts += 1;
 					return httpSuccess({ access_token: "unexpected" });
 				}

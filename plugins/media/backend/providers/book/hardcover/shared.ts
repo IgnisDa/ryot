@@ -8,7 +8,6 @@ import { normalizeRichDescription } from "../../../lib/rich-description";
 import { createRoleAccumulator, type RoleRelatedEntity } from "../../../lib/role-accumulator";
 import { toTitleCase } from "../../../lib/title-case";
 import {
-	escapeGraphqlString,
 	firstGraphqlErrorMessage,
 	getHardcoverApiKey,
 	hardcoverGql,
@@ -90,11 +89,11 @@ export const search = defineProvider({
 		Effect.gen(function* () {
 			const apiKey = yield* getHardcoverApiKey(host);
 			const graphqlQuery = `
-query {
+query SearchHardcover($query: String!) {
   search(
     page: ${input.page},
     per_page: ${input.pageSize},
-    query: "${escapeGraphqlString(input.query)}",
+    query: $query,
     query_type: "book"
   ) {
     results
@@ -103,7 +102,7 @@ query {
 `;
 			const payloadValue = yield* hardcoverGql(
 				host,
-				{ query: graphqlQuery },
+				{ query: graphqlQuery, variables: { query: input.query } },
 				apiKey,
 				"Hardcover search request failed",
 			);
