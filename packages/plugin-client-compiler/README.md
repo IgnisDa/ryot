@@ -35,6 +35,9 @@ imports, Vite query and glob imports, escaping asset URLs, and authored Tailwind
 `@ryot-app/plugin-ui-sdk/markdown` is an exact trusted registry entry. Its Markdown and directive
 dependencies are private implementation details; plugin sources cannot import them directly.
 
+Motion is a private UI SDK dependency, included in the shared runtime. Plugin authors use the SDK's
+motion primitives; direct `motion/react` imports are not in the dependency registry.
+
 ## Compilation Stages
 
 Effect schemas in `src/input.ts` define package inputs and public exports. Their derived types are

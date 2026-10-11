@@ -150,6 +150,7 @@ export function ScreenFrame({
 	return (
 		<>
 			<div
+				data-scroll-obstruction="top"
 				data-testid="screen-frame-bar"
 				style={{ paddingTop: safeAreaTop }}
 				className="group sticky top-0 z-20 shrink-0"

@@ -143,6 +143,19 @@ kernel-only reduced-motion CSS.
 
 ## Shortcuts And Overlays
 
+`MotionList` animates keyed insertions, removals, and position changes. `Collapse` animates intrinsic
+height without scaling its contents; `MotionSwap` handles keyed state changes such as timer modes.
+These primitives use Motion and respect reduced motion inside each document. Use CSS transitions for
+control colors and press feedback. Keep ticking numbers and input values outside animation keys.
+
+Use `MotionScrollRoot` for a scroll container containing layout-animated elements. The client SDK
+uses it for each plugin screen. `ScreenFrame` and `ActionDock` mark top and bottom scroll obstructions.
+
+Wrap conditional dialogs in `MotionPresence`, giving each direct child a stable key, to retain panels
+and scrims through their exit. Exiting controls are inert and hidden from assistive technology;
+background locks last until the exit completes. Nested dialogs share lock ownership and restore focus
+only when another overlay has not already taken it.
+
 `useShortcut` ignores single-key shortcuts while editable content has focus and registers each
 shortcut in the nearest `OverlayScope`. Only the top scope runs, so callers do not gate shortcuts on
 whether another overlay is open.

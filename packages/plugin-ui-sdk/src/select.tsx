@@ -109,7 +109,7 @@ export function Select({
 					closeLabel="Close options"
 					onInterceptBack={onInterceptBack ?? (() => false)}
 					containerClassName="items-center justify-center p-4"
-					className="flex max-h-[80%] w-full max-w-sm animate-dialog-in flex-col overflow-hidden rounded-xl bg-raised shadow-modal motion-reduce:animate-none"
+					className="flex max-h-[80%] w-full max-w-sm flex-col overflow-hidden rounded-xl bg-raised shadow-modal"
 				>
 					<div className="border-b border-border px-4 py-3">
 						<span className="text-[15px] font-semibold text-text">{label}</span>

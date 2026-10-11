@@ -9,7 +9,7 @@ import {
 	type PluginEntityLocation,
 	type PluginLogicalLocation,
 } from "@ryot-app/plugin-client-contract";
-import { useShortcut, type Hotkey } from "@ryot-app/plugin-ui-sdk";
+import { MotionScrollRoot, useShortcut, type Hotkey } from "@ryot-app/plugin-ui-sdk";
 import { Schema, Effect, Fiber, Match } from "effect";
 import {
 	Fragment,
@@ -316,12 +316,12 @@ const screenBase: CSSProperties = {
 const hiddenScreenStyle: CSSProperties = { ...screenBase, visibility: "hidden" };
 const visibleScreenStyle: CSSProperties = { ...screenBase, visibility: "visible" };
 
-const scrollerBase: CSSProperties = {
+const scrollerBase = {
 	height: "100%",
 	overflowY: "auto",
 	// Vertical only: containing the x axis would disable the browser's own back-swipe.
 	overscrollBehaviorY: "contain",
-};
+} satisfies CSSProperties;
 
 const scrimStyle: CSSProperties = {
 	inset: 0,
@@ -586,7 +586,7 @@ function Screen(props: {
 			<PluginScreenContext.Provider value={surface}>
 				<ActiveScreenContext.Provider value={active}>
 					<RouterContext.Provider value={value}>
-						<div
+						<MotionScrollRoot
 							ref={scrollRoot}
 							style={{
 								...scrollerBase,
@@ -594,7 +594,7 @@ function Screen(props: {
 							}}
 						>
 							{props.screen.element}
-						</div>
+						</MotionScrollRoot>
 						<div ref={setFloatingRoot} />
 					</RouterContext.Provider>
 				</ActiveScreenContext.Provider>
