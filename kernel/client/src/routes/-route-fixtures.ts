@@ -33,6 +33,7 @@ import { OAuthStorage } from "#/modules/auth/oauth-storage";
 import { RuntimeOAuthClientService } from "#/modules/auth/runtime-client";
 import { AuthService, type SettledAuthSession } from "#/modules/auth/service";
 import { OAuthTokenService } from "#/modules/auth/token-service";
+import { DevicePlatform, DeviceService } from "#/modules/device/service";
 import { EntitiesService } from "#/modules/entities/service";
 import { ImportsService } from "#/modules/imports/service";
 import { InstanceAdminImpersonationService } from "#/modules/instance-admin/impersonation";
@@ -123,6 +124,20 @@ export const navigationData: NavigationData = {
 export const NavigationRouteStubs = Layer.succeed(NavigationService, {
 	load: () => Effect.succeed(navigationData),
 });
+
+export const DeviceRouteStubs = DeviceService.layer.pipe(
+	Layer.provide(
+		Layer.succeed(DevicePlatform, {
+			haptic: Effect.void,
+			write: () => Effect.void,
+			awake: () => Effect.void,
+			cancel: () => Effect.void,
+			listen: () => Effect.succeed(() => {}),
+			schedule: () => Effect.succeed({ status: "unsupported" }),
+			read: Effect.succeed({ nextId: 1, alerts: [], shortcuts: [] }),
+		}),
+	),
+);
 
 export const makeCustomizeStub = (
 	save: CustomizeSidebarService["Service"]["save"] = () => Effect.void,

@@ -18,6 +18,8 @@ import {
 	ExternalLinkRequest,
 	ExternalLinkSuccess,
 	PluginCollectionRequest,
+	PluginDeviceRequest,
+	PluginDeviceResult,
 	PluginManagedAssetResolution,
 	PluginStorageRequest,
 	PluginThemeSnapshot,
@@ -197,6 +199,14 @@ export const createRyotClient = (adapter: RyotClientAdapter) => {
 			}
 			return adapter.pluginIdentity(packageId);
 		},
+		persistence: {
+			registerFlush: (flush: () => Effect.Effect<void, RyotClientError>) => {
+				if (!adapter.registerFlush) {
+					throw new RyotClientError("unsupported-capability");
+				}
+				return adapter.registerFlush(flush);
+			},
+		},
 		navigation: {
 			push: (target: RyotNavigationTarget) => navigate("push", target),
 			replace: (target: RyotNavigationTarget) => navigate("replace", target),
@@ -260,6 +270,21 @@ export const createRyotClient = (adapter: RyotClientAdapter) => {
 					return decoded.success;
 				}),
 		},
+		device: (request: PluginDeviceRequest): Effect.Effect<PluginDeviceResult, RyotClientError> =>
+			Effect.gen(function* () {
+				const decoded = Schema.decodeResult(PluginDeviceRequest)(request);
+				if (Result.isFailure(decoded)) {
+					return yield* new RyotClientError("invalid-input");
+				}
+				const device = adapter.device;
+				if (!device) {
+					return yield* new RyotClientError("unsupported-capability");
+				}
+				return yield* decodeCapability(
+					PluginDeviceResult,
+					yield* adapterEffect(() => device(decoded.success)),
+				);
+			}),
 		links: {
 			open: (request: Schema.Codec.Encoded<typeof ExternalLinkRequest>) =>
 				Effect.gen(function* () {
@@ -294,7 +319,9 @@ export const createRyotClient = (adapter: RyotClientAdapter) => {
 						return yield* new RyotClientError("malformed-result");
 					}
 					const decoded = yield* decodeCapability(request.output, value);
-					mutationCompleted.hint();
+					if (request.refreshOnSuccess !== false) {
+						mutationCompleted.hint();
+					}
 					return decoded;
 				}),
 		},

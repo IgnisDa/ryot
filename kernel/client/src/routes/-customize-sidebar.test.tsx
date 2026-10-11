@@ -31,6 +31,7 @@ import {
 	makeWorkspaceRecorder,
 	SavedViewRouteStubs,
 	EntityRouteStubs,
+	DeviceRouteStubs,
 	NavigationRouteStubs,
 	ProviderAddRouteStubs,
 	ImportsRouteStubs,
@@ -74,6 +75,7 @@ const mountView = (
 			Layer.succeed(PluginCatalogService, {
 				load: () => Effect.succeed(options.catalog ?? catalog),
 			}),
+			DeviceRouteStubs,
 			NavigationRouteStubs,
 			makeCustomizeStub((_scope, plan) =>
 				Effect.sync(() => {

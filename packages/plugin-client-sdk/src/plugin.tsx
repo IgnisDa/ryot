@@ -1,5 +1,10 @@
 export { EntitySchemaSlug, PluginId, PluginPackageId } from "@ryot-app/contract/schema/brands";
 export type { PluginIdentityReference } from "@ryot-app/contract/modules/plugins/references";
+export type {
+	PluginDeviceRequest,
+	PluginDeviceResult,
+	PluginNavigationTarget,
+} from "@ryot-app/plugin-client-contract";
 export {
 	bootstrapClientPage,
 	bootstrapClientPlugin,
