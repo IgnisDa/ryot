@@ -5,6 +5,7 @@ import type { PluginDeviceRequest, PluginNavigationTarget } from "@ryot-app/plug
 import { Deferred, Effect, Fiber, Layer } from "effect";
 
 import { decodeServerOrigin } from "#/api/origin";
+import { noopDevicePlatform } from "#/modules/device/platform.test-layer";
 import { DevicePlatform, DeviceService } from "#/modules/device/service";
 import { emptyDeviceState, type DeviceState } from "#/modules/device/state";
 import { DeviceStateAccessError } from "#/persistence/storage";
@@ -238,10 +239,7 @@ describe("device authority", () => {
 	});
 	let unreadableWrites = 0;
 	const unreadablePlatform = Layer.succeed(DevicePlatform, {
-		awake: () => Effect.void,
-		haptic: () => Effect.void,
-		cancel: () => Effect.void,
-		listen: () => Effect.succeed(() => {}),
+		...noopDevicePlatform,
 		schedule: () => Effect.die("must not schedule"),
 	});
 	const unreadableStorage = makeClientStorage({
@@ -271,8 +269,7 @@ describe("device authority", () => {
 	const navigatedDuringScheduling: PluginNavigationTarget[] = [];
 	let tapDuringScheduling: ((id: number) => void) | undefined;
 	const serializationPlatform = Layer.succeed(DevicePlatform, {
-		awake: () => Effect.void,
-		haptic: () => Effect.void,
+		...noopDevicePlatform,
 		cancel: (id) =>
 			Effect.sync(() => {
 				cancelledDuringScheduling.push(id);
