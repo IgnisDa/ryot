@@ -13,6 +13,11 @@ import { eq } from "drizzle-orm";
 import { Context, DateTime, Effect, Layer, Ref } from "effect";
 import { describe } from "vitest";
 
+import { ManagedAssetReferenceRejected } from "#lib/domain/managed-asset-writes";
+import {
+	insertManagedAsset,
+	managedAssetProperty,
+} from "#modules/assets/storage/managed-assets.test-support";
 import { rootLifecycleCommand } from "#modules/automations/lifecycle/command";
 import { LifecycleExecution } from "#modules/automations/lifecycle/execution";
 import { LifecyclePlanner } from "#modules/automations/lifecycle/planning";
@@ -114,6 +119,7 @@ const setup = (
 								audiencePolicy,
 								propertiesSchema: {
 									fields: {
+										image: managedAssetProperty,
 										value: { label: "Value", type: "string" as const, description: "Signal value" },
 									},
 								},
@@ -358,6 +364,42 @@ describe("Signal emission PostgreSQL", () => {
 						}),
 					);
 				}),
+		);
+	});
+	layer(signalLayer())((test) => {
+		test.effect("rejects a signal that references another user's managed asset", () =>
+			Effect.gen(function* () {
+				const pluginId = yield* setup();
+				const foreign = yield* insertManagedAsset(UserId.make("signal-asset-foreign"));
+				assertExitFails(
+					yield* (yield* SignalEmissionService)
+						.emitSignal({ ...input(pluginId), properties: { value: "first", image: foreign } })
+						.pipe(Effect.exit),
+					new ManagedAssetReferenceRejected(),
+				);
+				expect(
+					yield* (yield* DatabaseSession).run((db) => db.select().from(tables.automationTrigger)),
+				).toEqual([]);
+			}),
+		);
+	});
+	layer(signalLayer())((test) => {
+		test.effect("rejects a system signal that references a user's own managed asset", () =>
+			Effect.gen(function* () {
+				const pluginId = yield* setup();
+				const own = yield* insertManagedAsset(owner);
+				assertExitFails(
+					yield* (yield* SignalEmissionService)
+						.emitSignal({
+							...input(pluginId),
+							principal: { kind: "system" },
+							command: command("system-signal"),
+							properties: { image: own, value: "first" },
+						})
+						.pipe(Effect.exit),
+					new ManagedAssetReferenceRejected(),
+				);
+			}),
 		);
 	});
 });

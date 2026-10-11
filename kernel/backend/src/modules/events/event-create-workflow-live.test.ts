@@ -27,6 +27,10 @@ import { Workflow } from "effect/workflow";
 import { WorkflowEngine, WorkflowInstance } from "effect/workflow/WorkflowEngine";
 
 import {
+	insertManagedAsset,
+	managedAssetProperty,
+} from "#modules/assets/storage/managed-assets.test-support";
+import {
 	withLifecycleBatchPlanning,
 	withLifecycleDispatch,
 } from "#modules/automations/lifecycle.test-support";
@@ -144,6 +148,7 @@ const visibleEntity = (
 
 const ratingSchema = (schemaActivated: boolean): AppSchema => ({
 	fields: {
+		image: managedAssetProperty,
 		rating: schemaActivated
 			? {
 					label: "Rating",
@@ -1574,6 +1579,24 @@ layer(harnessLayer({ noHooks: true }))((test) => {
 				),
 				new DbError({ message: "Pinned domain write authority is unavailable" }),
 			);
+			expect(yield* h.created).toEqual([]);
+		}),
+	);
+});
+
+layer(harnessLayer({ noHooks: true }))((test) => {
+	test.effect("fails an event-create item that references another user's managed asset", () =>
+		Effect.gen(function* () {
+			const h = yield* EventCreateHarness;
+			const foreign = yield* insertManagedAsset(UserId.make("event-create-asset-foreign"));
+			const result = yield* run({
+				...payload,
+				payload: [{ entityId, eventSchemaSlug, properties: { rating: 1, image: foreign } }],
+			});
+			expect(result).toMatchObject({
+				count: 0,
+				failure: { index: 0, reason: { code: "asset-forbidden" } },
+			});
 			expect(yield* h.created).toEqual([]);
 		}),
 	);

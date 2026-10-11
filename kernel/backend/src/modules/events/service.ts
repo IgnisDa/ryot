@@ -1336,16 +1336,18 @@ export class EventsService extends Context.Service<EventsService>()("EventsServi
 			let change: AutomationEventChangePayload;
 			if (prepared.operation === "edit" || prepared.operation === "move") {
 				yield* verifyPreparedEditContext(prepared);
-				if (
-					yield* lockAssetReferences([
-						{ properties: prepared.draft.properties, propertiesSchema: prepared.propertiesSchema },
-					])
-				) {
-					return yield* eventBadRequest(
-						"invalid-properties",
-						"Event references a retired managed asset",
-					);
-				}
+				yield* lockAssetReferences([
+					{
+						ownerUserId: prepared.input.userId,
+						properties: prepared.draft.properties,
+						propertiesSchema: prepared.propertiesSchema,
+					},
+				]).pipe(
+					Effect.catchTag(
+						"ManagedAssetReferenceRejected",
+						() => new EventBadRequest({ reason: { code: "asset-forbidden" } }),
+					),
+				);
 				const updated = yield* repository.updatePreparedEvent({
 					...prepared.input,
 					draft: prepared.draft,

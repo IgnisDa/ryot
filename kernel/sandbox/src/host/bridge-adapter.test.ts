@@ -88,6 +88,30 @@ describe("bindSandboxHostFunctions", () => {
 		}),
 	);
 
+	it.effect("preserves an asset-forbidden signal rejection for the guest", () =>
+		Effect.gen(function* () {
+			const bound = bindSandboxHostFunctions(
+				makeImplementations({
+					emitSignal: () =>
+						Effect.fail({
+							data: { code: "asset-forbidden" },
+							message: "Signal properties reference a forbidden managed asset",
+						}),
+				}),
+				input,
+			);
+			expect(
+				yield* bound.emitSignal([
+					{ properties: {}, discriminator: "review-1", schemaSlug: "review.created" },
+				]),
+			).toEqual({
+				success: false,
+				data: { code: "asset-forbidden" },
+				error: "Signal properties reference a forbidden managed asset",
+			});
+		}),
+	);
+
 	it.effect("decodes RPC arguments before calling a typed core implementation", () =>
 		Effect.gen(function* () {
 			const calls: unknown[] = [];

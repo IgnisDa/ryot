@@ -1,10 +1,18 @@
 import { expect, layer } from "@effect/vitest";
 import type { CurrentUserValue } from "@ryot-app/contract/auth-middleware";
-import type { ListedSavedView } from "@ryot-app/contract/modules/saved-views/schemas";
+import {
+	type ListedSavedView,
+	SavedViewBadRequest,
+} from "@ryot-app/contract/modules/saved-views/schemas";
 import { PluginId, SavedViewId, UserId } from "@ryot-app/contract/schema/brands";
 import { column, document, field, rows, table } from "@ryot-app/ryotql";
+import { assertExitFails } from "@ryot-app/testing/effect-assertions";
 import { Context, Effect, Layer, Ref, Schema } from "effect";
 
+import {
+	insertManagedAsset,
+	managedAssetProperty,
+} from "#modules/assets/storage/managed-assets.test-support";
 import { DefinitionRepository } from "#modules/definitions/repository";
 import { PluginCatalogInvalidator } from "#modules/plugins/catalog/events";
 import { PluginRuntimeResolver } from "#modules/plugins/catalog/runtime-resolver";
@@ -302,6 +310,67 @@ layer(makeLayer({ repository: hiddenViewRepository }))((test) => {
 				`clear:${encodeSavedViewReferenceJson(baseView.reference)}`,
 				"invalidate",
 			]);
+		}),
+	);
+});
+
+const assetPluginManifest = {
+	...pluginManifest,
+	client: {
+		...pluginManifest.client,
+		exports: {
+			summary: {
+				...pluginManifest.client.exports.summary,
+				settingsSchema: {
+					...pluginManifest.client.exports.summary.settingsSchema,
+					fields: {
+						...pluginManifest.client.exports.summary.settingsSchema.fields,
+						image: managedAssetProperty,
+					},
+				},
+			},
+		},
+	},
+};
+
+layer(
+	makeLayer({
+		repository: { create: () => Effect.die("create must not be reached") },
+		availablePlugins: [
+			{
+				scope: "system",
+				health: "ready",
+				isHidden: false,
+				clientImports: [],
+				ownerUserId: null,
+				compiledHashes: {},
+				id: "fixture-plugin-id",
+				contentHash: "source-hash",
+				manifest: assetPluginManifest,
+				pluginRevisionId: "fixture-revision",
+				pluginConfigRevisionId: "fixture-config",
+				installationId: "fixture-installation-id",
+				packageId: assetPluginManifest.metadata.packageId,
+			},
+		],
+	}),
+)((test) => {
+	test.effect("rejects saved view settings that reference another user's managed asset", () =>
+		Effect.gen(function* () {
+			const foreign = yield* insertManagedAsset(UserId.make("saved-view-asset-foreign"));
+			assertExitFails(
+				yield* Effect.exit(
+					(yield* SavedViewsService).create(user, {
+						icon: "record",
+						dataSources: null,
+						name: "Asset view",
+						renderer: pluginRenderer,
+						settings: { image: foreign, title: "Fixture" },
+					}),
+				),
+				new SavedViewBadRequest({ reason: { code: "asset-forbidden" } }),
+			);
+			expect(yield* (yield* SavedViewsCalls).created).toEqual([]);
 		}),
 	);
 });

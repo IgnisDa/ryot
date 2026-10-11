@@ -82,19 +82,22 @@ export class EventBadRequest extends Schema.TaggedError<
 	EventBadRequest,
 	{ readonly brand: unique symbol }
 >()("EventBadRequest", {
-	reason: strictStruct({
-		message: Schema.String,
-		code: Schema.Literals([
-			"automation-limit",
-			"invalid-policy-transform",
-			"invalid-properties",
-			"mutation-conflict",
-			"policy-execution-failed",
-			"policy-rejected",
-			"owner-mismatch",
-			"global-scope-forbidden",
-		]),
-	}),
+	reason: Schema.Union([
+		strictStruct({ code: Schema.Literal("asset-forbidden") }),
+		strictStruct({
+			message: Schema.String,
+			code: Schema.Literals([
+				"automation-limit",
+				"invalid-policy-transform",
+				"invalid-properties",
+				"mutation-conflict",
+				"policy-execution-failed",
+				"policy-rejected",
+				"owner-mismatch",
+				"global-scope-forbidden",
+			]),
+		}),
+	]),
 }) {}
 
 export class EventNotFound extends Schema.TaggedError<
@@ -147,6 +150,7 @@ export const EventCreateFailureReason = Schema.Union([
 		triggerId: AutomationTriggerId,
 		code: Schema.Literal("automation-limit-reached"),
 	}),
+	strictStruct({ code: Schema.Literal("asset-forbidden") }),
 	strictStruct({ code: Schema.Literal("entity-id-required") }),
 	strictStruct({ code: Schema.Literal("invalid-properties") }),
 	strictStruct({ code: Schema.Literal("mutation-conflict") }),

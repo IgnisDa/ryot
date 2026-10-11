@@ -1,6 +1,7 @@
 import { BunFileSystem } from "@effect/platform-bun";
 import { assert, describe, expect, it, layer } from "@effect/vitest";
 import { DbError } from "@ryot-app/contract/errors";
+import { BackupBadRequest } from "@ryot-app/contract/modules/backups/schemas";
 import type { PluginManifest } from "@ryot-app/contract/modules/plugins/manifest";
 import {
 	definitionKey,
@@ -25,12 +26,14 @@ import {
 	rows,
 	table,
 } from "@ryot-app/ryotql";
+import { assertExitFails } from "@ryot-app/testing/effect-assertions";
 import { stableStringify } from "@ryot-app/ts-utils/json";
 import { count, eq, sql } from "drizzle-orm";
 import { Context, Effect, FileSystem, Layer, Ref, Schema, Stream } from "effect";
 
 import { AuthRepository } from "#modules/accounts/auth/repository";
 import { ManagedAssetsService } from "#modules/assets/storage/managed-assets";
+import { managedAssetProperty } from "#modules/assets/storage/managed-assets.test-support";
 import { AutomationsRepository } from "#modules/automations/repository";
 import { buildDefinitionSnapshot, type DefinitionSnapshot } from "#modules/definitions/snapshot";
 import { mergeManifestDefinitions } from "#modules/definitions/source";
@@ -50,7 +53,8 @@ import {
 	revisionDatabaseLayer,
 	revisionPackage,
 } from "#modules/plugins/packages/revision.test-support";
-import type { NormalizedPlugin } from "#modules/plugins/packages/types";
+import type { NormalizedPlugin, StoredPlugin } from "#modules/plugins/packages/types";
+import { fixtureManifest } from "#modules/plugins/test-support";
 import { RelationshipsRepository } from "#modules/relationships/repository";
 import { validateSavedViewDefinition } from "#modules/saved-views/definition-validation";
 import { SavedViewsRepository } from "#modules/saved-views/repository";
@@ -1908,4 +1912,230 @@ describe("account backup restore in PostgreSQL", () => {
 			);
 		});
 	}
+});
+
+const archivedAsset = { type: "s3" as const, key: "archived/asset.png" };
+const restoredAsset = { type: "s3" as const, key: "permanent/restored-asset.png" };
+const assetPluginId = "asset-system-plugin";
+const assetPluginKey = "asset-system-key";
+const assetSchemaSlug = "asset-dependency";
+const assetPropertiesSchema: AppSchema = {
+	fields: {
+		image: managedAssetProperty,
+		title: { type: "string", label: "Title", description: "Title" },
+	},
+};
+const assetPageManifest = fixtureManifest();
+const assetSystemPlugin: StoredPlugin = {
+	scripts: [],
+	ownerId: null,
+	scope: "system",
+	status: "active",
+	id: assetPluginId,
+	contentHash: "asset-hash",
+	activationId: "asset-activation",
+	packageId: assetPageManifest.metadata.packageId,
+	manifest: {
+		...assetPageManifest,
+		client: {
+			apiVersion: 1,
+			homeView: null,
+			exports: {
+				summary: {
+					kind: "page",
+					entry: "client/summary.tsx",
+					automaticEntityPresentations: false,
+					settingsSchema: { unknownKeys: "strict", fields: { image: managedAssetProperty } },
+				},
+			},
+		},
+	},
+};
+const assetDefinitions: DefinitionSnapshot = {
+	savedViews: {},
+	signalSchemas: {},
+	relationshipSchemas: {},
+	entitySchemas: {
+		[definitionKey("entity", definitionOwner(assetPluginId), assetSchemaSlug)]: {
+			icon: "box",
+			eventSchemas: {},
+			slug: assetSchemaSlug,
+			pluginId: assetPluginId,
+			name: "Asset dependency",
+			mergeIdentityProperties: [],
+			propertiesSchema: assetPropertiesSchema,
+		},
+	},
+};
+const assetRestoreLayer = (assetOwnerUserId: string) =>
+	Layer.effect(BackupRestoreWriter, BackupRestoreWriter.make).pipe(
+		Layer.provideMerge(
+			Layer.mergeAll(
+				fakeDatabaseSession({
+					select: () => ({
+						from: () => ({
+							where: () => ({
+								orderBy: () => ({
+									for: () =>
+										Effect.succeed([
+											{
+												retiredAt: null,
+												key: restoredAsset.key,
+												provider: restoredAsset.type,
+												ownerUserId: assetOwnerUserId,
+											},
+										]),
+								}),
+							}),
+						}),
+					}),
+				}),
+				Layer.mock(PluginRepository, {
+					listPrivateForUser: () => Effect.succeed([]),
+					listActiveSystemPlugins: () => Effect.succeed([assetSystemPlugin]),
+				}),
+				Layer.mock(BackupRestorePersistence, {
+					restoreEvents: () => Effect.void,
+					restorePortableProfile: () => Effect.succeed(true),
+					restoreEntity: (input) => Effect.succeed(EntityId.make(input.id ?? "restored")),
+					restoreCustomView: () => Effect.die("A rejected saved view must not be restored"),
+					restoreTranslation: () => Effect.die("A rejected translation must not be restored"),
+				}),
+				Layer.mock(EntitiesRepository, {
+					listUserEntitiesForBackup: () => Effect.succeed([]),
+					findGlobalEntityForRestore: () => Effect.succeed(null),
+				}),
+				Layer.mock(SavedViewsRepository, {}),
+				Layer.mock(AutomationsRepository, {}),
+				Layer.mock(PluginInstallationRepository, {}),
+			),
+		),
+	);
+const assetRecords = (overrides: Partial<ArchiveRecords>): ArchiveRecords => ({
+	entities: [],
+	savedViews: [],
+	integrations: [],
+	installations: [],
+	relationships: [],
+	privatePlugins: [],
+	entityDependencies: [],
+	notificationSubscriptions: [],
+	profile: {
+		image: null,
+		name: "User",
+		preferences: { language: null, disableIntegrations: false },
+	},
+	...overrides,
+});
+const assetDependency = (
+	properties: ArchiveRecords["entityDependencies"][number]["properties"],
+	translations: ArchiveRecords["entityDependencies"][number]["translations"] = [],
+): ArchiveRecords["entityDependencies"][number] => ({
+	properties,
+	translations,
+	provider: null,
+	populatedAt: null,
+	name: "Dependency",
+	id: "asset-dependency",
+	externalId: "asset-external",
+	entitySchemaSlug: assetSchemaSlug,
+	entitySchemaPluginKey: assetPluginKey,
+	createdAt: "2026-08-23T12:00:00.000Z",
+	updatedAt: "2026-08-23T12:00:00.000Z",
+	identity: {
+		kind: "bootstrap",
+		pluginKey: assetPluginKey,
+		externalId: "asset-external",
+		entitySchemaSlug: assetSchemaSlug,
+	},
+});
+const restoreAssetRecords = (records: ArchiveRecords) =>
+	Effect.gen(function* () {
+		const session = yield* DatabaseSession;
+		const writer = yield* BackupRestoreWriter;
+		return yield* session
+			.transaction(
+				writer.restoreRecords(
+					UserId.make("user-id"),
+					records,
+					new Map([[`${archivedAsset.type}:${archivedAsset.key}`, restoredAsset]]),
+					{ count: 0, sha256: "", read: () => Stream.empty },
+					new Map([[assetPluginKey, assetPluginId]]),
+					assetDefinitions,
+				),
+			)
+			.pipe(Effect.exit);
+	});
+const assetForbidden = new BackupBadRequest({ reason: { code: "asset-forbidden" } });
+
+layer(assetRestoreLayer("user-id"))((test) => {
+	test.effect("rejects a restored global dependency that carries a managed asset", () =>
+		Effect.gen(function* () {
+			assertExitFails(
+				yield* restoreAssetRecords(
+					assetRecords({
+						entityDependencies: [assetDependency({ title: "Shared", image: archivedAsset })],
+					}),
+				),
+				assetForbidden,
+			);
+		}),
+	);
+
+	test.effect("rejects a restored global-dependency translation that carries a managed asset", () =>
+		Effect.gen(function* () {
+			assertExitFails(
+				yield* restoreAssetRecords(
+					assetRecords({
+						entityDependencies: [
+							assetDependency({ title: "Shared" }, [
+								{
+									language: "es",
+									populatedAt: null,
+									name: "Compartido",
+									properties: { image: archivedAsset },
+									createdAt: "2026-08-23T12:00:00.000Z",
+									updatedAt: "2026-08-23T12:00:00.000Z",
+								},
+							]),
+						],
+					}),
+				),
+				assetForbidden,
+			);
+		}),
+	);
+});
+
+layer(assetRestoreLayer("foreign-owner"))((test) => {
+	test.effect("rejects a restored saved view whose settings reference a foreign asset", () =>
+		Effect.gen(function* () {
+			assertExitFails(
+				yield* restoreAssetRecords(
+					assetRecords({
+						savedViews: [
+							{
+								icon: "box",
+								sortOrder: 0,
+								kind: "custom",
+								isHidden: false,
+								pluginKey: null,
+								isBuiltin: false,
+								id: "asset-view",
+								dataSources: null,
+								slug: "asset-view",
+								name: "Asset view",
+								installationId: null,
+								settings: { image: restoredAsset },
+								createdAt: "2026-08-23T12:00:00.000Z",
+								updatedAt: "2026-08-23T12:00:00.000Z",
+								renderer: { kind: "plugin", exportName: "summary", pluginKey: assetPluginKey },
+							},
+						],
+					}),
+				),
+				assetForbidden,
+			);
+		}),
+	);
 });

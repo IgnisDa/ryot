@@ -10,9 +10,14 @@ import {
 import { PluginPackageId, UserId } from "@ryot-app/contract/schema/brands";
 import { emptySandboxExecutionMetadata } from "@ryot-app/contract/testing";
 import { PLUGIN_ARCHIVE_LIMITS, writePluginArchive } from "@ryot-app/plugin-archive";
+import { assertExitFails } from "@ryot-app/testing/effect-assertions";
 import { sha256Hex } from "@ryot-app/ts-utils/crypto";
 import { Cause, Context, Effect, Exit, Layer, Option, Ref, Stream } from "effect";
 
+import {
+	insertManagedAsset,
+	managedAssetProperty,
+} from "#modules/assets/storage/managed-assets.test-support";
 import { ObjectStorageService } from "#modules/assets/storage/object-storage";
 import { UploadIntentsService } from "#modules/assets/uploads/intents";
 import { kernelDefinitionSource } from "#modules/definitions/kernel-source";
@@ -20,6 +25,7 @@ import { DefinitionRepository } from "#modules/definitions/repository";
 import { SandboxWorkflowReferenceRepository } from "#modules/scripts/registry/workflow-references";
 import { DatabaseSession } from "#platform/db/session";
 import { databaseLayer } from "#testing/effect";
+import { isolatedDatabaseLayer } from "#testing/isolated-database";
 
 import { PluginCatalogInvalidator } from "../catalog/events";
 import { PluginSavedViewReferences } from "../catalog/saved-view-references";
@@ -217,6 +223,7 @@ type FakeInstallationOptions = {
 	readonly systemPlugins?: ReadonlyArray<StoredPlugin>;
 	readonly privatePlugins?: ReadonlyArray<StoredPlugin>;
 	readonly installations?: ReadonlyArray<PluginInstallationHydratedState>;
+	readonly isolatedDatabase?: boolean;
 	readonly homeTargets?: ReadonlyMap<string, NonNullable<HomeSavedView>>;
 	readonly privateInstallations?: ReadonlyArray<PluginPrivateInstallationRow>;
 };
@@ -579,7 +586,11 @@ const makeLayer = (options: FakeInstallationOptions = {}) => {
 		Layer.provideMerge(dependenciesLayer),
 		Layer.provideMerge(inspectionLayer),
 		Layer.provideMerge(stateLayer),
-		Layer.provideMerge(databaseLayer),
+		Layer.provideMerge(
+			options.isolatedDatabase
+				? isolatedDatabaseLayer("plugin_installation_service")
+				: databaseLayer,
+		),
 	);
 };
 
@@ -1203,6 +1214,38 @@ layer(makeLayer({ privatePlugins: [configuredPlugin], installations: [configured
 		);
 	},
 );
+
+const assetConfiguredPlugin = storedPrivatePlugin(
+	privateManifest({
+		configSchema: { unknownKeys: "strict", fields: { image: managedAssetProperty } },
+	}),
+);
+const assetConfiguredInstallation = installationRow({ pluginId: assetConfiguredPlugin.id });
+
+layer(
+	makeLayer({
+		isolatedDatabase: true,
+		privatePlugins: [assetConfiguredPlugin],
+		installations: [assetConfiguredInstallation],
+	}),
+)((test) => {
+	test.effect("rejects installation settings that reference another user's managed asset", () =>
+		Effect.gen(function* () {
+			const fake = yield* FakeInstallationDependencies;
+			const service = yield* PluginInstallationService;
+			const foreign = yield* insertManagedAsset(UserId.make("installation-asset-foreign"));
+			assertExitFails(
+				yield* Effect.exit(
+					service.updateInstallation(userId, assetConfiguredInstallation.id, {
+						config: { image: foreign },
+					}),
+				),
+				new PluginRequestError({ reason: { code: "asset-forbidden" } }),
+			);
+			expect(yield* fake.updated).toEqual([]);
+		}),
+	);
+});
 
 const exampleSystemPlugin = systemEntry(
 	privateManifest({ metadata: { ...privateManifest().metadata } }),

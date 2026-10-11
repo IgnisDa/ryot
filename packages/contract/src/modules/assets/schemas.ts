@@ -31,7 +31,7 @@ export const CleanupManagedAssetInput = Schema.Struct({ asset: ManagedAssetLocat
 export type CleanupManagedAssetInput = typeof CleanupManagedAssetInput.Type;
 
 export const CleanupManagedAssetOutput = Schema.Struct({
-	status: Schema.Literals(["deleted", "referenced", "missing"]),
+	status: Schema.Literals(["deleted", "referenced"]),
 });
 export type CleanupManagedAssetOutput = typeof CleanupManagedAssetOutput.Type;
 

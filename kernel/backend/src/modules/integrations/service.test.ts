@@ -15,6 +15,10 @@ import { assertExitFails } from "@ryot-app/testing/effect-assertions";
 import { Context, Effect, Layer, Ref } from "effect";
 import { WorkflowEngine } from "effect/workflow/WorkflowEngine";
 
+import {
+	insertManagedAsset,
+	managedAssetProperty,
+} from "#modules/assets/storage/managed-assets.test-support";
 import { DataImportAdmission } from "#modules/imports/data-admission";
 import { IngestionExecution } from "#modules/imports/execution-service";
 import { ImportsRepository } from "#modules/imports/repository";
@@ -31,12 +35,14 @@ import {
 	IngestionReadinessService,
 } from "#modules/plugins/catalog/readiness-service";
 import { fixtureManifest } from "#modules/plugins/test-support";
+import type { DatabaseSession } from "#platform/db/session";
 import { ProKeyService } from "#platform/pro-key";
 import {
 	makeWorkflowEngine,
 	type MockOverrides,
 	type WorkflowEngineOverrides,
 } from "#testing/effect";
+import { isolatedDatabaseLayer } from "#testing/isolated-database";
 
 import { IntegrationIngestion } from "./ingestion";
 import { IntegrationsRepository, type IntegrationRecord } from "./repository";
@@ -140,6 +146,7 @@ const mockReadiness = Layer.mock(IngestionReadinessService);
 const mockDataAdmission = Layer.mock(DataImportAdmission);
 
 const makeServiceLayer = (options: {
+	database?: Layer.Layer<DatabaseSession, unknown>;
 	proKey?: boolean;
 	stored?: IntegrationRecord;
 	dependencies?: (tools: FakeTools) => {
@@ -154,7 +161,7 @@ const makeServiceLayer = (options: {
 	integrationsServiceLayer.pipe(
 		Layer.provideMerge(
 			Layer.mergeAll(
-				mutationAdmissionTestLayer,
+				options.database ?? mutationAdmissionTestLayer,
 				Layer.mock(ImportsRepository)({}),
 				Layer.mock(IngestionExecution)({}),
 				Layer.mock(IngestionRetirement)({}),
@@ -923,6 +930,65 @@ describe("syncAll", () => {
 					executionId: result.executionId,
 					payload: { userId, executionId: result.executionId },
 				});
+			}),
+		);
+	});
+});
+
+describe("managed asset settings", () => {
+	const assetProvider = {
+		lot: "push",
+		scriptSlug: null,
+		name: "Asset push",
+		slug: "asset-push",
+		...systemPlugin("example"),
+		description: "Provider with an asset setting",
+		settingsSchema: { fields: { image: managedAssetProperty } },
+	} satisfies RegisteredIntegrationProvider;
+	const assetIntegration = makeIntegration({
+		lot: "push",
+		userId: user.id,
+		provider: assetProvider.slug,
+		pluginInstallationId: assetProvider.installationId,
+	});
+
+	layer(
+		makeServiceLayer({
+			stored: assetIntegration,
+			database: isolatedDatabaseLayer("integration_asset_settings"),
+			dependencies: ({ stored }) => ({
+				catalog: {
+					findForUser: () => Effect.succeed(assetProvider),
+					findOwnedForUser: () => Effect.succeed(assetProvider),
+				},
+				repository: {
+					createForUser: () => Effect.die("create must not be reached"),
+					updateForUser: () => Effect.die("update must not be reached"),
+					getForUser: () => Ref.get(stored).pipe(Effect.map((state) => state ?? null)),
+				},
+			}),
+		}),
+	)((test) => {
+		test.effect("rejects another user's managed asset on integration create and update", () =>
+			Effect.gen(function* () {
+				const service = yield* IntegrationsService;
+				const foreign = yield* insertManagedAsset(UserId.make("integration-asset-foreign"));
+				const forbidden = new IntegrationRequestError({ reason: { code: "asset-forbidden" } });
+				assertExitFails(
+					yield* Effect.exit(
+						service.create(user, {
+							providerSpecifics: { image: foreign },
+							provider: { ...assetProvider.reference, slug: assetProvider.slug },
+						}),
+					),
+					forbidden,
+				);
+				assertExitFails(
+					yield* Effect.exit(
+						service.update(user.id, assetIntegration.id, { providerSpecifics: { image: foreign } }),
+					),
+					forbidden,
+				);
 			}),
 		);
 	});

@@ -63,6 +63,7 @@ const failureDetails: Record<(typeof DeclaredPluginFailure.Type)["reason"]["code
 	"installation-not-found": "This installation no longer exists.",
 	"saved-view-referenced": "Your saved views still use this plugin.",
 	"integration-referenced": "Your integrations still use this plugin.",
+	"asset-forbidden": "A file in these settings is not available to you.",
 	"operation-scope-not-found": "The plugin operation scope does not exist.",
 	"installation-not-ready": "This installation is not ready for that change.",
 	"system-plugin": "System plugins are managed by deployment administrators.",

@@ -18,6 +18,7 @@ import {
 	insertRelationshipRow,
 	listSavedViews,
 	requireRyotQLValue,
+	uploadPermanentAsset,
 } from "~/fixtures/kernel";
 import {
 	createWorkoutTemplateEntityFixture,
@@ -354,8 +355,12 @@ describe("Workout Templates E2E", () => {
 				kind: "reps_and_weight",
 				name: "Secondary Template Exercise",
 			});
+			const video = yield* uploadPermanentAsset(client, {
+				fileName: "template.mp4",
+				contentType: "video/mp4",
+			});
 			const workoutTemplateProperties = {
-				videos: [{ type: "s3", key: "templates/video.mp4" }],
+				videos: [video],
 				images: [{ type: "remote", url: "https://example.com/template.jpg" }],
 				supersets: [
 					{ color: "#84CC16", exercises: [0, 1] },
@@ -364,9 +369,9 @@ describe("Workout Templates E2E", () => {
 				exercises: [
 					{
 						notes: [],
+						videos: [video],
 						exerciseOrder: 0,
 						exerciseId: firstExerciseId,
-						videos: [{ type: "s3", key: "templates/video.mp4" }],
 						images: [{ type: "remote", url: "https://example.com/template-image.jpg" }],
 						sets: [
 							{ setOrder: 0, restTime: 60, setLot: "normal" },

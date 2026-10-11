@@ -1,7 +1,7 @@
 import { configFromAppSchema } from "@ryot-app/config";
 import { DbError } from "@ryot-app/contract/errors";
 import { pluginConfigEnvironmentKey } from "@ryot-app/contract/modules/plugins/plugin-config";
-import type { PluginPackageId } from "@ryot-app/contract/schema/brands";
+import { type PluginPackageId, UserId } from "@ryot-app/contract/schema/brands";
 import { JsonValue } from "@ryot-app/contract/schema/json";
 import type { AppPropertyDefinition, AppSchema } from "@ryot-app/contract/schema/property-schema";
 import { generateId } from "better-auth";
@@ -410,11 +410,13 @@ export class PluginConfigRevisions extends Context.Service<PluginConfigRevisions
 								allowMissingRequiredSecrets,
 							);
 				const properties = restored.properties;
-				if (yield* lockAssetReferences([{ properties, propertiesSchema: revision.configSchema }])) {
-					return yield* new DbError({
-						message: "Plugin config references a retired managed asset",
-					});
-				}
+				yield* lockAssetReferences([
+					{
+						properties,
+						propertiesSchema: revision.configSchema,
+						ownerUserId: input.ownerUserId === null ? null : UserId.make(input.ownerUserId),
+					},
+				]);
 				const payloadFingerprint = yield* encryption
 					.fingerprint(properties)
 					.pipe(

@@ -25,6 +25,8 @@ import { canonicalRelativePosixPathIssue } from "@ryot-app/ts-utils/path";
 import { auditSandboxEsmOutput } from "@ryot-app/vite-compiler";
 import { Effect, Match, Result, Schema } from "effect";
 
+import type { ManagedAssetReferenceRejected } from "#lib/domain/managed-asset-writes";
+
 import type { SchemaEvolutionError } from "./schema-evolution";
 import type {
 	NormalizedPlugin,
@@ -298,7 +300,8 @@ type StructurablePluginFailure =
 	| PluginRequestError
 	| SchemaEvolutionError
 	| PluginValidationError
-	| PluginPackageReservedError;
+	| PluginPackageReservedError
+	| ManagedAssetReferenceRejected;
 
 export const structurePluginFailure = <A, R>(
 	effect: Effect.Effect<A, StructurablePluginFailure, R>,
@@ -309,6 +312,8 @@ export const structurePluginFailure = <A, R>(
 				Effect.fail(new PluginRequestError({ reason: { code: "upload-unavailable" } })),
 			UploadBadRequest: () =>
 				Effect.fail(new PluginRequestError({ reason: { code: "upload-unavailable" } })),
+			ManagedAssetReferenceRejected: () =>
+				Effect.fail(new PluginRequestError({ reason: { code: "asset-forbidden" } })),
 			PluginArchiveError: (error: PluginArchiveError) =>
 				Effect.fail(
 					new PluginRequestError({

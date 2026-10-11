@@ -86,13 +86,9 @@ export class SignalEmissionService extends Context.Service<SignalEmissionService
 							properties: input.properties,
 							propertiesSchema: schema.propertiesSchema,
 						}).pipe(Effect.mapError((error) => badRequest(error.message)));
-						if (
-							yield* lockAssetReferences([
-								{ properties, propertiesSchema: schema.propertiesSchema },
-							])
-						) {
-							return yield* badRequest("Signal properties reference a retired managed asset");
-						}
+						yield* lockAssetReferences([
+							{ properties, ownerUserId: actorUserId, propertiesSchema: schema.propertiesSchema },
+						]);
 						const normalized = yield* Schema.decodeUnknownEffect(AutomationSignalPayload)({
 							properties,
 							actorUserId,

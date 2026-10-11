@@ -4,7 +4,11 @@ import {
 	DEFAULT_AUTOMATION_RETRY_POLICY,
 	type AutomationEventSnapshot,
 } from "@ryot-app/contract/modules/automations/lifecycle";
-import { EventStale, type UpdateEventItem } from "@ryot-app/contract/modules/events/schemas";
+import {
+	EventBadRequest,
+	EventStale,
+	type UpdateEventItem,
+} from "@ryot-app/contract/modules/events/schemas";
 import {
 	AutomationExecutionId,
 	AutomationRunId,
@@ -30,6 +34,10 @@ import {
 	UserLifecycleWorkflowOperations,
 	UserLifecycleWorkflowOperationsLive,
 } from "#modules/accounts/lifecycle/workflow";
+import {
+	insertManagedAsset,
+	managedAssetProperty,
+} from "#modules/assets/storage/managed-assets.test-support";
 import { ObjectStorageService } from "#modules/assets/storage/object-storage";
 import {
 	withLifecycleBatchPlanning,
@@ -66,6 +74,7 @@ const eventSchemaSlug = EventSchemaSlug.make("rating");
 const now = "2026-09-15T00:00:00.000Z";
 const editPropertiesSchema = {
 	fields: {
+		image: managedAssetProperty,
 		note: { label: "Note", type: "string", description: "Note" },
 		rating: { type: "number", label: "Rating", description: "Rating" },
 	},
@@ -2277,6 +2286,45 @@ describe("Event lifecycle PostgreSQL", () => {
 					yield* service.deleteBatch([eventId], userId, command("database-timestamp-delete")),
 				).toEqual({ count: 1, warnings: [] });
 				expect(yield* repository.getEventSnapshot({ userId, eventId })).toBeNull();
+			}),
+		);
+	});
+
+	layer(Layer.merge(lifecycleDatabaseLayer(true), workflowLayer))((test) => {
+		test.effect("rejects an event edit that references another user's managed asset", () =>
+			Effect.gen(function* () {
+				const service = yield* EventsService;
+				const repository = yield* EventsRepository;
+				const session = yield* DatabaseSession;
+				const foreign = yield* insertManagedAsset(UserId.make("event-asset-foreign"));
+				const eventId = EventId.make("foreign-asset-edit-event");
+				yield* session.transaction(
+					repository.createEvent({
+						userId,
+						entityId,
+						id: eventId,
+						eventSchemaSlug,
+						properties: { rating: 1 },
+						eventSchemaName: "Rating",
+						eventSchemaPluginId: null,
+						occurredAt: DateTime.toDateUtc(DateTime.makeUnsafe(now)),
+					}),
+				);
+				assertExitFails(
+					yield* Effect.exit(
+						service.edit(
+							updateItem("foreign-asset-edit-event", {
+								properties: { remove: [], set: { image: foreign } },
+							}),
+							userId,
+							command("foreign-asset-edit"),
+						),
+					),
+					new EventBadRequest({ reason: { code: "asset-forbidden" } }),
+				);
+				expect((yield* repository.getEventSnapshot({ userId, eventId }))?.properties).toEqual({
+					rating: 1,
+				});
 			}),
 		);
 	});

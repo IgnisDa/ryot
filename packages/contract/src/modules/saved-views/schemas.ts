@@ -12,6 +12,7 @@ import {
 import { OutputFieldKey, RyotQLDocument } from "../ryotql/language";
 
 const SavedViewBadRequestReason = Schema.Union([
+	Schema.Struct({ code: Schema.Literal("asset-forbidden") }),
 	Schema.Struct({ code: Schema.Literal("duplicate-name") }),
 	Schema.Struct({ code: Schema.Literal("renderer-not-found") }),
 	Schema.Struct({ code: Schema.Literal("renderer-unpublished") }),
