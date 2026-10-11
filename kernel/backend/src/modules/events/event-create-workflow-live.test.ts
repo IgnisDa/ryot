@@ -3,6 +3,7 @@ import { DbError } from "@ryot-app/contract/errors";
 import {
 	type AutomationPolicyOutput,
 	AutomationRun,
+	DEFAULT_AUTOMATION_RETRY_POLICY,
 	type AutomationRequestPayload,
 	type AutomationTrigger,
 	type AutomationWarning,
@@ -15,8 +16,10 @@ import {
 	EntitySchemaSlug,
 	EventSchemaSlug,
 	PluginId,
+	PluginPackageId,
 	UserId,
 } from "@ryot-app/contract/schema/brands";
+import type { AppSchema } from "@ryot-app/contract/schema/property-schema";
 import { IsoUtcString } from "@ryot-app/contract/schema/utils";
 import { assertExitFails } from "@ryot-app/testing/effect-assertions";
 import { Context, Effect, Exit, Layer, Ref, Schema } from "effect";
@@ -35,12 +38,18 @@ import {
 import {
 	LifecyclePlanner,
 	lifecycleRunId,
+	type LifecyclePlan,
 	type LifecyclePlannedPolicy,
 } from "#modules/automations/lifecycle/planning";
 import { applyLifecyclePolicyPatches } from "#modules/automations/lifecycle/policy-patch";
 import { EventSchemaReader } from "#modules/definitions/event-schemas";
 import { EntitiesRepository } from "#modules/entities/repository";
-import { DomainWriteChecksLive } from "#modules/entities/write-context";
+import {
+	DomainWriteChecks,
+	DomainWriteChecksLive,
+	DomainWriteConflict,
+} from "#modules/entities/write-context";
+import { ScriptExecutionPrincipal } from "#modules/scripts/authorization/principal";
 import { DatabaseSession } from "#platform/db/session";
 import { user } from "#schema/tables/auth";
 import { makeWorkflowEngine } from "#testing/effect";
@@ -91,6 +100,12 @@ type HarnessOptions = {
 		},
 	) => Effect.Effect<AutomationPolicyOutput, AutomationPolicyExecutionError>;
 	blocked?: "request" | "change";
+	noHooks?: boolean;
+	policyRatings?: number[];
+	blockedRatings?: number[];
+	afterHookRatings?: number[];
+	foreignEntity?: EntityId;
+	retryActivity?: string;
 	warnings?: AutomationWarning[];
 	failChange?: boolean;
 	activateSchemaBeforeWrite?: boolean;
@@ -98,6 +113,108 @@ type HarnessOptions = {
 };
 
 type CreatedEvent = Parameters<EventsRepository["Service"]["createEvent"]>[0];
+
+const foreignPluginId = "foreign";
+
+const visibleEntity = (
+	{
+		options,
+		lockedEntityIds,
+		changedEntityMetadata,
+	}: Pick<HarnessState, "changedEntityMetadata" | "lockedEntityIds" | "options">,
+	requestedId: EntityId,
+) =>
+	requestedId === options.unreadableEntity ||
+	(requestedId === options.revokeEntityBeforeWrite &&
+		lockedEntityIds.some((locked) => locked.includes(requestedId)))
+		? null
+		: {
+				name: "Record",
+				createdAt: now,
+				updatedAt: now,
+				id: requestedId,
+				externalId: null,
+				entitySchemaSlug,
+				providerId: null,
+				populatedAt: null,
+				properties: changedEntityMetadata.has(requestedId) ? { changed: true } : {},
+				entitySchemaPluginId:
+					requestedId === options.foreignEntity ? PluginId.make(foreignPluginId) : null,
+			};
+
+const ratingSchema = (schemaActivated: boolean): AppSchema => ({
+	fields: {
+		rating: schemaActivated
+			? {
+					label: "Rating",
+					description: "Rating",
+					type: "string" as const,
+					validation: { required: true },
+				}
+			: {
+					label: "Rating",
+					description: "Rating",
+					type: "number" as const,
+					validation: { required: true },
+					normalize: { round: { scale: 2 } },
+				},
+	},
+});
+
+const eventSchemaScope = (schemaDisabled: boolean, schemaActivated: boolean) =>
+	schemaDisabled
+		? null
+		: {
+				name: "Rating",
+				pluginId: null,
+				slug: "rating",
+				entitySchemaSlug,
+				id: eventSchemaSlug,
+				propertiesSchema: ratingSchema(schemaActivated),
+			};
+
+const triggerRating = ({ payload: source }: AutomationTrigger) => {
+	if (source?.resource !== "event" || source.operation !== "create") {
+		return undefined;
+	}
+	const rating =
+		source.category === "request"
+			? source.draft.properties["rating"]
+			: source.after.properties["rating"];
+	return typeof rating === "number" ? rating : undefined;
+};
+
+const hookRun = (
+	trigger: AutomationTrigger,
+	hook: { slug: string; stage: "after" | "before"; plugin?: string | undefined },
+) => {
+	const pluginId = PluginId.make(hook.plugin ?? "plugin");
+	const hookSlug = AutomationHookSlug.make(hook.slug);
+	return Schema.decodeUnknownSync(AutomationRun)({
+		pluginId,
+		hookSlug,
+		queuedAt: now,
+		attemptCount: 0,
+		startedAt: null,
+		status: "queued",
+		skipReason: null,
+		finishedAt: null,
+		stage: hook.stage,
+		nextAttemptAt: null,
+		hookName: hook.slug,
+		scriptSlug: "script",
+		triggerId: trigger.id,
+		artifactsExpireAt: now,
+		executionUserId: userId,
+		sandboxScriptId: "script",
+		scriptContentHash: "hash",
+		pluginRevisionId: "revision",
+		pluginConfigRevisionId: "config",
+		delivery: hook.stage === "before" ? "policy" : "required",
+		retryPolicy: hook.stage === "before" ? null : DEFAULT_AUTOMATION_RETRY_POLICY,
+		id: lifecycleRunId({ pluginId, hookSlug, triggerId: trigger.id, executionUserId: userId }),
+	});
+};
 
 type HarnessState = {
 	readonly options: HarnessOptions;
@@ -110,6 +227,9 @@ type HarnessState = {
 	readonly identities: ReadonlyMap<string, string>;
 	readonly policyRequests: ReadonlyMap<string, AutomationRequestPayload>;
 	readonly executed: ReadonlyArray<string>;
+	readonly activities: ReadonlyArray<string>;
+	readonly checkedOwners: ReadonlyArray<string>;
+	readonly planned: ReadonlyMap<string, LifecyclePlan>;
 	readonly lockedEntityIds: ReadonlyArray<ReadonlyArray<EntityId>>;
 	readonly activeTransaction: boolean;
 	readonly activeActivity: boolean;
@@ -125,8 +245,11 @@ const initialState = (options: HarnessOptions): HarnessState => ({
 	created: [],
 	triggers: [],
 	executed: [],
+	activities: [],
 	exclusions: [],
+	checkedOwners: [],
 	queued: new Set(),
+	planned: new Map(),
 	lockedEntityIds: [],
 	identities: new Map(),
 	activeActivity: false,
@@ -147,6 +270,8 @@ class EventCreateHarness extends Context.Service<
 		readonly exclusions: Effect.Effect<ReadonlyArray<unknown>>;
 		readonly queued: Effect.Effect<ReadonlySet<string>>;
 		readonly executed: Effect.Effect<ReadonlyArray<string>>;
+		readonly activities: Effect.Effect<ReadonlyArray<string>>;
+		readonly checkedOwners: Effect.Effect<ReadonlyArray<string>>;
 		readonly lockedEntityIds: Effect.Effect<ReadonlyArray<ReadonlyArray<EntityId>>>;
 		readonly reset: (options: HarnessOptions) => Effect.Effect<void>;
 	}
@@ -161,6 +286,10 @@ const harnessLayer = (initialOptions: HarnessOptions = {}) =>
 			const update = (change: (snapshot: HarnessState) => Partial<HarnessState>) =>
 				Ref.update(state, (snapshot) => ({ ...snapshot, ...change(snapshot) }));
 			const record = (call: string) => update(({ calls }) => ({ calls: [...calls, call] }));
+			const remember = (plan: LifecyclePlan) =>
+				update(({ planned }) => ({ planned: new Map([...planned, [plan.trigger.id, plan]]) })).pipe(
+					Effect.as(plan),
+				);
 			const database = Layer.effect(
 				DatabaseSession,
 				Effect.gen(function* () {
@@ -219,7 +348,7 @@ const harnessLayer = (initialOptions: HarnessOptions = {}) =>
 						withLifecycleBatchPlanning({
 							plan: (input) =>
 								Effect.gen(function* () {
-									const { options, triggers, activeTransaction } = yield* current;
+									const { options, triggers, planned: plans, activeTransaction } = yield* current;
 									expect(activeTransaction).toBe(true);
 									expect(yield* (yield* DatabaseSession).isTransactionActive).toBe(true);
 									const trigger = input.trigger;
@@ -231,17 +360,60 @@ const harnessLayer = (initialOptions: HarnessOptions = {}) =>
 											});
 										}
 										yield* record(`plan:${trigger.kind.category}`);
-										return { runs: [], policies: [], trigger: existing, wasCreated: false };
+										const replayed = plans.get(trigger.id);
+										return replayed
+											? { ...replayed, wasCreated: false }
+											: { runs: [], policies: [], trigger: existing, wasCreated: false };
 									}
 									if (trigger.kind.category === "change" && options.failChange) {
 										return yield* new DbError({ message: "planning failed" });
+									}
+									const rating = triggerRating(trigger);
+									const rated = (ratings: number[] | undefined, fallback: boolean) =>
+										ratings === undefined
+											? fallback
+											: rating !== undefined && ratings.includes(rating);
+									const blocked =
+										trigger.kind.category === options.blocked &&
+										rated(options.blockedRatings, true);
+									if (trigger.kind.category === "request" && !blocked) {
+										yield* update(({ exclusions }) => ({
+											exclusions: [...exclusions, input.excludedOncePerSubjectPolicies],
+										}));
+									}
+									const declarations = (
+										trigger.kind.category === "request" &&
+										!blocked &&
+										rated(options.policyRatings, true)
+											? (options.policies ?? [])
+											: []
+									).filter(
+										(policy) =>
+											policy.frequency !== "once-per-subject" ||
+											!input.excludedOncePerSubjectPolicies?.some(
+												(excluded) =>
+													excluded.pluginId === (policy.plugin ?? "plugin") &&
+													excluded.hookSlug === policy.slug,
+											),
+									);
+									const afterHook =
+										trigger.kind.category === "change" && rated(options.afterHookRatings, false);
+									if (options.noHooks && !blocked && declarations.length === 0 && !afterHook) {
+										yield* record(`plan:${trigger.kind.category}`);
+										return {
+											trigger: null,
+											runs: [] as const,
+											policies: [] as const,
+											_tag: "NoHooks" as const,
+											wasCreated: false as const,
+										};
 									}
 									yield* update(({ calls, triggers: planned }) => ({
 										triggers: [...planned, trigger],
 										calls: [...calls, `plan:${trigger.kind.category}`],
 									}));
-									if (trigger.kind.category === options.blocked) {
-										return {
+									if (blocked) {
+										return yield* remember({
 											runs: [],
 											policies: [],
 											wasCreated: true,
@@ -258,56 +430,19 @@ const harnessLayer = (initialOptions: HarnessOptions = {}) =>
 													],
 												},
 											},
-										};
+										});
 									}
 									if (trigger.kind.category !== "request") {
-										return { trigger, runs: [], policies: [], wasCreated: true };
-									}
-									yield* update(({ exclusions }) => ({
-										exclusions: [...exclusions, input.excludedOncePerSubjectPolicies],
-									}));
-									const declarations = (options.policies ?? []).filter(
-										(policy) =>
-											policy.frequency !== "once-per-subject" ||
-											!input.excludedOncePerSubjectPolicies?.some(
-												(excluded) =>
-													excluded.pluginId === (policy.plugin ?? "plugin") &&
-													excluded.hookSlug === policy.slug,
-											),
-									);
-									const runs = declarations.map((policy) => {
-										const pluginId = PluginId.make(policy.plugin ?? "plugin");
-										const hookSlug = AutomationHookSlug.make(policy.slug);
-										return Schema.decodeSync(AutomationRun)({
-											pluginId,
-											hookSlug,
-											queuedAt: now,
-											stage: "before",
-											attemptCount: 0,
-											startedAt: null,
-											status: "queued",
-											skipReason: null,
-											finishedAt: null,
-											retryPolicy: null,
-											delivery: "policy",
-											nextAttemptAt: null,
-											scriptSlug: "script",
-											triggerId: trigger.id,
-											hookName: policy.slug,
-											artifactsExpireAt: now,
-											executionUserId: userId,
-											sandboxScriptId: "script",
-											scriptContentHash: "hash",
-											pluginRevisionId: "revision",
-											pluginConfigRevisionId: "config",
-											id: lifecycleRunId({
-												pluginId,
-												hookSlug,
-												triggerId: trigger.id,
-												executionUserId: userId,
-											}),
+										return yield* remember({
+											trigger,
+											policies: [],
+											wasCreated: true,
+											runs: afterHook ? [hookRun(trigger, { slug: "after", stage: "after" })] : [],
 										});
-									});
+									}
+									const runs = declarations.map((policy) =>
+										hookRun(trigger, { stage: "before", slug: policy.slug, plugin: policy.plugin }),
+									);
 									const requestPayload = trigger.payload;
 									yield* update(({ queued, identities, policyRequests }) => ({
 										queued: new Set([...queued, ...runs.map((run) => run.id)]),
@@ -326,7 +461,7 @@ const harnessLayer = (initialOptions: HarnessOptions = {}) =>
 									assert(
 										trigger.payload?.category === "request" && trigger.payload.resource === "event",
 									);
-									return {
+									return yield* remember({
 										runs,
 										wasCreated: true,
 										policies: runs.map((run, index) => ({
@@ -341,7 +476,7 @@ const harnessLayer = (initialOptions: HarnessOptions = {}) =>
 												excludedOncePerSubjectPolicies: input.excludedOncePerSubjectPolicies ?? [],
 											},
 										},
-									};
+									});
 								}).pipe(Effect.provideService(DatabaseSession, session)),
 						}),
 					),
@@ -399,14 +534,21 @@ const harnessLayer = (initialOptions: HarnessOptions = {}) =>
 			const engine = makeWorkflowEngine({
 				activityExecute: (activity) =>
 					Effect.gen(function* () {
-						yield* update(() => ({ activeActivity: true }));
+						yield* update(({ activities }) => ({
+							activeActivity: true,
+							activities: [...activities, activity.name],
+						}));
 						let exit = yield* Effect.exit(activity.execute);
+						const { options } = yield* current;
 						if (
-							(yield* current).options.replayWriteAfterSchemaDisable &&
+							options.replayWriteAfterSchemaDisable &&
 							activity.name === "write-event-0" &&
 							Exit.isSuccess(exit)
 						) {
 							yield* update(() => ({ schemaDisabled: true }));
+							exit = yield* Effect.exit(activity.execute);
+						}
+						if (options.retryActivity === activity.name && Exit.isSuccess(exit)) {
 							exit = yield* Effect.exit(activity.execute);
 						}
 						return new Workflow.Complete({ exit });
@@ -415,10 +557,38 @@ const harnessLayer = (initialOptions: HarnessOptions = {}) =>
 			return Layer.mergeAll(
 				database,
 				planner.pipe(Layer.provide(database)),
-				DomainWriteChecksLive.pipe(Layer.provide(database)),
+				Layer.effect(
+					DomainWriteChecks,
+					Effect.gen(function* () {
+						const live = yield* DomainWriteChecks;
+						return DomainWriteChecks.of({
+							...live,
+							check: (writeCommand, owner, scopeUserId, lock) =>
+								Effect.gen(function* () {
+									const label = owner.kind === "plugin" ? owner.pluginId : "kernel";
+									yield* update(({ checkedOwners }) => ({
+										checkedOwners: [...checkedOwners, label],
+									}));
+									if (label === foreignPluginId) {
+										return yield* new DomainWriteConflict({
+											message: "Domain write belongs to another definition owner",
+											reason: {
+												actual: owner,
+												code: "owner-mismatch",
+												expected: { kind: "kernel" },
+											},
+										});
+									}
+									return yield* live.check(writeCommand, owner, scopeUserId, lock);
+								}),
+						});
+					}),
+				).pipe(Layer.provide(DomainWriteChecksLive.pipe(Layer.provide(database)))),
 				Layer.succeed(LifecycleExecution, execution),
 				Layer.succeed(WorkflowEngine, engine),
 				Layer.mock(EntitiesRepository)({
+					getByIdForUser: ({ entityId: requestedId }) =>
+						read((snapshot) => visibleEntity(snapshot, requestedId)),
 					lockEntityReferencesByIds: (entityIds) =>
 						Effect.gen(function* () {
 							expect((yield* current).activeTransaction).toBe(true);
@@ -426,78 +596,47 @@ const harnessLayer = (initialOptions: HarnessOptions = {}) =>
 								lockedEntityIds: [...lockedEntityIds, [...entityIds]],
 							}));
 						}),
+					getByIdsForUser: ({ entityIds }) =>
+						read(
+							(snapshot) =>
+								new Map(
+									entityIds.flatMap((requestedId) => {
+										const entity = visibleEntity(snapshot, requestedId);
+										return entity ? [[requestedId, entity] as const] : [];
+									}),
+								),
+						),
 					getEntityScopeForUser: ({ entityId: requestedId }) =>
-						read(({ options, lockedEntityIds }) =>
-							requestedId === options.unreadableEntity ||
-							(lockedEntityIds.length > 0 && requestedId === options.revokeEntityBeforeWrite)
-								? null
-								: {
+						read((snapshot) => {
+							const entity = visibleEntity(snapshot, requestedId);
+							return entity
+								? {
 										entitySchemaSlug,
 										isBuiltin: false,
 										entityName: "Record",
 										entityUserId: userId,
 										entityId: requestedId,
-										entitySchemaPluginId: null,
 										propertiesSchema: { fields: {} },
-									},
-						),
-					getByIdForUser: ({ entityId: requestedId }) =>
-						read(({ options, lockedEntityIds, changedEntityMetadata }) =>
-							requestedId === options.unreadableEntity ||
-							(lockedEntityIds.length > 0 && requestedId === options.revokeEntityBeforeWrite)
-								? null
-								: {
-										name: "Record",
-										createdAt: now,
-										updatedAt: now,
-										id: requestedId,
-										externalId: null,
-										entitySchemaSlug,
-										providerId: null,
-										populatedAt: null,
-										entitySchemaPluginId: null,
-										properties: changedEntityMetadata.has(requestedId) ? { changed: true } : {},
-									},
-						),
+										entitySchemaPluginId: entity.entitySchemaPluginId,
+									}
+								: null;
+						}),
 				}),
 				Layer.mock(EventSchemaReader)({
+					getScopeForUser: () =>
+						read(({ schemaDisabled, schemaActivated }) =>
+							eventSchemaScope(schemaDisabled, schemaActivated),
+						),
+					getScopesForUser: (_userId, inputs) =>
+						read(({ schemaDisabled, schemaActivated }) =>
+							inputs.map(() => eventSchemaScope(schemaDisabled, schemaActivated)),
+						),
 					lockCatalog: () =>
 						update(({ options, triggers }) => ({
 							schemaActivated:
 								(options.activateSchemaBeforeWrite ?? false) &&
 								triggers.some(({ kind }) => kind.category === "request"),
 						})),
-					getScopeForUser: () =>
-						read(({ schemaDisabled, schemaActivated }) =>
-							schemaDisabled
-								? null
-								: {
-										name: "Rating",
-										pluginId: null,
-										slug: "rating",
-										eventSchemaSlug,
-										entitySchemaSlug,
-										id: eventSchemaSlug,
-										propertiesSchema: {
-											fields: {
-												rating: schemaActivated
-													? {
-															label: "Rating",
-															description: "Rating",
-															type: "string" as const,
-															validation: { required: true },
-														}
-													: {
-															label: "Rating",
-															description: "Rating",
-															type: "number" as const,
-															validation: { required: true },
-															normalize: { round: { scale: 2 } },
-														},
-											},
-										},
-									},
-						),
 				}),
 				Layer.mock(EventsRepository)({
 					createEvent: (input) =>
@@ -533,7 +672,9 @@ const harnessLayer = (initialOptions: HarnessOptions = {}) =>
 					created: read(({ created }) => created),
 					triggers: read(({ triggers }) => triggers),
 					executed: read(({ executed }) => executed),
+					activities: read(({ activities }) => activities),
 					exclusions: read(({ exclusions }) => exclusions),
+					checkedOwners: read(({ checkedOwners }) => checkedOwners),
 					reset: (options) => Ref.set(state, initialState(options)),
 					lockedEntityIds: read(({ lockedEntityIds }) => lockedEntityIds),
 				}),
@@ -852,7 +993,7 @@ layer(
 			const h = yield* EventCreateHarness;
 			expect(yield* run()).toMatchObject({ count: 1, failure: null });
 			expect((yield* h.created)[0]?.sessionEntityId).toBeUndefined();
-			expect(yield* h.lockedEntityIds).toEqual([[entityId]]);
+			expect(yield* h.lockedEntityIds).toEqual([[entityId], [entityId]]);
 		}),
 	);
 });
@@ -881,7 +1022,7 @@ layer(
 					index: 0,
 					reason: { entityId: racingSession, code: "session-entity-not-found" },
 				});
-				expect(yield* h.lockedEntityIds).toEqual([[racingSession, entityId]]);
+				expect(yield* h.lockedEntityIds).toEqual([[entityId], [racingSession, entityId]]);
 				expect(yield* h.created).toEqual([]);
 			}),
 	);
@@ -901,7 +1042,7 @@ layer(
 				reason: { entityId, code: "entity-not-found" },
 			});
 			expect(yield* h.executed).toEqual(["plugin/metadata"]);
-			expect(yield* h.lockedEntityIds).toEqual([[entityId]]);
+			expect(yield* h.lockedEntityIds).toEqual([[entityId], [entityId]]);
 			expect(yield* h.created).toEqual([]);
 		}),
 	);
@@ -1115,5 +1256,325 @@ layer(harnessLayer({ blocked: "request" }))((test) => {
 					warnings: [{ code: "automation-limit-reached" }, { code: "automation-limit-reached" }],
 				});
 			}),
+	);
+});
+
+const ratedItems = (ratings: ReadonlyArray<number>, entities: Record<number, EntityId> = {}) =>
+	ratings.map((rating, index) => ({
+		eventSchemaSlug,
+		properties: { rating },
+		entityId: entities[index] ?? entityId,
+	}));
+const hiddenSubject = EntityId.make("hidden-subject");
+
+layer(harnessLayer({ noHooks: true, unreadableEntity: hiddenSubject }))((test) => {
+	test.effect("rolls back the failing chunk and keeps the chunks before it", () =>
+		Effect.gen(function* () {
+			const h = yield* EventCreateHarness;
+			const result = yield* run({
+				...payload,
+				payload: ratedItems(
+					Array.from({ length: 52 }, (_, index) => index),
+					{ 51: hiddenSubject },
+				),
+			});
+			expect(result).toMatchObject({
+				count: 50,
+				failure: { index: 51, reason: { entityId: hiddenSubject, code: "entity-not-found" } },
+			});
+			expect(result.outcomes.map(({ index }) => index)).toEqual(
+				Array.from({ length: 50 }, (_, index) => index),
+			);
+			expect(yield* h.created).toHaveLength(50);
+			expect(yield* h.calls).toContain("rollback");
+			expect(yield* h.activities).toEqual([
+				"prepare-chunk-0",
+				"prepare-chunk-50",
+				"plan-event-batch",
+			]);
+		}),
+	);
+});
+
+const afterHookTrace = [
+	"begin",
+	"plan:request",
+	"write",
+	"plan:change",
+	"plan:request",
+	"write",
+	"plan:change",
+	"commit",
+];
+const afterHookTail = [
+	"after",
+	"begin",
+	"plan:request",
+	"write",
+	"plan:change",
+	"commit",
+	"begin",
+	"plan:change",
+	"commit",
+];
+
+layer(harnessLayer({ noHooks: true, afterHookRatings: [2] }))((test) => {
+	test.effect("ends a chunk after an after-hook item and settles it before the next item", () =>
+		Effect.gen(function* () {
+			const h = yield* EventCreateHarness;
+			expect(yield* run({ ...payload, payload: ratedItems([1, 2, 3]) })).toMatchObject({
+				count: 3,
+				failure: null,
+			});
+			expect(yield* h.calls).toEqual([...afterHookTrace, ...afterHookTail]);
+			expect(yield* h.activities).toEqual([
+				"prepare-chunk-0",
+				"prepare-chunk-2",
+				"plan-event-batch",
+			]);
+		}),
+	);
+});
+
+layer(harnessLayer({ noHooks: true, afterHookRatings: [2], retryActivity: "prepare-chunk-0" }))(
+	(test) => {
+		test.effect("replays a committed chunk that ended early without writing past its hook", () =>
+			Effect.gen(function* () {
+				const h = yield* EventCreateHarness;
+				const result = yield* run({ ...payload, payload: ratedItems([1, 2, 3]) });
+				expect(result).toMatchObject({ count: 3, failure: null });
+				expect(yield* h.calls).toEqual([...afterHookTrace, "begin", "commit", ...afterHookTail]);
+				expect((yield* h.created).map(({ id }) => id)).toEqual(
+					result.outcomes.map((outcome) => (outcome.status === "written" ? outcome.eventId : null)),
+				);
+			}),
+		);
+	},
+);
+
+layer(harnessLayer({ noHooks: true, afterHookRatings: [2] }))((test) => {
+	test.effect("keeps chunk names stable when a batch replays from its receipts", () =>
+		Effect.gen(function* () {
+			const h = yield* EventCreateHarness;
+			const input = { ...payload, payload: ratedItems([1, 2, 3]) };
+			const first = yield* run(input);
+			const activities = yield* h.activities;
+			yield* h.reset({ noHooks: true, afterHookRatings: [2] });
+			const replayed = yield* run(input);
+			expect(replayed.outcomes).toEqual(first.outcomes);
+			expect(yield* h.activities).toEqual(activities);
+			expect(yield* h.created).toEqual([]);
+		}),
+	);
+});
+
+layer(
+	harnessLayer({
+		noHooks: true,
+		policyRatings: [2],
+		unreadableEntity: hiddenSubject,
+		policies: [{ position: 1, slug: "policy" }],
+	}),
+)((test) => {
+	test.effect("commits the prefix, runs the policy item, then fails the later chunk", () =>
+		Effect.gen(function* () {
+			const h = yield* EventCreateHarness;
+			const result = yield* run({
+				...payload,
+				payload: ratedItems([1, 2, 3], { 2: hiddenSubject }),
+			});
+			expect(result).toMatchObject({
+				count: 2,
+				failure: { index: 2, reason: { entityId: hiddenSubject, code: "entity-not-found" } },
+			});
+			expect(result.outcomes.map(({ index }) => index)).toEqual([0, 1]);
+			expect(yield* h.executed).toEqual(["plugin/policy"]);
+			expect(yield* h.created).toHaveLength(2);
+			expect(yield* h.activities).toEqual([
+				"prepare-chunk-0",
+				"policy-outcome-1",
+				"validate-event-1",
+				"write-event-1",
+				"prepare-chunk-2",
+				"plan-event-batch",
+			]);
+		}),
+	);
+});
+
+layer(
+	harnessLayer({
+		noHooks: true,
+		policyRatings: [1, 3],
+		policies: [{ position: 1, slug: "subject", frequency: "once-per-subject" }],
+	}),
+)((test) => {
+	test.effect("resets subject exclusions after a policy-free item inside a chunk", () =>
+		Effect.gen(function* () {
+			const h = yield* EventCreateHarness;
+			expect((yield* run({ ...payload, payload: ratedItems([1, 2, 3]) })).count).toBe(3);
+			expect(yield* h.exclusions).toEqual([[], [{ pluginId: "plugin", hookSlug: "subject" }], []]);
+			expect(yield* h.executed).toEqual(["plugin/subject", "plugin/subject"]);
+			expect(yield* h.activities).toEqual([
+				"prepare-chunk-0",
+				"policy-outcome-0",
+				"validate-event-0",
+				"write-event-0",
+				"prepare-chunk-1",
+				"policy-outcome-2",
+				"validate-event-2",
+				"write-event-2",
+				"plan-event-batch",
+			]);
+		}),
+	);
+});
+
+layer(harnessLayer({ noHooks: true, blocked: "request", blockedRatings: [2] }))((test) => {
+	test.effect("sends a blocked trigger without policies through the policy path", () =>
+		Effect.gen(function* () {
+			const h = yield* EventCreateHarness;
+			expect(yield* run({ ...payload, payload: ratedItems([1, 2]) })).toMatchObject({
+				count: 1,
+				failure: {
+					index: 1,
+					reason: { triggerId: expect.any(String), code: "automation-limit-reached" },
+				},
+			});
+			expect(yield* h.created).toHaveLength(1);
+			expect(yield* h.activities).toEqual([
+				"prepare-chunk-0",
+				"policy-outcome-1",
+				"plan-event-batch",
+			]);
+		}),
+	);
+});
+
+const otherUsersSubject = EntityId.make("other-users-subject");
+
+layer(harnessLayer({ noHooks: true, unreadableEntity: otherUsersSubject }))((test) => {
+	test.effect("reports another user's entity at its index and writes nothing from the chunk", () =>
+		Effect.gen(function* () {
+			const h = yield* EventCreateHarness;
+			expect(
+				yield* run({ ...payload, payload: ratedItems([1, 2], { 1: otherUsersSubject }) }),
+			).toMatchObject({
+				count: 0,
+				outcomes: [],
+				failure: { index: 1, reason: { code: "entity-not-found", entityId: otherUsersSubject } },
+			});
+			expect(yield* h.created).toEqual([]);
+		}),
+	);
+});
+
+const foreignSubject = EntityId.make("foreign-subject");
+
+layer(harnessLayer({ noHooks: true, foreignEntity: foreignSubject }))((test) => {
+	test.effect("checks each entity-schema owner once and reports its first failing index", () =>
+		Effect.gen(function* () {
+			const h = yield* EventCreateHarness;
+			expect(
+				yield* run({
+					...payload,
+					payload: ratedItems([1, 2, 3], { 1: foreignSubject, 2: foreignSubject }),
+				}),
+			).toMatchObject({
+				count: 0,
+				failure: { index: 1, reason: { entityId: foreignSubject, code: "entity-not-found" } },
+			});
+			expect((yield* h.checkedOwners).filter((owner) => owner === foreignPluginId)).toHaveLength(1);
+			expect(yield* h.created).toEqual([]);
+		}),
+	);
+});
+
+layer(
+	harnessLayer({
+		noHooks: true,
+		policyRatings: [2],
+		retryActivity: "prepare-chunk-0",
+		policies: [{ position: 1, slug: "policy" }],
+	}),
+)((test) => {
+	test.effect("replays a chunk that stopped at a policy item with its stored request trigger", () =>
+		Effect.gen(function* () {
+			const h = yield* EventCreateHarness;
+			expect(yield* run({ ...payload, payload: ratedItems([1, 2]) })).toMatchObject({
+				count: 2,
+				failure: null,
+			});
+			expect((yield* h.triggers).filter(({ kind }) => kind.category === "request")).toHaveLength(1);
+			expect(yield* h.executed).toEqual(["plugin/policy"]);
+			expect(yield* h.created).toHaveLength(2);
+		}),
+	);
+});
+
+const revokedPrincipal = Schema.decodeSync(ScriptExecutionPrincipal)({
+	providerId: null,
+	contentHash: "hash",
+	scriptSlug: "script",
+	scriptId: "revoked-script",
+	metadata: { kind: "automation", runtimeImports: [] },
+	pluginRevision: {
+		scope: "user",
+		ownerId: userId,
+		workflowScripts: {},
+		id: "revoked-plugin",
+		userBootstrapScriptSlugs: [],
+		revisionId: "revoked-revision",
+		configRevisionId: "revoked-config",
+		compiledHashes: { script: "hash" },
+		packageId: PluginPackageId.make("test/revoked"),
+		configSchema: { fields: {}, unknownKeys: "strict" },
+		schemaScope: {
+			eventSchemas: [],
+			signalSchemaSlugs: [],
+			entitySchemaSlugs: [],
+			relationshipSchemaSlugs: [],
+		},
+	},
+	subject: {
+		runId: "run",
+		stage: "after",
+		delivery: "required",
+		triggerId: "trigger",
+		type: "automation-run",
+		executionUserId: userId,
+		pluginId: "revoked-plugin",
+		pluginRevisionId: "revoked-revision",
+		pluginConfigRevisionId: "revoked-config",
+		accountGeneration: { userId, token: "test-account-generation" },
+		causation: {
+			depth: 0,
+			source: "api",
+			parentRunId: null,
+			lane: "interactive",
+			parentTriggerId: null,
+			executionId: "execution",
+			rootExecutionId: "execution",
+			initiator: { id: null, kind: "system" },
+		},
+	},
+});
+
+layer(harnessLayer({ noHooks: true }))((test) => {
+	test.effect("fails a chunk with the principal-owner check error of a revoked plugin", () =>
+		Effect.gen(function* () {
+			const h = yield* EventCreateHarness;
+			assertExitFails(
+				yield* Effect.exit(
+					run({
+						...payload,
+						payload: ratedItems([1, 2]),
+						command: { ...command, writeContext: revokedPrincipal },
+					}),
+				),
+				new DbError({ message: "Pinned domain write authority is unavailable" }),
+			);
+			expect(yield* h.created).toEqual([]);
+		}),
 	);
 });

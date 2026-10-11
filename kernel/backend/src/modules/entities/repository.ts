@@ -638,6 +638,24 @@ export class EntitiesRepository extends Context.Service<EntitiesRepository>()(
 
 				return row ? toListedEntity(row) : null;
 			});
+			const getByIdsForUser = Effect.fn("EntitiesRepository.getByIdsForUser")(function* (input: {
+				userId: UserId;
+				entityIds: ReadonlyArray<EntityId>;
+			}) {
+				const rows = yield* Effect.forEach(
+					chunksOf([...new Set(input.entityIds)].sort(), STATEMENT_CHUNK_SIZE),
+					(ids) =>
+						session.run((db) =>
+							db
+								.select(entitySelection)
+								.from(schema.entity)
+								.where(
+									and(inArray(schema.entity.id, ids), entityVisibleToUserClause(input.userId)),
+								),
+						),
+				).pipe(Effect.map((chunks) => chunks.flat()));
+				return new Map(rows.map((row) => [EntityId.make(row.id), toListedEntity(row)]));
+			});
 
 			const getClientPageEntityForUser = Effect.fn("EntitiesRepository.getClientPageEntityForUser")(
 				function* (input: { userId: UserId; entityId: EntityId }) {
@@ -1055,6 +1073,7 @@ export class EntitiesRepository extends Context.Service<EntitiesRepository>()(
 				updateEntity,
 				insertEntities,
 				getByIdForUser,
+				getByIdsForUser,
 				lockMutationKeys,
 				getMutationEntity,
 				lockSchemaCatalog,
