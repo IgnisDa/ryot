@@ -67,6 +67,15 @@ const readSections = Effect.fn(function* (revisionId: string) {
 	return row;
 });
 
+const readManifestIds = Effect.fn(function* (revisionId: string) {
+	return yield* (yield* DatabaseSession).run((db) =>
+		db
+			.select({ id: tables.pluginRevisionManifest.pluginRevisionId })
+			.from(tables.pluginRevisionManifest)
+			.where(eq(tables.pluginRevisionManifest.pluginRevisionId, revisionId)),
+	);
+});
+
 describe("immutable plugin revisions", () => {
 	layer(revisionDatabaseLayer)((test) => {
 		test.effect("stores every section exactly as the manifest expression derives it", () =>
@@ -210,12 +219,7 @@ describe("immutable plugin revisions", () => {
 				const commitFailure = databaseError(deleted.cause);
 				expect(commitFailure.code).toBe("P0001");
 				expect(commitFailure.message).toContain("cannot be deleted while their revision exists");
-				const remaining = yield* session.run((db) =>
-					db
-						.select({ id: tables.pluginRevisionManifest.pluginRevisionId })
-						.from(tables.pluginRevisionManifest)
-						.where(eq(tables.pluginRevisionManifest.pluginRevisionId, installed.revisionId)),
-				);
+				const remaining = yield* readManifestIds(installed.revisionId);
 				expect(remaining).toEqual([{ id: installed.revisionId }]);
 			}),
 		);
@@ -227,12 +231,7 @@ describe("immutable plugin revisions", () => {
 				yield* session.run((db) =>
 					db.delete(tables.plugin).where(eq(tables.plugin.id, installed.pluginId)),
 				);
-				const remaining = yield* session.run((db) =>
-					db
-						.select({ id: tables.pluginRevisionManifest.pluginRevisionId })
-						.from(tables.pluginRevisionManifest)
-						.where(eq(tables.pluginRevisionManifest.pluginRevisionId, installed.revisionId)),
-				);
+				const remaining = yield* readManifestIds(installed.revisionId);
 				expect(remaining).toEqual([]);
 			}),
 		);
@@ -246,12 +245,7 @@ describe("immutable plugin revisions", () => {
 				);
 				assert(Exit.isFailure(truncated));
 				expect(databaseError(truncated.cause).code).toBe("P0001");
-				const remaining = yield* session.run((db) =>
-					db
-						.select({ id: tables.pluginRevisionManifest.pluginRevisionId })
-						.from(tables.pluginRevisionManifest)
-						.where(eq(tables.pluginRevisionManifest.pluginRevisionId, installed.revisionId)),
-				);
+				const remaining = yield* readManifestIds(installed.revisionId);
 				expect(remaining).toEqual([{ id: installed.revisionId }]);
 			}),
 		);

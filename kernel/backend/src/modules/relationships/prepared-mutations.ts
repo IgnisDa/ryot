@@ -9,6 +9,7 @@ import { Cause, Effect, Schema } from "effect";
 
 import { lifecycleTrigger } from "#modules/automations/lifecycle/command";
 import type { LifecycleDispatchPlan } from "#modules/automations/lifecycle/planning";
+import { mutationReceiptRecord } from "#modules/entities/mutation-persistence";
 import { DomainLifecycleCommand } from "#modules/entities/write-context";
 import { catalogDefinitionFingerprint } from "#modules/plugins/catalog/runtime-resolver";
 
@@ -16,7 +17,6 @@ import {
 	classifyRelationshipReceiptConflict,
 	makeRelationshipMutationPrimitives,
 	mutationWriteCheck,
-	relationshipReceiptRecord,
 } from "./mutation-primitives";
 import {
 	activeTransactionGuard,
@@ -261,7 +261,7 @@ export const makePreparedRelationshipMutations = (
 			requestId: prepared.requestId,
 		});
 		yield* receipts.insert(
-			relationshipReceiptRecord({
+			mutationReceiptRecord({
 				batch,
 				result,
 				dispatch,

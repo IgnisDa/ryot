@@ -82,6 +82,23 @@ export const STATEMENT_CHUNK_SIZE = 1_000;
 
 export type MutationEntity = { entity: StoredEntity; userId: UserId | null };
 
+export const lockSortedAdvisoryKeys = Effect.fnUntraced(function* (
+	session: DatabaseSession["Service"],
+	keys: ReadonlyArray<string>,
+	hash: SQL,
+) {
+	for (const chunk of chunksOf([...new Set(keys)].sort(), STATEMENT_CHUNK_SIZE)) {
+		yield* session.run((db) =>
+			db.execute(
+				sql`select pg_advisory_xact_lock(${hash}) from unnest(array[${sql.join(
+					chunk.map((key) => sql`${key}`),
+					sql`, `,
+				)}]::text[]) with ordinality t(k, n) order by n`,
+			),
+		);
+	}
+});
+
 export const providerEntityMutationLockKey = (input: ProviderEntityMutationLockInput) =>
 	JSON.stringify([
 		"provider-entity",
@@ -226,22 +243,14 @@ export class EntitiesRepository extends Context.Service<EntitiesRepository>()(
 					] ?? null
 				);
 			});
-			const lockKeys = Effect.fnUntraced(function* (keys: ReadonlyArray<string>, hash: SQL) {
-				for (const chunk of chunksOf([...new Set(keys)].sort(), STATEMENT_CHUNK_SIZE)) {
-					yield* session.run((db) =>
-						db.execute(
-							sql`select pg_advisory_xact_lock(${hash}) from unnest(array[${sql.join(
-								chunk.map((key) => sql`${key}`),
-								sql`, `,
-							)}]::text[]) with ordinality t(k, n) order by n`,
-						),
-					);
-				}
-			});
 			const lockProviderEntityMutations = Effect.fn(
 				"EntitiesRepository.lockProviderEntityMutations",
 			)(function* (inputs: ReadonlyArray<ProviderEntityMutationLockInput>) {
-				yield* lockKeys(inputs.map(providerEntityMutationLockKey), sql`hashtextextended(k, 0)`);
+				yield* lockSortedAdvisoryKeys(
+					session,
+					inputs.map(providerEntityMutationLockKey),
+					sql`hashtextextended(k, 0)`,
+				);
 			});
 			const findEntitiesByExternalIds = Effect.fn("EntitiesRepository.findEntitiesByExternalIds")(
 				function* (inputs: ReadonlyArray<FindEntityByExternalIdInput>) {
@@ -533,7 +542,8 @@ export class EntitiesRepository extends Context.Service<EntitiesRepository>()(
 
 			const lockUserEntityEnsureScopes = Effect.fn("EntitiesRepository.lockUserEntityEnsureScopes")(
 				function* (input: { userId: UserId; entitySchemas: ReadonlyArray<EntitySchemaReference> }) {
-					yield* lockKeys(
+					yield* lockSortedAdvisoryKeys(
+						session,
 						input.entitySchemas.map((reference) =>
 							stableStringify([
 								"user-entity:ensure",
@@ -768,7 +778,7 @@ export class EntitiesRepository extends Context.Service<EntitiesRepository>()(
 			const lockGlobalEntityProvenanceScopes = Effect.fn(
 				"EntitiesRepository.lockGlobalEntityProvenanceScopes",
 			)(function* (inputs: ReadonlyArray<GlobalEntityProvenanceScopeInput>) {
-				yield* lockKeys(inputs.map(provenanceScopeKey), sql`hashtext(k)`);
+				yield* lockSortedAdvisoryKeys(session, inputs.map(provenanceScopeKey), sql`hashtext(k)`);
 			});
 
 			const countGlobalEntitiesByProvenanceScopes = Effect.fn(
@@ -1018,7 +1028,8 @@ export class EntitiesRepository extends Context.Service<EntitiesRepository>()(
 			const lockMutationKeys = Effect.fn("EntitiesRepository.lockMutationKeys")(function* (
 				keys: ReadonlyArray<string>,
 			) {
-				yield* lockKeys(
+				yield* lockSortedAdvisoryKeys(
+					session,
 					keys.map((key) => `entity-mutation:${key}`),
 					sql`hashtextextended(k, 0)`,
 				);

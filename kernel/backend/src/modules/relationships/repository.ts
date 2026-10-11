@@ -10,7 +10,7 @@ import { and, asc, eq, inArray, isNotNull, isNull, or, sql } from "drizzle-orm";
 import { Context, Effect, Layer, Schema } from "effect";
 import { chunksOf } from "effect/Array";
 
-import { STATEMENT_CHUNK_SIZE } from "#modules/entities/repository";
+import { lockSortedAdvisoryKeys, STATEMENT_CHUNK_SIZE } from "#modules/entities/repository";
 import { pluginIdWhere } from "#platform/db/definition-owner";
 import { DatabaseSession } from "#platform/db/session";
 import * as schema from "#schema/tables/combined";
@@ -263,17 +263,11 @@ export class RelationshipsRepository extends Context.Service<RelationshipsReposi
 			const lockRelationshipMutations = Effect.fn(
 				"RelationshipsRepository.lockRelationshipMutations",
 			)(function* (inputs: ReadonlyArray<RelationshipIdentityInput>) {
-				const keys = [...new Set(inputs.map(relationshipMutationLockKey))].sort();
-				for (const chunk of chunksOf(keys, STATEMENT_CHUNK_SIZE)) {
-					yield* session.run((db) =>
-						db.execute(
-							sql`select pg_advisory_xact_lock(hashtextextended(k, 0)) from unnest(array[${sql.join(
-								chunk.map((key) => sql`${key}`),
-								sql`, `,
-							)}]::text[]) with ordinality t(k, n) order by n`,
-						),
-					);
-				}
+				yield* lockSortedAdvisoryKeys(
+					session,
+					inputs.map(relationshipMutationLockKey),
+					sql`hashtextextended(k, 0)`,
+				);
 			});
 			const listUserRelationshipsForBackup = Effect.fn(
 				"RelationshipsRepository.listUserRelationshipsForBackup",

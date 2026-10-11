@@ -17,6 +17,7 @@ import {
 } from "#modules/automations/lifecycle/planning";
 import {
 	makeReceiptBatches,
+	mutationReceiptRecord,
 	type MutationReceiptRecord,
 } from "#modules/entities/mutation-persistence";
 import type { DomainLifecycleCommand } from "#modules/entities/write-context";
@@ -27,7 +28,6 @@ import {
 	classifyRelationshipReceiptConflict,
 	makeRelationshipMutationPrimitives,
 	relationshipPopulation,
-	relationshipReceiptRecord,
 	type ValidatedMutation,
 } from "./mutation-primitives";
 import {
@@ -317,7 +317,7 @@ export const makePlannedRelationshipReconciliation = (
 				const { payload, ...itemResult } = source;
 				if (!payload) {
 					itemRecords.push(
-						relationshipReceiptRecord({
+						mutationReceiptRecord({
 							index,
 							dispatch: [],
 							batch: decision,
@@ -341,7 +341,7 @@ export const makePlannedRelationshipReconciliation = (
 					requestId: item.requestId,
 				});
 				itemRecords.push(
-					relationshipReceiptRecord({
+					mutationReceiptRecord({
 						index,
 						batch: decision,
 						evidence: change,

@@ -28,6 +28,7 @@ import { DefinitionRepository } from "#modules/definitions/repository";
 import type { RelationshipSchemaDefinition } from "#modules/definitions/snapshot";
 import {
 	makeReceiptBatches,
+	mutationReceiptRecord,
 	type MutationReceiptRecord,
 } from "#modules/entities/mutation-persistence";
 import { EntitiesRepository } from "#modules/entities/repository";
@@ -50,7 +51,6 @@ import {
 	makeRelationshipMutationPrimitives,
 	mutationWriteCheck,
 	relationshipPopulation,
-	relationshipReceiptRecord,
 	type ValidatedMutation,
 } from "./mutation-primitives";
 import {
@@ -516,7 +516,7 @@ export class RelationshipMutationPipeline extends Context.Service<RelationshipMu
 					const { payload, ...result } = source;
 					if (!payload) {
 						records.push(
-							relationshipReceiptRecord({
+							mutationReceiptRecord({
 								index,
 								result,
 								dispatch: [],
@@ -568,7 +568,7 @@ export class RelationshipMutationPipeline extends Context.Service<RelationshipMu
 							population,
 						});
 						records.push(
-							relationshipReceiptRecord({
+							mutationReceiptRecord({
 								index,
 								dispatch,
 								batch: decision,
