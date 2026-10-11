@@ -95,9 +95,12 @@ const compositionLayer = ClientPageCompositionService.layer.pipe(
 													...description,
 													hash,
 													format: 1,
+													imports: [],
 													apiVersion: 1,
+													packageId: null,
 													bridgeVersion: 1,
 													compilerVersion: 1,
+													clientDeclarationHash: null,
 												}
 											: null,
 									),

@@ -149,6 +149,12 @@ export const TestSupportRoutesLive = HttpApiBuilder.group(AppContract, "testSupp
 				return yield* svc.installSystemPlugin(payload).pipe(dieOnDbError);
 			}),
 		)
+		.handle("updateSystemPlugin", ({ params, payload }) =>
+			Effect.gen(function* () {
+				const svc = yield* TestSupportService;
+				return yield* svc.updateSystemPlugin(params.pluginId, payload).pipe(dieOnDbError);
+			}),
+		)
 		.handle("installPrivatePlugin", ({ params, payload }) =>
 			Effect.gen(function* () {
 				const svc = yield* TestSupportService;
@@ -159,7 +165,7 @@ export const TestSupportRoutesLive = HttpApiBuilder.group(AppContract, "testSupp
 			Effect.gen(function* () {
 				const svc = yield* TestSupportService;
 				return yield* svc
-					.updatePrivatePlugin(params.userId, params.pluginSlug, payload)
+					.updatePrivatePlugin(params.userId, params.installationId, payload)
 					.pipe(dieOnDbError);
 			}),
 		)
@@ -173,7 +179,7 @@ export const TestSupportRoutesLive = HttpApiBuilder.group(AppContract, "testSupp
 			Effect.gen(function* () {
 				const svc = yield* TestSupportService;
 				return yield* svc
-					.uninstallSystemPlugin(params.pluginSlug, params.activationId)
+					.uninstallSystemPlugin(params.pluginId, params.activationId)
 					.pipe(dieOnDbError);
 			}),
 		),

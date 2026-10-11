@@ -1,7 +1,7 @@
 import { PgClient } from "@effect/sql-pg";
-import { expect, layer } from "@effect/vitest";
+import { assert, expect, layer } from "@effect/vitest";
 import { PluginClientArtifactFromBase64 } from "@ryot-app/client-plugin-contract";
-import type { LifecycleCommand } from "@ryot-app/contract/modules/automations/lifecycle";
+import type { ContractPayload } from "@ryot-app/contract/client";
 import {
 	EntityId,
 	EntitySchemaSlug,
@@ -22,6 +22,7 @@ import { databaseLayer, makeRedisService, type MockOverrides } from "#lib/test-u
 import { AuthService } from "#modules/auth/service";
 import { EntitiesRepository } from "#modules/entities/repository";
 import { EntitiesService } from "#modules/entities/service";
+import type { DomainLifecycleCommand } from "#modules/entities/write-context";
 import { InterestService } from "#modules/entity-interest/service";
 import { TranslationsService } from "#modules/entity-translation/service";
 import { PluginInstallationService } from "#modules/plugins/installation-service";
@@ -39,6 +40,11 @@ import { TestSupportService } from "./service";
 
 const entityId = EntityId.make("entity-id");
 const entitySchemaSlug = EntitySchemaSlug.make("entity-schema-id");
+const entitySchemaPluginId = PluginId.make("entity-schema-plugin-id");
+const entitySchema = {
+	slug: entitySchemaSlug,
+	owner: { kind: "plugin" as const, pluginId: entitySchemaPluginId },
+};
 const scriptId = SandboxScriptId.make("script-id");
 
 const mockAuth = Layer.mock(AuthService);
@@ -83,8 +89,8 @@ const makeServiceLayer = (
 				mockEntities({ ...overrides.entities }),
 				mockSandbox({ ...overrides.sandbox }),
 				mockPluginCrons({
-					trigger: (pluginSlug, cronSlug) =>
-						Effect.succeed({ cronSlug, pluginSlug, status: "notFound" as const }),
+					trigger: (pluginId, cronSlug) =>
+						Effect.succeed({ cronSlug, pluginId, status: "notFound" as const }),
 					...overrides.pluginCrons,
 				}),
 				mockPluginIngestion({ ...overrides.pluginIngestion }),
@@ -160,31 +166,53 @@ const systemPluginManifest = {
 		},
 	},
 };
+const systemPluginClient = systemPluginManifest.client;
+assert(systemPluginClient);
 
-const systemPluginIngestion = recordingServiceLayer<{
-	compiledScripts: PluginSource["compiledScripts"];
-	compiledClient: PluginSource["compiledClient"];
-}>((record) => ({
-	pluginRepository: {
-		findTestSupportOperationResult: () =>
-			Effect.succeed({
-				...persistedPluginResult("v1"),
-				installationId: null,
-				configRevisionId: null,
-				scope: "system" as const,
-			}),
-	},
-	pluginIngestion: {
-		installPlugin: ({ compiledClient, compiledScripts }) =>
-			record({ compiledClient, compiledScripts }).pipe(
-				Effect.as({ slug: PluginSlug.make("fixture"), pluginId: PluginId.make("plugin-id") }),
-			),
-	},
-}));
+type SystemPluginObservation =
+	| { kind: "install"; input: PluginSource }
+	| { kind: "update"; input: PluginSource & { pluginId: string; sourceHash: string } }
+	| {
+			identity: Parameters<PluginRepository["Service"]["findTestSupportOperationResult"]>[0];
+			kind: "result";
+	  };
+
+const systemPluginIngestion = recordingServiceLayer<SystemPluginObservation>(
+	(record, recorded) => ({
+		pluginIngestion: {
+			installPlugin: (input) =>
+				record({ input, kind: "install" }).pipe(
+					Effect.as({ slug: PluginSlug.make("fixture"), pluginId: PluginId.make("plugin-id") }),
+				),
+			updatePlugin: (input) =>
+				record({ input, kind: "update" }).pipe(
+					Effect.as({ slug: PluginSlug.make("fixture"), pluginId: PluginId.make(input.pluginId) }),
+				),
+		},
+		pluginRepository: {
+			findTestSupportOperationResult: (identity) =>
+				record({ identity, kind: "result" }).pipe(
+					Effect.andThen(recorded),
+					Effect.map((observations) => ({
+						...persistedPluginResult(
+							observations.some((observation) => observation.kind === "update") ? "v2" : "v1",
+						),
+						installationId: null,
+						configRevisionId: null,
+						scope: "system" as const,
+					})),
+				),
+		},
+	}),
+);
 
 layer(systemPluginIngestion.layer)((test) => {
 	test.effect("returns persisted system plugin identity after real ingestion completes", () => {
-		const compiledClient = fixtureClientArtifact(systemPluginManifest.metadata.name);
+		const compiledClient = fixtureClientArtifact(
+			systemPluginManifest.metadata.name,
+			systemPluginManifest.metadata.packageId,
+			systemPluginClient,
+		);
 		const compiledScripts = [
 			{ format: 1, javascript: "compiled", entry: "backend/automations/fixture.sandbox.ts" },
 		];
@@ -196,9 +224,13 @@ layer(systemPluginIngestion.layer)((test) => {
 					compiledClient,
 				),
 			});
-			const ingested = (yield* systemPluginIngestion.recorded).at(-1);
-			expect(ingested?.compiledScripts).toEqual(compiledScripts);
-			expect(ingested?.compiledClient).toEqual(compiledClient);
+			expect(yield* systemPluginIngestion.recorded).toEqual([
+				{
+					kind: "install",
+					input: { compiledClient, compiledScripts, manifest: systemPluginManifest },
+				},
+				{ kind: "result", identity: { ownerId: null, scope: "system", pluginId: "plugin-id" } },
+			]);
 			expect(result).toEqual({
 				installationId: null,
 				pluginId: "plugin-id",
@@ -209,20 +241,75 @@ layer(systemPluginIngestion.layer)((test) => {
 			});
 		});
 	});
+	test.effect("updates an exact system plugin with its source hash", () => {
+		const compiledClient = fixtureClientArtifact(
+			systemPluginManifest.metadata.name,
+			systemPluginManifest.metadata.packageId,
+			systemPluginClient,
+		);
+		const compiledScripts = [
+			{ format: 1, javascript: "compiled update", entry: "backend/automations/fixture.sandbox.ts" },
+		];
+		const pluginId = PluginId.make("plugin-id");
+		const sourceHash = "current-source-hash";
+		return Effect.gen(function* () {
+			const result = yield* (yield* TestSupportService).updateSystemPlugin(pluginId, {
+				sourceHash,
+				compiledScripts,
+				manifest: systemPluginManifest,
+				compiledClient: yield* Schema.encodeUnknownEffect(PluginClientArtifactFromBase64)(
+					compiledClient,
+				),
+			});
+			expect((yield* systemPluginIngestion.recorded).slice(-2)).toEqual([
+				{
+					kind: "update",
+					input: {
+						pluginId,
+						sourceHash,
+						compiledClient,
+						compiledScripts,
+						manifest: systemPluginManifest,
+					},
+				},
+				{ kind: "result", identity: { pluginId, ownerId: null, scope: "system" } },
+			]);
+			expect(result.activePluginRevisionId).toBe("revision-v2");
+		});
+	});
 });
 
-const privatePluginOperations = recordingServiceLayer<"install" | "update">((record, recorded) => ({
-	pluginRepository: {
-		findTestSupportOperationResult: () =>
-			Effect.map(recorded, (operations) =>
-				persistedPluginResult(operations.includes("update") ? "v2" : "v1"),
-			),
-	},
-	pluginInstallations: {
-		updatePrivatePlugin: () => record("update").pipe(Effect.as(pluginInstallationResult)),
-		installPrivatePlugin: () => record("install").pipe(Effect.as(pluginInstallationResult)),
-	},
-}));
+type PrivatePluginObservation =
+	| { kind: "install" }
+	| { kind: "update"; userId: UserId; installationId: string }
+	| {
+			identity: Parameters<PluginRepository["Service"]["findTestSupportOperationResult"]>[0];
+			kind: "result";
+	  };
+
+const privatePluginOperations = recordingServiceLayer<PrivatePluginObservation>(
+	(record, recorded) => ({
+		pluginInstallations: {
+			installPrivatePlugin: () =>
+				record({ kind: "install" }).pipe(Effect.as(pluginInstallationResult)),
+			updatePrivatePlugin: (input) =>
+				record({ kind: "update", userId: input.userId, installationId: input.installationId }).pipe(
+					Effect.as(pluginInstallationResult),
+				),
+		},
+		pluginRepository: {
+			findTestSupportOperationResult: (identity) =>
+				record({ identity, kind: "result" }).pipe(
+					Effect.andThen(recorded),
+					Effect.map((observations) =>
+						persistedPluginResult(
+							observations.some((observation) => observation.kind === "update") ? "v2" : "v1",
+						),
+					),
+				),
+		},
+	}),
+);
 
 layer(privatePluginOperations.layer)((test) => {
 	test.effect("returns a fresh persisted private handle after install and update", () =>
@@ -232,12 +319,18 @@ layer(privatePluginOperations.layer)((test) => {
 				config: {},
 				uploadToken: "install-upload",
 			});
-			const updated = yield* service.updatePrivatePlugin(
-				UserId.make("owner"),
-				PluginSlug.make("fixture"),
-				{ uploadToken: "update-upload" },
-			);
-			expect(yield* privatePluginOperations.recorded).toEqual(["install", "update"]);
+			const installationId = installed.installationId;
+			assert(installationId);
+			const updated = yield* service.updatePrivatePlugin(UserId.make("owner"), installationId, {
+				uploadToken: "update-upload",
+				sourceHash: "current-source-hash",
+			});
+			expect(yield* privatePluginOperations.recorded).toEqual([
+				{ kind: "install" },
+				{ kind: "result", identity: { scope: "user", ownerId: "owner", pluginId: "plugin-id" } },
+				{ kind: "update", userId: UserId.make("owner"), installationId: "installation-id" },
+				{ kind: "result", identity: { scope: "user", ownerId: "owner", pluginId: "plugin-id" } },
+			]);
 			expect(installed).toEqual({
 				pluginId: "plugin-id",
 				activationId: "activation-id",
@@ -260,8 +353,10 @@ layer(privatePluginOperations.layer)((test) => {
 
 const translationUpserts = recordingServiceLayer<unknown>((record) => ({
 	translations: {
-		upsert: (input) =>
-			record(input).pipe(Effect.as({ entityId: input.entityId, language: input.language })),
+		upsertKernelOverlay: (input, command) =>
+			record({ input, command }).pipe(
+				Effect.as({ entityId: input.entityId, language: input.language }),
+			),
 	},
 }));
 
@@ -276,9 +371,8 @@ layer(translationUpserts.layer)((test) => {
 			});
 			expect(result).toEqual({ entityId, language: "es" });
 			expect((yield* translationUpserts.recorded).at(-1)).toMatchObject({
-				entityId,
-				language: "es",
-				name: "Nombre",
+				input: { entityId, language: "es", name: "Nombre" },
+				command: { writeContext: null, causation: { initiator: { id: null, kind: "system" } } },
 			});
 		}),
 	);
@@ -293,6 +387,7 @@ const unpopulatedEntity = {
 	externalId: null,
 	providerId: null,
 	populatedAt: null,
+	entitySchemaPluginId,
 	createdAt: populatedAt,
 	updatedAt: populatedAt,
 	properties: { title: "Entity" },
@@ -320,6 +415,7 @@ layer(entityUpdates.layer)((test) => {
 				populatedAt: populatedAtDate,
 				properties: unpopulatedEntity.properties,
 				lifecycle: {
+					writeContext: null,
 					itemIdentity: '["test-support:set-entity-populated-at","entity-id"]',
 					causation: { source: "api", initiator: { id: null, kind: "system" } },
 				},
@@ -355,6 +451,7 @@ const providerEntity = {
 	name: "Entity",
 	entitySchemaSlug,
 	populatedAt: null,
+	entitySchemaPluginId,
 	externalId: "external-id",
 	properties: { title: "Entity" },
 	createdAt: "2026-07-20T12:00:00.000Z",
@@ -375,7 +472,7 @@ layer(globalEntityCreates.layer)((test) => {
 			expect(
 				yield* service.createGlobalEntity({
 					providerId,
-					entitySchemaSlug,
+					entitySchema,
 					name: providerEntity.name,
 					externalId: providerEntity.externalId,
 					properties: providerEntity.properties,
@@ -383,12 +480,13 @@ layer(globalEntityCreates.layer)((test) => {
 			).toEqual(providerEntity);
 			expect((yield* globalEntityCreates.recorded).at(-1)).toMatchObject({
 				providerId,
-				entitySchemaSlug,
+				entitySchema,
 				populatedAt: null,
 				name: providerEntity.name,
 				externalId: providerEntity.externalId,
 				properties: providerEntity.properties,
 				lifecycle: {
+					writeContext: null,
 					itemIdentity: '["test-support:create-global-entity","create"]',
 					causation: { source: "api", initiator: { id: null, kind: "system" } },
 				},
@@ -405,11 +503,12 @@ const rootFactEntity = {
 	externalId: null,
 	providerId: null,
 	populatedAt: null,
+	entitySchemaPluginId,
 	createdAt: "2026-07-20T12:00:00.000Z",
 	updatedAt: "2026-07-20T12:00:00.000Z",
 };
 
-const rootFactCommands = recordingServiceLayer<LifecycleCommand>((record) => ({
+const rootFactCommands = recordingServiceLayer<DomainLifecycleCommand>((record) => ({
 	entities: {
 		createGlobal: (input) =>
 			record(input.lifecycle).pipe(Effect.as({ warnings: [], entity: rootFactEntity })),
@@ -427,9 +526,9 @@ layer(rootFactCommands.layer)((test) => {
 	test.effect("uses one root fact for create and populatedAt update", () =>
 		Effect.gen(function* () {
 			yield* (yield* TestSupportService).createGlobalEntity({
+				entitySchema,
 				name: "Entity",
 				properties: {},
-				entitySchemaSlug,
 				populatedAt: "2026-07-21T00:00:00.000Z",
 			});
 			const commands = yield* rootFactCommands.recorded;
@@ -444,40 +543,54 @@ layer(rootFactCommands.layer)((test) => {
 });
 
 const relationshipSchemaSlug = RelationshipSchemaSlug.make("related");
+const relationshipSchemaPluginId = PluginId.make("relationship-schema-plugin-id");
+const relationshipSchema = {
+	slug: relationshipSchemaSlug,
+	owner: { kind: "plugin" as const, pluginId: relationshipSchemaPluginId },
+};
 const relationship = {
 	properties: {},
 	wasInserted: true,
 	relationshipSchemaSlug,
+	scope: "global" as const,
 	sourceEntityId: entityId,
+	relationshipSchemaPluginId,
 	createdAt: "2026-07-20T12:00:00.000Z",
 	id: RelationshipId.make("relationship-id"),
 	targetEntityId: EntityId.make("target-id"),
 };
 
 const mutationCommands = recordingServiceLayer<{
-	kind: "relationship" | "delete";
-	command: LifecycleCommand;
+	kind: "relationship" | "delete" | "relationship-schema";
+	command?: DomainLifecycleCommand;
+	input?: unknown;
+	reference?: ContractPayload<"testSupport", "upsertGlobalRelationship">["relationshipSchema"];
+	userId?: UserId | null;
 }>((record) => ({
 	entities: {
 		deleteByIds: (_ids, command) =>
 			record({ command, kind: "delete" }).pipe(Effect.as({ warnings: [], deletedCount: 1 })),
 	},
 	relationships: {
-		create: (_input, command) =>
-			record({ command, kind: "relationship" }).pipe(Effect.as({ relationship, warnings: [] })),
+		create: (input, command) =>
+			record({ input, command, kind: "relationship" }).pipe(
+				Effect.as({ relationship, warnings: [] }),
+			),
 	},
 	relationshipSchemas: {
-		findById: () =>
-			Effect.succeed({
-				pluginId: null,
-				name: "Related",
-				slug: "related",
-				isBuiltin: false,
-				id: relationshipSchemaSlug,
-				targetEntitySchemaSlug: null,
-				sourceEntitySchemaSlug: null,
-				propertiesSchema: { fields: {} },
-			}),
+		findByReference: (reference, userId) =>
+			record({ userId, reference, kind: "relationship-schema" }).pipe(
+				Effect.as({
+					name: "Related",
+					isBuiltin: false,
+					id: relationshipSchemaSlug,
+					slug: relationshipSchemaSlug,
+					targetEntitySchemaSlug: null,
+					sourceEntitySchemaSlug: null,
+					propertiesSchema: { fields: {} },
+					pluginId: relationshipSchemaPluginId,
+				}),
+			),
 	},
 }));
 
@@ -487,23 +600,37 @@ layer(mutationCommands.layer)((test) => {
 			const service = yield* TestSupportService;
 			expect(
 				yield* service.upsertGlobalRelationship({
-					relationshipSchemaSlug,
+					relationshipSchema,
 					sourceEntityId: entityId,
 					targetEntityId: relationship.targetEntityId,
 				}),
 			).toEqual(relationship);
 			expect(yield* service.deleteGlobalEntities([entityId])).toBe(1);
 			const commands = yield* mutationCommands.recorded;
+			expect(commands.find((entry) => entry.kind === "relationship-schema")).toEqual({
+				userId: null,
+				kind: "relationship-schema",
+				reference: relationshipSchema,
+			});
+			expect(commands.find((entry) => entry.kind === "relationship")?.input).toMatchObject({
+				scope: "global",
+				relationshipSchema,
+			});
 			const commandFor = (kind: "relationship" | "delete") =>
 				commands.findLast((entry) => entry.kind === kind)?.command;
 			expect(commandFor("relationship")?.causation).toMatchObject({
 				source: "api",
 				initiator: { id: null, kind: "system" },
 			});
+			expect(commandFor("relationship")?.writeContext).toBeNull();
+			expect(commandFor("relationship")?.itemIdentity).toBe(
+				'["test-support:upsert-global-relationship",{"owner":{"kind":"plugin","pluginId":"relationship-schema-plugin-id"},"slug":"related"},"entity-id","target-id"]',
+			);
 			expect(commandFor("delete")?.causation).toMatchObject({
 				source: "api",
 				initiator: { id: null, kind: "system" },
 			});
+			expect(commandFor("delete")?.writeContext).toBeNull();
 		}),
 	);
 });
@@ -536,11 +663,11 @@ layer(sandboxEnqueues.layer)((test) => {
 
 const cronTriggers = recordingServiceLayer<ReadonlyArray<string>>((record) => ({
 	pluginCrons: {
-		trigger: (pluginSlug, cronSlug, executionId) =>
-			record([pluginSlug, cronSlug, executionId]).pipe(
+		trigger: (pluginId, cronSlug, executionId) =>
+			record([pluginId, cronSlug, executionId]).pipe(
 				Effect.as({
 					cronSlug,
-					pluginSlug,
+					pluginId,
 					executionId,
 					status: "executed" as const,
 					result: { status: "completed" },
@@ -553,13 +680,11 @@ layer(cronTriggers.layer)((test) => {
 	test.effect("triggers exactly one requested plugin cron with a manual execution id", () =>
 		Effect.gen(function* () {
 			const service = yield* TestSupportService;
-			const result = yield* service.triggerPluginCron({
-				cronSlug: "monitor",
-				pluginSlug: PluginSlug.make("example"),
-			});
+			const pluginId = PluginId.make("example-plugin-id");
+			const result = yield* service.triggerPluginCron({ pluginId, cronSlug: "monitor" });
 			const triggerInput = (yield* cronTriggers.recorded).at(-1);
 			expect(result.status).toBe("executed");
-			expect(triggerInput?.slice(0, 2)).toEqual(["example", "monitor"]);
+			expect(triggerInput?.slice(0, 2)).toEqual([pluginId, "monitor"]);
 			expect(triggerInput?.[2]).toMatch(/^plugin-cron-manual-/);
 		}),
 	);

@@ -3,7 +3,7 @@ import { NotFound } from "@ryot-app/contract/errors";
 import {
 	EntitySchemaSlug,
 	ImportRunId,
-	PluginSlug,
+	PluginId,
 	SandboxProviderId,
 	UserId,
 } from "@ryot-app/contract/schema/brands";
@@ -46,7 +46,7 @@ const gateInput = {
 	source: "fixture-source",
 	workflowSlug: "fixture-workflow",
 	identifierPrefix: "fixture-item",
-	pluginSlug: PluginSlug.make("fixture-plugin"),
+	pluginId: PluginId.make("fixture-plugin-plugin-id"),
 	providerId: SandboxProviderId.make("fixture-provider"),
 	entitySchemaSlug: EntitySchemaSlug.make("fixture-entity"),
 };
@@ -63,18 +63,24 @@ const importRun = {
 	updatedAt: "2026-07-30T00:00:00.000Z",
 };
 
+const pluginManifest = fixtureManifest();
 const availablePlugin = {
 	config: {},
 	isHidden: false,
 	ownerUserId: null,
+	clientImports: [],
 	compiledHashes: {},
+	healthReason: null,
+	isInitialized: true,
+	slug: "fixture-plugin",
 	scope: "system" as const,
 	health: "ready" as const,
+	manifest: pluginManifest,
 	sourceHash: "source-hash",
-	slug: gateInput.pluginSlug,
-	manifest: fixtureManifest(),
+	incompatibilityReason: null,
 	id: "fixture-plugin-plugin-id",
 	pluginRevisionId: "fixture-plugin-revision",
+	packageId: pluginManifest.metadata.packageId,
 	installationId: "fixture-plugin-installation",
 	pluginConfigRevisionId: "fixture-plugin-config-revision",
 };
@@ -162,7 +168,8 @@ const workflowLoadLayer = (
 								),
 						}),
 						Layer.mock(PluginRuntimeResolver)({
-							listPluginsAvailableToUser: () => Effect.succeed([availablePlugin]),
+							findPluginAvailableToUser: (_userId, pluginId) =>
+								Effect.succeed(pluginId === availablePlugin.id ? availablePlugin : null),
 						}),
 						Layer.succeed(RedisService, options.redis ?? makeRedisService()),
 						Layer.succeed(FakeWorkflowLoad, {

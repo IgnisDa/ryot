@@ -2,8 +2,9 @@ import type {
 	ClientPageCompositionIdentity,
 	ClientPageCompositionManifest,
 } from "@ryot-app/contract/modules/client-pages/schemas";
+import type { SavedViewReference } from "@ryot-app/contract/modules/plugins/references";
 import { SavedViewId, type UserId } from "@ryot-app/contract/schema/brands";
-import { and, eq } from "drizzle-orm";
+import { and, eq, isNull } from "drizzle-orm";
 import { Context, Effect, Layer } from "effect";
 
 import * as schema from "#lib/infrastructure/db/schema/tables/combined";
@@ -14,9 +15,27 @@ export class ClientPagesRepository extends Context.Service<ClientPagesRepository
 	{
 		make: Effect.gen(function* () {
 			const session = yield* DatabaseSession;
+			const findHomeSavedView = Effect.fn("ClientPagesRepository.findHomeSavedView")(function* (
+				userId: UserId,
+				pluginId: string,
+			) {
+				const [row] = yield* session.run((db) =>
+					db
+						.select({ reference: schema.pluginInstallation.homeSavedView })
+						.from(schema.pluginInstallation)
+						.where(
+							and(
+								eq(schema.pluginInstallation.userId, userId),
+								eq(schema.pluginInstallation.pluginId, pluginId),
+							),
+						)
+						.limit(1),
+				);
+				return row?.reference ?? null;
+			});
 			const findPreparedTarget = Effect.fn("ClientPagesRepository.findPreparedTarget")(function* (
 				userId: UserId,
-				savedViewId: string,
+				reference: SavedViewReference,
 			) {
 				const [row] = yield* session.run((db) =>
 					db
@@ -24,7 +43,18 @@ export class ClientPagesRepository extends Context.Service<ClientPagesRepository
 						.from(schema.userSavedViewEffective)
 						.where(
 							and(
-								eq(schema.userSavedViewEffective.slug, savedViewId),
+								...(reference.kind === "custom"
+									? [
+											eq(schema.userSavedViewEffective.isBuiltin, false),
+											eq(schema.userSavedViewEffective.id, reference.savedViewId),
+										]
+									: [
+											eq(schema.userSavedViewEffective.isBuiltin, true),
+											eq(schema.userSavedViewEffective.slug, reference.slug),
+											reference.kind === "kernel"
+												? isNull(schema.userSavedViewEffective.pluginId)
+												: eq(schema.userSavedViewEffective.pluginId, reference.pluginId),
+										]),
 								eq(schema.userSavedViewEffective.userId, userId),
 							),
 						)
@@ -73,7 +103,7 @@ export class ClientPagesRepository extends Context.Service<ClientPagesRepository
 					return row?.compositionKey ?? existing?.compositionKey ?? input.compositionKey;
 				},
 			);
-			return { findComposition, createComposition, findPreparedTarget };
+			return { findComposition, createComposition, findHomeSavedView, findPreparedTarget };
 		}),
 	},
 ) {

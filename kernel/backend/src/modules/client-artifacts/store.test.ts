@@ -5,6 +5,7 @@ import {
 	CLIENT_BRIDGE_PROTOCOL_VERSION,
 	CLIENT_COMPILER_VERSION,
 } from "@ryot-app/client-plugin-contract";
+import { PluginPackageId } from "@ryot-app/contract/schema/brands";
 import { Context, Effect, Layer, Ref } from "effect";
 
 import { ImageClientArtifacts } from "./image-artifacts";
@@ -15,6 +16,7 @@ const publicHash = "a".repeat(64);
 const shippedHash = "b".repeat(64);
 const privateHash = "c".repeat(64);
 const metadata = {
+	imports: [],
 	format: CLIENT_ARTIFACT_FORMAT,
 	apiVersion: CLIENT_API_VERSION,
 	compilerVersion: CLIENT_COMPILER_VERSION,
@@ -58,7 +60,13 @@ const fakeRepositoryLayer = Layer.effectContext(
 					record(`describe:${hash}`).pipe(
 						Effect.as(
 							hash === shippedHash || hash === privateHash
-								? { ...metadata, hash, files: [{ name: file.name, contentType: file.contentType }] }
+								? {
+										...metadata,
+										hash,
+										clientDeclarationHash: "d".repeat(64),
+										files: [{ name: file.name, contentType: file.contentType }],
+										packageId: PluginPackageId.make("34761819-9478-40b4-8217-d2a0c48a4467"),
+									}
 								: null,
 						),
 					),

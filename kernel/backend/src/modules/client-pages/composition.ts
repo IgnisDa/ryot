@@ -1,3 +1,4 @@
+import { pluginExportSpecifier } from "@ryot-app/client-plugin-contract";
 import type {
 	ClientArtifactFileReference,
 	ClientCompositionModuleReference,
@@ -57,7 +58,7 @@ export const composeClientPage = (input: {
 		} else {
 			for (const [index, declaration] of contributor.exports.entries()) {
 				addImport(
-					`@ryot-app/plugins/${contributor.pluginSlug}/${declaration.name}`,
+					pluginExportSpecifier(contributor, declaration.name),
 					file(contributor.clientArtifactHash, "module.js"),
 					`Export${index}`,
 				);
@@ -115,7 +116,7 @@ export const composeClientPage = (input: {
 				? `@ryot-app/kernel-renderers/${contributor.name}`
 				: identity.selectedExports.find((candidate) => {
 						const declaration = contributor.exports.find(
-							({ name }) => candidate === `@ryot-app/plugins/${contributor.pluginSlug}/${name}`,
+							({ name }) => candidate === pluginExportSpecifier(contributor, name),
 						);
 						return declaration?.entry === identity.entry.path && declaration.kind === "page";
 					});

@@ -20,6 +20,7 @@ const file = (name: string, value: number) => ({
 const artifact = (hash: string, files: ReturnType<typeof file>[]) => ({
 	hash,
 	files,
+	imports: [],
 	format: CLIENT_ARTIFACT_FORMAT,
 	apiVersion: CLIENT_API_VERSION,
 	compilerVersion: CLIENT_COMPILER_VERSION,
