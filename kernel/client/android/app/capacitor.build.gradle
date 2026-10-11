@@ -16,6 +16,7 @@ dependencies {
     implementation project(':capacitor-file-transfer')
     implementation project(':capacitor-filesystem')
     implementation project(':capacitor-haptics')
+    implementation project(':capacitor-keyboard')
     implementation project(':capacitor-local-notifications')
     implementation project(':capacitor-share')
 

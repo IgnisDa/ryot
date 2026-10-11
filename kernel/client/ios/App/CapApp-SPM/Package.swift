@@ -19,6 +19,7 @@ let package = Package(
         .package(name: "CapacitorFileTransfer", path: "../../../../../node_modules/.bun/@capacitor+file-transfer@2.0.5+6139e07751574bda/node_modules/@capacitor/file-transfer"),
         .package(name: "CapacitorFilesystem", path: "../../../../../node_modules/.bun/@capacitor+filesystem@8.1.3+6139e07751574bda/node_modules/@capacitor/filesystem"),
         .package(name: "CapacitorHaptics", path: "../../../../../node_modules/.bun/@capacitor+haptics@8.0.2+6139e07751574bda/node_modules/@capacitor/haptics"),
+        .package(name: "CapacitorKeyboard", path: "../../../../../node_modules/.bun/@capacitor+keyboard@8.0.5+6139e07751574bda/node_modules/@capacitor/keyboard"),
         .package(name: "CapacitorLocalNotifications", path: "../../../../../node_modules/.bun/@capacitor+local-notifications@8.3.1+6139e07751574bda/node_modules/@capacitor/local-notifications"),
         .package(name: "CapacitorShare", path: "../../../../../node_modules/.bun/@capacitor+share@8.0.1+6139e07751574bda/node_modules/@capacitor/share")
     ],
@@ -35,6 +36,7 @@ let package = Package(
                 .product(name: "CapacitorFileTransfer", package: "CapacitorFileTransfer"),
                 .product(name: "CapacitorFilesystem", package: "CapacitorFilesystem"),
                 .product(name: "CapacitorHaptics", package: "CapacitorHaptics"),
+                .product(name: "CapacitorKeyboard", package: "CapacitorKeyboard"),
                 .product(name: "CapacitorLocalNotifications", package: "CapacitorLocalNotifications"),
                 .product(name: "CapacitorShare", package: "CapacitorShare")
             ]

@@ -24,7 +24,7 @@
 }
 
 @utility ui-page {
-	@apply grid min-h-screen content-center gap-8 px-5;
+	@apply grid min-h-dvh content-center gap-8 px-5;
 	@apply pt-[max(72px,calc(env(safe-area-inset-top)+56px))] pb-[max(32px,env(safe-area-inset-bottom))];
 }
 
