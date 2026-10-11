@@ -110,6 +110,42 @@ export const getEntity = (client: Client, entityId: string) =>
 		};
 	});
 
+export const findEntityIdByName = (
+	client: Client,
+	input: { readonly entitySchema: EntitySchemaReference; readonly name: string },
+) =>
+	Effect.gen(function* () {
+		const entity = table("entity", "entity");
+		const result = yield* executeRyotQL(
+			client,
+			document({
+				entities: rows(entity, {
+					limit: 2,
+					fields: [field("id", column(entity, "id"))],
+					where: and(
+						eq(column(entity, "name"), literal(input.name)),
+						eq(column(entity, "entitySchemaSlug"), literal(input.entitySchema.slug)),
+						eq(
+							column(entity, "entitySchemaPluginId"),
+							literal(
+								input.entitySchema.owner.kind === "plugin"
+									? input.entitySchema.owner.pluginId
+									: null,
+							),
+						),
+					),
+				}),
+			}),
+		);
+		const [row, ...others] = requireRows(result.data.entities, "entities").items;
+		if (others.length > 0) {
+			throw new Error(`Entity name '${input.name}' is not unique in its schema`);
+		}
+		return EntityId.make(
+			requireRyotQLText(requirePresent(row, `Entity '${input.name}' not found`), "id"),
+		);
+	});
+
 export const setEntityPopulatedAt = (entityId: string, populatedAt: string | null) =>
 	getApiClient().call(
 		(c) =>
