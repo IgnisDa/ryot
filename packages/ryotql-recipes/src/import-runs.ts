@@ -28,10 +28,6 @@ const runSelection = (source: typeof importRun) => ({
 	createdAt: selectedField(column(source, "createdAt"), IsoDateString),
 	updatedAt: selectedField(column(source, "updatedAt"), IsoDateString),
 	inputSummary: selectedField(column(source, "inputSummary"), inputSummary),
-	pluginInstallationId: selectedField(
-		column(source, "pluginInstallationId"),
-		Schema.NullOr(Schema.String),
-	),
 	summary: selectedField(column(source, "summary"), IngestionRun.fields.summary),
 	status: selectedField(column(source, "status"), ListedImportRun.fields.status),
 	startedAt: selectedField(column(source, "startedAt"), Schema.NullOr(IsoDateString)),
@@ -40,6 +36,10 @@ const runSelection = (source: typeof importRun) => ({
 	blockDeadline: selectedField(column(source, "blockDeadline"), Schema.NullOr(IsoDateString)),
 	blockReasons: selectedField(column(source, "blockReasons"), IngestionRun.fields.blockReasons),
 	expiryReason: selectedField(column(source, "expiryReason"), IngestionRun.fields.expiryReason),
+	pluginInstallationId: selectedField(
+		column(source, "pluginInstallationId"),
+		Schema.NullOr(Schema.String),
+	),
 	failureReason: selectedField(
 		column(source, "failureReason"),
 		Schema.NullOr(ListedImportRun.fields.failureReason),

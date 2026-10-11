@@ -18,7 +18,10 @@ import {
 	startFakeAppriseServer,
 } from "~/fixtures/kernel";
 import { findFitnessEntitySchema } from "~/fixtures/plugins/fitness";
-import { createBuiltinMediaLifecycleFixture, findMediaEntitySchema } from "~/fixtures/plugins/media";
+import {
+	createBuiltinMediaLifecycleFixture,
+	findMediaEntitySchema,
+} from "~/fixtures/plugins/media";
 import { assertTaggedError, requirePresent } from "~/support/assertions";
 import { afterAll, beforeAll, describe, expect, it, runPromise } from "~/support/effect-test";
 import type { FakeHttpServer } from "~/support/fake-http-server";
