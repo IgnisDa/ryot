@@ -13,7 +13,7 @@
 
 ## Status
 
-**9 implemented, 0 in progress, 74 pending; 3 excluded.**
+**10 implemented, 0 in progress, 73 pending; 3 excluded.**
 
 “Implemented” means affected checks and tests passed and the change is committed with this tracker. Batch-wide acceptance is recorded separately below. Rows follow the audit's ranked order; sequencing can change to respect dependencies and keep changes reviewable.
 
@@ -27,8 +27,8 @@
 | P07-R2 | Implemented | Top-level client/shared regions determine authority and traversal floors. `30b575897a`. |
 | P06-R1 | Implemented | Shared validated-entry stage enforces workflow policy through standalone and package paths while preserving adapter diagnostics and relative-import rules. `6c068ac196`. |
 | P07-R1 | Implemented | Authored ASTs enforce import and asset policy without multiline bypasses or inert-text false positives. `123aa8be21`. |
-| C01-R1 | Implemented | One per-server authorization owner fences token writes, profile publication, and detached work. Rotation retains identity; replacement and clear invalidate predecessor work. See this finding's `audit:` commit. |
-| B04-R1 | Pending | One account bootstrap identity owner. |
+| C01-R1 | Implemented | One per-server authorization owner fences token writes, profile publication, and detached work. Rotation retains identity; replacement and clear invalidate predecessor work. `628a6a0b55`. |
+| B04-R1 | Implemented | Account generation is the sole bootstrap identity; reset joins the independent creation/reconciliation workflow root. See this finding's `audit:` commit. |
 | B19-R1 | Pending | Agree on selected home/route targets during preparation and freshness checks. |
 | B07-R2 | Pending | Commit restore data and completion bookkeeping together. |
 | F03-R2 | Pending | One duration-expiry completion action. |
@@ -143,4 +143,14 @@
 - Affected browser e2e: signup and desktop/mobile impersonation passed (two files, three tests). Corrected stale test assumptions: open the generated impersonation link, and use the plugin iframe's mobile navigation trigger. No impersonation product behavior changed.
 - Main-session cleanup from `113ec24ff5` removed redundant single-flight wrapping and origin-keyed work; no new suppressions or bypass casts. Shipped client rebuilt; excluded apps unchanged. No push performed.
 
-Next ranked finding: B04-R1 (account bootstrap identity ownership).
+### Batch 4: B04-R1 — accepted
+
+- Removed the reset-only workflow/script identity suffix and optional bootstrap generation. Reset waits for the ordinary account-generation bootstrap as an independent root, not a lifecycle child. Existing account-generation retirement fencing remains unchanged.
+- Instrumented `bootstrap-identity.test.ts` with named stages, 45-second waits, marker/gate records, bounded failure-state queries, and the retained backend-log path. The SDK does not expose execution IDs: the script records a bootstrap-owned marker and its user instead; backend tests assert the exact workflow identity and absence of a parent.
+- Debugging reproduced and fixed three failures: invalid script metadata access at compilation; reset attempting to reparent the creation-owned workflow (`Workflow execution belongs to another root`); and a shared system plugin surviving uninstall with references, then breaking other tests after its fake upstream closed. The regression uses the existing isolated backend fixture and strict plugin cleanup, with no capacity changes.
+- Controlled HTTP overlap proves that each of two resets remains running with its recreated user disabled until bootstrap is released, then completes and enables that user. Exactly three distinct marker invocations remain: creation plus two account recreations.
+- Backend and e2e checks passed. Affected backend tests passed: 24 files, 116 tests. Both affected e2e files pass together: `bootstrap-identity.test.ts` and `god-mode-reset-user.test.ts`, nine tests. They also passed separately during debugging.
+- Final repository-wide `bun run check` passed across 30 projects; `bun turbo --filter='!@ryot-app/e2e' test` passed, 51/51 tasks.
+- Main-session cleanup from `628a6a0b55` removed redundant stage-completion logging (net two lines removed), while retaining the requested failure diagnostics. No new suppressions or bypass casts. Excluded apps unchanged. No push performed.
+
+Stopped after B04-R1 at the user's request. Next ranked finding, not started: B19-R1 (selected home/route target ownership).

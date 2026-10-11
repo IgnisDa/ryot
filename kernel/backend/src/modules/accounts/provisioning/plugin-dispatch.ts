@@ -14,9 +14,8 @@ export const userBootstrapExecutionId = (
 	pluginId: string,
 	bootstrapSlug: string,
 	accountGeneration: AccountGeneration,
-	generation?: string,
 ) =>
-	`user-bootstrap-${userId.length}-${userId}-${pluginId.length}-${pluginId}-${bootstrapSlug.length}-${bootstrapSlug}-${accountGeneration.token}${generation ? `-${generation.length}-${generation}` : ""}`;
+	`user-bootstrap-${userId.length}-${userId}-${pluginId.length}-${pluginId}-${bootstrapSlug.length}-${bootstrapSlug}-${accountGeneration.token}`;
 
 export const makePluginUserBootstrapDispatcher = (
 	execute: (
@@ -38,7 +37,6 @@ export const makePluginUserBootstrapDispatcher = (
 		const dispatchAll = Effect.fn("PluginUserBootstrapDispatcher.dispatchAll")(function* (
 			userId: UserId,
 			accountGeneration: AccountGeneration,
-			generation?: string,
 		) {
 			const installed = (yield* runtime.resolveUserInstallationBootstraps(userId)).filter(
 				({ health, isHidden }) => !isHidden && (health === "ready" || health === "installing"),
@@ -79,7 +77,6 @@ export const makePluginUserBootstrapDispatcher = (
 					entry.pluginId,
 					entry.bootstrap.slug,
 					accountGeneration,
-					generation,
 				);
 				const result = yield* execute({
 					context: {},
