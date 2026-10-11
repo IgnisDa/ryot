@@ -133,7 +133,7 @@ export const makeRedisService = (
 		...overrides,
 	});
 
-type ConfigLeafValue = Option.Option<unknown> | Redacted.Redacted<unknown>;
+type ConfigLeafValue = Option.Option<unknown> | Redacted.Redacted<unknown> | ReadonlyArray<unknown>;
 
 type DeepPartial<T> = T extends ConfigLeafValue
 	? T
@@ -151,6 +151,7 @@ export const makeAppConfigLayer = (
 		disableTelemetry: false,
 		redisUrl: Redacted.make("unused"),
 		frontendUrl: "http://localhost:3000",
+		fileStorage: { s3: Option.none(), localDir: "./storage", localTempDir: "./work" },
 		database: { poolMax: 10, connectionTimeoutMs: 10_000, url: Redacted.make("unused") },
 		users: { disableLocalAuth: false, allowRegistration: true, demoAccountId: Option.none() },
 		frontend: {
@@ -182,36 +183,23 @@ export const makeAppConfigLayer = (
 				file: { rotationSize: "10M", rotationInterval: "1d", path: "./logs/ryot.log" },
 			},
 		},
-		fileStorage: {
-			url: Option.none(),
-			region: Option.none(),
-			localDir: "./storage",
-			localTempDir: "./work",
-			bucketName: Option.none(),
-			accessKeyId: Option.none(),
-			secretAccessKey: Option.none(),
-		},
 		server: {
+			oidc: Option.none(),
+			smtp: Option.none(),
 			proKey: Option.none(),
 			clientDir: "./client",
+			egressAllowedNetworks: [],
 			disableNotifications: false,
 			pluginsSystemDir: "./plugins",
-			egressAllowedNetworks: Option.none(),
 			proKeyVerificationUrl: "https://api.unkey.com",
 			adminAccessToken: Redacted.make("test-admin-token"),
-			oidc: { clientId: Option.none(), issuerUrl: Option.none(), clientSecret: Option.none() },
-			smtp: {
-				user: Option.none(),
-				server: Option.none(),
-				password: Option.none(),
-				mailbox: "Ryot <no-reply@ryot.io>",
-			},
 		},
 	} satisfies AppConfigValue;
 	return Layer.succeed(AppConfig, {
 		...defaults,
 		...overrides,
 		users: { ...defaults.users, ...overrides?.users },
+		server: { ...defaults.server, ...overrides?.server },
 		sandbox: { ...defaults.sandbox, ...overrides?.sandbox },
 		database: { ...defaults.database, ...overrides?.database },
 		scheduler: { ...defaults.scheduler, ...overrides?.scheduler },
@@ -221,12 +209,6 @@ export const makeAppConfigLayer = (
 			...defaults.frontend,
 			...overrides?.frontend,
 			umami: { ...defaults.frontend.umami, ...overrides?.frontend?.umami },
-		},
-		server: {
-			...defaults.server,
-			...overrides?.server,
-			oidc: { ...defaults.server.oidc, ...overrides?.server?.oidc },
-			smtp: { ...defaults.server.smtp, ...overrides?.server?.smtp },
 		},
 		observability: {
 			...defaults.observability,

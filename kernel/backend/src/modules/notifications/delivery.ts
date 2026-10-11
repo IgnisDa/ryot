@@ -2,7 +2,7 @@ import type { NotificationChannelSpecifics } from "@ryot-app/contract/modules/no
 import { Context, Data, Duration, Effect, Layer, Match, Option, Redacted } from "effect";
 import { HttpClient, HttpClientRequest } from "effect/http";
 
-import { AppConfig, getSmtpCredentials } from "#platform/config/service";
+import { AppConfig } from "#platform/config/service";
 
 const PROJECT_NAME = "Ryot";
 const HTTP_TIMEOUT_MS = 10_000;
@@ -93,13 +93,12 @@ export class NotificationDeliveryService extends Context.Service<NotificationDel
 				message: string;
 				recipient: string;
 			}) {
-				const credentials = getSmtpCredentials(config);
+				const credentials = config.server.smtp;
 				if (Option.isNone(credentials)) {
 					return yield* new NotificationDeliveryError({ message: "SMTP is not configured" });
 				}
 
-				const { mailbox } = config.server.smtp;
-				const { user, server, password } = credentials.value;
+				const { user, server, mailbox, password } = credentials.value;
 				const [{ render }, { default: GenericEmail }] = yield* Effect.promise(() =>
 					Promise.all([
 						import("@react-email/components"),

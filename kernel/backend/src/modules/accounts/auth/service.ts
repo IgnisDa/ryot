@@ -44,7 +44,7 @@ import { HttpServerRequest, type HttpServerResponse } from "effect/http";
 import type { HttpApiEndpoint } from "effect/http-api";
 import type Redis from "ioredis";
 
-import { AppConfig, type AppConfigValue, isOidcEnabled } from "#platform/config/service";
+import { AppConfig, type AppConfigValue } from "#platform/config/service";
 import { DatabaseSession } from "#platform/db/session";
 import { logHttpResponse } from "#platform/http/response-logger";
 import { ImpersonationEndedMessage, redisKeys, RedisService } from "#platform/redis";
@@ -271,7 +271,7 @@ const makeAuthInstance = (args: {
 		userId: string,
 	) => Effect.Effect<void, AuthBootstrapScheduleError>;
 }) => {
-	const oidcEnabled = isOidcEnabled(args.config);
+	const oidc = args.config.server.oidc;
 
 	const database = effectPostgresAuthAdapter({ session: args.session, context: args.runtime });
 	const requiresUserInitialization = (userId: string) =>
@@ -359,20 +359,18 @@ const makeAuthInstance = (args: {
 					enabled: args.config.nodeEnv === "production",
 				},
 			}),
-			...(oidcEnabled
+			...(Option.isSome(oidc)
 				? [
 						genericOAuth({
 							config: [
 								{
 									providerId: "oidc",
+									clientId: oidc.value.clientId,
 									scopes: ["openid", "email", "profile"],
 									accountIssuer: createOAuthAccountIssuer("oidc"),
 									disableSignUp: !args.config.users.allowRegistration,
-									clientId: Option.getOrElse(args.config.server.oidc.clientId, () => ""),
-									clientSecret: Redacted.value(
-										Option.getOrElse(args.config.server.oidc.clientSecret, () => Redacted.make("")),
-									),
-									discoveryUrl: `${Option.getOrElse(args.config.server.oidc.issuerUrl, () => "").replace(/\/$/, "")}/.well-known/openid-configuration`,
+									clientSecret: Redacted.value(oidc.value.clientSecret),
+									discoveryUrl: `${oidc.value.issuerUrl.replace(/\/$/, "")}/.well-known/openid-configuration`,
 								},
 							],
 						}),
