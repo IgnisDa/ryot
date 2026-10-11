@@ -1,4 +1,4 @@
-import { workoutListRecipe } from "@ryot-app/fitness-plugin/query-recipes";
+import { workoutCardsRecipe } from "@ryot-app/fitness-plugin/workout-list-recipes";
 import { Effect } from "effect";
 import { Playwright, PlaywrightSpawner } from "effect-playwright";
 
@@ -178,7 +178,7 @@ it.live("retries a committed workout after a lost response and reload without du
 			.getByRole("button", { exact: true, disabled: true, name: "Details" })
 			.waitFor({ state: "visible" });
 		const { pluginId } = yield* findFitnessEntitySchema(client, "workout");
-		const recipe = workoutListRecipe({ limit: 100, reference: { pluginId, kind: "local" } });
+		const recipe = workoutCardsRecipe({ search: name, reference: { pluginId, kind: "local" } });
 		const committed = (yield* executeRyotQLRecipe(client, recipe)).items.filter(
 			(item) => item.name === name,
 		);
