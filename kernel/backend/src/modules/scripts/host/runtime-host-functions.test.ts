@@ -476,7 +476,9 @@ describe("runtime sandbox host functions", () => {
 					const classified: Array<string> = [];
 					const host = yield* hostWith(client, (url) => {
 						classified.push(url);
-						return Effect.succeed(url.startsWith("https://provider.test") ? "stop" : "follow");
+						return Effect.succeed(
+							new URL(url).origin === "https://provider.test" ? "stop" : "follow",
+						);
 					});
 					const error = yield* host
 						.httpCall(input, "GET", "https://open.test/start")
