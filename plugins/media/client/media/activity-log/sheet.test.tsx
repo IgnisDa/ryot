@@ -1008,6 +1008,39 @@ it.live("opens from the empty activity state", () =>
 	}),
 );
 
+const activity = (state: { readonly status: "empty" } | { readonly status: "transport-error" }) => (
+	<fixtureSchema.Activity compact state={state} entityId="entity-1" refresh={() => undefined} />
+);
+
+it.live("keeps the empty state's sheet open after its log replaces the empty state", () =>
+	Effect.gen(function* () {
+		const mounted = mountRyotClient(
+			{
+				watchEntities,
+				invokeOperation: () => Effect.succeed(SAVED),
+				query: activityLogQuery({ target: contextTarget() }),
+			},
+			activity({ status: "empty" }),
+		);
+		try {
+			yield* Effect.promise(() => mounted.setTime(NOW));
+			clickRyotElement(getByRole(mounted.container, "button", { name: "Log activity" }));
+			yield* eventually(() =>
+				expect(queryByRole(dialogOf(), "radiogroup", { name: "What happened" })).not.toBeNull(),
+			);
+			clickRyotElement(getByRole(dialogOf(), "button", { name: /^Mark as / }));
+			yield* eventually(() =>
+				expect(getByRole(dialogOf(), "button", { name: "Done" })).toBeDefined(),
+			);
+			mounted.rerender(activity({ status: "transport-error" }));
+			press(dialogOf(), "Done");
+			yield* eventually(() => expect(queryByText(mounted.container, "No activity yet")).toBeNull());
+		} finally {
+			mounted.unmount();
+		}
+	}),
+);
+
 const manga: MediaActivityLogger = {
 	family: "positional",
 	copy: { verb: "read", noun: "manga", gerund: "reading", participle: "read" },

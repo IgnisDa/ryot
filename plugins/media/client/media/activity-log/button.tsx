@@ -82,9 +82,14 @@ export function MediaLogActivityButton(props: {
 	readonly compact: boolean;
 	readonly entityId: string;
 	readonly logger: MediaActivityLogger;
+	readonly onOpenChange?: (open: boolean) => void;
 }) {
-	const [open, setOpen] = useState<"log" | "review" | undefined>(undefined);
+	const [open, setOpenState] = useState<"log" | "review" | undefined>(undefined);
 	const triggerRef = useRef<HTMLButtonElement>(null);
+	const setOpen = (next: "log" | "review" | undefined) => {
+		setOpenState(next);
+		props.onOpenChange?.(next !== undefined);
+	};
 	const openLog = () => setOpen("log");
 	let trigger = <PlainLogButton onOpen={openLog} ref={triggerRef} />;
 	if (props.link) {
