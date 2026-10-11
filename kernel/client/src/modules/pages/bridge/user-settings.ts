@@ -11,7 +11,8 @@ import { Effect, Result } from "effect";
 import type { RyotQLApi } from "#/api/ryotql";
 import { type ApiScope, apiScopeKey } from "#/api/scope";
 
-const invalidRequest = { outcome: "failure", reason: "invalid-request" } as const;
+import { hasPluginContributor, invalidRequest } from "./plugin-contributor";
+
 const transport = { outcome: "failure", reason: "transport" } as const;
 
 export const pluginUserSettingsOutcome = (input: {
@@ -26,13 +27,7 @@ export const pluginUserSettingsOutcome = (input: {
 			const current = input.currentScope();
 			return current !== undefined && apiScopeKey(current) === apiScopeKey(input.scope);
 		};
-		if (
-			!isCurrent() ||
-			!input.contributors.some(
-				(contributor) =>
-					contributor.kind === "plugin" && contributor.pluginId === input.request.pluginId,
-			)
-		) {
+		if (!isCurrent() || !hasPluginContributor(input.contributors, input.request.pluginId)) {
 			return invalidRequest;
 		}
 		const recipe = pluginInstallationUserSettingsRecipe({ pluginId: input.request.pluginId });
