@@ -703,14 +703,11 @@ it.live("keeps one rich mixed entity browser runtime across pagination and layou
 				).toBe(60);
 
 				yield* expectVisibleText(workout, "04 Composed Strength Workout");
-				yield* expectVisibleText(workout, "Sep 7, 2026");
+				yield* expectVisibleText(workout, "Sep 7");
 				yield* expectVisibleText(workout, "1h 30m");
-				expect(yield* workout.locator("img, [aria-hidden=true]").count).toBe(0);
-				const workoutDetails = workout.locator("details");
-				yield* expectVisibleText(workoutDetails, "1 exercise · 1 set");
-				yield* workoutDetails.locator("summary").click();
-				yield* expectVisibleText(workoutDetails, exercise.name);
-				yield* expectVisibleText(workoutDetails, "8 reps · 60 kg");
+				expect(yield* workout.locator("img").count).toBe(0);
+				yield* expectVisibleText(workout, exercise.name);
+				yield* expectVisibleText(workout, "60 kg × 8");
 
 				yield* expectVisibleText(pokemonItem, "05 Composed Bulbasaur");
 				yield* expectVisibleText(pokemonItem, "Grass");
@@ -755,6 +752,9 @@ it.live("keeps one rich mixed entity browser runtime across pagination and layou
 		const workoutList = runtime.locator(`[data-entity-id="${workoutId}"][data-layout="list"]`);
 		const pokemonList = runtime.locator(`[data-entity-id="${pokemon.id}"][data-layout="row"]`);
 		yield* pokemonList.waitFor({ state: "visible" });
+		yield* workoutList
+			.getByRole("button", { exact: true, name: "Expand 04 Composed Strength Workout" })
+			.click();
 		yield* expectRichEntities(showList, workoutList, pokemonList);
 		expect(yield* runtime.locator("article").count).toBe(5);
 		expect(
