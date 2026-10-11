@@ -31,6 +31,7 @@ import { DeviceService } from "#/modules/device/service";
 import { EntityWatchService, type WatchEntities } from "#/modules/entity-watches/service";
 import { subscribeNativeResume } from "#/modules/entity-watches/transport";
 import { ExternalLinks } from "#/modules/external-links/service";
+import { IosLiveActivitiesService } from "#/modules/ios-live-activities/service";
 import type { BackInterceptors } from "#/modules/navigation/back-interceptors";
 import { historyEntry } from "#/modules/navigation/history-entry";
 import { usePageTitle } from "#/modules/navigation/page-title";
@@ -559,6 +560,11 @@ function ClientPageFrame(props: {
 				props.runtime
 					.runSync(DeviceService)
 					.outcome(props.scope, identity.contributors, frameKey, active.current, request)
+			}
+			onIosLiveActivity={(request) =>
+				props.runtime
+					.runSync(IosLiveActivitiesService)
+					.outcome(props.scope, identity.contributors, active.current, request)
 			}
 			onNavigate={(request) =>
 				void navigate({

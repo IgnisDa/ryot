@@ -23,6 +23,7 @@ import { useAuthenticatedSession } from "#/modules/auth/session-boundary";
 import { useIsDemoSession } from "#/modules/demo-protection";
 import { impactHaptic } from "#/modules/device/haptics";
 import { DeviceScope, ReturnShortcutBar } from "#/modules/device/lifecycle";
+import { IosLiveActivityScope } from "#/modules/ios-live-activities/lifecycle";
 import { CONTENT_SHIFT } from "#/modules/navigation/drawer-metrics";
 import { EdgeGesture } from "#/modules/navigation/edge-gesture";
 import {
@@ -440,6 +441,7 @@ export function AuthenticatedShell(props: {
 			/>
 			<RememberedWorkspaceContext value={rememberedPluginId}>
 				<DeviceScope scope={scope} runtime={runtime} onNavigate={navigateDeviceTarget} />
+				<IosLiveActivityScope scope={scope} runtime={runtime} catalog={catalog} />
 				<CustomizeContext value={customizeController}>
 					<PluginHeaderContext value={header}>
 						<PluginTitleContext value={pluginTitle}>

@@ -20,6 +20,8 @@ import {
 	PluginCollectionRequest,
 	PluginDeviceRequest,
 	PluginDeviceResult,
+	PluginIosLiveActivityRequest,
+	PluginIosLiveActivityResult,
 	PluginManagedAssetResolution,
 	PluginStorageRequest,
 	PluginThemeSnapshot,
@@ -225,6 +227,23 @@ export const createRyotClient = (adapter: RyotClientAdapter) => {
 					: Effect.fail(new RyotClientError("malformed-result")),
 		);
 	};
+	const invokeIosLiveActivity = (
+		request: PluginIosLiveActivityRequest,
+	): Effect.Effect<PluginIosLiveActivityResult, RyotClientError> =>
+		Effect.gen(function* () {
+			const decoded = Schema.decodeResult(PluginIosLiveActivityRequest)(request);
+			if (Result.isFailure(decoded)) {
+				return yield* new RyotClientError("invalid-input");
+			}
+			const iosLiveActivity = adapter.iosLiveActivity;
+			if (!iosLiveActivity) {
+				return yield* new RyotClientError("unsupported-capability");
+			}
+			return yield* decodeCapability(
+				PluginIosLiveActivityResult,
+				yield* adapterEffect(() => iosLiveActivity(decoded.success)),
+			);
+		});
 
 	return {
 		overlayBack,
@@ -327,6 +346,32 @@ export const createRyotClient = (adapter: RyotClientAdapter) => {
 					const value = yield* adapterEffect(() => open(decoded.success));
 					return yield* decodeCapability(ExternalLinkSuccess, value);
 				}),
+		},
+		iosLiveActivities: {
+			end: (
+				request: Omit<Extract<PluginIosLiveActivityRequest, { readonly action: "end" }>, "action">,
+			) => invokeIosLiveActivity({ ...request, action: "end" }),
+			list: (
+				request: Omit<Extract<PluginIosLiveActivityRequest, { readonly action: "list" }>, "action">,
+			) => invokeIosLiveActivity({ ...request, action: "list" }),
+			start: (
+				request: Omit<
+					Extract<PluginIosLiveActivityRequest, { readonly action: "start" }>,
+					"action"
+				>,
+			) => invokeIosLiveActivity({ ...request, action: "start" }),
+			update: (
+				request: Omit<
+					Extract<PluginIosLiveActivityRequest, { readonly action: "update" }>,
+					"action"
+				>,
+			) => invokeIosLiveActivity({ ...request, action: "update" }),
+			availability: (
+				request: Omit<
+					Extract<PluginIosLiveActivityRequest, { readonly action: "availability" }>,
+					"action"
+				>,
+			) => invokeIosLiveActivity({ ...request, action: "availability" }),
 		},
 		operations: {
 			invoke: <

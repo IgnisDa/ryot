@@ -5,6 +5,7 @@ import {
 	CLIENT_BRIDGE_BOOTSTRAP_READY,
 	PluginBridgeInit,
 	type PluginBridgeProviderSearchScreen,
+	type PluginIosLiveActivityOutcome,
 	type PluginLogicalLocation,
 	type PluginOperationRequest,
 	type ProviderSearchScreenOutcome,
@@ -142,6 +143,11 @@ function mount(
 			Effect.succeed({ outcome: "failure" as const, reason: "invalid-request" as const }),
 		onExternalLink: () =>
 			Effect.succeed({ outcome: "failure" as const, reason: "link-open-failed" as const }),
+		onIosLiveActivity: () =>
+			Effect.succeed({
+				outcome: "success",
+				value: { status: "unsupported" },
+			} satisfies PluginIosLiveActivityOutcome),
 		navigation: {
 			index,
 			location,
