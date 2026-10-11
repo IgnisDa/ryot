@@ -68,3 +68,52 @@ export const persistPlannedRelationshipSynchronization = Effect.fn(
 	};
 	return yield* relationships.persistPlannedReconciliation([group], input.command, scope);
 });
+
+export const persistPlannedRelationshipPage = Effect.fn("persistPlannedRelationshipPage")(
+	function* (
+		input: {
+			generation: string;
+			kind: "page" | "sweep";
+			command: DomainLifecycleCommand;
+			anchorEntityId: EntityId;
+			preserveExisting: boolean;
+			direction: "incoming" | "outgoing";
+			relationshipSchemaSlug: RelationshipSchemaSlug;
+			relationshipSchemaPluginId: string | null;
+			entries: ReadonlyArray<RelationshipEntry>;
+		} & ({ scope: "global" } | { scope: "user"; userId: UserId }),
+	) {
+		const relationships = yield* RelationshipsService;
+		const scope =
+			input.scope === "user"
+				? ({ scope: "user", userId: input.userId } as const)
+				: ({ scope: "global" } as const);
+		return yield* relationships.persistPlannedReconciliation(
+			[
+				{
+					selector: {
+						type: "anchored",
+						direction: input.direction,
+						anchorEntityId: input.anchorEntityId,
+					},
+					generation: {
+						kind: input.kind,
+						value: input.generation,
+						preserveExisting: input.preserveExisting,
+					},
+					relationshipSchema: {
+						slug: input.relationshipSchemaSlug,
+						owner: definitionOwner(input.relationshipSchemaPluginId),
+					},
+					relationships: input.entries.map(({ entityId, properties }) => ({
+						properties,
+						sourceEntityId: input.direction === "outgoing" ? input.anchorEntityId : entityId,
+						targetEntityId: input.direction === "outgoing" ? entityId : input.anchorEntityId,
+					})),
+				},
+			],
+			input.command,
+			scope,
+		);
+	},
+);

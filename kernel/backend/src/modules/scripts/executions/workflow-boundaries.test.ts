@@ -134,6 +134,9 @@ layer(BunServices.layer)((test) => {
 			expect(populationWorkflow).toContain("write-child-entity-set:");
 			expect(populationWorkflow).toContain("stamp-root-populated-at");
 			expect(populationWorkflow).toContain("publish-primary-entity");
+			expect(populationWorkflow).toMatch(
+				/dispatchAdmittedWorkflow\(\s*receipts,\s*engine,\s*ProviderRelatedPagesWorkflow,/,
+			);
 
 			expect(trigger).toContain("ProviderEntityPopulationWorkflow");
 
@@ -161,6 +164,7 @@ layer(BunServices.layer)((test) => {
 			expect(productionSources.length).toBeGreaterThan(0);
 			for (const { path, text } of productionSources) {
 				expect(text, path).not.toContain("runProviderEntityPopulationWorkflow");
+				expect(text, path).not.toContain("runProviderRelatedPagesWorkflow");
 			}
 		}),
 	);

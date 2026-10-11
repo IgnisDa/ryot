@@ -31,6 +31,37 @@ Provider details are fetched before database work. Population then commits the r
 related-entity group, each child-entity set, and the final population timestamp in separate short
 transactions. Lifecycle dispatch and Redis publication happen after those transactions commit.
 
+### Paged related groups
+
+A related-entity group whose `details` result carries a `continuation` is written in pages. The
+first page is written in the root population like any other group; the group's current generation
+(the population execution ID) is claimed first in `relationship_sync_generation`, and every written
+relationship is stamped with it in `relationship.sync_generation`. Once the root is stamped and
+"populated" is published, `ProviderRelatedPagesWorkflow` (execution ID
+`related-<entityId>-<groupIndex>-<generation>`) is started without being awaited, under the same
+plugin pin and user scope. Import and refresh callers return when the root population finishes.
+
+The workflow runs the provider's `related` script once per page, each in its own sandbox execution,
+and writes each page in one transaction:
+
+- A page upserts only its own entries and deletes nothing. Authoritative groups replace the
+  properties of existing relationships; additive groups keep them. A relationship that is otherwise
+  unchanged only has its stamp written, directly, with no lifecycle request or change evidence.
+- The page index is part of the item, batch and activity identity, so replay after a crash reuses
+  committed receipts. The sweep has its own identity.
+- Every page write and the sweep take a transaction advisory lock on the group key and stop, with a
+  log entry, unless the stored generation is still their own. A newer population of the same group
+  therefore supersedes an older one without interleaved writes.
+- After the last page, an authoritative group is swept: relationships of the group whose stamp
+  differs from the generation are deleted through the normal planned-reconciliation delete path
+  (triggers, policies, receipts, change evidence). Additive groups are never swept.
+- A failed page, a superseded run, or reaching the 200-page limit skips the sweep and logs; the
+  workflow still succeeds, and the next population restarts the group from the `details` result.
+  "Populated" is published again when the workflow finishes.
+
+A `details` result that returns a continuation for a provider with no `related` script fails the
+population before anything is written.
+
 ### Mutation lock order
 
 Concurrent populations can contain the same related entities and relationships. Every entity

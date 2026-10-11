@@ -5,7 +5,10 @@ import { PolicyBatchWorkflow } from "#modules/automations/lifecycle/policy-batch
 import { AutomationRunWorkflow } from "#modules/automations/run-workflow";
 import { CollectionMembershipWorkflow } from "#modules/collections/collection-membership-workflow";
 import { EntityImportWorkflow } from "#modules/entities/providers/entity-import-workflow";
-import { ProviderEntityPopulationWorkflow } from "#modules/entities/providers/provider-entity-population-workflow";
+import {
+	ProviderEntityPopulationWorkflow,
+	ProviderRelatedPagesWorkflow,
+} from "#modules/entities/providers/provider-entity-population-workflow";
 import { EventCreateWorkflow } from "#modules/events/event-create-workflow";
 import { ProcessIngestionCaptureWorkflow } from "#modules/imports/capture-write-workflow";
 import {
@@ -31,6 +34,7 @@ export const AdmittedWorkflowCatalogueLive = Layer.succeed(
 		EventCreateWorkflow,
 		EntityImportWorkflow,
 		ProviderEntityPopulationWorkflow,
+		ProviderRelatedPagesWorkflow,
 		AutomationRunWorkflow,
 		PolicyBatchWorkflow,
 		ProcessImportRunWorkflow,
