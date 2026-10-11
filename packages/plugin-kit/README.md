@@ -5,28 +5,23 @@ literal types while validating the strict authored manifest: every section is re
 are explicit, unknown fields are rejected, and `scripts` is not authored. Sandbox slugs use lowercase
 letters and numbers separated by `.`, `_`, or `-`; `/` is reserved for path mapping.
 
-## Package Layout
+## Identity
 
-Set `metadata.packageId` to a `publisher/name` package ID. It is required and must stay the same
-across updates. Each segment is lowercase `[a-z0-9]+(-[a-z0-9]+)*` and 1-64 characters; the ID has
-exactly one `/` and no `_`, `.`, or `--`. The `ryot/` publisher is reserved for bundled plugins:
-private installs and updates under it are rejected. An independently installable fork must choose
-a new package ID.
+Set `metadata.packageId` to a permanent `publisher/name` package ID. Each segment is lowercase
+`[a-z0-9]+(-[a-z0-9]+)*` and 1-64 characters. The `ryot/` publisher is reserved for bundled
+plugins, and a fork must choose a new package ID. Package IDs and content hashes do not verify a
+publisher.
 
-### Identity and queries
-
-The package ID is portable. The local `plugin.id` identifies one system record or one user's
-private record. Names and slugs are display metadata, not selectors. Routes use
-`/p/<publisher>/<name>`; entity routes use `/e/<entityId>`. Saved views use `/v/c/<savedViewId>`,
-`/v/k/<slug>`, or `/v/p/<publisher>/<name>/<slug>` through the shared navigation helpers.
+The package ID is portable; the local `plugin.id` identifies one system record or one user's private
+record. Names and slugs are display metadata, not selectors. Routes use `/p/<publisher>/<name>` and
+saved views use `/v/c/<savedViewId>`, `/v/k/<slug>`, or `/v/p/<publisher>/<name>/<slug>` through the
+shared navigation helpers.
 
 Domain recipes accept a `PluginIdentityReference`. Authored saved views and trusted sandbox scripts
-pass `{ kind: "self" }`. Browser contributors call
-`usePluginIdentity(PluginPackageId.make("publisher/name"))`; non-React query callbacks use the same
-`client.pluginIdentity` accessor. Presentation loaders use the selected entity's stored owner, not
-the page owner. Exact schema predicates combine local names with this owner; raw slug-only queries
-remain deliberately cross-plugin. Ordinary HTTP queries must use exact `local` references or
-`{ kind: "package", packageId, scope: "system" | "user" }`, never unresolved `self`.
+pass `{ kind: "self" }`. Browser contributors call `usePluginIdentity(packageId)` or the non-React
+`client.pluginIdentity(packageId)`. Presentation loaders use the selected entity's stored owner, not
+the page owner. Ordinary HTTP queries use `local` or `{ kind: "package", packageId, scope }`
+references, never `self`.
 
 Client dependencies are an importer-local alias map:
 
@@ -36,28 +31,18 @@ pluginDependencies: {
 }
 ```
 
-Imports use `@ryot-app/plugins/catalog/<export-name>`. Aliases are local to each importer; compilation
-pins scope and the full package ID. Dependencies do not grant read or write authority. Contributors
-share one JavaScript realm: identity bindings route resources reliably but do not isolate modules.
+Imports use `@ryot-app/plugins/catalog/<export-name>`. Dependencies do not grant read or write
+authority, and contributors share one JavaScript realm, so identity bindings do not isolate modules.
 
-System configuration keys use `RYOT_PLUGIN__<PUBLISHER>__<NAME>__<CONFIG_KEY>` with segments uppercased and `-` replaced by `_`, for example
-`RYOT_PLUGIN__RYOT__MEDIA__TMDB_ACCESS_TOKEN`. Private configuration never reads
-deployment environment variables.
+System configuration keys are `RYOT_PLUGIN__<PUBLISHER>__<NAME>__<CONFIG_KEY>`, uppercased with `-`
+replaced by `_`. Private configuration never reads environment variables.
 
-One active system revision serves all users; each private owner selects their own active revision.
-Compatible upgrades select new pins for new work. Admitted work and eligible retries retain exact
-code, config, and owned definition pins, but current ownership and quarantine checks still apply.
-All replicas must run the same server/runtime release and deployment configuration.
+A system package ID cannot be installed privately. When system activation meets a retained private
+claim, the private installation is quarantined with its data intact until it is explicitly
+re-enabled. Backups remap typed plugin references by package ID and scope; IDs inside opaque plugin
+JSON are not rewritten.
 
-A system package identity cannot be installed privately. If system activation conflicts with a
-retained private claim, activation succeeds and that private installation is quarantined. Its data
-and local references remain attached to it. Removing the conflict does not reactivate it; explicit
-re-enabling must validate the retained package again. Package IDs and content hashes do not verify a publisher.
-
-Backups remap typed plugin references by package ID and scope to destination-local owners. System
-dependencies require a matching compatible destination system package; restore does not install,
-replace, downgrade, or configure system code. Conflicting private records remain private and
-quarantined. Arbitrary entity IDs and strings in opaque plugin JSON are not made portable or rewritten.
+## Package Layout
 
 | Root       | Archive output                             | Owner and allowed dependencies                                                       |
 | ---------- | ------------------------------------------ | ------------------------------------------------------------------------------------ |
@@ -537,5 +522,5 @@ sources use ordinary fields.
 ## Recipes
 
 `@ryot-app/plugin-kit/operations` provides an Effect-based typed operation invoker.
-`defineOperationRecipe` pins the exact local plugin ID, operation slug, and input/output Effect Schemas;
+`defineOperationRecipe` pins the package ID, operation slug, and input/output Effect Schemas;
 `invokeOperationRecipe` encodes input, calls the supplied transport, and decodes output.
