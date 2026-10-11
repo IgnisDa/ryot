@@ -11,8 +11,21 @@ import {
 	UserId,
 } from "@ryot-app/contract/schema/brands";
 import { stableStringify } from "@ryot-app/ts-utils/json";
-import { and, asc, count, eq, exists, inArray, isNull, or, type SQL, sql } from "drizzle-orm";
-import { Context, Effect, Layer } from "effect";
+import {
+	and,
+	asc,
+	count,
+	eq,
+	exists,
+	inArray,
+	isNotNull,
+	isNull,
+	or,
+	type SQL,
+	sql,
+} from "drizzle-orm";
+import { alias } from "drizzle-orm/pg-core";
+import { Context, Effect, Layer, Schema } from "effect";
 import { chunksOf } from "effect/Array";
 
 import { DefinitionRepository } from "#modules/definitions/repository";
@@ -76,6 +89,11 @@ export type ProviderEntityMutationLockInput = {
 	providerId: SandboxProviderId;
 	entitySchemaSlug: EntitySchemaSlug;
 } & ({ scope: "global" } | { scope: "user"; userId: UserId });
+
+export const EntityPopulationFailure = Schema.Literals(schema.ENTITY_POPULATION_FAILURES);
+export type EntityPopulationFailure = typeof EntityPopulationFailure.Type;
+
+const previousEntity = alias(schema.entity, "previous_entity");
 
 type StoredEntity = ReturnType<typeof toListedEntity>;
 export const STATEMENT_CHUNK_SIZE = 1_000;
@@ -905,7 +923,14 @@ export class EntitiesRepository extends Context.Service<EntitiesRepository>()(
 				const [updated] = yield* session.run((db) =>
 					db
 						.update(schema.entity)
-						.set({ name: input.name, properties: input.properties, populatedAt: input.populatedAt })
+						.set({
+							name: input.name,
+							properties: input.properties,
+							populatedAt: input.populatedAt,
+							...(input.populatedAt === null
+								? {}
+								: { populationFailure: null, populationFailedAt: null }),
+						})
 						.where(eq(schema.entity.id, input.entityId))
 						.returning(entitySelection),
 				);
@@ -919,6 +944,63 @@ export class EntitiesRepository extends Context.Service<EntitiesRepository>()(
 
 				return toListedEntity(updated);
 			});
+
+			const markPopulationFailed = Effect.fn("EntitiesRepository.markPopulationFailed")(
+				function* (input: {
+					entityId: EntityId;
+					failedAt: Date;
+					failure: EntityPopulationFailure;
+				}) {
+					yield* session.requireTransaction;
+					const failure = yield* Schema.decodeEffect(EntityPopulationFailure)(input.failure).pipe(
+						Effect.mapError((error) => new DbError({ message: error.message })),
+					);
+					const rows = yield* session.run((db) =>
+						db
+							.update(schema.entity)
+							.set({ populationFailure: failure, populationFailedAt: input.failedAt })
+							.where(
+								and(
+									eq(schema.entity.id, input.entityId),
+									isNull(schema.entity.populatedAt),
+									isNotNull(schema.entity.providerId),
+									isNotNull(schema.entity.externalId),
+								),
+							)
+							.returning({ id: schema.entity.id }),
+					);
+					return rows.length > 0;
+				},
+			);
+
+			const clearPopulationFailure = Effect.fn("EntitiesRepository.clearPopulationFailure")(
+				function* (entityId: EntityId) {
+					yield* session.requireTransaction;
+					const [row] = yield* session.run((db) =>
+						db
+							.update(schema.entity)
+							.set({ populationFailure: null, populationFailedAt: null })
+							.from(previousEntity)
+							.where(
+								and(
+									eq(schema.entity.id, entityId),
+									eq(previousEntity.id, schema.entity.id),
+									isNotNull(schema.entity.populationFailedAt),
+								),
+							)
+							.returning({
+								userId: schema.entity.userId,
+								failedAt: previousEntity.populationFailedAt,
+							}),
+					);
+					return row?.failedAt
+						? {
+								failedAt: row.failedAt,
+								userId: row.userId === null ? null : UserId.make(row.userId),
+							}
+						: null;
+				},
+			);
 
 			const deleteByIds = Effect.fn("EntitiesRepository.deleteByIds")(function* (
 				ids: readonly [EntityId, ...EntityId[]],
@@ -997,8 +1079,10 @@ export class EntitiesRepository extends Context.Service<EntitiesRepository>()(
 				getMutationEntity,
 				lockSchemaCatalog,
 				getMutationEntities,
+				markPopulationFailed,
 				findGlobalEntityById,
 				getEntityScopeForUser,
+				clearPopulationFailure,
 				hasUserCollectionNamed,
 				findEntityByExternalId,
 				getEntityScopesForUser,

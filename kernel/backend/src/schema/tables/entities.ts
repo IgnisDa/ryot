@@ -1,10 +1,16 @@
 import { generateId } from "better-auth";
 import { sql } from "drizzle-orm";
-import { index, jsonb, snakeCase, text, unique, uniqueIndex } from "drizzle-orm/pg-core";
+import { check, index, jsonb, snakeCase, text, unique, uniqueIndex } from "drizzle-orm/pg-core";
 
 import { user } from "./auth";
 import { plugin, sandboxProvider } from "./core";
 import { timestamptz, updatedAtColumn } from "./timestamps";
+
+export const ENTITY_POPULATION_FAILURES = [
+	"script-failure",
+	"invalid-output",
+	"execution-limit",
+] as const;
 
 export const entity = snakeCase.table(
 	"entity",
@@ -13,8 +19,10 @@ export const entity = snakeCase.table(
 		name: text().notNull(),
 		populatedAt: timestamptz(),
 		updatedAt: updatedAtColumn(),
+		populationFailedAt: timestamptz(),
 		entitySchemaSlug: text().notNull(),
 		createdAt: timestamptz().defaultNow().notNull(),
+		populationFailure: text({ enum: ENTITY_POPULATION_FAILURES }),
 		userId: text().references(() => user.id, { onDelete: "cascade" }),
 		properties: jsonb().$type<Record<string, unknown>>().notNull().default({}),
 		providerId: text().references(() => sandboxProvider.id, { onDelete: "cascade" }),
@@ -31,6 +39,10 @@ export const entity = snakeCase.table(
 		index("entity_entity_schema_slug_idx").on(table.entitySchemaSlug),
 		index("entity_entity_schema_plugin_id_idx").on(table.entitySchemaPluginId),
 		index("entity_properties_idx").using("gin", table.properties),
+		check(
+			"entity_population_failure_check",
+			sql`(${table.populationFailure} is null) = (${table.populationFailedAt} is null) and (${table.populationFailure} is null or ${table.populationFailure} in ('script-failure', 'invalid-output', 'execution-limit'))`,
+		),
 		uniqueIndex("entity_collection_name_unique")
 			.on(table.userId, table.name)
 			.where(
