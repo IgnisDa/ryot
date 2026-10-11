@@ -208,7 +208,7 @@ export const RestoreBackupWorkflowOperationsLive = Layer.effect(
 					if (!run) {
 						return yield* internalError("Backup restore run is unavailable");
 					}
-					if (run.progress >= 90) {
+					if (run.status === "completed") {
 						return yield* Effect.void;
 					}
 					const source = yield* objectStorage.openObject({
@@ -262,6 +262,10 @@ export const RestoreBackupWorkflowOperationsLive = Layer.effect(
 						const restoreTransaction = Effect.fnUntraced(function* () {
 							yield* pluginRestore.lockIngestion;
 							yield* database.acquireUserWriteLock(payload.userId);
+							const currentRun = yield* repository.getRunById(payload);
+							if (currentRun?.status === "completed") {
+								return yield* Effect.void;
+							}
 							yield* cleanliness.assertAccountIsClean(payload.userId);
 							const pluginIdByKey = new Map(
 								yield* writer.assertRequiredPlugins(validated.manifest.requiredPlugins),
@@ -295,20 +299,27 @@ export const RestoreBackupWorkflowOperationsLive = Layer.effect(
 								pluginIdByKey,
 								definitions,
 							);
-							if (!(yield* repository.updateProgress({ ...payload, progress: 90 }))) {
-								return yield* internalError("Backup restore checkpoint could not be recorded");
+							if (!(yield* repository.completeRun(payload))) {
+								return yield* internalError("Backup restore could not be completed");
 							}
 							return yield* Effect.void;
 						});
-						yield* database
-							.transaction(restoreTransaction())
-							.pipe(
-								Effect.retry({
-									times: 2,
-									while: (error) =>
-										error instanceof DbError && (error.code === "40001" || error.code === "40P01"),
+						yield* database.transaction(restoreTransaction()).pipe(
+							Effect.catchCause((cause) =>
+								Effect.gen(function* () {
+									const committed = yield* repository.getRunById(payload);
+									if (committed?.status !== "completed") {
+										return yield* Effect.failCause(cause);
+									}
+									return yield* Effect.void;
 								}),
-							);
+							),
+							Effect.retry({
+								times: 2,
+								while: (error) =>
+									error instanceof DbError && (error.code === "40001" || error.code === "40P01"),
+							}),
+						);
 					});
 					yield* stageAndRestore().pipe(
 						Effect.catchCause((cause) =>
@@ -328,13 +339,6 @@ export const RestoreBackupWorkflowOperationsLive = Layer.effect(
 		const cleanup = (payload: RestoreBackupWorkflowPayload, archive: ClaimedArchive) =>
 			asWorkflowError(
 				Effect.gen(function* () {
-					const completed = yield* repository.completeRun(payload);
-					if (!completed) {
-						const run = yield* repository.getRunById(payload);
-						if (run?.status !== "completed") {
-							return yield* internalError("Backup restore could not be completed");
-						}
-					}
 					yield* uploadIntents.deleteTemporaryUpload(archive.intentId).pipe(
 						Effect.retry(Schedule.recurs(2)),
 						Effect.catchCause((cause) =>
@@ -355,7 +359,10 @@ export const RestoreBackupWorkflowOperationsLive = Layer.effect(
 		) =>
 			asWorkflowError(
 				Effect.gen(function* () {
-					yield* repository.failRun({ ...payload, failure: error.failure });
+					const run = yield* repository.getRunById(payload);
+					if (run?.status !== "completed") {
+						yield* repository.failRun({ ...payload, failure: error.failure });
+					}
 					if (archive) {
 						yield* uploadIntents
 							.deleteTemporaryUpload(archive.intentId)

@@ -289,14 +289,17 @@ layer(
 
 layer(
 	makeLayer(() => ({
-		repository: { getRunById: () => Effect.succeed({ ...runningRun, progress: 90 }) },
-		writer: { restoreRecords: () => Effect.die("checkpoint replay must not restore rows") },
-		objectStorage: { openObject: () => Effect.die("checkpoint replay must not read the archive") },
+		writer: { restoreRecords: () => Effect.die("completed replay must not restore rows") },
+		objectStorage: { openObject: () => Effect.die("completed replay must not read the archive") },
+		repository: {
+			getRunById: () => Effect.succeed({ ...runningRun, status: "completed" as const }),
+		},
 	})),
 )((test) => {
-	test.effect("skips archive validation and mutation after the restore checkpoint", () =>
+	test.effect("skips begin, archive validation and mutation after completion", () =>
 		Effect.gen(function* () {
 			const operations = yield* RestoreBackupWorkflowOperations;
+			expect(yield* operations.begin(payload)).toBe(false);
 			yield* operations.restore(payload, archiveLocator);
 		}),
 	);
@@ -304,10 +307,7 @@ layer(
 
 layer(
 	makeLayer(({ record }) => ({
-		repository: {
-			completeRun: () =>
-				record("complete").pipe(Effect.as({ ...runningRun, status: "completed" as const })),
-		},
+		repository: { completeRun: () => Effect.die("cleanup must not complete the run") },
 		uploadIntents: {
 			deleteTemporaryUpload: () =>
 				record("delete").pipe(
@@ -316,16 +316,11 @@ layer(
 		},
 	})),
 )((test) => {
-	test.effect("completes before best-effort temporary cleanup", () =>
+	test.effect("retries unavailable temporary cleanup without accessing run persistence", () =>
 		Effect.gen(function* () {
 			const operations = yield* RestoreBackupWorkflowOperations;
 			yield* operations.cleanup(payload, archiveLocator);
-			expect(yield* (yield* FakeRestoreDependencies).calls).toEqual([
-				"complete",
-				"delete",
-				"delete",
-				"delete",
-			]);
+			expect(yield* (yield* FakeRestoreDependencies).calls).toEqual(["delete", "delete", "delete"]);
 		}),
 	);
 });
@@ -347,7 +342,7 @@ layer(
 			},
 			repository: {
 				getRunById: () => Effect.succeed(runningRun),
-				updateProgress: () => Effect.succeed({ ...runningRun, progress: 90 }),
+				completeRun: () => Effect.succeed({ ...runningRun, status: "completed" as const }),
 			},
 			objectStorage: {
 				selectStorageProvider: () => Effect.succeed("local" as const),
@@ -383,7 +378,7 @@ layer(
 			cleanliness: { assertAccountIsClean: () => Effect.void.pipe(Effect.as(undefined)) },
 			repository: {
 				getRunById: () => Effect.succeed(runningRun),
-				updateProgress: () => Effect.succeed({ ...runningRun, progress: 90 }),
+				completeRun: () => Effect.succeed({ ...runningRun, status: "completed" as const }),
 			},
 			writer: {
 				assertRequiredPlugins: () => Effect.succeed(new Map()),
@@ -490,16 +485,17 @@ layer(
 
 layer(
 	makeLayer(({ record }) => ({
-		repository: {
-			failRun: (input) =>
-				record(`fail:${input.failure.code}`).pipe(
-					Effect.as({ ...runningRun, status: "failed" as const }),
-				),
-		},
 		uploadIntents: {
 			deleteTemporaryUpload: () =>
 				record("delete").pipe(
 					Effect.andThen(Effect.fail(new BadRequest({ message: "storage unavailable" }))),
+				),
+		},
+		repository: {
+			getRunById: () => Effect.succeed(runningRun),
+			failRun: (input) =>
+				record(`fail:${input.failure.code}`).pipe(
+					Effect.as({ ...runningRun, status: "failed" as const }),
 				),
 		},
 	})),
@@ -536,7 +532,7 @@ layer(
 		cleanliness: { assertAccountIsClean: () => Effect.void.pipe(Effect.as(undefined)) },
 		repository: {
 			getRunById: () => Effect.succeed(runningRun),
-			updateProgress: () => Effect.die("failed transaction must not checkpoint"),
+			completeRun: () => Effect.die("failed transaction must not complete"),
 		},
 		objectStorage: {
 			selectStorageProvider: () => Effect.succeed("local" as const),

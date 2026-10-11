@@ -44,7 +44,9 @@ System requirements contain a definition contract derived from the manifest sche
 User-owned entity records may carry provider provenance only from a private plugin. System-provider
 entities belong in global entity dependencies; preflight rejects them in the user-owned section.
 
-All database writes occur in one transaction: restore is atomic. Local event-file reads and batched inserts occur inside it. Temp deletion failure is logged and swallowed so it cannot turn a committed restore into a failed run.
+Historical writes and run completion occur in the same database transaction: restore is atomic. Local event-file reads and batched inserts occur inside it. Replay uses completed status, not display progress. A transaction failure rereads that status before retrying or reporting failure, so a lost commit acknowledgement does not repeat committed writes. Temporary upload deletion is best effort after completion; deletion failure is logged and swallowed.
+
+Drain active restores before deploying this transaction boundary; there is no progress-based replay compatibility path.
 
 `restore/writer.ts` validates and maps archive records; `restore/persistence.ts` owns historical inserts, updates, installation config revisions, and client projections. Ordinary repositories expose runtime writes and backup reads, not historical restore writes. Both the restore writer and its persistence layer use the active database session inside the workflow's transaction.
 
