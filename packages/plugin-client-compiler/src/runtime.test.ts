@@ -206,8 +206,6 @@ it.layer(pluginClientCompilerPlatformLayer)("buildClientRuntime", (test) => {
 			assertDefined(bootstrapFile);
 			expect(bootstrapFile.contentType).toMatch(/^text\/javascript/);
 			const bootstrapSource = text(bootstrapFile.contents);
-			expect(bootstrapSource).toContain("ryot-client-composition");
-			expect(bootstrapSource).toMatch(/import\(\w+\)/);
 			const staticImports = [
 				...bootstrapSource.matchAll(
 					/(?:^|;)(?:import|export)\s*(?:[^;]*?\bfrom\s*)?["'`]([^"'`]+)["'`]/g,

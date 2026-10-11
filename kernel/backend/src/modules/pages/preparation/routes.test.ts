@@ -53,9 +53,13 @@ const document: ClientCompositionDocument = {
 	stylesheets: [],
 	modulepreloads: [],
 	importMap: { imports: {} },
-	descriptor: { application: "page", automaticRegistry: [] },
 	bootstrap: `/api/page-bundles/${"a".repeat(64)}/public/bootstrap.js`,
 	metadata: { format: 1, apiVersion: 1, hash: "current", bridgeVersion: 1, compilerVersion: 1 },
+	descriptor: {
+		application: "page",
+		automaticRegistry: [],
+		entry: { binding: "default", specifier: "@ryot-app/kernel-renderers/fixture" },
+	},
 };
 
 const client = HttpApiTest.groups(AppContract, ["pages"]);

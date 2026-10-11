@@ -7,6 +7,10 @@
 			"types": "./src/index.ts",
 			"default": "./src/index.ts"
 		},
+		"./bootstrap": {
+			"types": "./src/bootstrap/composition.ts",
+			"default": "./src/bootstrap/composition.ts"
+		},
 		"./effect": {
 			"types": "./src/effect.ts",
 			"default": "./src/effect.ts"

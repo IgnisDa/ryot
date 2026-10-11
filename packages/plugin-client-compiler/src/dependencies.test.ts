@@ -41,6 +41,7 @@ it("derives the exact trusted and neutral client import policies from the regist
 	}
 	for (const specifier of [
 		"clsx/lite",
+		"@ryot-app/plugin-client-sdk/bootstrap",
 		"@ryot-app/plugin-client-sdk/unknown",
 		"@ryot-app/plugin-ui-sdk/unknown",
 		"@ryot-app/plugin-ui-sdk/markdown/internal",

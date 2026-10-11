@@ -102,6 +102,7 @@ export const isPageShortcut = (value: string): value is PageShortcutKey =>
 	PAGE_SHORTCUT_KEYS.some((key) => key === value);
 
 export const CLIENT_PAGE_ROOT_ELEMENT_ID = "app";
+export const CLIENT_COMPOSITION_DESCRIPTOR_ELEMENT_ID = "ryot-client-composition";
 export const CLIENT_COMPOSITION_METADATA_ELEMENT_ID = "ryot-client-composition-metadata";
 
 export const PLUGIN_CLIENT_ARTIFACT_CONTENT_TYPES = [
