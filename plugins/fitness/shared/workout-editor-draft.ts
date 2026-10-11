@@ -119,12 +119,14 @@ export const WorkoutEditorDraftSchema = Schema.Struct({
 	endedAt: Schema.optional(timestamp),
 	startedAt: Schema.optional(timestamp),
 	comment: Schema.optional(Schema.String),
+	activeSetId: Schema.optional(nonEmptyString),
 	caloriesBurnt: Schema.optional(Schema.String),
 	kind: Schema.Literal("fitness-workout-editor"),
 	stopwatchStartedAt: Schema.optional(timestamp),
 	displayEnergyUnit: Schema.Literals(["kcal", "kJ"]),
 	activeDuration: Schema.optional(nonNegativeNumber),
 	activeDurationStartedAt: Schema.optional(timestamp),
+	activeOccurrenceId: Schema.optional(nonEmptyString),
 	supersets: Schema.Array(WorkoutEditorSupersetSchema),
 	occurrences: Schema.Array(WorkoutEditorOccurrenceSchema),
 	submission: Schema.optional(WorkoutEditorSaveInputSchema),
@@ -133,6 +135,14 @@ export const WorkoutEditorDraftSchema = Schema.Struct({
 	executionCountdown: Schema.optional(WorkoutEditorCountdownSchema),
 	activeDurationIntent: Schema.Literals(["preserve", "set", "clear"]),
 	localPreferences: Schema.optional(WorkoutEditorLocalPreferencesSchema),
+	pendingRest: Schema.optional(
+		Schema.Struct({
+			setId: nonEmptyString,
+			seconds: nonNegativeNumber,
+			occurrenceId: nonEmptyString,
+			exerciseId: nonEmptyEntityId,
+		}),
+	),
 });
 
 export type WorkoutEditorSet = typeof WorkoutEditorSetSchema.Type;

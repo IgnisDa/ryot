@@ -210,6 +210,11 @@ it("hydrates empty template exercises and partial planned sets", () => {
 
 	assert(result.kind === "ready");
 	expect(result.draft.mode).toMatchObject({ kind: "template-edit", entityId: "workout-1" });
+	expect(result.draft.occurrences[0]?.display).toEqual({
+		weightUnit: "kg",
+		distanceUnit: "km",
+		durationUnit: "seconds",
+	});
 	expect(result.draft.occurrences).toHaveLength(2);
 	expect(result.draft.occurrences[0]).toMatchObject({
 		sourceExerciseOrder: 1,

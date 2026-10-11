@@ -61,6 +61,9 @@ export const resolveWorkoutRestTime = (input: {
 	readonly settings: Partial<WorkoutRestSettings>;
 }): { readonly kind: "invalid" } | { readonly kind: "resolved"; readonly seconds: number } => {
 	if (input.explicitSeconds !== undefined) {
+		if (input.explicitSeconds.trim() === "") {
+			return { kind: "invalid" };
+		}
 		const seconds = Number(input.explicitSeconds.trim());
 		return Number.isSafeInteger(seconds) && seconds >= 0
 			? { seconds, kind: "resolved" }

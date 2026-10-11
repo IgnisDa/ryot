@@ -13,7 +13,11 @@ import {
 	encodeWorkoutEditorDraft,
 	type WorkoutEditorDraft,
 } from "../../shared/workout-editor-draft";
-import type { WorkoutEditorSaveInput } from "../../shared/workout-editor-operations";
+import type {
+	WorkoutEditorSaveInput,
+	WorkoutEditorSaveOutput,
+} from "../../shared/workout-editor-operations";
+import { completeWorkoutSet } from "./actions";
 import { invalidateWorkoutCountdowns, reconcileWorkoutTimers } from "./timers";
 
 type WorkoutEditorContext = typeof WorkoutEditorContextOutputSchema.Type;
@@ -63,6 +67,7 @@ type WorkoutEditorControllerPorts = {
 		readonly write: (value: string) => Effect.Effect<void, unknown>;
 	};
 	readonly target?: PluginNavigationTarget | undefined;
+	readonly feedback?: (() => Effect.Effect<void>) | undefined;
 };
 
 type WorkoutEditorController = {
@@ -81,6 +86,7 @@ type WorkoutEditorController = {
 		readonly restClientId?: string;
 	}) => Effect.Effect<void, unknown>;
 	readonly refreshContext: () => Effect.Effect<void, unknown>;
+	readonly rejectSubmission: (result: WorkoutEditorSaveOutput) => Effect.Effect<boolean, unknown>;
 	readonly setSaving: (saving: boolean) => void;
 	readonly start: (draft: WorkoutEditorDraft) => Effect.Effect<boolean, unknown>;
 	readonly subscribe: (listener: () => void) => () => void;
@@ -125,6 +131,8 @@ export const createWorkoutEditorController = (
 	let discarding = false;
 	let disposed = false;
 	let shortcutSet: boolean | undefined;
+	let firstSubmissionAttempt = false;
+	let canReleaseRejection = false;
 
 	const publish = (next: WorkoutEditorControllerSnapshot) => {
 		snapshot = next;
@@ -518,7 +526,9 @@ export const createWorkoutEditorController = (
 			if (isDisposed()) {
 				return;
 			}
-			yield* refreshContext();
+			if (expected === undefined) {
+				yield* refreshContext();
+			}
 			if (isDisposed() || !isReady(snapshot)) {
 				return;
 			}
@@ -536,11 +546,47 @@ export const createWorkoutEditorController = (
 			if (now === undefined) {
 				return;
 			}
-			const result = reconcileWorkoutTimers(snapshot.draft, now, expected);
-			if (result.changed) {
+			let draft = snapshot.draft;
+			const rest = draft.restCountdown;
+			const execution = draft.executionCountdown;
+			let completed = false;
+			if (
+				execution !== undefined &&
+				execution.pausedRemainingSeconds === undefined &&
+				Date.parse(execution.deadline) <= now &&
+				(expected === undefined || execution.clientId === expected.executionClientId)
+			) {
+				const next = completeWorkoutSet(draft, {
+					overrides: {},
+					observedAt: now,
+					setId: execution.setId,
+					now: Date.parse(execution.deadline),
+					occurrenceId: execution.occurrenceId,
+					timerId: `${execution.clientId}:rest`,
+					settings: snapshot.context?.settings ?? {},
+					prompt:
+						draft.localPreferences?.promptForRestTimer ??
+						snapshot.context?.settings.promptForRestTimer ??
+						false,
+				});
+				completed = next !== draft;
+				draft = next;
+			}
+			const result = reconcileWorkoutTimers(draft, now, expected);
+			if (result.changed || completed) {
 				setDraft(result.draft);
 			}
 			yield* flush();
+			if (
+				(completed && execution !== undefined && now - Date.parse(execution.deadline) < 1500) ||
+				(rest !== undefined &&
+					rest.pausedRemainingSeconds === undefined &&
+					Date.parse(rest.deadline) <= now &&
+					now - Date.parse(rest.deadline) < 1500 &&
+					result.draft.restCountdown?.clientId !== rest.clientId)
+			) {
+				yield* ports.feedback?.() ?? Effect.void;
+			}
 		});
 
 	const removeDraft = (requiresSubmission: boolean) =>
@@ -594,9 +640,6 @@ export const createWorkoutEditorController = (
 		refreshContext,
 		finish: () => removeDraft(true),
 		discard: () => removeDraft(false),
-		setSaving: (saving) => {
-			updateReady((current) => ({ ...current, saving }));
-		},
 		subscribe: (listener) => {
 			listeners.add(listener);
 			return () => listeners.delete(listener);
@@ -607,6 +650,13 @@ export const createWorkoutEditorController = (
 				cancel();
 			}
 			timerCallbacks.clear();
+		},
+		setSaving: (saving) => {
+			if (saving) {
+				canReleaseRejection = firstSubmissionAttempt;
+				firstSubmissionAttempt = false;
+			}
+			updateReady((current) => ({ ...current, saving }));
 		},
 		change: (transform) => {
 			if (
@@ -621,23 +671,22 @@ export const createWorkoutEditorController = (
 			const next = transform(snapshot.draft);
 			return next === snapshot.draft ? false : setDraft(next);
 		},
-		beginSubmission: (input) =>
+		rejectSubmission: (result) =>
 			Effect.gen(function* () {
-				if (!isReady(snapshot) || snapshot.saving || discarding) {
-					return yield* new RyotClientError("invalid-input");
+				const firstAttempt = canReleaseRejection;
+				canReleaseRejection = false;
+				if (
+					!isReady(snapshot) ||
+					snapshot.saving ||
+					!firstAttempt ||
+					!("canEdit" in result) ||
+					result.canEdit !== true
+				) {
+					return false;
 				}
-				const submission = snapshot.draft.submission ?? input;
-				setDraft(
-					{
-						...snapshot.draft,
-						submission,
-						restCountdown: undefined,
-						executionCountdown: undefined,
-					},
-					true,
-				);
+				setDraft({ ...snapshot.draft, submission: undefined }, true);
 				yield* flush();
-				return submission;
+				return true;
 			}),
 		start: (draft) =>
 			Effect.gen(function* () {
@@ -661,6 +710,28 @@ export const createWorkoutEditorController = (
 				});
 				yield* flush();
 				return true;
+			}),
+		beginSubmission: (input) =>
+			Effect.gen(function* () {
+				if (!isReady(snapshot) || snapshot.saving || discarding) {
+					return yield* new RyotClientError("invalid-input");
+				}
+				if (snapshot.draft.submission === undefined) {
+					firstSubmissionAttempt = true;
+				}
+				const submission = snapshot.draft.submission ?? input;
+				setDraft(
+					{
+						...snapshot.draft,
+						submission,
+						pendingRest: undefined,
+						restCountdown: undefined,
+						executionCountdown: undefined,
+					},
+					true,
+				);
+				yield* flush();
+				return submission;
 			}),
 	};
 };

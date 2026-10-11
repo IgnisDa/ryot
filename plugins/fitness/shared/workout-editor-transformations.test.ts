@@ -66,6 +66,21 @@ const makeDraft = (values: Record<string, unknown> = {}) =>
 		...values,
 	});
 
+it("omits blank session energy rather than converting it to zero", () => {
+	const result = buildWorkoutEditorSaveInput(
+		makeDraft({ caloriesBurnt: "  " }),
+		{ submittedAt: timestamp, submissionId: "blank-energy" },
+		{
+			unitSystem: "metric",
+			exerciseOverridesById: {},
+			restSettings: { dropRestTime: 0, warmUpRestTime: 0, normalRestTime: 60, failureRestTime: 0 },
+		},
+	);
+	assert(result.input !== undefined);
+	assert(result.input.data.kind === "workout");
+	expect(result.input.data.caloriesBurnt).toBeUndefined();
+});
+
 it("reuses the complete frozen submission after recovery or context changes", () => {
 	const source = makeDraft();
 	const context = {
