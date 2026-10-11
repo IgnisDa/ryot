@@ -1,3 +1,4 @@
+import { AssetLocator } from "@ryot-app/contract/modules/assets/schemas";
 import type { JsonValue } from "@ryot-app/contract/schema/json";
 import {
 	type AppChoice,
@@ -20,6 +21,7 @@ export type SchemaFormValue =
 	| number
 	| string
 	| undefined
+	| readonly AssetLocator[]
 	| readonly SchemaFormArrayValue[];
 
 export type SchemaFormValues = Readonly<Record<string, SchemaFormValue>>;
@@ -31,6 +33,7 @@ export type SchemaFormTextFormat = "url" | "email";
 export type SchemaFormControl =
 	| "list"
 	| "text"
+	| "assets"
 	| "file"
 	| "chips"
 	| "switch"
@@ -48,6 +51,7 @@ type SchemaFormFieldType =
 	| "date"
 	| "enum"
 	| "array"
+	| "assets"
 	| "number"
 	| "string"
 	| "boolean"
@@ -59,6 +63,7 @@ export type SchemaFormField = {
 	readonly key: string;
 	readonly label: string;
 	readonly secret: boolean;
+	readonly readOnly: boolean;
 	readonly required: boolean;
 	readonly description: string;
 	readonly type: SchemaFormFieldType;
@@ -95,8 +100,19 @@ const schemaArrayItem = (property: AppPropertyDefinition): SchemaFormArrayItem |
 		: undefined;
 };
 
+const isAssetListProperty = (property: AppPropertyDefinition) =>
+	property.type === "array" &&
+	property.items.type === "object" &&
+	property.items.validation?.asset === true;
+
+const isAssetLocatorList = (value: unknown): value is readonly AssetLocator[] =>
+	Array.isArray(value) && value.every((item) => Schema.is(AssetLocator)(item));
+
 const schemaFieldType = (property: AppPropertyDefinition): SchemaFormFieldType | undefined => {
 	if (property.type === "array") {
+		if (isAssetListProperty(property)) {
+			return "assets";
+		}
 		return schemaArrayItem(property) === undefined ? undefined : "array";
 	}
 	return property.type === "object" ? undefined : property.type;
@@ -167,6 +183,9 @@ const schemaFieldControl = (
 	if (property.type === "enum-array") {
 		return "multi-select";
 	}
+	if (isAssetListProperty(property)) {
+		return "assets";
+	}
 	if (property.type === "array") {
 		return "list";
 	}
@@ -196,7 +215,9 @@ const validatedFieldValue = (
 	values: SchemaFormValues,
 	input: Readonly<Record<string, unknown>>,
 ) =>
-	field.type === "array" && Array.isArray(values[field.key]) ? values[field.key] : input[field.key];
+	(field.type === "array" || field.type === "assets") && Array.isArray(values[field.key])
+		? values[field.key]
+		: input[field.key];
 
 /**
  * Redaction strips stored secrets before they reach the client, so an edit form cannot tell
@@ -235,6 +256,7 @@ const effectiveConditionInput = (schema: AppSchema, values: SchemaFormValues) =>
 const describeSchemaFormFieldsWithInput = (
 	schema: AppSchema,
 	input: Readonly<Record<string, unknown>>,
+	mode: SchemaFormMode,
 ): SchemaFormFieldsDescription => {
 	const fields: SchemaFormField[] = [];
 	const unsupported: string[] = [];
@@ -262,6 +284,7 @@ const describeSchemaFormFieldsWithInput = (
 			arrayItem: schemaArrayItem(property),
 			control: schemaFieldControl(property, choices),
 			oauthProvider: schemaFieldOAuthProvider(property),
+			readOnly: mode === "edit" && property.immutable === true,
 			allowedFileExtensions: schemaFieldFileExtensions(property),
 			required: isAppSchemaPathEffectivelyRequired(schema, [key], input),
 			arrayValidation: property.type === "array" ? property.validation : undefined,
@@ -273,8 +296,9 @@ const describeSchemaFormFieldsWithInput = (
 export const describeSchemaFormFields = (
 	schema: AppSchema,
 	values: SchemaFormValues = {},
+	mode: SchemaFormMode = "create",
 ): SchemaFormFieldsDescription =>
-	describeSchemaFormFieldsWithInput(schema, effectiveConditionInput(schema, values));
+	describeSchemaFormFieldsWithInput(schema, effectiveConditionInput(schema, values), mode);
 
 const isSchemaFormArrayValue = (
 	value: unknown,
@@ -427,6 +451,9 @@ const propertyValueValidationMessage = (
 			if (boundsMessage !== undefined) {
 				return boundsMessage;
 			}
+			if (isAssetListProperty(matched)) {
+				return isAssetLocatorList(value) ? undefined : `${label} has an invalid value`;
+			}
 			for (const [index, item] of value.entries()) {
 				const message = propertyValueValidationMessage(
 					matched.items,
@@ -453,6 +480,9 @@ const schemaFieldDefaultValue = (
 	if (property.type !== "array") {
 		return property.defaultValue ?? (isTimeZoneProperty(property) ? browserTimeZone : undefined);
 	}
+	if (isAssetListProperty(property)) {
+		return isAssetLocatorList(property.defaultValue) ? property.defaultValue : undefined;
+	}
 	const item = schemaArrayItem(property);
 	return item !== undefined &&
 		property.defaultValue?.every((value) => isSchemaFormArrayValue(value, item))
@@ -478,7 +508,7 @@ export const validateSchemaFormValues = (
 	mode: SchemaFormMode = "create",
 ): ReadonlyMap<string, string> => {
 	const input = effectiveConditionInput(schema, values);
-	const { fields } = describeSchemaFormFieldsWithInput(schema, input);
+	const { fields } = describeSchemaFormFieldsWithInput(schema, input, mode);
 	const errors = new Map<string, string>();
 	for (const field of fields) {
 		const fieldValue = validatedFieldValue(field, values, input);
@@ -518,7 +548,7 @@ export const toSchemaFormPayload = (
 	const input = effectiveConditionInput(schema, values);
 	const payload: Record<string, JsonValue> = {};
 	const renderedKeys = new Set(
-		describeSchemaFormFieldsWithInput(schema, input).fields.map((field) => field.key),
+		describeSchemaFormFieldsWithInput(schema, input, "create").fields.map((field) => field.key),
 	);
 	for (const [key, property] of getOrderedAppSchemaFieldEntries(schema.fields)) {
 		if (!isSupportedProperty(property)) {

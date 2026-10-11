@@ -1,6 +1,8 @@
 export { SchemaFileField, type SchemaFileIcons } from "./file/field";
 export { browserFileCandidate, pickBrowserUploadFile } from "./file/browser-file";
 export { SchemaForm, useSchemaForm, type SchemaFormApi, type SchemaFormIcons } from "./form";
+export type { SchemaAssetRenderer } from "./form";
+export type { SchemaAssetUpload, SchemaAssetUploadOutcome } from "./asset/upload";
 export type {
 	SchemaFileCandidate,
 	SchemaFilePicker,
