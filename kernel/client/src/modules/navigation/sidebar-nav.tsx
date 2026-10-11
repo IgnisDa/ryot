@@ -1,5 +1,7 @@
 import { KERNEL_SHORTCUTS } from "@ryot-app/client-plugin-contract";
 import { AppIcon } from "@ryot-app/client-ui-sdk/icon";
+import { pluginPath, savedViewPath } from "@ryot-app/contract/modules/plugins/navigation";
+import { PluginId } from "@ryot-app/contract/schema/brands";
 import type { NavigationData } from "@ryot-app/ryotql-recipes/navigation";
 import type {
 	PluginClientCatalog,
@@ -112,9 +114,9 @@ function SidebarSection(props: {
 export function SidebarNav(props: SidebarNavProps) {
 	const href = (item: SidebarItem) => {
 		if (item.kind === "home") {
-			return props.current === null ? "/" : `/${props.current.slug}`;
+			return props.current === null ? "/" : pluginPath(PluginId.make(props.current.pluginId));
 		}
-		return item.kind === "view" ? `/v/${item.slug}` : `/e/${item.slug}`;
+		return item.reference ? savedViewPath(item.reference) : `/e/${encodeURIComponent(item.slug)}`;
 	};
 	const navigate = (item: SidebarItem) =>
 		item.kind === "home" ? props.onNavigateHome() : props.onNavigateItem(item);

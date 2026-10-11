@@ -10,6 +10,7 @@ import {
 	OAuthConnectionRequestError,
 	type OAuthConnectionStatus,
 } from "@ryot-app/contract/modules/oauth-connections/schemas";
+import type { DeclarationReference } from "@ryot-app/contract/modules/plugins/references";
 import type { IntegrationId, OAuthConnectionId } from "@ryot-app/contract/schema/brands";
 import { useRouteContext } from "@tanstack/react-router";
 import {
@@ -105,7 +106,7 @@ export type OAuthConnectInput = {
 	readonly field: string;
 	readonly scope: ApiScope;
 	readonly signal: AbortSignal;
-	readonly integrationProvider: string;
+	readonly integrationProvider: DeclarationReference;
 	readonly integrationId?: IntegrationId;
 };
 
@@ -361,7 +362,7 @@ export class OAuthConnectService extends Context.Service<OAuthConnectService>()(
 }
 
 export const useOAuthConnect = (input: {
-	readonly integrationProvider: string;
+	readonly integrationProvider: DeclarationReference;
 	readonly integrationId?: IntegrationId;
 }): { readonly connect: SchemaOAuthConnect; readonly disabledReason: string | undefined } => {
 	const { scope, server, runtime } = useRouteContext({ from: "/_authenticated" });

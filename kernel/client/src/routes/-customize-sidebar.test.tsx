@@ -85,7 +85,7 @@ const mountView = (
 		).pipe(
 			Layer.provideMerge(OAuthRouteStubs),
 			Layer.provideMerge(
-				Layer.succeed(ClientStorage, options.storage ?? makeStorageStub("fixture")),
+				Layer.succeed(ClientStorage, options.storage ?? makeStorageStub("plugin-1")),
 			),
 		),
 	);
@@ -184,7 +184,7 @@ describe("customize sidebar route", () => {
 			fireEvent.click(panel.getByRole("button", { name: "Cancel sidebar customization" }));
 
 			yield* Effect.promise(() =>
-				waitFor(() => expect(view.router.state.location.pathname).toBe("/fixture")),
+				waitFor(() => expect(view.router.state.location.pathname).toBe("/p/plugin-1")),
 			);
 			expect(screen.queryByText("Discard sidebar changes?")).toBeNull();
 		}).pipe(Effect.ensuring(Effect.sync(restore)));
@@ -225,10 +225,10 @@ describe("customize sidebar route", () => {
 			fireEvent.click(panel.getByRole("button", { name: "Save sidebar changes" }));
 
 			yield* Effect.promise(() =>
-				waitFor(() => expect(view.router.state.location.pathname).toBe("/fixture")),
+				waitFor(() => expect(view.router.state.location.pathname).toBe("/p/plugin-1")),
 			);
 			expect(loadedAt).not.toContain("/customize-sidebar");
-			expect(loadedAt).toContain("/fixture");
+			expect(loadedAt).toContain("/p/plugin-1");
 		}).pipe(Effect.ensuring(Effect.sync(restore)));
 	});
 
@@ -243,10 +243,12 @@ describe("customize sidebar route", () => {
 			fireEvent.click(panel.getByRole("button", { name: "Save sidebar changes" }));
 
 			yield* Effect.promise(() =>
-				waitFor(() => expect(view.router.state.location.pathname).toBe("/fixture")),
+				waitFor(() => expect(view.router.state.location.pathname).toBe("/p/plugin-1")),
 			);
 			expect(saves).toHaveLength(1);
-			expect(saves[0]?.updates.map((update) => update.viewSlug)).toEqual(["fixture-view"]);
+			expect(saves[0]?.updates.map((update) => update.reference)).toEqual([
+				{ kind: "plugin", pluginId: "plugin-1", slug: "fixture-view" },
+			]);
 		}).pipe(Effect.ensuring(Effect.sync(restore)));
 	});
 
@@ -265,17 +267,17 @@ describe("customize sidebar route", () => {
 		return Effect.gen(function* () {
 			const view = mountView("/customize-sidebar", [], {
 				catalog: [primary, alternate],
-				storage: makeStorageStub("fixture", recorder),
+				storage: makeStorageStub("plugin-1", recorder),
 			});
 			const panel = yield* Effect.promise(() => openPanel());
 
-			fireEvent.click(panel.getByRole("switch", { name: "Show Fixture in sidebar" }));
+			fireEvent.click(panel.getByRole("switch", { name: /^Show Fixture · System · / }));
 			fireEvent.click(panel.getByRole("button", { name: "Save sidebar changes" }));
 
 			yield* Effect.promise(() =>
-				waitFor(() => expect(view.router.state.location.pathname).toBe("/alternate")),
+				waitFor(() => expect(view.router.state.location.pathname).toBe("/p/plugin-2")),
 			);
-			expect(recorder.setCalls.map(({ slug }) => slug)).toEqual(["alternate"]);
+			expect(recorder.setCalls.map(({ slug }) => slug)).toEqual(["plugin-2"]);
 		}).pipe(Effect.ensuring(Effect.sync(restore)));
 	});
 });

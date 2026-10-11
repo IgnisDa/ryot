@@ -1,7 +1,7 @@
 import { expect, it } from "@effect/vitest";
 import type { ImportEntityRunResult } from "@ryot-app/contract/modules/provider-entities/schemas";
 import { ProviderEntityImportBacklogFull } from "@ryot-app/contract/modules/provider-entities/schemas";
-import { EntityId, EntitySchemaSlug } from "@ryot-app/contract/schema/brands";
+import { EntityId, EntitySchemaSlug, PluginId } from "@ryot-app/contract/schema/brands";
 import { Clock, Effect, Fiber } from "effect";
 import { TestClock } from "effect/testing";
 
@@ -27,6 +27,7 @@ const completed = {
 		createdAt: "2026-01-01T00:00:00.000Z",
 		updatedAt: "2026-01-01T00:00:00.000Z",
 		entitySchemaSlug: EntitySchemaSlug.make("book"),
+		entitySchemaPluginId: PluginId.make("provider-owner"),
 	},
 } satisfies ImportEntityRunResult;
 

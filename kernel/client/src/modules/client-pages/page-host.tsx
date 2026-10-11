@@ -50,9 +50,9 @@ import type { ClientRuntime } from "#/runtime";
 
 const MAX_RETAINED_FRAMES = 3;
 const pluginRouteIds = new Set([
-	"/_authenticated/$pluginSlug",
+	"/_authenticated/p/$pluginId",
 	"/_authenticated/e/$entityId",
-	"/_authenticated/v/$viewSlug",
+	"/_authenticated/v",
 ]);
 const searchString = (value: string) => (value.startsWith("?") ? value.slice(1) : value);
 const digest = (value: unknown) =>
@@ -164,9 +164,9 @@ export function ClientPageDocumentHost() {
 		() =>
 			document
 				? Match.value(document.prepared.context.target).pipe(
-						Match.when({ kind: "plugin-route" }, ({ path, pluginSlug }) =>
+						Match.when({ kind: "plugin-route" }, ({ path, pluginId }) =>
 							rendererContributor?.kind === "plugin"
-								? toPluginLocation(pluginSlug, location.pathname, location.searchStr)
+								? toPluginLocation(pluginId, location.pathname, location.searchStr)
 								: { path, kind: "route" as const, search: searchString(location.searchStr) },
 						),
 						Match.when({ kind: "entity" }, ({ entityId, entitySchemaSlug }) => ({
@@ -435,11 +435,6 @@ function ClientPageFrame(props: {
 	const navigate = useNavigate();
 	const active = useRef(props.active);
 	const { context, identity } = props.document.prepared;
-	const rendererPluginId =
-		context.renderer.kind === "plugin" ? context.renderer.pluginId : undefined;
-	const rendererContributor = identity.contributors.find(
-		(contributor) => contributor.kind === "plugin" && contributor.pluginId === rendererPluginId,
-	);
 
 	const checkFreshness = useCallback(
 		() => props.runtime.runSync(ClientPageFreshness).check(props.scope, identity),
@@ -472,6 +467,7 @@ function ClientPageFrame(props: {
 			viewport={viewport}
 			active={props.active}
 			inert={props.document.inert}
+			title={props.document.title}
 			navigation={props.navigation}
 			watchEntities={watchEntities}
 			chromeLeading={props.edgeLeading}
@@ -497,11 +493,6 @@ function ClientPageFrame(props: {
 			}
 			onQuery={(request) =>
 				props.runtime.runSync(PluginQueriesService).query({ request, scope: props.scope })
-			}
-			title={
-				rendererContributor?.kind === "plugin"
-					? rendererContributor.pluginSlug
-					: props.document.title
 			}
 			onStorage={(request) =>
 				props.runtime.runSync(PluginStorage).outcome(props.scope, identity.contributors, request)
@@ -533,7 +524,7 @@ function ClientPageFrame(props: {
 			}}
 			onInvokeOperation={(request) => {
 				const target = props.operationTargets.find(
-					(candidate) => candidate.pluginSlug === request.pluginSlug,
+					(candidate) => candidate.pluginId === request.pluginId,
 				);
 				if (target === undefined) {
 					return Effect.succeed({

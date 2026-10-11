@@ -1,6 +1,10 @@
 import { useRyot } from "@ryot-app/client-sdk/react";
 import { Modal } from "@ryot-app/client-ui-sdk";
-import type { EntitySchemaSlug, SandboxProviderId } from "@ryot-app/contract/schema/brands";
+import {
+	definitionKey,
+	type EntitySchemaReference,
+} from "@ryot-app/contract/modules/plugins/references";
+import type { SandboxProviderId } from "@ryot-app/contract/schema/brands";
 import { useRouteContext } from "@tanstack/react-router";
 import { Effect } from "effect";
 import { useEffect, useEffectEvent, useRef, useState, type ComponentProps } from "react";
@@ -22,8 +26,7 @@ export const PROVIDER_ADD_TITLE = "Add from a provider";
 type ProviderAddModalProps = {
 	readonly onClose: () => void;
 	readonly initialQuery?: string | undefined;
-	readonly ownerPluginId?: string | undefined;
-	readonly entitySchemaSlug: EntitySchemaSlug;
+	readonly schema: EntitySchemaReference;
 };
 
 type ProviderAddModalState = {
@@ -44,10 +47,13 @@ export function ProviderAddModal(props: ProviderAddModalProps) {
 	const ryot = useRyot();
 	const uploadFile = useSchemaFileUpload();
 	const { scope, runtime } = useRouteContext({ from: "/_authenticated" });
-	const { entitySchemaSlug } = props;
+	const entitySchemaSlug = props.schema.slug;
+	const ownerPluginId =
+		props.schema.owner.kind === "plugin" ? props.schema.owner.pluginId : undefined;
+	const schemaKey = definitionKey("entity", props.schema.owner, entitySchemaSlug);
 	const providerService = runtime.runSync(ProviderAddService);
 	const clientStorage = runtime.runSync(ClientStorage);
-	const libraryMembership = resolveLibraryMembership(props.ownerPluginId, entitySchemaSlug);
+	const libraryMembership = resolveLibraryMembership(ownerPluginId, entitySchemaSlug);
 	const imported = useRef(false);
 	const [state, setState] = useState<ProviderAddModalState>({
 		selectedProviderId: undefined,
@@ -55,14 +61,17 @@ export function ProviderAddModal(props: ProviderAddModalProps) {
 	});
 
 	const loadProviderState = useEffectEvent(
-		(schemaSlug: EntitySchemaSlug, ownerPluginId: string | undefined, isActive: () => boolean) =>
+		(schema: EntitySchemaReference, isActive: () => boolean) =>
 			runtime.runPromise(
 				Effect.gen(function* () {
 					const [remembered, result] = yield* Effect.all(
 						[
-							clientStorage.getRememberedProvider(scope, schemaSlug),
+							clientStorage.getRememberedProvider(
+								scope,
+								definitionKey("entity", schema.owner, schema.slug),
+							),
 							providerService
-								.loadProviders(ryot, schemaSlug, ownerPluginId)
+								.loadProviders(ryot, schema)
 								.pipe(
 									Effect.match({
 										onFailure: (
@@ -98,17 +107,17 @@ export function ProviderAddModal(props: ProviderAddModalProps) {
 
 	useEffect(() => {
 		let active = true;
-		void loadProviderState(entitySchemaSlug, props.ownerPluginId, () => active);
+		void loadProviderState(props.schema, () => active);
 		return () => {
 			active = false;
 		};
-	}, [entitySchemaSlug, props.ownerPluginId]);
+	}, [props.schema]);
 
 	const selectProvider = (providerId: SandboxProviderId) => {
 		setState((current) => ({ ...current, selectedProviderId: providerId }));
 		void runtime.runPromise(
 			Effect.flatMap(ClientStorage, (storage) =>
-				storage.setRememberedProvider(scope, entitySchemaSlug, providerId),
+				storage.setRememberedProvider(scope, schemaKey, providerId),
 			),
 		);
 	};
@@ -129,14 +138,19 @@ export function ProviderAddModal(props: ProviderAddModalProps) {
 			start: providerService.startImport(scope, { externalId, providerId }),
 		});
 	const loadEntityLinks: ComponentProps<typeof ProviderSearchPanel>["loadEntityLinks"] = (input) =>
-		providerService
-			.loadEntityLinks(ryot, input)
-			.pipe(
-				Effect.map(
-					(links): ProviderEntityLinks =>
-						new Map(links.map((link) => [link.externalId, link.entityId])),
-				),
-			);
+		ownerPluginId === undefined
+			? Effect.succeed(new Map())
+			: providerService
+					.loadEntityLinks(ryot, {
+						...input,
+						reference: { kind: "local", pluginId: ownerPluginId },
+					})
+					.pipe(
+						Effect.map(
+							(links): ProviderEntityLinks =>
+								new Map(links.map((link) => [link.externalId, link.entityId])),
+						),
+					);
 
 	return (
 		<Modal

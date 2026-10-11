@@ -26,10 +26,13 @@ type WorkspaceSwitcherProps = {
 	readonly onOpenChange: (open: boolean) => void;
 	readonly onCustomize?: (() => void) | undefined;
 	readonly current: PluginClientCatalogEntry | null;
-	readonly onSelect: (slug: string) => void | Promise<void>;
+	readonly onSelect: (pluginId: string) => void | Promise<void>;
 };
 
 const WORKSPACE_SHORTCUT_LABEL = "⌘⇧Space";
+
+const workspaceLabel = (workspace: PluginClientCatalogEntry) =>
+	`${workspace.name} · ${workspace.scope === "system" ? "System" : "Private"} · ${workspace.packageId.slice(0, 8)}`;
 
 function WorkspaceShortcut(props: { readonly enabled: boolean; readonly onOpen: () => void }) {
 	useShortcut(KERNEL_SHORTCUTS.workspaceSwitcher, props.onOpen, { enabled: props.enabled });
@@ -43,10 +46,10 @@ export function WorkspaceSwitcher(props: WorkspaceSwitcherProps) {
 	const items = useRef<Array<HTMLButtonElement | null>>([]);
 	const workspaces = visibleWorkspaces(props.catalog);
 	const menuLength = workspaces.length + (props.onCustomize === undefined ? 0 : 1);
-	const currentSlug = props.current?.slug;
+	const currentPluginId = props.current?.pluginId;
 	const initialIndex = Math.max(
 		0,
-		workspaces.findIndex((workspace) => workspace.slug === currentSlug),
+		workspaces.findIndex((workspace) => workspace.pluginId === currentPluginId),
 	);
 	const [activeIndex, setActiveIndex] = useState(initialIndex);
 	const close = (restoreFocus: boolean) => {
@@ -66,8 +69,8 @@ export function WorkspaceSwitcher(props: WorkspaceSwitcherProps) {
 	useShortcut(KERNEL_SHORTCUTS.workspaceSwitcher, open, { enabled: props.showShortcut === true });
 	const select = (workspace: PluginClientCatalogEntry) => {
 		close(true);
-		if (workspace.slug !== props.current?.slug) {
-			queueMicrotask(() => void props.onSelect(workspace.slug));
+		if (workspace.pluginId !== props.current?.pluginId) {
+			queueMicrotask(() => void props.onSelect(workspace.pluginId));
 		}
 	};
 	const customize = () => {
@@ -75,7 +78,9 @@ export function WorkspaceSwitcher(props: WorkspaceSwitcherProps) {
 		queueMicrotask(() => props.onCustomize?.());
 	};
 
-	const openTarget = props.open ? JSON.stringify([currentSlug ?? null, initialIndex]) : undefined;
+	const openTarget = props.open
+		? JSON.stringify([currentPluginId ?? null, initialIndex])
+		: undefined;
 	useValueChange(openTarget, (target) => {
 		if (target !== undefined) {
 			setActiveIndex(initialIndex);
@@ -111,10 +116,15 @@ export function WorkspaceSwitcher(props: WorkspaceSwitcherProps) {
 							event.preventDefault();
 						}
 					}}
+					title={
+						props.current === null
+							? undefined
+							: `${props.current.packageId} · ${props.current.pluginId}`
+					}
 					aria-label={
 						props.current === null
 							? "No workspace, Plugin workspace"
-							: `${props.current.name} workspace, ${props.current.slug}`
+							: `${props.current.name} workspace, ${props.current.scope}, ${props.current.packageId}`
 					}
 				>
 					<span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-accent-soft text-accent-text">
@@ -122,7 +132,7 @@ export function WorkspaceSwitcher(props: WorkspaceSwitcherProps) {
 					</span>
 					<span className="min-w-0 flex-1">
 						<span className="block truncate text-sm font-medium text-text">
-							{props.current?.name ?? "No workspace"}
+							{props.current ? workspaceLabel(props.current) : "No workspace"}
 						</span>
 						<span className="block truncate text-xs text-text-muted">{props.summary}</span>
 					</span>
@@ -170,7 +180,7 @@ export function WorkspaceSwitcher(props: WorkspaceSwitcherProps) {
 						}}
 					>
 						{workspaces.map((workspace, index) => {
-							const isCurrent = workspace.slug === props.current?.slug;
+							const isCurrent = workspace.pluginId === props.current?.pluginId;
 							return (
 								<button
 									type="button"
@@ -180,7 +190,8 @@ export function WorkspaceSwitcher(props: WorkspaceSwitcherProps) {
 									onClick={() => select(workspace)}
 									onFocus={() => setActiveIndex(index)}
 									tabIndex={index === activeIndex ? 0 : -1}
-									aria-label={`Switch to ${workspace.name} workspace`}
+									title={`${workspace.packageId} · ${workspace.pluginId}`}
+									aria-label={`Switch to ${workspaceLabel(workspace)} workspace`}
 									ref={(item) => {
 										items.current[index] = item;
 									}}
@@ -198,9 +209,11 @@ export function WorkspaceSwitcher(props: WorkspaceSwitcherProps) {
 										<AppIcon size={17} name={workspace.icon} />
 									</span>
 									<span className="min-w-0 flex-1">
-										<span className="block truncate text-sm text-text">{workspace.name}</span>
+										<span className="block truncate text-sm text-text">
+											{workspaceLabel(workspace)}
+										</span>
 										<span className="block truncate text-xs text-text-muted">
-											{workspacePickerSummary(props.navigation, workspace.slug)}
+											{workspacePickerSummary(props.navigation, workspace.installationId)}
 										</span>
 									</span>
 									<AppIcon

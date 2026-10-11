@@ -1,9 +1,9 @@
+import type { SavedViewReference } from "@ryot-app/contract/modules/plugins/references";
 import type { UpdatePluginInstallationBody } from "@ryot-app/contract/modules/plugins/schemas";
 import type {
 	ReorderSavedViewsBody,
 	UpdateSavedViewBody,
 } from "@ryot-app/contract/modules/saved-views/schemas";
-import { PluginSlug } from "@ryot-app/contract/schema/brands";
 
 import type {
 	CustomizeDraft,
@@ -12,7 +12,10 @@ import type {
 	CustomizeSection,
 } from "#/modules/navigation/customize/customize-state";
 
-export type CustomizeUpdate = { readonly viewSlug: string; readonly payload: UpdateSavedViewBody };
+export type CustomizeUpdate = {
+	readonly reference: SavedViewReference;
+	readonly payload: UpdateSavedViewBody;
+};
 
 export type CustomizePlan = {
 	readonly updates: readonly CustomizeUpdate[];
@@ -21,7 +24,7 @@ export type CustomizePlan = {
 };
 
 export type CustomizeWorkspaceUpdate = {
-	readonly pluginSlug: PluginSlug;
+	readonly installationId: string;
 	readonly payload: UpdatePluginInstallationBody;
 };
 
@@ -30,9 +33,7 @@ const sections = ["views", "savedViews"] as const satisfies readonly CustomizeSe
 const hasOrderChanged = (
 	draft: readonly CustomizeDraftItem[],
 	initial: readonly CustomizeDraftItem[],
-) =>
-	draft.length !== initial.length ||
-	draft.some((item, index) => item.slug !== initial[index]?.slug);
+) => draft.length !== initial.length || draft.some((item, index) => item.id !== initial[index]?.id);
 
 const updatePayload = (item: CustomizeDraftViewItem): UpdateSavedViewBody => ({
 	isHidden: item.isHidden,
@@ -41,7 +42,7 @@ const updatePayload = (item: CustomizeDraftViewItem): UpdateSavedViewBody => ({
 export function buildCustomizePlan(props: {
 	readonly draft: CustomizeDraft;
 	readonly initial: CustomizeDraft;
-	readonly workspaceSlug: string | undefined;
+	readonly workspaceInstallationId: string | undefined;
 }): CustomizePlan {
 	const updates: CustomizeUpdate[] = [];
 	const reorders: ReorderSavedViewsBody[] = [];
@@ -49,38 +50,38 @@ export function buildCustomizePlan(props: {
 
 	for (const section of sections) {
 		for (const item of props.draft[section]) {
-			const initial = props.initial[section].find((candidate) => candidate.slug === item.slug);
+			const initial = props.initial[section].find((candidate) => candidate.id === item.id);
 			if (initial?.isHidden !== item.isHidden) {
-				updates.push({ viewSlug: item.slug, payload: updatePayload(item) });
+				updates.push({ reference: item.reference, payload: updatePayload(item) });
 			}
 		}
 	}
 
 	const workspaceOrderChanged = hasOrderChanged(props.draft.workspaces, props.initial.workspaces);
 	for (const [sortOrder, item] of props.draft.workspaces.entries()) {
-		const initial = props.initial.workspaces.find((candidate) => candidate.slug === item.slug);
+		const initial = props.initial.workspaces.find((candidate) => candidate.id === item.id);
 		const visibilityChanged = initial !== undefined && initial.isHidden !== item.isHidden;
 		if (workspaceOrderChanged) {
 			workspaceUpdates.push({
-				pluginSlug: PluginSlug.make(item.slug),
+				installationId: item.installationId,
 				payload: { sortOrder, ...(visibilityChanged ? { isHidden: item.isHidden } : {}) },
 			});
 		} else if (visibilityChanged) {
 			workspaceUpdates.push({
+				installationId: item.installationId,
 				payload: { isHidden: item.isHidden },
-				pluginSlug: PluginSlug.make(item.slug),
 			});
 		}
 	}
 
 	if (
-		props.workspaceSlug !== undefined &&
+		props.workspaceInstallationId !== undefined &&
 		props.draft.views.length > 0 &&
 		hasOrderChanged(props.draft.views, props.initial.views)
 	) {
 		reorders.push({
-			pluginSlug: PluginSlug.make(props.workspaceSlug),
-			viewSlugs: props.draft.views.map((item) => item.slug),
+			installationId: props.workspaceInstallationId,
+			references: props.draft.views.map((item) => item.reference),
 		});
 	}
 
@@ -88,7 +89,7 @@ export function buildCustomizePlan(props: {
 		props.draft.savedViews.length > 0 &&
 		hasOrderChanged(props.draft.savedViews, props.initial.savedViews)
 	) {
-		reorders.push({ viewSlugs: props.draft.savedViews.map((item) => item.slug) });
+		reorders.push({ references: props.draft.savedViews.map((item) => item.reference) });
 	}
 
 	return { updates, reorders, workspaceUpdates };

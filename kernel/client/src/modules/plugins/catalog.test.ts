@@ -33,11 +33,13 @@ const entry = {
 	slug: "fixture",
 	health: "ready",
 	isHidden: false,
+	scope: "system",
 	clientApiVersion: 1,
+	homeSavedView: null,
 	pluginId: "plugin-1",
-	homeSavedViewSlug: null,
 	sourceHash: "source-hash",
 	installationId: "installation-1",
+	packageId: "ff9c9ec6-5774-42ef-881b-dc6a84ad3ba6",
 } as const;
 
 const makeCatalogRuntime = (responses: ReadonlyArray<ContractSuccess<"ryotql", "execute">>) => {

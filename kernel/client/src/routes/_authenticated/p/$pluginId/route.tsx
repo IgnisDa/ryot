@@ -15,7 +15,7 @@ import { mainContentProps } from "#/modules/navigation/skip-link";
 import { usePluginCatalog } from "#/modules/plugins/catalog-provider";
 import { ProviderAddModal } from "#/modules/provider-add/modal";
 
-export const Route = createFileRoute("/_authenticated/$pluginSlug")({
+export const Route = createFileRoute("/_authenticated/p/$pluginId")({
 	component: Outlet,
 	pendingComponent: PluginPending,
 	notFoundComponent: PluginNotFound,
@@ -23,17 +23,17 @@ export const Route = createFileRoute("/_authenticated/$pluginSlug")({
 });
 
 export function PluginRoutePage({
-	pluginSlug,
+	pluginId,
 	preparation,
 }: {
 	readonly preparation: ClientPagePreparation;
-	readonly pluginSlug: string;
+	readonly pluginId: string;
 }) {
 	const { catalog } = usePluginCatalog();
 	if (preparation.kind === "unavailable") {
 		return <PluginNotice clear title="Plugin page not found" />;
 	}
-	const installation = catalog.find((candidate) => candidate.slug === pluginSlug);
+	const installation = catalog.find((candidate) => candidate.pluginId === pluginId);
 	return <PluginDocument prepared={preparation.prepared} title={installation?.name ?? "Plugin"} />;
 }
 
@@ -48,10 +48,9 @@ function PluginDocument(props: { readonly title: string; readonly prepared: Prep
 	});
 	return providerSearch === null ? null : (
 		<ProviderAddModal
+			schema={providerSearch.schema}
 			onClose={() => setProviderSearch(null)}
 			initialQuery={providerSearch.initialQuery}
-			ownerPluginId={providerSearch.ownerPluginId}
-			entitySchemaSlug={providerSearch.entitySchemaSlug}
 		/>
 	);
 }

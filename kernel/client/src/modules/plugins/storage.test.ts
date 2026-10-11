@@ -1,7 +1,7 @@
 import { describe, expect, layer } from "@effect/vitest";
 import { PLUGIN_STORAGE_VALUE_MAX_BYTES } from "@ryot-app/client-plugin-contract";
 import type { PreparedClientPage } from "@ryot-app/contract/modules/client-pages/schemas";
-import { PluginSlug } from "@ryot-app/contract/schema/brands";
+import { PluginId, PluginPackageId } from "@ryot-app/contract/schema/brands";
 import { Effect, Layer } from "effect";
 
 import { decodeServerOrigin } from "#/api/origin";
@@ -11,16 +11,17 @@ import { pluginStorageKey } from "#/persistence/storage";
 import { FakeBrowserStorage, fakeClientStorageLayer } from "#/persistence/storage.test-layer";
 
 const scope: ApiScope = { userId: "user-1", serverUrl: decodeServerOrigin("https://ryot.example") };
-const media = PluginSlug.make("media");
-const fitness = PluginSlug.make("fitness");
+const media = PluginId.make("plugin-1");
+const fitness = PluginId.make("plugin-2");
 
 const contributors: PreparedClientPage["identity"]["contributors"] = [
 	{
 		kind: "plugin",
-		pluginSlug: media,
-		pluginId: "plugin-1",
+		pluginId: media,
+		revisionId: "revision-1",
 		sourceHash: "source-hash",
 		installationId: "installation-1",
+		packageId: PluginPackageId.make("860296ec-5559-4359-8fc6-7499507d235c"),
 	},
 	{ name: "table", kind: "kernel-renderer", sourceHash: "source-hash" },
 ];
@@ -36,7 +37,7 @@ const setOrder = (value: string) =>
 		value,
 		key: "order",
 		action: "set",
-		pluginSlug: media,
+		pluginId: media,
 	});
 
 describe("plugin storage outcome", () => {
@@ -48,7 +49,7 @@ describe("plugin storage outcome", () => {
 					yield* pluginStorageOutcome(scope, contributors, {
 						key: "order",
 						action: "set",
-						pluginSlug: media,
+						pluginId: media,
 						value: { order: "aired" },
 					}),
 				).toEqual({ value: null, outcome: "success" });
@@ -59,21 +60,69 @@ describe("plugin storage outcome", () => {
 					yield* pluginStorageOutcome(scope, contributors, {
 						key: "order",
 						action: "get",
-						pluginSlug: media,
+						pluginId: media,
 					}),
 				).toEqual({ outcome: "success", value: { order: "aired" } });
 				yield* pluginStorageOutcome(scope, contributors, {
 					key: "order",
+					pluginId: media,
 					action: "remove",
-					pluginSlug: media,
 				});
 				expect((yield* storage.values).size).toBe(0);
 			});
 		});
+		test.effect(
+			"isolates equal authored keys by local owner and preserves them across revisions",
+			() =>
+				Effect.gen(function* () {
+					const composed: PreparedClientPage["identity"]["contributors"] = [
+						...contributors,
+						{
+							kind: "plugin",
+							pluginId: fitness,
+							revisionId: "revision-1",
+							sourceHash: "same-source-name",
+							installationId: "installation-2",
+							packageId: PluginPackageId.make("570e77e1-e450-40ea-b1cb-6e2ae3223bb3"),
+						},
+					];
+					yield* pluginStorageOutcome(scope, composed, {
+						key: "same",
+						action: "set",
+						value: "left",
+						pluginId: media,
+					});
+					yield* pluginStorageOutcome(scope, composed, {
+						key: "same",
+						action: "set",
+						value: "right",
+						pluginId: fitness,
+					});
+					const upgraded = Array.from(composed, (contributor) =>
+						contributor.kind === "plugin"
+							? { ...contributor, revisionId: "revision-2", sourceHash: "new-source" }
+							: contributor,
+					);
+					expect(
+						yield* pluginStorageOutcome(scope, upgraded, {
+							key: "same",
+							action: "get",
+							pluginId: media,
+						}),
+					).toEqual({ value: "left", outcome: "success" });
+					expect(
+						yield* pluginStorageOutcome(scope, upgraded, {
+							key: "same",
+							action: "get",
+							pluginId: fitness,
+						}),
+					).toEqual({ value: "right", outcome: "success" });
+				}),
+		);
 	});
 
 	layer(pluginStorageLayer())((test) => {
-		test.effect("rejects a slug that is not a plugin contributor of the frame", () => {
+		test.effect("rejects a local owner absent from the frame's contributors", () => {
 			return Effect.gen(function* () {
 				const storage = yield* FakeBrowserStorage;
 				expect(
@@ -81,7 +130,7 @@ describe("plugin storage outcome", () => {
 						value: 1,
 						key: "order",
 						action: "set",
-						pluginSlug: fitness,
+						pluginId: fitness,
 					}),
 				).toEqual({ outcome: "failure", reason: "invalid-request" });
 				expect((yield* storage.values).size).toBe(0);
@@ -121,7 +170,7 @@ describe("plugin storage outcome", () => {
 						value: 1,
 						key: "order",
 						action: "set",
-						pluginSlug: media,
+						pluginId: media,
 					}),
 				).toEqual({ reason: "quota", outcome: "failure" });
 			});

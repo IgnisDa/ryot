@@ -1,4 +1,4 @@
-import { EntityId, PluginSlug } from "@ryot-app/contract/schema/brands";
+import { EntityId, PluginId, SavedViewId } from "@ryot-app/contract/schema/brands";
 import { describe, expect, it } from "vitest";
 
 import {
@@ -10,7 +10,7 @@ import {
 
 describe("plugin logical locations", () => {
 	it("maps the real global route and search to a document location", () => {
-		expect(toPluginLocation("fixture", "/fixture/details/1", "?tab=stats")).toEqual({
+		expect(toPluginLocation("fixture", "/p/fixture/details/1", "?tab=stats")).toEqual({
 			kind: "route",
 			path: "/details/1",
 			search: "tab=stats",
@@ -23,16 +23,30 @@ describe("plugin logical locations", () => {
 				path: "/shows",
 				search: "q=dune",
 				kind: "plugin-route",
-				pluginSlug: PluginSlug.make("media"),
+				pluginId: PluginId.make("media"),
 			}),
-		).toBe("/media/shows?q=dune");
+		).toBe("/p/media/shows?q=dune");
 		expect(toGlobalHref({ kind: "entity", entityId: EntityId.make("entity/1") })).toBe(
 			"/e/entity%2F1",
 		);
-		expect(toGlobalHref({ slug: "view/1", kind: "saved-view" })).toBe("/v/view%2F1");
+		expect(
+			toGlobalHref({
+				kind: "saved-view",
+				reference: { kind: "custom", savedViewId: SavedViewId.make("view/1") },
+			}),
+		).toBe("/v/c/view%2F1");
+		expect(toGlobalHref({ kind: "saved-view", reference: { slug: "same", kind: "kernel" } })).toBe(
+			"/v/k/same",
+		);
+		expect(
+			toGlobalHref({
+				kind: "saved-view",
+				reference: { slug: "same", kind: "plugin", pluginId: PluginId.make("owner") },
+			}),
+		).toBe("/v/p/owner/same");
 	});
 
-	it("does not infer a plugin slug from the active caller", () => {
+	it("does not infer a plugin owner from the active caller", () => {
 		expect(
 			toNavigationRequest({
 				mode: "replace",
@@ -41,10 +55,10 @@ describe("plugin logical locations", () => {
 					search: "",
 					path: "/shows",
 					kind: "plugin-route",
-					pluginSlug: PluginSlug.make("media"),
+					pluginId: PluginId.make("media"),
 				},
 			}),
-		).toEqual({ replace: true, href: "/media/shows" });
+		).toEqual({ replace: true, href: "/p/media/shows" });
 	});
 
 	it("navigates a kernel page target to its kernel route", () => {

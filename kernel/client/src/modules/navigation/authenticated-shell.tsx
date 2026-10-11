@@ -1,5 +1,6 @@
 import { KERNEL_SHORTCUTS, type KernelShortcut } from "@ryot-app/client-plugin-contract";
 import { Button, Modal, useShortcut, useValueChange } from "@ryot-app/client-ui-sdk";
+import { savedViewPath } from "@ryot-app/contract/modules/plugins/navigation";
 import type { NavigationData } from "@ryot-app/ryotql-recipes/navigation";
 import {
 	Outlet,
@@ -83,7 +84,7 @@ import { ClientStorage } from "#/persistence/storage";
 export function AuthenticatedShell(props: {
 	readonly isPro: boolean;
 	readonly navigation: NavigationData;
-	readonly initialRememberedSlug: string | null;
+	readonly initialRememberedPluginId: string | null;
 }) {
 	const drawerId = useId();
 	const router = useRouter();
@@ -105,20 +106,30 @@ export function AuthenticatedShell(props: {
 	const [pluginScreenState, setPluginScreenState] = useState<ClientPageScreenState | null>(null);
 	const [pluginOverlayCount, setPluginOverlayCount] = useState(0);
 	const [discarding, setDiscarding] = useState(false);
-	const [rememberedSlug, setRememberedSlug] = useState(props.initialRememberedSlug);
+	const [rememberedPluginId, setRememberedPluginId] = useState(props.initialRememberedPluginId);
 	const settingsActive = isSettingsPath(pathname);
 	const customizeActive = isCustomizeSidebarPath(pathname);
 	const customizeSection = customizeSearchSection(search);
 	const workspaceChrome = hasWorkspaceChrome(pathname);
 	const committedPathname = pathname;
-	const routeSlug = committedPathname.split("/")[1] ?? "";
-	const routeWorkspace = resolvePluginRouteWorkspace(catalog, routeSlug);
-	const current = routeWorkspace ?? resolveRememberedWorkspace(catalog, rememberedSlug);
-	const homeActive = isWorkspaceRoot(pathname, current);
+	const routePluginId = committedPathname.startsWith("/p/")
+		? decodeURIComponent(committedPathname.split("/")[2] ?? "")
+		: "";
+	const routeWorkspace = resolvePluginRouteWorkspace(catalog, routePluginId);
 	const activeKey = useMemo(() => activeSidebarKey(pathname), [pathname]);
+	const routeView = props.navigation.savedViews.find(
+		(view) => `view:${savedViewPath(view.reference)}` === activeKey,
+	);
+	const viewWorkspace = routeView?.pluginInstallationId
+		? catalog.find(({ installationId }) => installationId === routeView.pluginInstallationId)
+		: undefined;
+	const current =
+		routeWorkspace ?? viewWorkspace ?? resolveRememberedWorkspace(catalog, rememberedPluginId);
+	const homeActive = isWorkspaceRoot(pathname, current);
 	const sections = useMemo(
-		() => sidebarSections({ data: props.navigation, workspaceSlug: current?.slug }),
-		[current?.slug, props.navigation],
+		() =>
+			sidebarSections({ data: props.navigation, workspaceInstallationId: current?.installationId }),
+		[current?.installationId, props.navigation],
 	);
 	const entry = historyEntry(state);
 	useValueChange(workspaceChrome, (chrome) => {
@@ -196,14 +207,16 @@ export function AuthenticatedShell(props: {
 		);
 		return () => controller.abort();
 	}, [auth, impersonation, runtime, server]);
-	const selectWorkspace = (slug: string) => {
+	const selectWorkspace = (pluginId: string) => {
 		impactLight();
 		return runtime.runPromise(
 			Effect.gen(function* () {
-				yield* Effect.flatMap(ClientStorage, (storage) => storage.setLastWorkspace(scope, slug));
-				setRememberedSlug(slug);
+				yield* Effect.flatMap(ClientStorage, (storage) =>
+					storage.setLastWorkspace(scope, pluginId),
+				);
+				setRememberedPluginId(pluginId);
 				yield* Effect.promise(() =>
-					navigate({ replace: true, to: "/$pluginSlug", params: { pluginSlug: slug } }),
+					navigate({ replace: true, to: "/p/$pluginId", params: { pluginId } }),
 				);
 			}),
 		);
@@ -211,25 +224,17 @@ export function AuthenticatedShell(props: {
 	const navigateHome = () =>
 		current === null
 			? undefined
-			: navigate({ to: "/$pluginSlug", params: { pluginSlug: current.slug } });
+			: navigate({ to: "/p/$pluginId", params: { pluginId: current.pluginId } });
 	const navigateItem = (item: SidebarItem) => {
 		if (item.kind === "collection") {
 			return navigate({ to: "/e/$entityId", params: { entityId: item.slug } });
 		}
-		return navigate({
-			to: "/v/$viewSlug",
-			params: { viewSlug: item.slug },
-			replace: activeKey?.startsWith("view:") === true,
-			search: {
-				q: undefined,
-				add: undefined,
-				sort: undefined,
-				layout: undefined,
-				search: undefined,
-				dialog: undefined,
-				entityId: undefined,
-			},
-		});
+		return item.reference === null
+			? undefined
+			: navigate({
+					href: savedViewPath(item.reference),
+					replace: activeKey?.startsWith("view:") === true,
+				});
 	};
 	const interceptSearchBack = () => {
 		setSearchOpen(false);
@@ -255,7 +260,7 @@ export function AuthenticatedShell(props: {
 		catalog,
 		data: props.navigation,
 		active: customizeActive,
-		workspaceSlug: current?.slug,
+		workspaceInstallationId: current?.installationId,
 	});
 	const openCustomize = (section: CustomizeSection) => {
 		void navigate({ search: { section }, to: "/customize-sidebar" });
@@ -268,7 +273,7 @@ export function AuthenticatedShell(props: {
 		}
 		void (current === null
 			? navigate({ to: "/", replace: true })
-			: navigate({ replace: true, to: "/$pluginSlug", params: { pluginSlug: current.slug } }));
+			: navigate({ replace: true, to: "/p/$pluginId", params: { pluginId: current.pluginId } }));
 	};
 	const requestLeaveCustomize = useStableHandler(() => {
 		if (customize.isDirty) {
@@ -288,7 +293,9 @@ export function AuthenticatedShell(props: {
 				if (!(yield* customize.save())) {
 					return;
 				}
-				const currentDraft = customize.draft.workspaces.find(({ slug }) => slug === current?.slug);
+				const currentDraft = customize.draft.workspaces.find(
+					({ pluginId }) => pluginId === current?.pluginId,
+				);
 				const nextWorkspace = customize.draft.workspaces.find(({ isHidden }) => !isHidden);
 				const unsubscribe = router.subscribe("onResolved", () => {
 					unsubscribe();
@@ -301,14 +308,14 @@ export function AuthenticatedShell(props: {
 						return;
 					}
 					yield* Effect.flatMap(ClientStorage, (storage) =>
-						storage.setLastWorkspace(scope, nextWorkspace.slug),
+						storage.setLastWorkspace(scope, nextWorkspace.pluginId),
 					);
-					setRememberedSlug(nextWorkspace.slug);
+					setRememberedPluginId(nextWorkspace.pluginId);
 					yield* Effect.promise(() =>
 						navigate({
 							replace: true,
-							to: "/$pluginSlug",
-							params: { pluginSlug: nextWorkspace.slug },
+							to: "/p/$pluginId",
+							params: { pluginId: nextWorkspace.pluginId },
 						}),
 					);
 					return;
@@ -457,7 +464,7 @@ export function AuthenticatedShell(props: {
 				onCustomize={() => openCustomize("workspaces")}
 				onNavigateSettings={() => navigate({ href: "/settings" })}
 			/>
-			<RememberedWorkspaceContext value={rememberedSlug}>
+			<RememberedWorkspaceContext value={rememberedPluginId}>
 				<CustomizeContext value={customizeController}>
 					<PluginHeaderContext value={header}>
 						<PluginTitleContext value={pluginTitle}>

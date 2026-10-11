@@ -1,9 +1,11 @@
-/**
- * Catalogs list the choices a wizard opens with, arranged under headings. Features map their own
- * row type onto `CatalogEntry` and share the grouping, searching and availability presentation from
- * here. Each entry names the group it belongs to, so what a heading means is the feature's business:
- * plugin-contributed catalogs group by contributing plugin, kernel-owned ones group by category.
- */
+import {
+	definitionKey,
+	type DeclarationReference,
+	type PluginPackageReference,
+} from "@ryot-app/contract/modules/plugins/references";
+import type { PluginPackageId } from "@ryot-app/contract/schema/brands";
+import { Match } from "effect";
+
 export type CatalogEntryGroup = { readonly key: string; readonly heading: string };
 
 export type CatalogEntry = {
@@ -30,9 +32,22 @@ export const pluginHeading = (pluginSlug: string) => {
 	return words.length === 0 ? UNTITLED_PLUGIN_HEADING : words.join(" ");
 };
 
-export const pluginCatalogGroup = (pluginSlug: string): CatalogEntryGroup => ({
-	key: pluginSlug,
-	heading: pluginHeading(pluginSlug),
+const pluginScopeLabel = (scope: PluginPackageReference["scope"] | null) =>
+	Match.value(scope).pipe(
+		Match.when("system", () => "System"),
+		Match.when("user", () => "Private"),
+		Match.when(null, () => "Unavailable"),
+		Match.exhaustive,
+	);
+
+export const pluginCatalogGroup = (input: {
+	readonly reference: DeclarationReference;
+	readonly name: string;
+	readonly packageId: PluginPackageId | null;
+	readonly scope: PluginPackageReference["scope"] | null;
+}): CatalogEntryGroup => ({
+	key: definitionKey("plugin", input.reference.owner),
+	heading: `${input.name} · ${pluginScopeLabel(input.scope)} · ${input.packageId?.slice(0, 8) ?? "Unknown package"}`,
 });
 
 const matchesCatalogQuery = (source: CatalogSource, query: string) => {

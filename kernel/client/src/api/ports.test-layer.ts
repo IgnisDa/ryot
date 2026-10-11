@@ -19,6 +19,7 @@ import { UserSettingsApi } from "#/api/user-settings";
 import { TemporaryUploads } from "#/modules/assets/temporary-uploads";
 import { EntityInterestService } from "#/modules/entity-interest/service";
 import { ExternalLinks } from "#/modules/external-links/service";
+import { PluginManagementService } from "#/modules/plugins/management";
 
 // oxlint-disable-next-line effecttsgo/lazy-effect -- Fills service method slots of any arity
 export const unused = () => Effect.die("not used");
@@ -57,7 +58,13 @@ export const makeSavedViewsApi = (overrides: Partial<SavedViewsApi["Service"]> =
 
 export const makePluginInstallationsApi = (
 	overrides: Partial<PluginInstallationsApi["Service"]> = {},
-) => Layer.succeed(PluginInstallationsApi, { update: unused, ...overrides });
+) =>
+	Layer.succeed(PluginInstallationsApi, {
+		update: unused,
+		uninstall: unused,
+		updatePackage: unused,
+		...overrides,
+	});
 
 export const makeUploadsApi = (overrides: Partial<UploadsApi["Service"]> = {}) =>
 	Layer.fresh(TemporaryUploads.layer).pipe(
@@ -155,6 +162,7 @@ export const makeGodModeApi = (overrides: Partial<GodModeApi["Service"]> = {}) =
 	});
 
 export const KernelApiTestLayer = Layer.mergeAll(
+	Layer.succeed(PluginManagementService, { load: unused, execute: unused }),
 	Layer.succeed(ExternalLinks, {
 		open: () => Effect.die("Unused external link"),
 		outcome: () => Effect.die("Unused external link"),

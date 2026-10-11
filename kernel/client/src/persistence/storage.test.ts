@@ -1,5 +1,5 @@
 import { describe, expect, layer } from "@effect/vitest";
-import { PluginSlug, SandboxProviderId } from "@ryot-app/contract/schema/brands";
+import { PluginId, SandboxProviderId } from "@ryot-app/contract/schema/brands";
 import { Effect } from "effect";
 
 import { decodeServerOrigin } from "#/api/origin";
@@ -228,8 +228,8 @@ describe("browser persistence", () => {
 			const firstScope = { userId: "user-1", serverUrl: oneOrigin };
 			const secondUser = { userId: "user-2", serverUrl: oneOrigin };
 			const secondServer = { userId: "user-1", serverUrl: twoOrigin };
-			const media = PluginSlug.make("media");
-			const fitness = PluginSlug.make("fitness");
+			const media = PluginId.make("media");
+			const fitness = PluginId.make("fitness");
 
 			return Effect.gen(function* () {
 				const service = yield* ClientStorage;
@@ -242,7 +242,7 @@ describe("browser persistence", () => {
 
 				expect(
 					(yield* storage.values).get(
-						'ryot:plugin-storage:["https://one.example.com","user-1"]:media:order',
+						'ryot:plugin-storage:["https://one.example.com","user-1","media","order"]',
 					),
 				).toBe('{"order":"aired"}');
 				expect(yield* service.getPluginValue(firstScope, media, "order")).toEqual({
@@ -263,7 +263,7 @@ describe("browser persistence", () => {
 	layer(fakeClientStorageLayer())((test) => {
 		test.effect("reads missing or unparseable plugin values as null", () => {
 			const scope = { userId: "user-1", serverUrl: oneOrigin };
-			const media = PluginSlug.make("media");
+			const media = PluginId.make("media");
 
 			return Effect.gen(function* () {
 				const service = yield* ClientStorage;
@@ -288,7 +288,7 @@ describe("browser persistence", () => {
 			return Effect.gen(function* () {
 				const service = yield* ClientStorage;
 				const error = yield* Effect.flip(
-					service.setPluginValue(scope, PluginSlug.make("media"), "order", 1),
+					service.setPluginValue(scope, PluginId.make("media"), "order", 1),
 				);
 				expect(error).toBeInstanceOf(PluginStorageQuotaError);
 			});

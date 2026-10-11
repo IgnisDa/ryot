@@ -31,7 +31,7 @@ export function CustomizeRow(props: {
 			<Switch
 				checked={!props.item.isHidden}
 				label={`Show ${props.item.name} in sidebar`}
-				onChange={() => props.onToggle(props.item.slug)}
+				onChange={() => props.onToggle(props.item.id)}
 				disabled={props.readOnly === true || props.toggleDisabled}
 			/>
 		</div>

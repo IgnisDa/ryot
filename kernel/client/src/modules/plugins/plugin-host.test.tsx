@@ -6,7 +6,7 @@ import {
 	type PluginLogicalLocation,
 	type PluginOperationRequest,
 } from "@ryot-app/client-plugin-contract";
-import { PluginSlug } from "@ryot-app/contract/schema/brands";
+import { PluginId } from "@ryot-app/contract/schema/brands";
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { Effect, Schema } from "effect";
 
@@ -121,6 +121,7 @@ function mount(
 		page: {
 			view: null,
 			settings: {},
+			contributors: [],
 			dataSources: null,
 			route: { params: {} },
 			renderer: { name: "fixture", kind: "kernel" as const },
@@ -128,7 +129,7 @@ function mount(
 				search: "",
 				path: pageKey,
 				kind: "plugin-route" as const,
-				pluginSlug: PluginSlug.make("fixture"),
+				pluginId: PluginId.make("fixture"),
 			},
 		},
 	});
@@ -311,12 +312,11 @@ describe("PluginFrame", () => {
 			bridge.port.postMessage({
 				mode: "push",
 				type: "navigate",
-				target: { search: "q=x", path: "/shows", pluginSlug: "media", kind: "plugin-route" },
+				target: { search: "q=x", path: "/shows", pluginId: "media", kind: "plugin-route" },
 			});
 			bridge.port.postMessage({
-				entitySchemaSlug: "movie",
 				type: "provider-search-screen",
-				ownerPluginId: "media-installation",
+				schema: { slug: "movie", owner: { kind: "plugin", pluginId: "media-installation" } },
 			});
 			bridge.port.postMessage({
 				mode: "replace",
@@ -326,7 +326,7 @@ describe("PluginFrame", () => {
 			bridge.port.postMessage({
 				input: null,
 				requestId: "op-1",
-				pluginSlug: "fixture",
+				pluginId: "fixture",
 				operationSlug: "greet",
 				type: "operation-request",
 			});
@@ -338,19 +338,18 @@ describe("PluginFrame", () => {
 			});
 
 			yield* Effect.promise(() => waitFor(() => expect(host.operations).toHaveLength(1)));
-			expect(host.navigations).toEqual([{ replace: false, href: "/media/shows?q=x" }]);
+			expect(host.navigations).toEqual([{ replace: false, href: "/p/media/shows?q=x" }]);
 			expect(host.searches).toEqual([
 				{ mode: "replace", type: "page-search", update: { q: "dune", dialog: null } },
 			]);
 			expect(host.providerSearches).toEqual([
 				{
-					entitySchemaSlug: "movie",
 					type: "provider-search-screen",
-					ownerPluginId: "media-installation",
+					schema: { slug: "movie", owner: { kind: "plugin", pluginId: "media-installation" } },
 				},
 			]);
 			expect(host.operations).toEqual([
-				{ input: null, operationSlug: "greet", pluginSlug: PluginSlug.make("fixture") },
+				{ input: null, operationSlug: "greet", pluginId: PluginId.make("fixture") },
 			]);
 			expect(host.states).toContainEqual({ index: 0, key: "k0", hasPreviousScreen: true });
 		}),
@@ -581,7 +580,7 @@ describe("PluginFrame", () => {
 
 			bridge.port.postMessage({
 				input: null,
-				pluginSlug: "fixture",
+				pluginId: "fixture",
 				operationSlug: "mutate",
 				type: "operation-request",
 				requestId: "stale-operation",

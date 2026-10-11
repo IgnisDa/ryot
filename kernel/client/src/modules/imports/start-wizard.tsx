@@ -13,10 +13,13 @@ import { ImportInputStep } from "#/modules/imports/input-step";
 import { ImportReviewStep } from "#/modules/imports/review-step";
 import type { ImportSourceItem } from "#/modules/imports/service";
 import { createImportRunMutation } from "#/modules/imports/service";
-import { importSourceChooseLabel, importSourceEntry } from "#/modules/imports/source-selection";
+import {
+	importSourceChooseLabel,
+	importSourceEntry,
+	importSourceKey,
+} from "#/modules/imports/source-selection";
 import { importStartFailure, type ImportStartFailure } from "#/modules/imports/start-failure";
 import { CatalogPicker, type CatalogPickerState } from "#/modules/ui/catalog/picker";
-import { findBySlug } from "#/modules/ui/catalog/selection";
 import { useSchemaFileUpload } from "#/modules/ui/schema-form-upload";
 import { useFormSeed } from "#/modules/ui/use-form-seed";
 import { WizardShell } from "#/modules/ui/wizard/wizard-shell";
@@ -61,7 +64,7 @@ export function ImportStartWizard(props: {
 	const [failure, setFailure] = useState<ImportStartFailure | undefined>();
 	const [state, dispatch] = useReducer(wizardReducer, undefined, createWizardState);
 	const listed = props.sources.status === "ready" ? props.sources.sources : [];
-	const source = findBySlug(listed, state.slug);
+	const source = listed.find((item) => importSourceKey(item) === state.slug);
 	const schema = source?.inputSchema;
 
 	const startRun = (values: SchemaFormValues) => {
@@ -72,7 +75,10 @@ export function ImportStartWizard(props: {
 				}
 				setFailure(undefined);
 				yield* startMutation
-					.mutateEffect({ source: source.slug, ...toSchemaFormPayload(source.inputSchema, values) })
+					.mutateEffect({
+						source: source.reference,
+						...toSchemaFormPayload(source.inputSchema, values),
+					})
 					.pipe(
 						Effect.tap(() =>
 							Effect.sync(() => {
@@ -142,7 +148,7 @@ export function ImportStartWizard(props: {
 				<form.Subscribe selector={(formState) => formState.values}>
 					{(values) => (
 						<SelectedImportReadiness
-							slug={source.slug}
+							reference={source.reference}
 							settings={toSchemaFormPayload(source.inputSchema, values)}
 						>
 							{() => (
