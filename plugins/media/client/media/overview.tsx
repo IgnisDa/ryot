@@ -1,10 +1,12 @@
 import { PluginLink } from "@ryot-app/plugin-client-sdk/plugin";
+import { useRetryEntityPopulation } from "@ryot-app/plugin-client-sdk/react";
 import { Button } from "@ryot-app/plugin-ui-sdk";
 import { fieldSyncState } from "@ryot-app/plugin-ui-sdk/sync";
 import clsx from "clsx";
 import { type ReactNode, useMemo, useRef, useState } from "react";
 
 import type { MediaOverviewRows } from "../../shared/media-recipes";
+import { PLUGIN_PACKAGE_ID } from "../../shared/plugin-identity";
 import type { MediaStatusCopy } from "./detail-screen";
 import type { MediaArtworkAspect } from "./entity-presentation";
 import { MediaEntityRailSection } from "./entity-rail";
@@ -47,7 +49,13 @@ const CREDIT_COLUMN_CLASS = "min-w-0 flex-1";
 
 const COMPANY_COLUMN_CLASS = "w-72 shrink-0";
 
-export type MediaOverviewSubject = Pick<MediaSummaryFields, "id" | "name" | "images">;
+export type MediaOverviewSubject = Pick<
+	MediaSummaryFields,
+	"id" | "name" | "images" | "populationStatus" | "relatedPopulationStatus"
+>;
+
+const relatedPopulationState = (media: MediaOverviewSubject) =>
+	media.populationStatus === "failed" ? "ready" : media.relatedPopulationStatus;
 
 export type MediaCreditCopy = {
 	readonly people: string;
@@ -437,6 +445,25 @@ export function MediaOverviewRelations(props: {
 	);
 }
 
+function MediaRelatedPopulationFailure(props: {
+	readonly entityId: string;
+	readonly noticeTitle: string;
+}) {
+	const retry = useRetryEntityPopulation();
+	return (
+		<MediaOverviewNotice
+			status="Couldn't load"
+			title={props.noticeTitle}
+			detail={`${props.noticeTitle} could not be loaded from the provider.`}
+			{...(retry.isPending
+				? {}
+				: {
+						onRetry: () => retry.mutate({ entityId: props.entityId, packageId: PLUGIN_PACKAGE_ID }),
+					})}
+		/>
+	);
+}
+
 function MediaOverviewBody<Overview>(props: {
 	readonly compact: boolean;
 	readonly entityId: string;
@@ -444,11 +471,17 @@ function MediaOverviewBody<Overview>(props: {
 	readonly noticeTitle: string;
 	readonly refresh: () => void;
 	readonly loadingDetail: string;
+	readonly related: MediaOverviewSubject["relatedPopulationStatus"];
 	readonly state: MediaOverviewState<Overview>;
 	readonly relations: MediaOverviewRelationsRender<Overview>;
 }) {
 	const { state } = props;
-	if (state.status === "loading") {
+	if (props.related === "failed") {
+		return (
+			<MediaRelatedPopulationFailure entityId={props.entityId} noticeTitle={props.noticeTitle} />
+		);
+	}
+	if (state.status === "loading" || props.related === "pending") {
 		return (
 			<MediaOverviewNotice
 				title={props.noticeTitle}
@@ -491,7 +524,12 @@ export function MediaOverview<Overview>(props: {
 	readonly trailing?: ((input: { readonly compact: boolean }) => ReactNode) | undefined;
 }) {
 	const gallery = mediaGalleryAssets(props.media);
-	const relations = props.overview.status !== "ready" || !props.isEmpty(props.overview.overview);
+	const related = relatedPopulationState(props.media);
+	const relations =
+		related === "pending" ||
+		related === "failed" ||
+		props.overview.status !== "ready" ||
+		!props.isEmpty(props.overview.overview);
 	if (props.empty !== undefined && !relations && gallery.length === 0) {
 		return (
 			<>
@@ -511,6 +549,7 @@ export function MediaOverview<Overview>(props: {
 				images={galleryImages(props.media.images)}
 			/>
 			<MediaOverviewBody
+				related={related}
 				state={props.overview}
 				compact={props.compact}
 				entityId={props.media.id}

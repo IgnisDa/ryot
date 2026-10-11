@@ -52,6 +52,7 @@ export const podcastSummaryRow = {
 	productionStatus: "Ended",
 	publishDate: "2014-11-18",
 	providerName: "Listen Notes",
+	relatedPopulationStatus: "ready",
 	description: "A show about the internet.",
 	nextUp: { items: [], pageInfo: { limit: 1, hasMore: false } },
 	collections: { items: [], pageInfo: { limit: 6, hasMore: false } },

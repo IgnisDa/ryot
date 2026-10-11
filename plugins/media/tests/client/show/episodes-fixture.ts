@@ -26,6 +26,7 @@ export const showEpisodeRow = {
 	translationStatus: "none",
 	schemaSlug: "show-episode",
 	name: "Episode 1: The Arrest",
+	relatedPopulationStatus: "ready",
 	description: "A thirteen-year-old is arrested at dawn.",
 	images: [{ type: "remote", purpose: "still", url: "https://images.test/episode-1.jpg" }],
 };
@@ -43,6 +44,7 @@ export const showSeasonRow = {
 	releaseDate: "2025-03-13",
 	populationStatus: "ready",
 	translationStatus: "none",
+	relatedPopulationStatus: "ready",
 	description: "The complete limited series.",
 	images: [{ type: "remote", purpose: "cover", url: "https://images.test/season-1.jpg" }],
 };
@@ -63,6 +65,7 @@ export const decodeShowSeasonsResult = (input: {
 						episodeOrders: null,
 						populationStatus: "ready",
 						translationStatus: "none",
+						relatedPopulationStatus: "ready",
 						...input.show,
 						seasons: { items: seasons, pageInfo: { limit: 40, hasMore: false } },
 					},

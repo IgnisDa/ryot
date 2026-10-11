@@ -16,6 +16,7 @@ const PODCAST_EPISODE_ROW = {
 	populationStatus: "ready",
 	translationStatus: "none",
 	schemaSlug: "podcast-episode",
+	relatedPopulationStatus: "ready",
 	description: "A long conversation.",
 	images: [{ type: "remote", purpose: "cover", url: "https://images.test/episode-9.jpg" }],
 };
@@ -54,6 +55,7 @@ describe("media podcast query recipes", () => {
 			"schemaSlug",
 			"populationStatus",
 			"translationStatus",
+			"relatedPopulationStatus",
 			"images",
 			"episodeNumber",
 			"runtime",
@@ -148,6 +150,7 @@ describe("media podcast query recipes", () => {
 			"schemaSlug",
 			"populationStatus",
 			"translationStatus",
+			"relatedPopulationStatus",
 			"state",
 			"image",
 			"publishDate",

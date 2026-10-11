@@ -13,6 +13,7 @@ const presentationRowDefaults = {
 	productionStatus: null,
 	populationStatus: "ready",
 	translationStatus: "none",
+	relatedPopulationStatus: "ready",
 };
 
 export const decodeFlatPresentation = <Presentation>(

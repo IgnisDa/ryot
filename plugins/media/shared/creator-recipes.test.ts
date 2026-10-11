@@ -48,6 +48,7 @@ describe("media creator recipes", () => {
 			"schemaSlug",
 			"populationStatus",
 			"translationStatus",
+			"relatedPopulationStatus",
 			"providerName",
 			"description",
 			"images",
@@ -176,6 +177,7 @@ describe("media creator recipes", () => {
 			...creditFieldKeys,
 			"populationStatus",
 			"translationStatus",
+			"relatedPopulationStatus",
 			"character",
 		]);
 		expect(creditKeys(OVERVIEW_RECIPE, "music-group")).not.toContain("character");

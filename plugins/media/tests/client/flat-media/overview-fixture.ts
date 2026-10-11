@@ -25,6 +25,7 @@ export const flatPersonRow = {
 	character: "The Narrator",
 	populationStatus: "ready",
 	translationStatus: "none",
+	relatedPopulationStatus: "ready",
 	images: [{ type: "remote", purpose: "profile", url: "https://images.test/edward.jpg" }],
 };
 
@@ -35,6 +36,7 @@ export const flatCompanyRow = {
 	populationStatus: "ready",
 	translationStatus: "none",
 	roles: ["Production Company"],
+	relatedPopulationStatus: "ready",
 	images: [{ type: "remote", purpose: "logo", url: "https://images.test/fox.png" }],
 };
 
@@ -43,6 +45,7 @@ export const flatRecommendationRow = {
 	name: "Se7en",
 	populationStatus: "ready",
 	translationStatus: "none",
+	relatedPopulationStatus: "ready",
 	images: [{ type: "remote", purpose: "cover", url: "https://images.test/se7en.jpg" }],
 };
 
@@ -51,6 +54,7 @@ export const flatGroupMemberRow = {
 	name: "Fight Club 2",
 	populationStatus: "ready",
 	translationStatus: "none",
+	relatedPopulationStatus: "ready",
 	images: [{ type: "s3", purpose: "cover", key: "fc2-cover" }],
 };
 
@@ -58,6 +62,7 @@ export const flatGroupRow = {
 	id: "group-1",
 	populationStatus: "ready",
 	translationStatus: "none",
+	relatedPopulationStatus: "ready",
 	name: "The Fight Club Collection",
 };
 

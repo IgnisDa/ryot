@@ -20,6 +20,7 @@ export const creatorSummaryRow = {
 	isInMediaLibrary: true,
 	populationStatus: "ready",
 	translationStatus: "none",
+	relatedPopulationStatus: "ready",
 	description: "An American actor.",
 	alternateNames: ["Ed Norton", "Eddie", "E. Norton", "Edward H. Norton", "Norton"],
 	collections: {

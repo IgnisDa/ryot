@@ -13,7 +13,12 @@ import {
 	libraryMediaCountRecipe,
 } from "./lifecycle-list-recipes";
 
-const identity = { images: null, populationStatus: "ready", translationStatus: "none" };
+const identity = {
+	images: null,
+	populationStatus: "ready",
+	translationStatus: "none",
+	relatedPopulationStatus: "ready",
+};
 
 const nextUpEpisode = {
 	...identity,

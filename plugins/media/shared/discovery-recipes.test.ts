@@ -15,6 +15,7 @@ const mediaRow = (id: string) => ({
 	schemaSlug: "movie",
 	populationStatus: "ready",
 	translationStatus: "none",
+	relatedPopulationStatus: "ready",
 });
 
 const page = (items: readonly unknown[], limit: number) =>

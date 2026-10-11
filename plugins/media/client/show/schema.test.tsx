@@ -36,6 +36,7 @@ const presentationRow = {
 	inProgressEpisodes: 1,
 	populationStatus: "ready",
 	translationStatus: "none",
+	relatedPopulationStatus: "ready",
 	productionStatus: "Returning Series",
 	image: { type: "remote", url: "https://images.test/severance.jpg" },
 };

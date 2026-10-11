@@ -45,6 +45,7 @@ const targetRow = (overrides: Record<string, unknown> = {}) => ({
 	translationStatus: "none",
 	showNextUp: includeRows([]),
 	podcastNextUp: includeRows([]),
+	relatedPopulationStatus: "ready",
 	...overrides,
 });
 

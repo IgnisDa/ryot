@@ -149,6 +149,7 @@ const SHOW_SUMMARY_ROW = {
 	productionStatus: "Ended",
 	publishDate: "2025-03-13",
 	description: "A synopsis.",
+	relatedPopulationStatus: "ready",
 	nextUp: { items: [], pageInfo: { limit: 1, hasMore: false } },
 	collections: {
 		pageInfo: { limit: 6, hasMore: false },
@@ -189,6 +190,7 @@ describe("media show query recipes", () => {
 			"schemaSlug",
 			"populationStatus",
 			"translationStatus",
+			"relatedPopulationStatus",
 			"state",
 			"image",
 			"publishDate",
@@ -217,6 +219,7 @@ describe("media show query recipes", () => {
 			inProgressEpisodes: 1,
 			populationStatus: "ready",
 			translationStatus: "none",
+			relatedPopulationStatus: "ready",
 			productionStatus: "Returning Series",
 			image: { type: "s3", key: "severance-cover" },
 		};
@@ -255,6 +258,7 @@ describe("media show query recipes", () => {
 			"schemaSlug",
 			"populationStatus",
 			"translationStatus",
+			"relatedPopulationStatus",
 			"episodeOrders",
 		]);
 		expect(seasons).toMatchObject({ limit: 4, key: "seasons" });
@@ -269,6 +273,7 @@ describe("media show query recipes", () => {
 			"schemaSlug",
 			"populationStatus",
 			"translationStatus",
+			"relatedPopulationStatus",
 			"seasonNumber",
 			"images",
 			"releaseDate",
@@ -307,6 +312,7 @@ describe("media show query recipes", () => {
 							episodeOrders: orders,
 							populationStatus: "ready",
 							translationStatus: "none",
+							relatedPopulationStatus: "ready",
 							seasons: { items: [], pageInfo: { limit: 4, hasMore: false } },
 						},
 					]),
@@ -372,6 +378,7 @@ describe("media show query recipes", () => {
 			populationStatus: "ready",
 			translationStatus: "none",
 			schemaSlug: "show-episode",
+			relatedPopulationStatus: "ready",
 		};
 
 		expect(recipe.decode({ data: { episodes: showRows([episode]) } })).toMatchObject({
@@ -497,6 +504,7 @@ describe("media show query recipes", () => {
 			"schemaSlug",
 			"populationStatus",
 			"translationStatus",
+			"relatedPopulationStatus",
 			"images",
 			"episodeNumber",
 			"runtime",
@@ -543,6 +551,7 @@ describe("media show query recipes", () => {
 			"schemaSlug",
 			"populationStatus",
 			"translationStatus",
+			"relatedPopulationStatus",
 			"providerName",
 			"description",
 			"images",
@@ -638,6 +647,7 @@ describe("media show query recipes", () => {
 			populationStatus: "ready",
 			translationStatus: "none",
 			schemaSlug: "show-episode",
+			relatedPopulationStatus: "ready",
 		};
 
 		expect(
@@ -950,6 +960,7 @@ describe("media show query recipes", () => {
 			"roles",
 			"populationStatus",
 			"translationStatus",
+			"relatedPopulationStatus",
 			"character",
 		]);
 		expect(companies.output.fields.map((field) => ("key" in field ? field.key : null))).toEqual([
@@ -960,6 +971,7 @@ describe("media show query recipes", () => {
 			"roles",
 			"populationStatus",
 			"translationStatus",
+			"relatedPopulationStatus",
 		]);
 	});
 
@@ -1031,7 +1043,14 @@ describe("media show query recipes", () => {
 		]);
 		expect(
 			recommendations.output.fields.map((field) => ("key" in field ? field.key : null)),
-		).toEqual(["id", "name", "images", "populationStatus", "translationStatus"]);
+		).toEqual([
+			"id",
+			"name",
+			"images",
+			"populationStatus",
+			"translationStatus",
+			"relatedPopulationStatus",
+		]);
 	});
 
 	it("decodes show credits, companies and recommendations with their locators", () => {
@@ -1044,6 +1063,7 @@ describe("media show query recipes", () => {
 							name: "Bad Girls",
 							populationStatus: "ready",
 							translationStatus: "none",
+							relatedPopulationStatus: "ready",
 							images: [{ type: "local", purpose: "cover", key: "bad-girls-cover" }],
 						},
 					]),
@@ -1055,6 +1075,7 @@ describe("media show query recipes", () => {
 							populationStatus: "ready",
 							translationStatus: "none",
 							roles: ["Production Company"],
+							relatedPopulationStatus: "ready",
 							images: [{ type: "s3", purpose: "logo", key: "warp-logo" }],
 						},
 					]),
@@ -1067,6 +1088,7 @@ describe("media show query recipes", () => {
 							character: "Narrator",
 							populationStatus: "ready",
 							translationStatus: "none",
+							relatedPopulationStatus: "ready",
 							images: [{ type: "remote", purpose: "profile", url: "https://images.test/jack.jpg" }],
 						},
 					]),
@@ -1122,6 +1144,7 @@ describe("media show query recipes", () => {
 							name: "Bad Girls",
 							populationStatus: "ready",
 							translationStatus: "none",
+							relatedPopulationStatus: "ready",
 						},
 					]),
 					people: showRows([
@@ -1134,6 +1157,7 @@ describe("media show query recipes", () => {
 							name: "Jo Johnson",
 							populationStatus: "ready",
 							translationStatus: "none",
+							relatedPopulationStatus: "ready",
 						},
 					]),
 				},

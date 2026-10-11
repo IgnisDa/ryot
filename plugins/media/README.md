@@ -36,6 +36,11 @@ participate in visible IDs, managed assets, and emptiness checks. Summary-source
 `mediaWatchProvidersTrailing`. `mediaSummaryHeaderDetail` adds rating before descriptor facts and
 production status afterward; creator headers have neither.
 
+The canonical sync selection includes `relatedPopulationStatus`. While it is `pending` (and the base
+population has not failed), the overview's relation sections (credits, companies, recommendations,
+groups and extra rails) show their loading notice; when it is `failed` they show "Couldn't load" with
+Try again, which retries the population through the kernel.
+
 Artwork aspect comes from `mediaSchemaAspects`. `backdropPurposes` is ordered, defaults to
 `["backdrop"]`, and also selects managed hero assets. The frame owns hero geometry; descriptors
 declare art height without adding chrome offsets. Managed URLs, expiry, placeholders, and sync marks
@@ -231,6 +236,10 @@ Invalid targets return aligned misses. Demo sessions can read status and resolve
 monitoring changes and custom saves are protected. Integration metadata lookup uses integration auth.
 The cron pages its pinned query, deduplicates global IDs, and refreshes bounded provider batches with
 deterministic child IDs; user-owned fields are not exposed by that global query.
+
+Imports populate media at the `base` level, without credits or other relationship groups. Monitoring
+association notifications for imported media therefore arrive when the media is first opened in the
+foreground (which populates its `full` level) or at the next monitoring sweep, not at import time.
 
 `media-review-create` saves a review on a visible media, group, creator, season, or episode owned by
 this plugin. It requires nonblank text, accepts an optional 0–100 rating and a spoiler flag, and is

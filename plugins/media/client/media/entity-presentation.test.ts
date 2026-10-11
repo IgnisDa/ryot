@@ -27,6 +27,7 @@ const source = (
 	schemaSlug: "person",
 	populationStatus: "ready",
 	translationStatus: "none",
+	relatedPopulationStatus: "ready",
 });
 
 describe("media entity presentation preparation", () => {
@@ -52,6 +53,7 @@ describe("media entity presentation preparation", () => {
 				batchAssets: [managed],
 				populationStatus: "ready",
 				translationStatus: "none",
+				relatedPopulationStatus: "ready",
 			},
 			two: {
 				id: "two",
@@ -64,6 +66,7 @@ describe("media entity presentation preparation", () => {
 				batchAssets: [managed],
 				populationStatus: "ready",
 				translationStatus: "none",
+				relatedPopulationStatus: "ready",
 			},
 		});
 	});

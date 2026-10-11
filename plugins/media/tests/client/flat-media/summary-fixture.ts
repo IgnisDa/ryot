@@ -27,6 +27,7 @@ export const flatSummaryRow = {
 	translationStatus: "none",
 	publishDate: "1999-10-15",
 	productionStatus: "Released",
+	relatedPopulationStatus: "ready",
 	description: "An insomniac office worker.",
 	collections: {
 		pageInfo: { limit: 6, hasMore: false },

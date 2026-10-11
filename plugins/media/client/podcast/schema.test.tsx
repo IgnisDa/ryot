@@ -38,6 +38,7 @@ const presentationRow = {
 	populationStatus: "ready",
 	translationStatus: "none",
 	productionStatus: "Ended",
+	relatedPopulationStatus: "ready",
 	image: { type: "remote", url: "https://images.test/reply-all.jpg" },
 };
 

@@ -34,6 +34,7 @@ describe("media saved views", () => {
 			"schemaSlug",
 			"populationStatus",
 			"translationStatus",
+			"relatedPopulationStatus",
 			"state",
 			"publishDate",
 			"airedEpisodes",

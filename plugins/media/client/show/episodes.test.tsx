@@ -156,6 +156,7 @@ const showAdapter = (input: {
 							name: "Adolescence",
 							populationStatus: "ready",
 							translationStatus: "none",
+							relatedPopulationStatus: "ready",
 							episodeOrders: input.episodeOrders ?? null,
 							seasons: rows(input.seasons ?? [showSeasonRow]),
 						},

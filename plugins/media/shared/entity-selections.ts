@@ -30,6 +30,10 @@ export const entityId = (entity: Table, id: string) => eq(column(entity, "id"), 
 export const entitySyncSelection = (entity: Table) => ({
 	populationStatus: selectedField(column(entity, "populationStatus"), PopulationStatus),
 	translationStatus: selectedField(column(entity, "translationStatus"), TranslationStatus),
+	relatedPopulationStatus: selectedField(
+		column(entity, "relatedPopulationStatus"),
+		PopulationStatus,
+	),
 });
 
 export const entityIdentitySelection = (entity: Table) => ({
