@@ -3,7 +3,13 @@ import {
 	BackupConflict,
 	type BackupAccountDataCategory,
 } from "@ryot-app/contract/modules/backups/schemas";
-import type { UserId } from "@ryot-app/contract/schema/brands";
+import {
+	definitionKey,
+	definitionOwner,
+	type SignalSchemaReference,
+} from "@ryot-app/contract/modules/plugins/references";
+import { mapPluginIdentityReferences } from "@ryot-app/contract/modules/ryotql/language";
+import { PluginId, SignalSchemaSlug, type UserId } from "@ryot-app/contract/schema/brands";
 import { defaultUserPreferences } from "@ryot-app/contract/schema/user-preferences";
 import { isEqual } from "@ryot-app/ts-utils/lodash";
 import { Context, Effect, Layer } from "effect";
@@ -29,25 +35,20 @@ import { ManagedAssetsService } from "#modules/uploads/managed-assets/service";
 
 import { isDefaultSystemInstallation } from "../installation-state";
 
-type StructuralRelationship = {
-	readonly sourceEntityId: string;
-	readonly targetEntityId: string;
-	readonly relationshipSchemaSlug: string;
-	readonly properties: Record<string, unknown>;
-};
+type StructuralRelationship = Pick<
+	Effect.Success<
+		ReturnType<RelationshipsRepository["Service"]["listUserRelationshipsForBackup"]>
+	>[number],
+	| "sourceEntityId"
+	| "targetEntityId"
+	| "relationshipSchemaSlug"
+	| "relationshipSchemaPluginId"
+	| "properties"
+>;
 
-type SavedViewRecord = {
-	readonly slug: string;
-	readonly name: string;
-	readonly icon: string;
-	readonly renderer: unknown;
-	readonly settings: unknown;
-	readonly dataSources: unknown;
-	readonly sortOrder: number;
-	readonly isBuiltin: boolean;
-	readonly isHidden: boolean;
-	readonly pluginSlug: string | null;
-};
+type SavedViewRecord = Effect.Success<
+	ReturnType<SavedViewsRepository["Service"]["listForBackup"]>
+>[number];
 
 export type AccountCleanlinessState = {
 	readonly hasEvents: boolean;
@@ -61,7 +62,7 @@ export type AccountCleanlinessState = {
 	readonly pluginState: ReadonlyArray<PluginInstallationHydratedState>;
 	readonly relationships: ReadonlyArray<StructuralRelationship>;
 	readonly expectedSavedViews: ReadonlyArray<SavedViewDefinition>;
-	readonly expectedNotificationSubscriptionSlugs: ReadonlyArray<string>;
+	readonly expectedNotificationSubscriptions: ReadonlyArray<SignalSchemaReference>;
 	readonly expectedBootstrapRelationships: ReadonlyArray<StructuralRelationship>;
 	readonly notificationSubscriptions: ReadonlyArray<StoredNotificationSubscription>;
 };
@@ -90,18 +91,35 @@ export const classifyAccountCleanliness = (
 	if (state.hasEvents) {
 		return "events";
 	}
-	if (!sameUnorderedRecords(state.relationships, state.expectedBootstrapRelationships)) {
+	const relationships = state.relationships.map(
+		({
+			properties,
+			sourceEntityId,
+			targetEntityId,
+			relationshipSchemaSlug,
+			relationshipSchemaPluginId,
+		}) => ({
+			properties,
+			sourceEntityId,
+			targetEntityId,
+			relationshipSchemaSlug,
+			relationshipSchemaPluginId,
+		}),
+	);
+	if (!sameUnorderedRecords(relationships, state.expectedBootstrapRelationships)) {
 		return "relationships";
 	}
 	const bootstrapEntities = state.entities.filter(
 		(entity) => entity.provider === null && entity.externalId === null,
 	);
-	const bootstrapSchemaSlugs = new Set(
-		bootstrapEntities.map(({ entitySchemaSlug }) => entitySchemaSlug),
+	const bootstrapSchemaIdentities = new Set(
+		bootstrapEntities.map(({ entitySchemaSlug, entitySchemaPluginId }) =>
+			definitionKey("entity", definitionOwner(entitySchemaPluginId), entitySchemaSlug),
+		),
 	);
 	if (
 		bootstrapEntities.length !== state.entities.length ||
-		bootstrapSchemaSlugs.size !== bootstrapEntities.length
+		bootstrapSchemaIdentities.size !== bootstrapEntities.length
 	) {
 		return "entities";
 	}
@@ -118,8 +136,9 @@ export const classifyAccountCleanliness = (
 			isHidden,
 			isBuiltin,
 			sortOrder,
-			pluginSlug,
+			reference,
 			dataSources,
+			pluginInstallationId,
 		}) => ({
 			slug,
 			name,
@@ -129,31 +148,55 @@ export const classifyAccountCleanliness = (
 			isHidden,
 			isBuiltin,
 			sortOrder,
-			pluginSlug,
+			reference,
 			dataSources,
+			pluginInstallationId,
 		}),
 	);
-	const expectedSavedViews = state.expectedSavedViews.map((view) => ({
-		slug: view.slug,
-		name: view.name,
-		isBuiltin: true,
-		icon: view.icon,
-		isHidden: false,
-		renderer: view.renderer,
-		settings: view.settings,
-		sortOrder: view.sortOrder,
-		pluginSlug: view.pluginSlug,
-		dataSources: view.dataSources,
-	}));
+	const expectedSavedViews = state.expectedSavedViews.map((view) => {
+		const ownerPluginId = view.pluginId;
+		return {
+			slug: view.slug,
+			name: view.name,
+			isBuiltin: true,
+			icon: view.icon,
+			isHidden: false,
+			renderer: view.renderer,
+			settings: view.settings,
+			sortOrder: view.sortOrder,
+			reference:
+				ownerPluginId === null
+					? { kind: "kernel", slug: view.slug }
+					: { kind: "plugin", slug: view.slug, pluginId: ownerPluginId },
+			pluginInstallationId:
+				ownerPluginId === null
+					? null
+					: (state.pluginState.find(({ pluginId }) => pluginId === ownerPluginId)?.id ?? null),
+			dataSources:
+				view.dataSources === null || ownerPluginId === null
+					? view.dataSources
+					: mapPluginIdentityReferences(view.dataSources, (reference) =>
+							reference.kind === "self"
+								? { kind: "local", pluginId: PluginId.make(ownerPluginId) }
+								: reference,
+						),
+		};
+	});
 	if (!sameUnorderedRecords(savedViews, expectedSavedViews)) {
 		return "saved-views";
 	}
 	const subscriptions = state.notificationSubscriptions.map(
-		({ isActive, metadata, signalSchemaSlug }) => ({ isActive, metadata, signalSchemaSlug }),
+		({ isActive, metadata, signalSchemaSlug, signalSchemaPluginId }) => ({
+			isActive,
+			metadata,
+			signal: { slug: signalSchemaSlug, owner: definitionOwner(signalSchemaPluginId) },
+		}),
 	);
-	const expectedSubscriptions = state.expectedNotificationSubscriptionSlugs.map(
-		(signalSchemaSlug) => ({ isActive: true, metadata: null, signalSchemaSlug }),
-	);
+	const expectedSubscriptions = state.expectedNotificationSubscriptions.map((signal) => ({
+		signal,
+		isActive: true,
+		metadata: null,
+	}));
 	if (!sameUnorderedRecords(subscriptions, expectedSubscriptions)) {
 		return "notification-subscriptions";
 	}
@@ -200,7 +243,7 @@ export class BackupAccountCleanliness extends Context.Service<BackupAccountClean
 					const states = yield* installations.listHydratedForUser(userId);
 					const hasIntegrations = yield* integrations.hasAnyForUser(userId);
 					const hasNotificationChannels = yield* notifications.hasAnyForUser(userId);
-					const snapshot = yield* definitions.getGlobalSnapshot;
+					const snapshot = yield* definitions.getUserSnapshot(userId, { listed: true });
 					const category = classifyAccountCleanliness({
 						profile,
 						hasEvents,
@@ -215,9 +258,12 @@ export class BackupAccountCleanliness extends Context.Service<BackupAccountClean
 						notificationSubscriptions: subscriptions,
 						defaultPreferences: { ...defaultUserPreferences },
 						expectedSavedViews: Object.values(snapshot.savedViews),
-						expectedNotificationSubscriptionSlugs: Object.values(snapshot.signalSchemas)
+						expectedNotificationSubscriptions: Object.values(snapshot.signalSchemas)
 							.filter(({ catalogState }) => catalogState === "active")
-							.map(({ slug }) => slug),
+							.map(({ slug, pluginId }) => ({
+								owner: definitionOwner(pluginId),
+								slug: SignalSchemaSlug.make(slug),
+							})),
 					});
 					if (category) {
 						return yield* new BackupConflict({ reason: { category, code: "account-not-clean" } });
