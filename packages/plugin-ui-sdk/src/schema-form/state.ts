@@ -148,7 +148,7 @@ export const describeSchemaFormField = (
 	};
 };
 
-const isRecord = (value: unknown): value is Readonly<Record<string, JsonValue>> =>
+export const isJsonObjectValue = (value: unknown): value is Readonly<Record<string, JsonValue>> =>
 	isObjectRecord(value) && isJsonValue(value);
 
 export const propertyFormDefault = (
@@ -214,7 +214,7 @@ const propertyPayload = (
 	if (property.secret && value === "" && mode === "edit") {
 		return undefined;
 	}
-	if (property.type === "object" && isRecord(value)) {
+	if (property.type === "object" && isJsonObjectValue(value)) {
 		const entries: [string, JsonValue][] = [];
 		if (property.unknownKeys === "passthrough" || property.unknownKeys === "strict") {
 			for (const [key, child] of Object.entries(value)) {
@@ -232,7 +232,7 @@ const propertyPayload = (
 				input,
 				addressable,
 				mode,
-				isRecord(original) ? original[key] : undefined,
+				isJsonObjectValue(original) ? original[key] : undefined,
 			);
 			if (next !== undefined) {
 				entries.push([key, next]);
@@ -343,13 +343,13 @@ const retainedSecretPaths = (
 	) {
 		return [path];
 	}
-	if (property.type === "object" && isRecord(value)) {
+	if (property.type === "object" && isJsonObjectValue(value)) {
 		return Object.entries(property.properties).flatMap(([key, child]) =>
 			retainedSecretPaths(
 				child,
 				value[key],
 				[...path, key],
-				isRecord(original) ? original[key] : undefined,
+				isJsonObjectValue(original) ? original[key] : undefined,
 			),
 		);
 	}
