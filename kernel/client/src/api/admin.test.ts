@@ -18,14 +18,14 @@ describe("admin API", () => {
 				{ download: (request) => Effect.sync(() => downloads.push(request)) },
 			);
 			yield* api.download(
-				"https://ryot.example/api/god-mode/logs/download?ticket=short",
+				"https://ryot.example/api/instance-admin/logs/download?ticket=short",
 				"logs.zip",
 			);
 
 			expect(downloads).toEqual([
 				{
 					fileName: "logs.zip",
-					url: "https://ryot.example/api/god-mode/logs/download?ticket=short",
+					url: "https://ryot.example/api/instance-admin/logs/download?ticket=short",
 				},
 			]);
 		}),

@@ -1,4 +1,4 @@
-import { UPLOAD_MAX_FILE_BYTES } from "@ryot-app/contract/modules/uploads/upload-policy";
+import { UPLOAD_MAX_FILE_BYTES } from "@ryot-app/contract/modules/assets/upload-policy";
 import { Effect } from "effect";
 import getPort from "get-port";
 

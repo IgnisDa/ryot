@@ -3,7 +3,7 @@ import {
 	definitionOwner,
 } from "@ryot-app/contract/modules/plugins/references";
 import type { IncludeResult, RowItem } from "@ryot-app/contract/modules/ryotql/language";
-import type { AssetLocator } from "@ryot-app/contract/modules/uploads/schemas";
+import type { AssetLocator } from "@ryot-app/contract/modules/assets/schemas";
 import {
 	workoutDetailRecipe,
 	workoutTemplateDetailRecipe,

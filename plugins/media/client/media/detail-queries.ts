@@ -18,7 +18,7 @@ export const createMediaEntityQuery = <Data>(
 		({ input, client }) =>
 			client.data.query(recipe({ ...input, reference: client.pluginIdentity(PLUGIN_PACKAGE_ID) })),
 		{
-			entityInterest: ({ data, input }) => ({
+			entityWatch: ({ data, input }) => ({
 				foreground: [input.entityId],
 				visible: data === undefined ? [] : visible(data),
 			}),

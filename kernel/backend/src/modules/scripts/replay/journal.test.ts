@@ -1,6 +1,6 @@
 import { expect, layer } from "@effect/vitest";
 import { SandboxRunError } from "@ryot-app/contract/errors";
-import type { JsonValue } from "@ryot-app/contract/modules/ryotql/language";
+import type { JsonValue } from "@ryot-app/contract/schema/json";
 import { readPinnedJournal } from "@ryot-app/sandbox/host/pinned-journal.test-support";
 import { Effect } from "effect";
 

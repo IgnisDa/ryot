@@ -1,5 +1,8 @@
 import type { ContractSuccess } from "@ryot-app/contract/client";
-import { ServerLogsFailure, ServerLogsNotFound } from "@ryot-app/contract/modules/god-mode/logs";
+import {
+	ServerLogsFailure,
+	ServerLogsNotFound,
+} from "@ryot-app/contract/modules/instance-admin/logs";
 import { Context, DateTime, Effect, FileSystem, Layer, Option, Path, Stream } from "effect";
 import { Base64Url } from "effect/encoding";
 import { Zip, ZipDeflate, ZipPassThrough } from "fflate";

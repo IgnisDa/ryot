@@ -12,17 +12,17 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/route'
 import { Route as AuthRouteImport } from './routes/auth'
 import { Route as DemoRouteImport } from './routes/demo'
-import { Route as GodModeRouteRouteImport } from './routes/god-mode/route'
+import { Route as InstanceAdminRouteRouteImport } from './routes/instance-admin/route'
 import { Route as OnboardingRouteImport } from './routes/onboarding'
 import { Route as ResetPasswordRouteImport } from './routes/reset-password'
 import { Route as AuthenticatedIndexRouteImport } from './routes/_authenticated/index'
 import { Route as AuthenticatedCustomizeSidebarRouteImport } from './routes/_authenticated/customize-sidebar'
 import { Route as AuthenticatedSettingsRouteRouteImport } from './routes/_authenticated/settings/route'
 import { Route as AuthCallbackRouteImport } from './routes/auth_.callback'
-import { Route as GodModeIndexRouteImport } from './routes/god-mode/index'
-import { Route as GodModeLogsRouteImport } from './routes/god-mode/logs'
-import { Route as GodModeMigrationReportRouteImport } from './routes/god-mode/migration-report'
-import { Route as GodModeUsersRouteImport } from './routes/god-mode/users'
+import { Route as InstanceAdminIndexRouteImport } from './routes/instance-admin/index'
+import { Route as InstanceAdminLogsRouteImport } from './routes/instance-admin/logs'
+import { Route as InstanceAdminMigrationReportRouteImport } from './routes/instance-admin/migration-report'
+import { Route as InstanceAdminUsersRouteImport } from './routes/instance-admin/users'
 import { Route as OauthImpersonateRouteImport } from './routes/oauth.impersonate'
 import { Route as OauthInitializingRouteImport } from './routes/oauth.initializing'
 import { Route as OauthLoginRouteImport } from './routes/oauth.login'
@@ -68,9 +68,9 @@ const DemoRoute = DemoRouteImport.update({
   path: '/demo',
   getParentRoute: () => rootRouteImport,
 } as any)
-const GodModeRouteRoute = GodModeRouteRouteImport.update({
-  id: '/god-mode',
-  path: '/god-mode',
+const InstanceAdminRouteRoute = InstanceAdminRouteRouteImport.update({
+  id: '/instance-admin',
+  path: '/instance-admin',
   getParentRoute: () => rootRouteImport,
 } as any)
 const OnboardingRoute = OnboardingRouteImport.update({
@@ -105,25 +105,25 @@ const AuthCallbackRoute = AuthCallbackRouteImport.update({
   path: '/auth/callback',
   getParentRoute: () => rootRouteImport,
 } as any)
-const GodModeIndexRoute = GodModeIndexRouteImport.update({
+const InstanceAdminIndexRoute = InstanceAdminIndexRouteImport.update({
   id: '/',
   path: '/',
-  getParentRoute: () => GodModeRouteRoute,
+  getParentRoute: () => InstanceAdminRouteRoute,
 } as any)
-const GodModeLogsRoute = GodModeLogsRouteImport.update({
+const InstanceAdminLogsRoute = InstanceAdminLogsRouteImport.update({
   id: '/logs',
   path: '/logs',
-  getParentRoute: () => GodModeRouteRoute,
+  getParentRoute: () => InstanceAdminRouteRoute,
 } as any)
-const GodModeMigrationReportRoute = GodModeMigrationReportRouteImport.update({
+const InstanceAdminMigrationReportRoute = InstanceAdminMigrationReportRouteImport.update({
   id: '/migration-report',
   path: '/migration-report',
-  getParentRoute: () => GodModeRouteRoute,
+  getParentRoute: () => InstanceAdminRouteRoute,
 } as any)
-const GodModeUsersRoute = GodModeUsersRouteImport.update({
+const InstanceAdminUsersRoute = InstanceAdminUsersRouteImport.update({
   id: '/users',
   path: '/users',
-  getParentRoute: () => GodModeRouteRoute,
+  getParentRoute: () => InstanceAdminRouteRoute,
 } as any)
 const OauthImpersonateRoute = OauthImpersonateRouteImport.update({
   id: '/oauth/impersonate',
@@ -301,7 +301,7 @@ const AuthenticatedVPPublisherNameSlugRoute =
 
 export interface FileRoutesByFullPath {
   '/': typeof AuthenticatedIndexRoute
-  '/god-mode': typeof GodModeRouteRouteWithChildren
+  '/instance-admin': typeof InstanceAdminRouteRouteWithChildren
   '/auth': typeof AuthRoute
   '/demo': typeof DemoRoute
   '/onboarding': typeof OnboardingRoute
@@ -309,14 +309,14 @@ export interface FileRoutesByFullPath {
   '/settings': typeof AuthenticatedSettingsRouteRouteWithChildren
   '/customize-sidebar': typeof AuthenticatedCustomizeSidebarRoute
   '/auth/callback': typeof AuthCallbackRoute
-  '/god-mode/logs': typeof GodModeLogsRoute
-  '/god-mode/migration-report': typeof GodModeMigrationReportRoute
-  '/god-mode/users': typeof GodModeUsersRoute
+  '/instance-admin/logs': typeof InstanceAdminLogsRoute
+  '/instance-admin/migration-report': typeof InstanceAdminMigrationReportRoute
+  '/instance-admin/users': typeof InstanceAdminUsersRoute
   '/oauth/impersonate': typeof OauthImpersonateRoute
   '/oauth/initializing': typeof OauthInitializingRoute
   '/oauth/login': typeof OauthLoginRoute
   '/oauth/two-factor': typeof OauthTwoFactorRoute
-  '/god-mode/': typeof GodModeIndexRoute
+  '/instance-admin/': typeof InstanceAdminIndexRoute
   '/e/$entityId': typeof AuthenticatedEEntityIdRoute
   '/settings/$': typeof AuthenticatedSettingsSplatRoute
   '/settings/about': typeof AuthenticatedSettingsAboutRoute
@@ -351,15 +351,15 @@ export interface FileRoutesByTo {
   '/reset-password': typeof ResetPasswordRoute
   '/customize-sidebar': typeof AuthenticatedCustomizeSidebarRoute
   '/auth/callback': typeof AuthCallbackRoute
-  '/god-mode/logs': typeof GodModeLogsRoute
-  '/god-mode/migration-report': typeof GodModeMigrationReportRoute
-  '/god-mode/users': typeof GodModeUsersRoute
+  '/instance-admin/logs': typeof InstanceAdminLogsRoute
+  '/instance-admin/migration-report': typeof InstanceAdminMigrationReportRoute
+  '/instance-admin/users': typeof InstanceAdminUsersRoute
   '/oauth/impersonate': typeof OauthImpersonateRoute
   '/oauth/initializing': typeof OauthInitializingRoute
   '/oauth/login': typeof OauthLoginRoute
   '/oauth/two-factor': typeof OauthTwoFactorRoute
   '/': typeof AuthenticatedIndexRoute
-  '/god-mode': typeof GodModeIndexRoute
+  '/instance-admin': typeof InstanceAdminIndexRoute
   '/e/$entityId': typeof AuthenticatedEEntityIdRoute
   '/settings/$': typeof AuthenticatedSettingsSplatRoute
   '/settings/about': typeof AuthenticatedSettingsAboutRoute
@@ -389,7 +389,7 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/_authenticated': typeof AuthenticatedRouteRouteWithChildren
-  '/god-mode': typeof GodModeRouteRouteWithChildren
+  '/instance-admin': typeof InstanceAdminRouteRouteWithChildren
   '/auth': typeof AuthRoute
   '/demo': typeof DemoRoute
   '/onboarding': typeof OnboardingRoute
@@ -397,15 +397,15 @@ export interface FileRoutesById {
   '/_authenticated/settings': typeof AuthenticatedSettingsRouteRouteWithChildren
   '/_authenticated/customize-sidebar': typeof AuthenticatedCustomizeSidebarRoute
   '/auth_/callback': typeof AuthCallbackRoute
-  '/god-mode/logs': typeof GodModeLogsRoute
-  '/god-mode/migration-report': typeof GodModeMigrationReportRoute
-  '/god-mode/users': typeof GodModeUsersRoute
+  '/instance-admin/logs': typeof InstanceAdminLogsRoute
+  '/instance-admin/migration-report': typeof InstanceAdminMigrationReportRoute
+  '/instance-admin/users': typeof InstanceAdminUsersRoute
   '/oauth/impersonate': typeof OauthImpersonateRoute
   '/oauth/initializing': typeof OauthInitializingRoute
   '/oauth/login': typeof OauthLoginRoute
   '/oauth/two-factor': typeof OauthTwoFactorRoute
   '/_authenticated/': typeof AuthenticatedIndexRoute
-  '/god-mode/': typeof GodModeIndexRoute
+  '/instance-admin/': typeof InstanceAdminIndexRoute
   '/_authenticated/e/$entityId': typeof AuthenticatedEEntityIdRoute
   '/_authenticated/settings/$': typeof AuthenticatedSettingsSplatRoute
   '/_authenticated/settings/about': typeof AuthenticatedSettingsAboutRoute
@@ -437,7 +437,7 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
-    | '/god-mode'
+    | '/instance-admin'
     | '/auth'
     | '/demo'
     | '/onboarding'
@@ -445,14 +445,14 @@ export interface FileRouteTypes {
     | '/settings'
     | '/customize-sidebar'
     | '/auth/callback'
-    | '/god-mode/logs'
-    | '/god-mode/migration-report'
-    | '/god-mode/users'
+    | '/instance-admin/logs'
+    | '/instance-admin/migration-report'
+    | '/instance-admin/users'
     | '/oauth/impersonate'
     | '/oauth/initializing'
     | '/oauth/login'
     | '/oauth/two-factor'
-    | '/god-mode/'
+    | '/instance-admin/'
     | '/e/$entityId'
     | '/settings/$'
     | '/settings/about'
@@ -487,15 +487,15 @@ export interface FileRouteTypes {
     | '/reset-password'
     | '/customize-sidebar'
     | '/auth/callback'
-    | '/god-mode/logs'
-    | '/god-mode/migration-report'
-    | '/god-mode/users'
+    | '/instance-admin/logs'
+    | '/instance-admin/migration-report'
+    | '/instance-admin/users'
     | '/oauth/impersonate'
     | '/oauth/initializing'
     | '/oauth/login'
     | '/oauth/two-factor'
     | '/'
-    | '/god-mode'
+    | '/instance-admin'
     | '/e/$entityId'
     | '/settings/$'
     | '/settings/about'
@@ -524,7 +524,7 @@ export interface FileRouteTypes {
   id:
     | '__root__'
     | '/_authenticated'
-    | '/god-mode'
+    | '/instance-admin'
     | '/auth'
     | '/demo'
     | '/onboarding'
@@ -532,15 +532,15 @@ export interface FileRouteTypes {
     | '/_authenticated/settings'
     | '/_authenticated/customize-sidebar'
     | '/auth_/callback'
-    | '/god-mode/logs'
-    | '/god-mode/migration-report'
-    | '/god-mode/users'
+    | '/instance-admin/logs'
+    | '/instance-admin/migration-report'
+    | '/instance-admin/users'
     | '/oauth/impersonate'
     | '/oauth/initializing'
     | '/oauth/login'
     | '/oauth/two-factor'
     | '/_authenticated/'
-    | '/god-mode/'
+    | '/instance-admin/'
     | '/_authenticated/e/$entityId'
     | '/_authenticated/settings/$'
     | '/_authenticated/settings/about'
@@ -571,7 +571,7 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   AuthenticatedRouteRoute: typeof AuthenticatedRouteRouteWithChildren
-  GodModeRouteRoute: typeof GodModeRouteRouteWithChildren
+  InstanceAdminRouteRoute: typeof InstanceAdminRouteRouteWithChildren
   AuthRoute: typeof AuthRoute
   DemoRoute: typeof DemoRoute
   OnboardingRoute: typeof OnboardingRoute
@@ -607,11 +607,11 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DemoRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/god-mode': {
-      id: '/god-mode'
-      path: '/god-mode'
-      fullPath: '/god-mode'
-      preLoaderRoute: typeof GodModeRouteRouteImport
+    '/instance-admin': {
+      id: '/instance-admin'
+      path: '/instance-admin'
+      fullPath: '/instance-admin'
+      preLoaderRoute: typeof InstanceAdminRouteRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/onboarding': {
@@ -656,33 +656,33 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthCallbackRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/god-mode/': {
-      id: '/god-mode/'
+    '/instance-admin/': {
+      id: '/instance-admin/'
       path: '/'
-      fullPath: '/god-mode/'
-      preLoaderRoute: typeof GodModeIndexRouteImport
-      parentRoute: typeof GodModeRouteRoute
+      fullPath: '/instance-admin/'
+      preLoaderRoute: typeof InstanceAdminIndexRouteImport
+      parentRoute: typeof InstanceAdminRouteRoute
     }
-    '/god-mode/logs': {
-      id: '/god-mode/logs'
+    '/instance-admin/logs': {
+      id: '/instance-admin/logs'
       path: '/logs'
-      fullPath: '/god-mode/logs'
-      preLoaderRoute: typeof GodModeLogsRouteImport
-      parentRoute: typeof GodModeRouteRoute
+      fullPath: '/instance-admin/logs'
+      preLoaderRoute: typeof InstanceAdminLogsRouteImport
+      parentRoute: typeof InstanceAdminRouteRoute
     }
-    '/god-mode/migration-report': {
-      id: '/god-mode/migration-report'
+    '/instance-admin/migration-report': {
+      id: '/instance-admin/migration-report'
       path: '/migration-report'
-      fullPath: '/god-mode/migration-report'
-      preLoaderRoute: typeof GodModeMigrationReportRouteImport
-      parentRoute: typeof GodModeRouteRoute
+      fullPath: '/instance-admin/migration-report'
+      preLoaderRoute: typeof InstanceAdminMigrationReportRouteImport
+      parentRoute: typeof InstanceAdminRouteRoute
     }
-    '/god-mode/users': {
-      id: '/god-mode/users'
+    '/instance-admin/users': {
+      id: '/instance-admin/users'
       path: '/users'
-      fullPath: '/god-mode/users'
-      preLoaderRoute: typeof GodModeUsersRouteImport
-      parentRoute: typeof GodModeRouteRoute
+      fullPath: '/instance-admin/users'
+      preLoaderRoute: typeof InstanceAdminUsersRouteImport
+      parentRoute: typeof InstanceAdminRouteRoute
     }
     '/oauth/impersonate': {
       id: '/oauth/impersonate'
@@ -1001,27 +1001,27 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
 const AuthenticatedRouteRouteWithChildren =
   AuthenticatedRouteRoute._addFileChildren(AuthenticatedRouteRouteChildren)
 
-interface GodModeRouteRouteChildren {
-  GodModeLogsRoute: typeof GodModeLogsRoute
-  GodModeMigrationReportRoute: typeof GodModeMigrationReportRoute
-  GodModeUsersRoute: typeof GodModeUsersRoute
-  GodModeIndexRoute: typeof GodModeIndexRoute
+interface InstanceAdminRouteRouteChildren {
+  InstanceAdminLogsRoute: typeof InstanceAdminLogsRoute
+  InstanceAdminMigrationReportRoute: typeof InstanceAdminMigrationReportRoute
+  InstanceAdminUsersRoute: typeof InstanceAdminUsersRoute
+  InstanceAdminIndexRoute: typeof InstanceAdminIndexRoute
 }
 
-const GodModeRouteRouteChildren: GodModeRouteRouteChildren = {
-  GodModeLogsRoute: GodModeLogsRoute,
-  GodModeMigrationReportRoute: GodModeMigrationReportRoute,
-  GodModeUsersRoute: GodModeUsersRoute,
-  GodModeIndexRoute: GodModeIndexRoute,
+const InstanceAdminRouteRouteChildren: InstanceAdminRouteRouteChildren = {
+  InstanceAdminLogsRoute: InstanceAdminLogsRoute,
+  InstanceAdminMigrationReportRoute: InstanceAdminMigrationReportRoute,
+  InstanceAdminUsersRoute: InstanceAdminUsersRoute,
+  InstanceAdminIndexRoute: InstanceAdminIndexRoute,
 }
 
-const GodModeRouteRouteWithChildren = GodModeRouteRoute._addFileChildren(
-  GodModeRouteRouteChildren,
+const InstanceAdminRouteRouteWithChildren = InstanceAdminRouteRoute._addFileChildren(
+  InstanceAdminRouteRouteChildren,
 )
 
 const rootRouteChildren: RootRouteChildren = {
   AuthenticatedRouteRoute: AuthenticatedRouteRouteWithChildren,
-  GodModeRouteRoute: GodModeRouteRouteWithChildren,
+  InstanceAdminRouteRoute: InstanceAdminRouteRouteWithChildren,
   AuthRoute: AuthRoute,
   DemoRoute: DemoRoute,
   OnboardingRoute: OnboardingRoute,

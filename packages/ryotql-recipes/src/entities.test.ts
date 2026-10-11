@@ -1,7 +1,7 @@
 import { Result } from "effect";
 import { assert, describe, expect, it } from "vitest";
 
-import { entityInterestRecipe, entityRouteProvenanceRecipe } from "./entities";
+import { entityWatchRecipe, entityRouteProvenanceRecipe } from "./entities";
 import { rowsResponse } from "./test-utils";
 
 const pageInfo = { limit: 2, hasMore: false, nextCursor: null };
@@ -20,8 +20,8 @@ const provenanceResponse = (items: readonly unknown[]) => rowsResponse("entity",
 const responseWithItems = (items: readonly unknown[]) => rowsResponse("entities", items, pageInfo);
 
 describe("entity recipes", () => {
-	it("prepares and decodes the focused entity-interest read", () => {
-		const recipe = entityInterestRecipe({ entityIds: ["entity-1", "entity-2"] });
+	it("prepares and decodes the focused entity-watches read", () => {
+		const recipe = entityWatchRecipe({ entityIds: ["entity-1", "entity-2"] });
 		const query = recipe.document.queries.entities;
 		assert(query);
 		assert(query.output.type === "rows");
@@ -45,7 +45,7 @@ describe("entity recipes", () => {
 	});
 
 	it("decodes nullable fields", () => {
-		const recipe = entityInterestRecipe({ entityIds: ["entity-1"] });
+		const recipe = entityWatchRecipe({ entityIds: ["entity-1"] });
 		expect(
 			Result.getOrThrow(
 				recipe.decode(
@@ -66,7 +66,7 @@ describe("entity recipes", () => {
 	});
 
 	it("rejects malformed fields and non-rows results", () => {
-		const recipe = entityInterestRecipe({ entityIds: ["entity-1"] });
+		const recipe = entityWatchRecipe({ entityIds: ["entity-1"] });
 		expect(
 			Result.isFailure(recipe.decode(responseWithItems([{ ...item, properties: undefined }]))),
 		).toBe(true);

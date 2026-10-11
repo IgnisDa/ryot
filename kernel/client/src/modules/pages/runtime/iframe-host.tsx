@@ -34,8 +34,8 @@ import {
 	type RefObject,
 } from "react";
 
-import type { WatchEntities } from "#/modules/entity-interest/service";
-import { subscribeNativeResume } from "#/modules/entity-interest/transport";
+import type { WatchEntities } from "#/modules/entity-watches/service";
+import { subscribeNativeResume } from "#/modules/entity-watches/transport";
 import type { BackInterceptors } from "#/modules/navigation/back-interceptors";
 import type { PluginOperationDispatchOutcome } from "#/modules/pages/bridge/operations";
 import {

@@ -28,12 +28,14 @@ describe("Server log API", () => {
 	it.live("requires the admin token for listing and download ticket creation", () =>
 		Effect.gen(function* () {
 			for (const headers of [{}, adminAccessTokenHeaders(WRONG_TOKEN)]) {
-				const list = yield* webRequest(`${getApiUrl()}/god-mode/logs/files?limit=25`, { headers });
+				const list = yield* webRequest(`${getApiUrl()}/instance-admin/logs/files?limit=25`, {
+					headers,
+				});
 				const fileTicket = yield* webRequest(
-					`${getApiUrl()}/god-mode/logs/files/missing/download-url`,
+					`${getApiUrl()}/instance-admin/logs/files/missing/download-url`,
 					{ headers, method: "POST" },
 				);
-				const allTicket = yield* webRequest(`${getApiUrl()}/god-mode/logs/download-url`, {
+				const allTicket = yield* webRequest(`${getApiUrl()}/instance-admin/logs/download-url`, {
 					headers,
 					method: "POST",
 				});

@@ -2,7 +2,7 @@ import { definitionOwner } from "@ryot-app/contract/modules/plugins/references";
 import {
 	SandboxExecutionSubject,
 	SandboxScriptMetadata,
-} from "@ryot-app/contract/modules/sandbox/schemas";
+} from "@ryot-app/contract/modules/scripts/schemas";
 import {
 	PluginId,
 	PluginPackageId,

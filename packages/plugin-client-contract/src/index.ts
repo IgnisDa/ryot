@@ -1,4 +1,8 @@
-import { ClientPageCodeContributor } from "@ryot-app/contract/modules/client-pages/schemas";
+import {
+	ManagedAssetResolutionBatch,
+	ManagedAssetLocator,
+	TemporaryUploadToken,
+} from "@ryot-app/contract/modules/assets/schemas";
 import {
 	CollectionResponse,
 	CreateCollectionBody,
@@ -9,17 +13,13 @@ import {
 import {
 	EntityUpdatedMessage,
 	MAX_INTEREST_ENTITY_IDS,
-} from "@ryot-app/contract/modules/entity-interest/messages";
+} from "@ryot-app/contract/modules/entity-watches/messages";
+import { ClientPageCodeContributor } from "@ryot-app/contract/modules/pages/schemas";
 import { CLIENT_API_VERSION } from "@ryot-app/contract/modules/plugins/manifest";
 import { SavedViewReference } from "@ryot-app/contract/modules/plugins/references";
 import { isPluginSharedSource } from "@ryot-app/contract/modules/plugins/shared-file-policy";
 import { RyotQLDocument, RyotQLResponse } from "@ryot-app/contract/modules/ryotql/language";
 import { EntityBrowserAddAction } from "@ryot-app/contract/modules/saved-views/schemas";
-import {
-	ManagedAssetResolutionBatch,
-	ManagedAssetLocator,
-	TemporaryUploadToken,
-} from "@ryot-app/contract/modules/uploads/schemas";
 import {
 	EntityId,
 	EntitySchemaSlug,
@@ -892,16 +892,16 @@ export const PluginBridgeRyotQLResult = Schema.Union([
 
 export type PluginBridgeRyotQLResult = Schema.Schema.Type<typeof PluginBridgeRyotQLResult>;
 
-export const EntityInterest = strictStruct({
+export const EntityWatch = strictStruct({
 	visible: Schema.Array(EntityId),
 	foreground: Schema.Array(EntityId),
 });
 
-export type EntityInterest = Schema.Codec.Encoded<typeof EntityInterest>;
+export type EntityWatch = Schema.Codec.Encoded<typeof EntityWatch>;
 
-export const PluginBridgeEntityInterest = strictStruct({
-	...EntityInterest.fields,
-	type: Schema.Literal("entity-interest"),
+export const PluginBridgeEntityWatch = strictStruct({
+	...EntityWatch.fields,
+	type: Schema.Literal("entity-watches"),
 }).pipe(
 	Schema.check(
 		Schema.makeFilter(
@@ -912,7 +912,7 @@ export const PluginBridgeEntityInterest = strictStruct({
 	),
 );
 
-export type PluginBridgeEntityInterest = Schema.Schema.Type<typeof PluginBridgeEntityInterest>;
+export type PluginBridgeEntityWatch = Schema.Schema.Type<typeof PluginBridgeEntityWatch>;
 
 export const PluginBridgeEntityUpdated = strictStruct({
 	...EntityUpdatedMessage.fields,
@@ -938,7 +938,7 @@ export const PluginBridgeClientMessage = Schema.Union([
 	PluginBridgePageShortcuts,
 	PluginBridgeLifecycleClose,
 	PluginBridgeKernelShortcut,
-	PluginBridgeEntityInterest,
+	PluginBridgeEntityWatch,
 	PluginBridgeStorageRequest,
 	PluginBridgeOperationRequest,
 	PluginBridgeCollectionRequest,

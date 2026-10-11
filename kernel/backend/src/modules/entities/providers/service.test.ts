@@ -4,7 +4,7 @@ import {
 	ProviderEntityBadRequest,
 	ProviderEntityImportBacklogFull,
 	ProviderEntityNotFound,
-} from "@ryot-app/contract/modules/provider-entities/schemas";
+} from "@ryot-app/contract/modules/entity-providers/schemas";
 import {
 	EntityId,
 	EntitySchemaSlug,

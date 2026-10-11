@@ -290,7 +290,7 @@ describe("plugin package conflicts", () => {
 				const a = yield* installNamespacePackage(client, packages.a);
 				const b = yield* installNamespacePackage(client, packages.b);
 				const prepared = yield* client.call((contract) =>
-					contract.clientPages.prepare({
+					contract.pages.prepare({
 						payload: {
 							target: {
 								path: "/",
@@ -360,7 +360,7 @@ describe("plugin package conflicts", () => {
 				expect((yield* checkClientPageFreshness(client, prepared.identity)).current).toBe(false);
 				const unavailable = yield* Effect.flip(
 					client.call((contract) =>
-						contract.clientPages.prepare({
+						contract.pages.prepare({
 							payload: {
 								target: {
 									path: "/",

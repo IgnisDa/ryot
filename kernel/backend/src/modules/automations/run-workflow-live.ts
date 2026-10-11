@@ -15,13 +15,13 @@ import {
 	definitionOwner,
 	definitionOwnerPluginId,
 } from "@ryot-app/contract/modules/plugins/references";
-import { SandboxBoundaryReason } from "@ryot-app/contract/modules/sandbox/boundary-reason";
+import { SandboxBoundaryReason } from "@ryot-app/contract/modules/scripts/boundary-reason";
 import {
 	SandboxExecutionSubject,
 	SandboxScriptManifest,
 	type SandboxExecutionError,
 	type SandboxScriptManifest as SandboxScriptManifestType,
-} from "@ryot-app/contract/modules/sandbox/schemas";
+} from "@ryot-app/contract/modules/scripts/schemas";
 import type { AccountGeneration } from "@ryot-app/contract/schema/account-generation";
 import { SandboxScriptId } from "@ryot-app/contract/schema/brands";
 import { JsonValue } from "@ryot-app/contract/schema/json";

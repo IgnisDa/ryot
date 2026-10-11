@@ -1,9 +1,9 @@
 import { Schema } from "effect";
 
 import { EntitySchemaSlug, EventSchemaSlug, ImportRunId } from "../../schema/brands";
+import { JsonValue } from "../../schema/json";
 import { DeclarationReference } from "../plugins/references";
-import { PluginInstallationUnavailableReason } from "../sandbox/boundary-reason";
-import { jsonValueSchema } from "../sandbox/wire";
+import { PluginInstallationUnavailableReason } from "../scripts/boundary-reason";
 import { importRunFailureStages } from "./types";
 
 export const ingestionBlockReasonFields = {
@@ -140,7 +140,7 @@ export type ListedImportRun = typeof ListedImportRun.Type;
 
 export const CreateImportRunBody = Schema.StructWithRest(
 	Schema.Struct({ source: DeclarationReference }),
-	[Schema.Record(Schema.String, jsonValueSchema)],
+	[Schema.Record(Schema.String, JsonValue)],
 ).pipe(Schema.annotate({ identifier: "CreateImportRunBody" }));
 
 export type CreateImportRunBody = typeof CreateImportRunBody.Type;

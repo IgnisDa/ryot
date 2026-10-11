@@ -5,7 +5,7 @@ import {
 	useAtomSet,
 	useAtomValue,
 } from "@effect/atom-react";
-import { MANAGED_ASSET_RESOLUTION_MAX_ASSETS } from "@ryot-app/contract/modules/uploads/schemas";
+import { MANAGED_ASSET_RESOLUTION_MAX_ASSETS } from "@ryot-app/contract/modules/assets/schemas";
 import type { PluginId, PluginPackageId } from "@ryot-app/contract/schema/brands";
 import type { JsonValue } from "@ryot-app/contract/schema/json";
 import { OverlayBackProvider } from "@ryot-app/plugin-ui-sdk";
@@ -35,8 +35,8 @@ import { ActiveScreenContext } from "./active-screen";
 import { createEntityRefresh, entityTransport } from "./entity-refresh";
 import type {
 	RyotClientError,
-	EntityInterest,
-	EntityInterestSubscription,
+	EntityWatch,
+	EntityWatchSubscription,
 	EntityUpdate,
 	ManagedAssetLocator,
 	ManagedAssetResolution,
@@ -166,10 +166,10 @@ type RyotQueryOptions<Input, Data> = {
 	/** Cancels in-flight work when the final consumer for an input unmounts. */
 	readonly cancelOnUnmount?: boolean;
 	readonly initialData?: (input: Input) => Data;
-	readonly entityInterest?: (context: {
+	readonly entityWatch?: (context: {
 		readonly input: Input;
 		readonly data: Data | undefined;
-	}) => EntityInterest;
+	}) => EntityWatch;
 };
 
 const makeQueryAtom = <Data, Failure extends Error>(
@@ -213,7 +213,7 @@ class QueryDefinition<Input, Data, HostServices, Failure extends Error> implemen
 			hostServices: HostServices,
 			input: Input,
 		) => ReturnType<typeof makeQueryAtom<Data, Failure>>,
-		readonly entityInterest?: RyotQueryOptions<Input, Data>["entityInterest"],
+		readonly entityWatch?: RyotQueryOptions<Input, Data>["entityWatch"],
 	) {}
 }
 
@@ -275,7 +275,7 @@ export function createRyotQuery<
 							),
 							options?.initialData?.(familyInput),
 							options?.cancelOnUnmount,
-							options?.entityInterest !== undefined,
+							options?.entityWatch !== undefined,
 						),
 					),
 				};
@@ -285,7 +285,7 @@ export function createRyotQuery<
 			clientQueries.hostServices = hostServices;
 			return clientQueries.inputs(input);
 		},
-		options?.entityInterest,
+		options?.entityWatch,
 	);
 }
 
@@ -653,7 +653,7 @@ const useQueryInterest = <Data, Failure extends Error>(
 	schedule: RyotSchedule,
 	atom: ReturnType<typeof makeQueryAtom<Data, Failure>>,
 	input: unknown,
-	interest?: RyotQueryOptions<unknown, Data>["entityInterest"],
+	interest?: RyotQueryOptions<unknown, Data>["entityWatch"],
 ) => {
 	const active = useContext(ActiveScreenContext);
 	const registry = useContext(RegistryContext);
@@ -681,7 +681,7 @@ const useQueryInterest = <Data, Failure extends Error>(
 			const remount =
 				!reattach && controllers.has(atom) && !AsyncResult.isInitial(registry.get(atom));
 			let data: Data | undefined;
-			let subscription: EntityInterestSubscription | undefined;
+			let subscription: EntityWatchSubscription | undefined;
 			const refresh = createEntityRefresh(schedule, () =>
 				Effect.sync(() => {
 					if (registry.get(atom).waiting) {
@@ -750,12 +750,12 @@ const useSettleTracker = () => {
 	return { settled, tracker };
 };
 
-export const useEntitySettle = (interest: EntityInterest) => {
+export const useEntitySettle = (interest: EntityWatch) => {
 	const client = useRyot();
 	const active = useContext(ActiveScreenContext);
 	const { settled, tracker } = useSettleTracker();
 	const latestInterest = useRef(interest);
-	const subscription = useRef<EntityInterestSubscription | undefined>(undefined);
+	const subscription = useRef<EntityWatchSubscription | undefined>(undefined);
 	useEffect(() => {
 		latestInterest.current = interest;
 	});
@@ -781,7 +781,7 @@ export const useEntitySettle = (interest: EntityInterest) => {
 export const useEntityRefresh = (options: {
 	readonly blocked: boolean;
 	readonly identity: string;
-	readonly interest: EntityInterest;
+	readonly interest: EntityWatch;
 	readonly onRefresh: (updates: readonly EntityUpdate[]) => Effect.Effect<void>;
 }) => {
 	const client = useRyot();
@@ -792,7 +792,7 @@ export const useEntityRefresh = (options: {
 	const previous = useRef({ active, identity: options.identity });
 	const controller = useRef<
 		| {
-				subscription: EntityInterestSubscription | undefined;
+				subscription: EntityWatchSubscription | undefined;
 				readonly client: RyotClient;
 				readonly identity: string;
 				readonly refresh: ReturnType<typeof createEntityRefresh>;
@@ -871,14 +871,10 @@ export function useRyotQuery<Data, HostServices, Failure extends Error>(
 	}
 	// The definition declares the host type; React context cannot link that generic to a provider.
 	const atom = query.atom(registry, client, hostServices, input);
-	useQueryInterest(client, schedule, atom, input, query.entityInterest);
+	useQueryInterest(client, schedule, atom, input, query.entityWatch);
 	const result = useAtomValue(atom);
 	const refetch = useAtomRefresh(atom);
-	useQueryPageRefresh(
-		atom,
-		options?.refreshOnMutation !== false,
-		query.entityInterest === undefined,
-	);
+	useQueryPageRefresh(atom, options?.refreshOnMutation !== false, query.entityWatch === undefined);
 	const isError = AsyncResult.isFailure(result);
 	const isSuccess = AsyncResult.isSuccess(result);
 	let data: Data | undefined;

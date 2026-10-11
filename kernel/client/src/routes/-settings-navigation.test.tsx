@@ -1,20 +1,16 @@
 import { describe, expect, it } from "@effect/vitest";
-import type { UpdateUserPreferencesBody } from "@ryot-app/contract/modules/user-settings/schemas";
+import type { UpdateUserPreferencesBody } from "@ryot-app/contract/modules/account/schemas";
 import { PluginPackageId, PluginId } from "@ryot-app/contract/schema/brands";
 import type { PluginClientCatalog } from "@ryot-app/ryotql-recipes/plugin-client-catalog";
 import { RouterProvider, createMemoryHistory } from "@tanstack/react-router";
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { Clock, DateTime, Deferred, Effect, Layer, ManagedRuntime } from "effect";
 
+import type { AccountApi } from "#/api/account";
 import { AuthenticatedApiError } from "#/api/authenticated";
-import {
-	KernelApiTestLayer,
-	makeEntityInterestService,
-	makeRyotQLApi,
-} from "#/api/ports.test-layer";
+import { KernelApiTestLayer, makeEntityWatchService, makeRyotQLApi } from "#/api/ports.test-layer";
 import { PublicApi, PublicApiError } from "#/api/public";
 import type { RyotQLApi } from "#/api/ryotql";
-import type { UserSettingsApi } from "#/api/user-settings";
 import type { AuthService } from "#/modules/auth/service";
 import { createBackInterceptors } from "#/modules/navigation/back-interceptors";
 import {
@@ -37,7 +33,7 @@ import {
 	OAuthRouteStubs,
 	makeStorageStub,
 	unauthenticated,
-	GodModeRouteStubs,
+	InstanceAdminRouteStubs,
 	makePublicApiStub,
 	CustomizeRouteStubs,
 	SavedViewRouteStubs,
@@ -51,7 +47,7 @@ import {
 	makeWorkspaceRecorder,
 	makeUserSettingsStub,
 	stubDesktopMatchMedia,
-	ClientPagesApiRouteStubs,
+	PagesApiRouteStubs,
 	ClientPageSessionsRouteStubs,
 } from "#/routes/-route-fixtures";
 
@@ -84,7 +80,7 @@ const mountView = (
 	authLayer: Layer.Layer<AuthService> = AuthStub,
 	publicLayer = makePublicApiStub(),
 	storage: ClientStorage["Service"] = makeStorageStub(rememberedSlug),
-	userSettingsLayer: Layer.Layer<UserSettingsApi> = makeUserSettingsStub(),
+	userSettingsLayer: Layer.Layer<AccountApi> = makeUserSettingsStub(),
 	oauthLayer = OAuthRouteStubs,
 	settingsQueries: Layer.Layer<RyotQLApi> = makeUserSettingsQueries(),
 ) => {
@@ -98,15 +94,15 @@ const mountView = (
 			NotificationChannelRouteStubs,
 			NotificationChannelRouteStubs,
 			authLayer,
-			GodModeRouteStubs,
+			InstanceAdminRouteStubs,
 			ServerStub,
 			SavedViewRouteStubs,
 			EntityRouteStubs,
 			publicLayer,
 			KernelApiTestLayer,
-			ClientPagesApiRouteStubs,
+			PagesApiRouteStubs,
 			ClientPageSessionsRouteStubs,
-			makeEntityInterestService({
+			makeEntityWatchService({
 				reconnect: () => {
 					interestEvents.push("reconnect");
 				},
@@ -866,7 +862,7 @@ describe("account settings", () => {
 });
 
 describe("administration settings", () => {
-	it.live("opens standalone God Mode from the server administration card", () =>
+	it.live("opens standalone Instance Admin from the server administration card", () =>
 		Effect.gen(function* () {
 			const view = mountView("/settings/administration");
 			const administration = yield* Effect.promise(() =>
@@ -878,9 +874,9 @@ describe("administration settings", () => {
 			}
 			expect(section.textContent).toContain("Requires an admin access token");
 
-			fireEvent.click(within(section).getByRole("link", { name: /God Mode/ }));
-			yield* Effect.promise(() => screen.findByRole("heading", { name: "God Mode" }));
-			expect(view.router.state.location.pathname).toBe("/god-mode/users");
+			fireEvent.click(within(section).getByRole("link", { name: /Instance Admin/ }));
+			yield* Effect.promise(() => screen.findByRole("heading", { name: "Instance Admin" }));
+			expect(view.router.state.location.pathname).toBe("/instance-admin/users");
 			expect(screen.queryByTestId("authenticated-shell")).toBeNull();
 			expect(screen.queryByTestId("mobile-drawer")).toBeNull();
 			expect(screen.queryByTitle("fixture plugin")).toBeNull();

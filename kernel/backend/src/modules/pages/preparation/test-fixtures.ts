@@ -1,4 +1,4 @@
-import type { ClientPageCompositionIdentity } from "@ryot-app/contract/modules/client-pages/schemas";
+import type { ClientPageCompositionIdentity } from "@ryot-app/contract/modules/pages/schemas";
 import { PluginId, PluginPackageId } from "@ryot-app/contract/schema/brands";
 import {
 	CLIENT_API_VERSION,

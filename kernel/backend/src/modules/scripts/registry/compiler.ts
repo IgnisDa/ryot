@@ -2,7 +2,7 @@ import { BunServices } from "@effect/platform-bun";
 import {
 	SandboxCompilationFailure,
 	SandboxScriptManifest,
-} from "@ryot-app/contract/modules/sandbox/schemas";
+} from "@ryot-app/contract/modules/scripts/schemas";
 import { utf8ByteLength } from "@ryot-app/plugin-backend-compiler/limits";
 import {
 	CompilerWorkerRequest,

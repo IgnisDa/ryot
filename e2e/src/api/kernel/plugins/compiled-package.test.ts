@@ -128,10 +128,10 @@ it.live(
 			);
 			const page = yield* prepareClientPage(client, view.reference);
 			const document = yield* client.call((contract) =>
-				contract.clientPages.document({ payload: { identity: page.identity } }),
+				contract.pages.document({ payload: { identity: page.identity } }),
 			);
 			const assetPath = document.modulepreloads.find((url) =>
-				new RegExp(`^/api/client-assets/${artifactHash}/[A-Za-z0-9_-]{43}/module\\.js$`).test(url),
+				new RegExp(`^/api/page-bundles/${artifactHash}/[A-Za-z0-9_-]{43}/module\\.js$`).test(url),
 			);
 			expect(assetPath).toBeDefined();
 			if (!assetPath) {
@@ -143,7 +143,7 @@ it.live(
 				"private, max-age=31536000, immutable",
 			);
 			const publicResponse = yield* webRequest(
-				new URL(`/api/client-assets/${artifactHash}/public/module.js`, `${apiUrl}/`),
+				new URL(`/api/page-bundles/${artifactHash}/public/module.js`, `${apiUrl}/`),
 			);
 			expect(publicResponse.status).toBe(404);
 			const removed = yield* getApiClient().call(

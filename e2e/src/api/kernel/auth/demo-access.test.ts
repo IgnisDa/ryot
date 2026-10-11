@@ -30,7 +30,7 @@ import {
 	getUserSettings,
 	listEventSchemas,
 	makeSession,
-	mergeUserState,
+	mergeEntityUserData,
 	prepareOAuth,
 	requireEventSchemaBySlug,
 	requireRows,
@@ -291,7 +291,7 @@ describe("shared demo access acceptance", () => {
 				description: "Persists between demo sessions",
 			});
 			expect(collection.name).toBe(DEMO_COLLECTION_NAME);
-			const rawProtectedResponse = yield* webRequest(`${apiUrl}/user-settings/preferences`, {
+			const rawProtectedResponse = yield* webRequest(`${apiUrl}/account/preferences`, {
 				method: "PATCH",
 				headers: { Authorization: `Bearer ${token}`, "content-type": "application/json" },
 				body: yield* Schema.encodeEffect(Schema.fromJsonString(Schema.Unknown))({ language: "de" }),
@@ -434,65 +434,67 @@ describe("shared demo access acceptance", () => {
 		}),
 	);
 
-	it.live("allows provider, event tracking, and user-state routes to reach domain behavior", () =>
-		Effect.gen(function* () {
-			const sessionCookie = yield* signInDemo();
-			const token = yield* getDemoToken(sessionCookie);
-			const demoClient = makeSession(apiUrl, { Authorization: `Bearer ${token}` });
-			const missingProviderId = SandboxProviderId.make(crypto.randomUUID());
-			const searchError = yield* Effect.flip(
-				searchProviderEntities(demoClient, {
-					page: 1,
-					pageSize: 5,
-					query: "demo",
-					providerId: missingProviderId,
-				}),
-			);
-			assertTaggedError(searchError, "ProviderEntityNotFound");
-			expect(searchError.reason.code).toBe("provider-not-found");
-			const importError = yield* Effect.flip(
-				demoClient.call((c) =>
-					c.providerEntities.import({
-						payload: { externalId: "demo-record", providerId: missingProviderId },
+	it.live(
+		"allows provider, event tracking, and entity-user-data routes to reach domain behavior",
+		() =>
+			Effect.gen(function* () {
+				const sessionCookie = yield* signInDemo();
+				const token = yield* getDemoToken(sessionCookie);
+				const demoClient = makeSession(apiUrl, { Authorization: `Bearer ${token}` });
+				const missingProviderId = SandboxProviderId.make(crypto.randomUUID());
+				const searchError = yield* Effect.flip(
+					searchProviderEntities(demoClient, {
+						page: 1,
+						pageSize: 5,
+						query: "demo",
+						providerId: missingProviderId,
 					}),
-				),
-			);
-			assertTaggedError(importError, "ProviderEntityNotFound");
-			expect(importError.reason.code).toBe("provider-not-found");
+				);
+				assertTaggedError(searchError, "ProviderEntityNotFound");
+				expect(searchError.reason.code).toBe("provider-not-found");
+				const importError = yield* Effect.flip(
+					demoClient.call((c) =>
+						c.entityProviders.import({
+							payload: { externalId: "demo-record", providerId: missingProviderId },
+						}),
+					),
+				);
+				assertTaggedError(importError, "ProviderEntityNotFound");
+				expect(importError.reason.code).toBe("provider-not-found");
 
-			const { schema } = yield* findMediaEntitySchema(demoClient, "book");
-			const mergeFrom = yield* createEntity(demoClient, {
-				properties: {},
-				name: "Demo merge source",
-				entitySchema: schema.reference,
-			});
-			const mergeInto = yield* createEntity(demoClient, {
-				properties: {},
-				name: "Demo merge target",
-				entitySchema: schema.reference,
-			});
-			const eventSchemas = yield* listEventSchemas(demoClient, schema.reference);
-			const review = requireEventSchemaBySlug(eventSchemas, "review");
-			const eventResult = yield* demoClient.call((c) =>
-				c.events.create({
-					payload: [
-						{ entityId: mergeFrom.id, properties: { rating: 5 }, eventSchemaSlug: review.id },
-					],
-				}),
-			);
-			expect((yield* waitForCreateEvents(demoClient, eventResult)).count).toBe(1);
+				const { schema } = yield* findMediaEntitySchema(demoClient, "book");
+				const mergeFrom = yield* createEntity(demoClient, {
+					properties: {},
+					name: "Demo merge source",
+					entitySchema: schema.reference,
+				});
+				const mergeInto = yield* createEntity(demoClient, {
+					properties: {},
+					name: "Demo merge target",
+					entitySchema: schema.reference,
+				});
+				const eventSchemas = yield* listEventSchemas(demoClient, schema.reference);
+				const review = requireEventSchemaBySlug(eventSchemas, "review");
+				const eventResult = yield* demoClient.call((c) =>
+					c.events.create({
+						payload: [
+							{ entityId: mergeFrom.id, properties: { rating: 5 }, eventSchemaSlug: review.id },
+						],
+					}),
+				);
+				expect((yield* waitForCreateEvents(demoClient, eventResult)).count).toBe(1);
 
-			const merged = yield* mergeUserState(demoClient, {
-				mergeFrom: mergeFrom.id,
-				mergeInto: mergeInto.id,
-			});
-			expect(merged).toMatchObject({
-				warnings: [],
-				movedEventsCount: 2,
-				mergeFrom: mergeFrom.id,
-				mergeInto: mergeInto.id,
-			});
-		}),
+				const merged = yield* mergeEntityUserData(demoClient, {
+					mergeFrom: mergeFrom.id,
+					mergeInto: mergeInto.id,
+				});
+				expect(merged).toMatchObject({
+					warnings: [],
+					movedEventsCount: 2,
+					mergeFrom: mergeFrom.id,
+					mergeInto: mergeInto.id,
+				});
+			}),
 	);
 
 	it.live(

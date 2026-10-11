@@ -1,6 +1,6 @@
 import { SandboxRunError } from "@ryot-app/contract/errors";
 import { ExecutionLane } from "@ryot-app/contract/modules/automations/lifecycle";
-import { SandboxExecutionGrants } from "@ryot-app/contract/modules/sandbox/schemas";
+import { SandboxExecutionGrants } from "@ryot-app/contract/modules/scripts/schemas";
 import { workflowReplayJournalEntrySchema } from "@ryot-app/plugin-backend-sdk/workflow";
 import { SandboxAdmissionLease } from "@ryot-app/sandbox/host/admission";
 import { SandboxExecutor } from "@ryot-app/sandbox/host/executor";

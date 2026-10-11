@@ -8,7 +8,7 @@ import {
 	KERNEL_PROCESS_IMPORT_CHUNKS_WORKFLOW,
 	KERNEL_PROVIDER_ENTITY_POPULATION_WORKFLOW,
 } from "@ryot-app/contract/modules/plugins/execution";
-import type { SandboxExecutionSubject } from "@ryot-app/contract/modules/sandbox/schemas";
+import type { SandboxExecutionSubject } from "@ryot-app/contract/modules/scripts/schemas";
 import {
 	EntityId,
 	EntitySchemaSlug,

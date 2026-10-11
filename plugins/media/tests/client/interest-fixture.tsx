@@ -1,4 +1,4 @@
-import type { EntityInterest, RyotClientAdapter } from "@ryot-app/plugin-client-sdk";
+import type { EntityWatch, RyotClientAdapter } from "@ryot-app/plugin-client-sdk";
 import { Effect } from "@ryot-app/plugin-client-sdk/effect";
 import { useRyotQuery, type RyotQuery } from "@ryot-app/plugin-client-sdk/react";
 import { waitFor } from "@testing-library/dom";
@@ -9,7 +9,7 @@ import { classifyRyotQueryResult } from "../../client/media/query-state";
 import { flushRyotClient, mountRyotClient } from "./test-support";
 
 const recordingAdapter = () => {
-	const interests: EntityInterest[] = [];
+	const interests: EntityWatch[] = [];
 	const requests: Array<{ resolve: (data: unknown) => void }> = [];
 	const adapter: Partial<RyotClientAdapter> = {
 		query: () =>
@@ -32,7 +32,7 @@ const Probe = <Data,>({
 	readonly query: RyotQuery<{ readonly entityId: string }, Data>;
 }) => <p>{classifyRyotQueryResult(useRyotQuery(query, { entityId })).status}</p>;
 
-export const declaresEntityInterest =
+export const declaresEntityWatch =
 	(entityId: string) =>
 	<Data,>(
 		name: string,

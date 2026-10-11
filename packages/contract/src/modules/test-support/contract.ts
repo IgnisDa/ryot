@@ -13,7 +13,7 @@ import {
 	UpdatePrivatePluginBody,
 } from "../plugins/schemas";
 import { RelationshipScope } from "../relationships/schemas";
-import { SandboxRunResult } from "../sandbox/schemas";
+import { SandboxRunResult } from "../scripts/schemas";
 import {
 	TestSupportInstallSystemPluginBodyBase64,
 	TestSupportUpdateSystemPluginBodyBase64,
@@ -182,15 +182,11 @@ export const TestSupportGroup = HttpApiGroup.make("testSupport")
 		}).annotate(OpenApi.Description, "Triggers one active plugin cron"),
 	)
 	.add(
-		HttpApiEndpoint.post(
-			"setEntityInterestMembership",
-			"/test-support/entity-interest-membership",
-			{
-				success: Schema.Void,
-				error: testSupportErrors,
-				payload: Schema.Struct({ sessionId: Schema.String, entityIds: Schema.Array(EntityId) }),
-			},
-		).annotate(OpenApi.Description, "Sets entity interest membership without reconciliation"),
+		HttpApiEndpoint.post("setEntityWatchMembership", "/test-support/entity-watches-membership", {
+			success: Schema.Void,
+			error: testSupportErrors,
+			payload: Schema.Struct({ sessionId: Schema.String, entityIds: Schema.Array(EntityId) }),
+		}).annotate(OpenApi.Description, "Sets entity interest membership without reconciliation"),
 	)
 	.add(
 		HttpApiEndpoint.post("reconcileAutomations", "/test-support/automations/reconcile", {

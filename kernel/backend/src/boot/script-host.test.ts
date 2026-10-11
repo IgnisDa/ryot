@@ -8,8 +8,8 @@ import type { RyotQLDocument } from "@ryot-app/contract/modules/ryotql/language"
 import type {
 	SandboxExecutionSubject,
 	SandboxScriptMetadata,
-} from "@ryot-app/contract/modules/sandbox/schemas";
-import { SANDBOX_HOST_CAPABILITIES } from "@ryot-app/contract/modules/sandbox/wire";
+} from "@ryot-app/contract/modules/scripts/schemas";
+import { SANDBOX_HOST_CAPABILITIES } from "@ryot-app/contract/modules/scripts/wire";
 import {
 	AutomationExecutionId,
 	AutomationRunId,

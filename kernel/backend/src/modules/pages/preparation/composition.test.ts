@@ -22,5 +22,5 @@ it("builds a structural manifest without copying compiled bytes or embedding gra
 	expect(manifest.descriptor.automaticRegistry[0]?.stylesheets).toEqual([
 		{ file: "module.css", artifactHash: "c".repeat(64) },
 	]);
-	expect(JSON.stringify(manifest)).not.toContain("/api/client-assets/");
+	expect(JSON.stringify(manifest)).not.toContain("/api/page-bundles/");
 });

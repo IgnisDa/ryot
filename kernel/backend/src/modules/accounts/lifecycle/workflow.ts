@@ -4,7 +4,7 @@ import {
 	type UserLifecycleOperationFailure,
 	type UserLifecycleOperationKind,
 	UserResetResult,
-} from "@ryot-app/contract/modules/god-mode/user-lifecycle";
+} from "@ryot-app/contract/modules/instance-admin/user-lifecycle";
 import { UserId } from "@ryot-app/contract/schema/brands";
 import { Cause, Context, DateTime, Effect, Layer, Result, Schema } from "effect";
 import { Activity, Workflow } from "effect/workflow";

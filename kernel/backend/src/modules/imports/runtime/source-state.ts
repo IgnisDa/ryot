@@ -1,5 +1,5 @@
-import { jsonValueSchema } from "@ryot-app/contract/modules/sandbox/wire";
 import { SandboxScriptId } from "@ryot-app/contract/schema/brands";
+import { JsonValue } from "@ryot-app/contract/schema/json";
 import { configValuesSchema, integrationRecordSchema } from "@ryot-app/plugin-backend-sdk/core";
 import { ScriptPluginRevision } from "@ryot-app/sandbox/protocol/principal";
 import { Schema } from "effect";
@@ -24,7 +24,7 @@ export const ImportSourceState = Schema.Struct({
 	pluginInstallationId: Schema.String,
 	pluginRevision: ScriptPluginRevision,
 	executionSettings: ImportSourceExecutionSettings,
-	sourcePayload: Schema.Record(Schema.String, jsonValueSchema),
+	sourcePayload: Schema.Record(Schema.String, JsonValue),
 	namedArtifactPaths: Schema.Record(Schema.String, Schema.String),
 });
 export type ImportSourceState = typeof ImportSourceState.Type;

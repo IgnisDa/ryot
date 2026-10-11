@@ -6,7 +6,7 @@ import { useEffect } from "react";
 
 import { PublicApi } from "#/api/public";
 import { protectedRouteGuard } from "#/modules/auth/route-gates";
-import { EntityInterestService } from "#/modules/entity-interest/service";
+import { EntityWatchService } from "#/modules/entity-watches/service";
 import { AuthenticatedShell } from "#/modules/navigation/authenticated-shell";
 import { usePageTitle } from "#/modules/navigation/page-title";
 import { NavigationService } from "#/modules/navigation/service";
@@ -78,7 +78,7 @@ function AuthenticatedLayout() {
 	useEffect(
 		() =>
 			runtime.runSync(
-				Effect.map(EntityInterestService, (service) => service.acquire({ userId, serverUrl })),
+				Effect.map(EntityWatchService, (service) => service.acquire({ userId, serverUrl })),
 			),
 		[runtime, serverUrl, userId],
 	);

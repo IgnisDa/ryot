@@ -9,13 +9,13 @@ import {
 	requireRows,
 	requireRyotQLText,
 } from "~/fixtures/kernel";
+import { getUserSettings, setUserLanguage } from "~/fixtures/kernel/account";
 import type { Client } from "~/fixtures/kernel/auth";
 import {
 	listPluginUserSettings,
 	resetPluginUserSettings,
 	savePluginUserSettings,
 } from "~/fixtures/kernel/plugin-user-settings";
-import { getUserSettings, setUserLanguage } from "~/fixtures/kernel/user-settings";
 import {
 	createExerciseEntityFixture,
 	findFitnessEntitySchema,

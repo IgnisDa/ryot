@@ -1,5 +1,5 @@
 import { describe, expect, it } from "@effect/vitest";
-import type { JsonValue } from "@ryot-app/contract/modules/ryotql/language";
+import type { JsonValue } from "@ryot-app/contract/schema/json";
 import { Effect } from "@ryot-app/plugin-backend-sdk/effect";
 import { defineSandboxTestHost, runSandboxTestScript } from "@ryot-app/plugin-backend-sdk/testing";
 

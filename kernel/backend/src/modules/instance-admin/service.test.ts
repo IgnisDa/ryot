@@ -1,9 +1,9 @@
 import { expect, layer } from "@effect/vitest";
 import { DbError } from "@ryot-app/contract/errors";
 import {
-	GodModeNotFound,
-	GodModeRequestFailure,
-} from "@ryot-app/contract/modules/god-mode/contract";
+	InstanceAdminNotFound,
+	InstanceAdminRequestFailure,
+} from "@ryot-app/contract/modules/instance-admin/contract";
 import { UserId } from "@ryot-app/contract/schema/brands";
 import { assertExitFails } from "@ryot-app/testing/effect-assertions";
 import { Context, Effect, Layer, Ref } from "effect";
@@ -24,15 +24,15 @@ import { checkResetEligibility, InstanceAdminService } from "./service";
 
 type DisabledUpdate = { disabledAt: Date | null; updatedAt: Date };
 
-class FakeGodModeAuth extends Context.Service<
-	FakeGodModeAuth,
+class FakeInstanceAdminAuth extends Context.Service<
+	FakeInstanceAdminAuth,
 	{
 		readonly sessionsDeleted: Effect.Effect<boolean>;
 		readonly lastDisabledUpdate: Effect.Effect<DisabledUpdate | undefined>;
 		readonly createdUser: Effect.Effect<Record<string, unknown> | null>;
 		readonly createdAccount: Effect.Effect<Record<string, unknown> | null>;
 	}
->()("test/FakeGodModeAuth") {}
+>()("test/FakeInstanceAdminAuth") {}
 
 const makeRedisMock = () =>
 	makeRedisService({
@@ -82,7 +82,7 @@ const fakeAuthLayer = (errors: {
 						),
 				}),
 			).pipe(
-				Context.add(FakeGodModeAuth, {
+				Context.add(FakeInstanceAdminAuth, {
 					createdUser: Ref.get(createdUser),
 					createdAccount: Ref.get(createdAccount),
 					sessionsDeleted: Ref.get(sessionsDeleted),
@@ -108,7 +108,7 @@ const defaultUserLifecycleServiceLayer = Layer.mock(UserLifecycleService)({
 	deleteUser: () => Effect.die("unused"),
 });
 
-const godModeLayer = (options: {
+const instanceAdminLayer = (options: {
 	readonly rows: ReadonlyArray<object>;
 	readonly disableLocalAuth?: boolean;
 	readonly lifecycle?: Layer.Layer<UserLifecycleService>;
@@ -182,23 +182,26 @@ describe("checkResetEligibility", () => {
 	});
 });
 
-layer(godModeLayer({ rows: [], disableLocalAuth: true }))((test) => {
+layer(instanceAdminLayer({ rows: [], disableLocalAuth: true }))((test) => {
 	test.effect("blocks password reset when local auth is disabled", () =>
 		Effect.gen(function* () {
 			const service = yield* InstanceAdminService;
 			const exit = yield* Effect.exit(service.resetUserPassword(UserId.make("user_1")));
-			assertExitFails(exit, new GodModeRequestFailure({ reason: { code: "local-auth-disabled" } }));
+			assertExitFails(
+				exit,
+				new InstanceAdminRequestFailure({ reason: { code: "local-auth-disabled" } }),
+			);
 		}),
 	);
 });
 
-layer(godModeLayer({ rows: [{ id: "user_1", disabledAt: null }] }))((test) => {
+layer(instanceAdminLayer({ rows: [{ id: "user_1", disabledAt: null }] }))((test) => {
 	test.effect("disables an enabled user and deletes sessions", () =>
 		Effect.gen(function* () {
 			const service = yield* InstanceAdminService;
 			const result = yield* service.setUserDisabled(UserId.make("user_1"), true);
 
-			const auth = yield* FakeGodModeAuth;
+			const auth = yield* FakeInstanceAdminAuth;
 			const updateInput = yield* auth.lastDisabledUpdate;
 			expect(result).toEqual({ id: UserId.make("user_1") });
 			expect(yield* auth.sessionsDeleted).toBe(true);
@@ -210,13 +213,13 @@ layer(godModeLayer({ rows: [{ id: "user_1", disabledAt: null }] }))((test) => {
 
 const existingDisabledAt = new Date("2024-01-02T00:00:00Z");
 
-layer(godModeLayer({ rows: [{ id: "user_1", disabledAt: existingDisabledAt }] }))((test) => {
+layer(instanceAdminLayer({ rows: [{ id: "user_1", disabledAt: existingDisabledAt }] }))((test) => {
 	test.effect("preserves an existing disabledAt when disabling an already-disabled user", () =>
 		Effect.gen(function* () {
 			const service = yield* InstanceAdminService;
 			const result = yield* service.setUserDisabled(UserId.make("user_1"), true);
 
-			const auth = yield* FakeGodModeAuth;
+			const auth = yield* FakeInstanceAdminAuth;
 			expect(result).toEqual({ id: UserId.make("user_1") });
 			expect(yield* auth.sessionsDeleted).toBe(true);
 			expect((yield* auth.lastDisabledUpdate)?.disabledAt).toBe(existingDisabledAt);
@@ -224,49 +227,51 @@ layer(godModeLayer({ rows: [{ id: "user_1", disabledAt: existingDisabledAt }] })
 	);
 });
 
-layer(godModeLayer({ rows: [{ id: "user_1", disabledAt: new Date("2024-01-02T00:00:00Z") }] }))(
-	(test) => {
-		test.effect("enables a disabled user without deleting sessions", () =>
-			Effect.gen(function* () {
-				const service = yield* InstanceAdminService;
-				const result = yield* service.setUserDisabled(UserId.make("user_1"), false);
+layer(
+	instanceAdminLayer({ rows: [{ id: "user_1", disabledAt: new Date("2024-01-02T00:00:00Z") }] }),
+)((test) => {
+	test.effect("enables a disabled user without deleting sessions", () =>
+		Effect.gen(function* () {
+			const service = yield* InstanceAdminService;
+			const result = yield* service.setUserDisabled(UserId.make("user_1"), false);
 
-				const auth = yield* FakeGodModeAuth;
-				expect(result).toEqual({ id: UserId.make("user_1") });
-				expect(yield* auth.sessionsDeleted).toBe(false);
-				expect(yield* auth.lastDisabledUpdate).toMatchObject({ disabledAt: null });
-			}),
-		);
-	},
-);
+			const auth = yield* FakeInstanceAdminAuth;
+			expect(result).toEqual({ id: UserId.make("user_1") });
+			expect(yield* auth.sessionsDeleted).toBe(false);
+			expect(yield* auth.lastDisabledUpdate).toMatchObject({ disabledAt: null });
+		}),
+	);
+});
 
-layer(godModeLayer({ rows: [{ id: "user_1", disabledAt: null }] }))((test) => {
+layer(instanceAdminLayer({ rows: [{ id: "user_1", disabledAt: null }] }))((test) => {
 	test.effect("enabling an already-enabled user does not delete sessions", () =>
 		Effect.gen(function* () {
 			const service = yield* InstanceAdminService;
 			const result = yield* service.setUserDisabled(UserId.make("user_1"), false);
 
 			expect(result).toEqual({ id: UserId.make("user_1") });
-			expect(yield* (yield* FakeGodModeAuth).sessionsDeleted).toBe(false);
+			expect(yield* (yield* FakeInstanceAdminAuth).sessionsDeleted).toBe(false);
 		}),
 	);
 });
 
-layer(godModeLayer({ rows: [] }))((test) => {
+layer(instanceAdminLayer({ rows: [] }))((test) => {
 	test.effect("returns a bad request when the user is not found while setting disabled state", () =>
 		Effect.gen(function* () {
 			const service = yield* InstanceAdminService;
 			const exit = yield* Effect.exit(service.setUserDisabled(UserId.make("missing"), true));
 			assertExitFails(
 				exit,
-				new GodModeNotFound({ reason: { code: "user-not-found", userId: UserId.make("missing") } }),
+				new InstanceAdminNotFound({
+					reason: { code: "user-not-found", userId: UserId.make("missing") },
+				}),
 			);
 		}),
 	);
 });
 
 layer(
-	godModeLayer({
+	instanceAdminLayer({
 		rows: [{ id: "user_1", disabledAt: null }],
 		errors: { updateAuthUserDisabled: "db down" },
 	}),
@@ -283,7 +288,7 @@ layer(
 const deleteOperation = { operationId: "operation-1" };
 
 layer(
-	godModeLayer({
+	instanceAdminLayer({
 		rows: [],
 		lifecycle: Layer.mock(UserLifecycleService)({
 			resetUser: () => Effect.die("unused"),
@@ -299,7 +304,7 @@ layer(
 	);
 });
 
-layer(godModeLayer({ rows: [] }))((test) => {
+layer(instanceAdminLayer({ rows: [] }))((test) => {
 	test.effect("creates a credential user without an account row", () =>
 		Effect.gen(function* () {
 			const service = yield* InstanceAdminService;
@@ -309,7 +314,7 @@ layer(godModeLayer({ rows: [] }))((test) => {
 				email: "new@example.com",
 			});
 
-			const auth = yield* FakeGodModeAuth;
+			const auth = yield* FakeInstanceAdminAuth;
 			const createdUser = yield* auth.createdUser;
 			expect(result.userId).toBe(createdUser?.["id"]);
 			expect(createdUser).toMatchObject({
@@ -322,7 +327,7 @@ layer(godModeLayer({ rows: [] }))((test) => {
 	);
 });
 
-layer(godModeLayer({ rows: [] }))((test) => {
+layer(instanceAdminLayer({ rows: [] }))((test) => {
 	test.effect("creates an oidc user with an account stub", () =>
 		Effect.gen(function* () {
 			const service = yield* InstanceAdminService;
@@ -333,7 +338,7 @@ layer(godModeLayer({ rows: [] }))((test) => {
 				oidcIssuerId: "google|123",
 			});
 
-			const auth = yield* FakeGodModeAuth;
+			const auth = yield* FakeInstanceAdminAuth;
 			expect(result.userId).toBe((yield* auth.createdUser)?.["id"]);
 			expect(yield* auth.createdAccount).toMatchObject({
 				providerId: "oidc",
@@ -344,7 +349,7 @@ layer(godModeLayer({ rows: [] }))((test) => {
 	);
 });
 
-layer(godModeLayer({ rows: [{ id: "existing" }] }))((test) => {
+layer(instanceAdminLayer({ rows: [{ id: "existing" }] }))((test) => {
 	test.effect("returns a bad request when provisioning a user that already exists", () =>
 		Effect.gen(function* () {
 			const service = yield* InstanceAdminService;
@@ -358,7 +363,7 @@ layer(godModeLayer({ rows: [{ id: "existing" }] }))((test) => {
 
 			assertExitFails(
 				exit,
-				new GodModeRequestFailure({
+				new InstanceAdminRequestFailure({
 					reason: { code: "user-already-exists", email: "exists@example.com" },
 				}),
 			);
@@ -366,7 +371,7 @@ layer(godModeLayer({ rows: [{ id: "existing" }] }))((test) => {
 	);
 });
 
-layer(godModeLayer({ rows: [], errors: { createUser: "db down" } }))((test) => {
+layer(instanceAdminLayer({ rows: [], errors: { createUser: "db down" } }))((test) => {
 	test.effect("returns a db error when user creation fails during provisioning", () =>
 		Effect.gen(function* () {
 			const service = yield* InstanceAdminService;
@@ -383,7 +388,7 @@ layer(godModeLayer({ rows: [], errors: { createUser: "db down" } }))((test) => {
 	);
 });
 
-layer(godModeLayer({ rows: [], errors: { createAccount: "db down" } }))((test) => {
+layer(instanceAdminLayer({ rows: [], errors: { createAccount: "db down" } }))((test) => {
 	test.effect("returns a db error when oidc account creation fails during provisioning", () =>
 		Effect.gen(function* () {
 			const service = yield* InstanceAdminService;

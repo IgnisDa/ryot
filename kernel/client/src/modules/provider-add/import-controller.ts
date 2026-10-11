@@ -1,7 +1,7 @@
 import {
 	type ImportEntityRunResult,
 	ProviderEntityImportBacklogFull,
-} from "@ryot-app/contract/modules/provider-entities/schemas";
+} from "@ryot-app/contract/modules/entity-providers/schemas";
 import type { EntityId } from "@ryot-app/contract/schema/brands";
 import { Clock, Duration, Effect, Match, Option, Result, Schema } from "effect";
 

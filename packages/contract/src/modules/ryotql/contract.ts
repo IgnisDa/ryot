@@ -65,7 +65,7 @@ export const RyotQLGroup = HttpApiGroup.make("ryotql")
 export const AdminRyotQLGroup = HttpApiGroup.make("adminRyotql")
 	.annotate(OpenApi.Description, "Execute administrative relational reads across all users.")
 	.add(
-		HttpApiEndpoint.post("execute", "/god-mode/ryotql/execute", execution)
+		HttpApiEndpoint.post("execute", "/instance-admin/ryotql/execute", execution)
 			.middleware(AdminMiddleware)
 			.annotate(
 				OpenApi.Description,

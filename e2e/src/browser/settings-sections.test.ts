@@ -26,7 +26,7 @@ it.live("keeps account and server-wide sections on their own pages", () =>
 		yield* page.waitForURL((url) => url.pathname === "/settings/account");
 		yield* page.getByRole("heading", { level: 2, name: "Profile" }).waitFor();
 		expect(yield* page.getByRole("heading", { name: "Version" }).count).toBe(0);
-		expect(yield* page.getByRole("link", { name: /God Mode/ }).count).toBe(0);
+		expect(yield* page.getByRole("link", { name: /Instance Admin/ }).count).toBe(0);
 
 		yield* settingsSidebar(page).getByRole("link", { name: "About" }).click();
 		yield* page.waitForURL((url) => url.pathname === "/settings/about");
@@ -38,7 +38,7 @@ it.live("keeps account and server-wide sections on their own pages", () =>
 
 		yield* settingsSidebar(page).getByRole("link", { name: "Administration" }).click();
 		yield* page.waitForURL((url) => url.pathname === "/settings/administration");
-		yield* page.getByRole("link", { name: /God Mode/ }).click();
-		yield* page.waitForURL((url) => url.pathname.startsWith("/god-mode"));
+		yield* page.getByRole("link", { name: /Instance Admin/ }).click();
+		yield* page.waitForURL((url) => url.pathname.startsWith("/instance-admin"));
 	}).pipe(PlaywrightSpawner.withBrowser),
 );

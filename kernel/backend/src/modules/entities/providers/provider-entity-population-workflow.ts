@@ -1,7 +1,7 @@
 import { SandboxRunError, mapDbErrorToSandbox } from "@ryot-app/contract/errors";
 import type { AutomationPopulationContext } from "@ryot-app/contract/modules/automations/lifecycle";
 import { ListedEntity } from "@ryot-app/contract/modules/entities/schemas";
-import { encodeEntityUpdatedMessage } from "@ryot-app/contract/modules/entity-interest/messages";
+import { encodeEntityUpdatedMessage } from "@ryot-app/contract/modules/entity-watches/messages";
 import { definitionKey, definitionOwner } from "@ryot-app/contract/modules/plugins/references";
 import { EntityId, type EntitySchemaSlug, type UserId } from "@ryot-app/contract/schema/brands";
 import {

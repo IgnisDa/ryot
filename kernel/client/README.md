@@ -83,7 +83,7 @@ does not export them. Other modules depend on narrow group ports such as `RyotQL
 Authenticated kernel settings and account screens load and change data through the same shared query
 and mutation layer as client pages. Route loaders retain access decisions, redirects, and not-found
 checks. Permanent direct-service exceptions are pre-authentication routes, which have no authenticated
-API scope; God Mode, whose administration calls are scoped by its token; and the catalog-dependent
+API scope; Instance Admin, whose administration calls are scoped by its token; and the catalog-dependent
 workspace redirect, which must resolve before rendering.
 
 `boot/layers.ts` merges feature-owned layers for authentication, server selection, navigation,
@@ -99,14 +99,14 @@ system share sheet. The temporary directory is removed after completion or failu
 obtain their bearer header inside `BackupsApi`; server-log downloads keep their admin-token header
 inside `AdminApi`.
 
-God Mode's Server logs section lists the active log and all retained gzip rotations. Administrators
+Instance Admin's Server logs section lists the active log and all retained gzip rotations. Administrators
 can download individual files or a ZIP containing all listed files. Active logs are bounded to the
 bytes written when the download starts; the logger's one-second batching can delay recent messages.
 
-`EntityInterestService` opens no socket when a client is constructed. The authenticated layout owns
+`EntityWatchService` opens no socket when a client is constructed. The authenticated layout owns
 the active server/user session and releases it on logout, scope change, or unmount. Plugin documents
 have one subscription outside the request table, released by the common iframe finish path. See the
-[entity-interest protocol](src/modules/entity-interest/README.md).
+[entity-watches protocol](src/modules/entity-watches/README.md).
 
 ## Navigation And Screens
 
@@ -172,10 +172,10 @@ Web `/auth` redirects to the hosted login immediately. Native `/auth` waits for 
 or change server, so dismissing the browser or completing logout returns to that choice instead of
 reopening the hosted login.
 
-God Mode impersonation uses dedicated web/native OAuth clients and replaces the current login. The
+Instance Admin impersonation uses dedicated web/native OAuth clients and replaces the current login. The
 initiating client retains its PKCE verifier while `/oauth/impersonate` redeems a one-use handoff in the
 hosted browser. The callback restarts the application document to discard the previous runtime. A
-kernel banner shows the target and fixed expiry; stop and expiry return to locked God Mode without
+kernel banner shows the target and fixed expiry; stop and expiry return to locked Instance Admin without
 restoring the previous login. Web tabs reload on session identity changes, but not token rotation;
 authenticated requests reject stale user scopes.
 

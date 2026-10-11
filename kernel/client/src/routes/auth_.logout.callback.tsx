@@ -25,7 +25,7 @@ export const Route = createFileRoute("/auth_/logout/callback")({
 					yield* Effect.flatMap(OAuthTokenService, (tokens) => tokens.clear(selected));
 				}
 				if (search.state === "impersonation") {
-					yield* Effect.sync(() => window.location.replace("/god-mode/users"));
+					yield* Effect.sync(() => window.location.replace("/instance-admin/users"));
 					return;
 				}
 				// oxlint-disable-next-line typescript/only-throw-error

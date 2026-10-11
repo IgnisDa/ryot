@@ -1,4 +1,4 @@
-import type { TwoFactorStatus } from "@ryot-app/contract/modules/user-settings/schemas";
+import type { TwoFactorStatus } from "@ryot-app/contract/modules/account/schemas";
 import { Button, StatusMessage } from "@ryot-app/plugin-ui-sdk";
 import { AppIcon } from "@ryot-app/plugin-ui-sdk/icon";
 import { Link } from "@tanstack/react-router";

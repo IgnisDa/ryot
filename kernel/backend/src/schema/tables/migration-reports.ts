@@ -2,7 +2,7 @@ import type {
 	MigrationReportAnomalyCode,
 	MigrationReportDetail,
 	MigrationReportLevel,
-} from "@ryot-app/contract/modules/god-mode/migration-report";
+} from "@ryot-app/contract/modules/instance-admin/migration-report";
 import { sql } from "drizzle-orm";
 import {
 	check,

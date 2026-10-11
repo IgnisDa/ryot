@@ -6,7 +6,7 @@
 
 User relationship batch creates require `propertiesMode`: `merge` overlays supplied properties and preserves omitted values, while `replace` uses only the supplied properties. Single creates and generic imports keep their existing upsert semantics.
 
-`prepared-mutations.ts` returns opaque user-mutation handles for user-state operations. Preparation opens its own short transaction. Persistence joins the caller's active transaction, uses conditional source writes, and returns only item dispatch references. The multi-item owner seals the resource batch and dispatches after commit. Initial no-ops return no handle; a policy-transformed prepared update still writes even when its final properties match the source.
+`prepared-mutations.ts` returns opaque user-mutation handles for entity-user-data operations. Preparation opens its own short transaction. Persistence joins the caller's active transaction, uses conditional source writes, and returns only item dispatch references. The multi-item owner seals the resource batch and dispatches after commit. Initial no-ops return no handle; a policy-transformed prepared update still writes even when its final properties match the source.
 
 `planned-reconciliation.ts` joins the provider or host owner's active transaction. It rejects matching before-policies with `before-policy-requires-owner`, rather than executing them in that transaction. It seals each group and records replay-stable group results.
 

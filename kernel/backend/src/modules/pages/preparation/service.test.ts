@@ -3,7 +3,7 @@ import {
 	ClientPageDocumentStale,
 	ClientPagePreparationError,
 	PreparedClientPage,
-} from "@ryot-app/contract/modules/client-pages/schemas";
+} from "@ryot-app/contract/modules/pages/schemas";
 import { EntityId, PluginId, UserId } from "@ryot-app/contract/schema/brands";
 import { assertExitFails } from "@ryot-app/testing/effect-assertions";
 import { Context, Effect, Layer, Ref, Schema } from "effect";
@@ -19,8 +19,8 @@ import { DatabaseSession } from "#platform/db/session";
 import { composeClientPage } from "./composition";
 import { ClientPageCompositionService } from "./composition-service";
 import { resolveClientPageGraph, type ResolvedClientPageGraph } from "./graph";
-import { ClientPagesRepository } from "./repository";
-import { ClientPagesService } from "./service";
+import { PagesRepository } from "./repository";
+import { PagesService } from "./service";
 
 const createdAt = new Date(0);
 const runtimeHash = "a".repeat(64);
@@ -141,7 +141,7 @@ const recordingDependenciesLayer = Layer.effectContext(
 	}),
 );
 
-const pagesLayer = ClientPagesService.layer.pipe(
+const pagesLayer = PagesService.layer.pipe(
 	Layer.provideMerge(
 		Layer.mergeAll(
 			Layer.mock(DatabaseSession)({}),
@@ -154,8 +154,8 @@ const pagesLayer = ClientPagesService.layer.pipe(
 				),
 			),
 			Layer.succeed(
-				ClientPagesRepository,
-				ClientPagesRepository.of(
+				PagesRepository,
+				PagesRepository.of(
 					Object.assign(Object.create(null), { findHomeSavedView: () => Effect.succeed(null) }),
 				),
 			),
@@ -203,7 +203,7 @@ layer(pagesLayer)((test) => {
 				application: "plugin-route",
 				runtimeArtifactHash: runtimeHash,
 			});
-			const service = yield* ClientPagesService;
+			const service = yield* PagesService;
 			const page = yield* service.prepare({ id: UserId.make("user-1") }, routeTarget);
 			expect(page.identity.compositionKey).toBe(expected.compositionKey);
 			expect(page.composition.hash).toBe("composition-hash");
@@ -215,14 +215,14 @@ layer(pagesLayer)((test) => {
 
 	test.effect("generates the document only for an identity that is still current", () =>
 		Effect.gen(function* () {
-			const service = yield* ClientPagesService;
+			const service = yield* PagesService;
 			const user = { id: UserId.make("user-1") };
 			const page = yield* Schema.decodeUnknownEffect(PreparedClientPage)(
 				yield* service.prepare(user, routeTarget),
 			);
 			const document = yield* service.document(user, page.identity);
 			expect(document.metadata.hash).toBe("composition-hash");
-			expect(document.bootstrap).toBe(`/api/client-assets/${runtimeHash}/public/bootstrap.js`);
+			expect(document.bootstrap).toBe(`/api/page-bundles/${runtimeHash}/public/bootstrap.js`);
 			const stale = new ClientPageDocumentStale({ reason: { code: "client-page-document-stale" } });
 			assertExitFails(
 				yield* Effect.exit(
@@ -248,7 +248,7 @@ layer(pagesLayer)((test) => {
 
 	test.effect("rejects a formerly prepared plugin after catalog revocation", () =>
 		Effect.gen(function* () {
-			const service = yield* ClientPagesService;
+			const service = yield* PagesService;
 			yield* service.prepare({ id: UserId.make("user-1") }, routeTarget);
 			const recorded = yield* RecordedPrepareCalls;
 			const before = yield* recorded.calls;

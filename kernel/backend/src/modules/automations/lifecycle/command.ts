@@ -9,7 +9,7 @@ import {
 	type AutomationTriggerPayload,
 	type ExecutionLane,
 } from "@ryot-app/contract/modules/automations/lifecycle";
-import type { SandboxExecutionSubject } from "@ryot-app/contract/modules/sandbox/schemas";
+import type { SandboxExecutionSubject } from "@ryot-app/contract/modules/scripts/schemas";
 import type { AccountGeneration } from "@ryot-app/contract/schema/account-generation";
 import type {
 	AutomationExecutionId,

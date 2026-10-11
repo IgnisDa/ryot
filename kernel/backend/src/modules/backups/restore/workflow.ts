@@ -1,10 +1,10 @@
 import { BadRequest, DbError, internalError } from "@ryot-app/contract/errors";
+import type { AssetLocator } from "@ryot-app/contract/modules/assets/schemas";
 import {
 	BackupConflict,
 	BackupRunFailure,
 	type BackupRunFailure as BackupRunFailureValue,
 } from "@ryot-app/contract/modules/backups/schemas";
-import type { AssetLocator } from "@ryot-app/contract/modules/uploads/schemas";
 import { BackupRunId, UserId } from "@ryot-app/contract/schema/brands";
 import { Context, Effect, FileSystem, Layer, Result, Schedule, Schema } from "effect";
 import { Workflow } from "effect/workflow";

@@ -1,7 +1,7 @@
 import { Effect, Schema } from "effect";
 
-import { SandboxBoundaryReason } from "./modules/sandbox/boundary-reason";
-import { SANDBOX_FAILURE_KINDS } from "./modules/sandbox/wire";
+import { SandboxBoundaryReason } from "./modules/scripts/boundary-reason";
+import { SANDBOX_FAILURE_KINDS } from "./modules/scripts/wire";
 
 export const SandboxFailureKind = Schema.Literals([...SANDBOX_FAILURE_KINDS]);
 export type SandboxFailureKind = typeof SandboxFailureKind.Type;

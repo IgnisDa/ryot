@@ -1,5 +1,5 @@
 import { BadRequest, badRequest } from "@ryot-app/contract/errors";
-import { UPLOAD_MAX_FILE_BYTES } from "@ryot-app/contract/modules/uploads/upload-policy";
+import { UPLOAD_MAX_FILE_BYTES } from "@ryot-app/contract/modules/assets/upload-policy";
 import { Context, Effect, FileSystem, Layer, Path, PlatformError, Stream } from "effect";
 
 import { AppConfig } from "../config/service";

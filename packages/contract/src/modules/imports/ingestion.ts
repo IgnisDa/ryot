@@ -2,7 +2,7 @@ import { Schema } from "effect";
 
 import { AccountGeneration } from "../../schema/account-generation";
 import { ImportRunId, IntegrationId, UserId } from "../../schema/brands";
-import { jsonValueSchema } from "../sandbox/wire";
+import { JsonValue } from "../../schema/json";
 import { ImportRunFailureReason, ImportRunStatus, ingestionBlockReasonFields } from "./schemas";
 
 const Count = Schema.Int.pipe(Schema.check(Schema.isGreaterThanOrEqualTo(0)));
@@ -25,7 +25,7 @@ export type IngestionBlockReason = typeof IngestionBlockReason.Type;
 
 export const IngestionPlan = Schema.Struct({
 	operation: Schema.NonEmptyString,
-	selection: Schema.Record(Schema.String, jsonValueSchema),
+	selection: Schema.Record(Schema.String, JsonValue),
 });
 export type IngestionPlan = typeof IngestionPlan.Type;
 
@@ -78,8 +78,8 @@ export type IngestionPayload = typeof IngestionPayload.Type;
 
 export const IngestionCapture = Schema.Struct({
 	ordinal: Count,
+	checkpoint: JsonValue,
 	id: Schema.NonEmptyString,
-	checkpoint: jsonValueSchema,
 	payload: Schema.NullOr(IngestionPayload),
 	phase: Schema.Literals(["collection", "application"]),
 	state: Schema.Literals(["captured", "sealed", "released"]),

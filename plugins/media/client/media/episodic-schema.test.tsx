@@ -2,7 +2,7 @@ import { describe } from "vitest";
 
 import { episodicEpisodeRow } from "../../tests/client/episodic/episodes-fixture";
 import { episodicFixtureSchema } from "../../tests/client/episodic/schema-fixture";
-import { declaresEntityInterest } from "../../tests/client/interest-fixture";
+import { declaresEntityWatch } from "../../tests/client/interest-fixture";
 import { podcastSummaryRow } from "../../tests/client/podcast/fixtures";
 import { rowsResult } from "../../tests/client/query-result-fixture";
 
@@ -26,7 +26,7 @@ const summaryResponse = (nextUp: readonly unknown[]) => ({
 	},
 });
 
-const declaresInterest = declaresEntityInterest("media-1");
+const declaresInterest = declaresEntityWatch("media-1");
 
 describe("episodic media query entity interest", () => {
 	declaresInterest(

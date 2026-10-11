@@ -1,5 +1,5 @@
 import { conflict, DbError } from "@ryot-app/contract/errors";
-import type { ManagedAssetLocator } from "@ryot-app/contract/modules/uploads/schemas";
+import type { ManagedAssetLocator } from "@ryot-app/contract/modules/assets/schemas";
 import { UserId } from "@ryot-app/contract/schema/brands";
 import { and, eq, or } from "drizzle-orm";
 import { Context, Effect, Layer } from "effect";

@@ -1,6 +1,6 @@
 import { SandboxRunError, unknownToMessage } from "@ryot-app/contract/errors";
 import type { ExecutionLane } from "@ryot-app/contract/modules/automations/lifecycle";
-import type { JsonValue } from "@ryot-app/contract/modules/ryotql/language";
+import type { JsonValue } from "@ryot-app/contract/schema/json";
 import { SANDBOX_COMPILED_FORMAT } from "@ryot-app/plugin-backend-compiler/protocol";
 import { httpCallArgsSchema, sandboxHostContracts } from "@ryot-app/plugin-backend-sdk/core";
 import {

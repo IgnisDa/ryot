@@ -3,7 +3,7 @@ import {
 	ClientPagePreparationError,
 	type ClientPageOperationTarget,
 	type ClientPageTarget,
-} from "@ryot-app/contract/modules/client-pages/schemas";
+} from "@ryot-app/contract/modules/pages/schemas";
 import { comparePluginRoutePaths } from "@ryot-app/contract/modules/plugins/manifest";
 import {
 	PluginId,

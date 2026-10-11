@@ -11,7 +11,7 @@ import type { RyotQLDocument } from "@ryot-app/contract/modules/ryotql/language"
 import type {
 	SandboxHostCapability,
 	POLICY_SAFE_SANDBOX_CAPABILITIES,
-} from "@ryot-app/contract/modules/sandbox/wire";
+} from "@ryot-app/contract/modules/scripts/wire";
 import { PluginId } from "@ryot-app/contract/schema/brands";
 import type { AppSchema } from "@ryot-app/contract/schema/property-schema";
 import type { Effect } from "@ryot-app/plugin-backend-sdk/effect";

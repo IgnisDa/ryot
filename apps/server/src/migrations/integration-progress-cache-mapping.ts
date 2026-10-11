@@ -1,4 +1,4 @@
-import type { MigrationReportDetail } from "@ryot-app/contract/modules/god-mode/migration-report";
+import type { MigrationReportDetail } from "@ryot-app/contract/modules/instance-admin/migration-report";
 import { encodePersistentClaimEnvelope } from "@ryot-app/kernel-backend/modules/scripts/host/runtime-host-functions";
 import { redisKeys, RedisService } from "@ryot-app/kernel-backend/platform/redis";
 import { Effect, Schema } from "effect";

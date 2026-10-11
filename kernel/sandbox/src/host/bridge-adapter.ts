@@ -1,4 +1,4 @@
-import { SandboxBoundaryReason } from "@ryot-app/contract/modules/sandbox/boundary-reason";
+import { SandboxBoundaryReason } from "@ryot-app/contract/modules/scripts/boundary-reason";
 import {
 	automationSandboxHostContracts,
 	coreSandboxHostContracts,

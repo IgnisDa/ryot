@@ -1,4 +1,4 @@
-import type { JsonValue } from "@ryot-app/contract/modules/ryotql/language";
+import type { JsonValue } from "@ryot-app/contract/schema/json";
 import type { AppChoice } from "@ryot-app/contract/schema/property-schema";
 import {
 	Schema,

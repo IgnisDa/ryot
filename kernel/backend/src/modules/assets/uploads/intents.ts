@@ -6,13 +6,13 @@ import {
 	type UploadIntentInput,
 	UploadBadRequest,
 	type UploadFailureReason,
-} from "@ryot-app/contract/modules/uploads/schemas";
+} from "@ryot-app/contract/modules/assets/schemas";
 import {
 	type UploadContentType,
 	uploadMaxBytes,
 	uploadContentTypeExtensions,
 	uploadContentTypes,
-} from "@ryot-app/contract/modules/uploads/upload-policy";
+} from "@ryot-app/contract/modules/assets/upload-policy";
 import { UserId } from "@ryot-app/contract/schema/brands";
 import { generateId } from "better-auth";
 import { CryptoHasher } from "bun";

@@ -1,10 +1,10 @@
 import type { BadRequest, DbError } from "@ryot-app/contract/errors";
+import type { UploadBadRequest } from "@ryot-app/contract/modules/assets/schemas";
 import type { PluginManifest } from "@ryot-app/contract/modules/plugins/manifest";
 import {
 	PluginRequestError,
 	type PluginConflictError,
 } from "@ryot-app/contract/modules/plugins/schemas";
-import type { UploadBadRequest } from "@ryot-app/contract/modules/uploads/schemas";
 import {
 	PLUGIN_ARCHIVE_LIMITS,
 	type PluginArchiveCompiledScript,

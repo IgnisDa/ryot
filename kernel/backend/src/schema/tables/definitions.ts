@@ -10,8 +10,8 @@ import type {
 	PluginSignalSchema,
 } from "@ryot-app/contract/modules/plugins/manifest";
 import type { RyotQLDocument } from "@ryot-app/contract/modules/ryotql/language";
-import type { ProviderInformation } from "@ryot-app/contract/modules/sandbox/schemas";
 import type { SavedViewRenderer } from "@ryot-app/contract/modules/saved-views/schemas";
+import type { ProviderInformation } from "@ryot-app/contract/modules/scripts/schemas";
 import type { PluginPackageId } from "@ryot-app/contract/schema/brands";
 import type { JsonValue } from "@ryot-app/contract/schema/json";
 import type { AppSchema } from "@ryot-app/contract/schema/property-schema";

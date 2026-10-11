@@ -1,5 +1,5 @@
 import { describe, expect, it, layer } from "@effect/vitest";
-import { UploadBadRequest } from "@ryot-app/contract/modules/uploads/schemas";
+import { UploadBadRequest } from "@ryot-app/contract/modules/assets/schemas";
 import { Effect, Fiber, ManagedRuntime } from "effect";
 
 import { AuthenticatedApiError } from "#/api/authenticated";

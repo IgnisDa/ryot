@@ -1,12 +1,12 @@
 import { assert, expect, layer } from "@effect/vitest";
 import { DbError, badRequest, internalError } from "@ryot-app/contract/errors";
+import { UploadBadRequest } from "@ryot-app/contract/modules/assets/schemas";
 import type { PluginManifest } from "@ryot-app/contract/modules/plugins/manifest";
 import {
 	PluginConflictError,
 	PluginNotFoundError,
 	PluginRequestError,
 } from "@ryot-app/contract/modules/plugins/schemas";
-import { UploadBadRequest } from "@ryot-app/contract/modules/uploads/schemas";
 import { PluginPackageId, UserId } from "@ryot-app/contract/schema/brands";
 import { emptySandboxExecutionMetadata } from "@ryot-app/contract/testing";
 import { PLUGIN_ARCHIVE_LIMITS, writePluginArchive } from "@ryot-app/plugin-archive";

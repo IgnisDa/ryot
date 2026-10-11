@@ -1,4 +1,4 @@
-import { SandboxScriptMetadata } from "@ryot-app/contract/modules/sandbox/schemas";
+import { SandboxScriptMetadata } from "@ryot-app/contract/modules/scripts/schemas";
 import { SandboxProviderId, SandboxScriptId } from "@ryot-app/contract/schema/brands";
 import {
 	ascending,

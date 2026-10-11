@@ -6,7 +6,7 @@ import {
 	AutomationRequestPayload,
 	AutomationTrigger,
 } from "@ryot-app/contract/modules/automations/lifecycle";
-import { SANDBOX_FAILURE_KINDS } from "@ryot-app/contract/modules/sandbox/wire";
+import { SANDBOX_FAILURE_KINDS } from "@ryot-app/contract/modules/scripts/wire";
 import { UserId } from "@ryot-app/contract/schema/brands";
 import { emptySandboxExecutionMetadata } from "@ryot-app/contract/testing";
 import { jsonByteLength } from "@ryot-app/plugin-backend-compiler/limits";

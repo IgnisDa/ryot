@@ -3,7 +3,7 @@ import { assert, describe, expect, it } from "vitest";
 
 import { PluginPackageId } from "../../schema/brands";
 import { emptySandboxExecutionMetadata } from "../../testing";
-import { uploadContentTypeExtensions } from "../uploads/upload-policy";
+import { uploadContentTypeExtensions } from "../assets/upload-policy";
 import {
 	CLIENT_API_VERSION,
 	definePlugin,
@@ -766,7 +766,7 @@ describe("definePlugin", () => {
 		expect(decoded.entitySchemas[0]?.mergeIdentityProperties).toEqual(["kind"]);
 	});
 
-	it("decodes optional entity user-state restrictions with permissive absence", () => {
+	it("decodes optional entity entity-user-data restrictions with permissive absence", () => {
 		const decoded = Schema.decodeSync(PluginManifest)({
 			...manifest,
 			entitySchemas: [

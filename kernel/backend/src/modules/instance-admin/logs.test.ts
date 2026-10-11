@@ -2,7 +2,7 @@ import { gzipSync } from "node:zlib";
 
 import { BunServices } from "@effect/platform-bun";
 import { assert, expect, layer } from "@effect/vitest";
-import { ServerLogsNotFound } from "@ryot-app/contract/modules/god-mode/logs";
+import { ServerLogsNotFound } from "@ryot-app/contract/modules/instance-admin/logs";
 import { assertExitFails } from "@ryot-app/testing/effect-assertions";
 import { Effect, FileSystem, Option, Path, Stream } from "effect";
 import { unzipSync } from "fflate";

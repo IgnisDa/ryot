@@ -1,4 +1,4 @@
-import type { JsonValue } from "@ryot-app/contract/modules/ryotql/language";
+import type { JsonValue } from "@ryot-app/contract/schema/json";
 import { defineAutomationPolicy } from "@ryot-app/plugin-backend-sdk/automation";
 import { Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
 import {

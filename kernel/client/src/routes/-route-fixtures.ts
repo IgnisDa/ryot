@@ -1,7 +1,7 @@
 import type {
 	ClientCompositionDocument,
 	PreparedClientPage,
-} from "@ryot-app/contract/modules/client-pages/schemas";
+} from "@ryot-app/contract/modules/pages/schemas";
 import {
 	EntitySchemaSlug,
 	PluginId,
@@ -20,12 +20,12 @@ import type { PluginClientCatalog } from "@ryot-app/ryotql-recipes/plugin-client
 import type { UserSettingsResult } from "@ryot-app/ryotql-recipes/user-settings";
 import { Effect, Layer } from "effect";
 
-import { ClientPagesApi } from "#/api/client-pages";
+import type { AccountApi } from "#/api/account";
 import { decodeServerOrigin } from "#/api/origin";
-import { makeGodModeApi, makeUserSettingsApi } from "#/api/ports.test-layer";
+import { PagesApi } from "#/api/pages";
+import { makeInstanceAdminApi, makeAccountApi } from "#/api/ports.test-layer";
 import { PublicApi } from "#/api/public";
 import type { ApiScope } from "#/api/scope";
-import type { UserSettingsApi } from "#/api/user-settings";
 import { ManagedAssetsService } from "#/modules/assets/managed-assets";
 import { HostedAuthService } from "#/modules/auth/hosted-service";
 import { OAuthLauncher } from "#/modules/auth/oauth-launcher";
@@ -34,10 +34,13 @@ import { RuntimeOAuthClientService } from "#/modules/auth/runtime-client";
 import { AuthService, type SettledAuthSession } from "#/modules/auth/service";
 import { OAuthTokenService } from "#/modules/auth/token-service";
 import { EntitiesService } from "#/modules/entities/service";
-import { GodModeImpersonationService } from "#/modules/god-mode/impersonation";
-import { InstanceAdminService } from "#/modules/god-mode/service";
-import { GodModeSessionService, makeGodModeSessionService } from "#/modules/god-mode/session";
 import { ImportsService } from "#/modules/imports/service";
+import { InstanceAdminImpersonationService } from "#/modules/instance-admin/impersonation";
+import { InstanceAdminService } from "#/modules/instance-admin/service";
+import {
+	InstanceAdminSessionService,
+	makeInstanceAdminSessionService,
+} from "#/modules/instance-admin/session";
 import { OAuthConnectService } from "#/modules/integrations/oauth-connect";
 import { makeOAuthReturnCapture, OAuthReturnCapture } from "#/modules/integrations/oauth-return";
 import { IntegrationsService } from "#/modules/integrations/service";
@@ -143,8 +146,8 @@ export const userSettings: UserSettingsResult = {
 	preferences: { language: null, disableIntegrations: false },
 };
 
-export const makeUserSettingsStub = (overrides: Partial<UserSettingsApi["Service"]> = {}) =>
-	makeUserSettingsApi({
+export const makeUserSettingsStub = (overrides: Partial<AccountApi["Service"]> = {}) =>
+	makeAccountApi({
 		twoFactorStatus: () => Effect.succeed({ enabled: false, available: false }),
 		...overrides,
 	});
@@ -289,17 +292,20 @@ export const makeOAuthRouteStubs = (
 
 export const OAuthRouteStubs = makeOAuthRouteStubs();
 
-const GodModeSessionStub = Layer.succeed(
-	GodModeSessionService,
-	makeGodModeSessionService(() => "session-fixture"),
+const InstanceAdminSessionStub = Layer.succeed(
+	InstanceAdminSessionService,
+	makeInstanceAdminSessionService(() => "session-fixture"),
 );
-const GodModeApiStub = makeGodModeApi();
+const InstanceAdminApiStub = makeInstanceAdminApi();
 
-export const GodModeRouteStubs = Layer.mergeAll(
-	GodModeSessionStub,
-	GodModeApiStub,
-	InstanceAdminService.layer.pipe(Layer.provide(GodModeSessionStub), Layer.provide(GodModeApiStub)),
-	Layer.succeed(GodModeImpersonationService, { start: () => Effect.void }),
+export const InstanceAdminRouteStubs = Layer.mergeAll(
+	InstanceAdminSessionStub,
+	InstanceAdminApiStub,
+	InstanceAdminService.layer.pipe(
+		Layer.provide(InstanceAdminSessionStub),
+		Layer.provide(InstanceAdminApiStub),
+	),
+	Layer.succeed(InstanceAdminImpersonationService, { start: () => Effect.void }),
 );
 
 export const makeEntityRouteStub = (
@@ -434,7 +440,7 @@ export const clientCompositionDocument = (
 	modulepreloads: [],
 	importMap: { imports: {} },
 	descriptor: { application: "page", automaticRegistry: [] },
-	bootstrap: `/api/client-assets/${"a".repeat(64)}/public/bootstrap.js`,
+	bootstrap: `/api/page-bundles/${"a".repeat(64)}/public/bootstrap.js`,
 	metadata: {
 		hash,
 		format: CLIENT_ARTIFACT_FORMAT,
@@ -444,7 +450,7 @@ export const clientCompositionDocument = (
 	},
 });
 
-export const ClientPagesApiRouteStubs = Layer.succeed(ClientPagesApi, {
+export const PagesApiRouteStubs = Layer.succeed(PagesApi, {
 	checkFreshness: () => Effect.succeed({ current: true }),
 	document: (_scope, request) =>
 		Effect.succeed(clientCompositionDocument(request.payload.identity.compositionHash)),

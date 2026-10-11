@@ -2,7 +2,7 @@
 
 ## Import admission
 
-`POST /provider-entities/imports` does not start a workflow. It writes a `queued` row to
+`POST /entity-providers/imports` does not start a workflow. It writes a `queued` row to
 `provider_import_admission`, and a dispatch loop on every replica promotes rows to `running` while
 fewer than `SANDBOX_IMPORT_CONCURRENCY` run across the installation. The next row goes to the user
 with the fewest running imports, oldest request first, so a large batch never starves another
@@ -19,7 +19,7 @@ deadlock once every slot holds a parent.
 - Each loop pass settles rows whose workflow has finished, restarts `running` rows whose workflow
   never started (a restart between admission and start), and admits into free slots. Every step is
   idempotent, so replicas and restarts need no coordination.
-- `DELETE /provider-entities/imports/:jobId` removes a queued row, or interrupts the workflow of a
+- `DELETE /entity-providers/imports/:jobId` removes a queued row, or interrupts the workflow of a
   running one; the result then reads `cancelled`.
 - The result endpoint reads `queued` from the ledger and `running`, `completed`, `failed`, or
   `cancelled` from the workflow. Queued and running results wait for a workflow notification or up

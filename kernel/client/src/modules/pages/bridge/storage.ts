@@ -1,4 +1,4 @@
-import type { PreparedClientPage } from "@ryot-app/contract/modules/client-pages/schemas";
+import type { PreparedClientPage } from "@ryot-app/contract/modules/pages/schemas";
 import { JsonValue } from "@ryot-app/contract/schema/json";
 import {
 	PLUGIN_STORAGE_VALUE_MAX_BYTES,

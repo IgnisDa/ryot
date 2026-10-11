@@ -29,22 +29,20 @@ const access = (privateHashes: readonly string[]) =>
 
 it("preloads all eager code and leaves public presentation-only artifacts unfetched", () => {
 	const document = renderClientDocument(manifest(), descriptions(), access([]), "composition-hash");
-	expect(document.bootstrap).toBe(`/api/client-assets/${"a".repeat(64)}/public/bootstrap.js`);
+	expect(document.bootstrap).toBe(`/api/page-bundles/${"a".repeat(64)}/public/bootstrap.js`);
 	expect(Object.values(document.importMap.imports)).toContain(
-		`/api/client-assets/${"a".repeat(64)}/public/runtime.js`,
+		`/api/page-bundles/${"a".repeat(64)}/public/runtime.js`,
 	);
 	expect(document.metadata.hash).toBe("composition-hash");
-	expect(document.modulepreloads).toContain(
-		`/api/client-assets/${"b".repeat(64)}/public/module.js`,
-	);
+	expect(document.modulepreloads).toContain(`/api/page-bundles/${"b".repeat(64)}/public/module.js`);
 	expect(document.modulepreloads).not.toContain(
-		`/api/client-assets/${"c".repeat(64)}/public/module.js`,
+		`/api/page-bundles/${"c".repeat(64)}/public/module.js`,
 	);
 	expect(document.stylesheets).not.toContain(
-		`/api/client-assets/${"c".repeat(64)}/public/module.css`,
+		`/api/page-bundles/${"c".repeat(64)}/public/module.css`,
 	);
 	expect(document.descriptor.automaticRegistry[0]?.stylesheets).toEqual([
-		`/api/client-assets/${"c".repeat(64)}/public/module.css`,
+		`/api/page-bundles/${"c".repeat(64)}/public/module.css`,
 	]);
 	expect(document.descriptor.automaticRegistry[0]).not.toHaveProperty("artifactClosure");
 	expect(renderClientDocument(manifest(), descriptions(), access([]), "composition-hash")).toEqual(
@@ -54,7 +52,7 @@ it("preloads all eager code and leaves public presentation-only artifacts unfetc
 
 it("warms every supported file of an authorized lazy artifact without importing its module", () => {
 	const plan = planClientDocumentPreloads(manifest(), descriptions(), access(["c".repeat(64)]));
-	const prefix = `/api/client-assets/${"c".repeat(64)}/${"x".repeat(43)}/`;
+	const prefix = `/api/page-bundles/${"c".repeat(64)}/${"x".repeat(43)}/`;
 	expect(plan.modulepreloads).toContain(`${prefix}module.js`);
 	expect(plan.stylesheets).toContain(`${prefix}module.css`);
 	expect(plan.preloads).toEqual(
@@ -96,15 +94,13 @@ it("warms a private dependency of a public lazy presentation without preloading 
 	modes.set(dependencyHash, "x".repeat(43));
 	const plan = planClientDocumentPreloads(mixed, artifacts, modes);
 	expect(plan.modulepreloads).toContain(
-		`/api/client-assets/${dependencyHash}/${"x".repeat(43)}/module.js`,
+		`/api/page-bundles/${dependencyHash}/${"x".repeat(43)}/module.js`,
 	);
 	expect(plan.stylesheets).toContain(
-		`/api/client-assets/${dependencyHash}/${"x".repeat(43)}/module.css`,
+		`/api/page-bundles/${dependencyHash}/${"x".repeat(43)}/module.css`,
 	);
-	expect(plan.modulepreloads).not.toContain(
-		`/api/client-assets/${"c".repeat(64)}/public/module.js`,
-	);
-	expect(plan.stylesheets).not.toContain(`/api/client-assets/${"c".repeat(64)}/public/module.css`);
+	expect(plan.modulepreloads).not.toContain(`/api/page-bundles/${"c".repeat(64)}/public/module.js`);
+	expect(plan.stylesheets).not.toContain(`/api/page-bundles/${"c".repeat(64)}/public/module.css`);
 });
 
 it("deduplicates eager and multi-presentation artifact preloads", () => {
@@ -213,9 +209,9 @@ layer(documentDependenciesLayer)((test) => {
 					"b".repeat(64),
 					"c".repeat(64),
 				]);
-				expect(document.bootstrap).toBe(`/api/client-assets/${"a".repeat(64)}/public/bootstrap.js`);
+				expect(document.bootstrap).toBe(`/api/page-bundles/${"a".repeat(64)}/public/bootstrap.js`);
 				expect(document.importMap.imports["@ryot-app/plugins/page/alias"]).toBe(
-					`/api/client-assets/${"b".repeat(64)}/${"x".repeat(43)}/module.js`,
+					`/api/page-bundles/${"b".repeat(64)}/${"x".repeat(43)}/module.js`,
 				);
 			});
 		},

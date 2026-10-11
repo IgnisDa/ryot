@@ -1,5 +1,5 @@
 import { expect, layer } from "@effect/vitest";
-import { encodeEntityUpdatedMessage } from "@ryot-app/contract/modules/entity-interest/messages";
+import { encodeEntityUpdatedMessage } from "@ryot-app/contract/modules/entity-watches/messages";
 import { EntityId } from "@ryot-app/contract/schema/brands";
 import { Context, Effect, Layer, Ref } from "effect";
 import Redis from "ioredis";
@@ -8,9 +8,9 @@ import { RedisService } from "#platform/redis";
 import { databaseLayer, makeRedisService } from "#testing/effect";
 
 import { LocalInterestSessions } from "./connections";
-import { EntityInterestProgression } from "./progression";
-import { EntityInterestStore } from "./store";
-import { EntityInterestSubscriber } from "./subscriber";
+import { EntityWatchProgression } from "./progression";
+import { EntityWatchStore } from "./store";
+import { EntityWatchSubscriber } from "./subscriber";
 
 const subscriber = Object.assign(Object.create(Redis.prototype), {
 	on: () => subscriber,
@@ -23,7 +23,7 @@ const client = Object.assign(Object.create(Redis.prototype), {
 	duplicate: () => subscriber,
 }) satisfies Redis;
 
-type MarkPendingInput = Parameters<EntityInterestStore["Service"]["markPending"]>[0];
+type MarkPendingInput = Parameters<EntityWatchStore["Service"]["markPending"]>[0];
 
 class FakeSubscriberDependencies extends Context.Service<
 	FakeSubscriberDependencies,
@@ -49,7 +49,7 @@ const subscriberLayer = (options: {
 				databaseLayer,
 				LocalInterestSessions.layer,
 				Layer.succeed(RedisService, makeRedisService({ client })),
-				Layer.mock(EntityInterestProgression)({
+				Layer.mock(EntityWatchProgression)({
 					populated: (entityId) =>
 						Ref.update(progressed, (all) => [...all, entityId]).pipe(
 							Effect.andThen(
@@ -57,7 +57,7 @@ const subscriberLayer = (options: {
 							),
 						),
 				}),
-				Layer.mock(EntityInterestStore)({
+				Layer.mock(EntityWatchStore)({
 					markPending: (input) => Ref.update(markedPending, (all) => [...all, input]),
 					listWatchingSessions: (entityId) =>
 						Ref.update(lookedUp, (all) => [...all, entityId]).pipe(
@@ -72,7 +72,7 @@ const subscriberLayer = (options: {
 					watch: (sessionIds) => Ref.set(watching, sessionIds),
 				}),
 			);
-			return Layer.provideMerge(EntityInterestSubscriber.layer, dependencies);
+			return Layer.provideMerge(EntityWatchSubscriber.layer, dependencies);
 		}),
 	);
 
@@ -80,7 +80,7 @@ layer(subscriberLayer({ watching: ["session-1", "remote-session"] }))((test) => 
 	test.effect("routes valid messages and ignores malformed data", () =>
 		Effect.gen(function* () {
 			const sessions = yield* LocalInterestSessions;
-			const interestSubscriber = yield* EntityInterestSubscriber;
+			const interestSubscriber = yield* EntityWatchSubscriber;
 			const frames: unknown[] = [];
 			yield* sessions.add("session-1", (frame) => frames.push(frame));
 
@@ -107,7 +107,7 @@ layer(subscriberLayer({ failProgression: true, watching: ["session-1", "stale-se
 	(test) => {
 		test.effect("bounds progression retries and absorbs the final failure", () =>
 			Effect.gen(function* () {
-				const interestSubscriber = yield* EntityInterestSubscriber;
+				const interestSubscriber = yield* EntityWatchSubscriber;
 				yield* interestSubscriber.dispatch(
 					encodeEntityUpdatedMessage(EntityId.make("entity-1"), "populated"),
 				);
@@ -126,7 +126,7 @@ layer(subscriberLayer({ watching: [] }))((test) => {
 	test.effect("delivers a private publication only after watching membership is confirmed", () =>
 		Effect.gen(function* () {
 			const sessions = yield* LocalInterestSessions;
-			const interestSubscriber = yield* EntityInterestSubscriber;
+			const interestSubscriber = yield* EntityWatchSubscriber;
 			const frames: unknown[] = [];
 			yield* sessions.add("session-1", (frame) => frames.push(frame));
 

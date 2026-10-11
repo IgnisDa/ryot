@@ -1,6 +1,6 @@
 import { unknownToMessage } from "@ryot-app/contract/errors";
 import type { PluginCron } from "@ryot-app/contract/modules/plugins/manifest";
-import type { SandboxExecutionSubject } from "@ryot-app/contract/modules/sandbox/schemas";
+import type { SandboxExecutionSubject } from "@ryot-app/contract/modules/scripts/schemas";
 import type { PluginId } from "@ryot-app/contract/schema/brands";
 import { Cause, Clock, Context, Cron, Duration, Effect, Result, Layer } from "effect";
 import { WorkflowEngine } from "effect/workflow/WorkflowEngine";
