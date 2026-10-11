@@ -1,6 +1,6 @@
 import { expect, it } from "@effect/vitest";
 import { pluginPackageKey } from "@ryot-app/contract/modules/plugins/references";
-import { PluginId } from "@ryot-app/contract/schema/brands";
+import { PluginId, PluginPackageId } from "@ryot-app/contract/schema/brands";
 import { document, field, literal, pluginId, rows, table } from "@ryot-app/ryotql";
 import { Effect } from "effect";
 
@@ -96,6 +96,35 @@ it.effect("rewrites the known renderer schema reference but preserves opaque plu
 		const opaque = { ownerPluginId: "source-owner", addAction: settings.addAction };
 		expect(yield* exportRendererSettings({ kind: "plugin" }, opaque, new Map())).toBe(opaque);
 		expect(yield* importRendererSettings({ kind: "plugin" }, opaque, new Map())).toBe(opaque);
+	}),
+);
+
+it.effect("round-trips plugin-route add actions without remapping their package target", () =>
+	Effect.gen(function* () {
+		const addAction = {
+			path: "/items/item-1",
+			search: { tab: "history" },
+			type: "plugin-route" as const,
+			packageId: PluginPackageId.make("test/target"),
+		};
+		const settings = {
+			addAction,
+			pageSize: 50,
+			sortChoices: [],
+			searchFields: [],
+			layouts: ["grid"],
+			tableColumns: null,
+			entityIdField: "id",
+			sourceName: "records",
+			defaultLayout: "grid",
+			ownerPluginIdField: "owner",
+			entitySchemaSlugField: "schema",
+		};
+		const renderer = { kind: "kernel", name: "entity-browser" };
+		const exported = yield* exportRendererSettings(renderer, settings, new Map());
+		expect(exported["addAction"]).toEqual(addAction);
+		const restored = yield* importRendererSettings(renderer, exported, new Map());
+		expect(restored["addAction"]).toEqual(addAction);
 	}),
 );
 

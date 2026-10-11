@@ -118,6 +118,8 @@ it("materializes self expressions uniformly and binds only typed renderer settin
 			],
 		});
 	}
+	const browserAction = browserView.settings.addAction;
+	assert(browserAction.type === "provider-search");
 	expect(views[0]?.settings).toEqual(savedView.settings);
 	expect(views[0]?.renderer).toEqual({
 		kind: "plugin",
@@ -128,5 +130,28 @@ it("materializes self expressions uniformly and binds only typed renderer settin
 		type: "provider-search",
 		schema: { slug: "bottle", owner: { kind: "plugin", pluginId: "plugin-a" } },
 	});
-	expect(browserView.settings.addAction.schema.owner).toEqual({ kind: "self" });
+	expect(browserAction.schema.owner).toEqual({ kind: "self" });
+});
+
+it("keeps plugin-route add actions portable while materializing saved views", () => {
+	const kernelView = kernelDefinitionSource().savedViews[0];
+	assert(kernelView);
+	const addAction = {
+		path: "/items/item-1",
+		search: { tab: "history" },
+		packageId: "target/package",
+		type: "plugin-route" as const,
+	};
+	const browserView = {
+		...kernelView,
+		settings: { ...kernelView.settings, addAction },
+		renderer: { kind: "kernel", name: "entity-browser" } as const,
+	};
+	const view = revisionDefinitions("plugin-a", {
+		...fixtureManifest(),
+		client,
+		savedViews: [browserView],
+	}).savedViews[0];
+	assert(view);
+	expect(view.settings["addAction"]).toEqual(addAction);
 });

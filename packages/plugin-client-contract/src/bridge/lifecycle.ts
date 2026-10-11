@@ -1,4 +1,4 @@
-import { EntityBrowserAddAction } from "@ryot-app/contract/modules/saved-views/schemas";
+import { EntitySchemaReference } from "@ryot-app/contract/modules/plugins/references";
 import { EntityId } from "@ryot-app/contract/schema/brands";
 import { strictStruct } from "@ryot-app/contract/schema/utils";
 import { Schema } from "effect";
@@ -149,8 +149,8 @@ export const PluginBridgePageSearch = strictStruct({
 export type PluginBridgePageSearch = Schema.Schema.Type<typeof PluginBridgePageSearch>;
 
 export const ProviderSearchScreenRequest = strictStruct({
+	schema: EntitySchemaReference,
 	initialQuery: Schema.optional(Schema.String),
-	schema: EntityBrowserAddAction.fields.schema,
 });
 
 export type ProviderSearchScreenRequest = Schema.Schema.Type<typeof ProviderSearchScreenRequest>;

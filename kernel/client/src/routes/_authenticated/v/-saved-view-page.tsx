@@ -107,8 +107,9 @@ export function SavedViewPage({
 		readonly complete: (outcome: ProviderSearchScreenOutcome) => void;
 		readonly requestId: string;
 	} | null>(null);
-	const addAction = entityBrowserSettings(loaded.prepared)?.addAction ?? null;
-	const addOpen = add === true && addAction !== null;
+	const addAction = entityBrowserSettings(loaded.prepared)?.addAction;
+	const providerAddAction = addAction?.type === "provider-search" ? addAction : null;
+	const addOpen = add === true && providerAddAction !== null;
 
 	const navigateAddSearch = (update: Record<string, string | null>, replace: boolean) => {
 		const nextSearch = mergePageSearch(location.searchStr, update);
@@ -124,7 +125,7 @@ export function SavedViewPage({
 		navigateAddSearch({ q: null, add: null }, true);
 	};
 	const openAdd = (request: PluginBridgeProviderSearchScreen) => {
-		if (addAction === null || !sameDeclaration(request.schema, addAction.schema)) {
+		if (providerAddAction === null || !sameDeclaration(request.schema, providerAddAction.schema)) {
 			return Effect.succeed<ProviderSearchScreenOutcome>({ kind: "cancelled" });
 		}
 		return Effect.callback<ProviderSearchScreenOutcome>((resume) => {
@@ -200,7 +201,7 @@ export function SavedViewPage({
 		<ProviderAddModal
 			initialQuery={q}
 			onClose={closeAdd}
-			schema={addAction.schema}
+			schema={providerAddAction.schema}
 			onComplete={providerSearch?.complete}
 		/>
 	) : null;

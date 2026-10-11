@@ -49,7 +49,7 @@ export const exportRendererSettings = Effect.fn(function* (
 		Effect.mapError((error) => archiveError("invalid_entry", error.message)),
 	);
 	const action = decoded.addAction;
-	const owner = action?.schema.owner;
+	const owner = action?.type === "provider-search" ? action.schema.owner : undefined;
 	const key = owner?.kind === "plugin" ? pluginKeys.get(owner.pluginId) : null;
 	if (owner?.kind === "plugin" && !key) {
 		return yield* archiveError(
@@ -60,8 +60,8 @@ export const exportRendererSettings = Effect.fn(function* (
 	const encoded = yield* Schema.encodeEffect(ArchiveEntityBrowserSavedViewSettings)({
 		...decoded,
 		addAction:
-			action === null
-				? null
+			action === null || action.type === "plugin-route"
+				? action
 				: { type: action.type, schema: { pluginKey: key ?? null, slug: action.schema.slug } },
 	}).pipe(Effect.mapError((error) => archiveError("invalid_entry", error.message)));
 	return decodeArchiveJsonObject(encoded);
@@ -79,7 +79,7 @@ export const importRendererSettings = Effect.fn(function* (
 		settings,
 	).pipe(Effect.mapError((error) => archiveError("invalid_entry", error.message)));
 	const action = decoded.addAction;
-	const key = action?.schema.pluginKey;
+	const key = action?.type === "provider-search" ? action.schema.pluginKey : null;
 	const id = key == null ? null : pluginIds.get(key);
 	if (key != null && !id) {
 		return yield* archiveError(
@@ -90,8 +90,8 @@ export const importRendererSettings = Effect.fn(function* (
 	const encoded = yield* Schema.encodeUnknownEffect(EntityBrowserSavedViewSettings)({
 		...decoded,
 		addAction:
-			action === null
-				? null
+			action === null || action.type === "plugin-route"
+				? action
 				: {
 						type: action.type,
 						schema: { slug: action.schema.slug, owner: definitionOwner(id ?? null) },
@@ -235,10 +235,12 @@ export const collectReferencedPluginKeys = (records: ArchiveRecords) => {
 			addQueryPackages(view.dataSources);
 		}
 		if (view.kind === "custom" && isEntityBrowserRenderer(view.renderer)) {
-			add(
-				Schema.decodeUnknownSync(ArchiveEntityBrowserSavedViewSettings)(view.settings).addAction
-					?.schema.pluginKey ?? null,
-			);
+			const action = Schema.decodeUnknownSync(ArchiveEntityBrowserSavedViewSettings)(
+				view.settings,
+			).addAction;
+			if (action?.type === "provider-search") {
+				add(action.schema.pluginKey);
+			}
 		}
 	}
 	for (const subscription of records.notificationSubscriptions) {
