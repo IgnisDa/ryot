@@ -12,6 +12,10 @@ export const ENTITY_POPULATION_FAILURES = [
 	"execution-limit",
 ] as const;
 
+const populationFailureList = sql.raw(
+	ENTITY_POPULATION_FAILURES.map((failure) => `'${failure}'`).join(", "),
+);
+
 export const entity = snakeCase.table(
 	"entity",
 	{
@@ -44,11 +48,11 @@ export const entity = snakeCase.table(
 		index("entity_properties_idx").using("gin", table.properties),
 		check(
 			"entity_population_failure_check",
-			sql`(${table.populationFailure} is null) = (${table.populationFailedAt} is null) and (${table.populationFailure} is null or ${table.populationFailure} in ('script-failure', 'invalid-output', 'execution-limit'))`,
+			sql`(${table.populationFailure} is null) = (${table.populationFailedAt} is null) and (${table.populationFailure} is null or ${table.populationFailure} in (${populationFailureList}))`,
 		),
 		check(
 			"entity_related_population_failure_check",
-			sql`(${table.relatedPopulationFailure} is null) = (${table.relatedPopulationFailedAt} is null) and (${table.relatedPopulationFailure} is null or ${table.relatedPopulationFailure} in ('script-failure', 'invalid-output', 'execution-limit'))`,
+			sql`(${table.relatedPopulationFailure} is null) = (${table.relatedPopulationFailedAt} is null) and (${table.relatedPopulationFailure} is null or ${table.relatedPopulationFailure} in (${populationFailureList}))`,
 		),
 		uniqueIndex("entity_collection_name_unique")
 			.on(table.userId, table.name)

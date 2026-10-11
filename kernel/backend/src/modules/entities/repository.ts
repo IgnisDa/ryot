@@ -967,41 +967,14 @@ export class EntitiesRepository extends Context.Service<EntitiesRepository>()(
 				return toListedEntity(updated);
 			});
 
-			const markPopulationFailed = Effect.fn("EntitiesRepository.markPopulationFailed")(
-				function* (input: {
-					entityId: EntityId;
-					failedAt: Date;
-					failure: EntityPopulationFailure;
-				}) {
-					yield* session.requireTransaction;
-					const failure = yield* Schema.decodeEffect(EntityPopulationFailure)(input.failure).pipe(
-						Effect.mapError((error) => new DbError({ message: error.message })),
-					);
-					const rows = yield* session.run((db) =>
-						db
-							.update(schema.entity)
-							.set({ populationFailure: failure, populationFailedAt: input.failedAt })
-							.where(
-								and(
-									eq(schema.entity.id, input.entityId),
-									isNull(schema.entity.populatedAt),
-									isNotNull(schema.entity.providerId),
-									isNotNull(schema.entity.externalId),
-								),
-							)
-							.returning({ id: schema.entity.id }),
-					);
-					return rows.length > 0;
-				},
-			);
-
-			const markRelatedPopulationFailed = Effect.fn(
-				"EntitiesRepository.markRelatedPopulationFailed",
-			)(function* (input: {
-				entityId: EntityId;
-				failedAt: Date;
-				failure: EntityPopulationFailure;
-			}) {
+			const markFailed = Effect.fnUntraced(function* (
+				input: { entityId: EntityId; failedAt: Date; failure: EntityPopulationFailure },
+				set: (
+					failure: EntityPopulationFailure,
+					failedAt: Date,
+				) => Partial<typeof schema.entity.$inferInsert>,
+				conditions: readonly SQL[],
+			) {
 				yield* session.requireTransaction;
 				const failure = yield* Schema.decodeEffect(EntityPopulationFailure)(input.failure).pipe(
 					Effect.mapError((error) => new DbError({ message: error.message })),
@@ -1009,12 +982,11 @@ export class EntitiesRepository extends Context.Service<EntitiesRepository>()(
 				const rows = yield* session.run((db) =>
 					db
 						.update(schema.entity)
-						.set({ relatedPopulationFailure: failure, relatedPopulationFailedAt: input.failedAt })
+						.set(set(failure, input.failedAt))
 						.where(
 							and(
 								eq(schema.entity.id, input.entityId),
-								isNotNull(schema.entity.populatedAt),
-								isNull(schema.entity.relatedPopulatedAt),
+								...conditions,
 								isNotNull(schema.entity.providerId),
 								isNotNull(schema.entity.externalId),
 							),
@@ -1023,6 +995,28 @@ export class EntitiesRepository extends Context.Service<EntitiesRepository>()(
 				);
 				return rows.length > 0;
 			});
+
+			const markPopulationFailed = Effect.fn("EntitiesRepository.markPopulationFailed")(
+				(input: { entityId: EntityId; failedAt: Date; failure: EntityPopulationFailure }) =>
+					markFailed(
+						input,
+						(populationFailure, populationFailedAt) => ({ populationFailure, populationFailedAt }),
+						[isNull(schema.entity.populatedAt)],
+					),
+			);
+
+			const markRelatedPopulationFailed = Effect.fn(
+				"EntitiesRepository.markRelatedPopulationFailed",
+			)((input: { entityId: EntityId; failedAt: Date; failure: EntityPopulationFailure }) =>
+				markFailed(
+					input,
+					(relatedPopulationFailure, relatedPopulationFailedAt) => ({
+						relatedPopulationFailure,
+						relatedPopulationFailedAt,
+					}),
+					[isNotNull(schema.entity.populatedAt), isNull(schema.entity.relatedPopulatedAt)],
+				),
+			);
 
 			const stampRelatedPopulated = Effect.fn("EntitiesRepository.stampRelatedPopulated")(
 				function* (entityId: EntityId, relatedPopulatedAt: Date) {
