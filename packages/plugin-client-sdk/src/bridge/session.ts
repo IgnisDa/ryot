@@ -17,6 +17,7 @@ import {
 	type PluginBridgeInit,
 	type PluginBridgeLocation,
 	type ClientPageContext,
+	type EntityWatch,
 	type KernelShortcut,
 	type PluginBridgeKernelShortcut,
 	type PluginBridgeNavigate,
@@ -40,20 +41,19 @@ import {
 import type { PreparedRecipe } from "@ryot-app/ryotql";
 import { Effect, Match, Result, Schema } from "effect";
 
-import {
-	createRyotClient,
-	RyotClientError,
-	type OperationAdapterRequest,
-	type CollectionAdapterRequest,
-	type StorageAdapterRequest,
-	type RyotPageSearchUpdate,
-	type RyotProviderSearchScreenRequest,
-	type RyotNavigationTarget,
-	type EntityWatch,
-	type EntityUpdate,
-	type TemporaryUploadRequest,
-} from "./index";
-import type { PluginNavigationController, PluginNavigationSnapshot } from "./navigation/store";
+import type {
+	OperationAdapterRequest,
+	CollectionAdapterRequest,
+	StorageAdapterRequest,
+	RyotPageSearchUpdate,
+	RyotProviderSearchScreenRequest,
+	EntityUpdate,
+	TemporaryUploadRequest,
+} from "../client/adapter";
+import { createRyotClient } from "../client/client";
+import { RyotClientError } from "../client/errors";
+import type { RyotNavigationTarget } from "../client/navigation-target";
+import type { PluginNavigationController, PluginNavigationSnapshot } from "../navigation/store";
 
 type PluginRuntimeState = "ready" | "active" | "closing" | "failed" | "disposed";
 

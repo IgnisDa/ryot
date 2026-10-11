@@ -31,19 +31,19 @@ import {
 	type RefObject,
 } from "react";
 
-import { ActiveScreenContext } from "./active-screen";
-import type { RyotNavigationTarget } from "./index";
-import { applyProgress, prefersReducedMotion, settleProgress } from "./navigation/animator";
-import { EDGE_SWIPE_WIDTH, dragProgress, shouldCommit, shouldEngage } from "./navigation/gesture";
+import { ActiveScreenContext } from "../active-screen";
+import type { RyotNavigationTarget } from "../client/navigation-target";
+import { usePluginNavigation, useRyot } from "../queries/provider";
+import { applyProgress, prefersReducedMotion, settleProgress } from "./animator";
+import { EDGE_SWIPE_WIDTH, dragProgress, shouldCommit, shouldEngage } from "./gesture";
 import {
 	presentScreens,
 	type Presentation,
 	type PluginScreen,
 	type ResolvePluginScreen,
 	type ScreenRole,
-} from "./navigation/stack";
-import type { PluginNavigationEntry } from "./navigation/store";
-import { usePluginNavigation, useRyot } from "./react";
+} from "./stack";
+import type { PluginNavigationEntry } from "./store";
 
 export type PluginRouteDefinition = { readonly path: string; readonly component: ComponentType };
 
