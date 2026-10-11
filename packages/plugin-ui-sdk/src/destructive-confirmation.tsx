@@ -26,6 +26,7 @@ export function DestructiveConfirmation(props: {
 
 	return (
 		<Dialog
+			closeIcon={null}
 			closeLabel="Close"
 			title={props.title}
 			onClose={props.onClose}
