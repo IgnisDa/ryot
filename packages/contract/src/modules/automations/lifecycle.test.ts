@@ -1,6 +1,7 @@
 import { Schema } from "effect";
 import { describe, expect, it } from "vitest";
 
+import { PluginId } from "../../schema/brands";
 import {
 	AutomationCausation,
 	AutomationAfterInputProjection,
@@ -38,6 +39,7 @@ const drafts = [
 			populatedAt: null,
 			entitySchemaSlug: "item",
 			properties: { count: 1 },
+			entitySchemaPluginId: null,
 		},
 	},
 	{
@@ -47,6 +49,8 @@ const drafts = [
 			occurredAt: timestamp,
 			sessionEntityId: null,
 			entitySchemaSlug: "item",
+			eventSchemaPluginId: null,
+			entitySchemaPluginId: null,
 			eventSchemaSlug: "progress",
 			properties: { progress: 25 },
 		},
@@ -57,6 +61,7 @@ const drafts = [
 			properties: {},
 			sourceEntityId: "entity-1",
 			targetEntityId: "entity-2",
+			relationshipSchemaPluginId: null,
 			relationshipSchemaSlug: "contains",
 		},
 	},
@@ -204,8 +209,18 @@ describe("lifecycle payload boundaries", () => {
 			const snapshot = { ...draft, id: "entity-1", createdAt: timestamp, updatedAt: timestamp };
 			const population = {
 				rootPreviouslyPopulated: true,
-				scopeEntity: { id: "show-1", name: "Show", entitySchemaSlug: "show" },
-				parentEntity: { name: "Season", properties: { season: 2 }, entitySchemaSlug: "season" },
+				scopeEntity: {
+					id: "show-1",
+					name: "Show",
+					entitySchemaSlug: "show",
+					entitySchemaPluginId: null,
+				},
+				parentEntity: {
+					name: "Season",
+					properties: { season: 2 },
+					entitySchemaSlug: "season",
+					entitySchemaPluginId: null,
+				},
 				batch: {
 					id: "batch-1",
 					afterCount: 3,
@@ -466,6 +481,7 @@ describe("lifecycle payload boundaries", () => {
 			entitySchemaSlug: "item",
 			providerId: "provider-1",
 			externalId: "external-1",
+			entitySchemaPluginId: null,
 			resource: "provider-entity-import",
 		};
 		const signal = {
@@ -530,7 +546,7 @@ describe("lifecycle payload boundaries", () => {
 			resource: "signal",
 			actorUserId: "user-1",
 			signalSchemaSlug: "changed",
-			signalSchemaPluginId: "plugin-1",
+			signalSchemaPluginId: PluginId.make("plugin-1"),
 		};
 		const trigger = {
 			payload,
@@ -567,6 +583,7 @@ describe("lifecycle payload boundaries", () => {
 			updatedAt: timestamp,
 			sourceEntityId: "entity-1",
 			targetEntityId: "entity-2",
+			relationshipSchemaPluginId: null,
 			relationshipSchemaSlug: "contains",
 		};
 		const item = {

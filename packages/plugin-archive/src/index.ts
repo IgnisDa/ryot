@@ -1,6 +1,8 @@
 import {
 	PluginClientArtifact,
 	PluginClientArtifactMetadata,
+	clientArtifactMetadata,
+	clientDeclarationHash,
 	isPluginClientArtifactContentType,
 	isPluginSourceFile,
 	type PluginClientArtifact as PluginClientArtifactType,
@@ -255,7 +257,10 @@ const validateCompiledClientJavascript = (contentType: string, contents: Uint8Ar
 	}
 };
 
-const validateCompiledClientArtifact = (value: PluginClientArtifactType) => {
+const validateCompiledClientArtifact = (
+	value: PluginClientArtifactType,
+	manifest: PluginManifest,
+) => {
 	let artifact: PluginClientArtifactType;
 	try {
 		artifact = Schema.decodeSync(PluginClientArtifact)(value);
@@ -273,6 +278,20 @@ const validateCompiledClientArtifact = (value: PluginClientArtifactType) => {
 		if (artifactBytes > PLUGIN_ARCHIVE_LIMITS.maxCompiledClientBytes) {
 			throw failure("compiled-client-bytes-exceeded");
 		}
+	}
+	if (
+		manifest.client === undefined ||
+		artifact.clientDeclarationHash !== clientDeclarationHash(manifest.client) ||
+		artifact.packageId !== manifest.metadata.packageId ||
+		artifact.hash !==
+			clientArtifactMetadata(
+				manifest.metadata.name,
+				manifest.metadata.packageId,
+				artifact.files,
+				artifact,
+			).hash
+	) {
+		throw failure("compiled-client-invalid");
 	}
 	return artifact;
 };
@@ -654,7 +673,7 @@ class PluginArchiveReader {
 			}
 		}
 		const compiledScripts = this.#readCompiledScripts(compiledBackendFiles, manifest);
-		const compiledClient = this.#readCompiledClient(compiledClientFiles);
+		const compiledClient = this.#readCompiledClient(compiledClientFiles, manifest);
 		return {
 			manifest,
 			compiledScripts,
@@ -739,7 +758,10 @@ class PluginArchiveReader {
 		return compiledScripts;
 	}
 
-	#readCompiledClient(compiledClientFiles: ReadonlyMap<string, Uint8Array>) {
+	#readCompiledClient(
+		compiledClientFiles: ReadonlyMap<string, Uint8Array>,
+		manifest: PluginManifest,
+	) {
 		const metadataEntry = this.#entries.get(compiledClientMetadataPath);
 		if (metadataEntry === undefined) {
 			if (compiledClientFiles.size > 0) {
@@ -771,7 +793,7 @@ class PluginArchiveReader {
 			return { name, contents, contentType };
 		});
 		try {
-			return Schema.decodeSync(PluginClientArtifact)({ ...metadata, files });
+			return validateCompiledClientArtifact({ ...metadata, files }, manifest);
 		} catch {
 			throw failure("compiled-client-invalid");
 		}
@@ -815,13 +837,19 @@ export const writePluginArchive = (pluginPackage: PluginArchiveInput) => {
 			entries.push(...compiledBackendEntries);
 		}
 		if (pluginPackage.compiledClient !== undefined) {
-			const artifact = validateCompiledClientArtifact(pluginPackage.compiledClient);
+			const artifact = validateCompiledClientArtifact(
+				pluginPackage.compiledClient,
+				pluginPackage.manifest,
+			);
 			const metadata = {
 				hash: artifact.hash,
 				format: artifact.format,
+				imports: artifact.imports,
+				packageId: artifact.packageId,
 				apiVersion: artifact.apiVersion,
 				bridgeVersion: artifact.bridgeVersion,
 				compilerVersion: artifact.compilerVersion,
+				clientDeclarationHash: artifact.clientDeclarationHash,
 				files: artifact.files
 					.map(({ name, contentType }) => ({ name, contentType }))
 					.sort((left, right) => compareCodeUnits(left.name, right.name)),

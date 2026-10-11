@@ -1,6 +1,7 @@
 import { Schema } from "effect";
 
-import { EntitySchemaSlug, EventSchemaSlug, ImportRunId } from "../../schema/brands";
+import { EntitySchemaSlug, EventSchemaSlug, ImportRunId, PluginId } from "../../schema/brands";
+import { DeclarationReference } from "../plugins/references";
 import { jsonValueSchema } from "../sandbox/wire";
 import { importRunFailureStages } from "./types";
 
@@ -71,6 +72,11 @@ export class ImportConflictError extends Schema.TaggedError<ImportConflictError>
 ) {}
 
 export const ImportRunFailureReason = Schema.Union([
+	Schema.Struct({
+		pluginId: PluginId,
+		installationId: Schema.String,
+		code: Schema.Literals(["installation-unavailable", "package-identity-conflict"]),
+	}),
 	Schema.Struct({ code: Schema.Literal("captured-input-unavailable") }),
 	Schema.Struct({ code: Schema.Literal("captured-input-corrupt") }),
 	Schema.Struct({ code: Schema.Literal("pro-key-required") }),
@@ -136,7 +142,7 @@ export const ListedImportRun = Schema.Struct({
 export type ListedImportRun = typeof ListedImportRun.Type;
 
 export const CreateImportRunBody = Schema.StructWithRest(
-	Schema.Struct({ source: Schema.NonEmptyString }),
+	Schema.Struct({ source: DeclarationReference }),
 	[Schema.Record(Schema.String, jsonValueSchema)],
 ).pipe(Schema.annotate({ identifier: "CreateImportRunBody" }));
 

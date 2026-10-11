@@ -1,14 +1,23 @@
+import { CLIENT_API_VERSION } from "@ryot-app/contract/modules/plugins/manifest";
+import { PluginPackageId } from "@ryot-app/contract/schema/brands";
 import { expect, it } from "vitest";
 
 import {
-	CLIENT_API_VERSION,
 	CLIENT_BRIDGE_PROTOCOL_VERSION,
 	CLIENT_COMPILER_VERSION,
 	clientArtifactFile,
 	clientArtifactMetadata,
-} from "./index";
+	clientDeclarationHash,
+	clientRuntimeArtifactMetadata,
+	pluginExportSpecifier,
+} from "./artifact";
 
 const encoder = new TextEncoder();
+const packageId = PluginPackageId.make("ee8040dd-5a40-42a1-916d-58190c1a06e8");
+const identity = {
+	imports: [],
+	clientDeclarationHash: clientDeclarationHash({ homeView: null, apiVersion: CLIENT_API_VERSION }),
+};
 
 it("preserves exact Vite output bytes and content type", () => {
 	const contents = new Uint8Array([0x41, 0x00, 0xc3, 0xa9]);
@@ -29,27 +38,96 @@ it("builds stable metadata from the plugin name, sorted byte hashes, and metadat
 		contentType: "text/css; charset=utf-8",
 	});
 
-	expect(clientArtifactMetadata("Fixture plugin", [first, second])).toEqual({
+	expect(
+		clientArtifactMetadata("Fixture plugin", packageId, [first, second], identity),
+	).toMatchObject({
 		format: 1,
+		packageId,
 		apiVersion: CLIENT_API_VERSION,
 		compilerVersion: CLIENT_COMPILER_VERSION,
 		bridgeVersion: CLIENT_BRIDGE_PROTOCOL_VERSION,
-		hash: "c0a5d7a03f8a62ab55001a3a6d4db64aa59c43d25ac184d56eeaf0afa273a360",
 	});
-	expect(clientArtifactMetadata("Fixture plugin", [first, second])).toEqual(
-		clientArtifactMetadata("Fixture plugin", [second, first]),
+	expect(clientArtifactMetadata("Fixture plugin", packageId, [first, second], identity)).toEqual(
+		clientArtifactMetadata("Fixture plugin", packageId, [second, first], identity),
 	);
-	expect(clientArtifactMetadata("Fixture plugin", [first, second]).hash).not.toBe(
-		clientArtifactMetadata("Renamed plugin", [first, second]).hash,
+	expect(
+		clientArtifactMetadata("Fixture plugin", packageId, [first, second], identity).hash,
+	).not.toBe(clientArtifactMetadata("Renamed plugin", packageId, [first, second], identity).hash);
+	expect(
+		clientArtifactMetadata("Fixture plugin", packageId, [first, second], identity).hash,
+	).not.toBe(
+		clientArtifactMetadata(
+			"Fixture plugin",
+			packageId,
+			[{ ...first, contents: encoder.encode("changed") }, second],
+			identity,
+		).hash,
 	);
-	expect(clientArtifactMetadata("Fixture plugin", [first, second]).hash).not.toBe(
-		clientArtifactMetadata("Fixture plugin", [
-			{ ...first, contents: encoder.encode("changed") },
-			second,
-		]).hash,
+	expect(
+		clientArtifactMetadata("Fixture plugin", packageId, [first, second], identity).hash,
+	).not.toBe(
+		clientArtifactMetadata(
+			"Fixture plugin",
+			packageId,
+			[{ ...first, contentType: "text/plain" }, second],
+			identity,
+		).hash,
 	);
-	expect(clientArtifactMetadata("Fixture plugin", [first, second]).hash).not.toBe(
-		clientArtifactMetadata("Fixture plugin", [{ ...first, contentType: "text/plain" }, second])
-			.hash,
+	expect(
+		clientArtifactMetadata("Fixture plugin", packageId, [first, second], identity).hash,
+	).not.toBe(
+		clientArtifactMetadata(
+			"Fixture plugin",
+			PluginPackageId.make("97887987-a15b-452b-bfdc-633028850ad9"),
+			[first, second],
+			identity,
+		).hash,
+	);
+	expect(clientRuntimeArtifactMetadata("Fixture plugin", [first, second]).hash).not.toBe(
+		clientArtifactMetadata("Fixture plugin", packageId, [first, second], identity).hash,
+	);
+});
+
+it("encodes scoped package export targets without importer-local aliases", () => {
+	expect(pluginExportSpecifier({ packageId, scope: "system" }, "card")).toBe(
+		`@ryot-app/plugins/system/${packageId}/card`,
+	);
+	expect(pluginExportSpecifier({ packageId, scope: "user" }, "card")).toBe(
+		`@ryot-app/plugins/user/${packageId}/card`,
+	);
+});
+
+it("hashes canonical imported targets and the full client declaration", () => {
+	const imports = [
+		{ exportName: "card", reference: { packageId, scope: "user" as const } },
+		{ exportName: "card", reference: { packageId, scope: "system" as const } },
+	];
+	const first = clientArtifactMetadata("Fixture", packageId, [], { ...identity, imports });
+	const second = clientArtifactMetadata("Fixture", packageId, [], {
+		...identity,
+		imports: imports.toReversed(),
+	});
+	expect(first).toEqual(second);
+	expect(
+		first.imports.map(({ reference, exportName }) => pluginExportSpecifier(reference, exportName)),
+	).toEqual([
+		`@ryot-app/plugins/system/${packageId}/card`,
+		`@ryot-app/plugins/user/${packageId}/card`,
+	]);
+	expect(first.hash).not.toBe(clientArtifactMetadata("Fixture", packageId, [], identity).hash);
+	expect(first.hash).not.toBe(
+		clientArtifactMetadata("Fixture", packageId, [], {
+			imports,
+			clientDeclarationHash: clientDeclarationHash({
+				homeView: "all-items",
+				apiVersion: CLIENT_API_VERSION,
+			}),
+		}).hash,
+	);
+	expect(clientRuntimeArtifactMetadata("Fixture", [], imports)).toEqual(
+		clientRuntimeArtifactMetadata("Fixture", [], imports.toReversed()),
+	);
+	expect(clientRuntimeArtifactMetadata("Fixture", [], imports).hash).not.toBe(
+		clientRuntimeArtifactMetadata("Fixture", []).hash,
 	);
 });

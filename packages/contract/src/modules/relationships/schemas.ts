@@ -5,10 +5,18 @@ import {
 	EntityId,
 	RelationshipId,
 	RelationshipSchemaSlug,
+	PluginId,
 } from "../../schema/brands";
 import { AutomationWarning } from "../automations/lifecycle";
+import { DefinitionOwner, RelationshipSchemaReference } from "../plugins/references";
 
 const RelationshipBadRequestReason = Schema.Union([
+	Schema.Struct({
+		actual: DefinitionOwner,
+		expected: DefinitionOwner,
+		code: Schema.Literal("owner-mismatch"),
+	}),
+	Schema.Struct({ code: Schema.Literal("global-scope-forbidden") }),
 	Schema.Struct({
 		runId: AutomationRunId,
 		code: Schema.Literals(["policy-rejected", "policy-execution-failed"]),
@@ -40,7 +48,7 @@ const RelationshipNotFoundReason = Schema.Union([
 		entityIds: Schema.NonEmptyArray(EntityId),
 	}),
 	Schema.Struct({
-		relationshipSchemaSlug: RelationshipSchemaSlug,
+		schema: RelationshipSchemaReference,
 		code: Schema.Literal("relationship-schema-not-found"),
 	}),
 ]);
@@ -63,6 +71,7 @@ export const RelationshipScope = Schema.Struct({
 	properties: Schema.Unknown,
 	wasInserted: Schema.Boolean,
 	relationshipSchemaSlug: RelationshipSchemaSlug,
+	relationshipSchemaPluginId: Schema.NullOr(PluginId),
 });
 
 export type RelationshipScope = typeof RelationshipScope.Type;
@@ -91,7 +100,7 @@ export const CreateRelationshipBody = Schema.Struct({
 	sourceEntityId: EntityId,
 	targetEntityId: EntityId,
 	properties: Schema.optional(Schema.Unknown),
-	relationshipSchemaSlug: RelationshipSchemaSlug,
+	relationshipSchema: RelationshipSchemaReference,
 });
 
 export type CreateRelationshipBody = typeof CreateRelationshipBody.Type;

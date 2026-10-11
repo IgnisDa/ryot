@@ -3,7 +3,7 @@ import { Schema } from "effect";
 import { AccountGeneration } from "../../schema/account-generation";
 import { ImportRunId, IntegrationId, UserId } from "../../schema/brands";
 import { jsonValueSchema } from "../sandbox/wire";
-import { ImportRunStatus, ingestionBlockReasonFields } from "./schemas";
+import { ImportRunFailureReason, ImportRunStatus, ingestionBlockReasonFields } from "./schemas";
 
 const Count = Schema.Int.pipe(Schema.check(Schema.isGreaterThanOrEqualTo(0)));
 
@@ -143,6 +143,7 @@ export const IngestionRun = Schema.Struct({
 	activities: Schema.Array(IngestionActivity),
 	blockReasons: Schema.Array(IngestionBlockReason),
 	pluginInstallationId: Schema.NullOr(Schema.String),
+	failureReason: Schema.NullOr(ImportRunFailureReason),
 	executionKind: Schema.Literals(["source", "integration"]),
 	expiryReason: Schema.NullOr(Schema.Literal("setup-deadline-expired")),
 });

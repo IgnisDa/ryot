@@ -12,6 +12,7 @@ Rationale lives in `README.md`.
 - Keep transition ownership with its initiator. Animate pops only for compact layouts without reduced motion; retention is unconditional.
 - Keep reconciliation and gesture recognition DOM-free. Add no animation or gesture dependency.
 - Keep `PluginScreenFrame` on `./screen`; keep frame-independent plugin APIs on `./plugin`.
+- `./plugin` is the public aggregation point for canonical `PluginId`, `PluginPackageId`, `EntitySchemaSlug`, and `PluginIdentityReference` from the contract's defining modules.
 - Use only bridged `compact` and safe-area values for plugin layout. Publish titles only from the active screen and current entry.
 - Keep drawer opening and title publication on router navigation, not `RyotClient`; kernel chrome is not a plugin capability.
 - Schedule every delay and clock read through `RyotSchedule`. Never call `setTimeout` or `Date.now()` in SDK source.

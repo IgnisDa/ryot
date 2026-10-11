@@ -15,6 +15,7 @@ import {
 	type PluginRouteLocation,
 	type PluginRyotQLOutcome,
 } from "@ryot-app/client-plugin-contract";
+import { identityTupleKey } from "@ryot-app/contract/modules/plugins/references";
 import type { JsonValue } from "@ryot-app/contract/schema/json";
 import * as Clock from "effect/Clock";
 import type * as Duration from "effect/Duration";
@@ -43,14 +44,10 @@ export const createTestRyotAdapter = (
 	...overrides,
 });
 
-/**
- * An in-memory `accessStorage` capability for `usePluginStorage` and `client.storage`. `entries` is
- * keyed by `${pluginSlug}:${key}` so tests can seed and inspect values directly.
- */
 export const createTestPluginStorage = (initial: Iterable<readonly [string, JsonValue]> = []) => {
 	const entries = new Map<string, JsonValue>(initial);
 	const accessStorage: NonNullable<RyotClientAdapter["accessStorage"]> = (request) => {
-		const entry = `${request.pluginSlug}:${request.key}`;
+		const entry = identityTupleKey(request.pluginId, request.key);
 		if (request.action === "set") {
 			entries.set(entry, request.value);
 		} else if (request.action === "remove") {
@@ -170,6 +167,7 @@ export const entityPageContext = (options: {
 }): ClientPageContext =>
 	Schema.decodeUnknownSync(ClientPageContext)({
 		view: null,
+		contributors: [],
 		dataSources: null,
 		settings: options.settings ?? {},
 		route: { params: options.params ?? {} },
@@ -190,12 +188,13 @@ export const savedViewPageContext = (options: {
 	readonly view?: { readonly name: string; readonly icon: string } | undefined;
 }): ClientPageContext =>
 	Schema.decodeUnknownSync(ClientPageContext)({
+		contributors: [],
 		route: { params: {} },
 		settings: options.settings,
 		dataSources: options.dataSources,
 		renderer: { kind: "kernel", name: options.rendererName },
-		target: { kind: "saved-view", slug: options.savedViewId },
 		view: options.view ?? { icon: "library", name: "All Records" },
+		target: { kind: "saved-view", reference: { kind: "kernel", slug: options.savedViewId } },
 	});
 
 export const kernelEntityPageContext = (options: {
@@ -206,6 +205,7 @@ export const kernelEntityPageContext = (options: {
 }): ClientPageContext =>
 	Schema.decodeUnknownSync(ClientPageContext)({
 		view: null,
+		contributors: [],
 		dataSources: null,
 		route: { params: {} },
 		settings: options.settings ?? {},

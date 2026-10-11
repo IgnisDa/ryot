@@ -15,13 +15,6 @@ export default {
 	httpRateLimits: [
 		{ requests: 1, key: "test-api", intervalMs: 1000, origins: ["https://example.com/"] },
 	],
-	metadata: {
-		icon: "test",
-		slug: "cli-test",
-		version: "1.0.0",
-		name: "CLI test plugin",
-		description: "A fixture for the CLI tests.",
-	},
 	client: {
 		apiVersion: 1,
 		homeView: null,
@@ -32,5 +25,13 @@ export default {
 				automaticEntityPresentations: false,
 			},
 		},
+	},
+	metadata: {
+		icon: "test",
+		slug: "cli-test",
+		version: "1.0.0",
+		name: "CLI test plugin",
+		description: "A fixture for the CLI tests.",
+		packageId: "ee8040dd-5a40-42a1-916d-58190c1a06e8",
 	},
 };

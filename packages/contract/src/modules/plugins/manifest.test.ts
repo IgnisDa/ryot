@@ -1,9 +1,17 @@
 import { Result, Schema } from "effect";
 import { assert, describe, expect, it } from "vitest";
 
+import { PluginPackageId } from "../../schema/brands";
 import { emptySandboxExecutionMetadata } from "../../testing";
 import { uploadContentTypeExtensions } from "../uploads/upload-policy";
-import { CLIENT_API_VERSION, definePlugin, PluginManifest } from "./manifest";
+import {
+	CLIENT_API_VERSION,
+	definePlugin,
+	type PluginClientEntry,
+	PluginManifest,
+} from "./manifest";
+
+const packageId = PluginPackageId.make("965d3b69-bd20-491b-8387-c0cc73f152b1");
 
 const queryDocument = {
 	queries: {
@@ -23,11 +31,11 @@ const queryDocument = {
 } as const;
 
 const authoredManifest = definePlugin({
-	entitySchemas: [],
 	httpRateLimits: [],
 	relationshipSchemas: [],
 	workflows: [{ slug: "refresh.workflow", scriptSlug: "workflow.test" }],
 	metadata: {
+		packageId,
 		icon: "box",
 		name: "Test",
 		slug: "test",
@@ -39,6 +47,15 @@ const authoredManifest = definePlugin({
 			slug: "bootstrap.test",
 			description: "Bootstrap user data",
 			scriptSlug: "provider.test.preload",
+		},
+	],
+	entitySchemas: [
+		{
+			icon: "box",
+			name: "Entity",
+			eventSchemas: [],
+			slug: "entity.test",
+			propertiesSchema: { fields: {} },
 		},
 	],
 	crons: [
@@ -103,7 +120,6 @@ const authoredManifest = definePlugin({
 		{
 			sortOrder: 0,
 			icon: "bookmark",
-			pluginSlug: "test",
 			name: "All entities",
 			slug: "all-entities",
 			dataSources: queryDocument,
@@ -245,9 +261,29 @@ const scripts = [
 const manifest = { ...authoredManifest, scripts };
 
 describe("definePlugin", () => {
-	it("accepts media-style after hooks on source-zero collection reviews and membership", () => {
+	it("accepts after hooks on plugin-owned collection reviews and membership", () => {
 		const decoded = Schema.decodeUnknownSync(PluginManifest)({
 			...manifest,
+			relationshipSchemas: [
+				...manifest.relationshipSchemas,
+				{
+					slug: "member-of",
+					name: "Member of",
+					propertiesSchema: { fields: {} },
+					sourceEntitySchemaSlug: "collection",
+					targetEntitySchemaSlug: "collection",
+				},
+			],
+			entitySchemas: [
+				...manifest.entitySchemas,
+				{
+					icon: "box",
+					name: "Collection",
+					slug: "collection",
+					propertiesSchema: { fields: {} },
+					eventSchemas: [{ slug: "review", name: "Review", propertiesSchema: { fields: {} } }],
+				},
+			],
 			hooks: [
 				...manifest.hooks,
 				{
@@ -277,8 +313,8 @@ describe("definePlugin", () => {
 				})),
 			],
 		});
-		expect(decoded.entitySchemas).toEqual([]);
-		expect(decoded.relationshipSchemas).toEqual([]);
+		expect(decoded.entitySchemas.map(({ slug }) => slug)).toEqual(["entity.test", "collection"]);
+		expect(decoded.relationshipSchemas.map(({ slug }) => slug)).toEqual(["member-of"]);
 		expect(decoded.hooks.map(({ slug }) => slug)).toEqual([
 			"test.notify",
 			"collection.review",
@@ -348,11 +384,21 @@ describe("definePlugin", () => {
 	});
 
 	it("decodes declarative public client exports by kind", () => {
+		const pluginDependencies: NonNullable<PluginClientEntry["pluginDependencies"]> = {
+			media: {
+				scope: "system",
+				packageId: PluginPackageId.make("97887987-a15b-452b-bfdc-633028850ad9"),
+			},
+			"private-fixture": {
+				scope: "user",
+				packageId: PluginPackageId.make("f2ed5599-c654-4f11-a9e6-2780ca55abda"),
+			},
+		};
 		const client = {
 			homeView: null,
+			pluginDependencies,
 			notFoundPage: "dashboard",
 			apiVersion: CLIENT_API_VERSION,
-			pluginDependencies: ["media", "private-fixture"],
 			routes: { "/": "dashboard", "/things/$thingId": "dashboard" },
 			entities: { thing: { detailPage: "dashboard", gridPresentation: "row" } },
 			exports: {
@@ -382,6 +428,7 @@ describe("definePlugin", () => {
 		const manifestWithEntity = {
 			...manifest,
 			entitySchemas: [
+				...manifest.entitySchemas,
 				{
 					icon: "box",
 					name: "Thing",
@@ -404,7 +451,7 @@ describe("definePlugin", () => {
 			{ ...client, exports: { card: { ...client.exports.card, settingsSchema: { fields: {} } } } },
 			{ ...client, exports: { "../card": client.exports.card } },
 			{ ...client, exports: { card: { ...client.exports.card, entry: "backend/card.tsx" } } },
-			{ ...client, pluginDependencies: ["media", "media"] },
+			{ ...client, pluginDependencies: { media: { scope: "system", packageId: "media" } } },
 			{ ...client, entities: { missing: { gridPresentation: "row" } } },
 			{ ...client, entities: { thing: { gridPresentation: "card" } } },
 			{ ...client, routes: { "/": "card" } },
@@ -440,7 +487,6 @@ describe("definePlugin", () => {
 			sortOrder: 1,
 			settings: {},
 			dataSources: null,
-			pluginSlug: "test",
 			name: "Plugin page",
 			slug: "plugin-page",
 			renderer: { exportName: "page", kind: "plugin" as const },
@@ -718,8 +764,8 @@ describe("definePlugin", () => {
 				{
 					icon: "box",
 					name: "Entity",
-					slug: "entity",
 					eventSchemas: [],
+					slug: "entity.test",
 					mergeIdentityProperties: ["kind"],
 					propertiesSchema: {
 						fields: { kind: { label: "Kind", type: "string", description: "Entity kind" } },
@@ -746,8 +792,8 @@ describe("definePlugin", () => {
 				{
 					icon: "box",
 					name: "Entity",
-					slug: "entity",
 					eventSchemas: [],
+					slug: "entity.test",
 					propertiesSchema: { fields: {} },
 				},
 			],
@@ -1592,8 +1638,20 @@ describe("definePlugin", () => {
 		const searchScript = manifest.scripts[3];
 
 		for (const candidate of [
-			{ ...manifest, entitySchemas: [{ ...entitySchema, propertiesSchema: uploadSchema }] },
-			{ ...manifest, entitySchemas: [{ ...entitySchema, eventSchemas: [eventSchema] }] },
+			{
+				...manifest,
+				entitySchemas: [
+					...manifest.entitySchemas,
+					{ ...entitySchema, propertiesSchema: uploadSchema },
+				],
+			},
+			{
+				...manifest,
+				entitySchemas: [
+					...manifest.entitySchemas,
+					{ ...entitySchema, eventSchemas: [eventSchema] },
+				],
+			},
 			{
 				...manifest,
 				signalSchemas: [{ ...manifest.signalSchemas[0], propertiesSchema: uploadSchema }],

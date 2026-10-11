@@ -3,10 +3,22 @@ import { HttpApiEndpoint, HttpApiGroup, HttpApiSchema, OpenApi } from "effect/ht
 
 import { AdminMiddleware, AuthMiddleware } from "../../auth-middleware";
 import { AuthenticatedMutationEndpoint } from "../../authenticated-mutation-endpoint";
+import { PluginIdentityReference } from "../plugins/references";
 import { RyotQLDocument, RyotQLResponse } from "./language";
 
 const RyotQLBadRequestReason = Schema.Union([
 	Schema.Struct({ code: Schema.Literal("invalid-query") }),
+	Schema.Struct({
+		reference: PluginIdentityReference,
+		code: Schema.Literal("unresolved-query-owner"),
+		issue: Schema.Literals([
+			"missing",
+			"unavailable",
+			"wrong-scope",
+			"self-unbound",
+			"unauthorized",
+		]),
+	}),
 	Schema.Struct({ code: Schema.Literal("invalid-cursor") }),
 	Schema.Struct({ limitMs: Schema.Finite, code: Schema.Literal("query-timeout") }),
 	Schema.Struct({ limitBytes: Schema.Finite, code: Schema.Literal("result-too-large") }),

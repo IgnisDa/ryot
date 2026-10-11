@@ -6,6 +6,7 @@ import {
 	type JsonValue as JsonValueType,
 } from "../../schema/json";
 import { strictStruct } from "../../schema/utils";
+import { PluginIdentityReference } from "../plugins/references";
 
 export const JsonValue = JsonValueSchema;
 export type JsonValue = JsonValueType;
@@ -28,6 +29,12 @@ export const LiteralExpression = strictStruct({
 	type: Schema.Literal("literal"),
 }).annotate({ identifier: "RyotQLLiteralExpression" });
 export type LiteralExpression = typeof LiteralExpression.Type;
+
+export const PluginIdExpression = strictStruct({
+	type: Schema.Literal("pluginId"),
+	reference: PluginIdentityReference,
+}).annotate({ identifier: "RyotQLPluginIdExpression" });
+export type PluginIdExpression = typeof PluginIdExpression.Type;
 
 const JsonPathSegment = Schema.Union([Schema.String, Schema.Finite]);
 const CastTarget = Schema.Literals(["boolean", "date", "json", "number", "text"]);
@@ -84,6 +91,7 @@ export type ScalarExpression =
 	| JsonArrayFirstExpression
 	| JsonElementExpression
 	| LiteralExpression
+	| PluginIdExpression
 	| { readonly type: "floor"; readonly expr: ScalarExpression }
 	| { readonly type: "round"; readonly expr: ScalarExpression }
 	| { readonly type: "integer"; readonly expr: ScalarExpression }
@@ -173,6 +181,7 @@ export const ScalarExpression: Schema.Codec<ScalarExpression, unknown> = Schema.
 	Schema.Union([
 		ColumnExpression,
 		LiteralExpression,
+		PluginIdExpression,
 		ExistsExpression,
 		JsonElementExpression,
 		CurrentDateExpression,
@@ -448,6 +457,181 @@ export const RyotQLDocument = strictStruct({
 	queries: Schema.Record(Schema.String, NamedQuery),
 }).annotate({ identifier: "RyotQLDocument" });
 export type RyotQLDocument = typeof RyotQLDocument.Type;
+
+const mapNonEmpty = <A, B>(
+	values: readonly [A, ...A[]],
+	transform: (value: A) => B,
+): readonly [B, ...B[]] => [transform(values[0]), ...values.slice(1).map(transform)];
+
+export const mapPluginIdentityReferences = (
+	document: RyotQLDocument,
+	transform: (reference: PluginIdentityReference) => PluginIdentityReference,
+): RyotQLDocument => {
+	const aggregation = (value: AggregationSpec): AggregationSpec =>
+		value.function === "count" ? value : { ...value, expr: expression(value.expr) };
+	const ordering = (value: OrderBy): OrderBy => ({ ...value, expr: expression(value.expr) });
+	const field = (value: FieldSelection): FieldSelection => ({
+		...value,
+		expr: expression(value.expr),
+	});
+	const selection = (value: RowSelection): RowSelection => ("expr" in value ? field(value) : value);
+	const join = (value: Join): Join => ({ ...value, on: predicate(value.on) });
+	const querySet = <A extends CorrelatedQuerySet>(value: A) => ({
+		...value,
+		...(value.where === undefined ? {} : { where: predicate(value.where) }),
+		...(value.joins === undefined ? {} : { joins: mapNonEmpty(value.joins, join) }),
+	});
+	function expression(value: ScalarExpression): ScalarExpression {
+		switch (value.type) {
+			case "pluginId":
+				return { ...value, reference: transform(value.reference) };
+			case "column":
+			case "literal":
+			case "currentDate":
+			case "jsonElement":
+				return value;
+			case "cast":
+			case "dateBucket":
+			case "floor":
+			case "integer":
+			case "isNotNull":
+			case "jsonPath":
+			case "round":
+			case "transform":
+				return { ...value, expr: expression(value.expr) };
+			case "coalesce":
+			case "concat":
+				return { ...value, values: mapNonEmpty(value.values, expression) };
+			case "arithmetic":
+				return { ...value, left: expression(value.left), right: expression(value.right) };
+			case "conditional":
+				return {
+					...value,
+					whenTrue: expression(value.whenTrue),
+					condition: predicate(value.condition),
+					whenFalse: expression(value.whenFalse),
+				};
+			case "exists":
+				return { ...value, query: querySet(value.query) };
+			case "aggregate":
+				return {
+					...value,
+					query: querySet(value.query),
+					aggregation: aggregation(value.aggregation),
+				};
+			case "first":
+				return {
+					...value,
+					query: querySet(value.query),
+					select: expression(value.select),
+					orderBy: mapNonEmpty(value.orderBy, ordering),
+				};
+			case "jsonCount":
+			case "jsonExists":
+				return {
+					...value,
+					array: expression(value.array),
+					...(value.where === undefined ? {} : { where: predicate(value.where) }),
+				};
+			case "jsonFirst":
+				return {
+					...value,
+					array: expression(value.array),
+					select: expression(value.select),
+					orderBy: mapNonEmpty(value.orderBy, ordering),
+					...(value.where === undefined ? {} : { where: predicate(value.where) }),
+				};
+			default:
+				throw new Error(`Unknown RyotQL expression: ${String(value satisfies never)}`);
+		}
+	}
+	function predicate(value: Predicate): Predicate {
+		switch (value.type) {
+			case "and":
+			case "or":
+				return { ...value, predicates: value.predicates.map(predicate) };
+			case "not":
+				return { ...value, predicate: predicate(value.predicate) };
+			case "comparison":
+			case "contains":
+				return { ...value, left: expression(value.left), right: expression(value.right) };
+			case "in":
+				return { ...value, expr: expression(value.expr), values: value.values.map(expression) };
+			case "isNull":
+			case "isNotNull":
+				return { ...value, expr: expression(value.expr) };
+			case "exists":
+				return { ...value, query: querySet(value.query) };
+			case "jsonExists":
+				return {
+					...value,
+					array: expression(value.array),
+					...(value.where === undefined ? {} : { where: predicate(value.where) }),
+				};
+			default:
+				throw new Error(`Unknown RyotQL predicate: ${String(value satisfies never)}`);
+		}
+	}
+	const include = (value: Include): Include => ({
+		...querySet(value),
+		fields: value.fields.map(selection),
+		orderBy: mapNonEmpty(value.orderBy, ordering),
+		...(value.include === undefined ? {} : { include: mapNonEmpty(value.include, include) }),
+	});
+	function query(value: NamedQuery): NamedQuery {
+		const output = value.output;
+		switch (output.type) {
+			case "rows":
+				return {
+					...querySet(value),
+					output: {
+						...output,
+						fields: output.fields.map(selection),
+						orderBy: output.orderBy.map(ordering),
+						...(output.include === undefined
+							? {}
+							: { include: mapNonEmpty(output.include, include) }),
+					},
+				};
+			case "aggregate":
+				return {
+					...querySet(value),
+					output: {
+						...output,
+						measures: mapNonEmpty(output.measures, (measure) => ({
+							...measure,
+							aggregation: aggregation(measure.aggregation),
+						})),
+						...(output.groupBy === undefined ? {} : { groupBy: output.groupBy.map(field) }),
+					},
+				};
+			case "timeSeries":
+				return {
+					...querySet(value),
+					output: {
+						...output,
+						time: { ...output.time, expr: expression(output.time.expr) },
+						measure: {
+							aggregation:
+								output.measure.aggregation.function === "count"
+									? output.measure.aggregation
+									: {
+											...output.measure.aggregation,
+											expr: expression(output.measure.aggregation.expr),
+										},
+						},
+					},
+				};
+			default:
+				throw new Error(`Unknown RyotQL output: ${String(output satisfies never)}`);
+		}
+	}
+	return {
+		queries: Object.fromEntries(
+			Object.entries(document.queries).map(([name, value]) => [name, query(value)]),
+		),
+	};
+};
 
 const IncludePageInfo = strictStruct({ limit: Schema.Int, hasMore: Schema.Boolean }).annotate({
 	identifier: "RyotQLIncludePageInfo",

@@ -31,8 +31,12 @@ import {
 	type RyotClientErrorReason,
 } from "@ryot-app/client-plugin-contract";
 import { MAX_INTEREST_ENTITY_IDS } from "@ryot-app/contract/modules/entity-interest/messages";
+import {
+	EntitySchemaReference,
+	SavedViewReference,
+} from "@ryot-app/contract/modules/plugins/references";
 import type { ManagedAssetLocator } from "@ryot-app/contract/modules/uploads/schemas";
-import { EntityId, EntitySchemaSlug, PluginSlug } from "@ryot-app/contract/schema/brands";
+import { EntityId, PluginId } from "@ryot-app/contract/schema/brands";
 import type { PreparedRecipe } from "@ryot-app/ryotql";
 import { Effect, Match, Result, Schema } from "effect";
 
@@ -93,6 +97,7 @@ export const createPluginRuntime = (
 	onDocument?: (documentKey: string, page: ClientPageContext | undefined) => void,
 ) => {
 	let hasLocation = false;
+	let contributors = init.page?.contributors ?? [];
 	let theme: PluginThemeSnapshot = { resolvedMode: init.mode };
 	let nextRequestId = 0;
 	let state: PluginRuntimeState = "ready";
@@ -297,7 +302,7 @@ export const createPluginRuntime = (
 					input: operation.input,
 					type: "operation-request",
 					operationSlug: operation.slug,
-					pluginSlug: PluginSlug.make(operation.pluginSlug),
+					pluginId: PluginId.make(operation.pluginId),
 				}) satisfies PluginBridgeOperationRequest,
 		);
 
@@ -313,11 +318,15 @@ export const createPluginRuntime = (
 		);
 
 	const accessStorage = (entry: StorageAdapterRequest) =>
-		sendRequest(
-			"storage",
-			(requestId) =>
-				({ ...entry, requestId, type: "storage-request" }) satisfies PluginBridgeStorageRequest,
-		);
+		!contributors.some(
+			(contributor) => contributor.kind === "plugin" && contributor.pluginId === entry.pluginId,
+		)
+			? Effect.fail(new RyotClientError("invalid-request"))
+			: sendRequest(
+					"storage",
+					(requestId) =>
+						({ ...entry, requestId, type: "storage-request" }) satisfies PluginBridgeStorageRequest,
+				);
 
 	const uploadTemporary = (upload: TemporaryUploadRequest) =>
 		sendRequest(
@@ -354,17 +363,20 @@ export const createPluginRuntime = (
 			throw new RyotClientError(terminalReason ?? "transport");
 		}
 		const target = Match.value(to).pipe(
-			Match.when({ kind: "plugin-route" }, ({ path, search, pluginSlug }) => ({
+			Match.when({ kind: "plugin-route" }, ({ path, search, pluginId }) => ({
 				path,
 				kind: "plugin-route" as const,
-				pluginSlug: PluginSlug.make(pluginSlug),
+				pluginId: PluginId.make(pluginId),
 				search: search === undefined ? "" : new URLSearchParams(search).toString(),
 			})),
 			Match.when({ kind: "entity" }, ({ entityId }) => ({
 				kind: "entity" as const,
 				entityId: EntityId.make(entityId),
 			})),
-			Match.when({ kind: "saved-view" }, ({ slug }) => ({ slug, kind: "saved-view" as const })),
+			Match.when({ kind: "saved-view" }, ({ reference }) => ({
+				kind: "saved-view" as const,
+				reference: Schema.decodeSync(SavedViewReference)(reference),
+			})),
 			Match.when({ kind: "kernel-page" }, ({ page }) => ({ page, kind: "kernel-page" as const })),
 			Match.exhaustive,
 		);
@@ -388,7 +400,7 @@ export const createPluginRuntime = (
 			!post({
 				...request,
 				type: "provider-search-screen",
-				entitySchemaSlug: EntitySchemaSlug.make(request.entitySchemaSlug),
+				schema: Schema.decodeSync(EntitySchemaReference)(request.schema),
 			} satisfies PluginBridgeProviderSearchScreen)
 		) {
 			throw new RyotClientError(terminalReason ?? "transport");
@@ -436,6 +448,19 @@ export const createPluginRuntime = (
 				themeListeners.add(listener);
 				return () => themeListeners.delete(listener);
 			},
+		},
+		pluginIdentity: (packageId) => {
+			if (state === "closing" || state === "failed" || state === "disposed") {
+				throw new RyotClientError(terminalReason ?? "disposed");
+			}
+			const matches = contributors.filter(
+				(contributor) => contributor.kind === "plugin" && contributor.packageId === packageId,
+			);
+			const contributor = matches[0];
+			if (matches.length !== 1 || contributor?.kind !== "plugin") {
+				throw new RyotClientError("invalid-request");
+			}
+			return { kind: "local", pluginId: contributor.pluginId };
 		},
 		watchEntities: (interest, onUpdate) => {
 			if (state !== "active") {
@@ -526,6 +551,7 @@ export const createPluginRuntime = (
 			}
 			Match.value(decoded.success).pipe(
 				Match.when({ type: "document" }, ({ page, documentKey, navigation: nextNavigation }) => {
+					contributors = page?.contributors ?? [];
 					resetDocument();
 					onDocument?.(documentKey, page);
 					acceptLocation(nextNavigation);

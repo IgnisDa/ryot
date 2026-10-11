@@ -2,6 +2,7 @@ import { Schema } from "effect";
 
 import { NativeOAuthApplicationId } from "../../oauth";
 import { IntegrationId, OAuthConnectionId } from "../../schema/brands";
+import { DeclarationReference } from "../plugins/references";
 
 export const OAUTH_CONNECTION_RETURN_PATH = "/settings/oauth-return";
 
@@ -25,7 +26,7 @@ export type OAuthConnectionStatus = typeof OAuthConnectionStatus.Type;
 export const CreateOAuthConnectionBody = Schema.Struct({
 	field: Schema.String,
 	client: OAuthConnectionClient,
-	integrationProvider: Schema.String,
+	integrationProvider: DeclarationReference,
 	integrationId: Schema.optional(IntegrationId),
 });
 

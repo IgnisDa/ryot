@@ -64,9 +64,15 @@ const identity = {
 };
 
 describe("plugin client artifact contract", () => {
+	const packageFields = {
+		imports: [],
+		clientDeclarationHash: "declaration-hash",
+		packageId: "ff9c9ec6-5774-42ef-881b-dc6a84ad3ba6",
+	};
 	it("decodes canonical Base64 contents while retaining artifact validation", () => {
 		const decode = Schema.decodeUnknownResult(PluginClientArtifactFromBase64);
 		const artifact = {
+			...packageFields,
 			hash: "hash",
 			format: CLIENT_ARTIFACT_FORMAT,
 			apiVersion: CLIENT_API_VERSION,
@@ -101,6 +107,7 @@ describe("plugin client artifact contract", () => {
 		expect(
 			Result.isFailure(
 				decode({
+					...packageFields,
 					hash: "hash",
 					files: [file, file],
 					format: CLIENT_ARTIFACT_FORMAT,
@@ -115,6 +122,7 @@ describe("plugin client artifact contract", () => {
 	it("requires artifact file contents to be bytes", () => {
 		const decode = Schema.decodeUnknownResult(PluginClientArtifact);
 		const artifact = {
+			...packageFields,
 			hash: "hash",
 			format: CLIENT_ARTIFACT_FORMAT,
 			apiVersion: CLIENT_API_VERSION,
@@ -359,20 +367,26 @@ describe("plugin client bridge contract", () => {
 		const base = {
 			view: null,
 			settings: {},
+			contributors: [],
 			dataSources: null,
 			route: { params: {} },
 			renderer: { kind: "plugin", exportName: "detail", pluginId: "plugin-1" },
 		};
 
 		expect(
-			Result.isSuccess(decode({ ...base, target: { slug: "view-1", kind: "saved-view" } })),
+			Result.isSuccess(
+				decode({
+					...base,
+					target: { kind: "saved-view", reference: { kind: "custom", savedViewId: "view-1" } },
+				}),
+			),
 		).toBe(true);
 		expect(
 			Result.isSuccess(
 				decode({
 					...base,
-					target: { slug: "view-1", kind: "saved-view" },
 					renderer: { kind: "kernel", name: "entity-browser" },
+					target: { kind: "saved-view", reference: { kind: "kernel", slug: "view-1" } },
 				}),
 			),
 		).toBe(true);
@@ -385,7 +399,7 @@ describe("plugin client bridge contract", () => {
 						path: "/items/1",
 						search: "tab=stats",
 						kind: "plugin-route",
-						pluginSlug: "plugin-1",
+						pluginId: "plugin-1",
 					},
 				}),
 			),
@@ -467,9 +481,8 @@ describe("plugin client bridge contract", () => {
 		const decode = Schema.decodeUnknownResult(PluginBridgeProviderSearchScreen);
 		const request = {
 			initialQuery: "Dune",
-			entitySchemaSlug: "movie",
 			type: "provider-search-screen",
-			ownerPluginId: "media-installation",
+			schema: { slug: "movie", owner: { kind: "plugin", pluginId: "media-installation" } },
 		};
 
 		expect(Result.isSuccess(decode(request))).toBe(true);
@@ -479,7 +492,9 @@ describe("plugin client bridge contract", () => {
 		expect(Result.isFailure(Schema.decodeUnknownResult(PluginBridgeHostMessage)(request))).toBe(
 			true,
 		);
-		expect(Result.isFailure(decode({ ...request, ownerPluginId: "" }))).toBe(true);
+		expect(
+			Result.isFailure(decode({ ...request, schema: { slug: "movie", owner: { kind: "self" } } })),
+		).toBe(true);
 		expect(Result.isFailure(decode({ ...request, screen: "arbitrary" }))).toBe(true);
 		const refresh = { type: "page-refresh" };
 		expect(Result.isSuccess(Schema.decodeUnknownResult(PluginBridgePageRefresh)(refresh))).toBe(
@@ -510,10 +525,13 @@ describe("plugin client bridge contract", () => {
 		const pluginRoute = {
 			path: "/details",
 			search: "tab=stats",
+			pluginId: "fixture",
 			kind: "plugin-route",
-			pluginSlug: "fixture",
 		};
-		const savedView = { slug: "view-1", kind: "saved-view" };
+		const savedView = {
+			kind: "saved-view",
+			reference: { kind: "plugin", slug: "view-1", pluginId: "plugin-1" },
+		};
 		const entity = {
 			kind: "entity",
 			entityId: "entity-1",
@@ -540,7 +558,7 @@ describe("plugin client bridge contract", () => {
 		expect(Result.isFailure(decodeTarget(route))).toBe(true);
 		expect(Result.isFailure(decodeTarget({ path: route.path, search: route.search }))).toBe(true);
 		expect(Result.isFailure(decodeTarget({ ...pluginRoute, extra: true }))).toBe(true);
-		expect(Result.isFailure(decodeTarget({ ...pluginRoute, pluginSlug: undefined }))).toBe(true);
+		expect(Result.isFailure(decodeTarget({ ...pluginRoute, pluginId: undefined }))).toBe(true);
 		expect(Result.isFailure(decodeTarget({ ...targetEntity, entitySchemaSlug: "show" }))).toBe(
 			true,
 		);
@@ -646,6 +664,7 @@ describe("plugin client bridge contract", () => {
 							id: "relationship-1",
 							sourceEntityId: "entity-1",
 							targetEntityId: "collection-1",
+							relationshipSchemaPluginId: null,
 							relationshipSchemaSlug: "member-of",
 							createdAt: "2026-09-07T00:00:00.000Z",
 						},
@@ -669,7 +688,7 @@ describe("plugin client bridge contract", () => {
 		const decodeClient = Schema.decodeUnknownResult(PluginBridgeClientMessage);
 		const decodeHost = Schema.decodeUnknownResult(PluginBridgeHostMessage);
 		const request = {
-			pluginSlug: "media",
+			pluginId: "media",
 			key: "episode-order",
 			requestId: "storage-1",
 			type: "storage-request" as const,
@@ -804,7 +823,7 @@ describe("plugin client bridge contract", () => {
 		expect(
 			Result.isSuccess(
 				decodeRequest({
-					pluginSlug: "fixture",
+					pluginId: "fixture",
 					requestId: "request-1",
 					operationSlug: "greet",
 					type: "operation-request",
@@ -816,7 +835,7 @@ describe("plugin client bridge contract", () => {
 			Result.isFailure(
 				decodeRequest({
 					input: null,
-					pluginSlug: "fixture",
+					pluginId: "fixture",
 					requestId: "request-1",
 					operationSlug: "greet",
 					type: "operation-request",
@@ -827,7 +846,7 @@ describe("plugin client bridge contract", () => {
 		expect(
 			Result.isFailure(
 				decodeRequest({
-					pluginSlug: "fixture",
+					pluginId: "fixture",
 					requestId: "request-1",
 					operationSlug: "greet",
 					type: "operation-request",
@@ -837,7 +856,7 @@ describe("plugin client bridge contract", () => {
 		expect(
 			Result.isFailure(
 				decodeRequest({
-					pluginSlug: "fixture",
+					pluginId: "fixture",
 					requestId: "request-1",
 					operationSlug: "greet",
 					type: "operation-request",

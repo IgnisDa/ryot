@@ -1,11 +1,8 @@
 import { Schema } from "effect";
 
-import {
-	NotificationSubscriptionId,
-	RelationshipSchemaSlug,
-	SignalSchemaSlug,
-} from "../../schema/brands";
+import { NotificationSubscriptionId, RelationshipSchemaSlug } from "../../schema/brands";
 import { strictStruct } from "../../schema/utils";
+import { SignalSchemaReference } from "../plugins/references";
 import { jsonValueSchema } from "../sandbox/wire";
 
 export const AutomationRuleMetadata = jsonValueSchema;
@@ -27,21 +24,21 @@ export const SignalAudiencePolicy = Schema.Union([
 
 export type SignalAudiencePolicy = typeof SignalAudiencePolicy.Type;
 
-export const InstallNotificationRuleBody = strictStruct({ signalSchemaSlug: SignalSchemaSlug });
+export const InstallNotificationRuleBody = strictStruct({ signalSchema: SignalSchemaReference });
 
 export type InstallNotificationRuleBody = typeof InstallNotificationRuleBody.Type;
 
 const AutomationNotFoundReason = Schema.Union([
 	Schema.Struct({ ruleId: NotificationSubscriptionId, code: Schema.Literal("rule-not-found") }),
 	Schema.Struct({
-		signalSchemaSlug: SignalSchemaSlug,
+		signalSchema: SignalSchemaReference,
 		code: Schema.Literal("signal-schema-not-found"),
 	}),
 ]);
 
 const AutomationConflictReason = Schema.Union([
 	Schema.Struct({
-		signalSchemaSlug: SignalSchemaSlug,
+		signalSchema: SignalSchemaReference,
 		code: Schema.Literal("rule-already-installed"),
 	}),
 ]);
