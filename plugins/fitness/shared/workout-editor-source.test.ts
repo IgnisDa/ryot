@@ -89,6 +89,27 @@ it("hydrates saved sets without confirmations and retains their recorded exercis
 	});
 });
 
+it("retains the baseline rather than silently dropping orphaned or ambiguous occurrence media", () => {
+	for (const exerciseMedia of [
+		[{ videos: [], exerciseOrder: 2, images: [{ type: "local", key: "permanent/orphan.jpg" }] }],
+		[
+			{ images: [], videos: [], exerciseOrder: 0 },
+			{ videos: [], exerciseOrder: 0, images: [{ type: "local", key: "permanent/duplicate.jpg" }] },
+		],
+	]) {
+		const source = baseline(workoutProperties({ exerciseMedia }), [event("set-1", "exercise-1")]);
+		const result = hydrateWorkoutEditorSource({
+			kind: "workout",
+			baseline: source,
+			draftId: "draft-1",
+			exercises: [exercise("exercise-1")],
+		});
+		assert(result.kind === "blocked");
+		expect(result.baseline).toEqual(source);
+		expect(result.blockers).toEqual([{ code: "invalid-record", exerciseId: "workout-1" }]);
+	}
+});
+
 it("orders repeated exercise occurrences, sets, notes, and superset members by source position", () => {
 	const source = baseline(
 		workoutProperties({
@@ -103,6 +124,18 @@ it("orders repeated exercise occurrences, sets, notes, and superset members by s
 				{ exerciseOrder: 4, notes: ["Later occurrence"] },
 				{ exerciseOrder: 1, notes: ["First occurrence"] },
 			],
+			exerciseMedia: [
+				{
+					exerciseOrder: 4,
+					images: [{ type: "s3", key: "occurrence/four-image.jpg" }],
+					videos: [{ type: "s3", key: "occurrence/four-video.mp4" }],
+				},
+				{
+					exerciseOrder: 1,
+					images: [{ type: "local", key: "permanent/occurrence-one.jpg" }],
+					videos: [{ type: "remote", url: "https://example.com/occurrence-one.mp4" }],
+				},
+			],
 		}),
 		[
 			event("event-z", "exercise-1", {
@@ -113,8 +146,6 @@ it("orders repeated exercise occurrences, sets, notes, and superset members by s
 				exerciseOrder: 4,
 				note: "Set note",
 				restTimerStartedAt,
-				images: [{ type: "s3", key: "set/image.jpg" }],
-				videos: [{ type: "s3", key: "set/video.mp4" }],
 			}),
 			event("event-b", "exercise-1", { setOrder: 0, exerciseOrder: 1 }),
 			event("event-a", "exercise-1", { setOrder: 2, exerciseOrder: 4 }),
@@ -134,6 +165,14 @@ it("orders repeated exercise occurrences, sets, notes, and superset members by s
 		[1, ["First occurrence"]],
 		[4, ["Later occurrence"]],
 	]);
+	expect(result.draft.occurrences[0]).toMatchObject({
+		images: [{ type: "local", key: "permanent/occurrence-one.jpg" }],
+		videos: [{ type: "remote", url: "https://example.com/occurrence-one.mp4" }],
+	});
+	expect(result.draft.occurrences[1]).toMatchObject({
+		images: [{ type: "s3", key: "occurrence/four-image.jpg" }],
+		videos: [{ type: "s3", key: "occurrence/four-video.mp4" }],
+	});
 	expect(result.draft.occurrences[1]?.clientId).toContain(":4");
 	expect(result.draft.occurrences[1]?.sets.map(({ clientId }) => clientId)).toEqual([
 		"event-a",
@@ -156,8 +195,6 @@ it("orders repeated exercise occurrences, sets, notes, and superset members by s
 		note: "Set note",
 		restTimerStartedAt,
 		restChoice: { seconds: "0", kind: "explicit" },
-		images: [{ type: "s3", key: "set/image.jpg" }],
-		videos: [{ type: "s3", key: "set/video.mp4" }],
 	});
 	expect(result.draft.supersets[0]?.occurrenceIds).toEqual(
 		result.draft.occurrences.map(({ clientId }) => clientId),
@@ -282,6 +319,13 @@ it("clones source drafts with injected identities and clears session-only data",
 			comment: "Reflection",
 			supersets: [{ color: "green", exercises: [0, 1] }],
 			images: [{ type: "s3", key: "workout/image.jpg" }],
+			exerciseMedia: [
+				{
+					exerciseOrder: 0,
+					videos: [{ type: "s3", key: "occurrence/video.mp4" }],
+					images: [{ type: "local", key: "permanent/occurrence-image.jpg" }],
+				},
+			],
 		}),
 		[
 			event("set-1", "exercise-1", {
@@ -290,7 +334,6 @@ it("clones source drafts with injected identities and clears session-only data",
 				restTime: 90,
 				note: "Set note",
 				restTimerStartedAt,
-				images: [{ type: "s3", key: "set/image.jpg" }],
 			}),
 			event("set-2", "exercise-1", { exerciseOrder: 1 }),
 		],
@@ -325,9 +368,9 @@ it("clones source drafts with injected identities and clears session-only data",
 		activeDurationStartedAt: "2026-10-16T10:00:00.000Z",
 	});
 	expect(live.occurrences[0]?.sourceExerciseOrder).toBeUndefined();
+	expect(live.occurrences[0]).toMatchObject({ images: [], videos: [] });
 	expect(live.occurrences[0]?.sets[0]).toMatchObject({
 		rpe: "8",
-		images: [],
 		included: false,
 		note: "Set note",
 		eventId: undefined,
@@ -358,6 +401,7 @@ it("clones source drafts with injected identities and clears session-only data",
 		activeDurationStartedAt: undefined,
 	});
 	expect(template.occurrences[0]?.notes).toEqual([]);
+	expect(template.occurrences[0]).toMatchObject({ images: [], videos: [] });
 	expect(template.occurrences[0]?.sets[0]).toMatchObject({
 		rpe: "8",
 		reps: "5",

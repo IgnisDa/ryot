@@ -17,8 +17,6 @@ const occurrence = (id: string, exerciseId = "exercise-1") =>
 		exerciseKind: "reps_and_weight",
 		display: { weightUnit: "lb", distanceUnit: "mi", durationUnit: "minutes" },
 		sets: [0, 1].map((index) => ({
-			images: [],
-			videos: [],
 			included: false,
 			setLot: "normal",
 			clientId: `${id}-set-${index}`,

@@ -79,11 +79,11 @@ it.live(
 						occurrences: weights.map((weight, index) => ({
 							notes: [],
 							exerciseId,
+							images: [],
+							videos: [],
 							clientId: `occurrence-${index}`,
 							sets: [
 								{
-									images: [],
-									videos: [],
 									setLot: "normal",
 									occurredAt: timestamp,
 									confirmedAt: timestamp,

@@ -18,8 +18,6 @@ const timestamp = "2026-10-15T10:00:00.000Z";
 const set = (clientId: string, values: Record<string, unknown> = {}) => ({
 	clientId,
 	reps: "5",
-	images: [],
-	videos: [],
 	weight: "100",
 	included: true,
 	setLot: "normal",
@@ -109,12 +107,6 @@ it("reuses the complete frozen submission after recovery or context changes", ()
 
 it("replaces only one occurrence when the exercise kind stays the same", () => {
 	const draft = makeDraft({
-		occurrences: [
-			occurrence("occurrence-1", [
-				set("set-1", { included: true, eventId: "event-1", confirmedAt: timestamp }),
-			]),
-			occurrence("occurrence-2", [set("set-2")]),
-		],
 		restCountdown: {
 			setId: "set-2",
 			deadline: timestamp,
@@ -131,6 +123,14 @@ it("replaces only one occurrence when the exercise kind stays the same", () => {
 			clientId: "execution-countdown",
 			exerciseId: "exercise-occurrence-1",
 		},
+		occurrences: [
+			occurrence(
+				"occurrence-1",
+				[set("set-1", { included: true, eventId: "event-1", confirmedAt: timestamp })],
+				{ images: [{ type: "s3", key: "occurrence/first.jpg" }] },
+			),
+			occurrence("occurrence-2", [set("set-2")]),
+		],
 	});
 	const replaced = replaceWorkoutOccurrence(draft, "occurrence-1", {
 		exerciseKind: "reps_and_weight",
@@ -142,6 +142,9 @@ it("replaces only one occurrence when the exercise kind stays the same", () => {
 		return;
 	}
 	expect(replaced.draft.occurrences[0]).toMatchObject({ exerciseId: "replacement-exercise" });
+	expect(replaced.draft.occurrences[0]).toMatchObject({
+		images: [{ type: "s3", key: "occurrence/first.jpg" }],
+	});
 	expect(replaced.draft.occurrences[0]?.sets).toEqual(draft.occurrences[0]?.sets);
 	expect(replaced.draft.occurrences[1]).toEqual(draft.occurrences[1]);
 	expect(replaced.draft.executionCountdown).toBeUndefined();
@@ -157,6 +160,7 @@ it("replaces only one occurrence when the exercise kind stays the same", () => {
 it("repeats reusable data with fresh identities and clears session-only state", () => {
 	const source = makeDraft({
 		images: [{ type: "s3", key: "workout/cover.jpg" }],
+		uploadedAssets: [{ type: "s3", key: "workout/cover.jpg" }],
 		supersets: [
 			{ color: "blue", clientId: "superset-1", occurrenceIds: ["occurrence-1", "occurrence-2"] },
 		],
@@ -170,12 +174,14 @@ it("repeats reusable data with fresh identities and clears session-only state", 
 						confirmedAt: timestamp,
 						note: "Keep this set note",
 						restTimerStartedAt: timestamp,
-						videos: [{ type: "s3", key: "set/video.mp4" }],
-						images: [{ type: "s3", key: "set/image.jpg" }],
 						restChoice: { seconds: "90", kind: "explicit" },
 					}),
 				],
-				{ notes: ["Keep this exercise cue"] },
+				{
+					notes: ["Keep this exercise cue"],
+					videos: [{ type: "s3", key: "occurrence/video.mp4" }],
+					images: [{ type: "s3", key: "occurrence/image.jpg" }],
+				},
 			),
 			occurrence("occurrence-2", [set("set-2")]),
 		],
@@ -201,10 +207,10 @@ it("repeats reusable data with fresh identities and clears session-only state", 
 		mode: { kind: "live", source: { kind: "repeat", entityId: "workout-1" } },
 	});
 	expect(repeated.occurrences[0]?.notes).toEqual(["Keep this exercise cue"]);
+	expect(repeated.uploadedAssets).toBeUndefined();
+	expect(repeated.occurrences[0]).toMatchObject({ images: [], videos: [] });
 	expect(repeatedSet).toMatchObject({
 		reps: "5",
-		images: [],
-		videos: [],
 		rpe: undefined,
 		included: false,
 		eventId: undefined,
@@ -337,7 +343,11 @@ it("builds compact historical input in canonical units and preserves source time
 						restChoice: { seconds: "0", kind: "explicit" },
 					}),
 				],
-				{ display: { weightUnit: "lb", distanceUnit: "mi", durationUnit: "minutes" } },
+				{
+					images: [{ type: "s3", key: "occurrence/image.jpg" }],
+					videos: [{ type: "s3", key: "occurrence/video.mp4" }],
+					display: { weightUnit: "lb", distanceUnit: "mi", durationUnit: "minutes" },
+				},
 			),
 		],
 	});
@@ -360,6 +370,10 @@ it("builds compact historical input in canonical units and preserves source time
 	if (result.input?.data.kind !== "workout") {
 		throw new Error("Expected workout save input");
 	}
+	expect(result.input.data.occurrences[0]).toMatchObject({
+		images: [{ type: "s3", key: "occurrence/image.jpg" }],
+		videos: [{ type: "s3", key: "occurrence/video.mp4" }],
+	});
 	expect(result.input.data.caloriesBurnt).toBeCloseTo(100);
 	expect(result.input.data.occurrences[0]?.sets[0]).toMatchObject({
 		restTime: 0,
