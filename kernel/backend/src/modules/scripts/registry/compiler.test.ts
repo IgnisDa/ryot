@@ -101,6 +101,25 @@ layer(SandboxCompiler.layer)((test) => {
 			expect(compiled.javascript).toContain("sourceMappingURL=data:application/json;base64,");
 		}),
 	);
+	test.effect.each(["Date.now()", "Math.random()"])(
+		"rejects workflow nondeterminism through the worker-facing API: %s",
+		(expression) =>
+			Effect.gen(function* () {
+				const failure = yield* compile(
+					workflowSource.replace(
+						'Effect.succeed("workflow")',
+						`Effect.succeed(String(${expression}))`,
+					),
+				).pipe(Effect.flip);
+				expect(failure.diagnostics).toEqual([
+					expect.objectContaining({
+						file: "script.ts",
+						code: "RYOT_WORKFLOW_DETERMINISM",
+						message: expect.stringContaining(expression.slice(0, -2)),
+					}),
+				]);
+			}),
+	);
 });
 
 layer(SandboxCompiler.layer)((test) => {

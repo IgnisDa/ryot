@@ -75,7 +75,7 @@ export const defineNativeScript = (
 		readonly kind?: "script" | "operation" | "workflow" | "provider" | "automation";
 	} = {},
 ) => `
-import { Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
+${options.kind === "workflow" ? 'import { Effect, Schema } from "@ryot-app/plugin-backend-sdk/workflow";' : 'import { Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";'}
 import { defineManifest, defineScript } from "@ryot-app/plugin-backend-sdk/driver";
 ${options.kind === "operation" ? 'import { defineOperation } from "@ryot-app/plugin-backend-sdk/operation";' : ""}
 ${options.kind === "workflow" ? 'import { defineWorkflow } from "@ryot-app/plugin-backend-sdk/workflow";' : ""}
