@@ -169,12 +169,11 @@ describe("all workouts page", () => {
 		Effect.gen(function* () {
 			answerCurrent = openPage().answerPending;
 			yield* settle(() => {
-				const week = body.getByRole("region", { name: "This week" });
-				expect(within(week).getByRole("link", { name: "Legs" })).toBeTruthy();
-				expect(week.textContent).toContain("Repeated from");
-				expect(week.textContent).toContain("▲ 25% volume");
-				expect(week.textContent).toContain("100 kg × 5");
-				expect(within(week).getByRole("list", { name: "Muscles" }).textContent).toBe(
+				const card = body.getByRole("article", { name: "Legs" });
+				expect(card.textContent).toContain("Repeated from");
+				expect(card.textContent).toContain("▲ 25% volume");
+				expect(card.textContent).toContain("100 kg × 5");
+				expect(within(card).getByRole("list", { name: "Muscles" }).textContent).toBe(
 					"GlutesQuadriceps",
 				);
 				expect(body.getByRole("region", { name: "Summary" }).textContent).toContain("Workouts");
