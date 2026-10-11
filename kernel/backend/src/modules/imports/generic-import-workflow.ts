@@ -31,7 +31,6 @@ import {
 	type GenericImportWriteItem,
 } from "@ryot-app/plugin-backend-sdk/imports";
 import { providerResolveResultSchema } from "@ryot-app/plugin-backend-sdk/provider";
-import { sameRevisionPin, type ScriptPluginRevision } from "@ryot-app/sandbox/protocol/principal";
 import { stableStringify } from "@ryot-app/ts-utils/json";
 import { isObjectRecord } from "@ryot-app/ts-utils/predicates";
 import { Effect, Schema } from "effect";
@@ -65,6 +64,10 @@ import {
 	RelationshipSingleResult,
 } from "#modules/relationships/mutation-pipeline";
 import { RelationshipsService } from "#modules/relationships/service";
+import {
+	sameRevisionPin,
+	type ScriptPluginRevision,
+} from "#modules/scripts/authorization/principal";
 import { DatabaseSession } from "#platform/db/session";
 import { slugify } from "#platform/slug";
 import { implementWorkflow, makeActivity } from "#platform/workflow/scope";

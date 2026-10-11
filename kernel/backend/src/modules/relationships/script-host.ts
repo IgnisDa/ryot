@@ -1,18 +1,18 @@
 import { definitionOwner } from "@ryot-app/contract/modules/plugins/references";
 import { EntityId, RelationshipSchemaSlug, UserId } from "@ryot-app/contract/schema/brands";
 import type { SandboxHostError } from "@ryot-app/plugin-backend-sdk/wire";
-import {
-	requireSandboxCapabilityInput,
-	sandboxHostEffect,
-	type AdditionalSandboxHostImplementationMap,
-	type SandboxRunInput,
-} from "@ryot-app/sandbox/host/invocation";
+import { sandboxHostEffect } from "@ryot-app/sandbox/host/invocation";
 import { SANDBOX_LIMITS } from "@ryot-app/sandbox/protocol/limits";
-import { principalOwner } from "@ryot-app/sandbox/protocol/principal";
 import { Effect } from "effect";
 
 import { LifecycleExecution } from "#modules/automations/lifecycle/execution";
 import type { DomainLifecycleCommand } from "#modules/entities/write-context";
+import {
+	type AdditionalScriptHostImplementationMap,
+	requireSandboxCapabilityInput,
+	type ScriptRunInput,
+} from "#modules/scripts/authorization/capabilities";
+import { principalOwner } from "#modules/scripts/authorization/principal";
 import {
 	sandboxLifecycleCommand,
 	userSandboxRunUserId,
@@ -85,7 +85,7 @@ export const relationshipLifecycleHostSteps = (
 			value: (results: ReadonlyArray<RelationshipBatchSummary>) =>
 				results.map(({ created, deleted }) => ({ created, deleted })),
 			validate: (
-				rawInput: SandboxRunInput,
+				rawInput: ScriptRunInput,
 				batches: LifecycleHostInput<"ChangeUserRelationships">["batches"],
 			): Effect.Effect<LifecycleHostInput<"ChangeUserRelationships">, SandboxHostError> =>
 				sandboxHostEffect(
@@ -176,7 +176,7 @@ export const relationshipLifecycleHostSteps = (
 				>;
 			},
 			validate: (
-				rawInput: SandboxRunInput,
+				rawInput: ScriptRunInput,
 				groups: LifecycleHostInput<"UpsertGlobalRelationships">["groups"],
 			): Effect.Effect<LifecycleHostInput<"UpsertGlobalRelationships">, SandboxHostError> =>
 				sandboxHostEffect(
@@ -241,7 +241,7 @@ export const makeRelationshipScriptHost = Effect.gen(function* () {
 				}),
 			),
 	} satisfies Pick<
-		AdditionalSandboxHostImplementationMap,
+		AdditionalScriptHostImplementationMap,
 		"changeUserRelationships" | "upsertGlobalRelationships"
 	>;
 });

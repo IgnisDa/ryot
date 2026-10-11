@@ -15,7 +15,6 @@ import {
 	type UserId,
 } from "@ryot-app/contract/schema/brands";
 import { isJsonValue, type JsonValue } from "@ryot-app/contract/schema/json";
-import { samePluginPin, type ScriptPluginRevision } from "@ryot-app/sandbox/protocol/principal";
 import { generateId } from "better-auth";
 import { Context, Effect, Layer, Option, Result } from "effect";
 import type { Headers as PlatformHeaders } from "effect/http";
@@ -23,6 +22,7 @@ import type { Headers as PlatformHeaders } from "effect/http";
 import { AuthService } from "#modules/accounts/auth/service";
 import { MutationReceipts } from "#modules/mutations/receipts";
 import { admitWorkflow } from "#modules/mutations/workflow-dispatch";
+import { samePluginPin, type ScriptPluginRevision } from "#modules/scripts/authorization/principal";
 import { ScriptExecutionService } from "#modules/scripts/executions/service";
 import { ScriptExecutionWorkflow } from "#modules/scripts/executions/workflow";
 import { SandboxRepository } from "#modules/scripts/registry/repository";

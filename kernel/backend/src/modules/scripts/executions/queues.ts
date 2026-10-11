@@ -7,17 +7,18 @@ import { SandboxExecutor } from "@ryot-app/sandbox/host/executor";
 import { sandboxInlineDurableCapabilities } from "@ryot-app/sandbox/host/host-execution-policy";
 import { SandboxRecoveryIdentity } from "@ryot-app/sandbox/host/recovery-store";
 import { SidecarRecoverySuspended } from "@ryot-app/sandbox/host/supervisor";
-import { ScriptExecutionPrincipal } from "@ryot-app/sandbox/protocol/principal";
 import { isObjectRecord } from "@ryot-app/ts-utils/predicates";
 import { Duration, Effect, Layer, Schema } from "effect";
 import { DurableQueue } from "effect/workflow";
 
+import { ScriptExecutionPrincipal } from "#modules/scripts/authorization/principal";
 import { ScriptInlineProgress } from "#modules/scripts/host/http-progress";
 import { inspectSandboxJournal, pinSandboxJournal } from "#modules/scripts/replay/journal-store";
 import { AppConfig } from "#platform/config/service";
 import { RedisService } from "#platform/redis";
 import { fairQueueStoreLayer } from "#platform/workflow/fair-queue-store";
 
+import { isSandboxCapabilityAllowed } from "../authorization/capabilities";
 import { SandboxDurableHostDispatcher } from "../host/durable-dispatcher";
 import { ExecutableArtifacts } from "../registry/executable-artifacts";
 import { KernelWorkflowReferences } from "../registry/kernel-workflow-references";
@@ -120,7 +121,9 @@ export const executeSandboxExecution = Effect.fn("executeSandboxExecution")(func
 			const replayJournal = pinSandboxJournal(redis, payload.workflowExecutionId, inspection);
 
 			const artifact = yield* artifacts.get(payload.principal);
-			const inlineCapabilities = sandboxInlineDurableCapabilities(payload.principal);
+			const inlineCapabilities = sandboxInlineDurableCapabilities(payload.principal).filter(
+				(capability) => isSandboxCapabilityAllowed(payload, capability),
+			);
 			const grants =
 				isObjectRecord(payload.context) &&
 				(typeof payload.context["artifactHandle"] === "string" ||

@@ -3,18 +3,15 @@ import {
 	type AutomationSource,
 	type AutomationWarning,
 } from "@ryot-app/contract/modules/automations/lifecycle";
-import { SandboxExecutionSubject } from "@ryot-app/contract/modules/scripts/schemas";
+import {
+	SandboxExecutionSubject,
+	sandboxSubjectUserId,
+} from "@ryot-app/contract/modules/scripts/schemas";
 import type { SandboxHostCapability } from "@ryot-app/contract/modules/scripts/wire";
 import { AutomationExecutionId } from "@ryot-app/contract/schema/brands";
 import { automationInputSchema } from "@ryot-app/plugin-backend-sdk/automation";
 import type { SandboxHostError } from "@ryot-app/plugin-backend-sdk/wire";
-import {
-	sandboxHostFailure,
-	toSandboxHostError,
-	type SandboxRunInput,
-	type UserSandboxRunInput,
-} from "@ryot-app/sandbox/host/invocation";
-import { sandboxSubjectUserId } from "@ryot-app/sandbox/protocol/principal";
+import { sandboxHostFailure, toSandboxHostError } from "@ryot-app/sandbox/host/invocation";
 import { Clock, DateTime, Effect, Schema } from "effect";
 
 import {
@@ -23,15 +20,19 @@ import {
 	rootLifecycleCausation,
 } from "#modules/automations/lifecycle/command";
 import type { DomainLifecycleCommand } from "#modules/entities/write-context";
+import type {
+	ScriptRunInput,
+	UserSandboxRunInput,
+} from "#modules/scripts/authorization/capabilities";
 
 export const sandboxStartedAt = Effect.map(Clock.currentTimeMillis, (millis) =>
 	DateTime.formatIso(DateTime.makeUnsafe(millis)),
 );
 
-export const sandboxRunUserId = (input: SandboxRunInput) =>
+export const sandboxRunUserId = (input: ScriptRunInput) =>
 	sandboxSubjectUserId(input.principal.subject);
 
-export const sandboxDefinitionReadContext = (input: SandboxRunInput) =>
+export const sandboxDefinitionReadContext = (input: ScriptRunInput) =>
 	input.principal.pluginRevision === null
 		? undefined
 		: {
@@ -54,7 +55,7 @@ export const userSandboxRunUserId = (input: UserSandboxRunInput) =>
 const decodeAutomationInput = Schema.decodeUnknownEffect(automationInputSchema);
 
 export const sandboxLifecycleCommand = (
-	input: SandboxRunInput,
+	input: ScriptRunInput,
 	source: Exclude<AutomationSource, "automation">,
 	itemIdentity: string,
 ): Effect.Effect<DomainLifecycleCommand, SandboxHostError> =>

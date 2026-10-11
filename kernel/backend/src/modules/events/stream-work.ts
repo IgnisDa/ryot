@@ -14,11 +14,6 @@ import {
 } from "@ryot-app/contract/schema/brands";
 import { JsonValue } from "@ryot-app/contract/schema/json";
 import { IsoUtcString } from "@ryot-app/contract/schema/utils";
-import {
-	sameRevisionPin,
-	ScriptExecutionPrincipal,
-	ScriptPluginRevision,
-} from "@ryot-app/sandbox/protocol/principal";
 import { stableStringify } from "@ryot-app/ts-utils/json";
 import { and, eq } from "drizzle-orm";
 import { Context, Effect, Layer, Schema } from "effect";
@@ -33,6 +28,11 @@ import { EntitiesRepository } from "#modules/entities/repository";
 import { DomainLifecycleCommand, DomainWriteChecks } from "#modules/entities/write-context";
 import { MutationReceipts } from "#modules/mutations/receipts";
 import { dispatchAdmittedWorkflow } from "#modules/mutations/workflow-dispatch";
+import {
+	sameRevisionPin,
+	ScriptExecutionPrincipal,
+	ScriptPluginRevision,
+} from "#modules/scripts/authorization/principal";
 import { DatabaseSession } from "#platform/db/session";
 import { implementWorkflow, makeActivity } from "#platform/workflow/scope";
 import * as tables from "#schema/tables/combined";

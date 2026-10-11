@@ -1,5 +1,8 @@
 import { SandboxRunError } from "@ryot-app/contract/errors";
-import type { SandboxExecutionSubject } from "@ryot-app/contract/modules/scripts/schemas";
+import {
+	type SandboxExecutionSubject,
+	sandboxSubjectUserId,
+} from "@ryot-app/contract/modules/scripts/schemas";
 import {
 	PluginId,
 	PluginPackageId,
@@ -10,16 +13,15 @@ import {
 	UserId,
 } from "@ryot-app/contract/schema/brands";
 import type { WorkflowDurableCallRequest } from "@ryot-app/plugin-backend-sdk/workflow";
-import {
-	sandboxSubjectUserId,
-	type ScriptExecutionPrincipal,
-	type ScriptPluginRevision,
-	type ScriptInstallationInitialization,
-} from "@ryot-app/sandbox/protocol/principal";
 import { and, eq, sql } from "drizzle-orm";
 import { Context, Effect, Layer, Option, Schema } from "effect";
 
 import { PluginSandboxAuthority } from "#modules/scripts/authorization/plugin-authority";
+import type {
+	ScriptExecutionPrincipal,
+	ScriptInstallationInitialization,
+	ScriptPluginRevision,
+} from "#modules/scripts/authorization/principal";
 import { DatabaseSession } from "#platform/db/session";
 import * as schema from "#schema/tables/combined";
 

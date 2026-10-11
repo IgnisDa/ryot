@@ -11,6 +11,7 @@ import { DurableDeferred, Workflow } from "effect/workflow";
 import { WorkflowEngine } from "effect/workflow/WorkflowEngine";
 
 import { IngestionPayloads } from "#modules/assets/storage/ingestion-payloads";
+import { makeUserPrincipal } from "#modules/scripts/authorization/principal.test-support";
 import { DatabaseSession } from "#platform/db/session";
 import { HmacSigner } from "#platform/storage/hmac-signer";
 import { LocalStorageService } from "#platform/storage/local-storage";
@@ -139,15 +140,13 @@ layer(
 									executionId: `${executionId}-COLLECTOR`,
 									startedAt: (yield* DateTime.nowAsDate).toISOString(),
 									grants: { artifactOwnerExecutionId: ownerExecutionId },
-									principal: {
-										providerId: null,
-										pluginRevision: null,
+									principal: makeUserPrincipal({
 										scriptSlug: "collector",
 										contentHash: "collector-hash",
 										scriptId: SandboxScriptId.make("collector"),
 										subject: { userId, type: "user", accountGeneration: scope.accountGeneration },
 										metadata: { kind: "operation", runtimeImports: [], capabilities: ["scratch"] },
-									},
+									}),
 								});
 								if (!harvest) {
 									return yield* new ImportRunError({

@@ -13,7 +13,6 @@ import {
 	RelationshipScope,
 } from "@ryot-app/contract/modules/relationships/schemas";
 import { RelationshipId, type UserId } from "@ryot-app/contract/schema/brands";
-import { principalOwner } from "@ryot-app/sandbox/protocol/principal";
 import { Cause, Context, Effect, Layer, Schema, Struct } from "effect";
 
 import { lifecycleTrigger } from "#modules/automations/lifecycle/command";
@@ -39,6 +38,7 @@ import {
 	catalogDefinitionFingerprint,
 	PluginRuntimeResolver,
 } from "#modules/plugins/catalog/runtime-resolver";
+import { principalOwner } from "#modules/scripts/authorization/principal";
 import { DatabaseSession } from "#platform/db/session";
 
 import {

@@ -33,6 +33,9 @@ export const SANDBOX_HOST_CAPABILITIES = [
 
 export type SandboxHostCapability = (typeof SANDBOX_HOST_CAPABILITIES)[number];
 
+export const isSandboxHostCapability = (key: string): key is SandboxHostCapability =>
+	SANDBOX_HOST_CAPABILITIES.some((capability) => capability === key);
+
 export const POLICY_SAFE_SANDBOX_CAPABILITIES = [
 	"log",
 	"span",

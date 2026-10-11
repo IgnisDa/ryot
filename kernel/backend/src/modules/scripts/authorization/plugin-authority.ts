@@ -1,6 +1,7 @@
 import { SandboxScriptKind } from "@ryot-app/contract/modules/scripts/schemas";
-import { ScriptPluginRevision } from "@ryot-app/sandbox/protocol/principal";
 import { Schema } from "effect";
+
+import { ScriptPluginRevision } from "./principal";
 
 export const PluginSandboxAuthority = Schema.Struct({
 	packageId: ScriptPluginRevision.fields.packageId,

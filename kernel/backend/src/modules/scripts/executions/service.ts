@@ -10,11 +10,6 @@ import { SandboxScriptId, type UserId } from "@ryot-app/contract/schema/brands";
 import type { JsonValue } from "@ryot-app/contract/schema/json";
 import { jsonValueSchema } from "@ryot-app/plugin-backend-sdk/wire";
 import { sandboxContextError } from "@ryot-app/sandbox/protocol/limits";
-import type {
-	ScriptPluginRevision,
-	ScriptExecutionPrincipal,
-	ScriptInstallationInitialization,
-} from "@ryot-app/sandbox/protocol/principal";
 import { generateId } from "better-auth";
 import { Context, Effect, Layer, Option, Redacted, Schema } from "effect";
 import type { Workflow } from "effect/workflow";
@@ -22,6 +17,11 @@ import { WorkflowEngine } from "effect/workflow/WorkflowEngine";
 
 import { MutationReceipts } from "#modules/mutations/receipts";
 import { dispatchAdmittedWorkflow } from "#modules/mutations/workflow-dispatch";
+import type {
+	ScriptExecutionPrincipal,
+	ScriptInstallationInitialization,
+	ScriptPluginRevision,
+} from "#modules/scripts/authorization/principal";
 import { AppConfig } from "#platform/config/service";
 import { DatabaseSession } from "#platform/db/session";
 import { trimToNull } from "#platform/validation";

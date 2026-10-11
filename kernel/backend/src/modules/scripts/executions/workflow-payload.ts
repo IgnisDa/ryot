@@ -5,11 +5,12 @@ import {
 } from "@ryot-app/contract/modules/scripts/schemas";
 import { SandboxScriptId } from "@ryot-app/contract/schema/brands";
 import { jsonValueSchema } from "@ryot-app/plugin-backend-sdk/wire";
+import { Schema } from "effect";
+
 import {
 	ScriptInstallationInitialization,
 	ScriptPluginRevision,
-} from "@ryot-app/sandbox/protocol/principal";
-import { Schema } from "effect";
+} from "#modules/scripts/authorization/principal";
 
 export const ScriptExecutionWorkflowPayload = Schema.Struct({
 	lane: ExecutionLane,

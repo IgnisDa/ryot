@@ -25,7 +25,6 @@ import {
 	PluginId,
 	type UserId,
 } from "@ryot-app/contract/schema/brands";
-import { samePluginPin } from "@ryot-app/sandbox/protocol/principal";
 import { stableStringify } from "@ryot-app/ts-utils/json";
 import { and, asc, desc, eq, gt, lte, inArray, isNotNull, isNull, or, sql } from "drizzle-orm";
 import { Context, Effect, Layer, Schema } from "effect";
@@ -33,6 +32,7 @@ import { Context, Effect, Layer, Schema } from "effect";
 import { PluginConfigEncryptionKey } from "#modules/plugins/configuration/encryption-key";
 import { lockPluginIngestionShared } from "#modules/plugins/packages/ingestion-fence";
 import type { PluginIngestionRetirementPolicy } from "#modules/plugins/packages/ingestion-retirement";
+import { samePluginPin } from "#modules/scripts/authorization/principal";
 import { isUniqueConstraintError } from "#platform/db/errors";
 import { DatabaseSession } from "#platform/db/session";
 import * as schema from "#schema/tables/combined";

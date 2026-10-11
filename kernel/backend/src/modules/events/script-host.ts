@@ -11,15 +11,15 @@ import {
 } from "@ryot-app/plugin-backend-sdk/core";
 import type { SandboxHostError } from "@ryot-app/plugin-backend-sdk/wire";
 import type { WorkflowDurableCallRequest } from "@ryot-app/plugin-backend-sdk/workflow";
-import {
-	requireSandboxCapabilityInput,
-	sandboxHostEffect,
-	type AdditionalSandboxHostImplementationMap,
-	type SandboxRunInput,
-	type UserSandboxRunInput,
-} from "@ryot-app/sandbox/host/invocation";
+import { sandboxHostEffect } from "@ryot-app/sandbox/host/invocation";
 import { Effect, Schema } from "effect";
 
+import {
+	type AdditionalScriptHostImplementationMap,
+	requireSandboxCapabilityInput,
+	type ScriptRunInput,
+	type UserSandboxRunInput,
+} from "#modules/scripts/authorization/capabilities";
 import { isDeclaredExecutableCall } from "#modules/scripts/authorization/executable-dependencies";
 import {
 	reportSandboxLifecycleWarnings,
@@ -56,7 +56,7 @@ export const eventLifecycleHostSteps = (events: EventsService["Service"]) => ({
 				Effect.mapError(lifecycleHostFailure),
 			),
 		validate: (
-			rawInput: SandboxRunInput,
+			rawInput: ScriptRunInput,
 			eventIds: ReadonlyArray<string>,
 		): Effect.Effect<LifecycleHostInput<"DeleteEvents">, SandboxHostError> =>
 			sandboxHostEffect(
@@ -91,7 +91,7 @@ export const eventLifecycleHostSteps = (events: EventsService["Service"]) => ({
 				Effect.mapError(lifecycleHostFailure),
 			),
 		validate: (
-			rawInput: SandboxRunInput,
+			rawInput: ScriptRunInput,
 			items: ReadonlyArray<unknown>,
 		): Effect.Effect<LifecycleHostInput<"UpdateEvents">, SandboxHostError> =>
 			sandboxHostEffect(
@@ -142,9 +142,9 @@ export const makeEventScriptHost = Effect.gen(function* () {
 				.pipe(Effect.flatMap(toSandboxCreateEventsResult));
 		});
 	const requestEventStreamWork = (
-		rawInput: SandboxRunInput,
-		request: Parameters<AdditionalSandboxHostImplementationMap["requestEventStreamWork"]>[1],
-		reference: Parameters<AdditionalSandboxHostImplementationMap["requestEventStreamWork"]>[2],
+		rawInput: ScriptRunInput,
+		request: Parameters<AdditionalScriptHostImplementationMap["requestEventStreamWork"]>[1],
+		reference: Parameters<AdditionalScriptHostImplementationMap["requestEventStreamWork"]>[2],
 	) =>
 		sandboxHostEffect(
 			Effect.gen(function* () {
@@ -219,7 +219,7 @@ export const makeEventScriptHost = Effect.gen(function* () {
 				}),
 			),
 	} satisfies Pick<
-		AdditionalSandboxHostImplementationMap,
+		AdditionalScriptHostImplementationMap,
 		"createEvents" | "deleteEvents" | "updateEvents" | "requestEventStreamWork"
 	>;
 });

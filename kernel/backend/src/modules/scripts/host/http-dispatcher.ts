@@ -7,7 +7,6 @@ import {
 import { SandboxExecutionAuthority } from "@ryot-app/sandbox/host/authority";
 import type { SandboxShortWait } from "@ryot-app/sandbox/host/short-wait";
 import { SANDBOX_LIMITS } from "@ryot-app/sandbox/protocol/limits";
-import type { ScriptExecutionPrincipal } from "@ryot-app/sandbox/protocol/principal";
 import { exponentialBackoffMs } from "@ryot-app/ts-utils/backoff";
 import { Clock, Context, Duration, Effect, Exit, Layer, Ref, Schema, Scope } from "effect";
 import { HttpClient } from "effect/http";
@@ -18,6 +17,7 @@ import {
 	PluginHttpRateLimitAuthority,
 	type HttpRateLimitAuthorityResolution,
 } from "#modules/plugins/catalog/http-rate-limit-authority";
+import type { ScriptExecutionPrincipal } from "#modules/scripts/authorization/principal";
 import { sandboxSchedulingKey } from "#modules/scripts/executions/scheduling-key";
 import { ScriptExecutionWorkflow } from "#modules/scripts/executions/workflow";
 import type { ScriptExecutionWorkflowPayload } from "#modules/scripts/executions/workflow-payload";

@@ -17,7 +17,6 @@ import type { JsonValue } from "@ryot-app/contract/schema/json";
 import { SandboxExecutionAuthority } from "@ryot-app/sandbox/host/authority";
 import type { SandboxInlineProgress } from "@ryot-app/sandbox/host/inline-progress";
 import { makeSandboxShortWait } from "@ryot-app/sandbox/host/short-wait";
-import type { ScriptExecutionPrincipal } from "@ryot-app/sandbox/protocol/principal";
 import {
 	Cause,
 	Context,
@@ -48,6 +47,7 @@ import {
 } from "#modules/plugins/catalog/http-rate-limit-authority";
 import { fixtureManifest } from "#modules/plugins/test-support";
 import { RelationshipBatchSummary } from "#modules/relationships/mutation-pipeline";
+import type { ScriptExecutionPrincipal } from "#modules/scripts/authorization/principal";
 import { ScriptExecutionWorkflow } from "#modules/scripts/executions/workflow";
 import {
 	SandboxDurableHostServiceWorkflow,

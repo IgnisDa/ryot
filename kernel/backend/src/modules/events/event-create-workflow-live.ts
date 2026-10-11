@@ -15,7 +15,6 @@ import {
 import { definitionOwner } from "@ryot-app/contract/modules/plugins/references";
 import { AutomationRunId, EventId } from "@ryot-app/contract/schema/brands";
 import { AppSchema } from "@ryot-app/contract/schema/property-schema";
-import { principalOwner } from "@ryot-app/sandbox/protocol/principal";
 import { sha256Base64Url } from "@ryot-app/ts-utils/crypto";
 import { stableStringify } from "@ryot-app/ts-utils/json";
 import { DateTime, Effect, Ref, Schema } from "effect";
@@ -44,6 +43,7 @@ import {
 	CatalogDefinitionFingerprint,
 	catalogDefinitionFingerprint,
 } from "#modules/plugins/catalog/runtime-resolver";
+import { principalOwner } from "#modules/scripts/authorization/principal";
 import { DatabaseSession } from "#platform/db/session";
 import { implementWorkflow, makeActivity } from "#platform/workflow/scope";
 

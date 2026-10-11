@@ -1,5 +1,6 @@
+import { isSandboxHostCapability } from "@ryot-app/contract/modules/scripts/wire";
+
 import { MiB } from "../protocol/limits";
-import { isSandboxCapability } from "./capability-policy";
 import { sandboxHostPermit } from "./host-execution-policy";
 import { SANDBOX_JSON_GRAPH_FACTOR } from "./json-bytes";
 
@@ -23,7 +24,7 @@ const controlResultBytes = new Map<string, number>([
 ]);
 
 const capabilityResultBytes = (name: string) =>
-	isSandboxCapability(name) && sandboxHostPermit(name) === "small"
+	isSandboxHostCapability(name) && sandboxHostPermit(name) === "small"
 		? SANDBOX_TRANSIENT_MEMORY.smallBytes
 		: SANDBOX_TRANSIENT_MEMORY.ordinaryBytes;
 

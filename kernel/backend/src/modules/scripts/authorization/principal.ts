@@ -1,7 +1,9 @@
+import { SandboxRunError } from "@ryot-app/contract/errors";
 import { definitionOwner } from "@ryot-app/contract/modules/plugins/references";
 import {
 	SandboxExecutionSubject,
 	SandboxScriptMetadata,
+	sandboxSubjectUserId,
 } from "@ryot-app/contract/modules/scripts/schemas";
 import {
 	PluginId,
@@ -13,14 +15,8 @@ import {
 	UserId,
 } from "@ryot-app/contract/schema/brands";
 import { AppSchema } from "@ryot-app/contract/schema/property-schema";
-import { Schema } from "effect";
-
-export const sandboxSubjectUserId = (subject: SandboxExecutionSubject) => {
-	if (subject.type === "user") {
-		return subject.userId;
-	}
-	return subject.type === "automation-run" ? subject.executionUserId : null;
-};
+import type { SandboxPrincipal } from "@ryot-app/sandbox/host/principal";
+import { Effect, Schema } from "effect";
 
 export const ScriptPluginRevision = Schema.Struct({
 	id: PluginId,
@@ -118,3 +114,14 @@ export type ScriptExecutionPrincipal = Schema.Schema.Type<typeof ScriptExecution
 export const isUserBootstrapPrincipal = (principal: ScriptExecutionPrincipal) =>
 	principal.metadata.kind === "script" &&
 	principal.pluginRevision?.userBootstrapScriptSlugs.includes(principal.scriptSlug) === true;
+
+export const decodeScriptExecutionPrincipal = (principal: SandboxPrincipal) =>
+	Schema.decodeUnknownEffect(ScriptExecutionPrincipal)(principal).pipe(
+		Effect.mapError(
+			() =>
+				new SandboxRunError({
+					kind: "invalid-input",
+					message: "Sandbox execution principal is invalid",
+				}),
+		),
+	);

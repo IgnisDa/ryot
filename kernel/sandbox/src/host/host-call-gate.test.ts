@@ -65,7 +65,6 @@ const makeInput = (
 		lane: "background",
 		executionId: "gate-execution",
 		principal: {
-			scriptSlug: "gate-script",
 			subject: makeUserSubject(userId),
 			scriptId: SandboxScriptId.make("gate-script"),
 			metadata: { capabilities, kind: "workflow", runtimeImports: [] },

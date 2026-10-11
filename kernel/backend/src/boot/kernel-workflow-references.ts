@@ -11,6 +11,7 @@ import {
 	KERNEL_PROVIDER_ENTITY_POPULATION_WORKFLOW,
 } from "@ryot-app/contract/modules/plugins/execution";
 import { definitionOwner } from "@ryot-app/contract/modules/plugins/references";
+import { sandboxSubjectUserId } from "@ryot-app/contract/modules/scripts/schemas";
 import {
 	AutomationExecutionId,
 	EntitySchemaSlug,
@@ -24,13 +25,6 @@ import { genericImportKernelInputSchema } from "@ryot-app/plugin-backend-sdk/imp
 import { jsonValueSchema } from "@ryot-app/plugin-backend-sdk/wire";
 import { SandboxExecutionAuthority } from "@ryot-app/sandbox/host/authority";
 import { ExecutionFileStore } from "@ryot-app/sandbox/host/execution-files";
-import {
-	ScriptPluginRevision,
-	samePluginPin,
-	sameRevisionPin,
-	sandboxSubjectUserId,
-	type ScriptExecutionPrincipal,
-} from "@ryot-app/sandbox/protocol/principal";
 import { isObjectRecord } from "@ryot-app/ts-utils/predicates";
 import { DateTime, Effect, Exit, Layer, Option, Schema } from "effect";
 import { WorkflowEngine } from "effect/workflow/WorkflowEngine";
@@ -67,6 +61,12 @@ import { IntegrationsRepository } from "#modules/integrations/repository";
 import { MutationReceipts } from "#modules/mutations/receipts";
 import { dispatchAdmittedWorkflow } from "#modules/mutations/workflow-dispatch";
 import { PluginRuntimeResolver } from "#modules/plugins/catalog/runtime-resolver";
+import {
+	samePluginPin,
+	sameRevisionPin,
+	type ScriptExecutionPrincipal,
+	ScriptPluginRevision,
+} from "#modules/scripts/authorization/principal";
 import { KernelWorkflowReferences } from "#modules/scripts/registry/kernel-workflow-references";
 import { DatabaseSession } from "#platform/db/session";
 

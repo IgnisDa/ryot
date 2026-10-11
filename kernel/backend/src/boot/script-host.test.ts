@@ -29,9 +29,7 @@ import {
 import type { JsonValue } from "@ryot-app/contract/schema/json";
 import { defaultUserPreferences } from "@ryot-app/contract/schema/user-preferences";
 import type { ChangeUserRelationshipBatch } from "@ryot-app/plugin-backend-sdk/core";
-import type { SandboxRunInput } from "@ryot-app/sandbox/host/invocation";
 import { testAccountGeneration } from "@ryot-app/sandbox/host/run-input.test-support";
-import type { ScriptExecutionPrincipal } from "@ryot-app/sandbox/protocol/principal";
 import { assertExitFails } from "@ryot-app/testing/effect-assertions";
 import { sql } from "drizzle-orm";
 import { Context, Effect, Layer, Option, Ref, Result } from "effect";
@@ -64,6 +62,8 @@ import { fixtureManifest } from "#modules/plugins/test-support";
 import { RelationshipMutationPipeline } from "#modules/relationships/mutation-pipeline";
 import { RelationshipsRepository } from "#modules/relationships/repository";
 import { RyotQLService } from "#modules/ryotql/service";
+import type { ScriptRunInput } from "#modules/scripts/authorization/capabilities";
+import type { ScriptExecutionPrincipal } from "#modules/scripts/authorization/principal";
 import { SandboxRepository } from "#modules/scripts/registry/repository";
 import { DatabaseSession } from "#platform/db/session";
 import { RedisService } from "#platform/redis";
@@ -166,7 +166,7 @@ const runInput = (
 	principalFacts: Omit<Partial<ScriptExecutionPrincipal>, "metadata"> & {
 		readonly metadata?: Omit<SandboxScriptMetadata, "runtimeImports">;
 	} = {},
-): SandboxRunInput => {
+): ScriptRunInput => {
 	const { metadata, ...otherPrincipalFacts } = principalFacts;
 	return {
 		compiledCode: "",
@@ -1486,7 +1486,7 @@ describe("getPluginConfig", () => {
 	});
 });
 
-const runExecuteRyotql = (input: SandboxRunInput, document: RyotQLDocument = ryotqlDocument) =>
+const runExecuteRyotql = (input: ScriptRunInput, document: RyotQLDocument = ryotqlDocument) =>
 	makeAdditionalScriptHostFunctions.pipe(
 		Effect.flatMap((functions) => Effect.result(functions.executeRyotql(input, document))),
 	);
@@ -1799,7 +1799,7 @@ const runEnsureUserEntities = (options: {
 	);
 
 const runCreateUserEntity = (
-	overrides: Partial<SandboxRunInput> = {},
+	overrides: Partial<ScriptRunInput> = {},
 	omitWorkflowIdentity = false,
 ) =>
 	makeAdditionalScriptHostFunctions.pipe(

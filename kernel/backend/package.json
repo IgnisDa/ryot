@@ -31,6 +31,7 @@
 		"./modules/plugins/preferences/user-settings": "./src/modules/plugins/preferences/user-settings.ts",
 		"./modules/plugins/source.test-support": "./src/modules/plugins/source.test-support.ts",
 		"./modules/ryotql/validator": "./src/modules/ryotql/validator.ts",
+		"./modules/scripts/authorization/principal": "./src/modules/scripts/authorization/principal.ts",
 		"./modules/scripts/executions/service": "./src/modules/scripts/executions/service.ts",
 		"./modules/scripts/host/runtime-host-functions": "./src/modules/scripts/host/runtime-host-functions.ts",
 		"./modules/scripts/host/sandbox-host-live": "./src/modules/scripts/host/sandbox-host-live.ts",

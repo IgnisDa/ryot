@@ -2,8 +2,10 @@ import { Effect, Layer, Option } from "effect";
 import Redis from "ioredis";
 import { inject } from "vitest";
 
+import { bindSandboxHostFunctions } from "./bridge-adapter";
 import { SandboxHostCallScope, SandboxHostConfig } from "./config";
-import type { SandboxHostFunctionMap } from "./host-functions";
+import type { SandboxHostFunctions } from "./host-functions";
+import type { SandboxHostImplementationMap } from "./invocation";
 import { SandboxRedis } from "./redis";
 
 export const makeSandboxHostConfigLayer = (overrides: Partial<SandboxHostConfig["Service"]> = {}) =>
@@ -47,8 +49,10 @@ export const deleteRedisKeysOnExit = (keys: () => ReadonlyArray<string>) =>
 
 const unusedHostCall = () => Effect.die("Unexpected sandbox host dispatch");
 
-export const unusedSandboxHostFunctions = (
-	overrides: Partial<SandboxHostFunctionMap> = {},
+type SandboxHostFunctionMap = Omit<SandboxHostImplementationMap, "log" | "span">;
+
+const unusedSandboxHostFunctionMap = (
+	overrides: Partial<SandboxHostFunctionMap>,
 ): SandboxHostFunctionMap => ({
 	httpCall: unusedHostCall,
 	emitSignal: unusedHostCall,
@@ -78,6 +82,13 @@ export const unusedSandboxHostFunctions = (
 	invalidateOAuthAccessToken: unusedHostCall,
 	...overrides,
 });
+
+export const unusedSandboxHostFunctions = (
+	overrides: Partial<SandboxHostFunctionMap> = {},
+): SandboxHostFunctions["Service"] => {
+	const implementations = unusedSandboxHostFunctionMap(overrides);
+	return { bind: (input) => Effect.succeed(bindSandboxHostFunctions(implementations, input)) };
+};
 
 declare module "vitest" {
 	interface ProvidedContext {

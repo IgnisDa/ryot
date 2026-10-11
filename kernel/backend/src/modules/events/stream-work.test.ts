@@ -11,10 +11,6 @@ import {
 	UserId,
 } from "@ryot-app/contract/schema/brands";
 import { emptySandboxExecutionMetadata } from "@ryot-app/contract/testing";
-import {
-	ScriptExecutionPrincipal,
-	type ScriptPluginRevision,
-} from "@ryot-app/sandbox/protocol/principal";
 import { assertExitFails } from "@ryot-app/testing/effect-assertions";
 import { eq } from "drizzle-orm";
 import { Context, DateTime, Effect, Layer, Option, Ref, Schema } from "effect";
@@ -49,6 +45,10 @@ import {
 } from "#modules/plugins/packages/revision.test-support";
 import type { NormalizedPlugin } from "#modules/plugins/packages/types";
 import { fixtureManifest } from "#modules/plugins/test-support";
+import {
+	ScriptExecutionPrincipal,
+	type ScriptPluginRevision,
+} from "#modules/scripts/authorization/principal";
 import { SandboxRepository } from "#modules/scripts/registry/repository";
 import { DatabaseSession } from "#platform/db/session";
 import { WorkflowExecutionNotifications } from "#platform/workflow/execution-notifications";
