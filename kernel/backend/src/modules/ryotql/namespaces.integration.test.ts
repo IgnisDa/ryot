@@ -631,6 +631,151 @@ layer(databaseLayer)((test) => {
 	);
 });
 
+const packageWithNames = (version: "old" | "current", packageId: PluginPackageId) => {
+	const value = namespacePackage(version, packageId);
+	return {
+		...value,
+		manifest: {
+			...value.manifest,
+			signalSchemas: Array.from(value.manifest.signalSchemas, (signal) => ({
+				...signal,
+				name: `${version} signal`,
+			})),
+			relationshipSchemas: Array.from(value.manifest.relationshipSchemas, (relationship) => ({
+				...relationship,
+				name: `${version} relationship`,
+				...(version === "old" ? { userWritePolicy: "source-owner" as const } : {}),
+			})),
+			entitySchemas: Array.from(value.manifest.entitySchemas, (entity) => ({
+				...entity,
+				name: `${version} entity`,
+				eventSchemas: Array.from(entity.eventSchemas, (event) => ({
+					...event,
+					name: `${version} event`,
+				})),
+			})),
+		},
+	};
+};
+
+layer(databaseLayer)((test) => {
+	test.effect(
+		"shares complete pinned definition projections across user, plugin and snapshot reads",
+		() =>
+			Effect.gen(function* () {
+				const service = yield* RyotQLService;
+				const definitions = yield* DefinitionRepository;
+				const ownPackage = testPluginPackageId();
+				const foreignPackage = testPluginPackageId();
+				const own = yield* installRevisionPackage(packageWithNames("old", ownPackage), owner);
+				const foreign = yield* installRevisionPackage(
+					packageWithNames("old", foreignPackage),
+					owner,
+				);
+				yield* installRevisionPackage(packageWithNames("current", ownPackage), owner);
+				const currentForeign = yield* installRevisionPackage(
+					packageWithNames("current", foreignPackage),
+					owner,
+				);
+				const context = {
+					pluginId: PluginId.make(own.pluginId),
+					pluginRevisionId: PluginRevisionId.make(own.revisionId),
+				};
+				for (const [kind, label] of [
+					["entitySchema", "entity"],
+					["eventSchema", "event"],
+					["relationshipSchema", "relationship"],
+					["signalSchema", "signal"],
+				] as const) {
+					const definition = table(kind, "definition");
+					const query = {
+						queries: {
+							nameOnly: rows(definition, { fields: [field("name", column(definition, "name"))] }),
+							complete: rows(definition, {
+								fields: [{ tableAlias: "definition", type: "wildcard" as const }],
+							}),
+						},
+					};
+					const user = yield* service.executeForUser(
+						owner,
+						null,
+						"plugin",
+						query,
+						"standard",
+						undefined,
+						context,
+					);
+					expect(user.data["nameOnly"]).toMatchObject({
+						items: expect.arrayContaining([{ name: `old ${label}` }, { name: `current ${label}` }]),
+					});
+					const complete = user.data["complete"];
+					assert(complete?.type === "rows");
+					expect(complete.items).toHaveLength(2);
+					expect(user.data["complete"]).toMatchObject({
+						items: expect.arrayContaining([
+							expect.objectContaining({
+								name: `old ${label}`,
+								pluginId: own.pluginId,
+								pluginRevisionId: own.revisionId,
+							}),
+							expect.objectContaining({
+								name: `current ${label}`,
+								pluginId: foreign.pluginId,
+								pluginRevisionId: currentForeign.revisionId,
+							}),
+						]),
+					});
+					const plugin = yield* service.executeForPlugin(
+						{
+							...context,
+							entitySchemaSlugs: ["bottle"],
+							signalSchemaSlugs: ["whiskey.signal"],
+							relationshipSchemaSlugs: ["whiskey-link"],
+							eventSchemas: [{ entitySchemaSlug: "bottle", eventSchemaSlug: "changed" }],
+						},
+						query,
+						1_048_576,
+					);
+					expect(plugin.data["nameOnly"]).toMatchObject({ items: [{ name: `old ${label}` }] });
+					expect(plugin.data["complete"]).toMatchObject({
+						items: [
+							{ name: `old ${label}`, pluginId: own.pluginId, pluginRevisionId: own.revisionId },
+						],
+					});
+					if (kind === "relationshipSchema") {
+						expect(plugin.data["complete"]).toMatchObject({
+							items: [{ userWritePolicy: "source-owner" }],
+						});
+						expect(user.data["complete"]).toMatchObject({
+							items: expect.arrayContaining([
+								expect.objectContaining({
+									pluginId: own.pluginId,
+									userWritePolicy: "source-owner",
+								}),
+								expect.objectContaining({ userWritePolicy: null, pluginId: foreign.pluginId }),
+							]),
+						});
+					}
+				}
+				const snapshot = yield* definitions.getSnapshotForContext(context, owner);
+				const entity =
+					snapshot.entitySchemas[definitionKey("entity", definitionOwner(own.pluginId), "bottle")];
+				expect(entity?.name).toBe("old entity");
+				expect(entity?.eventSchemas["changed"]?.name).toBe("old event");
+				expect(
+					snapshot.relationshipSchemas[
+						definitionKey("relationship", definitionOwner(own.pluginId), "whiskey-link")
+					],
+				).toMatchObject({ name: "old relationship", userWritePolicy: "source-owner" });
+				expect(
+					snapshot.signalSchemas[
+						definitionKey("signal", definitionOwner(own.pluginId), "whiskey.signal")
+					]?.name,
+				).toBe("old signal");
+			}),
+	);
+});
+
 layer(databaseLayer)((test) => {
 	test.effect(
 		"keeps private metadata current and reads pinned own metadata without exposing foreign historical revisions",
