@@ -15,7 +15,6 @@ import clsx from "clsx";
 import { useEffect, useEffectEvent, useId, useRef, useState } from "react";
 
 import { visibleWorkspaces, type WorkspaceTarget } from "#/modules/navigation/workspace-state";
-import { pluginInstallationLabel } from "#/modules/ui/catalog/selection";
 
 type WorkspaceSwitcherProps = {
 	readonly open: boolean;
@@ -142,7 +141,7 @@ export function WorkspaceSwitcher(props: WorkspaceSwitcherProps) {
 					</span>
 					<span className="min-w-0 flex-1">
 						<span className="block truncate text-sm font-medium text-text">
-							{props.current ? pluginInstallationLabel(props.current) : "No workspace"}
+							{props.current?.name ?? "No workspace"}
 						</span>
 						<span className="block truncate text-xs text-text-muted">{props.summary}</span>
 					</span>
@@ -200,11 +199,11 @@ export function WorkspaceSwitcher(props: WorkspaceSwitcherProps) {
 									onClick={() => select(workspace)}
 									onFocus={() => setActiveIndex(index)}
 									tabIndex={index === activeIndex ? 0 : -1}
+									aria-label={`Switch to ${workspace.name} workspace`}
 									title={`${workspace.packageId} · ${workspace.pluginId}`}
 									ref={(item) => {
 										items.current[index] = item;
 									}}
-									aria-label={`Switch to ${pluginInstallationLabel(workspace)} workspace`}
 									className={clsx(
 										"flex w-full items-center gap-2.5 rounded-lg px-2 py-2 text-left",
 										isCurrent ? "bg-accent-soft" : "hover:bg-surface-2",
@@ -219,9 +218,7 @@ export function WorkspaceSwitcher(props: WorkspaceSwitcherProps) {
 										<AppIcon size={17} name={workspace.icon} />
 									</span>
 									<span className="min-w-0 flex-1">
-										<span className="block truncate text-sm text-text">
-											{pluginInstallationLabel(workspace)}
-										</span>
+										<span className="block truncate text-sm text-text">{workspace.name}</span>
 										<span className="block truncate text-xs text-text-muted">
 											{workspacePickerSummary(props.navigation, workspace.installationId)}
 										</span>
