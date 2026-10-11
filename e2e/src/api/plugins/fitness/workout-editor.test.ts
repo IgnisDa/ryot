@@ -6,7 +6,7 @@ import {
 	workoutEditorSetsRecipe,
 } from "@ryot-app/fitness-plugin/workout-editor-recipes";
 import { workoutCardsRecipe } from "@ryot-app/fitness-plugin/workout-list-recipes";
-import { DateTime, Effect, Exit, Scope } from "effect";
+import { DateTime, Effect, Exit, Scope, Struct } from "effect";
 
 import {
 	createAuthenticatedClient,
@@ -131,12 +131,14 @@ const updateImportedWorkoutData = (input: {
 			workoutOccurrence(
 				input.exerciseId,
 				[
-					keepSet(originalSet, {
-						restTime: 90,
-						confirmedAt: undefined,
-						measurements: { weight: 40, reps: input.reps },
-						...(input.note === undefined ? {} : { note: input.note }),
-					}),
+					Struct.omit(
+						keepSet(originalSet, {
+							restTime: 90,
+							measurements: { weight: 40, reps: input.reps },
+							...(input.note === undefined ? {} : { note: input.note }),
+						}),
+						["confirmedAt"],
+					),
 				],
 				{
 					sourceExerciseOrder: 0,
