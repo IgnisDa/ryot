@@ -10,7 +10,12 @@ const variantClasses = {
 	outline: "border border-border-emphasis font-medium text-text hover:bg-hover",
 	switch:
 		"font-medium text-text-muted aria-pressed:bg-raised aria-pressed:text-text aria-pressed:shadow-sm",
+	linkPlain:
+		"font-ui font-medium text-[13px] text-text pointer-coarse:min-h-11 disabled:cursor-not-allowed disabled:opacity-50",
+	link: "font-ui font-medium text-[13px] text-accent-text pointer-coarse:min-h-11 disabled:cursor-not-allowed disabled:opacity-50",
 } as const;
+
+const linkVariants: ReadonlySet<keyof typeof variantClasses> = new Set(["link", "linkPlain"]);
 
 const sizeClasses = {
 	md: "min-h-9 gap-2 rounded-md px-3.5 text-sm pointer-coarse:min-h-11",
@@ -28,11 +33,13 @@ const buttonClassName = (
 	variant: keyof typeof variantClasses = "primary",
 	size: keyof typeof sizeClasses = "md",
 ) =>
-	clsx(
-		"relative inline-flex items-center justify-center py-1.5 leading-5 transition-colors duration-100 disabled:cursor-not-allowed disabled:opacity-50 motion-reduce:transition-none",
-		sizeClasses[size],
-		variantClasses[variant],
-	);
+	linkVariants.has(variant)
+		? variantClasses[variant]
+		: clsx(
+				"relative inline-flex items-center justify-center py-1.5 leading-5 transition-colors duration-100 disabled:cursor-not-allowed disabled:opacity-50 motion-reduce:transition-none",
+				sizeClasses[size],
+				variantClasses[variant],
+			);
 
 export function Button({
 	loading,
@@ -41,10 +48,12 @@ export function Button({
 	className,
 	size = "md",
 	variant = "primary",
+	type = linkVariants.has(variant) ? "button" : undefined,
 	...props
 }: ButtonProps) {
 	return (
 		<button
+			type={type}
 			aria-busy={loading === true ? true : undefined}
 			disabled={disabled === true || loading === true}
 			className={clsx(buttonClassName(variant, size), className)}

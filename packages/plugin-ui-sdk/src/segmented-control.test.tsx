@@ -66,4 +66,30 @@ describe("SegmentedControl", () => {
 
 		expect(selected).toEqual(["list"]);
 	});
+
+	it("stretches the control and its options only when asked to fill", () => {
+		const { rerender } = render(
+			<SegmentedControl value="grid" label="Layout" options={options} onChange={() => {}} />,
+		);
+		const group = screen.getByRole("radiogroup", { name: "Layout" });
+		const grid = screen.getByRole("radio", { name: "Grid view" });
+		expect(group.classList.contains("w-full")).toBe(false);
+		expect(grid.classList.contains("flex-1")).toBe(false);
+		expect(grid.classList.contains("w-8")).toBe(true);
+
+		rerender(
+			<SegmentedControl
+				fill
+				value="grid"
+				label="Layout"
+				options={options}
+				onChange={() => {}}
+				optionClassName="px-3"
+			/>,
+		);
+		expect(group.classList.contains("w-full")).toBe(true);
+		expect(grid.classList.contains("flex-1")).toBe(true);
+		expect(grid.classList.contains("px-3")).toBe(true);
+		expect(grid.classList.contains("w-8")).toBe(false);
+	});
 });
