@@ -8,50 +8,117 @@ const soundSources = {
 } as const;
 
 type WorkoutEditorSound = keyof typeof soundSources;
+type SoundSource = Pick<
+	AudioBufferSourceNode,
+	"buffer" | "disconnect" | "start" | "stop" | "addEventListener"
+>;
+type SoundContext = Pick<AudioContext, "state" | "resume" | "close" | "decodeAudioData"> & {
+	createBufferSource: () => SoundSource;
+};
 
-type AudioPlayer = Pick<HTMLMediaElement, "currentTime" | "play" | "pause">;
-
-type AudioPlayerFactory = (source: string) => AudioPlayer;
+// oxlint-disable-next-line effecttsgo/async-function -- Browser asset-fetch boundary; the plugin Effect surface does not expose HttpClient.
+const loadSound = async (source: string) => {
+	const response = await fetch(source);
+	if (!response.ok) {
+		throw new Error(`Sound request failed: ${response.status}`);
+	}
+	return response.arrayBuffer();
+};
 
 export const createWorkoutEditorSounds = (
-	createAudio: AudioPlayerFactory = (source) => new Audio(source),
+	createContext: () => SoundContext = () => {
+		const context = new AudioContext();
+		return {
+			close: () => context.close(),
+			resume: () => context.resume(),
+			get state() {
+				return context.state;
+			},
+			decodeAudioData: (data) => context.decodeAudioData(data),
+			createBufferSource: () => {
+				const source = context.createBufferSource();
+				source.connect(context.destination);
+				return source;
+			},
+		};
+	},
+	load: (source: string) => Effect.Effect<ArrayBuffer, unknown> = (source) =>
+		Effect.tryPromise(() => loadSound(source)),
 ) => {
-	const players = new Map<WorkoutEditorSound, AudioPlayer>();
+	const buffers = new Map<WorkoutEditorSound, AudioBuffer>();
+	const sources = new Set<SoundSource>();
+	let context: SoundContext | undefined;
 	let disposed = false;
-
+	const isDisposed = () => disposed;
+	const report = (cause: unknown) =>
+		Effect.logWarning("[workout-audio] playback failed", {
+			cause: String(cause),
+			state: context?.state,
+		});
+	const resume = Effect.gen(function* () {
+		if (disposed) {
+			return undefined;
+		}
+		const current = yield* Effect.try(() => (context ??= createContext()));
+		if (current.state !== "running") {
+			yield* Effect.logInfo("[workout-audio] resuming", { state: current.state });
+			yield* Effect.tryPromise(() => current.resume()).pipe(Effect.timeout("2 seconds"));
+			yield* Effect.logInfo("[workout-audio] resumed", { state: current.state });
+		}
+		return current;
+	});
 	return {
+		resume: resume.pipe(Effect.asVoid, Effect.catch(report)),
 		dispose: () => {
 			if (disposed) {
-				return;
+				return Effect.void;
 			}
 			disposed = true;
-			for (const player of players.values()) {
-				player.pause();
+			for (const source of sources) {
+				source.stop();
+				source.disconnect();
 			}
-			players.clear();
+			sources.clear();
+			buffers.clear();
+			const current = context;
+			return current === undefined
+				? Effect.void
+				: Effect.tryPromise(() => current.close()).pipe(Effect.ignore);
 		},
 		play: (sound: WorkoutEditorSound, muted: boolean) =>
 			Effect.gen(function* () {
-				if (muted || disposed) {
+				if (muted || isDisposed()) {
 					return false;
 				}
-				const player = yield* Effect.try(
-					() => players.get(sound) ?? createAudio(soundSources[sound]),
-				).pipe(Effect.orElseSucceed(() => undefined));
-				if (player === undefined) {
+				const current = yield* resume;
+				if (current === undefined) {
 					return false;
 				}
-				players.set(sound, player);
-				return yield* Effect.tryPromise({
-					catch: () => false,
-					try: () => {
-						player.currentTime = 0;
-						return player.play();
-					},
-				}).pipe(
-					Effect.map(() => true),
-					Effect.orElseSucceed(() => false),
-				);
-			}),
+				let buffer = buffers.get(sound);
+				if (buffer === undefined) {
+					const data = yield* load(soundSources[sound]);
+					buffer = yield* Effect.tryPromise(() => current.decodeAudioData(data));
+					buffers.set(sound, buffer);
+				}
+				if (isDisposed()) {
+					return false;
+				}
+				const decoded = buffer;
+				return yield* Effect.try(() => {
+					const source = current.createBufferSource();
+					source.buffer = decoded;
+					source.addEventListener(
+						"ended",
+						() => {
+							sources.delete(source);
+							source.disconnect();
+						},
+						{ once: true },
+					);
+					sources.add(source);
+					source.start();
+					return true;
+				});
+			}).pipe(Effect.catch((cause) => report(cause).pipe(Effect.as(false)))),
 	};
 };

@@ -32,6 +32,7 @@ const createEditorSession = (
 	let unregisterFlush = noop;
 	let unsubscribe = noop;
 	let cancelLoad = noop;
+	let releaseAudio = noop;
 	let reconciling = false;
 	const feedback = (): Effect.Effect<void> =>
 		Effect.gen(function* () {
@@ -118,6 +119,19 @@ const createEditorSession = (
 		acquire: (key: symbol) => {
 			if (screens.size === 0) {
 				players = createWorkoutEditorSounds();
+				const resumeAudio = () => {
+					if (document.visibilityState === "visible") {
+						schedule.run(players.resume, noop);
+					}
+				};
+				document.addEventListener("pointerdown", resumeAudio, true);
+				document.addEventListener("visibilitychange", resumeAudio);
+				window.addEventListener("focus", resumeAudio);
+				releaseAudio = () => {
+					document.removeEventListener("pointerdown", resumeAudio, true);
+					document.removeEventListener("visibilitychange", resumeAudio);
+					window.removeEventListener("focus", resumeAudio);
+				};
 				unregisterFlush = client.persistence.registerFlush(() =>
 					controller
 						.flush()
@@ -139,7 +153,8 @@ const createEditorSession = (
 					unsubscribe();
 					unregisterFlush();
 					controller.dispose();
-					players.dispose();
+					releaseAudio();
+					schedule.run(players.dispose(), noop);
 				}
 			};
 		},
