@@ -10,8 +10,8 @@ export const eventStream = snakeCase.table("event_stream", {
 	id: text().notNull().primaryKey(),
 	eventSchemaSlug: text().notNull(),
 	revision: integer().notNull().default(0),
-	updatedAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
 	eventSchemaPluginId: text().references(() => plugin.id, { onDelete: "cascade" }),
+	updatedAt: timestamp({ precision: 3, withTimezone: true }).defaultNow().notNull(),
 	userId: text()
 		.notNull()
 		.references(() => user.id, { onDelete: "cascade" }),
@@ -29,11 +29,11 @@ export const eventStreamWork = snakeCase.table(
 		pluginRevisionId: text().notNull(),
 		processorScriptId: text().notNull(),
 		attempt: integer().notNull().default(0),
-		dirtyFrom: timestamp({ withTimezone: true }),
 		pluginPin: jsonb().$type<JsonValue>().notNull(),
 		checkpoint: jsonb().$type<JsonValue>().default(null),
-		updatedAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
+		dirtyFrom: timestamp({ precision: 3, withTimezone: true }),
 		outputProperties: jsonb().$type<ReadonlyArray<string>>().notNull().default([]),
+		updatedAt: timestamp({ precision: 3, withTimezone: true }).defaultNow().notNull(),
 		id: text()
 			.notNull()
 			.primaryKey()

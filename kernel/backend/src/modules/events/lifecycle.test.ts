@@ -1764,5 +1764,18 @@ describe("Event lifecycle PostgreSQL", () => {
 				expect(yield* repository.getEventSnapshot({ userId, eventId })).toBeNull();
 			}),
 		);
+
+		test.effect("deletes an event whose timestamps were written by the database", () =>
+			Effect.gen(function* () {
+				const service = yield* EventsService;
+				const repository = yield* EventsRepository;
+				const { observer } = yield* LifecycleDatabase;
+				const eventId = EventId.make("database-timestamp-event");
+				yield* Effect.tryPromise(() =>
+					observer.query(
+						`INSERT INTO event (id,user_id,entity_id,event_schema_slug,properties,occurred_at,created_at,updated_at) VALUES ($1,$2,$3,$4,'{"rating":1}',$5,$5,$5)`,
+						[eventId, userId, entityId, eventSchemaSlug, "2026-09-15T00:00:00.000123Z"],
+					),
+				);
 	});
 });

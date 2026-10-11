@@ -10,10 +10,10 @@ export const event = snakeCase.table(
 	{
 		eventSchemaSlug: text().notNull(),
 		revision: integer().notNull().default(0),
-		occurredAt: timestamp({ withTimezone: true }).notNull(),
-		createdAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
+		occurredAt: timestamp({ precision: 3, withTimezone: true }).notNull(),
 		properties: jsonb().$type<Record<string, unknown>>().notNull().default({}),
 		sessionEntityId: text().references(() => entity.id, { onDelete: "cascade" }),
+		createdAt: timestamp({ precision: 3, withTimezone: true }).defaultNow().notNull(),
 		eventSchemaPluginId: text().references(() => plugin.id, { onDelete: "restrict" }),
 		userId: text()
 			.notNull()
@@ -25,7 +25,7 @@ export const event = snakeCase.table(
 			.notNull()
 			.primaryKey()
 			.$defaultFn(() => /* @__PURE__ */ generateId()),
-		updatedAt: timestamp({ withTimezone: true })
+		updatedAt: timestamp({ precision: 3, withTimezone: true })
 			.defaultNow()
 			.$onUpdate(() => /* @__PURE__ */ new Date())
 			.notNull(),

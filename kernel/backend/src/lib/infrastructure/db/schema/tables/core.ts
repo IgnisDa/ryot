@@ -35,7 +35,7 @@ export const pluginConfigEncryptionKey = snakeCase.table(
 		id: text().notNull(),
 		key: bytea().notNull(),
 		singleton: boolean().primaryKey().default(true),
-		createdAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
+		createdAt: timestamp({ precision: 3, withTimezone: true }).defaultNow().notNull(),
 	},
 	(table) => [
 		check("plugin_config_encryption_key_singleton_check", sql`${table.singleton} = true`),
@@ -50,7 +50,7 @@ export const plugin = snakeCase.table(
 		status: text().notNull(),
 		activeRevisionId: text(),
 		environmentConfigRevisionId: text(),
-		createdAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
+		createdAt: timestamp({ precision: 3, withTimezone: true }).defaultNow().notNull(),
 		ownerId: text("owner_user_id").references(() => user.id, { onDelete: "cascade" }),
 		activationId: text()
 			.notNull()
@@ -105,9 +105,9 @@ export const pluginRevision = snakeCase.table(
 		id: text()
 			.primaryKey()
 			.$defaultFn(() => generateId()),
-		createdAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
 		name: text().generatedAlwaysAs(sql`manifest -> 'metadata' ->> 'name'`),
 		icon: text().generatedAlwaysAs(sql`manifest -> 'metadata' ->> 'icon'`),
+		createdAt: timestamp({ precision: 3, withTimezone: true }).defaultNow().notNull(),
 		description: text().generatedAlwaysAs(sql`manifest -> 'metadata' ->> 'description'`),
 		pluginId: text()
 			.notNull()
@@ -211,12 +211,12 @@ export const pluginInstallation = snakeCase.table(
 		homeSavedViewSlug: text(),
 		sortOrder: integer().notNull().default(0),
 		isHidden: boolean().notNull().default(false),
-		uninstalledAt: timestamp({ withTimezone: true }),
 		ingestionRetiring: boolean().notNull().default(false),
 		configuredSecretPaths: text().array().notNull().default([]),
-		createdAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
+		uninstalledAt: timestamp({ precision: 3, withTimezone: true }),
 		clientConfig: jsonb().$type<Record<string, JsonValue>>().notNull().default({}),
 		userSettings: jsonb().$type<Record<string, JsonValue>>().notNull().default({}),
+		createdAt: timestamp({ precision: 3, withTimezone: true }).defaultNow().notNull(),
 		userId: text()
 			.notNull()
 			.references(() => user.id, { onDelete: "cascade" }),
@@ -228,7 +228,7 @@ export const pluginInstallation = snakeCase.table(
 			.notNull()
 			.primaryKey()
 			.$defaultFn(() => /* @__PURE__ */ generateId()),
-		updatedAt: timestamp({ withTimezone: true })
+		updatedAt: timestamp({ precision: 3, withTimezone: true })
 			.defaultNow()
 			.$onUpdate(() => /* @__PURE__ */ new Date())
 			.notNull(),
@@ -253,12 +253,12 @@ export const pluginConfigRevision = snakeCase.table(
 		encryptionKeyId: text().notNull(),
 		payloadFingerprint: text().notNull(),
 		configuredKeys: text().array().notNull(),
-		payloadPrunedAt: timestamp({ withTimezone: true }),
 		id: text()
 			.primaryKey()
 			.$defaultFn(() => generateId()),
-		createdAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
+		payloadPrunedAt: timestamp({ precision: 3, withTimezone: true }),
 		ownerUserId: text().references(() => user.id, { onDelete: "cascade" }),
+		createdAt: timestamp({ precision: 3, withTimezone: true }).defaultNow().notNull(),
 		pluginRevisionId: text()
 			.notNull()
 			.references(() => pluginRevision.id, { onDelete: "cascade" }),
@@ -293,7 +293,7 @@ export const sandboxProvider = snakeCase.table(
 		name: text().notNull(),
 		rootEntitySchemaSlug: text().notNull(),
 		information: jsonb().$type<ProviderInformation>().notNull(),
-		createdAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
+		createdAt: timestamp({ precision: 3, withTimezone: true }).defaultNow().notNull(),
 		pluginId: text()
 			.notNull()
 			.references(() => plugin.id, { onDelete: "cascade" }),
@@ -301,7 +301,7 @@ export const sandboxProvider = snakeCase.table(
 			.notNull()
 			.primaryKey()
 			.$defaultFn(() => /* @__PURE__ */ generateId()),
-		updatedAt: timestamp({ withTimezone: true })
+		updatedAt: timestamp({ precision: 3, withTimezone: true })
 			.defaultNow()
 			.$onUpdate(() => /* @__PURE__ */ new Date())
 			.notNull(),
@@ -323,8 +323,8 @@ export const sandboxScript = snakeCase.table(
 		compiledCode: text().notNull(),
 		compiledFormat: smallint().notNull().default(1),
 		metadata: jsonb().$type<SandboxScriptMetadata>().notNull(),
-		createdAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
 		providerId: text().references(() => sandboxProvider.id, { onDelete: "cascade" }),
+		createdAt: timestamp({ precision: 3, withTimezone: true }).defaultNow().notNull(),
 		pluginRevisionId: text().references(() => pluginRevision.id, { onDelete: "cascade" }),
 		id: text()
 			.notNull()
