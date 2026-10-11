@@ -93,20 +93,20 @@ const HttpNetworkAttempt = Schema.Struct({
 	]),
 });
 
-class SandboxHttpInlineDeferred extends Schema.TaggedError<SandboxHttpInlineDeferred>()(
-	"SandboxHttpInlineDeferred",
-	{},
-) {}
+class SandboxHttpInlineDeferred extends Schema.TaggedError<
+	SandboxHttpInlineDeferred,
+	{ readonly brand: unique symbol }
+>()("SandboxHttpInlineDeferred", {}) {}
 
 type InlineHttpSettlement = {
 	readonly wait: SandboxShortWait;
 	readonly checkpoint: (progress: SandboxHttpProgress) => Effect.Effect<void>;
 };
 
-class HttpAdmissionCoordinationError extends Schema.TaggedError<HttpAdmissionCoordinationError>()(
-	"HttpAdmissionCoordinationError",
-	{ stage: Schema.String },
-) {}
+class HttpAdmissionCoordinationError extends Schema.TaggedError<
+	HttpAdmissionCoordinationError,
+	{ readonly brand: unique symbol }
+>()("HttpAdmissionCoordinationError", { stage: Schema.String }) {}
 
 const bounded = (value: string, length: number) => value.slice(0, length);
 
@@ -750,7 +750,9 @@ const makeSandboxHttpDispatcher = Effect.gen(function* () {
 						Scope.close(resource, Exit.void),
 					);
 					// This view supplies only the persisted parent interrupt lookup; live calls do not run workflow activities.
-					const identity = WorkflowInstance.initial(ScriptExecutionWorkflow, executionId, scope);
+					const identity = WorkflowInstance.initial(ScriptExecutionWorkflow, executionId, {
+						scope,
+					});
 					let latest: SandboxHttpProgress | undefined;
 					return yield* run(request, payload, principal, executionId, startedAt, undefined, {
 						wait,

@@ -43,12 +43,12 @@ const AutomationConflictReason = Schema.Union([
 	}),
 ]);
 
-export class AutomationNotFoundError extends Schema.TaggedError<AutomationNotFoundError>()(
-	"AutomationNotFoundError",
-	{ reason: AutomationNotFoundReason },
-) {}
+export class AutomationNotFoundError extends Schema.TaggedError<
+	AutomationNotFoundError,
+	{ readonly brand: unique symbol }
+>()("AutomationNotFoundError", { reason: AutomationNotFoundReason }) {}
 
-export class AutomationConflictError extends Schema.TaggedError<AutomationConflictError>()(
-	"AutomationConflictError",
-	{ reason: AutomationConflictReason },
-) {}
+export class AutomationConflictError extends Schema.TaggedError<
+	AutomationConflictError,
+	{ readonly brand: unique symbol }
+>()("AutomationConflictError", { reason: AutomationConflictReason }) {}

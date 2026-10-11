@@ -1,6 +1,6 @@
 import type { Effect } from "effect";
 import { HttpClient, HttpClientRequest } from "effect/http";
-import { HttpApiClient } from "effect/http-api";
+import { HttpApiClient, type HttpApiEndpoint, type HttpApiGroup } from "effect/http-api";
 
 import { AppContract, type AppGroups } from "./contract";
 
@@ -20,18 +20,22 @@ export const makeContractClient = (
 export type ContractClient = Effect.Success<ReturnType<typeof makeContractClient>>;
 export type ContractProgram<A, E> = (client: ContractClient) => Effect.Effect<A, E>;
 
-type StripResponseMeta<T> = T extends readonly [infer Data, unknown] ? Data : T;
 type GroupKey = keyof ContractClient;
 type MethodKey<G extends GroupKey> = keyof ContractClient[G];
+type ContractEndpoint<G extends GroupKey, M extends MethodKey<G>> = HttpApiEndpoint.WithIdentifier<
+	HttpApiGroup.EndpointsWithIdentifier<AppGroups, G>,
+	Extract<M, string>
+>;
 export type ContractRequest<
 	G extends GroupKey,
 	M extends MethodKey<G>,
-> = ContractClient[G][M] extends (request: infer Req, ...rest: never[]) => unknown ? Req : never;
-type ClientSuccessValue<G extends GroupKey, M extends MethodKey<G>> = ContractClient[G][M] extends (
-	...args: never[]
-) => Effect.Effect<infer A, infer _E, infer _R>
-	? A
-	: never;
+> = HttpApiEndpoint.ClientRequest<
+	ContractEndpoint<G, M>["~Params"],
+	ContractEndpoint<G, M>["~Query"],
+	ContractEndpoint<G, M>["~Payload"],
+	ContractEndpoint<G, M>["~Headers"],
+	"decoded-only"
+>;
 
 export type ContractPayload<G extends GroupKey, M extends MethodKey<G>> =
 	ContractRequest<G, M> extends { payload: infer P } ? P : never;
@@ -39,6 +43,6 @@ export type ContractUrlParams<G extends GroupKey, M extends MethodKey<G>> =
 	ContractRequest<G, M> extends { query: infer U } ? U : never;
 export type ContractPathParams<G extends GroupKey, M extends MethodKey<G>> =
 	ContractRequest<G, M> extends { params: infer P } ? P : never;
-export type ContractSuccess<G extends GroupKey, M extends MethodKey<G>> = StripResponseMeta<
-	ClientSuccessValue<G, M>
+export type ContractSuccess<G extends GroupKey, M extends MethodKey<G>> = HttpApiClient.SuccessType<
+	HttpApiEndpoint.Success<ContractEndpoint<G, M>>
 >;

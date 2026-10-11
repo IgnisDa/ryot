@@ -22,10 +22,13 @@ export type PluginBackendCompilerDiagnostic = Schema.Schema.Type<
 	typeof PluginBackendCompilerDiagnostic
 >;
 
-export class PluginBackendCompilerFailure extends Schema.TaggedError<PluginBackendCompilerFailure>()(
-	"PluginBackendCompilerFailure",
-	{ message: Schema.String, diagnostics: Schema.Array(PluginBackendCompilerDiagnostic) },
-) {}
+export class PluginBackendCompilerFailure extends Schema.TaggedError<
+	PluginBackendCompilerFailure,
+	{ readonly brand: unique symbol }
+>()("PluginBackendCompilerFailure", {
+	message: Schema.String,
+	diagnostics: Schema.Array(PluginBackendCompilerDiagnostic),
+}) {}
 
 const diagnosticBytes = (diagnostic: PluginBackendCompilerDiagnostic) =>
 	utf8ByteLength(JSON.stringify(diagnostic));

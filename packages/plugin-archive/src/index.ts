@@ -57,10 +57,10 @@ export const PluginArchiveErrorReason = Schema.Literals([
 
 export type PluginArchiveErrorReason = typeof PluginArchiveErrorReason.Type;
 
-export class PluginArchiveError extends Schema.TaggedError<PluginArchiveError>()(
-	"PluginArchiveError",
-	{ reason: PluginArchiveErrorReason },
-) {}
+export class PluginArchiveError extends Schema.TaggedError<
+	PluginArchiveError,
+	{ readonly brand: unique symbol }
+>()("PluginArchiveError", { reason: PluginArchiveErrorReason }) {}
 
 export type PluginArchiveCompiledScript = {
 	readonly entry: string;

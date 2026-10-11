@@ -40,10 +40,10 @@ export const filterLogger = <Message, Output>(
 const reportFileLoggerError = (logFile: string, error: Error) =>
 	globalThis.console.error(`File logger failure for '${logFile}'`, error);
 
-class FileLoggerOpenError extends Schema.TaggedError<FileLoggerOpenError>()("FileLoggerOpenError", {
-	logFile: Schema.String,
-	reason: Schema.Defect(),
-}) {}
+class FileLoggerOpenError extends Schema.TaggedError<
+	FileLoggerOpenError,
+	{ readonly brand: unique symbol }
+>()("FileLoggerOpenError", { logFile: Schema.String, reason: Schema.Defect() }) {}
 
 const openRotatingStream = (
 	logFile: string,

@@ -31,7 +31,7 @@
 		"@ryot-app/contract": "workspace:*",
 		"@ryot-app/ryotql": "workspace:*",
 		"@ryot-app/ryotql-recipes": "workspace:*",
-		"effect": "4.0.0",
+		"effect": "4.0.5",
 		"fflate": "0.8.3"
 	},
 	"devDependencies": {

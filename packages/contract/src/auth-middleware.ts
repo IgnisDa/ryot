@@ -12,27 +12,32 @@ const AuthUnauthorizedReason = Schema.Union([
 	Schema.Struct({ code: Schema.Literal("authentication-required") }),
 ]);
 
-export class AuthUnauthorized extends Schema.TaggedError<AuthUnauthorized>()("AuthUnauthorized", {
-	reason: AuthUnauthorizedReason,
-}) {}
+export class AuthUnauthorized extends Schema.TaggedError<
+	AuthUnauthorized,
+	{ readonly brand: unique symbol }
+>()("AuthUnauthorized", { reason: AuthUnauthorizedReason }) {}
 
 const AuthRateLimitReason = Schema.Struct({
 	code: Schema.Literal("api-key-rate-limited"),
 	retryAfterMs: Schema.NullOr(Schema.Finite.pipe(Schema.check(Schema.isGreaterThanOrEqualTo(0)))),
 });
 
-export class AuthRateLimited extends Schema.TaggedError<AuthRateLimited>()("AuthRateLimited", {
-	reason: AuthRateLimitReason,
+export class AuthRateLimited extends Schema.TaggedError<
+	AuthRateLimited,
+	{ readonly brand: unique symbol }
+>()("AuthRateLimited", { reason: AuthRateLimitReason }) {}
+
+export class DemoOperationProtected extends Schema.TaggedError<
+	DemoOperationProtected,
+	{ readonly brand: unique symbol }
+>()("DemoOperationProtected", {
+	reason: Schema.Struct({ code: Schema.Literal("demo-operation-protected") }),
 }) {}
 
-export class DemoOperationProtected extends Schema.TaggedError<DemoOperationProtected>()(
-	"DemoOperationProtected",
-	{ reason: Schema.Struct({ code: Schema.Literal("demo-operation-protected") }) },
-) {}
-
-export class UserInitializing extends Schema.TaggedError<UserInitializing>()("UserInitializing", {
-	reason: Schema.Struct({ code: Schema.Literal("user-initializing") }),
-}) {}
+export class UserInitializing extends Schema.TaggedError<
+	UserInitializing,
+	{ readonly brand: unique symbol }
+>()("UserInitializing", { reason: Schema.Struct({ code: Schema.Literal("user-initializing") }) }) {}
 
 export type CurrentUserValue = {
 	readonly id: UserId;

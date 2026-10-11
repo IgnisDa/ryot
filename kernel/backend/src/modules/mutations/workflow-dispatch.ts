@@ -51,7 +51,5 @@ export const dispatchAdmittedWorkflow = Effect.fnUntraced(function* <
 ) {
 	const executionId = options.executionId ?? (yield* workflow.executionId(options.payload));
 	yield* admit(admitWorkflow(receipts, workflow, account, executionId));
-	// TODO: https://github.com/Effect-TS/effect/issues/9003
-	// Root execute callers wait for retry timers after durable completion. Remove once a released fix lands.
 	return yield* dispatch(engine.execute(workflow, { ...options, executionId }));
 });

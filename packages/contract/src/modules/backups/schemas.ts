@@ -86,22 +86,25 @@ const BackupInternalErrorReason = Schema.Union([
 	Schema.Struct({ code: Schema.Literal("unexpected-error") }),
 ]);
 
-export class BackupBadRequest extends Schema.TaggedError<BackupBadRequest>()("BackupBadRequest", {
-	reason: BackupBadRequestReason,
-}) {}
+export class BackupBadRequest extends Schema.TaggedError<
+	BackupBadRequest,
+	{ readonly brand: unique symbol }
+>()("BackupBadRequest", { reason: BackupBadRequestReason }) {}
 
-export class BackupConflict extends Schema.TaggedError<BackupConflict>()("BackupConflict", {
-	reason: BackupConflictReason,
-}) {}
+export class BackupConflict extends Schema.TaggedError<
+	BackupConflict,
+	{ readonly brand: unique symbol }
+>()("BackupConflict", { reason: BackupConflictReason }) {}
 
-export class BackupNotFound extends Schema.TaggedError<BackupNotFound>()("BackupNotFound", {
-	reason: BackupNotFoundReason,
-}) {}
+export class BackupNotFound extends Schema.TaggedError<
+	BackupNotFound,
+	{ readonly brand: unique symbol }
+>()("BackupNotFound", { reason: BackupNotFoundReason }) {}
 
-export class BackupInternalError extends Schema.TaggedError<BackupInternalError>()(
-	"BackupInternalError",
-	{ reason: BackupInternalErrorReason },
-) {}
+export class BackupInternalError extends Schema.TaggedError<
+	BackupInternalError,
+	{ readonly brand: unique symbol }
+>()("BackupInternalError", { reason: BackupInternalErrorReason }) {}
 
 export const BackupRunArtifactProvider = Schema.Literals(["local", "s3"]);
 export type BackupRunArtifactProvider = typeof BackupRunArtifactProvider.Type;

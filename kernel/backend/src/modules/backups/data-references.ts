@@ -9,10 +9,13 @@ type ReferenceMap = ReadonlyMap<string, string>;
 
 const isJsonObject = (value: unknown): value is JsonObject => isObjectRecord(value);
 
-export class DataReferenceError extends Schema.TaggedError<DataReferenceError>()(
-	"DataReferenceError",
-	{ message: Schema.String, code: Schema.Literals(["missing_reference_mapping", "invalid_entry"]) },
-) {}
+export class DataReferenceError extends Schema.TaggedError<
+	DataReferenceError,
+	{ readonly brand: unique symbol }
+>()("DataReferenceError", {
+	message: Schema.String,
+	code: Schema.Literals(["missing_reference_mapping", "invalid_entry"]),
+}) {}
 
 export const requiredReference = (
 	mapping: ReferenceMap,

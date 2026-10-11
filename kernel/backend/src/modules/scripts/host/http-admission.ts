@@ -88,15 +88,15 @@ export const ProviderHttpAdmissionBlockResult = Schema.Union([
 ]);
 export type ProviderHttpAdmissionBlockResult = typeof ProviderHttpAdmissionBlockResult.Type;
 
-export class ProviderHttpAdmissionUnavailable extends Schema.TaggedError<ProviderHttpAdmissionUnavailable>()(
-	"ProviderHttpAdmissionUnavailable",
-	{ message: Schema.String },
-) {}
+export class ProviderHttpAdmissionUnavailable extends Schema.TaggedError<
+	ProviderHttpAdmissionUnavailable,
+	{ readonly brand: unique symbol }
+>()("ProviderHttpAdmissionUnavailable", { message: Schema.String }) {}
 
-export class ProviderHttpAdmissionCorruptState extends Schema.TaggedError<ProviderHttpAdmissionCorruptState>()(
-	"ProviderHttpAdmissionCorruptState",
-	{ message: Schema.String },
-) {}
+export class ProviderHttpAdmissionCorruptState extends Schema.TaggedError<
+	ProviderHttpAdmissionCorruptState,
+	{ readonly brand: unique symbol }
+>()("ProviderHttpAdmissionCorruptState", { message: Schema.String }) {}
 
 const ExpiredLane = Schema.Literals(["", ...ExecutionLane.literals]);
 

@@ -26,7 +26,7 @@ describe("ThemeController", () => {
 
 			theme.setPreference("dark");
 
-			yield* Effect.sleep(0);
+			yield* Effect.yieldNow;
 			expect(persisted).toEqual(["system", "dark"]);
 		}),
 	);

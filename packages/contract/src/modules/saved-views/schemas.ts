@@ -34,15 +34,15 @@ const SavedViewNotFoundReason = Schema.Union([
 	Schema.Struct({ reference: SavedViewReference, code: Schema.Literal("saved-view-not-found") }),
 ]);
 
-export class SavedViewBadRequest extends Schema.TaggedError<SavedViewBadRequest>()(
-	"SavedViewBadRequest",
-	{ reason: SavedViewBadRequestReason },
-) {}
+export class SavedViewBadRequest extends Schema.TaggedError<
+	SavedViewBadRequest,
+	{ readonly brand: unique symbol }
+>()("SavedViewBadRequest", { reason: SavedViewBadRequestReason }) {}
 
-export class SavedViewNotFound extends Schema.TaggedError<SavedViewNotFound>()(
-	"SavedViewNotFound",
-	{ reason: SavedViewNotFoundReason },
-) {}
+export class SavedViewNotFound extends Schema.TaggedError<
+	SavedViewNotFound,
+	{ readonly brand: unique symbol }
+>()("SavedViewNotFound", { reason: SavedViewNotFoundReason }) {}
 
 export const SavedViewDisplayKind = Schema.Literals([
 	"text",

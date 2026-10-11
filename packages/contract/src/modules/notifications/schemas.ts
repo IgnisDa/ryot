@@ -92,12 +92,12 @@ const NotificationNotFoundReason = Schema.Union([
 	Schema.Struct({ channelId: NotificationChannelId, code: Schema.Literal("channel-not-found") }),
 ]);
 
-export class NotificationRequestError extends Schema.TaggedError<NotificationRequestError>()(
-	"NotificationRequestError",
-	{ reason: NotificationRequestFailureReason },
-) {}
+export class NotificationRequestError extends Schema.TaggedError<
+	NotificationRequestError,
+	{ readonly brand: unique symbol }
+>()("NotificationRequestError", { reason: NotificationRequestFailureReason }) {}
 
-export class NotificationNotFoundError extends Schema.TaggedError<NotificationNotFoundError>()(
-	"NotificationNotFoundError",
-	{ reason: NotificationNotFoundReason },
-) {}
+export class NotificationNotFoundError extends Schema.TaggedError<
+	NotificationNotFoundError,
+	{ readonly brand: unique symbol }
+>()("NotificationNotFoundError", { reason: NotificationNotFoundReason }) {}
