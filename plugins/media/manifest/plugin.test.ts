@@ -754,11 +754,15 @@ it("declares the complete media-owned source", () => {
 		},
 		{
 			slug: "media-trending",
-			scriptSlug: "media-trending",
 			schedule: { tier: "infrequent" },
+			scriptSlug: "workflow.media-trending",
 			description: "Refresh global media trending rankings",
 		},
 	]);
+	expect(mediaPlugin.workflows).toContainEqual({
+		slug: "media-trending",
+		scriptSlug: "workflow.media-trending",
+	});
 	expect(mediaPlugin.workflows).toContainEqual({
 		slug: "media-monitoring-sweep",
 		scriptSlug: "workflow.media-monitoring-sweep",

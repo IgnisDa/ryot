@@ -3,20 +3,21 @@ import { Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
 import { defineProvider } from "@ryot-app/plugin-backend-sdk/provider";
 import { asRecord } from "@ryot-app/plugin-backend-sdk/wire";
 
+import { MediaTrendingProviderOutput } from "../../../contracts/workflows";
 import { MediaSandboxError } from "../../../lib/failures";
 import { getUserAllowNsfw } from "../../../lib/host";
 import { parsePublishYear } from "../../../lib/parse-publish-year";
 import { normalizePlainDescription } from "../../../lib/plain-description";
 import { numberValue, recordsValue, stringValue } from "../../../lib/records";
 import {
-	fetchTrendingItems,
 	getImageUrl,
 	getLocalizedImageUrl,
 	getTmdbAccessToken,
 	orderedTranslationCandidates,
 	parseTranslationLanguage,
+	runTmdbTrending,
 	tmdbGet,
-	type TmdbHost,
+	type TmdbTrendingHost,
 } from "../../../lib/vendors/tmdb";
 import { getTmdbMovieDetails } from "./details";
 
@@ -154,16 +155,13 @@ export const translate = defineProvider({
 
 export const trending = {
 	input: Schema.Struct({}),
-	output: Schema.Struct({
-		items: Schema.Array(
-			Schema.Struct({ name: Schema.NonEmptyString, externalId: Schema.NonEmptyString }),
-		),
-	}),
-	run: (_input: unknown, host: TmdbHost) =>
-		Effect.flatMap(getTmdbAccessToken(host), (token) =>
-			fetchTrendingItems(host, "/trending/movie/day", canonicalLanguage, token, {
-				providerSlug: manifest.slug,
-				nameKeys: ["title", "original_title"],
-			}).pipe(Effect.map((items) => ({ items }))),
-		),
+	output: MediaTrendingProviderOutput,
+	run: (_input: unknown, host: TmdbTrendingHost) =>
+		runTmdbTrending(host, {
+			entitySchemaSlug: "movie",
+			path: "/trending/movie/day",
+			language: canonicalLanguage,
+			providerSlug: manifest.slug,
+			nameKeys: ["title", "original_title"],
+		}),
 };

@@ -2,16 +2,17 @@ import { defineManifest } from "@ryot-app/plugin-backend-sdk/driver";
 import { Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
 import { defineProvider } from "@ryot-app/plugin-backend-sdk/provider";
 
+import { MediaTrendingProviderOutput } from "../../../contracts/workflows";
 import { MediaSandboxError } from "../../../lib/failures";
 import { getUserAllowNsfw } from "../../../lib/host";
 import { parsePublishYear } from "../../../lib/parse-publish-year";
 import { numberValue, recordsValue, stringValue } from "../../../lib/records";
 import {
-	fetchTrendingItems,
 	getImageUrl,
 	getTmdbAccessToken,
+	runTmdbTrending,
 	tmdbGet,
-	type TmdbHost,
+	type TmdbTrendingHost,
 } from "../../../lib/vendors/tmdb";
 import { getTmdbShowDetails } from "./details";
 import { translateTmdbShow } from "./translation";
@@ -110,16 +111,13 @@ export const translate = defineProvider({
 
 export const trending = {
 	input: Schema.Struct({}),
-	output: Schema.Struct({
-		items: Schema.Array(
-			Schema.Struct({ name: Schema.NonEmptyString, externalId: Schema.NonEmptyString }),
-		),
-	}),
-	run: (_input: unknown, host: TmdbHost) =>
-		Effect.flatMap(getTmdbAccessToken(host), (token) =>
-			fetchTrendingItems(host, "/trending/tv/day", canonicalLanguage, token, {
-				providerSlug: manifest.slug,
-				nameKeys: ["name", "original_name"],
-			}).pipe(Effect.map((items) => ({ items }))),
-		),
+	output: MediaTrendingProviderOutput,
+	run: (_input: unknown, host: TmdbTrendingHost) =>
+		runTmdbTrending(host, {
+			path: "/trending/tv/day",
+			entitySchemaSlug: "show",
+			language: canonicalLanguage,
+			providerSlug: manifest.slug,
+			nameKeys: ["name", "original_name"],
+		}),
 };

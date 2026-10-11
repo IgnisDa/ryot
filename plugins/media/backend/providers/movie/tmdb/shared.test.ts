@@ -371,37 +371,111 @@ describe("movie.tmdb sandbox script", () => {
 		);
 	});
 
-	it("returns TMDB trending movies", () => {
+	it("upserts TMDB trending movies and returns deduplicated entity ids in fetch order", () => {
 		const requestedPages: string[] = [];
-		const host = makeHost((_method, url) => {
-			const requestUrl = new URL(url);
-			expect(requestUrl.pathname).toBe("/3/trending/movie/day");
-			requestedPages.push(requestUrl.searchParams.get("page") ?? "");
-			if (requestUrl.searchParams.get("page") === "1") {
-				return httpSuccess({
-					results: [
-						{ id: 1, title: "First Movie" },
-						{ id: 2, original_title: "Second Movie" },
-						{ id: 3, title: "" },
-					],
-				});
-			}
-			return requestUrl.searchParams.get("page") === "2"
-				? httpSuccess({ results: [{ id: 4, title: "Third Movie" }] })
-				: httpSuccess({ results: [{ id: 5, title: "Fourth Movie" }] });
+		const upserts: Parameters<ScriptHost["upsertGlobalEntities"]>[0][] = [];
+		const host = defineSandboxTestHost(manifest, {
+			getPluginConfig: ({ required: keys = [] }) =>
+				Effect.succeed(Object.fromEntries(keys.map((key) => [key, "token"]))),
+			upsertGlobalEntities: (items) =>
+				Effect.sync(() => {
+					upserts.push(items);
+					return items.map(({ externalId }) =>
+						externalId === "4"
+							? { status: "skipped" as const }
+							: {
+									wasInserted: true,
+									status: "upserted" as const,
+									entityId: externalId === "2" ? "entity-1" : `entity-${externalId}`,
+								},
+					);
+				}),
+			httpCall: (_method, url) => {
+				const requestUrl = new URL(url);
+				expect(requestUrl.pathname).toBe("/3/trending/movie/day");
+				requestedPages.push(requestUrl.searchParams.get("page") ?? "");
+				if (requestUrl.searchParams.get("page") === "1") {
+					return httpSuccess({
+						results: [
+							{ id: 1, title: "First Movie" },
+							{ id: 2, original_title: "Second Movie" },
+							{ id: 3, title: "" },
+						],
+					});
+				}
+				return requestUrl.searchParams.get("page") === "2"
+					? httpSuccess({ results: [{ id: 4, title: "Third Movie" }] })
+					: httpSuccess({ results: [{ id: 5, title: "Fourth Movie" }] });
+			},
 		});
 		return Effect.runPromise(
 			runSandboxTestScript(trending, {}, host, execution).pipe(
 				Effect.map((result) => {
 					expect(requestedPages).toEqual(["1", "2", "3"]);
-					expect(result).toEqual({
-						items: [
-							{ externalId: "1", name: "First Movie" },
-							{ externalId: "2", name: "Second Movie" },
-							{ externalId: "4", name: "Third Movie" },
-							{ externalId: "5", name: "Fourth Movie" },
+					expect(upserts).toEqual([
+						[
+							{
+								properties: {},
+								externalId: "1",
+								populatedAt: null,
+								name: "First Movie",
+								entitySchemaSlug: "movie",
+							},
+							{
+								properties: {},
+								externalId: "2",
+								populatedAt: null,
+								name: "Second Movie",
+								entitySchemaSlug: "movie",
+							},
+							{
+								properties: {},
+								externalId: "4",
+								populatedAt: null,
+								name: "Third Movie",
+								entitySchemaSlug: "movie",
+							},
+							{
+								properties: {},
+								externalId: "5",
+								populatedAt: null,
+								name: "Fourth Movie",
+								entitySchemaSlug: "movie",
+							},
 						],
-					});
+					]);
+					expect(result).toEqual({ status: "fetched", entityIds: ["entity-1", "entity-5"] });
+					return undefined;
+				}),
+			),
+		);
+	});
+
+	it("logs and reports a failed status when the TMDB trending fetch fails", () => {
+		const logs: Parameters<ScriptHost["log"]>[0][] = [];
+		const host = defineSandboxTestHost(manifest, {
+			httpCall: () => Effect.fail({ message: "provider unavailable" }),
+			log: (entries) =>
+				Effect.sync(() => {
+					logs.push(entries);
+					return null;
+				}),
+			getPluginConfig: ({ required: keys = [] }) =>
+				Effect.succeed(Object.fromEntries(keys.map((key) => [key, "token"]))),
+		});
+		return Effect.runPromise(
+			runSandboxTestScript(trending, {}, host, execution).pipe(
+				Effect.map((result) => {
+					expect(result).toEqual({ status: "failed" });
+					expect(logs).toEqual([
+						[
+							{
+								level: "warning",
+								message: "trending provider skipped",
+								attributes: { providerSlug: "movie.tmdb", error: "provider unavailable" },
+							},
+						],
+					]);
 					return undefined;
 				}),
 			),

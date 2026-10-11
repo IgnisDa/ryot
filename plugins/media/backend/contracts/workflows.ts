@@ -130,3 +130,25 @@ export const MediaMonitoringSweepWorkflowOutput = Schema.Struct({
 		Schema.check(Schema.isGreaterThanOrEqualTo(0)),
 	),
 });
+
+export const MediaTrendingProviderOutput = Schema.Union([
+	Schema.Struct({ status: Schema.Literal("fetched"), entityIds: Schema.Array(Schema.String) }),
+	Schema.Struct({ status: Schema.Literal("failed") }),
+]);
+
+export const MediaTrendingRankingsInput = Schema.Struct({
+	batches: Schema.Array(
+		Schema.Struct({ entitySchemaSlug: Schema.String, entityIds: Schema.Array(Schema.String) }),
+	),
+});
+
+export const MediaTrendingRankingsOutput = Schema.Struct({
+	synced: Schema.Boolean,
+	itemCount: Schema.Finite,
+});
+
+export const MediaTrendingWorkflowOutput = Schema.Struct({
+	synced: Schema.Boolean,
+	itemCount: Schema.Finite,
+	providerCount: Schema.Finite,
+});

@@ -4,6 +4,8 @@ import type { ProviderDetailsRelatedEntity } from "@ryot-app/plugin-backend-sdk/
 import { asRecord } from "@ryot-app/plugin-backend-sdk/wire";
 
 import type { WatchProviderOffer } from "../../../shared/watch-provider";
+import type { MediaTrendingProviderOutput } from "../../contracts/workflows";
+import { mediaFailureMessage } from "../error-message";
 import { MediaSandboxError } from "../failures";
 import {
 	decodeJsonResponse,
@@ -15,6 +17,7 @@ import {
 import { createRoleAccumulator, type RoleRelatedEntity } from "../role-accumulator";
 
 export type TmdbHost = Pick<ScriptHost, "httpCall" | "getPluginConfig">;
+export type TmdbTrendingHost = TmdbHost & Pick<ScriptHost, "log" | "upsertGlobalEntities">;
 
 type TmdbImagePurpose = "cover" | "backdrop";
 type TmdbRemoteImage = { type: "remote"; url: string; purpose: TmdbImagePurpose };
@@ -273,7 +276,7 @@ export const collectCompanies = (companyGroups: ReadonlyArray<readonly [unknown,
 	return [...companies.values()];
 };
 
-export const fetchTrendingItems = (
+const fetchTrendingItems = (
 	host: TmdbHost,
 	path: string,
 	language: string,
@@ -294,6 +297,58 @@ export const fetchTrendingItems = (
 			externalId,
 		}));
 	});
+
+export const runTmdbTrending = (
+	host: TmdbTrendingHost,
+	options: {
+		readonly path: string;
+		readonly language: string;
+		readonly providerSlug: string;
+		readonly entitySchemaSlug: string;
+		readonly nameKeys: readonly string[];
+	},
+): Effect.Effect<typeof MediaTrendingProviderOutput.Type> =>
+	getTmdbAccessToken(host).pipe(
+		Effect.flatMap((token) =>
+			fetchTrendingItems(host, options.path, options.language, token, {
+				nameKeys: options.nameKeys,
+				providerSlug: options.providerSlug,
+			}),
+		),
+		Effect.flatMap((items) =>
+			host.upsertGlobalEntities(
+				items.map(({ name, externalId }) => ({
+					name,
+					externalId,
+					properties: {},
+					populatedAt: null,
+					entitySchemaSlug: options.entitySchemaSlug,
+				})),
+			),
+		),
+		Effect.map((results) => ({
+			status: "fetched" as const,
+			entityIds: [
+				...new Set(
+					results.flatMap((result) => (result.status === "upserted" ? [result.entityId] : [])),
+				),
+			],
+		})),
+		Effect.catch((error) =>
+			host
+				.log([
+					{
+						level: "warning",
+						message: "trending provider skipped",
+						attributes: { error: mediaFailureMessage(error), providerSlug: options.providerSlug },
+					},
+				])
+				.pipe(
+					Effect.orElseSucceed(() => null),
+					Effect.map(() => ({ status: "failed" as const })),
+				),
+		),
+	);
 
 export const parseTranslationLanguage = (language: string) => {
 	const [languagePart = "", regionPart] = language.split("-");
