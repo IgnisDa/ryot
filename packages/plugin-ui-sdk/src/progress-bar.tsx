@@ -1,12 +1,13 @@
 import clsx from "clsx";
 
-const toneClasses = { info: "bg-info", accent: "bg-accent" } as const;
+const toneClasses = { info: "bg-info", accent: "bg-accent", success: "bg-success" } as const;
 
 export function ProgressBar(props: {
 	readonly max: number;
 	readonly label: string;
 	readonly value: number;
 	readonly className?: string | undefined;
+	readonly fillClassName?: string | undefined;
 	readonly tone: keyof typeof toneClasses;
 }) {
 	const max = Math.max(0, props.max);
@@ -23,8 +24,9 @@ export function ProgressBar(props: {
 			<div
 				style={{ width: `${max === 0 ? 0 : (value / max) * 100}%` }}
 				className={clsx(
-					"h-full rounded-pill transition-[width] duration-1000 ease-linear motion-reduce:transition-none",
+					"h-full rounded-pill transition-[width] motion-reduce:transition-none",
 					toneClasses[props.tone],
+					props.fillClassName,
 				)}
 			/>
 		</div>

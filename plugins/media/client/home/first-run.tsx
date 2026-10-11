@@ -1,9 +1,8 @@
 import { Effect } from "@ryot-app/plugin-client-sdk/effect";
 import { EntitySchemaSlug, PluginLink } from "@ryot-app/plugin-client-sdk/plugin";
 import { usePluginIdentity, useRyot, useRyotSchedule } from "@ryot-app/plugin-client-sdk/react";
-import { Button, Menu } from "@ryot-app/plugin-ui-sdk";
+import { Button, MenuButton } from "@ryot-app/plugin-ui-sdk";
 import clsx from "clsx";
-import { useRef, useState } from "react";
 
 import { builtinMediaEntitySchemaSlugs } from "../../shared/media-schema-slugs";
 import { PLUGIN_PACKAGE_ID } from "../../shared/plugin-identity";
@@ -15,9 +14,6 @@ export function FirstRun(props: { readonly compact: boolean }) {
 	const identity = usePluginIdentity(PLUGIN_PACKAGE_ID);
 	const client = useRyot();
 	const schedule = useRyotSchedule();
-	const trigger = useRef<HTMLButtonElement>(null);
-	const [menuOpen, setMenuOpen] = useState(false);
-	const [activeIndex, setActiveIndex] = useState(0);
 	return (
 		<section className="flex min-h-96 flex-col items-center justify-center gap-3 px-6 text-center">
 			<h2 className="font-display font-semibold text-xl text-text">Start your media library</h2>
@@ -31,33 +27,17 @@ export function FirstRun(props: { readonly compact: boolean }) {
 				>
 					Import your history
 				</PluginLink>
-				<Button
-					ref={trigger}
-					variant="secondary"
-					aria-haspopup="menu"
-					aria-expanded={menuOpen}
-					onClick={() => setMenuOpen((open) => !open)}
-				>
-					Add a title
-				</Button>
-			</div>
-			{menuOpen ? (
-				<Menu
+				<MenuButton
 					label="Add a title"
-					triggerRef={trigger}
-					activeIndex={activeIndex}
-					onActiveIndexChange={setActiveIndex}
-					onClose={(restoreFocus) => {
-						setMenuOpen(false);
-						if (restoreFocus) {
-							trigger.current?.focus();
-						}
-					}}
+					renderTrigger={(trigger) => (
+						<Button variant="secondary" {...trigger}>
+							Add a title
+						</Button>
+					)}
 					items={builtinMediaEntitySchemaSlugs.map((slug) => ({
 						key: slug,
 						label: schemaLabel(slug),
-						onSelect: () => {
-							setMenuOpen(false);
+						onSelect: () =>
 							schedule.run(
 								client.screens
 									.openProviderSearch({
@@ -68,11 +48,10 @@ export function FirstRun(props: { readonly compact: boolean }) {
 									})
 									.pipe(Effect.ignore),
 								() => undefined,
-							);
-						},
+							),
 					}))}
 				/>
-			) : null}
+			</div>
 		</section>
 	);
 }
