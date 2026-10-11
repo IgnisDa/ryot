@@ -25,6 +25,8 @@ const storage = WorkflowGarbageCollectionStorageLive.pipe(
 	),
 );
 
+// TODO: https://github.com/Effect-TS/effect/issues/9335
+// Effect 4.0.5 reads every local reply back from storage, which roughly doubles workflow replays.
 export const WorkflowEngineLive = ClusterWorkflowEngine.layer.pipe(
 	Layer.provideMerge(
 		Sharding.layer.pipe(
