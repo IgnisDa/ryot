@@ -35,11 +35,14 @@ const testSupportErrors = [
 	TestSupportOperationFailure.pipe(HttpApiSchema.status(500)),
 ];
 
+const PopulationSeedLevel = Schema.Literals(["base", "full"]);
+
 const CreateGlobalEntityBody = Schema.Struct({
 	properties,
 	name: Schema.String,
 	entitySchema: EntitySchemaReference,
 	externalId: Schema.optional(Schema.String),
+	level: Schema.optional(PopulationSeedLevel),
 	providerId: Schema.optional(SandboxProviderId),
 	populatedAt: Schema.optional(Schema.NullOr(Schema.String)),
 });
@@ -142,8 +145,14 @@ export const TestSupportGroup = HttpApiGroup.make("testSupport")
 			success: ListedEntity,
 			error: testSupportErrors,
 			params: { entityId: EntityId },
-			payload: Schema.Struct({ populatedAt: Schema.NullOr(Schema.String) }),
-		}).annotate(OpenApi.Description, "Sets the population timestamp for an entity"),
+			payload: Schema.Struct({
+				populatedAt: Schema.NullOr(Schema.String),
+				level: Schema.optional(PopulationSeedLevel),
+			}),
+		}).annotate(
+			OpenApi.Description,
+			"Sets the population timestamp for an entity; the full level (default) also stamps the related level",
+		),
 	)
 	.add(
 		HttpApiEndpoint.put("upsertEntityTranslation", "/test-support/entity-translations", {
