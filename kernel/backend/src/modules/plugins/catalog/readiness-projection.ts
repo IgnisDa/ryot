@@ -6,15 +6,15 @@ export const ingestionReadinessMetadataSql = (alias: string) => `(SELECT jsonb_b
 		'oauthConnectionFields', script->'oauthConnectionFields',
 		'executableDependencies', script->'executableDependencies',
 		'capabilities', script->'capabilities'
-	)) FROM jsonb_array_elements(revision.manifest->'scripts') script), '[]'::jsonb),
-	'workflows', COALESCE((SELECT jsonb_agg(jsonb_build_object('slug', workflow->'slug', 'scriptSlug', workflow->'scriptSlug')) FROM jsonb_array_elements(revision.manifest->'workflows') workflow), '[]'::jsonb),
-	'oauthProviders', COALESCE((SELECT jsonb_agg(jsonb_build_object('slug', provider->'slug', 'clientIdConfigKey', provider->'clientIdConfigKey', 'clientSecretConfigKey', provider->'clientSecretConfigKey')) FROM jsonb_array_elements(revision.manifest->'oauthProviders') provider), '[]'::jsonb),
+	)) FROM jsonb_array_elements(revision.scripts) script), '[]'::jsonb),
+	'workflows', COALESCE((SELECT jsonb_agg(jsonb_build_object('slug', workflow->'slug', 'scriptSlug', workflow->'scriptSlug')) FROM jsonb_array_elements(revision.workflows) workflow), '[]'::jsonb),
+	'oauthProviders', COALESCE((SELECT jsonb_agg(jsonb_build_object('slug', provider->'slug', 'clientIdConfigKey', provider->'clientIdConfigKey', 'clientSecretConfigKey', provider->'clientSecretConfigKey')) FROM jsonb_array_elements(revision.oauth_providers) provider), '[]'::jsonb),
 	'availableConfigKeys', COALESCE((SELECT jsonb_agg(key ORDER BY key) FROM (
 		SELECT unnest(COALESCE(configured.configured_keys, '{}')) AS key
-		UNION SELECT key FROM jsonb_each(revision.manifest->'configSchema'->'fields') field
+		UNION SELECT key FROM jsonb_each(revision.config_schema->'fields') field
 		WHERE ${alias}.config_revision_id IS NULL AND field.value ? 'defaultValue' AND field.value->'defaultValue' <> 'null'::jsonb
 		AND (field.value->'defaultValue' <> '""'::jsonb OR NOT EXISTS (
-			SELECT 1 FROM jsonb_array_elements(revision.manifest->'oauthProviders') oauth
+			SELECT 1 FROM jsonb_array_elements(revision.oauth_providers) oauth
 			WHERE field.key IN (oauth->>'clientIdConfigKey', oauth->>'clientSecretConfigKey')
 		))
 	) available), '[]'::jsonb)

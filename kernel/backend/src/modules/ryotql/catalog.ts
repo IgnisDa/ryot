@@ -144,7 +144,7 @@ const pluginMetadataField = (key: "description" | "icon" | "name"): CatalogField
 	pluginActiveRevisionField(`revision.${key}`, "text", true);
 
 const pluginClientApiVersion = pluginActiveRevisionField(
-	`(revision.manifest -> 'client' ->> 'apiVersion')::int`,
+	`(revision.client ->> 'apiVersion')::int`,
 	"number",
 	true,
 );
@@ -334,22 +334,14 @@ const plugin: CatalogTable = {
 		packageId: physicalField("package_id", "text", false),
 		activationId: physicalField("activation_id", "text", false),
 		activeRevisionId: physicalField("active_revision_id", "text"),
+		version: pluginActiveRevisionField("revision.version", "text", true),
 		ingestedAt: pluginActiveRevisionField("revision.created_at", "date", true),
 		contentHash: pluginActiveRevisionField("revision.content_hash", "text", true),
 		configSchema: pluginActiveRevisionField("revision.client_config_schema", "json", true),
-		version: pluginActiveRevisionField(
-			"revision.manifest -> 'metadata' ->> 'version'",
-			"text",
-			true,
-		),
+		userSettingsSchema: pluginActiveRevisionField("revision.user_settings_schema", "json", true),
 		environmentConfigRevisionId: withAccess(
 			physicalField("environment_config_revision_id", "text"),
 			"admin",
-		),
-		userSettingsSchema: pluginActiveRevisionField(
-			"revision.manifest -> 'userSettingsSchema'",
-			"json",
-			true,
 		),
 		scope: {
 			kind: "text",
@@ -376,7 +368,7 @@ const usableHomeSavedView = (
 			AND home_renderer_plugin.plugin_id = ${view}.renderer ->> 'pluginId'
 			AND home_renderer_plugin.health = 'ready'
 			AND NOT home_renderer_plugin.is_hidden
-			AND home_renderer_revision.manifest -> 'client' -> 'exports' -> (${view}.renderer ->> 'exportName') ->> 'kind' = 'page'
+			AND home_renderer_revision.client -> 'exports' -> (${view}.renderer ->> 'exportName') ->> 'kind' = 'page'
 	)
 	ELSE false
 END`;
@@ -396,7 +388,7 @@ const effectiveHomeSavedView: CatalogField = {
 					AND ${usableHomeSavedView("home_selected", `${sqlAlias}.user_id`)}),
 			(SELECT jsonb_build_object('kind', 'plugin', 'pluginId', home_plugin.id, 'slug', home_fallback.slug) FROM plugin home_plugin
 				INNER JOIN plugin_revision home_revision ON home_revision.id = home_plugin.active_revision_id
-				INNER JOIN user_saved_view_effective home_fallback ON home_fallback.slug = home_revision.manifest -> 'client' ->> 'homeView'
+				INNER JOIN user_saved_view_effective home_fallback ON home_fallback.slug = home_revision.client ->> 'homeView'
 				WHERE home_plugin.id = ${sqlAlias}.plugin_id
 					AND home_plugin.status = 'active'
 					AND (home_plugin.owner_user_id IS NULL OR home_plugin.owner_user_id = ${sqlAlias}.user_id)
@@ -614,7 +606,7 @@ const integrationProvider: CatalogTable = {
 			nullable: true,
 			resolve: ({ sqlAlias }) =>
 				sql.raw(
-					`(SELECT declared->'plan' FROM plugin_revision revision CROSS JOIN LATERAL jsonb_array_elements(revision.manifest->'integrationProviders') declared WHERE revision.id = ${sqlAlias}.plugin_revision_id AND declared->>'slug' = ${sqlAlias}.slug AND declared->>'lot' <> 'push')`,
+					`(SELECT declared->'plan' FROM plugin_revision revision CROSS JOIN LATERAL jsonb_array_elements(revision.integration_providers) declared WHERE revision.id = ${sqlAlias}.plugin_revision_id AND declared->>'slug' = ${sqlAlias}.slug AND declared->>'lot' <> 'push')`,
 				),
 		},
 		readinessConnections: {

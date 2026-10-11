@@ -150,13 +150,13 @@ const historyPayload = Effect.fn(function* (
 						.select({
 							entitySchemas: sql<
 								PinnedSchemas["entitySchemas"]
-							>`coalesce(${pluginRevision.manifest} -> 'entitySchemas', '[]'::jsonb)`,
+							>`coalesce(${pluginRevision.entitySchemas}, '[]'::jsonb)`,
 							signalSchemas: sql<
 								PinnedSchemas["signalSchemas"]
-							>`coalesce(${pluginRevision.manifest} -> 'signalSchemas', '[]'::jsonb)`,
+							>`coalesce(${pluginRevision.signalSchemas}, '[]'::jsonb)`,
 							relationshipSchemas: sql<
 								PinnedSchemas["relationshipSchemas"]
-							>`coalesce(${pluginRevision.manifest} -> 'relationshipSchemas', '[]'::jsonb)`,
+							>`coalesce(${pluginRevision.relationshipSchemas}, '[]'::jsonb)`,
 						})
 						.from(pluginRevision)
 						.where(eq(pluginRevision.id, pluginRevisionId)),

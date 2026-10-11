@@ -810,8 +810,24 @@ CREATE TABLE "plugin_revision" (
 	"icon" text GENERATED ALWAYS AS (manifest -> 'metadata' ->> 'icon') STORED,
 	"created_at" timestamp(3) with time zone DEFAULT now() NOT NULL,
 	"description" text GENERATED ALWAYS AS (manifest -> 'metadata' ->> 'description') STORED,
+	"version" text GENERATED ALWAYS AS (manifest -> 'metadata' ->> 'version') STORED NOT NULL,
+	"client" jsonb GENERATED ALWAYS AS (manifest -> 'client') STORED,
+	"hooks" jsonb GENERATED ALWAYS AS (manifest -> 'hooks') STORED NOT NULL,
+	"crons" jsonb GENERATED ALWAYS AS (manifest -> 'crons') STORED NOT NULL,
+	"scripts" jsonb GENERATED ALWAYS AS (manifest -> 'scripts') STORED NOT NULL,
+	"workflows" jsonb GENERATED ALWAYS AS (manifest -> 'workflows') STORED NOT NULL,
 	"providers" jsonb GENERATED ALWAYS AS (manifest -> 'providers') STORED NOT NULL,
+	"oauth_providers" jsonb GENERATED ALWAYS AS (manifest -> 'oauthProviders') STORED,
 	"package_id" text GENERATED ALWAYS AS (manifest -> 'metadata' ->> 'packageId') STORED NOT NULL,
+	"operations" jsonb GENERATED ALWAYS AS (manifest -> 'operations') STORED NOT NULL,
+	"config_schema" jsonb GENERATED ALWAYS AS (manifest -> 'configSchema') STORED NOT NULL,
+	"signal_schemas" jsonb GENERATED ALWAYS AS (manifest -> 'signalSchemas') STORED NOT NULL,
+	"entity_schemas" jsonb GENERATED ALWAYS AS (manifest -> 'entitySchemas') STORED NOT NULL,
+	"user_bootstrap" jsonb GENERATED ALWAYS AS (manifest -> 'userBootstrap') STORED NOT NULL,
+	"user_settings_schema" jsonb GENERATED ALWAYS AS (manifest -> 'userSettingsSchema') STORED,
+	"http_rate_limits" jsonb GENERATED ALWAYS AS (manifest -> 'httpRateLimits') STORED NOT NULL,
+	"relationship_schemas" jsonb GENERATED ALWAYS AS (manifest -> 'relationshipSchemas') STORED NOT NULL,
+	"integration_providers" jsonb GENERATED ALWAYS AS (manifest -> 'integrationProviders') STORED NOT NULL,
 	CONSTRAINT "plugin_revision_plugin_content_unique" UNIQUE("plugin_id","content_hash"),
 	CONSTRAINT "plugin_revision_id_plugin_unique" UNIQUE("id","plugin_id")
 );
@@ -1344,7 +1360,7 @@ CREATE VIEW "user_sandbox_provider" AS (
 			from "user_plugin" p
 			join sandbox_provider s on s.plugin_id = p.plugin_id
 			join plugin_revision r on r.id = p.active_revision_id
-			where p.is_executable and exists (select 1 from jsonb_array_elements(r.manifest -> 'providers') m where m ->> 'slug' = s.slug and m ->> 'rootEntitySchemaSlug' = s.root_entity_schema_slug) and exists (select 1 from "user_entity_schema" e where e.user_id = p.user_id and e.plugin_id = s.plugin_id and e.slug = s.root_entity_schema_slug and e.is_effective)
+			where p.is_executable and exists (select 1 from jsonb_array_elements(r.providers) m where m ->> 'slug' = s.slug and m ->> 'rootEntitySchemaSlug' = s.root_entity_schema_slug) and exists (select 1 from "user_entity_schema" e where e.user_id = p.user_id and e.plugin_id = s.plugin_id and e.slug = s.root_entity_schema_slug and e.is_effective)
 		);--> statement-breakpoint
 CREATE VIEW "user_sandbox_provider_operation" AS (
 		select provider.user_id, provider.id as provider_id, provider.plugin_id, provider.package_id,
@@ -1353,7 +1369,7 @@ CREATE VIEW "user_sandbox_provider_operation" AS (
 		from "user_sandbox_provider" provider
 		join plugin p on p.id = provider.plugin_id
 		join plugin_revision r on r.id = p.active_revision_id
-		join lateral jsonb_array_elements(r.manifest -> 'providers') as definition(value) on definition.value ->> 'slug' = provider.slug
+		join lateral jsonb_array_elements(r.providers) as definition(value) on definition.value ->> 'slug' = provider.slug
 		join lateral jsonb_each_text(definition.value -> 'operations') as operation(key, value) on true
 		join sandbox_script script on script.plugin_revision_id = r.id
 			and script.slug = operation.value and script.provider_id = provider.id

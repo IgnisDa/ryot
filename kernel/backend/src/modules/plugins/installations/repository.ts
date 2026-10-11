@@ -49,7 +49,7 @@ const provisionSystemInstallations = (
 ) => sql`
 	insert into ${schema.pluginInstallation} (id, user_id, plugin_id, health, is_initialized)
 	select gen_random_uuid()::text, ${schema.user.id}, ${schema.plugin.id}, ${health},
-		jsonb_array_length(${schema.pluginRevision.manifest}->'userBootstrap') = 0
+		jsonb_array_length(${schema.pluginRevision.userBootstrap}) = 0
 	from ${schema.user}
 	cross join ${schema.plugin}
 	join ${schema.pluginRevision} on ${schema.pluginRevision.id} = ${schema.plugin.activeRevisionId}
@@ -124,7 +124,10 @@ export class PluginInstallationRepository extends Context.Service<PluginInstalla
 				}
 				const [packageRevision] = yield* database.run((db) =>
 					db
-						.select()
+						.select({
+							pluginId: schema.pluginRevision.pluginId,
+							configSchema: schema.pluginRevision.configSchema,
+						})
 						.from(schema.pluginRevision)
 						.where(eq(schema.pluginRevision.id, revision.pluginRevisionId))
 						.limit(1),
@@ -135,7 +138,7 @@ export class PluginInstallationRepository extends Context.Service<PluginInstalla
 				return {
 					...row,
 					config: yield* configs.decrypt(revision),
-					configSchema: packageRevision.manifest.configSchema,
+					configSchema: packageRevision.configSchema,
 				};
 			});
 			const lockPluginRevision = Effect.fn(function* (pluginId: string) {
@@ -157,7 +160,7 @@ export class PluginInstallationRepository extends Context.Service<PluginInstalla
 						.select({
 							ownerId: schema.plugin.ownerId,
 							installation: schema.pluginInstallation,
-							manifest: schema.pluginRevision.manifest,
+							configSchema: schema.pluginRevision.configSchema,
 						})
 						.from(schema.pluginInstallation)
 						.innerJoin(schema.plugin, eq(schema.plugin.id, schema.pluginInstallation.pluginId))
@@ -171,7 +174,7 @@ export class PluginInstallationRepository extends Context.Service<PluginInstalla
 				if (!row) {
 					return;
 				}
-				const activeSchema = row.manifest?.configSchema;
+				const activeSchema = row.configSchema;
 				const projection =
 					row.ownerId === null || row.installation.uninstalledAt !== null || !activeSchema
 						? { config: {}, configuredSecrets: [] }
@@ -725,7 +728,7 @@ export class PluginInstallationRepository extends Context.Service<PluginInstalla
 						.select({
 							packageId: schema.plugin.packageId,
 							installation: schema.pluginInstallation,
-							manifest: schema.pluginRevision.manifest,
+							userSettingsSchema: schema.pluginRevision.userSettingsSchema,
 						})
 						.from(schema.pluginInstallation)
 						.innerJoin(schema.plugin, eq(schema.plugin.id, schema.pluginInstallation.pluginId))
@@ -754,9 +757,9 @@ export class PluginInstallationRepository extends Context.Service<PluginInstalla
 				const [row] = yield* database.run((db) =>
 					db
 						.select({
-							manifest: schema.pluginRevision.manifest,
 							installationId: schema.pluginInstallation.id,
 							userSettings: schema.pluginInstallation.userSettings,
+							userSettingsSchema: schema.pluginRevision.userSettingsSchema,
 						})
 						.from(schema.pluginInstallation)
 						.innerJoin(

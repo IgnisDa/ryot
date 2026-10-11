@@ -463,3 +463,52 @@ describe("installation revision persistence", () => {
 		);
 	});
 });
+
+const settingsPackage = (version: string, field: string) => {
+	const plugin = revisionPackage(
+		"notes",
+		version,
+		"notes-entity",
+		fixtureManifest().metadata.packageId,
+	);
+	return {
+		...plugin,
+		manifest: {
+			...plugin.manifest,
+			userSettingsSchema: {
+				unknownKeys: "strict" as const,
+				fields: { [field]: { label: field, description: field, type: "string" as const } },
+			},
+		},
+	} satisfies typeof plugin;
+};
+
+describe("pinned user settings", () => {
+	layer(revisionDatabaseLayer)((test) => {
+		test.effect("reads the settings schema of the pinned revision after a plugin update", () =>
+			Effect.gen(function* () {
+				const installations = yield* PluginInstallationRepository;
+				const first = yield* installRevisionPackage(settingsPackage("v1", "timezone"), owner);
+				const second = yield* installRevisionPackage(settingsPackage("v2", "locale"), owner);
+				expect(second.revisionId).not.toBe(first.revisionId);
+				const pinned = (pluginRevisionId: string) =>
+					installations.findUserSettingsForRevision({
+						userId: owner,
+						pluginRevisionId,
+						pluginId: first.pluginId,
+						installationId: first.installation.id,
+					});
+				expect((yield* pinned(first.revisionId))?.userSettingsSchema?.fields).toHaveProperty(
+					"timezone",
+				);
+				expect((yield* pinned(second.revisionId))?.userSettingsSchema?.fields).toHaveProperty(
+					"locale",
+				);
+				expect(
+					(yield* installations.findUserSettings(owner, first.installation.id))?.userSettingsSchema
+						?.fields,
+				).toHaveProperty("locale");
+			}),
+		);
+	});
+});
