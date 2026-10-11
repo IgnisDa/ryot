@@ -7,6 +7,7 @@
 - **`apps/website/` and `apps/browser-extension/` are out of scope.** Exclude A05-R1, A05-R2, and A03-R1. The backlog is **83 findings**, not 86. Repository-wide validation can include their existing checks; implementation must not change those apps.
 - Include T05-R1's bounded refactor of `e2e/src/scripts/seed.ts`.
 - Continue without approval pauses for ordinary in-scope work. Ask before widening scope or performing destructive operations with unconfirmed targets.
+- Continue all remaining in-scope findings without batch handoffs or next-item announcements.
 - Use separate logical commits with the `audit:` prefix. Update this tracker with each completed finding; the implementation commit is identified by its finding ID in Git history.
 - Run affected checks before affected tests, review, and perform the main-session cleanup. At the end of each batch, run `bun run check`, then `bun turbo --filter='!@ryot-app/e2e' test`. Run only affected e2e files, not the whole suite.
 - Keep artifact, backup, manifest, protocol, compiler, and API versions unchanged. Add no compatibility paths.
@@ -14,7 +15,7 @@
 
 ## Status
 
-**19 implemented, 0 in progress, 64 pending; 3 excluded.**
+**20 implemented, 0 in progress, 63 pending; 3 excluded.**
 
 “Implemented” means affected checks and tests passed and the change is committed with this tracker. Batch-wide acceptance is recorded separately below. Rows follow the audit's ranked order; sequencing can change to respect dependencies and keep changes reviewable.
 
@@ -41,7 +42,7 @@
 | P02-R1 | Pending | Validate activity inventory before lifecycle decisions. |
 | M06-R2 | Implemented | Stable activity form consumes enabled pagination directly; no delayed earlier-episode mirror or sentinel query remains. See this finding's `audit:` commit. |
 | C11-R1 | Pending | Authenticated UI owns and disposes its SDK runtime. |
-| M07-R1 | Pending | Distinguish count failure from an empty library. |
+| M07-R1 | Implemented | Successful count-zero owns first-run; failed counts show sections and retain stale data. See this finding's audit commit. |
 | P01-R2 | Pending | Notification specifics owns the creation discriminator. |
 | C06-R2 | Pending | Provider subtree owns options, form, and submitted-search lifetime. |
 | B16-R1 | Pending | One execution/retention pin model. |
@@ -180,4 +181,7 @@
 - Final affected e2e acceptance passed, each file run separately: browser `backups.test.ts` (2), `fitness-workout-editor.test.ts` (6), `fitness-workout-interactions.test.ts` (5), `import-data.test.ts` (4), `integrations.test.ts` (3), `plugin-device-drafts.test.ts` (1), `media-show.test.ts` (3); API Fitness `workout-editor.test.ts` (10) and `home-recipes.test.ts` (1). Total: nine files / 35 tests.
 - After the post-save fix and final media refactor, repository-wide `bun run check` passed again across 30 projects, followed by `bun turbo --filter='!@ryot-app/e2e' test`, 51/51 tasks. Shipped artifacts rebuilt for e2e. Excluded apps unchanged; no push or development-data reset performed.
 
-Next ranked finding, not started: P02-R1 (validate complete Live Activity inventory before lifecycle decisions).
+
+### Continuing implementation — active
+
+- M07-R1: media check passed before 49 home tests across four files; read-only review reported no findings.
