@@ -5,11 +5,10 @@ import {
 	type DefinitionOwner,
 	type PluginPackageReference,
 } from "@ryot-app/contract/modules/plugins/references";
-import {
-	type PluginId,
-	PluginSlug,
-	type SandboxProviderId,
-	type SandboxScriptId,
+import type {
+	PluginId,
+	SandboxProviderId,
+	SandboxScriptId,
 } from "@ryot-app/contract/schema/brands";
 import { entityDefinitionsRecipe } from "@ryot-app/ryotql-recipes/definitions";
 import { Brand, Effect } from "effect";
@@ -35,7 +34,7 @@ type PluginEntitySchema = PluginManifest["entitySchemas"][number];
 export const makeEntitySchemaSlug = Brand.nominal<EntitySchemaInputSlug>();
 type CreateEntitySchemaOptions = Partial<
 	Pick<PluginEntitySchema, "icon" | "name" | "slug" | "propertiesSchema">
-> & { pluginSlug: PluginManifest["metadata"]["slug"] };
+> & { pluginSlug: string };
 
 export const createEntitySchema = (client: Client, options: CreateEntitySchemaOptions) =>
 	Effect.gen(function* () {
@@ -59,8 +58,8 @@ export const createEntitySchema = (client: Client, options: CreateEntitySchemaOp
 			slug: schemaSlug,
 			schemaId: schemaSlug,
 			pluginId: installed.pluginId,
+			data: { ...schema, pluginSlug, id: schemaSlug },
 			reference: { slug: schemaSlug, owner: definitionOwner(installed.pluginId) },
-			data: { ...schema, id: schemaSlug, pluginSlug: PluginSlug.make(pluginSlug) },
 		};
 	});
 

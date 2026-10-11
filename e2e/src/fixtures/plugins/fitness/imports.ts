@@ -1,5 +1,6 @@
-import type { ContractPathParams, ContractPayload } from "@ryot-app/contract/client";
+import type { ContractPayload } from "@ryot-app/contract/client";
 import { definitionOwner } from "@ryot-app/contract/modules/plugins/references";
+import type { PluginId } from "@ryot-app/contract/schema/brands";
 import { Effect } from "effect";
 
 import type { Client } from "~/fixtures/kernel/auth";
@@ -14,7 +15,7 @@ type ImportRunFixtureBody = Omit<ContractPayload<"imports", "createRun">, "sourc
 
 export const createFitnessImportRun = (
 	client: Client,
-	pluginId: ContractPathParams<"plugins", "invoke">["pluginId"],
+	pluginId: PluginId,
 	body: ImportRunFixtureBody,
 ) =>
 	client.call((contract) =>
@@ -31,7 +32,7 @@ const OPENSCALE_SAMPLE_CSV = `dateTime,weight,bmi,fat,water,muscle,comment
 
 export const startOpenScaleImport = (
 	client: Client,
-	pluginId: ContractPathParams<"plugins", "invoke">["pluginId"],
+	pluginId: PluginId,
 	body: { uploadToken: string },
 ) =>
 	Effect.gen(function* () {

@@ -30,7 +30,7 @@ describe("Native data JSON webhooks", () => {
 				providers.find(({ slug }) => slug === "data-json"),
 				"Expected native data JSON integration provider",
 			);
-			expect(provider.pluginSlug).toBeNull();
+			expect(provider.packageId).toBeNull();
 			expect(provider.lot).toBe("sink");
 
 			const integration = yield* Effect.acquireRelease(

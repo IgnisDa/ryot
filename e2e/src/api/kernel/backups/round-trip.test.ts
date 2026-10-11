@@ -359,7 +359,7 @@ describe("backup export and restore round trip", () => {
 			};
 			const source = yield* createAuthenticatedClient();
 			const target = yield* createAuthenticatedClient();
-			const privatePluginSlug = `backup-settings-${suffix}`;
+			const privatePluginName = `backup-settings-${suffix}`;
 			const privateSettingKey = `backupPreference${suffix.replaceAll("-", "")}`;
 			const privateSettingsSchema: NonNullable<PluginManifest["userSettingsSchema"]> = {
 				unknownKeys: "strict",
@@ -371,7 +371,7 @@ describe("backup export and restore round trip", () => {
 					},
 				},
 			};
-			const basePrivateSettingsManifest = testPluginManifest({ pluginSlug: privatePluginSlug });
+			const basePrivateSettingsManifest = testPluginManifest({ pluginSlug: privatePluginName });
 			const privateSettingsManifest: PluginManifest = {
 				...basePrivateSettingsManifest,
 				userSettingsSchema: privateSettingsSchema,
@@ -672,7 +672,7 @@ describe("backup export and restore round trip", () => {
 				signalSchemaSlug: notificationSubscription.signalSchemaSlug,
 			});
 			expect(restoredMediaInstallation).toMatchObject({
-				slug: "media",
+				packageId: "ryot/media",
 				health: exportedMediaInstallation.health,
 				isHidden: exportedMediaInstallation.isHidden,
 				sortOrder: exportedMediaInstallation.sortOrder,
@@ -826,7 +826,7 @@ describe("backup export and restore round trip", () => {
 			const integrations = yield* listIntegrations(target.client, { provider: "data-json" });
 			expect(integrations).toHaveLength(1);
 			expect(integrations[0]).toMatchObject({
-				pluginSlug: null,
+				packageId: null,
 				isDisabled: false,
 				id: integration.id,
 				name: "Native backup webhook",

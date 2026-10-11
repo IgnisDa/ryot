@@ -1,4 +1,4 @@
-import type { PluginId } from "@ryot-app/contract/schema/brands";
+import { type PluginPackageId, pluginPackageSegments } from "@ryot-app/contract/schema/brands";
 import { writePluginArchive } from "@ryot-app/plugin-archive";
 import { Effect, Schema } from "effect";
 import { unzipSync, zipSync } from "fflate";
@@ -30,9 +30,16 @@ const mediaSetting = (client: Client) =>
 		);
 	});
 
-const invokeSettingsOperation = (client: Client, pluginId: PluginId, operationSlug: string) =>
+const invokeSettingsOperation = (
+	client: Client,
+	packageId: PluginPackageId,
+	operationSlug: string,
+) =>
 	client.call((contract) =>
-		contract.plugins.invoke({ payload: { payload: {} }, params: { pluginId, operationSlug } }),
+		contract.plugins.invoke({
+			payload: { payload: {} },
+			params: { ...pluginPackageSegments(packageId), operationSlug },
+		}),
 	);
 
 describe("plugin user settings", () => {
@@ -80,7 +87,7 @@ describe("plugin user settings", () => {
 			const readSettings = () =>
 				invokeSettingsOperation(
 					client,
-					plugin.installation.pluginId,
+					plugin.installation.packageId,
 					plugin.pluginPackage.operationSlug,
 				);
 
@@ -121,13 +128,13 @@ describe("plugin user settings", () => {
 			const readFirstSettings = () =>
 				invokeSettingsOperation(
 					owner.client,
-					firstPlugin.installation.pluginId,
+					firstPlugin.installation.packageId,
 					firstPlugin.pluginPackage.operationSlug,
 				);
 			const readSecondSettings = () =>
 				invokeSettingsOperation(
 					second.client,
-					secondPlugin.installation.pluginId,
+					secondPlugin.installation.packageId,
 					secondPlugin.pluginPackage.operationSlug,
 				);
 
@@ -218,7 +225,7 @@ describe("plugin user settings", () => {
 			);
 			archiveEntries["manifest.json"] = new TextEncoder().encode(secretManifestJson);
 			const uploadToken = yield* uploadTemporaryArchive(client, zipSync(archiveEntries), {
-				fileName: `${pluginPackage.manifest.metadata.slug}.zip`,
+				fileName: `${pluginPackageSegments(pluginPackage.manifest.metadata.packageId).name}.zip`,
 			});
 			const failure = yield* Effect.flip(
 				client.call((contract) =>

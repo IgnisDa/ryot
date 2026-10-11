@@ -174,7 +174,7 @@ describe("Native data JSON imports", () => {
 				"Expected native data JSON import source",
 			);
 
-			expect(source).toMatchObject({ pluginSlug: null, isStartable: true });
+			expect(source).toMatchObject({ packageId: null, isStartable: true });
 		}),
 	);
 

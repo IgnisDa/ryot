@@ -1,4 +1,5 @@
-import type { ContractPayload, ContractPathParams } from "@ryot-app/contract/client";
+import type { ContractPayload } from "@ryot-app/contract/client";
+import { type PluginPackageId, pluginPackageSegments } from "@ryot-app/contract/schema/brands";
 import {
 	mediaMonitoringDisableRecipe,
 	mediaMonitoringEnableRecipe,
@@ -72,52 +73,42 @@ export const triggerCronAndWaitForEntity = (auth: { client: Client }, entityId: 
 	});
 
 export const getMediaMonitoringStatus = (client: Client, entityId: string) =>
-	mediaFixtureInstallation.pipe(
-		Effect.flatMap(({ id }) =>
-			invokeOperationRecipe(
-				mediaMonitoringStatusRecipe(id),
-				{ entityIds: [entityId] },
-				operationTransport(client),
-			),
-		),
-		Effect.flatMap(singleResult),
-	);
+	invokeOperationRecipe(
+		mediaMonitoringStatusRecipe,
+		{ entityIds: [entityId] },
+		operationTransport(client),
+	).pipe(Effect.flatMap(singleResult));
 
 export const enableMediaMonitoring = (client: Client, entityId: string) =>
-	mediaFixtureInstallation.pipe(
-		Effect.flatMap(({ id }) =>
-			invokeOperationRecipe(
-				mediaMonitoringEnableRecipe(id),
-				{ entityIds: [entityId] },
-				operationTransport(client),
-			),
-		),
-		Effect.flatMap(singleResult),
-	);
+	invokeOperationRecipe(
+		mediaMonitoringEnableRecipe,
+		{ entityIds: [entityId] },
+		operationTransport(client),
+	).pipe(Effect.flatMap(singleResult));
 
 export const disableMediaMonitoring = (client: Client, entityId: string) =>
-	mediaFixtureInstallation.pipe(
-		Effect.flatMap(({ id }) =>
-			invokeOperationRecipe(
-				mediaMonitoringDisableRecipe(id),
-				{ entityIds: [entityId] },
-				operationTransport(client),
-			),
-		),
-		Effect.flatMap(singleResult),
-	);
+	invokeOperationRecipe(
+		mediaMonitoringDisableRecipe,
+		{ entityIds: [entityId] },
+		operationTransport(client),
+	).pipe(Effect.flatMap(singleResult));
 
 const operationTransport =
 	(client: Client) =>
 	(
-		request: Pick<ContractPayload<"plugins", "invoke">, "payload"> &
-			ContractPathParams<"plugins", "invoke">,
+		request: Pick<ContractPayload<"plugins", "invoke">, "payload"> & {
+			readonly packageId: PluginPackageId;
+			readonly operationSlug: string;
+		},
 	) =>
 		client
 			.call((contract) =>
 				contract.plugins.invoke({
 					payload: { payload: request.payload },
-					params: { pluginId: request.pluginId, operationSlug: request.operationSlug },
+					params: {
+						...pluginPackageSegments(request.packageId),
+						operationSlug: request.operationSlug,
+					},
 				}),
 			)
 			.pipe(Effect.map(({ result }) => result));

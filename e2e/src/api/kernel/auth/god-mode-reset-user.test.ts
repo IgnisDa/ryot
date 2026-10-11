@@ -168,8 +168,10 @@ describe("Reset user for credential user", () => {
 			assertPresent(signInRes.token, "expected an auth token after sign-in");
 
 			const plugins = yield* listPluginsWithHeaders({ Authorization: `Bearer ${signInRes.token}` });
-			expect(plugins.some((candidate) => candidate.slug === "media")).toBe(true);
-			const resetPlugin = plugins.find((candidate) => candidate.slug === plugin.slug);
+			expect(
+				plugins.some((candidate) => candidate.packageId === mediaPlugin.metadata.packageId),
+			).toBe(true);
+			const resetPlugin = plugins.find((candidate) => candidate.packageId === plugin.packageId);
 			assertPresent(resetPlugin, "expected the installed plugin after reset");
 			expect(resetPlugin).toMatchObject({ sortOrder: 0, isHidden: false });
 		}),

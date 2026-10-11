@@ -1,4 +1,3 @@
-import { PluginPackageId } from "@ryot-app/contract/schema/brands";
 import { writePluginArchive } from "@ryot-app/plugin-archive";
 import { importSourcesRecipe } from "@ryot-app/ryotql-recipes/import-sources";
 import { integrationProvidersRecipe } from "@ryot-app/ryotql-recipes/integration-providers";
@@ -18,6 +17,7 @@ import {
 	namespaceInstallation,
 	namespacePairRecipe,
 	pluginNamespacePackages,
+	testPluginPackageId,
 	updateNamespacePackage,
 	uploadTemporaryArchive,
 } from "~/fixtures/kernel";
@@ -39,14 +39,7 @@ describe("plugin namespaces", () => {
 						{ kind: "package", scope: "system", packageId: a.manifest.metadata.packageId },
 						"wrong-scope",
 					],
-					[
-						{
-							scope: "user",
-							kind: "package",
-							packageId: PluginPackageId.make(crypto.randomUUID()),
-						},
-						"missing",
-					],
+					[{ scope: "user", kind: "package", packageId: testPluginPackageId() }, "missing"],
 				] as const;
 				for (const [reference, issue] of cases) {
 					const failure = yield* executeRyotQLError(
@@ -118,18 +111,14 @@ describe("plugin namespaces", () => {
 					expect(a.pluginId).not.toBe(b.pluginId);
 					expect(a.id).not.toBe(b.id);
 					for (const installed of [a, b]) {
-						expect(installed.installation).toMatchObject({
-							health: "ready",
-							name: "Whiskey",
-							slug: "whiskey",
-						});
+						expect(installed.installation).toMatchObject({ health: "ready", name: "Whiskey" });
 					}
-					expect((yield* invokeNamespaceOperation(client, a.pluginId)).result).toEqual({
-						label: "A1",
-					});
-					expect((yield* invokeNamespaceOperation(client, b.pluginId)).result).toEqual({
-						label: "B1",
-					});
+					expect(
+						(yield* invokeNamespaceOperation(client, a.installation.packageId)).result,
+					).toEqual({ label: "A1" });
+					expect(
+						(yield* invokeNamespaceOperation(client, b.installation.packageId)).result,
+					).toEqual({ label: "B1" });
 					const aRows = yield* executeRyotQLRecipe(
 						client,
 						namespaceBottlesRecipe({
@@ -235,11 +224,7 @@ describe("plugin namespaces", () => {
 				...packages.a2,
 				manifest: {
 					...packages.a2.manifest,
-					metadata: {
-						...packages.a2.manifest.metadata,
-						name: "Renamed Whiskey",
-						slug: "renamed-whiskey",
-					},
+					metadata: { ...packages.a2.manifest.metadata, name: "Renamed Whiskey" },
 				},
 			};
 			const updated = yield* updateNamespacePackage(client, a, renamed);
@@ -247,15 +232,14 @@ describe("plugin namespaces", () => {
 			const installation = yield* namespaceInstallation(client, a.pluginId);
 			expect(installation.sourceHash).not.toBe(a.installation.sourceHash);
 			expect(installation.version).toBe(a.installation.version);
-			expect((yield* invokeNamespaceOperation(client, a.pluginId)).result).toEqual({ label: "A2" });
+			expect((yield* invokeNamespaceOperation(client, a.installation.packageId)).result).toEqual({
+				label: "A2",
+			});
 			const wrongId = {
 				...renamed,
 				manifest: {
 					...renamed.manifest,
-					metadata: {
-						...renamed.manifest.metadata,
-						packageId: PluginPackageId.make(crypto.randomUUID()),
-					},
+					metadata: { ...renamed.manifest.metadata, packageId: testPluginPackageId() },
 				},
 			};
 			const error = yield* Effect.flip(

@@ -1,4 +1,5 @@
-import type { ContractPayload, ContractPathParams } from "@ryot-app/contract/client";
+import type { ContractPayload } from "@ryot-app/contract/client";
+import { pluginPackageSegments } from "@ryot-app/contract/schema/brands";
 import {
 	measurementMetricCreateRecipe,
 	measurementMetricPinRecipe,
@@ -7,7 +8,7 @@ import {
 	measurementReadingUpdateRecipe,
 } from "@ryot-app/fitness-plugin/contracts/operation-recipes";
 import { invokeOperationRecipe, type OperationRecipe } from "@ryot-app/plugin-kit/operations";
-import type { PluginId } from "@ryot-app/plugin-kit/schema";
+import type { PluginPackageId } from "@ryot-app/plugin-kit/schema";
 import { Effect } from "effect";
 
 import type { Client } from "~/fixtures/kernel/auth";
@@ -15,7 +16,7 @@ import { createEntity } from "~/fixtures/kernel/entities";
 import { listEventSchemas, requireEventSchemaBySlug } from "~/fixtures/kernel/event-schemas";
 import { waitForCreateEvents } from "~/fixtures/kernel/events";
 
-import { findFitnessEntitySchema, fitnessFixtureInstallation } from "./exercises";
+import { findFitnessEntitySchema } from "./exercises";
 
 type InvokePayload = ContractPayload<"plugins", "invoke">["payload"];
 
@@ -26,30 +27,32 @@ const invokeMeasurementOperation = <
 	OutputEncoded,
 >(
 	client: Client,
-	recipe: (pluginId: PluginId) => OperationRecipe<Input, InputEncoded, Output, OutputEncoded>,
+	recipe: OperationRecipe<Input, InputEncoded, Output, OutputEncoded>,
 	input: Input,
 ) =>
-	fitnessFixtureInstallation.pipe(
-		Effect.flatMap(({ id }) =>
-			invokeOperationRecipe(
-				recipe(id),
-				input,
-				(request: ContractPathParams<"plugins", "invoke"> & { readonly payload: InputEncoded }) =>
-					client
-						.call((contract) =>
-							contract.plugins.invoke({
-								payload: { payload: request.payload },
-								params: { pluginId: request.pluginId, operationSlug: request.operationSlug },
-							}),
-						)
-						.pipe(Effect.map(({ result }) => result)),
-			),
-		),
+	invokeOperationRecipe(
+		recipe,
+		input,
+		(request: {
+			readonly packageId: PluginPackageId;
+			readonly payload: InputEncoded;
+			readonly operationSlug: string;
+		}) =>
+			client
+				.call((contract) =>
+					contract.plugins.invoke({
+						payload: { payload: request.payload },
+						params: {
+							...pluginPackageSegments(request.packageId),
+							operationSlug: request.operationSlug,
+						},
+					}),
+				)
+				.pipe(Effect.map(({ result }) => result)),
 	);
 
-type RecipeInput<
-	Recipe extends (pluginId: PluginId) => { readonly input: { readonly Type: unknown } },
-> = ReturnType<Recipe>["input"]["Type"];
+type RecipeInput<Recipe extends { readonly input: { readonly Type: unknown } }> =
+	Recipe["input"]["Type"];
 
 export const createMeasurementMetric = (
 	client: Client,

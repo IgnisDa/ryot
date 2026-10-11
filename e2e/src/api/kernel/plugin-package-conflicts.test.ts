@@ -1,4 +1,3 @@
-import { pluginPath } from "@ryot-app/contract/modules/plugins/navigation";
 import { SandboxScriptId } from "@ryot-app/contract/schema/brands";
 import { JsonValue } from "@ryot-app/contract/schema/json";
 import { genericImportSealInputSchema } from "@ryot-app/sandbox-sdk/imports";
@@ -293,7 +292,12 @@ describe("plugin package conflicts", () => {
 				const prepared = yield* client.call((contract) =>
 					contract.clientPages.prepare({
 						payload: {
-							target: { path: "/", search: "", kind: "plugin-route", pluginId: a.pluginId },
+							target: {
+								path: "/",
+								search: "",
+								kind: "plugin-route",
+								packageId: a.installation.packageId,
+							},
 						},
 					}),
 				);
@@ -337,11 +341,11 @@ describe("plugin package conflicts", () => {
 					incompatibilityReason: "package-identity-conflict",
 				});
 				expect((yield* namespaceInstallation(client, b.pluginId)).health).toBe("ready");
-				expect((yield* invokeNamespaceOperation(client, b.pluginId)).result).toEqual({
+				expect((yield* invokeNamespaceOperation(client, b.installation.packageId)).result).toEqual({
 					label: "B1",
 				});
 				const denied = yield* Effect.flip(
-					invokeNamespaceOperation(client, a.pluginId, {}, a.installation.sourceHash),
+					invokeNamespaceOperation(client, a.installation.packageId, {}, a.installation.sourceHash),
 				);
 				assertTaggedError(denied, "PluginConflictError");
 				expect(denied.reason).toMatchObject({
@@ -353,15 +357,20 @@ describe("plugin package conflicts", () => {
 					client.call((contract) =>
 						contract.clientPages.prepare({
 							payload: {
-								target: { path: "/", search: "", kind: "plugin-route", pluginId: a.pluginId },
+								target: {
+									path: "/",
+									search: "",
+									kind: "plugin-route",
+									packageId: a.installation.packageId,
+								},
 							},
 						}),
 					),
 				);
 				assertTaggedError(unavailable, "ClientPagePreparationError");
-				expect(unavailable.reason).toMatchObject({
-					pluginId: a.pluginId,
-					code: "plugin-unavailable",
+				expect(unavailable.reason).toEqual({
+					code: "plugin-package-unavailable",
+					packageId: a.installation.packageId,
 				});
 				const uninstall = yield* Effect.flip(
 					client.call((contract) =>
@@ -400,7 +409,7 @@ describe("plugin package conflicts", () => {
 					pluginId: a.pluginId,
 					incompatibilityReason: null,
 				});
-				expect((yield* invokeNamespaceOperation(client, a.pluginId)).result).toEqual({
+				expect((yield* invokeNamespaceOperation(client, a.installation.packageId)).result).toEqual({
 					label: "A1",
 				});
 				expect(
@@ -409,7 +418,6 @@ describe("plugin package conflicts", () => {
 						namespaceBottlesRecipe({ reference: { kind: "local", pluginId: a.pluginId } }),
 					)).map(({ name }) => name),
 				).toEqual(["A1 bottle"]);
-				expect(pluginPath(a.pluginId)).not.toBe(pluginPath(system.pluginId));
 			}),
 	);
 

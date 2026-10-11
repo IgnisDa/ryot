@@ -445,27 +445,27 @@ describe("RyotQL relationship rows and includes", () => {
 				createAuthenticatedClient(),
 				createAuthenticatedClient(),
 			]);
-			const userAPluginSlug = createPluginScope();
-			const userBPluginSlug = createPluginScope();
+			const userAPluginName = createPluginScope();
+			const userBPluginName = createPluginScope();
 			const ownSchema = yield* createPluginEntitySchema(userA.client, {
-				pluginSlug: userAPluginSlug,
+				pluginSlug: userAPluginName,
 				schemaName: "RyotQLVisibleRelationship",
 			});
 			const otherSchema = yield* createPluginEntitySchema(userB.client, {
-				pluginSlug: userBPluginSlug,
+				pluginSlug: userBPluginName,
 				schemaName: "RyotQLHiddenRelationship",
 			});
 			const ownRelationshipSlug = `ryotql-visible-${crypto.randomUUID()}`;
 			const otherRelationshipSlug = `ryotql-hidden-${crypto.randomUUID()}`;
 			const ownRelationshipSchema = yield* createRelationshipSchema(userA.client, {
 				slug: ownRelationshipSlug,
-				pluginSlug: userAPluginSlug,
+				pluginSlug: userAPluginName,
 				name: "RyotQL Visible Relationship",
 				targetEntitySchemaSlug: ownSchema.schemaId,
 				sourceEntitySchemaSlug: ownSchema.schemaId,
 			});
 			const otherRelationshipSchema = yield* createRelationshipSchema(userB.client, {
-				pluginSlug: userBPluginSlug,
+				pluginSlug: userBPluginName,
 				slug: otherRelationshipSlug,
 				name: "RyotQL Hidden Relationship",
 				targetEntitySchemaSlug: otherSchema.schemaId,

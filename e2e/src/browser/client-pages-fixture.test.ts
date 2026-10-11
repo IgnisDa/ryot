@@ -7,7 +7,7 @@ describe("collection workflow renderer fixture", () => {
 			'ownerPluginId: selectedField(column(entity, "entitySchemaPluginId")',
 		);
 		expect(collectionWorkflowRendererSource).toContain(
-			'ownerPluginSlug === "fixture" && group.schemaSlug === "pokemon"',
+			'ownerPackageId === "ryot/fixture" && group.schemaSlug === "pokemon"',
 		);
 		expect(collectionWorkflowRendererSource).toContain(
 			"useRyotQuery(collectionPageQuery, queryInput, { refreshOnMutation: false })",
