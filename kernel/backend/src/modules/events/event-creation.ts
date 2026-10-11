@@ -309,17 +309,24 @@ export const readEventCreateChunkScopes = Effect.fn("readEventCreateChunkScopes"
 			}
 			return yield* Effect.fromResult(result);
 		});
+		const precheck = (command: DomainLifecycleCommand, owner: DefinitionOwner) =>
+			check(command, owner).pipe(
+				Effect.catchIf(
+					(error) => error._tag !== "DbError" || error.code === undefined,
+					() => Effect.void,
+				),
+			);
 		for (const item of input.items) {
 			const entity = entities.get(EntityId.make(item.entityId.trim()));
 			if (entity) {
 				for (const command of input.commands) {
-					yield* Effect.result(check(command, definitionOwner(entity.entitySchemaPluginId)));
+					yield* precheck(command, definitionOwner(entity.entitySchemaPluginId));
 				}
 			}
 		}
 		for (const scope of eventSchemaScopes.values()) {
 			if (scope) {
-				yield* Effect.result(check(input.writeCommand, definitionOwner(scope.pluginId)));
+				yield* precheck(input.writeCommand, definitionOwner(scope.pluginId));
 			}
 		}
 		const declarations = new Map<string, { readonly propertiesSchema: AppSchema } | undefined>();
