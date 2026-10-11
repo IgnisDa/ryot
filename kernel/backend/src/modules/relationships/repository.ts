@@ -6,9 +6,11 @@ import {
 	UserId,
 	PluginId,
 } from "@ryot-app/contract/schema/brands";
-import { and, asc, eq, isNotNull, isNull, or, sql } from "drizzle-orm";
+import { and, asc, eq, inArray, isNotNull, isNull, or, sql } from "drizzle-orm";
 import { Context, Effect, Layer, Schema } from "effect";
+import { chunksOf } from "effect/Array";
 
+import { STATEMENT_CHUNK_SIZE } from "#modules/entities/repository";
 import { pluginIdWhere } from "#platform/db/definition-owner";
 import { DatabaseSession } from "#platform/db/session";
 import * as schema from "#schema/tables/combined";
@@ -101,6 +103,11 @@ const relationshipSelection = {
 	wasInserted: sql<boolean>`(xmax = '0'::xid)`,
 };
 
+const ownedRelationshipSelection = {
+	...relationshipSnapshotSelection,
+	userId: schema.relationship.userId,
+};
+
 const toRelationship = (row: RelationshipSnapshotRow) => ({
 	properties: row.properties,
 	id: RelationshipId.make(row.id),
@@ -116,6 +123,26 @@ const toRelationship = (row: RelationshipSnapshotRow) => ({
 const toSavedRelationship = (row: RelationshipRow) => ({
 	...toRelationship(row),
 	wasInserted: row.wasInserted,
+});
+
+const storedRelationshipKey = (row: RelationshipSnapshotRow & { readonly userId: string | null }) =>
+	relationshipMutationLockKey({
+		sourceEntityId: EntityId.make(row.sourceEntityId),
+		targetEntityId: EntityId.make(row.targetEntityId),
+		relationshipSchemaPluginId: row.relationshipSchemaPluginId,
+		relationshipSchemaSlug: RelationshipSchemaSlug.make(row.relationshipSchemaSlug),
+		...(row.userId === null
+			? { scope: "global" as const }
+			: { scope: "user" as const, userId: UserId.make(row.userId) }),
+	});
+
+const relationshipValues = (input: CreateRelationshipInput) => ({
+	properties: input.properties,
+	sourceEntityId: input.sourceEntityId,
+	targetEntityId: input.targetEntityId,
+	userId: input.scope === "user" ? input.userId : null,
+	relationshipSchemaSlug: input.relationshipSchemaSlug,
+	relationshipSchemaPluginId: input.relationshipSchemaPluginId ?? null,
 });
 
 const relationshipSchemaPluginWhere = (pluginId: string | null) =>
@@ -144,17 +171,7 @@ const preparedRelationshipWhere = (before: ReturnType<typeof toRelationship>) =>
 		sql`${schema.relationship.properties} = ${JSON.stringify(before.properties)}::jsonb`,
 	);
 
-const globalRelationshipConflictColumns = [
-	schema.relationship.userId,
-	schema.relationship.sourceEntityId,
-	schema.relationship.targetEntityId,
-	schema.relationship.relationshipSchemaSlug,
-	schema.relationship.relationshipSchemaPluginId,
-];
-
-const globalRelationshipConflictDoNothingTarget = { target: globalRelationshipConflictColumns };
-
-const userRelationshipConflictTarget = {
+const relationshipConflictTarget = {
 	target: [
 		schema.relationship.userId,
 		schema.relationship.sourceEntityId,
@@ -163,11 +180,6 @@ const userRelationshipConflictTarget = {
 		schema.relationship.relationshipSchemaPluginId,
 	],
 };
-
-const relationshipConflictDoNothingTarget = (input: RelationshipIdentityInput) =>
-	input.scope === "user"
-		? userRelationshipConflictTarget
-		: globalRelationshipConflictDoNothingTarget;
 
 const relationshipReconciliationWhere = (input: RelationshipReconciliationListInput) =>
 	and(
@@ -216,6 +228,21 @@ export class RelationshipsRepository extends Context.Service<RelationshipsReposi
 				);
 				return row ? toRelationship(row) : null;
 			});
+			const findRelationships = Effect.fn("RelationshipsRepository.findRelationships")(function* (
+				inputs: ReadonlyArray<RelationshipIdentityInput>,
+			) {
+				const rows = yield* Effect.forEach(chunksOf(inputs, STATEMENT_CHUNK_SIZE), (chunk) =>
+					session.run((db) =>
+						db
+							.select(ownedRelationshipSelection)
+							.from(schema.relationship)
+							.where(or(...chunk.map(relationshipIdentityWhere)))
+							.orderBy(asc(schema.relationship.id))
+							.for("update"),
+					),
+				);
+				return new Map(rows.flat().map((row) => [storedRelationshipKey(row), toRelationship(row)]));
+			});
 			const findUserRelationshipById = Effect.fn(
 				"RelationshipsRepository.findUserRelationshipById",
 			)(function* (userId: UserId, relationshipId: RelationshipId) {
@@ -237,9 +264,14 @@ export class RelationshipsRepository extends Context.Service<RelationshipsReposi
 				"RelationshipsRepository.lockRelationshipMutations",
 			)(function* (inputs: ReadonlyArray<RelationshipIdentityInput>) {
 				const keys = [...new Set(inputs.map(relationshipMutationLockKey))].sort();
-				for (const key of keys) {
+				for (const chunk of chunksOf(keys, STATEMENT_CHUNK_SIZE)) {
 					yield* session.run((db) =>
-						db.execute(sql`select pg_advisory_xact_lock(hashtextextended(${key}, 0))`),
+						db.execute(
+							sql`select pg_advisory_xact_lock(hashtextextended(k, 0)) from unnest(array[${sql.join(
+								chunk.map((key) => sql`${key}`),
+								sql`, `,
+							)}]::text[]) with ordinality t(k, n) order by n`,
+						),
 					);
 				}
 			});
@@ -278,20 +310,11 @@ export class RelationshipsRepository extends Context.Service<RelationshipsReposi
 			const createRelationship = Effect.fn("RelationshipsRepository.createRelationship")(function* (
 				input: CreateRelationshipInput,
 			) {
-				const values = {
-					properties: input.properties,
-					sourceEntityId: input.sourceEntityId,
-					targetEntityId: input.targetEntityId,
-					userId: input.scope === "user" ? input.userId : null,
-					relationshipSchemaSlug: input.relationshipSchemaSlug,
-					relationshipSchemaPluginId: input.relationshipSchemaPluginId ?? null,
-				};
-
 				const [inserted] = yield* session.run((db) =>
 					db
 						.insert(schema.relationship)
-						.values(values)
-						.onConflictDoNothing(relationshipConflictDoNothingTarget(input))
+						.values(relationshipValues(input))
+						.onConflictDoNothing(relationshipConflictTarget)
 						.returning(relationshipSelection),
 				);
 
@@ -314,6 +337,89 @@ export class RelationshipsRepository extends Context.Service<RelationshipsReposi
 
 				return toSavedRelationship({ ...existing, wasInserted: false });
 			});
+
+			const createRelationships = Effect.fn("RelationshipsRepository.createRelationships")(
+				function* (inputs: ReadonlyArray<CreateRelationshipInput>) {
+					const inserted = yield* Effect.forEach(chunksOf(inputs, STATEMENT_CHUNK_SIZE), (chunk) =>
+						session.run((db) =>
+							db
+								.insert(schema.relationship)
+								.values(chunk.map(relationshipValues))
+								.onConflictDoNothing(relationshipConflictTarget)
+								.returning({ ...relationshipSelection, userId: schema.relationship.userId }),
+						),
+					);
+					const saved = new Map(
+						inserted.flat().map((row) => [storedRelationshipKey(row), toSavedRelationship(row)]),
+					);
+					const conflicted = inputs.filter(
+						(input) => !saved.has(relationshipMutationLockKey(input)),
+					);
+					const existing = yield* findRelationships(conflicted);
+					for (const input of conflicted) {
+						const key = relationshipMutationLockKey(input);
+						const row = existing.get(key);
+						if (!row) {
+							return yield* new DbError({ message: "Relationship insert conflict but not found" });
+						}
+						saved.set(key, { ...row, wasInserted: false });
+					}
+					return saved;
+				},
+			);
+
+			const updateRelationshipsById = Effect.fn("RelationshipsRepository.updateRelationshipsById")(
+				function* (
+					updates: ReadonlyArray<{ id: RelationshipId; properties: Record<string, unknown> }>,
+				) {
+					const rows = yield* Effect.forEach(chunksOf(updates, STATEMENT_CHUNK_SIZE), (chunk) =>
+						session.run((db) =>
+							db
+								.update(schema.relationship)
+								.set({
+									properties: sql`(case ${schema.relationship.id} ${sql.join(
+										chunk.map(
+											({ id, properties }) =>
+												sql`when ${id} then ${JSON.stringify(properties)}::jsonb`,
+										),
+										sql` `,
+									)} end)`,
+								})
+								.where(
+									inArray(
+										schema.relationship.id,
+										chunk.map(({ id }) => id),
+									),
+								)
+								.returning(relationshipSnapshotSelection),
+						),
+					);
+					return new Map(
+						rows
+							.flat()
+							.map((row) => [
+								RelationshipId.make(row.id),
+								toSavedRelationship({ ...row, wasInserted: false }),
+							]),
+					);
+				},
+			);
+
+			const deleteRelationshipsById = Effect.fn("RelationshipsRepository.deleteRelationshipsById")(
+				function* (ids: ReadonlyArray<RelationshipId>) {
+					const rows = yield* Effect.forEach(chunksOf(ids, STATEMENT_CHUNK_SIZE), (chunk) =>
+						session.run((db) =>
+							db
+								.delete(schema.relationship)
+								.where(inArray(schema.relationship.id, chunk))
+								.returning(relationshipSnapshotSelection),
+						),
+					);
+					return new Map(
+						rows.flat().map((row) => [RelationshipId.make(row.id), toRelationship(row)]),
+					);
+				},
+			);
 
 			const updateRelationship = Effect.fn("RelationshipsRepository.updateRelationship")(function* (
 				input: UpdateRelationshipInput,
@@ -486,9 +592,13 @@ export class RelationshipsRepository extends Context.Service<RelationshipsReposi
 
 			return {
 				findRelationship,
+				findRelationships,
 				createRelationship,
 				updateRelationship,
 				deleteRelationship,
+				createRelationships,
+				updateRelationshipsById,
+				deleteRelationshipsById,
 				listGlobalRelationships,
 				findUserRelationshipById,
 				lockRelationshipMutations,

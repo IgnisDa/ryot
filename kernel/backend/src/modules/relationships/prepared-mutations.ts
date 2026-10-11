@@ -15,6 +15,8 @@ import { catalogDefinitionFingerprint } from "#modules/plugins/catalog/runtime-r
 import {
 	classifyRelationshipReceiptConflict,
 	makeRelationshipMutationPrimitives,
+	mutationWriteCheck,
+	relationshipReceiptRecord,
 } from "./mutation-primitives";
 import {
 	activeTransactionGuard,
@@ -58,8 +60,7 @@ export type PreparedUserRelationshipDelete = {
 export const makePreparedRelationshipMutations = (
 	dependencies: RelationshipMutationDependencies,
 ) => {
-	const { writes, session, planner, runtime, receipts, execution, repository, definitions } =
-		dependencies;
+	const { writes, session, planner, receipts, execution, repository, definitions } = dependencies;
 	const primitives = makeRelationshipMutationPrimitives(dependencies);
 	const transaction = rootTransaction(session);
 	const assertRootTransaction = rootTransactionGuard(session);
@@ -141,12 +142,24 @@ export const makePreparedRelationshipMutations = (
 		}
 		const planned = yield* transaction(
 			Effect.gen(function* () {
+				const pinOf = yield* primitives.verifyWrites([mutationWriteCheck(mutation)]);
 				yield* primitives.lockMutations([mutation]);
+				const validated = yield* primitives.validateMutation(
+					mutation,
+					yield* primitives.readEntities([mutation]),
+					pinOf(mutation),
+				);
 				const row = yield* repository.findRelationship(mutation.input);
 				const before = row ? yield* snapshot(row) : null;
 				const request = yield* primitives
-					.prepareRequest(mutation, before)
-					.pipe(Effect.catchTag("RelationshipNotFound", Effect.die));
+					.prepareRequest(mutation, before, validated)
+					.pipe(
+						Effect.catchTag("RelationshipNotFound", (error) =>
+							error.reason.code === "relationship-not-found"
+								? Effect.die(error)
+								: Effect.fail(error),
+						),
+					);
 				if (!request) {
 					return null;
 				}
@@ -205,14 +218,7 @@ export const makePreparedRelationshipMutations = (
 		},
 	) {
 		yield* assertActiveTransaction;
-		yield* writes
-			.check(
-				prepared.mutation.command,
-				relationshipSchemaReference(prepared.mutation.input).owner,
-				prepared.mutation.input.scope === "user" ? prepared.mutation.input.userId : null,
-				true,
-			)
-			.pipe(Effect.mapError(relationshipWriteFailure));
+		const pinOf = yield* primitives.verifyWrites([mutationWriteCheck(prepared.mutation)]);
 		if ("committed" in prepared) {
 			return { dispatch: prepared.committed.dispatch, result: prepared.committed.relationship };
 		}
@@ -236,36 +242,34 @@ export const makePreparedRelationshipMutations = (
 			...batchScope,
 			scopes: [mutation.input.scope === "user" ? mutation.input.userId : null],
 		});
-		let request = prepared.request;
-		if (request.operation !== "delete") {
-			yield* runtime.lockCatalog();
-			request = yield* primitives.revalidateRequest(mutation, request);
-		}
 		yield* primitives.lockMutations([mutation]);
-		const { payload, ...result } = yield* primitives
-			.persistSource(mutation, request, prepared.before, true)
-			.pipe(
-				Effect.catchTag(
-					"RelationshipNotFound",
-					() => new RelationshipBadRequest({ reason: { code: "concurrent-relationship-change" } }),
-				),
-			);
-		if (!payload || !result.relationship) {
-			return yield* Effect.die("Prepared relationship write is missing its result");
-		}
+		const validated = yield* primitives.validateMutation(
+			mutation,
+			yield* primitives.readEntities([mutation]),
+			pinOf(mutation),
+		);
+		const request = yield* primitives.revalidateRequest(mutation, prepared.request, validated);
+		const { payload, ...result } = yield* primitives.persistPreparedSource(
+			mutation,
+			request,
+			prepared.before,
+			validated,
+		);
 		const { change, dispatch } = yield* primitives.planChange({
 			payload,
 			mutation,
 			requestId: prepared.requestId,
 		});
-		yield* primitives.recordResult({
-			batch,
-			result,
-			dispatch,
-			evidence: change,
-			identity: receipt,
-			index: batchInput?.index ?? 0,
-		});
+		yield* receipts.insert(
+			relationshipReceiptRecord({
+				batch,
+				result,
+				dispatch,
+				evidence: change,
+				identity: receipt,
+				index: batchInput?.index ?? 0,
+			}),
+		);
 		return { dispatch, result: result.relationship };
 	});
 	const persistPreparedUserCreate = Effect.fn("RelationshipsService.persistPreparedUserCreate")(
