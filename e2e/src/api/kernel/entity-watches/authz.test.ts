@@ -181,7 +181,12 @@ describe("interest authorization", () => {
 	it.live("requires authentication as the first frame and before the deadline", () =>
 		Effect.gen(function* () {
 			const firstFrame = yield* waitForSocketClose(
-				encodeEntityWatchClientMessage({ revision: 1, entityIds: [], type: "replace" }),
+				encodeEntityWatchClientMessage({
+					revision: 1,
+					entityIds: [],
+					type: "replace",
+					foregroundIds: [],
+				}),
 			);
 			const deadline = yield* waitForSocketClose();
 			expect(firstFrame).toEqual({ code: 1002, reason: "Protocol error" });

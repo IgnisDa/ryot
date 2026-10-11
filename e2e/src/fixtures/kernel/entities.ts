@@ -68,6 +68,7 @@ export const getEntity = (client: Client, entityId: string) =>
 						field("providerId", column(entityTable, "providerId")),
 						field("populationStatus", column(entityTable, "populationStatus")),
 						field("translationStatus", column(entityTable, "translationStatus")),
+						field("relatedPopulationStatus", column(entityTable, "relatedPopulationStatus")),
 					],
 				}),
 			}),
@@ -102,6 +103,9 @@ export const getEntity = (client: Client, entityId: string) =>
 			),
 			translationStatus: yield* Schema.decodeUnknownEffect(TranslationStatus)(
 				requireRyotQLText(row, "translationStatus"),
+			),
+			relatedPopulationStatus: yield* Schema.decodeUnknownEffect(PopulationStatus)(
+				requireRyotQLText(row, "relatedPopulationStatus"),
 			),
 			entitySchemaPluginId:
 				optionalText("entitySchemaPluginId") === null
@@ -146,18 +150,26 @@ export const findEntityIdByName = (
 		);
 	});
 
-export const setEntityPopulatedAt = (entityId: string, populatedAt: string | null) =>
+type PopulationSeedLevel = ContractPayload<"testSupport", "setEntityPopulatedAt">["level"];
+
+export const setEntityPopulatedAt = (
+	entityId: string,
+	populatedAt: string | null,
+	level: PopulationSeedLevel = "full",
+) =>
 	getApiClient().call(
 		(c) =>
 			c.testSupport.setEntityPopulatedAt({
-				payload: { populatedAt },
+				payload: { level, populatedAt },
 				params: { entityId: EntityId.make(entityId) },
 			}),
 		adminHeaders(),
 	);
 
-export const markEntityPopulated = (entityId: string) =>
-	Effect.flatMap(DateTime.now, (now) => setEntityPopulatedAt(entityId, DateTime.formatIso(now)));
+export const markEntityPopulated = (entityId: string, level: PopulationSeedLevel = "full") =>
+	Effect.flatMap(DateTime.now, (now) =>
+		setEntityPopulatedAt(entityId, DateTime.formatIso(now), level),
+	);
 
 export const createPluginSchemaAndEntity = (client: Client) =>
 	Effect.gen(function* () {

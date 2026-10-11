@@ -11,6 +11,7 @@ import {
 	getApiClient,
 	pollProviderEntityImportResult,
 	pollUntil,
+	populateRelatedThroughForegroundInterest,
 	shippedPluginTestProviders,
 	startFakeAppriseServer,
 } from "~/fixtures/kernel";
@@ -120,6 +121,7 @@ it.live("notifies only a credited person's monitor once per role on first media 
 		});
 		const result = yield* pollProviderEntityImportResult(importer.client, jobId);
 		assertCompleted(result, "association media import");
+		yield* populateRelatedThroughForegroundInterest(importer, result.data.id);
 
 		const delivered = yield* pollUntil(
 			"association notification delivery",
@@ -253,6 +255,7 @@ describe("dual-writer canonical identity", () => {
 				});
 				const imported = yield* pollProviderEntityImportResult(importer.client, jobId);
 				assertCompleted(imported, "dual-writer media-rooted import");
+				yield* populateRelatedThroughForegroundInterest(importer, imported.data.id);
 				const created = yield* pollAssociationNotification("dual-writer-monitor");
 				expect(created).toHaveLength(1);
 				expect(requireObjectRecord(created[0]?.body, "Missing notification body").body).toBe(

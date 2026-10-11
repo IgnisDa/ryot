@@ -9,6 +9,7 @@ import {
 	fakeProviderDetailsResult,
 	pollProviderEntityImportResult,
 	pollUntil,
+	populateRelatedThroughForegroundInterest,
 	shippedPluginTestProviders,
 	startFakeAppriseServer,
 } from "~/fixtures/kernel";
@@ -120,6 +121,7 @@ describe("company and media-group association variants", () => {
 			});
 			const result = yield* pollProviderEntityImportResult(importer.client, jobId);
 			assertCompleted(result, "company association media import");
+			yield* populateRelatedThroughForegroundInterest(importer, result.data.id);
 
 			const delivered = yield* pollNotificationBody("company-monitor");
 			expect(requireObjectRecord(delivered[0]?.body, "Missing notification body").body).toBe(
@@ -242,6 +244,7 @@ describe("company and media-group association variants", () => {
 			});
 			const result = yield* pollProviderEntityImportResult(importer.client, jobId);
 			assertCompleted(result, "media-group association import");
+			yield* populateRelatedThroughForegroundInterest(importer, result.data.id);
 
 			const [personDelivered, companyDelivered] = yield* Effect.all([
 				pollNotificationBody("media-group-person-monitor"),

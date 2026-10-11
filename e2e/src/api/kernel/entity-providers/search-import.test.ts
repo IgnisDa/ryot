@@ -9,9 +9,11 @@ import {
 	fakeProviderSearchResult,
 	findRelationshipBySchema,
 	getApiClient,
+	getEntity,
 	getVisibleEntityByProvenance,
 	installTestProviders,
 	pollProviderEntityImportResult,
+	populateRelatedThroughForegroundInterest,
 	searchProviderEntities,
 	testProviderEntitySchema,
 	uninstallTestProvider,
@@ -224,7 +226,7 @@ describe("GET /entity-providers/imports/{jobId}", () => {
 	);
 
 	it.live(
-		"returns entity with populated properties and related entities in the completed result",
+		"imports at base and adds related entities once a foreground watch upgrades the entity",
 		() =>
 			Effect.gen(function* () {
 				const { jobId } = yield* enqueueProviderEntityImport(providerClient, {
@@ -242,6 +244,19 @@ describe("GET /entity-providers/imports/{jobId}", () => {
 				);
 				expect(properties).not.toEqual({});
 				expect(properties.populatedAt).toBeUndefined();
+				expect((yield* getEntity(providerClient, result.data.id)).relatedPopulationStatus).toBe(
+					"pending",
+				);
+				const unrelated = yield* Effect.exit(
+					getVisibleEntityByProvenance(providerClient, {
+						entitySchemaSlug: "company",
+						providerId: companyProvider.providerId,
+						externalId: RELATED_COMPANY_EXTERNAL_ID,
+					}),
+				);
+				expect(unrelated._tag).toBe("Failure");
+
+				yield* populateRelatedThroughForegroundInterest({ client: providerClient }, result.data.id);
 
 				const relatedEntity = yield* getVisibleEntityByProvenance(providerClient, {
 					entitySchemaSlug: "company",

@@ -32,6 +32,7 @@ import {
 	pollSignalTriggerWithRecipientCount,
 	pollTerminalAutomationRuns,
 	pollUserLifecycleOperation,
+	populateRelatedThroughForegroundInterest,
 	shippedPluginTestProviders,
 	startFakeAppriseServerScoped,
 	updatePluginState,
@@ -295,6 +296,7 @@ describe("Delete user automation data cleanup", () => {
 				});
 				const imported = yield* pollProviderEntityImportResult(importer.client, jobId);
 				assertCompleted(imported, "delete-user shared association import");
+				yield* populateRelatedThroughForegroundInterest(importer, imported.data.id);
 
 				const { id: triggerId } = yield* pollSignalTriggerWithRecipientCount(
 					{

@@ -11,8 +11,10 @@ import {
 	getVisibleEntityByProvenance,
 	installTestProviders,
 	namespaceInstallation,
+	openInterestWebSocketScoped,
 	pollProviderEntityImportResult,
 	pollUntil,
+	populateRelatedThroughForegroundInterest,
 	providerSandboxSource,
 	relatedPageKey,
 	replaceSandboxScriptCompiledRepresentation,
@@ -30,6 +32,7 @@ const MOVIE_PROVIDER_SLUG = `movie-${crypto.randomUUID()}`;
 const MOVIE_IDS = ["movie-1", "movie-2", "movie-3", "movie-4"];
 
 let client: Client;
+let auth: { client: Client };
 let studioProvider: InstalledTestProvider;
 let movieProvider: InstalledTestProvider;
 
@@ -69,7 +72,8 @@ const pages = (
 beforeAll(() =>
 	runPromise(
 		Effect.gen(function* () {
-			({ client } = yield* createAuthenticatedClient());
+			auth = yield* createAuthenticatedClient();
+			({ client } = auth);
 			({ movie: movieProvider, studio: studioProvider } = yield* installTestProviders({
 				client,
 				scope: "system",
@@ -184,6 +188,8 @@ describe("paged related-entity groups", () => {
 					.totalExecutions;
 
 				const company = yield* importStudio(externalId);
+				expect(yield* relatedMovieIds(company.id)).toEqual([]);
+				yield* populateRelatedThroughForegroundInterest(auth, company.id);
 
 				yield* pollUntil(
 					"every paged movie related",
@@ -200,7 +206,8 @@ describe("paged related-entity groups", () => {
 					pages([{ page: 2 }, "movie-2", null]),
 				);
 				yield* setEntityPopulatedAt(company.id, null);
-				yield* importStudio(externalId);
+				const socket = yield* openInterestWebSocketScoped(auth);
+				yield* socket.replaceInterest([company.id], [company.id]);
 
 				expect(
 					yield* pollUntil(

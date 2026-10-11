@@ -38,6 +38,7 @@ import {
 	pollProviderEntityImportResult,
 	pollSignalTrigger,
 	pollUntil,
+	populateRelatedThroughForegroundInterest,
 	startFakeAppriseServerScoped,
 } from "~/fixtures/kernel";
 import { assertCompleted, assertTaggedError, requirePresent } from "~/support/assertions";
@@ -358,6 +359,7 @@ describe("plugin namespace authority", () => {
 				});
 				const result = yield* pollProviderEntityImportResult(client, jobId);
 				assertCompleted(result, "private namespace import");
+				yield* populateRelatedThroughForegroundInterest({ client }, result.data.id);
 				roots.push(result.data.id);
 				const graph = yield* executeRyotQLRecipe(client, graphRecipe(reference));
 				expect(graph.every((row) => row.userId === userId)).toBe(true);
