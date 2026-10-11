@@ -67,3 +67,23 @@ it.live(
 			expect(yield* frame.getByRole("region", { exact: true, name: libraryName }).count).toBe(0);
 		}).pipe(PlaywrightSpawner.withBrowser),
 );
+
+it.live("opens the exercise editor named after the provider query from Create custom", () =>
+	Effect.gen(function* () {
+		const { email, password } = yield* createAuthenticatedClient();
+		const customName = `Custom exercise ${crypto.randomUUID()}`;
+		const page = yield* (yield* Playwright.Browser).newPage();
+		yield* signInThroughHostedOAuth(page, email, password);
+		yield* page.goto(`${getFrontendUrl()}/p/ryot/fitness/workouts/new`);
+		const frame = page.locator("iframe:visible").contentFrame();
+		yield* frame.getByRole("button", { exact: true, name: "Add exercises" }).click();
+		const picker = frame.getByRole("dialog", { exact: true, name: "Add exercises" });
+		yield* picker.getByRole("button", { exact: true, name: "Add from provider" }).click();
+		const provider = page.getByRole("dialog", { exact: true, name: "Add from a provider" });
+		yield* provider.getByLabel("Search providers").fill(customName);
+		yield* provider.getByRole("button", { exact: true, name: "Create custom" }).click();
+		const name = frame.getByLabel("Name", { exact: true });
+		yield* name.waitFor({ state: "visible" });
+		expect(yield* name.inputValue()).toBe(customName);
+	}).pipe(PlaywrightSpawner.withBrowser),
+);
