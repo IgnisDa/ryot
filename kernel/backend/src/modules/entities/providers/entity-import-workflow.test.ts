@@ -595,6 +595,7 @@ const rootPopulationLayer = Layer.unwrap(
 		const { readPinnedRows } = yield* DefinitionRepository.make;
 		const principal = yield* Schema.decodeEffect(ScriptExecutionPrincipal)({ ...pin, subject });
 		const payload: ProviderEntityPopulationPayload = {
+			level: "full",
 			mode: "refresh",
 			externalId: "record-1",
 			providerId: provider.id,
@@ -639,7 +640,10 @@ const rootPopulationLayer = Layer.unwrap(
 							}),
 						),
 			}),
-			Layer.mock(EntitiesRepository)({ findEntityByExternalId: () => Effect.succeed(null) }),
+			Layer.mock(EntitiesRepository)({
+				stampRelatedPopulated: () => Effect.void,
+				findEntityByExternalId: () => Effect.succeed(null),
+			}),
 			Layer.mock(EntitiesService)({
 				persistPlannedProviderUpsert: (input) =>
 					Effect.gen(function* () {

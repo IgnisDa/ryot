@@ -9,6 +9,7 @@ import {
 	SandboxScriptId,
 	UserId,
 } from "@ryot-app/contract/schema/brands";
+import { eq } from "drizzle-orm";
 import { PgDialect } from "drizzle-orm/pg-core";
 import { Context, DateTime, Effect, Layer, Ref } from "effect";
 import { chunksOf } from "effect/Array";
@@ -446,6 +447,35 @@ layer(eventStreamRepositoriesLayer)((test) => {
 				}),
 			);
 			expect((yield* streams.get(streamId))?.streamRevision).toBe(invalidated.streamRevision);
+		}),
+	);
+});
+
+layer(eventStreamRepositoriesLayer)((test) => {
+	test.effect("stamps related population without touching populated_at", () =>
+		Effect.gen(function* () {
+			const session = yield* DatabaseSession;
+			const repository = yield* EntitiesRepository;
+			const entityId = EntityId.make("related-stamp-entity");
+			const stampedAt = DateTime.toDateUtc(DateTime.makeUnsafe("2026-10-01T00:00:00.000Z"));
+			yield* session.run((db) =>
+				db
+					.insert(tables.entity)
+					.values({ id: entityId, name: "Related", entitySchemaSlug: "record" }),
+			);
+
+			yield* session.transaction(repository.stampRelatedPopulated(entityId, stampedAt));
+
+			const [row] = yield* session.run((db) =>
+				db
+					.select({
+						populatedAt: tables.entity.populatedAt,
+						relatedPopulatedAt: tables.entity.relatedPopulatedAt,
+					})
+					.from(tables.entity)
+					.where(eq(tables.entity.id, entityId)),
+			);
+			expect(row).toEqual({ populatedAt: null, relatedPopulatedAt: stampedAt });
 		}),
 	);
 });

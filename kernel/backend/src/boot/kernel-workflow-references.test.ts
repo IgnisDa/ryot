@@ -739,6 +739,7 @@ layer(
 				]);
 				expect(yield* dispatches.payloads).toEqual([
 					expect.objectContaining({
+						level: "full",
 						mode: "refresh",
 						externalId: "record-1",
 						entitySchemaSlug: "record",

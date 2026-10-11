@@ -25,7 +25,11 @@ import { makeActivity } from "#platform/workflow/scope";
 
 import { preRegisterProviderDetails } from "./details-principal";
 import { makeProviderExecutionReads } from "./execution-reads";
-import type { EntityImportPayload, ProviderEntityImportWorkflowPayload } from "./schemas";
+import type {
+	EntityImportPayload,
+	PopulationLevel,
+	ProviderEntityImportWorkflowPayload,
+} from "./schemas";
 
 type ProviderResolveOperationInput = {
 	readonly value: string;
@@ -48,6 +52,7 @@ type EntityImportWorkflowOperationsValue = {
 	processSandbox: (
 		payload: EntityImportPayload,
 		executionId: string,
+		level: PopulationLevel,
 		existingProperties?: unknown,
 	) => Effect.Effect<SandboxExecutionResult, SandboxRunError, WorkflowEngine | WorkflowInstance>;
 	requireRelatedScript: (
@@ -196,9 +201,11 @@ export const EntityImportWorkflowOperationsLive = Layer.effect(
 		const processSandboxEntityDetails = (
 			payload: EntityImportPayload,
 			executionId: string,
+			level: PopulationLevel,
 			existingProperties?: unknown,
 		) =>
 			executePinnedProviderOperation(payload, "details", `${executionId}-sandbox-details`, {
+				level,
 				externalId: payload.externalId,
 				...(existingProperties === undefined ? {} : { existingProperties }),
 			});

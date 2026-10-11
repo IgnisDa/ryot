@@ -31,6 +31,17 @@ Provider details are fetched before database work. Population then commits the r
 related-entity group, each child-entity set, and the final population timestamp in separate short
 transactions. Lifecycle dispatch and Redis publication happen after those transactions commit.
 
+### Population levels
+
+A population payload carries a required `level`, passed to the `details` script as `level`.
+A `full` run persists everything above and stamps `entity.related_populated_at` together with
+`populated_at`, in the same transaction. A `base` run persists the root entity and child-entity sets
+only: it ignores any returned `relatedEntityGroups` (no relationship writes, no generation claims,
+no sweeps, no related-pages workflow) and stamps `populated_at` alone, so existing relationships stay
+untouched. Providers should skip related fetches at `base`; a provider that ignores `level` stays
+valid. `ensure` and `refresh` semantics and execution IDs do not depend on the level, and failure
+marking applies to both levels. Every dispatcher currently requests `full`.
+
 ### Paged related groups
 
 A related-entity group whose `details` result carries a `continuation` is written in pages. The

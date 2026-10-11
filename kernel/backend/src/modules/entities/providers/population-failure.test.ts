@@ -236,6 +236,7 @@ const failureLayer = Layer.unwrap(
 					mode,
 					externalId,
 					executionId,
+					level: "full" as const,
 					providerId: provider.id,
 					entitySchemaSlug: rootSchemaSlug,
 					entityScope: { userId, type: "global" },

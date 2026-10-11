@@ -198,6 +198,7 @@ const harness = Effect.fnUntraced(function* (scope: string, relatedScript = true
 			{
 				mode,
 				executionId,
+				level: "full",
 				externalId: "root",
 				providerId: provider.id,
 				entitySchemaSlug: bottle,

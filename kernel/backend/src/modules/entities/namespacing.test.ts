@@ -1808,6 +1808,7 @@ layer(relationshipDatabaseLayer())((test) => {
 						{
 							mode,
 							executionId,
+							level: "full",
 							entitySchemaSlug: bottle,
 							externalId: "shared-root",
 							providerId: admission.providerId,

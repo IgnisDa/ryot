@@ -291,6 +291,7 @@ export const KernelWorkflowReferencesLive = Layer.effect(
 									{
 										executionId: childExecutionId,
 										payload: {
+											level: "full",
 											mode: decoded.mode,
 											providerId: provider.id,
 											pluginId: callerPlugin.id,

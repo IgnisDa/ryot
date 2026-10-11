@@ -120,6 +120,7 @@ const listedEntity = (
 });
 
 const payloadFields = {
+	level: "full" as const,
 	externalId: "record-1",
 	mode: "refresh" as const,
 	entitySchemaSlug: rootSchemaSlug,
@@ -276,7 +277,10 @@ const populationLayer = (options: {
 				Layer.succeed(RedisService, makeRedisService({ publish: () => Effect.succeed(1) })),
 				Layer.succeed(PluginRuntimeResolver, runtime),
 				DomainWriteChecksLive,
-				Layer.mock(EntitiesRepository)({ findEntityByExternalId: () => Effect.succeed(null) }),
+				Layer.mock(EntitiesRepository)({
+					findEntityByExternalId: () => Effect.succeed(null),
+					stampRelatedPopulated: () => record("related-stamp"),
+				}),
 				Layer.mock(EntitiesService)({
 					persistPlannedProviderUpsert: upsertItem,
 					persistPlannedProviderUpserts: (input) =>
@@ -304,8 +308,9 @@ const populationLayer = (options: {
 				}),
 				Layer.mock(EntityImportWorkflowOperations)({
 					completeProviderEntityImport: () => Effect.void,
-					processSandbox: () => Effect.succeed(sandboxResult),
 					processProviderResolve: () => Effect.die("unexpected provider resolve"),
+					processSandbox: (_payload, _executionId, level) =>
+						record(`details:${level}`).pipe(Effect.as(sandboxResult)),
 				}),
 				Layer.succeed(LifecycleExecution, {
 					after: () => Effect.die("unexpected after"),
@@ -353,6 +358,7 @@ layer(
 				Effect.tap(() =>
 					Effect.gen(function* () {
 						expect(yield* (yield* FakePopulationWrites).recorded).toEqual([
+							"details:full",
 							"root-upsert",
 							"dispatch:root-upsert",
 							"child-entity",
@@ -362,6 +368,7 @@ layer(
 							"relationships",
 							"dispatch:child-entity,entities-batch,relationships",
 							"root-write",
+							"related-stamp",
 							"dispatch:root-write",
 						]);
 						const warningLogs = yield* (yield* RecordedLogAnnotations).annotations;
@@ -395,6 +402,7 @@ layer(populationLayer({ dispatch: () => ({ warnings: [], entry: "dispatch" }) })
 			const replayed = yield* run;
 			expect(replayed).toEqual(first);
 			expect(yield* (yield* FakePopulationWrites).recorded).toEqual([
+				"details:full",
 				"root-upsert",
 				"dispatch",
 				"child-entity",
@@ -404,7 +412,9 @@ layer(populationLayer({ dispatch: () => ({ warnings: [], entry: "dispatch" }) })
 				"relationships",
 				"dispatch",
 				"root-write",
+				"related-stamp",
 				"dispatch",
+				"details:full",
 				"dispatch",
 				"dispatch",
 				"dispatch",
@@ -435,5 +445,33 @@ layer(populationLayer({ dispatch: () => ({ warnings: [], entry: "dispatch" }) })
 				Effect.provideService(WorkflowEngine, makeWorkflowActivityEngine(instance)),
 			);
 		}),
+	);
+});
+
+layer(populationLayer({ dispatch: () => ({ warnings: [], entry: "dispatch" }) }))((test) => {
+	test.effect(
+		"persists the root and children at base level, ignores returned related groups, and stamps only populated_at",
+		() =>
+			Effect.gen(function* () {
+				const payload = { ...(yield* FakePopulationWrites).payload, level: "base" as const };
+				const instance = WorkflowInstance.initial(
+					ProviderEntityPopulationWorkflow,
+					payload.executionId,
+				);
+				yield* runProviderEntityPopulationWorkflow(payload, payload.executionId).pipe(
+					Effect.provideService(WorkflowInstance, instance),
+					Effect.provideService(WorkflowEngine, makeWorkflowActivityEngine(instance)),
+				);
+				expect(yield* (yield* FakePopulationWrites).recorded).toEqual([
+					"details:base",
+					"root-upsert",
+					"dispatch",
+					"child-entity",
+					"relationships",
+					"dispatch",
+					"root-write",
+					"dispatch",
+				]);
+			}),
 	);
 });

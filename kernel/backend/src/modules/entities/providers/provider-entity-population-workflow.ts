@@ -53,12 +53,21 @@ import {
 	sweepRelatedEntityGroup,
 	syncRelatedEntityGroup,
 } from "./relationship-population";
-import { type EntityImportPayload, entityImportPayloadFields, EntityImportScope } from "./schemas";
+import {
+	type EntityImportPayload,
+	entityImportPayloadFields,
+	EntityImportScope,
+	PopulationLevel,
+} from "./schemas";
 
 const REDIS_RETRY_SCHEDULE = Schedule.spaced("30 seconds");
 export const RELATED_PAGES_MAX_PAGES = 200;
 
-type SynchronizeOptions = { mode: "initial" | "refresh"; entitySchemaSlug: EntitySchemaSlug };
+type SynchronizeOptions = {
+	level: PopulationLevel;
+	entitySchemaSlug: EntitySchemaSlug;
+	mode: "initial" | "refresh";
+};
 
 const ValidatedEntityDetails = Schema.Struct({
 	name: Schema.String,
@@ -392,9 +401,11 @@ const stampRootPopulatedAt = Effect.fn("stampProviderRootPopulatedAt")(function*
 	payload: EntityImportPayload,
 	details: ValidatedEntityDetails,
 	population: AutomationPopulationContext,
+	level: PopulationLevel,
 ) {
 	const session = yield* DatabaseSession;
 	const entities = yield* EntitiesService;
+	const repository = yield* EntitiesRepository;
 	const scope = getEntityWriteScope(payload);
 
 	return yield* makeActivity({
@@ -405,22 +416,28 @@ const stampRootPopulatedAt = Effect.fn("stampProviderRootPopulatedAt")(function*
 			const populatedAt = DateTime.toDateUtc(DateTime.makeUnsafe(payload.command.occurredAt));
 			const work = yield* retryOnDeadlock(
 				session.transaction(
-					entities.persistPlannedProviderUpsert({
-						...scope,
-						populatedAt,
-						name: details.name,
-						updateExisting: true,
-						properties: details.properties,
-						externalId: payload.externalId,
-						providerId: payload.providerId,
-						entitySchema: {
-							slug: payload.entitySchemaSlug,
-							owner: definitionOwner(payload.pluginId),
-						},
-						lifecycle: {
-							...payload.command,
-							...populationLifecycleCommand(payload.command, ["root", "stamp"], population),
-						},
+					Effect.gen(function* () {
+						const stamped = yield* entities.persistPlannedProviderUpsert({
+							...scope,
+							populatedAt,
+							name: details.name,
+							updateExisting: true,
+							properties: details.properties,
+							externalId: payload.externalId,
+							providerId: payload.providerId,
+							entitySchema: {
+								slug: payload.entitySchemaSlug,
+								owner: definitionOwner(payload.pluginId),
+							},
+							lifecycle: {
+								...payload.command,
+								...populationLifecycleCommand(payload.command, ["root", "stamp"], population),
+							},
+						});
+						if (level === "full") {
+							yield* repository.stampRelatedPopulated(stamped.result.entity.id, populatedAt);
+						}
+						return stamped;
 					}),
 				),
 			).pipe(mapDbErrorToSandbox);
@@ -679,6 +696,7 @@ const synchronizeEntityGraph = Effect.fn("synchronizeEntityGraph")(function* (
 	const sandboxResult = yield* operations.processSandbox(
 		payload,
 		executionId,
+		options.level,
 		existing?.properties,
 	);
 	if (sandboxResult.error) {
@@ -700,7 +718,8 @@ const synchronizeEntityGraph = Effect.fn("synchronizeEntityGraph")(function* (
 				: Effect.void,
 		),
 	);
-	if (details.relatedEntityGroups.some(({ continuation }) => continuation !== undefined)) {
+	const relatedEntityGroups = options.level === "full" ? details.relatedEntityGroups : [];
+	if (relatedEntityGroups.some(({ continuation }) => continuation !== undefined)) {
 		yield* operations.requireRelatedScript(payload);
 	}
 	const rootPreviouslyPopulated = existing !== null && existing.populatedAt !== null;
@@ -715,7 +734,7 @@ const synchronizeEntityGraph = Effect.fn("synchronizeEntityGraph")(function* (
 	yield* logEntityWarnings(rootSave.dispatch, "root-upsert");
 	const entity = rootSave.result.entity;
 	const continued: Array<{ index: number; group: ProviderDetailsRelatedEntityGroup }> = [];
-	for (const [index, group] of details.relatedEntityGroups.entries()) {
+	for (const [index, group] of relatedEntityGroups.entries()) {
 		if (group.continuation === undefined) {
 			yield* syncRelatedEntityGroupScope(payload, definitions, entity.id, group, index, population);
 			continue;
@@ -756,7 +775,7 @@ const synchronizeEntityGraph = Effect.fn("synchronizeEntityGraph")(function* (
 			? { expectedChildEntitySchemaSlug: details.expectedChildEntitySchemaSlug }
 			: {}),
 	});
-	const stamped = yield* stampRootPopulatedAt(payload, details, population);
+	const stamped = yield* stampRootPopulatedAt(payload, details, population, options.level);
 	yield* logEntityWarnings(stamped.dispatch, "root-stamp");
 	yield* publishPrimaryEntity(stamped.result.entity.id);
 	for (const { index, group } of continued) {
@@ -774,6 +793,7 @@ const synchronizeEntityGraph = Effect.fn("synchronizeEntityGraph")(function* (
 
 export const ProviderEntityPopulationPayload = Schema.Struct({
 	...entityImportPayloadFields,
+	level: PopulationLevel,
 	entityScope: EntityImportScope,
 	mode: Schema.Literals(["ensure", "refresh"]),
 });
@@ -845,7 +865,7 @@ export const runProviderEntityPopulationWorkflow = Effect.fn("ProviderEntityPopu
 				payload,
 				definitions,
 				executionId,
-				{ mode: "initial", entitySchemaSlug: payload.entitySchemaSlug },
+				{ mode: "initial", level: payload.level, entitySchemaSlug: payload.entitySchemaSlug },
 				existing,
 			);
 		}
@@ -854,7 +874,7 @@ export const runProviderEntityPopulationWorkflow = Effect.fn("ProviderEntityPopu
 			payload,
 			definitions,
 			executionId,
-			{ mode: "refresh", entitySchemaSlug: payload.entitySchemaSlug },
+			{ mode: "refresh", level: payload.level, entitySchemaSlug: payload.entitySchemaSlug },
 			existing,
 		);
 	},
