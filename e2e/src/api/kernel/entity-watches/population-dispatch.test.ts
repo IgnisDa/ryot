@@ -1,5 +1,5 @@
 import { EntityId } from "@ryot-app/contract/schema/brands";
-import { Duration, Effect, Result } from "effect";
+import { Effect, Result } from "effect";
 
 import {
 	adminHeaders,
@@ -8,6 +8,7 @@ import {
 	getApiClient,
 	getEntity,
 	getGlobalEntityByProvenance,
+	GRACE_WINDOW_MS,
 	installTestProvider,
 	openInterestWebSocketScoped,
 	pollUntil,
@@ -16,11 +17,11 @@ import {
 	testProviderEntitySchema,
 	uninstallTestProvider,
 	waitForEntityPopulated,
+	waitOutGraceWindow,
 } from "~/fixtures/kernel";
 import type { InstalledTestProvider } from "~/fixtures/kernel/sandbox-provider";
 import { afterAll, beforeAll, describe, expect, it, runPromise } from "~/support/effect-test";
 
-const GRACE_WINDOW_MS = 3000;
 const POPULATED_NAME = "E2E Populated Studio";
 const ENTITY_SCHEMA_SLUG = "studio";
 
@@ -71,7 +72,7 @@ describe("entity population via client-declared interest", () => {
 			expect(fetched.id).toBe(seeded.id);
 			expect(fetched.populatedAt).toBeNull();
 
-			yield* Effect.sleep(Duration.millis(GRACE_WINDOW_MS));
+			yield* waitOutGraceWindow;
 			const afterGrace = yield* getGlobalEntityByProvenance(client, provenance);
 			expect(afterGrace.populatedAt).toBeNull();
 

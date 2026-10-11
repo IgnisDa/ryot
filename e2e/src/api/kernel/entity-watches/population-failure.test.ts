@@ -5,6 +5,7 @@ import {
 	createAuthenticatedClient,
 	fakeProviderDetailsResult,
 	getEntity,
+	GRACE_WINDOW_MS,
 	installTestProvider,
 	openInterestWebSocketScoped,
 	pollUntil,
@@ -20,7 +21,6 @@ import { startFakeHttpServerScoped } from "~/support/fake-http-server";
 
 const ENTITY_SCHEMA_SLUG = "studio";
 const POPULATED_NAME = "E2E Recovered Studio";
-const GRACE_WINDOW_MS = 3000;
 const HTTP_CALL_LIMIT = 50;
 
 let provider: InstalledTestProvider;
