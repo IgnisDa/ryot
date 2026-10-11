@@ -4,6 +4,7 @@ import { Effect, Fiber, Option, Stream } from "effect";
 import { Playwright, PlaywrightSpawner } from "effect-playwright";
 
 import { createAuthenticatedClient, getEntity } from "~/fixtures/kernel";
+import { mediaPluginFrame } from "~/fixtures/plugins/media/frame";
 import { requireString } from "~/support/assertions";
 import { signInThroughHostedOAuth } from "~/support/browser";
 import { expect, it } from "~/support/effect-test";
@@ -34,7 +35,7 @@ it.live("creates a custom movie from the saved view's Create custom handoff", ()
 		yield* provider.getByLabel("Search providers").fill(movieName);
 		yield* provider.getByRole("button", { exact: true, name: "Create custom" }).click();
 
-		const editor = page.locator('iframe[title="Media plugin"]:visible').contentFrame();
+		const editor = mediaPluginFrame(page, { visible: true }).contentFrame();
 		const form = editor.getByRole("form", { exact: true, name: "New Movie" });
 		const name = form.getByLabel("Name", { exact: true });
 		yield* name.waitFor({ state: "visible" });
@@ -42,8 +43,7 @@ it.live("creates a custom movie from the saved view's Create custom handoff", ()
 		yield* form.getByRole("button", { exact: true, name: "Save" }).click();
 
 		yield* page.waitForURL((url) => url.pathname.startsWith("/e/"));
-		yield* page
-			.locator('iframe[title="Media plugin"]:visible')
+		yield* mediaPluginFrame(page, { visible: true })
 			.contentFrame()
 			.getByRole("heading", { level: 1, exact: true, name: movieName })
 			.waitFor({ state: "visible" });
@@ -68,7 +68,7 @@ it.live("creates a private genre inline and shows it on a custom movie", () =>
 		yield* provider.getByLabel("Search providers").fill(movieName);
 		yield* provider.getByRole("button", { exact: true, name: "Create custom" }).click();
 
-		const editor = page.locator('iframe[title="Media plugin"]:visible').contentFrame();
+		const editor = mediaPluginFrame(page, { visible: true }).contentFrame();
 		const form = editor.getByRole("form", { exact: true, name: "New Movie" });
 		const name = form.getByLabel("Name", { exact: true });
 		yield* name.waitFor({ state: "visible" });
@@ -85,7 +85,7 @@ it.live("creates a private genre inline and shows it on a custom movie", () =>
 		yield* form.getByRole("button", { exact: true, name: "Save" }).click();
 
 		yield* page.waitForURL((url) => url.pathname.startsWith("/e/"));
-		const detail = page.locator('iframe[title="Media plugin"]:visible').contentFrame();
+		const detail = mediaPluginFrame(page, { visible: true }).contentFrame();
 		yield* detail
 			.getByRole("heading", { level: 1, exact: true, name: movieName })
 			.waitFor({ state: "visible" });
@@ -116,7 +116,7 @@ it.live("creates a custom show with nested providers, episode orders, and image 
 		yield* provider.getByLabel("Search providers").fill(showName);
 		yield* provider.getByRole("button", { exact: true, name: "Create custom" }).click();
 
-		const editor = page.locator('iframe[title="Media plugin"]:visible').contentFrame();
+		const editor = mediaPluginFrame(page, { visible: true }).contentFrame();
 		const form = editor.getByRole("form", { exact: true, name: "New Show" });
 		const name = form.getByLabel("Name", { exact: true });
 		yield* name.waitFor({ state: "visible" });
@@ -169,8 +169,7 @@ it.live("creates a custom show with nested providers, episode orders, and image 
 			new URL(page.url()).pathname.split("/").at(-1),
 			"Entity ID is missing from the URL",
 		);
-		yield* page
-			.locator('iframe[title="Media plugin"]:visible')
+		yield* mediaPluginFrame(page, { visible: true })
 			.contentFrame()
 			.getByRole("heading", { level: 1, exact: true, name: showName })
 			.waitFor({ state: "visible" });

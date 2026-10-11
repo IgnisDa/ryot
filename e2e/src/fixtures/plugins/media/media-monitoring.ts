@@ -1,11 +1,8 @@
-import type { ContractPayload } from "@ryot-app/contract/client";
-import { type PluginPackageId, pluginPackageSegments } from "@ryot-app/contract/schema/brands";
 import {
 	mediaMonitoringDisableRecipe,
 	mediaMonitoringEnableRecipe,
 	mediaMonitoringStatusRecipe,
 } from "@ryot-app/media-plugin/contracts/operation-recipes";
-import { invokeOperationRecipe } from "@ryot-app/plugin-kit/operations";
 import {
 	aggregate,
 	and,
@@ -23,6 +20,7 @@ import { adminHeaders } from "~/fixtures/kernel/admin";
 import type { Client } from "~/fixtures/kernel/auth";
 import { getApiClient } from "~/fixtures/kernel/contract-client";
 import { getEntity } from "~/fixtures/kernel/entities";
+import { invokeOperation } from "~/fixtures/kernel/operations";
 import { pollUntil } from "~/fixtures/kernel/polling";
 import { executeRyotQL, requireRyotQLValue } from "~/fixtures/kernel/ryotql";
 import { assertCondition } from "~/support/assertions";
@@ -73,48 +71,19 @@ export const triggerCronAndWaitForEntity = (auth: { client: Client }, entityId: 
 	});
 
 export const getMediaMonitoringStatus = (client: Client, entityId: string) =>
-	invokeOperationRecipe(
-		mediaMonitoringStatusRecipe,
-		{ entityIds: [entityId] },
-		operationTransport(client),
-	).pipe(Effect.flatMap(singleResult));
+	invokeOperation(client, mediaMonitoringStatusRecipe, { entityIds: [entityId] }).pipe(
+		Effect.flatMap(singleResult),
+	);
 
 export const enableMediaMonitoring = (client: Client, entityId: string) =>
-	invokeOperationRecipe(
-		mediaMonitoringEnableRecipe,
-		{ entityIds: [entityId] },
-		operationTransport(client),
-	).pipe(Effect.flatMap(singleResult));
+	invokeOperation(client, mediaMonitoringEnableRecipe, { entityIds: [entityId] }).pipe(
+		Effect.flatMap(singleResult),
+	);
 
 export const disableMediaMonitoring = (client: Client, entityId: string) =>
-	invokeOperationRecipe(
-		mediaMonitoringDisableRecipe,
-		{ entityIds: [entityId] },
-		operationTransport(client),
-	).pipe(Effect.flatMap(singleResult));
-
-export const operationTransport =
-	(client: Client, idempotencyKey?: string) =>
-	(
-		request: Pick<ContractPayload<"plugins", "invoke">, "payload"> & {
-			readonly packageId: PluginPackageId;
-			readonly operationSlug: string;
-		},
-	) =>
-		client
-			.call((contract) =>
-				contract.plugins.invoke({
-					params: {
-						...pluginPackageSegments(request.packageId),
-						operationSlug: request.operationSlug,
-					},
-					payload: {
-						payload: request.payload,
-						...(idempotencyKey === undefined ? {} : { idempotencyKey }),
-					},
-				}),
-			)
-			.pipe(Effect.map(({ result }) => result));
+	invokeOperation(client, mediaMonitoringDisableRecipe, { entityIds: [entityId] }).pipe(
+		Effect.flatMap(singleResult),
+	);
 
 const singleResult = <Result>(output: {
 	readonly results: readonly Result[];

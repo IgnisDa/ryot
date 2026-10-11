@@ -18,6 +18,7 @@ import {
 	seedGlobalShowEpisodeTree,
 	seedMediaEntity,
 } from "~/fixtures/plugins/media";
+import { mediaPluginFrame } from "~/fixtures/plugins/media/frame";
 import { seedGlobalMediaGenres } from "~/fixtures/plugins/media/genres";
 import { signInThroughHostedOAuth } from "~/support/browser";
 import { afterAll, beforeAll, expect, it, runPromise } from "~/support/effect-test";
@@ -84,7 +85,7 @@ it.live("automatically populates and translates a partial Show in the compiled M
 		const page = yield* browser.newPage();
 		yield* signInThroughHostedOAuth(page, email, password);
 		yield* page.goto(`${getFrontendUrl()}/e/${show.id}`);
-		const frame = page.locator('iframe[title="Media plugin"]');
+		const frame = mediaPluginFrame(page);
 		yield* frame.waitFor({ state: "visible" });
 		const media = frame.contentFrame();
 		yield* media
@@ -142,7 +143,7 @@ it.live("opens a Media Show entity from the canonical saved-view route", () =>
 		expect(new URL(page.url()).pathname).toBe(`/e/${showId}`);
 		expect(page.url()).not.toContain("/media");
 
-		const frame = page.locator('iframe[title="Media plugin"]');
+		const frame = mediaPluginFrame(page);
 		yield* frame.waitFor({ state: "visible" });
 		const media = frame.contentFrame();
 		yield* media.getByRole("heading", { level: 1, name: SHOW_NAME }).waitFor({ state: "visible" });
@@ -219,6 +220,6 @@ it.live("shows a kernel notice for a Media schema with no detail renderer", () =
 		yield* page
 			.getByRole("heading", { level: 1, exact: true, name: "Entity page not registered" })
 			.waitFor({ state: "visible" });
-		expect(yield* page.locator('iframe[title="Media plugin"]').count).toBe(0);
+		expect(yield* mediaPluginFrame(page).count).toBe(0);
 	}).pipe(PlaywrightSpawner.withBrowser),
 );

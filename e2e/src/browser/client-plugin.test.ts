@@ -16,6 +16,7 @@ import {
 	updateFixtureClientPlugin,
 } from "~/fixtures/kernel";
 import { seedGlobalShowEpisodeTree } from "~/fixtures/plugins/media";
+import { mediaPluginFrame } from "~/fixtures/plugins/media/frame";
 import { requirePresent } from "~/support/assertions";
 import { signInThroughHostedOAuth } from "~/support/browser";
 import { expect, it } from "~/support/effect-test";
@@ -552,7 +553,7 @@ it.live("runs the client plugin lifecycle in a real browser", () =>
 		yield* expectIsolatedFrame(frame, apiUrl);
 
 		yield* page.goto(`${frontendUrl}/e/${showId}`);
-		const mediaFrame = page.locator('iframe[title="Media plugin"]');
+		const mediaFrame = mediaPluginFrame(page);
 		yield* mediaFrame.waitFor({ state: "visible" });
 		const media = mediaFrame.contentFrame();
 		yield* media

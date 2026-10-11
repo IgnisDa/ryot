@@ -10,14 +10,13 @@ import type {
 } from "@ryot-app/fitness-plugin/exercise-note-operations";
 
 import type { Client } from "~/fixtures/kernel/auth";
-
-import { invokeFitnessOperation } from "./operation-transport";
+import { invokeOperation } from "~/fixtures/kernel/operations";
 
 export const createExerciseNote = (client: Client, input: ExerciseNoteCreateInput) =>
-	invokeFitnessOperation(client, exerciseNoteCreateRecipe, input);
+	invokeOperation(client, exerciseNoteCreateRecipe, input);
 
 export const updateExerciseNote = (client: Client, input: ExerciseNoteUpdateInput) =>
-	invokeFitnessOperation(client, exerciseNoteUpdateRecipe, input);
+	invokeOperation(client, exerciseNoteUpdateRecipe, input);
 
 export const deleteExerciseNote = (client: Client, input: ExerciseNoteDeleteInput) =>
-	invokeFitnessOperation(client, exerciseNoteDeleteRecipe, input);
+	invokeOperation(client, exerciseNoteDeleteRecipe, input);

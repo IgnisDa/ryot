@@ -11,24 +11,24 @@ import type { Client } from "~/fixtures/kernel/auth";
 import { createEntity } from "~/fixtures/kernel/entities";
 import { listEventSchemas, requireEventSchemaBySlug } from "~/fixtures/kernel/event-schemas";
 import { waitForCreateEvents } from "~/fixtures/kernel/events";
-
-import { findFitnessEntitySchema } from "./exercises";
 import {
-	invokeEncodedFitnessOperation,
-	invokeFitnessOperation,
+	invokeEncodedOperation,
+	invokeOperation,
 	type RecipeEncodedInput,
 	type RecipeInput,
-} from "./operation-transport";
+} from "~/fixtures/kernel/operations";
+
+import { findFitnessEntitySchema } from "./exercises";
 
 export const createMeasurementMetric = (
 	client: Client,
 	input: RecipeEncodedInput<typeof measurementMetricCreateRecipe>,
-) => invokeEncodedFitnessOperation(client, measurementMetricCreateRecipe, input);
+) => invokeEncodedOperation(client, measurementMetricCreateRecipe, input);
 
 export const pinMeasurementMetric = (
 	client: Client,
 	input: RecipeInput<typeof measurementMetricPinRecipe>,
-) => invokeFitnessOperation(client, measurementMetricPinRecipe, input);
+) => invokeOperation(client, measurementMetricPinRecipe, input);
 
 type SubmissionKeys = "submissionId" | "submittedAt";
 type ReadingLogInput = RecipeEncodedInput<typeof measurementReadingLogRecipe>;
@@ -37,7 +37,7 @@ export const logMeasurementReadings = (
 	client: Client,
 	input: Omit<ReadingLogInput, SubmissionKeys> & Partial<Pick<ReadingLogInput, SubmissionKeys>>,
 ) =>
-	invokeEncodedFitnessOperation(client, measurementReadingLogRecipe, {
+	invokeEncodedOperation(client, measurementReadingLogRecipe, {
 		...input,
 		submissionId: input.submissionId ?? crypto.randomUUID(),
 		submittedAt: input.submittedAt ?? new Date().toISOString(),
@@ -46,12 +46,12 @@ export const logMeasurementReadings = (
 export const updateMeasurementReadings = (
 	client: Client,
 	input: RecipeInput<typeof measurementReadingUpdateRecipe>,
-) => invokeFitnessOperation(client, measurementReadingUpdateRecipe, input);
+) => invokeOperation(client, measurementReadingUpdateRecipe, input);
 
 export const deleteMeasurementReadings = (
 	client: Client,
 	input: RecipeInput<typeof measurementReadingDeleteRecipe>,
-) => invokeFitnessOperation(client, measurementReadingDeleteRecipe, input);
+) => invokeOperation(client, measurementReadingDeleteRecipe, input);
 
 export const createMeasurementReadingFixture = (client: Client) =>
 	Effect.gen(function* () {

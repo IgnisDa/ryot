@@ -3,11 +3,11 @@ import { Playwright, PlaywrightSpawner } from "effect-playwright";
 
 import { createAuthenticatedClient, waitForEventWithSchema } from "~/fixtures/kernel";
 import { logMediaActivity, seedActivityShow } from "~/fixtures/plugins/media";
+import { mediaPluginFrame } from "~/fixtures/plugins/media/frame";
 import { signInThroughHostedOAuth } from "~/support/browser";
 import { expect, it } from "~/support/effect-test";
 import { getApiUrl, getFrontendUrl } from "~/support/harness-target";
-
-const nowIso = () => new Date().toISOString();
+import { nowIso } from "~/support/time";
 
 const openShow = (input: { email: string; password: string; showId: string }) =>
 	Effect.gen(function* () {
@@ -15,7 +15,7 @@ const openShow = (input: { email: string; password: string; showId: string }) =>
 		const page = yield* browser.newPage({ viewport: { width: 1280, height: 900 } });
 		yield* signInThroughHostedOAuth(page, input.email, input.password);
 		yield* page.goto(`${getFrontendUrl()}/e/${input.showId}`);
-		const media = page.locator('iframe[title="Media plugin"]').contentFrame();
+		const media = mediaPluginFrame(page).contentFrame();
 		yield* media
 			.getByRole("heading", { level: 1, name: /^Activity Log Show / })
 			.waitFor({ state: "visible", timeout: 150_000 });

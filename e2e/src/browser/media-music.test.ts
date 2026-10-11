@@ -15,6 +15,7 @@ import {
 	insertLibraryMembership,
 	seedGlobalMusicWithAlbum,
 } from "~/fixtures/plugins/media";
+import { mediaPluginFrame } from "~/fixtures/plugins/media/frame";
 import { seedGlobalMediaGenres } from "~/fixtures/plugins/media/genres";
 import { requirePresent } from "~/support/assertions";
 import { signInThroughHostedOAuth } from "~/support/browser";
@@ -109,7 +110,7 @@ it.live("renders a populated Music detail with its album rail and no watch provi
 		);
 		yield* signInThroughHostedOAuth(page, email, password);
 		yield* page.goto(`${frontendUrl}/e/${seeded.track.id}`);
-		const frame = page.locator('iframe[title="Media plugin"]');
+		const frame = mediaPluginFrame(page);
 		yield* frame.waitFor({ state: "visible" });
 		const media = frame.contentFrame();
 		yield* media
@@ -204,8 +205,7 @@ it.live("renders the Music presentation facts in the canonical saved view", () =
 
 		yield* view.getByRole("link", { exact: true, name: trackName }).click();
 		yield* page.waitForURL(`${frontendUrl}/e/${seeded.track.id}`);
-		yield* page
-			.locator('iframe[title="Media plugin"]')
+		yield* mediaPluginFrame(page)
 			.contentFrame()
 			.getByRole("heading", { level: 1, exact: true, name: trackName })
 			.waitFor({ state: "visible", timeout: 150_000 });
