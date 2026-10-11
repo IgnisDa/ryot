@@ -217,16 +217,15 @@ export const replaceWorkoutOccurrence = (
 	} as const;
 };
 
-export const cloneWorkoutForRepeat = (
+export const cloneWorkoutEditorSource = (
 	source: WorkoutEditorDraft,
-	input: {
-		readonly draftId: string;
-		readonly idFor: () => string;
-		readonly name: string;
-		readonly sourceWorkoutId: EntityId;
-		readonly startedAt: string;
-	},
+	input: { readonly draftId: string; readonly idFor: () => string; readonly name: string } & (
+		| { readonly kind: "repeat"; readonly sourceWorkoutId: EntityId; readonly startedAt: string }
+		| { readonly kind: "live"; readonly templateId: EntityId; readonly startedAt: string }
+		| { readonly kind: "template-create"; readonly sourceWorkoutId: EntityId }
+	),
 ): WorkoutEditorDraft => {
+	const startedAt = input.kind === "template-create" ? undefined : input.startedAt;
 	const occurrenceIds = new Map<string, string>();
 	const occurrences = source.occurrences.map((occurrence) => {
 		const clientId = input.idFor();
@@ -240,23 +239,23 @@ export const cloneWorkoutForRepeat = (
 			sourceExerciseOrder: undefined,
 			sets: occurrence.sets.map((set) => ({
 				...set,
-				rpe: undefined,
 				included: false,
 				eventId: undefined,
 				occurredAt: undefined,
 				confirmedAt: undefined,
 				clientId: input.idFor(),
 				restTimerStartedAt: undefined,
+				rpe: input.kind === "repeat" ? undefined : set.rpe,
 			})),
 		};
 	});
 	return {
 		...source,
+		startedAt,
 		images: [],
 		videos: [],
 		occurrences,
 		name: input.name,
-		activeDuration: 0,
 		comment: undefined,
 		endedAt: undefined,
 		submission: undefined,
@@ -266,14 +265,13 @@ export const cloneWorkoutForRepeat = (
 		caloriesBurnt: undefined,
 		restCountdown: undefined,
 		uploadedAssets: undefined,
-		startedAt: input.startedAt,
-		activeDurationIntent: "set",
 		activeOccurrenceId: undefined,
 		executionCountdown: undefined,
 		stopwatchStartedAt: undefined,
 		pausedStopwatchSeconds: undefined,
-		activeDurationStartedAt: input.startedAt,
-		mode: { kind: "live", source: { kind: "repeat", entityId: input.sourceWorkoutId } },
+		activeDurationStartedAt: startedAt,
+		activeDuration: input.kind === "template-create" ? undefined : 0,
+		activeDurationIntent: input.kind === "template-create" ? "preserve" : "set",
 		supersets: source.supersets.map((superset) => ({
 			...superset,
 			clientId: input.idFor(),
@@ -282,6 +280,16 @@ export const cloneWorkoutForRepeat = (
 				return mapped === undefined ? [] : [mapped];
 			}),
 		})),
+		mode:
+			input.kind === "template-create"
+				? { kind: "template-create", sourceWorkoutId: input.sourceWorkoutId }
+				: {
+						kind: "live",
+						source:
+							input.kind === "repeat"
+								? { kind: "repeat", entityId: input.sourceWorkoutId }
+								: { kind: "template", entityId: input.templateId },
+					},
 	};
 };
 
@@ -289,7 +297,7 @@ const canonicalMeasurements = (
 	set: WorkoutEditorSet,
 	display: ReturnType<typeof resolveWorkoutDisplay>,
 ) => {
-	const values: { reps?: number; weight?: number; duration?: number; distance?: number } = {};
+	const values: Partial<Record<(typeof inputFields)[number], number>> = {};
 	for (const field of inputFields) {
 		const parsed = parseInput(set[field], field === "reps");
 		if (parsed.kind !== "value") {

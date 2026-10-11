@@ -5,8 +5,7 @@ import { useCallback } from "react";
 
 import type { WorkoutEditorContextOutputSchema } from "../../shared/workout-editor-context-operations";
 import { fitnessRoute, workoutEditorResumeTarget } from "../../shared/workout-editor-routes";
-import { cloneWorkoutEditorSource } from "../../shared/workout-editor-source";
-import { cloneWorkoutForRepeat } from "../../shared/workout-editor-transformations";
+import { cloneWorkoutEditorSource } from "../../shared/workout-editor-transformations";
 import { emptyWorkoutDraft } from "./actions";
 import { loadEditorSource } from "./queries";
 import { WorkoutEditorScreen } from "./screen";
@@ -72,9 +71,10 @@ export default function WorkoutEditorPage() {
 			if (source.draft.mode.kind !== "historical") {
 				return yield* Effect.fail("Invalid workout source.");
 			}
-			return cloneWorkoutForRepeat(source.draft, {
+			return cloneWorkoutEditorSource(source.draft, {
 				draftId,
 				startedAt,
+				kind: "repeat",
 				name: source.draft.name,
 				idFor: () => crypto.randomUUID(),
 				sourceWorkoutId: source.draft.mode.entityId,
