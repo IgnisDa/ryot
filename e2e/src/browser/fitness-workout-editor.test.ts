@@ -144,7 +144,7 @@ it.live("retries a committed workout after a lost response and reload without du
 			const exercise = frame.getByRole("region", { exact: true, name: exerciseName });
 			yield* exercise.getByRole("textbox", { exact: true, name: "Set 1 reps" }).fill("0");
 			yield* exercise.getByRole("textbox", { exact: true, name: "Set 1 weight (kg)" }).fill("0");
-			yield* exercise.getByRole("button", { exact: true, name: "Confirm" }).click();
+			yield* exercise.getByRole("button", { exact: true, name: "Complete set 1" }).click();
 		}
 		yield* frame.getByRole("button", { exact: true, name: "Reorder" }).click();
 		const reorder = frame.getByRole("dialog", { exact: true, name: "Reorder exercises" });
@@ -237,7 +237,7 @@ it.live("repeats, recovers, saves and edits a workout through registered Fitness
 		expect(yield* frame.getByRole("textbox", { exact: true, name: "Name" }).inputValue()).toBe(
 			`${name} repeated`,
 		);
-		yield* frame.getByRole("button", { exact: true, name: "Confirm" }).click();
+		yield* frame.getByRole("button", { exact: true, name: "Complete set 1" }).click();
 		yield* frame.getByRole("button", { exact: true, name: "Finish" }).click();
 		yield* frame.getByRole("button", { exact: true, name: "Save workout" }).click();
 		yield* page.waitForURL((url) => url.pathname.startsWith("/e/"));
