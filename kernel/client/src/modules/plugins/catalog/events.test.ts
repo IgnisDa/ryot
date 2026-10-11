@@ -7,6 +7,7 @@ import { Effect, Fiber, Layer, ManagedRuntime, Schedule } from "effect";
 
 import { decodeServerOrigin } from "#/api/origin";
 import type { ApiScope } from "#/api/scope";
+import { makeAuthorizationState } from "#/modules/auth/authorization";
 import { OAuthTokenService } from "#/modules/auth/token-service";
 import {
 	makePluginCatalogEventsLayer,
@@ -66,6 +67,7 @@ const makeRuntime = (
 		clear: () => Effect.void,
 		logout: () => Effect.succeed(null),
 		userInfo: () => Effect.succeed(null),
+		authorization: makeAuthorizationState(),
 		rejectAuthorization: () => Effect.die("not used"),
 		completeAuthorization: () => Effect.die("not used"),
 		accessToken: (_origin, forceRefresh = false) =>

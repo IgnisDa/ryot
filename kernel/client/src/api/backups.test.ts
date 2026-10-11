@@ -7,6 +7,7 @@ import { AuthenticatedApi, makeAuthenticatedApi } from "#/api/authenticated";
 import { backupArchiveFileName, BackupsApi } from "#/api/backups";
 import { decodeServerOrigin } from "#/api/origin";
 import type { ApiScope } from "#/api/scope";
+import { makeAuthorizationState } from "#/modules/auth/authorization";
 import type { OAuthTokenService } from "#/modules/auth/token-service";
 import { type FileDownloadRequest, FileDownloads } from "#/modules/downloads/file";
 
@@ -18,6 +19,7 @@ const tokens: OAuthTokenService["Service"] = {
 	clear: () => Effect.void,
 	logout: () => Effect.succeed(null),
 	userInfo: () => Effect.succeed(null),
+	authorization: makeAuthorizationState(),
 	accessToken: () => Effect.succeed(accessToken),
 	rejectAuthorization: () => Effect.die("not used"),
 	completeAuthorization: () => Effect.die("not used"),

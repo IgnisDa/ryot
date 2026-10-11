@@ -411,6 +411,7 @@ describe("OAuth token service", () => {
 				const failure = yield* Effect.flip(tokens.logout(origin, `${origin}/auth/logout/callback`));
 				expect(failure.reason).toBe("storage-failed");
 				expect((yield* storage.values).has(oauthTokenKey(origin))).toBe(true);
+				expect(yield* tokens.accessToken(origin)).toBeNull();
 			}),
 		);
 	});

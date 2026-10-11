@@ -13,6 +13,7 @@ import type { ReactNode } from "react";
 
 import { decodeServerOrigin } from "#/api/origin";
 import type { ApiScope } from "#/api/scope";
+import { makeAuthorizationState } from "#/modules/auth/authorization";
 import { OAuthTokenService } from "#/modules/auth/token-service";
 import { makePluginCatalogEventsLayer } from "#/modules/plugins/catalog/events";
 import { makePluginCatalogEventsTestLayer } from "#/modules/plugins/catalog/events.test-layer";
@@ -108,6 +109,7 @@ describe("plugin catalog provider", () => {
 							clear: () => Effect.void,
 							logout: () => Effect.succeed(null),
 							userInfo: () => Effect.succeed(null),
+							authorization: makeAuthorizationState(),
 							accessToken: () => Effect.succeed("token"),
 							rejectAuthorization: () => Effect.die("not used"),
 							completeAuthorization: () => Effect.die("not used"),
