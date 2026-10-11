@@ -102,6 +102,7 @@ it("keeps restored installations inactive when required secrets were redacted", 
 				},
 			},
 			false,
+			false,
 		),
 	).toEqual({
 		isHidden: true,
@@ -148,6 +149,7 @@ it("preserves needs-configuration health when the secret was already absent", ()
 				lifecycleIntent: "needs-configuration",
 			},
 			{ fields: {}, unknownKeys: "strict" },
+			false,
 			false,
 		),
 	).toEqual({
@@ -249,7 +251,7 @@ it("preserves exported quarantine and hidden intent even when no system conflict
 		lifecycleIntent: "incompatible" as const,
 		incompatibilityReason: "package-identity-conflict" as const,
 	};
-	expect(resolveRestoredInstallationLifecycle(state, { fields: {} }, false)).toEqual({
+	expect(resolveRestoredInstallationLifecycle(state, { fields: {} }, false, false)).toEqual({
 		isHidden: false,
 		health: "incompatible",
 		healthReason: "Identity conflict",
@@ -319,6 +321,7 @@ it("detects nested required installation secrets in objects and arrays", () => {
 					configuredSecretPaths: [path],
 				},
 				schema,
+				false,
 				false,
 			),
 		).toEqual({
@@ -645,6 +648,7 @@ it.effect("preflights all qualified schema provenance including streamed events"
 				{ count: 1, sha256: "", read: () => Stream.make(testCase.event) },
 				pluginIds,
 				"definitions" in testCase ? testCase.definitions : provenanceDefinitions,
+				[],
 			).pipe(Effect.flip);
 			expect(error.message, testCase.name).toMatch(
 				/wrong plugin owner|unmapped plugin key|unavailable/,
@@ -700,6 +704,7 @@ it.effect("rejects private-owned global snapshots during preflight", () =>
 			{ count: 0, sha256: "", read: () => Stream.empty },
 			new Map([[key, "private-owner"]]),
 			provenanceDefinitions,
+			[],
 		).pipe(Effect.flip);
 		expect(error.message).toContain("private entity cannot request global scope");
 	}),
