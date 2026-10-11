@@ -24,6 +24,7 @@ import { mediaSavedViews } from "./saved-views";
 
 const PROVIDER_OPERATIONS = new Set([
 	"details",
+	"related",
 	"resolve",
 	"search",
 	"search-options",
