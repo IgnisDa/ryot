@@ -3,7 +3,14 @@ import { imagesField } from "@ryot-app/contract/schema/core";
 import { Effect } from "effect";
 import getPort from "get-port";
 
-import { createAuthenticatedClient, createEntity, createEntitySchema } from "~/fixtures/kernel";
+import {
+	createAuthenticatedClient,
+	createEntity,
+	createEntitySchema,
+	listAutomationTriggers,
+	uploadPermanentAsset,
+} from "~/fixtures/kernel";
+import { findMediaEntitySchema } from "~/fixtures/plugins/media";
 import { assertTaggedError, requirePresent } from "~/support/assertions";
 import { afterAll, beforeAll, describe, expect, it, runPromise } from "~/support/effect-test";
 import { getApiUrl } from "~/support/harness-target";
@@ -216,6 +223,35 @@ describe("POST /uploads/cleanup", () => {
 			);
 			assertTaggedError(unregistered, "UploadBadRequest");
 			expect(unregistered.reason).toEqual({ code: "asset-forbidden" });
+		}),
+	);
+	it.live("ignores another user's automation payload holding a different locator", () =>
+		Effect.gen(function* () {
+			const other = yield* createAuthenticatedClient();
+			const otherAsset = yield* uploadPermanentAsset(other.client, {
+				fileName: "poster.png",
+				contentType: "image/png",
+			});
+			const { schema } = yield* findMediaEntitySchema(other.client, "movie");
+			const movie = yield* createEntity(other.client, {
+				name: "Poster owner",
+				entitySchema: schema.reference,
+				properties: { images: [{ ...otherAsset, purpose: "cover" }] },
+			});
+			const triggers = yield* listAutomationTriggers({
+				sourceRecord: { id: movie.id, resource: "entity" },
+			});
+			expect(triggers.map(({ payload }) => payload)).toContainEqual(
+				expect.objectContaining({
+					after: expect.objectContaining({
+						properties: expect.objectContaining({ images: [{ ...otherAsset, purpose: "cover" }] }),
+					}),
+				}),
+			);
+			const { asset, client } = yield* uploadAndComplete("unrelated.png", "image/png");
+			expect(yield* client.call((c) => c.uploads.cleanup({ payload: { asset } }))).toEqual({
+				status: "deleted",
+			});
 		}),
 	);
 });

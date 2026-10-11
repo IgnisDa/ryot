@@ -4,7 +4,7 @@ import { definitionKey, definitionOwner } from "@ryot-app/contract/modules/plugi
 import { UserId } from "@ryot-app/contract/schema/brands";
 import type { AppPropertyDefinition, AppSchema } from "@ryot-app/contract/schema/property-schema";
 import { isObjectRecord } from "@ryot-app/ts-utils/predicates";
-import { asc, eq, gt, isNotNull } from "drizzle-orm";
+import { and, asc, type Column, eq, gt, isNotNull, isNull, or } from "drizzle-orm";
 import { Context, Effect, Layer } from "effect";
 
 import { collectManagedAssetLocators } from "#lib/domain/managed-asset-locators";
@@ -17,15 +17,29 @@ const PAGE_SIZE = 100;
 
 const locatorKey = (locator: ManagedAssetLocator) => `${locator.type}\0${locator.key}`;
 
+const containsLocator = (value: unknown, locator: ManagedAssetLocator): boolean => {
+	if (Array.isArray(value)) {
+		return value.some((item) => containsLocator(item, locator));
+	}
+	if (!isObjectRecord(value)) {
+		return false;
+	}
+	if (value["type"] === locator.type && value["key"] === locator.key) {
+		return true;
+	}
+	return Object.values(value).some((child) => containsLocator(child, locator));
+};
+
 const recordHasLocator = (
-	properties: Readonly<Record<string, unknown>> | null,
-	propertiesSchema: AppSchema,
+	properties: unknown,
+	propertiesSchema: AppSchema | null | undefined,
 	locator: ManagedAssetLocator,
 ) =>
-	properties !== null &&
-	collectManagedAssetLocators([{ properties, propertiesSchema }], true).some(
-		(candidate) => locatorKey(candidate) === locatorKey(locator),
-	);
+	propertiesSchema && isObjectRecord(properties)
+		? collectManagedAssetLocators([{ properties, propertiesSchema }], true).some(
+				(candidate) => locatorKey(candidate) === locatorKey(locator),
+			)
+		: containsLocator(properties, locator);
 
 const schemaDeclaresAsset = (property: AppPropertyDefinition): boolean => {
 	if (property.type === "object") {
@@ -40,19 +54,6 @@ const schemaDeclaresAsset = (property: AppPropertyDefinition): boolean => {
 const schemaHasAssets = (schema: AppSchema | null | undefined) =>
 	schema !== null && schema !== undefined && Object.values(schema.fields).some(schemaDeclaresAsset);
 
-const containsUnclassifiedLocator = (value: unknown): boolean => {
-	if (Array.isArray(value)) {
-		return value.some(containsUnclassifiedLocator);
-	}
-	if (!isObjectRecord(value)) {
-		return false;
-	}
-	if ((value["type"] === "local" || value["type"] === "s3") && typeof value["key"] === "string") {
-		return true;
-	}
-	return Object.values(value).some(containsUnclassifiedLocator);
-};
-
 const payloadHasReference = (
 	payload: unknown,
 	snapshot: DefinitionSnapshot,
@@ -66,15 +67,8 @@ const payloadHasReference = (
 		return payload["items"].some((item) => payloadHasReference(item, snapshot, locator));
 	}
 	const propertyRecordHasReference = (record: unknown) => {
-		if (
-			!isObjectRecord(record) ||
-			record["properties"] === undefined ||
-			record["properties"] === null
-		) {
+		if (!isObjectRecord(record)) {
 			return false;
-		}
-		if (!isObjectRecord(record["properties"])) {
-			return true;
 		}
 		let propertiesSchema: AppSchema | undefined;
 		if (resource === "entity" && typeof record["entitySchemaSlug"] === "string") {
@@ -137,7 +131,7 @@ const payloadHasReference = (
 					)
 				]?.propertiesSchema;
 		}
-		return !propertiesSchema || recordHasLocator(record["properties"], propertiesSchema, locator);
+		return recordHasLocator(record["properties"], propertiesSchema, locator);
 	};
 	if (resource === "signal" && propertyRecordHasReference(payload)) {
 		return true;
@@ -167,18 +161,20 @@ export class ManagedAssetReferencesRepository extends Context.Service<ManagedAss
 			const definitions = yield* DefinitionRepository;
 
 			const hasReference = Effect.fn("ManagedAssetReferencesRepository.hasReference")(function* (
+				ownerUserId: UserId,
 				locator: ManagedAssetLocator,
 			) {
+				const ownedOrUnowned = (column: Column) => or(eq(column, ownerUserId), isNull(column));
 				const globalSnapshot = yield* definitions.getGlobalSnapshot;
 				const userSnapshots = new Map<UserId, typeof globalSnapshot>();
-				const snapshotForOwner = Effect.fnUntraced(function* (ownerUserId: UserId | null) {
-					if (ownerUserId === null) {
+				const snapshotForOwner = Effect.fnUntraced(function* (userId: UserId | null) {
+					if (userId === null) {
 						return globalSnapshot;
 					}
-					let snapshot = userSnapshots.get(ownerUserId);
+					let snapshot = userSnapshots.get(userId);
 					if (!snapshot) {
-						snapshot = yield* definitions.getUserSnapshot(ownerUserId, { listed: true });
-						userSnapshots.set(ownerUserId, snapshot);
+						snapshot = yield* definitions.getUserSnapshot(userId, { listed: true });
+						userSnapshots.set(userId, snapshot);
 					}
 					return snapshot;
 				});
@@ -196,7 +192,12 @@ export class ManagedAssetReferencesRepository extends Context.Service<ManagedAss
 								schemaPluginId: tables.entity.entitySchemaPluginId,
 							})
 							.from(tables.entity)
-							.where(afterEntityId === undefined ? undefined : gt(tables.entity.id, afterEntityId))
+							.where(
+								and(
+									ownedOrUnowned(tables.entity.userId),
+									afterEntityId === undefined ? undefined : gt(tables.entity.id, afterEntityId),
+								),
+							)
 							.orderBy(asc(tables.entity.id))
 							.limit(PAGE_SIZE),
 					);
@@ -208,10 +209,7 @@ export class ManagedAssetReferencesRepository extends Context.Service<ManagedAss
 							snapshot.entitySchemas[
 								definitionKey("entity", definitionOwner(row.schemaPluginId), row.schemaSlug)
 							];
-						if (
-							!entitySchema ||
-							recordHasLocator(row.properties, entitySchema.propertiesSchema, locator)
-						) {
+						if (recordHasLocator(row.properties, entitySchema?.propertiesSchema, locator)) {
 							return true;
 						}
 					}
@@ -231,12 +229,10 @@ export class ManagedAssetReferencesRepository extends Context.Service<ManagedAss
 							schemaPluginId: tables.entity.entitySchemaPluginId,
 						})
 						.from(tables.entityTranslation)
-						.innerJoin(tables.entity, eq(tables.entity.id, tables.entityTranslation.entityId)),
+						.innerJoin(tables.entity, eq(tables.entity.id, tables.entityTranslation.entityId))
+						.where(ownedOrUnowned(tables.entity.userId)),
 				);
 				for (const row of translations) {
-					if (row.properties === null) {
-						continue;
-					}
 					const snapshot = yield* snapshotForOwner(
 						row.userId === null ? null : UserId.make(row.userId),
 					);
@@ -244,10 +240,7 @@ export class ManagedAssetReferencesRepository extends Context.Service<ManagedAss
 						snapshot.entitySchemas[
 							definitionKey("entity", definitionOwner(row.schemaPluginId), row.schemaSlug)
 						];
-					if (
-						!entitySchema ||
-						recordHasLocator(row.properties, entitySchema.propertiesSchema, locator)
-					) {
+					if (recordHasLocator(row.properties, entitySchema?.propertiesSchema, locator)) {
 						return true;
 					}
 				}
@@ -262,6 +255,7 @@ export class ManagedAssetReferencesRepository extends Context.Service<ManagedAss
 							schemaPluginId: tables.relationship.relationshipSchemaPluginId,
 						})
 						.from(tables.relationship)
+						.where(ownedOrUnowned(tables.relationship.userId))
 						.orderBy(asc(tables.relationship.id)),
 				);
 				for (const row of relationships) {
@@ -272,10 +266,7 @@ export class ManagedAssetReferencesRepository extends Context.Service<ManagedAss
 						snapshot.relationshipSchemas[
 							definitionKey("relationship", definitionOwner(row.schemaPluginId), row.schemaSlug)
 						];
-					if (
-						!relationshipSchema ||
-						recordHasLocator(row.properties, relationshipSchema.propertiesSchema, locator)
-					) {
+					if (recordHasLocator(row.properties, relationshipSchema?.propertiesSchema, locator)) {
 						return true;
 					}
 				}
@@ -296,12 +287,17 @@ export class ManagedAssetReferencesRepository extends Context.Service<ManagedAss
 							})
 							.from(tables.event)
 							.innerJoin(tables.entity, eq(tables.entity.id, tables.event.entityId))
-							.where(afterEventId === undefined ? undefined : gt(tables.event.id, afterEventId))
+							.where(
+								and(
+									eq(tables.event.userId, ownerUserId),
+									afterEventId === undefined ? undefined : gt(tables.event.id, afterEventId),
+								),
+							)
 							.orderBy(asc(tables.event.id))
 							.limit(PAGE_SIZE),
 					);
 					for (const row of rows) {
-						const snapshot = yield* snapshotForOwner(UserId.make(row.userId));
+						const snapshot = yield* snapshotForOwner(ownerUserId);
 						const entitySchema =
 							snapshot.entitySchemas[
 								definitionKey(
@@ -310,13 +306,11 @@ export class ManagedAssetReferencesRepository extends Context.Service<ManagedAss
 									row.entitySchemaSlug,
 								)
 							];
-						const eventSchema = entitySchema?.eventSchemas[row.eventSchemaSlug];
-						if (
-							!entitySchema ||
-							!eventSchema ||
-							row.eventSchemaPluginId !== row.entitySchemaPluginId ||
-							recordHasLocator(row.properties, eventSchema.propertiesSchema, locator)
-						) {
+						const eventSchema =
+							row.eventSchemaPluginId === row.entitySchemaPluginId
+								? entitySchema?.eventSchemas[row.eventSchemaSlug]
+								: undefined;
+						if (recordHasLocator(row.properties, eventSchema?.propertiesSchema, locator)) {
 							return true;
 						}
 					}
@@ -342,22 +336,13 @@ export class ManagedAssetReferencesRepository extends Context.Service<ManagedAss
 						.leftJoin(
 							tables.pluginRevision,
 							eq(tables.pluginRevision.id, tables.plugin.activeRevisionId),
-						),
+						)
+						.where(eq(tables.pluginInstallation.userId, ownerUserId)),
 				);
 				for (const installation of installations) {
 					if (
-						(!installation.clientConfigSchema &&
-							Object.keys(installation.clientConfig).length > 0) ||
-						(installation.clientConfigSchema &&
-							recordHasLocator(installation.clientConfig, installation.clientConfigSchema, locator))
-					) {
-						return true;
-					}
-					if (
-						(!installation.userSettingsSchema &&
-							Object.keys(installation.userSettings).length > 0) ||
-						(installation.userSettingsSchema &&
-							recordHasLocator(installation.userSettings, installation.userSettingsSchema, locator))
+						recordHasLocator(installation.clientConfig, installation.clientConfigSchema, locator) ||
+						recordHasLocator(installation.userSettings, installation.userSettingsSchema, locator)
 					) {
 						return true;
 					}
@@ -377,7 +362,12 @@ export class ManagedAssetReferencesRepository extends Context.Service<ManagedAss
 							tables.pluginRevision,
 							eq(tables.pluginRevision.id, tables.pluginConfigRevision.pluginRevisionId),
 						)
-						.where(isNotNull(tables.pluginConfigRevision.encryptedPayload)),
+						.where(
+							and(
+								isNotNull(tables.pluginConfigRevision.encryptedPayload),
+								ownedOrUnowned(tables.pluginConfigRevision.ownerUserId),
+							),
+						),
 				);
 				if (archivedConfigs.some(({ configSchema }) => schemaHasAssets(configSchema))) {
 					return true;
@@ -399,7 +389,8 @@ export class ManagedAssetReferencesRepository extends Context.Service<ManagedAss
 						.leftJoin(
 							tables.pluginRevision,
 							eq(tables.pluginRevision.id, tables.plugin.activeRevisionId),
-						),
+						)
+						.where(eq(tables.integration.userId, ownerUserId)),
 				);
 				for (const integration of integrations) {
 					const provider = integration.integrationProviders?.find(
@@ -409,12 +400,6 @@ export class ManagedAssetReferencesRepository extends Context.Service<ManagedAss
 						integration.provider === "data-json"
 							? dataJsonIntegrationSettingsSchema
 							: provider?.settingsSchema;
-					if (!propertiesSchema) {
-						if (Object.keys(integration.providerSpecifics).length > 0) {
-							return true;
-						}
-						continue;
-					}
 					if (recordHasLocator(integration.providerSpecifics, propertiesSchema, locator)) {
 						return true;
 					}
@@ -428,16 +413,11 @@ export class ManagedAssetReferencesRepository extends Context.Service<ManagedAss
 							signalSchemaSlug: tables.notificationSubscription.signalSchemaSlug,
 							signalSchemaPluginId: tables.notificationSubscription.signalSchemaPluginId,
 						})
-						.from(tables.notificationSubscription),
+						.from(tables.notificationSubscription)
+						.where(eq(tables.notificationSubscription.userId, ownerUserId)),
 				);
 				for (const subscription of subscriptions) {
-					if (!isObjectRecord(subscription.metadata)) {
-						if (containsUnclassifiedLocator(subscription.metadata)) {
-							return true;
-						}
-						continue;
-					}
-					const snapshot = yield* snapshotForOwner(UserId.make(subscription.userId));
+					const snapshot = yield* snapshotForOwner(ownerUserId);
 					const signalSchema =
 						snapshot.signalSchemas[
 							definitionKey(
@@ -446,10 +426,7 @@ export class ManagedAssetReferencesRepository extends Context.Service<ManagedAss
 								subscription.signalSchemaSlug,
 							)
 						];
-					if (
-						!signalSchema ||
-						recordHasLocator(subscription.metadata, signalSchema.propertiesSchema, locator)
-					) {
+					if (recordHasLocator(subscription.metadata, signalSchema?.propertiesSchema, locator)) {
 						return true;
 					}
 				}
@@ -466,17 +443,17 @@ export class ManagedAssetReferencesRepository extends Context.Service<ManagedAss
 							})
 							.from(tables.automationTrigger)
 							.where(
-								afterTriggerId === undefined
-									? undefined
-									: gt(tables.automationTrigger.id, afterTriggerId),
+								and(
+									ownedOrUnowned(tables.automationTrigger.scopeUserId),
+									afterTriggerId === undefined
+										? undefined
+										: gt(tables.automationTrigger.id, afterTriggerId),
+								),
 							)
 							.orderBy(asc(tables.automationTrigger.id))
 							.limit(PAGE_SIZE),
 					);
 					for (const { payload, scopeUserId } of triggers) {
-						if (containsUnclassifiedLocator(payload)) {
-							return true;
-						}
 						const snapshot = yield* snapshotForOwner(
 							scopeUserId === null ? null : UserId.make(scopeUserId),
 						);
@@ -492,17 +469,28 @@ export class ManagedAssetReferencesRepository extends Context.Service<ManagedAss
 				}
 
 				const savedViews = yield* session.run((db) =>
-					db.select({ settings: tables.savedView.settings }).from(tables.savedView),
+					db
+						.select({ settings: tables.savedView.settings })
+						.from(tables.savedView)
+						.where(eq(tables.savedView.userId, ownerUserId)),
 				);
-				if (savedViews.some(({ settings }) => containsUnclassifiedLocator(settings))) {
+				if (savedViews.some(({ settings }) => containsLocator(settings, locator))) {
 					return true;
 				}
+				// Kernel definitions have no plugin revision and system plugins have no owner, so both
+				// resolve to a null owner and stay in scope.
 				const savedViewDefinitions = yield* session.run((db) =>
 					db
 						.select({ settings: tables.definitionSavedView.settings })
-						.from(tables.definitionSavedView),
+						.from(tables.definitionSavedView)
+						.leftJoin(
+							tables.pluginRevision,
+							eq(tables.pluginRevision.id, tables.definitionSavedView.pluginRevisionId),
+						)
+						.leftJoin(tables.plugin, eq(tables.plugin.id, tables.pluginRevision.pluginId))
+						.where(ownedOrUnowned(tables.plugin.ownerId)),
 				);
-				if (savedViewDefinitions.some(({ settings }) => containsUnclassifiedLocator(settings))) {
+				if (savedViewDefinitions.some(({ settings }) => containsLocator(settings, locator))) {
 					return true;
 				}
 
@@ -516,11 +504,20 @@ export class ManagedAssetReferencesRepository extends Context.Service<ManagedAss
 								historyPayload: tables.automationRun.historyPayload,
 							})
 							.from(tables.automationRun)
-							.where(afterRunId === undefined ? undefined : gt(tables.automationRun.id, afterRunId))
+							.innerJoin(
+								tables.automationTrigger,
+								eq(tables.automationTrigger.id, tables.automationRun.triggerId),
+							)
+							.where(
+								and(
+									ownedOrUnowned(tables.automationTrigger.scopeUserId),
+									afterRunId === undefined ? undefined : gt(tables.automationRun.id, afterRunId),
+								),
+							)
 							.orderBy(asc(tables.automationRun.id))
 							.limit(PAGE_SIZE),
 					);
-					if (runs.some(({ historyPayload }) => containsUnclassifiedLocator(historyPayload))) {
+					if (runs.some(({ historyPayload }) => containsLocator(historyPayload, locator))) {
 						return true;
 					}
 					if (runs.length < PAGE_SIZE) {
