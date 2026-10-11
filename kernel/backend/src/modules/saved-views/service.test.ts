@@ -1,9 +1,9 @@
 import { expect, layer } from "@effect/vitest";
 import type { CurrentUserValue } from "@ryot-app/contract/auth-middleware";
 import type { ListedSavedView } from "@ryot-app/contract/modules/saved-views/schemas";
-import { SavedViewId, UserId } from "@ryot-app/contract/schema/brands";
+import { PluginId, SavedViewId, UserId } from "@ryot-app/contract/schema/brands";
 import { column, document, field, rows, table } from "@ryot-app/ryotql";
-import { Context, Effect, Layer, Ref } from "effect";
+import { Context, Effect, Layer, Ref, Schema } from "effect";
 
 import type { MockOverrides } from "#lib/test-utils/effect";
 import { isolatedDatabaseLayer } from "#lib/test-utils/isolated-database";
@@ -16,6 +16,8 @@ import { fixtureManifest } from "#modules/plugins/test-support";
 
 import { SavedViewsRepository } from "./repository";
 import { SavedViewsService } from "./service";
+
+const encodeSavedViewReferenceJson = Schema.encodeSync(Schema.fromJsonString(Schema.Unknown));
 
 const user = {
 	image: null,
@@ -47,6 +49,7 @@ const baseView = {
 	createdAt: "2026-01-01T00:00:00.000Z",
 	updatedAt: "2026-01-01T00:00:00.000Z",
 	renderer: { kind: "kernel", name: "results-table" },
+	reference: { kind: "custom", savedViewId: SavedViewId.make("sv-id") },
 	settings: {
 		pageSize: 20,
 		sourceName: "entities",
@@ -72,6 +75,11 @@ const pluginView = {
 	isBuiltin: true as const,
 	renderer: pluginRenderer,
 	settings: { title: "Fixture" },
+	reference: {
+		slug: baseView.slug,
+		kind: "plugin" as const,
+		pluginId: PluginId.make("fixture-plugin-id"),
+	},
 };
 const pluginManifest = {
 	...fixtureManifest(),
@@ -122,12 +130,13 @@ const makeLayer = (options: {
 			const created = yield* Ref.make<ReadonlyArray<unknown>>([]);
 			const events = yield* Ref.make<ReadonlyArray<string>>([]);
 			const record = (event: string) => Ref.update(events, (all) => [...all, event]);
-			const { create, updateBySlug } = options.repository;
+			const { create, updateCustom } = options.repository;
 			return SavedViewsService.layer.pipe(
 				Layer.provideMerge(
 					Layer.mergeAll(
 						isolatedDatabaseLayer("saved_views_test"),
 						repositoryMock({
+							customSlugExists: () => Effect.succeed(false),
 							...options.repository,
 							...(create && {
 								create: (userId, input) =>
@@ -136,14 +145,15 @@ const makeLayer = (options: {
 										Effect.andThen(create(userId, input)),
 									),
 							}),
-							...(updateBySlug && {
-								updateBySlug: (...args) =>
-									record("update").pipe(Effect.andThen(updateBySlug(...args))),
+							...(updateCustom && {
+								updateCustom: (...args) =>
+									record("update").pipe(Effect.andThen(updateCustom(...args))),
 							}),
 						}),
 						Layer.mock(PluginInstallationRepository)({
 							listForUser: () => Effect.succeed([]),
-							clearHomeSavedViewReferences: (_userId, id) => record(`clear:${id}`),
+							clearHomeSavedViewReferences: (_userId, reference) =>
+								record(`clear:${encodeSavedViewReferenceJson(reference)}`),
 						}),
 						Layer.succeed(PluginCatalogInvalidator, {
 							all: Effect.void,
@@ -169,7 +179,8 @@ layer(
 	makeLayer({
 		repository: {
 			create: () => Effect.succeed({ id: SavedViewId.make("plugin-copy-id") }),
-			findBySlug: (_userId, slug) => Effect.succeed(slug === pluginView.slug ? pluginView : null),
+			findByReference: (_userId, reference) =>
+				Effect.succeed(Bun.deepEquals(reference, pluginView.reference) ? pluginView : null),
 		},
 		availablePlugins: [
 			{
@@ -177,14 +188,18 @@ layer(
 				scope: "system",
 				health: "ready",
 				isHidden: false,
+				clientImports: [],
 				ownerUserId: null,
+				healthReason: null,
 				compiledHashes: {},
 				id: "fixture-plugin-id",
 				manifest: pluginManifest,
 				sourceHash: "source-hash",
+				incompatibilityReason: null,
 				pluginRevisionId: "fixture-revision",
 				pluginConfigRevisionId: "fixture-config",
 				installationId: "fixture-installation-id",
+				packageId: pluginManifest.metadata.packageId,
 			},
 		],
 	}),
@@ -193,7 +208,7 @@ layer(
 		Effect.gen(function* () {
 			const service = yield* SavedViewsService;
 			const calls = yield* SavedViewsCalls;
-			const cloned = yield* service.clone(user, pluginView.slug);
+			const cloned = yield* service.clone(user, pluginView.reference);
 			expect(cloned).toEqual({ id: SavedViewId.make("plugin-copy-id") });
 			expect(yield* calls.created).toMatchObject([
 				{ renderer: pluginRenderer, settings: { title: "Fixture" } },
@@ -207,14 +222,15 @@ layer(
 	makeLayer({
 		repository: {
 			create: () => Effect.succeed({ id: SavedViewId.make("copy-id") }),
-			findBySlug: (_userId, slug) => Effect.succeed(slug === baseView.slug ? baseView : null),
+			findByReference: (_userId, reference) =>
+				Effect.succeed(Bun.deepEquals(reference, baseView.reference) ? baseView : null),
 		},
 	}),
 )((test) => {
 	test.effect("clones renderer settings and data sources without copying source code", () =>
 		Effect.gen(function* () {
 			const service = yield* SavedViewsService;
-			const cloned = yield* service.clone(user, baseView.slug);
+			const cloned = yield* service.clone(user, baseView.reference);
 			expect(cloned).toEqual({ id: SavedViewId.make("copy-id") });
 			expect(yield* (yield* SavedViewsCalls).created).toMatchObject([
 				{
@@ -231,16 +247,16 @@ layer(
 layer(
 	makeLayer({
 		repository: {
-			findBySlug: () => Effect.succeed(baseView),
-			lockBySlug: () => Effect.succeed(baseView),
-			updateBySlug: () => Effect.succeed({ id: baseView.id }),
+			lockCustom: () => Effect.succeed(baseView),
+			findByReference: () => Effect.succeed(baseView),
+			updateCustom: () => Effect.succeed({ id: baseView.id }),
 		},
 	}),
 )((test) => {
 	test.effect("clears home references when disabling a saved view", () =>
 		Effect.gen(function* () {
 			const service = yield* SavedViewsService;
-			const updated = yield* service.update(user, baseView.slug, {
+			const updated = yield* service.update(user, baseView.reference, {
 				isHidden: true,
 				icon: baseView.icon,
 				name: baseView.name,
@@ -248,7 +264,7 @@ layer(
 			expect(updated).toEqual({ id: baseView.id });
 			expect(yield* (yield* SavedViewsCalls).events).toEqual([
 				"update",
-				`clear:${baseView.slug}`,
+				`clear:${encodeSavedViewReferenceJson(baseView.reference)}`,
 				"invalidate",
 			]);
 		}),
@@ -256,16 +272,16 @@ layer(
 });
 
 const hiddenViewRepository = {
-	findBySlug: () => Effect.succeed(hiddenView),
-	lockBySlug: () => Effect.succeed(hiddenView),
-	updateBySlug: () => Effect.succeed({ id: baseView.id }),
+	lockCustom: () => Effect.succeed(hiddenView),
+	findByReference: () => Effect.succeed(hiddenView),
+	updateCustom: () => Effect.succeed({ id: baseView.id }),
 };
 
 layer(makeLayer({ repository: hiddenViewRepository }))((test) => {
 	test.effect("reveals a hidden view without building its composition", () =>
 		Effect.gen(function* () {
 			const service = yield* SavedViewsService;
-			const updated = yield* service.update(user, baseView.slug, {
+			const updated = yield* service.update(user, baseView.reference, {
 				isHidden: false,
 				icon: baseView.icon,
 				name: baseView.name,
@@ -279,13 +295,17 @@ layer(makeLayer({ repository: hiddenViewRepository }))((test) => {
 layer(makeLayer({ repository: hiddenViewRepository }))((test) => {
 	test.effect("updates a hidden view without preparing its renderer", () =>
 		Effect.gen(function* () {
-			const updated = yield* (yield* SavedViewsService).update(user, baseView.slug, {
+			const updated = yield* (yield* SavedViewsService).update(user, baseView.reference, {
 				isHidden: true,
 				icon: baseView.icon,
 				name: "Renamed View",
 			});
 			expect(updated).toEqual({ id: baseView.id });
-			expect(yield* (yield* SavedViewsCalls).events).toEqual(["update", `clear:${baseView.slug}`]);
+			expect(yield* (yield* SavedViewsCalls).events).toEqual([
+				"update",
+				`clear:${encodeSavedViewReferenceJson(baseView.reference)}`,
+				"invalidate",
+			]);
 		}),
 	);
 });

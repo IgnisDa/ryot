@@ -14,9 +14,11 @@ import {
 import { AppSchema } from "@ryot-app/contract/schema/property-schema";
 import {
 	ascending,
+	and,
 	column,
 	defineRecipe,
 	eq,
+	schemaOwnerJoin,
 	literal,
 	selectedField,
 	selectedInclude,
@@ -60,8 +62,11 @@ export const entityDefinitionsRecipe = defineRecipe(
 				include: {
 					providers: selectedInclude(provider, {
 						limit: 100,
-						where: eq(column(provider, "rootEntitySchemaSlug"), column(entity, "slug")),
 						orderBy: [ascending(column(provider, "name")), ascending(column(provider, "id"))],
+						where: and(
+							eq(column(provider, "rootEntitySchemaSlug"), column(entity, "slug")),
+							schemaOwnerJoin(provider, "pluginId", entity, "pluginId"),
+						),
 						selection: {
 							name: selectedField(column(provider, "name"), Schema.String),
 							providerId: selectedField(column(provider, "id"), SandboxProviderId),
@@ -69,8 +74,11 @@ export const entityDefinitionsRecipe = defineRecipe(
 					}),
 					eventSchemas: selectedInclude(event, {
 						limit: 100,
-						where: eq(column(event, "entitySchemaSlug"), column(entity, "slug")),
 						orderBy: [ascending(column(event, "slug")), ascending(column(event, "id"))],
+						where: and(
+							eq(column(event, "entitySchemaSlug"), column(entity, "slug")),
+							schemaOwnerJoin(event, "pluginId", entity, "pluginId"),
+						),
 						selection: {
 							name: selectedField(column(event, "name"), Schema.String),
 							slug: selectedField(column(event, "slug"), EventSchemaSlug),

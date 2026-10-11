@@ -4,8 +4,8 @@ import type {
 	ResultsTableSavedViewSettings,
 } from "@ryot-app/contract/modules/saved-views/schemas";
 import { SavedViewBadRequest } from "@ryot-app/contract/modules/saved-views/schemas";
-import { EntitySchemaSlug } from "@ryot-app/contract/schema/brands";
-import { and, column, document, eq, field, literal, rows, table } from "@ryot-app/ryotql";
+import { EntitySchemaSlug, PluginId } from "@ryot-app/contract/schema/brands";
+import { and, column, document, eq, field, literal, pluginId, rows, table } from "@ryot-app/ryotql";
 import { Effect } from "effect";
 
 import { assertExitFails } from "#lib/test-utils/assertions";
@@ -20,7 +20,10 @@ const entity = table("entity", "entity");
 const dataSources = document({
 	entities: rows(entity, {
 		where: and(
-			eq(column(entity, "entitySchemaPluginId"), literal("media-plugin-id")),
+			eq(
+				column(entity, "entitySchemaPluginId"),
+				pluginId({ kind: "local", pluginId: PluginId.make("media-plugin-id") }),
+			),
 			eq(column(entity, "entitySchemaSlug"), literal("book")),
 		),
 		fields: [
@@ -44,8 +47,10 @@ const browserSettings = {
 	entitySchemaSlugField: "entitySchemaSlug",
 	addAction: {
 		type: "provider-search",
-		ownerPluginId: "media-plugin-id",
-		entitySchemaSlug: EntitySchemaSlug.make("book"),
+		schema: {
+			slug: EntitySchemaSlug.make("book"),
+			owner: { kind: "plugin", pluginId: PluginId.make("media-plugin-id") },
+		},
 	},
 } satisfies EntityBrowserSavedViewSettings;
 
@@ -60,7 +65,13 @@ it.effect("rejects provider add provenance that does not match the source", () =
 				dataSources,
 				settings: {
 					...browserSettings,
-					addAction: { ...browserSettings.addAction, ownerPluginId: "other-plugin-id" },
+					addAction: {
+						...browserSettings.addAction,
+						schema: {
+							...browserSettings.addAction.schema,
+							owner: { kind: "plugin", pluginId: PluginId.make("other-plugin-id") },
+						},
+					},
 				},
 			}),
 		);

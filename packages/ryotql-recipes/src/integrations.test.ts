@@ -13,12 +13,14 @@ const item = {
 	minimumProgress: 2.5,
 	provider: "provider-1",
 	pluginSlug: "plugin-1",
+	pluginId: "media-plugin",
 	name: "Primary integration",
 	createdAt: "2026-01-01T01:00:00+02:00",
 	updatedAt: "2026-01-02T01:00:00+02:00",
 	lastFinishedAt: "2026-01-03T01:00:00+02:00",
 	extraSettings: { disableOnContinuousErrors: true },
 };
+const kernelItem = { ...item, pluginId: null, pluginSlug: null, id: "kernel-integration" };
 const pageInfo = { limit: 2, hasMore: true, nextCursor: "next" };
 const rows = (items: readonly unknown[], limit = 2) => rowsResult(items, { ...pageInfo, limit });
 
@@ -59,10 +61,18 @@ describe("integration recipes", () => {
 
 	it("decodes plain values, JSON, nulls, page info, and normalized dates", () => {
 		const recipe = integrationsRecipe({ limit: 2 });
-		const decoded = Result.getOrThrow(recipe.decode({ data: { integrations: rows([item]) } }));
+		const decoded = Result.getOrThrow(
+			recipe.decode({ data: { integrations: rows([item, kernelItem]) } }),
+		);
 
 		expect(decoded.items[0]).toEqual({
 			...item,
+			createdAt: "2025-12-31T23:00:00.000Z",
+			updatedAt: "2026-01-01T23:00:00.000Z",
+			lastFinishedAt: "2026-01-02T23:00:00.000Z",
+		});
+		expect(decoded.items[1]).toEqual({
+			...kernelItem,
 			createdAt: "2025-12-31T23:00:00.000Z",
 			updatedAt: "2026-01-01T23:00:00.000Z",
 			lastFinishedAt: "2026-01-02T23:00:00.000Z",
@@ -74,7 +84,7 @@ describe("integration recipes", () => {
 					data: { integrations: rows([{ ...item, name: null, lastFinishedAt: null }]) },
 				}),
 			).items[0],
-		).toMatchObject({ name: null, lastFinishedAt: null });
+		).toMatchObject({ name: null, lastFinishedAt: null, pluginId: "media-plugin" });
 	});
 
 	it("decodes optional detail and rejects excess cardinality", () => {

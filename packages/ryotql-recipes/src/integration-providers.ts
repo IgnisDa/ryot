@@ -5,6 +5,12 @@ import {
 	evaluateIngestionReadiness,
 	IngestionReadinessMetadata,
 } from "@ryot-app/contract/modules/plugins/ingestion-readiness";
+import {
+	definitionKey,
+	definitionOwner,
+	type DeclarationReference,
+} from "@ryot-app/contract/modules/plugins/references";
+import { PluginId, PluginPackageId } from "@ryot-app/contract/schema/brands";
 import { AppSchema } from "@ryot-app/contract/schema/property-schema";
 import {
 	ascending,
@@ -24,7 +30,7 @@ export const integrationProvidersRecipe = defineRecipe(
 		readonly after?: string;
 		readonly limit: number;
 		readonly selected?: {
-			readonly slug: string;
+			readonly reference: DeclarationReference;
 			readonly settings: Readonly<Record<string, unknown>>;
 			readonly integrationId?: string;
 		};
@@ -32,39 +38,51 @@ export const integrationProvidersRecipe = defineRecipe(
 		map: ({ providers }) =>
 			Result.try(() => ({
 				...providers,
-				items: providers.items.map((item) => ({
-					...item,
-					commonSchema: integrationCommonSchema(
-						item.lot,
-						item.supportsOwnershipSync,
-						item.pluginSlug !== null,
-					),
-					readiness:
-						item.readinessMetadata === null || item.scriptSlug === null || !item.hasScript
-							? { plan: null, blockReasons: [], ready: item.hasScript }
-							: evaluateIngestionReadiness({
-									kind: "script",
-									operation: item.scriptSlug,
-									metadata: item.readinessMetadata,
-									sourcePlan: item.plan ?? undefined,
-									settingsSchema: item.settingsSchema,
-									settings:
-										input.selected?.slug === item.slug ? input.selected.settings : undefined,
-									connectedFields: item.readinessConnections
-										.filter((connection) => {
-											const property = item.settingsSchema.fields[connection.field];
-											return (
-												input.selected?.slug === item.slug &&
-												input.selected.settings[connection.field] === connection.id &&
-												connection.integrationId === (input.selected.integrationId ?? null) &&
-												property?.type === "string" &&
-												property.format?.kind === "oauth-connection" &&
-												property.format.provider === connection.provider
-											);
-										})
-										.map(({ field }) => field),
-								}),
-				})),
+				items: providers.items.map((item) => {
+					const reference = { slug: item.slug, owner: definitionOwner(item.pluginId) };
+					const selected =
+						input.selected !== undefined &&
+						definitionKey(
+							"integration-provider",
+							input.selected.reference.owner,
+							input.selected.reference.slug,
+						) === definitionKey("integration-provider", reference.owner, reference.slug)
+							? input.selected
+							: undefined;
+					return {
+						reference,
+						...item,
+						commonSchema: integrationCommonSchema(
+							item.lot,
+							item.supportsOwnershipSync,
+							item.pluginId !== null,
+						),
+						readiness:
+							item.readinessMetadata === null || item.scriptSlug === null || !item.hasScript
+								? { plan: null, blockReasons: [], ready: item.hasScript }
+								: evaluateIngestionReadiness({
+										kind: "script",
+										operation: item.scriptSlug,
+										settings: selected?.settings,
+										metadata: item.readinessMetadata,
+										sourcePlan: item.plan ?? undefined,
+										settingsSchema: item.settingsSchema,
+										connectedFields: item.readinessConnections
+											.filter((connection) => {
+												const property = item.settingsSchema.fields[connection.field];
+												return (
+													selected !== undefined &&
+													selected.settings[connection.field] === connection.id &&
+													connection.integrationId === (selected.integrationId ?? null) &&
+													property?.type === "string" &&
+													property.format?.kind === "oauth-connection" &&
+													property.format.provider === connection.provider
+												);
+											})
+											.map(({ field }) => field),
+									}),
+					};
+				}),
 			})),
 		queries: {
 			providers: selectedRows(provider, {
@@ -79,8 +97,10 @@ export const integrationProvidersRecipe = defineRecipe(
 					plan: selectedField(column(provider, "plan"), Schema.NullOr(SourcePlan)),
 					description: selectedField(column(provider, "description"), Schema.String),
 					settingsSchema: selectedField(column(provider, "settingsSchema"), AppSchema),
+					pluginId: selectedField(column(provider, "pluginId"), Schema.NullOr(PluginId)),
 					requiresProKey: selectedField(column(provider, "requiresProKey"), Schema.Boolean),
 					lot: selectedField(column(provider, "lot"), Schema.Literals([...integrationLots])),
+					packageId: selectedField(column(provider, "packageId"), Schema.NullOr(PluginPackageId)),
 					scriptSlug: selectedField(column(provider, "scriptSlug"), Schema.NullOr(Schema.String)),
 					pluginSlug: selectedField(column(provider, "pluginSlug"), Schema.NullOr(Schema.String)),
 					installationId: selectedField(

@@ -1,4 +1,8 @@
-import { NotificationSubscriptionId, SignalSchemaSlug } from "@ryot-app/contract/schema/brands";
+import {
+	NotificationSubscriptionId,
+	PluginId,
+	SignalSchemaSlug,
+} from "@ryot-app/contract/schema/brands";
 import {
 	ascending,
 	column,
@@ -24,6 +28,10 @@ const selection = {
 	signalSchemaSlug: selectedField(
 		column(notificationSubscription, "signalSchemaSlug"),
 		SignalSchemaSlug,
+	),
+	signalSchemaPluginId: selectedField(
+		column(notificationSubscription, "signalSchemaPluginId"),
+		Schema.NullOr(PluginId),
 	),
 };
 

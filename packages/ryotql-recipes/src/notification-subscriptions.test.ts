@@ -11,6 +11,7 @@ const item = {
 	id: "rule-1",
 	isActive: true,
 	signalSchemaSlug: "review.created",
+	signalSchemaPluginId: "signal-owner",
 	createdAt: "2026-01-01T01:00:00+02:00",
 	updatedAt: "2026-01-02T01:00:00+02:00",
 };
@@ -35,6 +36,7 @@ describe("notification subscription recipes", () => {
 			"createdAt",
 			"updatedAt",
 			"signalSchemaSlug",
+			"signalSchemaPluginId",
 		]);
 		expect(query.output.orderBy).toEqual([
 			{

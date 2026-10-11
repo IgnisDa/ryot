@@ -13,6 +13,7 @@ const event = {
 	entitySchemaSlug: "book",
 	eventSchemaSlug: "review",
 	properties: { rating: 5 },
+	eventSchemaPluginId: "book-owner",
 	createdAt: "2026-01-01T01:00:00+02:00",
 	updatedAt: "2026-01-02T01:00:00+02:00",
 	occurredAt: "2026-01-03T01:00:00+02:00",
@@ -21,6 +22,7 @@ const event = {
 const recipe = eventHistoryRecipe({
 	limit: 25,
 	entityId: "entity-1",
+	owner: { kind: "self" },
 	entitySchemaSlugs: ["book", "movie"],
 	eventSchemaSlugs: ["review", "progress"],
 });
@@ -131,10 +133,19 @@ describe("event recipes", () => {
 			"eventSchemaSlug",
 			"entitySchemaSlug",
 			"sessionEntityId",
+			"eventSchemaPluginId",
 		]);
 		expect(query.where).toMatchObject({
 			type: "and",
 			predicates: [
+				{
+					left: { field: "entitySchemaPluginId" },
+					right: { type: "pluginId", reference: { kind: "self" } },
+				},
+				{
+					left: { field: "eventSchemaPluginId" },
+					right: { type: "pluginId", reference: { kind: "self" } },
+				},
 				{ type: "in", expr: { field: "eventSchemaSlug" } },
 				{ type: "in", expr: { field: "entitySchemaSlug" } },
 				{ left: { field: "entityId" }, right: { value: "entity-1" } },

@@ -1,3 +1,4 @@
+import type { PluginIdentityReference } from "@ryot-app/contract/modules/plugins/references";
 import {
 	EntityId,
 	type EntitySchemaSlug,
@@ -16,11 +17,14 @@ import {
 	selectedField,
 	selectedRows,
 	table,
+	entitySchemaPredicate,
+	relationshipSchemaPredicate,
 } from "@ryot-app/ryotql";
 import { Result, Schema } from "effect";
 
 export const providerEntityLinksRecipe = defineRecipe(
 	(input: {
+		readonly reference: PluginIdentityReference;
 		readonly providerId: SandboxProviderId;
 		readonly entitySchemaSlug: EntitySchemaSlug;
 		readonly externalIds: readonly [string, ...string[]];
@@ -42,7 +46,7 @@ export const providerEntityLinksRecipe = defineRecipe(
 						externalId: selectedField(column(entity, "externalId"), Schema.String),
 					},
 					where: and(
-						eq(column(entity, "entitySchemaSlug"), literal(input.entitySchemaSlug)),
+						entitySchemaPredicate(entity, input.entitySchemaSlug, input.reference),
 						eq(column(entity, "providerId"), literal(input.providerId)),
 						inArray(
 							column(entity, "externalId"),
@@ -58,8 +62,8 @@ export const providerEntityLinksRecipe = defineRecipe(
 							],
 							where: and(
 								eq(column(membership, "sourceEntityId"), column(entity, "id")),
-								eq(column(membership, "relationshipSchemaSlug"), literal(input.relationshipSlug)),
-								eq(column(libraryEntity, "entitySchemaSlug"), literal(input.librarySchemaSlug)),
+								relationshipSchemaPredicate(membership, input.relationshipSlug, input.reference),
+								entitySchemaPredicate(libraryEntity, input.librarySchemaSlug, input.reference),
 							),
 						}),
 					),

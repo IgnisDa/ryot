@@ -29,6 +29,7 @@ describe("sandbox recipes", () => {
 									properties: { pages: 320 },
 									createdAt: "2026-01-01T00:00:00Z",
 									updatedAt: "2026-01-02T00:00:00Z",
+									entitySchemaPluginId: "book-owner",
 								},
 							],
 						},
@@ -47,7 +48,11 @@ describe("sandbox recipes", () => {
 	});
 
 	it("prepares event reads and rejects malformed entity cardinality", () => {
-		const eventRecipe = eventReadRecipe({ entitySchemaSlug: "book", eventSchemaSlug: "progress" });
+		const eventRecipe = eventReadRecipe({
+			owner: { kind: "self" },
+			entitySchemaSlug: "book",
+			eventSchemaSlug: "progress",
+		});
 		const query = eventRecipe.document.queries.events;
 		assert(query);
 		expect(query.where).toMatchObject({ type: "and" });
