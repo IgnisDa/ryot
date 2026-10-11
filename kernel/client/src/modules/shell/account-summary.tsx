@@ -30,7 +30,7 @@ export function AccountSummary(props: AccountSummaryProps) {
 			aria-current={props.active ? "page" : undefined}
 			className={clsx(
 				"flex items-center gap-2.5 rounded-md px-2 py-2",
-				props.active ? "bg-nav-indicator" : "hover:bg-surface-2",
+				props.active ? "bg-nav-indicator" : "hover:bg-hover",
 			)}
 		>
 			<span className="relative shrink-0">

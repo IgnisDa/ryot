@@ -16,7 +16,7 @@
 }
 
 @utility ui-overline {
-	@apply mb-2 text-[11px] font-semibold tracking-[0.08em] text-accent-text uppercase;
+	@apply mb-2 text-[11px] font-semibold tracking-[0.07em] text-accent-text uppercase;
 }
 
 @utility ui-heading {
@@ -29,11 +29,11 @@
 }
 
 @utility ui-card {
-	@apply rounded-xl border border-border bg-surface p-5 shadow-card md:p-6;
+	@apply rounded-xl border border-border-card bg-surface p-5 md:p-6;
 }
 
 @utility ui-field-label {
-	@apply grid gap-1.5 text-[13px] font-semibold text-text-muted;
+	@apply grid gap-1.5 text-[13px] font-medium text-text;
 }
 
 @utility ui-field-caption {
@@ -41,13 +41,14 @@
 }
 
 @utility ui-field-input {
-	@apply min-h-12 w-full rounded-lg border border-border-strong bg-raised px-3.5 py-2.75;
-	@apply text-base font-normal text-text placeholder:text-text-subtle;
-	@apply aria-invalid:border-danger;
+	@apply h-9 w-full rounded-md border border-border-strong bg-surface px-3 pointer-coarse:h-11;
+	@apply text-base font-normal text-text placeholder:text-text-subtle pointer-fine:text-sm;
+	@apply hover:border-text-subtle aria-invalid:border-danger;
+	@apply focus-visible:border-focus focus-visible:ring-3 focus-visible:ring-focus/25 focus-visible:outline-none;
 }
 
 @utility ui-field-error {
-	@apply text-sm font-normal text-danger;
+	@apply text-xs font-medium text-danger;
 }
 
 @utility ui-form-status {

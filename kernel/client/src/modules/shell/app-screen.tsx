@@ -44,7 +44,7 @@ export function useScreenLeadingControl(backFallbackHref?: string) {
 				label="Open navigation"
 				aria-controls={drawerId}
 				aria-expanded={isDrawerOpen}
-				className="text-text hover:bg-surface-2"
+				className="text-text hover:bg-hover"
 				ref={(node) => {
 					triggerRef.current = node;
 				}}
@@ -55,7 +55,7 @@ export function useScreenLeadingControl(backFallbackHref?: string) {
 	}
 	if (edge.intent === "back" || backFallbackHref !== undefined) {
 		return (
-			<ScreenBarButton label="Go back" onClick={goBack} className="text-text hover:bg-surface-2">
+			<ScreenBarButton label="Go back" onClick={goBack} className="text-text hover:bg-hover">
 				<AppIcon size={22} name="chevron-left" />
 			</ScreenBarButton>
 		);

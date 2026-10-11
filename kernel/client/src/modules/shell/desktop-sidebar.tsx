@@ -41,7 +41,7 @@ export function DesktopSidebar(props: DesktopSidebarProps) {
 		<aside
 			data-testid="desktop-sidebar"
 			className={clsx(
-				"ui-chrome hidden shrink-0 flex-col border-r border-border bg-surface md:flex",
+				"ui-chrome hidden shrink-0 flex-col border-r border-border bg-bg md:flex",
 				customizing ? "w-100" : "w-66",
 			)}
 		>
@@ -70,7 +70,7 @@ export function DesktopSidebar(props: DesktopSidebarProps) {
 						/>
 					</div>
 
-					<footer className="shrink-0 border-t border-border px-3 py-3">
+					<footer className="shrink-0 px-3 py-3">
 						<AccountSummary
 							isPro={props.isPro}
 							session={props.session}
