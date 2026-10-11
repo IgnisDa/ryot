@@ -15,8 +15,6 @@ import * as tables from "#schema/tables/combined";
 
 const PAGE_SIZE = 100;
 
-const locatorKey = (locator: ManagedAssetLocator) => `${locator.type}\0${locator.key}`;
-
 const containsLocator = (value: unknown, locator: ManagedAssetLocator): boolean => {
 	if (Array.isArray(value)) {
 		return value.some((item) => containsLocator(item, locator));
@@ -37,7 +35,7 @@ const recordHasLocator = (
 ) =>
 	propertiesSchema && isObjectRecord(properties)
 		? collectManagedAssetLocators([{ properties, propertiesSchema }], true).some(
-				(candidate) => locatorKey(candidate) === locatorKey(locator),
+				(candidate) => candidate.type === locator.type && candidate.key === locator.key,
 			)
 		: containsLocator(properties, locator);
 

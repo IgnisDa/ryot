@@ -12,7 +12,7 @@ import { Context, Effect, Layer, Ref, Schema } from "effect";
 import {
 	insertManagedAsset,
 	managedAssetProperty,
-} from "#modules/assets/storage/managed-assets.test-support";
+} from "#lib/domain/managed-asset-writes.test-support";
 import { DefinitionRepository } from "#modules/definitions/repository";
 import { PluginCatalogInvalidator } from "#modules/plugins/catalog/events";
 import { PluginRuntimeResolver } from "#modules/plugins/catalog/runtime-resolver";

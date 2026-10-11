@@ -14,7 +14,7 @@ export const managedAssetProperty = {
 	validation: { asset: true },
 } as const satisfies AppPropertyDefinition;
 
-export const insertManagedAsset = Effect.fn(function* (ownerUserId: UserId) {
+export const insertManagedAsset = Effect.fn(function* (ownerUserId: UserId, retired = false) {
 	const session = yield* DatabaseSession;
 	const locator: ManagedAssetLocator = {
 		type: "s3",
@@ -36,6 +36,7 @@ export const insertManagedAsset = Effect.fn(function* (ownerUserId: UserId) {
 				provider: locator.type,
 				sha256: "a".repeat(64),
 				contentType: "image/png",
+				retiredAt: retired ? new Date() : null,
 			}),
 	);
 	return locator;

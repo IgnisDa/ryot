@@ -17,7 +17,7 @@ import { Cause, Context, Effect, Exit, Layer, Option, Ref, Stream } from "effect
 import {
 	insertManagedAsset,
 	managedAssetProperty,
-} from "#modules/assets/storage/managed-assets.test-support";
+} from "#lib/domain/managed-asset-writes.test-support";
 import { ObjectStorageService } from "#modules/assets/storage/object-storage";
 import { UploadIntentsService } from "#modules/assets/uploads/intents";
 import { kernelDefinitionSource } from "#modules/definitions/kernel-source";
