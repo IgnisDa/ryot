@@ -38,6 +38,29 @@ private notes, and the read-only set and workout notes. Notes are written throug
 using the schemas in `shared/exercise-note-operations.ts`, which client sources can import. Edit shows
 only for exercises with an owner.
 
+Edit and Duplicate open `client/exercise-editor/page.tsx` at `/exercises/$exerciseId/edit` and
+`/exercises/new?duplicate=<id>` (`name` seeds a new exercise's name). The page renders the client SDK
+`EntityEditor` for the `exercise` schema with the `exercise-targets` and `exercise-uses-equipment`
+relationships, so the form, images, and relationship pickers come from the schema definitions. It saves
+through the `exercise-save` operation (`shared/exercise-save-operations.ts`), which accepts only the
+`exercise` schema and those two relationship schemas and forwards the submission to the atomic
+`saveUserEntity` host call: the exercise and its target and equipment links commit together, and the
+library link is added by the existing after-hook. `kind` is required and immutable, so the editor shows
+it read-only when editing. Duplicating copies the name, properties, and the visible target and equipment
+links of the source into a new custom exercise.
+
+Merge into… (custom exercises only, disabled while the active workout or template draft contains the
+exercise) opens the exercise picker in single-select mode, locked to the exercise's kind and excluding
+the source, then asks for confirmation and invokes `exercise-merge`
+(`shared/exercise-merge-operations.ts`). The operation validates that both exercises exist, the source is
+custom, the kinds match, and the ids differ, then detaches the source's `in-fitness-library`,
+`exercise-targets` and `exercise-uses-equipment` relationships in `changeUserRelationships` batches, calls
+the `mergeUserEntityData` host call to move its events, notes and collection memberships, and finally
+swaps the exercise in every workout template that references it. Records on the moved sets recompute
+through the `workout-records` automation. The steps are not atomic, and the validation does not require
+the library link or any detachable relationships, so the operation is retry-to-complete: after a partial
+failure, invoking it again from the detached state finishes the merge.
+
 Exercise targets and equipment are separate entity taxonomies in `shared/taxonomy-recipes.ts`.
 Exercise targets use `exercise-targets` relationships with an optional role; equipment uses
 `exercise-uses-equipment`. Shared standard entities and private user-owned entities are visible
