@@ -6,18 +6,10 @@ import {
 	createAuthenticatedClient,
 	createEventFixture,
 	executeRyotQLRecipe,
-	insertGlobalRelationship,
 	listEventSchemas,
-	listRelationshipSchemas,
 	requireEventSchemaBySlug,
-	requireRelationshipSchemaBySlug,
 } from "~/fixtures/kernel";
-import {
-	findMediaEntitySchema,
-	insertLibraryMembership,
-	insertMediaMonitoring,
-	seedMediaEntity,
-} from "~/fixtures/plugins/media";
+import { findMediaEntitySchema, insertMediaMonitoring, seedShow } from "~/fixtures/plugins/media";
 import { describe, expect, it } from "~/support/effect-test";
 
 const AIRED = "2020-01-01";
@@ -31,83 +23,32 @@ const dayOffset = (days: number) =>
 
 const loadShowSchemas = (client: Client) =>
 	Effect.gen(function* () {
-		const [show, season, episode] = yield* Effect.all([
+		const [show, episode] = yield* Effect.all([
 			findMediaEntitySchema(client, "show"),
-			findMediaEntitySchema(client, "show-season"),
 			findMediaEntitySchema(client, "show-episode"),
 		]);
-		const relationshipSchemas = yield* listRelationshipSchemas(client, {
-			owner: show.schema.reference.owner,
-			slugs: ["show-to-show-season", "show-season-to-show-episode"],
-		});
 		const episodeEvents = yield* listEventSchemas(client, episode.schema.reference);
 		return {
 			pluginId: show.pluginId,
-			showSchemaId: show.schema.id,
-			seasonSchemaId: season.schema.id,
-			episodeSchemaId: episode.schema.id,
 			episodeComplete: requireEventSchemaBySlug(episodeEvents, "complete").id,
-			showToSeason: requireRelationshipSchemaBySlug(
-				relationshipSchemas,
-				"show-to-show-season",
-				show.schema.reference.owner,
-			).reference,
-			seasonToEpisode: requireRelationshipSchemaBySlug(
-				relationshipSchemas,
-				"show-season-to-show-episode",
-				show.schema.reference.owner,
-			).reference,
 		};
 	});
 
 type ShowSchemas = Effect.Success<ReturnType<typeof loadShowSchemas>>;
 
-/** A show in the library whose season 1 episodes carry `publishDates` in order. */
-const seedAiringShow = (client: Client, schemas: ShowSchemas, publishDates: readonly string[]) =>
-	Effect.gen(function* () {
-		const suffix = crypto.randomUUID();
-		const show = yield* seedMediaEntity({
-			userId: null,
-			providerId: null,
-			name: `Airing Show ${suffix}`,
-			externalId: `airing-show-${suffix}`,
-			entitySchemaSlug: schemas.showSchemaId,
-			properties: { productionStatus: "Continuing" },
-		});
-		yield* insertLibraryMembership(client, { mediaEntityId: show.id });
-		const season = yield* seedMediaEntity({
-			userId: null,
-			providerId: null,
-			name: `Season 1 ${suffix}`,
-			properties: { seasonNumber: 1 },
-			externalId: `airing-season-${suffix}`,
-			entitySchemaSlug: schemas.seasonSchemaId,
-		});
-		yield* insertGlobalRelationship({
-			sourceEntityId: show.id,
-			targetEntityId: season.id,
-			relationshipSchema: schemas.showToSeason,
-		});
-		const episodes = yield* Effect.forEach(publishDates, (publishDate, index) =>
-			Effect.gen(function* () {
-				const episode = yield* seedMediaEntity({
-					userId: null,
-					providerId: null,
-					name: `E${index + 1} ${suffix}`,
-					entitySchemaSlug: schemas.episodeSchemaId,
-					externalId: `airing-episode-${index + 1}-${suffix}`,
-					properties: { publishDate, seasonNumber: 1, episodeNumber: index + 1 },
-				});
-				yield* insertGlobalRelationship({
-					sourceEntityId: season.id,
-					targetEntityId: episode.id,
-					relationshipSchema: schemas.seasonToEpisode,
-				});
-				return episode;
-			}),
-		);
-		return { show, episodes };
-	});
+/** A library show whose season 1 episodes carry `publishDates` in order. */
+const airingShow = (publishDates: readonly string[]) => ({
+	properties: { productionStatus: "Continuing" },
+	seasons: [
+		{
+			seasonNumber: 1,
+			episodes: publishDates.map((publishDate, index) => ({
+				publishDate,
+				episodeNumber: index + 1,
+			})),
+		},
+	],
+});
 
 const watch = (client: Client, schemas: ShowSchemas, episodeId: string) =>
 	createEventFixture(client, {
@@ -135,18 +76,15 @@ describe("Shows airing soon", () => {
 			const schemas = yield* loadShowSchemas(client);
 			const [caughtUp, monitored, untracked, outOfWindow, allWatched, airsToday] =
 				yield* Effect.all([
-					seedAiringShow(client, schemas, [
-						AIRED,
-						dayOffset(3),
-						dayOffset(3),
-						dayOffset(3),
-						dayOffset(5),
-					]),
-					seedAiringShow(client, schemas, [dayOffset(1)]),
-					seedAiringShow(client, schemas, [dayOffset(2)]),
-					seedAiringShow(client, schemas, [AIRED, AIRED, dayOffset(20)]),
-					seedAiringShow(client, schemas, [dayOffset(4)]),
-					seedAiringShow(client, schemas, [AIRED, dayOffset(0)]),
+					seedShow(
+						client,
+						airingShow([AIRED, dayOffset(3), dayOffset(3), dayOffset(3), dayOffset(5)]),
+					),
+					seedShow(client, airingShow([dayOffset(1)])),
+					seedShow(client, airingShow([dayOffset(2)])),
+					seedShow(client, airingShow([AIRED, AIRED, dayOffset(20)])),
+					seedShow(client, airingShow([dayOffset(4)])),
+					seedShow(client, airingShow([AIRED, dayOffset(0)])),
 				]);
 			yield* insertMediaMonitoring(client, monitored.show.id);
 			for (const watched of [

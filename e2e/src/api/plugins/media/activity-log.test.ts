@@ -18,8 +18,8 @@ import {
 	logMediaActivity,
 	logMediaActivityUnchecked,
 	mediaReferenceForEntity,
-	seedActivityPodcast,
-	seedActivityShow,
+	seedPodcast,
+	seedShow,
 } from "~/fixtures/plugins/media";
 import { assertPresent, assertTaggedError } from "~/support/assertions";
 import { describe, expect, it } from "~/support/effect-test";
@@ -246,8 +246,10 @@ describe("Media activity log operation", () => {
 			const movie = yield* createBuiltinMediaLifecycleFixture(client, {
 				entitySchemaSlug: "movie",
 			});
-			const { showId } = yield* seedActivityShow(client, {
-				episodes: [{ seasonNumber: 1, episodeNumber: 1 }],
+			const {
+				show: { id: showId },
+			} = yield* seedShow(client, {
+				seasons: [{ seasonNumber: 1, episodes: [{ episodeNumber: 1 }] }],
 			});
 
 			for (const status of ["backlog", "on_hold", "dropped"] as const) {
@@ -270,15 +272,23 @@ describe("Media activity log operation", () => {
 	it.live("reads next-up, seasons and earlier unwatched episodes across seasons", () =>
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
-			const { showId, episodeId, seasonIds } = yield* seedActivityShow(client, {
-				episodes: [
-					{ seasonNumber: 0, episodeNumber: 1 },
-					{ seasonNumber: 1, episodeNumber: 1 },
-					{ seasonNumber: 1, episodeNumber: 2 },
-					{ seasonNumber: 1, episodeNumber: 3 },
-					{ aired: false, seasonNumber: 1, episodeNumber: 4 },
-					{ seasonNumber: 2, episodeNumber: 1 },
-					{ seasonNumber: 2, episodeNumber: 2 },
+			const {
+				seasons,
+				episodeId,
+				show: { id: showId },
+			} = yield* seedShow(client, {
+				seasons: [
+					{ seasonNumber: 0, episodes: [{ episodeNumber: 1 }] },
+					{
+						seasonNumber: 1,
+						episodes: [
+							{ episodeNumber: 1 },
+							{ episodeNumber: 2 },
+							{ episodeNumber: 3 },
+							{ aired: false, episodeNumber: 4 },
+						],
+					},
+					{ seasonNumber: 2, episodes: [{ episodeNumber: 1 }, { episodeNumber: 2 }] },
 				],
 			});
 			const reference = yield* mediaReferenceForEntity(client, showId);
@@ -308,9 +318,7 @@ describe("Media activity log operation", () => {
 			const initial = yield* readContext(client, showId);
 			expect(initial.nextUp).toBeNull();
 			expect(initial.seasons.map((season) => season.seasonNumber)).toEqual([0, 1, 2]);
-			expect(initial.seasons.map((season) => season.id)).toEqual(
-				[0, 1, 2].map((number) => seasonIds.get(number)),
-			);
+			expect(initial.seasons.map((season) => season.id)).toEqual(seasons.map(({ id }) => id));
 
 			yield* log([episodeId(1, 2)]);
 			expect((yield* readContext(client, showId)).nextUp?.id).toBe(episodeId(1, 3));
@@ -362,12 +370,20 @@ describe("Media activity log operation", () => {
 	it.live("moves a show with every aired regular episode logged to caught up", () =>
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
-			const { showId, episodeId } = yield* seedActivityShow(client, {
-				episodes: [
-					{ seasonNumber: 0, episodeNumber: 1 },
-					{ seasonNumber: 1, episodeNumber: 1 },
-					{ seasonNumber: 1, episodeNumber: 2 },
-					{ aired: false, seasonNumber: 1, episodeNumber: 3 },
+			const {
+				episodeId,
+				show: { id: showId },
+			} = yield* seedShow(client, {
+				seasons: [
+					{ seasonNumber: 0, episodes: [{ episodeNumber: 1 }] },
+					{
+						seasonNumber: 1,
+						episodes: [
+							{ episodeNumber: 1 },
+							{ episodeNumber: 2 },
+							{ aired: false, episodeNumber: 3 },
+						],
+					},
 				],
 			});
 
@@ -396,12 +412,12 @@ describe("Media activity log operation", () => {
 	it.live("completes an ended show once every aired episode is logged", () =>
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
-			const { showId, episodeId } = yield* seedActivityShow(client, {
-				productionStatus: "Ended",
-				episodes: [
-					{ seasonNumber: 1, episodeNumber: 1 },
-					{ seasonNumber: 1, episodeNumber: 2 },
-				],
+			const {
+				episodeId,
+				show: { id: showId },
+			} = yield* seedShow(client, {
+				properties: { productionStatus: "Ended" },
+				seasons: [{ seasonNumber: 1, episodes: [{ episodeNumber: 1 }, { episodeNumber: 2 }] }],
 			});
 
 			yield* logMediaActivity(client, {
@@ -425,8 +441,13 @@ describe("Media activity log operation", () => {
 	it.live("logs a podcast episode and orders earlier unwatched by episode number", () =>
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
-			const { podcastId, episodeIds } = yield* seedActivityPodcast(client, { episodeCount: 3 });
-			const [first, second, third] = episodeIds;
+			const {
+				episodes,
+				podcast: { id: podcastId },
+			} = yield* seedPodcast(client, {
+				episodes: [{ episodeNumber: 1 }, { episodeNumber: 2 }, { episodeNumber: 3 }],
+			});
+			const [first, second, third] = episodes.map(({ id }) => id);
 			assertPresent(first, "Expected podcast episode 1");
 			assertPresent(second, "Expected podcast episode 2");
 			assertPresent(third, "Expected podcast episode 3");
@@ -477,11 +498,11 @@ describe("Media activity log operation", () => {
 				entitySchemaSlug: "anime",
 				properties: { episodes: 3 },
 			});
-			const show = yield* seedActivityShow(client, {
-				episodes: [{ seasonNumber: 1, episodeNumber: 1 }],
+			const show = yield* seedShow(client, {
+				seasons: [{ seasonNumber: 1, episodes: [{ episodeNumber: 1 }] }],
 			});
-			const otherShow = yield* seedActivityShow(client, {
-				episodes: [{ seasonNumber: 1, episodeNumber: 1 }],
+			const otherShow = yield* seedShow(client, {
+				seasons: [{ seasonNumber: 1, episodes: [{ episodeNumber: 1 }] }],
 			});
 			const submittedAt = "2026-03-10T09:00:00.000Z";
 			const attempt = (entry: JsonValue) => {
@@ -491,18 +512,18 @@ describe("Media activity log operation", () => {
 				);
 			};
 			const rejected = [
-				attempt({ kind: "progress", progressPercent: 10, entityId: show.showId }),
-				attempt({ kind: "complete", entityId: show.showId, when: { kind: "now" } }),
+				attempt({ kind: "progress", progressPercent: 10, entityId: show.show.id }),
+				attempt({ kind: "complete", when: { kind: "now" }, entityId: show.show.id }),
 				attempt({
 					kind: "episodes",
 					when: { kind: "now" },
-					parentEntityId: show.showId,
+					parentEntityId: show.show.id,
 					episodeEntityIds: [show.episodeId(1, 1), otherShow.episodeId(1, 1)],
 				}),
 				attempt({
 					kind: "episodes",
 					when: { kind: "now" },
-					parentEntityId: show.showId,
+					parentEntityId: show.show.id,
 					episodeEntityIds: [otherShow.episodeId(1, 1)],
 				}),
 				attempt({
@@ -531,7 +552,7 @@ describe("Media activity log operation", () => {
 			for (const entityId of [
 				movie.entityId,
 				anime.entityId,
-				show.showId,
+				show.show.id,
 				show.episodeId(1, 1),
 				otherShow.episodeId(1, 1),
 			]) {
@@ -547,11 +568,12 @@ describe("Media activity log operation", () => {
 			const movie = yield* createBuiltinMediaLifecycleFixture(client, {
 				entitySchemaSlug: "movie",
 			});
-			const show = yield* seedActivityShow(client, {
-				episodes: [
-					{ seasonNumber: 1, episodeNumber: 1 },
-					{ seasonNumber: 1, episodeNumber: 2 },
-					{ seasonNumber: 1, episodeNumber: 3 },
+			const show = yield* seedShow(client, {
+				seasons: [
+					{
+						seasonNumber: 1,
+						episodes: [{ episodeNumber: 1 }, { episodeNumber: 2 }, { episodeNumber: 3 }],
+					},
 				],
 			});
 			const submittedAt = nowIso();
@@ -567,7 +589,7 @@ describe("Media activity log operation", () => {
 				entry: {
 					kind: "episodes",
 					when: { kind: "now" },
-					parentEntityId: show.showId,
+					parentEntityId: show.show.id,
 					episodeEntityIds: episodeIds,
 				},
 			} as const;

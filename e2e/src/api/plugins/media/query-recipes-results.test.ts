@@ -30,6 +30,8 @@ import {
 	insertLibraryMembership,
 	insertMediaMonitoring,
 	seedMediaEntity,
+	seedPodcast,
+	seedShow,
 } from "~/fixtures/plugins/media";
 import { seedGlobalMediaGenres } from "~/fixtures/plugins/media/genres";
 import { assertPresent } from "~/support/assertions";
@@ -37,7 +39,7 @@ import { describe, expect, it } from "~/support/effect-test";
 
 type MediaReference = Parameters<typeof showRecipes.summaryRecipe>[0]["reference"];
 
-const seedPodcast = (client: Client, episodeCount: number) =>
+const seedPodcastFixture = (client: Client, episodeCount: number) =>
 	Effect.gen(function* () {
 		const { pluginId, schema: podcastSchema } = yield* findMediaEntitySchema(client, "podcast");
 		const { schema: podcastEpisodeSchema } = yield* findMediaEntitySchema(
@@ -45,23 +47,14 @@ const seedPodcast = (client: Client, episodeCount: number) =>
 			"podcast-episode",
 		);
 		const reference: MediaReference = { pluginId, kind: "local" };
-		const relationshipSchemas = yield* listRelationshipSchemas(client, {
-			owner: podcastSchema.reference.owner,
-			slugs: ["podcast-to-podcast-episode"],
-		});
-		const podcastEpisodeRelationship = requireRelationshipSchemaBySlug(
-			relationshipSchemas,
-			"podcast-to-podcast-episode",
-			podcastSchema.reference.owner,
-		);
-		const podcast = yield* seedMediaEntity({
-			userId: null,
-			providerId: null,
-			entitySchemaSlug: podcastSchema.id,
+		const { podcast, episodes } = yield* seedPodcast(client, {
+			inLibrary: false,
 			name: `Query Recipe Podcast ${crypto.randomUUID()}`,
-			externalId: `query-recipe-podcast-${crypto.randomUUID()}`,
+			episodes: Array.from({ length: episodeCount }, (_, index) => ({
+				episodeNumber: index + 1,
+				properties: { publishDate: null, runtime: 30 + index, description: `Episode ${index + 1}` },
+			})),
 			properties: {
-				images: [],
 				isNsfw: null,
 				sourceUrl: null,
 				description: null,
@@ -73,30 +66,6 @@ const seedPodcast = (client: Client, episodeCount: number) =>
 				totalEpisodes: episodeCount,
 			},
 		});
-		const episodes = yield* Effect.all(
-			Array.from({ length: episodeCount }, (_, index) =>
-				seedMediaEntity({
-					userId: null,
-					providerId: null,
-					name: `Podcast Episode ${index + 1}`,
-					entitySchemaSlug: podcastEpisodeSchema.id,
-					externalId: `query-recipe-podcast-episode-${crypto.randomUUID()}`,
-					properties: {
-						publishDate: null,
-						runtime: 30 + index,
-						episodeNumber: index + 1,
-						description: `Episode ${index + 1}`,
-					},
-				}),
-			),
-		);
-		yield* Effect.forEach(episodes, (episode) =>
-			insertGlobalRelationship({
-				targetEntityId: episode.id,
-				sourceEntityId: podcast.id,
-				relationshipSchema: podcastEpisodeRelationship.reference,
-			}),
-		);
 		const episodeEventSchemas = yield* listEventSchemas(client, podcastEpisodeSchema.reference);
 		const podcastEventSchemas = yield* listEventSchemas(client, podcastSchema.reference);
 
@@ -124,93 +93,29 @@ const seedCredit = (input: {
 		properties: { sourceUrl: null, description: null, images: input.images },
 	});
 
-const seedActivityShow = (client: Client) =>
+const activityEpisode = (episodeNumber: number) => ({
+	episodeNumber,
+	properties: { publishDate: null, runtime: 30 + episodeNumber },
+});
+
+const seedActivityShowFixture = (client: Client) =>
 	Effect.gen(function* () {
 		const { pluginId, schema: showSchema } = yield* findMediaEntitySchema(client, "show");
-		const { schema: showSeasonSchema } = yield* findMediaEntitySchema(client, "show-season");
 		const { schema: showEpisodeSchema } = yield* findMediaEntitySchema(client, "show-episode");
 		const reference: MediaReference = { pluginId, kind: "local" };
-		const relationshipSchemas = yield* listRelationshipSchemas(client, {
-			owner: showSchema.reference.owner,
-			slugs: ["show-to-show-season", "show-season-to-show-episode"],
-		});
-		const showToSeason = requireRelationshipSchemaBySlug(
-			relationshipSchemas,
-			"show-to-show-season",
-			showSchema.reference.owner,
-		);
-		const seasonToEpisode = requireRelationshipSchemaBySlug(
-			relationshipSchemas,
-			"show-season-to-show-episode",
-			showSchema.reference.owner,
-		);
-		const suffix = crypto.randomUUID();
-		const show = yield* seedMediaEntity({
-			userId: null,
-			providerId: null,
-			name: `Activity Show ${suffix}`,
-			entitySchemaSlug: showSchema.id,
-			externalId: `activity-show-${suffix}`,
+		const { show, episodes } = yield* seedShow(client, {
+			inLibrary: false,
+			name: `Activity Show ${crypto.randomUUID()}`,
 			properties: { totalSeasons: 1, totalEpisodes: 2 },
-		});
-		const [regularSeason, specialsSeason] = yield* Effect.forEach([1, 0], (seasonNumber) =>
-			seedMediaEntity({
-				userId: null,
-				providerId: null,
-				properties: { seasonNumber },
-				entitySchemaSlug: showSeasonSchema.id,
-				name: `Activity Season ${seasonNumber} ${suffix}`,
-				externalId: `activity-season-${seasonNumber}-${suffix}`,
-			}),
-		);
-		const [firstEpisode, secondEpisode, specialEpisode] = yield* Effect.forEach(
-			[
-				{ seasonNumber: 1, episodeNumber: 1 },
-				{ seasonNumber: 1, episodeNumber: 2 },
-				{ seasonNumber: 0, episodeNumber: 1 },
+			seasons: [
+				{ seasonNumber: 1, episodes: [activityEpisode(1), activityEpisode(2)] },
+				{ seasonNumber: 0, episodes: [activityEpisode(1)] },
 			],
-			({ seasonNumber, episodeNumber }) =>
-				seedMediaEntity({
-					userId: null,
-					providerId: null,
-					entitySchemaSlug: showEpisodeSchema.id,
-					name: `Activity S${seasonNumber}E${episodeNumber} ${suffix}`,
-					properties: { seasonNumber, episodeNumber, runtime: 30 + episodeNumber },
-					externalId: `activity-episode-${seasonNumber}-${episodeNumber}-${suffix}`,
-				}),
-		);
-		assertPresent(regularSeason, "Missing regular activity season");
-		assertPresent(specialsSeason, "Missing specials activity season");
+		});
+		const [firstEpisode, secondEpisode, specialEpisode] = episodes;
 		assertPresent(firstEpisode, "Missing first activity episode");
 		assertPresent(secondEpisode, "Missing second activity episode");
 		assertPresent(specialEpisode, "Missing special activity episode");
-		yield* Effect.all([
-			insertGlobalRelationship({
-				sourceEntityId: show.id,
-				targetEntityId: regularSeason.id,
-				relationshipSchema: showToSeason.reference,
-			}),
-			insertGlobalRelationship({
-				sourceEntityId: show.id,
-				targetEntityId: specialsSeason.id,
-				relationshipSchema: showToSeason.reference,
-			}),
-			insertGlobalRelationship({
-				targetEntityId: firstEpisode.id,
-				sourceEntityId: regularSeason.id,
-				relationshipSchema: seasonToEpisode.reference,
-			}),
-			insertGlobalRelationship({
-				targetEntityId: secondEpisode.id,
-				sourceEntityId: regularSeason.id,
-				relationshipSchema: seasonToEpisode.reference,
-			}),
-			insertGlobalRelationship({
-				targetEntityId: specialEpisode.id,
-				sourceEntityId: specialsSeason.id,
-				relationshipSchema: seasonToEpisode.reference,
-			}),
-		]);
 		const showEventSchemas = yield* listEventSchemas(client, showSchema.reference);
 		const episodeEventSchemas = yield* listEventSchemas(client, showEpisodeSchema.reference);
 		return {
@@ -560,7 +465,7 @@ describe("Media RyotQL query recipe results", () => {
 				showSchema.reference.owner,
 			);
 			const suffix = crypto.randomUUID();
-			const seedShow = (name: string, images: readonly Record<string, unknown>[]) =>
+			const seedOverviewShow = (name: string, images: readonly Record<string, unknown>[]) =>
 				seedMediaEntity({
 					name,
 					userId: null,
@@ -581,7 +486,7 @@ describe("Media RyotQL query recipe results", () => {
 					},
 				});
 
-			const show = yield* seedShow(`Overview Show ${suffix}`, []);
+			const show = yield* seedOverviewShow(`Overview Show ${suffix}`, []);
 			const [lead, writer, studio, network, suggestedFirst, suggestedSecond, incomingSource] =
 				yield* Effect.all([
 					seedCredit({
@@ -606,11 +511,11 @@ describe("Media RyotQL query recipe results", () => {
 						schemaSlug: companySchema.id,
 						name: `Overview Network ${suffix}`,
 					}),
-					seedShow(`Overview Suggested A ${suffix}`, [
+					seedOverviewShow(`Overview Suggested A ${suffix}`, [
 						{ type: "remote", purpose: "cover", url: "https://images.test/suggested-a.jpg" },
 					]),
-					seedShow(`Overview Suggested B ${suffix}`, []),
-					seedShow(`Overview Incoming ${suffix}`, []),
+					seedOverviewShow(`Overview Suggested B ${suffix}`, []),
+					seedOverviewShow(`Overview Incoming ${suffix}`, []),
 				]);
 			yield* Effect.all([
 				insertGlobalRelationship({
@@ -884,7 +789,7 @@ describe("Media RyotQL query recipe results", () => {
 	it.live("reconstructs podcast episode state and enforces the episode limit", () =>
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
-			const seeded = yield* seedPodcast(client, 3);
+			const seeded = yield* seedPodcastFixture(client, 3);
 			const firstEpisode = seeded.episodes[0];
 			const secondEpisode = seeded.episodes[1];
 			assertPresent(firstEpisode, "Expected first podcast episode");
@@ -932,7 +837,7 @@ describe("Media RyotQL query recipe results", () => {
 	it.live("derives podcast in-progress and completed state from episode and podcast events", () =>
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
-			const seeded = yield* seedPodcast(client, 2);
+			const seeded = yield* seedPodcastFixture(client, 2);
 			yield* insertLibraryMembership(client, { mediaEntityId: seeded.podcast.id });
 			const firstEpisode = seeded.episodes[0];
 			const secondEpisode = seeded.episodes[1];
@@ -1002,7 +907,7 @@ describe("Media RyotQL query recipe results", () => {
 	it.live("journals parent, regular episode and special activity in one ordered history", () =>
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
-			const seeded = yield* seedActivityShow(client);
+			const seeded = yield* seedActivityShowFixture(client);
 			yield* createEventFixture(client, {
 				entityId: seeded.show.id,
 				occurredAt: "2024-03-01T12:00:00.000Z",
@@ -1169,7 +1074,7 @@ describe("Media RyotQL query recipe results", () => {
 	it.live("collapses dense episode progress into the latest milestone per episode", () =>
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
-			const seeded = yield* seedActivityShow(client);
+			const seeded = yield* seedActivityShowFixture(client);
 			for (const [occurredAt, progressPercent] of [
 				["2024-04-01T12:00:00.000Z", 5],
 				["2024-04-02T12:00:00.000Z", 45],
@@ -1206,7 +1111,7 @@ describe("Media RyotQL query recipe results", () => {
 	it.live("keeps optional event properties absent instead of failing the activity result", () =>
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
-			const seeded = yield* seedActivityShow(client);
+			const seeded = yield* seedActivityShowFixture(client);
 			yield* createEventFixture(client, {
 				entityId: seeded.show.id,
 				occurredAt: "2024-05-01T12:00:00.000Z",
@@ -1249,7 +1154,7 @@ describe("Media RyotQL query recipe results", () => {
 	it.live("reads special-episode activity that no session entity links to the show", () =>
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
-			const seeded = yield* seedActivityShow(client);
+			const seeded = yield* seedActivityShowFixture(client);
 			yield* createEventFixture(client, {
 				properties: {},
 				entityId: seeded.specialEpisode.id,
@@ -1280,7 +1185,7 @@ describe("Media RyotQL query recipe results", () => {
 	it.live("reports truncation when the recorded activity outgrows the requested page", () =>
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
-			const seeded = yield* seedActivityShow(client);
+			const seeded = yield* seedActivityShowFixture(client);
 			for (const occurredAt of ["2024-07-01T12:00:00.000Z", "2024-07-02T12:00:00.000Z"]) {
 				yield* createEventFixture(client, {
 					occurredAt,
