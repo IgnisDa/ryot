@@ -83,7 +83,20 @@ export const updateEventsResultSchema = hostResultSchema(updateEventsResultDataS
 export const deleteEventsResultSchema = hostResultSchema(deleteEventsResultDataSchema);
 export const listEventSchemasDataSchema = Schema.Array(eventSchemaRecordSchema);
 export const createEventsResultSchema = hostResultSchema(createEventsResultDataSchema);
-export const createEventsArgsSchema = Schema.Tuple([Schema.Array(createEventItemSchema)]);
+export const createEventsArgsSchema = Schema.Tuple([
+	Schema.Array(createEventItemSchema),
+	Schema.optional(
+		Schema.UndefinedOr(
+			strictStruct({
+				submittedAt: Schema.String,
+				idempotencyKey: Schema.String.pipe(
+					Schema.check(Schema.isMinLength(1)),
+					Schema.check(Schema.isMaxLength(128)),
+				),
+			}),
+		),
+	),
+]);
 export const requestEventStreamWorkArgsSchema = Schema.Tuple([
 	EventStreamWorkRequest,
 	EventStreamProcessorReference,

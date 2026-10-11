@@ -21,6 +21,7 @@ export const EventCreateWorkflowPayload = Schema.Struct({
 	userId: UserId,
 	command: DomainLifecycleCommand,
 	payload: Schema.Array(CreateEventItem),
+	writeCommand: Schema.optional(DomainLifecycleCommand),
 	itemIdentities: Schema.optional(Schema.Array(Schema.NonEmptyString)),
 }).pipe(
 	Schema.check(

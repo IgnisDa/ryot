@@ -7,6 +7,7 @@ import {
 } from "@ryot-app/sandbox/host/host-execution-policy";
 import { Effect } from "effect";
 
+import { makeUserPluginRevision, makeUserPrincipal } from "../authorization/principal.test-support";
 import {
 	sandboxDurableHttpRequestUrl,
 	prepareSandboxCreateEvents,
@@ -97,6 +98,7 @@ it.effect("derives event root identity from the trusted workflow and host index"
 					},
 				},
 			},
+			() => Effect.die("Unexpected installation lookup"),
 		);
 		expect(prepared).toMatchObject({
 			payload: [],
@@ -114,6 +116,89 @@ it.effect("derives event root identity from the trusted workflow and host index"
 			},
 		});
 	}),
+);
+
+it.effect(
+	"scopes stable event writes by authenticated account, installation, and script rather than attempt",
+	() =>
+		Effect.gen(function* () {
+			const userId = UserId.make("submission-user");
+			const request = {
+				index: 2,
+				name: "createEvents",
+				kind: "host" as const,
+				args: {
+					capability: "createEvents" as const,
+					args: [
+						[
+							{
+								entityId: "metric",
+								properties: { value: 0 },
+								eventSchemaSlug: "reading",
+								occurredAt: "2026-08-06T00:00:00Z",
+							},
+						],
+						{ idempotencyKey: "submission", submittedAt: "2026-08-06T12:00:00Z" },
+					],
+				},
+			};
+			const scope = {
+				context: {},
+				executionId: "attempt-1",
+				lane: "interactive" as const,
+				startedAt: "2026-08-06T12:00:00Z",
+				principal: makeUserPrincipal({
+					metadata: { runtimeImports: [], capabilities: ["createEvents"] },
+					subject: {
+						userId,
+						type: "user" as const,
+						accountGeneration: { userId, token: "generation" },
+					},
+					pluginRevision: makeUserPluginRevision({
+						slug: "plugin",
+						ownerId: userId,
+						compiledHashes: {},
+					}),
+				}),
+			};
+			const first = yield* prepareSandboxCreateEvents(request, scope, () =>
+				Effect.succeed("installation"),
+			);
+			const retried = yield* prepareSandboxCreateEvents(
+				{ ...request, index: 9 },
+				{ ...scope, executionId: "attempt-2", startedAt: "2026-08-07T00:00:00Z" },
+				() => Effect.succeed("installation"),
+			);
+			expect(retried.writeCommand).toEqual(first.writeCommand);
+			expect(retried.command).not.toEqual(first.command);
+			for (const changed of [
+				{ scope, installationId: "other-installation" },
+				{
+					installationId: "installation",
+					scope: { ...scope, principal: { ...scope.principal, scriptSlug: "other-operation" } },
+				},
+				{
+					installationId: "installation",
+					scope: {
+						...scope,
+						principal: {
+							...scope.principal,
+							subject: {
+								...scope.principal.subject,
+								accountGeneration: { userId, token: "other-generation" },
+							},
+						},
+					},
+				},
+			]) {
+				const other = yield* prepareSandboxCreateEvents(request, changed.scope, () =>
+					Effect.succeed(changed.installationId),
+				);
+				expect(other.writeCommand?.causation.executionId).not.toBe(
+					first.writeCommand?.causation.executionId,
+				);
+			}
+		}),
 );
 
 it("extracts the durable HTTP request URL when options are null", () => {

@@ -8,7 +8,7 @@ const MeasurementId = Schema.String.pipe(Schema.check(Schema.isMinLength(1)));
 
 const MeasurementReadingIds = Schema.Array(MeasurementId).pipe(Schema.check(Schema.isMinLength(1)));
 
-const MeasurementEntry = Schema.Struct({
+export const MeasurementEntry = Schema.Struct({
 	comment: Schema.optional(Schema.Trim),
 	occurredAt: Schema.String.pipe(
 		Schema.check(
@@ -30,7 +30,16 @@ const MeasurementEntry = Schema.Struct({
 	),
 });
 
-export const MeasurementReadingLogInput = MeasurementEntry;
+export type MeasurementEntry = typeof MeasurementEntry.Type;
+
+export const MeasurementReadingLogInput = Schema.Struct({
+	...MeasurementEntry.fields,
+	submittedAt: MeasurementEntry.fields.occurredAt,
+	submissionId: Schema.String.pipe(
+		Schema.check(Schema.isMinLength(1)),
+		Schema.check(Schema.isMaxLength(128)),
+	),
+});
 
 export type MeasurementReadingLogInput = typeof MeasurementReadingLogInput.Type;
 
@@ -43,7 +52,7 @@ export const MeasurementReadingDeleteInput = Schema.Struct({ readingIds: Measure
 
 export const MeasurementReadingOutput = Schema.Struct({ count: Schema.Int });
 
-export const measurementReadingProperties = (
-	value: number,
-	comment: string | null | undefined,
-) => ({ value, ...(comment ? { comment } : {}) });
+export const MeasurementReadingLogOutput = Schema.Struct({
+	count: Schema.Int,
+	status: Schema.Literals(["saved", "incomplete"]),
+});

@@ -53,8 +53,14 @@ export const pinMeasurementMetric = (
 
 export const logMeasurementReadings = (
 	client: Client,
-	input: RecipeInput<typeof measurementReadingLogRecipe>,
-) => invokeMeasurementOperation(client, measurementReadingLogRecipe, input);
+	input: Omit<RecipeInput<typeof measurementReadingLogRecipe>, "submissionId" | "submittedAt"> &
+		Partial<Pick<RecipeInput<typeof measurementReadingLogRecipe>, "submissionId" | "submittedAt">>,
+) =>
+	invokeMeasurementOperation(client, measurementReadingLogRecipe, {
+		...input,
+		submissionId: input.submissionId ?? crypto.randomUUID(),
+		submittedAt: input.submittedAt ?? new Date().toISOString(),
+	});
 
 export const updateMeasurementReadings = (
 	client: Client,

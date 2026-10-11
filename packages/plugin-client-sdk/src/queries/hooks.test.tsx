@@ -17,6 +17,8 @@ import {
 } from "./hooks";
 import { RyotProvider } from "./provider";
 import { usePluginStorage } from "./storage";
+import type { RyotSubmission } from "./submission";
+import { useRyotSubmission } from "./submission-hook";
 
 (
 	globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean }
@@ -61,6 +63,72 @@ afterEach(() => {
 });
 
 describe("Effect-native React definitions", () => {
+	it.live(
+		"retains a submission through transport and incomplete results before accepting a new one",
+		() =>
+			Effect.gen(function* () {
+				const attempts: RyotSubmission<{ value: number }>[] = [];
+				let identity = 0;
+				const mutation = createRyotMutation<RyotSubmission<{ value: number }>, boolean>(
+					({ input }) =>
+						Effect.suspend(() => {
+							attempts.push(input);
+							return attempts.length === 1
+								? Effect.fail(new RyotClientError("transport"))
+								: Effect.succeed(attempts.length >= 3);
+						}),
+				);
+				const View = () => {
+					const submission = useRyotSubmission(mutation, {
+						isComplete: (complete) => complete,
+						createId: () => `submission-${++identity}`,
+					});
+					return (
+						<>
+							<p>{submission.status}</p>
+							<button
+								onClick={() => {
+									submission.submit({ value: 0 });
+									submission.submit({ value: 1 });
+								}}
+							>
+								Submit
+							</button>
+							<button onClick={submission.retry}>Retry</button>
+						</>
+					);
+				};
+				const { container } = render(<View />);
+				fireEvent.click(getByRole(container, "button", { name: "Submit" }));
+				yield* Effect.promise(() =>
+					waitFor(() => expect(container.querySelector("p")?.textContent).toBe("retained")),
+				);
+				expect(attempts).toHaveLength(1);
+				fireEvent.click(getByRole(container, "button", { name: "Retry" }));
+				yield* Effect.promise(() =>
+					waitFor(() => {
+						expect(attempts).toHaveLength(2);
+						expect(container.querySelector("p")?.textContent).toBe("retained");
+					}),
+				);
+				fireEvent.click(getByRole(container, "button", { name: "Retry" }));
+				yield* Effect.promise(() =>
+					waitFor(() => expect(container.querySelector("p")?.textContent).toBe("idle")),
+				);
+				const submittedAt = attempts[0]?.submittedAt;
+				expect(attempts).toEqual(
+					Array.from({ length: 3 }, () => ({
+						submittedAt,
+						input: { value: 0 },
+						submissionId: "submission-1",
+					})),
+				);
+				fireEvent.click(getByRole(container, "button", { name: "Submit" }));
+				yield* Effect.promise(() => waitFor(() => expect(attempts).toHaveLength(4)));
+				expect(attempts[3]?.submissionId).toBe("submission-2");
+			}),
+	);
+
 	it.live("shares a query atom and refetches it on demand", () =>
 		Effect.gen(function* () {
 			let calls = 0;

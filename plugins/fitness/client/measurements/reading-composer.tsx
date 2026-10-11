@@ -11,7 +11,7 @@ import {
 import { AppIcon } from "@ryot-app/plugin-ui-sdk/icon";
 import { useId, useRef, useState, type RefObject } from "react";
 
-import type { MeasurementReadingLogInput } from "../../shared/measurement-reading-operations";
+import type { MeasurementEntry } from "../../shared/measurement-reading-operations";
 
 type ComposerMetric = { readonly id: string; readonly name: string; readonly unit: string | null };
 
@@ -81,6 +81,8 @@ function MetricValueField(props: {
 export function MeasurementComposer(props: {
 	readonly label: string;
 	readonly pending: boolean;
+	readonly retained?: boolean;
+	readonly onRetry?: () => void;
 	readonly submitLabel: string;
 	readonly pendingLabel: string;
 	readonly initial: MeasurementDraft;
@@ -89,7 +91,7 @@ export function MeasurementComposer(props: {
 	readonly errorMessage: string | undefined;
 	readonly metrics: readonly ComposerMetric[];
 	readonly occurredAtRef?: RefObject<HTMLInputElement | null>;
-	readonly onSubmit: (readings: MeasurementReadingLogInput) => void;
+	readonly onSubmit: (readings: MeasurementEntry) => void;
 }) {
 	const {
 		label,
@@ -133,6 +135,10 @@ export function MeasurementComposer(props: {
 		onChange();
 	};
 	const save = () => {
+		if (props.retained) {
+			props.onRetry?.();
+			return;
+		}
 		setSubmitted(true);
 		if (
 			Number.isNaN(timestamp) ||
@@ -148,9 +154,15 @@ export function MeasurementComposer(props: {
 				occurredAt === initialOccurredAt ? initial.occurredAt : new Date(timestamp).toISOString(),
 		});
 	};
+	let actionLabel = submitLabel;
+	if (pending) {
+		actionLabel = pendingLabel;
+	} else if (props.retained) {
+		actionLabel = "Retry save";
+	}
 	return (
 		<ActionForm label={label} onSubmit={save} className="flex flex-col gap-4">
-			<fieldset disabled={pending} className="flex flex-col gap-4">
+			<fieldset className="flex flex-col gap-4" disabled={pending || props.retained}>
 				<div className="flex flex-col gap-1.5">
 					<label htmlFor={occurredAtId} className="text-sm font-medium text-text">
 						Date and time
@@ -234,7 +246,7 @@ export function MeasurementComposer(props: {
 					Cancel
 				</Button>
 				<Button type="button" onClick={save} disabled={pending}>
-					{pending ? pendingLabel : submitLabel}
+					{actionLabel}
 				</Button>
 			</div>
 		</ActionForm>
