@@ -13,7 +13,7 @@ export, including history, ratings, favorites, and custom lists.
    <FRONTEND_URL>/api/oauth-connections/providers/media/anilist/callback
    ```
 
-3. Set `RYOT_PLUGIN_MEDIA_ANILIST_CLIENT_ID` and `RYOT_PLUGIN_MEDIA_ANILIST_CLIENT_SECRET` on your
+3. Set `RYOT_PLUGIN_BCAD4408A7E7465EACCBC1A553C78090_ANILIST_CLIENT_ID` and `RYOT_PLUGIN_BCAD4408A7E7465EACCBC1A553C78090_ANILIST_CLIENT_SECRET` on your
    Ryot server. Both are required to connect an
    AniList account. Keep the client secret on the server.
 

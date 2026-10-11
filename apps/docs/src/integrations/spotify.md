@@ -17,7 +17,7 @@ on every sync and records each new play as a completed song with its play time a
    Spotify accepts only HTTPS redirect URIs or the loopback addresses `http://127.0.0.1` and
    `http://[::1]`, so `FRONTEND_URL` must use one of those forms.
 
-3. Set `RYOT_PLUGIN_MEDIA_SPOTIFY_CLIENT_ID` and `RYOT_PLUGIN_MEDIA_SPOTIFY_CLIENT_SECRET` to the
+3. Set `RYOT_PLUGIN_BCAD4408A7E7465EACCBC1A553C78090_SPOTIFY_CLIENT_ID` and `RYOT_PLUGIN_BCAD4408A7E7465EACCBC1A553C78090_SPOTIFY_CLIENT_SECRET` to the
    app's client ID and secret. The same credentials also power Spotify music metadata.
 
 A Spotify app in development mode allows up to five users that you add in the dashboard under

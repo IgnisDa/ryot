@@ -1,7 +1,7 @@
 # IGDB
 
 ::: info
-Set `RYOT_PLUGIN_MEDIA_TWITCH_CLIENT_ID` and `RYOT_PLUGIN_MEDIA_TWITCH_CLIENT_SECRET` before import.
+Set `RYOT_PLUGIN_BCAD4408A7E7465EACCBC1A553C78090_TWITCH_CLIENT_ID` and `RYOT_PLUGIN_BCAD4408A7E7465EACCBC1A553C78090_TWITCH_CLIENT_SECRET` before import.
 :::
 
 Import each [IGDB](https://www.igdb.com) list separately into a selected collection.

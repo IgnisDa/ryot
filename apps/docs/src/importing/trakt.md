@@ -2,11 +2,11 @@
 
 ::: info
 All Trakt imports, including ZIP exports, require
-`RYOT_PLUGIN_MEDIA_TMDB_ACCESS_TOKEN`.
+`RYOT_PLUGIN_BCAD4408A7E7465EACCBC1A553C78090_TMDB_ACCESS_TOKEN`.
 :::
 
 Choose User, List, or Export ZIP under **Settings > Import data**. User and List use the Trakt API
-and require `RYOT_PLUGIN_MEDIA_TRAKT_CLIENT_ID`; ZIP does not. See the [Trakt guide](../guides/trakt.md).
+and require `RYOT_PLUGIN_BCAD4408A7E7465EACCBC1A553C78090_TRAKT_CLIENT_ID`; ZIP does not. See the [Trakt guide](../guides/trakt.md).
 
 ## User
 
