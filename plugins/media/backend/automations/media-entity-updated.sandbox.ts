@@ -3,6 +3,7 @@ import { defineManifest } from "@ryot-app/plugin-backend-sdk/driver";
 import { Effect } from "@ryot-app/plugin-backend-sdk/effect";
 import type { JsonValue } from "@ryot-app/plugin-backend-sdk/wire";
 
+import { isPositional, positionalProperties } from "../../shared/media-schema-slugs";
 import { getSeasonContext, isSpecialSeason } from "./season-context";
 
 export const manifest = defineManifest({
@@ -102,8 +103,9 @@ export default defineAutomation({
 				}
 			}
 
-			const contentKey = after.entitySchemaSlug === "anime" ? "episodes" : "chapters";
-			if (after.entitySchemaSlug === "anime" || after.entitySchemaSlug === "manga") {
+			const entitySchemaSlug: string = after.entitySchemaSlug;
+			if (isPositional(entitySchemaSlug)) {
+				const contentKey = positionalProperties[entitySchemaSlug].total;
 				const oldCount = numberValue(before.properties[contentKey]);
 				const newCount = numberValue(after.properties[contentKey]);
 				if (oldCount !== null && newCount !== null && oldCount !== newCount) {

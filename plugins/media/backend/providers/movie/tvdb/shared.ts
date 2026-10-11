@@ -1,12 +1,13 @@
 import { defineManifest } from "@ryot-app/plugin-backend-sdk/driver";
 import { Effect } from "@ryot-app/plugin-backend-sdk/effect";
 import { defineProvider } from "@ryot-app/plugin-backend-sdk/provider";
+import { asRecord } from "@ryot-app/plugin-backend-sdk/wire";
 
 import { MediaSandboxError } from "../../../lib/failures";
 import { mediaGenreGroups } from "../../../lib/media-genres";
 import { parsePublishYear } from "../../../lib/parse-publish-year";
 import { normalizePlainDescription } from "../../../lib/plain-description";
-import { asRecord, numberValue, recordsValue, stringValue } from "../../../lib/records";
+import { numberValue, recordsValue, stringValue } from "../../../lib/records";
 import {
 	bcp47ToTvdb,
 	buildTranslationResult,

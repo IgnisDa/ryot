@@ -1,7 +1,11 @@
-import { partialCreateEventsResult } from "@ryot-app/plugin-backend-sdk/core";
-import type { CreateEventItem, ScriptHost } from "@ryot-app/plugin-backend-sdk/core";
+import {
+	type CreateEventItem,
+	EVENT_MUTATION_SANDBOX_LIMITS,
+	recoverPartialCreateEvents,
+	type ScriptHost,
+} from "@ryot-app/plugin-backend-sdk/core";
 import { defineManifest } from "@ryot-app/plugin-backend-sdk/driver";
-import { Effect, Option, Result, Schema } from "@ryot-app/plugin-backend-sdk/effect";
+import { Effect, Result, Schema } from "@ryot-app/plugin-backend-sdk/effect";
 import { defineOperation } from "@ryot-app/plugin-backend-sdk/operation";
 import {
 	and,
@@ -31,9 +35,11 @@ import {
 	MediaActivityLogOutput,
 	type MediaActivityWhen,
 } from "../../shared/media-activity-operations";
-import { builtinMediaEntitySchemaSlugs } from "../../shared/media-schema-slugs";
-
-const EVENTS_PER_CHUNK = 100;
+import {
+	builtinMediaEntitySchemaSlugs,
+	isPositional,
+	positionalProperties,
+} from "../../shared/media-schema-slugs";
 
 class MediaActivityRejectedError extends Error {
 	readonly _tag = "MediaActivityRejectedError";
@@ -49,11 +55,6 @@ const episodicConfigs: Readonly<Record<string, EpisodicKindConfig>> = {
 const lifecycleSchemaSlugs = new Set<string>(
 	builtinMediaEntitySchemaSlugs.filter((slug) => !(slug in episodicConfigs)),
 );
-
-const positionProperties: Readonly<Record<string, string>> = {
-	anime: "animeEpisode",
-	manga: "mangaChapter",
-};
 
 const targetRecipe = defineRecipe((id: string) => {
 	const entity = table("entity", "activityTarget");
@@ -158,7 +159,9 @@ const buildEvents = (
 			if (!lifecycleSchemaSlugs.has(schemaSlug)) {
 				return yield* reject("This media type has no progress");
 			}
-			const positionProperty = positionProperties[schemaSlug];
+			const positionProperty = isPositional(schemaSlug)
+				? positionalProperties[schemaSlug].position
+				: undefined;
 			if (positionProperty === undefined && entry.position !== undefined) {
 				return yield* reject("This media type tracks progress as a percent");
 			}
@@ -212,21 +215,14 @@ const writeInChunks = (
 ) =>
 	Effect.gen(function* () {
 		let count = 0;
-		for (let start = 0; start < events.length; start += EVENTS_PER_CHUNK) {
-			const chunk = events.slice(start, start + EVENTS_PER_CHUNK);
+		for (let start = 0; start < events.length; start += EVENT_MUTATION_SANDBOX_LIMITS.items) {
+			const chunk = events.slice(start, start + EVENT_MUTATION_SANDBOX_LIMITS.items);
 			const written = yield* host
 				.createEvents(chunk, {
 					submittedAt: options.submittedAt,
-					idempotencyKey: `${options.submissionId}:${start / EVENTS_PER_CHUNK}`,
+					idempotencyKey: `${options.submissionId}:${start / EVENT_MUTATION_SANDBOX_LIMITS.items}`,
 				})
-				.pipe(
-					Effect.catch((error) => {
-						const partial = partialCreateEventsResult(error.data);
-						return Option.isSome(partial)
-							? Effect.succeed({ count: partial.value.count })
-							: Effect.fail(error);
-					}),
-				);
+				.pipe(Effect.catch(recoverPartialCreateEvents));
 			count += written.count;
 			if (written.count !== chunk.length) {
 				return { count, status: "incomplete" as const };

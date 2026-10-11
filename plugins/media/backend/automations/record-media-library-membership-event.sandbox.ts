@@ -1,11 +1,9 @@
 import { defineAutomation } from "@ryot-app/plugin-backend-sdk/automation";
-import type { EventSchemaRecord, ScriptHost } from "@ryot-app/plugin-backend-sdk/core";
 import { defineManifest } from "@ryot-app/plugin-backend-sdk/driver";
 import { Effect } from "@ryot-app/plugin-backend-sdk/effect";
-import { entityReadRecipe, executeRyotqlRecipe } from "@ryot-app/plugin-backend-sdk/ryotql";
 
 import { mediaLibraryMemberEntitySchemaSlugs } from "../../shared/media-schema-slugs";
-import { MediaSandboxError } from "../lib/failures";
+import { eventSchemaBySlug, fetchEntity } from "../lib/host-reads";
 
 export const manifest = defineManifest({
 	kind: "automation",
@@ -19,28 +17,6 @@ export const manifest = defineManifest({
 
 const libraryMemberEntitySchemaSlugs = new Set<string>(mediaLibraryMemberEntitySchemaSlugs);
 
-type AutomationHost = Pick<ScriptHost, "executeRyotql" | "createEvents" | "listEventSchemas">;
-
-const sourceEntity = (host: AutomationHost, entityId: string) =>
-	executeRyotqlRecipe(host.executeRyotql, entityReadRecipe({ entityIds: [entityId] })).pipe(
-		Effect.flatMap(({ items }) => {
-			const entity = items[0];
-			return entity
-				? Effect.succeed(entity)
-				: Effect.fail(new MediaSandboxError({ message: "Entity not found" }));
-		}),
-	);
-
-const mediaLibraryEventSchema = (host: AutomationHost, entitySchemaSlug: string) =>
-	host
-		.listEventSchemas([entitySchemaSlug])
-		.pipe(
-			Effect.map(
-				(schemas): EventSchemaRecord | null =>
-					schemas.find((schema) => schema.slug === "add-to-media-library") ?? null,
-			),
-		);
-
 export default defineAutomation({
 	manifest,
 	run: ({ automation }, host) =>
@@ -53,11 +29,15 @@ export default defineAutomation({
 			) {
 				return null;
 			}
-			const entity = yield* sourceEntity(host, payload.after.sourceEntityId);
+			const entity = yield* fetchEntity(host, payload.after.sourceEntityId);
 			if (!libraryMemberEntitySchemaSlugs.has(entity.entitySchemaSlug)) {
 				return null;
 			}
-			const eventSchema = yield* mediaLibraryEventSchema(host, entity.entitySchemaSlug);
+			const eventSchema = yield* eventSchemaBySlug(
+				host,
+				entity.entitySchemaSlug,
+				"add-to-media-library",
+			);
 			if (eventSchema === null) {
 				return null;
 			}

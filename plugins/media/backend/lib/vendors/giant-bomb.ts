@@ -1,15 +1,10 @@
 import type { ScriptHost } from "@ryot-app/plugin-backend-sdk/core";
 import { Effect } from "@ryot-app/plugin-backend-sdk/effect";
+import { asRecord } from "@ryot-app/plugin-backend-sdk/wire";
 
 import { MediaSandboxError } from "../failures";
 import { normalizePlainDescription } from "../plain-description";
-import {
-	asRecord,
-	decodeJsonResponse,
-	numberValue,
-	stringValue,
-	type UnknownRecord,
-} from "../records";
+import { decodeJsonResponse, numberValue, stringValue, type UnknownRecord } from "../records";
 import { normalizeRichDescription } from "../rich-description";
 
 export type GiantBombHost = Pick<ScriptHost, "httpCall" | "getPluginConfig">;

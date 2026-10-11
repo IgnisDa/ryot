@@ -3,7 +3,9 @@ import { DateTime, Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
 import { eventReadRecipe, executeRyotqlRecipe } from "@ryot-app/plugin-backend-sdk/ryotql";
 import type { JsonValue } from "@ryot-app/plugin-backend-sdk/wire";
 
+import { isPositional, positionalProperties } from "../../shared/media-schema-slugs";
 import { MediaSandboxError } from "../lib/failures";
+import { eventTimestamp, jsonObject } from "../lib/records";
 import type { MediaProgressEvent } from "../lib/ryotql";
 import type { MediaImportWriteChunkInput } from "./schemas";
 
@@ -30,26 +32,15 @@ const toFiniteNumber = (value: unknown) => {
 	return typeof parsed === "number" && Number.isFinite(parsed) ? parsed : null;
 };
 
-const isJsonObject = (value: JsonValue): value is Properties =>
-	typeof value === "object" && value !== null && !Array.isArray(value);
-const jsonObject = (value: JsonValue): Properties | null => (isJsonObject(value) ? value : null);
-
-const positionProperties = { anime: "animeEpisode", manga: "mangaChapter" } as const;
-
 const progressPosition = (entitySchemaSlug: string, properties: Properties) => {
-	if (entitySchemaSlug !== "anime" && entitySchemaSlug !== "manga") {
+	if (!isPositional(entitySchemaSlug)) {
 		return null;
 	}
-	return parseProgressPercent(properties[positionProperties[entitySchemaSlug]]);
+	return parseProgressPercent(properties[positionalProperties[entitySchemaSlug].position]);
 };
 
 const consumedOnValue = (properties: Properties) =>
 	typeof properties["consumedOn"] === "string" ? properties["consumedOn"] : "";
-
-const eventTimestamp = (value: string) => {
-	const timestamp = Date.parse(value);
-	return Number.isFinite(timestamp) ? timestamp : 0;
-};
 
 const sortLatestFirst = (left: ProgressEvent, right: ProgressEvent) =>
 	eventTimestamp(right.occurredAt) - eventTimestamp(left.occurredAt) ||

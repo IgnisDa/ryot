@@ -1,6 +1,6 @@
-import { partialCreateEventsResult } from "@ryot-app/plugin-backend-sdk/core";
+import { recoverPartialCreateEvents } from "@ryot-app/plugin-backend-sdk/core";
 import { defineManifest } from "@ryot-app/plugin-backend-sdk/driver";
-import { Effect, Option } from "@ryot-app/plugin-backend-sdk/effect";
+import { Effect } from "@ryot-app/plugin-backend-sdk/effect";
 import { defineOperation } from "@ryot-app/plugin-backend-sdk/operation";
 
 import { measurementReadingProperties } from "../../shared/measurement-properties";
@@ -41,12 +41,11 @@ export default defineOperation({
 						count,
 						status: count === values.length ? ("saved" as const) : ("incomplete" as const),
 					})),
-					Effect.catch((error) => {
-						const partial = partialCreateEventsResult(error.data);
-						return Option.isSome(partial)
-							? Effect.succeed({ count: partial.value.count, status: "incomplete" as const })
-							: Effect.fail(error);
-					}),
+					Effect.catch((error) =>
+						recoverPartialCreateEvents(error).pipe(
+							Effect.map(({ count }) => ({ count, status: "incomplete" as const })),
+						),
+					),
 				);
 		}),
 });

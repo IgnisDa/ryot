@@ -2,12 +2,12 @@ import { defineAutomation } from "@ryot-app/plugin-backend-sdk/automation";
 import type { IntegrationRecord } from "@ryot-app/plugin-backend-sdk/core";
 import { defineManifest } from "@ryot-app/plugin-backend-sdk/driver";
 import { Effect } from "@ryot-app/plugin-backend-sdk/effect";
+import { asRecord } from "@ryot-app/plugin-backend-sdk/wire";
 
+import { fetchEntity } from "../lib/host-reads";
 import {
-	fetchEntity,
 	type IntegrationPushHost,
 	integrationsDisabledForUser,
-	jsonObject,
 	listActiveIntegrations,
 	logPushFailure,
 	normalizeBaseUrl,
@@ -45,8 +45,8 @@ const authenticateJellyfin = (
 		})
 		.pipe(
 			Effect.map((result): JellyfinSession | null => {
-				const payload = jsonObject(parseJsonBody(result));
-				const user = jsonObject(payload?.["User"]);
+				const payload = asRecord(parseJsonBody(result));
+				const user = asRecord(payload?.["User"]);
 				const accessToken = payload?.["AccessToken"];
 				const userId = user?.["Id"];
 				return typeof accessToken === "string" && typeof userId === "string"
@@ -78,15 +78,15 @@ const findJellyfinItemId = (
 		)
 		.pipe(
 			Effect.map((result) => {
-				const payload = jsonObject(parseJsonBody(result));
+				const payload = asRecord(parseJsonBody(result));
 				const items = Array.isArray(payload?.["Items"]) ? payload["Items"] : [];
 				if (item.tmdbId) {
 					const matched = items.find((value) => {
-						const entry = jsonObject(value);
-						const providerIds = jsonObject(entry?.["ProviderIds"]);
+						const entry = asRecord(value);
+						const providerIds = asRecord(entry?.["ProviderIds"]);
 						return String(providerIds?.["Tmdb"]) === item.tmdbId;
 					});
-					const matchedId = jsonObject(matched)?.["Id"];
+					const matchedId = asRecord(matched)?.["Id"];
 					if (typeof matchedId === "string") {
 						return matchedId;
 					}
@@ -94,10 +94,10 @@ const findJellyfinItemId = (
 				if (item.title) {
 					const title = item.title.toLowerCase();
 					const matched = items.find((value) => {
-						const name = jsonObject(value)?.["Name"];
+						const name = asRecord(value)?.["Name"];
 						return typeof name === "string" && name.toLowerCase() === title;
 					});
-					const matchedId = jsonObject(matched)?.["Id"];
+					const matchedId = asRecord(matched)?.["Id"];
 					return typeof matchedId === "string" ? matchedId : null;
 				}
 				return null;
@@ -111,7 +111,7 @@ const markPlayedInJellyfin = (
 	integration: IntegrationRecord,
 	item: JellyfinItem,
 ) => {
-	const specifics = jsonObject(integration.providerSpecifics);
+	const specifics = asRecord(integration.providerSpecifics);
 	const baseUrl = normalizeBaseUrl(specifics?.["baseUrl"]);
 	const username = specifics?.["username"];
 	if (!baseUrl || typeof username !== "string") {

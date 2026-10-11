@@ -1,7 +1,8 @@
 import type { ScriptHost } from "@ryot-app/plugin-backend-sdk/core";
 import { DateTime, Effect, Option } from "@ryot-app/plugin-backend-sdk/effect";
+import { asRecord } from "@ryot-app/plugin-backend-sdk/wire";
 
-import { asRecord, decodeJsonResponse, parseJsonResponse, stringValue } from "../records";
+import { decodeJsonResponse, parseJsonResponse, stringValue } from "../records";
 
 export type MusicBrainzHost = Pick<ScriptHost, "httpCall">;
 

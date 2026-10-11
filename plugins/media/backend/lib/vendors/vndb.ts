@@ -1,13 +1,8 @@
 import type { ScriptHost } from "@ryot-app/plugin-backend-sdk/core";
 import { DateTime, Effect, Option } from "@ryot-app/plugin-backend-sdk/effect";
+import { asRecord } from "@ryot-app/plugin-backend-sdk/wire";
 
-import {
-	asRecord,
-	decodeJsonResponse,
-	numberValue,
-	stringValue,
-	type UnknownRecord,
-} from "../records";
+import { decodeJsonResponse, numberValue, stringValue, type UnknownRecord } from "../records";
 
 export type VndbHost = Pick<ScriptHost, "httpCall">;
 

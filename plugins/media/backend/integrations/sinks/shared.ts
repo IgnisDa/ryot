@@ -1,4 +1,5 @@
 import { Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
+import { asRecord } from "@ryot-app/plugin-backend-sdk/wire";
 
 import { resolvedMediaRef } from "../../imports/source-helpers";
 import {
@@ -11,7 +12,6 @@ import {
 	progressPercent,
 	progressResult,
 	showEpisodeRef,
-	specifics,
 	textValue,
 	truthy,
 } from "../shared";
@@ -76,7 +76,7 @@ export const parseMediaServer = (
 						? emptyResult()
 						: failureResult(`${provider} webhook payload has an unsupported media type`);
 				}
-				const settings = specifics(integrationSpecifics);
+				const settings = asRecord(integrationSpecifics);
 				const configuredUsername =
 					typeof settings?.["username"] === "string" ? settings["username"].trim() : "";
 				if (provider === "Jellyfin" && configuredUsername) {

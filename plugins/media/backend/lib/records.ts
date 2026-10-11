@@ -1,13 +1,19 @@
 import { Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
+import { asRecord, type JsonValue } from "@ryot-app/plugin-backend-sdk/wire";
 
 import { MediaSandboxError } from "./failures";
 
 export type UnknownRecord = Record<string, unknown>;
 
-const isRecord = (value: unknown): value is UnknownRecord =>
-	value !== null && typeof value === "object" && !Array.isArray(value);
+export const isJsonObject = (value: JsonValue): value is Readonly<Record<string, JsonValue>> =>
+	typeof value === "object" && value !== null && !Array.isArray(value);
 
-export const asRecord = (value: unknown): UnknownRecord | null => (isRecord(value) ? value : null);
+export const jsonObject = (value: JsonValue) => (isJsonObject(value) ? value : null);
+
+export const eventTimestamp = (value: string) => {
+	const timestamp = Date.parse(value);
+	return Number.isFinite(timestamp) ? timestamp : 0;
+};
 
 export const recordsValue = (value: unknown) =>
 	Array.isArray(value)

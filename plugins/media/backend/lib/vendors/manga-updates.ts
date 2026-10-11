@@ -1,14 +1,9 @@
 import type { ScriptHost } from "@ryot-app/plugin-backend-sdk/core";
 import { Effect } from "@ryot-app/plugin-backend-sdk/effect";
+import { asRecord } from "@ryot-app/plugin-backend-sdk/wire";
 import type { JsonValue } from "@ryot-app/plugin-backend-sdk/wire";
 
-import {
-	asRecord,
-	decodeJsonResponse,
-	numberValue,
-	stringValue,
-	type UnknownRecord,
-} from "../records";
+import { decodeJsonResponse, numberValue, stringValue, type UnknownRecord } from "../records";
 
 export type MangaUpdatesHost = Pick<ScriptHost, "httpCall">;
 

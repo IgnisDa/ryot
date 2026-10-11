@@ -1,12 +1,13 @@
 import { defineManifest } from "@ryot-app/plugin-backend-sdk/driver";
 import { Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
 import { defineProvider } from "@ryot-app/plugin-backend-sdk/provider";
+import { asRecord } from "@ryot-app/plugin-backend-sdk/wire";
 
 import { MediaSandboxError } from "../../../lib/failures";
 import { getUserAllowNsfw } from "../../../lib/host";
 import { parsePublishYear } from "../../../lib/parse-publish-year";
 import { normalizePlainDescription } from "../../../lib/plain-description";
-import { asRecord, numberValue, recordsValue, stringValue } from "../../../lib/records";
+import { numberValue, recordsValue, stringValue } from "../../../lib/records";
 import {
 	fetchTrendingItems,
 	getImageUrl,

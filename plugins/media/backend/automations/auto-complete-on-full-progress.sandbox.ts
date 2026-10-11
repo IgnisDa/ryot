@@ -3,14 +3,12 @@ import { defineAutomation } from "@ryot-app/plugin-backend-sdk/automation";
 import type { EventSchemaRecord, ScriptHost } from "@ryot-app/plugin-backend-sdk/core";
 import { defineManifest } from "@ryot-app/plugin-backend-sdk/driver";
 import { Effect } from "@ryot-app/plugin-backend-sdk/effect";
-import {
-	entityReadRecipe,
-	eventReadRecipe,
-	executeRyotqlRecipe,
-} from "@ryot-app/plugin-backend-sdk/ryotql";
+import { eventReadRecipe, executeRyotqlRecipe } from "@ryot-app/plugin-backend-sdk/ryotql";
 import type { JsonValue } from "@ryot-app/plugin-backend-sdk/wire";
 
-import { MediaSandboxError } from "../lib/failures";
+import { isPositional, positionalProperties } from "../../shared/media-schema-slugs";
+import { eventSchemaBySlug, fetchEntity } from "../lib/host-reads";
+import { eventTimestamp, jsonObject } from "../lib/records";
 
 export const manifest = defineManifest({
 	kind: "automation",
@@ -32,28 +30,8 @@ type AutomationEventSnapshot = Extract<
 	{ resource: "event"; operation: "create"; category: "change" }
 >["after"];
 
-const isJsonObject = (value: JsonValue): value is Properties =>
-	typeof value === "object" && value !== null && !Array.isArray(value);
-
-const jsonObject = (value: JsonValue): Properties | null => (isJsonObject(value) ? value : null);
-
 const toPositiveNumber = (value: JsonValue | undefined) =>
 	typeof value === "number" && Number.isFinite(value) && value > 0 ? value : null;
-
-const eventTimestamp = (value: string) => {
-	const timestamp = Date.parse(value);
-	return Number.isFinite(timestamp) ? timestamp : 0;
-};
-
-const positionalProperties = {
-	anime: { total: "episodes", position: "animeEpisode" },
-	manga: { total: "chapters", position: "mangaChapter" },
-} as const;
-
-const isPositional = (
-	entitySchemaSlug: string,
-): entitySchemaSlug is keyof typeof positionalProperties =>
-	entitySchemaSlug === "anime" || entitySchemaSlug === "manga";
 
 const reachesTotal = (
 	entitySchemaSlug: keyof typeof positionalProperties,
@@ -65,26 +43,6 @@ const reachesTotal = (
 	const total = toPositiveNumber(entityProperties[keys.total]);
 	return position !== null && total !== null && position >= total;
 };
-
-const getCompleteSchema = (host: AutomationHost, entitySchemaSlug: string) =>
-	host
-		.listEventSchemas([entitySchemaSlug])
-		.pipe(
-			Effect.map(
-				(schemas): EventSchemaRecord | null =>
-					schemas.find((schema) => schema.slug === "complete") ?? null,
-			),
-		);
-
-const fetchEntity = (host: AutomationHost, entityId: string) =>
-	executeRyotqlRecipe(host.executeRyotql, entityReadRecipe({ entityIds: [entityId] })).pipe(
-		Effect.flatMap(({ items }) => {
-			const entity = items[0];
-			return entity
-				? Effect.succeed(entity)
-				: Effect.fail(new MediaSandboxError({ message: "Entity not found" }));
-		}),
-	);
 
 const latestCompletionTime = (host: AutomationHost, entityId: string, entitySchemaSlug: string) =>
 	executeRyotqlRecipe(
@@ -167,7 +125,7 @@ export default defineAutomation({
 				}
 				const entitySchemaSlug = first.entitySchemaSlug;
 				const entity = yield* fetchEntity(host, entityId);
-				const completeSchema = yield* getCompleteSchema(host, entity.entitySchemaSlug);
+				const completeSchema = yield* eventSchemaBySlug(host, entity.entitySchemaSlug, "complete");
 				if (!completeSchema) {
 					return;
 				}

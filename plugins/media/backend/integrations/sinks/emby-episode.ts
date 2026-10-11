@@ -1,8 +1,9 @@
 import type { ScriptHost } from "@ryot-app/plugin-backend-sdk/core";
 import { Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
+import { asRecord } from "@ryot-app/plugin-backend-sdk/wire";
 
 import { MediaSandboxError } from "../../lib/failures";
-import { asRecord, recordsValue, stringValue } from "../../lib/records";
+import { recordsValue, stringValue } from "../../lib/records";
 import { tmdbGet } from "../../lib/vendors/tmdb";
 import { firstPathText, nestedNumber, textValue } from "../shared";
 import { isNotFound, searchTmdbShow, tmdbEpisodeExternalIds } from "./tmdb-episode";

@@ -5,9 +5,7 @@ import type {
 	ScriptHost,
 } from "@ryot-app/plugin-backend-sdk/core";
 import { Effect } from "@ryot-app/plugin-backend-sdk/effect";
-import { entityReadRecipe, executeRyotqlRecipe } from "@ryot-app/plugin-backend-sdk/ryotql";
-
-import { MediaSandboxError } from "./failures";
+import { asRecord } from "@ryot-app/plugin-backend-sdk/wire";
 
 export type IntegrationPushHost = Pick<
 	ScriptHost,
@@ -18,12 +16,6 @@ export type IntegrationPushHost = Pick<
 	| "listIntegrations"
 	| "getUserPreferences"
 >;
-
-const isObject = (value: unknown): value is Readonly<Record<string, unknown>> =>
-	typeof value === "object" && value !== null && !Array.isArray(value);
-
-export const jsonObject = (value: unknown): Readonly<Record<string, unknown>> | null =>
-	isObject(value) ? value : null;
 
 export const normalizeBaseUrl = (value: unknown) =>
 	typeof value === "string" ? value.trim().replace(/\/+$/, "") : "";
@@ -68,16 +60,6 @@ export const listActiveIntegrations = (
 	provider: NonNullable<ListIntegrationsOptions["provider"]>,
 ) => host.listIntegrations({ provider, isDisabled: false });
 
-export const fetchEntity = (host: IntegrationPushHost, entityId: string) =>
-	executeRyotqlRecipe(host.executeRyotql, entityReadRecipe({ entityIds: [entityId] })).pipe(
-		Effect.flatMap(({ items }) => {
-			const entity = items[0];
-			return entity
-				? Effect.succeed(entity)
-				: Effect.fail(new MediaSandboxError({ message: "Entity not found" }));
-		}),
-	);
-
 export const resolveEntityProviderName = (host: IntegrationPushHost, entity: EntityRecord) => {
 	if (!entity.providerId) {
 		return Effect.succeed(null);
@@ -94,7 +76,7 @@ export const resolveEntityProviderName = (host: IntegrationPushHost, entity: Ent
 };
 
 export const collectionSyncMatches = (integration: IntegrationRecord, collectionId: string) => {
-	const specifics = jsonObject(integration.providerSpecifics);
+	const specifics = asRecord(integration.providerSpecifics);
 	const ids =
 		specifics && Array.isArray(specifics["syncCollectionIds"])
 			? specifics["syncCollectionIds"]

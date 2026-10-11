@@ -1,11 +1,11 @@
 import type { ScriptHost } from "@ryot-app/plugin-backend-sdk/core";
 import { Effect } from "@ryot-app/plugin-backend-sdk/effect";
 import type { ProviderDetailsRelatedEntity } from "@ryot-app/plugin-backend-sdk/provider";
+import { asRecord } from "@ryot-app/plugin-backend-sdk/wire";
 
 import type { WatchProviderOffer } from "../../../shared/watch-provider";
 import { MediaSandboxError } from "../failures";
 import {
-	asRecord,
 	decodeJsonResponse,
 	numberValue,
 	recordsValue,

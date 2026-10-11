@@ -1,6 +1,7 @@
 import { Effect } from "@ryot-app/plugin-backend-sdk/effect";
+import { asRecord } from "@ryot-app/plugin-backend-sdk/wire";
 
-import { asRecord, numberValue, recordsValue } from "../../lib/records";
+import { numberValue, recordsValue } from "../../lib/records";
 import { tmdbGet, type TmdbHost } from "../../lib/vendors/tmdb";
 
 export type TmdbEpisode = {

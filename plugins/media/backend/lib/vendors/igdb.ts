@@ -1,8 +1,9 @@
 import type { ScriptHost } from "@ryot-app/plugin-backend-sdk/core";
 import { Effect } from "@ryot-app/plugin-backend-sdk/effect";
+import { asRecord } from "@ryot-app/plugin-backend-sdk/wire";
 
 import { MediaSandboxError } from "../failures";
-import { asRecord, decodeJsonResponse, numberValue, stringValue } from "../records";
+import { decodeJsonResponse, numberValue, stringValue } from "../records";
 
 export type IgdbHost = Pick<
 	ScriptHost,

@@ -1,11 +1,12 @@
 import { defineManifest } from "@ryot-app/plugin-backend-sdk/driver";
 import { Effect } from "@ryot-app/plugin-backend-sdk/effect";
 import { defineProvider } from "@ryot-app/plugin-backend-sdk/provider";
+import { asRecord } from "@ryot-app/plugin-backend-sdk/wire";
 
 import { recognizedMediaGenres } from "../../../../shared/media-genres";
 import { MediaSandboxError } from "../../../lib/failures";
 import { mediaGenreGroups } from "../../../lib/media-genres";
-import { asRecord, numberValue, stringValue } from "../../../lib/records";
+import { numberValue, stringValue } from "../../../lib/records";
 import {
 	extractDate,
 	extractYear,

@@ -1,9 +1,10 @@
 import { defineManifest } from "@ryot-app/plugin-backend-sdk/driver";
 import { DateTime, Effect, Option } from "@ryot-app/plugin-backend-sdk/effect";
 import { defineProvider } from "@ryot-app/plugin-backend-sdk/provider";
+import { asRecord } from "@ryot-app/plugin-backend-sdk/wire";
 
 import { mediaGenreGroups } from "../../../lib/media-genres";
-import { asRecord, numberValue, stringValue } from "../../../lib/records";
+import { numberValue, stringValue } from "../../../lib/records";
 import { normalizeRichDescription } from "../../../lib/rich-description";
 import type { RoleRelatedEntity } from "../../../lib/role-accumulator";
 import { getIdentifier, loadMetronJson, type MetronHost } from "../../../lib/vendors/metron";

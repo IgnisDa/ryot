@@ -1,10 +1,11 @@
 import { Effect } from "@ryot-app/plugin-backend-sdk/effect";
 import type { ProviderTranslateInput } from "@ryot-app/plugin-backend-sdk/provider";
+import { asRecord } from "@ryot-app/plugin-backend-sdk/wire";
 
 import { mediaFailureMessage } from "../../../lib/error-message";
 import { MediaSandboxError } from "../../../lib/failures";
 import { normalizePlainDescription } from "../../../lib/plain-description";
-import { asRecord, stringValue } from "../../../lib/records";
+import { stringValue } from "../../../lib/records";
 import {
 	firstTranslationValue,
 	getLocalizedImageUrl,

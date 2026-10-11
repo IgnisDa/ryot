@@ -4,12 +4,13 @@ import {
 	defineProvider,
 	type ProviderDetailsRelatedEntity,
 } from "@ryot-app/plugin-backend-sdk/provider";
+import { asRecord } from "@ryot-app/plugin-backend-sdk/wire";
 
 import { normalizeAnilistDescription } from "../../../lib/anilist-description";
 import { mediaFailureMessage } from "../../../lib/error-message";
 import { MediaSandboxError } from "../../../lib/failures";
 import { mediaGenreGroups } from "../../../lib/media-genres";
-import { asRecord, numberValue, stringValue } from "../../../lib/records";
+import { numberValue, stringValue } from "../../../lib/records";
 import { toTitleCase } from "../../../lib/title-case-delimiters";
 import {
 	anilistGraphql,

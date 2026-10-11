@@ -3,13 +3,14 @@ import type {
 	ProviderDetailsInput,
 	ProviderDetailsResult,
 } from "@ryot-app/plugin-backend-sdk/provider";
+import { asRecord } from "@ryot-app/plugin-backend-sdk/wire";
 
 import { mediaFailureMessage } from "../../../lib/error-message";
 import { MediaSandboxError } from "../../../lib/failures";
 import { mediaGenreGroups } from "../../../lib/media-genres";
 import { parsePublishYear } from "../../../lib/parse-publish-year";
 import { normalizePlainDescription } from "../../../lib/plain-description";
-import { asRecord, numberValue, stringValue, type UnknownRecord } from "../../../lib/records";
+import { numberValue, stringValue, type UnknownRecord } from "../../../lib/records";
 import {
 	collectCompanies,
 	collectGenres,

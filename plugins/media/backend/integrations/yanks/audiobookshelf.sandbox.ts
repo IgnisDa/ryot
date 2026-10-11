@@ -1,5 +1,6 @@
 import { defineManifest, defineScript } from "@ryot-app/plugin-backend-sdk/driver";
 import { Effect, Option, Schema } from "@ryot-app/plugin-backend-sdk/effect";
+import { asRecord } from "@ryot-app/plugin-backend-sdk/wire";
 
 import { readMediaCapture } from "../../imports/collection";
 import type { ImportEntityRef, MediaIntegrationAdapterResult } from "../../imports/schemas";
@@ -8,7 +9,7 @@ import { isValidIsbn, normalizeIsbn } from "../../lib/isbn";
 import { captureIntegrationWindow } from "../artifacts";
 import { integrationRecordId } from "../identity";
 import { IntegrationWindowOutput, YankInput } from "../schemas";
-import { baseUrl, executionStartedAt, requestJson, specifics } from "../shared";
+import { baseUrl, executionStartedAt, requestJson } from "../shared";
 
 export const manifest = defineManifest({
 	kind: "script",
@@ -120,7 +121,7 @@ export default defineScript({
 			}
 			const startedAt = yield* executionStartedAt(execution);
 			const integration = yield* host.getCurrentIntegration();
-			const settings = specifics(integration.providerSpecifics);
+			const settings = asRecord(integration.providerSpecifics);
 			const token = typeof settings?.["token"] === "string" ? settings["token"] : "";
 			const root = baseUrl(settings?.["baseUrl"]);
 			const url = root.endsWith("/api") ? root : `${root}/api`;

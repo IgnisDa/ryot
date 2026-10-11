@@ -1,5 +1,6 @@
 import { defineManifest, defineScript } from "@ryot-app/plugin-backend-sdk/driver";
 import { Effect } from "@ryot-app/plugin-backend-sdk/effect";
+import { asRecord } from "@ryot-app/plugin-backend-sdk/wire";
 
 import { resolvedMediaRef } from "../../imports/source-helpers";
 import { captureIntegrationRecords } from "../artifacts";
@@ -12,7 +13,6 @@ import {
 	progressResult,
 	showEpisodeRef,
 	SinkInput,
-	specifics,
 } from "../shared";
 
 export const manifest = defineManifest({
@@ -57,8 +57,8 @@ export default defineScript({
 			const integration = yield* host.getCurrentIntegration();
 			return yield* Effect.try(() => {
 				const payload = jsonRecord(input.rawBody);
-				const data = specifics(payload["data"]) ?? payload;
-				const settings = specifics(integration.providerSpecifics);
+				const data = asRecord(payload["data"]) ?? payload;
+				const settings = asRecord(integration.providerSpecifics);
 				const url = typeof payload["url"] === "string" ? payload["url"] : undefined;
 				const disabled = Array.isArray(settings?.["disabledSites"])
 					? settings["disabledSites"].filter((site): site is string => typeof site === "string")

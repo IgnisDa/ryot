@@ -1,7 +1,7 @@
 import type { ScriptHost } from "@ryot-app/plugin-backend-sdk/core";
 import { Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
+import { asRecord } from "@ryot-app/plugin-backend-sdk/wire";
 
-import { asRecord } from "../../lib/records";
 import { getTmdbAccessToken } from "../../lib/vendors/tmdb";
 import { tvdbGet } from "../../lib/vendors/tvdb";
 import { nestedNumber, pathValue, textValue } from "../shared";

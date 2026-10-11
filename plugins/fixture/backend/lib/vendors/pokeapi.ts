@@ -1,5 +1,6 @@
 import type { ScriptHost } from "@ryot-app/plugin-backend-sdk/core";
 import { Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
+import { asRecord } from "@ryot-app/plugin-backend-sdk/wire";
 
 export const INDEX_LIMIT = 10_000;
 export const API_BASE_URL = "https://pokeapi.co/api/v2";
@@ -10,11 +11,6 @@ export type PokeApiEntry = { readonly id: number; readonly name: string };
 export class PokeApiError extends Error {
 	readonly _tag = "PokeApiError";
 }
-
-const isRecord = (value: unknown): value is Record<string, unknown> =>
-	value !== null && typeof value === "object" && !Array.isArray(value);
-
-export const asRecord = (value: unknown) => (isRecord(value) ? value : null);
 
 export const stringValue = (value: unknown) =>
 	typeof value === "string" && value.trim() ? value.trim() : null;

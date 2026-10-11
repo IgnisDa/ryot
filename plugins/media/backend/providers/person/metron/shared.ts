@@ -1,8 +1,9 @@
 import { defineManifest } from "@ryot-app/plugin-backend-sdk/driver";
 import { DateTime, Effect, Option } from "@ryot-app/plugin-backend-sdk/effect";
 import { defineProvider } from "@ryot-app/plugin-backend-sdk/provider";
+import { asRecord } from "@ryot-app/plugin-backend-sdk/wire";
 
-import { asRecord, numberValue, stringValue } from "../../../lib/records";
+import { numberValue, stringValue } from "../../../lib/records";
 import { normalizeRichDescription } from "../../../lib/rich-description";
 import { getIdentifier, loadMetronJson } from "../../../lib/vendors/metron";
 
