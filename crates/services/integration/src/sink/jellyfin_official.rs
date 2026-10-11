@@ -3,12 +3,19 @@
 //! Handles the official `jellyfin-plugin-webhook` flat dictionary keyed by
 //! `NotificationType`. The unofficial path in `super::jellyfin` is untouched.
 
-use anyhow::{Result, anyhow, bail};
-use dependent_models::{ImportCompletedItem, ImportOrExportMetadataItem, ImportResult};
+use std::sync::Arc;
+
+use anyhow::{Context, Result, anyhow, bail};
+use dependent_models::{
+    ApplicationCacheKey, ApplicationCacheValue, ImportCompletedItem, ImportOrExportMetadataItem,
+    ImportResult,
+};
+use dependent_provider_utils::{get_tmdb_non_media_service, get_tvdb_non_media_service};
 use enum_models::{MediaLot, MediaSource};
 use media_models::ImportOrExportMetadataItemSeen;
 use rust_decimal::{Decimal, dec};
 use serde_json::{Map, Value};
+use supporting_service::SupportingService;
 
 /// Events producing progress for official-plugin flat payloads.
 pub const OFFICIAL_PROGRESS_EVENTS: &[&str] = &["PlaybackStart", "PlaybackStop", "PlaybackProgress"];
@@ -35,6 +42,11 @@ fn non_empty_id(id: Option<&str>) -> Option<String> {
         .map(str::to_owned)
 }
 
+/// Check whether the configured metadata provider is TVDB rather than TMDb.
+fn uses_tvdb(metadata_provider: Option<&str>) -> bool {
+    metadata_provider.is_some_and(|p| p.trim().eq_ignore_ascii_case("tvdb"))
+}
+
 /// Pick the external identifier honoring the configured metadata provider.
 pub fn resolve_identifier(
     tmdb_id: Option<&str>,
@@ -42,7 +54,7 @@ pub fn resolve_identifier(
     imdb_id: Option<&str>,
     metadata_provider: Option<&str>,
 ) -> Result<(String, MediaSource)> {
-    let use_tvdb = metadata_provider.is_some_and(|p| p.trim().eq_ignore_ascii_case("tvdb"));
+    let use_tvdb = uses_tvdb(metadata_provider);
     if use_tvdb {
         if let Some(id) = non_empty_id(tvdb_id) {
             return Ok((id, MediaSource::Tvdb));
@@ -96,6 +108,9 @@ pub fn build_import_result(
 }
 
 /// Playback information extracted from an official-plugin flat payload.
+///
+/// For episodes, `tmdb_id`, `tvdb_id` and `imdb_id` are the ids of the show, while the
+/// `episode_*` ids are those of the episode itself.
 #[derive(Debug, Clone)]
 pub struct OfficialPlayback {
     pub item_type: String,
@@ -103,6 +118,10 @@ pub struct OfficialPlayback {
     pub tmdb_id: Option<String>,
     pub tvdb_id: Option<String>,
     pub imdb_id: Option<String>,
+    pub episode_tmdb_id: Option<String>,
+    pub episode_tvdb_id: Option<String>,
+    pub episode_imdb_id: Option<String>,
+    pub series_name: Option<String>,
     pub username: Option<String>,
     pub played_to_completion: bool,
     pub season_number: Option<i32>,
@@ -227,25 +246,34 @@ fn bool_field(root: &Value, flat_keys: &[&str], item_keys: &[&str]) -> Option<bo
         })
 }
 
-/// Extract a provider id, preferring series-level ids for episodes.
-fn provider_id(root: &Value, provider: &str, item_type: &str) -> Option<String> {
-    if item_type.eq_ignore_ascii_case("Episode") {
-        let sp = format!("SeriesProvider_{provider}");
-        if let Some(id) = root.as_object().and_then(|m| first_flat(m, &[&sp])).and_then(as_string) {
-            return Some(id);
-        }
-        if let Some(id) = child(root, "Series").and_then(|s| child(s, "ProviderIds")).and_then(Value::as_object).and_then(|m| first_flat(m, &[provider])).and_then(as_string) {
-            return Some(id);
-        }
-    }
+/// Extract a provider id from the `ProviderIds` object of a nested section.
+fn nested_provider_id(root: &Value, section: &str, provider: &str) -> Option<String> {
+    child(root, section)
+        .and_then(|s| child(s, "ProviderIds"))
+        .and_then(Value::as_object)
+        .and_then(|m| first_flat(m, &[provider]))
+        .and_then(as_string)
+}
+
+/// Extract a provider id of the item itself.
+fn item_provider_id(root: &Value, provider: &str) -> Option<String> {
     let prefixed = format!("Provider_{provider}");
-    let flat = root.as_object().and_then(|m| first_flat(m, &[&prefixed, provider])).and_then(as_string);
-    if flat.is_some() {
-        return flat;
-    }
-    ["Item", "Series"].iter().find_map(|section| {
-        child(root, section).and_then(|i| child(i, "ProviderIds")).and_then(Value::as_object).and_then(|m| first_flat(m, &[provider])).and_then(as_string)
-    })
+    root.as_object()
+        .and_then(|m| first_flat(m, &[&prefixed, provider]))
+        .and_then(as_string)
+        .or_else(|| nested_provider_id(root, "Item", provider))
+}
+
+/// Extract a provider id of the series of an episode.
+///
+/// The official plugin only sends the provider ids of the episode itself as
+/// `Provider_<key>`, so these are never used as the ids of its series.
+fn series_provider_id(root: &Value, provider: &str) -> Option<String> {
+    let prefixed = format!("SeriesProvider_{provider}");
+    root.as_object()
+        .and_then(|m| first_flat(m, &[&prefixed]))
+        .and_then(as_string)
+        .or_else(|| nested_provider_id(root, "Series", provider))
 }
 
 /// Parse an official-plugin flat payload into normalized playback information.
@@ -281,15 +309,31 @@ pub fn parse_official_payload(value: &Value) -> Result<OfficialPlayback> {
         .and_then(|u| child(u, "Played"))
         .and_then(as_bool)
         .unwrap_or(false);
+    let is_episode = item_type.eq_ignore_ascii_case("Episode");
+    let media_id = |provider| match is_episode {
+        true => series_provider_id(value, provider),
+        false => item_provider_id(value, provider),
+    };
+    let episode_id = |provider| {
+        is_episode
+            .then(|| item_provider_id(value, provider))
+            .flatten()
+    };
     Ok(OfficialPlayback {
         username,
-        item_type: item_type.clone(),
+        item_type,
         event_name,
         runtime_ticks,
         position_ticks,
-        tmdb_id: provider_id(value, "tmdb", &item_type),
-        tvdb_id: provider_id(value, "tvdb", &item_type),
-        imdb_id: provider_id(value, "imdb", &item_type),
+        tmdb_id: media_id("tmdb"),
+        tvdb_id: media_id("tvdb"),
+        imdb_id: media_id("imdb"),
+        episode_tmdb_id: episode_id("tmdb"),
+        episode_tvdb_id: episode_id("tvdb"),
+        episode_imdb_id: episode_id("imdb"),
+        series_name: is_episode
+            .then(|| string_field(value, &["SeriesName"], &["SeriesName"]))
+            .flatten(),
         played_to_completion: played_to_completion || played_flag,
         episode_number: integer_field(
             value,
@@ -314,24 +358,29 @@ pub fn parse_official_payload(value: &Value) -> Result<OfficialPlayback> {
     })
 }
 
+/// Check whether parsed official-plugin information should produce an import.
+fn is_importable(info: &OfficialPlayback, username: Option<&str>) -> bool {
+    if info.event_name.eq_ignore_ascii_case(MARK_UNPLAYED_EVENT) {
+        return false;
+    }
+    let is_mark_played = info.event_name.eq_ignore_ascii_case(MARK_PLAYED_EVENT);
+    let supported = OFFICIAL_PROGRESS_EVENTS
+        .iter()
+        .any(|e| info.event_name.eq_ignore_ascii_case(e));
+    (supported || is_mark_played) && is_username_allowed(username, info.username.as_deref())
+}
+
 /// Resolve parsed official-plugin information into an import result.
 pub fn resolve(
     info: OfficialPlayback,
     username: Option<&str>,
     metadata_provider: Option<&str>,
 ) -> Result<Option<ImportResult>> {
-    if info.event_name.eq_ignore_ascii_case(MARK_UNPLAYED_EVENT) {
+    if !is_importable(&info, username) {
         return Ok(None);
     }
     let is_mark_played = info.event_name.eq_ignore_ascii_case(MARK_PLAYED_EVENT);
-    let supported = OFFICIAL_PROGRESS_EVENTS.iter().any(|e| info.event_name.eq_ignore_ascii_case(e));
-    if !supported && !is_mark_played {
-        return Ok(None);
-    }
     let completed = is_mark_played || info.played_to_completion;
-    if !is_username_allowed(username, info.username.as_deref()) {
-        return Ok(None);
-    }
     let lot = if info.item_type.eq_ignore_ascii_case("Movie") {
         MediaLot::Movie
     } else if info.item_type.eq_ignore_ascii_case("Episode") {
@@ -365,14 +414,112 @@ pub fn resolve(
     )))
 }
 
+/// Pick the episode id to look up the show of an episode with, when the payload does not
+/// carry an id of the show for the configured metadata provider.
+fn episode_show_lookup(
+    info: &OfficialPlayback,
+    metadata_provider: Option<&str>,
+) -> Option<(MediaSource, String)> {
+    if !info.item_type.eq_ignore_ascii_case("Episode") {
+        return None;
+    }
+    let (source, show_id, episode_id) = match uses_tvdb(metadata_provider) {
+        true => (MediaSource::Tvdb, &info.tvdb_id, &info.episode_tvdb_id),
+        false => (MediaSource::Tmdb, &info.tmdb_id, &info.episode_tmdb_id),
+    };
+    match show_id {
+        Some(_) => None,
+        None => episode_id.clone().map(|id| (source, id)),
+    }
+}
+
+// The official plugin only sends the IDs of an episode, so its show is looked up on TMDb
+// through the IMDb or TVDB ID of the episode, or else by title and the TMDb ID of the episode.
+async fn find_show_on_tmdb(
+    episode_id: &str,
+    info: &OfficialPlayback,
+    ss: &Arc<SupportingService>,
+) -> Result<Option<String>> {
+    let tmdb_service = get_tmdb_non_media_service(ss).await?;
+    let external_ids = [
+        (info.episode_imdb_id.as_deref(), "imdb_id"),
+        (info.episode_tvdb_id.as_deref(), "tvdb_id"),
+    ];
+    for (external_id, external_source) in external_ids
+        .into_iter()
+        .filter_map(|(id, source)| id.map(|id| (id, source)))
+    {
+        let show_id = tmdb_service
+            .find_show_by_episode_external_id(external_id, external_source)
+            .await
+            .with_context(|| format!("Could not look up episode {external_id} on TMDb"))?;
+        if show_id.is_some() {
+            return Ok(show_id);
+        }
+    }
+    let (Some(series_name), Some(season_number)) = (&info.series_name, info.season_number) else {
+        return Ok(None);
+    };
+    tmdb_service
+        .find_show_by_episode_title(series_name, season_number, episode_id)
+        .await
+        .with_context(|| format!("Could not look up show {series_name:?} on TMDb"))
+}
+
+/// Find the show of an episode on the configured metadata provider by the episode id.
+async fn find_episode_show_id(
+    source: MediaSource,
+    episode_id: &str,
+    info: &OfficialPlayback,
+    ss: &Arc<SupportingService>,
+) -> Result<Option<String>> {
+    let show_id = match source {
+        MediaSource::Tvdb => {
+            cache_service::get_or_set_with_callback(
+                ss,
+                ApplicationCacheKey::TvdbEpisodeShowId(episode_id.to_owned()),
+                ApplicationCacheValue::TvdbEpisodeShowId,
+                || async {
+                    get_tvdb_non_media_service(ss)
+                        .await?
+                        .find_series_by_episode_id(episode_id)
+                        .await
+                        .with_context(|| format!("Could not look up episode {episode_id} on TVDB"))
+                },
+            )
+            .await?
+        }
+        _ => {
+            cache_service::get_or_set_with_callback(
+                ss,
+                ApplicationCacheKey::TmdbEpisodeShowId(episode_id.to_owned()),
+                ApplicationCacheValue::TmdbEpisodeShowId,
+                || find_show_on_tmdb(episode_id, info, ss),
+            )
+            .await?
+        }
+    };
+    Ok(show_id.response)
+}
+
 /// Handle an official-plugin flat payload from the Jellyfin webhook plugin.
 pub async fn sink_progress_official(
     payload: String,
     username: Option<String>,
     provider: Option<String>,
+    ss: &Arc<SupportingService>,
 ) -> Result<Option<ImportResult>> {
     let value: Value = serde_json::from_str(&payload)?;
-    let info = parse_official_payload(&value)?;
+    let mut info = parse_official_payload(&value)?;
+    if is_importable(&info, username.as_deref())
+        && let Some((source, episode_id)) = episode_show_lookup(&info, provider.as_deref())
+    {
+        let show_id = find_episode_show_id(source, &episode_id, &info, ss).await?;
+        match source {
+            MediaSource::Tvdb => info.tvdb_id = show_id,
+            _ => info.tmdb_id = show_id,
+        }
+    }
     resolve(info, username.as_deref(), provider.as_deref())
 }
 
@@ -445,7 +592,8 @@ mod tests {
         let payload = json!({
             "NotificationType": "PlaybackProgress",
             "ItemType": "Episode",
-            "Provider_TMDB": "202",
+            "Provider_TMDB": "999",
+            "SeriesProvider_TMDB": "202",
             "SeasonNumber00": "01",
             "EpisodeNumber00": "02",
             "PlaybackPositionTicks": "500",
@@ -466,6 +614,77 @@ mod tests {
         });
         let result = run_official(completed, None, None).unwrap();
         assert_eq!(seen_progress(&result), Some(dec!(100)));
+    }
+
+    /// A playback payload as sent by the official plugin for an episode, which only carries
+    /// the provider ids of the episode itself and not those of its series.
+    fn plugin_episode_payload() -> Value {
+        json!({
+            "NotificationType": "PlaybackProgress",
+            "ItemType": "Episode",
+            "Name": "Messages from Earth",
+            "SeriesName": "Babylon 5",
+            "SeriesId": "4cf4b1e2b5a14b4f9a3b0d6f3f6c1d2e",
+            "SeasonNumber": 3,
+            "EpisodeNumber": 11,
+            "Provider_tvdb": "19541",
+            "Provider_imdb": "tt0517686",
+            "Provider_tmdb": "68923",
+            "PlaybackPositionTicks": 500,
+            "RunTimeTicks": 2000,
+            "PlayedToCompletion": false
+        })
+    }
+
+    #[test]
+    fn official_episode_ids_are_not_used_as_show_ids() {
+        for provider in [Some("tvdb"), None] {
+            let error = run_official(plugin_episode_payload(), None, provider).unwrap_err();
+            assert!(
+                error.to_string().starts_with("No T"),
+                "expected no show id for {provider:?}, got {error}"
+            );
+        }
+    }
+
+    #[test]
+    fn official_episode_show_is_looked_up_by_episode_id() {
+        let info = parse_official_payload(&plugin_episode_payload()).unwrap();
+        assert_eq!(info.series_name.as_deref(), Some("Babylon 5"));
+        assert_eq!(info.episode_imdb_id.as_deref(), Some("tt0517686"));
+        assert_eq!(
+            episode_show_lookup(&info, Some("tvdb")),
+            Some((MediaSource::Tvdb, "19541".to_owned()))
+        );
+        assert_eq!(
+            episode_show_lookup(&info, None),
+            Some((MediaSource::Tmdb, "68923".to_owned()))
+        );
+        let mut info = info;
+        info.tvdb_id = Some("70726".to_owned());
+        assert_eq!(episode_show_lookup(&info, Some("tvdb")), None);
+        let result = resolve(info, None, Some("tvdb")).unwrap();
+        assert_eq!(
+            first_details(&result).unwrap(),
+            ("70726".to_owned(), Some(3), Some(11))
+        );
+    }
+
+    #[test]
+    fn official_show_ids_and_movies_need_no_lookup() {
+        let mut payload = plugin_episode_payload();
+        payload["SeriesProvider_tvdb"] = json!("70726");
+        let info = parse_official_payload(&payload).unwrap();
+        assert_eq!(episode_show_lookup(&info, Some("tvdb")), None);
+        let movie = json!({
+            "NotificationType": "PlaybackStop",
+            "ItemType": "Movie",
+            "Provider_tmdb": "789",
+            "PlayedToCompletion": true
+        });
+        let info = parse_official_payload(&movie).unwrap();
+        assert_eq!(info.tmdb_id.as_deref(), Some("789"));
+        assert_eq!(episode_show_lookup(&info, None), None);
     }
 
     #[test]
