@@ -14,7 +14,7 @@
 
 ## Status
 
-**18 implemented, 0 in progress, 65 pending; 3 excluded.**
+**19 implemented, 0 in progress, 64 pending; 3 excluded.**
 
 “Implemented” means affected checks and tests passed and the change is committed with this tracker. Batch-wide acceptance is recorded separately below. Rows follow the audit's ranked order; sequencing can change to respect dependencies and keep changes reviewable.
 
@@ -39,7 +39,7 @@
 | F05-R1 | Implemented | One target-ID aggregate preserves equal-name histories and all-role recency; tiles use IDs. See this finding's `audit:` commit. |
 | M05-R2 | Implemented | Shared images require the canonical purpose; gallery Other and optional badges are removed. See this finding's `audit:` commit. |
 | P02-R1 | Pending | Validate activity inventory before lifecycle decisions. |
-| M06-R2 | Pending | Use the current query for backfill eligibility. |
+| M06-R2 | Implemented | Stable activity form consumes enabled pagination directly; no delayed earlier-episode mirror or sentinel query remains. See this finding's `audit:` commit. |
 | C11-R1 | Pending | Authenticated UI owns and disposes its SDK runtime. |
 | M07-R1 | Pending | Distinguish count failure from an empty library. |
 | P01-R2 | Pending | Notification specifics owns the creation discriminator. |
@@ -162,7 +162,7 @@
 - Repository-wide `bun run check` passed across 30 projects; `bun turbo --filter='!@ryot-app/e2e' test` passed, 51/51 tasks.
 - Main-session cleanup removed duplicate operation-target construction and an unused direct-page snapshot field (net one line removed). No suppressions or bypass casts were added. Excluded apps unchanged. No push performed.
 
-### Batch 6: B07-R2, F03-R2, F03-R1, C04-R1, C05-R1, F05-R1, M05-R2 — active
+### Batch 6: B07-R2, F03-R2, F03-R1, C04-R1, C05-R1, F05-R1, M05-R2, M06-R2 — active
 
 - Resumed at the user's request with one implementation subagent per finding. Independent backup, expiry, device, readiness, and home-activity work runs in parallel; F03-R1 follows F03-R2 because they share the workout controller.
 - Each finding retains its own review and `audit:` commit. Main-session cleanup is complete; final acceptance remains pending the affected browser runs.
@@ -176,3 +176,4 @@
 - Main-session cleanup from `591d806993` removed a redundant hook binding and deployment-history prose from the backup README (net three lines removed). Kept the restore drain requirement here, native cleanup limits, and behavioral regression tests. No new suppressions or bypass casts. Post-cleanup backend check and all 11 backup files / 130 tests passed; e2e check passed.
 - Initial final repository-wide `bun run check` passed across 30 projects; `bun turbo --filter='!@ryot-app/e2e' test` passed, 51/51 tasks.
 - Affected browser acceptance: `backups.test.ts` passed two tests. The initial `fitness-workout-editor.test.ts` run exposed a real post-save edit regression: a fresh request inherited the controller-wide saved acknowledgement, and the obsolete request guard blocked draft preparation. The guard now uses busy state; no fallback/reset/extra lock was added. Added same-session regression coverage. Fitness/e2e checks passed before 170 editor tests; the targeted reproduction and all six browser tests then passed. Remaining selected e2e files are running before acceptance.
+- M06-R2: stable `ActivityLogForm` owns draft, backfill, and submission state and consumes enabled SDK pagination directly. Removed the report DTO, parent mirror, reporting effect/callback, ID guard, and obsolete query export. User greenfield guidance removed the initial sentinel-query approach before review. Deferred late-A/current-B, Status-to-Episode reload/retry, current-ID submission, focus/draft preservation, specials, pagination, and bounds are covered. Media check passed before three files / 66 tests; read-only review reported no findings. The main-session cleanup extension found no obsolete callers, suppressions, or bypass casts.
