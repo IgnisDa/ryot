@@ -36,7 +36,7 @@ import { AppConfig } from "#platform/config/service";
 import { DatabaseSession } from "#platform/db/session";
 import * as tables from "#schema/tables/combined";
 
-import { BatchHookPin } from "./batch-hook-pin";
+import { type BatchHookPin, BatchHookSnapshot, restoreBatchHookPin } from "./batch-hook-pin";
 import { AutomationPlannerResolver, matchesTarget } from "./planner-resolver";
 import { AutomationRunRepository } from "./run-repository";
 import { AutomationTriggerRepository } from "./trigger-repository";
@@ -402,13 +402,19 @@ export const LifecyclePlannerLive = Layer.effect(
 					identity,
 					maxItems: limits.batchMaxItems,
 					pins: candidates.map((candidate) => ({
-						result: candidate,
-						pluginId: candidate.pluginId,
-						executionUserId: candidate.executionUserId,
-						sandboxScriptId: candidate.sandboxScriptId,
-						pluginRevisionId: candidate.pluginRevisionId,
-						pluginConfigRevisionId: candidate.pluginConfigRevisionId,
 						id: `receipt_${sha256Base64Url(stableStringify([identity.id, candidate.executionUserId, candidate.pluginId, candidate.hook.slug]))}`,
+						payload: {
+							hook: candidate.hook,
+							scriptSlug: candidate.scriptSlug,
+							scriptContentHash: candidate.scriptContentHash,
+						},
+						references: {
+							pluginId: candidate.pluginId,
+							scopeUserId: candidate.executionUserId,
+							sandboxScriptId: candidate.sandboxScriptId,
+							pluginRevisionId: candidate.pluginRevisionId,
+							pluginConfigRevisionId: candidate.pluginConfigRevisionId,
+						},
 					})),
 				})
 				.pipe(Effect.mapError(mapBatchConflict));
@@ -419,11 +425,12 @@ export const LifecyclePlannerLive = Layer.effect(
 		) {
 			const identity = batchIdentity(input);
 			const contents = yield* receipts
-				.batchContents(identity, BatchHookPin)
+				.batchContents(identity, BatchHookSnapshot)
 				.pipe(Effect.mapError(mapBatchConflict));
 			if (contents.sealed) {
 				return contents.dispatch;
 			}
+			const candidates = yield* Effect.forEach(contents.pins, restoreBatchHookPin);
 			const changes = contents.evidence.flatMap(({ payload, scopeUserId }) =>
 				payload.resource === input.resource && payload.operation !== "batch"
 					? [{ payload, scopeUserId }]
@@ -433,31 +440,26 @@ export const LifecyclePlannerLive = Layer.effect(
 				scopeUserId,
 				trigger: lifecycleTrigger(input.command, scopeUserId, payload, `batch-evidence:${index}`),
 			}));
-			const maxItems = contents.pins.reduce(
-				(globalMaxItems, { hook, pluginId, executionUserId }) => {
-					if (
-						hook.stage !== "after" ||
-						hook.frequency !== "batch" ||
-						hook.batchMaxItems === undefined
-					) {
-						return globalMaxItems;
-					}
-					const matchesCommittedItem = changeTriggers.some(
-						({ trigger, scopeUserId }) =>
-							scopeUserId === executionUserId &&
-							hook.targets.some((target) =>
-								matchesTarget(definitionOwner(pluginId), target, trigger),
-							),
-					);
-					return matchesCommittedItem
-						? Math.min(globalMaxItems, hook.batchMaxItems)
-						: globalMaxItems;
-				},
-				contents.maxItems,
-			);
+			const maxItems = candidates.reduce((globalMaxItems, { hook, pluginId, executionUserId }) => {
+				if (
+					hook.stage !== "after" ||
+					hook.frequency !== "batch" ||
+					hook.batchMaxItems === undefined
+				) {
+					return globalMaxItems;
+				}
+				const matchesCommittedItem = changeTriggers.some(
+					({ trigger, scopeUserId }) =>
+						scopeUserId === executionUserId &&
+						hook.targets.some((target) =>
+							matchesTarget(definitionOwner(pluginId), target, trigger),
+						),
+				);
+				return matchesCommittedItem ? Math.min(globalMaxItems, hook.batchMaxItems) : globalMaxItems;
+			}, contents.maxItems);
 			const planned = yield* Effect.forEach(
 				lifecycleBatchTriggers(input, maxItems, changes),
-				(trigger) => plan({ trigger, pinnedBatchCandidates: contents.pins }),
+				(trigger) => plan({ trigger, pinnedBatchCandidates: candidates }),
 			);
 			const dispatch = planned.flatMap((item) =>
 				item.trigger === null ? [] : [toLifecycleDispatchPlan(item)],
