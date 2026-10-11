@@ -5,6 +5,7 @@ import {
 	usePageShortcut,
 	usePluginLocation,
 	useRyotViewport,
+	type EntityBrowserLayout,
 	type EntityReference,
 } from "@ryot-app/plugin-client-sdk/plugin";
 import {
@@ -15,7 +16,13 @@ import {
 	useRyotSchedule,
 	type RyotQuery,
 } from "@ryot-app/plugin-client-sdk/react";
-import { PluginScreenFrame } from "@ryot-app/plugin-client-sdk/screen";
+import {
+	normalizeViewSearch,
+	PluginScreenFrame,
+	ViewFiltersButton,
+	viewLayoutOptions,
+	viewResultLabel,
+} from "@ryot-app/plugin-client-sdk/screen";
 import {
 	Badge,
 	Button,
@@ -52,7 +59,6 @@ import {
 import { BrowserTable, type BrowserColumns } from "./browser-table";
 import { managedCellAssets } from "./display-value";
 
-export type BrowserLayout = "grid" | "list" | "table";
 export type BrowserResult = SavedViewResult<EntityBrowserResultItem>;
 export type BrowserQueryPage<Meta> = {
 	readonly input: string;
@@ -63,7 +69,7 @@ export type BrowserQueryPage<Meta> = {
 type BrowserControls = {
 	readonly sort: string;
 	readonly search: string;
-	readonly layout: BrowserLayout;
+	readonly layout: EntityBrowserLayout;
 };
 type BrowserState<Meta> = BrowserResult & {
 	readonly depth: number;
@@ -83,7 +89,7 @@ export type BrowserSortChoice = { readonly label: string; readonly value: string
 type AddAction = { readonly label: string; readonly open: (initialQuery?: string) => void };
 
 export type BrowserResultsRenderer = (input: {
-	readonly layout: Exclude<BrowserLayout, "table">;
+	readonly layout: Exclude<EntityBrowserLayout, "table">;
 	readonly references: readonly EntityReference[];
 	readonly items: BrowserResult["items"];
 }) => ReactNode;
@@ -94,14 +100,14 @@ type EntityBrowserControllerProps<Meta> = {
 	readonly count?:
 		| ((search: string, onTotal: (total: number | undefined) => void) => ReactNode)
 		| undefined;
-	readonly defaultLayout: BrowserLayout;
+	readonly defaultLayout: EntityBrowserLayout;
 	readonly defaultSortLabel?: string | undefined;
 	readonly emptyMessage?: string | undefined;
 	readonly errorMessage: string;
 	readonly errorTitle: string;
 	readonly icon: string;
 	readonly identityKey: string;
-	readonly layouts: readonly BrowserLayout[];
+	readonly layouts: readonly EntityBrowserLayout[];
 	readonly name: (meta: Meta | undefined) => string;
 	readonly query: RyotQuery<string, BrowserQueryPage<Meta>>;
 	readonly renderResults?: BrowserResultsRenderer | undefined;
@@ -112,26 +118,6 @@ type EntityBrowserControllerProps<Meta> = {
 };
 
 const MAX_TABLE_INTEREST = 500;
-const layoutOptions = [
-	{ value: "grid", label: "Grid view", content: <AppIcon size={15} name="grid" /> },
-	{ value: "list", label: "List view", content: <AppIcon size={15} name="list" /> },
-	{ value: "table", label: "Table view", content: <AppIcon size={15} name="table" /> },
-] as const;
-
-const normalizeSearch = (search: string) =>
-	search
-		.trim()
-		.split(/[\s_-]+/)
-		.filter(Boolean)
-		.join(" ");
-
-const resultLabel = (loaded: number, hasMore: boolean, total: number | undefined) => {
-	if (hasMore && total !== undefined) {
-		return `${loaded.toLocaleString()} of ${total.toLocaleString()} results`;
-	}
-	return `${loaded.toLocaleString()}${hasMore ? "+" : ""} ${loaded === 1 && !hasMore ? "result" : "results"}`;
-};
-
 const syncSummary = (items: BrowserResult["items"]) => ({
 	populating: items.filter(({ sync }) => sync.populationStatus === "pending").length,
 	translating: items.filter(({ sync }) => sync.translationStatus === "pending").length,
@@ -350,7 +336,7 @@ export function EntityBrowserController<Meta>({
 	const initial = current.pageInfo === null;
 	const viewName = name(current.meta);
 	const hasItems = current.items.length > 0;
-	const layouts = layoutOptions.filter(({ value }) => availableLayouts.includes(value));
+	const layouts = viewLayoutOptions.filter(({ value }) => availableLayouts.includes(value));
 	const summary = syncSummary(current.items);
 	const columns = typeof tableColumns === "function" ? tableColumns(current.meta) : tableColumns;
 	const references = current.items.map((item) => ({
@@ -397,7 +383,7 @@ export function EntityBrowserController<Meta>({
 		};
 		setControls(next);
 	};
-	const commitSearch = (value: string) => setQueryControls({ search: normalizeSearch(value) });
+	const commitSearch = (value: string) => setQueryControls({ search: normalizeViewSearch(value) });
 	const commitDraftSearch = useEffectEvent((value: string) => commitSearch(value));
 	const setLayout = (value: string) => {
 		if (value !== "grid" && value !== "list" && value !== "table") {
@@ -530,7 +516,11 @@ export function EntityBrowserController<Meta>({
 						className="flex h-10 items-center gap-2 text-xs text-text-muted @2xl:text-sm"
 					>
 						<span>
-							{resultLabel(current.items.length, current.pageInfo?.hasMore ?? false, total)}
+							{viewResultLabel({
+								total,
+								loaded: current.items.length,
+								hasMore: current.pageInfo?.hasMore ?? false,
+							})}
 						</span>
 						{current.pageInfo?.hasMore && !showCount && count && (
 							<Button
@@ -555,17 +545,7 @@ export function EntityBrowserController<Meta>({
 							onChange={setLayout}
 							label={`${viewName} layout`}
 						/>
-						<button
-							type="button"
-							ref={filtersTrigger}
-							onClick={() => setOptionsOpen(true)}
-							aria-label="Filters, 0 active filters"
-							className="flex h-8.5 items-center gap-2 rounded-md border border-border-strong bg-bg px-3"
-						>
-							<AppIcon size={15} name="sliders-horizontal" className="text-text-muted" />
-							<span className="text-[13px] text-text">Filters</span>
-							<Badge aria-hidden="true">0</Badge>
-						</button>
+						<ViewFiltersButton ref={filtersTrigger} onClick={() => setOptionsOpen(true)} />
 						{add && (
 							<button
 								type="button"

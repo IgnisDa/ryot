@@ -1,7 +1,8 @@
-import { ScreenBarButton, ScreenFrame } from "@ryot-app/plugin-ui-sdk";
+import { Badge, ScreenBarButton, ScreenFrame } from "@ryot-app/plugin-ui-sdk";
 import { AppIcon } from "@ryot-app/plugin-ui-sdk/icon";
+import type { EntityBrowserLayout } from "@ryot-app/contract/modules/saved-views/schemas";
 import { Match } from "effect";
-import type { ComponentProps, ReactNode } from "react";
+import type { ComponentProps, ReactNode, Ref } from "react";
 import { createPortal } from "react-dom";
 
 import { usePluginChrome, usePluginScreenSurface, usePluginTitle } from "./navigation/routing";
@@ -81,5 +82,57 @@ export function PluginScreenFrame({
 				floatingRoot !== null &&
 				createPortal(floatingAction, floatingRoot)}
 		</>
+	);
+}
+
+export const viewLayoutOptions = [
+	{ value: "grid", label: "Grid view", content: <AppIcon size={15} name="grid" /> },
+	{ value: "list", label: "List view", content: <AppIcon size={15} name="list" /> },
+	{ value: "table", label: "Table view", content: <AppIcon size={15} name="table" /> },
+] as const satisfies readonly {
+	readonly label: string;
+	readonly content: ReactNode;
+	readonly value: EntityBrowserLayout;
+}[];
+
+export const normalizeViewSearch = (search: string) =>
+	search
+		.trim()
+		.split(/[\s_-]+/)
+		.filter(Boolean)
+		.join(" ");
+
+export const viewResultLabel = (input: {
+	readonly loaded: number;
+	readonly hasMore: boolean;
+	readonly total: number | undefined;
+	readonly noun?: { readonly one: string; readonly other: string } | undefined;
+}) => {
+	const { one, other } = input.noun ?? { one: "result", other: "results" };
+	if (input.hasMore && input.total !== undefined) {
+		return `${input.loaded.toLocaleString()} of ${input.total.toLocaleString()} ${other}`;
+	}
+	return `${input.loaded.toLocaleString()}${input.hasMore ? "+" : ""} ${input.loaded === 1 && !input.hasMore ? one : other}`;
+};
+
+export function ViewFiltersButton({
+	ref,
+	onClick,
+}: {
+	readonly onClick: () => void;
+	readonly ref?: Ref<HTMLButtonElement> | undefined;
+}) {
+	return (
+		<button
+			ref={ref}
+			type="button"
+			onClick={onClick}
+			aria-label="Filters, 0 active filters"
+			className="flex h-8.5 items-center gap-2 rounded-md border border-border-strong bg-bg px-3"
+		>
+			<AppIcon size={15} name="sliders-horizontal" className="text-text-muted" />
+			<span className="text-[13px] text-text">Filters</span>
+			<Badge aria-hidden="true">0</Badge>
+		</button>
 	);
 }

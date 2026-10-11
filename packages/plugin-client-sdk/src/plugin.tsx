@@ -1,5 +1,6 @@
 export { EntitySchemaSlug, PluginId, PluginPackageId } from "@ryot-app/contract/schema/brands";
 export type { PluginIdentityReference } from "@ryot-app/contract/modules/plugins/references";
+export type { EntityBrowserLayout } from "@ryot-app/contract/modules/saved-views/schemas";
 export { IosLiveActivityContent, IosLiveActivityValue } from "@ryot-app/plugin-client-contract";
 export type {
 	PluginDeviceRequest,
