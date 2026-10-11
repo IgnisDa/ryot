@@ -47,6 +47,7 @@ import {
 } from "./exercise-kinds";
 import { exerciseEquipmentInclude, exerciseTargetInclude } from "./taxonomy-recipes";
 import { ExerciseNotesSchema, ImageLocatorsSchema } from "./workout-details-recipes";
+import { membershipField, membershipPropertiesSchema } from "./workout-exercise-recipes";
 import { PersonalBestSchema } from "./workout-records";
 import { WorkoutSetLotSchema } from "./workout-set";
 
@@ -372,6 +373,10 @@ const exerciseQuery = (reference: PluginIdentityReference, exerciseId: string) =
 			instructions: selectedField(
 				propertyJson(exercise, "instructions"),
 				Schema.NullOr(Schema.Array(Schema.String)),
+			),
+			membershipProperties: selectedField(
+				membershipField(exercise, reference, "properties"),
+				Schema.NullOr(membershipPropertiesSchema),
 			),
 		},
 	});

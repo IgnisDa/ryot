@@ -166,6 +166,7 @@ const openEditor = (
 	proAvailable = true,
 	previousSets: readonly Record<string, unknown>[] = [],
 	historySessions: readonly Record<string, unknown>[] = [],
+	pickerExercises: readonly Record<string, unknown>[] = [],
 ) => {
 	let respond: (() => void) | undefined;
 	const page = mountPluginPage(() => <WorkoutEditorScreen target={target} {...screenProps} />, {
@@ -273,7 +274,12 @@ const openEditor = (
 			} else if (request.type === "ryotql-request") {
 				const data: Record<string, QueryData[string]> = {};
 				for (const queryName of Object.keys(request.document.queries)) {
-					if (queryName === "exercises") {
+					if (
+						queryName === "exercises" &&
+						JSON.stringify(request.document).includes("pickerExercise")
+					) {
+						data[queryName] = rows(pickerExercises);
+					} else if (queryName === "exercises") {
 						data[queryName] = rows(
 							exerciseDetails.map(({ id, kind, name }) => ({
 								id,
@@ -342,7 +348,97 @@ const dismissOverlay = (page: ReturnType<typeof mountPluginPage>, requestId: str
 
 afterEach(disposePluginBridges);
 
+const pickerExercise = (id: string, name: string, kind: ExerciseKind | null) => ({
+	id,
+	kind,
+	name,
+	videos: null,
+	images: null,
+	targets: rows([]),
+	instructions: null,
+	equipment: rows([]),
+	membershipProperties: null,
+});
+
 describe("WorkoutEditorScreen", () => {
+	it.live("appends a pending exercise once and clears the add request", () =>
+		Effect.gen(function* () {
+			const clock = createTestRyotClock();
+			try {
+				yield* Effect.promise(() => clock.setTime(startedAtMillis));
+				const storage: EditorStorage = {
+					value: encodeWorkoutEditorDraft(editorDraft([editorOccurrence("reps_and_weight")])),
+				};
+				const { page, answerPending } = openEditor(
+					clock,
+					storage,
+					[],
+					{ pendingAddExerciseId: "exercise-reps" },
+					true,
+					[],
+					[],
+					[pickerExercise("exercise-reps", "Reps exercise", "reps")],
+				);
+				yield* waitForEditor(answerPending);
+				yield* Effect.promise(() =>
+					waitFor(() => {
+						answerPending();
+						expect(screen.getByRole("region", { name: "Reps exercise" })).toBeTruthy();
+						expect(page.clientMessages()).toContainEqual({
+							mode: "replace",
+							type: "navigate",
+							target: expect.objectContaining({ path: "/workout-editor" }),
+						});
+					}),
+				);
+				for (let turn = 0; turn < 10; turn += 1) {
+					answerPending();
+					yield* waitForMessagePortMacrotask;
+				}
+				const decoded = decodeWorkoutEditorDraft(storage.value);
+				assert(decoded._tag === "Success");
+				expect(decoded.success.occurrences.map(({ exerciseId }) => exerciseId)).toEqual([
+					"exercise-reps-and-weight",
+					"exercise-reps",
+				]);
+				expect(page.clientMessages().filter(({ type }) => type === "navigate")).toHaveLength(1);
+			} finally {
+				disposePluginBridges();
+				yield* Effect.promise(() => clock.dispose());
+			}
+		}),
+	);
+
+	it.live(
+		"reports a pending exercise that is not in the library and still clears the request",
+		() =>
+			Effect.gen(function* () {
+				const clock = createTestRyotClock();
+				try {
+					yield* Effect.promise(() => clock.setTime(startedAtMillis));
+					const storage: EditorStorage = {
+						value: encodeWorkoutEditorDraft(editorDraft([editorOccurrence("reps_and_weight")])),
+					};
+					const { page, answerPending } = openEditor(clock, storage, [], {
+						pendingAddExerciseId: "exercise-missing",
+					});
+					yield* waitForEditor(answerPending);
+					yield* Effect.promise(() =>
+						waitFor(() => {
+							answerPending();
+							expect(screen.getByText(/not in your library/)).toBeTruthy();
+							expect(page.clientMessages().some(({ type }) => type === "navigate")).toBe(true);
+						}),
+					);
+					const decoded = decodeWorkoutEditorDraft(storage.value);
+					assert(decoded._tag === "Success");
+					expect(decoded.success.occurrences).toHaveLength(1);
+				} finally {
+					disposePluginBridges();
+					yield* Effect.promise(() => clock.dispose());
+				}
+			}),
+	);
 	it.live("does not offer to discard an existing draft for unavailable template creation", () =>
 		Effect.gen(function* () {
 			const clock = createTestRyotClock();

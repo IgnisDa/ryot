@@ -214,8 +214,8 @@ function MembershipForm(props: {
 			</fieldset>
 			{save.error ? (
 				<Notice tone="danger">
-					The workout could not be added. Retry the same selection, or cancel and reopen the picker
-					to choose again.
+					The item could not be added. Retry the same selection, or cancel and reopen the picker to
+					choose again.
 				</Notice>
 			) : null}
 		</Dialog>
@@ -257,7 +257,7 @@ function SelectedCollection(props: {
 	);
 }
 
-export function AddWorkoutToCollection(props: {
+export function AddEntityToCollection(props: {
 	readonly entityId: string;
 	readonly onClose: () => void;
 }) {

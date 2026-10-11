@@ -20,6 +20,7 @@ export default function WorkoutEditorPage() {
 	const schedule = useRyotSchedule();
 	const location = usePluginLocation();
 	const params = usePluginParams();
+	const pendingAddExerciseId = new URLSearchParams(location.search).get("add") ?? undefined;
 	const path = location.kind === "route" ? location.path : "/workout-editor";
 	const sourceKind = path.startsWith("/templates/") ? "template" : "workout";
 	const entityId = sourceKind === "template" ? params["templateId"] : params["workoutId"];
@@ -93,6 +94,7 @@ export default function WorkoutEditorPage() {
 		<WorkoutEditorScreen
 			requiresPro={templateCreate}
 			target={workoutEditorResumeTarget}
+			pendingAddExerciseId={pendingAddExerciseId}
 			{...(path === "/workout-editor" ? {} : { prepareDraft: prepare })}
 			onStarted={started}
 			onSaved={(savedId) => client.navigation.replace({ kind: "entity", entityId: savedId })}

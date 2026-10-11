@@ -43,7 +43,7 @@ import { WorkoutEditorMediaSchema } from "./workout-set";
 type Table = ReturnType<typeof table>;
 
 const rowLimit = 100;
-const membershipPropertiesSchema = Schema.Record(Schema.String, JsonValue);
+export const membershipPropertiesSchema = Schema.Record(Schema.String, JsonValue);
 export const WorkoutExercisePickerSortSchema = Schema.Literals([
 	"name",
 	"recently-added",
@@ -165,7 +165,7 @@ const exercisePickerWhere = (input: WorkoutExercisePickerInput, exercise: Table)
 	return and(...predicates);
 };
 
-const membershipField = (
+export const membershipField = (
 	exercise: Table,
 	reference: PluginIdentityReference,
 	field: "properties" | "createdAt",

@@ -100,12 +100,25 @@ function Stars(props: { readonly rating: number }) {
 	);
 }
 
-function NoteComposer(props: { readonly exerciseId: string; readonly onSaved: () => void }) {
+function NoteComposer(props: {
+	readonly exerciseId: string;
+	readonly onSaved: () => void;
+	readonly focusRequest: number;
+}) {
 	const { onSaved } = props;
 	const inputId = useId();
+	const textArea = useRef<HTMLTextAreaElement>(null);
+	const handledFocusRequest = useRef(props.focusRequest);
 	const [text, setText] = useState("");
 	const [stars, setStars] = useState<number | undefined>();
 	const create = useRyotMutation(createNoteMutation);
+	const { focusRequest } = props;
+	useEffect(() => {
+		if (focusRequest !== handledFocusRequest.current) {
+			handledFocusRequest.current = focusRequest;
+			textArea.current?.focus();
+		}
+	}, [focusRequest]);
 	useEffect(() => {
 		if (create.data !== undefined) {
 			onSaved();
@@ -128,6 +141,7 @@ function NoteComposer(props: { readonly exerciseId: string; readonly onSaved: ()
 				rows={3}
 				id={inputId}
 				value={text}
+				ref={textArea}
 				maxLength={maxNoteLength}
 				placeholder="Cues, setup, how it felt…"
 				onChange={(event) => setText(event.currentTarget.value)}
@@ -318,6 +332,7 @@ export function NotesSection(props: {
 	readonly exerciseId: string;
 	readonly onChanged: () => void;
 	readonly notes: ExerciseDetails["notes"];
+	readonly focusRequest: number;
 	readonly workoutNotes: readonly WorkoutNote[];
 }) {
 	const [composerKey, setComposerKey] = useState(0);
@@ -333,6 +348,7 @@ export function NotesSection(props: {
 			<NoteComposer
 				key={composerKey}
 				exerciseId={props.exerciseId}
+				focusRequest={props.focusRequest}
 				onSaved={() => {
 					setComposerKey((key) => key + 1);
 					props.onChanged();

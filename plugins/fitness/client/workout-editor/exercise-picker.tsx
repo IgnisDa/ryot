@@ -34,7 +34,14 @@ import { usePickerPresets } from "./use-picker-presets";
 import { useProviderSearch } from "./use-provider-search";
 
 type ExercisePickerProps = {
-	readonly replacement?: { readonly name: string; readonly kind: ExerciseKind };
+	readonly replacement?: {
+		readonly name: string;
+		readonly kind: ExerciseKind;
+		readonly title?: string;
+		readonly applyLabel?: string;
+		readonly description?: string;
+		readonly excludeIds?: readonly string[];
+	};
 	readonly onClose: () => void;
 	readonly onApply: (exercises: readonly PickerExercise[]) => void;
 };
@@ -161,6 +168,7 @@ export function ExercisePicker(props: ExercisePickerProps) {
 	});
 	const providerSearch = useProviderSearch({
 		search,
+		onCreateRequested: props.onClose,
 		replacementKind: replacement?.kind,
 		onFound: (found) => {
 			if (replacing) {
@@ -227,7 +235,10 @@ export function ExercisePicker(props: ExercisePickerProps) {
 		}
 	};
 
-	const noMatches = !exercises.isPending && !exercises.isError && exercises.items.length === 0;
+	const visibleExercises = exercises.items.filter(
+		({ id }) => !replacement?.excludeIds?.includes(id),
+	);
+	const noMatches = !exercises.isPending && !exercises.isError && visibleExercises.length === 0;
 	return (
 		<EditorSheet
 			size="lg"
@@ -235,10 +246,11 @@ export function ExercisePicker(props: ExercisePickerProps) {
 			initialFocusRef={searchRef}
 			dismissible={!providerSearch.pending}
 			closeLabel="Cancel exercise selection"
-			title={replacing ? `Replace ${replacement.name}` : "Add exercises"}
+			title={replacing ? (replacement.title ?? `Replace ${replacement.name}`) : "Add exercises"}
 			description={
 				replacing
-					? `Only ${labelForKind(replacement.kind)} exercises can replace it. Matching values are kept.`
+					? (replacement.description ??
+						`Only ${labelForKind(replacement.kind)} exercises can replace it. Matching values are kept.`)
 					: undefined
 			}
 			footer={
@@ -247,6 +259,7 @@ export function ExercisePicker(props: ExercisePickerProps) {
 					replacing={replacing}
 					onRemove={toggleExercise}
 					disabled={providerSearch.pending}
+					applyLabel={replacement?.applyLabel}
 					onApply={() => {
 						props.onApply(selected);
 						props.onClose();
@@ -358,7 +371,7 @@ export function ExercisePicker(props: ExercisePickerProps) {
 					</Notice>
 				) : null}
 				<ManagedAssetProvider
-					assets={managedAssetBatch(exercises.items.map(({ images }) => images?.[0]))}
+					assets={managedAssetBatch(visibleExercises.map(({ images }) => images?.[0]))}
 				>
 					<div role="region" className="grid" aria-label="Exercise library">
 						{exercises.isPending && exercises.items.length === 0 ? (
@@ -392,7 +405,7 @@ export function ExercisePicker(props: ExercisePickerProps) {
 								}
 							/>
 						) : null}
-						{exercises.items.map((exercise) => (
+						{visibleExercises.map((exercise) => (
 							<ExerciseOption
 								key={exercise.id}
 								exercise={exercise}
@@ -419,7 +432,7 @@ export function ExercisePicker(props: ExercisePickerProps) {
 								onClick={providerSearch.open}
 								disabled={providerSearch.pending}
 								variant={
-									exercises.items.length === 0 && !exercises.isPending ? "primary" : "outline"
+									visibleExercises.length === 0 && !exercises.isPending ? "primary" : "outline"
 								}
 							>
 								{providerSearch.pending ? (

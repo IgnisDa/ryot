@@ -3,6 +3,7 @@ import { useRyot, useRyotSchedule } from "@ryot-app/plugin-client-sdk/react";
 import { Button, Field, FieldMessage, SegmentedControl, TextField } from "@ryot-app/plugin-ui-sdk";
 import { useState } from "react";
 
+import type { ExerciseKind } from "../../shared/exercise-kinds";
 import { PLUGIN_PACKAGE_ID } from "../../shared/plugin-identity";
 import {
 	ExerciseOverrideUpdateInputSchema,
@@ -16,6 +17,7 @@ import type {
 import {
 	WorkoutExerciseOverridesSchema,
 	workoutRestFields,
+	type WorkoutExerciseOverrides,
 	type WorkoutRestField,
 } from "../../shared/workout-editor-preferences";
 import { requiredWorkoutMeasurementsByKind } from "../../shared/workout-set";
@@ -35,26 +37,29 @@ const sectionHeading = "text-[11px] font-semibold tracking-wider text-text-subtl
 const validRest = (value: string | undefined) =>
 	value === undefined || value.trim() === "" || /^\d+$/.test(value.trim());
 
-export function UnitsAndDefaultsSheet(props: {
-	readonly exercise: EditorExercise;
-	readonly occurrence: WorkoutEditorOccurrence;
-	readonly onDisplay: (display: WorkoutEditorDisplay) => void;
-	readonly onClose: () => void;
+type ExerciseDefaultsProps = {
+	readonly exerciseId: string;
+	readonly exerciseName: string;
+	readonly exerciseKind: ExerciseKind;
+	readonly overrides: WorkoutExerciseOverrides;
 	readonly onSaved: () => void;
-}) {
+	readonly onClose: () => void;
+};
+
+function useExerciseDefaults(
+	props: Pick<ExerciseDefaultsProps, "exerciseId" | "overrides" | "onSaved" | "onClose">,
+) {
 	const client = useRyot();
 	const schedule = useRyotSchedule();
 	const [values, setValues] = useState(() =>
 		Object.fromEntries(
 			workoutRestFields.map((field) => [
 				field,
-				props.exercise.overrides[field] == null ? "" : String(props.exercise.overrides[field]),
+				props.overrides[field] == null ? "" : String(props.overrides[field]),
 			]),
 		),
 	);
-	const [duration, setDuration] = useState(
-		props.exercise.overrides.defaultDurationUnit ?? "inherited",
-	);
+	const [duration, setDuration] = useState(props.overrides.defaultDurationUnit ?? "inherited");
 	const [pending, setPending] = useState(false);
 	const [error, setError] = useState<string>();
 	const save = () => {
@@ -74,7 +79,7 @@ export function UnitsAndDefaultsSheet(props: {
 		}
 		const decoded = Schema.decodeUnknownResult(ExerciseOverrideUpdateInputSchema)({
 			set: set.success,
-			exerciseId: props.exercise.id,
+			exerciseId: props.exerciseId,
 			remove: [
 				...workoutRestFields.filter((field) => !values[field]?.trim()),
 				...(duration === "inherited" ? ["defaultDurationUnit"] : []),
@@ -111,26 +116,120 @@ export function UnitsAndDefaultsSheet(props: {
 			() => setPending(false),
 		);
 	};
+	return { save, error, values, pending, duration, setValues, setDuration };
+}
+
+type ExerciseDefaults = ReturnType<typeof useExerciseDefaults>;
+
+function ExerciseDefaultsForm(props: {
+	readonly defaults: ExerciseDefaults;
+	readonly exerciseKind: ExerciseKind;
+}) {
+	const { error, values, pending, duration, setValues, setDuration } = props.defaults;
+	return (
+		<>
+			<fieldset disabled={pending} className="grid min-w-0 gap-3 border-0 p-0">
+				<legend className={sectionHeading}>Defaults for every workout</legend>
+				<p className="text-xs text-text-muted">
+					Blank uses your Fitness settings. 0 turns rest off. Sets with their own rest keep it.
+				</p>
+				{workoutRestFields.map((field) => (
+					<Field key={field} label={restLabels[field]}>
+						{(control) => (
+							<TextField
+								{...control}
+								inputMode="numeric"
+								value={values[field] ?? ""}
+								invalid={error !== undefined && !validRest(values[field])}
+								onChange={(event) =>
+									setValues((previous) => ({ ...previous, [field]: event.target.value }))
+								}
+							/>
+						)}
+					</Field>
+				))}
+				{requiredWorkoutMeasurementsByKind[props.exerciseKind].includes("duration") ? (
+					<div className="grid gap-1.5">
+						<span className="text-[13px] font-medium">Default duration unit</span>
+						<SegmentedControl
+							value={duration}
+							className="w-full"
+							onChange={setDuration}
+							label="Default duration unit"
+							optionClassName="flex-1 px-2"
+							options={[
+								{ value: "inherited", label: "Fitness setting", content: "Fitness setting" },
+								{ value: "seconds", label: "Seconds", content: "Seconds" },
+								{ value: "minutes", label: "Minutes", content: "Minutes" },
+							]}
+						/>
+					</div>
+				) : null}
+			</fieldset>
+			{error === undefined ? null : <FieldMessage>{error}</FieldMessage>}
+		</>
+	);
+}
+
+function DefaultsActions(props: {
+	readonly defaults: ExerciseDefaults;
+	readonly onClose: () => void;
+}) {
+	return (
+		<>
+			<Button variant="secondary" onClick={props.onClose} disabled={props.defaults.pending}>
+				Cancel
+			</Button>
+			<Button onClick={props.defaults.save} loading={props.defaults.pending}>
+				Save defaults
+			</Button>
+		</>
+	);
+}
+
+export function ExerciseDefaultsSheet(props: ExerciseDefaultsProps) {
+	const defaults = useExerciseDefaults(props);
+	return (
+		<EditorSheet
+			wide="side"
+			onClose={props.onClose}
+			title="Exercise preferences"
+			dismissible={!defaults.pending}
+			description={props.exerciseName}
+			closeLabel="Close exercise preferences"
+			footer={<DefaultsActions defaults={defaults} onClose={props.onClose} />}
+		>
+			<div className="grid gap-6">
+				<ExerciseDefaultsForm defaults={defaults} exerciseKind={props.exerciseKind} />
+			</div>
+		</EditorSheet>
+	);
+}
+
+export function UnitsAndDefaultsSheet(props: {
+	readonly exercise: EditorExercise;
+	readonly occurrence: WorkoutEditorOccurrence;
+	readonly onDisplay: (display: WorkoutEditorDisplay) => void;
+	readonly onClose: () => void;
+	readonly onSaved: () => void;
+}) {
+	const defaults = useExerciseDefaults({
+		onSaved: props.onSaved,
+		onClose: props.onClose,
+		exerciseId: props.exercise.id,
+		overrides: props.exercise.overrides,
+	});
 	const fields = requiredWorkoutMeasurementsByKind[props.occurrence.exerciseKind];
 	const display = occurrenceDisplay(props.occurrence);
 	return (
 		<EditorSheet
 			wide="side"
-			dismissible={!pending}
 			onClose={props.onClose}
+			dismissible={!defaults.pending}
 			title="Units and rest defaults"
 			description={props.exercise.name}
 			closeLabel="Close units and rest defaults"
-			footer={
-				<>
-					<Button disabled={pending} variant="secondary" onClick={props.onClose}>
-						Cancel
-					</Button>
-					<Button onClick={save} loading={pending}>
-						Save defaults
-					</Button>
-				</>
-			}
+			footer={<DefaultsActions defaults={defaults} onClose={props.onClose} />}
 		>
 			<div className="grid gap-6">
 				<section className="grid gap-2.5">
@@ -178,45 +277,7 @@ export function UnitsAndDefaultsSheet(props: {
 						Changes how values show here. Entered values are converted, not changed.
 					</p>
 				</section>
-				<fieldset disabled={pending} className="grid min-w-0 gap-3 border-0 p-0">
-					<legend className={sectionHeading}>Defaults for every workout</legend>
-					<p className="text-xs text-text-muted">
-						Blank uses your Fitness settings. 0 turns rest off. Sets with their own rest keep it.
-					</p>
-					{workoutRestFields.map((field) => (
-						<Field key={field} label={restLabels[field]}>
-							{(control) => (
-								<TextField
-									{...control}
-									inputMode="numeric"
-									value={values[field] ?? ""}
-									invalid={error !== undefined && !validRest(values[field])}
-									onChange={(event) =>
-										setValues((previous) => ({ ...previous, [field]: event.target.value }))
-									}
-								/>
-							)}
-						</Field>
-					))}
-					{fields.includes("duration") ? (
-						<div className="grid gap-1.5">
-							<span className="text-[13px] font-medium">Default duration unit</span>
-							<SegmentedControl
-								value={duration}
-								className="w-full"
-								onChange={setDuration}
-								label="Default duration unit"
-								optionClassName="flex-1 px-2"
-								options={[
-									{ value: "inherited", label: "Fitness setting", content: "Fitness setting" },
-									{ value: "seconds", label: "Seconds", content: "Seconds" },
-									{ value: "minutes", label: "Minutes", content: "Minutes" },
-								]}
-							/>
-						</div>
-					) : null}
-				</fieldset>
-				{error === undefined ? null : <FieldMessage>{error}</FieldMessage>}
+				<ExerciseDefaultsForm defaults={defaults} exerciseKind={props.occurrence.exerciseKind} />
 			</div>
 		</EditorSheet>
 	);

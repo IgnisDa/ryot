@@ -13,6 +13,7 @@ import { useMemo, useState } from "react";
 import { exerciseDetailsRecipe, type ExerciseDetails } from "../../shared/exercise-details-recipes";
 import { PLUGIN_PACKAGE_ID } from "../../shared/plugin-identity";
 import { managedAssetBatch } from "../asset-urls";
+import { useActiveEditorDraft } from "./active-draft";
 import { dedupeWorkoutNotes, type ExerciseRecord } from "./details-model";
 import { HistorySection, RecentSessions } from "./history";
 import { NotesSection } from "./notes";
@@ -39,9 +40,11 @@ export function ExerciseDetailsView(props: {
 	readonly timeZone: string;
 	readonly details: ExerciseDetails;
 	readonly exercise: ExerciseRecord;
-	readonly onNotesChanged: () => void;
+	readonly onChanged: () => void;
 }) {
-	const { now, compact, details, exercise, timeZone, onNotesChanged } = props;
+	const { now, compact, details, exercise, timeZone, onChanged } = props;
+	const draft = useActiveEditorDraft();
+	const [reviewRequest, setReviewRequest] = useState(0);
 	const workoutNotes = useMemo(
 		() => dedupeWorkoutNotes(details.setNotes, details.workoutNotes),
 		[details.setNotes, details.workoutNotes],
@@ -51,15 +54,22 @@ export function ExerciseDetailsView(props: {
 	const notes = (
 		<NotesSection
 			notes={details.notes}
+			onChanged={onChanged}
 			exerciseId={exercise.id}
-			onChanged={onNotesChanged}
 			workoutNotes={workoutNotes}
+			focusRequest={reviewRequest}
 		/>
 	);
 	return (
 		<ManagedAssetProvider assets={managedAssetBatch(exercise.images ?? [])}>
 			<div className={clsx("mx-auto flex w-full max-w-6xl flex-col", compact ? "gap-5" : "gap-8")}>
-				<ExerciseHeader compact={compact} exercise={exercise} />
+				<ExerciseHeader
+					draft={draft}
+					compact={compact}
+					exercise={exercise}
+					onChanged={onChanged}
+					onPostReview={() => setReviewRequest((request) => request + 1)}
+				/>
 				<ExerciseOverview compact={compact} exercise={exercise} />
 				{performed ? null : instructions}
 				<HistorySection
@@ -100,8 +110,8 @@ function ExerciseDetailsBody(props: {
 				compact={compact}
 				details={details}
 				timeZone={timeZone}
+				onChanged={result.refetch}
 				exercise={details.exercise}
-				onNotesChanged={result.refetch}
 			/>
 		);
 	}

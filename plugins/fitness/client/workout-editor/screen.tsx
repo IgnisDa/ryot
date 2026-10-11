@@ -45,6 +45,7 @@ export function WorkoutEditorScreen(props: {
 	readonly prepareDraft?: PrepareDraft;
 	readonly onStarted?: () => void;
 	readonly requiresPro?: boolean;
+	readonly pendingAddExerciseId?: string | undefined;
 	readonly onSaved?: (entityId: SavedEntityId) => void;
 }) {
 	const { prepareDraft } = props;
@@ -92,6 +93,7 @@ export function WorkoutEditorScreen(props: {
 		exercises: exercises.data,
 		scrollTo: scrollToEditorTarget,
 		closeMedia: () => setMediaTarget(undefined),
+		pendingAddExerciseId: props.pendingAddExerciseId,
 	});
 	const { local, saved, change, invalid, message, setInvalid, setMessage } = actions;
 	const request = useInitialDraft({

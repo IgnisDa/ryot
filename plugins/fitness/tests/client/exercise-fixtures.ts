@@ -1,5 +1,11 @@
+import { Schema } from "@ryot-app/plugin-client-sdk/effect";
+
 import type { ExerciseRecord } from "../../client/exercise/details-model";
 import type { ExerciseDetails } from "../../shared/exercise-details-recipes";
+import {
+	encodeWorkoutEditorDraft,
+	WorkoutEditorDraftSchema,
+} from "../../shared/workout-editor-draft";
 import { page } from "./workout-fixtures";
 
 export const emptyTotals: ExerciseDetails["totals"] = {
@@ -34,6 +40,7 @@ export const exerciseRecord = (
 	instructions: null,
 	mechanic: "compound",
 	kind: "reps_and_weight",
+	membershipProperties: null,
 	name: "Barbell Bench Press",
 	...overrides,
 	targets: page(overrides.targets ?? []),
@@ -56,3 +63,20 @@ export const exerciseDetails = (
 	exercise: exerciseRecord(),
 	...overrides,
 });
+
+export const storedEditorDraft = (overrides: Record<string, unknown> = {}) =>
+	encodeWorkoutEditorDraft(
+		Schema.decodeSync(WorkoutEditorDraftSchema)({
+			images: [],
+			videos: [],
+			supersets: [],
+			occurrences: [],
+			name: "Workout",
+			mode: { kind: "live" },
+			displayEnergyUnit: "kcal",
+			activeDurationIntent: "set",
+			kind: "fitness-workout-editor",
+			draftId: "draft-workout-editor",
+			...overrides,
+		}),
+	);

@@ -12,8 +12,8 @@ import {
 import { fireEvent, screen, waitFor } from "@testing-library/dom";
 import { act } from "react";
 
-import { PLUGIN_PACKAGE_ID } from "../../shared/plugin-identity";
-import { AddWorkoutToCollection } from "./collections";
+import { PLUGIN_PACKAGE_ID } from "../shared/plugin-identity";
+import { AddEntityToCollection } from "./collections";
 
 afterEach(disposePluginBridges);
 
@@ -22,7 +22,7 @@ const mountCollectionPicker = (onClose: () => void) => {
 	return mountPluginPage(
 		() => (
 			<PluginScreenFrame title="Workout">
-				<AddWorkoutToCollection onClose={onClose} entityId="workout" />
+				<AddEntityToCollection onClose={onClose} entityId="workout" />
 			</PluginScreenFrame>
 		),
 		{
