@@ -1,5 +1,6 @@
 import { SandboxFailureKind } from "@ryot-app/contract/errors";
 import { SandboxExecutionMetadata } from "@ryot-app/contract/modules/plugins/execution-metadata";
+import { boundaryReasonOfError } from "@ryot-app/contract/modules/scripts/boundary-reason";
 import type { SandboxExecutionError } from "@ryot-app/contract/modules/scripts/schemas";
 import { JsonValue } from "@ryot-app/contract/schema/json";
 import {
@@ -1145,8 +1146,10 @@ const executeDefinition = Effect.fnUntraced(function* (
 			};
 		}
 		if (!outcome.success) {
+			const data = boundaryReasonOfError(outcome.error);
 			return {
 				state: "failed",
+				...(data ? { data } : {}),
 				requests: durable.requests,
 				error: errorMessage(outcome.error),
 				journalLength: durable.journalLength,

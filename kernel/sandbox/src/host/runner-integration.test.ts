@@ -1038,6 +1038,63 @@ export default defineScript({ manifest, input: Schema.Struct({}), output: Schema
 		}),
 	);
 
+	test.effect(
+		"carries the boundary reason of an escaped durable failure in the failed envelope",
+		() =>
+			Effect.gen(function* () {
+				const compiled = yield* compileTestScript(
+					defineNativeScript(
+						`(input, host) => input.mode === "plain"
+  ? Effect.fail({ message: "plain failure" })
+  : Effect.gen(function* () {
+      for (let i = 0; i <= ${SANDBOX_LIMITS.hostCalls.http}; i++) {
+        yield* host.httpCall("GET", "https://example.com/budget");
+      }
+    })`,
+						{ kind: "operation", input: "Schema.Struct({ mode: Schema.String })" },
+					),
+				);
+				const overCap = yield* runNative(
+					compiled,
+					{ mode: "http" },
+					{
+						workflowExecutionId: "durable-limit",
+						replayJournal: Array.from({ length: SANDBOX_LIMITS.hostCalls.http }, (_, index) => ({
+							value: { value: null, state: "success" as const },
+							request: {
+								index,
+								name: "httpCall",
+								kind: "host" as const,
+								args: {
+									capability: "httpCall" as const,
+									args: ["GET", "https://example.com/budget"],
+								},
+							},
+						})),
+					},
+				);
+
+				expect(overCap.response).toMatchObject({
+					success: true,
+					value: {
+						state: "failed",
+						kind: "script-failure",
+						data: { operation: "httpCall", code: "execution-limit" },
+					},
+				});
+				const plain = yield* runNative(
+					compiled,
+					{ mode: "plain" },
+					{ replayJournal: [], workflowExecutionId: "durable-plain" },
+				);
+				expect(plain.response).toMatchObject({
+					success: true,
+					value: { state: "failed", error: "plain failure" },
+				});
+				expect(plain.response).not.toHaveProperty("value.data");
+			}),
+	);
+
 	test.effect("keeps pending durable interrupts outside application catches", () =>
 		Effect.gen(function* () {
 			const compiled = yield* compileTestScript(

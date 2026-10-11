@@ -1,3 +1,4 @@
+import { SandboxBoundaryReason } from "@ryot-app/contract/modules/scripts/boundary-reason";
 import { SANDBOX_FAILURE_KINDS } from "@ryot-app/contract/modules/scripts/wire";
 import type { Effect as RuntimeEffect } from "@ryot-app/plugin-backend-sdk/effect";
 import { Schema } from "@ryot-app/plugin-backend-sdk/effect";
@@ -100,6 +101,7 @@ export const workflowReplayEnvelopeSchema = Schema.Union([
 		error: Schema.String,
 		state: Schema.Literal("failed"),
 		journalLength: durableCallFields.index,
+		data: Schema.optionalKey(SandboxBoundaryReason),
 		kind: Schema.Literals([...SANDBOX_FAILURE_KINDS]),
 		requests: Schema.Array(workflowDurableCallRequestSchema),
 	}),

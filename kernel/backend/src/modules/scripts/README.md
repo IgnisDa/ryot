@@ -34,6 +34,7 @@ dispatches it through its owner, journals typed results, and replays. Recorded c
 Successfully completed ending requests also persist validated results and targets in deferred slots
 keyed by parent execution/request index. Replay validates the envelope and identity before reuse.
 This preserves completed members of partially settled batches; journal appends remain ordered.
+A failed envelope carries the escaped error's boundary reason as `data`, which reaches the run error.
 
 Dispatch uses the original workflow owner so cancellation remains attached. Failure, interruption,
 suspension, and defects do not complete a slot. Delayed completions or concurrent misses may repeat
