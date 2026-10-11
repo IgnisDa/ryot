@@ -1,3 +1,4 @@
+import type { DbError } from "@ryot-app/contract/errors";
 import {
 	definitionKey,
 	type DeclarationReference,
@@ -60,6 +61,19 @@ type DefinitionRows = {
 };
 
 type ListedOption = { readonly listed: boolean };
+
+type RevisionDeclarations = {
+	readonly event: Pick<EventSchemaRow, "propertiesSchema">;
+	readonly entity: Pick<EntitySchemaRow, "propertiesSchema">;
+	readonly relationship: Omit<RelationshipSchemaDefinition, "pluginId">;
+};
+
+type RevisionDeclarationQuery<K extends keyof RevisionDeclarations> = {
+	readonly kind: K;
+	readonly slug: string;
+	readonly revisionId: string;
+	readonly entitySchemaSlug?: string;
+};
 
 const toEventSchema = (
 	row: Pick<EventSchemaRow, "name" | "pluginId" | "propertiesSchema" | "slug">,
@@ -808,6 +822,78 @@ export class DefinitionRepository extends Context.Service<DefinitionRepository>(
 				return { savedViews, eventSchemas, entitySchemas, signalSchemas, relationshipSchemas };
 			});
 
+			const revisionDeclarationReaders: {
+				readonly [K in keyof RevisionDeclarations]: (
+					input: RevisionDeclarationQuery<K>,
+				) => Effect.Effect<RevisionDeclarations[K] | undefined, DbError>;
+			} = {
+				entity: (input) =>
+					session
+						.run((db) =>
+							db
+								.select({ propertiesSchema: schema.definitionEntitySchema.propertiesSchema })
+								.from(schema.definitionEntitySchema)
+								.where(
+									and(
+										eq(schema.definitionEntitySchema.pluginRevisionId, input.revisionId),
+										eq(schema.definitionEntitySchema.slug, input.slug),
+									),
+								)
+								.limit(1),
+						)
+						.pipe(Effect.map(([row]) => row)),
+				event: Effect.fnUntraced(function* (input) {
+					const { entitySchemaSlug } = input;
+					if (entitySchemaSlug === undefined) {
+						return undefined;
+					}
+					const [row] = yield* session.run((db) =>
+						db
+							.select({ propertiesSchema: schema.definitionEventSchema.propertiesSchema })
+							.from(schema.definitionEventSchema)
+							.innerJoin(
+								schema.definitionEntitySchema,
+								eq(schema.definitionEntitySchema.id, schema.definitionEventSchema.entitySchemaId),
+							)
+							.where(
+								and(
+									eq(schema.definitionEntitySchema.pluginRevisionId, input.revisionId),
+									eq(schema.definitionEntitySchema.slug, entitySchemaSlug),
+									eq(schema.definitionEventSchema.slug, input.slug),
+								),
+							)
+							.limit(1),
+					);
+					return row;
+				}),
+				relationship: (input) =>
+					session
+						.run((db) =>
+							db
+								.select({
+									name: schema.definitionRelationshipSchema.name,
+									slug: schema.definitionRelationshipSchema.slug,
+									propertiesSchema: schema.definitionRelationshipSchema.propertiesSchema,
+									sourceEntitySchemaSlug:
+										schema.definitionRelationshipSchema.sourceEntitySchemaSlug,
+									targetEntitySchemaSlug:
+										schema.definitionRelationshipSchema.targetEntitySchemaSlug,
+								})
+								.from(schema.definitionRelationshipSchema)
+								.where(
+									and(
+										eq(schema.definitionRelationshipSchema.pluginRevisionId, input.revisionId),
+										eq(schema.definitionRelationshipSchema.slug, input.slug),
+									),
+								)
+								.limit(1),
+						)
+						.pipe(Effect.map(([row]) => row)),
+			};
+			const findRevisionDeclaration = <K extends keyof RevisionDeclarations>(
+				input: RevisionDeclarationQuery<K>,
+			) => revisionDeclarationReaders[input.kind](input);
+
 			const getSnapshotForContext = Effect.fn("DefinitionRepository.getSnapshotForContext")(
 				function* (context: DefinitionReadContext, userId: UserId | null) {
 					const available =
@@ -1174,6 +1260,7 @@ export class DefinitionRepository extends Context.Service<DefinitionRepository>(
 			);
 
 			return {
+				readPinnedRows,
 				listUserSavedViews,
 				listUserEventSchemas,
 				findUserSignalSchema,
@@ -1184,6 +1271,7 @@ export class DefinitionRepository extends Context.Service<DefinitionRepository>(
 				findGlobalEntitySchema,
 				findGlobalSignalSchema,
 				listGlobalSignalSchemas,
+				findRevisionDeclaration,
 				replaceKernelDefinitions,
 				writeRevisionDefinitions,
 				findUserRelationshipSchemas,

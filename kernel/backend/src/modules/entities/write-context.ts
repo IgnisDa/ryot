@@ -1,6 +1,5 @@
 import { DbError } from "@ryot-app/contract/errors";
 import { LifecycleCommand } from "@ryot-app/contract/modules/automations/lifecycle";
-import type { PluginManifest } from "@ryot-app/contract/modules/plugins/manifest";
 import { DefinitionOwner, definitionOwner } from "@ryot-app/contract/modules/plugins/references";
 import { sandboxSubjectUserId } from "@ryot-app/contract/modules/scripts/schemas";
 import type { AppPropertyDefinition, AppSchema } from "@ryot-app/contract/schema/property-schema";
@@ -10,6 +9,7 @@ import { and, eq, isNull, sql } from "drizzle-orm";
 import { Context, Effect, Layer, Schema, Struct } from "effect";
 
 import { parseAppSchemaProperties } from "#modules/definitions/properties/runtime";
+import { DefinitionRepository } from "#modules/definitions/repository";
 import { lockPluginIngestionShared } from "#modules/plugins/packages/ingestion-fence";
 import { SandboxExecutionAuthorityLive } from "#modules/scripts/authorization/authority";
 import {
@@ -77,29 +77,20 @@ export const writerPropertiesSchema = (schema: AppSchema): AppSchema => ({
 	),
 });
 
-type ManifestDeclarations = {
-	readonly entity: PluginManifest["entitySchemas"][number];
-	readonly relationship: PluginManifest["relationshipSchemas"][number];
-	readonly event: PluginManifest["entitySchemas"][number]["eventSchemas"][number];
-};
-type ManifestDeclarationSlugs = {
+type DeclarationSlugs = {
 	readonly entity: string;
 	readonly relationship: string;
 	readonly event: { readonly entitySchemaSlug: string; readonly eventSchemaSlug: string };
 };
-const findManifestDeclaration: {
-	readonly [K in keyof ManifestDeclarations]: (
-		manifest: PluginManifest,
-		slug: ManifestDeclarationSlugs[K],
-	) => ManifestDeclarations[K] | undefined;
+const declarationLookup: {
+	readonly [K in keyof DeclarationSlugs]: (slug: DeclarationSlugs[K]) => {
+		readonly slug: string;
+		readonly entitySchemaSlug?: string;
+	};
 } = {
-	entity: (manifest, slug) => manifest.entitySchemas.find((schema) => schema.slug === slug),
-	relationship: (manifest, slug) =>
-		manifest.relationshipSchemas.find((schema) => schema.slug === slug),
-	event: (manifest, { eventSchemaSlug, entitySchemaSlug }) =>
-		manifest.entitySchemas
-			.find(({ slug }) => slug === entitySchemaSlug)
-			?.eventSchemas.find(({ slug }) => slug === eventSchemaSlug),
+	entity: (slug) => ({ slug }),
+	relationship: (slug) => ({ slug }),
+	event: ({ eventSchemaSlug, entitySchemaSlug }) => ({ entitySchemaSlug, slug: eventSchemaSlug }),
 };
 
 export const assertStableUnder = <E>(
@@ -117,6 +108,8 @@ export const assertStableUnder = <E>(
 		),
 	);
 
+export type DomainWritePin = { readonly id: string };
+
 const domainWriteOwner = (
 	command: Pick<DomainLifecycleCommand, "writeContext" | "kernelCollection">,
 	owner: DefinitionOwner,
@@ -132,6 +125,7 @@ const domainWriteOwner = (
 export class DomainWriteChecks extends Context.Service<DomainWriteChecks>()("DomainWriteChecks", {
 	make: Effect.gen(function* () {
 		const session = yield* DatabaseSession;
+		const definitions = yield* DefinitionRepository;
 		const authority = yield* SandboxExecutionAuthority;
 		const check = Effect.fnUntraced(function* (
 			command: Pick<DomainLifecycleCommand, "writeContext" | "kernelCollection">,
@@ -185,7 +179,7 @@ export class DomainWriteChecks extends Context.Service<DomainWriteChecks>()("Dom
 			}
 			const [revision] = yield* session.run((db) =>
 				db
-					.select({ manifest: tables.pluginRevision.manifest })
+					.select({ id: tables.pluginRevision.id })
 					.from(tables.pluginRevision)
 					.innerJoin(tables.plugin, eq(tables.plugin.id, tables.pluginRevision.pluginId))
 					.innerJoin(
@@ -208,7 +202,7 @@ export class DomainWriteChecks extends Context.Service<DomainWriteChecks>()("Dom
 						and(
 							eq(tables.plugin.id, plugin.id),
 							eq(tables.plugin.packageId, plugin.packageId),
-							sql`${tables.pluginRevision.manifest} -> 'metadata' ->> 'packageId' = ${plugin.packageId}`,
+							eq(tables.pluginRevision.packageId, plugin.packageId),
 							eq(tables.plugin.status, "active"),
 							eq(tables.pluginRevision.id, plugin.revisionId),
 							isNull(tables.pluginConfigRevision.payloadPrunedAt),
@@ -274,9 +268,7 @@ export class DomainWriteChecks extends Context.Service<DomainWriteChecks>()("Dom
 			yield* authority
 				.resolve(principal)
 				.pipe(Effect.mapError((error) => new DbError({ message: error.message })));
-			return owner.kind === "kernel" && command.kernelCollection === true
-				? null
-				: revision.manifest;
+			return owner.kind === "kernel" && command.kernelCollection === true ? null : revision;
 		});
 		const checkProvider = Effect.fnUntraced(function* (providerId: string, owner: DefinitionOwner) {
 			const [provider] = yield* session.run((db) =>
@@ -303,10 +295,24 @@ export class DomainWriteChecks extends Context.Service<DomainWriteChecks>()("Dom
 			}
 			return provider;
 		});
-		const activeManifest = Effect.fnUntraced(function* (pluginId: string) {
-			const [row] = yield* session.run((db) =>
+		const findPinnedDeclaration = <K extends keyof DeclarationSlugs>(
+			kind: K,
+			revisionId: string,
+			slug: DeclarationSlugs[K],
+		) =>
+			definitions.findRevisionDeclaration({ kind, revisionId, ...declarationLookup[kind](slug) });
+		const resolvePinnedDeclaration = Effect.fnUntraced(function* <K extends keyof DeclarationSlugs>(
+			kind: K,
+			pin: DomainWritePin | null,
+			owner: DefinitionOwner,
+			slug: DeclarationSlugs[K],
+		) {
+			if (!pin || owner.kind !== "plugin") {
+				return { pinned: undefined, active: undefined };
+			}
+			const [plugin] = yield* session.run((db) =>
 				db
-					.select({ manifest: tables.pluginRevision.manifest })
+					.select({ activeRevisionId: tables.pluginRevision.id })
 					.from(tables.plugin)
 					.innerJoin(
 						tables.pluginRevision,
@@ -315,37 +321,32 @@ export class DomainWriteChecks extends Context.Service<DomainWriteChecks>()("Dom
 							eq(tables.pluginRevision.pluginId, tables.plugin.id),
 						),
 					)
-					.where(and(eq(tables.plugin.id, pluginId), eq(tables.plugin.status, "active")))
+					.where(and(eq(tables.plugin.id, owner.pluginId), eq(tables.plugin.status, "active")))
 					.limit(1),
 			);
-			if (!row) {
+			if (!plugin) {
 				return yield* new DbError({ message: "Active domain storage constraints are unavailable" });
 			}
-			return row.manifest;
-		});
-		const resolvePinnedDeclaration = Effect.fnUntraced(function* <
-			K extends keyof ManifestDeclarations,
-		>(
-			kind: K,
-			manifest: PluginManifest | null,
-			owner: DefinitionOwner,
-			slug: ManifestDeclarationSlugs[K],
-		) {
-			if (!manifest || owner.kind !== "plugin") {
-				return { pinned: undefined, active: undefined };
-			}
-			const find = findManifestDeclaration[kind];
+			const pinned = yield* findPinnedDeclaration(kind, pin.id, slug);
 			return {
-				pinned: find(manifest, slug),
-				active: find(yield* activeManifest(owner.pluginId), slug),
+				pinned,
+				active:
+					plugin.activeRevisionId === pin.id
+						? pinned
+						: yield* findPinnedDeclaration(kind, plugin.activeRevisionId, slug),
 			};
 		});
-		return { check, checkProvider, activeManifest, resolvePinnedDeclaration };
+		return { check, checkProvider, findPinnedDeclaration, resolvePinnedDeclaration };
 	}),
 }) {
 	static readonly layer = Layer.effect(this, this.make);
 }
 
 export const DomainWriteChecksLive = DomainWriteChecks.layer.pipe(
-	Layer.provide(SandboxExecutionAuthorityLive.pipe(Layer.provide(SandboxRepository.layer))),
+	Layer.provide(
+		Layer.mergeAll(
+			DefinitionRepository.layer,
+			SandboxExecutionAuthorityLive.pipe(Layer.provide(SandboxRepository.layer)),
+		),
+	),
 );

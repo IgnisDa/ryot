@@ -9,6 +9,7 @@ import {
 	AutomationRun,
 	DEFAULT_AUTOMATION_RETRY_POLICY,
 } from "@ryot-app/contract/modules/automations/lifecycle";
+import type { PluginManifest } from "@ryot-app/contract/modules/plugins/manifest";
 import {
 	AutomationRunId,
 	AutomationTriggerId,
@@ -25,6 +26,7 @@ import { Context, Effect, Layer, Ref, Schema } from "effect";
 import { assert, describe } from "vitest";
 
 import { fixtureManifest } from "#modules/plugins/test-support";
+import { pluginSandboxAuthority } from "#modules/scripts/authorization/plugin-authority";
 import { DatabaseSession } from "#platform/db/session";
 import { user } from "#schema/tables/auth";
 import { automationRun, automationTrigger } from "#schema/tables/automations";
@@ -315,30 +317,32 @@ describe("automation retry persistence", () => {
 						yield* db
 							.insert(plugin)
 							.values({ id: "plugin", status: "inactive", packageId: base.metadata.packageId });
+						const pinnedManifest: PluginManifest = {
+							...base,
+							metadata: { ...base.metadata, name: "Pinned name" },
+							signalSchemas: base.signalSchemas.map((signal) => ({
+								...signal,
+								propertiesSchema: {
+									fields: {
+										visible: { type: "string", label: "Visible", description: "Visible field" },
+										password: {
+											secret: true,
+											type: "string",
+											label: "Password",
+											description: "Secret field",
+										},
+									},
+								},
+							})),
+						};
 						yield* db.insert(pluginRevision).values([
 							{
 								contentHash: "old",
 								pluginId: "plugin",
 								id: "pinned-revision",
+								manifest: pinnedManifest,
 								clientConfigSchema: { fields: {} },
-								manifest: {
-									...base,
-									metadata: { ...base.metadata, name: "Pinned name" },
-									signalSchemas: base.signalSchemas.map((signal) => ({
-										...signal,
-										propertiesSchema: {
-											fields: {
-												visible: { type: "string", label: "Visible", description: "Visible field" },
-												password: {
-													secret: true,
-													type: "string",
-													label: "Password",
-													description: "Secret field",
-												},
-											},
-										},
-									})),
-								},
+								sandboxAuthority: pluginSandboxAuthority(pinnedManifest),
 							},
 							{
 								manifest: base,
@@ -346,6 +350,7 @@ describe("automation retry persistence", () => {
 								contentHash: "current",
 								id: "current-revision",
 								clientConfigSchema: { fields: {} },
+								sandboxAuthority: pluginSandboxAuthority(base),
 							},
 						]);
 						yield* db

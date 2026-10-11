@@ -97,7 +97,7 @@ export const makeRelationshipMutationPrimitives = ({
 				},
 			});
 		}
-		const manifest = yield* writes
+		const pin = yield* writes
 			.check(
 				mutation.command,
 				reference.owner,
@@ -107,7 +107,7 @@ export const makeRelationshipMutationPrimitives = ({
 			.pipe(Effect.mapError(relationshipWriteFailure));
 		const { pinned: declared, active: activeDeclaration } = yield* writes.resolvePinnedDeclaration(
 			"relationship",
-			manifest,
+			pin,
 			reference.owner,
 			reference.slug,
 		);
@@ -129,7 +129,7 @@ export const makeRelationshipMutationPrimitives = ({
 				reason: { schema: reference, code: "relationship-schema-not-found" },
 			});
 		}
-		if (manifest && !declared) {
+		if (pin && !declared) {
 			return yield* new RelationshipBadRequest({
 				reason: { code: "concurrent-relationship-change" },
 			});

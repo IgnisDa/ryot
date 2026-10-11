@@ -345,17 +345,12 @@ export class EntitiesService extends Context.Service<EntitiesService>()("Entitie
 					},
 				});
 			}
-			const pinnedManifest = yield* writeChecks
+			const pin = yield* writeChecks
 				.check(lifecycle, owner, scopeUserId, commit)
 				.pipe(Effect.mapError(writeFailure));
 			const { pinned: pinnedDeclaration, active: activeDeclaration } =
-				yield* writeChecks.resolvePinnedDeclaration(
-					"entity",
-					pinnedManifest,
-					owner,
-					draft.entitySchemaSlug,
-				);
-			if (pinnedManifest && !activeDeclaration) {
+				yield* writeChecks.resolvePinnedDeclaration("entity", pin, owner, draft.entitySchemaSlug);
+			if (pin && !activeDeclaration) {
 				return yield* bad(
 					"mutation-conflict",
 					"Pinned entity declaration has no active storage definition",
@@ -373,7 +368,7 @@ export class EntitiesService extends Context.Service<EntitiesService>()("Entitie
 					.checkProvider(draft.providerId, owner)
 					.pipe(Effect.mapError((error) => bad("mutation-conflict", error.message)));
 			}
-			if (pinnedManifest && !pinnedDeclaration) {
+			if (pin && !pinnedDeclaration) {
 				return yield* bad(
 					"mutation-conflict",
 					"Entity schema is not declared by the pinned writer",
