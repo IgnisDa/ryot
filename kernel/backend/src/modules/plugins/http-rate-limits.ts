@@ -1,4 +1,4 @@
-import type { PluginHttpRateLimit } from "@ryot-app/contract/modules/plugins/manifest";
+import { PluginHttpRateLimit } from "@ryot-app/contract/modules/plugins/manifest";
 import {
 	definitionKey,
 	identityTupleKey,
@@ -6,10 +6,18 @@ import {
 } from "@ryot-app/contract/modules/plugins/references";
 import { sha256Hex } from "@ryot-app/ts-utils/crypto";
 import { stableStringify } from "@ryot-app/ts-utils/json";
+import { Schema } from "effect";
+
+// Origin policies key admission by origin identity, which is not an authored manifest slug.
+export const HttpRateLimitPolicyDeclaration = Schema.Struct({
+	...PluginHttpRateLimit.fields,
+	key: Schema.String,
+});
+export type HttpRateLimitPolicyDeclaration = typeof HttpRateLimitPolicyDeclaration.Type;
 
 export type CanonicalHttpRateLimitPolicy = Readonly<{
 	hash: string;
-	declaration: PluginHttpRateLimit;
+	declaration: HttpRateLimitPolicyDeclaration;
 }>;
 
 export type HttpRateLimitLookups = Readonly<{
