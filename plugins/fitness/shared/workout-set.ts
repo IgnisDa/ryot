@@ -10,6 +10,18 @@ export const workoutSetLots = ["normal", "warm_up", "drop", "failure"] as const;
 export const WorkoutSetLotSchema = Schema.Literals(workoutSetLots);
 export type WorkoutSetLot = typeof WorkoutSetLotSchema.Type;
 
+export const requiredWorkoutMeasurementsByKind: Record<
+	ExerciseKind,
+	ReadonlyArray<keyof typeof WorkoutSetMeasurementsSchema.Type>
+> = {
+	reps: ["reps"],
+	duration: ["duration"],
+	reps_and_weight: ["reps", "weight"],
+	reps_and_duration: ["reps", "duration"],
+	distance_and_duration: ["distance", "duration"],
+	reps_and_duration_and_distance: ["reps", "duration", "distance"],
+};
+
 export const WorkoutSetAssetLocatorSchema = Schema.Union([
 	LocalAssetLocator,
 	RemoteAssetLocator,

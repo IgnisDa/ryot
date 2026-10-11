@@ -2,19 +2,21 @@ import { Schema } from "@ryot-app/plugin-kit/effect";
 import { sandboxContextError, SANDBOX_LIMITS } from "@ryot-app/sandbox/protocol/limits";
 import { assert, expect, it } from "vitest";
 
-import { WorkoutEditorDraftSchema } from "./workout-editor-draft";
+import { encodeWorkoutEditorDraft, WorkoutEditorDraftSchema } from "./workout-editor-draft";
 import { WorkoutEditorSaveInputSchema } from "./workout-editor-operations";
+import { encodeWorkoutEditorBaseline, WorkoutEditorBaselineSchema } from "./workout-editor-recipes";
 import {
 	buildWorkoutEditorSaveInput,
 	indexWorkoutOccurrences,
 } from "./workout-editor-transformations";
+import { buildWorkoutSetEventProperties } from "./workout-set";
 
 const KiB = 1024;
 const draftLimitBytes = 64 * KiB;
 const timestamp = "2026-10-15T10:00:00.000Z";
 const note = "筋力トレーニング💪".repeat(12);
 
-const set = (clientId: string, index: number, rich: boolean) => ({
+const draftSet = (clientId: string, index: number, rich: boolean) => ({
 	clientId,
 	reps: "12",
 	included: true,
@@ -44,12 +46,13 @@ const occurrence = (clientId: string, index: number, setCount: number, rich = tr
 	clientId,
 	isCollapsed: false,
 	notes: rich ? [note] : [],
+	sourceExerciseOrder: index,
 	exerciseKind: "reps_and_weight",
 	exerciseId: `exercise-${index % 3}`,
 	images: rich ? [{ type: "s3", key: `media/exercise/${index}/image.jpg` }] : [],
 	videos: rich ? [{ type: "local", key: `media/exercise/${index}/video.mp4` }] : [],
 	sets: Array.from({ length: setCount }, (_, setIndex) =>
-		set(`${clientId}-set-${setIndex}`, index * 100 + setIndex, rich),
+		draftSet(`${clientId}-set-${setIndex}`, index * 100 + setIndex, rich),
 	),
 	display: rich
 		? {
@@ -156,7 +159,7 @@ const saveInputFor = (draft: ReturnType<typeof workoutDraft>) => {
 
 const jsonBytes = (value: unknown) => new TextEncoder().encode(JSON.stringify(value)).byteLength;
 const draftBytes = (value: typeof WorkoutEditorDraftSchema.Type) =>
-	jsonBytes(Schema.encodeSync(Schema.toCodecJson(WorkoutEditorDraftSchema))(value));
+	jsonBytes(encodeWorkoutEditorDraft(value));
 const saveBytes = (value: typeof WorkoutEditorSaveInputSchema.Type) =>
 	jsonBytes(Schema.encodeSync(Schema.toCodecJson(WorkoutEditorSaveInputSchema))(value));
 
@@ -177,18 +180,100 @@ it("fits observed workout and template shapes, with a 101-set workout draft and 
 	const pendingSave = saveInputFor(largeWorkout);
 	const recoveredLargeWorkout = Schema.decodeSync(WorkoutEditorDraftSchema)({
 		...largeWorkout,
-		submission: { id: pendingSave.submissionId, submittedAt: pendingSave.submittedAt },
+		submission: pendingSave,
 	});
 	const representativeSave = saveInputFor(representativeWorkout);
-	const recoveredRepresentativeWorkout = Schema.decodeSync(WorkoutEditorDraftSchema)({
-		...representativeWorkout,
-		submission: {
-			id: representativeSave.submissionId,
-			submittedAt: representativeSave.submittedAt,
+	assert(representativeSave.data.kind === "workout");
+	const original = representativeSave.data;
+	const baseline = Schema.decodeUnknownSync(WorkoutEditorBaselineSchema)({
+		entity: {
+			name: original.name,
+			updatedAt: timestamp,
+			id: "workout-existing",
+			properties: {
+				startedAt: timestamp,
+				images: original.images,
+				videos: original.videos,
+				exerciseNotes: original.occurrences.map(({ notes }, exerciseOrder) => ({
+					notes,
+					exerciseOrder,
+				})),
+			},
 		},
+		sets: original.occurrences.flatMap((item, exerciseOrder) =>
+			item.sets.map((set, setOrder) => ({
+				id: set.eventId,
+				entityId: item.exerciseId,
+				occurredAt: set.occurredAt,
+				sessionEntityId: "workout-existing",
+				properties: buildWorkoutSetEventProperties({
+					...set,
+					...set.measurements,
+					setOrder,
+					exerciseOrder,
+				}),
+			})),
+		),
+	});
+	const withBaseline = {
+		...representativeWorkout,
+		mode: {
+			kind: "historical" as const,
+			entityId: baseline.entity.id,
+			conflictToken: encodeWorkoutEditorBaseline(baseline),
+		},
+	};
+	expect(draftBytes(withBaseline)).toBeLessThanOrEqual(draftLimitBytes);
+	expect(saveBytes(saveInputFor(withBaseline))).toBeLessThanOrEqual(
+		SANDBOX_LIMITS.execution.contextBytes,
+	);
+	expect(sandboxContextError(saveInputFor(withBaseline))).toBeNull();
+	const recoveredRepresentativeWorkout = Schema.decodeSync(WorkoutEditorDraftSchema)({
+		...withBaseline,
+		submission: saveInputFor(withBaseline),
 	});
 	const largeTemplate = templateDraft();
 	const templateSave = saveInputFor(largeTemplate);
+	assert(templateSave.data.kind === "template");
+	const templateBaseline = Schema.decodeSync(WorkoutEditorBaselineSchema)({
+		sets: [],
+		entity: {
+			updatedAt: timestamp,
+			id: "template-existing",
+			name: templateSave.data.name,
+			properties: {
+				images: [],
+				videos: [],
+				exercises: templateSave.data.occurrences.map((item, exerciseOrder) => ({
+					exerciseOrder,
+					notes: item.notes,
+					images: item.images,
+					videos: item.videos,
+					exerciseId: item.exerciseId,
+					sets: item.sets.map((set, setOrder) => ({
+						...set.measurements,
+						...(set.note === undefined ? {} : { note: set.note }),
+						...(set.rpe === undefined ? {} : { rpe: set.rpe }),
+						...(set.restTime === undefined ? {} : { restTime: set.restTime }),
+						setOrder,
+						setLot: set.setLot,
+					})),
+				})),
+			},
+		},
+	});
+	const editingTemplate = {
+		...largeTemplate,
+		mode: {
+			kind: "template-edit" as const,
+			entityId: templateBaseline.entity.id,
+			conflictToken: encodeWorkoutEditorBaseline(templateBaseline),
+		},
+	};
+	expect(draftBytes(editingTemplate)).toBeLessThanOrEqual(draftLimitBytes);
+	expect(saveBytes(saveInputFor(editingTemplate))).toBeLessThanOrEqual(
+		SANDBOX_LIMITS.execution.contextBytes,
+	);
 
 	expect(indexWorkoutOccurrences(representativeWorkout.occurrences)).toHaveLength(20);
 	expect(
