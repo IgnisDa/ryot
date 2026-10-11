@@ -15,7 +15,7 @@
 
 ## Status
 
-**20 implemented, 0 in progress, 63 pending; 3 excluded.**
+**21 implemented, 0 in progress, 62 pending; 3 excluded.**
 
 “Implemented” means affected checks and tests passed and the change is committed with this tracker. Batch-wide acceptance is recorded separately below. Rows follow the audit's ranked order; sequencing can change to respect dependencies and keep changes reviewable.
 
@@ -102,7 +102,7 @@
 | P03-R1 | Pending | Normalize existing Request headers/body once. |
 | M01-R1 | Pending | Use the canonical Metron role accumulator. |
 | M04-R2 | Pending | Select only consumed episodic-completion fields. |
-| M05-R1 | Pending | Delete the unreachable import-admission shadow union. |
+| M05-R1 | Implemented | Delete the import-admission shadow union; real manifest admission validates 17 sources. See this finding's audit commit. |
 | M06-R1 | Pending | Delete dormant hero configuration. |
 | B11-R2 | Pending | Return the locked event revision once. |
 | B22-R2 | Pending | Remove unreachable custom-renderer publication. |
@@ -185,3 +185,4 @@
 ### Continuing implementation — active
 
 - M07-R1: media check passed before 49 home tests across four files; read-only review reported no findings.
+- M05-R1: media and backend checks passed before 41 admission tests and 14 backend tests; read-only review reported no findings.
