@@ -11,6 +11,7 @@ import type {
 import {
 	Button,
 	Chip,
+	EmptyState,
 	RadioGroup,
 	StatusMessage,
 	useFieldEscape,
@@ -478,169 +479,181 @@ export function ProviderSearchPanel(props: ProviderSearchPanelProps) {
 	};
 
 	return (
-		<div className="grid gap-3">
-			<div className="flex items-center gap-2">
-				<div className="flex h-9 min-w-0 flex-1 items-center gap-2 rounded-lg border border-border bg-surface-2 px-3">
-					<AppIcon size={15} name="search" className="shrink-0 text-text-subtle" />
-					<input
-						autoFocus
-						type="text"
-						ref={searchInput}
-						value={state.query}
-						placeholder="Search"
-						aria-label="Search providers"
-						onChange={(event) => dispatch({ type: "query-changed", query: event.target.value })}
-						className="min-w-0 flex-1 bg-transparent text-base text-text outline-none md:text-sm"
-						onKeyDown={(event) => {
-							if (event.key === "Enter") {
-								requestSearch();
-							}
-						}}
-					/>
-					{state.query === "" ? null : (
-						<button
-							type="button"
-							aria-label="Clear search"
-							onClick={() => dispatch({ query: "", type: "query-changed" })}
-							className="flex size-6 shrink-0 items-center justify-center rounded"
-						>
-							<AppIcon name="x" size={15} className="shrink-0 text-text-subtle" />
-						</button>
-					)}
+		<div className="flex min-h-0 flex-1 flex-col">
+			<div className="grid gap-3 p-4 pb-3">
+				<div className="flex items-center gap-2">
+					<div className="flex h-9 min-w-0 flex-1 items-center gap-2 rounded-lg border border-border bg-surface-2 px-3">
+						<AppIcon size={15} name="search" className="shrink-0 text-text-subtle" />
+						<input
+							autoFocus
+							type="text"
+							ref={searchInput}
+							value={state.query}
+							placeholder="Search"
+							aria-label="Search providers"
+							onChange={(event) => dispatch({ type: "query-changed", query: event.target.value })}
+							className="min-w-0 flex-1 bg-transparent text-base text-text outline-none md:text-sm"
+							onKeyDown={(event) => {
+								if (event.key === "Enter") {
+									requestSearch();
+								}
+							}}
+						/>
+						{state.query === "" ? null : (
+							<button
+								type="button"
+								aria-label="Clear search"
+								onClick={() => dispatch({ query: "", type: "query-changed" })}
+								className="flex size-6 shrink-0 items-center justify-center rounded"
+							>
+								<AppIcon name="x" size={15} className="shrink-0 text-text-subtle" />
+							</button>
+						)}
+					</div>
+					<button
+						type="button"
+						onClick={props.onClose}
+						className="flex min-h-6 items-center px-1 md:hidden"
+					>
+						<span className="text-sm font-medium text-text-muted">Cancel</span>
+					</button>
+					<button
+						type="button"
+						aria-label="Close"
+						onClick={props.onClose}
+						className="hidden md:flex md:h-8 md:w-8 md:items-center md:justify-center md:rounded-md"
+					>
+						<AppIcon name="x" size={16} className="text-text-muted" />
+					</button>
 				</div>
-				<button
-					type="button"
-					onClick={props.onClose}
-					className="flex min-h-6 items-center px-1 md:hidden"
-				>
-					<span className="text-sm font-medium text-text-muted">Cancel</span>
-				</button>
-				<button
-					type="button"
-					aria-label="Close"
-					onClick={props.onClose}
-					className="hidden md:flex md:h-8 md:w-8 md:items-center md:justify-center md:rounded-md"
-				>
-					<AppIcon name="x" size={16} className="text-text-muted" />
-				</button>
+
+				{Match.value(props.providers).pipe(
+					Match.when({ status: "loading" }, () => (
+						<Spinner label="Loading providers" className="min-h-32 items-center" />
+					)),
+					Match.when({ status: "failed" }, () => <PanelFailure className="min-h-32" />),
+					Match.when({ status: "ready" }, (ready) =>
+						ready.providers.length === 0 ? (
+							<StatusLine text="No providers are configured for this item type." />
+						) : (
+							<ProviderChips
+								providers={ready.providers}
+								selectedProviderId={selected?.providerId}
+								onSelect={(provider) => props.onSelectProvider(provider.providerId)}
+							/>
+						),
+					),
+					Match.exhaustive,
+				)}
+			</div>
+
+			<div className="min-h-0 flex-1 overflow-y-auto px-4 pb-4">
+				{selected === undefined ? null : (
+					<div className="grid gap-3">
+						{selected.searchOptionsSchema === null ? null : (
+							<>
+								<button
+									type="button"
+									aria-label="Advanced options"
+									aria-expanded={advancedOptionsOpen}
+									onClick={() => setAdvancedOptionsOpen((current) => !current)}
+									className="flex items-center justify-between rounded-lg border border-border bg-surface-2 px-3 py-2.5"
+								>
+									<span className="flex items-center gap-2">
+										<AppIcon size={15} name="sliders-horizontal" className="text-text-muted" />
+										<span className="text-sm font-medium text-text">Advanced options</span>
+										{activeOptionCount > 0 ? (
+											<span className="text-xs text-text-muted">({activeOptionCount})</span>
+										) : null}
+									</span>
+									<AppIcon
+										size={16}
+										className="text-text-muted"
+										name={advancedOptionsOpen ? "chevron-up" : "chevron-down"}
+									/>
+								</button>
+
+								{advancedOptionsOpen &&
+									(options.providerId !== selected.providerId ? (
+										<Spinner label="Loading filters" className="items-center py-2" />
+									) : (
+										Match.value(options).pipe(
+											Match.when({ status: "none" }, () => null),
+											Match.when({ status: "loading" }, () => (
+												<Spinner label="Loading filters" className="items-center py-2" />
+											)),
+											Match.when({ status: "failed" }, () => (
+												<div className="grid gap-2 rounded-lg bg-surface-2 p-3">
+													<p className="text-sm text-text-muted">Could not load filters.</p>
+													<Button
+														className="justify-self-start"
+														onClick={retryProviderOptions}
+														aria-label="Retry loading filters"
+													>
+														Retry
+													</Button>
+												</div>
+											)),
+											Match.when({ status: "ready" }, (ready) => (
+												<SchemaForm
+													form={optionsForm}
+													schema={ready.schema}
+													icons={schemaFormIcons}
+													uploadFile={props.uploadFile}
+													onChange={() => dispatch({ type: "options-changed" })}
+												/>
+											)),
+											Match.exhaustive,
+										)
+									))}
+							</>
+						)}
+
+						{Match.value(state.status).pipe(
+							Match.when("idle", () => (
+								<EmptyState
+									className="py-16"
+									title={`Search ${selected.providerName}`}
+									icon={<AppIcon size={18} name="search" />}
+									description="Start typing above to find something to add."
+								/>
+							)),
+							Match.when("loading", () => (
+								<Spinner label="Searching" className="min-h-32 items-center" />
+							)),
+							Match.when("failed", () => (
+								<div className="grid gap-2">
+									<PanelFailure className="min-h-32" />
+									<Button onClick={() => requestSearch()} aria-label="Try searching again">
+										Try again
+									</Button>
+								</div>
+							)),
+							Match.orElse(() => (
+								<ProviderSearchResults
+									state={state}
+									onAdd={addProviderEntity}
+									importState={importState}
+									providerId={selected.providerId}
+									loadEntityLinks={props.loadEntityLinks}
+									entitySchemaSlug={props.entitySchemaSlug}
+									relationshipSlug={props.relationshipSlug}
+									librarySchemaSlug={props.librarySchemaSlug}
+									onLoadMore={() => dispatch({ type: "next-page-requested" })}
+								/>
+							)),
+						)}
+					</div>
+				)}
 			</div>
 
 			{props.onCreateCustom === undefined ? null : (
-				<Button
-					className="justify-self-start"
-					onClick={() => props.onCreateCustom?.(state.query.trim())}
-				>
-					Create custom
-				</Button>
-			)}
-
-			{Match.value(props.providers).pipe(
-				Match.when({ status: "loading" }, () => (
-					<Spinner label="Loading providers" className="min-h-32 items-center" />
-				)),
-				Match.when({ status: "failed" }, () => <PanelFailure className="min-h-32" />),
-				Match.when({ status: "ready" }, (ready) =>
-					ready.providers.length === 0 ? (
-						<StatusLine text="No providers are configured for this item type." />
-					) : (
-						<ProviderChips
-							providers={ready.providers}
-							selectedProviderId={selected?.providerId}
-							onSelect={(provider) => props.onSelectProvider(provider.providerId)}
-						/>
-					),
-				),
-				Match.exhaustive,
-			)}
-
-			{selected === undefined ? null : (
-				<div className="grid gap-3">
-					{selected.searchOptionsSchema === null ? null : (
-						<>
-							<button
-								type="button"
-								aria-label="Advanced options"
-								aria-expanded={advancedOptionsOpen}
-								onClick={() => setAdvancedOptionsOpen((current) => !current)}
-								className="flex items-center justify-between rounded-lg border border-border bg-surface-2 px-3 py-2.5"
-							>
-								<span className="flex items-center gap-2">
-									<AppIcon size={15} name="sliders-horizontal" className="text-text-muted" />
-									<span className="text-sm font-medium text-text">Advanced options</span>
-									{activeOptionCount > 0 ? (
-										<span className="text-xs text-text-muted">({activeOptionCount})</span>
-									) : null}
-								</span>
-								<AppIcon
-									size={16}
-									className="text-text-muted"
-									name={advancedOptionsOpen ? "chevron-up" : "chevron-down"}
-								/>
-							</button>
-
-							{advancedOptionsOpen &&
-								(options.providerId !== selected.providerId ? (
-									<Spinner label="Loading filters" className="items-center py-2" />
-								) : (
-									Match.value(options).pipe(
-										Match.when({ status: "none" }, () => null),
-										Match.when({ status: "loading" }, () => (
-											<Spinner label="Loading filters" className="items-center py-2" />
-										)),
-										Match.when({ status: "failed" }, () => (
-											<div className="grid gap-2 rounded-lg bg-surface-2 p-3">
-												<p className="text-sm text-text-muted">Could not load filters.</p>
-												<Button
-													className="justify-self-start"
-													onClick={retryProviderOptions}
-													aria-label="Retry loading filters"
-												>
-													Retry
-												</Button>
-											</div>
-										)),
-										Match.when({ status: "ready" }, (ready) => (
-											<SchemaForm
-												form={optionsForm}
-												schema={ready.schema}
-												icons={schemaFormIcons}
-												uploadFile={props.uploadFile}
-												onChange={() => dispatch({ type: "options-changed" })}
-											/>
-										)),
-										Match.exhaustive,
-									)
-								))}
-						</>
-					)}
-
-					{Match.value(state.status).pipe(
-						Match.when("idle", () => null),
-						Match.when("loading", () => (
-							<Spinner label="Searching" className="min-h-32 items-center" />
-						)),
-						Match.when("failed", () => (
-							<div className="grid gap-2">
-								<PanelFailure className="min-h-32" />
-								<Button onClick={() => requestSearch()} aria-label="Try searching again">
-									Try again
-								</Button>
-							</div>
-						)),
-						Match.orElse(() => (
-							<ProviderSearchResults
-								state={state}
-								onAdd={addProviderEntity}
-								importState={importState}
-								providerId={selected.providerId}
-								loadEntityLinks={props.loadEntityLinks}
-								entitySchemaSlug={props.entitySchemaSlug}
-								relationshipSlug={props.relationshipSlug}
-								librarySchemaSlug={props.librarySchemaSlug}
-								onLoadMore={() => dispatch({ type: "next-page-requested" })}
-							/>
-						)),
-					)}
+				<div className="flex items-center justify-end gap-3 border-t border-border px-4 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
+					<p className="text-sm text-text-muted">Can't find it?</p>
+					<Button variant="secondary" onClick={() => props.onCreateCustom?.(state.query.trim())}>
+						<AppIcon size={15} name="plus" />
+						Create custom
+					</Button>
 				</div>
 			)}
 		</div>
