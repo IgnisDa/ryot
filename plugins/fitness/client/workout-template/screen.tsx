@@ -23,6 +23,7 @@ import {
 	loadEditorSource,
 	type EditorExercise,
 } from "../workout-editor/queries";
+import { setLotTags } from "../workout-editor/set-grid";
 import { supersetNames } from "../workout-editor/superset-group";
 import { formatClock, formatSetMain } from "../workout/format";
 
@@ -187,12 +188,6 @@ function TemplateDetails(props: { readonly entityId: string }) {
 	);
 }
 
-const setTags: Partial<Record<string, { readonly tag: string; readonly tone: string }>> = {
-	drop: { tag: "D", tone: "text-info" },
-	failure: { tag: "F", tone: "text-danger" },
-	warm_up: { tag: "W", tone: "text-warning" },
-};
-
 function PlannedExercise(props: {
 	readonly compact: boolean;
 	readonly imperial: boolean;
@@ -255,7 +250,7 @@ function PlannedExercise(props: {
 			) : (
 				<ol aria-label={`Planned sets for ${name}`}>
 					{occurrence.sets.map((set, index) => {
-						const tag = setTags[set.setLot];
+						const tag = setLotTags[set.setLot];
 						const ordinal = occurrence.sets
 							.slice(0, index + 1)
 							.filter(({ setLot }) => setLot !== "warm_up").length;
