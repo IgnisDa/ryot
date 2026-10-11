@@ -3,7 +3,9 @@
 // md5(user_id || '|measurement-metric|' || key). A reading is one statistic of one V1 row; its id
 // is md5(user_id || '|' || timestamp::text || '|' || key). statistics[].value is a rust_decimal
 // JSON string (extracted via ->> then ::float8). Units come from the V1 user preferences
-// (fitness.measurements.statistics), which only "old_user" still carries.
+// (fitness.measurements.statistics), which only "old_user" still carries. Each user's first two
+// migrated metrics by first-seen time are pinned to their Fitness Library; a pin's id is
+// md5(metric_id || ':measurement-metric-pinned:' || user_id).
 
 import type { QualifiedSchema } from "./migration-resolution";
 import {
@@ -46,9 +48,25 @@ const legacyUnitsSql = `
 	WHERE preference.value ->> 'name' IS NOT NULL
 `;
 
+const migratedMetricsSql = (metricEntitySchema: QualifiedSchema) => `
+	SELECT metric.id, metric.user_id, metric.created_at, metric.properties ->> 'key' AS key
+	FROM "entity" metric
+	WHERE metric.entity_schema_slug = ${quoteSqlString(metricEntitySchema.slug)}
+		AND metric.entity_schema_plugin_id IS NOT DISTINCT FROM ${quoteNullableSqlString(metricEntitySchema.pluginId)}
+		AND metric.id = md5(metric.user_id || '|measurement-metric|' || (metric.properties ->> 'key'))
+`;
+
+const fitnessLibraryJoinSql = (libraryEntitySchema: QualifiedSchema, userIdSql: string) => `
+	LEFT JOIN "entity" library ON library.user_id = ${userIdSql}
+		AND library.entity_schema_slug = ${quoteSqlString(libraryEntitySchema.slug)}
+		AND library.entity_schema_plugin_id IS NOT DISTINCT FROM ${quoteNullableSqlString(libraryEntitySchema.pluginId)}
+`;
+
 export const buildMeasurementMigrationSql = (input: {
 	readingEventSchema: QualifiedSchema;
 	metricEntitySchema: QualifiedSchema;
+	libraryEntitySchema: QualifiedSchema;
+	pinRelationshipSchema: QualifiedSchema;
 }) => `
 DO $$
 DECLARE
@@ -59,6 +77,7 @@ DECLARE
 	next_cursor_ts    timestamptz;
 	batch_rows_inserted int;
 	metrics_inserted  int         := 0;
+	pins_inserted     int         := 0;
 	readings_inserted int         := 0;
 	rows_without_statistics int;
 	unnamed_count     int;
@@ -67,6 +86,8 @@ DECLARE
 	duplicate_sample  text;
 	conflict_count    int;
 	conflict_sample   text;
+	unlibraried_count int;
+	unlibraried_sample text;
 	started_at        timestamptz := clock_timestamp();
 BEGIN
 	${buildRequireLegacyTableSql("user_measurement -> measurement", "user_measurement")}
@@ -146,6 +167,52 @@ BEGIN
 	ON CONFLICT ("id") DO NOTHING;
 	GET DIAGNOSTICS metrics_inserted = ROW_COUNT;
 
+	${buildAbortOnRowsSql({
+		countVariable: "unlibraried_count",
+		sampleVariable: "unlibraried_sample",
+		source: `
+			SELECT DISTINCT metric.user_id AS label
+			FROM (${migratedMetricsSql(input.metricEntitySchema)}) metric
+			${fitnessLibraryJoinSql(input.libraryEntitySchema, "metric.user_id")}
+			WHERE library.id IS NULL
+		`,
+		message:
+			"user_measurement -> measurement-metric-pinned: % user(s) with migrated measurement metrics have no Fitness Library: %. Pinned metrics belong to the user's Fitness Library, so the first two metrics cannot be pinned. This is a migration defect; report it with the affected user ids.",
+	})}
+
+	INSERT INTO "relationship" (
+		"id",
+		"user_id",
+		"source_entity_id",
+		"target_entity_id",
+		"relationship_schema_slug",
+		"relationship_schema_plugin_id",
+		"properties",
+		"created_at"
+	)
+	SELECT
+		md5(ranked.id || ${quoteSqlString(`:${input.pinRelationshipSchema.slug}:`)} || ranked.user_id),
+		ranked.user_id,
+		ranked.id,
+		library.id,
+		${quoteSqlString(input.pinRelationshipSchema.slug)},
+		${quoteNullableSqlString(input.pinRelationshipSchema.pluginId)},
+		'{}'::jsonb,
+		CASE WHEN ranked.previous_created_at IS NULL THEN ranked.created_at
+			ELSE greatest(ranked.created_at, ranked.previous_created_at + interval '1 millisecond') END
+	FROM (
+		SELECT
+			metric.*,
+			row_number() OVER pin_order AS pin_rank,
+			lag(metric.created_at) OVER pin_order AS previous_created_at
+		FROM (${migratedMetricsSql(input.metricEntitySchema)}) metric
+		WINDOW pin_order AS (PARTITION BY metric.user_id ORDER BY metric.created_at, metric.key)
+	) ranked
+	${fitnessLibraryJoinSql(input.libraryEntitySchema, "ranked.user_id")}
+	WHERE ranked.pin_rank <= 2
+	ON CONFLICT DO NOTHING;
+	GET DIAGNOSTICS pins_inserted = ROW_COUNT;
+
 	LOOP
 		WITH batch AS (
 			SELECT um.user_id, um.timestamp
@@ -211,6 +278,7 @@ BEGIN
 	);
 
 	${buildReportSql("user_measurement -> measurement-metric", [{ count: "metrics_inserted", message: "metric(s) migrated total" }])}
+	${buildReportSql("user_measurement -> measurement-metric-pinned", [{ count: "pins_inserted", message: "pin(s) migrated total" }])}
 	${buildReportSql("user_measurement -> measurement-reading", [
 		{ count: "readings_inserted", message: "reading(s) migrated total" },
 		{
