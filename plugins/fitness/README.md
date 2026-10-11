@@ -17,6 +17,13 @@ The workout detail page reads metadata and source links through `workoutDetailsR
 and each exercise's latest earlier session sets. Totals and comparisons use the complete loaded sets.
 Workout and occurrence attachments support image preview and video playback with renewed signed URLs.
 
+Workout details can permanently delete a workout and its events through `workout-delete`.
+The entity lifecycle removes its relationships and queues record recalculation for surviving exercise
+streams. Exercises, templates, other workouts, and separately logged measurements remain. Successful
+deletion replaces the details screen with All Workouts. Retried deletion retains its submission identity.
+Add to collection selects an existing collection, loads its membership fields, and adds only if absent;
+existing membership properties are preserved. The picker does not create collections.
+
 The exercise detail page reads one `exerciseDetailsRecipe` document from
 `shared/exercise-details-recipes.ts`: the exercise with its targets and equipment, ungrouped totals
 (including the best weight for at least 1, 5, 8, 12, and 30 reps), monthly buckets in the caller's time
