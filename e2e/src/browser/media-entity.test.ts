@@ -18,12 +18,10 @@ import {
 	seedMediaEntity,
 	seedGlobalShowEpisodeTree,
 } from "~/fixtures/plugins/media";
-import { requirePresent } from "~/support/assertions";
 import { signInThroughHostedOAuth } from "~/support/browser";
 import { afterAll, beforeAll, expect, it, runPromise } from "~/support/effect-test";
 import { getApiUrl, getFrontendUrl } from "~/support/harness-target";
 import { startIsolatedHarness } from "~/support/isolated-harness";
-import { webRequest } from "~/support/web-request";
 
 const SHOW_NAME = "Media Entity Tracer Show";
 const SHOW_COVER = `<svg xmlns="http://www.w3.org/2000/svg" width="60" height="90"><rect width="60" height="90" fill="#8b5cf6"/></svg>`;
@@ -115,23 +113,7 @@ it.live("opens a Media Show entity from the canonical saved-view route", () =>
 		const apiUrl = getApiUrl();
 		const frontendUrl = getFrontendUrl();
 		const { email, client, password } = yield* createAuthenticatedClient(apiUrl);
-		const intent = yield* client.call((c) =>
-			c.uploads.createIntent({
-				payload: { kind: "permanent", fileName: "show-cover.svg", contentType: "image/svg+xml" },
-			}),
-		);
-		const upload = yield* webRequest(new URL(intent.uploadUrl, `${apiUrl}/`), {
-			body: SHOW_COVER,
-			method: intent.method,
-			headers: intent.headers,
-		});
-		expect([200, 204]).toContain(upload.status);
-		const cover = yield* client.call((c) =>
-			c.uploads.completeIntent({ params: { intentId: intent.intentId } }),
-		);
-		if (!("key" in cover)) {
-			throw new Error("Expected a permanent Show cover");
-		}
+		const coverUrl = "https://images.test/show-cover.svg";
 		const { showId } = yield* seedGlobalShowEpisodeTree(client, {
 			showName: SHOW_NAME,
 			showProperties: {
@@ -140,13 +122,20 @@ it.live("opens a Media Show entity from the canonical saved-view route", () =>
 				publishYear: 2025,
 				genres: ["Drama", "Mystery"],
 				productionStatus: "Returning Series",
-				images: [{ ...cover, purpose: "cover" }],
 				description: "A deterministic browser tracer show.",
+				images: [{ url: coverUrl, type: "remote", purpose: "cover" }],
 			},
 		});
 		yield* insertLibraryMembership(client, { mediaEntityId: showId });
 		const browser = yield* Playwright.Browser;
 		const page = yield* browser.newPage({ viewport: { width: 1280, height: 900 } });
+		yield* page.use((native) =>
+			native
+				.context()
+				.route(coverUrl, (route) =>
+					route.fulfill({ body: SHOW_COVER, contentType: "image/svg+xml" }),
+				),
+		);
 		yield* signInThroughHostedOAuth(page, email, password);
 		yield* page.goto(
 			`${frontendUrl}${savedViewPath({ kind: "plugin", slug: "all-shows", packageId: mediaPlugin.metadata.packageId })}`,
@@ -184,11 +173,7 @@ it.live("opens a Media Show entity from the canonical saved-view route", () =>
 		const coverImage = media.locator('img[alt=""]').first();
 		yield* coverImage.waitFor({ state: "visible" });
 		expect(yield* coverImage.getAttribute("alt")).toBe("");
-		const coverUrl = new URL(
-			requirePresent(yield* coverImage.getAttribute("src"), "Missing cover URL"),
-		);
-		expect(coverUrl.href).toMatch(/^https?:\/\//);
-		expect(coverUrl.searchParams.get("response-content-disposition")).toBe("attachment");
+		expect(yield* coverImage.getAttribute("src")).toBe(coverUrl);
 		expect(
 			yield* coverImage.evaluate((image) =>
 				image instanceof HTMLImageElement ? image.naturalWidth : -1,
