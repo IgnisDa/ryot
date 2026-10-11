@@ -14,10 +14,6 @@ export const EntityId = Schema.String.pipe(Schema.brand("EntityId"));
 
 export type EntityId = typeof EntityId.Type;
 
-export const PluginSlug = Schema.String.pipe(Schema.brand("PluginSlug"));
-
-export type PluginSlug = typeof PluginSlug.Type;
-
 export const SavedViewId = Schema.String.pipe(Schema.brand("SavedViewId"));
 
 export type SavedViewId = typeof SavedViewId.Type;
@@ -86,20 +82,36 @@ export type NotificationSubscriptionId = typeof NotificationSubscriptionId.Type;
 
 export const PluginId = Schema.String.pipe(Schema.brand("PluginId"));
 export type PluginId = typeof PluginId.Type;
-export const PLUGIN_PACKAGE_ID_PATTERN =
-	"^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$";
+const pluginPackageSegmentPattern = "(?=[a-z0-9-]{1,64}(/|$))[a-z0-9]+(-[a-z0-9]+)*";
+export const PLUGIN_PACKAGE_ID_PATTERN = `^${pluginPackageSegmentPattern}/${pluginPackageSegmentPattern}$`;
 const pluginPackageIdPattern = new RegExp(PLUGIN_PACKAGE_ID_PATTERN);
+const pluginPackageSegmentRegExp = new RegExp(`^${pluginPackageSegmentPattern}$`);
+export const PluginPackageSegment = Schema.String.pipe(
+	Schema.check(
+		Schema.makeFilter((value) =>
+			pluginPackageSegmentRegExp.test(value) ? true : "Expected a lowercase package ID segment",
+		),
+	),
+);
 export const PluginPackageId = Schema.String.pipe(
 	Schema.check(
 		Schema.makeFilter((value) =>
 			pluginPackageIdPattern.test(value)
 				? true
-				: "Expected a canonical lowercase UUIDv4 package identity",
+				: "Expected a lowercase publisher/name package identity",
 		),
 	),
 	Schema.brand("PluginPackageId"),
 );
 export type PluginPackageId = typeof PluginPackageId.Type;
+export const pluginPackageSegments = (packageId: PluginPackageId) => {
+	const [publisher = "", name = ""] = packageId.split("/");
+	return { name, publisher };
+};
+export const pluginPackageIdFromSegments = (segments: {
+	readonly name: string;
+	readonly publisher: string;
+}) => PluginPackageId.make(`${segments.publisher}/${segments.name}`);
 export const PluginRevisionId = Schema.String.pipe(Schema.brand("PluginRevisionId"));
 export type PluginRevisionId = typeof PluginRevisionId.Type;
 export const PluginConfigRevisionId = Schema.String.pipe(Schema.brand("PluginConfigRevisionId"));

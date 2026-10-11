@@ -219,7 +219,7 @@ describe("shared value contracts", () => {
 			decode(ensureUserEntitiesArgsSchema)([[{ ...item, userId: "caller-selected" }]]),
 		).toThrow();
 		expect(() =>
-			decode(ensureUserEntitiesArgsSchema)([[{ ...item, pluginSlug: "caller-selected" }]]),
+			decode(ensureUserEntitiesArgsSchema)([[{ ...item, pluginId: "caller-selected" }]]),
 		).toThrow();
 		expect(() =>
 			decode(ensureUserEntitiesArgsSchema)([Array.from({ length: 501 }, () => item)]),

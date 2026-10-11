@@ -105,7 +105,7 @@ export type ConfigEnvironmentKeyResolver = (
 	field: AppPropertyDefinition,
 ) => string;
 
-export type ConfigReferencePlugin = Pick<PluginMetadata, "name" | "packageId" | "slug"> & {
+export type ConfigReferencePlugin = Pick<PluginMetadata, "name" | "packageId"> & {
 	readonly schema: AppSchema | ConfigDefinition;
 };
 
@@ -405,7 +405,7 @@ export const renderConfigReference = (
 			...fields.map(([key, field]) => {
 				const fallback =
 					field.defaultValue === undefined ? "—" : `\`${formatDefaultValue(field.defaultValue)}\``;
-				return `| \`${plugin.slug}.${key}\` | \`${pluginConfigEnvironmentKey(plugin.packageId, key)}\` | ${field.label} | ${field.description} | ${isAppPropertyRequired(field) ? "Yes" : "No"} | ${field.secret === true ? "Yes" : "No"} | ${fallback} |`;
+				return `| \`${plugin.packageId}.${key}\` | \`${pluginConfigEnvironmentKey(plugin.packageId, key)}\` | ${field.label} | ${field.description} | ${isAppPropertyRequired(field) ? "Yes" : "No"} | ${field.secret === true ? "Yes" : "No"} | ${fallback} |`;
 			}),
 			"",
 		);

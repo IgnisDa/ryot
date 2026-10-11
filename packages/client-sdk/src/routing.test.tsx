@@ -7,7 +7,7 @@ import {
 	type PluginRouteLocation,
 } from "@ryot-app/client-plugin-contract";
 import { SavedViewReference } from "@ryot-app/contract/modules/plugins/references";
-import { EntityId, PluginId } from "@ryot-app/contract/schema/brands";
+import { EntityId, PluginPackageId } from "@ryot-app/contract/schema/brands";
 import { waitFor } from "@testing-library/dom";
 import { Effect, Match, Schema } from "effect";
 import { useEffect, useState, act } from "react";
@@ -40,7 +40,7 @@ import { createTestRyotClock, waitForMessagePortMacrotask } from "./testing";
 
 let mountCount = 0;
 let entityMountCount = 0;
-const pluginId = "fixture";
+const packageId = "test/fixture";
 
 const ItemRoute = () => {
 	const { itemId } = usePluginParams();
@@ -86,19 +86,19 @@ const Home = () => {
 				Greet
 			</button>
 			<PluginLink
-				to={{ pluginId, kind: "plugin-route", path: "/items/item-1", search: { tab: "stats" } }}
+				to={{ packageId, kind: "plugin-route", path: "/items/item-1", search: { tab: "stats" } }}
 			>
 				Item 1
 			</PluginLink>
 			<button
 				type="button"
-				onClick={() => navigation.push({ pluginId, kind: "plugin-route", path: "/items/item-2" })}
+				onClick={() => navigation.push({ packageId, kind: "plugin-route", path: "/items/item-2" })}
 			>
 				Push item 2
 			</button>
 			<button
 				type="button"
-				onClick={() => navigation.replace({ pluginId, path: "/", kind: "plugin-route" })}
+				onClick={() => navigation.replace({ packageId, path: "/", kind: "plugin-route" })}
 			>
 				Replace home
 			</button>
@@ -204,10 +204,10 @@ const openChannel = (
 	};
 	const navigate = (mode: "push" | "replace", to: RyotNavigationTarget) => {
 		const target: PluginBridgeNavigate["target"] = Match.value(to).pipe(
-			Match.when({ kind: "plugin-route" }, ({ path, search, pluginId: targetPlugin }) => ({
+			Match.when({ kind: "plugin-route" }, ({ path, search, packageId: targetPackage }) => ({
 				path,
 				kind: "plugin-route" as const,
-				pluginId: PluginId.make(targetPlugin),
+				packageId: PluginPackageId.make(targetPackage),
 				search: search === undefined ? "" : new URLSearchParams(search).toString(),
 			})),
 			Match.when({ kind: "entity" }, ({ entityId }) => ({
@@ -602,7 +602,7 @@ describe("PluginRouter", () => {
 			if (!link) {
 				throw new Error("expected a rendered plugin link");
 			}
-			expect(link.getAttribute("href")).toBe("/p/fixture/items/item-1?tab=stats");
+			expect(link.getAttribute("href")).toBe("/p/test/fixture/items/item-1?tab=stats");
 			act(() => {
 				link.dispatchEvent(new MouseEvent("click", { button: 0, bubbles: true, cancelable: true }));
 			});
@@ -617,7 +617,7 @@ describe("PluginRouter", () => {
 								search: "tab=stats",
 								kind: "plugin-route",
 								path: "/items/item-1",
-								pluginId: PluginId.make(pluginId),
+								packageId: PluginPackageId.make(packageId),
 							},
 						} satisfies PluginBridgeNavigate,
 					]),
@@ -701,7 +701,7 @@ describe("PluginRouter", () => {
 			root.render(
 				<RyotProvider runtime={channel.clock.runtime}>
 					<PluginLink
-						to={{ pluginId, kind: "plugin-route", path: "/items/item-1" }}
+						to={{ packageId, kind: "plugin-route", path: "/items/item-1" }}
 						onClick={(event) => {
 							clicks += 1;
 							event.preventDefault();
@@ -779,7 +779,7 @@ describe("PluginRouter", () => {
 								search: "",
 								kind: "plugin-route",
 								path: "/items/item-2",
-								pluginId: PluginId.make(pluginId),
+								packageId: PluginPackageId.make(packageId),
 							},
 						} satisfies PluginBridgeNavigate,
 						{
@@ -789,7 +789,7 @@ describe("PluginRouter", () => {
 								path: "/",
 								search: "",
 								kind: "plugin-route",
-								pluginId: PluginId.make(pluginId),
+								packageId: PluginPackageId.make(packageId),
 							},
 						} satisfies PluginBridgeNavigate,
 					]),

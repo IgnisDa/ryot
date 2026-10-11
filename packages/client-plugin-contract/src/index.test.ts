@@ -66,8 +66,8 @@ const identity = {
 describe("plugin client artifact contract", () => {
 	const packageFields = {
 		imports: [],
+		packageId: "test/client",
 		clientDeclarationHash: "declaration-hash",
-		packageId: "ff9c9ec6-5774-42ef-881b-dc6a84ad3ba6",
 	};
 	it("decodes canonical Base64 contents while retaining artifact validation", () => {
 		const decode = Schema.decodeUnknownResult(PluginClientArtifactFromBase64);
@@ -399,7 +399,7 @@ describe("plugin client bridge contract", () => {
 						path: "/items/1",
 						search: "tab=stats",
 						kind: "plugin-route",
-						pluginId: "plugin-1",
+						packageId: "test/plugin-1",
 					},
 				}),
 			),
@@ -525,8 +525,8 @@ describe("plugin client bridge contract", () => {
 		const pluginRoute = {
 			path: "/details",
 			search: "tab=stats",
-			pluginId: "fixture",
 			kind: "plugin-route",
+			packageId: "test/fixture",
 		};
 		const savedView = {
 			kind: "saved-view",
@@ -558,7 +558,7 @@ describe("plugin client bridge contract", () => {
 		expect(Result.isFailure(decodeTarget(route))).toBe(true);
 		expect(Result.isFailure(decodeTarget({ path: route.path, search: route.search }))).toBe(true);
 		expect(Result.isFailure(decodeTarget({ ...pluginRoute, extra: true }))).toBe(true);
-		expect(Result.isFailure(decodeTarget({ ...pluginRoute, pluginId: undefined }))).toBe(true);
+		expect(Result.isFailure(decodeTarget({ ...pluginRoute, packageId: undefined }))).toBe(true);
 		expect(Result.isFailure(decodeTarget({ ...targetEntity, entitySchemaSlug: "show" }))).toBe(
 			true,
 		);
@@ -823,9 +823,9 @@ describe("plugin client bridge contract", () => {
 		expect(
 			Result.isSuccess(
 				decodeRequest({
-					pluginId: "fixture",
 					requestId: "request-1",
 					operationSlug: "greet",
+					packageId: "test/fixture",
 					type: "operation-request",
 					input: { values: [null, true, 1, "ok"] },
 				}),
@@ -835,9 +835,9 @@ describe("plugin client bridge contract", () => {
 			Result.isFailure(
 				decodeRequest({
 					input: null,
-					pluginId: "fixture",
 					requestId: "request-1",
 					operationSlug: "greet",
+					packageId: "test/fixture",
 					type: "operation-request",
 					sourceHash: "plugin-controlled-source-hash",
 				}),
@@ -846,9 +846,9 @@ describe("plugin client bridge contract", () => {
 		expect(
 			Result.isFailure(
 				decodeRequest({
-					pluginId: "fixture",
 					requestId: "request-1",
 					operationSlug: "greet",
+					packageId: "test/fixture",
 					type: "operation-request",
 				}),
 			),
@@ -856,9 +856,9 @@ describe("plugin client bridge contract", () => {
 		expect(
 			Result.isFailure(
 				decodeRequest({
-					pluginId: "fixture",
 					requestId: "request-1",
 					operationSlug: "greet",
+					packageId: "test/fixture",
 					type: "operation-request",
 					input: { invalid: undefined },
 				}),

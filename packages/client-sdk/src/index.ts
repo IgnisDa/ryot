@@ -38,8 +38,7 @@ import {
 	type ManagedAssetLocator as ManagedAssetLocatorValue,
 	TemporaryUploadToken,
 } from "@ryot-app/contract/modules/uploads/schemas";
-import type { PluginPackageId } from "@ryot-app/contract/schema/brands";
-import { EntityId, PluginId } from "@ryot-app/contract/schema/brands";
+import { EntityId, PluginId, PluginPackageId } from "@ryot-app/contract/schema/brands";
 import { isJsonValue, type JsonValue } from "@ryot-app/contract/schema/json";
 import { strictStruct } from "@ryot-app/contract/schema/utils";
 import type { PreparedRecipe } from "@ryot-app/ryotql";
@@ -114,8 +113,8 @@ export const RyotNavigationTarget = Schema.Union([
 	strictStruct({ reference: SavedViewReference, kind: Schema.Literal("saved-view") }),
 	strictStruct({ page: KernelPage, kind: Schema.Literal("kernel-page") }),
 	strictStruct({
-		pluginId: PluginId,
 		path: Schema.String,
+		packageId: PluginPackageId,
 		kind: Schema.Literal("plugin-route"),
 		search: Schema.optional(Schema.Record(Schema.String, Schema.String)),
 	}),
@@ -407,7 +406,7 @@ export const createRyotClient = (adapter: RyotClientAdapter) => {
 						return yield* new RyotClientError("unsupported-capability");
 					}
 					const value = yield* adapterEffect(() =>
-						invoke({ slug: request.slug, input: request.input, pluginId: request.pluginId }),
+						invoke({ slug: request.slug, input: request.input, packageId: request.packageId }),
 					);
 					if (!isJsonValue(value)) {
 						return yield* new RyotClientError("malformed-result");

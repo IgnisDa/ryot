@@ -18,8 +18,8 @@ import { compileClientPluginModule } from "./module";
 import { clientPluginCompilerPlatformLayer } from "./platform";
 
 const bytes = (contents: string) => new TextEncoder().encode(contents);
-const packageId = PluginPackageId.make("ee8040dd-5a40-42a1-916d-58190c1a06e8");
-const dependencyPackageId = PluginPackageId.make("97887987-a15b-452b-bfdc-633028850ad9");
+const packageId = PluginPackageId.make("test/primary");
+const dependencyPackageId = PluginPackageId.make("test/dependency");
 const pluginIdentity = {
 	packageId,
 	kind: "plugin" as const,

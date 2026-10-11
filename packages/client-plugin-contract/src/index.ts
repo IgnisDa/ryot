@@ -20,7 +20,12 @@ import {
 	ManagedAssetLocator,
 	TemporaryUploadToken,
 } from "@ryot-app/contract/modules/uploads/schemas";
-import { EntityId, EntitySchemaSlug, PluginId } from "@ryot-app/contract/schema/brands";
+import {
+	EntityId,
+	EntitySchemaSlug,
+	PluginId,
+	PluginPackageId,
+} from "@ryot-app/contract/schema/brands";
 import { JsonValue } from "@ryot-app/contract/schema/json";
 import { HttpUrl, IsoUtcString, strictStruct } from "@ryot-app/contract/schema/utils";
 import { Schema } from "effect";
@@ -187,9 +192,9 @@ export type PluginThemeSnapshot = Schema.Schema.Type<typeof PluginThemeSnapshot>
 export const ClientPageTarget = Schema.Union([
 	strictStruct({ reference: SavedViewReference, kind: Schema.Literal("saved-view") }),
 	strictStruct({
-		pluginId: PluginId,
 		path: Schema.String,
 		search: Schema.String,
+		packageId: PluginPackageId,
 		kind: Schema.Literal("plugin-route"),
 	}),
 	strictStruct({
@@ -216,6 +221,7 @@ export type ClientPageRenderer = Schema.Schema.Type<typeof ClientPageRenderer>;
 export const ClientPageOperationTarget = strictStruct({
 	pluginId: PluginId,
 	sourceHash: Schema.String,
+	packageId: PluginPackageId,
 	installationId: Schema.String,
 });
 
@@ -295,9 +301,9 @@ export const PluginNavigationTarget = Schema.Union([
 	strictStruct({ page: KernelPage, kind: Schema.Literal("kernel-page") }),
 	strictStruct({ entityId: EntityId, kind: Schema.Literal("entity") }),
 	strictStruct({
-		pluginId: PluginId,
 		path: Schema.String,
 		search: Schema.String,
+		packageId: PluginPackageId,
 		kind: Schema.Literal("plugin-route"),
 	}),
 ]);
@@ -681,7 +687,7 @@ export type PluginBridgeAssetResult = Schema.Schema.Type<typeof PluginBridgeAsse
 
 export const PluginOperationRequest = strictStruct({
 	input: JsonValue,
-	pluginId: PluginId,
+	packageId: PluginPackageId,
 	operationSlug: Schema.String,
 });
 
@@ -689,8 +695,8 @@ export type PluginOperationRequest = Schema.Schema.Type<typeof PluginOperationRe
 
 export const PluginBridgeOperationRequest = strictStruct({
 	input: JsonValue,
-	pluginId: PluginId,
 	requestId: Schema.String,
+	packageId: PluginPackageId,
 	operationSlug: Schema.String,
 	type: Schema.Literal("operation-request"),
 });
