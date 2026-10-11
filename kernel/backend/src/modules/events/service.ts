@@ -1019,7 +1019,6 @@ export class EventsService extends Context.Service<EventsService>()("EventsServi
 				const updated = yield* repository.updatePreparedEvent({
 					...prepared.input,
 					draft: prepared.draft,
-					before: prepared.before,
 					expectedRevision: prepared.expectedRevision,
 					updatedAt: DateTime.toDate(DateTime.makeUnsafe(prepared.command.occurredAt)),
 					...(prepared.command.causation.eventStreamWorkId === undefined
@@ -1049,7 +1048,6 @@ export class EventsService extends Context.Service<EventsService>()("EventsServi
 			} else {
 				const deleted = yield* repository.deletePreparedEvent({
 					...prepared.input,
-					before: prepared.before,
 					expectedRevision: prepared.expectedRevision,
 					...(prepared.command.causation.eventStreamWorkId === undefined
 						? {}
