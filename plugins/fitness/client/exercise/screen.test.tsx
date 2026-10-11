@@ -431,9 +431,54 @@ describe("exercise details view", () => {
 			expect(request.operationSlug).toBe(exerciseOverrideUpdateOperationSlug);
 			expect(request.input).toEqual({
 				exerciseId: "exercise-1",
-				set: { normalRestTime: 30 },
-				remove: ["dropRestTime", "warmUpRestTime", "failureRestTime", "defaultDurationUnit"],
+				overrides: {
+					dropRestTime: null,
+					normalRestTime: 30,
+					warmUpRestTime: null,
+					failureRestTime: null,
+					defaultDurationUnit: null,
+				},
 			});
+			act(() => {
+				page.send({
+					outcome: "success",
+					type: "operation-result",
+					requestId: request.requestId,
+					value: { kind: "missing-exercise" },
+				});
+			});
+			yield* Effect.promise(() =>
+				waitFor(() =>
+					expect(within(dialog).getByText("This exercise is unavailable.")).toBeTruthy(),
+				),
+			);
+			expect(within(dialog).getByLabelText("Normal rest (seconds)")).toHaveProperty("value", "30");
+			click(within(dialog).getByRole("button", { name: "Save defaults" }));
+			const retried = yield* Effect.promise(() =>
+				waitFor(() => {
+					const operations = page
+						.clientMessages()
+						.filter((message) => message.type === "operation-request");
+					expect(operations).toHaveLength(2);
+					const retry = operations[1];
+					assert(retry);
+					return retry;
+				}),
+			);
+			expect(retried.input).toEqual(request.input);
+			act(() => {
+				page.send({
+					outcome: "success",
+					type: "operation-result",
+					value: { kind: "saved" },
+					requestId: retried.requestId,
+				});
+			});
+			yield* Effect.promise(() =>
+				waitFor(() =>
+					expect(screen.queryByRole("dialog", { name: "Exercise preferences" })).toBeNull(),
+				),
+			);
 		}),
 	);
 

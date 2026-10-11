@@ -20,6 +20,9 @@ it("resolves rest from explicit choice, exercise override, global setting, then 
 	expect(
 		resolveWorkoutRestTime({ settings, lot: "normal", overrides: { normalRestTime: 90 } }),
 	).toEqual({ seconds: 90, kind: "resolved" });
+	expect(
+		resolveWorkoutRestTime({ settings, lot: "normal", overrides: { normalRestTime: null } }),
+	).toEqual({ seconds: 60, kind: "resolved" });
 	expect(resolveWorkoutRestTime({ settings, overrides: {}, lot: "warm_up" })).toEqual({
 		seconds: 30,
 		kind: "resolved",

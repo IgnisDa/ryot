@@ -32,11 +32,7 @@ it.live(
 			});
 			yield* createExerciseEntityFixture(client, { kind: "duration", name: "Editor Timer" });
 			expect(
-				yield* updateExerciseOverrides(client, {
-					exerciseId,
-					remove: [],
-					set: { normalRestTime: 0 },
-				}),
+				yield* updateExerciseOverrides(client, { exerciseId, overrides: { normalRestTime: 0 } }),
 			).toEqual({ kind: "saved" });
 			const { pluginId } = yield* findFitnessEntitySchema(client, "workout");
 			const reference = { pluginId, kind: "local" as const };

@@ -63,27 +63,24 @@ function useExerciseDefaults(
 	const [pending, setPending] = useState(false);
 	const [error, setError] = useState<string>();
 	const save = () => {
-		const set = Schema.decodeUnknownResult(WorkoutExerciseOverridesSchema)({
+		const overrides = Schema.decodeUnknownResult(WorkoutExerciseOverridesSchema)({
 			...Object.fromEntries(
-				workoutRestFields.flatMap((field) =>
-					values[field]?.trim() ? [[field, Number(values[field])]] : [],
-				),
+				workoutRestFields.map((field) => [
+					field,
+					values[field]?.trim() ? Number(values[field].trim()) : null,
+				]),
 			),
-			...(duration === "inherited" ? {} : { defaultDurationUnit: duration }),
+			defaultDurationUnit: duration === "inherited" ? null : duration,
 		});
-		if (set._tag === "Failure") {
+		if (overrides._tag === "Failure") {
 			setError(
 				"Enter whole seconds of 0 or more, or leave a field blank to use your Fitness settings.",
 			);
 			return;
 		}
-		const decoded = Schema.decodeUnknownResult(ExerciseOverrideUpdateInputSchema)({
-			set: set.success,
+		const decoded = Schema.decodeResult(ExerciseOverrideUpdateInputSchema)({
+			overrides: overrides.success,
 			exerciseId: props.exerciseId,
-			remove: [
-				...workoutRestFields.filter((field) => !values[field]?.trim()),
-				...(duration === "inherited" ? ["defaultDurationUnit"] : []),
-			],
 		});
 		if (decoded._tag === "Failure") {
 			setError("These defaults are invalid.");
@@ -107,7 +104,7 @@ function useExerciseDefaults(
 								props.onSaved();
 								props.onClose();
 							} else {
-								setError("This exercise is unavailable or the defaults are invalid.");
+								setError("This exercise is unavailable.");
 							}
 						},
 					}),
