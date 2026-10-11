@@ -11,35 +11,23 @@ import {
 	createExerciseEntityFixture,
 	createMeasurementMetric,
 	createWorkoutTemplateEntityFixture,
+	discardDraft,
+	draftHeading,
 	findFitnessEntitySchema,
+	openFitnessPage,
 	readWorkoutDetails,
+	renameDraft,
+	saveDraft,
 	seedExerciseWorkout,
+	submitDraft,
 	updateExerciseOverrides,
 } from "~/fixtures/plugins/fitness";
 import { requirePresent } from "~/support/assertions";
-import { signInThroughHostedOAuth } from "~/support/browser";
+import { pluginFrame, signInThroughHostedOAuth } from "~/support/browser";
 import { expect, it } from "~/support/effect-test";
 import { getFrontendUrl } from "~/support/harness-target";
 
-const renameDraft = (frame: Playwright.FrameLocator, name: string) =>
-	Effect.gen(function* () {
-		yield* frame.getByRole("button", { exact: true, name: "Details" }).click();
-		const details = frame.getByRole("dialog", { exact: true, name: "Workout details" });
-		yield* details.getByRole("textbox", { exact: true, name: "Name" }).fill(name);
-		yield* details.getByRole("button", { exact: true, name: "Done" }).click();
-	});
-
-const draftHeading = (frame: Playwright.FrameLocator, name: string) =>
-	frame.getByRole("heading", { name, level: 1, exact: true });
-
-const discardDraft = (frame: Playwright.FrameLocator) =>
-	Effect.gen(function* () {
-		yield* frame.getByRole("button", { exact: true, name: "Discard workout" }).click();
-		yield* frame
-			.getByRole("dialog", { exact: true, name: "Discard workout?" })
-			.getByRole("button", { exact: true, name: "Discard workout" })
-			.click();
-	});
+const WORKOUT_DETAILS = "Workout details";
 
 it.live("dismisses a workout overlay with an edge swipe without leaving the draft", () =>
 	Effect.gen(function* () {
@@ -47,10 +35,9 @@ it.live("dismisses a workout overlay with an edge swipe without leaving the draf
 		const page = yield* (yield* Playwright.Browser).newPage();
 		yield* page.setViewportSize({ width: 390, height: 844 });
 		yield* signInThroughHostedOAuth(page, email, password);
-		yield* page.goto(`${getFrontendUrl()}/p/ryot/fitness/workouts/new`);
-		const frame = page.locator("iframe:visible").contentFrame();
+		const frame = yield* openFitnessPage(page, "/p/ryot/fitness/workouts/new");
 		yield* frame.getByRole("button", { exact: false, name: "Edit workout details" }).click();
-		const details = frame.getByRole("dialog", { exact: true, name: "Workout details" });
+		const details = frame.getByRole("dialog", { exact: true, name: WORKOUT_DETAILS });
 		yield* details.getByRole("textbox", { exact: true, name: "Name" }).fill("Swipe recovery");
 		yield* details.getByRole("button", { exact: true, name: "Done" }).click();
 		yield* frame.getByRole("button", { exact: true, name: "Add exercises" }).click();
@@ -65,9 +52,9 @@ it.live("dismisses a workout overlay with an edge swipe without leaving the draf
 		yield* frame
 			.getByRole("button", { exact: true, name: "Edit workout details, Swipe recovery" })
 			.waitFor({ state: "visible" });
-		expect(yield* page.getByRole("dialog", { exact: true, name: "Navigation" }).isVisible()).toBe(
-			false,
-		);
+		yield* page
+			.getByRole("dialog", { exact: true, name: "Navigation" })
+			.waitFor({ state: "hidden" });
 	}).pipe(PlaywrightSpawner.withBrowser),
 );
 
@@ -91,18 +78,14 @@ it.live("retains a competing historical edit instead of overwriting a newer save
 			[second, `${name} second`],
 		] as const) {
 			yield* signInThroughHostedOAuth(page, email, password);
-			yield* page.goto(`${getFrontendUrl()}/e/${workoutId}`);
-			const frame = page.locator("iframe:visible").contentFrame();
+			const frame = yield* openFitnessPage(page, `/e/${workoutId}`);
 			yield* frame.getByRole("button", { exact: true, name: "Edit" }).click();
-			yield* renameDraft(frame, editName);
+			yield* renameDraft(frame, WORKOUT_DETAILS, editName);
 		}
-		const firstFrame = first.locator("iframe:visible").contentFrame();
-		yield* firstFrame.getByRole("button", { exact: true, name: "Save" }).click();
-		yield* firstFrame.getByRole("button", { exact: true, name: "Save workout" }).click();
-		yield* first.waitForURL(`${getFrontendUrl()}/e/${workoutId}`);
-		const secondFrame = second.locator("iframe:visible").contentFrame();
-		yield* secondFrame.getByRole("button", { exact: true, name: "Save" }).click();
-		yield* secondFrame.getByRole("button", { exact: true, name: "Save workout" }).click();
+		const firstFrame = pluginFrame(first);
+		yield* saveDraft(first, firstFrame, { name: `${name} first`, confirm: "Save workout" });
+		const secondFrame = pluginFrame(second);
+		yield* submitDraft(secondFrame, { confirm: "Save workout" });
 		yield* secondFrame
 			.getByText("This workout changed elsewhere", { exact: true })
 			.waitFor({ state: "visible" });
@@ -117,8 +100,7 @@ it.live("keeps independently saved zero measurements when the workout is discard
 		const metric = yield* createMeasurementMetric(client, { name: "Weight" });
 		const page = yield* (yield* Playwright.Browser).newPage();
 		yield* signInThroughHostedOAuth(page, email, password);
-		yield* page.goto(`${getFrontendUrl()}/p/ryot/fitness/workouts/new`);
-		const frame = page.locator("iframe:visible").contentFrame();
+		const frame = yield* openFitnessPage(page, "/p/ryot/fitness/workouts/new");
 		yield* frame.getByRole("button", { exact: true, name: "Log measurement" }).click();
 		const measurement = frame.getByRole("dialog", { exact: true, name: "Log measurement" });
 		yield* measurement.getByLabel("Weight (kg)", { exact: true }).fill("0");
@@ -149,10 +131,9 @@ it.live("retries a committed workout after a lost response and reload without du
 		}
 		const page = yield* (yield* Playwright.Browser).newPage();
 		yield* signInThroughHostedOAuth(page, email, password);
-		yield* page.goto(`${getFrontendUrl()}/v/p/ryot/fitness/all-workouts`);
-		const frame = page.locator("iframe:visible").contentFrame();
+		const frame = yield* openFitnessPage(page, "/v/p/ryot/fitness/all-workouts");
 		yield* frame.getByRole("button", { exact: true, name: "Add" }).click();
-		yield* renameDraft(frame, name);
+		yield* renameDraft(frame, WORKOUT_DETAILS, name);
 		yield* frame.getByRole("button", { exact: true, name: "Add exercises" }).click();
 		const picker = frame.getByRole("dialog", { exact: true, name: "Add exercises" });
 		for (const exerciseName of [first, second]) {
@@ -190,9 +171,9 @@ it.live("retries a committed workout after a lost response and reload without du
 			.getByText("This action could not be completed.", { exact: false })
 			.waitFor({ state: "visible" });
 		yield* frame.getByRole("button", { exact: true, name: "Keep logging" }).last().click();
-		expect(yield* frame.getByRole("button", { exact: true, name: "Details" }).isDisabled()).toBe(
-			true,
-		);
+		yield* frame
+			.getByRole("button", { exact: true, disabled: true, name: "Details" })
+			.waitFor({ state: "visible" });
 		const { pluginId } = yield* findFitnessEntitySchema(client, "workout");
 		const recipe = workoutListRecipe({ limit: 100, reference: { pluginId, kind: "local" } });
 		const committed = (yield* executeRyotQLRecipe(client, recipe)).items.filter(
@@ -202,9 +183,7 @@ it.live("retries a committed workout after a lost response and reload without du
 		yield* page.reload;
 		yield* frame.getByRole("button", { exact: true, name: "Retry save" }).click();
 		yield* page.waitForURL((url) => url.pathname.startsWith("/e/"));
-		yield* frame
-			.getByRole("heading", { name, level: 1, exact: true })
-			.waitFor({ state: "visible" });
+		yield* draftHeading(frame, name).waitFor({ state: "visible" });
 		const workoutId = requirePresent(
 			new URL(page.url()).pathname.split("/").at(-1),
 			"Expected the saved workout URL",
@@ -240,10 +219,9 @@ it.live("repeats, recovers, saves and edits a workout through registered Fitness
 		const browser = yield* Playwright.Browser;
 		const page = yield* browser.newPage();
 		yield* signInThroughHostedOAuth(page, email, password);
-		yield* page.goto(`${getFrontendUrl()}/e/${workoutId}`);
-		const frame = page.locator("iframe:visible").contentFrame();
+		const frame = yield* openFitnessPage(page, `/e/${workoutId}`);
 		yield* frame.getByRole("button", { exact: true, name: "Repeat workout" }).click();
-		yield* renameDraft(frame, `${name} repeated`);
+		yield* renameDraft(frame, WORKOUT_DETAILS, `${name} repeated`);
 		yield* page.getByRole("link", { exact: true, name: "All Workouts" }).click();
 		yield* page.waitForURL(`${getFrontendUrl()}/v/p/ryot/fitness/all-workouts`);
 		yield* page.getByRole("button", { exact: true, name: "Resume workout" }).click();
@@ -252,28 +230,21 @@ it.live("repeats, recovers, saves and edits a workout through registered Fitness
 		yield* page.reload;
 		yield* draftHeading(frame, `${name} repeated`).waitFor({ state: "visible" });
 		yield* frame.getByRole("button", { exact: true, name: "Complete set 1" }).click();
-		yield* frame.getByRole("button", { exact: true, name: "Finish" }).click();
-		yield* frame.getByRole("button", { exact: true, name: "Save workout" }).click();
-		yield* page.waitForURL((url) => url.pathname.startsWith("/e/"));
-		yield* frame
-			.getByRole("heading", { level: 1, exact: true, name: `${name} repeated` })
-			.waitFor({ state: "visible" });
+		yield* saveDraft(page, frame, {
+			review: "Finish",
+			confirm: "Save workout",
+			name: `${name} repeated`,
+		});
 		yield* frame
 			.getByRole("link", { exact: false, name: `Repeated from ${name}` })
 			.waitFor({ state: "visible" });
 		yield* frame.getByText("Active duration", { exact: true }).waitFor({ state: "visible" });
 		yield* frame.getByRole("button", { exact: true, name: "Edit" }).click();
-		yield* renameDraft(frame, `${name} edited`);
-		yield* frame.getByRole("button", { exact: true, name: "Save" }).click();
-		yield* frame.getByRole("button", { exact: true, name: "Save workout" }).click();
-		yield* page.waitForURL((url) => url.pathname.startsWith("/e/"));
-		yield* frame
-			.getByRole("heading", { level: 1, exact: true, name: `${name} edited` })
-			.waitFor({ state: "visible" });
-		const savedId = requirePresent(
-			new URL(page.url()).pathname.split("/").at(-1),
-			"Expected a saved workout URL",
-		);
+		yield* renameDraft(frame, WORKOUT_DETAILS, `${name} edited`);
+		const savedId = yield* saveDraft(page, frame, {
+			name: `${name} edited`,
+			confirm: "Save workout",
+		});
 		const beforeCorrection = yield* readWorkoutDetails(client, savedId);
 		yield* frame.getByRole("button", { exact: true, name: "More workout actions" }).click();
 		yield* frame.getByRole("menuitem", { exact: true, name: "Adjust time" }).click();
@@ -305,10 +276,9 @@ it.live("starts workouts from list Add and templates while guarding another draf
 		const browser = yield* Playwright.Browser;
 		const page = yield* browser.newPage();
 		yield* signInThroughHostedOAuth(page, email, password);
-		yield* page.goto(`${getFrontendUrl()}/v/p/ryot/fitness/all-workouts`);
-		const frame = page.locator("iframe:visible").contentFrame();
+		const frame = yield* openFitnessPage(page, "/v/p/ryot/fitness/all-workouts");
 		yield* frame.getByRole("button", { exact: true, name: "Add" }).click();
-		yield* renameDraft(frame, "Retained new workout");
+		yield* renameDraft(frame, WORKOUT_DETAILS, "Retained new workout");
 		yield* page.goto(`${getFrontendUrl()}/e/${workoutTemplateId}`);
 		yield* frame.getByRole("button", { exact: true, name: "Start workout" }).click();
 		const guard = frame.getByRole("dialog", {
@@ -326,9 +296,7 @@ it.live("starts workouts from list Add and templates while guarding another draf
 		yield* frame.getByText("No workout in progress", { exact: true }).waitFor({ state: "visible" });
 		yield* page.goto(`${getFrontendUrl()}/e/${workoutTemplateId}`);
 		yield* frame.getByRole("button", { exact: false, name: "Edit template" }).click();
-		yield* frame
-			.getByText("Editing a saved workout", { exact: true })
-			.count.pipe(Effect.map((count) => expect(count).toBe(0)));
 		yield* frame.getByText("Planning a template", { exact: true }).waitFor({ state: "visible" });
+		expect(yield* frame.getByText("Editing a saved workout", { exact: true }).count).toBe(0);
 	}).pipe(PlaywrightSpawner.withBrowser),
 );
