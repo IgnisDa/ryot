@@ -99,7 +99,7 @@ export function MediaDetailBody<
 	}
 	const { summary } = state;
 	return (
-		<div className="grid gap-7">
+		<div className="grid grid-cols-[minmax(0,1fr)] gap-7">
 			{props.summaryRefreshStatus}
 			<MediaSummaryHeader
 				media={summary}

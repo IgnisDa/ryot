@@ -131,7 +131,9 @@ function MediaIdentity(props: {
 					))}
 				</div>
 			)}
-			{labelledFacts.length === 0 ? null : <MediaFactRow compact={compact} facts={labelledFacts} />}
+			{compact || labelledFacts.length === 0 ? null : (
+				<MediaFactRow compact={false} facts={labelledFacts} />
+			)}
 			{detail.links.length === 0 ? null : (
 				<div className="flex flex-wrap gap-x-4 gap-y-2">
 					{detail.links.map((link) => (
@@ -238,12 +240,14 @@ export function MediaSummaryHeader(props: {
 	);
 	const rail = <MediaStatusRail media={media} config={detail.rail} />;
 	if (compact) {
+		const labelledFacts = detail.facts.filter((fact) => fact.inline !== true);
 		return (
-			<div className="grid gap-5">
+			<div className="grid grid-cols-[minmax(0,1fr)] gap-5">
 				<div className="flex items-start gap-4">
 					<div className="w-28 shrink-0">{art}</div>
 					{identity}
 				</div>
+				{labelledFacts.length === 0 ? null : <MediaFactRow compact facts={labelledFacts} />}
 				{content}
 				{rail}
 			</div>
