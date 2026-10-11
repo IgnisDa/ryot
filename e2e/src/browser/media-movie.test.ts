@@ -9,6 +9,7 @@ import {
 	createEventFixture,
 	listEventSchemas,
 	requireEventSchemaBySlug,
+	waitForEventWithSchema,
 } from "~/fixtures/kernel";
 import {
 	findMediaEntitySchema,
@@ -267,5 +268,61 @@ it.live("renders the Movie presentation facts in the canonical saved view", () =
 			.contentFrame()
 			.getByRole("heading", { level: 1, exact: true, name: movieName })
 			.waitFor({ state: "visible", timeout: 150_000 });
+	}).pipe(PlaywrightSpawner.withBrowser),
+);
+
+it.live("logs a finished Movie from the Log activity sheet without a reload", () =>
+	Effect.gen(function* () {
+		const apiUrl = getApiUrl();
+		const frontendUrl = getFrontendUrl();
+		const suffix = crypto.randomUUID();
+		const movieName = `Logger Tracer Movie ${suffix}`;
+		const { email, client, password } = yield* createAuthenticatedClient(apiUrl);
+		const seeded = yield* seedGlobalMovieWithCollection(client, {
+			movieName,
+			siblingName: `Logger Tracer Sequel ${suffix}`,
+			collectionName: `Logger Tracer Collection ${suffix}`,
+			movieProperties: { runtime: 101, publishYear: 2010 },
+		});
+		yield* insertLibraryMembership(client, { mediaEntityId: seeded.movie.id });
+		const events = yield* movieEventSchemas(client);
+
+		const browser = yield* Playwright.Browser;
+		const page = yield* browser.newPage({ viewport: { width: 1280, height: 900 } });
+		yield* signInThroughHostedOAuth(page, email, password);
+		yield* page.goto(`${frontendUrl}/e/${seeded.movie.id}`);
+		const media = page.locator('iframe[title="Media plugin"]').contentFrame();
+		yield* media
+			.getByRole("heading", { level: 1, exact: true, name: movieName })
+			.waitFor({ state: "visible", timeout: 150_000 });
+
+		yield* media.getByRole("button", { exact: true, name: "Log activity" }).click();
+		const dialog = media.getByRole("dialog", { name: "Log activity" });
+		yield* dialog.waitFor({ state: "visible" });
+		yield* dialog
+			.getByRole("radiogroup", { name: "What happened" })
+			.getByRole("radio", { name: "Finished" })
+			.waitFor({ state: "visible" });
+		yield* dialog.getByRole("radio", { name: "Just now" }).waitFor({ state: "visible" });
+		yield* dialog.getByRole("button", { exact: true, name: "Mark as watched" }).click();
+		yield* dialog
+			.getByText(`${movieName} marked as watched.`, { exact: true })
+			.waitFor({ state: "visible" });
+		yield* dialog.getByRole("button", { exact: true, name: "Done" }).click();
+		yield* dialog.waitFor({ state: "hidden" });
+
+		const body = media.locator("body");
+		yield* body
+			.getByText("Your status", { exact: true })
+			.locator("../..")
+			.getByText("Complete", { exact: true })
+			.waitFor({ state: "visible" });
+		yield* media.getByRole("tab", { name: "Activity" }).click();
+		const record = media.getByRole("list", { name: "Watch record" });
+		yield* record.getByText("Finished the movie", { exact: true }).waitFor({ state: "visible" });
+		expect(yield* record.getByText("Finished the movie", { exact: true }).count).toBe(1);
+
+		const complete = yield* waitForEventWithSchema(client, seeded.movie.id, events.complete);
+		expect(complete.eventSchemaSlug).toBe(events.complete);
 	}).pipe(PlaywrightSpawner.withBrowser),
 );
