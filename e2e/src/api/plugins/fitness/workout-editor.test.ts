@@ -1,4 +1,4 @@
-import type { EntityId } from "@ryot-app/contract/schema/brands";
+import { SignalSchemaSlug, UserId, type EntityId } from "@ryot-app/contract/schema/brands";
 import { workoutListRecipe } from "@ryot-app/fitness-plugin/query-recipes";
 import {
 	encodeWorkoutEditorBaseline,
@@ -15,6 +15,8 @@ import {
 	createEntity,
 	executeRyotQLRecipe,
 	listEventsForEntity,
+	listSignalTriggers,
+	pollSignalTrigger,
 	waitForCreateEvents,
 } from "~/fixtures/kernel";
 import type { Client } from "~/fixtures/kernel/auth";
@@ -347,6 +349,65 @@ describe("Workout editor E2E", () => {
 			expect(
 				completedEvents.filter(({ eventSchemaSlug }) => eventSchemaSlug === "workout-completed"),
 			).toHaveLength(1);
+		}),
+	);
+
+	it.live("emits one workout.created signal for a new workout and none for its edit", () =>
+		Effect.gen(function* () {
+			const { client, userId: rawUserId } = yield* createAuthenticatedClient();
+			const userId = UserId.make(rawUserId);
+			const { exerciseId } = yield* createExerciseEntityFixture(client);
+			const { schema } = yield* findFitnessEntitySchema(client, "workout");
+			const filter = {
+				actorUserId: userId,
+				signalSchema: {
+					owner: schema.reference.owner,
+					slug: SignalSchemaSlug.make("workout.created"),
+				},
+			};
+			const created = yield* workoutSave(
+				client,
+				workoutData({ occurrences: [workoutOccurrence(exerciseId, [workoutSet()])] }),
+			);
+			assertCondition(created.kind === "saved", "Expected the new workout to save");
+
+			const signal = yield* pollSignalTrigger(filter);
+			expect(signal.payload.properties["workoutId"]).toBe(created.entityId);
+			expect(yield* listSignalTriggers(filter)).toHaveLength(1);
+
+			const baseline = yield* loadWorkoutBaseline(client, created.entityId);
+			const originalSet = requirePresent(baseline.baseline.sets[0], "Expected the created set");
+			const editedName = `${baseline.baseline.entity.name} edited`;
+			const edited = yield* workoutSave(
+				client,
+				workoutData({
+					name: editedName,
+					target: {
+						kind: "update",
+						entityId: created.entityId,
+						conflictToken: baseline.conflictToken,
+					},
+					occurrences: [
+						workoutOccurrence(
+							exerciseId,
+							[
+								workoutSet({
+									eventId: originalSet.id,
+									occurredAt: originalSet.occurredAt,
+									measurements: { reps: 5, weight: 20 },
+								}),
+							],
+							{ sourceExerciseOrder: 0 },
+						),
+					],
+				}),
+			);
+			assertCondition(edited.kind === "saved", "Expected the workout edit to save");
+			expect((yield* loadWorkoutBaseline(client, created.entityId)).baseline.entity.name).toBe(
+				editedName,
+			);
+
+			expect(yield* listSignalTriggers(filter)).toHaveLength(1);
 		}),
 	);
 
