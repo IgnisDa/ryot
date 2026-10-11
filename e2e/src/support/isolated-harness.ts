@@ -1,4 +1,4 @@
-import { Effect } from "effect";
+import { Effect, Exit, Scope } from "effect";
 import getPort from "get-port";
 
 import { requirePresent } from "./assertions";
@@ -60,37 +60,51 @@ export const retargetHarness = (input: {
 		return Effect.sync(() => setHarnessTarget(previous)).pipe(Effect.asVoid);
 	});
 
+export const startIsolatedApiServer = Effect.fn("startIsolatedApiServer")(function* (input: {
+	readonly label: string;
+	readonly extraEnv?: Record<string, string | undefined>;
+}) {
+	const bucketName = `ryot-${input.label.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`;
+	const [infrastructure, port] = yield* Effect.all(
+		[
+			Effect.acquireRelease(startCoreTestInfrastructure({ bucketName }), (started) =>
+				stopCoreTestInfrastructure(started).pipe(Effect.ignore),
+			),
+			Effect.promise(() => getPort()),
+		],
+		{ concurrency: "unbounded" },
+	);
+	const origin = `http://127.0.0.1:${port}`;
+	const env = buildApiEnv({
+		port,
+		label: input.label,
+		frontendUrl: origin,
+		s3BucketName: bucketName,
+		dbUrl: infrastructure.dbUrl,
+		redisUrl: infrastructure.redisUrl,
+		s3Endpoint: infrastructure.s3Endpoint,
+		extraEnv: { ...harnessApiEnv, ...input.extraEnv },
+	});
+	const apiProcess = yield* Effect.acquireRelease(
+		Effect.sync(() => spawnApiProcess(env)),
+		stopApiProcess,
+	);
+	yield* waitForHealthCheck(`${origin}/api/system/health`, input.label, apiProcess, 90);
+	return { env, origin, pid: apiProcess.pid, apiUrl: `${origin}/api` };
+});
+
 export const startIsolatedHarness = (label: string) =>
 	Effect.gen(function* () {
-		const bucketName = `ryot-${label.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`;
-		const [infrastructure, port] = yield* Effect.all(
-			[startCoreTestInfrastructure({ bucketName }), Effect.promise(() => getPort())],
-			{ concurrency: "unbounded" },
-		);
-		const origin = `http://127.0.0.1:${port}`;
-		const env = buildApiEnv({
-			port,
-			label,
-			frontendUrl: origin,
-			extraEnv: harnessApiEnv,
-			s3BucketName: bucketName,
-			dbUrl: infrastructure.dbUrl,
-			redisUrl: infrastructure.redisUrl,
-			s3Endpoint: infrastructure.s3Endpoint,
-		});
-		const apiProcess = spawnApiProcess(env);
-		const stopServices = Effect.gen(function* () {
-			yield* stopApiProcess(apiProcess);
-			yield* stopCoreTestInfrastructure(infrastructure).pipe(Effect.ignore);
-		});
-		yield* waitForHealthCheck(`${origin}/api/system/health`, label, apiProcess, 90).pipe(
-			Effect.onError(() => stopServices),
+		const scope = Scope.makeUnsafe();
+		const server = yield* startIsolatedApiServer({ label }).pipe(
+			Effect.provideService(Scope.Scope, scope),
+			Effect.onError(() => Scope.close(scope, Exit.void)),
 		);
 		const restoreTarget = yield* retargetHarness({
-			origin,
-			serverPid: apiProcess.pid,
-			serverLogFile: env.SERVER_LOG_FILE,
-			adminAccessToken: requirePresent(env.SERVER_ADMIN_ACCESS_TOKEN, "Admin token missing"),
+			serverPid: server.pid,
+			origin: server.origin,
+			serverLogFile: server.env.SERVER_LOG_FILE,
+			adminAccessToken: requirePresent(server.env.SERVER_ADMIN_ACCESS_TOKEN, "Admin token missing"),
 		});
-		return { stop: restoreTarget.pipe(Effect.andThen(stopServices)) };
+		return { stop: restoreTarget.pipe(Effect.andThen(Scope.close(scope, Exit.void))) };
 	});

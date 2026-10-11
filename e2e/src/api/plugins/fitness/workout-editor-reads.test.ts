@@ -11,8 +11,12 @@ import { createAuthenticatedClient, executeRyotQLRecipe } from "~/fixtures/kerne
 import {
 	createExerciseEntityFixture,
 	findFitnessEntitySchema,
+	operationInput,
 	saveWorkoutEditor,
 	updateExerciseOverrides,
+	workoutData,
+	workoutOccurrence,
+	workoutSet,
 } from "~/fixtures/plugins/fitness";
 import { assertCondition } from "~/support/assertions";
 import { expect, it } from "~/support/effect-test";
@@ -64,37 +68,31 @@ it.live(
 				["2026-10-02", [30, 40]],
 			] as const) {
 				const timestamp = `${day}T10:00:00.000Z`;
-				const saved = yield* saveWorkoutEditor(client, {
-					submittedAt: timestamp,
-					submissionId: crypto.randomUUID(),
-					data: {
-						images: [],
-						videos: [],
-						supersets: [],
-						kind: "workout",
-						startedAt: timestamp,
-						name: `Session ${day}`,
-						target: { kind: "create" },
-						activeDuration: { kind: "preserve" },
-						occurrences: weights.map((weight, index) => ({
-							notes: [],
-							exerciseId,
-							images: [],
-							videos: [],
-							clientId: `occurrence-${index}`,
-							sets: [
-								{
-									setLot: "normal",
-									occurredAt: timestamp,
-									confirmedAt: timestamp,
-									clientId: `set-${index}`,
-									exerciseKind: "reps_and_weight",
-									measurements: { weight, reps: 5 },
-								},
-							],
-						})),
-					},
-				});
+				const saved = yield* saveWorkoutEditor(
+					client,
+					operationInput(
+						workoutData({
+							startedAt: timestamp,
+							name: `Session ${day}`,
+							occurrences: weights.map((weight, index) =>
+								workoutOccurrence(
+									exerciseId,
+									[
+										workoutSet({
+											occurredAt: timestamp,
+											confirmedAt: timestamp,
+											clientId: `set-${index}`,
+											measurements: { weight, reps: 5 },
+										}),
+									],
+									{ clientId: `occurrence-${index}` },
+								),
+							),
+						}),
+						undefined,
+						timestamp,
+					),
+				);
 				assertCondition(saved.kind === "saved", "Expected a saved workout");
 			}
 			const history = yield* executeRyotQLRecipe(

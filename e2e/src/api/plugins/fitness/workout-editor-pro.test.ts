@@ -1,119 +1,28 @@
 import type { EntityId } from "@ryot-app/contract/schema/brands";
-import {
-	encodeWorkoutEditorBaseline,
-	type WorkoutEditorBaseline,
-	workoutEditorEntityRecipe,
-	workoutEditorLinksRecipe,
-	workoutEditorSetsRecipe,
-} from "@ryot-app/fitness-plugin/workout-editor-recipes";
+import { workoutEditorLinksRecipe } from "@ryot-app/fitness-plugin/workout-editor-recipes";
 import { DateTime, Effect, Exit, Scope } from "effect";
 
 import { createAuthenticatedClient, executeRyotQLRecipe } from "~/fixtures/kernel";
-import type { Client } from "~/fixtures/kernel/auth";
 import {
 	createExerciseEntityFixture,
-	findFitnessEntitySchema,
+	editTarget,
+	keepSet,
+	loadWorkoutBaseline,
+	operationInput,
 	saveWorkoutEditor,
+	templateData,
+	type WorkoutData,
+	workoutData,
 	workoutEditorProServer,
+	workoutEditorTimes,
+	workoutOccurrence,
+	workoutReference,
+	workoutSet,
 } from "~/fixtures/plugins/fitness";
 import { assertCondition, requirePresent } from "~/support/assertions";
 import { afterAll, beforeAll, describe, expect, it, runPromise } from "~/support/effect-test";
 
-const startedAt = "2026-10-01T10:00:00.000Z";
-const occurredAt = "2026-10-01T10:15:00.000Z";
-
-type SaveInput = Parameters<typeof saveWorkoutEditor>[1];
-type WorkoutData = Extract<SaveInput["data"], { kind: "workout" }>;
-type WorkoutSetInput = WorkoutData["occurrences"][number]["sets"][number];
-type TemplateData = Extract<SaveInput["data"], { kind: "template" }>;
-
-const workoutReference = (client: Client) =>
-	findFitnessEntitySchema(client, "workout").pipe(
-		Effect.map(({ pluginId }) => ({ pluginId, kind: "local" as const })),
-	);
-
-const loadEditorBaseline = (
-	client: Client,
-	entityId: string,
-	kind: "workout" | "workout-template" = "workout",
-) =>
-	Effect.gen(function* () {
-		const reference = yield* workoutReference(client);
-		const entity = requirePresent(
-			yield* executeRyotQLRecipe(client, workoutEditorEntityRecipe({ kind, entityId, reference })),
-			`Expected workout editor entity ${entityId}`,
-		);
-		const sets: WorkoutEditorBaseline["sets"][number][] = [];
-		let after: string | undefined;
-		let hasMore: boolean;
-		do {
-			const page = yield* executeRyotQLRecipe(
-				client,
-				workoutEditorSetsRecipe({ after, reference, workoutId: entityId }),
-			);
-			sets.push(...page.items);
-			hasMore = page.pageInfo.hasMore;
-			if (hasMore) {
-				after = requirePresent(page.pageInfo.nextCursor, "Expected the next workout set cursor");
-			}
-		} while (hasMore);
-		const baseline = { sets, entity };
-		return { baseline, conflictToken: encodeWorkoutEditorBaseline(baseline) };
-	});
-
-const workoutData = (overrides: Partial<WorkoutData> = {}): WorkoutData => ({
-	startedAt,
-	images: [],
-	videos: [],
-	supersets: [],
-	kind: "workout",
-	occurrences: [],
-	target: { kind: "create" },
-	activeDuration: { kind: "preserve" },
-	name: `Pro Workout ${crypto.randomUUID()}`,
-	...overrides,
-});
-
-const workoutSet = (overrides: Partial<WorkoutSetInput> = {}): WorkoutSetInput => ({
-	setLot: "normal",
-	occurredAt: occurredAt,
-	confirmedAt: occurredAt,
-	exerciseKind: "reps_and_weight",
-	measurements: { reps: 0, weight: 0 },
-	clientId: `set-${crypto.randomUUID()}`,
-	...overrides,
-});
-
-const workoutOccurrence = (
-	exerciseId: EntityId,
-	sets: WorkoutSetInput[],
-	overrides: Partial<WorkoutData["occurrences"][number]> = {},
-): WorkoutData["occurrences"][number] => ({
-	sets,
-	notes: [],
-	images: [],
-	videos: [],
-	exerciseId,
-	clientId: `occurrence-${crypto.randomUUID()}`,
-	...overrides,
-});
-
-const templateData = (overrides: Partial<TemplateData> = {}): TemplateData => ({
-	images: [],
-	videos: [],
-	supersets: [],
-	occurrences: [],
-	kind: "template",
-	target: { kind: "create" },
-	name: `Pro Workout Template ${crypto.randomUUID()}`,
-	...overrides,
-});
-
-const operationInput = (
-	data: SaveInput["data"],
-	submissionId = crypto.randomUUID(),
-	submittedAt = new Date().toISOString(),
-): SaveInput => ({ data, submittedAt, submissionId });
+const { setOccurredAt: occurredAt } = workoutEditorTimes;
 
 const scope = Scope.makeUnsafe();
 let apiUrl: string;
@@ -182,7 +91,7 @@ describe("Workout editor with a valid Pro key", () => {
 				const created = yield* saveWorkoutEditor(client, createInput);
 				assertCondition(created.kind === "saved", "Expected the Pro template to save");
 				expect(yield* saveWorkoutEditor(client, createInput)).toEqual(created);
-				const baseline = yield* loadEditorBaseline(client, created.entityId, "workout-template");
+				const baseline = yield* loadWorkoutBaseline(client, created.entityId, "workout-template");
 				expect(baseline.baseline.entity.properties["exercises"]).toMatchObject([
 					{
 						exerciseId: weightedExerciseId,
@@ -197,11 +106,7 @@ describe("Workout editor with a valid Pro key", () => {
 				const editInput = operationInput(
 					templateData({
 						name: `${name} edited`,
-						target: {
-							kind: "update",
-							entityId: created.entityId,
-							conflictToken: baseline.conflictToken,
-						},
+						target: editTarget(baseline),
 						occurrences: [
 							{
 								images: [],
@@ -248,7 +153,7 @@ describe("Workout editor with a valid Pro key", () => {
 					}),
 				).toEqual({ kind: "conflict" });
 
-				const current = yield* loadEditorBaseline(client, created.entityId, "workout-template");
+				const current = yield* loadWorkoutBaseline(client, created.entityId, "workout-template");
 				expect(current.baseline.entity.name).toBe(`${name} edited`);
 				expect(current.baseline.entity.properties["exercises"]).toMatchObject([
 					{
@@ -358,43 +263,34 @@ describe("Workout editor with a valid Pro key", () => {
 				),
 			);
 			assertCondition(created.kind === "saved", "Expected the source workout save");
-			const baseline = yield* loadEditorBaseline(client, created.entityId);
+			const baseline = yield* loadWorkoutBaseline(client, created.entityId);
 			const originalSet = requirePresent(
 				baseline.baseline.sets[0],
 				"Expected the confirmed source set",
 			);
-			const replacementData = (exerciseId: EntityId, conflictToken: string): WorkoutData =>
+			const replacementData = (
+				exerciseId: EntityId,
+				loaded: Parameters<typeof editTarget>[0],
+			): WorkoutData =>
 				workoutData({
+					target: editTarget(loaded),
 					name: baseline.baseline.entity.name,
-					target: { conflictToken, kind: "update", entityId: created.entityId },
 					occurrences: [
-						workoutOccurrence(
-							exerciseId,
-							[
-								workoutSet({
-									eventId: originalSet.id,
-									confirmedAt: occurredAt,
-									occurredAt: originalSet.occurredAt,
-									measurements: { reps: 0, weight: 0 },
-								}),
-							],
-							{
-								sourceExerciseOrder: 0,
-								images: [{ type: "remote", url: "https://example.com/replacement.jpg" }],
-								videos: [{ type: "remote", url: "https://example.com/replacement.mp4" }],
-							},
-						),
+						workoutOccurrence(exerciseId, [keepSet(originalSet)], {
+							sourceExerciseOrder: 0,
+							images: [{ type: "remote", url: "https://example.com/replacement.jpg" }],
+							videos: [{ type: "remote", url: "https://example.com/replacement.mp4" }],
+						}),
 					],
 				});
 
 			const replaced = yield* saveWorkoutEditor(
 				client,
-				operationInput(replacementData(replacementExerciseId, baseline.conflictToken)),
+				operationInput(replacementData(replacementExerciseId, baseline)),
 			);
-			expect(replaced).toMatchObject({ kind: "saved" });
 			assertCondition(replaced.kind === "saved", "Expected compatible Pro replacement to save");
 			expect(replaced.sets.map(({ eventId }) => eventId)).toEqual([originalSet.id]);
-			const replacedBaseline = yield* loadEditorBaseline(client, created.entityId);
+			const replacedBaseline = yield* loadWorkoutBaseline(client, created.entityId);
 			const replacedSet = requirePresent(
 				replacedBaseline.baseline.sets[0],
 				"Expected the set after compatible replacement",
@@ -415,14 +311,14 @@ describe("Workout editor with a valid Pro key", () => {
 
 			const incompatible = yield* saveWorkoutEditor(
 				client,
-				operationInput(replacementData(incompatibleExerciseId, replacedBaseline.conflictToken)),
+				operationInput(replacementData(incompatibleExerciseId, replacedBaseline)),
 			);
 			expect(incompatible).toEqual({
 				canEdit: true,
 				kind: "invalid",
 				code: "invalid-exercise-kind",
 			});
-			const unchanged = yield* loadEditorBaseline(client, created.entityId);
+			const unchanged = yield* loadWorkoutBaseline(client, created.entityId);
 			expect(unchanged.baseline.sets[0]?.entityId).toBe(replacementExerciseId);
 		}),
 	);
@@ -442,7 +338,7 @@ describe("Workout editor with a valid Pro key", () => {
 				),
 			);
 			assertCondition(noted.kind === "saved", "Expected Pro set note save");
-			const notedBaseline = yield* loadEditorBaseline(client, noted.entityId);
+			const notedBaseline = yield* loadWorkoutBaseline(client, noted.entityId);
 			expect(notedBaseline.baseline.sets[0]?.properties).toMatchObject({
 				note: "Pro training note",
 			});

@@ -15,8 +15,10 @@ export const seedExerciseWorkout = (
 		exerciseId: EntityId;
 		name: string;
 		startedAt: string;
-		endedAt: string;
+		endedAt?: string;
+		timeoutMs?: number;
 		exerciseNotes?: JsonValue;
+		properties?: Record<string, JsonValue>;
 		sets: ReadonlyArray<{ occurredAt: string; properties: Record<string, JsonValue> }>;
 	},
 ) =>
@@ -27,8 +29,9 @@ export const seedExerciseWorkout = (
 			name: input.name,
 			entitySchema: workoutSchema.reference,
 			properties: {
-				endedAt: input.endedAt,
 				startedAt: input.startedAt,
+				...(input.endedAt === undefined ? {} : { endedAt: input.endedAt }),
+				...input.properties,
 				...(input.exerciseNotes === undefined ? {} : { exerciseNotes: input.exerciseNotes }),
 			},
 		});
@@ -43,6 +46,6 @@ export const seedExerciseWorkout = (
 				})),
 			}),
 		);
-		yield* waitForCreateEvents(client, response);
-		return { workoutId: workout.id };
+		const created = yield* waitForCreateEvents(client, response, input.timeoutMs);
+		return { created, workoutId: workout.id };
 	});

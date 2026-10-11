@@ -1,5 +1,3 @@
-import type { ContractPayload } from "@ryot-app/contract/client";
-import { pluginPackageSegments } from "@ryot-app/contract/schema/brands";
 import {
 	measurementMetricCreateRecipe,
 	measurementMetricPinRecipe,
@@ -7,8 +5,7 @@ import {
 	measurementReadingLogRecipe,
 	measurementReadingUpdateRecipe,
 } from "@ryot-app/fitness-plugin/contracts/operation-recipes";
-import type { OperationRecipe } from "@ryot-app/plugin-kit/operations";
-import { Effect, Schema } from "effect";
+import { Effect } from "effect";
 
 import type { Client } from "~/fixtures/kernel/auth";
 import { createEntity } from "~/fixtures/kernel/entities";
@@ -16,47 +13,24 @@ import { listEventSchemas, requireEventSchemaBySlug } from "~/fixtures/kernel/ev
 import { waitForCreateEvents } from "~/fixtures/kernel/events";
 
 import { findFitnessEntitySchema } from "./exercises";
-
-type InvokePayload = ContractPayload<"plugins", "invoke">["payload"];
-
-const invokeMeasurementOperation = <
-	Input,
-	InputEncoded extends InvokePayload,
-	Output,
-	OutputEncoded,
->(
-	client: Client,
-	recipe: OperationRecipe<Input, InputEncoded, Output, OutputEncoded>,
-	payload: InputEncoded,
-) =>
-	client
-		.call((contract) =>
-			contract.plugins.invoke({
-				payload: { payload },
-				params: { ...pluginPackageSegments(recipe.packageId), operationSlug: recipe.operationSlug },
-			}),
-		)
-		.pipe(Effect.flatMap(({ result }) => Schema.decodeUnknownEffect(recipe.output)(result)));
-
-type RecipeInput<Recipe extends { readonly input: { readonly Encoded: unknown } }> =
-	Recipe["input"]["Encoded"];
+import { invokeFitnessOperation, type RecipeInput } from "./operation-transport";
 
 export const createMeasurementMetric = (
 	client: Client,
 	input: RecipeInput<typeof measurementMetricCreateRecipe>,
-) => invokeMeasurementOperation(client, measurementMetricCreateRecipe, input);
+) => invokeFitnessOperation(client, measurementMetricCreateRecipe, input);
 
 export const pinMeasurementMetric = (
 	client: Client,
 	input: RecipeInput<typeof measurementMetricPinRecipe>,
-) => invokeMeasurementOperation(client, measurementMetricPinRecipe, input);
+) => invokeFitnessOperation(client, measurementMetricPinRecipe, input);
 
 export const logMeasurementReadings = (
 	client: Client,
 	input: Omit<RecipeInput<typeof measurementReadingLogRecipe>, "submissionId" | "submittedAt"> &
 		Partial<Pick<RecipeInput<typeof measurementReadingLogRecipe>, "submissionId" | "submittedAt">>,
 ) =>
-	invokeMeasurementOperation(client, measurementReadingLogRecipe, {
+	invokeFitnessOperation(client, measurementReadingLogRecipe, {
 		...input,
 		submissionId: input.submissionId ?? crypto.randomUUID(),
 		submittedAt: input.submittedAt ?? new Date().toISOString(),
@@ -65,12 +39,12 @@ export const logMeasurementReadings = (
 export const updateMeasurementReadings = (
 	client: Client,
 	input: RecipeInput<typeof measurementReadingUpdateRecipe>,
-) => invokeMeasurementOperation(client, measurementReadingUpdateRecipe, input);
+) => invokeFitnessOperation(client, measurementReadingUpdateRecipe, input);
 
 export const deleteMeasurementReadings = (
 	client: Client,
 	input: RecipeInput<typeof measurementReadingDeleteRecipe>,
-) => invokeMeasurementOperation(client, measurementReadingDeleteRecipe, input);
+) => invokeFitnessOperation(client, measurementReadingDeleteRecipe, input);
 
 export const createMeasurementReadingFixture = (client: Client) =>
 	Effect.gen(function* () {

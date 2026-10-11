@@ -163,23 +163,10 @@ describe("POST /uploads/cleanup", () => {
 				c.uploads.resolveDownloads({ payload: { assets: [asset] } }),
 			);
 			expect(resolutions[0]?.asset).toEqual(asset);
-			const orphan = yield* client.call((c) =>
-				c.uploads.createIntent({
-					payload: { kind: "permanent", fileName: "retired.png", contentType: "image/png" },
-				}),
-			);
-			const uploaded = yield* webRequest(new URL(orphan.uploadUrl, `${getApiUrl()}/`), {
-				method: orphan.method,
-				headers: orphan.headers,
-				body: "synthetic-image",
+			const retired = yield* uploadPermanentAsset(client, {
+				fileName: "retired.png",
+				contentType: "image/png",
 			});
-			expect([200, 204]).toContain(uploaded.status);
-			const retired = yield* client.call((c) =>
-				c.uploads.completeIntent({ params: { intentId: orphan.intentId } }),
-			);
-			if (!("key" in retired)) {
-				throw new Error("Expected permanent asset");
-			}
 			expect(yield* client.call((c) => c.uploads.cleanup({ payload: { asset: retired } }))).toEqual(
 				{ status: "deleted" },
 			);

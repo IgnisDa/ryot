@@ -4,46 +4,11 @@ import {
 	workoutDetailsSetsRecipe,
 	type WorkoutDetails,
 } from "@ryot-app/fitness-plugin/workout-details-recipes";
-import type { Recipe } from "@ryot-app/plugin-kit/ryotql";
 import { Effect } from "effect";
 
-import { executeRyotQLRecipe, getEntity } from "~/fixtures/kernel";
+import { collectRyotQLRecipeItems, executeRyotQLRecipe, getEntity } from "~/fixtures/kernel";
 import type { Client } from "~/fixtures/kernel/auth";
-import { assertCondition, requirePresent } from "~/support/assertions";
-
-type PageInfo = Recipe.Success<typeof workoutDetailsExercisesRecipe>["pageInfo"];
-const readAllPages = <Item, Error, Requirements>(
-	readPage: (
-		after: string | undefined,
-	) => Effect.Effect<
-		{ readonly items: ReadonlyArray<Item>; readonly pageInfo: PageInfo },
-		Error,
-		Requirements
-	>,
-) =>
-	Effect.gen(function* () {
-		const items: Item[] = [];
-		const cursors = new Set<string>();
-		let after: string | undefined;
-		let hasMore: boolean;
-
-		do {
-			const page = yield* readPage(after);
-			items.push(...page.items);
-			hasMore = page.pageInfo.hasMore;
-			if (hasMore) {
-				const nextCursor = page.pageInfo.nextCursor;
-				assertCondition(nextCursor !== null, "Paginated workout details have no next cursor");
-				assertCondition(
-					!cursors.has(nextCursor),
-					"Paginated workout details repeated a next cursor",
-				);
-				cursors.add(nextCursor);
-				after = nextCursor;
-			}
-		} while (hasMore);
-		return items;
-	});
+import { requirePresent } from "~/support/assertions";
 
 export const readWorkoutDetails = (client: Client, workoutId: string) =>
 	Effect.gen(function* () {
@@ -60,11 +25,11 @@ export const readWorkoutDetails = (client: Client, workoutId: string) =>
 			yield* executeRyotQLRecipe(client, workoutDetailsRecipe({ reference, workoutId })),
 			`Expected workout ${workoutId}`,
 		);
-		const exercises = yield* readAllPages((after) =>
-			executeRyotQLRecipe(client, workoutDetailsExercisesRecipe({ after, reference, workoutId })),
+		const exercises = yield* collectRyotQLRecipeItems(client, (after) =>
+			workoutDetailsExercisesRecipe({ after, reference, workoutId }),
 		);
-		const sets = yield* readAllPages((after) =>
-			executeRyotQLRecipe(client, workoutDetailsSetsRecipe({ after, reference, workoutId })),
+		const sets = yield* collectRyotQLRecipeItems(client, (after) =>
+			workoutDetailsSetsRecipe({ after, reference, workoutId }),
 		);
 		const detailsExercises = yield* Effect.forEach(exercises, (exercise) =>
 			Effect.gen(function* () {
@@ -72,16 +37,13 @@ export const readWorkoutDetails = (client: Client, workoutId: string) =>
 				const previousSets =
 					previousWorkoutId === null
 						? []
-						: yield* readAllPages((after) =>
-								executeRyotQLRecipe(
-									client,
-									workoutDetailsSetsRecipe({
-										after,
-										reference,
-										exerciseId: exercise.id,
-										workoutId: previousWorkoutId,
-									}),
-								),
+						: yield* collectRyotQLRecipeItems(client, (after) =>
+								workoutDetailsSetsRecipe({
+									after,
+									reference,
+									exerciseId: exercise.id,
+									workoutId: previousWorkoutId,
+								}),
 							);
 
 				return {
