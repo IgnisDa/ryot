@@ -484,6 +484,7 @@ const inspectScriptDefinition = (
 		providerOperation === "details" ||
 		providerOperation === "search" ||
 		providerOperation === "search-options" ||
+		providerOperation === "related" ||
 		providerOperation === "resolve" ||
 		providerOperation === "translate";
 	return {

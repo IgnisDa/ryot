@@ -1182,6 +1182,32 @@ describe("definePlugin", () => {
 		).toThrow();
 	});
 
+	it("accepts a related provider operation only when the provider binds its script", () => {
+		const provider = manifest.providers[0];
+		assert(provider);
+		const related = {
+			...manifest.scripts[2],
+			kind: "provider" as const,
+			providerSlug: provider.slug,
+			name: "Test provider related",
+			slug: "provider.test.related",
+			providerOperation: "related" as const,
+		};
+		const relatedManifest = {
+			...manifest,
+			scripts: [...manifest.scripts, related],
+			providers: [{ ...provider, operations: { ...provider.operations, related: related.slug } }],
+		};
+
+		expect(Schema.decodeSync(PluginManifest)(relatedManifest)).toBeTruthy();
+		expect(() =>
+			Schema.decodeSync(PluginManifest)({ ...relatedManifest, providers: manifest.providers }),
+		).toThrow();
+		expect(() =>
+			Schema.decodeSync(PluginManifest)({ ...manifest, scripts: [...manifest.scripts, related] }),
+		).toThrow();
+	});
+
 	it("strictly validates providers and their standard operation assignments", () => {
 		const provider = manifest.providers[0];
 		const detailsScript = manifest.scripts[2];

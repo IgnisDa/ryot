@@ -460,6 +460,7 @@ export const PluginProviderOperation = Schema.Literals([
 	"details",
 	"search",
 	"search-options",
+	"related",
 	"resolve",
 	"translate",
 ]);
@@ -481,6 +482,7 @@ export const PluginProvider = strictStruct({
 	operations: strictStruct({
 		details: sandboxManifestSlug,
 		search: Schema.optional(sandboxManifestSlug),
+		related: Schema.optional(sandboxManifestSlug),
 		resolve: Schema.optional(sandboxManifestSlug),
 		translate: Schema.optional(sandboxManifestSlug),
 		searchOptions: Schema.optional(sandboxManifestSlug),
@@ -526,7 +528,13 @@ export const PluginScript = Schema.Union([
 			...PluginScriptFields,
 			kind: Schema.Literal("provider"),
 			providerSlug: sandboxManifestSlug,
-			providerOperation: Schema.Literals(["details", "resolve", "translate", "search-options"]),
+			providerOperation: Schema.Literals([
+				"details",
+				"related",
+				"resolve",
+				"translate",
+				"search-options",
+			]),
 		}),
 	]),
 ]);

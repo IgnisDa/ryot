@@ -110,11 +110,33 @@ export const providerDetailsRelatedEntitySchema = strictStruct({
 	properties: Schema.optional(jsonValueSchema),
 	relationshipProperties: Schema.optional(jsonValueSchema),
 });
+export const PROVIDER_CONTINUATION_MAX_BYTES = 4 * 1024;
+const providerContinuationSchema = jsonValueSchema.pipe(
+	Schema.check(
+		Schema.makeFilter(
+			(value) =>
+				new TextEncoder().encode(JSON.stringify(value)).byteLength <=
+					PROVIDER_CONTINUATION_MAX_BYTES ||
+				`Continuation must encode to at most ${PROVIDER_CONTINUATION_MAX_BYTES} bytes`,
+		),
+	),
+);
 export const providerDetailsRelatedEntityGroupSchema = strictStruct({
 	relationshipSchemaSlug: Schema.String,
 	direction: Schema.Literals(["incoming", "outgoing"]),
+	continuation: Schema.optional(providerContinuationSchema),
 	entities: Schema.Array(providerDetailsRelatedEntitySchema),
 	synchronization: Schema.Literals(["authoritative", "additive"]),
+});
+export const providerRelatedInputSchema = strictStruct({
+	externalId: trimmedNonEmptyString,
+	relationshipSchemaSlug: Schema.String,
+	continuation: providerContinuationSchema,
+	direction: Schema.Literals(["incoming", "outgoing"]),
+});
+export const providerRelatedResultSchema = strictStruct({
+	continuation: Schema.NullOr(providerContinuationSchema),
+	entities: Schema.Array(providerDetailsRelatedEntitySchema),
 });
 
 export type ProviderDetailsChildEntity = {
@@ -166,6 +188,7 @@ export const providerTranslateResultSchema = strictStruct({
 export const providerOperationContracts = {
 	search: { input: providerSearchInputSchema, output: providerSearchResultSchema },
 	details: { input: providerDetailsInputSchema, output: providerDetailsResultSchema },
+	related: { input: providerRelatedInputSchema, output: providerRelatedResultSchema },
 	resolve: { input: providerResolveInputSchema, output: providerResolveResultSchema },
 	translate: { input: providerTranslateInputSchema, output: providerTranslateResultSchema },
 	"search-options": {
@@ -185,6 +208,8 @@ export type ProviderSearchOptionsResult = Schema.Schema.Type<
 >;
 export type ProviderDetailsInput = Schema.Schema.Type<typeof providerDetailsInputSchema>;
 export type ProviderDetailsResult = Schema.Schema.Type<typeof providerDetailsResultSchema>;
+export type ProviderRelatedInput = Schema.Schema.Type<typeof providerRelatedInputSchema>;
+export type ProviderRelatedResult = Schema.Schema.Type<typeof providerRelatedResultSchema>;
 export type ProviderResolveInput = Schema.Schema.Type<typeof providerResolveInputSchema>;
 export type ProviderResolveResult = Schema.Schema.Type<typeof providerResolveResultSchema>;
 export type ProviderTranslateInput = Schema.Schema.Type<typeof providerTranslateInputSchema>;
