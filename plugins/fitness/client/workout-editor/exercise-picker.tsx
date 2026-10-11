@@ -804,7 +804,7 @@ export function ExercisePicker(props: ExercisePickerProps) {
 				<div className="flex gap-2">
 					<Button
 						type="button"
-						variant="text"
+						variant="ghost"
 						disabled={pages.length <= 1}
 						onClick={() => setPages((current) => current.slice(0, -1))}
 					>
@@ -812,7 +812,7 @@ export function ExercisePicker(props: ExercisePickerProps) {
 					</Button>
 					<Button
 						type="button"
-						variant="text"
+						variant="ghost"
 						disabled={
 							result.data === undefined ||
 							!result.data.pageInfo.hasMore ||

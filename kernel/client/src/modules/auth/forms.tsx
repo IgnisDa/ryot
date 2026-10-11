@@ -324,11 +324,16 @@ export function TwoFactorForm(props: {
 								{isSubmitting ? "Verifying..." : "Verify"}
 							</Button>
 							{props.methods.length > 1 && (
-								<Button type="button" variant="text" onClick={changeMethod} disabled={isSubmitting}>
+								<Button
+									type="button"
+									variant="ghost"
+									onClick={changeMethod}
+									disabled={isSubmitting}
+								>
 									{usingBackupCode ? "Use an authenticator code" : "Use a backup code"}
 								</Button>
 							)}
-							<Button type="button" variant="text" onClick={props.onBack} disabled={isSubmitting}>
+							<Button type="button" variant="ghost" onClick={props.onBack} disabled={isSubmitting}>
 								Back to sign in
 							</Button>
 						</>

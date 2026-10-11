@@ -87,7 +87,7 @@ export function ExerciseCard(props: {
 		>
 			<div className="flex flex-wrap items-center gap-2">
 				<Button
-					variant="text"
+					variant="ghost"
 					disabled={props.disabled}
 					aria-expanded={!occurrence.isCollapsed}
 					onClick={() => change((item) => ({ ...item, isCollapsed: !item.isCollapsed }))}
@@ -109,11 +109,11 @@ export function ExerciseCard(props: {
 						Superset · {group.color}
 					</Button>
 				)}
-				<Button variant="text" onClick={props.onReplace} disabled={props.disabled || !props.pro}>
+				<Button variant="ghost" onClick={props.onReplace} disabled={props.disabled || !props.pro}>
 					{props.pro ? "Replace" : "Replace (Pro)"}
 				</Button>
 				<Button
-					variant="text"
+					variant="ghost"
 					onClick={props.onDelete}
 					disabled={props.disabled}
 					aria-label={`Delete ${exercise?.name ?? "exercise"}`}
@@ -136,7 +136,7 @@ export function ExerciseCard(props: {
 				<>
 					<div className="flex flex-wrap gap-2 text-sm">
 						<Button
-							variant="text"
+							variant="ghost"
 							disabled={disabled}
 							onClick={() =>
 								change((item) =>
@@ -151,7 +151,7 @@ export function ExerciseCard(props: {
 							Weight: {occurrence.display?.weightUnit ?? "kg"}
 						</Button>
 						<Button
-							variant="text"
+							variant="ghost"
 							disabled={disabled}
 							onClick={() =>
 								change((item) =>
@@ -166,7 +166,7 @@ export function ExerciseCard(props: {
 							Distance: {occurrence.display?.distanceUnit ?? "km"}
 						</Button>
 						<Button
-							variant="text"
+							variant="ghost"
 							disabled={disabled}
 							onClick={() =>
 								change((item) =>
@@ -180,10 +180,10 @@ export function ExerciseCard(props: {
 						>
 							Duration: {occurrence.display?.durationUnit ?? "minutes"}
 						</Button>
-						<Button variant="text" onClick={props.onHistory}>
+						<Button variant="ghost" onClick={props.onHistory}>
 							History {props.pro ? "" : "(Pro)"}
 						</Button>
-						<Button variant="text" disabled={disabled} onClick={props.onOverrides}>
+						<Button variant="ghost" disabled={disabled} onClick={props.onOverrides}>
 							Exercise defaults
 						</Button>
 					</div>
@@ -255,7 +255,7 @@ export function ExerciseCard(props: {
 													}
 												/>
 												<Button
-													variant="text"
+													variant="ghost"
 													disabled={disabled}
 													onClick={() => props.onPrevious(set, field)}
 												>
@@ -302,7 +302,7 @@ export function ExerciseCard(props: {
 											</label>
 										) : null}
 										<Button
-											variant="text"
+											variant="ghost"
 											disabled={disabled}
 											aria-label={`Delete set ${index + 1}`}
 											onClick={() =>
@@ -343,7 +343,7 @@ export function ExerciseCard(props: {
 												label={`Set ${index + 1} RPE`}
 												onChange={(rpe) => patchSet(set.clientId, (item) => ({ ...item, rpe }))}
 											/>
-											<Button variant="text" onClick={props.onRpeHelp}>
+											<Button variant="ghost" onClick={props.onRpeHelp}>
 												RPE help
 											</Button>
 											<EditorField
@@ -354,7 +354,7 @@ export function ExerciseCard(props: {
 											/>
 											{!props.pro && set.note ? (
 												<Button
-													variant="text"
+													variant="ghost"
 													disabled={disabled}
 													onClick={() =>
 														patchSet(set.clientId, (item) => ({ ...item, note: undefined }))

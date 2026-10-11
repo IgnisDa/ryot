@@ -966,7 +966,7 @@ export function WorkoutEditorScreen(props: {
 											</label>
 										))}
 										<Button
-											variant="text"
+											variant="ghost"
 											onClick={() => change((draft) => ({ ...draft, localPreferences: undefined }))}
 										>
 											Use Fitness preferences

@@ -229,11 +229,11 @@ function NoteRow(props: { readonly note: Note; readonly onChanged: () => void })
 				{hasText ? note.text : "Empty note"}
 			</p>
 			<div className="flex gap-2">
-				<Button variant="text" aria-label="Edit note" onClick={() => setEditing(true)}>
+				<Button variant="ghost" aria-label="Edit note" onClick={() => setEditing(true)}>
 					Edit
 				</Button>
 				<Button
-					variant="text"
+					variant="ghost"
 					ref={deleteTrigger}
 					aria-label="Delete note"
 					onClick={() => setConfirming(true)}

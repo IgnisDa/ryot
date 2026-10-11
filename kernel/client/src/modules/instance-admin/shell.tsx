@@ -214,7 +214,7 @@ function InstanceAdminWorkspace({ onLock }: { readonly onLock: () => void }) {
 					<div className="min-w-0 flex-1">
 						<p className="truncate font-display text-lg font-semibold md:text-xl">{active.label}</p>
 					</div>
-					<Button type="button" variant="text" onClick={onLock}>
+					<Button type="button" variant="ghost" onClick={onLock}>
 						<span className="flex items-center gap-2">
 							<AppIcon name="lock" /> Lock
 						</span>

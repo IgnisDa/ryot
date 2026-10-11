@@ -109,7 +109,7 @@ export function ScreenFrame({
 			<h1
 				className={clsx(
 					"min-w-0 flex-1 truncate font-display font-semibold text-text",
-					compact ? "text-[30px] leading-9" : "text-3xl",
+					compact ? "text-[28px] leading-[34px]" : "text-title",
 				)}
 			>
 				{title}

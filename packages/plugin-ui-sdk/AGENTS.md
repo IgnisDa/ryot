@@ -5,6 +5,7 @@ Rationale lives in `README.md`.
 - Ship no component stylesheets. Keep shared base rules, keyframes, and animation tokens in `theme.css`, and values in `palette.css`.
 - Give every token mapped by `theme.css` a `palette.css` root value. Dark modes override only changed values.
 - Guard each animated element with `motion-reduce:` because plugin documents do not receive kernel-only reduced-motion CSS.
+- Build screens from these components and tokens; do not restyle buttons, fields, or surfaces per screen. Size controls with `pointer-coarse:` variants, not viewport breakpoints.
 - Use base Tailwind and theme tokens only. Plugin documents do not have kernel `ui-*` utilities; touch-layout text inputs remain at least 16px.
 - Keep source scannable by Tailwind. New runtime dependencies and export subpaths also require client compiler allowlist review.
 - Keep `AppSchema`, icons, sync marks, and tint on their existing subpaths, not the root barrel. `EntityArtWell` remains the only missing-image placeholder.

@@ -250,10 +250,10 @@ export const Home = () => {
 						</Button>
 					) : null}
 					<Button onClick={() => requestGreeting("Ryot")}>Fetch greeting</Button>
-					<Button variant="text" onClick={() => requestGreeting("")}>
+					<Button variant="ghost" onClick={() => requestGreeting("")}>
 						Fetch without a name
 					</Button>
-					<Button variant="text" onClick={() => greeting.mutate({ name: Number.NaN })}>
+					<Button variant="ghost" onClick={() => greeting.mutate({ name: Number.NaN })}>
 						Fetch with invalid payload
 					</Button>
 				</section>

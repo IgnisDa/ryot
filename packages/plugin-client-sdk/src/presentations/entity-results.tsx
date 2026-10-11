@@ -307,7 +307,7 @@ const ItemFailure = ({
 		<StatusMessage tone="error">{message}</StatusMessage>
 		<BasicEntityLink reference={reference} />
 		{onRetry && (
-			<Button type="button" variant="text" onClick={onRetry}>
+			<Button type="button" variant="ghost" onClick={onRetry}>
 				Retry
 			</Button>
 		)}
@@ -403,7 +403,7 @@ const LoadedEntity = ({
 			{result.isError && (
 				<div>
 					<StatusMessage tone="error">Refresh failed.</StatusMessage>
-					<Button type="button" variant="text" onClick={result.refetch}>
+					<Button type="button" variant="ghost" onClick={result.refetch}>
 						Retry
 					</Button>
 				</div>

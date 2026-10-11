@@ -131,7 +131,7 @@ function OAuthLaunch() {
 							Try again
 						</Button>
 						{isNative && (
-							<Button type="button" variant="text" onClick={() => void changeServer()}>
+							<Button type="button" variant="ghost" onClick={() => void changeServer()}>
 								Change server
 							</Button>
 						)}
@@ -151,7 +151,7 @@ function OAuthLaunch() {
 						<Button type="button" variant="primary" className="w-full" onClick={() => launch(plan)}>
 							Continue to sign in
 						</Button>
-						<Button type="button" variant="text" onClick={() => void changeServer()}>
+						<Button type="button" variant="ghost" onClick={() => void changeServer()}>
 							Change server
 						</Button>
 					</>

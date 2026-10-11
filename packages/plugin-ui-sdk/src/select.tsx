@@ -12,6 +12,7 @@ export type SelectChoice = {
 };
 
 type SelectProps = {
+	readonly id?: string;
 	readonly label: string;
 	readonly value: string;
 	readonly disabled?: boolean;
@@ -28,6 +29,7 @@ type SelectProps = {
 const NAVIGATION_KEYS = new Set(["End", "Home", "ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"]);
 
 export function Select({
+	id,
 	label,
 	value,
 	choices,
@@ -73,6 +75,7 @@ export function Select({
 	return (
 		<>
 			<button
+				id={id}
 				type="button"
 				ref={triggerRef}
 				disabled={disabled}
@@ -80,7 +83,7 @@ export function Select({
 				onClick={() => setOpen(true)}
 				aria-label={`${label}: ${triggerText}`}
 				className={clsx(
-					"flex min-h-10 w-full items-center justify-between gap-2 rounded-lg border border-border bg-raised px-3",
+					"flex h-9 w-full items-center justify-between gap-2 rounded-md border border-border-strong bg-surface px-3 transition-colors duration-100 hover:border-text-subtle motion-reduce:transition-none pointer-coarse:h-11",
 					disabled === true && "opacity-50",
 					className,
 				)}
@@ -106,13 +109,13 @@ export function Select({
 					closeLabel="Close options"
 					onInterceptBack={onInterceptBack ?? (() => false)}
 					containerClassName="items-center justify-center p-4"
-					className="flex max-h-[80%] w-full max-w-sm flex-col overflow-hidden rounded-xl border border-border bg-raised shadow-card"
+					className="flex max-h-[80%] w-full max-w-sm animate-dialog-in flex-col overflow-hidden rounded-xl bg-raised shadow-modal motion-reduce:animate-none"
 				>
 					<div className="border-b border-border px-4 py-3">
-						<span className="text-base font-semibold text-text">{label}</span>
+						<span className="text-[15px] font-semibold text-text">{label}</span>
 					</div>
 					{searchIcon !== undefined && (
-						<div className="mx-4 my-3 flex h-10 items-center gap-2 rounded-lg border border-border bg-surface px-3 focus-within:ring-2 focus-within:ring-focus">
+						<div className="mx-3 my-3 flex h-9 items-center gap-2 rounded-md bg-surface-2 px-3 focus-within:ring-2 focus-within:ring-focus">
 							<span aria-hidden="true" className="text-text-subtle">
 								{searchIcon}
 							</span>
@@ -143,8 +146,8 @@ export function Select({
 							options={visibleChoices}
 							renderOption={(choice, isSelected) => ({
 								className: clsx(
-									"flex min-h-11 w-full items-center gap-3 px-4",
-									isSelected && "bg-accent-soft",
+									"flex min-h-9 w-full items-center gap-3 px-4 hover:bg-hover pointer-coarse:min-h-11",
+									isSelected && "bg-accent-soft hover:bg-accent-soft",
 								),
 								content: (
 									<>
