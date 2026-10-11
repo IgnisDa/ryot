@@ -98,7 +98,7 @@ export function WorkoutEditorScreen(props: {
 	});
 	const { local, change, invalid, message, setInvalid, setMessage } = actions;
 	const request = useInitialDraft({
-		saved,
+		saving,
 		context,
 		message,
 		isActive,

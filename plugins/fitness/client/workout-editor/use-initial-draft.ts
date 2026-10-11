@@ -78,7 +78,7 @@ const startInitialDraft = (input: {
 
 export function useInitialDraft(input: {
 	readonly isActive: boolean;
-	readonly saved: unknown;
+	readonly saving: boolean;
 	readonly message: string | undefined;
 	readonly onStarted: (() => void) | undefined;
 	readonly context: Context | undefined;
@@ -89,7 +89,7 @@ export function useInitialDraft(input: {
 	readonly snapshotStatus: ReturnType<typeof useWorkoutEditor>["snapshot"]["status"];
 	readonly controller: ReturnType<typeof useWorkoutEditor>["controller"];
 }) {
-	const { saved, context, message, isActive, onStarted, controller, setMessage, prepareDraft } =
+	const { saving, context, message, isActive, onStarted, controller, setMessage, prepareDraft } =
 		input;
 	const client = useRyot();
 	const schedule = useRyotSchedule();
@@ -120,7 +120,7 @@ export function useInitialDraft(input: {
 			input.snapshotStatus !== "empty" ||
 			prepareDraft === undefined ||
 			context === undefined ||
-			saved !== undefined ||
+			saving ||
 			starting.current
 		) {
 			return;
@@ -147,7 +147,7 @@ export function useInitialDraft(input: {
 		prepareDraft,
 		requestBlocked,
 		requestHandled,
-		saved,
+		saving,
 		schedule,
 		setMessage,
 		input.snapshotStatus,

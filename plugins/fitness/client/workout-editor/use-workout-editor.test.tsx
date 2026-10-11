@@ -20,11 +20,13 @@ import { act, useEffect, useRef, useState } from "react";
 import { PLUGIN_PACKAGE_ID } from "../../shared/plugin-identity";
 import { workoutEditorSaveOperationSlug } from "../../shared/workout-editor-context-operations";
 import {
+	decodeWorkoutEditorDraft,
 	encodeWorkoutEditorDraft,
 	WorkoutEditorDraftSchema,
 } from "../../shared/workout-editor-draft";
 import { WorkoutEditorSaveInputSchema } from "../../shared/workout-editor-operations";
 import { liveDraft, preferenceSettings, startTime } from "../../tests/client/draft-fixtures";
+import { useInitialDraft } from "./use-initial-draft";
 import { useWorkoutEditor } from "./use-workout-editor";
 
 function Probe() {
@@ -239,16 +241,40 @@ function SaveConsumer({ name }: { readonly name: string }) {
 
 function SaveProbe() {
 	const [mounted, setMounted] = useState(true);
+	const [nextEdit, setNextEdit] = useState(false);
 	return (
 		<PluginScreenFrame title="Save probe">
 			<button onClick={() => setMounted(!mounted)}>Toggle consumers</button>
-			{mounted ? (
+			<button onClick={() => setNextEdit(true)}>Open next edit</button>
+			{nextEdit ? <PrepareConsumer /> : null}
+			{mounted && !nextEdit ? (
 				<>
 					<SaveConsumer name="First" />
 					<SaveConsumer name="Second" />
 				</>
 			) : null}
 		</PluginScreenFrame>
+	);
+}
+
+function PrepareConsumer() {
+	const { saved, saving, snapshot, controller } = useWorkoutEditor(saveProbeTarget);
+	const [message, setMessage] = useState<string>();
+	const request = useInitialDraft({
+		saving,
+		message,
+		setMessage,
+		controller,
+		isActive: true,
+		onStarted: undefined,
+		requiresPro: undefined,
+		context: snapshot.context,
+		snapshotStatus: snapshot.status,
+		draft: snapshot.status === "ready" ? snapshot.draft : undefined,
+		prepareDraft: () => Effect.succeed(liveDraft({ name: "Next edit", draftId: "next-edit" })),
+	});
+	return (
+		<p>{`${snapshot.status === "ready" ? snapshot.draft.name : snapshot.status}, ${request.requestHandled ? "started" : "preparing"}, ${saved ?? "unsaved"}`}</p>
 	);
 }
 
@@ -547,3 +573,42 @@ for (const stage of ["persistence", "invocation", "cleanup"] as const) {
 		}),
 	);
 }
+
+it.live("starts a fresh editor request after the shared controller has completed a save", () =>
+	Effect.gen(function* () {
+		const clock = createTestRyotClock();
+		const harness = saveProbeHarness(clock);
+		harness.setRemoval("success");
+		try {
+			yield* Effect.promise(() =>
+				waitFor(() => {
+					harness.respond();
+					expect(screen.getByText("First: ready, idle, unsaved")).toBeTruthy();
+				}),
+			);
+			act(() => screen.getByRole("button", { name: "Save First" }).click());
+			yield* Effect.promise(() =>
+				waitFor(() => {
+					harness.respond();
+					expect(screen.getByText("First: empty, idle, saved-workout")).toBeTruthy();
+				}),
+			);
+			act(() => screen.getByRole("button", { name: "Open next edit" }).click());
+			yield* Effect.promise(() =>
+				waitFor(() => {
+					harness.respond();
+					expect(screen.getByText("Next edit, started, unsaved")).toBeTruthy();
+				}),
+			);
+			const stored = decodeWorkoutEditorDraft(harness.stored);
+			expect(stored._tag).toBe("Success");
+			if (stored._tag === "Success") {
+				expect(stored.success.draftId).toBe("next-edit");
+				expect(stored.success.submission).toBeUndefined();
+			}
+		} finally {
+			disposePluginBridges();
+			yield* Effect.promise(() => clock.dispose());
+		}
+	}),
+);
