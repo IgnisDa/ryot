@@ -2,7 +2,7 @@ import { Effect } from "effect";
 
 import {
 	createAuthenticatedClient,
-	createPluginSchema,
+	testPluginEntitySchema,
 	entitySchemasSandboxSource,
 	enqueueSandboxScript,
 	installSandboxScriptScoped,
@@ -15,8 +15,6 @@ describe("sandbox entity schema reads", () => {
 	it.live("reads deduplicated schemas in first-seen input order", () =>
 		Effect.gen(function* () {
 			const { client, userId } = yield* createAuthenticatedClient();
-			const first = yield* createPluginSchema(client, { name: "First schema" });
-			const second = yield* createPluginSchema(client, { name: "Second schema" });
 			const slug = `get-entity-schemas-${crypto.randomUUID()}`;
 			const { scriptId } = yield* installSandboxScriptScoped({
 				slug,
@@ -24,19 +22,23 @@ describe("sandbox entity schema reads", () => {
 				name: "Get entity schemas",
 				capabilities: ["getEntitySchemas"],
 				source: entitySchemasSandboxSource({ slug, name: "Get entity schemas" }),
+				entitySchemas: [
+					testPluginEntitySchema({ slug: "first", name: "First schema" }),
+					testPluginEntitySchema({ slug: "second", name: "Second schema" }),
+				],
 			});
 			const { jobId } = yield* enqueueSandboxScript(userId, {
 				scriptId,
 				lane: "interactive",
-				context: { slugs: [second.slug, first.slug, second.slug] },
+				context: { slugs: ["second", "first", "second"] },
 			});
 
 			const result = yield* pollSandboxResult(userId, jobId);
 			assertCompleted(result, "get entity schemas sandbox job");
 			expect(result.error).toBeNull();
 			expect(result.value).toMatchObject([
-				{ id: second.schemaId, name: "Second schema" },
-				{ id: first.schemaId, name: "First schema" },
+				{ id: "second", name: "Second schema" },
+				{ id: "first", name: "First schema" },
 			]);
 
 			const { jobId: emptyJobId } = yield* enqueueSandboxScript(userId, {

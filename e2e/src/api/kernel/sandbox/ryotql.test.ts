@@ -1,4 +1,4 @@
-import { EntityId, EntitySchemaSlug } from "@ryot-app/contract/schema/brands";
+import { EntityId, EntitySchemaSlug, EventSchemaSlug } from "@ryot-app/contract/schema/brands";
 import { column, document, eq, field, literal, rows, table } from "@ryot-app/ryotql";
 import { Effect } from "effect";
 
@@ -6,7 +6,6 @@ import {
 	adminHeaders,
 	createAuthenticatedClient,
 	createEntity,
-	createEventTestFixture,
 	createPluginSchema,
 	deleteUserAndWait,
 	entityRowsSandboxSource,
@@ -25,6 +24,8 @@ import {
 	requireRows,
 	systemRyotqlProbeSandboxSource,
 	uninstallTestPlugin,
+	testPluginEntitySchema,
+	waitForCreateEvents,
 } from "~/fixtures/kernel";
 import { assertCompleted, requirePresent } from "~/support/assertions";
 import { describe, expect, it } from "~/support/effect-test";
@@ -85,18 +86,44 @@ describe("sandbox RyotQL reads", () => {
 	it.live("reads filtered events through executeRyotql", () =>
 		Effect.gen(function* () {
 			const { client, userId } = yield* createAuthenticatedClient();
-			const { entityId, eventSchemaSlug, entitySchemaSlug } = yield* createEventTestFixture(client);
-			yield* client.call((c) =>
-				c.events.create({ payload: [{ entityId, eventSchemaSlug, properties: { rating: 5 } }] }),
-			);
+			const entitySchemaSlug = "item";
+			const eventSchemaSlug = EventSchemaSlug.make("finished");
 			const slug = `ryotql-events-${crypto.randomUUID()}`;
-			const { scriptId } = yield* installSandboxScriptScoped({
+			const { scriptId, pluginId } = yield* installSandboxScriptScoped({
 				slug,
 				client,
 				name: "Query events",
 				capabilities: ["executeRyotql"],
 				source: eventRowsSandboxSource({ slug, name: "Query events" }),
+				entitySchemas: [
+					{
+						...testPluginEntitySchema({ slug: entitySchemaSlug }),
+						eventSchemas: [
+							{
+								name: "Finished",
+								slug: eventSchemaSlug,
+								propertiesSchema: {
+									fields: { rating: { type: "number", label: "Rating", description: "Rating" } },
+								},
+							},
+						],
+					},
+				],
 			});
+			const { id: entityId } = yield* createEntity(client, {
+				properties: {},
+				name: "Queried item",
+				entitySchema: {
+					owner: { pluginId, kind: "plugin" },
+					slug: EntitySchemaSlug.make(entitySchemaSlug),
+				},
+			});
+			yield* waitForCreateEvents(
+				client,
+				yield* client.call((c) =>
+					c.events.create({ payload: [{ entityId, eventSchemaSlug, properties: { rating: 5 } }] }),
+				),
+			);
 			const { jobId } = yield* enqueueSandboxScript(userId, {
 				scriptId,
 				lane: "interactive",
