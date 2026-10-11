@@ -104,7 +104,7 @@ type PendingRequest = {
 };
 
 type PluginBridgeOptions = {
-	readonly onDevice?: (request: PluginDeviceRequest) => Effect.Effect<PluginDeviceOutcome>;
+	readonly onDevice: (request: PluginDeviceRequest) => Effect.Effect<PluginDeviceOutcome>;
 	readonly timeoutMs?: number;
 	readonly onReady: () => void;
 	readonly compositionHash: string;
@@ -592,12 +592,8 @@ export function openPluginBridge(options: PluginBridgeOptions): PluginBridgeSess
 							complete?.(flushed);
 						}),
 						Match.when({ type: "device-request" }, ({ requestId, type: _type, ...request }) =>
-							runRequest(
-								requestId,
-								"device",
-								(): Effect.Effect<PluginDeviceOutcome> =>
-									options.onDevice?.(request) ??
-									Effect.succeed({ outcome: "failure", reason: "invalid-request" }),
+							runRequest(requestId, "device", (): Effect.Effect<PluginDeviceOutcome> =>
+								options.onDevice(request),
 							),
 						),
 						Match.when({ type: "entity-watches" }, ({ visible, foreground }) => {
@@ -650,7 +646,9 @@ export function openPluginBridge(options: PluginBridgeOptions): PluginBridgeSess
 						Match.when({ type: "page-search" }, (request) => options.onPageSearch(request)),
 						Match.when({ type: "provider-search-screen" }, (request) =>
 							runRequest(request.requestId, "provider-search-screen", () =>
-								options.onProviderSearch(request).pipe(Effect.map((outcome) => ({ outcome }))),
+								options
+									.onProviderSearch(request)
+									.pipe(Effect.map((value) => ({ value, outcome: "success" }))),
 							),
 						),
 						Match.when({ type: "lifecycle-close" }, ({ reason }) => handleLifecycleClose(reason)),

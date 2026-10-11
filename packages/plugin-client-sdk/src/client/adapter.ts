@@ -44,22 +44,21 @@ export type RyotProviderSearchScreenRequest = Schema.Codec.Encoded<
 	typeof ProviderSearchScreenRequest
 >;
 
-export type OperationInvocation<Output extends Schema.Codec<unknown, unknown>> = Omit<
-	OperationRequest,
-	"operationSlug"
-> & { readonly slug: string; readonly output: Output; readonly refreshOnSuccess?: boolean };
+export type OperationInvocation<
+	Input extends Schema.Codec<unknown, unknown>,
+	Output extends Schema.Codec<unknown, unknown>,
+> = Omit<OperationRequest, "operationSlug" | "input"> & {
+	readonly slug: string;
+	readonly output: Output;
+	readonly inputSchema: Input;
+	readonly input: Input["Type"];
+	readonly refreshOnSuccess?: boolean;
+};
 
-export type TemporaryUploadRequest = Omit<
+export type FileUploadRequest = Omit<
 	Extract<PluginUploadRequest, { readonly action: "temporary" }>,
 	"action"
 >;
-
-export type PermanentUploadRequest = Omit<
-	Extract<PluginUploadRequest, { readonly action: "permanent" }>,
-	"action"
->;
-
-export type UploadAdapterRequest = PluginUploadRequest;
 
 export type RyotClientAdapter = {
 	readonly registerFlush?: (flush: () => Effect.Effect<void, RyotClientError>) => () => void;
@@ -70,7 +69,7 @@ export type RyotClientAdapter = {
 	readonly openExternalLink?: (
 		request: ExternalLinkRequest,
 	) => Effect.Effect<unknown, RyotClientError>;
-	readonly upload: (request: UploadAdapterRequest) => Effect.Effect<unknown, RyotClientError>;
+	readonly upload: (request: PluginUploadRequest) => Effect.Effect<unknown, RyotClientError>;
 	readonly invokeOperation?: (
 		request: OperationAdapterRequest,
 	) => Effect.Effect<unknown, RyotClientError>;

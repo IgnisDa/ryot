@@ -1,7 +1,7 @@
+import { useAssetUrl } from "@ryot-app/plugin-client-sdk/react";
 import { ImageTintOverlay, useImageTint } from "@ryot-app/plugin-ui-sdk/tint";
 
 import type { MediaImagePurposes, MediaImages } from "./image";
-import { useManagedAssetUrl } from "./managed-assets";
 import { mediaBackdropAsset, mediaPosterAsset } from "./summary-state";
 
 export const MEDIA_ART_HEIGHT = 280;
@@ -37,9 +37,9 @@ export function MediaHero(props: {
 	readonly backdropPurposes?: MediaImagePurposes | undefined;
 	readonly posterPurpose?: MediaImagePurposes[number] | undefined;
 }) {
-	const url = useManagedAssetUrl(mediaBackdropAsset(props.media, props.backdropPurposes));
+	const url = useAssetUrl(mediaBackdropAsset(props.media, props.backdropPurposes));
 	const { gradientStops } = useImageTint(
-		useManagedAssetUrl(mediaPosterAsset(props.media, props.posterPurpose)),
+		useAssetUrl(mediaPosterAsset(props.media, props.posterPurpose)),
 	);
 	return (
 		<div aria-hidden="true" className="pointer-events-none absolute inset-0 overflow-hidden">

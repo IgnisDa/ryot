@@ -44,6 +44,11 @@ export const createKernelRyotClient = (
 			runtime.runSync(
 				Effect.map(EntityWatchService, (service) => service.watch(scope, interest, onUpdate)),
 			),
+		upload: (request) =>
+			runtime
+				.runSync(Uploads)
+				.upload(scope, request)
+				.pipe(Effect.mapError((error) => new RyotClientError(classifyUploadFailure(error)))),
 		query: (document) =>
 			runtime
 				.runSync(RyotQLApi)
@@ -56,22 +61,6 @@ export const createKernelRyotClient = (
 				.pipe(
 					Effect.map((response) => mapManagedAssetResolutions(scope, response)),
 					Effect.mapError((error) => new RyotClientError(classifyManagedAssetFailure(error))),
-				),
-		upload: (request) =>
-			runtime
-				.runSync(Uploads)
-				.upload(scope, request)
-				.pipe(
-					Effect.map((result) => {
-						if (result.action === "temporary") {
-							return result.token;
-						}
-						if (result.action === "permanent") {
-							return result.asset;
-						}
-						return { status: result.status };
-					}),
-					Effect.mapError((error) => new RyotClientError(classifyUploadFailure(error))),
 				),
 		mutateCollection: (request) => {
 			const api = runtime.runSync(CollectionsApi);

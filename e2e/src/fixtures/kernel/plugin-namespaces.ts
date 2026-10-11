@@ -442,7 +442,7 @@ import { PluginScreenFrame } from "@ryot-app/plugin-client-sdk/screen";
 import { PluginPackageId, type PluginIdentityReference } from "@ryot-app/plugin-client-sdk/plugin";
 import { contributorBottlesRecipe } from "../shared/query-recipes";
 ${contributor ? 'import Contributor from "@ryot-app/plugins/whiskey/catalog";' : ""}
-const invoke = createRyotMutation<{ packageId: typeof PluginPackageId.Type }, { label: string }>(({ input, client }) => client.operations.invoke({ packageId: input.packageId, slug: "inspect", input: {}, output: Schema.Struct({ label: Schema.String }) }));
+const invoke = createRyotMutation<{ packageId: typeof PluginPackageId.Type }, { label: string }>(({ input, client }) => client.operations.invoke({ packageId: input.packageId, slug: "inspect", input: {}, inputSchema: Schema.Struct({}), output: Schema.Struct({ label: Schema.String }) }));
 const bottlesQuery = createRyotQuery<PluginIdentityReference, readonly string[]>(({ input, client }) => client.data.query(contributorBottlesRecipe(input)));
 export const Catalog = () => {
   const identity = usePluginIdentity(PluginPackageId.make(${JSON.stringify(packageId)}));

@@ -135,6 +135,8 @@ function deferred<T>(): PromiseWithResolvers<T> {
 	return Promise.withResolvers<T>();
 }
 
+const invalidDeviceRequest = { outcome: "failure", reason: "invalid-request" } as const;
+
 const connect = (
 	options: {
 		readonly onDevice?: Parameters<typeof openPluginBridge>[0]["onDevice"];
@@ -180,7 +182,6 @@ const connect = (
 		theme: lightTheme,
 		onHeader: () => {},
 		documentKey: "page-1",
-		onDevice: options.onDevice,
 		timeoutMs: options.timeoutMs,
 		onReady: () => readies.push(null),
 		onDiagnostic: options.onDiagnostic,
@@ -201,6 +202,7 @@ const connect = (
 		onExternalLink: options.onExternalLink ?? (() => Effect.never),
 		onPageShortcuts: (registered) => pageShortcuts.push(registered),
 		scheduleOverlayDismissTimeout: options.scheduleOverlayDismissTimeout,
+		onDevice: options.onDevice ?? (() => Effect.succeed(invalidDeviceRequest)),
 		watchEntities: options.watchEntities ?? (() => ({ update: () => {}, dispose: () => {} })),
 		onProviderSearch: (request) => {
 			providerSearches.push(request);
@@ -522,7 +524,8 @@ describe("bridge page screens", () => {
 			yield* Effect.promise(() =>
 				waitFor(() =>
 					expect(received).toContainEqual({
-						outcome: { kind: "cancelled" },
+						outcome: "success",
+						value: { kind: "cancelled" },
 						requestId: "provider-search-screen-1",
 						type: "provider-search-screen-result",
 					}),
@@ -837,6 +840,7 @@ describe("plugin bridge", () => {
 				onExternalLink: () => Effect.never,
 				onFailure: () => failures.push(null),
 				viewport: { safeAreaTop: 0, safeAreaBottom: 0 },
+				onDevice: () => Effect.succeed(invalidDeviceRequest),
 				watchEntities: () => ({ update: () => {}, dispose: () => {} }),
 				onProviderSearch: () => Effect.succeed({ kind: "cancelled" as const }),
 				target: {
