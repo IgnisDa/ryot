@@ -8,6 +8,7 @@ import { Effect, Exit, Result } from "effect";
 import { databaseError } from "#platform/db/errors";
 import { immutableRevisionStatements } from "#platform/db/immutable-revisions";
 import { DatabaseSession } from "#platform/db/session";
+import { userPluginStateStatements } from "#platform/db/user-plugin-state";
 import * as tables from "#schema/tables/combined";
 
 import { insertPluginRevision } from "../test-support";
@@ -254,7 +255,12 @@ describe("immutable plugin revisions", () => {
 			Effect.gen(function* () {
 				const session = yield* DatabaseSession;
 				const installed = yield* installRevisionPackage(revisionPackage("reinstall"), owner);
-				for (const statement of [...immutableRevisionStatements, ...immutableRevisionStatements]) {
+				for (const statement of [
+					...immutableRevisionStatements,
+					...userPluginStateStatements,
+					...immutableRevisionStatements,
+					...userPluginStateStatements,
+				]) {
 					yield* session.run((db) => db.execute(sql.raw(statement)));
 				}
 				const triggers = yield* session.run((db) =>
@@ -275,6 +281,10 @@ describe("immutable plugin revisions", () => {
 					"ryot_revision_manifest_present",
 					"ryot_revision_manifest_retained",
 					"ryot_revision_manifest_sections",
+					"ryot_user_plugin_state_config_update",
+					"ryot_user_plugin_state_installation_insert",
+					"ryot_user_plugin_state_installation_update",
+					"ryot_user_plugin_state_plugin_update",
 				]);
 				const updated = yield* Effect.result(
 					session.run((db) =>

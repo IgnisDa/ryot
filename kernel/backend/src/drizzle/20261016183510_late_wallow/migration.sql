@@ -1017,6 +1017,32 @@ CREATE TABLE "user_lifecycle_operation" (
 	"status" text DEFAULT 'pending' NOT NULL
 );
 --> statement-breakpoint
+CREATE TABLE "user_plugin_state" (
+	"owner_user_id" text,
+	"sort_order" integer,
+	"plugin_status" text,
+	"active_revision_id" text,
+	"environment_config_revision_id" text,
+	"installation_config_revision_id" text,
+	"package_id" text,
+	"health" text,
+	"installation_config_plugin_revision_id" text,
+	"is_hidden" boolean DEFAULT false NOT NULL,
+	"is_uninstalled" boolean DEFAULT false NOT NULL,
+	"environment_config_is_usable" boolean DEFAULT false NOT NULL,
+	"installation_config_is_usable" boolean DEFAULT false NOT NULL,
+	"is_listed" boolean GENERATED ALWAYS AS (health <> 'incompatible') STORED,
+	"user_id" text,
+	"plugin_id" text,
+	"installation_id" text NOT NULL UNIQUE,
+	"scope" text GENERATED ALWAYS AS (case when owner_user_id is null then 'system' else 'user' end) STORED,
+	"is_definition_effective" boolean GENERATED ALWAYS AS (not is_hidden and (health = 'ready' or (owner_user_id is null and health = 'installing'))) STORED,
+	"is_present" boolean GENERATED ALWAYS AS (not is_uninstalled and plugin_status = 'active' and (owner_user_id is null or owner_user_id = user_id)) STORED,
+	"config_revision_id" text GENERATED ALWAYS AS (case when owner_user_id is null then environment_config_revision_id else installation_config_revision_id end) STORED,
+	"is_executable" boolean GENERATED ALWAYS AS (coalesce(not is_hidden and health = 'ready' and case when owner_user_id is null then environment_config_is_usable else installation_config_plugin_revision_id = active_revision_id and installation_config_is_usable end, false)) STORED,
+	CONSTRAINT "user_plugin_state_pkey" PRIMARY KEY("user_id","plugin_id")
+);
+--> statement-breakpoint
 CREATE TABLE "verification" (
 	"id" text PRIMARY KEY,
 	"value" text NOT NULL,
@@ -1161,6 +1187,10 @@ CREATE UNIQUE INDEX "saved_view_override_plugin_unique" ON "saved_view_override"
 CREATE INDEX "session_userId_idx" ON "session" ("user_id");--> statement-breakpoint
 CREATE INDEX "user_lifecycle_operation_user_id_idx" ON "user_lifecycle_operation" ("user_id");--> statement-breakpoint
 CREATE UNIQUE INDEX "user_lifecycle_operation_user_active_unique" ON "user_lifecycle_operation" ("user_id") WHERE "status" in ('pending', 'running');--> statement-breakpoint
+CREATE INDEX "user_plugin_state_plugin_user_idx" ON "user_plugin_state" ("plugin_id","user_id");--> statement-breakpoint
+CREATE INDEX "user_plugin_state_user_listed_idx" ON "user_plugin_state" ("user_id","is_listed") WHERE "is_present";--> statement-breakpoint
+CREATE INDEX "user_plugin_state_environment_config_idx" ON "user_plugin_state" ("environment_config_revision_id");--> statement-breakpoint
+CREATE INDEX "user_plugin_state_installation_config_idx" ON "user_plugin_state" ("installation_config_revision_id");--> statement-breakpoint
 CREATE INDEX "verification_identifier_idx" ON "verification" ("identifier");--> statement-breakpoint
 CREATE INDEX "workflow_execution_root_idx" ON "workflow_execution" ("root_workflow_name","root_execution_id");--> statement-breakpoint
 CREATE INDEX "workflow_execution_cleanup_idx" ON "workflow_execution" ("expired_at") WHERE "expired_at" is not null and "cleared_at" is null;--> statement-breakpoint
@@ -1276,6 +1306,9 @@ ALTER TABLE "saved_view" ADD CONSTRAINT "saved_view_plugin_installation_owner_fk
 ALTER TABLE "saved_view_override" ADD CONSTRAINT "saved_view_override_user_id_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "user"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "session" ADD CONSTRAINT "session_user_id_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "user"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "two_factor" ADD CONSTRAINT "two_factor_user_id_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "user"("id") ON DELETE CASCADE;--> statement-breakpoint
+ALTER TABLE "user_plugin_state" ADD CONSTRAINT "user_plugin_state_user_id_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "user"("id") ON DELETE CASCADE;--> statement-breakpoint
+ALTER TABLE "user_plugin_state" ADD CONSTRAINT "user_plugin_state_plugin_id_plugin_id_fkey" FOREIGN KEY ("plugin_id") REFERENCES "plugin"("id") ON DELETE CASCADE;--> statement-breakpoint
+ALTER TABLE "user_plugin_state" ADD CONSTRAINT "user_plugin_state_installation_id_plugin_installation_id_fkey" FOREIGN KEY ("installation_id") REFERENCES "plugin_installation"("id") ON DELETE CASCADE;--> statement-breakpoint
 CREATE VIEW "global_entity_schema" AS (
 			select d.id, r.plugin_id, g.package_id, d.plugin_revision_id, d.slug, d.name, d.position, d.icon, d.properties_schema, d.user_state, d.merge_identity_properties
 			from definition_entity_schema d
@@ -1327,15 +1360,9 @@ CREATE VIEW "user_entity_schema" AS (
 			where d.plugin_revision_id is null
 			union all
 			select p.user_id, d.id, p.plugin_id, p.package_id, d.plugin_revision_id, p.scope, d.slug, d.name, d.position, d.icon, d.properties_schema, d.user_state, d.merge_identity_properties, p.is_definition_effective
-			from (
-	select i.user_id, p.id as plugin_id, p.package_id, i.id as installation_id, case when p.owner_user_id is null then 'system' else 'user' end as scope, p.owner_user_id, p.active_revision_id, case when p.owner_user_id is null then p.environment_config_revision_id else i.active_config_revision_id end as config_revision_id, i.health, i.is_hidden, i.sort_order, i.health <> 'incompatible' as is_listed, not i.is_hidden and (i.health = 'ready' or (p.owner_user_id is null and i.health = 'installing')) as is_definition_effective, coalesce(not i.is_hidden and i.health = 'ready' and c.plugin_revision_id = p.active_revision_id and c.encrypted_payload is not null and case when p.owner_user_id is null then c.owner_user_id is null else c.owner_user_id = i.user_id and c.plugin_installation_id = i.id end, false) as is_executable
-	from plugin_installation i
-	join plugin p on p.id = i.plugin_id
-	left join plugin_config_revision c on c.id = case when p.owner_user_id is null then p.environment_config_revision_id else i.active_config_revision_id end
-	where i.uninstalled_at is null and p.status = 'active' and (p.owner_user_id is null or p.owner_user_id = i.user_id)
-) p
+			from "user_plugin_state" p
 			join definition_entity_schema d on d.plugin_revision_id = p.active_revision_id
-			where p.is_listed
+			where p.is_present and p.is_listed
 		);--> statement-breakpoint
 CREATE VIEW "user_event_schema" AS (
 			select e.user_id, v.id, v.entity_schema_id, e.slug as entity_schema_slug, e.plugin_id, e.package_id, e.plugin_revision_id, v.slug, v.name, v.position, v.properties_schema, e.is_effective
@@ -1343,12 +1370,10 @@ CREATE VIEW "user_event_schema" AS (
 			join definition_event_schema v on v.entity_schema_id = e.id
 		);--> statement-breakpoint
 CREATE VIEW "user_plugin" AS (
-	select i.user_id, p.id as plugin_id, p.package_id, i.id as installation_id, case when p.owner_user_id is null then 'system' else 'user' end as scope, p.owner_user_id, p.active_revision_id, case when p.owner_user_id is null then p.environment_config_revision_id else i.active_config_revision_id end as config_revision_id, i.health, i.is_hidden, i.sort_order, i.health <> 'incompatible' as is_listed, not i.is_hidden and (i.health = 'ready' or (p.owner_user_id is null and i.health = 'installing')) as is_definition_effective, coalesce(not i.is_hidden and i.health = 'ready' and c.plugin_revision_id = p.active_revision_id and c.encrypted_payload is not null and case when p.owner_user_id is null then c.owner_user_id is null else c.owner_user_id = i.user_id and c.plugin_installation_id = i.id end, false) as is_executable
-	from plugin_installation i
-	join plugin p on p.id = i.plugin_id
-	left join plugin_config_revision c on c.id = case when p.owner_user_id is null then p.environment_config_revision_id else i.active_config_revision_id end
-	where i.uninstalled_at is null and p.status = 'active' and (p.owner_user_id is null or p.owner_user_id = i.user_id)
-);--> statement-breakpoint
+			select user_id, plugin_id, package_id, installation_id, scope, owner_user_id, active_revision_id, config_revision_id, health, is_hidden, sort_order, is_listed, is_definition_effective, is_executable
+			from "user_plugin_state"
+			where is_present
+		);--> statement-breakpoint
 CREATE VIEW "user_import_source" AS (
 			select p.user_id, d.id, p.plugin_id, p.package_id, d.plugin_revision_id, p.scope as plugin_scope, p.installation_id, p.config_revision_id, d.slug, d.name, d.description, d.position, d.workflow_slug, s.id as workflow_script_id, d.input_schema, d.required_plugin_config_keys, d.export_help, d.plan
 			from "user_plugin" p
@@ -1375,17 +1400,17 @@ CREATE VIEW "user_relationship_schema" AS (
 			cross join "user" u
 			where d.plugin_revision_id is null
 			union all
-			select p.user_id, d.id, p.plugin_id, p.package_id, d.plugin_revision_id, p.scope, d.slug, d.name, d.position, d.source_entity_schema_slug, d.target_entity_schema_slug, d.properties_schema, p.is_definition_effective and (d.source_entity_schema_slug is null or exists (select 1 from "user_entity_schema" e where e.user_id = p.user_id and e.plugin_id = p.plugin_id and e.slug = d.source_entity_schema_slug and e.is_effective)) and (d.target_entity_schema_slug is null or exists (select 1 from "user_entity_schema" e where e.user_id = p.user_id and e.plugin_id = p.plugin_id and e.slug = d.target_entity_schema_slug and e.is_effective))
+			select p.user_id, d.id, p.plugin_id, p.package_id, d.plugin_revision_id, p.scope, d.slug, d.name, d.position, d.source_entity_schema_slug, d.target_entity_schema_slug, d.properties_schema, p.is_definition_effective and (d.source_entity_schema_slug is null or exists (select 1 from definition_entity_schema e where e.plugin_revision_id = p.active_revision_id and e.slug = d.source_entity_schema_slug)) and (d.target_entity_schema_slug is null or exists (select 1 from definition_entity_schema e where e.plugin_revision_id = p.active_revision_id and e.slug = d.target_entity_schema_slug))
 			from "user_plugin" p
 			join definition_relationship_schema d on d.plugin_revision_id = p.active_revision_id
-			where p.is_listed and (d.source_entity_schema_slug is null or exists (select 1 from "user_entity_schema" e where e.user_id = p.user_id and e.plugin_id = p.plugin_id and e.slug = d.source_entity_schema_slug)) and (d.target_entity_schema_slug is null or exists (select 1 from "user_entity_schema" e where e.user_id = p.user_id and e.plugin_id = p.plugin_id and e.slug = d.target_entity_schema_slug))
+			where p.is_listed and (d.source_entity_schema_slug is null or exists (select 1 from definition_entity_schema e where e.plugin_revision_id = p.active_revision_id and e.slug = d.source_entity_schema_slug)) and (d.target_entity_schema_slug is null or exists (select 1 from definition_entity_schema e where e.plugin_revision_id = p.active_revision_id and e.slug = d.target_entity_schema_slug))
 		);--> statement-breakpoint
 CREATE VIEW "user_sandbox_provider" AS (
 			select p.user_id, s.id, s.plugin_id, p.package_id, p.scope as plugin_scope, p.installation_id, s.slug, s.name, s.root_entity_schema_slug, s.information, s.created_at, s.updated_at
 			from "user_plugin" p
 			join sandbox_provider s on s.plugin_id = p.plugin_id
 			join definition_provider d on d.plugin_revision_id = p.active_revision_id and d.slug = s.slug and d.root_entity_schema_slug = s.root_entity_schema_slug
-			where p.is_executable and exists (select 1 from "user_entity_schema" e where e.user_id = p.user_id and e.plugin_id = s.plugin_id and e.slug = s.root_entity_schema_slug and e.is_effective)
+			where p.is_executable and exists (select 1 from definition_entity_schema e where e.plugin_revision_id = p.active_revision_id and e.slug = s.root_entity_schema_slug)
 		);--> statement-breakpoint
 CREATE VIEW "user_sandbox_provider_operation" AS (
 		select provider.user_id, provider.id as provider_id, provider.plugin_id, provider.package_id,
