@@ -2,7 +2,10 @@ import { sourcePlanConfigKeys } from "@ryot-app/contract/modules/plugins/executi
 import type { PluginManifest } from "@ryot-app/contract/modules/plugins/manifest";
 import { definitionOwner } from "@ryot-app/contract/modules/plugins/references";
 import { mapPluginIdentityReferences } from "@ryot-app/contract/modules/ryotql/language";
-import { AuthoredEntityBrowserSavedViewSettings } from "@ryot-app/contract/modules/saved-views/schemas";
+import {
+	AuthoredEntityBrowserSavedViewSettings,
+	mapEntityBrowserAddActionSchema,
+} from "@ryot-app/contract/modules/saved-views/schemas";
 import { PluginId } from "@ryot-app/contract/schema/brands";
 import { Result, Schema } from "effect";
 
@@ -65,19 +68,10 @@ export const materializeSavedView = (
 		const addAction = decoded.success.addAction;
 		settings = {
 			...decoded.success,
-			addAction:
-				addAction === null || addAction.type === "plugin-route"
-					? addAction
-					: {
-							...addAction,
-							schema: {
-								slug: addAction.schema.slug,
-								owner:
-									addAction.schema.owner.kind === "self"
-										? definitionOwner(pluginId)
-										: addAction.schema.owner,
-							},
-						},
+			addAction: mapEntityBrowserAddActionSchema(addAction, ({ slug, owner }) => ({
+				slug,
+				owner: owner.kind === "self" ? definitionOwner(pluginId) : owner,
+			})),
 		};
 	}
 	return { ...definition, pluginId, settings, dataSources, renderer: definition.renderer };
