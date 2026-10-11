@@ -5,7 +5,7 @@ import type {
 	CreateIntegrationBody,
 	UpdateIntegrationBody,
 } from "@ryot-app/contract/modules/integrations/schemas";
-import { definitionKey } from "@ryot-app/contract/modules/plugins/references";
+import { sameDeclaration } from "@ryot-app/contract/modules/plugins/references";
 import { IntegrationId } from "@ryot-app/contract/schema/brands";
 import { integrationImportRunsRecipe } from "@ryot-app/ryotql-recipes/import-runs";
 import type { ImportRunList } from "@ryot-app/ryotql-recipes/import-runs";
@@ -42,11 +42,7 @@ export const selectedIntegrationReadinessQuery = createRyotQuery<
 			const page = yield* client.data.query(
 				integrationProvidersRecipe({ after, limit: 100, selected: input }),
 			);
-			const provider = page.items.find(
-				(item) =>
-					definitionKey("integration-provider", item.reference.owner, item.reference.slug) ===
-					definitionKey("integration-provider", input.reference.owner, input.reference.slug),
-			);
+			const provider = page.items.find((item) => sameDeclaration(item.reference, input.reference));
 			if (provider !== undefined) {
 				return provider;
 			}

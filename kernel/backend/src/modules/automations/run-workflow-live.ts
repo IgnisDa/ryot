@@ -11,7 +11,10 @@ import {
 	type AutomationTrigger,
 } from "@ryot-app/contract/modules/automations/lifecycle";
 import type { PluginHook } from "@ryot-app/contract/modules/plugins/manifest";
-import { definitionOwner } from "@ryot-app/contract/modules/plugins/references";
+import {
+	definitionOwner,
+	definitionOwnerPluginId,
+} from "@ryot-app/contract/modules/plugins/references";
 import { SandboxBoundaryReason } from "@ryot-app/contract/modules/sandbox/boundary-reason";
 import {
 	SandboxExecutionSubject,
@@ -139,7 +142,7 @@ export const prepareAutomationInvocation = (
 					? [run.pluginId]
 					: hookTargets.map((target) => {
 							const owner = "owner" in target ? target.owner : definitionOwner(run.pluginId);
-							return owner.kind === "plugin" ? owner.pluginId : null;
+							return definitionOwnerPluginId(owner);
 						}),
 			);
 			const payloadForOwner =

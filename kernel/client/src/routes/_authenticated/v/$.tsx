@@ -3,7 +3,7 @@ import { Button } from "@ryot-app/client-ui-sdk";
 import type { PreparedClientPage } from "@ryot-app/contract/modules/client-pages/schemas";
 import { savedViewPath } from "@ryot-app/contract/modules/plugins/navigation";
 import {
-	definitionKey,
+	sameDeclaration,
 	type SavedViewReference,
 } from "@ryot-app/contract/modules/plugins/references";
 import {
@@ -140,11 +140,7 @@ function SavedViewPage() {
 		void navigate({ href, replace });
 	};
 	const openAdd = (request: PluginBridgeProviderSearchScreen) => {
-		if (
-			addAction === null ||
-			definitionKey("entity", request.schema.owner, request.schema.slug) !==
-				definitionKey("entity", addAction.schema.owner, addAction.schema.slug)
-		) {
+		if (addAction === null || !sameDeclaration(request.schema, addAction.schema)) {
 			return;
 		}
 		pushedAdd.current = true;

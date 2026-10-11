@@ -8,6 +8,7 @@ import type {
 import {
 	definitionOwner,
 	type DefinitionOwner,
+	definitionOwnerPluginId,
 } from "@ryot-app/contract/modules/plugins/references";
 import { POLICY_SAFE_SANDBOX_CAPABILITIES } from "@ryot-app/contract/modules/sandbox/wire";
 import { PluginId, type UserId } from "@ryot-app/contract/schema/brands";
@@ -94,8 +95,7 @@ const matchesItem = (
 	if (
 		target.resource !== payload.resource ||
 		target.operation !== payload.operation ||
-		automationPayloadPluginId(payload) !==
-			(targetOwner.kind === "plugin" ? targetOwner.pluginId : null)
+		automationPayloadPluginId(payload) !== definitionOwnerPluginId(targetOwner)
 	) {
 		return false;
 	}
@@ -110,8 +110,7 @@ const matchesItem = (
 			return (
 				"eventSchemaSlug" in snapshot &&
 				"entitySchemaPluginId" in snapshot &&
-				snapshot.entitySchemaPluginId ===
-					(targetOwner.kind === "plugin" ? targetOwner.pluginId : null) &&
+				snapshot.entitySchemaPluginId === definitionOwnerPluginId(targetOwner) &&
 				snapshot.eventSchemaSlug === target.eventSchemaSlug &&
 				snapshot.entitySchemaSlug === target.entitySchemaSlug
 			);

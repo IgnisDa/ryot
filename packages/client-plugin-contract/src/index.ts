@@ -37,7 +37,6 @@ export {
 	ClientRuntimeArtifactMetadata,
 	clientDeclarationHash,
 	ClientArtifact,
-	ClientArtifactFromBase64,
 	ClientRuntimeArtifact,
 	ClientRuntimeArtifactFromBase64,
 	clientRuntimeArtifactMetadata,

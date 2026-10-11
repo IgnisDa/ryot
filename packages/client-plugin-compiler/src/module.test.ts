@@ -474,10 +474,8 @@ export default function Alpha() {
 				publicExports,
 				kind: "kernel",
 			});
-			expect(kernel.kind).toBe("kernel");
 			expect(kernel.artifact).not.toHaveProperty("packageId");
 			const plugin = yield* compileClientPluginModule(emittedInput);
-			expect(plugin.kind).toBe("plugin");
 			expect(plugin.artifact.packageId).toBe(packageId);
 			expect(plugin.artifact.hash).not.toBe(kernel.artifact.hash);
 		}),

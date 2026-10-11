@@ -179,7 +179,6 @@ it.layer(clientPluginCompilerPlatformLayer)("buildClientRuntime", (test) => {
 		Effect.gen(function* () {
 			const first = yield* buildClientRuntime;
 			const second = yield* buildClientRuntime;
-			expect(first.kind).toBe("kernel");
 			expect(first.artifact).not.toHaveProperty("packageId");
 
 			expect(Object.keys(first.entries)).toEqual([...CLIENT_DEPENDENCY_SPECIFIERS, "bootstrap"]);

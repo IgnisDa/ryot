@@ -22,7 +22,7 @@ import {
 } from "./execution";
 import { SandboxExecutionMetadata } from "./execution-metadata";
 import { pluginConfigEnvironmentKey } from "./plugin-config";
-import { DefinitionOwner, PluginPackageReference } from "./references";
+import { KernelDefinitionOwner, PluginPackageReference } from "./references";
 
 export const CLIENT_API_VERSION = 1 as const;
 
@@ -44,7 +44,7 @@ export const comparePluginRoutePaths = (left: string, right: string) => {
 	return left.localeCompare(right);
 };
 
-const pluginManifestSlug = Schema.String.pipe(
+export const pluginManifestSlug = Schema.String.pipe(
 	Schema.check(
 		Schema.makeFilter((value) =>
 			/^[a-z0-9]+(?:[._-][a-z0-9]+)*$/.test(value) ? true : "Expected a plugin manifest slug",
@@ -202,25 +202,9 @@ export const PluginClientExport = Schema.Union([
 
 export type PluginClientExport = Schema.Schema.Type<typeof PluginClientExport>;
 
-const PluginClientExports = Schema.Record(Schema.String, PluginClientExport).pipe(
-	Schema.check(
-		Schema.makeFilter((exports) =>
-			Object.keys(exports).every((name) => /^[a-z0-9]+(?:[._-][a-z0-9]+)*$/.test(name))
-				? true
-				: "Expected canonical public client export names",
-		),
-	),
-);
+const PluginClientExports = Schema.Record(pluginManifestSlug, PluginClientExport);
 
-const PluginClientDependencies = Schema.Record(pluginManifestSlug, PluginPackageReference).pipe(
-	Schema.check(
-		Schema.makeFilter((dependencies) =>
-			Object.keys(dependencies).every((alias) => /^[a-z0-9]+(?:[._-][a-z0-9]+)*$/.test(alias))
-				? true
-				: "Expected unique plugin client dependencies",
-		),
-	),
-);
+export const PluginClientDependencies = Schema.Record(pluginManifestSlug, PluginPackageReference);
 
 export const PluginClientEntry = strictStruct({
 	homeView: Schema.NullOr(pluginManifestSlug),
@@ -257,7 +241,7 @@ export type PluginMetadata = Schema.Schema.Type<typeof PluginMetadata>;
 
 export const PluginEventSchema = strictStruct({
 	name: Schema.String,
-	slug: Schema.String,
+	slug: pluginManifestSlug,
 	propertiesSchema: PluginAppSchema,
 });
 
@@ -272,7 +256,7 @@ export type PluginEntityUserStatePolicy = Schema.Schema.Type<typeof PluginEntity
 export const PluginEntitySchema = strictStruct({
 	icon: Schema.String,
 	name: Schema.String,
-	slug: Schema.String,
+	slug: pluginManifestSlug,
 	propertiesSchema: PluginAppSchema,
 	eventSchemas: Schema.Array(PluginEventSchema),
 	userState: Schema.optional(PluginEntityUserStatePolicy),
@@ -283,7 +267,7 @@ export type PluginEntitySchema = Schema.Schema.Type<typeof PluginEntitySchema>;
 
 export const PluginRelationshipSchema = strictStruct({
 	name: Schema.String,
-	slug: Schema.String,
+	slug: pluginManifestSlug,
 	propertiesSchema: PluginAppSchema,
 	sourceEntitySchemaSlug: Schema.NullOr(Schema.String),
 	targetEntitySchemaSlug: Schema.NullOr(Schema.String),
@@ -304,7 +288,7 @@ export type PluginSignalAudiencePolicy = Schema.Schema.Type<typeof PluginSignalA
 
 export const PluginSignalSchema = strictStruct({
 	name: Schema.String,
-	slug: Schema.String,
+	slug: pluginManifestSlug,
 	propertiesSchema: PluginAppSchema,
 	notificationHookSlug: pluginManifestSlug,
 	audiencePolicy: PluginSignalAudiencePolicy,
@@ -316,7 +300,7 @@ export type PluginSignalSchema = Schema.Schema.Type<typeof PluginSignalSchema>;
 export const PluginSavedView = strictStruct({
 	icon: Schema.String,
 	name: Schema.String,
-	slug: Schema.String,
+	slug: pluginManifestSlug,
 	sortOrder: Schema.Finite,
 	renderer: AuthoredSavedViewRenderer,
 	dataSources: Schema.NullOr(PluginQueryDocument),
@@ -725,7 +709,7 @@ const PluginLocalHookTarget = Schema.Union([
 	}),
 ]);
 export const KernelCollectionEventHookTarget = strictStruct({
-	owner: DefinitionOwner.members[0],
+	owner: KernelDefinitionOwner,
 	resource: Schema.Literal("event"),
 	operation: PluginLifecycleOperation,
 	entitySchemaSlug: Schema.Literal("collection"),
@@ -836,28 +820,10 @@ const PluginManifestFields = strictStruct({
 	scripts: Schema.Array(PluginScript),
 });
 
-export const KERNEL_DECLARED_SCHEMA_SURFACE = {
-	relationshipSchemas: [{ slug: "member-of" }],
-	signalSchemas: [{ slug: "integration.disabled" }],
-	entitySchemas: [
-		{
-			slug: "collection",
-			eventSchemas: [
-				{ slug: "review" },
-				{ slug: "add-entity-to-collection" },
-				{ slug: "remove-entity-from-collection" },
-			],
-		},
-	],
-} as const;
-
 const hasValidHookTargets = (manifest: typeof AuthoredPluginManifestFields.Type) => {
 	if (new Set(manifest.hooks.map(({ slug }) => slug)).size !== manifest.hooks.length) {
 		return false;
 	}
-	const entitySchemas = manifest.entitySchemas;
-	const relationshipSchemas = manifest.relationshipSchemas;
-	const signalSchemas = manifest.signalSchemas;
 	for (const hook of manifest.hooks) {
 		for (const target of hook.targets) {
 			if ("owner" in target) {
@@ -869,13 +835,13 @@ const hasValidHookTargets = (manifest: typeof AuthoredPluginManifestFields.Type)
 			switch (target.resource) {
 				case "entity":
 				case "provider-entity-import":
-					if (!entitySchemas.some(({ slug }) => slug === target.entitySchemaSlug)) {
+					if (!manifest.entitySchemas.some(({ slug }) => slug === target.entitySchemaSlug)) {
 						return false;
 					}
 					break;
 				case "event":
 					if (
-						!entitySchemas.some(
+						!manifest.entitySchemas.some(
 							(entity) =>
 								entity.slug === target.entitySchemaSlug &&
 								entity.eventSchemas.some(({ slug }) => slug === target.eventSchemaSlug),
@@ -885,12 +851,14 @@ const hasValidHookTargets = (manifest: typeof AuthoredPluginManifestFields.Type)
 					}
 					break;
 				case "relationship":
-					if (!relationshipSchemas.some(({ slug }) => slug === target.relationshipSchemaSlug)) {
+					if (
+						!manifest.relationshipSchemas.some(({ slug }) => slug === target.relationshipSchemaSlug)
+					) {
 						return false;
 					}
 					break;
 				case "signal":
-					if (!signalSchemas.some(({ slug }) => slug === target.signalSchemaSlug)) {
+					if (!manifest.signalSchemas.some(({ slug }) => slug === target.signalSchemaSlug)) {
 						return false;
 					}
 			}
@@ -995,7 +963,6 @@ const hasValidOAuthProviderReferences = (
 };
 
 const uniqueSlugs = (declarations: readonly { readonly slug: string }[]) =>
-	declarations.every(({ slug }) => /^[a-z0-9]+(?:[._-][a-z0-9]+)*$/.test(slug)) &&
 	new Set(declarations.map(({ slug }) => slug)).size === declarations.length;
 
 const hasValidLocalDeclarations = (manifest: typeof AuthoredPluginManifestFields.Type) => {

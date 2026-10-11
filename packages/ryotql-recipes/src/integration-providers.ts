@@ -6,7 +6,7 @@ import {
 	IngestionReadinessMetadata,
 } from "@ryot-app/contract/modules/plugins/ingestion-readiness";
 import {
-	definitionKey,
+	sameDeclaration,
 	definitionOwner,
 	type DeclarationReference,
 } from "@ryot-app/contract/modules/plugins/references";
@@ -41,12 +41,7 @@ export const integrationProvidersRecipe = defineRecipe(
 				items: providers.items.map((item) => {
 					const reference = { slug: item.slug, owner: definitionOwner(item.pluginId) };
 					const selected =
-						input.selected !== undefined &&
-						definitionKey(
-							"integration-provider",
-							input.selected.reference.owner,
-							input.selected.reference.slug,
-						) === definitionKey("integration-provider", reference.owner, reference.slug)
+						input.selected !== undefined && sameDeclaration(input.selected.reference, reference)
 							? input.selected
 							: undefined;
 					return {

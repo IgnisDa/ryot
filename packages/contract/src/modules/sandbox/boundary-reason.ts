@@ -2,12 +2,14 @@ import { Schema } from "effect";
 
 import { PluginId } from "../../schema/brands";
 
+export const PluginInstallationUnavailableReason = Schema.Struct({
+	pluginId: PluginId,
+	installationId: Schema.String,
+	code: Schema.Literals(["installation-unavailable", "package-identity-conflict"]),
+});
+
 export const SandboxBoundaryReason = Schema.Union([
-	Schema.Struct({
-		pluginId: PluginId,
-		installationId: Schema.String,
-		code: Schema.Literals(["installation-unavailable", "package-identity-conflict"]),
-	}),
+	PluginInstallationUnavailableReason,
 	Schema.Struct({
 		code: Schema.Literal("missing-required-config"),
 		keys: Schema.optionalKey(Schema.Array(Schema.String)),

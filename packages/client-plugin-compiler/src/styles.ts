@@ -3,7 +3,7 @@ import { canonicalRelativePosixPathIssue, posixPath } from "@ryot-app/ts-utils/p
 import { parse } from "postcss";
 import valueParser from "postcss-value-parser";
 
-import { isNeutralPluginModule, isTrustedClientModule } from "./dependencies";
+import { isNeutralPluginModule, isTrustedClientModule, PLUGIN_IMPORT } from "./dependencies";
 import { type ClientPluginCompilerDiagnostic, clientPluginCompilerDiagnostic } from "./diagnostics";
 
 const IMPORT_SPECIFIER =
@@ -93,10 +93,7 @@ const validateScript = (
 			continue;
 		}
 		if (specifier.startsWith("@ryot-app/plugins/")) {
-			const slug =
-				/^@ryot-app\/plugins\/([a-z0-9]+(?:[._-][a-z0-9]+)*)\/[a-z0-9]+(?:[._-][a-z0-9]+)*$/.exec(
-					specifier,
-				)?.[1];
+			const slug = PLUGIN_IMPORT.exec(specifier)?.[1];
 			if (
 				isSharedSource(path) ||
 				(publicExports[specifier] === undefined &&

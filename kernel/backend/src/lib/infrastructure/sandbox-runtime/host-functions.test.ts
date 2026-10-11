@@ -1,6 +1,9 @@
 import { describe, expect, it, layer } from "@effect/vitest";
 import { DbError } from "@ryot-app/contract/errors";
-import { definitionKey } from "@ryot-app/contract/modules/plugins/references";
+import {
+	definitionKey,
+	definitionOwnerPluginId,
+} from "@ryot-app/contract/modules/plugins/references";
 import type { RyotQLDocument } from "@ryot-app/contract/modules/ryotql/language";
 import type {
 	SandboxExecutionSubject,
@@ -557,10 +560,7 @@ const hostFunctionsLayer = (
 									createdAt: "2026-01-01T00:00:00.000Z",
 									updatedAt: "2026-01-01T00:00:00.000Z",
 									entitySchemaSlug: input.entitySchema.slug,
-									entitySchemaPluginId:
-										input.entitySchema.owner.kind === "plugin"
-											? input.entitySchema.owner.pluginId
-											: null,
+									entitySchemaPluginId: definitionOwnerPluginId(input.entitySchema.owner),
 								},
 							}),
 						),

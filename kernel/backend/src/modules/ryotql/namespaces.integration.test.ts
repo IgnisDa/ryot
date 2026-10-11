@@ -12,18 +12,18 @@ import {
 } from "@ryot-app/contract/schema/brands";
 import {
 	aggregate,
+	and,
 	ascending,
 	column,
 	count,
-	entityDefinitionJoin,
 	eq,
-	eventDefinitionJoin,
 	field,
 	include,
 	join,
 	measure,
 	pluginId,
 	rows,
+	schemaOwnerJoin,
 	table,
 } from "@ryot-app/ryotql";
 import { eq as dbEq } from "drizzle-orm";
@@ -225,10 +225,19 @@ layer(databaseLayer)((test) => {
 				const response = yield* service.executeForUser(owner, null, "plugin", {
 					queries: {
 						entities: rows(entity, {
-							joins: [join("inner", definition, entityDefinitionJoin(entity, definition))],
 							fields: [
 								field("id", column(entity, "id")),
 								field("owner", column(definition, "pluginId")),
+							],
+							joins: [
+								join(
+									"inner",
+									definition,
+									and(
+										eq(column(entity, "entitySchemaSlug"), column(definition, "slug")),
+										schemaOwnerJoin(entity, "entitySchemaPluginId", definition, "pluginId"),
+									),
+								),
 							],
 						}),
 						events: rows(event, {
@@ -238,7 +247,19 @@ layer(databaseLayer)((test) => {
 							],
 							joins: [
 								join("inner", entity, eq(column(event, "entityId"), column(entity, "id"))),
-								join("inner", eventDefinition, eventDefinitionJoin(event, entity, eventDefinition)),
+								join(
+									"inner",
+									eventDefinition,
+									and(
+										eq(column(event, "eventSchemaSlug"), column(eventDefinition, "slug")),
+										eq(
+											column(entity, "entitySchemaSlug"),
+											column(eventDefinition, "entitySchemaSlug"),
+										),
+										schemaOwnerJoin(event, "eventSchemaPluginId", eventDefinition, "pluginId"),
+										schemaOwnerJoin(entity, "entitySchemaPluginId", eventDefinition, "pluginId"),
+									),
+								),
 							],
 						}),
 					},

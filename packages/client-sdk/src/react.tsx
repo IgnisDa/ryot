@@ -8,7 +8,7 @@ import {
 import { OverlayBackProvider } from "@ryot-app/client-ui-sdk";
 import { SETTLE_RING_DURATION_MS } from "@ryot-app/client-ui-sdk/sync";
 import { MANAGED_ASSET_RESOLUTION_MAX_ASSETS } from "@ryot-app/contract/modules/uploads/schemas";
-import type { PluginPackageId } from "@ryot-app/contract/schema/brands";
+import type { PluginId, PluginPackageId } from "@ryot-app/contract/schema/brands";
 import type { JsonValue } from "@ryot-app/contract/schema/json";
 import * as Cause from "effect/Cause";
 import * as Effect from "effect/Effect";
@@ -506,7 +506,7 @@ export type PluginStorageState<A> =
 
 export const usePluginStorage = <A,>(options: {
 	readonly key: string;
-	readonly pluginId: string;
+	readonly pluginId: PluginId;
 	readonly schema: Schema.Codec<A, JsonValue>;
 }): PluginStorageState<A> => {
 	const client = useRyot();

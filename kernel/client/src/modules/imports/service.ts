@@ -1,6 +1,6 @@
 import { createRyotMutation, createRyotQuery } from "@ryot-app/client-sdk/react";
 import type { ContractRequest } from "@ryot-app/contract/client";
-import { definitionKey } from "@ryot-app/contract/modules/plugins/references";
+import { sameDeclaration } from "@ryot-app/contract/modules/plugins/references";
 import { ImportRunId } from "@ryot-app/contract/schema/brands";
 import {
 	importRunRecipe,
@@ -118,11 +118,7 @@ export const selectedImportReadinessQuery = createRyotQuery<
 			const page = yield* client.data.query(
 				importSourcesRecipe({ after, limit: 100, selected: input }),
 			);
-			const source = page.items.find(
-				(item) =>
-					definitionKey("import-source", item.reference.owner, item.reference.slug) ===
-					definitionKey("import-source", input.reference.owner, input.reference.slug),
-			);
+			const source = page.items.find((item) => sameDeclaration(item.reference, input.reference));
 			if (source !== undefined) {
 				return source;
 			}

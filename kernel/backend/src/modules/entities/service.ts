@@ -9,6 +9,7 @@ import {
 	definitionKey,
 	definitionOwner,
 	type EntitySchemaReference,
+	definitionOwnerPluginId,
 } from "@ryot-app/contract/modules/plugins/references";
 import {
 	type UserId,
@@ -709,7 +710,7 @@ export class EntitiesService extends Context.Service<EntitiesService>()("Entitie
 					populatedAt: input.populatedAt?.toISOString() ?? null,
 				},
 				scopeUserId,
-				input.entitySchema.owner.kind === "plugin" ? input.entitySchema.owner.pluginId : null,
+				definitionOwnerPluginId(input.entitySchema.owner),
 				input.lifecycle,
 			);
 			const { externalId, providerId } = input;
@@ -881,7 +882,7 @@ export class EntitiesService extends Context.Service<EntitiesService>()("Entitie
 					populatedAt: input.populatedAt?.toISOString() ?? null,
 				},
 				scopeUserId,
-				input.entitySchema.owner.kind === "plugin" ? input.entitySchema.owner.pluginId : null,
+				definitionOwnerPluginId(input.entitySchema.owner),
 				input.lifecycle,
 			);
 			const identity = {
@@ -1362,8 +1363,7 @@ export class EntitiesService extends Context.Service<EntitiesService>()("Entitie
 					const existing = yield* repository.findUserEntityWithoutProvenance({
 						userId,
 						entitySchemaSlug: item.entitySchema.slug,
-						entitySchemaPluginId:
-							item.entitySchema.owner.kind === "plugin" ? item.entitySchema.owner.pluginId : null,
+						entitySchemaPluginId: definitionOwnerPluginId(item.entitySchema.owner),
 					});
 					if (existing) {
 						return { item, receipt, existing, prepared: null, recorded: null };
@@ -1428,10 +1428,7 @@ export class EntitiesService extends Context.Service<EntitiesService>()("Entitie
 							const existing = yield* repository.findUserEntityWithoutProvenance({
 								userId,
 								entitySchemaSlug: item.item.entitySchema.slug,
-								entitySchemaPluginId:
-									item.item.entitySchema.owner.kind === "plugin"
-										? item.item.entitySchema.owner.pluginId
-										: null,
+								entitySchemaPluginId: definitionOwnerPluginId(item.item.entitySchema.owner),
 							});
 							if (existing) {
 								const result = { wasInserted: false, entityId: existing.id };
@@ -1699,8 +1696,7 @@ export class EntitiesService extends Context.Service<EntitiesService>()("Entitie
 						prepared: null,
 						externalId: item.externalId,
 						entitySchemaSlug: item.entitySchema.slug,
-						entitySchemaPluginId:
-							item.entitySchema.owner.kind === "plugin" ? item.entitySchema.owner.pluginId : null,
+						entitySchemaPluginId: definitionOwnerPluginId(item.entitySchema.owner),
 					});
 					continue;
 				}
@@ -1725,7 +1721,7 @@ export class EntitiesService extends Context.Service<EntitiesService>()("Entitie
 				const definition = yield* entitySchema(
 					null,
 					item.entitySchema.slug,
-					item.entitySchema.owner.kind === "plugin" ? item.entitySchema.owner.pluginId : null,
+					definitionOwnerPluginId(item.entitySchema.owner),
 				);
 				planned.push({
 					receipt,
