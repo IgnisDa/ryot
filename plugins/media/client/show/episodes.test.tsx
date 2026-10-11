@@ -1,19 +1,32 @@
 import { afterEach, describe, expect, it } from "@effect/vitest";
 import { identityTupleKey } from "@ryot-app/contract/modules/plugins/references";
 import { type RyotClientAdapter, RyotClientError } from "@ryot-app/plugin-client-sdk";
-import { Effect } from "@ryot-app/plugin-client-sdk/effect";
+import { DateTime, Effect } from "@ryot-app/plugin-client-sdk/effect";
 import { createTestPluginStorage } from "@ryot-app/plugin-client-sdk/testing";
-import { fireEvent, waitFor } from "@testing-library/dom";
+import { fireEvent, getByRole, waitFor } from "@testing-library/dom";
 
+import {
+	type ActivityLogFake,
+	activityLogQuery,
+	choiceRow,
+	contextTarget,
+	seasonRow,
+} from "../../tests/client/activity-log/fixtures";
 import { rowsResult } from "../../tests/client/query-result-fixture";
 import {
 	decodeShowSeasonEpisodesResult,
 	showEpisodeRow,
 	showSeasonRow,
 } from "../../tests/client/show/episodes-fixture";
-import { flushRyotClient, mountRyotClient } from "../../tests/client/test-support";
+import { flushRyotClient, localDateTime, mountRyotClient } from "../../tests/client/test-support";
+import type { MediaActivityLogger } from "../media/activity-log/state";
 import { ShowEpisodesTab } from "./episodes";
 import type { ShowEpisode } from "./episodes-state";
+
+const SHOW_LOGGER: MediaActivityLogger = {
+	family: "show",
+	copy: { noun: "show", verb: "watch", gerund: "watching", participle: "watched" },
+};
 
 const rows = (items: readonly Record<string, unknown>[]) =>
 	rowsResult(items, { limit: 60, hasMore: false, nextCursor: null });
@@ -53,6 +66,7 @@ const orderEpisodeRow = (number: number) => ({
 	id: `episode-${number}`,
 	name: `Episode ${number}`,
 	externalId: `tmdb-${number}`,
+	seasonNumber: number === 3 ? 2 : 1,
 });
 
 const orderEpisodeRows = Array.from({ length: 61 }, (_, index) => orderEpisodeRow(index + 1));
@@ -84,6 +98,7 @@ const absoluteOrder = {
 
 const showAdapter = (input: {
 	readonly queries?: string[];
+	readonly activity?: ActivityLogFake;
 	readonly episodeOrders?: readonly Record<string, unknown>[];
 	readonly seasons?: readonly Record<string, unknown>[];
 	readonly episodes?: (seasonId: string) => readonly Record<string, unknown>[];
@@ -93,6 +108,14 @@ const showAdapter = (input: {
 		query: (document) => {
 			const serialized = JSON.stringify(document);
 			input.queries?.push(serialized);
+			if (
+				input.activity !== undefined &&
+				["logEntity", "choiceEpisode", "earlierEpisode"].some((alias) =>
+					serialized.includes(`"${alias}"`),
+				)
+			) {
+				return activityLogQuery(input.activity)(document);
+			}
 			if (serialized.includes('"orderGroupShow"')) {
 				return Effect.succeed({
 					data: {
@@ -149,7 +172,13 @@ const [summaryNextUp] = decodeShowSeasonEpisodesResult({ episodes: [secondEpisod
 const renderTab = (adapter: Partial<RyotClientAdapter>, nextUp: ShowEpisode | null = null) =>
 	mountRyotClient(
 		adapter,
-		<ShowEpisodesTab compact safeAreaTop={0} entityId="show-1" summary={{ nextUp }} />,
+		<ShowEpisodesTab
+			compact
+			safeAreaTop={0}
+			entityId="show-1"
+			logger={SHOW_LOGGER}
+			summary={{ nextUp }}
+		/>,
 	);
 
 const STORAGE_ENTRY = identityTupleKey("media-owner", "episode-order:show-1");
@@ -350,7 +379,13 @@ describe("show season browser", () => {
 					query: () => Effect.fail(new RyotClientError("transport")),
 					watchEntities: () => ({ update: () => undefined, dispose: () => undefined }),
 				},
-				<ShowEpisodesTab compact safeAreaTop={0} entityId="show-1" summary={undefined} />,
+				<ShowEpisodesTab
+					compact
+					safeAreaTop={0}
+					entityId="show-1"
+					summary={undefined}
+					logger={SHOW_LOGGER}
+				/>,
 			);
 			yield* Effect.promise(() => flushRyotClient());
 
@@ -439,7 +474,7 @@ describe("show episode orders", () => {
 			expect(storage.entries.get(STORAGE_ENTRY)).toBe("order-dvd");
 			expect(view.container.querySelector('[aria-label="Season"]')).toBeNull();
 			expect(textOf(view.container, "Volume 1")).not.toBeUndefined();
-			expect(textOf(view.container, "S1 • E3")).not.toBeUndefined();
+			expect(textOf(view.container, "S2 • E3")).not.toBeUndefined();
 			expect(textOf(view.container, "1/2 aired")).not.toBeUndefined();
 
 			yield* Effect.promise(() => click(radio(view.container, "Volume 2")));
@@ -521,6 +556,115 @@ describe("show episode orders", () => {
 				waitFor(() => expect(episodeNames(view.container)).toHaveLength(61)),
 			);
 			expect(episodeNames(view.container).at(-1)).toBe("Open Episode 61");
+			view.unmount();
+		}),
+	);
+});
+
+const NOW = DateTime.toEpochMillis(localDateTime({ day: 20, hour: 9, month: 10, year: 2026 }));
+
+const loggingActivity = (overrides: Partial<ActivityLogFake> = {}): ActivityLogFake => ({
+	earlier: {},
+	target: contextTarget({
+		schemaSlug: "show",
+		name: "Adolescence",
+		seasons: { items: [seasonRow(1), seasonRow(2)], pageInfo: { limit: 100, hasMore: false } },
+		showNextUp: {
+			pageInfo: { limit: 1, hasMore: false },
+			items: [{ id: "s1e1", name: "One", seasonNumber: 1, episodeNumber: 1 }],
+		},
+	}),
+	...overrides,
+});
+
+describe("show episode logging", () => {
+	it.live("opens the log sheet on the season of a season episode", () =>
+		Effect.gen(function* () {
+			const view = renderTab(
+				showAdapter({
+					seasons: [showSeasonRow, secondSeason],
+					activity: loggingActivity({ seasons: { 2: [[choiceRow(2, 1), choiceRow(2, 2)]] } }),
+					episodes: () => [
+						{
+							...showEpisodeRow,
+							id: "s2e2",
+							seasonNumber: 2,
+							episodeNumber: 2,
+							state: "untracked",
+							name: "Episode 2: The Interview",
+						},
+					],
+				}),
+			);
+			yield* Effect.promise(() => view.setTime(NOW));
+			yield* Effect.promise(() => flushRyotClient());
+			yield* Effect.promise(() =>
+				waitFor(() => expect(radio(view.container, "Season 2")).toBeDefined()),
+			);
+			yield* Effect.promise(() => click(radio(view.container, "Season 2")));
+			yield* Effect.promise(() =>
+				waitFor(() =>
+					fireEvent.click(
+						getByRole(view.container, "button", { name: "Open Episode 2: The Interview" }),
+					),
+				),
+			);
+			const details = getByRole(document.body, "dialog", { name: "Episode 2: The Interview" });
+			fireEvent.click(getByRole(details, "button", { name: "Log…" }));
+			const sheet = yield* Effect.promise(() =>
+				waitFor(() => {
+					const found = getByRole(document.body, "dialog", { name: "Log activity" });
+					getByRole(found, "button", { name: "Season: Season 2" });
+					return found;
+				}),
+			);
+			yield* Effect.promise(() =>
+				waitFor(() =>
+					expect(getByRole(sheet, "radio", { name: "S2·E2" }).getAttribute("aria-checked")).toBe(
+						"true",
+					),
+				),
+			);
+			view.unmount();
+		}),
+	);
+
+	it.live("opens the log sheet on the season of a custom-order episode", () =>
+		Effect.gen(function* () {
+			const storage = createTestPluginStorage([[STORAGE_ENTRY, "order-dvd"]]);
+			const view = renderTab({
+				...showAdapter({
+					episodeOrders: [dvdOrder],
+					seasons: [showSeasonRow, secondSeason],
+					activity: loggingActivity({
+						seasons: { 2: [[{ ...choiceRow(2, 3), id: "episode-3" }]] },
+					}),
+				}),
+				accessStorage: storage.accessStorage,
+			});
+			yield* Effect.promise(() => view.setTime(NOW));
+			yield* Effect.promise(() => flushRyotClient());
+			yield* Effect.promise(() =>
+				waitFor(() =>
+					fireEvent.click(getByRole(view.container, "button", { name: "Open Episode 3" })),
+				),
+			);
+			const details = getByRole(document.body, "dialog", { name: "Episode 3" });
+			fireEvent.click(getByRole(details, "button", { name: "Log…" }));
+			const sheet = yield* Effect.promise(() =>
+				waitFor(() => {
+					const found = getByRole(document.body, "dialog", { name: "Log activity" });
+					getByRole(found, "button", { name: "Season: Season 2" });
+					return found;
+				}),
+			);
+			yield* Effect.promise(() =>
+				waitFor(() =>
+					expect(getByRole(sheet, "radio", { name: "S2·E3" }).getAttribute("aria-checked")).toBe(
+						"true",
+					),
+				),
+			);
 			view.unmount();
 		}),
 	);

@@ -164,6 +164,7 @@ export type MediaEpisodicSchemaDescriptor<
 	readonly presentationDetail: (data: Presentation) => string | undefined;
 	readonly EpisodesTab: (props: {
 		readonly compact: boolean;
+		readonly logger: MediaActivityLogger;
 		readonly entityId: string;
 		readonly safeAreaTop: number;
 		readonly summary: Summary | undefined;
@@ -432,6 +433,7 @@ export const defineEpisodicMediaSchema = <
 			episodes={createElement(descriptor.EpisodesTab, {
 				compact: input.compact,
 				entityId: input.entityId,
+				logger: descriptor.logActivity,
 				safeAreaTop: input.safeAreaTop,
 				summary: input.state.status === "ready" ? input.state.summary : undefined,
 			})}

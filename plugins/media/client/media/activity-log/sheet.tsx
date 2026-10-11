@@ -28,7 +28,7 @@ import clsx from "clsx";
 import { type ReactNode, type RefObject, useEffect, useMemo, useState } from "react";
 
 import type { MediaActivityLogContext } from "../../../shared/activity-log-recipes";
-import { podcastEpisodesQuery } from "../../podcast/episodes";
+import { podcastEpisodesQuery } from "../../podcast/episodes-query";
 import { MediaLinkButton } from "../primitives";
 import {
 	activityLogContextQuery,
@@ -784,12 +784,13 @@ function ActivityLogDialog(props: {
 	readonly compact: boolean;
 	readonly entityId: string;
 	readonly onClose: () => void;
-	readonly onReview: () => void;
+	readonly onReview?: () => void;
 	readonly logger: MediaActivityLogger;
 	readonly context: MediaActivityLogContext;
+	readonly initialEpisode?: ActivityEpisode;
 	readonly triggerRef: RefObject<HTMLButtonElement | null>;
 }) {
-	const { logger, context, entityId } = props;
+	const { logger, context, entityId, initialEpisode } = props;
 	const schedule = useRyotSchedule();
 	const today = localDay(schedule.now());
 	const log = useRyotSubmission(logActivityMutation, {
@@ -797,9 +798,11 @@ function ActivityLogDialog(props: {
 	});
 	const [draft, setDraft] = useState(() => initialActivityDraft(logger, context, today));
 	const [seasonNumber, setSeasonNumber] = useState(() =>
-		logger.family === "show" ? defaultSeasonNumber(context) : undefined,
+		logger.family === "show"
+			? (initialEpisode?.seasonNumber ?? defaultSeasonNumber(context))
+			: undefined,
 	);
-	const [episodeId, setEpisodeId] = useState<string | undefined>(undefined);
+	const [episodeId, setEpisodeId] = useState(initialEpisode?.id);
 	const [backfill, setBackfill] = useState(true);
 	const [report, setReport] = useState<EarlierReport | undefined>(undefined);
 	const [done, setDone] = useState<{ text: string; offerReview: boolean } | undefined>(undefined);
@@ -815,6 +818,7 @@ function ActivityLogDialog(props: {
 						selectedId: episodeId,
 						choices: pager.choices,
 						nextUp: context.nextUp,
+						initial: initialEpisode,
 						seasonNumber: seasonNumber ?? null,
 					});
 		const special = logger.family === "show" && selected?.seasonNumber === 0;
@@ -886,7 +890,7 @@ function ActivityLogDialog(props: {
 				{saved ? (
 					<div className="flex flex-col items-start gap-3">
 						<StatusMessage tone="success">{done?.text}</StatusMessage>
-						{done?.offerReview === true ? (
+						{done?.offerReview === true && props.onReview !== undefined ? (
 							<p className="text-text-muted">
 								Want to say what you thought?{" "}
 								<MediaLinkButton label="Write a review" onClick={props.onReview} />
@@ -963,8 +967,9 @@ export function MediaActivityLogSheet(props: {
 	readonly compact: boolean;
 	readonly entityId: string;
 	readonly onClose: () => void;
-	readonly onReview: () => void;
+	readonly onReview?: () => void;
 	readonly logger: MediaActivityLogger;
+	readonly initialEpisode?: ActivityEpisode;
 	readonly triggerRef: RefObject<HTMLButtonElement | null>;
 }) {
 	const result = useRyotQuery(activityLogContextQuery, { entityId: props.entityId });

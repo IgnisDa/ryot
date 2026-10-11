@@ -23,7 +23,10 @@ import {
 } from "./schema";
 import { AnimeAiringScheduleSection, animeUpcomingEpisodes } from "./sections";
 
-const noopAdapter = { query: () => Effect.succeed({}) };
+const noopAdapter = {
+	query: () => Effect.succeed({}),
+	watchEntities: () => ({ update: () => undefined, dispose: () => undefined }),
+};
 
 const AIRED_EPISODE = { episode: 1, airingAt: "2000-04-08T16:30:00.000Z" };
 

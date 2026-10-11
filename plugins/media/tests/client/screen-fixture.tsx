@@ -8,7 +8,10 @@ import type { MediaSummaryState } from "../../client/media/summary-state";
 import { readyQueryResult } from "./query-result-fixture";
 import { mountRyotClient } from "./test-support";
 
-const noopAdapter = { query: () => Effect.succeed({}) };
+const noopAdapter = {
+	query: () => Effect.succeed({}),
+	watchEntities: () => ({ update: () => undefined, dispose: () => undefined }),
+};
 
 type MediaScreenBody<Summary, Overview> = (props: {
 	readonly compact: boolean;

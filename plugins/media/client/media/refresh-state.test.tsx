@@ -38,7 +38,10 @@ describe("show refresh failures", () => {
 				retries += 1;
 			};
 			const view = mountRyotClient(
-				{ query: () => Effect.succeed({}) },
+				{
+					query: () => Effect.succeed({}),
+					watchEntities: () => ({ update: () => undefined, dispose: () => undefined }),
+				},
 				<showSchema.ScreenBody
 					compact
 					safeAreaTop={0}

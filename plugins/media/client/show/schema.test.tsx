@@ -17,7 +17,10 @@ import {
 	showSummaryFacts,
 } from "./schema";
 
-const noopAdapter = { query: () => Effect.succeed({}) };
+const noopAdapter = {
+	query: () => Effect.succeed({}),
+	watchEntities: () => ({ update: () => undefined, dispose: () => undefined }),
+};
 
 const presentationRow = {
 	id: "show-1",
