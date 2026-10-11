@@ -70,7 +70,7 @@ export const listEntitySchemas = (
 	Effect.gen(function* () {
 		const [schemas, scripts] = yield* Effect.all([
 			collectRyotQLRecipeItems(client, (after) => entityDefinitionsRecipe({ after, limit: 100 })),
-			listAdminSandboxScripts(),
+			listAdminSandboxScripts(undefined, client.baseUrl),
 		]);
 		const providers = new Map<
 			string,
