@@ -481,4 +481,29 @@ describe("movie.tmdb sandbox script", () => {
 			),
 		);
 	});
+
+	it("fails instead of skipping when the trending entity upsert fails", () => {
+		const logs: Parameters<ScriptHost["log"]>[0][] = [];
+		const host = defineSandboxTestHost(manifest, {
+			upsertGlobalEntities: () => Effect.fail({ message: "upsert rejected" }),
+			httpCall: () => httpSuccess({ results: [{ id: 1, title: "First Movie" }] }),
+			log: (entries) =>
+				Effect.sync(() => {
+					logs.push(entries);
+					return null;
+				}),
+			getPluginConfig: ({ required: keys = [] }) =>
+				Effect.succeed(Object.fromEntries(keys.map((key) => [key, "token"]))),
+		});
+		return Effect.runPromise(
+			runSandboxTestScript(trending, {}, host, execution).pipe(
+				Effect.flip,
+				Effect.map((error) => {
+					expect(error).toMatchObject({ message: "upsert rejected" });
+					expect(logs).toEqual([]);
+					return undefined;
+				}),
+			),
+		);
+	});
 });

@@ -307,48 +307,51 @@ export const runTmdbTrending = (
 		readonly entitySchemaSlug: string;
 		readonly nameKeys: readonly string[];
 	},
-): Effect.Effect<typeof MediaTrendingProviderOutput.Type> =>
-	getTmdbAccessToken(host).pipe(
-		Effect.flatMap((token) =>
-			fetchTrendingItems(host, options.path, options.language, token, {
-				nameKeys: options.nameKeys,
-				providerSlug: options.providerSlug,
-			}),
-		),
-		Effect.flatMap((items) =>
-			host.upsertGlobalEntities(
-				items.map(({ name, externalId }) => ({
-					name,
-					externalId,
-					properties: {},
-					populatedAt: null,
-					entitySchemaSlug: options.entitySchemaSlug,
-				})),
+) =>
+	Effect.gen(function* () {
+		const items = yield* getTmdbAccessToken(host).pipe(
+			Effect.flatMap((token) =>
+				fetchTrendingItems(host, options.path, options.language, token, {
+					nameKeys: options.nameKeys,
+					providerSlug: options.providerSlug,
+				}),
 			),
-		),
-		Effect.map((results) => ({
-			status: "fetched" as const,
+			Effect.catch((error) =>
+				host
+					.log([
+						{
+							level: "warning",
+							message: "trending provider skipped",
+							attributes: { error: mediaFailureMessage(error), providerSlug: options.providerSlug },
+						},
+					])
+					.pipe(
+						Effect.orElseSucceed(() => null),
+						Effect.map(() => null),
+					),
+			),
+		);
+		if (items === null) {
+			return { status: "failed" } satisfies typeof MediaTrendingProviderOutput.Type;
+		}
+		const results = yield* host.upsertGlobalEntities(
+			items.map(({ name, externalId }) => ({
+				name,
+				externalId,
+				properties: {},
+				populatedAt: null,
+				entitySchemaSlug: options.entitySchemaSlug,
+			})),
+		);
+		return {
+			status: "fetched",
 			entityIds: [
 				...new Set(
 					results.flatMap((result) => (result.status === "upserted" ? [result.entityId] : [])),
 				),
 			],
-		})),
-		Effect.catch((error) =>
-			host
-				.log([
-					{
-						level: "warning",
-						message: "trending provider skipped",
-						attributes: { error: mediaFailureMessage(error), providerSlug: options.providerSlug },
-					},
-				])
-				.pipe(
-					Effect.orElseSucceed(() => null),
-					Effect.map(() => ({ status: "failed" as const })),
-				),
-		),
-	);
+		} satisfies typeof MediaTrendingProviderOutput.Type;
+	});
 
 export const parseTranslationLanguage = (language: string) => {
 	const [languagePart = "", regionPart] = language.split("-");
