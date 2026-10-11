@@ -9,7 +9,7 @@ import {
 	SandboxScriptId,
 	UserId,
 } from "@ryot-app/contract/schema/brands";
-import { eq } from "drizzle-orm";
+import { eq, inArray } from "drizzle-orm";
 import { PgDialect } from "drizzle-orm/pg-core";
 import { Context, DateTime, Effect, Layer, Ref } from "effect";
 import { chunksOf } from "effect/Array";
@@ -601,6 +601,117 @@ layer(
 			});
 			expect([...found.keys()].sort()).toEqual(["global", "owned"]);
 			expect(found.get(EntityId.make("owned"))).toMatchObject({ name: "Owned", properties: {} });
+		}),
+	);
+});
+
+layer(eventStreamRepositoriesLayer)((test) => {
+	test.effect("keeps a non-null populated_at only for flagged population root updates", () =>
+		Effect.gen(function* () {
+			const session = yield* DatabaseSession;
+			const repository = yield* EntitiesRepository;
+			const populatedAt = DateTime.toDateUtc(DateTime.makeUnsafe("2026-10-01T00:00:00.000Z"));
+			const later = DateTime.toDateUtc(DateTime.makeUnsafe("2026-10-02T00:00:00.000Z"));
+			const plain = EntityId.make("plain-update-entity");
+			const flagged = EntityId.make("flagged-update-entity");
+			const unpopulated = EntityId.make("flagged-unpopulated-entity");
+			yield* session.run((db) =>
+				db.insert(tables.entity).values([
+					{ id: plain, populatedAt, name: "Plain", entitySchemaSlug: "record" },
+					{ populatedAt, id: flagged, name: "Flagged", entitySchemaSlug: "record" },
+					{ id: unpopulated, name: "Unpopulated", entitySchemaSlug: "record" },
+				]),
+			);
+			const update = (entityId: EntityId, value: Date | null, preservePopulatedAt?: true) =>
+				session.transaction(
+					repository.updateEntity({
+						entityId,
+						properties: {},
+						name: "Updated",
+						populatedAt: value,
+						...(preservePopulatedAt ? { preservePopulatedAt } : {}),
+					}),
+				);
+			const populatedAtOf = (entityId: EntityId) =>
+				session
+					.run((db) =>
+						db
+							.select({ populatedAt: tables.entity.populatedAt })
+							.from(tables.entity)
+							.where(eq(tables.entity.id, entityId)),
+					)
+					.pipe(Effect.map(([row]) => row?.populatedAt));
+
+			expect((yield* update(plain, null)).populatedAt).toBeNull();
+			expect(yield* populatedAtOf(plain)).toBeNull();
+			expect((yield* update(flagged, null, true)).populatedAt).toBe(populatedAt.toISOString());
+			expect(yield* populatedAtOf(flagged)).toEqual(populatedAt);
+			yield* update(flagged, later, true);
+			expect(yield* populatedAtOf(flagged)).toEqual(later);
+			yield* update(unpopulated, null, true);
+			expect(yield* populatedAtOf(unpopulated)).toBeNull();
+		}),
+	);
+
+	test.effect("clears related failures on the related stamp and stamps children once", () =>
+		Effect.gen(function* () {
+			const session = yield* DatabaseSession;
+			const repository = yield* EntitiesRepository;
+			const populatedAt = DateTime.toDateUtc(DateTime.makeUnsafe("2026-10-01T00:00:00.000Z"));
+			const earlier = DateTime.toDateUtc(DateTime.makeUnsafe("2026-09-01T00:00:00.000Z"));
+			const root = EntityId.make("related-failed-root");
+			const child = EntityId.make("related-child");
+			const stampedChild = EntityId.make("related-stamped-child");
+			const unpopulatedChild = EntityId.make("related-unpopulated-child");
+			yield* session.run((db) =>
+				db.insert(tables.entity).values([
+					{
+						id: root,
+						populatedAt,
+						name: "Root",
+						entitySchemaSlug: "record",
+						relatedPopulationFailedAt: populatedAt,
+						relatedPopulationFailure: "invalid-output",
+					},
+					{ id: child, populatedAt, name: "Child", entitySchemaSlug: "record" },
+					{
+						populatedAt,
+						name: "Stamped",
+						id: stampedChild,
+						entitySchemaSlug: "record",
+						relatedPopulatedAt: earlier,
+					},
+					{ name: "Unpopulated", id: unpopulatedChild, entitySchemaSlug: "record" },
+				]),
+			);
+
+			yield* session.transaction(
+				Effect.all([
+					repository.stampRelatedPopulated(root, populatedAt),
+					repository.stampChildRelatedPopulated([child, stampedChild, unpopulatedChild]),
+				]),
+			);
+
+			const rows = yield* session.run((db) =>
+				db
+					.select({
+						id: tables.entity.id,
+						relatedPopulatedAt: tables.entity.relatedPopulatedAt,
+						relatedPopulationFailure: tables.entity.relatedPopulationFailure,
+						relatedPopulationFailedAt: tables.entity.relatedPopulationFailedAt,
+					})
+					.from(tables.entity)
+					.where(inArray(tables.entity.id, [root, child, stampedChild, unpopulatedChild])),
+			);
+			const byId = new Map(rows.map((row) => [row.id, row]));
+			expect(byId.get(root)).toMatchObject({
+				relatedPopulationFailure: null,
+				relatedPopulatedAt: populatedAt,
+				relatedPopulationFailedAt: null,
+			});
+			expect(byId.get(child)?.relatedPopulatedAt).toEqual(populatedAt);
+			expect(byId.get(stampedChild)?.relatedPopulatedAt).toEqual(earlier);
+			expect(byId.get(unpopulatedChild)?.relatedPopulatedAt).toBeNull();
 		}),
 	);
 });

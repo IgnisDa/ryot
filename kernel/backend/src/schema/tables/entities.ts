@@ -22,9 +22,11 @@ export const entity = snakeCase.table(
 		populationFailedAt: timestamptz(),
 		relatedPopulatedAt: timestamptz(),
 		entitySchemaSlug: text().notNull(),
+		relatedPopulationFailedAt: timestamptz(),
 		createdAt: timestamptz().defaultNow().notNull(),
 		populationFailure: text({ enum: ENTITY_POPULATION_FAILURES }),
 		userId: text().references(() => user.id, { onDelete: "cascade" }),
+		relatedPopulationFailure: text({ enum: ENTITY_POPULATION_FAILURES }),
 		properties: jsonb().$type<Record<string, unknown>>().notNull().default({}),
 		providerId: text().references(() => sandboxProvider.id, { onDelete: "cascade" }),
 		entitySchemaPluginId: text().references(() => plugin.id, { onDelete: "restrict" }),
@@ -43,6 +45,10 @@ export const entity = snakeCase.table(
 		check(
 			"entity_population_failure_check",
 			sql`(${table.populationFailure} is null) = (${table.populationFailedAt} is null) and (${table.populationFailure} is null or ${table.populationFailure} in ('script-failure', 'invalid-output', 'execution-limit'))`,
+		),
+		check(
+			"entity_related_population_failure_check",
+			sql`(${table.relatedPopulationFailure} is null) = (${table.relatedPopulationFailedAt} is null) and (${table.relatedPopulationFailure} is null or ${table.relatedPopulationFailure} in ('script-failure', 'invalid-output', 'execution-limit'))`,
 		),
 		uniqueIndex("entity_collection_name_unique")
 			.on(table.userId, table.name)

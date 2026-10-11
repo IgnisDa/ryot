@@ -87,8 +87,14 @@ export type PersistBatch = { readonly id: string; readonly hasCandidates: boolea
 export type PersistItem = {
 	readonly batchIndex: number;
 	readonly input: PreparedMutation;
+	readonly preservePopulatedAt?: boolean;
 	readonly pin: DomainWritePin | null | undefined;
 };
+
+const effectiveDraft = (item: PersistItem, before: AutomationEntitySnapshot) =>
+	item.preservePopulatedAt && item.input.draft.populatedAt === null
+		? { ...item.input.draft, populatedAt: before.populatedAt }
+		: item.input.draft;
 export type MutationReceiptRecord = Parameters<MutationReceipts["Service"]["insert"]>[0];
 
 export const mutationReceiptRecord = (input: {
@@ -320,7 +326,7 @@ export const makePersistMutation = <E, R, Result>({
 						after: snapshot(created),
 					};
 				}
-			} else if (before && !same(draftOf(before), input.draft)) {
+			} else if (before && !same(draftOf(before), effectiveDraft(item, before))) {
 				entity = yield* repository
 					.updateEntity({
 						name: input.draft.name,
@@ -330,6 +336,7 @@ export const makePersistMutation = <E, R, Result>({
 							input.draft.populatedAt === null
 								? null
 								: DateTime.toDateUtc(DateTime.makeUnsafe(input.draft.populatedAt)),
+						...(item.preservePopulatedAt ? { preservePopulatedAt: true } : {}),
 					})
 					.pipe(
 						Effect.catchIf(

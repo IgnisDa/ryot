@@ -331,15 +331,18 @@ CREATE TABLE "entity" (
 	"updated_at" timestamp(3) with time zone DEFAULT now() NOT NULL,
 	"population_failed_at" timestamp(3) with time zone,
 	"related_populated_at" timestamp(3) with time zone,
+	"related_population_failed_at" timestamp(3) with time zone,
 	"entity_schema_slug" text NOT NULL,
 	"created_at" timestamp(3) with time zone DEFAULT now() NOT NULL,
 	"population_failure" text,
+	"related_population_failure" text,
 	"user_id" text,
 	"properties" jsonb DEFAULT '{}' NOT NULL,
 	"provider_id" text,
 	"entity_schema_plugin_id" text,
 	"id" text PRIMARY KEY,
-	CONSTRAINT "entity_population_failure_check" CHECK (("population_failure" is null) = ("population_failed_at" is null) and ("population_failure" is null or "population_failure" in ('script-failure', 'invalid-output', 'execution-limit')))
+	CONSTRAINT "entity_population_failure_check" CHECK (("population_failure" is null) = ("population_failed_at" is null) and ("population_failure" is null or "population_failure" in ('script-failure', 'invalid-output', 'execution-limit'))),
+	CONSTRAINT "entity_related_population_failure_check" CHECK (("related_population_failure" is null) = ("related_population_failed_at" is null) and ("related_population_failure" is null or "related_population_failure" in ('script-failure', 'invalid-output', 'execution-limit')))
 );
 --> statement-breakpoint
 CREATE TABLE "entity_translation" (
