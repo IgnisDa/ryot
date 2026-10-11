@@ -23,50 +23,49 @@ import {
 	table,
 	type Recipe,
 } from "@ryot-app/plugin-kit/ryotql";
-import {
-	EntityId,
-	LocalAssetLocator,
-	RemoteAssetLocator,
-	S3AssetLocator,
-	type PluginIdentityReference,
-} from "@ryot-app/plugin-kit/schema";
+import { EntityId, type PluginIdentityReference } from "@ryot-app/plugin-kit/schema";
 
 import { property, propertyJson } from "./entity-selections";
-import { exerciseKindSchema, type ExerciseKind } from "./exercise-kinds";
+import {
+	exerciseForceSchema,
+	exerciseKindSchema,
+	exerciseLevelSchema,
+	exerciseMechanicSchema,
+} from "./exercise-kinds";
 import { fitnessLibraryLinkExists } from "./library-recipes";
 import {
 	effectiveTaxonomyLink,
 	exerciseEquipmentInclude,
 	exerciseTargetInclude,
 } from "./taxonomy-recipes";
+import { WorkoutEditorMediaSchema } from "./workout-set";
 
 type Table = ReturnType<typeof table>;
 
 const rowLimit = 100;
 const membershipPropertiesSchema = Schema.Record(Schema.String, JsonValue);
-const assetLocators = Schema.Array(
-	Schema.Union([LocalAssetLocator, RemoteAssetLocator, S3AssetLocator]),
-);
-const exerciseForceSchema = Schema.Literals(["pull", "push", "static"]);
-const exerciseLevelSchema = Schema.Literals(["beginner", "intermediate", "expert"]);
-const exerciseMechanicSchema = Schema.Literals(["compound", "isolation"]);
+export const WorkoutExercisePickerSortSchema = Schema.Literals([
+	"name",
+	"recently-added",
+	"times-performed",
+]);
 
-type ExerciseForce = typeof exerciseForceSchema.Type;
-type ExerciseLevel = typeof exerciseLevelSchema.Type;
-type ExerciseMechanic = typeof exerciseMechanicSchema.Type;
+export const WorkoutExercisePickerFiltersSchema = Schema.Struct({
+	search: Schema.optional(Schema.String),
+	exerciseIds: Schema.optional(Schema.Array(EntityId)),
+	sort: Schema.optional(WorkoutExercisePickerSortSchema),
+	targetIds: Schema.optional(Schema.Array(Schema.String)),
+	kinds: Schema.optional(Schema.Array(exerciseKindSchema)),
+	forces: Schema.optional(Schema.Array(exerciseForceSchema)),
+	levels: Schema.optional(Schema.Array(exerciseLevelSchema)),
+	equipmentIds: Schema.optional(Schema.Array(Schema.String)),
+	collectionIds: Schema.optional(Schema.Array(Schema.String)),
+	mechanics: Schema.optional(Schema.Array(exerciseMechanicSchema)),
+});
 
-type WorkoutExercisePickerInput = {
+type WorkoutExercisePickerInput = typeof WorkoutExercisePickerFiltersSchema.Type & {
 	readonly after?: string | undefined;
-	readonly collectionIds?: readonly string[] | undefined;
-	readonly equipmentIds?: readonly string[] | undefined;
-	readonly forces?: readonly ExerciseForce[] | undefined;
-	readonly kinds?: readonly ExerciseKind[] | undefined;
-	readonly levels?: readonly ExerciseLevel[] | undefined;
-	readonly mechanics?: readonly ExerciseMechanic[] | undefined;
 	readonly reference: PluginIdentityReference;
-	readonly search?: string | undefined;
-	readonly sort?: "name" | "recently-added" | "times-performed" | undefined;
-	readonly targetIds?: readonly string[] | undefined;
 };
 
 const exerciseTaxonomyFilter = (
@@ -106,6 +105,9 @@ const exercisePickerWhere = (input: WorkoutExercisePickerInput, exercise: Table)
 		entitySchemaPredicate(exercise, "exercise", input.reference),
 		fitnessLibraryLinkExists(exercise, "pickerLibrary"),
 		...(search ? [contains(column(exercise, "name"), literal(search))] : []),
+		...(input.exerciseIds?.length
+			? [inArray(column(exercise, "id"), input.exerciseIds.map(literal))]
+			: []),
 		...(input.kinds?.length ? [inArray(property(exercise, "kind"), input.kinds.map(literal))] : []),
 		...(input.forces?.length
 			? [inArray(property(exercise, "force"), input.forces.map(literal))]
@@ -230,8 +232,14 @@ export const workoutExercisePickerRecipe = defineRecipe((input: WorkoutExerciseP
 					id: selectedField(column(exercise, "id"), EntityId),
 					name: selectedField(column(exercise, "name"), Schema.String),
 					kind: selectedField(property(exercise, "kind"), Schema.NullOr(exerciseKindSchema)),
-					images: selectedField(propertyJson(exercise, "images"), Schema.NullOr(assetLocators)),
-					videos: selectedField(propertyJson(exercise, "videos"), Schema.NullOr(assetLocators)),
+					images: selectedField(
+						propertyJson(exercise, "images"),
+						Schema.NullOr(WorkoutEditorMediaSchema),
+					),
+					videos: selectedField(
+						propertyJson(exercise, "videos"),
+						Schema.NullOr(WorkoutEditorMediaSchema),
+					),
 					instructions: selectedField(
 						propertyJson(exercise, "instructions"),
 						Schema.NullOr(Schema.Array(Schema.String)),

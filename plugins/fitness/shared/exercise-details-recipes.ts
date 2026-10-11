@@ -39,7 +39,12 @@ import {
 	propertyNumber,
 	workoutDatesSelection,
 } from "./entity-selections";
-import { exerciseKindSchema } from "./exercise-kinds";
+import {
+	exerciseForceSchema,
+	exerciseKindSchema,
+	exerciseLevelSchema,
+	exerciseMechanicSchema,
+} from "./exercise-kinds";
 import { exerciseEquipmentInclude, exerciseTargetInclude } from "./taxonomy-recipes";
 import { ExerciseNotesSchema, ImageLocatorsSchema } from "./workout-details-recipes";
 import { PersonalBestSchema } from "./workout-records";
@@ -356,22 +361,16 @@ const exerciseQuery = (reference: PluginIdentityReference, exerciseId: string) =
 			name: selectedField(column(exercise, "name"), Schema.String),
 			userId: selectedField(column(exercise, "userId"), nullableString),
 			kind: selectedField(property(exercise, "kind"), Schema.NullOr(exerciseKindSchema)),
+			force: selectedField(property(exercise, "force"), Schema.NullOr(exerciseForceSchema)),
+			level: selectedField(property(exercise, "level"), Schema.NullOr(exerciseLevelSchema)),
 			images: selectedField(propertyJson(exercise, "images"), Schema.NullOr(ImageLocatorsSchema)),
-			force: selectedField(
-				property(exercise, "force"),
-				Schema.NullOr(Schema.Literals(["pull", "push", "static"])),
+			mechanic: selectedField(
+				property(exercise, "mechanic"),
+				Schema.NullOr(exerciseMechanicSchema),
 			),
 			instructions: selectedField(
 				propertyJson(exercise, "instructions"),
 				Schema.NullOr(Schema.Array(Schema.String)),
-			),
-			mechanic: selectedField(
-				property(exercise, "mechanic"),
-				Schema.NullOr(Schema.Literals(["compound", "isolation"])),
-			),
-			level: selectedField(
-				property(exercise, "level"),
-				Schema.NullOr(Schema.Literals(["beginner", "intermediate", "expert"])),
 			),
 		},
 	});

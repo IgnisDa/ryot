@@ -1,40 +1,57 @@
 import { Schema } from "@ryot-app/plugin-kit/effect";
 
+import { NonNegativeInt } from "./fitness-primitives";
 import type { WorkoutEditorDisplay, WorkoutEditorLocalPreferences } from "./workout-editor-draft";
 import type { WorkoutSetLot } from "./workout-set";
+import {
+	DurationUnitSchema,
+	durationDisplayUnit,
+	EnergyUnitSchema,
+	UnitSystemSchema,
+	type DurationUnit,
+	type EnergyUnit,
+	type UnitSystem,
+} from "./workout-units";
 
-const restSeconds = Schema.Int.pipe(Schema.check(Schema.isGreaterThanOrEqualTo(0)));
-const nullableRestSeconds = Schema.NullOr(restSeconds);
+export const workoutRestFields = [
+	"dropRestTime",
+	"normalRestTime",
+	"warmUpRestTime",
+	"failureRestTime",
+] as const;
+export type WorkoutRestField = (typeof workoutRestFields)[number];
+
+const inheritedRestSeconds = Schema.optional(Schema.NullOr(NonNegativeInt));
 
 export const WorkoutRestSettingsSchema = Schema.Struct({
-	dropRestTime: restSeconds,
-	normalRestTime: restSeconds,
-	warmUpRestTime: restSeconds,
-	failureRestTime: restSeconds,
+	dropRestTime: NonNegativeInt,
+	normalRestTime: NonNegativeInt,
+	warmUpRestTime: NonNegativeInt,
+	failureRestTime: NonNegativeInt,
 });
 
 export const WorkoutExerciseOverridesSchema = Schema.Struct({
-	dropRestTime: Schema.optional(nullableRestSeconds),
-	normalRestTime: Schema.optional(nullableRestSeconds),
-	warmUpRestTime: Schema.optional(nullableRestSeconds),
-	failureRestTime: Schema.optional(nullableRestSeconds),
-	defaultDurationUnit: Schema.optional(Schema.NullOr(Schema.Literals(["seconds", "minutes"]))),
+	dropRestTime: inheritedRestSeconds,
+	normalRestTime: inheritedRestSeconds,
+	warmUpRestTime: inheritedRestSeconds,
+	failureRestTime: inheritedRestSeconds,
+	defaultDurationUnit: Schema.optional(Schema.NullOr(DurationUnitSchema)),
 });
 
 export const WorkoutPreferenceSettingsSchema = Schema.Struct({
 	...WorkoutRestSettingsSchema.fields,
 	muteSounds: Schema.Boolean,
+	energyUnit: EnergyUnitSchema,
+	unitSystem: UnitSystemSchema,
 	promptForRestTimer: Schema.Boolean,
-	energyUnit: Schema.Literals(["kcal", "kJ"]),
 	startTimerForDurationExercises: Schema.Boolean,
-	unitSystem: Schema.Literals(["metric", "imperial"]),
 });
 
 export type WorkoutRestSettings = typeof WorkoutRestSettingsSchema.Type;
 export type WorkoutExerciseOverrides = typeof WorkoutExerciseOverridesSchema.Type;
 export type WorkoutPreferenceSettings = typeof WorkoutPreferenceSettingsSchema.Type;
 
-const restFieldBySetLot: Record<WorkoutSetLot, keyof WorkoutRestSettings> = {
+const restFieldBySetLot: Record<WorkoutSetLot, WorkoutRestField> = {
 	drop: "dropRestTime",
 	normal: "normalRestTime",
 	warm_up: "warmUpRestTime",
@@ -72,13 +89,13 @@ export const resolveWorkoutRestTime = (input: {
 
 export const resolveWorkoutDisplay = (input: {
 	readonly occurrence?: Partial<WorkoutEditorDisplay> | undefined;
-	readonly exerciseDurationUnit?: "seconds" | "minutes" | null | undefined;
-	readonly globalEnergyUnit?: "kcal" | "kJ" | undefined;
-	readonly unitSystem: "metric" | "imperial";
+	readonly exerciseDurationUnit?: DurationUnit | null | undefined;
+	readonly globalEnergyUnit?: EnergyUnit | undefined;
+	readonly unitSystem: UnitSystem;
 }) => ({
 	energyUnit: input.globalEnergyUnit ?? "kcal",
-	durationUnit: input.occurrence?.durationUnit ?? input.exerciseDurationUnit ?? "minutes",
 	weightUnit: input.occurrence?.weightUnit ?? (input.unitSystem === "metric" ? "kg" : "lb"),
+	durationUnit: durationDisplayUnit(input.occurrence?.durationUnit, input.exerciseDurationUnit),
 	distanceUnit: input.occurrence?.distanceUnit ?? (input.unitSystem === "metric" ? "km" : "mi"),
 });
 

@@ -1,7 +1,4 @@
-export const supersetColors = ["blue", "purple", "teal", "orange", "crimson"] as const;
-
-export const supersetColor = (color: string) =>
-	supersetColors.find((candidate) => candidate === color) ?? "blue";
+import { supersetColor } from "../shared/superset-colors";
 
 export const supersetColorVariable = (color: string) => `var(--group-${supersetColor(color)})`;
 

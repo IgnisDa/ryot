@@ -1,8 +1,7 @@
-import { assert, describe, expect, it } from "@effect/vitest";
+import { describe, expect, it } from "@effect/vitest";
 import { EventId } from "@ryot-app/contract/schema/brands";
 import type { UpdateEventItem } from "@ryot-app/plugin-backend-sdk/core";
 import { Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
-import type { RyotQLDocument } from "@ryot-app/plugin-backend-sdk/ryotql";
 import { defineSandboxTestHost, runSandboxTestScript } from "@ryot-app/plugin-backend-sdk/testing";
 
 import { ExerciseNoteCreateInput } from "../../shared/exercise-note-operations";
@@ -10,12 +9,11 @@ import createDefinition, { manifest as createManifest } from "./exercise-note-cr
 import deleteDefinition, { manifest as deleteManifest } from "./exercise-note-delete.sandbox";
 import updateDefinition, { manifest as updateManifest } from "./exercise-note-update.sandbox";
 import { ExerciseNoteNotFoundError } from "./exercise-notes";
+import { inMemoryRyotql, type StoredTables } from "./in-memory-ryotql.test-support";
 
 const execution = { metadata: {}, sandboxScriptId: "script-test" };
 
-type StoredRow = Readonly<Record<string, string | null>>;
-
-const tables: Readonly<Record<string, readonly StoredRow[]>> = {
+const tables: StoredTables = {
 	entity: [
 		{ id: "exercise-1", entitySchemaSlug: "exercise", entitySchemaPluginId: "fitness-owner" },
 		{ id: "foreign-exercise", entitySchemaSlug: "exercise", entitySchemaPluginId: "foreign-owner" },
@@ -62,64 +60,7 @@ const tables: Readonly<Record<string, readonly StoredRow[]>> = {
 	],
 };
 
-type Rows = Readonly<Record<string, StoredRow>>;
-
-const evaluate = (expression: unknown, rows: Rows): unknown => {
-	assert(typeof expression === "object" && expression !== null && "type" in expression);
-	if (expression.type === "literal" && "value" in expression) {
-		return expression.value;
-	}
-	if (expression.type === "pluginId" && "reference" in expression) {
-		assert(
-			typeof expression.reference === "object" &&
-				expression.reference !== null &&
-				"kind" in expression.reference &&
-				expression.reference.kind === "self",
-		);
-		return "fitness-owner";
-	}
-	if (expression.type === "column" && "tableAlias" in expression && "field" in expression) {
-		assert(typeof expression.tableAlias === "string" && typeof expression.field === "string");
-		return rows[expression.tableAlias]?.[expression.field];
-	}
-	if (expression.type === "and" && "predicates" in expression) {
-		assert(Array.isArray(expression.predicates));
-		return expression.predicates.every((predicate) => evaluate(predicate, rows) === true);
-	}
-	if (
-		expression.type === "comparison" &&
-		"operator" in expression &&
-		expression.operator === "eq" &&
-		"left" in expression &&
-		"right" in expression
-	) {
-		return evaluate(expression.left, rows) === evaluate(expression.right, rows);
-	}
-	throw new Error("Unsupported RyotQL expression");
-};
-
-const executeRyotql = (document: RyotQLDocument) =>
-	Effect.sync(() => {
-		const [[key, query] = []] = Object.entries(document.queries);
-		assert(key !== undefined && query?.output.type === "rows");
-		let rows: Rows[] = (tables[query.from.table] ?? []).map((row) => ({ [query.from.alias]: row }));
-		for (const joined of query.joins ?? []) {
-			assert(joined.type === "inner");
-			rows = rows.flatMap((row) =>
-				(tables[joined.table.table] ?? [])
-					.map((candidate) => Object.assign({ [joined.table.alias]: candidate }, row))
-					.filter((candidate) => evaluate(joined.on, candidate) === true),
-			);
-		}
-		const items = rows
-			.filter((row) => query.where === undefined || evaluate(query.where, row) === true)
-			.map((row) => ({ id: row[query.from.alias]?.id }));
-		return {
-			data: {
-				[key]: { items, type: "rows", pageInfo: { limit: 2, hasMore: false, nextCursor: null } },
-			},
-		};
-	});
+const executeRyotql = inMemoryRyotql(tables);
 
 const recordingHosts = () => {
 	const creates: unknown[] = [];

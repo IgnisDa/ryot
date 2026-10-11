@@ -1,8 +1,8 @@
 import { Schema } from "@ryot-app/plugin-kit/effect";
-import { EntityId } from "@ryot-app/plugin-kit/schema";
+import type { EntityId } from "@ryot-app/plugin-kit/schema";
 
 import { exerciseKindSchema } from "./exercise-kinds";
-import { ExerciseNotesSchema } from "./workout-details-recipes";
+import { supersetColor } from "./superset-colors";
 import type {
 	WorkoutEditorDraft,
 	WorkoutEditorOccurrence,
@@ -10,92 +10,19 @@ import type {
 } from "./workout-editor-draft";
 import { WorkoutEditorDraftSchema } from "./workout-editor-draft";
 import {
+	TemplatePropertiesSchema,
+	WorkoutPropertiesSchema,
+	WorkoutSetPropertiesSchema,
+	WorkoutSupersetPropertySchema,
+	type TemplateSetProperties,
+} from "./workout-editor-properties";
+import {
 	encodeWorkoutEditorBaseline,
 	type WorkoutEditorBaseline,
 	type WorkoutEditorExercise,
 	type WorkoutEditorEvent,
 } from "./workout-editor-recipes";
-import { WorkoutEditorMediaSchema, WorkoutSetLotSchema } from "./workout-set";
-
-const nonNegativeInteger = Schema.Int.pipe(Schema.check(Schema.isGreaterThanOrEqualTo(0)));
-const timestamp = Schema.String.pipe(
-	Schema.check(
-		Schema.makeFilter(
-			(value) => Number.isFinite(Date.parse(value)) || "Expected a valid timestamp",
-		),
-	),
-);
-const nullableString = Schema.NullOr(Schema.String);
-const nullableMeasurement = Schema.NullOr(Schema.Finite);
-const optionalNullableMeasurement = Schema.optional(nullableMeasurement);
-const optionalNullableString = Schema.optional(nullableString);
-const optionalNullableMedia = Schema.optional(Schema.NullOr(WorkoutEditorMediaSchema));
-const optionalNullableRest = Schema.optional(Schema.NullOr(nonNegativeInteger));
-const optionalNullableRpe = Schema.optional(
-	Schema.NullOr(Schema.Int.pipe(Schema.check(Schema.isBetween({ minimum: 0, maximum: 10 })))),
-);
-
-const WorkoutEditorSourceSupersetSchema = Schema.Struct({
-	color: Schema.String,
-	exercises: Schema.Array(nonNegativeInteger),
-});
-
-const WorkoutEditorExerciseMediaSchema = Schema.Struct({
-	images: WorkoutEditorMediaSchema,
-	videos: WorkoutEditorMediaSchema,
-	exerciseOrder: nonNegativeInteger,
-});
-
-const WorkoutEditorWorkoutPropertiesSchema = Schema.Struct({
-	startedAt: timestamp,
-	images: optionalNullableMedia,
-	videos: optionalNullableMedia,
-	activeDuration: optionalNullableRest,
-	endedAt: Schema.optional(nullableString),
-	comment: Schema.optional(nullableString),
-	caloriesBurnt: optionalNullableMeasurement,
-	exerciseNotes: Schema.optional(Schema.NullOr(ExerciseNotesSchema)),
-	supersets: Schema.optional(Schema.NullOr(Schema.Array(WorkoutEditorSourceSupersetSchema))),
-	exerciseMedia: Schema.optional(Schema.NullOr(Schema.Array(WorkoutEditorExerciseMediaSchema))),
-});
-
-const WorkoutEditorTemplateSetPropertiesSchema = Schema.Struct({
-	rpe: optionalNullableRpe,
-	setLot: WorkoutSetLotSchema,
-	setOrder: nonNegativeInteger,
-	note: optionalNullableString,
-	restTime: optionalNullableRest,
-	reps: optionalNullableMeasurement,
-	weight: optionalNullableMeasurement,
-	duration: optionalNullableMeasurement,
-	distance: optionalNullableMeasurement,
-});
-
-const WorkoutEditorTemplateOccurrencePropertiesSchema = Schema.Struct({
-	exerciseId: EntityId,
-	images: optionalNullableMedia,
-	videos: optionalNullableMedia,
-	exerciseOrder: nonNegativeInteger,
-	notes: Schema.Array(Schema.String),
-	sets: Schema.Array(WorkoutEditorTemplateSetPropertiesSchema),
-});
-
-const WorkoutEditorTemplatePropertiesSchema = Schema.Struct({
-	images: optionalNullableMedia,
-	videos: optionalNullableMedia,
-	comment: Schema.optional(nullableString),
-	exercises: Schema.Array(WorkoutEditorTemplateOccurrencePropertiesSchema),
-	supersets: Schema.optional(Schema.NullOr(Schema.Array(WorkoutEditorSourceSupersetSchema))),
-});
-
-const WorkoutEditorWorkoutSetPropertiesSchema = Schema.Struct({
-	...WorkoutEditorTemplateSetPropertiesSchema.fields,
-	exerciseKind: exerciseKindSchema,
-	exerciseOrder: nonNegativeInteger,
-	confirmedAt: optionalNullableString,
-	restTimerStartedAt: optionalNullableString,
-	setLot: Schema.optional(WorkoutSetLotSchema),
-});
+import { storageWorkoutDisplay } from "./workout-units";
 
 type SourceBlocker = {
 	readonly exerciseId: string;
@@ -116,10 +43,7 @@ const valid = <A>(schema: Schema.Codec<A, unknown>, value: unknown): A | undefin
 };
 
 const measuredStrings = (
-	source: Pick<
-		typeof WorkoutEditorTemplateSetPropertiesSchema.Type,
-		"reps" | "weight" | "duration" | "distance"
-	>,
+	source: Pick<TemplateSetProperties, "reps" | "weight" | "duration" | "distance">,
 ) => ({
 	reps: asMeasurement(source.reps),
 	weight: asMeasurement(source.weight),
@@ -129,6 +53,14 @@ const measuredStrings = (
 
 const asMeasurement = (value: number | null | undefined) =>
 	value !== null && value !== undefined && Number.isFinite(value) ? String(value) : undefined;
+
+const restChoiceOf = (restTime: number | null | undefined): WorkoutEditorSet["restChoice"] =>
+	restTime === undefined || restTime === null
+		? { kind: "inherited" }
+		: { kind: "explicit", seconds: String(restTime) };
+
+const rpeInput = (rpe: number | null | undefined) =>
+	rpe === undefined || rpe === null ? undefined : String(rpe);
 
 const sourceOccurrenceId = (entityId: string, order: number) =>
 	`source:${encodeURIComponent(entityId)}:${order}`;
@@ -174,12 +106,12 @@ const sourceSupersets = (
 	if (value === undefined || value === null) {
 		return { supersets: [] };
 	}
-	const decoded = valid(Schema.Array(WorkoutEditorSourceSupersetSchema), value);
+	const decoded = valid(Schema.Array(WorkoutSupersetPropertySchema), value);
 	if (decoded === undefined) {
 		return { supersets: [], blocker: { code: "invalid-record", exerciseId: baseline.entity.id } };
 	}
 	const supersets = decoded.map(({ color, exercises }, index) => ({
-		color,
+		color: supersetColor(color),
 		clientId: `source:${encodeURIComponent(baseline.entity.id)}:superset:${index}`,
 		occurrenceIds: exercises.flatMap((order) => {
 			const occurrence = occurrences.find(
@@ -212,7 +144,7 @@ const workoutDraft = (
 	draftId: string,
 ): WorkoutEditorSourceHydration => {
 	const blockers: SourceBlocker[] = [];
-	const properties = valid(WorkoutEditorWorkoutPropertiesSchema, baseline.entity.properties);
+	const properties = valid(WorkoutPropertiesSchema, baseline.entity.properties);
 	if (properties === undefined) {
 		return blockerResult(baseline, [{ code: "invalid-record", exerciseId: baseline.entity.id }]);
 	}
@@ -223,12 +155,12 @@ const workoutDraft = (
 			exerciseId: EntityId;
 			sets: Array<{
 				event: WorkoutEditorEvent;
-				properties: typeof WorkoutEditorWorkoutSetPropertiesSchema.Type;
+				properties: typeof WorkoutSetPropertiesSchema.Type;
 			}>;
 		}
 	>();
 	for (const event of baseline.sets) {
-		const setProperties = valid(WorkoutEditorWorkoutSetPropertiesSchema, event.properties);
+		const setProperties = valid(WorkoutSetPropertiesSchema, event.properties);
 		if (
 			event.sessionEntityId !== baseline.entity.id ||
 			!Number.isFinite(Date.parse(event.occurredAt)) ||
@@ -285,24 +217,21 @@ const workoutDraft = (
 			makeOccurrence(occurrenceId, group.exerciseId, firstSet.properties.exerciseKind, {
 				sourceExerciseOrder: order,
 				notes: exerciseNotes ?? [],
+				display: storageWorkoutDisplay,
 				images: exerciseMedia?.images ?? [],
 				videos: exerciseMedia?.videos ?? [],
-				display: { weightUnit: "kg", distanceUnit: "km", durationUnit: "seconds" },
 				sets: orderedSets.map(({ event, properties: set }) =>
 					makeSet(event.id, set.exerciseKind, {
 						included: true,
 						setLot: set.setLot ?? "normal",
 						...measuredStrings(set),
 						eventId: event.id,
+						rpe: rpeInput(set.rpe),
 						note: set.note ?? undefined,
 						occurredAt: event.occurredAt,
+						restChoice: restChoiceOf(set.restTime),
 						confirmedAt: set.confirmedAt ?? undefined,
 						restTimerStartedAt: set.restTimerStartedAt ?? undefined,
-						rpe: set.rpe === undefined || set.rpe === null ? undefined : String(set.rpe),
-						restChoice:
-							set.restTime === undefined || set.restTime === null
-								? { kind: "inherited" }
-								: { kind: "explicit", seconds: String(set.restTime) },
 					}),
 				),
 			}),
@@ -347,7 +276,7 @@ const templateDraft = (
 	draftId: string,
 ): WorkoutEditorSourceHydration => {
 	const blockers: SourceBlocker[] = [];
-	const properties = valid(WorkoutEditorTemplatePropertiesSchema, baseline.entity.properties);
+	const properties = valid(TemplatePropertiesSchema, baseline.entity.properties);
 	if (properties === undefined) {
 		return blockerResult(baseline, [{ code: "invalid-record", exerciseId: baseline.entity.id }]);
 	}
@@ -383,8 +312,8 @@ const templateDraft = (
 				notes: source.notes,
 				images: source.images ?? [],
 				videos: source.videos ?? [],
+				display: storageWorkoutDisplay,
 				sourceExerciseOrder: source.exerciseOrder,
-				display: { weightUnit: "kg", distanceUnit: "km", durationUnit: "seconds" },
 				sets: orderedSets.map((set) =>
 					makeSet(
 						sourceSetId(baseline.entity.id, source.exerciseOrder, set.setOrder),
@@ -393,12 +322,9 @@ const templateDraft = (
 							included: false,
 							setLot: set.setLot,
 							...measuredStrings(set),
+							rpe: rpeInput(set.rpe),
 							note: set.note ?? undefined,
-							rpe: set.rpe === undefined || set.rpe === null ? undefined : String(set.rpe),
-							restChoice:
-								set.restTime === undefined || set.restTime === null
-									? { kind: "inherited" }
-									: { kind: "explicit", seconds: String(set.restTime) },
+							restChoice: restChoiceOf(set.restTime),
 						},
 					),
 				),

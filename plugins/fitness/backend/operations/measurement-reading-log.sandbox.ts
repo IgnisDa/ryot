@@ -1,5 +1,6 @@
+import { partialCreateEventsResult } from "@ryot-app/plugin-backend-sdk/core";
 import { defineManifest } from "@ryot-app/plugin-backend-sdk/driver";
-import { Effect, Option, Schema } from "@ryot-app/plugin-backend-sdk/effect";
+import { Effect, Option } from "@ryot-app/plugin-backend-sdk/effect";
 import { defineOperation } from "@ryot-app/plugin-backend-sdk/operation";
 
 import { measurementReadingProperties } from "../../shared/measurement-properties";
@@ -41,9 +42,7 @@ export default defineOperation({
 						status: count === values.length ? ("saved" as const) : ("incomplete" as const),
 					})),
 					Effect.catch((error) => {
-						const partial = Schema.decodeUnknownOption(
-							Schema.Struct({ count: Schema.Int, partial: Schema.Literal(true) }),
-						)(error.data);
+						const partial = partialCreateEventsResult(error.data);
 						return Option.isSome(partial)
 							? Effect.succeed({ count: partial.value.count, status: "incomplete" as const })
 							: Effect.fail(error);

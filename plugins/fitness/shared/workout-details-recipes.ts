@@ -39,6 +39,8 @@ import { exerciseKindSchema } from "./exercise-kinds";
 import { workoutSelection, workoutTemplateInclude } from "./query-recipes";
 import { exerciseEquipmentInclude, exerciseTargetInclude } from "./taxonomy-recipes";
 import { PersonalBestSchema } from "./workout-records";
+import { WorkoutSetLotSchema } from "./workout-set";
+import { DurationUnitSchema } from "./workout-units";
 
 type Table = ReturnType<typeof table>;
 
@@ -233,7 +235,7 @@ export const workoutDetailsExercisesRecipe = defineRecipe(
 									isNotNull(column(membership, "userId")),
 								),
 							}),
-							Schema.NullOr(Schema.Literals(["seconds", "minutes"])),
+							Schema.NullOr(DurationUnitSchema),
 						),
 					},
 				}),
@@ -273,13 +275,13 @@ export const workoutDetailsSetsRecipe = defineRecipe(
 						id: selectedField(column(set, "id"), Schema.String),
 						note: selectedField(property(set, "note"), nullableString),
 						rpe: selectedField(propertyNumber(set, "rpe"), nullableNumber),
-						setLot: selectedField(property(set, "setLot"), nullableString),
 						exerciseId: selectedField(column(set, "entityId"), Schema.String),
 						oneRm: selectedField(propertyNumber(set, "oneRm"), nullableNumber),
 						restTime: selectedField(propertyNumber(set, "restTime"), nullableNumber),
 						setOrder: selectedField(propertyNumber(set, "setOrder"), nullableNumber),
 						confirmedAt: selectedField(propertyDate(set, "confirmedAt"), nullableString),
 						exerciseKind: selectedField(property(set, "exerciseKind"), exerciseKindSchema),
+						setLot: selectedField(property(set, "setLot"), Schema.NullOr(WorkoutSetLotSchema)),
 						recordStatus: selectedField(
 							recordStatus(exercise, set),
 							Schema.Literals(["pending", "ready", "failed"]),

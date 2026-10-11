@@ -8,11 +8,13 @@ import { Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
 import { executeRyotqlRecipe } from "@ryot-app/plugin-backend-sdk/ryotql";
 
 import { exerciseKindSchema, type ExerciseKind } from "../../shared/exercise-kinds";
+import { jsonValueEquals } from "../../shared/json-value-equals";
 import { workoutSetContextRecipe } from "../../shared/workout-record-recipes";
 import {
 	calculateWorkoutSetStatistics,
 	WorkoutSetMeasurementsSchema,
 } from "../../shared/workout-records";
+import { workoutSetDerivedFields } from "../../shared/workout-set";
 
 export const manifest = defineManifest({
 	kind: "automation",
@@ -39,20 +41,12 @@ export const manifest = defineManifest({
 
 type EventPayload = Extract<AutomationPolicyInput["automation"]["payload"], { resource: "event" }>;
 
-const derivedKeys = ["personalBests", "oneRm", "volume", "pace"] as const;
-const derivedKeySet = new Set<string>(derivedKeys);
+const derivedKeySet: ReadonlySet<string> = new Set(workoutSetDerivedFields);
 
 const allow = () => Schema.decodeSync(automationPolicyResultSchema)({ action: "allow" });
 
 const reject = (reason: string) =>
 	Schema.decodeSync(automationPolicyResultSchema)({ reason, action: "reject" });
-
-const sameJsonValue = (left: unknown, right: unknown) =>
-	left === right ||
-	(Array.isArray(left) &&
-		Array.isArray(right) &&
-		left.length === right.length &&
-		left.every((value, index) => value === right[index]));
 
 const isOwnDerivedOutputUpdate = (eventStreamWorkId: string | undefined, payload: EventPayload) =>
 	payload.operation === "update" &&
@@ -80,7 +74,7 @@ const setProperty = (
 	key: string,
 	value: number | string,
 ) => {
-	if (!sameJsonValue(properties[key], value)) {
+	if (!jsonValueEquals(properties[key], value)) {
 		set[key] = value;
 	}
 };

@@ -225,7 +225,7 @@ describe("workout editor actions", () => {
 		const original = workoutDraft({
 			supersets: [
 				{
-					color: "red",
+					color: "crimson",
 					clientId: "small-group",
 					occurrenceIds: ["remove-occurrence", "keep-occurrence"],
 				},
@@ -274,7 +274,7 @@ describe("workout editor actions", () => {
 		const value = workoutDraft({
 			supersets: [
 				{
-					color: "green",
+					color: "teal",
 					clientId: "group-1",
 					occurrenceIds: ["occurrence-3", "occurrence-1", "occurrence-2"],
 				},

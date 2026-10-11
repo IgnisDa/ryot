@@ -5,10 +5,7 @@ import { assert, expect, it } from "vitest";
 import { encodeWorkoutEditorDraft, WorkoutEditorDraftSchema } from "./workout-editor-draft";
 import { WorkoutEditorSaveInputSchema } from "./workout-editor-operations";
 import { encodeWorkoutEditorBaseline, WorkoutEditorBaselineSchema } from "./workout-editor-recipes";
-import {
-	buildWorkoutEditorSaveInput,
-	indexWorkoutOccurrences,
-} from "./workout-editor-transformations";
+import { buildWorkoutEditorSaveInput } from "./workout-editor-transformations";
 import { buildWorkoutSetEventProperties } from "./workout-set";
 
 const KiB = 1024;
@@ -86,7 +83,7 @@ const workoutDraft = (occurrences: ReturnType<typeof occurrence>[], rich = true)
 				? []
 				: [
 						{
-							color: "violet",
+							color: "purple",
 							clientId: "superset-a",
 							occurrenceIds: occurrences.slice(0, 3).map(({ clientId }) => clientId),
 						},
@@ -279,7 +276,7 @@ it("fits observed workout and template shapes, with a 101-set workout draft and 
 		SANDBOX_LIMITS.execution.contextBytes,
 	);
 
-	expect(indexWorkoutOccurrences(representativeWorkout.occurrences)).toHaveLength(20);
+	expect(representativeWorkout.occurrences).toHaveLength(20);
 	expect(
 		representativeWorkout.occurrences.reduce((total, item) => total + item.sets.length, 0),
 	).toBe(60);

@@ -101,9 +101,10 @@ it("requests exact catalog resolution while preserving custom fallback data and 
 	expect(item.events[0]).toMatchObject({
 		entityAlias: "exercise-0",
 		sessionEntityAlias: "workout",
-		properties: { reps: 5, weight: 100, volume: 500, note: "Felt strong" },
+		properties: { reps: 5, weight: 100, note: "Felt strong" },
 	});
 	expect(item.events[0]?.occurredAt).toBe("2026-01-01T08:00:00.000Z");
+	expect(item.events[0]?.properties).not.toHaveProperty("volume");
 	expect(item.events[0]?.properties).not.toHaveProperty("confirmedAt");
 	expect(item.events[0]?.properties).not.toHaveProperty("restTime");
 	expect(item.events[0]?.properties).not.toHaveProperty("restTimerStartedAt");
@@ -136,7 +137,7 @@ it("propagates optional set timing to event properties and occurrence time", () 
 	});
 });
 
-it("uses normalized metric measurements for pace and event properties", () => {
+it("writes metric measurements without derived statistics", () => {
 	const item = toWorkoutWriteItem({
 		name: "Run",
 		itemIndex: 0,
@@ -158,7 +159,7 @@ it("uses normalized metric measurements for pace and event properties", () => {
 		duration: 900,
 		exerciseKind: "distance_and_duration",
 	});
-	expect(item.events[0]?.properties.pace).toBeCloseTo(1.5 / 900, 12);
+	expect(item.events[0]?.properties).not.toHaveProperty("pace");
 });
 
 it("keeps workout operations distinct across batches and retains exercise and set order", () => {

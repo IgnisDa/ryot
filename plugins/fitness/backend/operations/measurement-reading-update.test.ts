@@ -4,12 +4,12 @@ import type { CreateEventItem, UpdateEventItem } from "@ryot-app/plugin-backend-
 import { Effect } from "@ryot-app/plugin-backend-sdk/effect";
 import { defineSandboxTestHost, runSandboxTestScript } from "@ryot-app/plugin-backend-sdk/testing";
 
+import { executeMeasurementRyotql } from "./in-memory-ryotql.test-support";
 import updateDefinition, { manifest } from "./measurement-reading-update.sandbox";
 import {
 	MeasurementMetricNotFoundError,
 	MeasurementReadingNotFoundError,
 } from "./measurement-readings";
-import { executeMeasurementRyotql } from "./measurement-readings.test-support";
 
 const execution = { metadata: {}, sandboxScriptId: "script-test" };
 const occurredAt = "2026-04-28T07:30:00.000Z";

@@ -1,9 +1,14 @@
 import { imagesField, videosField } from "@ryot-app/contract/schema/core";
 import type { AppPropertyDefinition, AppSchema } from "@ryot-app/contract/schema/property-schema";
 
-import { exerciseKinds } from "../../shared/exercise-kinds";
-import { workoutSetScales } from "../../shared/workout-records";
-import { workoutSetLots } from "../../shared/workout-set";
+import {
+	exerciseForces,
+	exerciseKinds,
+	exerciseLevels,
+	exerciseMechanics,
+} from "../../shared/exercise-kinds";
+import { personalBestTypes, workoutSetScales } from "../../shared/workout-records";
+import { workoutSetLots, type WorkoutSetField } from "../../shared/workout-set";
 
 const workoutSupersetItemProperties: Readonly<Record<string, AppPropertyDefinition>> = {
 	color: {
@@ -37,155 +42,143 @@ export const exercisePropertiesSchema: AppSchema = {
 			description: "Which measurements are used to track sets of this exercise",
 			choices: { kind: "static", values: exerciseKinds.map((value) => ({ value })) },
 		},
+
 		force: {
 			type: "enum",
 			label: "Force",
 			description: "Direction of force applied: pull, push, or static hold",
-			choices: {
-				kind: "static",
-				values: [{ value: "pull" }, { value: "push" }, { value: "static" }],
-			},
+			choices: { kind: "static", values: exerciseForces.map((value) => ({ value })) },
 		},
+
 		mechanic: {
 			type: "enum",
 			label: "Mechanic",
-			choices: { kind: "static", values: [{ value: "compound" }, { value: "isolation" }] },
+			choices: { kind: "static", values: exerciseMechanics.map((value) => ({ value })) },
 			description:
 				"Whether the exercise uses multiple joints (compound) or a single joint (isolation)",
 		},
+
 		level: {
 			type: "enum",
 			label: "Level",
 			description: "Recommended experience level: beginner, intermediate, or expert",
-			choices: {
-				kind: "static",
-				values: [{ value: "beginner" }, { value: "intermediate" }, { value: "expert" }],
-			},
+			choices: { kind: "static", values: exerciseLevels.map((value) => ({ value })) },
+		},
+	},
+};
+
+const workoutSetFields: Record<WorkoutSetField, AppPropertyDefinition> = {
+	note: { label: "Note", type: "string", description: "Optional note specific to this set" },
+	confirmedAt: {
+		type: "datetime",
+		label: "Confirmed At",
+		description: "Date and time this set was confirmed by the user",
+	},
+	restTime: {
+		type: "integer",
+		label: "Rest Time",
+		validation: { minimum: 0 },
+		description: "Rest time after this set in seconds",
+	},
+	restTimerStartedAt: {
+		type: "datetime",
+		label: "Rest Timer Started At",
+		description: "Date and time the rest timer was started after this set",
+	},
+	setOrder: {
+		type: "integer",
+		label: "Set Order",
+		validation: { minimum: 0 },
+		description: "Zero-based position of this set within the exercise",
+	},
+	reps: {
+		label: "Reps",
+		type: "integer",
+		validation: { minimum: 0 },
+		description: "Nonnegative whole number of repetitions performed in this set",
+	},
+	exerciseOrder: {
+		type: "integer",
+		label: "Exercise Order",
+		validation: { minimum: 0 },
+		description: "Zero-based position of this exercise within the workout",
+	},
+	rpe: {
+		label: "Rpe",
+		type: "integer",
+		validation: { minimum: 0, maximum: 10 },
+		description: "Rate of perceived exertion from 0 (no effort) to 10 (maximal effort)",
+	},
+	setLot: {
+		type: "enum",
+		label: "Set Lot",
+		description: "Set type: normal, warm_up, drop, or failure",
+		choices: { kind: "static", values: workoutSetLots.map((value) => ({ value })) },
+	},
+	duration: {
+		type: "number",
+		label: "Duration",
+		validation: { minimum: 0 },
+		description: "Duration of this set in seconds",
+		normalize: { round: { scale: workoutSetScales.duration } },
+	},
+	weight: {
+		type: "number",
+		label: "Weight",
+		validation: { minimum: 0 },
+		normalize: { round: { scale: workoutSetScales.weight } },
+		description: "Weight used in this set in kilograms (kg)",
+	},
+	exerciseKind: {
+		type: "enum",
+		label: "Exercise Kind",
+		description: "Exercise kind this set was logged under",
+		choices: { kind: "static", values: exerciseKinds.map((value) => ({ value })) },
+	},
+	oneRm: {
+		type: "number",
+		label: "One Rm",
+		validation: { minimum: 0 },
+		normalize: { round: { scale: workoutSetScales.oneRm } },
+		description: "One-rep max calculated for this set in kilograms (kg)",
+	},
+	distance: {
+		type: "number",
+		label: "Distance",
+		validation: { minimum: 0 },
+		normalize: { round: { scale: workoutSetScales.distance } },
+		description: "Distance covered in this set in kilometers (km)",
+	},
+	volume: {
+		type: "number",
+		label: "Volume",
+		validation: { minimum: 0 },
+		normalize: { round: { scale: workoutSetScales.volume } },
+		description: "Volume (kilograms × repetitions) calculated for this set",
+	},
+	pace: {
+		label: "Pace",
+		type: "number",
+		validation: { minimum: 0 },
+		normalize: { round: { scale: workoutSetScales.pace } },
+		description: "Speed calculated as kilometers per second from canonical metric measurements",
+	},
+	personalBests: {
+		type: "array",
+		label: "Personal Bests",
+		description: "Personal bests achieved in this set",
+		items: {
+			type: "enum",
+			label: "Item",
+			description: "Item",
+			choices: { kind: "static", values: personalBestTypes.map((value) => ({ value })) },
 		},
 	},
 };
 
 export const workoutSetPropertiesSchema: AppSchema = {
 	unknownKeys: "strict",
-	fields: {
-		note: { label: "Note", type: "string", description: "Optional note specific to this set" },
-		confirmedAt: {
-			type: "datetime",
-			label: "Confirmed At",
-			description: "Date and time this set was confirmed by the user",
-		},
-		restTime: {
-			type: "integer",
-			label: "Rest Time",
-			validation: { minimum: 0 },
-			description: "Rest time after this set in seconds",
-		},
-		restTimerStartedAt: {
-			type: "datetime",
-			label: "Rest Timer Started At",
-			description: "Date and time the rest timer was started after this set",
-		},
-		setOrder: {
-			type: "integer",
-			label: "Set Order",
-			validation: { minimum: 0 },
-			description: "Zero-based position of this set within the exercise",
-		},
-		reps: {
-			label: "Reps",
-			type: "integer",
-			validation: { minimum: 0 },
-			description: "Nonnegative whole number of repetitions performed in this set",
-		},
-		exerciseOrder: {
-			type: "integer",
-			label: "Exercise Order",
-			validation: { minimum: 0 },
-			description: "Zero-based position of this exercise within the workout",
-		},
-		rpe: {
-			label: "Rpe",
-			type: "integer",
-			validation: { minimum: 0, maximum: 10 },
-			description: "Rate of perceived exertion from 0 (no effort) to 10 (maximal effort)",
-		},
-		setLot: {
-			type: "enum",
-			label: "Set Lot",
-			description: "Set type: normal, warm_up, drop, or failure",
-			choices: { kind: "static", values: workoutSetLots.map((value) => ({ value })) },
-		},
-		duration: {
-			type: "number",
-			label: "Duration",
-			validation: { minimum: 0 },
-			description: "Duration of this set in seconds",
-			normalize: { round: { scale: workoutSetScales.duration } },
-		},
-		weight: {
-			type: "number",
-			label: "Weight",
-			validation: { minimum: 0 },
-			normalize: { round: { scale: workoutSetScales.weight } },
-			description: "Weight used in this set in kilograms (kg)",
-		},
-		exerciseKind: {
-			type: "enum",
-			label: "Exercise Kind",
-			description: "Exercise kind this set was logged under",
-			choices: { kind: "static", values: exerciseKinds.map((value) => ({ value })) },
-		},
-		oneRm: {
-			type: "number",
-			label: "One Rm",
-			validation: { minimum: 0 },
-			normalize: { round: { scale: workoutSetScales.oneRm } },
-			description: "One-rep max calculated for this set in kilograms (kg)",
-		},
-		distance: {
-			type: "number",
-			label: "Distance",
-			validation: { minimum: 0 },
-			normalize: { round: { scale: workoutSetScales.distance } },
-			description: "Distance covered in this set in kilometers (km)",
-		},
-		volume: {
-			type: "number",
-			label: "Volume",
-			validation: { minimum: 0 },
-			normalize: { round: { scale: workoutSetScales.volume } },
-			description: "Volume (kilograms × repetitions) calculated for this set",
-		},
-		pace: {
-			label: "Pace",
-			type: "number",
-			validation: { minimum: 0 },
-			normalize: { round: { scale: workoutSetScales.pace } },
-			description: "Speed calculated as kilometers per second from canonical metric measurements",
-		},
-		personalBests: {
-			type: "array",
-			label: "Personal Bests",
-			description: "Personal bests achieved in this set",
-			items: {
-				type: "enum",
-				label: "Item",
-				description: "Item",
-				choices: {
-					kind: "static",
-					values: [
-						{ value: "time" },
-						{ value: "pace" },
-						{ value: "reps" },
-						{ value: "one_rm" },
-						{ value: "volume" },
-						{ value: "weight" },
-						{ value: "distance" },
-					],
-				},
-			},
-		},
-	},
+	fields: workoutSetFields,
 };
 
 export const workoutPropertiesSchema: AppSchema = {
