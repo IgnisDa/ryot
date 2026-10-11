@@ -1,17 +1,17 @@
-import type { AssetLocator } from "@ryot-app/contract/modules/assets/schemas";
+import { type AssetLocator, ManagedAssetLocator } from "@ryot-app/contract/modules/assets/schemas";
 import type { JsonValue } from "@ryot-app/contract/schema/json";
 import type { AppPropertyDefinition, AppSchema } from "@ryot-app/contract/schema/property-schema";
 import { isObjectRecord } from "@ryot-app/ts-utils/predicates";
 import { Effect, Schema } from "effect";
+
+import { managedAssetLocatorKey } from "#lib/domain/managed-asset-locators";
 
 type JsonObject = Record<string, JsonValue>;
 type ReferenceMap = ReadonlyMap<string, string>;
 
 const isJsonObject = (value: unknown): value is JsonObject => isObjectRecord(value);
 
-type ArchivedManagedAssetLocator = Exclude<AssetLocator, { readonly type: "remote" }>;
-
-const assetKey = (locator: ArchivedManagedAssetLocator) => `${locator.type}:${locator.key}`;
+const isManagedAssetLocator = Schema.is(ManagedAssetLocator);
 
 export class DataReferenceError extends Schema.TaggedError<
 	DataReferenceError,
@@ -157,8 +157,8 @@ const readAssetLocator = (value: JsonValue): AssetLocator | null => {
 	if (value["type"] === "remote" && typeof value["url"] === "string") {
 		return { type: "remote", url: value["url"] };
 	}
-	if ((value["type"] === "local" || value["type"] === "s3") && typeof value["key"] === "string") {
-		return { key: value["key"], type: value["type"] };
+	if (isManagedAssetLocator(value)) {
+		return { key: value.key, type: value.type };
 	}
 	return null;
 };
@@ -181,7 +181,7 @@ const rewritePropertyAssets = (
 				if (locator.type === "remote") {
 					return value;
 				}
-				const key = assetKey(locator);
+				const key = managedAssetLocatorKey(locator);
 				const replacement = locators.get(key);
 				if (replacement === undefined) {
 					return yield* new DataReferenceError({

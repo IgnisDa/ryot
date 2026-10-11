@@ -1,10 +1,9 @@
-import type { ManagedAssetLocator } from "@ryot-app/contract/modules/assets/schemas";
+import { ManagedAssetLocator } from "@ryot-app/contract/modules/assets/schemas";
 import type { AppPropertyDefinition, AppSchema } from "@ryot-app/contract/schema/property-schema";
 import { isObjectRecord } from "@ryot-app/ts-utils/predicates";
+import { Schema } from "effect";
 
-type JsonObject = Record<string, unknown>;
-
-const isJsonObject = (value: unknown): value is JsonObject => isObjectRecord(value);
+const isManagedAssetLocator = Schema.is(ManagedAssetLocator);
 
 export const managedAssetLocatorKey = (locator: ManagedAssetLocator) =>
 	`${locator.type}:${locator.key}`;
@@ -24,16 +23,13 @@ const collectPropertyAssets = (
 		return;
 	}
 	if (property.type === "object") {
-		if (property.validation?.asset && isJsonObject(value)) {
-			if (
-				(value["type"] === "local" || value["type"] === "s3") &&
-				typeof value["key"] === "string"
-			) {
-				assets.push({ key: value["key"], type: value["type"] });
+		if (property.validation?.asset && isObjectRecord(value)) {
+			if (isManagedAssetLocator(value)) {
+				assets.push({ key: value.key, type: value.type });
 			}
 			return;
 		}
-		if (isJsonObject(value)) {
+		if (isObjectRecord(value)) {
 			for (const [key, child] of Object.entries(property.properties)) {
 				collectPropertyAssets(child, value[key], assets, includeSecrets);
 			}

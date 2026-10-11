@@ -27,7 +27,7 @@ import { Context, DateTime, Effect, Result, Layer } from "effect";
 import { WorkflowEngine } from "effect/workflow/WorkflowEngine";
 
 import {
-	makeManagedAssetReferenceLocker,
+	ManagedAssetReferenceLocker,
 	type OwnedManagedAssetPropertyRecord,
 } from "#lib/domain/managed-asset-writes";
 import {
@@ -120,14 +120,16 @@ export class IntegrationsService extends Context.Service<IntegrationsService>()(
 	{
 		make: Effect.gen(function* () {
 			const database = yield* DatabaseSession;
-			const lockAssetReferences = makeManagedAssetReferenceLocker(database);
+			const assetReferences = yield* ManagedAssetReferenceLocker.make;
 			const lockSettingsAssetReferences = (record: OwnedManagedAssetPropertyRecord) =>
-				lockAssetReferences([record]).pipe(
-					Effect.catchTag(
-						"ManagedAssetReferenceRejected",
-						() => new IntegrationRequestError({ reason: { code: "asset-forbidden" } }),
-					),
-				);
+				assetReferences
+					.lock([record])
+					.pipe(
+						Effect.catchTag(
+							"ManagedAssetReferenceRejected",
+							() => new IntegrationRequestError({ reason: { code: "asset-forbidden" } }),
+						),
+					);
 			const transaction = <A, E, R>(work: Effect.Effect<A, E, R>) =>
 				database.transaction(work).pipe(Effect.catchTag("DatabaseSessionStateError", Effect.die));
 			const proKey = yield* ProKeyService;

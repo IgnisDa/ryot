@@ -5,7 +5,10 @@ import {
 	SANDBOX_HOST_EXECUTION_POLICY,
 	sandboxDurableHostDispatchStrategy,
 } from "@ryot-app/sandbox/host/host-execution-policy";
-import { Effect } from "effect";
+import { Effect, Layer } from "effect";
+
+import { PluginRuntimeResolver } from "#modules/plugins/catalog/runtime-resolver";
+import { fixtureManifest } from "#modules/plugins/test-support";
 
 import { makeUserPluginRevision, makeUserPrincipal } from "../authorization/principal.test-support";
 import {
@@ -14,6 +17,34 @@ import {
 	prepareSandboxSendNotification,
 	SandboxDurableHostServiceWorkflow,
 } from "./durable-dispatcher";
+import { SandboxSubmissionCommands } from "./submission-command";
+
+const submissionCommands = (
+	findPluginAvailableToUser?: PluginRuntimeResolver["Service"]["findPluginAvailableToUser"],
+) =>
+	Layer.build(
+		Layer.mock(PluginRuntimeResolver)(
+			findPluginAvailableToUser ? { findPluginAvailableToUser } : {},
+		),
+	).pipe(Effect.flatMap((context) => SandboxSubmissionCommands.make.pipe(Effect.provide(context))));
+
+const availablePlugin = (installationId: string) => () =>
+	Effect.succeed({
+		id: "plugin",
+		installationId,
+		isHidden: false,
+		clientImports: [],
+		ownerUserId: null,
+		compiledHashes: {},
+		contentHash: "hash",
+		scope: "user" as const,
+		health: "ready" as const,
+		manifest: fixtureManifest(),
+		pluginConfigRevisionId: null,
+		pluginRevisionId: "plugin-revision",
+		packageId: makeUserPluginRevision({ ownerId: null, slug: "plugin", compiledHashes: {} })
+			.packageId,
+	});
 
 it("classifies every bridge host capability exactly once", () => {
 	expect(Object.keys(SANDBOX_HOST_EXECUTION_POLICY).sort()).toEqual(
@@ -107,7 +138,7 @@ it.effect("derives event root identity from the trusted workflow and host index"
 					},
 				},
 			},
-			() => Effect.die("Unexpected installation lookup"),
+			yield* submissionCommands(),
 		);
 		expect(prepared).toMatchObject({
 			payload: [],
@@ -170,13 +201,26 @@ it.effect(
 					}),
 				}),
 			};
-			const first = yield* prepareSandboxCreateEvents(request, scope, () =>
-				Effect.succeed("installation"),
-			);
+			const lookups: Array<readonly [string, string]> = [];
+			const unavailable = yield* prepareSandboxCreateEvents(
+				request,
+				scope,
+				yield* submissionCommands((lookupUserId, pluginId) => {
+					lookups.push([lookupUserId, pluginId]);
+					return Effect.succeed(null);
+				}),
+			).pipe(Effect.flip);
+			expect(unavailable).toMatchObject({
+				kind: "invalid-input",
+				message: "Write installation is unavailable",
+			});
+			expect(lookups).toEqual([[userId, "plugin"]]);
+			const installation = yield* submissionCommands(availablePlugin("installation"));
+			const first = yield* prepareSandboxCreateEvents(request, scope, installation);
 			const retried = yield* prepareSandboxCreateEvents(
 				{ ...request, index: 9 },
 				{ ...scope, executionId: "attempt-2", startedAt: "2026-08-07T00:00:00Z" },
-				() => Effect.succeed("installation"),
+				installation,
 			);
 			expect(retried.writeCommand).toEqual(first.writeCommand);
 			expect(retried.command).not.toEqual(first.command);
@@ -200,8 +244,10 @@ it.effect(
 					},
 				},
 			]) {
-				const other = yield* prepareSandboxCreateEvents(request, changed.scope, () =>
-					Effect.succeed(changed.installationId),
+				const other = yield* prepareSandboxCreateEvents(
+					request,
+					changed.scope,
+					yield* submissionCommands(availablePlugin(changed.installationId)),
 				);
 				expect(other.writeCommand?.causation.executionId).not.toBe(
 					first.writeCommand?.causation.executionId,

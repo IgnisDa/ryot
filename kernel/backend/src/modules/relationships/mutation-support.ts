@@ -22,6 +22,7 @@ import { stableStringify } from "@ryot-app/ts-utils/json";
 import { isObjectRecord } from "@ryot-app/ts-utils/predicates";
 import { Effect, Schema } from "effect";
 
+import type { ManagedAssetReferenceLocker } from "#lib/domain/managed-asset-writes";
 import type { LifecycleExecution } from "#modules/automations/lifecycle/execution";
 import {
 	LifecyclePersistenceError,
@@ -351,6 +352,7 @@ export type RelationshipMutationDependencies = {
 	readonly runtime: PluginRuntimeResolver["Service"];
 	readonly definitions: DefinitionRepository["Service"];
 	readonly entities: EntitiesRepository["Service"];
+	readonly assetReferences: ManagedAssetReferenceLocker["Service"];
 };
 
 /** Persistence phases run inside the caller's transaction rather than opening their own. */

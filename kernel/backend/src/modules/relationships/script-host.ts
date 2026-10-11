@@ -7,7 +7,6 @@ import { Effect } from "effect";
 
 import { LifecycleExecution } from "#modules/automations/lifecycle/execution";
 import type { DomainLifecycleCommand } from "#modules/entities/write-context";
-import { PluginRuntimeResolver } from "#modules/plugins/catalog/runtime-resolver";
 import {
 	type AdditionalScriptHostImplementationMap,
 	requireSandboxCapabilityInput,
@@ -25,7 +24,7 @@ import {
 	type LifecycleHostInput,
 	type LifecycleItemWrite,
 } from "#modules/scripts/host/lifecycle-host";
-import { sandboxSubmissionCommand } from "#modules/scripts/host/submission-command";
+import { SandboxSubmissionCommands } from "#modules/scripts/host/submission-command";
 
 import {
 	reconciliationSummary,
@@ -79,15 +78,8 @@ const toReconcileGroup = (
 
 export const relationshipLifecycleHostSteps = (
 	relationships: RelationshipMutationPipeline["Service"],
-	runtime: PluginRuntimeResolver["Service"],
+	submissions: SandboxSubmissionCommands["Service"],
 ) => {
-	const findInstallation = (
-		userId: UserId,
-		pluginId: Parameters<typeof runtime.findPluginAvailableToUser>[1],
-	) =>
-		runtime
-			.findPluginAvailableToUser(userId, pluginId)
-			.pipe(Effect.map((plugin) => plugin?.installationId ?? null));
 	const applyRelationshipHostPolicies = (pending: PendingRelationshipMutations) =>
 		relationships.applyPolicies(pending).pipe(Effect.mapError(lifecycleHostFailure));
 	return {
@@ -205,7 +197,7 @@ export const relationshipLifecycleHostSteps = (
 								`changeUserRelationships exceeds ${SANDBOX_LIMITS.userRelationshipWrites.changesTotal} changes`,
 							);
 						}
-						const command = yield* sandboxSubmissionCommand(
+						const command = yield* submissions.commandFor(
 							input,
 							yield* sandboxLifecycleCommand(
 								input,
@@ -213,7 +205,6 @@ export const relationshipLifecycleHostSteps = (
 								"changeUserRelationships",
 							),
 							options,
-							findInstallation,
 						);
 						return {
 							batches,
@@ -233,7 +224,7 @@ export const makeRelationshipScriptHost = Effect.gen(function* () {
 	const lifecycleExecution = yield* LifecycleExecution;
 	const lifecycle = relationshipLifecycleHostSteps(
 		yield* RelationshipMutationPipeline,
-		yield* PluginRuntimeResolver,
+		yield* SandboxSubmissionCommands,
 	);
 
 	return {

@@ -41,7 +41,7 @@ import {
 } from "effect";
 import { WorkflowEngine } from "effect/workflow/WorkflowEngine";
 
-import { makeManagedAssetReferenceLocker } from "#lib/domain/managed-asset-writes";
+import { ManagedAssetReferenceLocker } from "#lib/domain/managed-asset-writes";
 import { lifecycleTrigger } from "#modules/automations/lifecycle/command";
 import { LifecycleExecution } from "#modules/automations/lifecycle/execution";
 import {
@@ -199,31 +199,16 @@ const eventWriteFailure = (error: DbError | DomainWriteConflict) =>
 const matchesEventPrecondition = (
 	before: AutomationEventSnapshot,
 	expected: NonNullable<UpdateEventItem["expected"]>,
-) => {
-	if ("kind" in expected) {
-		return (
-			expected.entityId === before.entityId &&
-			expected.occurredAt === before.occurredAt &&
-			expected.sessionEntityId === before.sessionEntityId &&
-			Object.entries(expected.properties).every(
-				([key, value]) =>
-					Object.hasOwn(before.properties, key) &&
-					stableStringify(before.properties[key]) === stableStringify(value),
-			) &&
-			expected.absentProperties.every((key) => !Object.hasOwn(before.properties, key))
-		);
-	}
-	return (
-		stableStringify(expected) ===
-		stableStringify({
-			entityId: before.entityId,
-			updatedAt: before.updatedAt,
-			occurredAt: before.occurredAt,
-			properties: before.properties,
-			sessionEntityId: before.sessionEntityId,
-		})
-	);
-};
+) =>
+	expected.entityId === before.entityId &&
+	expected.occurredAt === before.occurredAt &&
+	expected.sessionEntityId === before.sessionEntityId &&
+	Object.entries(expected.properties).every(
+		([key, value]) =>
+			Object.hasOwn(before.properties, key) &&
+			stableStringify(before.properties[key]) === stableStringify(value),
+	) &&
+	expected.absentProperties.every((key) => !Object.hasOwn(before.properties, key));
 
 const applyUpdatePatch = (before: AutomationEventSnapshot, patch: EventUpdatePatch) => {
 	const properties = { ...before.properties };
@@ -273,7 +258,7 @@ export class EventsService extends Context.Service<EventsService>()("EventsServi
 		const entities = yield* EntitiesRepository;
 		const eventSchemas = yield* EventSchemaReader;
 		const session = yield* DatabaseSession;
-		const lockAssetReferences = makeManagedAssetReferenceLocker(session);
+		const assetReferences = yield* ManagedAssetReferenceLocker.make;
 		const writeChecks = yield* DomainWriteChecks;
 		const retryFieldPreconditionStale = <A, E, R>(
 			work: Effect.Effect<A, E, R>,
@@ -287,7 +272,7 @@ export class EventsService extends Context.Service<EventsService>()("EventsServi
 						return Effect.succeed(false);
 					}
 					const expected = expectedForEvent(error.reason.eventId);
-					if (!expected || !("kind" in expected)) {
+					if (!expected) {
 						return Effect.succeed(false);
 					}
 					return repository
@@ -719,19 +704,18 @@ export class EventsService extends Context.Service<EventsService>()("EventsServi
 						operation: "update",
 						draft: initial.draft,
 					};
-					const trigger =
-						submitted.expected && "kind" in submitted.expected
-							? lifecycleTrigger(
-									command,
-									userId,
-									request,
-									stableStringify([
-										"event-update",
-										expectedRevision,
-										initial.referenceContextFingerprint,
-									]),
-								)
-							: lifecycleTrigger(command, userId, request);
+					const trigger = submitted.expected
+						? lifecycleTrigger(
+								command,
+								userId,
+								request,
+								stableStringify([
+									"event-update",
+									expectedRevision,
+									initial.referenceContextFingerprint,
+								]),
+							)
+						: lifecycleTrigger(command, userId, request);
 					const plan = yield* planner.plan({ trigger });
 					return {
 						plan,
@@ -989,14 +973,13 @@ export class EventsService extends Context.Service<EventsService>()("EventsServi
 							operation: "delete",
 						};
 					}
-					const discriminator =
-						input.expected && "kind" in input.expected
-							? stableStringify([
-									move ? "event-move" : "event-delete",
-									expectedRevision,
-									referenceContextFingerprint ?? stableStringify(before),
-								])
-							: undefined;
+					const discriminator = input.expected
+						? stableStringify([
+								move ? "event-move" : "event-delete",
+								expectedRevision,
+								referenceContextFingerprint ?? stableStringify(before),
+							])
+						: undefined;
 					const plan = yield* planner.plan({
 						trigger:
 							discriminator === undefined
@@ -1336,18 +1319,20 @@ export class EventsService extends Context.Service<EventsService>()("EventsServi
 			let change: AutomationEventChangePayload;
 			if (prepared.operation === "edit" || prepared.operation === "move") {
 				yield* verifyPreparedEditContext(prepared);
-				yield* lockAssetReferences([
-					{
-						ownerUserId: prepared.input.userId,
-						properties: prepared.draft.properties,
-						propertiesSchema: prepared.propertiesSchema,
-					},
-				]).pipe(
-					Effect.catchTag(
-						"ManagedAssetReferenceRejected",
-						() => new EventBadRequest({ reason: { code: "asset-forbidden" } }),
-					),
-				);
+				yield* assetReferences
+					.lock([
+						{
+							ownerUserId: prepared.input.userId,
+							properties: prepared.draft.properties,
+							propertiesSchema: prepared.propertiesSchema,
+						},
+					])
+					.pipe(
+						Effect.catchTag(
+							"ManagedAssetReferenceRejected",
+							() => new EventBadRequest({ reason: { code: "asset-forbidden" } }),
+						),
+					);
 				const updated = yield* repository.updatePreparedEvent({
 					...prepared.input,
 					draft: prepared.draft,

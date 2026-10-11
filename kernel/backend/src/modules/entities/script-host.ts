@@ -14,7 +14,6 @@ import { LifecycleExecution } from "#modules/automations/lifecycle/execution";
 import { runLifecycleWriteInline } from "#modules/automations/lifecycle/write-step";
 import { DefinitionRepository } from "#modules/definitions/repository";
 import { readScriptEntitySchemas } from "#modules/definitions/script-host";
-import { PluginRuntimeResolver } from "#modules/plugins/catalog/runtime-resolver";
 import {
 	type AdditionalScriptHostImplementationMap,
 	requireSandboxCapabilityInput,
@@ -32,7 +31,7 @@ import {
 	userLifecycleSource,
 	type LifecycleHostInput,
 } from "#modules/scripts/host/lifecycle-host";
-import { sandboxSubmissionCommand } from "#modules/scripts/host/submission-command";
+import { SandboxSubmissionCommands } from "#modules/scripts/host/submission-command";
 
 import {
 	EntitiesService,
@@ -125,7 +124,7 @@ export const makeEntityScriptHost = Effect.gen(function* () {
 	const entities = yield* EntitiesService;
 	const definitions = yield* DefinitionRepository;
 	const lifecycleExecution = yield* LifecycleExecution;
-	const runtime = yield* PluginRuntimeResolver;
+	const submissions = yield* SandboxSubmissionCommands;
 	const lifecycle = entityLifecycleHostSteps(entities);
 	const findForeignEntitySchemaSlug = Effect.fn(function* (
 		input: UserSandboxRunInput,
@@ -143,13 +142,6 @@ export const makeEntityScriptHost = Effect.gen(function* () {
 			);
 		});
 	});
-	const findInstallation = (
-		userId: UserId,
-		pluginId: Parameters<typeof runtime.findPluginAvailableToUser>[1],
-	) =>
-		runtime
-			.findPluginAvailableToUser(userId, pluginId)
-			.pipe(Effect.map((plugin) => plugin?.installationId ?? null));
 
 	return {
 		upsertGlobalEntities: (rawInput, items, options) =>
@@ -177,11 +169,10 @@ export const makeEntityScriptHost = Effect.gen(function* () {
 						return yield* sandboxHostFailure("Entity deletion requires a pinned plugin");
 					}
 					const userId = UserId.make(userSandboxRunUserId(input));
-					const command = yield* sandboxSubmissionCommand(
+					const command = yield* submissions.commandFor(
 						input,
 						yield* sandboxLifecycleCommand(input, userLifecycleSource(input), "deleteUserEntity"),
 						submission,
-						findInstallation,
 					);
 					const { warnings } = yield* entities.deleteByIds(
 						[EntityId.make(item.entityId)],
@@ -196,6 +187,42 @@ export const makeEntityScriptHost = Effect.gen(function* () {
 					);
 					yield* reportSandboxLifecycleWarnings("deleteUserEntity", warnings);
 					return { entityId: item.entityId };
+				}),
+			),
+		updateUserEntity: (
+			rawInput,
+			rawItem,
+			options?: Parameters<AdditionalScriptHostImplementationMap["updateUserEntity"]>[2],
+		) =>
+			sandboxHostEffect(
+				Effect.gen(function* () {
+					const input = yield* requireSandboxCapabilityInput(rawInput, "updateUserEntity");
+					const [item, submission] = yield* Schema.decodeEffect(updateUserEntityArgsSchema)([
+						rawItem,
+						options,
+					]);
+					const revision = input.principal.pluginRevision;
+					const userId = UserId.make(userSandboxRunUserId(input));
+					const command = yield* submissions.commandFor(
+						input,
+						yield* sandboxLifecycleCommand(input, userLifecycleSource(input), "updateUserEntity"),
+						submission,
+					);
+					if (!revision) {
+						return yield* sandboxHostFailure("Entity updates require a pinned plugin");
+					}
+					const { entity, warnings } = yield* entities.update({
+						userId,
+						scope: "user",
+						name: item.name,
+						lifecycle: command,
+						requireUserOwned: true,
+						expected: item.expected,
+						properties: item.properties,
+						entityId: EntityId.make(item.entityId),
+					});
+					yield* reportSandboxLifecycleWarnings("updateUserEntity", warnings);
+					return { entityId: entity.id };
 				}),
 			),
 		ensureUserEntities: (rawInput, items) =>
@@ -232,43 +259,6 @@ export const makeEntityScriptHost = Effect.gen(function* () {
 					return results.map(({ entityId, wasInserted }) => ({ entityId, wasInserted }));
 				}),
 			),
-		updateUserEntity: (
-			rawInput,
-			rawItem,
-			options?: Parameters<AdditionalScriptHostImplementationMap["updateUserEntity"]>[2],
-		) =>
-			sandboxHostEffect(
-				Effect.gen(function* () {
-					const input = yield* requireSandboxCapabilityInput(rawInput, "updateUserEntity");
-					const [item, submission] = yield* Schema.decodeEffect(updateUserEntityArgsSchema)([
-						rawItem,
-						options,
-					]);
-					const revision = input.principal.pluginRevision;
-					const userId = UserId.make(userSandboxRunUserId(input));
-					const command = yield* sandboxSubmissionCommand(
-						input,
-						yield* sandboxLifecycleCommand(input, userLifecycleSource(input), "updateUserEntity"),
-						submission,
-						findInstallation,
-					);
-					if (!revision) {
-						return yield* sandboxHostFailure("Entity updates require a pinned plugin");
-					}
-					const { entity, warnings } = yield* entities.update({
-						userId,
-						scope: "user",
-						name: item.name,
-						lifecycle: command,
-						requireUserOwned: true,
-						expected: item.expected,
-						properties: item.properties,
-						entityId: EntityId.make(item.entityId),
-					});
-					yield* reportSandboxLifecycleWarnings("updateUserEntity", warnings);
-					return { entityId: entity.id };
-				}),
-			),
 		createUserEntity: (
 			rawInput,
 			rawItem,
@@ -290,11 +280,10 @@ export const makeEntityScriptHost = Effect.gen(function* () {
 							operation: "createUserEntity",
 						});
 					}
-					const command = yield* sandboxSubmissionCommand(
+					const command = yield* submissions.commandFor(
 						input,
 						yield* sandboxLifecycleCommand(input, userLifecycleSource(input), "createUserEntity"),
 						submission,
-						findInstallation,
 					);
 					const { entity, warnings } = yield* entities.create({
 						userId,

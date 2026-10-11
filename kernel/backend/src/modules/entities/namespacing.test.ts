@@ -42,6 +42,7 @@ import { RelationshipsService } from "#modules/relationships/service";
 import { ScriptExecutionPrincipal } from "#modules/scripts/authorization/principal";
 import { dispatchSandboxHostActivity } from "#modules/scripts/host/durable-dispatcher";
 import { unusedSandboxHostImplementations } from "#modules/scripts/host/host-implementations.test-support";
+import { SandboxSubmissionCommands } from "#modules/scripts/host/submission-command";
 import { SandboxRepository } from "#modules/scripts/registry/repository";
 import { DatabaseSession } from "#platform/db/session";
 import { RedisService } from "#platform/redis";
@@ -214,7 +215,15 @@ layer(relationshipDatabaseLayer())((test) => {
 				const hosts = unusedSandboxHostImplementations();
 				const implementations = {
 					...hosts,
-					additional: { ...hosts.additional, ...(yield* makeEntityScriptHost) },
+					additional: {
+						...hosts.additional,
+						...(yield* makeEntityScriptHost.pipe(
+							Effect.provideServiceEffect(
+								SandboxSubmissionCommands,
+								SandboxSubmissionCommands.make,
+							),
+						)),
+					},
 				};
 				const options = {
 					idempotencyKey: "fixed-submission",
@@ -329,7 +338,7 @@ layer(relationshipDatabaseLayer())((test) => {
 				);
 				expect(stale).toMatchObject({
 					state: "failure",
-					error: { data: { code: "mutation-conflict" } },
+					error: { data: { entityId: row.id, code: "entity-stale" } },
 				});
 				const conflict = yield* dispatchSandboxHostActivity(
 					implementations,

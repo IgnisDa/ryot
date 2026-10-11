@@ -24,6 +24,7 @@ export {
 	entityRecordSchema,
 	entitySchemaProviderSchema,
 	entitySchemaRecordSchema,
+	entityStaleReasonSchema,
 	getEntitySchemasArgsSchema,
 	getEntitySchemasResultSchema,
 	upsertGlobalEntitiesArgsSchema,
@@ -195,3 +196,4 @@ export {
 	setCachedValueResultSchema,
 	userPreferencesSchema,
 } from "./core/state";
+export { submissionOptionsSchema } from "./core/writes";

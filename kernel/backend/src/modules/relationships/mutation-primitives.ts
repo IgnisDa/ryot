@@ -14,7 +14,6 @@ import {
 import type { EntityId, UserId } from "@ryot-app/contract/schema/brands";
 import { Effect, Schema } from "effect";
 
-import { makeManagedAssetReferenceLocker } from "#lib/domain/managed-asset-writes";
 import { lifecycleTrigger } from "#modules/automations/lifecycle/command";
 import {
 	toLifecycleDispatchPlan,
@@ -113,8 +112,8 @@ export const makeRelationshipMutationPrimitives = ({
 	execution,
 	repository,
 	definitions,
+	assetReferences,
 }: RelationshipMutationDependencies) => {
-	const lockAssetReferences = makeManagedAssetReferenceLocker(session);
 	const assertActiveTransaction = session.requireTransaction.pipe(
 		Effect.mapError(
 			() =>
@@ -459,9 +458,9 @@ export const makeRelationshipMutationPrimitives = ({
 					]
 				: [],
 		);
-		yield* lockAssetReferences(assetRecords).pipe(
-			Effect.catchTag("ManagedAssetReferenceRejected", assetForbidden),
-		);
+		yield* assetReferences
+			.lock(assetRecords)
+			.pipe(Effect.catchTag("ManagedAssetReferenceRejected", assetForbidden));
 		const deleted = yield* repository.deleteRelationshipsById(
 			decisions.flatMap(({ row, request }) =>
 				request?.operation === "delete" && row ? [row.id] : [],
@@ -517,13 +516,15 @@ export const makeRelationshipMutationPrimitives = ({
 		yield* assertActiveTransaction;
 		yield* assertStableSource(mutation, validated, before);
 		if (request.operation !== "delete") {
-			yield* lockAssetReferences([
-				{
-					properties: request.draft.properties,
-					propertiesSchema: validated.active.propertiesSchema,
-					ownerUserId: mutation.input.scope === "user" ? mutation.input.userId : null,
-				},
-			]).pipe(Effect.catchTag("ManagedAssetReferenceRejected", assetForbidden));
+			yield* assetReferences
+				.lock([
+					{
+						properties: request.draft.properties,
+						propertiesSchema: validated.active.propertiesSchema,
+						ownerUserId: mutation.input.scope === "user" ? mutation.input.userId : null,
+					},
+				])
+				.pipe(Effect.catchTag("ManagedAssetReferenceRejected", assetForbidden));
 		}
 		if (request.operation === "create") {
 			const saved = yield* repository.createRelationship({

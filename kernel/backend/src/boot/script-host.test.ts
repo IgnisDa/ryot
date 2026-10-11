@@ -69,6 +69,7 @@ import {
 import { RyotQLService } from "#modules/ryotql/service";
 import type { ScriptRunInput } from "#modules/scripts/authorization/capabilities";
 import type { ScriptExecutionPrincipal } from "#modules/scripts/authorization/principal";
+import { SandboxSubmissionCommands } from "#modules/scripts/host/submission-command";
 import { SandboxRepository } from "#modules/scripts/registry/repository";
 import { DatabaseSession } from "#platform/db/session";
 import { ProKeyService } from "#platform/pro-key";
@@ -629,7 +630,10 @@ const hostFunctionsLayer = (
 								).pipe(Effect.map((saved) => new Map(saved))),
 				}),
 			);
-			return RelationshipMutationPipeline.layer.pipe(Layer.provideMerge(dependencies));
+			return Layer.mergeAll(
+				RelationshipMutationPipeline.layer,
+				SandboxSubmissionCommands.layer,
+			).pipe(Layer.provideMerge(dependencies));
 		}),
 	);
 

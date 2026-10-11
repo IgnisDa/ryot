@@ -17,7 +17,7 @@ import { sha256Hex } from "@ryot-app/ts-utils/crypto";
 import { Context, Effect, Layer, Result, Schema } from "effect";
 
 import {
-	makeManagedAssetReferenceLocker,
+	ManagedAssetReferenceLocker,
 	type OwnedManagedAssetPropertyRecord,
 } from "#lib/domain/managed-asset-writes";
 import { ObjectStorageService } from "#modules/assets/storage/object-storage";
@@ -121,14 +121,16 @@ export class PluginInstallationService extends Context.Service<PluginInstallatio
 	{
 		make: Effect.gen(function* () {
 			const database = yield* DatabaseSession;
-			const lockAssetReferences = makeManagedAssetReferenceLocker(database);
+			const assetReferences = yield* ManagedAssetReferenceLocker.make;
 			const lockSettingsAssetReferences = (record: OwnedManagedAssetPropertyRecord) =>
-				lockAssetReferences([record]).pipe(
-					Effect.catchTag(
-						"ManagedAssetReferenceRejected",
-						() => new PluginRequestError({ reason: { code: "asset-forbidden" } }),
-					),
-				);
+				assetReferences
+					.lock([record])
+					.pipe(
+						Effect.catchTag(
+							"ManagedAssetReferenceRejected",
+							() => new PluginRequestError({ reason: { code: "asset-forbidden" } }),
+						),
+					);
 			const receipts = yield* MutationReceipts.make;
 			const repository = yield* PluginRepository;
 			const definitions = yield* DefinitionRepository;

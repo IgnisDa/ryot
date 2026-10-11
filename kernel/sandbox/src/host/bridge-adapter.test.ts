@@ -546,6 +546,50 @@ describe("bindSandboxHostFunctions", () => {
 	);
 
 	it.effect(
+		"preserves typed entity staleness and drops write failure data outside the allowlist",
+		() =>
+			Effect.gen(function* () {
+				const failures = [
+					{ entityId: "entity", code: "entity-stale" },
+					{ name: "Original", entityId: "entity", code: "entity-stale" },
+					{ privateMetadata: "secret", code: "global-scope-forbidden" },
+					{ message: "forbidden", code: "global-scope-forbidden" },
+				];
+				const bound = bindSandboxHostFunctions(
+					makeImplementations({
+						updateUserEntity: () => {
+							const data = failures.shift();
+							return Effect.fail({ data, message: "failed" });
+						},
+					}),
+					input,
+				);
+				const item = {
+					properties: {},
+					name: "Changed",
+					entityId: "entity",
+					expected: { properties: {}, name: "Original", updatedAt: "2026-10-15T00:00:00Z" },
+				};
+				expect(yield* bound.updateUserEntity([item])).toEqual({
+					success: false,
+					error: "failed",
+					data: { entityId: "entity", code: "entity-stale" },
+				});
+				expect(yield* bound.updateUserEntity([item])).toEqual({ success: false, error: "failed" });
+				expect(yield* bound.updateUserEntity([item])).toEqual({
+					success: false,
+					error: "failed",
+					data: { code: "global-scope-forbidden" },
+				});
+				expect(yield* bound.updateUserEntity([item])).toEqual({
+					success: false,
+					error: "failed",
+					data: { message: "forbidden", code: "global-scope-forbidden" },
+				});
+			}),
+	);
+
+	it.effect(
 		"dispatches domain calls with the server-provided run input and rejects surplus arguments",
 		() =>
 			Effect.gen(function* () {

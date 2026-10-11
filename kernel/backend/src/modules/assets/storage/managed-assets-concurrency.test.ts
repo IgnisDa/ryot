@@ -7,7 +7,7 @@ import { and, eq } from "drizzle-orm";
 import { Deferred, Effect, Fiber, Layer } from "effect";
 
 import {
-	makeManagedAssetReferenceLocker,
+	ManagedAssetReferenceLocker,
 	ManagedAssetReferenceRejected,
 } from "#lib/domain/managed-asset-writes";
 import { DatabaseSession } from "#platform/db/session";
@@ -70,7 +70,7 @@ layer(testLayer)((test) => {
 	test.effect("a writer is rejected after cleanup commits its tombstone", () =>
 		Effect.gen(function* () {
 			const session = yield* DatabaseSession;
-			const lockAssetReferences = makeManagedAssetReferenceLocker(session);
+			const assetReferences = yield* ManagedAssetReferenceLocker.make;
 			const repository = yield* ManagedAssetsRepository;
 			const ownerUserId = UserId.make(crypto.randomUUID());
 			const locator: ManagedAssetLocator = { type: "s3", key: `permanent/${ownerUserId}.png` };
@@ -111,7 +111,7 @@ layer(testLayer)((test) => {
 					.transaction(
 						Effect.gen(function* () {
 							yield* Deferred.succeed(writerStarted, undefined);
-							return yield* lockAssetReferences([
+							return yield* assetReferences.lock([
 								{ ownerUserId, propertiesSchema: assetSchema, properties: { image: locator } },
 							]);
 						}),
@@ -143,7 +143,7 @@ layer(referenceTestLayer)((test) => {
 	test.effect("cleanup reports referenced when the reference writer commits first", () =>
 		Effect.gen(function* () {
 			const session = yield* DatabaseSession;
-			const lockAssetReferences = makeManagedAssetReferenceLocker(session);
+			const assetReferences = yield* ManagedAssetReferenceLocker.make;
 			const repository = yield* ManagedAssetsRepository;
 			const references = yield* ManagedAssetReferencesRepository;
 			const ownerUserId = UserId.make(crypto.randomUUID());
@@ -185,7 +185,7 @@ layer(referenceTestLayer)((test) => {
 			const writer = yield* Effect.forkScoped(
 				session.transaction(
 					Effect.gen(function* () {
-						yield* lockAssetReferences([
+						yield* assetReferences.lock([
 							{ ownerUserId, propertiesSchema: assetSchema, properties: { image: locator } },
 						]);
 						yield* session.run((db) =>

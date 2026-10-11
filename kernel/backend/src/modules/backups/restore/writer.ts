@@ -25,7 +25,7 @@ import { sha256Hex } from "@ryot-app/ts-utils/crypto";
 import { stableStringify } from "@ryot-app/ts-utils/json";
 import { Context, Data, Effect, Layer, Schema, Stream } from "effect";
 
-import { makeManagedAssetReferenceLocker } from "#lib/domain/managed-asset-writes";
+import { ManagedAssetReferenceLocker } from "#lib/domain/managed-asset-writes";
 import { AutomationsRepository } from "#modules/automations/repository";
 import {
 	rewriteManagedAssetLocators,
@@ -52,7 +52,6 @@ import {
 	isEntityBrowserRenderer,
 	validateSavedViewDefinition,
 } from "#modules/saved-views/definition-validation";
-import { DatabaseSession } from "#platform/db/session";
 
 import type { ValidatedArchiveEvents } from "../archive/archive";
 import { archiveError } from "../archive/error";
@@ -656,8 +655,7 @@ export class BackupRestoreWriter extends Context.Service<BackupRestoreWriter>()(
 	"BackupRestoreWriter",
 	{
 		make: Effect.gen(function* () {
-			const session = yield* DatabaseSession;
-			const lockAssetReferences = makeManagedAssetReferenceLocker(session);
+			const assetReferences = yield* ManagedAssetReferenceLocker.make;
 			const persistence = yield* BackupRestorePersistence;
 			const plugins = yield* PluginRepository;
 			const entities = yield* EntitiesRepository;
@@ -1068,13 +1066,15 @@ export class BackupRestoreWriter extends Context.Service<BackupRestoreWriter>()(
 							schemaDefinition.propertiesSchema,
 							"Entity properties",
 						);
-						yield* lockAssetReferences([
-							{
-								properties,
-								ownerUserId: null,
-								propertiesSchema: schemaDefinition.propertiesSchema,
-							},
-						]).pipe(Effect.catchTag("ManagedAssetReferenceRejected", assetForbidden));
+						yield* assetReferences
+							.lock([
+								{
+									properties,
+									ownerUserId: null,
+									propertiesSchema: schemaDefinition.propertiesSchema,
+								},
+							])
+							.pipe(Effect.catchTag("ManagedAssetReferenceRejected", assetForbidden));
 						const id = yield* persistence.restoreEntity({
 							properties,
 							userId: null,
@@ -1105,13 +1105,15 @@ export class BackupRestoreWriter extends Context.Service<BackupRestoreWriter>()(
 										schemaDefinition.propertiesSchema,
 									);
 						if (properties !== null) {
-							yield* lockAssetReferences([
-								{
-									properties,
-									ownerUserId: null,
-									propertiesSchema: schemaDefinition.propertiesSchema,
-								},
-							]).pipe(Effect.catchTag("ManagedAssetReferenceRejected", assetForbidden));
+							yield* assetReferences
+								.lock([
+									{
+										properties,
+										ownerUserId: null,
+										propertiesSchema: schemaDefinition.propertiesSchema,
+									},
+								])
+								.pipe(Effect.catchTag("ManagedAssetReferenceRejected", assetForbidden));
 						}
 						yield* persistence.restoreTranslation({
 							properties,
@@ -1305,13 +1307,15 @@ export class BackupRestoreWriter extends Context.Service<BackupRestoreWriter>()(
 						pluginPage?.kind === "page" ? pluginPage : null,
 					).pipe(Effect.mapError(() => badRequest("Backup saved view definition is invalid")));
 					if (pluginPage?.kind === "page") {
-						yield* lockAssetReferences([
-							{
-								ownerUserId: userId,
-								properties: settings,
-								propertiesSchema: pluginPage.settingsSchema,
-							},
-						]).pipe(Effect.catchTag("ManagedAssetReferenceRejected", assetForbidden));
+						yield* assetReferences
+							.lock([
+								{
+									ownerUserId: userId,
+									properties: settings,
+									propertiesSchema: pluginPage.settingsSchema,
+								},
+							])
+							.pipe(Effect.catchTag("ManagedAssetReferenceRejected", assetForbidden));
 					}
 					const restored = yield* persistence.restoreCustomView({
 						userId,

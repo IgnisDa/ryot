@@ -793,8 +793,9 @@ describe("Event lifecycle PostgreSQL", () => {
 					const before = yield* repository.getEventSnapshot({ userId, eventId });
 					assert(before);
 					const expected = {
+						absentProperties: [],
+						kind: "fields" as const,
 						entityId: before.entityId,
-						updatedAt: before.updatedAt,
 						occurredAt: before.occurredAt,
 						properties: before.properties,
 						sessionEntityId: before.sessionEntityId,
@@ -824,8 +825,9 @@ describe("Event lifecycle PostgreSQL", () => {
 					assert(current);
 					const deleteExpected = {
 						[eventId]: {
+							absentProperties: [],
+							kind: "fields" as const,
 							entityId: current.entityId,
-							updatedAt: current.updatedAt,
 							occurredAt: current.occurredAt,
 							properties: current.properties,
 							sessionEntityId: current.sessionEntityId,

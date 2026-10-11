@@ -7,6 +7,7 @@ import {
 	PluginId,
 	SandboxProviderId,
 } from "../../schema/brands";
+import { strictStruct } from "../../schema/utils";
 import { AutomationWarning } from "../automations/lifecycle";
 import { DefinitionOwner, EntitySchemaReference } from "../plugins/references";
 
@@ -58,6 +59,13 @@ export class EntityNotFound extends Schema.TaggedError<
 	EntityNotFound,
 	{ readonly brand: unique symbol }
 >()("EntityNotFound", { reason: EntityNotFoundReason }) {}
+
+export class EntityStale extends Schema.TaggedError<
+	EntityStale,
+	{ readonly brand: unique symbol }
+>()("EntityStale", {
+	reason: strictStruct({ entityId: EntityId, code: Schema.Literal("entity-stale") }),
+}) {}
 
 export const ListedEntity = Schema.Struct({
 	id: EntityId,

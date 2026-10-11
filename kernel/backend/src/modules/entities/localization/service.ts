@@ -5,7 +5,7 @@ import { IsoUtcString } from "@ryot-app/contract/schema/utils";
 import { Context, DateTime, Effect, Layer, Ref } from "effect";
 import { WorkflowEngine } from "effect/workflow/WorkflowEngine";
 
-import { makeManagedAssetReferenceLocker } from "#lib/domain/managed-asset-writes";
+import { ManagedAssetReferenceLocker } from "#lib/domain/managed-asset-writes";
 import { rootLifecycleCommand } from "#modules/automations/lifecycle/command";
 import { DefinitionRepository } from "#modules/definitions/repository";
 import { DomainWriteChecks } from "#modules/entities/write-context";
@@ -46,7 +46,7 @@ export class TranslationsService extends Context.Service<TranslationsService>()(
 			const engine = yield* WorkflowEngine;
 			const repository = yield* TranslationsRepository;
 			const session = yield* DatabaseSession;
-			const lockAssetReferences = makeManagedAssetReferenceLocker(session);
+			const assetReferences = yield* ManagedAssetReferenceLocker.make;
 			const runtime = yield* PluginRuntimeResolver;
 			const definitions = yield* DefinitionRepository;
 			const sandbox = yield* ScriptExecutionService;
@@ -194,23 +194,25 @@ export class TranslationsService extends Context.Service<TranslationsService>()(
 							});
 						}
 						if (input.properties !== null) {
-							yield* lockAssetReferences([
-								{
-									propertiesSchema,
-									properties: input.properties,
-									ownerUserId: execution.entityScopeUserId,
-								},
-							]).pipe(
-								Effect.catchTag(
-									"ManagedAssetReferenceRejected",
-									() =>
-										new SandboxRunError({
-											kind: "invalid-input",
-											data: { code: "asset-forbidden" },
-											message: "Translation references a forbidden managed asset",
-										}),
-								),
-							);
+							yield* assetReferences
+								.lock([
+									{
+										propertiesSchema,
+										properties: input.properties,
+										ownerUserId: execution.entityScopeUserId,
+									},
+								])
+								.pipe(
+									Effect.catchTag(
+										"ManagedAssetReferenceRejected",
+										() =>
+											new SandboxRunError({
+												kind: "invalid-input",
+												data: { code: "asset-forbidden" },
+												message: "Translation references a forbidden managed asset",
+											}),
+									),
+								);
 						}
 						return yield* repository.upsertOverlay(input);
 					}),
