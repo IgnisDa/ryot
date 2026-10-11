@@ -137,6 +137,7 @@ export const MediaTrendingProviderOutput = Schema.Union([
 ]);
 
 export const MediaTrendingRankingsInput = Schema.Struct({
+	failedEntitySchemaSlugs: Schema.Array(Schema.String),
 	batches: Schema.Array(
 		Schema.Struct({ entitySchemaSlug: Schema.String, entityIds: Schema.Array(Schema.String) }),
 	),

@@ -44,13 +44,16 @@ export default defineWorkflow({
 	run: (_input, replay) =>
 		Effect.gen(function* () {
 			const batches: Array<{ entitySchemaSlug: string; entityIds: readonly string[] }> = [];
+			const failedEntitySchemaSlugs: string[] = [];
 			for (const { reference, entitySchemaSlug } of providers) {
 				const result = yield* replay.activity(`fetch-${entitySchemaSlug}`, reference, {});
 				if (result.status === "fetched") {
 					batches.push({ entitySchemaSlug, entityIds: result.entityIds });
+				} else {
+					failedEntitySchemaSlugs.push(entitySchemaSlug);
 				}
 			}
-			const ranked = yield* replay.activity("rank", rankings, { batches });
+			const ranked = yield* replay.activity("rank", rankings, { batches, failedEntitySchemaSlugs });
 			return { synced: ranked.synced, itemCount: ranked.itemCount, providerCount: batches.length };
 		}),
 });

@@ -34,6 +34,7 @@ it.live("fetches each provider then ranks the fetched batches", () =>
 				name: "rank",
 				scriptSlug: "media-trending-rankings",
 				input: {
+					failedEntitySchemaSlugs: [],
 					batches: [
 						{ entityIds: ["movie-a"], entitySchemaSlug: "movie" },
 						{ entityIds: ["show-a"], entitySchemaSlug: "show" },
@@ -54,7 +55,24 @@ it.live("ranks only the batches of providers that fetched", () =>
 		);
 		assert(rank?.kind === "activity");
 		expect(rank.args.input).toEqual({
+			failedEntitySchemaSlugs: ["movie"],
 			batches: [{ entityIds: ["show-a"], entitySchemaSlug: "show" }],
+		});
+	}),
+);
+
+it.live("preserves the failed show schema by passing only the movie batch", () =>
+	Effect.gen(function* () {
+		const result = yield* run({ status: "fetched", entityIds: ["movie-a"] }, { status: "failed" });
+		assert(result.state === "completed");
+		expect(result.output).toEqual({ synced: true, itemCount: 2, providerCount: 1 });
+		const rank = result.requests.find(
+			(request) => request.kind === "activity" && request.name === "rank",
+		);
+		assert(rank?.kind === "activity");
+		expect(rank.args.input).toEqual({
+			failedEntitySchemaSlugs: ["show"],
+			batches: [{ entityIds: ["movie-a"], entitySchemaSlug: "movie" }],
 		});
 	}),
 );
