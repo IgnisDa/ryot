@@ -61,21 +61,15 @@ export const validateClientPluginPackage = (input: PluginClientCompilerPackageIn
 					failure(path, "RYOT_CLIENT_UTF8", `Client text source "${path}" is not valid UTF-8`),
 			});
 		}
-		if (plan.dependencyDeclarations !== undefined) {
-			sourceFiles["client/__ryot_plugin_dependencies__.d.ts"] = plan.dependencyDeclarations;
-		}
 		const dependencies = yield* resolveClientPluginCompilerDependencies;
-		const policyDiagnostics = validateClientSourcePolicy({
-			sourceFiles,
-			files: plan.files,
-			publicExports: {},
-			unresolvedPluginDependencies: plan.pluginDependencies,
-		});
-		if (policyDiagnostics.length > 0) {
-			return yield* clientPluginCompilationFailure(policyDiagnostics);
-		}
 		const analysis = yield* analyzeClientPluginTypes(
-			{ ...sourceFiles, [GENERATED_VALIDATION]: plan.validationSource },
+			{
+				...sourceFiles,
+				[GENERATED_VALIDATION]: plan.validationSource,
+				...(plan.dependencyDeclarations === undefined
+					? {}
+					: { "client/__ryot_plugin_dependencies__.d.ts": plan.dependencyDeclarations }),
+			},
 			dependencies,
 			plan.typeAliases,
 		).pipe(
@@ -83,6 +77,16 @@ export const validateClientPluginPackage = (input: PluginClientCompilerPackageIn
 				failure(plan.entry, "RYOT_CLIENT_COMPILER", `TypeScript compiler failed: ${String(error)}`),
 			),
 		);
+		const policyDiagnostics = validateClientSourcePolicy({
+			sourceFiles,
+			files: plan.files,
+			publicExports: {},
+			parsedFiles: analysis.sourceFiles,
+			unresolvedPluginDependencies: plan.pluginDependencies,
+		});
+		if (policyDiagnostics.length > 0) {
+			return yield* clientPluginCompilationFailure(policyDiagnostics);
+		}
 		if (analysis.diagnostics.length > 0) {
 			return yield* clientPluginCompilationFailure(analysis.diagnostics);
 		}

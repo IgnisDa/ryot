@@ -13,7 +13,7 @@
 
 ## Status
 
-**7 implemented, 1 in progress, 75 pending; 3 excluded.**
+**8 implemented, 0 in progress, 75 pending; 3 excluded.**
 
 “Implemented” means affected checks and tests passed and the change is committed with this tracker. Batch-wide acceptance is recorded separately below. Rows follow the audit's ranked order; sequencing can change to respect dependencies and keep changes reviewable.
 
@@ -26,7 +26,7 @@
 | B10-R1 | Implemented | Four shared typed pinned-definition projections include policy fields. `f0dfc38ce3`. |
 | P07-R2 | Implemented | Top-level client/shared regions determine authority and traversal floors; nested region-name tests and real module compilation pass. See this finding's `audit:` commit. |
 | P06-R1 | Implemented | Shared validated-entry stage enforces workflow policy through standalone and package paths while preserving adapter diagnostics and relative-import rules. See this finding's `audit:` commit. |
-| P07-R1 | In progress | Use authored TypeScript ASTs for import and asset policy, not regex scans. |
+| P07-R1 | Implemented | Reuse authored TypeScript ASTs for import and asset policy; multiline imports cannot bypass shared authority, and inert text does not trigger policy. See this finding's `audit:` commit. |
 | C01-R1 | Pending | Fence late authentication refresh completion. |
 | B04-R1 | Pending | One account bootstrap identity owner. |
 | B19-R1 | Pending | Agree on selected home/route targets during preparation and freshness checks. |
@@ -129,6 +129,6 @@
 
 - P07-R2: client compiler check passed; all four test files and 64 tests passed. Covers nested `client/shared`, `client/client`, `shared/client`, and `shared/shared` paths, traversal rejection, assets, and real Vite compilation.
 - P06-R1: backend compiler check passed; seven files, 64 tests passed. Worker-facing compiler, worker, limits, and built-in suites passed: four files, 22 tests. Native runner integration passed: one file, 23 tests. Backend and sandbox checks passed. Native workflow fixtures now use the deterministic SDK entrypoint.
-- P07-R1: implementation in progress. Batch-wide validation pending.
+- P07-R1: client compiler check passed; all four files and 79 tests passed. Covers multiline imports/re-exports, type imports, SDK boundaries, dynamic imports/globs, static and invalid asset URLs, inert text, generated declarations, and deterministic artifacts. Batch-wide validation pending.
 
 Next after this batch: authenticated-state ownership (C01-R1), subject to the existing dependency order.

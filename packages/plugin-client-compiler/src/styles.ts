@@ -2,15 +2,10 @@ import { pluginClientAssetMimeType } from "@ryot-app/plugin-client-contract";
 import { canonicalRelativePosixPathIssue, posixPath } from "@ryot-app/ts-utils/path";
 import { parse } from "postcss";
 import valueParser from "postcss-value-parser";
+import * as ts from "typescript/unstable/ast";
 
 import { isNeutralPluginModule, isTrustedClientModule, PLUGIN_IMPORT } from "./dependencies";
 import { type ClientPluginCompilerDiagnostic, clientPluginCompilerDiagnostic } from "./diagnostics";
-
-const IMPORT_SPECIFIER =
-	/(?:\bimport|\bexport)\s+(?:type\s+)?(?:(?:[^"'\n;]+?)\s+from\s+)?["']([^"']+)["']/g;
-const DYNAMIC_IMPORT = /\bimport\s*\(/;
-const VITE_SPECIAL_IMPORT = /\bimport\.meta\.(?:glob|globEager)\s*\(/;
-const NEW_URL = /\bnew\s+URL\s*\(\s*["']([^"']+)["']\s*,\s*import\.meta\.url\s*\)/g;
 
 const isSharedSource = (path: string) => path.startsWith("shared/");
 
@@ -41,29 +36,25 @@ const traversesSourceRoot = (importer: string, specifier: string) => {
 const importFailure = (path: string, message: string) =>
 	clientPluginCompilerDiagnostic("RYOT_CLIENT_IMPORT", path, message);
 
+const isImportMeta = (node: ts.Node) =>
+	ts.isMetaProperty(node) &&
+	node.keywordToken === ts.SyntaxKind.ImportKeyword &&
+	node.name.text === "meta";
+
 const validateScript = (
 	path: string,
-	contents: string,
+	file: ts.SourceFile,
 	files: Readonly<Record<string, Uint8Array>>,
 	publicExports: Readonly<Record<string, string>>,
 	unresolvedPluginDependencies: ReadonlySet<string>,
 ) => {
 	const diagnostics: ClientPluginCompilerDiagnostic[] = [];
-	if (DYNAMIC_IMPORT.test(contents) || VITE_SPECIAL_IMPORT.test(contents)) {
-		diagnostics.push(
-			importFailure(path, "Dynamic imports and Vite import-glob features are not allowed"),
-		);
-	}
-	for (const match of contents.matchAll(IMPORT_SPECIFIER)) {
-		const specifier = match[1];
-		if (!specifier) {
-			continue;
-		}
+	const validateImport = (specifier: string) => {
 		if (specifier.includes("?") || specifier.includes("#") || specifier.startsWith("/")) {
 			diagnostics.push(
 				importFailure(path, `Import "${specifier}" uses an unsupported import form`),
 			);
-			continue;
+			return;
 		}
 		if (specifier.startsWith(".")) {
 			const resolved = resolveRelative(path, specifier.replace(/\.js$/, ".ts"));
@@ -79,7 +70,7 @@ const validateScript = (
 					),
 				);
 			}
-			continue;
+			return;
 		}
 		if (specifier.startsWith("@ryot-app/plugins/")) {
 			const slug = PLUGIN_IMPORT.exec(specifier)?.[1];
@@ -97,7 +88,7 @@ const validateScript = (
 					),
 				);
 			}
-			continue;
+			return;
 		}
 		const allowed = isSharedSource(path)
 			? isNeutralPluginModule(specifier)
@@ -112,21 +103,80 @@ const validateScript = (
 				),
 			);
 		}
-	}
-	for (const match of contents.matchAll(NEW_URL)) {
-		const specifier = match[1];
-		const source = specifier?.split(/[?#]/, 1)[0] ?? "";
+	};
+	const validateAsset = (specifier: string) => {
+		const source = specifier.split(/[?#]/, 1)[0] ?? "";
 		const resolved = resolveRelative(path, source);
 		if (
-			!specifier?.startsWith(".") ||
+			!specifier.startsWith(".") ||
 			traversesSourceRoot(path, source) ||
 			!allowedRelativeRoot(path, resolved) ||
 			pluginClientAssetMimeType(resolved) === undefined ||
 			files[resolved] === undefined
 		) {
-			diagnostics.push(importFailure(path, `Asset URL "${specifier ?? ""}" is not allowed`));
+			diagnostics.push(importFailure(path, `Asset URL "${specifier}" is not allowed`));
 		}
-	}
+	};
+	const visit = (node: ts.Node): void => {
+		if (
+			(ts.isImportDeclaration(node) || ts.isExportDeclaration(node)) &&
+			node.moduleSpecifier &&
+			ts.isStringLiteralLikeNode(node.moduleSpecifier)
+		) {
+			validateImport(node.moduleSpecifier.text);
+		}
+		if (
+			ts.isImportTypeNode(node) &&
+			ts.isLiteralTypeNode(node.argument) &&
+			ts.isStringLiteralLikeNode(node.argument.literal)
+		) {
+			validateImport(node.argument.literal.text);
+		}
+		if (
+			ts.isImportEqualsDeclaration(node) &&
+			ts.isExternalModuleReference(node.moduleReference) &&
+			ts.isStringLiteralLikeNode(node.moduleReference.expression)
+		) {
+			validateImport(node.moduleReference.expression.text);
+		}
+		if (ts.isCallExpression(node)) {
+			const target = node.expression;
+			const glob = ts.isPropertyAccessExpression(target)
+				? isImportMeta(target.expression) &&
+					(target.name.text === "glob" || target.name.text === "globEager")
+				: ts.isElementAccessExpression(target) &&
+					isImportMeta(target.expression) &&
+					ts.isStringLiteralLikeNode(target.argumentExpression) &&
+					(target.argumentExpression.text === "glob" ||
+						target.argumentExpression.text === "globEager");
+			if (target.kind === ts.SyntaxKind.ImportKeyword || glob) {
+				diagnostics.push(
+					importFailure(path, "Dynamic imports and Vite import-glob features are not allowed"),
+				);
+			}
+		}
+		if (
+			ts.isNewExpression(node) &&
+			ts.isIdentifier(node.expression) &&
+			node.expression.text === "URL"
+		) {
+			const [target, base] = node.arguments ?? [];
+			if (
+				base &&
+				ts.isPropertyAccessExpression(base) &&
+				base.name.text === "url" &&
+				isImportMeta(base.expression)
+			) {
+				if (target && ts.isStringLiteralLikeNode(target)) {
+					validateAsset(target.text);
+				} else {
+					diagnostics.push(importFailure(path, "Asset URLs must use a static string"));
+				}
+			}
+		}
+		node.forEachChild(visit);
+	};
+	visit(file);
 	return diagnostics;
 };
 
@@ -216,11 +266,13 @@ const validateStylesheet = (
 export const validateClientSourcePolicy = ({
 	files,
 	sourceFiles,
+	parsedFiles,
 	publicExports,
 	unresolvedPluginDependencies = [],
 }: {
 	readonly files: Readonly<Record<string, Uint8Array>>;
 	readonly sourceFiles: Readonly<Record<string, string>>;
+	readonly parsedFiles: Readonly<Record<string, ts.SourceFile>>;
 	readonly publicExports: Readonly<Record<string, string>>;
 	readonly unresolvedPluginDependencies?: readonly string[];
 }) => {
@@ -229,8 +281,12 @@ export const validateClientSourcePolicy = ({
 		if (/\.(?:test|spec)\.tsx?$/.test(path)) {
 			return [];
 		}
-		return path.endsWith(".css")
-			? validateStylesheet(path, contents, files)
-			: validateScript(path, contents, files, publicExports, unresolved);
+		if (path.endsWith(".css")) {
+			return validateStylesheet(path, contents, files);
+		}
+		const file = parsedFiles[path];
+		return file
+			? validateScript(path, file, files, publicExports, unresolved)
+			: [importFailure(path, "Script source was not parsed")];
 	});
 };

@@ -32,6 +32,11 @@ shared files. Plugin dependencies map importer-local aliases to `{ packageId, sc
 imports, Vite query and glob imports, escaping asset URLs, and authored Tailwind `@plugin`,
 `@config`, and `@source` directives are rejected.
 
+Script policy uses the authored TypeScript ASTs from the semantic project. It checks imports,
+re-exports, import types, dynamic imports, globs, and static asset URLs without treating comments or
+strings as code. The top-level `client/` or `shared/` region determines authority; nested directories
+with those names do not change it. Compiler-generated declarations are not authored sources.
+
 `@ryot-app/plugin-ui-sdk/markdown` is an exact trusted registry entry. Its Markdown and directive
 dependencies are private implementation details; plugin sources cannot import them directly.
 
