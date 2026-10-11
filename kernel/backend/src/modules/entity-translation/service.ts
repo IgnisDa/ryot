@@ -1,4 +1,4 @@
-import { DbError, SandboxRunError, toSandboxRunError } from "@ryot-app/contract/errors";
+import { SandboxRunError, toSandboxRunError } from "@ryot-app/contract/errors";
 import { definitionOwner } from "@ryot-app/contract/modules/plugins/references";
 import { AutomationExecutionId, UserId } from "@ryot-app/contract/schema/brands";
 import { IsoUtcString } from "@ryot-app/contract/schema/utils";
@@ -6,11 +6,9 @@ import { Context, DateTime, Effect, Layer, Ref } from "effect";
 import { WorkflowEngine } from "effect/workflow/WorkflowEngine";
 
 import { rootLifecycleCommand } from "#lib/domain/lifecycle-command";
+import type * as schema from "#lib/infrastructure/db/schema/tables/combined";
 import { DatabaseSession } from "#lib/infrastructure/db/session";
-import {
-	makeDomainWriteChecks,
-	type DomainLifecycleCommand,
-} from "#modules/entities/write-context";
+import { makeDomainWriteChecks } from "#modules/entities/write-context";
 import { PluginRuntimeResolver } from "#modules/plugins/runtime-resolver";
 import { SandboxExecutionService } from "#modules/sandbox/service";
 
@@ -22,9 +20,22 @@ import {
 } from "./entity-translation-workflow";
 import { TranslationsRepository, type TranslationOverlayInput } from "./repository";
 
-export type RequestFillInput = Omit<TranslateEntityWorkflowPayload, "command" | "executionId"> & {
-	command?: DomainLifecycleCommand;
-};
+export type RequestFillInput = Omit<TranslateEntityWorkflowPayload, "command" | "executionId">;
+
+const entityMatchesPayload = (
+	entity: Pick<
+		typeof schema.entity.$inferSelect,
+		"entitySchemaPluginId" | "entitySchemaSlug" | "externalId" | "providerId"
+	>,
+	payload: Pick<
+		TranslateEntityWorkflowPayload,
+		"entitySchemaPluginId" | "entitySchemaSlug" | "externalId" | "providerId"
+	>,
+) =>
+	entity.providerId === payload.providerId &&
+	entity.externalId === payload.externalId &&
+	entity.entitySchemaPluginId === payload.entitySchemaPluginId &&
+	entity.entitySchemaSlug === payload.entitySchemaSlug;
 
 export class TranslationsService extends Context.Service<TranslationsService>()(
 	"TranslationsService",
@@ -36,63 +47,6 @@ export class TranslationsService extends Context.Service<TranslationsService>()(
 			const runtime = yield* PluginRuntimeResolver;
 			const sandbox = yield* SandboxExecutionService;
 			const checks = makeDomainWriteChecks(session);
-			const upsertKernelOverlay = Effect.fn("TranslationsService.upsertKernelOverlay")(function* (
-				input: TranslationOverlayInput,
-				command: DomainLifecycleCommand,
-			) {
-				return yield* session.transaction(
-					Effect.gen(function* () {
-						yield* runtime.lockCatalog();
-						const entity = yield* repository.findEntityById(input.entityId);
-						if (!entity) {
-							return yield* new DbError({ message: "Translation entity is unavailable" });
-						}
-						const owner = definitionOwner(entity.entitySchemaPluginId);
-						yield* checks.check(command, owner, entity.userId, true);
-						if (entity.entitySchemaPluginId !== null) {
-							const pluginOwner = yield* repository.lockActivePluginOwner(
-								entity.entitySchemaPluginId,
-							);
-							if (
-								!pluginOwner ||
-								(pluginOwner.ownerId !== null && pluginOwner.ownerId !== entity.userId)
-							) {
-								return yield* new DbError({ message: "Translation owner or scope is unavailable" });
-							}
-							if (entity.userId === null) {
-								yield* checks.activeManifest(entity.entitySchemaPluginId);
-							} else {
-								const plugin = yield* runtime.findPluginAvailableToUser(
-									UserId.make(entity.userId),
-									entity.entitySchemaPluginId,
-								);
-								if (!plugin) {
-									return yield* new DbError({
-										message: "Translation installation authority is unavailable",
-									});
-								}
-							}
-						}
-						if (entity.userId !== null) {
-							const userId = UserId.make(entity.userId);
-							yield* session.acquireUserWriteLock(userId);
-							yield* repository.requireActiveAccount(userId, command.accountGeneration);
-						}
-						const current = yield* repository.findEntityById(input.entityId, true);
-						if (
-							!current ||
-							current.userId !== entity.userId ||
-							current.entitySchemaPluginId !== entity.entitySchemaPluginId ||
-							current.entitySchemaSlug !== entity.entitySchemaSlug ||
-							current.providerId !== entity.providerId
-						) {
-							return yield* new DbError({ message: "Translation entity identity changed" });
-						}
-						return yield* repository.upsertOverlay(input);
-					}),
-				);
-			});
-
 			const requestFill = Effect.fn("TranslationsService.requestFill")(function* (
 				input: RequestFillInput,
 			) {
@@ -100,7 +54,7 @@ export class TranslationsService extends Context.Service<TranslationsService>()(
 					language: input.language,
 					entityId: input.entityId,
 				});
-				const command = input.command ?? {
+				const command = {
 					...rootLifecycleCommand({
 						source: "api",
 						lane: input.lane,
@@ -129,16 +83,23 @@ export class TranslationsService extends Context.Service<TranslationsService>()(
 				payload: TranslateEntityWorkflowPayload,
 				executionId: string,
 			) {
+				const pluginId = payload.entitySchemaPluginId;
+				if (pluginId === null) {
+					return yield* new SandboxRunError({
+						kind: "invalid-input",
+						message: "Translation entity is not owned by a plugin",
+					});
+				}
 				const script = yield* runtime.resolveUserTranslateScript(
 					payload.userId,
 					payload.providerId,
 				);
 				const captured = yield* Ref.make<TranslationExecution | null>(null);
 				yield* sandbox.preRegisterPluginWorkflow({
+					pluginId,
 					executionId,
 					scriptId: script.id,
 					executingUserId: payload.userId,
-					pluginId: payload.entitySchemaPluginId ?? "",
 					accountGeneration: payload.accountGeneration,
 					retain: (principal) =>
 						Effect.gen(function* () {
@@ -155,10 +116,7 @@ export class TranslationsService extends Context.Service<TranslationsService>()(
 							if (
 								!entity ||
 								entity.populatedAt === null ||
-								entity.providerId !== payload.providerId ||
-								entity.externalId !== payload.externalId ||
-								entity.entitySchemaPluginId !== payload.entitySchemaPluginId ||
-								entity.entitySchemaSlug !== payload.entitySchemaSlug ||
+								!entityMatchesPayload(entity, payload) ||
 								!provider ||
 								provider.pluginId !== entity.entitySchemaPluginId ||
 								provider.rootEntitySchemaSlug !== entity.entitySchemaSlug ||
@@ -209,10 +167,7 @@ export class TranslationsService extends Context.Service<TranslationsService>()(
 						if (
 							!entity ||
 							entity.userId !== execution.entityScopeUserId ||
-							entity.entitySchemaPluginId !== payload.entitySchemaPluginId ||
-							entity.entitySchemaSlug !== payload.entitySchemaSlug ||
-							entity.providerId !== payload.providerId ||
-							entity.externalId !== payload.externalId ||
+							!entityMatchesPayload(entity, payload) ||
 							provider.rootEntitySchemaSlug !== entity.entitySchemaSlug ||
 							execution.principal.providerId !== payload.providerId ||
 							input.entityId !== payload.entityId ||
@@ -228,7 +183,7 @@ export class TranslationsService extends Context.Service<TranslationsService>()(
 				);
 			});
 
-			return { upsert, requestFill, admitExecution, upsertKernelOverlay };
+			return { upsert, requestFill, admitExecution };
 		}),
 	},
 ) {

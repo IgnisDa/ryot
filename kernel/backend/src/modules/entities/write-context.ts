@@ -72,7 +72,7 @@ export const writerPropertiesSchema = (schema: AppSchema): AppSchema => ({
 	),
 });
 
-export const domainWriteOwner = (
+const domainWriteOwner = (
 	command: Pick<DomainLifecycleCommand, "writeContext" | "kernelCollection">,
 	owner: DefinitionOwner,
 ) => {
@@ -164,12 +164,12 @@ export const makeDomainWriteChecks = (session: DatabaseSession["Service"]) => {
 						eq(tables.plugin.status, "active"),
 						eq(tables.pluginRevision.id, plugin.revisionId),
 						isNull(tables.pluginConfigRevision.payloadPrunedAt),
-						plugin.ownerId === null
-							? isNull(tables.plugin.ownerId)
-							: eq(tables.plugin.ownerId, plugin.ownerId),
-						plugin.scope === "user"
-							? eq(tables.pluginConfigRevision.ownerUserId, plugin.ownerId ?? "")
-							: undefined,
+						...(plugin.ownerId === null
+							? [isNull(tables.plugin.ownerId)]
+							: [
+									eq(tables.plugin.ownerId, plugin.ownerId),
+									eq(tables.pluginConfigRevision.ownerUserId, plugin.ownerId),
+								]),
 					),
 				)
 				.limit(1),
@@ -178,31 +178,23 @@ export const makeDomainWriteChecks = (session: DatabaseSession["Service"]) => {
 			return yield* new DbError({ message: "Pinned domain write authority is unavailable" });
 		}
 		if (userId !== null) {
-			const queryInstallation = () =>
-				session.run((db) => {
-					const query = db
-						.select({
-							id: tables.pluginInstallation.id,
-							activationId: tables.plugin.activationId,
-							health: tables.pluginInstallation.health,
-							isHidden: tables.pluginInstallation.isHidden,
-							isInitialized: tables.pluginInstallation.isInitialized,
-							uninstalledAt: tables.pluginInstallation.uninstalledAt,
-							ingestionRetiring: tables.pluginInstallation.ingestionRetiring,
-							incompatibilityReason: tables.pluginInstallation.incompatibilityReason,
-						})
-						.from(tables.pluginInstallation)
-						.innerJoin(tables.plugin, eq(tables.plugin.id, tables.pluginInstallation.pluginId))
-						.where(
-							and(
-								eq(tables.pluginInstallation.pluginId, plugin.id),
-								eq(tables.pluginInstallation.userId, userId),
-							),
-						)
-						.limit(1);
-					return lock ? query.for("share", { of: tables.pluginInstallation }) : query;
-				});
-			const [installation] = yield* queryInstallation();
+			const [installation] = yield* session.run((db) => {
+				const query = db
+					.select({
+						uninstalledAt: tables.pluginInstallation.uninstalledAt,
+						ingestionRetiring: tables.pluginInstallation.ingestionRetiring,
+						incompatibilityReason: tables.pluginInstallation.incompatibilityReason,
+					})
+					.from(tables.pluginInstallation)
+					.where(
+						and(
+							eq(tables.pluginInstallation.pluginId, plugin.id),
+							eq(tables.pluginInstallation.userId, userId),
+						),
+					)
+					.limit(1);
+				return lock ? query.for("share", { of: tables.pluginInstallation }) : query;
+			});
 			if (
 				installation?.uninstalledAt !== null ||
 				installation.ingestionRetiring ||

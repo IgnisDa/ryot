@@ -46,7 +46,10 @@ import { PluginRepository } from "#modules/plugins/repository";
 import { validateAdditiveSchemaEvolution } from "#modules/plugins/schema-evolution";
 import type { StoredPlugin } from "#modules/plugins/types";
 import { resolvePluginUserSettings } from "#modules/plugins/user-settings";
-import { validateSavedViewDefinition } from "#modules/saved-views/definition-validation";
+import {
+	isEntityBrowserRenderer,
+	validateSavedViewDefinition,
+} from "#modules/saved-views/definition-validation";
 
 import type { ValidatedArchiveEvents } from "../archive/archive";
 import { archiveError } from "../archive/error";
@@ -566,12 +569,9 @@ export const preflightProvenance = Effect.fn(function* (
 			if (view.pluginKey !== null) {
 				yield* mappedPluginId(view.pluginKey);
 			}
-			const dataSources = yield* importQueryPluginReferences(view.dataSources, pluginIdByKey, null);
+			const dataSources = yield* importQueryPluginReferences(view.dataSources, pluginIdByKey);
 			const settings = yield* importRendererSettings(view.renderer, view.settings, pluginIdByKey);
-			if (
-				view.renderer.kind === "kernel" &&
-				(view.renderer.name === "entity-browser" || view.renderer.name === "collection-browser")
-			) {
+			if (isEntityBrowserRenderer(view.renderer)) {
 				const decoded = yield* Schema.decodeUnknownEffect(EntityBrowserSavedViewSettings)(
 					settings,
 				).pipe(Effect.mapError((error) => badRequest(error.message)));
@@ -1304,11 +1304,7 @@ export class BackupRestoreWriter extends Context.Service<BackupRestoreWriter>()(
 						renderer.kind === "plugin"
 							? installedPlugins.get(renderer.pluginId)?.client?.exports?.[renderer.exportName]
 							: undefined;
-					const dataSources = yield* importQueryPluginReferences(
-						view.dataSources,
-						pluginIdByKey,
-						null,
-					);
+					const dataSources = yield* importQueryPluginReferences(view.dataSources, pluginIdByKey);
 					const settings = yield* importRendererSettings(
 						view.renderer,
 						view.settings,

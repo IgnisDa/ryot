@@ -38,7 +38,6 @@ it.effect(
 			const restored = yield* importQueryPluginReferences(
 				exported,
 				new Map([[pluginPackageKey({ packageId, scope: "user" }), destinationId]]),
-				null,
 			);
 			expect(restored?.queries["records"]?.output).toMatchObject({
 				fields: [
@@ -50,7 +49,6 @@ it.effect(
 			const wrongScope = yield* importQueryPluginReferences(
 				exported,
 				new Map([[pluginPackageKey({ packageId, scope: "system" }), destinationId]]),
-				null,
 			).pipe(Effect.flip);
 			expect(wrongScope.reason).toBe("missing_reference_mapping");
 		}),

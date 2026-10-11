@@ -96,7 +96,6 @@ type PluginInput = Common & {
 };
 
 const namespaceFor = (kind: "kernel" | "plugin", id: string) => `${kind}-${sha256Hex(id)}`;
-const qualify = (plugin: GraphPlugin, name: string) => pluginExportSpecifier(plugin, name);
 const ordered = <T>(values: Iterable<T>, key: (value: T) => string) => sortBy([...values], key);
 const unavailable = (reference: PluginPackageReference) =>
 	new ClientPagePreparationError({ reason: { reference, code: "dependency-unavailable" } });
@@ -121,6 +120,13 @@ export const resolveClientPageGraph = Effect.fn("ClientPages.resolve-composition
 	const visiting: GraphPlugin[] = [];
 	const dependencies = (aliases: Readonly<Record<string, PluginPackageReference>>) =>
 		ordered(Object.values(aliases), pluginPackageKey);
+	const readyPlugin = Effect.fnUntraced(function* (reference: PluginPackageReference) {
+		const plugin = catalog.get(pluginPackageKey(reference));
+		if (plugin?.health !== "ready" || !plugin.manifest.client || !plugin.clientArtifactHash) {
+			return yield* unavailable(reference);
+		}
+		return { plugin, client: plugin.manifest.client };
+	});
 	const validateImports = (
 		importer: string,
 		aliases: Readonly<Record<string, PluginPackageReference>>,
@@ -134,11 +140,8 @@ export const resolveClientPageGraph = Effect.fn("ClientPages.resolve-composition
 						reason: { importer, code: "dependency-undeclared", reference: imported.reference },
 					});
 				}
-				const target = catalog.get(pluginPackageKey(imported.reference));
-				if (target?.health !== "ready" || !target.manifest.client || !target.clientArtifactHash) {
-					return yield* unavailable(imported.reference);
-				}
-				if (!Object.hasOwn(target.manifest.client.exports ?? {}, imported.exportName)) {
+				const target = yield* readyPlugin(imported.reference);
+				if (!Object.hasOwn(target.client.exports ?? {}, imported.exportName)) {
 					return yield* missingExport(
 						pluginExportSpecifier(imported.reference, imported.exportName),
 					);
@@ -150,10 +153,7 @@ export const resolveClientPageGraph = Effect.fn("ClientPages.resolve-composition
 		reference: PluginPackageReference,
 	): Effect.Effect<void, ClientPagePreparationError> =>
 		Effect.gen(function* () {
-			const plugin = catalog.get(pluginPackageKey(reference));
-			if (plugin?.health !== "ready" || !plugin.manifest.client || !plugin.clientArtifactHash) {
-				return yield* unavailable(reference);
-			}
+			const { plugin, client } = yield* readyPlugin(reference);
 			const cycleStart = visiting.findIndex(({ id }) => id === plugin.id);
 			if (cycleStart !== -1) {
 				return yield* new ClientPagePreparationError({
@@ -167,19 +167,14 @@ export const resolveClientPageGraph = Effect.fn("ClientPages.resolve-composition
 				return yield* Effect.void;
 			}
 			visiting.push(plugin);
-			yield* validateImports(
-				plugin.id,
-				plugin.manifest.client.pluginDependencies ?? {},
-				plugin.clientImports,
-			);
-			for (const dependency of dependencies(plugin.manifest.client.pluginDependencies ?? {})) {
+			yield* validateImports(plugin.id, client.pluginDependencies ?? {}, plugin.clientImports);
+			for (const dependency of dependencies(client.pluginDependencies ?? {})) {
 				yield* include(dependency);
 			}
 			visiting.pop();
 			included.set(plugin.id, plugin);
 			return yield* Effect.void;
 		});
-	const eagerSlugs = new Set<string>();
 	if (isKernel) {
 		yield* validateImports(
 			input.rendererName,
@@ -192,9 +187,7 @@ export const resolveClientPageGraph = Effect.fn("ClientPages.resolve-composition
 	} else {
 		yield* include(input.plugin);
 	}
-	for (const slug of included.keys()) {
-		eagerSlugs.add(slug);
-	}
+	const eagerIds = new Set(included.keys());
 
 	const routes =
 		!isKernel && input.application === "plugin-route"
@@ -210,18 +203,28 @@ export const resolveClientPageGraph = Effect.fn("ClientPages.resolve-composition
 				: input.exportName;
 	}
 	if (!isKernel && input.plugin.manifest.client?.exports?.[primaryExport ?? ""]?.kind !== "page") {
-		return yield* missingExport(qualify(input.plugin, primaryExport ?? input.exportName));
+		return yield* missingExport(
+			pluginExportSpecifier(input.plugin, primaryExport ?? input.exportName),
+		);
 	}
 	const selectedExports = new Set<string>();
 	const routeRegistry =
 		!isKernel && input.application === "plugin-route"
 			? {
-					home: qualify(input.plugin, primaryExport ?? ""),
+					home: pluginExportSpecifier(input.plugin, primaryExport ?? ""),
 					routes: routes
 						.filter(([path]) => path !== "/")
-						.map(([path, name]) => ({ path, exportSpecifier: qualify(input.plugin, name) })),
+						.map(([path, name]) => ({
+							path,
+							exportSpecifier: pluginExportSpecifier(input.plugin, name),
+						})),
 					...(input.plugin.manifest.client?.notFoundPage
-						? { notFound: qualify(input.plugin, input.plugin.manifest.client.notFoundPage) }
+						? {
+								notFound: pluginExportSpecifier(
+									input.plugin,
+									input.plugin.manifest.client.notFoundPage,
+								),
+							}
 						: {}),
 				}
 			: null;
@@ -235,9 +238,9 @@ export const resolveClientPageGraph = Effect.fn("ClientPages.resolve-composition
 				]
 			: [input.exportName]) {
 			if (input.plugin.manifest.client?.exports?.[name]?.kind !== "page") {
-				return yield* missingExport(qualify(input.plugin, name));
+				return yield* missingExport(pluginExportSpecifier(input.plugin, name));
 			}
-			selectedExports.add(qualify(input.plugin, name));
+			selectedExports.add(pluginExportSpecifier(input.plugin, name));
 		}
 	}
 	let automatic = isKernel
@@ -272,7 +275,7 @@ export const resolveClientPageGraph = Effect.fn("ClientPages.resolve-composition
 					if (!name) {
 						continue;
 					}
-					const specifier = qualify(plugin, name);
+					const specifier = pluginExportSpecifier(plugin, name);
 					if (plugin.manifest.client?.exports?.[name]?.kind !== "presentation") {
 						return yield* missingExport(specifier);
 					}
@@ -307,7 +310,7 @@ export const resolveClientPageGraph = Effect.fn("ClientPages.resolve-composition
 	for (const plugin of plugins) {
 		if (plugin.id !== (isKernel ? null : input.plugin.id)) {
 			for (const name of Object.keys(plugin.manifest.client?.exports ?? {})) {
-				selectedExports.add(qualify(plugin, name));
+				selectedExports.add(pluginExportSpecifier(plugin, name));
 			}
 		}
 	}
@@ -321,7 +324,7 @@ export const resolveClientPageGraph = Effect.fn("ClientPages.resolve-composition
 		new Set([
 			input.runtimeArtifactHash,
 			...(isKernel ? [input.rendererArtifactHash] : []),
-			...plugins.filter((plugin) => eagerSlugs.has(plugin.id)).map(artifactHash),
+			...plugins.filter((plugin) => eagerIds.has(plugin.id)).map(artifactHash),
 		]),
 		String,
 	);

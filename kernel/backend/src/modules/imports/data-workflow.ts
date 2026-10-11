@@ -627,8 +627,7 @@ export const runDataImportSegmentWorkflow = Effect.fn("runDataImportSegmentWorkf
 								input.userId,
 								command,
 								stableStringify([input.runId, "data-provider", item.record.key]),
-								record.entitySchema,
-								record.provider,
+								record.entitySchema.owner,
 							)
 						: undefined;
 				if (record.kind === "provider" && entityId === undefined) {
@@ -643,7 +642,12 @@ export const runDataImportSegmentWorkflow = Effect.fn("runDataImportSegmentWorkf
 						pending: PendingEntityMutation,
 						name: `create-data-entity-${index}`,
 						applyPolicies: entities.applyMutationPolicies,
-						prepare: prepareGenericImportEntity(intent, input.userId, command, record.entitySchema),
+						prepare: prepareGenericImportEntity(
+							intent,
+							input.userId,
+							command,
+							record.entitySchema.owner,
+						),
 						commit: (pending) =>
 							entities
 								.commitMutation(pending)

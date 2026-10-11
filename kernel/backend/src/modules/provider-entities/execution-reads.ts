@@ -1,28 +1,14 @@
 import type { DeclarationReference } from "@ryot-app/contract/modules/plugins/references";
-import { SandboxProviderId, SandboxScriptId } from "@ryot-app/contract/schema/brands";
+import { SandboxProviderId } from "@ryot-app/contract/schema/brands";
 import { and, eq } from "drizzle-orm";
 import { Effect } from "effect";
 
 import * as tables from "#lib/infrastructure/db/schema/tables/combined";
 import type { DatabaseSession } from "#lib/infrastructure/db/session";
-import { storedScriptFields } from "#modules/plugins/persisted-projections";
+import { findRevisionScriptForSession } from "#modules/plugins/runtime-resolver";
 
 export const makeProviderExecutionReads = (session: DatabaseSession["Service"]) => {
-	const findRevisionScript = Effect.fnUntraced(function* (revisionId: string, slug: string) {
-		const [row] = yield* session.run((db) =>
-			db
-				.select(storedScriptFields)
-				.from(tables.sandboxScript)
-				.where(
-					and(
-						eq(tables.sandboxScript.pluginRevisionId, revisionId),
-						eq(tables.sandboxScript.slug, slug),
-					),
-				)
-				.limit(1),
-		);
-		return row ? { ...row, id: SandboxScriptId.make(row.id) } : null;
-	});
+	const findRevisionScript = findRevisionScriptForSession(session);
 	const findPinnedProvider = Effect.fnUntraced(function* (
 		reference: DeclarationReference,
 		revisionId: string,

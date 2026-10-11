@@ -24,6 +24,7 @@ import { redactIntegrationForClient } from "#modules/integrations/client-redacti
 import { redactPluginConfig } from "#modules/plugins/config-redaction";
 import { PluginConfigRevisions } from "#modules/plugins/config-revisions";
 import { PluginInstallationRepository } from "#modules/plugins/installation-repository";
+import { upsertSavedViewOverride } from "#modules/saved-views/repository";
 
 type RestoreEntityInput = Pick<
 	typeof schema.entity.$inferInsert,
@@ -162,24 +163,10 @@ export class BackupRestorePersistence extends Context.Service<BackupRestorePersi
 			const restoreBuiltinOverride = Effect.fn("BackupRestorePersistence.restoreBuiltinOverride")(
 				function* (input: typeof schema.savedViewOverride.$inferInsert) {
 					yield* session.run((db) =>
-						db
-							.insert(schema.savedViewOverride)
-							.values(input)
-							.onConflictDoUpdate({
-								set: { isHidden: input.isHidden, sortOrder: input.sortOrder },
-								targetWhere:
-									input.pluginId == null
-										? isNull(schema.savedViewOverride.pluginId)
-										: isNotNull(schema.savedViewOverride.pluginId),
-								target:
-									input.pluginId == null
-										? [schema.savedViewOverride.userId, schema.savedViewOverride.slug]
-										: [
-												schema.savedViewOverride.userId,
-												schema.savedViewOverride.pluginId,
-												schema.savedViewOverride.slug,
-											],
-							}),
+						upsertSavedViewOverride(db, input, {
+							isHidden: input.isHidden,
+							sortOrder: input.sortOrder,
+						}),
 					);
 				},
 			);

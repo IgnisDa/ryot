@@ -13,6 +13,7 @@ import { EntityBrowserSavedViewSettings } from "@ryot-app/contract/modules/saved
 import type { AssetLocator } from "@ryot-app/contract/modules/uploads/schemas";
 import { PluginId } from "@ryot-app/contract/schema/brands";
 import type { AppPropertyDefinition, AppSchema } from "@ryot-app/contract/schema/property-schema";
+import { stableStringify } from "@ryot-app/ts-utils/json";
 import { Effect, Schema } from "effect";
 
 import {
@@ -20,8 +21,10 @@ import {
 	rewritePropertyReferences,
 	type DataReferenceError,
 } from "#lib/domain/data-references";
+import { pluginIdentityReferences } from "#modules/ryotql/binding";
+import { isEntityBrowserRenderer } from "#modules/saved-views/definition-validation";
 
-import { archiveError } from "./error";
+import { archiveError, type BackupArchiveError } from "./error";
 import {
 	isArchiveJsonObject,
 	ArchiveEntityBrowserSavedViewSettings,
@@ -33,10 +36,6 @@ import {
 
 type JsonObject = Record<string, JsonValue>;
 type ReferenceMap = ReadonlyMap<string, string>;
-
-const isEntityBrowserRenderer = (renderer: { readonly kind: string; readonly name?: string }) =>
-	renderer.kind === "kernel" &&
-	(renderer.name === "entity-browser" || renderer.name === "collection-browser");
 
 export const exportRendererSettings = Effect.fn(function* (
 	renderer: { readonly kind: string; readonly name?: string },
@@ -101,55 +100,74 @@ export const importRendererSettings = Effect.fn(function* (
 	return decodeArchiveJsonObject(encoded);
 });
 
-export const exportQueryPluginReferences = (
+const rewriteQueryReferences = Effect.fn(function* (
+	document: RyotQLDocument,
+	resolve: (
+		reference: PluginIdentityReference,
+	) => Effect.Effect<PluginIdentityReference, BackupArchiveError>,
+) {
+	const resolved = new Map<string, PluginIdentityReference>();
+	for (const reference of pluginIdentityReferences(document)) {
+		resolved.set(stableStringify(reference), yield* resolve(reference));
+	}
+	return mapPluginIdentityReferences(
+		document,
+		(reference) => resolved.get(stableStringify(reference)) ?? reference,
+	);
+});
+
+export const exportQueryPluginReferences = Effect.fn(function* (
 	document: RyotQLDocument | null,
 	packages: ReadonlyMap<string, PluginPackageReference>,
-) =>
-	Effect.try({
-		catch: (error) => archiveError("missing_reference_mapping", String(error)),
-		try: () =>
-			document === null
-				? null
-				: mapPluginIdentityReferences(document, (reference): PluginIdentityReference => {
-						if (reference.kind === "package") {
-							return reference;
-						}
-						if (reference.kind === "self") {
-							throw new Error("Backup query contains an unbound self reference");
-						}
-						const target = packages.get(reference.pluginId);
-						if (!target) {
-							throw new Error(`Backup query references unavailable plugin '${reference.pluginId}'`);
-						}
-						return { kind: "package", ...target };
-					}),
-	});
+) {
+	if (document === null) {
+		return null;
+	}
+	return yield* rewriteQueryReferences(
+		document,
+		Effect.fnUntraced(function* (reference) {
+			if (reference.kind === "package") {
+				return reference;
+			}
+			if (reference.kind === "self") {
+				return yield* archiveError(
+					"missing_reference_mapping",
+					"Backup query contains an unbound self reference",
+				);
+			}
+			const target = packages.get(reference.pluginId);
+			if (!target) {
+				return yield* archiveError(
+					"missing_reference_mapping",
+					`Backup query references unavailable plugin '${reference.pluginId}'`,
+				);
+			}
+			return { kind: "package", ...target };
+		}),
+	);
+});
 
-export const importQueryPluginReferences = (
+export const importQueryPluginReferences = Effect.fn(function* (
 	document: RyotQLDocument | null,
 	pluginIds: ReferenceMap,
-	ownerPluginId: string | null,
-) =>
-	Effect.try({
-		catch: (error) => archiveError("missing_reference_mapping", String(error)),
-		try: () =>
-			document === null
-				? null
-				: mapPluginIdentityReferences(document, (reference): PluginIdentityReference => {
-						let id: string | null | undefined;
-						if (reference.kind === "package") {
-							id = pluginIds.get(pluginPackageKey(reference));
-						} else if (reference.kind === "self") {
-							id = ownerPluginId;
-						} else {
-							id = null;
-						}
-						if (!id) {
-							throw new Error("Backup query contains an unresolved plugin reference");
-						}
-						return { kind: "local", pluginId: PluginId.make(id) };
-					}),
-	});
+) {
+	if (document === null) {
+		return null;
+	}
+	return yield* rewriteQueryReferences(
+		document,
+		Effect.fnUntraced(function* (reference) {
+			const id = reference.kind === "package" ? pluginIds.get(pluginPackageKey(reference)) : null;
+			if (!id) {
+				return yield* archiveError(
+					"missing_reference_mapping",
+					"Backup query contains an unresolved plugin reference",
+				);
+			}
+			return { kind: "local", pluginId: PluginId.make(id) };
+		}),
+	);
+});
 
 const archiveReferenceError = (error: DataReferenceError) =>
 	archiveError(error.code, error.message);
@@ -167,19 +185,22 @@ export const collectReferencedPluginKeys = (records: ArchiveRecords) => {
 			referenced.add(key);
 		}
 	};
+	const addQueryPackages = (document: RyotQLDocument | null) => {
+		if (document === null) {
+			return;
+		}
+		for (const reference of pluginIdentityReferences(document)) {
+			if (reference.kind === "package") {
+				add(pluginPackageKey(reference));
+			}
+		}
+	};
 	for (const plugin of records.privatePlugins) {
 		for (const dependency of Object.values(plugin.manifest.client?.pluginDependencies ?? {})) {
 			add(pluginPackageKey(dependency));
 		}
 		for (const view of plugin.manifest.savedViews) {
-			if (view.dataSources !== null) {
-				mapPluginIdentityReferences(view.dataSources, (reference) => {
-					if (reference.kind === "package") {
-						add(pluginPackageKey(reference));
-					}
-					return reference;
-				});
-			}
+			addQueryPackages(view.dataSources);
 		}
 	}
 	for (const installation of records.installations) {
@@ -210,13 +231,8 @@ export const collectReferencedPluginKeys = (records: ArchiveRecords) => {
 		if (view.kind === "custom" && view.renderer.kind === "plugin") {
 			add(view.renderer.pluginKey);
 		}
-		if (view.kind === "custom" && view.dataSources !== null) {
-			mapPluginIdentityReferences(view.dataSources, (reference) => {
-				if (reference.kind === "package") {
-					add(pluginPackageKey(reference));
-				}
-				return reference;
-			});
+		if (view.kind === "custom") {
+			addQueryPackages(view.dataSources);
 		}
 		if (view.kind === "custom" && isEntityBrowserRenderer(view.renderer)) {
 			add(
