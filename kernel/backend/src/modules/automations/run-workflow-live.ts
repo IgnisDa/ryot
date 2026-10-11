@@ -26,6 +26,7 @@ import type { AccountGeneration } from "@ryot-app/contract/schema/account-genera
 import { SandboxScriptId } from "@ryot-app/contract/schema/brands";
 import { JsonValue } from "@ryot-app/contract/schema/json";
 import { jsonByteLength } from "@ryot-app/sandbox-compiler/limits";
+import { SANDBOX_LIMITS } from "@ryot-app/sandbox/protocol/limits";
 import { stableStringify } from "@ryot-app/ts-utils/json";
 import { eq } from "drizzle-orm";
 import { Clock, Context, DateTime, Effect, Layer, Schema } from "effect";
@@ -34,12 +35,11 @@ import { automationRunLane } from "#lib/domain/lifecycle-command";
 import { applyLifecyclePolicyPatches } from "#lib/domain/lifecycle-policy-patch";
 import { pluginRevision } from "#lib/infrastructure/db/schema/tables/core";
 import { DatabaseSession } from "#lib/infrastructure/db/session";
-import { SANDBOX_LIMITS } from "#lib/infrastructure/sandbox-runtime/limits";
 import { implementWorkflow, makeActivity } from "#lib/infrastructure/workflow-scope";
 import { MutationReceipts } from "#modules/mutations/receipts";
-import type { SandboxExecutionResult } from "#modules/sandbox/execution-result";
-import { SandboxRepository } from "#modules/sandbox/repository";
-import { SandboxExecutionService } from "#modules/sandbox/service";
+import type { SandboxExecutionResult } from "#modules/scripts/executions/result";
+import { ScriptExecutionService } from "#modules/scripts/executions/service";
+import { SandboxRepository } from "#modules/scripts/registry/repository";
 
 import {
 	AutomationAttemptRepository,
@@ -237,7 +237,7 @@ export const AutomationRunWorkflowOperationsLive = Layer.effect(
 		const runs = yield* AutomationRunRepository;
 		const triggers = yield* AutomationTriggerRepository;
 		const scripts = yield* SandboxRepository;
-		const sandbox = yield* SandboxExecutionService;
+		const sandbox = yield* ScriptExecutionService;
 		const session = yield* DatabaseSession;
 		const receipts = yield* MutationReceipts.make;
 		return AutomationRunWorkflowOperations.of({

@@ -3,10 +3,9 @@ import {
 	AutomationRelationshipChangePayload,
 } from "@ryot-app/contract/modules/automations/lifecycle";
 import { AutomationExecutionId, UserId } from "@ryot-app/contract/schema/brands";
+import { SANDBOX_LIMITS } from "@ryot-app/sandbox/protocol/limits";
 import { Schema } from "effect";
 import { describe, expect, it } from "vitest";
-
-import { SANDBOX_LIMITS } from "#lib/infrastructure/sandbox-runtime/limits";
 
 import { lifecycleBatchTriggers } from "./lifecycle-batch";
 import { rootLifecycleCommand } from "./lifecycle-command";

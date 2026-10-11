@@ -29,9 +29,9 @@ import { IntegrationOperationScopeResolverLive } from "#modules/integrations/ope
 import type { IntegrationRecord } from "#modules/integrations/repository";
 import { IntegrationsRepository } from "#modules/integrations/repository";
 import { makeIntegration as integrationRecord } from "#modules/integrations/test-support";
-import { SandboxRepository } from "#modules/sandbox/repository";
-import { SandboxExecutionService } from "#modules/sandbox/service";
-import { SandboxWorkflowReferenceRepository } from "#modules/sandbox/workflow-reference-repository";
+import { ScriptExecutionService } from "#modules/scripts/executions/service";
+import { SandboxRepository } from "#modules/scripts/registry/repository";
+import { SandboxWorkflowReferenceRepository } from "#modules/scripts/registry/workflow-references";
 
 import type { PluginInstallationHydratedState } from "./installation-repository";
 import { OperationsService } from "./operations-service";
@@ -348,7 +348,7 @@ const makeLayer = (input: {
 						registerInTransaction: () => Effect.succeed({ status: "registered" as const }),
 					}),
 				),
-				Layer.mock(SandboxExecutionService)({
+				Layer.mock(ScriptExecutionService)({
 					executeScript: (runInput) =>
 						recordEvent("dispatch").pipe(
 							Effect.andThen(Ref.update(state.captured, (all) => [...all, runInput])),

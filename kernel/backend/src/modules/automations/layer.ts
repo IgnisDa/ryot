@@ -6,7 +6,7 @@ import { EntitiesRepositoryLive } from "#modules/entities/repository";
 import { ScriptGarbageCollector } from "#modules/garbage-collection/scripts";
 import { PluginRepositoryLive } from "#modules/plugins/repository-layer";
 import { RelationshipsRepository } from "#modules/relationships/repository";
-import { SandboxRepository } from "#modules/sandbox/repository";
+import { SandboxRepository } from "#modules/scripts/registry/repository";
 
 import { AutomationAttemptRepository } from "./attempt-repository";
 import { AutomationExecutionOperationsLive, LifecycleExecutionLive } from "./execution";

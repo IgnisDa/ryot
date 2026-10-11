@@ -12,7 +12,7 @@ import { DomainWriteChecks } from "#modules/entities/write-context";
 import { MutationReceipts } from "#modules/mutations/receipts";
 import { dispatchAdmittedWorkflow } from "#modules/mutations/workflow-dispatch";
 import { PluginRuntimeResolver } from "#modules/plugins/runtime-resolver";
-import { SandboxExecutionService } from "#modules/sandbox/service";
+import { ScriptExecutionService } from "#modules/scripts/executions/service";
 
 import { preRegisterProviderDetails } from "./details-principal";
 import { ProviderEntityPopulationWorkflow } from "./provider-entity-population-workflow";
@@ -23,7 +23,7 @@ export const EntityPopulationTriggerLive = Layer.effect(
 		const engine = yield* WorkflowEngine;
 		const pluginRuntime = yield* PluginRuntimeResolver;
 		const receipts = yield* MutationReceipts.make;
-		const sandbox = yield* SandboxExecutionService;
+		const sandbox = yield* ScriptExecutionService;
 		const session = yield* DatabaseSession;
 		const checks = yield* DomainWriteChecks;
 

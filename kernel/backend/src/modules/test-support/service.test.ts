@@ -32,8 +32,8 @@ import { fixtureManifest } from "#modules/plugins/test-support";
 import type { PluginSource } from "#modules/plugins/types";
 import { RelationshipSchemasRepository } from "#modules/relationship-schemas/repository";
 import { RelationshipsService } from "#modules/relationships/service";
-import { SandboxExecutionService } from "#modules/sandbox/service";
 import { PluginCronService } from "#modules/scheduler/plugin-cron";
+import { ScriptExecutionService } from "#modules/scripts/executions/service";
 
 import { TestSupportService } from "./service";
 
@@ -53,7 +53,7 @@ const mockPluginIngestion = Layer.mock(PluginIngestionService);
 const mockPluginInstallations = Layer.mock(PluginInstallationService);
 const mockPluginRepository = Layer.mock(PluginRepository);
 const mockPluginCrons = Layer.mock(PluginCronService);
-const mockSandbox = Layer.mock(SandboxExecutionService);
+const mockSandbox = Layer.mock(ScriptExecutionService);
 const mockTranslations = Layer.mock(TranslationsRepository);
 const mockRelationships = Layer.mock(RelationshipsService);
 const mockRelationshipSchemas = Layer.mock(RelationshipSchemasRepository);

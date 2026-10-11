@@ -1,10 +1,10 @@
 import { describe, expect, layer } from "@effect/vitest";
 import type { ExecutionLane } from "@ryot-app/contract/modules/automations/lifecycle";
+import { assertExitFails } from "@ryot-app/testing/effect-assertions";
 import { sortBy } from "@ryot-app/ts-utils/lodash";
 import { Clock, Effect, Layer, Schema } from "effect";
 import Redis from "ioredis";
 
-import { assertExitFails } from "#lib/test-utils/assertions";
 import { makeRedisService } from "#lib/test-utils/effect";
 import { testRedisServiceLayer, testRedisUrl } from "#lib/test-utils/redis";
 

@@ -5,6 +5,7 @@ import {
 	SignalSchemaSlug,
 } from "@ryot-app/contract/schema/brands";
 import { emptySandboxExecutionMetadata } from "@ryot-app/contract/testing";
+import { makeRecordingTracer } from "@ryot-app/testing/recording-tracer";
 import { eq, sql } from "drizzle-orm";
 import { Context, Deferred, Effect, Fiber, Layer, Redacted, type Tracer } from "effect";
 import { assert, describe } from "vitest";
@@ -18,7 +19,6 @@ import {
 } from "#lib/test-utils/baseline-migration";
 import { testDatabaseUrl } from "#lib/test-utils/database";
 import { makeAppConfigLayer, makeConfigProviderLayer } from "#lib/test-utils/effect";
-import { makeRecordingTracer } from "#lib/test-utils/tracer";
 import { kernelDefinitionSource } from "#modules/definition-registry/kernel-source";
 import { DefinitionRepository } from "#modules/definition-registry/repository";
 import { PluginConfigRevisions } from "#modules/plugins/config-revisions";

@@ -21,14 +21,12 @@ import {
 	UserId,
 } from "@ryot-app/contract/schema/brands";
 import { JsonValue } from "@ryot-app/contract/schema/json";
+import { SandboxExecutionAuthority } from "@ryot-app/sandbox/host/authority";
+import { ExecutionFileStore } from "@ryot-app/sandbox/host/execution-files";
+import { ScriptExecutionPrincipal } from "@ryot-app/sandbox/protocol/principal";
 import { Context, Effect, Layer, Ref, Schema } from "effect";
 import { WorkflowEngine } from "effect/workflow/WorkflowEngine";
 
-import { SandboxArtifactStore } from "#lib/infrastructure/sandbox-runtime/artifacts";
-import {
-	SandboxExecutionAuthority,
-	SandboxExecutionPrincipal,
-} from "#lib/infrastructure/sandbox-runtime/execution-principal";
 import { makeWorkflowEngine } from "#lib/test-utils/effect";
 import { mutationAdmissionTestLayer } from "#lib/test-utils/mutation-admission";
 import { EventStreamRepository } from "#modules/events/stream-repository";
@@ -37,12 +35,12 @@ import { ingestionTestRevision, ingestionTestRun } from "#modules/imports/ingest
 import { ImportsRepository } from "#modules/imports/repository";
 import { IntegrationsRepository } from "#modules/integrations/repository";
 import { PluginRuntimeResolver } from "#modules/plugins/runtime-resolver";
-import { KernelWorkflowReferences } from "#modules/sandbox/kernel-workflow-references";
+import { KernelWorkflowReferences } from "#modules/scripts/registry/kernel-workflow-references";
 
 import { KernelWorkflowReferencesLive } from "./kernel-workflow-references";
 
-const callerAuthority = (subject: SandboxExecutionSubject): SandboxExecutionPrincipal =>
-	Schema.decodeSync(SandboxExecutionPrincipal)({
+const callerAuthority = (subject: SandboxExecutionSubject): ScriptExecutionPrincipal =>
+	Schema.decodeSync(ScriptExecutionPrincipal)({
 		subject,
 		providerId: null,
 		scriptId: "caller-script",
@@ -54,8 +52,8 @@ const callerAuthority = (subject: SandboxExecutionSubject): SandboxExecutionPrin
 			schemaScope: { ...ingestionTestRevision.schemaScope, entitySchemaSlugs: ["record", "group"] },
 		},
 	});
-const populationAuthority = (subject: SandboxExecutionSubject): SandboxExecutionPrincipal =>
-	Schema.decodeSync(SandboxExecutionPrincipal)({
+const populationAuthority = (subject: SandboxExecutionSubject): ScriptExecutionPrincipal =>
+	Schema.decodeSync(ScriptExecutionPrincipal)({
 		...callerAuthority(subject),
 		pluginRevision: {
 			...ingestionTestRevision,
@@ -65,7 +63,7 @@ const populationAuthority = (subject: SandboxExecutionSubject): SandboxExecution
 	});
 const executionAuthorityLayer = Layer.succeed(SandboxExecutionAuthority, {
 	resolve: (principal) =>
-		Schema.decodeEffect(SandboxExecutionPrincipal)(principal).pipe(
+		Schema.decodeEffect(ScriptExecutionPrincipal)(principal).pipe(
 			Effect.map((verified) => verified.pluginRevision?.scope ?? "system"),
 			Effect.mapError(
 				() => new SandboxRunError({ kind: "missing-artifact", message: "Invalid caller pin" }),
@@ -95,7 +93,7 @@ const eventStreamRepository = eventStreamRepositoryLayer(() => Effect.succeed(nu
 const captureDependencies = Layer.mergeAll(
 	executionAuthorityLayer,
 	Layer.mock(IngestionCaptures)({}),
-	Layer.mock(SandboxArtifactStore)({}),
+	Layer.mock(ExecutionFileStore)({}),
 	BunFileSystem.layer,
 );
 const mockIntegrationsRepository = Layer.mock(IntegrationsRepository);
@@ -341,7 +339,7 @@ layer(
 				Layer.mock(PluginRuntimeResolver)({}),
 				mockIntegrationsRepository({}),
 				mockImportsRepository({ getIngestionRun: () => Effect.succeed(ingestionTestRun()) }),
-				Layer.mock(SandboxArtifactStore)({
+				Layer.mock(ExecutionFileStore)({
 					resolveOutputs: () => Effect.die("Replay must not resolve a temporary handle"),
 				}),
 				Layer.mock(IngestionCaptures)({
@@ -825,7 +823,7 @@ layer(
 					accountGeneration: { userId, token: "test-account-generation" },
 				} as const;
 				const pinned = populationAuthority(subject);
-				const principal = yield* Schema.decodeUnknownEffect(SandboxExecutionPrincipal)({
+				const principal = yield* Schema.decodeUnknownEffect(ScriptExecutionPrincipal)({
 					...pinned,
 					pluginRevision: { ...pinned.pluginRevision, scope: "user", ownerId: userId },
 				});

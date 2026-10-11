@@ -13,18 +13,43 @@
 		"@ryot-app/kernel-backend#build": {
 			"dependsOn": ["^build"],
 			"inputs": ["src/**/*.ts", "!src/**/*.generated.ts", "tooling/**/*.ts", "package.json"],
-			"outputs": [
-				"$TURBO_ROOT$/kernel/sandboxd/payload/**",
-				"src/modules/definition-registry/*.generated.ts"
-			]
+			"outputs": ["src/modules/definition-registry/*.generated.ts"]
 		},
 		"@ryot-app/kernel-backend#check": {
 			"outputLogs": "errors-only",
-			"dependsOn": ["^check", "^build", "build", "@ryot-app/sandboxd#build"]
+			"dependsOn": ["^check", "^build", "build"]
 		},
 		"@ryot-app/kernel-backend#test": {
 			"outputLogs": "errors-only",
-			"dependsOn": ["build", "^build", "^check", "^test", "@ryot-app/sandboxd#build"]
+			"dependsOn": ["build", "^build", "^check", "^test"]
+		},
+		"@ryot-app/sandbox#build": {
+			"dependsOn": ["^build"],
+			"outputLogs": "errors-only",
+			"inputs": [
+				"src/**/*.ts",
+				"tooling/**/*.ts",
+				"native/**",
+				"!native/target/**",
+				"!native/payload/**",
+				"package.json"
+			],
+			"outputs": ["native/payload/**", "dist/**"]
+		},
+		"@ryot-app/sandbox#check": {
+			"outputLogs": "errors-only",
+			"dependsOn": ["^check", "^build", "build"]
+		},
+		"@ryot-app/sandbox#test": {
+			"outputLogs": "errors-only",
+			"dependsOn": [
+				"build",
+				"^build",
+				"^check",
+				"^test",
+				"@ryot-app/fitness-plugin#build",
+				"@ryot-app/media-plugin#build"
+			]
 		},
 		"@ryot-app/server#build": {
 			"outputs": ["dist/**"],

@@ -22,6 +22,15 @@ import {
 import { IsoUtcString } from "@ryot-app/contract/schema/utils";
 import { genericImportKernelInputSchema } from "@ryot-app/sandbox-sdk/imports";
 import { jsonValueSchema } from "@ryot-app/sandbox-sdk/wire";
+import { SandboxExecutionAuthority } from "@ryot-app/sandbox/host/authority";
+import { ExecutionFileStore } from "@ryot-app/sandbox/host/execution-files";
+import {
+	ScriptPluginRevision,
+	samePluginPin,
+	sameRevisionPin,
+	sandboxSubjectUserId,
+	type ScriptExecutionPrincipal,
+} from "@ryot-app/sandbox/protocol/principal";
 import { isObjectRecord } from "@ryot-app/ts-utils/predicates";
 import { DateTime, Effect, Exit, Layer, Option, Schema } from "effect";
 import { WorkflowEngine } from "effect/workflow/WorkflowEngine";
@@ -32,15 +41,6 @@ import {
 	automationLifecycleCausation,
 } from "#lib/domain/lifecycle-command";
 import { DatabaseSession } from "#lib/infrastructure/db/session";
-import { SandboxArtifactStore } from "#lib/infrastructure/sandbox-runtime/artifacts";
-import {
-	SandboxExecutionAuthority,
-	SandboxPluginRevision,
-	samePluginPin,
-	sameRevisionPin,
-	sandboxSubjectUserId,
-	type SandboxExecutionPrincipal,
-} from "#lib/infrastructure/sandbox-runtime/execution-principal";
 import type { DomainLifecycleCommand } from "#modules/entities/write-context";
 import {
 	EventCreateWorkflow,
@@ -68,7 +68,7 @@ import {
 	type ProviderEntityPopulationPayload,
 } from "#modules/provider-entities/provider-entity-population-workflow";
 import { ProviderEntityImportWorkflowPayload } from "#modules/provider-entities/schemas";
-import { KernelWorkflowReferences } from "#modules/sandbox/kernel-workflow-references";
+import { KernelWorkflowReferences } from "#modules/scripts/registry/kernel-workflow-references";
 
 const PROVIDER_ENTITY_POPULATION_MAX_ITEMS = 100;
 const PROVIDER_ENTITY_POPULATION_CONCURRENCY = 4;
@@ -90,7 +90,7 @@ const ProviderEntityPopulationReferenceInput = Schema.Struct({
 const EventStreamDispatchReferenceInput = Schema.Struct({ id: Schema.String });
 
 const wireLifecycleCommand = (
-	callerAuthority: SandboxExecutionPrincipal,
+	callerAuthority: ScriptExecutionPrincipal,
 	lane: ExecutionLane,
 	executionId: string,
 	itemIdentity: string,
@@ -145,7 +145,7 @@ export const KernelWorkflowReferencesLive = Layer.effect(
 		const eventStreams = yield* EventStreamRepository;
 		const captures = yield* IngestionCaptures;
 		const database = yield* DatabaseSession;
-		const artifacts = yield* SandboxArtifactStore;
+		const artifacts = yield* ExecutionFileStore;
 		const integrations = yield* IntegrationsRepository;
 		const pluginRuntime = yield* PluginRuntimeResolver;
 		const receipts = yield* MutationReceipts.make;
@@ -182,7 +182,7 @@ export const KernelWorkflowReferencesLive = Layer.effect(
 				ingestionArtifactGrants(input, subject, grants).pipe(
 					Effect.provideService(ImportsRepository, imports),
 					Effect.provideService(IngestionCaptures, captures),
-					Effect.provideService(SandboxArtifactStore, artifacts),
+					Effect.provideService(ExecutionFileStore, artifacts),
 					Effect.mapError(
 						(error) =>
 							new SandboxRunError({ kind: "infrastructure", message: unknownToMessage(error) }),
@@ -374,7 +374,7 @@ export const KernelWorkflowReferencesLive = Layer.effect(
 							});
 						}
 						const workPin = Option.getOrNull(
-							Schema.decodeUnknownOption(SandboxPluginRevision)(work.pluginPin),
+							Schema.decodeUnknownOption(ScriptPluginRevision)(work.pluginPin),
 						);
 						if (
 							!callerPlugin ||

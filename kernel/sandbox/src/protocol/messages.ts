@@ -1,0 +1,419 @@
+import { ExecutionLane } from "@ryot-app/contract/modules/automations/lifecycle";
+import {
+	SandboxExecutionError,
+	SandboxScriptMetadata,
+} from "@ryot-app/contract/modules/sandbox/schemas";
+import { jsonValueSchema } from "@ryot-app/contract/modules/sandbox/wire";
+import { workflowInlineRequestSchema } from "@ryot-app/sandbox-sdk/workflow";
+import { Schema } from "effect";
+
+import { isBoolean, regExpExec, uncurry } from "../guest/primordials";
+import { KiB, MiB, SANDBOX_LIMITS } from "./limits";
+
+const maxContextBytes = SANDBOX_LIMITS.execution.contextBytes;
+
+const numberIsSafeInteger = Number.isSafeInteger.bind(Number);
+const mathCeil = Math.ceil;
+const jsonStringify = JSON.stringify.bind(JSON);
+const encoder = new TextEncoder();
+const encodeText = encoder.encode.bind(encoder);
+const stringEndsWith = uncurry(String.prototype, "endsWith", isBoolean);
+const base64Pattern = /^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/;
+
+export const isBase64 = (value: string) =>
+	value.length % 4 === 0 && regExpExec(base64Pattern, value) !== null;
+
+export const base64DecodedLength = (value: string) => {
+	let padding = 0;
+	if (stringEndsWith(value, "==")) {
+		padding = 2;
+	} else if (stringEndsWith(value, "=")) {
+		padding = 1;
+	}
+	return (value.length / 4) * 3 - padding;
+};
+
+const safeNonNegativeInteger = Schema.Finite.pipe(
+	Schema.check(
+		Schema.makeFilter(
+			(value) =>
+				(numberIsSafeInteger(value) && value >= 0) || "Expected a safe nonnegative integer",
+		),
+	),
+);
+const rangeLength = Schema.Finite.pipe(
+	Schema.check(
+		Schema.makeFilter(
+			(value) =>
+				(numberIsSafeInteger(value) && value >= 1 && value <= MiB) ||
+				`Expected a range length from 1 through ${MiB}`,
+		),
+	),
+);
+
+const journalSchema = Schema.Struct({
+	length: safeNonNegativeInteger.pipe(
+		Schema.check(Schema.isLessThanOrEqualTo(SANDBOX_LIMITS.hostCalls.total)),
+	),
+	totalBytes: safeNonNegativeInteger.pipe(
+		Schema.check(Schema.isLessThanOrEqualTo(SANDBOX_LIMITS.journalBytes)),
+	),
+	offsets: Schema.Array(safeNonNegativeInteger).pipe(
+		Schema.check(Schema.isMaxLength(SANDBOX_LIMITS.hostCalls.total + 1)),
+	),
+}).pipe(
+	Schema.check(
+		Schema.makeFilter(({ length, offsets, totalBytes }) => {
+			if (
+				offsets.length !== length + 1 ||
+				offsets[0] !== 0 ||
+				offsets[offsets.length - 1] !== totalBytes
+			) {
+				return "Journal offsets must cover the pinned prefix";
+			}
+			for (let index = 0; index < offsets.length; index += 1) {
+				const offset = offsets[index];
+				const previous = offsets[index - 1];
+				if (
+					offset === undefined ||
+					offset > totalBytes ||
+					(previous !== undefined && offset < previous)
+				) {
+					return "Journal offsets must be monotonic safe byte boundaries";
+				}
+			}
+			return true;
+		}),
+	),
+);
+
+const filesystemHintsSchema = Schema.Struct({
+	scratch: Schema.Boolean,
+	artifact: Schema.Boolean,
+	namedArtifacts: Schema.Array(Schema.String),
+});
+
+export const SandboxInvocationSchema = Schema.Struct({
+	scriptId: Schema.String,
+	startedAt: Schema.String,
+	executionId: Schema.String,
+	metadata: SandboxScriptMetadata,
+	compiledFormat: Schema.Literal(1),
+	mode: Schema.Literal("definition"),
+	journal: Schema.optional(journalSchema),
+	apiFunctions: Schema.Array(Schema.String),
+	filesystem: Schema.optional(filesystemHintsSchema),
+	workflowExecutionId: Schema.optional(Schema.String),
+	inlineDurableCapabilities: Schema.optional(Schema.Array(Schema.String)),
+	context: jsonValueSchema.pipe(
+		Schema.check(
+			Schema.makeFilter((value) => {
+				const serialized = jsonStringify(value);
+				return (
+					(typeof serialized === "string" &&
+						encodeText(serialized).byteLength <= maxContextBytes) ||
+					`Sandbox invocation context exceeds ${maxContextBytes} UTF-8 bytes`
+				);
+			}),
+		),
+	),
+}).pipe(
+	Schema.check(
+		Schema.makeFilter(
+			(invocation) =>
+				invocation.workflowExecutionId === undefined ||
+				invocation.journal !== undefined ||
+				"Workflow executions require a host-pinned journal prefix",
+		),
+	),
+);
+export type SandboxInvocation = Schema.Schema.Type<typeof SandboxInvocationSchema>;
+
+export const journalReadArgsSchema = Schema.Struct({
+	length: rangeLength,
+	offset: safeNonNegativeInteger,
+});
+
+const maxRangeBase64Length = mathCeil(MiB / 3) * 4;
+const base64RangeData = Schema.String.pipe(
+	Schema.check(
+		Schema.makeFilter(
+			(value) =>
+				(value.length <= maxRangeBase64Length && isBase64(value)) ||
+				`Expected at most ${MiB} decoded bytes of base64 data`,
+		),
+	),
+);
+
+export const journalReadResultSchema = Schema.Struct({
+	data: base64RangeData,
+	offset: safeNonNegativeInteger,
+	totalBytes: safeNonNegativeInteger,
+});
+
+export const artifactReadRangeArgsSchema = Schema.Struct({
+	length: rangeLength,
+	offset: safeNonNegativeInteger,
+	key: Schema.optional(Schema.String),
+});
+
+export const artifactReadRangeResultSchema = Schema.Struct({
+	data: base64RangeData,
+	size: safeNonNegativeInteger,
+	offset: safeNonNegativeInteger,
+});
+
+const scratchData = Schema.String.pipe(
+	Schema.check(
+		Schema.makeFilter(
+			(value) =>
+				(isBase64(value) && base64DecodedLength(value) <= SANDBOX_LIMITS.scratch.chunkBytes) ||
+				"Scratch data exceeds 256 KiB or is not base64",
+		),
+	),
+);
+export const scratchWriteArgsSchema = Schema.Struct({
+	data: scratchData,
+	name: Schema.String,
+	final: Schema.Boolean,
+	offset: safeNonNegativeInteger,
+});
+
+export const InlineBatchSchema = Schema.Struct({
+	requests: Schema.NonEmptyArray(workflowInlineRequestSchema),
+});
+
+export const InlineBatchReplySchema = Schema.Union([
+	Schema.Struct({ defer: Schema.Literal(true) }),
+	Schema.Struct({ results: Schema.Array(jsonValueSchema) }),
+]);
+
+export const SandboxInvocationResponseSchema = Schema.Union([
+	Schema.Struct({
+		value: jsonValueSchema,
+		success: Schema.Literal(true),
+		logs: Schema.Array(Schema.String),
+		timing: Schema.Struct({ executionMs: Schema.Finite }),
+	}),
+	Schema.Struct({
+		error: SandboxExecutionError,
+		success: Schema.Literal(false),
+		logs: Schema.Array(Schema.String),
+		timing: Schema.Struct({ executionMs: Schema.Finite }),
+	}),
+]);
+export type SandboxInvocationResponse = Schema.Schema.Type<typeof SandboxInvocationResponseSchema>;
+
+export const SIDECAR_PROTOCOL_LIMITS = {
+	nameLength: 128,
+	partBytes: 64 * KiB,
+	consoleEntries: 500,
+	frameBytes: 256 * KiB,
+	// The sidecar's per-connection cap on preallocated chunked assemblies (`ASSEMBLY_BYTES`).
+	assemblyBytes: 64 * MiB,
+	messageBytes: { run: 4 * MiB, done: 6 * MiB, hostCall: 2 * MiB, hostResult: 12 * MiB },
+	execution: {
+		cpuMs: { minimum: 1, maximum: 600_000 },
+		deadlineMs: { minimum: 1, maximum: 600_000 },
+		heapBytes: { minimum: 8 * MiB, maximum: 1024 * MiB },
+		externalBytes: { minimum: MiB, maximum: 1024 * MiB },
+	},
+} as const;
+
+const boundedInt = (range: { readonly minimum: number; readonly maximum: number }) =>
+	Schema.Int.check(Schema.isBetween(range));
+
+const Handle = Schema.String.check(Schema.isPattern(/^[A-Za-z0-9_-]{1,64}$/));
+const Sha256 = Schema.String.check(Schema.isPattern(/^[0-9a-f]{64}$/));
+const Base64 = Schema.String.check(Schema.isPattern(base64Pattern));
+export const SIDECAR_GENERATION_MAX = 4_294_967_295;
+const Generation = boundedInt({ minimum: 0, maximum: SIDECAR_GENERATION_MAX });
+
+const Seq = safeNonNegativeInteger;
+const envelope = { seq: Seq, handle: Handle, generation: Generation };
+
+export const SidecarTier = Schema.Literals(["core", "data", "full"]);
+export const SIDECAR_INTERNAL_HOST_CALLS = [
+	"artifactReadRange",
+	"inlineBatch",
+	"journalRead",
+	"scratchWrite",
+] as const;
+const SidecarChunkedFrameType = Schema.Literals(["run", "done", "hostCall", "hostResult"]);
+
+export const SidecarRunFrame = Schema.Struct({
+	...envelope,
+	tier: SidecarTier,
+	input: Schema.Json,
+	lane: ExecutionLane,
+	type: Schema.Literal("run"),
+	module: Schema.Struct({ sha256: Sha256, source: Schema.String }),
+	limits: Schema.Struct({
+		cpuMs: boundedInt(SIDECAR_PROTOCOL_LIMITS.execution.cpuMs),
+		heapBytes: boundedInt(SIDECAR_PROTOCOL_LIMITS.execution.heapBytes),
+		deadlineMs: boundedInt(SIDECAR_PROTOCOL_LIMITS.execution.deadlineMs),
+		externalBytes: boundedInt(SIDECAR_PROTOCOL_LIMITS.execution.externalBytes),
+	}),
+});
+
+export const SidecarHostResultFrame = Schema.Struct({
+	...envelope,
+	type: Schema.Literal("hostResult"),
+	result: Schema.Union([
+		Schema.Struct({ value: Schema.Json, status: Schema.Literal("success") }),
+		Schema.Struct({ message: Schema.String, status: Schema.Literal("failure") }),
+	]),
+});
+
+const SidecarCancelFrame = Schema.Struct({ ...envelope, type: Schema.Literal("cancel") });
+
+const SidecarPartFrame = Schema.Struct({
+	...envelope,
+	data: Base64,
+	type: Schema.Literal("part"),
+	frameType: SidecarChunkedFrameType,
+	count: boundedInt({ minimum: 2, maximum: 256 }),
+	index: boundedInt({ minimum: 0, maximum: 255 }),
+	byteLength: boundedInt({ minimum: 1, maximum: SIDECAR_PROTOCOL_LIMITS.messageBytes.hostResult }),
+});
+
+const SidecarReadyFrame = Schema.Struct({
+	generation: Generation,
+	type: Schema.Literal("ready"),
+	heapHeadroomBytes: boundedInt({ minimum: 0, maximum: Number.MAX_SAFE_INTEGER }),
+});
+
+export const SidecarHostCallFrame = Schema.Struct({
+	...envelope,
+	args: Base64,
+	type: Schema.Literal("hostCall"),
+	name: Schema.String.check(
+		Schema.isMinLength(1),
+		Schema.isMaxLength(SIDECAR_PROTOCOL_LIMITS.nameLength),
+	),
+});
+
+const SidecarOutcome = Schema.Union([
+	Schema.Struct({ value: Schema.Json, status: Schema.Literal("completed") }),
+	Schema.Struct({ status: Schema.Literal("cancelled") }),
+	Schema.Struct({
+		message: Schema.String,
+		status: Schema.Literal("limit"),
+		limit: Schema.Literals(["heap", "external", "cpu", "deadline"]),
+	}),
+	Schema.Struct({
+		message: Schema.String,
+		status: Schema.Literal("failed"),
+		phase: Schema.Literals([
+			"protocol",
+			"admission",
+			"integrity",
+			"resolution",
+			"evaluation",
+			"execution",
+			"result",
+		]),
+	}),
+]);
+
+export const SidecarDoneFrame = Schema.Struct({
+	...envelope,
+	outcome: SidecarOutcome,
+	type: Schema.Literal("done"),
+	usage: Schema.Struct({
+		heapBytes: boundedInt({ minimum: 0, maximum: Number.MAX_SAFE_INTEGER }),
+		cpuWaitMs: boundedInt({ minimum: 0, maximum: Number.MAX_SAFE_INTEGER }),
+		externalBytes: boundedInt({ minimum: 0, maximum: Number.MAX_SAFE_INTEGER }),
+	}),
+	console: Schema.Struct({
+		truncated: Schema.Boolean,
+		entries: Schema.Array(
+			Schema.Struct({
+				message: Schema.String,
+				level: Schema.Literals(["debug", "info", "log", "warn", "error"]),
+			}),
+		).check(Schema.isMaxLength(SIDECAR_PROTOCOL_LIMITS.consoleEntries)),
+	}),
+});
+
+const SidecarDrainingFrame = Schema.Struct({
+	generation: Generation,
+	type: Schema.Literal("draining"),
+	reason: Schema.Literals(["executions", "memory"]),
+});
+
+const SidecarFatalFrame = Schema.Struct({
+	handle: Handle,
+	generation: Generation,
+	type: Schema.Literal("fatal"),
+	reason: Schema.Literal("termination-ignored"),
+});
+
+export const SidecarInboundFrame = Schema.Union([
+	SidecarRunFrame,
+	SidecarHostResultFrame,
+	SidecarCancelFrame,
+	SidecarPartFrame,
+]);
+export type SidecarInboundFrame = typeof SidecarInboundFrame.Type;
+
+export const SidecarOutboundFrame = Schema.Union([
+	SidecarReadyFrame,
+	SidecarHostCallFrame,
+	SidecarDoneFrame,
+	SidecarDrainingFrame,
+	SidecarFatalFrame,
+	SidecarPartFrame,
+]);
+export type SidecarOutboundFrame = typeof SidecarOutboundFrame.Type;
+
+export class SidecarProtocolError extends Schema.TaggedError<SidecarProtocolError>()(
+	"SidecarProtocolError",
+	{ message: Schema.String, reason: Schema.Literals(["framing", "payload"]) },
+) {}
+
+const parseOptions = { onExcessProperty: "error" } as const;
+const decoder = new TextDecoder("utf-8", { fatal: true });
+const sidecarInboundJson = Schema.fromJsonString(SidecarInboundFrame);
+const encodeInboundJson = Schema.encodeSync(sidecarInboundJson, parseOptions);
+const decodeOutboundValue = Schema.decodeUnknownSync(SidecarOutboundFrame, parseOptions);
+
+const payloadError = (message: string) => new SidecarProtocolError({ message, reason: "payload" });
+
+export const encodeSidecarInboundLogicalMessage = (frame: SidecarInboundFrame) =>
+	encodeInboundJson(frame);
+
+export const parseSidecarOutboundJson = (bytes: Uint8Array): unknown => {
+	if (bytes.byteLength > SIDECAR_PROTOCOL_LIMITS.messageBytes.done) {
+		throw payloadError(
+			`logical message exceeds ${SIDECAR_PROTOCOL_LIMITS.messageBytes.done} bytes`,
+		);
+	}
+	try {
+		return JSON.parse(decoder.decode(bytes));
+	} catch (error) {
+		throw payloadError(error instanceof Error ? error.message : "invalid JSON payload");
+	}
+};
+
+export const decodeSidecarOutboundFrame = (value: unknown, byteLength: number) => {
+	let frame: SidecarOutboundFrame;
+	try {
+		frame = decodeOutboundValue(value);
+	} catch (error) {
+		throw payloadError(error instanceof Error ? error.message : "invalid logical message");
+	}
+	let maximumBytes = SIDECAR_PROTOCOL_LIMITS.frameBytes;
+	if (frame.type === "hostCall") {
+		maximumBytes = SIDECAR_PROTOCOL_LIMITS.messageBytes.hostCall;
+	} else if (frame.type === "done") {
+		maximumBytes = SIDECAR_PROTOCOL_LIMITS.messageBytes.done;
+	}
+	if (byteLength > maximumBytes) {
+		throw payloadError(`logical ${frame.type} message exceeds ${maximumBytes} bytes`);
+	}
+	return frame;
+};
+
+export const decodeSidecarOutboundLogicalMessage = (bytes: Uint8Array) =>
+	decodeSidecarOutboundFrame(parseSidecarOutboundJson(bytes), bytes.byteLength);

@@ -1,9 +1,9 @@
 import { expect, layer } from "@effect/vitest";
 import { definitionKey, definitionOwner } from "@ryot-app/contract/modules/plugins/references";
 import { RelationshipSchemaSlug, SignalSchemaSlug } from "@ryot-app/contract/schema/brands";
+import { assertExitFails } from "@ryot-app/testing/effect-assertions";
 import { Context, Effect, Layer, Ref } from "effect";
 
-import { assertExitFails } from "#lib/test-utils/assertions";
 import type { MockOverrides } from "#lib/test-utils/effect";
 import { databaseLayer } from "#lib/test-utils/effect";
 import { DefinitionRepository } from "#modules/definition-registry/repository";

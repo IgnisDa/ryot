@@ -7,7 +7,7 @@ import { Context, Effect, Layer } from "effect";
 import { DatabaseSession } from "#lib/infrastructure/db/session";
 import { PluginInstallationRepository } from "#modules/plugins/installation-repository";
 import { PluginRuntimeResolver } from "#modules/plugins/runtime-resolver";
-import { SandboxExecutionService } from "#modules/sandbox/service";
+import { ScriptExecutionService } from "#modules/scripts/executions/service";
 
 export const userBootstrapExecutionId = (
 	userId: string,
@@ -139,7 +139,7 @@ export class PluginUserBootstrapDispatcher extends Context.Service<PluginUserBoo
 	"PluginUserBootstrapDispatcher",
 	{
 		make: Effect.gen(function* () {
-			const sandbox = yield* SandboxExecutionService;
+			const sandbox = yield* ScriptExecutionService;
 			return yield* makePluginUserBootstrapDispatcher((payload) =>
 				sandbox.executeScript({
 					lane: "background",

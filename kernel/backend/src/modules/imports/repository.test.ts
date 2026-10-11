@@ -1,10 +1,10 @@
 import { expect, layer } from "@effect/vitest";
 import { DbError } from "@ryot-app/contract/errors";
 import { ImportRunId, IntegrationId, UserId } from "@ryot-app/contract/schema/brands";
+import { assertExitFails } from "@ryot-app/testing/effect-assertions";
 import { Effect, Layer, Ref } from "effect";
 
 import { DatabaseSession } from "#lib/infrastructure/db/session";
-import { assertExitFails } from "#lib/test-utils/assertions";
 import { fakeDatabaseSession } from "#lib/test-utils/effect";
 
 import { ImportsRepository } from "./repository";

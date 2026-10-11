@@ -8,7 +8,7 @@ import { TranslationsServiceLive } from "#modules/entity-translation/layer";
 import { PluginRuntimeResolverLive } from "#modules/plugins/runtime-resolver";
 import { EntityPopulationTriggerLive } from "#modules/provider-entities/population-trigger-live";
 import { RyotQLService } from "#modules/ryotql/service";
-import { SandboxExecutionServiceLive } from "#modules/sandbox/layer";
+import { ScriptExecutionServiceLive } from "#modules/scripts/layer";
 
 import { LocalInterestSessions } from "./connections";
 import { EntityInterestProgression } from "./progression";
@@ -28,7 +28,7 @@ export const InterestReconcilerLive = InterestReconciler.layer.pipe(
 		Layer.mergeAll(
 			RyotQLService.layer,
 			EntityPopulationTriggerLive.pipe(
-				Layer.provide(Layer.merge(SandboxExecutionServiceLive, DomainWriteChecksLive)),
+				Layer.provide(Layer.merge(ScriptExecutionServiceLive, DomainWriteChecksLive)),
 			),
 			TranslationsServiceLive,
 		),

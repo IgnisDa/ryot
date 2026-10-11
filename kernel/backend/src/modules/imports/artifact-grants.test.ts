@@ -1,9 +1,8 @@
 import { expect, it } from "@effect/vitest";
 import { SandboxRunError } from "@ryot-app/contract/errors";
+import { ExecutionFileStore } from "@ryot-app/sandbox/host/execution-files";
+import { assertExitFails } from "@ryot-app/testing/effect-assertions";
 import { Effect, Layer } from "effect";
-
-import { SandboxArtifactStore } from "#lib/infrastructure/sandbox-runtime/artifacts";
-import { assertExitFails } from "#lib/test-utils/assertions";
 
 import { ingestionArtifactGrants } from "./artifact-grants";
 import { IngestionCaptures } from "./capture-service";
@@ -33,7 +32,7 @@ it.effect("grants a staged handle only to its pinned owner and account generatio
 						return "/tmp/staged-input";
 					}),
 			}),
-			Layer.mock(SandboxArtifactStore)({
+			Layer.mock(ExecutionFileStore)({
 				resolveOutputs: () => Effect.die("Staged handles must not use temporary outputs"),
 			}),
 		);
@@ -100,7 +99,7 @@ it.effect(
 							return "/tmp/materialized-capture";
 						}),
 				}),
-				Layer.mock(SandboxArtifactStore)({}),
+				Layer.mock(ExecutionFileStore)({}),
 			);
 			yield* Effect.gen(function* () {
 				const input = {
@@ -202,7 +201,7 @@ it.effect(
 							return `/tmp/${id}`;
 						}),
 				}),
-				Layer.mock(SandboxArtifactStore)({}),
+				Layer.mock(ExecutionFileStore)({}),
 			);
 			yield* Effect.gen(function* () {
 				const subject = {

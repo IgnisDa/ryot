@@ -2,7 +2,7 @@ import type { PluginOAuthProvider } from "@ryot-app/contract/modules/plugins/man
 import { Context, Data, Duration, Effect, Layer, Option, Schema } from "effect";
 import { FetchHttpClient, HttpClient, HttpClientRequest } from "effect/http";
 
-import { readSandboxByteLimitedText } from "#lib/infrastructure/sandbox-runtime/stream-utils";
+import { readSandboxByteLimitedText } from "#modules/scripts/host/stream-utils";
 
 const OAUTH_TOKEN_REQUEST_TIMEOUT = Duration.seconds(10);
 

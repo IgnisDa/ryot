@@ -1,4 +1,5 @@
 import { BunServices } from "@effect/platform-bun";
+import { ExecutionFileStore } from "@ryot-app/sandbox/host/execution-files";
 import { Layer } from "effect";
 import { PersistedQueue } from "effect/persistence";
 
@@ -14,8 +15,6 @@ import { ObservabilityLive } from "#lib/infrastructure/observability";
 import { ProKeyService } from "#lib/infrastructure/pro-key";
 import { RedisService } from "#lib/infrastructure/redis";
 import { S3Service } from "#lib/infrastructure/s3";
-import { SandboxArtifactStore } from "#lib/infrastructure/sandbox-runtime/artifacts";
-import { SandboxDurableHostServicesLive } from "#lib/infrastructure/sandbox-runtime/layer";
 import { ServerRun } from "#lib/infrastructure/server-run";
 import { WorkflowEngineLive } from "#lib/infrastructure/workflow";
 import { AuthServiceLive } from "#modules/auth/layer";
@@ -109,20 +108,17 @@ import {
 } from "#modules/provider-entities/layer";
 import { RelationshipsServiceLive } from "#modules/relationships/layer";
 import { RyotQLService } from "#modules/ryotql/service";
-import { SandboxExecutionQueueStoreLive } from "#modules/sandbox/durable-queues";
-import { EventStreamProcessorLive } from "#modules/sandbox/event-stream-processor";
-import {
-	RuntimeSandboxServiceLive,
-	SandboxExecutionServiceLive,
-	SandboxWorkflowPinningLive,
-} from "#modules/sandbox/layer";
-import { SandboxRepository } from "#modules/sandbox/repository";
-import { SandboxExecutionAuthorityLive } from "#modules/sandbox/runtime-authority";
-import { SandboxWorkflowDefinitionsLive } from "#modules/sandbox/sandbox-workflow-live";
-import { SandboxWorkflowReferenceRepository } from "#modules/sandbox/workflow-reference-repository";
 import { SavedViewsServiceLive } from "#modules/saved-views/layer";
 import { FrequentCronSchedulerLive } from "#modules/scheduler/frequent-cron";
 import { PluginCronSchedulerProvidedLive, PluginCronServiceLive } from "#modules/scheduler/layer";
+import { SandboxExecutionAuthorityLive } from "#modules/scripts/authorization/authority";
+import { EventStreamProcessorLive } from "#modules/scripts/executions/event-stream-processor";
+import { SandboxExecutionQueueStoreLive } from "#modules/scripts/executions/queues";
+import { SandboxWorkflowDefinitionsLive } from "#modules/scripts/executions/workflow-live";
+import { SandboxHostConfigLive } from "#modules/scripts/host/sandbox-host-live";
+import { ScriptExecutionServiceLive, SandboxWorkflowPinningLive } from "#modules/scripts/layer";
+import { SandboxRepository } from "#modules/scripts/registry/repository";
+import { SandboxWorkflowReferenceRepository } from "#modules/scripts/registry/workflow-references";
 import { SignalSchemasServiceLive } from "#modules/signals/layer";
 import { TestSupportServicesLive } from "#modules/test-support/layer";
 import { ObjectStorageServiceLive, UploadServicesLive } from "#modules/uploads/layer";
@@ -144,6 +140,7 @@ import { AdmittedWorkflowCatalogueLive } from "./admitted-workflows";
 import { FrequentCronWorkflowDefinitionsLive } from "./cron-workflow-definitions";
 import { ImportRunExecutionControllerLive } from "./import-run-execution-controller";
 import { KernelWorkflowReferencesLive } from "./kernel-workflow-references";
+import { RuntimeSandboxExecutorLive, SandboxDurableHostServicesLive } from "./script-host";
 import { ServerLive } from "./server";
 
 export { InternalOAuthProvisioningLive } from "#modules/auth/layer";
@@ -157,16 +154,19 @@ const SignedUrlInfrastructureLive = Layer.provideMerge(
 );
 
 const BaseInfrastructureServicesLive = Layer.provideMerge(
-	SandboxArtifactStore.layer,
-	Layer.mergeAll(
-		PgClientLive,
-		DatabaseSession.layer,
-		RedisService.layer,
-		SignedUrlInfrastructureLive,
-		ServerRun.layer,
-		S3Service.layer,
-		ProKeyService.layer,
-		EgressHttpClientLive,
+	ExecutionFileStore.layer,
+	Layer.provideMerge(
+		SandboxHostConfigLive,
+		Layer.mergeAll(
+			PgClientLive,
+			DatabaseSession.layer,
+			RedisService.layer,
+			SignedUrlInfrastructureLive,
+			ServerRun.layer,
+			S3Service.layer,
+			ProKeyService.layer,
+			EgressHttpClientLive,
+		),
 	),
 );
 
@@ -187,7 +187,7 @@ const ContentLifecycleRepositoriesLive = Layer.merge(
 );
 
 // One reference keeps a single sandbox runtime with ingestion staging for every consumer.
-const StagedRuntimeSandboxServiceLive = RuntimeSandboxServiceLive.pipe(
+const StagedRuntimeSandboxExecutorLive = RuntimeSandboxExecutorLive.pipe(
 	Layer.provide(IngestionArtifactStagingProvidedLive),
 );
 
@@ -200,7 +200,7 @@ const ServicesLive = Layer.mergeAll(
 	EntityImportServiceLive,
 	EventsServiceLive,
 	EventStreamWorkServiceLive.pipe(
-		Layer.provide(EventStreamProcessorLive.pipe(Layer.provide(SandboxExecutionServiceLive))),
+		Layer.provide(EventStreamProcessorLive.pipe(Layer.provide(ScriptExecutionServiceLive))),
 	),
 	GodModeServiceLive,
 	ImportsServiceLive,
@@ -217,8 +217,8 @@ const ServicesLive = Layer.mergeAll(
 	PluginInstallationRuntimeLive,
 	ProviderEntitySearchServiceLive,
 	RelationshipsServiceLive,
-	StagedRuntimeSandboxServiceLive,
-	SandboxExecutionServiceLive,
+	StagedRuntimeSandboxExecutorLive,
+	ScriptExecutionServiceLive,
 	SavedViewsServiceLive,
 	RyotQLService.layer,
 	NotificationSubscriptionsServiceLive,
@@ -249,7 +249,7 @@ const ServicesLive = Layer.mergeAll(
 
 const ServicesWithTestSupportLive = Layer.merge(
 	ServicesLive,
-	TestSupportServicesLive.pipe(Layer.provide(StagedRuntimeSandboxServiceLive)),
+	TestSupportServicesLive.pipe(Layer.provide(StagedRuntimeSandboxExecutorLive)),
 ).pipe(
 	Layer.provideMerge(Layer.mergeAll(IngestionRetirementLive, PluginRuntimeResolverLive)),
 	Layer.provide(AdmittedWorkflowCatalogueLive),
@@ -354,11 +354,11 @@ export const MigrationInfrastructureLive = Layer.mergeAll(
 const RuntimeWorkflowOperationsLive = Layer.mergeAll(
 	SandboxDurableHostServicesLive,
 	AddEntityToCollectionWorkflowOperationsLive,
-	Layer.provide(AutomationRunWorkflowOperationsServiceLive, SandboxExecutionServiceLive),
+	Layer.provide(AutomationRunWorkflowOperationsServiceLive, ScriptExecutionServiceLive),
 	EntityImportWorkflowOperationsProvidedLive,
 	Layer.provide(
 		TranslateEntityWorkflowOperationsLive,
-		Layer.merge(SandboxExecutionServiceLive, PluginRuntimeResolverLive),
+		Layer.merge(ScriptExecutionServiceLive, PluginRuntimeResolverLive),
 	),
 	BackupWorkflowOperationsLive,
 	UserLifecycleWorkflowOperationsProvidedLive.pipe(Layer.provide(AdmittedWorkflowCatalogueLive)),

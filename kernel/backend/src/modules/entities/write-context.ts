@@ -3,6 +3,12 @@ import { LifecycleCommand } from "@ryot-app/contract/modules/automations/lifecyc
 import type { PluginManifest } from "@ryot-app/contract/modules/plugins/manifest";
 import { DefinitionOwner, definitionOwner } from "@ryot-app/contract/modules/plugins/references";
 import type { AppPropertyDefinition, AppSchema } from "@ryot-app/contract/schema/property-schema";
+import { SandboxExecutionAuthority } from "@ryot-app/sandbox/host/authority";
+import {
+	isUserBootstrapPrincipal,
+	ScriptExecutionPrincipal,
+	sandboxSubjectUserId,
+} from "@ryot-app/sandbox/protocol/principal";
 import { stableStringify } from "@ryot-app/ts-utils/json";
 import { and, eq, isNull, sql } from "drizzle-orm";
 import { Context, Effect, Layer, Schema, Struct } from "effect";
@@ -11,19 +17,13 @@ import { lockPluginIngestionShared } from "#lib/infrastructure/db/advisory-locks
 import { ownerWhere } from "#lib/infrastructure/db/definition-owner";
 import * as tables from "#lib/infrastructure/db/schema/tables/combined";
 import { DatabaseSession } from "#lib/infrastructure/db/session";
-import {
-	SandboxExecutionAuthority,
-	isUserBootstrapPrincipal,
-	SandboxExecutionPrincipal,
-	sandboxSubjectUserId,
-} from "#lib/infrastructure/sandbox-runtime/execution-principal";
 import { parseAppSchemaProperties } from "#lib/property-schema/property-schema-runtime";
-import { SandboxRepository } from "#modules/sandbox/repository";
-import { SandboxExecutionAuthorityLive } from "#modules/sandbox/runtime-authority";
+import { SandboxExecutionAuthorityLive } from "#modules/scripts/authorization/authority";
+import { SandboxRepository } from "#modules/scripts/registry/repository";
 
 export const DomainLifecycleCommand = Schema.Struct({
 	...LifecycleCommand.fields,
-	writeContext: Schema.NullOr(SandboxExecutionPrincipal),
+	writeContext: Schema.NullOr(ScriptExecutionPrincipal),
 	kernelCollection: Schema.optional(Schema.Literal(true)),
 }).pipe(
 	Schema.check(

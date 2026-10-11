@@ -27,6 +27,7 @@ import type {
 	UserId,
 } from "@ryot-app/contract/schema/brands";
 import type { AppSchema } from "@ryot-app/contract/schema/property-schema";
+import { principalOwner } from "@ryot-app/sandbox/protocol/principal";
 import { stableStringify } from "@ryot-app/ts-utils/json";
 import {
 	Cause,
@@ -57,7 +58,6 @@ import {
 } from "#lib/domain/lifecycle-policy-patch";
 import { AppConfig } from "#lib/infrastructure/config/service";
 import { DatabaseSession } from "#lib/infrastructure/db/session";
-import { principalOwner } from "#lib/infrastructure/sandbox-runtime/execution-principal";
 import {
 	awaitWorkflowSettled,
 	WorkflowExecutionNotifications,

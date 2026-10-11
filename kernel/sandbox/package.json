@@ -1,0 +1,30 @@
+{
+	"name": "@ryot-app/sandbox",
+	"private": true,
+	"exports": {
+		"./*": "./src/*.ts"
+	},
+	"scripts": {
+		"build": "bun run tooling/runtime.ts && cd native && cargo build --release --bins && cargo run --release --bin ryot-sandbox-artifacts -- ../dist",
+		"test": "bun --bun run vitest run && cd native && cargo test",
+		"protocol:fixtures": "bun tooling/protocol-fixtures.ts",
+		"check": "oxfmt . --write && oxlint . --fix && bun tooling/protocol-fixtures.ts --check && cd native && cargo fmt --check && cargo clippy --all-targets -- -D warnings"
+	},
+	"dependencies": {
+		"@effect/platform-bun": "4.0.0",
+		"@ryot-app/contract": "workspace:*",
+		"@ryot-app/sandbox-compiler": "workspace:*",
+		"@ryot-app/sandbox-sdk": "workspace:*",
+		"@ryot-app/ts-utils": "workspace:*",
+		"@ryot-app/vite-compiler": "workspace:*",
+		"effect": "4.0.0",
+		"ioredis": "5.11.1"
+	},
+	"devDependencies": {
+		"@effect/vitest": "4.0.0",
+		"@ryot-app/testing": "workspace:*",
+		"@types/ioredis": "5.0.0",
+		"bun-types": "1.4.3",
+		"vitest": "4.1.9"
+	}
+}

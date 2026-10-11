@@ -15,8 +15,8 @@ import { IntegrationSyncWorkflow } from "#modules/integrations/sync-workflow";
 import { AdmittedWorkflowCatalogue } from "#modules/mutations/workflow-catalogue";
 import { EntityImportWorkflow } from "#modules/provider-entities/entity-import-workflow";
 import { ProviderEntityPopulationWorkflow } from "#modules/provider-entities/provider-entity-population-workflow";
-import { SandboxDurableHostServiceWorkflow } from "#modules/sandbox/durable-host-dispatcher";
-import { SandboxScriptWorkflow } from "#modules/sandbox/sandbox-script-workflow";
+import { ScriptExecutionWorkflow } from "#modules/scripts/executions/workflow";
+import { SandboxDurableHostServiceWorkflow } from "#modules/scripts/host/durable-dispatcher";
 import { UserBootstrapWorkflow } from "#modules/user-bootstrap/workflow";
 
 export const AdmittedWorkflowCatalogueLive = Layer.succeed(
@@ -33,7 +33,7 @@ export const AdmittedWorkflowCatalogueLive = Layer.succeed(
 		ProcessIngestionCaptureWorkflow,
 		ProcessIntegrationRunWorkflow,
 		IntegrationSyncWorkflow,
-		SandboxScriptWorkflow,
+		ScriptExecutionWorkflow,
 		SandboxDurableHostServiceWorkflow,
 		AddEntityToCollectionWorkflow,
 		UserBootstrapWorkflow,

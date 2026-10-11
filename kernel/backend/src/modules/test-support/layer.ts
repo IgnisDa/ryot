@@ -12,8 +12,8 @@ import { PluginRepository } from "#modules/plugins/repository";
 import { PluginRuntimeResolverLive } from "#modules/plugins/runtime-resolver";
 import { RelationshipSchemasRepositoryLive } from "#modules/relationship-schemas/layer";
 import { RelationshipsServiceLive } from "#modules/relationships/layer";
-import { SandboxExecutionServiceLive } from "#modules/sandbox/layer";
 import { PluginCronServiceLive } from "#modules/scheduler/layer";
+import { ScriptExecutionServiceLive } from "#modules/scripts/layer";
 
 import { OperationalGateRepository } from "./operational-gate-repository";
 import { OperationalGateService } from "./operational-gate-service";
@@ -27,7 +27,7 @@ export const TestSupportServicesLive = Layer.merge(
 				EntitiesServiceRuntimeLive,
 				InterestServicesLive,
 				PluginCronServiceLive,
-				SandboxExecutionServiceLive,
+				ScriptExecutionServiceLive,
 				TranslationsRepository.layer,
 				RelationshipsServiceLive,
 				PluginIngestionServiceLive,
@@ -45,7 +45,7 @@ export const TestSupportServicesLive = Layer.merge(
 				ImportsServiceLive,
 				IngestionExecutionLive,
 				ImportsRepository.layer,
-				SandboxExecutionServiceLive,
+				ScriptExecutionServiceLive,
 				PluginRuntimeResolverLive,
 			),
 		),

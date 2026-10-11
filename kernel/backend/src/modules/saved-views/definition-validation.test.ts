@@ -6,9 +6,8 @@ import type {
 import { SavedViewBadRequest } from "@ryot-app/contract/modules/saved-views/schemas";
 import { EntitySchemaSlug, PluginId } from "@ryot-app/contract/schema/brands";
 import { and, column, document, eq, field, literal, pluginId, rows, table } from "@ryot-app/ryotql";
+import { assertExitFails } from "@ryot-app/testing/effect-assertions";
 import { Effect } from "effect";
-
-import { assertExitFails } from "#lib/test-utils/assertions";
 
 import {
 	validateEntityBrowserSavedViewDefinition,

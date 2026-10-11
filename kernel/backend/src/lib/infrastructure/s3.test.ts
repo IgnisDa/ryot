@@ -1,9 +1,9 @@
 import { layer } from "@effect/vitest";
 import { BadRequest } from "@ryot-app/contract/errors";
+import { assertExitFails } from "@ryot-app/testing/effect-assertions";
 import { Context, Effect, Layer, MutableRef, Option, Redacted, Ref, Stream } from "effect";
 import { expect } from "vitest";
 
-import { assertExitFails } from "#lib/test-utils/assertions";
 import { makeAppConfigLayer } from "#lib/test-utils/effect";
 
 import { S3Service } from "./s3";

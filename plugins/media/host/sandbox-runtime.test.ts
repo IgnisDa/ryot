@@ -2,7 +2,7 @@ import { layer } from "@effect/vitest";
 import {
 	pluginLoadLayer,
 	verifyPluginSandboxScriptsLoad,
-} from "@ryot-app/kernel-backend/lib/infrastructure/sandbox-runtime/plugin-load.test-support";
+} from "@ryot-app/kernel-backend/modules/scripts/plugin-load.test-support";
 
 layer(pluginLoadLayer, { excludeTestServices: true })((test) => {
 	test.effect(
