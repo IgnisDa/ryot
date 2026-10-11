@@ -274,7 +274,7 @@ describe("customize sidebar route", () => {
 			});
 			const panel = yield* Effect.promise(() => openPanel());
 
-			fireEvent.click(panel.getByRole("switch", { name: /^Show Fixture · System · / }));
+			fireEvent.click(panel.getByRole("switch", { name: "Show Fixture in sidebar" }));
 			fireEvent.click(panel.getByRole("button", { name: "Save sidebar changes" }));
 
 			yield* Effect.promise(() =>

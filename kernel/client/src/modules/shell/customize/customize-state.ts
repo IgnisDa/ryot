@@ -3,7 +3,6 @@ import type { NavigationData, NavigationView } from "@ryot-app/ryotql-recipes/na
 import type { PluginClientCatalog } from "@ryot-app/ryotql-recipes/plugin-client-catalog";
 
 import { sortWorkspaces } from "#/modules/navigation/workspace-state";
-import { pluginInstallationLabel } from "#/modules/ui/catalog/selection";
 
 export type CustomizeSection = "workspaces" | "views" | "savedViews";
 
@@ -42,17 +41,15 @@ const draftItems = (items: readonly NavigationView[], installationId: string | n
 		}));
 
 const draftWorkspaces = (catalog: PluginClientCatalog) =>
-	sortWorkspaces(catalog).map(
-		({ icon, name, scope, isHidden, pluginId, packageId, installationId }) => ({
-			icon,
-			isHidden,
-			pluginId,
-			packageId,
-			installationId,
-			id: installationId,
-			name: pluginInstallationLabel({ name, scope, packageId }),
-		}),
-	);
+	sortWorkspaces(catalog).map(({ icon, name, isHidden, pluginId, packageId, installationId }) => ({
+		icon,
+		name,
+		isHidden,
+		pluginId,
+		packageId,
+		installationId,
+		id: installationId,
+	}));
 
 const withVisibilityFlipped = <T extends CustomizeDraftItem>(item: T) => ({
 	...item,
