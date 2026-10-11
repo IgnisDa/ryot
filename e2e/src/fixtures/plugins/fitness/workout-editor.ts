@@ -3,6 +3,7 @@ import { pluginPackageSegments } from "@ryot-app/contract/schema/brands";
 import { JsonValue } from "@ryot-app/contract/schema/json";
 import {
 	exerciseOverrideUpdateRecipe,
+	workoutDeleteRecipe,
 	workoutEditorContextRecipe,
 	workoutEditorSaveRecipe,
 	workoutTimeCorrectionRecipe,
@@ -52,6 +53,9 @@ export const correctWorkoutTimes = (
 	client: Client,
 	input: RecipeInput<typeof workoutTimeCorrectionRecipe>,
 ) => invokeFitnessOperation(client, workoutTimeCorrectionRecipe, input);
+
+export const deleteWorkout = (client: Client, input: RecipeInput<typeof workoutDeleteRecipe>) =>
+	invokeFitnessOperation(client, workoutDeleteRecipe, input);
 
 export const updateExerciseOverrides = (
 	client: Client,
