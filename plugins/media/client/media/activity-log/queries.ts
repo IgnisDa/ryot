@@ -78,6 +78,7 @@ export const logActivityMutation = createRyotMutation<
 	client.operations.invoke({
 		slug: "media-activity-log",
 		packageId: PLUGIN_PACKAGE_ID,
+		idempotencyKey: submissionId,
 		output: MediaActivityLogOutput,
 		inputSchema: MediaActivityLogInput,
 		input: activityLogInput(input, { submittedAt, submissionId }),
