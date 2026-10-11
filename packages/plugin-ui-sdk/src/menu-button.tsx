@@ -1,6 +1,7 @@
-import { IconButton, Menu, type MenuItem } from "@ryot-app/plugin-ui-sdk";
-import { AppIcon } from "@ryot-app/plugin-ui-sdk/icon";
 import { useMemo, useState, type ReactNode } from "react";
+
+import { IconButton } from "./button";
+import { Menu, type MenuItem } from "./menu";
 
 type MenuTrigger = {
 	readonly "aria-haspopup": "menu";
@@ -11,6 +12,7 @@ type MenuTrigger = {
 
 export function MenuButton(props: {
 	readonly label: string;
+	readonly icon?: ReactNode;
 	readonly disabled?: boolean;
 	readonly items: ReadonlyArray<MenuItem>;
 	readonly renderTrigger?: (trigger: MenuTrigger) => ReactNode;
@@ -35,7 +37,7 @@ export function MenuButton(props: {
 					ref={setTriggerElement}
 					disabled={props.disabled}
 				>
-					<AppIcon size={18} name="more-horizontal" />
+					{props.icon}
 				</IconButton>
 			) : (
 				props.renderTrigger({
