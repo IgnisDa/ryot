@@ -12,7 +12,6 @@ import { KernelSavedViewRendererName } from "@ryot-app/contract/modules/saved-vi
 import type { AccountGeneration } from "@ryot-app/contract/schema/account-generation";
 import { PluginId, UserId } from "@ryot-app/contract/schema/brands";
 import type { JsonValue } from "@ryot-app/contract/schema/json";
-import { retainPropertySecrets } from "@ryot-app/contract/schema/property-secrets";
 import { type PluginArchivePackage, readPluginArchiveStream } from "@ryot-app/plugin-archive";
 import { sha256Hex } from "@ryot-app/ts-utils/crypto";
 import { Context, Effect, Layer, Result, Schema } from "effect";
@@ -59,7 +58,7 @@ import {
 	validatePluginManifestReferences,
 	validatePluginScriptEntries,
 } from "../packages/validation";
-import { resolvePluginUserSettings } from "../preferences/user-settings";
+import { PluginUserSettingsWriter } from "../preferences/user-settings-writer";
 import { PluginInstallationRepository, type PluginInstallationRow } from "./repository";
 import { PluginInstallationLifecycleDispatcher } from "./workflow";
 
@@ -145,6 +144,7 @@ export class PluginInstallationService extends Context.Service<PluginInstallatio
 					.transaction(work.pipe(Effect.tap(() => invalidator.recordUser(userId))))
 					.pipe(Effect.catchTag("DatabaseSessionStateError", Effect.die));
 			const installations = yield* PluginInstallationRepository;
+			const userSettings = yield* PluginUserSettingsWriter;
 			const savedViewReferences = yield* PluginSavedViewReferences;
 			const lifecycleDispatcher = yield* PluginInstallationLifecycleDispatcher;
 			const assertPackageAvailable = Effect.fn("PluginInstallationService.assertPackageAvailable")(
@@ -1082,55 +1082,7 @@ export class PluginInstallationService extends Context.Service<PluginInstallatio
 					installationId: string,
 					values: Record<string, JsonValue>,
 					reset = false,
-				) =>
-					transaction(
-						userId,
-						Effect.gen(function* () {
-							yield* repository.lockIngestion();
-							const row = yield* installations.findUserSettings(userId, installationId);
-							if (!row?.userSettingsSchema) {
-								return yield* new PluginNotFoundError({
-									reason: { installationId, code: "installation-not-found" },
-								});
-							}
-							const settings = yield* resolvePluginUserSettings(
-								row.userSettingsSchema,
-								reset
-									? {}
-									: retainPropertySecrets(
-											row.userSettingsSchema,
-											row.installation.userSettings,
-											values,
-										),
-							).pipe(
-								Effect.catchTags({
-									SchemaError: Effect.die,
-									PropertyValidationError: (error) =>
-										new PluginRequestError({
-											reason: {
-												code: "validation-failed",
-												diagnostics: error.issues.map((issue) => ({
-													message: issue.message,
-													phase: "validate" as const,
-													severity: "error" as const,
-													code: "invalid-user-settings",
-												})),
-											},
-										}),
-								}),
-							);
-							yield* lockSettingsAssetReferences({
-								ownerUserId: userId,
-								properties: settings,
-								propertiesSchema: row.userSettingsSchema,
-							});
-							return yield* installations.saveUserSettings(
-								userId,
-								installationId,
-								reset ? {} : values,
-							);
-						}),
-					).pipe(Effect.tap(() => invalidator.user(userId))),
+				) => userSettings.save(userId, installationId, values, reset),
 			);
 
 			return {
@@ -1147,7 +1099,13 @@ export class PluginInstallationService extends Context.Service<PluginInstallatio
 		}),
 	},
 ) {
-	static readonly layer = Layer.effect(this, this.make);
-	static readonly layerRuntime = Layer.effect(this, this.make);
-	static readonly layerMigration = Layer.effect(this, this.make);
+	static readonly layer = Layer.effect(this, this.make).pipe(
+		Layer.provide(PluginUserSettingsWriter.layer),
+	);
+	static readonly layerRuntime = Layer.effect(this, this.make).pipe(
+		Layer.provide(PluginUserSettingsWriter.layer),
+	);
+	static readonly layerMigration = Layer.effect(this, this.make).pipe(
+		Layer.provide(PluginUserSettingsWriter.layer),
+	);
 }

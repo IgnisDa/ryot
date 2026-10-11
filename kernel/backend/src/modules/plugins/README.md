@@ -85,11 +85,18 @@ scripts resolve by immutable revision ID, script slug, and content hash.
 ## User preferences
 
 `userSettingsSchema` declares non-secret per-user preferences. `plugin_installation.user_settings`
-stores explicit choices, while schema defaults supply missing values. Installation-owned saves and
-resets validate the active persisted schema under the ingestion lock and invalidate the user's catalog.
-RyotQL exposes stored choices to the kernel preferences UI. Sandbox reads resolve the execution user
-and plugin identity, applying the pinned revision's schema and defaults. These preferences remain
-separate from encrypted configuration revisions and their redacted client projections.
+stores explicit choices, while schema defaults supply missing values. `PluginUserSettingsWriter` owns
+every write: it validates against the active persisted schema, caps the stored document at 64 KiB,
+locks asset references, and invalidates the user's catalog after commit. Installation-owned saves and
+resets replace the document under the exclusive ingestion lock. The `updateUserSettings` sandbox call
+merges top-level keys under the shared ingestion lock and the user write lock, after admitting the
+subject's account generation. It resolves the installation from the plugin and execution user,
+accepts only keys in the pinned revision's schema, and rejects uninstalled, inactive, or incompatible
+installations at write time. Each patch invalidates the catalog; the four-call execution cap bounds
+that cost. RyotQL exposes stored choices to the kernel preferences UI. Sandbox reads resolve the
+execution user and plugin identity, applying the pinned revision's schema and defaults. These
+preferences remain separate from encrypted configuration revisions and their redacted client
+projections.
 
 ## Ingestion retirement
 

@@ -23,75 +23,78 @@ import { pluginContentHash } from "./pipeline";
 import { PluginRepository } from "./repository";
 import type { NormalizedPlugin } from "./types";
 
-export const revisionDatabaseLayer = Layer.unwrap(
-	Effect.sync(() => {
-		const name = `revision_test_${crypto.randomUUID().replaceAll("-", "")}`;
-		const databaseUrl = new URL(testDatabaseUrl());
-		const options = databaseUrl.searchParams.get("options");
-		databaseUrl.searchParams.set(
-			"options",
-			`${options ? `${options} ` : ""}-c search_path=${name},public`,
-		);
-		const config = makeAppConfigLayer({
-			database: { poolMax: 1, url: Redacted.make(databaseUrl.href) },
-		});
-		const dependencies = Layer.mergeAll(
-			ClientArtifactsRepository.layer,
-			DefinitionRepository.layer,
-			PluginInstallationRepository.layer,
-			PluginConfigRevisions.layer,
-			PluginConfigEncryptionKey.layer,
-			SandboxRepository.layer,
-			SandboxWorkflowReferenceRepository.layer,
-		);
-		const repositoryLayer = PluginRepository.layer.pipe(Layer.provide(dependencies));
-		const services = Layer.mergeAll(
-			dependencies,
-			repositoryLayer,
-			PluginRuntimeResolver.layer.pipe(Layer.provide(Layer.merge(repositoryLayer, dependencies))),
-		).pipe(Layer.provideMerge(DatabaseSession.layer), Layer.provide(config));
-		const schemaLayer = Layer.effectDiscard(
-			Effect.gen(function* () {
-				const session = yield* DatabaseSession;
-				const statements = yield* baselineMigrationStatements();
-				yield* Effect.acquireRelease(
-					session.run((db) => db.execute(sql`create schema ${sql.identifier(name)}`)),
-					() =>
-						session
-							.run((db) => db.execute(sql`drop schema ${sql.identifier(name)} cascade`))
-							.pipe(Effect.orDie),
-				);
-				yield* session.transaction(
-					session.run((transaction) =>
-						Effect.gen(function* () {
-							yield* applyBaselineMigration(statements, (statement) =>
-								transaction.execute(sql.raw(statement)),
-							);
-							yield* transaction.insert(tables.user).values([
-								{
-									id: "owner",
-									name: "Owner",
-									email: "owner@example.test",
-									accountGeneration: "test-account-generation",
-								},
-								{
-									id: "recipient",
-									name: "Recipient",
-									email: "recipient@example.test",
-									accountGeneration: "test-account-generation",
-								},
-							]);
-						}),
-					),
-				);
-			}),
-		);
-		return schemaLayer.pipe(
-			Layer.provideMerge(services),
-			Layer.provideMerge(makeConfigProviderLayer()),
-		);
-	}),
-);
+export const makeRevisionDatabaseLayer = (poolMax = 1) =>
+	Layer.unwrap(
+		Effect.sync(() => {
+			const name = `revision_test_${crypto.randomUUID().replaceAll("-", "")}`;
+			const databaseUrl = new URL(testDatabaseUrl());
+			const options = databaseUrl.searchParams.get("options");
+			databaseUrl.searchParams.set(
+				"options",
+				`${options ? `${options} ` : ""}-c search_path=${name},public`,
+			);
+			const config = makeAppConfigLayer({
+				database: { poolMax, url: Redacted.make(databaseUrl.href) },
+			});
+			const dependencies = Layer.mergeAll(
+				ClientArtifactsRepository.layer,
+				DefinitionRepository.layer,
+				PluginInstallationRepository.layer,
+				PluginConfigRevisions.layer,
+				PluginConfigEncryptionKey.layer,
+				SandboxRepository.layer,
+				SandboxWorkflowReferenceRepository.layer,
+			);
+			const repositoryLayer = PluginRepository.layer.pipe(Layer.provide(dependencies));
+			const services = Layer.mergeAll(
+				dependencies,
+				repositoryLayer,
+				PluginRuntimeResolver.layer.pipe(Layer.provide(Layer.merge(repositoryLayer, dependencies))),
+			).pipe(Layer.provideMerge(DatabaseSession.layer), Layer.provide(config));
+			const schemaLayer = Layer.effectDiscard(
+				Effect.gen(function* () {
+					const session = yield* DatabaseSession;
+					const statements = yield* baselineMigrationStatements();
+					yield* Effect.acquireRelease(
+						session.run((db) => db.execute(sql`create schema ${sql.identifier(name)}`)),
+						() =>
+							session
+								.run((db) => db.execute(sql`drop schema ${sql.identifier(name)} cascade`))
+								.pipe(Effect.orDie),
+					);
+					yield* session.transaction(
+						session.run((transaction) =>
+							Effect.gen(function* () {
+								yield* applyBaselineMigration(statements, (statement) =>
+									transaction.execute(sql.raw(statement)),
+								);
+								yield* transaction.insert(tables.user).values([
+									{
+										id: "owner",
+										name: "Owner",
+										email: "owner@example.test",
+										accountGeneration: "test-account-generation",
+									},
+									{
+										id: "recipient",
+										name: "Recipient",
+										email: "recipient@example.test",
+										accountGeneration: "test-account-generation",
+									},
+								]);
+							}),
+						),
+					);
+				}),
+			);
+			return schemaLayer.pipe(
+				Layer.provideMerge(services),
+				Layer.provideMerge(makeConfigProviderLayer()),
+			);
+		}),
+	);
+
+export const revisionDatabaseLayer = makeRevisionDatabaseLayer();
 
 export const revisionPackage = (
 	slug = "fixture",
