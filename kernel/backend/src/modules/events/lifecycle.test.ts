@@ -938,7 +938,36 @@ describe("Event lifecycle PostgreSQL", () => {
 				const staleError = yield* session
 					.transaction(service.persistPreparedMoveReferences(stale))
 					.pipe(Effect.flip);
-				expect(staleError).toMatchObject({ message: "Event changed while lifecycle policies ran" });
+				expect(staleError).toMatchObject({
+					_tag: "EventStale",
+					reason: { eventId: staleId, code: "event-stale" },
+				});
+
+				const staleDeleteId = EventId.make("prepared-stale-delete");
+				yield* seed(staleDeleteId);
+				const staleDelete = yield* service.prepareDelete(
+					{ userId, eventId: staleDeleteId },
+					command("prepared-stale-delete"),
+				);
+				assert(staleDelete);
+				yield* session.transaction(
+					repository.updateEventEntityReferences({
+						userId,
+						mergeInto: movedId,
+						mergeFrom: entityId,
+						eventId: staleDeleteId,
+						updatedAt: DateTime.toDate(DateTime.makeUnsafe("2026-09-15T00:00:01.000Z")),
+					}),
+				);
+				expect(
+					yield* session.transaction(service.persistPreparedDelete(staleDelete)).pipe(Effect.flip),
+				).toMatchObject({
+					_tag: "EventStale",
+					reason: { code: "event-stale", eventId: staleDeleteId },
+				});
+				expect(
+					yield* repository.getEventSnapshot({ userId, eventId: staleDeleteId }),
+				).not.toBeNull();
 
 				const updateId = EventId.make("prepared-update");
 				const deleteId = EventId.make("prepared-delete");
@@ -1030,8 +1059,84 @@ describe("Event lifecycle PostgreSQL", () => {
 				const rejected = yield* rejectingService
 					.prepareDelete({ userId, eventId: rejectedId }, command("prepared-rejected"))
 					.pipe(Effect.flip);
-				expect(rejected.message).toContain("Event policy rejected mutation");
+				expect(rejected).toMatchObject({
+					_tag: "EventBadRequest",
+					reason: { code: "policy-rejected", message: "Event policy rejected mutation" },
+				});
 				expect(yield* repository.getEventSnapshot({ userId, eventId: rejectedId })).not.toBeNull();
+			}),
+		);
+
+		test.effect("reports the stale event of a delete batch", () =>
+			Effect.gen(function* () {
+				const session = yield* DatabaseSession;
+				const repository = yield* EventsRepository;
+				const lifecyclePlanner = yield* LifecyclePlanner;
+				const lifecycleExecution = yield* LifecycleExecution;
+				const policyCalls = yield* Ref.make(0);
+				const eventIds = [EventId.make("batch-fresh"), EventId.make("batch-stale")];
+				for (const eventId of eventIds) {
+					yield* session.transaction(
+						repository.createEvent({
+							userId,
+							entityId,
+							id: eventId,
+							eventSchemaSlug,
+							properties: { rating: 3 },
+							eventSchemaName: "Rating",
+							eventSchemaPluginId: null,
+							occurredAt: DateTime.toDate(DateTime.makeUnsafe(now)),
+						}),
+					);
+				}
+				const racingService = yield* EventsService.make.pipe(
+					Effect.provideService(
+						LifecyclePlanner,
+						withLifecycleBatchPlanning({
+							plan: (input) =>
+								lifecyclePlanner.plan(input).pipe(
+									Effect.map((plan) => {
+										assert(plan.trigger);
+										return input.trigger.kind.category === "request"
+											? {
+													...plan,
+													policies: [{ position: 1, runId: AutomationRunId.make("race-event") }],
+												}
+											: plan;
+									}),
+								),
+						}),
+					),
+					Effect.provideService(LifecycleExecution, {
+						...lifecycleExecution,
+						executePolicy: () =>
+							Effect.gen(function* () {
+								if ((yield* Ref.updateAndGet(policyCalls, (calls) => calls + 1)) === 2) {
+									yield* session.transaction(
+										repository.updateEventEntityReferences({
+											userId,
+											mergeInto: movedId,
+											mergeFrom: entityId,
+											eventId: EventId.make("batch-stale"),
+											updatedAt: DateTime.toDate(DateTime.makeUnsafe(now)),
+										}),
+									);
+								}
+								return { action: "allow" as const };
+							}),
+					}),
+				);
+				expect(
+					yield* racingService
+						.deleteBatch(eventIds, userId, command("stale-delete-batch"))
+						.pipe(Effect.flip),
+				).toMatchObject({
+					_tag: "EventStale",
+					reason: { code: "event-stale", eventId: "batch-stale" },
+				});
+				for (const eventId of eventIds) {
+					expect(yield* repository.getEventSnapshot({ userId, eventId })).not.toBeNull();
+				}
 			}),
 		);
 	});
@@ -1777,5 +1882,11 @@ describe("Event lifecycle PostgreSQL", () => {
 						[eventId, userId, entityId, eventSchemaSlug, "2026-09-15T00:00:00.000123Z"],
 					),
 				);
+				expect(
+					yield* service.deleteBatch([eventId], userId, command("database-timestamp-delete")),
+				).toEqual({ count: 1, warnings: [] });
+				expect(yield* repository.getEventSnapshot({ userId, eventId })).toBeNull();
+			}),
+		);
 	});
 });

@@ -65,7 +65,7 @@ import {
 import { toWorkflowRunResult } from "#lib/shared/workflow-result";
 import { EntitiesRepository } from "#modules/entities/repository";
 import { EventSchemasRepository } from "#modules/event-schemas/repository";
-import { MutationReceipts } from "#modules/mutations/receipts";
+import { MutationReceiptIdentityConflict, MutationReceipts } from "#modules/mutations/receipts";
 import { dispatchAdmittedWorkflow } from "#modules/mutations/workflow-dispatch";
 import {
 	catalogDefinitionFingerprint,
@@ -167,25 +167,10 @@ const eventBadRequest = (
 		| "policy-rejected",
 	message: string,
 ) => new EventBadRequest({ reason: { code, message } });
-const receiptIdentityFailure = (error: DbError) =>
-	error.message === "Conflicting event command identity"
-		? eventBadRequest("mutation-conflict", error.message)
+const receiptConflict = (error: DbError | MutationReceiptIdentityConflict) =>
+	error instanceof MutationReceiptIdentityConflict
+		? eventBadRequest("mutation-conflict", "Conflicting event command identity")
 		: error;
-const publicDeleteFailure = (error: DbError) => {
-	if (error.message === "Event request exceeds automation limits") {
-		return eventBadRequest("automation-limit", error.message);
-	}
-	if (error.message.startsWith("Event policy execution failed:")) {
-		return eventBadRequest("policy-execution-failed", error.message);
-	}
-	if (error.message.startsWith("Event policy cannot transform")) {
-		return eventBadRequest("invalid-policy-transform", error.message);
-	}
-	if (error.message.startsWith("Event policy rejected")) {
-		return eventBadRequest("policy-rejected", error.message);
-	}
-	return error;
-};
 const eventCreateFailure = (error: EventCreateItemError) =>
 	eventBadRequest("mutation-conflict", `Event reference is not writable: ${error.reason.code}`);
 
@@ -236,16 +221,22 @@ export class EventsService extends Context.Service<EventsService>()("EventsServi
 		const session = yield* DatabaseSession;
 		const planner = yield* LifecyclePlanner;
 		const receipts = yield* MutationReceipts.make;
+		const findReceipt = (
+			input: EventIdentityInput,
+			command: LifecycleCommand,
+			mutation: EventMutationReceiptInput,
+			lock: boolean,
+		) =>
+			(lock ? receipts.lookup : receipts.peek)(
+				eventMutationReceiptIdentity(input, command, mutation),
+				EventMutationReceiptResult,
+			);
 		const lookupReceipt = (
 			input: EventIdentityInput,
 			command: LifecycleCommand,
 			mutation: EventMutationReceiptInput,
 			lock = true,
-		) =>
-			(lock ? receipts.lookup : receipts.peek)(
-				eventMutationReceiptIdentity(input, command, mutation),
-				EventMutationReceiptResult,
-			).pipe(Effect.mapError(eventReceiptError));
+		) => findReceipt(input, command, mutation, lock).pipe(Effect.mapError(eventReceiptError));
 		const execution = yield* LifecycleExecution;
 		const verifyCreateBatchInput = (
 			input: { userId: UserId; payload: ReadonlyArray<CreateEventItem> },
@@ -369,8 +360,7 @@ export class EventsService extends Context.Service<EventsService>()("EventsServi
 			command: LifecycleCommand,
 			mutation: Extract<EventMutationReceiptInput, { operation: "edit" }>,
 			lock = true,
-		) =>
-			lookupReceipt(input, command, mutation, lock).pipe(Effect.mapError(receiptIdentityFailure));
+		) => findReceipt(input, command, mutation, lock).pipe(Effect.mapError(receiptConflict));
 		const resolveEventScopes = (input: Parameters<typeof resolveEventCreateItemScopes>[0]) =>
 			resolveEventCreateItemScopes(input).pipe(
 				Effect.provideService(EntitiesRepository, entities),
@@ -646,7 +636,7 @@ export class EventsService extends Context.Service<EventsService>()("EventsServi
 			inline = false,
 		): Effect.fn.Return<
 			PreparedEventMutationResult | null,
-			DbError | EventStale | LifecyclePersistenceError
+			DbError | EventBadRequest | EventStale | LifecyclePersistenceError
 		> {
 			yield* assertRootTransaction;
 			const command = yield* Schema.decodeEffect(LifecycleCommand)(commandInput).pipe(
@@ -735,7 +725,10 @@ export class EventsService extends Context.Service<EventsService>()("EventsServi
 						trigger: lifecycleTrigger(command, input.userId, request),
 					});
 					if (plan.trigger?.blockedReason) {
-						return yield* new DbError({ message: "Event request exceeds automation limits" });
+						return yield* eventBadRequest(
+							"automation-limit",
+							"Event request exceeds automation limits",
+						);
 					}
 					const makePrepared = (
 						parentTriggerId: AutomationTriggerId | null,
@@ -818,20 +811,29 @@ export class EventsService extends Context.Service<EventsService>()("EventsServi
 						.pipe(
 							Effect.catchTag("AutomationPolicyExecutionError", (error) =>
 								Effect.fail(
-									new DbError({ message: `Event policy execution failed: ${error.runId}` }),
+									eventBadRequest(
+										"policy-execution-failed",
+										`Event policy execution failed: ${error.runId}`,
+									),
 								),
 							),
 						);
 					if (output.action === "reject") {
-						return yield* new DbError({ message: "Event policy rejected mutation" });
+						return yield* eventBadRequest("policy-rejected", "Event policy rejected mutation");
 					}
 					if (output.action === "transform") {
 						if (!move || request.operation !== "update") {
-							return yield* new DbError({ message: "Event policy cannot transform this mutation" });
+							return yield* eventBadRequest(
+								"invalid-policy-transform",
+								"Event policy cannot transform this mutation",
+							);
 						}
 						const patched = applyLifecyclePolicyPatch(request, output.patch);
 						if (!patched.ok) {
-							return yield* new DbError({ message: "Event policy cannot transform this mutation" });
+							return yield* eventBadRequest(
+								"invalid-policy-transform",
+								"Event policy cannot transform this mutation",
+							);
 						}
 						if (
 							planned.eventSchemaFingerprint === undefined ||
@@ -1026,9 +1028,6 @@ export class EventsService extends Context.Service<EventsService>()("EventsServi
 						: { ownerWorkId: prepared.command.causation.eventStreamWorkId }),
 				});
 				if (!updated) {
-					if (prepared.operation === "move") {
-						return yield* new DbError({ message: "Event changed while lifecycle policies ran" });
-					}
 					return yield* new EventStale({
 						reason: { code: "event-stale", eventId: prepared.input.eventId },
 					});
@@ -1054,7 +1053,9 @@ export class EventsService extends Context.Service<EventsService>()("EventsServi
 						: { ownerWorkId: prepared.command.causation.eventStreamWorkId }),
 				});
 				if (!deleted) {
-					return yield* new DbError({ message: "Event changed while lifecycle policies ran" });
+					return yield* new EventStale({
+						reason: { code: "event-stale", eventId: prepared.input.eventId },
+					});
 				}
 				eventId = deleted;
 				change = {
@@ -1188,9 +1189,7 @@ export class EventsService extends Context.Service<EventsService>()("EventsServi
 			if (replay) {
 				return replay;
 			}
-			const prepared = yield* prepareMoveOrDelete(input, command, undefined, true).pipe(
-				Effect.mapError((error) => (error instanceof DbError ? publicDeleteFailure(error) : error)),
-			);
+			const prepared = yield* prepareMoveOrDelete(input, command, undefined, true);
 			if (!prepared) {
 				const racedReplay = yield* replaySingle(input, command, mutation);
 				if (racedReplay) {
@@ -1203,15 +1202,7 @@ export class EventsService extends Context.Service<EventsService>()("EventsServi
 			const work =
 				"_tag" in prepared
 					? prepared.work
-					: yield* transaction(withBatch(command, persist(prepared))).pipe(
-							Effect.catchTag("DbError", (error) =>
-								error.message.includes("changed while lifecycle policies ran")
-									? Effect.fail(
-											new EventStale({ reason: { code: "event-stale", eventId: input.eventId } }),
-										)
-									: Effect.fail(error),
-							),
-						);
+					: yield* transaction(withBatch(command, persist(prepared)));
 			return { eventId: work.result, warnings: yield* execution.dispatch(work.dispatch) };
 		});
 		const batchReplay = Effect.fnUntraced(function* (
@@ -1239,7 +1230,7 @@ export class EventsService extends Context.Service<EventsService>()("EventsServi
 			});
 			const aggregate = yield* receipts
 				.peek(batchIdentity, EventMutationBatchReceiptResult)
-				.pipe(Effect.mapError(eventReceiptError), Effect.mapError(receiptIdentityFailure));
+				.pipe(Effect.mapError(receiptConflict));
 			if (aggregate) {
 				return aggregate;
 			}
@@ -1336,7 +1327,7 @@ export class EventsService extends Context.Service<EventsService>()("EventsServi
 				Effect.gen(function* () {
 					const aggregateReplay = yield* receipts
 						.lookup(batchIdentity, EventMutationBatchReceiptResult)
-						.pipe(Effect.mapError(eventReceiptError), Effect.mapError(receiptIdentityFailure));
+						.pipe(Effect.mapError(receiptConflict));
 					if (aggregateReplay) {
 						return { _tag: "Replay" as const, receipt: aggregateReplay };
 					}
@@ -1441,7 +1432,7 @@ export class EventsService extends Context.Service<EventsService>()("EventsServi
 				Effect.gen(function* () {
 					const aggregateReplay = yield* receipts
 						.lookup(batchIdentity, EventMutationBatchReceiptResult)
-						.pipe(Effect.mapError(eventReceiptError), Effect.mapError(receiptIdentityFailure));
+						.pipe(Effect.mapError(receiptConflict));
 					if (aggregateReplay) {
 						return { _tag: "Replay" as const, receipt: aggregateReplay };
 					}
@@ -1502,15 +1493,6 @@ export class EventsService extends Context.Service<EventsService>()("EventsServi
 					yield* receipts.insert({ result, dispatch, identity: batchIdentity });
 					return { result, dispatch, _tag: "Committed" as const };
 				}),
-			).pipe(
-				Effect.catchTag("DbError", (error) =>
-					Effect.suspend(() => {
-						const eventId = eventIds[0];
-						return error.message.includes("changed while lifecycle policies ran") && eventId
-							? Effect.fail(new EventStale({ reason: { eventId, code: "event-stale" } }))
-							: Effect.fail(error);
-					}),
-				),
 			);
 			if (work._tag === "Replay") {
 				return yield* dispatchBatchResult(work.receipt);
