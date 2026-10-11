@@ -13,6 +13,7 @@ import {
 import type { UserId } from "@ryot-app/contract/schema/brands";
 import { Context, Effect, Layer } from "effect";
 
+import { makeManagedAssetReferenceLocker } from "#lib/domain/managed-asset-writes";
 import { PluginCatalogInvalidator } from "#modules/plugins/catalog/events";
 import { PluginRuntimeResolver } from "#modules/plugins/catalog/runtime-resolver";
 import { PluginSavedViewReferences } from "#modules/plugins/catalog/saved-view-references";
@@ -41,6 +42,7 @@ export class SavedViewsService extends Context.Service<SavedViewsService>()("Sav
 		const installations = yield* PluginInstallationRepository;
 		const pluginRepository = yield* PluginRepository;
 		const session = yield* DatabaseSession;
+		const lockAssetReferences = makeManagedAssetReferenceLocker(session);
 		const transact = <A, E, R>(userId: UserId, work: Effect.Effect<A, E, R>) =>
 			session
 				.transaction(
@@ -98,6 +100,19 @@ export class SavedViewsService extends Context.Service<SavedViewsService>()("Sav
 				null,
 				page?.kind === "page" ? page : null,
 			);
+			if (
+				page?.kind === "page" &&
+				(yield* lockAssetReferences([
+					{ properties: settings, propertiesSchema: page.settingsSchema },
+				]))
+			) {
+				return yield* new SavedViewBadRequest({
+					reason: {
+						code: "settings-incompatible",
+						message: "Settings reference a retired managed asset",
+					},
+				});
+			}
 			return dataSources;
 		});
 		const create = Effect.fn(function* (

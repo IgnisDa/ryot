@@ -56,7 +56,7 @@ import { validateSavedViewDefinition } from "#modules/saved-views/definition-val
 import { SavedViewsRepository } from "#modules/saved-views/repository";
 import { DatabaseSession } from "#platform/db/session";
 import * as tables from "#schema/tables/combined";
-import { makeAppConfigLayer } from "#testing/effect";
+import { fakeDatabaseSession, makeAppConfigLayer } from "#testing/effect";
 
 import { createArchiveStream, validateArchiveStream } from "../archive/archive";
 import {
@@ -856,6 +856,7 @@ const restoreWriterLayer = (options: { readonly eventInsertFails?: boolean } = {
 	Layer.effect(BackupRestoreWriter, BackupRestoreWriter.make).pipe(
 		Layer.provideMerge(
 			Layer.mergeAll(
+				fakeDatabaseSession({}),
 				Layer.mock(PluginRepository, {
 					listPrivateForUser: () => Effect.succeed([]),
 					listActiveSystemPlugins: () => Effect.succeed([]),

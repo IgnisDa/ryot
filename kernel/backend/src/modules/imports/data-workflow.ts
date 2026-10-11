@@ -11,12 +11,9 @@ import { Cause, DateTime, Effect, Layer, Schema } from "effect";
 import { Workflow } from "effect/workflow";
 import { WorkflowEngine, WorkflowInstance } from "effect/workflow/WorkflowEngine";
 
+import { collectManagedAssetLocators } from "#lib/domain/managed-asset-locators";
 import { ManagedAssetsService } from "#modules/assets/storage/managed-assets";
-import {
-	collectManagedAssetLocators,
-	requiredReference,
-	rewritePropertyReferences,
-} from "#modules/backups/data-references";
+import { requiredReference, rewritePropertyReferences } from "#modules/backups/data-references";
 import { DefinitionRepository } from "#modules/definitions/repository";
 import { DefinitionSnapshot, definitionLookup } from "#modules/definitions/snapshot";
 import { EntitiesRepository } from "#modules/entities/repository";

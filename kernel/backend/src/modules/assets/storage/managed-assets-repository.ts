@@ -1,7 +1,10 @@
 import { conflict, DbError } from "@ryot-app/contract/errors";
-import type { ManagedAssetLocator } from "@ryot-app/contract/modules/assets/schemas";
+import {
+	type ManagedAssetLocator,
+	UploadBadRequest,
+} from "@ryot-app/contract/modules/assets/schemas";
 import { UserId } from "@ryot-app/contract/schema/brands";
-import { and, eq, or } from "drizzle-orm";
+import { and, eq, isNull, or } from "drizzle-orm";
 import { Context, Effect, Layer } from "effect";
 
 import { DatabaseSession } from "#platform/db/session";
@@ -13,7 +16,7 @@ type ManagedAssetRecord = Omit<typeof schema.managedAsset.$inferSelect, "ownerUs
 
 export type RegisterManagedAssetInput = Omit<
 	typeof schema.managedAsset.$inferInsert,
-	"createdAt" | "ownerUserId"
+	"createdAt" | "ownerUserId" | "retiredAt"
 > & { ownerUserId: UserId };
 
 const locatorWhere = (locator: ManagedAssetLocator) =>
@@ -45,6 +48,36 @@ export class ManagedAssetsRepository extends Context.Service<ManagedAssetsReposi
 				);
 				return row ? toRecord(row) : null;
 			});
+			const lockByLocator = Effect.fn("ManagedAssetsRepository.lockByLocator")(function* (
+				locator: ManagedAssetLocator,
+			) {
+				yield* session.requireTransaction;
+				const [row] = yield* session.run((db) =>
+					db.select().from(schema.managedAsset).where(locatorWhere(locator)).limit(1).for("update"),
+				);
+				return row ? toRecord(row) : null;
+			});
+
+			const retireOwned = Effect.fn("ManagedAssetsRepository.retireOwned")(function* (
+				ownerUserId: UserId,
+				locator: ManagedAssetLocator,
+			) {
+				yield* session.requireTransaction;
+				const [row] = yield* session.run((db) =>
+					db
+						.update(schema.managedAsset)
+						.set({ retiredAt: new Date() })
+						.where(
+							and(
+								locatorWhere(locator),
+								eq(schema.managedAsset.ownerUserId, ownerUserId),
+								isNull(schema.managedAsset.retiredAt),
+							),
+						)
+						.returning({ key: schema.managedAsset.key }),
+				);
+				return row !== undefined;
+			});
 
 			const registerPermanentOwnedObject = Effect.fn(
 				"ManagedAssetsRepository.registerPermanentOwnedObject",
@@ -61,9 +94,12 @@ export class ManagedAssetsRepository extends Context.Service<ManagedAssetsReposi
 				if (inserted) {
 					return toRecord(inserted);
 				}
-				const existing = yield* getByLocator({ key: input.key, type: input.provider });
+				const existing = yield* lockByLocator({ key: input.key, type: input.provider });
 				if (!existing) {
 					return yield* new DbError({ message: "Managed asset insert conflict but not found" });
+				}
+				if (existing.retiredAt !== null) {
+					return yield* new UploadBadRequest({ reason: { code: "asset-forbidden" } });
 				}
 				if (!isIdenticalRegistration(existing, input)) {
 					return yield* conflict("Managed asset locator is already registered");
@@ -78,7 +114,12 @@ export class ManagedAssetsRepository extends Context.Service<ManagedAssetsReposi
 					db
 						.select()
 						.from(schema.managedAsset)
-						.where(eq(schema.managedAsset.ownerUserId, ownerUserId)),
+						.where(
+							and(
+								eq(schema.managedAsset.ownerUserId, ownerUserId),
+								isNull(schema.managedAsset.retiredAt),
+							),
+						),
 				);
 				return rows.map(toRecord);
 			});
@@ -95,6 +136,7 @@ export class ManagedAssetsRepository extends Context.Service<ManagedAssetsReposi
 							.where(
 								and(
 									eq(schema.managedAsset.ownerUserId, ownerUserId),
+									isNull(schema.managedAsset.retiredAt),
 									or(...locators.map(locatorWhere)),
 								),
 							),
@@ -103,7 +145,14 @@ export class ManagedAssetsRepository extends Context.Service<ManagedAssetsReposi
 				},
 			);
 
-			return { listByOwner, getByLocator, listByOwnerAndLocators, registerPermanentOwnedObject };
+			return {
+				listByOwner,
+				retireOwned,
+				getByLocator,
+				lockByLocator,
+				listByOwnerAndLocators,
+				registerPermanentOwnedObject,
+			};
 		}),
 	},
 ) {
