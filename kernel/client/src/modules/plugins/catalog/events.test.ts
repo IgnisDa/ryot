@@ -106,7 +106,7 @@ const waitUntil = (predicate: () => boolean, message: string) =>
 	);
 
 describe("plugin catalog events service", () => {
-	it.live("reconciles on connection, heartbeat, and invalidation", () => {
+	it.live("reconciles on connection and invalidation but not on heartbeat", () => {
 		const { runtime, streams, requests } = makeRuntime({ token: "token-1" });
 		let refreshes = 0;
 		const subscription = runtime.runFork(
@@ -126,12 +126,12 @@ describe("plugin catalog events service", () => {
 			streams[0]?.send(frame(PLUGIN_CATALOG_CONNECTED_EVENT));
 			yield* Effect.promise(() => waitUntil(() => refreshes === 1, "connection not reconciled"));
 			streams[0]?.send(": ping\n\n");
-			yield* Effect.promise(() => waitUntil(() => refreshes === 2, "heartbeat not reconciled"));
 			streams[0]?.send(`${frame("unrelated")}${frame(PLUGIN_CATALOG_INVALIDATED_EVENT)}`);
 			yield* Effect.promise(() =>
-				waitUntil(() => refreshes === 3, "catalog invalidation was never routed"),
+				waitUntil(() => refreshes === 2, "catalog invalidation was never routed"),
 			);
-			expect(refreshes).toBe(3);
+			yield* Effect.sleep("20 millis");
+			expect(refreshes).toBe(2);
 		}).pipe(
 			Effect.ensuring(
 				Fiber.interrupt(subscription).pipe(Effect.andThen(Effect.promise(() => runtime.dispose()))),
