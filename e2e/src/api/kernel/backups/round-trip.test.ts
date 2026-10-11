@@ -509,7 +509,7 @@ describe("backup export and restore round trip", () => {
 			const restored = yield* restoreBackup(target.client, bytes);
 			assertCompleted(restored.run, "backup restore");
 			const restoredPluginSettings = yield* getPluginUserSettings(target.client);
-			expect(requireSettingsForField(restoredPluginSettings, "allowNsfw").settings).toEqual({
+			expect(requireSettingsForField(restoredPluginSettings, "allowNsfw").settings).toMatchObject({
 				allowNsfw: true,
 			});
 			expect(requireSettingsForField(restoredPluginSettings, privateSettingKey).settings).toEqual({

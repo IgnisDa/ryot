@@ -12,6 +12,7 @@ import { manifest as googleBooksSearchManifest } from "../backend/providers/book
 import { manifest as igdbSearchOptionsManifest } from "../backend/providers/video-game/igdb/search-options.sandbox";
 import { manifest as igdbSearchManifest } from "../backend/providers/video-game/igdb/search.sandbox";
 import { manifest as monitoringTargetsManifest } from "../backend/workflows/media-monitoring-targets.sandbox";
+import { consumedOnSettingKeys } from "../shared/consumed-on-settings";
 import { mediaEntityEditors } from "../shared/media-entity-editors";
 import {
 	builtinMediaEntitySchemaSlugs,
@@ -1105,4 +1106,38 @@ it("declares media entity editors that link only relationships the edited schema
 			).toBe(entitySchemaSlug);
 		}
 	}
+});
+
+it("declares one bounded where-you-consume list per media type after allowNsfw", () => {
+	const fields = new Map(Object.entries(mediaPlugin.userSettingsSchema.fields));
+	const keys = Object.values(consumedOnSettingKeys);
+	expect(sortBy([...fields.keys()], (key) => key)).toEqual(
+		sortBy(["allowNsfw", ...keys], (key) => key),
+	);
+	expect(fields.get("allowNsfw")).toMatchObject({ position: 0 });
+	expect(new Set([...fields.values()].map(({ position }) => position)).size).toBe(12);
+	for (const key of keys) {
+		expect(fields.get(key)).toMatchObject({
+			type: "array",
+			validation: { maxItems: 30 },
+			items: { type: "string", validation: { maxLength: 100 } },
+		});
+	}
+	expect(fields.get("consumedOnVideoGame")).toMatchObject({
+		label: "Where you consume: Video game",
+		defaultValue: ["PC", "PlayStation 5", "Xbox Series X|S", "Nintendo Switch", "Steam Deck"],
+	});
+	expect(fields.get("consumedOnMovie")).toMatchObject({
+		defaultValue: [
+			"Netflix",
+			"Amazon Prime",
+			"Disney+",
+			"HBO Max",
+			"Apple TV",
+			"Peacock",
+			"Hulu",
+			"Crunchyroll",
+			"Cinema",
+		],
+	});
 });

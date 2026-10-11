@@ -48,6 +48,9 @@ it.live("saves plugin preferences, validates drafts, and guards unsaved navigati
 		const nsfw = page.getByRole("switch", { name: "Show NSFW content" });
 		yield* nsfw.waitFor({ state: "visible" });
 		expect(yield* nsfw.getAttribute("aria-checked")).toBe("false");
+		yield* page
+			.getByText("Where you consume: Movie", { exact: true })
+			.waitFor({ state: "visible" });
 		yield* nsfw.click();
 		yield* page.getByRole("button", { name: "Save changes" }).click();
 		yield* page.getByText("Plugin settings saved.").waitFor({ state: "visible" });
@@ -57,7 +60,10 @@ it.live("saves plugin preferences, validates drafts, and guards unsaved navigati
 			(yield* listPluginUserSettings(owner.client)).find(({ name }) => name === "Media"),
 			"Media settings not found",
 		);
-		expect(mediaSetting.settings).toEqual({ allowNsfw: true });
+		expect(mediaSetting.settings).toMatchObject({
+			allowNsfw: true,
+			consumedOnVisualNovel: ["PC", "Nintendo Switch"],
+		});
 
 		yield* page.getByRole("button", { name: "Reset to defaults" }).click();
 		yield* page.getByText("Plugin settings reset to defaults.").waitFor({ state: "visible" });
