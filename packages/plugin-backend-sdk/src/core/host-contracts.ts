@@ -20,6 +20,9 @@ import {
 	createUserEntityArgsSchema,
 	createUserEntityDataSchema,
 	createUserEntityResultSchema,
+	deleteUserEntityArgsSchema,
+	deleteUserEntityDataSchema,
+	deleteUserEntityResultSchema,
 	ensureUserEntitiesArgsSchema,
 	ensureUserEntitiesDataSchema,
 	ensureUserEntitiesResultSchema,
@@ -216,6 +219,11 @@ export const domainSandboxHostContracts = {
 		args: createUserEntityArgsSchema,
 		success: createUserEntityDataSchema,
 		result: createUserEntityResultSchema,
+	},
+	deleteUserEntity: {
+		args: deleteUserEntityArgsSchema,
+		success: deleteUserEntityDataSchema,
+		result: deleteUserEntityResultSchema,
 	},
 	updateUserEntity: {
 		args: updateUserEntityArgsSchema,

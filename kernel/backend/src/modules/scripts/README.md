@@ -85,7 +85,7 @@ Cache namespaces use canonical JSON tuples with the executing user, tagged local
 | All valid subjects                | `log`, `span`, `httpCall`, `getCachedValue`, `setCachedValue`, `getPersistentValue`, `getPluginConfig`, `claimPersistentValue`                                                                                                        |
 | User or user automation run       | `createEvents`, `getEntitySchemas`, `listEventSchemas`, `listIntegrations`, `getUserPreferences`, `getUserSettings`, `getProAvailability`, `verifyManagedAssets`, `getCurrentIntegration`, `changeUserRelationships`, `executeRyotql` |
 | Designated user-bootstrap script  | `ensureUserEntities` for that plugin's entity schemas, in either plugin scope                                                                                                                                                         |
-| User-subject plugin script        | `createUserEntity` for one user-owned entity whose schema belongs to that plugin                                                                                                                                                      |
+| User-subject plugin script        | `createUserEntity`, `updateUserEntity`, `deleteUserEntity` for user-owned entities whose schemas belong to that plugin                                                                                                                |
 | Pinned system-scope plugin script | `executeRyotql`, `upsertGlobalEntities`, `upsertGlobalRelationships` within plugin ownership                                                                                                                                          |
 | User or system automation run     | `emitSignal`; `sendNotification` is available only to user automation runs                                                                                                                                                            |
 | Integration run of its own plugin | `getOAuthAccessToken` and `invalidateOAuthAccessToken` for OAuth fields its current settings schema declares                                                                                                                          |
@@ -95,13 +95,15 @@ Features own their capability implementations beside their services; assets use 
 ## Script Writes
 
 `createUserEntity` creates one user-owned entity; `updateUserEntity` updates an exact user-owned
-entity against its expected `{ name, updatedAt, properties }`. Both require the schema to belong to
+entity against its expected `{ name, updatedAt, properties }`. `deleteUserEntity` deletes an exact
+user-owned entity of the requested schema through the entity lifecycle, including its referencing events.
+All three require the schema to belong to
 the plugin in its pinned scope and the user's effective definitions. The host binds ownership;
 validation, policy hooks, and mutation receipts use the entity service. Scripts cannot set ownership,
 global scope, provider provenance, or `populatedAt`. Before-stage policies and system subjects cannot
 create user entities through this capability.
 
-`createUserEntity`, `updateUserEntity`, `createEvents`, `updateEvents`, `deleteEvents`, and
+`createUserEntity`, `updateUserEntity`, `deleteUserEntity`, `createEvents`, `updateEvents`, `deleteEvents`, and
 `changeUserRelationships` accept optional `{ submittedAt, idempotencyKey }` options. Stable writes
 are scoped by account generation, installation, script, and capability. A retry must preserve the
 ordered submitted data, timestamp, and key; reusing a key with changed committed data conflicts.

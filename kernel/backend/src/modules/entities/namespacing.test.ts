@@ -181,7 +181,7 @@ layer(relationshipDatabaseLayer())((test) => {
 		() =>
 			Effect.gen(function* () {
 				const source = namespacePackage();
-				const capabilities = ["createUserEntity", "updateUserEntity"] as const;
+				const capabilities = ["createUserEntity", "updateUserEntity", "deleteUserEntity"] as const;
 				const installed = yield* installRevisionPackage(
 					{
 						...source,
@@ -200,6 +200,7 @@ layer(relationshipDatabaseLayer())((test) => {
 									targets: [
 										{ resource: "entity", operation: "create", entitySchemaSlug: "bottle" },
 										{ resource: "entity", operation: "update", entitySchemaSlug: "bottle" },
+										{ resource: "entity", operation: "delete", entitySchemaSlug: "bottle" },
 									] as const,
 								}),
 							),
@@ -350,6 +351,35 @@ layer(relationshipDatabaseLayer())((test) => {
 						db.select().from(tables.entity).where(eq(tables.entity.userId, firstUser)),
 					),
 				).toHaveLength(1);
+				const deletion = {
+					index: 2,
+					kind: "host" as const,
+					name: "deleteUserEntity",
+					args: {
+						capability: "deleteUserEntity" as const,
+						args: [{ entityId: row.id, entitySchemaSlug: "bottle" }, options] as const,
+					},
+				};
+				expect(yield* dispatchSandboxHostActivity(implementations, deletion, scope)).toEqual({
+					state: "success",
+					value: { entityId: row.id },
+				});
+				const afterDeletion = yield* session.run((db) => db.select().from(tables.automationRun));
+				expect(afterDeletion).toHaveLength(3);
+				expect(
+					yield* dispatchSandboxHostActivity(implementations, deletion, {
+						...scope,
+						executionId: "delete-retry",
+					}),
+				).toEqual({ state: "success", value: { entityId: row.id } });
+				expect(yield* session.run((db) => db.select().from(tables.automationRun))).toEqual(
+					afterDeletion,
+				);
+				expect(
+					yield* session.run((db) =>
+						db.select().from(tables.entity).where(eq(tables.entity.id, row.id)),
+					),
+				).toEqual([]);
 			}),
 	);
 	test.effect(

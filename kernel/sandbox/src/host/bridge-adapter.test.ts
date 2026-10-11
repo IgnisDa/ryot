@@ -41,6 +41,7 @@ const makeImplementations = (
 	listIntegrations: () => Effect.fail({ message: "unused" }),
 	sendNotification: () => Effect.fail({ message: "unused" }),
 	createUserEntity: () => Effect.fail({ message: "unused" }),
+	deleteUserEntity: () => Effect.fail({ message: "unused" }),
 	updateUserEntity: () => Effect.fail({ message: "unused" }),
 	getPersistentValue: () => Effect.fail({ message: "unused" }),
 	getUserPreferences: () => Effect.fail({ message: "unused" }),
@@ -476,6 +477,33 @@ describe("bindSandboxHostFunctions", () => {
 			expect(yield* bound.createUserEntity([{ ...item, scope: "caller-selected" }])).toEqual({
 				success: false,
 				error: "0.scope: Expected no excess property",
+			});
+			expect(calls).toHaveLength(1);
+		}),
+	);
+
+	it.effect("validates user entity deletions and forwards submission options", () =>
+		Effect.gen(function* () {
+			const calls: unknown[] = [];
+			const bound = bindSandboxHostFunctions(
+				makeImplementations({
+					deleteUserEntity: (runInput, item, options) => {
+						calls.push({ item, options, runInput });
+						return Effect.succeed({ entityId: item.entityId });
+					},
+				}),
+				input,
+			);
+			const item = { entityId: "entity", entitySchemaSlug: "media-library" };
+			const options = { idempotencyKey: "submission", submittedAt: "2026-10-15T00:00:00Z" };
+			expect(yield* bound.deleteUserEntity([item, options])).toEqual({
+				success: true,
+				data: { entityId: "entity" },
+			});
+			expect(calls).toEqual([{ item, options, runInput: input }]);
+			expect(yield* bound.deleteUserEntity([{ ...item, userId: "other" }, options])).toEqual({
+				success: false,
+				error: "0.userId: Expected no excess property",
 			});
 			expect(calls).toHaveLength(1);
 		}),

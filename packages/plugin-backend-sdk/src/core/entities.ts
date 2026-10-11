@@ -99,6 +99,12 @@ export const createUserEntityArgsSchema = Schema.Tuple([
 ]);
 export const createUserEntityDataSchema = strictStruct({ entityId: sandboxIdSchema });
 export const createUserEntityResultSchema = hostResultSchema(createUserEntityDataSchema);
+export const deleteUserEntityArgsSchema = Schema.Tuple([
+	strictStruct({ entityId: sandboxIdSchema, entitySchemaSlug: nonEmptyString }),
+	Schema.optional(Schema.UndefinedOr(submissionOptionsSchema)),
+]);
+export const deleteUserEntityDataSchema = strictStruct({ entityId: sandboxIdSchema });
+export const deleteUserEntityResultSchema = hostResultSchema(deleteUserEntityDataSchema);
 export const updateUserEntityArgsSchema = Schema.Tuple([
 	strictStruct({
 		entityId: sandboxIdSchema,
