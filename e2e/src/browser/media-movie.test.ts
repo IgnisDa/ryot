@@ -11,6 +11,7 @@ import {
 	requireEventSchemaBySlug,
 	waitForEventWithSchema,
 } from "~/fixtures/kernel";
+import { listPluginUserSettings } from "~/fixtures/kernel/plugin-user-settings";
 import {
 	findMediaEntitySchema,
 	insertLibraryMembership,
@@ -329,6 +330,70 @@ it.live("logs a finished Movie from the Log activity sheet without a reload", ()
 
 		const complete = yield* waitForEventWithSchema(client, seeded.movie.id, events.complete);
 		expect(complete.eventSchemaSlug).toBe(events.complete);
+	}).pipe(PlaywrightSpawner.withBrowser),
+);
+
+it.live("suggests the user's Where you consume list in the Log activity sheet and grows it", () =>
+	Effect.gen(function* () {
+		const apiUrl = getApiUrl();
+		const frontendUrl = getFrontendUrl();
+		const suffix = crypto.randomUUID();
+		const movieName = `Source Tracer Movie ${suffix}`;
+		const source = `Source ${suffix.slice(0, 8)}`;
+		const { email, client, password } = yield* createAuthenticatedClient(apiUrl);
+		const seeded = yield* seedGlobalMovieWithCollection(client, {
+			movieName,
+			siblingName: `Source Tracer Sequel ${suffix}`,
+			collectionName: `Source Tracer Collection ${suffix}`,
+			movieProperties: { runtime: 101, publishYear: 2010 },
+		});
+		yield* insertLibraryMembership(client, { mediaEntityId: seeded.movie.id });
+
+		const browser = yield* Playwright.Browser;
+		const page = yield* browser.newPage({ viewport: { width: 1280, height: 900 } });
+		yield* signInThroughHostedOAuth(page, email, password);
+		yield* page.goto(`${frontendUrl}/e/${seeded.movie.id}`);
+		const media = mediaPluginFrame(page).contentFrame();
+		yield* media
+			.getByRole("heading", { level: 1, exact: true, name: movieName })
+			.waitFor({ state: "visible", timeout: 150_000 });
+
+		const dialog = media.getByRole("dialog", { name: "Log activity" });
+		yield* media.getByRole("button", { exact: true, name: "Log activity" }).click();
+		yield* dialog
+			.getByRole("button", { exact: true, name: "Cinema" })
+			.waitFor({ state: "visible" });
+		yield* dialog
+			.getByRole("button", { exact: true, name: "Netflix" })
+			.waitFor({ state: "visible" });
+		expect(yield* dialog.getByRole("button", { exact: true, name: source }).count).toBe(0);
+		yield* dialog.getByLabel("Where did you watch it?").fill(source);
+		yield* dialog.getByRole("button", { exact: true, name: "Mark as watched" }).click();
+		yield* dialog
+			.getByText(`${movieName} marked as watched.`, { exact: true })
+			.waitFor({ state: "visible" });
+		yield* dialog.getByRole("button", { exact: true, name: "Done" }).click();
+		yield* dialog.waitFor({ state: "hidden" });
+
+		const mediaSettings = requirePresent(
+			(yield* listPluginUserSettings(client)).find(({ name }) => name === "Media"),
+			"Media settings not found",
+		);
+		expect(mediaSettings.settings.consumedOnMovie).toEqual([
+			"Netflix",
+			"Amazon Prime",
+			"Disney+",
+			"HBO Max",
+			"Apple TV",
+			"Peacock",
+			"Hulu",
+			"Crunchyroll",
+			"Cinema",
+			source,
+		]);
+
+		yield* media.getByRole("button", { exact: true, name: "Log activity" }).click();
+		yield* dialog.getByRole("button", { exact: true, name: source }).waitFor({ state: "visible" });
 	}).pipe(PlaywrightSpawner.withBrowser),
 );
 

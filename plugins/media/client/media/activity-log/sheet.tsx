@@ -2,6 +2,8 @@ import {
 	localDay,
 	nextPageCursor,
 	paginationItems,
+	usePluginIdentity,
+	usePluginUserSettings,
 	useRyotInfiniteQuery,
 	useRyotQuery,
 	useRyotSchedule,
@@ -29,6 +31,8 @@ import clsx from "clsx";
 import { type ReactNode, type RefObject, useEffect, useMemo, useState } from "react";
 
 import type { MediaActivityLogContext } from "../../../shared/activity-log-recipes";
+import { consumedOnSettingKey } from "../../../shared/consumed-on-settings";
+import { PLUGIN_PACKAGE_ID } from "../../../shared/plugin-identity";
 import { podcastEpisodesQuery } from "../../podcast/episodes-query";
 import {
 	activityLogContextQuery,
@@ -52,6 +56,7 @@ import {
 	BACKFILL_LIMIT,
 	backfillSummary,
 	capitalized,
+	consumedOnSuggestions,
 	convertedAmount,
 	defaultSeasonNumber,
 	EARLIER_MAX_PAGES,
@@ -603,6 +608,7 @@ type Body = {
 	readonly earlier: Earlier;
 	readonly backfill: boolean;
 	readonly locked: boolean;
+	readonly suggestions: readonly string[];
 	readonly logger: MediaActivityLogger;
 	readonly pager: EpisodePager | undefined;
 	readonly seasonNumber: number | undefined;
@@ -750,7 +756,7 @@ function ActivityLogFields(props: Body) {
 					logger={logger}
 					value={draft.consumedOn}
 					error={errors.consumedOn}
-					suggestions={context.consumedOn}
+					suggestions={props.suggestions}
 					onChange={(consumedOn) => props.onChange({ consumedOn })}
 				/>
 			)}
@@ -809,6 +815,12 @@ function ActivityLogDialog(props: {
 	const patch = (next: Partial<ActivityDraft>) => setDraft((current) => ({ ...current, ...next }));
 	const locked = log.status !== "idle";
 	const saved = log.data?.status === "saved";
+	const settings = usePluginUserSettings(usePluginIdentity(PLUGIN_PACKAGE_ID).pluginId);
+	const settingKey = consumedOnSettingKey(context.schemaSlug);
+	const suggestions = consumedOnSuggestions(
+		settingKey === undefined ? undefined : settings.data?.[settingKey],
+		context.consumedOn,
+	);
 
 	const render = (pager: EpisodePager | undefined) => {
 		const selected =
@@ -926,6 +938,7 @@ function ActivityLogDialog(props: {
 								selected={selected}
 								onSelect={setEpisodeId}
 								onBackfill={setBackfill}
+								suggestions={suggestions}
 								seasonNumber={seasonNumber}
 								onSeason={(next) => {
 									setSeasonNumber(next);
