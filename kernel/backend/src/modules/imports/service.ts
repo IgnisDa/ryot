@@ -136,7 +136,7 @@ export class ImportsService extends Context.Service<ImportsService>()("ImportsSe
 		) {
 			const { user, runId, uploadIntentIds } = input;
 			const scope = { runId, userId: user.id, accountGeneration: user.accountGeneration };
-			const run = yield* repository.getIngestionRun(scope).pipe(Effect.orDie);
+			const run = yield* repository.getIngestionRunControl(scope).pipe(Effect.orDie);
 			if (!run) {
 				return yield* new ImportRequestError({ reason: { field: null, code: "invalid-input" } });
 			}

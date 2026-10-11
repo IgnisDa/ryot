@@ -44,7 +44,7 @@ export const runIngestionCaptureWrite = Effect.fn("ProcessIngestionCaptureWorkfl
 		const database = yield* DatabaseSession;
 		const payloads = yield* IngestionPayloads;
 		const fs = yield* FileSystem.FileSystem;
-		const run = yield* repository.getIngestionRun(input.scope);
+		const run = yield* repository.getIngestionRunControl(input.scope);
 		if (!run || !["pending", "blocked", "running"].includes(run.status)) {
 			return yield* new ImportRunError({ message: "Ingestion capture owner is not active" });
 		}

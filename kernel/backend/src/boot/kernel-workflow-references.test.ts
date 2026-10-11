@@ -101,7 +101,7 @@ const mockIntegrationsRepository = Layer.mock(IntegrationsRepository);
 const unownedRepositories = Layer.mergeAll(
 	mockImportsRepository({
 		getRunById: () => Effect.succeed(null),
-		getIngestionRun: () => Effect.succeed(null),
+		getIngestionRunControl: () => Effect.succeed(null),
 	}),
 	mockIntegrationsRepository({ getForUser: () => Effect.succeed(null) }),
 );
@@ -342,7 +342,7 @@ layer(
 				unusedEngineLayer,
 				Layer.mock(PluginRuntimeResolver)({}),
 				mockIntegrationsRepository({}),
-				mockImportsRepository({ getIngestionRun: () => Effect.succeed(ingestionTestRun()) }),
+				mockImportsRepository({ getIngestionRunControl: () => Effect.succeed(ingestionTestRun()) }),
 				Layer.mock(ExecutionFileStore)({
 					resolveOutputs: () => Effect.die("Replay must not resolve a temporary handle"),
 				}),
@@ -518,7 +518,7 @@ layer(
 
 const ownedRepositories = Layer.mergeAll(
 	mockImportsRepository({
-		getIngestionRun: (scope) =>
+		getIngestionRunControl: (scope) =>
 			Effect.succeed({
 				...ingestionTestRun(),
 				id: scope.runId,

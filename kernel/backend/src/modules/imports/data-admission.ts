@@ -105,7 +105,7 @@ export class DataImportAdmission extends Context.Service<DataImportAdmission>()(
 						});
 					}
 					const admittedScope = { ...scope, runId: admitted.runId };
-					const run = yield* repository.getIngestionRun(admittedScope);
+					const run = yield* repository.getIngestionRunControl(admittedScope);
 					if (run && ["pending", "blocked", "running"].includes(run.status)) {
 						yield* Effect.gen(function* () {
 							yield* captures.publish({
@@ -154,7 +154,11 @@ export class DataImportAdmission extends Context.Service<DataImportAdmission>()(
 				const control = yield* repository.getRunControlForUser({ runId, userId: user.id });
 				if (control?.status === "pending") {
 					const run = yield* repository
-						.getIngestionRun({ runId, userId: user.id, accountGeneration: user.accountGeneration })
+						.getIngestionRunControl({
+							runId,
+							userId: user.id,
+							accountGeneration: user.accountGeneration,
+						})
 						.pipe(Effect.orDie);
 					if (!run) {
 						return yield* new ImportRequestError({

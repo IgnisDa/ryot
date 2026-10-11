@@ -22,7 +22,7 @@ import { captureWriteExecutionId, ProcessIngestionCaptureWorkflow } from "./capt
 import { ImportsRepository } from "./repository";
 import { ImportRunError, toWorkflowError } from "./runtime/workflow-errors";
 
-const inactiveCaptureOwner = (run: IngestionRun | null) =>
+const inactiveCaptureOwner = (run: Pick<IngestionRun, "failureReason"> | null) =>
 	new ImportRunError({
 		message: "Ingestion capture owner is not active",
 		...(run?.failureReason?.code === "package-identity-conflict"
@@ -74,7 +74,7 @@ export class IngestionCaptures extends Context.Service<IngestionCaptures>()("Ing
 					message: "Ingestion publication must be dispatched by its workflow body",
 				});
 			}
-			const run = yield* repository.getIngestionRun(input.scope);
+			const run = yield* repository.getIngestionRunControl(input.scope);
 			if (!run || !["pending", "blocked", "running"].includes(run.status)) {
 				return yield* inactiveCaptureOwner(run);
 			}
@@ -144,7 +144,7 @@ export class IngestionCaptures extends Context.Service<IngestionCaptures>()("Ing
 					message: "Ingestion publication must be dispatched by its workflow body",
 				});
 			}
-			const run = yield* repository.getIngestionRun(input.scope);
+			const run = yield* repository.getIngestionRunControl(input.scope);
 			if (!run || !["pending", "blocked", "running"].includes(run.status)) {
 				return yield* inactiveCaptureOwner(run);
 			}
@@ -184,7 +184,7 @@ export class IngestionCaptures extends Context.Service<IngestionCaptures>()("Ing
 			outputIndex: number;
 			bytes: Uint8Array;
 		}) {
-			const run = yield* repository.getIngestionRun(input.scope);
+			const run = yield* repository.getIngestionRunControl(input.scope);
 			if (!run || !["pending", "blocked", "running"].includes(run.status)) {
 				return yield* inactiveCaptureOwner(run);
 			}
@@ -299,7 +299,7 @@ export class IngestionCaptures extends Context.Service<IngestionCaptures>()("Ing
 			return true;
 		});
 		const cleanup = Effect.fn("IngestionCaptures.cleanup")(function* (scope: IngestionScope) {
-			const run = yield* repository.getIngestionRun(scope);
+			const run = yield* repository.getIngestionRunControl(scope);
 			if (!run || !["completed", "failed", "cancelled", "expired"].includes(run.status)) {
 				return;
 			}
@@ -355,7 +355,7 @@ export class IngestionCaptures extends Context.Service<IngestionCaptures>()("Ing
 					message: "Ingestion recovery must be dispatched by its workflow body",
 				});
 			}
-			const run = yield* repository.getIngestionRun(scope);
+			const run = yield* repository.getIngestionRunControl(scope);
 			if (!run || !["pending", "blocked", "running"].includes(run.status)) {
 				return yield* inactiveCaptureOwner(run);
 			}

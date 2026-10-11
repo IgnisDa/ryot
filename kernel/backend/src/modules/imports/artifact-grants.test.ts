@@ -81,7 +81,7 @@ it.effect(
 			const reads: unknown[] = [];
 			const dependencies = Layer.mergeAll(
 				Layer.mock(ImportsRepository)({
-					getIngestionRun: () => Effect.succeed(ingestionTestRun()),
+					getIngestionRunControl: () => Effect.succeed(ingestionTestRun()),
 					getCapture: () =>
 						Effect.succeed({
 							ordinal: 64,
@@ -173,7 +173,7 @@ it.effect(
 			const reads: string[] = [];
 			const dependencies = Layer.mergeAll(
 				Layer.mock(ImportsRepository)({
-					getIngestionRun: (scope) =>
+					getIngestionRunControl: (scope) =>
 						Effect.succeed(
 							scope.userId === ingestionTestScope.userId &&
 								scope.accountGeneration.token === ingestionTestScope.accountGeneration.token

@@ -69,7 +69,7 @@ for (const mode of ["removal", "quarantine"] as const) {
 					}),
 				),
 				Layer.mock(ImportsRepository)({
-					getIngestionRun: () => Effect.sync(() => run),
+					getIngestionRunControl: () => Effect.sync(() => run),
 					listBatches: () => Effect.succeed([{ data: batch }]),
 					listBatchExecutions: () =>
 						Effect.succeed([

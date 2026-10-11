@@ -719,7 +719,7 @@ export class IntegrationsService extends Context.Service<IntegrationsService>()(
 					if (yield* ingestion.expire(scope)) {
 						return false;
 					}
-					const control = yield* importRepository.getIngestionRun(scope);
+					const control = yield* importRepository.getIngestionRunControl(scope);
 					if (control?.status === "cancelling") {
 						yield* ingestion.settle(scope, "cancelled");
 						return false;

@@ -127,7 +127,7 @@ const applyCase = (
 				getOutcome: (_scope, id) => Effect.sync(() => outcomes.get(id) ?? null),
 				listBatches: () => Effect.sync(() => [...batches.values()].map((data) => ({ data }))),
 				getBatchIssues: () => Effect.sync(() => [...issues.values()].map((data) => ({ data }))),
-				getIngestionRun: () =>
+				getIngestionRunControl: () =>
 					Effect.succeed(ingestionTestRun({ status: cancelled ? "cancelling" : "running" })),
 				recordIssue: (_scope, issue) =>
 					Effect.sync(() => {

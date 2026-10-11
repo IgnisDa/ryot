@@ -73,7 +73,7 @@ const rootCase = (
 				}),
 			),
 			Layer.mock(ImportsRepository)({
-				getIngestionRun: () => Effect.sync(() => run),
+				getIngestionRunControl: () => Effect.sync(() => run),
 				recordIssue: (_scope, issue) =>
 					Effect.sync(() => {
 						issues.push(issue);
