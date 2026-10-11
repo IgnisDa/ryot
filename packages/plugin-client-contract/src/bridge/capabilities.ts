@@ -21,7 +21,7 @@ import { HttpUrl, IsoUtcString, strictStruct } from "@ryot-app/contract/schema/u
 import { Schema } from "effect";
 
 export const PLUGIN_STORAGE_KEY_MAX_LENGTH = 128;
-export const PLUGIN_STORAGE_VALUE_MAX_BYTES = 8192;
+export const PLUGIN_STORAGE_VALUE_MAX_BYTES = 65536;
 
 export const PluginOperationBridgeErrorReason = Schema.Literals([
 	"transport",

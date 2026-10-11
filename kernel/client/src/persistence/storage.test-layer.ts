@@ -37,6 +37,8 @@ export class FakeBrowserStorage extends Context.Service<
 export const fakeClientStorageLayer = (
 	options: {
 		readonly entries?: ReadonlyArray<readonly [string, string]>;
+		readonly getItem?: BrowserStorage["getItem"];
+		readonly removeItem?: BrowserStorage["removeItem"];
 		readonly setItem?: BrowserStorage["setItem"];
 	} = {},
 ) =>
@@ -45,8 +47,8 @@ export const fakeClientStorageLayer = (
 			const values = new Map(options.entries);
 			return Layer.merge(
 				clientStorageLayer({
-					removeItem: (key) => values.delete(key),
-					getItem: (key) => values.get(key) ?? null,
+					getItem: options.getItem ?? ((key) => values.get(key) ?? null),
+					removeItem: options.removeItem ?? ((key) => values.delete(key)),
 					setItem: options.setItem ?? ((key, value) => values.set(key, value)),
 				}),
 				Layer.succeed(FakeBrowserStorage, {
