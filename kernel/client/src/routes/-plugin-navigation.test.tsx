@@ -323,6 +323,8 @@ describe("client page routes", () => {
 			const frame = yield* Effect.promise(() =>
 				screen.findByTitle<HTMLIFrameElement>("Fixture View plugin"),
 			);
+			expect(window.getComputedStyle(frame).visibility).toBe("visible");
+			expect(frame.closest('main[aria-hidden="true"]')).toBeNull();
 			const bridge = connectFrame(frame);
 			yield* Effect.promise(() => waitFor(() => expect(bridge.messages).toHaveLength(1)));
 			const srcDoc = frame.getAttribute("srcdoc");
@@ -347,6 +349,8 @@ describe("client page routes", () => {
 				{ kind: "saved-view", reference: { kind: "custom", savedViewId: "second-view" } },
 			]);
 			expect(screen.getByTitle<HTMLIFrameElement>("Fixture View plugin")).toBe(frame);
+			expect(window.getComputedStyle(frame).visibility).toBe("visible");
+			expect(frame.closest('main[aria-hidden="true"]')).toBeNull();
 			expect(frame.getAttribute("srcdoc")).toBe(srcDoc);
 			expect(view.getDocumentLoads()).toBe(1);
 		}),
