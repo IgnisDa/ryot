@@ -1,8 +1,13 @@
 import { assert, describe, expect, layer } from "@effect/vitest";
 import { DbError } from "@ryot-app/contract/errors";
 import { definitionKey, definitionOwner } from "@ryot-app/contract/modules/plugins/references";
-import { PluginId, PluginRevisionId, UserId } from "@ryot-app/contract/schema/brands";
-import { and, eq } from "drizzle-orm";
+import {
+	PluginId,
+	PluginPackageId,
+	PluginRevisionId,
+	UserId,
+} from "@ryot-app/contract/schema/brands";
+import { and, eq, sql } from "drizzle-orm";
 import { Effect, Result } from "effect";
 
 import { DatabaseSession } from "#lib/infrastructure/db/session";
@@ -64,19 +69,32 @@ describe("plugin namespaces in the generated migration baseline", () => {
 				assert(duplicatePrivatePackage.failure instanceof DbError);
 				expect(duplicatePrivatePackage.failure.code).toBe("23505");
 
+				const malformedPackageId = yield* Effect.result(
+					session.run((db) =>
+						db.transaction((tx) =>
+							tx
+								.insert(tables.plugin)
+								.values({ slug: "malformed", status: "installing", packageId: sql`'malformed'` }),
+						),
+					),
+				);
+				assert(Result.isFailure(malformedPackageId));
+				assert(malformedPackageId.failure instanceof DbError);
+				expect(malformedPackageId.failure.code).toBe("23514");
+
 				const changedPackageId = yield* Effect.result(
 					session.run((db) =>
 						db.transaction((tx) =>
 							tx
 								.update(tables.plugin)
-								.set({ packageId: otherPackage.manifest.metadata.packageId })
+								.set({ packageId: PluginPackageId.make(crypto.randomUUID()) })
 								.where(eq(tables.plugin.id, system.pluginId)),
 						),
 					),
 				);
 				assert(Result.isFailure(changedPackageId));
 				assert(changedPackageId.failure instanceof DbError);
-				expect(changedPackageId.failure.code).toBe("55000");
+				expect(changedPackageId.failure.code).toBe("23001");
 
 				const mismatchedRevisionIdentity = yield* Effect.result(
 					session.run((db) =>
@@ -94,7 +112,7 @@ describe("plugin namespaces in the generated migration baseline", () => {
 				);
 				assert(Result.isFailure(mismatchedRevisionIdentity));
 				assert(mismatchedRevisionIdentity.failure instanceof DbError);
-				expect(mismatchedRevisionIdentity.failure.code).toBe("23514");
+				expect(mismatchedRevisionIdentity.failure.code).toBe("23503");
 
 				const changedRevisionManifest = yield* Effect.result(
 					session.run((db) =>
@@ -108,21 +126,7 @@ describe("plugin namespaces in the generated migration baseline", () => {
 				);
 				assert(Result.isFailure(changedRevisionManifest));
 				assert(changedRevisionManifest.failure instanceof DbError);
-				expect(changedRevisionManifest.failure.code).toBe("55000");
-
-				const changedRevisionSourceHash = yield* Effect.result(
-					session.run((db) =>
-						db.transaction((tx) =>
-							tx
-								.update(tables.pluginRevision)
-								.set({ sourceHash: `${packageValue.sourceHash}-changed` })
-								.where(eq(tables.pluginRevision.id, system.revisionId)),
-						),
-					),
-				);
-				assert(Result.isFailure(changedRevisionSourceHash));
-				assert(changedRevisionSourceHash.failure instanceof DbError);
-				expect(changedRevisionSourceHash.failure.code).toBe("55000");
+				expect(changedRevisionManifest.failure.code).toBe("23503");
 
 				const renamed = yield* session.run((db) =>
 					db

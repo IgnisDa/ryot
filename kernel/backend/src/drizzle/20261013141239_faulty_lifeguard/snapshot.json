@@ -1,7 +1,7 @@
 {
 	"version": "8",
 	"dialect": "postgres",
-	"id": "1a4584f0-ae41-450c-afd4-de95d6722d8e",
+	"id": "30913efb-682b-47df-9a38-9c0e68f9f325",
 	"prevIds": ["00000000-0000-0000-0000-000000000000"],
 	"ddl": [
 		{ "isRlsEnabled": false, "name": "account", "entityType": "tables", "schema": "public" },
@@ -7617,6 +7617,19 @@
 			"default": null,
 			"generated": null,
 			"identity": null,
+			"name": "plugin_id",
+			"entityType": "columns",
+			"schema": "public",
+			"table": "plugin_revision"
+		},
+		{
+			"type": "text",
+			"typeSchema": null,
+			"notNull": true,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
 			"name": "source_hash",
 			"entityType": "columns",
 			"schema": "public",
@@ -7719,9 +7732,9 @@
 			"notNull": true,
 			"dimensions": 0,
 			"default": null,
-			"generated": null,
+			"generated": { "as": "manifest -> 'metadata' ->> 'packageId'", "type": "stored" },
 			"identity": null,
-			"name": "plugin_id",
+			"name": "package_id",
 			"entityType": "columns",
 			"schema": "public",
 			"table": "plugin_revision"
@@ -13381,27 +13394,27 @@
 			"table": "plugin_installation"
 		},
 		{
-			"nameExplicit": false,
-			"columns": ["plugin_id"],
+			"nameExplicit": true,
+			"columns": ["plugin_id", "package_id"],
 			"schemaTo": "public",
 			"tableTo": "plugin",
-			"columnsTo": ["id"],
-			"onUpdate": "NO ACTION",
+			"columnsTo": ["id", "package_id"],
+			"onUpdate": "RESTRICT",
 			"onDelete": "CASCADE",
-			"name": "plugin_revision_plugin_id_plugin_id_fkey",
+			"name": "plugin_revision_owner_package_fk",
 			"entityType": "fks",
 			"schema": "public",
 			"table": "plugin_revision"
 		},
 		{
 			"nameExplicit": true,
-			"columns": ["client_artifact_hash"],
+			"columns": ["client_artifact_hash", "package_id"],
 			"schemaTo": "public",
 			"tableTo": "client_artifact",
-			"columnsTo": ["hash"],
+			"columnsTo": ["hash", "package_id"],
 			"onUpdate": "NO ACTION",
 			"onDelete": "NO ACTION",
-			"name": "plugin_revision_client_artifact_hash_fk",
+			"name": "plugin_revision_client_artifact_package_fk",
 			"entityType": "fks",
 			"schema": "public",
 			"table": "plugin_revision"
@@ -14171,6 +14184,15 @@
 		},
 		{
 			"nameExplicit": true,
+			"columns": ["hash", "package_id"],
+			"nullsNotDistinct": false,
+			"name": "client_artifact_hash_package_unique",
+			"entityType": "uniques",
+			"schema": "public",
+			"table": "client_artifact"
+		},
+		{
+			"nameExplicit": true,
 			"columns": ["plugin_revision_id", "slug"],
 			"nullsNotDistinct": true,
 			"name": "definition_entity_schema_revision_slug_unique",
@@ -14312,6 +14334,15 @@
 			"entityType": "uniques",
 			"schema": "public",
 			"table": "oauth_connection"
+		},
+		{
+			"nameExplicit": true,
+			"columns": ["id", "package_id"],
+			"nullsNotDistinct": false,
+			"name": "plugin_id_package_unique",
+			"entityType": "uniques",
+			"schema": "public",
+			"table": "plugin"
 		},
 		{
 			"nameExplicit": true,
@@ -14746,6 +14777,13 @@
 			"entityType": "checks",
 			"schema": "public",
 			"table": "oauth_connection"
+		},
+		{
+			"value": "\"package_id\" ~ '^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$'",
+			"name": "plugin_package_id_format_check",
+			"entityType": "checks",
+			"schema": "public",
+			"table": "plugin"
 		},
 		{
 			"value": "\"status\" <> 'active' or \"active_revision_id\" is not null",

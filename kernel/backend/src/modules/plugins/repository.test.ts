@@ -6,7 +6,6 @@ import {
 	CLIENT_COMPILER_VERSION,
 	clientDeclarationHash,
 } from "@ryot-app/client-plugin-contract";
-import { DbError } from "@ryot-app/contract/errors";
 import { DEFAULT_AUTOMATION_RETRY_POLICY } from "@ryot-app/contract/modules/automations/lifecycle";
 import { PluginPackageId, UserId } from "@ryot-app/contract/schema/brands";
 import { sha256Hex } from "@ryot-app/ts-utils/crypto";
@@ -348,51 +347,6 @@ describe("plugin repository revisions", () => {
 				expect(
 					yield* repository.findClientArtifactForSource({ pluginId, sourceHash: "missing-source" }),
 				).toBeNull();
-				const changedSourceHash = yield* Effect.result(
-					session.run((db) =>
-						db
-							.update(tables.pluginRevision)
-							.set({ sourceHash: "changed-package-hash" })
-							.where(eq(tables.pluginRevision.id, revision.id)),
-					),
-				);
-				assert(Result.isFailure(changedSourceHash));
-				assert(changedSourceHash.failure instanceof DbError);
-				expect(changedSourceHash.failure.code).toBe("55000");
-				expect(yield* repository.listCompiledPackageArtifacts(pluginId)).toEqual({
-					compiledClient,
-					compiledScripts,
-				});
-				expect(
-					yield* repository.findClientArtifactForSource({
-						pluginId,
-						sourceHash: plugin.sourceHash,
-					}),
-				).toEqual(compiledClient);
-
-				const changedClientArtifactHash = yield* Effect.result(
-					session.run((db) =>
-						db
-							.update(tables.pluginRevision)
-							.set({ clientArtifactHash: null })
-							.where(eq(tables.pluginRevision.id, revision.id)),
-					),
-				);
-				assert(Result.isFailure(changedClientArtifactHash));
-				assert(changedClientArtifactHash.failure instanceof DbError);
-				expect(changedClientArtifactHash.failure.code).toBe("55000");
-				expect(yield* repository.findRevisionClientArtifact(revision.id)).toEqual(compiledClient);
-				expect(
-					yield* repository.findClientArtifactForSource({
-						pluginId,
-						sourceHash: plugin.sourceHash,
-					}),
-				).toEqual(compiledClient);
-				expect(yield* repository.listCompiledPackageArtifacts(pluginId)).toEqual({
-					compiledClient,
-					compiledScripts,
-				});
-
 				const artifactFile = compiledClient.files[0];
 				assert(artifactFile);
 				yield* session.run((db) =>

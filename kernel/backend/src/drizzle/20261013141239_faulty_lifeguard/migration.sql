@@ -156,6 +156,7 @@ CREATE TABLE "client_artifact" (
 	"compiler_version" smallint NOT NULL,
 	"package_id" text,
 	"imports" jsonb DEFAULT '[]' NOT NULL,
+	CONSTRAINT "client_artifact_hash_package_unique" UNIQUE("hash","package_id"),
 	CONSTRAINT "client_artifact_package_declaration_check" CHECK (("package_id" is null) = ("client_declaration_hash" is null))
 );
 --> statement-breakpoint
@@ -735,6 +736,8 @@ CREATE TABLE "plugin" (
 	"owner_user_id" text,
 	"activation_id" text NOT NULL,
 	"id" text PRIMARY KEY,
+	CONSTRAINT "plugin_id_package_unique" UNIQUE("id","package_id"),
+	CONSTRAINT "plugin_package_id_format_check" CHECK ("package_id" ~ '^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$'),
 	CONSTRAINT "plugin_active_revision_check" CHECK ("status" <> 'active' or "active_revision_id" is not null),
 	CONSTRAINT "plugin_environment_config_scope_check" CHECK ("owner_user_id" is null or "environment_config_revision_id" is null)
 );
@@ -798,6 +801,7 @@ CREATE TABLE "plugin_installation" (
 --> statement-breakpoint
 CREATE TABLE "plugin_revision" (
 	"client_artifact_hash" text,
+	"plugin_id" text NOT NULL,
 	"source_hash" text NOT NULL,
 	"manifest" jsonb NOT NULL,
 	"client_config_schema" jsonb NOT NULL,
@@ -806,7 +810,7 @@ CREATE TABLE "plugin_revision" (
 	"icon" text GENERATED ALWAYS AS (manifest -> 'metadata' ->> 'icon') STORED,
 	"created_at" timestamp(3) with time zone DEFAULT now() NOT NULL,
 	"description" text GENERATED ALWAYS AS (manifest -> 'metadata' ->> 'description') STORED,
-	"plugin_id" text NOT NULL,
+	"package_id" text GENERATED ALWAYS AS (manifest -> 'metadata' ->> 'packageId') STORED NOT NULL,
 	CONSTRAINT "plugin_revision_plugin_source_unique" UNIQUE("plugin_id","source_hash"),
 	CONSTRAINT "plugin_revision_id_plugin_unique" UNIQUE("id","plugin_id")
 );
@@ -1212,8 +1216,8 @@ ALTER TABLE "plugin_config_revision" ADD CONSTRAINT "plugin_config_revision_bpJa
 ALTER TABLE "plugin_installation" ADD CONSTRAINT "plugin_installation_user_id_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "user"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "plugin_installation" ADD CONSTRAINT "plugin_installation_Y0qNbD8s1JVH_fkey" FOREIGN KEY ("active_config_revision_id") REFERENCES "plugin_config_revision"("id");--> statement-breakpoint
 ALTER TABLE "plugin_installation" ADD CONSTRAINT "plugin_installation_plugin_id_plugin_id_fkey" FOREIGN KEY ("plugin_id") REFERENCES "plugin"("id") ON DELETE CASCADE;--> statement-breakpoint
-ALTER TABLE "plugin_revision" ADD CONSTRAINT "plugin_revision_plugin_id_plugin_id_fkey" FOREIGN KEY ("plugin_id") REFERENCES "plugin"("id") ON DELETE CASCADE;--> statement-breakpoint
-ALTER TABLE "plugin_revision" ADD CONSTRAINT "plugin_revision_client_artifact_hash_fk" FOREIGN KEY ("client_artifact_hash") REFERENCES "client_artifact"("hash");--> statement-breakpoint
+ALTER TABLE "plugin_revision" ADD CONSTRAINT "plugin_revision_owner_package_fk" FOREIGN KEY ("plugin_id","package_id") REFERENCES "plugin"("id","package_id") ON DELETE CASCADE ON UPDATE RESTRICT;--> statement-breakpoint
+ALTER TABLE "plugin_revision" ADD CONSTRAINT "plugin_revision_client_artifact_package_fk" FOREIGN KEY ("client_artifact_hash","package_id") REFERENCES "client_artifact"("hash","package_id");--> statement-breakpoint
 ALTER TABLE "plugin_uninstall_receipt" ADD CONSTRAINT "plugin_uninstall_receipt_owner_user_id_user_id_fkey" FOREIGN KEY ("owner_user_id") REFERENCES "user"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "provider_import_admission" ADD CONSTRAINT "provider_import_admission_user_id_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "user"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "relationship" ADD CONSTRAINT "relationship_user_id_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "user"("id") ON DELETE CASCADE;--> statement-breakpoint
