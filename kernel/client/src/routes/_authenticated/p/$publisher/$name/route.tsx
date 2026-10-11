@@ -1,5 +1,6 @@
 import type { PluginBridgeProviderSearchScreen } from "@ryot-app/client-plugin-contract";
 import type { PreparedClientPage } from "@ryot-app/contract/modules/client-pages/schemas";
+import type { PluginPackageId } from "@ryot-app/contract/schema/brands";
 import { createFileRoute, Outlet } from "@tanstack/react-router";
 import { useState } from "react";
 
@@ -13,9 +14,10 @@ import { AppScreen } from "#/modules/navigation/app-screen";
 import { usePageTitle } from "#/modules/navigation/page-title";
 import { mainContentProps } from "#/modules/navigation/skip-link";
 import { usePluginCatalog } from "#/modules/plugins/catalog-provider";
+import { effectiveCatalogPlugin } from "#/modules/plugins/plugin-location";
 import { ProviderAddModal } from "#/modules/provider-add/modal";
 
-export const Route = createFileRoute("/_authenticated/p/$pluginId")({
+export const Route = createFileRoute("/_authenticated/p/$publisher/$name")({
 	component: Outlet,
 	pendingComponent: PluginPending,
 	notFoundComponent: PluginNotFound,
@@ -23,17 +25,17 @@ export const Route = createFileRoute("/_authenticated/p/$pluginId")({
 });
 
 export function PluginRoutePage({
-	pluginId,
+	packageId,
 	preparation,
 }: {
+	readonly packageId: PluginPackageId;
 	readonly preparation: ClientPagePreparation;
-	readonly pluginId: string;
 }) {
 	const { catalog } = usePluginCatalog();
 	if (preparation.kind === "unavailable") {
 		return <PluginNotice clear title="Plugin page not found" />;
 	}
-	const installation = catalog.find((candidate) => candidate.pluginId === pluginId);
+	const installation = effectiveCatalogPlugin(catalog, packageId);
 	return <PluginDocument prepared={preparation.prepared} title={installation?.name ?? "Plugin"} />;
 }
 

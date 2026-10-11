@@ -50,7 +50,7 @@ export const integrationProviderEntry = (provider: IntegrationProviderItem): Cat
 					scope: provider.pluginScope,
 					reference: provider.reference,
 					packageId: provider.packageId,
-					name: provider.pluginSlug === null ? provider.name : pluginHeading(provider.pluginSlug),
+					name: provider.packageId === null ? provider.name : pluginHeading(provider.packageId),
 				}),
 });
 

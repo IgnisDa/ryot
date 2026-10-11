@@ -1,11 +1,11 @@
-import { PluginId } from "@ryot-app/contract/schema/brands";
+import { pluginPackageIdFromSegments } from "@ryot-app/contract/schema/brands";
 import { createFileRoute } from "@tanstack/react-router";
 
 import { prepareClientPage } from "#/modules/client-pages/preparation";
 
 import { PluginRoutePage } from "./route";
 
-export const Route = createFileRoute("/_authenticated/p/$pluginId/")({
+export const Route = createFileRoute("/_authenticated/p/$publisher/$name/")({
 	shouldReload: false,
 	component: PluginIndex,
 	loaderDeps: ({ search }) => search,
@@ -14,8 +14,8 @@ export const Route = createFileRoute("/_authenticated/p/$pluginId/")({
 			prepareClientPage(context.scope, {
 				path: "/",
 				kind: "plugin-route",
-				pluginId: PluginId.make(params.pluginId),
 				search: location.searchStr.replace(/^\?/, ""),
+				packageId: pluginPackageIdFromSegments(params),
 			}),
 			{ signal: abortController.signal },
 		),
@@ -23,6 +23,9 @@ export const Route = createFileRoute("/_authenticated/p/$pluginId/")({
 
 function PluginIndex() {
 	return (
-		<PluginRoutePage preparation={Route.useLoaderData()} pluginId={Route.useParams().pluginId} />
+		<PluginRoutePage
+			preparation={Route.useLoaderData()}
+			packageId={pluginPackageIdFromSegments(Route.useParams())}
+		/>
 	);
 }

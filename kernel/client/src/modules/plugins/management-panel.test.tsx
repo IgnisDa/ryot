@@ -24,7 +24,7 @@ it("shows a retained private identity separately from the system copy without lo
 			onAction={(action) => actions.push(action)}
 		/>,
 	);
-	const summary = screen.getByText("Whiskey · Private · 570e77e1 · incompatible");
+	const summary = screen.getByText("Whiskey · Private · test/whiskey · incompatible");
 	fireEvent.click(summary);
 	const details = summary.closest("details");
 	assert(details);
@@ -40,7 +40,7 @@ it("shows a retained private identity separately from the system copy without lo
 	expect(row.getByRole("link", { name: "Back up retained data" }).getAttribute("href")).toBe(
 		"/settings/backups",
 	);
-	const systemSummary = screen.getByText("Whiskey · System · 570e77e1 · ready");
+	const systemSummary = screen.getByText("Whiskey · System · test/whiskey · ready");
 	fireEvent.click(systemSummary);
 	const systemDetails = systemSummary.closest("details");
 	assert(systemDetails);
@@ -57,7 +57,7 @@ it("requires confirmation for exact private removal and offers no system package
 			onAction={(action) => actions.push(action)}
 		/>,
 	);
-	fireEvent.click(screen.getByText("Whiskey · Private · 570e77e1 · incompatible"));
+	fireEvent.click(screen.getByText("Whiskey · Private · test/whiskey · incompatible"));
 	fireEvent.click(screen.getByRole("button", { name: "Uninstall" }));
 	expect(actions).toEqual([]);
 	fireEvent.click(screen.getByRole("button", { name: "Confirm uninstall" }));

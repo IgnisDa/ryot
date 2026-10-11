@@ -13,7 +13,6 @@ const current: PluginClientCatalogEntry = {
 	icon: "film",
 	sortOrder: 0,
 	name: "Media",
-	slug: "media",
 	health: "ready",
 	isHidden: false,
 	scope: "system",
@@ -22,7 +21,7 @@ const current: PluginClientCatalogEntry = {
 	pluginId: "plugin-media",
 	sourceHash: "source-media",
 	installationId: "installation-media",
-	packageId: PluginPackageId.make("ff9c9ec6-5774-42ef-881b-dc6a84ad3ba6"),
+	packageId: PluginPackageId.make("ryot/media"),
 };
 
 const navigation: NavigationData = {
@@ -34,8 +33,8 @@ const navigation: NavigationData = {
 			isHidden: false,
 			slug: "media-queue",
 			name: "Media Queue",
-			pluginSlug: "media",
 			pluginInstallationId: "installation-media",
+			packageId: PluginPackageId.make("ryot/media"),
 			reference: { kind: "plugin", slug: "media-queue", pluginId: PluginId.make("plugin-media") },
 		},
 	],
@@ -53,7 +52,7 @@ const sections: SidebarSections = {
 			icon: "house",
 			isHidden: false,
 			reference: null,
-			pluginSlug: null,
+			packageId: null,
 			pluginInstallationId: null,
 		},
 		{
@@ -63,8 +62,8 @@ const sections: SidebarSections = {
 			isHidden: false,
 			name: "Media Queue",
 			slug: "media-queue",
-			pluginSlug: "media",
 			pluginInstallationId: "installation-media",
+			packageId: PluginPackageId.make("ryot/media"),
 			reference: { kind: "plugin", slug: "media-queue", pluginId: PluginId.make("plugin-media") },
 		},
 	],
@@ -92,7 +91,7 @@ const renderSidebar = (
 			onCustomize={customize?.onCustomize}
 			showSearchShortcut={showSearchShortcut}
 			onEditSection={customize?.onEditSection}
-			activeKey="view:/v/p/plugin-media/media-queue"
+			activeKey="view:/v/p/ryot/media/media-queue"
 			onWorkspaceSwitcherOpenChange={() => undefined}
 		/>,
 	);

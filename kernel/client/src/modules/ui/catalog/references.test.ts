@@ -17,7 +17,6 @@ const source = (pluginId: string, packageId: PluginPackageId): ImportSourceItem 
 	name: "Whiskey",
 	isStartable: true,
 	pluginScope: "user",
-	pluginSlug: "whiskey",
 	workflowSlug: "import",
 	readinessMetadata: null,
 	inputSchema: { fields: {} },
@@ -39,7 +38,6 @@ const provider = (pluginId: string, packageId: PluginPackageId): IntegrationProv
 	isCreatable: true,
 	scriptSlug: "sync",
 	pluginScope: "user",
-	pluginSlug: "whiskey",
 	requiresProKey: false,
 	readinessMetadata: null,
 	readinessConnections: [],
@@ -53,8 +51,8 @@ const provider = (pluginId: string, packageId: PluginPackageId): IntegrationProv
 	reference: { slug: "common", owner: { kind: "plugin", pluginId: PluginId.make(pluginId) } },
 });
 
-const leftPackage = PluginPackageId.make("570e77e1-e450-40ea-b1cb-6e2ae3223bb3");
-const rightPackage = PluginPackageId.make("ff9c9ec6-5774-42ef-881b-dc6a84ad3ba6");
+const leftPackage = PluginPackageId.make("home/whiskey");
+const rightPackage = PluginPackageId.make("acme/whiskey");
 
 it("keeps same-name importer option values and groups owner-qualified", () => {
 	const left = source("left-owner", leftPackage);
@@ -62,7 +60,7 @@ it("keeps same-name importer option values and groups owner-qualified", () => {
 	expect(importSourceEntry(left).slug).toBe(importSourceKey(left));
 	expect(importSourceEntry(left).slug).not.toBe(importSourceEntry(right).slug);
 	expect(importSourceEntry(left).group.key).not.toBe(importSourceEntry(right).group.key);
-	expect(importSourceEntry(left).group.heading).toContain("Private · 570e77e1");
+	expect(importSourceEntry(left).group.heading).toContain("Private · home/whiskey");
 });
 
 it("selects and submits the exact integration owner despite equal provider slugs", () => {

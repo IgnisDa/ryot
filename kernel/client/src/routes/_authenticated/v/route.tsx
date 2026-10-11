@@ -30,6 +30,8 @@ import {
 import { mergePageSearch } from "#/modules/client-pages/page-host";
 import { usePageTitle } from "#/modules/navigation/page-title";
 import { mainContentProps } from "#/modules/navigation/skip-link";
+import { PluginCatalogService } from "#/modules/plugins/catalog";
+import { effectiveCatalogPlugin } from "#/modules/plugins/plugin-location";
 import { ProviderAddModal } from "#/modules/provider-add/modal";
 import { ClientStorage } from "#/persistence/storage";
 
@@ -67,18 +69,34 @@ export const Route = createFileRoute("/_authenticated/v")({
 		context.runtime.runPromise(
 			Effect.gen(function* () {
 				const segments = location.pathname.split("/").filter(Boolean).map(decodeURIComponent);
+				const plugin =
+					segments[1] === "p" && segments.length === 5
+						? effectiveCatalogPlugin(
+								yield* Effect.flatMap(PluginCatalogService, (service) =>
+									service.load(context.ryot),
+								),
+								`${segments[2]}/${segments[3]}`,
+							)
+						: undefined;
 				let reference: SavedViewReference;
+				let slug: string;
 				if (segments[1] === "c" && segments[2] && segments.length === 3) {
 					reference = { kind: "custom", savedViewId: SavedViewId.make(segments[2]) };
+					slug = savedViewPath(reference);
 				} else if (segments[1] === "k" && segments[2] && segments.length === 3) {
 					reference = { kind: "kernel", slug: segments[2] };
-				} else if (segments[1] === "p" && segments[2] && segments[3] && segments.length === 4) {
-					reference = { kind: "plugin", slug: segments[3], pluginId: PluginId.make(segments[2]) };
+					slug = savedViewPath(reference);
+				} else if (plugin && segments[4]) {
+					reference = {
+						kind: "plugin",
+						slug: segments[4],
+						pluginId: PluginId.make(plugin.pluginId),
+					};
+					slug = savedViewPath({ kind: "plugin", slug: segments[4], packageId: plugin.packageId });
 				} else {
 					// oxlint-disable-next-line typescript/only-throw-error
 					throw notFound();
 				}
-				const slug = savedViewPath(reference);
 				let prepared = yield* Effect.flatMap(ClientPagesApi, (api) =>
 					api.prepare(context.scope, { payload: { target: { reference, kind: "saved-view" } } }),
 				);

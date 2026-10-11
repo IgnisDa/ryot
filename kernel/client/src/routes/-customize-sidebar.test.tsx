@@ -1,4 +1,5 @@
 import { describe, expect, it } from "@effect/vitest";
+import { PluginPackageId } from "@ryot-app/contract/schema/brands";
 import { RouterProvider, createMemoryHistory } from "@tanstack/react-router";
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { Effect, Layer, ManagedRuntime } from "effect";
@@ -184,7 +185,7 @@ describe("customize sidebar route", () => {
 			fireEvent.click(panel.getByRole("button", { name: "Cancel sidebar customization" }));
 
 			yield* Effect.promise(() =>
-				waitFor(() => expect(view.router.state.location.pathname).toBe("/p/plugin-1")),
+				waitFor(() => expect(view.router.state.location.pathname).toBe("/p/test/plugin-1")),
 			);
 			expect(screen.queryByText("Discard sidebar changes?")).toBeNull();
 		}).pipe(Effect.ensuring(Effect.sync(restore)));
@@ -225,10 +226,10 @@ describe("customize sidebar route", () => {
 			fireEvent.click(panel.getByRole("button", { name: "Save sidebar changes" }));
 
 			yield* Effect.promise(() =>
-				waitFor(() => expect(view.router.state.location.pathname).toBe("/p/plugin-1")),
+				waitFor(() => expect(view.router.state.location.pathname).toBe("/p/test/plugin-1")),
 			);
 			expect(loadedAt).not.toContain("/customize-sidebar");
-			expect(loadedAt).toContain("/p/plugin-1");
+			expect(loadedAt).toContain("/p/test/plugin-1");
 		}).pipe(Effect.ensuring(Effect.sync(restore)));
 	});
 
@@ -243,7 +244,7 @@ describe("customize sidebar route", () => {
 			fireEvent.click(panel.getByRole("button", { name: "Save sidebar changes" }));
 
 			yield* Effect.promise(() =>
-				waitFor(() => expect(view.router.state.location.pathname).toBe("/p/plugin-1")),
+				waitFor(() => expect(view.router.state.location.pathname).toBe("/p/test/plugin-1")),
 			);
 			expect(saves).toHaveLength(1);
 			expect(saves[0]?.updates.map((update) => update.reference)).toEqual([
@@ -260,9 +261,9 @@ describe("customize sidebar route", () => {
 			...primary,
 			sortOrder: 1,
 			name: "Alternate",
-			slug: "alternate",
 			pluginId: "plugin-2",
 			installationId: "installation-2",
+			packageId: PluginPackageId.make("test/plugin-2"),
 		};
 		return Effect.gen(function* () {
 			const view = mountView("/customize-sidebar", [], {
@@ -275,7 +276,7 @@ describe("customize sidebar route", () => {
 			fireEvent.click(panel.getByRole("button", { name: "Save sidebar changes" }));
 
 			yield* Effect.promise(() =>
-				waitFor(() => expect(view.router.state.location.pathname).toBe("/p/plugin-2")),
+				waitFor(() => expect(view.router.state.location.pathname).toBe("/p/test/plugin-2")),
 			);
 			expect(recorder.setCalls.map(({ slug }) => slug)).toEqual(["plugin-2"]);
 		}).pipe(Effect.ensuring(Effect.sync(restore)));

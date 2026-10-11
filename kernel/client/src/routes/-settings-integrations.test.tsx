@@ -10,7 +10,6 @@ import {
 	IntegrationWebhookToken,
 	PluginId,
 	PluginPackageId,
-	PluginSlug,
 } from "@ryot-app/contract/schema/brands";
 import type { IntegrationDetail, IntegrationSummary } from "@ryot-app/ryotql-recipes/integrations";
 import { RouterProvider, createMemoryHistory } from "@tanstack/react-router";
@@ -104,7 +103,6 @@ const komgaProvider: IntegrationProviderItem = {
 	name: "Komga",
 	isCreatable: true,
 	scriptSlug: "komga",
-	pluginSlug: "media",
 	pluginScope: "system",
 	requiresProKey: false,
 	readinessMetadata: null,
@@ -113,9 +111,9 @@ const komgaProvider: IntegrationProviderItem = {
 	installationId: "media-installation",
 	pluginId: PluginId.make("media-plugin"),
 	commonSchema: ownershipSyncCommonSchema,
+	packageId: PluginPackageId.make("ryot/media"),
 	description: "Import progress and ownership from Komga",
 	readiness: { plan: null, ready: true, blockReasons: [] },
-	packageId: PluginPackageId.make("ff9c9ec6-5774-42ef-881b-dc6a84ad3ba6"),
 	reference: { slug: "komga", owner: { kind: "plugin", pluginId: PluginId.make("media-plugin") } },
 	settingsSchema: {
 		fields: {
@@ -138,7 +136,6 @@ const kodiProvider: IntegrationProviderItem = {
 	commonSchema,
 	isCreatable: true,
 	scriptSlug: "kodi",
-	pluginSlug: "media",
 	pluginScope: "system",
 	requiresProKey: false,
 	readinessMetadata: null,
@@ -148,8 +145,8 @@ const kodiProvider: IntegrationProviderItem = {
 	installationId: "media-installation",
 	pluginId: PluginId.make("media-plugin"),
 	description: "Receive Kodi playback webhooks",
+	packageId: PluginPackageId.make("ryot/media"),
 	readiness: { plan: null, ready: true, blockReasons: [] },
-	packageId: PluginPackageId.make("ff9c9ec6-5774-42ef-881b-dc6a84ad3ba6"),
 	reference: { slug: "kodi", owner: { kind: "plugin", pluginId: PluginId.make("media-plugin") } },
 };
 
@@ -183,7 +180,6 @@ const makeSummary = (overrides: Partial<IntegrationSummary> = {}): IntegrationSu
 	lastFinishedAt: null,
 	syncOwnership: false,
 	id: IntegrationId.make("int_1"),
-	pluginSlug: PluginSlug.make("media"),
 	createdAt: "2026-08-20T10:00:00.000Z",
 	updatedAt: "2026-08-20T10:00:00.000Z",
 	pluginId: PluginId.make("media-plugin"),
