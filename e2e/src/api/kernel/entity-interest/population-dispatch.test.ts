@@ -8,22 +8,21 @@ import {
 	fakeProviderDetailsResult,
 	getApiClient,
 	getEntity,
+	getGlobalEntityByProvenance,
 	openInterestWebSocketScoped,
 	pollUntil,
 	installTestProvider,
+	seedEntity,
+	seedPopulatedEntity,
+	testProviderEntitySchema,
+	waitForEntityPopulated,
 } from "~/fixtures/kernel";
 import type { InstalledTestProvider } from "~/fixtures/kernel/sandbox-provider";
-import {
-	findMediaEntitySchema,
-	getGlobalEntityByProvenance,
-	seedMediaEntity,
-	seedPopulatedProviderEntity,
-	waitForEntityPopulated,
-} from "~/fixtures/plugins/media";
 import { afterAll, beforeAll, describe, expect, it, runPromise } from "~/support/effect-test";
 
 const GRACE_WINDOW_MS = 3000;
 const POPULATED_NAME = "E2E Populated Studio";
+const ENTITY_SCHEMA_SLUG = "studio";
 
 let provider: InstalledTestProvider;
 
@@ -32,11 +31,10 @@ describe("entity population via client-declared interest", () => {
 		runPromise(
 			Effect.gen(function* () {
 				const { client } = yield* createAuthenticatedClient();
-				const { schema } = yield* findMediaEntitySchema(client, "company");
 				provider = yield* installTestProvider({
 					client,
 					scope: "system",
-					rootEntitySchemaSlug: schema.id,
+					rootEntitySchemaSlug: ENTITY_SCHEMA_SLUG,
 					information: { source: "e2e", canonicalLanguage: "en" },
 					details: fakeProviderDetailsResult({
 						name: POPULATED_NAME,
@@ -54,20 +52,19 @@ describe("entity population via client-declared interest", () => {
 			const auth = yield* createAuthenticatedClient();
 			const { client } = auth;
 
-			const { schema } = yield* findMediaEntitySchema(client, "company");
 			const provenance = {
-				entitySchemaSlug: schema.slug,
 				providerId: provider.providerId,
+				entitySchemaSlug: ENTITY_SCHEMA_SLUG,
 				externalId: `e2e-populate-${crypto.randomUUID()}`,
 			};
 
-			const seeded = yield* seedMediaEntity({
+			const seeded = yield* seedEntity({
 				userId: null,
 				properties: {},
 				name: "Partial Studio",
-				entitySchemaSlug: schema.id,
 				providerId: provider.providerId,
 				externalId: provenance.externalId,
+				entitySchema: testProviderEntitySchema(provider),
 			});
 
 			const fetched = yield* getEntity(client, seeded.id);
@@ -99,15 +96,12 @@ describe("entity population via client-declared interest", () => {
 	it.live("removes interest on disconnect and returns terminal catch-up after reconnect", () =>
 		Effect.gen(function* () {
 			const auth = yield* createAuthenticatedClient();
-			const { client } = auth;
 
-			const { schema } = yield* findMediaEntitySchema(client, "company");
-
-			const entity = yield* seedPopulatedProviderEntity({
+			const entity = yield* seedPopulatedEntity({
 				properties: {},
-				entitySchemaSlug: schema.id,
 				providerId: provider.providerId,
 				name: "Already Populated Studio",
+				entitySchema: testProviderEntitySchema(provider),
 				externalId: `e2e-catchup-${crypto.randomUUID()}`,
 			});
 
@@ -153,19 +147,18 @@ describe("entity population via client-declared interest", () => {
 		Effect.gen(function* () {
 			const auth = yield* createAuthenticatedClient();
 			const { client } = auth;
-			const { schema } = yield* findMediaEntitySchema(client, "company");
 			const provenance = {
-				entitySchemaSlug: schema.slug,
 				providerId: provider.providerId,
+				entitySchemaSlug: ENTITY_SCHEMA_SLUG,
 				externalId: `e2e-replacement-${crypto.randomUUID()}`,
 			};
-			const entity = yield* seedMediaEntity({
+			const entity = yield* seedEntity({
 				userId: null,
 				properties: {},
 				name: "Replaced Studio",
-				entitySchemaSlug: schema.id,
 				providerId: provider.providerId,
 				externalId: provenance.externalId,
+				entitySchema: testProviderEntitySchema(provider),
 			});
 
 			const replaced = yield* openInterestWebSocketScoped(auth);

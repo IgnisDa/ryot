@@ -10,7 +10,6 @@ import {
 	exists,
 	field,
 	include,
-	isNull,
 	join,
 	jsonPath,
 	literal,
@@ -23,27 +22,16 @@ import { adminHeaders } from "~/fixtures/kernel/admin";
 import { listAdminSystemPlugins } from "~/fixtures/kernel/admin-system-plugins";
 import type { Client } from "~/fixtures/kernel/auth";
 import { getApiClient } from "~/fixtures/kernel/contract-client";
-import { getEntity } from "~/fixtures/kernel/entities";
+import { getEntity, seedEntity } from "~/fixtures/kernel/entities";
 import { insertGlobalRelationship } from "~/fixtures/kernel/entity-graph";
 import { getBuiltinEntitySchemaSlug, makeEntitySchemaSlug } from "~/fixtures/kernel/entity-schemas";
-import { pollUntil } from "~/fixtures/kernel/polling";
 import {
 	listRelationshipSchemas,
 	requireRelationshipSchemaBySlug,
 } from "~/fixtures/kernel/relationship-schemas";
-import { createRelationship } from "~/fixtures/kernel/relationships";
-import {
-	executeRyotQL,
-	requireRows,
-	requireRyotQLText,
-	requireRyotQLValue,
-} from "~/fixtures/kernel/ryotql";
-import {
-	assertPresent,
-	requireObjectRecord,
-	requirePresent,
-	requireString,
-} from "~/support/assertions";
+import { findRelationshipBySchema, createRelationship } from "~/fixtures/kernel/relationships";
+import { executeRyotQL, requireRows, requireRyotQLText } from "~/fixtures/kernel/ryotql";
+import { assertPresent, requirePresent } from "~/support/assertions";
 
 import {
 	findBuiltinSchemaWithProviders,
@@ -129,178 +117,32 @@ export const queryInMediaLibraryRelationship = (
 	});
 };
 
-const getEntityByProvenance = (
-	client: Client,
-	input: { externalId: string; providerId: string; entitySchemaSlug: string },
-	globalOnly: boolean,
-) =>
-	Effect.gen(function* () {
-		const entity = table("entity", "entity");
-		const result = yield* executeRyotQL(
-			client,
-			document({
-				entities: rows(entity, {
-					limit: 1,
-					fields: [
-						field("id", column(entity, "id")),
-						field("name", column(entity, "name")),
-						field("populatedAt", column(entity, "populatedAt")),
-					],
-					where: and(
-						eq(column(entity, "entitySchemaSlug"), literal(input.entitySchemaSlug)),
-						eq(column(entity, "externalId"), literal(input.externalId)),
-						eq(column(entity, "providerId"), literal(input.providerId)),
-						...(globalOnly ? [isNull(column(entity, "userId"))] : []),
-					),
-				}),
-			}),
-		);
-		const entities = requireRows(result.data.entities, "entities");
-		const entityRow = requirePresent(
-			entities.items[0],
-			`Missing ${globalOnly ? "global" : "visible"} entity for external id '${input.externalId}'`,
-		);
-		const populatedAt = requireRyotQLValue(entityRow, "populatedAt");
-		return {
-			id: requireRyotQLText(entityRow, "id"),
-			name: requireRyotQLText(entityRow, "name"),
-			populatedAt:
-				populatedAt === null
-					? null
-					: requireString(populatedAt, "Expected 'populatedAt' to contain text"),
-		};
-	});
-
-export const getGlobalEntityByProvenance = (
-	client: Client,
-	input: { externalId: string; providerId: string; entitySchemaSlug: string },
-) => getEntityByProvenance(client, input, true);
-
-export const getVisibleEntityByProvenance = (
-	client: Client,
-	input: { externalId: string; providerId: string; entitySchemaSlug: string },
-) => getEntityByProvenance(client, input, false);
-
-export const waitForEntityPopulated = (
-	client: Client,
-	input: { externalId: string; providerId: string; entitySchemaSlug: string },
-) =>
-	pollUntil(
-		`global entity '${input.externalId}' populated`,
-		Effect.gen(function* () {
-			const entity = yield* getGlobalEntityByProvenance(client, input);
-			return entity.populatedAt !== null ? entity : null;
-		}),
-	);
-
 export const getRelationshipBySchemaSlug = (
 	client: Client,
-	input: { sourceEntityId: string; targetEntityId: string; relationshipSchemaSlug: string },
+	input: Omit<Parameters<typeof findRelationshipBySchema>[1], "owner">,
+) =>
+	Effect.flatMap(mediaFixtureInstallation, ({ id }) =>
+		findRelationshipBySchema(client, { ...input, owner: definitionOwner(id) }),
+	);
+
+export const seedMediaEntity = (
+	input: Omit<Parameters<typeof seedEntity>[0], "entitySchema"> & { entitySchemaSlug: string },
 ) =>
 	Effect.gen(function* () {
-		const owner = definitionOwner((yield* mediaFixtureInstallation).id);
-		const schemas = yield* listRelationshipSchemas(client, {
-			owner,
-			slugs: [input.relationshipSchemaSlug],
-		});
-		const relationshipSchema = requireRelationshipSchemaBySlug(
-			schemas,
-			input.relationshipSchemaSlug,
-			owner,
-		);
-		const relationshipTable = table("relationship", "relationship");
-		const result = yield* executeRyotQL(
-			client,
-			document({
-				relationships: rows(relationshipTable, {
-					limit: 1,
-					fields: [
-						field("properties", column(relationshipTable, "properties")),
-						field("sourceEntityId", column(relationshipTable, "sourceEntityId")),
-						field("targetEntityId", column(relationshipTable, "targetEntityId")),
-					],
-					where: and(
-						eq(column(relationshipTable, "sourceEntityId"), literal(input.sourceEntityId)),
-						eq(column(relationshipTable, "targetEntityId"), literal(input.targetEntityId)),
-						eq(column(relationshipTable, "relationshipSchemaSlug"), literal(relationshipSchema.id)),
-					),
-				}),
-			}),
-		);
-		const relationship = requirePresent(
-			requireRows(result.data.relationships, "relationships").items[0],
-			`Missing relationship '${input.relationshipSchemaSlug}' for '${input.sourceEntityId}' -> '${input.targetEntityId}'`,
-		);
-		return {
-			sourceEntityId: requireRyotQLText(relationship, "sourceEntityId"),
-			targetEntityId: requireRyotQLText(relationship, "targetEntityId"),
-			properties: requireObjectRecord(
-				requireRyotQLValue(relationship, "properties"),
-				"Expected relationship properties to be an object",
-			),
-		};
-	});
-
-export const seedMediaEntity = (input: {
-	name: string;
-	client?: Client;
-	externalId: string;
-	userId?: string | null;
-	entitySchemaSlug: string;
-	providerId: string | null;
-	properties: Record<string, unknown>;
-}) =>
-	Effect.gen(function* () {
-		const entitySchemaSlug = makeEntitySchemaSlug(input.entitySchemaSlug);
+		const { entitySchemaSlug, ...rest } = input;
 		const plugin = requirePresent(
 			(yield* listAdminSystemPlugins).find(
 				({ packageId }) => packageId === mediaPlugin.metadata.packageId,
 			),
 			"System media plugin missing",
 		);
-		const entitySchema = { slug: entitySchemaSlug, owner: definitionOwner(plugin.id) };
-		const providerId = input.providerId ? SandboxProviderId.make(input.providerId) : undefined;
-		const result = input.userId
-			? yield* requirePresent(
-					input.client,
-					"Client is required for user-scoped entity seeding",
-				).call((c) =>
-					c.entities.create({
-						payload: {
-							providerId,
-							entitySchema,
-							name: input.name,
-							properties: input.properties,
-							externalId: input.externalId,
-						},
-					}),
-				)
-			: yield* getApiClient().call(
-					(c) =>
-						c.testSupport.createGlobalEntity({
-							payload: {
-								providerId,
-								entitySchema,
-								name: input.name,
-								properties: input.properties,
-								externalId: input.externalId,
-							},
-						}),
-					adminHeaders(),
-				);
-		const entity = "entity" in result ? result.entity : result;
-		const warnings = "warnings" in result ? result.warnings : undefined;
-
-		return {
-			id: entity.id,
-			name: input.name,
-			userId: input.userId ?? null,
-			properties: input.properties,
-			externalId: input.externalId,
-			providerId: input.providerId,
-			entitySchemaSlug: entity.entitySchemaSlug,
-			...(warnings !== undefined ? { warnings } : {}),
-		};
+		return yield* seedEntity({
+			...rest,
+			entitySchema: {
+				owner: definitionOwner(plugin.id),
+				slug: makeEntitySchemaSlug(entitySchemaSlug),
+			},
+		});
 	});
 
 export const createGlobalBookEntityFixture = (

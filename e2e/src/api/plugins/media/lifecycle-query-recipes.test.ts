@@ -39,11 +39,11 @@ import {
 	requireRyotQLDate,
 	requireRyotQLText,
 	type Client,
+	getGlobalEntityByProvenance,
 } from "~/fixtures/kernel";
 import {
 	enableMediaMonitoring,
 	findMediaEntitySchema,
-	getGlobalEntityByProvenance,
 	insertLibraryMembership,
 	seedMediaEntity,
 	triggerCronAndWaitForEntity,

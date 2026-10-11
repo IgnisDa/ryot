@@ -14,16 +14,14 @@ import {
 	pollEntityUntilTranslationStatus,
 	requireCompletedSandboxValue,
 	installTestProvider,
+	seedEntity,
 	seedEntityTranslation,
+	seedPopulatedEntity,
+	testProviderEntitySchema,
 	setUserLanguage,
 	type Client,
 } from "~/fixtures/kernel";
 import type { InstalledTestProvider } from "~/fixtures/kernel/sandbox-provider";
-import {
-	seedMediaEntity,
-	seedPopulatedProviderEntity,
-	findMediaEntitySchema,
-} from "~/fixtures/plugins/media";
 import { assertPresent, requireObjectRecord } from "~/support/assertions";
 import { afterAll, beforeAll, describe, expect, it, runPromise } from "~/support/effect-test";
 
@@ -31,21 +29,19 @@ const CANONICAL_LANGUAGE = "en";
 const TRANSLATED_ES_NAME = "Título Traducido E2E";
 const TRANSLATED_ES_DESCRIPTION = "Descripción traducida E2E.";
 const POPULATED_NAME = "E2E Populated Movie";
+const ENTITY_SCHEMA_SLUG = "movie";
 
 let provider: InstalledTestProvider;
 let providerClient: Client;
 let providerUserId: string;
 
-const seedPopulatedMovie = (client: Client, name: string) =>
-	Effect.gen(function* () {
-		const { schema } = yield* findMediaEntitySchema(client, "movie");
-		return yield* seedPopulatedProviderEntity({
-			name,
-			entitySchemaSlug: schema.id,
-			providerId: provider.providerId,
-			externalId: `e2e-translate-${crypto.randomUUID()}`,
-			properties: { description: `Canonical overview of ${name}.` },
-		});
+const seedPopulatedMovie = (name: string) =>
+	seedPopulatedEntity({
+		name,
+		providerId: provider.providerId,
+		entitySchema: testProviderEntitySchema(provider),
+		externalId: `e2e-translate-${crypto.randomUUID()}`,
+		properties: { description: `Canonical overview of ${name}.` },
 	});
 
 const openInterestSocket = (auth: { client: Client }, entityIds: string[]) =>
@@ -59,14 +55,11 @@ describe("entity translation via client-declared interest", () => {
 	beforeAll(() =>
 		runPromise(
 			Effect.gen(function* () {
-				const { client, userId } = yield* createAuthenticatedClient();
-				providerClient = client;
-				providerUserId = userId;
-				const { schema } = yield* findMediaEntitySchema(client, "movie");
 				provider = yield* installTestProvider({
-					client,
-					rootEntitySchemaSlug: schema.id,
+					scope: "system",
+					rootEntitySchemaSlug: ENTITY_SCHEMA_SLUG,
 					resolve: { externalId: "resolved-e2e-movie" },
+					client: (yield* createAuthenticatedClient()).client,
 					information: { source: "e2e", canonicalLanguage: CANONICAL_LANGUAGE },
 					details: fakeProviderDetailsResult({
 						name: POPULATED_NAME,
@@ -79,6 +72,7 @@ describe("entity translation via client-declared interest", () => {
 						},
 					}),
 				});
+				({ client: providerClient, userId: providerUserId } = yield* createAuthenticatedClient());
 			}),
 		),
 	);
@@ -109,7 +103,7 @@ describe("entity translation via client-declared interest", () => {
 		Effect.gen(function* () {
 			const auth = { client: providerClient };
 			const { client } = auth;
-			const movie = yield* seedPopulatedMovie(client, "Canonical Fight Club");
+			const movie = yield* seedPopulatedMovie("Canonical Fight Club");
 
 			yield* setUserLanguage(client, "es");
 
@@ -140,7 +134,7 @@ describe("entity translation via client-declared interest", () => {
 		Effect.gen(function* () {
 			const auth = { client: providerClient };
 			const { client } = auth;
-			const movie = yield* seedPopulatedMovie(client, "Canonical The Godfather");
+			const movie = yield* seedPopulatedMovie("Canonical The Godfather");
 
 			yield* setUserLanguage(client, "xx");
 
@@ -170,7 +164,7 @@ describe("entity translation via client-declared interest", () => {
 			Effect.gen(function* () {
 				const canonical = yield* createAuthenticatedClient();
 				const { client } = canonical;
-				const movie = yield* seedPopulatedMovie(client, "Canonical The Shawshank Redemption");
+				const movie = yield* seedPopulatedMovie("Canonical The Shawshank Redemption");
 
 				yield* setUserLanguage(client, CANONICAL_LANGUAGE);
 				const canonicalPreferenceRead = yield* getEntity(client, movie.id);
@@ -199,7 +193,7 @@ describe("entity translation via client-declared interest", () => {
 
 	it.live("keeps one overlay row across concurrent and repeated upserts", () =>
 		Effect.gen(function* () {
-			const movie = yield* seedPopulatedMovie(providerClient, "Canonical Heat");
+			const movie = yield* seedPopulatedMovie("Canonical Heat");
 			const first = {
 				name: "Hitze",
 				language: "de",
@@ -233,21 +227,13 @@ describe("entity translation via client-declared interest", () => {
 		Effect.gen(function* () {
 			const auth = { client: providerClient };
 			const { client } = auth;
-			const { schema } = yield* findMediaEntitySchema(client, "movie");
-			const provenance = {
-				entitySchemaSlug: schema.slug,
-				providerId: provider.providerId,
-				externalId: `e2e-translate-unpopulated-${crypto.randomUUID()}`,
-			};
-
-			const seeded = yield* seedMediaEntity({
-				client,
+			const seeded = yield* seedEntity({
+				userId: null,
 				properties: {},
-				userId: providerUserId,
-				entitySchemaSlug: schema.id,
 				name: "Partial Pulp Fiction",
 				providerId: provider.providerId,
-				externalId: provenance.externalId,
+				entitySchema: testProviderEntitySchema(provider),
+				externalId: `e2e-translate-unpopulated-${crypto.randomUUID()}`,
 			});
 
 			yield* setUserLanguage(client, "es");
