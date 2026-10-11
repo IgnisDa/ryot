@@ -391,6 +391,69 @@ export const PluginBridgeEntitySaveResult = Schema.Union([
 
 export type PluginBridgeEntitySaveResult = Schema.Schema.Type<typeof PluginBridgeEntitySaveResult>;
 
+export const PluginRetryPopulationBridgeErrorReason = Schema.Literals([
+	"invalid-request",
+	"transport",
+]);
+
+export type PluginRetryPopulationBridgeErrorReason = Schema.Schema.Type<
+	typeof PluginRetryPopulationBridgeErrorReason
+>;
+
+export const PluginRetryPopulationRequest = strictStruct({
+	entityId: EntityId,
+	pluginId: PluginId,
+});
+
+export type PluginRetryPopulationRequest = Schema.Schema.Type<typeof PluginRetryPopulationRequest>;
+
+export const PluginBridgeRetryPopulationRequest = strictStruct({
+	...PluginRetryPopulationRequest.fields,
+	requestId: Schema.String,
+	type: Schema.Literal("retry-population-request"),
+});
+
+export type PluginBridgeRetryPopulationRequest = Schema.Schema.Type<
+	typeof PluginBridgeRetryPopulationRequest
+>;
+
+const pluginRetryPopulationSuccessFields = {
+	retried: Schema.Boolean,
+	outcome: Schema.Literal("success"),
+};
+
+const pluginRetryPopulationFailureFields = {
+	outcome: Schema.Literal("failure"),
+	reason: PluginRetryPopulationBridgeErrorReason,
+};
+
+const pluginBridgeRetryPopulationResultFields = {
+	requestId: Schema.String,
+	type: Schema.Literal("retry-population-result"),
+};
+
+export const PluginRetryPopulationOutcome = Schema.Union([
+	strictStruct(pluginRetryPopulationSuccessFields),
+	strictStruct(pluginRetryPopulationFailureFields),
+]);
+
+export type PluginRetryPopulationOutcome = Schema.Schema.Type<typeof PluginRetryPopulationOutcome>;
+
+export const PluginBridgeRetryPopulationResult = Schema.Union([
+	strictStruct({
+		...pluginRetryPopulationSuccessFields,
+		...pluginBridgeRetryPopulationResultFields,
+	}),
+	strictStruct({
+		...pluginRetryPopulationFailureFields,
+		...pluginBridgeRetryPopulationResultFields,
+	}),
+]);
+
+export type PluginBridgeRetryPopulationResult = Schema.Schema.Type<
+	typeof PluginBridgeRetryPopulationResult
+>;
+
 export const PluginStorageBridgeErrorReason = Schema.Literals([
 	"invalid-request",
 	"quota",

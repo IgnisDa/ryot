@@ -16,6 +16,7 @@ import type {
 	PluginManagedAssetResolution,
 	PluginOperationRequest,
 	PluginPageSearchUpdate,
+	PluginRetryPopulationRequest,
 	PluginStorageRequest,
 	PluginThemeSnapshot,
 	PluginUploadRequest,
@@ -101,6 +102,9 @@ export type RyotClientAdapter = {
 		request: StorageAdapterRequest,
 	) => Effect.Effect<unknown, RyotClientError>;
 	readonly readUserSettings?: (pluginId: PluginId) => Effect.Effect<unknown, RyotClientError>;
+	readonly retryPopulation?: (
+		request: PluginRetryPopulationRequest,
+	) => Effect.Effect<unknown, RyotClientError>;
 	readonly navigate?: (mode: "push" | "replace", target: RyotNavigationTarget) => void;
 	readonly navigatePageSearch?: (mode: "push" | "replace", update: RyotPageSearchUpdate) => void;
 	readonly overlays?: {

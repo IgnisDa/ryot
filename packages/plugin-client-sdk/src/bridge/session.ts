@@ -40,6 +40,7 @@ import {
 	type PluginBridgePickEntityScreen,
 	type PluginBridgePickEntityScreenCancel,
 	type PluginBridgeReady,
+	type PluginBridgeRetryPopulationRequest,
 	type PluginBridgeRyotQLCancel,
 	type PluginBridgeRyotQLRequest,
 	type PluginBridgeScreenState,
@@ -49,6 +50,7 @@ import {
 	type PluginCalendarSourceVisibilityRequest,
 	type PluginDeviceRequest,
 	type PluginIosLiveActivityRequest,
+	type PluginRetryPopulationRequest,
 	type PluginThemeSnapshot,
 	type PluginUploadRequest,
 	type RyotClientErrorReason,
@@ -83,6 +85,7 @@ type RequestType =
 	| "external-link"
 	| "operation"
 	| "pick-entity-screen"
+	| "retry-population"
 	| "ryotql"
 	| "storage"
 	| "upload"
@@ -403,6 +406,19 @@ export const createPluginRuntime = (
 						}) satisfies PluginBridgeUserSettingsRequest,
 				);
 
+	const retryPopulation = (request: PluginRetryPopulationRequest) =>
+		!pluginContributors().some((contributor) => contributor.pluginId === request.pluginId)
+			? Effect.fail(new RyotClientError("invalid-request"))
+			: sendRequest(
+					"retry-population",
+					(requestId) =>
+						({
+							...request,
+							requestId,
+							type: "retry-population-request",
+						}) satisfies PluginBridgeRetryPopulationRequest,
+				);
+
 	const upload = (request: PluginUploadRequest) =>
 		sendRequest(
 			"upload",
@@ -524,6 +540,7 @@ export const createPluginRuntime = (
 		editCollection,
 		addToCollection,
 		invokeOperation,
+		retryPopulation,
 		readUserSettings,
 		mutateCollection,
 		navigatePageSearch,
@@ -793,6 +810,15 @@ export const createPluginRuntime = (
 						message.outcome === "failure"
 							? message
 							: { outcome: "success", value: message.settings },
+					);
+					return;
+				case "retry-population-result":
+					settle(
+						"retry-population",
+						message.requestId,
+						message.outcome === "failure"
+							? message
+							: { outcome: "success", value: { retried: message.retried } },
 					);
 					return;
 				case "entity-editor-save-result":

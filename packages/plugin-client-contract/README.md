@@ -62,6 +62,11 @@ returns the settings record; failures use `invalid-request` or `transport`. Inst
 and defaults belong to the kernel host; hook behavior belongs to the
 [SDK user settings API](../plugin-client-sdk/README.md#capabilities).
 
+`retry-population-request` carries a local plugin ID and an entity ID. Result success returns
+`retried`; failures use `invalid-request` (the plugin does not contribute to the document, or the
+kernel refused the retry) or `transport`. Both runtimes check the contributor rule; the kernel endpoint
+also requires the plugin to own the entity's schema.
+
 `calendar-source-visibility-request` carries the `SetCalendarSourceVisibilityBody` (local plugin ID,
 source slug, hidden flag). Its result is bare success or `invalid-request` (the document is not the
 kernel calendar, or the source is not effective for the user), `malformed-result`, or `transport`.

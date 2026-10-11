@@ -7,6 +7,7 @@ import { RyotQLApi } from "#/api/ryotql";
 import { PluginCalendarSources } from "#/modules/pages/bridge/calendar-sources";
 import { PluginEntitySaves } from "#/modules/pages/bridge/entity-saves";
 import { PluginOperationsService } from "#/modules/pages/bridge/operations";
+import { PluginPopulationRetries } from "#/modules/pages/bridge/population-retry";
 import { PluginQueriesService } from "#/modules/pages/bridge/queries";
 import { PluginStorage } from "#/modules/pages/bridge/storage";
 import { ClientPageFreshness } from "#/modules/pages/preparation/freshness";
@@ -16,6 +17,7 @@ export const PagesLive = Layer.mergeAll(
 	PluginCalendarSources.layer,
 	ClientPageFreshness.layer.pipe(Layer.provide(PagesApi.layer)),
 	PluginEntitySaves.layer.pipe(Layer.provide(EntitiesApi.layer)),
+	PluginPopulationRetries.layer.pipe(Layer.provide(EntitiesApi.layer)),
 	PluginOperationsService.layer.pipe(Layer.provide(PluginsApi.layer)),
 	PluginQueriesService.layer.pipe(Layer.provide(RyotQLApi.layer)),
 	PluginStorage.layer.pipe(Layer.provide(ClientStorage.layer)),

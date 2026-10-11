@@ -208,7 +208,8 @@ whether an incomplete submission can be abandoned remain caller-owned.
 
 `ryot.entities.watch({ foreground, visible }, onUpdate)` returns
 `{ update(interest), dispose() }`. The callback receives
-`{ entityId, reason: "populated" | "translated" }`. Disposal is idempotent, suppresses later
+`{ entityId, reason }`, where `reason` is `populated`, `translated`, `population-failed`, or
+`projection-updated`. A failed population never starts a settle highlight. Disposal is idempotent, suppresses later
 callbacks, and makes later updates fail with `disposed`. Invalid declarations fail synchronously with
 `invalid-input`, a missing adapter fails with `unsupported-capability`, and transport failures use
 `RyotClientError("transport")`.
@@ -222,6 +223,16 @@ The host owns connectivity and reconnection.
 the same registry/query atom share one watch. Updates and document-foreground hints coalesce for 250
 ms; an in-flight request finishes before one queued refresh. Hidden retained screens withdraw demand,
 and reactivation requests catch-up without discarding cached data.
+
+## Population Retry
+
+`ryot.entities.retryPopulation({ packageId, entityId })` asks the kernel to repopulate an entity
+whose `populationStatus` is `failed`. The runtime supplies the plugin ID through `pluginIdentity`,
+refuses a package that does not contribute to the frame with `invalid-request`, and returns
+`{ retried }`: `false` when the entity no longer has a failure to retry. Refusals by the kernel
+(missing or invisible entity, foreign owner, no provider or an unavailable one) also fail with
+`invalid-request`. A successful call notifies mutation listeners, so the page reads the entity as
+`pending` again. `useRetryEntityPopulation()` is the matching mutation hook.
 
 ## Entity Editor
 

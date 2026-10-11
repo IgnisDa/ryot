@@ -28,6 +28,7 @@ export {
 	useRyotSchedule,
 	useRyotTheme,
 } from "./queries/provider";
+export { useRetryEntityPopulation } from "./queries/entity-population";
 export { usePluginStorage, type PluginStorageState } from "./queries/storage";
 export { usePluginUserSettings } from "./queries/user-settings";
 export type { RyotSubmission } from "./queries/submission";
