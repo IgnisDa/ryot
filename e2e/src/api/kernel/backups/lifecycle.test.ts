@@ -117,7 +117,7 @@ describe("backup lifecycle", () => {
 					},
 				},
 			};
-			yield* Effect.acquireRelease(
+			const installedPlugin = yield* Effect.acquireRelease(
 				installTestPluginBundle({
 					pluginSlug,
 					scope: "system",
@@ -177,8 +177,11 @@ describe("backup lifecycle", () => {
 			const title = `Backup asset entity ${crypto.randomUUID()}`;
 			const sourceEntity = yield* createEntity(source.client, {
 				name: title,
-				entitySchemaSlug: schemaId,
 				properties: { title, attachment: sourceLocator },
+				entitySchema: {
+					slug: schemaId,
+					owner: { kind: "plugin", pluginId: installedPlugin.pluginId },
+				},
 			});
 			expect((yield* getEntity(source.client, sourceEntity.id)).properties).toEqual({
 				title,

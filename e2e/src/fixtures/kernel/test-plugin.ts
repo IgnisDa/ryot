@@ -1,14 +1,16 @@
 import { PluginClientArtifactFromBase64 } from "@ryot-app/client-plugin-contract";
 import type { ContractPayload, ContractSuccess } from "@ryot-app/contract/client";
-import type { PluginManifest } from "@ryot-app/contract/modules/plugins/manifest";
+import type { EntitySchemaReference } from "@ryot-app/contract/modules/plugins/references";
 import {
 	type PluginConfigRevisionId,
 	type PluginId,
-	PluginSlug,
+	PluginPackageId,
 	type PluginRevisionId,
+	PluginSlug,
 	type SandboxScriptId,
 } from "@ryot-app/contract/schema/brands";
 import type { PluginArchivePackage } from "@ryot-app/plugin-archive";
+import { stableStringify } from "@ryot-app/ts-utils/json";
 import { Effect, Schema } from "effect";
 
 import { requirePresent } from "~/support/assertions";
@@ -24,7 +26,7 @@ import { collectAdminRyotQLRecipeItems } from "./ryotql";
 import { entityBrowserSettings, rowsDataSources } from "./saved-views";
 import { uploadPrivatePluginPackage } from "./temporary-archive";
 
-type TestPluginManifest = PluginManifest;
+type TestPluginManifest = ContractPayload<"testSupport", "installSystemPlugin">["manifest"];
 type PluginScript = TestPluginManifest["scripts"][number];
 type GeneratedDependencyFields =
 	| "runtimeImports"
@@ -62,12 +64,14 @@ type TestPluginManifestInput = Partial<
 		| "httpRateLimits"
 		| "relationshipSchemas"
 		| "integrationProviders"
+		| "signalSchemas"
 	>
 > & {
 	scripts?: ReadonlyArray<FixtureScript>;
 	providers?: ReadonlyArray<PluginProvider>;
 	clientDefinition?: TestPluginManifest["client"];
 	pluginSlug: TestPluginManifest["metadata"]["slug"];
+	packageId?: TestPluginManifest["metadata"]["packageId"];
 };
 
 type TestPluginOwner = { client?: undefined; scope: "system" } | { client: Client; scope?: "user" };
@@ -91,10 +95,18 @@ export type InstalledTestPlugin = {
 };
 
 type InstalledScriptRegistration = { targetSlug: string; installed: InstalledTestPlugin };
+type TestDefinitionRegistration = {
+	client: Client;
+	installationId: string;
+	manifest: TestPluginManifest;
+	pluginId: PluginId;
+	pluginSlug: string;
+	sourceHash: string;
+};
 
 const encoder = new TextEncoder();
 const installedByScriptId = new Map<string, InstalledScriptRegistration>();
-const definitionManifests = new Map<string, { client: Client; manifest: TestPluginManifest }>();
+const definitionManifests = new Map<string, TestDefinitionRegistration>();
 
 export const encodePluginSourceFiles = (files: Readonly<Record<string, string>>) =>
 	Object.fromEntries(
@@ -125,24 +137,63 @@ export const installTestSupportSystemPlugin = (
 		);
 	});
 
-export const findTestEntitySchema = (slug: string) => {
-	for (const [pluginSlug, { manifest }] of definitionManifests) {
-		const schema = manifest.entitySchemas.find((candidate) => candidate.slug === slug);
+export const updateTestSupportSystemPlugin = (
+	input: (PluginPackageInput | PluginArchivePackage) & {
+		readonly pluginId: PluginId;
+		readonly sourceHash: string;
+		readonly baseUrl?: string;
+	},
+) =>
+	Effect.gen(function* () {
+		const pluginPackage = "files" in input ? yield* compilePluginPackage(input) : input;
+		return yield* getApiClient(input.baseUrl).call(
+			(contract) =>
+				contract.testSupport.updateSystemPlugin({
+					params: { pluginId: input.pluginId },
+					payload: {
+						sourceHash: input.sourceHash,
+						manifest: pluginPackage.manifest,
+						compiledScripts: pluginPackage.compiledScripts,
+						...(pluginPackage.compiledClient === undefined
+							? {}
+							: {
+									compiledClient: Schema.encodeUnknownSync(PluginClientArtifactFromBase64)(
+										pluginPackage.compiledClient,
+									),
+								}),
+					},
+				}),
+			adminHeaders(),
+		);
+	});
+
+export const findTestEntitySchema = (client: Client, reference: EntitySchemaReference) => {
+	for (const registration of definitionManifests.values()) {
+		if (
+			reference.owner.kind !== "plugin" ||
+			registration.pluginId !== reference.owner.pluginId ||
+			registration.client.userId !== client.userId
+		) {
+			continue;
+		}
+		const schema = registration.manifest.entitySchemas.find(
+			(candidate) => candidate.slug === reference.slug,
+		);
 		if (schema) {
-			return { schema, pluginSlug };
+			return { schema, pluginSlug: registration.pluginSlug };
 		}
 	}
 	return undefined;
 };
 
 export const testPluginManifest = (input: TestPluginManifestInput): TestPluginManifest => ({
-	signalSchemas: [],
 	crons: input.crons ?? [],
 	hooks: input.hooks ?? [],
 	workflows: input.workflows ?? [],
 	savedViews: input.savedViews ?? [],
 	operations: input.operations ?? [],
 	providers: [...(input.providers ?? [])],
+	signalSchemas: input.signalSchemas ?? [],
 	userBootstrap: input.userBootstrap ?? [],
 	importSources: input.importSources ?? [],
 	entitySchemas: input.entitySchemas ?? [],
@@ -168,6 +219,7 @@ export const testPluginManifest = (input: TestPluginManifestInput): TestPluginMa
 		slug: input.pluginSlug,
 		name: "E2E Test Plugin",
 		description: "Generic plugin fixture for end-to-end tests",
+		packageId: input.packageId ?? PluginPackageId.make(crypto.randomUUID()),
 	},
 });
 
@@ -177,7 +229,6 @@ export const testPluginSavedView = (input: {
 }): TestPluginManifest["savedViews"][number] => ({
 	icon: "star",
 	sortOrder: 0,
-	pluginSlug: null,
 	slug: input.slug,
 	dataSources: rowsDataSources,
 	settings: entityBrowserSettings,
@@ -191,7 +242,7 @@ const operationScriptIds = (result: PluginOperationResult) =>
 const installedSourceHash = (
 	scope: "system" | "user",
 	pluginId: PluginId,
-	pluginSlug: PluginSlug,
+	installationId: string | null,
 	client?: Client,
 	baseUrl?: string,
 ) =>
@@ -202,15 +253,18 @@ const installedSourceHash = (
 				: collectAdminRyotQLRecipeItems((after) => adminSystemPluginsRecipe({ after }), baseUrl);
 			const plugin = requirePresent(
 				plugins.find(({ id }) => id === pluginId),
-				`System plugin '${pluginSlug}' was not found after installation`,
+				`System plugin '${pluginId}' was not found after installation`,
 			);
-			return requirePresent(plugin.sourceHash, `System plugin '${pluginSlug}' has no source hash`);
+			return requirePresent(plugin.sourceHash, `System plugin '${pluginId}' has no source hash`);
 		}
 		const owner = requirePresent(client, "User test plugin has no client");
 		const plugins = yield* listInstalledPlugins(owner, { includeHidden: true });
 		const plugin = requirePresent(
-			plugins.find(({ slug }) => slug === pluginSlug),
-			`Private plugin '${pluginSlug}' was not found after installation`,
+			plugins.find(
+				({ pluginId: installedPluginId, installationId: installedInstallationId }) =>
+					installedPluginId === pluginId && installedInstallationId === installationId,
+			),
+			`Private plugin installation '${installationId}' was not found after installation`,
 		);
 		return plugin.sourceHash;
 	});
@@ -263,11 +317,18 @@ export const installTestPlugin = (
 					}),
 				adminHeaders(),
 			);
+			const installationId = requirePresent(
+				operationResult.installationId,
+				"Private test plugin installation ID missing",
+			);
 			yield* pollUntil(
-				`private test plugin '${pluginSlug}' installation`,
+				`private test plugin installation '${installationId}'`,
 				listInstalledPlugins(input.client, { includeHidden: true }).pipe(
 					Effect.map((installations) => {
-						const installation = installations.find(({ slug }) => slug === pluginSlug);
+						const installation = installations.find(
+							({ pluginId, installationId: installedId }) =>
+								pluginId === operationResult.pluginId && installedId === installationId,
+						);
 						return installation?.health === "ready" ? installation : null;
 					}),
 				),
@@ -281,7 +342,7 @@ export const installTestPlugin = (
 		const sourceHash = yield* installedSourceHash(
 			input.scope === "system" ? "system" : "user",
 			operationResult.pluginId,
-			PluginSlug.make(pluginSlug),
+			operationResult.installationId,
 			input.client,
 		);
 		const installed: InstalledTestPlugin = {
@@ -368,11 +429,18 @@ export const installTestPluginBundle = (
 					}),
 				adminHeaders(),
 			);
+			const installationId = requirePresent(
+				operationResult.installationId,
+				"Private test plugin installation ID missing",
+			);
 			yield* pollUntil(
-				`private test plugin '${pluginSlug}' installation`,
+				`private test plugin installation '${installationId}'`,
 				listInstalledPlugins(input.client, { includeHidden: true }).pipe(
 					Effect.map((installations) => {
-						const installation = installations.find(({ slug }) => slug === pluginSlug);
+						const installation = installations.find(
+							({ pluginId, installationId: installedId }) =>
+								pluginId === operationResult.pluginId && installedId === installationId,
+						);
 						return installation?.health === "ready" ? installation : null;
 					}),
 				),
@@ -388,7 +456,7 @@ export const installTestPluginBundle = (
 		const sourceHash = yield* installedSourceHash(
 			input.scope === "system" ? "system" : "user",
 			operationResult.pluginId,
-			PluginSlug.make(pluginSlug),
+			operationResult.installationId,
 			input.client,
 			input.baseUrl,
 		);
@@ -431,9 +499,13 @@ export const installTestDefinitions = (input: {
 	relationshipSchemas?: TestPluginManifest["relationshipSchemas"];
 }) =>
 	Effect.gen(function* () {
-		const current = definitionManifests.get(input.pluginSlug);
+		const registrationKey = stableStringify([requireFixtureUserId(input.client), input.pluginSlug]);
+		const current = definitionManifests.get(registrationKey);
+		let installationId = current?.installationId;
+		let pluginId = current?.pluginId;
 		const manifest = testPluginManifest({
 			pluginSlug: input.pluginSlug,
+			packageId: current?.manifest.metadata.packageId,
 			entitySchemas: mergeBySlug(current?.manifest.entitySchemas ?? [], input.entitySchemas ?? []),
 			relationshipSchemas: mergeBySlug(
 				current?.manifest.relationshipSchemas ?? [],
@@ -442,27 +514,49 @@ export const installTestDefinitions = (input: {
 		});
 		if (current) {
 			const uploadToken = yield* uploadPrivatePluginPackage(input.client, { manifest, files: {} });
-			yield* input.client.call((c) =>
+			const updated = yield* input.client.call((c) =>
 				c.plugins.update({
-					payload: { uploadToken },
-					params: { pluginSlug: PluginSlug.make(input.pluginSlug) },
+					params: { installationId: current.installationId },
+					payload: { uploadToken, sourceHash: current.sourceHash },
 				}),
 			);
+			installationId = updated.id;
+			pluginId = updated.pluginId;
 		} else {
 			const uploadToken = yield* uploadPrivatePluginPackage(input.client, { manifest, files: {} });
-			yield* input.client.call((c) => c.plugins.install({ payload: { config: {}, uploadToken } }));
-			yield* pollUntil(
-				`private definition plugin '${input.pluginSlug}' installation`,
-				listInstalledPlugins(input.client, { includeHidden: true }).pipe(
-					Effect.map((installations) => {
-						const installation = installations.find(({ slug }) => slug === input.pluginSlug);
-						return installation?.health === "ready" ? installation : null;
-					}),
-				),
+			const installed = yield* input.client.call((c) =>
+				c.plugins.install({ payload: { config: {}, uploadToken } }),
 			);
+			installationId = installed.id;
+			pluginId = installed.pluginId;
 		}
-		definitionManifests.set(input.pluginSlug, { manifest, client: input.client });
-		return manifest;
+		const exactInstallationId = requirePresent(
+			installationId,
+			"Definition installation ID missing",
+		);
+		const exactPluginId = requirePresent(pluginId, "Definition plugin ID missing");
+		const settled = yield* pollUntil(
+			`private definition plugin installation '${exactInstallationId}'`,
+			listInstalledPlugins(input.client, { includeHidden: true }).pipe(
+				Effect.map((installations) => {
+					const installation = installations.find(
+						({ pluginId: installedPluginId, installationId: installedInstallationId }) =>
+							installedPluginId === exactPluginId &&
+							installedInstallationId === exactInstallationId,
+					);
+					return installation?.health === "ready" ? installation : null;
+				}),
+			),
+		);
+		definitionManifests.set(registrationKey, {
+			manifest,
+			client: input.client,
+			pluginId: exactPluginId,
+			pluginSlug: input.pluginSlug,
+			sourceHash: settled.sourceHash,
+			installationId: exactInstallationId,
+		});
+		return { ...manifest, pluginId: exactPluginId };
 	});
 
 export const reinstallTestPluginScript = (
@@ -495,15 +589,26 @@ export const reinstallTestPluginScript = (
 		const manifest = { ...installed.manifest, scripts };
 		let operationResult: PluginOperationResult;
 		if (installed.scope === "system") {
-			operationResult = yield* installTestSupportSystemPlugin({ files, manifest });
+			operationResult = yield* updateTestSupportSystemPlugin({
+				files,
+				manifest,
+				pluginId: installed.pluginId,
+				sourceHash: installed.sourceHash,
+			});
 		} else {
 			const client = requirePresent(installed.client, "User test plugin has no client");
 			const uploadToken = yield* uploadPrivatePluginPackage(client, { files, manifest });
 			operationResult = yield* getApiClient().call(
 				(c) =>
 					c.testSupport.updatePrivatePlugin({
-						payload: { uploadToken },
-						params: { pluginSlug: installed.pluginSlug, userId: requireFixtureUserId(client) },
+						payload: { uploadToken, sourceHash: installed.sourceHash },
+						params: {
+							userId: requireFixtureUserId(client),
+							installationId: requirePresent(
+								installed.installationId,
+								"Private installation ID missing",
+							),
+						},
 					}),
 				adminHeaders(),
 			);
@@ -517,7 +622,7 @@ export const reinstallTestPluginScript = (
 		const sourceHash = yield* installedSourceHash(
 			installed.scope,
 			operationResult.pluginId,
-			installed.pluginSlug,
+			operationResult.installationId,
 			installed.client,
 		);
 		const nextInstalled: InstalledTestPlugin = {
@@ -554,7 +659,7 @@ export const uninstallTestPluginStrict = (installed: InstalledTestPlugin) =>
 			yield* getApiClient().call(
 				(c) =>
 					c.testSupport.uninstallSystemPlugin({
-						params: { pluginSlug: installed.pluginSlug, activationId: installed.activationId },
+						params: { pluginId: installed.pluginId, activationId: installed.activationId },
 					}),
 				adminHeaders(),
 			);
@@ -562,7 +667,13 @@ export const uninstallTestPluginStrict = (installed: InstalledTestPlugin) =>
 			const client = requirePresent(installed.client, "User test plugin has no client");
 			yield* client.call((c) =>
 				c.plugins.uninstall({
-					params: { pluginSlug: installed.pluginSlug, activationId: installed.activationId },
+					params: {
+						activationId: installed.activationId,
+						installationId: requirePresent(
+							installed.installationId,
+							"Private installation ID missing",
+						),
+					},
 				}),
 			);
 		}

@@ -12,18 +12,16 @@ import {
 	createEntity,
 	createCollection,
 	executeRyotQLRecipe,
-	findBuiltinSchemaBySlug,
-	findBuiltinPluginBySlug,
 	getEntity,
 	insertRelationshipRow,
-	listEntitySchemas,
 	listSavedViews,
 	requireRyotQLValue,
 } from "~/fixtures/kernel";
 import {
 	createWorkoutTemplateEntityFixture,
 	createExerciseEntityFixture,
-	findBuiltinRelationshipSchemaSlug,
+	findFitnessEntitySchema,
+	findFitnessRelationshipSchema,
 } from "~/fixtures/plugins/fitness";
 import { assertCondition, assertPresent, requirePresent } from "~/support/assertions";
 import { describe, expect, it } from "~/support/effect-test";
@@ -87,21 +85,21 @@ describe("Workout Templates E2E", () => {
 	it.live("links the built-in workout-template schema to the fitness plugin", () =>
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
-			const fitnessPlugin = yield* findBuiltinPluginBySlug(client, "fitness");
-			const schemas = yield* listEntitySchemas(client, { pluginSlug: fitnessPlugin.slug });
-			const workoutTemplateSchema = schemas.find((schema) => schema.slug === "workout-template");
+			const { pluginId, schema: workoutTemplateSchema } = yield* findFitnessEntitySchema(
+				client,
+				"workout-template",
+			);
 
-			expect(workoutTemplateSchema).toBeDefined();
-			expect(workoutTemplateSchema?.name).toBe("Workout Template");
-			expect(workoutTemplateSchema?.pluginSlug).toBe(fitnessPlugin.slug);
-			expect(workoutTemplateSchema?.isBuiltin).toBe(true);
+			expect(workoutTemplateSchema.name).toBe("Workout Template");
+			expect(workoutTemplateSchema.pluginId).toBe(pluginId);
+			expect(workoutTemplateSchema.isBuiltin).toBe(true);
 		}),
 	);
 
 	it.live("exposes the workout-template schema properties", () =>
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
-			const { schema: workoutTemplateSchema } = yield* findBuiltinSchemaBySlug(
+			const { schema: workoutTemplateSchema } = yield* findFitnessEntitySchema(
 				client,
 				"workout-template",
 			);
@@ -205,8 +203,8 @@ describe("Workout Templates E2E", () => {
 		() =>
 			Effect.gen(function* () {
 				const { client } = yield* createAuthenticatedClient();
-				const fitnessPlugin = yield* findBuiltinPluginBySlug(client, "fitness");
-				const views = yield* listSavedViews(client, { pluginSlug: fitnessPlugin.slug });
+				const { pluginId } = yield* findFitnessEntitySchema(client, "workout-template");
+				const views = yield* listSavedViews(client, { pluginId });
 				const allWorkoutTemplatesView = views.find((view) => view.name === "All Workout Templates");
 				assertPresent(
 					allWorkoutTemplatesView,
@@ -224,9 +222,9 @@ describe("Workout Templates E2E", () => {
 				);
 
 				expect(allWorkoutTemplatesView).toMatchObject({
+					pluginId,
 					isBuiltin: true,
 					name: "All Workout Templates",
-					pluginSlug: fitnessPlugin.slug,
 					renderer: { kind: "kernel", name: "entity-browser" },
 					settings: {
 						defaultLayout: "grid",
@@ -238,7 +236,7 @@ describe("Workout Templates E2E", () => {
 						entitySchemaSlugField: "entitySchemaSlug",
 						addAction: {
 							type: "provider-search",
-							ownerPluginId: expect.any(String),
+							ownerPluginId: pluginId,
 							entitySchemaSlug: "workout-template",
 						},
 						tableColumns: [
@@ -281,7 +279,7 @@ describe("Workout Templates E2E", () => {
 								]),
 							}),
 							expect.objectContaining({
-								right: { type: "literal", value: expect.any(String) },
+								right: { type: "literal", value: pluginId },
 								left: { type: "column", tableAlias: "entity", field: "entitySchemaPluginId" },
 							}),
 						]),
@@ -312,7 +310,10 @@ describe("Workout Templates E2E", () => {
 					yield* createWorkoutTemplateEntityFixture(client);
 				const result = yield* executeRyotQLRecipe(
 					client,
-					workoutTemplateListRecipe({ entityId: workoutTemplateId }),
+					workoutTemplateListRecipe({
+						entityId: workoutTemplateId,
+						reference: { pluginId, kind: "local" },
+					}),
 				);
 
 				const firstTemplate = result.items[0];
@@ -338,7 +339,7 @@ describe("Workout Templates E2E", () => {
 	it.live("persists omitted optional fields and multiple nested exercises", () =>
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
-			const { schema: workoutTemplateSchema } = yield* findBuiltinSchemaBySlug(
+			const { schema: workoutTemplateSchema } = yield* findFitnessEntitySchema(
 				client,
 				"workout-template",
 			);
@@ -390,7 +391,7 @@ describe("Workout Templates E2E", () => {
 
 			const workoutTemplate = yield* createEntity(client, {
 				properties: workoutTemplateProperties,
-				entitySchemaSlug: workoutTemplateSchema.id,
+				entitySchema: workoutTemplateSchema.reference,
 				name: `Workout Template ${crypto.randomUUID()}`,
 			});
 
@@ -430,13 +431,14 @@ describe("Workout Templates E2E", () => {
 	it.live("joins a workout to its template through the seeded relationship schema", () =>
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
-			const { schema: workoutSchema } = yield* findBuiltinSchemaBySlug(client, "workout");
+			const { schema: workoutSchema } = yield* findFitnessEntitySchema(client, "workout");
+			const { pluginId } = yield* findFitnessEntitySchema(client, "workout");
 			const { workoutTemplate, workoutTemplateId } =
 				yield* createWorkoutTemplateEntityFixture(client);
 			const workoutName = `Workout ${crypto.randomUUID()}`;
 			const { id: workoutId } = yield* createEntity(client, {
 				name: workoutName,
-				entitySchemaSlug: workoutSchema.id,
+				entitySchema: workoutSchema.reference,
 				properties: {
 					comment: "Leg day",
 					caloriesBurnt: 420,
@@ -444,20 +446,24 @@ describe("Workout Templates E2E", () => {
 					startedAt: "2026-04-27T10:00:00Z",
 				},
 			});
-			const relationshipSchemaSlug = yield* findBuiltinRelationshipSchemaSlug(
+			const relationshipSchema = yield* findFitnessRelationshipSchema(
 				client,
 				"workout-to-workout-template",
 			);
 
 			yield* insertRelationshipRow(client, {
-				relationshipSchemaSlug,
 				sourceEntityId: workoutId,
 				targetEntityId: workoutTemplateId,
+				relationshipSchema: relationshipSchema.reference,
 			});
 
 			const result = yield* executeRyotQLRecipe(
 				client,
-				workoutDetailRecipe({ templateLimit: 1, entityId: workoutId }),
+				workoutDetailRecipe({
+					templateLimit: 1,
+					entityId: workoutId,
+					reference: { pluginId, kind: "local" },
+				}),
 			);
 			const workoutRow = requirePresent(result, "Expected workout row");
 			const template = requireRyotQLInclude(workoutRow, "template").items[0];
@@ -470,12 +476,13 @@ describe("Workout Templates E2E", () => {
 	it.live("joins a workout from the template side through the seeded relationship schema", () =>
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
-			const { schema: workoutSchema } = yield* findBuiltinSchemaBySlug(client, "workout");
+			const { schema: workoutSchema } = yield* findFitnessEntitySchema(client, "workout");
+			const { pluginId } = yield* findFitnessEntitySchema(client, "workout-template");
 			const { workoutTemplateId } = yield* createWorkoutTemplateEntityFixture(client);
 			const workoutName = `Workout ${crypto.randomUUID()}`;
 			const { id: workoutId } = yield* createEntity(client, {
 				name: workoutName,
-				entitySchemaSlug: workoutSchema.id,
+				entitySchema: workoutSchema.reference,
 				properties: {
 					comment: "Leg day",
 					caloriesBurnt: 420,
@@ -483,20 +490,24 @@ describe("Workout Templates E2E", () => {
 					startedAt: "2026-04-27T10:00:00Z",
 				},
 			});
-			const relationshipSchemaSlug = yield* findBuiltinRelationshipSchemaSlug(
+			const relationshipSchema = yield* findFitnessRelationshipSchema(
 				client,
 				"workout-to-workout-template",
 			);
 
 			yield* insertRelationshipRow(client, {
-				relationshipSchemaSlug,
 				sourceEntityId: workoutId,
 				targetEntityId: workoutTemplateId,
+				relationshipSchema: relationshipSchema.reference,
 			});
 
 			const result = yield* executeRyotQLRecipe(
 				client,
-				workoutTemplateDetailRecipe({ workoutLimit: 10, entityId: workoutTemplateId }),
+				workoutTemplateDetailRecipe({
+					workoutLimit: 10,
+					entityId: workoutTemplateId,
+					reference: { pluginId, kind: "local" },
+				}),
 			);
 			const templateRow = requirePresent(result, "Expected workout template row");
 			const workout = requireRyotQLInclude(templateRow, "workouts").items[0];

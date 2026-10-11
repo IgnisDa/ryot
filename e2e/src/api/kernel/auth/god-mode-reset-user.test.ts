@@ -1,4 +1,5 @@
 import { UserId } from "@ryot-app/contract/schema/brands";
+import { mediaPlugin } from "@ryot-app/media-plugin";
 import { godModeUsersRecipe } from "@ryot-app/ryotql-recipes/god-mode";
 import { pluginInstallationsRecipe } from "@ryot-app/ryotql-recipes/plugin-installations";
 import { Effect } from "effect";
@@ -12,7 +13,7 @@ import {
 	createTestAuthClient,
 	createTestUser,
 	executeAdminRyotQLRecipe,
-	findBuiltinPluginBySlug,
+	findBuiltinPluginByPackage,
 	getApiClient,
 	makeSession,
 	pollUserLifecycleOperation,
@@ -121,9 +122,18 @@ describe("Reset user for credential user", () => {
 			yield* listPluginsWithHeaders({ Authorization: `Bearer ${authToken}` });
 			yield* listPluginsWithHeaders({ "X-Api-Key": apiKey });
 
-			const plugin = yield* findBuiltinPluginBySlug(userClient, "media");
-			yield* updatePluginState(userClient, plugin.slug, { sortOrder: 41, isHidden: true });
-			const configuredPlugin = yield* findBuiltinPluginBySlug(userClient, "media");
+			const plugin = yield* findBuiltinPluginByPackage(userClient, {
+				scope: "system",
+				packageId: mediaPlugin.metadata.packageId,
+			});
+			yield* updatePluginState(userClient, plugin.installationId, {
+				sortOrder: 41,
+				isHidden: true,
+			});
+			const configuredPlugin = yield* findBuiltinPluginByPackage(userClient, {
+				scope: "system",
+				packageId: mediaPlugin.metadata.packageId,
+			});
 			expect(configuredPlugin).toMatchObject({ sortOrder: 41, isHidden: true });
 
 			const accepted = yield* requestUserReset(userId);

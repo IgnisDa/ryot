@@ -20,6 +20,7 @@ import {
 	createEntityFixture,
 	createEventFixture,
 	createPluginEntitySchema,
+	createPluginScope,
 	createRelationship,
 	createRelationshipSchema,
 	executeRyotQL,
@@ -40,11 +41,11 @@ describe("RyotQL time-series outputs", () => {
 		() =>
 			Effect.gen(function* () {
 				const { client } = yield* createAuthenticatedClient();
-				const { schemaId } = yield* createPluginEntitySchema(client, {
+				const { reference } = yield* createPluginEntitySchema(client, {
 					schemaName: "RyotQLTimeSeriesEvent",
 				});
 				const eventSchema = yield* createEventSchema(client, {
-					entitySchemaSlug: schemaId,
+					entitySchema: reference,
 					name: "RyotQL Time Series Review",
 					slug: `ryotql-time-series-review-${crypto.randomUUID()}`,
 					propertiesSchema: {
@@ -52,7 +53,7 @@ describe("RyotQL time-series outputs", () => {
 					},
 				});
 				const entity = yield* createEntityFixture(client, {
-					entitySchemaSlug: schemaId,
+					entitySchema: reference,
 					name: "RyotQL Time Series Entity",
 				});
 				for (const [occurredAt, rating] of [
@@ -154,7 +155,9 @@ describe("RyotQL time-series outputs", () => {
 	it.live("aligns JSON hour and week buckets and relationship calendar months in UTC", () =>
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
-			const { slug, schemaId } = yield* createPluginEntitySchema(client, {
+			const pluginSlug = createPluginScope();
+			const { slug, schemaId, reference } = yield* createPluginEntitySchema(client, {
+				pluginSlug,
 				schemaName: "RyotQLTimeSeriesDate",
 				propertiesSchema: {
 					fields: {
@@ -164,18 +167,19 @@ describe("RyotQL time-series outputs", () => {
 			});
 			const entities = yield* Effect.all([
 				createEntityFixture(client, {
+					entitySchema: reference,
 					name: "Published Entity",
-					entitySchemaSlug: schemaId,
 					properties: { publishedAt: "2026-01-07T12:30:00.000Z" },
 				}),
 				createEntityFixture(client, {
-					entitySchemaSlug: schemaId,
+					entitySchema: reference,
 					name: "Malformed Date Entity",
 					properties: { publishedAt: "not-a-date" },
 				}),
 			]);
 			const relationshipSlug = `ryotql-time-series-link-${crypto.randomUUID()}`;
 			const relationshipSchema = yield* createRelationshipSchema(client, {
+				pluginSlug,
 				slug: relationshipSlug,
 				name: "RyotQL Time Series Link",
 				sourceEntitySchemaSlug: schemaId,
@@ -186,7 +190,7 @@ describe("RyotQL time-series outputs", () => {
 			yield* createRelationship(client, {
 				sourceEntityId: source.id,
 				targetEntityId: target.id,
-				relationshipSchemaSlug: relationshipSchema.id,
+				relationshipSchema: relationshipSchema.reference,
 			});
 
 			const entity = table("entity", "entity");

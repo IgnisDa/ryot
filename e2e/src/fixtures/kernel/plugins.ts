@@ -1,5 +1,6 @@
 import type { ContractPathParams, ContractPayload } from "@ryot-app/contract/client";
-import { PluginSlug } from "@ryot-app/contract/schema/brands";
+import type { PluginPackageReference } from "@ryot-app/contract/modules/plugins/references";
+import { type PluginId, PluginSlug } from "@ryot-app/contract/schema/brands";
 import { pluginInstallationsRecipe } from "@ryot-app/ryotql-recipes/plugin-installations";
 import { Effect } from "effect";
 
@@ -19,36 +20,58 @@ export const listInstalledPlugins = (client: Client, options: { includeHidden?: 
 		),
 	);
 
-export const findBuiltinPluginBySlug = (client: Client, slug: string) =>
-	Effect.gen(function* () {
-		const plugins = yield* listInstalledPlugins(client, { includeHidden: true });
-		const plugin = plugins.find((entry) => entry.slug === slug);
-		return requirePresent(plugin, `Built-in plugin '${slug}' not found`);
-	});
-
-export const findPluginInstallationBySlug = (client: Client, slug: string) =>
+export const findPluginInstallationById = (
+	client: Client,
+	installationId: ContractPathParams<"plugins", "update">["installationId"],
+) =>
 	Effect.gen(function* () {
 		const installations = yield* listInstalledPlugins(client, { includeHidden: true });
 		return requirePresent(
-			installations.find((installation) => installation.slug === slug),
-			`Plugin installation '${slug}' not found`,
+			installations.find((installation) => installation.installationId === installationId),
+			`Plugin installation '${installationId}' not found`,
 		);
 	});
 
+export const findPluginInstallationByPluginId = (client: Client, pluginId: PluginId) =>
+	Effect.gen(function* () {
+		const installations = yield* listInstalledPlugins(client, { includeHidden: true });
+		return requirePresent(
+			installations.find((installation) => installation.pluginId === pluginId),
+			`Plugin '${pluginId}' installation not found`,
+		);
+	});
+
+export const findPluginInstallationByPackage = (
+	client: Client,
+	reference: PluginPackageReference,
+) =>
+	Effect.gen(function* () {
+		const installations = yield* listInstalledPlugins(client, { includeHidden: true });
+		return requirePresent(
+			installations.find(
+				(installation) =>
+					installation.packageId === reference.packageId && installation.scope === reference.scope,
+			),
+			"Plugin installation not found",
+		);
+	});
+
+export const findBuiltinPluginByPackage = (
+	client: Client,
+	reference: PluginPackageReference & { readonly scope: "system" },
+) => findPluginInstallationByPackage(client, reference);
+
 export const updatePluginState = (
 	client: Client,
-	pluginSlug: string,
+	installationId: ContractPathParams<"plugins", "updatePluginState">["installationId"],
 	payload: ContractPayload<"plugins", "updatePluginState">,
-) =>
-	client.call((c) =>
-		c.plugins.updatePluginState({ payload, params: { pluginSlug: PluginSlug.make(pluginSlug) } }),
-	);
+) => client.call((c) => c.plugins.updatePluginState({ payload, params: { installationId } }));
 
 export const setPluginHomeView = (
 	client: Client,
-	pluginSlug: ContractPathParams<"plugins", "setHomeView">["pluginSlug"],
-	savedViewSlug: ContractPayload<"plugins", "setHomeView">["savedViewSlug"],
+	installationId: ContractPathParams<"plugins", "setHomeView">["installationId"],
+	savedView: ContractPayload<"plugins", "setHomeView">["savedView"],
 ) =>
 	client.call((contract) =>
-		contract.plugins.setHomeView({ params: { pluginSlug }, payload: { savedViewSlug } }),
+		contract.plugins.setHomeView({ payload: { savedView }, params: { installationId } }),
 	);

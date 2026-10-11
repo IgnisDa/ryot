@@ -28,6 +28,7 @@ import {
 	createEventSchema,
 	createEntityFixture,
 	createPluginEntitySchema,
+	createPluginScope,
 	createRelationship,
 	createRelationshipSchema,
 	executeRyotQL,
@@ -47,11 +48,11 @@ describe("RyotQL aggregate outputs", () => {
 	it.live("groups joined metadata by timezone-aware local dates across DST", () =>
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
-			const { slug, schemaId } = yield* createPluginEntitySchema(client, {
+			const { slug, reference } = yield* createPluginEntitySchema(client, {
 				schemaName: "RyotQLDateBucketEpisode",
 			});
 			const eventSchema = yield* createEventSchema(client, {
-				entitySchemaSlug: schemaId,
+				entitySchema: reference,
 				name: "RyotQL Date Bucket Watch",
 				slug: `ryotql-date-bucket-watch-${crypto.randomUUID()}`,
 				propertiesSchema: {
@@ -61,8 +62,8 @@ describe("RyotQL aggregate outputs", () => {
 				},
 			});
 			const [episodeOne, episodeTwo] = yield* Effect.all([
-				createEntityFixture(client, { name: "Episode One", entitySchemaSlug: schemaId }),
-				createEntityFixture(client, { name: "Episode Two", entitySchemaSlug: schemaId }),
+				createEntityFixture(client, { name: "Episode One", entitySchema: reference }),
+				createEntityFixture(client, { name: "Episode Two", entitySchema: reference }),
 			]);
 			for (const [entityId, occurredAt, timeSpent] of [
 				[episodeOne.id, "2026-03-08T04:30:00.000Z", 20],
@@ -148,7 +149,7 @@ describe("RyotQL aggregate outputs", () => {
 	it.live("returns grouped, ungrouped, empty, null, and typed aggregate values", () =>
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
-			const { slug, schemaId } = yield* createPluginEntitySchema(client, {
+			const { slug, reference } = yield* createPluginEntitySchema(client, {
 				schemaName: "RyotQLAggregateLesson",
 				propertiesSchema: {
 					unknownKeys: "passthrough",
@@ -162,7 +163,7 @@ describe("RyotQL aggregate outputs", () => {
 			const lessons = yield* Effect.all([
 				createEntityFixture(client, {
 					name: "Advanced One",
-					entitySchemaSlug: schemaId,
+					entitySchema: reference,
 					properties: {
 						featured: true,
 						durationMinutes: 30,
@@ -172,17 +173,17 @@ describe("RyotQL aggregate outputs", () => {
 				}),
 				createEntityFixture(client, {
 					name: "Advanced Two",
-					entitySchemaSlug: schemaId,
+					entitySchema: reference,
 					properties: { featured: false, durationMinutes: 60, difficulty: "advanced" },
 				}),
 				createEntityFixture(client, {
 					name: "Beginner",
-					entitySchemaSlug: schemaId,
+					entitySchema: reference,
 					properties: { featured: false, durationMinutes: 90, difficulty: "beginner" },
 				}),
 				createEntityFixture(client, {
 					name: "Unclassified",
-					entitySchemaSlug: schemaId,
+					entitySchema: reference,
 					properties: { featured: false },
 				}),
 			]);
@@ -326,19 +327,25 @@ describe("RyotQL aggregate outputs", () => {
 				createAuthenticatedClient(),
 				createAuthenticatedClient(),
 			]);
+			const ownerPluginSlug = createPluginScope();
+			const otherPluginSlug = createPluginScope();
 			const ownerSchema = yield* createPluginEntitySchema(owner.client, {
+				pluginSlug: ownerPluginSlug,
 				schemaName: "RyotQLAggregateVisible",
 			});
 			const otherSchema = yield* createPluginEntitySchema(other.client, {
+				pluginSlug: otherPluginSlug,
 				schemaName: "RyotQLAggregateHidden",
 			});
 			const ownerRelationship = yield* createRelationshipSchema(owner.client, {
+				pluginSlug: ownerPluginSlug,
 				name: "RyotQL Aggregate Visible Link",
 				targetEntitySchemaSlug: ownerSchema.schemaId,
 				sourceEntitySchemaSlug: ownerSchema.schemaId,
 				slug: `ryotql-aggregate-visible-${crypto.randomUUID()}`,
 			});
 			const otherRelationship = yield* createRelationshipSchema(other.client, {
+				pluginSlug: otherPluginSlug,
 				name: "RyotQL Aggregate Hidden Link",
 				targetEntitySchemaSlug: otherSchema.schemaId,
 				sourceEntitySchemaSlug: otherSchema.schemaId,
@@ -346,11 +353,10 @@ describe("RyotQL aggregate outputs", () => {
 			});
 			const ownerEntities = yield* Effect.forEach(
 				["Visible Source", "Visible Target One", "Visible Target Two"],
-				(name) =>
-					createEntityFixture(owner.client, { name, entitySchemaSlug: ownerSchema.schemaId }),
+				(name) => createEntityFixture(owner.client, { name, entitySchema: ownerSchema.reference }),
 			);
 			const otherEntities = yield* Effect.forEach(["Hidden Source", "Hidden Target"], (name) =>
-				createEntityFixture(other.client, { name, entitySchemaSlug: otherSchema.schemaId }),
+				createEntityFixture(other.client, { name, entitySchema: otherSchema.reference }),
 			);
 			const [ownerSource, ownerTargetOne, ownerTargetTwo] = ownerEntities;
 			const [otherSource, otherTarget] = otherEntities;
@@ -363,17 +369,17 @@ describe("RyotQL aggregate outputs", () => {
 				createRelationship(owner.client, {
 					sourceEntityId: ownerSource.id,
 					targetEntityId: ownerTargetOne.id,
-					relationshipSchemaSlug: ownerRelationship.id,
+					relationshipSchema: ownerRelationship.reference,
 				}),
 				createRelationship(owner.client, {
 					sourceEntityId: ownerSource.id,
 					targetEntityId: ownerTargetTwo.id,
-					relationshipSchemaSlug: ownerRelationship.id,
+					relationshipSchema: ownerRelationship.reference,
 				}),
 				createRelationship(other.client, {
 					sourceEntityId: otherSource.id,
 					targetEntityId: otherTarget.id,
-					relationshipSchemaSlug: otherRelationship.id,
+					relationshipSchema: otherRelationship.reference,
 				}),
 			]);
 			const hiddenRelationship = createdRelationships[2];

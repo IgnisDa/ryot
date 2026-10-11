@@ -34,7 +34,10 @@ describe("Native data JSON webhooks", () => {
 			expect(provider.lot).toBe("sink");
 
 			const integration = yield* Effect.acquireRelease(
-				createIntegration(client, { provider: "data-json", providerSpecifics: {} }),
+				createIntegration(client, {
+					providerSpecifics: {},
+					provider: { slug: "data-json", owner: { kind: "kernel" } },
+				}),
 				({ id }) => deleteIntegration(client, id).pipe(Effect.asVoid, Effect.orDie),
 			);
 			const detail = requirePresent(
@@ -51,7 +54,10 @@ describe("Native data JSON webhooks", () => {
 			const { client } = yield* createAuthenticatedClient();
 			const graph = yield* createDataJsonSchemaGraph(client);
 			const integration = yield* Effect.acquireRelease(
-				createIntegration(client, { provider: "data-json", providerSpecifics: {} }),
+				createIntegration(client, {
+					providerSpecifics: {},
+					provider: { slug: "data-json", owner: { kind: "kernel" } },
+				}),
 				({ id }) => deleteIntegration(client, id).pipe(Effect.asVoid, Effect.orDie),
 			);
 			const name = `Webhook duplicate ${crypto.randomUUID()}`;
@@ -64,7 +70,7 @@ describe("Native data JSON webhooks", () => {
 						key: "record",
 						kind: "custom",
 						properties: {},
-						entitySchemaSlug: graph.entityA.schemaId,
+						entitySchema: graph.entityA.reference,
 					},
 				],
 			};
@@ -89,7 +95,10 @@ describe("Native data JSON webhooks", () => {
 			const { client } = yield* createAuthenticatedClient();
 			const graph = yield* createDataJsonSchemaGraph(client);
 			const integration = yield* Effect.acquireRelease(
-				createIntegration(client, { provider: "data-json", providerSpecifics: {} }),
+				createIntegration(client, {
+					providerSpecifics: {},
+					provider: { slug: "data-json", owner: { kind: "kernel" } },
+				}),
 				({ id }) => deleteIntegration(client, id).pipe(Effect.asVoid, Effect.orDie),
 			);
 			const document = (name: string): DataJsonDocument => ({
@@ -101,7 +110,7 @@ describe("Native data JSON webhooks", () => {
 						key: "record",
 						kind: "custom",
 						properties: {},
-						entitySchemaSlug: graph.entityA.schemaId,
+						entitySchema: graph.entityA.reference,
 					},
 				],
 			});
@@ -131,11 +140,17 @@ describe("Native data JSON webhooks", () => {
 			const { client } = yield* createAuthenticatedClient();
 			const graph = yield* createDataJsonSchemaGraph(client);
 			const firstIntegration = yield* Effect.acquireRelease(
-				createIntegration(client, { provider: "data-json", providerSpecifics: {} }),
+				createIntegration(client, {
+					providerSpecifics: {},
+					provider: { slug: "data-json", owner: { kind: "kernel" } },
+				}),
 				({ id }) => deleteIntegration(client, id).pipe(Effect.asVoid, Effect.orDie),
 			);
 			const secondIntegration = yield* Effect.acquireRelease(
-				createIntegration(client, { provider: "data-json", providerSpecifics: {} }),
+				createIntegration(client, {
+					providerSpecifics: {},
+					provider: { slug: "data-json", owner: { kind: "kernel" } },
+				}),
 				({ id }) => deleteIntegration(client, id).pipe(Effect.asVoid, Effect.orDie),
 			);
 			const name = `Cross-integration submission ${crypto.randomUUID()}`;
@@ -148,7 +163,7 @@ describe("Native data JSON webhooks", () => {
 						key: "record",
 						kind: "custom",
 						properties: {},
-						entitySchemaSlug: graph.entityA.schemaId,
+						entitySchema: graph.entityA.reference,
 					},
 				],
 			};
@@ -183,7 +198,10 @@ describe("Native data JSON webhooks", () => {
 			const { client } = yield* createAuthenticatedClient();
 			const graph = yield* createDataJsonSchemaGraph(client);
 			const integration = yield* Effect.acquireRelease(
-				createIntegration(client, { provider: "data-json", providerSpecifics: {} }),
+				createIntegration(client, {
+					providerSpecifics: {},
+					provider: { slug: "data-json", owner: { kind: "kernel" } },
+				}),
 				({ id }) => deleteIntegration(client, id).pipe(Effect.asVoid, Effect.orDie),
 			);
 			yield* client.call((c) =>
@@ -204,7 +222,7 @@ describe("Native data JSON webhooks", () => {
 							kind: "custom",
 							properties: {},
 							name: "Disabled integration record",
-							entitySchemaSlug: graph.entityA.schemaId,
+							entitySchema: graph.entityA.reference,
 						},
 					],
 				},
@@ -223,7 +241,10 @@ describe("Native data JSON webhooks", () => {
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
 			const integration = yield* Effect.acquireRelease(
-				createIntegration(client, { provider: "data-json", providerSpecifics: {} }),
+				createIntegration(client, {
+					providerSpecifics: {},
+					provider: { slug: "data-json", owner: { kind: "kernel" } },
+				}),
 				({ id }) => deleteIntegration(client, id).pipe(Effect.asVoid, Effect.orDie),
 			);
 			const detail = requirePresent(
@@ -251,11 +272,14 @@ describe("Native data JSON webhooks", () => {
 			const graph = yield* createDataJsonSchemaGraph(client);
 			const entity = yield* createEntityFixture(client, {
 				properties: {},
-				entitySchemaSlug: graph.entityA.schemaId,
+				entitySchema: graph.entityA.reference,
 				name: `Webhook event owner ${crypto.randomUUID()}`,
 			});
 			const integration = yield* Effect.acquireRelease(
-				createIntegration(client, { provider: "data-json", providerSpecifics: {} }),
+				createIntegration(client, {
+					providerSpecifics: {},
+					provider: { slug: "data-json", owner: { kind: "kernel" } },
+				}),
 				({ id }) => deleteIntegration(client, id).pipe(Effect.asVoid, Effect.orDie),
 			);
 			const makeDocument = (occurredAt: string): DataJsonDocument => ({
@@ -265,7 +289,7 @@ describe("Native data JSON webhooks", () => {
 						kind: "existing",
 						key: "owner-entity",
 						entityId: entity.id,
-						entitySchemaSlug: graph.entityA.schemaId,
+						entitySchema: graph.entityA.reference,
 					},
 				],
 				events: [

@@ -1,3 +1,4 @@
+import { SavedViewId } from "@ryot-app/contract/schema/brands";
 import { Effect } from "effect";
 
 import {
@@ -17,20 +18,33 @@ import {
 	type Client,
 	updateSavedView,
 } from "~/fixtures/kernel";
+import { findMediaEntitySchema } from "~/fixtures/plugins/media";
 import { assertTaggedError, requirePresent } from "~/support/assertions";
 import { describe, expect, it } from "~/support/effect-test";
 
-const missingViewSlug = "non-existent-view-slug";
+const missingViewReference = {
+	kind: "custom" as const,
+	savedViewId: SavedViewId.make("non-existent-view"),
+};
 
 const installPluginScope = Effect.fn(function* (client: Client) {
 	const pluginSlug = createPluginScope();
-	yield* installPrivatePlugin({
+	return yield* installPrivatePlugin({
 		client,
 		pluginSlug,
 		config: { [PRIVATE_PLUGIN_CONFIG_KEY]: "saved-view-scope" },
 	});
-	return pluginSlug;
 });
+
+const findAllMoviesView = (client: Client) =>
+	Effect.gen(function* () {
+		const { schema } = yield* findMediaEntitySchema(client, "movie");
+		const pluginId = requirePresent(
+			schema.reference.owner.kind === "plugin" ? schema.reference.owner.pluginId : undefined,
+			"Media movie schema must have a plugin owner",
+		);
+		return yield* findBuiltinSavedView(client, { pluginId, kind: "plugin", slug: "all-movies" });
+	});
 
 describe("Saved views lifecycle E2E", () => {
 	it.live("lists built-in and user-created views together", () =>
@@ -84,21 +98,18 @@ describe("Saved views lifecycle E2E", () => {
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
 			const other = yield* createAuthenticatedClient();
-			const builtinView = yield* findBuiltinSavedView(client);
+			const builtinView = yield* findAllMoviesView(client);
 			const updatedView = yield* client.call((c) =>
-				c.savedViews.update({
-					payload: { isHidden: true },
-					params: { viewSlug: builtinView.slug },
-				}),
+				c.savedViews.update({ payload: { isHidden: true, reference: builtinView.reference } }),
 			);
-			const fetchedView = yield* getSavedView(client, builtinView.slug);
+			const fetchedView = yield* getSavedView(client, builtinView.reference);
 
 			expect(updatedView.id).toBe(builtinView.id);
 			expect(fetchedView.renderer).toEqual(builtinView.renderer);
 			expect(fetchedView.createdAt).toBeNull();
 			expect(fetchedView.updatedAt).toBeNull();
 			expect(fetchedView.isHidden).toBe(true);
-			expect((yield* getSavedView(other.client, builtinView.slug)).isHidden).toBe(false);
+			expect((yield* getSavedView(other.client, builtinView.reference)).isHidden).toBe(false);
 		}),
 	);
 
@@ -107,7 +118,7 @@ describe("Saved views lifecycle E2E", () => {
 			const { client } = yield* createAuthenticatedClient();
 			const created = yield* createSavedView(client, { name: "Lifecycle View" });
 			const createdView = yield* findSavedViewById(client, created.id);
-			const fetchedView = yield* getSavedView(client, createdView.slug);
+			const fetchedView = yield* getSavedView(client, createdView.reference);
 			expect(fetchedView.id).toBe(createdView.id);
 			expect(fetchedView.renderer).toEqual(createdView.renderer);
 			expect(fetchedView.settings).toEqual(createdView.settings);
@@ -126,7 +137,7 @@ describe("Saved views lifecycle E2E", () => {
 				),
 			).toBe(false);
 
-			const cloned = yield* cloneSavedView(client, createdView.slug);
+			const cloned = yield* cloneSavedView(client, createdView.reference);
 			const clonedView = yield* findSavedViewById(client, cloned.id);
 			expect(clonedView.id).not.toBe(createdView.id);
 			expect(clonedView.name).toBe("Lifecycle View (Copy)");
@@ -134,16 +145,16 @@ describe("Saved views lifecycle E2E", () => {
 			expect(clonedView.renderer).toEqual(createdView.renderer);
 			expect(clonedView.settings).toEqual(createdView.settings);
 			expect(clonedView.dataSources).toEqual(createdView.dataSources);
-			const updatedClone = yield* updateSavedView(client, clonedView.slug, {
+			const updatedClone = yield* updateSavedView(client, clonedView.reference, {
 				name: "Lifecycle View Revised",
 			});
-			const fetchedUpdated = yield* getSavedView(client, clonedView.slug);
+			const fetchedUpdated = yield* getSavedView(client, clonedView.reference);
 			expect(updatedClone.id).toBe(clonedView.id);
 			expect(fetchedUpdated.name).toBe("Lifecycle View Revised");
 			expect(fetchedUpdated.renderer).toEqual(createdView.renderer);
 			expect(fetchedUpdated.id).toBe(clonedView.id);
-			const deletedOriginal = yield* deleteSavedView(client, createdView.slug);
-			const deletedClone = yield* deleteSavedView(client, clonedView.slug);
+			const deletedOriginal = yield* deleteSavedView(client, createdView.reference);
+			const deletedClone = yield* deleteSavedView(client, clonedView.reference);
 			const remaining = yield* listSavedViews(client);
 			const remainingIds = remaining.map((v) => v.id);
 			expect(deletedOriginal.id).toBe(createdView.id);
@@ -156,16 +167,16 @@ describe("Saved views lifecycle E2E", () => {
 	it.live("clones a built-in view into a deletable user view", () =>
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
-			const builtinView = yield* findBuiltinSavedView(client);
-			const cloned = yield* cloneSavedView(client, builtinView.slug);
+			const builtinView = yield* findAllMoviesView(client);
+			const cloned = yield* cloneSavedView(client, builtinView.reference);
 			const clonedView = yield* findSavedViewById(client, cloned.id);
 			expect(clonedView.name).toBe(`${builtinView.name} (Copy)`);
 			expect(clonedView.isBuiltin).toBe(false);
 			expect(clonedView.renderer).toEqual(builtinView.renderer);
 			expect(clonedView.settings).toEqual(builtinView.settings);
 			expect(clonedView.dataSources).toEqual(builtinView.dataSources);
-			const deletedClone = yield* deleteSavedView(client, clonedView.slug);
-			const refreshedBuiltin = yield* getSavedView(client, builtinView.slug);
+			const deletedClone = yield* deleteSavedView(client, clonedView.reference);
+			const refreshedBuiltin = yield* getSavedView(client, builtinView.reference);
 			const remaining = yield* listSavedViews(client);
 			const remainingIds = remaining.map((v) => v.id);
 			expect(deletedClone.id).toBe(clonedView.id);
@@ -177,52 +188,51 @@ describe("Saved views lifecycle E2E", () => {
 	it.live("rejects deletes for built-in views", () =>
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
-			const builtinView = yield* findBuiltinSavedView(client);
+			const builtinView = yield* findAllMoviesView(client);
 			const error = yield* Effect.flip(
-				client.call((c) => c.savedViews.delete({ params: { viewSlug: builtinView.slug } })),
+				client.call((c) => c.savedViews.delete({ payload: { reference: builtinView.reference } })),
 			);
 			assertTaggedError(error, "SavedViewBadRequest");
-			expect(error.reason).toEqual({ viewSlug: builtinView.slug, code: "builtin-view-immutable" });
+			expect(error.reason).toEqual({
+				code: "builtin-view-immutable",
+				reference: builtinView.reference,
+			});
 		}),
 	);
 
 	it.live("rejects built-in updates that attempt to change fields other than isHidden", () =>
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
-			const builtinView = yield* findBuiltinSavedView(client);
+			const builtinView = yield* findAllMoviesView(client);
 			const invalidUpdateError = yield* Effect.flip(
 				client.call((c) =>
 					c.savedViews.update({
-						params: { viewSlug: builtinView.slug },
-						payload: buildUpdatedSavedViewBody({ isHidden: true, name: "Attempted Rename" }),
+						payload: {
+							...buildUpdatedSavedViewBody({ isHidden: true, name: "Attempted Rename" }),
+							reference: builtinView.reference,
+						},
 					}),
 				),
 			);
 
 			assertTaggedError(invalidUpdateError, "SavedViewBadRequest");
 			expect(invalidUpdateError.reason).toEqual({
-				viewSlug: builtinView.slug,
 				code: "builtin-view-immutable",
+				reference: builtinView.reference,
 			});
 
 			const disableResult = yield* client.call((c) =>
-				c.savedViews.update({
-					payload: { isHidden: true },
-					params: { viewSlug: builtinView.slug },
-				}),
+				c.savedViews.update({ payload: { isHidden: true, reference: builtinView.reference } }),
 			);
-			const refreshedDisabled = yield* getSavedView(client, builtinView.slug);
+			const refreshedDisabled = yield* getSavedView(client, builtinView.reference);
 			expect(disableResult.id).toBe(builtinView.id);
 			expect(refreshedDisabled.isHidden).toBe(true);
 			expect(refreshedDisabled.renderer).toEqual(builtinView.renderer);
 
 			yield* client.call((c) =>
-				c.savedViews.update({
-					payload: { isHidden: false },
-					params: { viewSlug: builtinView.slug },
-				}),
+				c.savedViews.update({ payload: { isHidden: false, reference: builtinView.reference } }),
 			);
-			const fetchedReEnabled = yield* getSavedView(client, builtinView.slug);
+			const fetchedReEnabled = yield* getSavedView(client, builtinView.reference);
 
 			expect(fetchedReEnabled.isHidden).toBe(false);
 			expect(fetchedReEnabled.settings).toEqual(builtinView.settings);
@@ -237,21 +247,23 @@ describe("Saved views lifecycle E2E", () => {
 			const updateError = yield* Effect.flip(
 				client.call((c) =>
 					c.savedViews.update({
-						payload: buildUpdatedSavedViewBody(),
-						params: { viewSlug: missingViewSlug },
+						payload: { ...buildUpdatedSavedViewBody(), reference: missingViewReference },
 					}),
 				),
 			);
 			const cloneError = yield* Effect.flip(
-				client.call((c) => c.savedViews.clone({ params: { viewSlug: missingViewSlug } })),
+				client.call((c) => c.savedViews.clone({ payload: { reference: missingViewReference } })),
 			);
 			const deleteError = yield* Effect.flip(
-				client.call((c) => c.savedViews.delete({ params: { viewSlug: missingViewSlug } })),
+				client.call((c) => c.savedViews.delete({ payload: { reference: missingViewReference } })),
 			);
 
 			for (const error of [updateError, cloneError, deleteError]) {
 				assertTaggedError(error, "SavedViewNotFound");
-				expect(error.reason).toEqual({ viewSlug: missingViewSlug, code: "saved-view-not-found" });
+				expect(error.reason).toEqual({
+					code: "saved-view-not-found",
+					reference: missingViewReference,
+				});
 			}
 		}),
 	);
@@ -263,8 +275,10 @@ describe("Saved views lifecycle E2E", () => {
 			const createdView = yield* findSavedViewById(client, created.id);
 
 			yield* Effect.sleep(100);
-			yield* updateSavedView(client, createdView.slug, { name: "Immutable Fields View Updated" });
-			const refreshedView = yield* getSavedView(client, createdView.slug);
+			yield* updateSavedView(client, createdView.reference, {
+				name: "Immutable Fields View Updated",
+			});
+			const refreshedView = yield* getSavedView(client, createdView.reference);
 
 			expect(refreshedView.id).toBe(createdView.id);
 			expect(refreshedView.renderer).toEqual(createdView.renderer);
@@ -282,14 +296,14 @@ describe("Saved views lifecycle E2E", () => {
 
 			expect(createdView.isHidden).toBe(false);
 
-			const disabled = yield* updateSavedView(client, createdView.slug, { isHidden: true });
-			const fetchedDisabled = yield* getSavedView(client, createdView.slug);
+			const disabled = yield* updateSavedView(client, createdView.reference, { isHidden: true });
+			const fetchedDisabled = yield* getSavedView(client, createdView.reference);
 
 			expect(disabled.id).toBe(createdView.id);
 			expect(fetchedDisabled.isHidden).toBe(true);
 
-			const reEnabled = yield* updateSavedView(client, createdView.slug, { isHidden: false });
-			const fetchedReEnabled = yield* getSavedView(client, createdView.slug);
+			const reEnabled = yield* updateSavedView(client, createdView.reference, { isHidden: false });
+			const fetchedReEnabled = yield* getSavedView(client, createdView.reference);
 
 			expect(reEnabled.id).toBe(createdView.id);
 			expect(fetchedReEnabled.isHidden).toBe(false);
@@ -305,7 +319,7 @@ describe("Saved views lifecycle E2E", () => {
 			});
 			const createdView = yield* findSavedViewById(client, created.id);
 
-			yield* updateSavedView(client, createdView.slug, { isHidden: true });
+			yield* updateSavedView(client, createdView.reference, { isHidden: true });
 
 			const listedViews = yield* listSavedViews(client);
 
@@ -319,29 +333,35 @@ describe("Saved views lifecycle E2E", () => {
 		() =>
 			Effect.gen(function* () {
 				const { client } = yield* createAuthenticatedClient();
-				const pluginSlug = yield* installPluginScope(client);
+				const workspace = yield* installPluginScope(client);
 				const enabledCreated = yield* createSavedView(client, {
-					workspacePluginSlug: pluginSlug,
 					name: `Enabled Tracked ${crypto.randomUUID()}`,
+					workspaceInstallationId: workspace.installationId,
 				});
 				const enabledTracked = yield* findSavedViewById(client, enabledCreated.id);
 				const disabledCreated = yield* createSavedView(client, {
-					workspacePluginSlug: pluginSlug,
 					name: `Disabled Tracked ${crypto.randomUUID()}`,
+					workspaceInstallationId: workspace.installationId,
 				});
 				const disabledTracked = yield* findSavedViewById(client, disabledCreated.id);
 				yield* createSavedView(client, { name: `Standalone ${crypto.randomUUID()}` });
-				yield* updateSavedView(client, disabledTracked.slug, {
+				yield* updateSavedView(client, disabledTracked.reference, {
 					isHidden: true,
-					workspacePluginSlug: pluginSlug,
+					workspaceInstallationId: workspace.installationId,
 				});
 
-				const listedViews = yield* listSavedViews(client, { pluginSlug, includeHidden: true });
+				const listedViews = yield* listSavedViews(client, {
+					includeHidden: true,
+					installationId: workspace.installationId,
+				});
 
 				expect(new Set(listedViews.map((v) => v.id))).toEqual(
 					new Set([disabledTracked.id, enabledTracked.id]),
 				);
-				expect(listedViews.map((v) => v.pluginSlug)).toEqual([pluginSlug, pluginSlug]);
+				expect(listedViews.map((v) => v.pluginSlug)).toEqual([
+					workspace.pluginSlug,
+					workspace.pluginSlug,
+				]);
 				expect(listedViews.some((v) => v.isHidden)).toBe(true);
 			}),
 	);
@@ -349,15 +369,15 @@ describe("Saved views lifecycle E2E", () => {
 	it.live("reorders saved views only within the requested plugin scope", () =>
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
-			const pluginSlug = yield* installPluginScope(client);
+			const workspace = yield* installPluginScope(client);
 			const firstCreated = yield* createSavedView(client, {
-				workspacePluginSlug: pluginSlug,
 				name: `Tracker View A ${crypto.randomUUID()}`,
+				workspaceInstallationId: workspace.installationId,
 			});
 			const first = yield* findSavedViewById(client, firstCreated.id);
 			const secondCreated = yield* createSavedView(client, {
-				workspacePluginSlug: pluginSlug,
 				name: `Tracker View B ${crypto.randomUUID()}`,
+				workspaceInstallationId: workspace.installationId,
 			});
 			const second = yield* findSavedViewById(client, secondCreated.id);
 			const standalone = yield* createSavedView(client, {
@@ -365,13 +385,16 @@ describe("Saved views lifecycle E2E", () => {
 			});
 
 			const reordered = yield* reorderSavedViews(client, {
-				pluginSlug,
-				viewSlugs: [second.slug, first.slug],
+				installationId: workspace.installationId,
+				references: [second.reference, first.reference],
 			});
-			const scopedViews = yield* listSavedViews(client, { pluginSlug, includeHidden: true });
+			const scopedViews = yield* listSavedViews(client, {
+				includeHidden: true,
+				installationId: workspace.installationId,
+			});
 			const topLevelViews = yield* listSavedViews(client, { includeHidden: true });
 
-			expect(reordered.viewSlugs.slice(0, 2)).toEqual([second.slug, first.slug]);
+			expect(reordered.references.slice(0, 2)).toEqual([second.reference, first.reference]);
 			expect(scopedViews.map((v) => v.slug).slice(0, 2)).toEqual([second.slug, first.slug]);
 			expect(topLevelViews.some((v) => v.id === standalone.id)).toBe(true);
 		}),
@@ -388,15 +411,18 @@ describe("Saved views lifecycle E2E", () => {
 			});
 			const first = yield* findSavedViewById(client, firstCreated.id);
 			const second = yield* findSavedViewById(client, secondCreated.id);
-			const pluginSlug = yield* installPluginScope(client);
+			const workspace = yield* installPluginScope(client);
 			const tracked = yield* createSavedView(client, {
-				workspacePluginSlug: pluginSlug,
+				workspaceInstallationId: workspace.installationId,
 				name: `Tracked Scope View ${crypto.randomUUID()}`,
 			});
 
-			yield* reorderSavedViews(client, { viewSlugs: [second.slug, first.slug] });
+			yield* reorderSavedViews(client, { references: [second.reference, first.reference] });
 			const topLevelViews = yield* listSavedViews(client, { includeHidden: true });
-			const trackedViews = yield* listSavedViews(client, { pluginSlug, includeHidden: true });
+			const trackedViews = yield* listSavedViews(client, {
+				includeHidden: true,
+				installationId: workspace.installationId,
+			});
 
 			const orderedSlugs = topLevelViews
 				.filter((v) => v.slug === first.slug || v.slug === second.slug)
@@ -410,20 +436,23 @@ describe("Saved views lifecycle E2E", () => {
 	it.live("moves a saved view to top-level when pluginSlug is omitted on update", () =>
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
-			const pluginSlug = yield* installPluginScope(client);
+			const workspace = yield* installPluginScope(client);
 			const movedCreated = yield* createSavedView(client, {
-				workspacePluginSlug: pluginSlug,
 				name: `Movable View ${crypto.randomUUID()}`,
+				workspaceInstallationId: workspace.installationId,
 			});
 			const movedView = yield* findSavedViewById(client, movedCreated.id);
 
-			const updatedView = yield* updateSavedView(client, movedView.slug, {
-				workspacePluginSlug: null,
+			const updatedView = yield* updateSavedView(client, movedView.reference, {
+				workspaceInstallationId: null,
 				name: `${movedView.name} Updated`,
 			});
-			const fetchedView = yield* getSavedView(client, movedView.slug);
+			const fetchedView = yield* getSavedView(client, movedView.reference);
 			const topLevelViews = yield* listSavedViews(client, { includeHidden: true });
-			const pluginViews = yield* listSavedViews(client, { pluginSlug, includeHidden: true });
+			const pluginViews = yield* listSavedViews(client, {
+				includeHidden: true,
+				installationId: workspace.installationId,
+			});
 
 			expect(updatedView.id).toBe(movedView.id);
 			expect(fetchedView.pluginSlug).toBeNull();
@@ -447,12 +476,15 @@ describe("Saved views lifecycle E2E", () => {
 			const customView = yield* findSavedViewById(client, customCreated.id);
 
 			const reordered = yield* reorderSavedViews(client, {
-				viewSlugs: [customView.slug, builtinView.slug],
+				references: [customView.reference, builtinView.reference],
 			});
 			const topLevelViews = yield* listSavedViews(client, { includeHidden: true });
-			const reorderedBuiltin = yield* getSavedView(client, builtinView.slug);
+			const reorderedBuiltin = yield* getSavedView(client, builtinView.reference);
 
-			expect(reordered.viewSlugs.slice(0, 2)).toEqual([customView.slug, builtinView.slug]);
+			expect(reordered.references.slice(0, 2)).toEqual([
+				customView.reference,
+				builtinView.reference,
+			]);
 			expect(
 				topLevelViews
 					.filter((view) => view.pluginSlug === null)
@@ -474,10 +506,10 @@ describe("Saved views lifecycle E2E", () => {
 	it.live("rejects reorder requests containing saved views from another scope", () =>
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
-			const pluginSlug = yield* installPluginScope(client);
+			const workspace = yield* installPluginScope(client);
 			const trackedCreated = yield* createSavedView(client, {
-				workspacePluginSlug: pluginSlug,
 				name: `Scoped View ${crypto.randomUUID()}`,
+				workspaceInstallationId: workspace.installationId,
 			});
 			const tracked = yield* findSavedViewById(client, trackedCreated.id);
 			const standaloneCreated = yield* createSavedView(client, {
@@ -488,7 +520,10 @@ describe("Saved views lifecycle E2E", () => {
 			const error = yield* Effect.flip(
 				client.call((c) =>
 					c.savedViews.reorder({
-						payload: { pluginSlug, viewSlugs: [tracked.slug, standalone.slug] },
+						payload: {
+							installationId: workspace.installationId,
+							references: [tracked.reference, standalone.reference],
+						},
 					}),
 				),
 			);
@@ -497,7 +532,7 @@ describe("Saved views lifecycle E2E", () => {
 			expect(error.reason).toEqual({
 				issue: "unknown-view",
 				code: "invalid-reorder",
-				viewSlugs: [tracked.slug, standalone.slug],
+				references: [tracked.reference, standalone.reference],
 			});
 		}),
 	);

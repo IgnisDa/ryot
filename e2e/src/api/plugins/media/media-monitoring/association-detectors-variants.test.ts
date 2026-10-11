@@ -6,13 +6,16 @@ import {
 	createNotificationChannel,
 	enqueueProviderEntityImport,
 	fakeProviderDetailsResult,
-	getBuiltinEntitySchemaSlug,
 	pollProviderEntityImportResult,
 	installTestProvider,
 	startFakeAppriseServer,
 	pollUntil,
 } from "~/fixtures/kernel";
-import { enableMediaMonitoring, seedMediaEntity } from "~/fixtures/plugins/media";
+import {
+	enableMediaMonitoring,
+	findMediaEntitySchema,
+	seedMediaEntity,
+} from "~/fixtures/plugins/media";
 import { assertCompleted, requireObjectRecord } from "~/support/assertions";
 import { afterAll, beforeAll, describe, expect, it, runPromise } from "~/support/effect-test";
 import type { FakeHttpServer } from "~/support/fake-http-server";
@@ -48,10 +51,12 @@ describe("company and media-group association variants", () => {
 			const movieExternalId = `association-variant-movie-${crypto.randomUUID()}`;
 
 			const { client } = yield* createAuthenticatedClient();
-			const [companySchemaId, movieSchemaId] = yield* Effect.all([
-				getBuiltinEntitySchemaSlug(client, "company"),
-				getBuiltinEntitySchemaSlug(client, "movie"),
+			const [{ schema: companySchema }, { schema: movieSchema }] = yield* Effect.all([
+				findMediaEntitySchema(client, "company"),
+				findMediaEntitySchema(client, "movie"),
 			]);
+			const companySchemaId = companySchema.id;
+			const movieSchemaId = movieSchema.id;
 			const companyProvider = yield* installTestProvider({
 				client,
 				scope: "system",
@@ -124,11 +129,15 @@ describe("company and media-group association variants", () => {
 			const musicGroupExternalId = `media-group-album-${crypto.randomUUID()}`;
 
 			const { client } = yield* createAuthenticatedClient();
-			const [personSchemaId, companySchemaId, musicGroupSchemaId] = yield* Effect.all([
-				getBuiltinEntitySchemaSlug(client, "person"),
-				getBuiltinEntitySchemaSlug(client, "company"),
-				getBuiltinEntitySchemaSlug(client, "music-group"),
-			]);
+			const [{ schema: personSchema }, { schema: companySchema }, { schema: musicGroupSchema }] =
+				yield* Effect.all([
+					findMediaEntitySchema(client, "person"),
+					findMediaEntitySchema(client, "company"),
+					findMediaEntitySchema(client, "music-group"),
+				]);
+			const personSchemaId = personSchema.id;
+			const companySchemaId = companySchema.id;
+			const musicGroupSchemaId = musicGroupSchema.id;
 			const personProvider = yield* installTestProvider({
 				client,
 				scope: "system",

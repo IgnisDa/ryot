@@ -4,22 +4,22 @@
 import { createInterface } from "node:readline/promises";
 import { fileURLToPath } from "node:url";
 
+import { pluginPath, savedViewPath } from "@ryot-app/contract/modules/plugins/navigation";
+import { mediaPlugin } from "@ryot-app/media-plugin";
 import dotenv from "dotenv";
 
-import { requirePresent } from "~/support/assertions";
 import { runPromise } from "~/support/e2e-runtime";
 import { getFrontendUrl } from "~/support/harness-target";
 
 import { createAuthenticatedClient } from "../fixtures/kernel/auth";
-import { createPluginSavedView, findPluginIdBySlug } from "../fixtures/kernel/client-pages";
+import { createPluginSavedView } from "../fixtures/kernel/client-pages";
 import {
-	FIXTURE_CLIENT_PLUGIN_SLUG,
 	installFixtureClientPlugin,
 	updateFixtureClientPlugin,
 } from "../fixtures/kernel/client-plugin";
 import {
-	findBuiltinPluginBySlug,
-	findPluginInstallationBySlug,
+	findBuiltinPluginByPackage,
+	findPluginInstallationById,
 	setPluginHomeView,
 } from "../fixtures/kernel/plugins";
 import { findSavedViewById } from "../fixtures/kernel/saved-views";
@@ -54,40 +54,47 @@ async function main() {
 			`Fixture client plugin installation finished with health '${installation.health}'`,
 		);
 	}
-	const pluginId = requirePresent(
-		await runPromise(findPluginIdBySlug(client, FIXTURE_CLIENT_PLUGIN_SLUG)),
-		"Installed fixture plugin was not found",
-	);
 	const primaryView = await runPromise(
 		createPluginSavedView(
 			client,
-			{ kind: "plugin", pluginId, exportName: "fixture-home" },
+			{ kind: "plugin", pluginId: installation.pluginId, exportName: "fixture-home" },
 			{},
-			{ name: "Task 10 primary plugin page", workspacePluginSlug: FIXTURE_CLIENT_PLUGIN_SLUG },
+			{
+				name: "Task 10 primary plugin page",
+				workspaceInstallationId: installation.installationId,
+			},
 		),
 	);
 	const secondaryView = await runPromise(
 		createPluginSavedView(
 			client,
-			{ kind: "plugin", pluginId, exportName: "fixture-home" },
+			{ kind: "plugin", pluginId: installation.pluginId, exportName: "fixture-home" },
 			{},
-			{ name: "Task 10 secondary plugin page", workspacePluginSlug: FIXTURE_CLIENT_PLUGIN_SLUG },
+			{
+				name: "Task 10 secondary plugin page",
+				workspaceInstallationId: installation.installationId,
+			},
 		),
 	);
-	const media = await runPromise(findBuiltinPluginBySlug(client, "media"));
+	const media = await runPromise(
+		findBuiltinPluginByPackage(client, {
+			packageId: mediaPlugin.metadata.packageId,
+			scope: "system",
+		}),
+	);
 	const primaryViewRecord = await runPromise(findSavedViewById(client, primaryView.id));
-	await runPromise(setPluginHomeView(client, media.slug, primaryViewRecord.slug));
+	await runPromise(setPluginHomeView(client, media.installationId, primaryViewRecord.reference));
 
 	const appBaseUrl = getFrontendUrl();
 
 	console.log(`Email: ${email}`);
 	console.log(`Password: ${password}`);
-	console.log(`Plugin URL: ${appBaseUrl}/fixture`);
-	console.log(`Home URL: ${appBaseUrl}/media`);
+	console.log(`Plugin URL: ${appBaseUrl}${pluginPath(installation.pluginId)}`);
+	console.log(`Home URL: ${appBaseUrl}${pluginPath(media.pluginId)}`);
 	const primaryRecord = await runPromise(findSavedViewById(client, primaryView.id));
 	const secondaryRecord = await runPromise(findSavedViewById(client, secondaryView.id));
-	console.log(`Primary URL: ${appBaseUrl}/v/${primaryRecord.slug}`);
-	console.log(`Secondary URL: ${appBaseUrl}/v/${secondaryRecord.slug}`);
+	console.log(`Primary URL: ${appBaseUrl}${savedViewPath(primaryRecord.reference)}`);
+	console.log(`Secondary URL: ${appBaseUrl}${savedViewPath(secondaryRecord.reference)}`);
 	console.log("Saved-view renderer: fixture/fixture-home");
 
 	const input = createInterface({ input: process.stdin, output: process.stdout });
@@ -98,7 +105,9 @@ async function main() {
 	}
 
 	await runPromise(updateFixtureClientPlugin(client, "B"));
-	const updatedInstallation = await runPromise(findPluginInstallationBySlug(client, "fixture"));
+	const updatedInstallation = await runPromise(
+		findPluginInstallationById(client, installation.installationId),
+	);
 	if (updatedInstallation.health !== "ready") {
 		throw new Error(
 			`Fixture client plugin update finished with health '${updatedInstallation.health}'`,

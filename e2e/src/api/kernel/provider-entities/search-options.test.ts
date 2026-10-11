@@ -7,13 +7,13 @@ import {
 	createAuthenticatedClient,
 	fakeProviderDetailsResult,
 	fakeProviderSearchResult,
-	findBuiltinSchemaBySlug,
 	getApiClient,
 	installTestProvider,
 	searchProviderEntities,
 	uninstallTestProvider,
 } from "~/fixtures/kernel";
 import type { InstalledTestProvider } from "~/fixtures/kernel/sandbox-provider";
+import { findMediaEntitySchema } from "~/fixtures/plugins/media";
 import { assertCondition, assertPresent, assertTaggedError } from "~/support/assertions";
 import { afterAll, beforeAll, describe, expect, it, runPromise } from "~/support/effect-test";
 
@@ -67,7 +67,7 @@ beforeAll(() =>
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
 			providerClient = client;
-			const { schema } = yield* findBuiltinSchemaBySlug(client, "book");
+			const { schema } = yield* findMediaEntitySchema(client, "book");
 			dynamicProvider = yield* installTestProvider({
 				client,
 				slug: DYNAMIC_PROVIDER_SLUG,

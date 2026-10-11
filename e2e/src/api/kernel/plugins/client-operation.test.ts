@@ -4,7 +4,6 @@ import { Effect } from "effect";
 import {
 	type Client,
 	createAuthenticatedClient,
-	FIXTURE_CLIENT_PLUGIN_SLUG,
 	getApiClient,
 	installFixtureClientPlugin,
 	installPrivatePluginPackage,
@@ -45,7 +44,7 @@ const installOtherOperationPlugin = (client: Client) => {
 	});
 	return Effect.acquireRelease(
 		Effect.gen(function* () {
-			yield* installPrivatePluginPackage({
+			const installed = yield* installPrivatePluginPackage({
 				client,
 				config: {},
 				pluginPackage: {
@@ -57,10 +56,10 @@ const installOtherOperationPlugin = (client: Client) => {
 					},
 				},
 			});
-			yield* settledPrivateInstallation(client, pluginSlug);
-			return { pluginSlug };
+			yield* settledPrivateInstallation(client, installed.id);
+			return { pluginSlug, installationId: installed.id, pluginId: installed.pluginId };
 		}),
-		() => releasePrivatePlugin(client, pluginSlug),
+		({ installationId }) => releasePrivatePlugin(client, installationId),
 	);
 };
 
@@ -75,7 +74,7 @@ describe("client plugin operations", () => {
 			const { result } = yield* client.call((c) =>
 				c.plugins.invoke({
 					payload: { payload: { name: "Ryot" } },
-					params: { operationSlug: "greet", pluginSlug: FIXTURE_CLIENT_PLUGIN_SLUG },
+					params: { operationSlug: "greet", pluginId: installation.pluginId },
 				}),
 			);
 
@@ -86,13 +85,13 @@ describe("client plugin operations", () => {
 	it.live("surfaces a payload that violates the operation's input schema", () =>
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
-			yield* installFixtureClientPlugin(client);
+			const installation = yield* installFixtureClientPlugin(client);
 
 			const failure = yield* Effect.flip(
 				client.call((c) =>
 					c.plugins.invoke({
 						payload: { payload: { name: "" } },
-						params: { operationSlug: "greet", pluginSlug: FIXTURE_CLIENT_PLUGIN_SLUG },
+						params: { operationSlug: "greet", pluginId: installation.pluginId },
 					}),
 				),
 			);
@@ -108,13 +107,13 @@ describe("client plugin operations", () => {
 	it.live("rejects an unauthenticated caller", () =>
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
-			yield* installFixtureClientPlugin(client);
+			const installation = yield* installFixtureClientPlugin(client);
 
 			const failure = yield* Effect.flip(
 				getApiClient().call((c) =>
 					c.plugins.invoke({
 						payload: { payload: { name: "Ryot" } },
-						params: { operationSlug: "greet", pluginSlug: FIXTURE_CLIENT_PLUGIN_SLUG },
+						params: { operationSlug: "greet", pluginId: installation.pluginId },
 					}),
 				),
 			);
@@ -133,7 +132,7 @@ describe("client plugin operations", () => {
 				client.call((c) =>
 					c.plugins.invoke({
 						payload: { payload: { name: "Ryot" } },
-						params: { operationSlug: "greet", pluginSlug: other.pluginSlug },
+						params: { operationSlug: "greet", pluginId: other.pluginId },
 					}),
 				),
 			);
@@ -141,8 +140,8 @@ describe("client plugin operations", () => {
 			assertTaggedError(failure, "PluginNotFoundError");
 			expect(failure.reason).toEqual({
 				operationSlug: "greet",
+				pluginId: other.pluginId,
 				code: "operation-not-found",
-				pluginSlug: other.pluginSlug,
 			});
 		}),
 	);

@@ -26,8 +26,8 @@ describe("plugin integration ownership", () => {
 			const { client } = yield* createAuthenticatedClient();
 			const created = yield* Effect.acquireRelease(
 				createIntegration(client, {
-					provider: providerSlug,
 					providerSpecifics: { endpoint: "https://provider.example.com" },
+					provider: { slug: providerSlug, owner: { kind: "plugin", pluginId: plugin.pluginId } },
 				}),
 				({ id }) =>
 					deleteIntegration(client, id).pipe(
@@ -40,7 +40,7 @@ describe("plugin integration ownership", () => {
 			const conflict = yield* Effect.flip(uninstallTestPluginStrict(plugin));
 			assertTaggedError(conflict, "PluginConflictError");
 			expect(conflict.reason).toEqual({
-				pluginSlug: plugin.pluginSlug,
+				pluginId: plugin.pluginId,
 				code: "integration-referenced",
 			});
 

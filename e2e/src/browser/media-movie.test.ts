@@ -1,15 +1,19 @@
+import { savedViewPath } from "@ryot-app/contract/modules/plugins/navigation";
 import { Effect } from "effect";
 import { Playwright, PlaywrightSpawner } from "effect-playwright";
 
 import {
 	createAuthenticatedClient,
 	createEventFixture,
-	findBuiltinSchemaBySlug,
 	listEventSchemas,
 	requireEventSchemaBySlug,
 	type Client,
 } from "~/fixtures/kernel";
-import { insertLibraryMembership, seedGlobalMovieWithCollection } from "~/fixtures/plugins/media";
+import {
+	findMediaEntitySchema,
+	insertLibraryMembership,
+	seedGlobalMovieWithCollection,
+} from "~/fixtures/plugins/media";
 import { requirePresent } from "~/support/assertions";
 import { signInThroughHostedOAuth } from "~/support/browser";
 import { expect, it } from "~/support/effect-test";
@@ -44,8 +48,8 @@ const uploadPermanentAsset = (apiUrl: string, client: Client, body: string) =>
 
 const movieEventSchemas = (client: Client) =>
 	Effect.gen(function* () {
-		const { schema } = yield* findBuiltinSchemaBySlug(client, "movie");
-		const eventSchemas = yield* listEventSchemas(client, schema.id);
+		const { schema } = yield* findMediaEntitySchema(client, "movie");
+		const eventSchemas = yield* listEventSchemas(client, schema.reference);
 		return {
 			progress: requireEventSchemaBySlug(eventSchemas, "progress").id,
 			complete: requireEventSchemaBySlug(eventSchemas, "complete").id,
@@ -232,6 +236,7 @@ it.live("renders the Movie presentation facts in the canonical saved view", () =
 			collectionName: `Row Tracer Collection ${suffix}`,
 			movieProperties: { runtime: 124, publishYear: 2014 },
 		});
+		const { pluginId } = yield* findMediaEntitySchema(client, "movie");
 		const events = yield* movieEventSchemas(client);
 		yield* createEventFixture(client, {
 			entityId: seeded.movie.id,
@@ -243,7 +248,9 @@ it.live("renders the Movie presentation facts in the canonical saved view", () =
 		const browser = yield* Playwright.Browser;
 		const page = yield* browser.newPage({ viewport: { width: 1280, height: 900 } });
 		yield* signInThroughHostedOAuth(page, email, password);
-		yield* page.goto(`${frontendUrl}/v/all-movies`);
+		yield* page.goto(
+			`${frontendUrl}${savedViewPath({ pluginId, kind: "plugin", slug: "all-movies" })}`,
+		);
 		const view = page.locator("iframe").contentFrame();
 		const row = view.locator(`article[data-entity-id="${seeded.movie.id}"]`);
 		yield* row.waitFor({ state: "visible" });

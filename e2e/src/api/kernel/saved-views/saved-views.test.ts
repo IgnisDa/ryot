@@ -6,13 +6,13 @@ import {
 	createAuthenticatedClient,
 	createSavedView,
 	entityBrowserSettings,
-	findBuiltinPluginBySlug,
 	findSavedViewById,
 	getSavedView,
 	listSavedViews,
 	rowsDataSources,
 	updateSavedView,
 } from "~/fixtures/kernel";
+import { findMediaEntitySchema } from "~/fixtures/plugins/media";
 import { requirePresent } from "~/support/assertions";
 import { describe, expect, it } from "~/support/effect-test";
 
@@ -33,11 +33,13 @@ describe("saved view definitions", () => {
 	it.live("stores shipped media views with a canonical renderer, settings, and data source", () =>
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
-			const mediaPlugin = yield* findBuiltinPluginBySlug(client, "media");
+			const { schema } = yield* findMediaEntitySchema(client, "book");
+			const pluginId = requirePresent(
+				schema.reference.owner.kind === "plugin" ? schema.reference.owner.pluginId : undefined,
+				"Media book schema must have a plugin owner",
+			);
 			const allBooks = requirePresent(
-				(yield* listSavedViews(client, { pluginSlug: mediaPlugin.slug })).find(
-					(view) => view.name === "All Books",
-				),
+				(yield* listSavedViews(client, { pluginId })).find((view) => view.name === "All Books"),
 				"All Books saved view not found",
 			);
 
@@ -65,7 +67,7 @@ describe("saved view definitions", () => {
 				name: `Canonical View ${crypto.randomUUID()}`,
 			});
 			const stored = yield* findSavedViewById(client, created.id);
-			const fetched = yield* getSavedView(client, stored.slug);
+			const fetched = yield* getSavedView(client, stored.reference);
 
 			expect(stored.renderer).toEqual({ kind: "kernel", name: "entity-browser" });
 			expect(stored.settings).toEqual(entityBrowserSettings);
@@ -85,11 +87,11 @@ describe("saved view definitions", () => {
 			const created = yield* createSavedView(client);
 			const stored = yield* findSavedViewById(client, created.id);
 			const settings = { ...entityBrowserSettings, pageSize: 7 };
-			const updated = yield* updateSavedView(client, stored.slug, {
+			const updated = yield* updateSavedView(client, stored.reference, {
 				settings,
 				dataSources: alternateDataSources,
 			});
-			const fetched = yield* getSavedView(client, stored.slug);
+			const fetched = yield* getSavedView(client, stored.reference);
 
 			expect(updated.id).toBe(created.id);
 			expect(fetched.settings).toEqual(settings);
@@ -100,7 +102,15 @@ describe("saved view definitions", () => {
 	it.live("accepts an unknown schema filter as an empty entity browser", () =>
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
-			const dataSources = buildSavedViewDataSources(["does-not-exist"]);
+			const { schema } = yield* findMediaEntitySchema(client, "book");
+			const pluginId = requirePresent(
+				schema.reference.owner.kind === "plugin" ? schema.reference.owner.pluginId : undefined,
+				"Media book schema must have a plugin owner",
+			);
+			const dataSources = buildSavedViewDataSources(["does-not-exist"], {
+				pluginId,
+				kind: "local",
+			});
 			const created = yield* createSavedView(client, {
 				dataSources,
 				name: `Unknown Schema View ${crypto.randomUUID()}`,

@@ -1,10 +1,11 @@
+import { dataJsonSourceReference } from "@ryot-app/contract/modules/imports/data-json";
 import type { PluginManifest } from "@ryot-app/contract/modules/plugins/manifest";
 import {
 	EntitySchemaSlug,
 	EventSchemaSlug,
-	PluginSlug,
 	RelationshipSchemaSlug,
 } from "@ryot-app/contract/schema/brands";
+import { mediaPlugin } from "@ryot-app/media-plugin";
 import { column, document, eq, field, literal, rows, table } from "@ryot-app/ryotql";
 import {
 	pluginUserSettingsRecipe,
@@ -15,44 +16,40 @@ import { Effect } from "effect";
 import {
 	type Client,
 	cloneSavedView,
-	createAuthenticatedClient,
-	createIntegration,
-	createEntity,
-	createPluginScope,
-	createPluginSavedView,
-	findPluginIdBySlug,
-	createRelationship,
 	collectRyotQLRecipeItems,
+	createAuthenticatedClient,
+	createEntity,
+	createIntegration,
+	createPluginSavedView,
+	createPluginScope,
+	createRelationship,
 	deleteUserAndWait,
 	enqueueProviderEntityImport,
 	executeRyotQL,
 	exportAndDownloadBackup,
 	fakeProviderDetailsResult,
-	findBuiltinPluginBySlug,
 	findBuiltinSavedView,
+	findPluginInstallationByPackage,
 	findSavedViewById,
-	findPluginInstallationBySlug,
-	installPrivatePluginPackage,
-	settledPrivateInstallation,
-	testPluginManifest,
 	getEntity,
 	getEntitySchema,
 	getNotificationSubscription,
 	getSavedView,
 	insertRelationshipRow,
+	installFixtureClientPlugin,
+	installPrivatePluginPackage,
 	installTestPluginBundle,
-	literalSandboxSource,
 	listEventSchemas,
 	listEventsForEntity,
-	listIntegrations,
 	listImportedEntityNames,
-	waitForCreateEvents,
+	listIntegrations,
 	listNotificationSubscriptions,
 	listRelationshipSchemas,
 	listSavedViews,
+	literalSandboxSource,
+	pollImportRunUntilTerminal,
 	pollProviderEntityImportResult,
 	providerSandboxSource,
-	pollImportRunUntilTerminal,
 	requireRows,
 	requireRyotQLText,
 	requireRyotQLValue,
@@ -60,10 +57,11 @@ import {
 	sendDataWebhook,
 	setPluginHomeView,
 	setNotificationRuleActive,
-	updatePluginState,
+	settledPrivateInstallation,
+	testPluginManifest,
 	uninstallTestPlugin,
-	installFixtureClientPlugin,
-	FIXTURE_CLIENT_PLUGIN_SLUG,
+	updatePluginState,
+	waitForCreateEvents,
 } from "~/fixtures/kernel";
 import { compilePluginPackage } from "~/fixtures/kernel/compiled-package";
 import {
@@ -147,35 +145,46 @@ describe("backup export and restore round trip", () => {
 		Effect.gen(function* () {
 			const source = yield* createAuthenticatedClient();
 			const target = yield* createAuthenticatedClient();
-			yield* installFixtureClientPlugin(source.client);
-			const pluginId = requirePresent(
-				yield* findPluginIdBySlug(source.client, FIXTURE_CLIENT_PLUGIN_SLUG),
-				"Installed fixture plugin was not found",
-			);
+			const fixturePlugin = yield* installFixtureClientPlugin(source.client);
+			const pluginId = fixturePlugin.pluginId;
+			const mediaInstallation = yield* findPluginInstallationByPackage(source.client, {
+				scope: "system",
+				packageId: mediaPlugin.metadata.packageId,
+			});
 			const view = yield* createPluginSavedView(
 				source.client,
 				{ pluginId, kind: "plugin", exportName: "fixture-home" },
 				{},
-				{ name: "Coexisting backup view", workspacePluginSlug: FIXTURE_CLIENT_PLUGIN_SLUG },
+				{ name: "Coexisting backup view", workspaceInstallationId: fixturePlugin.installationId },
 			);
-			const sourceView = yield* findSavedViewById(source.client, view.id);
-			yield* setPluginHomeView(source.client, PluginSlug.make("media"), sourceView.slug);
+			yield* setPluginHomeView(source.client, mediaInstallation.installationId, view.reference);
 
 			const { bytes } = yield* exportAndDownloadBackup(source.client);
 			const restored = yield* restoreBackup(target.client, bytes);
 			assertCompleted(restored.run, "coexisting-account backup restore");
 
-			const viewRecord = yield* findSavedViewById(source.client, view.id);
-			const restoredView = yield* getSavedView(target.client, viewRecord.slug);
+			const targetFixturePlugin = yield* findPluginInstallationByPackage(target.client, {
+				scope: "user",
+				packageId: fixturePlugin.packageId,
+			});
+			const restoredViewRecord = requirePresent(
+				(yield* listSavedViews(target.client, {
+					installationId: targetFixturePlugin.installationId,
+				})).find(({ name }) => name === "Coexisting backup view"),
+				"Restored fixture saved view was not found",
+			);
+			const restoredView = yield* getSavedView(target.client, restoredViewRecord.reference);
 			expect(restoredView.id).not.toBe(view.id);
 			assert(restoredView.renderer.kind === "plugin");
 			expect(restoredView.renderer.pluginId).not.toBe(pluginId);
 			expect(restoredView.renderer.exportName).toBe("fixture-home");
-			expect((yield* findPluginInstallationBySlug(target.client, "media")).homeSavedViewSlug).toBe(
-				restoredView.slug,
-			);
+			const targetMediaInstallation = yield* findPluginInstallationByPackage(target.client, {
+				scope: "system",
+				packageId: mediaPlugin.metadata.packageId,
+			});
+			expect(targetMediaInstallation.homeSavedView).toEqual(restoredViewRecord.reference);
 
-			expect((yield* getSavedView(source.client, viewRecord.slug)).id).toBe(view.id);
+			expect((yield* getSavedView(source.client, view.reference)).id).toBe(view.id);
 		}),
 	);
 
@@ -255,7 +264,7 @@ describe("backup export and restore round trip", () => {
 			};
 			const scriptSlug = `${pluginSlug}.fixture`;
 			const entry = "backend/scripts/fixture.sandbox.ts";
-			yield* Effect.acquireRelease(
+			const systemPlugin = yield* Effect.acquireRelease(
 				installTestPluginBundle({
 					pluginSlug,
 					scope: "system",
@@ -277,18 +286,8 @@ describe("backup export and restore round trip", () => {
 							name: "Backup round trip fixture",
 						}),
 					},
-					relationshipSchemas: [
-						{
-							slug: relationshipSchemaSlug,
-							name: "Backup Round Trip Relationship",
-							sourceEntitySchemaSlug: entitySchemaSlug,
-							targetEntitySchemaSlug: entitySchemaSlug,
-							propertiesSchema: relationshipPropertiesSchema,
-						},
-					],
 					savedViews: [
 						{
-							pluginSlug,
 							sortOrder: 0,
 							settings: {},
 							dataSources: null,
@@ -296,6 +295,15 @@ describe("backup export and restore round trip", () => {
 							icon: "layout-dashboard",
 							name: "Backup plugin page",
 							renderer: { kind: "plugin", exportName: "backup-page" },
+						},
+					],
+					relationshipSchemas: [
+						{
+							slug: relationshipSchemaSlug,
+							name: "Backup Round Trip Relationship",
+							sourceEntitySchemaSlug: entitySchemaSlug,
+							targetEntitySchemaSlug: entitySchemaSlug,
+							propertiesSchema: relationshipPropertiesSchema,
 						},
 					],
 					clientDefinition: {
@@ -330,7 +338,13 @@ describe("backup export and restore round trip", () => {
 				}),
 				uninstallTestPlugin,
 			);
-			const entitySchema = { schemaId: EntitySchemaSlug.make(entitySchemaSlug) };
+			const entitySchema = {
+				schemaId: EntitySchemaSlug.make(entitySchemaSlug),
+				reference: {
+					slug: EntitySchemaSlug.make(entitySchemaSlug),
+					owner: { kind: "plugin" as const, pluginId: systemPlugin.pluginId },
+				},
+			};
 			const eventSchema = {
 				propertiesSchema: eventPropertiesSchema,
 				id: EventSchemaSlug.make(eventSchemaSlug),
@@ -338,6 +352,10 @@ describe("backup export and restore round trip", () => {
 			const relationshipSchema = {
 				propertiesSchema: relationshipPropertiesSchema,
 				id: RelationshipSchemaSlug.make(relationshipSchemaSlug),
+				reference: {
+					slug: RelationshipSchemaSlug.make(relationshipSchemaSlug),
+					owner: { kind: "plugin" as const, pluginId: systemPlugin.pluginId },
+				},
 			};
 			const source = yield* createAuthenticatedClient();
 			const target = yield* createAuthenticatedClient();
@@ -366,8 +384,12 @@ describe("backup export and restore round trip", () => {
 				files: {},
 				manifest: privateSettingsManifest,
 			});
-			yield* installPrivatePluginPackage({ config: {}, pluginPackage, client: source.client });
-			yield* settledPrivateInstallation(source.client, PluginSlug.make(privatePluginSlug));
+			const privatePlugin = yield* installPrivatePluginPackage({
+				config: {},
+				pluginPackage,
+				client: source.client,
+			});
+			yield* settledPrivateInstallation(source.client, privatePlugin.id);
 			const sourcePluginSettings = yield* getPluginUserSettings(source.client);
 			const mediaSettings = requireSettingsForField(sourcePluginSettings, "allowNsfw");
 			yield* source.client.call((c) =>
@@ -383,18 +405,27 @@ describe("backup export and restore round trip", () => {
 					params: { installationId: privateSettings.id },
 				}),
 			);
+			const sourcePluginInstallation = yield* findPluginInstallationByPackage(source.client, {
+				scope: "system",
+				packageId: systemPlugin.manifest.metadata.packageId,
+			});
 			const pluginOwnedView = requirePresent(
-				(yield* listSavedViews(source.client, { pluginSlug })).find(
-					({ slug }) => slug === pluginViewSlug,
-				),
+				(yield* listSavedViews(source.client, {
+					pluginId: systemPlugin.pluginId,
+					installationId: sourcePluginInstallation.installationId,
+				})).find(({ slug }) => slug === pluginViewSlug),
 				"Plugin-owned backup view is missing",
 			);
-			const clonedPluginView = yield* cloneSavedView(source.client, pluginOwnedView.slug);
+			const clonedPluginView = yield* cloneSavedView(source.client, pluginOwnedView.reference);
 			const clonedPluginViewRecord = yield* findSavedViewById(source.client, clonedPluginView.id);
+			const sourceMediaInstallation = yield* findPluginInstallationByPackage(source.client, {
+				scope: "system",
+				packageId: mediaPlugin.metadata.packageId,
+			});
 			yield* setPluginHomeView(
 				source.client,
-				PluginSlug.make("media"),
-				clonedPluginViewRecord.slug,
+				sourceMediaInstallation.installationId,
+				clonedPluginViewRecord.reference,
 			);
 			const sourceMediaLibraryId = yield* getMediaLibraryId(source.client);
 			const targetMediaLibraryId = yield* getMediaLibraryId(target.client);
@@ -411,19 +442,19 @@ describe("backup export and restore round trip", () => {
 			const firstEntity = yield* createEntity(source.client, {
 				properties: firstProperties,
 				name: "First Portable Entity",
-				entitySchemaSlug: entitySchema.schemaId,
+				entitySchema: entitySchema.reference,
 			});
 			const secondEntity = yield* createEntity(source.client, {
 				properties: secondProperties,
 				name: "Second Portable Entity",
-				entitySchemaSlug: entitySchema.schemaId,
+				entitySchema: entitySchema.reference,
 			});
 			const relationshipProperties = { weight: 7, labels: ["primary", "portable"] };
 			const relationship = yield* createRelationship(source.client, {
 				sourceEntityId: firstEntity.id,
 				targetEntityId: secondEntity.id,
 				properties: relationshipProperties,
-				relationshipSchemaSlug: relationshipSchema.id,
+				relationshipSchema: relationshipSchema.reference,
 			});
 
 			const olderOccurredAt = "2026-02-03T04:05:06.000Z";
@@ -461,13 +492,24 @@ describe("backup export and restore round trip", () => {
 			assert(olderOutcome?.status === "written");
 			assert(newerOutcome?.status === "written");
 
-			const builtinView = yield* findBuiltinSavedView(source.client);
-			expect((yield* getSavedView(target.client, builtinView.slug)).isHidden).toBe(false);
+			const builtinView = yield* findBuiltinSavedView(source.client, {
+				kind: "plugin",
+				slug: "all-persons",
+				pluginId: sourceMediaInstallation.pluginId,
+			});
+			const targetMediaInstallation = yield* findPluginInstallationByPackage(target.client, {
+				scope: "system",
+				packageId: mediaPlugin.metadata.packageId,
+			});
+			expect(
+				(yield* getSavedView(target.client, {
+					kind: "plugin",
+					slug: builtinView.slug,
+					pluginId: targetMediaInstallation.pluginId,
+				})).isHidden,
+			).toBe(false);
 			yield* source.client.call((c) =>
-				c.savedViews.update({
-					payload: { isHidden: true },
-					params: { viewSlug: builtinView.slug },
-				}),
+				c.savedViews.update({ payload: { isHidden: true, reference: builtinView.reference } }),
 			);
 
 			const sourceSubscriptions = yield* listNotificationSubscriptions(source.client, {
@@ -486,7 +528,15 @@ describe("backup export and restore round trip", () => {
 					"Source notification subscription is missing",
 				).isActive,
 			).toBe(false);
-			yield* updatePluginState(source.client, "media", { sortOrder: 73, isHidden: true });
+			yield* updatePluginState(source.client, sourceMediaInstallation.installationId, {
+				sortOrder: 73,
+				isHidden: true,
+			});
+			const exportedMediaInstallation = yield* findPluginInstallationByPackage(source.client, {
+				scope: "system",
+				packageId: mediaPlugin.metadata.packageId,
+			});
+			expect(exportedMediaInstallation).toMatchObject({ sortOrder: 73, isHidden: true });
 
 			const { bytes } = yield* exportAndDownloadBackup(source.client);
 			yield* deleteUserAndWait(source.userId);
@@ -499,6 +549,14 @@ describe("backup export and restore round trip", () => {
 			expect(requireSettingsForField(restoredPluginSettings, privateSettingKey).settings).toEqual({
 				[privateSettingKey]: true,
 			});
+			const restoredSystemPlugin = yield* findPluginInstallationByPackage(target.client, {
+				scope: "system",
+				packageId: systemPlugin.manifest.metadata.packageId,
+			});
+			const restoredEntitySchemaReference = {
+				slug: entitySchema.schemaId,
+				owner: { kind: "plugin" as const, pluginId: restoredSystemPlugin.pluginId },
+			};
 
 			const restoredMediaLibraryId = yield* getMediaLibraryId(target.client);
 			expect(restoredMediaLibraryId).toBe(targetMediaLibraryId);
@@ -548,21 +606,27 @@ describe("backup export and restore round trip", () => {
 				},
 			]);
 
-			const restoredEntitySchema = yield* getEntitySchema(target.client, entitySchema.schemaId);
+			const restoredEntitySchema = yield* getEntitySchema(
+				target.client,
+				restoredEntitySchemaReference,
+			);
 			expect(restoredEntitySchema).toMatchObject({
 				slug: entitySchema.schemaId,
 				name: "Backup Round Trip Entity",
 				propertiesSchema: entityPropertiesSchema,
 			});
 			const restoredEventSchema = requirePresent(
-				(yield* listEventSchemas(target.client, entitySchema.schemaId)).find(
+				(yield* listEventSchemas(target.client, restoredEntitySchemaReference)).find(
 					({ slug }) => slug === eventSchema.id,
 				),
 				"Restored event schema is not installed",
 			);
 			expect(restoredEventSchema.propertiesSchema).toEqual(eventSchema.propertiesSchema);
 			const restoredRelationshipSchema = requirePresent(
-				(yield* listRelationshipSchemas(target.client, { slugs: [relationshipSchema.id] }))[0],
+				(yield* listRelationshipSchemas(target.client, {
+					slugs: [relationshipSchema.id],
+					owner: { kind: "plugin", pluginId: restoredSystemPlugin.pluginId },
+				}))[0],
 				"Restored relationship schema is not installed",
 			);
 			expect(restoredRelationshipSchema).toMatchObject({
@@ -572,17 +636,26 @@ describe("backup export and restore round trip", () => {
 				propertiesSchema: relationshipSchema.propertiesSchema,
 			});
 
-			const restoredView = yield* getSavedView(target.client, builtinView.slug);
+			const restoredView = yield* getSavedView(target.client, {
+				kind: "plugin",
+				slug: builtinView.slug,
+				pluginId: targetMediaInstallation.pluginId,
+			});
 			expect(restoredView).toMatchObject({ isHidden: true, slug: builtinView.slug });
-			const restoredPluginView = yield* getSavedView(target.client, clonedPluginViewRecord.slug);
+			const restoredMediaInstallation = yield* findPluginInstallationByPackage(target.client, {
+				scope: "system",
+				packageId: mediaPlugin.metadata.packageId,
+			});
+			const restoredPluginViewReference = requirePresent(
+				restoredMediaInstallation.homeSavedView,
+				"Restored media home view is missing",
+			);
+			const restoredPluginView = yield* getSavedView(target.client, restoredPluginViewReference);
 			expect(restoredPluginView).toMatchObject({
 				settings: {},
 				dataSources: null,
 				renderer: { kind: "plugin", exportName: "backup-page" },
 			});
-			expect((yield* findPluginInstallationBySlug(target.client, "media")).homeSavedViewSlug).toBe(
-				restoredPluginView.slug,
-			);
 			const restoredSubscriptions = yield* listNotificationSubscriptions(target.client, {
 				limit: 100,
 			});
@@ -598,10 +671,14 @@ describe("backup export and restore round trip", () => {
 				isActive: false,
 				signalSchemaSlug: notificationSubscription.signalSchemaSlug,
 			});
-			expect(yield* findBuiltinPluginBySlug(target.client, "media")).toMatchObject({
+			expect(restoredMediaInstallation).toMatchObject({
 				slug: "media",
-				sortOrder: 73,
-				isHidden: true,
+				health: exportedMediaInstallation.health,
+				isHidden: exportedMediaInstallation.isHidden,
+				sortOrder: exportedMediaInstallation.sortOrder,
+				healthReason: exportedMediaInstallation.healthReason,
+				isInitialized: exportedMediaInstallation.isInitialized,
+				incompatibilityReason: exportedMediaInstallation.incompatibilityReason,
 			});
 
 			const rejected = yield* Effect.flip(restoreBackup(target.client, bytes));
@@ -671,11 +748,14 @@ describe("backup export and restore round trip", () => {
 					],
 				});
 			};
-			yield* installProvider("Archived Provider Entity", archivedProperties);
+			const providerPlugin = yield* installProvider("Archived Provider Entity", archivedProperties);
 			const source = yield* createAuthenticatedClient();
 			const target = yield* createAuthenticatedClient();
 			const updater = yield* createAuthenticatedClient();
-			const installedSchema = yield* getEntitySchema(source.client, entitySchemaSlug);
+			const installedSchema = yield* getEntitySchema(source.client, {
+				slug: EntitySchemaSlug.make(entitySchemaSlug),
+				owner: { kind: "plugin", pluginId: providerPlugin.pluginId },
+			});
 			const providerId = requirePresent(
 				installedSchema.providers[0]?.providerId,
 				"Installed backup provider ID is missing",
@@ -690,11 +770,18 @@ describe("backup export and restore round trip", () => {
 			);
 			assertCompleted(archivedResult, "archived provider entity import");
 			const sourceMediaLibraryId = yield* getMediaLibraryId(source.client);
+			const sourceMediaInstallation = yield* findPluginInstallationByPackage(source.client, {
+				scope: "system",
+				packageId: mediaPlugin.metadata.packageId,
+			});
 			yield* insertRelationshipRow(source.client, {
 				targetEntityId: sourceMediaLibraryId,
 				sourceEntityId: archivedResult.data.id,
-				relationshipSchemaSlug: "in-media-library",
 				properties: { owned: true, ownershipSources: ["backup-round-trip"] },
+				relationshipSchema: {
+					slug: RelationshipSchemaSlug.make("in-media-library"),
+					owner: { kind: "plugin", pluginId: sourceMediaInstallation.pluginId },
+				},
 			});
 			const { bytes } = yield* exportAndDownloadBackup(source.client);
 			yield* deleteUserAndWait(source.userId);
@@ -728,9 +815,9 @@ describe("backup export and restore round trip", () => {
 			const source = yield* createAuthenticatedClient();
 			const target = yield* createAuthenticatedClient();
 			const integration = yield* createIntegration(source.client, {
-				provider: "data-json",
 				providerSpecifics: {},
 				name: "Native backup webhook",
+				provider: dataJsonSourceReference,
 			});
 			const { bytes } = yield* exportAndDownloadBackup(source.client);
 			yield* deleteUserAndWait(source.userId);
@@ -757,7 +844,10 @@ describe("backup export and restore round trip", () => {
 							kind: "custom",
 							properties: {},
 							key: "collection",
-							entitySchemaSlug: "collection",
+							entitySchema: {
+								owner: { kind: "kernel" },
+								slug: EntitySchemaSlug.make("collection"),
+							},
 						},
 					],
 				},

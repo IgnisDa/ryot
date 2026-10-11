@@ -1,10 +1,10 @@
 import { Effect } from "effect";
 
 import type { Client } from "~/fixtures/kernel/auth";
-import { findBuiltinSchemaBySlug } from "~/fixtures/kernel/entity-schemas";
 import { listEventSchemas, requireEventSchemaBySlug } from "~/fixtures/kernel/event-schemas";
 import { assertPresent } from "~/support/assertions";
 
+import { findMediaEntitySchema } from "./entity-schemas";
 import { seedMediaEntity } from "./media";
 
 const defaultMediaProperties = {
@@ -52,12 +52,12 @@ export const createBuiltinMediaLifecycleFixture = (
 ) =>
 	Effect.gen(function* () {
 		const entitySchemaSlug = options.entitySchemaSlug ?? "book";
-		const { schema: selectedSchema } = yield* findBuiltinSchemaBySlug(client, entitySchemaSlug);
+		const { schema: selectedSchema } = yield* findMediaEntitySchema(client, entitySchemaSlug);
 
 		const providerId = selectedSchema.providers[0]?.providerId;
 		assertPresent(providerId, `Missing built-in ${entitySchemaSlug} provider`);
 
-		const eventSchemas = yield* listEventSchemas(client, selectedSchema.id);
+		const eventSchemas = yield* listEventSchemas(client, selectedSchema.reference);
 		const backlogEventSchema = requireEventSchemaBySlug(eventSchemas, "backlog");
 		const progressEventSchema = requireEventSchemaBySlug(eventSchemas, "progress");
 		const completeEventSchema = requireEventSchemaBySlug(eventSchemas, "complete");

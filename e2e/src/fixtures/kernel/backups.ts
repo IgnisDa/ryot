@@ -71,9 +71,12 @@ export const exportAndDownloadBackup = (client: Client) =>
 		return { id, run, bytes };
 	});
 
-export const restoreBackup = (client: Client, bytes: Uint8Array) =>
+export const restoreBackup = (client: Client, bytes: Uint8Array, baseUrl?: string) =>
 	Effect.gen(function* () {
-		const uploadToken = yield* uploadTemporaryArchive(client, bytes, { fileName: "backup.zip" });
+		const uploadToken = yield* uploadTemporaryArchive(client, bytes, {
+			baseUrl,
+			fileName: "backup.zip",
+		});
 		const result = yield* client.call((c) => c.backups.createRestore({ payload: { uploadToken } }));
 		const id = requirePresent(result.id, "Backup restore run id is missing");
 		const run = yield* pollBackupRunUntilTerminal(client, id);

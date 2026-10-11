@@ -7,10 +7,10 @@ import {
 	createEntitySchema,
 	createPluginScope,
 	createPluginSchema,
-	findBuiltinSchemaBySlug,
 	getEntity,
 	getEntitySchema,
 } from "~/fixtures/kernel";
+import { findFitnessEntitySchema } from "~/fixtures/plugins/fitness";
 import {
 	createGlobalBookEntityFixture,
 	findBuiltinSchemaWithProviders,
@@ -22,7 +22,7 @@ import { describe, expect, it } from "~/support/effect-test";
 const createSchemaWithEnumFields = (client: Client) =>
 	Effect.gen(function* () {
 		const pluginSlug = createPluginScope();
-		const { schemaId } = yield* createEntitySchema(client, {
+		const { reference } = yield* createEntitySchema(client, {
 			pluginSlug,
 			name: "Enum Schema",
 			propertiesSchema: {
@@ -48,18 +48,18 @@ const createSchemaWithEnumFields = (client: Client) =>
 				},
 			},
 		});
-		return { schemaId };
+		return { reference };
 	});
 
 describe("POST /entities", () => {
 	it.live("creates entity normally when no provenance fields are provided", () =>
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
-			const { schemaId } = yield* createPluginSchema(client);
+			const { reference } = yield* createPluginSchema(client);
 
 			const entity = yield* createEntity(client, {
 				name: "Plain Entity",
-				entitySchemaSlug: schemaId,
+				entitySchema: reference,
 				properties: { title: "Plain Entity" },
 			});
 
@@ -73,17 +73,16 @@ describe("POST /entities", () => {
 	it.live("creates entity with externalId and providerId", () =>
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
-			const { schemaId } = yield* createPluginSchema(client);
 			const { schema } = yield* findBuiltinSchemaWithProviders(client);
 			const providerId = schema.providers[0]?.providerId;
 			assertPresent(providerId, "Expected a provider for the built-in schema");
 
 			const entity = yield* createEntity(client, {
 				providerId,
+				properties: {},
 				externalId: "ext-001",
 				name: "External Entity",
-				entitySchemaSlug: schemaId,
-				properties: { title: "External Entity" },
+				entitySchema: schema.reference,
 			});
 
 			expect(entity.id).toBeDefined();
@@ -95,25 +94,24 @@ describe("POST /entities", () => {
 	it.live("returns the existing entity on duplicate externalId + providerId", () =>
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
-			const { schemaId } = yield* createPluginSchema(client);
 			const { schema } = yield* findBuiltinSchemaWithProviders(client);
 			const providerId = schema.providers[0]?.providerId;
 			assertPresent(providerId, "Expected a provider for the built-in schema");
 
 			const first = yield* createEntity(client, {
 				providerId,
+				properties: {},
 				name: "Idempotent Entity",
-				entitySchemaSlug: schemaId,
 				externalId: "ext-idem-001",
-				properties: { title: "Idempotent Entity" },
+				entitySchema: schema.reference,
 			});
 
 			const second = yield* createEntity(client, {
 				providerId,
+				properties: {},
 				name: "Idempotent Entity",
-				entitySchemaSlug: schemaId,
 				externalId: "ext-idem-001",
-				properties: { title: "Idempotent Entity" },
+				entitySchema: schema.reference,
 			});
 
 			expect(second.id).toBe(first.id);
@@ -135,7 +133,7 @@ describe("POST /entities", () => {
 				providerId,
 				properties: {},
 				name: "User Owned Book",
-				entitySchemaSlug: schema.id,
+				entitySchema: schema.reference,
 			});
 
 			expect(created.id).not.toBe(global.id);
@@ -154,7 +152,7 @@ describe("POST /entities", () => {
 				providerId,
 				properties: {},
 				name: "Built-in Book",
-				entitySchemaSlug: schema.id,
+				entitySchema: schema.reference,
 				externalId: `ext-builtin-${crypto.randomUUID()}`,
 			});
 
@@ -167,11 +165,11 @@ describe("POST /entities", () => {
 	it.live("creates a built-in workout entity through the generic entity endpoint", () =>
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
-			const { schema } = yield* findBuiltinSchemaBySlug(client, "workout");
+			const { schema } = yield* findFitnessEntitySchema(client, "workout");
 
 			const entity = yield* createEntity(client, {
 				name: "Push Day",
-				entitySchemaSlug: schema.id,
+				entitySchema: schema.reference,
 				properties: { endedAt: "2026-04-27T11:00:00Z", startedAt: "2026-04-27T10:00:00Z" },
 			});
 
@@ -187,14 +185,14 @@ describe("POST /entities", () => {
 	it.live("returns 400 when only externalId is provided without providerId", () =>
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
-			const { schemaId } = yield* createPluginSchema(client);
+			const { reference } = yield* createPluginSchema(client);
 
 			const error = yield* Effect.flip(
 				client.call((c) =>
 					c.entities.create({
 						payload: {
+							entitySchema: reference,
 							externalId: "ext-partial",
-							entitySchemaSlug: schemaId,
 							properties: { title: "Partial" },
 							name: "Partial Provenance Entity",
 						},
@@ -213,7 +211,7 @@ describe("POST /entities", () => {
 	it.live("returns 400 when only providerId is provided without externalId", () =>
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
-			const { schemaId } = yield* createPluginSchema(client);
+			const { reference } = yield* createPluginSchema(client);
 			const { schema } = yield* findBuiltinSchemaWithProviders(client);
 			const providerId = schema.providers[0]?.providerId;
 			assertPresent(providerId, "Expected a provider for the built-in schema");
@@ -223,7 +221,7 @@ describe("POST /entities", () => {
 					c.entities.create({
 						payload: {
 							providerId,
-							entitySchemaSlug: schemaId,
+							entitySchema: reference,
 							properties: { title: "Partial" },
 							name: "Partial Provenance Entity",
 						},
@@ -264,7 +262,7 @@ describe("POST /entities — enum and enum-array property schema validation", ()
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
 			const pluginSlug = createPluginScope();
-			const { schemaId } = yield* createEntitySchema(client, {
+			const { reference } = yield* createEntitySchema(client, {
 				pluginSlug,
 				name: "Round-trip Schema",
 				propertiesSchema: {
@@ -285,7 +283,7 @@ describe("POST /entities — enum and enum-array property schema validation", ()
 				},
 			});
 
-			const schema = yield* getEntitySchema(client, schemaId);
+			const schema = yield* getEntitySchema(client, reference);
 
 			expect(schema.propertiesSchema.fields.status).toMatchObject({
 				type: "enum",
@@ -305,11 +303,11 @@ describe("POST /entities — enum and enum-array property schema validation", ()
 	it.live("creates entity with valid enum and enum-array values", () =>
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
-			const { schemaId } = yield* createSchemaWithEnumFields(client);
+			const { reference } = yield* createSchemaWithEnumFields(client);
 
 			const entity = yield* createEntity(client, {
 				name: "Fiction Book",
-				entitySchemaSlug: schemaId,
+				entitySchema: reference,
 				properties: { status: "published", genres: ["fiction", "mystery"] },
 			});
 
@@ -321,14 +319,14 @@ describe("POST /entities — enum and enum-array property schema validation", ()
 	it.live("returns 400 when enum value is not in choices", () =>
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
-			const { schemaId } = yield* createSchemaWithEnumFields(client);
+			const { reference } = yield* createSchemaWithEnumFields(client);
 
 			const error = yield* Effect.flip(
 				client.call((c) =>
 					c.entities.create({
 						payload: {
 							name: "Invalid Status",
-							entitySchemaSlug: schemaId,
+							entitySchema: reference,
 							properties: { status: "deleted" },
 						},
 					}),
@@ -343,14 +341,14 @@ describe("POST /entities — enum and enum-array property schema validation", ()
 	it.live("returns 400 when an enum-array item is not in choices", () =>
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
-			const { schemaId } = yield* createSchemaWithEnumFields(client);
+			const { reference } = yield* createSchemaWithEnumFields(client);
 
 			const error = yield* Effect.flip(
 				client.call((c) =>
 					c.entities.create({
 						payload: {
 							name: "Invalid Genre",
-							entitySchemaSlug: schemaId,
+							entitySchema: reference,
 							properties: { genres: ["fiction", "horror"] },
 						},
 					}),

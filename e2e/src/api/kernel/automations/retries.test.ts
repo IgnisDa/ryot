@@ -215,10 +215,10 @@ const createCollectionRun = (
 	name = `Retry collection ${crypto.randomUUID()}`,
 ) =>
 	Effect.gen(function* () {
-		const { schema } = yield* findBuiltinSchemaBySlug(client, "collection");
+		const { schema } = yield* findBuiltinSchemaBySlug(client, "collection", { kind: "kernel" });
 		const entity = yield* createEntity(client, {
 			name,
-			entitySchemaSlug: schema.id,
+			entitySchema: schema.reference,
 			properties: collectionProperties,
 		});
 		const runs = yield* pollAutomationRuns({
@@ -394,7 +394,11 @@ describe("automation retries", () => {
 			);
 			expect(replacement.activePluginRevisionId).not.toBe(fixture.installed.activePluginRevisionId);
 			expect(replacement.scriptId).not.toBe(fixture.installed.scriptId);
-			yield* updatePluginState(client, replacement.pluginSlug, { config: { marker: "beta" } });
+			yield* updatePluginState(
+				client,
+				requirePresent(replacement.installationId, "Retry plugin installation is missing"),
+				{ config: { marker: "beta" } },
+			);
 
 			const retry = (run: (typeof runs)[number]) =>
 				Effect.gen(function* () {
@@ -430,7 +434,11 @@ describe("automation retries", () => {
 			const disableRun = requirePresent(runs[1], "Missing disable retry run");
 			const uninstallRun = requirePresent(runs[2], "Missing uninstall retry run");
 			yield* retry(upgradeRun);
-			yield* updatePluginState(client, replacement.pluginSlug, { isHidden: true });
+			yield* updatePluginState(
+				client,
+				requirePresent(replacement.installationId, "Retry plugin installation is missing"),
+				{ isHidden: true },
+			);
 			yield* retry(disableRun);
 			yield* uninstallTestPluginStrict(replacement);
 			fixture.installed.active = false;

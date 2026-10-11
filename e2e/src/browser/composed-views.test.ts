@@ -1,3 +1,4 @@
+import { savedViewPath } from "@ryot-app/contract/modules/plugins/navigation";
 import { Effect, Option, Schema } from "effect";
 import { Playwright, PlaywrightSpawner } from "effect-playwright";
 
@@ -11,13 +12,10 @@ import {
 	createEventSchema,
 	createPluginSavedView,
 	createResultsTableSavedView,
-	findPluginIdBySlug,
-	getBuiltinEntitySchemaSlug,
 	findSavedViewById,
 	installFixtureClientPlugin,
 	listEntitySchemas,
 	listEventSchemas,
-	FIXTURE_CLIENT_PLUGIN_SLUG,
 	prepareClientPage,
 	requireEventSchemaBySlug,
 } from "~/fixtures/kernel";
@@ -27,7 +25,7 @@ import {
 	findWorkoutSetEventSchema,
 	waitForSessionEventCount,
 } from "~/fixtures/plugins/fitness";
-import { seedGlobalShowEpisodeTree } from "~/fixtures/plugins/media";
+import { findMediaEntitySchema, seedGlobalShowEpisodeTree } from "~/fixtures/plugins/media";
 import { requirePresent } from "~/support/assertions";
 import { signInThroughHostedOAuth } from "~/support/browser";
 import { expect, it } from "~/support/effect-test";
@@ -76,8 +74,8 @@ it.live("retains the document and bridge across same-composition saved views", (
 			{ name: "Composition second view" },
 			[exerciseId],
 		);
-		const firstPage = yield* prepareClientPage(client, first.slug);
-		const secondPage = yield* prepareClientPage(client, second.slug);
+		const firstPage = yield* prepareClientPage(client, first.reference);
+		const secondPage = yield* prepareClientPage(client, second.reference);
 		expect(firstPage.composition.hash).toBe(secondPage.composition.hash);
 
 		const browser = yield* Playwright.Browser;
@@ -88,7 +86,7 @@ it.live("retains the document and bridge across same-composition saved views", (
 			nativePage.on("request", (request) => requests.push(new URL(request.url()).pathname));
 			return Promise.resolve();
 		});
-		yield* page.goto(`${getFrontendUrl()}/v/${first.slug}`);
+		yield* page.goto(`${getFrontendUrl()}${savedViewPath(first.reference)}`);
 		const frame = activeClientFrame(page);
 		yield* frame
 			.contentFrame()
@@ -111,7 +109,7 @@ it.live("retains the document and bridge across same-composition saved views", (
 			.getByTestId("desktop-sidebar")
 			.getByRole("link", { exact: true, name: "Composition second view" })
 			.click();
-		yield* page.waitForURL(`${getFrontendUrl()}/v/${second.slug}`);
+		yield* page.waitForURL(`${getFrontendUrl()}${savedViewPath(second.reference)}`);
 		yield* frame
 			.contentFrame()
 			.getByRole("heading", { level: 1, name: "Composition second view" })
@@ -136,23 +134,20 @@ it.live("renders a saved view from an installed client plugin page", () =>
 	Effect.gen(function* () {
 		const apiUrl = getApiUrl();
 		const { email, client, password } = yield* createAuthenticatedClient(apiUrl);
-		yield* installFixtureClientPlugin(client, "A", "", apiUrl);
-		const pluginId = requirePresent(
-			yield* findPluginIdBySlug(client, FIXTURE_CLIENT_PLUGIN_SLUG),
-			"Installed fixture plugin was not found",
-		);
+		const installation = yield* installFixtureClientPlugin(client, "A", "", apiUrl);
+		const fixturePluginId = installation.pluginId;
 		const view = yield* createPluginSavedView(
 			client,
-			{ pluginId, kind: "plugin", exportName: "fixture-home" },
+			{ kind: "plugin", pluginId: fixturePluginId, exportName: "fixture-home" },
 			{},
-			{ name: "Fixture plugin saved view", workspacePluginSlug: FIXTURE_CLIENT_PLUGIN_SLUG },
+			{ name: "Fixture plugin saved view" },
 		);
 		const viewRecord = yield* findSavedViewById(client, view.id);
 
 		const browser = yield* Playwright.Browser;
 		const page = yield* browser.newPage();
 		yield* signInThroughHostedOAuth(page, email, password);
-		yield* page.goto(`${getFrontendUrl()}/v/${viewRecord.slug}`);
+		yield* page.goto(`${getFrontendUrl()}${savedViewPath(viewRecord.reference)}`);
 
 		const frame = activeClientFrame(page);
 		yield* frame.waitFor({ state: "visible" });
@@ -187,7 +182,10 @@ it.live("renders a saved view from an installed client plugin page", () =>
 			.getByTestId("desktop-sidebar")
 			.getByRole("link", { exact: true, name: "All Music" })
 			.click();
-		yield* page.waitForURL(`${getFrontendUrl()}/v/all-music`);
+		const { pluginId: mediaPluginId } = yield* findMediaEntitySchema(client, "music");
+		yield* page.waitForURL(
+			`${getFrontendUrl()}${savedViewPath({ kind: "plugin", slug: "all-music", pluginId: mediaPluginId })}`,
+		);
 		const mediaFrame = activeClientFrame(page);
 		yield* mediaFrame
 			.contentFrame()
@@ -211,17 +209,17 @@ it.live("keeps configured entity-browser controls within their declared source",
 			createEntity(client, {
 				name: "01 Alpha member",
 				properties: { title: "Alpha" },
-				entitySchemaSlug: schema.schemaId,
+				entitySchema: schema.reference,
 			}),
 			createEntity(client, {
 				name: "02 Zulu member",
 				properties: { title: "Zulu" },
-				entitySchemaSlug: schema.schemaId,
+				entitySchema: schema.reference,
 			}),
 			createEntity(client, {
 				name: "00 Alpha excluded",
 				properties: { title: "Alpha" },
-				entitySchemaSlug: schema.schemaId,
+				entitySchema: schema.reference,
 			}),
 		]);
 		const base = buildEntityBrowserSavedViewPayload({}, [alpha.id, zulu.id]);
@@ -256,7 +254,9 @@ it.live("keeps configured entity-browser controls within their declared source",
 		const browser = yield* Playwright.Browser;
 		const page = yield* browser.newPage();
 		yield* signInThroughHostedOAuth(page, email, password);
-		yield* page.goto(`${getFrontendUrl()}/v/${viewRecord.slug}?keep=1&layout=table`);
+		yield* page.goto(
+			`${getFrontendUrl()}${savedViewPath(viewRecord.reference)}?keep=1&layout=table`,
+		);
 		const runtime = activeClientFrame(page).contentFrame();
 		yield* runtime.getByRole("heading", { level: 1, name: "Configured entity browser" }).waitFor();
 		yield* runtime.getByText(alpha.name, { exact: true }).waitFor({ state: "visible" });
@@ -301,7 +301,7 @@ it.live("warms private Pokemon presentation files without evaluating them until 
 	Effect.gen(function* () {
 		const apiUrl = getApiUrl();
 		const { email, client, password } = yield* createAuthenticatedClient(apiUrl);
-		yield* installFixtureClientPlugin(client, "A", "", apiUrl, true);
+		const installation = yield* installFixtureClientPlugin(client, "A", "", apiUrl, true);
 		const fallbackSchema = yield* createEntitySchema(client, {
 			name: "Lazy presentation fallback",
 			pluginSlug: `lazy-fallback-${crypto.randomUUID()}`,
@@ -310,19 +310,19 @@ it.live("warms private Pokemon presentation files without evaluating them until 
 			createEntity(client, {
 				name,
 				properties: { title: name },
-				entitySchemaSlug: fallbackSchema.schemaId,
+				entitySchema: fallbackSchema.reference,
 			}),
 		);
 		const pokemonSchema = requirePresent(
 			(yield* listEntitySchemas(client, {
 				slugs: ["pokemon"],
-				pluginSlug: FIXTURE_CLIENT_PLUGIN_SLUG,
+				pluginId: installation.pluginId,
 			}))[0],
 			"Fixture Pokemon schema was not registered",
 		);
 		const pokemon = yield* createEntity(client, {
 			name: "03 Lazy Bulbasaur",
-			entitySchemaSlug: pokemonSchema.id,
+			entitySchema: pokemonSchema.reference,
 			properties: {
 				height: 7,
 				weight: 69,
@@ -352,7 +352,7 @@ it.live("warms private Pokemon presentation files without evaluating them until 
 			nativePage.on("requestfinished", (request) => finished.push(new URL(request.url()).pathname));
 			return Promise.resolve();
 		});
-		yield* page.goto(`${getFrontendUrl()}/v/${viewRecord.slug}`);
+		yield* page.goto(`${getFrontendUrl()}${savedViewPath(viewRecord.reference)}`);
 		const frame = activeClientFrame(page);
 		const runtime = frame.contentFrame();
 		yield* runtime.getByRole("heading", { level: 1, name: viewRecord.name }).waitFor();
@@ -422,13 +422,13 @@ it.live(
 			});
 			const eventSchema = yield* createEventSchema(client, {
 				name: "Results table event",
-				entitySchemaSlug: schema.slug,
+				entitySchema: schema.reference,
 				slug: `results-table-event-${crypto.randomUUID()}`,
 			});
 			const entity = yield* createEntity(client, {
 				name: "Shared results entity",
+				entitySchema: schema.reference,
 				properties: { title: "Shared" },
-				entitySchemaSlug: schema.schemaId,
 			});
 			for (const [occurredAt, note] of [
 				["2026-09-07T08:00:00.000Z", "First row"],
@@ -450,7 +450,7 @@ it.live(
 			const browser = yield* Playwright.Browser;
 			const page = yield* browser.newPage();
 			yield* signInThroughHostedOAuth(page, email, password);
-			yield* page.goto(`${getFrontendUrl()}/v/${viewRecord.slug}`);
+			yield* page.goto(`${getFrontendUrl()}${savedViewPath(viewRecord.reference)}`);
 			const runtime = activeClientFrame(page).contentFrame();
 			yield* runtime.getByRole("heading", { level: 1, name: viewRecord.name }).waitFor();
 			const rows = runtime.locator("tbody tr");
@@ -487,7 +487,7 @@ it.live("keeps one rich mixed entity browser runtime across pagination and layou
 	Effect.gen(function* () {
 		const apiUrl = getApiUrl();
 		const { email, client, password } = yield* createAuthenticatedClient(apiUrl);
-		yield* installFixtureClientPlugin(client, "A", "", apiUrl);
+		const installation = yield* installFixtureClientPlugin(client, "A", "", apiUrl);
 		const uploadArtwork = (fileName: string, source: string) =>
 			Effect.gen(function* () {
 				const intent = yield* client.call((c) =>
@@ -529,7 +529,7 @@ it.live("keeps one rich mixed entity browser runtime across pagination and layou
 				createEntity(client, {
 					name,
 					properties: { title: name },
-					entitySchemaSlug: fallbackSchema.schemaId,
+					entitySchema: fallbackSchema.reference,
 				}),
 		);
 		const { showId, episodeId } = yield* seedGlobalShowEpisodeTree(client, {
@@ -540,9 +540,9 @@ it.live("keeps one rich mixed entity browser runtime across pagination and layou
 				images: [{ ...showArtwork, purpose: "cover" }],
 			},
 		});
-		const episodeSchemaSlug = yield* getBuiltinEntitySchemaSlug(client, "show-episode");
+		const { schema: episodeSchema } = yield* findMediaEntitySchema(client, "show-episode");
 		const episodeProgressSchema = requireEventSchemaBySlug(
-			yield* listEventSchemas(client, episodeSchemaSlug),
+			yield* listEventSchemas(client, episodeSchema.reference),
 			"progress",
 		);
 		yield* client.call((c) =>
@@ -583,13 +583,13 @@ it.live("keeps one rich mixed entity browser runtime across pagination and layou
 		const pokemonSchema = requirePresent(
 			(yield* listEntitySchemas(client, {
 				slugs: ["pokemon"],
-				pluginSlug: FIXTURE_CLIENT_PLUGIN_SLUG,
+				pluginId: installation.pluginId,
 			}))[0],
 			"Fixture Pokemon schema was not registered",
 		);
 		const pokemon = yield* createEntity(client, {
 			name: "05 Composed Bulbasaur",
-			entitySchemaSlug: pokemonSchema.id,
+			entitySchema: pokemonSchema.reference,
 			properties: {
 				height: 7,
 				weight: 69,
@@ -621,7 +621,7 @@ it.live("keeps one rich mixed entity browser runtime across pagination and layou
 			});
 			return Promise.resolve();
 		});
-		yield* page.goto(`${getFrontendUrl()}/v/${viewRecord.slug}`);
+		yield* page.goto(`${getFrontendUrl()}${savedViewPath(viewRecord.reference)}`);
 
 		const frame = activeClientFrame(page);
 		yield* frame.waitFor({ state: "visible" });
@@ -724,7 +724,7 @@ it.live("keeps one rich mixed entity browser runtime across pagination and layou
 		expect(fontRequests.every((path) => path.startsWith(runtimeBase))).toBe(true);
 		expect(yield* pokemonGrid.getAttribute("data-view-context")).toBe(
 			yield* Schema.encodeEffect(Schema.fromJsonString(Schema.Unknown))({
-				savedViewId: viewRecord.slug,
+				savedViewId: viewRecord.id,
 			}),
 		);
 
@@ -737,7 +737,7 @@ it.live("keeps one rich mixed entity browser runtime across pagination and layou
 		expect(yield* runtime.locator("article").count).toBe(5);
 		expect(yield* pokemonList.getAttribute("data-view-context")).toBe(
 			yield* Schema.encodeEffect(Schema.fromJsonString(Schema.Unknown))({
-				savedViewId: viewRecord.slug,
+				savedViewId: viewRecord.id,
 			}),
 		);
 		expect(yield* runtime.locator("body").getAttribute("data-e2e-page")).toBe("stable");

@@ -40,6 +40,7 @@ export const clearEntityUserState = (client: Client, entityId: string) =>
 	client.call((c) => c.userState.clearUserState({ params: { entityId: EntityId.make(entityId) } }));
 
 export const queryUserEntityStateCounts = (input: {
+	owner: Parameters<typeof eventHistoryRecipe>[0]["owner"];
 	client: Client;
 	entityId: string;
 	eventSchemaSlugs: readonly [string, ...string[]];
@@ -50,6 +51,7 @@ export const queryUserEntityStateCounts = (input: {
 		const eventCountDocument = (filter: { entityId?: string; sessionEntityId?: string }) => {
 			const history = eventHistoryRecipe({
 				limit: 1,
+				owner: input.owner,
 				...filter,
 				eventSchemaSlugs: input.eventSchemaSlugs,
 				entitySchemaSlugs: input.entitySchemaSlugs,

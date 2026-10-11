@@ -2,7 +2,12 @@ import { exerciseDetailsRecipe } from "@ryot-app/fitness-plugin/exercise-details
 import { workoutDetailsRecipe } from "@ryot-app/fitness-plugin/workout-details-recipes";
 import { Effect } from "effect";
 
-import { createAuthenticatedClient, executeRyotQLRecipe, pollUntil } from "~/fixtures/kernel";
+import {
+	createAuthenticatedClient,
+	executeRyotQLRecipe,
+	getEntity,
+	pollUntil,
+} from "~/fixtures/kernel";
 import type { Client } from "~/fixtures/kernel/auth";
 import {
 	createExerciseEntityFixture,
@@ -13,16 +18,34 @@ import { requirePresent } from "~/support/assertions";
 import { describe, expect, it } from "~/support/effect-test";
 
 const timeZone = "Pacific/Auckland";
+type FitnessReference = Parameters<typeof exerciseDetailsRecipe>[0]["reference"];
 
 const exerciseDetails = (client: Client, exerciseId: string) =>
-	executeRyotQLRecipe(client, exerciseDetailsRecipe({ timeZone, exerciseId }));
+	Effect.gen(function* () {
+		const exercise = yield* getEntity(client, exerciseId);
+		const pluginId = requirePresent(
+			exercise.entitySchemaPluginId,
+			"Expected a Fitness exercise owner",
+		);
+		const reference: FitnessReference = { pluginId, kind: "local" };
+		return yield* executeRyotQLRecipe(
+			client,
+			exerciseDetailsRecipe({ timeZone, reference, exerciseId }),
+		);
+	});
 
 const waitForReadySets = (client: Client, workoutId: string) =>
 	pollUntil(
 		`ready workout sets for ${workoutId}`,
 		Effect.gen(function* () {
+			const workoutEntity = yield* getEntity(client, workoutId);
+			const pluginId = requirePresent(
+				workoutEntity.entitySchemaPluginId,
+				"Expected a Fitness workout owner",
+			);
+			const reference: FitnessReference = { pluginId, kind: "local" };
 			const workout = requirePresent(
-				yield* executeRyotQLRecipe(client, workoutDetailsRecipe({ workoutId })),
+				yield* executeRyotQLRecipe(client, workoutDetailsRecipe({ reference, workoutId })),
 				"Expected workout",
 			);
 			const sets = workout.exercises.items.flatMap((exercise) => exercise.sets.items);

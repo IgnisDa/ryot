@@ -1,5 +1,8 @@
 import type { ContractSuccess } from "@ryot-app/contract/client";
-import { DataJsonDocument } from "@ryot-app/contract/modules/imports/data-json";
+import {
+	DataJsonDocument,
+	dataJsonSourceReference,
+} from "@ryot-app/contract/modules/imports/data-json";
 import { Effect, Option, Schema } from "effect";
 
 import { requirePresent } from "~/support/assertions";
@@ -9,6 +12,7 @@ import { createPluginEntitySchema } from "./entity-graph";
 import { createEventSchema } from "./event-schemas";
 import { pollImportRunUntilTerminal, uploadImportFile } from "./imports";
 import { getIntegration } from "./integrations";
+import { createPluginScope } from "./plugins";
 import { createRelationshipSchema } from "./relationship-schemas";
 
 type AuthenticatedClient = Effect.Success<ReturnType<typeof createAuthenticatedClient>>;
@@ -19,7 +23,9 @@ const encodeDataDocument = Schema.encodeSync(Schema.fromJsonString(DataJsonDocum
 export const createDataJsonSchemaGraph = (client: Client) =>
 	Effect.gen(function* () {
 		const suffix = crypto.randomUUID();
+		const pluginSlug = createPluginScope();
 		const entityA = yield* createPluginEntitySchema(client, {
+			pluginSlug,
 			schemaName: `Data JSON A ${suffix}`,
 			propertiesSchema: {
 				fields: {
@@ -33,18 +39,20 @@ export const createDataJsonSchemaGraph = (client: Client) =>
 			},
 		});
 		const entityB = yield* createPluginEntitySchema(client, {
+			pluginSlug,
 			schemaName: `Data JSON B ${suffix}`,
 		});
 		const relationship = yield* createRelationshipSchema(client, {
+			pluginSlug,
 			name: `Data JSON relationship ${suffix}`,
 			slug: `data-json-relationship-${suffix}`,
 			sourceEntitySchemaSlug: entityA.schemaId,
 			targetEntitySchemaSlug: entityB.schemaId,
 		});
 		const event = yield* createEventSchema(client, {
+			entitySchema: entityA.reference,
 			name: `Data JSON event ${suffix}`,
 			slug: `data-json-event-${suffix}`,
-			entitySchemaSlug: entityA.schemaId,
 			propertiesSchema: {
 				fields: {
 					details: {
@@ -89,7 +97,7 @@ export const submitDataJsonImport = (
 			c.imports.createRun({
 				payload: {
 					uploadToken,
-					source: "data-json",
+					source: dataJsonSourceReference,
 					...(submissionKey === undefined ? {} : { submissionKey }),
 				},
 			}),

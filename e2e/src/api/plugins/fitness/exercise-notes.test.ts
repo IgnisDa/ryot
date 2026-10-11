@@ -4,7 +4,6 @@ import {
 	type Client,
 	createAuthenticatedClient,
 	createEventFixture,
-	getBuiltinEntitySchemaSlug,
 	listEventSchemas,
 	listEventsForEntity,
 	requireEventSchemaBySlug,
@@ -19,7 +18,7 @@ import {
 	findWorkoutSetEventSchema,
 	updateExerciseNote,
 } from "~/fixtures/plugins/fitness";
-import { seedMediaEntity } from "~/fixtures/plugins/media";
+import { findMediaEntitySchema, seedMediaEntity } from "~/fixtures/plugins/media";
 import { assertTaggedError, requirePresent } from "~/support/assertions";
 import { describe, expect, it } from "~/support/effect-test";
 
@@ -38,16 +37,16 @@ const expectRejected = (operation: ReturnType<typeof createExerciseNote>, messag
 
 const seedMovieWithReview = (client: Client) =>
 	Effect.gen(function* () {
-		const entitySchemaSlug = yield* getBuiltinEntitySchemaSlug(client, "movie");
+		const { schema } = yield* findMediaEntitySchema(client, "movie");
 		const movie = yield* seedMediaEntity({
 			properties: {},
-			entitySchemaSlug,
 			providerId: null,
+			entitySchemaSlug: schema.id,
 			name: "Exercise note movie",
 			externalId: `exercise-note-movie-${crypto.randomUUID()}`,
 		});
 		const review = requireEventSchemaBySlug(
-			yield* listEventSchemas(client, entitySchemaSlug),
+			yield* listEventSchemas(client, schema.reference),
 			"review",
 		);
 		yield* createEventFixture(client, {
@@ -166,11 +165,11 @@ describe("Fitness exercise notes", () => {
 			const { client } = yield* createAuthenticatedClient();
 			const { client: otherClient } = yield* createAuthenticatedClient();
 			const { exerciseId: otherExerciseId } = yield* createExerciseEntityFixture(otherClient);
-			const entitySchemaSlug = yield* getBuiltinEntitySchemaSlug(client, "movie");
+			const { schema } = yield* findMediaEntitySchema(client, "movie");
 			const movie = yield* seedMediaEntity({
 				properties: {},
-				entitySchemaSlug,
 				providerId: null,
+				entitySchemaSlug: schema.id,
 				name: "Exercise note target movie",
 				externalId: `exercise-note-target-${crypto.randomUUID()}`,
 			});

@@ -109,7 +109,7 @@ describe("plugin catalog events", () => {
 
 			const variant = crypto.randomUUID();
 			const packageA = yield* fixtureClientPluginPackage("A", variant);
-			yield* installPrivatePluginPackage({
+			const installed = yield* installPrivatePluginPackage({
 				config: {},
 				baseUrl: apiUrl(),
 				client: owner.client,
@@ -118,7 +118,7 @@ describe("plugin catalog events", () => {
 			yield* ownerEvents.waitForCatalogInvalidated();
 			yield* outsiderEvents.assertNoInvalidation();
 
-			const revisionA = yield* settledPrivateInstallation(owner.client, FIXTURE_CLIENT_PLUGIN_SLUG);
+			const revisionA = yield* settledPrivateInstallation(owner.client, installed.id);
 			expect(revisionA.health).toBe("ready");
 			yield* ownerEvents.waitForCatalogInvalidated();
 			yield* outsiderEvents.assertNoInvalidation();

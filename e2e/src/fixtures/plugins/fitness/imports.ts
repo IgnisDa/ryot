@@ -1,8 +1,27 @@
+import type { ContractPathParams, ContractPayload } from "@ryot-app/contract/client";
+import { definitionOwner } from "@ryot-app/contract/modules/plugins/references";
 import { Effect } from "effect";
 
 import type { Client } from "~/fixtures/kernel/auth";
 import { pollImportRunUntilTerminal, uploadImportFile } from "~/fixtures/kernel/imports";
 import { requirePresent } from "~/support/assertions";
+
+import { findFitnessEntitySchema } from "./exercises";
+
+type ImportRunFixtureBody = Omit<ContractPayload<"imports", "createRun">, "source"> & {
+	source: string;
+};
+
+export const createFitnessImportRun = (
+	client: Client,
+	pluginId: ContractPathParams<"plugins", "invoke">["pluginId"],
+	body: ImportRunFixtureBody,
+) =>
+	client.call((contract) =>
+		contract.imports.createRun({
+			payload: { ...body, source: { slug: body.source, owner: definitionOwner(pluginId) } },
+		}),
+	);
 
 const OPENSCALE_SAMPLE_CSV = `dateTime,weight,bmi,fat,water,muscle,comment
 2026-04-01 08:00:00,75.0,22.5,15.0,60.0,40.0,Morning weight
@@ -10,12 +29,16 @@ const OPENSCALE_SAMPLE_CSV = `dateTime,weight,bmi,fat,water,muscle,comment
 2026-04-03 08:00:00,75.2,22.6,15.1,60.0,40.0,After lunch
 `;
 
-export const startOpenScaleImport = (client: Client, uploadToken: string) =>
+export const startOpenScaleImport = (
+	client: Client,
+	pluginId: ContractPathParams<"plugins", "invoke">["pluginId"],
+	body: { uploadToken: string },
+) =>
 	Effect.gen(function* () {
-		const result = yield* client.call((c) =>
-			c.imports.createRun({ payload: { uploadToken, source: "open_scale" } }),
-		);
-
+		const result = yield* createFitnessImportRun(client, pluginId, {
+			...body,
+			source: "open_scale",
+		});
 		return requirePresent(result.id, "Import run id is missing");
 	});
 
@@ -28,7 +51,8 @@ export const runOpenScaleImportFixture = (client: Client, token: string) =>
 			"text/csv",
 		);
 
-		const runId = yield* startOpenScaleImport(client, uploadToken);
+		const { pluginId } = yield* findFitnessEntitySchema(client, "exercise");
+		const runId = yield* startOpenScaleImport(client, pluginId, { uploadToken });
 		const completedRun = yield* pollImportRunUntilTerminal(client, runId);
 		return { runId, completedRun };
 	});
@@ -48,9 +72,12 @@ export const runHevyImportFixture = (client: Client, token: string) =>
 			"text/csv",
 		);
 
-		const result = yield* client.call((c) =>
-			c.imports.createRun({ payload: { uploadToken, source: "hevy", timezone: "UTC" } }),
-		);
+		const { pluginId } = yield* findFitnessEntitySchema(client, "exercise");
+		const result = yield* createFitnessImportRun(client, pluginId, {
+			uploadToken,
+			source: "hevy",
+			timezone: "UTC",
+		});
 		const runId = requirePresent(result.id, "Import run id is missing");
 
 		const completedRun = yield* pollImportRunUntilTerminal(client, runId);

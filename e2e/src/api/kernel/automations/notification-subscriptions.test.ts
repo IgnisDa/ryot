@@ -1,3 +1,5 @@
+import { definitionOwner } from "@ryot-app/contract/modules/plugins/references";
+import { SignalSchemaSlug } from "@ryot-app/contract/schema/brands";
 import { Effect } from "effect";
 
 import {
@@ -5,7 +7,6 @@ import {
 	createEntity,
 	createNotificationChannel,
 	deleteNotificationRule,
-	findBuiltinSchemaBySlug,
 	getEntity,
 	getNotificationSubscription,
 	installNotificationRule,
@@ -16,6 +17,7 @@ import {
 	setNotificationRuleActive,
 	startFakeAppriseServer,
 } from "~/fixtures/kernel";
+import { findFitnessEntitySchema } from "~/fixtures/plugins/fitness";
 import { createBuiltinMediaLifecycleFixture } from "~/fixtures/plugins/media";
 import { assertTaggedError, requirePresent } from "~/support/assertions";
 import { afterAll, beforeAll, describe, expect, it, runPromise } from "~/support/effect-test";
@@ -107,7 +109,11 @@ describe("notification subscription catalog and rules", () => {
 			expect(yield* deleteNotificationRule(owner.client, reviewRule.id)).toEqual({
 				id: reviewRule.id,
 			});
-			const reinstalled = yield* installNotificationRule(owner.client, reviewRule.signalSchemaSlug);
+			const signalSchema = {
+				owner: definitionOwner(reviewSchema.pluginId),
+				slug: SignalSchemaSlug.make(reviewSchema.slug),
+			};
+			const reinstalled = yield* installNotificationRule(owner.client, signalSchema);
 			expect(reinstalled.id).not.toBe(reviewRule.id);
 			const loadedReinstalled = requirePresent(
 				yield* getNotificationSubscription(owner.client, reinstalled.id),
@@ -125,23 +131,14 @@ describe("notification subscription catalog and rules", () => {
 			expect(refreshedSchema.propertiesSchema).toEqual(reviewSchema.propertiesSchema);
 
 			const conflict = yield* Effect.flip(
-				owner.client.call((c) =>
-					c.automations.installRule({ payload: { signalSchemaSlug: reviewRule.signalSchemaSlug } }),
-				),
+				owner.client.call((c) => c.automations.installRule({ payload: { signalSchema } })),
 			);
 			assertTaggedError(conflict, "AutomationConflictError");
-			expect(conflict.reason).toEqual({
-				code: "rule-already-installed",
-				signalSchemaSlug: reviewRule.signalSchemaSlug,
-			});
+			expect(conflict.reason).toEqual({ signalSchema, code: "rule-already-installed" });
 
 			const arbitraryFields = yield* postApiJson(
 				"/automations/rules",
-				{
-					operation: "signal",
-					scriptId: "caller-selected-script",
-					signalSchemaSlug: reviewRule.signalSchemaSlug,
-				},
+				{ signalSchema, operation: "signal", scriptId: "caller-selected-script" },
 				owner.token,
 			);
 			expect(arbitraryFields.status).toBe(400);
@@ -156,11 +153,11 @@ describe("notification subscription catalog and rules", () => {
 				channel: "apprise",
 				channelSpecifics: { key: "workout", kind: "apprise", baseUrl: fakeApprise.url },
 			});
-			const { schema } = yield* findBuiltinSchemaBySlug(client, "workout");
+			const { schema } = yield* findFitnessEntitySchema(client, "workout");
 			const workoutName = `E2E Workout ${crypto.randomUUID()}`;
 			yield* createEntity(client, {
 				name: workoutName,
-				entitySchemaSlug: schema.id,
+				entitySchema: schema.reference,
 				properties: { endedAt: "2026-07-21T11:00:00Z", startedAt: "2026-07-21T10:00:00Z" },
 			});
 

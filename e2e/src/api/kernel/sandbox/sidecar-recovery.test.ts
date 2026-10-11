@@ -80,7 +80,14 @@ export default defineScript({ manifest, input: Schema.Unknown, output: Schema.Un
 				"User/core sidecar must be resident",
 			);
 			const run = yield* client.call((c) =>
-				c.imports.createRun({ payload: { source: fixture.source } }),
+				c.imports.createRun({
+					payload: {
+						source: {
+							slug: fixture.source,
+							owner: { kind: "plugin", pluginId: fixture.plugin.pluginId },
+						},
+					},
+				}),
 			);
 			yield* pollUntil(
 				"provider to park in its live isolate",

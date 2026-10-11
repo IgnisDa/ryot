@@ -26,6 +26,7 @@ import {
 	createEntityFixture,
 	createEventFixture,
 	createPluginEntitySchema,
+	createPluginScope,
 	createRelationship,
 	createRelationshipSchema,
 	executeRyotQL,
@@ -78,16 +79,26 @@ describe("RyotQL relationship rows and includes", () => {
 		() =>
 			Effect.gen(function* () {
 				const { client } = yield* createAuthenticatedClient();
-				const { slug: courseSlug, schemaId: courseSchemaId } = yield* createPluginEntitySchema(
-					client,
-					{ schemaName: "RyotQLRelationshipCourse" },
-				);
-				const { slug: memberSlug, schemaId: memberSchemaId } = yield* createPluginEntitySchema(
-					client,
-					{ schemaName: "RyotQLRelationshipMember" },
-				);
+				const pluginSlug = createPluginScope();
+				const {
+					slug: courseSlug,
+					schemaId: courseSchemaId,
+					reference: courseSchemaReference,
+				} = yield* createPluginEntitySchema(client, {
+					pluginSlug,
+					schemaName: "RyotQLRelationshipCourse",
+				});
+				const {
+					slug: memberSlug,
+					schemaId: memberSchemaId,
+					reference: memberSchemaReference,
+				} = yield* createPluginEntitySchema(client, {
+					pluginSlug,
+					schemaName: "RyotQLRelationshipMember",
+				});
 				const relationshipSlug = `ryotql-membership-${crypto.randomUUID()}`;
 				const relationshipSchema = yield* createRelationshipSchema(client, {
+					pluginSlug,
 					slug: relationshipSlug,
 					name: "RyotQL Membership",
 					targetEntitySchemaSlug: courseSchemaId,
@@ -98,7 +109,7 @@ describe("RyotQL relationship rows and includes", () => {
 				});
 				const course = yield* createEntityFixture(client, {
 					name: "Relationship Course",
-					entitySchemaSlug: courseSchemaId,
+					entitySchema: courseSchemaReference,
 				});
 				const members = yield* Effect.all(
 					(
@@ -110,13 +121,13 @@ describe("RyotQL relationship rows and includes", () => {
 						Effect.gen(function* () {
 							const member = yield* createEntityFixture(client, {
 								name,
-								entitySchemaSlug: memberSchemaId,
+								entitySchema: memberSchemaReference,
 							});
 							yield* createRelationship(client, {
 								properties: { role },
 								sourceEntityId: member.id,
 								targetEntityId: course.id,
-								relationshipSchemaSlug: relationshipSchema.id,
+								relationshipSchema: relationshipSchema.reference,
 							});
 							return member;
 						}),
@@ -216,25 +227,39 @@ describe("RyotQL relationship rows and includes", () => {
 	it.live("returns filtered nested relationship and event includes with per-parent limits", () =>
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
-			const { slug: courseSlug, schemaId: courseSchemaId } = yield* createPluginEntitySchema(
-				client,
-				{ schemaName: "RyotQLIncludeCourse" },
-			);
-			const { schemaId: moduleSchemaId } = yield* createPluginEntitySchema(client, {
-				schemaName: "RyotQLIncludeModule",
-				propertiesSchema: {
-					fields: { position: { type: "integer", label: "Position", description: "Module order" } },
-				},
+			const pluginSlug = createPluginScope();
+			const {
+				slug: courseSlug,
+				schemaId: courseSchemaId,
+				reference: courseSchemaReference,
+			} = yield* createPluginEntitySchema(client, {
+				pluginSlug,
+				schemaName: "RyotQLIncludeCourse",
 			});
-			const { schemaId: lessonSchemaId } = yield* createPluginEntitySchema(client, {
-				schemaName: "RyotQLIncludeLesson",
-				propertiesSchema: {
-					fields: { position: { type: "integer", label: "Position", description: "Lesson order" } },
-				},
-			});
+			const { schemaId: moduleSchemaId, reference: moduleSchemaReference } =
+				yield* createPluginEntitySchema(client, {
+					pluginSlug,
+					schemaName: "RyotQLIncludeModule",
+					propertiesSchema: {
+						fields: {
+							position: { type: "integer", label: "Position", description: "Module order" },
+						},
+					},
+				});
+			const { schemaId: lessonSchemaId, reference: lessonSchemaReference } =
+				yield* createPluginEntitySchema(client, {
+					pluginSlug,
+					schemaName: "RyotQLIncludeLesson",
+					propertiesSchema: {
+						fields: {
+							position: { type: "integer", label: "Position", description: "Lesson order" },
+						},
+					},
+				});
 			const courseModuleSlug = `ryotql-course-module-${crypto.randomUUID()}`;
 			const moduleLessonSlug = `ryotql-module-lesson-${crypto.randomUUID()}`;
 			const courseModuleSchema = yield* createRelationshipSchema(client, {
+				pluginSlug,
 				slug: courseModuleSlug,
 				name: "RyotQL Course Module",
 				targetEntitySchemaSlug: moduleSchemaId,
@@ -244,6 +269,7 @@ describe("RyotQL relationship rows and includes", () => {
 				},
 			});
 			const moduleLessonSchema = yield* createRelationshipSchema(client, {
+				pluginSlug,
 				slug: moduleLessonSlug,
 				name: "RyotQL Module Lesson",
 				targetEntitySchemaSlug: lessonSchemaId,
@@ -253,7 +279,7 @@ describe("RyotQL relationship rows and includes", () => {
 			const completionSchema = yield* createEventSchema(client, {
 				slug: completionSlug,
 				name: "RyotQL Completion",
-				entitySchemaSlug: lessonSchemaId,
+				entitySchema: lessonSchemaReference,
 				propertiesSchema: {
 					fields: { score: { label: "Score", type: "integer", description: "Score" } },
 				},
@@ -261,49 +287,49 @@ describe("RyotQL relationship rows and includes", () => {
 
 			const course = yield* createEntityFixture(client, {
 				name: "Course With Modules",
-				entitySchemaSlug: courseSchemaId,
+				entitySchema: courseSchemaReference,
 			});
 			yield* createEntityFixture(client, {
 				name: "Empty Course",
-				entitySchemaSlug: courseSchemaId,
+				entitySchema: courseSchemaReference,
 			});
 			const moduleOne = yield* createEntityFixture(client, {
 				name: "Module One",
 				properties: { position: 1 },
-				entitySchemaSlug: moduleSchemaId,
+				entitySchema: moduleSchemaReference,
 			});
 			const moduleTwo = yield* createEntityFixture(client, {
 				name: "Module Two",
 				properties: { position: 2 },
-				entitySchemaSlug: moduleSchemaId,
+				entitySchema: moduleSchemaReference,
 			});
 			const lessonOne = yield* createEntityFixture(client, {
 				name: "Lesson One",
 				properties: { position: 1 },
-				entitySchemaSlug: lessonSchemaId,
+				entitySchema: lessonSchemaReference,
 			});
 			const lessonTwo = yield* createEntityFixture(client, {
 				name: "Lesson Two",
 				properties: { position: 2 },
-				entitySchemaSlug: lessonSchemaId,
+				entitySchema: lessonSchemaReference,
 			});
 			yield* createRelationship(client, {
 				sourceEntityId: course.id,
 				properties: { position: 2 },
 				targetEntityId: moduleTwo.id,
-				relationshipSchemaSlug: courseModuleSchema.id,
+				relationshipSchema: courseModuleSchema.reference,
 			});
 			yield* createRelationship(client, {
 				sourceEntityId: course.id,
 				properties: { position: 1 },
 				targetEntityId: moduleOne.id,
-				relationshipSchemaSlug: courseModuleSchema.id,
+				relationshipSchema: courseModuleSchema.reference,
 			});
 			for (const lesson of [lessonOne, lessonTwo]) {
 				yield* createRelationship(client, {
 					targetEntityId: lesson.id,
 					sourceEntityId: moduleOne.id,
-					relationshipSchemaSlug: moduleLessonSchema.id,
+					relationshipSchema: moduleLessonSchema.reference,
 				});
 			}
 			yield* createEventFixture(client, {
@@ -419,21 +445,27 @@ describe("RyotQL relationship rows and includes", () => {
 				createAuthenticatedClient(),
 				createAuthenticatedClient(),
 			]);
+			const userAPluginSlug = createPluginScope();
+			const userBPluginSlug = createPluginScope();
 			const ownSchema = yield* createPluginEntitySchema(userA.client, {
+				pluginSlug: userAPluginSlug,
 				schemaName: "RyotQLVisibleRelationship",
 			});
 			const otherSchema = yield* createPluginEntitySchema(userB.client, {
+				pluginSlug: userBPluginSlug,
 				schemaName: "RyotQLHiddenRelationship",
 			});
 			const ownRelationshipSlug = `ryotql-visible-${crypto.randomUUID()}`;
 			const otherRelationshipSlug = `ryotql-hidden-${crypto.randomUUID()}`;
 			const ownRelationshipSchema = yield* createRelationshipSchema(userA.client, {
 				slug: ownRelationshipSlug,
+				pluginSlug: userAPluginSlug,
 				name: "RyotQL Visible Relationship",
 				targetEntitySchemaSlug: ownSchema.schemaId,
 				sourceEntitySchemaSlug: ownSchema.schemaId,
 			});
 			const otherRelationshipSchema = yield* createRelationshipSchema(userB.client, {
+				pluginSlug: userBPluginSlug,
 				slug: otherRelationshipSlug,
 				name: "RyotQL Hidden Relationship",
 				targetEntitySchemaSlug: otherSchema.schemaId,
@@ -441,31 +473,31 @@ describe("RyotQL relationship rows and includes", () => {
 			});
 			const ownSource = yield* createEntityFixture(userA.client, {
 				name: "Visible Source",
-				entitySchemaSlug: ownSchema.schemaId,
+				entitySchema: ownSchema.reference,
 			});
 			const ownTarget = yield* createEntityFixture(userA.client, {
 				name: "Visible Target",
-				entitySchemaSlug: ownSchema.schemaId,
+				entitySchema: ownSchema.reference,
 			});
 			const otherSource = yield* createEntityFixture(userB.client, {
 				name: "Hidden Source",
-				entitySchemaSlug: otherSchema.schemaId,
+				entitySchema: otherSchema.reference,
 			});
 			const otherTarget = yield* createEntityFixture(userB.client, {
 				name: "Hidden Target",
-				entitySchemaSlug: otherSchema.schemaId,
+				entitySchema: otherSchema.reference,
 			});
 			const ownRelationship = yield* createRelationship(userA.client, {
 				sourceEntityId: ownSource.id,
 				targetEntityId: ownTarget.id,
 				properties: { scope: "visible" },
-				relationshipSchemaSlug: ownRelationshipSchema.id,
+				relationshipSchema: ownRelationshipSchema.reference,
 			});
 			const otherRelationship = yield* createRelationship(userB.client, {
 				sourceEntityId: otherSource.id,
 				targetEntityId: otherTarget.id,
 				properties: { scope: "hidden" },
-				relationshipSchemaSlug: otherRelationshipSchema.id,
+				relationshipSchema: otherRelationshipSchema.reference,
 			});
 
 			const entityRoot = table("entity", "entityRoot");

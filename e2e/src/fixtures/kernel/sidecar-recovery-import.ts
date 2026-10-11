@@ -1,4 +1,3 @@
-import { PluginSlug } from "@ryot-app/contract/schema/brands";
 import type { GenericImportWriteItem } from "@ryot-app/sandbox-sdk/imports";
 import { Effect, Schema } from "effect";
 
@@ -71,13 +70,10 @@ export const installSidecarRecoveryImport = (client: Client, checkpointUrl: stri
 		});
 		yield* Effect.acquireRelease(
 			installTestSupportSystemPlugin({ files: {}, manifest: policyManifest }),
-			({ activationId }) =>
+			({ pluginId, activationId }) =>
 				getApiClient()
 					.call(
-						(c) =>
-							c.testSupport.uninstallSystemPlugin({
-								params: { activationId, pluginSlug: PluginSlug.make(policyManifest.metadata.slug) },
-							}),
+						(c) => c.testSupport.uninstallSystemPlugin({ params: { pluginId, activationId } }),
 						adminHeaders(),
 					)
 					.pipe(Effect.orDie),

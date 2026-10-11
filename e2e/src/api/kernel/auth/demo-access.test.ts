@@ -25,7 +25,6 @@ import {
 	createTestUser,
 	executeRyotQL,
 	executeRyotQLRecipe,
-	findBuiltinSchemaBySlug,
 	getTwoFactorStatus,
 	getUserSettings,
 	listEventSchemas,
@@ -42,6 +41,7 @@ import {
 	waitForCreateEvents,
 	type PendingOAuth,
 } from "~/fixtures/kernel";
+import { findMediaEntitySchema } from "~/fixtures/plugins/media";
 import {
 	assertTaggedError,
 	requireArray,
@@ -438,18 +438,18 @@ describe("shared demo access acceptance", () => {
 			assertTaggedError(importError, "ProviderEntityNotFound");
 			expect(importError.reason.code).toBe("provider-not-found");
 
-			const { schema } = yield* findBuiltinSchemaBySlug(demoClient, "book");
+			const { schema } = yield* findMediaEntitySchema(demoClient, "book");
 			const mergeFrom = yield* createEntity(demoClient, {
 				properties: {},
 				name: "Demo merge source",
-				entitySchemaSlug: schema.id,
+				entitySchema: schema.reference,
 			});
 			const mergeInto = yield* createEntity(demoClient, {
 				properties: {},
 				name: "Demo merge target",
-				entitySchemaSlug: schema.id,
+				entitySchema: schema.reference,
 			});
-			const eventSchemas = yield* listEventSchemas(demoClient, schema.id);
+			const eventSchemas = yield* listEventSchemas(demoClient, schema.reference);
 			const review = requireEventSchemaBySlug(eventSchemas, "review");
 			const eventResult = yield* demoClient.call((c) =>
 				c.events.create({

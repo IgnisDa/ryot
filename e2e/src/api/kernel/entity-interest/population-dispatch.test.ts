@@ -6,7 +6,6 @@ import {
 	uninstallTestProvider,
 	createAuthenticatedClient,
 	fakeProviderDetailsResult,
-	findBuiltinSchemaBySlug,
 	getApiClient,
 	getEntity,
 	openInterestWebSocketScoped,
@@ -15,6 +14,7 @@ import {
 } from "~/fixtures/kernel";
 import type { InstalledTestProvider } from "~/fixtures/kernel/sandbox-provider";
 import {
+	findMediaEntitySchema,
 	getGlobalEntityByProvenance,
 	seedMediaEntity,
 	seedPopulatedProviderEntity,
@@ -32,7 +32,7 @@ describe("entity population via client-declared interest", () => {
 		runPromise(
 			Effect.gen(function* () {
 				const { client } = yield* createAuthenticatedClient();
-				const { schema } = yield* findBuiltinSchemaBySlug(client, "company");
+				const { schema } = yield* findMediaEntitySchema(client, "company");
 				provider = yield* installTestProvider({
 					client,
 					scope: "system",
@@ -54,7 +54,7 @@ describe("entity population via client-declared interest", () => {
 			const auth = yield* createAuthenticatedClient();
 			const { client } = auth;
 
-			const { schema } = yield* findBuiltinSchemaBySlug(client, "company");
+			const { schema } = yield* findMediaEntitySchema(client, "company");
 			const provenance = {
 				entitySchemaSlug: schema.slug,
 				providerId: provider.providerId,
@@ -101,7 +101,7 @@ describe("entity population via client-declared interest", () => {
 			const auth = yield* createAuthenticatedClient();
 			const { client } = auth;
 
-			const { schema } = yield* findBuiltinSchemaBySlug(client, "company");
+			const { schema } = yield* findMediaEntitySchema(client, "company");
 
 			const entity = yield* seedPopulatedProviderEntity({
 				properties: {},
@@ -153,7 +153,7 @@ describe("entity population via client-declared interest", () => {
 		Effect.gen(function* () {
 			const auth = yield* createAuthenticatedClient();
 			const { client } = auth;
-			const { schema } = yield* findBuiltinSchemaBySlug(client, "company");
+			const { schema } = yield* findMediaEntitySchema(client, "company");
 			const provenance = {
 				entitySchemaSlug: schema.slug,
 				providerId: provider.providerId,

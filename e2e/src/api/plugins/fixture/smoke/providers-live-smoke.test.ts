@@ -43,7 +43,7 @@ const installFixture = (label: string) =>
 			() => releasePrivatePlugin(client, pluginSlug),
 		);
 		expect(installation.health).toBe("ready");
-		return { client, pluginSlug };
+		return { client, pluginSlug, pluginId: installation.pluginId };
 	});
 
 describe.skipIf(!RUN_LIVE)("live fixture provider smoke (real external APIs)", () => {
@@ -51,16 +51,16 @@ describe.skipIf(!RUN_LIVE)("live fixture provider smoke (real external APIs)", (
 		"searches PokeAPI with advanced options and imports a real Pokemon",
 		() =>
 			Effect.gen(function* () {
-				const { client, pluginSlug } = yield* installFixture("pokeapi");
+				const { client, pluginId, pluginSlug } = yield* installFixture("pokeapi");
 
-				const schemas = yield* listEntitySchemas(client, { pluginSlug, slugs: ["pokemon"] });
+				const schemas = yield* listEntitySchemas(client, { pluginId, slugs: ["pokemon"] });
 				const schema = schemas[0];
 				assertPresent(schema, "Expected the fixture-owned 'pokemon' entity schema");
 				expect(schema.id).toBe("pokemon");
 				expect(schema.pluginSlug).toBe(pluginSlug);
 				const searchable = yield* executeRyotQLRecipe(
 					client,
-					providerSearchRecipe({ rootEntitySchemaSlug: schema.id }),
+					providerSearchRecipe({ schema: schema.reference }),
 				);
 				const provider = searchable.items.find((row) => row.providerSlug === PROVIDER_SLUG);
 				assertPresent(provider, "Expected the fixture PokeAPI provider on the pokemon schema");
@@ -123,7 +123,7 @@ describe.skipIf(!RUN_LIVE)("live fixture provider smoke (real external APIs)", (
 					images: [{ type: "remote", url: expect.stringContaining("official-artwork/25.png") }],
 				});
 
-				const views = yield* listSavedViews(client, { pluginSlug });
+				const views = yield* listSavedViews(client, { pluginId });
 				const view = views.find(({ slug }) => slug === SAVED_VIEW_SLUG);
 				assertPresent(view, "Expected the fixture-owned 'all-pokemon' saved view");
 				const dataSources = requirePresent(
@@ -144,8 +144,8 @@ describe.skipIf(!RUN_LIVE)("live fixture provider smoke (real external APIs)", (
 					entitySchemaSlugField: "entitySchemaSlug",
 					addAction: {
 						type: "provider-search",
+						ownerPluginId: pluginId,
 						entitySchemaSlug: schema.id,
-						ownerPluginId: expect.any(String),
 					},
 				});
 				expect(source.output.fields).toEqual(
@@ -202,16 +202,16 @@ describe.skipIf(!RUN_LIVE)("live fixture provider smoke (real external APIs)", (
 		"searches PokeAPI moves with enum options and imports a real move",
 		() =>
 			Effect.gen(function* () {
-				const { client, pluginSlug } = yield* installFixture("pokeapi-move");
+				const { client, pluginId, pluginSlug } = yield* installFixture("pokeapi-move");
 
-				const schemas = yield* listEntitySchemas(client, { pluginSlug, slugs: ["move"] });
+				const schemas = yield* listEntitySchemas(client, { pluginId, slugs: ["move"] });
 				const schema = schemas[0];
 				assertPresent(schema, "Expected the fixture-owned 'move' entity schema");
 				expect(schema.id).toBe("move");
 				expect(schema.pluginSlug).toBe(pluginSlug);
 				const searchable = yield* executeRyotQLRecipe(
 					client,
-					providerSearchRecipe({ rootEntitySchemaSlug: schema.id }),
+					providerSearchRecipe({ schema: schema.reference }),
 				);
 				const provider = searchable.items.find((row) => row.providerSlug === MOVE_PROVIDER_SLUG);
 				assertPresent(provider, "Expected the fixture PokeAPI provider on the move schema");
@@ -301,7 +301,7 @@ describe.skipIf(!RUN_LIVE)("live fixture provider smoke (real external APIs)", (
 					sourceUrl: "https://pokeapi.co/api/v2/move/swords-dance",
 				});
 
-				const views = yield* listSavedViews(client, { pluginSlug });
+				const views = yield* listSavedViews(client, { pluginId });
 				const view = views.find(({ slug }) => slug === MOVE_SAVED_VIEW_SLUG);
 				assertPresent(view, "Expected the fixture-owned 'all-moves' saved view");
 				const dataSources = requirePresent(
@@ -322,8 +322,8 @@ describe.skipIf(!RUN_LIVE)("live fixture provider smoke (real external APIs)", (
 					entitySchemaSlugField: "entitySchemaSlug",
 					addAction: {
 						type: "provider-search",
+						ownerPluginId: pluginId,
 						entitySchemaSlug: schema.id,
-						ownerPluginId: expect.any(String),
 					},
 				});
 				expect(source.output.fields).toEqual(

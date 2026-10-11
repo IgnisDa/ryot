@@ -1,5 +1,6 @@
 import { UserLifecycleRequestResponse } from "@ryot-app/contract/modules/god-mode/contract";
 import { SignalSchemaSlug, UserId } from "@ryot-app/contract/schema/brands";
+import { mediaPlugin } from "@ryot-app/media-plugin";
 import { godModeUsersRecipe } from "@ryot-app/ryotql-recipes/god-mode";
 import { pluginInstallationsRecipe } from "@ryot-app/ryotql-recipes/plugin-installations";
 import { Effect, Schema } from "effect";
@@ -18,8 +19,7 @@ import {
 	enqueueProviderEntityImport,
 	executeAdminRyotQLRecipe,
 	fakeProviderDetailsResult,
-	findBuiltinSchemaBySlug,
-	findBuiltinPluginBySlug,
+	findBuiltinPluginByPackage,
 	getAutomationRuleCount,
 	getApiClient,
 	getBuiltinEntitySchemaSlug,
@@ -36,7 +36,12 @@ import {
 	startFakeAppriseServerScoped,
 	updatePluginState,
 } from "~/fixtures/kernel";
-import { enableMediaMonitoring, seedMediaEntity } from "~/fixtures/plugins/media";
+import { findFitnessEntitySchema } from "~/fixtures/plugins/fitness";
+import {
+	enableMediaMonitoring,
+	findMediaEntitySchema,
+	seedMediaEntity,
+} from "~/fixtures/plugins/media";
 import { assertCompleted, assertTaggedError } from "~/support/assertions";
 import { describe, expect, it } from "~/support/effect-test";
 import { getApiUrl } from "~/support/harness-target";
@@ -102,9 +107,18 @@ describe("Delete user", () => {
 			} = yield* createAuthenticatedClient();
 			const userId = UserId.make(rawUserId);
 			const { client: observerClient } = yield* createAuthenticatedClient();
-			const plugin = yield* findBuiltinPluginBySlug(userClient, "media");
-			yield* updatePluginState(userClient, plugin.slug, { sortOrder: 41, isHidden: true });
-			const configuredPlugin = yield* findBuiltinPluginBySlug(userClient, "media");
+			const plugin = yield* findBuiltinPluginByPackage(userClient, {
+				scope: "system",
+				packageId: mediaPlugin.metadata.packageId,
+			});
+			yield* updatePluginState(userClient, plugin.installationId, {
+				sortOrder: 41,
+				isHidden: true,
+			});
+			const configuredPlugin = yield* findBuiltinPluginByPackage(userClient, {
+				scope: "system",
+				packageId: mediaPlugin.metadata.packageId,
+			});
 			expect(configuredPlugin).toMatchObject({ sortOrder: 41, isHidden: true });
 			const apiKey = yield* createApiKey(sessionCookie);
 
@@ -151,27 +165,28 @@ describe("Delete user automation data cleanup", () => {
 		Effect.gen(function* () {
 			const { userId: rawUserId, client: userClient } = yield* createAuthenticatedClient();
 			const userId = UserId.make(rawUserId);
-			const { schema } = yield* findBuiltinSchemaBySlug(userClient, "workout");
+			const { schema } = yield* findFitnessEntitySchema(userClient, "workout");
+			const workoutSignalSchema = {
+				owner: schema.reference.owner,
+				slug: SignalSchemaSlug.make("workout.created"),
+			};
 			const workoutName = `Delete User E2E Workout ${crypto.randomUUID()}`;
 			yield* createEntity(userClient, {
 				name: workoutName,
-				entitySchemaSlug: schema.id,
+				entitySchema: schema.reference,
 				properties: { endedAt: "2026-07-21T11:00:00Z", startedAt: "2026-07-21T10:00:00Z" },
 			});
 
 			const { id: triggerId } = yield* pollSignalTrigger({
 				actorUserId: userId,
-				signalSchemaSlug: SignalSchemaSlug.make("workout.created"),
+				signalSchema: workoutSignalSchema,
 			});
 			yield* pollTerminalAutomationRuns({ triggerId, executionUserId: userId });
 
 			yield* deleteUserAndWait(userId);
 
 			expect(
-				yield* listSignalTriggers({
-					actorUserId: userId,
-					signalSchemaSlug: SignalSchemaSlug.make("workout.created"),
-				}),
+				yield* listSignalTriggers({ actorUserId: userId, signalSchema: workoutSignalSchema }),
 			).toEqual([]);
 			expect(yield* listAutomationRuns({ triggerId, executionUserId: userId })).toEqual([]);
 		}),
@@ -187,8 +202,18 @@ describe("Delete user automation data cleanup", () => {
 				const personExternalId = `delete-user-person-${crypto.randomUUID()}`;
 
 				const { client: compilerClient } = yield* createAuthenticatedClient();
-				const personSchemaId = yield* getBuiltinEntitySchemaSlug(compilerClient, "person");
-				const movieSchemaId = yield* getBuiltinEntitySchemaSlug(compilerClient, "movie");
+				const { schema: personSchema } = yield* findMediaEntitySchema(compilerClient, "person");
+				const { schema: movieSchema } = yield* findMediaEntitySchema(compilerClient, "movie");
+				const personSchemaId = yield* getBuiltinEntitySchemaSlug(
+					compilerClient,
+					"person",
+					personSchema.reference.owner,
+				);
+				const movieSchemaId = yield* getBuiltinEntitySchemaSlug(
+					compilerClient,
+					"movie",
+					movieSchema.reference.owner,
+				);
 				const personProvider = yield* Effect.acquireRelease(
 					installTestProvider({
 						scope: "system",
@@ -264,7 +289,10 @@ describe("Delete user automation data cleanup", () => {
 				const { id: triggerId } = yield* pollSignalTriggerWithRecipientCount(
 					{
 						subjectEntityId: person.id,
-						signalSchemaSlug: SignalSchemaSlug.make("person.media.associated"),
+						signalSchema: {
+							owner: personSchema.reference.owner,
+							slug: SignalSchemaSlug.make("person.media.associated"),
+						},
 					},
 					2,
 				);
@@ -285,7 +313,10 @@ describe("Delete user automation data cleanup", () => {
 
 				const [remainingTrigger] = yield* listSignalTriggers({
 					subjectEntityId: person.id,
-					signalSchemaSlug: SignalSchemaSlug.make("person.media.associated"),
+					signalSchema: {
+						owner: personSchema.reference.owner,
+						slug: SignalSchemaSlug.make("person.media.associated"),
+					},
 				});
 				expect(remainingTrigger?.id).toBe(triggerId);
 				expect(yield* listAutomationTriggerRecipients({ triggerId })).toEqual([

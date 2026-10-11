@@ -1,5 +1,4 @@
-import { PluginSlug } from "@ryot-app/contract/schema/brands";
-import type { JsonValue } from "@ryot-app/contract/schema/json";
+import type { ContractPayload, ContractPathParams } from "@ryot-app/contract/client";
 import {
 	exerciseNoteCreateRecipe,
 	exerciseNoteDeleteRecipe,
@@ -15,26 +14,40 @@ import { Effect } from "effect";
 
 import type { Client } from "~/fixtures/kernel/auth";
 
+import { fitnessFixtureInstallation } from "./exercises";
+
 const operationTransport =
 	(client: Client) =>
-	(request: { payload: JsonValue; pluginSlug: string; operationSlug: string }) =>
+	(
+		request: Pick<ContractPayload<"plugins", "invoke">, "payload"> &
+			ContractPathParams<"plugins", "invoke">,
+	) =>
 		client
 			.call((contract) =>
 				contract.plugins.invoke({
 					payload: { payload: request.payload },
-					params: {
-						operationSlug: request.operationSlug,
-						pluginSlug: PluginSlug.make(request.pluginSlug),
-					},
+					params: { pluginId: request.pluginId, operationSlug: request.operationSlug },
 				}),
 			)
 			.pipe(Effect.map(({ result }) => result));
 
 export const createExerciseNote = (client: Client, input: ExerciseNoteCreateInput) =>
-	invokeOperationRecipe(exerciseNoteCreateRecipe, input, operationTransport(client));
+	fitnessFixtureInstallation.pipe(
+		Effect.flatMap(({ id }) =>
+			invokeOperationRecipe(exerciseNoteCreateRecipe(id), input, operationTransport(client)),
+		),
+	);
 
 export const updateExerciseNote = (client: Client, input: ExerciseNoteUpdateInput) =>
-	invokeOperationRecipe(exerciseNoteUpdateRecipe, input, operationTransport(client));
+	fitnessFixtureInstallation.pipe(
+		Effect.flatMap(({ id }) =>
+			invokeOperationRecipe(exerciseNoteUpdateRecipe(id), input, operationTransport(client)),
+		),
+	);
 
 export const deleteExerciseNote = (client: Client, input: ExerciseNoteDeleteInput) =>
-	invokeOperationRecipe(exerciseNoteDeleteRecipe, input, operationTransport(client));
+	fitnessFixtureInstallation.pipe(
+		Effect.flatMap(({ id }) =>
+			invokeOperationRecipe(exerciseNoteDeleteRecipe(id), input, operationTransport(client)),
+		),
+	);
