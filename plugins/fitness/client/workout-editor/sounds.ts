@@ -50,25 +50,18 @@ export const createWorkoutEditorSounds = (
 	let context: SoundContext | undefined;
 	let disposed = false;
 	const isDisposed = () => disposed;
-	const report = (cause: unknown) =>
-		Effect.logWarning("[workout-audio] playback failed", {
-			cause: String(cause),
-			state: context?.state,
-		});
 	const resume = Effect.gen(function* () {
 		if (disposed) {
 			return undefined;
 		}
 		const current = yield* Effect.try(() => (context ??= createContext()));
 		if (current.state !== "running") {
-			yield* Effect.logInfo("[workout-audio] resuming", { state: current.state });
 			yield* Effect.tryPromise(() => current.resume()).pipe(Effect.timeout("2 seconds"));
-			yield* Effect.logInfo("[workout-audio] resumed", { state: current.state });
 		}
 		return current;
 	});
 	return {
-		resume: resume.pipe(Effect.asVoid, Effect.catch(report)),
+		resume: resume.pipe(Effect.ignore),
 		dispose: () => {
 			if (disposed) {
 				return Effect.void;
@@ -119,6 +112,6 @@ export const createWorkoutEditorSounds = (
 					source.start();
 					return true;
 				});
-			}).pipe(Effect.catch((cause) => report(cause).pipe(Effect.as(false)))),
+			}).pipe(Effect.orElseSucceed(() => false)),
 	};
 };
