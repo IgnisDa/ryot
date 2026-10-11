@@ -1,5 +1,6 @@
 import { describe, expect, it } from "@effect/vitest";
 import { EventId } from "@ryot-app/contract/schema/brands";
+import type { JsonValue } from "@ryot-app/contract/schema/json";
 import type {
 	CreateEventItem,
 	DomainSandboxHostMethodMap,
@@ -31,19 +32,39 @@ const written = (items: readonly CreateEventItem[]) => ({
 });
 
 const recordingHost = (input: {
+	readonly failSettings?: "read" | "write" | undefined;
+	readonly settings?: Record<string, JsonValue> | undefined;
 	readonly schemaSlug?: string | undefined;
 	readonly memberCount?: number | undefined;
 	readonly createEvents?: (index: number) => ReturnType<typeof failure> | undefined;
 }) => {
 	const creates: (readonly CreateEventItem[])[] = [];
 	const options: (CreateEventOptions | undefined)[] = [];
+	const patches: Record<string, JsonValue>[] = [];
+	const logs: unknown[] = [];
 	const host = defineSandboxTestHost(manifest, {
+		log: (entries) =>
+			Effect.sync(() => {
+				logs.push(...entries);
+				return null;
+			}),
+		getUserSettings: () =>
+			input.failSettings === "read"
+				? Effect.fail({ message: "Settings unavailable" })
+				: Effect.succeed(input.settings ?? {}),
 		createEvents: (items, identity) =>
 			Effect.suspend(() => {
 				creates.push(items);
 				options.push(identity);
 				return input.createEvents?.(creates.length - 1) ?? Effect.succeed(written(items));
 			}),
+		updateUserSettings: (patch) =>
+			input.failSettings === "write"
+				? Effect.fail({ message: "Settings rejected" })
+				: Effect.sync(() => {
+						patches.push(patch);
+						return { saved: true as const };
+					}),
 		executeRyotql: (document) =>
 			Effect.succeed({
 				data:
@@ -62,7 +83,7 @@ const recordingHost = (input: {
 							},
 			}),
 	});
-	return { host, creates, options };
+	return { host, logs, creates, options, patches };
 };
 
 const failure = (count: number) =>
@@ -455,6 +476,132 @@ describe("media activity log", () => {
 				),
 			).toEqual({ count: 130, status: "incomplete" });
 			expect(creates.map((chunk) => chunk.length)).toEqual([100, 50]);
+		}),
+	);
+
+	it.live("adds a new source to the user's list for the media type once", () =>
+		Effect.gen(function* () {
+			const { host, patches } = recordingHost({
+				schemaSlug: "movie",
+				settings: { consumedOnShow: ["Hulu"], consumedOnMovie: ["Netflix"] },
+			});
+			const result = yield* run(
+				{
+					entry: {
+						kind: "complete",
+						entityId: "movie-1",
+						when: { kind: "now" },
+						consumedOn: " Criterion ",
+					},
+				},
+				host,
+			);
+			expect(result).toEqual({ count: 1, status: "saved" });
+			expect(patches).toEqual([{ consumedOnMovie: ["Netflix", "Criterion"] }]);
+		}),
+	);
+
+	it.live("adds sources from progress entries, and from episodes under the parent's type", () =>
+		Effect.gen(function* () {
+			const progress = recordingHost({ schemaSlug: "anime", settings: { consumedOnAnime: [] } });
+			yield* run(
+				{
+					entry: { position: 3, kind: "progress", entityId: "anime-1", consumedOn: "Crunchyroll" },
+				},
+				progress.host,
+			);
+			expect(progress.patches).toEqual([{ consumedOnAnime: ["Crunchyroll"] }]);
+			const episodes = recordingHost({
+				memberCount: 2,
+				schemaSlug: "podcast",
+				settings: { consumedOnPodcast: ["Spotify"] },
+			});
+			yield* run(
+				{
+					entry: {
+						kind: "episodes",
+						when: { kind: "now" },
+						consumedOn: "Overcast",
+						parentEntityId: "podcast-1",
+						episodeEntityIds: episodeIds(2),
+					},
+				},
+				episodes.host,
+			);
+			expect(episodes.patches).toEqual([{ consumedOnPodcast: ["Spotify", "Overcast"] }]);
+		}),
+	);
+
+	it.live(
+		"does not touch settings for case-insensitive duplicates, a full list, or no source",
+		() =>
+			Effect.gen(function* () {
+				const full = Array.from({ length: 30 }, (_, index) => `Source ${index}`);
+				const duplicate = recordingHost({
+					schemaSlug: "movie",
+					settings: { consumedOnMovie: ["Netflix"] },
+				});
+				const capped = recordingHost({ schemaSlug: "movie", settings: { consumedOnMovie: full } });
+				const bare = recordingHost({ schemaSlug: "movie", settings: { consumedOnMovie: [] } });
+				const entry = { kind: "complete", entityId: "movie-1", when: { kind: "now" } } as const;
+				yield* run({ entry: { ...entry, consumedOn: "nETflix" } }, duplicate.host);
+				yield* run({ entry: { ...entry, consumedOn: "Criterion" } }, capped.host);
+				yield* run({ entry }, bare.host);
+				expect([duplicate.patches, capped.patches, bare.patches]).toEqual([[], [], []]);
+				expect([duplicate.logs, capped.logs]).toEqual([[], []]);
+			}),
+	);
+
+	it.live("does not touch settings for status entries or when the write is incomplete", () =>
+		Effect.gen(function* () {
+			const status = recordingHost({ schemaSlug: "movie", settings: { consumedOnMovie: [] } });
+			yield* run(
+				{ entry: { kind: "status", status: "backlog", entityId: "movie-1" } },
+				status.host,
+			);
+			const incomplete = recordingHost({
+				memberCount: 150,
+				schemaSlug: "show",
+				settings: { consumedOnShow: [] },
+				createEvents: (index) => (index === 1 ? failure(30) : undefined),
+			});
+			yield* run(
+				{
+					entry: {
+						kind: "episodes",
+						consumedOn: "Hulu",
+						when: { kind: "now" },
+						parentEntityId: "show-1",
+						episodeEntityIds: episodeIds(150),
+					},
+				},
+				incomplete.host,
+			);
+			expect([status.patches, incomplete.patches]).toEqual([[], []]);
+		}),
+	);
+
+	it.live("logs a failing settings read or write and still returns the saved result", () =>
+		Effect.gen(function* () {
+			const entry = {
+				kind: "complete",
+				entityId: "movie-1",
+				when: { kind: "now" },
+				consumedOn: "Criterion",
+			} as const;
+			for (const failSettings of ["read", "write"] as const) {
+				const { host, logs, patches } = recordingHost({
+					failSettings,
+					schemaSlug: "movie",
+					settings: { consumedOnMovie: [] },
+				});
+				expect(yield* run({ entry }, host)).toEqual({ count: 1, status: "saved" });
+				expect(patches).toEqual([]);
+				expect(logs).toMatchObject([{ level: "warning", attributes: { schemaSlug: "movie" } }]);
+			}
+			const malformed = recordingHost({ schemaSlug: "movie", settings: { consumedOnMovie: "x" } });
+			expect(yield* run({ entry }, malformed.host)).toEqual({ count: 1, status: "saved" });
+			expect(malformed.logs).toHaveLength(1);
 		}),
 	);
 });

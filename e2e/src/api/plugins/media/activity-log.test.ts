@@ -13,6 +13,7 @@ import {
 	pollUntil,
 	waitForEventWithSchema,
 } from "~/fixtures/kernel";
+import { listPluginUserSettings } from "~/fixtures/kernel/plugin-user-settings";
 import {
 	createBuiltinMediaLifecycleFixture,
 	logMediaActivity,
@@ -21,7 +22,7 @@ import {
 	seedPodcast,
 	seedShow,
 } from "~/fixtures/plugins/media";
-import { assertPresent, assertTaggedError } from "~/support/assertions";
+import { assertPresent, assertTaggedError, requirePresent } from "~/support/assertions";
 import { describe, expect, it } from "~/support/effect-test";
 import { nowIso } from "~/support/time";
 
@@ -116,6 +117,65 @@ describe("Media activity log operation", () => {
 			assertPresent(unknownEvent, "Expected the unknown-date completion");
 			expect(isoOf(unknownEvent.occurredAt)).toBe(submittedAt);
 			expect(unknownEvent.properties).toMatchObject({ dateUnknown: true });
+		}),
+	);
+
+	it.live("adds a new source to the user's list for the media type once", () =>
+		Effect.gen(function* () {
+			const { client } = yield* createAuthenticatedClient();
+			const movie = yield* createBuiltinMediaLifecycleFixture(client, {
+				entitySchemaSlug: "movie",
+			});
+			const book = yield* createBuiltinMediaLifecycleFixture(client, { entitySchemaSlug: "book" });
+			const mediaSettings = () =>
+				Effect.map(
+					listPluginUserSettings(client),
+					(installations) =>
+						requirePresent(
+							installations.find(({ name }) => name === "Media"),
+							"Media settings not found",
+						).settings,
+				);
+			expect(yield* mediaSettings()).toEqual({});
+
+			const log = (entityId: string, consumedOn: string) =>
+				logMediaActivity(client, {
+					submittedAt: nowIso(),
+					submissionId: crypto.randomUUID(),
+					entry: { entityId, consumedOn, kind: "complete", when: { kind: "now" } },
+				});
+			expect(yield* log(movie.entityId, "Criterion Channel")).toEqual({
+				count: 1,
+				status: "saved",
+			});
+			const afterFirst = yield* mediaSettings();
+			expect(Object.keys(afterFirst)).toEqual(["consumedOnMovie"]);
+			expect(afterFirst.consumedOnMovie).toEqual([
+				"Netflix",
+				"Amazon Prime",
+				"Disney+",
+				"HBO Max",
+				"Apple TV",
+				"Peacock",
+				"Hulu",
+				"Crunchyroll",
+				"Cinema",
+				"Criterion Channel",
+			]);
+
+			yield* log(movie.entityId, "criterion channel");
+			yield* log(movie.entityId, "NETFLIX");
+			expect(yield* mediaSettings()).toEqual(afterFirst);
+
+			yield* log(book.entityId, "Bookshop");
+			expect((yield* mediaSettings()).consumedOnBook).toEqual([
+				"Paperback",
+				"Hardcover",
+				"Kindle",
+				"Kobo",
+				"Library",
+				"Bookshop",
+			]);
 		}),
 	);
 
