@@ -105,6 +105,7 @@ export const WorkoutEditorCountdownSchema = Schema.Struct({
 	setId: nonEmptyString,
 	clientId: nonEmptyString,
 	occurrenceId: nonEmptyString,
+	exerciseId: nonEmptyEntityId,
 	durationSeconds: nonNegativeNumber,
 	pausedRemainingSeconds: Schema.optional(nonNegativeNumber),
 });
