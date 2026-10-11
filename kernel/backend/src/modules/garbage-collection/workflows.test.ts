@@ -134,6 +134,26 @@ const request = Effect.fnUntraced(function* (
 	});
 });
 
+const deferredRequest = Effect.fnUntraced(function* (
+	address: EntityAddress.EntityAddress,
+	name: string,
+) {
+	return new Message.OutgoingRequest({
+		rpc: deferredRpc,
+		context: Context.empty(),
+		respond: () => Effect.void,
+		annotations: Context.empty(),
+		lastReceivedReply: Option.none(),
+		envelope: Envelope.makeRequest<typeof deferredRpc>({
+			address,
+			tag: "deferred",
+			headers: Headers.empty,
+			payload: deferredRpc.payloadSchema.make({ name }),
+			requestId: (yield* Snowflake.Generator).nextUnsafe(),
+		}),
+	});
+});
+
 const saveRun = Effect.fnUntraced(function* (
 	identity: WorkflowIdentity,
 	parent?: WorkflowIdentity,
@@ -431,20 +451,7 @@ layer(Layer.effectContext(TestClock.withLive(Layer.build(collectorLayer))))((tes
 				Result.succeed(new WorkflowExecutionExpired(child)),
 			);
 			assert(Exit.isFailure(yield* Effect.exit(saveClock(identity))));
-			const deferred = new Message.OutgoingRequest<typeof deferredRpc>({
-				rpc: deferredRpc,
-				context: Context.empty(),
-				respond: () => Effect.void,
-				annotations: Context.empty(),
-				lastReceivedReply: Option.none(),
-				envelope: Envelope.makeRequest<typeof deferredRpc>({
-					tag: "deferred",
-					headers: Headers.empty,
-					address: parentMessage.envelope.address,
-					requestId: (yield* Snowflake.Generator).nextUnsafe(),
-					payload: deferredRpc.payloadSchema.make({ name: "late-completion" }),
-				}),
-			});
+			const deferred = yield* deferredRequest(parentMessage.envelope.address, "late-completion");
 			const completion = yield* Effect.exit(
 				(yield* MessageStorage.MessageStorage).saveRequest(deferred),
 			);
@@ -569,20 +576,7 @@ layer(Layer.effectContext(TestClock.withLive(Layer.build(collectorLayer))))((tes
 				shardId: ShardId.make("default", 1),
 				entityType: EntityType.make("PlainEntity"),
 			});
-			const message = new Message.OutgoingRequest({
-				rpc: deferredRpc,
-				context: Context.empty(),
-				respond: () => Effect.void,
-				annotations: Context.empty(),
-				lastReceivedReply: Option.none(),
-				envelope: Envelope.makeRequest<typeof deferredRpc>({
-					address,
-					tag: "deferred",
-					headers: Headers.empty,
-					requestId: generator.nextUnsafe(),
-					payload: deferredRpc.payloadSchema.make({ name: "plain" }),
-				}),
-			});
+			const message = yield* deferredRequest(address, "plain");
 			yield* storage.saveRequest(message);
 			yield* storage.saveReply(
 				new Reply.ReplyWithContext({
@@ -605,29 +599,13 @@ layer(Layer.effectContext(TestClock.withLive(Layer.build(collectorLayer))))((tes
 			yield* TestClock.setTime(Date.parse("2026-10-01T00:00:00Z"));
 			const root = { executionId: "resend-root", workflowName: "ResendWorkflow" };
 			yield* saveRun(root);
-			const generator = yield* Snowflake.Generator;
 			const storage = yield* MessageStorage.MessageStorage;
 			const address = EntityAddress.make({
 				shardId: defaultShard,
 				entityId: EntityId.make(root.executionId),
 				entityType: EntityType.make(`Workflow/${root.workflowName}`),
 			});
-			const deferred = () =>
-				new Message.OutgoingRequest({
-					rpc: deferredRpc,
-					context: Context.empty(),
-					respond: () => Effect.void,
-					annotations: Context.empty(),
-					lastReceivedReply: Option.none(),
-					envelope: Envelope.makeRequest<typeof deferredRpc>({
-						address,
-						tag: "deferred",
-						headers: Headers.empty,
-						requestId: generator.nextUnsafe(),
-						payload: deferredRpc.payloadSchema.make({ name: "signal" }),
-					}),
-				});
-			yield* storage.saveRequest(deferred());
+			yield* storage.saveRequest(yield* deferredRequest(address, "signal"));
 			const session = yield* DatabaseSession;
 			const locked = yield* Deferred.make<void>();
 			const release = yield* Deferred.make<void>();
@@ -655,7 +633,10 @@ layer(Layer.effectContext(TestClock.withLive(Layer.build(collectorLayer))))((tes
 			);
 			yield* Deferred.await(locked);
 			const resent = yield* TestClock.withLive(
-				Effect.timeoutOption(storage.saveRequest(deferred()), "5 seconds"),
+				Effect.timeoutOption(
+					storage.saveRequest(yield* deferredRequest(address, "signal")),
+					"5 seconds",
+				),
 			);
 			yield* Deferred.succeed(release, undefined);
 			yield* Fiber.join(expiry);
