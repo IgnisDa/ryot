@@ -31,6 +31,7 @@ import {
 	PluginCollectionRequest,
 	PluginDeviceRequest,
 	PluginDeviceResult,
+	PluginIosLiveActivityListResult,
 	PluginIosLiveActivityRequest,
 	PluginIosLiveActivityResult,
 	PluginManagedAssetResolution,
@@ -338,23 +339,23 @@ export const createRyotClient = (adapter: RyotClientAdapter) => {
 					: Effect.fail(new RyotClientError("malformed-result")),
 		);
 	};
-	const invokeIosLiveActivity = (
+	const invokeIosLiveActivity = Effect.fnUntraced(function* <A>(
 		request: PluginIosLiveActivityRequest,
-	): Effect.Effect<PluginIosLiveActivityResult, RyotClientError> =>
-		Effect.gen(function* () {
-			const decoded = Schema.decodeResult(PluginIosLiveActivityRequest)(request);
-			if (Result.isFailure(decoded)) {
-				return yield* new RyotClientError("invalid-input");
-			}
-			const iosLiveActivity = adapter.iosLiveActivity;
-			if (!iosLiveActivity) {
-				return yield* new RyotClientError("unsupported-capability");
-			}
-			return yield* decodeCapability(
-				PluginIosLiveActivityResult,
-				yield* adapterEffect(() => iosLiveActivity(decoded.success)),
-			);
-		});
+		resultSchema: Schema.Codec<A, unknown>,
+	): Effect.fn.Return<A, RyotClientError> {
+		const decoded = Schema.decodeResult(PluginIosLiveActivityRequest)(request);
+		if (Result.isFailure(decoded)) {
+			return yield* new RyotClientError("invalid-input");
+		}
+		const iosLiveActivity = adapter.iosLiveActivity;
+		if (!iosLiveActivity) {
+			return yield* new RyotClientError("unsupported-capability");
+		}
+		return yield* decodeCapability(
+			resultSchema,
+			yield* adapterEffect(() => iosLiveActivity(decoded.success)),
+		);
+	});
 
 	return {
 		overlayBack,
@@ -463,28 +464,29 @@ export const createRyotClient = (adapter: RyotClientAdapter) => {
 		iosLiveActivities: {
 			end: (
 				request: Omit<Extract<PluginIosLiveActivityRequest, { readonly action: "end" }>, "action">,
-			) => invokeIosLiveActivity({ ...request, action: "end" }),
+			) => invokeIosLiveActivity({ ...request, action: "end" }, PluginIosLiveActivityResult),
 			list: (
 				request: Omit<Extract<PluginIosLiveActivityRequest, { readonly action: "list" }>, "action">,
-			) => invokeIosLiveActivity({ ...request, action: "list" }),
+			) => invokeIosLiveActivity({ ...request, action: "list" }, PluginIosLiveActivityListResult),
 			start: (
 				request: Omit<
 					Extract<PluginIosLiveActivityRequest, { readonly action: "start" }>,
 					"action"
 				>,
-			) => invokeIosLiveActivity({ ...request, action: "start" }),
+			) => invokeIosLiveActivity({ ...request, action: "start" }, PluginIosLiveActivityResult),
 			update: (
 				request: Omit<
 					Extract<PluginIosLiveActivityRequest, { readonly action: "update" }>,
 					"action"
 				>,
-			) => invokeIosLiveActivity({ ...request, action: "update" }),
+			) => invokeIosLiveActivity({ ...request, action: "update" }, PluginIosLiveActivityResult),
 			availability: (
 				request: Omit<
 					Extract<PluginIosLiveActivityRequest, { readonly action: "availability" }>,
 					"action"
 				>,
-			) => invokeIosLiveActivity({ ...request, action: "availability" }),
+			) =>
+				invokeIosLiveActivity({ ...request, action: "availability" }, PluginIosLiveActivityResult),
 		},
 		assets: {
 			resolve: (assets: readonly ManagedAssetLocator[]) =>

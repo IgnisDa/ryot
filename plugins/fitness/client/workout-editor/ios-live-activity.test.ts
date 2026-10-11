@@ -205,7 +205,7 @@ describe("workout iOS Live Activity", () => {
 	it.effect("reattaches after recovery and never recreates dismissed or over-age sessions", () =>
 		Effect.gen(function* () {
 			const key = workoutIosActivityKey(liveDraft());
-			for (const activityState of ["active", "dismissed", "ended"] as const) {
+			for (const activityState of ["active", "stale", "dismissed", "ended"] as const) {
 				const native = iosLiveActivityHarness({ activities: [{ key, state: activityState }] });
 				const sync = createWorkoutIosActivitySynchronizer({
 					now: Effect.succeed(now),
@@ -215,7 +215,7 @@ describe("workout iOS Live Activity", () => {
 				yield* sync.synchronize(liveDraft(), names);
 				expect(native.requests.filter(({ action }) => action === "start")).toEqual([]);
 				expect(native.requests.filter(({ action }) => action === "update")).toHaveLength(
-					activityState === "active" ? 1 : 0,
+					activityState === "active" || activityState === "stale" ? 1 : 0,
 				);
 			}
 			const native = iosLiveActivityHarness();
@@ -227,6 +227,88 @@ describe("workout iOS Live Activity", () => {
 			yield* old.synchronize(liveDraft(), names);
 			expect(native.requests.filter(({ action }) => action === "start")).toEqual([]);
 		}),
+	);
+
+	it.effect(
+		"makes no native changes for malformed listings and retries with complete inventory",
+		() =>
+			Effect.gen(function* () {
+				const key = workoutIosActivityKey(liveDraft());
+				for (const malformed of [
+					{ status: "done" },
+					{ status: "done", activities: null },
+					{ status: "done", activities: [{ key, state: "invalid" }] },
+					{
+						status: "done",
+						activities: [
+							{ state: "active", key: "previous-session" },
+							{ key, state: "invalid" },
+						],
+					},
+					{ status: "active" },
+					{ activities: [], status: "active" },
+					{ activities: [], status: "unsupported" },
+				]) {
+					let response: unknown = malformed;
+					const native = iosLiveActivityHarness({
+						listResult: () => response,
+						activities: [
+							{ key, state: "active" },
+							{ state: "stale", key: "previous-session" },
+						],
+					});
+					const sync = createWorkoutIosActivitySynchronizer({
+						now: Effect.succeed(now),
+						iosLiveActivities: native.api,
+						pluginId: PluginId.make("fitness"),
+					});
+					yield* sync.synchronize(liveDraft(), names);
+					expect(native.requests.map(({ action }) => action)).toEqual(["list"]);
+					expect([...native.activities.values()]).toEqual([
+						{ key, state: "active" },
+						{ state: "stale", key: "previous-session" },
+					]);
+					response = { status: "done", activities: [...native.activities.values()] };
+					yield* sync.synchronize(liveDraft(), names);
+					expect(native.requests.map(({ action }) => action)).toEqual([
+						"list",
+						"list",
+						"end",
+						"update",
+					]);
+					expect([...native.activities.values()]).toEqual([
+						{ key, state: "active" },
+						{ state: "ended", key: "previous-session" },
+					]);
+				}
+			}),
+	);
+
+	it.effect(
+		"starts from an empty inventory and stops native work when listing is unsupported",
+		() =>
+			Effect.gen(function* () {
+				const native = iosLiveActivityHarness();
+				const sync = createWorkoutIosActivitySynchronizer({
+					now: Effect.succeed(now),
+					iosLiveActivities: native.api,
+					pluginId: PluginId.make("fitness"),
+				});
+				yield* sync.synchronize(liveDraft(), names);
+				expect(native.requests.map(({ action }) => action)).toEqual(["list", "start"]);
+				const unsupported = iosLiveActivityHarness({
+					listResult: () => ({ status: "unsupported" }),
+				});
+				const unavailable = createWorkoutIosActivitySynchronizer({
+					now: Effect.succeed(now),
+					iosLiveActivities: unsupported.api,
+					pluginId: PluginId.make("fitness"),
+				});
+				yield* unavailable.synchronize(liveDraft(), names);
+				yield* unavailable.synchronize(liveDraft(), names);
+				yield* unavailable.finish(liveDraft(), names, false);
+				expect(unsupported.requests.map(({ action }) => action)).toEqual(["list"]);
+			}),
 	);
 
 	it.effect(

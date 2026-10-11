@@ -11,6 +11,7 @@ export { IosLiveActivityContent, IosLiveActivityValue } from "@ryot-app/plugin-c
 export type {
 	PluginDeviceRequest,
 	PluginDeviceResult,
+	PluginIosLiveActivityListResult,
 	PluginIosLiveActivityRequest,
 	PluginIosLiveActivityResult,
 	PluginNavigationTarget,
