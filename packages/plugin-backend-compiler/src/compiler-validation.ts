@@ -20,10 +20,6 @@ import {
 	sandboxDefinitionMismatch,
 } from "./compiler-source";
 
-type SandboxEntryExecution = Effect.Success<
-	ReturnType<typeof createTypeScriptSourcesProjectForEntries>
->["executionByEntry"][string];
-
 export type InspectedSandboxEntry = {
 	readonly entry: string;
 	readonly source: string;
@@ -38,7 +34,11 @@ export type ValidatedSandboxEntry = InspectedSandboxEntry & {
 
 type ValidateSandboxEntryInput = {
 	readonly inspected: InspectedSandboxEntry;
-	readonly execution: SandboxEntryExecution | undefined;
+	readonly execution:
+		| Effect.Success<
+				ReturnType<typeof createTypeScriptSourcesProjectForEntries>
+		  >["executionByEntry"][string]
+		| undefined;
 	readonly sourceFiles: readonly ts.SourceFile[];
 	readonly moduleDiagnostics?: readonly PluginBackendCompilerDiagnostic[];
 	readonly declaration?: SandboxEntryDeclaration;
