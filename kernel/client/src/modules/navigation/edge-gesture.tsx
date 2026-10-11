@@ -25,7 +25,7 @@ export function EdgeGesture(props: EdgeGestureProps) {
 	const engaged = useRef(false);
 	const reduceMotion = useReducedMotion() === true;
 
-	if (props.isOpen || owner !== "kernel" || intent === "none") {
+	if (props.isOpen || owner === "plugin" || intent === "none") {
 		return null;
 	}
 
@@ -47,6 +47,7 @@ export function EdgeGesture(props: EdgeGestureProps) {
 			data-testid="edge-gesture"
 			className="fixed inset-y-0 left-0 z-30 md:hidden"
 			style={{ touchAction: "pan-y", width: EDGE_SWIPE_WIDTH }}
+			onPointerDown={(event) => event.currentTarget.setPointerCapture(event.pointerId)}
 			onPanEnd={(_event, info) => {
 				if (!engaged.current) {
 					return;

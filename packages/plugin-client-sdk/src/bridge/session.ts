@@ -211,7 +211,6 @@ export const createPluginRuntime = (
 		rejectPending("disposed");
 		pageShortcuts.clear();
 		publishPageShortcuts();
-		dismissOverlay = noOverlayToDismiss;
 		overlayCount = 0;
 		post({ count: 0, type: "overlay-state" } satisfies PluginBridgeOverlayState);
 		interestOwners.clear();
