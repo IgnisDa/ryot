@@ -36,9 +36,7 @@ const getGoogleBooksApiKey = (host: GoogleBooksHost) =>
 			const apiKey = stringValue(value);
 			if (!apiKey) {
 				return Effect.fail(
-					new MediaSandboxError({
-						message: "RYOT_PLUGIN_MEDIA_GOOGLE_BOOKS_API_KEY is not configured",
-					}),
+					new MediaSandboxError({ message: "googleBooksApiKey is not configured" }),
 				);
 			}
 			return Effect.succeed(apiKey);

@@ -38,7 +38,7 @@ export const getCredentials = (host: IgdbHost) =>
 				return Effect.fail(
 					new MediaSandboxError({
 						message:
-							"Twitch Client ID is not configured. Set RYOT_PLUGIN_MEDIA_TWITCH_CLIENT_ID in your environment.",
+							"Twitch Client ID is not configured. Set twitchClientId in the plugin configuration.",
 					}),
 				);
 			}
@@ -46,7 +46,7 @@ export const getCredentials = (host: IgdbHost) =>
 				return Effect.fail(
 					new MediaSandboxError({
 						message:
-							"Twitch Client Secret is not configured. Set RYOT_PLUGIN_MEDIA_TWITCH_CLIENT_SECRET in your environment.",
+							"Twitch Client Secret is not configured. Set twitchClientSecret in the plugin configuration.",
 					}),
 				);
 			}

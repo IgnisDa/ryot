@@ -1,5 +1,6 @@
 import { RyotClientError } from "@ryot-app/client-sdk";
 import { Effect } from "@ryot-app/client-sdk/effect";
+import { PluginPackageId } from "@ryot-app/client-sdk/plugin";
 import { createRyotQuery } from "@ryot-app/client-sdk/react";
 
 import {
@@ -9,6 +10,7 @@ import {
 	type MeasurementSeries,
 	type MeasurementSummary,
 } from "../../shared/measurement-recipes";
+import { PLUGIN_PACKAGE_ID } from "../../shared/plugin-identity";
 import { measurementReadingListRecipe } from "../../shared/query-recipes";
 import { chunk, type MeasurementReading } from "./model";
 
@@ -23,7 +25,13 @@ export const summaryQuery = createRyotQuery<
 		const cursors = new Set<string>();
 		let after: string | undefined;
 		for (;;) {
-			const page = yield* client.data.query(measurementSummaryRecipe({ ...input, after }));
+			const page = yield* client.data.query(
+				measurementSummaryRecipe({
+					...input,
+					after,
+					reference: client.pluginIdentity(PluginPackageId.make(PLUGIN_PACKAGE_ID)),
+				}),
+			);
 			summaries.push(...page.items);
 			if (!page.pageInfo.hasMore) {
 				return summaries;
@@ -50,7 +58,14 @@ export const seriesQuery = createRyotQuery<
 	Effect.map(
 		Effect.forEach(
 			chunk(input.metricIds, MEASUREMENT_SERIES_BATCH_SIZE),
-			(metricIds) => client.data.query(measurementSeriesRecipe({ ...input, metricIds })),
+			(metricIds) =>
+				client.data.query(
+					measurementSeriesRecipe({
+						...input,
+						metricIds,
+						reference: client.pluginIdentity(PluginPackageId.make(PLUGIN_PACKAGE_ID)),
+					}),
+				),
 			{ concurrency: 4 },
 		),
 		(batches) => batches.flat(),
@@ -68,7 +83,12 @@ export const readingsQuery = createRyotQuery<
 		const cursors = new Set<string>();
 		for (let page = 0; page < input.pages; page += 1) {
 			const result = yield* client.data.query(
-				measurementReadingListRecipe({ after, startAt: input.startAt, limit: READING_PAGE_SIZE }),
+				measurementReadingListRecipe({
+					after,
+					startAt: input.startAt,
+					limit: READING_PAGE_SIZE,
+					reference: client.pluginIdentity(PluginPackageId.make(PLUGIN_PACKAGE_ID)),
+				}),
 			);
 			items.push(...result.items);
 			hasMore = result.pageInfo.hasMore;

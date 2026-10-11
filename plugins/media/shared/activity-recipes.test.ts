@@ -16,12 +16,15 @@ const INPUT = {
 describe("media activity recipe", () => {
 	it("validates the document", () => {
 		expect(
-			validateRyotQLDocument(mediaActivityRecipe(INPUT).document, savedViewDataSourceAccess),
+			validateRyotQLDocument(
+				mediaActivityRecipe({ ...INPUT, reference: { kind: "self" } }).document,
+				savedViewDataSourceAccess,
+			),
 		).toBeNull();
 	});
 
 	it("reads the empty sums of a quiet year as zero", () => {
-		const decoded = mediaActivityRecipe(INPUT).decode({
+		const decoded = mediaActivityRecipe({ ...INPUT, reference: { kind: "self" } }).decode({
 			data: {
 				days: { items: [], type: "aggregate" },
 				mediaTypes: { items: [], type: "aggregate" },

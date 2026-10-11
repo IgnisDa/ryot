@@ -6,6 +6,7 @@ import {
 	defineRecipe,
 	eq,
 	exists,
+	entitySchemaPredicate,
 	isNotNull,
 	join,
 	literal,
@@ -13,18 +14,18 @@ import {
 	selectedRow,
 	table,
 } from "@ryot-app/plugin-kit/ryotql";
-import { EntityId } from "@ryot-app/plugin-kit/schema";
+import { EntityId, type PluginIdentityReference } from "@ryot-app/plugin-kit/schema";
 
 const entityFitnessLibrary = table("entity", "fitnessLibrary");
 
-export const userFitnessLibraryRecipe = defineRecipe(() => ({
+export const userFitnessLibraryRecipe = defineRecipe((reference: PluginIdentityReference) => ({
 	map: ({ fitnessLibrary }) => Result.succeed(fitnessLibrary),
 	queries: {
 		fitnessLibrary: selectedRow(entityFitnessLibrary, {
 			orderBy: [ascending(column(entityFitnessLibrary, "id"))],
 			selection: { entityId: selectedField(column(entityFitnessLibrary, "id"), EntityId) },
 			where: and(
-				eq(column(entityFitnessLibrary, "entitySchemaSlug"), literal("fitness-library")),
+				entitySchemaPredicate(entityFitnessLibrary, "fitness-library", reference),
 				isNotNull(column(entityFitnessLibrary, "userId")),
 			),
 		}),
@@ -45,6 +46,11 @@ export const fitnessLibraryLinkExists = (entity: Table, alias: string) => {
 			),
 		],
 		where: and(
+			eq(column(fitnessLibrary, "entitySchemaPluginId"), column(entity, "entitySchemaPluginId")),
+			eq(
+				column(relationship, "relationshipSchemaPluginId"),
+				column(entity, "entitySchemaPluginId"),
+			),
 			eq(column(fitnessLibrary, "entitySchemaSlug"), literal("fitness-library")),
 			eq(column(relationship, "sourceEntityId"), column(entity, "id")),
 			eq(column(relationship, "relationshipSchemaSlug"), literal("in-fitness-library")),

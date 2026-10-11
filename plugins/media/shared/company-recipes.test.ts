@@ -23,7 +23,11 @@ describe("media company query recipes", () => {
 	it("selects the founding and headquarters fields the company schema declares", () => {
 		expect(
 			keys(
-				companyRecipes.summaryRecipe({ collectionLimit: 6, entityId: "company-1" }),
+				companyRecipes.summaryRecipe({
+					collectionLimit: 6,
+					entityId: "company-1",
+					reference: { kind: "self" },
+				}),
 				"summary",
 			).slice(-5),
 		).toEqual(["alternateNames", "foundedYear", "headquarters", "website", "sourceUrl"]);
@@ -31,7 +35,13 @@ describe("media company query recipes", () => {
 
 	it("carries no character on credits", () => {
 		expect(
-			movieCreditKeys(companyRecipes.overviewRecipe({ creditLimit: 12, entityId: "company-1" })),
+			movieCreditKeys(
+				companyRecipes.overviewRecipe({
+					creditLimit: 12,
+					entityId: "company-1",
+					reference: { kind: "self" },
+				}),
+			),
 		).not.toContain("character");
 	});
 });

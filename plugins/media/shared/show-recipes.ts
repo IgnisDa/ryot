@@ -1,6 +1,7 @@
 import { Result, Schema } from "@ryot-app/plugin-kit/effect";
 import {
 	and,
+	entitySchemaPredicate,
 	ascending,
 	column,
 	count,
@@ -14,13 +15,13 @@ import {
 	selectedOptionalRow,
 	selectedRows,
 	table,
+	relationshipSchemaPredicate,
 } from "@ryot-app/plugin-kit/ryotql";
-import { EntityId } from "@ryot-app/plugin-kit/schema";
+import { EntityId, type PluginIdentityReference } from "@ryot-app/plugin-kit/schema";
 
 import {
 	entityId,
 	entityIdentitySelection,
-	entitySchema,
 	propertyJson,
 	propertyNumber,
 	propertyText,
@@ -56,14 +57,20 @@ const showSeasonCount = (show: Table) => {
 			join("inner", relationship, eq(column(relationship, "targetEntityId"), column(season, "id"))),
 		],
 		where: and(
-			entitySchema(season, "show-season"),
+			eq(column(season, "entitySchemaSlug"), literal("show-season")),
+			eq(column(season, "entitySchemaPluginId"), column(show, "entitySchemaPluginId")),
+			eq(column(relationship, "relationshipSchemaPluginId"), column(show, "entitySchemaPluginId")),
 			eq(column(relationship, "sourceEntityId"), column(show, "id")),
 			eq(column(relationship, "relationshipSchemaSlug"), literal("show-to-show-season")),
 		),
 	});
 };
 
-const showSeasonCoverageQuery = (input: { readonly limit: number; readonly entityId: string }) => {
+const showSeasonCoverageQuery = (input: {
+	readonly reference: PluginIdentityReference;
+	readonly limit: number;
+	readonly entityId: string;
+}) => {
 	const season = table("entity", "coverageSeason");
 	const show = table("entity", "coverageShow");
 	const showSeason = table("relationship", "coverageShowSeason");
@@ -75,9 +82,9 @@ const showSeasonCoverageQuery = (input: { readonly limit: number; readonly entit
 			join("inner", show, eq(column(show, "id"), column(showSeason, "sourceEntityId"))),
 		],
 		where: and(
-			entitySchema(season, "show-season"),
+			entitySchemaPredicate(season, "show-season", input.reference),
 			eq(column(showSeason, "sourceEntityId"), literal(input.entityId)),
-			eq(column(showSeason, "relationshipSchemaSlug"), literal("show-to-show-season")),
+			relationshipSchemaPredicate(showSeason, "show-to-show-season", input.reference),
 		),
 		selection: {
 			id: selectedField(column(season, "id"), EntityId),
@@ -136,10 +143,6 @@ const showSeasonInclude = (show: Table, seasonLimit: number) => {
 	return selectedInclude(season, {
 		limit: seasonLimit,
 		orderBy: [ascending(seasonNumber)],
-		where: and(
-			entitySchema(season, "show-season"),
-			relationshipTo(seasonRelationship, show, season, SHOW_SEASON_RELATIONSHIP),
-		),
 		joins: [
 			join(
 				"inner",
@@ -147,6 +150,10 @@ const showSeasonInclude = (show: Table, seasonLimit: number) => {
 				eq(column(seasonRelationship, "targetEntityId"), column(season, "id")),
 			),
 		],
+		where: and(
+			eq(column(season, "entitySchemaSlug"), literal("show-season")),
+			relationshipTo(seasonRelationship, show, season, SHOW_SEASON_RELATIONSHIP),
+		),
 		selection: {
 			...entityIdentitySelection(season),
 			seasonNumber: selectedField(seasonNumber, Schema.Finite),
@@ -165,7 +172,11 @@ const showSeasonInclude = (show: Table, seasonLimit: number) => {
 };
 
 export const showSeasonsRecipe = defineRecipe(
-	(input: { readonly entityId: string; readonly seasonLimit: number }) => {
+	(input: {
+		readonly reference: PluginIdentityReference;
+		readonly entityId: string;
+		readonly seasonLimit: number;
+	}) => {
 		const entity = table("entity", "entity");
 		return {
 			map: ({ show }) => Result.succeed(show ?? null),
@@ -173,7 +184,10 @@ export const showSeasonsRecipe = defineRecipe(
 				show: selectedOptionalRow(entity, {
 					orderBy: [ascending(column(entity, "id"))],
 					include: { seasons: showSeasonInclude(entity, input.seasonLimit) },
-					where: and(entitySchema(entity, "show"), entityId(entity, input.entityId)),
+					where: and(
+						entitySchemaPredicate(entity, "show", input.reference),
+						entityId(entity, input.entityId),
+					),
 					selection: {
 						...entityIdentitySelection(entity),
 						episodeOrders: selectedField(
@@ -190,11 +204,15 @@ export const showSeasonsRecipe = defineRecipe(
 /** Episodes of one show whose provider external id is among the requested ones. */
 const showEpisodesByExternalId = (
 	episode: Table,
-	input: { readonly entityId: string; readonly externalIds: readonly [string, ...string[]] },
+	input: {
+		readonly reference: PluginIdentityReference;
+		readonly entityId: string;
+		readonly externalIds: readonly [string, ...string[]];
+	},
 	alias: string,
 ) =>
 	and(
-		entitySchema(episode, "show-episode"),
+		entitySchemaPredicate(episode, "show-episode", input.reference),
 		episodicEpisodeMembership(showEpisodicKindConfig, episode, input.entityId, alias),
 		inArray(
 			column(episode, "externalId"),
@@ -207,7 +225,11 @@ const showEpisodesByExternalId = (
  * Rows come back in season order; callers order them by their position in the group.
  */
 export const showOrderEpisodesRecipe = defineRecipe(
-	(input: { readonly entityId: string; readonly externalIds: readonly [string, ...string[]] }) => {
+	(input: {
+		readonly reference: PluginIdentityReference;
+		readonly entityId: string;
+		readonly externalIds: readonly [string, ...string[]];
+	}) => {
 		const episode = table("entity", "orderEpisode");
 		const show = table("entity", "orderEpisodeShow");
 		return {
@@ -235,14 +257,21 @@ export const showOrderEpisodesRecipe = defineRecipe(
 
 /** A season header's coverage counts over one episode order group's episodes. */
 export const showOrderGroupCoverageRecipe = defineRecipe(
-	(input: { readonly entityId: string; readonly externalIds: readonly [string, ...string[]] }) => {
+	(input: {
+		readonly reference: PluginIdentityReference;
+		readonly entityId: string;
+		readonly externalIds: readonly [string, ...string[]];
+	}) => {
 		const show = table("entity", "orderGroupShow");
 		return {
 			map: ({ coverage }) => Result.succeed(coverage ?? null),
 			queries: {
 				coverage: selectedOptionalRow(show, {
 					orderBy: [ascending(column(show, "id"))],
-					where: and(entitySchema(show, "show"), entityId(show, input.entityId)),
+					where: and(
+						entitySchemaPredicate(show, "show", input.reference),
+						entityId(show, input.entityId),
+					),
 					selection: episodicScopedCoverageSelection({
 						parent: show,
 						alias: "orderGroupCoverage",

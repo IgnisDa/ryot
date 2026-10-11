@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it } from "@effect/vitest";
 import { RyotClientError, type RyotClientAdapter } from "@ryot-app/client-sdk";
 import { Effect } from "@ryot-app/client-sdk/effect";
 import { createTestPluginStorage } from "@ryot-app/client-sdk/testing";
+import { identityTupleKey } from "@ryot-app/contract/modules/plugins/references";
 import { fireEvent, waitFor } from "@testing-library/dom";
 
 import { rowsResult } from "../../tests/client/query-result-fixture";
@@ -148,7 +149,7 @@ const [summaryNextUp] = decodeShowSeasonEpisodesResult({ episodes: [secondEpisod
 const renderTab = (adapter: Partial<RyotClientAdapter>, nextUp: ShowEpisode | null = null) =>
 	mountRyotClient(adapter, <ShowEpisodesTab compact entityId="show-1" summary={{ nextUp }} />);
 
-const STORAGE_ENTRY = "media:episode-order:show-1";
+const STORAGE_ENTRY = identityTupleKey("media-installation", "episode-order:show-1");
 
 const textOf = (container: HTMLElement, text: string) =>
 	Array.from(container.querySelectorAll("*")).find((element) => element.textContent === text);

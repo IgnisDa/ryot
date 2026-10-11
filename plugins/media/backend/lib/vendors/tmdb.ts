@@ -31,7 +31,7 @@ export const getTmdbAccessToken = (host: TmdbHost) =>
 				return Effect.fail(
 					new MediaSandboxError({
 						message:
-							"TMDB access token is not configured. Set RYOT_PLUGIN_MEDIA_TMDB_ACCESS_TOKEN in your environment.",
+							"TMDB access token is not configured. Set tmdbAccessToken in the plugin configuration.",
 					}),
 				);
 			}

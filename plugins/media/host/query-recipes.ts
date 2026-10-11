@@ -1,8 +1,19 @@
+import type { PluginIdentityReference } from "@ryot-app/contract/modules/plugins/references";
 import type { FieldSelection, Include, OrderBy } from "@ryot-app/contract/modules/ryotql/language";
-import { and, column, eq, exists, join, literal, table } from "@ryot-app/ryotql";
+import {
+	entitySchemaPredicate,
+	relationshipSchemaPredicate,
+	and,
+	column,
+	eq,
+	exists,
+	join,
+	table,
+} from "@ryot-app/ryotql";
 import { savedViewRecipe, type SavedViewTableMapping } from "@ryot-app/ryotql-recipes/saved-views";
 
 export const defaultMediaSavedViewRecipe = (input: {
+	readonly reference: PluginIdentityReference;
 	readonly after?: string | undefined;
 	readonly limit?: number | undefined;
 	readonly fields: readonly FieldSelection[];
@@ -23,6 +34,7 @@ export const defaultMediaSavedViewRecipe = (input: {
 		after: input.after,
 		limit: input.limit,
 		fields: input.fields,
+		owner: input.reference,
 		include: input.include,
 		orderBy: input.orderBy,
 		entitySchemaSlugs: input.schemas,
@@ -36,8 +48,8 @@ export const defaultMediaSavedViewRecipe = (input: {
 			],
 			where: and(
 				eq(column(membership, "sourceEntityId"), column(entity, "id")),
-				eq(column(membership, "relationshipSchemaSlug"), literal("in-media-library")),
-				eq(column(mediaLibrary, "entitySchemaSlug"), literal("media-library")),
+				relationshipSchemaPredicate(membership, "in-media-library", input.reference),
+				entitySchemaPredicate(mediaLibrary, "media-library", input.reference),
 				eq(column(membership, "targetEntityId"), column(mediaLibrary, "id")),
 			),
 		}),

@@ -1,6 +1,7 @@
 import { Result, Schema } from "@ryot-app/plugin-kit/effect";
 import {
 	and,
+	entitySchemaPredicate,
 	ascending,
 	column,
 	defineRecipe,
@@ -16,14 +17,9 @@ import {
 	type SelectedRow,
 	type SelectedSelection,
 } from "@ryot-app/plugin-kit/ryotql";
+import type { PluginIdentityReference } from "@ryot-app/plugin-kit/schema";
 
-import {
-	entityId,
-	entitySchema,
-	propertyJson,
-	propertyNumber,
-	type Table,
-} from "./entity-selections";
+import { entityId, propertyJson, propertyNumber, type Table } from "./entity-selections";
 import {
 	creditSelection,
 	mediaEntitySummarySelection,
@@ -66,7 +62,12 @@ const creditInclude = <const Selection extends SelectedSelection>(
 			join("inner", relationship, eq(column(relationship, "targetEntityId"), column(credit, "id"))),
 		],
 		where: and(
-			entitySchema(credit, input.target),
+			eq(column(credit, "entitySchemaSlug"), literal(input.target)),
+			eq(column(credit, "entitySchemaPluginId"), column(input.creator, "entitySchemaPluginId")),
+			eq(
+				column(relationship, "relationshipSchemaPluginId"),
+				column(input.creator, "entitySchemaPluginId"),
+			),
 			eq(column(relationship, "sourceEntityId"), column(input.creator, "id")),
 			eq(
 				column(relationship, "relationshipSchemaSlug"),
@@ -120,7 +121,11 @@ export const mediaCreatorRecipes = <
 	readonly creditFields?: (relationship: Table) => CreditFields;
 }) => {
 	const summaryRecipe = defineRecipe(
-		(input: { readonly entityId: string; readonly collectionLimit: number }) => ({
+		(input: {
+			readonly reference: PluginIdentityReference;
+			readonly entityId: string;
+			readonly collectionLimit: number;
+		}) => ({
 			map: (result) => mediaSummaryResult(result),
 			queries: mediaSummaryQueries({
 				...input,
@@ -147,7 +152,11 @@ export const mediaCreatorRecipes = <
 	} & { readonly [Target in GroupTargetSlug]: ReturnType<typeof groupCreditInclude> };
 
 	const overviewRecipe = defineRecipe(
-		(input: { readonly entityId: string; readonly creditLimit: number }) => {
+		(input: {
+			readonly reference: PluginIdentityReference;
+			readonly entityId: string;
+			readonly creditLimit: number;
+		}) => {
 			const creator = table("entity", `${config.alias}CreditCreator`);
 			const targets = [...builtinMediaEntitySchemaSlugs, ...creatorGroupTargetSlugs];
 			const includeEntries = Object.fromEntries(
@@ -172,14 +181,6 @@ export const mediaCreatorRecipes = <
 			const include = includeEntries as CreditIncludes;
 			const emptyPage = { items: [], pageInfo: { hasMore: false, limit: input.creditLimit } };
 			return {
-				queries: {
-					credits: selectedOptionalRow(creator, {
-						include,
-						selection: {},
-						orderBy: [ascending(column(creator, "id"))],
-						where: and(entitySchema(creator, config.slug), entityId(creator, input.entityId)),
-					}),
-				},
 				map: ({ credits }) =>
 					Result.succeed(
 						credits ??
@@ -188,6 +189,17 @@ export const mediaCreatorRecipes = <
 								typeof credits
 							>),
 					),
+				queries: {
+					credits: selectedOptionalRow(creator, {
+						include,
+						selection: {},
+						orderBy: [ascending(column(creator, "id"))],
+						where: and(
+							entitySchemaPredicate(creator, config.slug, input.reference),
+							entityId(creator, input.entityId),
+						),
+					}),
+				},
 			};
 		},
 	);

@@ -6,7 +6,9 @@ import { HomeRail } from "./home-rail";
 import { createHomeSectionQuery } from "./section-query";
 
 const suggestionsQuery = createHomeSectionQuery(
-	(_input: void) => ({ suggestions: latestCompletionSuggestionsRecipe({ limit: 20 }) }),
+	(_input: void, reference) => ({
+		suggestions: latestCompletionSuggestionsRecipe({ reference, limit: 20 }),
+	}),
 	({ suggestions }) => [
 		...(suggestions.source === null ? [] : [suggestions.source.id]),
 		...suggestions.items.map(({ id }) => id),

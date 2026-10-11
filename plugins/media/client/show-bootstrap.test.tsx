@@ -10,9 +10,11 @@ import {
 import { DateTime, Effect } from "@ryot-app/client-sdk/effect";
 import { bootstrapClientPage } from "@ryot-app/client-sdk/plugin";
 import { createTestRyotClock } from "@ryot-app/client-sdk/testing";
+import { PluginId, PluginPackageId } from "@ryot-app/contract/schema/brands";
 import { fireEvent, waitFor } from "@testing-library/dom";
 import { act } from "react";
 
+import { PLUGIN_PACKAGE_ID } from "../shared/plugin-identity";
 import { ryotqlDocumentNodes } from "../tests/ryotql-test-utils";
 import ShowDetailPage from "./show/screen";
 
@@ -159,6 +161,16 @@ const openShow = (clock?: ReturnType<typeof createTestRyotClock>) => {
 						entitySchemaSlug: "show",
 						entitySchemaPluginId: "media",
 					},
+					contributors: [
+						{
+							kind: "plugin",
+							sourceHash: "media-source",
+							revisionId: "media-revision",
+							pluginId: PluginId.make("media"),
+							installationId: "media-installation",
+							packageId: PluginPackageId.make(PLUGIN_PACKAGE_ID),
+						},
+					],
 				},
 			},
 		}),

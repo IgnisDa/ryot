@@ -1,8 +1,10 @@
 import { Effect, Schema } from "@ryot-app/client-sdk/effect";
+import { PluginPackageId } from "@ryot-app/client-sdk/plugin";
 import {
 	createRyotQuery,
 	ManagedAssetProvider,
 	usePluginStorage,
+	usePluginIdentity,
 	useRyotQuery,
 	type PluginStorageState,
 } from "@ryot-app/client-sdk/react";
@@ -12,7 +14,7 @@ import { fieldSyncState, isTitleProvisional, SyncPip } from "@ryot-app/client-ui
 import clsx from "clsx";
 import { useEffect, useState } from "react";
 
-import { mediaPluginSlug } from "../../shared/media-schema-slugs";
+import { PLUGIN_PACKAGE_ID } from "../../shared/plugin-identity";
 import type { ShowEpisodeOrder } from "../../shared/show-episode-order";
 import {
 	showOrderEpisodesRecipe,
@@ -64,7 +66,11 @@ export const SHOW_EPISODE_PAGE_LIMIT = 60;
 export const showSeasonsQuery = createRyotQuery<{ readonly entityId: string }, ShowSeasonsResult>(
 	({ input, client }) =>
 		client.data.query(
-			showSeasonsRecipe({ entityId: input.entityId, seasonLimit: SHOW_SEASON_LIMIT }),
+			showSeasonsRecipe({
+				entityId: input.entityId,
+				seasonLimit: SHOW_SEASON_LIMIT,
+				reference: client.pluginIdentity(PluginPackageId.make(PLUGIN_PACKAGE_ID)),
+			}),
 		),
 	{
 		entityInterest: ({ data, input }) => ({
@@ -83,6 +89,7 @@ export const showSeasonEpisodesQuery = createRyotQuery<
 			showSeasonEpisodesRecipe({
 				limit: SHOW_EPISODE_PAGE_LIMIT,
 				containerId: input.containerId,
+				reference: client.pluginIdentity(PluginPackageId.make(PLUGIN_PACKAGE_ID)),
 				...(input.after === null ? {} : { after: input.after }),
 			}),
 		),
@@ -114,7 +121,11 @@ export const showOrderEpisodesQuery = createRyotQuery<
 		}
 		return Effect.map(
 			client.data.query(
-				showOrderEpisodesRecipe({ entityId: input.entityId, externalIds: page.externalIds }),
+				showOrderEpisodesRecipe({
+					entityId: input.entityId,
+					externalIds: page.externalIds,
+					reference: client.pluginIdentity(PluginPackageId.make(PLUGIN_PACKAGE_ID)),
+				}),
 			),
 			(rows) => ({
 				pageInfo: { nextCursor: page.nextCursor },
@@ -139,7 +150,11 @@ const showOrderGroupCoverageQuery = createRyotQuery<
 		return first === undefined
 			? Effect.succeed(null)
 			: client.data.query(
-					showOrderGroupCoverageRecipe({ entityId: input.entityId, externalIds: [first, ...rest] }),
+					showOrderGroupCoverageRecipe({
+						entityId: input.entityId,
+						externalIds: [first, ...rest],
+						reference: client.pluginIdentity(PluginPackageId.make(PLUGIN_PACKAGE_ID)),
+					}),
 				);
 	},
 	{ entityInterest: ({ input }) => ({ visible: [], foreground: [input.entityId] }) },
@@ -497,9 +512,10 @@ export function ShowEpisodesTab(props: {
 	readonly entityId: string;
 	readonly summary: { readonly nextUp: ShowEpisode | null } | undefined;
 }) {
+	const identity = usePluginIdentity(PluginPackageId.make(PLUGIN_PACKAGE_ID));
 	const storage = usePluginStorage({
 		schema: Schema.String,
-		pluginSlug: mediaPluginSlug,
+		pluginId: identity.pluginId,
 		key: showEpisodeOrderStorageKey(props.entityId),
 	});
 	if (storage.status === "loading") {

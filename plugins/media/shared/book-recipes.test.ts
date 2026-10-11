@@ -10,6 +10,7 @@ const OVERVIEW_RECIPE = bookRecipes.overviewRecipe({
 	companyLimit: 6,
 	entityId: "book-1",
 	recommendationLimit: 12,
+	reference: { kind: "self" },
 });
 
 const singleRows = (items: readonly Record<string, unknown>[]) =>
@@ -37,7 +38,11 @@ const keys = (recipe: PreparedRecipe<unknown>, name: string) =>
 describe("media book query recipes", () => {
 	it("selects the pages and compilation fields the book schema declares", () => {
 		const summary = keys(
-			bookRecipes.summaryRecipe({ collectionLimit: 6, entityId: "book-1" }),
+			bookRecipes.summaryRecipe({
+				collectionLimit: 6,
+				entityId: "book-1",
+				reference: { kind: "self" },
+			}),
 			"summary",
 		);
 
@@ -51,6 +56,7 @@ describe("media book query recipes", () => {
 			eventLimit: 60,
 			entityId: "book-1",
 			collectionEventLimit: 60,
+			reference: { kind: "self" },
 		});
 
 		expect(fieldExpr(activity, "totals", "consumedAmount")).toMatchObject({
@@ -72,9 +78,25 @@ describe("media book query recipes", () => {
 	it("reaches the series from the group side of book-group-to-book", () => {
 		expect(OVERVIEW_RECIPE.document.queries["group"]?.where).toMatchObject({
 			predicates: [
-				{ right: { type: "literal", value: "book-group" } },
+				{
+					predicates: [
+						{ right: { type: "literal", value: "book-group" } },
+						{
+							left: { field: "entitySchemaPluginId" },
+							right: { type: "pluginId", reference: { kind: "self" } },
+						},
+					],
+				},
 				{},
-				{ right: { type: "literal", value: "book-group-to-book" } },
+				{
+					predicates: [
+						{ right: { type: "literal", value: "book-group-to-book" } },
+						{
+							left: { field: "relationshipSchemaPluginId" },
+							right: { type: "pluginId", reference: { kind: "self" } },
+						},
+					],
+				},
 			],
 		});
 	});

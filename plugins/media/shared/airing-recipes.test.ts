@@ -29,14 +29,19 @@ const ANIME_INPUT = {
 
 const decodeAnime = (row: Record<string, unknown>) =>
 	Result.getOrThrow(
-		animeAiringSoonRecipe(ANIME_INPUT).decode({
+		animeAiringSoonRecipe({ ...ANIME_INPUT, reference: { kind: "self" } }).decode({
 			data: { anime: page([{ ...identity("anime-1", "anime"), ...row }]) },
 		}),
 	);
 
 describe("shows airing soon recipe", () => {
 	it("validates the document", () => {
-		const recipe = showsAiringSoonRecipe({ limit: 20, from: "2026-09-01", until: "2026-09-15" });
+		const recipe = showsAiringSoonRecipe({
+			limit: 20,
+			from: "2026-09-01",
+			until: "2026-09-15",
+			reference: { kind: "self" },
+		});
 		expect(validateRyotQLDocument(recipe.document, savedViewDataSourceAccess)).toBeNull();
 	});
 
@@ -45,6 +50,7 @@ describe("shows airing soon recipe", () => {
 			limit: 20,
 			from: "2026-09-01",
 			until: "2026-09-15",
+			reference: { kind: "self" },
 		}).decode({
 			data: {
 				shows: page([
@@ -86,7 +92,7 @@ describe("anime airing soon recipe", () => {
 	it("validates the document", () => {
 		expect(
 			validateRyotQLDocument(
-				animeAiringSoonRecipe(ANIME_INPUT).document,
+				animeAiringSoonRecipe({ ...ANIME_INPUT, reference: { kind: "self" } }).document,
 				savedViewDataSourceAccess,
 			),
 		).toBeNull();

@@ -14,8 +14,10 @@ export const EPISODIC_ACTIVITY_INPUT = {
 	episodeProgressLimit: 100,
 };
 
-export const episodicActivityFixtureRecipe =
-	episodicFixtureRecipes.activityRecipe(EPISODIC_ACTIVITY_INPUT);
+export const episodicActivityFixtureRecipe = episodicFixtureRecipes.activityRecipe({
+	...EPISODIC_ACTIVITY_INPUT,
+	reference: { kind: "self" },
+});
 
 const emptyEventProperties = {
 	text: null,

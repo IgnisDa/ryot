@@ -12,6 +12,7 @@ const showActivityFixtureRecipe = showRecipes.activityRecipe({
 	episodeEventLimit: 100,
 	collectionEventLimit: 60,
 	episodeProgressLimit: 100,
+	reference: { kind: "self" },
 });
 
 const emptyEventProperties = {

@@ -1,7 +1,4 @@
-import type {
-	AutomationPopulationContext,
-	AutomationEntitySnapshot,
-} from "@ryot-app/contract/modules/automations/lifecycle";
+import type { AutomationPopulationContext } from "@ryot-app/contract/modules/automations/lifecycle";
 import type { JsonValue } from "@ryot-app/contract/modules/ryotql/language";
 import { Effect } from "@ryot-app/sandbox-sdk/effect";
 import { defineSandboxTestHost } from "@ryot-app/sandbox-sdk/testing";
@@ -14,7 +11,7 @@ import {
 import definition, { manifest } from "./media-entity-updated.sandbox";
 
 type Population = typeof AutomationPopulationContext.Encoded;
-type EntitySnapshot = typeof AutomationEntitySnapshot.Encoded;
+type EntitySnapshot = ReturnType<typeof entityRecord>;
 
 const input = (
 	overrides: {
@@ -27,7 +24,12 @@ const input = (
 ) => {
 	const population: Population = {
 		rootPreviouslyPopulated: overrides.rootPreviouslyPopulated ?? true,
-		scopeEntity: { id: "show-1", name: "Severance", entitySchemaSlug: "show" },
+		scopeEntity: {
+			id: "show-1",
+			name: "Severance",
+			entitySchemaSlug: "show",
+			entitySchemaPluginId: "media-owner",
+		},
 		...(overrides.parentEntity ? { parentEntity: overrides.parentEntity } : {}),
 	};
 	return automationContext({
@@ -112,6 +114,7 @@ it("uses the parent show and season context for episode facts", () =>
 				name: "Season 1",
 				properties: { seasonNumber: 1 },
 				entitySchemaSlug: "show-season",
+				entitySchemaPluginId: "media-owner",
 			},
 			before: {
 				name: "Pilot",
@@ -168,6 +171,7 @@ it("does not treat a podcast parent as season context", () =>
 				name: "Special Podcast",
 				entitySchemaSlug: "podcast",
 				properties: { seasonNumber: 0 },
+				entitySchemaPluginId: "media-owner",
 			},
 		}),
 	).pipe(
@@ -205,6 +209,7 @@ it("stays silent for initial population and special seasons", () =>
 							name: "Season Zero",
 							properties: { seasonNumber: 0 },
 							entitySchemaSlug: "show-season",
+							entitySchemaPluginId: "media-owner",
 						},
 					}),
 				),
@@ -224,6 +229,7 @@ it("stays silent for initial population and special seasons", () =>
 							name: "Holiday Specials",
 							properties: { seasonNumber: 2 },
 							entitySchemaSlug: "show-season",
+							entitySchemaPluginId: "media-owner",
 						},
 					}),
 				),

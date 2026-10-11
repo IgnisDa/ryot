@@ -7,6 +7,7 @@ const ACTIVITY_RECIPE = animeRecipes.activityRecipe({
 	eventLimit: 60,
 	entityId: "anime-1",
 	collectionEventLimit: 60,
+	reference: { kind: "self" },
 });
 
 const rowFields = (recipe: PreparedRecipe<unknown>, name: string) => {
@@ -31,7 +32,11 @@ const keys = (recipe: PreparedRecipe<unknown>, name: string) =>
 describe("media anime query recipes", () => {
 	it("selects the episode count and airing schedule the anime schema declares", () => {
 		const summary = keys(
-			animeRecipes.summaryRecipe({ collectionLimit: 6, entityId: "anime-1" }),
+			animeRecipes.summaryRecipe({
+				collectionLimit: 6,
+				entityId: "anime-1",
+				reference: { kind: "self" },
+			}),
 			"summary",
 		);
 
@@ -71,6 +76,7 @@ describe("media anime query recipes", () => {
 			companyLimit: 6,
 			entityId: "anime-1",
 			recommendationLimit: 12,
+			reference: { kind: "self" },
 		});
 
 		expect(Object.keys(overview.document.queries)).toEqual([

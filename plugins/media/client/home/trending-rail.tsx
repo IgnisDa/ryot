@@ -6,8 +6,12 @@ import { HomeRail, HomeTileBadge } from "./home-rail";
 import { createHomeSectionQuery } from "./section-query";
 
 const trendingQuery = createHomeSectionQuery(
-	(_input: void) => ({
-		trending: trendingLatestMediaRecipe({ limit: 20, entitySchemaSlugs: ["movie", "show"] }),
+	(_input: void, reference) => ({
+		trending: trendingLatestMediaRecipe({
+			reference,
+			limit: 20,
+			entitySchemaSlugs: ["movie", "show"],
+		}),
 	}),
 	({ trending }) => trending.items.map(({ id }) => id),
 );

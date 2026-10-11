@@ -1,21 +1,34 @@
+import { PluginPackageId, type PluginIdentityReference } from "@ryot-app/client-sdk/plugin";
 import { createRyotQuery } from "@ryot-app/client-sdk/react";
 import type { PreparedRecipe } from "@ryot-app/client-sdk/ryotql";
+
+import { PLUGIN_PACKAGE_ID } from "../../shared/plugin-identity";
 
 const SUMMARY_COLLECTION_LIMIT = 6;
 
 type EntityInput = { readonly entityId: string };
+type EntityRecipeInput = EntityInput & { readonly reference: PluginIdentityReference };
 
 /** A detail query whose foreground is the entity and whose loaded result names the visible entities. */
 export const createMediaEntityQuery = <Data>(
-	recipe: (input: EntityInput) => PreparedRecipe<Data>,
+	recipe: (input: EntityRecipeInput) => PreparedRecipe<Data>,
 	visible: (data: Data) => readonly string[],
 ) =>
-	createRyotQuery<EntityInput, Data>(({ input, client }) => client.data.query(recipe(input)), {
-		entityInterest: ({ data, input }) => ({
-			foreground: [input.entityId],
-			visible: data === undefined ? [] : visible(data),
-		}),
-	});
+	createRyotQuery<EntityInput, Data>(
+		({ input, client }) =>
+			client.data.query(
+				recipe({
+					...input,
+					reference: client.pluginIdentity(PluginPackageId.make(PLUGIN_PACKAGE_ID)),
+				}),
+			),
+		{
+			entityInterest: ({ data, input }) => ({
+				foreground: [input.entityId],
+				visible: data === undefined ? [] : visible(data),
+			}),
+		},
+	);
 
 type SummaryVisible = {
 	readonly collections: { readonly items: readonly { readonly id: string }[] };
@@ -23,6 +36,7 @@ type SummaryVisible = {
 
 export const createMediaSummaryQuery = <Data extends { readonly summary: SummaryVisible | null }>(
 	summaryRecipe: (input: {
+		readonly reference: PluginIdentityReference;
 		readonly entityId: string;
 		readonly collectionLimit: number;
 	}) => PreparedRecipe<Data>,

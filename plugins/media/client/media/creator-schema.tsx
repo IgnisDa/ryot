@@ -1,5 +1,5 @@
 import type { EntitySettleReason } from "@ryot-app/client-sdk";
-import type { EntityRendererProps } from "@ryot-app/client-sdk/plugin";
+import type { EntityRendererProps, PluginIdentityReference } from "@ryot-app/client-sdk/plugin";
 import type { PreparedRecipe } from "@ryot-app/client-sdk/ryotql";
 import { createElement, type ReactNode } from "react";
 
@@ -54,14 +54,17 @@ export type MediaCreatorSchemaDescriptor<
 > = {
 	readonly recipes: {
 		readonly summaryRecipe: (input: {
+			readonly reference: PluginIdentityReference;
 			readonly entityId: string;
 			readonly collectionLimit: number;
 		}) => PreparedRecipe<CreatorSummaryResult<Summary>>;
 		readonly overviewRecipe: (input: {
+			readonly reference: PluginIdentityReference;
 			readonly entityId: string;
 			readonly creditLimit: number;
 		}) => PreparedRecipe<Overview>;
 		readonly activityRecipe: (input: {
+			readonly reference: PluginIdentityReference;
 			readonly entityId: string;
 			readonly eventLimit: number;
 			readonly collectionEventLimit: number;
@@ -94,7 +97,12 @@ export const defineCreatorMediaSchema = <
 	const summaryQuery = createMediaSummaryQuery(recipes.summaryRecipe);
 
 	const overviewQuery = createMediaEntityQuery(
-		(input) => recipes.overviewRecipe({ entityId: input.entityId, creditLimit: CREDIT_LIMIT }),
+		(input) =>
+			recipes.overviewRecipe({
+				entityId: input.entityId,
+				creditLimit: CREDIT_LIMIT,
+				reference: input.reference,
+			}),
 		(data) => mediaCreditItems<Slug>(data).map(({ id }) => id),
 	);
 

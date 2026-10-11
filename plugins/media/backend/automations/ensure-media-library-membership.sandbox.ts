@@ -4,8 +4,22 @@ import {
 	type ChangeUserRelationshipBatch,
 } from "@ryot-app/sandbox-sdk/core";
 import { defineManifest } from "@ryot-app/sandbox-sdk/driver";
-import { Effect } from "@ryot-app/sandbox-sdk/effect";
-import { executeRyotqlRecipe, userMediaLibraryRecipe } from "@ryot-app/sandbox-sdk/ryotql";
+import { Effect, Result, Schema } from "@ryot-app/sandbox-sdk/effect";
+import {
+	and,
+	ascending,
+	column,
+	defineRecipe,
+	executeRyotqlRecipe,
+	inArray,
+	literal,
+	schemaOwnerPredicate,
+	selectedField,
+	selectedRows,
+	table,
+	userMediaLibraryRecipe,
+	type pluginId,
+} from "@ryot-app/sandbox-sdk/ryotql";
 
 import { mediaLibraryMemberEntitySchemaSlugs } from "../contracts/schema-slugs";
 import { MediaSandboxError } from "../lib/failures";
@@ -25,6 +39,50 @@ export const manifest = defineManifest({
 const libraryMemberEntitySchemaSlugs = new Set<string>(mediaLibraryMemberEntitySchemaSlugs);
 
 type MediaLibraryTarget = { entityId: string; entitySchemaSlug: string };
+
+type CreatedEventSnapshot = Extract<
+	Extract<
+		AutomationInput["automation"]["payload"],
+		{ resource: "event"; operation: "batch" }
+	>["items"][number],
+	{ operation: "create" }
+>["after"];
+
+const isKernelCollectionMembershipEvent = (event: CreatedEventSnapshot) =>
+	event.entitySchemaPluginId === null &&
+	event.eventSchemaPluginId === null &&
+	event.entitySchemaSlug === "collection" &&
+	event.eventSchemaSlug === "add-entity-to-collection";
+
+const ownMembershipTargetsRecipe = defineRecipe(
+	(reference: Parameters<typeof pluginId>[0], entityIds: readonly string[]) => {
+		const entity = table("entity", "membershipTarget");
+		return {
+			map: ({ targets }) => Result.succeed(targets.items),
+			queries: {
+				targets: selectedRows(entity, {
+					limit: entityIds.length,
+					orderBy: [ascending(column(entity, "id"))],
+					selection: {
+						entityId: selectedField(column(entity, "id"), Schema.String),
+						entitySchemaSlug: selectedField(column(entity, "entitySchemaSlug"), Schema.String),
+					},
+					where: and(
+						schemaOwnerPredicate(entity, "entitySchemaPluginId", reference),
+						inArray(
+							column(entity, "id"),
+							entityIds.map((entityId) => literal(entityId)),
+						),
+						inArray(
+							column(entity, "entitySchemaSlug"),
+							mediaLibraryMemberEntitySchemaSlugs.map((slug) => literal(slug)),
+						),
+					),
+				}),
+			},
+		};
+	},
+);
 
 const collectionMembershipTarget = (event: {
 	properties: Readonly<Record<string, unknown>>;
@@ -51,11 +109,9 @@ const mediaLibraryTargets = (
 				return [];
 			}
 			const event = item.after;
-			const target =
-				event.entitySchemaSlug === "collection" &&
-				event.eventSchemaSlug === "add-entity-to-collection"
-					? collectionMembershipTarget(event)
-					: { entityId: event.entityId, entitySchemaSlug: event.entitySchemaSlug };
+			const target = isKernelCollectionMembershipEvent(event)
+				? collectionMembershipTarget(event)
+				: { entityId: event.entityId, entitySchemaSlug: event.entitySchemaSlug };
 			return target ? [target] : [];
 		});
 	}
@@ -84,7 +140,32 @@ export default defineAutomation({
 			if (targets.size === 0) {
 				return null;
 			}
-			const mediaLibrary = yield* executeRyotqlRecipe(host.executeRyotql, userMediaLibraryRecipe());
+			if (
+				payload.resource === "event" &&
+				payload.operation === "batch" &&
+				payload.items.some(
+					(item) => item.operation === "create" && isKernelCollectionMembershipEvent(item.after),
+				)
+			) {
+				const entityIds = [...targets.keys()];
+				targets.clear();
+				for (let index = 0; index < entityIds.length; index += 100) {
+					const owned = yield* executeRyotqlRecipe(
+						host.executeRyotql,
+						ownMembershipTargetsRecipe({ kind: "self" }, entityIds.slice(index, index + 100)),
+					);
+					for (const target of owned) {
+						targets.set(target.entityId, target);
+					}
+				}
+				if (targets.size === 0) {
+					return null;
+				}
+			}
+			const mediaLibrary = yield* executeRyotqlRecipe(
+				host.executeRyotql,
+				userMediaLibraryRecipe({ kind: "self" }),
+			);
 			const creates = [...targets.values()].map<ChangeUserRelationshipBatch["creates"][number]>(
 				(target) => ({
 					properties: {},

@@ -114,7 +114,12 @@ export const admitIntegrationProgress = (input: MediaImportWriteChunkInput, host
 					const progressPercent = parsed > maximum ? 100 : parsed;
 					const { items } = yield* executeRyotqlRecipe(
 						host.executeRyotql,
-						eventReadRecipe({ entityId, entitySchemaSlug, eventSchemaSlug: "progress" }),
+						eventReadRecipe({
+							entityId,
+							entitySchemaSlug,
+							owner: { kind: "self" },
+							eventSchemaSlug: "progress",
+						}),
 					);
 					const matchingEvents = [
 						...items.filter((item) => {

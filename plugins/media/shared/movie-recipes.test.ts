@@ -3,12 +3,17 @@ import { describe, expect, it } from "vitest";
 
 import { movieRecipes } from "./movie-recipes";
 
-const SUMMARY_RECIPE = movieRecipes.summaryRecipe({ collectionLimit: 6, entityId: "movie-1" });
+const SUMMARY_RECIPE = movieRecipes.summaryRecipe({
+	collectionLimit: 6,
+	entityId: "movie-1",
+	reference: { kind: "self" },
+});
 
 const TOTALS = movieRecipes.activityRecipe({
 	eventLimit: 60,
 	entityId: "movie-1",
 	collectionEventLimit: 60,
+	reference: { kind: "self" },
 });
 
 const rowFields = (recipe: PreparedRecipe<unknown>, name: string) => {

@@ -1,4 +1,5 @@
 import { CLIENT_API_VERSION, definePlugin } from "@ryot-app/contract/modules/plugins/manifest";
+import { PluginPackageId } from "@ryot-app/contract/schema/brands";
 
 import { exerciseNoteOperationSlugs } from "../shared/exercise-note-operations";
 import {
@@ -10,6 +11,7 @@ import {
 	measurementReadingLogOperationSlug,
 	measurementReadingUpdateOperationSlug,
 } from "../shared/measurement-reading-operations";
+import { PLUGIN_PACKAGE_ID } from "../shared/plugin-identity";
 import { fitnessConfigSchema } from "./config";
 import { fitnessSavedViews } from "./saved-views";
 import { fitnessEntitySchemas } from "./schemas/entity";
@@ -57,13 +59,6 @@ export const fitnessPlugin = definePlugin({
 	signalSchemas: fitnessSignalSchemas(),
 	userSettingsSchema: fitnessUserSettingsSchema,
 	relationshipSchemas: fitnessRelationshipSchemas(),
-	metadata: {
-		name: "Fitness",
-		slug: "fitness",
-		version: "1.0.0",
-		icon: "heart-pulse",
-		description: "Track workouts, measurements, and progress.",
-	},
 	userBootstrap: [
 		{
 			slug: "initialize-workspace",
@@ -76,6 +71,14 @@ export const fitnessPlugin = definePlugin({
 		{ slug: "import-application", scriptSlug: "workflow.import-application" },
 		{ slug: "import-merge", scriptSlug: "workflow.import-merge" },
 	],
+	metadata: {
+		name: "Fitness",
+		slug: "fitness",
+		version: "1.0.0",
+		icon: "heart-pulse",
+		packageId: PluginPackageId.make(PLUGIN_PACKAGE_ID),
+		description: "Track workouts, measurements, and progress.",
+	},
 	providers: [
 		{
 			name: "Free Exercise DB",

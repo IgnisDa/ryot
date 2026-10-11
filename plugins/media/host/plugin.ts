@@ -1,4 +1,10 @@
-import { CLIENT_API_VERSION, definePlugin } from "@ryot-app/contract/modules/plugins/manifest";
+import {
+	CLIENT_API_VERSION,
+	definePlugin,
+	type KernelCollectionEventHookTarget,
+	type PluginHook,
+} from "@ryot-app/contract/modules/plugins/manifest";
+import { PluginPackageId } from "@ryot-app/contract/schema/brands";
 
 import { mediaLibraryMemberEntitySchemaSlugs } from "../backend/contracts/schema-slugs";
 import {
@@ -6,6 +12,7 @@ import {
 	mediaGroupSlugs,
 	mediaPluginSlug,
 } from "../shared/media-schema-slugs";
+import { PLUGIN_PACKAGE_ID } from "../shared/plugin-identity";
 import { mediaConfigSchema } from "./config";
 import { mediaSavedViews } from "./saved-views";
 import { mediaEntitySchemas } from "./schemas/entity";
@@ -94,6 +101,16 @@ const eventSlugs = (eventSlug: string) =>
 			? [`${schema.slug}:${eventSlug}`]
 			: [],
 	);
+
+const kernelCollectionEventHookTarget = (
+	eventSchemaSlug: KernelCollectionEventHookTarget["eventSchemaSlug"],
+): KernelCollectionEventHookTarget => ({
+	eventSchemaSlug,
+	resource: "event",
+	operation: "create",
+	owner: { kind: "kernel" },
+	entitySchemaSlug: "collection",
+});
 
 const creditRelationshipSlugs = relationshipSchemas
 	.filter(({ sourceEntitySchemaSlug, targetEntitySchemaSlug }) => {
@@ -599,14 +616,6 @@ export const mediaPlugin = definePlugin({
 			description: "Initialize the user's media workspace",
 		},
 	],
-	metadata: {
-		icon: "film",
-		name: "Media",
-		version: "1.0.0",
-		slug: mediaPluginSlug,
-		description:
-			"Track media across movies, shows, books, comic books, anime, manga, audiobooks, podcasts, video games, and music.",
-	},
 	userSettingsSchema: {
 		unknownKeys: "strict",
 		fields: {
@@ -618,6 +627,15 @@ export const mediaPlugin = definePlugin({
 				description: "Allow providers to include adult metadata and results.",
 			},
 		},
+	},
+	metadata: {
+		icon: "film",
+		name: "Media",
+		version: "1.0.0",
+		slug: mediaPluginSlug,
+		packageId: PluginPackageId.make(PLUGIN_PACKAGE_ID),
+		description:
+			"Track media across movies, shows, books, comic books, anime, manga, audiobooks, podcasts, video games, and music.",
 	},
 	httpRateLimits: [
 		{ requests: 30, key: "anilist", intervalMs: 60_000, origins: ["https://graphql.anilist.co"] },
@@ -783,7 +801,7 @@ export const mediaPlugin = definePlugin({
 						.filter(({ slug }) => slug !== "add-to-media-library")
 						.map(({ slug }) => eventHookTarget(`${schema.slug}:${slug}`)),
 				),
-				eventHookTarget("collection:add-entity-to-collection"),
+				kernelCollectionEventHookTarget("add-entity-to-collection"),
 			],
 		},
 		{
@@ -853,10 +871,14 @@ export const mediaPlugin = definePlugin({
 			stage: "after",
 			delivery: "async",
 			name: "Review created",
+			executionScope: "user",
 			causationSources: ["api"],
 			slug: "media.review-created",
 			scriptSlug: "automation.review-created",
-			targets: [...eventSlugs("review"), "collection:review"].map(eventHookTarget),
+			targets: [
+				...eventSlugs("review").map(eventHookTarget),
+				kernelCollectionEventHookTarget("review"),
+			],
 		},
 		{
 			stage: "after",
@@ -909,23 +931,27 @@ export const mediaPlugin = definePlugin({
 				{ operation: "emit", resource: "signal", signalSchemaSlug: "media.status.changed" },
 			],
 		},
-		...(["radarr", "sonarr", "jellyfin"] as const).map((prov) => ({
-			name: `${prov} push`,
-			stage: "after" as const,
-			slug: `media.${prov}-push`,
-			delivery: "async" as const,
-			scriptSlug: `trigger.${prov}-push`,
-			retry: {
-				maxAttempts: 1,
-				maxDelayMs: 60000,
-				initialDelayMs: 1000,
-				externalIdempotency: "none" as const,
-			},
-			targets: (prov === "jellyfin"
-				? eventSlugs("complete")
-				: ["collection:add-entity-to-collection"]
-			).map(eventHookTarget),
-		})),
+		...(["radarr", "sonarr", "jellyfin"] as const).map(
+			(prov) =>
+				({
+					stage: "after",
+					delivery: "async",
+					name: `${prov} push`,
+					executionScope: "user",
+					slug: `media.${prov}-push`,
+					scriptSlug: `trigger.${prov}-push`,
+					retry: {
+						maxAttempts: 1,
+						maxDelayMs: 60000,
+						initialDelayMs: 1000,
+						externalIdempotency: "none",
+					},
+					targets:
+						prov === "jellyfin"
+							? eventSlugs("complete").map(eventHookTarget)
+							: [kernelCollectionEventHookTarget("add-entity-to-collection")],
+				}) satisfies Extract<PluginHook, { stage: "after" }>,
+		),
 		{
 			stage: "after",
 			delivery: "async",

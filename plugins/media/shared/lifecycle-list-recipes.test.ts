@@ -43,14 +43,19 @@ const episodicWhere = (entityId?: string) =>
 		episodicByLifecycleStateRecipe({
 			limit: 1,
 			states: ["backlog"],
+			reference: { kind: "self" },
 			config: showEpisodicKindConfig,
 			...(entityId === undefined ? {} : { entityId }),
 		}).document.queries["items"]?.where,
 	);
 
 const nextUpSeason = (config: typeof showEpisodicKindConfig | typeof podcastEpisodicKindConfig) => {
-	const query = episodicByLifecycleStateRecipe({ config, limit: 1, states: ["in_progress"] })
-		.document.queries["items"];
+	const query = episodicByLifecycleStateRecipe({
+		config,
+		limit: 1,
+		states: ["in_progress"],
+		reference: { kind: "self" },
+	}).document.queries["items"];
 	if (query?.output.type !== "rows") {
 		throw new Error("Expected the items rows query");
 	}
@@ -68,6 +73,7 @@ describe("episodic lifecycle list recipe", () => {
 				limit: 20,
 				after: "cursor",
 				entityId: "parent-1",
+				reference: { kind: "self" },
 				states: ["in_progress", "caught_up"],
 			});
 			expect(validateRyotQLDocument(recipe.document, savedViewDataSourceAccess)).toBeNull();
@@ -90,6 +96,7 @@ describe("episodic lifecycle list recipe", () => {
 		const recipe = episodicByLifecycleStateRecipe({
 			limit: 2,
 			states: ["in_progress"],
+			reference: { kind: "self" },
 			config: showEpisodicKindConfig,
 		});
 		const decoded = Result.getOrThrow(
@@ -114,14 +121,18 @@ describe("episodic lifecycle list recipe", () => {
 
 describe("flat lifecycle list recipe", () => {
 	it("validates the cross-schema document", () => {
-		const recipe = flatByLifecycleStateRecipe({ limit: 20, states: ["in_progress", "backlog"] });
+		const recipe = flatByLifecycleStateRecipe({
+			limit: 20,
+			reference: { kind: "self" },
+			states: ["in_progress", "backlog"],
+		});
 		expect(validateRyotQLDocument(recipe.document, savedViewDataSourceAccess)).toBeNull();
 	});
 
 	it("reads every flat builtin schema and neither episodic one", () => {
 		const where = JSON.stringify(
-			flatByLifecycleStateRecipe({ limit: 1, states: ["backlog"] }).document.queries["items"]
-				?.where,
+			flatByLifecycleStateRecipe({ limit: 1, states: ["backlog"], reference: { kind: "self" } })
+				.document.queries["items"]?.where,
 		);
 
 		expect(where).toContain('"value":"anime"');
@@ -133,7 +144,7 @@ describe("flat lifecycle list recipe", () => {
 
 describe("library media count recipe", () => {
 	it("validates the count document and decodes the count", () => {
-		const recipe = libraryMediaCountRecipe();
+		const recipe = libraryMediaCountRecipe({ kind: "self" });
 		expect(validateRyotQLDocument(recipe.document, savedViewDataSourceAccess)).toBeNull();
 		expect(
 			Result.getOrThrow(

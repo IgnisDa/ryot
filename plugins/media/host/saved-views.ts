@@ -1,4 +1,5 @@
 import type { FieldSelection } from "@ryot-app/contract/modules/ryotql/language";
+import { EntitySchemaSlug } from "@ryot-app/contract/schema/brands";
 import {
 	and,
 	castNumber,
@@ -16,6 +17,7 @@ import {
 	maximum,
 	or,
 	table,
+	schemaOwnerPredicate,
 } from "@ryot-app/ryotql";
 import { buildSavedViewLayoutProjections } from "@ryot-app/ryotql-recipes/saved-views";
 
@@ -32,7 +34,7 @@ import {
 	type MediaPresentationSource,
 } from "../shared/entity-presentations";
 import { mangaRecipes } from "../shared/manga-recipes";
-import { builtinMediaEntitySchemaSlugs, mediaPluginSlug } from "../shared/media-schema-slugs";
+import { builtinMediaEntitySchemaSlugs } from "../shared/media-schema-slugs";
 import { movieGroupRecipes } from "../shared/movie-group-recipes";
 import { movieRecipes } from "../shared/movie-recipes";
 import { musicGroupRecipes } from "../shared/music-group-recipes";
@@ -141,6 +143,7 @@ const savedViewOrderBy = (slug: string) => {
 			descending(
 				countDistinct(credit, column(credit, "targetEntityId"), {
 					where: and(
+						schemaOwnerPredicate(credit, "relationshipSchemaPluginId", { kind: "self" }),
 						eq(column(credit, "sourceEntityId"), column(entity, "id")),
 						inArray(
 							column(credit, "relationshipSchemaSlug"),
@@ -158,14 +161,18 @@ const savedViewOrderBy = (slug: string) => {
 	const membership = table("relationship", "savedViewMembership");
 	const addedAt = maximum(membership, column(membership, "createdAt"), {
 		where: and(
+			schemaOwnerPredicate(membership, "relationshipSchemaPluginId", { kind: "self" }),
 			eq(column(membership, "sourceEntityId"), column(entity, "id")),
 			eq(column(membership, "relationshipSchemaSlug"), literal("in-media-library")),
 		),
 	});
 	const updatedAt = maximum(activity, column(activity, "updatedAt"), {
-		where: or(
-			eq(column(activity, "entityId"), column(entity, "id")),
-			eq(column(activity, "sessionEntityId"), column(entity, "id")),
+		where: and(
+			schemaOwnerPredicate(activity, "eventSchemaPluginId", { kind: "self" }),
+			or(
+				eq(column(activity, "entityId"), column(entity, "id")),
+				eq(column(activity, "sessionEntityId"), column(entity, "id")),
+			),
 		),
 	});
 	return [descending(conditional(gt(updatedAt, addedAt), updatedAt, coalesce(addedAt, updatedAt)))];
@@ -207,10 +214,10 @@ export const mediaSavedViews = () => {
 			name: view.name,
 			slug: view.slug,
 			icon: schema.icon,
-			pluginSlug: mediaPluginSlug,
 			renderer: { kind: "kernel", name: "entity-browser" } as const,
 			dataSources: defaultMediaSavedViewRecipe({
 				fields,
+				reference: { kind: "self" },
 				include: presentation.include,
 				schemas: [view.entitySchemaSlug],
 				orderBy: savedViewOrderBy(view.entitySchemaSlug),
@@ -228,8 +235,7 @@ export const mediaSavedViews = () => {
 				entitySchemaSlugField: "entitySchemaSlug",
 				addAction: {
 					type: "provider-search",
-					ownerPluginId: mediaPluginSlug,
-					entitySchemaSlug: view.entitySchemaSlug,
+					schema: { owner: { kind: "self" }, slug: EntitySchemaSlug.make(view.entitySchemaSlug) },
 				},
 				tableColumns: [
 					...(projections.table.mappings.imageField === null

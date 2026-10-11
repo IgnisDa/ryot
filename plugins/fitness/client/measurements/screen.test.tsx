@@ -6,8 +6,10 @@ import {
 	routeLocation,
 	savedViewPageContext,
 } from "@ryot-app/client-sdk/testing";
+import { PluginId, PluginPackageId } from "@ryot-app/contract/schema/brands";
 import { fireEvent, waitFor, within } from "@testing-library/dom";
 
+import { PLUGIN_PACKAGE_ID } from "../../shared/plugin-identity";
 import { formatDay, formatTime } from "./model";
 import { ReadingLog } from "./reading-log";
 import MeasurementsPage from "./screen";
@@ -118,13 +120,25 @@ const openPage = (
 ) => {
 	const page = mountPluginPage(options.readingsOnly ? ReadingLogPage : MeasurementsPage, {
 		location: routeLocation("/v/all-measurements"),
-		page: savedViewPageContext({
-			settings: {},
-			dataSources: { queries: {} },
-			rendererName: "measurements",
-			savedViewId: "all-measurements",
-			view: { icon: "ruler", name: "All Measurements" },
-		}),
+		page: {
+			...savedViewPageContext({
+				settings: {},
+				dataSources: { queries: {} },
+				rendererName: "measurements",
+				savedViewId: "all-measurements",
+				view: { icon: "ruler", name: "All Measurements" },
+			}),
+			contributors: [
+				{
+					kind: "plugin",
+					sourceHash: "fitness-source",
+					revisionId: "fitness-revision",
+					installationId: "fitness-installation",
+					pluginId: PluginId.make("fitness-owner"),
+					packageId: PluginPackageId.make(PLUGIN_PACKAGE_ID),
+				},
+			],
+		},
 	});
 	const answered = new Set<string>();
 	const answerPending = () => {
@@ -273,7 +287,7 @@ describe("measurements page", () => {
 			const [pinRequest] = requests();
 			assert(pinRequest?.type === "operation-request");
 			expect(pinRequest).toMatchObject({
-				pluginSlug: "fitness",
+				pluginId: "fitness-owner",
 				operationSlug: "measurement-metric-pin",
 				input: { pinned: true, metricId: "sugar" },
 			});
@@ -387,7 +401,7 @@ describe("measurements page", () => {
 			const request = page.clientMessages().find(({ type }) => type === "operation-request");
 			assert(request?.type === "operation-request");
 			expect(request).toMatchObject({
-				pluginSlug: "fitness",
+				pluginId: "fitness-owner",
 				operationSlug: "measurement-metric-create",
 				input: { unit: "mmHg", name: "Blood Pressure" },
 			});
@@ -449,7 +463,7 @@ describe("measurements page", () => {
 			const [failed] = requests();
 			assert(failed?.type === "operation-request");
 			expect(failed).toMatchObject({
-				pluginSlug: "fitness",
+				pluginId: "fitness-owner",
 				input: { readingIds: ["r1", "r2"] },
 				operationSlug: "measurement-reading-delete",
 			});
@@ -712,7 +726,7 @@ describe("measurements page", () => {
 			const [failed] = requests();
 			assert(failed?.type === "operation-request");
 			expect(failed).toMatchObject({
-				pluginSlug: "fitness",
+				pluginId: "fitness-owner",
 				operationSlug: "measurement-reading-log",
 				input: {
 					comment: "Fasted",
@@ -794,7 +808,7 @@ describe("measurements page", () => {
 			const [request] = requests();
 			assert(request?.type === "operation-request");
 			expect(request).toMatchObject({
-				pluginSlug: "fitness",
+				pluginId: "fitness-owner",
 				operationSlug: "measurement-reading-update",
 				input: {
 					comment: "",

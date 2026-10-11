@@ -173,6 +173,7 @@ export default defineScript({
 				workoutRecordRowsRecipe({
 					limit: pageLimit,
 					exerciseId: input.entityId,
+					reference: { kind: "self" },
 					after: checkpoint.after ?? undefined,
 					order: checkpoint.phase === "normalize" ? "id" : "records",
 				}),

@@ -6,12 +6,14 @@ import { videoGameRecipes } from "./video-game-recipes";
 const SUMMARY_RECIPE = videoGameRecipes.summaryRecipe({
 	collectionLimit: 6,
 	entityId: "video-game-1",
+	reference: { kind: "self" },
 });
 
 const TOTALS = videoGameRecipes.activityRecipe({
 	eventLimit: 60,
 	entityId: "video-game-1",
 	collectionEventLimit: 60,
+	reference: { kind: "self" },
 });
 
 const rowFields = (recipe: PreparedRecipe<unknown>, name: string) => {
@@ -39,6 +41,7 @@ const OVERVIEW_RECIPE = videoGameRecipes.overviewRecipe({
 	companyLimit: 6,
 	recommendationLimit: 12,
 	entityId: "video-game-1",
+	reference: { kind: "self" },
 });
 
 describe("media video game query recipes", () => {
@@ -93,9 +96,25 @@ describe("media video game query recipes", () => {
 		] as const) {
 			expect(query.where).toMatchObject({
 				predicates: [
-					{ right: { type: "literal", value: "video-game" } },
+					{
+						predicates: [
+							{ right: { type: "literal", value: "video-game" } },
+							{
+								left: { field: "entitySchemaPluginId" },
+								right: { type: "pluginId", reference: { kind: "self" } },
+							},
+						],
+					},
 					{ left: { field: anchor }, right: { value: "video-game-1" } },
-					{ right: { type: "literal", value: "video-game-to-video-game" } },
+					{
+						predicates: [
+							{ right: { type: "literal", value: "video-game-to-video-game" } },
+							{
+								left: { field: "relationshipSchemaPluginId" },
+								right: { type: "pluginId", reference: { kind: "self" } },
+							},
+						],
+					},
 				],
 			});
 		}

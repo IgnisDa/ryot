@@ -48,9 +48,11 @@ export const decodeEpisodicEpisodePage = (
 	} = {},
 ) =>
 	Result.getOrThrow(
-		episodicFixtureEpisodesRecipe({ containerId: "parent-1", limit: EPISODIC_PAGE_LIMIT }).decode(
-			episodicEpisodePageData(input),
-		),
+		episodicFixtureEpisodesRecipe({
+			containerId: "parent-1",
+			limit: EPISODIC_PAGE_LIMIT,
+			reference: { kind: "self" },
+		}).decode(episodicEpisodePageData(input)),
 	);
 
 export const episodicFixtureEpisodesQuery = createRyotQuery<
@@ -60,6 +62,7 @@ export const episodicFixtureEpisodesQuery = createRyotQuery<
 	client.data.query(
 		episodicFixtureEpisodesRecipe({
 			limit: EPISODIC_PAGE_LIMIT,
+			reference: { kind: "self" },
 			containerId: input.containerId,
 			...(input.after === null ? {} : { after: input.after }),
 		}),

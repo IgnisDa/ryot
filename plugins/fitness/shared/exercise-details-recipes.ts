@@ -27,7 +27,10 @@ import {
 	selectedRows,
 	table,
 	type Recipe,
+	entitySchemaPredicate,
+	schemaOwnerPredicate,
 } from "@ryot-app/plugin-kit/ryotql";
+import type { PluginIdentityReference } from "@ryot-app/plugin-kit/schema";
 
 import {
 	property,
@@ -49,8 +52,9 @@ const nullableString = Schema.NullOr(Schema.String);
 
 export const bestWeightRepThresholds = [1, 5, 8, 12, 30] as const;
 
-const exerciseSets = (set: Table, exerciseId: string) =>
+const exerciseSets = (reference: PluginIdentityReference, set: Table, exerciseId: string) =>
 	and(
+		schemaOwnerPredicate(set, "eventSchemaPluginId", reference),
 		eq(column(set, "entityId"), literal(exerciseId)),
 		eq(column(set, "eventSchemaSlug"), literal("workout-set")),
 	);
@@ -80,11 +84,11 @@ const bestWeightAtLeast = (set: Table, reps: number) =>
 		),
 	);
 
-const totalsQuery = (exerciseId: string) => {
+const totalsQuery = (reference: PluginIdentityReference, exerciseId: string) => {
 	const set = table("event", "totalsSet");
 	const [one, five, eight, twelve, thirty] = bestWeightRepThresholds;
 	return selectedAggregate(set, {
-		where: exerciseSets(set, exerciseId),
+		where: exerciseSets(reference, set, exerciseId),
 		measures: {
 			weightForReps1: bestWeightAtLeast(set, one),
 			weightForReps5: bestWeightAtLeast(set, five),
@@ -114,12 +118,12 @@ const totalsQuery = (exerciseId: string) => {
 	});
 };
 
-const monthsQuery = (exerciseId: string, timeZone: string) => {
+const monthsQuery = (reference: PluginIdentityReference, exerciseId: string, timeZone: string) => {
 	const set = table("event", "monthsSet");
 	return selectedAggregate(set, {
 		limit: 1000,
 		orderBy: [groupAscending("month")],
-		where: exerciseSets(set, exerciseId),
+		where: exerciseSets(reference, set, exerciseId),
 		groupBy: {
 			month: selectedField(
 				dateBucket(column(set, "occurredAt"), { timeZone, bucket: "month" }),
@@ -144,7 +148,7 @@ const monthsQuery = (exerciseId: string, timeZone: string) => {
 	});
 };
 
-const topWorkoutQuery = (exerciseId: string) => {
+const topWorkoutQuery = (reference: PluginIdentityReference, exerciseId: string) => {
 	const set = table("event", "topWorkoutSet");
 	const workout = table("entity", "topWorkout");
 	return selectedAggregate(set, {
@@ -153,8 +157,8 @@ const topWorkoutQuery = (exerciseId: string) => {
 		orderBy: [measureDescending("sessions"), groupAscending("name")],
 		groupBy: { name: selectedField(column(workout, "name"), Schema.String) },
 		where: and(
-			exerciseSets(set, exerciseId),
-			eq(column(workout, "entitySchemaSlug"), literal("workout")),
+			exerciseSets(reference, set, exerciseId),
+			entitySchemaPredicate(workout, "workout", reference),
 		),
 		measures: {
 			sessions: selectedMeasure(
@@ -165,7 +169,7 @@ const topWorkoutQuery = (exerciseId: string) => {
 	});
 };
 
-const personalBestsQuery = (exerciseId: string) => {
+const personalBestsQuery = (reference: PluginIdentityReference, exerciseId: string) => {
 	const set = table("event", "personalBestSet");
 	const workout = table("entity", "personalBestWorkout");
 	return selectedRows(set, {
@@ -177,8 +181,8 @@ const personalBestsQuery = (exerciseId: string) => {
 			descending(column(set, "id")),
 		],
 		where: and(
-			exerciseSets(set, exerciseId),
-			eq(column(workout, "entitySchemaSlug"), literal("workout")),
+			exerciseSets(reference, set, exerciseId),
+			entitySchemaPredicate(workout, "workout", reference),
 			jsonArrayExists(jsonPath(column(set, "properties"), "personalBests")),
 		),
 		selection: {
@@ -199,15 +203,20 @@ const personalBestsQuery = (exerciseId: string) => {
 	});
 };
 
-const hasExerciseSets = (workout: Table, set: Table, exerciseId: string) =>
+const hasExerciseSets = (
+	reference: PluginIdentityReference,
+	workout: Table,
+	set: Table,
+	exerciseId: string,
+) =>
 	exists(set, {
 		where: and(
-			exerciseSets(set, exerciseId),
+			exerciseSets(reference, set, exerciseId),
 			eq(column(set, "sessionEntityId"), column(workout, "id")),
 		),
 	});
 
-const sessionsQuery = (exerciseId: string) => {
+const sessionsQuery = (reference: PluginIdentityReference, exerciseId: string) => {
 	const workout = table("entity", "sessionWorkout");
 	const existing = table("event", "sessionExistingSet");
 	const set = table("event", "sessionSet");
@@ -216,8 +225,8 @@ const sessionsQuery = (exerciseId: string) => {
 		limit: 5,
 		orderBy: [descending(startedAt), ascending(column(workout, "id"))],
 		where: and(
-			eq(column(workout, "entitySchemaSlug"), literal("workout")),
-			hasExerciseSets(workout, existing, exerciseId),
+			entitySchemaPredicate(workout, "workout", reference),
+			hasExerciseSets(reference, workout, existing, exerciseId),
 		),
 		selection: {
 			id: selectedField(column(workout, "id"), Schema.String),
@@ -228,7 +237,7 @@ const sessionsQuery = (exerciseId: string) => {
 			sets: selectedInclude(set, {
 				limit: rowLimit,
 				where: and(
-					exerciseSets(set, exerciseId),
+					exerciseSets(reference, set, exerciseId),
 					eq(column(set, "sessionEntityId"), column(workout, "id")),
 				),
 				orderBy: [
@@ -250,7 +259,7 @@ const sessionsQuery = (exerciseId: string) => {
 	});
 };
 
-const setNotesQuery = (exerciseId: string) => {
+const setNotesQuery = (reference: PluginIdentityReference, exerciseId: string) => {
 	const set = table("event", "noteSet");
 	const workout = table("entity", "noteWorkout");
 	return selectedRows(set, {
@@ -262,8 +271,8 @@ const setNotesQuery = (exerciseId: string) => {
 			descending(column(set, "id")),
 		],
 		where: and(
-			exerciseSets(set, exerciseId),
-			eq(column(workout, "entitySchemaSlug"), literal("workout")),
+			exerciseSets(reference, set, exerciseId),
+			entitySchemaPredicate(workout, "workout", reference),
 			isNotNull(property(set, "note")),
 		),
 		selection: {
@@ -275,7 +284,7 @@ const setNotesQuery = (exerciseId: string) => {
 	});
 };
 
-const workoutNotesQuery = (exerciseId: string) => {
+const workoutNotesQuery = (reference: PluginIdentityReference, exerciseId: string) => {
 	const workout = table("entity", "notesWorkout");
 	const existing = table("event", "notesExistingSet");
 	const set = table("event", "notesSet");
@@ -283,9 +292,9 @@ const workoutNotesQuery = (exerciseId: string) => {
 		limit: 20,
 		orderBy: [descending(propertyDate(workout, "startedAt")), ascending(column(workout, "id"))],
 		where: and(
-			eq(column(workout, "entitySchemaSlug"), literal("workout")),
+			entitySchemaPredicate(workout, "workout", reference),
 			isNotNull(propertyJson(workout, "exerciseNotes")),
-			hasExerciseSets(workout, existing, exerciseId),
+			hasExerciseSets(reference, workout, existing, exerciseId),
 		),
 		selection: {
 			id: selectedField(column(workout, "id"), Schema.String),
@@ -300,7 +309,7 @@ const workoutNotesQuery = (exerciseId: string) => {
 					select: propertyNumber(set, "exerciseOrder"),
 					orderBy: [ascending(propertyNumber(set, "setOrder")), ascending(column(set, "id"))],
 					where: and(
-						exerciseSets(set, exerciseId),
+						exerciseSets(reference, set, exerciseId),
 						eq(column(set, "sessionEntityId"), column(workout, "id")),
 					),
 				}),
@@ -310,13 +319,14 @@ const workoutNotesQuery = (exerciseId: string) => {
 	});
 };
 
-const notesQuery = (exerciseId: string) => {
+const notesQuery = (reference: PluginIdentityReference, exerciseId: string) => {
 	const note = table("event", "exerciseNote");
 	return selectedRows(note, {
 		limit: rowLimit,
 		orderBy: [descending(column(note, "occurredAt")), descending(column(note, "id"))],
 		where: and(
 			eq(column(note, "entityId"), literal(exerciseId)),
+			schemaOwnerPredicate(note, "eventSchemaPluginId", reference),
 			eq(column(note, "eventSchemaSlug"), literal("review")),
 		),
 		selection: {
@@ -329,7 +339,7 @@ const notesQuery = (exerciseId: string) => {
 	});
 };
 
-const exerciseQuery = (exerciseId: string) => {
+const exerciseQuery = (reference: PluginIdentityReference, exerciseId: string) => {
 	const exercise = table("entity", "exercise");
 	return selectedOptionalRow(exercise, {
 		orderBy: [ascending(column(exercise, "id"))],
@@ -339,7 +349,7 @@ const exerciseQuery = (exerciseId: string) => {
 		},
 		where: and(
 			eq(column(exercise, "id"), literal(exerciseId)),
-			eq(column(exercise, "entitySchemaSlug"), literal("exercise")),
+			entitySchemaPredicate(exercise, "exercise", reference),
 		),
 		selection: {
 			id: selectedField(column(exercise, "id"), Schema.String),
@@ -368,7 +378,11 @@ const exerciseQuery = (exerciseId: string) => {
 };
 
 export const exerciseDetailsRecipe = defineRecipe(
-	(input: { readonly exerciseId: string; readonly timeZone: string }) => ({
+	(input: {
+		readonly reference: PluginIdentityReference;
+		readonly exerciseId: string;
+		readonly timeZone: string;
+	}) => ({
 		map: ({
 			notes,
 			months,
@@ -392,15 +406,15 @@ export const exerciseDetailsRecipe = defineRecipe(
 				topWorkout: topWorkout.items[0] ?? null,
 			}),
 		queries: {
-			notes: notesQuery(input.exerciseId),
-			totals: totalsQuery(input.exerciseId),
-			exercise: exerciseQuery(input.exerciseId),
-			sessions: sessionsQuery(input.exerciseId),
-			setNotes: setNotesQuery(input.exerciseId),
-			topWorkout: topWorkoutQuery(input.exerciseId),
-			workoutNotes: workoutNotesQuery(input.exerciseId),
-			personalBests: personalBestsQuery(input.exerciseId),
-			months: monthsQuery(input.exerciseId, input.timeZone),
+			notes: notesQuery(input.reference, input.exerciseId),
+			totals: totalsQuery(input.reference, input.exerciseId),
+			exercise: exerciseQuery(input.reference, input.exerciseId),
+			sessions: sessionsQuery(input.reference, input.exerciseId),
+			setNotes: setNotesQuery(input.reference, input.exerciseId),
+			topWorkout: topWorkoutQuery(input.reference, input.exerciseId),
+			workoutNotes: workoutNotesQuery(input.reference, input.exerciseId),
+			personalBests: personalBestsQuery(input.reference, input.exerciseId),
+			months: monthsQuery(input.reference, input.exerciseId, input.timeZone),
 		},
 	}),
 );

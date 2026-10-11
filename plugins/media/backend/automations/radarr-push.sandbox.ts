@@ -71,6 +71,14 @@ export default defineAutomation({
 
 		return Effect.gen(function* () {
 			const event = payload.after;
+			if (
+				event.entitySchemaPluginId !== null ||
+				event.eventSchemaPluginId !== null ||
+				event.entitySchemaSlug !== "collection" ||
+				event.eventSchemaSlug !== "add-entity-to-collection"
+			) {
+				return null;
+			}
 			const entitySchemaSlug = event.properties["entitySchemaSlug"];
 			const entityId = event.properties["entityId"];
 			if (entitySchemaSlug !== "movie" || typeof entityId !== "string") {

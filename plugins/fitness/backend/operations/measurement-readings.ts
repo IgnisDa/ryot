@@ -4,7 +4,9 @@ import {
 	ascending,
 	column,
 	defineRecipe,
+	entitySchemaPredicate,
 	eq,
+	eventSchemaPredicate,
 	executeRyotqlRecipe,
 	inArray,
 	join,
@@ -42,8 +44,9 @@ const measurementReadingsRecipe = defineRecipe((readingIds: readonly string[]) =
 				},
 				where: and(
 					inArray(column(reading, "id"), readingIds.map(literal)),
-					eq(column(reading, "eventSchemaSlug"), literal("measurement-reading")),
-					eq(column(metric, "entitySchemaSlug"), literal("measurement-metric")),
+					eventSchemaPredicate(reading, metric, "measurement-metric", "measurement-reading", {
+						kind: "self",
+					}),
 				),
 			}),
 		},
@@ -61,7 +64,7 @@ const measurementMetricIdsRecipe = defineRecipe((metricIds: readonly string[]) =
 				selection: { id: selectedField(column(metric, "id"), Schema.String) },
 				where: and(
 					inArray(column(metric, "id"), metricIds.map(literal)),
-					eq(column(metric, "entitySchemaSlug"), literal("measurement-metric")),
+					entitySchemaPredicate(metric, "measurement-metric", { kind: "self" }),
 				),
 			}),
 		},

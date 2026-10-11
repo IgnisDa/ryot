@@ -1,3 +1,4 @@
+import type { PluginIdentityReference } from "@ryot-app/client-sdk/plugin";
 import type { PreparedRecipe } from "@ryot-app/client-sdk/ryotql";
 
 import type { MediaReviewActivityResult } from "../../shared/media-recipes";
@@ -25,6 +26,7 @@ const MARKER_TONE: Record<MediaReviewActivityRow["type"], string> = {
 export const defineMediaReviewActivityTab = (input: {
 	readonly noun: string;
 	readonly activityRecipe: (input: {
+		readonly reference: PluginIdentityReference;
 		readonly entityId: string;
 		readonly eventLimit: number;
 		readonly collectionEventLimit: number;
@@ -33,9 +35,10 @@ export const defineMediaReviewActivityTab = (input: {
 	const activityCopy = mediaReviewActivityCopy(input.noun);
 
 	const activityQuery = createMediaEntityQuery(
-		({ entityId }) =>
+		({ entityId, reference }) =>
 			input.activityRecipe({
 				entityId,
+				reference,
 				eventLimit: ACTIVITY_EVENT_LIMIT,
 				collectionEventLimit: ACTIVITY_COLLECTION_EVENT_LIMIT,
 			}),
