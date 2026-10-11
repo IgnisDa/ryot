@@ -34,7 +34,10 @@ import {
 	type MediaPresentationSource,
 } from "../shared/entity-presentations";
 import { mangaRecipes } from "../shared/manga-recipes";
-import { builtinMediaEntitySchemaSlugs } from "../shared/media-schema-slugs";
+import {
+	builtinMediaEntitySchemaSlugs,
+	mediaLibraryMembership,
+} from "../shared/media-schema-slugs";
 import { movieGroupRecipes } from "../shared/movie-group-recipes";
 import { movieRecipes } from "../shared/movie-recipes";
 import { musicGroupRecipes } from "../shared/music-group-recipes";
@@ -235,6 +238,7 @@ export const mediaSavedViews = () => {
 				entitySchemaSlugField: "entitySchemaSlug",
 				addAction: {
 					type: "provider-search",
+					library: mediaLibraryMembership,
 					schema: { owner: { kind: "self" }, slug: EntitySchemaSlug.make(view.entitySchemaSlug) },
 				},
 				tableColumns: [

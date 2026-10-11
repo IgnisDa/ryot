@@ -4,7 +4,7 @@ import { render, screen, waitFor } from "@testing-library/react";
 import { Effect } from "effect";
 import { axe } from "vitest-axe";
 
-import { ProviderSearchPanel, resolveLibraryMembership } from "#/modules/provider-add/panel";
+import { ProviderSearchPanel } from "#/modules/provider-add/panel";
 import type { ProviderSearchSummary } from "#/modules/provider-add/service";
 
 const bookSlug = EntitySchemaSlug.make("book");
@@ -39,17 +39,6 @@ const renderPanel = () =>
 	);
 
 describe("provider search panel", () => {
-	it("resolves the library membership for media and fitness exercises", () => {
-		expect(resolveLibraryMembership("media", bookSlug)).toEqual({
-			librarySchemaSlug: "media-library",
-			relationshipSlug: "in-media-library",
-		});
-		expect(resolveLibraryMembership("fitness", EntitySchemaSlug.make("exercise"))).toEqual({
-			librarySchemaSlug: "fitness-library",
-			relationshipSlug: "in-fitness-library",
-		});
-	});
-
 	it.live("exposes the providers as a single-tab-stop radiogroup", () =>
 		Effect.gen(function* () {
 			renderPanel();

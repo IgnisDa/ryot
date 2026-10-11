@@ -23,11 +23,11 @@ import {
 
 const seenReportPhase = "seen -> event";
 
-const seenAbsentDetailSql = buildEpisodeAbsentDetailSql("seen-episode-absent", "u");
+const seenAbsentDetailSql = buildEpisodeAbsentDetailSql("this watch", "u");
 
-const seenAmbiguousDetailSql = buildEpisodeAmbiguousDetailSql("seen-episode-ambiguous", "u");
+const seenAmbiguousDetailSql = buildEpisodeAmbiguousDetailSql("u");
 
-const seenMalformedDetailSql = buildEpisodeMalformedDetailSql("seen-episode-malformed", "u");
+const seenMalformedDetailSql = buildEpisodeMalformedDetailSql("u");
 
 export const buildSeenMigrationSql = (mediaPluginId: string) => `
 DO $$

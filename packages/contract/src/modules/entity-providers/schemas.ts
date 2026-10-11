@@ -13,6 +13,12 @@ export const ProviderEntityReference = strictStruct({
 });
 export type ProviderEntityReference = typeof ProviderEntityReference.Type;
 
+export const ProviderLibraryMembership = strictStruct({
+	relationshipSlug: Schema.NonEmptyString,
+	librarySchemaSlug: Schema.NonEmptyString,
+});
+export type ProviderLibraryMembership = typeof ProviderLibraryMembership.Type;
+
 export const ImportEntityBody = strictStruct({
 	externalId: Schema.String,
 	providerId: SandboxProviderId,

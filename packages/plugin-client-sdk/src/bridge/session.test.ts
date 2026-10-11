@@ -108,6 +108,7 @@ const query = (runtime: ReturnType<typeof createPluginRuntime>) =>
 const providerSearch = (runtime: ReturnType<typeof createPluginRuntime>) =>
 	runtime.client.screens.openProviderSearch({
 		schema: { slug: "movie", owner: { kind: "plugin", pluginId: "fixture" } },
+		library: { librarySchemaSlug: "media-library", relationshipSlug: "in-media-library" },
 	});
 const sent = (messages: unknown[], type: string) =>
 	messages.filter(
@@ -237,6 +238,7 @@ describe("plugin Effect request engine", () => {
 					type: "provider-search-screen",
 					requestId: "provider-search-screen-1",
 					schema: { slug: "movie", owner: { kind: "plugin", pluginId: "fixture" } },
+					library: { librarySchemaSlug: "media-library", relationshipSlug: "in-media-library" },
 				},
 			]);
 			channel.port1.postMessage({

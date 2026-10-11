@@ -56,6 +56,7 @@ describe("saved-view schemas", () => {
 			addAction: {
 				type: "provider-search",
 				schema: { slug: "movie", owner: { kind: "plugin", pluginId: "media-plugin" } },
+				library: { librarySchemaSlug: "media-library", relationshipSlug: "in-media-library" },
 			},
 		});
 		const resultsInput = {

@@ -296,6 +296,7 @@ describe("PageIframeHost", () => {
 				type: "provider-search-screen",
 				requestId: "provider-search-screen-1",
 				schema: { slug: "movie", owner: { kind: "plugin", pluginId: "media-installation" } },
+				library: { librarySchemaSlug: "media-library", relationshipSlug: "in-media-library" },
 			});
 			yield* Effect.promise(() => waitFor(() => expect(routed).toHaveLength(1)));
 
@@ -396,6 +397,7 @@ describe("PageIframeHost", () => {
 				type: "provider-search-screen",
 				requestId: "provider-search-screen-1",
 				schema: { slug: "movie", owner: { kind: "plugin", pluginId: "media-installation" } },
+				library: { librarySchemaSlug: "media-library", relationshipSlug: "in-media-library" },
 			});
 			bridge.port.postMessage({
 				mode: "replace",
@@ -426,6 +428,7 @@ describe("PageIframeHost", () => {
 					type: "provider-search-screen",
 					requestId: "provider-search-screen-1",
 					schema: { slug: "movie", owner: { kind: "plugin", pluginId: "media-installation" } },
+					library: { librarySchemaSlug: "media-library", relationshipSlug: "in-media-library" },
 				},
 			]);
 			expect(host.operations).toEqual([

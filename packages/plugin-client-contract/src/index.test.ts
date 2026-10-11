@@ -484,6 +484,7 @@ describe("plugin client bridge contract", () => {
 			type: "provider-search-screen",
 			requestId: "provider-search-screen-1",
 			schema: { slug: "movie", owner: { kind: "plugin", pluginId: "media-installation" } },
+			library: { librarySchemaSlug: "media-library", relationshipSlug: "in-media-library" },
 		};
 
 		expect(Result.isSuccess(decode(request))).toBe(true);

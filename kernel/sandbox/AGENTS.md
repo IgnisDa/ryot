@@ -7,3 +7,4 @@
 - After any `deno_core` or V8 upgrade, rerun the termination, escape, crash, and Linux launcher suites,
   including the `sandbox-test` image steps in `.github/workflows/sandboxd.yml`
   (`docker buildx build --target sandbox-test`, then `docker run --user 0` for the launcher tests).
+- Sandbox code, protocol, and fixtures stay product-agnostic: no first-party plugin, provider, or domain names.

@@ -265,7 +265,10 @@ describe("first run", () => {
 			clickRyotElement(getByRole(view.container, "button", { name: "Add a title" }));
 			clickRyotElement(getByRole(document.body, "menuitem", { name: "Comic book" }));
 			expect(home.providerSearches).toEqual([
-				{ schema: { slug: "comic-book", owner: { kind: "plugin", pluginId: "media-owner" } } },
+				{
+					schema: { slug: "comic-book", owner: { kind: "plugin", pluginId: "media-owner" } },
+					library: { librarySchemaSlug: "media-library", relationshipSlug: "in-media-library" },
+				},
 			]);
 			expect(document.body.querySelector('[role="menu"]')).toBeNull();
 			view.unmount();

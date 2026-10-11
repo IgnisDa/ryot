@@ -4,6 +4,7 @@ import { PluginPackageId, SavedViewId } from "../../schema/brands";
 import { JsonValue } from "../../schema/json";
 import { strictStruct } from "../../schema/utils";
 import { AssetLocator } from "../assets/schemas";
+import { ProviderLibraryMembership } from "../entity-providers/schemas";
 import {
 	AuthoredEntitySchemaReference,
 	EntitySchemaReference,
@@ -112,10 +113,12 @@ export type EntityBrowserSortChoice = typeof EntityBrowserSortChoice.Type;
 
 const EntityBrowserProviderSearchAddAction = strictStruct({
 	schema: EntitySchemaReference,
+	library: ProviderLibraryMembership,
 	type: Schema.Literal("provider-search"),
 });
 
 const AuthoredEntityBrowserProviderSearchAddAction = strictStruct({
+	library: ProviderLibraryMembership,
 	schema: AuthoredEntitySchemaReference,
 	type: Schema.Literal("provider-search"),
 });

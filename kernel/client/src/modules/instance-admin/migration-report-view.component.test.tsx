@@ -17,7 +17,7 @@ const report: InstanceAdminMigrationReport = {
 			phase: "metadata",
 			totalDetails: 1_234,
 			elapsedSeconds: 12.5,
-			code: "seen-episode-absent",
+			code: "record-skipped",
 			createdAt: "2025-01-02T03:04:05",
 			message: "Skipped malformed item",
 			details: {
@@ -26,16 +26,10 @@ const report: InstanceAdminMigrationReport = {
 					{
 						seq: 1,
 						detail: {
-							kind: "show",
-							seasonExists: false,
-							requestedSeason: "0",
-							requestedEpisode: "1",
-							parentName: "Black Mirror",
-							userId: "usr_ujrD0pCeKc1Y",
-							code: "seen-episode-absent",
-							parentEntityId: "met_WYGquxnbOnHd",
-							legacyRecordId: "see_hlFQdGwVxnPL",
-							availableSummary: "seasons 1, 2, 3, 4, 5, 6, 7",
+							key: "rec_1",
+							label: "Record one",
+							provenance: [{ key: "Entity", value: "ent_1" }],
+							sentence: "There was nothing to attach this record to.",
 						},
 					},
 				],
@@ -114,13 +108,13 @@ describe("MigrationReportView", () => {
 				screen.findByRole("button", { name: /Skipped malformed item/ }),
 			);
 			expect(toggle.getAttribute("aria-expanded")).toBe("false");
-			expect(screen.queryByText("Black Mirror — season 0, episode 1")).toBeNull();
+			expect(screen.queryByText("Record one")).toBeNull();
 
 			fireEvent.click(toggle);
 
 			expect(toggle.getAttribute("aria-expanded")).toBe("true");
-			expect(screen.getByText("Black Mirror — season 0, episode 1")).toBeTruthy();
-			expect(screen.getByText("met_WYGquxnbOnHd")).toBeTruthy();
+			expect(screen.getByText("Record one")).toBeTruthy();
+			expect(screen.getByText("ent_1")).toBeTruthy();
 			expect(screen.getByText(/and 1,233 more, queryable in migration_report_detail/)).toBeTruthy();
 		}),
 	);

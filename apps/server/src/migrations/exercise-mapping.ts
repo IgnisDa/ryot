@@ -11,7 +11,9 @@ import {
 	type ResolvedEntityMigrationTarget,
 	buildEntityTargetValuesSql,
 	buildRequireLegacyTableSql,
+	buildReportDetailSql,
 	buildReportSql,
+	quoteSqlString,
 } from "./shared";
 
 export const exerciseEntityTargets = [
@@ -190,16 +192,22 @@ BEGIN
 		source: `(${ownerlessUnreferencedExerciseSourceSql}) ownerless_exercise`,
 		message:
 			"Unreferenced custom exercises with no creator were omitted because V2 custom exercises require an owner. Each omitted row is listed below with its taxonomy and asset data.",
-		detail: `jsonb_build_object(
-			'code', 'exercise-ownerless-unreferenced',
-			'legacyRecordId', ownerless_exercise.id,
-			'name', ownerless_exercise.name,
-			'source', ownerless_exercise.source,
-			'muscles', to_jsonb(ownerless_exercise.muscles),
-			'equipment', ownerless_exercise.equipment,
-			'assets', ownerless_exercise.assets,
-			'creatorUserId', ownerless_exercise.creator_user_id
-		)`,
+		detail: buildReportDetailSql({
+			key: "ownerless_exercise.id",
+			label: "ownerless_exercise.name",
+			sentence: quoteSqlString(
+				"This custom exercise had no creator and no V1 references, so it was omitted.",
+			),
+			provenance: [
+				["Exercise", "ownerless_exercise.name"],
+				["Legacy row", "ownerless_exercise.id"],
+				["Source", "ownerless_exercise.source"],
+				["Creator", "ownerless_exercise.creator_user_id"],
+				["Muscles", "to_jsonb(ownerless_exercise.muscles)"],
+				["Equipment", "ownerless_exercise.equipment"],
+				["Assets", "ownerless_exercise.assets"],
+			],
+		}),
 	})}
 
 	LOOP

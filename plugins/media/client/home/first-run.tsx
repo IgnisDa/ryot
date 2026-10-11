@@ -4,7 +4,10 @@ import { usePluginIdentity, useRyot, useRyotSchedule } from "@ryot-app/plugin-cl
 import { Button, MenuButton } from "@ryot-app/plugin-ui-sdk";
 import clsx from "clsx";
 
-import { builtinMediaEntitySchemaSlugs } from "../../shared/media-schema-slugs";
+import {
+	builtinMediaEntitySchemaSlugs,
+	mediaLibraryMembership,
+} from "../../shared/media-schema-slugs";
 import { PLUGIN_PACKAGE_ID } from "../../shared/plugin-identity";
 
 const schemaLabel = (slug: string) =>
@@ -41,6 +44,7 @@ export function FirstRun(props: { readonly compact: boolean }) {
 							schedule.run(
 								client.screens
 									.openProviderSearch({
+										library: mediaLibraryMembership,
 										schema: {
 											slug: EntitySchemaSlug.make(slug),
 											owner: { kind: "plugin", pluginId: identity.pluginId },

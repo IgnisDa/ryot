@@ -166,6 +166,7 @@ export function SavedViewPage({
 			onClose={closeAdd}
 			onComplete={session?.complete}
 			schema={providerAddAction.schema}
+			library={providerAddAction.library}
 		/>
 	) : null;
 }

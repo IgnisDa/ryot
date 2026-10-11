@@ -1,3 +1,4 @@
+import type { ProviderLibraryMembership } from "@ryot-app/contract/modules/entity-providers/schemas";
 import {
 	definitionKey,
 	type EntitySchemaReference,
@@ -16,7 +17,6 @@ import {
 	type ProviderEntityLinks,
 	ProviderSearchPanel,
 	type ProviderSummariesState,
-	resolveLibraryMembership,
 } from "#/modules/provider-add/panel";
 import { ProviderAddService, type ProviderSearchSummary } from "#/modules/provider-add/service";
 import { useSchemaFileUpload } from "#/modules/ui/schema-form-upload";
@@ -29,6 +29,7 @@ type ProviderAddModalProps = {
 	readonly onComplete?: (outcome: ProviderSearchScreenOutcome) => void;
 	readonly initialQuery?: string | undefined;
 	readonly schema: EntitySchemaReference;
+	readonly library: ProviderLibraryMembership;
 };
 
 type ProviderAddModalState = {
@@ -55,7 +56,6 @@ export function ProviderAddModal(props: ProviderAddModalProps) {
 	const schemaKey = definitionKey("entity", props.schema.owner, entitySchemaSlug);
 	const providerService = runtime.runSync(ProviderAddService);
 	const clientStorage = runtime.runSync(ClientStorage);
-	const libraryMembership = resolveLibraryMembership(ownerPluginId, entitySchemaSlug);
 	const imported = useRef(false);
 	const completed = useRef(false);
 	const [state, setState] = useState<ProviderAddModalState>({
@@ -187,8 +187,8 @@ export function ProviderAddModal(props: ProviderAddModalProps) {
 						entitySchemaSlug={entitySchemaSlug}
 						loadSearchOptions={loadSearchOptions}
 						selectedProviderId={state.selectedProviderId}
-						relationshipSlug={libraryMembership.relationshipSlug}
-						librarySchemaSlug={libraryMembership.librarySchemaSlug}
+						relationshipSlug={props.library.relationshipSlug}
+						librarySchemaSlug={props.library.librarySchemaSlug}
 						onImported={(entityId: EntityId) => {
 							imported.current = true;
 							complete({ kind: "added", entityIds: [entityId] });

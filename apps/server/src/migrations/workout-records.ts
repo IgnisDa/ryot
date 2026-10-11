@@ -364,15 +364,22 @@ export const migrateWorkoutRecords = Effect.fn("migrateWorkoutRecords")(function
 					}
 
 					if (row.outsideSession) {
+						const exerciseOrder = row.exerciseOrderKey?.toString() ?? null;
+						const setOrder = row.setOrderKey?.toString() ?? null;
 						completionWarnings.push({
-							userId: row.userId,
-							endedAt: row.endedAt,
-							setOrder: row.setOrderKey,
-							confirmedAt: row.confirmedAt,
-							workoutId: row.sessionEntityId,
-							startedAt: row.workoutStartedAtKey,
-							exerciseOrder: row.exerciseOrderKey,
-							code: "workout-set-completion-outside-session",
+							key: `${row.sessionEntityId}:${exerciseOrder}:${setOrder}`,
+							label: `Workout ${row.sessionEntityId} — exercise ${exerciseOrder ?? "unknown"}, set ${setOrder ?? "unknown"}`,
+							sentence:
+								"This set's completion timestamp falls outside the recorded workout interval. Its original completion time was kept unchanged.",
+							provenance: [
+								{ key: "Workout", value: row.sessionEntityId },
+								{ key: "User", value: row.userId },
+								{ value: exerciseOrder, key: "Exercise order" },
+								{ value: setOrder, key: "Set order" },
+								{ key: "Confirmed at", value: row.confirmedAt },
+								{ key: "Started at", value: row.workoutStartedAtKey },
+								{ key: "Ended at", value: row.endedAt },
+							],
 						});
 					}
 				}

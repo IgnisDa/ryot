@@ -620,6 +620,7 @@ describe("bridge page screens", () => {
 				type: "provider-search-screen",
 				requestId: "provider-search-screen-1",
 				schema: { slug: "movie", owner: { kind: "plugin", pluginId: "media-installation" } },
+				library: { librarySchemaSlug: "media-library", relationshipSlug: "in-media-library" },
 			});
 			yield* Effect.promise(() => waitFor(() => expect(providerSearches).toHaveLength(1)));
 			yield* Effect.promise(() =>
@@ -643,6 +644,7 @@ describe("bridge page screens", () => {
 					type: "provider-search-screen",
 					requestId: "provider-search-screen-1",
 					schema: { slug: "movie", owner: { kind: "plugin", pluginId: "media-installation" } },
+					library: { librarySchemaSlug: "media-library", relationshipSlug: "in-media-library" },
 				},
 			]);
 		}),
@@ -668,6 +670,7 @@ describe("bridge page screens", () => {
 				type: "provider-search-screen",
 				requestId: "provider-search-screen-1",
 				schema: { slug: "movie", owner: { kind: "plugin", pluginId: "media-installation" } },
+				library: { librarySchemaSlug: "media-library", relationshipSlug: "in-media-library" },
 			});
 			yield* Effect.promise(() => waitFor(() => expect(providerSearches).toHaveLength(1)));
 			pluginPort.postMessage({

@@ -103,7 +103,7 @@ Warnings are allowed by `code`, never by message text, so report copy can be rew
 | `asset-deletion-failed`                  | `legacy S3 assets -> managed_asset`                          | A copied attachment could not be deleted from the old bucket.                                                   | no                |
 | `workout-set-completion-outside-session` | `workout sets -> event records`                              | A valid confirmed set time falls before the workout start or after its end; the time is preserved, not clamped. | yes               |
 
-Any warning whose code is not in `allowedWarningCodes`, and any other unexpected state, aborts startup. On restart, existing report rows remain and orchestration logs only newly appended rows.
+Any warning whose code is not in `AnomalyCode`, and any other unexpected state, aborts startup. On restart, existing report rows remain and orchestration logs only newly appended rows.
 
 A `RAISE EXCEPTION` rolls back its own `DO $$` block, so an abort can leave nothing behind in `migration_report`; the exception message is the only thing an operator sees. Abort messages therefore state what was found — with a bounded sample of offending identifiers — why it blocks the migration, and whether the fix is to change the V1 data, use a different build, or report a migration defect.
 
