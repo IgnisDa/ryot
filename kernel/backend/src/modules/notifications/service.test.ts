@@ -4,7 +4,7 @@ import { UserId } from "@ryot-app/contract/schema/brands";
 import { Context, Effect, Layer, Ref, Schema } from "effect";
 import { WorkflowEngine } from "effect/workflow/WorkflowEngine";
 
-import { databaseLayer, makeWorkflowEngine } from "#lib/test-utils/effect";
+import { databaseLayer, makeWorkflowEngine } from "#testing/effect";
 
 import { NotificationDeliveryWorkflowPayload } from "./notification-delivery-workflow";
 import { NotificationsRepository } from "./repository";

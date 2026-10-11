@@ -2,13 +2,12 @@ import { SandboxExecutor } from "@ryot-app/sandbox/host/executor";
 import type { AdditionalSandboxHostImplementationMap } from "@ryot-app/sandbox/host/invocation";
 import { Effect, Layer } from "effect";
 
-import { ProviderHttpAdmissionService } from "#lib/infrastructure/provider-http-admission";
-import { AuthRepository } from "#modules/auth/repository";
-import { makeAuthScriptHost } from "#modules/auth/script-host";
+import { AuthRepository } from "#modules/accounts/auth/repository";
+import { makeAuthScriptHost } from "#modules/accounts/auth/script-host";
 import { LifecycleServicesLive, SignalEmissionServiceLive } from "#modules/automations/layer";
 import { makeSignalScriptHost } from "#modules/automations/script-host";
-import { DefinitionRepository } from "#modules/definition-registry/repository";
-import { makeDefinitionScriptHost } from "#modules/definition-registry/script-host";
+import { DefinitionRepository } from "#modules/definitions/repository";
+import { makeDefinitionScriptHost } from "#modules/definitions/script-host";
 import { EntitiesServiceRuntimeLive } from "#modules/entities/layer";
 import { EntitiesRepositoryLive } from "#modules/entities/repository";
 import { entityLifecycleHostSteps, makeEntityScriptHost } from "#modules/entities/script-host";
@@ -23,10 +22,10 @@ import { NotificationsServiceLive } from "#modules/notifications/layer";
 import { makeNotificationScriptHost } from "#modules/notifications/script-host";
 import { OAuthConnectionsServiceLive } from "#modules/oauth-connections/layer";
 import { makeOAuthConnectionScriptHost } from "#modules/oauth-connections/script-host";
-import { PluginHttpRateLimitAuthority } from "#modules/plugins/http-rate-limit-authority";
-import { PluginInstallationRepository } from "#modules/plugins/installation-repository";
-import { PluginRepository } from "#modules/plugins/repository";
-import { PluginRuntimeResolverLive } from "#modules/plugins/runtime-resolver";
+import { PluginHttpRateLimitAuthority } from "#modules/plugins/catalog/http-rate-limit-authority";
+import { PluginRuntimeResolverLive } from "#modules/plugins/catalog/runtime-resolver";
+import { PluginInstallationRepository } from "#modules/plugins/installations/repository";
+import { PluginRepository } from "#modules/plugins/packages/repository";
 import { makePluginScriptHost } from "#modules/plugins/script-host";
 import { RelationshipMutationPipelineLive } from "#modules/relationships/layer";
 import { RelationshipMutationPipeline } from "#modules/relationships/mutation-pipeline";
@@ -44,6 +43,7 @@ import {
 	SandboxDurableHostServiceWorkflowLive,
 } from "#modules/scripts/host/durable-dispatcher-live";
 import { ScriptHostImplementations } from "#modules/scripts/host/host-implementations";
+import { ProviderHttpAdmissionService } from "#modules/scripts/host/http-admission";
 import { makeRuntimeSandboxApiFunctions } from "#modules/scripts/host/runtime-host-functions";
 import {
 	SandboxHostCallScopeLive,

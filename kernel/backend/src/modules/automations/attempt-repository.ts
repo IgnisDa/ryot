@@ -22,13 +22,10 @@ import { and, asc, eq, inArray, isNull, lte, notInArray, sql } from "drizzle-orm
 import { alias } from "drizzle-orm/pg-core";
 import { Context, Effect, Layer, Schema } from "effect";
 
-import { automationRunRetryEligibility } from "#lib/infrastructure/db/automation-retry-eligibility";
-import { user } from "#lib/infrastructure/db/schema/tables/auth";
-import {
-	automationRun,
-	automationRunAttempt as table,
-} from "#lib/infrastructure/db/schema/tables/automations";
-import { DatabaseSession, DatabaseSessionStateError } from "#lib/infrastructure/db/session";
+import { automationRunRetryEligibility } from "#modules/automations/retry-eligibility";
+import { DatabaseSession, DatabaseSessionStateError } from "#platform/db/session";
+import { user } from "#schema/tables/auth";
+import { automationRun, automationRunAttempt as table } from "#schema/tables/automations";
 
 import { automaticRetryAt, isRetryableAutomationFailure } from "./retry-policy";
 

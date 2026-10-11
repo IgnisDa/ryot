@@ -1,8 +1,8 @@
 import { DbError } from "@ryot-app/contract/errors";
 import { Effect } from "effect";
 
-import { DatabaseSessionStateError, type DatabaseSession } from "#lib/infrastructure/db/session";
-import { runRootTransaction } from "#lib/infrastructure/db/transaction";
+import { DatabaseSessionStateError, type DatabaseSession } from "#platform/db/session";
+import { runRootTransaction } from "#platform/db/transaction";
 
 export const eventRootTransaction =
 	(session: DatabaseSession["Service"], message: string) =>

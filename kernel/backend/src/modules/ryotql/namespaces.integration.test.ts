@@ -29,18 +29,18 @@ import {
 import { eq as dbEq } from "drizzle-orm";
 import { Effect, Layer } from "effect";
 
-import * as tables from "#lib/infrastructure/db/schema/tables/combined";
-import { DatabaseSession } from "#lib/infrastructure/db/session";
-import { kernelDefinitionSource } from "#modules/definition-registry/kernel-source";
-import { DefinitionRepository } from "#modules/definition-registry/repository";
-import { seedKernelDefinitions } from "#modules/definition-registry/test-support";
-import { PluginRepository } from "#modules/plugins/repository";
+import { kernelDefinitionSource } from "#modules/definitions/kernel-source";
+import { DefinitionRepository } from "#modules/definitions/repository";
+import { seedKernelDefinitions } from "#modules/definitions/test-support";
+import { PluginRepository } from "#modules/plugins/packages/repository";
 import {
 	installRevisionPackage,
 	revisionDatabaseLayer,
 	revisionPackage,
-} from "#modules/plugins/revision.test-support";
+} from "#modules/plugins/packages/revision.test-support";
 import { testPluginPackageId } from "#modules/plugins/test-support";
+import { DatabaseSession } from "#platform/db/session";
+import * as tables from "#schema/tables/combined";
 
 import { RyotQLService } from "./service";
 

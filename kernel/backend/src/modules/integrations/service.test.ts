@@ -15,28 +15,28 @@ import { assertExitFails } from "@ryot-app/testing/effect-assertions";
 import { Context, Effect, Layer, Ref } from "effect";
 import { WorkflowEngine } from "effect/workflow/WorkflowEngine";
 
-import { ProKeyService } from "#lib/infrastructure/pro-key";
-import {
-	makeWorkflowEngine,
-	type MockOverrides,
-	type WorkflowEngineOverrides,
-} from "#lib/test-utils/effect";
-import { mutationAdmissionTestLayer } from "#lib/test-utils/mutation-admission";
 import { DataImportAdmission } from "#modules/imports/data-admission";
 import { IngestionExecution } from "#modules/imports/execution-service";
 import { ImportsRepository } from "#modules/imports/repository";
 import { IngestionRetirement } from "#modules/imports/retirement-service";
 import { ImportsService } from "#modules/imports/service";
+import { mutationAdmissionTestLayer } from "#modules/mutations/admission.test-support";
 import { OAuthConnectionsService } from "#modules/oauth-connections/service";
-import {
-	IngestionReadinessError,
-	IngestionReadinessService,
-} from "#modules/plugins/ingestion-readiness-service";
 import {
 	IntegrationProviderCatalog,
 	type RegisteredIntegrationProvider,
-} from "#modules/plugins/integration-provider-catalog";
+} from "#modules/plugins/catalog/integration-providers";
+import {
+	IngestionReadinessError,
+	IngestionReadinessService,
+} from "#modules/plugins/catalog/readiness-service";
 import { fixtureManifest } from "#modules/plugins/test-support";
+import { ProKeyService } from "#platform/pro-key";
+import {
+	makeWorkflowEngine,
+	type MockOverrides,
+	type WorkflowEngineOverrides,
+} from "#testing/effect";
 
 import { IntegrationIngestion } from "./ingestion";
 import { IntegrationsRepository, type IntegrationRecord } from "./repository";

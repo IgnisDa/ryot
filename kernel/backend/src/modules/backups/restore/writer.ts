@@ -25,27 +25,27 @@ import { sha256Hex } from "@ryot-app/ts-utils/crypto";
 import { stableStringify } from "@ryot-app/ts-utils/json";
 import { Context, Data, Effect, Layer, Schema, Stream } from "effect";
 
+import { AutomationsRepository } from "#modules/automations/repository";
 import {
 	rewriteManagedAssetLocators,
 	rewritePropertyReferences,
 	type DataReferenceError,
-} from "#lib/domain/data-references";
-import { parseAppSchemaProperties } from "#lib/property-schema/property-schema-runtime";
-import { AutomationsRepository } from "#modules/automations/repository";
+} from "#modules/backups/data-references";
+import { parseAppSchemaProperties } from "#modules/definitions/properties/runtime";
 import {
 	buildDefinitionSnapshot,
 	definitionSourceFromSnapshot,
 	type DefinitionSnapshot,
-} from "#modules/definition-registry/snapshot";
-import { mergeManifestDefinitions } from "#modules/definition-registry/source";
+} from "#modules/definitions/snapshot";
+import { mergeManifestDefinitions } from "#modules/definitions/source";
 import { EntitiesRepository, type PortableEntityRecord } from "#modules/entities/repository";
 import { RESTORE_EVENT_BATCH_SIZE } from "#modules/events/repository";
-import { validateRestoredProperties } from "#modules/plugins/config-revisions";
-import { PluginInstallationRepository } from "#modules/plugins/installation-repository";
-import { PluginRepository } from "#modules/plugins/repository";
-import { validateAdditiveSchemaEvolution } from "#modules/plugins/schema-evolution";
-import type { StoredPlugin } from "#modules/plugins/types";
-import { resolvePluginUserSettings } from "#modules/plugins/user-settings";
+import { validateRestoredProperties } from "#modules/plugins/configuration/revisions";
+import { PluginInstallationRepository } from "#modules/plugins/installations/repository";
+import { PluginRepository } from "#modules/plugins/packages/repository";
+import { validateAdditiveSchemaEvolution } from "#modules/plugins/packages/schema-evolution";
+import type { StoredPlugin } from "#modules/plugins/packages/types";
+import { resolvePluginUserSettings } from "#modules/plugins/preferences/user-settings";
 import {
 	isEntityBrowserRenderer,
 	validateSavedViewDefinition,
@@ -123,7 +123,7 @@ export const resolveRequiredPluginIds = Effect.fn(function* (
 		if (
 			!target ||
 			pluginIdByKey.has(key) ||
-			(target.sourceHash === plugin.sourceHash &&
+			(target.contentHash === plugin.contentHash &&
 				stableStringify(plugin.definitionContract) !==
 					stableStringify(archivePluginDefinitionContract(target.manifest)))
 		) {

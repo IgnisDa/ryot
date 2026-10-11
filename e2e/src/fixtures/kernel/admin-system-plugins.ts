@@ -32,7 +32,7 @@ export const adminSystemPluginsRecipe = defineRecipe((input: { readonly after?: 
 				packageId: selectedField(column(plugin, "packageId"), PluginPackageId),
 				name: selectedField(column(plugin, "name"), Schema.NullOr(Schema.String)),
 				version: selectedField(column(plugin, "version"), Schema.NullOr(Schema.String)),
-				sourceHash: selectedField(column(plugin, "sourceHash"), Schema.NullOr(Schema.String)),
+				contentHash: selectedField(column(plugin, "contentHash"), Schema.NullOr(Schema.String)),
 				activeRevisionId: selectedField(
 					column(plugin, "activeRevisionId"),
 					Schema.NullOr(PluginRevisionId),

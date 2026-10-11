@@ -33,13 +33,13 @@ import { Rpc } from "effect/rpc";
 import { TestClock } from "effect/testing";
 import { Workflow } from "effect/workflow";
 
-import { PgClientLive } from "#lib/infrastructure/db/postgres";
-import { workflowExecution } from "#lib/infrastructure/db/schema/tables/workflow-executions";
-import { DatabaseSession } from "#lib/infrastructure/db/session";
-import { WorkflowExecutionNotifications } from "#lib/infrastructure/workflow-execution-notifications";
-import type { WorkflowIdentity } from "#lib/infrastructure/workflow-identity";
-import { makeAppConfigLayer } from "#lib/test-utils/effect";
-import { IsolatedDatabase, isolatedDatabaseLayer } from "#lib/test-utils/isolated-database";
+import { PgClientLive } from "#platform/db/postgres";
+import { DatabaseSession } from "#platform/db/session";
+import { WorkflowExecutionNotifications } from "#platform/workflow/execution-notifications";
+import type { WorkflowIdentity } from "#platform/workflow/identity";
+import { workflowExecution } from "#schema/tables/workflow-executions";
+import { makeAppConfigLayer } from "#testing/effect";
+import { IsolatedDatabase, isolatedDatabaseLayer } from "#testing/isolated-database";
 
 import {
 	workflowClockEntityType,

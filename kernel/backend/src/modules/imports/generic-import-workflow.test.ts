@@ -12,20 +12,20 @@ import { Effect, Layer } from "effect";
 import { Workflow } from "effect/workflow";
 import { WorkflowEngine, WorkflowInstance } from "effect/workflow/WorkflowEngine";
 
-import { rootLifecycleCommand } from "#lib/domain/lifecycle-command";
-import { LifecycleExecution } from "#lib/domain/lifecycle-execution";
-import { makeWorkflowEngine } from "#lib/test-utils/effect";
+import { rootLifecycleCommand } from "#modules/automations/lifecycle/command";
+import { LifecycleExecution } from "#modules/automations/lifecycle/execution";
 import { CollectionsService } from "#modules/collections/service";
-import { kernelDefinitionSource } from "#modules/definition-registry/kernel-source";
-import { DefinitionRepository } from "#modules/definition-registry/repository";
-import { buildDefinitionSnapshot } from "#modules/definition-registry/snapshot";
+import { kernelDefinitionSource } from "#modules/definitions/kernel-source";
+import { DefinitionRepository } from "#modules/definitions/repository";
+import { buildDefinitionSnapshot } from "#modules/definitions/snapshot";
+import { EntityImportWorkflowOperations } from "#modules/entities/providers/operations-workflow";
 import { EntitiesRepository } from "#modules/entities/repository";
 import { EntitiesService } from "#modules/entities/service";
 import { EventsService } from "#modules/events/service";
-import { PluginRuntimeResolver } from "#modules/plugins/runtime-resolver";
+import { PluginRuntimeResolver } from "#modules/plugins/catalog/runtime-resolver";
 import { fixtureManifest } from "#modules/plugins/test-support";
-import { EntityImportWorkflowOperations } from "#modules/provider-entities/operations-workflow";
 import { RelationshipsService } from "#modules/relationships/service";
+import { makeWorkflowEngine } from "#testing/effect";
 
 import { IngestionCaptures } from "./capture-service";
 import {
@@ -94,8 +94,8 @@ const applyCase = (
 						ownerUserId: null,
 						clientImports: [],
 						healthReason: null,
-						sourceHash: "hash",
 						compiledHashes: {},
+						contentHash: "hash",
 						incompatibilityReason: null,
 						manifest: fixtureManifest(),
 						pluginRevisionId: "revision-1",

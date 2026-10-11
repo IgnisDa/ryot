@@ -1,10 +1,10 @@
 import { Effect } from "effect";
 import { WorkflowEngine } from "effect/workflow/WorkflowEngine";
 
-import type { DatabaseSession } from "#lib/infrastructure/db/session";
 import { MutationReceipts } from "#modules/mutations/receipts";
 import { dispatchAdmittedWorkflow } from "#modules/mutations/workflow-dispatch";
 import type { CronTask } from "#modules/scheduler/types";
+import type { DatabaseSession } from "#platform/db/session";
 
 import { IntegrationSyncWorkflow } from "./sync-workflow";
 

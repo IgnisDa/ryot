@@ -4,9 +4,9 @@ import type { AccessClass } from "@ryot-app/contract/oauth";
 import type { ScriptPluginRevision } from "@ryot-app/sandbox/protocol/principal";
 import { sql } from "drizzle-orm";
 
-import { automationRunRetryEligibility } from "#lib/infrastructure/db/automation-retry-eligibility";
-import type { DefinitionReadContext } from "#modules/definition-registry/read-context";
-import { ingestionReadinessMetadataSql } from "#modules/plugins/ingestion-readiness-projection";
+import { automationRunRetryEligibility } from "#modules/automations/retry-eligibility";
+import type { DefinitionReadContext } from "#modules/definitions/read-context";
+import { ingestionReadinessMetadataSql } from "#modules/plugins/catalog/readiness-projection";
 
 import { ingestionActivitiesSql, ingestionSummarySql } from "./ingestion-projection";
 
@@ -335,7 +335,7 @@ const plugin: CatalogTable = {
 		activationId: physicalField("activation_id", "text", false),
 		activeRevisionId: physicalField("active_revision_id", "text"),
 		ingestedAt: pluginActiveRevisionField("revision.created_at", "date", true),
-		sourceHash: pluginActiveRevisionField("revision.source_hash", "text", true),
+		contentHash: pluginActiveRevisionField("revision.content_hash", "text", true),
 		configSchema: pluginActiveRevisionField("revision.client_config_schema", "json", true),
 		version: pluginActiveRevisionField(
 			"revision.manifest -> 'metadata' ->> 'version'",

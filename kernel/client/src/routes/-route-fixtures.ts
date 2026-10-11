@@ -36,7 +36,7 @@ import { OAuthTokenService } from "#/modules/auth/token-service";
 import { ClientPageFreshness } from "#/modules/client-pages/freshness";
 import { EntitiesService } from "#/modules/entities/service";
 import { GodModeImpersonationService } from "#/modules/god-mode/impersonation";
-import { GodModeService } from "#/modules/god-mode/service";
+import { InstanceAdminService } from "#/modules/god-mode/service";
 import { GodModeSessionService, makeGodModeSessionService } from "#/modules/god-mode/session";
 import { ImportsService } from "#/modules/imports/service";
 import { OAuthConnectService } from "#/modules/integrations/oauth-connect";
@@ -73,7 +73,7 @@ export const catalog: PluginClientCatalog = [
 		isHidden: false,
 		clientApiVersion: 1,
 		homeSavedView: null,
-		sourceHash: "source-hash",
+		contentHash: "source-hash",
 		installationId: "installation-1",
 		pluginId: PluginId.make("plugin-1"),
 		packageId: PluginPackageId.make("test/plugin-1"),
@@ -298,7 +298,7 @@ const GodModeApiStub = makeGodModeApi();
 export const GodModeRouteStubs = Layer.mergeAll(
 	GodModeSessionStub,
 	GodModeApiStub,
-	GodModeService.layer.pipe(Layer.provide(GodModeSessionStub), Layer.provide(GodModeApiStub)),
+	InstanceAdminService.layer.pipe(Layer.provide(GodModeSessionStub), Layer.provide(GodModeApiStub)),
 	Layer.succeed(GodModeImpersonationService, { start: () => Effect.void }),
 );
 
@@ -371,12 +371,12 @@ export const preparePluginPage = (
 			packageId,
 			kind: "plugin",
 			revisionId: "revision",
-			sourceHash: "source-hash",
+			contentHash: "source-hash",
 			installationId: "installation-1",
 		},
 	];
 	const operationTargets = [
-		{ pluginId, packageId, sourceHash: "source-hash", installationId: "installation-1" },
+		{ pluginId, packageId, contentHash: "source-hash", installationId: "installation-1" },
 	];
 	return {
 		composition: {
@@ -393,7 +393,7 @@ export const preparePluginPage = (
 			operationTargets,
 			exportName: "page",
 			kind: "plugin-page",
-			sourceHash: "source-hash",
+			contentHash: "source-hash",
 			installationId: "installation-1",
 			compositionKey: "composition-key-1",
 			compositionHash: "composition-hash",

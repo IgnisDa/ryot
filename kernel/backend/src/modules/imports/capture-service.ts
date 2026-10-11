@@ -5,18 +5,18 @@ import { stableStringify } from "@ryot-app/ts-utils/json";
 import { Context, Effect, FileSystem, Layer, Option } from "effect";
 import { WorkflowEngine } from "effect/workflow/WorkflowEngine";
 
-import { AppConfig } from "#lib/infrastructure/config/service";
-import { DatabaseSession } from "#lib/infrastructure/db/session";
-import { WorkflowExecutionNotifications } from "#lib/infrastructure/workflow-execution-notifications";
-import { interruptWorkflowAndWait } from "#lib/infrastructure/workflow-interruption";
-import { ActivityBody } from "#lib/infrastructure/workflow-scope";
-import { MutationReceipts } from "#modules/mutations/receipts";
-import { admitWorkflow, dispatchAdmittedWorkflow } from "#modules/mutations/workflow-dispatch";
-import type { PluginIngestionRetirementPolicy } from "#modules/plugins/ingestion-retirement";
 import {
 	IngestionPayloads,
 	ingestionPayloadDigest,
-} from "#modules/uploads/object-storage/ingestion-payloads";
+} from "#modules/assets/storage/ingestion-payloads";
+import { MutationReceipts } from "#modules/mutations/receipts";
+import { admitWorkflow, dispatchAdmittedWorkflow } from "#modules/mutations/workflow-dispatch";
+import type { PluginIngestionRetirementPolicy } from "#modules/plugins/packages/ingestion-retirement";
+import { AppConfig } from "#platform/config/service";
+import { DatabaseSession } from "#platform/db/session";
+import { WorkflowExecutionNotifications } from "#platform/workflow/execution-notifications";
+import { interruptWorkflowAndWait } from "#platform/workflow/interruption";
+import { ActivityBody } from "#platform/workflow/scope";
 
 import { ProcessIngestionCaptureWorkflow, captureWriteExecutionId } from "./capture-write-workflow";
 import { ImportsRepository } from "./repository";

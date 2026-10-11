@@ -36,21 +36,13 @@ import { assertExitFails } from "@ryot-app/testing/effect-assertions";
 import { sql } from "drizzle-orm";
 import { Context, Effect, Layer, Option, Ref, Result } from "effect";
 
-import { LifecyclePlanner } from "#lib/domain/lifecycle";
-import { LifecycleExecution } from "#lib/domain/lifecycle-execution";
-import { user } from "#lib/infrastructure/db/schema/tables/auth";
-import { DatabaseSession } from "#lib/infrastructure/db/session";
-import { RedisService } from "#lib/infrastructure/redis";
-import { makeAppConfigLayer, makeRedisService } from "#lib/test-utils/effect";
-import { isolatedDatabaseLayer } from "#lib/test-utils/isolated-database";
-import { AuthRepository } from "#modules/auth/repository";
+import { AuthRepository } from "#modules/accounts/auth/repository";
 import { withLifecycleBatchPlanning } from "#modules/automations/lifecycle.test-support";
-import { kernelDefinitionSource } from "#modules/definition-registry/kernel-source";
-import { DefinitionRepository } from "#modules/definition-registry/repository";
-import {
-	buildDefinitionSnapshot,
-	type DefinitionSource,
-} from "#modules/definition-registry/snapshot";
+import { LifecycleExecution } from "#modules/automations/lifecycle/execution";
+import { LifecyclePlanner } from "#modules/automations/lifecycle/planning";
+import { kernelDefinitionSource } from "#modules/definitions/kernel-source";
+import { DefinitionRepository } from "#modules/definitions/repository";
+import { buildDefinitionSnapshot, type DefinitionSource } from "#modules/definitions/snapshot";
 import { EntitiesRepository } from "#modules/entities/repository";
 import { EntitiesService } from "#modules/entities/service";
 import { DomainWriteChecksLive } from "#modules/entities/write-context";
@@ -66,13 +58,18 @@ import { ImportSourceStateStore } from "#modules/imports/runtime/source-state-st
 import { ImportRunError } from "#modules/imports/runtime/workflow-errors";
 import { IntegrationsRepository, type IntegrationRecord } from "#modules/integrations/repository";
 import { OAuthConnectionsService } from "#modules/oauth-connections/service";
-import { PluginInstallationRepository } from "#modules/plugins/installation-repository";
-import { PluginRuntimeResolver } from "#modules/plugins/runtime-resolver";
+import { PluginRuntimeResolver } from "#modules/plugins/catalog/runtime-resolver";
+import { PluginInstallationRepository } from "#modules/plugins/installations/repository";
 import { fixtureManifest } from "#modules/plugins/test-support";
 import { RelationshipMutationPipeline } from "#modules/relationships/mutation-pipeline";
 import { RelationshipsRepository } from "#modules/relationships/repository";
 import { RyotQLService } from "#modules/ryotql/service";
 import { SandboxRepository } from "#modules/scripts/registry/repository";
+import { DatabaseSession } from "#platform/db/session";
+import { RedisService } from "#platform/redis";
+import { user } from "#schema/tables/auth";
+import { makeAppConfigLayer, makeRedisService } from "#testing/effect";
+import { isolatedDatabaseLayer } from "#testing/isolated-database";
 
 import { makeAdditionalScriptHostFunctions } from "./script-host";
 

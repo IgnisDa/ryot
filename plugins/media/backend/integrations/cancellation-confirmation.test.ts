@@ -5,8 +5,6 @@ import type {
 	IngestionBatch,
 } from "@ryot-app/contract/modules/imports/ingestion";
 import { IntegrationId } from "@ryot-app/contract/schema/brands";
-import { WorkflowExecutionNotifications } from "@ryot-app/kernel-backend/lib/infrastructure/workflow-execution-notifications";
-import { makeWorkflowEngine } from "@ryot-app/kernel-backend/lib/test-utils/effect";
 import { IngestionCaptures } from "@ryot-app/kernel-backend/modules/imports/capture-service";
 import { IngestionExecution } from "@ryot-app/kernel-backend/modules/imports/execution-service";
 import {
@@ -24,10 +22,12 @@ import {
 	IntegrationIngestion,
 } from "@ryot-app/kernel-backend/modules/integrations/ingestion";
 import { AdmittedWorkflowCatalogue } from "@ryot-app/kernel-backend/modules/mutations/workflow-catalogue";
-import { IngestionReadinessService } from "@ryot-app/kernel-backend/modules/plugins/ingestion-readiness-service";
-import { PluginInstallationRepository } from "@ryot-app/kernel-backend/modules/plugins/installation-repository";
+import { IngestionReadinessService } from "@ryot-app/kernel-backend/modules/plugins/catalog/readiness-service";
+import { PluginInstallationRepository } from "@ryot-app/kernel-backend/modules/plugins/installations/repository";
 import { ScriptExecutionService } from "@ryot-app/kernel-backend/modules/scripts/executions/service";
 import { SandboxPluginScriptResolver } from "@ryot-app/kernel-backend/modules/scripts/registry/plugin-script-resolver";
+import { WorkflowExecutionNotifications } from "@ryot-app/kernel-backend/platform/workflow/execution-notifications";
+import { makeWorkflowEngine } from "@ryot-app/kernel-backend/testing/effect";
 import { Effect, Schema } from "@ryot-app/sandbox-sdk/effect";
 import {
 	defineSandboxTestHost,

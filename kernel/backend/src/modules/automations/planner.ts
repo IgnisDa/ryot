@@ -17,6 +17,8 @@ import { stableStringify } from "@ryot-app/ts-utils/json";
 import { and, asc, count, eq, gt, inArray, isNull, sql } from "drizzle-orm";
 import { Effect, Layer, Schema } from "effect";
 
+import { lifecycleBatchTriggers } from "#modules/automations/lifecycle/batch";
+import { lifecycleTrigger } from "#modules/automations/lifecycle/command";
 import {
 	LifecyclePlanner,
 	lifecycleRunId,
@@ -24,17 +26,15 @@ import {
 	type LifecyclePlanningResult,
 	type LifecyclePlannedPolicy,
 	toLifecycleDispatchPlan,
-} from "#lib/domain/lifecycle";
-import { lifecycleBatchTriggers } from "#lib/domain/lifecycle-batch";
-import { lifecycleTrigger } from "#lib/domain/lifecycle-command";
-import { AppConfig } from "#lib/infrastructure/config/service";
-import * as tables from "#lib/infrastructure/db/schema/tables/combined";
-import { DatabaseSession } from "#lib/infrastructure/db/session";
+} from "#modules/automations/lifecycle/planning";
 import {
 	MutationReceiptIdentityConflict,
 	MutationReceipts,
 	mutationReceiptOwner,
 } from "#modules/mutations/receipts";
+import { AppConfig } from "#platform/config/service";
+import { DatabaseSession } from "#platform/db/session";
+import * as tables from "#schema/tables/combined";
 
 import { BatchHookPin } from "./batch-hook-pin";
 import { AutomationPlannerResolver, matchesTarget } from "./planner-resolver";

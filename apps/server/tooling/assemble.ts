@@ -15,7 +15,7 @@ import {
 	ClientImageManifestJson,
 	equalArtifacts,
 	parseClientImageManifest,
-} from "@ryot-app/kernel-backend/modules/client-artifacts/image-artifacts";
+} from "@ryot-app/kernel-backend/modules/pages/bundles/image-artifacts";
 import {
 	kernelCollectionBrowserRenderer,
 	kernelCollectionDetailRenderer,

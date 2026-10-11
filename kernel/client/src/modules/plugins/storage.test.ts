@@ -19,7 +19,7 @@ const contributors: PreparedClientPage["identity"]["contributors"] = [
 		kind: "plugin",
 		pluginId: media,
 		revisionId: "revision-1",
-		sourceHash: "source-hash",
+		contentHash: "source-hash",
 		installationId: "installation-1",
 		packageId: PluginPackageId.make("test/fixture"),
 	},
@@ -81,7 +81,7 @@ describe("plugin storage outcome", () => {
 							kind: "plugin",
 							pluginId: fitness,
 							revisionId: "revision-1",
-							sourceHash: "same-source-name",
+							contentHash: "same-source-name",
 							installationId: "installation-2",
 							packageId: PluginPackageId.make("ryot/fitness"),
 						},
@@ -100,7 +100,7 @@ describe("plugin storage outcome", () => {
 					});
 					const upgraded = Array.from(composed, (contributor) =>
 						contributor.kind === "plugin"
-							? { ...contributor, revisionId: "revision-2", sourceHash: "new-source" }
+							? { ...contributor, revisionId: "revision-2", contentHash: "new-source" }
 							: contributor,
 					);
 					expect(

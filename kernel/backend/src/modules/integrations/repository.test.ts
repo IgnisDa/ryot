@@ -4,24 +4,24 @@ import { sql } from "drizzle-orm";
 import { Deferred, Effect, Fiber, Layer } from "effect";
 import { describe } from "vitest";
 
-import * as tables from "#lib/infrastructure/db/schema/tables/combined";
-import { DatabaseSession } from "#lib/infrastructure/db/session";
-import { makeAppConfigLayer, makeConfigProviderLayer } from "#lib/test-utils/effect";
-import { isolatedDatabaseLayer } from "#lib/test-utils/isolated-database";
 import { BackupRestorePersistence } from "#modules/backups/restore/persistence";
-import { DefinitionRepository } from "#modules/definition-registry/repository";
-import { PluginConfigEncryptionKey } from "#modules/plugins/config-encryption-key";
-import { PluginConfigRevisions } from "#modules/plugins/config-revisions";
-import { PluginIngestionLock } from "#modules/plugins/ingestion-lock";
-import { PluginInstallationRepository } from "#modules/plugins/installation-repository";
-import { PluginRepository } from "#modules/plugins/repository";
+import { DefinitionRepository } from "#modules/definitions/repository";
+import { PluginConfigEncryptionKey } from "#modules/plugins/configuration/encryption-key";
+import { PluginConfigRevisions } from "#modules/plugins/configuration/revisions";
+import { PluginInstallationRepository } from "#modules/plugins/installations/repository";
+import { PluginIngestionLock } from "#modules/plugins/packages/ingestion-lock";
+import { PluginRepository } from "#modules/plugins/packages/repository";
 import {
 	installRevisionPackage,
 	revisionPackage,
 	revisionDatabaseLayer,
-} from "#modules/plugins/revision.test-support";
-import { SystemPlugins } from "#modules/plugins/system";
+} from "#modules/plugins/packages/revision.test-support";
+import { SystemPlugins } from "#modules/plugins/packages/system";
 import { SavedViewsRepository } from "#modules/saved-views/repository";
+import { DatabaseSession } from "#platform/db/session";
+import * as tables from "#schema/tables/combined";
+import { makeAppConfigLayer, makeConfigProviderLayer } from "#testing/effect";
+import { isolatedDatabaseLayer } from "#testing/isolated-database";
 
 import { IntegrationPluginRevisionActivationLive, IntegrationsRepository } from "./repository";
 

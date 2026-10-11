@@ -15,15 +15,16 @@ import { and, eq } from "drizzle-orm";
 import { Effect, Schema } from "effect";
 import { WorkflowEngine, WorkflowInstance } from "effect/workflow/WorkflowEngine";
 
-import { rootLifecycleCommand } from "#lib/domain/lifecycle-command";
-import { LifecycleExecution } from "#lib/domain/lifecycle-execution";
-import * as tables from "#lib/infrastructure/db/schema/tables/combined";
-import { DatabaseSession } from "#lib/infrastructure/db/session";
-import { RedisService } from "#lib/infrastructure/redis";
-import { makeRedisService, makeWorkflowActivityEngine } from "#lib/test-utils/effect";
-import { kernelDefinitionSource } from "#modules/definition-registry/kernel-source";
-import { DefinitionRepository } from "#modules/definition-registry/repository";
-import { EventSchemasRepository } from "#modules/event-schemas/repository";
+import { rootLifecycleCommand } from "#modules/automations/lifecycle/command";
+import { LifecycleExecution } from "#modules/automations/lifecycle/execution";
+import { EventSchemaReader } from "#modules/definitions/event-schemas";
+import { kernelDefinitionSource } from "#modules/definitions/kernel-source";
+import { DefinitionRepository } from "#modules/definitions/repository";
+import { EntityImportWorkflowOperations } from "#modules/entities/providers/operations-workflow";
+import {
+	ProviderEntityPopulationWorkflow,
+	runProviderEntityPopulationWorkflow,
+} from "#modules/entities/providers/provider-entity-population-workflow";
 import {
 	EventCreateWorkflow,
 	type EventCreateWorkflowPayload,
@@ -31,17 +32,19 @@ import {
 import { runEventCreateWorkflow } from "#modules/events/event-create-workflow-live";
 import { EventsRepository } from "#modules/events/repository";
 import { EventsService } from "#modules/events/service";
-import { installRevisionPackage, revisionPackage } from "#modules/plugins/revision.test-support";
-import { PluginRuntimeResolver } from "#modules/plugins/runtime-resolver";
-import { testPluginPackageId } from "#modules/plugins/test-support";
-import { EntityImportWorkflowOperations } from "#modules/provider-entities/operations-workflow";
+import { PluginRuntimeResolver } from "#modules/plugins/catalog/runtime-resolver";
 import {
-	ProviderEntityPopulationWorkflow,
-	runProviderEntityPopulationWorkflow,
-} from "#modules/provider-entities/provider-entity-population-workflow";
+	installRevisionPackage,
+	revisionPackage,
+} from "#modules/plugins/packages/revision.test-support";
+import { testPluginPackageId } from "#modules/plugins/test-support";
 import { relationshipDatabaseLayer } from "#modules/relationships/lifecycle.test-support";
 import { RelationshipsService } from "#modules/relationships/service";
 import { SandboxRepository } from "#modules/scripts/registry/repository";
+import { DatabaseSession } from "#platform/db/session";
+import { RedisService } from "#platform/redis";
+import * as tables from "#schema/tables/combined";
+import { makeRedisService, makeWorkflowActivityEngine } from "#testing/effect";
 
 import { EntitiesRepository } from "./repository";
 import { EntitiesService } from "./service";
@@ -150,10 +153,10 @@ const createEvents = (
 	const instance = WorkflowInstance.initial(EventCreateWorkflow, executionId);
 	return Effect.gen(function* () {
 		const repository = yield* EventsRepository.make;
-		const schemas = yield* EventSchemasRepository.make;
+		const schemas = yield* EventSchemaReader.make;
 		return yield* runEventCreateWorkflow({ userId, command, payload }, executionId).pipe(
 			Effect.provideService(EventsRepository, repository),
-			Effect.provideService(EventSchemasRepository, schemas),
+			Effect.provideService(EventSchemaReader, schemas),
 			Effect.provideService(WorkflowInstance, instance),
 			Effect.provideService(WorkflowEngine, makeWorkflowActivityEngine(instance)),
 		);

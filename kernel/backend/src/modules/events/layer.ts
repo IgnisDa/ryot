@@ -1,9 +1,9 @@
 import { Layer } from "effect";
 
 import { LifecycleServicesLive } from "#modules/automations/layer";
+import { EventSchemaReaderLive } from "#modules/definitions/layer";
 import { EntitiesRepositoryLive } from "#modules/entities/repository";
 import { DomainWriteChecksLive } from "#modules/entities/write-context";
-import { EventSchemasRepositoryLive } from "#modules/event-schemas/layer";
 
 import { EventCreateWorkflowDefinitionsLive } from "./event-create-workflow-live";
 import { EventsRepository } from "./repository";
@@ -17,7 +17,7 @@ export const EventsServiceLive = EventsService.layer.pipe(
 			EventsRepository.layer,
 			EntitiesRepositoryLive,
 			DomainWriteChecksLive,
-			EventSchemasRepositoryLive,
+			EventSchemaReaderLive,
 			LifecycleServicesLive,
 		),
 	),
@@ -28,7 +28,7 @@ export const EventCreateWorkflowDefinitionsProvidedLive = EventCreateWorkflowDef
 		Layer.mergeAll(
 			EntitiesRepositoryLive,
 			DomainWriteChecksLive,
-			EventSchemasRepositoryLive,
+			EventSchemaReaderLive,
 			EventsRepository.layer,
 		),
 	),
@@ -43,7 +43,7 @@ export const EventStreamWorkServiceLive = EventStreamWorkService.layer.pipe(
 				EventsRepository.layer,
 				EntitiesRepositoryLive,
 				DomainWriteChecksLive,
-				EventSchemasRepositoryLive,
+				EventSchemaReaderLive,
 				LifecycleServicesLive,
 			),
 		),

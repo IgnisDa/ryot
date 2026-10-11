@@ -95,7 +95,7 @@ export const archivePluginDefinitionContract = (
 });
 
 export const ArchiveRequiredPlugin = strictStruct({
-	sourceHash: sha256,
+	contentHash: sha256,
 	version: Schema.String,
 	packageId: PluginPackageId,
 	definitionContract: ArchivePluginDefinitionContract,
@@ -131,7 +131,7 @@ export type ArchivePluginCompiledScript = typeof ArchivePluginCompiledScript.Typ
 
 export const ArchivePrivatePlugin = strictStruct({
 	key: Schema.String,
-	sourceHash: sha256,
+	contentHash: sha256,
 	version: Schema.String,
 	manifest: PluginManifest,
 	packageId: PluginPackageId,

@@ -61,8 +61,8 @@ import { pluginClientCatalogRecipe } from "@ryot-app/ryotql-recipes/plugin-clien
 import { PgDialect } from "drizzle-orm/pg-core";
 import { Context, Effect, Layer, Ref, Result, Schema } from "effect";
 
-import { mapDatabaseErrors } from "#lib/infrastructure/db/errors";
-import { fakeDatabaseSession } from "#lib/test-utils/effect";
+import { mapDatabaseErrors } from "#platform/db/errors";
+import { fakeDatabaseSession } from "#testing/effect";
 
 import { RyotQLService } from "./service";
 

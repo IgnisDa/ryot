@@ -1,9 +1,9 @@
 import { Effect, Layer } from "effect";
 
-import { implementWorkflow } from "#lib/infrastructure/workflow-scope";
-import { DefinitionRepository } from "#modules/definition-registry/repository";
+import { DefinitionRepository } from "#modules/definitions/repository";
 import { MutationReceipts } from "#modules/mutations/receipts";
 import { admitWorkflow } from "#modules/mutations/workflow-dispatch";
+import { implementWorkflow } from "#platform/workflow/scope";
 
 import { IngestionCaptures } from "./capture-service";
 import { runDataImportWorkflow } from "./data-workflow";

@@ -1,7 +1,7 @@
 import { Layer } from "effect";
 
-import { PluginRuntimeResolverLive } from "#modules/plugins/runtime-resolver";
-import { PluginSandboxScriptResolverLive } from "#modules/plugins/sandbox-plugin-script-resolver-live";
+import { PluginRuntimeResolverLive } from "#modules/plugins/catalog/runtime-resolver";
+import { PluginSandboxScriptResolverLive } from "#modules/plugins/catalog/script-resolver-live";
 
 import { ScriptExecutionService } from "./executions/service";
 import { SandboxWorkflowPinning } from "./executions/workflow";

@@ -154,7 +154,7 @@ export class PluginManagementService extends Context.Service<PluginManagementSer
 					return yield* api
 						.updatePackage(scope, {
 							params,
-							payload: { uploadToken: token.token, sourceHash: installation.sourceHash },
+							payload: { uploadToken: token.token, contentHash: installation.contentHash },
 						})
 						.pipe(Effect.mapError(commandFailure));
 				}

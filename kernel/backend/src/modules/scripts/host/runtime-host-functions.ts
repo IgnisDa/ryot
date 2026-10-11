@@ -28,10 +28,10 @@ import {
 } from "effect/http";
 
 import { sandboxRunUserId } from "#modules/scripts/host/execution-context";
+import { EgressDenied } from "#platform/egress/http-client";
+import { redisKeys, RedisService } from "#platform/redis";
+import { ServerRun } from "#platform/server-run";
 
-import { EgressDenied } from "../../../lib/infrastructure/egress/http-client";
-import { redisKeys, RedisService } from "../../../lib/infrastructure/redis";
-import { ServerRun } from "../../../lib/infrastructure/server-run";
 import { readSandboxByteLimitedText } from "./stream-utils";
 
 type BunRequestInit = RequestInit & { tls: { rejectUnauthorized: boolean } };

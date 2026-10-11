@@ -127,7 +127,7 @@ layer(PluginManagementService.layer.pipe(Layer.provideMerge(dependencies)))((tes
 					method: "package",
 					request: {
 						params: { installationId: "private-installation" },
-						payload: { sourceHash: "source-hash", uploadToken: "archive-token" },
+						payload: { contentHash: "source-hash", uploadToken: "archive-token" },
 					},
 				},
 			]);

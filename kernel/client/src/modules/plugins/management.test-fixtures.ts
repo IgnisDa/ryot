@@ -16,7 +16,7 @@ export const managedInstallation = (
 	homeSavedView: null,
 	configuredSecrets: [],
 	health: "incompatible",
-	sourceHash: "source-hash",
+	contentHash: "source-hash",
 	activationId: "activation",
 	description: "Independent package",
 	installationId: "private-installation",

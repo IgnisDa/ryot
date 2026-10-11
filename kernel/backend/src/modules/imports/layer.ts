@@ -2,17 +2,17 @@ import { SandboxRunError } from "@ryot-app/contract/errors";
 import { samePluginPin } from "@ryot-app/sandbox/protocol/principal";
 import { Effect, Layer } from "effect";
 
-import { AuthRepository } from "#modules/auth/repository";
-import { DefinitionRepository } from "#modules/definition-registry/repository";
+import { AuthRepository } from "#modules/accounts/auth/repository";
+import { UploadServicesLive } from "#modules/assets/layer";
+import { IngestionPayloads } from "#modules/assets/storage/ingestion-payloads";
+import { DefinitionRepository } from "#modules/definitions/repository";
 import { EntitiesRepositoryLive } from "#modules/entities/repository";
-import { ImportSourceCatalog } from "#modules/plugins/import-source-catalog";
-import { IngestionReadinessService } from "#modules/plugins/ingestion-readiness-service";
-import { PluginInstallationRepository } from "#modules/plugins/installation-repository";
-import { PluginRuntimeResolverLive } from "#modules/plugins/runtime-resolver";
+import { ImportSourceCatalog } from "#modules/plugins/catalog/import-sources";
+import { IngestionReadinessService } from "#modules/plugins/catalog/readiness-service";
+import { PluginRuntimeResolverLive } from "#modules/plugins/catalog/runtime-resolver";
+import { PluginInstallationRepository } from "#modules/plugins/installations/repository";
 import { ScriptExecutionService } from "#modules/scripts/executions/service";
 import { ScriptExecutionServiceLive } from "#modules/scripts/layer";
-import { UploadServicesLive } from "#modules/uploads/layer";
-import { IngestionPayloads } from "#modules/uploads/object-storage/ingestion-payloads";
 
 import { IngestionArtifactStagingLive } from "./artifact-staging";
 import { IngestionCaptures } from "./capture-service";

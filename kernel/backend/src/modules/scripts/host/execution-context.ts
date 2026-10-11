@@ -21,7 +21,7 @@ import {
 	lifecycleActor,
 	automationLifecycleCausation,
 	rootLifecycleCausation,
-} from "#lib/domain/lifecycle-command";
+} from "#modules/automations/lifecycle/command";
 import type { DomainLifecycleCommand } from "#modules/entities/write-context";
 
 export const sandboxStartedAt = Effect.map(Clock.currentTimeMillis, (millis) =>

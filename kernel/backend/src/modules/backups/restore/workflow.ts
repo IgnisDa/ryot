@@ -9,17 +9,17 @@ import { BackupRunId, UserId } from "@ryot-app/contract/schema/brands";
 import { Context, Effect, FileSystem, Layer, Result, Schedule, Schema } from "effect";
 import { Workflow } from "effect/workflow";
 
-import { AppConfig } from "#lib/infrastructure/config/service";
-import { DatabaseSession } from "#lib/infrastructure/db/session";
-import type { DurableSchema } from "#lib/infrastructure/workflow";
-import { implementWorkflow, makeActivity } from "#lib/infrastructure/workflow-scope";
-import { PluginBackupRestore } from "#modules/plugins/backup-restore";
-import { UploadIntentsService } from "#modules/uploads/intents/service";
+import type { DurableSchema } from "#boot/workflow-engine";
 import {
 	ManagedAssetsService,
 	type StagedPermanentAsset,
-} from "#modules/uploads/managed-assets/service";
-import { ObjectStorageService } from "#modules/uploads/object-storage/service";
+} from "#modules/assets/storage/managed-assets";
+import { ObjectStorageService } from "#modules/assets/storage/object-storage";
+import { UploadIntentsService } from "#modules/assets/uploads/intents";
+import { PluginBackupRestore } from "#modules/plugins/packages/backup-restore";
+import { AppConfig } from "#platform/config/service";
+import { DatabaseSession } from "#platform/db/session";
+import { implementWorkflow, makeActivity } from "#platform/workflow/scope";
 
 import { validateArchiveStream } from "../archive/archive";
 import { BackupArchiveError, type BackupArchiveErrorReason } from "../archive/error";

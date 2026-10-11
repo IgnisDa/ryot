@@ -7,18 +7,18 @@ import { sql } from "drizzle-orm";
 import { Context, Effect, FileSystem, Layer, Ref, Stream } from "effect";
 import { WorkflowEngine, WorkflowInstance } from "effect/workflow/WorkflowEngine";
 
-import { DatabaseSession } from "#lib/infrastructure/db/session";
+import { ManagedAssetsService } from "#modules/assets/storage/managed-assets";
+import { ObjectStorageService } from "#modules/assets/storage/object-storage";
+import { UploadIntentsService } from "#modules/assets/uploads/intents";
+import { PluginBackupRestore } from "#modules/plugins/packages/backup-restore";
+import { fixtureManifest } from "#modules/plugins/test-support";
+import { DatabaseSession } from "#platform/db/session";
 import {
 	databaseLayer,
 	makeAppConfigLayer,
 	makeWorkflowActivityEngine,
 	type MockOverrides,
-} from "#lib/test-utils/effect";
-import { PluginBackupRestore } from "#modules/plugins/backup-restore";
-import { fixtureManifest } from "#modules/plugins/test-support";
-import { UploadIntentsService } from "#modules/uploads/intents/service";
-import { ManagedAssetsService } from "#modules/uploads/managed-assets/service";
-import { ObjectStorageService } from "#modules/uploads/object-storage/service";
+} from "#testing/effect";
 
 import { createArchiveStream } from "../archive/archive";
 import { archivePluginDefinitionContract } from "../archive/schemas";
@@ -216,7 +216,7 @@ layer(
 					requiredPlugins: [
 						{
 							version: "1.0.0",
-							sourceHash: "a".repeat(64),
+							contentHash: "a".repeat(64),
 							packageId: fixtureManifest().metadata.packageId,
 							definitionContract: archivePluginDefinitionContract(fixtureManifest()),
 						},

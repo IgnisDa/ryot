@@ -18,41 +18,37 @@ import { Workflow } from "effect/workflow";
 import { WorkflowEngine, WorkflowInstance } from "effect/workflow/WorkflowEngine";
 import { Client } from "pg";
 
-import { LifecyclePlanner } from "#lib/domain/lifecycle";
-import { rootLifecycleCommand } from "#lib/domain/lifecycle-command";
-import { LifecycleExecution } from "#lib/domain/lifecycle-execution";
-import * as tables from "#lib/infrastructure/db/schema/tables/combined";
-import { DatabaseSession } from "#lib/infrastructure/db/session";
-import { WorkflowExecutionNotifications } from "#lib/infrastructure/workflow-execution-notifications";
-import {
-	makeAppConfigLayer,
-	makeConfigProviderLayer,
-	makeWorkflowEngine,
-} from "#lib/test-utils/effect";
-import { ingestionRetirementTestLayer } from "#lib/test-utils/ingestion-retirement";
-import { IsolatedDatabase, isolatedDatabaseLayer } from "#lib/test-utils/isolated-database";
-import { AuthService } from "#modules/auth/service";
-import {
-	withLifecycleBatchPlanning,
-	withLifecycleDispatch,
-} from "#modules/automations/lifecycle.test-support";
-import { EntitiesRepository } from "#modules/entities/repository";
-import type { DomainWriteChecks } from "#modules/entities/write-context";
-import { DomainWriteChecksLive } from "#modules/entities/write-context";
-import { EventSchemasRepository } from "#modules/event-schemas/repository";
-import { ImportsRepository } from "#modules/imports/repository";
-import { MutationReceipts, MutationReceiptIdentity } from "#modules/mutations/receipts";
-import { AdmittedWorkflowCatalogue } from "#modules/mutations/workflow-catalogue";
-import { testPluginPackageId } from "#modules/plugins/test-support";
-import { ObjectStorageService } from "#modules/uploads/object-storage/service";
-import { UserLifecycleRepository } from "#modules/user-lifecycle/repository";
-import { UserLifecycleService } from "#modules/user-lifecycle/service";
+import { AuthService } from "#modules/accounts/auth/service";
+import { UserLifecycleRepository } from "#modules/accounts/lifecycle/repository";
+import { UserLifecycleService } from "#modules/accounts/lifecycle/service";
 import {
 	runUserLifecycleWorkflow,
 	UserLifecycleWorkflow,
 	UserLifecycleWorkflowOperations,
 	UserLifecycleWorkflowOperationsLive,
-} from "#modules/user-lifecycle/workflow";
+} from "#modules/accounts/lifecycle/workflow";
+import { ObjectStorageService } from "#modules/assets/storage/object-storage";
+import {
+	withLifecycleBatchPlanning,
+	withLifecycleDispatch,
+} from "#modules/automations/lifecycle.test-support";
+import { rootLifecycleCommand } from "#modules/automations/lifecycle/command";
+import { LifecycleExecution } from "#modules/automations/lifecycle/execution";
+import { LifecyclePlanner } from "#modules/automations/lifecycle/planning";
+import { EventSchemaReader } from "#modules/definitions/event-schemas";
+import { EntitiesRepository } from "#modules/entities/repository";
+import type { DomainWriteChecks } from "#modules/entities/write-context";
+import { DomainWriteChecksLive } from "#modules/entities/write-context";
+import { ImportsRepository } from "#modules/imports/repository";
+import { MutationReceipts, MutationReceiptIdentity } from "#modules/mutations/receipts";
+import { AdmittedWorkflowCatalogue } from "#modules/mutations/workflow-catalogue";
+import { ingestionRetirementTestLayer } from "#modules/plugins/packages/ingestion-retirement.test-support";
+import { testPluginPackageId } from "#modules/plugins/test-support";
+import { DatabaseSession } from "#platform/db/session";
+import { WorkflowExecutionNotifications } from "#platform/workflow/execution-notifications";
+import * as tables from "#schema/tables/combined";
+import { makeAppConfigLayer, makeConfigProviderLayer, makeWorkflowEngine } from "#testing/effect";
+import { IsolatedDatabase, isolatedDatabaseLayer } from "#testing/isolated-database";
 
 import { EventCreateWorkflow, EventCreateWorkflowPayload } from "./event-create-workflow";
 import { runEventCreateWorkflow } from "./event-create-workflow-live";
@@ -246,7 +242,7 @@ const workflowLayer = Layer.mergeAll(
 				entitySchemaSlug: EntitySchemaSlug.make("record"),
 			}),
 	}),
-	Layer.mock(EventSchemasRepository)({
+	Layer.mock(EventSchemaReader)({
 		lockCatalog: () => Effect.void,
 		getScopeForUser: () =>
 			Effect.succeed({
@@ -320,7 +316,7 @@ const lifecycleDatabaseLayer = (
 									return listedEntity(requestedEntityId, yield* Ref.get(entityProperties));
 								}),
 						}),
-						Layer.mock(EventSchemasRepository)({
+						Layer.mock(EventSchemaReader)({
 							lockCatalog: () => Effect.void,
 							getScopeForUser: (input) =>
 								Effect.succeed(
@@ -1308,7 +1304,7 @@ describe("Event lifecycle PostgreSQL", () => {
 						| DatabaseSession
 						| DomainWriteChecks
 						| EntitiesRepository
-						| EventSchemasRepository
+						| EventSchemaReader
 						| EventsRepository
 						| LifecyclePlanner
 						| LifecycleExecution

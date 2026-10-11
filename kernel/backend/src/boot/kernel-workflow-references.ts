@@ -39,8 +39,16 @@ import {
 	rootLifecycleCommand,
 	lifecycleActor,
 	automationLifecycleCausation,
-} from "#lib/domain/lifecycle-command";
-import { DatabaseSession } from "#lib/infrastructure/db/session";
+} from "#modules/automations/lifecycle/command";
+import {
+	EntityImportWorkflow,
+	type EntityImportError,
+} from "#modules/entities/providers/entity-import-workflow";
+import {
+	ProviderEntityPopulationWorkflow,
+	type ProviderEntityPopulationPayload,
+} from "#modules/entities/providers/provider-entity-population-workflow";
+import { ProviderEntityImportWorkflowPayload } from "#modules/entities/providers/schemas";
 import type { DomainLifecycleCommand } from "#modules/entities/write-context";
 import {
 	EventCreateWorkflow,
@@ -58,17 +66,9 @@ import { ImportsRepository } from "#modules/imports/repository";
 import { IntegrationsRepository } from "#modules/integrations/repository";
 import { MutationReceipts } from "#modules/mutations/receipts";
 import { dispatchAdmittedWorkflow } from "#modules/mutations/workflow-dispatch";
-import { PluginRuntimeResolver } from "#modules/plugins/runtime-resolver";
-import {
-	EntityImportWorkflow,
-	type EntityImportError,
-} from "#modules/provider-entities/entity-import-workflow";
-import {
-	ProviderEntityPopulationWorkflow,
-	type ProviderEntityPopulationPayload,
-} from "#modules/provider-entities/provider-entity-population-workflow";
-import { ProviderEntityImportWorkflowPayload } from "#modules/provider-entities/schemas";
+import { PluginRuntimeResolver } from "#modules/plugins/catalog/runtime-resolver";
 import { KernelWorkflowReferences } from "#modules/scripts/registry/kernel-workflow-references";
+import { DatabaseSession } from "#platform/db/session";
 
 const PROVIDER_ENTITY_POPULATION_MAX_ITEMS = 100;
 const PROVIDER_ENTITY_POPULATION_CONCURRENCY = 4;

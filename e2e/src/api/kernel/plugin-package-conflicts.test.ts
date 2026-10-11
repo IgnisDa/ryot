@@ -276,8 +276,8 @@ describe("plugin package conflicts", () => {
 					kind: "resource-unavailable",
 					data: { pluginId: a.pluginId, installationId: a.id, code: "package-identity-conflict" },
 				});
-				expect((yield* namespaceInstallation(client, a.pluginId)).sourceHash).toBe(
-					a.installation.sourceHash,
+				expect((yield* namespaceInstallation(client, a.pluginId)).contentHash).toBe(
+					a.installation.contentHash,
 				);
 			}),
 	);
@@ -336,7 +336,7 @@ describe("plugin package conflicts", () => {
 					isHidden: true,
 					isInitialized: true,
 					pluginId: a.pluginId,
-					sourceHash: a.installation.sourceHash,
+					contentHash: a.installation.contentHash,
 					packageId: packages.a.manifest.metadata.packageId,
 					incompatibilityReason: "package-identity-conflict",
 				});
@@ -345,7 +345,12 @@ describe("plugin package conflicts", () => {
 					label: "B1",
 				});
 				const denied = yield* Effect.flip(
-					invokeNamespaceOperation(client, a.installation.packageId, {}, a.installation.sourceHash),
+					invokeNamespaceOperation(
+						client,
+						a.installation.packageId,
+						{},
+						a.installation.contentHash,
+					),
 				);
 				assertTaggedError(denied, "PluginConflictError");
 				expect(denied.reason).toMatchObject({

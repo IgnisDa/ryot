@@ -22,30 +22,30 @@ import { DateTime, Effect, Ref, Schema } from "effect";
 import { Workflow } from "effect/workflow";
 import { WorkflowInstance } from "effect/workflow/WorkflowEngine";
 
+import type { DurableSchema } from "#boot/workflow-engine";
+import { lifecycleTrigger } from "#modules/automations/lifecycle/command";
+import { LifecycleExecution } from "#modules/automations/lifecycle/execution";
 import {
 	LifecycleDispatchPlan,
 	LifecyclePlanner,
 	toLifecycleDispatchPlan,
-} from "#lib/domain/lifecycle";
-import { lifecycleTrigger } from "#lib/domain/lifecycle-command";
-import { LifecycleExecution } from "#lib/domain/lifecycle-execution";
-import { DatabaseSession } from "#lib/infrastructure/db/session";
-import type { DurableSchema } from "#lib/infrastructure/workflow";
-import { implementWorkflow, makeActivity } from "#lib/infrastructure/workflow-scope";
-import { parseAppSchemaProperties } from "#lib/property-schema/property-schema-runtime";
+} from "#modules/automations/lifecycle/planning";
+import { EventSchemaReader } from "#modules/definitions/event-schemas";
+import { parseAppSchemaProperties } from "#modules/definitions/properties/runtime";
 import { EntitiesRepository } from "#modules/entities/repository";
 import {
 	assertStableUnder,
 	DomainWriteChecks,
 	writerPropertiesSchema,
 } from "#modules/entities/write-context";
-import { EventSchemasRepository } from "#modules/event-schemas/repository";
 import { type MutationReceiptIdentity, MutationReceipts } from "#modules/mutations/receipts";
 import { admitWorkflow } from "#modules/mutations/workflow-dispatch";
 import {
 	CatalogDefinitionFingerprint,
 	catalogDefinitionFingerprint,
-} from "#modules/plugins/runtime-resolver";
+} from "#modules/plugins/catalog/runtime-resolver";
+import { DatabaseSession } from "#platform/db/session";
+import { implementWorkflow, makeActivity } from "#platform/workflow/scope";
 
 import {
 	EventCreateWorkflow,
@@ -105,7 +105,7 @@ const prepareItem = Effect.fn("prepareEventCreateItem")(function* (
 	const planner = yield* LifecyclePlanner;
 	const session = yield* DatabaseSession;
 	const writes = yield* DomainWriteChecks;
-	const eventSchemas = yield* EventSchemasRepository;
+	const eventSchemas = yield* EventSchemaReader;
 	const receipts = yield* MutationReceipts.make;
 	const item = payload.payload[index];
 	if (!item) {
@@ -247,7 +247,7 @@ const writeEvent = Effect.fn("writeEventCreateItem")(function* (
 ) {
 	const repository = yield* EventsRepository;
 	const entities = yield* EntitiesRepository;
-	const eventSchemas = yield* EventSchemasRepository;
+	const eventSchemas = yield* EventSchemaReader;
 	const planner = yield* LifecyclePlanner;
 	const session = yield* DatabaseSession;
 	const writes = yield* DomainWriteChecks;

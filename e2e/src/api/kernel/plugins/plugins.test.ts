@@ -471,7 +471,7 @@ export default defineAutomation({
 			);
 			assertPresent(reingestedPlugin, "Missing reingested lifecycle plugin");
 			expect(reingestedPlugin.activeRevisionId).toBe(reingested.activePluginRevisionId);
-			expect(reingestedPlugin.sourceHash).not.toBe(activePlugin.sourceHash);
+			expect(reingestedPlugin.contentHash).not.toBe(activePlugin.contentHash);
 
 			const refusal = yield* Effect.flip(
 				getApiClient().call(

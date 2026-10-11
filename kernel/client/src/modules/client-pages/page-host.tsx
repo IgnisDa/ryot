@@ -538,7 +538,7 @@ function ClientPageFrame(props: {
 				}
 				return props.runtime
 					.runSync(PluginOperationsService)
-					.invoke({ request, scope: props.scope, sourceHash: target.sourceHash });
+					.invoke({ request, scope: props.scope, contentHash: target.contentHash });
 			}}
 			onCollection={(request) => {
 				const operation = Effect.gen(function* () {

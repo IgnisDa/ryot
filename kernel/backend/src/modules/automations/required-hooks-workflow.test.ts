@@ -6,11 +6,11 @@ import { Reactivity } from "effect/reactivity";
 import { Workflow } from "effect/workflow";
 import { WorkflowEngine } from "effect/workflow/WorkflowEngine";
 
-import { LifecycleExecution } from "#lib/domain/lifecycle-execution";
-import { DatabaseSession } from "#lib/infrastructure/db/session";
-import { WorkflowExecutionNotifications } from "#lib/infrastructure/workflow-execution-notifications";
-import { implementWorkflow } from "#lib/infrastructure/workflow-scope";
-import { makeSqlClusterWorkflowEngine } from "#lib/test-utils/effect";
+import { LifecycleExecution } from "#modules/automations/lifecycle/execution";
+import { DatabaseSession } from "#platform/db/session";
+import { WorkflowExecutionNotifications } from "#platform/workflow/execution-notifications";
+import { implementWorkflow } from "#platform/workflow/scope";
+import { makeSqlClusterWorkflowEngine } from "#testing/effect";
 
 import { LifecycleExecutionLive } from "./execution";
 import { triggerFixture } from "./lifecycle.test-support";

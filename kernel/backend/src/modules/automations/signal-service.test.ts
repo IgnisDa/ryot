@@ -13,20 +13,20 @@ import { eq } from "drizzle-orm";
 import { Context, DateTime, Effect, Layer, Ref } from "effect";
 import { describe } from "vitest";
 
-import { LifecyclePlanner } from "#lib/domain/lifecycle";
-import { rootLifecycleCommand } from "#lib/domain/lifecycle-command";
-import { LifecycleExecution } from "#lib/domain/lifecycle-execution";
-import * as tables from "#lib/infrastructure/db/schema/tables/combined";
-import { DatabaseSession } from "#lib/infrastructure/db/session";
-import { makeAppConfigLayer } from "#lib/test-utils/effect";
+import { rootLifecycleCommand } from "#modules/automations/lifecycle/command";
+import { LifecycleExecution } from "#modules/automations/lifecycle/execution";
+import { LifecyclePlanner } from "#modules/automations/lifecycle/planning";
 import { EntitiesRepository } from "#modules/entities/repository";
-import { PluginInstallationRepository } from "#modules/plugins/installation-repository";
+import { PluginInstallationRepository } from "#modules/plugins/installations/repository";
 import {
 	installRevisionPackage,
 	revisionPackage,
 	revisionDatabaseLayer,
-} from "#modules/plugins/revision.test-support";
+} from "#modules/plugins/packages/revision.test-support";
 import { RelationshipsRepository } from "#modules/relationships/repository";
+import { DatabaseSession } from "#platform/db/session";
+import * as tables from "#schema/tables/combined";
+import { makeAppConfigLayer } from "#testing/effect";
 
 import { LifecyclePlannerServiceLive } from "./layer";
 import { withLifecycleBatchPlanning, withLifecycleDispatch } from "./lifecycle.test-support";

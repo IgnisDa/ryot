@@ -8,22 +8,18 @@ import { eq } from "drizzle-orm";
 import { DateTime, Effect, Layer } from "effect";
 import { assert, describe, expect, it as unit } from "vitest";
 
-import { user } from "#lib/infrastructure/db/schema/tables/auth";
-import {
-	automationRun,
-	automationRunAttempt,
-	automationTrigger,
-} from "#lib/infrastructure/db/schema/tables/automations";
+import { fixtureManifest } from "#modules/plugins/test-support";
+import { DatabaseSession } from "#platform/db/session";
+import { user } from "#schema/tables/auth";
+import { automationRun, automationRunAttempt, automationTrigger } from "#schema/tables/automations";
 import {
 	sandboxScript,
 	plugin,
 	pluginRevision,
 	pluginConfigRevision,
 	pluginConfigEncryptionKey,
-} from "#lib/infrastructure/db/schema/tables/core";
-import { DatabaseSession } from "#lib/infrastructure/db/session";
-import { isolatedDatabaseLayer } from "#lib/test-utils/isolated-database";
-import { fixtureManifest } from "#modules/plugins/test-support";
+} from "#schema/tables/core";
+import { isolatedDatabaseLayer } from "#testing/isolated-database";
 
 import {
 	AUTOMATION_ATTEMPT_ARTIFACT_BYTES,
@@ -442,7 +438,7 @@ describe("AutomationAttemptRepository (PostgreSQL)", () => {
 								.values({
 									id: "revision",
 									pluginId: "plugin",
-									sourceHash: "source",
+									contentHash: "source",
 									manifest: fixtureManifest(),
 									clientConfigSchema: { fields: {} },
 								});

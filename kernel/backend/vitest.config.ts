@@ -9,7 +9,9 @@ const srcDir = Bun.fileURLToPath(new URL("./src/", import.meta.url));
 export default mergeConfig(
 	shared,
 	defineConfig({
-		resolve: { alias: [{ find: /^#(lib|modules)\//, replacement: `${srcDir}$1/` }] },
+		resolve: {
+			alias: [{ replacement: `${srcDir}$1/`, find: /^#(boot|modules|platform|schema|testing)\// }],
+		},
 		test: {
 			maxWorkers: 4,
 			testTimeout: 120_000,

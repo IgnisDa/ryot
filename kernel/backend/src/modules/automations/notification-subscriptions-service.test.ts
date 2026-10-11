@@ -15,8 +15,8 @@ import {
 import { assertExitFails } from "@ryot-app/testing/effect-assertions";
 import { Context, Effect, Layer, Ref, Schema } from "effect";
 
-import { databaseLayer } from "#lib/test-utils/effect";
-import { DefinitionRepository } from "#modules/definition-registry/repository";
+import { DefinitionRepository } from "#modules/definitions/repository";
+import { databaseLayer } from "#testing/effect";
 
 import { NotificationSubscriptionsService } from "./notification-subscriptions-service";
 import {

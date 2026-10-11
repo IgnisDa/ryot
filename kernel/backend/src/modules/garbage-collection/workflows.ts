@@ -1,7 +1,7 @@
 import { Context, DateTime, Effect, Layer } from "effect";
 import { EntityAddress, EntityId, EntityType, MessageStorage, ShardId } from "effect/cluster";
 
-import { DatabaseSession } from "#lib/infrastructure/db/session";
+import { DatabaseSession } from "#platform/db/session";
 
 import { workflowClockEntityType, workflowEntityPrefix } from "./workflow-models";
 import { WorkflowGarbageCollectionRepository } from "./workflow-repository";

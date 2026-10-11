@@ -1,12 +1,12 @@
 import { UserId } from "@ryot-app/contract/schema/brands";
-import { DatabaseSession } from "@ryot-app/kernel-backend/lib/infrastructure/db/session";
+import { UserBootstrap } from "@ryot-app/kernel-backend/modules/accounts/provisioning/bootstrap";
 import {
 	formatPropertyIssues,
 	parseAppSchemaProperties,
-} from "@ryot-app/kernel-backend/lib/property-schema/property-schema-runtime";
+} from "@ryot-app/kernel-backend/modules/definitions/properties/runtime";
 import { IntegrationsRepository } from "@ryot-app/kernel-backend/modules/integrations/repository";
 import { MutationReceipts } from "@ryot-app/kernel-backend/modules/mutations/receipts";
-import { UserBootstrap } from "@ryot-app/kernel-backend/modules/user-bootstrap/bootstrap";
+import { DatabaseSession } from "@ryot-app/kernel-backend/platform/db/session";
 import { Clock, Effect } from "effect";
 
 import {

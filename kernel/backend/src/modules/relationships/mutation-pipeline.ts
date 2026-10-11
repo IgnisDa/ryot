@@ -16,18 +16,17 @@ import { RelationshipId, type UserId } from "@ryot-app/contract/schema/brands";
 import { principalOwner } from "@ryot-app/sandbox/protocol/principal";
 import { Cause, Context, Effect, Layer, Schema, Struct } from "effect";
 
-import { LifecyclePlannedPolicy, LifecyclePlanner } from "#lib/domain/lifecycle";
-import { lifecycleTrigger } from "#lib/domain/lifecycle-command";
-import { LifecycleExecution } from "#lib/domain/lifecycle-execution";
-import { DatabaseSession } from "#lib/infrastructure/db/session";
+import { lifecycleTrigger } from "#modules/automations/lifecycle/command";
+import { LifecycleExecution } from "#modules/automations/lifecycle/execution";
+import { LifecyclePlannedPolicy, LifecyclePlanner } from "#modules/automations/lifecycle/planning";
 import {
 	mapCommittedResult,
 	runLifecycleWriteInline,
 	type LifecycleCommittedStep,
 	type LifecyclePreparedStep,
-} from "#lib/infrastructure/lifecycle-workflow-step";
-import { DefinitionRepository } from "#modules/definition-registry/repository";
-import type { RelationshipSchemaDefinition } from "#modules/definition-registry/snapshot";
+} from "#modules/automations/lifecycle/write-step";
+import { DefinitionRepository } from "#modules/definitions/repository";
+import type { RelationshipSchemaDefinition } from "#modules/definitions/snapshot";
 import { EntitiesRepository } from "#modules/entities/repository";
 import { DomainWriteChecks, type DomainLifecycleCommand } from "#modules/entities/write-context";
 import {
@@ -39,7 +38,8 @@ import {
 import {
 	catalogDefinitionFingerprint,
 	PluginRuntimeResolver,
-} from "#modules/plugins/runtime-resolver";
+} from "#modules/plugins/catalog/runtime-resolver";
+import { DatabaseSession } from "#platform/db/session";
 
 import {
 	classifyRelationshipReceiptConflict,

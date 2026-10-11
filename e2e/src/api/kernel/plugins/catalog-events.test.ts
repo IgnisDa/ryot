@@ -129,14 +129,14 @@ describe("plugin catalog events", () => {
 			yield* ownerEvents.waitForCatalogInvalidated();
 			yield* outsiderEvents.assertNoInvalidation();
 			const after = yield* fixtureCatalogEntry(owner.client);
-			expect(after.sourceHash).not.toBe(before.sourceHash);
+			expect(after.contentHash).not.toBe(before.contentHash);
 
 			yield* ownerEvents.drainQueuedEvents();
 			yield* ownerEvents.close();
 			yield* updateFixtureClientPlugin(owner.client, "B", `${variant}-missed`, apiUrl());
 			const reconnected = yield* openPluginCatalogEventsScoped(owner);
 			yield* reconnected.waitForConnected();
-			expect((yield* fixtureCatalogEntry(owner.client)).sourceHash).not.toBe(after.sourceHash);
+			expect((yield* fixtureCatalogEntry(owner.client)).contentHash).not.toBe(after.contentHash);
 
 			const pluginSlug = `e2e-catalog-system-${crypto.randomUUID()}`;
 			const scriptSlug = `e2e-catalog-system-script-${crypto.randomUUID()}`;

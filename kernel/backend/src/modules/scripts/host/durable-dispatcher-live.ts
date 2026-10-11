@@ -15,9 +15,8 @@ import { SANDBOX_LIMITS } from "@ryot-app/sandbox/protocol/limits";
 import { Cause, Effect, Layer, Schema } from "effect";
 import { WorkflowEngine } from "effect/workflow/WorkflowEngine";
 
-import { LifecycleExecution } from "#lib/domain/lifecycle-execution";
-import { runLifecycleWriteStepWith } from "#lib/infrastructure/lifecycle-workflow-step";
-import { implementWorkflow, makeActivity } from "#lib/infrastructure/workflow-scope";
+import { LifecycleExecution } from "#modules/automations/lifecycle/execution";
+import { runLifecycleWriteStepWith } from "#modules/automations/lifecycle/write-step";
 import { GlobalEntityUpsertResults, PendingGlobalEntityUpsert } from "#modules/entities/service";
 import { DomainLifecycleCommand } from "#modules/entities/write-context";
 import {
@@ -53,6 +52,7 @@ import {
 	SandboxLifecycleHostFailure,
 	SandboxLifecycleHostInput,
 } from "#modules/scripts/host/lifecycle-host";
+import { implementWorkflow, makeActivity } from "#platform/workflow/scope";
 
 const PreparedSandboxCreateEvents = Schema.Struct({
 	userId: UserId,

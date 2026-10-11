@@ -4,9 +4,9 @@ import { IsoUtcString } from "@ryot-app/contract/schema/utils";
 import { Context, Effect, Layer, Ref } from "effect";
 import { WorkflowEngine, WorkflowInstance } from "effect/workflow/WorkflowEngine";
 
-import { makeWorkflowActivityEngine } from "#lib/test-utils/effect";
-import { mutationAdmissionTestLayer } from "#lib/test-utils/mutation-admission";
 import type { IngestionRecoveryCursor } from "#modules/imports/runtime/recovery-cursor";
+import { mutationAdmissionTestLayer } from "#modules/mutations/admission.test-support";
+import { makeWorkflowActivityEngine } from "#testing/effect";
 
 import type { IntegrationSyncRun } from "./jobs";
 import { IntegrationsService } from "./service";

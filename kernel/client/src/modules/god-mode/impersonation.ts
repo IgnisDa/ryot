@@ -4,7 +4,7 @@ import { Context, Effect, Layer, Schema } from "effect";
 
 import type { ServerOrigin } from "#/api/origin";
 import { OAuthLauncher, OAuthLauncherError } from "#/modules/auth/oauth-launcher";
-import { GodModeService } from "#/modules/god-mode/service";
+import { InstanceAdminService } from "#/modules/god-mode/service";
 
 const IMPERSONATION_HANDOFF_PATH = "/oauth/impersonate";
 
@@ -12,7 +12,7 @@ export class GodModeImpersonationService extends Context.Service<GodModeImperson
 	"GodModeImpersonationService",
 	{
 		make: Effect.gen(function* () {
-			const godMode = yield* GodModeService;
+			const godMode = yield* InstanceAdminService;
 			const launcher = yield* OAuthLauncher;
 
 			const start = Effect.fn("GodModeImpersonationService.start")(function* (

@@ -15,36 +15,36 @@ import { ConfigProvider, Effect, FileSystem, Layer, Schema, Stream } from "effec
 import { HttpClient, HttpClientResponse } from "effect/http";
 import { WorkflowEngine } from "effect/workflow/WorkflowEngine";
 
-import * as tables from "#lib/infrastructure/db/schema/tables/combined";
-import { DatabaseSession } from "#lib/infrastructure/db/session";
-import { HmacSigner } from "#lib/infrastructure/hmac-signer";
-import { LocalStorageService } from "#lib/infrastructure/local-storage";
-import { ProKeyService } from "#lib/infrastructure/pro-key";
-import { RedisService } from "#lib/infrastructure/redis";
-import { S3Service } from "#lib/infrastructure/s3";
-import { makeAppConfigLayer, makeRedisService, makeWorkflowEngine } from "#lib/test-utils/effect";
-import { ingestionRetirementTestLayer } from "#lib/test-utils/ingestion-retirement";
-import { integrationCrudIngestionLayer } from "#lib/test-utils/integration-crud";
-import { LifecycleWriteGuard } from "#modules/auth/lifecycle-write-guard";
+import { LifecycleWriteGuard } from "#modules/accounts/auth/lifecycle-write-guard";
+import { ObjectStorageService } from "#modules/assets/storage/object-storage";
 import { DataImportAdmission } from "#modules/imports/data-admission";
 import { ImportsRepository } from "#modules/imports/repository";
 import { ImportsService } from "#modules/imports/service";
+import { integrationCrudIngestionLayer } from "#modules/integrations/crud.test-support";
 import { IntegrationsRepository } from "#modules/integrations/repository";
 import { IntegrationsService } from "#modules/integrations/service";
 import { AdmittedWorkflowCatalogue } from "#modules/mutations/workflow-catalogue";
 import { OAuthConnectionsServiceLive } from "#modules/oauth-connections/layer";
 import { OAuthConnectionsService } from "#modules/oauth-connections/service";
-import { PluginBackupRestore } from "#modules/plugins/backup-restore";
-import { IngestionReadinessService } from "#modules/plugins/ingestion-readiness-service";
-import { IntegrationProviderCatalog } from "#modules/plugins/integration-provider-catalog";
+import { IntegrationProviderCatalog } from "#modules/plugins/catalog/integration-providers";
+import { IngestionReadinessService } from "#modules/plugins/catalog/readiness-service";
 import { PluginBackupRestoreLive } from "#modules/plugins/layer";
+import { PluginBackupRestore } from "#modules/plugins/packages/backup-restore";
+import { ingestionRetirementTestLayer } from "#modules/plugins/packages/ingestion-retirement.test-support";
 import {
 	installRevisionPackage,
 	oauthRevisionPackage,
 	revisionDatabaseLayer,
-} from "#modules/plugins/revision.test-support";
-import { SystemPlugins } from "#modules/plugins/system";
-import { ObjectStorageService } from "#modules/uploads/object-storage/service";
+} from "#modules/plugins/packages/revision.test-support";
+import { SystemPlugins } from "#modules/plugins/packages/system";
+import { DatabaseSession } from "#platform/db/session";
+import { ProKeyService } from "#platform/pro-key";
+import { RedisService } from "#platform/redis";
+import { HmacSigner } from "#platform/storage/hmac-signer";
+import { LocalStorageService } from "#platform/storage/local-storage";
+import { S3Service } from "#platform/storage/s3";
+import * as tables from "#schema/tables/combined";
+import { makeAppConfigLayer, makeRedisService, makeWorkflowEngine } from "#testing/effect";
 
 import { createArchiveStream, validateArchiveStream } from "./archive/archive";
 import { BackupExportSnapshot } from "./export/snapshot";

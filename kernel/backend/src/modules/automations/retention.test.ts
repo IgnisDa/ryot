@@ -5,11 +5,11 @@ import { asc, eq } from "drizzle-orm";
 import { Context, Effect, Layer, Ref } from "effect";
 import { describe } from "vitest";
 
-import * as tables from "#lib/infrastructure/db/schema/tables/combined";
-import { DatabaseSession } from "#lib/infrastructure/db/session";
-import { makeAppConfigLayer } from "#lib/test-utils/effect";
 import { ScriptGarbageCollector } from "#modules/garbage-collection/scripts";
-import { revisionDatabaseLayer } from "#modules/plugins/revision.test-support";
+import { revisionDatabaseLayer } from "#modules/plugins/packages/revision.test-support";
+import { DatabaseSession } from "#platform/db/session";
+import * as tables from "#schema/tables/combined";
+import { makeAppConfigLayer } from "#testing/effect";
 
 import { AutomationAttemptRepository } from "./attempt-repository";
 import { AutomationRetention } from "./retention";

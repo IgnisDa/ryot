@@ -121,7 +121,7 @@ describe("plugin user settings", () => {
 				client: second.client,
 			});
 			expect(firstPlugin.setting.id).not.toBe(secondPlugin.setting.id);
-			expect(firstPlugin.installation.sourceHash).not.toBe(secondPlugin.installation.sourceHash);
+			expect(firstPlugin.installation.contentHash).not.toBe(secondPlugin.installation.contentHash);
 
 			const firstSetting = firstPlugin.setting;
 			const secondSetting = secondPlugin.setting;
@@ -190,7 +190,7 @@ describe("plugin user settings", () => {
 					client,
 					payload: updatedPackage,
 					installationId: plugin.installation.installationId,
-					expectedSourceHash: plugin.installation.sourceHash,
+					expectedContentHash: plugin.installation.contentHash,
 				}),
 			);
 			assertTaggedError(failure, "PluginRequestError");

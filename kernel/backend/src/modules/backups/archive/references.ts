@@ -20,7 +20,7 @@ import {
 	requiredReference,
 	rewritePropertyReferences,
 	type DataReferenceError,
-} from "#lib/domain/data-references";
+} from "#modules/backups/data-references";
 import { pluginIdentityReferences } from "#modules/ryotql/binding";
 import { isEntityBrowserRenderer } from "#modules/saved-views/definition-validation";
 

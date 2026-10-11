@@ -8,10 +8,10 @@ import { Cause, DateTime, Effect, Schema } from "effect";
 import { Workflow } from "effect/workflow";
 import { WorkflowInstance } from "effect/workflow/WorkflowEngine";
 
-import { makeActivity } from "#lib/infrastructure/workflow-scope";
 import { MutationReceipts } from "#modules/mutations/receipts";
 import { admitWorkflow } from "#modules/mutations/workflow-dispatch";
 import { ScriptExecutionService } from "#modules/scripts/executions/service";
+import { makeActivity } from "#platform/workflow/scope";
 
 import { reconcileGenericIngestionBatch } from "./batch-results";
 import { IngestionCaptures } from "./capture-service";

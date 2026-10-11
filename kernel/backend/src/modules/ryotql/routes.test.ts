@@ -14,9 +14,9 @@ import { Context, Effect, Layer, Ref } from "effect";
 import { HttpClientRequest, HttpRouter, HttpServer } from "effect/http";
 import { HttpApiMiddleware, HttpApiTest } from "effect/http-api";
 
-import { mapDatabaseErrors } from "#lib/infrastructure/db/errors";
-import { fakeDatabaseSession } from "#lib/test-utils/effect";
-import { makeAuthMiddleware } from "#modules/auth/service";
+import { makeAuthMiddleware } from "#modules/accounts/auth/service";
+import { mapDatabaseErrors } from "#platform/db/errors";
+import { fakeDatabaseSession } from "#testing/effect";
 
 import { RyotQLRoutesLive } from "./routes";
 import { RyotQLService } from "./service";

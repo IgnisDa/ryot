@@ -30,19 +30,7 @@ import { Reactivity } from "effect/reactivity";
 import { Workflow } from "effect/workflow";
 import { WorkflowEngine } from "effect/workflow/WorkflowEngine";
 
-import { PgClientLive } from "#lib/infrastructure/db/postgres";
-import { DatabaseSession } from "#lib/infrastructure/db/session";
-import { RedisService } from "#lib/infrastructure/redis";
-import { ServerRun } from "#lib/infrastructure/server-run";
-import { WorkflowEngineLive } from "#lib/infrastructure/workflow";
-import { implementWorkflow } from "#lib/infrastructure/workflow-scope";
-import {
-	applyBaselineMigration,
-	baselineMigrationStatements,
-} from "#lib/test-utils/baseline-migration";
-import { testDatabaseUrl } from "#lib/test-utils/database";
-import { makeAppConfigLayer } from "#lib/test-utils/effect";
-import { testExecutionId, testRedisUrl } from "#lib/test-utils/redis";
+import { WorkflowEngineLive } from "#boot/workflow-engine";
 import { ScriptHostImplementations } from "#modules/scripts/host/host-implementations";
 import { unusedSandboxHostImplementations } from "#modules/scripts/host/host-implementations.test-support";
 import {
@@ -52,6 +40,15 @@ import {
 	SandboxRedisLive,
 } from "#modules/scripts/host/sandbox-host-live";
 import { SandboxCompiler } from "#modules/scripts/registry/compiler";
+import { PgClientLive } from "#platform/db/postgres";
+import { DatabaseSession } from "#platform/db/session";
+import { RedisService } from "#platform/redis";
+import { ServerRun } from "#platform/server-run";
+import { implementWorkflow } from "#platform/workflow/scope";
+import { applyBaselineMigration, baselineMigrationStatements } from "#testing/baseline-migration";
+import { testDatabaseUrl } from "#testing/database";
+import { makeAppConfigLayer } from "#testing/effect";
+import { testExecutionId, testRedisUrl } from "#testing/redis";
 
 import { SandboxDurableHostDispatcher } from "../host/durable-dispatcher";
 import { SandboxRepository } from "../registry/repository";

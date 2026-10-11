@@ -1,10 +1,10 @@
 import { Layer } from "effect";
 
 import { LifecycleServicesLive } from "#modules/automations/layer";
-import { DefinitionRepository } from "#modules/definition-registry/repository";
+import { DefinitionRepository } from "#modules/definitions/repository";
 import { EntitiesRepositoryLive } from "#modules/entities/repository";
 import { DomainWriteChecksLive } from "#modules/entities/write-context";
-import { PluginRuntimeResolverLive } from "#modules/plugins/runtime-resolver";
+import { PluginRuntimeResolverLive } from "#modules/plugins/catalog/runtime-resolver";
 
 import { RelationshipMutationPipeline } from "./mutation-pipeline";
 import { RelationshipsRepository } from "./repository";

@@ -30,13 +30,7 @@ import { Cause, Clock, Context, Duration, Effect, Exit, Layer, Option, Schema } 
 import { DurableClock, DurableDeferred, Workflow } from "effect/workflow";
 import { WorkflowEngine, WorkflowInstance } from "effect/workflow/WorkflowEngine";
 
-import { DatabaseSession } from "#lib/infrastructure/db/session";
-import {
-	recordSandboxWorkflowReplayFinished,
-	type SandboxReplayOutcome,
-} from "#lib/infrastructure/runtime-metrics";
-import type { DurableSchema } from "#lib/infrastructure/workflow";
-import { makeActivity } from "#lib/infrastructure/workflow-scope";
+import type { DurableSchema } from "#boot/workflow-engine";
 import { MutationReceipts } from "#modules/mutations/receipts";
 import { admitWorkflow, dispatchAdmittedWorkflow } from "#modules/mutations/workflow-dispatch";
 import { isDeclaredExecutableCall } from "#modules/scripts/authorization/executable-dependencies";
@@ -46,6 +40,12 @@ import type {
 	ScriptInlineProgress,
 } from "#modules/scripts/host/http-progress";
 import { hashWorkflowCallArgs, appendWorkflowJournal } from "#modules/scripts/replay/journal";
+import { DatabaseSession } from "#platform/db/session";
+import {
+	recordSandboxWorkflowReplayFinished,
+	type SandboxReplayOutcome,
+} from "#platform/observability/runtime-metrics";
+import { makeActivity } from "#platform/workflow/scope";
 
 import { SandboxDurableHostDispatcher } from "../host/durable-dispatcher";
 import { KernelWorkflowReferences } from "../registry/kernel-workflow-references";

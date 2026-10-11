@@ -5,17 +5,17 @@ import { PluginId, SandboxScriptId } from "@ryot-app/contract/schema/brands";
 import { Effect, Layer } from "effect";
 import { WorkflowEngine } from "effect/workflow/WorkflowEngine";
 
-import { DownloadTickets } from "#lib/infrastructure/download-tickets";
-import { makeWorkflowEngine } from "#lib/test-utils/effect";
-import { AuthRepository } from "#modules/auth/repository";
+import { AuthRepository } from "#modules/accounts/auth/repository";
+import { UploadIntentsService } from "#modules/assets/uploads/intents";
 import {
 	ImportSourceCatalog,
 	type RegisteredImportSource,
-} from "#modules/plugins/import-source-catalog";
-import { IngestionReadinessService } from "#modules/plugins/ingestion-readiness-service";
-import { PluginInstallationRepository } from "#modules/plugins/installation-repository";
+} from "#modules/plugins/catalog/import-sources";
+import { IngestionReadinessService } from "#modules/plugins/catalog/readiness-service";
+import { PluginInstallationRepository } from "#modules/plugins/installations/repository";
 import { fixtureManifest } from "#modules/plugins/test-support";
-import { UploadIntentsService } from "#modules/uploads/intents/service";
+import { DownloadTickets } from "#platform/storage/download-tickets";
+import { makeWorkflowEngine } from "#testing/effect";
 
 import { DataImportAdmission } from "./data-admission";
 import { IngestionExecution } from "./execution-service";

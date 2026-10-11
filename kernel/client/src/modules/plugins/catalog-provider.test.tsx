@@ -30,7 +30,7 @@ const catalog: PluginClientCatalog = [
 		scope: "system",
 		clientApiVersion: 1,
 		homeSavedView: null,
-		sourceHash: "source-hash",
+		contentHash: "source-hash",
 		installationId: "installation-1",
 		pluginId: PluginId.make("plugin-1"),
 		packageId: PluginPackageId.make("test/fixture"),
@@ -42,7 +42,7 @@ function CatalogConsumer(props: { readonly name: string }) {
 	const { refetch, catalog: current, invalidationRevision } = usePluginCatalog();
 	return (
 		<div>
-			<p>{`${props.name}:${current.map((entry) => entry.sourceHash).join(",")}`}</p>
+			<p>{`${props.name}:${current.map((entry) => entry.contentHash).join(",")}`}</p>
 			<p>{`${props.name}-revision:${invalidationRevision}`}</p>
 			<button type="button" onClick={refetch}>
 				{`Refresh ${props.name}`}
@@ -162,7 +162,7 @@ describe("plugin catalog provider", () => {
 			yield* Effect.promise(() => waitFor(() => expect(view.events.isSubscribed()).toBe(true)));
 			expect(loads).toBe(0);
 
-			current = [{ ...catalog[0], sourceHash: "updated-source-hash" }];
+			current = [{ ...catalog[0], contentHash: "updated-source-hash" }];
 			act(() => view.events.send());
 
 			yield* Effect.promise(() => screen.findByText("catalog:updated-source-hash"));

@@ -1,7 +1,7 @@
 import { expect, it } from "@effect/vitest";
 import { getTableConfig } from "drizzle-orm/pg-core";
 
-import { savedView } from "#lib/infrastructure/db/schema/tables/views";
+import { savedView } from "#schema/tables/views";
 
 it("constrains plugin installation ownership to the saved-view user", () => {
 	const config = getTableConfig(savedView);

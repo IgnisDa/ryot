@@ -4,11 +4,11 @@ import { RelationshipSchemaSlug, SignalSchemaSlug } from "@ryot-app/contract/sch
 import { assertExitFails } from "@ryot-app/testing/effect-assertions";
 import { Context, Effect, Layer, Ref } from "effect";
 
-import type { MockOverrides } from "#lib/test-utils/effect";
-import { databaseLayer } from "#lib/test-utils/effect";
-import { DefinitionRepository } from "#modules/definition-registry/repository";
-import type { SignalSchemaDefinition } from "#modules/definition-registry/snapshot";
-import { RelationshipSchemasRepository } from "#modules/relationship-schemas/repository";
+import { RelationshipSchemaReader } from "#modules/definitions/relationship-schemas";
+import { DefinitionRepository } from "#modules/definitions/repository";
+import type { SignalSchemaDefinition } from "#modules/definitions/snapshot";
+import type { MockOverrides } from "#testing/effect";
+import { databaseLayer } from "#testing/effect";
 
 import { SignalSchemaContractDrift, SignalSchemasService } from "./service";
 import {
@@ -54,7 +54,7 @@ const relationshipScope = {
 };
 
 const mockSignalSchemasRepository = Layer.mock(SignalSchemasRepository);
-const mockRelationshipSchemasRepository = Layer.mock(RelationshipSchemasRepository);
+const mockRelationshipSchemaReader = Layer.mock(RelationshipSchemaReader);
 
 type DisplayUpdate = Parameters<SignalSchemasRepository["Service"]["updateBuiltinDisplay"]>[0];
 
@@ -95,13 +95,13 @@ const makeSignalSchemasRepository = (
 		}),
 	);
 
-const makeRelationshipSchemasRepository = (
-	overrides: MockOverrides<typeof mockRelationshipSchemasRepository> = {},
-) => mockRelationshipSchemasRepository({ ...overrides });
+const makeRelationshipSchemaReader = (
+	overrides: MockOverrides<typeof mockRelationshipSchemaReader> = {},
+) => mockRelationshipSchemaReader({ ...overrides });
 
 const makeLayer = (
 	signalSchemasRepository: ReturnType<typeof makeSignalSchemasRepository>,
-	relationshipSchemasRepository = makeRelationshipSchemasRepository(),
+	relationshipSchemasRepository = makeRelationshipSchemaReader(),
 ) =>
 	SignalSchemasService.layer.pipe(
 		Layer.provideMerge(Layer.mergeAll(signalSchemasRepository, relationshipSchemasRepository)),
@@ -268,7 +268,7 @@ layer(
 layer(
 	makeLayer(
 		makeSignalSchemasRepository(),
-		makeRelationshipSchemasRepository({ findKernelBySlug: () => Effect.succeed(null) }),
+		makeRelationshipSchemaReader({ findKernelBySlug: () => Effect.succeed(null) }),
 	),
 )((test) => {
 	test.effect("rejects an invalid related-users schema contract", () =>

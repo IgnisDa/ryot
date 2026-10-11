@@ -6,8 +6,8 @@ import type { SignalSchemaReference } from "@ryot-app/contract/modules/plugins/r
 import { SignalSchemaSlug, type UserId } from "@ryot-app/contract/schema/brands";
 import { Context, Effect, Layer, Schema } from "effect";
 
-import { DefinitionRepository } from "#modules/definition-registry/repository";
-import type { SignalSchemaDefinition } from "#modules/definition-registry/snapshot";
+import { DefinitionRepository } from "#modules/definitions/repository";
+import type { SignalSchemaDefinition } from "#modules/definitions/snapshot";
 
 export type SignalSchemaScope = Pick<
 	SignalSchemaDefinition,

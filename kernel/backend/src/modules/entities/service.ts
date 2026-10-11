@@ -23,6 +23,8 @@ import { sha256Base64Url } from "@ryot-app/ts-utils/crypto";
 import { stableStringify } from "@ryot-app/ts-utils/json";
 import { Context, Effect, Layer, Schema } from "effect";
 
+import { lifecycleTrigger } from "#modules/automations/lifecycle/command";
+import { LifecycleExecution } from "#modules/automations/lifecycle/execution";
 import {
 	type CommittedLifecycleWork,
 	type LifecycleBatchInput,
@@ -30,22 +32,17 @@ import {
 	LifecyclePersistenceError,
 	LifecyclePlannedPolicy,
 	LifecyclePlanner,
-} from "#lib/domain/lifecycle";
-import { lifecycleTrigger } from "#lib/domain/lifecycle-command";
-import { LifecycleExecution } from "#lib/domain/lifecycle-execution";
+} from "#modules/automations/lifecycle/planning";
 import {
 	applyLifecyclePolicyPatch,
 	canonicalLifecyclePolicyPatch,
-} from "#lib/domain/lifecycle-policy-patch";
-import { DatabaseSession, DatabaseSessionStateError } from "#lib/infrastructure/db/session";
-import { runRootTransaction } from "#lib/infrastructure/db/transaction";
+} from "#modules/automations/lifecycle/policy-patch";
 import {
 	runLifecycleWriteInline,
 	type LifecycleCommittedStep,
 	type LifecyclePreparedStep,
-} from "#lib/infrastructure/lifecycle-workflow-step";
-import { parseAppSchemaProperties } from "#lib/property-schema/property-schema-runtime";
-import { trimToNull } from "#lib/shared/validation";
+} from "#modules/automations/lifecycle/write-step";
+import { parseAppSchemaProperties } from "#modules/definitions/properties/runtime";
 import { EventsRepository } from "#modules/events/repository";
 import { EventsService, type PreparedEventDelete } from "#modules/events/service";
 import {
@@ -55,7 +52,10 @@ import {
 	MutationReceiptIdentityConflict,
 	MutationReceipts,
 } from "#modules/mutations/receipts";
-import { catalogDefinitionFingerprint } from "#modules/plugins/runtime-resolver";
+import { catalogDefinitionFingerprint } from "#modules/plugins/catalog/runtime-resolver";
+import { DatabaseSession, DatabaseSessionStateError } from "#platform/db/session";
+import { runRootTransaction } from "#platform/db/transaction";
+import { trimToNull } from "#platform/validation";
 
 import { EntityDeleteResult, EntityEnsureResult, EntitySnapshotResult } from "./mutation-outcomes";
 import {

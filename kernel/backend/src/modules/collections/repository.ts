@@ -12,9 +12,9 @@ import {
 import { and, eq, isNull, or } from "drizzle-orm";
 import { Context, Effect, Layer } from "effect";
 
-import * as schema from "#lib/infrastructure/db/schema/tables/combined";
-import { DatabaseSession } from "#lib/infrastructure/db/session";
-import { DefinitionRepository } from "#modules/definition-registry/repository";
+import { DefinitionRepository } from "#modules/definitions/repository";
+import { DatabaseSession } from "#platform/db/session";
+import * as schema from "#schema/tables/combined";
 
 type CollectionRow = Pick<
 	typeof schema.entity.$inferSelect,

@@ -67,7 +67,7 @@ describe("plugin operations service", () => {
 					const service = yield* PluginOperationsService;
 					yield* service.invoke({
 						scope,
-						sourceHash: "source-hash",
+						contentHash: "source-hash",
 						request: {
 							operationSlug: "greet",
 							input: { greeting: "hi" },
@@ -77,7 +77,7 @@ describe("plugin operations service", () => {
 
 					expect(yield* (yield* FakePluginsApi).requests).toEqual([
 						{
-							payload: { sourceHash: "source-hash", payload: { greeting: "hi" } },
+							payload: { contentHash: "source-hash", payload: { greeting: "hi" } },
 							params: { name: "fixture", publisher: "test", operationSlug: "greet" },
 						},
 					]);
@@ -91,7 +91,7 @@ describe("plugin operations service", () => {
 				const service = yield* PluginOperationsService;
 				const outcome = yield* service.invoke({
 					scope,
-					sourceHash: "source-hash",
+					contentHash: "source-hash",
 					request: {
 						input: null,
 						operationSlug: "greet",
@@ -116,7 +116,7 @@ describe("plugin operations service", () => {
 				const service = yield* PluginOperationsService;
 				const outcome = yield* service.invoke({
 					scope,
-					sourceHash: "source-hash",
+					contentHash: "source-hash",
 					request: {
 						input: null,
 						operationSlug: "greet",
@@ -150,7 +150,7 @@ describe("plugin operations service", () => {
 					const service = yield* PluginOperationsService;
 					const outcome = yield* service.invoke({
 						scope,
-						sourceHash: "source-hash",
+						contentHash: "source-hash",
 						request: {
 							input: null,
 							operationSlug: "greet",
@@ -170,7 +170,7 @@ describe("plugin operations service", () => {
 				const service = yield* PluginOperationsService;
 				const outcome = yield* service.invoke({
 					scope,
-					sourceHash: "source-hash",
+					contentHash: "source-hash",
 					request: {
 						input: null,
 						operationSlug: "greet",

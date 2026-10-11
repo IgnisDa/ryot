@@ -20,14 +20,18 @@ import { Context, Effect, Layer, Option, Redacted, Schema } from "effect";
 import type { Workflow } from "effect/workflow";
 import { WorkflowEngine } from "effect/workflow/WorkflowEngine";
 
-import { AppConfig } from "#lib/infrastructure/config/service";
-import { DatabaseSession } from "#lib/infrastructure/db/session";
-import { makeActivity } from "#lib/infrastructure/workflow-scope";
-import { createWorkflowJobId, deriveJobIdSecret, resolveWorkflowJob } from "#lib/shared/job-id";
-import { trimToNull } from "#lib/shared/validation";
-import { toWorkflowRunResult } from "#lib/shared/workflow-result";
 import { MutationReceipts } from "#modules/mutations/receipts";
 import { dispatchAdmittedWorkflow } from "#modules/mutations/workflow-dispatch";
+import { AppConfig } from "#platform/config/service";
+import { DatabaseSession } from "#platform/db/session";
+import { trimToNull } from "#platform/validation";
+import {
+	createWorkflowJobId,
+	deriveJobIdSecret,
+	resolveWorkflowJob,
+} from "#platform/workflow/job-id";
+import { toWorkflowRunResult } from "#platform/workflow/result";
+import { makeActivity } from "#platform/workflow/scope";
 
 import {
 	SandboxPluginScriptResolver,

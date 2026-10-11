@@ -6,20 +6,20 @@ import { Cause, Clock, Context, Duration, Effect, Layer, Option, Schema } from "
 import { DurableClock, DurableDeferred } from "effect/workflow";
 import { WorkflowEngine, WorkflowInstance } from "effect/workflow/WorkflowEngine";
 
-import { LifecyclePersistenceError } from "#lib/domain/lifecycle";
 import {
 	AutomationPolicyExecutionError,
 	LifecycleExecution,
-} from "#lib/domain/lifecycle-execution";
-import { DatabaseSession } from "#lib/infrastructure/db/session";
-import { startWorkflowDeadline } from "#lib/infrastructure/workflow-deadline";
+} from "#modules/automations/lifecycle/execution";
+import { LifecyclePersistenceError } from "#modules/automations/lifecycle/planning";
+import { MutationReceipts } from "#modules/mutations/receipts";
+import { dispatchAdmittedWorkflow } from "#modules/mutations/workflow-dispatch";
+import { DatabaseSession } from "#platform/db/session";
+import { startWorkflowDeadline } from "#platform/workflow/deadline";
 import {
 	awaitWorkflowSettled,
 	WorkflowExecutionNotifications,
-} from "#lib/infrastructure/workflow-execution-notifications";
-import { ActivityBody, makeActivity } from "#lib/infrastructure/workflow-scope";
-import { MutationReceipts } from "#modules/mutations/receipts";
-import { dispatchAdmittedWorkflow } from "#modules/mutations/workflow-dispatch";
+} from "#platform/workflow/execution-notifications";
+import { ActivityBody, makeActivity } from "#platform/workflow/scope";
 
 import { AutomationAttemptRepository, automationAttemptIdentity } from "./attempt-repository";
 import { AutomationRunRepository } from "./run-repository";

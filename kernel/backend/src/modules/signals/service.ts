@@ -2,7 +2,7 @@ import { notFound } from "@ryot-app/contract/errors";
 import { stableStringify } from "@ryot-app/ts-utils/json";
 import { Context, Effect, Layer, Schema } from "effect";
 
-import { RelationshipSchemasRepository } from "#modules/relationship-schemas/repository";
+import { RelationshipSchemaReader } from "#modules/definitions/relationship-schemas";
 
 import {
 	SignalSchemasRepository,
@@ -21,7 +21,7 @@ export class SignalSchemasService extends Context.Service<SignalSchemasService>(
 	{
 		make: Effect.gen(function* () {
 			const repository = yield* SignalSchemasRepository;
-			const relationshipSchemasRepository = yield* RelationshipSchemasRepository;
+			const relationshipSchemasRepository = yield* RelationshipSchemaReader;
 
 			const getKernelBySlug = Effect.fn("SignalSchemasService.getKernelBySlug")(function* (
 				slug: string,

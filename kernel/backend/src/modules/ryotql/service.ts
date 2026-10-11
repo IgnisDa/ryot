@@ -7,10 +7,10 @@ import type { AccessClass } from "@ryot-app/contract/oauth";
 import { and, eq, isNull, sql } from "drizzle-orm";
 import { Context, Effect, Layer, Match } from "effect";
 
-import { plugin } from "#lib/infrastructure/db/schema/tables/core";
-import { userPlugin } from "#lib/infrastructure/db/schema/tables/definitions";
-import { DatabaseSession } from "#lib/infrastructure/db/session";
-import type { DefinitionReadContext } from "#modules/definition-registry/read-context";
+import type { DefinitionReadContext } from "#modules/definitions/read-context";
+import { DatabaseSession } from "#platform/db/session";
+import { plugin } from "#schema/tables/core";
+import { userPlugin } from "#schema/tables/definitions";
 
 import { bindRyotQLDocument, pluginIdentityReferences, type PluginBinding } from "./binding";
 import type { RyotQLAudience, RyotQLExecutionScope } from "./catalog";

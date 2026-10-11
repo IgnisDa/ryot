@@ -15,7 +15,7 @@ import {
 } from "#/modules/auth/oauth-launcher";
 import { OAuthStorage } from "#/modules/auth/oauth-storage";
 import { GodModeImpersonationService } from "#/modules/god-mode/impersonation";
-import { GodModeService } from "#/modules/god-mode/service";
+import { InstanceAdminService } from "#/modules/god-mode/service";
 
 const origin = decodeServerOrigin("https://ryot.example");
 const pending = {
@@ -90,7 +90,7 @@ const impersonationLayer = (failure?: FailureStage) =>
 				redirectUri: pending.redirectUri,
 				codeChallenge: plan.codeChallenge,
 			};
-			const godMode: GodModeService["Service"] = {
+			const godMode: InstanceAdminService["Service"] = {
 				listLogs: () => Effect.die("not used"),
 				listUsers: () => Effect.die("not used"),
 				resetUser: () => Effect.die("not used"),
@@ -129,7 +129,7 @@ const impersonationLayer = (failure?: FailureStage) =>
 			};
 			const dependencies = Layer.mergeAll(
 				Layer.succeed(OAuthStorage, storage),
-				Layer.succeed(GodModeService, godMode),
+				Layer.succeed(InstanceAdminService, godMode),
 				Layer.succeed(OAuthLauncher, launcher),
 				Layer.succeed(ImpersonationProbe, { authorization, events: Ref.get(events) }),
 			);

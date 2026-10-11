@@ -4,9 +4,9 @@ import { alias } from "drizzle-orm/pg-core";
 import { Context, DateTime, Effect, Layer, Schema } from "effect";
 import { type Envelope, type Reply, ShardId } from "effect/cluster";
 
-import { workflowExecution as table } from "#lib/infrastructure/db/schema/tables/workflow-executions";
-import { DatabaseSession } from "#lib/infrastructure/db/session";
-import type { WorkflowIdentity } from "#lib/infrastructure/workflow-identity";
+import { DatabaseSession } from "#platform/db/session";
+import type { WorkflowIdentity } from "#platform/workflow/identity";
+import { workflowExecution as table } from "#schema/tables/workflow-executions";
 
 import {
 	StoredWorkflowResult,

@@ -1,7 +1,7 @@
 import { Clock, Duration, Effect, Layer } from "effect";
 import { WorkflowEngine } from "effect/workflow/WorkflowEngine";
 
-import { AppConfig } from "#lib/infrastructure/config/service";
+import { AppConfig } from "#platform/config/service";
 
 import { DEFAULT_FREQUENT_INTERVAL, parseFrequentSchedule } from "./cron";
 import { FrequentCronWorkflow } from "./cron-workflow";

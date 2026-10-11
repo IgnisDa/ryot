@@ -3,9 +3,9 @@ import { builtinSavedViewId, definitionOwner } from "@ryot-app/contract/modules/
 import { sql } from "drizzle-orm";
 import { Effect } from "effect";
 
-import { builtinSavedViewIdSql } from "#lib/infrastructure/db/schema/tables/views";
-import { DatabaseSession } from "#lib/infrastructure/db/session";
-import { isolatedDatabaseLayer } from "#lib/test-utils/isolated-database";
+import { DatabaseSession } from "#platform/db/session";
+import { builtinSavedViewIdSql } from "#schema/tables/views";
+import { isolatedDatabaseLayer } from "#testing/isolated-database";
 
 layer(isolatedDatabaseLayer("saved_view_identity"))((test) => {
 	test.effect("matches SQL and TypeScript owner-qualified length framing", () =>

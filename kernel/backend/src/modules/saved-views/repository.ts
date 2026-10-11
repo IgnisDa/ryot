@@ -9,10 +9,10 @@ import type { EffectPgDatabase } from "drizzle-orm/effect-postgres";
 import type { PgUpdateSetSource } from "drizzle-orm/pg-core";
 import { Context, Effect, Layer } from "effect";
 
-import { savedViewReferenceWhere } from "#lib/infrastructure/db/definition-owner";
-import { mapDatabaseErrors } from "#lib/infrastructure/db/errors";
-import * as schema from "#lib/infrastructure/db/schema/tables/combined";
-import { DatabaseSession } from "#lib/infrastructure/db/session";
+import { savedViewReferenceWhere } from "#platform/db/definition-owner";
+import { mapDatabaseErrors } from "#platform/db/errors";
+import { DatabaseSession } from "#platform/db/session";
+import * as schema from "#schema/tables/combined";
 
 type ListedSavedViewRow = typeof schema.userSavedViewEffective.$inferSelect;
 

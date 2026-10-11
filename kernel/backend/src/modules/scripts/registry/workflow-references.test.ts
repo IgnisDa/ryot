@@ -5,14 +5,14 @@ import { eq } from "drizzle-orm";
 import { PgDialect } from "drizzle-orm/pg-core";
 import { Context, Effect, Layer, Ref } from "effect";
 
-import * as schema from "#lib/infrastructure/db/schema/tables/combined";
-import { DatabaseSession } from "#lib/infrastructure/db/session";
-import { fakeDatabaseSession } from "#lib/test-utils/effect";
 import {
 	installRevisionPackage,
 	revisionPackage,
 	revisionDatabaseLayer,
-} from "#modules/plugins/revision.test-support";
+} from "#modules/plugins/packages/revision.test-support";
+import { DatabaseSession } from "#platform/db/session";
+import * as schema from "#schema/tables/combined";
+import { fakeDatabaseSession } from "#testing/effect";
 
 import {
 	SandboxWorkflowReferenceRegistrationError,

@@ -1,8 +1,8 @@
 import { Context, DateTime, Effect, Layer } from "effect";
 
-import { AppConfig } from "#lib/infrastructure/config/service";
-import { DatabaseSession } from "#lib/infrastructure/db/session";
-import { PluginRepository } from "#modules/plugins/repository";
+import { PluginRepository } from "#modules/plugins/packages/repository";
+import { AppConfig } from "#platform/config/service";
+import { DatabaseSession } from "#platform/db/session";
 
 export class ScriptGarbageCollector extends Context.Service<ScriptGarbageCollector>()(
 	"ScriptGarbageCollector",

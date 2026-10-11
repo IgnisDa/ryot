@@ -12,7 +12,7 @@ import { stableStringify } from "@ryot-app/ts-utils/json";
 import type { InferSelectViewModel } from "drizzle-orm";
 import { Effect } from "effect";
 
-import type { userPlugin } from "#lib/infrastructure/db/schema/tables/definitions";
+import type { userPlugin } from "#schema/tables/definitions";
 
 import type { RyotQLExecutionScope } from "./catalog";
 

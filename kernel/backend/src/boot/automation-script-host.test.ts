@@ -15,10 +15,10 @@ import {
 } from "@ryot-app/sandbox/host/invocation";
 import { Context, Effect, Layer, Ref } from "effect";
 
-import { databaseLayer } from "#lib/test-utils/effect";
 import { SignalEmissionService } from "#modules/automations/signal-service";
 import { NotificationsService } from "#modules/notifications/service";
 import { sandboxLifecycleCommand } from "#modules/scripts/host/execution-context";
+import { databaseLayer } from "#testing/effect";
 
 import { makeAutomationScriptHostFunctions } from "./script-host";
 

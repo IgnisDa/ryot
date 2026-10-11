@@ -14,7 +14,7 @@ import { assertExitFails } from "@ryot-app/testing/effect-assertions";
 import { Context, Effect, Layer, Ref, Schema } from "effect";
 import { WorkflowEngine, WorkflowInstance } from "effect/workflow/WorkflowEngine";
 
-import { makeWorkflowActivityEngine } from "#lib/test-utils/effect";
+import { makeWorkflowActivityEngine } from "#testing/effect";
 
 import { automationAttemptIdentity, type FinalizeAutomationAttempt } from "./attempt-repository";
 import { triggerFixture } from "./lifecycle.test-support";

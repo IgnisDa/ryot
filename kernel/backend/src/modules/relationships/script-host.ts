@@ -11,7 +11,7 @@ import { SANDBOX_LIMITS } from "@ryot-app/sandbox/protocol/limits";
 import { principalOwner } from "@ryot-app/sandbox/protocol/principal";
 import { Effect } from "effect";
 
-import { LifecycleExecution } from "#lib/domain/lifecycle-execution";
+import { LifecycleExecution } from "#modules/automations/lifecycle/execution";
 import type { DomainLifecycleCommand } from "#modules/entities/write-context";
 import {
 	sandboxLifecycleCommand,

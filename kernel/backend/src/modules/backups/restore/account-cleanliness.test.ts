@@ -12,17 +12,17 @@ import { column, document, field, pluginId, rows, table } from "@ryot-app/ryotql
 import { Effect, Layer } from "effect";
 import { assert, describe, expect, it } from "vitest";
 
-import { kernelDefinitionSource } from "#modules/definition-registry/kernel-source";
-import { DefinitionRepository } from "#modules/definition-registry/repository";
-import type { SavedViewDefinition } from "#modules/definition-registry/snapshot";
-import { materializeSavedView } from "#modules/definition-registry/source";
-import { seedKernelDefinitions } from "#modules/definition-registry/test-support";
-import { PluginInstallationRepository } from "#modules/plugins/installation-repository";
+import { kernelDefinitionSource } from "#modules/definitions/kernel-source";
+import { DefinitionRepository } from "#modules/definitions/repository";
+import type { SavedViewDefinition } from "#modules/definitions/snapshot";
+import { materializeSavedView } from "#modules/definitions/source";
+import { seedKernelDefinitions } from "#modules/definitions/test-support";
+import { PluginInstallationRepository } from "#modules/plugins/installations/repository";
 import {
 	installRevisionPackage,
 	revisionDatabaseLayer,
 	revisionPackage,
-} from "#modules/plugins/revision.test-support";
+} from "#modules/plugins/packages/revision.test-support";
 import { testPluginPackageId } from "#modules/plugins/test-support";
 import { SavedViewsRepository } from "#modules/saved-views/repository";
 

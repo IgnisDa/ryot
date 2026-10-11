@@ -6,12 +6,9 @@ import {
 } from "@ryot-app/sandbox-sdk/workflow";
 import { Schema } from "effect";
 
-import { HttpRateLimitPolicyDeclaration } from "#modules/plugins/http-rate-limits";
+import { HttpRateLimitPolicyDeclaration } from "#modules/plugins/catalog/http-rate-limits";
 
-import {
-	ProviderHttpAdmissionDeclaration,
-	ProviderHttpTicket,
-} from "../../../lib/infrastructure/provider-http-admission";
+import { ProviderHttpAdmissionDeclaration, ProviderHttpTicket } from "./http-admission";
 import { SandboxHttpRedirect } from "./runtime-host-functions";
 
 export const SandboxHttpPolicy = Schema.Struct({

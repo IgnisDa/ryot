@@ -1,4 +1,4 @@
-import type { PluginInstallationHydratedState } from "#modules/plugins/installation-repository";
+import type { PluginInstallationHydratedState } from "#modules/plugins/installations/repository";
 
 export const isDefaultSystemInstallation = (installation: PluginInstallationHydratedState) =>
 	installation.pluginScope === "system" &&
