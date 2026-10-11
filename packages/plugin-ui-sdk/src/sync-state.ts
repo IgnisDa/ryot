@@ -1,8 +1,8 @@
 export type SyncReason = "populating" | "translating";
 
-export type SyncStatus = "pending" | "ready" | "none";
+export type SyncStatus = "pending" | "ready" | "failed" | "none";
 
-export type FieldSyncState = "ready" | "pending" | "absent";
+export type FieldSyncState = "ready" | "pending" | "failed" | "absent";
 
 export type EntitySyncState = {
 	readonly populationStatus: SyncStatus;
@@ -13,7 +13,10 @@ export const fieldSyncState = (value: unknown, sync: EntitySyncState): FieldSync
 	if (value !== null && value !== undefined) {
 		return "ready";
 	}
-	return sync.populationStatus === "pending" ? "pending" : "absent";
+	if (sync.populationStatus === "pending" || sync.populationStatus === "failed") {
+		return sync.populationStatus;
+	}
+	return "absent";
 };
 
 export const isTitleProvisional = (sync: EntitySyncState) => sync.translationStatus === "pending";

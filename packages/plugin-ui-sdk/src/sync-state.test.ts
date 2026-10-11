@@ -27,6 +27,11 @@ describe("fieldSyncState", () => {
 		expect(fieldSyncState(null, sync("ready"))).toBe("absent");
 		expect(fieldSyncState(undefined, sync("none"))).toBe("absent");
 	});
+
+	it("reports a missing value as failed after a failed population", () => {
+		expect(fieldSyncState(null, sync("failed"))).toBe("failed");
+		expect(fieldSyncState("Piranesi", sync("failed"))).toBe("ready");
+	});
 });
 
 describe("isTitleProvisional", () => {

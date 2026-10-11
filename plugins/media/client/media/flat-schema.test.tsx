@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it } from "@effect/vitest";
 import type { RyotClientAdapter } from "@ryot-app/plugin-client-sdk";
 import { Effect, Result } from "@ryot-app/plugin-client-sdk/effect";
 import { ManagedAssetProvider } from "@ryot-app/plugin-client-sdk/react";
-import { fireEvent, waitFor } from "@testing-library/dom";
+import { fireEvent, getByRole, waitFor } from "@testing-library/dom";
 
 import {
 	decodeFlatActivity,
@@ -45,7 +45,7 @@ import {
 	transportErrorQueryResult,
 } from "../../tests/client/query-result-fixture";
 import { decodeMediaSummaryResult } from "../../tests/client/summary-fixture";
-import { mountRyotClient } from "../../tests/client/test-support";
+import { clickRyotElement, mountRyotClient } from "../../tests/client/test-support";
 import { mapMediaOverview } from "./overview-state";
 
 const noopAdapter = { query: () => Effect.succeed({}) };
@@ -97,10 +97,11 @@ const renderBody = (
 	options: {
 		readonly refresh?: () => void;
 		readonly overview?: ReturnType<typeof overviewOf>;
+		readonly adapter?: Partial<RyotClientAdapter>;
 	} = {},
 ) =>
 	mountRyotClient(
-		noopAdapter,
+		options.adapter ?? noopAdapter,
 		<fixtureSchema.ScreenBody
 			compact
 			state={state}
@@ -243,6 +244,38 @@ describe("flat media detail screen", () => {
 			unmount();
 		}),
 	);
+
+	it.live("reports a failed population and asks the kernel to retry it", () =>
+		Effect.gen(function* () {
+			const retries: unknown[] = [];
+			const { unmount, container } = renderBody(readyState({ populationStatus: "failed" }), {
+				adapter: {
+					...noopAdapter,
+					retryPopulation: (request) =>
+						Effect.sync(() => {
+							retries.push(request);
+							return { retried: true };
+						}),
+				},
+			});
+
+			expect(getByRole(container, "alert").textContent).toBe("Couldn't load details from TMDB.");
+			clickRyotElement(getByRole(container, "button", { name: "Try again" }));
+
+			yield* Effect.promise(() =>
+				waitFor(() => expect(retries).toEqual([{ entityId: "media-1", pluginId: "media-owner" }])),
+			);
+			unmount();
+		}),
+	);
+
+	it("shows no population failure while the details are ready or pending", () => {
+		for (const populationStatus of ["ready", "pending"]) {
+			const { unmount, container } = renderBody(readyState({ populationStatus }));
+			expect(container.textContent).not.toContain("Couldn't load details");
+			unmount();
+		}
+	});
 
 	it("explains that only this schema opens here when the entity is another schema", () => {
 		const state = fixtureSchema.mapSummary(
