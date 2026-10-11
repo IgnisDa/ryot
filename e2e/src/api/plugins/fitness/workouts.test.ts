@@ -1,9 +1,7 @@
-import {
-	builtinSavedViewReference,
-	definitionOwner,
-} from "@ryot-app/contract/modules/plugins/references";
+import { builtinSavedViewReference } from "@ryot-app/contract/modules/plugins/references";
 import { EntityId } from "@ryot-app/contract/schema/brands";
 import { workoutListRecipe } from "@ryot-app/fitness-plugin/query-recipes";
+import { PLUGIN_PACKAGE_ID } from "@ryot-app/fitness-plugin/shared/plugin-identity";
 import { Effect } from "effect";
 
 import {
@@ -218,8 +216,10 @@ describe("Workouts E2E", () => {
 					ownerPluginIdField: "ownerPluginId",
 					entitySchemaSlugField: "entitySchemaSlug",
 					addAction: {
-						type: "provider-search",
-						schema: { slug: "workout", owner: definitionOwner(pluginId) },
+						search: {},
+						type: "plugin-route",
+						path: "/workouts/new",
+						packageId: PLUGIN_PACKAGE_ID,
 					},
 					tableColumns: [
 						{ label: "Name", field: "column0", displayKind: "text" },
