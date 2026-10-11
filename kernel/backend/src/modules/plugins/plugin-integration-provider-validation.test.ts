@@ -2,9 +2,6 @@ import { expect, it } from "@effect/vitest";
 import { Effect } from "effect";
 import { assert } from "vitest";
 
-import { kernelDefinitionSource } from "#modules/definition-registry/kernel-source";
-import { buildDefinitionSnapshot } from "#modules/definition-registry/snapshot";
-
 import { fixtureManifest } from "./test-support";
 import {
 	validateIntegrationProviderSettingsSchemas,
@@ -100,18 +97,15 @@ it.effect("requires non-push integration providers to reference workflow scripts
 				},
 			],
 		});
-		const snapshot = buildDefinitionSnapshot(kernelDefinitionSource());
 
 		for (const slug of ["fixture.automation", "integration.sink"]) {
-			const error = yield* Effect.flip(
-				validatePluginManifestReferences(withProvider(slug), snapshot),
-			);
+			const error = yield* Effect.flip(validatePluginManifestReferences(withProvider(slug)));
 			expect(error.issues.join("; ")).toContain(
 				`Integration provider lambda_sink script ${slug} must be a workflow script`,
 			);
 		}
 		const valid = withProvider("integration.workflow");
-		yield* validatePluginManifestReferences(valid, snapshot);
+		yield* validatePluginManifestReferences(valid);
 		yield* validatePluginExecutableScripts({
 			manifest: valid,
 			scripts: [{ slug: "integration.workflow", metadata: { kind: "workflow" } }],

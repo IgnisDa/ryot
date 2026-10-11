@@ -1,5 +1,6 @@
 import { expect, layer } from "@effect/vitest";
 import type { PluginManifest } from "@ryot-app/contract/modules/plugins/manifest";
+import { pluginConfigEnvironmentKey } from "@ryot-app/contract/modules/plugins/plugin-config";
 import {
 	PluginConfigRevisionId,
 	PluginId,
@@ -70,7 +71,7 @@ describe("immutable revisions in PostgreSQL (isolated schema)", () => {
 		),
 	)((test) => {
 		test.effect(
-			"retains old pins through upgrade and uninstall, rejects mutations, and preserves shared history on user deletion",
+			"retains immutable upgrade history while uninstall revokes private execution authority",
 			() =>
 				Effect.gen(function* () {
 					const session = yield* DatabaseSession;
@@ -92,10 +93,23 @@ describe("immutable revisions in PostgreSQL (isolated schema)", () => {
 									transaction.execute(sql.raw(statement)),
 								);
 								yield* transaction.insert(tables.user).values([
-									{ id: "owner", name: "Owner", email: "owner@example.test" },
+									{
+										id: "owner",
+										name: "Owner",
+										email: "owner@example.test",
+										accountGeneration: "test-account-generation",
+									},
 									{ id: "recipient", name: "Recipient", email: "recipient@example.test" },
 								]);
 								const baseManifest = fixtureManifest();
+								const subject = {
+									type: "user" as const,
+									userId: UserId.make("owner"),
+									accountGeneration: {
+										userId: UserId.make("owner"),
+										token: "test-account-generation",
+									},
+								};
 								const manifest: PluginManifest = {
 									...baseManifest,
 									workflows: [{ slug: "fixture-flow", scriptSlug: "fixture.workflow" }],
@@ -134,11 +148,14 @@ describe("immutable revisions in PostgreSQL (isolated schema)", () => {
 										compiledCode: version,
 									})),
 								});
-								const pluginId = yield* plugins.persist(packageAt("v1"), {
-									scope: "user",
-									slug: "fixture",
-									ownerId: "owner",
-								});
+								const pluginId = yield* session.transaction(
+									plugins.persist(packageAt("v1"), {
+										scope: "user",
+										slug: "fixture",
+										ownerId: "owner",
+										packageId: manifest.metadata.packageId,
+									}),
+								);
 								const installation = yield* installations.create({
 									pluginId,
 									config: {},
@@ -183,7 +200,12 @@ describe("immutable revisions in PostgreSQL (isolated schema)", () => {
 												metadata: { ...manifest.metadata, version: "mutated" },
 											},
 										},
-										{ scope: "user", slug: "fixture", ownerId: "owner" },
+										{
+											scope: "user",
+											slug: "fixture",
+											ownerId: "owner",
+											packageId: manifest.metadata.packageId,
+										},
 									),
 								);
 								expect(Result.isFailure(conflict)).toBe(true);
@@ -210,16 +232,25 @@ describe("immutable revisions in PostgreSQL (isolated schema)", () => {
 												Object.assign(candidate, { compiledCode: "changed" }),
 											),
 										},
-										{ scope: "user", slug: "fixture", ownerId: "owner" },
+										{
+											scope: "user",
+											slug: "fixture",
+											ownerId: "owner",
+											packageId: manifest.metadata.packageId,
+										},
 									),
 								);
 								expect(Result.isFailure(scriptConflict)).toBe(true);
 								expect(
-									yield* plugins.persist(packageAt("v2"), {
-										scope: "user",
-										slug: "fixture",
-										ownerId: "owner",
-									}),
+									yield* session.transaction(
+										plugins.persist(packageAt("v2"), {
+											pluginId,
+											scope: "user",
+											slug: "fixture",
+											ownerId: "owner",
+											packageId: manifest.metadata.packageId,
+										}),
+									),
 								).toBe(pluginId);
 								yield* installations.updateState({
 									config: {},
@@ -228,8 +259,11 @@ describe("immutable revisions in PostgreSQL (isolated schema)", () => {
 									id: installation.id,
 								});
 								expect(
-									(yield* sandbox.getScriptPin(SandboxScriptId.make(script.id), retainedPin))
-										?.contentHash,
+									(yield* sandbox.getScriptPin(
+										SandboxScriptId.make(script.id),
+										retainedPin,
+										subject,
+									))?.contentHash,
 								).toBe("v1");
 								yield* transaction
 									.insert(tables.automationTrigger)
@@ -305,18 +339,24 @@ describe("immutable revisions in PostgreSQL (isolated schema)", () => {
 								yield* plugins.deactivate(pluginId);
 								expect(yield* installations.findById(installation.id)).toBeNull();
 								expect(
-									(yield* sandbox.getScriptPin(SandboxScriptId.make(script.id), retainedPin))
-										?.contentHash,
-								).toBe("v1");
+									Result.isFailure(
+										yield* Effect.result(
+											sandbox.getScriptPin(SandboxScriptId.make(script.id), retainedPin, subject),
+										),
+									),
+								).toBe(true);
 								yield* plugins.pruneRevisionArtifacts({
 									limit: 500,
 									now: expiresAt,
 									retryWindowDays: 7,
 								});
 								yield* plugins.deleteUnreferencedScripts(new Set(), { limit: 500, now: expiresAt });
+								const retainedScripts = yield* transaction
+									.select()
+									.from(tables.sandboxScript)
+									.where(eq(tables.sandboxScript.pluginRevisionId, retainedPin.revisionId));
 								expect(
-									(yield* sandbox.getScriptPin(SandboxScriptId.make(script.id), retainedPin))
-										?.pluginRevision?.compiledHashes["fixture.workflow"],
+									retainedScripts.find(({ slug }) => slug === "fixture.workflow")?.contentHash,
 								).toBe("v1");
 								expect(
 									yield* configs.read({
@@ -460,19 +500,26 @@ describe("immutable revisions in PostgreSQL (isolated schema)", () => {
 										},
 									},
 								};
-								yield* environment.use({ RYOT_PLUGIN_FIXTURE_TOKEN: "environment-secret" });
-								yield* plugins.persist(environmentPackage, {
-									ownerId: null,
-									scope: "system",
-									slug: "fixture",
-								});
+								const environmentKey = pluginConfigEnvironmentKey(
+									environmentPackage.manifest.metadata.packageId,
+									"token",
+								);
+								yield* environment.use({ [environmentKey]: "environment-secret" });
+								yield* session.transaction(
+									plugins.persist(environmentPackage, {
+										ownerId: null,
+										scope: "system",
+										slug: "fixture",
+										packageId: environmentPackage.manifest.metadata.packageId,
+									}),
+								);
 								expect(yield* transaction.select().from(tables.pluginConfigRevision)).toEqual([]);
 								const environmentPointer = transaction
 									.select()
 									.from(tables.plugin)
 									.pipe(Effect.map(([row]) => row?.environmentConfigRevisionId));
-								yield* environment.use({ RYOT_PLUGIN_FIXTURE_TOKEN: "environment-secret" });
-								yield* plugins.resolveEnvironmentConfigs();
+								yield* environment.use({ [environmentKey]: "environment-secret" });
+								yield* session.transaction(plugins.resolveEnvironmentConfigs());
 								const configRevisionId = yield* environmentPointer;
 								assert(configRevisionId);
 								const [configRevision] = yield* transaction
@@ -481,14 +528,14 @@ describe("immutable revisions in PostgreSQL (isolated schema)", () => {
 									.where(eq(tables.pluginConfigRevision.id, configRevisionId));
 								const [systemPlugin] = yield* transaction.select().from(tables.plugin);
 								expect(configRevision?.pluginRevisionId).toBe(systemPlugin?.activeRevisionId);
-								yield* environment.use({ RYOT_PLUGIN_FIXTURE_TOKEN: "environment-secret" });
-								yield* plugins.resolveEnvironmentConfigs();
+								yield* environment.use({ [environmentKey]: "environment-secret" });
+								yield* session.transaction(plugins.resolveEnvironmentConfigs());
 								expect(yield* environmentPointer).toBe(configRevisionId);
 								expect(yield* transaction.select().from(tables.pluginConfigRevision)).toHaveLength(
 									1,
 								);
-								yield* environment.use({ RYOT_PLUGIN_FIXTURE_TOKEN: "different-secret" });
-								yield* plugins.resolveEnvironmentConfigs();
+								yield* environment.use({ [environmentKey]: "different-secret" });
+								yield* session.transaction(plugins.resolveEnvironmentConfigs());
 								const replacedConfigRevisionId = yield* environmentPointer;
 								expect(replacedConfigRevisionId).not.toBe(configRevisionId);
 								expect(yield* transaction.select().from(tables.pluginConfigRevision)).toHaveLength(

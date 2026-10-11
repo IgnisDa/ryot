@@ -1,5 +1,9 @@
-import { expect, layer } from "@effect/vitest";
-import { clientArtifactFile, clientArtifactMetadata } from "@ryot-app/client-plugin-contract";
+import { assert, expect, layer } from "@effect/vitest";
+import {
+	clientArtifactFile,
+	clientArtifactMetadata,
+	clientDeclarationHash,
+} from "@ryot-app/client-plugin-contract";
 import { PluginManifest } from "@ryot-app/contract/modules/plugins/manifest";
 import { readPluginArchive, writePluginArchive } from "@ryot-app/plugin-archive";
 import { sandboxCompilerPlatformLayer } from "@ryot-app/sandbox-compiler/platform";
@@ -45,6 +49,8 @@ layer(sandboxCompilerPlatformLayer)((test) => {
 				...fixtureManifest(),
 				client: manifest().client,
 			} satisfies PluginManifest;
+			const clientEntry = pluginManifest.client;
+			assert(clientEntry);
 			const source = yield* loadPluginSource(fixturePackageRoot(), pluginManifest);
 			const compiledManifest = yield* Schema.decodeEffect(PluginManifest)(source.manifest);
 			const compiledClient = source.compiledClient;
@@ -62,7 +68,15 @@ layer(sandboxCompilerPlatformLayer)((test) => {
 					bytes: new TextEncoder().encode("\ufeffexport {};\n"),
 				});
 			});
-			const artifact = { ...clientArtifactMetadata(pluginManifest.metadata.name, files), files };
+			const artifact = {
+				...clientArtifactMetadata(
+					pluginManifest.metadata.name,
+					pluginManifest.metadata.packageId,
+					files,
+					{ imports: [], clientDeclarationHash: clientDeclarationHash(clientEntry) },
+				),
+				files,
+			};
 			const compiledScripts = source.compiledScripts.map((script) => ({
 				...script,
 				javascript: `\ufeff${script.javascript}`,
@@ -129,6 +143,8 @@ layer(sandboxCompilerPlatformLayer)((test) => {
 				...fixtureManifest(),
 				client: manifest().client,
 			} satisfies PluginManifest;
+			const clientEntry = pluginManifest.client;
+			assert(clientEntry);
 			const source = yield* loadPluginSource(fixturePackageRoot(), pluginManifest);
 			const compiledClient = source.compiledClient;
 			expect(compiledClient).toBeDefined();
@@ -144,7 +160,15 @@ layer(sandboxCompilerPlatformLayer)((test) => {
 						})
 					: file,
 			);
-			const artifact = { ...clientArtifactMetadata(pluginManifest.metadata.name, files), files };
+			const artifact = {
+				...clientArtifactMetadata(
+					pluginManifest.metadata.name,
+					pluginManifest.metadata.packageId,
+					files,
+					{ imports: [], clientDeclarationHash: clientDeclarationHash(clientEntry) },
+				),
+				files,
+			};
 			const error = yield* normalizePluginSource({ ...source, compiledClient: artifact }).pipe(
 				Effect.flip,
 			);

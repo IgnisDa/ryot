@@ -16,6 +16,23 @@ Plugin revisions have no source file table. Their `sourceHash` fingerprints the 
 backend entry/format/JavaScript, and exact compiled client content. It identifies package content, not
 proof that the metadata was derived from authoring source.
 
+`metadata.packageId` is the immutable authored UUID. Persisted local plugin IDs identify scope and
+owner; installation IDs identify per-user lifecycle and settings. Names and slugs are metadata and
+may change without changing either identity. Revisions are immutable and keyed by their content
+hash, not their version label.
+
+System activation quarantines private installations claiming its exact package UUID under the
+ingestion lock. Their records, configuration, references, and data remain intact. Quarantine records
+`package-identity-conflict`; removing the system package does not recover them automatically.
+Explicit re-enable validates the retained archive, configuration, declarations, and dependencies
+before clearing quarantine. Package updates validate the submitted archive and compatibility with
+the retained revision. Normal compatible upgrades do not drain admitted work.
+
+`isInitialized` records successful installation bootstrap separately from availability and visibility.
+Quarantine and ordinary revision changes preserve it. Explicit recovery of a completed installation
+does not reseed it; incomplete recovery uses a fresh private activation token and the existing
+installation workflow. Guarded lifecycle completion sets readiness and initialization together.
+
 ## System plugin synchronization
 
 `PluginIngestionService` owns system plugin ingestion and environment configuration
@@ -28,6 +45,10 @@ and resolves environment configuration once for every active system plugin. This
 pass includes plugins that are active but are not bundled by the current server build.
 
 Callers must not add a separate boot-time environment resolution pass.
+
+System config uses `RYOT_PLUGIN_<PACKAGE_UUID_WITHOUT_HYPHENS_UPPERCASE>_<NORMALIZED_KEY>`.
+Private config never reads environment values. All replicas must use the same server release and
+deployment configuration; the persisted catalog is authoritative and ingestion is serialized.
 
 ## User preferences
 

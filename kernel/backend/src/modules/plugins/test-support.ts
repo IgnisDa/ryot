@@ -1,13 +1,16 @@
 import type { PluginManifest } from "@ryot-app/contract/modules/plugins/manifest";
+import { PluginPackageId } from "@ryot-app/contract/schema/brands";
 import { emptySandboxExecutionMetadata } from "@ryot-app/contract/testing";
 
 export const fixturePackageRoot = (kind: "diagnostic" | "valid" = "valid") =>
 	new URL(`./test-fixtures/${kind}`, import.meta.url).pathname;
 
-export const fixturePluginIdentity = (slug = "fixture") =>
-	({ slug, ownerId: null, scope: "system", id: `${slug}-plugin-id` }) as const;
+const fixturePackageId = PluginPackageId.make("f6b3b00d-223c-4ae7-98b6-b1d7ba9e02ce");
 
-export const fixtureManifest = () =>
+export const fixturePluginIdentity = (slug = "fixture", packageId = fixturePackageId) =>
+	({ slug, packageId, ownerId: null, scope: "system", id: `${slug}-plugin-id` }) as const;
+
+export const fixtureManifest = (packageId = fixturePackageId) =>
 	({
 		savedViews: [],
 		httpRateLimits: [],
@@ -20,6 +23,7 @@ export const fixtureManifest = () =>
 		importSources: [] as PluginManifest["importSources"],
 		integrationProviders: [] as PluginManifest["integrationProviders"],
 		metadata: {
+			packageId,
 			icon: "box",
 			name: "Fixture",
 			slug: "fixture",

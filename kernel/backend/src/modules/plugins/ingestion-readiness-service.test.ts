@@ -1,9 +1,10 @@
 import { assert, expect, layer } from "@effect/vitest";
 import { KERNEL_ENTITY_IMPORT_WORKFLOW } from "@ryot-app/contract/modules/plugins/execution";
 import type { PluginManifest } from "@ryot-app/contract/modules/plugins/manifest";
+import { pluginConfigEnvironmentKey } from "@ryot-app/contract/modules/plugins/plugin-config";
 import { UserId } from "@ryot-app/contract/schema/brands";
-import { eq, sql } from "drizzle-orm";
-import { Effect, Layer } from "effect";
+import { and, eq, sql } from "drizzle-orm";
+import { ConfigProvider, Effect, Layer } from "effect";
 
 import * as tables from "#lib/infrastructure/db/schema/tables/combined";
 import { DatabaseSession } from "#lib/infrastructure/db/session";
@@ -30,15 +31,7 @@ const dependencies = Layer.mergeAll(
 	OAuthConnectionsRepository.layer,
 ).pipe(Layer.provideMerge(revisionDatabaseLayer));
 const services = Layer.effect(IngestionReadinessService, IngestionReadinessService.make).pipe(
-	Layer.provideMerge(
-		Layer.merge(
-			dependencies,
-			makeConfigProviderLayer({
-				RYOT_PLUGIN_PRIVATE_READINESS_CLIENT_ID: "environment-id",
-				RYOT_PLUGIN_PRIVATE_READINESS_CLIENT_SECRET: "environment-secret",
-			}),
-		),
-	),
+	Layer.provideMerge(Layer.merge(dependencies, makeConfigProviderLayer())),
 );
 
 layer(services)((test) => {
@@ -329,7 +322,19 @@ layer(services)((test) => {
 					providerSlug: "private-readiness-yank",
 					installationId: installed.installation.id,
 				};
-				const blocked = yield* service.evaluateIntegration(input);
+				const blocked = yield* service
+					.evaluateIntegration(input)
+					.pipe(
+						Effect.provideService(
+							ConfigProvider.ConfigProvider,
+							ConfigProvider.fromUnknown({
+								[pluginConfigEnvironmentKey(source.manifest.metadata.packageId, "clientId")]:
+									"environment-id",
+								[pluginConfigEnvironmentKey(source.manifest.metadata.packageId, "clientSecret")]:
+									"environment-secret",
+							}),
+						),
+					);
 				expect(blocked.readiness.blockReasons).toEqual([
 					{ key: "account", code: "connection-required" },
 					{ key: "clientId", code: "oauth-client-required" },
@@ -371,7 +376,6 @@ layer(services)((test) => {
 							client: { kind: "web" },
 							oauthProviderSlug: "account",
 							stateHash: "readiness-state",
-							pluginSlug: "private-readiness",
 							pluginInstallationId: installed.installation.id,
 							tokenUrlOrigin: "https://accounts.example.test",
 							integrationProviderSlug: "private-readiness-yank",
@@ -390,7 +394,13 @@ layer(services)((test) => {
 							metadata: sql`${sql.raw(ingestionReadinessMetadataSql("user_integration_provider"))}`,
 						})
 						.from(tables.userIntegrationProvider)
-						.where(eq(tables.userIntegrationProvider.slug, input.providerSlug)),
+						.where(
+							and(
+								eq(tables.userIntegrationProvider.slug, input.providerSlug),
+								eq(tables.userIntegrationProvider.installationId, input.installationId),
+								eq(tables.userIntegrationProvider.userId, owner),
+							),
+						),
 				);
 				const [projection] = yield* readProjection;
 				expect(projection?.metadata).toEqual(ready.provider.readinessMetadata);

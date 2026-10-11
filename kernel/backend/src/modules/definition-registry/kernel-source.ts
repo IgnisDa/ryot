@@ -1,5 +1,14 @@
 import type { PluginHook } from "@ryot-app/contract/modules/plugins/manifest";
-import { and, column, countDistinct, eq, field, literal, table } from "@ryot-app/ryotql";
+import {
+	and,
+	column,
+	countDistinct,
+	eq,
+	field,
+	literal,
+	schemaOwnerPredicate,
+	table,
+} from "@ryot-app/ryotql";
 import {
 	buildSavedViewLayoutProjections,
 	savedViewRecipe,
@@ -39,6 +48,7 @@ const reviewPropertiesSchema = {
 };
 
 const collectionSchema = {
+	pluginId: null,
 	icon: "folders",
 	pluginSlug: null,
 	slug: "collection",
@@ -61,8 +71,9 @@ const collectionSchema = {
 		},
 	},
 	eventSchemas: [
-		{ name: "Review", slug: "review", propertiesSchema: reviewPropertiesSchema },
+		{ pluginId: null, name: "Review", slug: "review", propertiesSchema: reviewPropertiesSchema },
 		...(["Add", "Remove"] as const).map((operation) => ({
+			pluginId: null,
 			name: `${operation} Entity ${operation === "Add" ? "to" : "from"} Collection`,
 			slug: `${operation.toLowerCase()}-entity-${operation === "Add" ? "to" : "from"}-collection`,
 			propertiesSchema: {
@@ -120,6 +131,7 @@ const collectionDataSources = savedViewRecipe({
 	layout: { type: "table", mapping: collectionProjections.table.mappings },
 	source: {
 		type: "generated",
+		owner: { kind: "kernel" },
 		entitySchemaSlugs: ["collection"],
 		fields: [
 			...collectionProjections.table.fields,
@@ -127,6 +139,9 @@ const collectionDataSources = savedViewRecipe({
 				"presentationMemberCount",
 				countDistinct(collectionMembership, column(collectionMembership, "sourceEntityId"), {
 					where: and(
+						schemaOwnerPredicate(collectionMembership, "relationshipSchemaPluginId", {
+							kind: "kernel",
+						}),
 						eq(column(collectionMembership, "targetEntityId"), column(collection, "id")),
 						eq(column(collectionMembership, "relationshipSchemaSlug"), literal("member-of")),
 					),
@@ -142,6 +157,7 @@ export const kernelDefinitionSource = (): DefinitionSource => ({
 	entitySchemas: [collectionSchema],
 	relationshipSchemas: [
 		{
+			pluginId: null,
 			slug: "member-of",
 			name: "Member Of",
 			sourceEntitySchemaSlug: null,
@@ -161,6 +177,7 @@ export const kernelDefinitionSource = (): DefinitionSource => ({
 	],
 	signalSchemas: [
 		{
+			pluginId: null,
 			catalogState: "active",
 			slug: "integration.disabled",
 			name: "Integration Disabled",
@@ -188,6 +205,7 @@ export const kernelDefinitionSource = (): DefinitionSource => ({
 	savedViews: [
 		{
 			sortOrder: 0,
+			pluginId: null,
 			pluginSlug: null,
 			slug: "collections",
 			name: "All Collections",

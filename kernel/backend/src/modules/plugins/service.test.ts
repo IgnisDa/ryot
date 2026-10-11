@@ -3,11 +3,12 @@ import { CLIENT_API_VERSION } from "@ryot-app/client-plugin-contract";
 import { encodePluginCatalogInvalidatedMessage } from "@ryot-app/contract/modules/plugins/contract";
 import type { PluginManifest } from "@ryot-app/contract/modules/plugins/manifest";
 import { PluginConflictError } from "@ryot-app/contract/modules/plugins/schemas";
-import { PluginSlug, type UserId } from "@ryot-app/contract/schema/brands";
+import { PluginId, PluginPackageId, type UserId } from "@ryot-app/contract/schema/brands";
 import { emptySandboxExecutionMetadata } from "@ryot-app/contract/testing";
 import { sandboxCompilerPlatformLayer } from "@ryot-app/sandbox-compiler/platform";
 import { Cause, Context, Deferred, Effect, Exit, Fiber, Layer, Option, Ref } from "effect";
 
+import { DatabaseSession } from "#lib/infrastructure/db/session";
 import { redisKeys, RedisService } from "#lib/infrastructure/redis";
 import { assertExitFails } from "#lib/test-utils/assertions";
 import { databaseLayer, makeRedisService, type MockOverrides } from "#lib/test-utils/effect";
@@ -19,6 +20,8 @@ import {
 } from "#modules/sandbox/workflow-reference-repository";
 
 import { PluginCatalogInvalidator } from "./catalog-events";
+import { PluginIngestionRetirement } from "./ingestion-retirement";
+import { PluginInstallationRepository } from "./installation-repository";
 import { toPluginScriptDescriptor } from "./pipeline";
 import { PluginRepository } from "./repository";
 import { PluginRevisionActivation } from "./revision-activation";
@@ -50,6 +53,7 @@ const makeStoredPlugin = (manifest: PluginManifest, sourceHash: string): StoredP
 		scope: "system",
 		status: "active",
 		slug: manifest.metadata.slug,
+		packageId: manifest.metadata.packageId,
 		id: `${manifest.metadata.slug}-plugin-id`,
 		activationId: `${manifest.metadata.slug}-activation`,
 		scripts: manifest.scripts.map((script) => {
@@ -83,13 +87,16 @@ const definitionOwnerManifest = (): PluginManifest => {
 };
 
 const dependentManifest = (entitySchemaSlug: string): PluginManifest => {
-	const fixture = fixtureManifest();
+	const fixture = fixtureManifest(PluginPackageId.make(crypto.randomUUID()));
 	return {
 		...fixture,
-		entitySchemas: [],
 		signalSchemas: [],
 		relationshipSchemas: [],
 		metadata: { ...fixture.metadata, name: "Dependent", slug: "dependent" },
+		entitySchemas: Array.from(fixture.entitySchemas, (entity) => ({
+			...entity,
+			slug: entitySchemaSlug,
+		})),
 		hooks: [
 			{
 				stage: "after",
@@ -104,7 +111,7 @@ const dependentManifest = (entitySchemaSlug: string): PluginManifest => {
 };
 
 const formatterOwnerManifest = (): PluginManifest => {
-	const fixture = fixtureManifest();
+	const fixture = fixtureManifest(PluginPackageId.make(crypto.randomUUID()));
 	const script = fixture.scripts[0];
 	assert(script);
 	return {
@@ -120,7 +127,7 @@ const formatterOwnerManifest = (): PluginManifest => {
 };
 
 const relationshipDependentManifest = (targetEntitySchemaSlug: string): PluginManifest => {
-	const fixture = fixtureManifest();
+	const fixture = fixtureManifest(PluginPackageId.make(crypto.randomUUID()));
 	const entitySchema = fixture.entitySchemas[0];
 	const relationshipSchema = fixture.relationshipSchemas[0];
 	const script = fixture.scripts[0];
@@ -132,8 +139,11 @@ const relationshipDependentManifest = (targetEntitySchemaSlug: string): PluginMa
 		hooks: [],
 		signalSchemas: [],
 		scripts: [{ ...script, slug: "dependent.automation" }],
-		entitySchemas: [{ ...entitySchema, slug: "dependent-entity" }],
 		metadata: { ...fixture.metadata, name: "Dependent", slug: "dependent" },
+		entitySchemas: [
+			{ ...entitySchema, slug: "dependent-entity" },
+			{ ...entitySchema, slug: targetEntitySchemaSlug },
+		],
 		relationshipSchemas: [
 			{
 				...relationshipSchema,
@@ -237,6 +247,9 @@ const makeLayer = (input?: {
 	readonly hasIntegrationReferences?: boolean;
 	readonly systemPluginSlugs?: ReadonlySet<string>;
 	readonly initialInstalled?: ReadonlyArray<StoredPlugin>;
+	readonly quarantined?: Effect.Success<
+		ReturnType<PluginInstallationRepository["Service"]["quarantinePackageIdentityConflicts"]>
+	>;
 }) => {
 	const stateLayer = Layer.effect(
 		IngestionFakeState,
@@ -266,7 +279,9 @@ const makeLayer = (input?: {
 		}),
 	);
 	const fakesLayer = Layer.unwrap(
-		Effect.map(IngestionFakeState, (state) => {
+		Effect.gen(function* () {
+			const state = yield* IngestionFakeState;
+			const session = yield* DatabaseSession;
 			const recordEvent = (event: string) => append(state.events, event);
 			const currentRound = Ref.get(state.round);
 			const contendedLock = Effect.gen(function* () {
@@ -277,6 +292,7 @@ const makeLayer = (input?: {
 				yield* Deferred.await(round.inspection);
 			});
 			const repository = makeRepository({
+				findReferencedRemovedDeclarations: () => Effect.succeed([]),
 				hasEntityReferences: () => Ref.get(state.hasEntityReferences),
 				resolveEnvironmentConfigs: () => recordEvent("resolve-all-environments"),
 				lockIngestion: () => (input?.contendedLock ? contendedLock : recordEvent("lock")),
@@ -288,15 +304,20 @@ const makeLayer = (input?: {
 					append(state.integrationFences, fence).pipe(
 						Effect.as(input?.hasIntegrationReferences ?? false),
 					),
-				findActiveSystemPlugin: (slug) =>
+				findActiveSystemPluginById: (id) =>
 					Effect.map(
 						Ref.get(state.installed),
-						(all) => all.find((plugin) => plugin.slug === slug) ?? null,
+						(all) => all.find((plugin) => plugin.id === id) ?? null,
 					),
 				findUninstallReceipt: (activationId) =>
 					Effect.map(
 						Ref.get(state.receipts),
 						(all) => all.find((receipt) => receipt.activationId === activationId) ?? null,
+					),
+				findActiveSystemPluginByPackageId: (packageId) =>
+					Effect.map(
+						Ref.get(state.installed),
+						(all) => all.find((plugin) => plugin.packageId === packageId) ?? null,
 					),
 				recordUninstallReceipt: (receipt) =>
 					append(state.receipts, {
@@ -320,15 +341,11 @@ const makeLayer = (input?: {
 					}
 					const cached = makeStoredPlugin(input.cachedManifest ?? fixtureManifest(), sourceHash);
 					return Ref.update(state.installed, (all) =>
-						upsertBy(
-							all,
-							cached,
-							(plugin) => plugin.manifest.metadata.slug === cached.manifest.metadata.slug,
-						),
+						upsertBy(all, cached, (plugin) => plugin.packageId === cached.packageId),
 					).pipe(Effect.as(cached));
 				},
 				persist: (plugin, identity) => {
-					const pluginId = `${identity.slug}-plugin-id`;
+					const pluginId = identity.pluginId ?? `${identity.slug}-plugin-id`;
 					const { scripts, ...revision } = plugin;
 					const stored: StoredPlugin = {
 						...revision,
@@ -341,7 +358,7 @@ const makeLayer = (input?: {
 					return append(state.persisted, plugin).pipe(
 						Effect.andThen(
 							Ref.update(state.installed, (all) =>
-								upsertBy(all, stored, (candidate) => candidate.slug === identity.slug),
+								upsertBy(all, stored, (candidate) => candidate.packageId === identity.packageId),
 							),
 						),
 						Effect.as(pluginId),
@@ -362,10 +379,34 @@ const makeLayer = (input?: {
 			);
 			return Layer.mergeAll(
 				repository,
+				Layer.mock(PluginInstallationRepository)({
+					quarantinePackageIdentityConflicts: () =>
+						Effect.gen(function* () {
+							if (input?.quarantined?.length) {
+								yield* recordEvent(
+									`quarantine:${(yield* session.isTransactionActive) ? "transaction" : "root"}`,
+								);
+							}
+							return input?.quarantined ?? [];
+						}),
+				}),
+				Layer.succeed(PluginIngestionRetirement, {
+					retire: () =>
+						Effect.gen(function* () {
+							yield* recordEvent(
+								`retire:${(yield* session.isTransactionActive) ? "transaction" : "root"}`,
+							);
+						}),
+				}),
 				Layer.mock(DefinitionRepository)({
 					readKernelSource: Effect.succeed(kernelDefinitionSource()),
 				}),
-				Layer.succeed(SystemPlugins, { sources: [], slugs: input?.systemPluginSlugs ?? new Set() }),
+				Layer.succeed(SystemPlugins, {
+					sources: [],
+					packageIds: new Set(
+						input?.systemPluginSlugs?.size ? [fixtureManifest().metadata.packageId] : [],
+					),
+				}),
 				Layer.mock(SandboxWorkflowReferenceRepository)({
 					hasReferences: () =>
 						recordEvent("workflow-reference").pipe(
@@ -478,6 +519,31 @@ layer(makeLayer({}))((test) => {
 				`resolve-environment:${plugin.id}`,
 			]);
 		}),
+	);
+});
+
+layer(
+	makeLayer({
+		quarantined: [
+			{ userId: "private-owner", id: "private-installation", pluginId: "private-plugin" },
+		],
+	}),
+)((test) => {
+	test.effect(
+		"activates a system package while quarantining exact private claims before commit",
+		() =>
+			Effect.gen(function* () {
+				const ingestion = yield* PluginIngestionService;
+				const fake = yield* FakeIngestionDependencies;
+				const source = yield* loadPluginSource(fixturePackageRoot(), fixtureManifest());
+				const installed = yield* ingestion.ingestSystemPlugin(source);
+				expect(installed.packageId).toBe(source.manifest.metadata.packageId);
+				const events = yield* fake.events;
+				expect(events).toContain("quarantine:transaction");
+				expect(events).toContain("retire:root");
+				expect(events.indexOf("quarantine:transaction")).toBeLessThan(events.indexOf("publish"));
+				expect(events.indexOf("publish")).toBeLessThan(events.indexOf("retire:root"));
+			}),
 	);
 });
 
@@ -798,7 +864,10 @@ layer(makeLayer({ initialInstalled: [storedFixture] }))((test) => {
 				expect.objectContaining({ slug: "fixture" }),
 			]);
 
-			const removed = yield* ingestion.uninstallPlugin("fixture", storedFixture.activationId);
+			const removed = yield* ingestion.uninstallPlugin(
+				storedFixture.id,
+				storedFixture.activationId,
+			);
 			expect(removed).toEqual({ pluginId: storedFixture.id });
 			expect(yield* fake.deactivated).toEqual(["fixture-plugin-id"]);
 			expect(yield* ingestion.listPlugins()).toEqual([]);
@@ -812,16 +881,18 @@ layer(makeLayer({ initialInstalled: [storedFixture] }))((test) => {
 		Effect.gen(function* () {
 			const fake = yield* FakeIngestionDependencies;
 			const ingestion = yield* PluginIngestionService;
-			const first = yield* ingestion.uninstallPlugin("fixture", storedFixture.activationId);
+			const first = yield* ingestion.uninstallPlugin(storedFixture.id, storedFixture.activationId);
 			const replacement = { ...storedFixture, activationId: "replacement-activation" };
 			yield* fake.replaceInstalled(replacement);
 
-			expect(yield* ingestion.uninstallPlugin("fixture", storedFixture.activationId)).toEqual(
-				first,
-			);
+			expect(
+				yield* ingestion.uninstallPlugin(storedFixture.id, storedFixture.activationId),
+			).toEqual(first);
 			expect(yield* ingestion.listPlugins()).toHaveLength(1);
 			expect(yield* fake.deactivated).toEqual([storedFixture.id]);
-			const wrong = yield* Effect.exit(ingestion.uninstallPlugin("fixture", "unknown-activation"));
+			const wrong = yield* Effect.exit(
+				ingestion.uninstallPlugin(storedFixture.id, "unknown-activation"),
+			);
 			expect(failureOf(wrong)).toMatchObject({ _tag: "PluginNotFoundError" });
 			expect(yield* ingestion.listPlugins()).toHaveLength(1);
 		}),
@@ -836,7 +907,10 @@ layer(
 			const fake = yield* FakeIngestionDependencies;
 			const ingestion = yield* PluginIngestionService;
 
-			const removed = yield* ingestion.uninstallPlugin("fixture", storedFixture.activationId);
+			const removed = yield* ingestion.uninstallPlugin(
+				storedFixture.id,
+				storedFixture.activationId,
+			);
 			expect(removed).toEqual({ pluginId: storedFixture.id });
 			expect(yield* fake.deactivated).toEqual(["fixture-plugin-id"]);
 			expect(yield* ingestion.listPlugins()).toEqual([]);
@@ -849,7 +923,10 @@ layer(makeLayer({ hasWorkflowReferences: true, initialInstalled: [storedFixture]
 		return Effect.gen(function* () {
 			const fake = yield* FakeIngestionDependencies;
 			const ingestion = yield* PluginIngestionService;
-			const removed = yield* ingestion.uninstallPlugin("fixture", storedFixture.activationId);
+			const removed = yield* ingestion.uninstallPlugin(
+				storedFixture.id,
+				storedFixture.activationId,
+			);
 
 			expect(removed).toEqual({ pluginId: storedFixture.id });
 			expect(yield* fake.events).toEqual(["lock", "deactivate", "publish"]);
@@ -875,9 +952,9 @@ layer(makeLayer({ contendedLock: true, initialInstalled: [storedFixture] }))((te
 					const events = Effect.map(fake.events, (all) => all.slice(eventsBefore));
 
 					const uninstall = yield* Effect.forkChild(
-						Effect.exit(ingestion.uninstallPlugin("fixture", storedFixture.activationId)).pipe(
-							Effect.tap(contention.releaseExclusive),
-						),
+						Effect.exit(
+							ingestion.uninstallPlugin(storedFixture.id, storedFixture.activationId),
+						).pipe(Effect.tap(contention.releaseExclusive)),
 					);
 					yield* contention.exclusiveAcquired;
 					expect(yield* events).toEqual(["exclusive-acquired"]);
@@ -896,7 +973,7 @@ layer(makeLayer({ contendedLock: true, initialInstalled: [storedFixture] }))((te
 						assertExitFails(
 							uninstallExit,
 							new PluginConflictError({
-								reason: { code: "entity-referenced", pluginSlug: PluginSlug.make("fixture") },
+								reason: { code: "entity-referenced", pluginId: PluginId.make(storedFixture.id) },
 							}),
 						);
 						expect(dispatchExit).toEqual(Exit.succeed({ status: "registered" }));
@@ -937,12 +1014,12 @@ layer(makeLayer({ hasEntityReferences: true, initialInstalled: [storedFixture] }
 			const fake = yield* FakeIngestionDependencies;
 			const ingestion = yield* PluginIngestionService;
 			const exit = yield* Effect.exit(
-				ingestion.uninstallPlugin("fixture", storedFixture.activationId),
+				ingestion.uninstallPlugin(storedFixture.id, storedFixture.activationId),
 			);
 
 			expect(failureOf(exit)).toMatchObject({
 				_tag: "PluginConflictError",
-				reason: { pluginSlug: "fixture", code: "entity-referenced" },
+				reason: { code: "entity-referenced", pluginId: storedFixture.id },
 			});
 			expect(yield* fake.deactivated).toEqual([]);
 		});
@@ -955,13 +1032,13 @@ layer(makeLayer({ hasIntegrationReferences: true, initialInstalled: [storedFixtu
 			const fake = yield* FakeIngestionDependencies;
 			const ingestion = yield* PluginIngestionService;
 			const exit = yield* Effect.exit(
-				ingestion.uninstallPlugin("fixture", storedFixture.activationId),
+				ingestion.uninstallPlugin(storedFixture.id, storedFixture.activationId),
 			);
 
 			assertExitFails(
 				exit,
 				new PluginConflictError({
-					reason: { code: "integration-referenced", pluginSlug: PluginSlug.make("fixture") },
+					reason: { code: "integration-referenced", pluginId: PluginId.make(storedFixture.id) },
 				}),
 			);
 			expect(yield* fake.integrationFences).toEqual([{ pluginId: storedFixture.id }]);
@@ -977,19 +1054,14 @@ const hookDependent = makeStoredPlugin(
 );
 
 layer(makeLayer({ initialInstalled: [definitionOwner, hookDependent] }))((test) => {
-	test.effect("refuses uninstall while another active plugin binds to its definitions", () => {
+	test.effect("uninstalls independently of another package's same-name hook targets", () => {
 		return Effect.gen(function* () {
 			const fake = yield* FakeIngestionDependencies;
 			const ingestion = yield* PluginIngestionService;
-			const exit = yield* Effect.exit(
-				ingestion.uninstallPlugin("fixture", storedFixture.activationId),
-			);
-
-			expect(failureOf(exit)).toMatchObject({
-				_tag: "PluginConflictError",
-				reason: { pluginSlug: "fixture", code: "definition-referenced" },
-			});
-			expect(yield* fake.deactivated).toEqual([]);
+			expect(
+				yield* ingestion.uninstallPlugin(storedFixture.id, storedFixture.activationId),
+			).toEqual({ pluginId: storedFixture.id });
+			expect(yield* fake.deactivated).toEqual([storedFixture.id]);
 		});
 	});
 });
@@ -1009,7 +1081,10 @@ layer(makeLayer({ initialInstalled: [formatterOwner, notificationDependent] }))(
 				const fake = yield* FakeIngestionDependencies;
 				const ingestion = yield* PluginIngestionService;
 				expect(
-					yield* ingestion.uninstallPlugin("formatter-owner", "formatter-owner-activation"),
+					yield* ingestion.uninstallPlugin(
+						"formatter-owner-plugin-id",
+						"formatter-owner-activation",
+					),
 				).toEqual({ pluginId: formatterOwner.id });
 				expect(yield* fake.deactivated).toEqual([formatterOwner.id]);
 				expect((yield* ingestion.listPlugins()).map(({ slug }) => slug)).toEqual([
@@ -1026,28 +1101,18 @@ const relationshipDependent = makeStoredPlugin(
 
 layer(makeLayer({ initialInstalled: [definitionOwner, relationshipDependent] }))((test) => {
 	test.effect(
-		"refuses uninstall while another plugin relationship targets its entity schema",
+		"uninstalls independently of another package's same-name relationship endpoints",
 		() => {
 			return Effect.gen(function* () {
 				const fake = yield* FakeIngestionDependencies;
 				const ingestion = yield* PluginIngestionService;
-				const plugins = yield* ingestion.listPlugins();
-
-				const exit = yield* Effect.exit(
-					ingestion.uninstallPlugin("fixture", storedFixture.activationId),
-				);
-
-				expect(Exit.isFailure(exit)).toBe(true);
-				if (Exit.isFailure(exit)) {
-					const error = Option.getOrThrow(Cause.findErrorOption(exit.cause));
-					expect(error).toMatchObject({
-						_tag: "PluginConflictError",
-						reason: { pluginSlug: "fixture", code: "definition-referenced" },
-					});
-				}
-				expect(yield* ingestion.listPlugins()).toEqual(plugins);
-				expect(yield* fake.deactivated).toEqual([]);
-				expect(yield* fake.published).toEqual([]);
+				expect(
+					yield* ingestion.uninstallPlugin(storedFixture.id, storedFixture.activationId),
+				).toEqual({ pluginId: storedFixture.id });
+				expect(yield* fake.deactivated).toEqual([storedFixture.id]);
+				expect((yield* ingestion.listPlugins()).map(({ packageId }) => packageId)).toEqual([
+					relationshipDependent.packageId,
+				]);
 			});
 		},
 	);
@@ -1063,15 +1128,12 @@ layer(
 		return Effect.gen(function* () {
 			const ingestion = yield* PluginIngestionService;
 			const exit = yield* Effect.exit(
-				ingestion.uninstallPlugin(
-					installedExample.manifest.metadata.slug,
-					installedExample.activationId,
-				),
+				ingestion.uninstallPlugin(installedExample.id, installedExample.activationId),
 			);
 
 			expect(failureOf(exit)).toMatchObject({
 				_tag: "PluginConflictError",
-				reason: { pluginSlug: "example", code: "system-plugin" },
+				reason: { code: "system-plugin", pluginId: installedExample.id },
 			});
 		});
 	});
@@ -1112,6 +1174,10 @@ const cachedManifest: PluginManifest = {
 };
 const conflictingManifest: PluginManifest = {
 	...definitionOwnerManifest(),
+	metadata: {
+		...definitionOwnerManifest().metadata,
+		packageId: PluginPackageId.make(crypto.randomUUID()),
+	},
 	httpRateLimits: [
 		{
 			requests: 2,
@@ -1129,19 +1195,14 @@ layer(
 		initialInstalled: [makeStoredPlugin(conflictingManifest, "database-source")],
 	}),
 )((test) => {
-	test.effect("validates the full authoritative active set before exposing a cached plugin", () => {
+	test.effect("keeps same-name rate-limit declarations in independent packages", () => {
 		return Effect.gen(function* () {
 			const fake = yield* FakeIngestionDependencies;
 			const ingestion = yield* PluginIngestionService;
 			const source = yield* loadPluginSource(fixturePackageRoot(), cachedManifest);
-			const exit = yield* Effect.exit(ingestion.ingestSystemPlugin(source));
-
-			expect(failureOf(exit)).toMatchObject({
-				_tag: "PluginRequestError",
-				reason: { code: "validation-failed" },
-			});
-			expect(yield* fake.events).toEqual([]);
-			expect(yield* fake.published).toEqual([]);
+			const installed = yield* ingestion.ingestSystemPlugin(source);
+			expect(installed.packageId).toBe(cachedManifest.metadata.packageId);
+			expect(yield* fake.published).toHaveLength(1);
 		});
 	});
 });
@@ -1265,20 +1326,24 @@ layer(makeLayer())((test) => {
 });
 
 const otherPlugin = makeStoredPlugin(
-	{ ...fixtureManifest(), metadata: { ...fixtureManifest().metadata, slug: "other-plugin" } },
+	{
+		...fixtureManifest(),
+		metadata: {
+			...fixtureManifest().metadata,
+			slug: "other-plugin",
+			packageId: PluginPackageId.make(crypto.randomUUID()),
+		},
+	},
 	"existing-source-hash",
 );
 
 layer(makeLayer({ initialInstalled: [otherPlugin] }))((test) => {
-	test.effect("rejects script slug collisions with another active plugin", () => {
+	test.effect("accepts same-name scripts in another active package", () => {
 		return Effect.gen(function* () {
 			const ingestion = yield* PluginIngestionService;
 			const source = yield* loadPluginSource(fixturePackageRoot(), fixtureManifest());
-			const exit = yield* Effect.exit(ingestion.ingestSystemPlugin(source));
-			expect(failureOf(exit)).toMatchObject({
-				_tag: "PluginRequestError",
-				reason: { code: "validation-failed" },
-			});
+			const installed = yield* ingestion.ingestSystemPlugin(source);
+			expect(installed.packageId).not.toBe(otherPlugin.packageId);
 		});
 	});
 });

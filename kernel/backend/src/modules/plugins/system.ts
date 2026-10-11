@@ -3,6 +3,8 @@ import { Context, Effect, FileSystem, Layer, Path } from "effect";
 
 import { AppConfig } from "#lib/infrastructure/config/service";
 
+import { PluginValidationError } from "./validation";
+
 export const discoverSystemPlugins = Effect.fn("discoverSystemPlugins")(function* (root: string) {
 	const fs = yield* FileSystem.FileSystem;
 	const path = yield* Path.Path;
@@ -18,7 +20,17 @@ export const discoverSystemPlugins = Effect.fn("discoverSystemPlugins")(function
 		if (info.type !== "File") {
 			continue;
 		}
-		sources.push(yield* readPluginArchive(yield* fs.readFile(archivePath)));
+		const source = yield* readPluginArchive(yield* fs.readFile(archivePath));
+		if (
+			sources.some(
+				({ manifest }) => manifest.metadata.packageId === source.manifest.metadata.packageId,
+			)
+		) {
+			return yield* new PluginValidationError({
+				issues: [`Duplicate bundled package identity ${source.manifest.metadata.packageId}`],
+			});
+		}
+		sources.push(source);
 	}
 	return sources;
 });
@@ -27,10 +39,8 @@ export class SystemPlugins extends Context.Service<SystemPlugins>()("SystemPlugi
 	make: Effect.gen(function* () {
 		const config = yield* AppConfig;
 		const sources = yield* discoverSystemPlugins(config.server.pluginsSystemDir);
-		const slugs: ReadonlySet<string> = new Set(
-			sources.map(({ manifest }) => manifest.metadata.slug),
-		);
-		return { slugs, sources };
+		const packageIds = new Set(sources.map(({ manifest }) => manifest.metadata.packageId));
+		return { sources, packageIds };
 	}),
 }) {
 	static readonly layer = Layer.effect(this, this.make);

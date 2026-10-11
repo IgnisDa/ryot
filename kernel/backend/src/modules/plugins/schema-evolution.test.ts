@@ -95,6 +95,59 @@ it("rejects a changed dynamic choice source", () => {
 	}
 });
 
+it("accepts metadata renames and same-version compatible content", () => {
+	expect(
+		Exit.isSuccess(
+			evolve((previous) => ({
+				...previous,
+				metadata: { ...previous.metadata, name: "Renamed", slug: "renamed" },
+			})),
+		),
+	).toBe(true);
+});
+
+it("rejects event reparenting without changing its local event name", () => {
+	const previous = fixtureManifest();
+	const entity = previous.entitySchemas[0];
+	assert(entity);
+	const next = {
+		...previous,
+		entitySchemas: [
+			{ ...entity, eventSchemas: [] },
+			{ ...entity, slug: "other-entity" },
+		],
+	};
+	const exit = Effect.runSyncExit(validateAdditiveSchemaEvolution(previous, next));
+	assert(Exit.isFailure(exit));
+	const error = Option.getOrThrow(Cause.findErrorOption(exit.cause));
+	expect(error.issues.some(({ code }) => code === "schema_removed")).toBe(true);
+});
+
+it("rejects merge identity and relationship endpoint changes", () => {
+	const previous = fixtureManifest();
+	const entity = previous.entitySchemas[0];
+	const relationship = previous.relationshipSchemas[0];
+	assert(entity);
+	assert(relationship);
+	const exit = Effect.runSyncExit(
+		validateAdditiveSchemaEvolution(previous, {
+			...previous,
+			entitySchemas: [{ ...entity, mergeIdentityProperties: ["name"] }],
+			relationshipSchemas: [{ ...relationship, targetEntitySchemaSlug: null }],
+		}),
+	);
+	assert(Exit.isFailure(exit));
+	const error = Option.getOrThrow(Cause.findErrorOption(exit.cause));
+	expect(error.issues).toContainEqual({
+		code: "schema_changed",
+		path: `entity:${entity.slug}.mergeIdentityProperties`,
+	});
+	expect(error.issues).toContainEqual({
+		code: "schema_changed",
+		path: `relationship:${relationship.slug}.endpoints`,
+	});
+});
+
 it.each([
 	{
 		code: "schema_removed",

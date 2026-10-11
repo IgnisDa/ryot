@@ -4,9 +4,11 @@ import {
 	CLIENT_ARTIFACT_FORMAT,
 	CLIENT_BRIDGE_PROTOCOL_VERSION,
 	CLIENT_COMPILER_VERSION,
+	clientDeclarationHash,
 } from "@ryot-app/client-plugin-contract";
+import { DbError } from "@ryot-app/contract/errors";
 import { DEFAULT_AUTOMATION_RETRY_POLICY } from "@ryot-app/contract/modules/automations/lifecycle";
-import { UserId } from "@ryot-app/contract/schema/brands";
+import { PluginPackageId, UserId } from "@ryot-app/contract/schema/brands";
 import { sha256Hex } from "@ryot-app/ts-utils/crypto";
 import { and, eq } from "drizzle-orm";
 import { Effect, Result } from "effect";
@@ -38,11 +40,17 @@ const cleanupInput = { limit: 500, now: cleanupNow };
 
 it("matches immutable client artifacts by exact bytes", () => {
 	const metadata = {
+		imports: [],
 		hash: "artifact",
 		format: CLIENT_ARTIFACT_FORMAT,
 		apiVersion: CLIENT_API_VERSION,
 		compilerVersion: CLIENT_COMPILER_VERSION,
 		bridgeVersion: CLIENT_BRIDGE_PROTOCOL_VERSION,
+		packageId: fixtureManifest().metadata.packageId,
+		clientDeclarationHash: clientDeclarationHash({
+			homeView: null,
+			apiVersion: CLIENT_API_VERSION,
+		}),
 	};
 	const artifact = {
 		...metadata,
@@ -76,6 +84,100 @@ it("matches immutable client artifacts by exact bytes", () => {
 
 describe("plugin repository revisions", () => {
 	layer(revisionDatabaseLayer)((test) => {
+		test.effect(
+			"keeps same-name packages independent and retains local identity across metadata renames",
+			() =>
+				Effect.gen(function* () {
+					const session = yield* DatabaseSession;
+					const repository = yield* PluginRepository;
+					const first = revisionPackage("shared", "v1");
+					const second = revisionPackage("shared", "v1");
+					const ids = yield* session.transaction(
+						Effect.gen(function* () {
+							yield* repository.lockIngestion();
+							return yield* Effect.forEach([first, second], (plugin) =>
+								repository.persist(plugin, {
+									ownerId: null,
+									scope: "system",
+									slug: plugin.manifest.metadata.slug,
+									packageId: plugin.manifest.metadata.packageId,
+								}),
+							);
+						}),
+					);
+					const [firstId, secondId] = ids;
+					assert(firstId);
+					assert(secondId);
+					expect(firstId).not.toBe(secondId);
+					const renamed = {
+						...first,
+						sourceHash: "renamed-content",
+						manifest: {
+							...first.manifest,
+							metadata: { ...first.manifest.metadata, slug: "renamed", name: "Renamed" },
+						},
+					};
+					expect(
+						yield* session.transaction(
+							repository.persist(renamed, {
+								ownerId: null,
+								scope: "system",
+								pluginId: firstId,
+								slug: renamed.manifest.metadata.slug,
+								packageId: first.manifest.metadata.packageId,
+							}),
+						),
+					).toBe(firstId);
+					expect((yield* repository.findActiveSystemPluginById(firstId))?.slug).toBe("renamed");
+					expect((yield* repository.findActiveSystemPluginById(secondId))?.slug).toBe("shared");
+					const revisions = yield* session.run((db) =>
+						db
+							.select({
+								manifest: tables.pluginRevision.manifest,
+								sourceHash: tables.pluginRevision.sourceHash,
+							})
+							.from(tables.pluginRevision)
+							.where(eq(tables.pluginRevision.pluginId, firstId)),
+					);
+					expect(revisions.map(({ manifest }) => manifest.metadata.version)).toEqual(["v1", "v1"]);
+					expect(revisions.map(({ sourceHash }) => sourceHash).sort()).toEqual(
+						[first.sourceHash, "renamed-content"].sort(),
+					);
+				}),
+		);
+		test.effect("rejects an explicit update claiming a different package UUID", () =>
+			Effect.gen(function* () {
+				const session = yield* DatabaseSession;
+				const repository = yield* PluginRepository;
+				const first = revisionPackage("identity-target");
+				const pluginId = yield* session.transaction(
+					repository.persist(first, {
+						ownerId: null,
+						scope: "system",
+						slug: first.manifest.metadata.slug,
+						packageId: first.manifest.metadata.packageId,
+					}),
+				);
+				const claim = revisionPackage("identity-target", "v2");
+				const result = yield* Effect.result(
+					session.transaction(
+						repository.persist(claim, {
+							pluginId,
+							ownerId: null,
+							scope: "system",
+							slug: claim.manifest.metadata.slug,
+							packageId: claim.manifest.metadata.packageId,
+						}),
+					),
+				);
+				expect(Result.isFailure(result)).toBe(true);
+				expect(
+					(yield* repository.findActiveSystemPluginById(pluginId))?.manifest.metadata.packageId,
+				).toBe(first.manifest.metadata.packageId);
+			}),
+		);
+	});
+	layer(revisionDatabaseLayer)((test) => {
 		test.effect("rotates activation on reinstall and retains the committed uninstall receipt", () =>
 			Effect.gen(function* () {
 				const session = yield* DatabaseSession;
@@ -86,9 +188,10 @@ describe("plugin repository revisions", () => {
 					ownerId: null,
 					scope: "system",
 					slug: pluginPackage.manifest.metadata.slug,
+					packageId: pluginPackage.manifest.metadata.packageId,
 				} satisfies Parameters<PluginRepository["Service"]["persist"]>[1];
-				const id = yield* repository.persist(pluginPackage, identity);
-				const first = yield* repository.findActiveSystemPlugin(identity.slug);
+				const id = yield* session.transaction(repository.persist(pluginPackage, identity));
+				const first = yield* repository.findActiveSystemPluginById(id);
 				assert(first);
 				yield* session.transaction(
 					Effect.gen(function* () {
@@ -105,8 +208,8 @@ describe("plugin repository revisions", () => {
 				expect(yield* repository.findUninstallReceipt(first.activationId)).toMatchObject({
 					pluginId: id,
 				});
-				expect(yield* repository.persist(pluginPackage, identity)).toBe(id);
-				const replacement = yield* repository.findActiveSystemPlugin(identity.slug);
+				expect(yield* session.transaction(repository.persist(pluginPackage, identity))).toBe(id);
+				const replacement = yield* repository.findActiveSystemPluginById(id);
 				assert(replacement);
 				expect(replacement.activationId).not.toBe(first.activationId);
 				expect(yield* repository.findUninstallReceipt(first.activationId)).toMatchObject({
@@ -122,21 +225,25 @@ describe("plugin repository revisions", () => {
 				});
 				assert(installation);
 				expect(
-					yield* installations.updateHealthForActivation({
-						health: "failed",
-						id: installation.id,
-						healthReason: "stale",
-						activationId: first.activationId,
-					}),
+					yield* session.transaction(
+						installations.updateHealthForActivation({
+							health: "failed",
+							id: installation.id,
+							healthReason: "stale",
+							activationId: first.activationId,
+						}),
+					),
 				).toBe(false);
 				expect((yield* installations.findById(installation.id))?.health).toBe("installing");
 				expect(
-					yield* installations.updateHealthForActivation({
-						health: "ready",
-						healthReason: null,
-						id: installation.id,
-						activationId: replacement.activationId,
-					}),
+					yield* session.transaction(
+						installations.updateHealthForActivation({
+							health: "ready",
+							healthReason: null,
+							id: installation.id,
+							activationId: replacement.activationId,
+						}),
+					),
 				).toBe(true);
 			}),
 		);
@@ -160,7 +267,11 @@ describe("plugin repository revisions", () => {
 						},
 					},
 				};
-				const compiledClient = fixtureClientArtifact(manifest.metadata.name);
+				const compiledClient = fixtureClientArtifact(
+					manifest.metadata.name,
+					manifest.metadata.packageId,
+					manifest.client,
+				);
 				const entry = manifest.scripts[0]?.entry;
 				assert(entry);
 				const javascript = "export {};";
@@ -182,11 +293,14 @@ describe("plugin repository revisions", () => {
 						};
 					}),
 				};
-				const pluginId = yield* repository.persist(plugin, {
-					scope: "user",
-					ownerId: owner,
-					slug: manifest.metadata.slug,
-				});
+				const pluginId = yield* session.transaction(
+					repository.persist(plugin, {
+						scope: "user",
+						ownerId: owner,
+						slug: manifest.metadata.slug,
+						packageId: manifest.metadata.packageId,
+					}),
+				);
 				yield* session.run((db) =>
 					db
 						.insert(tables.clientArtifact)
@@ -234,52 +348,51 @@ describe("plugin repository revisions", () => {
 				expect(
 					yield* repository.findClientArtifactForSource({ pluginId, sourceHash: "missing-source" }),
 				).toBeNull();
-				yield* session.run((db) =>
-					db
-						.update(tables.pluginRevision)
-						.set({ sourceHash: "changed-package-hash" })
-						.where(eq(tables.pluginRevision.id, revision.id)),
+				const changedSourceHash = yield* Effect.result(
+					session.run((db) =>
+						db
+							.update(tables.pluginRevision)
+							.set({ sourceHash: "changed-package-hash" })
+							.where(eq(tables.pluginRevision.id, revision.id)),
+					),
 				);
-				expect(
-					Result.isFailure(yield* Effect.result(repository.listCompiledPackageArtifacts(pluginId))),
-				).toBe(true);
-				yield* session.run((db) =>
-					db
-						.update(tables.pluginRevision)
-						.set({ sourceHash: plugin.sourceHash })
-						.where(eq(tables.pluginRevision.id, revision.id)),
-				);
-
-				yield* session.run((db) =>
-					db
-						.update(tables.pluginRevision)
-						.set({ clientArtifactHash: null })
-						.where(eq(tables.pluginRevision.id, revision.id)),
-				);
+				assert(Result.isFailure(changedSourceHash));
+				assert(changedSourceHash.failure instanceof DbError);
+				expect(changedSourceHash.failure.code).toBe("55000");
+				expect(yield* repository.listCompiledPackageArtifacts(pluginId)).toEqual({
+					compiledClient,
+					compiledScripts,
+				});
 				expect(
 					yield* repository.findClientArtifactForSource({
 						pluginId,
 						sourceHash: plugin.sourceHash,
 					}),
-				).toBeNull();
-				expect(
-					Result.isFailure(
-						yield* Effect.result(
-							repository.persist(plugin, {
-								scope: "user",
-								ownerId: owner,
-								slug: manifest.metadata.slug,
-							}),
-						),
-					),
-				).toBe(true);
+				).toEqual(compiledClient);
 
-				yield* session.run((db) =>
-					db
-						.update(tables.pluginRevision)
-						.set({ clientArtifactHash: compiledClient.hash })
-						.where(eq(tables.pluginRevision.id, revision.id)),
+				const changedClientArtifactHash = yield* Effect.result(
+					session.run((db) =>
+						db
+							.update(tables.pluginRevision)
+							.set({ clientArtifactHash: null })
+							.where(eq(tables.pluginRevision.id, revision.id)),
+					),
 				);
+				assert(Result.isFailure(changedClientArtifactHash));
+				assert(changedClientArtifactHash.failure instanceof DbError);
+				expect(changedClientArtifactHash.failure.code).toBe("55000");
+				expect(yield* repository.findRevisionClientArtifact(revision.id)).toEqual(compiledClient);
+				expect(
+					yield* repository.findClientArtifactForSource({
+						pluginId,
+						sourceHash: plugin.sourceHash,
+					}),
+				).toEqual(compiledClient);
+				expect(yield* repository.listCompiledPackageArtifacts(pluginId)).toEqual({
+					compiledClient,
+					compiledScripts,
+				});
+
 				const artifactFile = compiledClient.files[0];
 				assert(artifactFile);
 				yield* session.run((db) =>
@@ -406,13 +519,21 @@ describe("plugin repository revisions", () => {
 			() =>
 				Effect.gen(function* () {
 					const repository = yield* PluginRepository;
-					const installed = yield* installRevisionPackage(revisionPackage());
+					const initialPackage = revisionPackage();
+					const installed = yield* installRevisionPackage(initialPackage);
 					const before = yield* repository.resolveProviderBySlugs({
 						pluginId: installed.pluginId,
 						providerSlug: "fixture-provider",
 					});
 					assert(before);
-					yield* installRevisionPackage(revisionPackage("fixture", "v2"));
+					yield* installRevisionPackage(
+						revisionPackage(
+							"fixture",
+							"v2",
+							"fixture-entity",
+							initialPackage.manifest.metadata.packageId,
+						),
+					);
 					expect(
 						yield* repository.resolveProviderBySlugs({
 							pluginId: installed.pluginId,
@@ -434,14 +555,12 @@ describe("plugin repository revisions", () => {
 			() =>
 				Effect.gen(function* () {
 					const repository = yield* PluginRepository;
-					const first = yield* installRevisionPackage(
-						revisionPackage("handle-fixture", "v1"),
-						owner,
-					);
+					const firstPackage = revisionPackage("handle-fixture", "v1");
+					const first = yield* installRevisionPackage(firstPackage, owner);
 					const before = yield* repository.findTestSupportOperationResult({
 						scope: "user",
 						ownerId: owner,
-						slug: "handle-fixture",
+						pluginId: first.pluginId,
 					});
 					assert(before);
 					expect(before).toMatchObject({
@@ -453,13 +572,18 @@ describe("plugin repository revisions", () => {
 					expect(before.scripts).toHaveLength(5);
 
 					const second = yield* installRevisionPackage(
-						revisionPackage("handle-fixture", "v2"),
+						revisionPackage(
+							"handle-fixture",
+							"v2",
+							"handle-fixture-entity",
+							firstPackage.manifest.metadata.packageId,
+						),
 						owner,
 					);
 					const after = yield* repository.findTestSupportOperationResult({
 						scope: "user",
 						ownerId: owner,
-						slug: "handle-fixture",
+						pluginId: first.pluginId,
 					});
 					assert(after);
 					expect(after.id).toBe(before.id);
@@ -591,7 +715,8 @@ describe("plugin repository revisions", () => {
 				const installed = yield* installRevisionPackage(first);
 				expect(yield* repository.findRevisionClientArtifact(installed.revisionId)).toBeNull();
 				expect(
-					(yield* repository.findActiveSystemPlugin("fixture"))?.manifest.metadata.version,
+					(yield* repository.findActiveSystemPluginById(installed.pluginId))?.manifest.metadata
+						.version,
 				).toBe("v1");
 				expect(
 					(yield* repository.findBySourceHash({
@@ -599,15 +724,19 @@ describe("plugin repository revisions", () => {
 						slug: "fixture",
 						scope: "system",
 						sourceHash: first.sourceHash,
+						packageId: first.manifest.metadata.packageId,
 					}))?.scripts.map(({ contentHash }) => contentHash),
 				).toContain("fixture.details-v1");
-				yield* installRevisionPackage(revisionPackage("fixture", "v2"));
+				yield* installRevisionPackage(
+					revisionPackage("fixture", "v2", "fixture-entity", first.manifest.metadata.packageId),
+				);
 				expect(
 					yield* repository.findBySourceHash({
 						ownerId: null,
 						slug: "fixture",
 						scope: "system",
 						sourceHash: first.sourceHash,
+						packageId: first.manifest.metadata.packageId,
 					}),
 				).toBeNull();
 				expect((yield* repository.listPortablePluginMetadata())[0]?.version).toBe("v2");
@@ -619,11 +748,19 @@ describe("plugin repository revisions", () => {
 		test.effect("projects active provider operations without changing retained script rows", () =>
 			Effect.gen(function* () {
 				const session = yield* DatabaseSession;
-				const first = yield* installRevisionPackage(revisionPackage());
+				const initialPackage = revisionPackage();
+				const first = yield* installRevisionPackage(initialPackage);
 				const old = yield* session.run((db) =>
 					db.select().from(tables.userSandboxProviderOperation),
 				);
-				yield* installRevisionPackage(revisionPackage("fixture", "v2"));
+				yield* installRevisionPackage(
+					revisionPackage(
+						"fixture",
+						"v2",
+						"fixture-entity",
+						initialPackage.manifest.metadata.packageId,
+					),
+				);
 				const current = yield* session.run((db) =>
 					db.select().from(tables.userSandboxProviderOperation),
 				);
@@ -676,19 +813,33 @@ describe("plugin repository revisions", () => {
 	});
 
 	layer(revisionDatabaseLayer)((test) => {
-		test.effect("keeps system and user plugin slugs separate without a stored scope", () =>
+		test.effect("enforces scoped package identity while allowing duplicate metadata", () =>
 			Effect.gen(function* () {
 				const session = yield* DatabaseSession;
+				const packageId = PluginPackageId.make(crypto.randomUUID());
 				yield* session.run((db) =>
 					db.insert(tables.plugin).values([
-						{ id: "system", slug: "shared", status: "inactive" },
-						{ id: "owner", slug: "shared", ownerId: "owner", status: "inactive" },
-						{ slug: "shared", id: "recipient", status: "inactive", ownerId: "recipient" },
+						{ packageId, id: "system", slug: "shared", status: "inactive" },
+						{ packageId, id: "owner", slug: "shared", ownerId: "owner", status: "inactive" },
+						{
+							packageId,
+							slug: "shared",
+							id: "recipient",
+							status: "inactive",
+							ownerId: "recipient",
+						},
+						{
+							slug: "shared",
+							ownerId: "owner",
+							id: "independent",
+							status: "inactive",
+							packageId: PluginPackageId.make(crypto.randomUUID()),
+						},
 					]),
 				);
 				for (const duplicate of [
-					{ slug: "shared", status: "inactive", id: "second-system" },
-					{ slug: "shared", ownerId: "owner", id: "second-owner", status: "inactive" },
+					{ packageId, slug: "renamed", status: "inactive", id: "second-system" },
+					{ packageId, slug: "renamed", ownerId: "owner", id: "second-owner", status: "inactive" },
 				]) {
 					const result = yield* Effect.result(
 						session.transaction(session.run((db) => db.insert(tables.plugin).values(duplicate))),
@@ -719,7 +870,8 @@ describe("plugin repository revisions", () => {
 				Effect.gen(function* () {
 					const session = yield* DatabaseSession;
 					const repository = yield* PluginRepository;
-					const first = yield* installRevisionPackage(revisionPackage());
+					const initialPackage = revisionPackage();
+					const first = yield* installRevisionPackage(initialPackage);
 					const [root] = yield* session.run((db) =>
 						db
 							.select()
@@ -741,7 +893,14 @@ describe("plugin repository revisions", () => {
 								pluginInstallationId: first.installation.id,
 							}),
 					);
-					yield* installRevisionPackage(revisionPackage("fixture", "v2"));
+					yield* installRevisionPackage(
+						revisionPackage(
+							"fixture",
+							"v2",
+							"fixture-entity",
+							initialPackage.manifest.metadata.packageId,
+						),
+					);
 					yield* repository.deleteUnreferencedScripts(new Set(), cleanupInput);
 					expect(
 						(yield* session.run((db) =>
