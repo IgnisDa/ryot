@@ -7,10 +7,12 @@ import {
 	type SandboxProviderId,
 	type SandboxScriptId,
 } from "@ryot-app/contract/schema/brands";
+import type { JsonValue } from "@ryot-app/contract/schema/json";
 import type { AppSchema } from "@ryot-app/contract/schema/property-schema";
 import { readPluginArchive } from "@ryot-app/plugin-archive";
 import type {
 	ProviderDetailsResult,
+	ProviderRelatedResult,
 	ProviderResolveResult,
 	ProviderSearchOptionsResult,
 	ProviderSearchResult,
@@ -46,6 +48,7 @@ type ProviderOperationResult =
 	| ProviderSearchOptionsResult
 	| ProviderSearchResult
 	| ProviderResolveResult
+	| Readonly<Record<string, ProviderRelatedResult>>
 	| Readonly<Record<string, ProviderTranslateResult>>;
 
 export type InstalledTestProvider = Omit<InstalledTestPlugin, "scriptId" | "slug"> & {
@@ -54,6 +57,7 @@ export type InstalledTestProvider = Omit<InstalledTestPlugin, "scriptId" | "slug
 	detailsScriptId: SandboxScriptId;
 	searchScriptId?: SandboxScriptId;
 	resolveScriptId?: SandboxScriptId;
+	relatedScriptId?: SandboxScriptId;
 	translateScriptId?: SandboxScriptId;
 	searchOptionsScriptId?: SandboxScriptId;
 };
@@ -79,6 +83,7 @@ type TestProviderSpec = {
 	searchOptionsFailure?: string;
 	details: ProviderDetailsResult;
 	resolve?: ProviderResolveResult;
+	relatedPages?: Readonly<Record<string, ProviderRelatedResult>>;
 	searchOptionsSchema?: AppSchema;
 	information?: PluginProviderInformation;
 	searchOptions?: ProviderSearchOptionsResult;
@@ -123,6 +128,9 @@ const testProviderDeclaration = (input: TestProviderSpec): TestProviderDeclarati
 	}
 	if (input.resolve) {
 		operations.push({ operation: "resolve", result: input.resolve });
+	}
+	if (input.relatedPages) {
+		operations.push({ operation: "related", result: input.relatedPages });
 	}
 	if (input.translations) {
 		operations.push({ operation: "translate", result: input.translations });
@@ -175,6 +183,7 @@ const testProviderDeclaration = (input: TestProviderSpec): TestProviderDeclarati
 			details: `${providerSlug}.details`,
 			...(input.search ? { search: `${providerSlug}.search` } : {}),
 			...(input.resolve ? { resolve: `${providerSlug}.resolve` } : {}),
+			...(input.relatedPages ? { related: `${providerSlug}.related` } : {}),
 			...(input.translations ? { translate: `${providerSlug}.translate` } : {}),
 			...(input.searchOptions !== undefined || input.searchOptionsFailure !== undefined
 				? { searchOptions: `${providerSlug}.search-options` }
@@ -215,6 +224,7 @@ const resolveTestProviders = <Key extends string>(
 					detailsScriptId,
 					searchScriptId: scriptId("search"),
 					resolveScriptId: scriptId("resolve"),
+					relatedScriptId: scriptId("related"),
 					translateScriptId: scriptId("translate"),
 					searchOptionsScriptId: scriptId("search-options"),
 				};
@@ -407,6 +417,8 @@ export function fakeProviderDetailsResult(
 	};
 }
 
+export const relatedPageKey = (continuation: JsonValue) => JSON.stringify(continuation);
+
 export function fakeProviderTranslations(
 	translations: Record<string, ProviderTranslateResult>,
 ): Readonly<Record<string, ProviderTranslateResult>> {
@@ -427,24 +439,36 @@ export function providerSandboxSource(input: {
 	const resultSchemaByOperation = {
 		search: "providerSearchResultSchema",
 		details: "providerDetailsResultSchema",
+		related: "providerRelatedResultSchema",
 		resolve: "providerResolveResultSchema",
 		translate: "providerTranslateResultSchema",
 		"search-options": "providerSearchOptionsResultSchema",
 	} as const satisfies Record<ProviderOperation, string>;
 	const resultSchema = resultSchemaByOperation[input.operation];
 	const isTranslate = input.operation === "translate";
-	const declarations = isTranslate
-		? `const translations = Schema.decodeSync(
-  Schema.Record(Schema.String, providerTranslateResultSchema),
-)(
-  JSON.parse(${JSON.stringify(JSON.stringify(input.result))}),
-);`
-		: `const result = Schema.decodeSync(${resultSchema})(
+	const isRelated = input.operation === "related";
+	const decoded = (name: string, schema: string) => `const ${name} = Schema.decodeSync(${schema})(
   JSON.parse(${JSON.stringify(JSON.stringify(input.result))}),
 );`;
+	let declarations = decoded("result", resultSchema);
+	if (isRelated) {
+		declarations = decoded("pages", "Schema.Record(Schema.String, providerRelatedResultSchema)");
+	} else if (isTranslate) {
+		declarations = decoded(
+			"translations",
+			"Schema.Record(Schema.String, providerTranslateResultSchema)",
+		);
+	}
 	let run: string;
 	if (input.executionFailure !== undefined) {
 		run = `() => Effect.die(${JSON.stringify(input.executionFailure)})`;
+	} else if (isRelated) {
+		run = `({ continuation }) => {
+    const page = pages[JSON.stringify(continuation)];
+    return page === undefined
+      ? Effect.die("No fixture related page for " + JSON.stringify(continuation))
+      : Effect.succeed(page);
+  }`;
 	} else if (isTranslate) {
 		run = "({ language }) => Effect.succeed(translations[language] ?? {})";
 	} else {
