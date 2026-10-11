@@ -81,9 +81,6 @@ export class WorkflowGarbageCollectionRepository extends Context.Service<Workflo
 				envelope: Envelope.Encoded,
 			) {
 				yield* session.requireTransaction;
-				if (!envelope.address.entityType.startsWith(workflowEntityPrefix)) {
-					return yield* Effect.void;
-				}
 				const clock = envelope.address.entityType === workflowClockEntityType;
 				const identity: WorkflowIdentity = {
 					executionId: envelope.address.entityId,
@@ -94,7 +91,7 @@ export class WorkflowGarbageCollectionRepository extends Context.Service<Workflo
 						: envelope.address.entityType.slice(workflowEntityPrefix.length),
 				};
 				const expired = Effect.die(new WorkflowExecutionExpired(identity));
-				if (clock || envelope._tag !== "Request" || envelope.tag !== "run") {
+				if (clock || envelope._tag !== "Request") {
 					const locked = yield* lockExecution(identity);
 					if (!locked) {
 						return yield* new DbError({ message: "Workflow message has no admitted execution" });

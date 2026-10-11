@@ -1,15 +1,14 @@
 import { BunServices } from "@effect/platform-bun";
-import { PgClient } from "@effect/sql-pg";
 import { expect, layer } from "@effect/vitest";
 import { ImportRunId, SandboxScriptId, UserId } from "@ryot-app/contract/schema/brands";
 import { ExecutionFileStaging } from "@ryot-app/sandbox/host/execution-file-staging";
 import { eq } from "drizzle-orm";
 import { DateTime, Effect, FileSystem, Layer, Option, Redacted, Schema } from "effect";
-import { ClusterWorkflowEngine, SingleRunner } from "effect/cluster";
 import { Reactivity } from "effect/reactivity";
 import { DurableDeferred, Workflow } from "effect/workflow";
 import { WorkflowEngine } from "effect/workflow/WorkflowEngine";
 
+import { WorkflowEngineLive } from "#boot/workflow-engine";
 import { IngestionPayloads } from "#modules/assets/storage/ingestion-payloads";
 import { makeUserPrincipal } from "#modules/scripts/authorization/principal.test-support";
 import { DatabaseSession } from "#platform/db/session";
@@ -21,6 +20,7 @@ import { implementWorkflow, makeActivity } from "#platform/workflow/scope";
 import * as tables from "#schema/tables/combined";
 import { makeAppConfigLayer } from "#testing/effect";
 import { IsolatedDatabase, isolatedDatabaseLayer } from "#testing/isolated-database";
+import { testRedisUrl } from "#testing/redis";
 
 import { IngestionCaptures } from "./capture-service";
 import { IngestionCaptureWorkflowDefinitionsLive } from "./capture-write-workflow";
@@ -89,20 +89,11 @@ layer(
 					BunServices.layer,
 					makeAppConfigLayer({
 						database: { url: Redacted.make(url) },
+						redisUrl: Redacted.make(testRedisUrl()),
 						fileStorage: { localTempDir: temporary, localDir: `${directory}/permanent` },
 					}),
 					Layer.mock(S3Service)({ isConfigured: false }),
 					Layer.mock(HmacSigner)({}),
-				);
-				const engineLayer = ClusterWorkflowEngine.layer.pipe(
-					Layer.provide(
-						SingleRunner.layer({
-							runnerStorage: "sql",
-							shardingConfig: { shardLockDisableAdvisory: true },
-						}),
-					),
-					Layer.provide(PgClient.layer({ url: Redacted.make(url) })),
-					Layer.provide(BunServices.layer),
 				);
 				const repositories = ImportsRepository.layer.pipe(
 					Layer.provideMerge(DatabaseSession.layer),
@@ -111,7 +102,7 @@ layer(
 					Layer.provideMerge(repositories),
 					Layer.provideMerge(IngestionPayloads.layer),
 					Layer.provideMerge(LocalStorageService.layer),
-					Layer.provideMerge(engineLayer),
+					Layer.provideMerge(WorkflowEngineLive),
 					Layer.provideMerge(WorkflowExecutionNotifications.layer),
 					Layer.provideMerge(infrastructure),
 				);

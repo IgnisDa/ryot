@@ -1,7 +1,12 @@
 import { sql } from "drizzle-orm";
 import { Context, Effect, Layer, Redacted } from "effect";
 
+import { PgClientLive } from "#platform/db/postgres";
 import { DatabaseSession } from "#platform/db/session";
+import {
+	runWorkflowMessageMigrations,
+	workflowMessageFenceStatements,
+} from "#platform/db/workflow-message-fence";
 import { applyBaselineMigration, baselineMigrationStatements } from "#testing/baseline-migration";
 import { testDatabaseUrl } from "#testing/database";
 import { databaseLayer, makeAppConfigLayer } from "#testing/effect";
@@ -29,11 +34,18 @@ export const isolatedDatabaseLayer = (prefix: string) =>
 					yield* database.run((db) =>
 						applyBaselineMigration(statements, (statement) => db.execute(sql.raw(statement))),
 					);
+					yield* runWorkflowMessageMigrations;
+					yield* database.run((db) =>
+						applyBaselineMigration(workflowMessageFenceStatements, (statement) =>
+							db.execute(sql.raw(statement)),
+						),
+					);
 				}),
 			);
 			return migrated.pipe(
 				Layer.provideMerge(
-					DatabaseSession.layer.pipe(
+					Layer.effect(DatabaseSession, DatabaseSession.make).pipe(
+						Layer.provideMerge(PgClientLive),
 						Layer.provide(makeAppConfigLayer({ database: { url: Redacted.make(url) } })),
 						Layer.fresh,
 					),
