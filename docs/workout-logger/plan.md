@@ -36,7 +36,7 @@ This is a greenfield project. Refactor existing modules and change persisted sch
 | Historical edits    | Preserve original workout times, active duration, and existing set times. No live execution timers. New historical sets without a supplied time use workout start, not today's time.                                                             |
 | Repeats             | Copy reusable exercise/set data and structure. Clear session energy, reflections, completion times, active duration, and personal attachments.                                                                                                   |
 | Templates           | No live execution or confirmations. Retain exercise-only entries. Omit completely empty set rows; allow partially specified planned measurements. Keep optional planned rest.                                                                    |
-| Save                | Use resumable incremental writes with explicit pending/partial status. Freeze final input and finish time for retry; clear the draft only after complete success. Retain set identities and reject conflicting edits.                            |
+| Save                | Write the workout before its sets through existing services. Retries reuse stable IDs and do not duplicate; clear the draft only after success. Retain set identities and reject conflicting edits.                                              |
 | Media               | Restore existing media when editing. Removal is a draft change until Save. Cancel cannot delete saved references. Support image preview and actual video playback.                                                                               |
 | Measurements        | First implementation slice, working through All Measurements. Use the current metric/reading model without grouped-entry names. Independent saves; cancelling a workout does not remove a measurement.                                           |
 | Pro                 | Retain old gates. Never strip existing protected data from a loaded record or silently lose it during saving.                                                                                                                                    |
@@ -82,7 +82,7 @@ Representative draft sizes are estimates, not measurements of a not-yet-written 
 
 Across the three archives there are 2,484 workouts and 151 templates. Maxima are 20 workout exercise occurrences, 60 workout sets, 13 sets in one workout occurrence, 22 template occurrences, and 66 template sets. No representative draft exceeds 64 KiB. `tmp/dump2.sql` and `tmp/dump3.sql` were also inspected; they contain no legacy `workout` or `workout_template` rows and were not added to this sample.
 
-**Recommendation:** raise the existing plugin-storage value allowance from 8 KiB to 64 KiB. Keep one JSON draft value and the existing storage API. Re-measure with the actual codec before final acceptance, including a frozen save input, Unicode notes, and many media locators. Count UTF-8 bytes, not JavaScript string length.
+**Recommendation:** raise the existing plugin-storage value allowance from 8 KiB to 64 KiB. Keep one JSON draft value and the existing storage API. Re-measure with the actual codec before final acceptance, including a save input, Unicode notes, and many media locators. Count UTF-8 bytes, not JavaScript string length.
 
 Storage and invocation limits are separate. Sandbox invocation context is currently bounded at 64 KiB including its envelope. Validate the compact save input plus actual invocation overhead; reject oversize submissions explicitly. Do not increase unrelated sandbox limits or split a logical save into partial writes to evade a limit.
 
@@ -91,7 +91,7 @@ Storage and invocation limits are separate. Sandbox invocation context is curren
 | Finding                                                                       | Checklist                                                                                                                                                                                              |
 | ----------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | Plugin operations expose exercise notes, metrics, and reading log/edit/delete | [ ] Add workout/template save/edit, editor-context, and override operations.                                                                                                                           |
-| `OperationsService.dispatch` generates a new execution ID per invocation      | [ ] Add bounded user-scoped submission admission, payload fingerprints, and pinned execution/replay; a UI retry alone is not idempotent.                                                               |
+| `OperationsService.dispatch` generates a new execution ID per invocation      | [ ] Give saves stable scoped IDs so a UI retry does not duplicate; no admission or pinned-replay framework.                                                                                            |
 | Sandbox lacks ordinary user-entity update support                             | [ ] Extend the completed `createUserEntity` capability with bounded updates through the owning service. Each durable step owns its normal transaction; do not use bootstrap-only `ensureUserEntities`. |
 | Event create workflow commits each item and can return a partial failure      | [ ] Preserve per-item partial-failure behavior; event update/delete calls are atomic only within their own batches. Do not treat `host.createEvents` as all-or-nothing.                                |
 | Existing services reject an enclosing transaction                             | [ ] Keep each existing write service's transaction boundary. Reuse durable lifecycle steps rather than add an outer cross-resource transaction.                                                        |
@@ -114,7 +114,7 @@ Storage and invocation limits are separate. Sandbox invocation context is curren
 
 ### Domain boundary
 
-`plugins/fitness` owns the measurement composer, exercise picker, library queries and filters, same-kind replacement, set initialization/history copying, supersets, editor modes, drafts, timer reconciliation, save sequencing, incomplete-save presentation, and Fitness feature gates.
+`plugins/fitness` owns the measurement composer, exercise picker, library queries and filters, same-kind replacement, set initialization/history copying, supersets, editor modes, drafts, timer reconciliation, save sequencing, and Fitness feature gates.
 
 The client kernel owns authentication, server/user scope, generic provider search/add, transport, navigation, uploads, device storage, and native authority. It must not recognize workout modes, exercise kinds, set identifiers, or Fitness draft fields, and must not select or append exercises to a workout.
 
@@ -131,11 +131,9 @@ The approved picker is a Fitness-owned library picker plus the existing generic 
 - [ ] Cancel from provider search returns to the same picker with earlier selections intact. Cancel from the picker leaves the workout unchanged. Successfully added library entities remain in the library.
 - [ ] Replacement uses the same picker in single-selection mode, titled Replace [exercise]. Only matching-kind entities can be selected; applying a replacement preserves that occurrence's sets and completion state.
 
-For internal support, the kernel reports a bounded, invocation-correlated result containing the successfully added entity IDs, including resolved existing IDs when an add reused an entity. Cancellation is distinguishable from success. Provider results are ordinary entity references, not exercise selections or workout instructions.
+For internal support, the kernel reports the successfully added entity IDs. Provider results are ordinary entity references.
 
-Fitness consumes this result, loads entity details through its own recipes, checks eligibility, and updates picker selection. Do not infer the new entity by list order, name, timestamps, or a global before/after diff. Keep the result tied to the requesting navigation entry so stale completion cannot select items in a different picker. Retain successful IDs through provider-flow closure; a refresh-only signal is not sufficient.
-
-If provider addition during replacement returns an incompatible kind, keep the entity in the library but do not select or apply it; Fitness explains the kind restriction. The kernel does not implement that rule. Deduplicate the returned references and checked items, but do not forbid adding another occurrence of an exercise already in the workout.
+Fitness reloads those entities through its own recipes, checks eligibility, and updates picker selection. If provider addition during replacement returns an incompatible kind, keep the entity in the library but do not select or apply it.
 
 ### Shared Fitness domain
 
@@ -156,14 +154,12 @@ Reusing the pure property builder does not mean trusting client-derived personal
 Implement a Fitness-owned controller/service and small React adapters under `plugins/fitness/client/workout-editor/`.
 
 - [ ] Read the draft once, decode it, and expose loading, recoverable error, and ready states.
-- [ ] Keep input state current immediately. Serialize persistence operations so an older write cannot overwrite a newer one.
-- [ ] Use the existing SDK storage capability directly where the generic hook's unreadable-to-null behavior would silently discard a draft. Treat a malformed or inaccessible draft as an explicit recovery choice, not permission to overwrite it.
-- [ ] Flush consequential transitions before scheduling native delivery or navigating away. Block Finish while local persistence is failing; retain in-memory work and show retry.
-- [ ] Keep the live draft and frozen save attempt distinct within the one stored value, without copying unnecessary caches. Block destructive discard while save outcome is uncertain; first resolve the admitted command.
-- [ ] Use stable occurrence/set identifiers internally. Existing set event IDs survive reordering, edits, and same-kind replacement. Derive zero-based orders from the final retained graph at Save.
-- [ ] Use `RyotSchedule`/Effect Clock for time and deterministic tests. Avoid raw application timers and fake timers.
-- [ ] On resume/page refresh, reconcile the countdown and refresh context without replacing unsaved input. Never depend on an iframe or React provider living forever: prepared-page changes can remount the page tree and the kernel retains only three runtimes.
-- [ ] No automatic cross-tab synchronization or collaborative merging. If multiple tabs edit the same saved workout, server stale-write detection prevents silent overwrite.
+- [ ] Keep input state current immediately. Do not let an older write overwrite a newer one.
+- [ ] Treat a malformed or inaccessible draft as an explicit recovery choice, not permission to overwrite it.
+- [ ] Flush local persistence before navigating away. If persistence fails, retain in-memory work and show retry. Do not discard while a save is in flight.
+- [ ] Use stable occurrence/set identifiers internally. Existing set event IDs survive reordering, edits, and same-kind replacement.
+- [ ] On resume/page refresh, reconcile the countdown and refresh context without replacing unsaved input.
+- [ ] No automatic cross-tab synchronization. If multiple tabs edit the same saved workout, server stale-write detection prevents silent overwrite.
 
 ### Native notification primitive
 
@@ -185,20 +181,15 @@ For wake lock, use a supported Capacitor-8 keep-awake adapter plus the browser w
 
 For foreground vibration, expose one fixed haptic pulse rather than a pattern API. Muting sounds suppresses application audio and audible scheduled alerts, but not visual completion state. Do not replay a sequence of last-second vibrations on late recovery.
 
-### Resumable incremental save boundary
+### Save boundary
 
-Use durable incremental writes, not an atomic cross-resource coordinator. Partial changes can be visible, including during historical edits; the Fitness UI must make their incomplete state explicit.
+Use simple idempotent writes through existing services, not an atomic cross-resource coordinator and not a partial-resume engine.
 
-1. [ ] Admit a user-scoped submission key and immutable input fingerprint before executing writes. Scope it to account generation, stable plugin identity, and operation. Pin the admitted plugin revision. Same key/same input joins or replays the original command; changed input conflicts. A changed draft requires a new key.
-2. [ ] Fitness validates the desired final graph and plans a stable sequence of generic writes. Preserve historical timing, protected properties, media ownership, and relationship identity. Reject unrelated event IDs and schema/provenance mismatches.
-3. [ ] For a new workout, create its entity before dependent sets so existing context policies can query it. For historical edits, retain resource identities and check the editor baseline before applying changes. Capture stable step identities and expected source snapshots.
-4. [ ] Execute bounded entity, event, and relationship steps through their owning services, with normal schema checks, policies, locks, receipts, and post-commit dispatch. Each step commits independently. Do not bypass hooks or hold a transaction across sandbox execution, network work, or workflow boundaries.
-5. [ ] Preserve committed progress when a later step fails. Resume the original admitted execution and replay its committed receipts rather than resubmit completed work under new identities. Later conflicting external edits stop recovery; do not silently overwrite them or treat changes made by this save itself as an external conflict.
-6. [ ] Fitness owns the pending/partial/completed presentation and any persisted domain marker needed to identify incomplete records. The kernel exposes only generic execution outcomes and progress. Use normal typed properties for a domain marker, updating readers, import writers, and legacy mappings together if one is introduced; do not add a kernel-only workout flag.
-7. [ ] Keep the local draft and frozen attempt until all required writes finish. Distinguish an uncertain response from an actual failed step. Cancel/discard during partial saving cannot promise rollback or erase evidence of already committed changes; first resolve execution status and provide a truthful recovery action.
-8. [ ] Show personal-best processing as separate from save completion. Fitness emits the workout-created signal once at successful finalization, not merely when the provisional entity is created. Adjust the existing Fitness hook accordingly without changing imported-history notification behavior.
+- [ ] Fitness validates the final graph and writes the workout before its sets. Preserve historical timing, protected properties, media ownership, and relationship identity. Reject unrelated event IDs and schema/provenance mismatches.
+- [ ] Each write carries a stable scoped ID so retries reuse identities instead of duplicating. Do not hold a transaction across sandbox execution, network work, or workflow boundaries.
+- [ ] Show personal-best processing as separate from save completion. Fitness emits the workout-created signal once at successful finalization, not merely when the provisional entity is created.
 
-Reuse existing lifecycle workflow helpers, mutation receipts, and event-stream workers. Add only the generic user-entity write and operation-admission support missing from the current SDK/runtime. Fitness owns sequencing; do not add a new generic graph language, proposed-reference policy context, virtual RyotQL database, or cross-resource commit engine.
+Reuse existing lifecycle helpers, mutation receipts, and event-stream workers. Add only the generic user-entity write support missing from the current SDK/runtime.
 
 ## Ordered implementation phases
 
@@ -215,7 +206,7 @@ This is the first independently usable deliverable. Do not make it wait for the 
 - [x] Add metric-only creation for an empty installation: display name, normalized stable key, and optional unit. Share key normalization and known units with OpenScale, reject empty keys and known-unit mismatches, and block duplicate keys in the form.
 - [ ] Extract genuinely shared metric/reading property-building helpers from the importer. Keep OpenScale source units, date parsing, import IDs, and attribution source-owned.
 - [x] Add the plugin-scoped durable `createUserEntity` capability required for metrics, restricted to schemas owned by the executing plugin.
-- [ ] Use the existing event-write path to record readings. Give reading submissions stable scoped identities so retries resume rather than duplicate them. Resumable partial writes must show what remains incomplete; do not promise atomic grouped measurements.
+- [ ] Use the existing event-write path to record readings. Give reading submissions stable scoped IDs so retries do not duplicate; keep the existing event-write path.
 - [x] Keep reading input on validation/network/partial failure. Close and clear it only after completion.
 - [x] Page all metric summaries and make later reading-page errors retryable. Verify metric and reading pagination beyond 100 entries.
 - [x] Refresh the All Measurements summary, series, and reading log after a successful reading save through existing mutation/page-refresh behavior.
@@ -234,26 +225,23 @@ The subsequent phases reuse this slice's contracts, helpers, submission handling
 - [ ] Define the canonical editor draft and compact save input/output schemas. Derive types from these schemas and existing measurements; no handwritten mirrors of entity/event wire shapes.
 - [ ] Extract the reusable domain functions listed above and update importer callers directly, without compatibility re-exports.
 - [ ] Implement clone, same-kind replacement, explicit/inherited rest, occurrence indexing, input validation, and set inclusion as pure tested transformations.
-- [ ] Add sanitized synthetic capacity fixtures: observed largest workout/template shapes, repeated exercise occurrences, at least 101 sets, Unicode notes, mixed displays, media locators, and frozen retry data.
+- [ ] Add sanitized synthetic capacity fixtures: observed largest workout/template shapes, repeated exercise occurrences, at least 101 sets, Unicode notes, mixed displays, and media locators.
 - [ ] Check the encoded draft fits the proposed 64 KiB allowance and the save input fits the actual sandbox envelope. Failure never truncates data. Confirm public surface changes with package/compiler checks.
 
 **Exit:** existing Hevy/Strong importer behavior remains green; domain tests express the settled rules and measured size envelope.
 
-### Phase 2 — Reliable generic write primitive and operation admission
+### Phase 2 — Reliable generic write primitive
 
-**Depends on:** Phase 1; reuse submission handling and minimal entity-create support from the measurement slice.
+**Depends on:** Phase 1; reuse minimal entity-create support from the measurement slice.
 
 **Owners:** `packages/contract`, `packages/sandbox-sdk`, `kernel/backend/src/modules/{mutations,entities,events,relationships,plugins}`, and sandbox compiler/runtime capability dispatch.
 
 - [ ] Extend the first slice's minimal generic entity-write support for the create/update behavior required by workouts/templates. Keep these primitives schema-neutral and bounded.
-- [ ] Add authenticated, demo-protected operation admission/replay and current-account fencing using existing mutation receipts and workflow ownership.
 - [ ] Extend SDK host contracts, the contract capability vocabulary, compiler intrinsic analysis where needed, runtime capability requirements, durable dispatch strategy, boot composition, and tests together.
-- [ ] Keep per-item policies and schema checks. A policy-skipped required set makes the save explicitly incomplete; committed preceding steps remain and must not be duplicated on recovery.
-- [ ] Add stale editor baseline checks that ignore trusted record-worker changes to derived statistics while still detecting user-owned set/metadata changes. Do not rely only on the source snapshot captured at the moment Save is clicked.
-- [ ] Test preserved partial progress on a late invalid item, deterministic replay after a lost response, changed-input conflicts, concurrent saves, deletion during policy execution, account reset/uninstall, and catalogs changing between steps. Do not assert whole-save rollback.
-- [ ] Benchmark policy-heavy 60-set and 101-set saves. Reuse the existing durable observation/job-result pattern when completion exceeds the HTTP observation window. Do not raise pool sizes or test timeouts to hide a slow path.
+- [ ] Keep per-item policies and schema checks. Retries reuse stable scoped IDs and do not duplicate.
+- [ ] Test duplicate-free retry after a lost response, validation failure, and conflicting edits. Do not assert whole-save rollback.
 
-**Exit:** production-path tests prove resumable partial-save semantics, preservation of lifecycle hooks, generic kernel ownership, and duplicate-free retry.
+**Exit:** production-path tests prove preservation of lifecycle hooks, generic kernel ownership, and duplicate-free retry.
 
 ### Phase 3 — Fitness operations and complete editor reads
 
@@ -266,8 +254,8 @@ The subsequent phases reuse this slice's contracts, helpers, submission handling
 - [ ] Load exercise kind, taxonomy, instructions, demonstration images, own override relationship, and source event identity/times. Retain recorded `exerciseKind` for historical sets even if the provider's current exercise kind changed.
 - [ ] Validate same-kind replacement at write time for changed existing occurrences. Gate local-only convenience actions in the UI; do not pretend a free generic history query becomes a Pro-only data permission just because inline history is gated.
 - [ ] Enforce meaningful protected changes server-side: new/changed template data, set notes, and workout media. Preserve unchanged imported/protected values on ordinary non-Pro edits.
-- [ ] Add typed operation outputs for pending/partial, saved, stale/conflict, validation, and Pro-required outcomes so the editor does not infer business failures from diagnostic English.
-- [ ] Finalize `workout.created` only after complete new saves and retain existing bounded event-stream recalculation. Tests distinguish incomplete saving, completed saving, and pending record recalculation.
+- [ ] Add typed operation outputs for saved, stale/conflict, validation, and Pro-required outcomes so the editor does not infer business failures from diagnostic English.
+- [ ] Finalize `workout.created` only after complete new saves and retain existing bounded event-stream recalculation. Tests distinguish saving from pending record recalculation.
 
 **Exit:** API tests cover all modes, owner boundaries, existing data preservation, same-kind identity changes, time rules, templates with partial plans, and new-save notifications.
 
@@ -293,11 +281,10 @@ The subsequent phases reuse this slice's contracts, helpers, submission handling
 - [ ] Implement name/comment/energy, live summary, active duration pause/resume, Finish/Save/Cancel, and local preference controls.
 - [ ] Implement all six exercise-kind input layouts, set types, add/delete, notes, RPE instructions, rest display/editing, confirmation/unconfirmation, execution countdown, and independent stopwatch.
 - [ ] Implement exercise notes/collapse, inline details/history, all three copy operations, and the approved Fitness Library picker with multi-selection, taxonomy/collection filters, sort, and saved picker presets.
-- [ ] Extend only the generic provider-add completion capability in the kernel/SDK. Implement the return-to-picker, automatic checking, eligibility, selection order, and same-kind single-selection replacement in Fitness. Test cancellation, repeated provider results, resolved existing entities, an incompatible replacement result, and completion for an obsolete picker entry.
+- [ ] Extend only the generic provider-add completion capability in the kernel/SDK. Implement the return-to-picker, automatic checking, eligibility, selection order, and same-kind single-selection replacement in Fitness.
 - [ ] Use `ReorderableList` for pointer/keyboard reordering. Implement superset create/edit/delete and cycling, plus bulk per-set/exercise deletion with group repair.
-- [ ] Keep inline prompted rest with explicit Start/Skip; zero rest progresses immediately. Navigate only in response to execution actions, not every background data refresh.
+- [ ] Keep inline prompted rest with explicit Start/Skip; zero rest progresses immediately.
 - [ ] Ensure historical/template modes share presentation but do not start live clocks or alert schedules.
-- [ ] Do not use module mocks, spies, fake timers, or inferred iframe media queries. Mount page tests through the package's real bridge test surface and use TestClock-backed scheduling.
 
 **Exit:** DOM tests cover the user-facing inventory and the settled corrections, including immediate editing followed by Finish, reload recovery, repeated occurrences, and Back from nested overlays.
 
@@ -305,14 +292,13 @@ The subsequent phases reuse this slice's contracts, helpers, submission handling
 
 **Owners:** Fitness client/operations; existing kernel upload intent and managed-asset modules; SDK upload bridge.
 
-- [ ] Extend the current uploads capability with a permanent managed-asset path returning a locator. Keep byte transfer, headers, credentials, and provider choice in the kernel. Do not invent a permanent locator from a temporary token or store Blob/base64 bytes in a draft.
-- [ ] Reuse existing permanent intent/completion paths. Verify locator ownership on save. Track newly uploaded draft assets separately from existing references.
-- [ ] Add owner/reference-checked removal of newly abandoned assets and post-save removed assets. Scan schema-declared entity/event/relationship references before deletion; a deduplicated/shared locator cannot be deleted while still used. Retain a bounded retryable cleanup list if cleanup fails, and never present it as a failed committed workout.
-- [ ] Use `ManagedAssetProvider` for signed URL renewal; remote media uses its existing locator directly. Add image preview and video playback using SDK overlay/focus behavior.
+- [ ] Extend the current uploads capability with a permanent managed-asset path returning a locator. Do not store Blob/base64 bytes in a draft.
+- [ ] Verify locator ownership on save. Track newly uploaded draft assets separately from existing references. Clean up newly abandoned assets best-effort; never present cleanup as a failed workout.
+- [ ] Use `ManagedAssetProvider` for signed URL renewal. Add image preview and video playback.
 - [ ] Reuse the working All Measurements composer and operations from the first slice inside the logger. Preserve the common timestamp, current metric units, finite values including zero, and independent save behavior.
 - [ ] Do not implement grouped-entry names, a measurements-page rewrite, pinning, or unrelated measurement editing/deletion as hidden logger dependencies.
 
-**Exit:** tests prove cancelled edits preserve saved media, reference-safe cleanup, media survive draft recovery, measurements save independently, and current imports remain unchanged.
+**Exit:** tests prove cancelled edits preserve saved media, media survive draft recovery, measurements save independently, and current imports remain unchanged.
 
 ### Phase 7 — Entry points and saved detail integration
 
@@ -332,9 +318,9 @@ The subsequent phases reuse this slice's contracts, helpers, submission handling
 
 - [ ] Rebuild the Fitness archive and server-owned client runtime/kernel renderers. Verify new operations, routes, source policies, and audio files compile in actual plugin artifacts, not only TypeScript tests.
 - [ ] Run `bun run check` and `bun turbo --filter='!@ryot-app/e2e' test`.
-- [ ] Run affected E2E files individually. Existing relevant suites include `e2e/src/api/plugins/fitness/{workouts,workout-templates,workout-records,preferences,measurements,exercise-details}.test.ts` and the Hevy/Strong import files. Add dedicated logger/API/browser files and generic capability/admission suites under their proper owners. Do not run the entire E2E suite.
-- [ ] Use injected Effect services/recorders and TestClock where applicable. Test user-owned branches and recovery, not library schemas or type passthroughs.
-- [ ] Use sanitized synthetic fixtures derived from measured shapes, not copied personal dump records. Include 101+ sets to prove complete loading and writes across normal per-call batch boundaries.
+- [ ] Run affected E2E files individually. Existing relevant suites include `e2e/src/api/plugins/fitness/{workouts,workout-templates,workout-records,preferences,measurements,exercise-details}.test.ts` and the Hevy/Strong import files. Add dedicated logger/API/browser files under their proper owners. Do not run the entire E2E suite.
+- [ ] Test user-owned branches and recovery, not library schemas or type passthroughs.
+- [ ] Use sanitized synthetic fixtures, not copied personal dump records.
 - [ ] Manually verify iOS and Android: locked screen/background/closed app, notification permission denial, exact-alarm denial/revocation, Doze limitations, tap cold start, foreground double-alert prevention, muted alerts, pause/extend/skip/cancel, server switch/logout, and hardware Back.
 - [ ] Manually verify supported web browsers: wake lock release/reacquisition, notification permission denial, navigation/reload recovery, best-effort background alerts, keyboard/pointer reorder, reduced motion, and touch input sizing.
 - [ ] If any persisted schema or legacy mapping changes, follow `apps/server/src/migrations/README.md` with disposable PostgreSQL/Redis/object storage and exact rebuilt archives. Ordinary E2E does not validate that bootstrap path.
@@ -345,7 +331,7 @@ The subsequent phases reuse this slice's contracts, helpers, submission handling
 The product and ownership decisions in this plan are settled:
 
 - Measurement logging is the first usable slice, through All Measurements, using the current metric/reading model without grouped-entry names.
-- Saves use resumable incremental writes with explicit incomplete state, not an atomic resource coordinator.
+- Saves are simple idempotent writes through existing services, not a resource coordinator.
 - The library picker, selection behavior, same-kind replacement, and provider-result consumption belong to Fitness. The kernel exposes the generic provider-add flow and correlated added-entity references.
 - The legacy walkthrough is deferred.
 - Greenfield refactors and persisted-schema changes are permitted when needed for long-term ownership and viability; obsolete paths and compatibility layers are not.
