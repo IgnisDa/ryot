@@ -7,7 +7,7 @@ import { Fragment, useMemo, useRef, useState } from "react";
 
 import {
 	MeasurementReadingDeleteInput,
-	MeasurementReadingDeleteOutput,
+	MeasurementReadingOutput,
 	measurementReadingDeleteOperationSlug,
 } from "../../shared/measurement-reading-operations";
 import { sectionHeadingClass } from "../exercise/styles";
@@ -52,8 +52,8 @@ function ValueCell(props: { readonly reading: ReadingValue | undefined }) {
 }
 
 const deleteReadingsMutation = createRyotMutation<
-	{ readonly readings: MeasurementReadingDeleteInput; readonly onDeleted: () => void },
-	typeof MeasurementReadingDeleteOutput.Type
+	{ readonly readings: typeof MeasurementReadingDeleteInput.Type; readonly onDeleted: () => void },
+	typeof MeasurementReadingOutput.Type
 >(({ client, input: { readings, onDeleted } }) =>
 	Schema.encodeEffect(Schema.toCodecJson(MeasurementReadingDeleteInput))(readings).pipe(
 		Effect.mapError(() => new RyotClientError("invalid-input")),
@@ -61,7 +61,7 @@ const deleteReadingsMutation = createRyotMutation<
 			client.operations.invoke({
 				input,
 				pluginSlug: "fitness",
-				output: MeasurementReadingDeleteOutput,
+				output: MeasurementReadingOutput,
 				slug: measurementReadingDeleteOperationSlug,
 			}),
 		),

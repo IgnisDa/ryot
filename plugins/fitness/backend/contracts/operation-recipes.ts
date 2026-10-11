@@ -14,8 +14,12 @@ import {
 } from "../../shared/measurement-metric-operations";
 import {
 	MeasurementReadingDeleteInput,
-	MeasurementReadingDeleteOutput,
+	MeasurementReadingLogInput,
+	MeasurementReadingOutput,
+	MeasurementReadingUpdateInput,
 	measurementReadingDeleteOperationSlug,
+	measurementReadingLogOperationSlug,
+	measurementReadingUpdateOperationSlug,
 } from "../../shared/measurement-reading-operations";
 
 export const measurementMetricCreateRecipe = defineOperationRecipe({
@@ -25,10 +29,24 @@ export const measurementMetricCreateRecipe = defineOperationRecipe({
 	operationSlug: measurementMetricCreateOperationSlug,
 });
 
+export const measurementReadingLogRecipe = defineOperationRecipe({
+	pluginSlug: "fitness",
+	output: MeasurementReadingOutput,
+	input: MeasurementReadingLogInput,
+	operationSlug: measurementReadingLogOperationSlug,
+});
+
+export const measurementReadingUpdateRecipe = defineOperationRecipe({
+	pluginSlug: "fitness",
+	output: MeasurementReadingOutput,
+	input: MeasurementReadingUpdateInput,
+	operationSlug: measurementReadingUpdateOperationSlug,
+});
+
 export const measurementReadingDeleteRecipe = defineOperationRecipe({
 	pluginSlug: "fitness",
+	output: MeasurementReadingOutput,
 	input: MeasurementReadingDeleteInput,
-	output: MeasurementReadingDeleteOutput,
 	operationSlug: measurementReadingDeleteOperationSlug,
 });
 

@@ -2,7 +2,11 @@ import { CLIENT_API_VERSION, definePlugin } from "@ryot-app/contract/modules/plu
 
 import { exerciseNoteOperationSlugs } from "../shared/exercise-note-operations";
 import { measurementMetricCreateOperationSlug } from "../shared/measurement-metric-operations";
-import { measurementReadingDeleteOperationSlug } from "../shared/measurement-reading-operations";
+import {
+	measurementReadingDeleteOperationSlug,
+	measurementReadingLogOperationSlug,
+	measurementReadingUpdateOperationSlug,
+} from "../shared/measurement-reading-operations";
 import { fitnessConfigSchema } from "./config";
 import { fitnessSavedViews } from "./saved-views";
 import { fitnessEntitySchemas } from "./schemas/entity";
@@ -68,43 +72,6 @@ export const fitnessPlugin = definePlugin({
 		{ slug: "import", scriptSlug: "workflow.import" },
 		{ slug: "import-application", scriptSlug: "workflow.import-application" },
 		{ slug: "import-merge", scriptSlug: "workflow.import-merge" },
-	],
-	operations: [
-		{
-			auth: "user",
-			demoAccess: "protected",
-			slug: measurementMetricCreateOperationSlug,
-			description: "Create a measurement metric",
-			scriptSlug: "operation.measurement-metric-create",
-		},
-		{
-			auth: "user",
-			demoAccess: "protected",
-			description: "Delete measurement readings",
-			slug: measurementReadingDeleteOperationSlug,
-			scriptSlug: "operation.measurement-reading-delete",
-		},
-		{
-			auth: "user",
-			demoAccess: "protected",
-			slug: exerciseNoteOperationSlugs.create,
-			scriptSlug: "operation.exercise-note-create",
-			description: "Create a private exercise note",
-		},
-		{
-			auth: "user",
-			demoAccess: "protected",
-			slug: exerciseNoteOperationSlugs.update,
-			scriptSlug: "operation.exercise-note-update",
-			description: "Update a private exercise note",
-		},
-		{
-			auth: "user",
-			demoAccess: "protected",
-			slug: exerciseNoteOperationSlugs.delete,
-			scriptSlug: "operation.exercise-note-delete",
-			description: "Delete a private exercise note",
-		},
 	],
 	providers: [
 		{
@@ -186,6 +153,57 @@ export const fitnessPlugin = definePlugin({
 			},
 		}),
 	),
+	operations: [
+		{
+			auth: "user",
+			demoAccess: "protected",
+			slug: measurementMetricCreateOperationSlug,
+			description: "Create a measurement metric",
+			scriptSlug: "operation.measurement-metric-create",
+		},
+		{
+			auth: "user",
+			demoAccess: "protected",
+			description: "Log measurement readings",
+			slug: measurementReadingLogOperationSlug,
+			scriptSlug: "operation.measurement-reading-log",
+		},
+		{
+			auth: "user",
+			demoAccess: "protected",
+			description: "Update measurement readings",
+			slug: measurementReadingUpdateOperationSlug,
+			scriptSlug: "operation.measurement-reading-update",
+		},
+		{
+			auth: "user",
+			demoAccess: "protected",
+			description: "Delete measurement readings",
+			slug: measurementReadingDeleteOperationSlug,
+			scriptSlug: "operation.measurement-reading-delete",
+		},
+		{
+			auth: "user",
+			demoAccess: "protected",
+			slug: exerciseNoteOperationSlugs.create,
+			scriptSlug: "operation.exercise-note-create",
+			description: "Create a private exercise note",
+		},
+		{
+			auth: "user",
+			demoAccess: "protected",
+			slug: exerciseNoteOperationSlugs.update,
+			scriptSlug: "operation.exercise-note-update",
+			description: "Update a private exercise note",
+		},
+		{
+			auth: "user",
+			demoAccess: "protected",
+			slug: exerciseNoteOperationSlugs.delete,
+			scriptSlug: "operation.exercise-note-delete",
+			description: "Delete a private exercise note",
+		},
+	],
 	client: {
 		homeView: null,
 		apiVersion: CLIENT_API_VERSION,

@@ -1,8 +1,12 @@
 import { PluginSlug } from "@ryot-app/contract/schema/brands";
+import type { JsonValue } from "@ryot-app/contract/schema/json";
 import {
 	measurementMetricCreateRecipe,
 	measurementReadingDeleteRecipe,
+	measurementReadingLogRecipe,
+	measurementReadingUpdateRecipe,
 } from "@ryot-app/fitness-plugin/contracts/operation-recipes";
+import type { OperationRecipe } from "@ryot-app/plugin-kit/operations";
 import { Effect, Schema } from "effect";
 
 import type { Client } from "~/fixtures/kernel/auth";
@@ -11,45 +15,42 @@ import { findBuiltinSchemaBySlug } from "~/fixtures/kernel/entity-schemas";
 import { listEventSchemas, requireEventSchemaBySlug } from "~/fixtures/kernel/event-schemas";
 import { waitForCreateEvents } from "~/fixtures/kernel/events";
 
-export const createMeasurementMetric = (
+const invokeMeasurementOperation = <Input extends JsonValue, InputEncoded, Output, OutputEncoded>(
 	client: Client,
-	input: typeof measurementMetricCreateRecipe.input.Type,
+	recipe: OperationRecipe<Input, InputEncoded, Output, OutputEncoded>,
+	input: Input,
 ) =>
 	client
 		.call((contract) =>
 			contract.plugins.invoke({
 				payload: { payload: input },
 				params: {
-					operationSlug: measurementMetricCreateRecipe.operationSlug,
-					pluginSlug: PluginSlug.make(measurementMetricCreateRecipe.pluginSlug),
+					operationSlug: recipe.operationSlug,
+					pluginSlug: PluginSlug.make(recipe.pluginSlug),
 				},
 			}),
 		)
-		.pipe(
-			Effect.flatMap(({ result }) =>
-				Schema.decodeUnknownEffect(measurementMetricCreateRecipe.output)(result),
-			),
-		);
+		.pipe(Effect.flatMap(({ result }) => Schema.decodeUnknownEffect(recipe.output)(result)));
+
+export const createMeasurementMetric = (
+	client: Client,
+	input: typeof measurementMetricCreateRecipe.input.Type,
+) => invokeMeasurementOperation(client, measurementMetricCreateRecipe, input);
+
+export const logMeasurementReadings = (
+	client: Client,
+	input: typeof measurementReadingLogRecipe.input.Type,
+) => invokeMeasurementOperation(client, measurementReadingLogRecipe, input);
+
+export const updateMeasurementReadings = (
+	client: Client,
+	input: typeof measurementReadingUpdateRecipe.input.Type,
+) => invokeMeasurementOperation(client, measurementReadingUpdateRecipe, input);
 
 export const deleteMeasurementReadings = (
 	client: Client,
 	input: typeof measurementReadingDeleteRecipe.input.Type,
-) =>
-	client
-		.call((contract) =>
-			contract.plugins.invoke({
-				payload: { payload: input },
-				params: {
-					operationSlug: measurementReadingDeleteRecipe.operationSlug,
-					pluginSlug: PluginSlug.make(measurementReadingDeleteRecipe.pluginSlug),
-				},
-			}),
-		)
-		.pipe(
-			Effect.flatMap(({ result }) =>
-				Schema.decodeUnknownEffect(measurementReadingDeleteRecipe.output)(result),
-			),
-		);
+) => invokeMeasurementOperation(client, measurementReadingDeleteRecipe, input);
 
 export const createMeasurementReadingFixture = (client: Client) =>
 	Effect.gen(function* () {
