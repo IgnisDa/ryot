@@ -434,9 +434,13 @@ describe("definePlugin", () => {
 				exports: { dashboard: { ...client.exports.dashboard, settingsSchema: undefined } },
 			},
 			{ ...client, exports: { card: { ...client.exports.card, settingsSchema: { fields: {} } } } },
-			{ ...client, exports: { "../card": client.exports.card } },
+			{ ...client, exports: { ...client.exports, "../card": client.exports.card } },
 			{ ...client, exports: { card: { ...client.exports.card, entry: "backend/card.tsx" } } },
 			{ ...client, pluginDependencies: { media: { scope: "system", packageId: "media" } } },
+			{
+				...client,
+				pluginDependencies: { "Media Alias": { scope: "system", packageId: "ryot/media" } },
+			},
 			{ ...client, entities: { missing: { gridPresentation: "row" } } },
 			{ ...client, entities: { thing: { gridPresentation: "card" } } },
 			{ ...client, routes: { "/": "card" } },
@@ -451,7 +455,7 @@ describe("definePlugin", () => {
 					}),
 				),
 			),
-		).toEqual([true, true, true, true, true, true, true, true, true, true, true]);
+		).toEqual([true, true, true, true, true, true, true, true, true, true, true, true]);
 	});
 
 	it("accepts plugin-owned default homes and portable plugin renderers", () => {

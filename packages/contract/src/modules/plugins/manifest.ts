@@ -202,9 +202,19 @@ export const PluginClientExport = Schema.Union([
 
 export type PluginClientExport = Schema.Schema.Type<typeof PluginClientExport>;
 
-const PluginClientExports = Schema.Record(pluginManifestSlug, PluginClientExport);
+const isPluginManifestSlug = Schema.is(pluginManifestSlug);
 
-export const PluginClientDependencies = Schema.Record(pluginManifestSlug, PluginPackageReference);
+const pluginManifestSlugKeys = Schema.makeFilter((record: Readonly<Record<string, unknown>>) =>
+	Object.keys(record).every(isPluginManifestSlug) ? true : "Expected plugin manifest slug keys",
+);
+
+const PluginClientExports = Schema.Record(Schema.String, PluginClientExport).pipe(
+	Schema.check(pluginManifestSlugKeys),
+);
+
+export const PluginClientDependencies = Schema.Record(Schema.String, PluginPackageReference).pipe(
+	Schema.check(pluginManifestSlugKeys),
+);
 
 export const PluginClientEntry = strictStruct({
 	homeView: Schema.NullOr(pluginManifestSlug),
