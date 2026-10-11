@@ -111,13 +111,17 @@ layer(subscriberLayer({ watching: ["session-1", "remote-session"] }))((test) => 
 			yield* interestSubscriber.dispatch(
 				encodeEntityUpdatedMessage(EntityId.make("entity-2"), "populated"),
 			);
+			yield* interestSubscriber.dispatch(
+				encodeEntityUpdatedMessage(EntityId.make("entity-3"), "population-failed"),
+			);
 
 			const fake = yield* FakeSubscriberDependencies;
-			expect(yield* fake.lookedUp).toEqual(["entity-1", "entity-2"]);
+			expect(yield* fake.lookedUp).toEqual(["entity-1", "entity-2", "entity-3"]);
 			expect(yield* fake.progressed).toEqual(["entity-2"]);
 			expect(frames).toEqual([
 				{ entityId: "entity-1", reason: "translated", type: "entity-updated" },
 				{ reason: "populated", entityId: "entity-2", type: "entity-updated" },
+				{ entityId: "entity-3", type: "entity-updated", reason: "population-failed" },
 			]);
 		}),
 	);

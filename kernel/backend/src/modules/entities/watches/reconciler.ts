@@ -69,6 +69,10 @@ export class InterestReconciler extends Context.Service<InterestReconciler>()(
 						return null;
 					}
 
+					if (row.populationStatus === "failed") {
+						return { entityId: row.id, reason: "population-failed" } satisfies TerminalUpdate;
+					}
+
 					if (row.translationStatus === "pending") {
 						if (
 							principal.preferredLanguage !== null &&

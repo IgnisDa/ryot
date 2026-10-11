@@ -23,6 +23,21 @@ describe("createSettleTracker", () => {
 			}),
 		);
 
+		test.effect("never highlights a failed population", () =>
+			Effect.gen(function* () {
+				const schedule = yield* RyotScheduleService;
+				const tracker = createSettleTracker(schedule, 900);
+				let notifications = 0;
+				tracker.subscribe(() => {
+					notifications++;
+				});
+				tracker.stage({ entityId: "a", reason: "population-failed" });
+				tracker.commit();
+				expect([...tracker.snapshot()]).toEqual([]);
+				expect(notifications).toBe(0);
+			}),
+		);
+
 		test.effect("keeps staged updates invisible until commit and expires them after the ring", () =>
 			Effect.gen(function* () {
 				const schedule = yield* RyotScheduleService;
