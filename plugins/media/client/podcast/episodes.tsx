@@ -1,5 +1,5 @@
-import { createRyotQuery } from "@ryot-app/client-sdk/react";
-import type { Recipe } from "@ryot-app/client-sdk/ryotql";
+import { createRyotQuery } from "@ryot-app/plugin-client-sdk/react";
+import type { Recipe } from "@ryot-app/plugin-client-sdk/ryotql";
 import clsx from "clsx";
 
 import type { MediaSummaryOf } from "../../shared/media-recipes";

@@ -1,12 +1,12 @@
 import { assert, expect, layer } from "@effect/vitest";
+import { PluginManifest } from "@ryot-app/contract/modules/plugins/manifest";
+import { readPluginArchive, writePluginArchive } from "@ryot-app/plugin-archive";
+import { pluginBackendCompilerPlatformLayer } from "@ryot-app/plugin-backend-compiler/platform";
 import {
 	clientArtifactFile,
 	clientArtifactMetadata,
 	clientDeclarationHash,
-} from "@ryot-app/client-plugin-contract";
-import { PluginManifest } from "@ryot-app/contract/modules/plugins/manifest";
-import { readPluginArchive, writePluginArchive } from "@ryot-app/plugin-archive";
-import { sandboxCompilerPlatformLayer } from "@ryot-app/sandbox-compiler/platform";
+} from "@ryot-app/plugin-client-contract";
 import { Effect, Schema } from "effect";
 
 import { loadPluginSource } from "../source.test-support";
@@ -28,7 +28,7 @@ const manifest = () => ({
 	},
 });
 
-layer(sandboxCompilerPlatformLayer)((test) => {
+layer(pluginBackendCompilerPlatformLayer)((test) => {
 	test.effect("accepts the precompiled client artifact when its content hash matches", () =>
 		Effect.gen(function* () {
 			const pluginManifest = {

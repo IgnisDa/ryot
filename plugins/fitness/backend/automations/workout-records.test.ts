@@ -1,9 +1,9 @@
-import { automationInputSchema } from "@ryot-app/sandbox-sdk/automation";
-import { Effect, Schema } from "@ryot-app/sandbox-sdk/effect";
-import { defineSandboxTestHost } from "@ryot-app/sandbox-sdk/testing";
+import { automationInputSchema } from "@ryot-app/plugin-backend-sdk/automation";
+import { Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
+import { defineSandboxTestHost } from "@ryot-app/plugin-backend-sdk/testing";
 import { describe, expect, it } from "vitest";
 
-import { fitnessPlugin } from "../../host/plugin";
+import { fitnessPlugin } from "../../manifest/plugin";
 import definition, { manifest } from "./workout-records.sandbox";
 
 const timestamp = "2026-01-01T08:00:00.000Z";

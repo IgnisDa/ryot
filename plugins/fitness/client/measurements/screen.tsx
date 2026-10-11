@@ -1,8 +1,12 @@
-import { usePageContext, useRyotViewport } from "@ryot-app/client-sdk/plugin";
-import { useRyotMutation, useRyotQuery, type RyotQueryResult } from "@ryot-app/client-sdk/react";
-import { PluginScreenFrame } from "@ryot-app/client-sdk/screen";
-import { Button, SegmentedControl, StatusMessage } from "@ryot-app/client-ui-sdk";
-import { AppIcon } from "@ryot-app/client-ui-sdk/icon";
+import { usePageContext, useRyotViewport } from "@ryot-app/plugin-client-sdk/plugin";
+import {
+	useRyotMutation,
+	useRyotQuery,
+	type RyotQueryResult,
+} from "@ryot-app/plugin-client-sdk/react";
+import { PluginScreenFrame } from "@ryot-app/plugin-client-sdk/screen";
+import { Button, SegmentedControl, StatusMessage } from "@ryot-app/plugin-ui-sdk";
+import { AppIcon } from "@ryot-app/plugin-ui-sdk/icon";
 import clsx from "clsx";
 import { useMemo, useRef, useState, type RefObject } from "react";
 

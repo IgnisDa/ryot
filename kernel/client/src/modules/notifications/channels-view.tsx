@@ -1,5 +1,5 @@
-import { Button, DestructiveConfirmation, StatusMessage, Switch } from "@ryot-app/client-ui-sdk";
-import { AppIcon } from "@ryot-app/client-ui-sdk/icon";
+import { Button, DestructiveConfirmation, StatusMessage, Switch } from "@ryot-app/plugin-ui-sdk";
+import { AppIcon } from "@ryot-app/plugin-ui-sdk/icon";
 import type { NotificationChannelSummary } from "@ryot-app/ryotql-recipes/notification-channels";
 import clsx from "clsx";
 import { useRef, useState } from "react";

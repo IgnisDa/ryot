@@ -1,9 +1,9 @@
-import { Effect } from "@ryot-app/sandbox-sdk/effect";
-import type { YoutubeiHost } from "@ryot-app/sandbox-sdk/youtubei";
+import { Effect } from "@ryot-app/plugin-backend-sdk/effect";
+import type { YoutubeiHost } from "@ryot-app/plugin-backend-sdk/youtubei";
 import {
 	createYoutubeHistoryClient as createSdkYoutubeHistoryClient,
 	createYoutubeMusicClient as createSdkYoutubeMusicClient,
-} from "@ryot-app/sandbox-sdk/youtubei";
+} from "@ryot-app/plugin-backend-sdk/youtubei";
 
 import { mediaFailureMessage } from "../error-message";
 import { MediaSandboxError } from "../failures";

@@ -1,5 +1,4 @@
 import { describe, expect, it } from "@effect/vitest";
-import type { PluginThemeSnapshot } from "@ryot-app/client-plugin-contract";
 import { AuthRateLimited, AuthUnauthorized } from "@ryot-app/contract/auth-middleware";
 import type { ContractSuccess } from "@ryot-app/contract/client";
 import {
@@ -13,6 +12,7 @@ import {
 	UploadInternalError,
 	type UploadIntentResponse,
 } from "@ryot-app/contract/modules/uploads/schemas";
+import type { PluginThemeSnapshot } from "@ryot-app/plugin-client-contract";
 import type { PreparedRecipe } from "@ryot-app/ryotql";
 import { Effect, Layer, ManagedRuntime, Result, Schema } from "effect";
 

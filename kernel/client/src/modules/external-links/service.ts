@@ -1,5 +1,5 @@
-import { ExternalLinkRequest, type ExternalLinkOutcome } from "@ryot-app/client-plugin-contract";
-import { RyotClientError } from "@ryot-app/client-sdk";
+import { ExternalLinkRequest, type ExternalLinkOutcome } from "@ryot-app/plugin-client-contract";
+import { RyotClientError } from "@ryot-app/plugin-client-sdk";
 import { Context, Effect, Layer, Result, Schema } from "effect";
 
 type ExternalLinkWindow = {

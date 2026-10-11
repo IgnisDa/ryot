@@ -1,12 +1,12 @@
 import { expect, it } from "@effect/vitest";
-import { compileBuiltInSandboxEntry } from "@ryot-app/sandbox-compiler/builtins";
-import { sandboxCompilerPlatformLayer } from "@ryot-app/sandbox-compiler/platform";
+import { compileBuiltInSandboxEntry } from "@ryot-app/plugin-backend-compiler/builtins";
+import { pluginBackendCompilerPlatformLayer } from "@ryot-app/plugin-backend-compiler/platform";
 import { Effect } from "effect";
 
 const entry = `
-import { defineManifest } from "@ryot-app/sandbox-sdk/driver";
-import { Effect } from "@ryot-app/sandbox-sdk/effect";
-import { defineProvider } from "@ryot-app/sandbox-sdk/provider";
+import { defineManifest } from "@ryot-app/plugin-backend-sdk/driver";
+import { Effect } from "@ryot-app/plugin-backend-sdk/effect";
+import { defineProvider } from "@ryot-app/plugin-backend-sdk/provider";
 import { value } from "./helper";
 
 export const manifest = defineManifest({
@@ -22,7 +22,7 @@ export default defineProvider({
 });
 `;
 
-it.layer(sandboxCompilerPlatformLayer)("compileBuiltInSandboxEntry", (test) => {
+it.layer(pluginBackendCompilerPlatformLayer)("compileBuiltInSandboxEntry", (test) => {
 	test.effect("compiles a trusted provider with a relative helper into one ESM module", () =>
 		Effect.gen(function* () {
 			const result = yield* compileBuiltInSandboxEntry({
@@ -40,7 +40,7 @@ it.layer(sandboxCompilerPlatformLayer)("compileBuiltInSandboxEntry", (test) => {
 				executableDependencies: [],
 				requiredPluginConfigKeys: [],
 				optionalPluginConfigKeys: [],
-				runtimeImports: ["@ryot-app/sandbox-sdk/effect", "effect"],
+				runtimeImports: ["@ryot-app/plugin-backend-sdk/effect", "effect"],
 			});
 			expect(result.compiled.javascript).toContain("resolved-id");
 			expect(result.compiled.javascript).not.toContain('from "./helper"');

@@ -1,10 +1,10 @@
-import { defineAutomation } from "@ryot-app/sandbox-sdk/automation";
-import type { EventSchemaRecord, ScriptHost } from "@ryot-app/sandbox-sdk/core";
-import { defineManifest } from "@ryot-app/sandbox-sdk/driver";
-import { Effect } from "@ryot-app/sandbox-sdk/effect";
-import { entityReadRecipe, executeRyotqlRecipe } from "@ryot-app/sandbox-sdk/ryotql";
+import { defineAutomation } from "@ryot-app/plugin-backend-sdk/automation";
+import type { EventSchemaRecord, ScriptHost } from "@ryot-app/plugin-backend-sdk/core";
+import { defineManifest } from "@ryot-app/plugin-backend-sdk/driver";
+import { Effect } from "@ryot-app/plugin-backend-sdk/effect";
+import { entityReadRecipe, executeRyotqlRecipe } from "@ryot-app/plugin-backend-sdk/ryotql";
 
-import { mediaLibraryMemberEntitySchemaSlugs } from "../contracts/schema-slugs";
+import { mediaLibraryMemberEntitySchemaSlugs } from "../../shared/media-schema-slugs";
 import { MediaSandboxError } from "../lib/failures";
 
 export const manifest = defineManifest({

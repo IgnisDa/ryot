@@ -270,8 +270,8 @@ import {
   genericImportSealReference,
   genericImportWorkflowInputSchema,
   genericImportWorkflowResultSchema,
-} from "@ryot-app/sandbox-sdk/imports";
-import { Effect, defineManifest, defineWorkflow } from "@ryot-app/sandbox-sdk/workflow";
+} from "@ryot-app/plugin-backend-sdk/imports";
+import { Effect, defineManifest, defineWorkflow } from "@ryot-app/plugin-backend-sdk/workflow";
 
 export const manifest = defineManifest({
   kind: "workflow",
@@ -296,9 +296,9 @@ export default defineWorkflow({
 `;
 
 const privateIntegrationOperationSource = (scriptSlug: string) => `
-import { defineManifest } from "@ryot-app/sandbox-sdk/driver";
-import { defineOperation } from "@ryot-app/sandbox-sdk/operation";
-import { Effect, Schema } from "@ryot-app/sandbox-sdk/effect";
+import { defineManifest } from "@ryot-app/plugin-backend-sdk/driver";
+import { defineOperation } from "@ryot-app/plugin-backend-sdk/operation";
+import { Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
 
 export const manifest = defineManifest({
   kind: "operation",

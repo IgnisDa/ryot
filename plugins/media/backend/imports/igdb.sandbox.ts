@@ -1,5 +1,5 @@
-import { defineManifest, defineScript } from "@ryot-app/sandbox-sdk/driver";
-import { Schema } from "@ryot-app/sandbox-sdk/effect";
+import { defineManifest, defineScript } from "@ryot-app/plugin-backend-sdk/driver";
+import { Schema } from "@ryot-app/plugin-backend-sdk/effect";
 
 import { collectMediaCsv } from "./collection";
 import { MediaSourceInput, MediaSourceOutput } from "./collection-schemas";

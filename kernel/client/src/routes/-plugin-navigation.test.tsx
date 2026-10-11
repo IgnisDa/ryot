@@ -1,14 +1,4 @@
 import { describe, expect, it } from "@effect/vitest";
-// oxlint-disable unicorn/require-post-message-target-origin -- MessagePort has no target origin
-import {
-	CLIENT_API_VERSION,
-	CLIENT_ARTIFACT_FORMAT,
-	CLIENT_BRIDGE_BOOTSTRAP_READY,
-	CLIENT_BRIDGE_PROTOCOL_VERSION,
-	CLIENT_COMPILER_VERSION,
-	PluginBridgeInit,
-	PluginBridgeLocation,
-} from "@ryot-app/client-plugin-contract";
 import {
 	ClientPagePreparationError,
 	type ClientPageTarget,
@@ -21,6 +11,16 @@ import {
 	PluginPackageId,
 	SavedViewId,
 } from "@ryot-app/contract/schema/brands";
+// oxlint-disable unicorn/require-post-message-target-origin -- MessagePort has no target origin
+import {
+	CLIENT_API_VERSION,
+	CLIENT_ARTIFACT_FORMAT,
+	CLIENT_BRIDGE_BOOTSTRAP_READY,
+	CLIENT_BRIDGE_PROTOCOL_VERSION,
+	CLIENT_COMPILER_VERSION,
+	PluginBridgeInit,
+	PluginBridgeLocation,
+} from "@ryot-app/plugin-client-contract";
 import type { PluginClientCatalog } from "@ryot-app/ryotql-recipes/plugin-client-catalog";
 import { createMemoryHistory, RouterProvider } from "@tanstack/react-router";
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
@@ -29,13 +29,13 @@ import { Effect, Layer, ManagedRuntime, Schema } from "effect";
 import { AuthenticatedApiError } from "#/api/authenticated";
 import { ClientPagesApi } from "#/api/client-pages";
 import { KernelApiTestLayer } from "#/api/ports.test-layer";
-import { ClientPageFreshness } from "#/modules/client-pages/freshness";
 import { EntitiesService } from "#/modules/entities/service";
 import { createBackInterceptors } from "#/modules/navigation/back-interceptors";
-import { PluginCatalogService } from "#/modules/plugins/catalog";
-import { makePluginCatalogEventsTestLayer } from "#/modules/plugins/events.test-layer";
-import { PluginOperationsService } from "#/modules/plugins/operations";
-import { makePluginQueries, makePluginStorage } from "#/modules/plugins/services.test-layer";
+import { PluginOperationsService } from "#/modules/pages/bridge/operations";
+import { makePluginQueries, makePluginStorage } from "#/modules/pages/bridge/services.test-layer";
+import { ClientPageFreshness } from "#/modules/pages/preparation/freshness";
+import { makePluginCatalogEventsTestLayer } from "#/modules/plugins/catalog/events.test-layer";
+import { PluginCatalogService } from "#/modules/plugins/catalog/service";
 import type { ProviderAddService } from "#/modules/provider-add/service";
 import { ClientStorage } from "#/persistence/storage";
 import { getRouter } from "#/router";

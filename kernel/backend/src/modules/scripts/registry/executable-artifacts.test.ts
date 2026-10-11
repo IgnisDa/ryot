@@ -2,7 +2,7 @@ import { assert, expect, layer } from "@effect/vitest";
 import { SandboxRunError } from "@ryot-app/contract/errors";
 import { SandboxScriptId } from "@ryot-app/contract/schema/brands";
 import { emptySandboxExecutionMetadata } from "@ryot-app/contract/testing";
-import { SANDBOX_COMPILED_FORMAT } from "@ryot-app/sandbox-compiler/protocol";
+import { SANDBOX_COMPILED_FORMAT } from "@ryot-app/plugin-backend-compiler/protocol";
 import { SANDBOX_LIMITS } from "@ryot-app/sandbox/protocol/limits";
 import { assertExitFails } from "@ryot-app/testing/effect-assertions";
 import { sha256Hex } from "@ryot-app/ts-utils/crypto";

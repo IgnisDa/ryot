@@ -1,4 +1,4 @@
-import { useRyotMutation } from "@ryot-app/client-sdk/react";
+import { useRyotMutation } from "@ryot-app/plugin-client-sdk/react";
 import { createFileRoute } from "@tanstack/react-router";
 import { Effect, Match, Option } from "effect";
 import { useEffect, useEffectEvent, useState } from "react";

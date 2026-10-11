@@ -10,7 +10,7 @@ use serde_json::{Value, json};
 
 const CORE_FIXTURE: &str = r#"
 import { Effect, Schema } from "effect";
-import { Effect as SdkEffect } from "@ryot-app/sandbox-sdk/effect";
+import { Effect as SdkEffect } from "@ryot-app/plugin-backend-sdk/effect";
 import { column, eq } from "@ryot-app/plugin-kit/ryotql";
 
 export default (input) =>
@@ -22,11 +22,11 @@ export default (input) =>
 "#;
 
 const DATA_FIXTURE: &str = r#"
-import { gunzipSync, gzipSync, strFromU8 } from "@ryot-app/sandbox-sdk/fflate";
-import { parse } from "@ryot-app/sandbox-sdk/papaparse";
-import { XMLParser } from "@ryot-app/sandbox-sdk/fast-xml-parser";
-import { load } from "@ryot-app/sandbox-sdk/cheerio";
-import { normalizeMarkdown } from "@ryot-app/sandbox-sdk/markdown";
+import { gunzipSync, gzipSync, strFromU8 } from "@ryot-app/plugin-backend-sdk/fflate";
+import { parse } from "@ryot-app/plugin-backend-sdk/papaparse";
+import { XMLParser } from "@ryot-app/plugin-backend-sdk/fast-xml-parser";
+import { load } from "@ryot-app/plugin-backend-sdk/cheerio";
+import { normalizeMarkdown } from "@ryot-app/plugin-backend-sdk/markdown";
 
 export default (input) => ({
     gzip: strFromU8(gunzipSync(gzipSync(new TextEncoder().encode(input.text)))),
@@ -39,7 +39,7 @@ export default (input) => ({
 "#;
 
 const FULL_FIXTURE: &str = r#"
-import { Innertube, Platform } from "@ryot-app/sandbox-sdk/youtubei";
+import { Innertube, Platform } from "@ryot-app/plugin-backend-sdk/youtubei";
 
 export default async () => {
     const response = await fetch("https://example.com/data?x=1", { headers: { "X-Test": "1" } });
@@ -364,7 +364,7 @@ fn youtubei_client_is_constructed_through_http_call_host_calls() {
     let mut sidecar = support::spawn(Tier::Full, &[]);
     let source = r#"
         import { Effect } from "effect";
-        import { createYoutubeMusicClient } from "@ryot-app/sandbox-sdk/youtubei";
+        import { createYoutubeMusicClient } from "@ryot-app/plugin-backend-sdk/youtubei";
 
         export default async (_input, sidecarHost) => {
             const host = {
@@ -406,10 +406,10 @@ fn youtubei_client_is_constructed_through_http_call_host_calls() {
 #[test]
 fn imports_outside_the_tier_are_rejected_at_resolution() {
     for (tier, specifier) in [
-        (Tier::Core, "@ryot-app/sandbox-sdk/cheerio"),
-        (Tier::Core, "@ryot-app/sandbox-sdk/markdown"),
-        (Tier::Core, "@ryot-app/sandbox-sdk/youtubei"),
-        (Tier::Data, "@ryot-app/sandbox-sdk/youtubei"),
+        (Tier::Core, "@ryot-app/plugin-backend-sdk/cheerio"),
+        (Tier::Core, "@ryot-app/plugin-backend-sdk/markdown"),
+        (Tier::Core, "@ryot-app/plugin-backend-sdk/youtubei"),
+        (Tier::Data, "@ryot-app/plugin-backend-sdk/youtubei"),
         (Tier::Core, "ryot-runtime:/youtubei-17.2.0.mjs"),
     ] {
         let source =

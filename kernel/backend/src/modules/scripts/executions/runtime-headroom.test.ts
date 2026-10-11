@@ -3,7 +3,7 @@ import { PgClient } from "@effect/sql-pg";
 import { assert, expect, layer } from "@effect/vitest";
 import { SandboxRunError } from "@ryot-app/contract/errors";
 import { SandboxScriptId, UserId } from "@ryot-app/contract/schema/brands";
-import type { WorkflowDurableResult } from "@ryot-app/sandbox-sdk/workflow";
+import type { WorkflowDurableResult } from "@ryot-app/plugin-backend-sdk/workflow";
 import { SandboxSidecarAdmission } from "@ryot-app/sandbox/host/admission";
 import { SandboxExecutionAuthority } from "@ryot-app/sandbox/host/authority";
 import { SandboxHostCallScope } from "@ryot-app/sandbox/host/config";
@@ -90,8 +90,8 @@ const SandboxHeadroomReplayWorkflow = Workflow.make("SandboxHeadroomReplayWorkfl
 });
 
 const headroomSource = `
-import { defineManifest, defineScript } from "@ryot-app/sandbox-sdk/driver";
-import { Effect, Schema } from "@ryot-app/sandbox-sdk/effect";
+import { defineManifest, defineScript } from "@ryot-app/plugin-backend-sdk/driver";
+import { Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
 
 export const manifest = defineManifest({
   kind: "script",

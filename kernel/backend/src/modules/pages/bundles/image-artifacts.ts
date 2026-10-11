@@ -2,7 +2,7 @@ import {
 	ClientRuntimeArtifactFromBase64,
 	type ClientRuntimeArtifact,
 	type ClientArtifact,
-} from "@ryot-app/client-plugin-contract";
+} from "@ryot-app/plugin-client-contract";
 import { Context, Data, Effect, FileSystem, Layer, Path, Schema } from "effect";
 
 import { AppConfig } from "#platform/config/service";

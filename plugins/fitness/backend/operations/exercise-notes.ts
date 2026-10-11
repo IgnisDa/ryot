@@ -1,5 +1,5 @@
-import type { UpdateEventItem } from "@ryot-app/sandbox-sdk/core";
-import { Effect, Result, Schema } from "@ryot-app/sandbox-sdk/effect";
+import type { UpdateEventItem } from "@ryot-app/plugin-backend-sdk/core";
+import { Effect, Result, Schema } from "@ryot-app/plugin-backend-sdk/effect";
 import {
 	and,
 	ascending,
@@ -15,8 +15,8 @@ import {
 	type RyotQLDocument,
 	entitySchemaPredicate,
 	eventSchemaPredicate,
-} from "@ryot-app/sandbox-sdk/ryotql";
-import type { SandboxHostError } from "@ryot-app/sandbox-sdk/wire";
+} from "@ryot-app/plugin-backend-sdk/ryotql";
+import type { SandboxHostError } from "@ryot-app/plugin-backend-sdk/wire";
 
 import type { ExerciseNoteUpdateInput } from "../../shared/exercise-note-operations";
 

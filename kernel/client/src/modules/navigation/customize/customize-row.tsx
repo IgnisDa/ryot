@@ -1,5 +1,5 @@
-import { Switch } from "@ryot-app/client-ui-sdk";
-import { AppIcon } from "@ryot-app/client-ui-sdk/icon";
+import { Switch } from "@ryot-app/plugin-ui-sdk";
+import { AppIcon } from "@ryot-app/plugin-ui-sdk/icon";
 import clsx from "clsx";
 import { cloneElement, isValidElement, type ComponentProps, type ReactNode } from "react";
 

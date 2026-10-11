@@ -1,6 +1,6 @@
-import { usePluginScreenSurface, useRyotViewport } from "@ryot-app/client-sdk/plugin";
-import { createRyotQuery, useRyotQuery } from "@ryot-app/client-sdk/react";
-import { PluginScreenFrame } from "@ryot-app/client-sdk/screen";
+import { usePluginScreenSurface, useRyotViewport } from "@ryot-app/plugin-client-sdk/plugin";
+import { createRyotQuery, useRyotQuery } from "@ryot-app/plugin-client-sdk/react";
+import { PluginScreenFrame } from "@ryot-app/plugin-client-sdk/screen";
 import type { RefObject } from "react";
 
 import { libraryMediaCountRecipe } from "../../shared/lifecycle-list-recipes";

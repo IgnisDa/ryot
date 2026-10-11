@@ -1,4 +1,4 @@
-import type { EventReadResult } from "@ryot-app/sandbox-sdk/ryotql";
+import type { EventReadResult } from "@ryot-app/plugin-backend-sdk/ryotql";
 
 export type MediaProgressEvent = Pick<
 	EventReadResult["items"][number],

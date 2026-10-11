@@ -1,8 +1,8 @@
 import { pluginPackageIdFromSegments } from "@ryot-app/contract/schema/brands";
 import { createFileRoute } from "@tanstack/react-router";
 
-import { prepareClientPage } from "#/modules/client-pages/preparation";
-import { toPluginLocation } from "#/modules/plugins/plugin-location";
+import { prepareClientPage } from "#/modules/pages/preparation/prepare";
+import { toPluginLocation } from "#/modules/plugins/catalog/location";
 
 import { PluginRoutePage } from "./route";
 

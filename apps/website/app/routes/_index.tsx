@@ -1,5 +1,5 @@
-import ContactSubmissionEmail from "@ryot-app/transactional/emails/contact-submission";
-import LoginCodeEmail from "@ryot-app/transactional/emails/login-code";
+import ContactSubmissionEmail from "@ryot-app/email-templates/emails/contact-submission";
+import LoginCodeEmail from "@ryot-app/email-templates/emails/login-code";
 import { sql } from "drizzle-orm";
 import { Effect } from "effect";
 import * as openidClient from "openid-client";

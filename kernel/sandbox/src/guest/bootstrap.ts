@@ -1,4 +1,4 @@
-import { configureApprovedDependencyRuntime } from "@ryot-app/sandbox-sdk/dependency-runtime";
+import { configureApprovedDependencyRuntime } from "@ryot-app/plugin-backend-sdk/dependency-runtime";
 
 import type { SandboxInvocation } from "../protocol/messages";
 import { isString, uncurry } from "./primordials";

@@ -2,10 +2,10 @@ import {
 	automationPolicyResultSchema,
 	defineAutomationPolicy,
 	type AutomationPolicyInput,
-} from "@ryot-app/sandbox-sdk/automation";
-import { defineManifest } from "@ryot-app/sandbox-sdk/driver";
-import { Effect, Schema } from "@ryot-app/sandbox-sdk/effect";
-import { executeRyotqlRecipe } from "@ryot-app/sandbox-sdk/ryotql";
+} from "@ryot-app/plugin-backend-sdk/automation";
+import { defineManifest } from "@ryot-app/plugin-backend-sdk/driver";
+import { Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
+import { executeRyotqlRecipe } from "@ryot-app/plugin-backend-sdk/ryotql";
 
 import { exerciseKindSchema, type ExerciseKind } from "../../shared/exercise-kinds";
 import { workoutSetContextRecipe } from "../../shared/workout-record-recipes";

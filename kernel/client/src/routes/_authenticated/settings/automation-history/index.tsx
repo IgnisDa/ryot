@@ -1,5 +1,5 @@
-import { useRyotQuery } from "@ryot-app/client-sdk/react";
 import { AUTOMATION_HISTORY_LIMITS } from "@ryot-app/contract/modules/automations/history-schemas";
+import { useRyotQuery } from "@ryot-app/plugin-client-sdk/react";
 import { createFileRoute } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 

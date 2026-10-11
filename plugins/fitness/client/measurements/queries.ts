@@ -1,6 +1,6 @@
-import { RyotClientError } from "@ryot-app/client-sdk";
-import { Effect } from "@ryot-app/client-sdk/effect";
-import { createRyotQuery } from "@ryot-app/client-sdk/react";
+import { RyotClientError } from "@ryot-app/plugin-client-sdk";
+import { Effect } from "@ryot-app/plugin-client-sdk/effect";
+import { createRyotQuery } from "@ryot-app/plugin-client-sdk/react";
 
 import {
 	MEASUREMENT_SERIES_BATCH_SIZE,

@@ -1,5 +1,5 @@
-import type { ManagedAssetLocator } from "@ryot-app/client-sdk";
-import { managedAssetKey } from "@ryot-app/client-sdk/react";
+import type { ManagedAssetLocator } from "@ryot-app/plugin-client-sdk";
+import { managedAssetKey } from "@ryot-app/plugin-client-sdk/react";
 
 import type { MediaImage } from "../../shared/media-image";
 

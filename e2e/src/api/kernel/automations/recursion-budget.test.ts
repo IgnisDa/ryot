@@ -62,9 +62,9 @@ const sandboxManifest = ({
 }: AutomationScript) => ({ kind, name, slug, automationType, inputProjection });
 
 const noOpAutomationSource = (script: AutomationScript) => `
-import { defineAutomation } from "@ryot-app/sandbox-sdk/automation";
-import { defineManifest } from "@ryot-app/sandbox-sdk/driver";
-import { Effect } from "@ryot-app/sandbox-sdk/effect";
+import { defineAutomation } from "@ryot-app/plugin-backend-sdk/automation";
+import { defineManifest } from "@ryot-app/plugin-backend-sdk/driver";
+import { Effect } from "@ryot-app/plugin-backend-sdk/effect";
 
 export const manifest = defineManifest(${JSON.stringify(sandboxManifest(script))});
 
@@ -79,9 +79,9 @@ const recursionRootSource = (input: {
 	readonly relationshipSchemaSlug: string;
 	readonly script: AutomationScript;
 }) => `
-import { defineAutomation } from "@ryot-app/sandbox-sdk/automation";
-import { defineManifest } from "@ryot-app/sandbox-sdk/driver";
-import { Effect } from "@ryot-app/sandbox-sdk/effect";
+import { defineAutomation } from "@ryot-app/plugin-backend-sdk/automation";
+import { defineManifest } from "@ryot-app/plugin-backend-sdk/driver";
+import { Effect } from "@ryot-app/plugin-backend-sdk/effect";
 
 export const manifest = defineManifest(${JSON.stringify(sandboxManifest(input.script))});
 
@@ -123,9 +123,9 @@ export default defineAutomation({
 `;
 
 const recursiveSignalSource = (script: AutomationScript) => `
-import { defineAutomation } from "@ryot-app/sandbox-sdk/automation";
-import { defineManifest } from "@ryot-app/sandbox-sdk/driver";
-import { Effect } from "@ryot-app/sandbox-sdk/effect";
+import { defineAutomation } from "@ryot-app/plugin-backend-sdk/automation";
+import { defineManifest } from "@ryot-app/plugin-backend-sdk/driver";
+import { Effect } from "@ryot-app/plugin-backend-sdk/effect";
 
 export const manifest = defineManifest(${JSON.stringify(sandboxManifest(script))});
 
@@ -153,9 +153,9 @@ const fanoutRootSource = (input: {
 	readonly childEventSchemaSlug: string;
 	readonly script: AutomationScript;
 }) => `
-import { defineAutomation } from "@ryot-app/sandbox-sdk/automation";
-import { defineManifest } from "@ryot-app/sandbox-sdk/driver";
-import { Effect } from "@ryot-app/sandbox-sdk/effect";
+import { defineAutomation } from "@ryot-app/plugin-backend-sdk/automation";
+import { defineManifest } from "@ryot-app/plugin-backend-sdk/driver";
+import { Effect } from "@ryot-app/plugin-backend-sdk/effect";
 
 export const manifest = defineManifest(${JSON.stringify(sandboxManifest(input.script))});
 

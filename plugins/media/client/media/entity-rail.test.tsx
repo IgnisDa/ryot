@@ -1,4 +1,4 @@
-import { Effect } from "@ryot-app/client-sdk/effect";
+import { Effect } from "@ryot-app/plugin-client-sdk/effect";
 import { fireEvent } from "@testing-library/dom";
 import { afterEach, describe, expect, it } from "vitest";
 

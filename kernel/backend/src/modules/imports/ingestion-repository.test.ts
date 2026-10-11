@@ -6,7 +6,7 @@ import type {
 	IngestionScope,
 } from "@ryot-app/contract/modules/imports/ingestion";
 import { ImportRunId, IntegrationId, UserId } from "@ryot-app/contract/schema/brands";
-import { genericImportChunkOperationIds } from "@ryot-app/sandbox-sdk/imports";
+import { genericImportChunkOperationIds } from "@ryot-app/plugin-backend-sdk/imports";
 import { assertExitFails } from "@ryot-app/testing/effect-assertions";
 import { stableStringify } from "@ryot-app/ts-utils/json";
 import { eq } from "drizzle-orm";

@@ -3,9 +3,9 @@ import {
 	RyotClientError,
 	type ManagedAssetLocator,
 	type RyotClientAdapter,
-} from "@ryot-app/client-sdk";
-import { Effect } from "@ryot-app/client-sdk/effect";
-import { ManagedAssetProvider } from "@ryot-app/client-sdk/react";
+} from "@ryot-app/plugin-client-sdk";
+import { Effect } from "@ryot-app/plugin-client-sdk/effect";
+import { ManagedAssetProvider } from "@ryot-app/plugin-client-sdk/react";
 import { waitFor } from "@testing-library/dom";
 import { act } from "react";
 

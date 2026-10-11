@@ -3,7 +3,7 @@ import {
 	defineWorkflow,
 	defineWorkflowReference,
 	Effect,
-} from "@ryot-app/sandbox-sdk/workflow";
+} from "@ryot-app/plugin-backend-sdk/workflow";
 
 import { applyMediaSegments } from "../imports/application";
 import { MediaApplicationInput, MediaApplicationOutput } from "../imports/process";

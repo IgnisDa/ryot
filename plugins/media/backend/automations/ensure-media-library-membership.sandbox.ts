@@ -1,10 +1,10 @@
-import { defineAutomation, type AutomationInput } from "@ryot-app/sandbox-sdk/automation";
+import { defineAutomation, type AutomationInput } from "@ryot-app/plugin-backend-sdk/automation";
 import {
 	USER_RELATIONSHIP_WRITE_SANDBOX_LIMITS,
 	type ChangeUserRelationshipBatch,
-} from "@ryot-app/sandbox-sdk/core";
-import { defineManifest } from "@ryot-app/sandbox-sdk/driver";
-import { Effect, Result, Schema } from "@ryot-app/sandbox-sdk/effect";
+} from "@ryot-app/plugin-backend-sdk/core";
+import { defineManifest } from "@ryot-app/plugin-backend-sdk/driver";
+import { Effect, Result, Schema } from "@ryot-app/plugin-backend-sdk/effect";
 import {
 	and,
 	ascending,
@@ -19,9 +19,9 @@ import {
 	table,
 	userMediaLibraryRecipe,
 	type pluginId,
-} from "@ryot-app/sandbox-sdk/ryotql";
+} from "@ryot-app/plugin-backend-sdk/ryotql";
 
-import { mediaLibraryMemberEntitySchemaSlugs } from "../contracts/schema-slugs";
+import { mediaLibraryMemberEntitySchemaSlugs } from "../../shared/media-schema-slugs";
 import { MediaSandboxError } from "../lib/failures";
 
 export const manifest = defineManifest({

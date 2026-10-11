@@ -1,6 +1,6 @@
-import { useRyotMutation, useRyotQuery } from "@ryot-app/client-sdk/react";
-import { DestructiveConfirmation, Menu, type MenuItem } from "@ryot-app/client-ui-sdk";
-import { AppIcon } from "@ryot-app/client-ui-sdk/icon";
+import { useRyotMutation, useRyotQuery } from "@ryot-app/plugin-client-sdk/react";
+import { DestructiveConfirmation, Menu, type MenuItem } from "@ryot-app/plugin-ui-sdk";
+import { AppIcon } from "@ryot-app/plugin-ui-sdk/icon";
 import type { ImportRunDetail } from "@ryot-app/ryotql-recipes/import-runs";
 import { createFileRoute, notFound, useRouter } from "@tanstack/react-router";
 import { Effect } from "effect";

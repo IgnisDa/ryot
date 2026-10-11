@@ -1,5 +1,5 @@
-import { DateTime, Effect } from "@ryot-app/sandbox-sdk/effect";
-import type { SandboxScratchManifest } from "@ryot-app/sandbox-sdk/filesystem";
+import { DateTime, Effect } from "@ryot-app/plugin-backend-sdk/effect";
+import type { SandboxScratchManifest } from "@ryot-app/plugin-backend-sdk/filesystem";
 
 import {
 	normalizeMediaRecords,

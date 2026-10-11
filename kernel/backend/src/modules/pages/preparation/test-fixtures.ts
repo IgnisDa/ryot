@@ -1,12 +1,12 @@
+import type { ClientPageCompositionIdentity } from "@ryot-app/contract/modules/client-pages/schemas";
+import { PluginId, PluginPackageId } from "@ryot-app/contract/schema/brands";
 import {
 	CLIENT_API_VERSION,
 	CLIENT_ARTIFACT_FORMAT,
 	CLIENT_BRIDGE_PROTOCOL_VERSION,
 	CLIENT_COMPILER_VERSION,
 	pluginExportSpecifier,
-} from "@ryot-app/client-plugin-contract";
-import type { ClientPageCompositionIdentity } from "@ryot-app/contract/modules/client-pages/schemas";
-import { PluginId, PluginPackageId } from "@ryot-app/contract/schema/brands";
+} from "@ryot-app/plugin-client-contract";
 
 export const pageReference = {
 	scope: "user" as const,

@@ -2,14 +2,14 @@ import { afterEach, describe, expect, it } from "@effect/vitest";
 import {
 	defineEntityPresentation,
 	type EntityPresentationRegistration,
-} from "@ryot-app/client-sdk/plugin";
+} from "@ryot-app/plugin-client-sdk/plugin";
 import {
 	disposePluginBridges,
 	createTestRyotClock,
 	mountPluginPage,
 	routeLocation,
 	savedViewPageContext,
-} from "@ryot-app/client-sdk/testing";
+} from "@ryot-app/plugin-client-sdk/testing";
 import { fireEvent, screen, waitFor } from "@testing-library/dom";
 import { Effect, Result, Schema } from "effect";
 

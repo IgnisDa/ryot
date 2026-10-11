@@ -4,11 +4,11 @@ import {
 	jsonByteLength,
 	SANDBOX_COMPILER_LIMITS,
 	utf8ByteLength,
-} from "@ryot-app/sandbox-compiler/limits";
+} from "@ryot-app/plugin-backend-compiler/limits";
 import {
 	GLOBAL_WRITE_SANDBOX_LIMITS,
 	USER_RELATIONSHIP_WRITE_SANDBOX_LIMITS,
-} from "@ryot-app/sandbox-sdk/core";
+} from "@ryot-app/plugin-backend-sdk/core";
 
 export const KiB = 1024;
 export const MiB = 1024 * KiB;

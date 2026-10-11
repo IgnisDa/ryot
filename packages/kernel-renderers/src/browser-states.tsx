@@ -1,5 +1,5 @@
-import { Button } from "@ryot-app/client-ui-sdk";
-import { AppIcon } from "@ryot-app/client-ui-sdk/icon";
+import { Button } from "@ryot-app/plugin-ui-sdk";
+import { AppIcon } from "@ryot-app/plugin-ui-sdk/icon";
 
 const panel = "grid min-h-96 place-content-center justify-items-center gap-2 text-center";
 

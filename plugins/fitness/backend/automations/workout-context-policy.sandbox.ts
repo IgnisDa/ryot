@@ -1,13 +1,13 @@
-import { IsoDateString } from "@ryot-app/plugin-kit/ryotql";
 import {
 	automationPolicyResultSchema,
 	defineAutomationPolicy,
 	type AutomationPolicyInput,
-} from "@ryot-app/sandbox-sdk/automation";
-import type { ScriptHost } from "@ryot-app/sandbox-sdk/core";
-import { defineManifest } from "@ryot-app/sandbox-sdk/driver";
-import { Effect, Schema } from "@ryot-app/sandbox-sdk/effect";
-import { executeRyotqlRecipe } from "@ryot-app/sandbox-sdk/ryotql";
+} from "@ryot-app/plugin-backend-sdk/automation";
+import type { ScriptHost } from "@ryot-app/plugin-backend-sdk/core";
+import { defineManifest } from "@ryot-app/plugin-backend-sdk/driver";
+import { Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
+import { executeRyotqlRecipe } from "@ryot-app/plugin-backend-sdk/ryotql";
+import { IsoDateString } from "@ryot-app/plugin-kit/ryotql";
 
 import { workoutSetContextRecipe } from "../../shared/workout-record-recipes";
 

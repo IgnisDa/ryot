@@ -1,5 +1,5 @@
-import type { ScriptHost } from "@ryot-app/sandbox-sdk/core";
-import { Effect, Schema } from "@ryot-app/sandbox-sdk/effect";
+import type { ScriptHost } from "@ryot-app/plugin-backend-sdk/core";
+import { Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
 
 export const INDEX_LIMIT = 10_000;
 export const API_BASE_URL = "https://pokeapi.co/api/v2";

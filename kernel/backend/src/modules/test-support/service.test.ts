@@ -1,6 +1,5 @@
 import { PgClient } from "@effect/sql-pg";
 import { assert, expect, layer } from "@effect/vitest";
-import { PluginClientArtifactFromBase64 } from "@ryot-app/client-plugin-contract";
 import type { ContractPayload } from "@ryot-app/contract/client";
 import {
 	EntityId,
@@ -12,6 +11,7 @@ import {
 	SandboxScriptId,
 	UserId,
 } from "@ryot-app/contract/schema/brands";
+import { PluginClientArtifactFromBase64 } from "@ryot-app/plugin-client-contract";
 import { Context, Effect, Layer, Ref, Schema } from "effect";
 
 import { AuthService } from "#modules/accounts/auth/service";

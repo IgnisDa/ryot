@@ -1,11 +1,11 @@
-import { RyotClientError } from "@ryot-app/client-sdk";
+import type { TwoFactorStatus } from "@ryot-app/contract/modules/user-settings/schemas";
+import { RyotClientError } from "@ryot-app/plugin-client-sdk";
 import {
 	createRyotMutation,
 	createRyotQuery,
 	useRyotMutation,
 	useRyotQuery,
-} from "@ryot-app/client-sdk/react";
-import type { TwoFactorStatus } from "@ryot-app/contract/modules/user-settings/schemas";
+} from "@ryot-app/plugin-client-sdk/react";
 import { createFileRoute } from "@tanstack/react-router";
 import { Effect } from "effect";
 

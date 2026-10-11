@@ -7,14 +7,14 @@ import { PluginId } from "@ryot-app/contract/schema/brands";
 import {
 	automationInputSchema,
 	automationPolicyInputSchema,
-} from "@ryot-app/sandbox-sdk/automation";
+} from "@ryot-app/plugin-backend-sdk/automation";
 import type {
 	EntityRecord,
 	EntitySchemaRecord,
 	EventRecord,
 	IntegrationRecord,
-} from "@ryot-app/sandbox-sdk/core";
-import { Effect, Schema } from "@ryot-app/sandbox-sdk/effect";
+} from "@ryot-app/plugin-backend-sdk/core";
+import { Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
 import { isObjectRecord } from "@ryot-app/ts-utils/predicates";
 
 const timestamp = "2026-01-01T00:00:00.000Z";

@@ -1,4 +1,4 @@
-import { defineManifest, defineScript } from "@ryot-app/sandbox-sdk/driver";
+import { defineManifest, defineScript } from "@ryot-app/plugin-backend-sdk/driver";
 
 import { collectMediaCsv } from "./collection";
 import { MediaSourceInput, MediaSourceOutput } from "./collection-schemas";

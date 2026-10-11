@@ -2,7 +2,7 @@ import type {
 	GenericImportChunk,
 	GenericImportFailure,
 	GenericImportWriteItem,
-} from "@ryot-app/sandbox-sdk/imports";
+} from "@ryot-app/plugin-backend-sdk/imports";
 
 import { importEntityRefIdentifier } from "./groups";
 import {

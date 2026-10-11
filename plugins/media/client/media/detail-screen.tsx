@@ -1,17 +1,17 @@
-import type { EntitySettleReason, ManagedAssetLocator } from "@ryot-app/client-sdk";
+import type { EntitySettleReason, ManagedAssetLocator } from "@ryot-app/plugin-client-sdk";
 import {
 	usePluginLocation,
 	useRyotViewport,
 	type EntityRendererProps,
-} from "@ryot-app/client-sdk/plugin";
+} from "@ryot-app/plugin-client-sdk/plugin";
 import {
 	ManagedAssetProvider,
 	useEntitySettle,
 	useRyotQuery,
 	type RyotQuery,
 	type RyotQueryResult,
-} from "@ryot-app/client-sdk/react";
-import { PluginScreenFrame } from "@ryot-app/client-sdk/screen";
+} from "@ryot-app/plugin-client-sdk/react";
+import { PluginScreenFrame } from "@ryot-app/plugin-client-sdk/screen";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 
 import { MediaHero } from "./hero";

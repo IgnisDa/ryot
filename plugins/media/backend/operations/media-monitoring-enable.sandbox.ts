@@ -1,7 +1,7 @@
-import { defineManifest } from "@ryot-app/sandbox-sdk/driver";
-import { Effect } from "@ryot-app/sandbox-sdk/effect";
-import { defineOperation } from "@ryot-app/sandbox-sdk/operation";
-import { executeRyotqlRecipe, userMediaLibraryRecipe } from "@ryot-app/sandbox-sdk/ryotql";
+import { defineManifest } from "@ryot-app/plugin-backend-sdk/driver";
+import { Effect } from "@ryot-app/plugin-backend-sdk/effect";
+import { defineOperation } from "@ryot-app/plugin-backend-sdk/operation";
+import { executeRyotqlRecipe, userMediaLibraryRecipe } from "@ryot-app/plugin-backend-sdk/ryotql";
 
 import { MediaMonitoringEnableInput, MediaMonitoringOutput } from "../contracts/operations";
 import {

@@ -4,8 +4,8 @@
 	"type": "module",
 	"exports": {
 		".": {
-			"types": "./host/plugin.ts",
-			"default": "./host/plugin.ts"
+			"types": "./manifest/plugin.ts",
+			"default": "./manifest/plugin.ts"
 		}
 	},
 	"scripts": {
@@ -15,16 +15,16 @@
 	},
 	"dependencies": {
 		"@ryot-app/contract": "workspace:*",
+		"@ryot-app/plugin-backend-sdk": "workspace:*",
 		"@ryot-app/plugin-kit": "workspace:*",
 		"@ryot-app/ryotql": "workspace:*",
-		"@ryot-app/ryotql-recipes": "workspace:*",
-		"@ryot-app/sandbox-sdk": "workspace:*"
+		"@ryot-app/ryotql-recipes": "workspace:*"
 	},
 	"devDependencies": {
 		"@effect/vitest": "4.0.0",
 		"@ryot-app/cli": "workspace:*",
-		"@ryot-app/client-sdk": "workspace:*",
-		"@ryot-app/client-ui-sdk": "workspace:*",
+		"@ryot-app/plugin-client-sdk": "workspace:*",
+		"@ryot-app/plugin-ui-sdk": "workspace:*",
 		"@ryot-app/testing": "workspace:*",
 		"@testing-library/dom": "^10.4.1",
 		"@types/react": "^19.2.0",

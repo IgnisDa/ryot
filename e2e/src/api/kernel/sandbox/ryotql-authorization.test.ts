@@ -77,10 +77,10 @@ type AuthorizationProbe = {
 const authorizationProbeSource = (
 	input: AuthorizationProbe & { readonly markerSchemaSlug: string },
 ) => `
-import { defineManifest, defineScript } from "@ryot-app/sandbox-sdk/driver";
-import { ryotqlDocumentSchema } from "@ryot-app/sandbox-sdk/core";
-import { Effect, Schema } from "@ryot-app/sandbox-sdk/effect";
-import { jsonValueSchema } from "@ryot-app/sandbox-sdk/wire";
+import { defineManifest, defineScript } from "@ryot-app/plugin-backend-sdk/driver";
+import { ryotqlDocumentSchema } from "@ryot-app/plugin-backend-sdk/core";
+import { Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
+import { jsonValueSchema } from "@ryot-app/plugin-backend-sdk/wire";
 
 export const manifest = defineManifest({
   kind: "script",

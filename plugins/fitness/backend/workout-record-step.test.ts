@@ -1,7 +1,7 @@
-import { Effect, Schema } from "@ryot-app/sandbox-sdk/effect";
-import { EventStreamStepInput } from "@ryot-app/sandbox-sdk/event-streams";
-import type { RyotQLDocument } from "@ryot-app/sandbox-sdk/ryotql";
-import { defineSandboxTestHost } from "@ryot-app/sandbox-sdk/testing";
+import { Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
+import { EventStreamStepInput } from "@ryot-app/plugin-backend-sdk/event-streams";
+import type { RyotQLDocument } from "@ryot-app/plugin-backend-sdk/ryotql";
+import { defineSandboxTestHost } from "@ryot-app/plugin-backend-sdk/testing";
 import { assert, describe, expect, it } from "vitest";
 
 import definition, { manifest } from "./workout-record-step.sandbox";

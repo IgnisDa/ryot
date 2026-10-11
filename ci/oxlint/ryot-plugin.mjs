@@ -11,8 +11,8 @@ const promiseFactories = new Set([
 
 const effectFacadeSources = new Set([
 	"effect",
-	"@ryot-app/sandbox-sdk/effect",
-	"@ryot-app/client-sdk/effect",
+	"@ryot-app/plugin-backend-sdk/effect",
+	"@ryot-app/plugin-client-sdk/effect",
 ]);
 
 const propertyName = (node) => {

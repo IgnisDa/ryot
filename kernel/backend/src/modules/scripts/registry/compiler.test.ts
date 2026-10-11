@@ -8,18 +8,18 @@ import {
 } from "./compiler.test-support";
 
 const approvedDependencyImports = [
-	"@ryot-app/sandbox-sdk/effect",
-	"@ryot-app/sandbox-sdk/cheerio",
-	"@ryot-app/sandbox-sdk/fflate",
-	"@ryot-app/sandbox-sdk/youtubei",
-	"@ryot-app/sandbox-sdk/papaparse",
-	"@ryot-app/sandbox-sdk/fast-xml-parser",
+	"@ryot-app/plugin-backend-sdk/effect",
+	"@ryot-app/plugin-backend-sdk/cheerio",
+	"@ryot-app/plugin-backend-sdk/fflate",
+	"@ryot-app/plugin-backend-sdk/youtubei",
+	"@ryot-app/plugin-backend-sdk/papaparse",
+	"@ryot-app/plugin-backend-sdk/fast-xml-parser",
 ] as const;
 
 const automationSource = `
-import { defineManifest } from "@ryot-app/sandbox-sdk/driver";
-import { Effect } from "@ryot-app/sandbox-sdk/effect";
-import { defineAutomation } from "@ryot-app/sandbox-sdk/automation";
+import { defineManifest } from "@ryot-app/plugin-backend-sdk/driver";
+import { Effect } from "@ryot-app/plugin-backend-sdk/effect";
+import { defineAutomation } from "@ryot-app/plugin-backend-sdk/automation";
 
 export const manifest = defineManifest({
   kind: "automation",
@@ -36,7 +36,7 @@ export default defineAutomation({
 `;
 
 const workflowSource = `
-import { defineManifest, defineWorkflow, Effect, Schema } from "@ryot-app/sandbox-sdk/workflow";
+import { defineManifest, defineWorkflow, Effect, Schema } from "@ryot-app/plugin-backend-sdk/workflow";
 
 export const manifest = defineManifest({
   kind: "workflow",
@@ -72,7 +72,7 @@ layer(SandboxCompiler.layer)((test) => {
 				executableDependencies: [],
 				requiredPluginConfigKeys: [],
 				optionalPluginConfigKeys: [],
-				runtimeImports: ["@ryot-app/sandbox-sdk/effect"],
+				runtimeImports: ["@ryot-app/plugin-backend-sdk/effect"],
 			});
 			expect(compiled.javascript).toContain("export {");
 			expect(compiled.javascript).toContain("sourceMappingURL=data:application/json;base64,");
@@ -157,7 +157,7 @@ layer(SandboxCompiler.layer)((test) => {
 				"zod",
 				"npm:zod@4.4.3",
 				"deno:npm:zod@4.4.3",
-				"@ryot-app/sandbox-sdk/testing",
+				"@ryot-app/plugin-backend-sdk/testing",
 				"https://example.com/module.ts",
 				"node:fs",
 				"bun:test",
@@ -181,7 +181,7 @@ layer(SandboxCompiler.layer)((test) => {
 	test.effect("rejects computed dynamic imports before resolution", () =>
 		Effect.gen(function* () {
 			const failure = yield* compile(
-				`${validSource}\nconst dependency = "@ryot-app/sandbox-sdk/cheerio";\nvoid import(dependency);`,
+				`${validSource}\nconst dependency = "@ryot-app/plugin-backend-sdk/cheerio";\nvoid import(dependency);`,
 			).pipe(Effect.flip);
 
 			expect(failure.diagnostics).toEqual([

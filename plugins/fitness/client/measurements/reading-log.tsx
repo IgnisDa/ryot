@@ -1,5 +1,5 @@
-import { useRyotMutation, useRyotQuery } from "@ryot-app/client-sdk/react";
-import { Button, DestructiveConfirmation, StatusMessage } from "@ryot-app/client-ui-sdk";
+import { useRyotMutation, useRyotQuery } from "@ryot-app/plugin-client-sdk/react";
+import { Button, DestructiveConfirmation, StatusMessage } from "@ryot-app/plugin-ui-sdk";
 import clsx from "clsx";
 import { Fragment, useMemo, useRef, useState, type RefObject } from "react";
 

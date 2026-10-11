@@ -1,4 +1,4 @@
-import { Effect } from "@ryot-app/sandbox-sdk/effect";
+import { Effect } from "@ryot-app/plugin-backend-sdk/effect";
 
 import type { HttpHost } from "../../../backend/imports/source-api";
 

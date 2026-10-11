@@ -1,4 +1,4 @@
-import { DateTime, Option, Schema } from "@ryot-app/sandbox-sdk/effect";
+import { DateTime, Option, Schema } from "@ryot-app/plugin-backend-sdk/effect";
 
 import { measurementMetricKey } from "../../shared/measurement-metrics";
 import { parseCsvText } from "./csv";

@@ -1,5 +1,5 @@
-import type { EntitySettleReason } from "@ryot-app/client-sdk";
-import { Effect } from "@ryot-app/client-sdk/effect";
+import type { EntitySettleReason } from "@ryot-app/plugin-client-sdk";
+import { Effect } from "@ryot-app/plugin-client-sdk/effect";
 import type { ReactNode } from "react";
 
 import type { MediaOverviewState } from "../../client/media/overview-state";

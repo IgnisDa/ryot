@@ -3,7 +3,7 @@ import {
 	type WorkflowDurableCallRequest,
 	type WorkflowDurableResult,
 	workflowDurableResultSchema,
-} from "@ryot-app/sandbox-sdk/workflow";
+} from "@ryot-app/plugin-backend-sdk/workflow";
 import { SandboxExecutionAuthority } from "@ryot-app/sandbox/host/authority";
 import type { SandboxShortWait } from "@ryot-app/sandbox/host/short-wait";
 import { SANDBOX_LIMITS } from "@ryot-app/sandbox/protocol/limits";

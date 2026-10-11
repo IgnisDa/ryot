@@ -1,21 +1,21 @@
 import { SandboxRunError, unknownToMessage } from "@ryot-app/contract/errors";
 import type { ExecutionLane } from "@ryot-app/contract/modules/automations/lifecycle";
 import type { JsonValue } from "@ryot-app/contract/modules/ryotql/language";
-import { SANDBOX_COMPILED_FORMAT } from "@ryot-app/sandbox-compiler/protocol";
-import { httpCallArgsSchema, sandboxHostContracts } from "@ryot-app/sandbox-sdk/core";
+import { SANDBOX_COMPILED_FORMAT } from "@ryot-app/plugin-backend-compiler/protocol";
+import { httpCallArgsSchema, sandboxHostContracts } from "@ryot-app/plugin-backend-sdk/core";
 import {
 	hostFailure,
 	hostSuccess,
 	jsonValueSchema,
 	type SandboxHostError,
-} from "@ryot-app/sandbox-sdk/wire";
+} from "@ryot-app/plugin-backend-sdk/wire";
 import {
 	type WorkflowDurableCallRequest,
 	type WorkflowDurableResult,
 	type WorkflowInlineRequest,
 	workflowDurableResultSchema,
 	workflowHostRequestSchema,
-} from "@ryot-app/sandbox-sdk/workflow";
+} from "@ryot-app/plugin-backend-sdk/workflow";
 import { SandboxExecutionAuthority } from "@ryot-app/sandbox/host/authority";
 import {
 	bindSandboxHostFunctions,

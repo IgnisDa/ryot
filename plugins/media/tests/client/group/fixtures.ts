@@ -1,5 +1,5 @@
-import { Result } from "@ryot-app/client-sdk/effect";
-import type { PreparedRecipe } from "@ryot-app/client-sdk/ryotql";
+import { Result } from "@ryot-app/plugin-client-sdk/effect";
+import type { PreparedRecipe } from "@ryot-app/plugin-client-sdk/ryotql";
 import type { PluginIdentityReference } from "@ryot-app/plugin-kit/schema";
 
 import type { MediaPresentationSource } from "../../../shared/entity-presentations";

@@ -1,5 +1,5 @@
-import { useManagedAssetUrl } from "@ryot-app/client-sdk/react";
-import { EntityArtWell, type FieldSyncState } from "@ryot-app/client-ui-sdk/sync";
+import { useManagedAssetUrl } from "@ryot-app/plugin-client-sdk/react";
+import { EntityArtWell, type FieldSyncState } from "@ryot-app/plugin-ui-sdk/sync";
 import type { EntityBrowserResult } from "@ryot-app/ryotql-recipes/saved-views";
 
 export type SavedViewCell = EntityBrowserResult["items"][number]["cells"][number];

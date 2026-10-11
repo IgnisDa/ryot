@@ -2,16 +2,6 @@
 
 import { BunRuntime, BunServices } from "@effect/platform-bun";
 import {
-	buildClientRuntime,
-	clientPluginCompilerPlatformLayer,
-	compileClientPluginModule,
-} from "@ryot-app/client-plugin-compiler";
-import {
-	CLIENT_API_VERSION,
-	clientArtifactMetadata,
-	type PluginClientArtifact,
-} from "@ryot-app/client-plugin-contract";
-import {
 	ClientImageManifestJson,
 	equalArtifacts,
 	parseClientImageManifest,
@@ -23,6 +13,16 @@ import {
 	kernelResultsTableRenderer,
 } from "@ryot-app/kernel-renderers";
 import { readPluginArchive } from "@ryot-app/plugin-archive";
+import {
+	buildClientRuntime,
+	pluginClientCompilerPlatformLayer,
+	compileClientPluginModule,
+} from "@ryot-app/plugin-client-compiler";
+import {
+	CLIENT_API_VERSION,
+	clientArtifactMetadata,
+	type PluginClientArtifact,
+} from "@ryot-app/plugin-client-contract";
 import { Effect, FileSystem, Layer, Path, Schema } from "effect";
 
 import { readShippedPlugins } from "./shipped-plugins";
@@ -127,7 +127,7 @@ if (import.meta.main) {
 	BunRuntime.runMain(
 		assemble.pipe(
 			// oxlint-disable-next-line effecttsgo/strict-effect-provide -- Server assembly is a command-line entrypoint
-			Effect.provide(Layer.merge(BunServices.layer, clientPluginCompilerPlatformLayer)),
+			Effect.provide(Layer.merge(BunServices.layer, pluginClientCompilerPlatformLayer)),
 		),
 	);
 }

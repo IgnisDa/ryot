@@ -1,4 +1,4 @@
-import type { ManagedAssetLocator } from "@ryot-app/client-sdk";
+import type { ManagedAssetLocator } from "@ryot-app/plugin-client-sdk";
 import {
 	defineEntityPresentation,
 	PluginLink,
@@ -6,9 +6,9 @@ import {
 	type EntityPresentationComponentProps,
 	type EntityPresentationLoader,
 	type EntityPresentationPrepare,
-} from "@ryot-app/client-sdk/plugin";
-import { ManagedAssetProvider } from "@ryot-app/client-sdk/react";
-import { fieldSyncState, isTitleProvisional, SyncPip } from "@ryot-app/client-ui-sdk/sync";
+} from "@ryot-app/plugin-client-sdk/plugin";
+import { ManagedAssetProvider } from "@ryot-app/plugin-client-sdk/react";
+import { fieldSyncState, isTitleProvisional, SyncPip } from "@ryot-app/plugin-ui-sdk/sync";
 import clsx from "clsx";
 
 import {

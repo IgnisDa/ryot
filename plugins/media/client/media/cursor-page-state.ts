@@ -1,4 +1,4 @@
-import type { RyotQueryResult } from "@ryot-app/client-sdk/react";
+import type { RyotQueryResult } from "@ryot-app/plugin-client-sdk/react";
 
 import { classifyRyotQueryResult, type MappedRyotQueryState } from "./query-state";
 

@@ -1,8 +1,8 @@
-import type { ScriptHost } from "@ryot-app/sandbox-sdk/core";
-import { defineManifest } from "@ryot-app/sandbox-sdk/driver";
-import { DateTime, Effect, Option, Schema } from "@ryot-app/sandbox-sdk/effect";
-import { defineProvider } from "@ryot-app/sandbox-sdk/provider";
-import { strictStruct } from "@ryot-app/sandbox-sdk/wire";
+import type { ScriptHost } from "@ryot-app/plugin-backend-sdk/core";
+import { defineManifest } from "@ryot-app/plugin-backend-sdk/driver";
+import { DateTime, Effect, Option, Schema } from "@ryot-app/plugin-backend-sdk/effect";
+import { defineProvider } from "@ryot-app/plugin-backend-sdk/provider";
+import { strictStruct } from "@ryot-app/plugin-backend-sdk/wire";
 
 import { MediaSandboxError } from "../../../lib/failures";
 import { decodeJsonResponse } from "../../../lib/records";

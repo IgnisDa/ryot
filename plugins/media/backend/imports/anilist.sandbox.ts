@@ -1,4 +1,4 @@
-import { defineManifest, defineScript } from "@ryot-app/sandbox-sdk/driver";
+import { defineManifest, defineScript } from "@ryot-app/plugin-backend-sdk/driver";
 
 import { collectAnilist, normalizeAnilist } from "./anilist-collection";
 import { MediaSourceInput, MediaSourceOutput } from "./collection-schemas";

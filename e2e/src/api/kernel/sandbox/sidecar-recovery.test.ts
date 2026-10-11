@@ -62,8 +62,8 @@ describe("sandbox sidecar recovery", () => {
 				client,
 				name: "Sidecar fatal builtin",
 				source: `
-import { defineManifest, defineScript } from "@ryot-app/sandbox-sdk/driver";
-import { Effect, Schema } from "@ryot-app/sandbox-sdk/effect";
+import { defineManifest, defineScript } from "@ryot-app/plugin-backend-sdk/driver";
+import { Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
 export const manifest = defineManifest({ kind: "script", name: "Sidecar fatal builtin", slug: ${encodeJson(slug)} });
 export default defineScript({ manifest, input: Schema.Unknown, output: Schema.Unknown,
   run: () => Effect.sync(() => new Array(2 ** 28).fill(0)),

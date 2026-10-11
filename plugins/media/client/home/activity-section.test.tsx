@@ -1,6 +1,6 @@
-import { RyotClientError } from "@ryot-app/client-sdk";
-import { Effect } from "@ryot-app/client-sdk/effect";
-import type { RyotQueryResult } from "@ryot-app/client-sdk/react";
+import { RyotClientError } from "@ryot-app/plugin-client-sdk";
+import { Effect } from "@ryot-app/plugin-client-sdk/effect";
+import type { RyotQueryResult } from "@ryot-app/plugin-client-sdk/react";
 import { getByRole, getByText } from "@testing-library/dom";
 import { afterEach, describe, expect, it } from "vitest";
 

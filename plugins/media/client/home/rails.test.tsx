@@ -1,7 +1,7 @@
 import { afterEach, assert, describe, expect, it } from "@effect/vitest";
-import { RyotClientError, type EntityInterest } from "@ryot-app/client-sdk";
-import { DateTime, Effect } from "@ryot-app/client-sdk/effect";
-import type { RyotQueryResult } from "@ryot-app/client-sdk/react";
+import { RyotClientError, type EntityInterest } from "@ryot-app/plugin-client-sdk";
+import { DateTime, Effect } from "@ryot-app/plugin-client-sdk/effect";
+import type { RyotQueryResult } from "@ryot-app/plugin-client-sdk/react";
 import { fireEvent, getByRole, waitFor } from "@testing-library/dom";
 
 import { animeAiringSoonRecipe, showsAiringSoonRecipe } from "../../shared/airing-recipes";

@@ -1,5 +1,5 @@
-import { Button } from "@ryot-app/client-ui-sdk";
-import { DataTable, type DataTableColumn } from "@ryot-app/client-ui-sdk/table";
+import { Button } from "@ryot-app/plugin-ui-sdk";
+import { DataTable, type DataTableColumn } from "@ryot-app/plugin-ui-sdk/table";
 import { Cause, Effect, Exit, Option } from "effect";
 import { useEffect, useEffectEvent, useRef, useState } from "react";
 

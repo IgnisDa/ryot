@@ -1,5 +1,5 @@
-import type { AssetLocator, ManagedAssetLocator } from "@ryot-app/client-sdk";
-import { managedAssetKey, useManagedAssetUrl } from "@ryot-app/client-sdk/react";
+import type { AssetLocator, ManagedAssetLocator } from "@ryot-app/plugin-client-sdk";
+import { managedAssetKey, useManagedAssetUrl } from "@ryot-app/plugin-client-sdk/react";
 
 export const managedAssetBatch = (assets: readonly (AssetLocator | undefined)[]) => {
 	const managed = assets.filter(

@@ -1,7 +1,7 @@
 import { SandboxRunError } from "@ryot-app/contract/errors";
 import type { SandboxScriptId } from "@ryot-app/contract/schema/brands";
-import { utf8ByteLength } from "@ryot-app/sandbox-compiler/limits";
-import { SANDBOX_COMPILED_FORMAT } from "@ryot-app/sandbox-compiler/protocol";
+import { utf8ByteLength } from "@ryot-app/plugin-backend-compiler/limits";
+import { SANDBOX_COMPILED_FORMAT } from "@ryot-app/plugin-backend-compiler/protocol";
 import type { SandboxRunInput } from "@ryot-app/sandbox/host/invocation";
 import { SANDBOX_LIMITS } from "@ryot-app/sandbox/protocol/limits";
 import type { ScriptExecutionPrincipal } from "@ryot-app/sandbox/protocol/principal";

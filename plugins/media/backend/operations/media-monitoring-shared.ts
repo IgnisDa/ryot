@@ -1,6 +1,6 @@
-import type { Effect } from "@ryot-app/sandbox-sdk/effect";
-import { executeRyotqlRecipe, type RyotQLDocument } from "@ryot-app/sandbox-sdk/ryotql";
-import type { SandboxHostError } from "@ryot-app/sandbox-sdk/wire";
+import type { Effect } from "@ryot-app/plugin-backend-sdk/effect";
+import { executeRyotqlRecipe, type RyotQLDocument } from "@ryot-app/plugin-backend-sdk/ryotql";
+import type { SandboxHostError } from "@ryot-app/plugin-backend-sdk/wire";
 
 import type { MediaMonitoringResult } from "../contracts/operations";
 import { mediaMonitoringTargetsRecipe } from "../lib/media-monitoring-ryotql";

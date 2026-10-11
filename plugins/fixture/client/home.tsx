@@ -1,6 +1,6 @@
-import { RyotClientError, type TemporaryUploadToken } from "@ryot-app/client-sdk";
-import { Schema } from "@ryot-app/client-sdk/effect";
-import { PluginLink } from "@ryot-app/client-sdk/plugin";
+import { RyotClientError, type TemporaryUploadToken } from "@ryot-app/plugin-client-sdk";
+import { Schema } from "@ryot-app/plugin-client-sdk/effect";
+import { PluginLink } from "@ryot-app/plugin-client-sdk/plugin";
 import {
 	createRyotMutation,
 	createRyotQuery,
@@ -8,9 +8,9 @@ import {
 	useRyotMutation,
 	useRyotQuery,
 	useRyotTheme,
-} from "@ryot-app/client-sdk/react";
-import { PluginScreenFrame } from "@ryot-app/client-sdk/screen";
-import { Button, StatusMessage } from "@ryot-app/client-ui-sdk";
+} from "@ryot-app/plugin-client-sdk/react";
+import { PluginScreenFrame } from "@ryot-app/plugin-client-sdk/screen";
+import { Button, StatusMessage } from "@ryot-app/plugin-ui-sdk";
 import clsx from "clsx";
 import { useState } from "react";
 

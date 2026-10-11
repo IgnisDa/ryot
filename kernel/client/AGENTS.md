@@ -7,7 +7,7 @@ Architecture and rationale live in `README.md`.
 - Capability producers classify expected failures; the plugin bridge validates and encodes outgoing outcomes once, reports unexpected defects internally, and suppresses replies for interrupted or stale requests.
 - Keep routes as React adapters. Authenticated user-screen data uses shared Ryot queries and mutations; loaders retain only access decisions, redirects, and not-found checks. The pre-authentication routes have no API scope, God Mode is token-scoped, and the catalog-dependent workspace redirect must resolve before render, so these remain loader/direct-service exceptions.
 - Keep generated contract clients inside `#/api`. Only `AuthenticatedApi` and `AdminApi` run contract programs; other services depend on narrow group ports.
-- Keep authentication, server selection, global history, artifact lifecycle, bridge dispatch, and native authority in the kernel. Expose only semantic, environment-neutral capabilities through `@ryot-app/client-sdk`.
+- Keep authentication, server selection, global history, artifact lifecycle, bridge dispatch, and native authority in the kernel. Expose only semantic, environment-neutral capabilities through `@ryot-app/plugin-client-sdk`.
 - Keep native name, identifier, and icon in platform build configurations. `capacitor.config.ts` always uses production identity and has no environment branch.
 - Generate icons through `bun run generate-assets`; edit source art or `tooling/generate-assets.ts`, never generated native asset files.
 - Route native URLs and hardware Back through the router. The only exception is the OAuth connection return, which an attempt's live `DeepLinkClaims` claim receives instead of the router. Treat `/oauth/login`, its signed `oauth_query`, and its independence from `ServerService` as a server contract.
@@ -23,6 +23,6 @@ Architecture and rationale live in `README.md`.
 - Keep the skip link and route announcer in `__root.tsx`. Every branch renders exactly one element carrying `mainContentProps` and one `usePageTitle` owner.
 - Use UI SDK overlay, focus, Escape, shortcut, and scroll-lock primitives. Make background content inert. Back interception remains kernel-owned and is injected into the SDK.
 - Model React-state overlays with `BackInterceptor`; model URL-state overlays as pushed history entries and close them by pop, with replace only for direct entry.
-- Render icons through `@ryot-app/client-ui-sdk/icon`, never direct `lucide-react` imports or inline SVG.
+- Render icons through `@ryot-app/plugin-ui-sdk/icon`, never direct `lucide-react` imports or inline SVG.
 - Keep selected uploads as `Blob` or `File` through transport and use the client SDK upload capability. The kernel performs plugin uploads too, so no upload URL or header crosses the bridge. The backup archive download is the only code that may obtain a bearer header directly.
 - Source desktop sidebar and mobile drawer from the authenticated loader's shared navigation data. Do not patch loaded navigation data in place.

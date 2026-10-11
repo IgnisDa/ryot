@@ -1,6 +1,6 @@
 import { assert, expect, layer } from "@effect/vitest";
 import { SandboxRunError, TimeoutError } from "@ryot-app/contract/errors";
-import type { WorkflowReplayJournalEntry } from "@ryot-app/sandbox-sdk/workflow";
+import type { WorkflowReplayJournalEntry } from "@ryot-app/plugin-backend-sdk/workflow";
 import { assertExitFails } from "@ryot-app/testing/effect-assertions";
 import { isObjectRecord } from "@ryot-app/ts-utils/predicates";
 import {
@@ -99,7 +99,7 @@ const fileSource = definition(
   }
   return summarize(yield* readArtifact);
 })`,
-	'import { readArtifact, readNamedArtifact, writeScratchChunks } from "@ryot-app/sandbox-sdk/filesystem";',
+	'import { readArtifact, readNamedArtifact, writeScratchChunks } from "@ryot-app/plugin-backend-sdk/filesystem";',
 );
 
 const exitSource = definition(
@@ -111,7 +111,7 @@ const exitSource = definition(
   if (input.mode === "timeout") return yield* Effect.sleep("35 seconds").pipe(Effect.as("too late"));
   return yield* host.getCachedValue(input.mode);
 })`,
-	'import { writeScratchChunks } from "@ryot-app/sandbox-sdk/filesystem";',
+	'import { writeScratchChunks } from "@ryot-app/plugin-backend-sdk/filesystem";',
 );
 
 const freshSource = definition(

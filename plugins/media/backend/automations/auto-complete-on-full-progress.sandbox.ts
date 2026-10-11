@@ -1,14 +1,14 @@
-import type { AutomationInput } from "@ryot-app/sandbox-sdk/automation";
-import { defineAutomation } from "@ryot-app/sandbox-sdk/automation";
-import type { EventSchemaRecord, ScriptHost } from "@ryot-app/sandbox-sdk/core";
-import { defineManifest } from "@ryot-app/sandbox-sdk/driver";
-import { DateTime, Effect, Option } from "@ryot-app/sandbox-sdk/effect";
+import type { AutomationInput } from "@ryot-app/plugin-backend-sdk/automation";
+import { defineAutomation } from "@ryot-app/plugin-backend-sdk/automation";
+import type { EventSchemaRecord, ScriptHost } from "@ryot-app/plugin-backend-sdk/core";
+import { defineManifest } from "@ryot-app/plugin-backend-sdk/driver";
+import { DateTime, Effect, Option } from "@ryot-app/plugin-backend-sdk/effect";
 import {
 	entityReadRecipe,
 	eventReadRecipe,
 	executeRyotqlRecipe,
-} from "@ryot-app/sandbox-sdk/ryotql";
-import type { JsonValue } from "@ryot-app/sandbox-sdk/wire";
+} from "@ryot-app/plugin-backend-sdk/ryotql";
+import type { JsonValue } from "@ryot-app/plugin-backend-sdk/wire";
 
 import { MediaSandboxError } from "../lib/failures";
 import type { MediaProgressEvent } from "../lib/ryotql";

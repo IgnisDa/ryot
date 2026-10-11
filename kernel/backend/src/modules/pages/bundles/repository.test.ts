@@ -1,9 +1,9 @@
+import { PluginPackageId } from "@ryot-app/contract/schema/brands";
 import {
 	clientArtifactFile,
 	clientArtifactMetadata,
 	clientRuntimeArtifactMetadata,
-} from "@ryot-app/client-plugin-contract";
-import { PluginPackageId } from "@ryot-app/contract/schema/brands";
+} from "@ryot-app/plugin-client-contract";
 import { describe, expect, it } from "vitest";
 
 import { clientArtifactMatches } from "./repository";

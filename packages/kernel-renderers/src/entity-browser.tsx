@@ -1,8 +1,8 @@
-import { Effect, Result, Schema } from "@ryot-app/client-sdk/effect";
-import { usePageContext } from "@ryot-app/client-sdk/plugin";
-import { createRyotQuery, useRyot, useRyotQuery } from "@ryot-app/client-sdk/react";
-import { PluginScreenFrame } from "@ryot-app/client-sdk/screen";
-import { Button, StatusMessage } from "@ryot-app/client-ui-sdk";
+import { Effect, Result, Schema } from "@ryot-app/plugin-client-sdk/effect";
+import { usePageContext } from "@ryot-app/plugin-client-sdk/plugin";
+import { createRyotQuery, useRyot, useRyotQuery } from "@ryot-app/plugin-client-sdk/react";
+import { PluginScreenFrame } from "@ryot-app/plugin-client-sdk/screen";
+import { Button, StatusMessage } from "@ryot-app/plugin-ui-sdk";
 import {
 	EntityBrowserPageInput,
 	entityBrowserCountRecipe,

@@ -5,9 +5,9 @@ import {
 	Modal,
 	useFieldEscape,
 	useValueChange,
-} from "@ryot-app/client-ui-sdk";
-import { AppIcon } from "@ryot-app/client-ui-sdk/icon";
-import { DataTable, type DataTableColumn } from "@ryot-app/client-ui-sdk/table";
+} from "@ryot-app/plugin-ui-sdk";
+import { AppIcon } from "@ryot-app/plugin-ui-sdk/icon";
+import { DataTable, type DataTableColumn } from "@ryot-app/plugin-ui-sdk/table";
 import clsx from "clsx";
 import { Cause, Effect, Exit } from "effect";
 import {

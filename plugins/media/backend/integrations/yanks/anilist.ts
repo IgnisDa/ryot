@@ -1,5 +1,5 @@
-import { DateTime, Option, Schema } from "@ryot-app/sandbox-sdk/effect";
-import { IsoDateString } from "@ryot-app/sandbox-sdk/ryotql";
+import { DateTime, Option, Schema } from "@ryot-app/plugin-backend-sdk/effect";
+import { IsoDateString } from "@ryot-app/plugin-backend-sdk/ryotql";
 
 import { ListStatePropertiesSchema, type ListStateProperties } from "../../../shared/list-state";
 import { anilistListState } from "../../lib/anilist-list";

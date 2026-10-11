@@ -1,12 +1,12 @@
-import { usePluginLocation, useRyotViewport } from "@ryot-app/client-sdk/plugin";
+import { usePluginLocation, useRyotViewport } from "@ryot-app/plugin-client-sdk/plugin";
 import {
 	createRyotQuery,
 	ManagedAssetProvider,
 	useRyotQuery,
 	type RyotQueryResult,
-} from "@ryot-app/client-sdk/react";
-import { PluginScreenFrame } from "@ryot-app/client-sdk/screen";
-import { Button, StatusMessage } from "@ryot-app/client-ui-sdk";
+} from "@ryot-app/plugin-client-sdk/react";
+import { PluginScreenFrame } from "@ryot-app/plugin-client-sdk/screen";
+import { Button, StatusMessage } from "@ryot-app/plugin-ui-sdk";
 import clsx from "clsx";
 import { useMemo } from "react";
 

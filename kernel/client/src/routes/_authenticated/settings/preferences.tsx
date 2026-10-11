@@ -1,5 +1,5 @@
-import { useRyotMutation, useRyotQuery } from "@ryot-app/client-sdk/react";
-import { StatusMessage } from "@ryot-app/client-ui-sdk";
+import { useRyotMutation, useRyotQuery } from "@ryot-app/plugin-client-sdk/react";
+import { StatusMessage } from "@ryot-app/plugin-ui-sdk";
 import { createFileRoute } from "@tanstack/react-router";
 
 import { AuthService } from "#/modules/auth/service";

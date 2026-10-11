@@ -1,6 +1,6 @@
-import { createRyotClient } from "@ryot-app/client-sdk";
-import { Effect, Result } from "@ryot-app/client-sdk/effect";
-import type { EntityReference, EntityPresentationSource } from "@ryot-app/client-sdk/plugin";
+import { createRyotClient } from "@ryot-app/plugin-client-sdk";
+import { Effect, Result } from "@ryot-app/plugin-client-sdk/effect";
+import type { EntityReference, EntityPresentationSource } from "@ryot-app/plugin-client-sdk/plugin";
 import { describe, expect, it } from "vitest";
 
 import { loadMediaPresentations, prepareMediaPresentations } from "./presentation";

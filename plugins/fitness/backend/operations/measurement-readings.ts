@@ -1,4 +1,4 @@
-import { Effect, Result, Schema } from "@ryot-app/sandbox-sdk/effect";
+import { Effect, Result, Schema } from "@ryot-app/plugin-backend-sdk/effect";
 import {
 	and,
 	ascending,
@@ -15,8 +15,8 @@ import {
 	selectedRows,
 	table,
 	type RyotQLDocument,
-} from "@ryot-app/sandbox-sdk/ryotql";
-import type { SandboxHostError } from "@ryot-app/sandbox-sdk/wire";
+} from "@ryot-app/plugin-backend-sdk/ryotql";
+import type { SandboxHostError } from "@ryot-app/plugin-backend-sdk/wire";
 
 type ExecuteRyotql = (document: RyotQLDocument) => Effect.Effect<unknown, SandboxHostError>;
 

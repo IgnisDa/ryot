@@ -1,5 +1,5 @@
-import type { ScriptHost } from "@ryot-app/sandbox-sdk/core";
-import { Effect, Schema } from "@ryot-app/sandbox-sdk/effect";
+import type { ScriptHost } from "@ryot-app/plugin-backend-sdk/core";
+import { Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
 
 export type HttpHost = Pick<ScriptHost, "httpCall">;
 type QueryValue = boolean | number | string | undefined;

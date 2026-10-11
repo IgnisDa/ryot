@@ -16,9 +16,9 @@ import {
 import {
 	workflowDurableResultSchema,
 	workflowReplayEnvelopeSchema,
-} from "@ryot-app/sandbox-sdk/workflow";
+} from "@ryot-app/plugin-backend-sdk/workflow";
 import { ExecutionFileStore } from "@ryot-app/sandbox/host/execution-files";
-import { SandboxExecutor as RuntimeSandboxExecutor } from "@ryot-app/sandbox/host/executor";
+import { SandboxExecutor } from "@ryot-app/sandbox/host/executor";
 import { stubRuntimeSandboxExecutor } from "@ryot-app/sandbox/host/executor.test-support";
 import { readPinnedJournal } from "@ryot-app/sandbox/host/pinned-journal.test-support";
 import { makeUserPrincipal, makeUserSubject } from "@ryot-app/sandbox/host/run-input.test-support";
@@ -471,7 +471,7 @@ const hotSwapLayer = recordingLayer(
 						),
 			}),
 			Layer.succeed(
-				RuntimeSandboxExecutor,
+				SandboxExecutor,
 				stubRuntimeSandboxExecutor((input) =>
 					Effect.gen(function* () {
 						yield* calls.record("executed-content", input.compiledCode);

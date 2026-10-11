@@ -1,5 +1,5 @@
-import type { GenericImportWriteItem } from "@ryot-app/sandbox-sdk/imports";
-import type { JsonValue } from "@ryot-app/sandbox-sdk/wire";
+import type { GenericImportWriteItem } from "@ryot-app/plugin-backend-sdk/imports";
+import type { JsonValue } from "@ryot-app/plugin-backend-sdk/wire";
 
 import { workoutOperationId, workoutRecordId } from "./identity";
 import { buildWorkoutSetEventProperties, type WorkoutImportItem } from "./workout-domain";

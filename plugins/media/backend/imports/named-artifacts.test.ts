@@ -1,6 +1,6 @@
 import { afterEach, expect, it } from "@effect/vitest";
-import { Effect } from "@ryot-app/sandbox-sdk/effect";
-import { gzipSync } from "@ryot-app/sandbox-sdk/fflate";
+import { Effect } from "@ryot-app/plugin-backend-sdk/effect";
+import { gzipSync } from "@ryot-app/plugin-backend-sdk/fflate";
 
 import { mediaFilesystem, resetMediaFilesystem, mediaStageInput } from "./ingestion.test-support";
 import movary from "./movary.sandbox";

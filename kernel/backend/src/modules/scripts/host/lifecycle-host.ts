@@ -6,8 +6,8 @@ import {
 	upsertGlobalEntitiesOptionsSchema,
 	upsertGlobalEntityItemSchema,
 	upsertGlobalRelationshipGroupSchema,
-} from "@ryot-app/sandbox-sdk/core";
-import { jsonValueSchema } from "@ryot-app/sandbox-sdk/wire";
+} from "@ryot-app/plugin-backend-sdk/core";
+import { jsonValueSchema } from "@ryot-app/plugin-backend-sdk/wire";
 import { toSandboxHostError, type UserSandboxRunInput } from "@ryot-app/sandbox/host/invocation";
 import { Effect, Schema } from "effect";
 

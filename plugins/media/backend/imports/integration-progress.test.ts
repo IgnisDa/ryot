@@ -1,8 +1,8 @@
 import { expect, it } from "@effect/vitest";
-import type { LogEntry } from "@ryot-app/sandbox-sdk/core";
-import { DateTime, Effect } from "@ryot-app/sandbox-sdk/effect";
-import { defineSandboxTestHost } from "@ryot-app/sandbox-sdk/testing";
-import type { JsonValue } from "@ryot-app/sandbox-sdk/wire";
+import type { LogEntry } from "@ryot-app/plugin-backend-sdk/core";
+import { DateTime, Effect } from "@ryot-app/plugin-backend-sdk/effect";
+import { defineSandboxTestHost } from "@ryot-app/plugin-backend-sdk/testing";
+import type { JsonValue } from "@ryot-app/plugin-backend-sdk/wire";
 
 import {
 	eventRecord,

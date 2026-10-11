@@ -1,6 +1,6 @@
-import type { ManagedAssetLocator } from "@ryot-app/client-sdk";
-import { RyotClientError } from "@ryot-app/client-sdk";
-import { Effect, Result } from "@ryot-app/client-sdk/effect";
+import type { ManagedAssetLocator } from "@ryot-app/plugin-client-sdk";
+import { RyotClientError } from "@ryot-app/plugin-client-sdk";
+import { Effect, Result } from "@ryot-app/plugin-client-sdk/effect";
 import {
 	PluginId,
 	defineEntityPresentation,
@@ -10,11 +10,11 @@ import {
 	type EntityPresentationLoader,
 	type EntityPresentationPrepare,
 	type EntityReference,
-} from "@ryot-app/client-sdk/plugin";
-import { ManagedAssetProvider } from "@ryot-app/client-sdk/react";
-import { defineRecipe } from "@ryot-app/client-sdk/ryotql";
-import { Button } from "@ryot-app/client-ui-sdk";
-import { fieldSyncState, isTitleProvisional, SyncPip } from "@ryot-app/client-ui-sdk/sync";
+} from "@ryot-app/plugin-client-sdk/plugin";
+import { ManagedAssetProvider } from "@ryot-app/plugin-client-sdk/react";
+import { defineRecipe } from "@ryot-app/plugin-client-sdk/ryotql";
+import { Button } from "@ryot-app/plugin-ui-sdk";
+import { fieldSyncState, isTitleProvisional, SyncPip } from "@ryot-app/plugin-ui-sdk/sync";
 import { useState } from "react";
 
 import {

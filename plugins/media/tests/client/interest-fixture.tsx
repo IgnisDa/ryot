@@ -1,6 +1,6 @@
-import type { EntityInterest, RyotClientAdapter } from "@ryot-app/client-sdk";
-import { Effect } from "@ryot-app/client-sdk/effect";
-import { useRyotQuery, type RyotQuery } from "@ryot-app/client-sdk/react";
+import type { EntityInterest, RyotClientAdapter } from "@ryot-app/plugin-client-sdk";
+import { Effect } from "@ryot-app/plugin-client-sdk/effect";
+import { useRyotQuery, type RyotQuery } from "@ryot-app/plugin-client-sdk/react";
 import { waitFor } from "@testing-library/dom";
 import { act } from "react";
 import { expect, it } from "vitest";

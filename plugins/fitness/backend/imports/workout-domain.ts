@@ -1,5 +1,5 @@
-import { Schema } from "@ryot-app/sandbox-sdk/effect";
-import type { JsonValue } from "@ryot-app/sandbox-sdk/wire";
+import { Schema } from "@ryot-app/plugin-backend-sdk/effect";
+import type { JsonValue } from "@ryot-app/plugin-backend-sdk/wire";
 
 import { exerciseKinds, type ExerciseKind } from "../../shared/exercise-kinds";
 import { calculateWorkoutSetStatistics } from "../../shared/workout-records";

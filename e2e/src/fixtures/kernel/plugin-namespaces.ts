@@ -224,11 +224,11 @@ export const namespacePairRecipe = defineRecipe(
 );
 
 const operationSource = (label: string) => `
-import { defineManifest } from "@ryot-app/sandbox-sdk/driver";
-import { defineOperation } from "@ryot-app/sandbox-sdk/operation";
-import { Effect, Schema } from "@ryot-app/sandbox-sdk/effect";
-import { jsonValueSchema } from "@ryot-app/sandbox-sdk/wire";
-import { genericImportSealReference } from "@ryot-app/sandbox-sdk/imports";
+import { defineManifest } from "@ryot-app/plugin-backend-sdk/driver";
+import { defineOperation } from "@ryot-app/plugin-backend-sdk/operation";
+import { Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
+import { jsonValueSchema } from "@ryot-app/plugin-backend-sdk/wire";
+import { genericImportSealReference } from "@ryot-app/plugin-backend-sdk/imports";
 export const manifest = defineManifest({ kind: "operation", name: "Whiskey operation", slug: "inspect" });
 export default defineOperation({
   manifest,
@@ -266,8 +266,8 @@ export default defineOperation({
 `;
 
 const bootstrapSource = (label: string, strength: string | number, opaque: string) => `
-import { defineManifest, defineScript } from "@ryot-app/sandbox-sdk/driver";
-import { Effect, Schema } from "@ryot-app/sandbox-sdk/effect";
+import { defineManifest, defineScript } from "@ryot-app/plugin-backend-sdk/driver";
+import { Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
 export const manifest = defineManifest({ kind: "script", name: "Whiskey bootstrap", slug: "bootstrap" });
 export default defineScript({
   manifest, input: Schema.Struct({}), output: Schema.Boolean,
@@ -284,8 +284,8 @@ export default defineScript({
 `;
 
 const importSource = `
-import { genericImportSealReference, genericImportWorkflowInputSchema, genericImportWorkflowResultSchema } from "@ryot-app/sandbox-sdk/imports";
-import { Effect, defineManifest, defineWorkflow, defineScriptReference } from "@ryot-app/sandbox-sdk/workflow";
+import { genericImportSealReference, genericImportWorkflowInputSchema, genericImportWorkflowResultSchema } from "@ryot-app/plugin-backend-sdk/imports";
+import { Effect, defineManifest, defineWorkflow, defineScriptReference } from "@ryot-app/plugin-backend-sdk/workflow";
 const checkpoint = defineScriptReference({ scriptSlug: "checkpoint", input: genericImportWorkflowInputSchema, output: genericImportSealReference.input });
 export const manifest = defineManifest({ kind: "workflow", name: "Whiskey import", slug: "import-workflow" });
 export default defineWorkflow({
@@ -299,10 +299,10 @@ export default defineWorkflow({
 `;
 
 const checkpointSource = `
-import { defineManifest, defineScript } from "@ryot-app/sandbox-sdk/driver";
-import { genericImportWorkflowInputSchema, genericImportSealReference } from "@ryot-app/sandbox-sdk/imports";
-import { configValuesSchema } from "@ryot-app/sandbox-sdk/core";
-import { Effect, Schema } from "@ryot-app/sandbox-sdk/effect";
+import { defineManifest, defineScript } from "@ryot-app/plugin-backend-sdk/driver";
+import { genericImportWorkflowInputSchema, genericImportSealReference } from "@ryot-app/plugin-backend-sdk/imports";
+import { configValuesSchema } from "@ryot-app/plugin-backend-sdk/core";
+import { Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
 export const manifest = defineManifest({ kind: "script", name: "Whiskey checkpoint", slug: "checkpoint" });
 export default defineScript({ manifest, input: genericImportWorkflowInputSchema, output: genericImportSealReference.input, run: (input, host, execution) => Effect.gen(function* () {
   const request = { runId: input.runId, command: input.command, operation: { action: "seal" as const } };
@@ -316,18 +316,18 @@ export default defineScript({ manifest, input: genericImportWorkflowInputSchema,
 `;
 
 const integrationSource = (label: string) => `
-import { defineManifest } from "@ryot-app/sandbox-sdk/driver";
-import { defineOperation } from "@ryot-app/sandbox-sdk/operation";
-import { Effect, Schema } from "@ryot-app/sandbox-sdk/effect";
+import { defineManifest } from "@ryot-app/plugin-backend-sdk/driver";
+import { defineOperation } from "@ryot-app/plugin-backend-sdk/operation";
+import { Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
 export const manifest = defineManifest({ kind: "operation", name: "Whiskey integration", slug: "inspect-integration" });
 export default defineOperation({ manifest, input: Schema.Struct({ integrationId: Schema.String }), output: Schema.Struct({ integrationId: Schema.String, label: Schema.String }), run: (input) => Effect.succeed({ integrationId: input.integrationId, label: ${JSON.stringify(label)} }) });
 `;
 
 const kernelWriteChunksSource = (label: string, strength: string | number) => `
-import { defineManifest, defineScript } from "@ryot-app/sandbox-sdk/driver";
-import { Effect, Schema } from "@ryot-app/sandbox-sdk/effect";
-import { readArtifact, sandboxScratchManifestSchema, writeScratchChunks } from "@ryot-app/sandbox-sdk/filesystem";
-import { genericImportChunkSchema, type GenericImportWriteItem } from "@ryot-app/sandbox-sdk/imports";
+import { defineManifest, defineScript } from "@ryot-app/plugin-backend-sdk/driver";
+import { Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
+import { readArtifact, sandboxScratchManifestSchema, writeScratchChunks } from "@ryot-app/plugin-backend-sdk/filesystem";
+import { genericImportChunkSchema, type GenericImportWriteItem } from "@ryot-app/plugin-backend-sdk/imports";
 export const manifest = defineManifest({ kind: "script", name: "Whiskey kernel writes", slug: "kernel-write-chunks" });
 const Source = Schema.Struct({ ownEntityId: Schema.String, foreignEntityId: Schema.String });
 export default defineScript({
@@ -348,8 +348,8 @@ export default defineScript({
 `;
 
 const kernelWriteWorkflowSource = `
-import { genericImportApplyReference, genericImportCaptureReference, genericImportSealReference, genericImportWorkflowInputSchema, genericImportWorkflowResultSchema } from "@ryot-app/sandbox-sdk/imports";
-import { Effect, Schema, defineManifest, defineScriptReference, defineWorkflow } from "@ryot-app/sandbox-sdk/workflow";
+import { genericImportApplyReference, genericImportCaptureReference, genericImportSealReference, genericImportWorkflowInputSchema, genericImportWorkflowResultSchema } from "@ryot-app/plugin-backend-sdk/imports";
+import { Effect, Schema, defineManifest, defineScriptReference, defineWorkflow } from "@ryot-app/plugin-backend-sdk/workflow";
 export const manifest = defineManifest({ kind: "workflow", name: "Whiskey kernel write workflow", slug: "kernel-write-workflow" });
 const chunks = defineScriptReference({ scriptSlug: "kernel-write-chunks", input: Schema.Struct({ artifactHandle: Schema.String, occurredAt: Schema.String }), output: Schema.Struct({ chunkHandles: Schema.Array(Schema.String) }) });
 export default defineWorkflow({ manifest, input: genericImportWorkflowInputSchema, output: genericImportWorkflowResultSchema,
@@ -369,9 +369,9 @@ export default defineWorkflow({ manifest, input: genericImportWorkflowInputSchem
 `;
 
 const retainedSource = (label: string) => `
-import { defineManifest, defineScript } from "@ryot-app/sandbox-sdk/driver";
-import { Effect, Schema } from "@ryot-app/sandbox-sdk/effect";
-import { jsonValueSchema } from "@ryot-app/sandbox-sdk/wire";
+import { defineManifest, defineScript } from "@ryot-app/plugin-backend-sdk/driver";
+import { Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
+import { jsonValueSchema } from "@ryot-app/plugin-backend-sdk/wire";
 export const manifest = defineManifest({ kind: "script", name: "Retained Whiskey writer", slug: "retained" });
 export default defineScript({
   manifest, input: Schema.Struct({ gateUrl: Schema.String, entityId: Schema.String }), output: jsonValueSchema,
@@ -386,9 +386,9 @@ export default defineScript({
 `;
 
 const policySource = (label: string) => `
-import { defineAutomationPolicy } from "@ryot-app/sandbox-sdk/automation";
-import { defineManifest } from "@ryot-app/sandbox-sdk/driver";
-import { Effect } from "@ryot-app/sandbox-sdk/effect";
+import { defineAutomationPolicy } from "@ryot-app/plugin-backend-sdk/automation";
+import { defineManifest } from "@ryot-app/plugin-backend-sdk/driver";
+import { Effect } from "@ryot-app/plugin-backend-sdk/effect";
 export const manifest = defineManifest({ kind: "automation", automationType: "policy", name: "Whiskey policy", slug: "policy", inputProjection: { event: { properties: ["note"] } } });
 export default defineAutomationPolicy({ manifest, run: ({ automation }) => Effect.succeed(
   automation.payload.resource === "event" && automation.payload.operation === "create"
@@ -398,9 +398,9 @@ export default defineAutomationPolicy({ manifest, run: ({ automation }) => Effec
 `;
 
 const afterSource = (label: string) => `
-import { defineAutomation } from "@ryot-app/sandbox-sdk/automation";
-import { defineManifest } from "@ryot-app/sandbox-sdk/driver";
-import { Effect } from "@ryot-app/sandbox-sdk/effect";
+import { defineAutomation } from "@ryot-app/plugin-backend-sdk/automation";
+import { defineManifest } from "@ryot-app/plugin-backend-sdk/driver";
+import { Effect } from "@ryot-app/plugin-backend-sdk/effect";
 export const manifest = defineManifest({ kind: "automation", automationType: "automation", name: "Whiskey after hook", slug: "after", inputProjection: { event: { properties: ["note"], compareProperties: [] } } });
 export default defineAutomation({ manifest, run: ({ automation }, host) => Effect.gen(function* () {
   const config = yield* host.getPluginConfig({ optional: ["retryGateUrl"] });
@@ -415,9 +415,9 @@ export default defineAutomation({ manifest, run: ({ automation }, host) => Effec
 `;
 
 const formatterSource = (label: string) => `
-import { defineAutomation } from "@ryot-app/sandbox-sdk/automation";
-import { defineManifest } from "@ryot-app/sandbox-sdk/driver";
-import { Effect } from "@ryot-app/sandbox-sdk/effect";
+import { defineAutomation } from "@ryot-app/plugin-backend-sdk/automation";
+import { defineManifest } from "@ryot-app/plugin-backend-sdk/driver";
+import { Effect } from "@ryot-app/plugin-backend-sdk/effect";
 export const manifest = defineManifest({ kind: "automation", automationType: "automation", name: "Whiskey formatter", slug: "formatter", inputProjection: { signal: { properties: ["label"] } } });
 export default defineAutomation({ manifest, run: ({ automation }, host) => automation.payload.resource === "signal" ? host.sendNotification(${JSON.stringify(`${label} tasting`)}) : Effect.succeed(null) });
 `;
@@ -438,10 +438,10 @@ export const contributorBottlesRecipe = defineRecipe((reference: PluginIdentityR
 `;
 
 const clientSource = (label: string, packageId: PluginPackageId, contributor: boolean) => `
-import { Schema } from "@ryot-app/client-sdk/effect";
-import { createRyotMutation, createRyotQuery, usePluginIdentity, usePluginStorage, useRyotMutation, useRyotQuery } from "@ryot-app/client-sdk/react";
-import { PluginScreenFrame } from "@ryot-app/client-sdk/screen";
-import { PluginPackageId, type PluginIdentityReference } from "@ryot-app/client-sdk/plugin";
+import { Schema } from "@ryot-app/plugin-client-sdk/effect";
+import { createRyotMutation, createRyotQuery, usePluginIdentity, usePluginStorage, useRyotMutation, useRyotQuery } from "@ryot-app/plugin-client-sdk/react";
+import { PluginScreenFrame } from "@ryot-app/plugin-client-sdk/screen";
+import { PluginPackageId, type PluginIdentityReference } from "@ryot-app/plugin-client-sdk/plugin";
 import { contributorBottlesRecipe } from "../shared/query-recipes";
 ${contributor ? 'import Contributor from "@ryot-app/plugins/whiskey/catalog";' : ""}
 const invoke = createRyotMutation<{ packageId: typeof PluginPackageId.Type }, { label: string }>(({ input, client }) => client.operations.invoke({ packageId: input.packageId, slug: "inspect", input: {}, output: Schema.Struct({ label: Schema.String }) }));

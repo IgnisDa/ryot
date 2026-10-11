@@ -1,4 +1,4 @@
-import { Button } from "@ryot-app/client-ui-sdk";
+import { Button } from "@ryot-app/plugin-ui-sdk";
 
 import { StatusState } from "#/modules/ui/status-state";
 

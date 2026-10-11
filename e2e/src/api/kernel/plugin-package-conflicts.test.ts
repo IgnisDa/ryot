@@ -1,6 +1,6 @@
 import { SandboxScriptId } from "@ryot-app/contract/schema/brands";
 import { JsonValue } from "@ryot-app/contract/schema/json";
-import { genericImportSealInputSchema } from "@ryot-app/sandbox-sdk/imports";
+import { genericImportSealInputSchema } from "@ryot-app/plugin-backend-sdk/imports";
 import { Deferred, Effect, Schema } from "effect";
 
 import {

@@ -15,7 +15,7 @@ import {
 import {
 	providerSearchOptionsResultSchema,
 	providerSearchResultSchema,
-} from "@ryot-app/sandbox-sdk/provider";
+} from "@ryot-app/plugin-backend-sdk/provider";
 import { generateId } from "better-auth";
 import { Context, Effect, Layer, Result, Schema } from "effect";
 

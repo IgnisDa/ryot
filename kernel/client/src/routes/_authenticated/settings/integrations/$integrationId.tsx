@@ -1,8 +1,8 @@
-import { useRyotMutation, useRyotQuery } from "@ryot-app/client-sdk/react";
-import { Button, DestructiveConfirmation, Menu, type MenuItem } from "@ryot-app/client-ui-sdk";
-import { AppIcon } from "@ryot-app/client-ui-sdk/icon";
-import { useSchemaForm, type SchemaFormValues } from "@ryot-app/client-ui-sdk/schema-form";
 import { definitionOwner } from "@ryot-app/contract/modules/plugins/references";
+import { useRyotMutation, useRyotQuery } from "@ryot-app/plugin-client-sdk/react";
+import { Button, DestructiveConfirmation, Menu, type MenuItem } from "@ryot-app/plugin-ui-sdk";
+import { AppIcon } from "@ryot-app/plugin-ui-sdk/icon";
+import { useSchemaForm, type SchemaFormValues } from "@ryot-app/plugin-ui-sdk/schema-form";
 import { createFileRoute, notFound, useRouter } from "@tanstack/react-router";
 import { Cause, Effect, Option } from "effect";
 import { useEffect, useEffectEvent, useRef, useState, type ReactNode } from "react";

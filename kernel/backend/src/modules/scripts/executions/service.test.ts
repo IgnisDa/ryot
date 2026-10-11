@@ -7,7 +7,7 @@ import {
 	SandboxScriptId,
 	UserId,
 } from "@ryot-app/contract/schema/brands";
-import { jsonByteLength } from "@ryot-app/sandbox-compiler/limits";
+import { jsonByteLength } from "@ryot-app/plugin-backend-compiler/limits";
 import { assertExitFails } from "@ryot-app/testing/effect-assertions";
 import { Context, Effect, Exit, Layer, Ref, Schema } from "effect";
 import { Workflow } from "effect/workflow";

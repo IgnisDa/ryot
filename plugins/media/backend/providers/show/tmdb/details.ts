@@ -1,9 +1,9 @@
-import { Effect } from "@ryot-app/sandbox-sdk/effect";
+import { Effect } from "@ryot-app/plugin-backend-sdk/effect";
 import type {
 	ProviderDetailsChildEntity,
 	ProviderDetailsInput,
 	ProviderDetailsResult,
-} from "@ryot-app/sandbox-sdk/provider";
+} from "@ryot-app/plugin-backend-sdk/provider";
 
 import type { ShowEpisodeOrder } from "../../../../shared/show-episode-order";
 import { mediaFailureMessage } from "../../../lib/error-message";

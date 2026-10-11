@@ -1,5 +1,5 @@
 import { SandboxExecutionMetadata } from "@ryot-app/contract/modules/plugins/execution-metadata";
-import { CompilerWorkerSuccessValue } from "@ryot-app/sandbox-compiler/protocol";
+import { CompilerWorkerSuccessValue } from "@ryot-app/plugin-backend-compiler/protocol";
 import { Schema } from "effect";
 
 export const smokeSourceManifest = {

@@ -44,3 +44,18 @@ export type MediaCreatorCreditSlug =
 export type MediaArtworkSchemaSlug =
 	| (typeof builtinMediaEntitySchemaSlugs)[number]
 	| MediaGroupSlug;
+
+export const mediaLibraryMemberEntitySchemaSlugs = [
+	"person",
+	"company",
+	...mediaGroupSlugs,
+	...builtinMediaEntitySchemaSlugs,
+	"show-season",
+	"show-episode",
+	"podcast-episode",
+] as const;
+
+export const mediaLibraryEligibleEntitySchemaSlugs = [
+	"media-library",
+	...mediaLibraryMemberEntitySchemaSlugs,
+] as const;

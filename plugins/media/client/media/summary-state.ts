@@ -1,5 +1,5 @@
-import type { RyotQueryResult } from "@ryot-app/client-sdk/react";
-import type { SelectedRow } from "@ryot-app/client-sdk/ryotql";
+import type { RyotQueryResult } from "@ryot-app/plugin-client-sdk/react";
+import type { SelectedRow } from "@ryot-app/plugin-client-sdk/ryotql";
 
 import type {
 	EpisodicLifecycleState,

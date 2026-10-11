@@ -1,7 +1,7 @@
-import { defineManifest } from "@ryot-app/sandbox-sdk/driver";
-import { Effect, Schema } from "@ryot-app/sandbox-sdk/effect";
-import { defineProvider } from "@ryot-app/sandbox-sdk/provider";
-import { strictStruct } from "@ryot-app/sandbox-sdk/wire";
+import { defineManifest } from "@ryot-app/plugin-backend-sdk/driver";
+import { Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
+import { defineProvider } from "@ryot-app/plugin-backend-sdk/provider";
+import { strictStruct } from "@ryot-app/plugin-backend-sdk/wire";
 
 import {
 	API_BASE_URL,

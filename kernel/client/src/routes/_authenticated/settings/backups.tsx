@@ -1,12 +1,12 @@
+import type { BackupRunIdResponse } from "@ryot-app/contract/modules/backups/schemas";
 import {
 	createRyotMutation,
 	createRyotQuery,
 	useRyot,
 	useRyotMutation,
 	useRyotQuery,
-} from "@ryot-app/client-sdk/react";
-import { Button, DestructiveConfirmation } from "@ryot-app/client-ui-sdk";
-import type { BackupRunIdResponse } from "@ryot-app/contract/modules/backups/schemas";
+} from "@ryot-app/plugin-client-sdk/react";
+import { Button, DestructiveConfirmation } from "@ryot-app/plugin-ui-sdk";
 import {
 	backupRunsRecipe,
 	type BackupRunItem,

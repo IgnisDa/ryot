@@ -1,4 +1,4 @@
-import { useRyotMutation, useRyotQuery } from "@ryot-app/client-sdk/react";
+import { useRyotMutation, useRyotQuery } from "@ryot-app/plugin-client-sdk/react";
 import type { NotificationChannelsResult } from "@ryot-app/ryotql-recipes/notification-channels";
 import { createFileRoute } from "@tanstack/react-router";
 import { Effect } from "effect";

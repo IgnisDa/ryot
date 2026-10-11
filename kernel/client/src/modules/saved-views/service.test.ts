@@ -1,6 +1,6 @@
 import { describe, expect, it } from "@effect/vitest";
-import { createRyotClient } from "@ryot-app/client-sdk";
-import { createTestRyotAdapter } from "@ryot-app/client-sdk/testing";
+import { createRyotClient } from "@ryot-app/plugin-client-sdk";
+import { createTestRyotAdapter } from "@ryot-app/plugin-client-sdk/testing";
 import { Effect, ManagedRuntime } from "effect";
 
 import { SavedViewsService } from "#/modules/saved-views/service";

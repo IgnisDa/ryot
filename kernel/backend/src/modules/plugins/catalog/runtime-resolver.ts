@@ -1,4 +1,3 @@
-import type { PluginClientImport } from "@ryot-app/client-plugin-contract";
 import type {
 	PluginManifest,
 	PluginProviderOperation,
@@ -15,6 +14,7 @@ import {
 	SandboxScriptId,
 	UserId,
 } from "@ryot-app/contract/schema/brands";
+import type { PluginClientImport } from "@ryot-app/plugin-client-contract";
 import { sha256Base64Url } from "@ryot-app/ts-utils/crypto";
 import { stableStringify } from "@ryot-app/ts-utils/json";
 import { and, asc, eq, exists, isNull, sql, type SQL } from "drizzle-orm";

@@ -2,13 +2,13 @@ import { EntityId } from "@ryot-app/contract/schema/brands";
 import { createFileRoute } from "@tanstack/react-router";
 import { Effect } from "effect";
 
+import { AppScreen } from "#/modules/navigation/app-screen";
 import {
 	useClearClientPageDocument,
 	useClientPageDocument,
 	useHasPublishedClientPageDocument,
-} from "#/modules/client-pages/document";
-import { prepareClientPage } from "#/modules/client-pages/preparation";
-import { AppScreen } from "#/modules/navigation/app-screen";
+} from "#/modules/pages/documents/state";
+import { prepareClientPage } from "#/modules/pages/preparation/prepare";
 
 export const Route = createFileRoute("/_authenticated/e/$entityId")({
 	staleTime: 30_000,

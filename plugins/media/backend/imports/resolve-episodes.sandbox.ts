@@ -1,5 +1,5 @@
-import { defineManifest, defineScript } from "@ryot-app/sandbox-sdk/driver";
-import { Effect } from "@ryot-app/sandbox-sdk/effect";
+import { defineManifest, defineScript } from "@ryot-app/plugin-backend-sdk/driver";
+import { Effect } from "@ryot-app/plugin-backend-sdk/effect";
 
 import { ResolveEpisodesInput, ResolveEpisodesOutput } from "../contracts/operations";
 import { resolveEpisodes } from "../operations/resolve-episodes";

@@ -2,9 +2,9 @@ import {
 	genericImportEventIntentSchema,
 	genericImportFailureSchema,
 	ingestionArtifactsSchema,
-} from "@ryot-app/sandbox-sdk/imports";
-import { jsonValueSchema, strictStruct } from "@ryot-app/sandbox-sdk/wire";
-import { Schema } from "@ryot-app/sandbox-sdk/workflow";
+} from "@ryot-app/plugin-backend-sdk/imports";
+import { jsonValueSchema, strictStruct } from "@ryot-app/plugin-backend-sdk/wire";
+import { Schema } from "@ryot-app/plugin-backend-sdk/workflow";
 
 import { MediaImportPopulationWorkflowOutput } from "../contracts/workflows";
 

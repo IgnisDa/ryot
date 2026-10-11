@@ -19,10 +19,10 @@ import { describe, expect, it } from "~/support/effect-test";
 import { startFakeHttpServerScoped } from "~/support/fake-http-server";
 
 const operationSource = (input: { readonly name: string; readonly slug: string }) => `
-import { defineManifest } from "@ryot-app/sandbox-sdk/driver";
-import { Effect, Schema } from "@ryot-app/sandbox-sdk/effect";
-import { defineOperation } from "@ryot-app/sandbox-sdk/operation";
-import { entityReadRecipe, executeRyotqlRecipe } from "@ryot-app/sandbox-sdk/ryotql";
+import { defineManifest } from "@ryot-app/plugin-backend-sdk/driver";
+import { Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
+import { defineOperation } from "@ryot-app/plugin-backend-sdk/operation";
+import { entityReadRecipe, executeRyotqlRecipe } from "@ryot-app/plugin-backend-sdk/ryotql";
 
 export const manifest = defineManifest({
   kind: "operation",
@@ -90,7 +90,7 @@ export default defineOperation({
 `;
 
 const childSource = (input: { readonly name: string; readonly slug: string }) => `
-import { defineManifest, defineWorkflow, Effect, Schema } from "@ryot-app/sandbox-sdk/workflow";
+import { defineManifest, defineWorkflow, Effect, Schema } from "@ryot-app/plugin-backend-sdk/workflow";
 
 export const manifest = defineManifest({
   kind: "workflow",

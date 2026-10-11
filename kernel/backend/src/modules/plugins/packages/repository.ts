@@ -1,4 +1,3 @@
-import { PluginClientArtifact } from "@ryot-app/client-plugin-contract";
 import { DbError } from "@ryot-app/contract/errors";
 import {
 	PluginManifest,
@@ -10,6 +9,7 @@ import {
 	SandboxProviderId,
 	SandboxScriptId,
 } from "@ryot-app/contract/schema/brands";
+import { PluginClientArtifact } from "@ryot-app/plugin-client-contract";
 import { stableStringify } from "@ryot-app/ts-utils/json";
 import {
 	and,

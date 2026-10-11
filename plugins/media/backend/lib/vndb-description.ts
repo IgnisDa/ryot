@@ -1,4 +1,4 @@
-import { Effect } from "@ryot-app/sandbox-sdk/effect";
+import { Effect } from "@ryot-app/plugin-backend-sdk/effect";
 
 import { MediaSandboxError } from "./failures";
 import { normalizeRichDescription } from "./rich-description";

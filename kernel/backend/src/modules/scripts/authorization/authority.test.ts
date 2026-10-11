@@ -231,7 +231,10 @@ describe("sandbox execution authority", () => {
 						{ ...principal, pluginRevision: { ...pin.pluginRevision, compiledHashes: {} } },
 						{
 							...principal,
-							metadata: { ...principal.metadata, runtimeImports: ["@ryot-app/sandbox-sdk/fflate"] },
+							metadata: {
+								...principal.metadata,
+								runtimeImports: ["@ryot-app/plugin-backend-sdk/fflate"],
+							},
 						},
 						{ ...principal, metadata: { ...principal.metadata, capabilities: ["httpCall"] } },
 						{

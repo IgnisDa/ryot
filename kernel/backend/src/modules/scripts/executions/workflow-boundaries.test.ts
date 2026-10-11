@@ -20,15 +20,15 @@ const integrationWorkflowModules = [
 ] as const;
 
 const entityImportWorkflowModules = [
-	"../../provider-entities/entity-import-workflow.ts",
-	"../../provider-entities/provider-entity-population-workflow.ts",
+	"../../entities/providers/entity-import-workflow.ts",
+	"../../entities/providers/provider-entity-population-workflow.ts",
 ] as const;
 
 layer(BunServices.layer)((test) => {
 	test.effect("keeps provider population independent of media hierarchy literals", () =>
 		Effect.gen(function* () {
 			const source = yield* readModule(
-				"../../provider-entities/provider-entity-population-workflow.ts",
+				"../../entities/providers/provider-entity-population-workflow.ts",
 			);
 
 			expect(source).not.toContain("CHILD_ENTITY_SCHEMA_SLUGS");
@@ -123,8 +123,8 @@ layer(BunServices.layer)((test) => {
 			const paths = yield* Path.Path;
 			const fs = yield* FileSystem.FileSystem;
 			const [populationWorkflow, trigger] = yield* Effect.all([
-				readModule("../../provider-entities/provider-entity-population-workflow.ts"),
-				readModule("../../provider-entities/population-trigger-live.ts"),
+				readModule("../../entities/providers/provider-entity-population-workflow.ts"),
+				readModule("../../entities/providers/population-trigger-live.ts"),
 			]);
 
 			expect(populationWorkflow).toContain("validate-entity-details");
@@ -149,7 +149,7 @@ layer(BunServices.layer)((test) => {
 						.filter(
 							(path) =>
 								!path.endsWith(".test.ts") &&
-								!path.endsWith("/provider-entities/provider-entity-population-workflow.ts"),
+								!path.endsWith("/entities/providers/provider-entity-population-workflow.ts"),
 						),
 				),
 			);

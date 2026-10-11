@@ -19,7 +19,7 @@ import { UserSettingsApi } from "#/api/user-settings";
 import { TemporaryUploads } from "#/modules/assets/temporary-uploads";
 import { EntityInterestService } from "#/modules/entity-interest/service";
 import { ExternalLinks } from "#/modules/external-links/service";
-import { PluginManagementService } from "#/modules/plugins/management";
+import { PluginManagementService } from "#/modules/plugins/management/service";
 
 // oxlint-disable-next-line effecttsgo/lazy-effect -- Fills service method slots of any arity
 export const unused = () => Effect.die("not used");

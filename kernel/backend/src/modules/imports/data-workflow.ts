@@ -5,7 +5,7 @@ import { IngestionBatch, type IngestionScope } from "@ryot-app/contract/modules/
 import { importRunFailureStages } from "@ryot-app/contract/modules/imports/types";
 import { EntitySchemaReference } from "@ryot-app/contract/modules/plugins/references";
 import { EntityId, EventSchemaSlug, ImportRunId, UserId } from "@ryot-app/contract/schema/brands";
-import type { GenericImportWriteItem } from "@ryot-app/sandbox-sdk/imports";
+import type { GenericImportWriteItem } from "@ryot-app/plugin-backend-sdk/imports";
 import { stableStringify } from "@ryot-app/ts-utils/json";
 import { Cause, DateTime, Effect, Layer, Schema } from "effect";
 import { Workflow } from "effect/workflow";

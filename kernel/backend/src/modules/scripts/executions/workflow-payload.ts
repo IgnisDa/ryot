@@ -4,7 +4,7 @@ import {
 	SandboxExecutionSubject,
 } from "@ryot-app/contract/modules/sandbox/schemas";
 import { SandboxScriptId } from "@ryot-app/contract/schema/brands";
-import { jsonValueSchema } from "@ryot-app/sandbox-sdk/wire";
+import { jsonValueSchema } from "@ryot-app/plugin-backend-sdk/wire";
 import {
 	ScriptInstallationInitialization,
 	ScriptPluginRevision,

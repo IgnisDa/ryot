@@ -1,12 +1,12 @@
 import {
 	genericImportApplyReference,
 	genericImportCaptureReference,
-} from "@ryot-app/sandbox-sdk/imports";
+} from "@ryot-app/plugin-backend-sdk/imports";
 import {
 	type Effect,
 	defineScriptReference,
 	type WorkflowReplay,
-} from "@ryot-app/sandbox-sdk/workflow";
+} from "@ryot-app/plugin-backend-sdk/workflow";
 
 import type { MediaIntegrationConfirmation } from "../integrations/schemas";
 import { type MediaWorkflowError, runMediaImportBatch } from "./batch";
