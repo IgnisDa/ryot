@@ -121,21 +121,26 @@ describe("media summary state", () => {
 		expect(mediaBackdropAsset(media, ["still"])).toBeUndefined();
 	});
 
-	it("resolves the declared backdrop purpose alongside the poster and gallery", () => {
+	it("registers each managed locator once across image purposes and excludes remote images", () => {
 		const media = decodeShowSummary({
 			images: [
 				{ type: "s3", key: "cover-key", purpose: "cover" },
 				{ type: "s3", key: "artwork-key", purpose: "artwork" },
+				{ type: "s3", key: "cover-key", purpose: "backdrop" },
+				{ type: "local", key: "cover-key", purpose: "profile" },
+				{ type: "local", purpose: "logo", key: "cover-key" },
+				{ type: "remote", purpose: "screenshot", url: "https://images.test/game.jpg" },
 			],
 		});
 
-		expect(mediaManagedAssets(media, ["artwork"])).toEqual([
+		expect(mediaManagedAssets(media)).toEqual([
+			{ type: "local", key: "cover-key" },
 			{ type: "s3", key: "artwork-key" },
 			{ type: "s3", key: "cover-key" },
 		]);
 	});
 
-	it("collects the managed locators the poster, backdrop and gallery render", () => {
+	it("collects all managed image locators", () => {
 		const media = decodeShowSummary({
 			images: [
 				{ type: "s3", key: "cover-key", purpose: "cover" },
@@ -168,16 +173,26 @@ describe("media summary state", () => {
 		expect(mediaGalleryAssets(decodeShowSummary({ images: null }))).toEqual([]);
 	});
 
-	it("resolves every managed image, not just the ones the preview shows", () => {
+	it("resolves and deduplicates every managed image beyond the gallery preview", () => {
 		const media = decodeShowSummary({
-			images: Array.from({ length: 12 }, (_, index) => ({
-				type: "s3",
-				purpose: "still",
-				key: `still-${index}`,
-			})),
+			images: [
+				...Array.from({ length: 12 }, (_, index) => ({
+					type: "s3",
+					purpose: "still",
+					key: `still-${String(index).padStart(2, "0")}`,
+				})),
+				{ type: "s3", key: "still-11", purpose: "artwork" },
+				{ type: "s3", key: "still-00", purpose: "cover" },
+			],
 		});
 
-		expect(mediaManagedAssets(media)).toHaveLength(12);
+		expect(mediaGalleryAssets(media)).toHaveLength(10);
+		expect(mediaManagedAssets(media)).toEqual(
+			Array.from({ length: 12 }, (_, index) => ({
+				type: "s3",
+				key: `still-${String(index).padStart(2, "0")}`,
+			})),
+		);
 	});
 
 	it("falls back to no poster when images are missing or empty", () => {
@@ -185,6 +200,7 @@ describe("media summary state", () => {
 		expect(mediaPosterAsset(decodeShowSummary({ images: [] }))).toBeUndefined();
 		expect(mediaBackdropAsset(decodeShowSummary({ images: null }))).toBeUndefined();
 		expect(mediaManagedAssets(decodeShowSummary({ images: null }))).toEqual([]);
+		expect(mediaManagedAssets(decodeShowSummary({ images: [] }))).toEqual([]);
 	});
 
 	it("prefers the publish year and falls back to the publish date", () => {

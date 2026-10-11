@@ -41,9 +41,10 @@ population has not failed), the overview's relation sections (credits, companies
 groups and extra rails) show their loading notice; when it is `failed` they show "Couldn't load" with
 Try again, which retries the population through the kernel.
 
-Artwork aspect comes from `mediaSchemaAspects`. `backdropPurposes` is ordered, defaults to
-`["backdrop"]`, and also selects managed hero assets. The frame owns hero geometry; descriptors
-declare art height without adding chrome offsets. Managed URLs, expiry, placeholders, and sync marks
+Header artwork purpose and aspect come from descriptors and `mediaSchemaAspects`. Detail screens
+have no hero and register every managed image locator once, including images beyond the gallery
+preview. Home airing tiles prefer episode stills, then backdrops, then covers. Managed URLs, expiry,
+placeholders, and sync marks
 come from the [client SDK](../../packages/plugin-client-sdk/README.md) and
 [UI SDK](../../packages/plugin-ui-sdk/README.md#sync-marks), not media wrappers.
 
@@ -61,16 +62,16 @@ selects an order by external ID; default or missing orders clear the preference.
 regroup and page episode IDs while retaining their original episode labels. Lifecycle, coverage,
 and next-up always use default seasons; next-up appears only in aired order.
 
-| Schema            | Activity measure                         | Distinct behavior                                                                   |
-| ----------------- | ---------------------------------------- | ----------------------------------------------------------------------------------- |
-| Movie             | Minutes, falling back to runtime         | Cover/backdrop and watch providers                                                  |
-| Music             | Minutes, falling back to `duration / 60` | Stored duration is seconds, displayed `m:ss`; square cover                          |
-| Book / Comic Book | Pages                                    | Book supports unlinked creators; Comic Book has person credits only                 |
-| Manga             | Chapters                                 | Cumulative chapter progress with optional volume; no group or creator credits       |
-| Anime             | Episodes                                 | Episode progress; no group; future airing schedule, with next episode in summary    |
-| Audiobook         | Minutes, falling back to runtime         | Author/Narrator credits, unlinked contributors, square cover                        |
-| Visual Novel      | Minutes, falling back to `lengthMinutes` | No group; developer person credits; screenshots are gallery-only                    |
-| Video Game        | Recorded `timeSpent` only                | Community time-to-beat is never consumed time; IGDB artwork can supply the backdrop |
+| Schema            | Activity measure                         | Distinct behavior                                                                  |
+| ----------------- | ---------------------------------------- | ---------------------------------------------------------------------------------- |
+| Movie             | Minutes, falling back to runtime         | Cover/backdrop and watch providers                                                 |
+| Music             | Minutes, falling back to `duration / 60` | Stored duration is seconds, displayed `m:ss`; square cover                         |
+| Book / Comic Book | Pages                                    | Book supports unlinked creators; Comic Book has person credits only                |
+| Manga             | Chapters                                 | Cumulative chapter progress with optional volume; no group or creator credits      |
+| Anime             | Episodes                                 | Episode progress; no group; future airing schedule, with next episode in summary   |
+| Audiobook         | Minutes, falling back to runtime         | Author/Narrator credits, unlinked contributors, square cover                       |
+| Visual Novel      | Minutes, falling back to `lengthMinutes` | No group; developer person credits; screenshots are gallery-only                   |
+| Video Game        | Recorded `timeSpent` only                | Community time-to-beat is never consumed time; IGDB artwork appears in the gallery |
 
 Flat summaries return `{ summary, entitySchemaSlug }`; activity returns completion count, consumed
 amount, unknown count, truncation, and events. Unknown completion measures render lower-bound totals,

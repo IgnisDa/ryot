@@ -15,7 +15,6 @@ import { PluginScreenFrame } from "@ryot-app/plugin-client-sdk/screen";
 import { tabId, type TabOption, Tabs } from "@ryot-app/plugin-ui-sdk";
 import { type ReactNode, useEffect, useMemo, useState } from "react";
 
-import type { MediaImagePurposes } from "./image";
 import { MediaOverview, type MediaOverviewRelationsRender } from "./overview";
 import { mapMediaOverview, type MediaOverviewState } from "./overview-state";
 import { MediaPopulationFailure } from "./population-failure";
@@ -157,9 +156,6 @@ type MediaDetailBodyRender<Summary, Overview> = (
 
 type MediaDetailScreenBase<SummaryData, Summary> = {
 	readonly entityId: string;
-	readonly heroHeight: (compact: boolean) => number;
-	readonly posterPurpose?: MediaImagePurposes[number] | undefined;
-	readonly backdropPurposes?: MediaImagePurposes | undefined;
 	readonly summaryQuery: RyotQuery<{ readonly entityId: string }, SummaryData>;
 	readonly mapSummary: (result: RyotQueryResult<SummaryData>) => MediaSummaryState<Summary>;
 };
@@ -183,8 +179,7 @@ function MediaDetailFrame<SummaryData, OverviewData, Summary extends MediaEntity
 		}
 	}, [commit, summaryResult.data, props.overviewData]);
 	const state = props.mapSummary(summaryResult);
-	const assets =
-		state.status === "ready" ? mediaManagedAssets(state.summary, props.backdropPurposes) : [];
+	const assets = state.status === "ready" ? mediaManagedAssets(state.summary) : [];
 	return (
 		<ManagedAssetProvider assets={assets}>
 			<PluginScreenFrame hideTitle title={state.status === "ready" ? state.summary.name : null}>
@@ -225,13 +220,10 @@ function MediaQueriedDetailScreen<
 			Body={props.Body}
 			overview={overview}
 			entityId={props.entityId}
-			heroHeight={props.heroHeight}
 			mapSummary={props.mapSummary}
 			summaryQuery={props.summaryQuery}
 			overviewData={overviewResult.data}
-			posterPurpose={props.posterPurpose}
 			refreshOverview={overviewResult.refetch}
-			backdropPurposes={props.backdropPurposes}
 			overviewRefreshStatus={<MediaRefreshStatus result={overviewResult} />}
 			overviewLocators={overview.status === "ready" ? props.overviewAssets(overview.overview) : []}
 		/>
@@ -273,12 +265,9 @@ export function MediaDetailScreen<
 			overviewData={undefined}
 			entityId={props.entityId}
 			overviewRefreshStatus={null}
-			heroHeight={props.heroHeight}
 			mapSummary={props.mapSummary}
 			refreshOverview={refreshNothing}
 			summaryQuery={props.summaryQuery}
-			posterPurpose={props.posterPurpose}
-			backdropPurposes={props.backdropPurposes}
 		/>
 	);
 }

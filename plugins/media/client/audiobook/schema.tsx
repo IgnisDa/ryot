@@ -3,7 +3,6 @@ import type { MediaPresentationDataOf, MediaSummaryOf } from "../../shared/media
 import { mediaFlatActivityCopy } from "../media/activity-copy";
 import { mediaActivityTimeLabel } from "../media/activity-timeline";
 import { defineFlatMediaSchema } from "../media/flat-schema";
-import { MEDIA_ART_HEIGHT } from "../media/hero";
 import {
 	mediaDurationFact,
 	mediaDurationLabels,
@@ -24,7 +23,6 @@ export const audiobookPresentationFacts = (audiobook: AudiobookPresentation) =>
 export const audiobookSchema = defineFlatMediaSchema({
 	recipes: audiobookRecipes,
 	facts: audiobookSummaryFacts,
-	heroHeight: () => MEDIA_ART_HEIGHT,
 	aspect: mediaSchemaAspects.audiobook,
 	presentationFacts: audiobookPresentationFacts,
 	measureFigure: { label: "Time", value: mediaActivityTimeLabel },

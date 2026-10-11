@@ -6,7 +6,6 @@ import { videoGameRecipes } from "../../shared/video-game-recipes";
 import { mediaFlatActivityCopy } from "../media/activity-copy";
 import { mediaActivityDurationLabel, mediaActivityTimeLabel } from "../media/activity-timeline";
 import { defineFlatMediaSchema, type MediaOverviewRail } from "../media/flat-schema";
-import { MEDIA_ART_HEIGHT, MEDIA_BACKDROP_HEIGHT } from "../media/hero";
 import type { MediaSummaryFact } from "../media/summary-state";
 import { mediaSchemaAspects } from "../schema-aspects";
 import { videoGameOverviewTrailing } from "./sections";
@@ -78,7 +77,6 @@ export const videoGamePresentationFacts = (game: VideoGamePresentation) =>
 export const videoGameSchema = defineFlatMediaSchema({
 	recipes: videoGameRecipes,
 	facts: videoGameSummaryFacts,
-	backdropPurposes: ["artwork"],
 	overviewRails: videoGameOverviewRails,
 	aspect: mediaSchemaAspects["video-game"],
 	overviewTrailing: videoGameOverviewTrailing,
@@ -86,7 +84,6 @@ export const videoGameSchema = defineFlatMediaSchema({
 	measureFigure: { label: "Time", value: mediaActivityTimeLabel },
 	nouns: { plural: "games", singular: "game", title: "Video Game" },
 	activityCopy: mediaFlatActivityCopy({ verb: "play", noun: "game" }),
-	heroHeight: (compact) => (compact ? MEDIA_ART_HEIGHT : MEDIA_BACKDROP_HEIGHT),
 	group: { actionLabel: "View collection", title: (name) => `Part of ${name}` },
 	overviewLoadingDetail: "Fetching the credits, companies and recommendations for this game.",
 	creditCopy: {
