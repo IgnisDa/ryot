@@ -2,7 +2,7 @@
 
 ## Goal and scope
 
-Reduce the remaining backend cost of item writes, event creation and catalog reads, without changing domain behavior. This document is an implementation plan and reference, not current product documentation.
+Reduce the remaining backend cost of item writes, event creation, workflow bookkeeping and catalog reads, without changing domain behavior. This document is an implementation plan and reference, not current product documentation.
 
 The fixed per-item costs are already gone. Hot paths no longer read `plugin_revision_manifest`, and the lint rule `ryot/no-hot-manifest-read` enforces this. Writers lock, look up and record receipts set-based per batch. User bootstrap and event creation run in batches. This plan covers the remaining costs, ordered by expected value per unit of risk.
 
@@ -28,7 +28,11 @@ The current import total is made up of:
 - 632 Postgres foreign-key checks;
 - 171 transaction and lock statements.
 
-Per statement, the client spends about 1.5 ms against about 0.2 ms of server execution time. This is the largest remaining cost.
+Per statement, the client spends about 1.5 ms against about 0.2 ms of server execution time.
+
+The workflow engine and its garbage-collection layer are the largest statement source. In the harness (`runs/p2h`) they issue 53% of statements and take 57% of database time (67 s of 119 s). Application queries take 22%, and transaction and lock statements take 20%.
+
+Part of that cost is app-owned. `WorkflowGarbageCollectionStorageLive` (`modules/garbage-collection/workflow-storage.ts`) wraps every saved envelope in a transaction that calls `WorkflowGarbageCollectionRepository.admit`. `admit` locks the execution and its root row with `lockExecution` to fence the message against tree expiry. Every reply runs `prepareReply` and `complete` in a second transaction. In the harness, `admit` and `lockExecution` each run about 62–64k times at about 1.2 ms per call, about 150 s of span time combined.
 
 ## Measurement rules
 
@@ -83,7 +87,43 @@ Per statement, the client spends about 1.5 ms against about 0.2 ms of server exe
 
 **Rollback.** Revert the slice commit.
 
-### PF-3: RyotQL entity-schema catalog query
+### PF-3: workflow garbage-collection admission cost
+
+**Outcome.** The garbage-collection layer's statements per cluster message fall by at least half, with the same fencing against tree expiry.
+
+**Context.** `admit` runs `lockExecution` (a join that takes `for share` on the root row) for every non-`run` envelope, and up to three lookups for `run` requests. It runs inside its own transaction around `saveEnvelope`. Replies pay `prepareReply` and `complete` in a second transaction.
+
+**Scope.** `modules/garbage-collection/workflow-repository.ts` and `workflow-storage.ts`. Candidates:
+
+- skip the per-message lock for envelopes whose execution was already admitted in the same root transaction;
+- merge the admission lock into the envelope insert's statement;
+- fence expiry with one statement per root rather than per message.
+
+**Non-goals.** No change to the `effect/cluster` storage contract, delivery guarantees or tree expiry semantics.
+
+**Acceptance.**
+
+- Garbage-collection tests pass, including the expiry races the fence exists for.
+- In the harness, `admit` and `lockExecution` calls per `cluster_messages` insert fall by at least half, with 0 failures.
+
+**Stop.** If the fence cannot be preserved with fewer statements, record why and close the slice.
+
+### PF-4: workflow engine statement volume (investigation)
+
+**Outcome.** A decision, backed by numbers, on whether engine bookkeeping per activity can be reduced. In the import trace it is 1,179 statements, close to the application's own 1,324.
+
+**Scope.** Read-only analysis of statements per activity:
+
+- the message insert;
+- the reply insert;
+- processed-flag updates;
+- the polling `UPDATE … last_read`.
+
+Count activities per workflow type, and look for workflows whose activities could be merged without breaking replay. Merging activities removes the whole per-step cost: message, reply, admission and transactions.
+
+**Stop.** Changing the cluster storage contract or the engine's delivery guarantees is a separate, explicitly approved project.
+
+### PF-5: RyotQL entity-schema catalog query
 
 **Outcome.** `user_sandbox_provider_operation` time in the harness is at most 5% of the program-start time.
 
@@ -99,7 +139,7 @@ Per statement, the client spends about 1.5 ms against about 0.2 ms of server exe
 - The query returns identical rows on the reference dump (`tmp/perf-audit/dumps`).
 - The harness view metric is at most 5% of program start.
 
-### PF-4: bounded statement inputs
+### PF-6: bounded statement inputs
 
 **Outcome.** No repository statement can exceed the driver's 32,767 bind limit.
 
@@ -110,22 +150,6 @@ Per statement, the client spends about 1.5 ms against about 0.2 ms of server exe
 
 **Acceptance.** A test per method with more than 32,767 binds' worth of input. Lock order stays globally sorted with `collate "C"`.
 
-### PF-5: workflow-cluster statement volume (investigation)
-
-**Outcome.** A decision, backed by numbers, on whether workflow-engine bookkeeping can be reduced. In the import trace this is 1,179 statements, more than the application's own. In the harness, `cluster_messages` inserts are 72% of program start.
-
-**Scope.** Read-only analysis of statements per activity in the workflow engine and the durable queue:
-
-- the message insert;
-- the reply insert;
-- processed-flag updates;
-- the polling `UPDATE … last_read`;
-- garbage-collection admission.
-
-Look for statements that can be merged or skipped for activities that complete inline.
-
-**Stop.** Changing the cluster storage contract or the engine's delivery guarantees is a separate, explicitly approved project.
-
 ## Deferred
 
 - **Policy-path batching for event creation.** Each event item with a matching policy needs its own prepare, policy and write activities, because policies cannot run inside a transaction or activity body. Reducing that requires a lifecycle design change. Revisit only if real event workloads with policies are measured to be slow.
@@ -133,6 +157,14 @@ Look for statements that can be merged or skipped for activities that complete i
 - **`ryot/no-hot-manifest-read` blind spots.** These are string-assembled SQL, bracket access by camelCase name, and aliases re-exported from exempt files. Today's code has none. Revision immutability is backstopped by a database trigger.
 - **Test-only production methods.** `findRevisionClientArtifact` in `plugins/packages/repository.ts` and `listPrivateInstallations` in `plugins/installations/repository.ts` are allowlisted manifest readers with no production callers. Removing them also shrinks the lint allowlist.
 
+## Engine choice
+
+Keep `effect/cluster` and `effect/workflow`. The cost above is the price of durable steps: each activity persists a message, a reply and status updates. Temporal, DBOS and pg-boss pay a similar cost. A Redis job queue such as BullMQ is cheaper only because it gives weaker guarantees. It has no deterministic replay, durable activities or deferred results, which event creation, imports, receipts and crash recovery depend on. It would also add Redis as a required service. Reconsider the engine only if PF-3 and PF-4 cannot bring the workflow share down.
+
 ## Order
 
-PF-1, then PF-2, which depends on PF-1. PF-3 and PF-4 are independent and can run at any time. Start PF-5 only after PF-2 lands, so its numbers reflect the cheaper client path.
+1. PF-1, then PF-2. Client overhead applies to engine statements as well.
+2. PF-3, then PF-4. Start them after PF-2 lands, so their numbers reflect the cheaper client path.
+3. PF-5 and PF-6 are independent and can run at any time.
+
+The harness is a heavy e2e subset, so its workflow share is likely higher than production traffic's.
