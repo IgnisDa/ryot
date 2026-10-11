@@ -1,4 +1,4 @@
-import { describe, expect, it } from "@effect/vitest";
+import { describe, expect, it, layer } from "@effect/vitest";
 import { Effect } from "@ryot-app/plugin-client-sdk/effect";
 import {
 	PluginId,
@@ -7,8 +7,11 @@ import {
 	type PluginDeviceResult,
 	type PluginNavigationTarget,
 } from "@ryot-app/plugin-client-sdk/plugin";
+import { RyotScheduleService, type RyotSchedule } from "@ryot-app/plugin-client-sdk/schedule";
 import { Schema } from "@ryot-app/plugin-kit/effect";
+import { Layer } from "effect";
 import * as Deferred from "effect/Deferred";
+import { TestClock } from "effect/testing";
 
 import {
 	WorkoutEditorDraftSchema,
@@ -108,6 +111,7 @@ const createController = (
 		readonly onRemove?: () => void;
 		readonly onWrite?: (value: string) => Effect.Effect<void, unknown>;
 		readonly pluginId?: PluginId;
+		readonly schedule?: Pick<RyotSchedule, "after" | "run">;
 		readonly target?: PluginNavigationTarget;
 	} = {},
 ) => {
@@ -119,6 +123,7 @@ const createController = (
 		device: options.device,
 		target: options.target,
 		pluginId: options.pluginId,
+		schedule: options.schedule,
 		foreground: options.foreground ?? (() => true),
 		now: options.now ?? Effect.succeed(Date.parse(startTime)),
 		storage: {
@@ -392,6 +397,116 @@ describe("workout editor controller", () => {
 				);
 			}),
 	);
+
+	layer(RyotScheduleService.layer.pipe(Layer.provideMerge(TestClock.layer())))((test) => {
+		test.effect(
+			"pulses once per second in the final three seconds and cancels them when paused",
+			() =>
+				Effect.gen(function* () {
+					yield* TestClock.setTime(Date.parse(startTime));
+					const schedule = yield* RyotScheduleService;
+					const requests: PluginDeviceRequest[] = [];
+					const harness = createController({
+						schedule,
+						now: Effect.sync(() => schedule.now()),
+						pluginId: PluginId.make("fitness-installation"),
+						device: (request) =>
+							Effect.sync(() => {
+								requests.push(request);
+								return { status: "done" };
+							}),
+					});
+					yield* harness.controller.load();
+					yield* harness.controller.start(timerDraft());
+
+					yield* TestClock.adjust("17 seconds");
+					expect(requests.filter((request) => request.action === "haptic")).toHaveLength(1);
+					yield* TestClock.adjust("1 second");
+					expect(requests.filter((request) => request.action === "haptic")).toHaveLength(2);
+					yield* TestClock.adjust("1 second");
+					expect(requests.filter((request) => request.action === "haptic")).toHaveLength(3);
+
+					harness.controller.change((current) => ({
+						...current,
+						executionCountdown: current.executionCountdown
+							? {
+									...current.executionCountdown,
+									clientId: "execution-2",
+									deadline: "2026-10-15T10:00:40.000Z",
+								}
+							: undefined,
+					}));
+					yield* harness.controller.flush();
+					harness.controller.change((current) => ({
+						...current,
+						executionCountdown: current.executionCountdown
+							? { ...current.executionCountdown, pausedRemainingSeconds: 21 }
+							: undefined,
+					}));
+					yield* harness.controller.flush();
+					yield* TestClock.adjust("30 seconds");
+					expect(requests.filter((request) => request.action === "haptic")).toHaveLength(3);
+					const paused = harness.controller.getSnapshot();
+					expect(
+						paused.status === "ready" && paused.draft.executionCountdown?.pausedRemainingSeconds,
+					).toBe(21);
+				}),
+		);
+
+		test.effect("does not schedule missed pulses or pulse while in the background", () =>
+			Effect.gen(function* () {
+				yield* TestClock.setTime(Date.parse(startTime) + 18_500);
+				const schedule = yield* RyotScheduleService;
+				let foreground = false;
+				const requests: PluginDeviceRequest[] = [];
+				const harness = createController({
+					schedule,
+					foreground: () => foreground,
+					now: Effect.sync(() => schedule.now()),
+					pluginId: PluginId.make("fitness-installation"),
+					device: (request) =>
+						Effect.sync(() => {
+							requests.push(request);
+							return { status: "done" };
+						}),
+				});
+				yield* harness.controller.load();
+				yield* harness.controller.start(timerDraft());
+				expect(requests.filter((request) => request.action === "haptic")).toHaveLength(0);
+
+				yield* TestClock.adjust("500 millis");
+				expect(requests.filter((request) => request.action === "haptic")).toHaveLength(0);
+				foreground = true;
+				yield* TestClock.adjust("1 second");
+				expect(requests.filter((request) => request.action === "haptic")).toHaveLength(0);
+			}),
+		);
+
+		test.effect("skips a warning callback that is more than 500 milliseconds late", () =>
+			Effect.gen(function* () {
+				yield* TestClock.setTime(Date.parse(startTime) + 17_500);
+				const schedule = yield* RyotScheduleService;
+				let observedOffset = 0;
+				const requests: PluginDeviceRequest[] = [];
+				const harness = createController({
+					schedule,
+					pluginId: PluginId.make("fitness-installation"),
+					now: Effect.sync(() => schedule.now() + observedOffset),
+					device: (request) =>
+						Effect.sync(() => {
+							requests.push(request);
+							return { status: "done" };
+						}),
+				});
+				yield* harness.controller.load();
+				yield* harness.controller.start(timerDraft());
+
+				observedOffset = 501;
+				yield* TestClock.adjust("1500 millis");
+				expect(requests.filter((request) => request.action === "haptic")).toHaveLength(0);
+			}),
+		);
+	});
 
 	it.live("keeps background alerts scheduled and reconciles their deadlines once on return", () =>
 		Effect.gen(function* () {

@@ -238,6 +238,39 @@ export const createWorkoutEditorController = (
 		};
 	};
 
+	const matchesDesiredTimer = (timer: TimerName, wanted: TimerSnapshot) => {
+		if (!isReady(snapshot)) {
+			return false;
+		}
+		const current = desiredTimer(snapshot.draft, timer);
+		return current?.clientId === wanted.clientId && current.deadline === wanted.deadline;
+	};
+
+	const pulseTimerWarning = Effect.fnUntraced(function* (
+		timer: TimerName,
+		wanted: TimerSnapshot,
+		pulseAt: number,
+	) {
+		const canPulse = () => !disposed && ports.foreground() && matchesDesiredTimer(timer, wanted);
+		if (!canPulse()) {
+			return;
+		}
+		const now = yield* Effect.match(ports.now, {
+			onSuccess: (value) => value,
+			onFailure: (error) => {
+				updateReady((current) => ({ ...current, timerError: error }));
+				return undefined;
+			},
+		});
+		if (now === undefined || !Number.isFinite(now) || now - pulseAt > 500 || !canPulse()) {
+			return;
+		}
+		const pluginId = ports.pluginId;
+		if (pluginId !== undefined) {
+			yield* runDevice({ pluginId, action: "haptic" });
+		}
+	});
+
 	const scheduleTimerCallbacks = (draft: WorkoutEditorDraft) =>
 		disposed
 			? Effect.void
@@ -268,9 +301,31 @@ export const createWorkoutEditorController = (
 									? { executionClientId: wanted.clientId }
 									: { restClientId: wanted.clientId };
 							const schedule = ports.schedule;
-							const cancel = schedule.after(Math.max(0, Date.parse(wanted.deadline) - now), () =>
-								schedule.run(Effect.ignore(reconcile(expected)), () => undefined),
+							const cancels: (() => void)[] = [];
+							for (const offset of [3000, 2000, 1000]) {
+								const pulseAt = Date.parse(wanted.deadline) - offset;
+								const delay = pulseAt - now;
+								if (delay > 0) {
+									cancels.push(
+										schedule.after(delay, () =>
+											schedule.run(
+												Effect.ignore(pulseTimerWarning(timer, wanted, pulseAt)),
+												() => undefined,
+											),
+										),
+									);
+								}
+							}
+							cancels.push(
+								schedule.after(Math.max(0, Date.parse(wanted.deadline) - now), () =>
+									schedule.run(Effect.ignore(reconcile(expected)), () => undefined),
+								),
 							);
+							const cancel = () => {
+								for (const cancelCallback of cancels) {
+									cancelCallback();
+								}
+							};
 							timerCallbacks.set(timer, { cancel, snapshot: wanted });
 						}
 						return undefined;
