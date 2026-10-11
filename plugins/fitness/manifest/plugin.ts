@@ -11,6 +11,7 @@ import {
 	measurementReadingUpdateOperationSlug,
 } from "../shared/measurement-reading-operations";
 import { PLUGIN_PACKAGE_ID } from "../shared/plugin-identity";
+import { workoutDeleteOperationSlug } from "../shared/workout-delete-operations";
 import {
 	exerciseOverrideUpdateOperationSlug,
 	workoutEditorContextOperationSlug,
@@ -240,6 +241,13 @@ export const fitnessPlugin = definePlugin({
 		},
 	},
 	operations: [
+		{
+			auth: "user",
+			demoAccess: "protected",
+			slug: workoutDeleteOperationSlug,
+			scriptSlug: "operation.workout-delete",
+			description: "Permanently delete a workout",
+		},
 		{
 			auth: "user",
 			demoAccess: "protected",

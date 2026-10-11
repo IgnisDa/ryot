@@ -27,6 +27,11 @@ import {
 } from "../../shared/measurement-reading-operations";
 import { PLUGIN_PACKAGE_ID } from "../../shared/plugin-identity";
 import {
+	WorkoutDeleteInputSchema,
+	WorkoutDeleteOutputSchema,
+	workoutDeleteOperationSlug,
+} from "../../shared/workout-delete-operations";
+import {
 	ExerciseOverrideUpdateInputSchema,
 	ExerciseOverrideUpdateOutputSchema,
 	WorkoutEditorContextInputSchema,
@@ -46,6 +51,13 @@ import {
 } from "../../shared/workout-time-operations";
 
 const packageId = PLUGIN_PACKAGE_ID;
+
+export const workoutDeleteRecipe = defineOperationRecipe({
+	packageId,
+	input: WorkoutDeleteInputSchema,
+	output: WorkoutDeleteOutputSchema,
+	operationSlug: workoutDeleteOperationSlug,
+});
 
 export const workoutEditorSaveRecipe = defineOperationRecipe({
 	packageId,
