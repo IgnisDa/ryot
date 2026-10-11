@@ -78,6 +78,14 @@
 			"types": "./shared/airing-recipes.ts",
 			"default": "./shared/airing-recipes.ts"
 		},
+		"./shared/activity-log-recipes": {
+			"types": "./shared/activity-log-recipes.ts",
+			"default": "./shared/activity-log-recipes.ts"
+		},
+		"./shared/media-activity-operations": {
+			"types": "./shared/media-activity-operations.ts",
+			"default": "./shared/media-activity-operations.ts"
+		},
 		"./shared/activity-recipes": {
 			"types": "./shared/activity-recipes.ts",
 			"default": "./shared/activity-recipes.ts"
