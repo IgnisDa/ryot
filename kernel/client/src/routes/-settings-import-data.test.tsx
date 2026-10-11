@@ -9,7 +9,7 @@ import {
 } from "@ryot-app/ryotql-recipes/import-runs";
 import { rowsResult } from "@ryot-app/ryotql-recipes/test-utils";
 import { createMemoryHistory, RouterProvider } from "@tanstack/react-router";
-import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { Effect, Layer, ManagedRuntime, Result } from "effect";
 
 import { AuthenticatedApiError } from "#/api/authenticated";
@@ -194,8 +194,9 @@ const decodeRun = (runs: readonly unknown[]) =>
 	);
 
 const makeImportSourceQueries = (
-	sources: readonly ImportSourceItem[] | null,
+	sources: readonly ImportSourceItem[] | null | (() => readonly ImportSourceItem[] | null),
 	issues: readonly IngestionIssue[],
+	requests: (string | undefined)[] = [],
 ) =>
 	makeRyotQLApi({
 		execute: (_scope, request) => {
@@ -224,18 +225,28 @@ const makeImportSourceQueries = (
 			if (!("sources" in request.payload.queries)) {
 				return Effect.die("Unexpected RyotQL document");
 			}
-			return sources === null
+			const output = request.payload.queries.sources.output;
+			if (output.type !== "rows") {
+				return Effect.die("Expected source rows");
+			}
+			requests.push(output.pagination.after);
+			const current = typeof sources === "function" ? sources() : sources;
+			const offset = output.pagination.after === undefined ? 0 : 100;
+			const page = current?.slice(offset, offset + 100);
+			const hasMore = current !== null && offset + 100 < current.length;
+			return page === undefined
 				? Effect.fail(new AuthenticatedApiError({ cause: new Error("down") }))
 				: Effect.succeed({
 						data: {
 							sources: {
 								type: "rows" as const,
-								pageInfo: { limit: 100, hasMore: false, nextCursor: null },
-								items: sources.map((source, index) => ({
-									...source,
-									id: `source-${index}`,
-									exportHelp: source.exportHelp ?? null,
-								})),
+								pageInfo: { hasMore, limit: 100, nextCursor: hasMore ? "next" : null },
+								items: page.map((source, index) =>
+									Object.assign({}, source, {
+										id: `source-${index}`,
+										exportHelp: source.exportHelp ?? null,
+									}),
+								),
 							},
 						},
 					});
@@ -249,8 +260,11 @@ const mountView = (
 	initialEntry: string,
 	importsApi: Layer.Layer<ImportsApi> = makeImportsApi(),
 	imports: Layer.Layer<ImportsService> = ImportsRouteStubs,
-	sources: readonly ImportSourceItem[] | null = [alphaSource],
+	sources: readonly ImportSourceItem[] | null | (() => readonly ImportSourceItem[] | null) = [
+		alphaSource,
+	],
 	issues: readonly IngestionIssue[] = [],
+	requests: (string | undefined)[] = [],
 ) => {
 	const events = makePluginCatalogEventsTestLayer();
 	const runtime = ManagedRuntime.make(
@@ -277,7 +291,7 @@ const mountView = (
 			pluginBridgeServicesTestLayer,
 			imports,
 			importsApi,
-			makeImportSourceQueries(sources, issues),
+			makeImportSourceQueries(sources, issues, requests),
 		).pipe(
 			Layer.provideMerge(OAuthRouteStubs),
 			Layer.provideMerge(makeStorageStubLayer("fixture")),
@@ -288,10 +302,156 @@ const mountView = (
 		createMemoryHistory({ initialEntries: [initialEntry] }),
 	);
 	const view = render(<RouterProvider router={router} />);
-	return { ...view, router };
+	return { ...view, router, events };
 };
 
 describe("import data list", () => {
+	it.live(
+		"derives a later-page source locally and preserves input through catalog refresh recovery",
+		() =>
+			Effect.gen(function* () {
+				const requests: (string | undefined)[] = [];
+				const conditional: ImportSourceItem = {
+					...betaSource,
+					plan: {
+						selections: {
+							collector: { field: "remote", cases: { true: "remote", false: "local" } },
+						},
+					},
+					inputSchema: {
+						unknownKeys: "strict",
+						fields: {
+							...betaSource.inputSchema.fields,
+							remote: { type: "boolean", ...described("Use remote"), defaultValue: false },
+						},
+					},
+					readinessMetadata: {
+						oauthProviders: [],
+						availableConfigKeys: [],
+						workflows: [{ slug: "import", scriptSlug: "root" }],
+						scripts: [
+							{
+								slug: "root",
+								capabilities: [],
+								oauthConnectionFields: [],
+								optionalPluginConfigKeys: [],
+								requiredPluginConfigKeys: [],
+								executableDependencies: [
+									{
+										kind: "script",
+										slug: "remote",
+										selection: { key: "remote", id: "collector", stage: "settings" },
+									},
+									{
+										slug: "local",
+										kind: "script",
+										selection: { key: "local", id: "collector", stage: "settings" },
+									},
+								],
+							},
+							{
+								slug: "remote",
+								capabilities: [],
+								oauthConnectionFields: [],
+								executableDependencies: [],
+								optionalPluginConfigKeys: [],
+								requiredPluginConfigKeys: ["TOKEN"],
+							},
+							{
+								slug: "local",
+								capabilities: [],
+								oauthConnectionFields: [],
+								executableDependencies: [],
+								optionalPluginConfigKeys: [],
+								requiredPluginConfigKeys: [],
+							},
+						],
+					},
+				};
+				const catalogSources = [
+					...Array.from({ length: 100 }, (_, index) => ({
+						...alphaSource,
+						name: `A ${index}`,
+						slug: index === 0 ? betaSource.slug : `source-${index}`,
+						reference: {
+							...alphaSource.reference,
+							slug: index === 0 ? betaSource.slug : `source-${index}`,
+						},
+					})),
+					conditional,
+				];
+				let current: readonly ImportSourceItem[] | null = catalogSources;
+				const view = mountView(
+					"/settings/import-data?start=true",
+					makeImportsApi(),
+					makeImportsStub({ loadRuns: () => Effect.succeed(decodeRuns([])) }),
+					() => current,
+					[],
+					requests,
+				);
+				yield* Effect.promise(() => waitFor(() => expect(requests).toEqual([undefined, "next"])));
+				const dialog = yield* Effect.promise(() =>
+					screen.findByRole("dialog", { name: "Start an import" }),
+				);
+				fireEvent.change(
+					yield* Effect.promise(() => within(dialog).findByLabelText("Search services")),
+					{ target: { value: "Beta" } },
+				);
+				fireEvent.click(
+					yield* Effect.promise(() =>
+						within(dialog).findByRole("button", { name: "Import from Beta Service" }),
+					),
+				);
+				const username = yield* Effect.promise(() =>
+					screen.findByRole<HTMLInputElement>("textbox", { name: "Username" }),
+				);
+				for (const value of ["a", "ab", "someone"]) {
+					fireEvent.change(username, { target: { value } });
+				}
+				fireEvent.click(screen.getByLabelText("Use remote"));
+				expect(screen.getByText("Set TOKEN on your server.")).not.toBeNull();
+				expect(requests).toEqual([undefined, "next"]);
+				fireEvent.click(screen.getByRole("button", { name: "Continue" }));
+				const start = yield* Effect.promise(() =>
+					screen.findByRole<HTMLButtonElement>("button", { name: "Start import" }),
+				);
+				expect(start.disabled).toBe(true);
+				current = catalogSources.map((source) =>
+					source === conditional && conditional.readinessMetadata !== null
+						? {
+								...conditional,
+								readinessMetadata: {
+									...conditional.readinessMetadata,
+									availableConfigKeys: ["TOKEN"],
+								},
+							}
+						: source,
+				);
+				fireEvent.click(screen.getByRole("button", { name: "Check setup again" }));
+				yield* Effect.promise(() => waitFor(() => expect(start.disabled).toBe(false)));
+				expect(requests).toHaveLength(4);
+				current = [];
+				act(() => view.events.send());
+				yield* Effect.promise(() => screen.findByText("This source is no longer available."));
+				expect(start.disabled).toBe(true);
+				fireEvent.click(screen.getByRole("button", { name: "Back" }));
+				expect(screen.getByRole<HTMLInputElement>("textbox", { name: "Username" }).value).toBe(
+					"someone",
+				);
+				current = null;
+				fireEvent.click(screen.getByRole("button", { name: "Check setup again" }));
+				yield* Effect.promise(() => screen.findByText("Could not check setup."));
+				expect(screen.getByRole<HTMLInputElement>("textbox", { name: "Username" }).value).toBe(
+					"someone",
+				);
+				current = catalogSources;
+				fireEvent.click(screen.getByRole("button", { name: "Try again" }));
+				yield* Effect.promise(() => screen.findByText("Set TOKEN on your server."));
+				expect(screen.getByRole<HTMLInputElement>("textbox", { name: "Username" }).value).toBe(
+					"someone",
+				);
+			}),
+	);
 	it.live("names each run by its source and opens the one that was clicked", () =>
 		Effect.gen(function* () {
 			const view = mountView(

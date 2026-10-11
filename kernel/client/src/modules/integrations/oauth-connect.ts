@@ -8,6 +8,7 @@ import {
 } from "@ryot-app/contract/modules/oauth-connections/schemas";
 import type { DeclarationReference } from "@ryot-app/contract/modules/plugins/references";
 import type { IntegrationId, OAuthConnectionId } from "@ryot-app/contract/schema/brands";
+import { useRyot } from "@ryot-app/plugin-client-sdk/react";
 import type {
 	SchemaOAuthConnect,
 	SchemaOAuthConnectOutcome,
@@ -377,6 +378,7 @@ export const useOAuthConnect = (input: {
 	readonly integrationId?: IntegrationId;
 }): { readonly connect: SchemaOAuthConnect; readonly disabledReason: string | undefined } => {
 	const { scope, server, runtime } = useRouteContext({ from: "/_authenticated" });
+	const client = useRyot();
 	const isDemo = useIsDemoSession(runtime.runSync(AuthService).session(server));
 	const connect: SchemaOAuthConnect = (request) => {
 		if (isDemo) {
@@ -384,7 +386,15 @@ export const useOAuthConnect = (input: {
 		}
 		const service = runtime.runSync(OAuthConnectService);
 		return Effect.runPromise(
-			service.connect({ ...input, scope, field: request.field, signal: request.signal }),
+			service.connect({ ...input, scope, field: request.field, signal: request.signal }).pipe(
+				Effect.tap((outcome) =>
+					Effect.sync(() => {
+						if (outcome.kind === "connected") {
+							client.mutationCompleted.hint();
+						}
+					}),
+				),
+			),
 		);
 	};
 	return { connect, disabledReason: isDemo ? DEMO_PROTECTION_MESSAGE : undefined };

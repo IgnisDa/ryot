@@ -10,6 +10,7 @@ import { useState } from "react";
 
 import { AuthService } from "#/modules/auth/service";
 import { useIsDemoSession } from "#/modules/demo-protection";
+import { useIngestionCatalogRefresh } from "#/modules/imports/use-catalog-refresh";
 import {
 	IntegrationCreateWizard,
 	type IntegrationProviderPickerState,
@@ -72,6 +73,7 @@ function IntegrationsRoute() {
 			page.pageInfo.hasMore ? limit + INTEGRATIONS_PAGE_SIZE : null,
 	});
 	const providerQuery = useRyotQuery(integrationProvidersQuery);
+	useIngestionCatalogRefresh(providerQuery.refetch);
 	const sync = useRyotMutation(syncIntegrationsMutation);
 	const preferences = useRyotQuery(preferencesQuery);
 	const updatePreferences = useRyotMutation(updatePreferencesMutation);
