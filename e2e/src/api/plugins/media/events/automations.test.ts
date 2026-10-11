@@ -201,7 +201,6 @@ describe("Event automations", () => {
 				});
 				expect(completeEvent.occurredAt).toBe(isoMinuteAt(100));
 			}),
-		300_000,
 	);
 
 	it.live("anime with unknown episode count does not create a completion event", () =>

@@ -32,7 +32,6 @@ describe.skipIf(!RUN_OPERATIONAL_GATES)("media population operational gate", () 
 					media = yield* shippedPluginTestProviders(mediaPlugin.metadata.packageId);
 				}),
 			),
-		300_000,
 	);
 
 	afterAll(() => runPromise(harness?.stop ?? Effect.void));
@@ -155,6 +154,5 @@ describe.skipIf(!RUN_OPERATIONAL_GATES)("media population operational gate", () 
 				expect(sandboxExecutionCount).toBeGreaterThanOrEqual(EXPECTED_MINIMUM_SANDBOX_EXECUTIONS);
 				return resultCounts;
 			}),
-		GATE_TIMEOUT_MS + 30_000,
 	);
 });

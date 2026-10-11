@@ -331,7 +331,6 @@ describe("automation history", () => {
 					),
 				);
 			}),
-		RUN_LIST_POLL_MS + 2_000,
 	);
 
 	it.live(
@@ -391,7 +390,6 @@ describe("automation history", () => {
 					),
 				);
 			}),
-		RUN_LIST_POLL_MS + 2_000,
 	);
 
 	it.live(
@@ -441,7 +439,6 @@ describe("automation history", () => {
 					),
 				);
 			}),
-		RUN_LIST_POLL_MS + 2_000,
 	);
 
 	it.live("shows bounded retained trigger, error, and log diagnostics", () =>

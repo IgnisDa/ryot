@@ -384,7 +384,6 @@ export default function Alpha() {
 					clientArtifactMetadata(input.name, input.packageId, artifact.files, artifact).hash,
 				);
 			}),
-		60_000,
 	);
 
 	test.effect(
@@ -520,7 +519,6 @@ export default function Alpha() {
 				).toEqual(first.artifact.files.map(({ name, contents }) => [name, sha256Hex(contents)]));
 				expect(second.artifact.hash).toBe(first.artifact.hash);
 			}),
-		60_000,
 	);
 	test.effect(
 		"binds identical aliases independently and leaves import-like strings unchanged",

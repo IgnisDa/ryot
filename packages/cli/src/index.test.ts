@@ -622,6 +622,5 @@ layer(BunServices.layer, { excludeTestServices: true })("ryot plugin build --wat
 					}),
 				);
 			}),
-		60_000,
 	);
 });

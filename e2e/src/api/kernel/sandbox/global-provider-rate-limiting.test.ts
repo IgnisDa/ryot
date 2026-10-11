@@ -412,7 +412,6 @@ describe("isolated deployment-global sandbox HTTP rate limiting", () => {
 					);
 				}).pipe(Effect.onError(stopIsolatedServices)),
 			),
-		180_000,
 	);
 
 	afterAll(() => runPromise(stopIsolatedServices()));
