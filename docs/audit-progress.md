@@ -15,7 +15,7 @@
 
 ## Status
 
-**27 implemented, 0 in progress, 56 pending; 3 excluded.**
+**28 implemented, 0 in progress, 55 pending; 3 excluded.**
 
 “Implemented” means affected checks and tests passed and the change is committed with this tracker. Batch-wide acceptance is recorded separately below. Rows follow the audit's ranked order; sequencing can change to respect dependencies and keep changes reviewable.
 
@@ -93,7 +93,7 @@
 | B10-R2 | Pending | Delete unused definition-reader modes. |
 | B11-R1 | Pending | Remove the obsolete projection-worker invalidation exemption. |
 | B19-R2 | Pending | Store the selected composition module directly. |
-| B24-R1 | Pending | Delete unused signal service/repository/layer. |
+| B24-R1 | Implemented | Delete the unused signal service, repository, layer, and test; preserve definition registration, invalidation, and publication because no semantic consumers remain. See this finding's audit commit. |
 | C03-R1 | Pending | One presentation-lifecycle owner. |
 | C06-R1 | Pending | Delete the obsolete entity/provenance facade. |
 | C07-R1 | Pending | Delete the unused saved-view facade. |
@@ -192,3 +192,4 @@
 - B16-R1: backend check passed before 69 tests across five files; read-only review reported no findings. Pending candidate JSON must be rewritten or drained before rollout; no reset was performed and no dual decoder was added.
 - B30-R2: backend check passed before 170 tests across nine files; read-only review reported no findings. Parsed configuration retains complete optional OIDC, SMTP, and S3 values, CIDRs, and OTLP headers without consumer reparsing or reconstruction; partial-startup semantics are unchanged.
 - C06-R2: client type check and scoped format/lint passed before 83 tests across eight files; read-only review reported no findings. Pagination uses a submitted snapshot.
+- B24-R1: backend type, format, and lint checks passed before 57 tests across seven files; read-only review reported no findings. Definition registration, invalidation, and publication remain intact.
