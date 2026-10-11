@@ -10,7 +10,7 @@ import { JsonValue } from "@ryot-app/contract/schema/json";
 import { sha256Base64Url } from "@ryot-app/ts-utils/crypto";
 import { stableStringify } from "@ryot-app/ts-utils/json";
 import { and, asc, eq, inArray, isNotNull, or, sql } from "drizzle-orm";
-import { Context, Effect, Layer, Schema } from "effect";
+import { Context, Effect, Layer, Result, Schema } from "effect";
 
 import { LifecycleDispatchPlan } from "#modules/automations/lifecycle/planning";
 import { DatabaseSession, DatabaseSessionStateError } from "#platform/db/session";
@@ -87,6 +87,19 @@ const retiringAccountFilter = (account: AccountGeneration) =>
 		inArray(userLifecycleOperation.status, ["pending", "running", "failed"]),
 		sql`${userLifecycleOperation.metadata}->'user'->>'accountGeneration' = ${account.token}`,
 	);
+
+const generationMismatch = (identity: MutationReceiptIdentity) => {
+	const account = identity.accountGeneration;
+	if (account === null) {
+		return identity.ownerUserId === null && identity.scopeUserId === null
+			? undefined
+			: new DbError({ message: "Mutation command account generation is missing" });
+	}
+	return (identity.ownerUserId !== null && identity.ownerUserId !== account.userId) ||
+		(identity.scopeUserId !== null && identity.scopeUserId !== account.userId)
+		? new DbError({ message: "Mutation command account identity does not match its scope" })
+		: undefined;
+};
 
 export class MutationReceiptIdentityConflict extends Schema.TaggedError<MutationReceiptIdentityConflict>()(
 	"MutationReceiptIdentityConflict",
@@ -208,24 +221,49 @@ export class MutationReceipts extends Context.Service<MutationReceipts>()("Mutat
 		const requireCurrentGeneration = Effect.fnUntraced(function* (
 			identity: MutationReceiptIdentity,
 		) {
-			const account = identity.accountGeneration;
-			if (account === null) {
-				if (identity.ownerUserId !== null || identity.scopeUserId !== null) {
-					return yield* new DbError({ message: "Mutation command account generation is missing" });
-				}
-				return yield* Effect.void;
+			const mismatch = generationMismatch(identity);
+			if (mismatch) {
+				return yield* mismatch;
 			}
-			if (
-				(identity.ownerUserId !== null && identity.ownerUserId !== account.userId) ||
-				(identity.scopeUserId !== null && identity.scopeUserId !== account.userId)
-			) {
-				return yield* new DbError({
-					message: "Mutation command account identity does not match its scope",
-				});
+			if (identity.accountGeneration !== null) {
+				yield* admitAccount(identity.accountGeneration);
 			}
-			yield* admitAccount(account);
 			return yield* Effect.void;
 		});
+		const firstGenerationFailure = Effect.fnUntraced(function* (
+			identities: ReadonlyArray<MutationReceiptIdentity>,
+		) {
+			const admitted = new Set<string>();
+			for (const [index, identity] of identities.entries()) {
+				const mismatch = generationMismatch(identity);
+				if (mismatch) {
+					return { index, error: mismatch };
+				}
+				const account = identity.accountGeneration;
+				if (account === null) {
+					continue;
+				}
+				const key = stableStringify([account.userId, account.token]);
+				if (admitted.has(key)) {
+					continue;
+				}
+				const admission = yield* Effect.result(admitAccount(account));
+				if (Result.isFailure(admission)) {
+					return { index, error: admission.failure };
+				}
+				admitted.add(key);
+			}
+			return undefined;
+		});
+		const lockReceipts = (ids: ReadonlyArray<string>) =>
+			session.run((db) =>
+				db.execute(
+					sql`select pg_advisory_xact_lock(hashtext(k)) from unnest(array[${sql.join(
+						[...new Set(ids)].sort().map((id) => sql`${`mutation-receipt:${id}`}`),
+						sql`, `,
+					)}]::text[]) with ordinality t(k, n) order by n`,
+				),
+			);
 		const registerWorkflow = Effect.fn("MutationReceipts.registerWorkflow")(function* (
 			account: AccountGeneration | null,
 			workflowName: string,
@@ -291,16 +329,11 @@ export class MutationReceipts extends Context.Service<MutationReceipts>()("Mutat
 				}),
 			);
 		});
-		const readItem = Effect.fn("MutationReceipts.readItem")(function* <Result>(
+		const decodeItem = Effect.fnUntraced(function* <Result>(
 			identity: MutationReceiptIdentity,
+			row: typeof mutationReceipt.$inferSelect,
 			result: Schema.Codec<Result, unknown>,
 		) {
-			const [row] = yield* session.run((db) =>
-				db.select().from(mutationReceipt).where(eq(mutationReceipt.id, identity.id)),
-			);
-			if (!row) {
-				return null;
-			}
 			if (
 				row.receiptType !== "item" ||
 				row.inputFingerprint !== identity.inputFingerprint ||
@@ -320,6 +353,15 @@ export class MutationReceipts extends Context.Service<MutationReceipts>()("Mutat
 					`Invalid mutation dispatch ${row.id}`,
 				),
 			};
+		});
+		const readItem = Effect.fn("MutationReceipts.readItem")(function* <Result>(
+			identity: MutationReceiptIdentity,
+			result: Schema.Codec<Result, unknown>,
+		) {
+			const [row] = yield* session.run((db) =>
+				db.select().from(mutationReceipt).where(eq(mutationReceipt.id, identity.id)),
+			);
+			return row ? yield* decodeItem(identity, row, result) : null;
 		});
 		const lookup = Effect.fn("MutationReceipts.lookup")(function* <Result>(
 			identity: MutationReceiptIdentity,
@@ -358,6 +400,66 @@ export class MutationReceipts extends Context.Service<MutationReceipts>()("Mutat
 						batchIndex: input.batchIndex ?? null,
 					}),
 			);
+		});
+		const lookupMany = Effect.fn("MutationReceipts.lookupMany")(function* <Result>(
+			identities: ReadonlyArray<MutationReceiptIdentity>,
+			result: Schema.Codec<Result, unknown>,
+		) {
+			yield* requireTransaction;
+			const failure = yield* firstGenerationFailure(identities);
+			// Sequential lookups stop at the first failing identity; earlier conflicts still win.
+			const checked = identities.slice(0, failure?.index ?? identities.length);
+			const ids = checked.map(({ id }) => id);
+			const rows = ids.length
+				? yield* Effect.andThen(
+						lockReceipts(ids),
+						session.run((db) =>
+							db.select().from(mutationReceipt).where(inArray(mutationReceipt.id, ids)),
+						),
+					)
+				: [];
+			const rowsById = new Map(rows.map((row) => [row.id, row]));
+			const items = yield* Effect.forEach(checked, (identity) => {
+				const row = rowsById.get(identity.id);
+				return row ? decodeItem(identity, row, result) : Effect.succeed(null);
+			});
+			if (failure) {
+				return yield* failure.error;
+			}
+			return items;
+		});
+		const insertMany = Effect.fn("MutationReceipts.insertMany")(function* (
+			records: ReadonlyArray<Parameters<typeof insert>[0]>,
+		) {
+			yield* requireTransaction;
+			if (records.length === 0) {
+				return yield* Effect.void;
+			}
+			const ids = records.map(({ identity }) => identity.id);
+			if (new Set(ids).size !== ids.length) {
+				return yield* new DbError({ message: "Mutation receipt batch repeats an identity" });
+			}
+			const failure = yield* firstGenerationFailure(records.map(({ identity }) => identity));
+			const values = yield* Effect.forEach(
+				records.slice(0, failure?.index ?? records.length),
+				Effect.fnUntraced(function* (input) {
+					return {
+						...input.identity,
+						receiptType: "item" as const,
+						dispatch: [...input.dispatch],
+						batchId: input.batchId ?? null,
+						evidence: input.evidence ?? null,
+						batchIndex: input.batchIndex ?? null,
+						result: yield* decodeStoredSchema(input.result, JsonValue, "Invalid mutation result"),
+					};
+				}),
+			);
+			if (failure) {
+				return yield* failure.error;
+			}
+			yield* lockReceipts(ids);
+			yield* session.run((db) => db.insert(mutationReceipt).values(values));
+			return yield* Effect.void;
 		});
 		const lookupBatch = Effect.fn("MutationReceipts.lookupBatch")(function* (
 			identity: MutationReceiptIdentity,
@@ -671,6 +773,8 @@ export class MutationReceipts extends Context.Service<MutationReceipts>()("Mutat
 			insert,
 			peekBatch,
 			sealBatch,
+			insertMany,
+			lookupMany,
 			beginBatch,
 			lookupBatch,
 			admitAccount,
