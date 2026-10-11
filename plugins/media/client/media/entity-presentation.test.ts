@@ -78,7 +78,7 @@ describe("media entity presentation preparation", () => {
 		const documents: unknown[] = [];
 		const managed = { type: "s3", key: "portrait" } as const;
 		const client = createRyotClient({
-			uploadTemporary: () => Effect.succeed({}),
+			upload: () => Effect.succeed({}),
 			query: (document) => {
 				documents.push(document);
 				return Effect.succeed({

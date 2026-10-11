@@ -26,7 +26,7 @@ import {
 import { PagesApi } from "#/api/pages";
 import type { ApiScope } from "#/api/scope";
 import { ManagedAssetsService } from "#/modules/assets/managed-assets";
-import { TemporaryUploads } from "#/modules/assets/temporary-uploads";
+import { Uploads } from "#/modules/assets/uploads";
 import { DeviceService } from "#/modules/device/service";
 import { EntityWatchService, type WatchEntities } from "#/modules/entity-watches/service";
 import { subscribeNativeResume } from "#/modules/entity-watches/transport";
@@ -539,7 +539,7 @@ function ClientPageFrame(props: {
 			onOverlayState={(count) => props.overlay.publish(props.owner, count)}
 			onHeader={(publication) => props.header.publish(props.owner, publication)}
 			onExternalLink={(request) => props.runtime.runSync(ExternalLinks).outcome(request)}
-			onUpload={(request) => props.runtime.runSync(TemporaryUploads).outcome(props.scope, request)}
+			onUpload={(request) => props.runtime.runSync(Uploads).outcome(props.scope, request)}
 			onAssets={(request) =>
 				props.runtime.runSync(ManagedAssetsService).outcome(props.scope, request.assets)
 			}

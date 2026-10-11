@@ -1,4 +1,5 @@
 export type {
+	CleanupManagedAssetOutput,
 	ManagedAssetLocator,
 	TemporaryUploadToken,
 } from "@ryot-app/contract/modules/assets/schemas";
@@ -16,12 +17,14 @@ export type {
 	ManagedAssetResolution,
 	OperationAdapterRequest,
 	OperationInvocation,
+	PermanentUploadRequest,
 	RyotClientAdapter,
 	RyotPageSearchUpdate,
 	RyotProviderSearchScreenRequest,
 	RyotThemeSnapshot,
 	StorageAdapterRequest,
 	TemporaryUploadRequest,
+	UploadAdapterRequest,
 } from "./client/adapter";
 export { createRyotClient, type RyotClient } from "./client/client";
 export { RyotClientError } from "./client/errors";

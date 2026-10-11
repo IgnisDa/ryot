@@ -1,9 +1,16 @@
-import { RyotClientError, type TemporaryUploadToken } from "@ryot-app/plugin-client-sdk";
-import { Schema } from "@ryot-app/plugin-client-sdk/effect";
+import {
+	RyotClientError,
+	type CleanupManagedAssetOutput,
+	type ManagedAssetLocator,
+	type TemporaryUploadToken,
+} from "@ryot-app/plugin-client-sdk";
+import { Effect, Schema } from "@ryot-app/plugin-client-sdk/effect";
 import { PluginLink } from "@ryot-app/plugin-client-sdk/plugin";
 import {
+	ManagedAssetProvider,
 	createRyotMutation,
 	createRyotQuery,
+	useManagedAssetUrl,
 	useRyot,
 	useRyotMutation,
 	useRyotQuery,
@@ -61,6 +68,40 @@ const uploadMutation = createRyotMutation<File, TemporaryUploadToken>(({ input, 
 	client.uploads.uploadTemporary({ source: input, fileName: input.name, contentType: input.type }),
 );
 
+const permanentUploadMutation = createRyotMutation<
+	{ readonly file: File; readonly onUploaded: (asset: ManagedAssetLocator) => void },
+	ManagedAssetLocator
+>(({ input, client }) =>
+	Effect.gen(function* () {
+		const asset = yield* client.uploads.uploadPermanent({
+			source: input.file,
+			fileName: input.file.name,
+			contentType: input.file.type,
+		});
+		input.onUploaded(asset);
+		return asset;
+	}),
+);
+
+const permanentCleanupMutation = createRyotMutation<
+	{
+		readonly asset: ManagedAssetLocator;
+		readonly onCleaned: (status: CleanupManagedAssetOutput["status"]) => void;
+	},
+	CleanupManagedAssetOutput
+>(({ input, client }) =>
+	Effect.gen(function* () {
+		const result = yield* client.uploads.cleanup(input.asset);
+		input.onCleaned(result.status);
+		return result;
+	}),
+);
+
+function PermanentUploadImage(props: { readonly asset: ManagedAssetLocator }) {
+	const url = useManagedAssetUrl(props.asset);
+	return url === undefined ? null : <img src={url} alt="Permanent fixture upload" />;
+}
+
 export const Home = () => {
 	const ryot = useRyot();
 	const theme = useRyotTheme();
@@ -70,6 +111,10 @@ export const Home = () => {
 	const [shouldCrash, setShouldCrash] = useState(false);
 	const upload = useRyotMutation(uploadMutation);
 	const [uploadName, setUploadName] = useState("");
+	const permanentUpload = useRyotMutation(permanentUploadMutation);
+	const permanentCleanup = useRyotMutation(permanentCleanupMutation);
+	const [permanentUploadName, setPermanentUploadName] = useState("");
+	const [permanentAsset, setPermanentAsset] = useState<ManagedAssetLocator>();
 	const catalog = useRyotQuery(fixtureClientPluginCatalogQuery);
 	const refused =
 		greeting.status === "error" &&
@@ -100,6 +145,22 @@ export const Home = () => {
 		uploadMessage = "The upload failed.";
 	} else if (upload.status === "success") {
 		uploadMessage = `Uploaded ${uploadName} as token ${upload.data?.token ?? ""}`;
+	}
+	let permanentUploadMessage = "Choose a permanent file to upload.";
+	if (permanentUpload.status === "pending") {
+		permanentUploadMessage = `Uploading ${permanentUploadName}...`;
+	} else if (permanentUpload.status === "error") {
+		permanentUploadMessage = "The permanent upload failed.";
+	} else if (permanentUpload.status === "success") {
+		permanentUploadMessage = `Uploaded ${permanentUploadName} permanently.`;
+	}
+	let permanentCleanupMessage = "";
+	if (permanentCleanup.status === "pending") {
+		permanentCleanupMessage = "Cleaning up permanent upload...";
+	} else if (permanentCleanup.status === "error") {
+		permanentCleanupMessage = "Permanent upload cleanup failed.";
+	} else if (permanentCleanup.status === "success") {
+		permanentCleanupMessage = `Permanent upload cleanup: ${permanentCleanup.data?.status ?? ""}`;
 	}
 
 	if (shouldCrash) {
@@ -219,6 +280,62 @@ export const Home = () => {
 							}}
 						/>
 					</label>
+				</section>
+				<section
+					className="flex flex-col items-center gap-3"
+					aria-labelledby="fixture-permanent-upload-title"
+				>
+					<h2 className="font-display text-lg" id="fixture-permanent-upload-title">
+						Permanent upload
+					</h2>
+					<StatusMessage tone={uploadTones[permanentUpload.status]}>
+						{permanentUploadMessage}
+					</StatusMessage>
+					<label className="flex flex-col items-center gap-1">
+						<span>Choose a permanent file to upload</span>
+						<input
+							type="file"
+							accept="image/png"
+							onChange={(event) => {
+								const file = event.target.files?.[0];
+								if (file === undefined) {
+									return;
+								}
+								setPermanentAsset(undefined);
+								setPermanentUploadName(file.name);
+								permanentCleanup.reset();
+								permanentUpload.mutate({ file, onUploaded: setPermanentAsset });
+							}}
+						/>
+					</label>
+					{permanentAsset === undefined ? null : (
+						<>
+							<ManagedAssetProvider assets={[permanentAsset]}>
+								<PermanentUploadImage asset={permanentAsset} />
+							</ManagedAssetProvider>
+							<Button
+								variant="secondary"
+								disabled={permanentCleanup.isPending}
+								onClick={() =>
+									permanentCleanup.mutate({
+										asset: permanentAsset,
+										onCleaned: (status) => {
+											if (status === "deleted" || status === "missing") {
+												setPermanentAsset(undefined);
+											}
+										},
+									})
+								}
+							>
+								Remove permanent upload
+							</Button>
+						</>
+					)}
+					{permanentCleanup.status === "idle" ? null : (
+						<StatusMessage tone={uploadTones[permanentCleanup.status]}>
+							{permanentCleanupMessage}
+						</StatusMessage>
+					)}
 				</section>
 				<PluginLink to={fixtureRoute("/details/item-1", { tab: "stats" })}>
 					Item 1 details
