@@ -10,6 +10,7 @@ import {
 	createEntity,
 	createEventSchema,
 	createPluginSchema,
+	createRelationshipSchema,
 	createPluginSchemaAndEntity,
 	createRelationship,
 	executeRyotQL,
@@ -231,7 +232,16 @@ describe("POST /user-state/merge", () => {
 			const { client } = yield* createAuthenticatedClient();
 			const entitySchemaSlug = `merge-schema-${crypto.randomUUID()}`;
 			const eventSchemaSlug = `merged-event-${crypto.randomUUID()}`;
-			const { reference } = yield* createPluginSchema(client, { slug: entitySchemaSlug });
+			const { reference, pluginSlug } = yield* createPluginSchema(client, {
+				slug: entitySchemaSlug,
+			});
+			const relatedSchema = yield* createRelationshipSchema(client, {
+				pluginSlug,
+				slug: "merge-related",
+				name: "Merge related",
+				sourceEntitySchemaSlug: entitySchemaSlug,
+				targetEntitySchemaSlug: entitySchemaSlug,
+			});
 			const ownerPluginId =
 				reference.owner.kind === "plugin" ? reference.owner.pluginId : undefined;
 			assertPresent(ownerPluginId, "User schema must have a plugin owner");
@@ -255,7 +265,6 @@ describe("POST /user-state/merge", () => {
 				entitySchema: reference,
 				properties: { title: "Related" },
 			});
-			const mediaSuggestionSchema = yield* mediaSuggestionSchemaReference(client);
 			const queryCounts = (entityId: string) =>
 				queryUserEntityStateCounts({
 					client,
@@ -265,7 +274,7 @@ describe("POST /user-state/merge", () => {
 					owner: { kind: "local", pluginId: ownerPluginId },
 					relationships: [
 						{
-							schema: "media-suggestion",
+							schema: relatedSchema.slug,
 							targetSchema: entitySchemaSlug,
 							sourceSchema: entitySchemaSlug,
 						},
@@ -283,13 +292,13 @@ describe("POST /user-state/merge", () => {
 				client,
 				sourceEntityId: source.id,
 				targetEntityId: related.id,
-				relationshipSchema: mediaSuggestionSchema,
+				relationshipSchema: relatedSchema.reference,
 			});
 			yield* insertUserRelationship({
 				client,
 				sourceEntityId: target.id,
 				targetEntityId: related.id,
-				relationshipSchema: mediaSuggestionSchema,
+				relationshipSchema: relatedSchema.reference,
 			});
 			yield* pollUntil(
 				"source event setup",

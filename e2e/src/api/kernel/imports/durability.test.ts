@@ -1,5 +1,5 @@
 import { pluginConfigEnvironmentKey } from "@ryot-app/contract/modules/plugins/plugin-config";
-import { EntitySchemaSlug, ImportRunId, PluginPackageId } from "@ryot-app/contract/schema/brands";
+import { EntitySchemaSlug, ImportRunId } from "@ryot-app/contract/schema/brands";
 import { Effect } from "effect";
 import getPort from "get-port";
 
@@ -15,6 +15,7 @@ import {
 	sendDataWebhook,
 	testPluginManifest,
 	type Client,
+	testPluginPackageId,
 } from "~/fixtures/kernel";
 import { describe, expect, it } from "~/support/effect-test";
 import {
@@ -214,9 +215,7 @@ describe("isolated import durability", () => {
 				const baseUrl = `${origin}/api`;
 				const suffix = crypto.randomUUID();
 				const pluginSlug = `e2e-import-durability-${suffix}`;
-				const pluginPackageId = PluginPackageId.make(
-					`e2e-import-durability-${crypto.randomUUID()}`,
-				);
+				const pluginPackageId = testPluginPackageId();
 				const sourceSlug = `e2e_import_durability_${suffix.replaceAll("-", "_")}`;
 				const workflowSlug = `durable-import-${suffix}`;
 				const workflowScriptSlug = `workflow.e2e-durable-import-${suffix}`;

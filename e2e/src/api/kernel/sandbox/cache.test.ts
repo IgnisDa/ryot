@@ -12,7 +12,12 @@ import {
 	requireCompletedSandboxValue,
 	uninstallTestPlugin,
 } from "~/fixtures/kernel";
-import { assertPresent, requireArray, requireObjectRecord } from "~/support/assertions";
+import {
+	assertPresent,
+	assertTaggedError,
+	requireArray,
+	requireObjectRecord,
+} from "~/support/assertions";
 import { describe, expect, it } from "~/support/effect-test";
 
 const providerCacheSource = (input: {
@@ -267,16 +272,20 @@ describe("sandbox cache functions", () => {
 			expect(sharedItem.title).toBe(cachedValue);
 			expect(yield* readProviderCache(userIdB, otherProviderReaderScriptId)).toEqual([]);
 
-			const foreignUserResult = yield* runProviderCache(userIdB, readerScriptId);
-			const foreignProviderResult = yield* runProviderCache(userIdA, otherProviderReaderScriptId);
-			expect(foreignUserResult).toMatchObject({
-				status: "failed",
-				error: expect.stringContaining("plugin owner does not match execution user"),
-			});
-			expect(foreignProviderResult).toMatchObject({
-				status: "failed",
-				error: expect.stringContaining("plugin owner does not match execution user"),
-			});
+			for (const [userId, scriptId] of [
+				[userIdB, readerScriptId],
+				[userIdA, otherProviderReaderScriptId],
+			] as const) {
+				const failure = yield* Effect.flip(
+					enqueueSandboxScript(userId, {
+						scriptId,
+						lane: "interactive",
+						context: { page: 1, pageSize: 1, query: "cache" },
+					}),
+				);
+				assertTaggedError(failure, "TestSupportNotFound");
+				expect(failure.reason.code).toBe("resource-not-found");
+			}
 		}),
 	);
 });
