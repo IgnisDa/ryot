@@ -54,15 +54,16 @@ const contrastRatio = (palette: Map<string, string>, foreground: string, backgro
 const readableSurfaces = ["--bg", "--surface", "--surface-2", "--raised"] as const;
 
 const textPairs = [
-	["--info", readableSurfaces],
-	["--danger", readableSurfaces],
+	["--info", [...readableSurfaces, "--info-soft"]],
+	["--danger", [...readableSurfaces, "--danger-soft"]],
 	["--accent-ink", ["--accent"]],
 	["--text-subtle", readableSurfaces],
+	["--warning", [...readableSurfaces, "--warning-soft"]],
 	["--danger-ink", ["--danger-solid"]],
 	["--text-muted", [...readableSurfaces, "--accent-soft"]],
 	["--success", [...readableSurfaces, "--success-soft"]],
 	["--accent-text", [...readableSurfaces, "--accent-soft"]],
-	["--text", [...readableSurfaces, "--accent-soft", "--success-soft"]],
+	["--text", [...readableSurfaces, "--accent-soft", "--success-soft", "--danger-soft"]],
 ] as const;
 
 const boundaryPairs = [
