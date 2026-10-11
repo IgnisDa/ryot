@@ -3,7 +3,7 @@ import { useId, type ReactNode, type RefObject } from "react";
 
 import { IconButton } from "./button";
 import { AppIcon } from "./icon";
-import { Modal } from "./modal";
+import { Modal, useModalClose } from "./modal";
 
 const sizeClasses = { sm: "max-w-sm", md: "max-w-md", lg: "max-w-2xl" } as const;
 
@@ -20,6 +20,25 @@ const panelClasses = {
 } as const;
 
 const defaultCloseIcon = <AppIcon name="x" size={18} />;
+
+function CloseButton(props: {
+	readonly label: string;
+	readonly disabled: boolean;
+	readonly children: ReactNode;
+}) {
+	const close = useModalClose();
+	return (
+		<IconButton
+			size="sm"
+			label={props.label}
+			className="-mt-1 -mr-2"
+			onClick={() => close()}
+			disabled={props.disabled}
+		>
+			{props.children}
+		</IconButton>
+	);
+}
 
 export function Dialog(props: {
 	readonly title: string;
@@ -84,19 +103,9 @@ export function Dialog(props: {
 					)}
 				</div>
 				{closeIcon !== null && (
-					<IconButton
-						size="sm"
-						className="-mt-1 -mr-2"
-						label={props.closeLabel}
-						disabled={props.dismissible === false}
-						onClick={() => {
-							if (props.onInterceptBack?.() !== true) {
-								props.onClose();
-							}
-						}}
-					>
+					<CloseButton label={props.closeLabel} disabled={props.dismissible === false}>
 						{closeIcon}
-					</IconButton>
+					</CloseButton>
 				)}
 			</header>
 			{props.children !== undefined && (

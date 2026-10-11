@@ -9,6 +9,10 @@ import { Children, isValidElement, type ComponentProps, type ReactNode } from "r
 
 export const motionTransition = { duration: 0.2, ease: [0.2, 0.7, 0.2, 1] } satisfies Transition;
 
+export function useMotionTransition(): Transition {
+	return useReducedMotion() === true ? { duration: 0 } : motionTransition;
+}
+
 export function MotionPresence({ children }: { readonly children: ReactNode }) {
 	return (
 		<AnimatePresence propagate initial={false}>
@@ -20,23 +24,23 @@ export function MotionPresence({ children }: { readonly children: ReactNode }) {
 export function MotionScrollRoot(
 	props: Pick<ComponentProps<typeof motion.div>, "children" | "ref" | "style" | "className">,
 ) {
-	return <motion.div layoutScroll data-motion-scroll-root {...props} />;
+	return <motion.div layoutScroll data-scroll-root {...props} />;
 }
 
 function ListItem({ children }: { readonly children: ReactNode }) {
 	const present = useIsPresent();
-	const reduced = useReducedMotion();
+	const transition = useMotionTransition();
 	return (
 		<motion.div
 			inert={!present}
 			layout="position"
+			transition={transition}
 			initial={{ opacity: 0 }}
 			animate={{ opacity: 1 }}
 			exit={{ height: 0, opacity: 0 }}
 			aria-hidden={present ? undefined : true}
 			style={present ? {} : { overflow: "hidden" }}
 			className="min-w-0 motion-reduce:transform-none"
-			transition={reduced ? { duration: 0 } : motionTransition}
 		>
 			{children}
 		</motion.div>
@@ -56,16 +60,16 @@ export function MotionList(props: { readonly children: ReactNode; readonly class
 }
 
 function CollapseContent(props: { readonly children: ReactNode; readonly swap?: boolean }) {
-	const reduced = useReducedMotion();
+	const transition = useMotionTransition();
 	const present = useIsPresent();
 	return (
 		<motion.div
 			inert={!present}
 			aria-hidden={!present}
+			transition={transition}
 			exit={{ height: 0, opacity: 0 }}
 			initial={{ height: 0, opacity: 0 }}
 			animate={{ opacity: 1, height: "auto" }}
-			transition={reduced ? { duration: 0 } : motionTransition}
 			className="min-w-0 overflow-hidden motion-reduce:transform-none"
 			style={props.swap && !present ? { inset: 0, position: "absolute" } : {}}
 		>
@@ -94,6 +98,6 @@ export function MotionSwap(props: { readonly stateKey: string; readonly children
 	);
 }
 
-export function useMotionPreference() {
+export function usePrefersReducedMotion() {
 	return useReducedMotion() === true;
 }

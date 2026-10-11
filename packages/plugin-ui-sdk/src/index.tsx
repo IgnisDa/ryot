@@ -12,7 +12,7 @@ export {
 	MotionPresence,
 	MotionScrollRoot,
 	MotionSwap,
-	useMotionPreference,
+	usePrefersReducedMotion,
 } from "./motion";
 export { ActionDock } from "./action-dock";
 export { ProgressBar } from "./progress-bar";
@@ -29,7 +29,7 @@ export { Select } from "./select";
 export { StatusMessage } from "./status-message";
 export type { MenuItem } from "./menu";
 export { useFieldEscape } from "./field-escape";
-export { useFocusedFieldVisibility } from "./focused-field";
+export { revealOffset, useFocusedFieldVisibility } from "./focused-field";
 export { useValueChange } from "./value-change";
 export { RadioGroup } from "./radio-group";
 export { MultiSelect } from "./multi-select";
@@ -42,7 +42,13 @@ export { SegmentedControl } from "./segmented-control";
 export { DestructiveConfirmation } from "./destructive-confirmation";
 export { ScreenBarButton, ScreenFrame } from "./screen-frame";
 export type { MultiSelectChoice } from "./multi-select";
-export { useFocusTrap, useScrollLock, useRestoreFocus, useDismissOnOutside } from "./overlay";
+export {
+	editableSelector,
+	useDismissOnOutside,
+	useFocusTrap,
+	useRestoreFocus,
+	useScrollLock,
+} from "./overlay";
 export { OverlayBackProvider, OverlayScope, useShortcut } from "./shortcut";
 export type { OverlayBackAdapter } from "./shortcut";
 export type { Hotkey, RegisterableHotkey } from "@tanstack/react-hotkeys";

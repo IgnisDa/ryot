@@ -1,12 +1,21 @@
 import clsx from "clsx";
 import { motion, useDragControls, useIsPresent, useReducedMotion } from "motion/react";
-import { useEffect, useLayoutEffect, useRef, type ReactNode, type RefObject } from "react";
+import {
+	createContext,
+	useContext,
+	useEffect,
+	useLayoutEffect,
+	useRef,
+	type ReactNode,
+	type RefObject,
+} from "react";
 import { createPortal } from "react-dom";
 
 import { revealFocusedField } from "./focused-field";
-import { motionTransition } from "./motion";
+import { useMotionTransition } from "./motion";
 import {
 	focusableElements,
+	interactiveSelector,
 	useFocusTrap,
 	useInertBackground,
 	useRestoreFocus,
@@ -31,6 +40,10 @@ type ModalProps = {
 	readonly placement?: "center" | "sheet" | "side";
 };
 
+const ModalClose = createContext<() => boolean>(() => false);
+
+export const useModalClose = () => useContext(ModalClose);
+
 export const shouldDismissSheet = (offset: number, velocity: number, height: number) =>
 	offset >= Math.min(120, height * 0.25) || (offset > 24 && velocity > 600);
 
@@ -54,6 +67,7 @@ export function Modal({
 	const fallbackTriggerRef = useRef<HTMLElement | null>(null);
 	const present = useIsPresent();
 	const reduced = useReducedMotion();
+	const transition = useMotionTransition();
 	const dragControls = useDragControls();
 	const draggable = placement === "sheet" && dismissible && present;
 	const hidden = {
@@ -103,10 +117,10 @@ export function Modal({
 					type="button"
 					exit={{ opacity: 0 }}
 					aria-label={closeLabel}
+					transition={transition}
 					initial={{ opacity: 0 }}
 					animate={{ opacity: 1 }}
 					onClick={() => requestClose()}
-					transition={reduced ? { duration: 0 } : motionTransition}
 					className={clsx(
 						"absolute inset-0 motion-reduce:transform-none",
 						scrimClassName ?? "bg-overlay",
@@ -123,13 +137,13 @@ export function Modal({
 					aria-label={label}
 					dragListener={false}
 					dragMomentum={false}
+					transition={transition}
 					dragControls={dragControls}
 					aria-labelledby={labelledBy}
 					drag={draggable ? "y" : false}
 					dragElastic={{ top: 0, bottom: 1 }}
 					animate={{ x: 0, y: 0, opacity: 1 }}
 					dragConstraints={{ top: 0, bottom: 0 }}
-					transition={reduced ? { duration: 0 } : motionTransition}
 					className={clsx("relative motion-reduce:transition-none", className)}
 					onAnimationComplete={() => {
 						if (present) {
@@ -153,14 +167,14 @@ export function Modal({
 							event.button === 0 &&
 							event.target instanceof HTMLElement &&
 							event.target.closest("[data-sheet-drag-region]") !== null &&
-							event.target.closest("button, input, textarea, a, select, [contenteditable]") === null
+							event.target.closest(interactiveSelector) === null
 						) {
 							dragControls.start(event);
 							window.getSelection()?.removeAllRanges();
 						}
 					}}
 				>
-					{children}
+					<ModalClose value={requestClose}>{children}</ModalClose>
 				</motion.div>
 			</div>
 		</OverlayScope>,

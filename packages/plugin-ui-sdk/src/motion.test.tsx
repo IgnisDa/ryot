@@ -20,7 +20,7 @@ function Example() {
 						closeLabel="Close editor"
 						onClose={() => setParent(false)}
 					>
-						<button onClick={() => setChild(true)}>Delete set</button>
+						<button onClick={() => setChild(true)}>Delete item</button>
 					</Dialog>
 				) : null}
 				{child ? (
@@ -46,7 +46,7 @@ function Example() {
 }
 
 describe("shared motion lifecycle", () => {
-	it.live("replaces timer content without retaining interactive stale controls", () =>
+	it.live("replaces swapped content without retaining interactive stale controls", () =>
 		Effect.gen(function* () {
 			const view = render(
 				<MotionSwap stateKey="idle">
@@ -55,11 +55,11 @@ describe("shared motion lifecycle", () => {
 			);
 			view.rerender(
 				<MotionSwap stateKey="rest">
-					<button>Start rest</button>
+					<button>Confirm</button>
 				</MotionSwap>,
 			);
 			yield* Effect.promise(() =>
-				waitFor(() => expect(screen.getByRole("button", { name: "Start rest" })).toBeTruthy()),
+				waitFor(() => expect(screen.getByRole("button", { name: "Confirm" })).toBeTruthy()),
 			);
 			expect(screen.queryByRole("button", { name: "Idle" })).toBeNull();
 		}),
@@ -69,18 +69,16 @@ describe("shared motion lifecycle", () => {
 		Effect.gen(function* () {
 			const view = render(
 				<Collapse open>
-					<button>Set options</button>
+					<button>Options</button>
 				</Collapse>,
 			);
 			view.rerender(
 				<Collapse open={false}>
-					<button>Set options</button>
+					<button>Options</button>
 				</Collapse>,
 			);
-			expect(screen.queryByRole("button", { name: "Set options" })).toBeNull();
-			yield* Effect.promise(() =>
-				waitFor(() => expect(screen.queryByText("Set options")).toBeNull()),
-			);
+			expect(screen.queryByRole("button", { name: "Options" })).toBeNull();
+			yield* Effect.promise(() => waitFor(() => expect(screen.queryByText("Options")).toBeNull()));
 		}),
 	);
 
@@ -93,7 +91,7 @@ describe("shared motion lifecycle", () => {
 				const trigger = screen.getByRole("button", { name: "Open editor" });
 				trigger.focus();
 				fireEvent.click(trigger);
-				fireEvent.click(screen.getByRole("button", { name: "Delete set" }));
+				fireEvent.click(screen.getByRole("button", { name: "Delete item" }));
 				fireEvent.click(screen.getByRole("button", { name: "Confirm" }));
 				expect(document.body.style.overflow).toBe("hidden");
 				yield* Effect.promise(() =>
