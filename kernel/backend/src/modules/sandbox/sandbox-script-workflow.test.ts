@@ -29,6 +29,7 @@ import {
 	pinSandboxJournal,
 } from "#lib/infrastructure/sandbox-journal-store";
 import { SandboxArtifactStore } from "#lib/infrastructure/sandbox-runtime/artifacts";
+import type { SandboxExecutionPrincipal } from "#lib/infrastructure/sandbox-runtime/execution-principal";
 import { SandboxService as RuntimeSandboxService } from "#lib/infrastructure/sandbox-runtime/service";
 import { appendWorkflowJournalWithRedis } from "#lib/infrastructure/sandbox-runtime/workflow-journal";
 import { readPinnedJournal } from "#lib/infrastructure/sandbox-runtime/workflow-journal.test-support";
@@ -45,7 +46,6 @@ import { testExecutionId, testRedisClient } from "#lib/test-utils/redis";
 import { makeUserPrincipal, makeUserSubject } from "#lib/test-utils/sandbox-run-input";
 import { stubRuntimeSandboxService } from "#lib/test-utils/sandbox-runtime";
 import { fixtureManifest } from "#modules/plugins/test-support";
-import type { SandboxExecutionPrincipal } from "#lib/infrastructure/sandbox-runtime/execution-principal";
 
 import { SandboxDurableHostDispatcher } from "./durable-host-dispatcher";
 import {
@@ -1154,31 +1154,40 @@ const inlineWorkflowLayer = (executionId: string, principal?: SandboxExecutionPr
 					Layer.mock(SandboxRepository)({
 						resolveWorkflowCallScript: () => Effect.succeed(null),
 						getScriptPin: () =>
-							Effect.succeed(principal?.pluginRevision ? {
-								providerId: null,
-								pluginRevision: principal.pluginRevision,
-								scriptSlug: principal.scriptSlug,
-								scriptId: principal.scriptId,
-								contentHash: principal.contentHash,
-								metadata: principal.metadata,
-								...(principal.initialization ? { initialization: principal.initialization } : {}),
-							} : {
-								providerId: null,
-								pluginRevision: null,
-								scriptSlug: "inline",
-								scriptId: inlineScriptId,
-								contentHash: "inline-hash",
-								metadata: {
-									kind: "operation",
-									runtimeImports: [],
-									capabilities: ["getCachedValue", "setCachedValue"],
-								},
-							}),
+							Effect.succeed(
+								principal?.pluginRevision
+									? {
+											providerId: null,
+											scriptId: principal.scriptId,
+											metadata: principal.metadata,
+											scriptSlug: principal.scriptSlug,
+											contentHash: principal.contentHash,
+											pluginRevision: principal.pluginRevision,
+											...(principal.initialization
+												? { initialization: principal.initialization }
+												: {}),
+										}
+									: {
+											providerId: null,
+											pluginRevision: null,
+											scriptSlug: "inline",
+											scriptId: inlineScriptId,
+											contentHash: "inline-hash",
+											metadata: {
+												kind: "operation",
+												runtimeImports: [],
+												capabilities: ["getCachedValue", "setCachedValue"],
+											},
+										},
+							),
 					}),
 					Layer.mock(SandboxWorkflowReferenceRepository)({
-						release: () => calls.record("references-released", executionId),
 						lockIngestionShared: () => Effect.void,
-						registerInTransaction: () => calls.record("references-retained", executionId).pipe(Effect.as({ status: "registered" as const })),
+						release: () => calls.record("references-released", executionId),
+						registerInTransaction: () =>
+							calls
+								.record("references-retained", executionId)
+								.pipe(Effect.as({ status: "registered" as const })),
 					}),
 				);
 			}),
@@ -1229,58 +1238,174 @@ const runInlineWorkflow = <R>(
 
 const retainedUserSubject = makeUserSubject(UserId.make("user-1"));
 const retainedUserPrincipal = makeUserPrincipal({
-	subject: retainedUserSubject,
-	scriptId: inlineScriptId,
 	scriptSlug: "inline",
+	scriptId: inlineScriptId,
 	contentHash: "inline-hash",
-	metadata: { kind: "operation", runtimeImports: [], capabilities: ["getCachedValue", "setCachedValue"] },
+	subject: retainedUserSubject,
 	pluginRevision: { ...pluginRevision, scope: "user", ownerId: retainedUserSubject.userId },
+	metadata: {
+		kind: "operation",
+		runtimeImports: [],
+		capabilities: ["getCachedValue", "setCachedValue"],
+	},
 });
 
 for (const code of ["package-identity-conflict", "installation-unavailable"] as const) {
 	for (const mode of ["execution", "workflow"] as const) {
 		const executionId = testExecutionId(`retained-user-${code}-${mode}`);
 		layer(inlineWorkflowLayer(executionId, retainedUserPrincipal))((test) => {
-			test.effect(`${mode} mode retains typed ${code} after admitted replay without changing recorded results`, () => Effect.gen(function* () {
-				const calls = yield* WorkflowTestCalls;
-				const data = { code, pluginId: pluginRevision.id, installationId: "private-installation" };
-				const failure = new SandboxRunError({ kind: "script-failure", message: "Sandbox installation is unavailable", data });
-				const replay = (input: SandboxExecutionQueuePayload) => input.journalLength === 0 ? Effect.succeed(firstInlineReplay) : Effect.fail(failure);
-				const run = runSandboxScriptWorkflowBody({ input: {}, executionId, lane: "interactive", resolutionMode: "exact", scriptId: inlineScriptId, subject: retainedUserSubject, ...(mode === "execution" ? { resultMode: "execution" as const } : {}) }, executionId, replay);
-				if (mode === "execution") {
-					expect(yield* run).toEqual({ logs: [], value: null, status: "completed", error: { kind: "resource-unavailable", phase: "execute", message: failure.message, data } });
-				} else {
-					assertExitFails(yield* Effect.exit(run), failure);
-				}
-				expect(yield* calls.entries("dispatched")).toEqual([1]);
-				expect(yield* calls.entries("references-retained")).toEqual([executionId]);
-				expect(yield* calls.entries("references-released")).toEqual([executionId]);
-				expect(yield* calls.entries("artifact-released")).toEqual([executionId]);
-				const redis = yield* RedisService;
-				const inspection = yield* inspectSandboxJournal(redis, executionId, 2);
-				assert(inspection !== null);
-				expect(yield* readPinnedJournal(pinSandboxJournal(redis, executionId, inspection))).toEqual([cachedEntry(inlineFirst), { request: inlineSecond, value: { value: "written", state: "success" } }]);
-			}));
+			test.effect(
+				`${mode} mode retains typed ${code} after admitted replay without changing recorded results`,
+				() =>
+					Effect.gen(function* () {
+						const calls = yield* WorkflowTestCalls;
+						const data = {
+							code,
+							pluginId: pluginRevision.id,
+							installationId: "private-installation",
+						};
+						const failure = new SandboxRunError({
+							data,
+							kind: "script-failure",
+							message: "Sandbox installation is unavailable",
+						});
+						const replay = (input: SandboxExecutionQueuePayload) =>
+							input.journalLength === 0 ? Effect.succeed(firstInlineReplay) : Effect.fail(failure);
+						const run = runSandboxScriptWorkflowBody(
+							{
+								input: {},
+								executionId,
+								lane: "interactive",
+								resolutionMode: "exact",
+								scriptId: inlineScriptId,
+								subject: retainedUserSubject,
+								...(mode === "execution" ? { resultMode: "execution" as const } : {}),
+							},
+							executionId,
+							replay,
+						);
+						if (mode === "execution") {
+							expect(yield* run).toEqual({
+								logs: [],
+								value: null,
+								status: "completed",
+								error: {
+									data,
+									phase: "execute",
+									message: failure.message,
+									kind: "resource-unavailable",
+								},
+							});
+						} else {
+							assertExitFails(yield* Effect.exit(run), failure);
+						}
+						expect(yield* calls.entries("dispatched")).toEqual([1]);
+						expect(yield* calls.entries("references-retained")).toEqual([executionId]);
+						expect(yield* calls.entries("references-released")).toEqual([executionId]);
+						expect(yield* calls.entries("artifact-released")).toEqual([executionId]);
+						const redis = yield* RedisService;
+						const inspection = yield* inspectSandboxJournal(redis, executionId, 2);
+						assert(inspection !== null);
+						expect(
+							yield* readPinnedJournal(pinSandboxJournal(redis, executionId, inspection)),
+						).toEqual([
+							cachedEntry(inlineFirst),
+							{ request: inlineSecond, value: { value: "written", state: "success" } },
+						]);
+					}),
+			);
 		});
 	}
 }
 
-for (const kind of ["infrastructure", "missing-artifact", "invalid-input", "resource-unavailable"] as const) {
+for (const kind of [
+	"infrastructure",
+	"missing-artifact",
+	"invalid-input",
+	"resource-unavailable",
+] as const) {
 	const executionId = testExecutionId(`execution-mode-unchanged-${kind}`);
 	layer(inlineWorkflowLayer(executionId, retainedUserPrincipal))((test) => {
-		test.effect(`execution mode still fails for ${kind} without installation revocation data`, () => Effect.gen(function* () {
-			const failure = new SandboxRunError({ kind, message: `Unchanged ${kind} failure`, ...(kind === "resource-unavailable" ? { data: { code: "execution-limit" as const, operation: "httpCall" } } : {}) });
-			assertExitFails(yield* Effect.exit(runSandboxScriptWorkflowBody({ input: {}, executionId, lane: "interactive", resolutionMode: "exact", resultMode: "execution", scriptId: inlineScriptId, subject: retainedUserSubject }, executionId, () => Effect.fail(failure))), failure);
-		}));
+		test.effect(`execution mode still fails for ${kind} without installation revocation data`, () =>
+			Effect.gen(function* () {
+				const failure = new SandboxRunError({
+					kind,
+					message: `Unchanged ${kind} failure`,
+					...(kind === "resource-unavailable"
+						? { data: { operation: "httpCall", code: "execution-limit" as const } }
+						: {}),
+				});
+				assertExitFails(
+					yield* Effect.exit(
+						runSandboxScriptWorkflowBody(
+							{
+								input: {},
+								executionId,
+								lane: "interactive",
+								resolutionMode: "exact",
+								resultMode: "execution",
+								scriptId: inlineScriptId,
+								subject: retainedUserSubject,
+							},
+							executionId,
+							() => Effect.fail(failure),
+						),
+					),
+					failure,
+				);
+			}),
+		);
 	});
 }
 
 const returnedRevocationId = testExecutionId("returned-replay-revocation");
 layer(inlineWorkflowLayer(returnedRevocationId, retainedUserPrincipal))((test) => {
-	test.effect("preserves boundary data on an execution error returned by the replay", () => Effect.gen(function* () {
-		const data = { code: "package-identity-conflict", pluginId: pluginRevision.id, installationId: "private-installation" } as const;
-		expect(yield* runSandboxScriptWorkflowBody({ input: {}, executionId: returnedRevocationId, lane: "interactive", resolutionMode: "exact", resultMode: "execution", scriptId: inlineScriptId, subject: retainedUserSubject }, returnedRevocationId, () => Effect.succeed({ ...replayBase, inline: [], pendingInline: [], value: null, error: { phase: "execute", kind: "script-failure", message: "Sandbox installation is unavailable", data } }))).toEqual({ logs: [], value: null, status: "completed", error: { phase: "execute", kind: "resource-unavailable", message: "Sandbox installation is unavailable", data } });
-	}));
+	test.effect("preserves boundary data on an execution error returned by the replay", () =>
+		Effect.gen(function* () {
+			const data = {
+				pluginId: pluginRevision.id,
+				code: "package-identity-conflict",
+				installationId: "private-installation",
+			} as const;
+			expect(
+				yield* runSandboxScriptWorkflowBody(
+					{
+						input: {},
+						lane: "interactive",
+						resolutionMode: "exact",
+						resultMode: "execution",
+						scriptId: inlineScriptId,
+						subject: retainedUserSubject,
+						executionId: returnedRevocationId,
+					},
+					returnedRevocationId,
+					() =>
+						Effect.succeed({
+							...replayBase,
+							inline: [],
+							value: null,
+							pendingInline: [],
+							error: {
+								data,
+								phase: "execute",
+								kind: "script-failure",
+								message: "Sandbox installation is unavailable",
+							},
+						}),
+				),
+			).toEqual({
+				logs: [],
+				value: null,
+				status: "completed",
+				error: {
+					data,
+					phase: "execute",
+					kind: "resource-unavailable",
+					message: "Sandbox installation is unavailable",
+				},
+			});
+		}),
+	);
 });
 
 const inlineIds = {

@@ -277,51 +277,91 @@ export class PluginInstallationService extends Context.Service<PluginInstallatio
 					);
 				},
 			);
-			const savePrivateInstallation = Effect.fn("PluginInstallationService.savePrivateInstallation")(
-				function* (
-					userId: UserId,
-					plugin: StoredPlugin,
-					installation: PluginInstallationRow,
-					values: Pick<Parameters<typeof installations.updateState>[0], "config" | "isHidden" | "sortOrder">,
-				) {
-					const state = yield* installations.updateState({ ...values, id: installation.id });
-					if (!state) {
-						return yield* new PluginNotFoundError({ reason: { pluginId: PluginId.make(plugin.id), code: "plugin-not-found" } });
-					}
-					if (installation.health !== "incompatible") return { id: state.id, lifecycle: null };
-					const activationId = installation.isInitialized
-						? plugin.activationId
-						: yield* repository.rotatePrivateActivation({ pluginId: plugin.id, ownerId: userId, expectedActivationId: plugin.activationId });
-					yield* installations.updateHealth({ id: installation.id, health: installation.isInitialized ? "ready" : "installing", healthReason: null });
-					return { id: state.id, lifecycle: installation.isInitialized ? null : { installationId: state.id, activationId } };
-				},
+			const savePrivateInstallation = Effect.fn(
+				"PluginInstallationService.savePrivateInstallation",
+			)(function* (
+				userId: UserId,
+				plugin: StoredPlugin,
+				installation: PluginInstallationRow,
+				values: Pick<
+					Parameters<typeof installations.updateState>[0],
+					"config" | "isHidden" | "sortOrder"
+				>,
+			) {
+				const state = yield* installations.updateState({ ...values, id: installation.id });
+				if (!state) {
+					return yield* new PluginNotFoundError({
+						reason: { code: "plugin-not-found", pluginId: PluginId.make(plugin.id) },
+					});
+				}
+				if (installation.health !== "incompatible") {
+					return { id: state.id, lifecycle: null };
+				}
+				const activationId = installation.isInitialized
+					? plugin.activationId
+					: yield* repository.rotatePrivateActivation({
+							ownerId: userId,
+							pluginId: plugin.id,
+							expectedActivationId: plugin.activationId,
+						});
+				yield* installations.updateHealth({
+					healthReason: null,
+					id: installation.id,
+					health: installation.isInitialized ? "ready" : "installing",
+				});
+				return {
+					id: state.id,
+					lifecycle: installation.isInitialized ? null : { activationId, installationId: state.id },
+				};
+			});
+			const dispatchRecoveryLifecycle = Effect.fn(
+				"PluginInstallationService.dispatchRecoveryLifecycle",
+			)(
+				(
+					input: NonNullable<
+						Effect.Success<ReturnType<typeof savePrivateInstallation>>["lifecycle"]
+					>,
+				) =>
+					lifecycleDispatcher
+						.dispatch(input)
+						.pipe(
+							Effect.catchCause((cause) =>
+								Effect.logError("plugin initialization recovery dispatch failed", cause),
+							),
+						),
 			);
-			const dispatchRecoveryLifecycle = Effect.fn("PluginInstallationService.dispatchRecoveryLifecycle")(
-				(input: NonNullable<Effect.Success<ReturnType<typeof savePrivateInstallation>>["lifecycle"]>) =>
-					lifecycleDispatcher.dispatch(input).pipe(Effect.catchCause((cause) => Effect.logError("plugin initialization recovery dispatch failed", cause))),
-			);
-			const validateRetainedRecovery = Effect.fn("PluginInstallationService.validateRetainedRecovery")(
-				function* (userId: UserId, selected: Effect.Success<ReturnType<typeof findOwnedInstallation>>) {
-					const { plugin } = selected;
-					const pluginId = PluginId.make(plugin.id);
-					yield* assertPackageAvailable(plugin.manifest, pluginId);
-					const artifacts = yield* repository.listCompiledPackageArtifacts(plugin.id);
-					const source = yield* normalizePluginSource({ manifest: plugin.manifest, ...artifacts });
-					if (source.sourceHash !== plugin.sourceHash) {
-						return yield* new PluginConflictError({ reason: { pluginId, code: "source-revision-stale" } });
-					}
-					const normalized = normalizePluginPackage(source);
-					yield* validatePluginManifestPolicy(normalized.manifest, { scope: "user", systemPackageIds: bundled.packageIds });
-					yield* validatePluginScriptEntries(normalized.manifest);
-					yield* buildEffectiveDefinitions(yield* definitions.getGlobalSnapshot, [
-						...(yield* repository.listPrivateForUser(userId)).filter((candidate) => candidate.id !== plugin.id),
-						{ id: plugin.id, slug: plugin.slug, manifest: normalized.manifest },
-					]);
-					yield* validatePluginManifestReferences(normalized.manifest);
-					yield* validatePluginExecutableScripts(normalized);
-					return normalized;
-				},
-			);
+			const validateRetainedRecovery = Effect.fn(
+				"PluginInstallationService.validateRetainedRecovery",
+			)(function* (
+				userId: UserId,
+				selected: Effect.Success<ReturnType<typeof findOwnedInstallation>>,
+			) {
+				const { plugin } = selected;
+				const pluginId = PluginId.make(plugin.id);
+				yield* assertPackageAvailable(plugin.manifest, pluginId);
+				const artifacts = yield* repository.listCompiledPackageArtifacts(plugin.id);
+				const source = yield* normalizePluginSource({ manifest: plugin.manifest, ...artifacts });
+				if (source.sourceHash !== plugin.sourceHash) {
+					return yield* new PluginConflictError({
+						reason: { pluginId, code: "source-revision-stale" },
+					});
+				}
+				const normalized = normalizePluginPackage(source);
+				yield* validatePluginManifestPolicy(normalized.manifest, {
+					scope: "user",
+					systemPackageIds: bundled.packageIds,
+				});
+				yield* validatePluginScriptEntries(normalized.manifest);
+				yield* buildEffectiveDefinitions(yield* definitions.getGlobalSnapshot, [
+					...(yield* repository.listPrivateForUser(userId)).filter(
+						(candidate) => candidate.id !== plugin.id,
+					),
+					{ id: plugin.id, slug: plugin.slug, manifest: normalized.manifest },
+				]);
+				yield* validatePluginManifestReferences(normalized.manifest);
+				yield* validatePluginExecutableScripts(normalized);
+				return normalized;
+			});
 
 			const provisionSystemInstallations = Effect.fn(
 				"PluginInstallationService.provisionSystemInstallations",
@@ -721,11 +761,16 @@ export class PluginInstallationService extends Context.Service<PluginInstallatio
 											});
 											return { id: currentInstallation.id };
 										}
-										return yield* savePrivateInstallation(input.userId, current, currentInstallation, {
-											config: configResult.success,
-											isHidden: currentInstallation.isHidden,
-											sortOrder: currentInstallation.sortOrder,
-										});
+										return yield* savePrivateInstallation(
+											input.userId,
+											current,
+											currentInstallation,
+											{
+												config: configResult.success,
+												isHidden: currentInstallation.isHidden,
+												sortOrder: currentInstallation.sortOrder,
+											},
+										);
 									}),
 								).pipe(Effect.tap(() => invalidator.user(input.userId))),
 							);
@@ -795,48 +840,86 @@ export class PluginInstallationService extends Context.Service<PluginInstallatio
 				return { id: saved.id, pluginId: PluginId.make(plugin.id) };
 			});
 
-			const updateInstallationPrepared = Effect.fn("PluginInstallationService.updateInstallationPrepared")(
-				function* (userId: UserId, installationId: string, payload: UpdatePluginInstallationBody) {
-					const selected = yield* findOwnedInstallation(userId, installationId);
-					const { plugin, installation } = selected;
-					if (payload.isHidden !== false || plugin.scope !== "user" || installation.health !== "incompatible" || installation.incompatibilityReason !== "package-identity-conflict") {
-						return yield* transaction(userId, updateInstallationUnlocked(userId, installationId, payload)).pipe(Effect.tap(() => invalidator.user(userId)));
-					}
-					const normalized = yield* validateRetainedRecovery(userId, selected);
-					const config = yield* validateConfigPatch(normalized.manifest, installation.config, payload);
-					const updated = yield* Effect.uninterruptible(transaction(userId, Effect.gen(function* () {
-						yield* repository.lockIngestion();
-						yield* installations.assertIngestionActive(userId, installationId);
-						const current = yield* findOwnedInstallation(userId, installationId);
-						const pluginId = PluginId.make(plugin.id);
-						yield* assertPackageAvailable(current.plugin.manifest, pluginId);
-						if (
-							current.plugin.id !== plugin.id || current.plugin.scope !== "user" || current.plugin.packageId !== plugin.packageId ||
-							current.plugin.sourceHash !== plugin.sourceHash || current.plugin.activationId !== plugin.activationId ||
-							current.installation.activeConfigRevisionId !== installation.activeConfigRevisionId ||
-							current.installation.health !== installation.health || current.installation.incompatibilityReason !== installation.incompatibilityReason ||
-							current.installation.isInitialized !== installation.isInitialized ||
-							current.installation.isHidden !== installation.isHidden || current.installation.sortOrder !== installation.sortOrder ||
-							current.installation.updatedAt.getTime() !== installation.updatedAt.getTime() ||
-							!(yield* repository.isActiveRevision({ pluginId: plugin.id, sourceHash: normalized.sourceHash }))
-						) {
-							return yield* new PluginConflictError({ reason: { pluginId, code: "source-revision-stale" } });
-						}
-						yield* validateClientDependencies(normalized, userId);
-						return yield* savePrivateInstallation(userId, current.plugin, current.installation, { config, isHidden: false, sortOrder: payload.sortOrder ?? current.installation.sortOrder });
-					})));
-					yield* invalidator.user(userId);
-					if (updated.lifecycle) yield* dispatchRecoveryLifecycle(updated.lifecycle);
-					return { id: updated.id, pluginId: PluginId.make(plugin.id) };
-				},
-			);
+			const updateInstallationPrepared = Effect.fn(
+				"PluginInstallationService.updateInstallationPrepared",
+			)(function* (userId: UserId, installationId: string, payload: UpdatePluginInstallationBody) {
+				const selected = yield* findOwnedInstallation(userId, installationId);
+				const { plugin, installation } = selected;
+				if (
+					payload.isHidden !== false ||
+					plugin.scope !== "user" ||
+					installation.health !== "incompatible" ||
+					installation.incompatibilityReason !== "package-identity-conflict"
+				) {
+					return yield* transaction(
+						userId,
+						updateInstallationUnlocked(userId, installationId, payload),
+					).pipe(Effect.tap(() => invalidator.user(userId)));
+				}
+				const normalized = yield* validateRetainedRecovery(userId, selected);
+				const config = yield* validateConfigPatch(
+					normalized.manifest,
+					installation.config,
+					payload,
+				);
+				const updated = yield* Effect.uninterruptible(
+					transaction(
+						userId,
+						Effect.gen(function* () {
+							yield* repository.lockIngestion();
+							yield* installations.assertIngestionActive(userId, installationId);
+							const current = yield* findOwnedInstallation(userId, installationId);
+							const pluginId = PluginId.make(plugin.id);
+							yield* assertPackageAvailable(current.plugin.manifest, pluginId);
+							if (
+								current.plugin.id !== plugin.id ||
+								current.plugin.scope !== "user" ||
+								current.plugin.packageId !== plugin.packageId ||
+								current.plugin.sourceHash !== plugin.sourceHash ||
+								current.plugin.activationId !== plugin.activationId ||
+								current.installation.activeConfigRevisionId !==
+									installation.activeConfigRevisionId ||
+								current.installation.health !== installation.health ||
+								current.installation.incompatibilityReason !== installation.incompatibilityReason ||
+								current.installation.isInitialized !== installation.isInitialized ||
+								current.installation.isHidden !== installation.isHidden ||
+								current.installation.sortOrder !== installation.sortOrder ||
+								current.installation.updatedAt.getTime() !== installation.updatedAt.getTime() ||
+								!(yield* repository.isActiveRevision({
+									pluginId: plugin.id,
+									sourceHash: normalized.sourceHash,
+								}))
+							) {
+								return yield* new PluginConflictError({
+									reason: { pluginId, code: "source-revision-stale" },
+								});
+							}
+							yield* validateClientDependencies(normalized, userId);
+							return yield* savePrivateInstallation(userId, current.plugin, current.installation, {
+								config,
+								isHidden: false,
+								sortOrder: payload.sortOrder ?? current.installation.sortOrder,
+							});
+						}),
+					),
+				);
+				yield* invalidator.user(userId);
+				if (updated.lifecycle) {
+					yield* dispatchRecoveryLifecycle(updated.lifecycle);
+				}
+				return { id: updated.id, pluginId: PluginId.make(plugin.id) };
+			});
 			const updateInstallation = Effect.fn("PluginInstallationService.updateInstallation")(
 				(userId: UserId, installationId: string, payload: UpdatePluginInstallationBody) =>
 					updateInstallationPrepared(userId, installationId, payload).pipe(
 						Effect.map((value) => ({ value, found: true as const })),
-						Effect.catchTag("PluginNotFoundError", (error) => Effect.succeed({ error, found: false as const })),
+						Effect.catchTag("PluginNotFoundError", (error) =>
+							Effect.succeed({ error, found: false as const }),
+						),
 						structurePluginFailure,
-						Effect.flatMap((result) => result.found ? Effect.succeed(result.value) : Effect.fail(result.error)),
+						Effect.flatMap((result) =>
+							result.found ? Effect.succeed(result.value) : Effect.fail(result.error),
+						),
 					),
 			);
 
