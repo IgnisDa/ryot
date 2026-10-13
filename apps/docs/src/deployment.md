@@ -145,22 +145,17 @@ See the [Ryot one-click deployment page on the Cloudzy Marketplace](https://clou
 
 ## Pethost
 
-[Pethost](https://pethost.dev) runs the [docker compose](./index.md#installation) file as
-it is and serves Ryot over HTTPS at an address under your account's domain.
+[Pethost](https://pethost.dev) has a one-click template for Ryot:
+[Deploy Ryot on Pethost](https://console.pethost.dev/?template=ryot).
 
-1. Install the [pethost CLI](https://pethost.dev/docs/cli/).
+The template starts Ryot and PostgreSQL, generates `SERVER_ADMIN_ACCESS_TOKEN` and the
+database password, sets `FRONTEND_URL`, and serves Ryot over HTTPS at an address under your
+account's domain.
 
-2. Save the compose file in a folder named `ryot`. Set `FRONTEND_URL` to
-   `https://ryot.<your-domain>` (`pethost machine` prints your domain) and
-   `SERVER_ADMIN_ACCESS_TOKEN` to a long random string.
+Open the address and create your first user via the web interface's registration page. For
+a private instance, then add `USERS_ALLOW_REGISTRATION=false` to the project's `.env` and
+deploy again to stop new sign-ups.
 
-3. Deploy the folder. The command prints the address once Ryot answers.
-   ```bash
-   pethost deploy
-   ```
-
-4. Open the address and create your first user via the web interface's registration page.
-
-The database's volume is kept across deploys and is part of the nightly backups. The
-[step-by-step guide](https://pethost.dev/blog/self-host-ryot/) shows each screen and an
-update to a newer release.
+The database's volume is kept across deploys and is part of the nightly backups. To deploy
+the [docker compose](./index.md#installation) file from a terminal instead, see the
+[step-by-step guide](https://pethost.dev/blog/self-host-ryot/).
