@@ -65,6 +65,13 @@ pub struct OidcAuthorizationSessionValue {
 
 #[skip_serializing_none]
 #[derive(Clone, Hash, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct EpisodeExternalIdsCacheInput {
+    pub imdb_id: Option<String>,
+    pub tvdb_id: Option<String>,
+}
+
+#[skip_serializing_none]
+#[derive(Clone, Hash, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct MediaTranslationInProgressCacheInput {
     pub language: String,
     pub entity_id: String,
@@ -107,6 +114,7 @@ pub enum ApplicationCacheKey {
     TmdbMultiSearch(MetadataLookupCacheInput),
     TmdbEpisodeShowId(String),
     TvdbEpisodeShowId(String),
+    TmdbEpisodeShowIdByExternalIds(EpisodeExternalIdsCacheInput),
     UserTwoFactorSetup(UserLevelCacheKey<()>),
     UserCollectionsList(UserLevelCacheKey<()>),
     UserPersonDetails(UserLevelCacheKey<String>),
@@ -179,6 +187,7 @@ pub enum ApplicationCacheValue {
     TmdbMultiSearch(Vec<TmdbMetadataLookupResult>),
     TmdbEpisodeShowId(Option<String>),
     TvdbEpisodeShowId(Option<String>),
+    TmdbEpisodeShowIdByExternalIds(String),
     MetadataGroupDetails(Box<MetadataGroupDetails>),
     UserTwoFactorSetup(UserTwoFactorSetupCacheValue),
     TrendingMetadataIds(TrendingMetadataIdsResponse),

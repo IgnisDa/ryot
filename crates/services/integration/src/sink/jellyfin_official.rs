@@ -7,8 +7,8 @@ use std::sync::Arc;
 
 use anyhow::{Context, Result, anyhow, bail};
 use dependent_models::{
-    ApplicationCacheKey, ApplicationCacheValue, ImportCompletedItem, ImportOrExportMetadataItem,
-    ImportResult,
+    ApplicationCacheKey, ApplicationCacheValue, EpisodeExternalIdsCacheInput, ImportCompletedItem,
+    ImportOrExportMetadataItem, ImportResult,
 };
 use dependent_provider_utils::{get_tmdb_non_media_service, get_tvdb_non_media_service};
 use enum_models::{MediaLot, MediaSource};
@@ -489,6 +489,14 @@ async fn find_show_on_tmdb(
         .with_context(|| format!("Could not look up show {series_name:?} on TMDb"))
 }
 
+/// The IMDb and TVDB ids that the show of an episode without a TMDb id is looked up by.
+fn episode_external_ids_cache_input(info: &OfficialPlayback) -> EpisodeExternalIdsCacheInput {
+    EpisodeExternalIdsCacheInput {
+        imdb_id: info.episode_imdb_id.clone(),
+        tvdb_id: info.episode_tvdb_id.clone(),
+    }
+}
+
 /// Find the show of an episode on the configured metadata provider.
 async fn find_episode_show_id(
     lookup: &EpisodeShowLookup,
@@ -520,8 +528,26 @@ async fn find_episode_show_id(
             )
             .await?
         }
-        // The cache is keyed by the TMDb id of the episode, which is unknown here.
-        EpisodeShowLookup::TmdbExternalIds => return find_show_on_tmdb(None, info, ss).await,
+        EpisodeShowLookup::TmdbExternalIds => {
+            // Only shows that were found are cached, so episodes that TMDb does not know yet
+            // are looked up again on the next event.
+            let key = ApplicationCacheKey::TmdbEpisodeShowIdByExternalIds(
+                episode_external_ids_cache_input(info),
+            );
+            if let Some((_, show_id)) = cache_service::get_value::<String>(ss, key.clone()).await {
+                return Ok(Some(show_id));
+            }
+            let show_id = find_show_on_tmdb(None, info, ss).await?;
+            if let Some(show_id) = &show_id {
+                cache_service::set_key(
+                    ss,
+                    key,
+                    ApplicationCacheValue::TmdbEpisodeShowIdByExternalIds(show_id.clone()),
+                )
+                .await?;
+            }
+            return Ok(show_id);
+        }
     };
     Ok(show_id.response)
 }
@@ -711,6 +737,36 @@ mod tests {
         payload.as_object_mut().unwrap().remove("Provider_imdb");
         let info = parse_official_payload(&payload).unwrap();
         assert!(episode_show_lookup(&info, None).is_none());
+    }
+
+    #[test]
+    fn official_external_ids_lookups_are_cached_by_provider() {
+        let mut payload = plugin_episode_payload();
+        payload.as_object_mut().unwrap().remove("Provider_tmdb");
+        let info = parse_official_payload(&payload).unwrap();
+        assert_eq!(
+            episode_external_ids_cache_input(&info),
+            EpisodeExternalIdsCacheInput {
+                imdb_id: Some("tt0517686".to_owned()),
+                tvdb_id: Some("19541".to_owned()),
+            }
+        );
+        // The same id from another provider is a different episode.
+        let with_only = |provider: &str| {
+            let mut payload = plugin_episode_payload();
+            let ids = payload.as_object_mut().unwrap();
+            for key in ["Provider_tmdb", "Provider_imdb", "Provider_tvdb"] {
+                ids.remove(key);
+            }
+            ids.insert(provider.to_owned(), json!("19541"));
+            parse_official_payload(&payload).unwrap()
+        };
+        let imdb_only = with_only("Provider_imdb");
+        let tvdb_only = with_only("Provider_tvdb");
+        assert_ne!(
+            episode_external_ids_cache_input(&imdb_only),
+            episode_external_ids_cache_input(&tvdb_only)
+        );
     }
 
     #[test]

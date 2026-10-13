@@ -70,6 +70,7 @@ fn get_expiry_for_key(ss: &Arc<SupportingService>, key: &ApplicationCacheKey) ->
         | ApplicationCacheKey::TmdbMultiSearch { .. }
         | ApplicationCacheKey::TmdbEpisodeShowId { .. }
         | ApplicationCacheKey::TvdbEpisodeShowId { .. }
+        | ApplicationCacheKey::TmdbEpisodeShowIdByExternalIds { .. }
         | ApplicationCacheKey::YoutubeMusicSongListened { .. }
         | ApplicationCacheKey::CollectionRecommendations { .. }
         | ApplicationCacheKey::UserMetadataRecommendationsSet { .. } => Duration::days(1),
