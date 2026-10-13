@@ -153,8 +153,9 @@ database password, sets `FRONTEND_URL`, and serves Ryot over HTTPS at an address
 account's domain.
 
 Open the address and create your first user via the web interface's registration page. For
-a private instance, then add `USERS_ALLOW_REGISTRATION=false` to the project's `.env` and
-deploy again to stop new sign-ups.
+a private instance, then add `USERS_ALLOW_REGISTRATION=false` to the project's `.env`, which
+the template's compose file passes to the `ryot` service, and deploy again to stop new
+sign-ups.
 
 The database's volume is kept across deploys and is part of the nightly backups. To deploy
 the [docker compose](./index.md#installation) file from a terminal instead, see the
