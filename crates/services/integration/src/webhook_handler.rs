@@ -143,6 +143,7 @@ pub async fn process_integration_webhook(
                 payload,
                 specifics.jellyfin_sink_username,
                 specifics.jellyfin_sink_metadata_provider,
+                ss,
             )
             .await
         }

@@ -50,6 +50,12 @@ pub async fn get_tmdb_non_media_service(
     NonMediaTmdbService::new(ss.clone()).await
 }
 
+pub async fn get_tvdb_non_media_service(
+    ss: &Arc<SupportingService>,
+) -> Result<NonMediaTvdbService> {
+    NonMediaTvdbService::new(ss.clone()).await
+}
+
 pub async fn get_metadata_provider(
     lot: MediaLot,
     source: MediaSource,
