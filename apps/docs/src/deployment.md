@@ -142,3 +142,21 @@ interface's registration page.
 Deploy Ryot on a Cloudzy VPS using the one-click installer. Cloudzy provides a preconfigured Ryot self-hosted tracker on Ubuntu Server 24.04 LTS using Docker Compose, so you can get started without setting up the server manually.
 
 See the [Ryot one-click deployment page on the Cloudzy Marketplace](https://cloudzy.com/marketplace/ryot/) for Docker management commands, configuration files, and Cloudzy-specific installation paths.
+
+## Pethost
+
+[Pethost](https://pethost.dev) has a one-click template for Ryot:
+[Deploy Ryot on Pethost](https://pethost.dev/templates/ryot/).
+
+The template starts Ryot and PostgreSQL, generates `SERVER_ADMIN_ACCESS_TOKEN` and the
+database password, sets `FRONTEND_URL`, and serves Ryot over HTTPS at an address under your
+account's domain.
+
+Open the address and create your first user via the web interface's registration page. For
+a private instance, then add `USERS_ALLOW_REGISTRATION=false` to the project's `.env`, which
+the template's compose file passes to the `ryot` service, and deploy again to stop new
+sign-ups.
+
+The database's volume is kept across deploys and is part of the nightly backups. To deploy
+the [docker compose](./index.md#installation) file from a terminal instead, see the
+[step-by-step guide](https://pethost.dev/blog/self-host-ryot/).
