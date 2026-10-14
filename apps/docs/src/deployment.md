@@ -146,7 +146,7 @@ See the [Ryot one-click deployment page on the Cloudzy Marketplace](https://clou
 ## Pethost
 
 [Pethost](https://pethost.dev) has a one-click template for Ryot:
-[Deploy Ryot on Pethost](https://console.pethost.dev/?template=ryot).
+[Deploy Ryot on Pethost](https://pethost.dev/templates/ryot/).
 
 The template starts Ryot and PostgreSQL, generates `SERVER_ADMIN_ACCESS_TOKEN` and the
 database password, sets `FRONTEND_URL`, and serves Ryot over HTTPS at an address under your
