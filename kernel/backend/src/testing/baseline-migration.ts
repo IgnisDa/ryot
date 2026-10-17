@@ -2,6 +2,8 @@ import { DbError } from "@ryot-app/contract/errors";
 import { sortBy } from "@ryot-app/ts-utils/lodash";
 import { Effect } from "effect";
 
+import { immutableRevisionStatements } from "#platform/db/immutable-revisions";
+
 export const baselineMigrationStatements = Effect.fnUntraced(function* () {
 	const directory = new URL("../drizzle/", import.meta.url).pathname;
 	const paths = sortBy(
@@ -12,7 +14,10 @@ export const baselineMigrationStatements = Effect.fnUntraced(function* () {
 		catch: () => new DbError({ message: "Cannot read generated migrations" }),
 		try: () => Promise.all(paths.map((path) => Bun.file(directory + path).text())),
 	});
-	return migrations.flatMap((ddl) => ddl.split("--> statement-breakpoint"));
+	return [
+		...migrations.flatMap((ddl) => ddl.split("--> statement-breakpoint")),
+		...immutableRevisionStatements,
+	];
 });
 
 export const applyBaselineMigration = Effect.fnUntraced(function* <A, E, R>(

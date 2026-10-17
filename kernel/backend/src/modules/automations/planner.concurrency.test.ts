@@ -15,8 +15,7 @@ import { kernelDefinitionSource } from "#modules/definitions/kernel-source";
 import { DefinitionRepository } from "#modules/definitions/repository";
 import { PluginConfigRevisions } from "#modules/plugins/configuration/revisions";
 import { PluginRepository } from "#modules/plugins/packages/repository";
-import { fixtureManifest } from "#modules/plugins/test-support";
-import { pluginSandboxAuthority } from "#modules/scripts/authorization/plugin-authority";
+import { insertPluginRevision, fixtureManifest } from "#modules/plugins/test-support";
 import { setLocalStatementTimeout, DatabaseSession } from "#platform/db/session";
 import * as tables from "#schema/tables/combined";
 import { applyBaselineMigration, baselineMigrationStatements } from "#testing/baseline-migration";
@@ -99,16 +98,12 @@ const seedCatalog = (statements: readonly string[]) =>
 						status: "inactive",
 						packageId: fixtureManifest().metadata.packageId,
 					});
-				yield* db
-					.insert(tables.pluginRevision)
-					.values({
-						pluginId,
-						manifest,
-						id: "fixture-revision",
-						contentHash: "fixture-source",
-						clientConfigSchema: { fields: {} },
-						sandboxAuthority: pluginSandboxAuthority(manifest),
-					});
+				yield* insertPluginRevision(db, {
+					pluginId,
+					manifest,
+					id: "fixture-revision",
+					contentHash: "fixture-source",
+				});
 				yield* db
 					.update(tables.plugin)
 					.set({ status: "active", activeRevisionId: "fixture-revision" })

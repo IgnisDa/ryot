@@ -337,7 +337,11 @@ export class PluginConfigRevisions extends Context.Service<PluginConfigRevisions
 				const encryption = yield* encryptionKey.load;
 				const [revision] = yield* database.run((db) =>
 					db
-						.select()
+						.select({
+							pluginId: tables.pluginRevision.pluginId,
+							configSchema: tables.pluginRevision.configSchema,
+							oauthProviders: tables.pluginRevision.oauthProviders,
+						})
 						.from(tables.pluginRevision)
 						.where(eq(tables.pluginRevision.id, input.pluginRevisionId))
 						.limit(1),
@@ -386,7 +390,7 @@ export class PluginConfigRevisions extends Context.Service<PluginConfigRevisions
 								properties: yield* parseAppSchemaProperties({
 									kind: "Plugin config",
 									properties: input.properties,
-									propertiesSchema: revision.manifest.configSchema,
+									propertiesSchema: revision.configSchema,
 								}).pipe(
 									Effect.mapError(
 										() =>
@@ -399,7 +403,7 @@ export class PluginConfigRevisions extends Context.Service<PluginConfigRevisions
 							}
 						: yield* validateRestoredProperties(
 								input.properties,
-								revision.manifest.configSchema,
+								revision.configSchema,
 								configuredSecretPaths,
 								allowMissingRequiredSecrets,
 							);
@@ -450,8 +454,8 @@ export class PluginConfigRevisions extends Context.Service<PluginConfigRevisions
 							...envelope,
 							pluginInstallationId: input.pluginInstallationId,
 							configuredKeys: availablePluginConfigKeys(
-								revision.manifest.configSchema,
-								revision.manifest.oauthProviders ?? [],
+								revision.configSchema,
+								revision.oauthProviders ?? [],
 								properties,
 							),
 						}),
@@ -485,7 +489,7 @@ export class PluginConfigRevisions extends Context.Service<PluginConfigRevisions
 						db
 							.select({
 								packageId: tables.plugin.packageId,
-								manifest: tables.pluginRevision.manifest,
+								configSchema: tables.pluginRevision.configSchema,
 							})
 							.from(tables.plugin)
 							.innerJoin(
@@ -507,7 +511,7 @@ export class PluginConfigRevisions extends Context.Service<PluginConfigRevisions
 						});
 					}
 					yield* validateKeys();
-					const loaded = yield* configFromAppSchema(owner.manifest.configSchema, ([key]) =>
+					const loaded = yield* configFromAppSchema(owner.configSchema, ([key]) =>
 						pluginConfigEnvironmentKey(input.packageId, key ?? ""),
 					).pipe(
 						Effect.mapError(

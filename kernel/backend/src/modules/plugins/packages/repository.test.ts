@@ -125,13 +125,13 @@ describe("plugin repository revisions", () => {
 					const revisions = yield* session.run((db) =>
 						db
 							.select({
-								manifest: tables.pluginRevision.manifest,
+								version: tables.pluginRevision.version,
 								contentHash: tables.pluginRevision.contentHash,
 							})
 							.from(tables.pluginRevision)
 							.where(eq(tables.pluginRevision.pluginId, firstId)),
 					);
-					expect(revisions.map(({ manifest }) => manifest.metadata.version)).toEqual(["v1", "v1"]);
+					expect(revisions.map(({ version }) => version)).toEqual(["v1", "v1"]);
 					expect(revisions.map(({ contentHash }) => contentHash).sort()).toEqual(
 						[first.contentHash, "renamed-content"].sort(),
 					);

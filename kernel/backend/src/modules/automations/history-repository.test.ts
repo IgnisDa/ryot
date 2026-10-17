@@ -27,15 +27,13 @@ import { eq } from "drizzle-orm";
 import { Context, Effect, Layer, Ref, Schema } from "effect";
 import { assert, describe } from "vitest";
 
-import { fixtureManifest } from "#modules/plugins/test-support";
-import { pluginSandboxAuthority } from "#modules/scripts/authorization/plugin-authority";
+import { insertPluginRevision, fixtureManifest } from "#modules/plugins/test-support";
 import { DatabaseSession } from "#platform/db/session";
 import { user } from "#schema/tables/auth";
 import { automationRun, automationTrigger } from "#schema/tables/automations";
 import {
 	sandboxScript,
 	plugin,
-	pluginRevision,
 	pluginConfigRevision,
 	pluginConfigEncryptionKey,
 } from "#schema/tables/core";
@@ -227,24 +225,18 @@ const seedPinnedRevisions = (pinnedManifest: (base: PluginManifest) => PluginMan
 				yield* db
 					.insert(plugin)
 					.values({ id: "plugin", status: "inactive", packageId: base.metadata.packageId });
-				yield* db.insert(pluginRevision).values([
-					{
-						manifest: pinned,
-						contentHash: "old",
-						pluginId: "plugin",
-						id: "pinned-revision",
-						clientConfigSchema: { fields: {} },
-						sandboxAuthority: pluginSandboxAuthority(pinned),
-					},
-					{
-						manifest: base,
-						pluginId: "plugin",
-						contentHash: "current",
-						id: "current-revision",
-						clientConfigSchema: { fields: {} },
-						sandboxAuthority: pluginSandboxAuthority(base),
-					},
-				]);
+				yield* insertPluginRevision(db, {
+					manifest: pinned,
+					contentHash: "old",
+					pluginId: "plugin",
+					id: "pinned-revision",
+				});
+				yield* insertPluginRevision(db, {
+					manifest: base,
+					pluginId: "plugin",
+					contentHash: "current",
+					id: "current-revision",
+				});
 				yield* db
 					.update(plugin)
 					.set({ activeRevisionId: "current-revision" })
