@@ -1,4 +1,5 @@
 import { expect, layer } from "@effect/vitest";
+import { DbError } from "@ryot-app/contract/errors";
 import {
 	AutomationRun,
 	AutomationSignalPayload,
@@ -7,11 +8,13 @@ import {
 	DEFAULT_AUTOMATION_RETRY_POLICY,
 } from "@ryot-app/contract/modules/automations/lifecycle";
 import type { PluginManifest } from "@ryot-app/contract/modules/plugins/manifest";
-import { PluginId, UserId } from "@ryot-app/contract/schema/brands";
+import { AutomationHookSlug, PluginId, UserId } from "@ryot-app/contract/schema/brands";
 import type { AppSchema } from "@ryot-app/contract/schema/property-schema";
 import { emptySandboxExecutionMetadata } from "@ryot-app/contract/testing";
-import { and, eq } from "drizzle-orm";
-import { DateTime, Duration, Effect, Layer, Schema } from "effect";
+import { assertExitFails } from "@ryot-app/testing/effect-assertions";
+import { makeRecordingTracer } from "@ryot-app/testing/recording-tracer";
+import { and, eq, getTableColumns } from "drizzle-orm";
+import { DateTime, Duration, Effect, Layer, Schema, type Tracer } from "effect";
 import { TestClock } from "effect/testing";
 import { assert, describe, it as unit } from "vitest";
 
@@ -34,6 +37,15 @@ import { AutomationRunRepository, redactAutomationHistoryPayload } from "./run-r
 import { AutomationTriggerRepository } from "./trigger-repository";
 
 const fixture = fixtureManifest();
+const queueRun = Effect.fn(function* (
+	repo: AutomationRunRepository["Service"],
+	run: AutomationRun,
+	triggerPayload: AutomationTriggerPayload,
+) {
+	const [stored] = yield* repo.insertQueued({ runs: [run], triggerPayload });
+	assert(stored);
+	return stored;
+});
 const signalManifest: PluginManifest = {
 	...fixture,
 	signalSchemas: fixture.signalSchemas.map((signal) => ({
@@ -194,6 +206,184 @@ unit("redacts mutation snapshots and parent population properties with their own
 
 describe("AutomationRunRepository", () => {
 	layer(
+		Layer.mergeAll(AutomationRunRepository.layer, AutomationTriggerRepository.layer).pipe(
+			Layer.provideMerge(revisionDatabaseLayer),
+		),
+	)((test) => {
+		test.effect(
+			"chunks large accepted plans at the parameter boundary and rolls every chunk back on a late replay conflict",
+			() =>
+				Effect.gen(function* () {
+					const session = yield* DatabaseSession;
+					const repo = yield* AutomationRunRepository;
+					const triggers = yield* AutomationTriggerRepository;
+					const source = revisionPackage();
+					const [hook] = source.manifest.hooks;
+					assert(hook);
+					const hooks = [
+						hook,
+						...[1, 2, 3].map((index) => Object.assign({}, hook, { slug: `fixture.bulk-${index}` })),
+					];
+					const installed = yield* installRevisionPackage({
+						...source,
+						manifest: { ...source.manifest, hooks },
+					});
+					const config = yield* (yield* PluginConfigRevisions).create({
+						properties: {},
+						ownerUserId: null,
+						scope: "environment",
+						pluginInstallationId: null,
+						pluginRevisionId: installed.revisionId,
+					});
+					const recipients = Array.from({ length: 1000 }, (_, index) =>
+						UserId.make(`bulk-recipient-${index}`),
+					);
+					yield* session.run((db) =>
+						db
+							.insert(user)
+							.values(recipients.map((id) => ({ id, name: id, email: `${id}@example.test` }))),
+					);
+					const scripts = yield* session.run((db) =>
+						db
+							.select()
+							.from(sandboxScript)
+							.where(eq(sandboxScript.pluginRevisionId, installed.revisionId)),
+					);
+					const script = scripts.find(({ slug }) => slug === hook.scriptSlug);
+					assert(script);
+					const base = yield* Schema.decodeEffect(AutomationRun)({
+						stage: "after",
+						id: "bulk-base",
+						attemptCount: 0,
+						startedAt: null,
+						status: "queued",
+						finishedAt: null,
+						skipReason: null,
+						delivery: "async",
+						hookName: hook.name,
+						nextAttemptAt: null,
+						hookSlug: hook.slug,
+						executionUserId: null,
+						scriptSlug: script.slug,
+						sandboxScriptId: script.id,
+						pluginId: installed.pluginId,
+						triggerId: "bulk-base-trigger",
+						pluginConfigRevisionId: config,
+						queuedAt: "2026-09-15T00:00:00.000Z",
+						scriptContentHash: script.contentHash,
+						pluginRevisionId: installed.revisionId,
+						retryPolicy: DEFAULT_AUTOMATION_RETRY_POLICY,
+						artifactsExpireAt: "2026-10-15T00:00:00.000Z",
+					});
+					const runsFor = (trigger: AutomationTrigger, count: number) =>
+						hooks
+							.flatMap(({ slug, name }) =>
+								recipients.map((executionUserId) => {
+									const identity = {
+										executionUserId,
+										triggerId: trigger.id,
+										pluginId: base.pluginId,
+										hookSlug: AutomationHookSlug.make(slug),
+									};
+									return Object.assign({}, base, identity, {
+										hookName: name,
+										id: lifecycleRunId(identity),
+									});
+								}),
+							)
+							.slice(0, count)
+							.toReversed();
+					const boundary = Math.floor(32_767 / Object.keys(getTableColumns(automationRun)).length);
+					for (const { count, expectedInserts } of [
+						{ count: boundary, expectedInserts: 1 },
+						{ expectedInserts: 2, count: boundary + 1 },
+						{ count: 4000, expectedInserts: 3 },
+					]) {
+						const trigger = yield* triggers.insert(
+							triggerFixture(`bulk-${count}`, PluginId.make(installed.pluginId)),
+						);
+						assert(trigger.payload);
+						const runs = runsFor(trigger, count);
+						const spans: Tracer.Span[] = [];
+						expect(
+							yield* session
+								.transaction(repo.insertQueued({ runs, triggerPayload: trigger.payload }))
+								.pipe(Effect.withTracer(makeRecordingTracer(spans))),
+						).toEqual(runs);
+						const statements = spans.flatMap((span) => {
+							const text = span.attributes.get("db.query.text");
+							return typeof text === "string" ? [text] : [];
+						});
+						const inserts = statements.filter((text) =>
+							text.startsWith('insert into "automation_run"'),
+						);
+						expect(inserts).toHaveLength(expectedInserts);
+						for (const statement of inserts) {
+							const parameters = [...statement.matchAll(/\$(\d+)/g)].map((match) =>
+								Number(match[1]),
+							);
+							expect(Math.max(...parameters)).toBeLessThanOrEqual(32_767);
+						}
+						expect(
+							statements.filter((text) => text.includes('from "plugin_revision"')),
+						).toHaveLength(1);
+						expect(
+							statements.filter((text) => text.includes('from "automation_run"')),
+						).toHaveLength(1);
+					}
+					const trigger = yield* triggers.insert(
+						triggerFixture("bulk-conflict", PluginId.make(installed.pluginId)),
+					);
+					const triggerPayload = trigger.payload;
+					assert(triggerPayload);
+					const runs = runsFor(trigger, 4000);
+					const first = runs[0];
+					const last = runs.at(-1);
+					assert(first && last);
+					yield* session.transaction(repo.insertQueued({ triggerPayload, runs: [first, last] }));
+					const before = yield* repo.listByTrigger(trigger.id);
+					const spans: Tracer.Span[] = [];
+					const failed = yield* session
+						.transaction(
+							Effect.gen(function* () {
+								yield* session.run((db) =>
+									db.update(user).set({ name: "must roll back" }).where(eq(user.id, "owner")),
+								);
+								return yield* repo.insertQueued({
+									triggerPayload,
+									runs: runs.map((run) =>
+										run.id === last.id
+											? Object.assign({}, run, { hookName: "Conflicting hook" })
+											: run,
+									),
+								});
+							}),
+						)
+						.pipe(Effect.withTracer(makeRecordingTracer(spans)), Effect.exit);
+					assertExitFails(
+						failed,
+						new DbError({ message: `Automation run identity conflict: ${last.id}` }),
+					);
+					const statements = spans.flatMap((span) => {
+						const text = span.attributes.get("db.query.text");
+						return typeof text === "string" ? [text] : [];
+					});
+					expect(
+						statements.filter((text) => text.startsWith('insert into "automation_run"')),
+					).toHaveLength(3);
+					expect(statements.filter((text) => text.includes('from "automation_run"'))).toHaveLength(
+						1,
+					);
+					expect(yield* repo.listByTrigger(trigger.id)).toEqual(before);
+					expect(
+						yield* session.run((db) =>
+							db.select({ name: user.name }).from(user).where(eq(user.id, "owner")),
+						),
+					).toEqual([{ name: "Owner" }]);
+				}),
+		);
+	});
+	layer(
 		Layer.mergeAll(
 			AutomationRunRepository.layer,
 			AutomationAttemptRepository.layer,
@@ -268,8 +458,9 @@ describe("AutomationRunRepository", () => {
 								sandboxScriptId: "policy-script",
 								artifactsExpireAt: "2026-10-15T00:00:00.000Z",
 							});
-							const pending = yield* repo.insertQueued(base, payload);
-							const second = yield* repo.insertQueued(
+							const pending = yield* queueRun(repo, base, payload);
+							const second = yield* queueRun(
+								repo,
 								yield* Schema.decodeEffect(AutomationRun)({
 									...base,
 									id: "unstarted-b",
@@ -277,7 +468,8 @@ describe("AutomationRunRepository", () => {
 								}),
 								payload,
 							);
-							const active = yield* repo.insertQueued(
+							const active = yield* queueRun(
+								repo,
 								yield* Schema.decodeEffect(AutomationRun)({
 									...base,
 									id: "active",
@@ -285,7 +477,8 @@ describe("AutomationRunRepository", () => {
 								}),
 								payload,
 							);
-							const terminal = yield* repo.insertQueued(
+							const terminal = yield* queueRun(
+								repo,
 								yield* Schema.decodeEffect(AutomationRun)({
 									...base,
 									id: "terminal",
@@ -293,7 +486,8 @@ describe("AutomationRunRepository", () => {
 								}),
 								payload,
 							);
-							const after = yield* repo.insertQueued(
+							const after = yield* queueRun(
+								repo,
 								yield* Schema.decodeEffect(AutomationRun)({
 									...base,
 									id: "after",
@@ -304,7 +498,8 @@ describe("AutomationRunRepository", () => {
 								}),
 								payload,
 							);
-							const unrelated = yield* repo.insertQueued(
+							const unrelated = yield* queueRun(
+								repo,
 								{
 									...base,
 									triggerId: other.id,
@@ -430,8 +625,8 @@ describe("AutomationRunRepository", () => {
 								artifactsExpireAt: "2026-10-15T00:00:00.000Z",
 							});
 							const pinned = { ...run, id: lifecycleRunId(run) };
-							expect(yield* repo.insertQueued(pinned, payload)).toEqual(pinned);
-							expect(yield* repo.insertQueued(pinned, payload)).toEqual(pinned);
+							expect(yield* queueRun(repo, pinned, payload)).toEqual(pinned);
+							expect(yield* queueRun(repo, pinned, payload)).toEqual(pinned);
 							expect(yield* repo.listByTrigger(trigger.id)).toEqual([pinned]);
 							expect(
 								yield* repo.listQueuedCandidates({ now, limit: 1, initialQueuedBefore: now }),
@@ -482,16 +677,22 @@ describe("AutomationRunRepository", () => {
 							).toEqual([]);
 							yield* db
 								.update(automationRun)
-								.set({ startedAt: now, attemptCount: 1, finishedAt: now, status: "succeeded" })
+								.set({
+									startedAt: now,
+									attemptCount: 1,
+									finishedAt: now,
+									status: "succeeded",
+									nextAttemptAt: null,
+								})
 								.where(eq(automationRun.id, pinned.id));
-							expect(yield* repo.insertQueued(pinned, payload)).toMatchObject({
+							expect(yield* queueRun(repo, pinned, payload)).toMatchObject({
 								attemptCount: 1,
 								status: "succeeded",
 							});
 							expect(
-								yield* repo
-									.insertQueued({ ...pinned, scriptContentHash: "changed" }, payload)
-									.pipe(Effect.flip),
+								yield* queueRun(repo, { ...pinned, scriptContentHash: "changed" }, payload).pipe(
+									Effect.flip,
+								),
 							).toMatchObject({ _tag: "DbError" });
 							expect(
 								yield* repo.listQueuedCandidates({ now, limit: 10, initialQueuedBefore: now }),
@@ -542,17 +743,90 @@ describe("AutomationRunRepository", () => {
 								scriptContentHash: script.contentHash,
 								pluginRevisionId: installed.revisionId,
 							});
-							expect(yield* repo.insertQueued(pluginRun, payload)).toEqual(pluginRun);
+							expect(yield* queueRun(repo, pluginRun, payload)).toEqual(pluginRun);
 							const disabledUserRun = yield* Schema.decodeEffect(AutomationRun)({
 								...pluginRun,
 								id: "disabled-user-run",
 								executionUserId: "owner",
 							});
-							expect(yield* repo.insertQueued(disabledUserRun, payload)).toEqual(disabledUserRun);
+							expect(yield* queueRun(repo, disabledUserRun, payload)).toEqual(disabledUserRun);
+							const freshIdentity = { ...pluginRun, executionUserId: UserId.make("recipient") };
+							const fresh = { ...freshIdentity, id: lifecycleRunId(freshIdentity) };
+							const session = yield* DatabaseSession;
+							const failed = yield* session
+								.transaction(
+									Effect.gen(function* () {
+										yield* session.run((transaction) =>
+											transaction
+												.update(user)
+												.set({ name: "must roll back" })
+												.where(eq(user.id, "owner")),
+										);
+										return yield* repo.insertQueued({
+											triggerPayload: payload,
+											runs: [fresh, pluginRun, { ...disabledUserRun, hookName: "Conflict" }],
+										});
+									}),
+								)
+								.pipe(Effect.exit);
+							assertExitFails(
+								failed,
+								new DbError({ message: `Automation run identity conflict: ${disabledUserRun.id}` }),
+							);
+							expect(yield* repo.findById(fresh.id)).toBeNull();
+							expect(yield* repo.findById(pluginRun.id)).toEqual(pluginRun);
+							expect(yield* repo.findById(disabledUserRun.id)).toEqual(disabledUserRun);
 							expect(
-								yield* repo
-									.insertQueued({ ...pluginRun, hookName: "Changed" }, payload)
-									.pipe(Effect.flip),
+								yield* db.select({ name: user.name }).from(user).where(eq(user.id, "owner")),
+							).toEqual([{ name: "Owner" }]);
+							const spans: Tracer.Span[] = [];
+							expect(
+								yield* session
+									.transaction(
+										repo.insertQueued({
+											triggerPayload: payload,
+											runs: [fresh, disabledUserRun, pluginRun],
+										}),
+									)
+									.pipe(Effect.withTracer(makeRecordingTracer(spans))),
+							).toEqual([fresh, disabledUserRun, pluginRun]);
+							const statements = spans.flatMap((span) => {
+								const text = span.attributes.get("db.query.text");
+								return typeof text === "string" ? [text] : [];
+							});
+							expect(
+								statements.filter((text) => text.includes('from "plugin_revision"')),
+							).toHaveLength(1);
+							expect(
+								statements.filter((text) => text.startsWith('insert into "automation_run"')),
+							).toHaveLength(1);
+							expect(
+								statements.filter((text) => text.includes('from "automation_run"')),
+							).toHaveLength(1);
+							expect(
+								yield* repo.clearExpiredScriptPins({
+									limit: 10,
+									now: DateTime.toDate(DateTime.makeUnsafe("2026-10-16T00:00:00.000Z")),
+								}),
+							).toEqual([{ id: pinned.id }]);
+							expect(
+								yield* repo.insertQueued({ triggerPayload: payload, runs: [pinned, pluginRun] }),
+							).toEqual([
+								{
+									...pinned,
+									attemptCount: 1,
+									status: "succeeded",
+									nextAttemptAt: null,
+									sandboxScriptId: null,
+									startedAt: now.toISOString(),
+									finishedAt: now.toISOString(),
+								},
+								pluginRun,
+							]);
+							expect(
+								yield* queueRun(repo, { ...pluginRun, hookName: "Changed" }, payload).pipe(
+									Effect.flip,
+								),
 							).toMatchObject({ _tag: "DbError" });
 							yield* db.update(user).set({ disabledAt: now }).where(eq(user.id, "owner"));
 							const policy = yield* Schema.decodeUnknownEffect(AutomationRun)({
@@ -563,10 +837,12 @@ describe("AutomationRunRepository", () => {
 								hookSlug: "policy",
 								delivery: "policy",
 							});
-							yield* repo.insertQueued(policy, payload);
+							yield* queueRun(repo, policy, payload);
 							expect(
 								yield* repo.listQueuedCandidates({ now, limit: 10, initialQueuedBefore: now }),
-							).toEqual([disabledUserRun, pluginRun]);
+							).toEqual(
+								[fresh, disabledUserRun, pluginRun].sort((a, b) => a.id.localeCompare(b.id)),
+							);
 						}),
 					);
 				}),

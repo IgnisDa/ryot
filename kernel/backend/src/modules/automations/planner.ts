@@ -373,7 +373,7 @@ export const LifecyclePlannerLive = Layer.effect(
 				wasCreated: true,
 				trigger: persistedTrigger,
 				policies: ordered.policies,
-				runs: yield* Effect.forEach(ordered.runs, (run) => runs.insertQueued(run, payload)),
+				runs: yield* runs.insertQueued({ runs: ordered.runs, triggerPayload: payload }),
 			};
 		});
 		const batchIdentity = (input: LifecycleBatchInput) =>

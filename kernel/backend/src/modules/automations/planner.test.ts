@@ -1,4 +1,5 @@
 import { expect, layer } from "@effect/vitest";
+import { DbError } from "@ryot-app/contract/errors";
 import {
 	AutomationEntityChangePayload,
 	AutomationEventChangePayload,
@@ -14,8 +15,10 @@ import {
 } from "@ryot-app/contract/schema/brands";
 import type { PluginPackageId } from "@ryot-app/contract/schema/brands";
 import { emptySandboxExecutionMetadata } from "@ryot-app/contract/testing";
+import { assertExitFails } from "@ryot-app/testing/effect-assertions";
+import { makeRecordingTracer } from "@ryot-app/testing/recording-tracer";
 import { eq } from "drizzle-orm";
-import { Context, DateTime, Effect, Layer, Schema } from "effect";
+import { Context, DateTime, Effect, Layer, Schema, type Tracer } from "effect";
 import { assert, describe } from "vitest";
 
 import {
@@ -317,6 +320,259 @@ const eventPolicyTrigger = (pluginId: string | null, id = "event-policy") =>
 	});
 
 describe("LifecyclePlanner PostgreSQL", () => {
+	layer(plannerLayer().pipe(Layer.provideMerge(revisionDatabaseLayer)))((test) => {
+		test.effect(
+			"materializes shared recipient hooks once and preserves ordered identities, pins and redaction",
+			() =>
+				Effect.gen(function* () {
+					const planner = yield* LifecyclePlanner;
+					const session = yield* DatabaseSession;
+					const source = revisionPackage();
+					const [hook] = source.manifest.hooks;
+					assert(hook);
+					const installed = yield* installRevisionPackage({
+						...source,
+						manifest: {
+							...source.manifest,
+							hooks: [
+								hook,
+								...["z-last", "a-first", "m-middle"].map((slug) =>
+									Object.assign({}, hook, { slug }),
+								),
+							],
+							signalSchemas: source.manifest.signalSchemas.map((signal) =>
+								Object.assign({}, signal, {
+									propertiesSchema: {
+										fields: {
+											visible: { type: "string", label: "Visible", description: "Public field" },
+											secret: {
+												secret: true,
+												type: "string",
+												label: "Secret",
+												description: "Private field",
+											},
+										},
+									},
+								}),
+							),
+						},
+					});
+					yield* (yield* PluginInstallationRepository).upsertState({
+						config: {},
+						sortOrder: 0,
+						health: "ready",
+						isHidden: false,
+						userId: recipient,
+						pluginId: installed.pluginId,
+					});
+					yield* session.run((db) =>
+						db
+							.insert(tables.notificationSubscription)
+							.values(
+								[owner, recipient].map((userId) => ({
+									userId,
+									signalSchemaSlug: "fixture.signal",
+									signalSchemaPluginId: installed.pluginId,
+								})),
+							),
+					);
+					const base = triggerFixture("set-planning", PluginId.make(installed.pluginId));
+					assert(base.payload?.resource === "signal");
+					const trigger = {
+						...base,
+						payload: { ...base.payload, properties: { visible: "kept", secret: "hidden" } },
+					};
+					const spans: Tracer.Span[] = [];
+					const planned = yield* nested(
+						planner.plan({ trigger, recipients: [recipient, owner, recipient] }),
+					).pipe(Effect.withTracer(makeRecordingTracer(spans)));
+					const statements = spans.flatMap((span) => {
+						const text = span.attributes.get("db.query.text");
+						return typeof text === "string" ? [text] : [];
+					});
+					expect(statements.filter((text) => text.includes('from "sandbox_script"'))).toHaveLength(
+						1,
+					);
+					expect(statements.filter((text) => text.includes('from "plugin_revision"'))).toHaveLength(
+						1,
+					);
+					expect(
+						statements.filter((text) => text.startsWith('insert into "automation_run"')),
+					).toHaveLength(1);
+					expect(
+						statements.filter(
+							(text) => text.includes('from "automation_run"') && !text.includes("count("),
+						),
+					).toHaveLength(1);
+					const catalogs = yield* session.run((db) => db.select().from(tables.userPlugin));
+					const scripts = yield* session.run((db) =>
+						db
+							.select()
+							.from(tables.sandboxScript)
+							.where(eq(tables.sandboxScript.pluginRevisionId, installed.revisionId)),
+					);
+					const script = scripts.find(({ slug }) => slug === "fixture.automation");
+					assert(script);
+					const expected = ["a-first", "fixture.notify", "m-middle", "z-last"].flatMap((slug) =>
+						[owner, recipient].map((executionUserId) => ({
+							hookSlug: slug,
+							executionUserId,
+							sandboxScriptId: script.id,
+							scriptContentHash: script.contentHash,
+							pluginRevisionId: installed.revisionId,
+							pluginConfigRevisionId: catalogs.find(
+								(catalog) =>
+									catalog.userId === executionUserId && catalog.pluginId === installed.pluginId,
+							)?.configRevisionId,
+							id: lifecycleRunId({
+								executionUserId,
+								triggerId: trigger.id,
+								hookSlug: AutomationHookSlug.make(slug),
+								pluginId: PluginId.make(installed.pluginId),
+							}),
+						})),
+					);
+					expect(planned.runs).toHaveLength(expected.length);
+					expect(planned.runs).toMatchObject(expected);
+					const rows = yield* session.run((db) =>
+						db
+							.select()
+							.from(tables.automationRun)
+							.where(eq(tables.automationRun.triggerId, trigger.id)),
+					);
+					for (const row of rows) {
+						expect(row.historyPayload).toEqual({
+							...trigger.payload,
+							properties: { visible: "kept" },
+						});
+						expect(row.historyPayloadTruncated).toBe(false);
+					}
+					expect(yield* nested(planner.plan({ trigger, recipients: [recipient] }))).toEqual({
+						...planned,
+						wasCreated: false,
+					});
+				}),
+		);
+	});
+	layer(plannerLayer().pipe(Layer.provideMerge(revisionDatabaseLayer)))((test) => {
+		test.effect(
+			"ignores unselected missing artifacts and rolls back when a selected artifact is absent",
+			() =>
+				Effect.gen(function* () {
+					const planner = yield* LifecyclePlanner;
+					const session = yield* DatabaseSession;
+					const installed = yield* installRevisionPackage(hookPackage());
+					yield* session.run((db) =>
+						db.delete(tables.sandboxScript).where(eq(tables.sandboxScript.slug, "fixture.policy")),
+					);
+					const accepted = yield* nested(
+						planner.plan({ trigger: entityTrigger(installed.pluginId, "unselected-missing") }),
+					);
+					expect(accepted.runs.map(({ hookSlug }) => hookSlug)).toEqual(["fixture.changed"]);
+					const failed = yield* nested(
+						Effect.gen(function* () {
+							yield* session.run((db) =>
+								db
+									.update(tables.user)
+									.set({ name: "must roll back" })
+									.where(eq(tables.user.id, owner)),
+							);
+							return yield* planner.plan({
+								trigger: entityTrigger(installed.pluginId, "selected-missing", "request"),
+							});
+						}),
+					).pipe(Effect.exit);
+					assertExitFails(
+						failed,
+						new DbError({
+							message: `Missing automation script ${installed.pluginId}/fixture.z-first`,
+						}),
+					);
+					expect(
+						yield* session.run((db) =>
+							db
+								.select({ name: tables.user.name })
+								.from(tables.user)
+								.where(eq(tables.user.id, owner)),
+						),
+					).toEqual([{ name: "Owner" }]);
+					expect(
+						yield* session.run((db) =>
+							db
+								.select()
+								.from(tables.automationTrigger)
+								.where(eq(tables.automationTrigger.id, "selected-missing")),
+						),
+					).toEqual([]);
+				}),
+		);
+	});
+	layer(plannerLayer().pipe(Layer.provideMerge(revisionDatabaseLayer)))((test) => {
+		test.effect(
+			"keys shared batch script metadata by revision and reuses it only within the transaction",
+			() =>
+				Effect.gen(function* () {
+					const session = yield* DatabaseSession;
+					const first = yield* installRevisionPackage(
+						afterHookPackage("v1", { frequency: "batch" }, testPluginPackageId()),
+					);
+					const second = yield* installRevisionPackage(
+						afterHookPackage("v2", { frequency: "batch" }, testPluginPackageId()),
+					);
+					const resolver = yield* AutomationPlannerResolver.make;
+					const spans: Tracer.Span[] = [];
+					const pins = yield* nested(
+						Effect.gen(function* () {
+							yield* resolver.lockCatalog([owner]);
+							const selected = yield* resolver.resolveBatchCandidates({
+								userId: owner,
+								source: "api",
+								resource: "entity",
+							});
+							expect(
+								yield* resolver.resolveBatchCandidates({
+									userId: owner,
+									source: "api",
+									resource: "entity",
+								}),
+							).toEqual(selected);
+							return selected;
+						}),
+					).pipe(Effect.withTracer(makeRecordingTracer(spans)));
+					expect(
+						spans.filter((span) =>
+							String(span.attributes.get("db.query.text")).includes('from "sandbox_script"'),
+						),
+					).toHaveLength(1);
+					expect(pins).toHaveLength(2);
+					for (const installed of [first, second]) {
+						const scripts = yield* session.run((db) =>
+							db
+								.select()
+								.from(tables.sandboxScript)
+								.where(eq(tables.sandboxScript.pluginRevisionId, installed.revisionId)),
+						);
+						const script = scripts.find(({ slug }) => slug === "fixture.automation");
+						assert(script);
+						expect(pins.find(({ pluginId }) => pluginId === installed.pluginId)).toMatchObject({
+							sandboxScriptId: script.id,
+							scriptSlug: "fixture.automation",
+							scriptContentHash: script.contentHash,
+							pluginRevisionId: installed.revisionId,
+						});
+					}
+					const fresh: Tracer.Span[] = [];
+					yield* nested(
+						resolver.resolveBatchCandidates({ userId: owner, source: "api", resource: "entity" }),
+					).pipe(Effect.withTracer(makeRecordingTracer(fresh)));
+					expect(
+						fresh.filter((span) =>
+							String(span.attributes.get("db.query.text")).includes('from "sandbox_script"'),
+						),
+					).toHaveLength(1);
+				}),
+		);
+	});
 	layer(plannerLayer().pipe(Layer.provideMerge(revisionDatabaseLayer)))((test) => {
 		test.effect(
 			"pins explicit kernel collection observers without admitting foreign before policies or same-name plugin events",
