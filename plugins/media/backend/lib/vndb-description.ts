@@ -111,7 +111,7 @@ const frameHtml = (frame: Frame, source: string, end: number, closed: boolean): 
 const vndbHtml = (source: string): string => {
 	const root: Frame = { tag: "", url: "", body: "", start: 0, opening: "", inLink: false };
 	const stack = [root];
-	const tokens = /\[[^\]\n]*\]/g;
+	const tokens = /\[[^[\]\n]*\]/g;
 	let offset = 0;
 	let current = root;
 	for (let match = tokens.exec(source); match; match = tokens.exec(source)) {

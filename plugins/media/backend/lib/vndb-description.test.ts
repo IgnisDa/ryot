@@ -100,6 +100,21 @@ describe("VNDB descriptions", () => {
 		expect(Effect.runSync(normalizeVndbDescription(input))).toBe(expected);
 	});
 
+	it.each([
+		[
+			"[From [url=https://store.steampowered.com/app/412830/]Steam[/url]]",
+			"\\[From [Steam](https://store.steampowered.com/app/412830/)]",
+		],
+		[
+			"[b][url=https://example.org/a]one[/url] [url=https://example.org/b]two[/url][/b]",
+			"**[one](https://example.org/a) [two](https://example.org/b)**",
+		],
+		["[From [url=javascript:alert(1)]Steam[/url]]", "\\[From Steam]"],
+		["[From [url=https://example.org/a]Steam]", "\\[From \\[url=https://example.org/a]Steam]"],
+	])("converts links nested inside literal brackets: %s", (input, expected) => {
+		expect(Effect.runSync(normalizeVndbDescription(input))).toBe(expected);
+	});
+
 	it("keeps original Markdown punctuation literal and preserves paragraph breaks", () => {
 		expect(Effect.runSync(normalizeVndbDescription("# Title *stars*\n\nnext"))).toBe(
 			"\\# Title \\*stars\\*\\\n\\\nnext",
