@@ -2,13 +2,14 @@ import {
 	CLIENT_API_VERSION,
 	definePlugin,
 	type KernelCollectionEventHookTarget,
+	type PluginEntityEditor,
 	type PluginHook,
 } from "@ryot-app/contract/modules/plugins/manifest";
 
 import {
 	mediaEntityCreateRoute,
 	mediaEntityEditorRoutes,
-	mediaEntitySaveOperationSlug,
+	mediaEntityEditors,
 } from "../shared/media-entity-editors";
 import {
 	builtinMediaEntitySchemaSlugs,
@@ -22,7 +23,18 @@ import { mediaEntitySchemas } from "./schemas/entity";
 import { builtinRelationshipSchemas } from "./schemas/relationship";
 import { mediaSignalSchemas } from "./schemas/signal";
 
-const entitySchemas = mediaEntitySchemas();
+const entitySchemas = mediaEntitySchemas().map(
+	(
+		schema,
+	): ReturnType<typeof mediaEntitySchemas>[number] & { readonly editor?: PluginEntityEditor } => {
+		const relationships = Object.hasOwn(mediaEntityEditors, schema.slug)
+			? mediaEntityEditors[schema.slug]
+			: undefined;
+		return relationships === undefined
+			? schema
+			: Object.assign({}, schema, { editor: { relationships } });
+	},
+);
 
 const relationshipSchemas = builtinRelationshipSchemas();
 
@@ -735,13 +747,6 @@ export const mediaPlugin = definePlugin({
 			slug: "metadata-lookup",
 			scriptSlug: "operation.metadata-lookup",
 			description: "Match browser extension titles to TMDB movies and shows",
-		},
-		{
-			auth: "user",
-			demoAccess: "protected",
-			slug: mediaEntitySaveOperationSlug,
-			scriptSlug: "operation.media-entity-save",
-			description: "Save a custom media entity",
 		},
 		{
 			auth: "user",

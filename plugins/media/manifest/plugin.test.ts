@@ -695,13 +695,6 @@ it("declares the complete media-owned source", () => {
 		},
 		{
 			auth: "user",
-			demoAccess: "protected",
-			slug: "media-entity-save",
-			scriptSlug: "operation.media-entity-save",
-			description: "Save a custom media entity",
-		},
-		{
-			auth: "user",
 			demoAccess: "allowed",
 			slug: "resolve-episodes",
 			scriptSlug: "operation.resolve-episodes",
@@ -1018,7 +1011,14 @@ it("does not automatically retry external pushes or notifications", () => {
 	}
 });
 
-it("lets media entity editors link only relationships the edited schema sources", () => {
+it("declares media entity editors that link only relationships the edited schema sources", () => {
+	expect(
+		Object.fromEntries(
+			mediaPlugin.entitySchemas.flatMap(({ slug, editor }) =>
+				editor ? [[slug, editor.relationships]] : [],
+			),
+		),
+	).toEqual(mediaEntityEditors);
 	for (const [entitySchemaSlug, relationshipSlugs] of Object.entries(mediaEntityEditors)) {
 		for (const relationshipSlug of relationshipSlugs) {
 			expect(

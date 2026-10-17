@@ -11,12 +11,14 @@ notes. Attachments use managed URLs with renewal, image preview, and video playb
 
 ## Exercises And Writes
 
-Custom exercises use the shared entity editor with `exercise-targets` and
-`exercise-uses-equipment`; `kind` is required and immutable. `exercise-save` permits only those
-schemas and atomically saves the entity/outgoing links through `saveUserEntity`. The creation hook
-adds library membership. Duplication copies visible properties and taxonomy links into a new custom
+Custom exercises use the shared entity editor. The manifest declares editors for `exercise` (with
+`exercise-targets` and `exercise-uses-equipment`), `exercise-target`, and `exercise-equipment`; the
+kernel editor save permits only those declared relationships and atomically saves the entity and
+its outgoing links. `kind` is required and immutable. The creation hook adds library membership. Duplication copies visible properties and taxonomy links into a new custom
 exercise. Standard and private taxonomies are visible through normal RyotQL scoping; target roles
-are optional.
+are optional. Adding a target or equipment opens the kernel entity picker for that schema: visible
+taxonomies, Fitness Catalog results not yet imported (importing one selects it), and inline creation
+of a private target or equipment through its editor, where a target's `kind` is required.
 
 `exercise-merge` requires distinct same-kind entities and a custom source. It detaches source
 membership/taxonomy links, moves events/notes/collection membership through `mergeUserEntityData`,
