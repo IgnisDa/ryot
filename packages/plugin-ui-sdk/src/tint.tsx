@@ -6,22 +6,26 @@ import { deriveImageTint, getImageTintGradientStops, quantizeImageTintPixels } f
 
 const MAX_DIMENSION = 64;
 
+// oxlint-disable-next-line effecttsgo/async-function -- Browser image-fetch boundary; a no-store CORS request avoids CDN cache entries stored without CORS headers.
+const fetchImageBitmap = async (url: string) => {
+	const response = await fetch(url, { mode: "cors", cache: "no-store" });
+	return createImageBitmap(await response.blob());
+};
+
 const loadImageTint = (url: string) =>
 	Effect.gen(function* () {
 		if (typeof document === "undefined") {
 			return undefined;
 		}
-		const image = new Image();
-		image.src = url;
-		image.crossOrigin = "anonymous";
 		const decoded = yield* Effect.tryPromise({
 			catch: () => undefined,
-			try: () => image.decode(),
+			try: () => fetchImageBitmap(url),
 		}).pipe(Effect.option);
 		if (decoded._tag === "None") {
 			return undefined;
 		}
-		const { naturalWidth: width, naturalHeight: height } = image;
+		const image = decoded.value;
+		const { width, height } = image;
 		if (width === 0 || height === 0) {
 			return undefined;
 		}
