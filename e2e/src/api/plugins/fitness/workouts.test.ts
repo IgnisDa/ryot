@@ -52,6 +52,7 @@ describe("Workouts E2E", () => {
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
 			const { schema: workoutSchema } = yield* findFitnessEntitySchema(client, "workout");
+			const { workoutSetEventSchema } = yield* findWorkoutSetEventSchema(client);
 
 			expect(workoutSchema.propertiesSchema.fields).toMatchObject({
 				images: { type: "array", label: "Images", description: "Images attached to this workout" },
@@ -71,12 +72,19 @@ describe("Workouts E2E", () => {
 					label: "Started At",
 					description: "Date and time this workout session began",
 				},
+				exerciseMedia: {
+					type: "array",
+					label: "Exercise Media",
+					description: "Images and videos for each exercise occurrence in this workout",
+				},
 				caloriesBurnt: {
 					type: "number",
 					label: "Calories Burnt",
 					description: "Estimated energy burned during this workout in kilocalories (kcal)",
 				},
 			});
+			expect(workoutSetEventSchema.propertiesSchema.fields).not.toHaveProperty("images");
+			expect(workoutSetEventSchema.propertiesSchema.fields).not.toHaveProperty("videos");
 		}),
 	);
 
@@ -149,6 +157,13 @@ describe("Workouts E2E", () => {
 						startedAt: "2026-04-27T10:00:00Z",
 						videos: [{ type: "s3", key: "workouts/video.mp4" }],
 						images: [{ type: "local", key: "permanent/workout.jpg" }],
+						exerciseMedia: [
+							{
+								exerciseOrder: 0,
+								videos: [{ type: "s3", key: "workouts/exercise.mp4" }],
+								images: [{ type: "remote", url: "https://example.com/exercise.jpg" }],
+							},
+						],
 					},
 				});
 				const entity = yield* getEntity(client, workout.id);
@@ -160,6 +175,13 @@ describe("Workouts E2E", () => {
 					startedAt: "2026-04-27T10:00:00Z",
 					videos: [{ type: "s3", key: "workouts/video.mp4" }],
 					images: [{ type: "local", key: "permanent/workout.jpg" }],
+					exerciseMedia: [
+						{
+							exerciseOrder: 0,
+							videos: [{ type: "s3", key: "workouts/exercise.mp4" }],
+							images: [{ type: "remote", url: "https://example.com/exercise.jpg" }],
+						},
+					],
 				});
 			}),
 	);
@@ -351,21 +373,7 @@ describe("Workouts E2E", () => {
 							entityId: exerciseId,
 							sessionEntityId: workoutId,
 							eventSchemaSlug: workoutSetEventSchema.id,
-							properties: {
-								reps: 10,
-								weight: 60,
-								setOrder: 0,
-								setLot: "normal",
-								exerciseOrder: 0,
-								images: [
-									{ type: "remote", url: "https://example.com/workout-image.jpg" },
-									{ type: "s3", key: "workouts/image.jpg" },
-								],
-								videos: [
-									{ type: "remote", url: "https://example.com/workout-video.mp4" },
-									{ type: "s3", key: "workouts/video.mp4" },
-								],
-							},
+							properties: { reps: 10, weight: 60, setOrder: 0, setLot: "normal", exerciseOrder: 0 },
 						},
 					],
 				}),
@@ -376,16 +384,9 @@ describe("Workouts E2E", () => {
 			const events = yield* waitForSessionEventCount(client, workoutId, 1);
 			expect(events[0]?.sessionEntityId).toBe(workoutId);
 			expect(events[0]?.entityId).toBe(exerciseId);
-			expect(events[0]?.properties).toMatchObject({
-				images: [
-					{ type: "remote", url: "https://example.com/workout-image.jpg" },
-					{ type: "s3", key: "workouts/image.jpg" },
-				],
-				videos: [
-					{ type: "remote", url: "https://example.com/workout-video.mp4" },
-					{ type: "s3", key: "workouts/video.mp4" },
-				],
-			});
+			expect(events[0]?.properties).toMatchObject({ exerciseOrder: 0 });
+			expect(events[0]?.properties).not.toHaveProperty("images");
+			expect(events[0]?.properties).not.toHaveProperty("videos");
 		}),
 	);
 

@@ -240,8 +240,6 @@ export const cloneWorkoutForRepeat = (
 			sourceExerciseOrder: undefined,
 			sets: occurrence.sets.map((set) => ({
 				...set,
-				images: [],
-				videos: [],
 				rpe: undefined,
 				included: false,
 				eventId: undefined,
@@ -267,6 +265,7 @@ export const cloneWorkoutForRepeat = (
 		draftId: input.draftId,
 		caloriesBurnt: undefined,
 		restCountdown: undefined,
+		uploadedAssets: undefined,
 		startedAt: input.startedAt,
 		activeDurationIntent: "set",
 		activeOccurrenceId: undefined,
@@ -433,6 +432,8 @@ export const buildWorkoutEditorSaveInput = (
 							},
 				occurrences: occurrences.map(({ sets, occurrence }) => ({
 					notes: occurrence.notes,
+					images: occurrence.images,
+					videos: occurrence.videos,
 					clientId: occurrence.clientId,
 					exerciseId: occurrence.exerciseId,
 					sourceExerciseOrder: occurrence.sourceExerciseOrder,
@@ -448,9 +449,7 @@ export const buildWorkoutEditorSaveInput = (
 						const rpe = parseInput(set.rpe, true);
 						return {
 							measurements,
-							images: set.images,
 							setLot: set.setLot,
-							videos: set.videos,
 							clientId: set.clientId,
 							exerciseKind: set.exerciseKind,
 							...(set.note === undefined ? {} : { note: set.note }),

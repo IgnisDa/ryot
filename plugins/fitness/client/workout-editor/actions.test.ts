@@ -26,8 +26,6 @@ const startTime = Date.parse(startedAt);
 const workoutSet = (clientId: string, overrides: Record<string, unknown> = {}) => ({
 	clientId,
 	reps: "5",
-	images: [],
-	videos: [],
 	weight: "10",
 	included: false,
 	setLot: "normal",
@@ -200,9 +198,7 @@ describe("workout editor actions", () => {
 								confirmedAt: startedAt,
 								note: "Keep form steady",
 								restTimerStartedAt: startedAt,
-								images: [{ type: "s3", key: "set/image.jpg" }],
 								restChoice: { seconds: "45", kind: "explicit" },
-								videos: [{ type: "local", key: "set/video.mp4" }],
 							}),
 						],
 					}),
@@ -214,8 +210,6 @@ describe("workout editor actions", () => {
 
 		expect(newWorkoutSet("new-set", "reps_and_weight", previous)).toEqual({
 			reps: "8",
-			images: [],
-			videos: [],
 			weight: "80",
 			distance: "4",
 			duration: "30",

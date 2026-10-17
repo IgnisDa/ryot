@@ -32,14 +32,6 @@ const draftSet = (clientId: string, index: number, rich: boolean) => ({
 	restTimerStartedAt: undefined,
 	exerciseKind: "reps_and_weight",
 	restChoice: { kind: "inherited" },
-	videos: rich && index % 5 === 0 ? [{ type: "s3", key: `media/workout/${index}/video.mp4` }] : [],
-	images:
-		rich && index % 5 === 0
-			? [
-					{ type: "s3", key: `media/workout/${index}/image-1.jpg` },
-					{ type: "local", key: `media/workout/${index}/image-2.jpg` },
-				]
-			: [],
 });
 
 const occurrence = (clientId: string, index: number, setCount: number, rich = true) => ({
@@ -63,8 +55,8 @@ const occurrence = (clientId: string, index: number, setCount: number, rich = tr
 		: undefined,
 });
 
-const workoutDraft = (occurrences: ReturnType<typeof occurrence>[], rich = true) =>
-	Schema.decodeUnknownSync(WorkoutEditorDraftSchema)({
+const workoutDraft = (occurrences: ReturnType<typeof occurrence>[], rich = true) => {
+	const draft = Schema.decodeUnknownSync(WorkoutEditorDraftSchema)({
 		occurrences,
 		activeDuration: 3600,
 		startedAt: timestamp,
@@ -100,6 +92,15 @@ const workoutDraft = (occurrences: ReturnType<typeof occurrence>[], rich = true)
 						},
 					],
 	});
+	return {
+		...draft,
+		uploadedAssets: [
+			...draft.images,
+			...draft.videos,
+			...draft.occurrences.flatMap((item) => item.images.concat(item.videos)),
+		].filter((asset) => asset.type !== "remote"),
+	};
+};
 
 const templateDraft = () =>
 	Schema.decodeUnknownSync(WorkoutEditorDraftSchema)({
@@ -123,8 +124,6 @@ const templateDraft = () =>
 				images: [{ type: "s3", key: `media/exercise/${occurrenceIndex}/image.jpg` }],
 				videos: [{ type: "local", key: `media/exercise/${occurrenceIndex}/video.mp4` }],
 				sets: Array.from({ length: 3 }, (_setIndex, setIndex) => ({
-					images: [],
-					videos: [],
 					included: false,
 					setLot: "normal",
 					exerciseKind: "reps_and_weight",
@@ -141,7 +140,7 @@ const templateDraft = () =>
 		}),
 	});
 
-const saveInputFor = (draft: ReturnType<typeof workoutDraft>) => {
+const saveInputFor = (draft: typeof WorkoutEditorDraftSchema.Type) => {
 	const saved = buildWorkoutEditorSaveInput(
 		draft,
 		{ submittedAt: timestamp, submissionId: "capacity-submission" },
@@ -186,20 +185,6 @@ it("fits observed workout and template shapes, with a 101-set workout draft and 
 	assert(representativeSave.data.kind === "workout");
 	const original = representativeSave.data;
 	const baseline = Schema.decodeUnknownSync(WorkoutEditorBaselineSchema)({
-		entity: {
-			name: original.name,
-			updatedAt: timestamp,
-			id: "workout-existing",
-			properties: {
-				startedAt: timestamp,
-				images: original.images,
-				videos: original.videos,
-				exerciseNotes: original.occurrences.map(({ notes }, exerciseOrder) => ({
-					notes,
-					exerciseOrder,
-				})),
-			},
-		},
 		sets: original.occurrences.flatMap((item, exerciseOrder) =>
 			item.sets.map((set, setOrder) => ({
 				id: set.eventId,
@@ -214,6 +199,25 @@ it("fits observed workout and template shapes, with a 101-set workout draft and 
 				}),
 			})),
 		),
+		entity: {
+			name: original.name,
+			updatedAt: timestamp,
+			id: "workout-existing",
+			properties: {
+				startedAt: timestamp,
+				images: original.images,
+				videos: original.videos,
+				exerciseNotes: original.occurrences.map(({ notes }, exerciseOrder) => ({
+					notes,
+					exerciseOrder,
+				})),
+				exerciseMedia: original.occurrences.flatMap((item, exerciseOrder) =>
+					item.images.length === 0 && item.videos.length === 0
+						? []
+						: [{ exerciseOrder, images: item.images, videos: item.videos }],
+				),
+			},
+		},
 	});
 	const withBaseline = {
 		...representativeWorkout,

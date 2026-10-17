@@ -42,8 +42,6 @@ const WorkoutEditorSaveSetSchema = Schema.Struct({
 	clientId: nonEmptyString,
 	setLot: WorkoutSetLotSchema,
 	exerciseKind: exerciseKindSchema,
-	images: WorkoutEditorMediaSchema,
-	videos: WorkoutEditorMediaSchema,
 	note: Schema.optional(Schema.String),
 	confirmedAt: Schema.optional(timestamp),
 	eventId: Schema.optional(nonEmptyEventId),
@@ -125,6 +123,8 @@ const WorkoutEditorWorkoutDataSchema = Schema.Struct({
 		Schema.Struct({
 			clientId: nonEmptyString,
 			exerciseId: nonEmptyEntityId,
+			images: WorkoutEditorMediaSchema,
+			videos: WorkoutEditorMediaSchema,
 			notes: Schema.Array(Schema.String),
 			sets: Schema.Array(WorkoutEditorSaveSetSchema),
 			sourceExerciseOrder: Schema.optional(nonNegativeInteger),

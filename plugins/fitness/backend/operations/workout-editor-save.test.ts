@@ -18,6 +18,8 @@ const time = "2026-10-01T10:00:00.000Z";
 const setTime = "2026-10-01T10:15:00.000Z";
 const entityId = EntityId.make("workout-1");
 const exerciseId = EntityId.make("exercise-1");
+const occurrenceImages = [{ type: "local", key: "permanent/imported-exercise.jpg" }];
+const occurrenceVideos = [{ type: "remote", url: "https://example.com/imported-exercise.mp4" }];
 const original: WorkoutEditorEvent = {
 	occurredAt: setTime,
 	entityId: exerciseId,
@@ -43,6 +45,7 @@ const baseline: WorkoutEditorBaseline = {
 			startedAt: time,
 			activeDuration: 3000,
 			images: [{ type: "s3", key: "existing.jpg" }],
+			exerciseMedia: [{ exerciseOrder: 0, images: occurrenceImages, videos: occurrenceVideos }],
 		},
 	},
 };
@@ -67,11 +70,11 @@ const input = (update = false) =>
 					exerciseId,
 					notes: ["Exercise note"],
 					clientId: "occurrence-1",
+					images: update ? occurrenceImages : [],
+					videos: update ? occurrenceVideos : [],
 					sourceExerciseOrder: update ? 0 : undefined,
 					sets: [
 						{
-							images: [],
-							videos: [],
 							setLot: "normal",
 							occurredAt: setTime,
 							clientId: "client-set-1",
@@ -237,6 +240,26 @@ describe("workout editor save", () => {
 				]);
 			}),
 		));
+	it("verifies both media kinds attached to workout occurrences", () =>
+		Effect.runPromise(
+			Effect.gen(function* () {
+				const source = input();
+				assert(source.data.kind === "workout");
+				const image = { type: "s3", key: "new-exercise.jpg" } as const;
+				const video = { type: "local", key: "permanent/new-exercise.mp4" } as const;
+				const data = {
+					...source.data,
+					occurrences: source.data.occurrences.map((occurrence) => ({
+						...occurrence,
+						images: [image],
+						videos: [video],
+					})),
+				};
+				const { host, calls } = harness();
+				expect(yield* definition.run({ ...source, data }, host)).toMatchObject({ kind: "saved" });
+				expect(calls.find(({ method }) => method === "assets")?.args[0]).toEqual([image, video]);
+			}),
+		));
 	it("keeps immutable write arguments on retry and does not finalize an incomplete save", () =>
 		Effect.runPromise(
 			Effect.gen(function* () {
@@ -253,17 +276,23 @@ describe("workout editor save", () => {
 				expect(writes[0]?.args).toEqual(writes[1]?.args);
 			}),
 		));
-	it("preserves imported notes, media, set times, and active duration on a free historical edit", () =>
+	it("preserves imported notes, occurrence media, set times, and active duration on a free historical edit", () =>
 		Effect.runPromise(
 			Effect.gen(function* () {
 				const { host, calls } = harness({ baseline });
 				expect(yield* definition.run(input(true), host)).toMatchObject({ kind: "saved" });
 				expect(calls.find(({ method }) => method === "updateEntity")?.args[0]).toMatchObject({
-					properties: { activeDuration: 3000, images: [{ type: "s3", key: "existing.jpg" }] },
 					expected: {
 						name: baseline.entity.name,
 						updatedAt: baseline.entity.updatedAt,
 						properties: baseline.entity.properties,
+					},
+					properties: {
+						activeDuration: 3000,
+						images: [{ type: "s3", key: "existing.jpg" }],
+						exerciseMedia: [
+							{ exerciseOrder: 0, images: occurrenceImages, videos: occurrenceVideos },
+						],
 					},
 				});
 				expect(calls.find(({ method }) => method === "updateSets")?.args[0]).toMatchObject([
@@ -288,6 +317,8 @@ describe("workout editor save", () => {
 					images: [],
 					occurrences: source.data.occurrences.map((occurrence) =>
 						Object.assign({}, occurrence, {
+							images: [],
+							videos: [],
 							sets: occurrence.sets.map((set) => ({ ...set, note: undefined })),
 						}),
 					),
