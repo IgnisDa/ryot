@@ -250,6 +250,63 @@ describe("installation revision persistence", () => {
 					expect((yield* installations.findById(hasEntries.id))?.isInitialized).toBe(true);
 				}),
 		);
+		test.effect("completes no-entry initializations only for matching activation pairs", () =>
+			Effect.gen(function* () {
+				const session = yield* DatabaseSession;
+				const plugins = yield* PluginRepository;
+				const installations = yield* PluginInstallationRepository;
+				const [firstId, secondId] = yield* session.transaction(
+					Effect.gen(function* () {
+						yield* plugins.lockIngestion();
+						const pluginIds = yield* Effect.forEach(
+							[revisionPackage("first-empty"), revisionPackage("second-empty")],
+							(plugin) => plugins.persist(plugin, { ownerId: null, scope: "system" }),
+						);
+						yield* installations.provisionSystemInstallationsForUser(owner);
+						yield* session.run((db) =>
+							db
+								.update(tables.pluginInstallation)
+								.set({ health: "installing", isInitialized: false })
+								.where(eq(tables.pluginInstallation.userId, owner)),
+						);
+						return pluginIds;
+					}),
+				);
+				assert(firstId && secondId);
+				const first = yield* installations.findByUserAndPlugin(owner, firstId);
+				const second = yield* installations.findByUserAndPlugin(owner, secondId);
+				const firstPlugin = yield* plugins.findActiveSystemPluginById(firstId);
+				const secondPlugin = yield* plugins.findActiveSystemPluginById(secondId);
+				assert(first && second && firstPlugin && secondPlugin);
+				expect(
+					yield* session.transaction(
+						installations.completeNoEntryInitializations({
+							userId: owner,
+							installations: [
+								{ installationId: first.id, activationId: secondPlugin.activationId },
+								{ installationId: second.id, activationId: firstPlugin.activationId },
+							],
+						}),
+					),
+				).toEqual([]);
+				expect(
+					yield* session.transaction(
+						installations.completeNoEntryInitializations({
+							userId: owner,
+							installations: [{ installationId: first.id, activationId: firstPlugin.activationId }],
+						}),
+					),
+				).toEqual([first.id]);
+				expect(yield* installations.findById(first.id)).toMatchObject({
+					health: "ready",
+					isInitialized: true,
+				});
+				expect(yield* installations.findById(second.id)).toMatchObject({
+					health: "installing",
+					isInitialized: false,
+				});
+			}),
+		);
 	});
 	layer(revisionDatabaseLayer)((test) => {
 		test.effect(
