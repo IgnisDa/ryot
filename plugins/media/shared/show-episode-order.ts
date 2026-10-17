@@ -13,8 +13,8 @@ export const showEpisodeOrderTypes = [
 const ShowEpisodeOrderSchema = Schema.Struct({
 	name: Schema.String,
 	externalId: Schema.String,
-	description: Schema.NullOr(Schema.String),
 	type: Schema.Literals(showEpisodeOrderTypes),
+	description: Schema.optionalKey(Schema.NullOr(Schema.String)),
 	groups: Schema.Array(
 		Schema.Struct({
 			name: Schema.String,
