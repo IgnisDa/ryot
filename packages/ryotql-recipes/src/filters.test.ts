@@ -655,10 +655,7 @@ describe("linked filter choices recipe", () => {
 
 	it("groups far-side entities by id and name ordered by name and limits the page", () => {
 		const query = choices(collections());
-		expect(query.output.groupBy?.map(({ key }: { readonly key: string }) => key)).toEqual([
-			"id",
-			"name",
-		]);
+		expect(query.output.groupBy?.map(({ key }) => key)).toEqual(["id", "name"]);
 		expect(query.output.orderBy).toEqual([
 			{ key: "name", direction: "asc" },
 			{ key: "id", direction: "asc" },

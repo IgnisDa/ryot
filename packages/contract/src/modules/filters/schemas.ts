@@ -69,13 +69,12 @@ export const relationshipFilterField = <Reference extends Schema.Top>(relationsh
 		direction: Schema.Literals(["outgoing", "incoming"]),
 	});
 
-export const RelationshipFilterField = relationshipFilterField(RelationshipSchemaReference);
-export type RelationshipFilterField = typeof RelationshipFilterField.Type;
+const RelationshipFilterField = relationshipFilterField(RelationshipSchemaReference);
+type RelationshipFilterField = typeof RelationshipFilterField.Type;
 
-export const AuthoredRelationshipFilterField = relationshipFilterField(
+const AuthoredRelationshipFilterField = relationshipFilterField(
 	AuthoredRelationshipSchemaReference,
 );
-export type AuthoredRelationshipFilterField = typeof AuthoredRelationshipFilterField.Type;
 
 export const sessionEventFilterField = <Reference extends Schema.Top>(event: Reference) =>
 	strictStruct({
@@ -85,13 +84,10 @@ export const sessionEventFilterField = <Reference extends Schema.Top>(event: Ref
 		kind: Schema.Literal("session-event"),
 	});
 
-export const SessionEventFilterField = sessionEventFilterField(EventSchemaReference);
-export type SessionEventFilterField = typeof SessionEventFilterField.Type;
+const SessionEventFilterField = sessionEventFilterField(EventSchemaReference);
+type SessionEventFilterField = typeof SessionEventFilterField.Type;
 
-export const AuthoredSessionEventFilterField = sessionEventFilterField(
-	AuthoredEventSchemaReference,
-);
-export type AuthoredSessionEventFilterField = typeof AuthoredSessionEventFilterField.Type;
+const AuthoredSessionEventFilterField = sessionEventFilterField(AuthoredEventSchemaReference);
 
 export const FilterField = Schema.Union([
 	ValueFilterField,
