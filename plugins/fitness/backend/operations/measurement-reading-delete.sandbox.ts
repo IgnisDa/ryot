@@ -6,7 +6,7 @@ import {
 	MeasurementReadingDeleteInput,
 	MeasurementReadingOutput,
 } from "../../shared/measurement-reading-operations";
-import { requireMeasurementReadings } from "./measurement-readings";
+import { requireMeasurementEntry } from "./measurement-readings";
 
 export const manifest = defineManifest({
 	kind: "operation",
@@ -20,7 +20,8 @@ export default defineOperation({
 	input: MeasurementReadingDeleteInput,
 	run: (input, host) =>
 		Effect.gen(function* () {
-			const readings = yield* requireMeasurementReadings(input.readingIds, host.executeRyotql);
-			return yield* host.deleteEvents(readings.map(({ id }) => id));
+			const entry = yield* requireMeasurementEntry(input.entryId, host.executeRyotql);
+			yield* host.deleteUserEntity({ entityId: entry.id, entitySchemaSlug: "measurement-entry" });
+			return { count: entry.readingCount };
 		}),
 });

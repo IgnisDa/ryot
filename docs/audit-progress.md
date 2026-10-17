@@ -15,7 +15,7 @@
 
 ## Status
 
-**51 implemented, 0 in progress, 32 pending; 3 excluded.**
+**52 implemented, 0 in progress, 31 pending; 3 excluded.**
 
 “Implemented” means affected checks and tests passed and the change is committed with this tracker. Batch-wide acceptance is recorded separately below. Rows follow the audit's ranked order; sequencing can change to respect dependencies and keep changes reviewable.
 
@@ -50,7 +50,7 @@
 | B06-R1 | Pending | Materialize distinct pins and accepted automation runs as sets. |
 | P01-R1 | Implemented | Generated provider tuples are the sole script/operation bindings, scoped to active or retained revisions. See this finding's audit commit. |
 | B09-R1 | Implemented | Persist ordered collection fields canonically, compile them one way, and trim all 25 JavaScript whitespace characters in SQL. See this finding's audit commit. |
-| F04-R2 | Pending | Address complete measurement entries for edits and deletes. |
+| F04-R2 | Implemented | Use stable measurement-entry IDs, preserve complete child pages and session-linked analytics, and update/delete by entry ID while retaining OpenScale legacy producers. See this finding's audit commit. |
 | B28-R1 | Pending | Derive ingestion identity projections from JSON. |
 | B05-R1 | Implemented | Model five strict upload-intent variants; require a local temp path, separate numeric completion expiry from the lease, preserve single-claim replay, and block cleanup of stale permanent objects. See this finding's audit commit. |
 | B13-R2 | Implemented | Remove the non-durable preparing state; batches transition from pending directly to applying while preserving B13-R1 and B15 behavior. See this finding's audit commit. |
@@ -217,3 +217,4 @@
 - B19-R2: contract and scoped checks passed; full backend/server checks and all page-preparation tests passed in the coordinator 31-file run. The only failure was an unrelated B06 test; read-only review reported no findings.
 - B07-R1: scoped package checks passed; full backend/server checks and all backup tests passed in the coordinator 31-file run; read-only review reported no findings. Package keys are the sole portable identity; no version or compatibility path changed.
 - B13-R2: coordinated full checks passed, followed by all affected workflow tests and 33 ingestion tests; read-only review reported no findings. Pending transitions directly to applying; B13-R1 and B15 behavior are preserved. Development state is resettable; no production compatibility or drain machinery was added, and no reset was performed.
+- F04-R2: fitness check passed before 73 tests across 12 files, e2e check passed, and the full server check passed; read-only review reported no findings. Stable entry IDs preserve complete child pages, session-linked events/analytics, and entry-ID update/delete; OpenScale legacy producers remain. F02 workout hunks in the shared import test were excluded. Restored normal/larger migration validation remains pending for coordinated follow-up; no reset or compatibility/drain path was needed.

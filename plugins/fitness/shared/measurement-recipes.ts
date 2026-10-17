@@ -12,7 +12,9 @@ import {
 	first,
 	gte,
 	inArray,
+	isNotNull,
 	join,
+	JsonValue,
 	latestEventField,
 	literal,
 	minimum,
@@ -174,30 +176,80 @@ export const measurementSeriesRecipe = defineRecipe((input: SeriesInput) => ({
 export type MeasurementSummary = Recipe.Success<typeof measurementSummaryRecipe>["items"][number];
 export type MeasurementSeries = Recipe.Success<typeof measurementSeriesRecipe>[number];
 
-export const measurementReadingsRecipe = defineRecipe((readingIds: readonly string[]) => {
+export const measurementEntryRecipe = defineRecipe((entryId: string) => {
+	const entry = table("entity", "entry");
 	const reading = table("event", "reading");
-	const metric = table("entity", "metric");
 	return {
-		map: ({ readings }) => Result.succeed(readings.items),
+		map: ({ entries }) => Result.succeed(entries.items[0] ?? null),
 		queries: {
-			readings: selectedRows(reading, {
-				limit: readingIds.length,
-				orderBy: [ascending(column(reading, "id"))],
-				joins: [join("inner", metric, eq(column(reading, "entityId"), column(metric, "id")))],
-				selection: {
-					id: selectedField(column(reading, "id"), Schema.String),
-					metricId: selectedField(column(metric, "id"), Schema.String),
-				},
+			entries: selectedRows(entry, {
+				limit: 1,
+				orderBy: [ascending(column(entry, "id"))],
 				where: and(
-					inArray(column(reading, "id"), readingIds.map(literal)),
-					eventSchemaPredicate(reading, metric, "measurement-metric", "measurement-reading", {
-						kind: "self",
-					}),
+					eq(column(entry, "id"), literal(entryId)),
+					isNotNull(column(entry, "userId")),
+					entitySchemaPredicate(entry, "measurement-entry", { kind: "self" }),
 				),
+				selection: {
+					id: selectedField(column(entry, "id"), Schema.String),
+					name: selectedField(column(entry, "name"), Schema.String),
+					updatedAt: selectedField(column(entry, "updatedAt"), Schema.String),
+					properties: selectedField(
+						column(entry, "properties"),
+						Schema.Record(Schema.String, JsonValue),
+					),
+					readingCount: selectedField(
+						count(reading, {
+							where: and(
+								eq(column(reading, "sessionEntityId"), column(entry, "id")),
+								schemaOwnerPredicate(reading, "eventSchemaPluginId", { kind: "self" }),
+								eq(column(reading, "eventSchemaSlug"), literal("measurement-reading")),
+							),
+						}),
+						Schema.Int,
+					),
+				},
 			}),
 		},
 	};
 });
+
+export const measurementEntryReadingsRecipe = defineRecipe(
+	(input: {
+		readonly entryId: string;
+		readonly reference: PluginIdentityReference;
+		readonly after?: string | undefined;
+	}) => {
+		const reading = table("event", "reading");
+		const metric = table("entity", "metric");
+		return {
+			map: ({ readings }) => Result.succeed(readings),
+			queries: {
+				readings: selectedRows(reading, {
+					limit: 100,
+					after: input.after,
+					orderBy: [ascending(column(reading, "id"))],
+					joins: [join("inner", metric, eq(column(reading, "entityId"), column(metric, "id")))],
+					selection: {
+						id: selectedField(column(reading, "id"), Schema.String),
+						metricId: selectedField(column(metric, "id"), Schema.String),
+						value: selectedField(propertyNumber(reading, "value"), Schema.Finite),
+					},
+					where: and(
+						eq(column(reading, "sessionEntityId"), literal(input.entryId)),
+						eventSchemaPredicate(
+							reading,
+							metric,
+							"measurement-metric",
+							"measurement-reading",
+							input.reference,
+						),
+					),
+				}),
+			},
+		};
+	},
+);
 
 export const measurementMetricIdsRecipe = defineRecipe((metricIds: readonly string[]) => {
 	const metric = table("entity", "metric");
@@ -216,6 +268,10 @@ export const measurementMetricIdsRecipe = defineRecipe((metricIds: readonly stri
 		},
 	};
 });
+
+export type MeasurementEntryReading = Recipe.Success<
+	typeof measurementEntryReadingsRecipe
+>["items"][number];
 
 export const pinnedMeasurementMetricIdsRecipe = defineRecipe(() => {
 	const pin = table("relationship", "pin");

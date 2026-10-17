@@ -74,6 +74,7 @@ it("declares the complete fitness-owned source", () => {
 		"exercise-equipment",
 		"workout",
 		"workout-template",
+		"measurement-entry",
 		"measurement-metric",
 	]);
 	expect(fitnessPlugin.relationshipSchemas.map(({ slug }) => slug)).toEqual([

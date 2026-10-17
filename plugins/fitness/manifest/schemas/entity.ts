@@ -1,6 +1,7 @@
 import { exerciseTargetKinds } from "../../shared/taxonomy";
 import {
 	exercisePropertiesSchema,
+	measurementEntryPropertiesSchema,
 	measurementMetricPropertiesSchema,
 	measurementReadingPropertiesSchema,
 	workoutPropertiesSchema,
@@ -123,6 +124,14 @@ export const fitnessEntitySchemas = [
 		slug: "workout-template",
 		name: "Workout Template",
 		propertiesSchema: workoutTemplatePropertiesSchema,
+	},
+	{
+		icon: "ruler",
+		eventSchemas: [],
+		slug: "measurement-entry",
+		name: "Measurement Entry",
+		userState: { deniedOperations: ["merge"] },
+		propertiesSchema: measurementEntryPropertiesSchema,
 	},
 	{
 		icon: "ruler",

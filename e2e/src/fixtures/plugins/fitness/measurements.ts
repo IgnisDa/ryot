@@ -5,6 +5,13 @@ import {
 	measurementReadingLogRecipe,
 	measurementReadingUpdateRecipe,
 } from "@ryot-app/fitness-plugin/contracts/operation-recipes";
+import {
+	type MeasurementEntryReading,
+	measurementEntryReadingsRecipe,
+	type MeasurementSummary,
+	measurementSummaryRecipe,
+} from "@ryot-app/fitness-plugin/measurement-recipes";
+import { measurementEntryListRecipe } from "@ryot-app/fitness-plugin/query-recipes";
 import { Effect } from "effect";
 
 import type { Client } from "~/fixtures/kernel/auth";
@@ -17,6 +24,7 @@ import {
 	type RecipeEncodedInput,
 	type RecipeInput,
 } from "~/fixtures/kernel/operations";
+import { executeRyotQLRecipe } from "~/fixtures/kernel/ryotql";
 
 import { findFitnessEntitySchema } from "./exercises";
 
@@ -66,6 +74,12 @@ export const createMeasurementReadingFixture = (client: Client) =>
 			entitySchema: metricSchema.reference,
 			properties: { unit: "kg", key: "weight" },
 		});
+		const { schema: entrySchema } = yield* findFitnessEntitySchema(client, "measurement-entry");
+		const entry = yield* createEntity(client, {
+			name: "Measurement",
+			entitySchema: entrySchema.reference,
+			properties: { comment: "Morning", occurredAt: "2026-04-27T08:00:00.000Z" },
+		});
 		yield* waitForCreateEvents(
 			client,
 			yield* client.call((c) =>
@@ -73,14 +87,76 @@ export const createMeasurementReadingFixture = (client: Client) =>
 					payload: [
 						{
 							entityId: metric.id,
+							sessionEntityId: entry.id,
+							properties: { value: 75.5 },
 							eventSchemaSlug: readingSchema.id,
 							occurredAt: "2026-04-27T08:00:00Z",
-							properties: { value: 75.5, comment: "Morning" },
 						},
 					],
 				}),
 			),
 		);
 
-		return { metricId: metric.id };
+		return { entryId: entry.id, metricId: metric.id };
 	});
+
+export const readMeasurementLogReadings = Effect.fn(function* (
+	client: Client,
+	input: Parameters<typeof measurementEntryListRecipe>[0],
+) {
+	const entries = yield* executeRyotQLRecipe(client, measurementEntryListRecipe(input));
+	const metrics = new Map<string, MeasurementSummary>();
+	let after: string | undefined;
+	do {
+		const page = yield* executeRyotQLRecipe(
+			client,
+			measurementSummaryRecipe({
+				after,
+				reference: input.reference,
+				rangeStart: "1970-01-01T00:00:00.000Z",
+			}),
+		);
+		for (const metric of page.items) {
+			metrics.set(metric.id, metric);
+		}
+		after = page.pageInfo.hasMore ? (page.pageInfo.nextCursor ?? undefined) : undefined;
+	} while (after !== undefined);
+	const batches = yield* Effect.forEach(entries.items, (entry) =>
+		Effect.gen(function* () {
+			const values: MeasurementEntryReading[] = [];
+			let childAfter: string | undefined;
+			do {
+				const page = yield* executeRyotQLRecipe(
+					client,
+					measurementEntryReadingsRecipe({
+						after: childAfter,
+						entryId: entry.id,
+						reference: input.reference,
+					}),
+				);
+				values.push(...page.items);
+				childAfter = page.pageInfo.hasMore ? (page.pageInfo.nextCursor ?? undefined) : undefined;
+			} while (childAfter !== undefined);
+			return values
+				.map((reading) => {
+					const metric = metrics.get(reading.metricId);
+					if (metric === undefined) {
+						throw new Error("Expected measurement metric");
+					}
+					return {
+						id: reading.id,
+						entryId: entry.id,
+						unit: metric.unit,
+						value: reading.value,
+						metricKey: metric.key,
+						comment: entry.comment,
+						metricName: metric.name,
+						metricId: reading.metricId,
+						occurredAt: entry.occurredAt,
+					};
+				})
+				.sort((left, right) => (left.metricKey ?? "").localeCompare(right.metricKey ?? ""));
+		}),
+	);
+	return { ...entries, items: batches.flat() };
+});
