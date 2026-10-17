@@ -12,6 +12,7 @@ import type {
 } from "../../shared/media-recipes";
 import type { MediaActivityLogger } from "./activity-log/state";
 import { mediaActivityDurationLabel } from "./activity-timeline";
+import { formatDateOnlyLabel } from "./date";
 import type { MediaArtworkAspect } from "./entity-presentation";
 import {
 	collectManagedAssetLocators,
@@ -86,7 +87,8 @@ export type MediaStatusTone = "accent" | "danger" | "neutral" | "success" | "war
 
 export type MediaStatusRailConfig = {
 	readonly logActivity: MediaActivityLogger | undefined;
-	readonly ownership?: { readonly owned: boolean | null } | undefined;
+	readonly ownership?:
+		{ readonly owned: boolean | null; readonly ownedOn: string | null } | undefined;
 	readonly status?:
 		| {
 				readonly label: string;
@@ -228,11 +230,14 @@ const MEDIA_LIFECYCLE_TONES: Record<EpisodicLifecycleState, MediaStatusTone> = {
 	in_progress: "accent",
 };
 
-export const mediaOwnershipLabel = (owned: boolean | null) => {
+export const mediaOwnershipLabel = (owned: boolean | null, ownedOn: string | null) => {
 	if (owned === null) {
 		return "Not recorded";
 	}
-	return owned ? "Owned" : "Not owned";
+	if (!owned) {
+		return "Not owned";
+	}
+	return ownedOn === null ? "Owned" : `Owned since ${formatDateOnlyLabel(ownedOn)}`;
 };
 
 export const mediaProductionStatusFact = (media: {
@@ -329,7 +334,7 @@ export const mediaSummaryHeaderDetail =
 		].filter((fact) => fact !== undefined),
 		rail: {
 			logActivity: input.logActivity,
-			ownership: { owned: summary.owned },
+			ownership: { owned: summary.owned, ownedOn: summary.ownedOn },
 			status: {
 				progress: input.progress?.(summary),
 				tone: MEDIA_LIFECYCLE_TONES[summary.state],

@@ -207,9 +207,10 @@ describe("media summary state", () => {
 	});
 
 	it("labels ownership values that were never recorded apart from known ones", () => {
-		expect(mediaOwnershipLabel(null)).toBe("Not recorded");
-		expect(mediaOwnershipLabel(true)).toBe("Owned");
-		expect(mediaOwnershipLabel(false)).toBe("Not owned");
+		expect(mediaOwnershipLabel(null, null)).toBe("Not recorded");
+		expect(mediaOwnershipLabel(true, null)).toBe("Owned");
+		expect(mediaOwnershipLabel(true, "2024-03-04")).toBe("Owned since Mar 4, 2024");
+		expect(mediaOwnershipLabel(false, null)).toBe("Not owned");
 	});
 
 	it("labels collection membership by count and truncation", () => {

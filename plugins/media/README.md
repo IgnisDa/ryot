@@ -234,7 +234,14 @@ entities. Enable atomically adds library membership and monitoring; disable remo
 Their schemas live in `shared/media-monitoring-operations.ts` for backend and client use. The summary
 monitoring switch disables during a write, reports failures inline, and refreshes queries on success.
 Invalid targets return aligned misses. Demo sessions can read status and resolve episodes, but
-monitoring changes and custom saves are protected. Integration metadata lookup uses integration auth.
+monitoring changes, ownership changes, and custom saves are protected.
+
+`media-ownership-set` accepts at most 50 visible built-in media entities and merges `owned` and an
+optional `ownedOn` date into each `in-media-library` relationship, adding library membership when
+absent and preserving integration-reported ownership sources. Removing ownership clears `ownedOn`.
+Integrations only report ownership, so a later sync can mark manually unowned media as owned again.
+Its schemas live in `shared/media-ownership-operations.ts`. Switching ownership on asks for the date,
+defaulting to today and rejecting future days; switching it off writes immediately. Integration metadata lookup uses integration auth.
 The cron pages its pinned query, deduplicates global IDs, and refreshes bounded provider batches with
 deterministic child IDs; user-owned fields are not exposed by that global query.
 

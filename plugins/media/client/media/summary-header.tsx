@@ -17,11 +17,11 @@ import { MediaCollectionsRow } from "./collections";
 import { mediaArtworkClass } from "./entity-presentation";
 import { ManagedAssetImage } from "./managed-assets";
 import { MediaMonitoringRow } from "./monitoring";
+import { MediaOwnershipRow } from "./ownership";
 import { MediaExternalLink, MediaFactRow, MediaMarkdown, MediaProgressBar } from "./primitives";
 import { MediaReviewButton } from "./review";
 import {
 	type MediaEntitySummaryValue,
-	mediaOwnershipLabel,
 	mediaPosterAsset,
 	type MediaStatusRailConfig,
 	type MediaSummaryArtwork,
@@ -187,11 +187,11 @@ function MediaStatusRail(props: {
 				trailing={<MediaLibraryBadge isInMediaLibrary={media.isInMediaLibrary} />}
 			/>
 			{ownership === undefined ? null : (
-				<Row
-					title="Ownership"
-					trailing={
-						<span className="text-sm text-text-muted">{mediaOwnershipLabel(ownership.owned)}</span>
-					}
+				<MediaOwnershipRow
+					key={media.id}
+					entityId={media.id}
+					owned={ownership.owned}
+					ownedOn={ownership.ownedOn}
 				/>
 			)}
 			<MediaCollectionsRow
