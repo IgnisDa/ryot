@@ -9,7 +9,7 @@ import {
 	routeLocation,
 	savedViewPageContext,
 } from "@ryot-app/plugin-client-sdk/testing";
-import { fireEvent, screen, waitFor } from "@testing-library/dom";
+import { fireEvent, screen, waitFor, within } from "@testing-library/dom";
 import { act, useState } from "react";
 
 import { PLUGIN_PACKAGE_ID } from "../../shared/plugin-identity";
@@ -216,7 +216,7 @@ describe("ExercisePicker", () => {
 			);
 
 			click(screen.getByRole("checkbox", { name: "Bench press" }));
-			click(screen.getByRole("button", { name: "Next page" }));
+			click(screen.getByRole("button", { name: "Show more" }));
 			yield* Effect.promise(() =>
 				waitFor(() => {
 					answerRequests(page, { exercisePage: orderedExercisePage });
@@ -253,7 +253,11 @@ describe("ExercisePicker", () => {
 				}),
 			);
 			click(screen.getByRole("checkbox", { name: "Bench press" }));
-			click(screen.getByRole("button", { name: "Cancel" }));
+			click(
+				within(screen.getByRole("dialog", { name: "Add exercises" })).getByRole("button", {
+					name: "Cancel exercise selection",
+				}),
+			);
 
 			expect(applied).toHaveLength(0);
 			expect(screen.getByText("Picker closed")).toBeTruthy();
@@ -307,7 +311,7 @@ describe("ExercisePicker", () => {
 			yield* Effect.promise(() =>
 				waitFor(() => {
 					answerRequests(page, { exercisePage: (index) => pickerPage(index) });
-					expect(screen.getByText("No exercises match these filters.")).toBeTruthy();
+					expect(screen.getByText("No exercises match these filters")).toBeTruthy();
 				}),
 			);
 
@@ -316,7 +320,7 @@ describe("ExercisePicker", () => {
 				waitFor(() => {
 					answerRequests(page, { exercisePage: (index) => pickerPage(index) });
 					expect(pickerExerciseQueryCount(page)).toBe(2);
-					expect(screen.getByText("No exercises match these filters.")).toBeTruthy();
+					expect(screen.getByText("No exercises match “hidden by search”")).toBeTruthy();
 				}),
 			);
 			click(screen.getByRole("button", { name: "Add from provider" }));
@@ -378,11 +382,11 @@ describe("ExercisePicker", () => {
 					answerRequests(page, {
 						exercisePage: (index) => rows(index === 1 ? [providerReps] : [duration]),
 					});
-					expect(screen.getByRole("checkbox", { name: "Timed exercise" })).toBeTruthy();
+					expect(screen.getByRole("radio", { name: "Timed exercise" })).toBeTruthy();
 				}),
 			);
 
-			click(screen.getByRole("checkbox", { name: "Timed exercise" }));
+			click(screen.getByRole("radio", { name: "Timed exercise" }));
 			click(screen.getByRole("button", { name: "Add from provider" }));
 			const request = yield* Effect.promise(() =>
 				waitFor(() => {
@@ -436,15 +440,15 @@ describe("ExercisePicker", () => {
 								exercise("exercise-duration", "Timed exercise", "duration"),
 							]),
 					});
-					expect(screen.getByRole("checkbox", { name: "Timed exercise" })).toBeTruthy();
+					expect(screen.getByRole("radio", { name: "Timed exercise" })).toBeTruthy();
 				}),
 			);
 
 			expect(screen.getByRole("heading", { name: "Replace Current exercise" })).toBeTruthy();
-			expect(screen.getByRole("checkbox", { name: "Rep exercise" }).hasAttribute("disabled")).toBe(
+			expect(screen.getByRole("radio", { name: "Rep exercise" }).hasAttribute("disabled")).toBe(
 				true,
 			);
-			click(screen.getByRole("checkbox", { name: "Timed exercise" }));
+			click(screen.getByRole("radio", { name: "Timed exercise" }));
 			click(screen.getByRole("button", { name: "Replace exercise" }));
 
 			expect(applied[0]?.map(({ id }) => id)).toEqual(["exercise-duration"]);
@@ -467,9 +471,10 @@ describe("ExercisePicker", () => {
 				}),
 			);
 
-			expect(screen.getByRole("button", { name: "Save preset" }).hasAttribute("disabled")).toBe(
-				true,
-			);
+			click(screen.getByRole("button", { name: "Presets" }));
+			expect(
+				screen.getByRole("menuitem", { name: "Save current filters…" }).hasAttribute("disabled"),
+			).toBe(true);
 			expect(
 				page
 					.clientMessages()

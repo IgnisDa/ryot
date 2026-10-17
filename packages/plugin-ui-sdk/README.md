@@ -71,6 +71,8 @@ curve.
   `danger` is the final destructive confirmation and `dangerGhost` the destructive entry in a list.
   `loading` keeps the label for assistive technology and blocks activation. `IconButton` requires a
   label.
+- `MultiSelect` opens a searchable checklist from a field, or from a pill with `variant="chip"` for
+  rows of filters.
 - `Field` labels one control and wires its hint and error through `aria-describedby`. `TextField` and
   `TextArea` are form inputs; `CellInput` is the borderless filled cell for repeated numeric entry.
 - `Switch` applies immediately; `Checkbox` and `Radio` belong to saved forms; `SegmentedControl`
