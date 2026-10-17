@@ -123,9 +123,8 @@ describe("plain provider descriptions", () => {
 				return httpSuccess({
 					name: "Show",
 					overview: "*Show*",
-					seasons: [{ season_number: 1 }],
+					seasons: [{ id: 2, season_number: 1 }],
 					"season/1": {
-						id: 2,
 						name: "Season",
 						overview: "*Season*",
 						episodes: [{ id: 3, name: "Episode", episode_number: 1, overview: "*Episode*" }],
