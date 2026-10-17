@@ -268,15 +268,17 @@ The subsequent phases reuse this slice's contracts, helpers, submission handling
 
 ### Phase 4 — Device primitives and draft recovery
 
+**Status:** complete. Scoped device primitives, ordered draft recovery, timer reconciliation, return shortcuts, and audio packaging are implemented. Editor UI and production entry points remain in later phases; native manual acceptance remains in Phase 8.
+
 **Owners:** `packages/plugin-client-contract`, `packages/plugin-client-sdk`, `kernel/client/src/modules/{plugins,navigation,assets}`, `kernel/client/src/persistence`, native platform configuration.
 
-- [ ] Raise only the plugin-storage value allowance to the validated 64 KiB size; keep the current API and scope keys.
-- [ ] Implement ordered draft persistence and recovery in Fitness. Keep schema/decode/quota failures visible. Flush critical transitions; do not silently recover an unreadable value as an empty workout.
-- [ ] Implement the small schedule/cancel bridge and host alert service described above. Add native package/configuration, scoped native ID mapping, duplicate-key replacement, delivered-notification cleanup, permission outcomes, logout/server-change cancellation, and cold-start tap routing.
-- [ ] Add host-owned wake-lock and fixed haptic primitives, with Effect Layers and injected deterministic test adapters.
-- [ ] Add the minimal scoped return shortcut for the old cross-page active-workout affordance. Store only label/semantic target, restore it with the authenticated scope, and clear it on Finish/Discard. Do not make the kernel inspect Fitness draft fields.
-- [ ] Add four audio assets from `crates/frontend/public/sounds/` to Fitness client sources and narrowly extend supported artifact extensions/MIME types. Handle user-gesture/autoplay restrictions without breaking the logger or adding Howler as an unapproved client dependency.
-- [ ] Reconcile deadline completion on resume, storage recovery, notification tap, and page refresh. Test timer replacement, deletion, same-kind replacement identity, unconfirmation, late expiry, pause, and multi-scope isolation.
+- [x] Raise only the plugin-storage value allowance to the validated 64 KiB size; keep the current API and scope keys.
+- [x] Implement ordered draft persistence and recovery in Fitness. Keep schema/decode/quota failures visible. Flush critical transitions; do not silently recover an unreadable value as an empty workout.
+- [x] Implement the small schedule/cancel bridge and host alert service described above. Add native package/configuration, scoped native ID mapping, duplicate-key replacement, delivered-notification cleanup, permission outcomes, logout/server-change cancellation, and cold-start tap routing.
+- [x] Add host-owned wake-lock and fixed haptic primitives, with Effect Layers and injected deterministic test adapters.
+- [x] Add the minimal scoped return shortcut for the old cross-page active-workout affordance. Store only label/semantic target, restore it with the authenticated scope, and clear it on Finish/Discard. Do not make the kernel inspect Fitness draft fields.
+- [x] Add four audio assets from `crates/frontend/public/sounds/` to Fitness client sources and narrowly extend supported artifact extensions/MIME types. Handle user-gesture/autoplay restrictions without breaking the logger or adding Howler as an unapproved client dependency.
+- [x] Reconcile deadline completion on resume, storage recovery, notification tap, and page refresh. Test timer replacement, deletion, same-kind replacement identity, unconfirmation, late expiry, pause, and multi-scope isolation.
 
 **Exit:** bridge tests and controller tests prove scoped alert replacement/cancellation and exactly-once draft reconciliation. Native manual verification remains mandatory in Phase 8.
 

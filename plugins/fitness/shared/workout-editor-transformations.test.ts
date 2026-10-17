@@ -94,12 +94,19 @@ it("reuses the complete frozen submission after recovery or context changes", ()
 
 it("replaces only one occurrence when the exercise kind stays the same", () => {
 	const draft = makeDraft({
+		occurrences: [
+			occurrence("occurrence-1", [
+				set("set-1", { included: true, eventId: "event-1", confirmedAt: timestamp }),
+			]),
+			occurrence("occurrence-2", [set("set-2")]),
+		],
 		restCountdown: {
 			setId: "set-2",
 			deadline: timestamp,
 			durationSeconds: 90,
 			clientId: "rest-countdown",
 			occurrenceId: "occurrence-2",
+			exerciseId: "exercise-occurrence-2",
 		},
 		executionCountdown: {
 			setId: "set-1",
@@ -107,13 +114,8 @@ it("replaces only one occurrence when the exercise kind stays the same", () => {
 			durationSeconds: 60,
 			occurrenceId: "occurrence-1",
 			clientId: "execution-countdown",
+			exerciseId: "exercise-occurrence-1",
 		},
-		occurrences: [
-			occurrence("occurrence-1", [
-				set("set-1", { included: true, eventId: "event-1", confirmedAt: timestamp }),
-			]),
-			occurrence("occurrence-2", [set("set-2")]),
-		],
 	});
 	const replaced = replaceWorkoutOccurrence(draft, "occurrence-1", {
 		exerciseKind: "reps_and_weight",
