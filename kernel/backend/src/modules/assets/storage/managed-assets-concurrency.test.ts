@@ -211,7 +211,7 @@ layer(referenceTestLayer)((test) => {
 					Effect.gen(function* () {
 						yield* Deferred.succeed(cleanupStarted, undefined);
 						const asset = yield* repository.lockByLocator(locator);
-						return { asset, referenced: yield* references.hasReference(locator) };
+						return { asset, referenced: yield* references.hasReference(ownerUserId, locator) };
 					}),
 				),
 			);
@@ -273,7 +273,7 @@ layer(referenceTestLayer)((test) => {
 						entitySchemaSlug: "shared-asset-reference",
 					}),
 			);
-			expect(yield* references.hasReference(locator)).toBe(true);
+			expect(yield* references.hasReference(ownerUserId, locator)).toBe(true);
 		}),
 	);
 });
