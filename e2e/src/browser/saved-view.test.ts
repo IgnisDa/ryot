@@ -118,6 +118,7 @@ beforeAll(() =>
 				client,
 				name: PROVIDER_NAME,
 				slug: PROVIDER_SLUG,
+				detailsDelayMs: 1_500,
 				pluginSlug: PLUGIN_SLUG,
 				rootEntitySchemaSlug: ENTITY_SCHEMA_SLUG,
 				details: fakeProviderDetailsResult({
@@ -383,9 +384,16 @@ it.live("imports through the configured renderer provider search and refreshes m
 		const addFirst = dialog(page).getByRole("button", { name: `Add ${FIRST_RESULT_TITLE}` });
 		yield* addFirst.waitFor({ state: "visible" });
 		yield* addFirst.click();
+		const adding = dialog(page).getByRole("status", { name: `Adding ${FIRST_RESULT_TITLE}` });
+		yield* adding.waitFor({ state: "visible" });
+		expect(yield* adding.getByText("Adding…", { exact: true }).isVisible()).toBe(true);
+		expect(
+			yield* adding.evaluate((element) => element.closest('[aria-busy="true"]') !== null),
+		).toBe(true);
 		yield* dialog(page)
 			.getByRole("link", { name: `Open ${FIRST_RESULT_TITLE}` })
 			.waitFor({ state: "visible", timeout: IMPORT_TIMEOUT });
+		expect(yield* adding.count).toBe(0);
 		expect(yield* dialog(page).isVisible()).toBe(true);
 		expect(new URL(page.url()).searchParams.get("add")).toBe("true");
 

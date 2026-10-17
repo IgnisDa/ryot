@@ -2,6 +2,7 @@ import type { EntityId } from "@ryot-app/contract/schema/brands";
 import { AppIcon } from "@ryot-app/plugin-ui-sdk/icon";
 import { EntityArtWell } from "@ryot-app/plugin-ui-sdk/sync";
 import { Link } from "@tanstack/react-router";
+import clsx from "clsx";
 import { Match } from "effect";
 
 import type { ProviderEntityImportEntry } from "#/modules/provider-add/import-controller";
@@ -33,19 +34,29 @@ function ResultAction(props: {
 	if (props.linkedEntityId !== undefined) {
 		return <InLibraryLink title={props.title} entityId={props.linkedEntityId} />;
 	}
+	if (props.entry.status === "queued" || props.entry.status === "importing") {
+		const importing = props.entry.status === "importing";
+		return (
+			<span
+				role="status"
+				aria-label={`${importing ? "Adding" : "Queued"} ${props.title}`}
+				className="inline-flex min-h-8 shrink-0 items-center gap-2 rounded-md bg-accent-soft px-2.5 text-xs font-semibold whitespace-nowrap text-accent-text"
+			>
+				{importing ? (
+					<span
+						aria-hidden="true"
+						className="size-4 shrink-0 animate-spin rounded-full border-2 border-current border-r-transparent motion-reduce:animate-none"
+					/>
+				) : (
+					<AppIcon size={16} name="clock" />
+				)}
+				{importing ? "Adding…" : "Queued"}
+			</span>
+		);
+	}
 	return Match.value(props.entry).pipe(
 		Match.when({ status: "imported" }, (entry) => (
 			<InLibraryLink title={props.title} entityId={entry.entityId} />
-		)),
-		Match.when({ status: "queued" }, () => (
-			<span role="status" aria-label="Queued">
-				<AppIcon size={16} name="clock" className="text-text-muted" />
-			</span>
-		)),
-		Match.when({ status: "importing" }, () => (
-			<span role="status" aria-label="Adding">
-				<AppIcon size={16} name="plus" className="animate-pulse text-text-muted" />
-			</span>
 		)),
 		Match.when({ status: "failed" }, () => (
 			<button
@@ -79,8 +90,19 @@ export function ProviderSearchResultRow(props: {
 	readonly linkedEntityId: EntityId | undefined;
 }) {
 	const display = describeProviderSearchResultItem(props.item);
+	const pending =
+		props.linkedEntityId === undefined &&
+		(props.entry.status === "queued" || props.entry.status === "importing");
 	return (
-		<div className="flex items-center gap-3 rounded-lg bg-surface-2 px-3 py-2.5 md:bg-transparent">
+		<div
+			aria-busy={pending || undefined}
+			className={clsx(
+				"flex items-center gap-3 rounded-lg px-3 py-2.5",
+				pending
+					? "bg-accent-soft ring-1 ring-accent-border ring-inset"
+					: "bg-surface-2 md:bg-transparent",
+			)}
+		>
 			<EntityArtWell
 				state="absent"
 				url={display.imageUrl}
