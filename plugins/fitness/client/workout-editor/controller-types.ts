@@ -17,22 +17,28 @@ import type {
 export type WorkoutEditorContext = typeof WorkoutEditorContextOutputSchema.Type;
 export type TimerName = "execution" | "rest";
 
+type SavedResult = Extract<WorkoutEditorSaveOutput, { readonly kind: "saved" }>;
+
+type SaveState =
+	| { readonly phase: "idle" }
+	| { readonly phase: "in-flight" }
+	| {
+			readonly phase: "acknowledged";
+			readonly result: SavedResult;
+			readonly cleaning: boolean;
+	  }
+	| { readonly phase: "saved"; readonly result: SavedResult };
+
 type ContextSnapshot = {
 	readonly context: WorkoutEditorContext | undefined;
 	readonly contextError: unknown;
-	readonly saveState:
-		| { readonly phase: "idle" }
-		| { readonly phase: "in-flight" }
-		| {
-				readonly phase: "acknowledged-awaiting-cleanup";
-				readonly result: Extract<WorkoutEditorSaveOutput, { readonly kind: "saved" }>;
-				readonly cleaning: boolean;
-		  };
+	readonly saveState: SaveState;
+};
 };
 
 export const isWorkoutEditorSaving = (snapshot: WorkoutEditorControllerSnapshot) =>
 	snapshot.saveState.phase === "in-flight" ||
-	(snapshot.saveState.phase === "acknowledged-awaiting-cleanup" && snapshot.saveState.cleaning);
+	(snapshot.saveState.phase === "acknowledged" && snapshot.saveState.cleaning);
 
 export type WorkoutEditorControllerSnapshot =
 	| (ContextSnapshot & { readonly status: "loading" })

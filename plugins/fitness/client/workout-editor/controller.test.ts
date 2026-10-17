@@ -210,7 +210,7 @@ describe("workout editor controller", () => {
 			expect(harness.controller.getSnapshot().saveState).toEqual({
 				result,
 				cleaning: true,
-				phase: "acknowledged-awaiting-cleanup",
+				phase: "acknowledged",
 			});
 			expect(isWorkoutEditorSaving(harness.controller.getSnapshot())).toBe(true);
 			expect(
@@ -250,7 +250,7 @@ describe("workout editor controller", () => {
 			expect(harness.controller.getSnapshot().saveState).toEqual({
 				result,
 				cleaning: false,
-				phase: "acknowledged-awaiting-cleanup",
+				phase: "acknowledged",
 			});
 			harness.controller.dispose();
 			yield* harness.controller.load();
@@ -258,7 +258,7 @@ describe("workout editor controller", () => {
 			expect(harness.controller.getSnapshot().saveState).toEqual({
 				result,
 				cleaning: false,
-				phase: "acknowledged-awaiting-cleanup",
+				phase: "acknowledged",
 			});
 			expect(yield* harness.controller.discard()).toBe(false);
 			expect(harness.controller.change((current) => ({ ...current, name: "Unsafe edit" }))).toBe(
@@ -272,6 +272,7 @@ describe("workout editor controller", () => {
 			expect(harness.submissions).toEqual([saveInput()]);
 			expect(harness.removals).toBe(2);
 			expect(harness.stored).toBeNull();
+			expect(harness.controller.getSnapshot().saveState).toEqual({ result, phase: "saved" });
 			expect(yield* harness.controller.start(draft("Next workout"))).toBe(true);
 			expect(harness.controller.getSnapshot().saveState).toEqual({ phase: "idle" });
 		}),
