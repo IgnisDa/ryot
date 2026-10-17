@@ -174,7 +174,10 @@ are pruned when a new activity starts.
 
 The system renders timer values from dates without per-second JavaScript or native updates. A stale
 date does not act as an exact alarm or continue timer progression; notifications use the separate
-scheduled-alert capability. The feature uses no third-party package, app group, or push service. The
+scheduled-alert capability. The compact Dynamic Island shows the secondary value when supplied,
+otherwise the primary value. This keeps the overall elapsed timer visible during a countdown without
+depending on a stale-state refresh to switch back. Expanded and Lock Screen presentations retain the
+primary countdown and secondary value. The feature uses no third-party package, app group, or push service. The
 native recovery policy is pure Swift, and the App compiles the same policy source. Run its tests with
 `swift test --package-path kernel/client/ios/LiveActivityPolicy` from the repository root. Acceptance
 also requires a physical iOS device with the debugger detached.
