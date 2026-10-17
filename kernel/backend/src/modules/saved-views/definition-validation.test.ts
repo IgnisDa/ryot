@@ -10,7 +10,19 @@ import {
 	PluginPackageId,
 	RelationshipSchemaSlug,
 } from "@ryot-app/contract/schema/brands";
-import { and, column, document, eq, field, literal, pluginId, rows, table } from "@ryot-app/ryotql";
+import {
+	and,
+	column,
+	document,
+	eq,
+	field,
+	jsonElementsJoin,
+	jsonPath,
+	literal,
+	pluginId,
+	rows,
+	table,
+} from "@ryot-app/ryotql";
 import { assertExitFails } from "@ryot-app/testing/effect-assertions";
 import { Effect } from "effect";
 
@@ -112,6 +124,15 @@ it.effect("rejects a subject alias that is not an entity table in the source", (
 			}),
 		});
 		yield* rejectsBrowserSettings({ ...browserSettings, subject }, message, eventSource);
+		const elementSource = document({
+			entities: rows(entity, {
+				fields: dataSources.queries.entities.output.fields,
+				joins: [
+					jsonElementsJoin("inner", "missing", jsonPath(column(entity, "properties"), "items")),
+				],
+			}),
+		});
+		yield* rejectsBrowserSettings({ ...browserSettings, subject }, message, elementSource);
 	}),
 );
 

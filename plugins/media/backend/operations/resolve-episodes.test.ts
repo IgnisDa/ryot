@@ -63,12 +63,9 @@ describe("resolve episodes operation", () => {
 				from: { table: "entity", alias: "episode" },
 				output: { type: "rows", pagination: { limit: 2 } },
 			});
-			expect(query?.joins?.map((join) => join.table.alias)).toEqual([
-				"seasonEpisode",
-				"season",
-				"showSeason",
-				"show",
-			]);
+			expect(
+				query?.joins?.map((join) => (join.type === "jsonElements" ? join.alias : join.table.alias)),
+			).toEqual(["seasonEpisode", "season", "showSeason", "show"]);
 		}),
 	);
 
@@ -80,7 +77,9 @@ describe("resolve episodes operation", () => {
 				yield* runSandboxTestScript(definition, { refs: [podcastRef] }, host, execution),
 			).toEqual({ results: [{ index: 0, entityId: "episode-9" }] });
 			const query = documents[0]?.queries["episodes"];
-			expect(query?.joins?.map((join) => join.table.alias)).toEqual(["podcastEpisode", "podcast"]);
+			expect(
+				query?.joins?.map((join) => (join.type === "jsonElements" ? join.alias : join.table.alias)),
+			).toEqual(["podcastEpisode", "podcast"]);
 		}),
 	);
 
@@ -96,7 +95,9 @@ describe("resolve episodes operation", () => {
 				from: { alias: "season", table: "entity" },
 				output: { type: "rows", pagination: { limit: 2 } },
 			});
-			expect(query?.joins?.map((join) => join.table.alias)).toEqual(["showSeason", "show"]);
+			expect(
+				query?.joins?.map((join) => (join.type === "jsonElements" ? join.alias : join.table.alias)),
+			).toEqual(["showSeason", "show"]);
 		}),
 	);
 

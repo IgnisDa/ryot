@@ -398,11 +398,12 @@ export const compileFilter = ({
 	compileNode(
 		{
 			...input,
-			aliases: new Set(
-				[input.source.from, ...(input.source.joins ?? []).map(({ table: joined }) => joined)].map(
-					({ alias }) => alias,
+			aliases: new Set([
+				input.source.from.alias,
+				...(input.source.joins ?? []).map((joined) =>
+					joined.type === "jsonElements" ? joined.alias : joined.table.alias,
 				),
-			),
+			]),
 		},
 		filter,
 	);

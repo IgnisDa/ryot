@@ -28,6 +28,7 @@ import {
 	isNull,
 	jsonArrayExists,
 	jsonElement,
+	jsonElementsJoin,
 	join,
 	jsonPath,
 	literal,
@@ -322,6 +323,20 @@ describe("filter compiler", () => {
 			compile({ field: "parents", operator: "notEmpty" }, { fields: [incoming] }),
 		);
 		expect(JSON.stringify(result)).toContain('"field":"targetEntityId"');
+	});
+
+	it("keeps correlated aliases clear of JSON elements join aliases", () => {
+		const crowded = requireRowsQuery({
+			...source,
+			joins: [
+				jsonElementsJoin("inner", "relationship", jsonPath(column(entity, "properties"), "items")),
+			],
+		});
+		expect(
+			Result.getOrThrow(
+				compile({ values: ["c1"], operator: "anyOf", field: "collections" }, { source: crowded }),
+			),
+		).toEqual(linked("_relationship", ["c1"]));
 	});
 
 	it("compiles session-event rules through the joined event entity", () => {

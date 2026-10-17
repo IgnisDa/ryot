@@ -1273,10 +1273,11 @@ describe("media show query recipes", () => {
 		expect(JSON.stringify(episodeEvents)).not.toContain("sessionEntityId");
 		expect(JSON.stringify(membership)).not.toContain("seasonNumber");
 		expect(membership.query.from).toMatchObject({ table: "relationship" });
-		expect(membership.query.joins?.map((join) => join.table.table)).toEqual([
-			"entity",
-			"relationship",
-		]);
+		expect(
+			membership.query.joins?.map((join) =>
+				join.type === "jsonElements" ? null : join.table.table,
+			),
+		).toEqual(["entity", "relationship"]);
 		expect(JSON.stringify(membership)).toContain("show-to-show-season");
 		expect(JSON.stringify(membership)).toContain("show-season-to-show-episode");
 	});

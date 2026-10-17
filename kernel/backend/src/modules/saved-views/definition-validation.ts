@@ -19,7 +19,7 @@ import {
 	parseAppSchemaProperties,
 } from "#modules/definitions/properties/runtime";
 import { filterFieldIssues } from "#modules/definitions/saved-view-filters";
-import { getCatalogTable } from "#modules/ryotql/catalog";
+import { getCatalogTable, jsonElementsTable } from "#modules/ryotql/catalog";
 import { savedViewDataSourceAccess, validateRyotQLDocument } from "#modules/ryotql/validator";
 
 const invalidEntityBrowserDefinition = (message: string) =>
@@ -27,10 +27,18 @@ const invalidEntityBrowserDefinition = (message: string) =>
 
 const queryScope = (query: NamedQuery) => {
 	const scope = new Map<string, NonNullable<ReturnType<typeof getCatalogTable>>>();
-	for (const reference of [query.from, ...(query.joins ?? []).map(({ table }) => table)]) {
-		const table = getCatalogTable(reference.table);
+	const root = getCatalogTable(query.from.table);
+	if (root) {
+		scope.set(query.from.alias, root);
+	}
+	for (const join of query.joins ?? []) {
+		if (join.type === "jsonElements") {
+			scope.set(join.alias, jsonElementsTable);
+			continue;
+		}
+		const table = getCatalogTable(join.table.table);
 		if (table) {
-			scope.set(reference.alias, table);
+			scope.set(join.table.alias, table);
 		}
 	}
 	return scope;
