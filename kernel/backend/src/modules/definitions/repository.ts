@@ -2,7 +2,6 @@ import type { DbError } from "@ryot-app/contract/errors";
 import {
 	type DeclarationReference,
 	definitionKey,
-	type DefinitionOwner,
 	type EventSchemaReference,
 } from "@ryot-app/contract/modules/plugins/references";
 import type { PluginPackageId, UserId } from "@ryot-app/contract/schema/brands";
@@ -22,7 +21,7 @@ import {
 import type { PgColumn } from "drizzle-orm/pg-core";
 import { Context, Effect, Layer } from "effect";
 
-import { ownerWhere, referencesWhere, referenceWhere } from "#platform/db/definition-owner";
+import { referencesWhere, referenceWhere } from "#platform/db/definition-owner";
 import { DatabaseSession } from "#platform/db/session";
 import * as schema from "#schema/tables/combined";
 
@@ -1142,27 +1141,6 @@ export class DefinitionRepository extends Context.Service<DefinitionRepository>(
 				},
 			);
 
-			const listUserEventSchemas = Effect.fn("DefinitionRepository.listUserEventSchemas")(
-				function* (userId: UserId, reference: DeclarationReference) {
-					const rows = yield* session.run((db) =>
-						db
-							.select()
-							.from(schema.userEventSchema)
-							.where(
-								userWhere(
-									schema.userEventSchema,
-									userId,
-									effective,
-									ownerWhere(schema.userEventSchema.pluginId, reference.owner),
-									eq(schema.userEventSchema.entitySchemaSlug, reference.slug),
-								),
-							)
-							.orderBy(asc(schema.userEventSchema.position)),
-					);
-					return rows.map(toEventSchema);
-				},
-			);
-
 			const findUserRelationshipSchemas = Effect.fn(
 				"DefinitionRepository.findUserRelationshipSchemas",
 			)(function* (userId: UserId, references: ReadonlyArray<DeclarationReference>) {
@@ -1246,12 +1224,12 @@ export class DefinitionRepository extends Context.Service<DefinitionRepository>(
 			});
 
 			const listUserSignalSchemas = Effect.fn("DefinitionRepository.listUserSignalSchemas")(
-				function* (userId: UserId, options: ListedOption = effective) {
+				function* (userId: UserId) {
 					const rows = yield* session.run((db) =>
 						db
 							.select()
 							.from(schema.userSignalSchema)
-							.where(userWhere(schema.userSignalSchema, userId, options))
+							.where(userWhere(schema.userSignalSchema, userId, effective))
 							.orderBy(...userDefinitionOrder(schema.userSignalSchema)),
 					);
 					return rows.map(toSignalSchema);
@@ -1284,20 +1262,6 @@ export class DefinitionRepository extends Context.Service<DefinitionRepository>(
 					);
 				},
 			);
-
-			const listUserSavedViews = Effect.fn("DefinitionRepository.listUserSavedViews")(function* (
-				userId: UserId,
-				options: ListedOption,
-			) {
-				const rows = yield* session.run((db) =>
-					db
-						.select()
-						.from(schema.userSavedView)
-						.where(userWhere(schema.userSavedView, userId, options))
-						.orderBy(...userDefinitionOrder(schema.userSavedView)),
-				);
-				return rows.map(toSavedView);
-			});
 
 			const findGlobalEntitySchema = Effect.fn("DefinitionRepository.findGlobalEntitySchema")(
 				function* (reference: DeclarationReference) {
@@ -1352,30 +1316,6 @@ export class DefinitionRepository extends Context.Service<DefinitionRepository>(
 				);
 			});
 
-			const findGlobalRelationshipSchemaByEndpoints = Effect.fn(
-				"DefinitionRepository.findGlobalRelationshipSchemaByEndpoints",
-			)(function* (
-				owner: DefinitionOwner,
-				sourceEntitySchemaSlug: string,
-				targetEntitySchemaSlug: string,
-			) {
-				const [row] = yield* session.run((db) =>
-					db
-						.select()
-						.from(schema.globalRelationshipSchema)
-						.where(
-							and(
-								ownerWhere(schema.globalRelationshipSchema.pluginId, owner),
-								eq(schema.globalRelationshipSchema.sourceEntitySchemaSlug, sourceEntitySchemaSlug),
-								eq(schema.globalRelationshipSchema.targetEntitySchemaSlug, targetEntitySchemaSlug),
-							),
-						)
-						.orderBy(...globalDefinitionOrder(schema.globalRelationshipSchema, true))
-						.limit(1),
-				);
-				return row ? toRelationshipSchema(row) : null;
-			});
-
 			const findGlobalSignalSchema = Effect.fn("DefinitionRepository.findGlobalSignalSchema")(
 				function* (reference: DeclarationReference) {
 					const rows = yield* session.run((db) =>
@@ -1392,22 +1332,8 @@ export class DefinitionRepository extends Context.Service<DefinitionRepository>(
 				},
 			);
 
-			const listGlobalSignalSchemas = Effect.fn("DefinitionRepository.listGlobalSignalSchemas")(
-				function* () {
-					const rows = yield* session.run((db) =>
-						db
-							.select()
-							.from(schema.globalSignalSchema)
-							.orderBy(...globalDefinitionOrder(schema.globalSignalSchema)),
-					);
-					return rows.map(toSignalSchema);
-				},
-			);
-
 			return {
 				readPinnedRows,
-				listUserSavedViews,
-				listUserEventSchemas,
 				findUserSignalSchema,
 				getSnapshotForContext,
 				findGlobalEventSchema,
@@ -1415,7 +1341,6 @@ export class DefinitionRepository extends Context.Service<DefinitionRepository>(
 				listUserSignalSchemas,
 				findGlobalEntitySchema,
 				findGlobalSignalSchema,
-				listGlobalSignalSchemas,
 				findRevisionDeclaration,
 				replaceKernelDefinitions,
 				writeRevisionDefinitions,
@@ -1424,7 +1349,6 @@ export class DefinitionRepository extends Context.Service<DefinitionRepository>(
 				findGlobalRelationshipSchemas,
 				readKernelSource: readKernelRows(),
 				getUserEntityRelationshipDefinitions,
-				findGlobalRelationshipSchemaByEndpoints,
 				getGlobalSnapshot: Effect.flatMap(readGlobalRows(), toSnapshot),
 				getGlobalEntityRelationshipDefinitions: getGlobalEntityRelationshipDefinitions(),
 				getUserSnapshot: (userId: UserId, options: ListedOption) =>

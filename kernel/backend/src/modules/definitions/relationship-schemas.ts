@@ -1,8 +1,6 @@
 import type { PluginRelationshipUserWritePolicy } from "@ryot-app/contract/modules/plugins/manifest";
 import {
 	definitionKey,
-	type DefinitionOwner,
-	type EntitySchemaReference,
 	type RelationshipSchemaReference,
 } from "@ryot-app/contract/modules/plugins/references";
 import {
@@ -55,22 +53,7 @@ export class RelationshipSchemaReader extends Context.Service<RelationshipSchema
 						slug: RelationshipSchemaSlug.make(slug),
 					})
 					.pipe(Effect.map(toNullableScope));
-			const findGlobalBySchemaIds = (input: {
-				owner: DefinitionOwner;
-				sourceEntitySchema: EntitySchemaReference;
-				targetEntitySchema: EntitySchemaReference;
-			}) =>
-				ownerMatches(input.owner, input.sourceEntitySchema.owner) &&
-				ownerMatches(input.owner, input.targetEntitySchema.owner)
-					? definitions
-							.findGlobalRelationshipSchemaByEndpoints(
-								input.owner,
-								input.sourceEntitySchema.slug,
-								input.targetEntitySchema.slug,
-							)
-							.pipe(Effect.map(toNullableScope))
-					: Effect.succeed(null);
-			return { findByReference, findKernelBySlug, findGlobalBySchemaIds };
+			return { findByReference, findKernelBySlug };
 		}),
 	},
 ) {
@@ -94,8 +77,3 @@ const toScope = (definition: RelationshipSchemaDefinition): RelationshipSchemaSc
 		? {}
 		: { userWritePolicy: definition.userWritePolicy }),
 });
-
-const ownerMatches = (left: DefinitionOwner, right: DefinitionOwner) =>
-	left.kind === "kernel"
-		? right.kind === "kernel"
-		: right.kind === "plugin" && left.pluginId === right.pluginId;
