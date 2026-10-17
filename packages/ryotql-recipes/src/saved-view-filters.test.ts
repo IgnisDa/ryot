@@ -31,7 +31,20 @@ import { DateTime, Effect, Result } from "effect";
 import { TestClock } from "effect/testing";
 import { beforeAll, describe, expect, it } from "vitest";
 
-import { compileFilter, effectiveFilterFields } from "./saved-view-filters";
+import {
+	activeRuleCount,
+	compileFilter,
+	decodeFilterParam,
+	draftFromRule,
+	draftRule,
+	editableGroup,
+	effectiveFilterFields,
+	encodeFilterParam,
+	filterOperatorsFor,
+	groupFilter,
+	newFilterDraft,
+	relationshipFilterChoicesRecipe,
+} from "./saved-view-filters";
 import { entityBrowserCountRecipe, entityBrowserRecipe, resultsTableRecipe } from "./saved-views";
 import { requireRowsQuery } from "./test-utils";
 
@@ -387,5 +400,166 @@ describe("filtered recipes", () => {
 				}),
 			),
 		).toBe(true);
+	});
+});
+
+const encode = (node: unknown) => Buffer.from(JSON.stringify(node)).toString("base64url");
+
+const find = (key: string) => {
+	const found = fields.find((candidate) => candidate.key === key);
+	if (!found) {
+		throw new Error(`Missing field ${key}`);
+	}
+	return found;
+};
+
+describe("filter URL codec", () => {
+	const group: Filter = {
+		type: "and",
+		filters: [
+			{ values: ["a"], field: "level", operator: "anyOf" },
+			{ min: 1, max: 5, field: "reps", operator: "between" },
+		],
+	};
+
+	it("round-trips filters through a URL-safe string that never looks like JSON", () => {
+		for (const filter of [group, { field: "done", operator: "isTrue" } satisfies Filter]) {
+			const encoded = encodeFilterParam(filter);
+			expect(encoded).toMatch(/^[A-Za-z0-9_-]+$/);
+			expect(encoded?.[0]).not.toBe("{");
+			expect(encoded?.[0]).not.toBe("[");
+			expect(decodeFilterParam(encoded, fields)).toEqual(filter);
+		}
+		expect(encodeFilterParam(undefined)).toBeNull();
+	});
+
+	it("drops invalid leaves, empty groups and unreadable input", () => {
+		const valid = { values: ["a"], field: "level", operator: "anyOf" };
+		expect(decodeFilterParam(null, fields)).toBeUndefined();
+		expect(decodeFilterParam("%%%", fields)).toBeUndefined();
+		expect(
+			decodeFilterParam(Buffer.from("not json").toString("base64url"), fields),
+		).toBeUndefined();
+		expect(decodeFilterParam(encode({ ...valid, field: "missing" }), fields)).toBeUndefined();
+		expect(decodeFilterParam(encode({ ...valid, field: "reps" }), fields)).toBeUndefined();
+		expect(decodeFilterParam(encode({ ...valid, values: [] }), fields)).toBeUndefined();
+		expect(
+			decodeFilterParam(encode({ min: 5, max: 1, field: "reps", operator: "between" }), fields),
+		).toBeUndefined();
+		expect(decodeFilterParam(encode({ type: "or", filters: [] }), fields)).toBeUndefined();
+		expect(
+			decodeFilterParam(
+				encode({
+					type: "and",
+					filters: [valid, { ...valid, field: "missing" }, { type: "not", filter: { x: 1 } }],
+				}),
+				fields,
+			),
+		).toEqual({ type: "and", filters: [valid] });
+	});
+
+	it("edits one flat group and treats anything else as a single custom filter", () => {
+		expect(editableGroup(undefined)).toEqual({ rules: [], match: "all" });
+		expect(editableGroup(group)).toEqual({
+			match: "all",
+			rules: group.type === "and" ? group.filters : [],
+		});
+		expect(editableGroup({ type: "or", filters: [{ field: "done", operator: "isTrue" }] })).toEqual(
+			{ match: "any", rules: [{ field: "done", operator: "isTrue" }] },
+		);
+		const nested: Filter = {
+			type: "and",
+			filters: [
+				{ field: "done", operator: "isTrue" },
+				{ type: "or", filters: [group] },
+			],
+		};
+		expect(editableGroup(nested)).toBeNull();
+		expect(editableGroup({ type: "not", filter: group })).toBeNull();
+		expect(activeRuleCount(undefined)).toBe(0);
+		expect(activeRuleCount(group)).toBe(2);
+		expect(activeRuleCount(nested)).toBe(1);
+		expect(groupFilter({ rules: [], match: "any" })).toBeUndefined();
+		expect(groupFilter({ match: "any", rules: [{ field: "done", operator: "isTrue" }] })).toEqual({
+			field: "done",
+			operator: "isTrue",
+		});
+		expect(
+			groupFilter({
+				match: "any",
+				rules: group.type === "and" ? group.filters.filter((child) => "field" in child) : [],
+			}),
+		).toMatchObject({ type: "or" });
+	});
+
+	it("lists the operators of each field kind", () => {
+		expect(filterOperatorsFor(find("level"))).toEqual(["anyOf", "noneOf", "empty", "notEmpty"]);
+		expect(filterOperatorsFor(find("collections"))).toContain("allOf");
+		expect(newFilterDraft(find("reps")).operator).toBe("gte");
+	});
+
+	it("turns drafts into rules only once they are complete", () => {
+		const level = fields.find(({ key }) => key === "level");
+		if (!level) {
+			throw new Error("Missing level field");
+		}
+		const draft = newFilterDraft(level);
+		expect(draftRule(draft)).toBeUndefined();
+		expect(draftRule({ ...draft, values: ["a"] })).toEqual({
+			values: ["a"],
+			field: "level",
+			operator: "anyOf",
+		});
+		const between = {
+			...draft,
+			text: "2",
+			second: "9",
+			field: "reps",
+			operator: "between",
+		} as const;
+		expect(draftRule(between)).toEqual({ min: 2, max: 9, field: "reps", operator: "between" });
+		expect(draftRule({ ...between, second: "1" })).toBeUndefined();
+		expect(draftRule({ ...between, text: "0", operator: "withinLastDays" })).toBeUndefined();
+		for (const rule of [
+			{ field: "added", to: "2026-02-01", from: "2026-01-01", operator: "betweenDates" },
+			{ value: "x", field: "name", operator: "contains" },
+			{ field: "done", operator: "isFalse" },
+			{ days: 7, field: "added", operator: "withinLastDays" },
+		] as const) {
+			expect(draftRule(draftFromRule(rule))).toEqual(rule);
+		}
+	});
+});
+
+describe("relationship filter choices recipe", () => {
+	const relationship = effectiveCollections().relationship;
+	const choices = (input: Partial<Parameters<typeof relationshipFilterChoicesRecipe>[0]> = {}) => {
+		const query = relationshipFilterChoicesRecipe({ relationship, direction: "outgoing", ...input })
+			.document.queries["choices"];
+		const output = query?.output;
+		if (query === undefined || output?.type !== "aggregate") {
+			throw new Error("Expected aggregate choices query");
+		}
+		return { ...query, output };
+	};
+
+	it("groups far-side entities by id and name ordered by name and limits the page", () => {
+		const query = choices();
+		expect(query.output.groupBy?.map(({ key }) => key)).toEqual(["id", "name"]);
+		expect(query.output.orderBy).toEqual([
+			{ key: "name", direction: "asc" },
+			{ key: "id", direction: "asc" },
+		]);
+		expect(query.output.limit).toBe(50);
+		expect(JSON.stringify(query.joins)).toContain("targetEntityId");
+		expect(JSON.stringify(choices({ direction: "incoming" }).joins)).toContain("sourceEntityId");
+	});
+
+	it("narrows by search text and by explicit entity ids", () => {
+		expect(JSON.stringify(choices().where)).not.toContain('"contains"');
+		expect(JSON.stringify(choices({ searchText: " ab " }).where)).toContain('"value":"ab"');
+		const byIds = JSON.stringify(choices({ ids: ["x1", "x2"] }).where);
+		expect(byIds).toContain('"value":"x1"');
+		expect(byIds).toContain('"value":"x2"');
 	});
 });

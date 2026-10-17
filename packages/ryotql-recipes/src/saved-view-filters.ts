@@ -1,4 +1,7 @@
-import { ownerIdentityReference } from "@ryot-app/contract/modules/plugins/references";
+import {
+	ownerIdentityReference,
+	RelationshipSchemaReference,
+} from "@ryot-app/contract/modules/plugins/references";
 import type {
 	FieldSelection,
 	NamedQuery,
@@ -7,9 +10,13 @@ import type {
 	ScalarExpression,
 } from "@ryot-app/contract/modules/ryotql/language";
 import {
+	Filter as FilterSchema,
+	FilterRule as FilterRuleSchema,
 	filterOperators,
+	relationshipFilterOperators,
 	type Filter,
 	type FilterField,
+	type FilterOperator,
 	type FilterRule,
 	type RelationshipFilterField,
 	type ValueFilterField,
@@ -19,6 +26,7 @@ import type {
 	SavedViewSubject,
 } from "@ryot-app/contract/modules/saved-views/schemas";
 import { RelationshipSchemaSlug } from "@ryot-app/contract/schema/brands";
+import type { Recipe } from "@ryot-app/ryotql";
 import {
 	and,
 	castBoolean,
@@ -27,13 +35,16 @@ import {
 	castText,
 	column,
 	contains,
+	defineRecipe,
 	eq,
 	exists,
+	groupAscending,
 	gt,
 	gte,
 	inArray,
 	isNotNull,
 	isNull,
+	join,
 	jsonArrayExists,
 	jsonElement,
 	literal,
@@ -42,9 +53,13 @@ import {
 	not,
 	or,
 	relationshipSchemaPredicate,
+	selectedAggregate,
+	selectedField,
+	selectedMeasure,
 	table,
 } from "@ryot-app/ryotql";
-import { DateTime, Result } from "effect";
+import { DateTime, Result, Schema } from "effect";
+import { Base64Url } from "effect/encoding";
 
 export type RowsQuery = NamedQuery & { readonly output: RowsOutput };
 
@@ -325,3 +340,222 @@ export const compileFilter = ({
 		},
 		filter,
 	);
+
+export const NullableFilter = Schema.NullOr(FilterSchema);
+
+export const filterOperatorsFor = (field: FilterField): readonly FilterOperator[] =>
+	field.kind === "relationship" ? relationshipFilterOperators : filterOperators[field.type];
+
+const decodeRule = Schema.decodeUnknownResult(FilterRuleSchema);
+
+const isRecord = (value: unknown): value is Readonly<Record<string, unknown>> =>
+	typeof value === "object" && value !== null && !Array.isArray(value);
+
+const leniently = (node: unknown, fields: readonly FilterField[]): Filter | undefined => {
+	if (!isRecord(node)) {
+		return undefined;
+	}
+	if ("field" in node) {
+		const rule = decodeRule(node);
+		if (Result.isFailure(rule)) {
+			return undefined;
+		}
+		const spec = fields.find(({ key }) => key === rule.success.field);
+		if (!spec || !filterOperatorsFor(spec).includes(rule.success.operator)) {
+			return undefined;
+		}
+		return rule.success.operator === "between" && rule.success.min > rule.success.max
+			? undefined
+			: rule.success;
+	}
+	if (node["type"] === "not") {
+		const inner = leniently(node["filter"], fields);
+		return inner && { type: "not", filter: inner };
+	}
+	if ((node["type"] === "and" || node["type"] === "or") && Array.isArray(node["filters"])) {
+		const filters = node["filters"].flatMap((child) => leniently(child, fields) ?? []);
+		return filters.length === 0 ? undefined : { filters, type: node["type"] };
+	}
+	return undefined;
+};
+
+export const decodeFilterParam = (
+	raw: string | null | undefined,
+	fields: readonly FilterField[],
+): Filter | undefined => {
+	if (raw === null || raw === undefined || raw === "") {
+		return undefined;
+	}
+	const text = Base64Url.decodeString(raw);
+	if (Result.isFailure(text)) {
+		return undefined;
+	}
+	return Result.match(
+		Result.try({ catch: (error) => error, try: () => JSON.parse(text.success) as unknown }),
+		{ onFailure: () => undefined, onSuccess: (node) => leniently(node, fields) },
+	);
+};
+
+export const encodeFilterParam = (filter: Filter | undefined): string | null =>
+	filter === undefined ? null : Base64Url.encode(JSON.stringify(filter));
+
+export const editableGroup = (
+	filter: Filter | undefined,
+): { readonly match: "all" | "any"; readonly rules: readonly FilterRule[] } | null => {
+	if (filter === undefined) {
+		return { rules: [], match: "all" };
+	}
+	if ("field" in filter) {
+		return { match: "all", rules: [filter] };
+	}
+	if (filter.type === "not") {
+		return null;
+	}
+	const rules = filter.filters.filter((child) => "field" in child);
+	return rules.length === filter.filters.length
+		? { rules, match: filter.type === "and" ? "all" : "any" }
+		: null;
+};
+
+export const groupFilter = (group: {
+	readonly match: "all" | "any";
+	readonly rules: readonly FilterRule[];
+}): Filter | undefined => {
+	const [only, ...rest] = group.rules;
+	if (only === undefined) {
+		return undefined;
+	}
+	return rest.length === 0
+		? only
+		: { filters: group.rules, type: group.match === "all" ? "and" : "or" };
+};
+
+export const activeRuleCount = (filter: Filter | undefined): number =>
+	editableGroup(filter)?.rules.length ?? 1;
+
+export type FilterDraft = {
+	readonly field: string;
+	readonly text: string;
+	readonly second: string;
+	readonly operator: FilterOperator;
+	readonly values: readonly string[];
+};
+
+export const newFilterDraft = (field: FilterField): FilterDraft => ({
+	text: "",
+	second: "",
+	values: [],
+	field: field.key,
+	operator: filterOperatorsFor(field)[0] ?? "empty",
+});
+
+export const draftFromRule = (rule: FilterRule): FilterDraft => {
+	const draft = { text: "", second: "", values: [], field: rule.field, operator: rule.operator };
+	if ("values" in rule) {
+		return { ...draft, values: rule.values };
+	}
+	if ("value" in rule) {
+		return { ...draft, text: String(rule.value) };
+	}
+	if ("min" in rule) {
+		return { ...draft, text: String(rule.min), second: String(rule.max) };
+	}
+	if ("from" in rule) {
+		return { ...draft, text: rule.from, second: rule.to };
+	}
+	return "days" in rule ? { ...draft, text: String(rule.days) } : draft;
+};
+
+const draftNumber = (text: string) => (text.trim() === "" ? undefined : Number(text));
+
+const draftRuleInput = (draft: FilterDraft): Record<string, unknown> => {
+	switch (draft.operator) {
+		case "anyOf":
+		case "allOf":
+		case "noneOf":
+			return { values: draft.values };
+		case "gte":
+		case "lte":
+		case "eq":
+			return { value: draftNumber(draft.text) };
+		case "between":
+			return { min: draftNumber(draft.text), max: draftNumber(draft.second) };
+		case "before":
+		case "after":
+		case "contains":
+		case "notContains":
+		case "is":
+			return { value: draft.text === "" ? undefined : draft.text };
+		case "betweenDates":
+			return { from: draft.text, to: draft.second };
+		case "withinLastDays":
+			return { days: draftNumber(draft.text) };
+		case "empty":
+		case "notEmpty":
+		case "isTrue":
+		case "isFalse":
+			return {};
+	}
+	return {};
+};
+
+export const draftRule = (draft: FilterDraft): FilterRule | undefined => {
+	const rule = decodeRule({
+		...draftRuleInput(draft),
+		field: draft.field,
+		operator: draft.operator,
+	});
+	if (Result.isFailure(rule)) {
+		return undefined;
+	}
+	return rule.success.operator === "between" && rule.success.min > rule.success.max
+		? undefined
+		: rule.success;
+};
+
+const filterChoicePageSize = 50;
+
+export const RelationshipFilterChoicesInput = Schema.Struct({
+	relationship: RelationshipSchemaReference,
+	searchText: Schema.optionalKey(Schema.String),
+	ids: Schema.optionalKey(Schema.Array(Schema.String)),
+	direction: Schema.Literals(["outgoing", "incoming"]),
+});
+
+export const relationshipFilterChoicesRecipe = defineRecipe(
+	(input: typeof RelationshipFilterChoicesInput.Type) => {
+		const link = table("relationship", "filterChoiceLink");
+		const far = table("entity", "filterChoiceEntity");
+		const farColumn = input.direction === "outgoing" ? "targetEntityId" : "sourceEntityId";
+		const search = input.searchText?.trim();
+		return {
+			map: ({ choices }) =>
+				Result.succeed(choices.items.map(({ id, name }) => ({ value: id, label: name }))),
+			queries: {
+				choices: selectedAggregate(link, {
+					limit: filterChoicePageSize,
+					orderBy: [groupAscending("name"), groupAscending("id")],
+					measures: { links: selectedMeasure({ function: "count" }, Schema.Finite) },
+					joins: [join("inner", far, eq(column(link, farColumn), column(far, "id")))],
+					groupBy: {
+						id: selectedField(column(far, "id"), Schema.String),
+						name: selectedField(column(far, "name"), Schema.String),
+					},
+					where: and(
+						relationshipSchemaPredicate(
+							link,
+							input.relationship.slug,
+							ownerIdentityReference(input.relationship.owner),
+						),
+						...(input.ids === undefined
+							? []
+							: [inArray(column(far, "id"), textLiterals(input.ids))]),
+						...(search ? [contains(column(far, "name"), literal(search))] : []),
+					),
+				}),
+			},
+		};
+	},
+);
+
+export type RelationshipFilterChoices = Recipe.Success<typeof relationshipFilterChoicesRecipe>;
