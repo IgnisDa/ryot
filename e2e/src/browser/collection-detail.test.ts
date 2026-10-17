@@ -141,6 +141,7 @@ it.live("browses collection members with membership properties", () =>
 			"Rating",
 			"Notes",
 			"Template",
+			"Actions",
 		]);
 		expect(yield* rows.nth(0).locator("td").allInnerTexts()).toEqual([
 			zuluName,
@@ -148,6 +149,7 @@ it.live("browses collection members with membership properties", () =>
 			"3",
 			"Second member",
 			"No",
+			"",
 		]);
 		expect(yield* rows.nth(1).locator("td").allInnerTexts()).toEqual([
 			alphaName,
@@ -155,6 +157,7 @@ it.live("browses collection members with membership properties", () =>
 			"5",
 			"First member",
 			"Yes",
+			"",
 		]);
 
 		const search = detail.getByRole("searchbox", { name: `Search ${collectionName}` });

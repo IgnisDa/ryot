@@ -1,8 +1,15 @@
 import { Effect, Schema } from "@ryot-app/plugin-client-sdk/effect";
 import { usePluginLocation } from "@ryot-app/plugin-client-sdk/plugin";
-import { createRyotQuery, useRyotQuery } from "@ryot-app/plugin-client-sdk/react";
+import {
+	createRyotQuery,
+	usePageRefreshRequest,
+	useRyot,
+	useRyotQuery,
+	useRyotSchedule,
+} from "@ryot-app/plugin-client-sdk/react";
 import { PluginScreenFrame } from "@ryot-app/plugin-client-sdk/screen";
-import { Button, StatusMessage } from "@ryot-app/plugin-ui-sdk";
+import { Button, IconButton, StatusMessage } from "@ryot-app/plugin-ui-sdk";
+import { AppIcon } from "@ryot-app/plugin-ui-sdk/icon";
 import {
 	collectionHeaderRecipe,
 	collectionMemberTableColumns,
@@ -72,6 +79,37 @@ const CollectionCount = ({
 };
 
 const CollectionDetail = ({ collectionId }: { readonly collectionId: string }) => {
+	const ryot = useRyot();
+	const schedule = useRyotSchedule();
+	const refresh = usePageRefreshRequest();
+	const openScreen = <Outcome extends { readonly kind: string }>(
+		screen: Effect.Effect<Outcome, unknown>,
+		onOutcome: (outcome: Outcome) => void,
+	) =>
+		schedule.run(
+			screen.pipe(
+				Effect.tap((outcome) => Effect.sync(() => onOutcome(outcome))),
+				Effect.ignore,
+			),
+			() => undefined,
+		);
+	const editCollection = () =>
+		openScreen(ryot.screens.editCollection({ collectionId }), (outcome) => {
+			if (outcome.kind === "deleted") {
+				ryot.navigation.replace({
+					kind: "saved-view",
+					reference: { kind: "kernel", slug: "collections" },
+				});
+			} else if (outcome.kind === "saved") {
+				refresh();
+			}
+		});
+	const memberDetails = (entityId: string) =>
+		openScreen(ryot.screens.addToCollection({ entityId, collectionId }), (outcome) => {
+			if (outcome.kind !== "cancelled") {
+				refresh();
+			}
+		});
 	const [query] = useState(() =>
 		createRyotQuery<string, BrowserQueryPage<CollectionMeta>>(
 			({ input, client }) =>
@@ -116,6 +154,7 @@ const CollectionDetail = ({ collectionId }: { readonly collectionId: string }) =
 			tableColumns={(meta) => meta?.tableColumns ?? []}
 			errorMessage="The collection could not be loaded."
 			name={(meta) => meta?.header?.name ?? "Collection"}
+			headerAction={{ icon: "pencil", run: editCollection, label: "Edit collection" }}
 			// oxlint-disable-next-line react/no-unstable-nested-components -- The slot needs this collection ID.
 			count={(search, onTotal) => (
 				<CollectionCount
@@ -131,20 +170,36 @@ const CollectionDetail = ({ collectionId }: { readonly collectionId: string }) =
 				{ label: "Recently added", value: "recently-added" },
 				{ label: "Oldest added", value: "oldest-added" },
 			]}
+			renderItemActions={(item) => (
+				<IconButton
+					size="sm"
+					onClick={() => memberDetails(item.entityId)}
+					label={`Collection details for ${item.name ?? "item"}`}
+				>
+					<AppIcon size={16} name="ellipsis" />
+				</IconButton>
+			)}
 			renderSummary={(meta) => {
 				return (
-					<section
-						aria-label="Collection summary"
-						className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-text-muted"
-					>
-						<strong className="font-semibold text-text">{meta.total.toLocaleString()} total</strong>
-						{meta.groups.items.map((group) => (
-							<span key={JSON.stringify([group.ownerPluginId, group.entitySchemaSlug])}>
-								{group.count.toLocaleString()} {group.typeLabel}
-							</span>
-						))}
-						{meta.groups.pageInfo?.hasMore && <span>More types not shown</span>}
-					</section>
+					<>
+						{meta.header?.description ? (
+							<p className="text-sm text-text-muted">{meta.header.description}</p>
+						) : null}
+						<section
+							aria-label="Collection summary"
+							className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-text-muted"
+						>
+							<strong className="font-semibold text-text">
+								{meta.total.toLocaleString()} total
+							</strong>
+							{meta.groups.items.map((group) => (
+								<span key={JSON.stringify([group.ownerPluginId, group.entitySchemaSlug])}>
+									{group.count.toLocaleString()} {group.typeLabel}
+								</span>
+							))}
+							{meta.groups.pageInfo?.hasMore && <span>More types not shown</span>}
+						</section>
+					</>
 				);
 			}}
 		/>
