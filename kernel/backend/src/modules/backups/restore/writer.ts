@@ -25,6 +25,7 @@ import { sha256Hex } from "@ryot-app/ts-utils/crypto";
 import { stableStringify } from "@ryot-app/ts-utils/json";
 import { Context, Data, Effect, Layer, Schema, Stream } from "effect";
 
+import { makeManagedAssetReferenceLocker } from "#lib/domain/managed-asset-writes";
 import { AutomationsRepository } from "#modules/automations/repository";
 import {
 	rewriteManagedAssetLocators,
@@ -50,6 +51,7 @@ import {
 	isEntityBrowserRenderer,
 	validateSavedViewDefinition,
 } from "#modules/saved-views/definition-validation";
+import { DatabaseSession } from "#platform/db/session";
 
 import type { ValidatedArchiveEvents } from "../archive/archive";
 import { archiveError } from "../archive/error";
@@ -653,6 +655,8 @@ export class BackupRestoreWriter extends Context.Service<BackupRestoreWriter>()(
 	"BackupRestoreWriter",
 	{
 		make: Effect.gen(function* () {
+			const session = yield* DatabaseSession;
+			const lockAssetReferences = makeManagedAssetReferenceLocker(session);
 			const persistence = yield* BackupRestorePersistence;
 			const plugins = yield* PluginRepository;
 			const entities = yield* EntitiesRepository;
@@ -1289,6 +1293,14 @@ export class BackupRestoreWriter extends Context.Service<BackupRestoreWriter>()(
 						null,
 						pluginPage?.kind === "page" ? pluginPage : null,
 					).pipe(Effect.mapError(() => badRequest("Backup saved view definition is invalid")));
+					if (
+						pluginPage?.kind === "page" &&
+						(yield* lockAssetReferences([
+							{ properties: settings, propertiesSchema: pluginPage.settingsSchema },
+						]))
+					) {
+						return yield* badRequest("Backup saved view references a retired managed asset");
+					}
 					const restored = yield* persistence.restoreCustomView({
 						userId,
 						renderer,

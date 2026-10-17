@@ -22,6 +22,7 @@ import { sha256Base64Url } from "@ryot-app/ts-utils/crypto";
 import { stableStringify } from "@ryot-app/ts-utils/json";
 import { Context, Effect, Layer, Schema } from "effect";
 
+import { makeManagedAssetReferenceLocker } from "#lib/domain/managed-asset-writes";
 import { lifecycleTrigger } from "#modules/automations/lifecycle/command";
 import { LifecycleExecution } from "#modules/automations/lifecycle/execution";
 import {
@@ -292,6 +293,7 @@ const batchRepresentatives = Effect.fnUntraced(function* <T>(
 export class EntitiesService extends Context.Service<EntitiesService>()("EntitiesService", {
 	make: Effect.gen(function* () {
 		const session = yield* DatabaseSession;
+		const lockAssetReferences = makeManagedAssetReferenceLocker(session);
 		const writeChecks = yield* DomainWriteChecks;
 		const planner = yield* LifecyclePlanner;
 		const repository = yield* EntitiesRepository;
@@ -482,6 +484,7 @@ export class EntitiesService extends Context.Service<EntitiesService>()("Entitie
 			);
 			return {
 				draft: validated,
+				propertiesSchema: definition.propertiesSchema,
 				entitySchemaPluginId: definition.pluginId ?? null,
 				entitySchemaFingerprint: catalogDefinitionFingerprint(definition),
 			};
@@ -673,6 +676,7 @@ export class EntitiesService extends Context.Service<EntitiesService>()("Entitie
 			receipts,
 			repository,
 			validateDraft,
+			lockAssetReferences,
 			authorizeMutation: (input: PreparedMutation) =>
 				writeChecks
 					.check(

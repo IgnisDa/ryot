@@ -1,5 +1,6 @@
-import { expect, layer } from "@effect/vitest";
+import { assert, expect, layer } from "@effect/vitest";
 import { DbError, SandboxRunError } from "@ryot-app/contract/errors";
+import { definitionKey, definitionOwner } from "@ryot-app/contract/modules/plugins/references";
 import { EntityId, PluginId } from "@ryot-app/contract/schema/brands";
 import { assertExitFails } from "@ryot-app/testing/effect-assertions";
 import type { SQLWrapper } from "drizzle-orm";
@@ -7,6 +8,7 @@ import { PgDialect } from "drizzle-orm/pg-core";
 import { Context, Effect, Exit, Layer, Ref } from "effect";
 import { WorkflowEngine } from "effect/workflow/WorkflowEngine";
 
+import { DefinitionRepository } from "#modules/definitions/repository";
 import { DomainWriteChecksLive } from "#modules/entities/write-context";
 import { PluginRuntimeResolver } from "#modules/plugins/catalog/runtime-resolver";
 import { fixtureManifest } from "#modules/plugins/test-support";
@@ -31,6 +33,14 @@ const overlay = {
 } satisfies TranslationOverlayInput;
 const storedAt = new Date(0);
 
+const translationManifest = () => {
+	const manifest = fixtureManifest();
+	for (const entitySchema of manifest.entitySchemas) {
+		entitySchema.slug = payload.entitySchemaSlug;
+	}
+	return manifest;
+};
+
 type ExecuteOptions = Parameters<WorkflowEngine["Service"]["execute"]>[1];
 class TranslationEffects extends Context.Service<
 	TranslationEffects,
@@ -54,6 +64,8 @@ const makeServiceLayer = (
 ) =>
 	Layer.unwrap(
 		Effect.gen(function* () {
+			const entitySchema = translationManifest().entitySchemas[0];
+			assert(entitySchema);
 			const executions = yield* Ref.make<ReadonlyArray<ExecuteOptions>>([]);
 			const installationOwners = yield* Ref.make<ReadonlyArray<ReadonlyArray<unknown>>>([]);
 			const upserts = yield* Ref.make<ReadonlyArray<TranslationOverlayInput>>([]);
@@ -263,9 +275,9 @@ const makeServiceLayer = (
 										health: "ready" as const,
 										slug: "translation-plugin",
 										ownerUserId: payload.userId,
-										manifest: fixtureManifest(),
 										incompatibilityReason: null,
 										installationId: "installation",
+										manifest: translationManifest(),
 										id: payload.entitySchemaPluginId,
 										packageId: execution.principal.pluginRevision.packageId,
 										pluginRevisionId: execution.principal.pluginRevision.revisionId,
@@ -315,6 +327,24 @@ const makeServiceLayer = (
 					Layer.mergeAll(
 						database,
 						repository,
+						Layer.mock(DefinitionRepository, {
+							findUserEntitySchemas: () =>
+								Effect.succeed({
+									[definitionKey(
+										"entity",
+										definitionOwner(payload.entitySchemaPluginId),
+										payload.entitySchemaSlug,
+									)]: {
+										icon: "book",
+										eventSchemas: {},
+										name: entitySchema.name,
+										mergeIdentityProperties: [],
+										slug: payload.entitySchemaSlug,
+										pluginId: payload.entitySchemaPluginId,
+										propertiesSchema: entitySchema.propertiesSchema,
+									},
+								}),
+						}),
 						DomainWriteChecksLive.pipe(Layer.provide(database)),
 						runtime,
 						sandbox,

@@ -1,11 +1,13 @@
 import { SandboxRunError, toSandboxRunError } from "@ryot-app/contract/errors";
-import { definitionOwner } from "@ryot-app/contract/modules/plugins/references";
+import { definitionKey, definitionOwner } from "@ryot-app/contract/modules/plugins/references";
 import { AutomationExecutionId, UserId } from "@ryot-app/contract/schema/brands";
 import { IsoUtcString } from "@ryot-app/contract/schema/utils";
 import { Context, DateTime, Effect, Layer, Ref } from "effect";
 import { WorkflowEngine } from "effect/workflow/WorkflowEngine";
 
+import { makeManagedAssetReferenceLocker } from "#lib/domain/managed-asset-writes";
 import { rootLifecycleCommand } from "#modules/automations/lifecycle/command";
+import { DefinitionRepository } from "#modules/definitions/repository";
 import { DomainWriteChecks } from "#modules/entities/write-context";
 import { PluginRuntimeResolver } from "#modules/plugins/catalog/runtime-resolver";
 import { ScriptExecutionService } from "#modules/scripts/executions/service";
@@ -44,7 +46,9 @@ export class TranslationsService extends Context.Service<TranslationsService>()(
 			const engine = yield* WorkflowEngine;
 			const repository = yield* TranslationsRepository;
 			const session = yield* DatabaseSession;
+			const lockAssetReferences = makeManagedAssetReferenceLocker(session);
 			const runtime = yield* PluginRuntimeResolver;
+			const definitions = yield* DefinitionRepository;
 			const sandbox = yield* ScriptExecutionService;
 			const checks = yield* DomainWriteChecks;
 			const requestFill = Effect.fn("TranslationsService.requestFill")(function* (
@@ -176,6 +180,26 @@ export class TranslationsService extends Context.Service<TranslationsService>()(
 							return yield* new SandboxRunError({
 								kind: "invalid-input",
 								message: "Translation commit entity or provider identity changed",
+							});
+						}
+						const schemaKey = definitionKey("entity", owner, payload.entitySchemaSlug);
+						const schemas = yield* definitions.findUserEntitySchemas(payload.userId, [
+							{ owner, slug: payload.entitySchemaSlug },
+						]);
+						const propertiesSchema = schemas[schemaKey]?.propertiesSchema;
+						if (!propertiesSchema) {
+							return yield* new SandboxRunError({
+								kind: "invalid-input",
+								message: "Translation entity schema is unavailable",
+							});
+						}
+						if (
+							input.properties !== null &&
+							(yield* lockAssetReferences([{ propertiesSchema, properties: input.properties }]))
+						) {
+							return yield* new SandboxRunError({
+								kind: "invalid-input",
+								message: "Translation references a retired managed asset",
 							});
 						}
 						return yield* repository.upsertOverlay(input);

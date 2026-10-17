@@ -14,14 +14,16 @@ import type { AppSchema } from "@ryot-app/contract/schema/property-schema";
 import { PluginClientArtifact } from "@ryot-app/plugin-client-contract";
 import { Context, Effect, FileSystem, Layer, Schema } from "effect";
 
+import {
+	collectManagedAssetLocatorsInto,
+	sortedManagedAssetLocators,
+} from "#lib/domain/managed-asset-locators";
 import { AuthRepository } from "#modules/accounts/auth/repository";
 import { ManagedAssetsService } from "#modules/assets/storage/managed-assets";
 import { AutomationsRepository } from "#modules/automations/repository";
 import {
 	collectEmbeddedEntityIds,
-	collectManagedAssetLocatorsInto,
 	rewriteManagedAssetLocators,
-	sortedManagedAssetLocators,
 	type DataReferenceError,
 } from "#modules/backups/data-references";
 import { parseAppSchemaProperties } from "#modules/definitions/properties/runtime";
