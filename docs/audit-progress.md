@@ -15,7 +15,7 @@
 
 ## Status
 
-**61 implemented, 0 in progress, 22 pending; 3 excluded.**
+**62 implemented, 0 in progress, 21 pending; 3 excluded.**
 
 “Implemented” means affected checks and tests passed and the change is committed with this tracker. Batch-wide acceptance is recorded separately below. Rows follow the audit's ranked order; sequencing can change to respect dependencies and keep changes reviewable.
 
@@ -82,7 +82,7 @@
 | M02-R1 | Implemented | Process already-decoded Trakt records directly without a synthetic ZIP round trip. See this finding's audit commit. |
 | F02-R1 | Implemented | Normalize each selected workout group once, anchoring metadata to its first valid row while preserving failure and event ordering. See this finding's audit commit. |
 | F04-R1 | Implemented | Read the persisted numeric template plan directly and enrich distinct choices without editor hydration; preserve validation, units, and pro-media behavior. See this finding's audit commit. |
-| A02-R1 | Pending | One event-ID migration scan. |
+| A02-R1 | Implemented | Scan event IDs once in 500-row C-collated pages across distinct streams, bulk processing normalized timestamps and warning multisets. See this finding's audit commit. |
 | T02-R1 | Implemented | Register release finalizers at acquisition, including partial failure, interruption, and stop; close the API scope before infrastructure and keep capacity unchanged. See this finding's audit commit. |
 | T02-R2 | Pending | Bind sessions and admin authority to one server target. |
 | T05-R1 | Pending | Three complete seed installs replace seven updates and catalog rereads. |
@@ -227,3 +227,4 @@
 - P12-R1: renderer check passed before 62 tests across four files; read-only review passed. Typed local queries retain wire, URL-sort, clock, and cancellation behavior. Ignored generated sources were regenerated and not staged.
 - P05-R2: UI check passed before 21 focused tests and 325 full UI tests; read-only review passed. One destination drives the reorder preview; pointer cancellation and commit behavior remain.
 - F02-R1: scoped checks passed before 52 tests; read-only review passed. Each selected workout group is normalized once, using first-valid-row metadata while preserving failures and ordering.
+- A02-R1: server check passed before 15 harness tests; read-only review passed. Event IDs scan in 500-row C-collated pages across distinct streams, with bulk processing, normalized timestamps, and warning multisets. Combined restored normal/larger migration validation is running separately and remains pending.
