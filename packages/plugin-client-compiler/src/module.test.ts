@@ -373,44 +373,41 @@ const compileClientValue = (source: string) =>
 
 it.layer(emittedLayer("export default {};"))("authored client import forms", (test) => {
 	test.effect.each([
+		{ messages: [untrustedClientImport("effect")], source: 'import effect = require("effect");' },
 		{
-			source: 'import effect = require("effect");',
 			messages: [untrustedClientImport("effect")],
-		},
-		{
 			source: 'export namespace Loader { import effect = require("effect"); }',
-			messages: [untrustedClientImport("effect")],
 		},
 		{
-			source: 'declare module "virtual" { export * from "effect"; }',
 			messages: [untrustedClientImport("effect")],
+			source: 'declare module "virtual" { export * from "effect"; }',
 		},
 		{ source: 'export * from "effect";', messages: [untrustedClientImport("effect")] },
 		{
-			source: 'export type Value = typeof import("effect");',
 			messages: [untrustedClientImport("effect")],
+			source: 'export type Value = typeof import("effect");',
 		},
 		{
 			source: 'export function load() { return import("react"); }',
 			messages: ["Dynamic imports and Vite import-glob features are not allowed"],
 		},
 		{
-			source: 'export function asset() { return new URL("./missing.svg", import.meta.url); }',
 			messages: ['Asset URL "./missing.svg" is not allowed'],
+			source: 'export function asset() { return new URL("./missing.svg", import.meta.url); }',
 		},
 		{
-			source: [
-				'import effect = require("effect");',
-				'export * from "zod";',
-				'export type Loaded = typeof import("lodash");',
-				'export const load = () => import("react");',
-			].join("\n"),
 			messages: [
 				untrustedClientImport("effect"),
 				untrustedClientImport("zod"),
 				untrustedClientImport("lodash"),
 				"Dynamic imports and Vite import-glob features are not allowed",
 			],
+			source: [
+				'import effect = require("effect");',
+				'export * from "zod";',
+				'export type Loaded = typeof import("lodash");',
+				'export const load = () => import("react");',
+			].join("\n"),
 		},
 	])("rejects $source before Vite", ({ source, messages }) =>
 		Effect.gen(function* () {
@@ -427,43 +424,45 @@ it.layer(emittedLayer("export default {};"))("authored client import forms", (te
 
 	test.effect.each([
 		{
-			path: "shared/value.ts",
 			declared: true,
+			path: "shared/value.ts",
 			source: 'import card from "@ryot-app/plugins/media/card"; export { card };',
 			message:
 				'Import "@ryot-app/plugins/media/card" is not allowed; plugin shared sources may only import Ryot plugin kit entry points',
 		},
-		...[
-			"@ryot-app/plugins/media",
-			"@ryot-app/plugins/media/a/b",
-			"@ryot-app/plugins/Media/x",
-		].map((specifier) => ({
-			path: "client/value.ts",
-			declared: true,
-			source: `import card from "${specifier}"; export { card };`,
-			message: `Public plugin import "${specifier}" is not present in the authorized export map`,
-		})),
+		...["@ryot-app/plugins/media", "@ryot-app/plugins/media/a/b", "@ryot-app/plugins/Media/x"].map(
+			(specifier) => ({
+				declared: true,
+				path: "client/value.ts",
+				source: `import card from "${specifier}"; export { card };`,
+				message: `Public plugin import "${specifier}" is not present in the authorized export map`,
+			}),
+		),
 		{
-			path: "client/value.ts",
 			declared: false,
+			path: "client/value.ts",
 			source: 'import card from "@ryot-app/plugins/constructor/x"; export { card };',
 			message:
 				'Public plugin import "@ryot-app/plugins/constructor/x" is not present in the authorized export map',
 		},
 		{
-			path: "client/value.ts",
 			declared: false,
+			path: "client/value.ts",
 			source: 'export type Value = import("@ryot-app/plugins/undeclared/x").T;',
 			message:
 				'Public plugin import "@ryot-app/plugins/undeclared/x" is not present in the authorized export map',
 		},
-	])("rejects plugin import $source in $path before Vite", ({ path, declared, source, message }) =>
+	])("rejects plugin import $source in $path before Vite", ({ path, source, message, declared }) =>
 		Effect.gen(function* () {
 			const failure = yield* compileClientPluginModule({
 				...emittedInput,
 				files: { ...emittedInput.files, [path]: bytes(source) },
 				...(declared
-					? { pluginDependencies: { media: { scope: "user" as const, packageId: dependencyPackageId } } }
+					? {
+							pluginDependencies: {
+								media: { scope: "user" as const, packageId: dependencyPackageId },
+							},
+						}
 					: {}),
 			}).pipe(
 				Effect.provideService(
@@ -473,23 +472,14 @@ it.layer(emittedLayer("export default {};"))("authored client import forms", (te
 				Effect.flip,
 			);
 			expect(failure.diagnostics).toEqual([
-				{
-					message,
-					file: path,
-					line: 1,
-					column: 1,
-					severity: "error",
-					code: "RYOT_CLIENT_IMPORT",
-				},
+				{ message, line: 1, column: 1, file: path, severity: "error", code: "RYOT_CLIENT_IMPORT" },
 			]);
 		}),
 	);
 
 	test.effect("accepts an approved import type expression in client sources", () =>
 		Effect.gen(function* () {
-			const compiled = yield* compileClientValue(
-				'export type Value = import("react").ReactNode;',
-			);
+			const compiled = yield* compileClientValue('export type Value = import("react").ReactNode;');
 			expect(compiled.artifact.files.map(({ name }) => name)).toContain("module.js");
 		}),
 	);

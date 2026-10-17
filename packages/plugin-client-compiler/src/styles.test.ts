@@ -14,7 +14,6 @@ const diagnose = Effect.fnUntraced(function* (sourceFiles: Readonly<Record<strin
 	);
 	const analysis = yield* analyzeClientPluginTypes(textSources, dependencies);
 	return validateClientSourcePolicy({
-		publicExports: {},
 		sourceFiles: textSources,
 		parsedFiles: analysis.sourceFiles,
 		files: Object.fromEntries([

@@ -1,8 +1,4 @@
-import type { SandboxManifest } from "@ryot-app/plugin-backend-sdk/core";
-import type { ProviderOperation } from "@ryot-app/plugin-backend-sdk/provider";
 import { Effect } from "effect";
-import type * as ts from "typescript/unstable/ast";
-import { DiagnosticCategory } from "typescript/unstable/async";
 
 import { bundleSandboxPackage } from "./compiler-bundle";
 import { resolveSandboxCompilerDependencies } from "./compiler-dependencies";
@@ -10,7 +6,6 @@ import {
 	pluginBackendCompilerDiagnostic,
 	PluginBackendCompilerFailure,
 	sandboxCompilationFailure,
-	toTypeScriptDiagnostic,
 } from "./compiler-diagnostics";
 import { finalizeCompiledModule } from "./compiler-metadata";
 import {
@@ -19,11 +14,14 @@ import {
 	type SandboxTypeScriptSources,
 } from "./compiler-project";
 import type { CompiledSandboxModule } from "./compiler-protocol";
-import { inspectSandboxModuleImports, inspectSandboxSource } from "./compiler-source";
+import { inspectSandboxModuleImports } from "./compiler-source";
 import {
 	type InspectedSandboxEntry,
+	inspectSandboxEntry,
+	type SandboxEntryDeclaration,
 	type ValidatedSandboxEntry,
 	validateSandboxEntry,
+	validateSandboxProjectDiagnostics,
 } from "./compiler-validation";
 import { SANDBOX_COMPILER_LIMITS, utf8ByteLength } from "./limits";
 
@@ -35,13 +33,6 @@ export type CompiledBuiltInSandboxEntry = {
 	readonly compiled: CompiledSandboxModule;
 	readonly providerOperation: string | null;
 };
-
-export type SandboxEntryDeclaration =
-	| {
-			readonly kind: Exclude<SandboxManifest["kind"], "provider">;
-			readonly providerOperation?: never;
-	  }
-	| { readonly kind: "provider"; readonly providerOperation: ProviderOperation };
 
 type SandboxPackageProject = Effect.Success<
 	ReturnType<typeof createTypeScriptSourcesProjectForEntries>
@@ -116,60 +107,30 @@ const createSandboxPackageProject = (
 						]),
 			),
 		);
-		const typeErrors = project.diagnostics.filter(
-			(diagnostic) => diagnostic.category === DiagnosticCategory.Error,
-		);
-		const firstEntry = entries[0];
-		const fallbackSourceFile = firstEntry ? project.entrySourceFiles[firstEntry] : undefined;
+		const fallbackSourceFile = project.entries[0]?.sourceFile;
 		if (!fallbackSourceFile) {
 			return yield* sandboxCompilationFailure([
 				pluginBackendCompilerDiagnostic("RYOT_SANDBOX_ENTRY", "Sandbox entries were not loaded"),
 			]);
 		}
-		return { project, typeErrors, dependencies, fallbackSourceFile };
+		return { project, dependencies, fallbackSourceFile };
 	});
-
-const validateSandboxProjectDiagnostics = (
-	project: SandboxPackageProject,
-	typeErrors: SandboxPackageProject["diagnostics"],
-	fallbackSourceFile: ts.SourceFile,
-) =>
-	typeErrors.length === 0
-		? Effect.void
-		: sandboxCompilationFailure(
-				typeErrors
-					.slice(0, SANDBOX_COMPILER_LIMITS.diagnosticCount)
-					.map((diagnostic) =>
-						toTypeScriptDiagnostic(diagnostic, project.sourceFiles, fallbackSourceFile),
-					),
-			);
 
 const inspectSandboxPackageEntries = (
 	sources: SandboxTypeScriptSources,
-	entries: ReadonlyArray<string>,
 	project: SandboxPackageProject,
 ) =>
-	Effect.forEach(entries, (entry) => {
-		const source = sources.files[entry];
-		const sourceFile = project.entrySourceFiles[entry];
-		if (!source || !sourceFile) {
+	Effect.forEach(project.entries, (projectEntry) => {
+		const source = sources.files[projectEntry.entry];
+		if (!source) {
 			return sandboxCompilationFailure([
 				pluginBackendCompilerDiagnostic(
 					"RYOT_SANDBOX_ENTRY",
-					`Sandbox entry was not loaded: ${entry}`,
+					`Sandbox entry was not loaded: ${projectEntry.entry}`,
 				),
 			]);
 		}
-		const inspection = inspectSandboxSource(sourceFile, { allowRelativeImports: true });
-		if (inspection.diagnostics.length > 0) {
-			return sandboxCompilationFailure(inspection.diagnostics);
-		}
-		return Effect.succeed({
-			entry,
-			source,
-			sourceFile,
-			inspection,
-		} satisfies InspectedSandboxEntry);
+		return inspectSandboxEntry(projectEntry, source, { allowRelativeImports: true });
 	});
 
 const validateSandboxPackageEntries = (
@@ -188,7 +149,6 @@ const validateSandboxPackageEntries = (
 		return validateSandboxEntry({
 			inspected,
 			sourceFiles: project.sourceFiles,
-			execution: project.executionByEntry[inspected.entry],
 			moduleDiagnostics: project.sourceFiles
 				.filter((file) => file !== inspected.sourceFile)
 				.flatMap((file) => moduleDiagnosticsBySource.get(file) ?? []),
@@ -248,10 +208,12 @@ export const compileSandboxPackageEntries = (
 		if (entries.length === 0) {
 			return [];
 		}
-		const { project, typeErrors, dependencies, fallbackSourceFile } =
-			yield* createSandboxPackageProject(sources, entries);
-		const inspectedEntries = yield* inspectSandboxPackageEntries(sources, entries, project);
-		yield* validateSandboxProjectDiagnostics(project, typeErrors, fallbackSourceFile);
+		const { project, dependencies, fallbackSourceFile } = yield* createSandboxPackageProject(
+			sources,
+			entries,
+		);
+		const inspectedEntries = yield* inspectSandboxPackageEntries(sources, project);
+		yield* validateSandboxProjectDiagnostics(project, fallbackSourceFile);
 		const validatedEntries = yield* validateSandboxPackageEntries(
 			inspectedEntries,
 			project,

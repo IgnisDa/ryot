@@ -1,5 +1,6 @@
 import { pluginClientAssetMimeType } from "@ryot-app/plugin-client-contract";
 import { canonicalRelativePosixPathIssue, posixPath } from "@ryot-app/ts-utils/path";
+import { inspectTypeScriptReferences } from "@ryot-app/typescript-compiler/typescript-references";
 import { parse } from "postcss";
 import valueParser from "postcss-value-parser";
 import * as ts from "typescript/unstable/ast";
@@ -37,16 +38,28 @@ const traversesSourceRoot = (importer: string, specifier: string) => {
 const importFailure = (path: string, message: string) =>
 	clientPluginCompilerDiagnostic("RYOT_CLIENT_IMPORT", path, message);
 
-const isImportMeta = (node: ts.Node) =>
-	ts.isMetaProperty(node) &&
-	node.keywordToken === ts.SyntaxKind.ImportKeyword &&
-	node.name.text === "meta";
+const isImportGlob = (meta: ts.MetaProperty) => {
+	const access = meta.parent;
+	let name: string | null = null;
+	if (ts.isPropertyAccessExpression(access)) {
+		name = access.name.text;
+	} else if (
+		ts.isElementAccessExpression(access) &&
+		ts.isStringLiteralLikeNode(access.argumentExpression)
+	) {
+		name = access.argumentExpression.text;
+	}
+	return (
+		(name === "glob" || name === "globEager") &&
+		ts.isCallExpression(access.parent) &&
+		access.parent.expression === access
+	);
+};
 
 const validateScript = (
 	path: string,
 	file: ts.SourceFile,
 	files: Readonly<Record<string, Uint8Array>>,
-	publicExports: Readonly<Record<string, string>>,
 	unresolvedPluginDependencies: ReadonlySet<string>,
 ) => {
 	const diagnostics: ClientPluginCompilerDiagnostic[] = [];
@@ -77,8 +90,8 @@ const validateScript = (
 			const slug = PLUGIN_IMPORT.exec(specifier)?.[1];
 			if (
 				isSharedSource(path) ||
-				(publicExports[specifier] === undefined &&
-					(slug === undefined || !unresolvedPluginDependencies.has(slug)))
+				slug === undefined ||
+				!unresolvedPluginDependencies.has(slug)
 			) {
 				diagnostics.push(
 					importFailure(
@@ -118,66 +131,27 @@ const validateScript = (
 			diagnostics.push(importFailure(path, `Asset URL "${specifier}" is not allowed`));
 		}
 	};
-	const visit = (node: ts.Node): void => {
-		if (
-			(ts.isImportDeclaration(node) || ts.isExportDeclaration(node)) &&
-			node.moduleSpecifier &&
-			ts.isStringLiteralLikeNode(node.moduleSpecifier)
-		) {
-			validateImport(node.moduleSpecifier.text);
-		}
-		if (
-			ts.isImportTypeNode(node) &&
-			ts.isLiteralTypeNode(node.argument) &&
-			ts.isStringLiteralLikeNode(node.argument.literal)
-		) {
-			validateImport(node.argument.literal.text);
-		}
-		if (
-			ts.isImportEqualsDeclaration(node) &&
-			ts.isExternalModuleReference(node.moduleReference) &&
-			ts.isStringLiteralLikeNode(node.moduleReference.expression)
-		) {
-			validateImport(node.moduleReference.expression.text);
-		}
-		if (ts.isCallExpression(node)) {
-			const target = node.expression;
-			const glob = ts.isPropertyAccessExpression(target)
-				? isImportMeta(target.expression) &&
-					(target.name.text === "glob" || target.name.text === "globEager")
-				: ts.isElementAccessExpression(target) &&
-					isImportMeta(target.expression) &&
-					ts.isStringLiteralLikeNode(target.argumentExpression) &&
-					(target.argumentExpression.text === "glob" ||
-						target.argumentExpression.text === "globEager");
-			if (target.kind === ts.SyntaxKind.ImportKeyword || glob) {
+	for (const reference of inspectTypeScriptReferences(file)) {
+		if (reference.kind === "dynamic-import") {
+			diagnostics.push(
+				importFailure(path, "Dynamic imports and Vite import-glob features are not allowed"),
+			);
+		} else if (reference.kind === "import-meta") {
+			if (ts.isNewExpression(reference.node)) {
+				if (reference.specifier === null) {
+					diagnostics.push(importFailure(path, "Asset URLs must use a static string"));
+				} else {
+					validateAsset(reference.specifier);
+				}
+			} else if (isImportGlob(reference.node)) {
 				diagnostics.push(
 					importFailure(path, "Dynamic imports and Vite import-glob features are not allowed"),
 				);
 			}
+		} else if (reference.kind !== "import-equals-alias" && reference.specifier !== null) {
+			validateImport(reference.specifier);
 		}
-		if (
-			ts.isNewExpression(node) &&
-			ts.isIdentifier(node.expression) &&
-			node.expression.text === "URL"
-		) {
-			const [target, base] = node.arguments ?? [];
-			if (
-				base &&
-				ts.isPropertyAccessExpression(base) &&
-				base.name.text === "url" &&
-				isImportMeta(base.expression)
-			) {
-				if (target && ts.isStringLiteralLikeNode(target)) {
-					validateAsset(target.text);
-				} else {
-					diagnostics.push(importFailure(path, "Asset URLs must use a static string"));
-				}
-			}
-		}
-		node.forEachChild(visit);
-	};
-	visit(file);
+	}
 	return diagnostics;
 };
 
@@ -268,13 +242,11 @@ export const validateClientSourcePolicy = ({
 	files,
 	sourceFiles,
 	parsedFiles,
-	publicExports,
 	unresolvedPluginDependencies = [],
 }: {
 	readonly files: Readonly<Record<string, Uint8Array>>;
 	readonly sourceFiles: Readonly<Record<string, string>>;
 	readonly parsedFiles: Readonly<Record<string, ts.SourceFile>>;
-	readonly publicExports: Readonly<Record<string, string>>;
 	readonly unresolvedPluginDependencies?: readonly string[];
 }) => {
 	const unresolved = new Set(unresolvedPluginDependencies);
@@ -287,7 +259,7 @@ export const validateClientSourcePolicy = ({
 		}
 		const file = parsedFiles[path];
 		return file
-			? validateScript(path, file, files, publicExports, unresolved)
+			? validateScript(path, file, files, unresolved)
 			: [importFailure(path, "Script source was not parsed")];
 	});
 };

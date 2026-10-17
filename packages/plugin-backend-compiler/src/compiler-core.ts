@@ -1,6 +1,5 @@
 import type { CompilerWorkspaceOptions } from "@ryot-app/vite-compiler";
 import { Effect } from "effect";
-import { DiagnosticCategory } from "typescript/unstable/async";
 
 import { bundleUserScript } from "./compiler-bundle";
 import { resolveSandboxCompilerDependencies } from "./compiler-dependencies";
@@ -9,12 +8,14 @@ import {
 	PluginBackendCompilerFailure,
 	SANDBOX_SOURCE_FILE,
 	sandboxCompilationFailure,
-	toTypeScriptDiagnostic,
 } from "./compiler-diagnostics";
 import { finalizeCompiledModule } from "./compiler-metadata";
 import { createTypeScriptSourcesProject } from "./compiler-project";
-import { inspectSandboxSource } from "./compiler-source";
-import { validateSandboxEntry } from "./compiler-validation";
+import {
+	inspectSandboxEntry,
+	validateSandboxEntry,
+	validateSandboxProjectDiagnostics,
+} from "./compiler-validation";
 import { SANDBOX_COMPILER_LIMITS, utf8ByteLength } from "./limits";
 
 export const compileSandboxSource = (source: string, workspaceOptions?: CompilerWorkspaceOptions) =>
@@ -45,23 +46,14 @@ export const compileSandboxSource = (source: string, workspaceOptions?: Compiler
 						]),
 			),
 		);
-		const inspection = inspectSandboxSource(project.sourceFile);
-		const typeErrors = project.diagnostics.filter(
-			(diagnostic) => diagnostic.category === DiagnosticCategory.Error,
-		);
+		const inspected = yield* inspectSandboxEntry(project.entry, source, {
+			allowRelativeImports: false,
+		});
+		yield* validateSandboxProjectDiagnostics(project, project.entry.sourceFile);
 		const validated = yield* validateSandboxEntry({
-			execution: project.execution,
+			inspected,
+			moduleDiagnostics: [],
 			sourceFiles: project.sourceFiles,
-			inspected: { source, inspection, entry: SANDBOX_SOURCE_FILE, sourceFile: project.sourceFile },
-			validateTypes: typeErrors.length
-				? sandboxCompilationFailure(
-						typeErrors
-							.slice(0, SANDBOX_COMPILER_LIMITS.diagnosticCount)
-							.map((diagnostic) =>
-								toTypeScriptDiagnostic(diagnostic, project.sourceFiles, project.sourceFile),
-							),
-					)
-				: Effect.void,
 		});
 
 		const compiled = yield* bundleUserScript(source, dependencies.sdkEntries, workspaceOptions);

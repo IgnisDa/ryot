@@ -27,7 +27,7 @@ const script = scriptLines.join("\n");
 const at = (source: string, token: string, from = 0) => {
 	const offset = source.indexOf(token, from);
 	const before = source.slice(0, offset).split("\n");
-	return { line: before.length, column: (before.at(-1) ?? "").length + 1, length: token.length };
+	return { line: before.length, length: token.length, column: (before.at(-1) ?? "").length + 1 };
 };
 
 const diagnostic = (
@@ -50,7 +50,7 @@ const bothPathDiagnostics = (source: string) =>
 	Effect.gen(function* () {
 		const standalone = yield* compileSandboxSource(source).pipe(Effect.flip);
 		const packaged = yield* packageDiagnostics({ [ENTRY]: source });
-		return { standalone: standalone.diagnostics, packaged };
+		return { packaged, standalone: standalone.diagnostics };
 	});
 
 const sharedEntry = (specifier: string) =>
@@ -68,9 +68,9 @@ const importer = (specifier: string) =>
 const sharedTargets = {
 	"x.ts": 'export const value = "root-target";',
 	"shared/x.ts": 'export const value = "shared-target";',
-	"shared/index.ts": 'export const value = "shared-index-target";',
 	"backend/x.ts": 'export const value = "backend-target";',
 	"sharedx/y.ts": 'export const value = "sharedx-target";',
+	"shared/index.ts": 'export const value = "shared-index-target";',
 };
 
 const workflowEntry = (specifier: string) =>
@@ -104,10 +104,10 @@ it.layer(pluginBackendCompilerPlatformLayer)("sandbox source import policy", (te
 		},
 	])(
 		"rejects a $label reference directive through source and package paths",
-		({ directive, message }) =>
+		({ message, directive }) =>
 			Effect.gen(function* () {
 				const source = `${directive}\n${script}`;
-				const { standalone, packaged } = yield* bothPathDiagnostics(source);
+				const { packaged, standalone } = yield* bothPathDiagnostics(source);
 				expect(standalone).toEqual([
 					diagnostic("RYOT_IMPORT", STANDALONE, message, {
 						line: 2,
@@ -123,77 +123,77 @@ it.layer(pluginBackendCompilerPlatformLayer)("sandbox source import policy", (te
 
 	test.effect.each([
 		{
+			token: 'import("zod").ZodType',
 			label: "import type expression",
 			prefix: 'type Loaded = import("zod").ZodType;',
-			token: 'import("zod").ZodType',
 			message: "Import type expressions are not allowed",
 		},
 		{
 			label: "approved import type expression",
-			prefix: 'type Loaded = import("@ryot-app/plugin-backend-sdk/effect").Effect.Effect<void>;',
-			token: 'import("@ryot-app/plugin-backend-sdk/effect").Effect.Effect<void>',
 			message: "Import type expressions are not allowed",
+			token: 'import("@ryot-app/plugin-backend-sdk/effect").Effect.Effect<void>',
+			prefix: 'type Loaded = import("@ryot-app/plugin-backend-sdk/effect").Effect.Effect<void>;',
 		},
 		{
 			label: "approved typeof import type expression",
-			prefix: 'type Loaded = typeof import("@ryot-app/plugin-backend-sdk/effect");',
-			token: 'typeof import("@ryot-app/plugin-backend-sdk/effect")',
 			message: "Import type expressions are not allowed",
+			token: 'typeof import("@ryot-app/plugin-backend-sdk/effect")',
+			prefix: 'type Loaded = typeof import("@ryot-app/plugin-backend-sdk/effect");',
 		},
 		{
 			label: "require import assignment",
-			prefix: 'import zod = require("zod");',
 			token: 'import zod = require("zod");',
+			prefix: 'import zod = require("zod");',
 			message: "Import assignments are not allowed",
 		},
 		{
-			label: "alias import assignment",
-			prefix: "namespace Values { export const y = 1; }\nimport y = Values.y;",
 			token: "import y = Values.y;",
+			label: "alias import assignment",
 			message: "Import assignments are not allowed",
+			prefix: "namespace Values { export const y = 1; }\nimport y = Values.y;",
 		},
 		{
 			label: "approved literal dynamic import",
-			prefix: 'void import("@ryot-app/plugin-backend-sdk/effect");',
-			token: 'import("@ryot-app/plugin-backend-sdk/effect")',
 			message: "Dynamic imports are not allowed",
+			token: 'import("@ryot-app/plugin-backend-sdk/effect")',
+			prefix: 'void import("@ryot-app/plugin-backend-sdk/effect");',
 		},
 		{
-			label: "type-only import",
-			prefix: 'import type { ZodType } from "zod";',
 			token: '"zod"',
+			label: "type-only import",
 			message: disallowedSandboxImport("zod"),
+			prefix: 'import type { ZodType } from "zod";',
 		},
 		{
+			token: '"zod"',
 			label: "star re-export",
 			prefix: 'export * from "zod";',
-			token: '"zod"',
 			message: disallowedSandboxImport("zod"),
 		},
 		{
+			token: '"zod"',
 			label: "named re-export",
 			prefix: 'export { z } from "zod";',
-			token: '"zod"',
 			message: disallowedSandboxImport("zod"),
 		},
 		{
+			token: '"zod"',
 			label: "type-only re-export",
-			prefix: 'export type { ZodType } from "zod";',
-			token: '"zod"',
 			message: disallowedSandboxImport("zod"),
+			prefix: 'export type { ZodType } from "zod";',
 		},
 		{
+			token: '"zod"',
 			label: "multiline import",
 			prefix: 'import {\n\tz\n} from "zod";',
-			token: '"zod"',
 			message: disallowedSandboxImport("zod"),
 		},
 	])(
 		"rejects one $label diagnostic through source and package paths",
-		({ prefix, token, message }) =>
+		({ token, prefix, message }) =>
 			Effect.gen(function* () {
 				const source = `${prefix}\n${script}`;
-				const { standalone, packaged } = yield* bothPathDiagnostics(source);
+				const { packaged, standalone } = yield* bothPathDiagnostics(source);
 				expect(standalone).toEqual([
 					diagnostic("RYOT_IMPORT", STANDALONE, message, at(source, token)),
 				]);
@@ -248,7 +248,7 @@ it.layer(pluginBackendCompilerPlatformLayer)("sandbox source import policy", (te
 					),
 				),
 			];
-			const { standalone, packaged } = yield* bothPathDiagnostics(source);
+			const { packaged, standalone } = yield* bothPathDiagnostics(source);
 			expect(standalone).toEqual(expected(STANDALONE));
 			expect(packaged).toEqual(expected(ENTRY));
 		}),
@@ -257,7 +257,7 @@ it.layer(pluginBackendCompilerPlatformLayer)("sandbox source import policy", (te
 	test.effect("reports only the inspection violation when the source also has a type error", () =>
 		Effect.gen(function* () {
 			const source = `import zod = require("zod");\nconst broken: string = 1;\n${script}`;
-			const { standalone, packaged } = yield* bothPathDiagnostics(source);
+			const { packaged, standalone } = yield* bothPathDiagnostics(source);
 			const location = at(source, 'import zod = require("zod");');
 			expect(standalone).toEqual([
 				diagnostic("RYOT_IMPORT", STANDALONE, "Import assignments are not allowed", location),
@@ -265,6 +265,35 @@ it.layer(pluginBackendCompilerPlatformLayer)("sandbox source import policy", (te
 			expect(packaged).toEqual([
 				diagnostic("RYOT_IMPORT", ENTRY, "Import assignments are not allowed", location),
 			]);
+		}),
+	);
+
+	test.effect("reports type errors before execution analysis errors on both paths", () =>
+		Effect.gen(function* () {
+			const runSync = 'Effect.runSync(Effect.succeed("ready"))';
+			const executable = `${script}\nconst initialized = ${runSync};`;
+			const executionOnly = yield* bothPathDiagnostics(executable);
+			const executionError = (file: string) =>
+				diagnostic(
+					"RYOT_DEPENDENCY",
+					file,
+					"Effect execution during module initialization is unsupported",
+					at(executable, runSync),
+				);
+			expect(executionOnly.standalone).toEqual([executionError(STANDALONE)]);
+			expect(executionOnly.packaged).toEqual([executionError(ENTRY)]);
+
+			const source = `${executable}\nconst broken: string = 1;`;
+			const { packaged, standalone } = yield* bothPathDiagnostics(source);
+			const typeError = (file: string) =>
+				diagnostic(
+					"TS2322",
+					file,
+					"Type 'number' is not assignable to type 'string'.",
+					at(source, "broken"),
+				);
+			expect(standalone).toEqual([typeError(STANDALONE)]);
+			expect(packaged).toEqual([typeError(ENTRY)]);
 		}),
 	);
 
@@ -346,7 +375,7 @@ it.layer(pluginBackendCompilerPlatformLayer)("sandbox source import policy", (te
 			const source = `// import("zod") require("x")\nconst inert = 'import("zod") require("x")';\n${script}`;
 			const standalone = yield* compileSandboxSource(source);
 			const packaged = yield* compilePluginSandboxSourceEntries({ [ENTRY]: source }, [
-				{ kind: "script", entry: ENTRY },
+				{ entry: ENTRY, kind: "script" },
 			]);
 			expect(standalone.manifest.kind).toBe("script");
 			expect(packaged[0]?.compiled.manifest.kind).toBe("script");
@@ -356,7 +385,7 @@ it.layer(pluginBackendCompilerPlatformLayer)("sandbox source import policy", (te
 	test.effect("checks only top-level declarations for module specifiers", () =>
 		Effect.gen(function* () {
 			const source = `declare module "x" { export * from "zod"; }\n${script}`;
-			const { standalone, packaged } = yield* bothPathDiagnostics(source);
+			const { packaged, standalone } = yield* bothPathDiagnostics(source);
 			for (const diagnostics of [standalone, packaged]) {
 				expect(diagnostics.length).toBeGreaterThan(0);
 				expect(diagnostics.every(({ code }) => code.startsWith("TS"))).toBe(true);
@@ -371,7 +400,7 @@ it.layer(pluginBackendCompilerPlatformLayer)("sandbox source import policy", (te
 				.replace("export default defineScript(", "export default ds(");
 			const standalone = yield* compileSandboxSource(source);
 			const packaged = yield* compilePluginSandboxSourceEntries({ [ENTRY]: source }, [
-				{ kind: "script", entry: ENTRY },
+				{ entry: ENTRY, kind: "script" },
 			]);
 			expect(standalone.manifest.kind).toBe("script");
 			expect(packaged[0]?.compiled.manifest.kind).toBe("script");
@@ -381,6 +410,7 @@ it.layer(pluginBackendCompilerPlatformLayer)("sandbox source import policy", (te
 	test.effect.each([
 		{
 			label: "re-exported",
+			token: scriptLines[3] ?? "",
 			source: [
 				'import { defineManifest } from "@ryot-app/plugin-backend-sdk/driver";',
 				'import { Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";',
@@ -388,10 +418,10 @@ it.layer(pluginBackendCompilerPlatformLayer)("sandbox source import policy", (te
 				scriptLines[2],
 				scriptLines[3],
 			].join("\n"),
-			token: scriptLines[3] ?? "",
 		},
 		{
 			label: "namespace-imported",
+			token: (scriptLines[3] ?? "").replace("defineScript(", "sdk.defineScript("),
 			source: [
 				'import { defineManifest } from "@ryot-app/plugin-backend-sdk/driver";',
 				'import * as sdk from "@ryot-app/plugin-backend-sdk/driver";',
@@ -399,9 +429,8 @@ it.layer(pluginBackendCompilerPlatformLayer)("sandbox source import policy", (te
 				scriptLines[2],
 				(scriptLines[3] ?? "").replace("defineScript(", "sdk.defineScript("),
 			].join("\n"),
-			token: (scriptLines[3] ?? "").replace("defineScript(", "sdk.defineScript("),
 		},
-	])("does not recognize a $label definition helper", ({ source, token }) =>
+	])("does not recognize a $label definition helper", ({ token, source }) =>
 		Effect.gen(function* () {
 			const diagnostics = yield* packageDiagnostics({ [ENTRY]: source });
 			expect(diagnostics).toEqual([
@@ -411,12 +440,12 @@ it.layer(pluginBackendCompilerPlatformLayer)("sandbox source import policy", (te
 	);
 
 	test.effect.each([
-		{ importerPath: "shared/a.ts", entryImport: "../shared/a", specifier: "./x" },
-		{ importerPath: "shared/a.ts", entryImport: "../shared/a", specifier: "../shared/x" },
-		{ importerPath: "shared/sub/a.ts", entryImport: "../shared/sub/a", specifier: "../x" },
+		{ specifier: "./x", entryImport: "../shared/a", importerPath: "shared/a.ts" },
+		{ specifier: "../shared/x", entryImport: "../shared/a", importerPath: "shared/a.ts" },
+		{ specifier: "../x", entryImport: "../shared/sub/a", importerPath: "shared/sub/a.ts" },
 	])(
 		"accepts $specifier from $importerPath inside the shared root",
-		({ importerPath, entryImport, specifier }) =>
+		({ specifier, entryImport, importerPath }) =>
 			Effect.gen(function* () {
 				const compiled = yield* compilePluginSandboxSourceEntries(
 					{
@@ -424,27 +453,27 @@ it.layer(pluginBackendCompilerPlatformLayer)("sandbox source import policy", (te
 						[ENTRY]: sharedEntry(entryImport),
 						[importerPath]: importer(specifier),
 					},
-					[{ kind: "script", entry: ENTRY }],
+					[{ entry: ENTRY, kind: "script" }],
 				);
 				expect(compiled[0]?.compiled.javascript).toContain("shared-target");
 			}),
 	);
 
 	test.effect.each([
-		{ importerPath: "shared/a.ts", entryImport: "../shared/a", specifier: "..//backend/x" },
-		{ importerPath: "shared/a.ts", entryImport: "../shared/a", specifier: "../sharedx/y" },
-		{ importerPath: "shared/a.ts", entryImport: "../shared/a", specifier: "." },
-		{ importerPath: "shared/a.ts", entryImport: "../shared/a", specifier: "./" },
-		{ importerPath: "shared/sub/a.ts", entryImport: "../shared/sub/a", specifier: "../../x" },
+		{ entryImport: "../shared/a", specifier: "..//backend/x", importerPath: "shared/a.ts" },
+		{ specifier: "../sharedx/y", entryImport: "../shared/a", importerPath: "shared/a.ts" },
+		{ specifier: ".", entryImport: "../shared/a", importerPath: "shared/a.ts" },
+		{ specifier: "./", entryImport: "../shared/a", importerPath: "shared/a.ts" },
+		{ specifier: "../../x", entryImport: "../shared/sub/a", importerPath: "shared/sub/a.ts" },
 	])(
 		"rejects $specifier from $importerPath outside the shared root",
-		({ importerPath, entryImport, specifier }) =>
+		({ specifier, entryImport, importerPath }) =>
 			Effect.gen(function* () {
 				const source = importer(specifier);
 				const diagnostics = yield* packageDiagnostics({
 					...sharedTargets,
-					[ENTRY]: sharedEntry(entryImport),
 					[importerPath]: source,
+					[ENTRY]: sharedEntry(entryImport),
 				});
 				expect(diagnostics).toEqual([
 					diagnostic(
@@ -458,17 +487,17 @@ it.layer(pluginBackendCompilerPlatformLayer)("sandbox source import policy", (te
 	);
 
 	test.effect.each([
-		{ importerPath: "shared/a.ts", entryImport: "../shared/a", specifier: "../../shared/x" },
-		{ importerPath: "backend/a.ts", entryImport: "./a", specifier: "../../x" },
+		{ entryImport: "../shared/a", importerPath: "shared/a.ts", specifier: "../../shared/x" },
+		{ entryImport: "./a", specifier: "../../x", importerPath: "backend/a.ts" },
 	])(
 		"reports $specifier from $importerPath outside the virtual root as unresolved",
-		({ importerPath, entryImport, specifier }) =>
+		({ specifier, entryImport, importerPath }) =>
 			Effect.gen(function* () {
 				const source = importer(specifier);
 				const diagnostics = yield* packageDiagnostics({
 					...sharedTargets,
-					[ENTRY]: sharedEntry(entryImport),
 					[importerPath]: source,
+					[ENTRY]: sharedEntry(entryImport),
 				});
 				expect(diagnostics).toEqual([
 					diagnostic(
@@ -483,26 +512,29 @@ it.layer(pluginBackendCompilerPlatformLayer)("sandbox source import policy", (te
 
 	test.effect.each([
 		{
-			label: "a JavaScript-extension import",
 			specifier: "./lib/x.js",
+			reached: "backend/lib/x.ts",
+			label: "a JavaScript-extension import",
 			modules: { "backend/lib/x.ts": effectModule },
-			reached: "backend/lib/x.ts",
 		},
 		{
-			label: "an extensionless import",
 			specifier: "./lib",
-			modules: { "backend/lib.ts": effectModule },
 			reached: "backend/lib.ts",
+			label: "an extensionless import",
+			modules: { "backend/lib.ts": effectModule },
 		},
 		{
-			label: "a star re-export chain",
 			specifier: "./barrel",
-			modules: { "backend/barrel.ts": 'export * from "./lib/x";', "backend/lib/x.ts": effectModule },
 			reached: "backend/lib/x.ts",
+			label: "a star re-export chain",
+			modules: {
+				"backend/barrel.ts": 'export * from "./lib/x";',
+				"backend/lib/x.ts": effectModule,
+			},
 		},
 	])(
 		"rejects unrestricted Effect in a backend module reached through $label",
-		({ specifier, modules, reached }) =>
+		({ modules, reached, specifier }) =>
 			Effect.gen(function* () {
 				const diagnostics = yield* packageDiagnostics(
 					{ ...modules, [ENTRY]: workflowEntry(specifier) },
@@ -521,29 +553,31 @@ it.layer(pluginBackendCompilerPlatformLayer)("sandbox source import policy", (te
 
 	test.effect.each([
 		{
-			label: "a direct shared import",
 			specifier: "../shared/x",
+			label: "a direct shared import",
 			modules: { "shared/x.ts": dateModule },
 		},
 		{
-			label: "another shared module",
 			specifier: "../shared/a",
-			modules: { "shared/a.ts": 'export { label } from "./x";', "shared/x.ts": dateModule },
+			label: "another shared module",
+			modules: { "shared/x.ts": dateModule, "shared/a.ts": 'export { label } from "./x";' },
 		},
-	])("rejects ambient nondeterminism in a shared module reached through $label", ({ specifier, modules }) =>
-		Effect.gen(function* () {
-			const diagnostics = yield* packageDiagnostics(
-				{ ...modules, [ENTRY]: workflowEntry(specifier) },
-				"workflow",
-			);
-			expect(diagnostics).toEqual([
-				diagnostic(
-					"RYOT_WORKFLOW_DETERMINISM",
-					"shared/x.ts",
-					"Workflow code cannot use ambient nondeterminism: Date.now",
-					at(dateModule, "Date.now()"),
-				),
-			]);
-		}),
+	])(
+		"rejects ambient nondeterminism in a shared module reached through $label",
+		({ modules, specifier }) =>
+			Effect.gen(function* () {
+				const diagnostics = yield* packageDiagnostics(
+					{ ...modules, [ENTRY]: workflowEntry(specifier) },
+					"workflow",
+				);
+				expect(diagnostics).toEqual([
+					diagnostic(
+						"RYOT_WORKFLOW_DETERMINISM",
+						"shared/x.ts",
+						"Workflow code cannot use ambient nondeterminism: Date.now",
+						at(dateModule, "Date.now()"),
+					),
+				]);
+			}),
 	);
 });
