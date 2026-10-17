@@ -175,7 +175,7 @@ function InstanceAdminWorkspace({ onLock }: { readonly onLock: () => void }) {
 	usePageTitle(active.label);
 
 	return (
-		<div className="flex min-h-screen bg-surface-2 text-text">
+		<div className="flex min-h-dvh bg-surface-2 text-text">
 			<aside
 				data-testid="instance-admin-sidebar"
 				className="hidden w-64 shrink-0 flex-col border-r border-border bg-surface px-4 py-6 md:flex"

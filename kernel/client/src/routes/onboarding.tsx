@@ -179,16 +179,16 @@ function Onboarding() {
 									dispatch({ type: "changed" });
 								}}
 							/>
+							{validationError && (
+								<small role="alert" id="server-url-error" className="ui-field-error mt-1.5">
+									{validationError}
+								</small>
+							)}
 						</label>
 					)}
 				</fieldset>
 
-				<div aria-live="polite" className="flex min-h-11.25 items-center">
-					{validationError && (
-						<p role="alert" id="server-url-error" className="ui-form-status text-danger">
-							{validationError}
-						</p>
-					)}
+				<div aria-live="polite">
 					{connection.status === "checking" && (
 						<p role="status" className="ui-form-status">
 							Checking server...
@@ -209,7 +209,7 @@ function Onboarding() {
 				<Button
 					type="submit"
 					variant="primary"
-					className="w-full"
+					className="mt-4 w-full"
 					disabled={checking || (mode === "self-hosted" && !serverUrl.trim())}
 				>
 					{submitLabel}
