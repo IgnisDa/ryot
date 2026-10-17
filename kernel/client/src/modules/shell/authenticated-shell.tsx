@@ -120,7 +120,7 @@ export function AuthenticatedShell(props: {
 	const safeAreaInsets = useSafeAreaInsets();
 	const { catalog } = usePluginCatalog();
 	const progress = useMotionValue(0);
-	const { state, search, pathname } = useRouterState({
+	const { state, search, pathname, searchStr } = useRouterState({
 		select: (routerState) => routerState.resolvedLocation ?? routerState.location,
 	});
 	const contentShift = useTransform(progress, [0, 1], [0, CONTENT_SHIFT]);
@@ -473,6 +473,10 @@ export function AuthenticatedShell(props: {
 													runtime={runtime}
 													onNavigate={navigateDeviceTarget}
 													safeAreaBottom={safeAreaInsets.safeAreaBottom}
+													isCurrent={(target) =>
+														toNavigationRequest({ target, mode: "push", type: "navigate" }, catalog)
+															?.href === `${pathname}${searchStr}`
+													}
 												/>
 											</motion.div>
 										</ClientPageOverlayContext>
