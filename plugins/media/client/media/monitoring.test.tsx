@@ -69,8 +69,8 @@ it.live(
 			);
 			try {
 				yield* Effect.promise(() => mounted.advance(0));
-				const control = getByRole(mounted.container, "switch", { name: "Toggle media monitoring" });
-				expect(control.getAttribute("aria-checked")).toBe("false");
+				const control = getByRole(mounted.container, "button", { name: "Monitor" });
+				expect(control.getAttribute("aria-pressed")).toBe("false");
 				clickRyotElement(control);
 				yield* Effect.promise(() =>
 					waitFor(() => expect(control.hasAttribute("disabled")).toBe(true)),
@@ -88,8 +88,9 @@ it.live(
 					waitFor(() => expect(control.hasAttribute("disabled")).toBe(false)),
 				);
 				yield* Effect.promise(() => mounted.advance(250));
-				expect(control.getAttribute("aria-checked")).toBe("true");
-				expect(mounted.container.querySelector(".bg-success")).not.toBeNull();
+				expect(control.getAttribute("aria-pressed")).toBe("true");
+				expect(control.textContent).toBe("Monitoring");
+				expect(mounted.container.textContent).toContain("In your library");
 				clickRyotElement(control);
 				yield* Effect.promise(() => waitFor(() => expect(requests).toHaveLength(2)));
 				expect(requests[1]).toEqual({
@@ -101,8 +102,8 @@ it.live(
 					waitFor(() => expect(control.hasAttribute("disabled")).toBe(false)),
 				);
 				yield* Effect.promise(() => mounted.advance(250));
-				expect(control.getAttribute("aria-checked")).toBe("false");
-				expect(mounted.container.querySelector(".bg-success")).not.toBeNull();
+				expect(control.getAttribute("aria-pressed")).toBe("false");
+				expect(mounted.container.textContent).toContain("In your library");
 			} finally {
 				mounted.unmount();
 			}
@@ -142,7 +143,7 @@ for (const failure of ["transport", "missing", "mismatched", "unchanged"] as con
 				<Header media={decodeFlatSummary(fixtureSummaryRecipe, { images: [] })} />,
 			);
 			try {
-				const control = getByRole(mounted.container, "switch");
+				const control = getByRole(mounted.container, "button", { name: "Monitor" });
 				clickRyotElement(control);
 				yield* Effect.promise(() =>
 					waitFor(() =>
@@ -151,7 +152,7 @@ for (const failure of ["transport", "missing", "mismatched", "unchanged"] as con
 						),
 					),
 				);
-				expect(control.getAttribute("aria-checked")).toBe("false");
+				expect(control.getAttribute("aria-pressed")).toBe("false");
 				expect(control.hasAttribute("disabled")).toBe(false);
 				clickRyotElement(control);
 				yield* Effect.promise(() => waitFor(() => expect(attempts).toBe(2)));
@@ -171,7 +172,7 @@ it("hides monitoring for media without a provider", () => {
 		<Header media={decodeFlatSummary(fixtureSummaryRecipe, { images: [], providerName: null })} />,
 	);
 	try {
-		expect(queryByRole(mounted.container, "switch")).toBeNull();
+		expect(queryByRole(mounted.container, "button", { name: "Monitor" })).toBeNull();
 	} finally {
 		mounted.unmount();
 	}

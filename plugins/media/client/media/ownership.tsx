@@ -9,13 +9,13 @@ import {
 import {
 	ActionForm,
 	Button,
+	ChipButton,
 	Dialog,
 	Field,
-	Row,
 	StatusMessage,
-	Switch,
 	TextField,
 } from "@ryot-app/plugin-ui-sdk";
+import { AppIcon } from "@ryot-app/plugin-ui-sdk/icon";
 import { useEffect, useRef, useState } from "react";
 
 import {
@@ -23,7 +23,7 @@ import {
 	MediaOwnershipSetInput,
 } from "../../shared/media-ownership-operations";
 import { PLUGIN_PACKAGE_ID } from "../../shared/plugin-identity";
-import { mediaOwnershipLabel } from "./summary-state";
+import { mediaOwnedLabel } from "./summary-state";
 
 const setOwnership = createRyotMutation<MediaOwnershipSetInput, void>(({ input, client }) =>
 	Effect.gen(function* () {
@@ -113,37 +113,33 @@ function MediaOwnedOnDialog(props: { readonly entityId: string; readonly onClose
 	);
 }
 
-export function MediaOwnershipRow(props: {
+export function MediaOwnershipControl(props: {
 	readonly entityId: string;
 	readonly owned: boolean | null;
 	readonly ownedOn: string | null;
 }) {
 	const [dialogOpen, setDialogOpen] = useState(false);
 	const mutation = useRyotMutation(setOwnership);
+	const owned = props.owned === true;
 	return (
 		<>
-			<Row
-				title="Ownership"
-				description={
-					mutation.error === null ? (
-						mediaOwnershipLabel(props.owned, props.ownedOn)
-					) : (
-						<span role="alert">Unable to change ownership. Try again.</span>
-					)
+			<ChipButton
+				pressed={owned}
+				disabled={mutation.isPending}
+				icon={<AppIcon size={13} name="box" />}
+				onClick={() =>
+					owned
+						? mutation.mutate({ owned: false, entityIds: [props.entityId] })
+						: setDialogOpen(true)
 				}
-				trailing={
-					<Switch
-						disabled={mutation.isPending}
-						checked={props.owned === true}
-						label="Toggle media ownership"
-						onChange={(owned) =>
-							owned
-								? setDialogOpen(true)
-								: mutation.mutate({ owned: false, entityIds: [props.entityId] })
-						}
-					/>
-				}
-			/>
+			>
+				{owned ? mediaOwnedLabel(props.ownedOn) : "Mark owned"}
+			</ChipButton>
+			{mutation.error === null ? null : (
+				<span role="alert" className="text-xs text-danger">
+					Unable to change ownership. Try again.
+				</span>
+			)}
 			{dialogOpen ? (
 				<MediaOwnedOnDialog entityId={props.entityId} onClose={() => setDialogOpen(false)} />
 			) : null}

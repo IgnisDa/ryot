@@ -201,7 +201,7 @@ describe("flat media detail screen", () => {
 	it("shows the flat lifecycle label on the status rail", () => {
 		const { unmount, container } = renderBody(readyState());
 
-		expect(container.textContent).toContain("Your status");
+		expect(container.textContent).toContain("Status: ");
 		expect(container.textContent).toContain("Complete");
 		unmount();
 	});

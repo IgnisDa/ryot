@@ -89,12 +89,12 @@ describe("creator detail screen", () => {
 		const { unmount, container } = renderBody();
 		const text = container.textContent;
 
-		expect(text).toContain("Monitoring");
-		expect(text).toContain("In media library");
-		expect(text).toContain("Collections");
+		expect(text).toContain("Monitor");
+		expect(text).toContain("In your library");
+		expect(text).toContain("1 collection");
 		expect(text).toContain("Write review");
-		expect(text).not.toContain("Your status");
-		expect(text).not.toContain("Ownership");
+		expect(text).not.toContain("Status: ");
+		expect(text).not.toContain("Mark owned");
 		expect(text).not.toContain("Log activity");
 		unmount();
 	});

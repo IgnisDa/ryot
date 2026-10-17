@@ -6,7 +6,7 @@ import { getByRole, queryByRole, waitFor } from "@testing-library/dom";
 import { Deferred } from "effect";
 
 import { clickRyotElement, mountRyotClient } from "../../tests/client/test-support";
-import { MediaCollectionsRow } from "./collections";
+import { MediaCollectionsControl } from "./collections";
 
 for (const kind of ["saved", "removed", "cancelled"] as const) {
 	it.live(`opens the collection manager and refreshes the summary after ${kind}`, () =>
@@ -23,7 +23,7 @@ for (const kind of ["saved", "removed", "cancelled"] as const) {
 			function View() {
 				const result = useRyotQuery(query);
 				return result.data === undefined ? null : (
-					<MediaCollectionsRow entityId="media-1" collections={result.data} />
+					<MediaCollectionsControl entityId="media-1" collections={result.data} />
 				);
 			}
 			const mounted = mountRyotClient(
@@ -40,8 +40,7 @@ for (const kind of ["saved", "removed", "cancelled"] as const) {
 			);
 			try {
 				yield* Effect.promise(() => mounted.advance(0));
-				expect(mounted.container.textContent).toContain("1 collection");
-				const button = getByRole(mounted.container, "button", { name: "Manage" });
+				const button = getByRole(mounted.container, "button", { name: "1 collection" });
 				clickRyotElement(button);
 				yield* Effect.promise(() =>
 					waitFor(() => expect(button.hasAttribute("disabled")).toBe(true)),
@@ -53,9 +52,7 @@ for (const kind of ["saved", "removed", "cancelled"] as const) {
 					waitFor(() => expect(button.hasAttribute("disabled")).toBe(false)),
 				);
 				yield* Effect.promise(() => mounted.advance(250));
-				expect(mounted.container.textContent).toContain(
-					kind === "cancelled" ? "1 collection" : "Not in any collection",
-				);
+				expect(button.textContent).toBe(kind === "cancelled" ? "1 collection" : "Add to collection");
 			} finally {
 				mounted.unmount();
 			}
@@ -76,13 +73,13 @@ it.live("keeps the collection count on failure and allows retry", () =>
 							: Effect.succeed({ kind: "cancelled" });
 					}),
 			},
-			<MediaCollectionsRow
+			<MediaCollectionsControl
 				entityId="media-1"
 				collections={{ items: [], pageInfo: { hasMore: false } }}
 			/>,
 		);
 		try {
-			const button = getByRole(mounted.container, "button", { name: "Manage" });
+			const button = getByRole(mounted.container, "button", { name: "Add to collection" });
 			clickRyotElement(button);
 			yield* Effect.promise(() =>
 				waitFor(() =>
@@ -97,7 +94,7 @@ it.live("keeps the collection count on failure and allows retry", () =>
 				waitFor(() => expect(queryByRole(mounted.container, "alert")).toBeNull()),
 			);
 			expect(attempts).toBe(2);
-			expect(mounted.container.textContent).toContain("Not in any collection");
+			expect(button.getAttribute("aria-pressed")).toBe("false");
 		} finally {
 			mounted.unmount();
 		}

@@ -1,7 +1,8 @@
 import { RyotClientError } from "@ryot-app/plugin-client-sdk";
 import { Effect } from "@ryot-app/plugin-client-sdk/effect";
 import { createRyotMutation, useRyotMutation } from "@ryot-app/plugin-client-sdk/react";
-import { Row, Switch } from "@ryot-app/plugin-ui-sdk";
+import { ChipButton } from "@ryot-app/plugin-ui-sdk";
+import { AppIcon } from "@ryot-app/plugin-ui-sdk/icon";
 
 import {
 	MediaMonitoringDisableInput,
@@ -35,29 +36,27 @@ const toggleMonitoring = createRyotMutation<
 	}),
 );
 
-export function MediaMonitoringRow(props: {
+export function MediaMonitoringControl(props: {
 	readonly entityId: string;
 	readonly monitored: boolean;
 }) {
 	const mutation = useRyotMutation(toggleMonitoring);
 	return (
-		<Row
-			title="Monitoring"
-			description={
-				mutation.error === null ? (
-					"Keep provider details up to date"
-				) : (
-					<span role="alert">Unable to change monitoring. Try again.</span>
-				)
-			}
-			trailing={
-				<Switch
-					checked={props.monitored}
-					disabled={mutation.isPending}
-					label="Toggle media monitoring"
-					onChange={(monitored) => mutation.mutate({ monitored, entityId: props.entityId })}
-				/>
-			}
-		/>
+		<>
+			<ChipButton
+				pressed={props.monitored}
+				disabled={mutation.isPending}
+				title="Keep provider details up to date"
+				icon={<AppIcon size={13} name="refresh-cw" />}
+				onClick={() => mutation.mutate({ entityId: props.entityId, monitored: !props.monitored })}
+			>
+				{props.monitored ? "Monitoring" : "Monitor"}
+			</ChipButton>
+			{mutation.error === null ? null : (
+				<span role="alert" className="text-xs text-danger">
+					Unable to change monitoring. Try again.
+				</span>
+			)}
+		</>
 	);
 }

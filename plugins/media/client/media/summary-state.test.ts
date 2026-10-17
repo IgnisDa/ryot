@@ -7,7 +7,7 @@ import {
 	mediaEpisodicAiredLabel,
 	mediaGalleryAssets,
 	mediaManagedAssets,
-	mediaOwnershipLabel,
+	mediaOwnedLabel,
 	mediaPosterAsset,
 	mediaRatingFact,
 	mediaRatingLabel,
@@ -207,14 +207,12 @@ describe("media summary state", () => {
 	});
 
 	it("labels ownership values that were never recorded apart from known ones", () => {
-		expect(mediaOwnershipLabel(null, null)).toBe("Not recorded");
-		expect(mediaOwnershipLabel(true, null)).toBe("Owned");
-		expect(mediaOwnershipLabel(true, "2024-03-04")).toBe("Owned since Mar 4, 2024");
-		expect(mediaOwnershipLabel(false, null)).toBe("Not owned");
+		expect(mediaOwnedLabel(null)).toBe("Owned");
+		expect(mediaOwnedLabel("2024-03-04")).toBe("Owned since Mar 4, 2024");
 	});
 
 	it("labels collection membership by count and truncation", () => {
-		expect(label([])).toBe("Not in any collection");
+		expect(label([])).toBe("Add to collection");
 		expect(label([{ id: "c1", name: "Completed" }])).toBe("1 collection");
 		expect(
 			label([

@@ -80,9 +80,8 @@ it.live("asks for an ownership date, validates it, and clears it when ownership 
 		try {
 			yield* Effect.promise(() => mounted.setTime(NOW));
 			yield* Effect.promise(() => mounted.advance(0));
-			const control = getByRole(mounted.container, "switch", { name: "Toggle media ownership" });
-			expect(control.getAttribute("aria-checked")).toBe("false");
-			expect(mounted.container.textContent).toContain("Not recorded");
+			const control = getByRole(mounted.container, "button", { name: "Mark owned" });
+			expect(control.getAttribute("aria-pressed")).toBe("false");
 			clickRyotElement(control);
 			expect(requests).toEqual([]);
 			expect(ownedOnInput()).toHaveProperty("value", "2026-10-20");
@@ -102,8 +101,8 @@ it.live("asks for an ownership date, validates it, and clears it when ownership 
 				},
 			]);
 			yield* Effect.promise(() => mounted.advance(250));
-			expect(control.getAttribute("aria-checked")).toBe("true");
-			expect(mounted.container.textContent).toContain("Owned since Mar 4, 2024");
+			expect(control.getAttribute("aria-pressed")).toBe("true");
+			expect(control.textContent).toBe("Owned since Mar 4, 2024");
 			clickRyotElement(control);
 			yield* Effect.promise(() => waitFor(() => expect(requests).toHaveLength(2)));
 			expect(requests[1]).toEqual({
@@ -115,8 +114,8 @@ it.live("asks for an ownership date, validates it, and clears it when ownership 
 				waitFor(() => expect(control.hasAttribute("disabled")).toBe(false)),
 			);
 			yield* Effect.promise(() => mounted.advance(250));
-			expect(control.getAttribute("aria-checked")).toBe("false");
-			expect(mounted.container.textContent).toContain("Not owned");
+			expect(control.getAttribute("aria-pressed")).toBe("false");
+			expect(control.textContent).toBe("Mark owned");
 		} finally {
 			mounted.unmount();
 		}
@@ -146,7 +145,7 @@ it.live("records ownership without a date and keeps the dialog open after a fail
 			/>,
 		);
 		try {
-			clickRyotElement(getByRole(mounted.container, "switch", { name: "Toggle media ownership" }));
+			clickRyotElement(getByRole(mounted.container, "button", { name: "Mark owned" }));
 			input(ownedOnInput(), "");
 			clickRyotElement(getByRole(ownershipDialog(), "button", { name: "Save" }));
 			yield* Effect.promise(() =>
@@ -214,7 +213,7 @@ for (const failure of ["transport", "missing", "mismatched", "unchanged"] as con
 				/>,
 			);
 			try {
-				const control = getByRole(mounted.container, "switch", { name: "Toggle media ownership" });
+				const control = getByRole(mounted.container, "button", { name: "Owned since Mar 4, 2024" });
 				clickRyotElement(control);
 				yield* Effect.promise(() =>
 					waitFor(() =>
@@ -223,7 +222,7 @@ for (const failure of ["transport", "missing", "mismatched", "unchanged"] as con
 						),
 					),
 				);
-				expect(control.getAttribute("aria-checked")).toBe("true");
+				expect(control.getAttribute("aria-pressed")).toBe("true");
 				expect(control.hasAttribute("disabled")).toBe(false);
 				clickRyotElement(control);
 				yield* Effect.promise(() => waitFor(() => expect(attempts).toBe(2)));

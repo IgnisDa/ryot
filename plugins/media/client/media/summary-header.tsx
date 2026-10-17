@@ -1,5 +1,6 @@
 import type { EntitySettleReason } from "@ryot-app/plugin-client-sdk";
-import { Badge, Button, Row, RowGroup } from "@ryot-app/plugin-ui-sdk";
+import { useAssetUrl } from "@ryot-app/plugin-client-sdk/react";
+import { Badge, Button, ProgressBar } from "@ryot-app/plugin-ui-sdk";
 import { AppIcon } from "@ryot-app/plugin-ui-sdk/icon";
 import { markdownPlainText } from "@ryot-app/plugin-ui-sdk/markdown";
 import {
@@ -8,17 +9,18 @@ import {
 	SettleHighlight,
 	TranslationChip,
 } from "@ryot-app/plugin-ui-sdk/sync";
+import { ImageTintOverlay, useImageTint } from "@ryot-app/plugin-ui-sdk/tint";
 import clsx from "clsx";
 import { Fragment, useState } from "react";
 
 import { MediaLogActivityButton } from "./activity-log/button";
 import type { MediaActivityLogger } from "./activity-log/state";
-import { MediaCollectionsRow } from "./collections";
+import { MediaCollectionsControl } from "./collections";
 import { mediaArtworkClass } from "./entity-presentation";
 import { ManagedAssetImage } from "./managed-assets";
-import { MediaMonitoringRow } from "./monitoring";
-import { MediaOwnershipRow } from "./ownership";
-import { MediaExternalLink, MediaFactRow, MediaMarkdown, MediaProgressBar } from "./primitives";
+import { MediaMonitoringControl } from "./monitoring";
+import { MediaOwnershipControl } from "./ownership";
+import { MediaExternalLink, MediaFactRow, MediaMarkdown } from "./primitives";
 import { MediaReviewButton } from "./review";
 import {
 	type MediaEntitySummaryValue,
@@ -60,11 +62,11 @@ function MediaDescription(props: { readonly text: string }) {
 	return (
 		<div className="flex max-w-[62ch] flex-col gap-1">
 			{isExpanded ? (
-				<div className="text-[15px] leading-6 text-text-muted">
+				<div className="text-body text-text-muted">
 					<MediaMarkdown text={props.text} />
 				</div>
 			) : (
-				<p className="line-clamp-3 text-[15px] leading-6 text-text-muted">
+				<p className="line-clamp-3 text-body text-text-muted">
 					{markdownPlainText(props.text)}
 				</p>
 			)}
@@ -103,7 +105,6 @@ function MediaIdentity(props: {
 	readonly settled: EntitySettleReason | undefined;
 }) {
 	const { media, detail, compact } = props;
-	const { status } = detail.rail;
 	const inlineFacts = detail.facts.filter((fact) => fact.inline === true);
 	const labelledFacts = detail.facts.filter((fact) => fact.inline !== true);
 	return (
@@ -111,19 +112,14 @@ function MediaIdentity(props: {
 			<h1
 				className={clsx(
 					"font-display font-semibold tracking-tight text-balance text-text",
-					compact ? "text-[22px] leading-7" : "text-display",
+					compact ? "text-title" : "text-display",
 				)}
 			>
 				{media.name}
 			</h1>
 			<MediaIdentityLine media={media} facts={inlineFacts} detail={detail.identityDetail} />
-			{status === undefined && detail.chips.length === 0 ? null : (
+			{detail.chips.length === 0 ? null : (
 				<div className="flex flex-wrap gap-1.5">
-					{status === undefined ? null : (
-						<Badge dot variant={status.tone}>
-							{status.label}
-						</Badge>
-					)}
 					{detail.chips.map((chip) => (
 						<Badge key={chip} variant="neutral">
 							{chip}
@@ -145,61 +141,65 @@ function MediaIdentity(props: {
 	);
 }
 
-function MediaLibraryBadge(props: { readonly isInMediaLibrary: boolean }) {
-	if (!props.isInMediaLibrary) {
-		return <AppIcon size={20} name="circle-check" className="text-text-subtle" />;
-	}
-	return (
-		<div className="flex h-5 w-5 items-center justify-center rounded-full bg-success">
-			<AppIcon size={13} name="check" className="text-bg" />
-		</div>
-	);
-}
-
-function MediaStatusRail(props: {
+function MediaLibraryStrip(props: {
 	readonly media: MediaEntitySummaryValue;
 	readonly config: MediaStatusRailConfig;
 }) {
 	const { media, config } = props;
 	const { status, ownership } = config;
 	return (
-		<RowGroup className="self-start">
+		<div role="group" aria-label="Your library" className="flex flex-wrap items-center gap-2">
 			{status === undefined ? null : (
-				<Row
-					title="Your status"
-					trailing={
-						<Badge dot size="sm" variant={status.tone}>
-							{status.label}
-						</Badge>
-					}
-					description={
-						status.progress === undefined ? undefined : (
-							<MediaProgressBar percent={status.progress.percent} />
-						)
-					}
+				<span className="inline-flex items-center gap-2">
+					<Badge dot variant={status.tone}>
+						<span className="sr-only">Status: </span>
+						{status.label}
+					</Badge>
+					{status.progress === undefined ? null : (
+						<>
+							<ProgressBar
+								max={100}
+								tone="success"
+								className="w-16"
+								label="Progress"
+								value={status.progress.percent}
+							/>
+							<span className="text-xs text-text-muted tabular-nums">
+								{Math.round(status.progress.percent)}%
+							</span>
+						</>
+					)}
+				</span>
+			)}
+			<span className="inline-flex items-center gap-1.5 px-1 text-xs text-text-muted">
+				<AppIcon
+					size={14}
+					name={media.isInMediaLibrary ? "circle-check" : "library"}
+					className={media.isInMediaLibrary ? "text-success" : "text-text-subtle"}
 				/>
-			)}
-			{media.providerName === null ? null : (
-				<MediaMonitoringRow key={media.id} entityId={media.id} monitored={media.isMonitored} />
-			)}
-			<Row
-				title="In media library"
-				trailing={<MediaLibraryBadge isInMediaLibrary={media.isInMediaLibrary} />}
-			/>
+				{media.isInMediaLibrary ? "In your library" : "Not in your library"}
+			</span>
 			{ownership === undefined ? null : (
-				<MediaOwnershipRow
-					key={media.id}
+				<MediaOwnershipControl
+					key={`ownership:${media.id}`}
 					entityId={media.id}
 					owned={ownership.owned}
 					ownedOn={ownership.ownedOn}
 				/>
 			)}
-			<MediaCollectionsRow
+			<MediaCollectionsControl
 				entityId={media.id}
 				key={`collections:${media.id}`}
 				collections={media.collections}
 			/>
-		</RowGroup>
+			{media.providerName === null ? null : (
+				<MediaMonitoringControl
+					entityId={media.id}
+					key={`monitoring:${media.id}`}
+					monitored={media.isMonitored}
+				/>
+			)}
+		</div>
 	);
 }
 
@@ -212,6 +212,7 @@ export function MediaSummaryHeader(props: {
 }) {
 	const { media, detail, compact, artwork } = props;
 	const poster = mediaPosterAsset(media, artwork.purpose);
+	const { gradientStops } = useImageTint(useAssetUrl(poster));
 	const art = (
 		<ManagedAssetImage
 			asset={poster}
@@ -236,31 +237,38 @@ export function MediaSummaryHeader(props: {
 				</div>
 			)}
 			<MediaActions compact={compact} entityId={media.id} logActivity={detail.rail.logActivity} />
+			<MediaLibraryStrip media={media} config={detail.rail} />
 		</>
 	);
-	const rail = <MediaStatusRail media={media} config={detail.rail} />;
-	if (compact) {
-		const labelledFacts = detail.facts.filter((fact) => fact.inline !== true);
-		return (
-			<div className="grid grid-cols-[minmax(0,1fr)] gap-5">
-				<div className="flex items-start gap-4">
-					<div className="w-28 shrink-0">{art}</div>
-					{identity}
-				</div>
-				{labelledFacts.length === 0 ? null : <MediaFactRow compact facts={labelledFacts} />}
-				{content}
-				{rail}
-			</div>
-		);
-	}
+	const labelledFacts = detail.facts.filter((fact) => fact.inline !== true);
 	return (
-		<div className="grid grid-cols-[11rem_minmax(0,1fr)_18rem] gap-7">
-			{art}
-			<div className="grid min-w-0 content-start gap-3.5">
-				{identity}
-				{content}
+		<header
+			className={clsx(
+				"relative isolate",
+				compact ? "-mx-4 -mt-4 px-4 pt-4 pb-1" : "-mx-8 -mt-8 px-8 pt-8 pb-2",
+			)}
+		>
+			<div className="absolute inset-0 -z-10 overflow-hidden">
+				<ImageTintOverlay direction="vertical" gradientStops={gradientStops} />
 			</div>
-			{rail}
-		</div>
+			{compact ? (
+				<div className="grid grid-cols-[minmax(0,1fr)] gap-4">
+					<div className="flex items-end gap-4">
+						<div className="w-28 shrink-0">{art}</div>
+						{identity}
+					</div>
+					{labelledFacts.length === 0 ? null : <MediaFactRow compact facts={labelledFacts} />}
+					{content}
+				</div>
+			) : (
+				<div className="grid grid-cols-[12rem_minmax(0,1fr)] gap-8">
+					{art}
+					<div className="grid min-w-0 content-start gap-4">
+						{identity}
+						{content}
+					</div>
+				</div>
+			)}
+		</header>
 	);
 }

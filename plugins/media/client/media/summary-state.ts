@@ -230,15 +230,8 @@ const MEDIA_LIFECYCLE_TONES: Record<EpisodicLifecycleState, MediaStatusTone> = {
 	in_progress: "accent",
 };
 
-export const mediaOwnershipLabel = (owned: boolean | null, ownedOn: string | null) => {
-	if (owned === null) {
-		return "Not recorded";
-	}
-	if (!owned) {
-		return "Not owned";
-	}
-	return ownedOn === null ? "Owned" : `Owned since ${formatDateOnlyLabel(ownedOn)}`;
-};
+export const mediaOwnedLabel = (ownedOn: string | null) =>
+	ownedOn === null ? "Owned" : `Owned since ${formatDateOnlyLabel(ownedOn)}`;
 
 export const mediaProductionStatusFact = (media: {
 	readonly productionStatus: string | null;
@@ -305,7 +298,7 @@ export const mediaDurationLabels = (duration: number | null) =>
 
 export const mediaCollectionsLabel = ({ items, pageInfo }: MediaCollectionList) => {
 	if (items.length === 0) {
-		return "Not in any collection";
+		return "Add to collection";
 	}
 	return pageInfo.hasMore
 		? `${items.length}+ collections`

@@ -93,7 +93,7 @@ describe("group detail screen", () => {
 	it("reports completed members on the rail and the parts as a fact", () => {
 		const { unmount, container } = renderBody();
 
-		expect(container.textContent).toContain("Your status");
+		expect(container.textContent).toContain("Status: ");
 		expect(container.textContent).toContain("2 of 5 done");
 		expect(container.querySelector('[style="width: 40%;"]')).not.toBeNull();
 		expect(container.textContent).toContain("5 items");
@@ -105,7 +105,7 @@ describe("group detail screen", () => {
 			decodeGroupSummary({ memberCount: 0, completedMemberCount: 0 }),
 		);
 
-		expect(container.textContent).not.toContain("Your status");
+		expect(container.textContent).not.toContain("Status: ");
 		unmount();
 	});
 
