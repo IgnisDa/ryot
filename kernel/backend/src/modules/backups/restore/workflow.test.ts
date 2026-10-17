@@ -271,6 +271,7 @@ layer(
 					Effect.as({
 						intentId: "intent-id",
 						fileName: "archive.zip",
+						resolvedPath: "/isolated-test/archive.zip",
 						leaseExpiresAt: "2026-08-23T13:00:00.000Z",
 						locator: { type: "local" as const, key: "temporary/archive.zip" },
 					}),
