@@ -138,6 +138,7 @@ export const kernelPagePaths = {
 } as const satisfies Record<KernelPage, string>;
 
 export const PluginNavigationTarget = Schema.Union([
+	strictStruct({ packageId: PluginPackageId, kind: Schema.Literal("plugin-preferences") }),
 	strictStruct({ reference: SavedViewReference, kind: Schema.Literal("saved-view") }),
 	strictStruct({ page: KernelPage, kind: Schema.Literal("kernel-page") }),
 	strictStruct({ entityId: EntityId, kind: Schema.Literal("entity") }),

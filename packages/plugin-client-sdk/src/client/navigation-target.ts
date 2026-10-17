@@ -5,6 +5,7 @@ import { KernelPage } from "@ryot-app/plugin-client-contract";
 import { Schema } from "effect";
 
 export const RyotNavigationTarget = Schema.Union([
+	strictStruct({ packageId: PluginPackageId, kind: Schema.Literal("plugin-preferences") }),
 	strictStruct({ entityId: EntityId, kind: Schema.Literal("entity") }),
 	strictStruct({ reference: SavedViewReference, kind: Schema.Literal("saved-view") }),
 	strictStruct({ page: KernelPage, kind: Schema.Literal("kernel-page") }),

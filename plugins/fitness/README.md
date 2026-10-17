@@ -236,7 +236,7 @@ launchpad. Each section loads independently and shows its own retry on failure.
   own Resume/Discard prompt. Banner text follows the draft mode.
 - This week shows workouts against `weeklyWorkoutGoal` with the same streak as All Workouts (consecutive
   weeks with a workout) and how many of the last eight weeks met the goal. The plugin cannot write
-  settings, so Edit goal and Choose a goal open the kernel plugin preferences page. Without a goal the
+  settings, so Edit goal and Choose a goal open this plugin's preferences. Without a goal the
   card asks for one.
 - Last workout is the newest `workoutCardsRecipe` card with Repeat and Save as template. Pinned
   measurements reuse the measurement summary and series recipes and the Log measurement dialog.

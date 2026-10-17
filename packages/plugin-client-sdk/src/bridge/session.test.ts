@@ -124,6 +124,20 @@ afterEach(() => {
 });
 
 describe("plugin Effect request engine", () => {
+	it.live("sends plugin preferences targets through the bridge for push and replace", () =>
+		Effect.gen(function* () {
+			const { runtime, messages } = yield* openRuntime();
+			const target = { packageId: "test/fixture", kind: "plugin-preferences" as const };
+			runtime.client.navigation.push(target);
+			runtime.client.navigation.replace(target);
+			yield* waitForMessagePortMacrotask;
+			expect(sent(messages, "navigate")).toEqual([
+				{ target, mode: "push", type: "navigate" },
+				{ target, mode: "replace", type: "navigate" },
+			]);
+		}),
+	);
+
 	it.live("correlates device availability and preserves disposal failures", () =>
 		Effect.gen(function* () {
 			const { channel, runtime, messages } = yield* openRuntime();

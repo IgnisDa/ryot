@@ -257,7 +257,12 @@ describe("fitness home", () => {
 
 	it.live("shows the launchpad with the week, last workout, templates, muscles and records", () =>
 		Effect.gen(function* () {
-			answerCurrent = openHome({ goal: 5, workouts: true, metrics: [pinnedMetric] }).answerPending;
+			const { page, answerPending } = openHome({
+				goal: 5,
+				workouts: true,
+				metrics: [pinnedMetric],
+			});
+			answerCurrent = answerPending;
 			yield* settle(() => {
 				expect(
 					within(body.getByRole("region", { name: "Weekly goal" })).getByText("of 5 workouts"),
@@ -277,16 +282,33 @@ describe("fitness home", () => {
 				expect(body.getByText("3 in the last 30 days")).toBeTruthy();
 			});
 			expect(body.queryByRole("heading", { name: "Your training starts here" })).toBeNull();
+			fireEvent.click(body.getByRole("link", { name: "Edit goal" }));
+			yield* settle(() =>
+				expect(page.clientMessages().filter((message) => message.type === "navigate")).toEqual([
+					{
+						mode: "push",
+						type: "navigate",
+						target: { kind: "plugin-preferences", packageId: PLUGIN_PACKAGE_ID },
+					},
+				]),
+			);
 		}),
 	);
 
 	it.live("asks for a weekly goal once a goal is cleared and links to plugin preferences", () =>
 		Effect.gen(function* () {
-			answerCurrent = openHome({ goal: null, workouts: true }).answerPending;
+			const { page, answerPending } = openHome({ goal: null, workouts: true });
+			answerCurrent = answerPending;
+			yield* settle(() => expect(body.getByRole("link", { name: "Choose a goal" })).toBeTruthy());
+			fireEvent.click(body.getByRole("link", { name: "Choose a goal" }));
 			yield* settle(() =>
-				expect(body.getByRole("link", { name: "Choose a goal" }).getAttribute("href")).toBe(
-					"/settings/plugin-preferences",
-				),
+				expect(page.clientMessages().filter((message) => message.type === "navigate")).toEqual([
+					{
+						mode: "push",
+						type: "navigate",
+						target: { kind: "plugin-preferences", packageId: PLUGIN_PACKAGE_ID },
+					},
+				]),
 			);
 		}),
 	);

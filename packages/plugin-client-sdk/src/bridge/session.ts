@@ -373,6 +373,10 @@ export const createPluginRuntime = (
 			throw new RyotClientError(terminalReason ?? "transport");
 		}
 		const target = Match.value(to).pipe(
+			Match.when({ kind: "plugin-preferences" }, ({ packageId }) => ({
+				kind: "plugin-preferences" as const,
+				packageId: PluginPackageId.make(packageId),
+			})),
 			Match.when({ kind: "plugin-route" }, ({ path, search, packageId }) => ({
 				path,
 				kind: "plugin-route" as const,

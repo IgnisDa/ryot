@@ -240,7 +240,9 @@ crash a screen; invalid input and unsupported capabilities remain explicit.
 stable `key`; paths never imply push, pop, or replace. In-place location updates preserve focused
 controls, while a changed active key moves focus to the new screen. Route targets contain `path` and optional `search`.
 Entity targets contain only `entityId`; the kernel builds the canonical URL and returns an entity
-location with `entitySchemaSlug`.
+location with `entitySchemaSlug`. A `{ kind: "plugin-preferences", packageId }` target resolves to the
+matching workspace installation in the kernel and is unresolved when no installation matches. A
+`kernel-page` target with `page: "plugin-preferences"` opens the plugin-preferences index.
 
 Plugin authors default-export public page components and presentation definitions from manifest-named
 entries. They do not mount or bootstrap an application. The compiler generates the route or

@@ -51,6 +51,12 @@ export function toPluginLocation(
 
 export function toGlobalHref(target: PluginNavigationTarget, catalog: PluginClientCatalog) {
 	return Match.value(target).pipe(
+		Match.when({ kind: "plugin-preferences" }, ({ packageId }) => {
+			const installation = catalog.find((entry) => entry.packageId === packageId);
+			return installation === undefined
+				? undefined
+				: `/settings/plugin-preferences/${encodeURIComponent(installation.installationId)}`;
+		}),
 		Match.when({ kind: "plugin-route" }, (location) => {
 			const search = location.search === "" ? "" : `?${location.search}`;
 			return `${pluginPath(location.packageId, location.path)}${search}`;
@@ -83,6 +89,7 @@ export function toNavigationRequest(
 	catalog: PluginClientCatalog,
 ): PluginNavigationRequest | undefined {
 	const target = Match.value(request.target).pipe(
+		Match.when({ kind: "plugin-preferences" }, (preferences) => preferences),
 		Match.when({ kind: "plugin-route" }, (route) => {
 			const location = validatePluginLocation({
 				kind: "route",
