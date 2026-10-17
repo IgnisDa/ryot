@@ -1,4 +1,5 @@
 import type { FieldSelection } from "@ryot-app/contract/modules/ryotql/language";
+import type { AuthoredEntityBrowserSavedViewSettings } from "@ryot-app/contract/modules/saved-views/schemas";
 import { EntitySchemaSlug } from "@ryot-app/contract/schema/brands";
 import {
 	and,
@@ -231,10 +232,13 @@ export const mediaSavedViews = () => {
 				defaultLayout: "grid",
 				searchFields: ["name"],
 				sourceName: "savedView",
-				entityIdField: "entityId",
 				layouts: ["grid", "list", "table"],
-				ownerPluginIdField: "ownerPluginId",
-				entitySchemaSlugField: "entitySchemaSlug",
+				subject: {
+					entityAlias: "entity",
+					schemas: [
+						{ owner: { kind: "self" }, slug: EntitySchemaSlug.make(view.entitySchemaSlug) },
+					],
+				},
 				addAction: {
 					type: "provider-search",
 					library: mediaLibraryMembership,
@@ -244,7 +248,7 @@ export const mediaSavedViews = () => {
 					{ label: "Image", field: "image", displayKind: "managed-asset" as const },
 					...tableExpressions.columns.map(({ expression: _, ...tableColumn }) => tableColumn),
 				],
-			},
+			} satisfies AuthoredEntityBrowserSavedViewSettings,
 		};
 	});
 };

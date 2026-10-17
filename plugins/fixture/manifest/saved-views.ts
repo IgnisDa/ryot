@@ -1,6 +1,7 @@
 import type { ScalarExpression } from "@ryot-app/contract/modules/ryotql/language";
 import type {
 	AuthoredEntityBrowserAddAction,
+	AuthoredEntityBrowserSavedViewSettings,
 	SavedViewTableColumn,
 } from "@ryot-app/contract/modules/saved-views/schemas";
 import { EntitySchemaSlug } from "@ryot-app/contract/schema/brands";
@@ -16,6 +17,7 @@ import {
 	rows,
 	table,
 } from "@ryot-app/ryotql";
+import { Array as Arr } from "effect";
 
 import { movePresentationSource, pokemonPresentationSource } from "../shared/entity-presentations";
 
@@ -39,12 +41,13 @@ const number = (key: string) => ({
 });
 
 type TableColumn = SavedViewTableColumn & { readonly expression: ScalarExpression };
+type NonEmptyColumns = readonly [TableColumn, ...TableColumn[]];
 
 const buildDefinition = (
 	entitySchemaSlug: string,
 	orderBy: ReturnType<typeof ascending>,
 	image: ScalarExpression | null,
-	columns: readonly TableColumn[],
+	columns: NonEmptyColumns,
 	presentationFields: ReturnType<typeof pokemonPresentationSource>["fields"],
 ) => {
 	const dataSources = document({
@@ -61,6 +64,8 @@ const buildDefinition = (
 			],
 		}),
 	});
+	const tableColumns = Arr.map(columns, ({ expression: _, ...tableColumn }) => tableColumn);
+	const imageColumn = { label: "Image", field: "image", displayKind: "managed-asset" as const };
 	return {
 		dataSources,
 		renderer: { kind: "kernel", name: "entity-browser" } as const,
@@ -69,23 +74,19 @@ const buildDefinition = (
 			sortChoices: [],
 			searchFields: ["name"],
 			sourceName: "savedView",
-			entityIdField: "entityId",
 			defaultLayout: "grid" as const,
-			ownerPluginIdField: "ownerPluginId",
-			entitySchemaSlugField: "entitySchemaSlug",
 			layouts: ["grid", "list", "table"] as const,
-			tableColumns: [
-				...(image === null
-					? []
-					: [{ label: "Image", field: "image", displayKind: "managed-asset" as const }]),
-				...columns.map(({ expression: _, ...tableColumn }) => tableColumn),
-			],
+			tableColumns: image === null ? tableColumns : Arr.prepend(tableColumns, imageColumn),
+			subject: {
+				entityAlias: "entity",
+				schemas: [{ owner: { kind: "self" }, slug: EntitySchemaSlug.make(entitySchemaSlug) }],
+			},
 			addAction: {
 				type: "provider-search",
 				schema: { owner: { kind: "self" }, slug: EntitySchemaSlug.make(entitySchemaSlug) },
 				library: { librarySchemaSlug: "fixture-library", relationshipSlug: "in-fixture-library" },
 			} satisfies AuthoredEntityBrowserAddAction,
-		},
+		} satisfies AuthoredEntityBrowserSavedViewSettings,
 	};
 };
 
@@ -101,7 +102,7 @@ const pokemonColumns = [
 	{ label: "Height (dm)", ...number("height") },
 	{ label: "Weight (hg)", ...number("weight") },
 	{ label: "Base Experience", ...number("baseExperience") },
-];
+] satisfies NonEmptyColumns;
 
 const moveColumns = [
 	nameColumn,
@@ -112,7 +113,7 @@ const moveColumns = [
 	{ label: "PP", ...number("pp") },
 	{ label: "Priority", ...number("priority") },
 	{ label: "Generation", ...text("generation") },
-];
+] satisfies NonEmptyColumns;
 
 export const fixtureSavedViews = [
 	{

@@ -1,6 +1,9 @@
 import type { OrderBy } from "@ryot-app/contract/modules/ryotql/language";
+import type {
+	AuthoredEntityBrowserAddAction,
+	AuthoredEntityBrowserSavedViewSettings,
+} from "@ryot-app/contract/modules/saved-views/schemas";
 import { EntitySchemaSlug } from "@ryot-app/contract/schema/brands";
-import type { JsonValue } from "@ryot-app/contract/schema/json";
 import {
 	entitySchemaPredicate,
 	schemaOwnerPredicate,
@@ -16,6 +19,7 @@ import {
 	rows,
 	table,
 } from "@ryot-app/ryotql";
+import { Array as Arr } from "effect";
 
 import { fitnessPresentationSource } from "../shared/entity-presentations";
 import { fitnessLibraryMembership, fitnessLibraryLinkExists } from "../shared/library-recipes";
@@ -23,7 +27,7 @@ import { PLUGIN_PACKAGE_ID } from "../shared/plugin-identity";
 import { fitnessEntitySchemas } from "./schemas/entity";
 import { buildViewExpressions } from "./view-helpers";
 
-const addAction = (slug: string): JsonValue =>
+const addAction = (slug: string): AuthoredEntityBrowserAddAction =>
 	slug === "exercise"
 		? {
 				type: "provider-search",
@@ -111,15 +115,19 @@ export const fitnessSavedViews = () => {
 				defaultLayout: "grid",
 				searchFields: ["name"],
 				sourceName: "savedView",
-				entityIdField: "entityId",
 				layouts: ["grid", "list", "table"],
-				ownerPluginIdField: "ownerPluginId",
-				entitySchemaSlugField: "entitySchemaSlug",
 				addAction: addAction(input.entitySchemaSlug),
-				tableColumns: tableExpressions.columns.map(
+				tableColumns: Arr.map(
+					tableExpressions.columns,
 					({ expression: _, ...tableColumn }) => tableColumn,
 				),
-			},
+				subject: {
+					entityAlias: "entity",
+					schemas: [
+						{ owner: { kind: "self" }, slug: EntitySchemaSlug.make(input.entitySchemaSlug) },
+					],
+				},
+			} satisfies AuthoredEntityBrowserSavedViewSettings,
 		};
 	});
 	const pageView = (input: {

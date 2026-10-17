@@ -7,7 +7,7 @@ type ViewColumn = SavedViewTableColumn & { readonly expression: ScalarExpression
 type ViewExpressions = {
 	readonly table: {
 		readonly image: ScalarExpression | null;
-		readonly columns: readonly ViewColumn[];
+		readonly columns: readonly [ViewColumn, ...ViewColumn[]];
 	};
 };
 
