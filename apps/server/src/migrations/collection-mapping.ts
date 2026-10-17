@@ -226,13 +226,15 @@ END $$;
 `;
 
 // Marks each Owned-collection member's existing in-media-library relationship as owned, mirroring the
-// runtime ownership shape. Runs after user-to-entity so the relationships already exist.
+// runtime ownership shape, and carries its V1 "Owned on" member date when Postgres can read it as a
+// date. Runs after user-to-entity so the relationships already exist.
 export const buildOwnedCollectionOwnershipMigrationSql = (
 	inLibraryRelationshipSchema: QualifiedSchema,
 ) => `
 DO $$
 DECLARE
 	rows_updated int;
+	dates_dropped int;
 	started_at timestamptz := clock_timestamp();
 BEGIN
 	${buildRequireLegacyTableSql("collection -> entity", "collection")}
@@ -244,7 +246,12 @@ BEGIN
 		'owned', true,
 		'ownershipSources', jsonb_build_array('legacy'),
 		'ownershipSyncedAt', to_char(now() AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"')
-	)
+	) || CASE
+		WHEN jsonb_typeof(cte.information -> 'Owned on') = 'string'
+			AND pg_input_is_valid(cte.information ->> 'Owned on', 'date')
+			THEN jsonb_build_object('ownedOn', to_char((cte.information ->> 'Owned on')::date, 'YYYY-MM-DD'))
+		ELSE '{}'::jsonb
+	END
 	FROM "collection_to_entity" cte
 	INNER JOIN "collection" coll ON coll.id = cte.collection_id AND coll.name = 'Owned'
 	WHERE rel.relationship_schema_slug = ${quoteSqlString(inLibraryRelationshipSchema.slug)}
@@ -253,7 +260,21 @@ BEGIN
 		AND rel.user_id = coll.user_id;
 
 	GET DIAGNOSTICS rows_updated = ROW_COUNT;
-	${buildReportSql("Owned collection -> in-media-library ownership", [{ count: "rows_updated", message: "relationship(s) updated" }])}
+
+	SELECT count(*) INTO dates_dropped
+	FROM "collection_to_entity" cte
+	INNER JOIN "collection" coll ON coll.id = cte.collection_id AND coll.name = 'Owned'
+	WHERE jsonb_typeof(cte.information -> 'Owned on') <> 'null'
+		AND btrim(cte.information ->> 'Owned on') <> ''
+		AND NOT (
+			jsonb_typeof(cte.information -> 'Owned on') = 'string'
+			AND pg_input_is_valid(cte.information ->> 'Owned on', 'date')
+		);
+
+	${buildReportSql("Owned collection -> in-media-library ownership", [
+		{ count: "rows_updated", message: "relationship(s) updated" },
+		{ count: "dates_dropped", message: "unreadable Owned on date(s) dropped" },
+	])}
 END $$;
 `;
 
