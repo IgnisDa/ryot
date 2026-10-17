@@ -66,6 +66,32 @@ const makeDraft = (values: Record<string, unknown> = {}) =>
 		...values,
 	});
 
+it("reuses the complete frozen submission after recovery or context changes", () => {
+	const source = makeDraft();
+	const context = {
+		exerciseOverridesById: {},
+		unitSystem: "metric" as const,
+		restSettings: { dropRestTime: 0, warmUpRestTime: 0, normalRestTime: 60, failureRestTime: 0 },
+	};
+	const first = buildWorkoutEditorSaveInput(
+		source,
+		{ submissionId: "first", submittedAt: timestamp },
+		context,
+	);
+	assert(first.input !== undefined);
+	const pending = makeDraft({ submission: first.input, name: "Changed while saving" });
+	const retried = buildWorkoutEditorSaveInput(
+		pending,
+		{ submissionId: "different", submittedAt: "2026-10-16T10:00:00.000Z" },
+		{
+			...context,
+			unitSystem: "imperial",
+			restSettings: { ...context.restSettings, normalRestTime: 120 },
+		},
+	);
+	expect(retried).toEqual({ issues: [], input: first.input });
+});
+
 it("replaces only one occurrence when the exercise kind stays the same", () => {
 	const draft = makeDraft({
 		restCountdown: {

@@ -10,12 +10,23 @@ const bytes = (contents: string) => new TextEncoder().encode(contents);
 const sharedFiles = [
 	"exercise-kinds.ts",
 	"workout-editor-draft.ts",
+	"workout-editor-codec.ts",
 	"workout-editor-operations.ts",
 	"workout-editor-preferences.ts",
 	"workout-editor-transformations.ts",
 	"workout-records.ts",
 	"workout-set.ts",
 	"workout-units.ts",
+	"workout-editor-recipes.ts",
+	"workout-editor-source.ts",
+	"workout-exercise-recipes.ts",
+	"workout-history-recipes.ts",
+	"workout-details-recipes.ts",
+	"entity-selections.ts",
+	"query-recipes.ts",
+	"taxonomy-recipes.ts",
+	"taxonomy.ts",
+	"library-recipes.ts",
 ] as const;
 
 const compilerLayer = Layer.mergeAll(
@@ -39,8 +50,10 @@ const entry = `
 import { WorkoutEditorDraftSchema } from "../shared/workout-editor-draft";
 import { WorkoutEditorSaveInputSchema, WorkoutEditorSaveOutputSchema } from "../shared/workout-editor-operations";
 import { buildWorkoutEditorSaveInput, cloneWorkoutForRepeat, validateWorkoutDraft } from "../shared/workout-editor-transformations";
+import { workoutEditorEntityRecipe, workoutEditorSetsRecipe, encodeWorkoutEditorBaseline, decodeWorkoutEditorBaseline } from "../shared/workout-editor-recipes";
+import { hydrateWorkoutEditorSource, cloneWorkoutEditorSource } from "../shared/workout-editor-source";
 
-export const contracts = [WorkoutEditorDraftSchema, WorkoutEditorSaveInputSchema, WorkoutEditorSaveOutputSchema, buildWorkoutEditorSaveInput, cloneWorkoutForRepeat, validateWorkoutDraft];
+export const contracts = [WorkoutEditorDraftSchema, WorkoutEditorSaveInputSchema, WorkoutEditorSaveOutputSchema, buildWorkoutEditorSaveInput, cloneWorkoutForRepeat, validateWorkoutDraft, workoutEditorEntityRecipe, workoutEditorSetsRecipe, encodeWorkoutEditorBaseline, decodeWorkoutEditorBaseline, hydrateWorkoutEditorSource, cloneWorkoutEditorSource];
 export default function WorkoutEditorContractPage() { return null; }
 `;
 
