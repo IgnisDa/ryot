@@ -15,7 +15,7 @@
 
 ## Status
 
-**37 implemented, 0 in progress, 46 pending; 3 excluded.**
+**38 implemented, 0 in progress, 45 pending; 3 excluded.**
 
 “Implemented” means affected checks and tests passed and the change is committed with this tracker. Batch-wide acceptance is recorded separately below. Rows follow the audit's ranked order; sequencing can change to respect dependencies and keep changes reviewable.
 
@@ -94,7 +94,7 @@
 | B11-R1 | Pending | Remove the obsolete projection-worker invalidation exemption. |
 | B19-R2 | Pending | Store the selected composition module directly. |
 | B24-R1 | Implemented | Delete the unused signal service, repository, layer, and test; preserve definition registration, invalidation, and publication because no semantic consumers remain. See this finding's audit commit. |
-| C03-R1 | Pending | One presentation-lifecycle owner. |
+| C03-R1 | Implemented | One shell owner controls presentation activation and deactivation, with stale-entry guards and overlays. See this finding's audit commit. |
 | C06-R1 | Implemented | Delete the unused entity/provenance facade while retaining the active watch recipe and route preparation. See this finding's audit commit. |
 | C07-R1 | Pending | Delete the unused saved-view facade. |
 | C07-R2 | Pending | Use shared collection-editor mutation ownership. |
@@ -202,3 +202,4 @@
 - B30-R1: scoped type, format, and lint checks passed before five S3 tests; read-only review reported no findings. The full backend check had temporary concurrent errors; final acceptance remains pending. Configuration changes from B30-R2 were not included.
 - C06-R1: client and recipe type checks plus scoped format/lint passed before 229 client tests, 18 recipe tests, and three additional recipe tests; read-only review reported no findings. Active watch recipes and route preparation remain. Development data is disposable; no compatibility path or drain machinery is needed, and no reset was performed.
 - P05-R1: UI check and consumer checks passed before 313 UI, 34 renderer, 35 admin, and one compiler test; read-only review reported no issues.
+- C03-R1: client type, format, and lint checks passed before 124 tests; read-only review passed.
