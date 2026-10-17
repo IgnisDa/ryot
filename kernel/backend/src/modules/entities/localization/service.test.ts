@@ -32,6 +32,8 @@ const overlay = {
 	populatedAt: new Date("2026-07-16T00:00:00.000Z"),
 } satisfies TranslationOverlayInput;
 const storedAt = new Date(0);
+const assetLocator = { type: "s3" as const, key: "permanent/translation-image.png" };
+const assetOverlay = { ...overlay, properties: { title: "Libro", image: assetLocator } };
 
 const translationManifest = () => {
 	const manifest = fixtureManifest();
@@ -56,6 +58,7 @@ const dialect = new PgDialect();
 
 const makeServiceLayer = (
 	options: {
+		assetOwnerUserId?: string;
 		foreignProvider?: boolean;
 		globalEntity?: boolean;
 		systemPlugin?: boolean;
@@ -178,6 +181,16 @@ const makeServiceLayer = (
 									},
 								];
 							}
+							if (table === tables.managedAsset) {
+								return [
+									{
+										retiredAt: null,
+										key: assetLocator.key,
+										provider: assetLocator.type,
+										ownerUserId: options.assetOwnerUserId ?? payload.userId,
+									},
+								];
+							}
 							if (table === tables.sandboxProvider) {
 								return [
 									{
@@ -193,6 +206,7 @@ const makeServiceLayer = (
 						const query = {
 							leftJoin: () => query,
 							innerJoin: () => query,
+							orderBy: () => ({ for: () => rows }),
 							where: (condition: SQLWrapper) => {
 								predicate = condition;
 								return query;
@@ -341,7 +355,18 @@ const makeServiceLayer = (
 										mergeIdentityProperties: [],
 										slug: payload.entitySchemaSlug,
 										pluginId: payload.entitySchemaPluginId,
-										propertiesSchema: entitySchema.propertiesSchema,
+										propertiesSchema: {
+											fields: {
+												...entitySchema.propertiesSchema.fields,
+												image: {
+													type: "object",
+													properties: {},
+													label: "Image",
+													description: "Image",
+													validation: { asset: true },
+												},
+											},
+										},
 									},
 								}),
 						}),
@@ -522,6 +547,42 @@ layer(makeServiceLayer({ enqueueFailure: true }))((test) => {
 			expect(
 				(yield* (yield* TranslationEffects).executions).map(({ executionId }) => executionId),
 			).toEqual(["translate-entity-1-es"]);
+		}),
+	);
+});
+
+layer(makeServiceLayer({ assetOwnerUserId: "foreign-user" }))((test) => {
+	test.effect("rejects a translation that references another user's managed asset", () =>
+		Effect.gen(function* () {
+			const service = yield* TranslationsService;
+			const captured = yield* service.admitExecution(payload, payload.executionId);
+			assertExitFails(
+				yield* Effect.exit(service.upsert(assetOverlay, payload, captured)),
+				new SandboxRunError({
+					kind: "invalid-input",
+					data: { code: "asset-forbidden" },
+					message: "Translation references a forbidden managed asset",
+				}),
+			);
+			expect(yield* (yield* TranslationEffects).upserts).toEqual([]);
+		}),
+	);
+});
+
+layer(makeServiceLayer({ globalEntity: true, systemPlugin: true }))((test) => {
+	test.effect("rejects a global-entity translation that references a user's own asset", () =>
+		Effect.gen(function* () {
+			const service = yield* TranslationsService;
+			const captured = yield* service.admitExecution(payload, payload.executionId);
+			assertExitFails(
+				yield* Effect.exit(service.upsert(assetOverlay, payload, captured)),
+				new SandboxRunError({
+					kind: "invalid-input",
+					data: { code: "asset-forbidden" },
+					message: "Translation references a forbidden managed asset",
+				}),
+			);
+			expect(yield* (yield* TranslationEffects).upserts).toEqual([]);
 		}),
 	);
 });

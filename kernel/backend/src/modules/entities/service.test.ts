@@ -6,6 +6,7 @@ import type {
 	AutomationPolicyOutput,
 	AutomationWarning,
 } from "@ryot-app/contract/modules/automations/lifecycle";
+import { EntityBadRequest } from "@ryot-app/contract/modules/entities/schemas";
 import {
 	definitionOwner,
 	type EntitySchemaReference,
@@ -29,6 +30,10 @@ import { Workflow } from "effect/workflow";
 import { WorkflowEngine } from "effect/workflow/WorkflowEngine";
 import { assert, describe } from "vitest";
 
+import {
+	insertManagedAsset,
+	managedAssetProperty,
+} from "#modules/assets/storage/managed-assets.test-support";
 import {
 	withLifecycleBatchPlanning,
 	withLifecycleDispatch,
@@ -168,6 +173,7 @@ const entitiesLayer = (options: TestOptions = {}) =>
 				],
 				propertiesSchema: {
 					fields: {
+						image: managedAssetProperty,
 						title: { type: "string", label: "Title", description: "Title" },
 						score: {
 							type: "number",
@@ -2147,6 +2153,53 @@ describe("EntitiesService committed lifecycle", () => {
 					expect(yield* session.run((db) => db.select().from(tables.entity))).toHaveLength(4_200);
 				}),
 			120_000,
+		);
+	});
+	layer(entitiesLayer({ noHooks: true }))((test) => {
+		test.effect("rejects another user's managed asset on entity create and update", () =>
+			Effect.gen(function* () {
+				const service = yield* EntitiesService;
+				const foreign = yield* insertManagedAsset(UserId.make("asset-foreign-owner"));
+				expect(
+					yield* service
+						.create({
+							...createInput("foreign-asset-create"),
+							properties: { image: foreign, title: "original" },
+						})
+						.pipe(Effect.flip),
+				).toEqual(new EntityBadRequest({ reason: { code: "asset-forbidden" } }));
+				const created = yield* service.create(createInput("foreign-asset-base"));
+				expect(
+					yield* service
+						.update({
+							userId: owner,
+							scope: "user",
+							name: "Changed",
+							requireUserOwned: true,
+							entityId: created.entity.id,
+							lifecycle: command("foreign-asset-update"),
+							properties: { image: foreign, title: "changed" },
+						})
+						.pipe(Effect.flip),
+				).toEqual(new EntityBadRequest({ reason: { code: "asset-forbidden" } }));
+			}),
+		);
+
+		test.effect("rejects the owner's own managed asset on a global entity", () =>
+			Effect.gen(function* () {
+				const service = yield* EntitiesService;
+				const own = yield* insertManagedAsset(owner);
+				expect(
+					yield* service
+						.createGlobal({
+							entitySchema,
+							name: "Global",
+							properties: { image: own, title: "global" },
+							lifecycle: systemCommand("global-own-asset"),
+						})
+						.pipe(Effect.flip),
+				).toEqual(new EntityBadRequest({ reason: { code: "asset-forbidden" } }));
+			}),
 		);
 	});
 });

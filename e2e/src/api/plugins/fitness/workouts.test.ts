@@ -17,6 +17,7 @@ import {
 	waitForEventCount,
 	requireRows,
 	requireRyotQLText,
+	uploadPermanentAsset,
 } from "~/fixtures/kernel";
 import {
 	createWorkoutEntityFixture,
@@ -145,20 +146,32 @@ describe("Workouts E2E", () => {
 			Effect.gen(function* () {
 				const { client } = yield* createAuthenticatedClient();
 				const { schema: workoutSchema } = yield* findFitnessEntitySchema(client, "workout");
+				const video = yield* uploadPermanentAsset(client, {
+					fileName: "workout.mp4",
+					contentType: "video/mp4",
+				});
+				const image = yield* uploadPermanentAsset(client, {
+					fileName: "workout.jpg",
+					contentType: "image/jpeg",
+				});
+				const exerciseVideo = yield* uploadPermanentAsset(client, {
+					fileName: "exercise.mp4",
+					contentType: "video/mp4",
+				});
 				const workout = yield* createEntity(client, {
 					entitySchema: workoutSchema.reference,
 					name: `Workout ${crypto.randomUUID()}`,
 					properties: {
+						videos: [video],
+						images: [image],
 						caloriesBurnt: 150,
 						activeDuration: 2400,
 						endedAt: "2026-04-27T11:00:00Z",
 						startedAt: "2026-04-27T10:00:00Z",
-						videos: [{ type: "s3", key: "workouts/video.mp4" }],
-						images: [{ type: "local", key: "permanent/workout.jpg" }],
 						exerciseMedia: [
 							{
 								exerciseOrder: 0,
-								videos: [{ type: "s3", key: "workouts/exercise.mp4" }],
+								videos: [exerciseVideo],
 								images: [{ type: "remote", url: "https://example.com/exercise.jpg" }],
 							},
 						],
@@ -167,16 +180,16 @@ describe("Workouts E2E", () => {
 				const entity = yield* getEntity(client, workout.id);
 
 				expect(entity.properties).toMatchObject({
+					videos: [video],
+					images: [image],
 					caloriesBurnt: 150,
 					activeDuration: 2400,
 					endedAt: "2026-04-27T11:00:00Z",
 					startedAt: "2026-04-27T10:00:00Z",
-					videos: [{ type: "s3", key: "workouts/video.mp4" }],
-					images: [{ type: "local", key: "permanent/workout.jpg" }],
 					exerciseMedia: [
 						{
 							exerciseOrder: 0,
-							videos: [{ type: "s3", key: "workouts/exercise.mp4" }],
+							videos: [exerciseVideo],
 							images: [{ type: "remote", url: "https://example.com/exercise.jpg" }],
 						},
 					],

@@ -142,9 +142,14 @@ const commitEvent = Effect.fnUntraced(function* (
 	const repository = yield* EventsRepository;
 	const planner = yield* LifecyclePlanner;
 	const command = eventCreateWriteCommand(payload, index);
-	if (yield* lockAssetReferences([{ propertiesSchema, properties: draft.properties }])) {
-		return yield* new EventCreateItemError({ reason: { code: "invalid-properties" } });
-	}
+	yield* lockAssetReferences([
+		{ propertiesSchema, ownerUserId: payload.userId, properties: draft.properties },
+	]).pipe(
+		Effect.catchTag(
+			"ManagedAssetReferenceRejected",
+			() => new EventCreateItemError({ reason: { code: "asset-forbidden" } }),
+		),
+	);
 	const event = yield* repository.createEvent({
 		...draft,
 		userId: payload.userId,

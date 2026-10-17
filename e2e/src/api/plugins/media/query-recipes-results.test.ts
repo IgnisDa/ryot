@@ -605,7 +605,9 @@ describe("Media RyotQL query recipe results", () => {
 					seedCredit({
 						schemaSlug: companySchema.id,
 						name: `Overview Studio ${suffix}`,
-						images: [{ type: "s3", purpose: "logo", key: "studio-logo" }],
+						images: [
+							{ type: "remote", purpose: "logo", url: "https://images.test/studio-logo.png" },
+						],
 					}),
 					seedCredit({
 						images: [],
@@ -691,7 +693,9 @@ describe("Media RyotQL query recipe results", () => {
 			const studioCredit = overview.companies.items[0];
 			assertPresent(studioCredit, "Expected the studio credit");
 			expect(studioCredit.roles).toEqual(["Production Company"]);
-			expect(studioCredit.images).toEqual([{ type: "s3", purpose: "logo", key: "studio-logo" }]);
+			expect(studioCredit.images).toEqual([
+				{ type: "remote", purpose: "logo", url: "https://images.test/studio-logo.png" },
+			]);
 			expect(overview.recommendations.items.map((item) => item.id)).toEqual([
 				suggestedFirst.id,
 				suggestedSecond.id,

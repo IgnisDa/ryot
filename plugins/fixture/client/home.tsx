@@ -320,7 +320,7 @@ export const Home = () => {
 									permanentCleanup.mutate({
 										asset: permanentAsset,
 										onCleaned: (status) => {
-											if (status === "deleted" || status === "missing") {
+											if (status === "deleted") {
 												setPermanentAsset(undefined);
 											}
 										},

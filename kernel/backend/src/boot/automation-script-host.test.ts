@@ -11,6 +11,7 @@ import {
 } from "@ryot-app/contract/schema/brands";
 import { Context, Effect, Layer, Ref } from "effect";
 
+import { ManagedAssetReferenceRejected } from "#lib/domain/managed-asset-writes";
 import { SignalEmissionService } from "#modules/automations/signal-service";
 import { NotificationsService } from "#modules/notifications/service";
 import {
@@ -265,6 +266,30 @@ layer(automationHostLayer)((test) => {
 			const host = yield* makeAutomationScriptHostFunctions;
 			const error = yield* Effect.flip(host.sendNotification(runInput(null), "Ready"));
 			expect(error.message).toBe("sendNotification is available only to user automation runs");
+		}),
+	);
+});
+
+layer(
+	Layer.mergeAll(
+		databaseLayer,
+		Layer.mock(NotificationsService, {}),
+		Layer.mock(SignalEmissionService, {
+			emitSignal: () => Effect.fail(new ManagedAssetReferenceRejected()),
+		}),
+	),
+)((test) => {
+	test.effect("maps a rejected managed-asset signal reference to asset-forbidden", () =>
+		Effect.gen(function* () {
+			const host = yield* makeAutomationScriptHostFunctions;
+			const error = yield* Effect.flip(
+				host.emitSignal(runInput(), {
+					discriminator: "part-1",
+					schemaSlug: "review.created",
+					properties: { title: "Dune" },
+				}),
+			);
+			expect(error.data).toEqual({ code: "asset-forbidden" });
 		}),
 	);
 });
