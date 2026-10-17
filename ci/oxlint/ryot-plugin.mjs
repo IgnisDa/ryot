@@ -1,3 +1,5 @@
+import { relative, resolve, sep } from "node:path";
+
 const promiseMethods = new Set(["then", "catch", "finally"]);
 const promiseFactories = new Set([
 	"resolve",
@@ -153,6 +155,82 @@ const isWorkflow = (context, node, seen = new Set()) => {
 	);
 };
 
+const manifestTable = "pluginRevisionManifest";
+const manifestTableName = "plugin_revision_manifest";
+const revisionNames = new Set(["pluginRevision", manifestTable]);
+const typePositionTypes = new Set(["TSTypeQuery", "TSTypeReference", "TSIndexedAccessType"]);
+const functionTypes = new Set(["ArrowFunctionExpression", "FunctionExpression"]);
+const backendSourcePrefix = "kernel/backend/src/";
+const unguardedPatterns = [
+	/\.test\.ts$/,
+	/\.test-support\.ts$/,
+	/(^|\/)test-support\.ts$/,
+	/^kernel\/backend\/src\/testing\//,
+	/^kernel\/backend\/src\/drizzle\//,
+];
+
+const isFunctionValue = (node) =>
+	node !== null &&
+	node !== undefined &&
+	(functionTypes.has(node.type) ||
+		(node.type === "CallExpression" &&
+			node.arguments.some((argument) => functionTypes.has(argument.type))));
+
+const nameOf = (node) => {
+	if (node.type === "Identifier") {
+		return node.name;
+	}
+	return node.type === "Literal" && typeof node.value === "string" ? node.value : undefined;
+};
+
+const isInsideCallArguments = (ancestors, index) =>
+	ancestors.some(
+		(ancestor, position) =>
+			position > index &&
+			ancestor.type === "CallExpression" &&
+			ancestor.callee !== ancestors[position - 1],
+	);
+
+const ownerOf = (ancestors) => {
+	for (const [index, ancestor] of ancestors.entries()) {
+		if (ancestor.type === "VariableDeclarator" && ancestor.id.type === "Identifier") {
+			const { init } = ancestor;
+			if (
+				init &&
+				(functionTypes.has(init.type) ||
+					init.type === "CallExpression" ||
+					init.type === "ObjectExpression")
+			) {
+				return ancestor.id.name;
+			}
+		} else if (ancestor.type === "FunctionDeclaration" && ancestor.id) {
+			return ancestor.id.name;
+		} else if (
+			(ancestor.type === "Property" || ancestor.type === "MethodDefinition") &&
+			isFunctionValue(ancestor.value) &&
+			!isInsideCallArguments(ancestors, index)
+		) {
+			return nameOf(ancestor.key);
+		}
+	}
+	return "<module>";
+};
+
+const isTypePosition = (ancestors) =>
+	ancestors.some(
+		(ancestor) =>
+			typePositionTypes.has(ancestor.type) ||
+			(ancestor.type === "ImportDeclaration" && ancestor.importKind === "type") ||
+			(ancestor.type === "ImportSpecifier" && ancestor.importKind === "type"),
+	);
+
+const endsInRevision = (node) => {
+	if (node.type === "Identifier") {
+		return revisionNames.has(node.name);
+	}
+	return node.type === "MemberExpression" && revisionNames.has(propertyName(node) ?? "");
+};
+
 export default {
 	meta: { name: "ryot" },
 	rules: {
@@ -171,6 +249,103 @@ export default {
 								message:
 									"Register workflows with implementWorkflow from kernel/backend/src/platform/workflow/scope.ts.",
 							});
+						}
+					},
+				};
+			},
+		},
+		"no-hot-manifest-read": {
+			meta: {
+				schema: [
+					{
+						type: "object",
+						additionalProperties: false,
+						properties: {
+							allow: {
+								type: "array",
+								items: {
+									type: "object",
+									additionalProperties: false,
+									required: ["file", "owners"],
+									properties: {
+										file: { type: "string" },
+										owners: {
+											anyOf: [{ const: "*" }, { type: "array", items: { type: "string" } }],
+										},
+									},
+								},
+							},
+						},
+					},
+				],
+			},
+			create(context) {
+				const file = relative(context.cwd, resolve(context.cwd, context.filename))
+					.split(sep)
+					.join("/");
+				if (
+					!file.startsWith(backendSourcePrefix) ||
+					unguardedPatterns.some((pattern) => pattern.test(file))
+				) {
+					return {};
+				}
+				const allowed = (context.options[0]?.allow ?? []).find(
+					(entry) => entry.file === file,
+				)?.owners;
+				const check = (node, message) => {
+					const owner = ownerOf(context.sourceCode.getAncestors(node).toReversed());
+					if (allowed === "*" || allowed?.includes(owner)) {
+						return;
+					}
+					context.report({ node, message: `${message} (owner: ${owner})` });
+				};
+				const checkText = (node, text) => {
+					if (text.includes(manifestTableName)) {
+						check(
+							node,
+							`Do not read ${manifestTableName} outside the allowlisted cold owners; use revision section columns or definition_* rows.`,
+						);
+					}
+				};
+				return {
+					Identifier(node) {
+						if (node.name !== manifestTable) {
+							return;
+						}
+						const ancestors = context.sourceCode.getAncestors(node).toReversed();
+						const [parent] = ancestors;
+						if (
+							isTypePosition(ancestors) ||
+							(parent.type === "VariableDeclarator" && parent.id === node) ||
+							(parent.type === "ImportSpecifier" &&
+								parent.local === node &&
+								parent.imported !== node &&
+								parent.imported.name === node.name)
+						) {
+							return;
+						}
+						check(
+							node,
+							`Do not reference ${manifestTable} outside the allowlisted cold owners; use revision section columns or definition_* rows.`,
+						);
+					},
+					Literal(node) {
+						if (typeof node.value === "string") {
+							checkText(node, node.value);
+						}
+					},
+					TemplateElement(node) {
+						checkText(node, node.value.cooked ?? node.value.raw);
+					},
+					CallExpression(node) {
+						const { callee } = node;
+						if (
+							callee.type === "MemberExpression" &&
+							propertyName(callee) === "update" &&
+							node.arguments[0] &&
+							endsInRevision(node.arguments[0])
+						) {
+							check(callee.property, "Do not update plugin revisions; they are immutable.");
 						}
 					},
 				};

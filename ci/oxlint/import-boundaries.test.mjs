@@ -36,7 +36,14 @@ const fixtures = {
 	],
 };
 
-writeFileSync(join(workspace, ".oxlintrc.json"), JSON.stringify({ overrides }));
+writeFileSync(
+	join(workspace, ".oxlintrc.json"),
+	JSON.stringify({
+		overrides: overrides.filter(
+			(override) => !Object.keys(override.rules).some((rule) => rule.startsWith("ryot/")),
+		),
+	}),
+);
 for (const [file, specifiers] of Object.entries(fixtures)) {
 	mkdirSync(join(workspace, dirname(file)), { recursive: true });
 	writeFileSync(
