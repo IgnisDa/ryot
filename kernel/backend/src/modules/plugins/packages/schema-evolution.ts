@@ -22,7 +22,7 @@ export class SchemaEvolutionError extends Data.TaggedError("SchemaEvolutionError
 
 type PropertySchemaDefinition = { readonly slug: string; readonly propertiesSchema: AppSchema };
 
-const comparableProperty = (property: AppPropertyDefinition) => {
+const structuralProperty = (property: AppPropertyDefinition) => {
 	if (property.type === "enum" || property.type === "enum-array") {
 		const { choices: _choices, ...rest } = property;
 		return rest;
@@ -36,6 +36,11 @@ const comparableProperty = (property: AppPropertyDefinition) => {
 		return rest;
 	}
 	return property;
+};
+
+const comparableProperty = (property: AppPropertyDefinition) => {
+	const { label: _label, description: _description, ...behavior } = structuralProperty(property);
+	return behavior;
 };
 
 const compareProperty = (

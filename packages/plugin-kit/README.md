@@ -209,7 +209,8 @@ accepts an empty record after defaults while rejecting null choices.
 
 Users edit these preferences under Settings → Plugin preferences. Values belong to the exact user's
 installation, separate from `configSchema`, and are included in account backups. Reset removes stored
-choices. Schema evolution is additive; incompatible changes are rejected.
+choices. Schema evolution is additive; incompatible changes are rejected. Property labels and
+descriptions are display text and may change freely.
 
 User-scoped backend scripts declare `getUserSettings` and call `host.getUserSettings()` to read their
 own plugin's current settings with defaults applied. Decode the JSON record with plugin-owned Effect

@@ -55,6 +55,21 @@ it("accepts new schemas, optional properties, and widened enums", () => {
 	expect(Exit.isSuccess(exit)).toBe(true);
 });
 
+it("accepts relabelled and redescribed properties, including nested ones", () => {
+	const exit = evolve((previous) => {
+		const entity = previous.entitySchemas[0];
+		assert(entity);
+		const fields = Object.fromEntries(
+			Object.entries(entity.propertiesSchema.fields).map(([key, field]) => [
+				key,
+				{ ...field, description: "Clearer wording", label: `${field.label} renamed` },
+			]),
+		);
+		return { ...previous, entitySchemas: [entityWithFields(previous, fields)] };
+	});
+	expect(Exit.isSuccess(exit)).toBe(true);
+});
+
 it("rejects a changed dynamic choice source", () => {
 	const initial = fixtureManifest();
 	const initialEntity = initial.entitySchemas[0];
