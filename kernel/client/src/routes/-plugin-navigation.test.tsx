@@ -1,4 +1,8 @@
 import { describe, expect, it } from "@effect/vitest";
+import type {
+	ImportEntityRunResult,
+	SearchProviderEntitiesResponse,
+} from "@ryot-app/contract/modules/entity-providers/schemas";
 import {
 	ClientPagePreparationError,
 	type ClientPageTarget,
@@ -9,6 +13,7 @@ import {
 	EntitySchemaSlug,
 	PluginId,
 	PluginPackageId,
+	SandboxProviderId,
 	SavedViewId,
 } from "@ryot-app/contract/schema/brands";
 // oxlint-disable unicorn/require-post-message-target-origin -- MessagePort has no target origin
@@ -164,6 +169,7 @@ function mount(options: {
 	readonly auth?: ReturnType<typeof makeAuthStub>;
 	readonly storage?: ClientStorage["Service"];
 	readonly loadProviders?: ProviderAddService["Service"]["loadProviders"];
+	readonly providerAdd?: Partial<ProviderAddService["Service"]>;
 	readonly prepare?: PagesApi["Service"]["prepare"];
 	readonly check?: ClientPageFreshness["Service"]["check"];
 }) {
@@ -204,8 +210,13 @@ function mount(options: {
 	const events = makePluginCatalogEventsTestLayer();
 	const runtime = ManagedRuntime.make(
 		Layer.mergeAll(
-			options.loadProviders
-				? makeProviderAddStub({ loadProviders: options.loadProviders })
+			options.loadProviders !== undefined || options.providerAdd !== undefined
+				? makeProviderAddStub({
+						...options.providerAdd,
+						...(options.loadProviders === undefined
+							? {}
+							: { loadProviders: options.loadProviders }),
+					})
 				: ProviderAddRouteStubs,
 			ImportsRouteStubs,
 			IntegrationRouteStubs,
@@ -393,7 +404,7 @@ describe("client page routes", () => {
 		}),
 	);
 
-	it.live("uses prepared saved-view metadata and the route slug for local layout", () =>
+	it.live("uses prepared saved-view metadata and preserves the active provider search", () =>
 		Effect.gen(function* () {
 			const layoutKeys: string[] = [];
 			const storage = makeStorageStub("plugin-1");
@@ -450,16 +461,59 @@ describe("client page routes", () => {
 			expect(view.router.state.location.pathname).toBe("/v/c/fixture-view");
 			bridge.port.postMessage({
 				type: "provider-search-screen",
+				requestId: "provider-search-screen-1",
 				schema: { slug: "book", owner: { kind: "plugin", pluginId: "plugin-1" } },
 			});
 			yield* Effect.promise(() =>
 				waitFor(() => expect(view.router.state.location.searchStr).toBe("?add=true")),
 			);
 			yield* Effect.promise(() => screen.findByRole("dialog", { name: "Add from a provider" }));
+			bridge.port.postMessage({
+				type: "provider-search-screen",
+				requestId: "provider-search-screen-2",
+				schema: { slug: "book", owner: { kind: "plugin", pluginId: "plugin-1" } },
+			});
+			yield* Effect.promise(() =>
+				waitFor(() =>
+					expect(bridge.messages).toContainEqual({
+						outcome: { kind: "cancelled" },
+						requestId: "provider-search-screen-2",
+						type: "provider-search-screen-result",
+					}),
+				),
+			);
+			expect(screen.getByRole("dialog", { name: "Add from a provider" })).toBeTruthy();
+			expect(view.router.state.location.searchStr).toBe("?add=true");
+			fireEvent.click(screen.getAllByRole("button", { name: "Close" })[0]);
+			yield* Effect.promise(() =>
+				waitFor(() =>
+					expect(screen.queryByRole("dialog", { name: "Add from a provider" })).toBeNull(),
+				),
+			);
+			expect(
+				bridge.messages.filter(
+					(message) =>
+						typeof message === "object" &&
+						message !== null &&
+						"type" in message &&
+						message.type === "provider-search-screen-result",
+				),
+			).toEqual([
+				{
+					outcome: { kind: "cancelled" },
+					requestId: "provider-search-screen-2",
+					type: "provider-search-screen-result",
+				},
+				{
+					outcome: { kind: "cancelled" },
+					requestId: "provider-search-screen-1",
+					type: "provider-search-screen-result",
+				},
+			]);
 		}),
 	);
 
-	it.live("opens provider search from a plugin route without changing the page location", () =>
+	it.live("preserves the active plugin-route provider search on a second request", () =>
 		Effect.gen(function* () {
 			const view = mount({
 				entry: "/p/test/plugin-1?tab=home",
@@ -473,6 +527,7 @@ describe("client page routes", () => {
 			bridge.port.postMessage({
 				initialQuery: "dune",
 				type: "provider-search-screen",
+				requestId: "provider-search-screen-1",
 				schema: { slug: "book", owner: { kind: "plugin", pluginId: "plugin-1" } },
 			});
 
@@ -482,8 +537,127 @@ describe("client page routes", () => {
 			).toBe("dune");
 			expect(view.router.state.location.searchStr).toBe("?tab=home");
 			expect(view.targets).toHaveLength(1);
+			bridge.port.postMessage({
+				initialQuery: "new query",
+				type: "provider-search-screen",
+				requestId: "provider-search-screen-2",
+				schema: { slug: "book", owner: { kind: "plugin", pluginId: "plugin-1" } },
+			});
+			yield* Effect.promise(() =>
+				waitFor(() =>
+					expect(bridge.messages).toContainEqual({
+						outcome: { kind: "cancelled" },
+						requestId: "provider-search-screen-2",
+						type: "provider-search-screen-result",
+					}),
+				),
+			);
+			expect(screen.getByRole("dialog", { name: "Add from a provider" })).toBeTruthy();
+			expect(
+				screen.getByRole<HTMLInputElement>("textbox", { name: "Search providers" }).value,
+			).toBe("dune");
 
 			fireEvent.click(screen.getAllByRole("button", { name: "Close" })[0]);
+			yield* Effect.promise(() =>
+				waitFor(() =>
+					expect(screen.queryByRole("dialog", { name: "Add from a provider" })).toBeNull(),
+				),
+			);
+			expect(
+				bridge.messages.filter(
+					(message) =>
+						typeof message === "object" &&
+						message !== null &&
+						"type" in message &&
+						message.type === "provider-search-screen-result",
+				),
+			).toEqual([
+				{
+					outcome: { kind: "cancelled" },
+					requestId: "provider-search-screen-2",
+					type: "provider-search-screen-result",
+				},
+				{
+					outcome: { kind: "cancelled" },
+					requestId: "provider-search-screen-1",
+					type: "provider-search-screen-result",
+				},
+			]);
+			expect(view.router.state.location.searchStr).toBe("?tab=home");
+		}),
+	);
+
+	it.live("returns the imported entity ID and closes provider search from a plugin route", () =>
+		Effect.gen(function* () {
+			const providerId = SandboxProviderId.make("provider-1");
+			const entityId = EntityId.make("entity-added");
+			const completed = {
+				status: "completed",
+				data: {
+					name: "Dune",
+					id: entityId,
+					properties: {},
+					providerId: null,
+					populatedAt: null,
+					externalId: "external-1",
+					createdAt: "2026-01-01T00:00:00.000Z",
+					updatedAt: "2026-01-01T00:00:00.000Z",
+					entitySchemaSlug: EntitySchemaSlug.make("book"),
+					entitySchemaPluginId: PluginId.make("plugin-1"),
+				},
+			} satisfies ImportEntityRunResult;
+			const providerResponse = {
+				providerId,
+				providerName: "Provider 1",
+				rootEntitySchemaSlug: EntitySchemaSlug.make("book"),
+				items: [{ title: "Dune", externalId: "external-1" }],
+			} satisfies SearchProviderEntitiesResponse;
+			const view = mount({
+				entry: "/p/test/plugin-1?tab=home",
+				providerAdd: {
+					loadEntityLinks: () => Effect.succeed([]),
+					pollImport: () => Effect.succeed(completed),
+					search: () => Effect.succeed(providerResponse),
+					startImport: () => Effect.succeed({ jobId: "job-1" }),
+					loadProviders: () =>
+						Effect.succeed({
+							pageInfo: { limit: 100, hasMore: false, nextCursor: null },
+							items: [
+								{
+									providerId,
+									searchOptionsSchema: null,
+									providerName: "Provider 1",
+									providerSlug: "provider-1",
+									rootEntitySchemaSlug: EntitySchemaSlug.make("book"),
+								},
+							],
+						}),
+				},
+			});
+			const bridge = connectFrame(
+				yield* Effect.promise(() => screen.findByTitle<HTMLIFrameElement>("Fixture plugin")),
+			);
+			bridge.port.postMessage({
+				initialQuery: "Dune",
+				type: "provider-search-screen",
+				requestId: "provider-search-screen-1",
+				schema: { slug: "book", owner: { kind: "plugin", pluginId: "plugin-1" } },
+			});
+			yield* Effect.promise(() => screen.findByRole("dialog", { name: "Add from a provider" }));
+			yield* Effect.promise(() =>
+				screen.findByRole("button", { name: "Add Dune to media library" }),
+			);
+			fireEvent.click(screen.getByRole("button", { name: "Add Dune to media library" }));
+
+			yield* Effect.promise(() =>
+				waitFor(() =>
+					expect(bridge.messages).toContainEqual({
+						requestId: "provider-search-screen-1",
+						type: "provider-search-screen-result",
+						outcome: { kind: "added", entityIds: [entityId] },
+					}),
+				),
+			);
 			yield* Effect.promise(() =>
 				waitFor(() =>
 					expect(screen.queryByRole("dialog", { name: "Add from a provider" })).toBeNull(),

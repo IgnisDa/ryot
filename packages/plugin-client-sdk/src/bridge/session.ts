@@ -27,6 +27,7 @@ import {
 	type PluginBridgeOperationRequest,
 	type PluginBridgePageSearch,
 	type PluginBridgeProviderSearchScreen,
+	type PluginBridgeProviderSearchScreenCancel,
 	type PluginBridgeReady,
 	type PluginBridgeRyotQLCancel,
 	type PluginBridgeRyotQLRequest,
@@ -64,6 +65,7 @@ type RequestType =
 	| "collection"
 	| "external-link"
 	| "operation"
+	| "provider-search-screen"
 	| "ryotql"
 	| "storage"
 	| "upload";
@@ -405,20 +407,22 @@ export const createPluginRuntime = (
 			throw new RyotClientError(terminalReason ?? "transport");
 		}
 	};
-	const openProviderSearch = (request: RyotProviderSearchScreenRequest) => {
-		if (state !== "active") {
-			throw new RyotClientError(terminalReason ?? "transport");
-		}
-		if (
-			!post({
-				...request,
-				type: "provider-search-screen",
-				schema: Schema.decodeSync(EntitySchemaReference)(request.schema),
-			} satisfies PluginBridgeProviderSearchScreen)
-		) {
-			throw new RyotClientError(terminalReason ?? "transport");
-		}
-	};
+	const openProviderSearch = (request: RyotProviderSearchScreenRequest) =>
+		sendRequest(
+			"provider-search-screen",
+			(requestId) =>
+				({
+					...request,
+					requestId,
+					type: "provider-search-screen",
+					schema: Schema.decodeSync(EntitySchemaReference)(request.schema),
+				}) satisfies PluginBridgeProviderSearchScreen,
+			(requestId) =>
+				({
+					requestId,
+					type: "provider-search-screen-cancel",
+				}) satisfies PluginBridgeProviderSearchScreenCancel,
+		);
 
 	const client = createRyotClient({
 		query,
@@ -649,6 +653,13 @@ export const createPluginRuntime = (
 						"operation",
 						result.requestId,
 						result.outcome === "failure" ? result : { outcome: "success", value: result.value },
+					);
+				}),
+				Match.when({ type: "provider-search-screen-result" }, (result) => {
+					settle(
+						"provider-search-screen",
+						result.requestId,
+						result.outcome === "failure" ? result : { outcome: "success", value: result.outcome },
 					);
 				}),
 				Match.when({ type: "external-link-result" }, (result) => {

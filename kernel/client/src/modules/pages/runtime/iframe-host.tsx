@@ -15,6 +15,7 @@ import type {
 	PluginOperationRequest,
 	PluginBridgePageSearch,
 	PluginBridgeProviderSearchScreen,
+	ProviderSearchScreenOutcome,
 	PluginRyotQLOutcome,
 	PluginRyotQLRequest,
 	PluginStorageOutcome,
@@ -92,7 +93,9 @@ export function PageIframeHost(props: {
 	readonly onNavigate: (request: PluginNavigationRequest) => void;
 	readonly onPageSearch: (request: PluginBridgePageSearch) => void;
 	readonly onScreenState: (state: PageScreenReadiness | null) => void;
-	readonly onProviderSearch: (request: PluginBridgeProviderSearchScreen) => void;
+	readonly onProviderSearch: (
+		request: PluginBridgeProviderSearchScreen,
+	) => Effect.Effect<ProviderSearchScreenOutcome>;
 	readonly onAssets: (request: PluginAssetRequest) => Effect.Effect<PluginAssetOutcome>;
 	readonly onUpload: (request: PluginUploadRequest) => Effect.Effect<PluginUploadOutcome>;
 	readonly onExternalLink: (request: ExternalLinkRequest) => Effect.Effect<ExternalLinkOutcome>;

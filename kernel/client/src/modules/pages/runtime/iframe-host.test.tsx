@@ -4,8 +4,10 @@ import { PluginPackageId } from "@ryot-app/contract/schema/brands";
 import {
 	CLIENT_BRIDGE_BOOTSTRAP_READY,
 	PluginBridgeInit,
+	type PluginBridgeProviderSearchScreen,
 	type PluginLogicalLocation,
 	type PluginOperationRequest,
+	type ProviderSearchScreenOutcome,
 } from "@ryot-app/plugin-client-contract";
 import { RyotProvider } from "@ryot-app/plugin-client-sdk/react";
 import { createTestRyotClock } from "@ryot-app/plugin-client-sdk/testing";
@@ -45,6 +47,9 @@ function mount(
 		readonly onInvokeOperation?: (
 			request: PluginOperationRequest,
 		) => Effect.Effect<PluginOperationDispatchOutcome>;
+		readonly onProviderSearch?: (
+			request: PluginBridgeProviderSearchScreen,
+		) => Effect.Effect<ProviderSearchScreenOutcome>;
 	} = {},
 ) {
 	const backInterceptors = createBackInterceptors();
@@ -71,6 +76,12 @@ function mount(
 	const navigations: unknown[] = [];
 	const providerSearches: unknown[] = [];
 	const operations: PluginOperationRequest[] = [];
+	const onProviderSearch =
+		options.onProviderSearch ??
+		((request: PluginBridgeProviderSearchScreen) => {
+			providerSearches.push(request);
+			return Effect.succeed({ kind: "cancelled" as const });
+		});
 	const refreshListeners = new Set<() => void>();
 	const mutationCompleted = {
 		hint: () => {
@@ -91,6 +102,7 @@ function mount(
 		freshnessCheckRevision = 0,
 		active = true,
 		pageKey = "page-1",
+		providerSearchHandler = onProviderSearch,
 	) => ({
 		theme,
 		active,
@@ -109,13 +121,13 @@ function mount(
 		onKernelShortcut: () => undefined,
 		chromeTriggerRef: { current: null },
 		compositionHash: "composition-hash",
+		onProviderSearch: providerSearchHandler,
 		subscribeResume: options.subscribeResume,
 		viewport: { safeAreaTop: 7, safeAreaBottom: 11 },
 		onScreenState: (state: unknown) => states.push(state),
 		onPageSearch: (request: unknown) => searches.push(request),
 		onNavigate: (request: unknown) => navigations.push(request),
 		onReloadCurrent: options.onReloadCurrent ?? (() => undefined),
-		onProviderSearch: (request: unknown) => providerSearches.push(request),
 		onCheckFreshness: options.onCheckFreshness ?? (() => Effect.succeed(true)),
 		watchEntities: () => ({ update: () => undefined, dispose: () => undefined }),
 		onQuery: () => Effect.succeed({ outcome: "failure" as const, reason: "transport" as const }),
@@ -171,6 +183,10 @@ function mount(
 			view.rerender(withCatalog(<PageIframeHost {...props(home, 0, 0, active)} />)),
 		replace: (pageKey: string) =>
 			view.rerender(withCatalog(<PageIframeHost {...props(home, 0, 0, true, pageKey)} />)),
+		setProviderSearchHandler: (handler: typeof onProviderSearch) =>
+			view.rerender(
+				withCatalog(<PageIframeHost {...props(home, 0, 0, true, "page-1", handler)} />),
+			),
 		move: (location: PluginLogicalLocation, index: number, freshnessCheckRevision = 0) =>
 			view.rerender(
 				withCatalog(<PageIframeHost {...props(location, index, freshnessCheckRevision)} />),
@@ -249,6 +265,32 @@ describe("PageIframeHost", () => {
 				edgeBack: true,
 				location: { kind: "route", path: "/details", search: "keep=1&tab=stats" },
 			});
+		}),
+	);
+
+	it.live("uses the current route provider-search callback for a live bridge", () =>
+		Effect.gen(function* () {
+			const host = mount();
+			yield* Effect.promise(() => flush());
+			const bridge = connect(
+				yield* Effect.promise(() => screen.findByTitle<HTMLIFrameElement>("Fixture plugin")),
+			);
+			bridge.port.postMessage(bridge.ready);
+			yield* Effect.promise(() => waitFor(() => expect(bridge.messages).toHaveLength(1)));
+
+			const routed: PluginBridgeProviderSearchScreen[] = [];
+			host.setProviderSearchHandler((request) =>
+				Effect.sync(() => routed.push(request)).pipe(Effect.as({ kind: "cancelled" as const })),
+			);
+			bridge.port.postMessage({
+				type: "provider-search-screen",
+				requestId: "provider-search-screen-1",
+				schema: { slug: "movie", owner: { kind: "plugin", pluginId: "media-installation" } },
+			});
+			yield* Effect.promise(() => waitFor(() => expect(routed).toHaveLength(1)));
+
+			expect(host.providerSearches).toEqual([]);
+			expect(routed[0]).toMatchObject({ requestId: "provider-search-screen-1" });
 		}),
 	);
 
@@ -342,6 +384,7 @@ describe("PageIframeHost", () => {
 			});
 			bridge.port.postMessage({
 				type: "provider-search-screen",
+				requestId: "provider-search-screen-1",
 				schema: { slug: "movie", owner: { kind: "plugin", pluginId: "media-installation" } },
 			});
 			bridge.port.postMessage({
@@ -371,6 +414,7 @@ describe("PageIframeHost", () => {
 			expect(host.providerSearches).toEqual([
 				{
 					type: "provider-search-screen",
+					requestId: "provider-search-screen-1",
 					schema: { slug: "movie", owner: { kind: "plugin", pluginId: "media-installation" } },
 				},
 			]);
