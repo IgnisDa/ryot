@@ -693,6 +693,13 @@ it("declares the complete media-owned source", () => {
 			scriptSlug: "operation.media-monitoring-disable",
 		},
 		{
+			auth: "user",
+			demoAccess: "protected",
+			slug: "media-ownership-set",
+			description: "Set media ownership",
+			scriptSlug: "operation.media-ownership-set",
+		},
+		{
 			auth: "integration",
 			slug: "metadata-lookup",
 			scriptSlug: "operation.metadata-lookup",
