@@ -19,7 +19,7 @@ import { Effect } from "effect";
 import { populationLifecycleCommand } from "#modules/automations/lifecycle/command";
 import { parseAppSchemaProperties } from "#modules/definitions/properties/runtime";
 import type { EntityRelationshipDefinitions } from "#modules/definitions/snapshot";
-import { EntitiesRepository, providerEntityMutationLockKey } from "#modules/entities/repository";
+import { EntitiesRepository } from "#modules/entities/repository";
 import { EntitiesService } from "#modules/entities/service";
 import type { DomainLifecycleCommand } from "#modules/entities/write-context";
 import { PluginRuntimeResolver } from "#modules/plugins/catalog/runtime-resolver";
@@ -228,7 +228,6 @@ export const syncRelatedEntityGroup = Effect.fn("syncRelatedEntityGroup")(functi
 		properties: Record<string, unknown>;
 		relatedEntity: ProviderDetailsRelatedEntity;
 		schemaProvider: { providerId: SandboxProviderId; entitySchemaSlug: EntitySchemaSlug };
-		lockInput: Parameters<typeof providerEntityMutationLockKey>[0];
 	}> = [];
 	// One provider resolution per distinct slug, not per related entity: a details payload commonly
 	// carries dozens of cast/crew members from the same provider.
@@ -323,22 +322,8 @@ export const syncRelatedEntityGroup = Effect.fn("syncRelatedEntityGroup")(functi
 				(error) => new SandboxRunError({ kind: "script-failure", message: error.message }),
 			),
 		);
-		const lockInput = {
-			entitySchemaPluginId: input.pluginId,
-			externalId: relatedEntity.externalId,
-			providerId: schemaProvider.providerId,
-			entitySchemaSlug: schemaProvider.entitySchemaSlug,
-			...(input.scope === "user"
-				? { userId: input.userId, scope: "user" as const }
-				: { scope: "global" as const }),
-		};
-		resolvedRelatedEntities.push({ lockInput, properties, relatedEntity, schemaProvider });
+		resolvedRelatedEntities.push({ properties, relatedEntity, schemaProvider });
 	}
-	resolvedRelatedEntities.sort((left, right) =>
-		providerEntityMutationLockKey(left.lockInput).localeCompare(
-			providerEntityMutationLockKey(right.lockInput),
-		),
-	);
 
 	const scope =
 		input.scope === "user"

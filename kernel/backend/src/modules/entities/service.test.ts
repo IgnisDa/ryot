@@ -2338,7 +2338,33 @@ describe("EntitiesService committed lifecycle", () => {
 		);
 	});
 	layer(entitiesLayer())((test) => {
-		test.effect("replays a committed provider batch without new rows or receipts", () =>
+		test.effect("reports the first invalid provider item in input order before writing", () =>
+			Effect.gen(function* () {
+				yield* seedProvider;
+				const service = yield* EntitiesService;
+				const session = yield* DatabaseSession;
+				const lifecycle = command("invalid-provider-items");
+				assertExitFails(
+					yield* Effect.exit(
+						session.transaction(
+							service.persistPlannedProviderUpserts({
+								batch: { command: lifecycle, identity: ["children"] },
+								items: [
+									{ ...providerItem("zeta", lifecycle), properties: { title: 42 } },
+									{ ...providerItem("Alpha", lifecycle), properties: null },
+								],
+							}),
+						),
+					),
+					new EntityBadRequest({ reason: { paths: [["title"]], code: "invalid-properties" } }),
+				);
+				expect(yield* session.run((db) => db.select().from(tables.entity))).toEqual([]);
+				expect(yield* session.run((db) => db.select().from(tables.mutationReceipt))).toEqual([]);
+			}),
+		);
+	});
+	layer(entitiesLayer())((test) => {
+		test.effect("records and replays provider-order results, receipt indexes, and dispatch", () =>
 			Effect.gen(function* () {
 				yield* seedProvider;
 				const service = yield* EntitiesService;
@@ -2346,9 +2372,28 @@ describe("EntitiesService committed lifecycle", () => {
 				const lifecycle = command("batch-replay");
 				const input = {
 					batch: { command: lifecycle, identity: ["children"] },
-					items: ["one", "two", "three"].map((externalId) => providerItem(externalId, lifecycle)),
+					items: ["zeta", "Alpha", "alpha"].map((externalId) =>
+						providerItem(externalId, lifecycle),
+					),
 				};
 				const first = yield* session.transaction(service.persistPlannedProviderUpserts(input));
+				expect(first.results.map(({ entity }) => entity.externalId)).toEqual([
+					"zeta",
+					"Alpha",
+					"alpha",
+				]);
+				const receipts = yield* session.run((db) =>
+					db.select().from(tables.mutationReceipt).orderBy(tables.mutationReceipt.batchIndex),
+				);
+				const items = receipts.filter(
+					({ receiptType, commandKind }) =>
+						receiptType === "item" && commandKind === "entity:upsert",
+				);
+				expect(items.map(({ result, batchIndex }) => ({ result, batchIndex }))).toEqual(
+					first.results.map((result, batchIndex) => ({ result, batchIndex })),
+				);
+				expect(first.dispatch.slice(0, 3)).toEqual(items.flatMap(({ dispatch }) => dispatch));
+				expect(first.dispatch).toHaveLength(4);
 				const snapshotRows = Effect.all([
 					session.run((db) => db.select().from(tables.entity)),
 					session.run((db) => db.select().from(tables.mutationReceipt)),

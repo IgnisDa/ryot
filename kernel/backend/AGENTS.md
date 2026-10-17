@@ -12,6 +12,7 @@
 - Mutation receipts own replay independently of automation history. Retain change evidence only for matching hooks or pending batch candidates; start execution after commit.
 - Catalog reads exclude script bodies and hot manifest reads. Use persisted revision sections and definition views; cold manifest owners are enforced by `ryot/no-hot-manifest-read`.
 - Keep batch locks, receipts, and lookups set-based. Historical restore persistence belongs only to backups.
+- Repositories own canonical lock ordering. Provider callers retain input order for results, receipt indexes, and lifecycle dispatch.
 - One durable owner implements each business operation. Activities never dispatch workflows/queues; workflow bodies do. Use deterministic child execution IDs and idempotent owners.
 - Register activities/workflows through `makeActivity` and `implementWorkflow` in `src/platform/workflow/scope.ts`; never call `LifecycleExecution.after` or `executePolicy` inside activities.
 - Redis infrastructure owns backend keys and codecs; sandbox recovery keys remain sandbox-owned.
