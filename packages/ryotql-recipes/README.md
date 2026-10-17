@@ -21,7 +21,10 @@ display slugs. Plugin catalogs expose permanent package IDs, local IDs, scope, a
 ## Saved-View Recipes
 
 Saved-view documents are authored RyotQL with descriptive field keys; settings name the source,
-entity ID, search, sort, and table-column fields. The entity-browser recipe appends the entity name,
-`populationStatus`, and `translationStatus` under unused keys from the named source's `TableReference`
-and decodes them into each item, so authored sources neither select nor map sync state. Registered
-entity presentations supply cards.
+search, sort, and table-column fields, plus the `subject`: the entity table alias and the entity
+schemas the view lists. The entity-browser recipes derive provenance from the subject. The page recipe
+appends the entity ID, owner, schema slug, name, `populationStatus`, and `translationStatus` under
+unused keys from the subject alias and decodes them into each item; both the page and count recipes
+AND an owner-qualified subject-schema predicate into `where`, and the count uses `countDistinct` of the
+subject alias ID. Authored sources therefore neither select nor map provenance or sync state, and the
+schema constraint holds by construction. Registered entity presentations supply cards.

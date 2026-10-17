@@ -12,8 +12,7 @@ import {
 	AutomationRetryPolicy,
 	AutomationSource,
 } from "../automations/lifecycle";
-import { RyotQLDocument } from "../ryotql/language";
-import { AuthoredSavedViewRenderer } from "../saved-views/schemas";
+import { withAuthoredSavedViewConfig } from "../saved-views/schemas";
 import { POLICY_SAFE_SANDBOX_CAPABILITIES } from "../scripts/wire";
 import {
 	hasReachableExternalEffects,
@@ -238,8 +237,6 @@ export const PluginClientEntry = strictStruct({
 
 export type PluginClientEntry = Schema.Schema.Type<typeof PluginClientEntry>;
 
-const PluginQueryDocument = Schema.toType(RyotQLDocument);
-
 export const PluginMetadata = strictStruct({
 	icon: Schema.String,
 	name: Schema.String,
@@ -315,14 +312,11 @@ export const PluginSignalSchema = strictStruct({
 
 export type PluginSignalSchema = Schema.Schema.Type<typeof PluginSignalSchema>;
 
-export const PluginSavedView = strictStruct({
+export const PluginSavedView = withAuthoredSavedViewConfig({
 	icon: Schema.String,
 	name: Schema.String,
 	slug: pluginManifestSlug,
 	sortOrder: Schema.Finite,
-	renderer: AuthoredSavedViewRenderer,
-	dataSources: Schema.NullOr(PluginQueryDocument),
-	settings: Schema.Record(Schema.String, JsonValue),
 });
 
 export type PluginSavedView = Schema.Schema.Type<typeof PluginSavedView>;

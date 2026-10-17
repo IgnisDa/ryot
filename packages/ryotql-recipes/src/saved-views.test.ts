@@ -1,11 +1,14 @@
+import { EntitySchemaSlug, PluginId } from "@ryot-app/contract/schema/brands";
 import {
 	aggregate,
+	and,
 	ascending,
 	castText,
 	column,
 	contains,
 	descending,
 	document,
+	entitySchemaPredicate,
 	field,
 	literal,
 	or,
@@ -26,11 +29,12 @@ const browserSettings = {
 	tableColumns: null,
 	defaultLayout: "grid",
 	sourceName: "selection",
-	entityIdField: "idAlias",
 	layouts: ["grid", "list"],
 	searchFields: ["nameAlias"],
-	ownerPluginIdField: "ownerAlias",
-	entitySchemaSlugField: "schemaAlias",
+	subject: {
+		entityAlias: "entity",
+		schemas: [{ owner: { kind: "kernel" }, slug: EntitySchemaSlug.make("book") }],
+	},
 	sortChoices: [
 		{
 			name: "name-desc",
@@ -40,17 +44,15 @@ const browserSettings = {
 	],
 } as const;
 
+const bookSchema = entitySchemaPredicate(entity, "book", { kind: "kernel" });
+const bookPredicate = or(bookSchema);
+
 const browserSource = document({
 	ignored: aggregate(entity, { measures: [{ key: "total", aggregation: { function: "count" } }] }),
 	selection: rows(entity, {
 		limit: 40,
 		orderBy: [ascending(column(entity, "createdAt"))],
-		fields: [
-			field("idAlias", column(entity, "id")),
-			field("nameAlias", column(entity, "name")),
-			field("ownerAlias", column(entity, "entitySchemaPluginId")),
-			field("schemaAlias", column(entity, "entitySchemaSlug")),
-		],
+		fields: [field("nameAlias", column(entity, "name"))],
 	}),
 });
 
@@ -77,7 +79,10 @@ describe("saved-view recipes", () => {
 				{ direction: "asc", expr: column(entity, "id") },
 			],
 		});
-		expect(query.output.type === "rows" ? query.output.fields.slice(-3) : []).toEqual([
+		expect(query.output.type === "rows" ? query.output.fields.slice(-6) : []).toEqual([
+			field("__entityBrowserId", column(entity, "id")),
+			field("__entityBrowserOwnerPluginId", column(entity, "entitySchemaPluginId")),
+			field("__entityBrowserSchemaSlug", column(entity, "entitySchemaSlug")),
 			field("__entityBrowserName", column(entity, "name")),
 			field("__entityBrowserPopulationStatus", column(entity, "populationStatus")),
 			field("__entityBrowserTranslationStatus", column(entity, "translationStatus")),
@@ -100,7 +105,9 @@ describe("saved-view recipes", () => {
 			throw new Error("Expected rows output");
 		}
 
-		expect(query.where).toEqual(or(contains(castText(column(entity, "name")), literal("iran"))));
+		expect(query.where).toEqual(
+			and(bookPredicate, or(contains(castText(column(entity, "name")), literal("iran")))),
+		);
 		expect(query.output.orderBy).toEqual([
 			descending(column(entity, "name")),
 			ascending(column(entity, "id")),
@@ -123,10 +130,10 @@ describe("saved-view recipes", () => {
 			entityBrowserRecipe({ settings: browserSettings, queryDocument: browserSource }),
 		);
 		const row = {
-			ownerAlias: null,
-			idAlias: "book-1",
-			schemaAlias: "book",
+			__entityBrowserId: "book-1",
 			__entityBrowserName: "Piranesi",
+			__entityBrowserSchemaSlug: "book",
+			__entityBrowserOwnerPluginId: null,
 			__entityBrowserPopulationStatus: "ready",
 			__entityBrowserTranslationStatus: "pending",
 		};
@@ -180,11 +187,11 @@ describe("saved-view recipes", () => {
 						items: [
 							{
 								details: null,
-								ownerAlias: null,
-								idAlias: "book-1",
-								schemaAlias: "book",
 								nameAlias: "Piranesi",
+								__entityBrowserId: "book-1",
 								__entityBrowserName: "Piranesi",
+								__entityBrowserSchemaSlug: "book",
+								__entityBrowserOwnerPluginId: null,
 								__entityBrowserPopulationStatus: "ready",
 								__entityBrowserTranslationStatus: "none",
 							},
@@ -207,6 +214,7 @@ describe("saved-view recipes", () => {
 			queries: {
 				entityBrowserCount: {
 					from: entity,
+					where: bookPredicate,
 					output: {
 						type: "aggregate",
 						measures: [
@@ -233,7 +241,65 @@ describe("saved-view recipes", () => {
 			entityBrowserCountRecipe(browserSource, browserSettings, { searchText: "iran" }),
 		);
 		const query = prepared.document.queries.entityBrowserCount;
-		expect(query?.where).toEqual(or(contains(castText(column(entity, "name")), literal("iran"))));
+		expect(query?.where).toEqual(
+			and(bookPredicate, or(contains(castText(column(entity, "name")), literal("iran")))),
+		);
+	});
+
+	it("constrains pages and counts to every subject schema when the source omits the schema predicate", () => {
+		const settings = {
+			...browserSettings,
+			subject: {
+				entityAlias: "entity",
+				schemas: [
+					{ owner: { kind: "kernel" }, slug: EntitySchemaSlug.make("book") },
+					{
+						slug: EntitySchemaSlug.make("movie"),
+						owner: { kind: "plugin", pluginId: PluginId.make("media-plugin") },
+					},
+				],
+			},
+		} as const;
+		const expected = or(
+			bookSchema,
+			entitySchemaPredicate(entity, "movie", {
+				kind: "local",
+				pluginId: PluginId.make("media-plugin"),
+			}),
+		);
+		const page = Result.getOrThrow(entityBrowserRecipe({ settings, queryDocument: browserSource }))
+			.document.queries.entityBrowser;
+		const count = Result.getOrThrow(entityBrowserCountRecipe(browserSource, settings)).document
+			.queries.entityBrowserCount;
+
+		expect(page?.where).toEqual(expected);
+		expect(count?.where).toEqual(expected);
+	});
+
+	it("injects provenance projections under unused keys", () => {
+		const taken = document({
+			selection: rows(entity, {
+				limit: 40,
+				fields: [field("__entityBrowserId", column(entity, "name"))],
+			}),
+		});
+		const query = Result.getOrThrow(
+			entityBrowserRecipe({ queryDocument: taken, settings: browserSettings }),
+		).document.queries.entityBrowser;
+
+		expect(
+			query?.output.type === "rows"
+				? query.output.fields.flatMap((selection) => ("key" in selection ? [selection.key] : []))
+				: [],
+		).toEqual([
+			"__entityBrowserId",
+			"___entityBrowserId",
+			"__entityBrowserOwnerPluginId",
+			"__entityBrowserSchemaSlug",
+			"__entityBrowserName",
+			"__entityBrowserPopulationStatus",
+			"__entityBrowserTranslationStatus",
+		]);
 	});
 
 	it("decodes typed composite result keys, null cells, and distinct rows for one entity", () => {

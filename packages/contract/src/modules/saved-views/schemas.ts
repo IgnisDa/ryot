@@ -83,12 +83,6 @@ export const KernelSavedViewRendererName = Schema.Literals([
 ]);
 export type KernelSavedViewRendererName = typeof KernelSavedViewRendererName.Type;
 
-export const AuthoredSavedViewRenderer = Schema.Union([
-	strictStruct({ kind: Schema.Literal("kernel"), name: KernelSavedViewRendererName }),
-	strictStruct({ exportName: Schema.String, kind: Schema.Literal("plugin") }),
-]);
-export type AuthoredSavedViewRenderer = typeof AuthoredSavedViewRenderer.Type;
-
 export const SavedViewRenderer = Schema.Union([
 	strictStruct({ kind: Schema.Literal("kernel"), name: KernelSavedViewRendererName }),
 	strictStruct({
@@ -172,13 +166,23 @@ const SavedViewPageSize = Schema.Int.pipe(
 	Schema.check(Schema.isLessThanOrEqualTo(100)),
 );
 
+export const SavedViewSubject = strictStruct({
+	entityAlias: Schema.NonEmptyString,
+	schemas: Schema.NonEmptyArray(EntitySchemaReference),
+});
+export type SavedViewSubject = typeof SavedViewSubject.Type;
+
+export const AuthoredSavedViewSubject = strictStruct({
+	entityAlias: Schema.NonEmptyString,
+	schemas: Schema.NonEmptyArray(AuthoredEntitySchemaReference),
+});
+export type AuthoredSavedViewSubject = typeof AuthoredSavedViewSubject.Type;
+
 export const EntityBrowserSavedViewSettings = strictStruct({
+	subject: SavedViewSubject,
 	pageSize: SavedViewPageSize,
-	entityIdField: OutputFieldKey,
 	sourceName: Schema.NonEmptyString,
 	defaultLayout: EntityBrowserLayout,
-	ownerPluginIdField: OutputFieldKey,
-	entitySchemaSlugField: OutputFieldKey,
 	searchFields: Schema.Array(OutputFieldKey),
 	addAction: Schema.NullOr(EntityBrowserAddAction),
 	layouts: Schema.NonEmptyArray(EntityBrowserLayout),
@@ -189,6 +193,7 @@ export type EntityBrowserSavedViewSettings = typeof EntityBrowserSavedViewSettin
 
 export const AuthoredEntityBrowserSavedViewSettings = strictStruct({
 	...EntityBrowserSavedViewSettings.fields,
+	subject: AuthoredSavedViewSubject,
 	addAction: Schema.NullOr(AuthoredEntityBrowserAddAction),
 });
 export type AuthoredEntityBrowserSavedViewSettings =
@@ -240,26 +245,116 @@ export type ListedSavedView = typeof ListedSavedView.Type;
 
 export const SavedViewCommandResponse = strictStruct({ id: SavedViewId });
 
-export const CreateSavedViewBody = strictStruct({
+const EntityBrowserKernelRenderer = strictStruct({
+	kind: Schema.Literal("kernel"),
+	name: Schema.Literals(["collection-browser", "entity-browser"]),
+});
+
+const ResultsTableKernelRenderer = strictStruct({
+	kind: Schema.Literal("kernel"),
+	name: Schema.Literal("results-table"),
+});
+
+const PluginSavedViewRenderer = strictStruct({
+	pluginId: Schema.String,
+	exportName: Schema.String,
+	kind: Schema.Literal("plugin"),
+});
+
+const AuthoredPluginSavedViewRenderer = strictStruct({
+	exportName: Schema.String,
+	kind: Schema.Literal("plugin"),
+});
+
+const AuthoredQueryDocument = Schema.toType(RyotQLDocument);
+
+const savedViewConfigFields = [
+	{
+		dataSources: RyotQLDocument,
+		renderer: EntityBrowserKernelRenderer,
+		settings: EntityBrowserSavedViewSettings,
+	},
+	{
+		dataSources: RyotQLDocument,
+		renderer: ResultsTableKernelRenderer,
+		settings: ResultsTableSavedViewSettings,
+	},
+	{
+		renderer: PluginSavedViewRenderer,
+		dataSources: Schema.NullOr(RyotQLDocument),
+		settings: Schema.Record(Schema.String, JsonValue),
+	},
+] as const;
+
+const authoredSavedViewConfigFields = [
+	{
+		dataSources: AuthoredQueryDocument,
+		renderer: EntityBrowserKernelRenderer,
+		settings: AuthoredEntityBrowserSavedViewSettings,
+	},
+	{
+		dataSources: AuthoredQueryDocument,
+		renderer: ResultsTableKernelRenderer,
+		settings: ResultsTableSavedViewSettings,
+	},
+	{
+		renderer: AuthoredPluginSavedViewRenderer,
+		dataSources: Schema.NullOr(AuthoredQueryDocument),
+		settings: Schema.Record(Schema.String, JsonValue),
+	},
+] as const;
+
+const withSavedViewConfig = <
+	Common extends Schema.Struct.Fields,
+	Entity extends Schema.Struct.Fields,
+	Table extends Schema.Struct.Fields,
+	Plugin extends Schema.Struct.Fields,
+>(
+	common: Common,
+	[entity, table, plugin]: readonly [Entity, Table, Plugin],
+) =>
+	Schema.Union([
+		strictStruct({ ...common, ...entity }),
+		strictStruct({ ...common, ...table }),
+		strictStruct({ ...common, ...plugin }),
+	]);
+
+export const SavedViewRendererConfig = withSavedViewConfig({}, savedViewConfigFields);
+export type SavedViewRendererConfig = typeof SavedViewRendererConfig.Type;
+
+export const AuthoredSavedViewRendererConfig = withSavedViewConfig(
+	{},
+	authoredSavedViewConfigFields,
+);
+export type AuthoredSavedViewRendererConfig = typeof AuthoredSavedViewRendererConfig.Type;
+
+export const withAuthoredSavedViewConfig = <Common extends Schema.Struct.Fields>(common: Common) =>
+	withSavedViewConfig(common, authoredSavedViewConfigFields);
+
+const createCommon = {
 	icon: Schema.String,
 	name: Schema.String,
-	renderer: SavedViewRenderer,
-	dataSources: Schema.NullOr(RyotQLDocument),
-	settings: Schema.Record(Schema.String, JsonValue),
 	workspaceInstallationId: Schema.optional(Schema.String),
-});
+};
+
+export const CreateSavedViewBody = withSavedViewConfig(createCommon, savedViewConfigFields);
 
 export type CreateSavedViewBody = typeof CreateSavedViewBody.Type;
 
-export const UpdateSavedViewBody = strictStruct({
+const updateCommon = {
 	isHidden: Schema.Boolean,
 	icon: Schema.optional(Schema.String),
 	name: Schema.optional(Schema.String),
-	renderer: Schema.optional(SavedViewRenderer),
-	dataSources: Schema.optional(Schema.NullOr(RyotQLDocument)),
-	settings: Schema.optional(Schema.Record(Schema.String, JsonValue)),
 	workspaceInstallationId: Schema.optional(Schema.NullOr(Schema.String)),
-});
+};
+
+export const updateSavedViewBody = <Common extends Schema.Struct.Fields>(common: Common) =>
+	Schema.Union([
+		strictStruct({ ...common, ...updateCommon }),
+		withSavedViewConfig({ ...common, ...updateCommon }, savedViewConfigFields),
+	]);
+
+export const UpdateSavedViewBody = updateSavedViewBody({});
 
 export type UpdateSavedViewBody = typeof UpdateSavedViewBody.Type;
 
