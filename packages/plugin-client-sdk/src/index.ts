@@ -20,7 +20,7 @@ export type {
 	OperationInvocation,
 	RyotClientAdapter,
 	RyotPageSearchUpdate,
-	RyotProviderSearchScreenRequest,
+	RyotPickEntityRequest,
 	RyotThemeSnapshot,
 	StorageAdapterRequest,
 } from "./client/adapter";

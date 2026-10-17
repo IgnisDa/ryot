@@ -106,10 +106,21 @@ const query = (runtime: ReturnType<typeof createPluginRuntime>) =>
 		decode: (response): Result.Result<unknown, RyotClientError> => Result.succeed(response),
 	});
 const providerSearch = (runtime: ReturnType<typeof createPluginRuntime>) =>
-	runtime.client.screens.openProviderSearch({
+	runtime.client.screens.pickEntity({
 		schema: { slug: "movie", owner: { kind: "plugin", pluginId: "fixture" } },
 		library: { librarySchemaSlug: "media-library", relationshipSlug: "in-media-library" },
 	});
+const entitySave = (pluginId: string) => ({
+	idempotencyKey: "form-1",
+	submittedAt: "2026-10-19T00:00:00.000Z",
+	submission: {
+		name: "Item",
+		properties: {},
+		relationships: [],
+		target: { kind: "create" as const },
+		entitySchema: { slug: "item", owner: { pluginId, kind: "plugin" as const } },
+	},
+});
 const sent = (messages: unknown[], type: string) =>
 	messages.filter(
 		(message) =>
@@ -247,28 +258,28 @@ describe("plugin Effect request engine", () => {
 			const { channel, runtime, messages } = yield* openRuntime();
 			const pending = yield* Effect.forkChild(providerSearch(runtime), { startImmediately: true });
 			yield* waitForMessagePortMacrotask;
-			expect(sent(messages, "provider-search-screen")).toEqual([
+			expect(sent(messages, "pick-entity-screen")).toEqual([
 				{
-					type: "provider-search-screen",
-					requestId: "provider-search-screen-1",
+					type: "pick-entity-screen",
+					requestId: "pick-entity-screen-1",
 					schema: { slug: "movie", owner: { kind: "plugin", pluginId: "fixture" } },
 					library: { librarySchemaSlug: "media-library", relationshipSlug: "in-media-library" },
 				},
 			]);
 			channel.port1.postMessage({
 				outcome: "success",
-				type: "provider-search-screen-result",
-				requestId: "provider-search-screen-stale",
-				value: { kind: "added", entityIds: ["late-entity"] },
+				type: "pick-entity-screen-result",
+				requestId: "pick-entity-screen-stale",
+				value: { kind: "selected", entityIds: ["late-entity"] },
 			});
 			yield* waitForMessagePortMacrotask;
 			channel.port1.postMessage({
 				outcome: "success",
-				requestId: "provider-search-screen-1",
-				type: "provider-search-screen-result",
-				value: { kind: "added", entityIds: ["entity-1"] },
+				requestId: "pick-entity-screen-1",
+				type: "pick-entity-screen-result",
+				value: { kind: "selected", entityIds: ["entity-1"] },
 			});
-			expect(yield* Fiber.join(pending)).toEqual({ kind: "added", entityIds: ["entity-1"] });
+			expect(yield* Fiber.join(pending)).toEqual({ kind: "selected", entityIds: ["entity-1"] });
 		}),
 	);
 
@@ -280,8 +291,8 @@ describe("plugin Effect request engine", () => {
 			channel.port1.postMessage({
 				outcome: "success",
 				value: { kind: "cancelled" },
-				requestId: "provider-search-screen-1",
-				type: "provider-search-screen-result",
+				requestId: "pick-entity-screen-1",
+				type: "pick-entity-screen-result",
 			});
 			expect(yield* Fiber.join(pending)).toEqual({ kind: "cancelled" });
 		}),
@@ -298,8 +309,8 @@ describe("plugin Effect request engine", () => {
 				yield* waitForMessagePortMacrotask;
 				yield* Fiber.interrupt(interrupted);
 				yield* waitForMessagePortMacrotask;
-				expect(sent(messages, "provider-search-screen-cancel")).toEqual([
-					{ requestId: "provider-search-screen-1", type: "provider-search-screen-cancel" },
+				expect(sent(messages, "pick-entity-screen-cancel")).toEqual([
+					{ requestId: "pick-entity-screen-1", type: "pick-entity-screen-cancel" },
 				]);
 
 				const pending = yield* Effect.forkChild(Effect.result(providerSearch(runtime)), {
@@ -679,6 +690,52 @@ describe("plugin Effect request engine", () => {
 				requestId: "storage-4",
 			});
 			expect(yield* Fiber.join(storage)).toMatchObject({ failure: { reason: "quota" } });
+		}),
+	);
+
+	it.live("sends entity saves only for contributing owners and settles their output", () =>
+		Effect.gen(function* () {
+			const { channel, runtime, messages } = yield* openRuntime();
+			const refreshes: number[] = [];
+			runtime.client.mutationCompleted.subscribe(() => refreshes.push(1));
+			expect(
+				(yield* Effect.flip(runtime.client.entities.save(entitySave("foreign-owner")))).reason,
+			).toBe("invalid-request");
+			expect(sent(messages, "entity-editor-save-request")).toEqual([]);
+
+			const save = yield* Effect.forkChild(runtime.client.entities.save(entitySave("fixture")), {
+				startImmediately: true,
+			});
+			yield* waitForMessagePortMacrotask;
+			const [sentRequest] = sent(messages, "entity-editor-save-request");
+			expect(sentRequest).toEqual({
+				...entitySave("fixture"),
+				requestId: "entity-editor-save-1",
+				type: "entity-editor-save-request",
+			});
+			channel.port1.postMessage({
+				outcome: "success",
+				requestId: "entity-editor-save-1",
+				type: "entity-editor-save-result",
+				output: { kind: "saved", entityId: "entity-1" },
+			});
+			expect(yield* Fiber.join(save)).toEqual({ kind: "saved", entityId: "entity-1" });
+			expect(refreshes).toHaveLength(1);
+
+			const refused = yield* Effect.forkChild(
+				Effect.result(runtime.client.entities.save(entitySave("fixture"))),
+				{ startImmediately: true },
+			);
+			yield* waitForMessagePortMacrotask;
+			channel.port1.postMessage({
+				outcome: "failure",
+				reason: "entity-save-failed",
+				requestId: "entity-editor-save-2",
+				type: "entity-editor-save-result",
+			});
+			expect(yield* Fiber.join(refused)).toMatchObject({
+				failure: { reason: "entity-save-failed" },
+			});
 		}),
 	);
 

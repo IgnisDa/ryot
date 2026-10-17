@@ -1,3 +1,4 @@
+import type { EntityEditorSaveRequest } from "@ryot-app/contract/modules/entities/editor";
 import { strictStruct } from "@ryot-app/contract/schema/utils";
 import {
 	CLIENT_API_VERSION,
@@ -20,6 +21,7 @@ import {
 	type PluginBridgeAssetCancel,
 	type PluginBridgeAssetRequest,
 	type PluginBridgeCollectionRequest,
+	type PluginBridgeEntitySaveRequest,
 	type PluginBridgeDismissOverlay,
 	type PluginBridgeDismissOverlayResult,
 	type PluginBridgeInit,
@@ -30,8 +32,8 @@ import {
 	type PluginBridgePageSearch,
 	type PluginBridgePageRefresh,
 	type PluginBridgePageShortcutPress,
-	type PluginBridgeProviderSearchScreen,
-	type PluginBridgeProviderSearchScreenCancel,
+	type PluginBridgePickEntityScreen,
+	type PluginBridgePickEntityScreenCancel,
 	type PluginBridgeTheme,
 	type PluginBridgeViewport,
 	type PluginBridgeOperationRequest,
@@ -49,13 +51,14 @@ import {
 	type PluginThemeSnapshot,
 	type PluginCollectionOutcome,
 	type PluginCollectionRequest,
+	type PluginEntitySaveOutcome,
 	type PluginStorageOutcome,
 	type PluginStorageRequest,
 	type PluginDeviceRequest,
 	type PluginDeviceOutcome,
 	type PluginIosLiveActivityRequest,
 	type PluginIosLiveActivityOutcome,
-	type ProviderSearchScreenOutcome,
+	type PickEntityOutcome,
 } from "@ryot-app/plugin-client-contract";
 import type { EntityWatchSubscription } from "@ryot-app/plugin-client-sdk";
 import { Cause, Effect, Fiber, Match, Option, Result, Schema } from "effect";
@@ -97,10 +100,11 @@ type PendingRequest = {
 		| "device"
 		| "asset"
 		| "collection"
+		| "entity-editor-save"
 		| "external-link"
 		| "ios-live-activity"
 		| "operation"
-		| "provider-search-screen"
+		| "pick-entity-screen"
 		| "ryotql"
 		| "storage"
 		| "upload";
@@ -132,15 +136,18 @@ type PluginBridgeOptions = {
 	readonly onPageSearch: (request: PluginBridgePageSearch) => void;
 	readonly onPageShortcuts: (shortcuts: readonly PageShortcutKey[]) => void;
 	readonly scheduleOverlayDismissTimeout?: (onTimeout: () => void) => () => void;
-	readonly onProviderSearch: (
-		request: PluginBridgeProviderSearchScreen,
-	) => Effect.Effect<ProviderSearchScreenOutcome>;
+	readonly onPickEntity: (
+		request: PluginBridgePickEntityScreen,
+	) => Effect.Effect<PickEntityOutcome>;
 	readonly onAssets: (request: PluginAssetRequest) => Effect.Effect<PluginAssetOutcome>;
 	readonly onRyotQL: (request: PluginRyotQLRequest) => Effect.Effect<PluginRyotQLOutcome>;
 	readonly onOperation: (request: PluginOperationRequest) => Effect.Effect<PluginOperationOutcome>;
 	readonly onCollection: (
 		request: PluginCollectionRequest,
 	) => Effect.Effect<PluginCollectionOutcome>;
+	readonly onEntitySave: (
+		request: EntityEditorSaveRequest,
+	) => Effect.Effect<PluginEntitySaveOutcome>;
 	readonly onUpload: (request: PluginUploadRequest) => Effect.Effect<PluginUploadOutcome>;
 	readonly onExternalLink: (request: ExternalLinkRequest) => Effect.Effect<ExternalLinkOutcome>;
 	readonly onStorage: (request: PluginStorageRequest) => Effect.Effect<PluginStorageOutcome>;
@@ -534,6 +541,11 @@ export function openPluginBridge(options: PluginBridgeOptions): PluginBridgeSess
 		runRequest(request.requestId, "collection", () => options.onCollection(capabilityRequest));
 	}
 
+	function handleEntitySave(request: PluginBridgeEntitySaveRequest) {
+		const { requestId, type: _type, ...capabilityRequest }: PluginBridgeEntitySaveRequest = request;
+		runRequest(requestId, "entity-editor-save", () => options.onEntitySave(capabilityRequest));
+	}
+
 	function handleUpload(request: PluginBridgeUploadRequest) {
 		const { requestId, type: _type, ...capabilityRequest }: PluginBridgeUploadRequest = request;
 		runRequest(requestId, "upload", () => options.onUpload(capabilityRequest));
@@ -563,9 +575,9 @@ export function openPluginBridge(options: PluginBridgeOptions): PluginBridgeSess
 		Effect.runFork(Fiber.interrupt(current.fiber));
 	}
 
-	function handleProviderSearchCancel(request: PluginBridgeProviderSearchScreenCancel) {
+	function handlePickEntityCancel(request: PluginBridgePickEntityScreenCancel) {
 		const current = pending.get(request.requestId);
-		if (current?.type !== "provider-search-screen" || !pending.delete(request.requestId)) {
+		if (current?.type !== "pick-entity-screen" || !pending.delete(request.requestId)) {
 			return;
 		}
 		Effect.runFork(Fiber.interrupt(current.fiber));
@@ -630,8 +642,8 @@ export function openPluginBridge(options: PluginBridgeOptions): PluginBridgeSess
 							}
 						}),
 						Match.when({ type: "asset-cancel" }, (request) => handleAssetCancel(request)),
-						Match.when({ type: "provider-search-screen-cancel" }, (request) =>
-							handleProviderSearchCancel(request),
+						Match.when({ type: "pick-entity-screen-cancel" }, (request) =>
+							handlePickEntityCancel(request),
 						),
 						Match.when({ type: "asset-request" }, (request) => handleAssets(request)),
 						Match.when({ type: "navigate-back" }, () => {
@@ -660,10 +672,10 @@ export function openPluginBridge(options: PluginBridgeOptions): PluginBridgeSess
 						Match.when({ type: "header" }, (request) => options.onHeader(request)),
 						Match.when({ type: "navigate" }, (request) => options.onNavigate(request)),
 						Match.when({ type: "page-search" }, (request) => options.onPageSearch(request)),
-						Match.when({ type: "provider-search-screen" }, (request) =>
-							runRequest(request.requestId, "provider-search-screen", () =>
+						Match.when({ type: "pick-entity-screen" }, (request) =>
+							runRequest(request.requestId, "pick-entity-screen", () =>
 								options
-									.onProviderSearch(request)
+									.onPickEntity(request)
 									.pipe(Effect.map((value) => ({ value, outcome: "success" }))),
 							),
 						),
@@ -672,6 +684,9 @@ export function openPluginBridge(options: PluginBridgeOptions): PluginBridgeSess
 						Match.when({ type: "ryotql-request" }, (request) => handleRyotQL(request)),
 						Match.when({ type: "operation-request" }, (request) => handleOperation(request)),
 						Match.when({ type: "collection-request" }, (request) => handleCollection(request)),
+						Match.when({ type: "entity-editor-save-request" }, (request) =>
+							handleEntitySave(request),
+						),
 						Match.when({ type: "upload-request" }, (request) => handleUpload(request)),
 						Match.when({ type: "external-link-request" }, (request) =>
 							runRequest(request.requestId, "external-link", () =>

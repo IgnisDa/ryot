@@ -1,17 +1,29 @@
 import type {
+	EntityEditorSaveOutput,
+	EntityEditorSaveRequest,
+} from "@ryot-app/contract/modules/entities/editor";
+import type {
 	ImportEntityBody,
 	SearchProviderEntitiesBody,
 } from "@ryot-app/contract/modules/entity-providers/schemas";
 import type { EntitySchemaReference } from "@ryot-app/contract/modules/plugins/references";
 import type { SandboxProviderId } from "@ryot-app/contract/schema/brands";
+import {
+	entityPickerEntitiesRecipe,
+	entityPickerMaterializedRecipe,
+	entityPickerSchemaRecipe,
+} from "@ryot-app/ryotql-recipes/entity-picker";
 import { providerEntityLinksRecipe } from "@ryot-app/ryotql-recipes/provider-entity-links";
 import { providerSearchRecipe } from "@ryot-app/ryotql-recipes/provider-search";
 import type { ProviderSearchResult } from "@ryot-app/ryotql-recipes/provider-search";
 import { Context, Data, Effect, Layer } from "effect";
 
+import { isDemoOperationProtectedError } from "#/api/authenticated";
+import { EntitiesApi, isDeclaredEntitySaveFailure } from "#/api/entities";
 import { EntityProvidersApi } from "#/api/entity-providers";
 import type { KernelRyotClient } from "#/api/ryot-client";
 import type { ApiScope } from "#/api/scope";
+import { DEMO_PROTECTION_MESSAGE } from "#/modules/demo-protection";
 
 type ProviderAddClient = Pick<KernelRyotClient, "data">;
 
@@ -19,14 +31,68 @@ export type ProviderSearchSummary = ProviderSearchResult["items"][number];
 
 export class ProviderAddLoadError extends Data.TaggedError("ProviderAddLoadError")<{
 	readonly cause: unknown;
-	readonly stage: "providers" | "links" | "options" | "search" | "import";
+	readonly stage:
+		| "providers"
+		| "links"
+		| "options"
+		| "search"
+		| "import"
+		| "schema"
+		| "entities"
+		| "create";
 }> {}
+
+const query = <A, E>(stage: ProviderAddLoadError["stage"], effect: Effect.Effect<A, E>) =>
+	effect.pipe(Effect.mapError((cause) => new ProviderAddLoadError({ cause, stage })));
+
+export const ENTITY_CREATE_REFUSED_MESSAGE = "This item could not be created here.";
 
 export class ProviderAddService extends Context.Service<ProviderAddService>()(
 	"ProviderAddService",
 	{
 		make: Effect.gen(function* () {
 			const api = yield* EntityProvidersApi;
+			const entities = yield* EntitiesApi;
+			const loadSchema = Effect.fn("ProviderAddService.loadSchema")(function* (
+				client: ProviderAddClient,
+				schema: EntitySchemaReference,
+			) {
+				return yield* query("schema", client.data.query(entityPickerSchemaRecipe({ schema })));
+			});
+			const loadEntities = Effect.fn("ProviderAddService.loadEntities")(function* (
+				client: ProviderAddClient,
+				input: Parameters<typeof entityPickerEntitiesRecipe>[0],
+			) {
+				return yield* query("entities", client.data.query(entityPickerEntitiesRecipe(input)));
+			});
+			const loadMaterialized = Effect.fn("ProviderAddService.loadMaterialized")(function* (
+				client: ProviderAddClient,
+				input: Parameters<typeof entityPickerMaterializedRecipe>[0],
+			) {
+				return yield* query("links", client.data.query(entityPickerMaterializedRecipe(input)));
+			});
+			const createEntity = Effect.fn("ProviderAddService.createEntity")(function* (
+				scope: ApiScope,
+				payload: EntityEditorSaveRequest,
+			) {
+				return yield* entities.saveEditor(scope, { payload }).pipe(
+					Effect.map(({ output }) => output),
+					Effect.catch((cause) => {
+						if (isDemoOperationProtectedError(cause)) {
+							return Effect.succeed<EntityEditorSaveOutput>({
+								kind: "invalid",
+								message: DEMO_PROTECTION_MESSAGE,
+							});
+						}
+						return isDeclaredEntitySaveFailure(cause)
+							? Effect.succeed<EntityEditorSaveOutput>({
+									kind: "invalid",
+									message: ENTITY_CREATE_REFUSED_MESSAGE,
+								})
+							: Effect.fail(new ProviderAddLoadError({ cause, stage: "create" }));
+					}),
+				);
+			});
 			const loadProviders = Effect.fn("ProviderAddService.loadProviders")(function* (
 				client: ProviderAddClient,
 				rootEntitySchema: EntitySchemaReference,
@@ -94,7 +160,18 @@ export class ProviderAddService extends Context.Service<ProviderAddService>()(
 					);
 			});
 
-			return { search, pollImport, startImport, loadProviders, loadEntityLinks, loadSearchOptions };
+			return {
+				search,
+				loadSchema,
+				pollImport,
+				startImport,
+				createEntity,
+				loadEntities,
+				loadProviders,
+				loadEntityLinks,
+				loadMaterialized,
+				loadSearchOptions,
+			};
 		}),
 	},
 ) {

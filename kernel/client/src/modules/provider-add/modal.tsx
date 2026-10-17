@@ -4,13 +4,14 @@ import {
 	type EntitySchemaReference,
 } from "@ryot-app/contract/modules/plugins/references";
 import type { EntityId, SandboxProviderId } from "@ryot-app/contract/schema/brands";
-import type { ProviderSearchScreenOutcome } from "@ryot-app/plugin-client-contract";
+import type { PickEntityOutcome } from "@ryot-app/plugin-client-contract";
 import {
 	renderSchemaAsset,
 	useRyot,
 	useSchemaAssetUpload,
 } from "@ryot-app/plugin-client-sdk/react";
 import { Modal } from "@ryot-app/plugin-ui-sdk";
+import type { EntityPickerSchema } from "@ryot-app/ryotql-recipes/entity-picker";
 import { useRouteContext } from "@tanstack/react-router";
 import { Effect } from "effect";
 import { useEffect, useEffectEvent, useRef, useState, type ComponentProps } from "react";
@@ -18,42 +19,48 @@ import { useEffect, useEffectEvent, useRef, useState, type ComponentProps } from
 import { toGlobalHref } from "#/modules/plugins/catalog/location";
 import { usePluginCatalog } from "#/modules/plugins/catalog/provider";
 import { importProviderEntity } from "#/modules/provider-add/import-controller";
+import { InlineEntityCreate } from "#/modules/provider-add/inline-create";
 import {
 	type ProviderAddOutcome,
 	type ProviderEntityLinks,
 	ProviderSearchPanel,
 	type ProviderSummariesState,
 } from "#/modules/provider-add/panel";
+import { EntityPickPanel } from "#/modules/provider-add/pick-panel";
 import { ProviderAddService, type ProviderSearchSummary } from "#/modules/provider-add/service";
 import { useSchemaFileUpload } from "#/modules/ui/schema-form-upload";
 import { ClientStorage } from "#/persistence/storage";
 
 export const PROVIDER_ADD_TITLE = "Add from a provider";
 
-type ProviderAddModalProps = {
+type EntityPickerModalProps = {
 	readonly onClose: () => void;
 	readonly onCreate: (href: string) => void;
-	readonly onComplete?: (outcome: ProviderSearchScreenOutcome) => void;
+	readonly onComplete?: (outcome: PickEntityOutcome) => void;
 	readonly initialQuery?: string | undefined;
 	readonly schema: EntitySchemaReference;
-	readonly library: ProviderLibraryMembership;
+	readonly library?: ProviderLibraryMembership | undefined;
 };
 
-type ProviderAddModalState = {
+type EntityPickerModalState = {
 	readonly providers: ProviderSummariesState;
 	readonly selectedProviderId: SandboxProviderId | undefined;
 };
 
+type EntityPickerView =
+	| { readonly kind: "browse" }
+	| { readonly kind: "create"; readonly name: string };
+
 const loadedProviderState = (
 	remembered: SandboxProviderId | null,
 	result: ProviderAddOutcome<{ readonly items: readonly ProviderSearchSummary[] }>,
-): ProviderAddModalState => ({
+): EntityPickerModalState => ({
 	selectedProviderId: remembered ?? undefined,
 	providers:
 		"value" in result ? { status: "ready", providers: result.value.items } : { status: "failed" },
 });
 
-export function ProviderAddModal(props: ProviderAddModalProps) {
+export function EntityPickerModal(props: EntityPickerModalProps) {
 	const uploadAsset = useSchemaAssetUpload();
 	const ryot = useRyot();
 	const uploadFile = useSchemaFileUpload();
@@ -69,9 +76,11 @@ export function ProviderAddModal(props: ProviderAddModalProps) {
 	const schemaKey = definitionKey("entity", props.schema.owner, entitySchemaSlug);
 	const providerService = runtime.runSync(ProviderAddService);
 	const clientStorage = runtime.runSync(ClientStorage);
-	const imported = useRef(false);
+	const changed = useRef(false);
 	const completed = useRef(false);
-	const [state, setState] = useState<ProviderAddModalState>({
+	const [view, setView] = useState<EntityPickerView>({ kind: "browse" });
+	const [definition, setDefinition] = useState<EntityPickerSchema>(null);
+	const [state, setState] = useState<EntityPickerModalState>({
 		selectedProviderId: undefined,
 		providers: { status: "loading" },
 	});
@@ -80,7 +89,7 @@ export function ProviderAddModal(props: ProviderAddModalProps) {
 		(schema: EntitySchemaReference, isActive: () => boolean) =>
 			runtime.runPromise(
 				Effect.gen(function* () {
-					const [remembered, result] = yield* Effect.all(
+					const [remembered, result, loadedDefinition] = yield* Effect.all(
 						[
 							clientStorage.getRememberedProvider(scope, schemaKey),
 							providerService
@@ -99,11 +108,15 @@ export function ProviderAddModal(props: ProviderAddModalProps) {
 										}> => ({ value }),
 									}),
 								),
+							providerService
+								.loadSchema(ryot, schema)
+								.pipe(Effect.orElseSucceed((): EntityPickerSchema => null)),
 						],
 						{ concurrency: "unbounded" },
 					);
 					if (isActive()) {
 						setState(loadedProviderState(remembered, result));
+						setDefinition(loadedDefinition);
 					}
 				}),
 			),
@@ -111,7 +124,7 @@ export function ProviderAddModal(props: ProviderAddModalProps) {
 
 	useEffect(
 		() => () => {
-			if (imported.current) {
+			if (changed.current) {
 				ryot.mutationCompleted.hint();
 			}
 		},
@@ -164,7 +177,7 @@ export function ProviderAddModal(props: ProviderAddModalProps) {
 								new Map(links.map((link) => [link.externalId, link.entityId])),
 						),
 					);
-	const complete = (outcome: ProviderSearchScreenOutcome) => {
+	const complete = (outcome: PickEntityOutcome) => {
 		if (props.onComplete === undefined || completed.current) {
 			return false;
 		}
@@ -172,7 +185,11 @@ export function ProviderAddModal(props: ProviderAddModalProps) {
 		props.onComplete(outcome);
 		return true;
 	};
-	const createCustom = (query: string) => {
+	const select = (entityId: EntityId) => {
+		changed.current = true;
+		complete({ kind: "selected", entityIds: [entityId] });
+	};
+	const createThroughRoute = (query: string) => {
 		if (owner === undefined || createRoute === undefined) {
 			return;
 		}
@@ -191,23 +208,63 @@ export function ProviderAddModal(props: ProviderAddModalProps) {
 		complete({ kind: "create-requested" });
 		props.onCreate(href);
 	};
+	const createInline = definition?.editor
+		? (query: string) => setView({ name: query, kind: "create" })
+		: undefined;
+	const create =
+		createRoute === undefined || props.library === undefined ? createInline : createThroughRoute;
 	const close = () => {
 		if (!complete({ kind: "cancelled" })) {
 			props.onClose();
 		}
 	};
 
-	return (
-		<Modal
-			onClose={close}
-			closeLabel="Close"
-			label={PROVIDER_ADD_TITLE}
-			containerClassName="md:items-center md:justify-center md:p-6"
-			className="flex w-full flex-1 flex-col overflow-hidden bg-bg pt-[env(safe-area-inset-top)] md:max-h-[85%] md:max-w-2xl md:flex-initial md:rounded-xl md:border md:border-border md:bg-surface md:shadow-card md:pt-0"
-		>
+	const renderContent = () => {
+		if (view.kind === "create" && definition !== null) {
+			return (
+				<InlineEntityCreate
+					schema={props.schema}
+					definition={definition}
+					uploadFile={uploadFile}
+					initialName={view.name}
+					uploadAsset={uploadAsset}
+					renderAsset={renderSchemaAsset}
+					onBack={() => setView({ kind: "browse" })}
+					create={(request) => providerService.createEntity(scope, request)}
+					onCreated={(entityId) => {
+						setView({ kind: "browse" });
+						select(entityId);
+					}}
+				/>
+			);
+		}
+		if (props.library === undefined) {
+			return (
+				<EntityPickPanel
+					search={search}
+					onClose={close}
+					onSelect={select}
+					onCreate={create}
+					importEntity={importEntity}
+					providers={state.providers}
+					initialQuery={props.initialQuery}
+					onSelectProvider={selectProvider}
+					selectedProviderId={state.selectedProviderId}
+					loadEntities={(input) =>
+						providerService.loadEntities(ryot, { ...input, schema: props.schema })
+					}
+					loadMaterialized={(input) =>
+						providerService.loadMaterialized(ryot, { ...input, schema: props.schema })
+					}
+				/>
+			);
+		}
+		return (
 			<ProviderSearchPanel
 				search={search}
 				onClose={close}
+				onImported={select}
+				onCreateCustom={create}
 				uploadFile={uploadFile}
 				uploadAsset={uploadAsset}
 				providers={state.providers}
@@ -221,12 +278,21 @@ export function ProviderAddModal(props: ProviderAddModalProps) {
 				selectedProviderId={state.selectedProviderId}
 				relationshipSlug={props.library.relationshipSlug}
 				librarySchemaSlug={props.library.librarySchemaSlug}
-				onCreateCustom={createRoute === undefined ? undefined : createCustom}
-				onImported={(entityId: EntityId) => {
-					imported.current = true;
-					complete({ kind: "added", entityIds: [entityId] });
-				}}
 			/>
+		);
+	};
+
+	return (
+		<Modal
+			onClose={close}
+			closeLabel="Close"
+			containerClassName="md:items-center md:justify-center md:p-6"
+			label={
+				props.library === undefined ? `Choose ${definition?.name ?? "an item"}` : PROVIDER_ADD_TITLE
+			}
+			className="flex w-full flex-1 flex-col overflow-hidden bg-bg pt-[env(safe-area-inset-top)] md:max-h-[85%] md:max-w-2xl md:flex-initial md:rounded-xl md:border md:border-border md:bg-surface md:shadow-card md:pt-0"
+		>
+			{renderContent()}
 		</Modal>
 	);
 }

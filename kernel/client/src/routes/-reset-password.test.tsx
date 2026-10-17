@@ -9,11 +9,7 @@ import type { ServerOrigin } from "#/api/origin";
 import { KernelApiTestLayer } from "#/api/ports.test-layer";
 import { HostedAuthError, type HostedAuthService } from "#/modules/auth/hosted-service";
 import { createBackInterceptors } from "#/modules/navigation/back-interceptors";
-import {
-	makePluginOperations,
-	makePluginQueries,
-	makePluginStorage,
-} from "#/modules/pages/bridge/services.test-layer";
+import { pluginBridgeServicesTestLayer } from "#/modules/pages/bridge/services.test-layer";
 import { makePluginCatalogEventsTestLayer } from "#/modules/plugins/catalog/events.test-layer";
 import { makePluginCatalog } from "#/modules/plugins/catalog/service.test-layer";
 import { ServerService } from "#/modules/server/service";
@@ -85,9 +81,7 @@ const makeView = (
 			DeviceRouteStubs,
 			NavigationRouteStubs,
 			CustomizeRouteStubs,
-			makePluginOperations(),
-			makePluginQueries(),
-			makePluginStorage(),
+			pluginBridgeServicesTestLayer,
 		).pipe(Layer.provideMerge(oauth), Layer.provideMerge(makeStorageStubLayer())),
 	);
 	const router = getRouter(

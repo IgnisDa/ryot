@@ -4,11 +4,11 @@ import { PluginPackageId } from "@ryot-app/contract/schema/brands";
 import {
 	CLIENT_BRIDGE_BOOTSTRAP_READY,
 	PluginBridgeInit,
-	type PluginBridgeProviderSearchScreen,
+	type PluginBridgePickEntityScreen,
 	type PluginIosLiveActivityOutcome,
 	type PluginLogicalLocation,
 	type PluginOperationRequest,
-	type ProviderSearchScreenOutcome,
+	type PickEntityOutcome,
 } from "@ryot-app/plugin-client-contract";
 import { RyotProvider } from "@ryot-app/plugin-client-sdk/react";
 import { createTestRyotClock } from "@ryot-app/plugin-client-sdk/testing";
@@ -48,9 +48,9 @@ function mount(
 		readonly onInvokeOperation?: (
 			request: PluginOperationRequest,
 		) => Effect.Effect<PluginOperationDispatchOutcome>;
-		readonly onProviderSearch?: (
-			request: PluginBridgeProviderSearchScreen,
-		) => Effect.Effect<ProviderSearchScreenOutcome>;
+		readonly onPickEntity?: (
+			request: PluginBridgePickEntityScreen,
+		) => Effect.Effect<PickEntityOutcome>;
 	} = {},
 ) {
 	const backInterceptors = createBackInterceptors();
@@ -75,12 +75,12 @@ function mount(
 	const states: unknown[] = [];
 	const searches: unknown[] = [];
 	const navigations: unknown[] = [];
-	const providerSearches: unknown[] = [];
+	const entityPicks: unknown[] = [];
 	const operations: PluginOperationRequest[] = [];
-	const onProviderSearch =
-		options.onProviderSearch ??
-		((request: PluginBridgeProviderSearchScreen) => {
-			providerSearches.push(request);
+	const onPickEntity =
+		options.onPickEntity ??
+		((request: PluginBridgePickEntityScreen) => {
+			entityPicks.push(request);
 			return Effect.succeed({ kind: "cancelled" as const });
 		});
 	const refreshListeners = new Set<() => void>();
@@ -103,7 +103,7 @@ function mount(
 		freshnessCheckRevision = 0,
 		active = true,
 		pageKey = "page-1",
-		providerSearchHandler = onProviderSearch,
+		pickEntityHandler = onPickEntity,
 	) => ({
 		theme,
 		active,
@@ -120,11 +120,11 @@ function mount(
 		onOpenDrawer: () => undefined,
 		onNavigateBack: () => undefined,
 		onOverlayState: () => undefined,
+		onPickEntity: pickEntityHandler,
 		onKernelShortcut: () => undefined,
 		onReleaseResources: () => undefined,
 		chromeTriggerRef: { current: null },
 		compositionHash: "composition-hash",
-		onProviderSearch: providerSearchHandler,
 		subscribeResume: options.subscribeResume,
 		viewport: { safeAreaTop: 7, safeAreaBottom: 11 },
 		onScreenState: (state: unknown) => states.push(state),
@@ -138,6 +138,8 @@ function mount(
 		onUpload: () => Effect.succeed({ outcome: "failure" as const, reason: "transport" as const }),
 		onStorage: () => Effect.succeed({ outcome: "failure" as const, reason: "transport" as const }),
 		onCollection: () =>
+			Effect.succeed({ outcome: "failure" as const, reason: "transport" as const }),
+		onEntitySave: () =>
 			Effect.succeed({ outcome: "failure" as const, reason: "transport" as const }),
 		onDevice: () =>
 			Effect.succeed({ outcome: "failure" as const, reason: "invalid-request" as const }),
@@ -185,7 +187,7 @@ function mount(
 		searches,
 		operations,
 		navigations,
-		providerSearches,
+		entityPicks,
 		backInterceptors,
 		refresh: mutationCompleted.hint,
 		documentLoads: () => documentLoads,
@@ -193,7 +195,7 @@ function mount(
 			view.rerender(withCatalog(<PageIframeHost {...props(home, 0, 0, active)} />)),
 		replace: (pageKey: string) =>
 			view.rerender(withCatalog(<PageIframeHost {...props(home, 0, 0, true, pageKey)} />)),
-		setProviderSearchHandler: (handler: typeof onProviderSearch) =>
+		setPickEntityHandler: (handler: typeof onPickEntity) =>
 			view.rerender(
 				withCatalog(<PageIframeHost {...props(home, 0, 0, true, "page-1", handler)} />),
 			),
@@ -278,7 +280,7 @@ describe("PageIframeHost", () => {
 		}),
 	);
 
-	it.live("uses the current route provider-search callback for a live bridge", () =>
+	it.live("uses the current route entity-picker callback for a live bridge", () =>
 		Effect.gen(function* () {
 			const host = mount();
 			yield* Effect.promise(() => flush());
@@ -288,20 +290,20 @@ describe("PageIframeHost", () => {
 			bridge.port.postMessage(bridge.ready);
 			yield* Effect.promise(() => waitFor(() => expect(bridge.messages).toHaveLength(1)));
 
-			const routed: PluginBridgeProviderSearchScreen[] = [];
-			host.setProviderSearchHandler((request) =>
+			const routed: PluginBridgePickEntityScreen[] = [];
+			host.setPickEntityHandler((request) =>
 				Effect.sync(() => routed.push(request)).pipe(Effect.as({ kind: "cancelled" as const })),
 			);
 			bridge.port.postMessage({
-				type: "provider-search-screen",
-				requestId: "provider-search-screen-1",
+				type: "pick-entity-screen",
+				requestId: "pick-entity-screen-1",
 				schema: { slug: "movie", owner: { kind: "plugin", pluginId: "media-installation" } },
 				library: { librarySchemaSlug: "media-library", relationshipSlug: "in-media-library" },
 			});
 			yield* Effect.promise(() => waitFor(() => expect(routed).toHaveLength(1)));
 
-			expect(host.providerSearches).toEqual([]);
-			expect(routed[0]).toMatchObject({ requestId: "provider-search-screen-1" });
+			expect(host.entityPicks).toEqual([]);
+			expect(routed[0]).toMatchObject({ requestId: "pick-entity-screen-1" });
 		}),
 	);
 
@@ -394,8 +396,8 @@ describe("PageIframeHost", () => {
 				target: { search: "q=x", path: "/shows", kind: "plugin-route", packageId: "ryot/media" },
 			});
 			bridge.port.postMessage({
-				type: "provider-search-screen",
-				requestId: "provider-search-screen-1",
+				type: "pick-entity-screen",
+				requestId: "pick-entity-screen-1",
 				schema: { slug: "movie", owner: { kind: "plugin", pluginId: "media-installation" } },
 				library: { librarySchemaSlug: "media-library", relationshipSlug: "in-media-library" },
 			});
@@ -423,10 +425,10 @@ describe("PageIframeHost", () => {
 			expect(host.searches).toEqual([
 				{ mode: "replace", type: "page-search", update: { q: "dune", dialog: null } },
 			]);
-			expect(host.providerSearches).toEqual([
+			expect(host.entityPicks).toEqual([
 				{
-					type: "provider-search-screen",
-					requestId: "provider-search-screen-1",
+					type: "pick-entity-screen",
+					requestId: "pick-entity-screen-1",
 					schema: { slug: "movie", owner: { kind: "plugin", pluginId: "media-installation" } },
 					library: { librarySchemaSlug: "media-library", relationshipSlug: "in-media-library" },
 				},

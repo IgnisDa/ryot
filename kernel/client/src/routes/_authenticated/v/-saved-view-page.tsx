@@ -8,8 +8,8 @@ import {
 	EntityBrowserSavedViewSettings,
 } from "@ryot-app/contract/modules/saved-views/schemas";
 import type {
-	PluginBridgeProviderSearchScreen,
-	ProviderSearchScreenOutcome,
+	PluginBridgePickEntityScreen,
+	PickEntityOutcome,
 } from "@ryot-app/plugin-client-contract";
 import { Button } from "@ryot-app/plugin-ui-sdk";
 import { useNavigate, useRouteContext, useRouter, useRouterState } from "@tanstack/react-router";
@@ -26,8 +26,8 @@ import {
 	useHasPublishedClientPageDocument,
 } from "#/modules/pages/documents/state";
 import { mergePageSearch } from "#/modules/pages/runtime/document-host";
-import { ProviderAddModal } from "#/modules/provider-add/modal";
-import { useProviderSearchSession } from "#/modules/provider-add/search-session";
+import { EntityPickerModal } from "#/modules/provider-add/modal";
+import { useEntityPickerSession } from "#/modules/provider-add/picker-session";
 import { ClientStorage } from "#/persistence/storage";
 
 const entityBrowserSettings = (prepared: PreparedClientPage) => {
@@ -117,16 +117,18 @@ export function SavedViewPage({
 		}
 		navigateAddSearch({ q: null, add: null }, true);
 	};
-	const { open, session } = useProviderSearchSession({
+	const { open, session } = useEntityPickerSession({
 		onDismiss: closeAdd,
 		onOpen: (request) => {
 			pushedAdd.current = true;
 			navigateAddSearch({ add: "true", q: request.initialQuery ?? null }, false);
 		},
 	});
-	const openAdd = (request: PluginBridgeProviderSearchScreen) =>
-		providerAddAction === null || !sameDeclaration(request.schema, providerAddAction.schema)
-			? Effect.succeed<ProviderSearchScreenOutcome>({ kind: "cancelled" })
+	const openAdd = (request: PluginBridgePickEntityScreen) =>
+		providerAddAction === null ||
+		request.library === undefined ||
+		!sameDeclaration(request.schema, providerAddAction.schema)
+			? Effect.succeed<PickEntityOutcome>({ kind: "cancelled" })
 			: open(request);
 
 	useEffect(() => {
@@ -155,13 +157,13 @@ export function SavedViewPage({
 	}, [layout, loaded.prepared, loaded.viewPath, runtime, scope]);
 	useClientPageDocument({
 		inert: addOpen,
+		onPickEntity: openAdd,
 		prepared: loaded.prepared,
-		onProviderSearch: openAdd,
 		title: loaded.prepared.context.view?.name ?? "Saved view",
 	});
 
 	return addOpen ? (
-		<ProviderAddModal
+		<EntityPickerModal
 			initialQuery={q}
 			onClose={closeAdd}
 			onComplete={session?.complete}

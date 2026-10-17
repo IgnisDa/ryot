@@ -13,11 +13,7 @@ import { PublicApi, PublicApiError } from "#/api/public";
 import type { RyotQLApi } from "#/api/ryotql";
 import type { AuthService } from "#/modules/auth/service";
 import { createBackInterceptors } from "#/modules/navigation/back-interceptors";
-import {
-	makePluginOperations,
-	makePluginQueries,
-	makePluginStorage,
-} from "#/modules/pages/bridge/services.test-layer";
+import { pluginBridgeServicesTestLayer } from "#/modules/pages/bridge/services.test-layer";
 import { makePluginCatalogEventsTestLayer } from "#/modules/plugins/catalog/events.test-layer";
 import { makePluginCatalog } from "#/modules/plugins/catalog/service.test-layer";
 import { ClientStorage } from "#/persistence/storage";
@@ -121,9 +117,7 @@ const mountView = (
 			DeviceRouteStubs,
 			NavigationRouteStubs,
 			CustomizeRouteStubs,
-			makePluginOperations(),
-			makePluginQueries(),
-			makePluginStorage(),
+			pluginBridgeServicesTestLayer,
 		).pipe(
 			Layer.provideMerge(oauthLayer),
 			Layer.provideMerge(Layer.succeed(ClientStorage, storage)),

@@ -1,3 +1,4 @@
+import type { EntityEditorSaveRequest } from "@ryot-app/contract/modules/entities/editor";
 import { CLIENT_BRIDGE_BOOTSTRAP_READY } from "@ryot-app/plugin-client-contract";
 import type {
 	ClientPageContext,
@@ -9,13 +10,14 @@ import type {
 	PluginAssetRequest,
 	PluginCollectionOutcome,
 	PluginCollectionRequest,
+	PluginEntitySaveOutcome,
 	PluginUploadOutcome,
 	PluginUploadRequest,
 	PluginOperationOutcome,
 	PluginOperationRequest,
 	PluginBridgePageSearch,
-	PluginBridgeProviderSearchScreen,
-	ProviderSearchScreenOutcome,
+	PluginBridgePickEntityScreen,
+	PickEntityOutcome,
 	PluginRyotQLOutcome,
 	PluginRyotQLRequest,
 	PluginStorageOutcome,
@@ -107,15 +109,18 @@ export function PageIframeHost(props: {
 	readonly onNavigate: (request: PluginNavigationRequest) => void;
 	readonly onPageSearch: (request: PluginBridgePageSearch) => void;
 	readonly onScreenState: (state: PageScreenReadiness | null) => void;
-	readonly onProviderSearch: (
-		request: PluginBridgeProviderSearchScreen,
-	) => Effect.Effect<ProviderSearchScreenOutcome>;
+	readonly onPickEntity: (
+		request: PluginBridgePickEntityScreen,
+	) => Effect.Effect<PickEntityOutcome>;
 	readonly onAssets: (request: PluginAssetRequest) => Effect.Effect<PluginAssetOutcome>;
 	readonly onUpload: (request: PluginUploadRequest) => Effect.Effect<PluginUploadOutcome>;
 	readonly onExternalLink: (request: ExternalLinkRequest) => Effect.Effect<ExternalLinkOutcome>;
 	readonly onCollection: (
 		request: PluginCollectionRequest,
 	) => Effect.Effect<PluginCollectionOutcome>;
+	readonly onEntitySave: (
+		request: EntityEditorSaveRequest,
+	) => Effect.Effect<PluginEntitySaveOutcome>;
 	readonly onQuery: (request: PluginRyotQLRequest) => Effect.Effect<PluginRyotQLOutcome>;
 	readonly onInvokeOperation: (
 		request: PluginOperationRequest,
@@ -381,8 +386,9 @@ export function PageIframeHost(props: {
 			onStorage: (request) => latest.current.onStorage(request),
 			onPageSearch: (request) => latest.current.onPageSearch(request),
 			onCollection: (request) => latest.current.onCollection(request),
+			onEntitySave: (request) => latest.current.onEntitySave(request),
+			onPickEntity: (request) => latest.current.onPickEntity(request),
 			onExternalLink: (request) => latest.current.onExternalLink(request),
-			onProviderSearch: (request) => latest.current.onProviderSearch(request),
 			onIosLiveActivity: (request) => latest.current.onIosLiveActivity(request),
 			onKernelShortcut: (shortcut) => latest.current.onKernelShortcut(shortcut),
 			watchEntities: (interest, onUpdate) => latest.current.watchEntities(interest, onUpdate),

@@ -116,11 +116,17 @@ Browser uploads to S3 require bucket CORS rules that allow `PUT` with `Content-T
 headers from the application's origin. Signed downloads used by browser code also need the appropriate `GET` and
 `HEAD` rules. Configure these on the bucket; the SDK does not change storage policies.
 
-`screens.openProviderSearch` is the only provider-add screen capability. It returns an Effect with
-imported entity IDs, a cancellation outcome, or `create-requested` when the user chose the schema's
-declared `createRoute` (the kernel then navigates there). It carries the configured entity-schema owner
-and slug, plus an optional initial query; it does not expose a generic native screen method. After a
-successful import, the host sends one narrow `page-refresh` signal. Client pages can register their
+`screens.pickEntity({ schema, initialQuery?, library? })` is the only kernel screen capability. It
+carries an exact `EntitySchemaReference` and returns an Effect with `{ kind: "selected", entityIds }`,
+`{ kind: "cancelled" }`, or `{ kind: "create-requested" }`. With a `library` membership the kernel
+shows provider search with in-library badges and imports; without one it lists visible entities of the
+schema, provider results that are not yet materialized, and a create action. Library picks navigate to
+the schema's catalog-declared `createRoute` when it has one (returning `create-requested`); otherwise,
+and always for plain picks, a schema with a manifest `editor` gets an inline name and properties form
+that saves through the kernel editor save and returns the created entity as selected; otherwise
+creation is not offered. The kernel keeps one picker
+open at a time and the page inert while it is open. After a successful import or creation, the host
+sends one narrow `page-refresh` signal. Client pages can register their
 current source refetch with `usePageRefresh`; successful shared mutations use the same refresh registry.
 
 ## Queries And Mutations
@@ -192,6 +198,23 @@ The host owns connectivity and reconnection.
 the same registry/query atom share one watch. Updates and document-foreground hints coalesce for 250
 ms; an in-flight request finishes before one queued refresh. Hidden retained screens withdraw demand,
 and reactivation requests catch-up without discarding cached data.
+
+## Entity Editor
+
+`ryot.entities.save({ submission, idempotencyKey, submittedAt })` sends one `EntityEditorSubmission`
+to the kernel editor save and returns `EntityEditorSaveOutput`: `{ kind: "saved", entityId }`,
+`{ kind: "stale" }`, or `{ kind: "invalid", message }`. The submission names its schema with an
+`EntitySchemaReference`; the runtime refuses an owner that is not a plugin contributor of the
+document with `invalid-request`, and server refusals of the request itself fail with
+`entity-save-failed`. A saved result notifies mutation listeners.
+
+`EntityEditorScreen` and `EntityEditor` (from `@ryot-app/plugin-client-sdk/entity-editor`) take the
+plugin `packageId`, `entitySchemaSlug`, and edit/create `mode`. They read the editable relationship
+slugs from the schema's manifest-declared `editor` and refuse schemas without one. "Add" on a
+relationship opens `screens.pickEntity` for the relationship's target schema; selected entities become
+targets with empty relationship properties. One form
+submission keeps its idempotency key and SDK-clock `submittedAt` across retries of the same body; an
+edited body starts a new submission.
 
 ## Entity Presentations
 

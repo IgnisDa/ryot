@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it } from "@effect/vitest";
 import { MembershipResponse } from "@ryot-app/contract/modules/collections/schemas";
+import type { EntityEditorSaveRequest } from "@ryot-app/contract/modules/entities/editor";
 import { EntityId, EntitySchemaSlug, PluginPackageId } from "@ryot-app/contract/schema/brands";
 // oxlint-disable unicorn/require-post-message-target-origin -- MessagePort takes a transfer list, not an origin
 import {
@@ -150,10 +151,11 @@ const connect = (
 		readonly scheduleOverlayDismissTimeout?: (onTimeout: () => void) => () => void;
 		readonly watchEntities?: Parameters<typeof openPluginBridge>[0]["watchEntities"];
 		readonly onCollection?: Parameters<typeof openPluginBridge>[0]["onCollection"];
+		readonly onEntitySave?: Parameters<typeof openPluginBridge>[0]["onEntitySave"];
 		readonly onOperation?: Parameters<typeof openPluginBridge>[0]["onOperation"];
 		readonly onRyotQL?: Parameters<typeof openPluginBridge>[0]["onRyotQL"];
 		readonly onStorage?: Parameters<typeof openPluginBridge>[0]["onStorage"];
-		readonly onProviderSearch?: Parameters<typeof openPluginBridge>[0]["onProviderSearch"];
+		readonly onPickEntity?: Parameters<typeof openPluginBridge>[0]["onPickEntity"];
 		readonly onDiagnostic?: Parameters<typeof openPluginBridge>[0]["onDiagnostic"];
 	} = {},
 ) => {
@@ -168,7 +170,7 @@ const connect = (
 	const overlayStates: number[] = [];
 	let init: PluginBridgeInit | undefined;
 	const shortcuts: KernelShortcut[] = [];
-	const providerSearches: unknown[] = [];
+	const entityPicks: unknown[] = [];
 	let pluginPort: MessagePort | undefined;
 	const navigations: PluginBridgeNavigate[] = [];
 	const screenStates: PageScreenReadiness[] = [];
@@ -202,14 +204,15 @@ const connect = (
 		onPageSearch: (request) => pageSearches.push(request),
 		onKernelShortcut: (shortcut) => shortcuts.push(shortcut),
 		onCollection: options.onCollection ?? (() => Effect.never),
+		onEntitySave: options.onEntitySave ?? (() => Effect.never),
 		onExternalLink: options.onExternalLink ?? (() => Effect.never),
 		onPageShortcuts: (registered) => pageShortcuts.push(registered),
 		scheduleOverlayDismissTimeout: options.scheduleOverlayDismissTimeout,
 		onDevice: options.onDevice ?? (() => Effect.succeed(invalidDeviceRequest)),
 		watchEntities: options.watchEntities ?? (() => ({ update: () => {}, dispose: () => {} })),
-		onProviderSearch: (request) => {
-			providerSearches.push(request);
-			return options.onProviderSearch?.(request) ?? Effect.succeed({ kind: "cancelled" as const });
+		onPickEntity: (request) => {
+			entityPicks.push(request);
+			return options.onPickEntity?.(request) ?? Effect.succeed({ kind: "cancelled" as const });
 		},
 		onIosLiveActivity:
 			options.onIosLiveActivity ??
@@ -278,12 +281,12 @@ const connect = (
 		received,
 		shortcuts,
 		navigations,
+		entityPicks,
 		screenStates,
 		pageSearches,
 		pageShortcuts,
 		overlayStates,
 		operationCalls,
-		providerSearches,
 		pluginPort: testPort,
 	};
 };
@@ -611,25 +614,25 @@ describe("bridge page screens", () => {
 	);
 	it.live("forwards provider search and sends one page refresh", () =>
 		Effect.gen(function* () {
-			const { init, session, received, pluginPort, providerSearches } = connect();
+			const { init, session, received, pluginPort, entityPicks } = connect();
 			pluginPort.postMessage(readyFor(init));
 			yield* Effect.promise(() => waitFor(() => expect(received).toEqual([at()])));
 
 			pluginPort.postMessage({
 				initialQuery: "Dune",
-				type: "provider-search-screen",
-				requestId: "provider-search-screen-1",
+				type: "pick-entity-screen",
+				requestId: "pick-entity-screen-1",
 				schema: { slug: "movie", owner: { kind: "plugin", pluginId: "media-installation" } },
 				library: { librarySchemaSlug: "media-library", relationshipSlug: "in-media-library" },
 			});
-			yield* Effect.promise(() => waitFor(() => expect(providerSearches).toHaveLength(1)));
+			yield* Effect.promise(() => waitFor(() => expect(entityPicks).toHaveLength(1)));
 			yield* Effect.promise(() =>
 				waitFor(() =>
 					expect(received).toContainEqual({
 						outcome: "success",
 						value: { kind: "cancelled" },
-						requestId: "provider-search-screen-1",
-						type: "provider-search-screen-result",
+						requestId: "pick-entity-screen-1",
+						type: "pick-entity-screen-result",
 					}),
 				),
 			);
@@ -638,11 +641,11 @@ describe("bridge page screens", () => {
 				waitFor(() => expect(received).toContainEqual({ type: "page-refresh" })),
 			);
 
-			expect(providerSearches).toEqual([
+			expect(entityPicks).toEqual([
 				{
 					initialQuery: "Dune",
-					type: "provider-search-screen",
-					requestId: "provider-search-screen-1",
+					type: "pick-entity-screen",
+					requestId: "pick-entity-screen-1",
 					schema: { slug: "movie", owner: { kind: "plugin", pluginId: "media-installation" } },
 					library: { librarySchemaSlug: "media-library", relationshipSlug: "in-media-library" },
 				},
@@ -653,8 +656,8 @@ describe("bridge page screens", () => {
 	it.live("interrupts a pending provider search on cancel and suppresses its result", () =>
 		Effect.gen(function* () {
 			const interrupted: null[] = [];
-			const { init, received, pluginPort, providerSearches } = connect({
-				onProviderSearch: () =>
+			const { init, received, pluginPort, entityPicks } = connect({
+				onPickEntity: () =>
 					Effect.never.pipe(
 						Effect.onInterrupt(() =>
 							Effect.sync(() => {
@@ -667,15 +670,15 @@ describe("bridge page screens", () => {
 			yield* Effect.promise(() => waitFor(() => expect(received).toEqual([at()])));
 			pluginPort.postMessage({
 				initialQuery: "Dune",
-				type: "provider-search-screen",
-				requestId: "provider-search-screen-1",
+				type: "pick-entity-screen",
+				requestId: "pick-entity-screen-1",
 				schema: { slug: "movie", owner: { kind: "plugin", pluginId: "media-installation" } },
 				library: { librarySchemaSlug: "media-library", relationshipSlug: "in-media-library" },
 			});
-			yield* Effect.promise(() => waitFor(() => expect(providerSearches).toHaveLength(1)));
+			yield* Effect.promise(() => waitFor(() => expect(entityPicks).toHaveLength(1)));
 			pluginPort.postMessage({
-				requestId: "provider-search-screen-1",
-				type: "provider-search-screen-cancel",
+				requestId: "pick-entity-screen-1",
+				type: "pick-entity-screen-cancel",
 			});
 			yield* Effect.promise(() => waitFor(() => expect(interrupted).toHaveLength(1)));
 			expect(received).toEqual([at()]);
@@ -939,6 +942,7 @@ describe("plugin bridge", () => {
 				onOperation: () => Effect.never,
 				onNavigateBack: () => undefined,
 				onCollection: () => Effect.never,
+				onEntitySave: () => Effect.never,
 				onPageShortcuts: () => undefined,
 				onKernelShortcut: () => undefined,
 				onExternalLink: () => Effect.never,
@@ -946,7 +950,7 @@ describe("plugin bridge", () => {
 				viewport: { safeAreaTop: 0, safeAreaBottom: 0 },
 				onDevice: () => Effect.succeed(invalidDeviceRequest),
 				watchEntities: () => ({ update: () => {}, dispose: () => {} }),
-				onProviderSearch: () => Effect.succeed({ kind: "cancelled" as const }),
+				onPickEntity: () => Effect.succeed({ kind: "cancelled" as const }),
 				target: {
 					postMessage: () => {
 						throw new Error("transfer failed");
@@ -1562,6 +1566,45 @@ describe("plugin bridge", () => {
 				requestId: "collection-2",
 				type: "collection-result",
 			});
+			expect(failures).toEqual([]);
+		}),
+	);
+
+	it.live("round-trips an entity editor save without the transport fields", () =>
+		Effect.gen(function* () {
+			const calls: EntityEditorSaveRequest[] = [];
+			const { init, received, failures, pluginPort } = connect({
+				onEntitySave: (request) => {
+					calls.push(request);
+					return Effect.succeed({
+						outcome: "success",
+						output: { kind: "saved", entityId: EntityId.make("entity-1") },
+					});
+				},
+			});
+			pluginPort.postMessage(readyFor(init));
+			yield* Effect.promise(() => waitFor(() => expect(received).toHaveLength(1)));
+
+			const save = {
+				idempotencyKey: "form-1",
+				submittedAt: "2026-10-19T00:00:00.000Z",
+				submission: {
+					name: "Item",
+					properties: {},
+					relationships: [],
+					target: { kind: "create" as const },
+					entitySchema: { slug: "item", owner: { pluginId: "fixture", kind: "plugin" as const } },
+				},
+			};
+			pluginPort.postMessage({ ...save, requestId: "save-1", type: "entity-editor-save-request" });
+			yield* Effect.promise(() => waitFor(() => expect(received).toHaveLength(2)));
+			expect(received[1]).toEqual({
+				outcome: "success",
+				requestId: "save-1",
+				type: "entity-editor-save-result",
+				output: { kind: "saved", entityId: "entity-1" },
+			});
+			expect(calls).toEqual([save]);
 			expect(failures).toEqual([]);
 		}),
 	);

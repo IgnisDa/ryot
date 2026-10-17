@@ -10,6 +10,10 @@ import {
 	type DeleteMembershipBody,
 	MembershipResponse,
 } from "@ryot-app/contract/modules/collections/schemas";
+import {
+	EntityEditorSaveOutput,
+	EntityEditorSaveRequest,
+} from "@ryot-app/contract/modules/entities/editor";
 import { EntityUpdatedMessage } from "@ryot-app/contract/modules/entity-watches/messages";
 import type { PluginId, PluginPackageId } from "@ryot-app/contract/schema/brands";
 import { isJsonValue, type JsonValue } from "@ryot-app/contract/schema/json";
@@ -27,8 +31,8 @@ import {
 	PluginThemeSnapshot,
 	type PluginUploadRequest,
 	PluginUploadResult,
-	ProviderSearchScreenOutcome,
-	ProviderSearchScreenRequest,
+	PickEntityOutcome,
+	PickEntityRequest,
 } from "@ryot-app/plugin-client-contract";
 import type { PreparedRecipe } from "@ryot-app/ryotql";
 import { Effect, Result, Schema } from "effect";
@@ -40,7 +44,7 @@ import type {
 	OperationInvocation,
 	RyotClientAdapter,
 	RyotPageSearchUpdate,
-	RyotProviderSearchScreenRequest,
+	RyotPickEntityRequest,
 } from "./adapter";
 import { asTransportError, RyotClientError } from "./errors";
 import type { RyotNavigationTarget } from "./navigation-target";
@@ -119,6 +123,27 @@ export const createRyotClient = (adapter: RyotClientAdapter) => {
 			mutationCompleted.hint();
 			return decoded;
 		});
+	const saveEntity = (
+		request: Schema.Codec.Encoded<typeof EntityEditorSaveRequest>,
+	): Effect.Effect<EntityEditorSaveOutput, RyotClientError> =>
+		Effect.gen(function* () {
+			const decodedRequest = Schema.decodeResult(EntityEditorSaveRequest)(request);
+			if (Result.isFailure(decodedRequest)) {
+				return yield* new RyotClientError("invalid-input");
+			}
+			const save = adapter.saveEntity;
+			if (!save) {
+				return yield* new RyotClientError("unsupported-capability");
+			}
+			const output = yield* decodeCapability(
+				EntityEditorSaveOutput,
+				yield* adapterEffect(() => save(decodedRequest.success)),
+			);
+			if (output.kind === "saved") {
+				mutationCompleted.hint();
+			}
+			return output;
+		});
 	const accessStorage = (request: unknown): Effect.Effect<JsonValue | null, RyotClientError> =>
 		Effect.gen(function* () {
 			const decodedRequest = Schema.decodeUnknownResult(PluginStorageRequest)(request);
@@ -179,17 +204,17 @@ export const createRyotClient = (adapter: RyotClientAdapter) => {
 			throw asTransportError(error);
 		}
 	};
-	const openProviderSearch = (request: RyotProviderSearchScreenRequest) => {
-		const decoded = Schema.decodeResult(ProviderSearchScreenRequest)(request);
+	const pickEntity = (request: RyotPickEntityRequest) => {
+		const decoded = Schema.decodeResult(PickEntityRequest)(request);
 		if (Result.isFailure(decoded)) {
 			return Effect.fail(new RyotClientError("invalid-input"));
 		}
-		const open = adapter.openProviderSearch;
+		const open = adapter.pickEntity;
 		if (!open) {
 			return Effect.fail(new RyotClientError("unsupported-capability"));
 		}
 		return adapterEffect(() => open(decoded.success)).pipe(
-			Effect.flatMap((outcome) => decodeCapability(ProviderSearchScreenOutcome, outcome)),
+			Effect.flatMap((outcome) => decodeCapability(PickEntityOutcome, outcome)),
 		);
 	};
 	const requestUpload = (request: PluginUploadRequest) =>
@@ -248,7 +273,7 @@ export const createRyotClient = (adapter: RyotClientAdapter) => {
 	return {
 		overlayBack,
 		mutationCompleted,
-		screens: { openProviderSearch },
+		screens: { pickEntity },
 		uploads: { uploadPermanent, uploadTemporary, cleanup: cleanupUpload },
 		pluginIdentity: (packageId: PluginPackageId) => {
 			if (!adapter.pluginIdentity) {
@@ -434,6 +459,7 @@ export const createRyotClient = (adapter: RyotClientAdapter) => {
 				}),
 		},
 		entities: {
+			save: saveEntity,
 			watch: (
 				interest: EntityWatch,
 				onUpdate: (update: EntityUpdate) => void,

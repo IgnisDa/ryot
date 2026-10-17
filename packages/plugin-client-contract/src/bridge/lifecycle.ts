@@ -149,61 +149,59 @@ export const PluginBridgePageSearch = strictStruct({
 
 export type PluginBridgePageSearch = Schema.Schema.Type<typeof PluginBridgePageSearch>;
 
-export const ProviderSearchScreenRequest = strictStruct({
+export const PickEntityRequest = strictStruct({
 	schema: EntitySchemaReference,
-	library: ProviderLibraryMembership,
 	initialQuery: Schema.optional(Schema.String),
+	library: Schema.optional(ProviderLibraryMembership),
 });
 
-export type ProviderSearchScreenRequest = Schema.Schema.Type<typeof ProviderSearchScreenRequest>;
+export type PickEntityRequest = Schema.Schema.Type<typeof PickEntityRequest>;
 
-export const PluginBridgeProviderSearchScreen = strictStruct({
-	...ProviderSearchScreenRequest.fields,
+export const PluginBridgePickEntityScreen = strictStruct({
+	...PickEntityRequest.fields,
 	requestId: Schema.String,
-	type: Schema.Literal("provider-search-screen"),
+	type: Schema.Literal("pick-entity-screen"),
 });
 
-export type PluginBridgeProviderSearchScreen = Schema.Schema.Type<
-	typeof PluginBridgeProviderSearchScreen
->;
+export type PluginBridgePickEntityScreen = Schema.Schema.Type<typeof PluginBridgePickEntityScreen>;
 
-export const ProviderSearchScreenOutcome = Schema.Union([
-	strictStruct({ kind: Schema.Literal("added"), entityIds: Schema.Array(EntityId) }),
+export const PickEntityOutcome = Schema.Union([
+	strictStruct({ kind: Schema.Literal("selected"), entityIds: Schema.Array(EntityId) }),
 	strictStruct({ kind: Schema.Literal("cancelled") }),
 	strictStruct({ kind: Schema.Literal("create-requested") }),
 ]);
 
-export type ProviderSearchScreenOutcome = Schema.Schema.Type<typeof ProviderSearchScreenOutcome>;
+export type PickEntityOutcome = Schema.Schema.Type<typeof PickEntityOutcome>;
 
-export const PluginBridgeProviderSearchScreenCancel = strictStruct({
+export const PluginBridgePickEntityScreenCancel = strictStruct({
 	requestId: Schema.String,
-	type: Schema.Literal("provider-search-screen-cancel"),
+	type: Schema.Literal("pick-entity-screen-cancel"),
 });
 
-export type PluginBridgeProviderSearchScreenCancel = Schema.Schema.Type<
-	typeof PluginBridgeProviderSearchScreenCancel
+export type PluginBridgePickEntityScreenCancel = Schema.Schema.Type<
+	typeof PluginBridgePickEntityScreenCancel
 >;
 
-const providerSearchScreenResultFields = {
+const pickEntityScreenResultFields = {
 	requestId: Schema.String,
-	type: Schema.Literal("provider-search-screen-result"),
+	type: Schema.Literal("pick-entity-screen-result"),
 };
 
-export const PluginBridgeProviderSearchScreenResult = Schema.Union([
+export const PluginBridgePickEntityScreenResult = Schema.Union([
 	strictStruct({
-		...providerSearchScreenResultFields,
-		value: ProviderSearchScreenOutcome,
+		...pickEntityScreenResultFields,
+		value: PickEntityOutcome,
 		outcome: Schema.Literal("success"),
 	}),
 	strictStruct({
-		...providerSearchScreenResultFields,
+		...pickEntityScreenResultFields,
 		reason: RyotClientErrorReason,
 		outcome: Schema.Literal("failure"),
 	}),
 ]);
 
-export type PluginBridgeProviderSearchScreenResult = Schema.Schema.Type<
-	typeof PluginBridgeProviderSearchScreenResult
+export type PluginBridgePickEntityScreenResult = Schema.Schema.Type<
+	typeof PluginBridgePickEntityScreenResult
 >;
 
 export const PluginBridgePageRefresh = strictStruct({ type: Schema.Literal("page-refresh") });

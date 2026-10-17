@@ -7,11 +7,7 @@ import { Effect, Layer, ManagedRuntime } from "effect";
 import { KernelApiTestLayer } from "#/api/ports.test-layer";
 import type { AuthService } from "#/modules/auth/service";
 import { createBackInterceptors } from "#/modules/navigation/back-interceptors";
-import {
-	makePluginOperations,
-	makePluginQueries,
-	makePluginStorage,
-} from "#/modules/pages/bridge/services.test-layer";
+import { pluginBridgeServicesTestLayer } from "#/modules/pages/bridge/services.test-layer";
 import { makePluginCatalogEventsTestLayer } from "#/modules/plugins/catalog/events.test-layer";
 import { PluginCatalogService } from "#/modules/plugins/catalog/service";
 import type { CustomizeSidebarService } from "#/modules/shell/customize/service";
@@ -82,9 +78,7 @@ const mountView = (
 					saves.push(plan);
 				}),
 			),
-			makePluginOperations(),
-			makePluginQueries(),
-			makePluginStorage(),
+			pluginBridgeServicesTestLayer,
 		).pipe(
 			Layer.provideMerge(OAuthRouteStubs),
 			Layer.provideMerge(

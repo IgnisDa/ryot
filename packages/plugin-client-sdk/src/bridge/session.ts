@@ -1,4 +1,5 @@
 import type { ManagedAssetLocator } from "@ryot-app/contract/modules/assets/schemas";
+import type { EntityEditorSaveRequest } from "@ryot-app/contract/modules/entities/editor";
 import { MAX_INTEREST_ENTITY_IDS } from "@ryot-app/contract/modules/entity-watches/messages";
 import {
 	EntitySchemaReference,
@@ -14,6 +15,7 @@ import {
 	type PluginBridgeAssetCancel,
 	type PluginBridgeAssetRequest,
 	type PluginBridgeCollectionRequest,
+	type PluginBridgeEntitySaveRequest,
 	type PluginBridgeDismissOverlayResult,
 	type PluginBridgeHeader,
 	type PluginBridgeInit,
@@ -27,8 +29,8 @@ import {
 	type PluginBridgeOpenDrawer,
 	type PluginBridgeOperationRequest,
 	type PluginBridgePageSearch,
-	type PluginBridgeProviderSearchScreen,
-	type PluginBridgeProviderSearchScreenCancel,
+	type PluginBridgePickEntityScreen,
+	type PluginBridgePickEntityScreenCancel,
 	type PluginBridgeReady,
 	type PluginBridgeRyotQLCancel,
 	type PluginBridgeRyotQLRequest,
@@ -50,7 +52,7 @@ import type {
 	CollectionAdapterRequest,
 	StorageAdapterRequest,
 	RyotPageSearchUpdate,
-	RyotProviderSearchScreenRequest,
+	RyotPickEntityRequest,
 	EntityUpdate,
 } from "../client/adapter";
 import { createRyotClient } from "../client/client";
@@ -65,9 +67,10 @@ type RequestType =
 	| "ios-live-activity"
 	| "asset"
 	| "collection"
+	| "entity-editor-save"
 	| "external-link"
 	| "operation"
-	| "provider-search-screen"
+	| "pick-entity-screen"
 	| "ryotql"
 	| "storage"
 	| "upload";
@@ -335,6 +338,22 @@ export const createPluginRuntime = (
 				}) satisfies PluginBridgeCollectionRequest,
 		);
 
+	const saveEntity = (request: EntityEditorSaveRequest) => {
+		const owner = request.submission.entitySchema.owner;
+		return owner.kind !== "plugin" ||
+			!pluginContributors().some((contributor) => contributor.pluginId === owner.pluginId)
+			? Effect.fail(new RyotClientError("invalid-request"))
+			: sendRequest(
+					"entity-editor-save",
+					(requestId) =>
+						({
+							...request,
+							requestId,
+							type: "entity-editor-save-request",
+						}) satisfies PluginBridgeEntitySaveRequest,
+				);
+	};
+
 	const accessStorage = (entry: StorageAdapterRequest) =>
 		!pluginContributors().some((contributor) => contributor.pluginId === entry.pluginId)
 			? Effect.fail(new RyotClientError("invalid-request"))
@@ -406,33 +425,34 @@ export const createPluginRuntime = (
 			throw new RyotClientError(terminalReason ?? "transport");
 		}
 	};
-	const openProviderSearch = (request: RyotProviderSearchScreenRequest) =>
+	const pickEntity = (request: RyotPickEntityRequest) =>
 		sendRequest(
-			"provider-search-screen",
+			"pick-entity-screen",
 			(requestId) =>
 				({
 					...request,
 					requestId,
-					type: "provider-search-screen",
+					type: "pick-entity-screen",
 					schema: Schema.decodeSync(EntitySchemaReference)(request.schema),
-				}) satisfies PluginBridgeProviderSearchScreen,
+				}) satisfies PluginBridgePickEntityScreen,
 			(requestId) =>
 				({
 					requestId,
-					type: "provider-search-screen-cancel",
-				}) satisfies PluginBridgeProviderSearchScreenCancel,
+					type: "pick-entity-screen-cancel",
+				}) satisfies PluginBridgePickEntityScreenCancel,
 		);
 
 	const client = createRyotClient({
 		query,
 		upload,
 		navigate,
+		saveEntity,
+		pickEntity,
 		resolveAssets,
 		accessStorage,
 		invokeOperation,
 		mutateCollection,
 		navigatePageSearch,
-		openProviderSearch,
 		device: (request: PluginDeviceRequest) =>
 			sendRequest("device", (requestId) => ({ ...request, requestId, type: "device-request" })),
 		openExternalLink: (request) =>
@@ -670,8 +690,8 @@ export const createPluginRuntime = (
 						message.outcome === "failure" ? message : { outcome: "success", value: message.value },
 					);
 					return;
-				case "provider-search-screen-result":
-					settle("provider-search-screen", message.requestId, message);
+				case "pick-entity-screen-result":
+					settle("pick-entity-screen", message.requestId, message);
 					return;
 				case "external-link-result":
 					settle(
@@ -684,6 +704,13 @@ export const createPluginRuntime = (
 					return;
 				case "storage-result":
 					settle("storage", message.requestId, message);
+					return;
+				case "entity-editor-save-result":
+					settle(
+						"entity-editor-save",
+						message.requestId,
+						message.outcome === "failure" ? message : { outcome: "success", value: message.output },
+					);
 					return;
 				case "collection-result":
 					settle(

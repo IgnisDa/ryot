@@ -12,11 +12,7 @@ import {
 	OAuthReturnCapture,
 } from "#/modules/integrations/oauth-return";
 import { createBackInterceptors } from "#/modules/navigation/back-interceptors";
-import {
-	makePluginOperations,
-	makePluginQueries,
-	makePluginStorage,
-} from "#/modules/pages/bridge/services.test-layer";
+import { pluginBridgeServicesTestLayer } from "#/modules/pages/bridge/services.test-layer";
 import { makePluginCatalogEventsTestLayer } from "#/modules/plugins/catalog/events.test-layer";
 import { makePluginCatalog } from "#/modules/plugins/catalog/service.test-layer";
 import { getRouter } from "#/router";
@@ -85,9 +81,7 @@ const mountReturn = (
 			DeviceRouteStubs,
 			NavigationRouteStubs,
 			CustomizeRouteStubs,
-			makePluginOperations(),
-			makePluginQueries(),
-			makePluginStorage(),
+			pluginBridgeServicesTestLayer,
 			makeOAuthConnectionsApi({
 				complete: (_scope, request) =>
 					Effect.sync(() => {

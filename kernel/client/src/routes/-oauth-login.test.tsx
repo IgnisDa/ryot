@@ -6,11 +6,7 @@ import { Effect, Layer, ManagedRuntime } from "effect";
 import { KernelApiTestLayer } from "#/api/ports.test-layer";
 import { PublicApi } from "#/api/public";
 import { createBackInterceptors } from "#/modules/navigation/back-interceptors";
-import {
-	makePluginOperations,
-	makePluginQueries,
-	makePluginStorage,
-} from "#/modules/pages/bridge/services.test-layer";
+import { pluginBridgeServicesTestLayer } from "#/modules/pages/bridge/services.test-layer";
 import { makePluginCatalogEventsTestLayer } from "#/modules/plugins/catalog/events.test-layer";
 import { makePluginCatalog } from "#/modules/plugins/catalog/service.test-layer";
 import { getRouter } from "#/router";
@@ -86,9 +82,7 @@ const mountLogin = (config: ReturnType<typeof systemConfig>) => {
 			DeviceRouteStubs,
 			NavigationRouteStubs,
 			CustomizeRouteStubs,
-			makePluginQueries(),
-			makePluginStorage(),
-			makePluginOperations(),
+			pluginBridgeServicesTestLayer,
 			makePluginCatalogEventsTestLayer().layer,
 			KernelApiTestLayer,
 			PagesApiRouteStubs,

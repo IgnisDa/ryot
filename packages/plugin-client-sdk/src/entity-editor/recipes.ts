@@ -1,3 +1,4 @@
+import { PluginEntityEditor } from "@ryot-app/contract/modules/plugins/manifest";
 import type { PluginIdentityReference } from "@ryot-app/contract/modules/plugins/references";
 import { EntityId } from "@ryot-app/contract/schema/brands";
 import { AppSchema } from "@ryot-app/contract/schema/property-schema";
@@ -5,7 +6,6 @@ import {
 	and,
 	ascending,
 	column,
-	contains,
 	defineRecipe,
 	entitySchemaPredicate,
 	eq,
@@ -43,6 +43,7 @@ export const entityEditorEntityDefinitionRecipe = defineRecipe(
 					selection: {
 						name: selectedField(column(definition, "name"), Schema.String),
 						propertiesSchema: selectedField(column(definition, "propertiesSchema"), AppSchema),
+						editor: selectedField(column(definition, "editor"), Schema.NullOr(PluginEntityEditor)),
 					},
 				}),
 			},
@@ -142,29 +143,26 @@ export const entityEditorRelationshipsRecipe = defineRecipe(
 	},
 );
 
-export const entityEditorCandidatesRecipe = defineRecipe(
+export const entityEditorTargetsRecipe = defineRecipe(
 	(input: {
-		readonly search: string;
 		readonly entitySchemaSlug: string;
-		readonly after?: string | undefined;
+		readonly entityIds: readonly EntityId[];
 		readonly reference: PluginIdentityReference;
 	}) => {
-		const entity = table("entity", "editorCandidate");
-		const search = input.search.trim();
+		const entity = table("entity", "editorTarget");
 		return {
-			map: ({ candidates }) => Result.succeed(candidates),
+			map: ({ targets }) => Result.succeed(targets.items),
 			queries: {
-				candidates: selectedRows(entity, {
-					after: input.after,
-					limit: ENTITY_EDITOR_PAGE_SIZE,
-					orderBy: [ascending(column(entity, "name")), ascending(column(entity, "id"))],
+				targets: selectedRows(entity, {
+					limit: input.entityIds.length,
+					orderBy: [ascending(column(entity, "id"))],
 					selection: {
 						id: selectedField(column(entity, "id"), EntityId),
 						name: selectedField(column(entity, "name"), Schema.String),
 					},
 					where: and(
 						entitySchemaPredicate(entity, input.entitySchemaSlug, input.reference),
-						...(search === "" ? [] : [contains(column(entity, "name"), literal(search))]),
+						inArray(column(entity, "id"), input.entityIds.map(literal)),
 					),
 				}),
 			},

@@ -122,9 +122,12 @@ messages only from the active installation and current history entry.
 must supply an `index` and `key`.
 
 Saved-view renderers own their title and icon inside the iframe. Entity-browser layout selection is
-stored locally, with explicit URL state taking precedence. Provider search uses the saved view's
-explicit `addAction` owner and schema; its modal remains open after import and refreshes the page
-when it closes.
+stored locally, with explicit URL state taking precedence. Plugin routes host the entity picker
+screen (`modules/provider-add`): one session at a time, with the document inert while it is open.
+Saved views accept only library picks matching their explicit `addAction` owner and schema; that
+modal remains open after import and refreshes the page when it closes. Library picks create through
+the catalog `createRoute` when one exists; otherwise, and always for plain picks, creation uses the
+inline form for a server-declared `editor` saved through the kernel editor endpoint, else none.
 
 ## Overlays And Back
 

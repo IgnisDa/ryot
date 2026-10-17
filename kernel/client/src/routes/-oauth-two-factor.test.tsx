@@ -8,11 +8,7 @@ import { KernelApiTestLayer } from "#/api/ports.test-layer";
 import { PublicApi } from "#/api/public";
 import type { HostedAuthService } from "#/modules/auth/hosted-service";
 import { createBackInterceptors } from "#/modules/navigation/back-interceptors";
-import {
-	makePluginOperations,
-	makePluginQueries,
-	makePluginStorage,
-} from "#/modules/pages/bridge/services.test-layer";
+import { pluginBridgeServicesTestLayer } from "#/modules/pages/bridge/services.test-layer";
 import { makePluginCatalogEventsTestLayer } from "#/modules/plugins/catalog/events.test-layer";
 import { makePluginCatalog } from "#/modules/plugins/catalog/service.test-layer";
 import { getRouter } from "#/router";
@@ -93,9 +89,7 @@ const mountTwoFactor = (
 			DeviceRouteStubs,
 			NavigationRouteStubs,
 			CustomizeRouteStubs,
-			makePluginQueries(),
-			makePluginStorage(),
-			makePluginOperations(),
+			pluginBridgeServicesTestLayer,
 			makePluginCatalogEventsTestLayer().layer,
 			KernelApiTestLayer,
 			PagesApiRouteStubs,

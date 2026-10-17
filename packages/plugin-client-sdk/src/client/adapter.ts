@@ -1,4 +1,5 @@
 import type { ManagedAssetLocator } from "@ryot-app/contract/modules/assets/schemas";
+import type { EntityEditorSaveRequest } from "@ryot-app/contract/modules/entities/editor";
 import type { EntityUpdatedMessage } from "@ryot-app/contract/modules/entity-watches/messages";
 import type { PluginIdentityReference } from "@ryot-app/contract/modules/plugins/references";
 import type { PluginPackageId } from "@ryot-app/contract/schema/brands";
@@ -14,7 +15,7 @@ import type {
 	PluginStorageRequest,
 	PluginThemeSnapshot,
 	PluginUploadRequest,
-	ProviderSearchScreenRequest,
+	PickEntityRequest,
 } from "@ryot-app/plugin-client-contract";
 import type { PreparedRecipe } from "@ryot-app/ryotql";
 import type { Effect, Schema } from "effect";
@@ -41,9 +42,7 @@ export type CollectionAdapterRequest = PluginCollectionRequest;
 export type StorageAdapterRequest = PluginStorageRequest;
 
 export type RyotPageSearchUpdate = PluginPageSearchUpdate;
-export type RyotProviderSearchScreenRequest = Schema.Codec.Encoded<
-	typeof ProviderSearchScreenRequest
->;
+export type RyotPickEntityRequest = Schema.Codec.Encoded<typeof PickEntityRequest>;
 
 export type OperationInvocation<
 	Input extends Schema.Codec<unknown, unknown>,
@@ -77,8 +76,9 @@ export type RyotClientAdapter = {
 	readonly invokeOperation?: (
 		request: OperationAdapterRequest,
 	) => Effect.Effect<unknown, RyotClientError>;
-	readonly openProviderSearch?: (
-		request: ProviderSearchScreenRequest,
+	readonly pickEntity?: (request: PickEntityRequest) => Effect.Effect<unknown, RyotClientError>;
+	readonly saveEntity?: (
+		request: EntityEditorSaveRequest,
 	) => Effect.Effect<unknown, RyotClientError>;
 	readonly mutateCollection?: (
 		request: CollectionAdapterRequest,

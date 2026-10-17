@@ -6,6 +6,8 @@ import {
 	PluginBridgeAssetResult,
 	PluginBridgeCollectionRequest,
 	PluginBridgeCollectionResult,
+	PluginBridgeEntitySaveRequest,
+	PluginBridgeEntitySaveResult,
 	PluginBridgeEntityUpdated,
 	PluginBridgeEntityWatch,
 	PluginBridgeExternalLinkRequest,
@@ -47,9 +49,9 @@ import {
 	PluginBridgePageSearch,
 	PluginBridgePageShortcutPress,
 	PluginBridgePageShortcuts,
-	PluginBridgeProviderSearchScreen,
-	PluginBridgeProviderSearchScreenCancel,
-	PluginBridgeProviderSearchScreenResult,
+	PluginBridgePickEntityScreen,
+	PluginBridgePickEntityScreenCancel,
+	PluginBridgePickEntityScreenResult,
 	PluginBridgeScreenState,
 	PluginBridgeTheme,
 	PluginBridgeViewport,
@@ -79,10 +81,11 @@ export const PluginBridgeClientMessage = Schema.Union([
 	PluginBridgeEntityWatch,
 	PluginBridgeStorageRequest,
 	PluginBridgeOperationRequest,
+	PluginBridgeEntitySaveRequest,
 	PluginBridgeCollectionRequest,
 	PluginBridgeDismissOverlayResult,
-	PluginBridgeProviderSearchScreen,
-	PluginBridgeProviderSearchScreenCancel,
+	PluginBridgePickEntityScreen,
+	PluginBridgePickEntityScreenCancel,
 ]);
 
 export type PluginBridgeClientMessage = Schema.Schema.Type<typeof PluginBridgeClientMessage>;
@@ -105,8 +108,9 @@ export const PluginBridgeHostMessage = Schema.Union([
 	PluginBridgeDismissOverlay,
 	PluginBridgeStorageResult,
 	PluginBridgeOperationResult,
+	PluginBridgeEntitySaveResult,
 	PluginBridgeCollectionResult,
-	PluginBridgeProviderSearchScreenResult,
+	PluginBridgePickEntityScreenResult,
 	PluginBridgePageShortcutPress,
 ]);
 

@@ -231,7 +231,7 @@ describe("entity browser", () => {
 				waitFor(() =>
 					expect(page.clientMessages()).toContainEqual(
 						expect.objectContaining({
-							type: "provider-search-screen",
+							type: "pick-entity-screen",
 							schema: { slug: "book", owner: { kind: "plugin", pluginId: "media" } },
 						}),
 					),
@@ -278,7 +278,7 @@ describe("entity browser", () => {
 				),
 			);
 			expect(page.clientMessages()).not.toContainEqual(
-				expect.objectContaining({ type: "provider-search-screen" }),
+				expect.objectContaining({ type: "pick-entity-screen" }),
 			);
 		}),
 	);
@@ -353,7 +353,7 @@ describe("entity browser", () => {
 					expect(page.clientMessages()).toContainEqual(
 						expect.objectContaining({
 							initialQuery: "piranesi",
-							type: "provider-search-screen",
+							type: "pick-entity-screen",
 							schema: { slug: "book", owner: { kind: "plugin", pluginId: "media" } },
 						}),
 					),
@@ -378,7 +378,7 @@ describe("entity browser", () => {
 				waitFor(() =>
 					expect(page.clientMessages()).toContainEqual(
 						expect.objectContaining({
-							type: "provider-search-screen",
+							type: "pick-entity-screen",
 							schema: { slug: "book", owner: { kind: "plugin", pluginId: "media" } },
 						}),
 					),

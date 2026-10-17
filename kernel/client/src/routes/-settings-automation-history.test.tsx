@@ -22,11 +22,7 @@ import {
 import type { RyotQLApi } from "#/api/ryotql";
 import type { AutomationRunDetail } from "#/modules/automation-history/service";
 import { createBackInterceptors } from "#/modules/navigation/back-interceptors";
-import {
-	makePluginOperations,
-	makePluginQueries,
-	makePluginStorage,
-} from "#/modules/pages/bridge/services.test-layer";
+import { pluginBridgeServicesTestLayer } from "#/modules/pages/bridge/services.test-layer";
 import { makePluginCatalogEventsTestLayer } from "#/modules/plugins/catalog/events.test-layer";
 import { makePluginCatalog } from "#/modules/plugins/catalog/service.test-layer";
 import { RUN_LIST_POLL_MS, RUN_POLL_MS } from "#/modules/ui/run/use-run-polling";
@@ -220,9 +216,7 @@ const mountView = (
 			DeviceRouteStubs,
 			NavigationRouteStubs,
 			CustomizeRouteStubs,
-			makePluginOperations(),
-			makePluginQueries(),
-			makePluginStorage(),
+			pluginBridgeServicesTestLayer,
 			automationHistoryApi,
 			queries,
 		).pipe(
