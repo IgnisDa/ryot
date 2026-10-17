@@ -42,6 +42,22 @@ export const clientPageOperationTargets = (
 		}))
 		.sort((left, right) => left.pluginId.localeCompare(right.pluginId));
 
+export const operationTargetsCurrent = (
+	current: ReadonlyArray<AvailablePlugin>,
+	recorded: ReadonlyArray<ClientPageOperationTarget>,
+) => {
+	const available = clientPageOperationTargets(current);
+	return recorded.every((target) =>
+		available.some(
+			(candidate) =>
+				candidate.pluginId === target.pluginId &&
+				candidate.packageId === target.packageId &&
+				candidate.contentHash === target.contentHash &&
+				candidate.installationId === target.installationId,
+		),
+	);
+};
+
 const matchRoute = (pattern: string, path: string) => {
 	const patternSegments = pattern.split("/").filter(Boolean);
 	const pathSegments = path.split("/").filter(Boolean);
