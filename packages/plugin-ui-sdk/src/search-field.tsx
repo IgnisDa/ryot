@@ -2,9 +2,9 @@ import type { Hotkey } from "@tanstack/react-hotkeys";
 import clsx from "clsx";
 import { type ReactNode, type RefObject, useRef } from "react";
 
-import { Badge } from "./badge";
 import { useFieldEscape } from "./field-escape";
 import { useShortcut } from "./shortcut";
+import { ShortcutHint } from "./shortcut-hint";
 
 type SearchFieldProps = {
 	readonly label: string;
@@ -65,13 +65,7 @@ export function SearchField({
 				className="h-full w-full rounded-md border border-transparent bg-surface-2 pr-9 pl-9 text-base text-text outline-none placeholder:text-text-subtle hover:border-border-emphasis focus-visible:border-focus focus-visible:bg-surface focus-visible:ring-3 focus-visible:ring-focus/25 pointer-fine:text-sm"
 			/>
 			{value === "" && shortcut !== undefined && (
-				<Badge
-					variant="key"
-					aria-hidden="true"
-					className="absolute top-1/2 right-2.5 -translate-y-1/2"
-				>
-					{shortcut}
-				</Badge>
+				<ShortcutHint shortcut={shortcut} className="absolute top-1/2 right-2.5 -translate-y-1/2" />
 			)}
 			{value !== "" && (
 				<button

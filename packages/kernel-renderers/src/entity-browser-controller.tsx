@@ -32,12 +32,12 @@ import {
 	viewResultLabel,
 } from "@ryot-app/plugin-client-sdk/screen";
 import {
-	Badge,
 	Button,
 	ScreenBarButton,
 	SearchField,
 	SegmentedControl,
 	Select,
+	ShortcutHint,
 	useValueChange,
 } from "@ryot-app/plugin-ui-sdk";
 import { AppIcon } from "@ryot-app/plugin-ui-sdk/icon";
@@ -569,9 +569,7 @@ export function EntityBrowserController<Meta>({
 							>
 								<AppIcon size={15} name="plus" className="text-accent-ink" />
 								<span className="text-[13px] font-semibold text-accent-ink">Add</span>
-								<Badge className="ml-1" aria-hidden="true" variant="keyOnAccent">
-									A
-								</Badge>
+								<ShortcutHint onAccent shortcut="A" className="ml-1" />
 							</button>
 						)}
 					</div>

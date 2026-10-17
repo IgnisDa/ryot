@@ -12,9 +12,6 @@ const variantClasses = {
 	accent: `${tone} bg-accent-soft text-accent-text`,
 	outline: `${tone} text-text-muted ring-1 ring-border-emphasis ring-inset`,
 	count: "rounded-pill bg-accent-soft px-1.5 py-px text-micro text-accent-text tabular-nums",
-	key: "rounded border border-border-emphasis px-1.5 py-0.5 font-mono text-micro text-text-subtle",
-	keyOnAccent:
-		"rounded border border-accent-ink px-1.5 py-0.5 font-mono text-micro text-accent-ink",
 } as const;
 
 const toneSizeClasses = { md: "h-5.5 text-xs", sm: "h-4.5 px-1.5 text-micro" } as const;
@@ -24,8 +21,6 @@ type BadgeProps = ComponentProps<"span"> & {
 	readonly size?: keyof typeof toneSizeClasses;
 	readonly variant?: keyof typeof variantClasses;
 };
-
-const fixedVariants = new Set<keyof typeof variantClasses>(["count", "key", "keyOnAccent"]);
 
 export function Badge({
 	dot,
@@ -39,7 +34,7 @@ export function Badge({
 		<span
 			className={clsx(
 				variantClasses[variant],
-				!fixedVariants.has(variant) && toneSizeClasses[size],
+				variant !== "count" && toneSizeClasses[size],
 				className,
 			)}
 			{...props}

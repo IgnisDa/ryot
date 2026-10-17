@@ -1,5 +1,6 @@
 import { pluginPath } from "@ryot-app/contract/modules/plugins/navigation";
 import { KERNEL_SHORTCUTS } from "@ryot-app/plugin-client-contract";
+import { ShortcutHint } from "@ryot-app/plugin-ui-sdk";
 import { AppIcon } from "@ryot-app/plugin-ui-sdk/icon";
 import type { NavigationData } from "@ryot-app/ryotql-recipes/navigation";
 import type {
@@ -202,11 +203,7 @@ export function SidebarNav(props: SidebarNavProps) {
 			>
 				<AppIcon size={16} name="search" className="text-text-muted" />
 				<span className="min-w-0 flex-1 text-sm text-text-subtle">Search</span>
-				{props.showSearchShortcut && (
-					<span className="rounded border border-border-emphasis px-1.5 py-0.5 font-mono text-[11px] text-text-subtle">
-						⌘K
-					</span>
-				)}
+				{props.showSearchShortcut && <ShortcutHint shortcut={KERNEL_SHORTCUTS.commandCenter} />}
 			</button>
 
 			<SidebarSection

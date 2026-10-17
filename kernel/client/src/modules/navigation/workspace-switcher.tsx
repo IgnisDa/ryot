@@ -1,6 +1,7 @@
 import { KERNEL_SHORTCUTS } from "@ryot-app/plugin-client-contract";
 import {
 	OverlayScope,
+	ShortcutHint,
 	useDismissOnOutside,
 	useShortcut,
 	useValueChange,
@@ -27,8 +28,6 @@ type WorkspaceSwitcherProps = {
 	readonly current: PluginClientCatalogEntry | null;
 	readonly onSelect: (workspace: WorkspaceTarget) => void | Promise<void>;
 };
-
-const WORKSPACE_SHORTCUT_LABEL = "⌘⇧Space";
 
 export function workspacePickerSummary(data: NavigationData, installationId: string) {
 	const views = data.savedViews
@@ -146,12 +145,7 @@ export function WorkspaceSwitcher(props: WorkspaceSwitcherProps) {
 						<span className="block truncate text-xs text-text-muted">{props.summary}</span>
 					</span>
 					{props.showShortcut === true && (
-						<span
-							aria-hidden="true"
-							className="shrink-0 rounded border border-border px-1.5 py-0.5 font-mono text-[10px] text-text-subtle"
-						>
-							{WORKSPACE_SHORTCUT_LABEL}
-						</span>
+						<ShortcutHint shortcut={KERNEL_SHORTCUTS.workspaceSwitcher} />
 					)}
 					<AppIcon size={15} name="chevron-down" className="shrink-0 text-text-subtle" />
 				</button>

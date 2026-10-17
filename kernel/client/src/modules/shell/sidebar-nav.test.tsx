@@ -123,7 +123,7 @@ describe("sidebar navigation", () => {
 		expect(screen.getByRole("link", { name: "Fixture Queue" }).getAttribute("aria-current")).toBe(
 			"page",
 		);
-		expect(screen.getByText("⌘K")).toBeTruthy();
+		expect(screen.getByText("K").tagName).toBe("KBD");
 		expect(
 			screen.getByRole("button", { name: "Open command center" }).getAttribute("aria-keyshortcuts"),
 		).toBe("Mod+K");
@@ -165,7 +165,7 @@ describe("sidebar navigation", () => {
 
 		fireEvent.click(screen.getByRole("button", { name: "Open command center" }));
 		expect(opened).toBe(true);
-		expect(screen.queryByText("⌘K")).toBeNull();
+		expect(screen.queryByText("K")).toBeNull();
 		expect(screen.getByRole("link", { name: "Home" }).getAttribute("aria-current")).toBe("page");
 	});
 

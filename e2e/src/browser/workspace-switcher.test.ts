@@ -16,11 +16,18 @@ it.live("opens the desktop workspace switcher with its keyboard shortcut", () =>
 		const shortcut = "Mod+Shift+Space";
 		const trigger = sidebar.getByRole("button", { name: /workspace,/ });
 		expect(yield* trigger.getAttribute("aria-keyshortcuts")).toBe(shortcut);
-		expect(yield* sidebar.getByText("⌘⇧Space", { exact: true }).isVisible()).toBe(true);
-
 		const primaryModifier = yield* page.evaluate(() =>
 			/Mac|iPhone|iPad/.test(navigator.platform) ? "Meta" : "Control",
 		);
+		expect(yield* trigger.getByText("Space", { exact: true }).isVisible()).toBe(true);
+		if (primaryModifier === "Meta") {
+			expect(yield* trigger.locator('[data-app-icon="command"]').isVisible()).toBe(true);
+		} else {
+			expect(yield* trigger.getByText("Ctrl", { exact: true }).isVisible()).toBe(true);
+			expect(yield* trigger.locator('[data-app-icon="command"]').count).toBe(0);
+		}
+		expect(yield* trigger.locator('[data-app-icon="arrow-big-up"]').isVisible()).toBe(true);
+
 		yield* page.keyboard.press(`${primaryModifier}+Shift+Space`);
 
 		const menu = sidebar.getByRole("menu", { name: "Workspaces" });

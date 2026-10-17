@@ -6,7 +6,7 @@ import { Badge } from "./badge";
 describe("Badge", () => {
 	it("forwards its attributes so it can be hidden from assistive technology", () => {
 		render(
-			<Badge variant="key" aria-hidden="true" data-testid="shortcut">
+			<Badge aria-hidden="true" data-testid="shortcut">
 				/
 			</Badge>,
 		);

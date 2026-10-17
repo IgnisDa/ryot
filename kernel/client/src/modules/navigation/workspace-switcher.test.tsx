@@ -218,7 +218,9 @@ describe("workspace switcher", () => {
 			yield* Effect.promise(() => waitFor(() => expect(document.activeElement).toBe(fixture)));
 			expect(screen.getByRole("menu", { name: "Workspaces" })).toBeTruthy();
 			expect(trigger.getAttribute("aria-keyshortcuts")).toBe("Mod+Shift+Space");
-			expect(screen.getByText("⌘⇧Space")).toBeTruthy();
+			const shortcutHint = screen.getByText("Space");
+			expect(shortcutHint.tagName).toBe("KBD");
+			expect(shortcutHint.getAttribute("aria-hidden")).toBe("true");
 		}),
 	);
 
