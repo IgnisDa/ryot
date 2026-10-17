@@ -3,7 +3,7 @@ import {
 	type RyotClient,
 	type RyotClientError,
 } from "@ryot-app/plugin-client-sdk";
-import { Effect } from "@ryot-app/plugin-client-sdk/effect";
+import { DateTime, Effect } from "@ryot-app/plugin-client-sdk/effect";
 import { createRyotQuery } from "@ryot-app/plugin-client-sdk/react";
 
 import { chunk } from "../../shared/collections";
@@ -21,6 +21,7 @@ import {
 	type WorkoutPeriodTotals,
 	type WorkoutSummary,
 } from "../../shared/workout-list-recipes";
+import { summaryWindows, type PeriodKey } from "./model";
 
 const LOOKUP_BATCH_SIZE = 100;
 
@@ -110,10 +111,16 @@ export const workoutWeeksQuery = createRyotQuery<
 );
 
 export const workoutSummaryQuery = createRyotQuery<
-	Omit<Parameters<typeof workoutSummaryRecipe>[0], "reference">,
+	{ readonly period: PeriodKey; readonly timeZone: string },
 	WorkoutSummary
->(({ input, client }) =>
-	client.data.query(
-		workoutSummaryRecipe({ ...input, reference: client.pluginIdentity(PLUGIN_PACKAGE_ID) }),
+>(({ input, client, schedule }) =>
+	Effect.suspend(() =>
+		client.data.query(
+			workoutSummaryRecipe({
+				timeZone: input.timeZone,
+				...summaryWindows(input.period, DateTime.toDateUtc(DateTime.makeUnsafe(schedule.now()))),
+				reference: client.pluginIdentity(PLUGIN_PACKAGE_ID),
+			}),
+		),
 	),
 );

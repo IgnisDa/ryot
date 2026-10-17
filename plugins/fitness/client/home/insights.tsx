@@ -3,7 +3,6 @@ import { useRyotQuery } from "@ryot-app/plugin-client-sdk/react";
 import { AppIcon } from "@ryot-app/plugin-ui-sdk/icon";
 import clsx from "clsx";
 
-import { DAY_MS } from "../measurements/model";
 import {
 	buildMuscleTiles,
 	buildPersonalBests,
@@ -23,9 +22,7 @@ const bandClasses: Readonly<Record<MuscleBand, string>> = {
 
 export function MusclesSection(props: { readonly now: Date; readonly timeZone: string }) {
 	const { now, timeZone } = props;
-	const result = useRyotQuery(muscleActivityQuery, {
-		weekStartAt: new Date(now.getTime() - 7 * DAY_MS).toISOString(),
-	});
+	const result = useRyotQuery(muscleActivityQuery);
 	return (
 		<HomeSection
 			title="Muscles"
@@ -81,9 +78,7 @@ export function PersonalBestsSection(props: {
 	readonly timeZone: string;
 }) {
 	const { now, imperial, timeZone } = props;
-	const result = useRyotQuery(recentPersonalBestsQuery, {
-		since: new Date(now.getTime() - RECENT_DAYS * DAY_MS).toISOString(),
-	});
+	const result = useRyotQuery(recentPersonalBestsQuery);
 	return (
 		<HomeSection
 			id="prs-heading"

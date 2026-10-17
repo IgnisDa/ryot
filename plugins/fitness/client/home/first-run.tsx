@@ -6,7 +6,6 @@ import clsx from "clsx";
 
 import { fitnessRoute } from "../../shared/workout-editor-routes";
 import { useMeasurementLogger } from "../measurements/measurement-logger";
-import { rangeStartAt } from "../measurements/model";
 import { summaryQuery } from "../measurements/queries";
 import { LogMeasurementButton } from "./measurements-card";
 import { setupSteps } from "./model";
@@ -76,7 +75,7 @@ function Welcome() {
 function SetupChecklist(props: { readonly goalSet: boolean }) {
 	const logger = useMeasurementLogger();
 	const templates = useRyotQuery(homeTemplatesQuery);
-	const metrics = useRyotQuery(summaryQuery, { rangeStart: rangeStartAt("All", new Date()) });
+	const metrics = useRyotQuery(summaryQuery, { range: "All" });
 	const steps = setupSteps({
 		goalSet: props.goalSet,
 		hasMetric: (metrics.data?.length ?? 0) > 0,

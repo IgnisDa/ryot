@@ -18,7 +18,6 @@ import { MetricsTable } from "./metrics-table";
 import {
 	buildMetricRows,
 	rangeOptions,
-	rangeStartAt,
 	selectPinnedMetrics,
 	seriesWindow,
 	sortMetricRows,
@@ -105,7 +104,6 @@ export function MeasurementsView(props: {
 				key={range}
 				range={range}
 				timeZone={timeZone}
-				startAt={rangeStartAt(range, now)}
 				metrics={rows.map(({ summary }) => summary)}
 				columns={tiles.map(({ summary }) => summary)}
 			/>
@@ -121,9 +119,12 @@ function MeasurementsContent(props: {
 	readonly summaries: readonly MeasurementSummary[];
 }) {
 	const { now, range, compact, timeZone, summaries } = props;
-	const window = useMemo(() => seriesWindow(range, now, summaries), [range, now, summaries]);
 	const metricIds = useMemo(() => summaries.map(({ id }) => id), [summaries]);
-	const result = useRyotQuery(seriesQuery, { ...window, metricIds });
+	const result = useRyotQuery(seriesQuery, {
+		range,
+		metricIds,
+		firstReadings: summaries.map(({ firstAt }) => ({ firstAt })),
+	});
 	if (result.data !== undefined) {
 		return (
 			<MeasurementsView
@@ -201,7 +202,7 @@ export default function MeasurementsPage() {
 	const [dialog, setDialog] = useState<MeasurementDialogState>();
 	const addMetricTrigger = useRef<HTMLButtonElement>(null);
 	const logTrigger = useRef<HTMLButtonElement>(null);
-	const result = useRyotQuery(summaryQuery, { rangeStart: rangeStartAt(range, now) });
+	const result = useRyotQuery(summaryQuery, { range });
 	const openDialog = (kind: MeasurementDialogState["kind"]) => {
 		if (result.data !== undefined) {
 			setDialog({ kind, metrics: result.data });

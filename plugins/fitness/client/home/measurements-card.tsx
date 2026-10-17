@@ -4,12 +4,7 @@ import { Sparkline } from "@ryot-app/plugin-ui-sdk/charts";
 
 import type { MeasurementSummary } from "../../shared/measurement-recipes";
 import { MeasurementDialogs, useMeasurementLogger } from "../measurements/measurement-logger";
-import {
-	buildMetricRows,
-	rangeStartAt,
-	selectPinnedMetrics,
-	seriesWindow,
-} from "../measurements/model";
+import { buildMetricRows, selectPinnedMetrics } from "../measurements/model";
 import { seriesQuery, summaryQuery } from "../measurements/queries";
 import { loggedPhrase, measurementValue } from "./model";
 import { HomeCard, QueryBody, SavedViewLink } from "./section";
@@ -22,8 +17,9 @@ function PinnedTiles(props: {
 }) {
 	const { now, pinned, timeZone } = props;
 	const series = useRyotQuery(seriesQuery, {
-		...seriesWindow("3M", now, props.summaries),
+		range: "3M",
 		metricIds: pinned.map(({ id }) => id),
+		firstReadings: props.summaries.map(({ firstAt }) => ({ firstAt })),
 	});
 	return (
 		<div className="flex flex-col gap-2">
@@ -78,7 +74,7 @@ export function LogMeasurementButton(props: {
 export function MeasurementsCard(props: { readonly now: Date; readonly timeZone: string }) {
 	const { now, timeZone } = props;
 	const logger = useMeasurementLogger();
-	const summaries = useRyotQuery(summaryQuery, { rangeStart: rangeStartAt("All", now) });
+	const summaries = useRyotQuery(summaryQuery, { range: "All" });
 	return (
 		<HomeCard
 			label="Pinned measurements"

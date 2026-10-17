@@ -307,14 +307,13 @@ function LogPlaceholder(props: { readonly failed: boolean; readonly onRetry: () 
 
 export function ReadingLog(props: {
 	readonly range: RangeKey;
-	readonly startAt: string;
 	readonly timeZone: string;
 	readonly columns: readonly LogMetric[];
 	readonly metrics: readonly LogMetric[];
 }) {
-	const { range, startAt, columns, metrics, timeZone } = props;
+	const { range, columns, metrics, timeZone } = props;
 	const [pages, setPages] = useState(1);
-	const result = useRyotQuery(readingsQuery, { pages, startAt });
+	const result = useRyotQuery(readingsQuery, { pages, range });
 	const [shown, setShown] = useState(result.data);
 	if (result.data !== undefined && result.data !== shown) {
 		setShown(result.data);

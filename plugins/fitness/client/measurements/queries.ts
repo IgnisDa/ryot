@@ -1,5 +1,5 @@
 import { readCursorPages } from "@ryot-app/plugin-client-sdk";
-import { Effect } from "@ryot-app/plugin-client-sdk/effect";
+import { DateTime, Effect } from "@ryot-app/plugin-client-sdk/effect";
 import { createRyotQuery } from "@ryot-app/plugin-client-sdk/react";
 
 import { chunk } from "../../shared/collections";
@@ -12,67 +12,85 @@ import {
 } from "../../shared/measurement-recipes";
 import { PLUGIN_PACKAGE_ID } from "../../shared/plugin-identity";
 import { measurementReadingListRecipe } from "../../shared/query-recipes";
-import type { MeasurementReading } from "./model";
+import { rangeStartAt, seriesWindow, type MeasurementReading, type RangeKey } from "./model";
 
 const READING_PAGE_SIZE = 100;
 
 export const summaryQuery = createRyotQuery<
-	{ readonly rangeStart: string },
+	{ readonly range: RangeKey },
 	readonly MeasurementSummary[]
->(({ input, client }) =>
-	Effect.map(
-		readCursorPages((after) =>
-			client.data.query(
-				measurementSummaryRecipe({
-					...input,
-					after,
-					reference: client.pluginIdentity(PLUGIN_PACKAGE_ID),
-				}),
-			),
-		),
-		({ items }) => items,
-	),
-);
-export const seriesQuery = createRyotQuery<
-	{
-		readonly endAt: string;
-		readonly startAt: string;
-		readonly bucket: "day" | "week";
-		readonly metricIds: readonly string[];
-	},
-	readonly MeasurementSeries[]
->(({ input, client }) =>
-	Effect.map(
-		Effect.forEach(
-			chunk(input.metricIds, MEASUREMENT_SERIES_BATCH_SIZE),
-			(metricIds) =>
+>(({ input, client, schedule }) =>
+	Effect.suspend(() => {
+		const rangeStart = rangeStartAt(
+			input.range,
+			DateTime.toDateUtc(DateTime.makeUnsafe(schedule.now())),
+		);
+		return Effect.map(
+			readCursorPages((after) =>
 				client.data.query(
-					measurementSeriesRecipe({
-						...input,
-						metricIds,
+					measurementSummaryRecipe({
+						after,
+						rangeStart,
 						reference: client.pluginIdentity(PLUGIN_PACKAGE_ID),
 					}),
 				),
-			{ concurrency: 4 },
-		),
-		(batches) => batches.flat(),
-	),
+			),
+			({ items }) => items,
+		);
+	}),
+);
+export const seriesQuery = createRyotQuery<
+	{
+		readonly range: RangeKey;
+		readonly metricIds: readonly string[];
+		readonly firstReadings: readonly Pick<MeasurementSummary, "firstAt">[];
+	},
+	readonly MeasurementSeries[]
+>(({ input, client, schedule }) =>
+	Effect.suspend(() => {
+		const window = seriesWindow(
+			input.range,
+			DateTime.toDateUtc(DateTime.makeUnsafe(schedule.now())),
+			input.firstReadings,
+		);
+		return Effect.map(
+			Effect.forEach(
+				chunk(input.metricIds, MEASUREMENT_SERIES_BATCH_SIZE),
+				(metricIds) =>
+					client.data.query(
+						measurementSeriesRecipe({
+							...window,
+							metricIds,
+							reference: client.pluginIdentity(PLUGIN_PACKAGE_ID),
+						}),
+					),
+				{ concurrency: 4 },
+			),
+			(batches) => batches.flat(),
+		);
+	}),
 );
 
 export const readingsQuery = createRyotQuery<
-	{ readonly startAt: string; readonly pages: number },
+	{ readonly range: RangeKey; readonly pages: number },
 	{ readonly hasMore: boolean; readonly items: readonly MeasurementReading[] }
->(({ input, client }) =>
-	readCursorPages(
-		(after) =>
-			client.data.query(
-				measurementReadingListRecipe({
-					after,
-					startAt: input.startAt,
-					limit: READING_PAGE_SIZE,
-					reference: client.pluginIdentity(PLUGIN_PACKAGE_ID),
-				}),
-			),
-		{ maxPages: input.pages },
-	),
+>(({ input, client, schedule }) =>
+	Effect.suspend(() => {
+		const startAt = rangeStartAt(
+			input.range,
+			DateTime.toDateUtc(DateTime.makeUnsafe(schedule.now())),
+		);
+		return readCursorPages(
+			(after) =>
+				client.data.query(
+					measurementReadingListRecipe({
+						after,
+						startAt,
+						limit: READING_PAGE_SIZE,
+						reference: client.pluginIdentity(PLUGIN_PACKAGE_ID),
+					}),
+				),
+			{ maxPages: input.pages },
+		);
+	}),
 );

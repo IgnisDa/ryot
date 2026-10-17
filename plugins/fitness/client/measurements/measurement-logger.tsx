@@ -4,7 +4,6 @@ import { useRef, useState, type RefObject } from "react";
 import type { MeasurementSummary } from "../../shared/measurement-recipes";
 import { AddMetricDialog } from "./add-metric";
 import { LogMeasurementDialog } from "./log-measurement-dialog";
-import { rangeStartAt } from "./model";
 import { summaryQuery } from "./queries";
 
 export type MeasurementDialogState = {
@@ -15,7 +14,7 @@ export type MeasurementDialogState = {
 export const useMeasurementLogger = () => {
 	const [dialog, setDialog] = useState<MeasurementDialogState>();
 	const trigger = useRef<HTMLButtonElement | null>(null);
-	const result = useRyotQuery(summaryQuery, { rangeStart: rangeStartAt("All", new Date()) });
+	const result = useRyotQuery(summaryQuery, { range: "All" });
 	const log = () => {
 		if (result.data !== undefined) {
 			setDialog({ metrics: result.data, kind: result.data.length === 0 ? "add-metric" : "log" });

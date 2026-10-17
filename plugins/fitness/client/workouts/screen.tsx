@@ -32,7 +32,6 @@ import { DisplayPreferences } from "../display-preferences";
 import {
 	buildWorkoutCards,
 	groupByWeek,
-	summaryWindows,
 	weeksWindow,
 	type PeriodKey,
 	type WorkoutCard,
@@ -187,10 +186,7 @@ function SummaryLoader(props: {
 	readonly timeZone: string;
 }) {
 	const [period, setPeriod] = useState<PeriodKey>("1M");
-	const summary = useRyotQuery(workoutSummaryQuery, {
-		timeZone: props.timeZone,
-		...summaryWindows(period, props.now),
-	});
+	const summary = useRyotQuery(workoutSummaryQuery, { period, timeZone: props.timeZone });
 	return (
 		<WorkoutSummarySection
 			{...props}
