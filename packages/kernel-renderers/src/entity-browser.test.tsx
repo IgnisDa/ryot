@@ -98,8 +98,8 @@ const replyBrowser = (
 
 const collectionBrowserRow = (entityId: string, name: string) => ({
 	...browserRow(entityId, name),
-	ownerPluginId: null,
-	entitySchemaSlug: "collection",
+	__entityBrowserOwnerPluginId: null,
+	__entityBrowserSchemaSlug: "collection",
 	presentationMemberCount: name === "Favorites" ? 2 : 0,
 });
 
@@ -163,6 +163,16 @@ describe("entity browser", () => {
 			expect(dialog.textContent).toContain("Filters are not available yet.");
 			expect(screen.queryByRole("button", { name: /^Sort results/ })).toBeNull();
 			expect(dialog.textContent).not.toContain("View as");
+		}),
+	);
+
+	it.live("shows the invalid-configuration state for settings the browser schema rejects", () =>
+		Effect.gen(function* () {
+			const { subject: _subject, ...withoutSubject } = browserSettings;
+			openBrowser({ settings: withoutSubject });
+			yield* Effect.promise(() =>
+				screen.findByText("This entity browser configuration is invalid."),
+			);
 		}),
 	);
 
