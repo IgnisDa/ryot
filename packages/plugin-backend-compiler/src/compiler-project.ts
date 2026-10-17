@@ -40,7 +40,7 @@ export type SandboxTypeScriptSources = {
 	readonly files: Readonly<Record<string, string>>;
 };
 
-export type SandboxEntryExecution = Effect.Success<
+type SandboxEntryExecution = Effect.Success<
 	ReturnType<ReturnType<typeof createSandboxExecutionAnalyzer>>
 >;
 

@@ -110,7 +110,7 @@ it.live("keeps independently saved zero measurements when the workout is discard
 		yield* measurement.waitFor({ state: "hidden" });
 		yield* discardDraft(frame);
 		const readings = yield* listEventsForEntity(client, metric.entityId, undefined, 100);
-		expect(readings).toMatchObject([{ properties: { value: 0, comment: "Saved independently" } }]);
+		expect(readings).toMatchObject([{ properties: { value: 0 } }]);
 		yield* page.goto(`${getFrontendUrl()}/v/p/ryot/fitness/all-measurements`);
 		yield* frame.getByText("Saved independently", { exact: true }).waitFor({ state: "visible" });
 	}).pipe(PlaywrightSpawner.withBrowser),
