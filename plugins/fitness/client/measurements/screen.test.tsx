@@ -233,7 +233,7 @@ describe("measurements page", () => {
 					expect(body.queryByRole("button", { name: "Show more readings" })).toBeNull();
 				}),
 			);
-			expect(cursors).toEqual([undefined, undefined, "older"]);
+			expect(cursors).toEqual([undefined, "older"]);
 			expect(
 				page.queryRequests("readings").at(-1)?.document.queries.readings?.output,
 			).toMatchObject({ pagination: { after: "older" } });

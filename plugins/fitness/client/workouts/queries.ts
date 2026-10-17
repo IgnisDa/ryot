@@ -32,6 +32,13 @@ export type WorkoutPages = {
 	readonly targets: readonly WorkoutExerciseTargets[];
 };
 
+export type WorkoutPage = {
+	readonly pageInfo: { readonly hasMore: boolean; readonly nextCursor: string | null };
+	readonly items: readonly WorkoutListItem[];
+	readonly comparisons: readonly WorkoutComparison[];
+	readonly targets: readonly WorkoutExerciseTargets[];
+};
+
 export const batched = <A>(
 	ids: ReadonlySet<string>,
 	read: (batch: readonly string[]) => Effect.Effect<readonly A[], RyotClientError>,
@@ -40,6 +47,30 @@ export const batched = <A>(
 		Effect.forEach(chunk([...ids], LOOKUP_BATCH_SIZE), read, { concurrency: 4 }),
 		(batches) => batches.flat(),
 	);
+
+const enrichWorkoutItems = (client: RyotClient, items: readonly WorkoutListItem[]) =>
+	Effect.gen(function* () {
+		const reference = client.pluginIdentity(PLUGIN_PACKAGE_ID);
+		const comparisonIds = new Set(
+			items.flatMap(({ repeatedFromId, previousTemplateWorkoutId }) => {
+				const id = repeatedFromId ?? previousTemplateWorkoutId;
+				return id === null ? [] : [id];
+			}),
+		);
+		const exerciseIds = new Set(items.flatMap(({ sets }) => sets.map((set) => set.exerciseId)));
+		const [comparisons, targets] = yield* Effect.all(
+			[
+				batched(comparisonIds, (workoutIds) =>
+					client.data.query(workoutComparisonsRecipe({ reference, workoutIds })),
+				),
+				batched(exerciseIds, (ids) =>
+					client.data.query(workoutExerciseTargetsRecipe({ reference, exerciseIds: ids })),
+				),
+			],
+			{ concurrency: 2 },
+		);
+		return { targets, comparisons };
+	});
 
 export const loadWorkoutPages = (
 	client: RyotClient,
@@ -65,31 +96,25 @@ export const loadWorkoutPages = (
 				),
 			{ maxPages: input.pages },
 		);
-		const comparisonIds = new Set(
-			items.flatMap(({ repeatedFromId, previousTemplateWorkoutId }) => {
-				const id = repeatedFromId ?? previousTemplateWorkoutId;
-				return id === null ? [] : [id];
-			}),
+		return { items, hasMore, ...(yield* enrichWorkoutItems(client, items)) } satisfies WorkoutPages;
+	});
+
+export const loadWorkoutPage = (
+	client: RyotClient,
+	input: { readonly after: string | undefined; readonly search: string },
+) =>
+	Effect.gen(function* () {
+		const reference = client.pluginIdentity(PLUGIN_PACKAGE_ID);
+		const page = yield* client.data.query(
+			workoutCardsRecipe({ reference, after: input.after, search: input.search }),
 		);
-		const exerciseIds = new Set(items.flatMap(({ sets }) => sets.map((set) => set.exerciseId)));
-		const [comparisons, targets] = yield* Effect.all(
-			[
-				batched(comparisonIds, (workoutIds) =>
-					client.data.query(workoutComparisonsRecipe({ reference, workoutIds })),
-				),
-				batched(exerciseIds, (ids) =>
-					client.data.query(workoutExerciseTargetsRecipe({ reference, exerciseIds: ids })),
-				),
-			],
-			{ concurrency: 2 },
-		);
-		return { items, hasMore, targets, comparisons } satisfies WorkoutPages;
+		return { ...page, ...(yield* enrichWorkoutItems(client, page.items)) } satisfies WorkoutPage;
 	});
 
 export const workoutsQuery = createRyotQuery<
-	{ readonly search: string; readonly pages: number },
-	WorkoutPages
->(({ input, client }) => loadWorkoutPages(client, input));
+	{ readonly after: string | undefined; readonly search: string },
+	WorkoutPage
+>(({ input, client }) => loadWorkoutPage(client, input));
 
 export const workoutCountQuery = createRyotQuery<{ readonly search: string }, number>(
 	({ input, client }) =>

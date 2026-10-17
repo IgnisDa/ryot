@@ -11,8 +11,11 @@ import {
 	type MeasurementSummary,
 } from "../../shared/measurement-recipes";
 import { PLUGIN_PACKAGE_ID } from "../../shared/plugin-identity";
-import { measurementReadingListRecipe } from "../../shared/query-recipes";
-import { rangeStartAt, seriesWindow, type MeasurementReading, type RangeKey } from "./model";
+import {
+	measurementReadingListRecipe,
+	type MeasurementReadingListResult,
+} from "../../shared/query-recipes";
+import { rangeStartAt, seriesWindow, type RangeKey } from "./model";
 
 const READING_PAGE_SIZE = 100;
 
@@ -72,25 +75,21 @@ export const seriesQuery = createRyotQuery<
 );
 
 export const readingsQuery = createRyotQuery<
-	{ readonly range: RangeKey; readonly pages: number },
-	{ readonly hasMore: boolean; readonly items: readonly MeasurementReading[] }
+	{ readonly after: string | undefined; readonly range: RangeKey },
+	MeasurementReadingListResult
 >(({ input, client, schedule }) =>
 	Effect.suspend(() => {
 		const startAt = rangeStartAt(
 			input.range,
 			DateTime.toDateUtc(DateTime.makeUnsafe(schedule.now())),
 		);
-		return readCursorPages(
-			(after) =>
-				client.data.query(
-					measurementReadingListRecipe({
-						after,
-						startAt,
-						limit: READING_PAGE_SIZE,
-						reference: client.pluginIdentity(PLUGIN_PACKAGE_ID),
-					}),
-				),
-			{ maxPages: input.pages },
+		return client.data.query(
+			measurementReadingListRecipe({
+				startAt,
+				after: input.after,
+				limit: READING_PAGE_SIZE,
+				reference: client.pluginIdentity(PLUGIN_PACKAGE_ID),
+			}),
 		);
 	}),
 );

@@ -201,7 +201,7 @@ describe("all workouts page", () => {
 				expect(body.getByRole("link", { name: "Pull" })).toBeTruthy();
 				expect(body.queryByRole("button", { name: "Show earlier weeks" })).toBeNull();
 			});
-			expect(cursors).toEqual([undefined, undefined, "older"]);
+			expect(cursors).toEqual([undefined, "older"]);
 		}),
 	);
 

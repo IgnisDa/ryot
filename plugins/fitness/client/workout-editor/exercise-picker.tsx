@@ -1,12 +1,16 @@
 import { readCursorPages } from "@ryot-app/plugin-client-sdk";
 import { Effect } from "@ryot-app/plugin-client-sdk/effect";
-import type { useRyot } from "@ryot-app/plugin-client-sdk/react";
 import {
 	createRyotQuery,
 	ManagedAssetProvider,
+	PaginationError,
+	nextPageCursor,
+	paginationItems,
+	useRyotInfiniteQuery,
 	useRyotQuery,
+	type useRyot,
 } from "@ryot-app/plugin-client-sdk/react";
-import { Button, EmptyState, Notice, Skeleton } from "@ryot-app/plugin-ui-sdk";
+import { Button, EmptyState, LoadMoreButton, Notice, Skeleton } from "@ryot-app/plugin-ui-sdk";
 import { AppIcon } from "@ryot-app/plugin-ui-sdk/icon";
 import clsx from "clsx";
 import { useDeferredValue, useMemo, useRef, useState } from "react";
@@ -29,7 +33,6 @@ import {
 } from "./picker-model";
 import { PickerSelectionTray } from "./picker-selection-tray";
 import { PresetForm, PickerToolbar } from "./picker-toolbar";
-import { useCursorPages, type PagedInput } from "./use-cursor-pages";
 import { usePickerPresets } from "./use-picker-presets";
 import { useProviderSearch } from "./use-provider-search";
 
@@ -70,11 +73,12 @@ const pickerExercisesQuery = createRyotQuery(
 		client,
 	}: {
 		readonly client: ReturnType<typeof useRyot>;
-		readonly input: PagedInput<{
+		readonly input: {
+			readonly after: string | undefined;
 			readonly search: string;
 			readonly sort: PickerSort;
 			readonly filters: PickerFilters;
-		}>;
+		};
 	}) =>
 		client.data.query(
 			workoutExercisePickerRecipe({
@@ -161,11 +165,25 @@ export function ExercisePicker(props: ExercisePickerProps) {
 		() => (replacement === undefined ? filters : { ...filters, kinds: [replacement.kind] }),
 		[filters, replacement],
 	);
-	const exercises = useCursorPages(pickerExercisesQuery, {
-		sort,
-		search: deferredSearch,
-		filters: effectiveFilters,
-	});
+	const exercises = useRyotInfiniteQuery(
+		pickerExercisesQuery,
+		{ sort, search: deferredSearch, filters: effectiveFilters },
+		{
+			initialPageParam: undefined,
+			getNextPageParam: nextPageCursor,
+			getPageInput: (input, after: string | undefined) => ({ ...input, after }),
+		},
+	);
+	const exerciseItems = useMemo(
+		() =>
+			paginationItems(
+				exercises.pages,
+				(page) => page.items,
+				({ id }) => id,
+			),
+		[exercises.pages],
+	);
+	const invalidCursor = exercises.error instanceof PaginationError;
 	const providerSearch = useProviderSearch({
 		search,
 		onCreateRequested: props.onClose,
@@ -235,10 +253,9 @@ export function ExercisePicker(props: ExercisePickerProps) {
 		}
 	};
 
-	const visibleExercises = exercises.items.filter(
-		({ id }) => !replacement?.excludeIds?.includes(id),
-	);
-	const noMatches = !exercises.isPending && !exercises.isError && visibleExercises.length === 0;
+	const visibleExercises = exerciseItems.filter(({ id }) => !replacement?.excludeIds?.includes(id));
+	const noMatches =
+		!exercises.isPending && !exercises.isError && !invalidCursor && visibleExercises.length === 0;
 	return (
 		<EditorSheet
 			size="lg"
@@ -374,19 +391,19 @@ export function ExercisePicker(props: ExercisePickerProps) {
 					assets={managedAssetBatch(visibleExercises.map(({ images }) => images?.[0]))}
 				>
 					<div role="region" className="grid" aria-label="Exercise library">
-						{exercises.isPending && exercises.items.length === 0 ? (
+						{exercises.isPending && exerciseItems.length === 0 ? (
 							<div role="status" className="grid gap-2" aria-label="Loading exercises">
 								{[0, 1, 2].map((index) => (
 									<Skeleton key={index} className="h-14" />
 								))}
 							</div>
 						) : null}
-						{exercises.isError ? (
+						{exercises.isError && !invalidCursor ? (
 							<Notice
 								tone="danger"
 								icon={<AppIcon size={16} name="circle-alert" />}
 								action={
-									<Button size="sm" variant="secondary" onClick={exercises.refetch}>
+									<Button size="sm" variant="secondary" onClick={exercises.retry}>
 										Retry
 									</Button>
 								}
@@ -419,14 +436,14 @@ export function ExercisePicker(props: ExercisePickerProps) {
 							/>
 						))}
 						<div className="grid gap-2 pt-3.5">
-							{exercises.hasMore && !exercises.invalidCursor ? (
-								<Button
+							{exercises.hasNextPage && !invalidCursor && !exercises.isError ? (
+								<LoadMoreButton
 									variant="ghost"
-									onClick={exercises.showMore}
+									label="Show more"
 									disabled={exercises.isFetching}
-								>
-									Show more
-								</Button>
+									onClick={exercises.fetchNextPage}
+									isFetchingNextPage={exercises.isFetchingNextPage}
+								/>
 							) : null}
 							<Button
 								onClick={providerSearch.open}

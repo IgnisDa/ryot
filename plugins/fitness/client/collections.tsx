@@ -1,16 +1,20 @@
 import type { RyotClient } from "@ryot-app/plugin-client-sdk";
 import { Effect } from "@ryot-app/plugin-client-sdk/effect";
 import {
+	PaginationError,
+	nextPageCursor,
+	paginationItems,
 	createRyotMutation,
 	createRyotQuery,
 	renderSchemaAsset,
 	useRyot,
+	useRyotInfiniteQuery,
 	useRyotMutation,
 	useRyotQuery,
 	useRyotSchedule,
 	useSchemaAssetUpload,
 } from "@ryot-app/plugin-client-sdk/react";
-import { Button, Dialog, Field, Notice, TextField } from "@ryot-app/plugin-ui-sdk";
+import { Button, Dialog, Field, LoadMoreButton, Notice, TextField } from "@ryot-app/plugin-ui-sdk";
 import { AppIcon } from "@ryot-app/plugin-ui-sdk/icon";
 import {
 	SchemaForm,
@@ -60,42 +64,55 @@ const emptyMembershipSchema = { fields: {} };
 function CollectionOptions(props: {
 	readonly entityId: string;
 	readonly search: string;
-	readonly after?: string;
 	readonly onSelect: (option: CollectionOption) => void;
 }) {
-	const [showMore, setShowMore] = useState(false);
-	const result = useRyotQuery(collectionOptions, {
-		search: props.search,
-		entityId: props.entityId,
-		...(props.after === undefined ? {} : { after: props.after }),
-	});
-	if (result.isError) {
-		return (
-			<Notice
-				tone="danger"
-				action={
-					<Button variant="secondary" onClick={result.refetch}>
-						Retry collections
-					</Button>
-				}
-			>
-				Collections could not be loaded.
-			</Notice>
-		);
+	const result = useRyotInfiniteQuery(
+		collectionOptions,
+		{ search: props.search, entityId: props.entityId },
+		{
+			initialPageParam: undefined,
+			getNextPageParam: nextPageCursor,
+			getPageInput: (input, after: string | undefined) => ({
+				...input,
+				...(after === undefined ? {} : { after }),
+			}),
+		},
+	);
+	const items = paginationItems(
+		result.pages,
+		({ items: pageItems }) => pageItems,
+		({ id }) => id,
+	);
+	const invalidCursor = result.error instanceof PaginationError;
+	const errorNotice = invalidCursor ? (
+		<Notice tone="danger">
+			More collections could not be loaded. Close and reopen the picker.
+		</Notice>
+	) : (
+		<Notice
+			tone="danger"
+			action={
+				<Button variant="secondary" onClick={result.retry}>
+					Retry collections
+				</Button>
+			}
+		>
+			Collections could not be loaded.
+		</Notice>
+	);
+	if (result.pages.length === 0 && result.isError) {
+		return errorNotice;
 	}
-	if (!result.data) {
+	if (result.pages.length === 0) {
 		return <p role="status">Loading collections…</p>;
 	}
-	const { items, pageInfo } = result.data;
-	if (items.length === 0 && props.after === undefined) {
+	if (items.length === 0 && result.pageParams[0] === undefined) {
 		return (
 			<p role="status">
 				{props.search.trim() === "" ? "You have no collections yet." : "No matching collections."}
 			</p>
 		);
 	}
-	const nextCursor = pageInfo.nextCursor;
-	const hasNextPage = pageInfo.hasMore && nextCursor !== null && nextCursor !== props.after;
 	return (
 		<>
 			<ul className="grid gap-2">
@@ -113,16 +130,15 @@ function CollectionOptions(props: {
 					</li>
 				))}
 			</ul>
-			{hasNextPage && showMore ? <CollectionOptions {...props} after={nextCursor} /> : null}
-			{hasNextPage && !showMore ? (
-				<Button variant="secondary" onClick={() => setShowMore(true)}>
-					Show more collections
-				</Button>
-			) : null}
-			{pageInfo.hasMore && (nextCursor === null || nextCursor === props.after) ? (
-				<Notice tone="danger">
-					More collections could not be loaded. Close and reopen the picker.
-				</Notice>
+			{result.isError ? errorNotice : null}
+			{result.hasNextPage && !result.isError ? (
+				<LoadMoreButton
+					variant="secondary"
+					disabled={result.isFetching}
+					label="Show more collections"
+					onClick={result.fetchNextPage}
+					isFetchingNextPage={result.isFetchingNextPage}
+				/>
 			) : null}
 		</>
 	);
