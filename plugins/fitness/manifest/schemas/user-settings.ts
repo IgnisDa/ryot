@@ -13,6 +13,13 @@ export const fitnessUserSettingsSchema: AppSchema = {
 			validation: { required: true },
 			description: "Mute workout action and timer sounds",
 		},
+		weeklyWorkoutGoal: {
+			position: 9,
+			type: "integer",
+			label: "Weekly workout goal",
+			validation: { minimum: 1, maximum: 14 },
+			description: "Workouts you aim to complete each week; Home tracks progress",
+		},
 		dropRestTime: {
 			position: 3,
 			type: "integer",
