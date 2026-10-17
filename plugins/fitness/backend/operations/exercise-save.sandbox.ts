@@ -1,13 +1,13 @@
 import { defineManifest } from "@ryot-app/plugin-backend-sdk/driver";
 import { Effect } from "@ryot-app/plugin-backend-sdk/effect";
 import { defineOperation } from "@ryot-app/plugin-backend-sdk/operation";
-
 import {
-	exerciseEditorEntitySchemaSlug,
-	exerciseEditorRelationshipSlugs,
-	exerciseSaveInput,
-	exerciseSaveOutput,
-} from "../../shared/exercise-save-operations";
+	EntityEditorSaveOutput,
+	EntityEditorSubmission,
+	isEntityEditorSubmissionAllowed,
+} from "@ryot-app/plugin-kit/schema";
+
+import { exerciseEditors } from "../../shared/exercise-save-operations";
 
 export const manifest = defineManifest({
 	kind: "operation",
@@ -15,17 +15,12 @@ export const manifest = defineManifest({
 	slug: "operation.exercise-save",
 });
 
-const allowedRelationshipSlugs: ReadonlyArray<string> = exerciseEditorRelationshipSlugs;
-
 export default defineOperation({
 	manifest,
-	input: exerciseSaveInput,
-	output: exerciseSaveOutput,
+	input: EntityEditorSubmission,
+	output: EntityEditorSaveOutput,
 	run: (input, host) =>
-		input.entitySchemaSlug !== exerciseEditorEntitySchemaSlug ||
-		input.relationships.some(
-			({ relationshipSchemaSlug }) => !allowedRelationshipSlugs.includes(relationshipSchemaSlug),
-		)
-			? Effect.succeed({ kind: "invalid", message: "Unsupported exercise save" } as const)
-			: host.saveUserEntity(input),
+		isEntityEditorSubmissionAllowed(exerciseEditors, input)
+			? host.saveUserEntity(input)
+			: Effect.succeed({ kind: "invalid", message: "Unsupported exercise save" } as const),
 });

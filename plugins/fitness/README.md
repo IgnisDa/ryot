@@ -40,7 +40,7 @@ only for exercises with an owner.
 
 Edit and Duplicate open `client/exercise-editor/page.tsx` at `/exercises/$exerciseId/edit` and
 `/exercises/new?duplicate=<id>` (`name` seeds a new exercise's name). The page renders the client SDK
-`EntityEditor` for the `exercise` schema with the `exercise-targets` and `exercise-uses-equipment`
+`EntityEditorScreen` for the `exercise` schema with the `exercise-targets` and `exercise-uses-equipment`
 relationships, so the form, images, and relationship pickers come from the schema definitions. It saves
 through the `exercise-save` operation (`shared/exercise-save-operations.ts`), which accepts only the
 `exercise` schema and those two relationship schemas and forwards the submission to the atomic
