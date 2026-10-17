@@ -284,7 +284,6 @@ describe("Media RyotQL query recipe results", () => {
 					publishYear: null,
 					publishDate: null,
 					providerRating: null,
-					unlinkedCreators: [],
 					productionStatus: null,
 				},
 			});
@@ -477,7 +476,6 @@ describe("Media RyotQL query recipe results", () => {
 					totalSeasons: 1,
 					totalEpisodes: 4,
 					publishYear: 2025,
-					unlinkedCreators: [],
 					providerRating: 78.25,
 					publishDate: "2025-03-13",
 					productionStatus: "Ended",
@@ -579,7 +577,6 @@ describe("Media RyotQL query recipe results", () => {
 						publishYear: null,
 						publishDate: null,
 						providerRating: null,
-						unlinkedCreators: [],
 						productionStatus: null,
 					},
 				});
@@ -728,7 +725,6 @@ describe("Media RyotQL query recipe results", () => {
 					publishYear: null,
 					publishDate: null,
 					providerRating: null,
-					unlinkedCreators: [],
 					productionStatus: null,
 				},
 			});

@@ -142,7 +142,6 @@ describe("saved views execution", () => {
 					description: null,
 					publishYear: 2019,
 					providerRating: 91.4,
-					unlinkedCreators: [],
 					productionStatus: "Ended",
 				},
 			});

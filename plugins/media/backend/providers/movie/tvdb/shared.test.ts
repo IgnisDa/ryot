@@ -111,9 +111,7 @@ describe("movie.tvdb sandbox script", () => {
 							],
 						},
 					]);
-					expect(result.properties).toMatchObject({
-						unlinkedCreators: [{ role: "Writer", name: "Unlinked Person" }],
-					});
+					expect(result.properties).not.toHaveProperty("unlinkedCreators");
 					return undefined;
 				}),
 			),

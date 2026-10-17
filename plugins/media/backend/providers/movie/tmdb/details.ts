@@ -50,17 +50,13 @@ const buildDetailsResult = (
 				},
 			]
 		: [];
-	const { unlinkedCreators, relatedEntities: people } = collectPeople(
-		creditsData["cast"],
-		creditsData["crew"],
-	);
+	const people = collectPeople(creditsData["cast"], creditsData["crew"]);
 	const genres = collectGenres(movieData["genres"]);
 	return {
 		name: title,
 		properties: {
 			runtime,
 			providerRating,
-			unlinkedCreators,
 			isNsfw: movieData["adult"] === true ? true : null,
 			productionStatus: stringValue(movieData["status"]),
 			publishYear: parsePublishYear(movieData["release_date"]),

@@ -355,20 +355,12 @@ export const collectCompanies = (
 
 export const collectPeople = (characters: unknown) => {
 	const relatedEntityByKey = new Map<string, RoleRelatedEntity>();
-	const unlinkedCreators: Array<{ name: string; role: string }> = [];
-	const unlinkedByKey = new Set<string>();
-
 	const characterRecords = Array.isArray(characters) ? recordsValue(characters.slice(0, 20)) : [];
 	for (const character of characterRecords) {
 		const name = stringValue(character["personName"]) ?? "Loading...";
 		const role = stringValue(character["peopleType"]) ?? "Cast";
 		const peopleId = numberValue(character["peopleId"]);
 		if (peopleId === null) {
-			const unlinkedKey = `${name}:${role}`;
-			if (!unlinkedByKey.has(unlinkedKey)) {
-				unlinkedByKey.add(unlinkedKey);
-				unlinkedCreators.push({ name, role });
-			}
 			continue;
 		}
 
@@ -392,7 +384,7 @@ export const collectPeople = (characters: unknown) => {
 		});
 	}
 
-	return { unlinkedCreators, relatedEntities: [...relatedEntityByKey.values()] };
+	return [...relatedEntityByKey.values()];
 };
 
 export const searchTvdb = (
