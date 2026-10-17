@@ -46,7 +46,7 @@ type Assembly = {
 	readonly frameType: "done" | "hostCall";
 	readonly count: number;
 	readonly byteLength: number;
-	readonly chunks: Uint8Array[];
+	readonly buffer: Uint8Array;
 	bytes: number;
 	index: number;
 };
@@ -104,14 +104,35 @@ export const makeSidecarFrameReader = ({
 	const clearAssembly = (key: string) => {
 		const assembly = assemblies.get(key);
 		if (assembly !== undefined) {
-			bufferedBytes -= assembly.bytes;
+			bufferedBytes -= assembly.byteLength;
 			assemblies.delete(key);
 		}
+	};
+
+	const clearHandleAssemblies = (handle: string) => {
+		for (const [key, assembly] of assemblies) {
+			if (assembly.envelope.handle === handle) {
+				clearAssembly(key);
+			}
+		}
+	};
+
+	const reset = () => {
+		closed = true;
+		for (const key of assemblies.keys()) {
+			clearAssembly(key);
+		}
+		body = undefined;
+		bufferedBytes = 0;
+		headerBytes = 0;
+		bodyBytes = 0;
 	};
 
 	const invalidActive = (handle: string, message: string, key?: string) => {
 		if (key !== undefined) {
 			clearAssembly(key);
+		} else {
+			clearHandleAssemblies(handle);
 		}
 		if (isActive(handle)) {
 			onInvalid(handle, message);
@@ -120,6 +141,7 @@ export const makeSidecarFrameReader = ({
 
 	const fail = (error: SidecarProtocolError): never => {
 		failure = error;
+		reset();
 		throw error;
 	};
 
@@ -161,16 +183,20 @@ export const makeSidecarFrameReader = ({
 			if (assemblies.size >= maximumAssemblies) {
 				fail(protocolError("framing", `pending assembly count exceeds ${maximumAssemblies}`));
 			}
+			if (bufferedBytes + frame.byteLength > maximumBufferedBytes) {
+				fail(protocolError("framing", `pending bytes exceed ${maximumBufferedBytes}`));
+			}
 			assembly = {
 				bytes: 0,
 				index: 0,
-				chunks: [],
 				count: frame.count,
 				frameType: frame.frameType,
 				byteLength: frame.byteLength,
+				buffer: new Uint8Array(frame.byteLength),
 				envelope: { seq: frame.seq, handle: frame.handle, generation: frame.generation },
 			};
 			assemblies.set(key, assembly);
+			bufferedBytes += assembly.byteLength;
 		}
 		if (
 			frame.index !== assembly.index ||
@@ -193,41 +219,40 @@ export const makeSidecarFrameReader = ({
 		if (bufferedBytes + partLength > maximumBufferedBytes) {
 			fail(protocolError("framing", `pending bytes exceed ${maximumBufferedBytes}`));
 		}
-		const decoded = Base64.decode(frame.data);
-		if (decoded._tag === "Failure") {
+		let invalidData = false;
+		bufferedBytes += partLength;
+		try {
+			const decoded = Base64.decode(frame.data);
+			if (decoded._tag === "Failure") {
+				invalidData = true;
+			} else {
+				const part = decoded.success;
+				assembly.buffer.set(part, assembly.bytes);
+				assembly.bytes += part.byteLength;
+				assembly.index += 1;
+			}
+		} finally {
+			bufferedBytes -= partLength;
+		}
+		if (invalidData) {
 			invalidActive(frame.handle, "part data is not base64", key);
 			return;
 		}
-		const part = decoded.success;
-		assembly.chunks.push(part);
-		assembly.bytes += part.byteLength;
-		assembly.index += 1;
-		bufferedBytes += part.byteLength;
 		if (assembly.index < assembly.count) {
 			return;
 		}
-		if (bufferedBytes + assembly.byteLength > maximumBufferedBytes) {
-			fail(protocolError("framing", `pending bytes exceed ${maximumBufferedBytes}`));
-		}
-		const logicalBytes = new Uint8Array(assembly.byteLength);
-		let offset = 0;
-		for (const chunk of assembly.chunks) {
-			logicalBytes.set(chunk, offset);
-			offset += chunk.byteLength;
-		}
-		clearAssembly(key);
-		bufferedBytes += logicalBytes.byteLength;
 		let logicalFrame: SidecarOutboundFrame;
 		try {
-			logicalFrame = decodeSidecarOutboundLogicalMessage(logicalBytes);
+			logicalFrame = decodeSidecarOutboundLogicalMessage(assembly.buffer);
 		} catch (error) {
 			invalidActive(
 				frame.handle,
 				error instanceof Error ? error.message : "invalid assembled logical message",
+				key,
 			);
 			return;
 		} finally {
-			bufferedBytes -= logicalBytes.byteLength;
+			clearAssembly(key);
 		}
 		if (
 			logicalFrame.type !== assembly.frameType ||
@@ -299,21 +324,8 @@ export const makeSidecarFrameReader = ({
 	};
 
 	return {
-		close() {
-			closed = true;
-			assemblies.clear();
-			body = undefined;
-			bufferedBytes = 0;
-			headerBytes = 0;
-			bodyBytes = 0;
-		},
-		retire(handle: string) {
-			for (const [key, assembly] of assemblies) {
-				if (assembly.envelope.handle === handle) {
-					clearAssembly(key);
-				}
-			}
-		},
+		close: reset,
+		retire: clearHandleAssemblies,
 		feed(bytes: Uint8Array) {
 			if (closed) {
 				throw failure ?? protocolError("framing", "reader is closed");
@@ -362,9 +374,11 @@ export const makeSidecarFrameReader = ({
 				try {
 					processPayload(completeBody);
 				} finally {
-					body = undefined;
-					bodyBytes = 0;
-					bufferedBytes -= completeBody.byteLength;
+					if (body === completeBody) {
+						body = undefined;
+						bodyBytes = 0;
+						bufferedBytes -= completeBody.byteLength;
+					}
 				}
 			}
 		},
