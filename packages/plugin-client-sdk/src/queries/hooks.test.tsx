@@ -191,6 +191,85 @@ describe("Effect-native React definitions", () => {
 			}),
 	);
 
+	it.live(
+		"retains loaded data through pending and failed refreshes without leaking across inputs",
+		() =>
+			Effect.gen(function* () {
+				const requests: Array<{
+					readonly input: string;
+					readonly resume: (result: Effect.Effect<string, RyotClientError>) => void;
+				}> = [];
+				let latest: RyotQueryResult<string> | undefined;
+				const query = createRyotQuery<string, string>(({ input }) =>
+					Effect.callback<string, RyotClientError>((resume) => {
+						requests.push({ input, resume });
+					}),
+				);
+				const View = ({ input }: { readonly input: string }) => {
+					const result = useRyotQuery(query, input);
+					useEffect(() => {
+						latest = result;
+					});
+					return <p>{result.data ?? "loading"}</p>;
+				};
+				const { root, clock, container } = render(<View input="first" />);
+				expect(container.textContent).toBe("loading");
+				act(() => requests[0]?.resume(Effect.succeed("loaded")));
+				yield* Effect.promise(() => waitFor(() => expect(container.textContent).toBe("loaded")));
+				act(() => latest?.refetch());
+				expect(requests).toHaveLength(2);
+				expect(container.textContent).toBe("loaded");
+				expect(latest).toMatchObject({ isPending: false, isFetching: true, status: "success" });
+				act(() => requests[1]?.resume(Effect.fail(new RyotClientError("transport"))));
+				yield* Effect.promise(() => waitFor(() => expect(latest?.isError).toBe(true)));
+				expect(container.textContent).toBe("loaded");
+				expect(latest).toMatchObject({ isPending: false, isFetching: false });
+				act(() => latest?.refetch());
+				expect(container.textContent).toBe("loaded");
+				act(() => requests[2]?.resume(Effect.succeed("updated")));
+				yield* Effect.promise(() => waitFor(() => expect(container.textContent).toBe("updated")));
+				act(() =>
+					root.render(
+						<RyotProvider runtime={clock.runtime}>
+							<View input="second" />
+						</RyotProvider>,
+					),
+				);
+				expect(requests.at(-1)?.input).toBe("second");
+				expect(container.textContent).toBe("loading");
+				expect(latest).toMatchObject({ isPending: true, data: undefined, isFetching: true });
+			}),
+	);
+
+	it.live("reads the provider clock on each execution without changing query identity", () =>
+		Effect.gen(function* () {
+			const clock = makeClock();
+			let latest: RyotQueryResult<number> | undefined;
+			let calls = 0;
+			const query = createRyotQuery(({ schedule }) =>
+				Effect.sync(() => {
+					calls++;
+					return schedule.now();
+				}),
+			);
+			const View = () => {
+				const result = useRyotQuery(query);
+				useEffect(() => {
+					latest = result;
+				});
+				return <p>{result.data}</p>;
+			};
+			const { container } = render(<View />, clock);
+			yield* Effect.promise(() => waitFor(() => expect(container.textContent).toBe("0")));
+			yield* Effect.promise(() => clock.advance(1_000));
+			expect(container.textContent).toBe("0");
+			expect(calls).toBe(1);
+			act(() => latest?.refetch());
+			yield* Effect.promise(() => waitFor(() => expect(container.textContent).toBe("1000")));
+			expect(calls).toBe(2);
+		}),
+	);
+
 	it.live("interrupts superseded requests and ignores their late completion", () =>
 		Effect.gen(function* () {
 			const requests: Array<{

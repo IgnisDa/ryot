@@ -166,6 +166,12 @@ whether an incomplete submission can be abandoned remain caller-owned.
 
 ## Entity Interest
 
+Query inputs identify cache entries. Rolling queries use stable selections such as range and time
+zone, then compute request timestamps from the query context's `schedule.now()` during execution.
+Refreshing an existing query retains loaded data with `isFetching: true` and `isPending: false`;
+failed refreshes also retain the last successful data. A different input selects a different cache
+entry and does not inherit unrelated data. Presentation clocks must not change rolling query keys.
+
 `ryot.entities.watch({ foreground, visible }, onUpdate)` returns
 `{ update(interest), dispose() }`. The callback receives
 `{ entityId, reason: "populated" | "translated" }`. Disposal is idempotent, suppresses later

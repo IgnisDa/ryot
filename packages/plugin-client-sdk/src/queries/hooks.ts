@@ -69,8 +69,7 @@ export function useRyotQuery<Data, HostServices, Failure extends Error>(
 	if (!(query instanceof QueryDefinition)) {
 		throw new Error("useRyotQuery requires a query created by createRyotQuery");
 	}
-	// The definition declares the host type; React context cannot link that generic to a provider.
-	const atom = query.atom(registry, client, hostServices, input);
+	const atom = query.atom(registry, client, schedule, hostServices, input);
 	useQueryInterest(client, schedule, atom, input, query.entityWatch);
 	const result = useAtomValue(atom);
 	const refetch = useAtomRefresh(atom);
@@ -109,7 +108,7 @@ export const useRyotMutation = <Input, Data, HostServices, Failure extends Error
 	if (!context) {
 		throw new Error("useRyotMutation must be used within RyotProvider");
 	}
-	const { client, hostServices } = context;
+	const { client, schedule, hostServices } = context;
 	// The definition declares the host type; React context cannot link that generic to a provider.
 	// oxlint-disable-next-line typescript/no-unsafe-type-assertion
 	const typedHostServices = hostServices as HostServices;
@@ -121,9 +120,9 @@ export const useRyotMutation = <Input, Data, HostServices, Failure extends Error
 	const atom = useMemo(
 		() =>
 			Atom.fn<Input>()<Failure, Data>((input) =>
-				Effect.suspend(() => run({ input, client, hostServices: typedHostServices })),
+				Effect.suspend(() => run({ input, client, schedule, hostServices: typedHostServices })),
 			),
-		[client, run, typedHostServices],
+		[client, run, schedule, typedHostServices],
 	);
 	const result = useAtomValue(atom);
 	const set = useAtomSet(atom);
