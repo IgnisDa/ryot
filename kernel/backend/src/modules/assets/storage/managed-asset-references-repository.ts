@@ -1,62 +1,33 @@
-import type { DbError } from "@ryot-app/contract/errors";
 import type { ManagedAssetLocator } from "@ryot-app/contract/modules/assets/schemas";
 import type { UserId } from "@ryot-app/contract/schema/brands";
-import type { AppPropertyDefinition, AppSchema } from "@ryot-app/contract/schema/property-schema";
-import { isObjectRecord } from "@ryot-app/ts-utils/predicates";
-import { and, asc, type Column, eq, gt, isNotNull, isNull, or } from "drizzle-orm";
+import { and, type Column, eq, isNotNull, isNull, or, sql } from "drizzle-orm";
 import { Context, Effect, Layer } from "effect";
 
 import { DatabaseSession } from "#platform/db/session";
 import * as tables from "#schema/tables/combined";
 
-const PAGE_SIZE = 100;
-
-const containsLocator = (value: unknown, locator: ManagedAssetLocator): boolean => {
-	if (Array.isArray(value)) {
-		return value.some((item) => containsLocator(item, locator));
-	}
-	if (!isObjectRecord(value)) {
-		return false;
-	}
-	if (value["type"] === locator.type && value["key"] === locator.key) {
-		return true;
-	}
-	return Object.values(value).some((child) => containsLocator(child, locator));
-};
-
-const schemaDeclaresAsset = (property: AppPropertyDefinition): boolean => {
-	if (property.type === "object") {
-		return (
-			property.validation?.asset === true ||
-			Object.values(property.properties).some(schemaDeclaresAsset)
-		);
-	}
-	return property.type === "array" && schemaDeclaresAsset(property.items);
-};
-
-const schemaHasAssets = (schema: AppSchema | null | undefined) =>
-	schema !== null && schema !== undefined && Object.values(schema.fields).some(schemaDeclaresAsset);
-
-type PageRow = { readonly id: string; readonly value: unknown };
-
-const pagesContainLocator = Effect.fnUntraced(function* (
-	locator: ManagedAssetLocator,
-	page: (afterId: string | undefined) => Effect.Effect<ReadonlyArray<PageRow>, DbError>,
-) {
-	let afterId: string | undefined;
-	let rows: ReadonlyArray<PageRow>;
-	do {
-		rows = yield* page(afterId);
-		if (rows.some(({ value }) => containsLocator(value, locator))) {
-			return true;
-		}
-		afterId = rows.at(-1)?.id;
-	} while (rows.length === PAGE_SIZE);
-	return false;
-});
-
-const after = (column: Column, afterId: string | undefined) =>
-	afterId === undefined ? undefined : gt(column, afterId);
+const schemaHasAssets = (column: Column) => sql`exists (
+	with recursive properties(value) as (
+		select value from jsonb_each(
+			case when jsonb_typeof(${column}->'fields') = 'object'
+				then ${column}->'fields' else '{}'::jsonb end
+		)
+		union all
+		select child.value from properties
+		cross join lateral jsonb_each(
+			case
+				when properties.value->>'type' = 'object'
+					and jsonb_typeof(properties.value->'properties') = 'object'
+					then properties.value->'properties'
+				when properties.value->>'type' = 'array'
+					then jsonb_build_object('items', properties.value->'items')
+				else '{}'::jsonb
+			end
+		) child
+	)
+	select 1 from properties
+	where value->>'type' = 'object' and value->'validation'->'asset' = 'true'::jsonb
+)`;
 
 export class ManagedAssetReferencesRepository extends Context.Service<ManagedAssetReferencesRepository>()(
 	"ManagedAssetReferencesRepository",
@@ -69,111 +40,125 @@ export class ManagedAssetReferencesRepository extends Context.Service<ManagedAss
 				locator: ManagedAssetLocator,
 			) {
 				const ownedOrUnowned = (column: Column) => or(eq(column, ownerUserId), isNull(column));
-				const anyContainsLocator = (values: ReadonlyArray<unknown>) =>
-					values.some((value) => containsLocator(value, locator));
+				const containsLocator = (column: Column) => sql`jsonb_path_exists(
+					${column},
+					'strict $.** ? (@.type() == "object" && @."type".type() == "string" && @."key".type() == "string" && @."type" == $provider && @."key" == $key)',
+					${JSON.stringify({ key: locator.key, provider: locator.type })}::jsonb,
+					true
+				)`;
+				const found = { found: sql`true` };
 
-				const entitiesReference = yield* pagesContainLocator(locator, (afterId) =>
-					session.run((db) =>
-						db
-							.select({ id: tables.entity.id, value: tables.entity.properties })
-							.from(tables.entity)
-							.where(and(ownedOrUnowned(tables.entity.userId), after(tables.entity.id, afterId)))
-							.orderBy(asc(tables.entity.id))
-							.limit(PAGE_SIZE),
-					),
+				const entities = yield* session.run((db) =>
+					db
+						.select(found)
+						.from(tables.entity)
+						.where(
+							and(ownedOrUnowned(tables.entity.userId), containsLocator(tables.entity.properties)),
+						)
+						.limit(1),
 				);
-				if (entitiesReference) {
+				if (entities.length > 0) {
 					return true;
 				}
 
 				const translations = yield* session.run((db) =>
 					db
-						.select({ properties: tables.entityTranslation.properties })
+						.select(found)
 						.from(tables.entityTranslation)
 						.innerJoin(tables.entity, eq(tables.entity.id, tables.entityTranslation.entityId))
-						.where(ownedOrUnowned(tables.entity.userId)),
+						.where(
+							and(
+								ownedOrUnowned(tables.entity.userId),
+								containsLocator(tables.entityTranslation.properties),
+							),
+						)
+						.limit(1),
 				);
-				if (anyContainsLocator(translations.map(({ properties }) => properties))) {
+				if (translations.length > 0) {
 					return true;
 				}
 
 				const relationships = yield* session.run((db) =>
 					db
-						.select({ properties: tables.relationship.properties })
+						.select(found)
 						.from(tables.relationship)
-						.where(ownedOrUnowned(tables.relationship.userId)),
+						.where(
+							and(
+								ownedOrUnowned(tables.relationship.userId),
+								containsLocator(tables.relationship.properties),
+							),
+						)
+						.limit(1),
 				);
-				if (anyContainsLocator(relationships.map(({ properties }) => properties))) {
+				if (relationships.length > 0) {
 					return true;
 				}
 
-				const eventsReference = yield* pagesContainLocator(locator, (afterId) =>
-					session.run((db) =>
-						db
-							.select({ id: tables.event.id, value: tables.event.properties })
-							.from(tables.event)
-							.where(and(eq(tables.event.userId, ownerUserId), after(tables.event.id, afterId)))
-							.orderBy(asc(tables.event.id))
-							.limit(PAGE_SIZE),
-					),
+				const events = yield* session.run((db) =>
+					db
+						.select(found)
+						.from(tables.event)
+						.where(
+							and(eq(tables.event.userId, ownerUserId), containsLocator(tables.event.properties)),
+						)
+						.limit(1),
 				);
-				if (eventsReference) {
+				if (events.length > 0) {
 					return true;
 				}
-				const projectionsReference = yield* pagesContainLocator(locator, (afterId) =>
-					session.run((db) =>
-						db
-							.select({
-								id: tables.eventProjection.eventId,
-								value: tables.eventProjection.properties,
-							})
-							.from(tables.eventProjection)
-							.innerJoin(tables.event, eq(tables.event.id, tables.eventProjection.eventId))
-							.where(
-								and(
-									eq(tables.event.userId, ownerUserId),
-									after(tables.eventProjection.eventId, afterId),
-								),
-							)
-							.orderBy(asc(tables.eventProjection.eventId))
-							.limit(PAGE_SIZE),
-					),
+
+				const projections = yield* session.run((db) =>
+					db
+						.select(found)
+						.from(tables.eventProjection)
+						.innerJoin(tables.event, eq(tables.event.id, tables.eventProjection.eventId))
+						.where(
+							and(
+								eq(tables.event.userId, ownerUserId),
+								containsLocator(tables.eventProjection.properties),
+							),
+						)
+						.limit(1),
 				);
-				if (projectionsReference) {
+				if (projections.length > 0) {
 					return true;
 				}
 
 				const installations = yield* session.run((db) =>
 					db
-						.select({
-							configSchema: tables.pluginRevision.configSchema,
-							clientConfig: tables.pluginInstallation.clientConfig,
-							userSettings: tables.pluginInstallation.userSettings,
-							activeConfigRevisionId: tables.pluginInstallation.activeConfigRevisionId,
-						})
+						.select(found)
 						.from(tables.pluginInstallation)
 						.innerJoin(tables.plugin, eq(tables.plugin.id, tables.pluginInstallation.pluginId))
 						.leftJoin(
 							tables.pluginRevision,
 							eq(tables.pluginRevision.id, tables.plugin.activeRevisionId),
 						)
-						.where(eq(tables.pluginInstallation.userId, ownerUserId)),
+						.where(
+							and(
+								eq(tables.pluginInstallation.userId, ownerUserId),
+								or(
+									containsLocator(tables.pluginInstallation.clientConfig),
+									containsLocator(tables.pluginInstallation.userSettings),
+									and(
+										isNotNull(tables.pluginInstallation.activeConfigRevisionId),
+										or(
+											isNull(tables.pluginRevision.configSchema),
+											eq(tables.pluginRevision.configSchema, sql`'null'::jsonb`),
+											schemaHasAssets(tables.pluginRevision.configSchema),
+										),
+									),
+								),
+							),
+						)
+						.limit(1),
 				);
-				for (const installation of installations) {
-					if (anyContainsLocator([installation.clientConfig, installation.userSettings])) {
-						return true;
-					}
-					if (
-						installation.activeConfigRevisionId &&
-						(!installation.configSchema || schemaHasAssets(installation.configSchema))
-					) {
-						return true;
-					}
+				if (installations.length > 0) {
+					return true;
 				}
 
 				const archivedConfigs = yield* session.run((db) =>
 					db
-						.select({ configSchema: tables.pluginRevision.configSchema })
+						.select(found)
 						.from(tables.pluginConfigRevision)
 						.innerJoin(
 							tables.pluginRevision,
@@ -183,97 +168,117 @@ export class ManagedAssetReferencesRepository extends Context.Service<ManagedAss
 							and(
 								isNotNull(tables.pluginConfigRevision.encryptedPayload),
 								ownedOrUnowned(tables.pluginConfigRevision.ownerUserId),
+								schemaHasAssets(tables.pluginRevision.configSchema),
 							),
-						),
+						)
+						.limit(1),
 				);
-				if (archivedConfigs.some(({ configSchema }) => schemaHasAssets(configSchema))) {
+				if (archivedConfigs.length > 0) {
 					return true;
 				}
 
 				const integrations = yield* session.run((db) =>
 					db
-						.select({ providerSpecifics: tables.integration.providerSpecifics })
+						.select(found)
 						.from(tables.integration)
-						.where(eq(tables.integration.userId, ownerUserId)),
+						.where(
+							and(
+								eq(tables.integration.userId, ownerUserId),
+								containsLocator(tables.integration.providerSpecifics),
+							),
+						)
+						.limit(1),
 				);
-				if (anyContainsLocator(integrations.map(({ providerSpecifics }) => providerSpecifics))) {
+				if (integrations.length > 0) {
 					return true;
 				}
 
 				const subscriptions = yield* session.run((db) =>
 					db
-						.select({ metadata: tables.notificationSubscription.metadata })
+						.select(found)
 						.from(tables.notificationSubscription)
-						.where(eq(tables.notificationSubscription.userId, ownerUserId)),
+						.where(
+							and(
+								eq(tables.notificationSubscription.userId, ownerUserId),
+								containsLocator(tables.notificationSubscription.metadata),
+							),
+						)
+						.limit(1),
 				);
-				if (anyContainsLocator(subscriptions.map(({ metadata }) => metadata))) {
+				if (subscriptions.length > 0) {
 					return true;
 				}
 
-				const triggersReference = yield* pagesContainLocator(locator, (afterId) =>
-					session.run((db) =>
-						db
-							.select({ id: tables.automationTrigger.id, value: tables.automationTrigger.payload })
-							.from(tables.automationTrigger)
-							.where(
-								and(
-									ownedOrUnowned(tables.automationTrigger.scopeUserId),
-									after(tables.automationTrigger.id, afterId),
-								),
-							)
-							.orderBy(asc(tables.automationTrigger.id))
-							.limit(PAGE_SIZE),
-					),
+				const triggers = yield* session.run((db) =>
+					db
+						.select(found)
+						.from(tables.automationTrigger)
+						.where(
+							and(
+								ownedOrUnowned(tables.automationTrigger.scopeUserId),
+								containsLocator(tables.automationTrigger.payload),
+							),
+						)
+						.limit(1),
 				);
-				if (triggersReference) {
+				if (triggers.length > 0) {
 					return true;
 				}
 
 				const savedViews = yield* session.run((db) =>
 					db
-						.select({ settings: tables.savedView.settings })
+						.select(found)
 						.from(tables.savedView)
-						.where(eq(tables.savedView.userId, ownerUserId)),
+						.where(
+							and(
+								eq(tables.savedView.userId, ownerUserId),
+								containsLocator(tables.savedView.settings),
+							),
+						)
+						.limit(1),
 				);
-				if (anyContainsLocator(savedViews.map(({ settings }) => settings))) {
+				if (savedViews.length > 0) {
 					return true;
 				}
-				// Kernel definitions have no plugin revision and system plugins have no owner, so both
-				// resolve to a null owner and stay in scope.
+
 				const savedViewDefinitions = yield* session.run((db) =>
 					db
-						.select({ settings: tables.definitionSavedView.settings })
+						.select(found)
 						.from(tables.definitionSavedView)
 						.leftJoin(
 							tables.pluginRevision,
 							eq(tables.pluginRevision.id, tables.definitionSavedView.pluginRevisionId),
 						)
 						.leftJoin(tables.plugin, eq(tables.plugin.id, tables.pluginRevision.pluginId))
-						.where(ownedOrUnowned(tables.plugin.ownerId)),
+						.where(
+							and(
+								ownedOrUnowned(tables.plugin.ownerId),
+								containsLocator(tables.definitionSavedView.settings),
+							),
+						)
+						.limit(1),
 				);
-				if (anyContainsLocator(savedViewDefinitions.map(({ settings }) => settings))) {
+				if (savedViewDefinitions.length > 0) {
 					return true;
 				}
 
-				return yield* pagesContainLocator(locator, (afterId) =>
-					session.run((db) =>
-						db
-							.select({ id: tables.automationRun.id, value: tables.automationRun.historyPayload })
-							.from(tables.automationRun)
-							.innerJoin(
-								tables.automationTrigger,
-								eq(tables.automationTrigger.id, tables.automationRun.triggerId),
-							)
-							.where(
-								and(
-									ownedOrUnowned(tables.automationTrigger.scopeUserId),
-									after(tables.automationRun.id, afterId),
-								),
-							)
-							.orderBy(asc(tables.automationRun.id))
-							.limit(PAGE_SIZE),
-					),
+				const runs = yield* session.run((db) =>
+					db
+						.select(found)
+						.from(tables.automationRun)
+						.innerJoin(
+							tables.automationTrigger,
+							eq(tables.automationTrigger.id, tables.automationRun.triggerId),
+						)
+						.where(
+							and(
+								ownedOrUnowned(tables.automationTrigger.scopeUserId),
+								containsLocator(tables.automationRun.historyPayload),
+							),
+						)
+						.limit(1),
 				);
+				return runs.length > 0;
 			});
 
 			return { hasReference };
