@@ -1,4 +1,4 @@
-import { Button, StatusMessage } from "@ryot-app/plugin-ui-sdk";
+import { Button, LoadMoreButton, StatusMessage } from "@ryot-app/plugin-ui-sdk";
 import { AppIcon } from "@ryot-app/plugin-ui-sdk/icon";
 import type { IntegrationSummary } from "@ryot-app/ryotql-recipes/integrations";
 import { Link } from "@tanstack/react-router";
@@ -42,12 +42,13 @@ export type IntegrationPauseState = {
 type IntegrationsViewProps = {
 	readonly nowMs: number;
 	readonly isSyncing: boolean;
+	readonly isFetching?: boolean;
 	readonly readOnly?: boolean;
 	readonly onRetry: () => void;
 	readonly onConnect: () => void;
 	readonly onSyncAll: () => void;
 	readonly syncSucceeded: boolean;
-	readonly isLoadingMore: boolean;
+	readonly isFetchingNextPage: boolean;
 	readonly onShowMore: () => void;
 	readonly state: IntegrationListState;
 	readonly syncDetail: string | undefined;
@@ -200,18 +201,17 @@ export function IntegrationsView(props: IntegrationsViewProps) {
 						))}
 					</div>
 					{ready.hasMore ? (
-						<button
+						<LoadMoreButton
 							type="button"
+							variant="ghost"
 							onClick={props.onShowMore}
-							disabled={props.isLoadingMore}
+							disabled={props.isFetching}
+							label="Show more integrations"
+							loadingLabel="Loading more..."
 							aria-label="Show more integrations"
-							className={clsx(
-								"self-start py-2 text-sm font-medium text-accent-text",
-								props.isLoadingMore && "opacity-50",
-							)}
-						>
-							{props.isLoadingMore ? "Loading more..." : "Show more integrations"}
-						</button>
+							isFetchingNextPage={props.isFetchingNextPage}
+							className="self-start py-2 text-sm font-medium text-accent-text"
+						/>
 					) : null}
 				</div>
 			)}

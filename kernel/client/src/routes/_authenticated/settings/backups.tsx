@@ -2,11 +2,12 @@ import type { BackupRunIdResponse } from "@ryot-app/contract/modules/backups/sch
 import {
 	createRyotMutation,
 	createRyotQuery,
-	useRyot,
+	useRyotInfiniteQuery,
 	useRyotMutation,
-	useRyotQuery,
+	nextPageCursor,
+	paginationItems,
 } from "@ryot-app/plugin-client-sdk/react";
-import { Button, DestructiveConfirmation } from "@ryot-app/plugin-ui-sdk";
+import { DestructiveConfirmation, LoadMoreButton } from "@ryot-app/plugin-ui-sdk";
 import {
 	backupRunsRecipe,
 	type BackupRunItem,
@@ -47,9 +48,8 @@ const DOWNLOAD_FAILURE_DETAIL = "Could not download this backup. Try again.";
 
 const PAGE_SIZE = 50;
 
-const backupRunsQuery = createRyotQuery<void, BackupRunsPage, KernelHostServices>(
-	({ client }) => client.data.query(backupRunsRecipe({ limit: PAGE_SIZE })),
-	{ cancelOnUnmount: true },
+const backupRunsQuery = createRyotQuery<string | undefined, BackupRunsPage>(
+	({ client, input: after }) => client.data.query(backupRunsRecipe({ after, limit: PAGE_SIZE })),
 );
 
 const createBackupMutation = createRyotMutation<
@@ -112,12 +112,11 @@ function BackupsDemoProtected() {
 function BackupsStandard() {
 	const navigate = Route.useNavigate();
 	const { restore } = Route.useSearch();
-	const query = useRyotQuery(backupRunsQuery);
-	const client = useRyot();
-	const [olderRuns, setOlderRuns] = useState<readonly BackupRunItem[]>([]);
-	const [nextCursor, setNextCursor] = useState<string | null | undefined>();
-	const [loadingMore, setLoadingMore] = useState(false);
-	const [loadMoreFailed, setLoadMoreFailed] = useState(false);
+	const pagination = useRyotInfiniteQuery(backupRunsQuery, undefined, {
+		initialPageParam: undefined,
+		getNextPageParam: nextPageCursor,
+		getPageInput: (_, after: string | undefined) => after,
+	});
 	const createMutation = useRyotMutation(createBackupMutation);
 	const deleteMutation = useRyotMutation(deleteBackupMutation);
 	const { scope, runtime } = Route.useRouteContext();
@@ -127,19 +126,16 @@ function BackupsStandard() {
 	const [downloadFailed, setDownloadFailed] = useState(false);
 	const [downloadingRunId, setDownloadingRunId] = useState<string | undefined>();
 	const [pendingDelete, setPendingDelete] = useState<BackupRunItem | undefined>();
-	const firstPage = query.data;
-	const runs: readonly BackupRunItem[] =
-		firstPage === undefined
-			? []
-			: [
-					...firstPage.items,
-					...olderRuns.filter((run) => !firstPage.items.some((first) => first.id === run.id)),
-				];
+	const firstPage = pagination.pages.at(0);
+	const runs = paginationItems(
+		pagination.pages,
+		(page) => page.items,
+		(run) => run.id,
+	);
 	let state: BackupRunListState | undefined;
 	if (firstPage !== undefined) {
 		state = runs.length === 0 ? { status: "empty" } : { runs, status: "ready" };
 	}
-	const cursor = nextCursor === undefined ? firstPage?.pageInfo.nextCursor : nextCursor;
 	const live = liveBackupRun(runs);
 	const nowMs = useNowMs(RELATIVE_TIME_REFRESH_MS);
 
@@ -158,15 +154,7 @@ function BackupsStandard() {
 				if (live !== undefined) {
 					return;
 				}
-				yield* createMutation.mutateEffect().pipe(
-					Effect.tap(() =>
-						Effect.sync(() => {
-							setOlderRuns([]);
-							setNextCursor(undefined);
-						}),
-					),
-					Effect.ignoreCause,
-				);
+				yield* createMutation.mutateEffect().pipe(Effect.ignoreCause);
 			}),
 		);
 	};
@@ -186,8 +174,6 @@ function BackupsStandard() {
 					return;
 				}
 				setPendingDelete(undefined);
-				setOlderRuns([]);
-				setNextCursor(undefined);
 			}),
 		);
 	};
@@ -217,45 +203,18 @@ function BackupsStandard() {
 		);
 	};
 
-	const loadMore = () => {
-		if (cursor === null || cursor === undefined || loadingMore) {
-			return;
-		}
-		setLoadingMore(true);
-		setLoadMoreFailed(false);
-		Effect.runFork(
-			client.data.query(backupRunsRecipe({ after: cursor, limit: PAGE_SIZE })).pipe(
-				Effect.matchCause({
-					onFailure: () => {
-						if (!controller.current.signal.aborted) {
-							setLoadMoreFailed(true);
-						}
-					},
-					onSuccess: (page) => {
-						setOlderRuns((current) => [...current, ...page.items]);
-						setNextCursor(page.pageInfo.nextCursor);
-					},
-				}),
-				Effect.ensuring(
-					Effect.sync(() => {
-						if (!controller.current.signal.aborted) {
-							setLoadingMore(false);
-						}
-					}),
-				),
-			),
-			{ signal: controller.current.signal },
-		);
-	};
-
 	useRunPolling({
-		refresh: query.refetch,
+		refresh: pagination.refetch,
 		enabled: live !== undefined,
 		intervalMs: RUN_LIST_POLL_MS,
 	});
 
 	if (state === undefined) {
-		return query.isError ? <BackupsLoadError onRetry={query.refetch} /> : <BackupsPending />;
+		return pagination.isError ? (
+			<BackupsLoadError onRetry={pagination.refetch} />
+		) : (
+			<BackupsPending />
+		);
 	}
 
 	return (
@@ -276,16 +235,30 @@ function BackupsStandard() {
 					setPendingDelete(run);
 				}}
 			/>
-			{cursor !== null && cursor !== undefined && (
+			{pagination.hasNextPage && pagination.errorOperation !== "append" && (
 				<div className="grid justify-items-center gap-2">
-					{loadMoreFailed && (
-						<p role="alert" className="text-sm text-danger">
-							Could not load more backups. Try again.
-						</p>
-					)}
-					<Button type="button" onClick={loadMore} variant="secondary" disabled={loadingMore}>
-						{loadingMore ? "Loading..." : "Load more backups"}
-					</Button>
+					<LoadMoreButton
+						type="button"
+						label="Load more backups"
+						loadingLabel="Loading..."
+						onClick={pagination.fetchNextPage}
+						isFetchingNextPage={pagination.isFetchingNextPage}
+						disabled={pagination.isFetching && !pagination.isFetchingNextPage}
+					/>
+				</div>
+			)}
+			{pagination.errorOperation === "append" && (
+				<div className="grid justify-items-center gap-2">
+					<p role="alert" className="text-sm text-danger">
+						Could not load more backups. Try again.
+					</p>
+					<LoadMoreButton
+						type="button"
+						label="Load more backups"
+						loadingLabel="Loading..."
+						onClick={pagination.retry}
+						isFetchingNextPage={pagination.isFetchingNextPage}
+					/>
 				</div>
 			)}
 			{pendingDelete === undefined ? null : (

@@ -24,30 +24,17 @@ type AutomationHistoryQueryInput = Omit<
 	"after" | "limit"
 > & { readonly cursor?: string; readonly limit?: number };
 
-export type AutomationHistoryPageResult = {
-	readonly cursor: string | undefined;
-	readonly page: Pick<AutomationHistoryRunsPage, "items"> & {
-		readonly nextCursor: AutomationHistoryRunsPage["pageInfo"]["nextCursor"];
-	};
-};
-
 export const automationHistoryPageQuery = createRyotQuery<
 	AutomationHistoryQueryInput,
-	AutomationHistoryPageResult,
+	AutomationHistoryRunsPage,
 	KernelHostServices
 >(
 	({ input, client }) =>
-		Effect.map(
-			client.data.query(
-				automationHistoryRunsRecipe({
-					...input,
-					after: input.cursor,
-					limit: input.limit ?? AUTOMATION_HISTORY_LIMITS.defaultPageSize,
-				}),
-			),
-			(page) => ({
-				cursor: input.cursor,
-				page: { items: page.items, nextCursor: page.pageInfo.nextCursor },
+		client.data.query(
+			automationHistoryRunsRecipe({
+				...input,
+				after: input.cursor,
+				limit: input.limit ?? AUTOMATION_HISTORY_LIMITS.defaultPageSize,
 			}),
 		),
 	{ cancelOnUnmount: true },

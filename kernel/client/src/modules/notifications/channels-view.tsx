@@ -1,4 +1,10 @@
-import { Button, DestructiveConfirmation, StatusMessage, Switch } from "@ryot-app/plugin-ui-sdk";
+import {
+	Button,
+	DestructiveConfirmation,
+	LoadMoreButton,
+	StatusMessage,
+	Switch,
+} from "@ryot-app/plugin-ui-sdk";
 import { AppIcon } from "@ryot-app/plugin-ui-sdk/icon";
 import type { NotificationChannelSummary } from "@ryot-app/ryotql-recipes/notification-channels";
 import clsx from "clsx";
@@ -34,11 +40,12 @@ type NotificationChannelsViewProps = {
 	readonly nowMs: number;
 	readonly onAdd: () => void;
 	readonly isTesting: boolean;
+	readonly isFetching?: boolean;
 	readonly onRetry: () => void;
 	readonly enabledCount: number;
 	readonly onSendTest: () => void;
 	readonly testSucceeded: boolean;
-	readonly isLoadingMore: boolean;
+	readonly isFetchingNextPage: boolean;
 	readonly onShowMore: () => void;
 	readonly onDelete: (id: string) => void;
 	readonly testDetail: string | undefined;
@@ -196,18 +203,17 @@ export function NotificationChannelsView(props: NotificationChannelsViewProps) {
 						))}
 					</div>
 					{ready.hasMore ? (
-						<button
+						<LoadMoreButton
 							type="button"
+							variant="ghost"
 							onClick={props.onShowMore}
-							disabled={props.isLoadingMore}
+							label="Show more channels"
+							disabled={props.isFetching}
+							loadingLabel="Loading more..."
 							aria-label="Show more notification channels"
-							className={clsx(
-								"self-start py-2 text-sm font-medium text-accent-text",
-								props.isLoadingMore && "opacity-50",
-							)}
-						>
-							{props.isLoadingMore ? "Loading more..." : "Show more channels"}
-						</button>
+							isFetchingNextPage={props.isFetchingNextPage}
+							className="self-start py-2 text-sm font-medium text-accent-text"
+						/>
 					) : null}
 				</div>
 			)}

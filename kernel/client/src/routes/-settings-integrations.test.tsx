@@ -225,6 +225,7 @@ const makeIntegrationQueries = (
 	options: {
 		readonly runs?: () => ReturnType<typeof runsResponse>;
 		readonly list?: (limit: number) => ReturnType<typeof listResponse>;
+		readonly listEffect?: (limit: number) => Effect.Effect<ReturnType<typeof listResponse>>;
 		readonly providers?: () => Effect.Effect<
 			readonly IntegrationProviderItem[],
 			AuthenticatedApiError
@@ -251,8 +252,9 @@ const makeIntegrationQueries = (
 				if (integrations.output.type !== "rows") {
 					return Effect.die("Expected integrations rows query");
 				}
-				return Effect.succeed(
-					options.list?.(integrations.output.pagination.limit) ?? listResponse([]),
+				return (
+					options.listEffect?.(integrations.output.pagination.limit) ??
+					Effect.succeed(options.list?.(integrations.output.pagination.limit) ?? listResponse([]))
 				);
 			}
 			if ("providers" in request.payload.queries) {
@@ -490,6 +492,58 @@ describe("integrations list", () => {
 			yield* Effect.promise(() =>
 				waitFor(() =>
 					expect(view.router.state.location.pathname).toBe("/settings/integrations/int_1"),
+				),
+			);
+		}),
+	);
+
+	it.live("shows append loading only while loading the next limit", () =>
+		Effect.gen(function* () {
+			const limits: number[] = [];
+			const pendingRefresh = Promise.withResolvers<ReturnType<typeof listResponse>>();
+			const pendingNextPage = Promise.withResolvers<ReturnType<typeof listResponse>>();
+			let reads = 0;
+			mountView(
+				"/settings/integrations",
+				makeIntegrationsApi({ sync: () => Effect.succeed({ executionId: "exec_1" }) }),
+				makeIntegrationQueries({
+					listEffect: (limit) => {
+						limits.push(limit);
+						reads += 1;
+						if (reads === 1) {
+							return Effect.succeed(listResponse([makeSummary()], true, limit));
+						}
+						if (reads === 2) {
+							return Effect.promise(() => pendingRefresh.promise);
+						}
+						if (reads === 3) {
+							return Effect.promise(() => pendingNextPage.promise);
+						}
+						return Effect.succeed(listResponse([makeSummary()], false, limit));
+					},
+				}),
+			);
+
+			const more = yield* Effect.promise(() =>
+				screen.findByRole("button", { name: "Show more integrations" }),
+			);
+			fireEvent.click(screen.getByRole("button", { name: "Sync all integrations" }));
+			yield* Effect.promise(() => waitFor(() => expect(limits).toEqual([LIMIT, LIMIT])));
+			expect(more.hasAttribute("disabled")).toBe(true);
+			expect(more.getAttribute("aria-busy")).toBe(null);
+
+			pendingRefresh.resolve(listResponse([makeSummary({ name: "Refreshed" })], true));
+			yield* Effect.promise(() =>
+				screen.findByRole("link", { name: "Open the Refreshed integration" }),
+			);
+			fireEvent.click(more);
+			yield* Effect.promise(() => waitFor(() => expect(limits).toEqual([LIMIT, LIMIT, LIMIT * 2])));
+			expect(more.hasAttribute("disabled")).toBe(true);
+			expect(more.getAttribute("aria-busy")).toBe("true");
+			pendingNextPage.resolve(listResponse([makeSummary()], false, LIMIT * 2));
+			yield* Effect.promise(() =>
+				waitFor(() =>
+					expect(screen.queryByRole("button", { name: "Show more integrations" })).toBeNull(),
 				),
 			);
 		}),

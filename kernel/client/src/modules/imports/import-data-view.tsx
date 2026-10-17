@@ -1,4 +1,4 @@
-import { Button } from "@ryot-app/plugin-ui-sdk";
+import { Button, LoadMoreButton } from "@ryot-app/plugin-ui-sdk";
 import { AppIcon } from "@ryot-app/plugin-ui-sdk/icon";
 import type { ImportRunSummary } from "@ryot-app/ryotql-recipes/import-runs";
 import { Link } from "@tanstack/react-router";
@@ -39,7 +39,8 @@ export type ImportRunListState =
 type ImportDataViewProps = {
 	readonly nowMs: number;
 	readonly onRetry: () => void;
-	readonly isLoadingOlder: boolean;
+	readonly isFetching?: boolean;
+	readonly isFetchingNextPage: boolean;
 	readonly onShowOlder: () => void;
 	readonly sourceNames: SourceNames;
 	readonly onStartImport: () => void;
@@ -109,7 +110,8 @@ function ImportHistoryRow(props: {
 function ImportHistory(props: {
 	readonly nowMs: number;
 	readonly hasMore: boolean;
-	readonly isLoadingOlder: boolean;
+	readonly isFetching?: boolean;
+	readonly isFetchingNextPage: boolean;
 	readonly onShowOlder: () => void;
 	readonly sourceNames: SourceNames;
 	readonly runs: readonly ImportRunSummary[];
@@ -131,18 +133,17 @@ function ImportHistory(props: {
 				))}
 			</div>
 			{props.hasMore ? (
-				<button
+				<LoadMoreButton
 					type="button"
+					variant="ghost"
+					label="Show older imports"
 					onClick={props.onShowOlder}
-					disabled={props.isLoadingOlder}
+					disabled={props.isFetching}
 					aria-label="Show older imports"
-					className={clsx(
-						"self-start py-2 text-sm font-medium text-accent-text",
-						props.isLoadingOlder && "opacity-50",
-					)}
-				>
-					{props.isLoadingOlder ? "Loading older imports..." : "Show older imports"}
-				</button>
+					loadingLabel="Loading older imports..."
+					isFetchingNextPage={props.isFetchingNextPage}
+					className="self-start py-2 text-sm font-medium text-accent-text"
+				/>
 			) : null}
 		</div>
 	);
@@ -209,7 +210,8 @@ export function ImportDataView(props: ImportDataViewProps) {
 					hasMore={ready.hasMore}
 					sourceNames={props.sourceNames}
 					onShowOlder={props.onShowOlder}
-					isLoadingOlder={props.isLoadingOlder}
+					isFetching={props.isFetching === true}
+					isFetchingNextPage={props.isFetchingNextPage}
 				/>
 			)}
 			<Link

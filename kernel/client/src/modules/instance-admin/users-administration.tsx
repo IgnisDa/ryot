@@ -1,10 +1,11 @@
+import { nextPageCursor, paginationItems, usePagination } from "@ryot-app/plugin-client-sdk/react";
 import {
 	Button,
+	LoadMoreButton,
 	Menu,
 	type MenuItem,
 	Modal,
 	useFieldEscape,
-	useValueChange,
 } from "@ryot-app/plugin-ui-sdk";
 import { AppIcon } from "@ryot-app/plugin-ui-sdk/icon";
 import { DataTable, type DataTableColumn } from "@ryot-app/plugin-ui-sdk/table";
@@ -20,7 +21,7 @@ import {
 	useState,
 } from "react";
 
-import { isUnauthorizedCause } from "#/modules/instance-admin/errors";
+import { isUnauthorizedCause, readAdminResult } from "#/modules/instance-admin/errors";
 import type { ResetLinkTransfer } from "#/modules/instance-admin/reset-link-transfer";
 import type {
 	InstanceAdminPasswordResetResult,
@@ -37,21 +38,14 @@ import type { BackInterceptors } from "#/modules/navigation/back-interceptors";
 const PAGE_SIZE = 50;
 
 type OperationResult<A> = Effect.Effect<Exit.Exit<A, unknown>>;
-type Page =
-	| { readonly after: string | undefined; readonly state: "loading" | "error" }
-	| {
-			readonly after: string | undefined;
-			readonly state: "loaded";
-			readonly value: InstanceAdminUsers;
-	  };
 
 type UserAction = "password" | "disabled" | "reset" | "delete" | "impersonate";
 
 function UserPageStatus(props: {
-	readonly page: Extract<Page, { readonly state: "loading" | "error" }>;
-	readonly onRetry: (after: string | undefined) => void;
+	readonly state: "loading" | "error";
+	readonly onRetry: () => void;
 }) {
-	if (props.page.state === "loading") {
+	if (props.state === "loading") {
 		return <p role="status">Loading users...</p>;
 	}
 	return (
@@ -59,7 +53,7 @@ function UserPageStatus(props: {
 			<p role="alert" className="text-danger">
 				Could not load users. Check the server and try again.
 			</p>
-			<Button type="button" variant="secondary" onClick={() => props.onRetry(props.page.after)}>
+			<Button type="button" variant="secondary" onClick={props.onRetry}>
 				Retry
 			</Button>
 		</div>
@@ -109,48 +103,25 @@ const logFailure = (label: string, cause: Cause.Cause<unknown>) =>
 	Effect.runSync(Effect.logWarning(label, Cause.pretty(cause)));
 
 export function UsersAdministration(props: UsersAdministrationProps) {
-	const generation = useRef(0);
 	const [search, setSearch] = useState("");
 	const searchInput = useRef<HTMLInputElement>(null);
 	useFieldEscape(searchInput, { hasValue: search !== "", onClear: () => setSearch("") });
 	const [query, setQuery] = useState("");
-	const [pages, setPages] = useState<ReadonlyArray<Page>>([{ after: undefined, state: "loading" }]);
-	useValueChange(query, () => setPages([{ after: undefined, state: "loading" }]));
-
-	const applyPage = (
-		after: string | undefined,
-		version: number,
-		exit: Exit.Exit<InstanceAdminUsers, unknown>,
-	) => {
-		if (generation.current !== version) {
-			return;
-		}
-		if (Exit.isFailure(exit) && isUnauthorizedCause(exit.cause)) {
-			props.onUnauthorized();
-			return;
-		}
-		setPages((current) =>
-			current.map((page) => {
-				if (page.after !== after) {
-					return page;
-				}
-				return Exit.isSuccess(exit)
-					? { after, state: "loaded", value: exit.value }
-					: { after, state: "error" };
-			}),
-		);
-		if (Exit.isFailure(exit)) {
-			logFailure("instance-admin users request failed", exit.cause);
-		}
-	};
-	const loadPage = (pageQuery: string, after: string | undefined, version: number) =>
-		Effect.runFork(
-			props.operations
-				.listUsers(pageQuery, after, PAGE_SIZE)
-				.pipe(Effect.map((exit) => applyPage(after, version, exit))),
-		);
-	const loadFirstPage = useEffectEvent((pageQuery: string, version: number) => {
-		loadPage(pageQuery, undefined, version);
+	const pagination = usePagination<InstanceAdminUsers, string | undefined>({
+		identity: query,
+		initialPageParam: undefined,
+		getNextPageParam: nextPageCursor,
+		load: (after) =>
+			readAdminResult(
+				props.operations.listUsers(query, after, PAGE_SIZE),
+				props.onUnauthorized,
+			).pipe(
+				Effect.tapCause((cause) =>
+					isUnauthorizedCause(cause)
+						? Effect.void
+						: Effect.logWarning("instance-admin users request failed", cause),
+				),
+			),
 	});
 
 	useEffect(() => {
@@ -158,56 +129,38 @@ export function UsersAdministration(props: UsersAdministrationProps) {
 		return () => clearTimeout(timer);
 	}, [search]);
 
-	useEffect(() => {
-		const version = generation.current + 1;
-		generation.current = version;
-		loadFirstPage(query, version);
-		return () => {
-			generation.current += 1;
-		};
-	}, [query]);
-
-	const retry = (after: string | undefined) => {
-		setPages((current) =>
-			current.map((page) => (page.after === after ? { after, state: "loading" } : page)),
-		);
-		loadPage(query, after, generation.current);
-	};
-	const loadedPages = pages.filter(
-		(page): page is Extract<Page, { state: "loaded" }> => page.state === "loaded",
+	const users = paginationItems(
+		pagination.pages,
+		(page) => page.items,
+		(user) => user.id,
 	);
-	const loaded = loadedPages.reduce((count, page) => count + page.value.items.length, 0);
-	const total = loadedPages[0]?.value.total ?? 0;
-	const last = pages.at(-1);
-	const loadMore = () => {
-		if (last?.state !== "loaded" || last.value.pageInfo.nextCursor === null) {
-			return;
-		}
-		const after = last.value.pageInfo.nextCursor;
-		setPages((current) => [...current, { after, state: "loading" }]);
-		loadPage(query, after, generation.current);
-	};
-	const refreshUsers = () => {
-		const version = generation.current + 1;
-		generation.current = version;
-		setPages([{ after: undefined, state: "loading" }]);
-		loadPage(query, undefined, version);
-	};
+	const loaded = users.length;
+	const total = pagination.pages.at(0)?.total ?? 0;
+	const refreshUsers = pagination.refetch;
 	const submitSearch = (event: SyntheticEvent<HTMLFormElement>) => {
 		event.preventDefault();
 		setQuery(search.trim());
 	};
-	const bodyEndRows = pages.flatMap((page) =>
-		page.state === "loaded"
+	const unauthorized = pagination.cause !== null && isUnauthorizedCause(pagination.cause);
+	if (unauthorized) {
+		return null;
+	}
+	let pageState: "error" | "loading" | undefined;
+	if (pagination.errorOperation !== null) {
+		pageState = "error";
+	} else if (pagination.isFetching || pagination.isPending) {
+		pageState = "loading";
+	}
+	const bodyEndRows =
+		pageState === undefined
 			? []
 			: [
 					{
-						id: page.after ?? "first",
+						id: "pagination-status",
 						cellClassName: "px-2 py-10 text-center text-text-muted",
-						content: <UserPageStatus page={page} onRetry={retry} />,
+						content: <UserPageStatus state={pageState} onRetry={pagination.retry} />,
 					},
-				],
-	);
+				];
 
 	return (
 		<section className="ui-card max-w-6xl" aria-labelledby="instance-admin-users-title">
@@ -235,11 +188,11 @@ export function UsersAdministration(props: UsersAdministrationProps) {
 			</form>
 			<div className="mt-5 overflow-x-auto">
 				<DataTable
+					data={users}
 					columns={userColumns}
 					bodyEndRows={bodyEndRows}
 					getRowId={(user) => user.id}
 					className="w-full border-collapse text-left text-sm"
-					data={loadedPages.flatMap((page) => page.value.items)}
 					headerClassName="border-b border-border text-xs text-text-muted"
 					renderRow={(user) => (
 						<UserRow
@@ -253,7 +206,7 @@ export function UsersAdministration(props: UsersAdministrationProps) {
 					)}
 				/>
 			</div>
-			{last?.state === "loaded" && loaded === 0 && (
+			{pagination.pages.length > 0 && loaded === 0 && !pagination.isFetching && (
 				<div className="py-12 text-center">
 					<h2 className="font-display text-lg font-semibold">No users found</h2>
 					<p className="mt-1 text-sm text-text-muted">
@@ -263,16 +216,21 @@ export function UsersAdministration(props: UsersAdministrationProps) {
 					</p>
 				</div>
 			)}
-			{loadedPages.length > 0 && loaded > 0 && (
+			{pagination.pages.length > 0 && loaded > 0 && (
 				<p className="mt-4 text-center text-sm text-text-muted">
 					Showing {loaded.toLocaleString()} of {total.toLocaleString()} users
 				</p>
 			)}
-			{last?.state === "loaded" && last.value.pageInfo.nextCursor !== null && (
+			{pagination.hasNextPage && pagination.errorOperation !== "append" && (
 				<div className="mt-5 flex justify-center">
-					<Button type="button" onClick={loadMore} variant="secondary">
-						Load more users
-					</Button>
+					<LoadMoreButton
+						type="button"
+						label="Load more users"
+						onClick={pagination.fetchNextPage}
+						loadingLabel="Loading more users..."
+						isFetchingNextPage={pagination.isFetchingNextPage}
+						disabled={pagination.isFetching && !pagination.isFetchingNextPage}
+					/>
 				</div>
 			)}
 		</section>

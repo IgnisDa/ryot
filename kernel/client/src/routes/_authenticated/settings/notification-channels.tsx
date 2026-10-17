@@ -1,4 +1,8 @@
-import { useRyotMutation, useRyotQuery } from "@ryot-app/plugin-client-sdk/react";
+import {
+	useRyotInfiniteQuery,
+	useRyotMutation,
+	useRyotQuery,
+} from "@ryot-app/plugin-client-sdk/react";
 import type { NotificationChannelsResult } from "@ryot-app/ryotql-recipes/notification-channels";
 import { createFileRoute } from "@tanstack/react-router";
 import { Effect } from "effect";
@@ -25,13 +29,22 @@ import { SettingsFrame } from "#/modules/settings/settings-frame";
 import { LoadErrorState } from "#/modules/ui/load-error-state";
 import { useSearchParamModal } from "#/modules/ui/search-param-modal";
 import { StatusState } from "#/modules/ui/status-state";
-import { useLatestListState } from "#/modules/ui/use-latest-defined";
 import { RELATIVE_TIME_REFRESH_MS, useNowMs } from "#/modules/ui/use-now-ms";
 
 const listState = (page: NotificationChannelsResult): NotificationChannelListState =>
 	page.items.length === 0
 		? { status: "empty" }
 		: { status: "ready", channels: page.items, hasMore: page.pageInfo.hasMore };
+
+const queryListState = (
+	page: NotificationChannelsResult | undefined,
+	pending: boolean,
+): NotificationChannelListState | undefined => {
+	if (page !== undefined) {
+		return listState(page);
+	}
+	return pending ? undefined : { status: "failed" };
+};
 
 const testedChannelsDetail = (enabledCount: number) =>
 	enabledCount === 1
@@ -62,10 +75,15 @@ function NotificationChannelsRoute() {
 	const [testSucceeded, setTestSucceeded] = useState(false);
 	const [deleteFailedId, setDeleteFailedId] = useState<string | undefined>();
 	const [pendingChannelId, setPendingChannelId] = useState<string | undefined>();
-	const [limit, setLimit] = useState(NOTIFICATION_CHANNELS_PAGE_SIZE);
-	const listed = useRyotQuery(notificationChannelsQuery, limit);
+	const listed = useRyotInfiniteQuery(notificationChannelsQuery, undefined, {
+		mode: "replace",
+		getPageInput: (_input, limit) => limit,
+		initialPageParam: NOTIFICATION_CHANNELS_PAGE_SIZE,
+		getNextPageParam: (page, limit) =>
+			page.pageInfo.hasMore ? limit + NOTIFICATION_CHANNELS_PAGE_SIZE : null,
+	});
 	const smtpEnabled = useRyotQuery(notificationSmtpEnabledQuery);
-	const state = useLatestListState(listed, listState);
+	const state = queryListState(listed.data, listed.isPending);
 	const nowMs = useNowMs(RELATIVE_TIME_REFRESH_MS);
 	const sendTestMutation = useRyotMutation(testNotificationChannelsMutation);
 	const updateMutation = useRyotMutation(updateNotificationChannelMutation);
@@ -129,8 +147,8 @@ function NotificationChannelsRoute() {
 
 	const wizard = useSearchParamModal({
 		isOpen: create === true,
+		onCompleted: () => undefined,
 		open: () => void navigate({ search: { create: true } }),
-		onCompleted: () => setLimit(NOTIFICATION_CHANNELS_PAGE_SIZE),
 		close: () => void navigate({ replace: true, search: { create: undefined } }),
 	});
 
@@ -152,15 +170,22 @@ function NotificationChannelsRoute() {
 				onRetry={listed.refetch}
 				enabledCount={enabledCount}
 				testSucceeded={testSucceeded}
+				isFetching={listed.isFetching}
 				deleteFailedId={deleteFailedId}
 				isDemoProtected={isDemoProtected}
 				onSendTest={() => void sendTest()}
 				pendingChannelId={pendingChannelId}
 				isTesting={sendTestMutation.isPending}
 				onDelete={(id) => void deleteChannel(id)}
+				isFetchingNextPage={listed.isFetchingNextPage}
 				onToggle={(id, isDisabled) => void toggleChannel(id, isDisabled)}
-				isLoadingMore={listed.isFetching && limit > NOTIFICATION_CHANNELS_PAGE_SIZE}
-				onShowMore={() => setLimit((current) => current + NOTIFICATION_CHANNELS_PAGE_SIZE)}
+				onShowMore={() => {
+					if (listed.errorOperation === "append") {
+						listed.retry();
+					} else {
+						listed.fetchNextPage();
+					}
+				}}
 			/>
 			{create === true && !isDemoProtected && (
 				<NotificationChannelCreateWizard

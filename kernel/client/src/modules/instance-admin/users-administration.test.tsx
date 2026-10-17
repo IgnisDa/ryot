@@ -397,34 +397,31 @@ describe("Instance Admin users administration", () => {
 		}),
 	);
 
-	it.live(
-		"refetches disabled state from the admin users recipe and discards shifted cursor pages",
-		() =>
-			Effect.gen(function* () {
-				const user = userEvent.setup();
-				const view = renderUsers(Array.from({ length: 51 }, (_, index) => makeUser(index)));
-				yield* Effect.promise(() => screen.findByText("reader-0@example.com"));
-				yield* Effect.promise(() =>
-					user.click(screen.getByRole("button", { name: "Load more users" })),
-				);
-				yield* Effect.promise(() => screen.findByText("reader-50@example.com"));
+	it.live("refetches disabled state and replays every loaded admin user page", () =>
+		Effect.gen(function* () {
+			const user = userEvent.setup();
+			const view = renderUsers(Array.from({ length: 51 }, (_, index) => makeUser(index)));
+			yield* Effect.promise(() => screen.findByText("reader-0@example.com"));
+			yield* Effect.promise(() =>
+				user.click(screen.getByRole("button", { name: "Load more users" })),
+			);
+			yield* Effect.promise(() => screen.findByText("reader-50@example.com"));
 
-				yield* Effect.promise(() =>
-					user.click(screen.getByRole("button", { name: "Actions for reader-0@example.com" })),
-				);
-				yield* Effect.promise(() =>
-					user.click(screen.getByRole("menuitem", { name: "Disable user" })),
-				);
+			yield* Effect.promise(() =>
+				user.click(screen.getByRole("button", { name: "Actions for reader-0@example.com" })),
+			);
+			yield* Effect.promise(() =>
+				user.click(screen.getByRole("menuitem", { name: "Disable user" })),
+			);
 
-				yield* Effect.promise(() => screen.findByText("Disabled"));
-				expect(view.calls.at(-1)).toEqual({ limit: 50, search: "", after: undefined });
-				expect(screen.getByText("Showing 50 of 51 users")).toBeTruthy();
-				expect(screen.queryByText("reader-50@example.com")).toBeNull();
-				yield* Effect.promise(() =>
-					user.click(screen.getByRole("button", { name: "Load more users" })),
-				);
-				yield* Effect.promise(() => screen.findByText("reader-50@example.com"));
-			}),
+			yield* Effect.promise(() => screen.findByText("Disabled"));
+			expect(view.calls.slice(-2)).toEqual([
+				{ limit: 50, search: "", after: undefined },
+				{ limit: 50, search: "", after: "50" },
+			]);
+			expect(screen.getByText("Showing 51 of 51 users")).toBeTruthy();
+			expect(screen.getByText("reader-50@example.com")).toBeTruthy();
+		}),
 	);
 
 	it.live("refetches after deletion so the first page and total reflect shifted users", () =>
@@ -450,7 +447,7 @@ describe("Instance Admin users administration", () => {
 		}),
 	);
 
-	it.live("shows a retryable error if the admin list refresh fails after disabling", () =>
+	it.live("retains users when the admin list refresh fails after disabling", () =>
 		Effect.gen(function* () {
 			const user = userEvent.setup();
 			const users = [makeUser(0)];
@@ -473,9 +470,15 @@ describe("Instance Admin users administration", () => {
 			);
 
 			yield* Effect.promise(() => screen.findByRole("alert"));
-			expect(screen.queryByText("reader-0@example.com")).toBeNull();
+			expect(screen.getByText("reader-0@example.com")).toBeTruthy();
 			yield* Effect.promise(() => user.click(screen.getByRole("button", { name: "Retry" })));
-			yield* Effect.promise(() => screen.findByText("reader-0@example.com"));
+			yield* Effect.promise(() => waitFor(() => expect(requests).toBe(3)));
+			yield* Effect.promise(() =>
+				waitFor(() => {
+					expect(screen.queryByRole("alert")).toBeNull();
+					expect(screen.queryByRole("status")).toBeNull();
+				}),
+			);
 			expect(requests).toBe(3);
 			expect(screen.getByText("Enabled")).toBeTruthy();
 		}),

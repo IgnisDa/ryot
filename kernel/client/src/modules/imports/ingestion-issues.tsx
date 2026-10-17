@@ -1,24 +1,41 @@
-import { useRyotQuery } from "@ryot-app/plugin-client-sdk/react";
-import { Button } from "@ryot-app/plugin-ui-sdk";
-import type { ImportIssuesPage } from "@ryot-app/ryotql-recipes/import-runs";
-import { useEffect, useRef, useState } from "react";
+import {
+	nextPageCursor,
+	paginationItems,
+	useRyotInfiniteQuery,
+} from "@ryot-app/plugin-client-sdk/react";
+import { Button, LoadMoreButton } from "@ryot-app/plugin-ui-sdk";
+import { useEffect, useRef } from "react";
 
 import { importIssuesQuery } from "./service";
 
+const initialCursor: string | undefined = undefined;
+
 export function IngestionIssues(props: { readonly runId: string; readonly revision: string }) {
-	const [after, setAfter] = useState<string | undefined>();
-	const [previous, setPrevious] = useState<ImportIssuesPage["items"]>([]);
-	const query = useRyotQuery(importIssuesQuery, { after, limit: 25, runId: props.runId });
-	const refreshedRevision = useRef<string | undefined>(undefined);
-	const { refetch } = query;
+	const query = useRyotInfiniteQuery(
+		importIssuesQuery,
+		{ runId: props.runId },
+		{
+			initialPageParam: initialCursor,
+			getNextPageParam: nextPageCursor,
+			getPageInput: (input, after: string | undefined) => ({ ...input, after, limit: 25 }),
+		},
+	);
+	const refreshedRevision = useRef({ runId: props.runId, revision: props.revision });
 	const { revision } = props;
+	const { refetch } = query;
 	useEffect(() => {
-		if (refreshedRevision.current !== revision) {
-			refreshedRevision.current = revision;
+		const previous = refreshedRevision.current;
+		refreshedRevision.current = { revision, runId: props.runId };
+		if (previous.runId === props.runId && previous.revision !== revision) {
 			refetch();
 		}
-	}, [revision, refetch]);
-	if (query.status === "error") {
+	}, [revision, props.runId, refetch]);
+	const issues = paginationItems(
+		query.pages,
+		(page) => page.items,
+		(issue) => issue.id,
+	);
+	if (query.isError && query.pages.length === 0) {
 		return (
 			<div role="alert" className="text-sm text-danger">
 				Could not load record issues.{" "}
@@ -28,9 +45,10 @@ export function IngestionIssues(props: { readonly runId: string; readonly revisi
 			</div>
 		);
 	}
-	if (query.data === undefined || (query.data.items.length === 0 && previous.length === 0)) {
+	if (query.pages.length === 0 || issues.length === 0) {
 		return null;
 	}
+	const appendFailed = query.errorOperation === "append";
 	return (
 		<section className="flex flex-col gap-3">
 			<h2 className="text-base font-semibold text-text">Record issues</h2>
@@ -38,7 +56,15 @@ export function IngestionIssues(props: { readonly runId: string; readonly revisi
 				Warnings and record errors are separate from a run failure. Expected skips appear in the
 				outcome summary.
 			</p>
-			{[...previous, ...query.data.items].map(({ id, data: issue }) => (
+			{query.errorOperation === "refresh" ? (
+				<div role="alert" className="text-sm text-danger">
+					Could not refresh record issues.{" "}
+					<Button variant="secondary" onClick={query.refetch}>
+						Try again
+					</Button>
+				</div>
+			) : null}
+			{issues.map(({ id, data: issue }) => (
 				<div key={id} className="border-b border-border py-3 text-sm text-text-muted">
 					<p className="font-medium text-text">
 						{issue.attribution?.sourceLabel ?? issue.attribution?.recordId ?? "Run issue"} ·{" "}
@@ -61,20 +87,15 @@ export function IngestionIssues(props: { readonly runId: string; readonly revisi
 					)}
 				</div>
 			))}
-			{query.data.pageInfo.nextCursor === null ? null : (
-				<Button
+			{query.hasNextPage ? (
+				<LoadMoreButton
 					variant="secondary"
-					onClick={() => {
-						if (query.data === undefined || query.data.pageInfo.nextCursor === null) {
-							return;
-						}
-						setPrevious([...previous, ...query.data.items]);
-						setAfter(query.data.pageInfo.nextCursor);
-					}}
-				>
-					Show more record issues
-				</Button>
-			)}
+					disabled={query.isFetching}
+					isFetchingNextPage={query.isFetchingNextPage}
+					onClick={appendFailed ? query.retry : query.fetchNextPage}
+					label={appendFailed ? "Try again" : "Show more record issues"}
+				/>
+			) : null}
 		</section>
 	);
 }
