@@ -571,6 +571,22 @@ describe("Media activity log operation", () => {
 					logMediaActivityUnchecked(client, submissionId, { entry, submittedAt, submissionId }),
 				);
 			};
+			const invalid = [
+				attempt({
+					kind: "complete",
+					entityId: movie.entityId,
+					when: { kind: "date", finishedOn: "2026-03-10T09:00:01.000Z" },
+				}),
+				attempt({
+					kind: "complete",
+					entityId: movie.entityId,
+					when: {
+						kind: "date",
+						startedOn: "2026-03-09T12:00:00.000Z",
+						finishedOn: "2026-03-08T12:00:00.000Z",
+					},
+				}),
+			];
 			const rejected = [
 				attempt({ kind: "progress", progressPercent: 10, entityId: show.show.id }),
 				attempt({ kind: "complete", when: { kind: "now" }, entityId: show.show.id }),
@@ -586,28 +602,18 @@ describe("Media activity log operation", () => {
 					parentEntityId: show.show.id,
 					episodeEntityIds: [otherShow.episodeId(1, 1)],
 				}),
-				attempt({
-					kind: "complete",
-					entityId: movie.entityId,
-					when: { kind: "date", finishedOn: "2026-03-10T09:00:01.000Z" },
-				}),
-				attempt({
-					kind: "complete",
-					entityId: movie.entityId,
-					when: {
-						kind: "date",
-						startedOn: "2026-03-09T12:00:00.000Z",
-						finishedOn: "2026-03-08T12:00:00.000Z",
-					},
-				}),
 				attempt({ position: 2, kind: "progress", entityId: movie.entityId }),
 				attempt({ kind: "progress", progressPercent: 50, entityId: anime.entityId }),
 				attempt({ kind: "progress", entityId: anime.entityId }),
 				attempt({ kind: "status", status: "dropped", entityId: crypto.randomUUID() }),
 			];
 
-			for (const failure of yield* Effect.all(rejected)) {
+			for (const failure of yield* Effect.all(invalid)) {
 				assertTaggedError(failure, "PluginInvocationError");
+			}
+			for (const failure of yield* Effect.all(rejected)) {
+				assertTaggedError(failure, "PluginOperationRejected");
+				expect(failure.message).not.toBe("");
 			}
 			for (const entityId of [
 				movie.entityId,

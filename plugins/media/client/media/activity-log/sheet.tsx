@@ -1,3 +1,4 @@
+import { RyotClientError } from "@ryot-app/plugin-client-sdk";
 import {
 	localDay,
 	nextPageCursor,
@@ -815,6 +816,12 @@ function ActivityLogForm(
 	const patch = (next: Partial<ActivityDraft>) => setDraft((current) => ({ ...current, ...next }));
 	const locked = log.status !== "idle";
 	const saved = log.data?.status === "saved";
+	const rejection =
+		log.status === "retained" &&
+		log.error instanceof RyotClientError &&
+		log.error.reason === "operation-rejected"
+			? log.error.message
+			: undefined;
 	const settings = usePluginUserSettings(usePluginIdentity(PLUGIN_PACKAGE_ID).pluginId);
 	const settingKey = consumedOnSettingKey(context.schemaSlug);
 	const suggestions = consumedOnSuggestions(
@@ -859,6 +866,21 @@ function ActivityLogForm(
 		episodeCount: episodeEntityIds.length,
 		episodeCode: selected === undefined ? undefined : episodeCode(logger, selected),
 	});
+	const retainedAction =
+		rejection === undefined ? (
+			<Button onClick={log.retry}>Retry</Button>
+		) : (
+			<Button onClick={log.abandon}>Edit</Button>
+		);
+	const retainedMessage =
+		rejection === undefined ? (
+			<StatusMessage tone="error">
+				This may already be saved. Retry the same submission to finish without duplicates. Cancel
+				closes this form but does not undo anything already saved.
+			</StatusMessage>
+		) : (
+			<StatusMessage tone="error">{rejection}</StatusMessage>
+		);
 	const submit = () => {
 		if (waiting || hasActivityErrors(errors) || log.status !== "idle") {
 			return;
@@ -883,7 +905,7 @@ function ActivityLogForm(
 							Cancel
 						</Button>
 						{log.status === "retained" ? (
-							<Button onClick={log.retry}>Retry</Button>
+							retainedAction
 						) : (
 							<Button
 								onClick={submit}
@@ -940,12 +962,7 @@ function ActivityLogForm(
 							seasonNumber={seasonNumber}
 						/>
 					</fieldset>
-					{log.status === "retained" ? (
-						<StatusMessage tone="error">
-							This may already be saved. Retry the same submission to finish without duplicates.
-							Cancel closes this form but does not undo anything already saved.
-						</StatusMessage>
-					) : null}
+					{log.status === "retained" ? retainedMessage : null}
 				</ActionForm>
 			)}
 		</Dialog>

@@ -1254,6 +1254,36 @@ for (const failure of ["incomplete", "transport"] as const) {
 	);
 }
 
+it.live("shows an operation rejection message without claiming the activity may be saved", () =>
+	Effect.gen(function* () {
+		const mounted = mountLog({
+			logger: movie,
+			result: () =>
+				Effect.fail(
+					new RyotClientError("operation-rejected", "This media type cannot be completed directly"),
+				),
+		});
+		try {
+			const dialog = yield* openLog(mounted);
+			press(dialog, "Mark as watched");
+			yield* eventually(() =>
+				expect(getByRole(dialog, "alert").textContent).toBe(
+					"This media type cannot be completed directly",
+				),
+			);
+			expect(dialog.textContent).not.toContain("may already be saved");
+			expect(queryByRole(dialog, "button", { name: "Retry" })).toBeNull();
+			press(dialog, "Edit");
+			yield* eventually(() =>
+				expect(dialog.querySelector("fieldset")?.hasAttribute("disabled")).toBe(false),
+			);
+			expect(mounted.requests).toHaveLength(1);
+		} finally {
+			mounted.view.unmount();
+		}
+	}),
+);
+
 it.live("closes without writing when cancelled", () =>
 	Effect.gen(function* () {
 		const mounted = mountLog({ logger: movie });

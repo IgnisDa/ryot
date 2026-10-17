@@ -206,7 +206,12 @@ describe("anime.anilist sandbox script", () => {
 					expect(defaultBody).toMatchObject({
 						variables: { page: 2, perPage: 20, type: "ANIME", search: "hero", isAdult: false },
 					});
-					expect(nsfwBody).toMatchObject({ variables: { isAdult: null } });
+					expect(nsfwBody).toHaveProperty("variables", {
+						page: 3,
+						perPage: 20,
+						type: "ANIME",
+						search: "hero",
+					});
 					return undefined;
 				}),
 			),

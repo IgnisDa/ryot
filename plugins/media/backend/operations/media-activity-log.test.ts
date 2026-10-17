@@ -5,7 +5,7 @@ import type {
 	CreateEventItem,
 	DomainSandboxHostMethodMap,
 } from "@ryot-app/plugin-backend-sdk/core";
-import { Effect } from "@ryot-app/plugin-backend-sdk/effect";
+import { Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
 import { defineSandboxTestHost, runSandboxTestScript } from "@ryot-app/plugin-backend-sdk/testing";
 
 import type { MediaActivityEntry } from "../../shared/media-activity-operations";
@@ -35,13 +35,14 @@ const recordingHost = (input: {
 	readonly failSettings?: "read" | "write" | undefined;
 	readonly settings?: Record<string, JsonValue> | undefined;
 	readonly schemaSlug?: string | undefined;
-	readonly memberCount?: number | undefined;
+	readonly foreignEpisodeIds?: readonly string[] | undefined;
 	readonly createEvents?: (index: number) => ReturnType<typeof failure> | undefined;
 }) => {
 	const creates: (readonly CreateEventItem[])[] = [];
 	const options: (CreateEventOptions | undefined)[] = [];
 	const patches: Record<string, JsonValue>[] = [];
 	const logs: unknown[] = [];
+	const memberQueries: unknown[] = [];
 	const host = defineSandboxTestHost(manifest, {
 		log: (entries) =>
 			Effect.sync(() => {
@@ -66,24 +67,31 @@ const recordingHost = (input: {
 						return { saved: true as const };
 					}),
 		executeRyotql: (document) =>
-			Effect.succeed({
-				data:
-					"members" in document.queries
-						? {
-								members: page(
-									Array.from({ length: input.memberCount ?? 0 }, (_, index) => ({
-										id: `member-${index}`,
-									})),
-								),
-							}
-						: {
-								target: page(
-									input.schemaSlug === undefined ? [] : [{ schemaSlug: input.schemaSlug }],
-								),
-							},
+			Effect.gen(function* () {
+				if (!("members" in document.queries)) {
+					return {
+						data: {
+							target: page(
+								input.schemaSlug === undefined ? [] : [{ schemaSlug: input.schemaSlug }],
+							),
+						},
+					};
+				}
+				const serialized = yield* Schema.encodeEffect(Schema.fromJsonString(Schema.Unknown))(
+					document.queries.members,
+				).pipe(Effect.orDie);
+				const ids = serialized.match(/(?<=")(episode-\d+|foreign)(?=")/g) ?? [];
+				memberQueries.push(ids.length);
+				return {
+					data: {
+						members: page(
+							ids.filter((id) => !input.foreignEpisodeIds?.includes(id)).map((id) => ({ id })),
+						),
+					},
+				};
 			}),
 	});
-	return { host, logs, creates, options, patches };
+	return { host, logs, creates, options, patches, memberQueries };
 };
 
 const failure = (count: number) =>
@@ -112,7 +120,7 @@ const run = (
 	);
 
 const rejects = (
-	expectedTag: "SchemaError" | "MediaActivityRejectedError",
+	expectedTag: "SchemaError" | "OperationRejectedError",
 	entry: MediaActivityEntry,
 	host: Parameters<typeof run>[1],
 ) =>
@@ -307,12 +315,12 @@ describe("media activity log", () => {
 		Effect.gen(function* () {
 			const anime = recordingHost({ schemaSlug: "anime" });
 			yield* rejects(
-				"MediaActivityRejectedError",
+				"OperationRejectedError",
 				{ kind: "progress", entityId: "anime-1", progressPercent: 50 },
 				anime.host,
 			);
 			yield* rejects(
-				"MediaActivityRejectedError",
+				"OperationRejectedError",
 				{ kind: "progress", entityId: "anime-1" },
 				anime.host,
 			);
@@ -323,29 +331,29 @@ describe("media activity log", () => {
 			);
 			const book = recordingHost({ schemaSlug: "book" });
 			yield* rejects(
-				"MediaActivityRejectedError",
+				"OperationRejectedError",
 				{ position: 2, kind: "progress", entityId: "book-1" },
 				book.host,
 			);
 			const show = recordingHost({ schemaSlug: "show" });
 			yield* rejects(
-				"MediaActivityRejectedError",
+				"OperationRejectedError",
 				{ kind: "progress", entityId: "show-1", progressPercent: 50 },
 				show.host,
 			);
 			yield* rejects(
-				"MediaActivityRejectedError",
+				"OperationRejectedError",
 				{ kind: "complete", entityId: "show-1", when: { kind: "now" } },
 				show.host,
 			);
 			const missing = recordingHost({});
 			yield* rejects(
-				"MediaActivityRejectedError",
+				"OperationRejectedError",
 				{ kind: "progress", entityId: "gone", progressPercent: 50 },
 				missing.host,
 			);
 			yield* rejects(
-				"MediaActivityRejectedError",
+				"OperationRejectedError",
 				{ kind: "status", entityId: "gone", status: "dropped" },
 				missing.host,
 			);
@@ -367,7 +375,7 @@ describe("media activity log", () => {
 
 	it.live("writes one complete event per episode in a deterministic order", () =>
 		Effect.gen(function* () {
-			const { host, creates } = recordingHost({ memberCount: 3, schemaSlug: "show" });
+			const { host, creates } = recordingHost({ schemaSlug: "show" });
 			yield* run(
 				{
 					entry: {
@@ -400,7 +408,7 @@ describe("media activity log", () => {
 				parentEntityId: "podcast-1",
 				episodeEntityIds: Array.from({ length: 250 }, (_, index) => episodeId(249 - index)),
 			};
-			const first = recordingHost({ memberCount: 250, schemaSlug: "podcast" });
+			const first = recordingHost({ schemaSlug: "podcast" });
 			expect(yield* run({ entry }, first.host)).toEqual({ count: 250, status: "saved" });
 			expect(first.creates.map((chunk) => chunk.length)).toEqual([100, 100, 50]);
 			expect(first.creates.flat().map(({ entityId }) => entityId)).toEqual(ids);
@@ -409,9 +417,54 @@ describe("media activity log", () => {
 				{ submittedAt, idempotencyKey: "submission:1" },
 				{ submittedAt, idempotencyKey: "submission:2" },
 			]);
-			const retry = recordingHost({ memberCount: 250, schemaSlug: "podcast" });
+			const retry = recordingHost({ schemaSlug: "podcast" });
 			yield* run({ entry }, retry.host);
 			expect(retry.creates).toEqual(first.creates);
+		}),
+	);
+
+	for (const { count, queries } of [
+		{ count: 101, queries: [100, 1] },
+		{ count: 500, queries: [100, 100, 100, 100, 100] },
+	]) {
+		it.live(`validates ${count} episodes in membership queries of at most 100 ids`, () =>
+			Effect.gen(function* () {
+				const { host, memberQueries } = recordingHost({ schemaSlug: "show" });
+				expect(
+					yield* run(
+						{
+							entry: {
+								kind: "episodes",
+								when: { kind: "now" },
+								parentEntityId: "show-1",
+								episodeEntityIds: episodeIds(count),
+							},
+						},
+						host,
+					),
+				).toEqual({ count, status: "saved" });
+				expect(memberQueries).toEqual(queries);
+			}),
+		);
+	}
+
+	it.live("rejects a foreign episode that falls in a later membership chunk", () =>
+		Effect.gen(function* () {
+			const { host, creates } = recordingHost({
+				schemaSlug: "show",
+				foreignEpisodeIds: [episodeId(150)],
+			});
+			yield* rejects(
+				"OperationRejectedError",
+				{
+					kind: "episodes",
+					when: { kind: "now" },
+					parentEntityId: "show-1",
+					episodeEntityIds: episodeIds(250),
+				},
+				host,
+			);
+			expect(creates).toEqual([]);
 		}),
 	);
 
@@ -419,9 +472,9 @@ describe("media activity log", () => {
 		"rejects episodes that do not belong to the parent or a parent that is not episodic",
 		() =>
 			Effect.gen(function* () {
-				const foreign = recordingHost({ memberCount: 1, schemaSlug: "show" });
+				const foreign = recordingHost({ schemaSlug: "show", foreignEpisodeIds: ["foreign"] });
 				yield* rejects(
-					"MediaActivityRejectedError",
+					"OperationRejectedError",
 					{
 						kind: "episodes",
 						when: { kind: "now" },
@@ -430,9 +483,9 @@ describe("media activity log", () => {
 					},
 					foreign.host,
 				);
-				const flat = recordingHost({ memberCount: 1, schemaSlug: "movie" });
+				const flat = recordingHost({ schemaSlug: "movie" });
 				yield* rejects(
-					"MediaActivityRejectedError",
+					"OperationRejectedError",
 					{
 						kind: "episodes",
 						when: { kind: "now" },
@@ -458,7 +511,6 @@ describe("media activity log", () => {
 	it.live("reports a partial chunk as incomplete and stops writing", () =>
 		Effect.gen(function* () {
 			const { host, creates } = recordingHost({
-				memberCount: 150,
 				schemaSlug: "show",
 				createEvents: (index) => (index === 1 ? failure(30) : undefined),
 			});
@@ -512,7 +564,6 @@ describe("media activity log", () => {
 			);
 			expect(progress.patches).toEqual([{ consumedOnAnime: ["Crunchyroll"] }]);
 			const episodes = recordingHost({
-				memberCount: 2,
 				schemaSlug: "podcast",
 				settings: { consumedOnPodcast: ["Spotify"] },
 			});
@@ -560,7 +611,6 @@ describe("media activity log", () => {
 				status.host,
 			);
 			const incomplete = recordingHost({
-				memberCount: 150,
 				schemaSlug: "show",
 				settings: { consumedOnShow: [] },
 				createEvents: (index) => (index === 1 ? failure(30) : undefined),

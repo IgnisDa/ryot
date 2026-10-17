@@ -246,8 +246,7 @@ export const searchAnilistMedia = (
 				type: options.type,
 				search: input.query,
 				perPage: input.pageSize,
-				// null = no isAdult filter (all content); false = non-adult only
-				isAdult: allowNsfw ? null : false,
+				...(allowNsfw ? {} : { isAdult: false }),
 			}),
 		),
 		Effect.flatMap((data) => {

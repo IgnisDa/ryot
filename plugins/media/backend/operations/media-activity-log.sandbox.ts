@@ -6,7 +6,7 @@ import {
 } from "@ryot-app/plugin-backend-sdk/core";
 import { defineManifest } from "@ryot-app/plugin-backend-sdk/driver";
 import { Effect, Result, Schema } from "@ryot-app/plugin-backend-sdk/effect";
-import { defineOperation } from "@ryot-app/plugin-backend-sdk/operation";
+import { defineOperation, OperationRejectedError } from "@ryot-app/plugin-backend-sdk/operation";
 import {
 	and,
 	ascending,
@@ -42,11 +42,9 @@ import {
 	positionalProperties,
 } from "../../shared/media-schema-slugs";
 
-class MediaActivityRejectedError extends Error {
-	readonly _tag = "MediaActivityRejectedError";
-}
+const reject = (message: string) => Effect.fail(new OperationRejectedError(message));
 
-const reject = (message: string) => Effect.fail(new MediaActivityRejectedError(message));
+const EPISODE_MEMBERSHIP_PAGE_SIZE = 100;
 
 const episodicConfigs: Readonly<Record<string, EpisodicKindConfig>> = {
 	show: showEpisodicKindConfig,
@@ -89,7 +87,7 @@ const episodeMembersRecipe = defineRecipe(
 			map: ({ members }) => Result.succeed(members.items.length),
 			queries: {
 				members: selectedRows(episode, {
-					limit: input.episodeEntityIds.length,
+					limit: EPISODE_MEMBERSHIP_PAGE_SIZE,
 					orderBy: [ascending(column(episode, "id"))],
 					selection: { id: selectedField(column(episode, "id"), Schema.String) },
 					where: and(
@@ -208,14 +206,24 @@ const buildEvents = (
 		if (config === undefined) {
 			return yield* reject("Episodes can only be logged on shows and podcasts");
 		}
-		const members = yield* executeRyotqlRecipe(
-			host.executeRyotql,
-			episodeMembersRecipe({
-				config,
-				parentEntityId: entry.parentEntityId,
-				episodeEntityIds: entry.episodeEntityIds,
-			}),
-		);
+		let members = 0;
+		for (
+			let start = 0;
+			start < entry.episodeEntityIds.length;
+			start += EPISODE_MEMBERSHIP_PAGE_SIZE
+		) {
+			members += yield* executeRyotqlRecipe(
+				host.executeRyotql,
+				episodeMembersRecipe({
+					config,
+					parentEntityId: entry.parentEntityId,
+					episodeEntityIds: entry.episodeEntityIds.slice(
+						start,
+						start + EPISODE_MEMBERSHIP_PAGE_SIZE,
+					),
+				}),
+			);
+		}
 		if (members !== entry.episodeEntityIds.length) {
 			return yield* reject("Every episode must belong to the selected parent");
 		}

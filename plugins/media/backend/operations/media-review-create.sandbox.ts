@@ -1,6 +1,6 @@
 import { defineManifest } from "@ryot-app/plugin-backend-sdk/driver";
 import { Effect, Result, Schema } from "@ryot-app/plugin-backend-sdk/effect";
-import { defineOperation } from "@ryot-app/plugin-backend-sdk/operation";
+import { defineOperation, OperationRejectedError } from "@ryot-app/plugin-backend-sdk/operation";
 import {
 	and,
 	ascending,
@@ -21,10 +21,6 @@ import {
 	MediaReviewCreateOutput,
 } from "../../shared/media-review-operations";
 import { mediaLibraryMemberEntitySchemaSlugs } from "../../shared/media-schema-slugs";
-
-class MediaReviewTargetNotFoundError extends Error {
-	readonly _tag = "MediaReviewTargetNotFoundError";
-}
 
 const reviewTargetRecipe = defineRecipe((entityId: string) => {
 	const entity = table("entity", "reviewTarget");
@@ -64,7 +60,7 @@ export default defineOperation({
 				reviewTargetRecipe(input.entityId),
 			);
 			if (target === undefined) {
-				return yield* Effect.fail(new MediaReviewTargetNotFoundError("Review target not found"));
+				return yield* Effect.fail(new OperationRejectedError("Review target not found"));
 			}
 			return yield* host.createEvents([
 				{
