@@ -31,6 +31,29 @@ const makeFetchHarness = Effect.gen(function* () {
 });
 
 describe("Youtubei sandbox adapter", () => {
+	test("accepts a URL through the platform fetch boundary", () =>
+		Effect.runPromise(
+			Effect.gen(function* () {
+				const { fetch, requests } = yield* makeFetchHarness;
+
+				yield* Effect.tryPromise(() =>
+					fetch(new URL("https://example.com/resource?x=1"), {
+						method: "POST",
+						body: "URL body",
+						headers: { "content-type": "application/custom" },
+					}),
+				);
+
+				expect(requests).toEqual([
+					[
+						"POST",
+						"https://example.com/resource?x=1",
+						{ body: "URL body", headers: { "content-type": "application/custom" } },
+					],
+				]);
+			}),
+		));
+
 	test("replaces input headers and normalizes init method and body", () =>
 		Effect.runPromise(
 			Effect.gen(function* () {

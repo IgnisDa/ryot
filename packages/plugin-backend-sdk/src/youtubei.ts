@@ -1,6 +1,6 @@
 import { withApprovedDependencyRuntime } from "@ryot-app/plugin-backend-sdk/dependency-runtime";
 import { Effect } from "@ryot-app/plugin-backend-sdk/effect";
-import { Innertube } from "youtubei.js/web";
+import { Innertube, Platform, type Types } from "youtubei.js/web";
 
 import type { ScriptHost } from "./core/script-host";
 import { asRecord } from "./wire";
@@ -16,11 +16,15 @@ export type YoutubeiClientOptions = {
 const isHostError = (error: unknown): error is { message: string } =>
 	typeof asRecord(error)?.["message"] === "string";
 
-const makeFetch = (host: YoutubeiHost): typeof fetch =>
+const makeFetch = (host: YoutubeiHost): Types.FetchFunction =>
 	Object.assign(
-		(input: Request | string | URL, init?: RequestInit): Promise<Response> =>
+		(...[input, init]: Parameters<Types.FetchFunction>) =>
 			Effect.gen(function* () {
-				const request = yield* Effect.try(() => new Request(input, init));
+				const request = yield* Effect.try(() =>
+					input instanceof Platform.shim.Request
+						? new Platform.shim.Request(input, init)
+						: new Platform.shim.Request(typeof input === "string" ? input : input.href, init),
+				);
 				const body =
 					request.body === null ? undefined : yield* Effect.tryPromise(() => request.text());
 				const headers = Object.fromEntries(request.headers);
@@ -37,10 +41,13 @@ const makeFetch = (host: YoutubeiHost): typeof fetch =>
 				return yield* host.httpCall(request.method, request.url, options).pipe(
 					Effect.map(
 						(result) =>
-							new Response(result.body, { status: result.status, headers: result.headers }),
+							new Platform.shim.Response(result.body, {
+								status: result.status,
+								headers: result.headers,
+							}),
 					),
 					Effect.catchIf(isHostError, (error) =>
-						Effect.succeed(new Response(error.message, { status: 500 })),
+						Effect.succeed(new Platform.shim.Response(error.message, { status: 500 })),
 					),
 				);
 			}).pipe(Effect.runPromise),
