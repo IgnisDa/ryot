@@ -1648,6 +1648,20 @@ export class ImportsRepository extends Context.Service<ImportsRepository>()("Imp
 					.limit(Math.min(100, Math.max(1, limit))),
 			);
 		});
+		const captureIntegrationRecoveryCutoff = Effect.fn(
+			"ImportsRepository.captureIntegrationRecoveryCutoff",
+		)(function* () {
+			const [row] = yield* database.run((db) =>
+				db.execute<{ cutoff: string }>(
+					sql`select to_char(statement_timestamp()::timestamptz(3) at time zone 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') as cutoff`,
+					"objects",
+				),
+			);
+			if (!row) {
+				return yield* new DbError({ message: "Integration recovery cutoff returned no row" });
+			}
+			return row.cutoff;
+		});
 		const listIntegrationRecoveryRuns = Effect.fn("ImportsRepository.listIntegrationRecoveryRuns")(
 			function* (input: { limit: number; before: Date; after: IngestionRecoveryCursor | null }) {
 				return yield* database.run((db) =>
@@ -2003,6 +2017,7 @@ export class ImportsRepository extends Context.Service<ImportsRepository>()("Imp
 			releasePayloadReservation,
 			createIntegrationRunIfIdle,
 			listIntegrationRecoveryRuns,
+			captureIntegrationRecoveryCutoff,
 			listRecentStatusesByIntegrationId,
 		};
 	}),

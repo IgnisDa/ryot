@@ -607,7 +607,6 @@ export class IntegrationsService extends Context.Service<IntegrationsService>()(
 				accountGeneration: AccountGeneration | null,
 			) {
 				const integrations = yield* repository.listEnabledYankIntegrations({ userId });
-				const runs: IntegrationSyncRun[] = [];
 				const isPro = yield* proKey.isValidated;
 				const resolvedByUser = new Map<
 					UserId,
@@ -664,15 +663,7 @@ export class IntegrationsService extends Context.Service<IntegrationsService>()(
 
 					const account = accountGeneration ?? (yield* receipts.currentAccount(integration.userId));
 					yield* admitWorkflow(receipts, ProcessIntegrationRunWorkflow, account, run.id);
-					runs.push({
-						runId: run.id,
-						accountGeneration: account,
-						userId: integration.userId,
-						integrationId: integration.id,
-					});
 				}
-
-				return runs;
 			});
 
 			const syncAll = Effect.fn("IntegrationsService.syncAll")(function* (
@@ -710,6 +701,7 @@ export class IntegrationsService extends Context.Service<IntegrationsService>()(
 				delete: deleteIntegration,
 				prepareRecoveryRuns: ingestion.recoverable,
 				recordRunFinished: repository.recordRunFinished,
+				captureRecoveryCutoff: importRepository.captureIntegrationRecoveryCutoff,
 				releaseRecoveryRun: Effect.fnUntraced(function* (run: IntegrationSyncRun) {
 					const scope = {
 						runId: run.runId,

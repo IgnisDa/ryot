@@ -3,6 +3,7 @@ import { ImportRunId, IntegrationId, UserId } from "@ryot-app/contract/schema/br
 import { IsoUtcString } from "@ryot-app/contract/schema/utils";
 import { eq, sql } from "drizzle-orm";
 import { DateTime, Effect, Layer } from "effect";
+import { TestClock } from "effect/testing";
 
 import { IngestionCaptures } from "#modules/imports/capture-service";
 import { IngestionExecution } from "#modules/imports/execution-service";
@@ -247,7 +248,7 @@ layer(
 					}),
 			);
 			const runIds = [];
-			for (const microseconds of ["100", "200", "300"]) {
+			for (const fraction of ["000100", "000200", "000300", "001100", "002200"]) {
 				const id = yield* database.transaction(
 					repository.createBlockedRun({
 						userId,
@@ -262,7 +263,7 @@ layer(
 				);
 				yield* database.run((db) =>
 					db.execute(
-						sql`update import_run set created_at = ${`2026-10-03T11:00:00.000${microseconds}Z`}::timestamptz, block_deadline = ${`2026-10-03T11:00:00.000${microseconds}Z`}::timestamptz + interval '168 hours' where id = ${id}`,
+						sql`update import_run set created_at = ${`2026-10-03T11:00:00.${fraction}Z`}::timestamptz, block_deadline = ${`2026-10-03T11:00:00.${fraction}Z`}::timestamptz + interval '168 hours' where id = ${id}`,
 					),
 				);
 				runIds.push(id);
@@ -284,7 +285,65 @@ layer(
 					createdAt: IsoUtcString.make(last.createdAt.toISOString()),
 				};
 			}
-			expect([...paged].sort()).toEqual([...runIds].sort());
+			expect(paged).toEqual([...runIds.slice(0, 3).sort(), ...runIds.slice(3)]);
 		}),
+	);
+	test.effect(
+		"captures a database-clock cutoff after committed database-timestamped admission",
+		() =>
+			Effect.gen(function* () {
+				yield* TestClock.setTime(0);
+				const database = yield* DatabaseSession;
+				const repository = yield* ImportsRepository;
+				const ingestion = yield* IntegrationIngestion;
+				const userId = UserId.make("cutoff-user");
+				const integrationId = IntegrationId.make("cutoff-integration");
+				yield* database.run((db) =>
+					db
+						.insert(tables.user)
+						.values({
+							id: userId,
+							name: "Cutoff",
+							email: "cutoff@example.test",
+							accountGeneration: "generation",
+						}),
+				);
+				yield* database.run((db) =>
+					db
+						.insert(tables.integration)
+						.values({
+							userId,
+							lot: "sink",
+							id: integrationId,
+							provider: "data-json",
+							providerSpecifics: {},
+							clientProviderSpecifics: {},
+							webhookToken: "cutoff-token",
+							extraSettings: { disableOnContinuousErrors: false },
+						}),
+				);
+				const owner = yield* database.transaction(
+					repository.createIntegrationRun({
+						userId,
+						integrationId,
+						inputSummary: {},
+						source: "data-json",
+						integrationLot: "sink",
+						pluginInstallationId: null,
+					}),
+				);
+				const before = yield* repository.captureIntegrationRecoveryCutoff();
+				expect(before >= owner.createdAt).toBe(true);
+				expect(before > (yield* DateTime.nowAsDate).toISOString()).toBe(true);
+				const recovered = [];
+				let after: IngestionRecoveryCursor | null = null;
+				do {
+					const page: Effect.Success<ReturnType<typeof ingestion.recoverable>> =
+						yield* ingestion.recoverable({ after, before });
+					recovered.push(...page.runs.map((run) => run.runId));
+					after = page.next;
+				} while (after);
+				expect(recovered).toContain(owner.id);
+			}),
 	);
 });

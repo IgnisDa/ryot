@@ -15,7 +15,7 @@
 
 ## Status
 
-**32 implemented, 0 in progress, 51 pending; 3 excluded.**
+**33 implemented, 0 in progress, 50 pending; 3 excluded.**
 
 “Implemented” means affected checks and tests passed and the change is committed with this tracker. Batch-wide acceptance is recorded separately below. Rows follow the audit's ranked order; sequencing can change to respect dependencies and keep changes reviewable.
 
@@ -62,7 +62,7 @@
 | S03-R1 | Implemented | One optional stopping cause and first timestamp own stop transitions; cleanup and wakeup happen once while cause priority is preserved. See this finding's audit commit. |
 | B03-R1 | Pending | Prepared HTTP hops and explicit phases. |
 | P04-R2 | Pending | One automatic query-refresh owner. |
-| B15-R1 | Pending | One durable paged integration worklist. |
+| B15-R1 | Implemented | Use only a persisted paged worklist, with the database cutoff after admission, creation-time/ID cursor, exact IDs, and release. See this finding's audit commit. |
 | B05-R2 | Pending | Query asset-reference existence in PostgreSQL. |
 | B22-R1 | Pending | Reuse locked reorder facts for set-wise persistence. |
 | B20-R1 | Pending | Return aggregate replay counts without fabricated outcomes. |
@@ -197,3 +197,4 @@
 - F04-R1: fitness check passed before 11 tests; read-only review reported no findings. The persisted numeric plan is used directly, without editor hydration, and validation, units, and pro-media behavior are preserved.
 - S03-R1: sandbox Bun check, including format and clippy, passed; 73 Cargo tests passed with one ignored, and generated-doc validation passed. Read-only review reported no findings. Linux-only confinement was not run on macOS.
 - C08-R1: client type, format, and lint checks passed before 55 tests; read-only review reported no findings.
+- B15-R1: scoped type, format, and lint checks passed before 98 tests across 12 files; read-only review reported no findings. The full check was blocked by concurrent B05 work, now fixed. Existing development histories are disposable; no production data or drain machinery is needed. No compatibility path was added and no reset was performed.

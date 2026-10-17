@@ -4,6 +4,22 @@ This module owns integration CRUD, sink webhook ingress, yank admission, and int
 orchestration. Plugin sinks create one run per delivery; kernel Data webhooks reuse a run by
 submission key. Only yank admission is idle-gated.
 
+## Sync Worklist
+
+Sync first commits yank admission, then journals a database-clock cutoff. It pages the persisted
+blocked, pending, and cancelling integration runs through that cutoff in creation-time then ID order.
+New yank runs and recovery runs share this worklist; unreleasable owners do not stop cursor progress.
+Release retains expiry, cancellation, account-generation, readiness, and pinned-input checks. Child
+workflows retain each run's original execution ID.
+
+Admission itself still reads the enabled yank integrations as one collection. The worklist does not
+make that read bounded. Deliveries created after the cutoff wait for a later sync.
+
+Before deploying this workflow shape, drain the old `IntegrationSyncWorkflow` executions and their
+durable histories. The admission, cutoff, and page activities have new identities; old admission
+arrays and pre-admission cutoffs are not decoded or reused. No database schema or version changes
+are required.
+
 ## Webhook Admission
 
 The contract accepts one text payload per declared content type. Plugin sink ingress captures
