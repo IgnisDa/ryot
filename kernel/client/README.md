@@ -140,6 +140,35 @@ modal remains open after import and refreshes the page when it closes. Library p
 the catalog `createRoute` when one exists; otherwise, and always for plain picks, creation uses the
 inline form for a server-declared `editor` saved through the kernel editor endpoint, else none.
 
+### Command Center And Sidebar
+
+The command center (`modules/command-center`, opened by Mod+K, the sidebar Search row, or the
+forwarded iframe shortcut) is a combobox dialog over the shell's overlay arbitration; Escape and
+hardware Back close it through the shell back interceptor. Groups:
+
+- **Go to**: non-hidden saved views, collections, visible plugin homes, and fixed kernel pages
+  (settings sections, Customize sidebar), matched by case-insensitive substring.
+- **Library**: one group per visible `entity-browser` saved view whose settings declare search
+  fields. The view list comes from `savedViewRecordsRecipe`; each view is queried with its own
+  `dataSources` and settings through `entityBrowserRecipe` (`searchText`, `pageSize` capped at 5), and
+  up to three rows are shown. Searches run on the SDK schedule: a 250ms debounce, interruption of
+  every superseded search, and a pending or error-with-retry row per group.
+- **Actions**: for views whose `addAction` is `provider-search`, "Search providers for ..." navigates
+  to the view with `?add=true&q=<query>`. The saved-view route already opens the provider-add modal
+  from `add` and seeds it from `q`, so no new prefill mechanism exists. `plugin-route` add actions are
+  not offered.
+- **Recent**: with an empty input, the last eight destinations opened from the command center,
+  stored per server/user scope. Storage access is best-effort and the dialog renders without it.
+
+The sidebar and mobile drawer share one overflow rule: a section with more than seven items shows the
+first seven plus a "Show N more" / "Show less" disclosure. The active item is always visible: it
+auto-expands the section unless the user collapsed it explicitly, in which case it stays pinned.
+Disclosure state is stored per scope, workspace installation, and section.
+
+The workspace switcher derives the current workspace from the route package, the active saved view's
+installation, or the prepared page identity of an entity route (`plugin-page` installation), and
+only then falls back to the remembered workspace.
+
 ## Overlays And Back
 
 Overlay dismissal follows ownership:

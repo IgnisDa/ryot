@@ -21,6 +21,7 @@ import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react"
 
 import { useAuthenticatedSession } from "#/modules/auth/session-boundary";
 import { CollectionEditor } from "#/modules/collections/collection-editor";
+import { CommandCenter } from "#/modules/command-center/command-center";
 import { useIsDemoSession } from "#/modules/demo-protection";
 import { impactHaptic } from "#/modules/device/haptics";
 import { DeviceScope, ReturnShortcutBar } from "#/modules/device/lifecycle";
@@ -36,6 +37,7 @@ import {
 import { historyEntry } from "#/modules/navigation/history-entry";
 import {
 	isWorkspaceRoot,
+	preparedPageInstallationId,
 	resolveRememberedWorkspace,
 	type WorkspaceTarget,
 } from "#/modules/navigation/workspace-state";
@@ -71,6 +73,7 @@ import {
 	type SidebarEntry,
 	sidebarSections,
 } from "#/modules/shell/sidebar-sections";
+import { useSidebarExpansion } from "#/modules/shell/use-sidebar-expansion";
 import { useStableHandler } from "#/modules/ui/use-stable-handler";
 import { ClientStorage } from "#/persistence/storage";
 
@@ -158,9 +161,29 @@ export function AuthenticatedShell(props: {
 	const viewWorkspace = routeView?.pluginInstallationId
 		? catalog.find(({ installationId }) => installationId === routeView.pluginInstallationId)
 		: undefined;
+	const entityInstallationId = useMatch({
+		shouldThrow: false,
+		from: "/_authenticated/e/$entityId",
+		select: ({ loaderData }) =>
+			loaderData?.preparation.kind === "ready"
+				? preparedPageInstallationId(loaderData.preparation.prepared)
+				: undefined,
+	});
+	const entityWorkspace =
+		entityInstallationId === undefined
+			? undefined
+			: catalog.find(({ installationId }) => installationId === entityInstallationId);
 	const current =
-		routeWorkspace ?? viewWorkspace ?? resolveRememberedWorkspace(catalog, rememberedPluginId);
+		routeWorkspace ??
+		viewWorkspace ??
+		entityWorkspace ??
+		resolveRememberedWorkspace(catalog, rememberedPluginId);
 	const homeActive = isWorkspaceRoot(pathname, current);
+	const sidebarExpansion = useSidebarExpansion({
+		scope,
+		runtime,
+		workspace: current?.installationId ?? "none",
+	});
 	const sections = useMemo(
 		() =>
 			sidebarSections({ data: props.navigation, workspaceInstallationId: current?.installationId }),
@@ -378,6 +401,8 @@ export function AuthenticatedShell(props: {
 				activeSettings={settingsActive}
 				onSelectWorkspace={selectWorkspace}
 				onOpenSearch={() => setSearchOpen(true)}
+				onToggleSection={sidebarExpansion.toggle}
+				expandedSections={sidebarExpansion.expanded}
 				workspaceSwitcherOpen={workspaceSwitcherOpen}
 				onCreateCollection={() => setCreatingCollection(true)}
 				onWorkspaceSwitcherOpenChange={setWorkspaceSwitcherOpen}
@@ -421,6 +446,8 @@ export function AuthenticatedShell(props: {
 				onSelectWorkspace={selectWorkspace}
 				onClose={() => setDrawerOpen(false)}
 				onOpenSearch={() => setSearchOpen(true)}
+				onToggleSection={sidebarExpansion.toggle}
+				expandedSections={sidebarExpansion.expanded}
 				onCustomize={() => openCustomize("workspaces")}
 				onCreateCollection={() => setCreatingCollection(true)}
 				onNavigateSettings={() => navigate({ href: "/settings" })}
@@ -511,17 +538,15 @@ export function AuthenticatedShell(props: {
 				/>
 			)}
 			{searchOpen && (
-				<Modal
-					label="Command center"
-					closeLabel="Close command center"
+				<CommandCenter
+					scope={scope}
+					catalog={catalog}
+					runtime={runtime}
+					navigation={props.navigation}
 					onClose={() => setSearchOpen(false)}
 					onInterceptBack={interceptSearchBack}
-					containerClassName="items-center justify-center p-4"
-					className="w-full max-w-xl rounded-xl border border-border bg-surface p-5 shadow-card"
-				>
-					<h2 className="font-display text-lg font-semibold text-text">Command center</h2>
-					<p className="mt-2 text-sm text-text-muted">Command center content goes here.</p>
-				</Modal>
+					onNavigate={(href) => void navigate({ href })}
+				/>
 			)}
 		</div>
 	);

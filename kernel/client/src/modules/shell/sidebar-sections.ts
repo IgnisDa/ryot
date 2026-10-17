@@ -57,6 +57,33 @@ export function sidebarSections(props: {
 	};
 }
 
+export const SIDEBAR_SECTION_VISIBLE_LIMIT = 7;
+
+export type SidebarSectionName = "views" | "savedViews" | "collections";
+
+export const sidebarOverflow = <Item extends SidebarItem>(
+	items: readonly Item[],
+	input: { readonly stored: boolean | undefined; readonly isActive: (item: Item) => boolean },
+) => {
+	if (items.length <= SIDEBAR_SECTION_VISIBLE_LIMIT) {
+		return { visible: items, hiddenCount: 0, expanded: true, collapsible: false };
+	}
+	const activeIndex = items.findIndex(input.isActive);
+	const expanded = input.stored ?? activeIndex >= SIDEBAR_SECTION_VISIBLE_LIMIT;
+	if (expanded) {
+		return { visible: items, hiddenCount: 0, expanded: true, collapsible: true };
+	}
+	const visible = items.filter(
+		(_item, index) => index < SIDEBAR_SECTION_VISIBLE_LIMIT || index === activeIndex,
+	);
+	return {
+		visible,
+		expanded: false,
+		collapsible: true,
+		hiddenCount: items.length - visible.length,
+	};
+};
+
 export const workspaceSummary = (sections: Pick<SidebarSections, "views">) =>
 	`${sections.views.length} view${sections.views.length === 1 ? "" : "s"}`;
 

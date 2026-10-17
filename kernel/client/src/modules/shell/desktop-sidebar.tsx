@@ -11,9 +11,15 @@ import type { WorkspaceTarget } from "#/modules/navigation/workspace-state";
 import { AccountSummary } from "#/modules/shell/account-summary";
 import type { CustomizeSection } from "#/modules/shell/customize/customize-state";
 import { SidebarNav } from "#/modules/shell/sidebar-nav";
-import type { SidebarEntry, SidebarSections } from "#/modules/shell/sidebar-sections";
+import type {
+	SidebarEntry,
+	SidebarSectionName,
+	SidebarSections,
+} from "#/modules/shell/sidebar-sections";
 
 type DesktopSidebarProps = {
+	readonly expandedSections?: Partial<Record<SidebarSectionName, boolean>> | undefined;
+	readonly onToggleSection?: ((section: SidebarSectionName, expanded: boolean) => void) | undefined;
 	readonly isPro: boolean;
 	readonly activeHome: boolean;
 	readonly activeSettings: boolean;
@@ -62,6 +68,8 @@ export function DesktopSidebar(props: DesktopSidebarProps) {
 							onEditSection={props.onEditSection}
 							onNavigateHome={props.onNavigateHome}
 							onNavigateItem={props.onNavigateItem}
+							onToggleSection={props.onToggleSection}
+							expandedSections={props.expandedSections}
 							onSelectWorkspace={props.onSelectWorkspace}
 							showSearchShortcut={props.shortcutsEnabled}
 							onCreateCollection={props.onCreateCollection}

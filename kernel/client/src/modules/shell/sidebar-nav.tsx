@@ -18,6 +18,8 @@ import {
 	type SidebarEntry,
 	type SidebarItem,
 	sidebarItemKey,
+	sidebarOverflow,
+	type SidebarSectionName,
 	type SidebarSections,
 	workspaceSummary,
 } from "#/modules/shell/sidebar-sections";
@@ -28,6 +30,8 @@ type SidebarNavProps = {
 	readonly onOpenSearch: () => void;
 	readonly onCreateCollection: () => void;
 	readonly sections: SidebarSections;
+	readonly expandedSections?: Partial<Record<SidebarSectionName, boolean>> | undefined;
+	readonly onToggleSection?: ((section: SidebarSectionName, expanded: boolean) => void) | undefined;
 	readonly navigation: NavigationData;
 	readonly showSearchShortcut: boolean;
 	readonly catalog: PluginClientCatalog;
@@ -87,6 +91,9 @@ function SidebarSection(props: {
 	readonly emptyMessage?: string;
 	readonly onEdit?: (() => void) | undefined;
 	readonly onCreate?: { readonly label: string; readonly run: () => void } | undefined;
+	readonly toggle?:
+		| { readonly expanded: boolean; readonly hiddenCount: number; readonly run: () => void }
+		| undefined;
 }) {
 	return (
 		<section className="group flex flex-col gap-1">
@@ -127,6 +134,16 @@ function SidebarSection(props: {
 				) : (
 					props.children
 				)}
+				{props.toggle !== undefined && (
+					<button
+						type="button"
+						onClick={props.toggle.run}
+						aria-expanded={props.toggle.expanded}
+						className="min-h-8 rounded-md px-2.5 text-left text-label font-medium text-text-muted hover:bg-hover"
+					>
+						{props.toggle.expanded ? "Show less" : `Show ${props.toggle.hiddenCount} more`}
+					</button>
+				)}
 			</div>
 		</section>
 	);
@@ -141,6 +158,27 @@ export function SidebarNav(props: SidebarNavProps) {
 	};
 	const navigate = (item: SidebarItem) =>
 		item.kind === "home" ? props.onNavigateHome() : props.onNavigateItem(item);
+	const isActive = (item: SidebarItem) =>
+		item.kind === "home" ? props.activeHome : props.activeKey === sidebarItemKey(item);
+	const overflow = (section: SidebarSectionName, items: readonly SidebarItem[]) => {
+		const result = sidebarOverflow(items, { isActive, stored: props.expandedSections?.[section] });
+		return {
+			...result,
+			toggle: result.collapsible
+				? {
+						expanded: result.expanded,
+						hiddenCount: result.hiddenCount,
+						run: () => props.onToggleSection?.(section, !result.expanded),
+					}
+				: undefined,
+		};
+	};
+	const views = overflow(
+		"views",
+		props.sections.views.filter((item) => item.kind !== "home" || props.current !== null),
+	);
+	const savedViews = overflow("savedViews", props.sections.savedViews);
+	const collections = overflow("collections", props.sections.collections);
 
 	return (
 		<nav aria-label="Workspace" className="flex flex-col gap-4 px-3 pt-4 pb-5">
@@ -173,29 +211,27 @@ export function SidebarNav(props: SidebarNavProps) {
 
 			<SidebarSection
 				title="Views"
+				toggle={views.toggle}
 				className="max-h-83.5"
 				onEdit={
 					props.onEditSection === undefined ? undefined : () => props.onEditSection?.("views")
 				}
 			>
-				{props.sections.views
-					.filter((item) => item.kind !== "home" || props.current !== null)
-					.map((item) => (
-						<SidebarRow
-							item={item}
-							href={href(item)}
-							key={sidebarItemKey(item)}
-							onNavigate={() => navigate(item)}
-							active={
-								item.kind === "home" ? props.activeHome : props.activeKey === sidebarItemKey(item)
-							}
-						/>
-					))}
+				{views.visible.map((item) => (
+					<SidebarRow
+						item={item}
+						href={href(item)}
+						active={isActive(item)}
+						key={sidebarItemKey(item)}
+						onNavigate={() => navigate(item)}
+					/>
+				))}
 			</SidebarSection>
 
 			<SidebarSection
 				title="Saved Views"
 				className="max-h-52"
+				toggle={savedViews.toggle}
 				emptyMessage="No saved views yet."
 				count={props.sections.savedViews.length}
 				isEmpty={props.sections.savedViews.length === 0}
@@ -203,7 +239,7 @@ export function SidebarNav(props: SidebarNavProps) {
 					props.onEditSection === undefined ? undefined : () => props.onEditSection?.("savedViews")
 				}
 			>
-				{props.sections.savedViews.map((item) => (
+				{savedViews.visible.map((item) => (
 					<SidebarRow
 						item={item}
 						href={href(item)}
@@ -217,12 +253,13 @@ export function SidebarNav(props: SidebarNavProps) {
 			<SidebarSection
 				title="Collections"
 				className="max-h-52"
+				toggle={collections.toggle}
 				emptyMessage="No collections yet."
 				count={props.sections.collections.length}
 				isEmpty={props.sections.collections.length === 0}
 				onCreate={{ label: "New collection", run: props.onCreateCollection }}
 			>
-				{props.sections.collections.map((item) => (
+				{collections.visible.map((item) => (
 					<SidebarRow
 						item={item}
 						href={href(item)}

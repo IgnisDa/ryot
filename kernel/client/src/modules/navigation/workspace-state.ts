@@ -1,3 +1,4 @@
+import type { PreparedClientPage } from "@ryot-app/contract/modules/pages/schemas";
 import { pluginPath } from "@ryot-app/contract/modules/plugins/navigation";
 import type {
 	PluginClientCatalog,
@@ -29,6 +30,11 @@ export const resolveRememberedWorkspace = (
 	const visible = visibleWorkspaces(catalog);
 	return visible.find(({ pluginId }) => pluginId === rememberedPluginId) ?? visible.at(0) ?? null;
 };
+
+export const preparedPageInstallationId = (prepared: PreparedClientPage) =>
+	prepared.identity.kind === "plugin-page" || prepared.identity.kind === "plugin-saved-view"
+		? prepared.identity.installationId
+		: undefined;
 
 export type WorkspaceTarget = Pick<PluginClientCatalogEntry, "pluginId" | "packageId">;
 

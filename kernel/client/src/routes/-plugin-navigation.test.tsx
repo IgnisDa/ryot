@@ -1224,6 +1224,33 @@ describe("client page routes", () => {
 		}),
 	);
 
+	it.live("shows the workspace that owns the prepared entity page, not the remembered one", () =>
+		Effect.gen(function* () {
+			mount({
+				entry: "/e/entity-1",
+				storage: makeStorageStub("plugin-1"),
+				prepare: (_scope, request) =>
+					request.payload.target.kind === "entity"
+						? Effect.succeed(preparedFor(request.payload.target, "plugin-2"))
+						: Effect.die("not used"),
+				entries: [
+					catalog[0],
+					{
+						...catalog[0],
+						sortOrder: 1,
+						name: "Other",
+						pluginId: PluginId.make("plugin-2"),
+						installationId: "installation-plugin-2",
+						packageId: PluginPackageId.make("test/plugin-2"),
+					},
+				],
+			});
+
+			yield* Effect.promise(() => screen.findByRole("button", { name: /^Other workspace,/ }));
+			expect(screen.queryByRole("button", { name: /^Fixture workspace,/ })).toBeNull();
+		}),
+	);
+
 	it.live("uses the normal plugin home route when no override is selected", () =>
 		Effect.gen(function* () {
 			const view = mount({ entry: "/p/test/plugin-1" });

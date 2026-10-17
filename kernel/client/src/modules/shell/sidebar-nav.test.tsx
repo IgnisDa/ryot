@@ -1,5 +1,5 @@
 import { assert, describe, expect, it } from "@effect/vitest";
-import { PluginId, PluginPackageId } from "@ryot-app/contract/schema/brands";
+import { PluginId, PluginPackageId, SavedViewId } from "@ryot-app/contract/schema/brands";
 import type { NavigationData } from "@ryot-app/ryotql-recipes/navigation";
 import type { PluginClientCatalogEntry } from "@ryot-app/ryotql-recipes/plugin-client-catalog";
 import { fireEvent, render, screen, within } from "@testing-library/react";
@@ -200,5 +200,88 @@ describe("sidebar navigation", () => {
 		renderSidebar(true, { onEditSection: () => undefined });
 
 		expect(screen.queryByRole("button", { name: "Edit Collections section" })).toBeNull();
+	});
+});
+
+describe("sidebar overflow", () => {
+	const manySections: SidebarSections = {
+		collections: [],
+		views: sections.views,
+		savedViews: Array.from({ length: 9 }, (_, index) => ({
+			icon: "list",
+			isHidden: false,
+			packageId: null,
+			sortOrder: index,
+			kind: "view" as const,
+			name: `Saved ${index}`,
+			slug: `saved-${index}`,
+			pluginInstallationId: null,
+			reference: { kind: "custom" as const, savedViewId: SavedViewId.make(`saved-${index}`) },
+		})),
+	};
+	const renderMany = (props: {
+		readonly activeKey: string | null;
+		readonly expanded?: boolean | undefined;
+		readonly onToggle?: (section: string, expanded: boolean) => void;
+	}) =>
+		render(
+			<SidebarNav
+				current={current}
+				activeHome={false}
+				catalog={[current]}
+				sections={manySections}
+				navigation={navigation}
+				showSearchShortcut={false}
+				activeKey={props.activeKey}
+				workspaceSwitcherOpen={false}
+				onOpenSearch={() => undefined}
+				onNavigateHome={() => undefined}
+				onNavigateItem={() => undefined}
+				onToggleSection={props.onToggle}
+				onSelectWorkspace={() => undefined}
+				onCreateCollection={() => undefined}
+				onWorkspaceSwitcherOpenChange={() => undefined}
+				expandedSections={props.expanded === undefined ? {} : { savedViews: props.expanded }}
+			/>,
+		);
+
+	it("shows seven views with a disclosure that reports its toggles", () => {
+		const toggles: Array<readonly [string, boolean]> = [];
+		renderMany({
+			activeKey: null,
+			onToggle: (section, expanded) => toggles.push([section, expanded]),
+		});
+
+		expect(screen.getAllByRole("link", { name: /^Saved / })).toHaveLength(7);
+		expect(screen.queryByRole("link", { name: "Saved 8" })).toBeNull();
+		const toggle = screen.getByRole("button", { name: "Show 2 more" });
+		expect(toggle.getAttribute("aria-expanded")).toBe("false");
+		fireEvent.click(toggle);
+
+		expect(toggles).toEqual([["savedViews", true]]);
+	});
+
+	it("renders every view and offers Show less when expanded", () => {
+		renderMany({ expanded: true, activeKey: null });
+
+		expect(screen.getAllByRole("link", { name: /^Saved / })).toHaveLength(9);
+		expect(screen.getByRole("button", { name: "Show less" }).getAttribute("aria-expanded")).toBe(
+			"true",
+		);
+	});
+
+	it("auto-expands to reveal an active view in the overflow", () => {
+		renderMany({ activeKey: "view:/v/c/saved-8" });
+
+		expect(screen.getByRole("link", { name: "Saved 8" }).getAttribute("aria-current")).toBe("page");
+		expect(screen.getAllByRole("link", { name: /^Saved / })).toHaveLength(9);
+	});
+
+	it("keeps the active overflow view visible when collapsed explicitly", () => {
+		renderMany({ expanded: false, activeKey: "view:/v/c/saved-8" });
+
+		expect(screen.getAllByRole("link", { name: /^Saved / })).toHaveLength(8);
+		expect(screen.getByRole("link", { name: "Saved 8" })).toBeTruthy();
+		expect(screen.getByRole("button", { name: "Show 1 more" })).toBeTruthy();
 	});
 });

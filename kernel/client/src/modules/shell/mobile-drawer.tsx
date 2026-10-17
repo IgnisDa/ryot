@@ -21,9 +21,15 @@ import { gestureSpring } from "#/modules/navigation/drawer-metrics";
 import type { WorkspaceTarget } from "#/modules/navigation/workspace-state";
 import { AccountSummary } from "#/modules/shell/account-summary";
 import { SidebarNav } from "#/modules/shell/sidebar-nav";
-import type { SidebarEntry, SidebarSections } from "#/modules/shell/sidebar-sections";
+import type {
+	SidebarEntry,
+	SidebarSectionName,
+	SidebarSections,
+} from "#/modules/shell/sidebar-sections";
 
 type MobileDrawerProps = {
+	readonly expandedSections?: Partial<Record<SidebarSectionName, boolean>> | undefined;
+	readonly onToggleSection?: ((section: SidebarSectionName, expanded: boolean) => void) | undefined;
 	readonly isPro: boolean;
 	readonly isOpen: boolean;
 	readonly drawerId: string;
@@ -126,6 +132,8 @@ export function MobileDrawer(props: MobileDrawerProps) {
 							navigation={props.navigation}
 							activeHome={props.activeHome}
 							key={props.isOpen ? "open" : "closed"}
+							onToggleSection={props.onToggleSection}
+							expandedSections={props.expandedSections}
 							workspaceSwitcherOpen={workspaceSwitcherOpen}
 							onCustomize={() => closeThen(props.onCustomize)}
 							onOpenSearch={() => closeThen(props.onOpenSearch)}
