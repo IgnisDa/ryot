@@ -19,11 +19,9 @@ RUN_OPERATIONAL_GATES=1 bun turbo --filter=@ryot-app/e2e test --only -- 'src/api
 RUN_LIVE_PROVIDER_TESTS=1 bun turbo --filter=@ryot-app/e2e test --only -- 'src/api/plugins/media/smoke/providers-live-smoke.test.ts'
 ```
 
-The capacity gate exercises production-size workflow, Redis, sandbox, and database paths with a
-15-minute budget. The overlap gate repeatedly submits 5 and 20 imports whose tracks share artists
-and an album; it requires every import to complete and the PostgreSQL deadlock counter to remain
-unchanged. Live smoke detects provider drift, may require credentials, and asserts stable properties
-rather than exact upstream text.
+The capacity gate exercises production-size durable execution with a 15-minute budget. The overlap
+gate submits overlapping 5/20-import waves and requires completion without PostgreSQL deadlocks.
+Live smoke may require credentials and tests stable provider properties, not exact upstream copy.
 
 ## Harness
 
@@ -62,4 +60,5 @@ Assert the transport tag or category, module-owned kebab-case reason code, and s
 
 The shared harness uses `maxWorkers=6`, sandbox worker concurrency 5, an API database pool of 100, and PostgreSQL `max_connections=400`. Keep production Effect Cluster expiry behavior so recovery regressions remain visible. Do not raise worker, sandbox, or pool settings without fresh load evidence.
 
-Watch app-pool waits, random cross-suite timeouts, connection ceilings, lock waits, Redis projection errors, stalled progress, and overlapping sandbox work. Previous full-suite evidence peaked at 120 database connections; the full-size operational gate recorded no app-pool waits.
+Watch app-pool waits, cross-suite timeouts, connection ceilings, lock waits, Redis projection errors,
+stalled progress, and overlapping sandbox work.

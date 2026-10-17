@@ -1,14 +1,13 @@
 # Client SDK
 
-`@ryot-app/plugin-client-sdk` is the environment-neutral application API shared by kernel and plugin call
-sites. It is bundled into each plugin artifact, so it avoids animation and gesture dependencies.
+The client SDK provides environment-neutral application APIs for kernel and plugin callers. The
+[shared client runtime](../plugin-client-compiler/README.md#vite-module) supplies its implementation.
 
 ## Bridge Bootstrap
 
-The plugin bootstrap validates embedded artifact metadata before registering a `message` listener. It
-accepts exactly one `MessagePort` from `window.parent`; all other sources and port counts are ignored.
-`PluginBridgeInit` validates protocol markers and its artifact hash must match the embedded metadata.
-`PluginBridgeReady` reports the embedded metadata, not values echoed from init.
+Bootstrap accepts one port from `window.parent` only after validating embedded metadata, and checks
+init/ready identity against that metadata rather than echoed input. Wire details belong to the
+[bridge contract](../plugin-client-contract/README.md).
 Production bootstraps construct a live SDK runtime per page. Tests use `createTestRyotClock().bootstrap`
 when mounting a page against that harness's clock; each page owns and disposes its SDK runtime,
 including its schedule scope, while the harness owns the clock. Concurrent harnesses are independent.
@@ -34,20 +33,18 @@ registrations.
 
 ## Capabilities
 
-`RyotClientError.reason` is the complete public capability failure set:
-`disposed`, `protocol`, `transport`, `asset-failed`, `collection-failed`, `query-failed`,
-`invalid-input`, `operation-failed`, `malformed-result`, `unsupported-capability`,
-`invalid-request`, and `quota`. Adapters must
-preserve these reasons; callers must not infer failures from message text or expect capability-specific
-reasons outside this set.
+Capability failures use the canonical `RyotClientError.reason` values in the
+[bridge contract](../plugin-client-contract/README.md). Preserve typed reasons; never interpret error
+message text.
 
 Asynchronous client capabilities and `RyotClientAdapter` operations return `Effect` with
 `RyotClientError` in the failure channel. Client-only plugin code imports `Effect` from
 `@ryot-app/plugin-client-sdk/effect`; the neutral shared-code `@ryot-app/plugin-kit/effect` surface
 does not export it. Interruption cancels an in-flight RyotQL or asset request over its existing
 bridge cancel message. Other capability requests have no per-request cancel message; interruption
-still removes their local pending completion. React query and mutation definitions return Effects,
-which Atom runs directly; `mutateAsync` and storage hook methods return Promises at the React
+still removes their local pending completion.
+React query/mutation definitions return Effects that Atom runs directly;
+`mutateEffect` composes mutations as Effects. Storage hook methods return Promises at the React
 integration boundary.
 
 `operations.invoke` encodes `input` through the required `inputSchema` and decodes the result through
@@ -65,8 +62,8 @@ remote asset's URL directly.
 `uploads` is one capability on every adapter that hides intent creation, byte transfer, completion,
 and cleanup. `uploadTemporary({ source, fileName, contentType })` returns a `TemporaryUploadToken`;
 `uploadPermanent` with the same request shape returns a `ManagedAssetLocator`; `cleanup(asset)` returns
-`{ status: "deleted" | "referenced" }` and fails with `asset-forbidden` for a missing or foreign
-asset. Only a record owned by the caller or by no one that holds that exact locator keeps it
+`{ status: "deleted" | "referenced" }` and rejects missing or foreign assets. Only a record owned by
+the caller or by no one that holds that exact locator keeps it
 `referenced`. Bridge payloads are structured-clone values, so file uploads send a `Blob` or `File` with a
 file name and content type, while cleanup sends only the managed locator. The host keeps the intent, upload URL, headers, and credential. A non-`Blob` source
 fails with `invalid-input`. There is no cancellation; disposal aborts an in-flight request.
@@ -109,29 +106,6 @@ start and deadline timestamps. Optional fields are detail, secondary value, prog
 staleness date/message. Content is limited to 3072 UTF-8 bytes; the native host also checks that the
 combined attributes and content remain below 4096 bytes.
 
-```ts
-import { Effect } from "@ryot-app/plugin-client-sdk/effect";
-
-const startActivity = Effect.gen(function* () {
-	const startedAt = draft.startedAt;
-	if (startedAt === undefined) {
-		return;
-	}
-	return yield* client.iosLiveActivities.start({
-		pluginId,
-		key: `workout:${draft.draftId}`,
-		content: {
-			title: "Workout",
-			status: "In progress",
-			primary: { kind: "elapsed", label: "Active", startedAt },
-			icon: "activity",
-			tone: "accent",
-			metrics: [{ label: "Sets", value: "3/8" }],
-		},
-	});
-});
-```
-
 `assets.resolve` accepts 1 to 64 managed local or S3 locators and returns signed URLs with expiry.
 Remote images do not use it. `ManagedAssetProvider` owns stable sorting, deduplication, batches of at
 most 64, retained URLs during refresh, and renewal before the earliest expiry; kernel and plugin
@@ -149,6 +123,14 @@ and slug, plus an optional initial query; it does not expose a generic native sc
 successful import, the host sends one narrow `page-refresh` signal. Client pages can register their
 current source refetch with `usePageRefresh`; successful shared mutations use the same refresh registry.
 
+## Queries And Mutations
+
+Query inputs identify cache entries. Rolling queries use stable selections such as range and time
+zone, then compute request timestamps from the query context's `schedule.now()` during execution.
+Refreshing an existing query retains loaded data with `isFetching: true` and `isPending: false`;
+failed refreshes also retain the last successful data. A different input selects a different cache
+entry and does not inherit unrelated data. Presentation clocks must not change rolling query keys.
+
 ## Retryable Submissions
 
 `useRyotSubmission(mutation, { isComplete, createId })` composes an existing mutation whose input is
@@ -165,12 +147,6 @@ Use it only where the owning backend write enforces retry safety. Fields, recove
 whether an incomplete submission can be abandoned remain caller-owned.
 
 ## Entity Interest
-
-Query inputs identify cache entries. Rolling queries use stable selections such as range and time
-zone, then compute request timestamps from the query context's `schedule.now()` during execution.
-Refreshing an existing query retains loaded data with `isFetching: true` and `isPending: false`;
-failed refreshes also retain the last successful data. A different input selects a different cache
-entry and does not inherit unrelated data. Presentation clocks must not change rolling query keys.
 
 `ryot.entities.watch({ foreground, visible }, onUpdate)` returns
 `{ update(interest), dispose() }`. The callback receives
@@ -213,16 +189,13 @@ boundary. Batch drain delays continue to use `RyotSchedule` and its TestClock-ba
 
 ## Scheduling
 
-Every SDK delay goes through `RyotSchedule` (`now`, `after`), built by `RyotScheduleService` from
-the Effect `Clock` in its layer, and distributed to components by `RyotProvider` alongside the
-client. `makeRyotRuntime(client)` from `./runtime` assembles the live runtime; `createTestRyotClock` from
-`./testing` assembles a `TestClock`-backed one, so tests advance time with `advance(ms)` instead of
-faking timers. Bootstrapped page tests pass the harness's `bootstrap` to `mountPluginPage` or call its
-`bootstrapClientPage` / `bootstrapClientPlugin` method. `RyotSchedule` keeps synchronous callback registration for React and router code;
-client-only plugin code can also use the SDK Effect barrel. `after` forks its sleep on the layer's
-captured clock and returns a synchronous cancel; a throw inside the callback is rethrown on a
-microtask so the plugin fatal path still sees it. `run` executes refresh Effects on that same scoped
-runtime and returns an interrupt function. Disposing a refresh interrupts in-flight work.
+`RyotSchedule` supplies clock reads, delayed callbacks, and scoped refresh Effects from the
+provider's Effect runtime. `after` returns cancellation and `run` returns interruption; disposal
+interrupts pending work. Callback defects reach the plugin fatal path.
+
+Tests use `createTestRyotClock` and advance time rather than faking timers. Bootstrapped page tests
+pass the harness's `bootstrap` to `mountPluginPage`; pages own their runtime/schedule scopes while
+the harness retains its clock.
 
 `makeRyotPluginLayer` from `./runtime` assembles client, navigation, and an explicit schedule layer for both live
 and test runtimes. Construction stays synchronous. Each page builds its own schedule scope against

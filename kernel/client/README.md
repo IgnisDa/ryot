@@ -23,21 +23,16 @@ artifact identity. Plugin requests cross that port as narrow, schema-checked cap
 applies authentication, installation scope, and platform policy. A plugin upload sends only bytes with
 a proposed file name and content type; the kernel keeps intent creation, transfer, and completion.
 
-Client SDK query, operation, collection, upload, asset, and storage capabilities return Effects. The
-kernel runs each incoming bridge request in a fiber and interrupts its work on document replacement
-or session close. The existing RyotQL and asset cancel messages interrupt their matching fibers;
-other requests keep the same wire behavior. Only framework boundaries, such as a React callback or
-route loader, run an Effect as a Promise. The port never carries credentials or server identity.
-Capability producers normalize their own external failures to typed outcomes. The bridge adds the
-request identity, validates and encodes every outgoing result, and replaces malformed results with a
-safe capability failure. `runRequest` owns the common transport-failure outcome. Unexpected defects
-are reported internally; interrupted and stale work has no reply.
+Bridge requests run in fibers interrupted on document replacement/session close. RyotQL and asset
+cancel messages interrupt their matching work. Capability producers classify expected failures; the
+bridge validates/encodes replies, substitutes safe failures for malformed results, reports defects
+internally, and suppresses interrupted or stale replies. SDK operations and cancellation contracts
+are documented in the [client SDK](../../packages/plugin-client-sdk/README.md#capabilities).
 
-The opaque-origin iframe has no `localStorage`, so the kernel stores plugin storage values in its own
-`localStorage` through `ClientStorage`, one JSON entry per
-`ryot:plugin-storage:` followed by the canonical `[server, user, plugin ID, key]` tuple. Logout does not clear them. The kernel accepts
-only IDs of plugin contributors in the frame's prepared composition; it cannot tell same-realm
-plugins apart, so that check bounds the frame, not an individual plugin.
+The kernel backs plugin device storage through `ClientStorage` because opaque-origin frames have no
+`localStorage`. Values survive logout and are isolated by server/user/plugin/key. Contributor checks
+bound the frame, not mutually trusting modules within its realm; see the
+[SDK storage contract](../../packages/plugin-client-sdk/README.md#capabilities).
 
 Client artifacts are immutable, content-addressed outputs of a compile-only contributor graph.
 Shipped client-page builds are materialized during server boot, including when the database has no
@@ -103,10 +98,6 @@ system share sheet. The temporary directory is removed after completion or failu
 obtain their bearer header inside `BackupsApi`; server-log downloads keep their admin-token header
 inside `AdminApi`.
 
-Instance Admin's Server logs section lists the active log and all retained gzip rotations. Administrators
-can download individual files or a ZIP containing all listed files. Active logs are bounded to the
-bytes written when the download starts; the logger's one-second batching can delay recent messages.
-
 `EntityWatchService` opens no socket when a client is constructed. The authenticated layout owns
 the active server/user session and releases it on logout, scope change, or unmount. Plugin documents
 have one subscription outside the request table, released by the common iframe finish path. See the
@@ -123,11 +114,9 @@ The kernel also sends `compact` and safe-area insets. An iframe measures its con
 outer viewport, and `env(safe-area-inset-*)` is zero there. Plugins must use these kernel values for
 layout and custom chrome. Kernel surfaces can use CSS `env()` directly.
 
-`ScreenFrame` from `@ryot-app/plugin-ui-sdk` is the shared header implementation. `AppScreen` uses it
-for kernel routes and `PluginScreenFrame` uses it in plugin documents. The frame owns its bar,
-heading, gutters, and content rhythm but not the scroll container. A screen publishes one title;
-plugin title and readiness messages are accepted only from the active installation and current
-history entry.
+Kernel `AppScreen` and plugin `PluginScreenFrame` share the
+[UI SDK frame](../../packages/plugin-ui-sdk/README.md#screen-frame). The kernel accepts title/readiness
+messages only from the active installation and current history entry.
 
 `historyEntry` is the only code that may read TanStack Router's `__TSR_*` state. Every navigation path
 must supply an `index` and `key`.

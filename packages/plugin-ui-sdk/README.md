@@ -50,67 +50,40 @@ reserved for things that float: menus, tooltips, and dialogs.
 | Accent     | `accent` fill with `accent-ink`, `accent-text` text, `accent-deep` controls  |
 | Status     | `success`, `danger`, `warning`, `info`, each with a `-soft` background       |
 
-Both themes use the same warm neutral family. Dark cards drop their edge (`border-card` matches the
-surface) and rely on tone. `palette-contrast.test.ts` keeps text pairs at 4.5:1 and boundaries at 3:1.
+Both themes use warm neutrals; dark cards rely on tone instead of edges. Contrast tests require
+4.5:1 text and 3:1 boundaries. Geist is the UI font; Lora is reserved for page/media titles. Use the
+`text-display`, `text-title`, `text-heading`, `text-metric`, and `text-timer` roles and tabular digits
+for changing values. Theme tokens own exact type, radius, and motion values.
 
-Type uses Geist for UI and Lora only for page and media titles. Roles: `text-display` (36/42),
-`text-title` (28/34), `text-heading` (18/24), `text-metric` (22/26), and `text-timer` (32/36); body
-copy is `text-sm`, labels 13px medium, captions `text-xs`. Digits that change use `tabular-nums`.
-
-Controls are 36px (`md`) and 32px (`sm`) on fine pointers and grow to 44px and 40px under
-`pointer-coarse:`, which also raises text inputs to 16px. Size by pointer, never by viewport, because a
-plugin iframe's width does not describe the device. Radii are `sm` 6 (small buttons, cells, menu
-items), `md` 8 (buttons, inputs, artwork), `lg` 12 (cards, groups, menus), and `xl` 16 (dialogs).
-Motion is 100ms for state, 150ms for toggles, and 200–240ms for entering overlays, with one ease-out
-curve.
+Controls grow under `pointer-coarse:`; plugin iframe width is not device size. Each animation respects
+reduced motion inside its document, not through kernel-only CSS.
 
 ## Component Usage
 
-- `Button`: `primary` is the single next step in a region; `secondary` (neutral fill) is for frequent
-  actions; `outline` sits on artwork or tinted rows; `ghost` is for toolbars and tertiary actions;
-  `danger` is the final destructive confirmation and `dangerGhost` the destructive entry in a list.
-  `loading` keeps the label for assistive technology and blocks activation. `IconButton` requires a
-  label.
-- `MultiSelect` opens a searchable checklist from a field, or from a pill with `variant="chip"` for
-  rows of filters. It is generic over its choice values and draws default icons that props override.
-- `MenuButton` opens a `Menu` from an icon button, or from `renderTrigger`, and restores focus to the
-  trigger when the menu closes. `renderTrigger` receives the props and ref to spread onto its button.
-- `Field` labels one control and wires its hint and error through `aria-describedby`. `TextField` and
-  `TextArea` are form inputs; `CellInput` is the borderless filled cell for repeated numeric entry.
-- `Switch` applies immediately; `Checkbox` and `Radio` belong to saved forms; `SegmentedControl`
-  switches 2–4 modes; `Tabs` switches content areas of one object, and the caller renders one
-  `tabpanel` with the given `panelId`, labelled by `tabId(panelId, value)`.
-- `Card` frames an object; `RowGroup` with `Row` holds settings and fact lists as divided rows.
-- `Badge` tones encode status with a dot and text, never color alone. `Notice` is persistent inline
-  feedback; danger notices are alerts. `EmptyState` and `Skeleton` cover empty and loading content.
-- `Dialog` is the standard modal panel, centred, as a side sheet, or as a bottom sheet, built on
-  `Modal`. Callers choose `sheet` when `compact` and pass `safeAreaBottom`, which pads the footer;
-  a sheet's footer buttons share its width. The header shows a close button by default; pass
-  `closeIcon={null}` for dialogs that must be answered through their footer. `Tooltip` names icon-only controls for fine pointers and is
-  hidden on touch.
-- `ActionDock` is the floating bottom bar for a screen's next action. Mount it through the screen's
-  floating root, pass `safeAreaBottom`, and pad the scrolled content so the dock never covers the end.
-- `Stepper` edits a whole number with − and + buttons; Arrow keys step and Page keys step four times.
-  Pass `clockFormat.format` and `clockFormat.parse` to show and type seconds as m:ss.
-- `ProgressBar` is a thin determinate bar in `accent`, `info`, or `success`. Its fill animates width
-  briefly; pass `fillClassName` to change the transition.
-- `group-*` colors (`blue`, `purple`, `teal`, `orange`, `crimson`) and their `-soft` fills mark
-  group identity in both themes. `groupColors` lists the names, `groupColorVariable(color, { soft })`
-  returns the CSS variable, and `Card` marks its edge with `groupColor`. Pair a color with its name or a
-  label, never color alone.
-- `SchemaForm` recursively renders `AppSchema` objects and arrays, including item-level choices,
-  dates, and asset metadata. Objects and lists are collapsible; list moves call the supplied haptic
-  callback. Callers supply upload, asset-preview, and OAuth transports. Missing capabilities and
-  unresolved dynamic choices produce field-specific errors. OAuth and temporary import uploads
-  must be top-level fields; backend schema admission enforces this restriction.
-- Schema forms share value decoding and numeric normalization with backend writes. Required means
-  present and non-null; use `minLength` or `minItems` to forbid empty values. Clear writes `null`,
-  while an emptied list stays `[]`. Date-only values stay unchanged; datetimes use the supplied time
-  zone, defaulting to the device zone, and submit UTC timestamps. Immutable fields are disabled on
-  edit. Omitted object secrets retain stored values. Unchanged secret-bearing arrays are retained;
-  edited arrays replace the whole list and require their declared secrets again.
-- `DataTable` stays unstyled; tables use 12px subtle headers, divided rows, `hover` row fill, and
-  right-aligned tabular numbers.
+| Component                       | Use and caller obligations                                                                                                                                                                                                                             |
+| ------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `Button`                        | One primary next step per region; secondary for frequent actions, outline on artwork, ghost for tertiary controls. Destructive entry uses `dangerGhost`, confirmation `danger`. Loading preserves its accessible label; icon-only buttons require one. |
+| `MultiSelect` / `MenuButton`    | Searchable choices or action menus. Chip variant fits filter rows. Custom menu triggers spread the supplied props/ref; closing restores focus.                                                                                                         |
+| `Field` / inputs                | Field connects label, hint, and error. `CellInput` serves repeated numeric entry.                                                                                                                                                                      |
+| `Switch` / `Checkbox` / `Radio` | Switch applies immediately; checkbox/radio belong to saved forms.                                                                                                                                                                                      |
+| `SegmentedControl` / `Tabs`     | A few modes versus one object's content areas. Tabs callers render the matching `tabpanel` and supplied label IDs.                                                                                                                                     |
+| `Card` / `RowGroup`             | Real objects versus divided settings/fact rows.                                                                                                                                                                                                        |
+| `Badge` / `Notice`              | Status uses text, not color alone; danger notices are alerts. `EmptyState`/`Skeleton` cover empty/loading content.                                                                                                                                     |
+| `Dialog`                        | Choose compact sheets and pass safe-area padding. `closeIcon={null}` requires footer decisions; touch users cannot rely on tooltips.                                                                                                                   |
+| `ActionDock`                    | Mount through the floating root, pass bottom inset, and pad scrolled content.                                                                                                                                                                          |
+| `Stepper`                       | Integer stepping; `clockFormat` adapts seconds to `m:ss`.                                                                                                                                                                                              |
+| `ProgressBar`                   | Determinate progress in a semantic tone.                                                                                                                                                                                                               |
+| `DataTable`                     | Unstyled data with divided rows and right-aligned tabular numbers.                                                                                                                                                                                     |
+
+`groupColors`, `groupColorVariable`, and `Card.groupColor` provide labeled group identity; never
+communicate identity through color alone.
+
+`SchemaForm` renders `AppSchema` with caller-supplied upload, preview, OAuth, and haptic transports.
+Missing capabilities/dynamic choices produce field errors. OAuth and temporary uploads must be
+top-level fields. Decoding and normalization match backend writes: required means present/non-null,
+clear writes null, and empty lists remain `[]`. Date-only values are unchanged; datetimes submit UTC
+using the supplied/device zone. Edit disables immutable fields. Omitted object secrets and unchanged
+secret-bearing arrays are retained; editing an array replaces it and requires its secrets again.
 
 ## Markdown
 
@@ -126,22 +99,14 @@ from the caller; all component styles use scannable Tailwind utilities and theme
 
 ## Charts
 
-`./charts` exposes Ryot chart components, not TanStack Charts: the pinned alpha stays behind this
-wrapper and plugins cannot import it directly. `CalendarHeatmap` draws TanStack `cell` marks on fixed
-band scales (factory scales would infer row order from data), colors level 0 with `--chart-seq-0`
-and splits positive values into five equal bands of the maximum (`--chart-seq-1..5`). Its tooltip
-uses the portal extension because the heatmap sits in its own horizontal scroller, which would clip
-an in-chart tooltip. `RankedBarList` is plain HTML so labels and values stay wrapping-aware text in
-text tokens. `theme.css` maps the TanStack `--ts-chart-*` variables at `:root` so portaled tooltips
-still resolve them.
+`./charts` wraps chart dependencies; plugins import Ryot components, not TanStack directly.
+`CalendarHeatmap` uses a zero level plus five positive bands of the maximum, fixed row ordering, and
+portaled tooltips outside its scroller. `RankedBarList` keeps labels/values as wrapping-aware HTML.
+`Sparkline` is chrome-free with area fill and a highlighted last point.
 
-`Sparkline` is a fixed 96x28 chrome-free line with an area fill and emphasised last
-point. `TimeSeriesChart` draws on linear scales over epoch milliseconds, because the pinned alpha ships no
-time scale, with calendar ticks computed in the component. Readings own focus and the tooltip; the band,
-trend, and compare marks are decorative. The caller computes trends, and the compare series gets its own
-right axis in `--info`.
-
-Level 0 and level 1 in the light heatmap ramp differ mostly by hue, not luminance.
+`TimeSeriesChart` uses epoch milliseconds and calendar ticks. Reading marks own focus/tooltips;
+bands, trends, and comparisons are decorative. Callers compute trends; comparisons use a separate
+right axis. Root theme variables also apply to portaled tooltips.
 
 ## Sync Marks
 
@@ -150,8 +115,6 @@ Present values are always ready; status matters only when a selected value is mi
 
 `EntityArtWell` is the product's artwork surface and missing-image placeholder. `SyncPip`,
 `SettleHighlight`, `TranslationChip`, and `SyncCountLine` provide the matching status vocabulary.
-Each animated element contains its own `motion-reduce:` guard because plugin documents do not receive
-kernel-only reduced-motion CSS.
 
 ## Shortcuts And Overlays
 
@@ -176,9 +139,6 @@ flick uses the same dismissal gate as Escape and the scrim. The content area kee
 inside their scroll containers, clear of pinned chrome. Native iOS keyboard resizing requires a
 second reveal after WebKit resets its scroll insets; sandboxed plugin focus is not visible to the kernel.
 
-`ReorderableList` requires pickup and drop feedback callbacks. Drop feedback also runs for successful
-keyboard moves. Callers supply native feedback through their platform capability.
-
 `useShortcut` ignores single-key shortcuts while editable content has focus and registers each
 shortcut in the nearest `OverlayScope`. Only the top scope runs, so callers do not gate shortcuts on
 whether another overlay is open.
@@ -198,17 +158,15 @@ Layout branches use the kernel-provided `compact` boolean, not responsive utilit
 iframe's media queries measure the iframe rather than the outer viewport. The frame accepts no class
 name for its owned layout; use `width="readable"` for a narrow column. Safe-area top is a numeric prop.
 
-Compact title collapse uses one sentinel `IntersectionObserver`, keyed to the sentinel node so it is
-reattached after a search row removes and restores that node. Search keeps the semantic `<h1>`
-visually hidden and makes the bar opaque.
+Title-collapse observation follows the sentinel node, including search-row replacement. Search keeps
+a visually hidden semantic `<h1>` and opaque bar.
 
 A hero is `{ height, node }`. The frame positions its box out of flow from the scroll origin through
 the safe area, bar, and declared art height; the node fills it. The declared height is also the title
 collapse threshold. Hero content must not add safe-area or bar arithmetic.
 
-`ScreenBarButton` supplies the bar's 44px control shape but no text color. Callers cannot reliably
-override baked Tailwind utilities because stylesheet order, not `clsx` argument order, controls the
-cascade.
+`ScreenBarButton` supplies bar control geometry, not text color; callers choose color without fighting
+baked Tailwind utilities.
 
 ## Controls
 
@@ -218,4 +176,5 @@ radio picker stays open for keyboard selection.
 
 `ReorderableList` ships pointer and keyboard reordering without a drag-and-drop dependency. Its drag
 handle is a real button, supports Arrow/Home/End, and announces the new position through a live
-region. Consumers supply the item key, label, and handle icon.
+region. Consumers supply item key, label, handle icon, and pickup/drop platform feedback. Successful
+keyboard moves also give drop feedback.

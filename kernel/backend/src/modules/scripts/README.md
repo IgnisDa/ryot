@@ -1,175 +1,246 @@
 # Scripts
 
-The backend executes plugin and source-zero kernel scripts as untrusted TypeScript modules. `ScriptExecutionWorkflow` owns each invocation: it pins code, replays the body from the start, and turns mutable host calls into durable requests. A durable wait ends the isolate; a later replay starts fresh.
+`ScriptExecutionWorkflow` owns each invocation: pin compiled code, replay from the start, and turn
+mutable host calls into durable requests. A durable wait ends the isolate; replay starts a fresh one.
+[Sandbox isolation, files, and limits](../../../../sandbox/README.md) belong to `kernel/sandbox`.
 
 ## Build And Execution
 
-Plugin ingestion validates precompiled format-1 JavaScript from plugin archives and stores immutable rows by script identity and content hash. It does not run compiler workers or prove source provenance. Local authoring and build checks compile `.sandbox.ts` entries from source. Build generation also compiles kernel-script sources for definition source zero. Root scripts are pinned before first execution; child targets resolve from the exact pinned plugin revision when first observed and are then pinned to that durable step.
+Plugin ingestion validates precompiled JavaScript and hashes without compiler workers or
+source-provenance proof. Authoring builds compile `.sandbox.ts`; `tooling/kernel-scripts.ts`
+generates source-zero kernel scripts. Root scripts pin before execution; children resolve from the
+exact pinned plugin revision when first observed and retain that target for their durable step.
 
-`tooling/kernel-scripts.ts` generates the kernel-script sources and compiled files. Isolation, the trusted runner, and the daemon belong to `kernel/sandbox` (see its README).
-
-Before each invocation, the runtime reloads persisted authority and verifies the compiled script's SHA-256. The archived manifest, owning plugin row and authority projection must agree on package ID. Historical pins keep their exact code, configuration and definitions across compatible upgrades. Fresh host calls still check current account and installation authority; quarantine does not grant an exception for historical pins. System authority is allowed only for a verified kernel script or verified system-scope plugin. User-scope plugin scripts run under their owning user. Kernel children retain the verified caller principal in their domain lifecycle command, rather than gaining unrestricted kernel write authority.
-
-The service retains at most 16 verified compiled modules by content hash, each bounded by the 1 MiB compiled-code limit. Cache entries contain code and format only; authority remains a persisted-row read. Missing or invalid artifacts and failed loads are not retained.
+Every invocation reloads persisted authority and verifies compiled SHA-256 and package identity
+across manifest, plugin row, and authority projection. Historical pins preserve code/config/definitions,
+not expired authority: fresh host calls still enforce current account and installation access.
+System authority requires verified kernel/system ownership; user plugins execute as their owner.
+Kernel children preserve the caller's lifecycle principal, not unrestricted kernel write authority.
+The bounded compiled-module cache stores code/format only; failed loads and authority are not cached.
 
 ## Invocation Context And Replay
 
-Automation contexts contain trusted trigger and run IDs, hook slug, causation, occurrence time, execution user, optional hook metadata, and a deterministic projection of the retained trigger payload. The workflow uses the exact input projection pinned in the script manifest; the complete immutable trigger remains evidence and is not passed through by default. Scripts cannot replace ownership or parentage. Plugin configuration is not copied into the context and remains available only through `getPluginConfig` against the exact retained revision.
+Automation input contains trusted IDs, hook/causation/time/user metadata, and the pinned script's
+projection of immutable trigger evidence. Configuration is read through `getPluginConfig`, never
+copied into input. Mutation projections select snapshot properties and update comparisons; policy
+projections see earlier validated patches in hook order. Current-state RyotQL cannot recover omitted
+trigger-time data. Missing, incompatible, non-JSON, oversized, or invalid input fails closed before
+execution. Invocation bounds include trusted fields after projection, independently of batch item
+chunking. Author-facing projection shapes are in the
+[Plugin Kit](../../../../../packages/plugin-kit/README.md#execution-authority).
 
-After-hook projections declare supported `entity`, `event`, `relationship`, `providerEntityImport`, and `signal` inputs. Mutation projections select nested properties; entity and relationship projections can separately select population parent-entity properties; update projections derive sorted `changedProperties` from declared JSON or unordered-array comparisons. Policy projections select request properties for entity, event, or relationship inputs. Before each policy, the workflow applies earlier accepted patches in order and projects the resulting request, so each policy sees the accepted chain rather than another policy's unvalidated output. RyotQL remains a current-state query surface and cannot recover omitted trigger-time values.
+An unrecorded mutable call or `replay.sleep` ends replay unless it settles inline. The workflow
+dispatches it through its owner, journals typed results, and replays. Recorded calls reuse results.
+Successfully completed ending requests also persist validated results and targets in deferred slots
+keyed by parent execution/request index. Replay validates the envelope and identity before reuse.
+This preserves completed members of partially settled batches; journal appends remain ordered.
 
-The 64 KiB context limit is measured on the complete UTF-8 invocation after projection and trusted automation fields are added. Retained batch chunking is a separate item-count concern and does not guarantee that every hook's projected invocation fits. Missing retained evidence or script artifacts and missing, incompatible, non-JSON, oversized, or schema-invalid projections fail closed before sandbox execution with bounded preparation diagnostics.
-
-An unrecorded mutable `host.*` call or `replay.sleep` ends replay unless it settles inline under the rules below. The workflow dispatches ending calls through their owning activity, child workflow, artifact operation, or diagnostic path, journals the typed success or failure, then replays. Recorded calls return their journaled results and never repeat backend dispatch.
-
-Each successfully returned ending request records its validated JSON result and pinned target in a durable deferred slot owned by the parent execution and request index. A resumed body validates the complete current envelope and request identity before reusing that result, including when target resolution is already recorded. This preserves completed requests inside a partially settled batch; journal entries append in order only after the batch returns. Dispatch uses the original workflow instance so child cancellation remains attached to its owner. Failures, defects, interruption, and suspension do not complete a slot. A delayed completion message or concurrent cache miss may repeat an idempotent dispatch; the slot is not a single-flight guarantee.
+Dispatch uses the original workflow owner so cancellation remains attached. Failure, interruption,
+suspension, and defects do not complete a slot. Delayed completions or concurrent misses may repeat
+idempotent dispatch: durable ownership is not a single-flight guarantee.
 
 ### Journal projection
 
-The workflow's append-only Redis projection is a hash holding, per entry, metadata `m:<index>` (byte length, chunk count, SHA-256 of the encoded entry) and chunks `c:<index>:<n>` of 1 MiB, the last shorter. Each activation appends only the new suffix in one atomic script. Appending identical metadata is a no-op; differing metadata at an existing index fails the run as a non-retryable infrastructure error and writes nothing. Every append refreshes the key's TTL.
+PostgreSQL workflow persistence is authoritative; Redis is a reconstructible append-only projection.
+Entries contain indexed metadata (encoded length, chunks, SHA-256) and chunked JSON results. Atomic
+append accepts identical existing metadata but rejects divergent metadata without writing. Each append
+refreshes TTL.
 
-A journal holds up to 100 MiB and each entry up to 12 MiB. Before admission, the queue worker reads only the metadata of the enqueued length and pins it; later entries are ignored and the backend never loads or decodes the prefix. Each `journalRead` returns at most the rest of one chunk, fetched under a journal-read permit; a Redis script re-checks the entry's pinned metadata and the chunk's length on every read, and an in-flight reply holds its permit through cancellation. Reads are limited to 2,048 per run and 200 MiB fetched, charged by whole chunk. The isolate reassembles each entry in external memory and validates its schema and index. The replay envelope must report the same journal length.
+Admission pins metadata for the enqueued journal length and ignores later entries without decoding
+the prefix. Each permitted chunk read rechecks pinned metadata/length and retains its permit through
+cancellation. The isolate reassembles entries in external memory, validates schema/index, and must
+report the same journal length. Bounds are in the
+[runtime limits](../../../../sandbox/README.md#limits).
 
-When inspection finds an enqueued entry missing, the replay fails with `SandboxProjectionMissing` without starting the script. A chunk read that finds the projection lost or changed fails the read and records a run-level fault that overrides the script's outcome, so a script cannot catch it: a lost projection fails with `SandboxProjectionMissing` and a changed or unreadable one fails as an infrastructure error. The body re-appends the full journal from persistence and retries under the next step ID, at most twice before failing with `resource-unavailable`. The replay outcome metric records these replays as `missing`.
+Missing projections fail with `SandboxProjectionMissing`; changed/unreadable projections fail as
+infrastructure faults. A read fault overrides script outcome and cannot be caught by the script.
+The workflow reconstructs the full projection from persistence and retries under the next step ID,
+at most twice before `resource-unavailable`; replay outcome metrics label projection loss `missing`.
 
 ### Inline durable calls
 
-A replay batch contains every unrecorded request registered before its first unrecorded call runs. After validation by the execution-scoped gate, the sidecar sends an eligible batch over the framed socket and waits synchronously for results. The inline batch accepts `host` and `sleep` members. A sleep returns raw `null`; host members retain typed success or failure results. JavaScript execution, fibers, and timers freeze while the isolate parks its CPU lease. Host calls use the same activity dispatch control flow; `httpCall` admission can settle through matched hops, redirects, and short `429` delays without starting child workflows. Grant-carrying executions may settle inline.
+A replay batch includes requests registered before its first unrecorded call executes. The
+execution-scoped gate validates eligible host/sleep batches, which the sidecar settles over the framed
+socket while parking its CPU lease. JS fibers and timers freeze. Sleeps return raw null; host calls
+retain typed outcomes. Grant-carrying executions may settle inline. HTTP admission can settle matched
+hops, redirects, and short 429 delays without child workflows.
 
-The host gate records completed members and HTTP continuation in backend-only `pendingInline` queue metadata, never in script input or echo. It validates request identities and encoded-byte bounds. The parent validates the pending trace, reuses completed request slots, and resumes retained redirect, hop, attempt, and block progress. Normal handoff retains the HTTP ticket; interrupt cleanup cancels it using the last declaration binding. The sidecar extends its local journal; the queue result carries the entries to the workflow, which validates request identities and argument hashes and journals them before any request that ended replay. Recovery replays load them like any other entry.
+Backend-only `pendingInline` metadata retains completed members and HTTP continuation, never exposing
+them through script input. Identity and byte bounds are validated; continuation reuses completed
+slots and retained tickets. Interrupt cleanup cancels the last declaration binding. The sidecar
+extends its local journal, and the parent validates request identities/argument hashes before
+persisting returned entries ahead of the ending request.
 
-The backend owns an inclusive 1,000 ms per-wait threshold and a shared 1,000 ms cumulative allowance per replay, covering `replay.sleep` and full `httpCall` admission, including matched hops and short `429` delays. It reserves allowance before sleeping and refunds unspent cancelled waits using a monotonic clock. Longer waits or waits without remaining allowance defer. The host defers the whole batch when indices do not continue the supplied journal, the batch or inline journal exceeds its byte limit, declared result bounds exceed 80 MiB, maximum result or continuation evidence cannot fit before dispatch (including multiple maximum-sized HTTP results), the run's lane pool cannot reserve the batch at once, or dispatch fails. A settled batch keeps three times its encoded evidence charged to that pool until the run ends, so later batches defer once that evidence leaves no room. A deferred batch may already have run some calls; replay may run them again. Short waits do not bypass resource admission.
+Inline sleep/admission waits share a 1,000 ms allowance per replay and a 1,000 ms per-wait threshold.
+Allowance is reserved before waiting and unused cancelled time is refunded by monotonic clock.
+Longer/exhausted waits defer. A batch also defers when journal indexes diverge, bytes/results or
+continuations cannot fit, its lane cannot reserve the whole batch, or dispatch fails. Declared result
+bounds cannot exceed 80 MiB. Settled evidence stays charged at three times encoded size until run
+end; deferred calls may already have executed and must tolerate replay.
 
-Only a validated inline batch pauses the 30-second script timeout and extends session expiry. Settlement remains limited to 30 seconds and five minutes absolute; each HTTP attempt remains limited to eight seconds. The isolate must be disposed within two seconds before its resource reservation is refunded.
+Only validated inline waits pause the script timeout/extend session expiry. Settlement is bounded to
+30 seconds per wait and five minutes absolute; HTTP attempts remain eight seconds. The isolate must
+be disposed within two seconds before its reservation is refunded.
 
 ## Durable Ownership
 
-- PostgreSQL workflow persistence is authoritative for execution, request completion, child/activity results, and terminal output.
-- Redis contains only a reconstructible replay projection: request identity, argument hashes, and encoded results. Loss or expiry rebuilds it from the workflow body's in-memory journal.
-- Request identity and argument hashes detect replay nondeterminism.
-- Idempotent service operations run as activities; workflow-owning services compose as deterministic children.
-- Each bounded `httpCall` network attempt is durable. External mutation is at-least-once across the crash window before its result persists; for inline calls that window spans the replay, whose queue result persists them.
-- Input artifacts are pinned through workflow completion or cancellation. Generated chunks use opaque workflow-scoped handles; TTL is leak cleanup, not normal lifetime.
-- Logs, spans, and console diagnostics are replay-tagged operational data, not journal entries.
-
-Workflow code cannot use ambient time or randomness. Expected workflow failure uses the SDK's deterministic `Effect.fail`; a throw is a defect and becomes an execute-phase error. Trusted subjects override script-supplied `userId`; relayed import, integration, and automation attribution is owner-validated before dispatch.
+- PostgreSQL owns execution, completed requests, child/activity results, and terminal output. Redis
+  loss rebuilds from the workflow journal; identity/argument hashes detect nondeterminism.
+- Idempotent service operations run as activities; workflow-owning services compose deterministic
+  children. Workflow code uses neither ambient time/randomness nor ordinary host functions.
+- `Effect.fail` is expected workflow failure; a throw is an execute-phase defect.
+- Each HTTP network attempt is durable, but external mutations remain at-least-once across the
+  crash-before-result-persistence window. Inline results persist with the replay queue result.
+- Input artifacts remain pinned until completion/cancellation. Generated handles are workflow-scoped;
+  TTL is leak cleanup, not normal ownership. Logs/spans/console output are diagnostics, not journal.
+- Trusted subjects override input user IDs; relayed ingestion/automation attribution is owner-validated.
 
 ## Capabilities
 
-The compiler derives each entry's local capabilities from its used code and persists them with compiled script metadata. The runner, ordinary host dispatch, durable dispatch, and filesystem grant creation all use that pinned metadata; filesystem access also requires trusted resources. Revision replay does not analyze current source or merge capabilities from child executables. Build and ingestion compare source-authored manifest fields such as identity, kind, projections, and provider search options separately from execution metadata; those authored fields do not supply grants. Runtime policy further restricts each inferred operation by script kind, subject, plugin scope, provider association, and bootstrap designation; domain services still enforce user, schema, provider, and integration ownership.
+Compiler-derived local metadata constrains every runner, host, durable dispatch, and filesystem grant.
+Replay never analyzes current source or borrows child capabilities. Authored identity/kind/projection
+fields are validated separately and grant no privileges. Runtime policy combines script kind,
+subject, scope, provider association, and bootstrap designation; services enforce domain ownership.
 
-The contract package owns the capability vocabulary. `SANDBOX_CAPABILITY_REQUIREMENTS` is exhaustive for runtime policy, and durable host dispatch has exhaustive coverage for every host contract. Before-stage policies use only the policy-safe capability subset. Adding an operation requires updates at those canonical extension points, not a source-authored grant list.
+`authorization/` owns principal policy, `SANDBOX_CAPABILITY_REQUIREMENTS` is the exhaustive vocabulary,
+and host contracts have exhaustive durable dispatch coverage. New operations extend these owners,
+not a source-authored grant list. `scratch`/`artifact-read` are filesystem grants requiring trusted
+resources, not host calls.
 
-System elevation requires persisted authority for a verified kernel or system-scope plugin. User capabilities require a trusted user subject. Local schema calls resolve the caller's exact owner and pinned revision. User-subject RyotQL can read other visible plugins through explicit references; those foreign definitions remain current. Entity and event data reads use RyotQL; schema calls expose metadata only.
+| Subject                   | Capability boundary                                                                                                      |
+| ------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
+| Valid subjects            | Diagnostics, HTTP, cache/persistent values, and pinned plugin configuration                                              |
+| User/user automation      | Events, schema/integration/preference reads, managed-asset verification, relationships, and RyotQL                       |
+| Designated user bootstrap | `ensureUserEntities` within its plugin schemas, in either plugin scope                                                   |
+| User-subject plugin       | User-owned entity create/update/delete/save/merge within pinned plugin ownership                                         |
+| Pinned system plugin      | Global entity/relationship upserts and RyotQL within owned definitions; entity upsert also requires provider association |
+| User/system automation    | Signals; notification delivery requires a user automation run                                                            |
+| Own integration run       | Access/invalidation of OAuth fields declared by its current settings schema                                              |
 
-`upsertGlobalEntities` additionally requires provider association. `ensureUserEntities` is available only to the declared user-bootstrap script and remains scoped to entity schemas owned by that plugin.
+User-subject definition reads pin only the caller's own declarations; visible foreign definitions
+remain current. Entity/event reads use RyotQL, not schema metadata calls. Before policies receive
+only the [policy-safe surface](../../../../../packages/plugin-kit/README.md#lifecycle-hooks).
 
-A hidden, unfinished installation may run its explicitly dispatched initializer. Its principal carries the exact installation and activation binding; reload requires current account ownership, `installing` health, `isInitialized = false`, and a pinned designated bootstrap script. Ordinary hidden executions remain unavailable. Completed initialization is not repeated on recovery, and stale activation bindings or quarantine never authorize another initializer.
+Hidden unfinished installations may execute only their dispatched initializer under an exact current
+installation/activation binding, `installing` health, `isInitialized = false`, account ownership, and
+pinned designated script. Ordinary hidden execution is unavailable. Completed initialization is not
+repeated; stale activations and quarantine never authorize another initializer.
 
-Plugin config reads use compiler-generated required and optional key allowlists against the pinned
-revision. Required reads fail when missing; optional reads omit unavailable values. Undeclared reads
-and promotion of an optional-only key to a required read are denied. Executable calls and OAuth
-connection fields are restricted to generated dependency facts. Normalized environment-key collisions
-reject plugin loading.
+Configuration reads enforce compiler-derived required/optional allowlists against the pinned revision.
+Missing required keys fail, absent optional keys are omitted, and undeclared reads or optional-to-required
+promotion are denied. Executable targets/OAuth fields use generated dependency facts; normalized
+environment-key collisions reject loading. OAuth invalidation is compare-and-set on current run,
+connection, token version, and submitted token.
 
-OAuth token invalidation is limited to the current integration run and expires a connection only when
-the submitted token matches the current token under a connection, token-version, and integration
-binding compare-and-set.
+Cache keys are canonical tuples scoped by execution user, tagged plugin/kernel owner, provider ID or
+stable script slug, and authored key. Disposable values additionally pin code/config and reset on
+backend restart; persistent values omit revision/config pins. `claimPersistentValue` writes only if
+absent and survives restart; `getPersistentValue` neither claims nor extends expiry.
 
-Cache namespaces use canonical JSON tuples with the executing user, tagged local plugin/kernel owner, tagged provider ID or stable local script slug, and authored key. Disposable values also include exact revision/content and configuration pins, and reset after backend restart. Persistent values exclude revision and configuration pins, so compatible updates keep their keys. `claimPersistentValue` survives restart and writes only if absent. `getPersistentValue` reads that persistent namespace without claiming or extending its expiry.
-
-`authorization/` owns the execution principal and this role table, the runtime policy ceiling. A script receives only methods permitted for its trusted principal and present in its pinned compiled capability list; the host-function binder, inline durable capability list, and durable dispatch all apply it. `scratch` and `artifact-read` are filesystem grants, not host calls.
-
-| Principal or role                 | Available bridge capabilities                                                                                                                                                                                                         |
-| --------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| All valid subjects                | `log`, `span`, `httpCall`, `getCachedValue`, `setCachedValue`, `getPersistentValue`, `getPluginConfig`, `claimPersistentValue`                                                                                                        |
-| User or user automation run       | `createEvents`, `getEntitySchemas`, `listEventSchemas`, `listIntegrations`, `getUserPreferences`, `getUserSettings`, `getProAvailability`, `verifyManagedAssets`, `getCurrentIntegration`, `changeUserRelationships`, `executeRyotql` |
-| Designated user-bootstrap script  | `ensureUserEntities` for that plugin's entity schemas, in either plugin scope                                                                                                                                                         |
-| User-subject plugin script        | `createUserEntity`, `updateUserEntity`, `deleteUserEntity`, `saveUserEntity`, `mergeUserEntityData` for user-owned entities whose schemas belong to that plugin                                                                       |
-| Pinned system-scope plugin script | `executeRyotql`, `upsertGlobalEntities`, `upsertGlobalRelationships` within plugin ownership                                                                                                                                          |
-| User or system automation run     | `emitSignal`; `sendNotification` is available only to user automation runs                                                                                                                                                            |
-| Integration run of its own plugin | `getOAuthAccessToken` and `invalidateOAuthAccessToken` for OAuth fields its current settings schema declares                                                                                                                          |
-
-Features own their capability implementations beside their services; assets use `modules/assets/script-host.ts`, and Pro availability uses `modules/scripts/pro-key-script-host.ts`. `boot/script-host.ts` assembles them into the one host map that inline and durable dispatch share.
+Feature services implement host functions beside their owners; `boot/script-host.ts` assembles the
+single host map shared by inline and durable dispatch.
 
 ## Script Writes
 
-`createUserEntity` creates one user-owned entity; `updateUserEntity` updates an exact user-owned
-entity against its expected `{ name, updatedAt, properties }`. `deleteUserEntity` deletes an exact
-user-owned entity of the requested schema through the entity lifecycle, including its referencing events.
-`createUserEntity`, `updateUserEntity`, and `deleteUserEntity` require the schema to belong to
-the plugin in its pinned scope and the user's effective definitions. The host binds ownership;
-validation, policy hooks, and mutation receipts use the entity service. Scripts cannot set ownership,
-global scope, provider provenance, or `populatedAt`. Before-stage policies and system subjects cannot
-create user entities through this capability.
+Entity capabilities enforce exact schema, plugin, scope, and user ownership through normal services,
+policies, and receipts. Scripts cannot set global scope, provider provenance, ownership, or
+`populatedAt`; policies/system subjects cannot use user-entity creation.
 
-`saveUserEntity` creates or updates one user-owned entity and replaces its outgoing user relationships
-for the listed relationship schemas in one transaction. The entity schema and every relationship schema
-must belong to the plugin in its pinned scope, and each relationship schema's source schema must be the
-saved entity's schema. An update requires a stored entity that is user-owned and of that schema,
-checked against `expected` after the lookup. For each listed schema the submitted targets become the
-user's outgoing relationships from the entity: removed targets are deleted and new or changed targets
-are created with replaced properties, while incoming relationships and unlisted schemas stay untouched.
-The whole save has one `entity-editor:save` receipt that stores the entity ID and the full dispatch list,
-so a replay after a crash re-dispatches the same work. A relationship set that changed since it was read
-yields `stale`, as does an `expected` mismatch or a concurrent change. Invalid properties, an immutable
-property change, a forbidden asset, relationship validation failures, duplicate targets, more than 200
-targets, and more than 100 relationship changes yield `invalid`. Foreign schemas and entities that are
-missing or not owned fail the host call. The command keeps the sandbox principal as its write context and
-is never a kernel collection command.
+| Operation                               | Contract                                                                                                                                        |
+| --------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
+| `createUserEntity` / `updateUserEntity` | Create one owned entity or update against expected name, time, and properties                                                                   |
+| `deleteUserEntity`                      | Delete the owned schema-matching entity through lifecycle handling, including referencing events                                                |
+| `saveUserEntity`                        | Atomically save one entity and replace outgoing user relationships for listed schemas; incoming/unlisted schemas remain unchanged               |
+| `mergeUserEntityData`                   | Move the user's events/relationships into a same-schema entity using merge policy and return moved counts                                       |
+| `updateEvents` / `deleteEvents`         | Atomic batches of at most 100; updates use `{ eventId, patch }` with properties `{ remove, set }`, occurrence time, entity, or nullable session |
+| `changeUserRelationships`               | Each create chooses merge (preserve unspecified fields/union arrays) or replace (full property record); membership writes use merge             |
 
-`mergeUserEntityData` moves the user's events and relationships from one user-owned entity to another
-of the same schema, returning `{ movedEventsCount, movedRelationshipsCount }`. The schema must belong
-to the plugin in its pinned scope, both entities must be of that schema and owned by that plugin, and
-the source must be user-owned. It runs the same merge as the HTTP route, including `deniedOperations`
-and merge identity properties, but keeps the sandbox principal as the write context and marks the
-command as a kernel collection command. Events of the plugin's own schemas and kernel events
-(reviews, collection events) and `member-of` memberships therefore move, while events or
-relationships owned by another plugin fail with `owner-mismatch`. The merge moves every user
-relationship of the source, so scripts delete relationships they do not want carried over first.
+`saveUserEntity` requires owned relationship schemas whose source matches the entity schema. Its
+single `entity-editor:save` receipt retains entity ID and dispatch list for crash redispatch. Changed
+relationship sets, expected snapshots, or concurrent state return `stale`. Invalid properties/assets,
+immutable changes, duplicate targets, over 200 targets, or over 100 changes return `invalid`.
+Foreign/missing/unowned entities or schemas fail the call. Writes preserve the sandbox principal,
+not kernel collection authority.
 
-`createUserEntity`, `updateUserEntity`, `deleteUserEntity`, `saveUserEntity`, `mergeUserEntityData`, `createEvents`, `updateEvents`,
-`deleteEvents`, and `changeUserRelationships` accept optional `{ submittedAt, idempotencyKey }` options. Stable writes
-are scoped by account generation, installation, script, and capability. A retry must preserve the
-ordered submitted data, timestamp, and key; reusing a key with changed committed data conflicts.
-Omitting the options keeps execution-scoped write identities. Event update items may include an
-`expected` snapshot of `entityId`, `occurredAt`, `updatedAt`, `properties`, and `sessionEntityId`
-(`null` or an ID).
+Merge requires a user-owned source and same-plugin/schema endpoints. It retains the sandbox principal
+but marks the command as a kernel collection command, allowing owned domain events and kernel
+review/collection/member-of state to move. Other plugins' events/relationships fail `owner-mismatch`.
+All source user relationships move; scripts detach those they do not want first.
 
-Event creation returns `count` and an outcome for each input index: either a written `eventId` or a
-`skipped_by_policy` reason. Partial failure data also includes `count`, `outcomes`, `code`, and
-`partial`. Writes retain their owning services' transaction boundaries and lifecycle hooks; a later
-item or operation failure does not roll back earlier committed writes.
+Entity, event, and relationship writes accept optional `{ submittedAt, idempotencyKey }`, scoped by
+account generation, installation, script, and capability. Retries preserve ordered input/time/key;
+changed committed input conflicts. Without options, execution-scoped identities apply. Event update
+items may also include an expected entity/time/properties/session snapshot.
+
+Event creation returns count and one indexed outcome per input: written event ID or policy skip.
+Partial failures retain count/outcomes/code/partial. Later failures do not roll back earlier committed
+operations or weaken their owning services' transaction/lifecycle boundaries.
 
 ## Global HTTP Admission
 
-Installed plugin `httpRateLimits` apply across all users, scripts, workflows, and backend instances in a deployment. Matching uses the normalized HTTP(S) origin: lowercase host, default port removed, IP literals canonicalized, and a fully qualified host's trailing dots stripped. Equal canonical declarations may coexist; conflicting declarations sharing a key or origin reject the entire proposed plugin state. Policies are live, so install, update, or uninstall affects the next resolution of an active workflow. PostgreSQL active manifests are authoritative; each call re-resolves policy from them, including after every wait.
+Manifest `httpRateLimits` apply deployment-wide. Origins normalize host/default port/IP/trailing dot;
+identical declarations coexist and conflicts reject activation. Persisted manifests are authoritative
+and policy is reread after every wait. Limits are live across plugin changes, not pinned authority.
 
-Matched requests are admitted through execution-bound tickets. A ticket's identity is the workflow execution, request index, redirect hop, and `429` attempt; registration binds it to the declaration hash, the execution's lane, and its scheduling tenant and plugin (the execution user or `system`, and the pinned plugin or `kernel`). Registering the same binding again is a no-op; a different binding for an existing ticket fails closed. Each operation (`register`, `poll`, `claim`, `cancel`, `block`) is one Lua script over keys that share the policy's hash tag and uses Redis time. Initial policy resolution and a hop's admission, from registration through its waits, policy re-resolution, and admitted claim, share one deterministically named activity; an unmatched resolution completes without a ticket. The activity waits in memory, so waits add no journal entries and no workflow replay; a re-executed admission re-registers the same binding, and a claimed ticket stays admitted. Because the workflow engine applies an interrupt only when a run suspends, admission looks for a pending interrupt before every registration and poll; it then cancels its ticket and the workflow suspends so the interrupt takes effect. The workflow finalizer cancels an interrupted ticket using its last registered policy binding. `block` and an interrupted workflow's finalizer `cancel` run as their own activities. Script arguments, stored numbers, and replies are parsed strictly; a corrupt ticket fails only that ticket, and corrupt policy state fails the policy closed without refreshing its TTL.
+Admission uses execution/request/hop/429-attempt tickets bound to declaration hash, lane, tenant, and
+plugin. Re-registering the same binding is idempotent; conflicting bindings fail closed. Redis-time
+Lua operations share the policy hash tag. Resolution, registration, polling, and claim use one
+deterministic activity per hop; waiting adds no journal/replay entries. Unmatched resolution creates
+no ticket. Polling checks pending interruption so the workflow can suspend and apply it; finalizers
+cancel the last binding. Block/finalizer cancellation are separate activities. Corrupt ticket data
+fails that ticket; corrupt policy state fails closed without refreshing TTL.
 
-`poll` renews the ticket and, when the policy's slot is open (spacing since the last admitted claim has passed and no block is active) and no grant is live, grants the slot to the first eligible ticket by lane, tenant ring, plugin ring, and FIFO within a plugin, visiting at most 16 flows, or to the polling ticket when none is found within that bound. Interactive tickets go first, but after four interactive claims while background tickets wait, a background ticket is preferred. A ticket is eligible when it is polling or its next poll is due within the grant lease, `max(spacing, 1 second)`. Skipped tenants and plugins keep their ring positions; rings advance only on an admitted claim, so plugin fan-out cannot raise a tenant's share. An unclaimed grant expires after one lease and leaves its ticket ineligible until it polls again. Other tickets get a wake hint estimated from their place in the rings, at least `min(spacing, 60 seconds)` and at most 60 seconds beyond any active block.
+The scheduling rules are:
 
-Only `claim` returning `admitted` lets a matched hop reach the network. It re-checks the grant's ticket and nonce, the declaration hash, the block, and spacing, then records the claim time as the spacing anchor and leaves a 10-minute tombstone, so a claim retried after a lost reply is admitted again without spending another slot. `poll` and `claim` report `unknown` for a missing, expired, or stale-hash ticket, and the waiter re-registers under the same identity; blocks and the spacing anchor live in policy state, survive restarts and declaration changes, and are never reset at startup.
+- `poll` renews demand and grants an open slot by lane, tenant ring, plugin ring, then FIFO, scanning
+  at most 16 flows before considering the polling ticket. Interactive wins except after four
+  interactive claims with background demand. Rings advance only on admitted claims, not skipped
+  flows, so plugin fan-out cannot increase tenant share.
+- Grant lease is `max(spacing, 1 second)`. Expired unclaimed grants require another poll. Wake hints
+  are bounded by spacing/60 seconds and active block time.
+- Only a successful `claim` permits network I/O. It rechecks ticket/nonce, declaration, block, and
+  spacing, then anchors spacing and retains a ten-minute tombstone for idempotent lost replies.
+  Unknown/expired/stale tickets reregister. Startup never clears spacing or blocks.
+- Ticket leases run 120 seconds from last poll or block end. Each operation removes at most 16 stale
+  tickets and requests retry if cleanup is incomplete. Pending caps are 1,024 per policy, 64 per
+  tenant/lane, and 256 for system. Overload backs off 1–30 seconds; keys expire after at least ten
+  policy intervals or ten minutes and survive active blocks.
+- Only matched HTTP 429s retry automatically: delta/date `Retry-After` or policy interval advances
+  the shared block (capped at one hour), then retries durably with a new attempt ticket. Coordination
+  failures back off 1–30 seconds, in memory during admission and durably elsewhere. Matched calls
+  fail closed while coordination is unavailable; proven unmatched calls continue.
 
-A ticket lease lasts 120 seconds from the later of its last poll and the policy's block end; cancelled tickets are removed when the workflow is interrupted, and abandoned ones expire. Each command removes at most 16 expired or stale tickets and returns `retry` when that bound stops it. A policy holds at most 1,024 pending tickets, a tenant at most 64 per lane, and the shared `system` tenant at most 256; at a limit, registration returns `overloaded` without writing and the waiter backs off from one second, doubling to 30 seconds. Keys expire after `max(10 * intervalMs, 10 minutes)`, extended through an active block.
+Redirects are manual, at most five. 303 and POST 301/302 become bodyless GETs; credential headers are
+removed across origins and scripts cannot set Host. Every hop resolves policy before network access;
+matched/unresolved hops hand off for admission, including inline settlement. An IP/alias does not
+inherit another hostname's declared limit.
 
-Only a matched HTTP `429` retries automatically. `Retry-After` accepts delta seconds or an HTTP date; missing or invalid values use the policy interval. The delay, capped at one hour, is added to Redis time to advance the global block before durable sleep and a retry under a new ticket. Non-`429` failures and unmatched calls do not retry. Coordination failures retry with one-second exponential backoff capped at 30 seconds, in memory during admission and durable elsewhere; matched calls fail closed while coordination is unavailable, but proven-unmatched calls continue.
+All application HTTP, including notifications/OAuth, passes the
+`src/platform/egress/address-policy.ts` checks on every hop. Only HTTP(S) and permitted resolved
+addresses are allowed. `SERVER_EGRESS_ALLOWED_NETWORKS` may permit private ranges, never unspecified,
+link-local, metadata, multicast, 6to4, or Teredo destinations. Connections use a checked address with
+the original Host/TLS name, ignore proxy environment, and return redirects for rechecking. Denial is
+certain failure with `data.code: "destination-denied"`.
 
-Redirects are followed by hand, at most five per call, with fetch semantics: `303`, and `POST` under `301` or `302`, become `GET` without a body or its content headers, and `Authorization`, `Cookie`, and `Proxy-Authorization` are dropped across origins. Scripts may not set `Host`. A durable network attempt follows a hop only when policy proves it unmatched; a matched hop or a failed lookup ends the attempt before the hop is requested, and the workflow journals it, admits it under a ticket for that hop, and continues from it in the next attempt. Inline settlement uses the same check and fails the call instead. An IP literal or other alias that reaches a declared host is not matched. The shared application HTTP client, also used by notification delivery and OAuth token exchange, checks every request, including each hop, before fetch runs: the URL scheme must be `http:` or `https:`, and every address the host resolves to must pass the address policy in `src/platform/egress/address-policy.ts`, which denies loopback, private, and other special-purpose ranges unless `SERVER_EGRESS_ALLOWED_NETWORKS` allows their network, and always denies unspecified, link-local, metadata, multicast, 6to4, and Teredo ranges. The request then connects to the first resolved address with the original `Host` and TLS server name, ignores proxy environment variables, and returns redirects to the caller. `httpCall` reports a denial as a certain failure with `data.code` `destination-denied`.
-
-Ticket metrics record wait from registration to grant, grants, expired grants, and overloads by lane, policy key, and outcome. HTTP logs contain only workflow execution ID, request index, hop, policy key, normalized origin, stage, attempt, wait/duration, and status. URLs, query strings, headers, bodies, credentials, users, tenants, plugins, and ticket identities are excluded.
+Metrics expose waits, grants, expiry, and overload by lane/policy/outcome. Logs include only bounded
+execution/request/hop/origin/stage/timing/status fields, never full URLs, queries, headers, bodies,
+credentials, users, tenants, plugins, or ticket identity.
 
 ## Failures
 
-- Completed script failures identify `load`, `input`, `execute`, or `output` phase and may include source-mapped frames, each named by its authored path relative to the compiled module.
-- Returned stacks remove data URLs, runner/dependency paths, execution IDs, and tokens.
-- Timeout and unexpected isolate termination are workflow job failures. Generation and handle failures use structured module-owned reasons. Raw compiler/runtime diagnostics stay on explicit plugin-author, admin, and test surfaces; unexpected causes stay in logs.
-- Console, `log`, and `span` output share bounded completed-result diagnostics. Oversized console logs append `[sandbox logs truncated]`; an oversized final value fails the output phase without partial data.
-- Automation preparation reports missing artifacts separately from invalid projected input; neither condition falls back to the complete retained payload.
-- Normal APIs and persisted workflows use structured module-owned kebab-case reasons, never diagnostic prose.
+Completed failures identify load/input/execute/output phase and sanitized authored source frames.
+Returned stacks omit data URLs, dependencies/runner paths, tokens, and execution IDs. Timeout or
+unexpected isolate death is a workflow failure. Diagnostic logs are bounded and replay-tagged;
+truncation appends `[sandbox logs truncated]`, while oversized final output fails without partial data.
+Results include `timing: { totalMs, executionMs }`.
 
-Completed results include `timing: { totalMs, executionMs }`.
+Missing retained artifacts and invalid projections are distinct preparation failures; neither falls
+back to full evidence. Normal APIs/persisted workflows use structured kebab-case reasons. Raw
+diagnostics belong only to explicit author/admin/test surfaces; unexpected causes stay in logs.
 
 ## Liveness And Pruning
 
-Database pruning uses persisted liveness under the plugin-ingestion fence. It retains current plugin rows, accepted automation runs inside their artifact window, source-zero kernel scripts referenced from `kernel_script`, and running or suspended workflow references. Pruning removes only unreferenced database rows in a transaction; it does not sweep compiled caches or files. Persisted workflow references protect suspended work, and retained automation runs protect their exact script, plugin, and configuration pins through retry and manual replay. Completion or cancellation releases workflow references.
+The [garbage collector](../garbage-collection/README.md) uses persisted liveness under the ingestion
+fence. Current revisions, source-zero scripts, active workflows, and retained automation pins protect
+their artifacts. Completion/cancellation releases workflow references. Pruning deletes unreferenced
+database rows transactionally, not compiled caches/files.

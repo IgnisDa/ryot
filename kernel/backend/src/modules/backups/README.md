@@ -35,7 +35,7 @@ Export upload additionally allows 64 MiB for ZIP overhead.
 
 ## Export And Restore
 
-The [kernel transaction invariant](../../../AGENTS.md#persistence) forbids transactions across network I/O. Export therefore creates a scoped temp directory, reads a single repeatable-read snapshot, spills events using database `ORDER BY id`, commits, then streams the archive to storage. Temp cleanup covers success, failure, and interruption.
+The [kernel transaction invariant](../../../AGENTS.md) forbids transactions across network I/O. Export therefore creates a scoped temp directory, reads a single repeatable-read snapshot, spills events using database `ORDER BY id`, commits, then streams the archive to storage. Temp cleanup covers success, failure, and interruption.
 
 Restore validation spools events and assets into the caller's scoped temp directory. It validates section order, counts, hashes, limits, declared ownership, typed references, required system packages, and private packages before account writes. Package keys encode scope and `publisher/name` package ID; names and slugs are metadata. Private packages include a manifest, compiled scripts, and the package-bound compiled-client artifact with its fingerprint; they include no authoring source. Assets are staged before the transaction so network work is outside it.
 
