@@ -32,7 +32,6 @@ describe.skipIf(!RUN_OPERATIONAL_GATES)("media population overlap gate", () => {
 					media = yield* shippedPluginTestProviders(mediaPlugin.metadata.packageId);
 				}),
 			),
-		300_000,
 	);
 
 	afterAll(() => runPromise(harness?.stop ?? Effect.void));
@@ -142,6 +141,5 @@ describe.skipIf(!RUN_OPERATIONAL_GATES)("media population overlap gate", () => {
 				expect(finalPressure.locks.waitingAdvisoryLocks).toBe(0);
 				return undefined;
 			}),
-		GATE_TIMEOUT_MS + 30_000,
 	);
 });

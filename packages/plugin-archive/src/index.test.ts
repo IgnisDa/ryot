@@ -745,7 +745,6 @@ describe("plugin archive", () => {
 					sha256Hex(bytes),
 				);
 			}),
-		20_000,
 	);
 
 	it("rejects a writer path one byte over the limit", () =>
@@ -1023,7 +1022,7 @@ describe("plugin archive", () => {
 			),
 		];
 		return expectReason(archive(entries), "total-uncompressed-bytes-exceeded");
-	}, 20_000);
+	});
 
 	it.each([
 		[

@@ -481,6 +481,5 @@ describe("isolated import durability", () => {
 				expect(entitySummary?.counts.created).toBeLessThan(120);
 				expect(entitySummary?.counts.unsuccessful).toBe(0);
 			}),
-		180_000,
 	);
 });

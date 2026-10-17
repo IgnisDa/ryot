@@ -422,7 +422,6 @@ it.each(["hevy", "strong_app"])(
 			),
 		);
 	},
-	30000,
 );
 
 it("applies more than one OpenScale batch with original row identities and measurement units", () =>

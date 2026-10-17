@@ -8,6 +8,5 @@ layer(pluginLoadLayer, { excludeTestServices: true })((test) => {
 	test.effect(
 		"compiles and loads every declared sandbox script",
 		() => verifyPluginSandboxScriptsLoad(new URL("..", import.meta.url).pathname),
-		120_000,
 	);
 });

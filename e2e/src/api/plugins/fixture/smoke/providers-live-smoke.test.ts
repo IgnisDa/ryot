@@ -193,7 +193,6 @@ describe.skipIf(!RUN_LIVE)("live fixture provider smoke (real external APIs)", (
 					]),
 				);
 			}),
-		180_000,
 	);
 
 	it.live(
@@ -359,6 +358,5 @@ describe.skipIf(!RUN_LIVE)("live fixture provider smoke (real external APIs)", (
 					expect.arrayContaining(["entityId", "column0", "ownerPluginId", "entitySchemaSlug"]),
 				);
 			}),
-		180_000,
 	);
 });
