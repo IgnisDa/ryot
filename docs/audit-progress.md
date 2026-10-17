@@ -15,7 +15,7 @@
 
 ## Status
 
-**60 implemented, 0 in progress, 23 pending; 3 excluded.**
+**61 implemented, 0 in progress, 22 pending; 3 excluded.**
 
 “Implemented” means affected checks and tests passed and the change is committed with this tracker. Batch-wide acceptance is recorded separately below. Rows follow the audit's ranked order; sequencing can change to respect dependencies and keep changes reviewable.
 
@@ -80,7 +80,7 @@
 | M03-R1 | Implemented | Plex integration uses explicit current-item continuation. See this finding's audit commit. |
 | M04-R1 | Implemented | Reuse existing sorted media runs for collection workflows and retain the checkpointed 64-item window. See this finding's audit commit. |
 | M02-R1 | Implemented | Process already-decoded Trakt records directly without a synthetic ZIP round trip. See this finding's audit commit. |
-| F02-R1 | Pending | Normalize the already-selected workout group once. |
+| F02-R1 | Implemented | Normalize each selected workout group once, anchoring metadata to its first valid row while preserving failure and event ordering. See this finding's audit commit. |
 | F04-R1 | Implemented | Read the persisted numeric template plan directly and enrich distinct choices without editor hydration; preserve validation, units, and pro-media behavior. See this finding's audit commit. |
 | A02-R1 | Pending | One event-ID migration scan. |
 | T02-R1 | Implemented | Register release finalizers at acquisition, including partial failure, interruption, and stop; close the API scope before infrastructure and keep capacity unchanged. See this finding's audit commit. |
@@ -226,3 +226,4 @@
 - P10-R1: RyotQL check passed before 37 tests; read-only review passed. Rows decode directly with selected fields and no fabricated pages.
 - P12-R1: renderer check passed before 62 tests across four files; read-only review passed. Typed local queries retain wire, URL-sort, clock, and cancellation behavior. Ignored generated sources were regenerated and not staged.
 - P05-R2: UI check passed before 21 focused tests and 325 full UI tests; read-only review passed. One destination drives the reorder preview; pointer cancellation and commit behavior remain.
+- F02-R1: scoped checks passed before 52 tests; read-only review passed. Each selected workout group is normalized once, using first-valid-row metadata while preserving failures and ordering.

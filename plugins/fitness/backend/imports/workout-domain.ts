@@ -57,7 +57,7 @@ const WorkoutAdapterFailureSchema = Schema.Struct({
 export type WorkoutAdapterFailure = Schema.Schema.Type<typeof WorkoutAdapterFailureSchema>;
 
 const WorkoutAdapterResultSchema = Schema.Struct({
-	items: Schema.mutableKey(Schema.mutable(Schema.Array(WorkoutImportItemSchema))),
+	item: Schema.optional(WorkoutImportItemSchema),
 	failures: Schema.mutableKey(Schema.mutable(Schema.Array(WorkoutAdapterFailureSchema))),
 });
 
