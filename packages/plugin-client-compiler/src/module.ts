@@ -15,8 +15,6 @@ import type { ViteBuildService } from "@ryot-app/vite-compiler";
 import {
 	acquireCompilerWorkspace,
 	buildWithVite,
-	stageGeneratedFiles,
-	stageSourceFiles,
 	validateRelativePath,
 } from "@ryot-app/vite-compiler";
 import tailwindcss from "@tailwindcss/vite";
@@ -130,25 +128,22 @@ export function compileClientPluginModule(
 		const paths = yield* Path.Path;
 		const workspace = yield* acquireCompilerWorkspace({
 			parentPath: dependencies.compilerRoot,
+			sources: sourceEntries.map(([path, contents]) => ({ path, contents })),
+			generated: (pathsForWorkspace) => [
+				{ path: "module.ts", contents: moduleSource(input) },
+				{
+					path: "styles.css",
+					contents: compilerStylesheet(
+						paths,
+						reachableSources,
+						pathsForWorkspace.sourcePath,
+						pathsForWorkspace.generatedPath,
+						dependencies.clientSdkRoot,
+						dependencies.uiSdkRoot,
+					),
+				},
+			],
 		}).pipe(Effect.mapError((error) => failure("client", "RYOT_CLIENT_COMPILER", error.message)));
-		yield* stageSourceFiles(
-			workspace,
-			sourceEntries.map(([path, contents]) => ({ path, contents })),
-		).pipe(Effect.mapError((error) => failure("client", "RYOT_CLIENT_SOURCE_PATH", error.message)));
-		yield* stageGeneratedFiles(workspace, [
-			{ path: "module.ts", contents: moduleSource(input) },
-			{
-				path: "styles.css",
-				contents: compilerStylesheet(
-					paths,
-					reachableSources,
-					workspace.sourcePath,
-					workspace.generatedPath,
-					dependencies.clientSdkRoot,
-					dependencies.uiSdkRoot,
-				),
-			},
-		]).pipe(Effect.mapError((error) => failure("client", "RYOT_CLIENT_COMPILER", error.message)));
 
 		const trustedModules = new Set(
 			Object.keys(dependencies.typeScriptEntries).filter(
