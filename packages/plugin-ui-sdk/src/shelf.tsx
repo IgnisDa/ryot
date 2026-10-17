@@ -37,7 +37,7 @@ export function Shelf(props: {
 	readonly label: string;
 	readonly compact: boolean;
 	readonly children: ReactNode;
-	readonly className?: string;
+	readonly className?: string | undefined;
 	readonly icons: { readonly previous: ReactNode; readonly next: ReactNode };
 }) {
 	const scroller = useRef<HTMLUListElement>(null);

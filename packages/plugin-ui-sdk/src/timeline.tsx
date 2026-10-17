@@ -13,10 +13,13 @@ const markerTones = {
 
 export type TimelineMarker = {
 	readonly tone: keyof typeof markerTones;
-	readonly emphasis?: boolean;
+	readonly emphasis?: boolean | undefined;
 };
 
-export function Timeline(props: { readonly children: ReactNode; readonly className?: string }) {
+export function Timeline(props: {
+	readonly children: ReactNode;
+	readonly className?: string | undefined;
+}) {
 	return <div className={clsx("grid gap-6", props.className)}>{props.children}</div>;
 }
 
@@ -45,15 +48,17 @@ export function TimelineGroup(props: {
 export function TimelineEntry(props: {
 	readonly title: ReactNode;
 	readonly marker: TimelineMarker;
-	readonly meta?: ReactNode;
-	readonly actions?: ReactNode;
-	readonly children?: ReactNode;
-	readonly expand?: {
-		readonly label: string;
-		readonly expanded: boolean;
-		readonly content: ReactNode;
-		readonly onToggle: () => void;
-	};
+	readonly meta?: ReactNode | undefined;
+	readonly actions?: ReactNode | undefined;
+	readonly children?: ReactNode | undefined;
+	readonly expand?:
+		| {
+				readonly label: string;
+				readonly expanded: boolean;
+				readonly content: ReactNode;
+				readonly onToggle: () => void;
+		  }
+		| undefined;
 }) {
 	const contentId = useId();
 	return (

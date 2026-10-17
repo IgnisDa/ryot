@@ -11,10 +11,11 @@ export function ArtTile(props: {
 	readonly art: ReactNode;
 	readonly title: ReactNode;
 	readonly aspect: ArtTileAspect;
-	readonly badge?: ReactNode;
-	readonly className?: string;
-	readonly lines?: readonly string[];
-	readonly progress?: { readonly value: number; readonly max: number; readonly label: string };
+	readonly badge?: ReactNode | undefined;
+	readonly className?: string | undefined;
+	readonly lines?: readonly string[] | undefined;
+	readonly progress?:
+		{ readonly value: number; readonly max: number; readonly label: string } | undefined;
 }) {
 	return (
 		<div className={clsx("group/tile flex min-w-0 flex-col gap-2", props.className)}>

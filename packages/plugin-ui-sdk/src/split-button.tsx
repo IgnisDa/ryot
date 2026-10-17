@@ -21,7 +21,7 @@ export function SplitButton({
 	readonly menuIcon: ReactNode;
 	readonly menuLabel: string;
 	readonly items: ReadonlyArray<MenuItem>;
-	readonly variant?: keyof typeof triggerClasses;
+	readonly variant?: keyof typeof triggerClasses | undefined;
 }) {
 	return (
 		<div className={clsx("inline-flex items-stretch", className)}>

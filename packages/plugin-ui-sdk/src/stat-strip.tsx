@@ -5,12 +5,12 @@ export type Stat = {
 	readonly key: string;
 	readonly label: string;
 	readonly value: ReactNode;
-	readonly detail?: ReactNode;
+	readonly detail?: ReactNode | undefined;
 };
 
 export function StatStrip(props: {
 	readonly compact: boolean;
-	readonly className?: string;
+	readonly className?: string | undefined;
 	readonly stats: readonly Stat[];
 }) {
 	return (

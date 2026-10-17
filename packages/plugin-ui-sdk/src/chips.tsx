@@ -9,7 +9,11 @@ const chipClassName = (checked: boolean) =>
 			: "border-border-emphasis text-text-muted",
 	);
 
-type ChipProps = { readonly label: string; readonly checked: boolean; readonly className?: string };
+type ChipProps = {
+	readonly label: string;
+	readonly checked: boolean;
+	readonly className?: string | undefined;
+};
 
 export function Chip({ label, checked, className }: ChipProps) {
 	return <span className={clsx(chipClassName(checked), className)}>{label}</span>;
@@ -23,8 +27,8 @@ export function ChipButton({
 	type = "button",
 	...props
 }: Omit<ComponentProps<"button">, "aria-pressed"> & {
-	readonly icon?: ReactNode;
-	readonly pressed?: boolean;
+	readonly icon?: ReactNode | undefined;
+	readonly pressed?: boolean | undefined;
 }) {
 	return (
 		<button

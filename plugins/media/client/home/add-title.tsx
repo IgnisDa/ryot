@@ -21,16 +21,16 @@ export function AddTitleMenu(props: { readonly variant: "button" | "icon" }) {
 		<MenuButton
 			label="Add a title"
 			icon={<AppIcon size={18} name="plus" />}
-			renderTrigger={
-				props.variant === "icon"
-					? undefined
-					: (trigger) => (
+			{...(props.variant === "icon"
+				? {}
+				: {
+						renderTrigger: (trigger) => (
 							<Button variant="secondary" {...trigger}>
 								<AppIcon size={15} name="plus" />
 								Add a title
 							</Button>
-						)
-			}
+						),
+					})}
 			items={builtinMediaEntitySchemaSlugs.map((slug) => ({
 				key: slug,
 				label: schemaLabel(slug),
