@@ -1,10 +1,10 @@
 import { Schema } from "@ryot-app/plugin-backend-sdk/effect";
-import type { JsonValue } from "@ryot-app/plugin-backend-sdk/wire";
 
 import { exerciseKinds, type ExerciseKind } from "../../shared/exercise-kinds";
-import { calculateWorkoutSetStatistics } from "../../shared/workout-records";
+import { WorkoutSetLotSchema } from "../../shared/workout-set";
 
 const WorkoutImportSetSchema = Schema.Struct({
+	setLot: Schema.mutableKey(WorkoutSetLotSchema),
 	note: Schema.mutableKey(Schema.optional(Schema.String)),
 	reps: Schema.mutableKey(Schema.optional(Schema.Finite)),
 	weight: Schema.mutableKey(Schema.optional(Schema.Finite)),
@@ -13,7 +13,6 @@ const WorkoutImportSetSchema = Schema.Struct({
 	restTime: Schema.mutableKey(Schema.optional(Schema.Finite)),
 	confirmedAt: Schema.mutableKey(Schema.optional(Schema.String)),
 	restTimerStartedAt: Schema.mutableKey(Schema.optional(Schema.String)),
-	setLot: Schema.mutableKey(Schema.Literals(["normal", "warm_up", "drop", "failure"])),
 });
 
 export type WorkoutImportSet = Schema.Schema.Type<typeof WorkoutImportSetSchema>;
@@ -62,77 +61,6 @@ const WorkoutAdapterResultSchema = Schema.Struct({
 });
 
 export type WorkoutAdapterResult = Schema.Schema.Type<typeof WorkoutAdapterResultSchema>;
-
-const cleanWorkoutSetStats = (kind: ExerciseKind, set: WorkoutImportSet) => {
-	const stats: Pick<WorkoutImportSet, "distance" | "duration" | "reps" | "weight"> = {};
-	if (kind === "reps" || kind === "reps_and_weight" || kind === "reps_and_duration") {
-		stats.reps = set.reps;
-	}
-	if (kind === "reps_and_weight") {
-		stats.weight = set.weight;
-	}
-	if (
-		kind === "duration" ||
-		kind === "reps_and_duration" ||
-		kind === "distance_and_duration" ||
-		kind === "reps_and_duration_and_distance"
-	) {
-		stats.duration = set.duration;
-	}
-	if (kind === "distance_and_duration" || kind === "reps_and_duration_and_distance") {
-		stats.distance = set.distance;
-	}
-	if (kind === "reps_and_duration_and_distance") {
-		stats.reps = set.reps;
-	}
-	return stats;
-};
-
-const addNumberProperty = (
-	properties: Record<string, JsonValue>,
-	key: string,
-	value: number | undefined,
-) => {
-	if (value !== undefined && Number.isFinite(value)) {
-		properties[key] = value;
-	}
-};
-
-export const buildWorkoutSetEventProperties = (input: {
-	setOrder: number;
-	set: WorkoutImportSet;
-	exerciseOrder: number;
-	exerciseKind: ExerciseKind;
-}) => {
-	const properties: Record<string, JsonValue> = {
-		setLot: input.set.setLot,
-		setOrder: input.setOrder,
-		exerciseKind: input.exerciseKind,
-		exerciseOrder: input.exerciseOrder,
-	};
-	if (input.set.note) {
-		properties["note"] = input.set.note;
-	}
-	if (input.set.confirmedAt !== undefined) {
-		properties["confirmedAt"] = input.set.confirmedAt;
-	}
-	if (input.set.restTime !== undefined) {
-		properties["restTime"] = input.set.restTime;
-	}
-	if (input.set.restTimerStartedAt !== undefined) {
-		properties["restTimerStartedAt"] = input.set.restTimerStartedAt;
-	}
-	const measurements = cleanWorkoutSetStats(input.exerciseKind, input.set);
-	addNumberProperty(properties, "reps", measurements.reps);
-	addNumberProperty(properties, "weight", measurements.weight);
-	addNumberProperty(properties, "duration", measurements.duration);
-	addNumberProperty(properties, "distance", measurements.distance);
-	const statistics = calculateWorkoutSetStatistics(input.exerciseKind, measurements);
-	addNumberProperty(properties, "pace", statistics.pace);
-	addNumberProperty(properties, "volume", statistics.volume);
-	addNumberProperty(properties, "oneRm", statistics.oneRm);
-	return properties;
-};
 
 const hasMeaningfulValue = (value: number | undefined) =>
 	value !== undefined && Number.isFinite(value) && value > 0;
