@@ -73,7 +73,7 @@
 | P05-R2 | Implemented | Derive the reorder preview from one destination while preserving pointer-cancel, commit, and preview behavior. See this finding's audit commit. |
 | B30-R1 | Implemented | Fill one buffer sized to declared S3 content length; overflow stops consumption, while underflow and stream errors release resources. See this finding's audit commit. |
 | S03-R2 | Implemented | Borrow result and console data while serializing the done payload. See this finding's audit commit. |
-| S02-R2 | Implemented | Keep writer input logical-only and let the writer create physical chunks; type the logical send boundary without a physical-part overload. See this finding's audit commit. |
+| S02-R2 | Implemented | Keep writer input logical-only and let the writer create physical chunks; type the logical send boundary without a physical-part overload. See this finding's audit commits. |
 | S02-R1 | Pending | One reservation/buffer per inbound assembly. |
 | S01-R1 | Implemented | Store validated harvested bytes directly without intermediate temporary-file writes or reads. See this finding's audit commit. |
 | P09-R1 | Implemented | Validate writer input once without self-decompression; retain exact manifest bounds and unchanged reader behavior. See this finding's audit commit. |
