@@ -54,7 +54,20 @@ COALESCE(
 		'publishDate', to_char(metadata.publish_date, 'YYYY-MM-DD'),
 		'sourceUrl', metadata.source_url,
 		'description', metadata.description,
-		'providerRating', metadata.provider_rating,
+		'providerRating', round((metadata.provider_rating * CASE
+			WHEN (metadata.lot, metadata.source) IN (
+				('audio_book', 'audible'),
+				('book', 'google_books'),
+				('book', 'hardcover'),
+				('book', 'openlibrary')
+			) THEN 20
+			WHEN (metadata.lot, metadata.source) IN (
+				('anime', 'myanimelist'),
+				('manga', 'myanimelist'),
+				('manga', 'manga_updates')
+			) THEN 10
+			ELSE 1
+		END)::numeric, 2),
 		'productionStatus', metadata.production_status
 	)),
 	'{}'::jsonb
