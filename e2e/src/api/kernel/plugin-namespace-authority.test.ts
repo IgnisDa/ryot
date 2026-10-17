@@ -321,11 +321,15 @@ describe("plugin namespace authority", () => {
 				assertTaggedError(error, "PluginInvocationError");
 				expect(error.reason.code).toBe("runtime-failed");
 			}
-			expect(
-				(yield* executeRyotQLRecipe(client, namespaceBottlesRecipe({})))
-					.map(({ name }) => name)
-					.sort(),
-			).toEqual(["A1 bottle", "B1 bottle"]);
+			const bottleNames = [];
+			for (const installed of [a, b]) {
+				const bottles = yield* executeRyotQLRecipe(
+					client,
+					namespaceBottlesRecipe({ reference: { kind: "local", pluginId: installed.pluginId } }),
+				);
+				bottleNames.push(...bottles.map(({ name }) => name));
+			}
+			expect(bottleNames.sort()).toEqual(["A1 bottle", "B1 bottle"]);
 			expect(
 				(yield* listEventsForEntity(client, foreign.id, undefined, 100)).map(
 					({ id, properties }) => ({ id, properties }),

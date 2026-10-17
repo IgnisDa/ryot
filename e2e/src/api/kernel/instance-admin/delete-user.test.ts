@@ -300,6 +300,7 @@ describe("Delete user automation data cleanup", () => {
 
 				const { id: triggerId } = yield* pollSignalTriggerWithRecipientCount(
 					{
+						actorUserId: null,
 						subjectEntityId: person.id,
 						signalSchema: {
 							owner: personSchema.reference.owner,
@@ -324,6 +325,7 @@ describe("Delete user automation data cleanup", () => {
 				yield* deleteUserAndWait(UserId.make(firstMonitor.userId));
 
 				const [remainingTrigger] = yield* listSignalTriggers({
+					actorUserId: null,
 					subjectEntityId: person.id,
 					signalSchema: {
 						owner: personSchema.reference.owner,

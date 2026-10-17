@@ -138,13 +138,16 @@ export const namespaceEntityGraphRecipe = defineRecipe((reference: PluginIdentit
 		}),
 	},
 }));
-export const namespaceSubscriptionsRecipe = defineRecipe(() => ({
+export const namespaceSubscriptionsRecipe = defineRecipe((reference: PluginIdentityReference) => ({
 	map: ({ subscriptions }) => Result.succeed(subscriptions.items),
 	queries: {
 		subscriptions: selectedRows(namespaceSubscription, {
 			limit: 100,
 			orderBy: [ascending(column(namespaceSubscription, "id"))],
-			where: eq(column(namespaceSubscription, "signalSchemaSlug"), literal("tasted")),
+			where: and(
+				eq(column(namespaceSubscription, "signalSchemaSlug"), literal("tasted")),
+				eq(column(namespaceSubscription, "signalSchemaPluginId"), pluginId(reference)),
+			),
 			selection: {
 				isActive: selectedField(column(namespaceSubscription, "isActive"), Schema.Boolean),
 				pluginId: selectedField(column(namespaceSubscription, "signalSchemaPluginId"), PluginId),
@@ -154,10 +157,7 @@ export const namespaceSubscriptionsRecipe = defineRecipe(() => ({
 }));
 
 export const namespaceBottlesRecipe = defineRecipe(
-	(input: {
-		readonly reference?: PluginIdentityReference;
-		readonly joinDefinitions?: boolean;
-	}) => ({
+	(input: { readonly reference: PluginIdentityReference; readonly joinDefinitions?: boolean }) => ({
 		map: ({ bottles }) => Result.succeed(bottles.items),
 		queries: {
 			bottles: selectedRows(entity, {
@@ -165,9 +165,7 @@ export const namespaceBottlesRecipe = defineRecipe(
 				orderBy: [ascending(column(entity, "id"))],
 				where: and(
 					eq(column(entity, "entitySchemaSlug"), literal("bottle")),
-					...(input.reference
-						? [eq(column(entity, "entitySchemaPluginId"), pluginId(input.reference))]
-						: []),
+					eq(column(entity, "entitySchemaPluginId"), pluginId(input.reference)),
 				),
 				joins: input.joinDefinitions
 					? [
