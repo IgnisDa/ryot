@@ -837,14 +837,12 @@ it("declares genres as provider-backed entities with outgoing media relationship
 			"music",
 			"visual-novel",
 		].map((sourceEntitySchemaSlug) => ({
+			name: "Genres",
 			sourceEntitySchemaSlug,
 			userWritePolicy: "source-owner",
 			targetEntitySchemaSlug: "genre",
 			propertiesSchema: { fields: {} },
 			slug: `${sourceEntitySchemaSlug}-to-genre`,
-			name: `${
-				sourceEntitySchemaSlug.charAt(0).toUpperCase() + sourceEntitySchemaSlug.slice(1)
-			} to Genre`,
 		})),
 	);
 	expect(

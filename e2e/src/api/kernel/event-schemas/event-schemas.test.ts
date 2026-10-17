@@ -153,7 +153,7 @@ describe("GET /event-schemas", () => {
 					},
 					isSpoiler: {
 						type: "boolean",
-						label: "Is Spoiler?",
+						label: "Contains spoilers",
 						description: "Whether this review contains spoilers",
 					},
 					rating: {
@@ -196,7 +196,7 @@ describe("GET /event-schemas", () => {
 					fields: {
 						progressPercent: {
 							type: "number",
-							label: "Progress Percent",
+							label: "Progress percent",
 							normalize: { round: { scale: 2 } },
 							validation: { maximum: 100, exclusiveMinimum: 0 },
 							description: "Percentage of the media completed so far (0 to 100)",
@@ -213,15 +213,15 @@ describe("GET /event-schemas", () => {
 					),
 				).toMatchObject({
 					fields: {
-						dateUnknown: { type: "boolean", label: "Date Unknown" },
+						dateUnknown: { type: "boolean", label: "Date unknown" },
 						startedOn: {
 							type: "datetime",
-							label: "Started On",
+							label: "Started on",
 							description: "Date and time you started consuming this media",
 						},
 						timeSpent: {
 							type: "number",
-							label: "Time Spent",
+							label: "Time spent",
 							validation: { minimum: 0 },
 							description: "Time spent consuming this media in minutes",
 						},
@@ -252,7 +252,7 @@ describe("GET /event-schemas", () => {
 						},
 						isSpoiler: {
 							type: "boolean",
-							label: "Is Spoiler?",
+							label: "Contains spoilers",
 							description: "Whether this review contains spoilers",
 						},
 						rating: {
@@ -275,13 +275,13 @@ describe("GET /event-schemas", () => {
 					fields: {
 						timeSpent: {
 							type: "number",
-							label: "Time Spent",
+							label: "Time spent",
 							validation: { minimum: 0 },
 							description: "Time spent consuming this media in minutes",
 						},
 						progressPercent: {
 							type: "number",
-							label: "Progress Percent",
+							label: "Progress percent",
 							normalize: { round: { scale: 2 } },
 							validation: { maximum: 100, exclusiveMinimum: 0 },
 							description: "Percentage of the media completed so far (0 to 100)",
@@ -300,13 +300,13 @@ describe("GET /event-schemas", () => {
 					fields: {
 						timeSpent: {
 							type: "number",
-							label: "Time Spent",
+							label: "Time spent",
 							validation: { minimum: 0 },
 							description: "Time spent consuming this media in minutes",
 						},
 						progressPercent: {
 							type: "number",
-							label: "Progress Percent",
+							label: "Progress percent",
 							normalize: { round: { scale: 2 } },
 							validation: { maximum: 100, exclusiveMinimum: 0 },
 							description: "Percentage of the media completed so far (0 to 100)",
@@ -362,7 +362,7 @@ describe("GET /event-schemas", () => {
 					},
 					progressPercent: {
 						type: "number",
-						label: "Progress Percent",
+						label: "Progress percent",
 						description: "Percentage of the media completed so far (0 to 100)",
 					},
 				},
@@ -383,7 +383,7 @@ describe("GET /event-schemas", () => {
 					},
 					progressPercent: {
 						type: "number",
-						label: "Progress Percent",
+						label: "Progress percent",
 						description: "Percentage of the media completed so far (0 to 100)",
 					},
 				},
@@ -394,7 +394,7 @@ describe("GET /event-schemas", () => {
 				fields: {
 					progressPercent: {
 						type: "number",
-						label: "Progress Percent",
+						label: "Progress percent",
 						description: "Percentage of the media completed so far (0 to 100)",
 					},
 				},
@@ -405,7 +405,7 @@ describe("GET /event-schemas", () => {
 				fields: {
 					progressPercent: {
 						type: "number",
-						label: "Progress Percent",
+						label: "Progress percent",
 						normalize: { round: { scale: 2 } },
 						validation: { maximum: 100, exclusiveMinimum: 0 },
 						description: "Percentage of the media completed so far (0 to 100)",
@@ -443,12 +443,12 @@ describe("GET /event-schemas", () => {
 			const sessionFields = {
 				startedOn: {
 					type: "datetime",
-					label: "Started On",
+					label: "Started on",
 					description: "Date and time you started consuming this media",
 				},
 				timeSpent: {
 					type: "number",
-					label: "Time Spent",
+					label: "Time spent",
 					validation: { minimum: 0 },
 					description: "Time spent consuming this media in minutes",
 				},

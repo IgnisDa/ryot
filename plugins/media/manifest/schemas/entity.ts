@@ -22,20 +22,20 @@ import {
 
 const consumedOnField = {
 	consumedOn: {
-		label: "Consumed On",
+		label: "Consumed on",
 		type: "string" as const,
 		description: "The source or platform where this content was consumed (e.g. Netflix, Jellyfin)",
 	},
 };
 
 const startedOnField = {
-	label: "Started On",
+	label: "Started on",
 	type: "datetime" as const,
 	description: "Date and time you started consuming this media",
 };
 
 const timeSpentField = {
-	label: "Time Spent",
+	label: "Time spent",
 	type: "number" as const,
 	validation: { minimum: 0 },
 	description: "Time spent consuming this media in minutes",
@@ -56,7 +56,7 @@ const progressPercentPropertiesSchema = (): AppSchema => ({
 		...consumedOnField,
 		progressPercent: {
 			type: "number" as const,
-			label: "Progress Percent",
+			label: "Progress percent",
 			normalize: { round: { scale: 2 } },
 			validation: { maximum: 100, exclusiveMinimum: 0 },
 			description: "Percentage of the media completed so far (0 to 100)",
@@ -74,7 +74,7 @@ const progressPropertiesSchemaByEntity = (entitySchemaSlug: string | undefined):
 				fields: {
 					...progressPercentPropertiesSchema().fields,
 					animeEpisode: {
-						label: "Anime Episode",
+						label: "Anime episode",
 						type: "integer" as const,
 						description: "Episode number of the anime being tracked",
 					},
@@ -85,12 +85,12 @@ const progressPropertiesSchemaByEntity = (entitySchemaSlug: string | undefined):
 				fields: {
 					...progressPercentPropertiesSchema().fields,
 					mangaVolume: {
-						label: "Manga Volume",
+						label: "Manga volume",
 						type: "integer" as const,
 						description: "Volume number of the manga being tracked",
 					},
 					mangaChapter: {
-						label: "Manga Chapter",
+						label: "Manga chapter",
 						type: "number" as const,
 						description: "Chapter number of the manga being tracked",
 					},
@@ -144,7 +144,7 @@ const listStateEventSchema = (entitySchemaSlug: "anime" | "manga") => ({
 			),
 			repeatCount: {
 				position: 5,
-				label: "Repeat Count",
+				label: "Repeat count",
 				type: "integer" as const,
 				validation: { minimum: 0, required: true as const },
 				description: "The number of repeats recorded by AniList",
@@ -152,21 +152,21 @@ const listStateEventSchema = (entitySchemaSlug: "anime" | "manga") => ({
 			sourceEntryId: {
 				position: 2,
 				type: "string" as const,
-				label: "Source Entry ID",
+				label: "Source entry ID",
 				validation: { minLength: 1, required: true as const },
 				description: "The AniList list entry that provided this state",
 			},
 			sourceUpdatedAt: {
 				position: 4,
 				type: "datetime" as const,
-				label: "Source Updated At",
+				label: "Source updated at",
 				validation: { required: true as const },
 				description: "The last update time AniList reports for this list entry",
 			},
 			sourceAccountId: {
 				position: 1,
 				type: "string" as const,
-				label: "Source Account ID",
+				label: "Source account ID",
 				validation: { minLength: 1, required: true as const },
 				description: "The AniList account that provided this list state",
 			},
@@ -180,7 +180,7 @@ const listStateEventSchema = (entitySchemaSlug: "anime" | "manga") => ({
 			},
 			state: {
 				position: 3,
-				label: "List State",
+				label: "List state",
 				type: "enum" as const,
 				validation: { required: true as const },
 				description: "The current state recorded by AniList",
@@ -199,7 +199,7 @@ const listStateEventSchema = (entitySchemaSlug: "anime" | "manga") => ({
 				? {
 						animeEpisode: {
 							position: 8,
-							label: "Anime Episode",
+							label: "Anime episode",
 							type: "integer" as const,
 							validation: { minimum: 0 },
 							description: "Episode number AniList reports for this anime",
@@ -208,14 +208,14 @@ const listStateEventSchema = (entitySchemaSlug: "anime" | "manga") => ({
 				: {
 						mangaVolume: {
 							position: 8,
-							label: "Manga Volume",
+							label: "Manga volume",
 							type: "integer" as const,
 							validation: { minimum: 0 },
 							description: "Volume number AniList reports for this manga",
 						},
 						mangaChapter: {
 							position: 9,
-							label: "Manga Chapter",
+							label: "Manga chapter",
 							type: "number" as const,
 							validation: { minimum: 0 },
 							description: "Chapter number AniList reports for this manga",
@@ -246,8 +246,8 @@ const reviewBaseFields = () => ({
 		description: "Your written thoughts or notes about this media",
 	},
 	isSpoiler: {
-		label: "Is Spoiler?",
 		type: "boolean" as const,
+		label: "Contains spoilers",
 		description: "Whether this review contains spoilers",
 	},
 	rating: {
@@ -268,7 +268,7 @@ const reviewPropertiesSchemaByEntity = (entitySchemaSlug: string | undefined): A
 				fields: {
 					...reviewBaseFields(),
 					animeEpisode: {
-						label: "Anime Episode",
+						label: "Anime episode",
 						type: "integer" as const,
 						description: "Episode number of the anime being reviewed",
 					},
@@ -279,12 +279,12 @@ const reviewPropertiesSchemaByEntity = (entitySchemaSlug: string | undefined): A
 				fields: {
 					...reviewBaseFields(),
 					mangaVolume: {
-						label: "Manga Volume",
+						label: "Manga volume",
 						type: "integer" as const,
 						description: "Volume number of the manga being reviewed",
 					},
 					mangaChapter: {
-						label: "Manga Chapter",
+						label: "Manga chapter",
 						type: "number" as const,
 						description: "Chapter number of the manga being reviewed",
 					},
@@ -331,7 +331,7 @@ const mediaLifecycleEventSchemas = (entitySchemaSlug?: string) => [
 				timeSpent: timeSpentField,
 				startedOn: startedOnField,
 				dateUnknown: {
-					label: "Date Unknown",
+					label: "Date unknown",
 					type: "boolean" as const,
 					description:
 						"Whether the completion date is unknown; occurredAt is the real completion time otherwise",

@@ -34,8 +34,8 @@ const reviewPropertiesSchema = {
 			description: "Your written thoughts or notes about this entity",
 		},
 		isSpoiler: {
-			label: "Is Spoiler?",
 			type: "boolean" as const,
+			label: "Contains spoilers",
 			description: "Whether this review contains spoilers",
 		},
 		rating: {

@@ -55,7 +55,7 @@ const watchProvidersField = (description: string) =>
 	({
 		description,
 		type: "array",
-		label: "Watch Providers",
+		label: "Watch providers",
 		items: objectItems({
 			link: stringField("Link", "Where to see every offer here"),
 			country: required(stringField("Country", "ISO 3166-1 alpha-2 country code")),
@@ -79,27 +79,27 @@ const watchProvidersField = (description: string) =>
 	}) satisfies AppPropertyDefinition;
 
 const mediaBaseFields = {
-	publishYear: integerField("Publish Year", "Year this media was first published or released"),
+	publishYear: integerField("Publish year", "Year this media was first published or released"),
 	sourceUrl: stringField("Source link", "Link to the original source or external provider page"),
 	isNsfw: booleanField(
 		"Adult content",
 		"Whether this media contains adult or not-safe-for-work content",
 	),
-	productionStatus: stringField(
-		"Production Status",
-		"Current production status (e.g. Ended, Continuing, Cancelled)",
-	),
-	providerRating: numberField(
-		"Provider Rating",
-		"Aggregate score from the external data provider, normalized to a 0-100 scale",
-	),
 	publishDate: stringField(
-		"Publish Date",
-		"Exact date this media was first published or released, as an ISO 8601 date string (YYYY-MM-DD)",
+		"Publish date",
+		"Date this media was first published or released, as YYYY-MM-DD",
 	),
 	description: translatableStringField(
 		"Description",
-		"Provider synopsis in restrictedMarkdown: basic formatting, :spoiler/:::spoiler, safe links, no raw HTML",
+		"Synopsis. Supports basic Markdown formatting and spoilers",
+	),
+	productionStatus: stringField(
+		"Production status",
+		"Current production status (e.g. Ended, Continuing, Cancelled)",
+	),
+	providerRating: numberField(
+		"Provider rating",
+		"Aggregate score from the external data provider, normalized to a 0-100 scale",
 	),
 };
 
@@ -112,7 +112,7 @@ const mediaWithCreatorsBaseFields = {
 	...mediaBaseFields,
 	unlinkedCreators: {
 		type: "array",
-		label: "Unlinked Creators",
+		label: "Unlinked creators",
 		description: "Unlinked Creators",
 		items: unlinkedCreatorItemSchema,
 	} satisfies AppPropertyDefinition,
@@ -132,20 +132,20 @@ export const showPropertiesSchema: AppSchema = {
 		...mediaBaseFields,
 		images: mediaImagesField("Cover and promotional images for this show"),
 		watchProviders: watchProvidersField("Where to watch this show, by country"),
-		totalSeasons: integerField("Total Seasons", "Total number of seasons in this show"),
-		totalEpisodes: integerField("Total Episodes", "Total number of episodes in this show"),
+		totalSeasons: integerField("Total seasons", "Total number of seasons in this show"),
+		totalEpisodes: integerField("Total episodes", "Total number of episodes in this show"),
 		episodeOrders: {
 			type: "array",
-			label: "Episode Orders",
+			label: "Episode orders",
 			description: "Alternative episode orders, each listing episode external ids by group",
 			items: objectItems({
 				name: required(stringField("Name", "Name")),
 				externalId: required(
-					stringField("External Id", "Provider external id of this episode order"),
+					stringField("External ID", "Provider external id of this episode order"),
 				),
 				description: stringField(
 					"Description",
-					"Order summary in restrictedMarkdown: basic formatting, :spoiler/:::spoiler, safe links, no raw HTML",
+					"Order summary. Supports basic Markdown formatting and spoilers",
 				),
 				type: required({
 					type: "enum",
@@ -162,7 +162,7 @@ export const showPropertiesSchema: AppSchema = {
 						order: required(integerField("Order", "Position of this group within the order")),
 						episodeExternalIds: required(
 							stringArrayField(
-								"Episode External Ids",
+								"Episode external IDs",
 								"Provider external ids of this group's episodes, in order",
 							),
 						),
@@ -176,18 +176,18 @@ export const showPropertiesSchema: AppSchema = {
 export const showSeasonPropertiesSchema: AppSchema = {
 	fields: {
 		images: mediaImagesField("Cover and promotional images for this season"),
-		releaseDate: stringField("Release Date", "Season release date as an ISO 8601 date string"),
+		releaseDate: stringField("Release date", "Season release date, as YYYY-MM-DD"),
 		parentShowExternalId: stringField(
-			"Parent Show External Id",
+			"Parent show external ID",
 			"Provider external id of the parent show",
 		),
 		description: translatableStringField(
 			"Description",
-			"Season summary in restrictedMarkdown: basic formatting, :spoiler/:::spoiler, safe links, no raw HTML",
+			"Season summary. Supports basic Markdown formatting and spoilers",
 		),
 		seasonNumber: {
 			type: "integer",
-			label: "Season Number",
+			label: "Season number",
 			validation: { minimum: 0, required: true },
 			description: "Season number within the show, with 0 reserved for specials",
 		},
@@ -198,24 +198,24 @@ export const showEpisodePropertiesSchema: AppSchema = {
 	fields: {
 		runtime: integerField("Runtime", "Runtime in minutes"),
 		images: mediaImagesField("Cover and promotional images for this episode"),
-		publishDate: stringField("Publish Date", "Episode air date as an ISO 8601 date string"),
+		publishDate: stringField("Publish date", "Episode air date, as YYYY-MM-DD"),
 		parentShowExternalId: stringField(
-			"Parent Show External Id",
+			"Parent show external ID",
 			"Provider external id of the parent show",
 		),
 		description: translatableStringField(
 			"Description",
-			"Episode summary in restrictedMarkdown: basic formatting, :spoiler/:::spoiler, safe links, no raw HTML",
+			"Episode summary. Supports basic Markdown formatting and spoilers",
 		),
 		episodeNumber: {
 			type: "integer",
-			label: "Episode Number",
+			label: "Episode number",
 			validation: { minimum: 0, required: true },
 			description: "Episode number within the season",
 		},
 		seasonNumber: {
 			type: "integer",
-			label: "Season Number",
+			label: "Season number",
 			validation: { minimum: 0, required: true },
 			description: "Season number within the show, with 0 reserved for specials",
 		},
@@ -226,18 +226,18 @@ export const podcastEpisodePropertiesSchema: AppSchema = {
 	fields: {
 		runtime: integerField("Runtime", "Runtime in minutes"),
 		images: mediaImagesField("Cover and promotional images for this episode"),
-		publishDate: stringField("Publish Date", "Episode publish date as an ISO 8601 date string"),
+		publishDate: stringField("Publish date", "Episode publish date, as YYYY-MM-DD"),
 		parentPodcastExternalId: stringField(
-			"Parent Podcast External Id",
+			"Parent podcast external ID",
 			"Provider external id of the parent podcast",
 		),
 		description: translatableStringField(
 			"Description",
-			"Episode summary in restrictedMarkdown: basic formatting, :spoiler/:::spoiler, safe links, no raw HTML",
+			"Episode summary. Supports basic Markdown formatting and spoilers",
 		),
 		episodeNumber: {
 			type: "integer",
-			label: "Episode Number",
+			label: "Episode number",
 			validation: { minimum: 0, required: true },
 			description: "Episode number within the podcast",
 		},
@@ -251,11 +251,11 @@ export const animePropertiesSchema: AppSchema = {
 		episodes: integerField("Episodes", "Total number of episodes, if known"),
 		airingSchedule: {
 			type: "array",
-			label: "Airing Schedule",
+			label: "Airing schedule",
 			description: "Upcoming episode airing schedule",
 			items: objectItems({
 				episode: required(integerField("Episode", "Episode")),
-				airingAt: required({ type: "datetime", label: "Airing At", description: "Airing At" }),
+				airingAt: required({ type: "datetime", label: "Airing at", description: "Airing At" }),
 			}),
 		},
 	},
@@ -268,7 +268,7 @@ export const bookPropertiesSchema: AppSchema = {
 		pages: integerField("Pages", "Total number of pages in this edition"),
 		isCompilation: {
 			type: "boolean",
-			label: "Is Compilation",
+			label: "Compilation",
 			description: "Whether this is an anthology or compilation of multiple works",
 		},
 	},
@@ -296,7 +296,7 @@ export const visualNovelPropertiesSchema: AppSchema = {
 		...mediaBaseFields,
 		images: mediaImagesField("Cover and promotional images for this visual novel"),
 		lengthMinutes: integerField(
-			"Length Minutes",
+			"Length (minutes)",
 			"Approximate time to complete this visual novel in minutes",
 		),
 	},
@@ -309,7 +309,7 @@ export const musicPropertiesSchema: AppSchema = {
 		images: mediaImagesField("Cover art and promotional images for this music release"),
 		byVariousArtists: {
 			type: "boolean",
-			label: "By Various Artists",
+			label: "Various artists",
 			description: "Whether this release features multiple artists rather than a single act",
 		},
 	},
@@ -328,7 +328,7 @@ export const podcastPropertiesSchema: AppSchema = {
 		...mediaWithCreatorsBaseFields,
 		images: mediaImagesField("Cover and promotional images for this podcast"),
 		totalEpisodes: integerField(
-			"Total Episodes",
+			"Total episodes",
 			"Total number of episodes published by this podcast",
 		),
 	},
@@ -339,22 +339,22 @@ export const videoGamePropertiesSchema: AppSchema = {
 		...mediaBaseFields,
 		images: mediaImagesField("Cover and promotional images for this video game"),
 		gameType: stringField(
-			"Game Type",
+			"Game type",
 			"Provider classification of this release, e.g. Main Game, Port, Remake",
 		),
 		platformReleases: {
 			type: "array",
-			label: "Platform Releases",
+			label: "Platform releases",
 			description: "Platform-specific release information",
 			items: objectItems({
 				name: required(stringField("Name", "Name")),
-				releaseDate: stringField("Release Date", "Release Date"),
-				releaseRegion: stringField("Release Region", "Release Region"),
+				releaseDate: stringField("Release date", "Release Date"),
+				releaseRegion: stringField("Release region", "Release Region"),
 			}),
 		},
 		timeToBeat: {
 			type: "object",
-			label: "Time To Beat",
+			label: "Time to beat",
 			unknownKeys: "strict",
 			description: "Estimated time to complete the game at different paces",
 			properties: {
@@ -380,23 +380,23 @@ export const videoGamePropertiesSchema: AppSchema = {
 
 export const personPropertiesSchema: AppSchema = {
 	fields: {
-		birthDate: stringField("Birth Date", "Date of birth"),
+		birthDate: stringField("Birth date", "Date of birth"),
 		gender: stringField("Gender", "Reported gender of this person"),
 		images: mediaImagesField("Photos or profile images of this person"),
-		deathDate: stringField("Death Date", "Date of death, if applicable"),
-		birthPlace: stringField("Birth Place", "City or country where this person was born"),
+		deathDate: stringField("Death date", "Date of death, if applicable"),
+		birthPlace: stringField("Birth place", "City or country where this person was born"),
 		website: stringField("Website", "Official website or online presence of this person"),
 		sourceUrl: stringField(
 			"Source link",
 			"Link to the external source or provider page for this person",
 		),
 		alternateNames: stringArrayField(
-			"Alternate Names",
+			"Alternate names",
 			"Other names or aliases this person is known by",
 		),
 		description: translatableStringField(
 			"Description",
-			"Provider biography in restrictedMarkdown: basic formatting, :spoiler/:::spoiler, safe links, no raw HTML",
+			"Biography. Supports basic Markdown formatting and spoilers",
 		),
 	},
 };
@@ -405,7 +405,7 @@ export const companyPropertiesSchema: AppSchema = {
 	fields: {
 		website: stringField("Website", "Official website of this company"),
 		images: mediaImagesField("Logos or images associated with this company"),
-		foundedYear: integerField("Founded Year", "Year this company was founded"),
+		foundedYear: integerField("Founded year", "Year this company was founded"),
 		headquarters: stringField(
 			"Headquarters",
 			"City or country where this company is headquartered",
@@ -415,12 +415,12 @@ export const companyPropertiesSchema: AppSchema = {
 			"Link to the external source or provider page for this company",
 		),
 		alternateNames: stringArrayField(
-			"Alternate Names",
+			"Alternate names",
 			"Other names or aliases this company is known by",
 		),
 		description: translatableStringField(
 			"Description",
-			"Provider overview in restrictedMarkdown: basic formatting, :spoiler/:::spoiler, safe links, no raw HTML",
+			"Overview. Supports basic Markdown formatting and spoilers",
 		),
 	},
 };
@@ -432,7 +432,7 @@ export const mediaGroupPropertiesSchema: AppSchema = {
 		sourceUrl: stringField("Source link", "Link to the original source or external provider page"),
 		description: translatableStringField(
 			"Description",
-			"Provider group overview in restrictedMarkdown: basic formatting, :spoiler/:::spoiler, safe links, no raw HTML",
+			"Group overview. Supports basic Markdown formatting and spoilers",
 		),
 	},
 };

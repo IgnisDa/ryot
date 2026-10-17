@@ -7,6 +7,9 @@ import {
 } from "../../shared/media-schema-slugs";
 import { slugify } from "../../shared/slug";
 
+const sentenceLabel = (slug: string) =>
+	`${slug.charAt(0).toUpperCase()}${slug.slice(1).replaceAll("-", " ")}`;
+
 type BuiltinRelationshipSchema = {
 	slug: string;
 	name: string;
@@ -43,8 +46,8 @@ const buildCreditRelationshipSchemas = (input: {
 	(input.targetEntitySchemaSlugs ?? builtinMediaEntitySchemaSlugs).map((mediaSlug) => ({
 		targetEntitySchemaSlug: mediaSlug,
 		sourceEntitySchemaSlug: input.sourceSlug,
+		name: `${sentenceLabel(mediaSlug)} credits`,
 		slug: slugify(`${input.sourceSlug} to ${mediaSlug}`),
-		name: `${input.sourceSlug.charAt(0).toUpperCase() + input.sourceSlug.slice(1)} to ${mediaSlug.charAt(0).toUpperCase() + mediaSlug.slice(1)}`,
 		propertiesSchema: {
 			fields: {
 				...(input.characterDescription !== undefined
@@ -85,18 +88,18 @@ export const builtinRelationshipSchemas = (): BuiltinRelationshipSchema[] => [
 					description: "Whether the user owns this item",
 				},
 				ownedOn: {
-					label: "Owned On",
+					label: "Owned on",
 					type: "date" as const,
 					description: "When the user acquired this item",
 				},
 				ownershipSyncedAt: {
 					type: "datetime" as const,
-					label: "Ownership Synced At",
+					label: "Ownership synced at",
 					description: "When ownership was last synced from an external source",
 				},
 				ownershipSources: {
 					type: "array" as const,
-					label: "Ownership Sources",
+					label: "Ownership sources",
 					description: "Integrations or sources that reported ownership",
 					items: {
 						label: "Source",
@@ -134,7 +137,7 @@ export const builtinRelationshipSchemas = (): BuiltinRelationshipSchema[] => [
 					description: "Provider trend rank, ascending from the top item",
 				},
 				fetchedAt: {
-					label: "Fetched At",
+					label: "Fetched at",
 					type: "datetime" as const,
 					description: "When this trend entry was refreshed",
 				},
@@ -163,14 +166,12 @@ export const builtinRelationshipSchemas = (): BuiltinRelationshipSchema[] => [
 		targetEntitySchemaSlug: "podcast-episode",
 	},
 	...builtinMediaEntitySchemaSlugs.map((sourceEntitySchemaSlug) => ({
+		name: "Genres",
 		sourceEntitySchemaSlug,
 		targetEntitySchemaSlug: "genre",
 		propertiesSchema: { fields: {} },
 		userWritePolicy: "source-owner" as const,
 		slug: `${sourceEntitySchemaSlug}-to-genre`,
-		name: `${
-			sourceEntitySchemaSlug.charAt(0).toUpperCase() + sourceEntitySchemaSlug.slice(1)
-		} to Genre`,
 	})),
 	...buildCreditRelationshipSchemas({
 		sourceSlug: "person",
@@ -189,8 +190,8 @@ export const builtinRelationshipSchemas = (): BuiltinRelationshipSchema[] => [
 			"Roles this company filled in this production (e.g. Developer, Publisher, Studio)",
 	}),
 	{
+		name: "Music group credits",
 		slug: "person-to-music-group",
-		name: "Person to Music Group",
 		sourceEntitySchemaSlug: "person",
 		targetEntitySchemaSlug: "music-group",
 		propertiesSchema: {
@@ -215,8 +216,8 @@ export const builtinRelationshipSchemas = (): BuiltinRelationshipSchema[] => [
 	},
 	{
 		sourceEntitySchemaSlug: "person",
+		name: "Video game group credits",
 		slug: "person-to-video-game-group",
-		name: "Person to Video Game Group",
 		targetEntitySchemaSlug: "video-game-group",
 		propertiesSchema: {
 			fields: {
@@ -246,8 +247,8 @@ export const builtinRelationshipSchemas = (): BuiltinRelationshipSchema[] => [
 		rolesDescription: "Roles this company filled in this group (e.g. Label, Publisher)",
 	}),
 	{
+		name: "Related games",
 		slug: "video-game-to-video-game",
-		name: "Video Game to Video Game",
 		sourceEntitySchemaSlug: "video-game",
 		targetEntitySchemaSlug: "video-game",
 		propertiesSchema: {
@@ -262,12 +263,12 @@ export const builtinRelationshipSchemas = (): BuiltinRelationshipSchema[] => [
 	},
 	...(
 		[
-			{ group: "book-group", name: "Book Series to Book" },
-			{ group: "music-group", name: "Music Album to Music" },
-			{ group: "movie-group", name: "Movie Collection to Movie" },
-			{ group: "audiobook-group", name: "Audiobook Series to Audiobook" },
-			{ group: "comic-book-group", name: "Comic Book Series to Comic Book" },
-			{ group: "video-game-group", name: "Video Game Collection to Video Game" },
+			{ name: "Books", group: "book-group" },
+			{ name: "Music", group: "music-group" },
+			{ name: "Movies", group: "movie-group" },
+			{ name: "Audiobooks", group: "audiobook-group" },
+			{ name: "Comic books", group: "comic-book-group" },
+			{ name: "Video games", group: "video-game-group" },
 		] as const
 	).map(({ name, group }) => ({
 		name,

@@ -73,7 +73,7 @@ it.live("creates a private genre inline and shows it on a custom movie", () =>
 		const name = form.getByLabel("Name", { exact: true });
 		yield* name.waitFor({ state: "visible" });
 		expect(yield* name.inputValue()).toBe(movieName);
-		yield* form.getByRole("button", { exact: true, name: "Add Movie to Genre" }).click();
+		yield* form.getByRole("button", { exact: true, name: "Add Genres" }).click();
 
 		const picker = page.getByRole("dialog", { exact: true, name: "Choose Genre" });
 		yield* picker.getByLabel("Search", { exact: true }).fill(genreName);
@@ -122,8 +122,8 @@ it.live("creates a custom show with nested providers, episode orders, and image 
 		yield* name.waitFor({ state: "visible" });
 		expect(yield* name.inputValue()).toBe(showName);
 
-		yield* form.getByRole("button", { exact: true, name: "Add Watch Providers item" }).click();
-		const watchProvider = form.getByRole("group", { exact: true, name: "Watch Providers item 1" });
+		yield* form.getByRole("button", { exact: true, name: "Add Watch providers item" }).click();
+		const watchProvider = form.getByRole("group", { exact: true, name: "Watch providers item 1" });
 		yield* watchProvider.getByLabel("Country", { exact: true }).fill("US");
 		yield* watchProvider.getByRole("button", { exact: true, name: "Add Providers item" }).click();
 		const watchProviderItem = watchProvider.getByRole("group", {
@@ -138,19 +138,19 @@ it.live("creates a custom show with nested providers, episode orders, and image 
 			.getByRole("button", { exact: true, name: "Close options" })
 			.click();
 
-		yield* form.getByRole("button", { exact: true, name: "Add Episode Orders item" }).click();
-		const episodeOrder = form.getByRole("group", { exact: true, name: "Episode Orders item 1" });
+		yield* form.getByRole("button", { exact: true, name: "Add Episode orders item" }).click();
+		const episodeOrder = form.getByRole("group", { exact: true, name: "Episode orders item 1" });
 		yield* episodeOrder.getByLabel("Name", { exact: true }).fill("DVD order");
-		yield* episodeOrder.getByLabel("External Id", { exact: true }).fill("custom-dvd");
+		yield* episodeOrder.getByLabel("External ID", { exact: true }).fill("custom-dvd");
 		yield* episodeOrder.getByRole("radio", { exact: true, name: "dvd" }).click();
 		yield* episodeOrder.getByRole("button", { exact: true, name: "Add Groups item" }).click();
 		const group = episodeOrder.getByRole("group", { exact: true, name: "Groups item 1" });
 		yield* group.getByLabel("Name", { exact: true }).fill("Season 1");
 		yield* group.getByLabel("Order", { exact: true }).fill("1");
 		yield* group
-			.getByRole("button", { exact: true, name: "Add Episode External Ids item" })
+			.getByRole("button", { exact: true, name: "Add Episode external IDs item" })
 			.click();
-		yield* group.getByLabel("Episode External Ids item 1", { exact: true }).fill("episode-1");
+		yield* group.getByLabel("Episode external IDs item 1", { exact: true }).fill("episode-1");
 
 		const chooser = yield* page
 			.eventStream("filechooser")
