@@ -8,8 +8,8 @@ import {
 	type AutomationWarning,
 } from "@ryot-app/contract/modules/automations/lifecycle";
 import {
+	EventCreateFailureReason,
 	EventCreateItemError,
-	type EventCreateFailureReason,
 	type EventCreateItemOutcome,
 } from "@ryot-app/contract/modules/events/schemas";
 import { definitionOwner } from "@ryot-app/contract/modules/plugins/references";
@@ -17,7 +17,7 @@ import { AutomationRunId, EventId } from "@ryot-app/contract/schema/brands";
 import { AppSchema } from "@ryot-app/contract/schema/property-schema";
 import { sha256Base64Url } from "@ryot-app/ts-utils/crypto";
 import { stableStringify } from "@ryot-app/ts-utils/json";
-import { DateTime, Effect, Ref, Schema } from "effect";
+import { Data, DateTime, Effect, Schema } from "effect";
 import { Workflow } from "effect/workflow";
 import { WorkflowInstance } from "effect/workflow/WorkflowEngine";
 
@@ -34,6 +34,7 @@ import { parseAppSchemaProperties } from "#modules/definitions/properties/runtim
 import { EntitiesRepository } from "#modules/entities/repository";
 import {
 	assertStableUnder,
+	type DomainLifecycleCommand,
 	DomainWriteChecks,
 	writerPropertiesSchema,
 } from "#modules/entities/write-context";
@@ -54,7 +55,7 @@ import {
 } from "./event-create-workflow";
 import {
 	CapturedEventReferences,
-	capturedEventReferences,
+	readEventCreateChunkScopes,
 	resolveEventCreateItemScopes,
 	validateCapturedEventReferences,
 } from "./event-creation";
@@ -69,6 +70,8 @@ import {
 import { EventsRepository } from "./repository";
 import { eventRootTransaction } from "./transaction";
 
+const EVENT_CREATE_CHUNK_SIZE = 50;
+
 const Plan = Schema.Struct({
 	wasCreated: Schema.Boolean,
 	trigger: AutomationTrigger,
@@ -81,76 +84,184 @@ const Plan = Schema.Struct({
 		}),
 	),
 });
-const PreparedItem = Schema.Union([
-	Schema.TaggedStruct("Committed", {
-		result: EventCreateReceiptResult,
-		dispatch: Schema.Array(LifecycleDispatchPlan),
+const PendingItem = Schema.Struct({
+	plan: Plan,
+	draft: AutomationEventDraft,
+	propertiesSchema: AppSchema,
+	eventSchemaName: Schema.String,
+	capturedReferences: CapturedEventReferences,
+	eventSchemaPluginId: Schema.NullOr(Schema.String),
+	eventSchemaFingerprint: CatalogDefinitionFingerprint,
+});
+type PendingItem = typeof PendingItem.Type;
+const WrittenItem = Schema.Struct({
+	index: Schema.Int,
+	dispatch: Schema.Array(LifecycleDispatchPlan),
+	...EventCreateReceiptResult.fields,
+});
+const PreparedChunk = Schema.Union([
+	Schema.TaggedStruct("Prepared", {
+		written: Schema.Array(WrittenItem),
+		pending: Schema.NullOr(Schema.Struct({ index: Schema.Int, ...PendingItem.fields })),
 	}),
-	Schema.TaggedStruct("Pending", {
-		plan: Schema.NullOr(Plan),
-		draft: AutomationEventDraft,
-		propertiesSchema: AppSchema,
-		eventSchemaName: Schema.String,
-		capturedReferences: CapturedEventReferences,
-		eventSchemaPluginId: Schema.NullOr(Schema.String),
-		eventSchemaFingerprint: CatalogDefinitionFingerprint,
-	}),
+	Schema.TaggedStruct("Failed", { index: Schema.Int, reason: EventCreateFailureReason }),
 ]);
 
-const prepareItem = Effect.fn("prepareEventCreateItem")(function* (
+class EventCreateChunkItemError extends Data.TaggedError("EventCreateChunkItemError")<{
+	readonly index: number;
+	readonly reason: EventCreateFailureReason;
+}> {}
+
+const hasAfterHookRun = (dispatch: ReadonlyArray<LifecycleDispatchPlan>) =>
+	dispatch.some((plan) => plan.runs.length > 0);
+
+const eventPropertiesSchema = (
+	command: DomainLifecycleCommand,
+	scope: { readonly pluginId: string | null },
+	propertiesSchema: AppSchema,
+) =>
+	command.writeContext?.pluginRevision && scope.pluginId !== null
+		? writerPropertiesSchema(propertiesSchema)
+		: propertiesSchema;
+
+const commitEvent = Effect.fnUntraced(function* (
 	payload: EventCreateWorkflowPayload,
 	index: number,
-	excluded: ReadonlyArray<AutomationHookIdentity>,
+	prepared: Pick<PendingItem, "eventSchemaName" | "eventSchemaPluginId"> & {
+		readonly parentTriggerId: AutomationTrigger["id"] | null;
+	},
+	draft: AutomationEventDraft,
+	entitySchemaPluginId: string | null,
+) {
+	const repository = yield* EventsRepository;
+	const planner = yield* LifecyclePlanner;
+	const command = eventCreateWriteCommand(payload, index);
+	const event = yield* repository.createEvent({
+		...draft,
+		userId: payload.userId,
+		properties: { ...draft.properties },
+		eventSchemaName: prepared.eventSchemaName,
+		eventSchemaPluginId: prepared.eventSchemaPluginId,
+		sessionEntityId: draft.sessionEntityId ?? undefined,
+		occurredAt: DateTime.toDate(DateTime.makeUnsafe(draft.occurredAt)),
+		id: EventId.make(
+			`event_${sha256Base64Url(stableStringify([command.causation.executionId, command.itemIdentity]))}`,
+		),
+	});
+	const after = yield* Schema.decodeUnknownEffect(AutomationEventSnapshot)({
+		...draft,
+		id: event.id,
+		entitySchemaPluginId,
+		entityId: event.entityId,
+		createdAt: event.createdAt,
+		updatedAt: event.updatedAt,
+		properties: event.properties,
+		occurredAt: event.occurredAt,
+		eventSchemaSlug: event.eventSchemaSlug,
+		eventSchemaPluginId: event.eventSchemaPluginId,
+		sessionEntityId: event.sessionEntityId ?? null,
+	}).pipe(Effect.mapError(() => new DbError({ message: "Invalid persisted event snapshot" })));
+	const plan = yield* planner.plan({
+		trigger: lifecycleTrigger(
+			{
+				...command,
+				causation: {
+					...command.causation,
+					parentTriggerId: prepared.parentTriggerId ?? command.causation.parentTriggerId,
+				},
+			},
+			payload.userId,
+			{ after, resource: "event", category: "change", operation: "create" },
+		),
+	});
+	return {
+		eventId: event.id,
+		dispatch: plan.trigger === null ? [] : [toLifecycleDispatchPlan(plan)],
+		evidence: {
+			after,
+			resource: "event" as const,
+			category: "change" as const,
+			operation: "create" as const,
+		},
+	};
+});
+
+const lookupChunkReceipts = Effect.fnUntraced(function* (
+	identities: ReadonlyArray<MutationReceiptIdentity>,
+) {
+	const receipts = yield* MutationReceipts.make;
+	return yield* receipts.lookupMany(identities, EventCreateReceiptResult).pipe(
+		Effect.map((replays) => ({ replays, conflictAt: null })),
+		Effect.catchTag("MutationReceiptIdentityConflict", ({ receiptId }) => {
+			const conflictAt = identities.findIndex(({ id }) => id === receiptId);
+			return receipts
+				.lookupMany(identities.slice(0, conflictAt), EventCreateReceiptResult)
+				.pipe(Effect.map((replays) => ({ replays, conflictAt })));
+		}),
+	);
+});
+
+const prepareChunk = Effect.fn("prepareEventCreateChunk")(function* (
+	payload: EventCreateWorkflowPayload,
+	first: number,
+	subjects: ReadonlyMap<string, ReadonlyArray<AutomationHookIdentity>>,
 ) {
 	const planner = yield* LifecyclePlanner;
 	const session = yield* DatabaseSession;
 	const writes = yield* DomainWriteChecks;
 	const eventSchemas = yield* EventSchemaReader;
 	const receipts = yield* MutationReceipts.make;
-	const item = payload.payload[index];
-	if (!item) {
-		return yield* Effect.die("Missing event batch item");
-	}
-	return yield* makeActivity({
-		name: `prepare-item-${index}`,
-		success: PreparedItem satisfies DurableSchema,
-		error: EventCreateWorkflowError satisfies DurableSchema,
-		execute: eventRootTransaction(
-			session,
-			"Event workflow transaction already active",
-		)(
-			Effect.gen(function* () {
-				yield* eventSchemas.lockCatalog();
-				yield* writes
-					.check(
-						payload.command,
-						principalOwner(payload.command.writeContext),
-						payload.userId,
-						true,
-					)
-					.pipe(Effect.mapError((error) => new DbError({ message: error.message })));
-				const batch = yield* planner.prepareBatch({
-					...eventCreateBatchInput(payload),
-					scopes: [payload.userId],
-				});
-				const identity = eventCreateReceiptIdentity(payload, index, item);
-				const replay = yield* receipts
-					.lookup(identity, EventCreateReceiptResult)
-					.pipe(Effect.mapError(eventCreateReceiptError));
-				if (replay) {
-					return { _tag: "Committed" as const, ...replay };
+	const writeAuthority = payload.writeCommand ?? payload.command;
+	const window = payload.payload
+		.slice(first, first + EVENT_CREATE_CHUNK_SIZE)
+		.map((item, offset) => ({ item, index: first + offset }));
+	const work = Effect.gen(function* () {
+		yield* eventSchemas.lockCatalog();
+		yield* writes
+			.check(payload.command, principalOwner(payload.command.writeContext), payload.userId, true)
+			.pipe(Effect.mapError((error) => new DbError({ message: error.message })));
+		const scopes = yield* readEventCreateChunkScopes({
+			userId: payload.userId,
+			writeCommand: writeAuthority,
+			items: window.map(({ item }) => item),
+			commands: [payload.command, writeAuthority],
+		});
+		const batch = yield* planner.prepareBatch({
+			...eventCreateBatchInput(payload),
+			scopes: [payload.userId],
+		});
+		const identities = window.map(({ item, index }) =>
+			eventCreateReceiptIdentity(payload, index, item),
+		);
+		const { replays, conflictAt } = yield* lookupChunkReceipts(identities);
+		const excluded = new Map(subjects);
+		const written: Array<typeof WrittenItem.Type> = [];
+		const records: Array<Parameters<typeof receipts.insertMany>[0][number]> = [];
+		let pending: (PendingItem & { readonly index: number }) | null = null;
+		for (const [offset, { item, index }] of window.entries()) {
+			const subject = item.entityId.trim();
+			const identity = identities[offset];
+			if (!identity) {
+				return yield* Effect.die("Missing event receipt identity");
+			}
+			const prepared = yield* Effect.gen(function* () {
+				if (offset === conflictAt) {
+					return yield* new EventCreateItemError({ reason: { code: "mutation-conflict" } });
 				}
-				const scope = yield* resolveEventCreateItemScopes({
-					userId: payload.userId,
-					command: payload.command,
-					item: {
+				const replay = replays[offset];
+				if (replay) {
+					return { _tag: "Written" as const, ...replay.result, dispatch: replay.dispatch };
+				}
+				const scope = yield* scopes.resolve(
+					{
 						...item,
 						occurredAt:
 							item.occurredAt === undefined || item.occurredAt === ""
-								? (payload.writeCommand ?? payload.command).occurredAt
+								? writeAuthority.occurredAt
 								: item.occurredAt,
 					},
-				});
+					payload.command,
+				);
 				const draft = yield* Schema.decodeUnknownEffect(AutomationEventDraft)({
 					entityId: scope.entityId,
 					properties: item.properties,
@@ -165,9 +276,9 @@ const prepareItem = Effect.fn("prepareEventCreateItem")(function* (
 						() => new EventCreateItemError({ reason: { code: "invalid-properties" } }),
 					),
 				);
-				const capturedReferences = yield* capturedEventReferences(payload.userId, draft);
+				const capturedReferences = yield* scopes.capture(draft);
 				const plan = yield* planner.plan({
-					excludedOncePerSubjectPolicies: excluded,
+					excludedOncePerSubjectPolicies: [...(excluded.get(subject) ?? [])],
 					trigger: lifecycleTrigger(eventCreateWriteCommand(payload, index), payload.userId, {
 						draft,
 						resource: "event",
@@ -175,39 +286,34 @@ const prepareItem = Effect.fn("prepareEventCreateItem")(function* (
 						operation: "create",
 					}),
 				});
-				const pending = {
-					draft,
-					capturedReferences,
-					_tag: "Pending" as const,
-					eventSchemaName: scope.eventSchemaScope.name,
-					eventSchemaPluginId: scope.eventSchemaScope.pluginId ?? null,
-					eventSchemaFingerprint: catalogDefinitionFingerprint(scope.eventSchemaScope),
-					propertiesSchema:
-						payload.command.writeContext?.pluginRevision && scope.eventSchemaScope.pluginId !== null
-							? writerPropertiesSchema(scope.eventSchemaScope.propertiesSchema)
-							: scope.eventSchemaScope.propertiesSchema,
-					plan:
-						plan.trigger === null
-							? null
-							: {
-									...plan,
-									policies: plan.policies.map((policy) => ({
-										runId: policy.runId,
-										position: policy.position,
-										batchFrequency: policy.batchFrequency,
-									})),
-								},
-				} satisfies Extract<typeof PreparedItem.Type, { _tag: "Pending" }>;
+				const propertiesSchema = eventPropertiesSchema(
+					payload.command,
+					scope.eventSchemaScope,
+					scope.eventSchemaScope.propertiesSchema,
+				);
 				if (plan.trigger !== null) {
-					return pending;
+					return {
+						draft,
+						propertiesSchema,
+						capturedReferences,
+						_tag: "Pending" as const,
+						eventSchemaName: scope.eventSchemaScope.name,
+						eventSchemaPluginId: scope.eventSchemaScope.pluginId ?? null,
+						eventSchemaFingerprint: catalogDefinitionFingerprint(scope.eventSchemaScope),
+						plan: {
+							...plan,
+							policies: plan.policies.map((policy) => ({
+								runId: policy.runId,
+								position: policy.position,
+								batchFrequency: policy.batchFrequency,
+							})),
+						},
+					};
 				}
 				const properties = yield* parseAppSchemaProperties({
 					kind: "Event",
+					propertiesSchema,
 					properties: draft.properties,
-					propertiesSchema:
-						payload.command.writeContext?.pluginRevision && scope.eventSchemaScope.pluginId !== null
-							? writerPropertiesSchema(scope.eventSchemaScope.propertiesSchema)
-							: scope.eventSchemaScope.propertiesSchema,
 				}).pipe(
 					Effect.mapError(
 						() => new EventCreateItemError({ reason: { code: "invalid-properties" } }),
@@ -221,16 +327,87 @@ const prepareItem = Effect.fn("prepareEventCreateItem")(function* (
 						() => new EventCreateItemError({ reason: { code: "invalid-properties" } }),
 					),
 				);
-				const committed = yield* writeEvent(payload, index, pending, validated, [], {
-					batch,
+				const command = eventCreateWriteCommand(payload, index);
+				yield* scopes
+					.check(command, definitionOwner(scope.eventSchemaScope.pluginId ?? null))
+					.pipe(Effect.mapError((error) => new DbError({ message: error.message })));
+				const current = yield* scopes.resolve(
+					{ ...validated, sessionEntityId: validated.sessionEntityId ?? undefined },
+					command,
+				);
+				if (
+					stableStringify(catalogDefinitionFingerprint(current.eventSchemaScope)) !==
+					stableStringify(catalogDefinitionFingerprint(scope.eventSchemaScope))
+				) {
+					return yield* new EventCreateItemError({
+						reason: { code: "event-schema-not-found", eventSchemaSlug: validated.eventSchemaSlug },
+					});
+				}
+				yield* assertStableUnder(
+					"Event",
+					eventPropertiesSchema(command, current.eventSchemaScope, current.activePropertiesSchema),
+					validated.properties,
+					() => new EventCreateItemError({ reason: { code: "invalid-properties" } }),
+				);
+				const committed = yield* commitEvent(
+					payload,
+					index,
+					{
+						parentTriggerId: null,
+						eventSchemaName: scope.eventSchemaScope.name,
+						eventSchemaPluginId: scope.eventSchemaScope.pluginId ?? null,
+					},
+					validated,
+					current.entityScope.entitySchemaPluginId,
+				);
+				records.push({
 					identity,
+					batchId: batch.id,
+					batchIndex: index,
+					dispatch: committed.dispatch,
+					result: { processed: [], eventId: committed.eventId },
+					evidence: batch.hasCandidates ? committed.evidence : undefined,
 				});
 				return {
-					_tag: "Committed" as const,
+					processed: [],
+					_tag: "Written" as const,
+					eventId: committed.eventId,
 					dispatch: committed.dispatch,
-					result: { eventId: committed.eventId, processed: committed.processed },
 				};
-			}),
+			}).pipe(
+				Effect.catchTag("EventCreateItemError", ({ reason }) =>
+					Effect.fail(new EventCreateChunkItemError({ index, reason })),
+				),
+			);
+			if (prepared._tag === "Pending") {
+				pending = { ...prepared, index };
+				break;
+			}
+			excluded.set(subject, [...prepared.processed]);
+			written.push({
+				index,
+				eventId: prepared.eventId,
+				dispatch: prepared.dispatch,
+				processed: prepared.processed,
+			});
+			if (hasAfterHookRun(prepared.dispatch)) {
+				break;
+			}
+		}
+		yield* receipts.insertMany(records);
+		return { written, pending, _tag: "Prepared" as const };
+	});
+	return yield* makeActivity({
+		name: `prepare-chunk-${first}`,
+		success: PreparedChunk satisfies DurableSchema,
+		error: EventCreateWorkflowError satisfies DurableSchema,
+		execute: eventRootTransaction(
+			session,
+			"Event workflow transaction already active",
+		)(work).pipe(
+			Effect.catchTag("EventCreateChunkItemError", ({ index, reason }) =>
+				Effect.succeed({ index, reason, _tag: "Failed" as const }),
+			),
 		),
 	});
 });
@@ -238,15 +415,10 @@ const prepareItem = Effect.fn("prepareEventCreateItem")(function* (
 const writeEvent = Effect.fn("writeEventCreateItem")(function* (
 	payload: EventCreateWorkflowPayload,
 	index: number,
-	prepared: Extract<typeof PreparedItem.Type, { _tag: "Pending" }>,
+	prepared: PendingItem,
 	draft: AutomationEventDraft,
 	processed: ReadonlyArray<AutomationHookIdentity>,
-	inline?: {
-		batch: Effect.Success<ReturnType<LifecyclePlanner["Service"]["prepareBatch"]>>;
-		identity: MutationReceiptIdentity;
-	},
 ) {
-	const repository = yield* EventsRepository;
 	const entities = yield* EntitiesRepository;
 	const eventSchemas = yield* EventSchemaReader;
 	const planner = yield* LifecyclePlanner;
@@ -258,121 +430,88 @@ const writeEvent = Effect.fn("writeEventCreateItem")(function* (
 	if (!item) {
 		return yield* Effect.die("Missing event batch item");
 	}
-	const work = Effect.gen(function* () {
-		yield* eventSchemas.lockCatalog();
-		yield* writes
-			.check(command, definitionOwner(prepared.eventSchemaPluginId), payload.userId, true)
-			.pipe(Effect.mapError((error) => new DbError({ message: error.message })));
-		// Inline preparation still owns this transaction's pinned decision and receipt lock.
-		const batch = inline
-			? inline.batch
-			: yield* planner.prepareBatch({
-					...eventCreateBatchInput(payload),
-					scopes: [payload.userId],
-				});
-		const identity = inline?.identity ?? eventCreateReceiptIdentity(payload, index, item);
-		if (!inline) {
-			const replay = yield* receipts
-				.lookup(identity, EventCreateReceiptResult)
-				.pipe(Effect.mapError(eventCreateReceiptError));
-			if (replay) {
-				return { ...replay.result, dispatch: replay.dispatch };
-			}
-		}
-		const eventId = EventId.make(
-			`event_${sha256Base64Url(stableStringify([command.causation.executionId, command.itemIdentity]))}`,
-		);
-		yield* eventSchemas.lockCatalog();
-		yield* entities.lockEntityReferencesByIds(
-			[
-				...new Set([
-					draft.entityId,
-					...(draft.sessionEntityId === null ? [] : [draft.sessionEntityId]),
-				]),
-			].sort(),
-		);
-		const currentScope = yield* resolveEventCreateItemScopes({
-			command,
-			userId: payload.userId,
-			item: { ...draft, sessionEntityId: draft.sessionEntityId ?? undefined },
-		});
-		if (
-			stableStringify(catalogDefinitionFingerprint(currentScope.eventSchemaScope)) !==
-			stableStringify(prepared.eventSchemaFingerprint)
-		) {
-			return yield* new EventCreateItemError({
-				reason: { code: "event-schema-not-found", eventSchemaSlug: draft.eventSchemaSlug },
-			});
-		}
-		yield* assertStableUnder(
-			"Event",
-			command.writeContext?.pluginRevision && currentScope.eventSchemaScope.pluginId !== null
-				? writerPropertiesSchema(currentScope.activePropertiesSchema)
-				: currentScope.activePropertiesSchema,
-			draft.properties,
-			() => new EventCreateItemError({ reason: { code: "invalid-properties" } }),
-		);
-		yield* validateCapturedEventReferences(payload.userId, draft, prepared.capturedReferences);
-		const event = yield* repository.createEvent({
-			...draft,
-			id: eventId,
-			userId: payload.userId,
-			properties: { ...draft.properties },
-			eventSchemaName: prepared.eventSchemaName,
-			eventSchemaPluginId: prepared.eventSchemaPluginId,
-			sessionEntityId: draft.sessionEntityId ?? undefined,
-			occurredAt: DateTime.toDate(DateTime.makeUnsafe(draft.occurredAt)),
-		});
-		const after = yield* Schema.decodeUnknownEffect(AutomationEventSnapshot)({
-			...draft,
-			id: event.id,
-			entityId: event.entityId,
-			createdAt: event.createdAt,
-			updatedAt: event.updatedAt,
-			properties: event.properties,
-			occurredAt: event.occurredAt,
-			eventSchemaSlug: event.eventSchemaSlug,
-			eventSchemaPluginId: event.eventSchemaPluginId,
-			sessionEntityId: event.sessionEntityId ?? null,
-			entitySchemaPluginId: currentScope.entityScope.entitySchemaPluginId,
-		}).pipe(Effect.mapError(() => new DbError({ message: "Invalid persisted event snapshot" })));
-		const plan = yield* planner.plan({
-			trigger: lifecycleTrigger(
-				{
-					...command,
-					causation: {
-						...command.causation,
-						parentTriggerId: prepared.plan?.trigger.id ?? command.causation.parentTriggerId,
-					},
-				},
-				payload.userId,
-				{ after, resource: "event", category: "change", operation: "create" },
-			),
-		});
-		const dispatch = plan.trigger === null ? [] : [toLifecycleDispatchPlan(plan)];
-		yield* receipts.insert({
-			identity,
-			dispatch,
-			batchId: batch.id,
-			batchIndex: index,
-			result: { eventId: event.id, processed: [...processed] },
-			evidence: batch.hasCandidates
-				? { after, resource: "event", category: "change", operation: "create" }
-				: undefined,
-		});
-		return { dispatch, eventId: event.id, processed: [...processed] };
-	});
-	if (inline) {
-		return yield* work;
-	}
 	return yield* makeActivity({
 		name: `write-event-${index}`,
 		error: EventCreateWorkflowError satisfies DurableSchema,
-		execute: eventRootTransaction(session, "Event workflow transaction already active")(work),
 		success: Schema.Struct({
 			dispatch: Schema.Array(LifecycleDispatchPlan),
 			...EventCreateReceiptResult.fields,
 		}) satisfies DurableSchema,
+		execute: eventRootTransaction(
+			session,
+			"Event workflow transaction already active",
+		)(
+			Effect.gen(function* () {
+				yield* eventSchemas.lockCatalog();
+				yield* writes
+					.check(command, definitionOwner(prepared.eventSchemaPluginId), payload.userId, true)
+					.pipe(Effect.mapError((error) => new DbError({ message: error.message })));
+				const batch = yield* planner.prepareBatch({
+					...eventCreateBatchInput(payload),
+					scopes: [payload.userId],
+				});
+				const identity = eventCreateReceiptIdentity(payload, index, item);
+				const replay = yield* receipts
+					.lookup(identity, EventCreateReceiptResult)
+					.pipe(Effect.mapError(eventCreateReceiptError));
+				if (replay) {
+					return { ...replay.result, dispatch: replay.dispatch };
+				}
+				yield* eventSchemas.lockCatalog();
+				yield* entities.lockEntityReferencesByIds(
+					[
+						...new Set([
+							draft.entityId,
+							...(draft.sessionEntityId === null ? [] : [draft.sessionEntityId]),
+						]),
+					].sort(),
+				);
+				const currentScope = yield* resolveEventCreateItemScopes({
+					command,
+					userId: payload.userId,
+					item: { ...draft, sessionEntityId: draft.sessionEntityId ?? undefined },
+				});
+				if (
+					stableStringify(catalogDefinitionFingerprint(currentScope.eventSchemaScope)) !==
+					stableStringify(prepared.eventSchemaFingerprint)
+				) {
+					return yield* new EventCreateItemError({
+						reason: { code: "event-schema-not-found", eventSchemaSlug: draft.eventSchemaSlug },
+					});
+				}
+				yield* assertStableUnder(
+					"Event",
+					eventPropertiesSchema(
+						command,
+						currentScope.eventSchemaScope,
+						currentScope.activePropertiesSchema,
+					),
+					draft.properties,
+					() => new EventCreateItemError({ reason: { code: "invalid-properties" } }),
+				);
+				yield* validateCapturedEventReferences(payload.userId, draft, prepared.capturedReferences);
+				const committed = yield* commitEvent(
+					payload,
+					index,
+					{ ...prepared, parentTriggerId: prepared.plan.trigger.id },
+					draft,
+					currentScope.entityScope.entitySchemaPluginId,
+				);
+				yield* receipts.insert({
+					identity,
+					batchId: batch.id,
+					batchIndex: index,
+					dispatch: committed.dispatch,
+					evidence: batch.hasCandidates ? committed.evidence : undefined,
+					result: { processed: [...processed], eventId: committed.eventId },
+				});
+				return {
+					processed: [...processed],
+					eventId: committed.eventId,
+					dispatch: committed.dispatch,
+				};
+			}),
+		),
 	});
 });
 
@@ -438,35 +577,44 @@ export const runEventCreateWorkflow = Effect.fn("EventCreateWorkflow")(function*
 	const warnings: AutomationWarning[] = [];
 	const subjects = new Map<string, AutomationHookIdentity[]>();
 	let count = 0;
-	const preparedAny = yield* Ref.make(false);
+	let preparedAny = false;
 	let failure: { index: number; reason: EventCreateFailureReason } | null = null;
-	for (const [index, item] of payload.payload.entries()) {
-		const processed = subjects.get(item.entityId.trim()) ?? [];
-		subjects.set(item.entityId.trim(), processed);
+	let first = 0;
+	while (first < payload.payload.length) {
+		const chunk = yield* prepareChunk(payload, first, subjects);
+		if (chunk._tag === "Failed") {
+			failure = { index: chunk.index, reason: chunk.reason };
+			break;
+		}
+		preparedAny = true;
+		for (const { index, eventId, dispatch, processed } of chunk.written) {
+			subjects.set(payload.payload[index]?.entityId.trim() ?? "", [...processed]);
+			outcomes.push({ index, eventId, status: "written" });
+			count += 1;
+			warnings.push(
+				...(yield* execution
+					.dispatch(dispatch)
+					.pipe(Effect.catchTag("LifecyclePersistenceError", Effect.die))),
+			);
+		}
+		const pending = chunk.pending;
+		if (pending === null) {
+			first += chunk.written.length;
+			continue;
+		}
+		first = pending.index + 1;
+		const subject = payload.payload[pending.index]?.entityId.trim() ?? "";
+		const processed = subjects.get(subject) ?? [];
+		subjects.set(subject, processed);
 		const attempt = yield* Effect.gen(function* () {
-			const prepared = yield* prepareItem(payload, index, [...processed]);
-			yield* Ref.set(preparedAny, true);
-			if (prepared._tag === "Committed") {
-				return {
-					kind: "written" as const,
-					committed: { ...prepared.result, dispatch: prepared.dispatch },
-				};
-			}
-			const policy =
-				prepared.plan === null
-					? {
-							draft: prepared.draft,
-							kind: "ready" as const,
-							capturedReferences: prepared.capturedReferences,
-						}
-					: yield* runEventCreatePolicies(
-							payload,
-							index,
-							prepared.plan,
-							prepared.propertiesSchema,
-							processed,
-							prepared.capturedReferences,
-						);
+			const policy = yield* runEventCreatePolicies(
+				payload,
+				pending.index,
+				pending.plan,
+				pending.propertiesSchema,
+				processed,
+				pending.capturedReferences,
+			);
 			if (policy.kind === "skipped") {
 				return policy;
 			}
@@ -474,8 +622,8 @@ export const runEventCreateWorkflow = Effect.fn("EventCreateWorkflow")(function*
 				kind: "written" as const,
 				committed: yield* writeEvent(
 					payload,
-					index,
-					{ ...prepared, capturedReferences: policy.capturedReferences },
+					pending.index,
+					{ ...pending, capturedReferences: policy.capturedReferences },
 					policy.draft,
 					processed,
 				),
@@ -486,27 +634,23 @@ export const runEventCreateWorkflow = Effect.fn("EventCreateWorkflow")(function*
 			),
 		);
 		if (attempt.kind === "failed") {
-			failure = { index, reason: attempt.reason };
+			failure = { index: pending.index, reason: attempt.reason };
 			break;
 		}
 		if (attempt.kind === "skipped") {
-			outcomes.push({ index, reason: attempt.reason, status: "skipped_by_policy" });
+			outcomes.push({ index: pending.index, reason: attempt.reason, status: "skipped_by_policy" });
 			continue;
 		}
-		const { eventId, dispatch, processed: recordedPolicies } = attempt.committed;
-		subjects.set(item.entityId.trim(), [...recordedPolicies]);
-		outcomes.push({ index, eventId, status: "written" });
+		subjects.set(subject, [...attempt.committed.processed]);
+		outcomes.push({ status: "written", index: pending.index, eventId: attempt.committed.eventId });
 		count += 1;
 		warnings.push(
 			...(yield* execution
-				.dispatch(dispatch)
+				.dispatch(attempt.committed.dispatch)
 				.pipe(Effect.catchTag("LifecyclePersistenceError", Effect.die))),
 		);
 	}
-	if (
-		(yield* Ref.get(preparedAny)) ||
-		(failure !== null && (yield* hasPreparedEventBatch(payload)))
-	) {
+	if (preparedAny || (failure !== null && (yield* hasPreparedEventBatch(payload)))) {
 		warnings.push(
 			...(yield* execution
 				.dispatch(yield* planEventBatch(payload))

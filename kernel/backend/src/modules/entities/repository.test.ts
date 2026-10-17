@@ -596,3 +596,40 @@ layer(
 			}),
 	);
 });
+
+layer(
+	EntitiesRepository.layer.pipe(
+		Layer.provide(Layer.mergeAll(Layer.mock(DefinitionRepository)({}), makePluginRuntime())),
+		Layer.provideMerge(isolatedDatabaseLayer("entities_repository_user_batch_reads")),
+	),
+)((test) => {
+	test.effect("reads only entities visible to the user in a batch", () =>
+		Effect.gen(function* () {
+			const session = yield* DatabaseSession;
+			const repository = yield* EntitiesRepository;
+			const owner = UserId.make("batch-owner");
+			const other = UserId.make("batch-other");
+			yield* session.run((db) =>
+				db.insert(tables.user).values([
+					{ id: owner, name: "Owner", email: "batch-owner@example.test" },
+					{ id: other, name: "Other", email: "batch-other@example.test" },
+				]),
+			);
+			yield* session.run((db) =>
+				db.insert(tables.entity).values([
+					{ id: "owned", name: "Owned", userId: owner, entitySchemaSlug: "record" },
+					{ id: "foreign", userId: other, name: "Foreign", entitySchemaSlug: "record" },
+					{ id: "global", name: "Global", entitySchemaSlug: "record" },
+				]),
+			);
+			const found = yield* repository.getByIdsForUser({
+				userId: owner,
+				entityIds: ["missing", "foreign", "global", "owned", "owned"].map((id) =>
+					EntityId.make(id),
+				),
+			});
+			expect([...found.keys()].sort()).toEqual(["global", "owned"]);
+			expect(found.get(EntityId.make("owned"))).toMatchObject({ name: "Owned", properties: {} });
+		}),
+	);
+});
