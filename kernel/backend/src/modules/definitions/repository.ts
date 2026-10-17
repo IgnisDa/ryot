@@ -832,21 +832,21 @@ export class DefinitionRepository extends Context.Service<DefinitionRepository>(
 					input: RevisionDeclarationQuery<K>,
 				) => Effect.Effect<RevisionDeclarations[K] | undefined, DbError>;
 			} = {
-				entity: (input) =>
-					session
-						.run((db) =>
-							db
-								.select({ propertiesSchema: schema.definitionEntitySchema.propertiesSchema })
-								.from(schema.definitionEntitySchema)
-								.where(
-									and(
-										eq(schema.definitionEntitySchema.pluginRevisionId, input.revisionId),
-										eq(schema.definitionEntitySchema.slug, input.slug),
-									),
-								)
-								.limit(1),
-						)
-						.pipe(Effect.map(([row]) => row)),
+				entity: Effect.fnUntraced(function* (input) {
+					const [row] = yield* session.run((db) =>
+						db
+							.select({ propertiesSchema: schema.definitionEntitySchema.propertiesSchema })
+							.from(schema.definitionEntitySchema)
+							.where(
+								and(
+									eq(schema.definitionEntitySchema.pluginRevisionId, input.revisionId),
+									eq(schema.definitionEntitySchema.slug, input.slug),
+								),
+							)
+							.limit(1),
+					);
+					return row;
+				}),
 				event: Effect.fnUntraced(function* (input) {
 					const { entitySchemaSlug } = input;
 					if (entitySchemaSlug === undefined) {
@@ -871,33 +871,33 @@ export class DefinitionRepository extends Context.Service<DefinitionRepository>(
 					);
 					return row;
 				}),
-				relationship: (input) =>
-					session
-						.run((db) =>
-							db
-								.select({
-									name: schema.definitionRelationshipSchema.name,
-									slug: schema.definitionRelationshipSchema.slug,
-									propertiesSchema: schema.definitionRelationshipSchema.propertiesSchema,
-									sourceEntitySchemaSlug:
-										schema.definitionRelationshipSchema.sourceEntitySchemaSlug,
-									targetEntitySchemaSlug:
-										schema.definitionRelationshipSchema.targetEntitySchemaSlug,
-								})
-								.from(schema.definitionRelationshipSchema)
-								.where(
-									and(
-										eq(schema.definitionRelationshipSchema.pluginRevisionId, input.revisionId),
-										eq(schema.definitionRelationshipSchema.slug, input.slug),
-									),
-								)
-								.limit(1),
-						)
-						.pipe(Effect.map(([row]) => row)),
+				relationship: Effect.fnUntraced(function* (input) {
+					const [row] = yield* session.run((db) =>
+						db
+							.select({
+								name: schema.definitionRelationshipSchema.name,
+								slug: schema.definitionRelationshipSchema.slug,
+								propertiesSchema: schema.definitionRelationshipSchema.propertiesSchema,
+								sourceEntitySchemaSlug: schema.definitionRelationshipSchema.sourceEntitySchemaSlug,
+								targetEntitySchemaSlug: schema.definitionRelationshipSchema.targetEntitySchemaSlug,
+							})
+							.from(schema.definitionRelationshipSchema)
+							.where(
+								and(
+									eq(schema.definitionRelationshipSchema.pluginRevisionId, input.revisionId),
+									eq(schema.definitionRelationshipSchema.slug, input.slug),
+								),
+							)
+							.limit(1),
+					);
+					return row;
+				}),
 			};
-			const findRevisionDeclaration = <K extends keyof RevisionDeclarations>(
-				input: RevisionDeclarationQuery<K>,
-			) => revisionDeclarationReaders[input.kind](input);
+			const findRevisionDeclaration = Effect.fn("DefinitionRepository.findRevisionDeclaration")(
+				function* <K extends keyof RevisionDeclarations>(input: RevisionDeclarationQuery<K>) {
+					return yield* revisionDeclarationReaders[input.kind](input);
+				},
+			);
 
 			const getSnapshotForContext = Effect.fn("DefinitionRepository.getSnapshotForContext")(
 				function* (context: DefinitionReadContext, userId: UserId | null) {
