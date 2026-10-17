@@ -1885,6 +1885,63 @@ describe("EntitiesService committed lifecycle", () => {
 	});
 
 	layer(entitiesLayer())((test) => {
+		test.effect(
+			"preserves population stamps without emitting timestamp-only changes and replays the result",
+			() =>
+				Effect.gen(function* () {
+					yield* seedProvider;
+					const service = yield* EntitiesService;
+					const session = yield* DatabaseSession;
+					const populatedAt = DateTime.toDateUtc(DateTime.makeUnsafe("2026-10-01T00:00:00.000Z"));
+					const later = DateTime.toDateUtc(DateTime.makeUnsafe("2026-10-02T00:00:00.000Z"));
+					const input = {
+						providerId,
+						populatedAt,
+						name: "Populated",
+						updateExisting: true,
+						scope: "global" as const,
+						externalId: "preserved-stamp",
+						properties: { title: "Populated" },
+						entitySchema: providerEntitySchema,
+						lifecycle: command("preserved-stamp-create"),
+					};
+					const first = yield* session.transaction(service.persistPlannedProviderUpsert(input));
+					const preserve = {
+						...input,
+						populatedAt: later,
+						preservePopulatedAt: true,
+						lifecycle: command("preserved-stamp-ensure"),
+					};
+					const noop = yield* session.transaction(service.persistPlannedProviderUpsert(preserve));
+					expect(noop.result).toEqual(first.result);
+					expect(noop.dispatch).toEqual([]);
+					expect(
+						yield* session.transaction(service.persistPlannedProviderUpsert(preserve)),
+					).toEqual(noop);
+					const changed = yield* session.transaction(
+						service.persistPlannedProviderUpsert({
+							...preserve,
+							properties: { title: "Upgraded" },
+							lifecycle: command("preserved-stamp-changed"),
+						}),
+					);
+					expect(changed.result.entity).toMatchObject({
+						properties: { title: "Upgraded" },
+						populatedAt: populatedAt.toISOString(),
+					});
+					const refreshed = yield* session.transaction(
+						service.persistPlannedProviderUpsert({
+							...input,
+							populatedAt: later,
+							lifecycle: command("preserved-stamp-refresh"),
+						}),
+					);
+					expect(refreshed.result.entity.populatedAt).toBe(later.toISOString());
+				}),
+		);
+	});
+
+	layer(entitiesLayer())((test) => {
 		test.effect("covers one batch-scoped provider write with a single batch trigger", () =>
 			Effect.gen(function* () {
 				yield* seedProvider;

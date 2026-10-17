@@ -655,10 +655,14 @@ layer(eventStreamRepositoriesLayer)((test) => {
 			expect(yield* populatedAtOf(plain)).toBeNull();
 			expect((yield* update(flagged, null, true)).populatedAt).toBe(populatedAt.toISOString());
 			expect(yield* populatedAtOf(flagged)).toEqual(populatedAt);
-			yield* update(flagged, later, true);
+			expect((yield* update(flagged, later, true)).populatedAt).toBe(populatedAt.toISOString());
+			expect(yield* populatedAtOf(flagged)).toEqual(populatedAt);
+			expect((yield* update(flagged, later)).populatedAt).toBe(later.toISOString());
 			expect(yield* populatedAtOf(flagged)).toEqual(later);
 			yield* update(unpopulated, null, true);
 			expect(yield* populatedAtOf(unpopulated)).toBeNull();
+			expect((yield* update(unpopulated, later, true)).populatedAt).toBe(later.toISOString());
+			expect(yield* populatedAtOf(unpopulated)).toEqual(later);
 		}),
 	);
 
