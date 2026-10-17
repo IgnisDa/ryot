@@ -15,7 +15,7 @@
 
 ## Status
 
-**81 implemented, 0 in progress, 2 pending; 3 excluded.**
+**82 implemented, 0 in progress, 1 pending; 3 excluded.**
 
 “Implemented” means affected checks and tests passed and the change is committed with this tracker. Batch-wide acceptance is recorded separately below. Rows follow the audit's ranked order; sequencing can change to respect dependencies and keep changes reviewable.
 
@@ -104,7 +104,7 @@
 | M04-R2 | Implemented | Select only completion-consumer fields in episodic snapshots; retain aggregate signals inside calculations and preserve completion/TTL boundaries. See this finding's audit commit. |
 | M05-R1 | Implemented | Delete the import-admission shadow union; real manifest admission validates 17 sources. See this finding's audit commit. |
 | M06-R1 | Implemented | Remove dead hero configuration, resolve locators once, and retain actual headers and the home backdrop. See this finding's audit commit. |
-| B11-R2 | Pending | Return the locked event revision once. |
+| B11-R2 | Implemented | Return the event snapshot and locked revision together; consume that owner result through preparation, policy, and persistence without a second revision query or public wrapper. See this finding's audit commit. |
 | B22-R2 | Implemented | Remove custom-renderer IDs, publication states, and unreachable publication paths; validate only kernel or installed plugin renderers, including backup restore. See this finding's audit commit. |
 | P08-R1 | Implemented | Acquire a complete private mode-0700 workspace and expose its handle only after staging; clean up collisions and replacements across the workspace lifetime, with no incremental API. See this finding's audit commit. |
 
@@ -248,3 +248,4 @@
 - P03-R1: SDK check passed before 98 tests across 13 files; media had nine tests; native format/clippy/syntax checks and 14 tests passed. Fixed the sole P2 review finding in native Request body ownership: inherited bodies consume once, reuse rejects without another host call, replacement bodies leave the source unconsumed, and replacement works after source consumption. No cache or guard workaround; no extra review round.
 - S02-R2: 62 TypeScript tests and five plus one Rust fixture tests passed; backend type and sandbox checks passed again before nine tests across four files for the cross-package logical-message annotation fix. Read-only review passed. Only writer and logical-type hunks were staged from shared `framing.ts`; reader assembly changes remain unstaged.
 - S02-R1: scoped checks passed before 21 tests across two files, including 15 reader tests; read-only review passed. The reader reserves the full declared buffer once, copies decoded parts into it, and releases budgets on completion and all failure, retirement, and reset paths. S02-R2 writer changes were committed separately.
+- B11-R2: backend type, format, and lint passed before 71 tests across five test files, after fixing exact event-snapshot fixture equality; first read-only review reported no findings. Snapshot and revision now travel together from the locked repository read. Production behavior was already correct; the duplicate nullable revision query and public wrapper were removed.

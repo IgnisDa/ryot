@@ -488,19 +488,6 @@ export class EventsRepository extends Context.Service<EventsRepository>()("Event
 			);
 		});
 
-		const getEventRevision = Effect.fn("EventsRepository.getEventRevision")(function* (
-			input: EventIdentityInput,
-		) {
-			const [row] = yield* session.run((db) =>
-				db
-					.select({ revision: schema.event.revision })
-					.from(schema.event)
-					.where(and(eq(schema.event.id, input.eventId), eq(schema.event.userId, input.userId)))
-					.limit(1),
-			);
-			return row?.revision ?? null;
-		});
-
 		const getEventSnapshot = Effect.fn("EventsRepository.getEventSnapshot")(function* (
 			input: EventIdentityInput,
 		) {
@@ -508,6 +495,7 @@ export class EventsRepository extends Context.Service<EventsRepository>()("Event
 				db
 					.select({
 						...createdEventSelection,
+						revision: schema.event.revision,
 						entitySchemaSlug: schema.entity.entitySchemaSlug,
 						entitySchemaPluginId: schema.entity.entitySchemaPluginId,
 					})
@@ -537,7 +525,7 @@ export class EventsRepository extends Context.Service<EventsRepository>()("Event
 				eventSchemaPluginId: row.eventSchemaPluginId,
 				entitySchemaPluginId: row.entitySchemaPluginId,
 			}).pipe(Effect.mapError(() => new DbError({ message: "Invalid persisted event snapshot" })));
-			return event;
+			return { snapshot: event, revision: row.revision };
 		});
 		const getCreateProgress = Effect.fn("EventsRepository.getCreateProgress")(function* (
 			userId: UserId,
@@ -566,7 +554,6 @@ export class EventsRepository extends Context.Service<EventsRepository>()("Event
 			createEvent,
 			hasUserEvents,
 			lockEventRows,
-			getEventRevision,
 			getEventSnapshot,
 			getCreateProgress,
 			deletePreparedEvent,
