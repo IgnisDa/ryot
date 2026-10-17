@@ -38,9 +38,12 @@ Plugin-authored settings use a self-relative authored reference that materialize
 owner. Generic browser results retain each selected entity's actual owner for presentation selection;
 the current workspace does not supply schema ownership.
 
-Renderer queries return Effects from `createRyotQuery` callbacks. The collection header loads before
-the member query uses its schema; aggregate, count, and member requests then run concurrently. Query
-cancellation follows Effect interruption when the page unmounts.
+Renderer queries return Effects from `createRyotQuery` callbacks. Collection detail loads the
+header, type aggregate, and unfiltered total as separate page-refreshed queries and mounts the
+controller only when all three have data; the infinite members query then requests members alone. The
+controller remounts, with a fresh members query and filter fields, when the membership schema or the
+presence of member types changes. Query cancellation follows Effect interruption when the page
+unmounts.
 
 ## Filters
 
@@ -63,3 +66,7 @@ and chips resolve names by the rule's entity IDs. Until names resolve, or for en
 longer exist, a chip shows the count form (for example "Authors: 2 selected") instead of raw IDs.
 Count all, the pages, and the filter-aware empty state all use the applied filter; the query Effect
 reads `now` from the Effect clock for relative-date rules.
+
+Collection detail builds its fields in `collectionMemberFilterFields`: Type (from the loaded member
+groups), Also in collection, and one `membership.<key>` field per supported membership property.
+With no search or filter applied the controller shows the known total instead of offering Count all.

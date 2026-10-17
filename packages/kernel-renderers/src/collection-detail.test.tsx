@@ -7,7 +7,7 @@ import {
 	mountPluginPage,
 } from "@ryot-app/plugin-client-sdk/testing";
 import { fireEvent, screen, waitFor } from "@testing-library/dom";
-import { Effect } from "effect";
+import { Effect, Schema } from "effect";
 
 import CollectionDetailPage from "./collection-detail";
 
@@ -21,61 +21,87 @@ const openCollection = (collectionId = "col-1", search = "") =>
 		}),
 	});
 
-const request = (page: ReturnType<typeof mountPluginPage>, name: string) =>
+const request = (page: ReturnType<typeof mountPluginPage>, name: string, index = 0) =>
 	Effect.gen(function* () {
 		yield* Effect.promise(() =>
-			waitFor(() => expect(page.queryRequests(name).length).toBeGreaterThan(0)),
+			waitFor(() => expect(page.queryRequests(name).length).toBeGreaterThan(index)),
 		);
-		const found = page.queryRequests(name)[0];
+		const found = page.queryRequests(name)[index];
 		if (!found) {
-			return yield* Effect.die(new Error(`${name} request was not issued`));
+			return yield* Effect.die(new Error(`${name} request ${index} was not issued`));
 		}
 		return found;
 	});
 
-const answerCollection = (
+type CollectionAnswer = {
+	readonly groups?: readonly Record<string, JsonValue>[];
+	readonly members?: readonly Record<string, JsonValue>[];
+	readonly name: string;
+	readonly hasMore?: boolean | undefined;
+	readonly groupsHaveMore?: boolean | undefined;
+	readonly membershipPropertiesSchema?: Record<string, unknown> | undefined;
+	readonly description?: string | undefined;
+	readonly total?: number | undefined;
+};
+
+const replyMembers = (
 	page: ReturnType<typeof mountPluginPage>,
-	input: {
-		readonly groups?: readonly Record<string, JsonValue>[];
-		readonly members?: readonly Record<string, JsonValue>[];
-		readonly name: string;
-		readonly hasMore?: boolean | undefined;
-		readonly groupsHaveMore?: boolean | undefined;
-		readonly membershipPropertiesSchema?: Record<string, unknown> | undefined;
-		readonly description?: string | undefined;
-		readonly total?: number | undefined;
-	},
+	requestId: string,
+	input: Pick<CollectionAnswer, "members" | "hasMore">,
 ) =>
-	Effect.gen(function* () {
-		const header = yield* request(page, "collection");
-		expect(page.queryRequests()).toHaveLength(1);
-		page.replyQuery(header.requestId, {
-			outcome: "success",
-			response: {
-				data: {
-					collection: {
-						type: "rows",
-						pageInfo: { limit: 2, hasMore: false, nextCursor: null },
-						items: [
-							{
-								name: input.name,
-								entityId: "col-1",
-								properties: {
-									...(input.description === undefined ? {} : { description: input.description }),
-									...(input.membershipPropertiesSchema === undefined
-										? {}
-										: { membershipPropertiesSchema: input.membershipPropertiesSchema }),
-								},
-							},
-						],
+	page.replyQuery(requestId, {
+		outcome: "success",
+		response: {
+			data: {
+				members: {
+					type: "rows",
+					items: input.members ?? [],
+					pageInfo: {
+						limit: 20,
+						hasMore: input.hasMore ?? false,
+						nextCursor: input.hasMore ? "next" : null,
 					},
 				},
 			},
-		});
-		const [aggregate, count, members] = yield* Effect.all(
-			[request(page, "aggregate"), request(page, "count"), request(page, "members")],
+		},
+	});
+
+const headerResponse = (input: CollectionAnswer) => ({
+	data: {
+		collection: {
+			type: "rows" as const,
+			pageInfo: { limit: 2, hasMore: false, nextCursor: null },
+			items: [
+				{
+					name: input.name,
+					entityId: "col-1",
+					properties: {
+						...(input.description === undefined ? {} : { description: input.description }),
+						...(input.membershipPropertiesSchema === undefined
+							? {}
+							: { membershipPropertiesSchema: input.membershipPropertiesSchema }),
+					},
+				},
+			],
+		},
+	},
+});
+
+const answerChrome = (
+	page: ReturnType<typeof mountPluginPage>,
+	input: CollectionAnswer,
+	index = 0,
+) =>
+	Effect.gen(function* () {
+		const [header, aggregate, count] = yield* Effect.all(
+			[
+				request(page, "collection", index),
+				request(page, "aggregate", index),
+				request(page, "count", index),
+			],
 			{ concurrency: "unbounded" },
 		);
+		page.replyQuery(header.requestId, { outcome: "success", response: headerResponse(input) });
 		page.replyQuery(aggregate.requestId, {
 			outcome: "success",
 			response: {
@@ -105,23 +131,33 @@ const answerCollection = (
 				},
 			},
 		});
-		page.replyQuery(members.requestId, {
-			outcome: "success",
-			response: {
-				data: {
-					members: {
-						type: "rows",
-						items: input.members ?? [],
-						pageInfo: {
-							limit: 20,
-							hasMore: input.hasMore ?? false,
-							nextCursor: input.hasMore ? "next" : null,
-						},
-					},
-				},
-			},
-		});
 	});
+
+const answerCollection = (page: ReturnType<typeof mountPluginPage>, input: CollectionAnswer) =>
+	Effect.gen(function* () {
+		yield* answerChrome(page, input);
+		const members = yield* request(page, "members");
+		replyMembers(page, members.requestId, input);
+	});
+
+const encodeJson = Schema.encodeEffect(Schema.fromJsonString(Schema.Unknown));
+
+const filtersParam = (filter: unknown) =>
+	`filters=${Buffer.from(JSON.stringify(filter)).toString("base64url")}`;
+
+const bookGroup = {
+	count: 2,
+	ownerPluginId: "media",
+	ownerPluginName: "Media",
+	entitySchemaSlug: "book",
+};
+
+const notesSchema = {
+	unknownKeys: "strict",
+	fields: {
+		notes: { position: 0, type: "string", label: "Notes", description: "Membership notes" },
+	},
+};
 
 const hostScreenRequest = (
 	page: ReturnType<typeof mountPluginPage>,
@@ -260,7 +296,9 @@ describe("collection detail", () => {
 						expect(screen.getByRole("heading", { level: 1, name: "Road Trips" })).toBeTruthy(),
 					),
 				);
-				expect(page.container?.textContent).toContain("5 total");
+				yield* Effect.promise(() =>
+					waitFor(() => expect(page.container?.textContent).toContain("5 total")),
+				);
 				expect(page.container?.textContent).toContain("1 Media / book");
 				expect(page.container?.textContent).toContain("1 Collections");
 				expect(page.container?.textContent).toContain("More types not shown");
@@ -299,7 +337,9 @@ describe("collection detail", () => {
 					expect(screen.getByRole("heading", { level: 1, name: "Empty" })).toBeTruthy(),
 				),
 			);
-			expect(page.container?.textContent).toContain("This collection is empty.");
+			yield* Effect.promise(() =>
+				waitFor(() => expect(page.container?.textContent).toContain("This collection is empty.")),
+			);
 			expect(screen.getByRole("radio", { name: "Table view" }).getAttribute("aria-checked")).toBe(
 				"true",
 			);
@@ -386,7 +426,8 @@ describe("collection detail", () => {
 			yield* Effect.promise(() =>
 				waitFor(() => expect(screen.getByRole("radio", { name: "Recently added" })).toBeTruthy()),
 			);
-			expect(dialog.textContent).toContain("Filters are not available yet.");
+			expect(dialog.textContent).toContain("Add filter");
+			expect(dialog.textContent).not.toContain("Filters are not available yet.");
 		}),
 	);
 
@@ -421,12 +462,240 @@ describe("collection detail", () => {
 					waitFor(() => screen.getByRole("dialog", { name: "Filters" })),
 				);
 				expect(dialog.textContent).toContain("Collection order");
-				expect(dialog.textContent).toContain("Filters are not available yet.");
+				expect(dialog.textContent).toContain("Add filter");
 				expect(dialog.textContent).not.toContain("View as");
 				fireEvent.click(screen.getByRole("button", { name: "Sort results: Collection order" }));
 				yield* Effect.promise(() =>
 					waitFor(() => expect(screen.getByRole("radio", { name: "Recently added" })).toBeTruthy()),
 				);
 			}),
+	);
+
+	it.live("requests only members when loading the next page", () =>
+		Effect.gen(function* () {
+			const page = openCollection();
+			yield* answerCollection(page, {
+				name: "Books",
+				hasMore: true,
+				groups: [bookGroup],
+				members: [bookMember],
+			});
+			fireEvent.click(
+				yield* Effect.promise(() => screen.findByRole("button", { name: "Load more results" })),
+			);
+			const second = yield* request(page, "members", 1);
+			replyMembers(page, second.requestId, { members: [{ ...bookMember, entityId: "book-2" }] });
+			yield* Effect.promise(() =>
+				waitFor(() => expect(page.container?.textContent).toContain("End of Books")),
+			);
+			expect(page.queryRequests("collection")).toHaveLength(1);
+			expect(page.queryRequests("aggregate")).toHaveLength(1);
+			expect(page.queryRequests("count")).toHaveLength(1);
+			expect(page.queryRequests("members")).toHaveLength(2);
+		}),
+	);
+
+	it.live("shows the known total without Count all until a filter is applied", () =>
+		Effect.gen(function* () {
+			const page = openCollection(
+				"col-1",
+				filtersParam({ field: "type", operator: "anyOf", values: ["media/book"] }),
+			);
+			yield* answerCollection(page, {
+				total: 5,
+				name: "Books",
+				hasMore: true,
+				groups: [bookGroup],
+				members: [bookMember],
+			});
+			yield* Effect.promise(() => screen.findByRole("button", { name: "Count all" }));
+			fireEvent.click(screen.getByRole("button", { name: "Count all" }));
+			const count = yield* request(page, "count", 1);
+			const document = yield* encodeJson(count.document);
+			expect(document).toContain("media/book");
+			expect(document).toContain("concat");
+			page.replyQuery(count.requestId, {
+				outcome: "success",
+				response: { data: { count: { type: "aggregate", items: [{ total: 2 }] } } },
+			});
+			yield* Effect.promise(() =>
+				waitFor(() => expect(page.container?.textContent).toContain("1 of 2 results")),
+			);
+		}),
+	);
+
+	it.live("hides Count all and shows the loaded total when nothing narrows the members", () =>
+		Effect.gen(function* () {
+			const page = openCollection();
+			yield* answerCollection(page, {
+				total: 5,
+				name: "Books",
+				hasMore: true,
+				groups: [bookGroup],
+				members: [bookMember],
+			});
+			yield* Effect.promise(() =>
+				waitFor(() => expect(page.container?.textContent).toContain("1 of 5 results")),
+			);
+			expect(screen.queryByRole("button", { name: "Count all" })).toBeNull();
+			expect(page.queryRequests("count")).toHaveLength(1);
+		}),
+	);
+
+	it.live("sends a membership property filter from the URL with the first members request", () =>
+		Effect.gen(function* () {
+			const page = openCollection(
+				"col-1",
+				filtersParam({ value: "road", operator: "contains", field: "membership.notes" }),
+			);
+			yield* answerChrome(page, { name: "Trips", membershipPropertiesSchema: notesSchema });
+			const first = yield* request(page, "members");
+			const document = yield* encodeJson(first.document);
+			expect(document).toContain('"road"');
+			expect(document).toContain("membership.notes");
+			replyMembers(page, first.requestId, { members: [bookMember] });
+			yield* Effect.promise(() =>
+				waitFor(() =>
+					expect(screen.getByRole("group", { name: "Active filters" }).textContent).toContain(
+						"Notes contains road",
+					),
+				),
+			);
+			expect(screen.getByRole("button", { name: "Filters, 1 active filter" })).toBeTruthy();
+			expect(page.queryRequests("members")).toHaveLength(1);
+		}),
+	);
+
+	it.live("offers type, also-in-collection and membership fields in the filters panel", () =>
+		Effect.gen(function* () {
+			const page = openCollection();
+			yield* answerCollection(page, {
+				name: "Books",
+				groups: [bookGroup],
+				members: [bookMember],
+				membershipPropertiesSchema: notesSchema,
+			});
+			yield* Effect.promise(() => screen.findByRole("button", { name: /^Filters/ }));
+			fireEvent.click(screen.getByRole("button", { name: /^Filters/ }));
+			fireEvent.click(
+				yield* Effect.promise(() => screen.findByRole("button", { name: /^Add filter/ })),
+			);
+			for (const label of ["Type", "Also in collection", "Notes"]) {
+				yield* Effect.promise(() => screen.findByRole("radio", { name: label }));
+			}
+		}),
+	);
+
+	it.live("recovers from a failed header load with Try again", () =>
+		Effect.gen(function* () {
+			const page = openCollection();
+			const header = yield* request(page, "collection");
+			page.replyQuery(header.requestId, { outcome: "failure", reason: "query-failed" });
+			yield* Effect.promise(() => screen.findByText("Collection unavailable"));
+			expect(page.container?.textContent).toContain("The collection could not be loaded.");
+
+			fireEvent.click(screen.getByRole("button", { name: "Try again" }));
+			const retry = yield* request(page, "collection", 1);
+			page.replyQuery(retry.requestId, {
+				outcome: "success",
+				response: headerResponse({ name: "Back" }),
+			});
+			const aggregate = yield* request(page, "aggregate");
+			const count = yield* request(page, "count");
+			page.replyQuery(aggregate.requestId, {
+				outcome: "success",
+				response: { data: { aggregate: { items: [], type: "aggregate" } } },
+			});
+			page.replyQuery(count.requestId, {
+				outcome: "success",
+				response: { data: { count: { type: "aggregate", items: [{ total: 0 }] } } },
+			});
+			const members = yield* request(page, "members");
+			replyMembers(page, members.requestId, {});
+			yield* Effect.promise(() =>
+				waitFor(() => expect(screen.getByRole("heading", { level: 1, name: "Back" })).toBeTruthy()),
+			);
+		}),
+	);
+
+	it.live("filters on a membership field added after a refresh", () =>
+		Effect.gen(function* () {
+			const page = openCollection("col-1", "layout=table");
+			const scored = { ...bookMember, properties: { score: 7 } };
+			yield* answerCollection(page, {
+				name: "Trips",
+				groups: [bookGroup],
+				members: [bookMember],
+				membershipPropertiesSchema: notesSchema,
+			});
+			const answered = new Set(page.queryRequests("members").map(({ requestId }) => requestId));
+			const answerPending = () => {
+				for (const pending of page.queryRequests("members")) {
+					if (!answered.has(pending.requestId)) {
+						answered.add(pending.requestId);
+						replyMembers(page, pending.requestId, { members: [scored] });
+					}
+				}
+			};
+			yield* Effect.promise(() =>
+				waitFor(() => expect(screen.getAllByRole("columnheader").length).toBeGreaterThan(0)),
+			);
+
+			const grown = {
+				unknownKeys: "strict",
+				fields: {
+					...notesSchema.fields,
+					score: { position: 1, type: "number", label: "Score", description: "Score" },
+				},
+			};
+			page.send({ type: "page-refresh" });
+			yield* answerChrome(
+				page,
+				{ name: "Trips", groups: [bookGroup], membershipPropertiesSchema: grown },
+				1,
+			);
+			yield* Effect.promise(() =>
+				waitFor(() => {
+					answerPending();
+					expect(screen.getAllByRole("columnheader").map((cell) => cell.textContent)).toContain(
+						"Score",
+					);
+				}),
+			);
+			yield* Effect.promise(() =>
+				waitFor(() => expect(page.container?.textContent).toContain("7")),
+			);
+
+			fireEvent.click(screen.getByRole("button", { name: /^Filters/ }));
+			fireEvent.click(
+				yield* Effect.promise(() => screen.findByRole("button", { name: /^Add filter/ })),
+			);
+			fireEvent.click(yield* Effect.promise(() => screen.findByRole("radio", { name: "Score" })));
+			const before = page.queryRequests("members").length;
+			fireEvent.change(
+				yield* Effect.promise(() => screen.findByRole("spinbutton", { name: "Score value" })),
+				{ target: { value: "3" } },
+			);
+			const filtered = yield* Effect.promise(() =>
+				waitFor(() => {
+					const found = page.queryRequests("members")[before];
+					assert(found !== undefined);
+					return found;
+				}),
+			);
+			const document = yield* encodeJson(filtered.document);
+			expect(document).toContain("membership.score");
+			expect(document).toContain('"gte"');
+			answerPending();
+			fireEvent.click(screen.getByRole("button", { name: "Close filters" }));
+			yield* Effect.promise(() =>
+				waitFor(() =>
+					expect(screen.getByRole("button", { name: "Filters, 1 active filter" })).toBeTruthy(),
+				),
+			);
+			yield* Effect.promise(() =>
+				waitFor(() => expect(page.container?.textContent).toContain("7")),
+			);
+		}),
 	);
 });
