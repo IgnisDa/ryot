@@ -324,12 +324,65 @@ describe("OAuth token service", () => {
 					const persisted = yield* OAuthStorage;
 					yield* persisted.setTokenSet(origin, tokenSet({ refreshToken: "invalid" }));
 					const tokens = yield* OAuthTokenService;
-					yield* Effect.exit(tokens.accessToken(origin));
+					const failure = yield* Effect.flip(tokens.accessToken(origin));
+					expect(failure.reason).toBe("invalid-grant");
 					expect(yield* persisted.getTokenSet(origin)).toBeNull();
 				}),
 			);
 		},
 	);
+
+	layer(tokenLayer(respond({ error: "invalid_grant" }, 400)))((test) => {
+		test.effect("reports invalid_grant from a forced refresh of a fresh access token", () =>
+			Effect.gen(function* () {
+				const persisted = yield* OAuthStorage;
+				yield* persisted.setTokenSet(origin, tokenSet({ accessTokenExpiresAt: now + 900_000 }));
+				const tokens = yield* OAuthTokenService;
+				const failure = yield* Effect.flip(tokens.accessToken(origin, true));
+				expect(failure.reason).toBe("invalid-grant");
+				expect(yield* persisted.getTokenSet(origin)).toBeNull();
+			}),
+		);
+	});
+
+	layer(tokenLayer(respond({ error: "invalid_grant" }, 400), { held: true }))((test) => {
+		test.effect("reports invalid_grant to every caller joined to the rejected refresh", () =>
+			Effect.gen(function* () {
+				const persisted = yield* OAuthStorage;
+				const endpoint = yield* FakeOAuthEndpoint;
+				yield* persisted.setTokenSet(origin, tokenSet());
+				const tokens = yield* OAuthTokenService;
+				const first = yield* Effect.forkChild(Effect.flip(tokens.accessToken(origin)), {
+					startImmediately: true,
+				});
+				const second = yield* Effect.forkChild(Effect.flip(tokens.accessToken(origin)), {
+					startImmediately: true,
+				});
+
+				yield* endpoint.release;
+				expect((yield* Fiber.join(first)).reason).toBe("invalid-grant");
+				expect((yield* Fiber.join(second)).reason).toBe("invalid-grant");
+				expect(yield* endpoint.requests).toHaveLength(1);
+			}),
+		);
+	});
+
+	layer(
+		tokenLayer(respond({ error: "invalid_grant" }, 400), {
+			storage: { removeItem: () => Effect.fail(new OAuthStorageError({ reason: "write-failed" })) },
+		}),
+	)((test) => {
+		test.effect("reports a failed token deletion after invalid_grant and stays signed out", () =>
+			Effect.gen(function* () {
+				const storage = yield* FakeOAuthStorage;
+				yield* storage.seed(oauthTokenKey(origin), yield* encodeJson(tokenSet()));
+				const tokens = yield* OAuthTokenService;
+				const failure = yield* Effect.flip(tokens.accessToken(origin));
+				expect(failure.reason).toBe("storage-failed");
+				expect(yield* tokens.accessToken(origin)).toBeNull();
+			}),
+		);
+	});
 
 	layer(tokenLayer(emptyResponse))((test) => {
 		test.effect(
@@ -450,6 +503,46 @@ describe("OAuth token service", () => {
 			}),
 		);
 	});
+
+	{
+		const writeStarted = Deferred.makeUnsafe<void>();
+		const writeGate = Deferred.makeUnsafe<void>();
+		layer(
+			tokenLayer(respond(tokenResponse({ access_token: "access-2", refresh_token: "refresh-2" })), {
+				storage: {
+					setItem: () =>
+						Deferred.succeed(writeStarted, undefined).pipe(
+							Effect.andThen(Deferred.await(writeGate)),
+							Effect.andThen(Effect.fail(new OAuthStorageError({ reason: "write-failed" }))),
+						),
+				},
+			}),
+		)((test) => {
+			test.effect("signs out without an error when a foreign clear precedes a failed rotation", () =>
+				Effect.gen(function* () {
+					const storage = yield* FakeOAuthStorage;
+					yield* storage.seed(oauthTokenKey(origin), yield* encodeJson(tokenSet()));
+					const tokens = yield* OAuthTokenService;
+					const refresh = yield* Effect.forkChild(tokens.accessToken(origin), {
+						startImmediately: true,
+					});
+					yield* Deferred.await(writeStarted);
+					const clearing = yield* Effect.forkChild(tokens.clear(origin), {
+						startImmediately: true,
+					});
+
+					yield* Deferred.succeed(writeGate, undefined);
+					expect(yield* Fiber.join(refresh)).toBeNull();
+					yield* Fiber.join(clearing);
+					expect((yield* storage.values).has(oauthTokenKey(origin))).toBe(false);
+					expect(tokens.authorization.forServer(origin).store.getSnapshot()).toEqual({
+						status: "missing",
+					});
+					expect(yield* tokens.accessToken(origin)).toBeNull();
+				}),
+			);
+		});
+	}
 
 	layer(
 		tokenLayer(respond(tokenResponse({ access_token: "access-2", refresh_token: "refresh-2" })), {

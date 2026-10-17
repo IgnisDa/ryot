@@ -80,10 +80,14 @@ const authLayer = (
 						Effect.andThen(Effect.sync(() => authorization.forServer(server).replace(null))),
 						Effect.andThen(tokens.clear?.(server) ?? Effect.void),
 					),
-				accessToken: (server, forceRefresh) =>
+				access: (server, forceRefresh) =>
 					Ref.update(accessTokenCalls, (count) => count + 1).pipe(
 						Effect.andThen(Ref.get(accessToken)),
-						Effect.flatMap((behavior) => behavior(server, forceRefresh)),
+						Effect.flatMap((behavior) => Effect.result(behavior(server, forceRefresh))),
+						Effect.map((result) => ({
+							result,
+							authorization: authorization.forServer(server).current,
+						})),
 					),
 				logout: (server, redirectUri) =>
 					Ref.update(logouts, (all) => [...all, { redirectUri, origin: server }]).pipe(

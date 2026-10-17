@@ -241,6 +241,46 @@ layer(authorizationLayer)((test) => {
 	);
 });
 
+layer(authorizationLayer)((test) => {
+	test.effect("a probe refresh that loses to a replacement settles the replacement profile", () =>
+		Effect.gen(function* () {
+			const storage = yield* OAuthStorage;
+			const service = yield* OAuthTokenService;
+			const auth = yield* AuthService;
+			const endpoint = yield* Endpoint;
+			yield* storage.setTokenSet(origin, tokens("old"));
+			const initial = yield* Effect.forkChild(auth.settledSession(origin));
+			const initialRequest = yield* endpoint.next;
+			yield* Deferred.succeed(initialRequest.reply, json({ sub: "old-user" }));
+			expect(yield* Fiber.join(initial)).toMatchObject({ user: { id: "old-user" } });
+			const expiring = yield* Effect.forkChild(service.accessToken(origin, true));
+			const expiringRequest = yield* endpoint.next;
+			yield* Deferred.succeed(
+				expiringRequest.reply,
+				json({ ...response("expiring"), expires_at: now / 1000 }),
+			);
+			expect(yield* Fiber.join(expiring)).toBe("expiring");
+			expect(auth.session(origin).getSnapshot()).toMatchObject({ user: { id: "old-user" } });
+
+			const probe = yield* Effect.forkChild(auth.settledSession(origin));
+			const refreshRequest = yield* endpoint.next;
+			assert(refreshRequest.init?.body instanceof URLSearchParams);
+			expect(refreshRequest.init.body.get("refresh_token")).toBe("refresh-expiring");
+			yield* replaceAuthorization("replacement");
+			yield* Deferred.succeed(refreshRequest.reply, json(response("stale")));
+			const userInfoRequest = yield* endpoint.next;
+			expect(new Headers(userInfoRequest.init?.headers).get("authorization")).toBe(
+				"Bearer replacement",
+			);
+			yield* Deferred.succeed(userInfoRequest.reply, json({ sub: "new-user" }));
+			expect(yield* Fiber.join(probe)).toMatchObject({
+				status: "authenticated",
+				user: { id: "new-user" },
+			});
+		}),
+	);
+});
+
 for (const change of ["clear", "replace"] as const) {
 	layer(authorizationLayer)((test) => {
 		test.effect(`does not publish late UserInfo after ${change}`, () =>
