@@ -80,11 +80,7 @@ describe("initCustomizeDraft", () => {
 			"installation-media",
 		]);
 		expect(draft.workspaces.map((item) => item.isHidden)).toEqual([true, false, false]);
-		expect(draft.workspaces[0]).toMatchObject({
-			icon: "plugin",
-			isHidden: true,
-			name: "DISABLED · System · test/disabled",
-		});
+		expect(draft.workspaces[0]).toMatchObject({ icon: "plugin", isHidden: true, name: "DISABLED" });
 		expect(draft.views[0]?.pluginInstallationId).toBe("installation-media");
 	});
 
