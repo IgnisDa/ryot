@@ -1,6 +1,6 @@
 import { PluginLink } from "@ryot-app/plugin-client-sdk/plugin";
 import { useRetryEntityPopulation } from "@ryot-app/plugin-client-sdk/react";
-import { Button } from "@ryot-app/plugin-ui-sdk";
+import { Button, Shelf } from "@ryot-app/plugin-ui-sdk";
 import { fieldSyncState } from "@ryot-app/plugin-ui-sdk/sync";
 import clsx from "clsx";
 import { type ReactNode, useMemo, useRef, useState } from "react";
@@ -30,7 +30,7 @@ import {
 import {
 	MediaExternalLink,
 	MediaOverviewSection,
-	MediaRail,
+	mediaShelfIcons,
 	MediaStatusMessage,
 } from "./primitives";
 import { mediaGalleryAssets, type MediaSummaryFields } from "./summary-state";
@@ -91,7 +91,7 @@ export function MediaImageGallerySection(props: {
 				</Button>
 			}
 		>
-			<MediaRail compact={props.compact}>
+			<Shelf label="Images" compact={props.compact} icons={mediaShelfIcons}>
 				{props.assets.map((asset) => (
 					<ManagedAssetImage
 						state="ready"
@@ -101,7 +101,7 @@ export function MediaImageGallerySection(props: {
 						className={clsx("aspect-video", props.compact ? "w-64" : "w-96")}
 					/>
 				))}
-			</MediaRail>
+			</Shelf>
 			{galleryOpen && (
 				<MediaImageGallery
 					name={props.name}
@@ -138,7 +138,7 @@ export function MediaWatchProvidersSection(props: {
 				{props.groups.map((group) => (
 					<div key={group.offer} className="flex flex-col gap-2.5">
 						<p className="font-ui font-medium text-[12px] text-text-subtle">{group.label}</p>
-						<MediaRail compact={props.compact}>
+						<Shelf label={group.label} compact={props.compact} icons={mediaShelfIcons}>
 							{group.providers.map((provider) => (
 								<div
 									key={provider.name}
@@ -155,7 +155,7 @@ export function MediaWatchProvidersSection(props: {
 									</p>
 								</div>
 							))}
-						</MediaRail>
+						</Shelf>
 					</div>
 				))}
 				<p className="font-ui text-[11px] leading-3.75 text-text-subtle">
@@ -208,7 +208,7 @@ export function MediaPeopleSection(props: {
 			sync={mediaSyncCounts(props.people, mediaPersonAsset)}
 			className={props.compact ? undefined : CREDIT_COLUMN_CLASS}
 		>
-			<MediaRail compact={props.compact}>
+			<Shelf label={props.title} compact={props.compact} icons={mediaShelfIcons}>
 				{props.people.map((person) => {
 					const roles = mediaRolesLabel(person.roles);
 					const character = mediaCharacterLabel(person.character ?? null);
@@ -269,7 +269,7 @@ export function MediaPeopleSection(props: {
 						</div>
 					</div>
 				))}
-			</MediaRail>
+			</Shelf>
 		</MediaOverviewSection>
 	);
 }

@@ -1,5 +1,5 @@
 import { PluginLink } from "@ryot-app/plugin-client-sdk/plugin";
-import { Button } from "@ryot-app/plugin-ui-sdk";
+import { Button, Shelf } from "@ryot-app/plugin-ui-sdk";
 import { fieldSyncState } from "@ryot-app/plugin-ui-sdk/sync";
 import clsx from "clsx";
 import type { ReactNode } from "react";
@@ -12,7 +12,7 @@ import {
 } from "./entity-presentation";
 import type { MediaImageAsset } from "./image";
 import { ManagedAssetImage } from "./managed-assets";
-import { MediaOverviewSection, MediaRail } from "./primitives";
+import { MediaOverviewSection, mediaShelfIcons } from "./primitives";
 import { mediaPosterAsset } from "./summary-state";
 import { type MediaSyncCounts, mediaSyncCounts } from "./sync-counts";
 
@@ -106,7 +106,7 @@ export function MediaRailFrame(props: MediaSectionFrameProps) {
 		<MediaSectionFrame
 			{...props}
 			placeholder={
-				<MediaRail compact={props.compact}>
+				<Shelf label={props.title} compact={props.compact} icons={mediaShelfIcons}>
 					{Array.from({ length: PENDING_TILE_COUNT }, (_, index) => (
 						<div
 							key={index}
@@ -116,10 +116,12 @@ export function MediaRailFrame(props: MediaSectionFrameProps) {
 							)}
 						/>
 					))}
-				</MediaRail>
+				</Shelf>
 			}
 		>
-			<MediaRail compact={props.compact}>{props.children}</MediaRail>
+			<Shelf label={props.title} compact={props.compact} icons={mediaShelfIcons}>
+				{props.children}
+			</Shelf>
 		</MediaSectionFrame>
 	);
 }
