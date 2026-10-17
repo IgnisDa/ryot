@@ -149,7 +149,7 @@ describe("video game schema", () => {
 		const { unmount, container } = renderBody();
 
 		expect(container.textContent).toContain("How long to beat");
-		expect(container.textContent).toContain("Hastily");
+		expect(container.textContent).toContain("Rushed");
 		expect(container.textContent).toContain("10h");
 		expect(container.textContent).toContain("25h");
 		expect(container.textContent).toContain("Platforms");

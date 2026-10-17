@@ -12,9 +12,9 @@ type VideoGameOverviewSummary = {
 };
 
 const TIME_TO_BEAT_PACES = [
-	{ key: "hastily", label: "Hastily" },
-	{ key: "normally", label: "Normally" },
-	{ key: "completely", label: "Completely" },
+	{ key: "hastily", label: "Rushed" },
+	{ key: "normally", label: "Main story" },
+	{ key: "completely", label: "Completionist" },
 ] as const;
 
 export const videoGameTimeToBeatFacts = (

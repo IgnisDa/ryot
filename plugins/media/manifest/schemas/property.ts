@@ -80,9 +80,12 @@ const watchProvidersField = (description: string) =>
 
 const mediaBaseFields = {
 	publishYear: integerField("Publish Year", "Year this media was first published or released"),
-	sourceUrl: stringField("Source Url", "Link to the original source or external provider page"),
-	isNsfw: booleanField("Is Nsfw", "Whether this media contains adult or not-safe-for-work content"),
+	sourceUrl: stringField("Source link", "Link to the original source or external provider page"),
 	providerRating: numberField("Provider Rating", "Aggregate score from the external data provider"),
+	isNsfw: booleanField(
+		"Adult content",
+		"Whether this media contains adult or not-safe-for-work content",
+	),
 	productionStatus: stringField(
 		"Production Status",
 		"Current production status (e.g. Ended, Continuing, Cancelled)",
@@ -352,9 +355,21 @@ export const videoGamePropertiesSchema: AppSchema = {
 			unknownKeys: "strict",
 			description: "Estimated time to complete the game at different paces",
 			properties: {
-				hastily: { type: "integer", label: "Hastily", description: "Hastily" },
-				normally: { type: "integer", label: "Normally", description: "Normally" },
-				completely: { type: "integer", label: "Completely", description: "Completely" },
+				hastily: {
+					type: "integer",
+					label: "Rushed (minutes)",
+					description: "Minutes to finish when rushing through",
+				},
+				completely: {
+					type: "integer",
+					label: "Completionist (minutes)",
+					description: "Minutes to finish everything",
+				},
+				normally: {
+					type: "integer",
+					label: "Main story (minutes)",
+					description: "Minutes to finish at a typical pace",
+				},
 			},
 		},
 	},
@@ -369,7 +384,7 @@ export const personPropertiesSchema: AppSchema = {
 		birthPlace: stringField("Birth Place", "City or country where this person was born"),
 		website: stringField("Website", "Official website or online presence of this person"),
 		sourceUrl: stringField(
-			"Source Url",
+			"Source link",
 			"Link to the external source or provider page for this person",
 		),
 		alternateNames: stringArrayField(
@@ -393,7 +408,7 @@ export const companyPropertiesSchema: AppSchema = {
 			"City or country where this company is headquartered",
 		),
 		sourceUrl: stringField(
-			"Source Url",
+			"Source link",
 			"Link to the external source or provider page for this company",
 		),
 		alternateNames: stringArrayField(
@@ -411,7 +426,7 @@ export const mediaGroupPropertiesSchema: AppSchema = {
 	fields: {
 		parts: integerField("Parts", "Number of items in this group"),
 		images: mediaImagesField("Cover and promotional images for this group"),
-		sourceUrl: stringField("Source Url", "Link to the original source or external provider page"),
+		sourceUrl: stringField("Source link", "Link to the original source or external provider page"),
 		description: translatableStringField(
 			"Description",
 			"Provider group overview in restrictedMarkdown: basic formatting, :spoiler/:::spoiler, safe links, no raw HTML",
