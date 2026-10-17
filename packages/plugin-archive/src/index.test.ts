@@ -139,7 +139,13 @@ const scriptJavascriptBytes = encoder.encode(scriptJavascript);
 const scriptJavascriptHash = sha256Hex(scriptJavascriptBytes);
 const scriptArchiveMetadata = encoder.encode(
 	`${JSON.stringify(
-		{ scripts: [{ format: 1, entry: scriptEntry, hash: scriptJavascriptHash }] },
+		{
+			scripts: [compiledScriptFixture].map(({ entry, format }) => ({
+				entry,
+				format,
+				hash: scriptJavascriptHash,
+			})),
+		},
 		null,
 		"\t",
 	)}\n`,
@@ -169,6 +175,18 @@ const manifestWithBytes = (bytes: number): PluginArchivePackage["manifest"] => {
 		...manifest,
 		metadata: { ...manifest.metadata, description: "a".repeat(bytes - emptyBytes) },
 	};
+};
+
+const noiseBytes = (size: number, seed: number) => {
+	const bytes = new Uint8Array(size);
+	let state = seed;
+	for (let index = 0; index < bytes.length; index += 1) {
+		state ^= state << 13;
+		state ^= state >>> 17;
+		state ^= state << 5;
+		bytes[index] = state & 0xff;
+	}
+	return bytes;
 };
 
 const artifactFile = (artifact: PluginClientArtifact, name: string) => {
@@ -374,6 +392,7 @@ describe("plugin archive", () => {
 			expect(entries[`compiled-backend/files/${scriptJavascriptHash}.js`]).toEqual(
 				scriptJavascriptBytes,
 			);
+			expect(entries["compiled-backend/metadata.json"]).toEqual(scriptArchiveMetadata);
 			expect(
 				yield* Schema.decodeEffect(Schema.fromJsonString(Schema.Unknown))(
 					new TextDecoder().decode(entries["compiled-backend/metadata.json"]),
@@ -771,6 +790,27 @@ describe("plugin archive", () => {
 			"manifest-bytes-exceeded",
 		));
 
+	it.each([Number.NaN, Infinity, -Infinity])(
+		"rejects a serialized invalid manifest number %s",
+		(requests) =>
+			expectWriteReason(
+				{
+					manifest: {
+						...fixture.manifest,
+						httpRateLimits: [
+							{ requests, key: "fixture", intervalMs: 1_000, origins: ["https://example.com"] },
+						],
+					},
+				},
+				"manifest-invalid",
+			),
+	);
+
+	it("validates compiled artifacts against the exact serialized manifest", () => {
+		const manifest = { ...scriptManifest, toJSON: () => fixture.manifest };
+		expectWriteReason({ ...scriptFixture, manifest }, "compiled-script-invalid");
+	});
+
 	it.each([
 		"backend/main.sandbox.ts",
 		"backend/a.ts",
@@ -941,6 +981,39 @@ describe("plugin archive", () => {
 			new Uint8Array(PLUGIN_ARCHIVE_LIMITS.maxCompressedBytes + 1),
 			"compressed-bytes-exceeded",
 		));
+
+	it("rejects writer compressed output independently of all uncompressed limits", () => {
+		const compiledScripts = Array.from(
+			{
+				length:
+					PLUGIN_ARCHIVE_LIMITS.maxCompiledBackendBytes /
+					PLUGIN_ARCHIVE_LIMITS.maxCompiledBackendJavascriptBytes,
+			},
+			(_, index) => ({
+				format: 1,
+				entry: `backend/script-${index}.sandbox.ts`,
+				javascript: new TextDecoder().decode(
+					noiseBytes(PLUGIN_ARCHIVE_LIMITS.maxCompiledBackendJavascriptBytes, index + 1).map(
+						(byte) => 32 + (byte % 95),
+					),
+				),
+			}),
+		);
+		const manifest = {
+			...scriptManifest,
+			scripts: scriptManifest.scripts.flatMap((script) =>
+				compiledScripts.map(({ entry }, index) => ({ ...script, entry, slug: `script-${index}` })),
+			),
+		};
+		const compiledClient = clientFixture([
+			{
+				name: "assets/noise.svg",
+				contentType: "image/svg+xml",
+				contents: noiseBytes(PLUGIN_ARCHIVE_LIMITS.maxCompiledClientBytes, 33),
+			},
+		]);
+		expectWriteReason({ manifest, compiledClient, compiledScripts }, "compressed-bytes-exceeded");
+	}, 120_000);
 
 	it("rejects the entry count limit", () => {
 		const entries: Array<readonly [string, Uint8Array]> = [["manifest.json", rawManifest]];
