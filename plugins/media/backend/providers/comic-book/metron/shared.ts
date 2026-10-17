@@ -6,7 +6,7 @@ import { asRecord } from "@ryot-app/plugin-backend-sdk/wire";
 import { mediaGenreGroups } from "../../../lib/media-genres";
 import { numberValue, stringValue } from "../../../lib/records";
 import { normalizeRichDescription } from "../../../lib/rich-description";
-import type { RoleRelatedEntity } from "../../../lib/role-accumulator";
+import { createRoleAccumulator, type RoleRelatedEntity } from "../../../lib/role-accumulator";
 import { getIdentifier, loadMetronJson, type MetronHost } from "../../../lib/vendors/metron";
 
 export const manifest = defineManifest({
@@ -47,25 +47,7 @@ const buildPeople = (credits: unknown): RoleRelatedEntity[] => {
 	if (!Array.isArray(credits)) {
 		return [];
 	}
-	const relatedEntityByKey = new Map<string, RoleRelatedEntity>();
-	const addRelatedEntity = (relatedEntity: RoleRelatedEntity) => {
-		const key = `${relatedEntity.providerSlug}:${relatedEntity.externalId}`;
-		const existing = relatedEntityByKey.get(key);
-		if (!existing) {
-			relatedEntityByKey.set(key, relatedEntity);
-			return;
-		}
-		existing.relationshipProperties.roles = [
-			...new Set([
-				...existing.relationshipProperties.roles,
-				...relatedEntity.relationshipProperties.roles,
-			]),
-		];
-		if (existing.name === "Loading..." && relatedEntity.name !== "Loading...") {
-			existing.name = relatedEntity.name;
-		}
-	};
-	const seen = new Set<string>();
+	const accumulator = createRoleAccumulator();
 	for (const credit of credits) {
 		const record = asRecord(credit);
 		if (!record) {
@@ -85,12 +67,7 @@ const buildPeople = (credits: unknown): RoleRelatedEntity[] => {
 			: [];
 		const roles = roleNames.length > 0 ? roleNames : ["Contributor"];
 		for (const role of roles) {
-			const key = `${externalId}:${role}`;
-			if (seen.has(key)) {
-				continue;
-			}
-			seen.add(key);
-			addRelatedEntity({
+			accumulator.add({
 				name,
 				externalId,
 				providerSlug: "person.metron",
@@ -98,7 +75,7 @@ const buildPeople = (credits: unknown): RoleRelatedEntity[] => {
 			});
 		}
 	}
-	return [...relatedEntityByKey.values()];
+	return accumulator.entities;
 };
 
 const collectSuggestions = (host: MetronHost, sourceExternalId: string, arcs: unknown) => {

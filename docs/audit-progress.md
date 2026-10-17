@@ -15,7 +15,7 @@
 
 ## Status
 
-**62 implemented, 0 in progress, 21 pending; 3 excluded.**
+**63 implemented, 0 in progress, 20 pending; 3 excluded.**
 
 “Implemented” means affected checks and tests passed and the change is committed with this tracker. Batch-wide acceptance is recorded separately below. Rows follow the audit's ranked order; sequencing can change to respect dependencies and keep changes reviewable.
 
@@ -100,7 +100,7 @@
 | C07-R2 | Implemented | Shared collection-editor mutation ownership interrupts departure and suppresses late callbacks and refresh; it does not imply server rollback. See this finding's audit commit. |
 | C08-R1 | Implemented | Admin operations return ordinary Effects instead of Exit; remove null busy markers, represent busy requests and skipped outcomes explicitly, and clear request state in finalizers. See this finding's audit commit. |
 | P03-R1 | Pending | Normalize existing Request headers/body once. |
-| M01-R1 | Pending | Use the canonical Metron role accumulator. |
+| M01-R1 | Implemented | Use the canonical Metron role accumulator without folding or a second set pass. See this finding's audit commit. |
 | M04-R2 | Pending | Select only consumed episodic-completion fields. |
 | M05-R1 | Implemented | Delete the import-admission shadow union; real manifest admission validates 17 sources. See this finding's audit commit. |
 | M06-R1 | Implemented | Remove dead hero configuration, resolve locators once, and retain actual headers and the home backdrop. See this finding's audit commit. |
@@ -228,3 +228,4 @@
 - P05-R2: UI check passed before 21 focused tests and 325 full UI tests; read-only review passed. One destination drives the reorder preview; pointer cancellation and commit behavior remain.
 - F02-R1: scoped checks passed before 52 tests; read-only review passed. Each selected workout group is normalized once, using first-valid-row metadata while preserving failures and ordering.
 - A02-R1: server check passed before 15 harness tests; read-only review passed. Event IDs scan in 500-row C-collated pages across distinct streams, with bulk processing, normalized timestamps, and warning multisets. Combined restored normal/larger migration validation is running separately and remains pending.
+- M01-R1: scoped checks passed before 12 tests; read-only review passed. Metron uses the canonical role accumulator without folding or a second set pass.
