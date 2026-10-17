@@ -9,6 +9,7 @@ import {
 import { PluginManifest } from "@ryot-app/contract/modules/plugins/manifest";
 import { RyotQLDocument } from "@ryot-app/contract/modules/ryotql/language";
 import {
+	EntityBrowserPluginRouteAddAction,
 	EntityBrowserSavedViewSettings,
 	KernelSavedViewRendererName,
 } from "@ryot-app/contract/modules/saved-views/schemas";
@@ -273,10 +274,13 @@ const savedViewFields = {
 export const ArchiveEntityBrowserSavedViewSettings = strictStruct({
 	...EntityBrowserSavedViewSettings.fields,
 	addAction: Schema.NullOr(
-		strictStruct({
-			type: Schema.Literal("provider-search"),
-			schema: strictStruct({ slug: Schema.String, pluginKey: Schema.NullOr(Schema.String) }),
-		}),
+		Schema.Union([
+			strictStruct({
+				type: Schema.Literal("provider-search"),
+				schema: strictStruct({ slug: Schema.String, pluginKey: Schema.NullOr(Schema.String) }),
+			}),
+			EntityBrowserPluginRouteAddAction,
+		]),
 	),
 });
 

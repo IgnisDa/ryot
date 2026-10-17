@@ -161,7 +161,7 @@ export const validateEntityBrowserSavedViewDefinition = Effect.fn(
 		}
 	}
 	if (
-		settings.addAction !== null &&
+		settings.addAction?.type === "provider-search" &&
 		(entityAlias === undefined ||
 			!hasFixedEntityValue(
 				query.where,

@@ -575,7 +575,7 @@ export const preflightProvenance = Effect.fn(function* (
 					settings,
 				).pipe(Effect.mapError((error) => badRequest(error.message)));
 				if (
-					decoded.addAction &&
+					decoded.addAction?.type === "provider-search" &&
 					!definitions.entitySchemas[
 						definitionKey("entity", decoded.addAction.schema.owner, decoded.addAction.schema.slug)
 					]
