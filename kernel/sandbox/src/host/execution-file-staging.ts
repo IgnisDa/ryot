@@ -10,7 +10,7 @@ export class ExecutionFileStaging extends Context.Service<
 		prepare: (
 			input: SandboxRunInput,
 		) => Effect.Effect<
-			((sources: ReadonlyArray<string>) => Effect.Effect<string[], SandboxRunError>) | null,
+			((outputs: ReadonlyArray<Uint8Array>) => Effect.Effect<string[], SandboxRunError>) | null,
 			SandboxRunError
 		>;
 	}

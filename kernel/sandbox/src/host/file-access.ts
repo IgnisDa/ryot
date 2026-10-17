@@ -19,7 +19,6 @@ import {
 	declaresSandboxFilesystemGrant,
 	decodeSandboxScratchManifest,
 	measureSandboxScratchBytes,
-	SANDBOX_HARVEST_DIRECTORY_PREFIX,
 	SANDBOX_SCRATCH_DIRECTORY_PREFIX,
 	sandboxArtifactGrant,
 	sandboxGrantPathError,
@@ -528,11 +527,7 @@ export class ExecutionFiles extends Context.Service<ExecutionFiles>()("Execution
 							});
 						}
 
-						const harvestDirectory = yield* acquireTemporaryDirectory(
-							SANDBOX_HARVEST_DIRECTORY_PREFIX,
-							input.executionId,
-						);
-						const sources: string[] = [];
+						const outputs: Uint8Array[] = [];
 						for (const name of chunkFiles) {
 							const upload = uploads.get(name);
 							if (upload === undefined) {
@@ -546,11 +541,7 @@ export class ExecutionFiles extends Context.Service<ExecutionFiles>()("Execution
 								`Sandbox scratch file "${name}"`,
 								upload.bytes,
 							).pipe(Effect.mapError((error) => sandboxFailure(error, "script-failure")));
-							const target = path.join(harvestDirectory, name);
-							yield* fs
-								.writeFile(target, bytes, { flag: "wx", mode: 0o600 })
-								.pipe(Effect.mapError((error) => sandboxFailure(error, "infrastructure")));
-							sources.push(target);
+							outputs.push(bytes);
 						}
 
 						const stageOutputs = Option.isSome(staging)
@@ -559,13 +550,13 @@ export class ExecutionFiles extends Context.Service<ExecutionFiles>()("Execution
 						const ownerExecutionId =
 							input.grants?.artifactOwnerExecutionId ?? input.workflowExecutionId;
 						if (stageOutputs !== null) {
-							return { chunkHandles: yield* stageOutputs(sources) };
+							return { chunkHandles: yield* stageOutputs(outputs) };
 						}
 						if (ownerExecutionId === undefined) {
 							return null;
 						}
 						const chunkHandles = yield* artifacts
-							.materializeOutputs(ownerExecutionId, sources)
+							.materializeOutputs(ownerExecutionId, outputs)
 							.pipe(Effect.mapError((error) => sandboxFailure(error, "infrastructure")));
 						return { chunkHandles };
 					}),

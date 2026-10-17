@@ -24,7 +24,7 @@ import { assert, describe, expect } from "vitest";
 import { MiB, SANDBOX_LIMITS } from "../protocol/limits";
 import { ExecutionFileStore } from "./execution-files";
 import { ExecutionFiles } from "./file-access";
-import { measureSandboxScratchBytes, SANDBOX_HARVEST_DIRECTORY_PREFIX } from "./filesystem-grants";
+import { measureSandboxScratchBytes } from "./filesystem-grants";
 import { makeSandboxHostConfigLayer } from "./host.test-support";
 import type { SandboxRunInput } from "./invocation";
 
@@ -182,10 +182,8 @@ const scratchBytesIn = (root: string) =>
 const scratchDirectoriesIn = (root: string) =>
 	Effect.gen(function* () {
 		const fs = yield* FileSystem.FileSystem;
-		return (yield* fs.readDirectory(root)).filter(
-			(entry) =>
-				entry.startsWith(scratchDirectoryPrefix) ||
-				entry.startsWith(SANDBOX_HARVEST_DIRECTORY_PREFIX),
+		return (yield* fs.readDirectory(root)).filter((entry) =>
+			entry.startsWith(scratchDirectoryPrefix),
 		);
 	});
 
