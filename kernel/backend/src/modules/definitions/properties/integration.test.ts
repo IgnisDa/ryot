@@ -1,10 +1,11 @@
 import { expect, it } from "@effect/vitest";
 import { PropertyValidationError } from "@ryot-app/contract/schema/property-schema";
+import { parseAppSchemaPropertiesSafe } from "@ryot-app/contract/schema/property-values";
 import { Effect } from "effect";
 import { describe } from "vitest";
 
 import { fixtureEntityPropertiesSchema } from "./fixture.test-support";
-import { parseAppSchemaPropertiesSafe, parseLabeledPropertySchemaInput } from "./runtime";
+import { parseLabeledPropertySchemaInput } from "./runtime";
 
 describe("property schema DSL", () => {
 	it.effect("parses a valid schema definition", () =>

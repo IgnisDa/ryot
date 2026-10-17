@@ -15,6 +15,7 @@ import type {
 	AppSchemaRuleCondition,
 	AppStringProperty,
 } from "@ryot-app/contract/schema/property-schema";
+import { parseAppSchemaPropertiesSafe } from "@ryot-app/contract/schema/property-values";
 import { Effect } from "effect";
 import { describe, expect, it } from "vitest";
 
@@ -22,7 +23,6 @@ import { fixtureExamplePropertiesSchema } from "./fixture.test-support";
 import {
 	formatPropertyIssues,
 	parseAppSchemaProperties,
-	parseAppSchemaPropertiesSafe,
 	validateAppSchemaDefinition,
 } from "./runtime";
 
@@ -941,17 +941,71 @@ describe("validateAppSchemaDefinition", () => {
 		expect(validateAppSchemaDefinition(missingCondition)[0]?.message).toContain("nonexistent");
 	});
 
-	it("rejects nested upload declarations unless explicitly allowed", () => {
+	it("rejects upload formats nested in objects even when allowed for imports", () => {
 		const upload = str({ format: { kind: "upload", allowedFileExtensions: ["pdf"] } });
-		const s = schema({ metadata: objectProp({ attachments: arrayProp(upload) }) });
+		const s = schema({ metadata: objectProp({ attachment: upload }) });
+
+		expect(validateAppSchemaDefinition(s, { allowUpload: true })).toEqual([
+			{
+				message: "The upload format must be top-level",
+				path: ["fields", "metadata", "properties", "attachment", "format"],
+			},
+		]);
+	});
+
+	it("rejects upload formats nested in array items even when allowed for imports", () => {
+		const upload = str({ format: { kind: "upload", allowedFileExtensions: ["pdf"] } });
+		const s = schema({ attachments: arrayProp(upload) });
+
+		expect(validateAppSchemaDefinition(s, { allowUpload: true })).toEqual([
+			{
+				message: "The upload format must be top-level",
+				path: ["fields", "attachments", "items", "format"],
+			},
+		]);
+	});
+
+	it("rejects upload formats outside import schemas", () => {
+		const upload = str({ format: { kind: "upload", allowedFileExtensions: ["pdf"] } });
+
+		expect(validateAppSchemaDefinition(schema({ attachment: upload }))).toEqual([
+			{
+				path: ["fields", "attachment", "format"],
+				message: "Upload properties are only allowed in import schemas",
+			},
+		]);
+		expect(
+			validateAppSchemaDefinition(schema({ attachment: upload }), { allowUpload: true }),
+		).toEqual([]);
+	});
+
+	it("rejects OAuth connection formats nested in objects", () => {
+		const oauthConnection = str({ format: { provider: "account", kind: "oauth-connection" } });
+		const s = schema({ metadata: objectProp({ account: oauthConnection }) });
 
 		expect(validateAppSchemaDefinition(s)).toEqual([
 			{
-				message: "Upload properties are only allowed in import schemas",
-				path: ["fields", "metadata", "properties", "attachments", "items", "format"],
+				message: "The oauth-connection format must be top-level",
+				path: ["fields", "metadata", "properties", "account", "format"],
 			},
 		]);
-		expect(validateAppSchemaDefinition(s, { allowUpload: true })).toEqual([]);
+	});
+
+	it("rejects OAuth connection formats nested in array items", () => {
+		const oauthConnection = str({ format: { provider: "account", kind: "oauth-connection" } });
+		const s = schema({ accounts: arrayProp(oauthConnection) });
+
+		expect(validateAppSchemaDefinition(s)).toEqual([
+			{
+				path: ["fields", "accounts", "items", "format"],
+				message: "The oauth-connection format must be top-level",
+			},
+		]);
+	});
+
+	it("allows a top-level OAuth connection format", () => {
+		const oauthConnection = str({ format: { provider: "account", kind: "oauth-connection" } });
+		expect(validateAppSchemaDefinition(schema({ account: oauthConnection }))).toEqual([]);
 	});
 });
 
