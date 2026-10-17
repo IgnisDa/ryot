@@ -93,6 +93,9 @@ const WorkflowOwnerState = Schema.Struct({
 	fingerprint: Schema.NullOr(Schema.String),
 });
 
+// Keep receipt rows below PostgreSQL's 65,535 bind-parameter limit per statement.
+const batchCandidateChunkSize = 1000;
+
 const retiringAccountFilter = (account: AccountGeneration) =>
 	and(
 		eq(userLifecycleOperation.userId, account.userId),
@@ -556,6 +559,23 @@ export class MutationReceipts extends Context.Service<MutationReceipts>()("Mutat
 			if (existing) {
 				return existing;
 			}
+			const candidates = yield* Effect.forEach(
+				input.pins,
+				Effect.fnUntraced(function* (pin) {
+					const row: typeof mutationReceipt.$inferInsert = {
+						...input.identity,
+						...pin.references,
+						id: pin.id,
+						dispatch: [],
+						batchId: input.identity.id,
+						receiptType: "batch-candidate",
+						ownerUserId: pin.references.scopeUserId ?? input.identity.ownerUserId,
+						mutationScope: pin.references.scopeUserId === null ? "global" : "user",
+						result: yield* decodeStoredSchema(pin.payload, JsonValue, "Invalid batch pin"),
+					};
+					return row;
+				}),
+			);
 			yield* session.run((db) =>
 				db
 					.insert(mutationReceipt)
@@ -566,22 +586,11 @@ export class MutationReceipts extends Context.Service<MutationReceipts>()("Mutat
 						result: { maxItems: input.maxItems, candidateCount: input.pins.length },
 					}),
 			);
-			for (const pin of input.pins) {
-				const result = yield* decodeStoredSchema(pin.payload, JsonValue, "Invalid batch pin");
+			for (let offset = 0; offset < candidates.length; offset += batchCandidateChunkSize) {
 				yield* session.run((db) =>
 					db
 						.insert(mutationReceipt)
-						.values({
-							...input.identity,
-							...pin.references,
-							result,
-							id: pin.id,
-							dispatch: [],
-							batchId: input.identity.id,
-							receiptType: "batch-candidate",
-							ownerUserId: pin.references.scopeUserId ?? input.identity.ownerUserId,
-							mutationScope: pin.references.scopeUserId === null ? "global" : "user",
-						}),
+						.values(candidates.slice(offset, offset + batchCandidateChunkSize)),
 				);
 			}
 			return {

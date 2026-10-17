@@ -15,7 +15,7 @@
 
 ## Status
 
-**38 implemented, 0 in progress, 45 pending; 3 excluded.**
+**39 implemented, 0 in progress, 44 pending; 3 excluded.**
 
 “Implemented” means affected checks and tests passed and the change is committed with this tracker. Batch-wide acceptance is recorded separately below. Rows follow the audit's ranked order; sequencing can change to respect dependencies and keep changes reviewable.
 
@@ -46,7 +46,7 @@
 | P01-R2 | Implemented | Notification specifics owns the creation discriminator; repository derives the scalar, while stored and listed delivery stay unchanged. See this finding's audit commit. |
 | C06-R2 | Implemented | Provider-keyed options query owns the form and submitted-search snapshot; search waits for successful option loading, while no-options providers are immediate and active import stays outside. See this finding's audit commit. |
 | B16-R1 | Implemented | Use relational execution and retention references with snapshot JSON; derive execution user from scope and preserve retention/replay. See this finding's audit commit. |
-| B16-R2 | Pending | Insert candidates as a set or bounded chunks. |
+| B16-R2 | Implemented | Predecode candidate rows in bounded chunks of 1,000 before inserting them. See this finding's audit commit. |
 | B06-R1 | Pending | Materialize distinct pins and accepted automation runs as sets. |
 | P01-R1 | Pending | Generated provider metadata owns script/operation bindings. |
 | B09-R1 | Pending | Persist collection fields in authored order. |
@@ -203,3 +203,4 @@
 - C06-R1: client and recipe type checks plus scoped format/lint passed before 229 client tests, 18 recipe tests, and three additional recipe tests; read-only review reported no findings. Active watch recipes and route preparation remain. Development data is disposable; no compatibility path or drain machinery is needed, and no reset was performed.
 - P05-R1: UI check and consumer checks passed before 313 UI, 34 renderer, 35 admin, and one compiler test; read-only review reported no issues.
 - C03-R1: client type, format, and lint checks passed before 124 tests; read-only review passed.
+- B16-R2: scoped backend checks passed before 23 tests; read-only review passed.
