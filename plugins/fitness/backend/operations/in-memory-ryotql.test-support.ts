@@ -1,7 +1,12 @@
 import { assert } from "@effect/vitest";
+import type {
+	Predicate,
+	RyotQLDocument,
+	ScalarExpression,
+} from "@ryot-app/contract/modules/ryotql/language";
 import { Effect } from "@ryot-app/plugin-backend-sdk/effect";
-import type { RyotQLDocument } from "@ryot-app/plugin-backend-sdk/ryotql";
 
+type Expression = ScalarExpression | Predicate;
 type StoredRow = Readonly<Record<string, unknown>>;
 type Rows = Readonly<Record<string, StoredRow>>;
 export type StoredTables = Readonly<Record<string, readonly StoredRow[]>>;
@@ -76,61 +81,45 @@ export const measurementTables: StoredTables = {
 	],
 };
 
-const evaluate = (expression: unknown, rows: Rows, tables: StoredTables): unknown => {
-	assert(typeof expression === "object" && expression !== null && "type" in expression);
-	if (expression.type === "literal" && "value" in expression) {
+const evaluate = (expression: Expression, rows: Rows, tables: StoredTables): unknown => {
+	if (expression.type === "literal") {
 		return expression.value;
 	}
 	if (expression.type === "pluginId") {
 		return "fitness-owner";
 	}
-	if (expression.type === "cast" && "expr" in expression) {
+	if (expression.type === "cast") {
 		return evaluate(expression.expr, rows, tables);
 	}
-	if (expression.type === "jsonPath" && "expr" in expression && "path" in expression) {
-		assert(Array.isArray(expression.path));
+	if (expression.type === "jsonPath") {
 		let value = evaluate(expression.expr, rows, tables);
 		for (const key of expression.path) {
-			assert(typeof key === "string");
 			assert(typeof value === "object" && value !== null);
-			value = Object.entries(value).find(([name]) => name === key)?.[1];
+			value = Object.entries(value).find(([name]) => name === String(key))?.[1];
 		}
 		return value;
 	}
-	if (expression.type === "aggregate" && "query" in expression) {
-		const query = expression.query;
-		assert(typeof query === "object" && query !== null && "from" in query && "where" in query);
-		const from = query.from;
-		assert(typeof from === "object" && from !== null && "table" in from && "alias" in from);
-		assert(typeof from.table === "string" && typeof from.alias === "string");
-		const alias = from.alias;
+	if (expression.type === "aggregate") {
+		const { from, where } = expression.query;
 		return (tables[from.table] ?? []).filter(
-			(row) => evaluate(query.where, { ...rows, [alias]: row }, tables) === true,
+			(row) =>
+				where === undefined || evaluate(where, { ...rows, [from.alias]: row }, tables) === true,
 		).length;
 	}
-	if (expression.type === "column" && "tableAlias" in expression && "field" in expression) {
-		assert(typeof expression.tableAlias === "string" && typeof expression.field === "string");
+	if (expression.type === "column") {
 		return rows[expression.tableAlias]?.[expression.field];
 	}
-	if (expression.type === "isNotNull" && "expr" in expression) {
+	if (expression.type === "isNotNull") {
 		return evaluate(expression.expr, rows, tables) != null;
 	}
-	if (expression.type === "and" && "predicates" in expression) {
-		assert(Array.isArray(expression.predicates));
+	if (expression.type === "and") {
 		return expression.predicates.every((predicate) => evaluate(predicate, rows, tables) === true);
 	}
-	if (expression.type === "in" && "expr" in expression && "values" in expression) {
-		assert(Array.isArray(expression.values));
+	if (expression.type === "in") {
 		const value = evaluate(expression.expr, rows, tables);
 		return expression.values.some((candidate) => evaluate(candidate, rows, tables) === value);
 	}
-	if (
-		expression.type === "comparison" &&
-		"operator" in expression &&
-		expression.operator === "eq" &&
-		"left" in expression &&
-		"right" in expression
-	) {
+	if (expression.type === "comparison" && expression.operator === "eq") {
 		return evaluate(expression.left, rows, tables) === evaluate(expression.right, rows, tables);
 	}
 	throw new Error("Unsupported RyotQL expression");

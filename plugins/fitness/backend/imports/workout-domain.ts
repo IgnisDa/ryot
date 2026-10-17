@@ -115,3 +115,45 @@ export const determineWorkoutExerciseKind = (
 	}
 	return null;
 };
+
+export const buildWorkoutItem = <Row extends { readonly itemIndex: number }>(input: {
+	readonly rows: readonly Row[];
+	readonly failures: WorkoutAdapterFailure[];
+	readonly exerciseName: (row: Row) => string;
+	readonly toSet: (row: Row) => WorkoutImportSet;
+	readonly item: Omit<WorkoutImportItem, "exercises">;
+}): WorkoutAdapterResult => {
+	const { item, failures } = input;
+	const rowsByExercise = new Map<string, Row[]>();
+	for (const row of input.rows) {
+		const name = input.exerciseName(row);
+		rowsByExercise.set(name, [...(rowsByExercise.get(name) ?? []), row]);
+	}
+	const exercises: WorkoutImportExercise[] = [];
+	for (const [name, rows] of rowsByExercise) {
+		const sets = rows.map(input.toSet);
+		const kind = determineWorkoutExerciseKind(sets);
+		if (!kind) {
+			failures.push({
+				unit: "exercises",
+				sourceLabel: `Exercise: ${name}`,
+				itemIndex: rows[0]?.itemIndex ?? item.itemIndex,
+				sourceIdentifier: `${item.sourceIdentifier}:${name}`,
+				message: `Could not determine exercise kind from ${sets.length} sets`,
+			});
+			continue;
+		}
+		exercises.push({ kind, sets, name });
+	}
+	if (exercises.length === 0) {
+		failures.push({
+			unit: "workouts",
+			itemIndex: item.itemIndex,
+			sourceLabel: item.sourceLabel,
+			sourceIdentifier: item.sourceIdentifier,
+			message: "Workout has no importable exercises",
+		});
+		return { failures };
+	}
+	return { failures, item: { ...item, exercises } };
+};

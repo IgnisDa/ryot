@@ -25,7 +25,7 @@ export function EditorNotices(props: {
 	readonly draft: WorkoutEditorDraft | undefined;
 	readonly measurementError: boolean;
 	readonly snapshot: WorkoutEditorControllerSnapshot;
-	readonly conflict: { readonly reloadable: boolean } | undefined;
+	readonly conflict: boolean;
 	readonly exercises: { readonly isError: boolean; readonly refetch: () => void };
 	readonly onSave: () => void;
 	readonly onFlush: () => void;
@@ -41,13 +41,13 @@ export function EditorNotices(props: {
 	const ready = snapshot.status === "ready" && draft !== undefined && props.hasContext;
 	return (
 		<MotionList className="grid gap-3 empty:hidden">
-			{props.conflict !== undefined && draft !== undefined ? (
+			{props.conflict && draft !== undefined ? (
 				<Notice
 					icon={alert}
 					tone="danger"
 					title="This workout changed elsewhere"
 					action={
-						props.disabled || !props.conflict.reloadable ? undefined : (
+						props.disabled ? undefined : (
 							<Button size="sm" variant="secondary" onClick={props.onReload}>
 								Reload saved version
 							</Button>

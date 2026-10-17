@@ -10,7 +10,7 @@ import type {
 	WorkoutEditorSaveInput,
 	WorkoutEditorSaveOutput,
 } from "../../shared/workout-editor-operations";
-import { reconcileWorkoutTimers } from "./actions";
+import { type ExpectedCountdowns, reconcileWorkoutTimers } from "./actions";
 import { createAlertSynchronizer } from "./controller-alerts";
 import {
 	isWorkoutEditorSaving,
@@ -29,8 +29,6 @@ import {
 	type WorkoutMediaTarget,
 } from "./media-state";
 import { invalidateWorkoutCountdowns } from "./timers";
-
-type ExpectedCountdowns = { readonly executionClientId?: string; readonly restClientId?: string };
 
 type WorkoutEditorController = {
 	readonly setExerciseNames: (

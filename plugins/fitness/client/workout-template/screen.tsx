@@ -12,7 +12,7 @@ import { durationDisplayUnit } from "../../shared/workout-units";
 import { AssetArtWell, managedAssetBatch } from "../asset-urls";
 import { useAddToCollection } from "../collections";
 import { DeleteFitnessEntity } from "../entity-delete";
-import { supersetColorVariable, supersetLetter } from "../group-colors";
+import { supersetColorVariable, supersetName } from "../group-colors";
 import { HeaderActionsMenu } from "../header-actions-menu";
 import { WorkoutMediaViewer } from "../media-viewer";
 import { setLabels, setLots } from "../set-lots";
@@ -76,7 +76,7 @@ function TemplateDetails(props: { readonly entityId: string }) {
 			orders.includes(occurrence.exerciseOrder),
 		);
 		if (index !== undefined && index !== -1 && !names.has(index)) {
-			names.set(index, `Superset ${supersetLetter(names.size)}`);
+			names.set(index, supersetName(names.size));
 		}
 	}
 	const plannedSets = plan.exercises.reduce((total, { sets }) => total + sets.length, 0);

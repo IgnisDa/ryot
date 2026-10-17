@@ -6,7 +6,7 @@ import { chunk } from "../../shared/collections";
 import {
 	MEASUREMENT_SERIES_BATCH_SIZE,
 	type MeasurementEntryReading,
-	measurementEntryReadingsRecipe,
+	measurementPageReadingsRecipe,
 	type MeasurementSeries,
 	measurementSeriesRecipe,
 	type MeasurementSummary,
@@ -102,19 +102,19 @@ export const readingsQuery = createRyotQuery<
 				limit: READING_PAGE_SIZE,
 			}),
 		);
-		const items = yield* Effect.forEach(
-			page.items,
-			(entry) =>
-				Effect.map(
-					readCursorPages((after) =>
-						client.data.query(
-							measurementEntryReadingsRecipe({ after, reference, entryId: entry.id }),
-						),
-					),
-					({ items: readings }) => ({ ...entry, readings }),
-				),
-			{ concurrency: 4 },
+		const { items: readings } = yield* readCursorPages((after) =>
+			client.data.query(
+				measurementPageReadingsRecipe({
+					after,
+					reference,
+					entryIds: page.items.map(({ id }) => id),
+				}),
+			),
 		);
+		const items = page.items.map((entry) => ({
+			...entry,
+			readings: readings.filter(({ entryId }) => entryId === entry.id),
+		}));
 		return { ...page, items };
 	}),
 );

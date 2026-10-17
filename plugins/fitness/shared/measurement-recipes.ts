@@ -22,6 +22,7 @@ import {
 	relationshipSchemaPredicate,
 	schemaOwnerPredicate,
 	selectedField,
+	selectedOptionalRow,
 	selectedRows,
 	selectedTimeSeries,
 	table,
@@ -180,10 +181,9 @@ export const measurementEntryRecipe = defineRecipe((entryId: string) => {
 	const entry = table("entity", "entry");
 	const reading = table("event", "reading");
 	return {
-		map: ({ entries }) => Result.succeed(entries.items[0] ?? null),
+		map: ({ entry: found }) => Result.succeed(found ?? null),
 		queries: {
-			entries: selectedRows(entry, {
-				limit: 1,
+			entry: selectedOptionalRow(entry, {
 				orderBy: [ascending(column(entry, "id"))],
 				where: and(
 					eq(column(entry, "id"), literal(entryId)),
@@ -269,8 +269,46 @@ export const measurementMetricIdsRecipe = defineRecipe((metricIds: readonly stri
 	};
 });
 
+export const measurementPageReadingsRecipe = defineRecipe(
+	(input: {
+		readonly entryIds: readonly string[];
+		readonly reference: PluginIdentityReference;
+		readonly after?: string | undefined;
+	}) => {
+		const reading = table("event", "reading");
+		const metric = table("entity", "metric");
+		return {
+			map: ({ readings }) => Result.succeed(readings),
+			queries: {
+				readings: selectedRows(reading, {
+					limit: 100,
+					after: input.after,
+					orderBy: [ascending(column(reading, "id"))],
+					joins: [join("inner", metric, eq(column(reading, "entityId"), column(metric, "id")))],
+					where: and(
+						inArray(column(reading, "sessionEntityId"), input.entryIds.map(literal)),
+						eventSchemaPredicate(
+							reading,
+							metric,
+							"measurement-metric",
+							"measurement-reading",
+							input.reference,
+						),
+					),
+					selection: {
+						id: selectedField(column(reading, "id"), Schema.String),
+						metricId: selectedField(column(metric, "id"), Schema.String),
+						value: selectedField(propertyNumber(reading, "value"), Schema.Finite),
+						entryId: selectedField(column(reading, "sessionEntityId"), Schema.String),
+					},
+				}),
+			},
+		};
+	},
+);
+
 export type MeasurementEntryReading = Recipe.Success<
-	typeof measurementEntryReadingsRecipe
+	typeof measurementPageReadingsRecipe
 >["items"][number];
 
 export const pinnedMeasurementMetricIdsRecipe = defineRecipe(() => {

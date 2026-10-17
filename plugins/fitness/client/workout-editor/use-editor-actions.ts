@@ -98,7 +98,7 @@ export function useEditorActions(input: {
 	const addedExerciseId = useRef<string | undefined>(undefined);
 	const [message, setMessage] = useState<string>();
 	const [invalid, setInvalid] = useState<InvalidSet>();
-	const [conflict, setConflict] = useState<{ readonly reloadable: boolean }>();
+	const [conflict, setConflict] = useState(false);
 	const local =
 		editorDraft !== undefined && context !== undefined
 			? resolveWorkoutLocalPreferences(editorDraft.localPreferences, context.settings)
@@ -188,7 +188,7 @@ export function useEditorActions(input: {
 					input.onSaved?.(result.entityId);
 					return;
 				}
-				setConflict(result.kind === "conflict" ? { reloadable: true } : undefined);
+				setConflict(result.kind === "conflict");
 				closeOverlay();
 				setMessage(saveFailureMessage(result));
 				controller.change((rejected) =>
@@ -544,7 +544,7 @@ export function useEditorActions(input: {
 				if (yield* controller.discard()) {
 					yield* controller.start(loaded.draft);
 					onReloaded();
-					setConflict(undefined);
+					setConflict(false);
 					setMessage(undefined);
 					closeOverlay();
 				}

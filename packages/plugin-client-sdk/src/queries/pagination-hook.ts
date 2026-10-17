@@ -22,7 +22,7 @@ import { RyotContext } from "./provider";
 export const usePagination = <Page, Param>(
 	options: PaginationOptions<Page, Param> & {
 		readonly identity: unknown;
-		readonly enabled?: boolean;
+		readonly enabled?: boolean | undefined;
 	},
 ) => {
 	const [stored, setStored] = useState(() => ({
@@ -115,6 +115,7 @@ export const useRyotInfiniteQuery = <
 		readonly getPageInput: (input: Input, param: Param) => QueryInput;
 		readonly getNextPageParam: PaginationOptions<Page, Param>["getNextPageParam"];
 		readonly mode?: "append" | "replace" | undefined;
+		readonly enabled?: boolean | undefined;
 	},
 ) => {
 	const context = useContext(RyotContext);
@@ -141,6 +142,7 @@ export const useRyotInfiniteQuery = <
 	const result = usePagination<Page, Param>({
 		identity,
 		mode: options.mode,
+		enabled: options.enabled,
 		initialPageParam: options.initialPageParam,
 		getNextPageParam: options.getNextPageParam,
 		load: (param, refresh) =>
@@ -165,7 +167,7 @@ export const useRyotInfiniteQuery = <
 				);
 			}),
 	});
-	usePageRefresh(result.refresh);
+	usePageRefresh(() => (options.enabled === false ? Effect.void : result.refresh()));
 	const interests =
 		result.pages.length === 0
 			? [
@@ -187,7 +189,7 @@ export const useRyotInfiniteQuery = <
 		blocked: false,
 		identity: inputKey,
 		onRefresh: result.refresh,
-		enabled: query.entityWatch !== undefined,
+		enabled: query.entityWatch !== undefined && options.enabled !== false,
 		interest: {
 			visible: [...new Set(interests.flatMap((interest) => interest?.visible ?? []))],
 			foreground: [...new Set(interests.flatMap((interest) => interest?.foreground ?? []))],

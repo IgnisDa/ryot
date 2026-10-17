@@ -44,3 +44,36 @@ export const executeRyotqlRecipe = <Success, Error, Requirements>(
 				: Effect.succeed(decoded.success);
 		}),
 	);
+
+export const readAllRyotqlPages = <Item, Error, Requirements>(
+	loadPage: (
+		after: string | undefined,
+	) => Effect.Effect<
+		{
+			readonly items: ReadonlyArray<Item>;
+			readonly pageInfo: { readonly hasMore: boolean; readonly nextCursor: string | null };
+		},
+		Error,
+		Requirements
+	>,
+) =>
+	Effect.gen(function* () {
+		const items: Item[] = [];
+		const cursors = new Set<string>();
+		let after: string | undefined;
+		let hasMore = true;
+		while (hasMore) {
+			const page = yield* loadPage(after);
+			items.push(...page.items);
+			hasMore = page.pageInfo.hasMore;
+			if (hasMore) {
+				const cursor = page.pageInfo.nextCursor;
+				if (cursor === null || cursor === "" || cursors.has(cursor)) {
+					return yield* Effect.die("RyotQL pagination did not advance");
+				}
+				cursors.add(cursor);
+				after = cursor;
+			}
+		}
+		return items;
+	});

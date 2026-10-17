@@ -230,8 +230,9 @@ it("preserves decoded history, provider priority, missing identifiers, and failu
 it("keeps filename classification at the ZIP boundary and ignores aggregate watched files", () => {
 	expect(classifyTraktExportName("watched-movies.json")).toBeUndefined();
 	expect(classifyTraktExportName("profile.json")).toBeUndefined();
-	expect(classifyTraktExportName("ratings-movies-2.json")?.page).toBe(2);
-	expect(classifyTraktExportName("ratings-movies-10.json")?.page).toBe(10);
+	expect(classifyTraktExportName("ratings-movies-2.json")?.kind.type).toBe("rating");
+	expect(classifyTraktExportName("ratings-movies-10.json")?.kind.type).toBe("rating");
+	expect(classifyTraktExportName("ratings-movies-02.json")).toBeUndefined();
 });
 
 it.live("rejects malformed captured list metadata before committing a normalization window", () =>

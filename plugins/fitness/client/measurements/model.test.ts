@@ -46,7 +46,7 @@ const reading = (
 	id,
 	comment,
 	occurredAt,
-	readings: [{ value, metricId, id: `${id}-reading` }],
+	readings: [{ value, metricId, entryId: id, id: `${id}-reading` }],
 });
 
 describe("rollingAverage", () => {

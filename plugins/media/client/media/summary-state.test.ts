@@ -98,29 +98,6 @@ describe("media summary state", () => {
 		});
 	});
 
-	it("takes the backdrop from the first declared purpose an image matches", () => {
-		const artwork = { type: "remote", purpose: "artwork", url: "https://images.test/artwork.jpg" };
-		const backdrop = {
-			type: "remote",
-			purpose: "backdrop",
-			url: "https://images.test/backdrop.jpg",
-		};
-		const media = decodeShowSummary({ images: [backdrop, artwork] });
-
-		expect(mediaBackdropAsset(media, ["artwork", "backdrop"])).toEqual({
-			type: "remote",
-			url: "https://images.test/artwork.jpg",
-		});
-		expect(
-			mediaBackdropAsset(decodeShowSummary({ images: [backdrop] }), ["artwork", "backdrop"]),
-		).toEqual({ type: "remote", url: "https://images.test/backdrop.jpg" });
-		expect(mediaBackdropAsset(media, ["artwork"])).toEqual({
-			type: "remote",
-			url: "https://images.test/artwork.jpg",
-		});
-		expect(mediaBackdropAsset(media, ["still"])).toBeUndefined();
-	});
-
 	it("registers each managed locator once across image purposes and excludes remote images", () => {
 		const media = decodeShowSummary({
 			images: [

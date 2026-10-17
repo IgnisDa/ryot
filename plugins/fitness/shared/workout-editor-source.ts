@@ -270,27 +270,44 @@ const workoutDraft = (
 		: { kind: "ready", draft: decoded };
 };
 
+export const normalizeTemplatePlan = (value: unknown) => {
+	const decoded = valid(TemplatePropertiesSchema, value);
+	if (decoded === undefined) {
+		return undefined;
+	}
+	const exercises = decoded.exercises
+		.map((occurrence) =>
+			Object.assign({}, occurrence, {
+				sets: [...occurrence.sets].sort((left, right) => left.setOrder - right.setOrder),
+			}),
+		)
+		.sort((left, right) => left.exerciseOrder - right.exerciseOrder);
+	const orders = new Set(exercises.map(({ exerciseOrder }) => exerciseOrder));
+	const invalid =
+		orders.size !== exercises.length ||
+		exercises.some(
+			({ sets, exerciseId }) =>
+				exerciseId.length === 0 ||
+				new Set(sets.map(({ setOrder }) => setOrder)).size !== sets.length,
+		) ||
+		decoded.supersets?.some(({ exercises: members }) =>
+			members.some((order) => !orders.has(order)),
+		);
+	return invalid ? undefined : { ...decoded, exercises };
+};
+
 const templateDraft = (
 	baseline: WorkoutEditorBaseline,
 	exercises: readonly WorkoutEditorExercise[],
 	draftId: string,
 ): WorkoutEditorSourceHydration => {
 	const blockers: SourceBlocker[] = [];
-	const properties = valid(TemplatePropertiesSchema, baseline.entity.properties);
+	const properties = normalizeTemplatePlan(baseline.entity.properties);
 	if (properties === undefined) {
 		return blockerResult(baseline, [{ code: "invalid-record", exerciseId: baseline.entity.id }]);
 	}
 	const exercisesById = new Map(exercises.map((exercise) => [exercise.id, exercise]));
-	const orderedSources = [...properties.exercises].sort(
-		(left, right) => left.exerciseOrder - right.exerciseOrder,
-	);
-	const seenOrders = new Set<number>();
-	const occurrences = orderedSources.flatMap((source) => {
-		if (seenOrders.has(source.exerciseOrder)) {
-			blockers.push({ code: "invalid-record", exerciseId: source.exerciseId });
-			return [];
-		}
-		seenOrders.add(source.exerciseOrder);
+	const occurrences = properties.exercises.flatMap((source) => {
 		const exercise = exercisesById.get(source.exerciseId);
 		if (exercise === undefined) {
 			blockers.push({ code: "missing-exercise", exerciseId: source.exerciseId });
@@ -302,11 +319,6 @@ const templateDraft = (
 			return [];
 		}
 		const occurrenceId = sourceOccurrenceId(baseline.entity.id, source.exerciseOrder);
-		const orderedSets = [...source.sets].sort((left, right) => left.setOrder - right.setOrder);
-		if (new Set(orderedSets.map(({ setOrder }) => setOrder)).size !== orderedSets.length) {
-			blockers.push({ code: "invalid-record", exerciseId: source.exerciseId });
-			return [];
-		}
 		return [
 			makeOccurrence(occurrenceId, source.exerciseId, exerciseKind, {
 				notes: source.notes,
@@ -314,7 +326,7 @@ const templateDraft = (
 				videos: source.videos ?? [],
 				display: storageWorkoutDisplay,
 				sourceExerciseOrder: source.exerciseOrder,
-				sets: orderedSets.map((set) =>
+				sets: source.sets.map((set) =>
 					makeSet(
 						sourceSetId(baseline.entity.id, source.exerciseOrder, set.setOrder),
 						exerciseKind,

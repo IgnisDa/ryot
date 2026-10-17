@@ -82,9 +82,13 @@ A derived performance achievement for an exercise, calculated from recorded sets
 A user-owned named quantity with a stable key and optional unit, such as body weight, whose readings are recorded over time.
 _Avoid_: Measurement reading
 
+**Measurement entry**:
+One logged or imported submission, holding its occurrence time and optional comment. Its readings belong to it by reference; equal timestamps never merge entries.
+_Avoid_: Measurement reading
+
 **Measurement reading**:
-A user's value for a measurement metric at an occurrence time, with any comment. Readings saved during a live workout remain independent of whether that workout is saved.
-_Avoid_: Measurement metric, workout set
+A user's value for a measurement metric within a measurement entry. Readings saved during a live workout remain independent of whether that workout is saved.
+_Avoid_: Measurement metric, workout set, measurement entry
 
 **Pinned metric**:
 A measurement metric selected for prominent display and logging in the user's Fitness library.

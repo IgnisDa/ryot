@@ -1,13 +1,9 @@
-import { Effect } from "@ryot-app/plugin-client-sdk/effect";
 import {
 	localDay,
 	nextPageCursor,
 	paginationItems,
-	usePageRefresh,
-	usePagination,
 	usePluginIdentity,
 	usePluginUserSettings,
-	useRyot,
 	useRyotInfiniteQuery,
 	useRyotQuery,
 	useRyotSchedule,
@@ -34,15 +30,16 @@ import { AppIcon } from "@ryot-app/plugin-ui-sdk/icon";
 import clsx from "clsx";
 import { type ReactNode, type RefObject, useEffect, useMemo, useState } from "react";
 
-import {
-	type EpisodicEarlierUnwatched,
-	episodicEarlierUnwatchedRecipe,
-	type MediaActivityLogContext,
-} from "../../../shared/activity-log-recipes";
+import { type MediaActivityLogContext } from "../../../shared/activity-log-recipes";
 import { consumedOnSettingKey } from "../../../shared/consumed-on-settings";
 import { PLUGIN_PACKAGE_ID } from "../../../shared/plugin-identity";
 import { podcastEpisodesQuery } from "../../podcast/episodes-query";
-import { activityLogContextQuery, logActivityMutation, showSeasonChoicesQuery } from "./queries";
+import {
+	activityLogContextQuery,
+	earlierEpisodesQuery,
+	logActivityMutation,
+	showSeasonChoicesQuery,
+} from "./queries";
 import {
 	activityCopyLabels,
 	type ActivityDraft,
@@ -187,37 +184,17 @@ function useEarlierEpisodes(props: {
 	readonly kind: "show" | "podcast" | undefined;
 }): Earlier {
 	const { kind, entityId, episodeId } = props;
-	const client = useRyot();
-	const selection = useMemo(
-		() =>
-			kind === undefined || episodeId === undefined
-				? undefined
-				: { kind, client, parentEntityId: entityId, episodeEntityId: episodeId },
-		[client, entityId, episodeId, kind],
+	const enabled = kind !== undefined && episodeId !== undefined;
+	const query = useRyotInfiniteQuery(
+		earlierEpisodesQuery,
+		{ kind: kind ?? "show", parentEntityId: entityId, episodeEntityId: episodeId ?? "" },
+		{
+			enabled,
+			initialPageParam: FIRST_PAGE,
+			getNextPageParam: (page) => (page.hasMore ? page.nextCursor : null),
+			getPageInput: (input, after) => ({ ...input, after }),
+		},
 	);
-	const query = usePagination<EpisodicEarlierUnwatched, string | null>({
-		identity: selection,
-		initialPageParam: FIRST_PAGE,
-		enabled: selection !== undefined,
-		getNextPageParam: (page) => (page.hasMore ? page.nextCursor : null),
-		load: (after) =>
-			Effect.gen(function* () {
-				if (selection === undefined) {
-					return yield* Effect.die(new Error("Earlier episode selection is missing"));
-				}
-				return yield* selection.client.data.query(
-					episodicEarlierUnwatchedRecipe({
-						kind: selection.kind,
-						limit: EARLIER_PAGE_LIMIT,
-						parentEntityId: selection.parentEntityId,
-						episodeEntityId: selection.episodeEntityId,
-						reference: selection.client.pluginIdentity(PLUGIN_PACKAGE_ID),
-						...(after === null ? {} : { after }),
-					}),
-				);
-			}),
-	});
-	usePageRefresh(() => (selection === undefined ? Effect.void : query.refresh()));
 	const { pages, retry, isError, isPending, isFetching, hasNextPage, fetchNextPage } = query;
 	const pagesLoaded = pages.length;
 	useEffect(() => {
@@ -245,7 +222,7 @@ function useEarlierEpisodes(props: {
 		}));
 		return { episodes, status: "ready", tooMany: episodes.length > BACKFILL_LIMIT };
 	}, [hasNextPage, isError, isPending, pages, pagesLoaded, retry]);
-	return selection === undefined ? { status: "none" } : earlier;
+	return enabled ? earlier : { status: "none" };
 }
 
 function EpisodeList(props: {

@@ -38,6 +38,7 @@ const ExportItem = Schema.Struct({
 	rating: Schema.optional(Schema.Finite),
 	comment: Schema.optional(ExportComment),
 	rated_at: Schema.optional(Schema.String),
+	listed_at: Schema.optional(Schema.String),
 	watched_at: Schema.optional(Schema.String),
 	season: Schema.optional(ExportCoordinates),
 	episode: Schema.optional(ExportCoordinates),
@@ -63,6 +64,32 @@ export type TraktRecordContext =
 	| { type: "history" | "rating" | "comment" }
 	| { type: "collection"; name: string }
 	| { type: "backlog"; importedAt: string };
+
+export const TraktApiKind = Schema.Literals([
+	"lists",
+	"list",
+	"collection",
+	"watchlist",
+	"history",
+	"rating",
+]);
+
+export const traktApiRecordContext = (
+	kind: Exclude<typeof TraktApiKind.Type, "lists">,
+	listName: string,
+	importedAt: string,
+): TraktRecordContext => {
+	switch (kind) {
+		case "list":
+			return { type: "collection", name: listName };
+		case "collection":
+			return { type: "collection", name: "Owned" };
+		case "watchlist":
+			return { type: "backlog", importedAt };
+		default:
+			return { type: kind };
+	}
+};
 
 export const normalizeTraktRecord = (
 	raw: unknown,
@@ -143,10 +170,7 @@ export const normalizeTraktRecord = (
 	if (context.type === "collection") {
 		addCollectionMembership(group, context.name);
 	} else if (context.type === "backlog") {
-		const listing = Schema.decodeUnknownSync(
-			Schema.Struct({ listed_at: Schema.optional(Schema.String) }),
-		)(raw);
-		group.events.push(createBacklogEvent(listing.listed_at ?? context.importedAt));
+		group.events.push(createBacklogEvent(item.listed_at ?? context.importedAt));
 	}
 	return { failures: [], entityGroups: [group] };
 };
