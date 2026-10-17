@@ -7,7 +7,7 @@ import {
 } from "@ryot-app/fitness-plugin/contracts/operation-recipes";
 import {
 	type MeasurementEntryReading,
-	measurementEntryReadingsRecipe,
+	measurementPageReadingsRecipe,
 	type MeasurementSummary,
 	measurementSummaryRecipe,
 } from "@ryot-app/fitness-plugin/measurement-recipes";
@@ -121,42 +121,41 @@ export const readMeasurementLogReadings = Effect.fn(function* (
 		}
 		after = page.pageInfo.hasMore ? (page.pageInfo.nextCursor ?? undefined) : undefined;
 	} while (after !== undefined);
-	const batches = yield* Effect.forEach(entries.items, (entry) =>
-		Effect.gen(function* () {
-			const values: MeasurementEntryReading[] = [];
-			let childAfter: string | undefined;
-			do {
-				const page = yield* executeRyotQLRecipe(
-					client,
-					measurementEntryReadingsRecipe({
-						after: childAfter,
-						entryId: entry.id,
-						reference: input.reference,
-					}),
-				);
-				values.push(...page.items);
-				childAfter = page.pageInfo.hasMore ? (page.pageInfo.nextCursor ?? undefined) : undefined;
-			} while (childAfter !== undefined);
-			return values
-				.map((reading) => {
-					const metric = metrics.get(reading.metricId);
-					if (metric === undefined) {
-						throw new Error("Expected measurement metric");
-					}
-					return {
-						id: reading.id,
-						entryId: entry.id,
-						unit: metric.unit,
-						value: reading.value,
-						metricKey: metric.key,
-						comment: entry.comment,
-						metricName: metric.name,
-						metricId: reading.metricId,
-						occurredAt: entry.occurredAt,
-					};
-				})
-				.sort((left, right) => (left.metricKey ?? "").localeCompare(right.metricKey ?? ""));
-		}),
+	const readings: MeasurementEntryReading[] = [];
+	let readingsAfter: string | undefined;
+	do {
+		const page = yield* executeRyotQLRecipe(
+			client,
+			measurementPageReadingsRecipe({
+				after: readingsAfter,
+				reference: input.reference,
+				entryIds: entries.items.map((entry) => entry.id),
+			}),
+		);
+		readings.push(...page.items);
+		readingsAfter = page.pageInfo.hasMore ? (page.pageInfo.nextCursor ?? undefined) : undefined;
+	} while (readingsAfter !== undefined);
+	const batches = entries.items.map((entry) =>
+		readings
+			.filter((reading) => reading.entryId === entry.id)
+			.map((reading) => {
+				const metric = metrics.get(reading.metricId);
+				if (metric === undefined) {
+					throw new Error("Expected measurement metric");
+				}
+				return {
+					id: reading.id,
+					entryId: entry.id,
+					unit: metric.unit,
+					value: reading.value,
+					metricKey: metric.key,
+					comment: entry.comment,
+					metricName: metric.name,
+					metricId: reading.metricId,
+					occurredAt: entry.occurredAt,
+				};
+			})
+			.sort((left, right) => (left.metricKey ?? "").localeCompare(right.metricKey ?? "")),
 	);
 	return { ...entries, items: batches.flat() };
 });

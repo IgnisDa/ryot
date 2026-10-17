@@ -102,12 +102,12 @@ const parseOptional = <I, A>(
 	parse: (value: I) => Result.Result<A, string>,
 ) =>
 	Option.match(value, {
-		onNone: () => Effect.succeed(Option.none<A>()),
+		onNone: () => Effect.succeedNone,
 		onSome: (input) => {
 			const parsed = parse(input);
 			return Result.isFailure(parsed)
 				? Effect.fail(configError(`${name} is invalid: ${parsed.failure}.`))
-				: Effect.succeed(Option.some(parsed.success));
+				: Effect.succeedSome(parsed.success);
 		},
 	});
 

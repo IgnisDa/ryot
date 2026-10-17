@@ -10,8 +10,8 @@ const parse = (source: string) =>
 	createTypeScriptProject({
 		projectKind: "test",
 		entries: ["source.ts"],
-		files: { "source.ts": source },
 		virtualRoot: "/__ryot_test__",
+		files: { "source.ts": source },
 		tsserverPath: resolveTypeScriptCompilerPath(from),
 		configuration: {
 			compilerOptions: {
@@ -101,14 +101,9 @@ it.effect("reports every reference kind in document order with its node and spec
 				specifier: "./typed",
 				text: 'typeof import("./typed")',
 			},
-			{ specifier: null, isTopLevel: false, kind: "import-type", text: "import(1)" },
-			{
-				isTopLevel: false,
-				specifier: "./lazy",
-				kind: "dynamic-import",
-				text: 'import("./lazy")',
-			},
-			{ specifier: null, isTopLevel: false, kind: "dynamic-import", text: "import(name)" },
+			{ specifier: null, isTopLevel: false, text: "import(1)", kind: "import-type" },
+			{ isTopLevel: false, specifier: "./lazy", kind: "dynamic-import", text: 'import("./lazy")' },
+			{ specifier: null, isTopLevel: false, text: "import(name)", kind: "dynamic-import" },
 			{
 				isTopLevel: false,
 				kind: "import-meta",

@@ -78,20 +78,10 @@ const reference = (node: ts.Node): TypeScriptReference | null => {
 		};
 	}
 	if (ts.isCallExpression(node) && node.expression.kind === ts.SyntaxKind.ImportKeyword) {
-		return {
-			node,
-			isTopLevel,
-			kind: "dynamic-import",
-			specifier: literalText(node.arguments[0]),
-		};
+		return { node, isTopLevel, kind: "dynamic-import", specifier: literalText(node.arguments[0]) };
 	}
 	if (ts.isNewExpression(node) && importMetaUrlBase(node)) {
-		return {
-			node,
-			isTopLevel,
-			kind: "import-meta",
-			specifier: literalText(node.arguments?.[0]),
-		};
+		return { node, isTopLevel, kind: "import-meta", specifier: literalText(node.arguments?.[0]) };
 	}
 	if (isImportMeta(node) && !isImportMetaUrlBase(node)) {
 		return { node, isTopLevel, specifier: null, kind: "import-meta" };

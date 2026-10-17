@@ -1,6 +1,9 @@
 import { Effect, FileSystem } from "effect";
 
-import { type CompiledBuiltInSandboxEntry, compileSandboxPackageEntries } from "./compiler-builtins";
+import {
+	type CompiledBuiltInSandboxEntry,
+	compileSandboxPackageEntries,
+} from "./compiler-builtins";
 import { pluginBackendCompilerDiagnostic, sandboxCompilationFailure } from "./compiler-diagnostics";
 import type { SandboxTypeScriptSources } from "./compiler-project";
 import type { SandboxEntryDeclaration } from "./compiler-validation";

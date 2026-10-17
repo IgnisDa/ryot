@@ -85,7 +85,7 @@ export const createTypeScriptSourcesProjectForEntries = (
 							});
 						}
 						const execution = yield* analyzeSandboxExecution(sourceFile);
-						return { entry, sourceFile, execution } satisfies SandboxProjectEntry;
+						return { entry, execution, sourceFile } satisfies SandboxProjectEntry;
 					}),
 				);
 				return {

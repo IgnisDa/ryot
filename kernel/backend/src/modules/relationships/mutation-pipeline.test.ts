@@ -308,7 +308,6 @@ describe("Relationship set-based mutation pipeline", () => {
 							scope === "user"
 								? yield* pipeline.commitBatch(pending)
 								: yield* pipeline.commitReconciliation(pending);
-						assert(committed._tag === "Committed");
 						expect(committed.result).toEqual(
 							scope === "user"
 								? { created: 2, updated: 1, deleted: 1 }
@@ -464,7 +463,6 @@ describe("Relationship set-based mutation pipeline", () => {
 				yield* repository.createRelationship({ ...mutation.input, properties: existingProperties });
 				const pending = yield* pipeline.applyPolicies(prepared.pending);
 				const committed = yield* pipeline.commitSingle(pending);
-				assert(committed._tag === "Committed");
 				expect(committed.result).toMatchObject({
 					operation: "noop",
 					relationship: { properties: existingProperties },

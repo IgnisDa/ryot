@@ -598,10 +598,7 @@ export const createWorkoutEditorController = (
 					yield* flush();
 					const result = yield* ports.save(submission);
 					if (result.kind === "saved") {
-						publish({
-							...snapshot,
-							saveState: { result, cleaning: true, phase: "acknowledged" },
-						});
+						publish({ ...snapshot, saveState: { result, cleaning: true, phase: "acknowledged" } });
 						yield* removeDraft(true);
 					} else if (isReady(snapshot)) {
 						setDraft({ ...snapshot.draft, submission: undefined }, true);
@@ -610,12 +607,7 @@ export const createWorkoutEditorController = (
 					return result;
 				}).pipe(
 					Effect.ensuring(
-						Effect.sync(() =>
-							publish({
-								...snapshot,
-								saveState: settledSaveState(snapshot),
-							}),
-						),
+						Effect.sync(() => publish({ ...snapshot, saveState: settledSaveState(snapshot) })),
 					),
 				);
 			}).pipe(Effect.uninterruptible),

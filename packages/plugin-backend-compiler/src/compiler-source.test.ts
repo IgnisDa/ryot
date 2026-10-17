@@ -528,8 +528,8 @@ it.layer(pluginBackendCompilerPlatformLayer)("sandbox source import policy", (te
 			reached: "backend/lib/x.ts",
 			label: "a star re-export chain",
 			modules: {
-				"backend/barrel.ts": 'export * from "./lib/x";',
 				"backend/lib/x.ts": effectModule,
+				"backend/barrel.ts": 'export * from "./lib/x";',
 			},
 		},
 	])(

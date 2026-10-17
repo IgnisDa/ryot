@@ -30,7 +30,7 @@ import { AppIcon } from "@ryot-app/plugin-ui-sdk/icon";
 import clsx from "clsx";
 import { type ReactNode, type RefObject, useEffect, useMemo, useState } from "react";
 
-import { type MediaActivityLogContext } from "../../../shared/activity-log-recipes";
+import type { MediaActivityLogContext } from "../../../shared/activity-log-recipes";
 import { consumedOnSettingKey } from "../../../shared/consumed-on-settings";
 import { PLUGIN_PACKAGE_ID } from "../../../shared/plugin-identity";
 import { podcastEpisodesQuery } from "../../podcast/episodes-query";
@@ -190,8 +190,8 @@ function useEarlierEpisodes(props: {
 		{
 			enabled,
 			initialPageParam: FIRST_PAGE,
-			getNextPageParam: (page) => (page.hasMore ? page.nextCursor : null),
 			getPageInput: (input, after) => ({ ...input, after }),
+			getNextPageParam: (page) => (page.hasMore ? page.nextCursor : null),
 		},
 	);
 	const { pages, retry, isError, isPending, isFetching, hasNextPage, fetchNextPage } = query;

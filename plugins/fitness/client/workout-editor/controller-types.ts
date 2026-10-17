@@ -22,11 +22,7 @@ type SavedResult = Extract<WorkoutEditorSaveOutput, { readonly kind: "saved" }>;
 type SaveState =
 	| { readonly phase: "idle" }
 	| { readonly phase: "in-flight" }
-	| {
-			readonly phase: "acknowledged";
-			readonly result: SavedResult;
-			readonly cleaning: boolean;
-	  }
+	| { readonly phase: "acknowledged"; readonly result: SavedResult; readonly cleaning: boolean }
 	| { readonly phase: "saved"; readonly result: SavedResult };
 
 type ContextSnapshot = {
