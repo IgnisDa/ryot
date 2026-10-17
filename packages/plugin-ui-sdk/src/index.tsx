@@ -45,6 +45,7 @@ export { RadioGroup } from "./radio-group";
 export { MultiSelect } from "./multi-select";
 export type { SelectChoice } from "./select";
 export { SearchField } from "./search-field";
+export { ShortcutHint } from "./shortcut-hint";
 export { ReorderableList } from "./reorderable-list";
 export type { RadioGroupOption } from "./radio-group";
 export { CellInput, Checkbox, Field, FieldMessage, Radio, TextArea, TextField } from "./text-field";
