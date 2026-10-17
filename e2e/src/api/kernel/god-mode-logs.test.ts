@@ -1,12 +1,18 @@
 import { gunzipSync } from "node:zlib";
 
-import { Effect } from "effect";
+import { Effect, FileSystem, Path } from "effect";
 import { unzipSync } from "fflate";
 
-import { adminAccessTokenHeaders, getApiClient, seedServerLog } from "~/fixtures/kernel";
+import {
+	adminAccessTokenHeaders,
+	type ContractSession,
+	getApiClient,
+	seedServerLog,
+} from "~/fixtures/kernel";
 import { assertTaggedError } from "~/support/assertions";
 import { assert, describe, expect, it } from "~/support/effect-test";
 import { getApiUrl } from "~/support/harness-target";
+import { startIsolatedApiServer } from "~/support/isolated-harness";
 import { webRequest } from "~/support/web-request";
 
 const WRONG_TOKEN = "wrong-token";
@@ -14,10 +20,10 @@ const WRONG_TOKEN = "wrong-token";
 const isExcludedLogName = (name: string) =>
 	name.endsWith(".stdout") || name.endsWith(".stderr") || name.endsWith(".txt");
 
-const downloadFileUrl = (id: string) =>
-	getApiClient()
+const downloadFileUrl = (client: ContractSession, id: string) =>
+	client
 		.adminCall((api) => api.serverLogs.createFileDownloadTicket({ params: { id } }))
-		.pipe(Effect.map((ticket) => `${getApiUrl()}${ticket.url}`));
+		.pipe(Effect.map((ticket) => `${client.target.apiUrl}${ticket.url}`));
 
 describe("Server log API", () => {
 	it.live("requires the admin token for listing and download ticket creation", () =>
@@ -43,8 +49,16 @@ describe("Server log API", () => {
 
 	it.live("lists and downloads active and retained logs", () =>
 		Effect.gen(function* () {
-			const seeded = yield* seedServerLog();
-			const firstPage = yield* getApiClient().adminCall((api) =>
+			const fs = yield* FileSystem.FileSystem;
+			const path = yield* Path.Path;
+			const directory = yield* fs.makeTempDirectory({ prefix: "ryot-e2e-log-downloads-" });
+			const { target } = yield* startIsolatedApiServer({
+				label: "Server log downloads",
+				extraEnv: { SERVER_LOG_FILE: path.join(directory, "ryot.log") },
+			});
+			const client = getApiClient(target);
+			const seeded = yield* seedServerLog(target);
+			const firstPage = yield* client.adminCall((api) =>
 				api.serverLogs.list({ query: { limit: 1 } }),
 			);
 			const nextCursor = firstPage.pageInfo.nextCursor;
@@ -54,7 +68,7 @@ describe("Server log API", () => {
 				hasMore: true,
 				nextCursor: firstPage.files[0]?.name,
 			});
-			const secondPage = yield* getApiClient().adminCall((api) =>
+			const secondPage = yield* client.adminCall((api) =>
 				api.serverLogs.list({ query: { limit: 100, after: nextCursor } }),
 			);
 			const files = [...firstPage.files, ...secondPage.files];
@@ -71,7 +85,7 @@ describe("Server log API", () => {
 			});
 			expect(files.some((file) => isExcludedLogName(file.name))).toBe(false);
 
-			const retainedResponse = yield* webRequest(yield* downloadFileUrl(retained.id));
+			const retainedResponse = yield* webRequest(yield* downloadFileUrl(client, retained.id));
 			const retainedBytes = Buffer.from(
 				yield* Effect.promise(() => retainedResponse.arrayBuffer()),
 			);
@@ -83,7 +97,7 @@ describe("Server log API", () => {
 			expect(retainedResponse.headers.get("cache-control")).toBe("no-store");
 			expect(retainedBytes).toEqual(seeded.bytes);
 
-			const activeResponse = yield* webRequest(yield* downloadFileUrl(active.id));
+			const activeResponse = yield* webRequest(yield* downloadFileUrl(client, active.id));
 			yield* Effect.promise(() => activeResponse.arrayBuffer());
 			expect(activeResponse.status).toBe(200);
 			expect(activeResponse.headers.get("content-type")).toBe("text/plain; charset=utf-8");
@@ -91,10 +105,8 @@ describe("Server log API", () => {
 				`filename="${seeded.activeName}"`,
 			);
 
-			const allTicket = yield* getApiClient().adminCall((api) =>
-				api.serverLogs.createAllDownloadTicket(),
-			);
-			const allResponse = yield* webRequest(`${getApiUrl()}${allTicket.url}`);
+			const allTicket = yield* client.adminCall((api) => api.serverLogs.createAllDownloadTicket());
+			const allResponse = yield* webRequest(`${target.apiUrl}${allTicket.url}`);
 			expect(allResponse.status).toBe(200);
 			expect(allResponse.headers.get("content-type")).toBe("application/zip");
 			expect(allResponse.headers.get("cache-control")).toBe("no-store");

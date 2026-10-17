@@ -59,7 +59,7 @@ describe("POST /events with global entities", () => {
 				c.events.create({
 					payload: [
 						{ properties: {}, entityId: entity.id, eventSchemaSlug: backlog.id },
-						{ properties: {}, entityId: entity.id, eventSchemaSlug: complete.id },
+						{ entityId: entity.id, eventSchemaSlug: complete.id, properties: { timeSpent: -1 } },
 						{ properties: {}, entityId: entity.id, eventSchemaSlug: backlog.id },
 					],
 				}),

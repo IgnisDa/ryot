@@ -7,8 +7,12 @@ import {
 	createEntitySchema,
 	createPluginSchema,
 	createPluginScope,
+	fakeProviderDetailsResult,
 	getEntity,
 	getEntitySchema,
+	installTestProvider,
+	testProviderEntitySchema,
+	uninstallTestProvider,
 } from "~/fixtures/kernel";
 import { findFitnessEntitySchema } from "~/fixtures/plugins/fitness";
 import {
@@ -18,6 +22,18 @@ import {
 } from "~/fixtures/plugins/media";
 import { assertPresent, assertTaggedError } from "~/support/assertions";
 import { describe, expect, it } from "~/support/effect-test";
+
+const createPrivateProvider = Effect.fn("createPrivateProvider")(function* (client: Client) {
+	const provider = yield* Effect.acquireRelease(
+		installTestProvider({
+			client,
+			rootEntitySchemaSlug: `record-${crypto.randomUUID()}`,
+			details: fakeProviderDetailsResult({ name: "External Entity" }),
+		}),
+		uninstallTestProvider,
+	);
+	return { providerId: provider.providerId, reference: testProviderEntitySchema(provider) };
+});
 
 const createSchemaWithEnumFields = (client: Client) =>
 	Effect.gen(function* () {
@@ -73,20 +89,19 @@ describe("POST /entities", () => {
 	it.live("creates entity with externalId and providerId", () =>
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
-			const { schema } = yield* findBuiltinSchemaWithProviders(client);
-			const providerId = schema.providers[0]?.providerId;
-			assertPresent(providerId, "Expected a provider for the built-in schema");
+			const { reference, providerId } = yield* createPrivateProvider(client);
+			const externalId = `external-${crypto.randomUUID()}`;
 
 			const entity = yield* createEntity(client, {
 				providerId,
+				externalId,
 				properties: {},
-				externalId: "ext-001",
 				name: "External Entity",
-				entitySchema: schema.reference,
+				entitySchema: reference,
 			});
 
 			expect(entity.id).toBeDefined();
-			expect(entity.externalId).toBe("ext-001");
+			expect(entity.externalId).toBe(externalId);
 			expect(entity.providerId).toBe(providerId);
 		}),
 	);
@@ -94,31 +109,30 @@ describe("POST /entities", () => {
 	it.live("returns the existing entity on duplicate externalId + providerId", () =>
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
-			const { schema } = yield* findBuiltinSchemaWithProviders(client);
-			const providerId = schema.providers[0]?.providerId;
-			assertPresent(providerId, "Expected a provider for the built-in schema");
+			const { reference, providerId } = yield* createPrivateProvider(client);
+			const externalId = `idempotent-${crypto.randomUUID()}`;
 
 			const first = yield* createEntity(client, {
 				providerId,
+				externalId,
 				properties: {},
+				entitySchema: reference,
 				name: "Idempotent Entity",
-				externalId: "ext-idem-001",
-				entitySchema: schema.reference,
 			});
 
 			const second = yield* createEntity(client, {
 				providerId,
+				externalId,
 				properties: {},
+				entitySchema: reference,
 				name: "Idempotent Entity",
-				externalId: "ext-idem-001",
-				entitySchema: schema.reference,
 			});
 
 			expect(second.id).toBe(first.id);
 		}),
 	);
 
-	it.live("does not reuse a matching global entity for a user-scoped creation", () =>
+	it.live("rejects system provider provenance for a user-scoped creation", () =>
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
 			const externalId = `global-conflict-${crypto.randomUUID()}`;
@@ -128,37 +142,42 @@ describe("POST /entities", () => {
 			const providerId = schema.providers[0]?.providerId;
 			assertPresent(providerId, "Expected a provider for the built-in schema");
 
-			const created = yield* createEntity(client, {
+			const error = yield* Effect.flip(
+				createEntity(client, {
+					externalId,
+					providerId,
+					properties: {},
+					name: "User Owned Book",
+					entitySchema: schema.reference,
+				}),
+			);
+
+			assertTaggedError(error, "EntityBadRequest");
+			expect(error.reason).toEqual({ code: "provider-scope-mismatch" });
+			expect(yield* getEntity(client, global.id)).toMatchObject({
 				externalId,
 				providerId,
-				properties: {},
-				name: "User Owned Book",
-				entitySchema: schema.reference,
+				name: global.name,
 			});
-
-			expect(created.id).not.toBe(global.id);
-			expect(created.name).toBe("User Owned Book");
 		}),
 	);
 
-	it.live("creates an entity for a built-in schema that was previously restricted", () =>
+	it.live("creates an entity for a built-in schema without provider provenance", () =>
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
 			const { schema } = yield* findBuiltinSchemaWithProviders(client);
-			const providerId = schema.providers[0]?.providerId;
-			assertPresent(providerId, "Expected a provider for the built-in schema");
 
 			const entity = yield* createEntity(client, {
-				providerId,
 				properties: {},
 				name: "Built-in Book",
 				entitySchema: schema.reference,
-				externalId: `ext-builtin-${crypto.randomUUID()}`,
 			});
 
 			expect(entity.id).toBeDefined();
 			expect(entity.name).toBe("Built-in Book");
 			expect(entity.entitySchemaSlug).toBe(schema.id);
+			expect(entity.externalId).toBeNull();
+			expect(entity.providerId).toBeNull();
 		}),
 	);
 

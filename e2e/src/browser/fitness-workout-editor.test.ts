@@ -37,10 +37,12 @@ it.live("dismisses a workout overlay with an edge swipe without leaving the draf
 		yield* page.setViewportSize({ width: 390, height: 844 });
 		yield* signInThroughHostedOAuth(page, email, password);
 		const frame = yield* openFitnessPage(page, "/p/ryot/fitness/workouts/new");
+		yield* page.waitForURL(`${getFrontendUrl()}/p/ryot/fitness/workout-editor`);
 		yield* frame.getByRole("button", { exact: false, name: "Edit workout details" }).click();
 		const details = frame.getByRole("dialog", { exact: true, name: WORKOUT_DETAILS });
 		yield* details.getByRole("textbox", { exact: true, name: "Name" }).fill("Swipe recovery");
 		yield* details.getByRole("button", { exact: true, name: "Done" }).click();
+		yield* details.waitFor({ state: "hidden" });
 		yield* frame.getByRole("button", { exact: true, name: "Add exercises" }).click();
 		const picker = overlay(frame, "Add exercises");
 		yield* picker.waitFor({ state: "visible" });

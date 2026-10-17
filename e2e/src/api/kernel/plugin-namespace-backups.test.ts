@@ -206,11 +206,15 @@ describe("plugin namespace backups", () => {
 				const destination = yield* startIsolatedApiServer({
 					label: "Namespace backup destination",
 				});
-				const source = yield* createAuthenticatedClient();
+				const sourceServer = yield* startIsolatedApiServer({ label: "Namespace backup source" });
+				const source = yield* createAuthenticatedClient(sourceServer.target);
 				const target = yield* createAuthenticatedClient(destination.target);
 				const packages = pluginNamespacePackages();
-				const system = yield* installTestSupportSystemPlugin(packages.claim);
-				yield* getApiClient().adminCall((contract) =>
+				const system = yield* installTestSupportSystemPlugin({
+					...packages.claim,
+					target: source.client.target,
+				});
+				yield* getApiClient(source.client.target).adminCall((contract) =>
 					contract.testSupport.reconcilePluginInstallations(),
 				);
 				yield* namespaceInstallation(source.client, system.pluginId);
