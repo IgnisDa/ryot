@@ -422,6 +422,37 @@ describe("SchemaForm", () => {
 		expect(screen.getByRole("radio", { name: "us" }).getAttribute("aria-checked")).toBe("true");
 	});
 
+	it("sizes enum segments to their labels instead of using icon widths", () => {
+		render(
+			<SchemaFormHarness
+				onSubmit={() => undefined}
+				schema={{
+					fields: {
+						level: {
+							type: "enum",
+							label: "Level",
+							description: "Exercise difficulty",
+							choices: {
+								kind: "static",
+								values: [{ value: "beginner" }, { value: "intermediate" }, { value: "expert" }],
+							},
+						},
+					},
+				}}
+			/>,
+		);
+
+		const group = screen.getByRole("radiogroup", { name: "Level" });
+		expect(group.classList.contains("overflow-x-auto")).toBe(true);
+		for (const radio of within(group).getAllByRole("radio")) {
+			expect(radio.classList.contains("shrink-0")).toBe(true);
+			expect(radio.classList.contains("whitespace-nowrap")).toBe(true);
+			expect(radio.classList.contains("px-3")).toBe(true);
+			expect(radio.classList.contains("w-8")).toBe(false);
+			expect(radio.classList.contains("pointer-coarse:w-10")).toBe(false);
+		}
+	});
+
 	it.live("marks required fields and shows validation errors only after a submit attempt", () =>
 		Effect.gen(function* () {
 			const submitted: SchemaFormValues[] = [];
