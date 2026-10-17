@@ -60,7 +60,7 @@ export const weekKey = (date: Date, timeZone: string) => {
 const keyFormat = (options: Intl.DateTimeFormatOptions) =>
 	new Intl.DateTimeFormat("en-US", { ...options, timeZone: "UTC" });
 
-const yearUnless = (sameYear: boolean) => (sameYear ? {} : { year: "numeric" as const });
+export const yearUnless = (sameYear: boolean) => (sameYear ? {} : { year: "numeric" as const });
 
 const keyDayFormat = (key: string, currentYear: string) =>
 	keyFormat({ day: "numeric", month: "short", ...yearUnless(key.startsWith(currentYear)) });
@@ -179,7 +179,9 @@ const comparisonFor = (
 	return { kind: "none" };
 };
 
-const durationOf = (item: WorkoutListItem) => {
+export const durationOf = (
+	item: Pick<WorkoutListItem, "activeDuration" | "endedAt" | "startedAt">,
+) => {
 	if (item.activeDuration !== null) {
 		return { label: "Duration", value: formatDuration(item.activeDuration) };
 	}

@@ -225,6 +225,31 @@ totals. A workout without an origin shows no comparison. The `workout-card` and 
 presentations, used wherever workouts appear outside this page, load the same card data by workout id
 and render the same grid card and list row.
 
+## Home
+
+The `fitness-home` page (`client/home/`) serves the plugin's `/` route. Without any workout it shows the
+first-run layout: a welcome card, a four-step setup checklist (weekly goal, first workout, template,
+measurement, each checked from stored data) and the kernel import sources. Otherwise it shows the
+launchpad. Each section loads independently and shows its own retry on failure.
+
+- A device editor draft shows a resume banner that only resumes; discarding stays with the editor's
+  own Resume/Discard prompt. Banner text follows the draft mode.
+- This week shows workouts against `weeklyWorkoutGoal` with the same streak as All Workouts (consecutive
+  weeks with a workout) and how many of the last eight weeks met the goal. The plugin cannot write
+  settings, so Edit goal and Choose a goal open the kernel plugin preferences page. Without a goal the
+  card asks for one.
+- Last workout is the newest `workoutCardsRecipe` card with Repeat and Save as template. Pinned
+  measurements reuse the measurement summary and series recipes and the Log measurement dialog.
+- `homeTemplatesRecipe` lists templates never done first, then the longest since last done, using the
+  latest workout linked through `workout-to-workout-template`; muscle chips come from
+  `workoutExerciseTargetsRecipe`.
+- `muscleActivityRecipe` groups `workout-set` events by linked exercise target and role, excluding
+  stabilizers. A muscle's last session is the latest set across roles; its sets in the last seven days
+  count 1 for primary targets, ½ for secondary targets, and 1 for links without a role, which is how
+  migrated links appear. Targets never trained show Never. Tiles are banded by days since the last set.
+- `recentPersonalBestsRecipe` returns the five newest sets carrying personal bests and the count from
+  the last 30 days.
+
 ## Imports
 
 Fitness imports append history and cannot be reversed. A separate import can duplicate existing

@@ -11,6 +11,10 @@ import {
 import { DRAFT_STORAGE_KEY } from "../workout-editor/draft-storage";
 
 export type ActiveEditorDraft = {
+	readonly name: string;
+	readonly totalSets: number;
+	readonly confirmedSets: number;
+	readonly startedAt: string | undefined;
 	readonly mode: WorkoutEditorMode;
 	readonly exerciseIds: readonly string[];
 };
@@ -36,9 +40,16 @@ const activeDraftOf = (value: unknown): ActiveEditorDraft | undefined => {
 	) {
 		return undefined;
 	}
+	const sets = decoded.success.occurrences.flatMap((occurrence) =>
+		occurrence.sets.filter(({ included }) => included),
+	);
 	return {
+		totalSets: sets.length,
 		mode: decoded.success.mode,
+		name: decoded.success.name,
+		startedAt: decoded.success.startedAt,
 		exerciseIds: decoded.success.occurrences.map(({ exerciseId }) => exerciseId),
+		confirmedSets: sets.filter(({ confirmedAt }) => confirmedAt !== undefined).length,
 	};
 };
 

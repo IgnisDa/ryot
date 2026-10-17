@@ -31,7 +31,7 @@ export type WorkoutPages = {
 	readonly targets: readonly WorkoutExerciseTargets[];
 };
 
-const batched = <A>(
+export const batched = <A>(
 	ids: ReadonlySet<string>,
 	read: (batch: readonly string[]) => Effect.Effect<readonly A[], RyotClientError>,
 ) =>
@@ -45,6 +45,7 @@ export const loadWorkoutPages = (
 	input: {
 		readonly pages: number;
 		readonly search: string;
+		readonly limit?: number | undefined;
 		readonly workoutIds?: readonly string[] | undefined;
 	},
 ) =>
@@ -56,6 +57,7 @@ export const loadWorkoutPages = (
 					workoutCardsRecipe({
 						after,
 						reference,
+						limit: input.limit,
 						search: input.search,
 						workoutIds: input.workoutIds,
 					}),
