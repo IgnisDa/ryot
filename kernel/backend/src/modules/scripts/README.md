@@ -64,11 +64,6 @@ System elevation requires persisted authority for a verified kernel or system-sc
 
 `upsertGlobalEntities` additionally requires provider association. `ensureUserEntities` is available only to the declared user-bootstrap script and remains scoped to entity schemas owned by that plugin.
 
-`createUserEntity` uses the service-workflow dispatch path and the entity service's mutation receipts.
-Schema ownership must match both the pinned plugin scope and the user's effective definition. Scripts
-cannot choose a user, global scope, or provider provenance; before-stage policies and system subjects
-cannot create user entities through this capability.
-
 A hidden, unfinished installation may run its explicitly dispatched initializer. Its principal carries the exact installation and activation binding; reload requires current account ownership, `installing` health, `isInitialized = false`, and a pinned designated bootstrap script. Ordinary hidden executions remain unavailable. Completed initialization is not repeated on recovery, and stale activation bindings or quarantine never authorize another initializer.
 
 Plugin config reads use compiler-generated required and optional key allowlists against the pinned
@@ -96,6 +91,28 @@ Cache namespaces use canonical JSON tuples with the executing user, tagged local
 | Integration run of its own plugin | `getOAuthAccessToken` and `invalidateOAuthAccessToken` for OAuth fields its current settings schema declares                                                                             |
 
 Features own their capability implementations in `script-host.ts` beside their services; `boot/script-host.ts` assembles them into the one host map that inline and durable dispatch share.
+
+## Script Writes
+
+`createUserEntity` creates one user-owned entity; `updateUserEntity` updates an exact user-owned
+entity against its expected `{ name, updatedAt, properties }`. Both require the schema to belong to
+the plugin in its pinned scope and the user's effective definitions. The host binds ownership;
+validation, policy hooks, and mutation receipts use the entity service. Scripts cannot set ownership,
+global scope, provider provenance, or `populatedAt`. Before-stage policies and system subjects cannot
+create user entities through this capability.
+
+`createUserEntity`, `updateUserEntity`, `createEvents`, `updateEvents`, `deleteEvents`, and
+`changeUserRelationships` accept optional `{ submittedAt, idempotencyKey }` options. Stable writes
+are scoped by account generation, installation, script, and capability. A retry must preserve the
+ordered submitted data, timestamp, and key; reusing a key with changed committed data conflicts.
+Omitting the options keeps execution-scoped write identities. Event update items may include an
+`expected` snapshot of `entityId`, `occurredAt`, `updatedAt`, `properties`, and `sessionEntityId`
+(`null` or an ID).
+
+Event creation returns `count` and an outcome for each input index: either a written `eventId` or a
+`skipped_by_policy` reason. Partial failure data also includes `count`, `outcomes`, `code`, and
+`partial`. Writes retain their owning services' transaction boundaries and lifecycle hooks; a later
+item or operation failure does not roll back earlier committed writes.
 
 ## Global HTTP Admission
 

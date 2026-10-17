@@ -1,10 +1,6 @@
 import { SandboxRunError, unknownToMessage, type DbError } from "@ryot-app/contract/errors";
 import type { ExecutionLane } from "@ryot-app/contract/modules/automations/lifecycle";
-import {
-	AutomationExecutionId,
-	type PluginId,
-	type UserId,
-} from "@ryot-app/contract/schema/brands";
+import type { PluginId, UserId } from "@ryot-app/contract/schema/brands";
 import type { JsonValue } from "@ryot-app/contract/schema/json";
 import { SANDBOX_COMPILED_FORMAT } from "@ryot-app/plugin-backend-compiler/protocol";
 import { httpCallArgsSchema, sandboxHostContracts } from "@ryot-app/plugin-backend-sdk/core";
@@ -29,9 +25,7 @@ import {
 } from "@ryot-app/sandbox/host/bridge-adapter";
 import type { SandboxInlineProgress } from "@ryot-app/sandbox/host/inline-progress";
 import type { SandboxShortWait } from "@ryot-app/sandbox/host/short-wait";
-import { sha256Base64Url } from "@ryot-app/ts-utils/crypto";
-import { stableStringify } from "@ryot-app/ts-utils/json";
-import { Context, DateTime, Effect, Option, Schema } from "effect";
+import { Context, Effect, Option, Schema } from "effect";
 import { Workflow } from "effect/workflow";
 import type { WorkflowEngine, WorkflowInstance } from "effect/workflow/WorkflowEngine";
 
@@ -47,6 +41,7 @@ import {
 	type SandboxHttpClassify,
 	type SandboxHttpRedirect,
 } from "#modules/scripts/host/runtime-host-functions";
+import { sandboxSubmissionCommand } from "#modules/scripts/host/submission-command";
 
 import { infrastructureRunError } from "../executions/run-error";
 import {
@@ -267,34 +262,16 @@ export const prepareSandboxCreateEvents = Effect.fn("prepareSandboxCreateEvents"
 	if (options === undefined) {
 		return { userId, command, payload: items };
 	}
-	const submittedAt = DateTime.make(options.submittedAt);
-	if (
-		principal.subject.type !== "user" ||
-		principal.pluginRevision === null ||
-		Option.isNone(submittedAt)
-	) {
-		return yield* new SandboxRunError({
-			kind: "invalid-input",
-			message: "Idempotent event creation requires a user plugin and valid submission timestamp",
-		});
-	}
-	const installationId = yield* findInstallation(userId, principal.pluginRevision.id).pipe(
-		Effect.mapError(infrastructureRunError),
+	const writeCommand = yield* sandboxSubmissionCommand(
+		input,
+		command,
+		options,
+		findInstallation,
+	).pipe(
+		Effect.mapError(
+			(error) => new SandboxRunError({ kind: "invalid-input", message: error.message }),
+		),
 	);
-	if (!installationId) {
-		return yield* new SandboxRunError({
-			kind: "script-failure",
-			message: "Event write installation is unavailable",
-		});
-	}
-	const executionId = AutomationExecutionId.make(
-		`plugin-event-write-${sha256Base64Url(stableStringify([principal.subject.accountGeneration, installationId, principal.scriptSlug, options.idempotencyKey]))}`,
-	);
-	const writeCommand = {
-		...command,
-		occurredAt: DateTime.formatIso(submittedAt.value),
-		causation: { ...command.causation, executionId, rootExecutionId: executionId },
-	};
 	return { userId, command, writeCommand, payload: items };
 });
 
@@ -315,11 +292,11 @@ export const prepareSandboxLifecycleHostInput = Effect.fn("prepareSandboxLifecyc
 				return yield* lifecycle.upsertGlobalEntities.validate(input, items, options);
 			}
 			if (capability === "changeUserRelationships") {
-				const [batches] = yield* decodeSandboxHostArguments(
+				const [batches, options] = yield* decodeSandboxHostArguments(
 					capability,
 					sandboxHostContracts[capability],
 				)(request.args.args);
-				return yield* lifecycle.changeUserRelationships.validate(input, batches);
+				return yield* lifecycle.changeUserRelationships.validate(input, batches, options);
 			}
 			if (capability === "upsertGlobalRelationships") {
 				const [groups] = yield* decodeSandboxHostArguments(
@@ -329,18 +306,18 @@ export const prepareSandboxLifecycleHostInput = Effect.fn("prepareSandboxLifecyc
 				return yield* lifecycle.upsertGlobalRelationships.validate(input, groups);
 			}
 			if (capability === "updateEvents") {
-				const [items] = yield* decodeSandboxHostArguments(
+				const [items, options] = yield* decodeSandboxHostArguments(
 					capability,
 					sandboxHostContracts[capability],
 				)(request.args.args);
-				return yield* lifecycle.updateEvents.validate(input, items);
+				return yield* lifecycle.updateEvents.validate(input, items, options);
 			}
 			if (capability === "deleteEvents") {
-				const [eventIds] = yield* decodeSandboxHostArguments(
+				const [eventIds, options] = yield* decodeSandboxHostArguments(
 					capability,
 					sandboxHostContracts[capability],
 				)(request.args.args);
-				return yield* lifecycle.deleteEvents.validate(input, eventIds);
+				return yield* lifecycle.deleteEvents.validate(input, eventIds, options);
 			}
 			return yield* new SandboxRunError({
 				kind: "script-failure",
