@@ -15,11 +15,12 @@ const entityColumn = (name: string) => column(entity, name);
 const entityProperty = (property: string) => jsonPath(column(entity, "properties"), property);
 const entityImage = () => preferredMediaImageExpression(entity);
 const text = (expression: ScalarExpression) => ({ expression, displayKind: "text" as const });
+const yearValue = (expression: ScalarExpression) => ({ expression, displayKind: "year" as const });
 const number = (expression: ScalarExpression) => ({ expression, displayKind: "number" as const });
 
 const tableColumns = (slug: string): ViewExpressions["table"]["columns"] => {
 	const name = { field: "name", label: "Name", ...text(entityColumn("name")) };
-	const year = { label: "Year", field: "publishYear", ...number(entityProperty("publishYear")) };
+	const year = { label: "Year", field: "publishYear", ...yearValue(entityProperty("publishYear")) };
 	if (slug === "person") {
 		return [
 			name,
@@ -29,7 +30,7 @@ const tableColumns = (slug: string): ViewExpressions["table"]["columns"] => {
 	if (slug === "company") {
 		return [
 			name,
-			{ field: "foundedYear", label: "Founded Year", ...number(entityProperty("foundedYear")) },
+			{ field: "foundedYear", label: "Founded Year", ...yearValue(entityProperty("foundedYear")) },
 		];
 	}
 	if (slug.endsWith("-group")) {

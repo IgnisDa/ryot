@@ -325,6 +325,7 @@ describe("saved-view recipes", () => {
 				{ label: "Value", field: "value", displayKind: "text" },
 				{ label: "Amount", field: "amount", displayKind: "number" },
 				{ label: "Artwork", field: "artwork", displayKind: "managed-asset" },
+				{ label: "Year", field: "year", displayKind: "year" },
 			],
 		} as const;
 		const source = document({
@@ -336,6 +337,7 @@ describe("saved-view recipes", () => {
 					field("entityId", column(entity, "id")),
 					field("value", column(entity, "name")),
 					field("amount", literal(null)),
+					field("year", literal(1995)),
 					field("artwork", literal({ type: "local", key: "covers/item.webp" })),
 				],
 			}),
@@ -357,6 +359,7 @@ describe("saved-view recipes", () => {
 						type: "rows",
 						items: [
 							{
+								year: 1995,
 								sequence: 1,
 								variant: "1",
 								amount: null,
@@ -366,6 +369,7 @@ describe("saved-view recipes", () => {
 							},
 							{
 								variant: 1,
+								year: null,
 								amount: null,
 								artwork: null,
 								sequence: "1",
@@ -388,6 +392,8 @@ describe("saved-view recipes", () => {
 			displayKind: "managed-asset",
 			value: { type: "local", key: "covers/item.webp" },
 		});
+		expect(decoded.items[0]?.cells[3]?.value).toEqual({ value: 1995, displayKind: "year" });
+		expect(decoded.items[1]?.cells[3]?.value).toEqual({ value: null, displayKind: "year" });
 		expect(decoded.items[1]?.cells[2]?.value).toEqual({
 			value: null,
 			displayKind: "managed-asset",

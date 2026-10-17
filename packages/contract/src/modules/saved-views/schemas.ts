@@ -51,6 +51,7 @@ export const SavedViewDisplayKind = Schema.Literals([
 	"date",
 	"json",
 	"number",
+	"year",
 	"boolean",
 	"managed-asset",
 ]);
@@ -61,6 +62,7 @@ export const SavedViewDisplayValue = Schema.Union([
 	strictStruct({ value: Schema.NullOr(Schema.String), displayKind: Schema.Literal("text") }),
 	strictStruct({ value: Schema.NullOr(Schema.String), displayKind: Schema.Literal("date") }),
 	strictStruct({ value: Schema.NullOr(Schema.Finite), displayKind: Schema.Literal("number") }),
+	strictStruct({ value: Schema.NullOr(Schema.Finite), displayKind: Schema.Literal("year") }),
 	strictStruct({ value: Schema.NullOr(Schema.Boolean), displayKind: Schema.Literal("boolean") }),
 	strictStruct({
 		value: Schema.NullOr(AssetLocator),

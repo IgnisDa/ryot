@@ -32,6 +32,8 @@ export const cellText = (value: SavedViewCellValue): string => {
 			return new Intl.DateTimeFormat(undefined, { timeZone: "UTC" }).format(new Date(value.value));
 		case "number":
 			return new Intl.NumberFormat().format(value.value);
+		case "year":
+			return String(value.value);
 		case "json":
 			return JSON.stringify(value.value);
 		case "text":

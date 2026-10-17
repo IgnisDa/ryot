@@ -58,6 +58,18 @@ describe("saved-view schemas", () => {
 		).toBe(true);
 	});
 
+	it("decodes year display values as finite numbers", () => {
+		expect(Schema.decodeSync(SavedViewDisplayValue)({ value: 1995, displayKind: "year" })).toEqual({
+			value: 1995,
+			displayKind: "year",
+		});
+		expect(
+			Result.isFailure(
+				Schema.decodeUnknownResult(SavedViewDisplayValue)({ value: "1995", displayKind: "year" }),
+			),
+		).toBe(true);
+	});
+
 	it("decodes canonical configured browser and general-table settings", () => {
 		const browser = Schema.decodeSync(EntityBrowserSavedViewSettings)({
 			pageSize: 25,

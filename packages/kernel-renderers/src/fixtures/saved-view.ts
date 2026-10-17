@@ -29,7 +29,7 @@ export const browserSettings = {
 	tableColumns: [
 		{ label: "Image", field: "image", displayKind: "managed-asset" },
 		{ label: "Name", field: "name", displayKind: "text" },
-		{ label: "Year", field: "year", displayKind: "number" },
+		{ label: "Year", field: "year", displayKind: "year" },
 	],
 	addAction: {
 		type: "provider-search",

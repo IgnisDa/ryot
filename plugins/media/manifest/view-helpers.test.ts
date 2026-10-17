@@ -31,6 +31,6 @@ describe("buildViewExpressions", () => {
 	it("assigns persisted display kinds to media values", () => {
 		expect(
 			buildViewExpressions("book").table.columns.map(({ displayKind }) => displayKind),
-		).toEqual(["text", "number", "number"]);
+		).toEqual(["text", "year", "number"]);
 	});
 });
