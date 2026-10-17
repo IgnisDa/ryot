@@ -111,6 +111,7 @@ const fixture = Effect.fnUntraced(function* (cancelAfterWrite = false) {
 	const receipts: ReturnType<typeof ingestionTestReceipt>[] = [];
 	const outcomes = new Map<string, IngestionOutcome>();
 	const projections: IngestionBatch[] = [];
+	const starts: Parameters<ImportsRepository["Service"]["advanceBatch"]>[] = [];
 	const submitted: Parameters<EventsService["Service"]["create"]>[0][] = [];
 	const records = [
 		event("written"),
@@ -185,9 +186,13 @@ const fixture = Effect.fnUntraced(function* (cancelAfterWrite = false) {
 		}),
 		Layer.mock(ImportsRepository)({
 			recordIssue: () => Effect.succeed(true),
-			advanceBatch: () => Effect.succeed(true),
 			getIngestionRunControl: () => Effect.sync(() => run),
 			getOutcome: (_scope, id) => Effect.sync(() => outcomes.get(id) ?? null),
+			advanceBatch: (...input) =>
+				Effect.sync(() => {
+					starts.push(input);
+					return true;
+				}),
 			projectBatch: (_scope, value) =>
 				Effect.sync(() => {
 					projections.push(value);
@@ -238,7 +243,7 @@ const fixture = Effect.fnUntraced(function* (cancelAfterWrite = false) {
 			subject: { owner: { kind: "kernel" }, slug: EntitySchemaSlug.make("record") },
 		},
 	}).pipe(Effect.provideContext(context));
-	return { execute, outcomes, receipts, submitted, projections };
+	return { starts, execute, outcomes, receipts, submitted, projections };
 });
 
 it.effect(
@@ -250,6 +255,10 @@ it.effect(
 			const replay = yield* test.execute;
 			expect(first.failedKeys).toEqual(["failed-dependency"]);
 			expect(replay).toEqual(first);
+			expect(test.starts).toEqual([
+				[ingestionTestScope, "segment", "applying"],
+				[ingestionTestScope, "segment", "applying"],
+			]);
 			expect(test.receipts.map((receipt) => receipt.itemIdentity)).toEqual([
 				ingestionItemIdentity(ingestionTestScope.runId, "data:event:written"),
 				ingestionItemIdentity(ingestionTestScope.runId, "data:event:independent"),

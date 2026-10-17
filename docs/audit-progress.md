@@ -15,7 +15,7 @@
 
 ## Status
 
-**50 implemented, 0 in progress, 33 pending; 3 excluded.**
+**51 implemented, 0 in progress, 32 pending; 3 excluded.**
 
 “Implemented” means affected checks and tests passed and the change is committed with this tracker. Batch-wide acceptance is recorded separately below. Rows follow the audit's ranked order; sequencing can change to respect dependencies and keep changes reviewable.
 
@@ -53,7 +53,7 @@
 | F04-R2 | Pending | Address complete measurement entries for edits and deletes. |
 | B28-R1 | Pending | Derive ingestion identity projections from JSON. |
 | B05-R1 | Implemented | Model five strict upload-intent variants; require a local temp path, separate numeric completion expiry from the lease, preserve single-claim replay, and block cleanup of stale permanent objects. See this finding's audit commit. |
-| B13-R2 | Pending | Remove the non-durable preparing state. |
+| B13-R2 | Implemented | Remove the non-durable preparing state; batches transition from pending directly to applying while preserving B13-R1 and B15 behavior. See this finding's audit commit. |
 | B07-R1 | Implemented | Use package keys as the sole portable installation identity while preserving redaction, scope, null, and system-plugin reuse behavior; change no versions or compatibility paths. See this finding's audit commit. |
 | B30-R2 | Implemented | Preserve parsed configuration and complete credential invariants; remove consumer reparse/reconstruction and keep partial-startup semantics unchanged. See this finding's audit commit. |
 | A05-R2 | Excluded | Website pricing/checkout offer model. |
@@ -216,3 +216,4 @@
 - B09-R1: six package checks passed before 144 tests. Full backend/server checks passed, and the migration regression passed in the coordinator 31-file run; an unrelated B06 repository run failed. The review finding was fixed without an extra review round. Full restored-migration validation remains pending for coordinated follow-up.
 - B19-R2: contract and scoped checks passed; full backend/server checks and all page-preparation tests passed in the coordinator 31-file run. The only failure was an unrelated B06 test; read-only review reported no findings.
 - B07-R1: scoped package checks passed; full backend/server checks and all backup tests passed in the coordinator 31-file run; read-only review reported no findings. Package keys are the sole portable identity; no version or compatibility path changed.
+- B13-R2: coordinated full checks passed, followed by all affected workflow tests and 33 ingestion tests; read-only review reported no findings. Pending transitions directly to applying; B13-R1 and B15 behavior are preserved. Development state is resettable; no production compatibility or drain machinery was added, and no reset was performed.

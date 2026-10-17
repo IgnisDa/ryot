@@ -774,7 +774,6 @@ layer(
 							for (let ordinal = 0; ordinal < size; ordinal++) {
 								const item = { ...batch, ordinal, id: `control-batch-${ordinal}` };
 								yield* repository.registerBatch(scope, item, [], batchOwner);
-								yield* repository.advanceBatch(scope, item.id, "preparing");
 								yield* repository.advanceBatch(scope, item.id, "applying");
 								yield* repository.projectBatch(scope, { ...item, summary, state: "applied" });
 								yield* repository.putActivity(scope, {
@@ -946,15 +945,9 @@ layer(
 				).toBe(false);
 				expect(
 					yield* session.transaction(repository.advanceBatch(scope, batch.id, "applying")),
-				).toBe(false);
-				expect(
-					yield* session.transaction(repository.advanceBatch(scope, batch.id, "preparing")),
 				).toBe(true);
 				expect(
 					yield* session.transaction(repository.advanceBatch(scope, batch.id, "applying")),
-				).toBe(true);
-				expect(
-					yield* session.transaction(repository.advanceBatch(scope, batch.id, "preparing")),
 				).toBe(false);
 				expect(
 					(yield* Effect.exit(
