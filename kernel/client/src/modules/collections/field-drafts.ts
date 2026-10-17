@@ -14,6 +14,7 @@ export type FieldDraft = {
 	readonly description: string;
 	readonly choices: string;
 	readonly defaultValue: string;
+	readonly storedDefault?: CollectionField["defaultValue"];
 };
 
 export const fieldTypeChoices: ReadonlyArray<{
@@ -61,6 +62,7 @@ export const fieldDraftFrom = (field: KeyedCollectionField): FieldDraft => ({
 	type: field.type,
 	label: field.label,
 	required: field.required,
+	storedDefault: field.defaultValue,
 	description: field.description ?? "",
 	choices: (field.choices ?? []).join("\n"),
 	defaultValue:
@@ -72,8 +74,11 @@ export const fieldDraftFrom = (field: KeyedCollectionField): FieldDraft => ({
 });
 
 const draftDefaultValue = (draft: FieldDraft): CollectionField["defaultValue"] => {
+	if (!hasDefaultValue(draft.type)) {
+		return draft.storedDefault;
+	}
 	const value = draft.defaultValue.trim();
-	if (value === "" || !hasDefaultValue(draft.type)) {
+	if (value === "") {
 		return undefined;
 	}
 	if (draft.type === "number") {

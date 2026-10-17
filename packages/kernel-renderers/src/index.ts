@@ -15,8 +15,13 @@ const BROWSER_PATHS = [
 	"client/entity-browser-controller.tsx",
 ] as const satisfies readonly KernelRendererPath[];
 
-const COLLECTION_BROWSER_PATHS = [
+const COLLECTION_PATHS = [
 	...BROWSER_PATHS,
+	"client/host-screen.ts",
+] as const satisfies readonly KernelRendererPath[];
+
+const COLLECTION_BROWSER_PATHS = [
+	...COLLECTION_PATHS,
 	"client/collection-card-results.tsx",
 	"client/entity-browser.tsx",
 ] as const satisfies readonly KernelRendererPath[];
@@ -77,6 +82,6 @@ export const kernelResultsTableRenderer = renderer(
 export const kernelCollectionDetailRenderer = renderer(
 	"Collection detail",
 	"client/collection-detail.tsx",
-	BROWSER_PATHS,
+	COLLECTION_PATHS,
 	true,
 );

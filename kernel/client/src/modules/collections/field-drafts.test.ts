@@ -60,6 +60,20 @@ describe("collection field drafts", () => {
 		).toEqual({ label: "Count", type: "number", required: false });
 	});
 
+	it("keeps stored defaults the editor cannot show until the field type changes", () => {
+		const draft = fieldDraftFrom({
+			key: "tags",
+			label: "Tags",
+			required: false,
+			type: "text-list",
+			defaultValue: ["a", "b"],
+		});
+		expect(collectionFieldFrom(draft).defaultValue).toEqual(["a", "b"]);
+		expect(
+			collectionFieldFrom({ ...draft, type: "text", storedDefault: undefined }).defaultValue,
+		).toBeUndefined();
+	});
+
 	it("round-trips a stored field through its draft", () => {
 		const field = {
 			type: "date",

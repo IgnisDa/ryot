@@ -271,9 +271,21 @@ const legacyTemplatePropertySql = `
 					THEN jsonb_build_object('defaultValue', lower(field.default_value)::boolean)
 					ELSE '{}'::jsonb
 				END
-		ELSE jsonb_build_object(
-			'type', CASE field.lot WHEN 'Date' THEN 'date' WHEN 'DateTime' THEN 'datetime' ELSE 'string' END
-		)
+		WHEN field.lot = 'Date'
+			THEN '{"type": "date"}'::jsonb
+				|| CASE WHEN field.default_value ~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}$'
+					AND pg_input_is_valid(field.default_value, 'date')
+					THEN jsonb_build_object('defaultValue', field.default_value)
+					ELSE '{}'::jsonb
+				END
+		WHEN field.lot = 'DateTime'
+			THEN '{"type": "datetime"}'::jsonb
+				|| CASE WHEN field.default_value ~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}(:[0-9]{2}(\\.[0-9]+)?)?(Z|[+-][0-9]{2}:[0-9]{2})$'
+					AND pg_input_is_valid(field.default_value, 'timestamptz')
+					THEN jsonb_build_object('defaultValue', field.default_value)
+					ELSE '{}'::jsonb
+				END
+		ELSE '{"type": "string"}'::jsonb
 			|| CASE WHEN field.default_value IS NOT NULL
 				THEN jsonb_build_object('defaultValue', field.default_value)
 				ELSE '{}'::jsonb

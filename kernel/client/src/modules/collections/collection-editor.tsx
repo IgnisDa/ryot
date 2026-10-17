@@ -146,7 +146,7 @@ function FieldDraftEditor(props: {
 							onChange={(value) => {
 								const type = fieldTypeChoices.find((choice) => choice.value === value)?.value;
 								if (type !== undefined) {
-									update({ type, defaultValue: "" });
+									update({ type, defaultValue: "", storedDefault: undefined });
 								}
 							}}
 						/>
