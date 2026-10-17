@@ -254,6 +254,28 @@ export default {
 				};
 			},
 		},
+		"no-promise-chains": {
+			create(context) {
+				return {
+					CallExpression(node) {
+						const { callee } = node;
+						if (
+							callee.type !== "MemberExpression" ||
+							!promiseMethods.has(propertyName(callee)) ||
+							isEffectBinding(context, callee.object) ||
+							!isPromise(context, callee.object)
+						) {
+							return;
+						}
+						context.report({
+							node: callee.property,
+							message:
+								"Use Effect for application-owned async work, or async/await at a Promise-native boundary; do not chain .then/.catch/.finally.",
+						});
+					},
+				};
+			},
+		},
 		"no-hot-manifest-read": {
 			meta: {
 				schema: [
@@ -308,6 +330,25 @@ export default {
 					}
 				};
 				return {
+					TemplateElement(node) {
+						checkText(node, node.value.cooked ?? node.value.raw);
+					},
+					Literal(node) {
+						if (typeof node.value === "string") {
+							checkText(node, node.value);
+						}
+					},
+					CallExpression(node) {
+						const { callee } = node;
+						if (
+							callee.type === "MemberExpression" &&
+							propertyName(callee) === "update" &&
+							node.arguments[0] &&
+							endsInRevision(node.arguments[0])
+						) {
+							check(callee.property, "Do not update plugin revisions; they are immutable.");
+						}
+					},
 					Identifier(node) {
 						if (node.name !== manifestTable) {
 							return;
@@ -328,47 +369,6 @@ export default {
 							node,
 							`Do not reference ${manifestTable} outside the allowlisted cold owners; use revision section columns or definition_* rows.`,
 						);
-					},
-					Literal(node) {
-						if (typeof node.value === "string") {
-							checkText(node, node.value);
-						}
-					},
-					TemplateElement(node) {
-						checkText(node, node.value.cooked ?? node.value.raw);
-					},
-					CallExpression(node) {
-						const { callee } = node;
-						if (
-							callee.type === "MemberExpression" &&
-							propertyName(callee) === "update" &&
-							node.arguments[0] &&
-							endsInRevision(node.arguments[0])
-						) {
-							check(callee.property, "Do not update plugin revisions; they are immutable.");
-						}
-					},
-				};
-			},
-		},
-		"no-promise-chains": {
-			create(context) {
-				return {
-					CallExpression(node) {
-						const { callee } = node;
-						if (
-							callee.type !== "MemberExpression" ||
-							!promiseMethods.has(propertyName(callee)) ||
-							isEffectBinding(context, callee.object) ||
-							!isPromise(context, callee.object)
-						) {
-							return;
-						}
-						context.report({
-							node: callee.property,
-							message:
-								"Use Effect for application-owned async work, or async/await at a Promise-native boundary; do not chain .then/.catch/.finally.",
-						});
 					},
 				};
 			},
