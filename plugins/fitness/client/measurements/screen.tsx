@@ -2,7 +2,6 @@ import { DateTime, Effect } from "@ryot-app/plugin-client-sdk/effect";
 import { usePageContext, useRyotViewport } from "@ryot-app/plugin-client-sdk/plugin";
 import {
 	useRyotMutation,
-	useRyotSubmission,
 	usePageRefresh,
 	useRyotQuery,
 	type RyotQueryResult,
@@ -11,10 +10,11 @@ import { PluginScreenFrame } from "@ryot-app/plugin-client-sdk/screen";
 import { Button, SegmentedControl, StatusMessage } from "@ryot-app/plugin-ui-sdk";
 import { AppIcon } from "@ryot-app/plugin-ui-sdk/icon";
 import clsx from "clsx";
-import { useEffect, useMemo, useRef, useState, type RefObject } from "react";
+import { useMemo, useRef, useState } from "react";
 
 import type { MeasurementSeries, MeasurementSummary } from "../../shared/measurement-recipes";
 import { AddMetricDialog } from "./add-metric";
+import { LogMeasurementDialog } from "./log-measurement-dialog";
 import { MetricsTable } from "./metrics-table";
 import {
 	buildMetricRows,
@@ -26,59 +26,10 @@ import {
 	type MetricSort,
 	type RangeKey,
 } from "./model";
-import { logReadingsMutation, pinMetricMutation, readingFailureMessage } from "./mutations";
+import { pinMetricMutation } from "./mutations";
 import { ChartCard, MetricTiles } from "./overview";
 import { seriesQuery, summaryQuery } from "./queries";
-import { MeasurementDialog } from "./reading-composer";
 import { ReadingLog } from "./reading-log";
-
-function LogMeasurementDialog(props: {
-	readonly onClose: () => void;
-	readonly metrics: readonly MeasurementSummary[];
-	readonly triggerRef: RefObject<HTMLButtonElement | null>;
-}) {
-	const { metrics, onClose } = props;
-	const log = useRyotSubmission(logReadingsMutation, {
-		isComplete: (result) => result.status === "saved",
-	});
-	useEffect(() => {
-		if (log.data?.status === "saved") {
-			onClose();
-		}
-	}, [log.data, onClose]);
-	const [initial] = useState(() => {
-		const pinned = selectPinnedMetrics(metrics);
-		return {
-			comment: null,
-			occurredAt: new Date().toISOString(),
-			values: (pinned.length === 0 ? metrics.slice(0, 1) : pinned).map(({ id }) => ({
-				value: null,
-				metricId: id,
-			})),
-		};
-	});
-	return (
-		<MeasurementDialog
-			initial={initial}
-			metrics={metrics}
-			onClose={onClose}
-			submitLabel="Save"
-			onRetry={log.retry}
-			onChange={log.reset}
-			onSubmit={log.submit}
-			pendingLabel="Saving…"
-			label="Log measurement"
-			pending={log.isPending}
-			triggerRef={props.triggerRef}
-			retained={log.status === "retained"}
-			errorMessage={
-				log.status === "retained"
-					? "Some readings may already be saved. Retry the same submission to finish without duplicates. Cancel closes this form but does not undo saved readings."
-					: readingFailureMessage(log.error, "log")
-			}
-		/>
-	);
-}
 
 export function MeasurementsView(props: {
 	readonly now: Date;
