@@ -5,29 +5,18 @@ import {
 import {
 	defineManifest,
 	defineWorkflow,
-	defineWorkflowReference,
 	Effect,
 	selectExecutable,
 } from "@ryot-app/plugin-backend-sdk/workflow";
 
-import type { MediaSortedRun } from "../imports/collection-schemas";
-import {
-	MediaCollectionInput,
-	MediaCollectionOutput,
-	MediaMergeInput,
-	MediaMergeOutput,
-} from "../imports/process";
+import { MediaCollectionInput, MediaCollectionOutput } from "../imports/process";
 import { mediaSources } from "../imports/references";
+import { mediaSortedRuns } from "../imports/sorted-runs";
 
 export const manifest = defineManifest({
 	kind: "workflow",
 	name: "Collect media source steps",
 	slug: "workflow.media-import-collection",
-});
-const merger = defineWorkflowReference({
-	input: MediaMergeInput,
-	output: MediaMergeOutput,
-	workflowSlug: "media-import-merge",
 });
 export default defineWorkflow({
 	manifest,
@@ -37,41 +26,12 @@ export default defineWorkflow({
 		Effect.gen(function* () {
 			const source = selectExecutable(mediaSources, input.source);
 			const attribution = { runId: input.runId, command: input.command };
-			let { step, carry, offset, header, ordinal, itemIndex } = input;
+			let { step, carry, offset, header, itemIndex } = input;
+			const state = { ordinal: input.ordinal };
 			let done = false;
 			let advancedAt = input.command.occurredAt;
 			let eventOffset = input.eventOffset ?? 0;
-			const runs: Array<MediaSortedRun | undefined> = [];
-			const merge = (left: MediaSortedRun, right: MediaSortedRun, prefix: string) =>
-				Effect.gen(function* () {
-					let page = 0;
-					let leftPage = 0;
-					let rightPage = 0;
-					let leftOffset = 0;
-					let rightOffset = 0;
-					for (let segment = 0; ; segment++) {
-						const result: typeof MediaMergeOutput.Type = yield* replay.child(
-							`merge:${prefix}:${segment}`,
-							merger,
-							{
-								...attribution,
-								left,
-								page,
-								right,
-								prefix,
-								ordinal,
-								leftPage,
-								rightPage,
-								leftOffset,
-								rightOffset,
-							},
-						);
-						({ page, ordinal, leftPage, rightPage, leftOffset, rightOffset } = result);
-						if (result.done) {
-							return { prefix, pages: page };
-						}
-					}
-				});
+			const runs = mediaSortedRuns(replay, attribution, state);
 			for (let boundary = 0; boundary < 64; boundary++) {
 				const captures: Record<string, string> = {};
 				if (carry) {
@@ -104,8 +64,8 @@ export default defineWorkflow({
 					operation: {
 						handle,
 						action: "capture",
-						ordinal: ordinal++,
 						phase: "collection",
+						ordinal: state.ordinal++,
 						captureId: `${prefix}-0`,
 						checkpoint: {
 							stage: input.action,
@@ -129,23 +89,14 @@ export default defineWorkflow({
 						operation: {
 							captureId: carry,
 							action: "capture",
-							ordinal: ordinal++,
 							handle: carryHandle,
 							phase: "collection",
+							ordinal: state.ordinal++,
 							checkpoint: { stage: "source-carry", offset: result.offset },
 						},
 					});
 				}
-				let incoming: MediaSortedRun = { prefix, pages: 1 };
-				for (let level = 0; ; level++) {
-					const prior = runs[level];
-					if (!prior) {
-						runs[level] = incoming;
-						break;
-					}
-					incoming = yield* merge(prior, incoming, `${prefix}-merge-${level}`);
-					runs[level] = undefined;
-				}
+				yield* runs.add({ prefix, pages: 1 }, `${prefix}-merge`);
 				offset = result.offset;
 				itemIndex = result.itemIndex;
 				header = result.header;
@@ -175,14 +126,7 @@ export default defineWorkflow({
 					break;
 				}
 			}
-			let run: MediaSortedRun | null = null;
-			for (const [level, candidate] of runs.entries()) {
-				if (candidate) {
-					run = run
-						? yield* merge(run, candidate, `${input.prefix}-segment-${input.step}-${level}`)
-						: candidate;
-				}
-			}
+			const run = yield* runs.finish(`${input.prefix}-segment-${input.step}`);
 			return {
 				run,
 				step,
@@ -190,10 +134,10 @@ export default defineWorkflow({
 				carry,
 				offset,
 				header,
-				ordinal,
 				itemIndex,
 				advancedAt,
 				eventOffset,
+				ordinal: state.ordinal,
 			};
 		}),
 });
