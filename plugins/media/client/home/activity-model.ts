@@ -99,13 +99,30 @@ type ActivityShare = {
 	readonly share: string;
 };
 
+export const ACTIVITY_SHARE_LIMIT = 5;
+
 export const activityShares = (
 	rows: readonly { readonly slug: string; readonly label: string; readonly events: number }[],
 ): readonly ActivityShare[] => {
-	const active = rows.filter(({ events }) => events > 0);
-	const total = active.reduce((sum, { events }) => sum + events, 0);
-	const percents = largestRemainderPercents(active.map(({ events }) => events));
-	return active.map((row, index) => ({
+	const active = rows
+		.filter(({ events }) => events > 0)
+		.sort((left, right) => right.events - left.events);
+	const folded =
+		active.length <= ACTIVITY_SHARE_LIMIT
+			? active
+			: [
+					...active.slice(0, ACTIVITY_SHARE_LIMIT - 1),
+					{
+						slug: "other",
+						label: "Everything else",
+						events: active
+							.slice(ACTIVITY_SHARE_LIMIT - 1)
+							.reduce((sum, { events }) => sum + events, 0),
+					},
+				];
+	const total = folded.reduce((sum, { events }) => sum + events, 0);
+	const percents = largestRemainderPercents(folded.map(({ events }) => events));
+	return folded.map((row, index) => ({
 		key: row.slug,
 		label: row.label,
 		value: row.events,

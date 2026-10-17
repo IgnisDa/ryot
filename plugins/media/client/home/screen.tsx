@@ -1,11 +1,13 @@
 import { usePluginScreenSurface, useRyotViewport } from "@ryot-app/plugin-client-sdk/plugin";
 import { createRyotQuery, useRyotQuery } from "@ryot-app/plugin-client-sdk/react";
 import { PluginScreenFrame } from "@ryot-app/plugin-client-sdk/screen";
+import { Skeleton } from "@ryot-app/plugin-ui-sdk";
 import type { RefObject } from "react";
 
 import { libraryMediaCountRecipe } from "../../shared/lifecycle-list-recipes";
 import { PLUGIN_PACKAGE_ID } from "../../shared/plugin-identity";
 import { ActivitySection } from "./activity-section";
+import { AddTitleMenu } from "./add-title";
 import { airingQuery, AiringRail } from "./airing-rail";
 import { BacklogRail } from "./backlog-rail";
 import { ContinueRail, libraryStateQuery } from "./continue-rail";
@@ -28,8 +30,15 @@ const SKELETON_RAILS = 3;
 function HomeSkeleton() {
 	return (
 		<div role="status" aria-label="Loading your media" className="flex flex-col gap-8">
-			{Array.from({ length: SKELETON_RAILS }, (_, index) => (
-				<div key={index} className="h-48 animate-pulse rounded-lg bg-surface-2" />
+			{Array.from({ length: SKELETON_RAILS }, (_rail, index) => (
+				<div key={index} className="flex flex-col gap-3">
+					<Skeleton className="h-5 w-40" />
+					<div className="flex gap-4 overflow-hidden">
+						{Array.from({ length: 6 }, (_tile, tile) => (
+							<Skeleton key={tile} className="h-48 w-32 shrink-0 rounded-lg" />
+						))}
+					</div>
+				</div>
 			))}
 		</div>
 	);
@@ -73,7 +82,11 @@ export default function Home() {
 	const { compact } = useRyotViewport();
 	const { scrollRootRef } = usePluginScreenSurface();
 	return (
-		<PluginScreenFrame title="Media">
+		<PluginScreenFrame
+			title="Media"
+			actions={<AddTitleMenu variant="button" />}
+			barActions={<AddTitleMenu variant="icon" />}
+		>
 			<HomeBody compact={compact} scrollRootRef={scrollRootRef} />
 		</PluginScreenFrame>
 	);

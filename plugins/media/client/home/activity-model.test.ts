@@ -99,4 +99,19 @@ describe("activityShares", () => {
 			{ value: 5, key: "book", share: "<1%", label: "Book" },
 		]);
 	});
+
+	it("orders types by volume and folds the tail into everything else", () => {
+		const rows = ["a", "b", "c", "d", "e", "f"].map((slug, index) => ({
+			slug,
+			events: (index + 1) * 10,
+			label: slug.toUpperCase(),
+		}));
+		expect(activityShares(rows).map(({ key, value }) => [key, value])).toEqual([
+			["f", 60],
+			["e", 50],
+			["d", 40],
+			["c", 30],
+			["other", 30],
+		]);
+	});
 });

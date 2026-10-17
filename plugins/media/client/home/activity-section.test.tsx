@@ -84,7 +84,7 @@ describe("ActivitySectionView", () => {
 	it("renders the figures, a padded heatmap in the local time zone, and the type shares", () => {
 		const view = mount(readyQueryResult(activity));
 		const figure = (label: string) =>
-			getByText(view.container, label).previousElementSibling?.textContent;
+			getByText(view.container, label).nextElementSibling?.textContent;
 
 		expect(figure("Finished")).toBe("1,204");
 		expect(figure("Hours")).toBe("91");
