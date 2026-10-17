@@ -203,13 +203,11 @@ class APIClient {
 	}
 }
 
-const seedPluginManifests = new Map<
+const seedPluginInstallations = new Map<
 	string,
 	{
-		manifest: ReturnType<typeof testPluginManifest>;
 		pluginId: ContractSuccess<"testSupport", "installSystemPlugin">["pluginId"];
 		installationId: string;
-		contentHash: string;
 	}
 >();
 
@@ -220,50 +218,30 @@ async function installSeedDefinitions(
 		entitySchemas: ReturnType<typeof testPluginManifest>["entitySchemas"];
 	},
 ) {
-	const current = seedPluginManifests.get(input.pluginSlug);
-	const entitySchemas = [
-		...(current?.manifest.entitySchemas ?? []).filter(
-			(schema) => !input.entitySchemas.some((addition) => addition.slug === schema.slug),
-		),
-		...input.entitySchemas,
-	];
 	const manifest = testPluginManifest({
-		packageId: current?.manifest.metadata.packageId,
 		pluginSlug: input.pluginSlug,
-		entitySchemas,
+		entitySchemas: input.entitySchemas,
 	});
-	const result = current
-		? await apiClient.runAdmin((c) =>
-				c.testSupport.updateSystemPlugin({
-					params: { pluginId: current.pluginId },
-					payload: { manifest, compiledScripts: [], contentHash: current.contentHash },
-				}),
-			)
-		: await apiClient.runAdmin((c) =>
-				c.testSupport.installSystemPlugin({ payload: { manifest, compiledScripts: [] } }),
-			);
+	const result = await apiClient.runAdmin((c) =>
+		c.testSupport.installSystemPlugin({ payload: { manifest, compiledScripts: [] } }),
+	);
 	const installations = await apiClient.collectRecipeItems((after) =>
 		pluginInstallationsRecipe({ after, limit: 100 }),
 	);
 	const installation = requirePresent(
 		installations.find(
-			(candidate) =>
-				candidate.pluginId === result.pluginId &&
-				candidate.scope === "system" &&
-				(!current || candidate.installationId === current.installationId),
+			(candidate) => candidate.pluginId === result.pluginId && candidate.scope === "system",
 		),
 		`Installed seed plugin '${input.pluginSlug}' was not found in its exact installation`,
 	);
 	const registration = {
-		manifest,
 		pluginId: result.pluginId,
 		installationId: requirePresent(
 			installation.installationId,
 			`Installed seed plugin '${input.pluginSlug}' has no installation ID`,
 		),
-		contentHash: installation.contentHash,
 	};
-	seedPluginManifests.set(input.pluginSlug, registration);
+	seedPluginInstallations.set(input.pluginSlug, registration);
 	return registration;
 }
 
@@ -396,91 +374,17 @@ async function createPluginScope(
 	return plugin;
 }
 
-async function createEntitySchema(
-	apiClient: APIClient,
-	name: string,
-	slug: string,
-	pluginSlug: string,
-	icon: string,
-	propertiesSchema: AppSchema,
-) {
-	console.log(`    Creating entity schema: ${name}...`);
+function seedEntitySchema(name: string, slug: string, icon: string, propertiesSchema: AppSchema) {
 	// Every entity schema gets an images property; card views read the first image from it.
 	const propertiesSchemaWithImages: AppSchema = {
 		...propertiesSchema,
 		fields: { images: imagesField("Cover and promotional images"), ...propertiesSchema.fields },
 	};
-	const definition = {
-		name,
-		slug,
-		icon,
-		propertiesSchema: propertiesSchemaWithImages,
-		eventSchemas: [],
-	};
-	const registration = await installSeedDefinitions(apiClient, {
-		pluginSlug,
-		entitySchemas: [definition],
-	});
-	const schemaId = slug as EntitySchemaSlug;
-	const reference: EntitySchemaReference = {
-		owner: { kind: "plugin", pluginId: registration.pluginId },
-		slug: schemaId,
-	};
-	const schema = { ...definition, pluginSlug, id: schemaId, reference };
-
-	console.log(`    ✓ Created entity schema: ${name} (${schema.id})`);
-	return schema;
+	return { name, slug, icon, propertiesSchema: propertiesSchemaWithImages, eventSchemas: [] };
 }
 
-async function createEventSchema(
-	apiClient: APIClient,
-	name: string,
-	slug: string,
-	entitySchemaReference: EntitySchemaReference,
-	pluginSlug: string,
-	propertiesSchema: AppSchema,
-) {
-	console.log(`      Creating event schema: ${name}...`);
-	const schemas = await apiClient.collectRecipeItems((after) =>
-		entityDefinitionsRecipe({ after, limit: 100 }),
-	);
-	const registration = requirePresent(
-		seedPluginManifests.get(pluginSlug),
-		`Seed plugin '${pluginSlug}' was not installed`,
-	);
-	if (
-		entitySchemaReference.owner.kind !== "plugin" ||
-		entitySchemaReference.owner.pluginId !== registration.pluginId
-	) {
-		throw new Error(`Entity schema '${entitySchemaReference.slug}' has a different plugin owner`);
-	}
-	const entitySchema = requirePresent(
-		schemas.find(
-			(schema) =>
-				schema.slug === entitySchemaReference.slug && schema.pluginId === registration.pluginId,
-		),
-		`Entity schema '${entitySchemaReference.slug}' not found for its exact plugin owner`,
-	);
-	const definition = { name, slug, propertiesSchema };
-	await installSeedDefinitions(apiClient, {
-		pluginSlug,
-		entitySchemas: [
-			{
-				icon: entitySchema.icon,
-				name: entitySchema.name,
-				slug: entitySchema.slug,
-				propertiesSchema: entitySchema.propertiesSchema,
-				eventSchemas: [
-					...entitySchema.eventSchemas.items.filter((schema) => schema.slug !== slug),
-					definition,
-				],
-			},
-		],
-	});
-	const schema = { ...definition, id: EventSchemaSlug.make(slug) };
-
-	console.log(`      ✓ Created event schema: ${name} (${schema.id})`);
-	return schema;
+function seedEventSchema(name: string, slug: string, propertiesSchema: AppSchema) {
+	return { name, slug, propertiesSchema };
 }
 
 async function createEntity(
@@ -605,7 +509,7 @@ function buildSeedLayouts(
 
 function seedPluginId(pluginSlug: string) {
 	return requirePresent(
-		seedPluginManifests.get(pluginSlug),
+		seedPluginInstallations.get(pluginSlug),
 		`Seed plugin '${pluginSlug}' was not installed`,
 	).pluginId;
 }
@@ -628,7 +532,7 @@ async function createSavedView(
 					? {}
 					: {
 							workspaceInstallationId: requirePresent(
-								seedPluginManifests.get(pluginSlug)?.installationId,
+								seedPluginInstallations.get(pluginSlug)?.installationId,
 								`Seed plugin '${pluginSlug}' has no installation ID`,
 							),
 						}),
@@ -816,79 +720,67 @@ async function seedWhiskeys(client: APIClient) {
 		"Track your whiskey collection and tastings",
 	);
 
-	const entitySchema = await createEntitySchema(
-		client,
-		"Whiskey",
-		"whiskey",
-		pluginScope.id,
-		"wine",
-		{
-			fields: {
-				distillery: {
-					type: "string",
-					label: "Distillery",
-					description: "Distillery that produced the whiskey",
-					validation: { required: true },
-				},
-				age: { type: "integer", label: "Age", description: "Age of the whiskey in years" },
-				region: {
-					type: "string",
-					label: "Region",
-					description: "Region where the whiskey was produced",
-				},
-				proof: { type: "number", label: "Proof", description: "Proof of the whiskey" },
-				type: { type: "string", label: "Type", description: "Type of whiskey" },
+	const entitySchema = seedEntitySchema("Whiskey", "whiskey", "wine", {
+		fields: {
+			distillery: {
+				type: "string",
+				label: "Distillery",
+				description: "Distillery that produced the whiskey",
+				validation: { required: true },
 			},
+			age: { type: "integer", label: "Age", description: "Age of the whiskey in years" },
+			region: {
+				type: "string",
+				label: "Region",
+				description: "Region where the whiskey was produced",
+			},
+			proof: { type: "number", label: "Proof", description: "Proof of the whiskey" },
+			type: { type: "string", label: "Type", description: "Type of whiskey" },
 		},
-	);
+	});
 
-	const tastingSchema = await createEventSchema(
-		client,
-		"Tasting",
-		"tasting",
-		entitySchema.reference,
-		entitySchema.pluginSlug,
-		{
-			fields: {
-				rating: {
-					type: "integer",
-					label: "Rating",
-					description: "Rating for the tasting",
-					validation: { required: true, maximum: 10, minimum: 1 },
-				},
-				notes: { type: "string", label: "Notes", description: "Tasting notes" },
-				location: {
-					type: "string",
-					label: "Location",
-					description: "Location where the tasting took place",
-				},
+	const tastingSchema = seedEventSchema("Tasting", "tasting", {
+		fields: {
+			rating: {
+				type: "integer",
+				label: "Rating",
+				description: "Rating for the tasting",
+				validation: { required: true, maximum: 10, minimum: 1 },
+			},
+			notes: { type: "string", label: "Notes", description: "Tasting notes" },
+			location: {
+				type: "string",
+				label: "Location",
+				description: "Location where the tasting took place",
 			},
 		},
-	);
+	});
 
-	const purchaseSchema = await createEventSchema(
-		client,
-		"Purchase",
-		"purchase",
-		entitySchema.reference,
-		entitySchema.pluginSlug,
-		{
-			fields: {
-				price: {
-					type: "number",
-					label: "Price",
-					description: "Purchase price",
-					validation: { required: true },
-				},
-				store: {
-					type: "string",
-					label: "Store",
-					description: "Store where the whiskey was purchased",
-				},
-				bottle_size: { type: "integer", label: "Bottle Size", description: "Bottle size in ml" },
+	const purchaseSchema = seedEventSchema("Purchase", "purchase", {
+		fields: {
+			price: {
+				type: "number",
+				label: "Price",
+				description: "Purchase price",
+				validation: { required: true },
 			},
+			store: {
+				type: "string",
+				label: "Store",
+				description: "Store where the whiskey was purchased",
+			},
+			bottle_size: { type: "integer", label: "Bottle Size", description: "Bottle size in ml" },
 		},
-	);
+	});
+
+	const registration = await installSeedDefinitions(client, {
+		pluginSlug: pluginScope.id,
+		entitySchemas: [{ ...entitySchema, eventSchemas: [tastingSchema, purchaseSchema] }],
+	});
+	const entitySchemaReference: EntitySchemaReference = {
+		owner: { kind: "plugin", pluginId: registration.pluginId },
+		slug: EntitySchemaSlug.make(entitySchema.slug),
+	};
 
 	const entityCount = randomInt(90, 110);
 	console.log(`\n  Creating ${entityCount} whiskey entities...`);
@@ -902,7 +794,7 @@ async function seedWhiskeys(client: APIClient) {
 				const { entity } = await createEntity(
 					client,
 					whiskey.name,
-					entitySchema.reference,
+					entitySchemaReference,
 					whiskey.properties,
 					generateImageUrl(whiskey.name, 400, 600),
 				);
@@ -913,9 +805,15 @@ async function seedWhiskeys(client: APIClient) {
 				for (let i = 0; i < eventCount; i++) {
 					const schema = randomChoice(eventSchemas);
 					const properties =
-						schema.id === tastingSchema.id ? generateWhiskeyTasting() : generateWhiskeyPurchase();
+						schema.slug === tastingSchema.slug
+							? generateWhiskeyTasting()
+							: generateWhiskeyPurchase();
 
-					events.push({ properties, entityId: entity.id, eventSchemaSlug: schema.id });
+					events.push({
+						properties,
+						entityId: entity.id,
+						eventSchemaSlug: EventSchemaSlug.make(schema.slug),
+					});
 				}
 
 				await createEvents(client, events);
@@ -947,100 +845,81 @@ async function seedPlaces(client: APIClient) {
 		"Track places you've visited and want to visit",
 	);
 
-	const entitySchema = await createEntitySchema(
-		client,
-		"Place",
-		"place",
-		pluginScope.id,
-		"map-pin",
-		{
-			fields: {
-				city: {
-					type: "string",
-					label: "City",
-					description: "City where the place is located",
-					validation: { required: true },
-				},
-				country: {
-					type: "string",
-					label: "Country",
-					description: "Country where the place is located",
-					validation: { required: true },
-				},
-				type: { type: "string", label: "Type", description: "Type of place" },
-				address: { type: "string", label: "Address", description: "Street address of the place" },
-				latitude: { type: "number", label: "Latitude", description: "Latitude coordinate" },
-				longitude: { type: "number", label: "Longitude", description: "Longitude coordinate" },
+	const entitySchema = seedEntitySchema("Place", "place", "map-pin", {
+		fields: {
+			city: {
+				type: "string",
+				label: "City",
+				description: "City where the place is located",
+				validation: { required: true },
 			},
+			country: {
+				type: "string",
+				label: "Country",
+				description: "Country where the place is located",
+				validation: { required: true },
+			},
+			type: { type: "string", label: "Type", description: "Type of place" },
+			address: { type: "string", label: "Address", description: "Street address of the place" },
+			latitude: { type: "number", label: "Latitude", description: "Latitude coordinate" },
+			longitude: { type: "number", label: "Longitude", description: "Longitude coordinate" },
 		},
-	);
+	});
 
-	const visitSchema = await createEventSchema(
-		client,
-		"Visit",
-		"visit",
-		entitySchema.reference,
-		entitySchema.pluginSlug,
-		{
-			fields: {
-				date: {
-					type: "date",
-					label: "Date",
-					description: "Date of the visit",
-					validation: { required: true },
-				},
-				duration_hours: {
-					type: "number",
-					label: "Duration Hours",
-					description: "Duration of the visit in hours",
-				},
-				companions: {
-					type: "string",
-					label: "Companions",
-					description: "People who accompanied you",
-				},
-				notes: { type: "string", label: "Notes", description: "Notes about the visit" },
+	const visitSchema = seedEventSchema("Visit", "visit", {
+		fields: {
+			date: {
+				type: "date",
+				label: "Date",
+				description: "Date of the visit",
+				validation: { required: true },
 			},
+			duration_hours: {
+				type: "number",
+				label: "Duration Hours",
+				description: "Duration of the visit in hours",
+			},
+			companions: {
+				type: "string",
+				label: "Companions",
+				description: "People who accompanied you",
+			},
+			notes: { type: "string", label: "Notes", description: "Notes about the visit" },
 		},
-	);
+	});
 
-	const ratingSchema = await createEventSchema(
-		client,
-		"Rating",
-		"rating",
-		entitySchema.reference,
-		entitySchema.pluginSlug,
-		{
-			fields: {
-				rating: {
-					type: "integer",
-					label: "Rating",
-					description: "Rating for the place",
-					validation: { required: true, maximum: 5, minimum: 1 },
-				},
-				review: { type: "string", label: "Review", description: "Written review" },
-				would_return: {
-					type: "boolean",
-					label: "Would Return",
-					description: "Whether you would return to this place",
-				},
+	const ratingSchema = seedEventSchema("Rating", "rating", {
+		fields: {
+			rating: {
+				type: "integer",
+				label: "Rating",
+				description: "Rating for the place",
+				validation: { required: true, maximum: 5, minimum: 1 },
+			},
+			review: { type: "string", label: "Review", description: "Written review" },
+			would_return: {
+				type: "boolean",
+				label: "Would Return",
+				description: "Whether you would return to this place",
 			},
 		},
-	);
+	});
 
-	const photoSchema = await createEventSchema(
-		client,
-		"Photo",
-		"photo",
-		entitySchema.reference,
-		entitySchema.pluginSlug,
-		{
-			fields: {
-				photo_url: { type: "string", label: "Photo URL", description: "URL of the photo" },
-				caption: { type: "string", label: "Caption", description: "Caption for the photo" },
-			},
+	const photoSchema = seedEventSchema("Photo", "photo", {
+		fields: {
+			photo_url: { type: "string", label: "Photo URL", description: "URL of the photo" },
+			caption: { type: "string", label: "Caption", description: "Caption for the photo" },
 		},
-	);
+	});
+
+	const registration = await installSeedDefinitions(client, {
+		pluginSlug: pluginScope.id,
+		entitySchemas: [{ ...entitySchema, eventSchemas: [visitSchema, ratingSchema, photoSchema] }],
+	});
+	const entitySchemaReference: EntitySchemaReference = {
+		owner: { kind: "plugin", pluginId: registration.pluginId },
+		slug: EntitySchemaSlug.make(entitySchema.slug),
+	};
 
 	const entityCount = randomInt(90, 110);
 	console.log(`\n  Creating ${entityCount} place entities...`);
@@ -1054,7 +933,7 @@ async function seedPlaces(client: APIClient) {
 				const { entity } = await createEntity(
 					client,
 					place.name,
-					entitySchema.reference,
+					entitySchemaReference,
 					place.properties,
 					generateImageUrl(place.name, 800, 600),
 				);
@@ -1066,15 +945,19 @@ async function seedPlaces(client: APIClient) {
 					const schema = randomChoice(eventSchemas);
 					let properties: Record<string, unknown>;
 
-					if (schema.id === visitSchema.id) {
+					if (schema.slug === visitSchema.slug) {
 						properties = generatePlaceVisit();
-					} else if (schema.id === ratingSchema.id) {
+					} else if (schema.slug === ratingSchema.slug) {
 						properties = generatePlaceRating();
 					} else {
 						properties = generatePlacePhoto();
 					}
 
-					events.push({ properties, entityId: entity.id, eventSchemaSlug: schema.id });
+					events.push({
+						properties,
+						entityId: entity.id,
+						eventSchemaSlug: EventSchemaSlug.make(schema.slug),
+					});
 				}
 
 				await createEvents(client, events);
@@ -1106,86 +989,71 @@ async function seedMobilePhones(client: APIClient) {
 		"Track your mobile device collection",
 	);
 
-	const smartphoneSchema = await createEntitySchema(
-		client,
-		"Smartphone",
-		"smartphone",
-		pluginScope.id,
-		"smartphone",
-		{
-			fields: {
-				manufacturer: {
-					type: "string",
-					label: "Manufacturer",
-					description: "Manufacturer of the smartphone",
-					validation: { required: true },
-				},
-				year: { type: "integer", label: "Year", description: "Release year" },
-				os: { type: "string", label: "OS", description: "Operating system" },
-				screen_size: { type: "number", label: "Screen Size", description: "Screen size in inches" },
-				storage_gb: { type: "integer", label: "Storage GB", description: "Storage capacity in GB" },
-				ram_gb: { type: "integer", label: "RAM GB", description: "RAM capacity in GB" },
-				price_usd: { type: "number", label: "Price USD", description: "Price in USD" },
+	const smartphoneSchema = seedEntitySchema("Smartphone", "smartphone", "smartphone", {
+		fields: {
+			manufacturer: {
+				type: "string",
+				label: "Manufacturer",
+				description: "Manufacturer of the smartphone",
+				validation: { required: true },
 			},
+			year: { type: "integer", label: "Year", description: "Release year" },
+			os: { type: "string", label: "OS", description: "Operating system" },
+			screen_size: { type: "number", label: "Screen Size", description: "Screen size in inches" },
+			storage_gb: { type: "integer", label: "Storage GB", description: "Storage capacity in GB" },
+			ram_gb: { type: "integer", label: "RAM GB", description: "RAM capacity in GB" },
+			price_usd: { type: "number", label: "Price USD", description: "Price in USD" },
 		},
-	);
+	});
 
-	const featurePhoneSchema = await createEntitySchema(
-		client,
-		"Feature Phone",
-		"feature-phone",
-		pluginScope.id,
-		"phone",
-		{
-			fields: {
-				manufacturer: {
-					type: "string",
-					label: "Manufacturer",
-					description: "Manufacturer of the feature phone",
-					validation: { required: true },
-				},
-				year: { type: "integer", label: "Year", description: "Release year" },
-				has_camera: {
-					type: "boolean",
-					label: "Has Camera",
-					description: "Whether the phone has a camera",
-				},
-				battery_mah: {
-					type: "integer",
-					label: "Battery mAh",
-					description: "Battery capacity in mAh",
-				},
-				color: { type: "string", label: "Color", description: "Color of the phone" },
+	const featurePhoneSchema = seedEntitySchema("Feature Phone", "feature-phone", "phone", {
+		fields: {
+			manufacturer: {
+				type: "string",
+				label: "Manufacturer",
+				description: "Manufacturer of the feature phone",
+				validation: { required: true },
 			},
+			year: { type: "integer", label: "Year", description: "Release year" },
+			has_camera: {
+				type: "boolean",
+				label: "Has Camera",
+				description: "Whether the phone has a camera",
+			},
+			battery_mah: {
+				type: "integer",
+				label: "Battery mAh",
+				description: "Battery capacity in mAh",
+			},
+			color: { type: "string", label: "Color", description: "Color of the phone" },
 		},
-	);
+	});
 
-	const tabletSchema = await createEntitySchema(
-		client,
-		"Tablet",
-		"tablet",
-		pluginScope.id,
-		"tablet",
-		{
-			fields: {
-				manufacturer: {
-					type: "string",
-					label: "Manufacturer",
-					description: "Manufacturer of the tablet",
-					validation: { required: true },
-				},
-				year: { type: "integer", label: "Year", description: "Release year" },
-				screen_size: { type: "number", label: "Screen Size", description: "Screen size in inches" },
-				os: { type: "string", label: "OS", description: "Operating system" },
-				storage_gb: { type: "integer", label: "Storage GB", description: "Storage capacity in GB" },
-				has_cellular: {
-					type: "boolean",
-					label: "Has Cellular",
-					description: "Whether the tablet has cellular connectivity",
-				},
+	const tabletSchema = seedEntitySchema("Tablet", "tablet", "tablet", {
+		fields: {
+			manufacturer: {
+				type: "string",
+				label: "Manufacturer",
+				description: "Manufacturer of the tablet",
+				validation: { required: true },
+			},
+			year: { type: "integer", label: "Year", description: "Release year" },
+			screen_size: { type: "number", label: "Screen Size", description: "Screen size in inches" },
+			os: { type: "string", label: "OS", description: "Operating system" },
+			storage_gb: { type: "integer", label: "Storage GB", description: "Storage capacity in GB" },
+			has_cellular: {
+				type: "boolean",
+				label: "Has Cellular",
+				description: "Whether the tablet has cellular connectivity",
 			},
 		},
-	);
+	});
+
+	const registration = await installSeedDefinitions(client, {
+		pluginSlug: pluginScope.id,
+		entitySchemas: [smartphoneSchema, featurePhoneSchema, tabletSchema],
+	});
+	const owner: EntitySchemaReference["owner"] = { kind: "plugin", pluginId: registration.pluginId };
 
 	console.log("\n  Creating smartphone entities...");
 	const smartphoneCount = randomInt(90, 110);
@@ -1198,7 +1066,7 @@ async function seedMobilePhones(client: APIClient) {
 				const { entity } = await createEntity(
 					client,
 					phone.name,
-					smartphoneSchema.reference,
+					{ owner, slug: EntitySchemaSlug.make(smartphoneSchema.slug) },
 					phone.properties,
 					generateImageUrl(phone.name, 400, 600),
 				);
@@ -1224,7 +1092,7 @@ async function seedMobilePhones(client: APIClient) {
 				const { entity } = await createEntity(
 					client,
 					phone.name,
-					featurePhoneSchema.reference,
+					{ owner, slug: EntitySchemaSlug.make(featurePhoneSchema.slug) },
 					phone.properties,
 					generateImageUrl(phone.name, 400, 600),
 				);
@@ -1252,7 +1120,7 @@ async function seedMobilePhones(client: APIClient) {
 				const { entity } = await createEntity(
 					client,
 					tablet.name,
-					tabletSchema.reference,
+					{ owner, slug: EntitySchemaSlug.make(tabletSchema.slug) },
 					tablet.properties,
 					generateImageUrl(tablet.name, 400, 600),
 				);
