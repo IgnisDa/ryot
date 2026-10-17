@@ -150,7 +150,7 @@ describe("audiobook.audible sandbox script", () => {
 						isNsfw: true,
 						runtime: 610,
 						publishYear: 2020,
-						providerRating: 4.5,
+						providerRating: 90,
 						publishDate: "2020-05-02",
 						description: "Line one\\\nLine two",
 						sourceUrl: "https://www.audible.com/pd/mixed-book",

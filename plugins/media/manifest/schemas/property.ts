@@ -81,7 +81,6 @@ const watchProvidersField = (description: string) =>
 const mediaBaseFields = {
 	publishYear: integerField("Publish Year", "Year this media was first published or released"),
 	sourceUrl: stringField("Source link", "Link to the original source or external provider page"),
-	providerRating: numberField("Provider Rating", "Aggregate score from the external data provider"),
 	isNsfw: booleanField(
 		"Adult content",
 		"Whether this media contains adult or not-safe-for-work content",
@@ -89,6 +88,10 @@ const mediaBaseFields = {
 	productionStatus: stringField(
 		"Production Status",
 		"Current production status (e.g. Ended, Continuing, Cancelled)",
+	),
+	providerRating: numberField(
+		"Provider Rating",
+		"Aggregate score from the external data provider, normalized to a 0-100 scale",
 	),
 	publishDate: stringField(
 		"Publish Date",

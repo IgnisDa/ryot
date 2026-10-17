@@ -29,6 +29,9 @@ export const stringValue = (value: unknown) =>
 export const numberValue = (value: unknown) =>
 	typeof value === "number" && Number.isFinite(value) ? value : null;
 
+export const scaledRating = (value: number | null, factor: number) =>
+	value === null ? null : Math.round(value * factor * 100) / 100;
+
 export const trimmedString = (value: unknown) => (typeof value === "string" ? value.trim() : "");
 
 export const parseJsonResponse = (responseBody: string, label: string) => {

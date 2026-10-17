@@ -72,6 +72,7 @@ describe("manga.myanimelist sandbox script", () => {
 						volumes: 10,
 						chapters: 90,
 						isNsfw: false,
+						providerRating: 81,
 						productionStatus: "Finished",
 						sourceUrl: "https://myanimelist.net/manga/1/Source",
 					});

@@ -6,7 +6,7 @@ import { asRecord } from "@ryot-app/plugin-backend-sdk/wire";
 import { recognizedMediaGenres } from "../../../../shared/media-genres";
 import { MediaSandboxError } from "../../../lib/failures";
 import { mediaGenreGroups } from "../../../lib/media-genres";
-import { numberValue, stringValue, trimmedString } from "../../../lib/records";
+import { numberValue, scaledRating, stringValue, trimmedString } from "../../../lib/records";
 import { normalizeRichDescription } from "../../../lib/rich-description";
 import { createRoleAccumulator } from "../../../lib/role-accumulator";
 import {
@@ -199,7 +199,7 @@ const providerRatingValue = (rating: Record<string, unknown> | null) => {
 		return null;
 	}
 	const parsed = Number(average);
-	return Number.isFinite(parsed) ? parsed : null;
+	return scaledRating(Number.isFinite(parsed) ? parsed : null, 20);
 };
 
 export const details = defineProvider({

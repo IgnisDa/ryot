@@ -5,7 +5,7 @@ import { asRecord } from "@ryot-app/plugin-backend-sdk/wire";
 
 import { mediaGenreGroups } from "../../../lib/media-genres";
 import { normalizePlainDescription } from "../../../lib/plain-description";
-import { numberValue, stringValue } from "../../../lib/records";
+import { numberValue, scaledRating, stringValue } from "../../../lib/records";
 import { toTitleCase } from "../../../lib/title-case-delimiters";
 import {
 	collectGenres,
@@ -90,13 +90,13 @@ export const details = defineProvider({
 				],
 				properties: {
 					isNsfw: parseIsNsfw(payload?.["nsfw"]),
-					providerRating: numberValue(payload?.["mean"]),
 					images: collectImages(payload?.["main_picture"]),
 					publishDate: parsePublishDate(payload?.["start_date"]),
 					publishYear: parsePublishYear(payload?.["start_date"]),
 					airingSchedule: parseAiringSchedule(payload?.["start_date"]),
 					description: normalizePlainDescription(payload?.["synopsis"]),
 					productionStatus: statusValue ? toTitleCase(statusValue) : null,
+					providerRating: scaledRating(numberValue(payload?.["mean"]), 10),
 					sourceUrl: `https://myanimelist.net/anime/${payloadIdentifier}/${title}`,
 					episodes: episodesValue === null ? null : Math.max(0, Math.trunc(episodesValue)),
 				},

@@ -6,7 +6,13 @@ import { asRecord } from "@ryot-app/plugin-backend-sdk/wire";
 
 import { MediaSandboxError } from "../../../lib/failures";
 import { mediaGenreGroups } from "../../../lib/media-genres";
-import { numberValue, recordsValue, stringValue, type UnknownRecord } from "../../../lib/records";
+import {
+	numberValue,
+	recordsValue,
+	scaledRating,
+	stringValue,
+	type UnknownRecord,
+} from "../../../lib/records";
 import { normalizeRichDescription } from "../../../lib/rich-description";
 import {
 	imageUrlValue,
@@ -208,7 +214,7 @@ export const details = defineProvider({
 					sourceUrl: typeof url === "string" ? url : null,
 					publishYear: parsePublishYear(payload?.["year"]),
 					chapters: numberValue(payload?.["latest_chapter"]),
-					providerRating: numberValue(payload?.["bayesian_rating"]),
+					providerRating: scaledRating(numberValue(payload?.["bayesian_rating"]), 10),
 					description: yield* normalizeRichDescription(description, "https://www.mangaupdates.com"),
 				},
 			};

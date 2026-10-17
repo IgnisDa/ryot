@@ -180,6 +180,10 @@ URLs or managed keys plus a declared purpose. Providers prefer foreground art, p
 purposes, and deduplicate URLs using their first classification. Translation may replace the entire
 image array; omission preserves canonical images.
 
+`providerRating` is always 0-100, rounded to 2 decimals. Providers with native /5 scales (Audible)
+are multiplied by 20 and /10 scales (MyAnimeList, MangaUpdates) by 10; AniList, TMDB, IGDB, and VNDB
+already report /100. Spotify and Listen Notes store popularity scores, not ratings.
+
 TMDB watch providers exist only on Movie/Show. Population retains every country; the client filters
 to the viewer's known region and hides empty results. Country entries contain the watch link and
 offers in `stream`, `free`, `ads`, `rent`, `buy` order. The UI credits JustWatch and sorts services by

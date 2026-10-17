@@ -126,7 +126,7 @@ describe("anime.myanimelist sandbox script", () => {
 						isNsfw: true,
 						episodes: 12,
 						publishYear: 2024,
-						providerRating: 8.1,
+						providerRating: 81,
 						publishDate: "2024-01-05",
 						description: "Plain synopsis",
 						productionStatus: "Currently Airing",

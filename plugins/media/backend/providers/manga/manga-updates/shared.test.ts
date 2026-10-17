@@ -91,7 +91,7 @@ describe("manga.manga-updates sandbox script", () => {
 						volumes: 12,
 						chapters: 120,
 						publishYear: 2004,
-						providerRating: 8.53,
+						providerRating: 85.3,
 						description: "A story",
 						productionStatus: "Ongoing",
 						sourceUrl: "https://www.mangaupdates.com/series/source",
