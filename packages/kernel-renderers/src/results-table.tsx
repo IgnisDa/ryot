@@ -1,24 +1,48 @@
-import { Result, Schema } from "@ryot-app/plugin-client-sdk/effect";
-import { PluginLink, usePageContext } from "@ryot-app/plugin-client-sdk/plugin";
+import { DateTime, Effect, Result, Schema } from "@ryot-app/plugin-client-sdk/effect";
+import {
+	PluginLink,
+	usePageContext,
+	usePluginLocation,
+	useRyotViewport,
+} from "@ryot-app/plugin-client-sdk/plugin";
 import {
 	ManagedAssetProvider,
 	createRyotQuery,
+	useRyot,
 	useRyotInfiniteQuery,
 	nextPageCursor,
 	paginationItems,
 } from "@ryot-app/plugin-client-sdk/react";
-import { PluginScreenFrame } from "@ryot-app/plugin-client-sdk/screen";
-import { Button, LoadMoreButton, StatusMessage } from "@ryot-app/plugin-ui-sdk";
+import { PluginScreenFrame, ViewFiltersButton } from "@ryot-app/plugin-client-sdk/screen";
+import {
+	Button,
+	LoadMoreButton,
+	Modal,
+	ScreenBarButton,
+	StatusMessage,
+} from "@ryot-app/plugin-ui-sdk";
 import { AppIcon } from "@ryot-app/plugin-ui-sdk/icon";
 import { DataTable, type DataTableColumn } from "@ryot-app/plugin-ui-sdk/table";
+import {
+	activeRuleCount,
+	decodeFilterParam,
+	effectiveFilterFields,
+	encodeFilterParam,
+	NullableFilter,
+} from "@ryot-app/ryotql-recipes/saved-view-filters";
 import {
 	ResultsTablePageInput,
 	resultsTableRecipe,
 	type ResultsTableResult,
 } from "@ryot-app/ryotql-recipes/saved-views";
-import { useState } from "react";
+import { useRef, useState } from "react";
 
+import { FilterChips, FilterRules, type BrowserFilter } from "./browser-filters";
+import { BrowserNoMatches } from "./browser-states";
 import { CellValue, cellText, managedCellAssets } from "./display-value";
+
+const QueryInput = Schema.Struct({ filter: NullableFilter, after: Schema.NullOr(Schema.String) });
+const decodeQueryInput = Schema.decodeUnknownSync(Schema.fromJsonString(QueryInput));
 
 type TableItem = ResultsTableResult["items"][number];
 
@@ -48,26 +72,50 @@ const resultsTableColumns = (
 const ResultsTable = ({ input }: { readonly input: typeof ResultsTablePageInput.Type }) => {
 	const viewName = input.view?.name ?? "Results table";
 	const viewIcon = input.view?.icon ?? "table";
+	const ryot = useRyot();
+	const location = usePluginLocation();
+	const { compact } = useRyotViewport();
+	const [filtersOpen, setFiltersOpen] = useState(false);
+	const optionsTrigger = useRef<HTMLButtonElement>(null);
+	const filtersTrigger = useRef<HTMLButtonElement>(null);
+	const filterFields = effectiveFilterFields("results-table", input.settings);
+	const filter = decodeFilterParam(
+		new URLSearchParams(location.search).get("filters"),
+		filterFields,
+	);
+	const filterCount = activeRuleCount(filter);
+	const setFilter = (next: BrowserFilter | undefined) =>
+		ryot.navigation.pageSearch.replace({ filters: encodeFilterParam(next) });
 	const [query] = useState(() =>
-		createRyotQuery<string | null, ResultsTableResult>(
-			({ client, input: after }) =>
-				client.data.query(
-					Result.getOrThrow(
-						resultsTableRecipe({
-							settings: input.settings,
-							queryDocument: input.dataSources,
-							...(after === null ? {} : { after }),
-						}),
-					),
-				),
+		createRyotQuery<string, ResultsTableResult>(
+			({ client, input: serialized }) =>
+				Effect.gen(function* () {
+					const { after, filter: applied } = decodeQueryInput(serialized);
+					const now = yield* DateTime.now;
+					return yield* client.data.query(
+						Result.getOrThrow(
+							resultsTableRecipe({
+								settings: input.settings,
+								queryDocument: input.dataSources,
+								...(after === null ? {} : { after }),
+								...(applied === null ? {} : { now, filter: applied }),
+							}),
+						),
+					);
+				}),
 			{ cancelOnUnmount: true },
 		),
 	);
-	const result = useRyotInfiniteQuery(query, input.target.reference, {
-		initialPageParam: null,
-		getNextPageParam: nextPageCursor,
-		getPageInput: (_, after: string | null) => after,
-	});
+	const result = useRyotInfiniteQuery(
+		query,
+		{ filter: filter ?? null, reference: input.target.reference },
+		{
+			initialPageParam: null,
+			getNextPageParam: nextPageCursor,
+			getPageInput: (selection, after: string | null) =>
+				JSON.stringify({ after, filter: selection.filter }),
+		},
+	);
 	const state = {
 		pageInfo: result.data?.pageInfo ?? null,
 		items: paginationItems(
@@ -85,12 +133,37 @@ const ResultsTable = ({ input }: { readonly input: typeof ResultsTablePageInput.
 			<PluginScreenFrame
 				title={viewName}
 				titleIcon={<AppIcon size={20} name={viewIcon} className="shrink-0 text-text-muted" />}
+				actions={
+					<ViewFiltersButton
+						ref={filtersTrigger}
+						activeCount={filterCount}
+						onClick={() => setFiltersOpen(true)}
+					/>
+				}
+				barActions={
+					<ScreenBarButton
+						ref={optionsTrigger}
+						className="text-text-muted"
+						onClick={() => setFiltersOpen(true)}
+						label={`Filters, ${filterCount} active ${filterCount === 1 ? "filter" : "filters"}`}
+					>
+						<AppIcon size={22} name="sliders-horizontal" />
+					</ScreenBarButton>
+				}
 				meta={
-					<p role="status" className="text-xs text-text-muted @2xl:text-sm">
-						{`${state.items.length.toLocaleString()}${
-							state.pageInfo?.hasMore ? "+" : ""
-						} ${state.items.length === 1 && !state.pageInfo?.hasMore ? "result" : "results"}`}
-					</p>
+					<>
+						<p role="status" className="text-xs text-text-muted @2xl:text-sm">
+							{`${state.items.length.toLocaleString()}${
+								state.pageInfo?.hasMore ? "+" : ""
+							} ${state.items.length === 1 && !state.pageInfo?.hasMore ? "result" : "results"}`}
+						</p>
+						<FilterChips
+							filter={filter}
+							onChange={setFilter}
+							fields={filterFields}
+							onOpen={() => setFiltersOpen(true)}
+						/>
+					</>
 				}
 			>
 				<section aria-busy={result.isFetching} className="@container grid gap-5">
@@ -105,7 +178,17 @@ const ResultsTable = ({ input }: { readonly input: typeof ResultsTablePageInput.
 							</Button>
 						</StatusMessage>
 					)}
-					{!initial && state.items.length === 0 && (
+					{!initial && state.items.length === 0 && filter !== undefined && (
+						<BrowserNoMatches
+							query=""
+							filtered
+							canAdd={false}
+							name={viewName}
+							onAdd={() => undefined}
+							onClearFilters={() => setFilter(undefined)}
+						/>
+					)}
+					{!initial && state.items.length === 0 && filter === undefined && (
 						<StatusMessage tone="success">No results found.</StatusMessage>
 					)}
 					{state.items.length > 0 && (
@@ -149,6 +232,30 @@ const ResultsTable = ({ input }: { readonly input: typeof ResultsTablePageInput.
 					)}
 				</section>
 			</PluginScreenFrame>
+			{filtersOpen && (
+				<Modal
+					label="Filters"
+					closeLabel="Close filters"
+					onClose={() => setFiltersOpen(false)}
+					triggerRef={compact ? optionsTrigger : filtersTrigger}
+					containerClassName={
+						compact ? "items-end justify-center" : "items-center justify-center p-4"
+					}
+					className={
+						compact
+							? "max-h-[90%] w-full overflow-y-auto rounded-t-xl border-t border-border bg-surface p-5"
+							: "max-h-[90%] w-full max-w-xl overflow-y-auto rounded-xl border border-border bg-surface p-5"
+					}
+				>
+					<h2 className="font-display text-lg font-semibold text-text">Filters</h2>
+					<FilterRules
+						filter={filter}
+						compact={compact}
+						onChange={setFilter}
+						fields={filterFields}
+					/>
+				</Modal>
+			)}
 		</ManagedAssetProvider>
 	);
 };

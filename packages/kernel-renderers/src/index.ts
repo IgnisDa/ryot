@@ -16,6 +16,11 @@ const BROWSER_PATHS = [
 	"client/entity-browser-controller.tsx",
 ] as const satisfies readonly KernelRendererPath[];
 
+const RESULTS_TABLE_PATHS = [
+	"client/browser-filters.tsx",
+	"client/browser-states.tsx",
+] as const satisfies readonly KernelRendererPath[];
+
 const COLLECTION_PATHS = [
 	...BROWSER_PATHS,
 	"client/host-screen.ts",
@@ -76,7 +81,7 @@ export const kernelCollectionBrowserRenderer = renderer(
 export const kernelResultsTableRenderer = renderer(
 	"Results table",
 	"client/results-table.tsx",
-	[],
+	RESULTS_TABLE_PATHS,
 	false,
 );
 

@@ -53,6 +53,9 @@ rules panel, the chips row, and the relationship choices queries; `entity-browse
 composes them and owns the state. Renderer sources import filter helpers only from
 `@ryot-app/ryotql-recipes/saved-view-filters`, never from the contract.
 
+The results table reuses the panel and chips for its authored value `filterFields` only (no Collections
+relationship, sort, or layout) and reads the `filters` parameter straight from the page location.
+
 Filter state lives only in the `filters` search parameter: `base64url(JSON of Filter)`, written with
 the same pending-search path as sort and search so URL, query identity, and the visible results move
 together. Decoding is lenient: leaves with unknown fields, operators outside the field type, or
