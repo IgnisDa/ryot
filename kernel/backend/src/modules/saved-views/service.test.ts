@@ -263,6 +263,41 @@ const calendarView = {
 layer(
 	makeLayer({
 		repository: {
+			lockCustom: () => Effect.succeed(baseView),
+			findByReference: () => Effect.succeed(pluginView),
+			create: () => Effect.die("An unavailable renderer must not be saved"),
+			updateCustom: () => Effect.die("An unavailable renderer must not be saved"),
+		},
+	}),
+)((test) => {
+	test.effect("rejects unavailable plugin renderers before create, update, or clone writes", () =>
+		Effect.gen(function* () {
+			const service = yield* SavedViewsService;
+			const config = {
+				dataSources: null,
+				renderer: pluginRenderer,
+				settings: { title: "Fixture" },
+			};
+			for (const operation of [
+				service.create(user, { ...config, icon: "record", name: "Plugin view" }),
+				service.update(user, baseView.reference, { ...config, isHidden: false }),
+				service.clone(user, pluginView.reference),
+			]) {
+				assertExitFails(
+					yield* Effect.exit(operation),
+					new SavedViewBadRequest({ reason: { code: "renderer-not-found" } }),
+				);
+			}
+			const calls = yield* SavedViewsCalls;
+			expect(yield* calls.created).toEqual([]);
+			expect(yield* calls.events).toEqual([]);
+		}),
+	);
+});
+
+layer(
+	makeLayer({
+		repository: {
 			create: () => Effect.succeed({ id: SavedViewId.make("calendar-copy-id") }),
 			findByReference: (_userId, reference) =>
 				Effect.succeed(Bun.deepEquals(reference, calendarView.reference) ? calendarView : null),

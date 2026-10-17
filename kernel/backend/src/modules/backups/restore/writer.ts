@@ -622,7 +622,6 @@ export const preflightProvenance = Effect.fn(function* (
 				renderer,
 				settings,
 				dataSources,
-				null,
 				page?.kind === "page" ? page : null,
 			).pipe(Effect.mapError(() => badRequest("Backup saved view definition is invalid")));
 		}
@@ -1319,7 +1318,6 @@ export class BackupRestoreWriter extends Context.Service<BackupRestoreWriter>()(
 						renderer,
 						settings,
 						dataSources,
-						null,
 						pluginPage?.kind === "page" ? pluginPage : null,
 					).pipe(Effect.mapError(() => badRequest("Backup saved view definition is invalid")));
 					if (pluginPage?.kind === "page") {

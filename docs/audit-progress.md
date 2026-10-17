@@ -15,7 +15,7 @@
 
 ## Status
 
-**76 implemented, 0 in progress, 7 pending; 3 excluded.**
+**77 implemented, 0 in progress, 6 pending; 3 excluded.**
 
 “Implemented” means affected checks and tests passed and the change is committed with this tracker. Batch-wide acceptance is recorded separately below. Rows follow the audit's ranked order; sequencing can change to respect dependencies and keep changes reviewable.
 
@@ -105,7 +105,7 @@
 | M05-R1 | Implemented | Delete the import-admission shadow union; real manifest admission validates 17 sources. See this finding's audit commit. |
 | M06-R1 | Implemented | Remove dead hero configuration, resolve locators once, and retain actual headers and the home backdrop. See this finding's audit commit. |
 | B11-R2 | Pending | Return the locked event revision once. |
-| B22-R2 | Pending | Remove unreachable custom-renderer publication. |
+| B22-R2 | Implemented | Remove custom-renderer IDs, publication states, and unreachable publication paths; validate only kernel or installed plugin renderers, including backup restore. See this finding's audit commit. |
 | P08-R1 | Implemented | Acquire a complete private mode-0700 workspace and expose its handle only after staging; clean up collisions and replacements across the workspace lifetime, with no incremental API. See this finding's audit commit. |
 
 ## Decisions to preserve
@@ -243,3 +243,4 @@
 - B01-R2: scoped checks passed before 81 tests across four files; final read-only review reported no findings. Provider order now owns results, receipt indexes, child/subtree stamps, and new lifecycle dispatch; repositories sort canonical mutation locks.
 - B02-R2: backend type, format, and lint checks passed before 94 tests across 11 files; read-only review passed. Readiness uses exact configured-key metadata and does not decrypt; startup and execution continue to authenticate configuration ciphertext.
 - B10-R2: scoped checks passed before 21 tests across four files; final read-only review reported no findings. Removed unused definition-reader modes and staged only the dead reader fixture hunks from the shared saved-view service test; B22-R2 renderer test changes remain unstaged.
+- B22-R2: backend and contract scoped checks passed before 93 tests across 11 files; read-only review passed. Removed custom-renderer identity/publication branches and made saved-view and backup validation exhaustive for kernel/plugin renderers. The service-test changes are the remaining renderer hunks after B10-R2.
