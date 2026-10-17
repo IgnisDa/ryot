@@ -9,13 +9,17 @@ import {
 import { PluginScreenFrame } from "@ryot-app/plugin-client-sdk/screen";
 import { Button, Card, StatusMessage } from "@ryot-app/plugin-ui-sdk";
 import clsx from "clsx";
+import { useState } from "react";
 
 import { supersetColor } from "../../shared/superset-colors";
 import type { WorkoutEditorOccurrence } from "../../shared/workout-editor-draft";
 import { fitnessRoute } from "../../shared/workout-editor-routes";
 import { durationDisplayUnit } from "../../shared/workout-units";
 import { AssetArtWell, managedAssetBatch } from "../asset-urls";
+import { AddEntityToCollection } from "../collections";
+import { DeleteFitnessEntity } from "../entity-delete";
 import { supersetColorVariable } from "../group-colors";
+import { HeaderActionsMenu } from "../header-actions-menu";
 import { WorkoutMediaViewer } from "../media-viewer";
 import { setLabels, setLots } from "../set-lots";
 import { workoutEditorContextQuery } from "../workout-editor/context-query";
@@ -47,6 +51,7 @@ function TemplateDetails(props: { readonly entityId: string }) {
 	const exercises = useRyotQuery(editorExercisesQuery, {
 		exerciseIds: [...new Set(draft?.occurrences.map(({ exerciseId }) => exerciseId) ?? [])],
 	});
+	const [dialog, setDialog] = useState<"collections" | "delete">();
 	const imperial = context.data?.settings.unitSystem === "imperial";
 	const action = (kind: "start" | "edit") =>
 		client.navigation.push(
@@ -109,7 +114,7 @@ function TemplateDetails(props: { readonly entityId: string }) {
 							</span>
 							<h1
 								className={clsx(
-									"font-display font-semibold text-text [overflow-wrap:anywhere]",
+									"font-display font-semibold text-text wrap-anywhere",
 									compact ? "text-[34px] leading-tight" : "text-5xl leading-none",
 								)}
 							>
@@ -123,6 +128,36 @@ function TemplateDetails(props: { readonly entityId: string }) {
 							<Button variant="secondary" onClick={() => action("edit")}>
 								Edit template{context.data.proAvailable ? "" : " (Pro)"}
 							</Button>
+							<HeaderActionsMenu
+								label="More template actions"
+								items={[
+									{
+										key: "collections",
+										label: "Add to collection",
+										onSelect: () => setDialog("collections"),
+									},
+									{
+										key: "delete",
+										destructive: true,
+										label: "Delete template",
+										onSelect: () => setDialog("delete"),
+									},
+								]}
+							/>
+							{dialog === "collections" ? (
+								<AddEntityToCollection
+									entityId={props.entityId}
+									onClose={() => setDialog(undefined)}
+								/>
+							) : null}
+							{dialog === "delete" ? (
+								<DeleteFitnessEntity
+									kind="template"
+									name={draft.name}
+									entityId={props.entityId}
+									onClose={() => setDialog(undefined)}
+								/>
+							) : null}
 						</div>
 					</header>
 					<section
@@ -213,7 +248,7 @@ function PlannedExercise(props: {
 					className={clsx("shrink-0", props.compact ? "size-11" : "size-14")}
 				/>
 				<div className="flex min-w-0 flex-1 flex-col gap-0.5">
-					<h3 className="text-[16px] font-semibold text-text [overflow-wrap:anywhere]">{name}</h3>
+					<h3 className="text-[16px] font-semibold text-text wrap-anywhere">{name}</h3>
 					<p className="text-[13px] text-text-muted">
 						{meta}
 						{props.group === undefined ? null : (
