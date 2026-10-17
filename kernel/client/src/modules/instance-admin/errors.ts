@@ -1,5 +1,5 @@
 import { AuthUnauthorized } from "@ryot-app/contract/auth-middleware";
-import { Cause, Effect, Exit, Option } from "effect";
+import { Cause, Effect, Option } from "effect";
 
 import { AdminApiError } from "#/api/admin";
 
@@ -10,16 +10,13 @@ const isUnauthorizedError = (error: unknown): boolean =>
 export const isUnauthorizedCause = (cause: Cause.Cause<unknown>) =>
 	Option.exists(Cause.findErrorOption(cause), isUnauthorizedError);
 
-export const readAdminResult = Effect.fnUntraced(function* <A>(
-	request: Effect.Effect<Exit.Exit<A, unknown>>,
+export const withAdminAuthorization = Effect.fnUntraced(function* <A, E>(
+	request: Effect.Effect<A, E>,
 	onUnauthorized: () => void,
 ) {
-	const result = yield* request;
-	if (Exit.isSuccess(result)) {
-		return result.value;
-	}
-	if (isUnauthorizedCause(result.cause)) {
-		yield* Effect.sync(onUnauthorized);
-	}
-	return yield* Effect.failCause(result.cause);
+	return yield* request.pipe(
+		Effect.tapCause((cause) =>
+			isUnauthorizedCause(cause) ? Effect.sync(onUnauthorized) : Effect.void,
+		),
+	);
 });

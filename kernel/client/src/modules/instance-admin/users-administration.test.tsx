@@ -1,9 +1,9 @@
 import { describe, expect, it } from "@effect/vitest";
 import { AuthUnauthorized } from "@ryot-app/contract/auth-middleware";
 import { UserId } from "@ryot-app/contract/schema/brands";
-import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { Effect, Exit } from "effect";
+import { Deferred, Effect } from "effect";
 
 import { AdminApiError } from "#/api/admin";
 import type { AdminLinkTransfer } from "#/modules/instance-admin/link-transfer";
@@ -29,21 +29,17 @@ const makeOperations = (users: ReadonlyArray<InstanceAdminUser>, calls: Array<un
 	let currentUsers = [...users];
 	return {
 		resetUserPassword: () =>
-			Effect.succeed(
-				Exit.succeed({ email: "reader-0@example.com", resetUrl: "https://example.com/reset" }),
-			),
+			Effect.succeed({ email: "reader-0@example.com", resetUrl: "https://example.com/reset" }),
 		impersonateUser: (userId) => {
 			calls.push({ userId, kind: "impersonate" });
-			return Effect.succeed(Exit.succeed("https://example.com/oauth/impersonate#ticket=one-use"));
+			return Effect.succeed("https://example.com/oauth/impersonate#ticket=one-use");
 		},
 		resetUser: () =>
-			Effect.succeed(
-				Exit.succeed({
-					email: "reader-0@example.com",
-					userId: UserId.make("user-0"),
-					resetUrl: "https://example.com/reset-after-account-reset",
-				}),
-			),
+			Effect.succeed({
+				email: "reader-0@example.com",
+				userId: UserId.make("user-0"),
+				resetUrl: "https://example.com/reset-after-account-reset",
+			}),
 		setUserDisabled: (userId, disabled) => {
 			calls.push({ userId, disabled });
 			currentUsers = currentUsers.map((user) =>
@@ -51,23 +47,21 @@ const makeOperations = (users: ReadonlyArray<InstanceAdminUser>, calls: Array<un
 					? { ...user, disabledAt: disabled ? "2026-09-02T00:00:00.000Z" : null }
 					: user,
 			);
-			return Effect.succeed(Exit.succeed({ id: UserId.make(userId) }));
+			return Effect.succeed({ id: UserId.make(userId) });
 		},
 		deleteUser: (userId) => {
 			currentUsers = currentUsers.filter((user) => user.id !== userId);
-			return Effect.succeed(
-				Exit.succeed({
-					failure: null,
-					startedAt: null,
-					finishedAt: null,
-					id: "operation-1",
-					resetResult: null,
-					kind: "delete" as const,
-					userId: UserId.make(userId),
-					status: "completed" as const,
-					createdAt: "2026-09-01T00:00:00.000Z",
-				}),
-			);
+			return Effect.succeed({
+				failure: null,
+				startedAt: null,
+				finishedAt: null,
+				id: "operation-1",
+				resetResult: null,
+				kind: "delete" as const,
+				userId: UserId.make(userId),
+				status: "completed" as const,
+				createdAt: "2026-09-01T00:00:00.000Z",
+			});
 		},
 		listUsers: (search, after, limit) => {
 			calls.push({ after, limit, search });
@@ -76,13 +70,11 @@ const makeOperations = (users: ReadonlyArray<InstanceAdminUser>, calls: Array<un
 			const items = matching.slice(offset, offset + limit);
 			const nextCursor =
 				offset + items.length < matching.length ? String(offset + items.length) : null;
-			return Effect.succeed(
-				Exit.succeed({
-					items,
-					total: matching.length,
-					pageInfo: { limit, nextCursor, hasMore: nextCursor !== null },
-				}),
-			);
+			return Effect.succeed({
+				items,
+				total: matching.length,
+				pageInfo: { limit, nextCursor, hasMore: nextCursor !== null },
+			});
 		},
 	} satisfies InstanceAdminUserOperations;
 };
@@ -94,7 +86,7 @@ const renderUsers = (
 ) => {
 	const calls: Array<unknown> = [];
 	const backInterceptors = createBackInterceptors();
-	render(
+	const view = render(
 		<UsersAdministration
 			transferAdminLink={transfer}
 			backInterceptors={backInterceptors}
@@ -102,10 +94,160 @@ const renderUsers = (
 			operations={{ ...makeOperations(users, calls), ...overrides }}
 		/>,
 	);
-	return { calls, backInterceptors };
+	return { ...view, calls, backInterceptors };
 };
 
 describe("Instance Admin users administration", () => {
+	for (const outcome of ["failure", "defect", "interruption", "throw"] as const) {
+		it.live(`clears a pending action after ${outcome} and permits retry`, () =>
+			Effect.gen(function* () {
+				const user = userEvent.setup();
+				let attempts = 0;
+				const reset = makeOperations([makeUser(0)], []).resetUser;
+				renderUsers([makeUser(0)], undefined, {
+					resetUser: () => {
+						attempts += 1;
+						if (attempts > 1) {
+							return reset();
+						}
+						if (outcome === "throw") {
+							throw new Error("request construction failed");
+						}
+						if (outcome === "interruption") {
+							return Effect.interrupt;
+						}
+						return outcome === "defect"
+							? Effect.die("request defect")
+							: Effect.fail(new AdminApiError({ cause: "offline" }));
+					},
+				});
+				const trigger = yield* Effect.promise(() =>
+					screen.findByRole("button", { name: "Actions for reader-0@example.com" }),
+				);
+				yield* Effect.promise(() => user.click(trigger));
+				yield* Effect.promise(() =>
+					user.click(screen.getByRole("menuitem", { name: "Reset account" })),
+				);
+				const dialog = screen.getByRole("dialog");
+				fireEvent.click(within(dialog).getByRole("button", { name: "Reset account" }));
+				yield* Effect.promise(() =>
+					waitFor(() => {
+						expect(attempts).toBe(1);
+						expect(
+							within(dialog).getByRole<HTMLButtonElement>("button", { name: "Cancel" }).disabled,
+						).toBe(false);
+					}),
+				);
+				if (outcome === "interruption") {
+					expect(within(dialog).queryByRole("alert")).toBeNull();
+				} else {
+					expect(within(dialog).getByRole("alert").textContent).toBe(
+						"Could not reset this user. Try again.",
+					);
+				}
+				fireEvent.click(within(dialog).getByRole("button", { name: "Reset account" }));
+				yield* Effect.promise(() => screen.findByLabelText("Password reset link"));
+				expect(attempts).toBe(2);
+				expect(screen.queryByRole("dialog")).toBeNull();
+				expect(screen.queryByRole("alert")).toBeNull();
+			}),
+		);
+	}
+
+	it.live("skips a repeated busy action without a second request or outcome", () =>
+		Effect.gen(function* () {
+			const user = userEvent.setup();
+			const release = yield* Deferred.make<void>();
+			let requests = 0;
+			const reset = makeOperations([makeUser(0)], []).resetUser;
+			renderUsers([makeUser(0)], undefined, {
+				resetUser: () => {
+					requests += 1;
+					return Deferred.await(release).pipe(Effect.andThen(reset()));
+				},
+			});
+			yield* Effect.promise(() => screen.findByText("reader-0@example.com"));
+			yield* Effect.promise(() =>
+				user.click(screen.getByRole("button", { name: "Actions for reader-0@example.com" })),
+			);
+			yield* Effect.promise(() =>
+				user.click(screen.getByRole("menuitem", { name: "Reset account" })),
+			);
+			const confirm = within(screen.getByRole("dialog")).getByRole("button", {
+				name: "Reset account",
+			});
+			act(() => {
+				fireEvent.click(confirm);
+				fireEvent.click(confirm);
+			});
+			yield* Effect.promise(() => screen.findByRole("button", { name: "Resetting..." }));
+			expect(requests).toBe(1);
+			expect(screen.queryByRole("alert")).toBeNull();
+			expect(screen.queryByLabelText("Password reset link")).toBeNull();
+			yield* Deferred.succeed(release, undefined);
+			yield* Effect.promise(() => screen.findByLabelText("Password reset link"));
+			expect(requests).toBe(1);
+			expect(screen.queryByRole("alert")).toBeNull();
+		}),
+	);
+
+	it.live("relocks on an unauthorized action without displaying an action failure", () =>
+		Effect.gen(function* () {
+			const user = userEvent.setup();
+			const view = renderUsers([makeUser(0)], undefined, {
+				resetUserPassword: () =>
+					Effect.fail(
+						new AdminApiError({
+							cause: new AuthUnauthorized({ reason: { code: "admin-access-required" } }),
+						}),
+					),
+			});
+			yield* Effect.promise(() => screen.findByText("reader-0@example.com"));
+			yield* Effect.promise(() =>
+				user.click(screen.getByRole("button", { name: "Actions for reader-0@example.com" })),
+			);
+			yield* Effect.promise(() =>
+				user.click(screen.getByRole("menuitem", { name: "Generate reset link" })),
+			);
+			yield* Effect.promise(() => waitFor(() => expect(view.calls).toContain("unauthorized")));
+			expect(screen.queryByRole("alert")).toBeNull();
+			expect(screen.queryByLabelText("Password reset link")).toBeNull();
+		}),
+	);
+
+	it.live("interrupts an action on unmount and ignores its late unauthorized result", () =>
+		Effect.gen(function* () {
+			const user = userEvent.setup();
+			let settle: (() => void) | undefined;
+			let interrupted = false;
+			const view = renderUsers([makeUser(0)], undefined, {
+				resetUserPassword: () =>
+					Effect.callback((resolve) => {
+						settle = () =>
+							resolve(
+								Effect.fail(new AuthUnauthorized({ reason: { code: "admin-access-required" } })),
+							);
+						return Effect.sync(() => {
+							interrupted = true;
+						});
+					}),
+			});
+			yield* Effect.promise(() => screen.findByText("reader-0@example.com"));
+			yield* Effect.promise(() =>
+				user.click(screen.getByRole("button", { name: "Actions for reader-0@example.com" })),
+			);
+			yield* Effect.promise(() =>
+				user.click(screen.getByRole("menuitem", { name: "Generate reset link" })),
+			);
+			yield* Effect.promise(() => waitFor(() => expect(settle).toBeDefined()));
+			view.unmount();
+			yield* Effect.promise(() => waitFor(() => expect(interrupted).toBe(true)));
+			settle?.();
+			yield* Effect.yieldNow;
+			expect(view.calls).not.toContain("unauthorized");
+		}),
+	);
+
 	it.live("loads 50-user pages, preserves loaded rows, and trims debounced searches", () =>
 		Effect.gen(function* () {
 			const user = userEvent.setup();
@@ -155,7 +297,7 @@ describe("Instance Admin users administration", () => {
 					listUsers: (search, after, limit) => {
 						requested.push(after);
 						if (after === "50" && failures++ === 0) {
-							return Effect.succeed(Exit.fail(new AdminApiError({ cause: "offline" })));
+							return Effect.fail(new AdminApiError({ cause: "offline" }));
 						}
 						return list(search, after, limit);
 					},
@@ -362,19 +504,17 @@ describe("Instance Admin users administration", () => {
 					Effect.callback((resolve) => {
 						settle = () =>
 							resolve(
-								Effect.succeed(
-									Exit.succeed({
-										failure: null,
-										startedAt: null,
-										finishedAt: null,
-										id: "operation-1",
-										resetResult: null,
-										kind: "delete" as const,
-										status: "completed" as const,
-										userId: UserId.make("user-0"),
-										createdAt: "2026-09-01T00:00:00.000Z",
-									}),
-								),
+								Effect.succeed({
+									failure: null,
+									startedAt: null,
+									finishedAt: null,
+									id: "operation-1",
+									resetResult: null,
+									kind: "delete" as const,
+									status: "completed" as const,
+									userId: UserId.make("user-0"),
+									createdAt: "2026-09-01T00:00:00.000Z",
+								}),
 							);
 					}),
 			});
@@ -475,7 +615,7 @@ describe("Instance Admin users administration", () => {
 				listUsers: (search, after, limit) => {
 					requests += 1;
 					return requests === 2
-						? Effect.succeed(Exit.fail(new AdminApiError({ cause: "offline" })))
+						? Effect.fail(new AdminApiError({ cause: "offline" }))
 						: list(search, after, limit);
 				},
 			});
@@ -512,9 +652,7 @@ describe("Instance Admin users administration", () => {
 				listUsers: (search, after, limit) => {
 					requests += 1;
 					return requests === 2
-						? Effect.succeed(
-								Exit.fail(new AuthUnauthorized({ reason: { code: "admin-access-required" } })),
-							)
+						? Effect.fail(new AuthUnauthorized({ reason: { code: "admin-access-required" } }))
 						: list(search, after, limit);
 				},
 			});

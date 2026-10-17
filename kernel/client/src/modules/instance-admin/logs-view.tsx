@@ -1,18 +1,17 @@
 import { nextPageCursor, paginationItems, usePagination } from "@ryot-app/plugin-client-sdk/react";
 import { Button, LoadMoreButton } from "@ryot-app/plugin-ui-sdk";
 import { DataTable, type DataTableColumn } from "@ryot-app/plugin-ui-sdk/table";
-import { Cause, Effect, Exit, Option } from "effect";
+import { Cause, Effect, Option } from "effect";
 import { useEffect, useRef, useState } from "react";
 
 import { AdminApiError } from "#/api/admin";
 import { FileDownloadError } from "#/modules/downloads/file";
-import { isUnauthorizedCause, readAdminResult } from "#/modules/instance-admin/errors";
+import { isUnauthorizedCause, withAdminAuthorization } from "#/modules/instance-admin/errors";
 import type { InstanceAdminLogs } from "#/modules/instance-admin/service";
 
 const PAGE_SIZE = 25;
 
 type LogFile = InstanceAdminLogs["files"][number];
-type OperationResult<A> = Effect.Effect<Exit.Exit<A, unknown>>;
 
 const logColumns: ReadonlyArray<DataTableColumn<LogFile>> = [
 	{ id: "file", header: "Log file", headerClassName: "px-3 py-3 font-semibold" },
@@ -33,8 +32,11 @@ const downloadMessage = (cause: Cause.Cause<unknown>) => {
 
 export function ServerLogsView(props: {
 	readonly unauthorized: () => void;
-	readonly load: (after: string | undefined, limit: number) => OperationResult<InstanceAdminLogs>;
-	readonly download: (file?: LogFile) => OperationResult<void>;
+	readonly load: (
+		after: string | undefined,
+		limit: number,
+	) => Effect.Effect<InstanceAdminLogs, unknown>;
+	readonly download: (file?: LogFile) => Effect.Effect<void, unknown>;
 }) {
 	const [downloadError, setDownloadError] = useState<string>();
 	const [downloading, setDownloading] = useState<string>();
@@ -44,7 +46,7 @@ export function ServerLogsView(props: {
 		initialPageParam: undefined,
 		getNextPageParam: nextPageCursor,
 		identity: "instance-admin-server-logs",
-		load: (after) => readAdminResult(props.load(after, PAGE_SIZE), props.unauthorized),
+		load: (after) => withAdminAuthorization(props.load(after, PAGE_SIZE), props.unauthorized),
 	});
 	const files = paginationItems(
 		pagination.pages,
@@ -67,27 +69,39 @@ export function ServerLogsView(props: {
 		downloadBusy.current = true;
 		setDownloading(file?.id ?? "all");
 		setDownloadError(undefined);
+		const { signal } = downloadController.current;
 		Effect.runFork(
-			props.download(file).pipe(
-				Effect.map((result) => {
-					if (downloadController.current.signal.aborted) {
-						return;
-					}
-					downloadBusy.current = false;
-					setDownloading(undefined);
-					if (Exit.isFailure(result)) {
-						if (isUnauthorizedCause(result.cause)) {
+			Effect.suspend(() => props.download(file)).pipe(
+				Effect.matchCause({
+					onSuccess: () => undefined,
+					onFailure: (cause) => {
+						if (signal.aborted || Cause.hasInterruptsOnly(cause)) {
+							return;
+						}
+						if (isUnauthorizedCause(cause)) {
 							props.unauthorized();
 						} else {
-							setDownloadError(downloadMessage(result.cause));
+							setDownloadError(downloadMessage(cause));
 						}
-					}
+					},
 				}),
+				Effect.ensuring(
+					Effect.sync(() => {
+						downloadBusy.current = false;
+						if (!signal.aborted) {
+							setDownloading(undefined);
+						}
+					}),
+				),
 			),
-			{ signal: downloadController.current.signal },
+			{ signal },
 		);
 	};
-	useEffect(() => () => downloadController.current.abort(), []);
+	useEffect(() => {
+		const controller = new AbortController();
+		downloadController.current = controller;
+		return () => controller.abort();
+	}, []);
 
 	return (
 		<section className="ui-card w-full" aria-labelledby="server-logs-title">

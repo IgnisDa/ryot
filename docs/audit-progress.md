@@ -15,7 +15,7 @@
 
 ## Status
 
-**31 implemented, 0 in progress, 52 pending; 3 excluded.**
+**32 implemented, 0 in progress, 51 pending; 3 excluded.**
 
 “Implemented” means affected checks and tests passed and the change is committed with this tracker. Batch-wide acceptance is recorded separately below. Rows follow the audit's ranked order; sequencing can change to respect dependencies and keep changes reviewable.
 
@@ -98,7 +98,7 @@
 | C06-R1 | Pending | Delete the obsolete entity/provenance facade. |
 | C07-R1 | Pending | Delete the unused saved-view facade. |
 | C07-R2 | Pending | Use shared collection-editor mutation ownership. |
-| C08-R1 | Pending | Return ordinary Effects from admin operations. |
+| C08-R1 | Implemented | Admin operations return ordinary Effects instead of Exit; remove null busy markers, represent busy requests and skipped outcomes explicitly, and clear request state in finalizers. See this finding's audit commit. |
 | P03-R1 | Pending | Normalize existing Request headers/body once. |
 | M01-R1 | Pending | Use the canonical Metron role accumulator. |
 | M04-R2 | Pending | Select only consumed episodic-completion fields. |
@@ -196,3 +196,4 @@
 - M06-R1: media check passed before 222 tests across 25 files; read-only review reported no findings. All locators resolve once; actual headers and the home backdrop remain.
 - F04-R1: fitness check passed before 11 tests; read-only review reported no findings. The persisted numeric plan is used directly, without editor hydration, and validation, units, and pro-media behavior are preserved.
 - S03-R1: sandbox Bun check, including format and clippy, passed; 73 Cargo tests passed with one ignored, and generated-doc validation passed. Read-only review reported no findings. Linux-only confinement was not run on macOS.
+- C08-R1: client type, format, and lint checks passed before 55 tests; read-only review reported no findings.
