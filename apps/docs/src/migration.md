@@ -8,8 +8,7 @@ major release, please follow each major version's migration steps in order.
 
 ::: warning A bigger upgrade than usual
 Ryot `v11` is a rewrite. Your data is converted automatically the first time `v11` starts,
-but the upgrade needs a few extra steps, and you cannot go back to `v10` without a backup.
-Read this whole section before you start.
+but the upgrade needs a few extra steps. Please read this whole section before you start.
 :::
 
 ### Before you upgrade
