@@ -15,7 +15,7 @@
 
 ## Status
 
-**48 implemented, 0 in progress, 35 pending; 3 excluded.**
+**49 implemented, 0 in progress, 34 pending; 3 excluded.**
 
 “Implemented” means affected checks and tests passed and the change is committed with this tracker. Batch-wide acceptance is recorded separately below. Rows follow the audit's ranked order; sequencing can change to respect dependencies and keep changes reviewable.
 
@@ -92,7 +92,7 @@
 | B02-R2 | Pending | Readiness uses configured-key metadata, not decrypted values. |
 | B10-R2 | Pending | Delete unused definition-reader modes. |
 | B11-R1 | Pending | Remove the obsolete projection-worker invalidation exemption. |
-| B19-R2 | Pending | Store the selected composition module directly. |
+| B19-R2 | Implemented | Store the selected tagged composition module directly without synthetic namespaces or reverse lookup; preserve selection and grants. See this finding's audit commit. |
 | B24-R1 | Implemented | Delete the unused signal service, repository, layer, and test; preserve definition registration, invalidation, and publication because no semantic consumers remain. See this finding's audit commit. |
 | C03-R1 | Implemented | One shell owner controls presentation activation and deactivation, with stale-entry guards and overlays. See this finding's audit commit. |
 | C06-R1 | Implemented | Delete the unused entity/provenance facade while retaining the active watch recipe and route preparation. See this finding's audit commit. |
@@ -214,3 +214,4 @@
 - P01-R1: eight checks passed before 181 tests across 14 files; archives were rebuilt and read-only review passed. E2E source was not run. Only provider-operation hunks were staged from the shared Fitness manifest test; its F04 measurement assertion remains unstaged.
 - P01-R1 follow-up: committed the remaining YouTube Music sidecar fixture provider-map removal; e2e source remains unrun.
 - B09-R1: six package checks passed before 144 tests. Full backend/server checks passed, and the migration regression passed in the coordinator 31-file run; an unrelated B06 repository run failed. The review finding was fixed without an extra review round. Full restored-migration validation remains pending for coordinated follow-up.
+- B19-R2: contract and scoped checks passed; full backend/server checks and all page-preparation tests passed in the coordinator 31-file run. The only failure was an unrelated B06 test; read-only review reported no findings.

@@ -6,7 +6,7 @@ import { Effect } from "effect";
 
 import { fixtureManifest, testPluginPackageId } from "#modules/plugins/test-support";
 
-import { composeClientPage } from "./composition";
+import { type ArtifactDescription, composeClientPage } from "./composition";
 import type { GraphPlugin } from "./graph";
 import { resolveClientPageGraph } from "./graph";
 
@@ -142,6 +142,66 @@ it.effect("keeps eager dependencies separate from presentation-only transitive a
 	});
 });
 
+it.effect("stores route modules with home, ordered routes, and not-found bindings", () =>
+	Effect.gen(function* () {
+		const page = plugin("routes", {
+			apiVersion: 1,
+			homeView: null,
+			notFoundPage: "not-found",
+			routes: { "/": "home", "/items/$id": "detail", "/items/new": "create" },
+			exports: Object.fromEntries(
+				["home", "detail", "create", "not-found"].map((name) => [
+					name,
+					{
+						kind: "page" as const,
+						entry: "client/page.tsx",
+						settingsSchema: { fields: {} },
+						automaticEntityPresentations: false,
+					},
+				]),
+			),
+		});
+		const graph = yield* resolveClientPageGraph({
+			plugin: page,
+			plugins: [page],
+			exportName: "detail",
+			application: "plugin-route",
+			runtimeArtifactHash: "runtime",
+		});
+		const manifest = composeClientPage({
+			identity: graph.identity,
+			runtimeEntries: { bootstrap: "bootstrap.js" },
+			artifacts: new Map([
+				["runtime", { files: [{ name: "bootstrap.js", contentType: "text/javascript" }] }],
+				["routes-hash", { files: [{ name: "module.js", contentType: "text/javascript" }] }],
+			]),
+		});
+		const expectedRoutes = {
+			home: { binding: "home", specifier: pluginExportSpecifier(page, "home") },
+			notFound: { binding: "not-found", specifier: pluginExportSpecifier(page, "not-found") },
+			routes: [
+				{
+					path: "/items/new",
+					module: { binding: "create", specifier: pluginExportSpecifier(page, "create") },
+				},
+				{
+					path: "/items/$id",
+					module: { binding: "detail", specifier: pluginExportSpecifier(page, "detail") },
+				},
+			],
+		};
+		expect(graph.identity.application).toBe("plugin-route");
+		if (graph.identity.application === "plugin-route") {
+			expect(graph.identity.routes).toEqual(expectedRoutes);
+		}
+		expect(manifest.descriptor).toEqual({
+			automaticRegistry: [],
+			routes: expectedRoutes,
+			application: "plugin-route",
+		});
+	}),
+);
+
 it.effect("eager wins over presentation-only dependencies", () => {
 	const page = plugin("page", {
 		apiVersion: 1,
@@ -194,13 +254,24 @@ it.effect("binds exports by their declared names including punctuation", () => {
 		),
 	});
 	return Effect.gen(function* () {
-		const graph = yield* resolveClientPageGraph({
+		const input = {
 			plugin: page,
 			plugins: [page],
 			exportName: "a_b",
-			application: "page",
+			application: "page" as const,
 			runtimeArtifactHash: "runtime",
-		});
+		};
+		const graph = yield* resolveClientPageGraph(input);
+		expect(graph.identity.application).toBe("page");
+		if (graph.identity.application === "page") {
+			expect(graph.identity.entry).toEqual({
+				binding: "a_b",
+				specifier: pluginExportSpecifier(page, "a_b"),
+			});
+		}
+		expect(
+			(yield* resolveClientPageGraph({ ...input, exportName: "a-b" })).compositionKey,
+		).not.toBe(graph.compositionKey);
 		const manifest = composeClientPage({
 			identity: graph.identity,
 			runtimeEntries: { bootstrap: "bootstrap.js" },
@@ -282,14 +353,112 @@ it.effect("binds equal metadata names and importer-local aliases to independent 
 			runtimeArtifactHash: "runtime",
 		});
 		expect(graph.identity.contributors.filter(({ kind }) => kind === "plugin")).toHaveLength(5);
-		expect(graph.identity.selectedExports).toContain(
-			pluginExportSpecifier(leftDependency, "common"),
-		);
-		expect(graph.identity.selectedExports).toContain(
-			pluginExportSpecifier(rightDependency, "common"),
-		);
-		expect(graph.identity.selectedExports).toContain(pluginExportSpecifier(left, "main"));
-		expect(graph.identity.selectedExports).toContain(pluginExportSpecifier(right, "main"));
+		const manifest = composeClientPage({
+			identity: graph.identity,
+			runtimeEntries: { bootstrap: "bootstrap.js" },
+			artifacts: new Map<string, ArtifactDescription>([
+				["runtime", { files: [{ name: "bootstrap.js", contentType: "text/javascript" }] }],
+				...[
+					"root-hash",
+					"left-hash",
+					"right-hash",
+					"left-dependency-hash",
+					"right-dependency-hash",
+				].map(
+					(hash) =>
+						[hash, { files: [{ name: "module.js", contentType: "text/javascript" }] }] as const,
+				),
+			]),
+		});
+		for (const [contributor, name] of [
+			[leftDependency, "common"],
+			[rightDependency, "common"],
+			[left, "main"],
+			[right, "main"],
+		] as const) {
+			expect(manifest.imports[pluginExportSpecifier(contributor, name)]).toEqual({
+				file: "module.js",
+				artifactHash: contributor.clientArtifactHash,
+			});
+		}
+	}),
+);
+
+it.effect("keeps the exact selected export when pages share a source entry", () =>
+	Effect.gen(function* () {
+		const declaration = {
+			kind: "page" as const,
+			entry: "client/page.tsx",
+			settingsSchema: { fields: {} },
+			automaticEntityPresentations: false,
+		};
+		const page = plugin("shared-source", {
+			apiVersion: 1,
+			homeView: null,
+			exports: { first: declaration, second: declaration },
+		});
+		const input = {
+			plugin: page,
+			plugins: [page],
+			exportName: "second",
+			application: "page" as const,
+			runtimeArtifactHash: "runtime",
+		};
+		const graph = yield* resolveClientPageGraph(input);
+		const manifest = composeClientPage({
+			identity: graph.identity,
+			runtimeEntries: { bootstrap: "bootstrap.js" },
+			artifacts: new Map([
+				["runtime", { files: [{ name: "bootstrap.js", contentType: "text/javascript" }] }],
+				["shared-source-hash", { files: [{ name: "module.js", contentType: "text/javascript" }] }],
+			]),
+		});
+		expect(manifest.descriptor).toEqual({
+			application: "page",
+			automaticRegistry: [],
+			entry: { binding: "second", specifier: pluginExportSpecifier(page, "second") },
+		});
+		expect(
+			(yield* resolveClientPageGraph({ ...input, exportName: "first" })).compositionKey,
+		).not.toBe(graph.compositionKey);
+	}),
+);
+
+it.effect("stores and composes the kernel page binding directly", () =>
+	Effect.gen(function* () {
+		const graph = yield* resolveClientPageGraph({
+			plugins: [],
+			kernel: true,
+			clientImports: [],
+			rendererName: "renderer",
+			sourceHash: "kernel-source",
+			runtimeArtifactHash: "runtime",
+			rendererArtifactHash: "renderer-hash",
+			definition: {
+				files: [],
+				pluginDependencies: {},
+				entry: "client/page.tsx",
+				settingsSchema: { fields: {} },
+				automaticEntityPresentations: false,
+			},
+		});
+		const manifest = composeClientPage({
+			identity: graph.identity,
+			runtimeEntries: { bootstrap: "bootstrap.js" },
+			artifacts: new Map([
+				["runtime", { files: [{ name: "bootstrap.js", contentType: "text/javascript" }] }],
+				["renderer-hash", { files: [{ name: "module.js", contentType: "text/javascript" }] }],
+			]),
+		});
+		expect(manifest.descriptor).toEqual({
+			application: "page",
+			automaticRegistry: [],
+			entry: { binding: "page", specifier: "@ryot-app/kernel-renderers/renderer" },
+		});
+		expect(manifest.imports["@ryot-app/kernel-renderers/renderer"]).toEqual({
+			file: "module.js",
+			artifactHash: "renderer-hash",
+		});
 	}),
 );
 

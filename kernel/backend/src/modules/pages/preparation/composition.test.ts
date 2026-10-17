@@ -24,3 +24,18 @@ it("builds a structural manifest without copying compiled bytes or embedding gra
 	]);
 	expect(JSON.stringify(manifest)).not.toContain("/api/page-bundles/");
 });
+
+it("rejects a selected module whose specifier or binding is not declared", () => {
+	for (const entry of [
+		{ binding: "missing", specifier: pluginExportSpecifier(pageReference, "missing") },
+		{ binding: "missing", specifier: pluginExportSpecifier(pageReference, "main") },
+	]) {
+		expect(() =>
+			composeClientPage({
+				artifacts: descriptions(),
+				runtimeEntries: { bootstrap: "bootstrap.js" },
+				identity: { ...identity(), entry, application: "page" },
+			}),
+		).toThrow("Client composition export is missing");
+	}
+});
