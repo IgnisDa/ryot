@@ -292,7 +292,7 @@ pub enum LimitKind {
     Deadline,
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Deserialize)]
 #[serde(rename_all = "camelCase")]
 enum OutcomeStatus {
     Completed,
@@ -301,30 +301,27 @@ enum OutcomeStatus {
     Failed,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
 struct OutcomeBody {
     status: OutcomeStatus,
-    #[serde(
-        default,
-        deserialize_with = "present",
-        skip_serializing_if = "Option::is_none"
-    )]
+    #[serde(default, deserialize_with = "present")]
     value: Option<Box<RawValue>>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(default)]
     message: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(default)]
     phase: Option<Phase>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(default)]
     limit: Option<LimitKind>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Serialize)]
+#[serde(tag = "status", rename_all = "camelCase")]
 pub enum Outcome {
-    Completed(Box<RawValue>),
+    Completed { value: Box<RawValue> },
     Cancelled,
-    Limit(LimitKind, String),
-    Failed(Phase, String),
+    Limit { limit: LimitKind, message: String },
+    Failed { phase: Phase, message: String },
 }
 
 pub type Finished = (Outcome, Console, Usage);
@@ -367,17 +364,30 @@ pub struct Usage {
     pub cpu_wait_ms: u64,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 struct DoneFrame {
     #[serde(rename = "type")]
-    kind: FrameType,
+    _kind: FrameType,
     generation: u32,
     handle: String,
     seq: u64,
     outcome: OutcomeBody,
     console: Console,
     usage: Usage,
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct DoneFrameRef<'a> {
+    #[serde(rename = "type")]
+    kind: FrameType,
+    generation: u32,
+    handle: &'a str,
+    seq: u64,
+    outcome: &'a Outcome,
+    console: &'a Console,
+    usage: &'a Usage,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -701,14 +711,14 @@ pub fn decode_outbound(payload: &[u8]) -> Result<Outbound, PayloadError> {
                 body.limit,
             ) {
                 (OutcomeStatus::Completed, Some(value), None, None, None) => {
-                    Outcome::Completed(value)
+                    Outcome::Completed { value }
                 }
                 (OutcomeStatus::Cancelled, None, None, None, None) => Outcome::Cancelled,
                 (OutcomeStatus::Limit, None, Some(message), None, Some(limit)) => {
-                    Outcome::Limit(limit, message)
+                    Outcome::Limit { limit, message }
                 }
                 (OutcomeStatus::Failed, None, Some(message), Some(phase), None) => {
-                    Outcome::Failed(phase, message)
+                    Outcome::Failed { phase, message }
                 }
                 _ => return Err(invalid("outcome fields do not match its status")),
             };
@@ -828,46 +838,15 @@ pub fn encode_outbound(frame: &Outbound) -> Vec<u8> {
             outcome,
             console,
             usage,
-        } => {
-            let empty = OutcomeBody {
-                status: OutcomeStatus::Completed,
-                value: None,
-                message: None,
-                phase: None,
-                limit: None,
-            };
-            let outcome = match outcome {
-                Outcome::Completed(value) => OutcomeBody {
-                    value: Some(value.clone()),
-                    ..empty
-                },
-                Outcome::Cancelled => OutcomeBody {
-                    status: OutcomeStatus::Cancelled,
-                    ..empty
-                },
-                Outcome::Limit(limit, message) => OutcomeBody {
-                    status: OutcomeStatus::Limit,
-                    message: Some(message.clone()),
-                    limit: Some(*limit),
-                    ..empty
-                },
-                Outcome::Failed(phase, message) => OutcomeBody {
-                    status: OutcomeStatus::Failed,
-                    message: Some(message.clone()),
-                    phase: Some(*phase),
-                    ..empty
-                },
-            };
-            to_json(&DoneFrame {
-                kind: FrameType::Done,
-                generation: *generation,
-                handle: handle.clone(),
-                seq: *seq,
-                outcome,
-                console: console.clone(),
-                usage: *usage,
-            })
-        }
+        } => to_json(&DoneFrameRef {
+            kind: FrameType::Done,
+            generation: *generation,
+            handle,
+            seq: *seq,
+            outcome,
+            console,
+            usage,
+        }),
         Outbound::Part(part) => to_json(part),
     }
 }

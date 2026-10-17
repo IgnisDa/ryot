@@ -427,10 +427,10 @@ impl Executor {
     pub fn execute(&self, run: &Run, entry: &Arc<Entry>) -> Finished {
         let digest = format!("{:x}", Sha256::digest(run.module.source.as_bytes()));
         if digest != run.module.sha256 {
-            return Outcome::Failed(
-                Phase::Integrity,
-                "module source does not match its sha256".to_owned(),
-            )
+            return Outcome::Failed {
+                phase: Phase::Integrity,
+                message: "module source does not match its sha256".to_owned(),
+            }
             .without_run();
         }
         let _enter = self.tokio.enter();
@@ -469,8 +469,11 @@ impl Executor {
         let mut runtime = match runtime {
             Ok(runtime) => runtime,
             Err(error) => {
-                return Outcome::Failed(Phase::Evaluation, bounded(error.to_string()))
-                    .without_run();
+                return Outcome::Failed {
+                    phase: Phase::Evaluation,
+                    message: bounded(error.to_string()),
+                }
+                .without_run();
             }
         };
         runtime
@@ -558,18 +561,30 @@ impl Executor {
         let state = entry.state();
         let outcome = match state.stopping.as_ref().map(|stopping| &stopping.cause) {
             Some(StopCause::Cancelled) => Outcome::Cancelled,
-            Some(StopCause::Limit { kind, message }) => Outcome::Limit(*kind, message.clone()),
+            Some(StopCause::Limit { kind, message }) => Outcome::Limit {
+                limit: *kind,
+                message: message.clone(),
+            },
             None => match result {
-                Some(Ok(value)) if value.len() > RESULT_BYTES => Outcome::Failed(
-                    Phase::Result,
-                    format!("result exceeds {RESULT_BYTES} bytes"),
-                ),
-                Some(Ok(value)) => match RawValue::from_string(value) {
-                    Ok(value) => Outcome::Completed(value),
-                    Err(error) => Outcome::Failed(Phase::Result, error.to_string()),
+                Some(Ok(value)) if value.len() > RESULT_BYTES => Outcome::Failed {
+                    phase: Phase::Result,
+                    message: format!("result exceeds {RESULT_BYTES} bytes"),
                 },
-                Some(Err((phase, message))) => Outcome::Failed(phase, bounded(message)),
-                None => Outcome::Failed(Phase::Execution, "execution was stopped".to_owned()),
+                Some(Ok(value)) => match RawValue::from_string(value) {
+                    Ok(value) => Outcome::Completed { value },
+                    Err(error) => Outcome::Failed {
+                        phase: Phase::Result,
+                        message: error.to_string(),
+                    },
+                },
+                Some(Err((phase, message))) => Outcome::Failed {
+                    phase,
+                    message: bounded(message),
+                },
+                None => Outcome::Failed {
+                    phase: Phase::Execution,
+                    message: "execution was stopped".to_owned(),
+                },
             },
         };
         let usage = Usage {

@@ -273,7 +273,7 @@ fn synchronous_inline_settlement_freezes_timers_and_wakes_on_cancel() {
     match sidecar.recv_within(Duration::from_millis(650)) {
         Some(Outbound::Done {
             handle,
-            outcome: Outcome::Completed(value),
+            outcome: Outcome::Completed { value },
             ..
         }) => {
             assert_eq!(handle, "during-inline");
