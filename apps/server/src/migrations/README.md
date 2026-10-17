@@ -28,6 +28,16 @@ Users are inserted first. Deterministic IDs, exact installation identities, conf
 
 ## Mappings And Omissions
 
+Genres of custom and populated media become shared, populated `genre.media-catalog` entities and
+typed media-to-genre relationships. Custom media links retain the media owner's user scope;
+provider media links are global. Skeleton media still omit genres. Identity normalization and
+aliases use the Media plugin's shared genre rules, not SQL approximations. Legacy sources that
+mixed tags, themes, subjects, or category ladders into genres retain only recognized genres;
+unmapped classifications are intentionally omitted and counted in the report. Other genre fields,
+including custom media, retain unknown names. Blank retained genre names abort with a recovery
+message. Genre writes and reports commit atomically, reuse existing exact provider identities,
+and reject deterministic entity or relationship ID conflicts. No genre string property is copied.
+
 | Domain                    | Mapping                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             | Intentional omissions or constraints                                                                                                                                                                                                                                                                                                                   |
 | ------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | Users/auth                | Preserve IDs; use lowercase email usernames or `<normalized-name>@ryot.local`, resolving collisions with `+<id>`; mark email verified. Disabled users map to `disabled_at`; OIDC users get minimal Better Auth account stubs.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       | Password credentials use instance-admin reset links. Omit sessions, 2FA, OAuth redirect URL, admin lot, and token lifetime.                                                                                                                                                                                                                            |
@@ -115,6 +125,13 @@ through `quoteSqlString`; legacy user input is never interpolated into SQL text.
 A `RAISE EXCEPTION` rolls back its own `DO $$` block, so an abort can leave nothing behind in `migration_report`; the exception message is the only thing an operator sees. Abort messages therefore state what was found — with a bounded sample of offending identifiers — why it blocks the migration, and whether the fix is to change the V1 data, use a different build, or report a migration defect.
 
 ## Validation Runbook
+
+For genre mapping, verify that copied media properties have no `genres` key, each retained genre
+uses the exact active Media provider identity, and genre relationships have the same user scope
+as their source media. Compare source memberships after the documented broad-classification
+filter and alias deduplication with migrated memberships. Verify that skeleton metadata has no
+genre links, all genre entities are populated and have no library memberships, and a migration-only
+restart leaves genre and relationship counts unchanged.
 
 Restore a legacy dump, run migration-only mode, then inspect logs, `migration_report`, and migrated rows in the same database:
 
