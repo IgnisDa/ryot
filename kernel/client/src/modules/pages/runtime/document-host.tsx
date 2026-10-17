@@ -557,6 +557,13 @@ function ClientPageFrame(props: {
 			onPickEntity={(request) =>
 				props.document.onPickEntity?.(request) ?? Effect.succeed({ kind: "cancelled" as const })
 			}
+			onEditCollection={(request) =>
+				props.document.onEditCollection?.(request) ?? Effect.succeed({ kind: "cancelled" as const })
+			}
+			onAddToCollection={(request) =>
+				props.document.onAddToCollection?.(request) ??
+				Effect.succeed({ kind: "cancelled" as const })
+			}
 			onEntitySave={(request) =>
 				props.runtime
 					.runSync(PluginEntitySaves)

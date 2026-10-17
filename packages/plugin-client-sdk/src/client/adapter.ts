@@ -4,6 +4,8 @@ import type { EntityUpdatedMessage } from "@ryot-app/contract/modules/entity-wat
 import type { PluginIdentityReference } from "@ryot-app/contract/modules/plugins/references";
 import type { PluginPackageId } from "@ryot-app/contract/schema/brands";
 import type {
+	AddToCollectionRequest,
+	EditCollectionRequest,
 	EntityWatch,
 	ExternalLinkRequest,
 	PluginCollectionRequest,
@@ -43,6 +45,8 @@ export type StorageAdapterRequest = PluginStorageRequest;
 
 export type RyotPageSearchUpdate = PluginPageSearchUpdate;
 export type RyotPickEntityRequest = Schema.Codec.Encoded<typeof PickEntityRequest>;
+export type RyotEditCollectionRequest = Schema.Codec.Encoded<typeof EditCollectionRequest>;
+export type RyotAddToCollectionRequest = Schema.Codec.Encoded<typeof AddToCollectionRequest>;
 
 export type OperationInvocation<
 	Input extends Schema.Codec<unknown, unknown>,
@@ -77,6 +81,12 @@ export type RyotClientAdapter = {
 		request: OperationAdapterRequest,
 	) => Effect.Effect<unknown, RyotClientError>;
 	readonly pickEntity?: (request: PickEntityRequest) => Effect.Effect<unknown, RyotClientError>;
+	readonly editCollection?: (
+		request: EditCollectionRequest,
+	) => Effect.Effect<unknown, RyotClientError>;
+	readonly addToCollection?: (
+		request: AddToCollectionRequest,
+	) => Effect.Effect<unknown, RyotClientError>;
 	readonly saveEntity?: (
 		request: EntityEditorSaveRequest,
 	) => Effect.Effect<unknown, RyotClientError>;

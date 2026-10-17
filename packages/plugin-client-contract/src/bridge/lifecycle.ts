@@ -182,26 +182,107 @@ export type PluginBridgePickEntityScreenCancel = Schema.Schema.Type<
 	typeof PluginBridgePickEntityScreenCancel
 >;
 
-const pickEntityScreenResultFields = {
-	requestId: Schema.String,
-	type: Schema.Literal("pick-entity-screen-result"),
+const hostScreenResult = <Type extends string, Outcome extends Schema.Top>(
+	type: Type,
+	outcome: Outcome,
+) => {
+	const fields = { requestId: Schema.String, type: Schema.Literal(type) };
+	return Schema.Union([
+		strictStruct({ ...fields, value: outcome, outcome: Schema.Literal("success") }),
+		strictStruct({ ...fields, reason: RyotClientErrorReason, outcome: Schema.Literal("failure") }),
+	]);
 };
 
-export const PluginBridgePickEntityScreenResult = Schema.Union([
-	strictStruct({
-		...pickEntityScreenResultFields,
-		value: PickEntityOutcome,
-		outcome: Schema.Literal("success"),
-	}),
-	strictStruct({
-		...pickEntityScreenResultFields,
-		reason: RyotClientErrorReason,
-		outcome: Schema.Literal("failure"),
-	}),
-]);
+export const PluginBridgePickEntityScreenResult = hostScreenResult(
+	"pick-entity-screen-result",
+	PickEntityOutcome,
+);
 
 export type PluginBridgePickEntityScreenResult = Schema.Schema.Type<
 	typeof PluginBridgePickEntityScreenResult
+>;
+
+export const EditCollectionRequest = strictStruct({ collectionId: Schema.optional(EntityId) });
+
+export type EditCollectionRequest = Schema.Schema.Type<typeof EditCollectionRequest>;
+
+export const PluginBridgeEditCollectionScreen = strictStruct({
+	...EditCollectionRequest.fields,
+	requestId: Schema.String,
+	type: Schema.Literal("edit-collection-screen"),
+});
+
+export type PluginBridgeEditCollectionScreen = Schema.Schema.Type<
+	typeof PluginBridgeEditCollectionScreen
+>;
+
+export const EditCollectionOutcome = Schema.Union([
+	strictStruct({ collectionId: EntityId, kind: Schema.Literal("saved") }),
+	strictStruct({ kind: Schema.Literal("deleted") }),
+	strictStruct({ kind: Schema.Literal("cancelled") }),
+]);
+
+export type EditCollectionOutcome = Schema.Schema.Type<typeof EditCollectionOutcome>;
+
+export const PluginBridgeEditCollectionScreenCancel = strictStruct({
+	requestId: Schema.String,
+	type: Schema.Literal("edit-collection-screen-cancel"),
+});
+
+export type PluginBridgeEditCollectionScreenCancel = Schema.Schema.Type<
+	typeof PluginBridgeEditCollectionScreenCancel
+>;
+
+export const PluginBridgeEditCollectionScreenResult = hostScreenResult(
+	"edit-collection-screen-result",
+	EditCollectionOutcome,
+);
+
+export type PluginBridgeEditCollectionScreenResult = Schema.Schema.Type<
+	typeof PluginBridgeEditCollectionScreenResult
+>;
+
+export const AddToCollectionRequest = strictStruct({
+	entityId: EntityId,
+	collectionId: Schema.optional(EntityId),
+});
+
+export type AddToCollectionRequest = Schema.Schema.Type<typeof AddToCollectionRequest>;
+
+export const PluginBridgeAddToCollectionScreen = strictStruct({
+	...AddToCollectionRequest.fields,
+	requestId: Schema.String,
+	type: Schema.Literal("add-to-collection-screen"),
+});
+
+export type PluginBridgeAddToCollectionScreen = Schema.Schema.Type<
+	typeof PluginBridgeAddToCollectionScreen
+>;
+
+export const AddToCollectionOutcome = Schema.Union([
+	strictStruct({ kind: Schema.Literal("saved") }),
+	strictStruct({ kind: Schema.Literal("removed") }),
+	strictStruct({ kind: Schema.Literal("cancelled") }),
+]);
+
+export type AddToCollectionOutcome = Schema.Schema.Type<typeof AddToCollectionOutcome>;
+
+export const PluginBridgeAddToCollectionScreenCancel = strictStruct({
+	requestId: Schema.String,
+	type: Schema.Literal("add-to-collection-screen-cancel"),
+});
+
+export type PluginBridgeAddToCollectionScreenCancel = Schema.Schema.Type<
+	typeof PluginBridgeAddToCollectionScreenCancel
+>;
+
+export const PluginBridgeAddToCollectionScreenResult = hostScreenResult(
+	"add-to-collection-screen-result",
+	AddToCollectionOutcome,
+);
+
+export type PluginBridgeAddToCollectionScreenResult = Schema.Schema.Type<
+	typeof PluginBridgeAddToCollectionScreenResult
 >;
 
 export const PluginBridgePageRefresh = strictStruct({ type: Schema.Literal("page-refresh") });

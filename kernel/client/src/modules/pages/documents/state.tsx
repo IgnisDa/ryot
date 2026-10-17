@@ -1,5 +1,9 @@
 import type { PreparedClientPage } from "@ryot-app/contract/modules/pages/schemas";
 import type {
+	AddToCollectionOutcome,
+	AddToCollectionRequest,
+	EditCollectionOutcome,
+	EditCollectionRequest,
 	PluginBridgePickEntityScreen,
 	PickEntityOutcome,
 } from "@ryot-app/plugin-client-contract";
@@ -22,7 +26,15 @@ export type ClientPageDocument = {
 	readonly onPickEntity?: (
 		request: PluginBridgePickEntityScreen,
 	) => Effect.Effect<PickEntityOutcome>;
+	readonly onEditCollection?: (
+		request: EditCollectionRequest,
+	) => Effect.Effect<EditCollectionOutcome>;
+	readonly onAddToCollection?: (
+		request: AddToCollectionRequest,
+	) => Effect.Effect<AddToCollectionOutcome>;
 };
+
+const cancelled = Effect.succeed({ kind: "cancelled" as const });
 
 type ClientPageDocumentState = {
 	readonly document: ClientPageDocument | null;
@@ -61,8 +73,9 @@ export function useClientPageDocument(document: ClientPageDocument) {
 			title: document.title,
 			inert: document.inert,
 			prepared: document.prepared,
-			onPickEntity: (request) =>
-				latest.current.onPickEntity?.(request) ?? Effect.succeed({ kind: "cancelled" as const }),
+			onPickEntity: (request) => latest.current.onPickEntity?.(request) ?? cancelled,
+			onEditCollection: (request) => latest.current.onEditCollection?.(request) ?? cancelled,
+			onAddToCollection: (request) => latest.current.onAddToCollection?.(request) ?? cancelled,
 		}),
 		[document.inert, document.prepared, document.title],
 	);

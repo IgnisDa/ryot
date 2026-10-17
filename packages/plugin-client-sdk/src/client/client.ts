@@ -18,6 +18,10 @@ import { EntityUpdatedMessage } from "@ryot-app/contract/modules/entity-watches/
 import type { PluginId, PluginPackageId } from "@ryot-app/contract/schema/brands";
 import { isJsonValue, type JsonValue } from "@ryot-app/contract/schema/json";
 import {
+	AddToCollectionOutcome,
+	AddToCollectionRequest,
+	EditCollectionOutcome,
+	EditCollectionRequest,
 	EntityWatch,
 	ExternalLinkRequest,
 	ExternalLinkSuccess,
@@ -43,6 +47,8 @@ import type {
 	FileUploadRequest,
 	OperationInvocation,
 	RyotClientAdapter,
+	RyotAddToCollectionRequest,
+	RyotEditCollectionRequest,
 	RyotPageSearchUpdate,
 	RyotPickEntityRequest,
 } from "./adapter";
@@ -74,6 +80,24 @@ const adapterEffect = (call: () => Effect.Effect<unknown, RyotClientError>) =>
 	Effect.flatMap(Effect.try({ try: call, catch: asTransportError }), (effect) =>
 		Effect.mapError(effect, asTransportError),
 	);
+
+const openScreen = <Request, Outcome>(
+	requestSchema: Schema.Codec<Request, unknown>,
+	outcomeSchema: Schema.Codec<Outcome, unknown>,
+	open: ((request: Request) => Effect.Effect<unknown, RyotClientError>) | undefined,
+	request: unknown,
+): Effect.Effect<Outcome, RyotClientError> => {
+	const decoded = Schema.decodeUnknownResult(requestSchema)(request);
+	if (Result.isFailure(decoded)) {
+		return Effect.fail(new RyotClientError("invalid-input"));
+	}
+	if (!open) {
+		return Effect.fail(new RyotClientError("unsupported-capability"));
+	}
+	return adapterEffect(() => open(decoded.success)).pipe(
+		Effect.flatMap((outcome) => decodeCapability(outcomeSchema, outcome)),
+	);
+};
 
 export const createRyotClient = (adapter: RyotClientAdapter) => {
 	const overlays: Array<() => boolean> = [];
@@ -204,19 +228,12 @@ export const createRyotClient = (adapter: RyotClientAdapter) => {
 			throw asTransportError(error);
 		}
 	};
-	const pickEntity = (request: RyotPickEntityRequest) => {
-		const decoded = Schema.decodeResult(PickEntityRequest)(request);
-		if (Result.isFailure(decoded)) {
-			return Effect.fail(new RyotClientError("invalid-input"));
-		}
-		const open = adapter.pickEntity;
-		if (!open) {
-			return Effect.fail(new RyotClientError("unsupported-capability"));
-		}
-		return adapterEffect(() => open(decoded.success)).pipe(
-			Effect.flatMap((outcome) => decodeCapability(PickEntityOutcome, outcome)),
-		);
-	};
+	const pickEntity = (request: RyotPickEntityRequest) =>
+		openScreen(PickEntityRequest, PickEntityOutcome, adapter.pickEntity, request);
+	const editCollection = (request: RyotEditCollectionRequest) =>
+		openScreen(EditCollectionRequest, EditCollectionOutcome, adapter.editCollection, request);
+	const addToCollection = (request: RyotAddToCollectionRequest) =>
+		openScreen(AddToCollectionRequest, AddToCollectionOutcome, adapter.addToCollection, request);
 	const requestUpload = (request: PluginUploadRequest) =>
 		adapterEffect(() => adapter.upload(request)).pipe(
 			Effect.flatMap((value) => decodeCapability(PluginUploadResult, value)),
@@ -273,7 +290,7 @@ export const createRyotClient = (adapter: RyotClientAdapter) => {
 	return {
 		overlayBack,
 		mutationCompleted,
-		screens: { pickEntity },
+		screens: { pickEntity, editCollection, addToCollection },
 		uploads: { uploadPermanent, uploadTemporary, cleanup: cleanupUpload },
 		pluginIdentity: (packageId: PluginPackageId) => {
 			if (!adapter.pluginIdentity) {

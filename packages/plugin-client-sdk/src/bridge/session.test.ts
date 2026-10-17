@@ -322,6 +322,122 @@ describe("plugin Effect request engine", () => {
 			}),
 	);
 
+	it.live("correlates collection screen outcomes and ignores stale or mistyped results", () =>
+		Effect.gen(function* () {
+			const { channel, runtime, messages } = yield* openRuntime();
+			const edit = yield* Effect.forkChild(
+				runtime.client.screens.editCollection({ collectionId: "collection-1" }),
+				{ startImmediately: true },
+			);
+			const add = yield* Effect.forkChild(
+				runtime.client.screens.addToCollection({ entityId: "entity-1" }),
+				{ startImmediately: true },
+			);
+			yield* waitForMessagePortMacrotask;
+			expect(sent(messages, "edit-collection-screen")).toEqual([
+				{
+					collectionId: "collection-1",
+					type: "edit-collection-screen",
+					requestId: "edit-collection-screen-1",
+				},
+			]);
+			expect(sent(messages, "add-to-collection-screen")).toEqual([
+				{
+					entityId: "entity-1",
+					type: "add-to-collection-screen",
+					requestId: "add-to-collection-screen-2",
+				},
+			]);
+			channel.port1.postMessage({
+				outcome: "success",
+				value: { kind: "removed" },
+				requestId: "edit-collection-screen-1",
+				type: "add-to-collection-screen-result",
+			});
+			channel.port1.postMessage({
+				outcome: "success",
+				value: { kind: "deleted" },
+				type: "edit-collection-screen-result",
+				requestId: "edit-collection-screen-stale",
+			});
+			yield* waitForMessagePortMacrotask;
+			channel.port1.postMessage({
+				outcome: "success",
+				value: { kind: "deleted" },
+				requestId: "edit-collection-screen-1",
+				type: "edit-collection-screen-result",
+			});
+			channel.port1.postMessage({
+				outcome: "failure",
+				reason: "collection-failed",
+				requestId: "add-to-collection-screen-2",
+				type: "add-to-collection-screen-result",
+			});
+			expect(yield* Fiber.join(edit)).toEqual({ kind: "deleted" });
+			expect(yield* Effect.flip(Fiber.join(add))).toMatchObject({ reason: "collection-failed" });
+		}),
+	);
+
+	it.live("cancels interrupted collection screens and rejects them on document change", () =>
+		Effect.gen(function* () {
+			const { channel, runtime, messages } = yield* openRuntime();
+			const edit = yield* Effect.forkChild(runtime.client.screens.editCollection({}), {
+				startImmediately: true,
+			});
+			const add = yield* Effect.forkChild(
+				runtime.client.screens.addToCollection({ entityId: "entity-1" }),
+				{ startImmediately: true },
+			);
+			yield* waitForMessagePortMacrotask;
+			yield* Fiber.interrupt(edit);
+			yield* Fiber.interrupt(add);
+			yield* waitForMessagePortMacrotask;
+			expect(sent(messages, "edit-collection-screen-cancel")).toEqual([
+				{ requestId: "edit-collection-screen-1", type: "edit-collection-screen-cancel" },
+			]);
+			expect(sent(messages, "add-to-collection-screen-cancel")).toEqual([
+				{ requestId: "add-to-collection-screen-2", type: "add-to-collection-screen-cancel" },
+			]);
+
+			const pending = yield* Effect.forkChild(
+				Effect.result(runtime.client.screens.addToCollection({ entityId: "entity-1" })),
+				{ startImmediately: true },
+			);
+			yield* waitForMessagePortMacrotask;
+			channel.port1.postMessage({
+				type: "document",
+				page: runtimePage,
+				documentKey: "page-2",
+				navigation: {
+					index: 1,
+					key: "k1",
+					compact: false,
+					edgeBack: false,
+					type: "location",
+					leading: "drawer",
+					location: { path: "/", search: "", kind: "route" },
+				},
+			});
+			expect(yield* Fiber.join(pending)).toMatchObject({ failure: { reason: "disposed" } });
+			channel.port1.postMessage({
+				outcome: "success",
+				value: { kind: "saved" },
+				requestId: "add-to-collection-screen-3",
+				type: "add-to-collection-screen-result",
+			});
+			yield* waitForMessagePortMacrotask;
+			expect(sent(messages, "lifecycle-close")).toEqual([]);
+
+			const disposed = yield* Effect.forkChild(
+				Effect.result(runtime.client.screens.editCollection({})),
+				{ startImmediately: true },
+			);
+			yield* waitForMessagePortMacrotask;
+			runtime.dispose();
+			expect(yield* Fiber.join(disposed)).toMatchObject({ failure: { reason: "disposed" } });
+		}),
+	);
+
 	it.live("acknowledges a flush only after registered persistence completes", () =>
 		Effect.gen(function* () {
 			const { channel, runtime, messages } = yield* openRuntime();

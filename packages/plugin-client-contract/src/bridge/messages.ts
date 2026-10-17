@@ -34,9 +34,15 @@ import {
 	PluginBridgeIosLiveActivityResult,
 } from "./ios-live-activities";
 import {
+	PluginBridgeAddToCollectionScreen,
+	PluginBridgeAddToCollectionScreenCancel,
+	PluginBridgeAddToCollectionScreenResult,
 	PluginBridgeDismissOverlay,
 	PluginBridgeDismissOverlayResult,
 	PluginBridgeDocument,
+	PluginBridgeEditCollectionScreen,
+	PluginBridgeEditCollectionScreenCancel,
+	PluginBridgeEditCollectionScreenResult,
 	PluginBridgeHeader,
 	PluginBridgeKernelShortcut,
 	PluginBridgeLifecycleClose,
@@ -86,6 +92,10 @@ export const PluginBridgeClientMessage = Schema.Union([
 	PluginBridgeDismissOverlayResult,
 	PluginBridgePickEntityScreen,
 	PluginBridgePickEntityScreenCancel,
+	PluginBridgeEditCollectionScreen,
+	PluginBridgeEditCollectionScreenCancel,
+	PluginBridgeAddToCollectionScreen,
+	PluginBridgeAddToCollectionScreenCancel,
 ]);
 
 export type PluginBridgeClientMessage = Schema.Schema.Type<typeof PluginBridgeClientMessage>;
@@ -111,6 +121,8 @@ export const PluginBridgeHostMessage = Schema.Union([
 	PluginBridgeEntitySaveResult,
 	PluginBridgeCollectionResult,
 	PluginBridgePickEntityScreenResult,
+	PluginBridgeEditCollectionScreenResult,
+	PluginBridgeAddToCollectionScreenResult,
 	PluginBridgePageShortcutPress,
 ]);
 

@@ -16,9 +16,14 @@ import {
 	PluginClientArtifact,
 	PluginClientArtifactFromBase64,
 	PluginAssetRequest,
+	PluginCollectionRequest,
 	PluginBridgeAssetCancel,
 	PluginBridgeAssetRequest,
 	PluginBridgeAssetResult,
+	PluginBridgeAddToCollectionScreen,
+	PluginBridgeAddToCollectionScreenResult,
+	PluginBridgeEditCollectionScreen,
+	PluginBridgeEditCollectionScreenResult,
 	PluginBridgeInit,
 	PluginBridgeReady,
 	PluginBridgeClientMessage,
@@ -692,6 +697,138 @@ describe("plugin client bridge contract", () => {
 		expect(
 			Result.isFailure(decodeHost({ ...result, outcome: "failure", reason: "query-failed" })),
 		).toBe(true);
+	});
+
+	it("admits only ID-carrying collection host screen requests from the plugin", () => {
+		const decodeClient = Schema.decodeUnknownResult(PluginBridgeClientMessage);
+		const decodeHost = Schema.decodeUnknownResult(PluginBridgeHostMessage);
+		const decodeEdit = Schema.decodeUnknownResult(PluginBridgeEditCollectionScreen);
+		const decodeAdd = Schema.decodeUnknownResult(PluginBridgeAddToCollectionScreen);
+		const edit = {
+			collectionId: "collection-1",
+			type: "edit-collection-screen",
+			requestId: "edit-collection-screen-1",
+		};
+		const add = {
+			entityId: "entity-1",
+			collectionId: "collection-1",
+			type: "add-to-collection-screen",
+			requestId: "add-to-collection-screen-1",
+		};
+
+		for (const request of [edit, add]) {
+			expect(Result.isSuccess(decodeClient(request))).toBe(true);
+			expect(Result.isFailure(decodeHost(request))).toBe(true);
+		}
+		const { collectionId: _editCollectionId, ...create } = edit;
+		const { collectionId: _addCollectionId, ...pick } = add;
+		expect(Result.isSuccess(decodeEdit(create))).toBe(true);
+		expect(Result.isSuccess(decodeAdd(pick))).toBe(true);
+		expect(Result.isFailure(decodeAdd({ ...pick, entityId: undefined }))).toBe(true);
+		for (const extra of [
+			{ name: "Favorites" },
+			{ description: "Saved" },
+			{ fields: [] },
+			{ properties: { note: "x" } },
+			{ action: "delete" },
+			{ delete: true },
+		]) {
+			expect(Result.isFailure(decodeEdit({ ...edit, ...extra }))).toBe(true);
+			expect(Result.isFailure(decodeAdd({ ...add, ...extra }))).toBe(true);
+			expect(Result.isFailure(decodeClient({ ...edit, ...extra }))).toBe(true);
+			expect(Result.isFailure(decodeClient({ ...add, ...extra }))).toBe(true);
+		}
+		const cancel = { requestId: "screen-1", type: "edit-collection-screen-cancel" };
+		expect(Result.isSuccess(decodeClient(cancel))).toBe(true);
+		expect(
+			Result.isSuccess(decodeClient({ ...cancel, type: "add-to-collection-screen-cancel" })),
+		).toBe(true);
+		expect(Result.isFailure(decodeClient({ ...cancel, collectionId: "collection-1" }))).toBe(true);
+	});
+
+	it("returns only minimal collection host screen outcomes", () => {
+		const decodeEdit = Schema.decodeUnknownResult(PluginBridgeEditCollectionScreenResult);
+		const decodeAdd = Schema.decodeUnknownResult(PluginBridgeAddToCollectionScreenResult);
+		const decodeClient = Schema.decodeUnknownResult(PluginBridgeClientMessage);
+		const edit = {
+			outcome: "success",
+			requestId: "edit-collection-screen-1",
+			type: "edit-collection-screen-result",
+		};
+		const add = {
+			outcome: "success",
+			requestId: "add-to-collection-screen-1",
+			type: "add-to-collection-screen-result",
+		};
+
+		for (const value of [
+			{ kind: "saved", collectionId: "collection-1" },
+			{ kind: "deleted" },
+			{ kind: "cancelled" },
+		]) {
+			expect(Result.isSuccess(decodeEdit({ ...edit, value }))).toBe(true);
+			expect(Result.isFailure(decodeClient({ ...edit, value }))).toBe(true);
+		}
+		for (const value of [
+			{ kind: "saved" },
+			{ kind: "removed" },
+			{ kind: "saved", name: "Favorites", collectionId: "collection-1" },
+			{ kind: "deleted", collectionId: "collection-1" },
+			{ reason: "closed", kind: "cancelled" },
+		]) {
+			expect(Result.isFailure(decodeEdit({ ...edit, value }))).toBe(true);
+		}
+		for (const value of [{ kind: "saved" }, { kind: "removed" }, { kind: "cancelled" }]) {
+			expect(Result.isSuccess(decodeAdd({ ...add, value }))).toBe(true);
+		}
+		for (const value of [
+			{ kind: "saved", collectionId: "collection-1" },
+			{ kind: "saved", properties: {} },
+			{ kind: "removed", entityId: "entity-1" },
+			{ kind: "deleted" },
+		]) {
+			expect(Result.isFailure(decodeAdd({ ...add, value }))).toBe(true);
+		}
+		const { value: _value, ...failure } = { ...edit, value: null };
+		expect(
+			Result.isSuccess(decodeEdit({ ...failure, outcome: "failure", reason: "transport" })),
+		).toBe(true);
+		expect(
+			Result.isFailure(decodeEdit({ ...failure, outcome: "failure", reason: "name-taken" })),
+		).toBe(true);
+	});
+
+	it("keeps the collection capability to create and membership actions", () => {
+		const decode = Schema.decodeUnknownResult(PluginCollectionRequest);
+		const decodeClient = Schema.decodeUnknownResult(PluginBridgeClientMessage);
+		const allowed = [
+			{ action: "create", input: { name: "Favorites" } },
+			{ action: "upsert-membership", input: { collectionId: "c-1", entityId: "entity-1" } },
+			{ action: "remove-membership", input: { collectionId: "c-1", entityId: "entity-1" } },
+		];
+		const rejected = [
+			{ action: "update", input: { fields: [], name: "Renamed", collectionId: "c-1" } },
+			{ action: "update", input: { name: "Renamed", description: null, collectionId: "c-1" } },
+			{ action: "delete", input: { collectionId: "c-1" } },
+			{ action: "delete-collection", input: { collectionId: "c-1" } },
+		];
+
+		for (const request of allowed) {
+			expect(Result.isSuccess(decode(request))).toBe(true);
+			expect(
+				Result.isSuccess(
+					decodeClient({ ...request, requestId: "collection-1", type: "collection-request" }),
+				),
+			).toBe(true);
+		}
+		for (const request of rejected) {
+			expect(Result.isFailure(decode(request))).toBe(true);
+			expect(
+				Result.isFailure(
+					decodeClient({ ...request, requestId: "collection-1", type: "collection-request" }),
+				),
+			).toBe(true);
+		}
 	});
 
 	it("decodes strict collection mutations and typed results", () => {

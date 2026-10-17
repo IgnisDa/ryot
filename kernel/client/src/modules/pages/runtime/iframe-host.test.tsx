@@ -2,7 +2,11 @@ import { describe, expect, it } from "@effect/vitest";
 import { PluginPackageId } from "@ryot-app/contract/schema/brands";
 // oxlint-disable unicorn/require-post-message-target-origin -- MessagePort has no target origin
 import {
+	type AddToCollectionOutcome,
+	type AddToCollectionRequest,
 	CLIENT_BRIDGE_BOOTSTRAP_READY,
+	type EditCollectionOutcome,
+	type EditCollectionRequest,
 	PluginBridgeInit,
 	type PluginBridgePickEntityScreen,
 	type PluginIosLiveActivityOutcome,
@@ -76,6 +80,15 @@ function mount(
 	const searches: unknown[] = [];
 	const navigations: unknown[] = [];
 	const entityPicks: unknown[] = [];
+	let screens: {
+		readonly inert?: boolean;
+		readonly onEditCollection?: (
+			request: EditCollectionRequest,
+		) => Effect.Effect<EditCollectionOutcome>;
+		readonly onAddToCollection?: (
+			request: AddToCollectionRequest,
+		) => Effect.Effect<AddToCollectionOutcome>;
+	} = {};
 	const operations: PluginOperationRequest[] = [];
 	const onPickEntity =
 		options.onPickEntity ??
@@ -114,6 +127,7 @@ function mount(
 		mutationCompleted,
 		chromeLeading: null,
 		documentKey: pageKey,
+		inert: screens.inert,
 		freshnessCheckRevision,
 		onHeader: () => undefined,
 		onFlushReady: () => undefined,
@@ -145,6 +159,10 @@ function mount(
 			Effect.succeed({ outcome: "failure" as const, reason: "invalid-request" as const }),
 		onExternalLink: () =>
 			Effect.succeed({ outcome: "failure" as const, reason: "link-open-failed" as const }),
+		onEditCollection: (request: EditCollectionRequest) =>
+			screens.onEditCollection?.(request) ?? Effect.succeed({ kind: "cancelled" as const }),
+		onAddToCollection: (request: AddToCollectionRequest) =>
+			screens.onAddToCollection?.(request) ?? Effect.succeed({ kind: "cancelled" as const }),
 		onIosLiveActivity: () =>
 			Effect.succeed({
 				outcome: "success",
@@ -195,6 +213,10 @@ function mount(
 			view.rerender(withCatalog(<PageIframeHost {...props(home, 0, 0, active)} />)),
 		replace: (pageKey: string) =>
 			view.rerender(withCatalog(<PageIframeHost {...props(home, 0, 0, true, pageKey)} />)),
+		setScreens: (next: typeof screens) => {
+			screens = next;
+			view.rerender(withCatalog(<PageIframeHost {...props(home, 0)} />));
+		},
 		setPickEntityHandler: (handler: typeof onPickEntity) =>
 			view.rerender(
 				withCatalog(<PageIframeHost {...props(home, 0, 0, true, "page-1", handler)} />),
@@ -304,6 +326,71 @@ describe("PageIframeHost", () => {
 
 			expect(host.entityPicks).toEqual([]);
 			expect(routed[0]).toMatchObject({ requestId: "pick-entity-screen-1" });
+		}),
+	);
+
+	it.live("routes collection screens to the current callbacks and keeps the frame inert", () =>
+		Effect.gen(function* () {
+			const host = mount();
+			yield* Effect.promise(() => flush());
+			const frame = yield* Effect.promise(() =>
+				screen.findByTitle<HTMLIFrameElement>("Fixture plugin"),
+			);
+			const bridge = connect(frame);
+			bridge.port.postMessage(bridge.ready);
+			yield* Effect.promise(() => waitFor(() => expect(bridge.messages).toHaveLength(1)));
+
+			bridge.port.postMessage({ requestId: "edit-1", type: "edit-collection-screen" });
+			yield* Effect.promise(() => waitFor(() => expect(bridge.messages).toHaveLength(2)));
+			expect(bridge.messages[1]).toEqual({
+				outcome: "success",
+				requestId: "edit-1",
+				value: { kind: "cancelled" },
+				type: "edit-collection-screen-result",
+			});
+
+			const edits: EditCollectionRequest[] = [];
+			const adds: AddToCollectionRequest[] = [];
+			host.setScreens({
+				inert: true,
+				onAddToCollection: (request) =>
+					Effect.sync(() => adds.push(request)).pipe(Effect.as({ kind: "saved" as const })),
+				onEditCollection: (request) =>
+					Effect.sync(() => edits.push(request)).pipe(Effect.as({ kind: "deleted" as const })),
+			});
+			expect(frame.hasAttribute("inert")).toBe(true);
+			bridge.port.postMessage({
+				requestId: "edit-2",
+				collectionId: "collection-1",
+				type: "edit-collection-screen",
+			});
+			yield* Effect.promise(() => waitFor(() => expect(bridge.messages).toHaveLength(3)));
+			bridge.port.postMessage({
+				requestId: "add-1",
+				entityId: "entity-1",
+				type: "add-to-collection-screen",
+			});
+			yield* Effect.promise(() => waitFor(() => expect(bridge.messages).toHaveLength(4)));
+
+			expect(edits).toEqual([{ collectionId: "collection-1" }]);
+			expect(adds).toEqual([{ entityId: "entity-1" }]);
+			expect(bridge.messages.slice(2)).toEqual([
+				{
+					outcome: "success",
+					requestId: "edit-2",
+					value: { kind: "deleted" },
+					type: "edit-collection-screen-result",
+				},
+				{
+					requestId: "add-1",
+					outcome: "success",
+					value: { kind: "saved" },
+					type: "add-to-collection-screen-result",
+				},
+			]);
+			host.setScreens({});
+			expect(frame.hasAttribute("inert")).toBe(false);
+			expect(screen.getByTitle("Fixture plugin")).toBe(frame);
 		}),
 	);
 

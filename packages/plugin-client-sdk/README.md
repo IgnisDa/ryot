@@ -116,7 +116,15 @@ Browser uploads to S3 require bucket CORS rules that allow `PUT` with `Content-T
 headers from the application's origin. Signed downloads used by browser code also need the appropriate `GET` and
 `HEAD` rules. Configure these on the bucket; the SDK does not change storage policies.
 
-`screens.pickEntity({ schema, initialQuery?, library? })` is the only kernel screen capability. It
+`screens.editCollection({ collectionId? })` opens the kernel collection editor (create when no ID is
+given; edit, field changes, and delete behind a kernel confirmation otherwise) and returns
+`{ kind: "saved", collectionId }`, `{ kind: "deleted" }`, or `{ kind: "cancelled" }`.
+`screens.addToCollection({ entityId, collectionId? })` opens the kernel collection picker, which can
+create a collection inline, or, with a `collectionId`, that membership's details; it returns
+`{ kind: "saved" }`, `{ kind: "removed" }`, or `{ kind: "cancelled" }`. Both accept IDs only;
+collection update and delete are not otherwise exposed to plugins.
+
+`screens.pickEntity({ schema, initialQuery?, library? })` opens the kernel entity picker. It
 carries an exact `EntitySchemaReference` and returns an Effect with `{ kind: "selected", entityIds }`,
 `{ kind: "cancelled" }`, or `{ kind: "create-requested" }`. With a `library` membership the kernel
 shows provider search with in-library badges and imports; without one it lists visible entities of the
