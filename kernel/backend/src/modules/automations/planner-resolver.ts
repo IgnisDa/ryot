@@ -327,10 +327,7 @@ export class AutomationPlannerResolver extends Context.Service<AutomationPlanner
 						);
 						if (missing.size) {
 							const scripts = yield* db
-								.select({
-									...plannedScriptFields,
-									pluginRevisionId: tables.pluginRevision.id,
-								})
+								.select({ ...plannedScriptFields, pluginRevisionId: tables.pluginRevision.id })
 								.from(tables.sandboxScript)
 								.innerJoin(
 									tables.pluginRevision,

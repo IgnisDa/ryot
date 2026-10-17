@@ -142,10 +142,7 @@ const makeLayer = (
 		),
 	);
 
-const archiveLocator = {
-	intentId: "intent-id",
-	key: "temporary/archive.zip",
-};
+const archiveLocator = { intentId: "intent-id", key: "temporary/archive.zip" };
 
 const emptyRecords = {
 	entities: [],
@@ -646,12 +643,7 @@ const recordingOperationsLayer = Layer.mergeAll(
 					cleanup: () => record("cleanup"),
 					begin: () => record("begin").pipe(Effect.as(true)),
 					claim: () =>
-						record("claim").pipe(
-							Effect.as({
-								intentId: "intent",
-								key: "temporary/input.zip",
-							}),
-						),
+						record("claim").pipe(Effect.as({ intentId: "intent", key: "temporary/input.zip" })),
 				}),
 			);
 		}),

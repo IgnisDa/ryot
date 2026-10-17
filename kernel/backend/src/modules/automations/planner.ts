@@ -247,15 +247,15 @@ export const LifecyclePlannerLive = Layer.effect(
 							.map(({ payload, references }) => ({
 								hook: payload.hook,
 								executionUserId: references.scopeUserId,
+								script: {
+									slug: payload.scriptSlug,
+									id: references.sandboxScriptId,
+									contentHash: payload.scriptContentHash,
+								},
 								plugin: {
 									id: references.pluginId,
 									pluginRevisionId: references.pluginRevisionId,
 									pluginConfigRevisionId: references.pluginConfigRevisionId,
-								},
-								script: {
-									id: references.sandboxScriptId,
-									slug: payload.scriptSlug,
-									contentHash: payload.scriptContentHash,
 								},
 							}))
 					: (yield* Effect.forEach(users, (userId) => resolver.resolve(trigger, userId))).flat()

@@ -518,28 +518,30 @@ describe("OAuth token service", () => {
 				},
 			}),
 		)((test) => {
-			test.effect("signs out without an error when a foreign clear precedes a failed rotation", () =>
-				Effect.gen(function* () {
-					const storage = yield* FakeOAuthStorage;
-					yield* storage.seed(oauthTokenKey(origin), yield* encodeJson(tokenSet()));
-					const tokens = yield* OAuthTokenService;
-					const refresh = yield* Effect.forkChild(tokens.accessToken(origin), {
-						startImmediately: true,
-					});
-					yield* Deferred.await(writeStarted);
-					const clearing = yield* Effect.forkChild(tokens.clear(origin), {
-						startImmediately: true,
-					});
+			test.effect(
+				"signs out without an error when a foreign clear precedes a failed rotation",
+				() =>
+					Effect.gen(function* () {
+						const storage = yield* FakeOAuthStorage;
+						yield* storage.seed(oauthTokenKey(origin), yield* encodeJson(tokenSet()));
+						const tokens = yield* OAuthTokenService;
+						const refresh = yield* Effect.forkChild(tokens.accessToken(origin), {
+							startImmediately: true,
+						});
+						yield* Deferred.await(writeStarted);
+						const clearing = yield* Effect.forkChild(tokens.clear(origin), {
+							startImmediately: true,
+						});
 
-					yield* Deferred.succeed(writeGate, undefined);
-					expect(yield* Fiber.join(refresh)).toBeNull();
-					yield* Fiber.join(clearing);
-					expect((yield* storage.values).has(oauthTokenKey(origin))).toBe(false);
-					expect(tokens.authorization.forServer(origin).store.getSnapshot()).toEqual({
-						status: "missing",
-					});
-					expect(yield* tokens.accessToken(origin)).toBeNull();
-				}),
+						yield* Deferred.succeed(writeGate, undefined);
+						expect(yield* Fiber.join(refresh)).toBeNull();
+						yield* Fiber.join(clearing);
+						expect((yield* storage.values).has(oauthTokenKey(origin))).toBe(false);
+						expect(tokens.authorization.forServer(origin).store.getSnapshot()).toEqual({
+							status: "missing",
+						});
+						expect(yield* tokens.accessToken(origin)).toBeNull();
+					}),
 			);
 		});
 	}

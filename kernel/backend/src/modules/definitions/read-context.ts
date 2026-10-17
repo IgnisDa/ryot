@@ -26,26 +26,18 @@ const ownerFields = {
 };
 
 const pinnedRevisionWhere = (context: DefinitionReadContext) =>
-	and(eq(pluginRevision.pluginId, context.pluginId), eq(pluginRevision.id, context.pluginRevisionId));
-
-const pinnedRevisionRows = <
-	Table extends
-		| typeof definitionEntitySchema
-		| typeof definitionRelationshipSchema
-		| typeof definitionSignalSchema,
->(
-	table: Table,
-	context: DefinitionReadContext,
-) =>
-	new QueryBuilder()
-		.select({ ...getTableColumns(table), ...ownerFields })
-		.from(table)
-		.innerJoin(pluginRevision, eq(pluginRevision.id, table.pluginRevisionId))
-		.innerJoin(plugin, eq(plugin.id, pluginRevision.pluginId))
-		.where(pinnedRevisionWhere(context));
+	and(
+		eq(pluginRevision.pluginId, context.pluginId),
+		eq(pluginRevision.id, context.pluginRevisionId),
+	);
 
 export const pinnedEntitySchemaRows = (context: DefinitionReadContext) =>
-	pinnedRevisionRows(definitionEntitySchema, context);
+	new QueryBuilder()
+		.select({ ...getTableColumns(definitionEntitySchema), ...ownerFields })
+		.from(definitionEntitySchema)
+		.innerJoin(pluginRevision, eq(pluginRevision.id, definitionEntitySchema.pluginRevisionId))
+		.innerJoin(plugin, eq(plugin.id, pluginRevision.pluginId))
+		.where(pinnedRevisionWhere(context));
 
 export const pinnedEventSchemaRows = (context: DefinitionReadContext) =>
 	new QueryBuilder()
@@ -68,10 +60,20 @@ export const pinnedEventSchemaRows = (context: DefinitionReadContext) =>
 		.where(pinnedRevisionWhere(context));
 
 export const pinnedRelationshipSchemaRows = (context: DefinitionReadContext) =>
-	pinnedRevisionRows(definitionRelationshipSchema, context);
+	new QueryBuilder()
+		.select({ ...getTableColumns(definitionRelationshipSchema), ...ownerFields })
+		.from(definitionRelationshipSchema)
+		.innerJoin(pluginRevision, eq(pluginRevision.id, definitionRelationshipSchema.pluginRevisionId))
+		.innerJoin(plugin, eq(plugin.id, pluginRevision.pluginId))
+		.where(pinnedRevisionWhere(context));
 
 export const pinnedSignalSchemaRows = (context: DefinitionReadContext) =>
-	pinnedRevisionRows(definitionSignalSchema, context);
+	new QueryBuilder()
+		.select({ ...getTableColumns(definitionSignalSchema), ...ownerFields })
+		.from(definitionSignalSchema)
+		.innerJoin(pluginRevision, eq(pluginRevision.id, definitionSignalSchema.pluginRevisionId))
+		.innerJoin(plugin, eq(plugin.id, pluginRevision.pluginId))
+		.where(pinnedRevisionWhere(context));
 
 export class DefinitionReadUnavailable extends Data.TaggedError("DefinitionReadUnavailable")<{
 	readonly context: DefinitionReadContext;

@@ -34,7 +34,6 @@ type ContextSnapshot = {
 	readonly contextError: unknown;
 	readonly saveState: SaveState;
 };
-};
 
 export const isWorkoutEditorSaving = (snapshot: WorkoutEditorControllerSnapshot) =>
 	snapshot.saveState.phase === "in-flight" ||

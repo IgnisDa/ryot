@@ -60,7 +60,6 @@ import {
 	convertedAmount,
 	defaultSeasonNumber,
 	EARLIER_MAX_PAGES,
-	EARLIER_PAGE_LIMIT,
 	episodeCode,
 	episodeStateLabel,
 	hasActivityErrors,
