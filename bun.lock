@@ -554,6 +554,7 @@
         "@ryot-app/ryotql": "workspace:*",
         "@ryot-app/ryotql-recipes": "workspace:*",
         "effect": "4.0.0",
+        "fflate": "0.8.3",
       },
       "devDependencies": {
         "@ryot-app/testing": "workspace:*",

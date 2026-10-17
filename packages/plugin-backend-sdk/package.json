@@ -19,6 +19,10 @@
 			"types": "./src/cheerio.ts",
 			"default": "./src/cheerio.ts"
 		},
+		"./compression": {
+			"types": "./src/compression.ts",
+			"default": "./src/compression.ts"
+		},
 		"./driver": {
 			"types": "./src/driver.ts",
 			"default": "./src/driver.ts"

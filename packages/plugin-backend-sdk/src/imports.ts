@@ -13,6 +13,7 @@ import { Schema } from "@ryot-app/plugin-backend-sdk/effect";
 
 import {
 	PLUGIN_KIT_SCHEMA_IMPORT,
+	PLUGIN_KIT_COMPRESSION_IMPORT,
 	SANDBOX_RUNTIME_EXTERNAL_SPECIFIERS,
 	SANDBOX_SDK_AUTOMATION_IMPORT,
 	SANDBOX_SDK_FILESYSTEM_IMPORT,
@@ -40,6 +41,7 @@ export const SANDBOX_SDK_IMPORTS = [
 	"@ryot-app/plugin-backend-sdk/operation",
 	"@ryot-app/plugin-backend-sdk/wire",
 	PLUGIN_KIT_SCHEMA_IMPORT,
+	PLUGIN_KIT_COMPRESSION_IMPORT,
 	...SANDBOX_RUNTIME_EXTERNAL_SPECIFIERS,
 ] as const;
 

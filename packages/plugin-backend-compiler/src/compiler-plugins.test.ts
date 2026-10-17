@@ -663,6 +663,41 @@ export const rowSlug = "shared-row";
 		}),
 	);
 
+	test.effect("compiles shared sources that import the neutral compression shim", () =>
+		Effect.gen(function* () {
+			const compiled = yield* compilePluginSandboxSourceEntries(
+				{
+					"shared/compression.ts": `
+import { deflateSync, inflateSync } from "@ryot-app/plugin-kit/compression";
+
+export const compressionAvailable = [deflateSync, inflateSync].length === 2;
+`,
+					"backend/operation.sandbox.ts": `
+import { defineManifest } from "@ryot-app/plugin-backend-sdk/driver";
+import { Effect } from "@ryot-app/plugin-backend-sdk/effect";
+import { defineOperation } from "@ryot-app/plugin-backend-sdk/operation";
+import { Schema } from "@ryot-app/plugin-kit/effect";
+
+import { compressionAvailable } from "../shared/compression";
+
+export const manifest = defineManifest({ kind: "operation", slug: "operation", name: "Operation" });
+export default defineOperation({
+	manifest,
+	input: Schema.Struct({}),
+	output: Schema.Boolean,
+	run: () => Effect.succeed(compressionAvailable),
+});
+`,
+				},
+				[{ kind: "operation", entry: "backend/operation.sandbox.ts" }],
+			);
+
+			expect(compiled[0]?.compiled.manifest.runtimeImports).toContain(
+				"@ryot-app/plugin-kit/compression",
+			);
+		}),
+	);
+
 	test.effect("compiles shared workout normalization imported by a backend entry", () =>
 		Effect.gen(function* () {
 			const compiled = yield* compilePluginSandboxSourceEntries(

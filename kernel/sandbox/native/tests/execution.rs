@@ -425,15 +425,7 @@ fn imports_outside_the_tier_are_rejected_at_resolution() {
     }
 }
 
-fn covering_tier(snapshots: &[(Tier, Snapshot)], source: &str) -> Tier {
-    let specifiers: Vec<&str> = source
-        .lines()
-        .filter(|line| line.starts_with("import "))
-        .filter_map(|line| {
-            line.rsplit_once(" from \"")
-                .map(|(_, rest)| rest.trim_end_matches("\";"))
-        })
-        .collect();
+fn covering_tier(snapshots: &[(Tier, Snapshot)], specifiers: &[&str]) -> Tier {
     snapshots
         .iter()
         .find(|(_, snapshot)| {
@@ -464,15 +456,33 @@ fn plugin_archive_modules_evaluate_on_their_covering_tier() {
         let file = std::fs::File::open(plugins.join(format!("{plugin}/dist/ryot/{plugin}.zip")))
             .expect("built plugin archive");
         let mut archive = zip::ZipArchive::new(file).expect("zip");
-        for index in 0..archive.len() {
-            let mut entry = archive.by_index(index).expect("entry");
-            let name = entry.name().to_owned();
-            if !name.starts_with("compiled-backend/files/") {
-                continue;
-            }
+        let manifest: Value =
+            serde_json::from_reader(archive.by_name("manifest.json").expect("manifest"))
+                .expect("manifest JSON");
+        let metadata: Value = serde_json::from_reader(
+            archive
+                .by_name("compiled-backend/metadata.json")
+                .expect("backend metadata"),
+        )
+        .expect("backend metadata JSON");
+        let definitions = manifest["scripts"].as_array().expect("script definitions");
+        for script in metadata["scripts"].as_array().expect("compiled scripts") {
+            let definition = definitions
+                .iter()
+                .find(|definition| definition["entry"] == script["entry"])
+                .expect("compiled script definition");
+            let specifiers: Vec<&str> = definition["runtimeImports"]
+                .as_array()
+                .expect("runtime imports")
+                .iter()
+                .map(|specifier| specifier.as_str().expect("runtime import"))
+                .collect();
+            let hash = script["hash"].as_str().expect("compiled hash");
+            let name = format!("compiled-backend/files/{hash}.js");
+            let mut entry = archive.by_name(&name).expect("compiled module");
             let mut source = String::new();
             entry.read_to_string(&mut source).expect("utf-8 module");
-            let tier = covering_tier(&snapshots, &source);
+            let tier = covering_tier(&snapshots, &specifiers);
             let sidecar = sidecars
                 .entry(tier)
                 .or_insert_with(|| support::spawn(tier, &[]));
