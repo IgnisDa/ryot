@@ -17,7 +17,7 @@ describe("Button", () => {
 		expect(button.hasAttribute("disabled")).toBe(true);
 	});
 
-	it.each(["text", "switch", "primary", "secondary"] as const)(
+	it.each(["ghost", "switch", "danger", "outline", "primary", "secondary", "dangerGhost"] as const)(
 		"names the %s variant by its content",
 		(variant) => {
 			render(<Button variant={variant}>{variant}</Button>);
@@ -45,5 +45,13 @@ describe("Button", () => {
 		);
 
 		expect(screen.getByRole("button", { pressed: true, name: "Compact" })).toBeTruthy();
+	});
+
+	it("blocks activation and reports busy while loading", () => {
+		render(<Button loading>Save changes</Button>);
+
+		const button = screen.getByRole("button", { name: "Save changes" });
+		expect(button.hasAttribute("disabled")).toBe(true);
+		expect(button.getAttribute("aria-busy")).toBe("true");
 	});
 });

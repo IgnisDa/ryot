@@ -119,7 +119,7 @@ export function AutomationHistoryView(props: AutomationHistoryViewProps) {
 				{props.state.nextCursor === null ? null : (
 					<Button
 						type="button"
-						variant="text"
+						variant="ghost"
 						onClick={props.onShowOlder}
 						disabled={props.isLoadingOlder}
 						className="self-start text-sm text-accent-text"

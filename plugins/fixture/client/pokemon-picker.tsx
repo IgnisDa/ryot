@@ -158,7 +158,7 @@ export const PokemonPicker = () => {
 							<div className="flex flex-wrap justify-end gap-2">
 								<Button
 									type="button"
-									variant="text"
+									variant="ghost"
 									disabled={mutation.isPending}
 									onClick={() => setReviewing(false)}
 								>
