@@ -15,36 +15,24 @@ type PluginConfigContext = {
 	readonly config: Readonly<Record<string, unknown>>;
 };
 
-export const resolveContextConfig = (
-	context: PluginConfigContext,
-	keys?: ReadonlyArray<string>,
-) => {
-	const selected =
-		keys === undefined
-			? context
-			: {
-					...context,
-					config: Object.fromEntries(
-						Object.entries(context.config).filter(([key]) => keys.includes(key)),
-					),
-					configSchema: {
-						unknownKeys: "strict" as const,
-						fields: Object.fromEntries(
-							Object.entries(context.configSchema.fields)
-								.filter(([key]) => keys.includes(key))
-								.map(([key, property]) => [
-									key,
-									{ ...property, validation: { ...property.validation, required: undefined } },
-								]),
-						),
-					},
-				};
-	return parseAppSchemaProperties({
+export const resolveContextConfig = (context: PluginConfigContext, keys: ReadonlyArray<string>) =>
+	parseAppSchemaProperties({
 		kind: "Plugin config",
-		properties: selected.config,
-		propertiesSchema: selected.configSchema,
+		properties: Object.fromEntries(
+			Object.entries(context.config).filter(([key]) => keys.includes(key)),
+		),
+		propertiesSchema: {
+			unknownKeys: "strict" as const,
+			fields: Object.fromEntries(
+				Object.entries(context.configSchema.fields)
+					.filter(([key]) => keys.includes(key))
+					.map(([key, property]) => [
+						key,
+						{ ...property, validation: { ...property.validation, required: undefined } },
+					]),
+			),
+		},
 	});
-};
 
 export const getPluginConfig = Effect.fn("getPluginConfig")(function* (input: {
 	metadata: unknown;

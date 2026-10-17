@@ -77,8 +77,7 @@ and TLS option. Admission and network attempts consume that same hop; a redirect
 whole. `Admitting` retains any prior 429 result, `ApplyingRateLimitBlock` requires that result and its
 declaration/delay, and `WaitingForRateLimitBlock` retains the acknowledged deadline and result. Resuming
 an acknowledged block waits only its remaining time, without sending its response or applying it again.
-Drain or reset retained executions when replacing this private continuation shape; old shapes are not
-decoded.
+Drain or reset retained executions when replacing this private continuation shape.
 
 Inline sleep/admission waits share a 1,000 ms allowance per replay and a 1,000 ms per-wait threshold.
 Allowance is reserved before waiting and unused cancelled time is refunded by monotonic clock.

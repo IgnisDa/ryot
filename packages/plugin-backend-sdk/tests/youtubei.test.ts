@@ -153,6 +153,36 @@ describe("Youtubei sandbox adapter", () => {
 			}),
 		));
 
+	test("adds the YouTube origin to normalized YouTube requests", () =>
+		Effect.runPromise(
+			Effect.gen(function* () {
+				const { fetch, requests } = yield* makeFetchHarness;
+
+				yield* Effect.tryPromise(() =>
+					fetch(new Request("https://www.youtube.com/resource", { body: "old", method: "POST" }), {
+						method: "put",
+						headers: [["X-New", " replacement "]],
+						body: new URLSearchParams({ query: "a b" }),
+					}),
+				);
+
+				expect(requests).toEqual([
+					[
+						"PUT",
+						"https://www.youtube.com/resource",
+						{
+							body: "query=a+b",
+							headers: {
+								"x-new": "replacement",
+								origin: "https://www.youtube.com",
+								"content-type": "application/x-www-form-urlencoded;charset=UTF-8",
+							},
+						},
+					],
+				]);
+			}),
+		));
+
 	test.each([false, true])(
 		"replacement bodies do not consume input (already used: %j)",
 		(consumed) =>

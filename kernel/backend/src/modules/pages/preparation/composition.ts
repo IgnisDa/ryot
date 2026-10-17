@@ -6,9 +6,14 @@ import type {
 } from "@ryot-app/contract/modules/pages/schemas";
 import { pluginExportSpecifier } from "@ryot-app/plugin-client-contract";
 
+import { kernelRendererModule } from "./kernel-renderers";
+
 export type ArtifactDescription = {
 	readonly files: ReadonlyArray<{ readonly name: string; readonly contentType: string }>;
 };
+
+const missing = (specifier: string) =>
+	new Error(`Client composition export is missing: ${specifier}`);
 
 export const composeClientPage = (input: {
 	readonly identity: ClientPageCompositionIdentity;
@@ -50,11 +55,8 @@ export const composeClientPage = (input: {
 	};
 	for (const contributor of identity.contributors) {
 		if (contributor.kind === "kernel-renderer") {
-			addImport(
-				`@ryot-app/kernel-renderers/${contributor.name}`,
-				file(contributor.artifactHash, "module.js"),
-				"page",
-			);
+			const { binding, specifier } = kernelRendererModule(contributor.name);
+			addImport(specifier, file(contributor.artifactHash, "module.js"), binding);
 		} else {
 			for (const declaration of contributor.exports) {
 				addImport(
@@ -65,19 +67,23 @@ export const composeClientPage = (input: {
 			}
 		}
 	}
-	const module = (
-		specifier: string,
-		binding = bindings.get(specifier),
-	): ClientCompositionModuleReference => {
-		if (!binding || bindings.get(specifier) !== binding) {
-			throw new Error(`Client composition export is missing: ${specifier}`);
+	const module = (reference: ClientCompositionModuleReference) => {
+		if (bindings.get(reference.specifier) !== reference.binding) {
+			throw missing(reference.specifier);
+		}
+		return reference;
+	};
+	const lookup = (specifier: string): ClientCompositionModuleReference => {
+		const binding = bindings.get(specifier);
+		if (!binding) {
+			throw missing(specifier);
 		}
 		return { binding, specifier };
 	};
 	const automaticRegistry = identity.automaticRegistry.map((registration) => ({
 		layout: registration.layout,
 		ownerPluginId: registration.ownerPluginId,
-		module: module(registration.exportSpecifier),
+		module: lookup(registration.exportSpecifier),
 		artifactClosure: registration.artifactClosure,
 		entitySchemaSlug: registration.entitySchemaSlug,
 		stylesheets: registration.artifactClosure.flatMap((hash) =>
@@ -93,24 +99,16 @@ export const composeClientPage = (input: {
 			automaticRegistry,
 			application: "plugin-route",
 			routes: {
-				...(routes.home === undefined
-					? {}
-					: { home: module(routes.home.specifier, routes.home.binding) }),
+				...(routes.home === undefined ? {} : { home: module(routes.home) }),
 				routes: routes.routes.map(({ path, module: reference }) => ({
 					path,
-					module: module(reference.specifier, reference.binding),
+					module: module(reference),
 				})),
-				...(routes.notFound
-					? { notFound: module(routes.notFound.specifier, routes.notFound.binding) }
-					: {}),
+				...(routes.notFound ? { notFound: module(routes.notFound) } : {}),
 			},
 		};
 	} else {
-		descriptor = {
-			automaticRegistry,
-			application: "page",
-			entry: module(identity.entry.specifier, identity.entry.binding),
-		};
+		descriptor = { automaticRegistry, application: "page", entry: module(identity.entry) };
 	}
 	return {
 		imports,

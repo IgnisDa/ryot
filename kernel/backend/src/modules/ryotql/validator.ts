@@ -206,13 +206,13 @@ const validateExpression = (
 			return `Correlated query depth must not exceed ${MAX_CORRELATED_DEPTH}`;
 		}
 		const nested = validateQuerySet(expr.query, scope, correlatedDepth + 1, executionScope);
-		if (nested.error || !nested.scope) {
+		if (nested.error !== null) {
 			return nested.error;
 		}
 		if (expr.type === "aggregate" && expr.aggregation.function !== "count") {
 			return validateExpression(
 				expr.aggregation.expr,
-				nested.scope,
+				nested.value,
 				correlatedDepth + 1,
 				executionScope,
 				elementDepth,
@@ -221,7 +221,7 @@ const validateExpression = (
 		if (expr.type === "first") {
 			const selectionError = validateExpression(
 				expr.select,
-				nested.scope,
+				nested.value,
 				correlatedDepth + 1,
 				executionScope,
 				elementDepth,
@@ -232,7 +232,7 @@ const validateExpression = (
 			for (const order of expr.orderBy) {
 				const orderError = validateExpression(
 					order.expr,
-					nested.scope,
+					nested.value,
 					correlatedDepth + 1,
 					executionScope,
 					elementDepth,
@@ -240,7 +240,7 @@ const validateExpression = (
 				if (orderError) {
 					return orderError;
 				}
-				if (expressionKind(order.expr, nested.scope, executionScope) === "json") {
+				if (expressionKind(order.expr, nested.value, executionScope) === "json") {
 					return "Ordering expressions must resolve to scalar values";
 				}
 			}
@@ -491,37 +491,37 @@ const validateQuerySet = (
 	ancestors: AliasScope,
 	correlatedDepth: number,
 	executionScope: RyotQLAccess,
-): { scope: AliasScope; error: null } | { scope: null; error: string } => {
+): Validation<AliasScope> => {
 	const joins = query.joins ?? [];
 	if (joins.length > MAX_QUERY_JOINS) {
-		return { scope: null, error: `A query may contain at most ${MAX_QUERY_JOINS} joins` };
+		return invalid(`A query may contain at most ${MAX_QUERY_JOINS} joins`);
 	}
 	const scope = new Map(ancestors);
 	const rootError = addTable(scope, query.from, executionScope);
 	if (rootError) {
-		return { scope: null, error: rootError };
+		return invalid(rootError);
 	}
 	for (const join of joins) {
 		if (join.type === "jsonElements") {
 			const elementsError = addJsonElements(scope, join, correlatedDepth, executionScope);
 			if (elementsError) {
-				return { scope: null, error: elementsError };
+				return invalid(elementsError);
 			}
 			continue;
 		}
 		const tableError = addTable(scope, join.table, executionScope);
 		if (tableError) {
-			return { scope: null, error: tableError };
+			return invalid(tableError);
 		}
 		const onError = validatePredicate(join.on, scope, correlatedDepth, executionScope);
 		if (onError) {
-			return { scope: null, error: onError };
+			return invalid(onError);
 		}
 	}
 	const whereError = query.where
 		? validatePredicate(query.where, scope, correlatedDepth, executionScope)
 		: null;
-	return whereError ? { scope: null, error: whereError } : { scope, error: null };
+	return whereError ? invalid(whereError) : { error: null, value: scope };
 };
 
 const validateSelections = (
@@ -572,14 +572,14 @@ const validateSelections = (
 			return invalid(`Include limit must not exceed ${MAX_INCLUDE_LIMIT}`);
 		}
 		const nestedQuerySet = validateQuerySet(nested, scope, 0, executionScope);
-		if (nestedQuerySet.error || !nestedQuerySet.scope) {
+		if (nestedQuerySet.error !== null) {
 			return invalid(`Include '${nested.key}': ${nestedQuerySet.error}`);
 		}
 		const selections = validateSelections(
 			nested.fields,
 			nested.orderBy,
 			nested.include ?? [],
-			nestedQuerySet.scope,
+			nestedQuerySet.value,
 			depth + 1,
 			executionScope,
 		);
@@ -763,11 +763,11 @@ const validateNamedQuery = (
 		return invalid(querySet.error);
 	}
 	if (query.output.type === "aggregate") {
-		const error = validateAggregateOutput(query.output, querySet.scope, executionScope);
+		const error = validateAggregateOutput(query.output, querySet.value, executionScope);
 		return error ? invalid(error) : { error: null, value: { ...query, output: query.output } };
 	}
 	if (query.output.type === "timeSeries") {
-		const error = validateTimeSeriesOutput(query.output, querySet.scope, executionScope);
+		const error = validateTimeSeriesOutput(query.output, querySet.value, executionScope);
 		return error ? invalid(error) : { error: null, value: { ...query, output: query.output } };
 	}
 	if (query.output.pagination.limit > MAX_ROOT_PAGE_SIZE) {
@@ -777,7 +777,7 @@ const validateNamedQuery = (
 		query.output.fields,
 		query.output.orderBy,
 		query.output.include ?? [],
-		querySet.scope,
+		querySet.value,
 		0,
 		executionScope,
 	);

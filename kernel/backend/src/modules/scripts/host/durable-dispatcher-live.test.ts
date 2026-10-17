@@ -676,8 +676,7 @@ const httpDispatchLayer = (options: {
 		}),
 	);
 
-const decodeHttpProgress = (value: unknown) =>
-	Schema.decodeUnknownSync(SandboxHttpProgress)(JSON.parse(JSON.stringify(value)));
+const decodeHttpProgress = Schema.decodeUnknownSync(SandboxHttpProgress);
 
 const runHttpDispatch = (
 	url = `${providerOrigin}/private?token=secret`,

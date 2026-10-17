@@ -19,7 +19,6 @@ import {
 	declaresSandboxFilesystemGrant,
 	decodeSandboxScratchManifest,
 	measureSandboxScratchBytes,
-	SANDBOX_SCRATCH_DIRECTORY_PREFIX,
 	sandboxArtifactGrant,
 	sandboxGrantPathError,
 	sanitizeSandboxExecutionSegment,
@@ -254,7 +253,7 @@ export class ExecutionFiles extends Context.Service<ExecutionFiles>()("Execution
 			}
 
 			const scratchDirectory = scratchAllowed
-				? yield* acquireTemporaryDirectory(SANDBOX_SCRATCH_DIRECTORY_PREFIX, input.executionId)
+				? yield* acquireTemporaryDirectory("ryot-sandbox-scratch-", input.executionId)
 				: undefined;
 			if (scratchDirectory !== undefined) {
 				yield* inspectPath(scratchDirectory, "Sandbox scratch directory", "Directory");

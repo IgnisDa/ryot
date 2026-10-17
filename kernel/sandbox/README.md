@@ -64,7 +64,7 @@ Filesystem capabilities come from compiler-derived execution metadata, but metad
 | `artifact-read` | Read-only access to one kernel-owned artifact.     |
 | `scratch`       | Read/write access to the execution's scratch area. |
 
-Artifact reads use 1 MiB slices; scratch writes are limited to 256 KiB. Before decoding a write, the backend reserves the combined pending and committed scratch quota of 5 MiB. Cleanup runs on every exit. Harvest accepts only the exact named files reported as completed. After all manifest, directory, descriptor, and size checks pass, their pinned bytes go directly to workflow storage without intermediate files. The aggregate buffers are bounded by the 5 MiB scratch quota and fit within the per-run stack and staging allowance. Storage returns opaque handles. Consumers resolve a handle only against its trusted parent execution. Public results omit harvest metadata.
+Artifact reads use 1 MiB slices; scratch writes are limited to 256 KiB. Before decoding a write, the backend reserves the combined pending and committed scratch quota of 5 MiB. Cleanup runs on every exit. Harvest accepts only the exact named files reported as completed. After all manifest, directory, descriptor, and size checks pass, their pinned bytes go directly to workflow storage. The aggregate buffers are bounded by the 5 MiB scratch quota and fit within the per-run stack and staging allowance. Storage returns opaque handles. Consumers resolve a handle only against its trusted parent execution. Public results omit harvest metadata.
 
 ## Recovery
 

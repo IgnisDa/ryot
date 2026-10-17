@@ -197,12 +197,11 @@ export class PagesService extends Context.Service<PagesService>()("PagesService"
 					prepared,
 					requestedTarget,
 					operationTargets,
-					graph: renderer.graph,
 					kind: "saved-view" as const,
 				};
 			}
 			const page = yield* resolvePluginTarget(userId, target, available);
-			return { page, target, operationTargets, graph: page.graph, kind: "page" as const };
+			return { page, target, operationTargets, kind: "page" as const };
 		});
 		const prepare = Effect.fn("Pages.prepare")(function* (
 			user: Pick<CurrentUserValue, "id">,
@@ -212,16 +211,18 @@ export class PagesService extends Context.Service<PagesService>()("PagesService"
 			const selection = yield* resolveSelection(user.id, requestedTarget, available).pipe(
 				Effect.withSpan("Pages.resolve-target"),
 			);
-			const composition = yield* compositions.getOrMaterialize(selection.graph);
+			const graph =
+				selection.kind === "saved-view" ? selection.renderer.graph : selection.page.graph;
+			const composition = yield* compositions.getOrMaterialize(graph);
 			if (selection.kind === "saved-view") {
 				const { prepared, renderer } = selection;
 				const base = {
 					savedViewId: prepared.viewId,
 					viewRevision: prepared.view.revision,
+					compositionKey: graph.compositionKey,
 					compositionHash: composition.compositionHash,
 					operationTargets: selection.operationTargets,
-					compositionKey: selection.graph.compositionKey,
-					contributors: clientPageCodeContributors(selection.graph.identity, available),
+					contributors: clientPageCodeContributors(graph.identity, available),
 					target:
 						selection.requestedTarget.kind === "plugin-route"
 							? selection.requestedTarget
@@ -277,10 +278,10 @@ export class PagesService extends Context.Service<PagesService>()("PagesService"
 					: selection.target;
 			const base = {
 				target: selection.target,
+				compositionKey: graph.compositionKey,
 				operationTargets: selection.operationTargets,
 				compositionHash: composition.compositionHash,
-				compositionKey: selection.graph.compositionKey,
-				contributors: clientPageCodeContributors(selection.graph.identity, available),
+				contributors: clientPageCodeContributors(graph.identity, available),
 			};
 			return {
 				composition: compositionFor(composition),
@@ -374,7 +375,7 @@ export class PagesService extends Context.Service<PagesService>()("PagesService"
 				) {
 					return null;
 				}
-				return yield* matchingComposition(available, selection.graph, identity);
+				return yield* matchingComposition(available, renderer.graph, identity);
 			}
 			const resolved = selection.page;
 			if (resolved.kind === "kernel-entity") {
@@ -395,7 +396,7 @@ export class PagesService extends Context.Service<PagesService>()("PagesService"
 			) {
 				return null;
 			}
-			return yield* matchingComposition(available, selection.graph, identity);
+			return yield* matchingComposition(available, resolved.graph, identity);
 		});
 		const isIdentityCurrent = Effect.fn(function* (
 			userId: CurrentUserValue["id"],
