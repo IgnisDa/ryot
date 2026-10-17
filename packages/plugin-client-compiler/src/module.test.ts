@@ -61,6 +61,35 @@ const emittedInput = {
 	files: { "client/home.tsx": bytes("export default function Home() { return null; }") },
 };
 
+const inputAtSize = (size: number) => ({
+	...emittedInput,
+	files: {
+		...emittedInput.files,
+		"client/padding.ts": bytes(
+			`/*${" ".repeat(size - emittedInput.files["client/home.tsx"].byteLength - 4)}*/`,
+		),
+	},
+});
+
+it.layer(emittedLayer("export default {};"))("source input capacity", (test) => {
+	test.effect("accepts source input at the combined size boundary", () =>
+		Effect.gen(function* () {
+			const compiled = yield* compileClientPluginModule(
+				inputAtSize(CLIENT_PLUGIN_COMPILER_LIMITS.sourceBytes),
+			);
+			expect(compiled.artifact.files.some(({ name }) => name === "module.js")).toBe(true);
+		}),
+	);
+	test.effect("rejects source input one byte over the combined size boundary", () =>
+		Effect.gen(function* () {
+			const error = yield* compileClientPluginModule(
+				inputAtSize(CLIENT_PLUGIN_COMPILER_LIMITS.sourceBytes + 1),
+			).pipe(Effect.flip);
+			expect(error.diagnostics.some(({ code }) => code === "RYOT_CLIENT_SOURCE_SIZE")).toBe(true);
+		}),
+	);
+});
+
 for (const [reference, accepted] of [
 	["./module.js?query#fragment", true],
 	["module.js#fragment", true],

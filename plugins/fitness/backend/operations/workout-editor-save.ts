@@ -55,7 +55,18 @@ const editableFields = [
 ];
 const invalid = (
 	code: Extract<WorkoutEditorSaveOutput, { kind: "invalid" }>["code"],
-): WorkoutEditorSaveOutput => ({ code, kind: "invalid" });
+): Extract<WorkoutEditorSaveOutput, { kind: "invalid" }> => ({ code, kind: "invalid" });
+const preflightInvalid = (
+	code: Extract<WorkoutEditorSaveOutput, { kind: "invalid" }>["code"],
+): Extract<WorkoutEditorSaveOutput, { kind: "invalid" }> => ({ ...invalid(code), canEdit: true });
+const preflightConflict = (): Extract<WorkoutEditorSaveOutput, { kind: "conflict" }> => ({
+	canEdit: true,
+	kind: "conflict",
+});
+const preflightProRequired = (): Extract<WorkoutEditorSaveOutput, { kind: "pro-required" }> => ({
+	canEdit: true,
+	kind: "pro-required",
+});
 const same = (left: unknown, right: unknown): boolean => {
 	if (left === right) {
 		return true;
@@ -232,25 +243,25 @@ const validateGraph = (
 		(new Set(baseline.sets.map(({ id }) => id)).size !== baseline.sets.length ||
 			baseline.sets.some(({ sessionEntityId }) => sessionEntityId !== baseline.entity.id))
 	) {
-		return invalid("invalid-source");
+		return preflightInvalid("invalid-source");
 	}
 	const ids = new Set<string>();
 	const events = new Set<string>();
 	const origins = new Set<number>();
 	for (const occurrence of data.occurrences) {
 		if (ids.has(occurrence.clientId)) {
-			return invalid("duplicate-id");
+			return preflightInvalid("duplicate-id");
 		}
 		ids.add(occurrence.clientId);
 		if (occurrence.sourceExerciseOrder !== undefined) {
 			if (!baseline || origins.has(occurrence.sourceExerciseOrder)) {
-				return invalid("invalid-source");
+				return preflightInvalid("invalid-source");
 			}
 			origins.add(occurrence.sourceExerciseOrder);
 		}
 		for (const set of occurrence.sets) {
 			if (ids.has(set.clientId)) {
-				return invalid("duplicate-id");
+				return preflightInvalid("duplicate-id");
 			}
 			ids.add(set.clientId);
 		}
@@ -265,7 +276,7 @@ const validateGraph = (
 						original.sessionEntityId !== baseline?.entity.id ||
 						occurrence.sourceExerciseOrder !== original.properties["exerciseOrder"]
 					) {
-						return invalid("unrelated-event");
+						return preflightInvalid("unrelated-event");
 					}
 					events.add(set.eventId);
 					if (
@@ -273,7 +284,7 @@ const validateGraph = (
 						!same(set.confirmedAt, original.properties["confirmedAt"] ?? undefined) ||
 						!same(set.restTimerStartedAt, original.properties["restTimerStartedAt"] ?? undefined)
 					) {
-						return invalid("invalid-time");
+						return preflightInvalid("invalid-time");
 					}
 				}
 			}
@@ -282,11 +293,11 @@ const validateGraph = (
 	const grouped = new Set<string>();
 	for (const group of data.supersets) {
 		if (group.occurrenceIds.length < 2) {
-			return invalid("invalid-superset");
+			return preflightInvalid("invalid-superset");
 		}
 		for (const id of group.occurrenceIds) {
 			if (!data.occurrences.some(({ clientId }) => clientId === id) || grouped.has(id)) {
-				return invalid("invalid-superset");
+				return preflightInvalid("invalid-superset");
 			}
 			grouped.add(id);
 		}
@@ -297,14 +308,14 @@ const validateGraph = (
 			(data.startedAt !== baseline.entity.properties["startedAt"] ||
 				!same(data.endedAt, baseline.entity.properties["endedAt"] ?? undefined))
 		) {
-			return invalid("invalid-time");
+			return preflightInvalid("invalid-time");
 		}
 		if (
 			!baseline &&
 			data.endedAt !== undefined &&
 			Date.parse(data.endedAt) < Date.parse(data.startedAt)
 		) {
-			return invalid("invalid-time");
+			return preflightInvalid("invalid-time");
 		}
 	}
 	return undefined;
@@ -319,7 +330,7 @@ export const saveWorkoutEditor = Effect.fn("saveWorkoutEditor")(function* (
 	if (data.target.kind === "update") {
 		const decoded = decodeWorkoutEditorBaseline(data.target.conflictToken);
 		if (decoded._tag === "Failure" || decoded.success.entity.id !== data.target.entityId) {
-			return invalid("invalid-source");
+			return preflightInvalid("invalid-source");
 		}
 		baseline = decoded.success;
 		const current = yield* executeRyotqlRecipe(
@@ -331,7 +342,7 @@ export const saveWorkoutEditor = Effect.fn("saveWorkoutEditor")(function* (
 			}),
 		);
 		if (!current) {
-			return { kind: "conflict" };
+			return preflightConflict();
 		}
 	}
 	const graphIssue = validateGraph(data, baseline);
@@ -357,7 +368,7 @@ export const saveWorkoutEditor = Effect.fn("saveWorkoutEditor")(function* (
 					event.sessionEntityId !== baseline.entity.id ||
 					(event.entityId !== originalExercise && event.entityId !== replacement)
 				) {
-					return invalid("unrelated-event");
+					return preflightInvalid("unrelated-event");
 				}
 			}
 			const retainedIds = new Set(
@@ -370,7 +381,7 @@ export const saveWorkoutEditor = Effect.fn("saveWorkoutEditor")(function* (
 					.slice(offset, offset + 100)
 					.some(({ id }) => retainedIds.has(id) && !identities.some((event) => event.id === id))
 			) {
-				return { kind: "conflict" };
+				return preflightConflict();
 			}
 		}
 	}
@@ -382,7 +393,7 @@ export const saveWorkoutEditor = Effect.fn("saveWorkoutEditor")(function* (
 	) {
 		const targetEntityId = data.target.repeatedFromId ?? data.target.templateId;
 		if (targetEntityId === undefined) {
-			return invalid("invalid-source");
+			return preflightInvalid("invalid-source");
 		}
 		const source = yield* executeRyotqlRecipe(
 			host.executeRyotql,
@@ -393,7 +404,7 @@ export const saveWorkoutEditor = Effect.fn("saveWorkoutEditor")(function* (
 			}),
 		);
 		if (!source) {
-			return invalid("invalid-source");
+			return preflightInvalid("invalid-source");
 		}
 		sourceLink = {
 			targetEntityId,
@@ -416,7 +427,7 @@ export const saveWorkoutEditor = Effect.fn("saveWorkoutEditor")(function* (
 		exercises.push(...page.items);
 	}
 	if (exercises.length !== exerciseIds.length) {
-		return invalid("missing-exercise");
+		return preflightInvalid("missing-exercise");
 	}
 	const proAvailable = yield* host.getProAvailability();
 	const properties =
@@ -430,14 +441,14 @@ export const saveWorkoutEditor = Effect.fn("saveWorkoutEditor")(function* (
 			data.name !== baseline.entity.name ||
 			!same(properties, baseline.entity.properties))
 	) {
-		return { kind: "pro-required" };
+		return preflightProRequired();
 	}
 	if (
 		!proAvailable &&
 		(protectedChange(data.images, baseline?.entity.properties["images"]) ||
 			protectedChange(data.videos, baseline?.entity.properties["videos"]))
 	) {
-		return { kind: "pro-required" };
+		return preflightProRequired();
 	}
 	const sourceOccurrences =
 		data.kind === "template" && baseline !== undefined
@@ -446,7 +457,7 @@ export const saveWorkoutEditor = Effect.fn("saveWorkoutEditor")(function* (
 				)
 			: undefined;
 	if (sourceOccurrences?._tag === "Failure") {
-		return invalid("invalid-source");
+		return preflightInvalid("invalid-source");
 	}
 	for (const occurrence of data.occurrences) {
 		const exercise = exercises.find(({ id }) => id === occurrence.exerciseId);
@@ -464,11 +475,11 @@ export const saveWorkoutEditor = Effect.fn("saveWorkoutEditor")(function* (
 						({ exerciseOrder }) => exerciseOrder === occurrence.sourceExerciseOrder,
 					)?.exerciseId;
 		if (occurrence.sourceExerciseOrder !== undefined && sourceExerciseId === undefined) {
-			return invalid("invalid-source");
+			return preflightInvalid("invalid-source");
 		}
 		if (sourceExerciseId !== undefined && sourceExerciseId !== occurrence.exerciseId) {
 			if (!proAvailable) {
-				return { kind: "pro-required" };
+				return preflightProRequired();
 			}
 			if (
 				data.kind === "workout" &&
@@ -478,7 +489,7 @@ export const saveWorkoutEditor = Effect.fn("saveWorkoutEditor")(function* (
 						(currentKind._tag === "Success" ? currentKind.success : undefined),
 				)
 			) {
-				return invalid("invalid-exercise-kind");
+				return preflightInvalid("invalid-exercise-kind");
 			}
 			if (data.kind === "template") {
 				const source = yield* executeRyotqlRecipe(
@@ -492,7 +503,7 @@ export const saveWorkoutEditor = Effect.fn("saveWorkoutEditor")(function* (
 					currentKind._tag === "Failure" ||
 					source.items[0]?.properties["kind"] !== currentKind.success
 				) {
-					return invalid("invalid-exercise-kind");
+					return preflightInvalid("invalid-exercise-kind");
 				}
 			}
 		}
@@ -503,7 +514,7 @@ export const saveWorkoutEditor = Effect.fn("saveWorkoutEditor")(function* (
 			for (const set of workoutOccurrence?.sets ?? []) {
 				const original = baseline?.sets.find(({ id }) => id === set.eventId);
 				if (!proAvailable && set.note?.trim() && set.note !== original?.properties["note"]) {
-					return { kind: "pro-required" };
+					return preflightProRequired();
 				}
 				const kind =
 					original?.properties["exerciseKind"] ??
@@ -513,21 +524,21 @@ export const saveWorkoutEditor = Effect.fn("saveWorkoutEditor")(function* (
 					kind !== set.exerciseKind ||
 					!same(selectWorkoutSetMeasurements(set.exerciseKind, set.measurements), set.measurements)
 				) {
-					return invalid("invalid-exercise-kind");
+					return preflightInvalid("invalid-exercise-kind");
 				}
 				if (!original) {
 					if (data.target.kind === "create" && set.confirmedAt === undefined) {
-						return invalid("unconfirmed-set");
+						return preflightInvalid("unconfirmed-set");
 					}
 					const required = requiredWorkoutMeasurementsByKind[set.exerciseKind];
 					if (required.some((key) => !Object.hasOwn(set.measurements, key))) {
-						return invalid("missing-measurement");
+						return preflightInvalid("missing-measurement");
 					}
 				}
 			}
 		} else {
 			if (currentKind._tag === "Failure") {
-				return invalid("invalid-exercise-kind");
+				return preflightInvalid("invalid-exercise-kind");
 			}
 			for (const set of data.occurrences.find(({ clientId }) => clientId === occurrence.clientId)
 				?.sets ?? []) {
@@ -537,7 +548,7 @@ export const saveWorkoutEditor = Effect.fn("saveWorkoutEditor")(function* (
 						set.measurements,
 					)
 				) {
-					return invalid("invalid-measurement");
+					return preflightInvalid("invalid-measurement");
 				}
 			}
 		}

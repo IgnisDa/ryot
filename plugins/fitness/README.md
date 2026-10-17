@@ -198,6 +198,9 @@ The workout is written before its sets and relationships. A new save writes a `w
 event only after its required writes succeed. Its after hook emits `workout.created`; personal-best
 recalculation remains independent. Templates store planned sets on the entity and have no execution
 events. Typed results distinguish completion, incomplete saves, conflicts, validation, and Pro gates.
+Rejections marked `canEdit` occurred before writes in that invocation. The editor releases a
+submission only when that rejection answers its first attempt in the current session. Retries and
+recovered submissions may already have committed writes and remain fixed until completion.
 
 Ordinary historical edits preserve workout and set times. `workout-time-correction` changes only
 workout start/end, preserving active duration unless the input explicitly sets or clears it. Free
@@ -209,6 +212,18 @@ selected exercises, membership overrides, and source links. Picker/taxonomy and 
 recipes are separate paged reads, not Pro data permissions. `shared/workout-editor-source.ts`
 hydrates historical/template drafts and clones sources, retaining the baseline when an unavailable
 exercise or malformed record blocks loading. These contracts do not register editor screens.
+
+`client/workout-editor/screen.tsx` exports the shared editor with a semantic resume target, an optional
+initial draft, and a saved-entity callback. Retained screens share one controller per client runtime
+for immediate input, ordered device persistence, and active-screen wake demand. Live completion and
+recovery share set progression; prompted rest retains its target in
+the draft. Historical and template modes do not start execution clocks. Finish reviews included and
+omitted sets before freezing the submission. The editor component does not register production routes.
+
+The Fitness Library picker owns ordered selection, multi-value filters, usage sorting, and bounded
+device-local presets. Provider search returns generic added entity IDs; Fitness reloads them and
+checks eligibility before selecting them. Neither picker cancellation nor workout cancellation
+removes an exercise already added to the library.
 
 ## Automations
 

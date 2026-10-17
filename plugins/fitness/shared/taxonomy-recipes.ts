@@ -39,7 +39,7 @@ const taxonomyWhere = (entity: Table, schemaSlug: string, input: TaxonomyListInp
 		...(input.name ? [eq(column(entity, "name"), literal(input.name))] : []),
 	);
 
-const effectiveLink = (relationship: Table) => {
+export const effectiveTaxonomyLink = (relationship: Table) => {
 	const shared = table("relationship", "sharedTaxonomyRelationship");
 	return or(
 		isNull(column(relationship, "userId")),
@@ -79,7 +79,7 @@ const exerciseLink = (
 	where: and(
 		eq(column(relationship, "relationshipSchemaPluginId"), owner),
 		eq(column(linked, "entitySchemaPluginId"), owner),
-		effectiveLink(relationship),
+		effectiveTaxonomyLink(relationship),
 		eq(column(relationship, "sourceEntityId"), exerciseId),
 		eq(
 			column(relationship, "relationshipSchemaSlug"),

@@ -42,7 +42,7 @@ it.live(
 					reference,
 					search: "EDITOR",
 					sort: "recently-added",
-					kind: "reps_and_weight",
+					kinds: ["reps_and_weight"],
 				}),
 			);
 			expect(selected.items).toMatchObject([

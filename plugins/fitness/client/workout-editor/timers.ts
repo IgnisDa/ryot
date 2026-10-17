@@ -65,7 +65,17 @@ const validMeasurements = (set: WorkoutEditorSet) =>
 		return value !== undefined && (field !== "reps" || Number.isSafeInteger(value));
 	});
 
-export const invalidateWorkoutCountdowns = (draft: WorkoutEditorDraft) => {
+export const invalidateWorkoutCountdowns = (draft: WorkoutEditorDraft): TimerTransition => {
+	const pending = draft.pendingRest;
+	if (
+		pending !== undefined &&
+		(draft.mode.kind !== "live" ||
+			getTarget(draft, pending.occurrenceId, pending.setId)?.occurrence.exerciseId !==
+				pending.exerciseId ||
+			!getTarget(draft, pending.occurrenceId, pending.setId)?.set.included)
+	) {
+		return changed(invalidateWorkoutCountdowns({ ...draft, pendingRest: undefined }).draft);
+	}
 	if (draft.mode.kind !== "live") {
 		if (draft.restCountdown === undefined && draft.executionCountdown === undefined) {
 			return unchanged(draft);
