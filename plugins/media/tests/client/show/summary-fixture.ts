@@ -12,6 +12,7 @@ export const showSummaryFixtureRecipe = showRecipes.summaryRecipe({
 export const showSummaryRow = {
 	owned: null,
 	id: "show-1",
+	ownedOn: null,
 	totalSeasons: 1,
 	totalEpisodes: 4,
 	airedEpisodes: 4,

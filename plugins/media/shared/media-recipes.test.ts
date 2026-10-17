@@ -44,6 +44,7 @@ const ACTIVITY_RECIPE = flatFixtureRecipes.activityRecipe({
 const SUMMARY_ROW = {
 	owned: null,
 	images: null,
+	ownedOn: null,
 	id: "media-1",
 	publishYear: 1999,
 	state: "complete",
@@ -88,11 +89,12 @@ describe("media flat recipes", () => {
 			"images",
 			"isMonitored",
 			"isInMediaLibrary",
-			"owned",
 			"publishDate",
 			"publishYear",
 			"providerRating",
 			"productionStatus",
+			"owned",
+			"ownedOn",
 			"state",
 			"progressPercent",
 		]);

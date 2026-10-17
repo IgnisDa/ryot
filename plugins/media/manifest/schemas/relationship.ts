@@ -84,6 +84,11 @@ export const builtinRelationshipSchemas = (): BuiltinRelationshipSchema[] => [
 					type: "boolean" as const,
 					description: "Whether the user owns this item",
 				},
+				ownedOn: {
+					label: "Owned On",
+					type: "date" as const,
+					description: "When the user acquired this item",
+				},
 				ownershipSyncedAt: {
 					type: "datetime" as const,
 					label: "Ownership Synced At",

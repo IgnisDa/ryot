@@ -34,6 +34,7 @@ const podcastActivityFixtureRecipe = podcastRecipes.activityRecipe({
 
 export const podcastSummaryRow = {
 	owned: null,
+	ownedOn: null,
 	id: "podcast-1",
 	publishYear: 2014,
 	name: "Reply All",

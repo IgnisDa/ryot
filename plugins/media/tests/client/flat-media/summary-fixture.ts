@@ -13,6 +13,7 @@ export const fixtureSummaryRecipe = flatFixtureRecipes.summaryRecipe(FLAT_SUMMAR
 
 export const flatSummaryRow = {
 	owned: null,
+	ownedOn: null,
 	id: "media-1",
 	publishYear: 1999,
 	state: "complete",

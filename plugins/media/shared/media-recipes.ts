@@ -4,6 +4,7 @@ import {
 	ascending,
 	castBoolean,
 	castDate,
+	castText,
 	coalesce,
 	column,
 	conditional,
@@ -70,35 +71,30 @@ import {
 import { MediaImageListSchema, MediaImageSchema } from "./media-image";
 import { WatchProviderListSchema } from "./watch-provider";
 
-export const libraryOwnership = (entity: Table) => {
-	const mediaLibrary = table("entity", "ownershipMediaLibrary");
-	const relationship = table("relationship", "ownershipRelationship");
-	return castBoolean(
-		first(relationship, {
-			select: jsonPath(column(relationship, "properties"), "owned"),
-			orderBy: [
-				descending(column(relationship, "createdAt")),
-				ascending(column(relationship, "id")),
-			],
-			joins: [
-				join(
-					"inner",
-					mediaLibrary,
-					eq(column(relationship, "targetEntityId"), column(mediaLibrary, "id")),
-				),
-			],
-			where: and(
-				eq(column(mediaLibrary, "entitySchemaSlug"), literal("media-library")),
-				eq(column(mediaLibrary, "entitySchemaPluginId"), column(entity, "entitySchemaPluginId")),
-				eq(
-					column(relationship, "relationshipSchemaPluginId"),
-					column(entity, "entitySchemaPluginId"),
-				),
-				eq(column(relationship, "sourceEntityId"), column(entity, "id")),
-				eq(column(relationship, "relationshipSchemaSlug"), literal("in-media-library")),
+const libraryOwnershipProperty = (entity: Table, key: "owned" | "ownedOn") => {
+	const mediaLibrary = table("entity", `${key}MediaLibrary`);
+	const relationship = table("relationship", `${key}Relationship`);
+	return first(relationship, {
+		select: jsonPath(column(relationship, "properties"), key),
+		orderBy: [descending(column(relationship, "createdAt")), ascending(column(relationship, "id"))],
+		joins: [
+			join(
+				"inner",
+				mediaLibrary,
+				eq(column(relationship, "targetEntityId"), column(mediaLibrary, "id")),
 			),
-		}),
-	);
+		],
+		where: and(
+			eq(column(mediaLibrary, "entitySchemaSlug"), literal("media-library")),
+			eq(column(mediaLibrary, "entitySchemaPluginId"), column(entity, "entitySchemaPluginId")),
+			eq(
+				column(relationship, "relationshipSchemaPluginId"),
+				column(entity, "entitySchemaPluginId"),
+			),
+			eq(column(relationship, "sourceEntityId"), column(entity, "id")),
+			eq(column(relationship, "relationshipSchemaSlug"), literal("in-media-library")),
+		),
+	});
 };
 
 export const collectionMembershipInclude = (collectionLimit: number) => {
@@ -188,7 +184,6 @@ export type MediaEntitySummarySelection = ReturnType<typeof mediaEntitySummarySe
 
 export const mediaSummarySelection = (entity: Table, provider: Table) => ({
 	...mediaEntitySummarySelection(entity, provider),
-	owned: selectedField(libraryOwnership(entity), Schema.NullOr(Schema.Boolean)),
 	publishDate: selectedField(propertyText(entity, "publishDate"), Schema.NullOr(Schema.String)),
 	publishYear: selectedField(propertyNumber(entity, "publishYear"), Schema.NullOr(Schema.Finite)),
 	providerRating: selectedField(
@@ -197,6 +192,14 @@ export const mediaSummarySelection = (entity: Table, provider: Table) => ({
 	),
 	productionStatus: selectedField(
 		propertyText(entity, "productionStatus"),
+		Schema.NullOr(Schema.String),
+	),
+	owned: selectedField(
+		castBoolean(libraryOwnershipProperty(entity, "owned")),
+		Schema.NullOr(Schema.Boolean),
+	),
+	ownedOn: selectedField(
+		castText(libraryOwnershipProperty(entity, "ownedOn")),
 		Schema.NullOr(Schema.String),
 	),
 });

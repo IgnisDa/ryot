@@ -55,6 +55,7 @@ const readyResponse = {
 			{
 				owned: null,
 				id: "show-1",
+				ownedOn: null,
 				totalSeasons: 2,
 				totalEpisodes: 12,
 				publishYear: 2025,
@@ -610,6 +611,7 @@ describe("ShowScreen", () => {
 								owned: null,
 								id: "show-1",
 								images: null,
+								ownedOn: null,
 								airedEpisodes: 0,
 								publishYear: null,
 								description: null,
