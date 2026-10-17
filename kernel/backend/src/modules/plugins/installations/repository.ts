@@ -1,7 +1,7 @@
 import { DbError } from "@ryot-app/contract/errors";
 import type { SavedViewReference } from "@ryot-app/contract/modules/plugins/references";
 import { UserId } from "@ryot-app/contract/schema/brands";
-import { and, asc, eq, isNotNull, isNull, sql } from "drizzle-orm";
+import { and, asc, eq, isNotNull, isNull, type SQL, sql } from "drizzle-orm";
 import { Context, Effect, Layer } from "effect";
 
 import { lockPluginIngestionShared } from "#modules/plugins/packages/ingestion-fence";
@@ -433,6 +433,30 @@ export class PluginInstallationRepository extends Context.Service<PluginInstalla
 				);
 				return updated !== undefined;
 			});
+			const markSystemInstallationsInitialized = Effect.fnUntraced(function* (
+				userId: UserId,
+				activation: SQL,
+				installation?: SQL,
+			) {
+				yield* database.requireTransaction;
+				yield* lockPluginIngestionShared(database);
+				return yield* database.run((db) =>
+					db
+						.update(schema.pluginInstallation)
+						.set({ health: "ready", healthReason: null, isInitialized: true })
+						.where(
+							and(
+								installation,
+								eq(schema.pluginInstallation.userId, userId),
+								sql`${schema.pluginInstallation.health} in ('ready', 'installing')`,
+								isNull(schema.pluginInstallation.uninstalledAt),
+								isNull(schema.pluginInstallation.incompatibilityReason),
+								sql`exists (select 1 from ${schema.plugin} where ${schema.plugin.id} = ${schema.pluginInstallation.pluginId} and ${schema.plugin.ownerId} is null and ${schema.plugin.status} = 'active' and ${activation})`,
+							),
+						)
+						.returning({ id: schema.pluginInstallation.id }),
+				);
+			});
 			const completeSystemInitialization = Effect.fn(
 				"PluginInstallationRepository.completeSystemInitialization",
 			)(function* (input: {
@@ -440,23 +464,10 @@ export class PluginInstallationRepository extends Context.Service<PluginInstalla
 				readonly activationId: string;
 				readonly userId: UserId;
 			}) {
-				yield* database.requireTransaction;
-				yield* lockPluginIngestionShared(database);
-				const [updated] = yield* database.run((db) =>
-					db
-						.update(schema.pluginInstallation)
-						.set({ health: "ready", healthReason: null, isInitialized: true })
-						.where(
-							and(
-								eq(schema.pluginInstallation.id, input.installationId),
-								eq(schema.pluginInstallation.userId, input.userId),
-								sql`${schema.pluginInstallation.health} in ('ready', 'installing')`,
-								isNull(schema.pluginInstallation.uninstalledAt),
-								isNull(schema.pluginInstallation.incompatibilityReason),
-								sql`exists (select 1 from ${schema.plugin} where ${schema.plugin.id} = ${schema.pluginInstallation.pluginId} and ${schema.plugin.ownerId} is null and ${schema.plugin.status} = 'active' and ${schema.plugin.activationId} = ${input.activationId})`,
-							),
-						)
-						.returning({ id: schema.pluginInstallation.id }),
+				const [updated] = yield* markSystemInstallationsInitialized(
+					input.userId,
+					sql`${schema.plugin.activationId} = ${input.activationId}`,
+					eq(schema.pluginInstallation.id, input.installationId),
 				);
 				return updated !== undefined;
 			});
@@ -472,28 +483,15 @@ export class PluginInstallationRepository extends Context.Service<PluginInstalla
 				if (input.installations.length === 0) {
 					return [];
 				}
-				yield* database.requireTransaction;
-				yield* lockPluginIngestionShared(database);
 				const pairs = sql.join(
 					input.installations.map(
 						({ activationId, installationId }) => sql`(${installationId}, ${activationId})`,
 					),
 					sql`, `,
 				);
-				const updated = yield* database.run((db) =>
-					db
-						.update(schema.pluginInstallation)
-						.set({ health: "ready", healthReason: null, isInitialized: true })
-						.where(
-							and(
-								eq(schema.pluginInstallation.userId, input.userId),
-								sql`${schema.pluginInstallation.health} in ('ready', 'installing')`,
-								isNull(schema.pluginInstallation.uninstalledAt),
-								isNull(schema.pluginInstallation.incompatibilityReason),
-								sql`exists (select 1 from ${schema.plugin} where ${schema.plugin.id} = ${schema.pluginInstallation.pluginId} and ${schema.plugin.ownerId} is null and ${schema.plugin.status} = 'active' and (${schema.pluginInstallation.id}, ${schema.plugin.activationId}) in (${pairs}))`,
-							),
-						)
-						.returning({ id: schema.pluginInstallation.id }),
+				const updated = yield* markSystemInstallationsInitialized(
+					input.userId,
+					sql`(${schema.pluginInstallation.id}, ${schema.plugin.activationId}) in (${pairs})`,
 				);
 				return updated.map(({ id }) => id);
 			});
