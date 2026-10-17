@@ -78,7 +78,6 @@ describe("plugin cron global writes", () => {
 							information: { source: "e2e" },
 							name: "E2E Test Trending Provider",
 							rootEntitySchemaSlug: MOVIE_SCHEMA_SLUG,
-							operations: { details: DETAILS_SCRIPT_SLUG },
 						},
 					],
 					files: {

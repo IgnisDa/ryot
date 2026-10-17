@@ -114,13 +114,16 @@ export const EntityImportWorkflowOperationsLive = Layer.effect(
 			const provider = yield* writes
 				.checkProvider(input.providerId, owner)
 				.pipe(Effect.mapError((error) => toSandboxRunError(error, "invalid-input")));
-			const providers = pin
+			const slug = pin
 				? yield* reads
-						.findRevisionProviders(pin.id)
+						.findRevisionProviderOperation({
+							revisionId: pin.id,
+							operation: input.operation,
+							providerSlug: provider.slug,
+							pluginId: input.pluginRevision.id,
+						})
 						.pipe(Effect.mapError((error) => toSandboxRunError(error, "infrastructure")))
 				: undefined;
-			const slug = providers?.find(({ slug: providerSlug }) => providerSlug === provider.slug)
-				?.operations[input.operation];
 			const script = slug
 				? yield* reads
 						.findRevisionScript(input.pluginRevision.revisionId, slug)
@@ -129,7 +132,8 @@ export const EntityImportWorkflowOperationsLive = Layer.effect(
 			if (
 				!script ||
 				script.providerId !== input.providerId ||
-				script.metadata.kind !== "provider"
+				script.metadata.kind !== "provider" ||
+				script.pluginRevisionId !== input.pluginRevision.revisionId
 			) {
 				return yield* new SandboxRunError({
 					kind: "missing-artifact",

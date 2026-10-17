@@ -588,7 +588,6 @@ layer(makeLayer({}))((test) => {
 						slug: "fixture.provider",
 						information: { source: "Fixture" },
 						rootEntitySchemaSlug: "fixture-entity",
-						operations: { search: "fixture.provider.search", details: "fixture.provider.details" },
 					},
 				],
 				scripts: [

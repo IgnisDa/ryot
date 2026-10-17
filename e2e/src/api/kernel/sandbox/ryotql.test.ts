@@ -164,7 +164,6 @@ describe("sandbox RyotQL reads", () => {
 							name: "RyotQL system provider",
 							information: { source: "e2e" },
 							rootEntitySchemaSlug: entitySchemaSlug,
-							operations: { details: providerScriptSlug },
 						},
 					],
 					entitySchemas: [

@@ -69,6 +69,14 @@ const installCacheProviderScoped = (client: Client, key: string, value: string) 
 		installTestPluginBundle({
 			client,
 			configSchema: { fields: {}, unknownKeys: "strict" },
+			providers: [
+				{
+					slug: providerSlug,
+					name: "Cache provider",
+					information: { source: "e2e" },
+					rootEntitySchemaSlug: entitySchemaSlug,
+				},
+			],
 			entitySchemas: [
 				{
 					icon: "box",
@@ -76,15 +84,6 @@ const installCacheProviderScoped = (client: Client, key: string, value: string) 
 					name: "Cache entity",
 					slug: entitySchemaSlug,
 					propertiesSchema: { fields: {}, unknownKeys: "strict" },
-				},
-			],
-			providers: [
-				{
-					slug: providerSlug,
-					name: "Cache provider",
-					information: { source: "e2e" },
-					rootEntitySchemaSlug: entitySchemaSlug,
-					operations: { search: readerSlug, details: writerSlug },
 				},
 			],
 			files: {
@@ -250,11 +249,23 @@ describe("sandbox cache functions", () => {
 			const providerA = yield* installCacheProviderScoped(clientA, key, cachedValue);
 			const providerB = yield* installCacheProviderScoped(clientB, key, "other-provider-value");
 			const writerScriptId =
-				providerA.scriptIds[providerA.manifest.providers[0]?.operations.details ?? ""];
+				providerA.scriptIds[
+					providerA.manifest.scripts.find(
+						(script) => script.kind === "provider" && script.providerOperation === "details",
+					)?.slug ?? ""
+				];
 			const readerScriptId =
-				providerA.scriptIds[providerA.manifest.providers[0]?.operations.search ?? ""];
+				providerA.scriptIds[
+					providerA.manifest.scripts.find(
+						(script) => script.kind === "provider" && script.providerOperation === "search",
+					)?.slug ?? ""
+				];
 			const otherProviderReaderScriptId =
-				providerB.scriptIds[providerB.manifest.providers[0]?.operations.search ?? ""];
+				providerB.scriptIds[
+					providerB.manifest.scripts.find(
+						(script) => script.kind === "provider" && script.providerOperation === "search",
+					)?.slug ?? ""
+				];
 			assertPresent(writerScriptId, "Expected provider cache writer script ID");
 			assertPresent(readerScriptId, "Expected provider cache reader script ID");
 			assertPresent(otherProviderReaderScriptId, "Expected other provider cache reader script ID");
