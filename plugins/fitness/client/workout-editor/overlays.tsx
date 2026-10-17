@@ -1,5 +1,14 @@
 import { createRyotQuery, useRyotQuery } from "@ryot-app/plugin-client-sdk/react";
-import { Button, Modal, ReorderableList, StatusMessage } from "@ryot-app/plugin-ui-sdk";
+import {
+	Button,
+	Card,
+	Dialog,
+	EmptyState,
+	Modal,
+	Notice,
+	ReorderableList,
+	Skeleton,
+} from "@ryot-app/plugin-ui-sdk";
 import { AppIcon } from "@ryot-app/plugin-ui-sdk/icon";
 import { useRef, useState } from "react";
 
@@ -17,6 +26,18 @@ const historySetsQuery = createRyotQuery<
 	WorkoutHistorySetResult["items"]
 >(({ input, client }) => readHistorySets(client, input.workoutId, input.exerciseId));
 
+const historySetText = (set: WorkoutHistorySetResult["items"][number]) =>
+	[
+		set.weight === null ? null : `${set.weight} kg`,
+		set.reps === null ? null : `${set.reps} reps`,
+		set.duration === null ? null : `${set.duration} s`,
+		set.distance === null ? null : `${set.distance} km`,
+		set.rpe === null ? null : `RPE ${set.rpe}`,
+		set.note ? `“${set.note}”` : null,
+	]
+		.filter(Boolean)
+		.join(" · ");
+
 function HistorySession(props: {
 	readonly session: WorkoutHistoryResult["items"][number];
 	readonly exerciseId: string;
@@ -27,53 +48,95 @@ function HistorySession(props: {
 		exerciseId: props.exerciseId,
 	});
 	return (
-		<section className="rounded-lg border border-border p-3">
-			<h3 className="font-semibold">{props.session.name}</h3>
-			<p className="text-sm">{new Date(props.session.startedAt).toLocaleString()}</p>
-			{props.session.comment ? <p>{props.session.comment}</p> : null}
-			{result.data === undefined ? (
-				<StatusMessage tone={result.isError ? "error" : "pending"}>
-					{result.isError ? "History sets could not be loaded." : "Loading sets…"}
-				</StatusMessage>
-			) : (
-				<ol className="text-sm">
+		<Card className="grid gap-2">
+			<div className="flex items-start gap-2">
+				<div className="min-w-0 flex-1">
+					<h3 className="font-semibold [overflow-wrap:anywhere]">{props.session.name}</h3>
+					<p className="text-xs text-text-muted">
+						{new Date(props.session.startedAt).toLocaleString()}
+					</p>
+				</div>
+				<Button
+					size="sm"
+					variant="secondary"
+					disabled={result.data === undefined}
+					onClick={() => {
+						if (result.data !== undefined) {
+							props.onAppend(result.data);
+						}
+					}}
+				>
+					<AppIcon size={14} name="plus" />
+					Add sets
+				</Button>
+			</div>
+			{props.session.comment ? (
+				<p className="text-sm text-text-muted">{props.session.comment}</p>
+			) : null}
+			{result.data === undefined && !result.isError ? (
+				<div role="status" className="grid gap-1.5" aria-label="Loading sets">
+					<Skeleton className="h-4 w-2/3" />
+					<Skeleton className="h-4 w-1/2" />
+				</div>
+			) : null}
+			{result.data === undefined ? null : (
+				<ol className="grid list-decimal gap-0.5 pl-5 text-sm tabular-nums">
 					{result.data.map((set) => (
-						<li key={set.id}>
-							{[
-								set.reps === null ? null : `${set.reps} reps`,
-								set.weight === null ? null : `${set.weight} kg`,
-								set.duration === null ? null : `${set.duration} seconds`,
-								set.distance === null ? null : `${set.distance} km`,
-							]
-								.filter(Boolean)
-								.join(" · ")}
-							{set.note ? ` · ${set.note}` : ""}
-						</li>
+						<li key={set.id}>{historySetText(set)}</li>
 					))}
 				</ol>
 			)}
 			{result.isError ? (
-				<Button variant="secondary" onClick={result.refetch}>
-					Retry history sets
-				</Button>
-			) : null}
-			<Button
-				variant="secondary"
-				disabled={result.data === undefined}
-				onClick={() => {
-					if (result.data !== undefined) {
-						props.onAppend(result.data);
+				<Notice
+					tone="danger"
+					icon={<AppIcon size={16} name="circle-alert" />}
+					action={
+						<Button size="sm" variant="secondary" onClick={result.refetch}>
+							Retry history sets
+						</Button>
 					}
-				}}
+				>
+					History sets could not be loaded.
+				</Notice>
+			) : null}
+		</Card>
+	);
+}
+
+export function HistoryRequiresPro(props: {
+	readonly compact: boolean;
+	readonly safeAreaBottom: number;
+	readonly exerciseName: string;
+	readonly onClose: () => void;
+}) {
+	return (
+		<Dialog
+			onClose={props.onClose}
+			title="Exercise history"
+			closeLabel="Close history"
+			description={props.exerciseName}
+			safeAreaBottom={props.safeAreaBottom}
+			closeIcon={<AppIcon name="x" size={18} />}
+			placement={props.compact ? "sheet" : "center"}
+			footer={<Button onClick={props.onClose}>Got it</Button>}
+		>
+			<Notice
+				tone="info"
+				icon={<AppIcon size={16} name="info" />}
+				title="History in the logger requires Pro"
 			>
-				Append all sets
-			</Button>
-		</section>
+				Tap a value in the Previous column to copy last session's numbers. New exercises are still
+				prefilled automatically.
+			</Notice>
+		</Dialog>
 	);
 }
 
 export function HistoryOverlay(props: {
+	readonly compact: boolean;
+	readonly safeAreaBottom: number;
 	readonly exerciseId: string;
+	readonly exerciseName: string;
 	readonly beforeStartedAt: string | undefined;
 	readonly excludeWorkoutId: string | undefined;
 	readonly onClose: () => void;
@@ -107,52 +170,74 @@ export function HistoryOverlay(props: {
 		result.data?.pageInfo.hasMore === true &&
 		(nextCursor === null || nextCursor === undefined || cursors.includes(nextCursor));
 	return (
-		<Modal
+		<Dialog
+			title="History"
 			onClose={props.onClose}
-			label="Exercise history"
 			closeLabel="Close history"
-			className={editorModalClass}
+			description={props.exerciseName}
+			safeAreaBottom={props.safeAreaBottom}
+			closeIcon={<AppIcon name="x" size={18} />}
+			placement={props.compact ? "sheet" : "side"}
+			footer={
+				result.data?.pageInfo.hasMore ? (
+					<Button
+						className="w-full"
+						variant="secondary"
+						disabled={result.isFetching || invalidCursor}
+						onClick={() => {
+							const next = result.data?.pageInfo.nextCursor;
+							if (next !== null && next !== undefined && next !== after) {
+								setCursors((previous) => [...previous, next]);
+							}
+						}}
+					>
+						More sessions
+					</Button>
+				) : undefined
+			}
 		>
-			<h2 className="text-xl font-semibold">Exercise history</h2>
-			{sessions.map((session) => (
-				<HistorySession
-					key={session.id}
-					session={session}
-					onAppend={props.onAppend}
-					exerciseId={props.exerciseId}
-				/>
-			))}
-			{sessions.length === 0 && result.isSuccess ? <p>No earlier sessions.</p> : null}
-			{result.isPending ? <StatusMessage tone="pending">Loading history…</StatusMessage> : null}
-			{result.isError ? (
-				<>
-					<StatusMessage tone="error">History could not be loaded.</StatusMessage>
-					<Button onClick={result.refetch}>Retry history</Button>
-				</>
-			) : null}
-			{invalidCursor ? (
-				<StatusMessage tone="error">
-					History pagination could not continue. Retry loading this page.
-				</StatusMessage>
-			) : null}
-			{result.data?.pageInfo.hasMore ? (
-				<Button
-					variant="secondary"
-					disabled={result.isFetching || invalidCursor}
-					onClick={() => {
-						const next = result.data?.pageInfo.nextCursor;
-						if (next !== null && next !== undefined && next !== after) {
-							setCursors((previous) => [...previous, next]);
+			<div className="grid gap-3">
+				{sessions.map((session) => (
+					<HistorySession
+						key={session.id}
+						session={session}
+						onAppend={props.onAppend}
+						exerciseId={props.exerciseId}
+					/>
+				))}
+				{sessions.length === 0 && result.isSuccess ? (
+					<EmptyState
+						title="No earlier sessions"
+						icon={<AppIcon size={20} name="history" />}
+						description="Sets you log for this exercise show up here next time."
+					/>
+				) : null}
+				{result.isPending ? (
+					<div role="status" className="grid gap-3" aria-label="Loading history">
+						<Skeleton className="h-24" />
+						<Skeleton className="h-24" />
+					</div>
+				) : null}
+				{result.isError ? (
+					<Notice
+						tone="danger"
+						icon={<AppIcon size={16} name="circle-alert" />}
+						action={
+							<Button size="sm" variant="secondary" onClick={result.refetch}>
+								Retry history
+							</Button>
 						}
-					}}
-				>
-					More sessions
-				</Button>
-			) : null}
-			<Button variant="secondary" onClick={props.onClose}>
-				Close
-			</Button>
-		</Modal>
+					>
+						History could not be loaded.
+					</Notice>
+				) : null}
+				{invalidCursor ? (
+					<Notice tone="danger" icon={<AppIcon size={16} name="circle-alert" />}>
+						History pagination could not continue. Retry loading this page.
+					</Notice>
+				) : null}
+			</div>
+		</Dialog>
 	);
 }
 
