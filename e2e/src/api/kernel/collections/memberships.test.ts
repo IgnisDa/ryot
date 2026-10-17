@@ -3,7 +3,6 @@ import { EntityId } from "@ryot-app/contract/schema/brands";
 import { Effect } from "effect";
 
 import {
-	adminHeaders,
 	createAuthenticatedClient,
 	createCollection,
 	createPluginSchemaAndEntity,
@@ -163,17 +162,15 @@ describe("POST /collections/memberships", () => {
 				slug: makeEntitySchemaSlug(schemaSlug),
 				owner: definitionOwner(installedPlugin.pluginId),
 			});
-			const entity = yield* getApiClient().call(
-				(c) =>
-					c.testSupport.createGlobalEntity({
-						payload: {
-							entitySchema: reference,
-							properties: { title: "Unrelated" },
-							name: `Global Fixture ${crypto.randomUUID()}`,
-							externalId: `global-fixture-${crypto.randomUUID()}`,
-						},
-					}),
-				adminHeaders(),
+			const entity = yield* getApiClient().adminCall((c) =>
+				c.testSupport.createGlobalEntity({
+					payload: {
+						entitySchema: reference,
+						properties: { title: "Unrelated" },
+						name: `Global Fixture ${crypto.randomUUID()}`,
+						externalId: `global-fixture-${crypto.randomUUID()}`,
+					},
+				}),
 			);
 			const collection = yield* createCollection(client, { name: "Fixture Collection" });
 

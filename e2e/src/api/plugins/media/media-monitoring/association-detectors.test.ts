@@ -3,7 +3,6 @@ import { mediaPlugin } from "@ryot-app/media-plugin";
 import { Effect } from "effect";
 
 import {
-	adminHeaders,
 	createAuthenticatedClient,
 	createNotificationChannel,
 	enqueueProviderEntityImport,
@@ -38,6 +37,7 @@ let fakeApprise: FakeHttpServer;
 let movieProvider: AttachedTestProvider;
 let personProvider: AttachedTestProvider;
 let harness: Effect.Success<ReturnType<typeof startIsolatedHarness>> | undefined;
+let target: Effect.Success<ReturnType<typeof startIsolatedHarness>>["target"];
 let media: Effect.Success<ReturnType<typeof shippedPluginTestProviders>>;
 
 beforeAll(() =>
@@ -45,8 +45,9 @@ beforeAll(() =>
 		Effect.gen(function* () {
 			fakeApprise = yield* startFakeAppriseServer;
 			harness = yield* startIsolatedHarness("Association Detectors");
-			media = yield* shippedPluginTestProviders(mediaPlugin.metadata.packageId);
-			const { client } = yield* createAuthenticatedClient();
+			target = harness.target;
+			media = yield* shippedPluginTestProviders(mediaPlugin.metadata.packageId, target);
+			const { client } = yield* createAuthenticatedClient(target);
 			const { schema: personSchema } = yield* findMediaEntitySchema(client, "person");
 			const { schema: movieSchema } = yield* findMediaEntitySchema(client, "movie");
 			const personSchemaId = personSchema.id;
@@ -79,6 +80,7 @@ beforeAll(() =>
 				}),
 			});
 			const person = yield* seedMediaEntity({
+				target,
 				properties: {},
 				name: personName,
 				externalId: personExternalId,
@@ -101,8 +103,8 @@ afterAll(() =>
 
 it.live("notifies only a credited person's monitor once per role on first media population", () =>
 	Effect.gen(function* () {
-		const personMonitor = yield* createAuthenticatedClient();
-		const importer = yield* createAuthenticatedClient();
+		const personMonitor = yield* createAuthenticatedClient(target);
+		const importer = yield* createAuthenticatedClient(target);
 		yield* Effect.all([
 			createNotificationChannel(personMonitor.client, {
 				channelSpecifics: { kind: "apprise", key: "person-monitor", baseUrl: fakeApprise.url },
@@ -165,7 +167,7 @@ describe("dual-writer canonical identity", () => {
 				const dwMovieSlug = `movie.dual-writer-e2e-${crypto.randomUUID()}`;
 				const dwMovieExternalId = `dual-writer-movie-${crypto.randomUUID()}`;
 				const dwPersonSlug = `person.dual-writer-e2e-${crypto.randomUUID()}`;
-				const { client } = yield* createAuthenticatedClient();
+				const { client } = yield* createAuthenticatedClient(target);
 				const { schema: personSchema } = yield* findMediaEntitySchema(client, "person");
 				const personSchemaId = personSchema.id;
 				const dwPersonExternalId = `dual-writer-person-${crypto.randomUUID()}`;
@@ -216,6 +218,7 @@ describe("dual-writer canonical identity", () => {
 				});
 
 				const person = yield* seedMediaEntity({
+					target,
 					properties: {},
 					name: dwPersonName,
 					externalId: dwPersonExternalId,
@@ -225,17 +228,15 @@ describe("dual-writer canonical identity", () => {
 				// Mark the person already-populated so its own later cron refresh below is a
 				// rewrite, not a first population — isolating the noop assertion from the
 				// initial-population carve-out (covered separately).
-				yield* getApiClient().call(
-					(c) =>
-						c.testSupport.setEntityPopulatedAt({
-							params: { entityId: EntityId.make(person.id) },
-							payload: { populatedAt: new Date().toISOString() },
-						}),
-					adminHeaders(),
+				yield* getApiClient(target).adminCall((c) =>
+					c.testSupport.setEntityPopulatedAt({
+						params: { entityId: EntityId.make(person.id) },
+						payload: { populatedAt: new Date().toISOString() },
+					}),
 				);
 
-				const personMonitor = yield* createAuthenticatedClient();
-				const importer = yield* createAuthenticatedClient();
+				const personMonitor = yield* createAuthenticatedClient(target);
+				const importer = yield* createAuthenticatedClient(target);
 				yield* createNotificationChannel(personMonitor.client, {
 					channelSpecifics: {
 						kind: "apprise",
@@ -279,7 +280,7 @@ describe("association lifecycle via cron refresh", () => {
 			const ruMovieSlug = `movie.role-update-e2e-${crypto.randomUUID()}`;
 			const ruMovieExternalId = `role-update-movie-${crypto.randomUUID()}`;
 			const ruPersonSlug = `person.role-update-e2e-${crypto.randomUUID()}`;
-			const { client } = yield* createAuthenticatedClient();
+			const { client } = yield* createAuthenticatedClient(target);
 			const { schema: personSchema } = yield* findMediaEntitySchema(client, "person");
 			const personSchemaId = personSchema.id;
 			const ruPersonExternalId = `role-update-person-${crypto.randomUUID()}`;
@@ -333,6 +334,7 @@ describe("association lifecycle via cron refresh", () => {
 			});
 
 			const person = yield* seedMediaEntity({
+				target,
 				properties: {},
 				name: ruPersonName,
 				externalId: ruPersonExternalId,
@@ -340,6 +342,7 @@ describe("association lifecycle via cron refresh", () => {
 				providerId: ruPersonProvider.providerId,
 			});
 			const movie = yield* seedMediaEntity({
+				target,
 				properties: {},
 				name: ruMovieName,
 				externalId: ruMovieExternalId,
@@ -349,16 +352,14 @@ describe("association lifecycle via cron refresh", () => {
 			// Mark the person already-populated so its later cron-driven authoritative sync
 			// below is a role update, not a first population — the carve-out would otherwise
 			// silence it since the person is both the refresh root and the credited subject.
-			yield* getApiClient().call(
-				(c) =>
-					c.testSupport.setEntityPopulatedAt({
-						params: { entityId: EntityId.make(person.id) },
-						payload: { populatedAt: new Date().toISOString() },
-					}),
-				adminHeaders(),
+			yield* getApiClient(target).adminCall((c) =>
+				c.testSupport.setEntityPopulatedAt({
+					params: { entityId: EntityId.make(person.id) },
+					payload: { populatedAt: new Date().toISOString() },
+				}),
 			);
 
-			const personMonitor = yield* createAuthenticatedClient();
+			const personMonitor = yield* createAuthenticatedClient(target);
 			yield* createNotificationChannel(personMonitor.client, {
 				channelSpecifics: { kind: "apprise", baseUrl: fakeApprise.url, key: "role-update-monitor" },
 			});
@@ -395,7 +396,7 @@ describe("association lifecycle via cron refresh", () => {
 			Effect.gen(function* () {
 				const drMovieName = "Delete Recreate Movie";
 				const drPersonName = "Delete Recreate Person";
-				const { client } = yield* createAuthenticatedClient();
+				const { client } = yield* createAuthenticatedClient(target);
 				const { schema: personSchema } = yield* findMediaEntitySchema(client, "person");
 				const personSchemaId = personSchema.id;
 				const drMovieSlug = `movie.delete-recreate-e2e-${crypto.randomUUID()}`;
@@ -444,6 +445,7 @@ describe("association lifecycle via cron refresh", () => {
 				});
 
 				const person = yield* seedMediaEntity({
+					target,
 					properties: {},
 					name: drPersonName,
 					externalId: drPersonExternalId,
@@ -451,7 +453,7 @@ describe("association lifecycle via cron refresh", () => {
 					providerId: drPersonProvider.providerId,
 				});
 
-				const personMonitor = yield* createAuthenticatedClient();
+				const personMonitor = yield* createAuthenticatedClient(target);
 				yield* createNotificationChannel(personMonitor.client, {
 					channelSpecifics: {
 						kind: "apprise",

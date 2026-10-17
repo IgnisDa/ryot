@@ -7,34 +7,52 @@ import type { UserId } from "@ryot-app/contract/schema/brands";
 import { Effect, Schema } from "effect";
 import type { HttpClient } from "effect/http";
 
-import { getApiUrl } from "~/support/harness-target";
+import {
+	getSharedHarnessTarget,
+	type HarnessTarget,
+	makeHarnessTarget,
+} from "~/support/harness-target";
 import { webRequest } from "~/support/web-request";
 
 export type ContractSession = {
+	readonly target: HarnessTarget;
 	readonly baseUrl: string;
 	readonly userId?: UserId;
 	call: <A, E>(
 		program: ContractProgram<A, E>,
 		headers?: RequestHeaders,
 	) => Effect.Effect<A, E, HttpClient.HttpClient>;
+	adminCall: <A, E>(program: ContractProgram<A, E>) => Effect.Effect<A, E, HttpClient.HttpClient>;
 };
 
 export const makeSession = (
-	baseUrl = getApiUrl(),
+	input = getSharedHarnessTarget(),
 	defaultHeaders: RequestHeaders = {},
 	userId?: UserId,
-): ContractSession => ({
-	userId,
-	baseUrl,
-	call: (program, headers = {}) =>
-		makeContractClient(baseUrl, { ...defaultHeaders, ...headers }).pipe(Effect.flatMap(program)),
-});
+): ContractSession => {
+	const target = makeHarnessTarget(input);
+	const sessionHeaders = { ...defaultHeaders };
+	return Object.freeze({
+		userId,
+		target,
+		baseUrl: target.apiUrl,
+		call: (program, headers = {}) =>
+			makeContractClient(target.apiUrl, { ...sessionHeaders, ...headers }).pipe(
+				Effect.flatMap(program),
+			),
+		adminCall: (program) =>
+			makeContractClient(target.apiUrl, {
+				...sessionHeaders,
+				"Admin-Access-Token": target.adminAccessToken,
+			}).pipe(Effect.flatMap(program)),
+	});
+};
 
-export const getApiClient = (baseUrl?: string): ContractSession => makeSession(baseUrl);
+export const getApiClient = (target?: HarnessTarget): ContractSession => makeSession(target);
 
-export const postApiJson = (path: string, body: unknown, token?: string) =>
+export const postApiJson = (client: ContractSession, path: string, body: unknown, token?: string) =>
 	Effect.gen(function* () {
-		return yield* webRequest(`${getApiUrl()}${path}`, {
+		return yield* webRequest(`${client.baseUrl}${path}`, {
 			method: "POST",
 			body: yield* Schema.encodeEffect(Schema.fromJsonString(Schema.Unknown))(body),
 			headers: {

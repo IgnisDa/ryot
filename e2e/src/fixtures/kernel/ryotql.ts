@@ -4,8 +4,8 @@ import type { PreparedRecipe } from "@ryot-app/ryotql";
 import { Effect } from "effect";
 
 import { requireString, resultToEffect } from "~/support/assertions";
+import type { HarnessTarget } from "~/support/harness-target";
 
-import { adminHeaders } from "./admin";
 import type { Client } from "./auth";
 import { getApiClient } from "./contract-client";
 
@@ -23,12 +23,11 @@ export const executeRyotQLRecipe = <Success>(client: Client, recipe: PreparedRec
 
 export const executeAdminRyotQLRecipe = <Success>(
 	recipe: PreparedRecipe<Success>,
-	baseUrl?: string,
+	target?: HarnessTarget,
 ) =>
 	Effect.gen(function* () {
-		const response = yield* getApiClient(baseUrl).call(
-			(contract) => contract.adminRyotql.execute({ payload: recipe.document }),
-			adminHeaders(),
+		const response = yield* getApiClient(target).adminCall((contract) =>
+			contract.adminRyotql.execute({ payload: recipe.document }),
 		);
 		return yield* resultToEffect(recipe.decode(response)).pipe(Effect.orDie);
 	});
@@ -67,8 +66,10 @@ const collectRecipeItems = <Item, Error, Requirements>(
 export const collectRyotQLRecipeItems = <Item>(client: Client, recipe: PagedRecipe<Item>) =>
 	collectRecipeItems(recipe, (prepared) => executeRyotQLRecipe(client, prepared));
 
-export const collectAdminRyotQLRecipeItems = <Item>(recipe: PagedRecipe<Item>, baseUrl?: string) =>
-	collectRecipeItems(recipe, (prepared) => executeAdminRyotQLRecipe(prepared, baseUrl));
+export const collectAdminRyotQLRecipeItems = <Item>(
+	recipe: PagedRecipe<Item>,
+	target?: HarnessTarget,
+) => collectRecipeItems(recipe, (prepared) => executeAdminRyotQLRecipe(prepared, target));
 
 export const requireRows = (result: RyotQLResult | undefined, key: string): RowsResult => {
 	if (result?.type !== "rows") {

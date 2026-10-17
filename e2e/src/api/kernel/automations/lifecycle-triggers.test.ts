@@ -1016,7 +1016,7 @@ describe("automation lifecycle triggers", () => {
 			const entity = yield* createFixtureEntity(client, "parity-source");
 			const item = eventInput(entity.id, slugs.policyEvent, "allow", "2026-09-16T03:00:00.000Z");
 			const contractResult = yield* createEvents(client, [item]);
-			const response = yield* postApiJson("/events", [item], token);
+			const response = yield* postApiJson(client, "/events", [item], token);
 			expect(response.status).toBe(201);
 			const rawResult = yield* Schema.decodeUnknownEffect(CreateEventsResponse)(
 				yield* Effect.promise(() => response.json()),

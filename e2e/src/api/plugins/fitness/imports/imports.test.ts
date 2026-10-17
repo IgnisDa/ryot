@@ -24,10 +24,10 @@ import { describe, expect, it } from "~/support/effect-test";
 describe("OpenScale Import E2E", () => {
 	it.live("uses the admitted export timezone and preserves explicit timestamp offsets", () =>
 		Effect.gen(function* () {
-			const { token, client } = yield* createAuthenticatedClient();
+			const { client } = yield* createAuthenticatedClient();
 			const { pluginId } = yield* findFitnessEntitySchema(client, "measurement-metric");
 			const uploadToken = yield* uploadImportFile(
-				token,
+				client,
 				"dateTime,weight\n2026-04-01 08:00:00,75\n2026-04-02T08:00:00+02:00,76\n",
 				"openscale-timezones.csv",
 				"text/csv",
@@ -53,7 +53,7 @@ describe("OpenScale Import E2E", () => {
 
 	it.live("reuses a manually created weight metric", () =>
 		Effect.gen(function* () {
-			const { token, client } = yield* createAuthenticatedClient();
+			const { client } = yield* createAuthenticatedClient();
 			const { pluginId, schema: metricSchema } = yield* findFitnessEntitySchema(
 				client,
 				"measurement-metric",
@@ -63,7 +63,7 @@ describe("OpenScale Import E2E", () => {
 				entitySchema: metricSchema.reference,
 				properties: { unit: "kg", key: "weight" },
 			});
-			yield* runOpenScaleImportFixture(client, token);
+			yield* runOpenScaleImportFixture(client);
 
 			const readings = yield* readMeasurementLogReadings(client, {
 				limit: 20,
@@ -93,9 +93,9 @@ describe("OpenScale Import E2E", () => {
 
 	it.live("completes an OpenScale import and creates measurement metrics and readings", () =>
 		Effect.gen(function* () {
-			const { token, client } = yield* createAuthenticatedClient();
+			const { client } = yield* createAuthenticatedClient();
 			const { pluginId } = yield* findFitnessEntitySchema(client, "exercise");
-			const { runId, completedRun } = yield* runOpenScaleImportFixture(client, token);
+			const { runId, completedRun } = yield* runOpenScaleImportFixture(client);
 
 			expect(completedRun.id).toBe(ImportRunId.make(runId));
 			expect(completedRun.status).toBe("completed");
@@ -157,8 +157,8 @@ describe("OpenScale Import E2E", () => {
 
 	it.live("returns the run via RyotQL", () =>
 		Effect.gen(function* () {
-			const { token, client } = yield* createAuthenticatedClient();
-			const { runId } = yield* runOpenScaleImportFixture(client, token);
+			const { client } = yield* createAuthenticatedClient();
+			const { runId } = yield* runOpenScaleImportFixture(client);
 
 			const detail = yield* getImportRun(client, runId, undefined, 20);
 			const run = requirePresent(detail.run, "Expected completed import run");
@@ -169,8 +169,8 @@ describe("OpenScale Import E2E", () => {
 
 	it.live("lists runs for the current user", () =>
 		Effect.gen(function* () {
-			const { token, client } = yield* createAuthenticatedClient();
-			yield* runOpenScaleImportFixture(client, token);
+			const { client } = yield* createAuthenticatedClient();
+			yield* runOpenScaleImportFixture(client);
 
 			const data = yield* listManualImportRuns(client, undefined, 20);
 
@@ -207,11 +207,11 @@ describe("OpenScale Import E2E", () => {
 
 	it.live("rejects a non-CSV file extension", () =>
 		Effect.gen(function* () {
-			const { token, client } = yield* createAuthenticatedClient();
+			const { client } = yield* createAuthenticatedClient();
 			const { pluginId } = yield* findFitnessEntitySchema(client, "exercise");
 
 			const uploadToken = yield* uploadImportFile(
-				token,
+				client,
 				'{"data": "not csv"}',
 				"export.json",
 				"application/octet-stream",
@@ -231,8 +231,8 @@ describe("OpenScale Import E2E", () => {
 
 	it.live("deletes a completed run", () =>
 		Effect.gen(function* () {
-			const { token, client } = yield* createAuthenticatedClient();
-			const { runId } = yield* runOpenScaleImportFixture(client, token);
+			const { client } = yield* createAuthenticatedClient();
+			const { runId } = yield* runOpenScaleImportFixture(client);
 
 			yield* client.call((c) =>
 				c.imports.deleteRun({ params: { runId: ImportRunId.make(runId) } }),
@@ -244,12 +244,12 @@ describe("OpenScale Import E2E", () => {
 
 	it.live("returns failures for a run with bad rows", () =>
 		Effect.gen(function* () {
-			const { token, client } = yield* createAuthenticatedClient();
+			const { client } = yield* createAuthenticatedClient();
 			const { pluginId } = yield* findFitnessEntitySchema(client, "exercise");
 
 			const badCsv = `dateTime,weight\n2026-01-01 08:00:00,75.0\n,invalid-no-date\n2026-01-03 08:00:00,not-a-number\n`;
 
-			const uploadToken = yield* uploadImportFile(token, badCsv, "openscale-bad.csv", "text/csv");
+			const uploadToken = yield* uploadImportFile(client, badCsv, "openscale-bad.csv", "text/csv");
 
 			const runId = yield* startOpenScaleImport(client, pluginId, { uploadToken, timezone: "UTC" });
 			const completedRun = yield* pollImportRunUntilTerminal(client, runId);

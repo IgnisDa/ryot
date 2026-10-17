@@ -70,7 +70,7 @@ describe("Audiobookshelf integration", () => {
 					providerSpecifics: { baseUrl: http.url, token: "test-token", kind: "audiobookshelf" },
 					provider: {
 						slug: "audiobookshelf",
-						owner: definitionOwner((yield* mediaFixtureInstallation).id),
+						owner: definitionOwner((yield* mediaFixtureInstallation(client.target)).id),
 					},
 				}),
 				({ id }) => deleteIntegration(client, id).pipe(Effect.asVoid, Effect.orDie),

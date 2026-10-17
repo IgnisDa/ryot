@@ -3,7 +3,6 @@ import { backupRunRecipe } from "@ryot-app/ryotql-recipes/backups";
 import { Effect, Option } from "effect";
 
 import { requirePresent } from "~/support/assertions";
-import { getApiUrl } from "~/support/harness-target";
 import { webRequest } from "~/support/web-request";
 
 import type { Client } from "./auth";
@@ -36,7 +35,7 @@ export const downloadBackupArchive = (client: Client, runId: string) =>
 		const ticket = yield* client.call((c) =>
 			c.backups.createDownloadTicket({ params: { id: BackupRunId.make(runId) } }),
 		);
-		const response = yield* webRequest(`${getApiUrl()}${ticket.url}`);
+		const response = yield* webRequest(`${client.baseUrl}${ticket.url}`);
 		if (response.status !== 200) {
 			throw new Error(`Could not download backup archive (${response.status})`);
 		}
@@ -71,12 +70,9 @@ export const exportAndDownloadBackup = (client: Client) =>
 		return { id, run, bytes };
 	});
 
-export const restoreBackup = (client: Client, bytes: Uint8Array, baseUrl?: string) =>
+export const restoreBackup = (client: Client, bytes: Uint8Array) =>
 	Effect.gen(function* () {
-		const uploadToken = yield* uploadTemporaryArchive(client, bytes, {
-			baseUrl,
-			fileName: "backup.zip",
-		});
+		const uploadToken = yield* uploadTemporaryArchive(client, bytes, { fileName: "backup.zip" });
 		const result = yield* client.call((c) => c.backups.createRestore({ payload: { uploadToken } }));
 		const id = requirePresent(result.id, "Backup restore run id is missing");
 		const run = yield* pollBackupRunUntilTerminal(client, id);

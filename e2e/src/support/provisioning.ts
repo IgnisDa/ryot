@@ -9,6 +9,7 @@ import {
 import { Effect } from "effect";
 import { GenericContainer, Wait } from "testcontainers";
 
+import { apiProcessTarget } from "./harness-target";
 import { acquireInChildScope } from "./resource-scope";
 import { webRequest } from "./web-request";
 
@@ -191,6 +192,8 @@ export const spawnApiProcess = (env: NodeJS.ProcessEnv, cwd = "../apps/server") 
 			});
 		}),
 		stopApiProcess,
+	).pipe(
+		Effect.map((process) => Object.assign(process, { target: apiProcessTarget(env, process.pid) })),
 	);
 
 export const waitForHealthCheck = (

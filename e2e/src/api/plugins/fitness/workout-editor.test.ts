@@ -47,7 +47,7 @@ import { startIsolatedApiServer } from "~/support/isolated-harness";
 const { endedAt, startedAt, setOccurredAt } = workoutEditorTimes;
 
 const scope = Scope.makeUnsafe();
-let apiUrl: string;
+let target: Effect.Success<ReturnType<typeof startIsolatedApiServer>>["target"];
 
 beforeAll(() =>
 	runPromise(
@@ -56,7 +56,7 @@ beforeAll(() =>
 				label: "Workout editor keyless",
 				extraEnv: { SERVER_PRO_KEY: "" },
 			});
-			apiUrl = server.apiUrl;
+			target = server.target;
 		}).pipe(
 			Effect.provideService(Scope.Scope, scope),
 			Effect.onError(() => Scope.close(scope, Exit.void)),
@@ -154,7 +154,7 @@ const updateImportedWorkoutData = (input: {
 describe("Workout editor E2E", () => {
 	it.live("retries a confirmed zero-value workout save without duplicate entities or events", () =>
 		Effect.gen(function* () {
-			const { client } = yield* createAuthenticatedClient(apiUrl);
+			const { client } = yield* createAuthenticatedClient(target);
 			const { exerciseId } = yield* createExerciseEntityFixture(client);
 			const name = `Workout Editor Retry ${crypto.randomUUID()}`;
 			const submissionId = crypto.randomUUID();
@@ -249,7 +249,7 @@ describe("Workout editor E2E", () => {
 		"edits through a full baseline, replays the immutable edit, and rejects stale edits",
 		() =>
 			Effect.gen(function* () {
-				const { client } = yield* createAuthenticatedClient(apiUrl);
+				const { client } = yield* createAuthenticatedClient(target);
 				const { exerciseId } = yield* createExerciseEntityFixture(client);
 				const { media, workoutId } = yield* createImportedWorkout(client, exerciseId);
 				const original = yield* loadWorkoutBaseline(client, workoutId);
@@ -321,7 +321,7 @@ describe("Workout editor E2E", () => {
 
 	it.live("reorders occurrence media with its exercise in a historical workout", () =>
 		Effect.gen(function* () {
-			const { client } = yield* createAuthenticatedClient(apiUrl);
+			const { client } = yield* createAuthenticatedClient(target);
 			const { exerciseId } = yield* createExerciseEntityFixture(client);
 			const firstImages: WorkoutOccurrenceInput["images"] = [
 				{ type: "remote", url: "https://example.com/first.jpg" },
@@ -398,7 +398,7 @@ describe("Workout editor E2E", () => {
 
 	it.live("loads context defaults and updates an exercise override", () =>
 		Effect.gen(function* () {
-			const { client } = yield* createAuthenticatedClient(apiUrl);
+			const { client } = yield* createAuthenticatedClient(target);
 			const context = yield* loadWorkoutEditorContext(client, {});
 			expect(context).toEqual({
 				proAvailable: false,
@@ -464,7 +464,7 @@ describe("Workout editor E2E", () => {
 
 	it.live("blocks non-Pro template, set-note, and workout-media creation", () =>
 		Effect.gen(function* () {
-			const { client } = yield* createAuthenticatedClient(apiUrl);
+			const { client } = yield* createAuthenticatedClient(target);
 			const { exerciseId } = yield* createExerciseEntityFixture(client);
 			const template = templateData({
 				occurrences: [
@@ -527,7 +527,7 @@ describe("Workout editor E2E", () => {
 
 	it.live("requires Pro to replace a set's exercise and rejects an unrelated event id", () =>
 		Effect.gen(function* () {
-			const { client } = yield* createAuthenticatedClient(apiUrl);
+			const { client } = yield* createAuthenticatedClient(target);
 			const { exerciseId: originalExerciseId } = yield* createExerciseEntityFixture(client);
 			const { exerciseId: replacementExerciseId } = yield* createExerciseEntityFixture(client);
 			const created = yield* saveWorkoutData(
@@ -574,8 +574,8 @@ describe("Workout editor E2E", () => {
 
 	it.live("keeps workout sets private across users for reads and saves", () =>
 		Effect.gen(function* () {
-			const { client: owner } = yield* createAuthenticatedClient(apiUrl);
-			const { client: other } = yield* createAuthenticatedClient(apiUrl);
+			const { client: owner } = yield* createAuthenticatedClient(target);
+			const { client: other } = yield* createAuthenticatedClient(target);
 			const { exerciseId } = yield* createExerciseEntityFixture(owner);
 			const created = yield* saveWorkoutData(
 				owner,
@@ -622,7 +622,7 @@ describe("Workout editor E2E", () => {
 		"corrects workout times without moving an unconfirmed set and clears active duration",
 		() =>
 			Effect.gen(function* () {
-				const { client } = yield* createAuthenticatedClient(apiUrl);
+				const { client } = yield* createAuthenticatedClient(target);
 				const { exerciseId } = yield* createExerciseEntityFixture(client);
 				const { workoutId } = yield* createImportedWorkout(client, exerciseId);
 				const original = yield* loadWorkoutBaseline(client, workoutId);
@@ -681,7 +681,7 @@ describe("Workout editor E2E", () => {
 		"pages 101 editor sets from production event writes",
 		() =>
 			Effect.gen(function* () {
-				const { client } = yield* createAuthenticatedClient(apiUrl);
+				const { client } = yield* createAuthenticatedClient(target);
 				const { exerciseId } = yield* createExerciseEntityFixture(client);
 				const { created, workoutId } = yield* seedExerciseWorkout(client, {
 					startedAt,

@@ -26,6 +26,7 @@ Live smoke may require credentials and tests stable provider properties, not exa
 ## Harness
 
 `global-setup.ts` builds required artifacts, provisions PostgreSQL, Redis, and object storage, then starts one shared backend serving the SPA and `/api` from one origin. It publishes that backend through `E2E_API_URL`, `E2E_FRONTEND_URL`, and `E2E_ADMIN_ACCESS_TOKEN`, which worker processes inherit. The shared server uses an isolated log directory; `E2E_SERVER_LOG_FILE` lets scoped fixtures add retained log files without changing the active log.
+Workers decode this configuration once into an immutable shared target. Isolated servers return their own target and never change the worker environment. Pass that target to session constructors and target-only setup helpers. Sessions bind their HTTP calls, companion upload/download/WebSocket URLs, and `adminCall` authority to the same target; installed plugin fixtures retain it for updates and strict cleanup. API and frontend URLs remain separate for OAuth and replica cases. Cross-server backups explicitly download through the source session and upload through the destination session.
 Each acquired container, storage client, and API process registers a Scope finalizer before later setup runs. Startup failure or interruption closes acquired resources; normal teardown stops API processes before their infrastructure. Testcontainers' Ryuk reaper removes containers if the test process exits unexpectedly. Server and PostgreSQL logs are retained after teardown.
 On macOS, setup holds a `caffeinate` idle-sleep assertion until teardown or runner exit so wall-clock deadlines and OAuth tokens remain valid during the run.
 
@@ -42,7 +43,7 @@ Effect-native fixtures return effects. `it.live` supplies per-test `Scope` and t
 Harness ownership tests run without global setup or containers:
 
 ```bash
-bun --bun run vitest run --config vitest.harness.config.ts src/support/resource-scope.test.ts
+bun --bun run vitest run --config vitest.harness.config.ts src/support/resource-scope.test.ts src/support/harness-target.test.ts
 ```
 
 E2E enforces the normal Effect async, HTTP, JSON, and platform rules. Keep local inline suppressions only where Playwright evaluates an async callback in the browser or an external API requires a Promise callback; state the boundary in the comment. The two seed scripts have explicit file-scoped lint exemptions and remain untouched.

@@ -22,11 +22,9 @@ import {
 import { Effect, Result, Schema } from "effect";
 
 import { requirePresent } from "~/support/assertions";
-import { getApiUrl } from "~/support/harness-target";
 import { webRequest } from "~/support/web-request";
 
 import type { Client } from "./auth";
-import { getApiClient } from "./contract-client";
 import { pollUntil } from "./polling";
 import { executeRyotQLRecipe } from "./ryotql";
 import { providerSandboxSource } from "./sandbox-provider";
@@ -629,21 +627,17 @@ export const installTestImportPinningPlugin = Effect.suspend(() => {
 });
 
 export const uploadImportFile = (
-	authToken: string,
+	client: Client,
 	content: string,
 	fileName: string,
 	mimeType: string,
 ) =>
 	Effect.gen(function* () {
-		const headers = { Authorization: `Bearer ${authToken}` };
-		const client = getApiClient();
-		const intent = yield* client.call(
-			(c) =>
-				c.uploads.createIntent({ payload: { fileName, kind: "temporary", contentType: mimeType } }),
-			headers,
+		const intent = yield* client.call((c) =>
+			c.uploads.createIntent({ payload: { fileName, kind: "temporary", contentType: mimeType } }),
 		);
 
-		const uploadResponse = yield* webRequest(new URL(intent.uploadUrl, `${getApiUrl()}/`), {
+		const uploadResponse = yield* webRequest(new URL(intent.uploadUrl, `${client.baseUrl}/`), {
 			body: content,
 			method: intent.method,
 			headers: intent.headers,
@@ -652,9 +646,8 @@ export const uploadImportFile = (
 			throw new Error(`Could not upload import file (${uploadResponse.status})`);
 		}
 
-		const completion = yield* client.call(
-			(c) => c.uploads.completeIntent({ params: { intentId: intent.intentId } }),
-			headers,
+		const completion = yield* client.call((c) =>
+			c.uploads.completeIntent({ params: { intentId: intent.intentId } }),
 		);
 		const { token } = yield* Schema.decodeUnknownEffect(TemporaryUploadToken)(completion);
 		return token;

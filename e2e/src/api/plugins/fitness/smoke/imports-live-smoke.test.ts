@@ -11,8 +11,8 @@ const RUN_LIVE =
 describe.skipIf(!RUN_LIVE)("live fitness import smoke (real external APIs)", () => {
 	it.live("imports a Hevy workout with Free Exercise DB resolution", () =>
 		Effect.gen(function* () {
-			const { token, client } = yield* createAuthenticatedClient();
-			const { runId, completedRun } = yield* runHevyImportFixture(client, token);
+			const { client } = yield* createAuthenticatedClient();
+			const { runId, completedRun } = yield* runHevyImportFixture(client);
 
 			expect(completedRun.id).toBe(ImportRunId.make(runId));
 			expect(completedRun.source).toBe("hevy");

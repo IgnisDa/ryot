@@ -19,7 +19,6 @@ import { Effect } from "effect";
 import getPort from "get-port";
 
 import {
-	adminHeaders,
 	createAuthenticatedClient,
 	createEntity,
 	createIntegration,
@@ -121,12 +120,10 @@ describe("plugin namespace backups", () => {
 					removed
 						? Effect.void
 						: getApiClient()
-								.call(
-									(contract) =>
-										contract.testSupport.uninstallSystemPlugin({
-											params: { pluginId: system.pluginId, activationId: system.activationId },
-										}),
-									adminHeaders(),
+								.adminCall((contract) =>
+									contract.testSupport.uninstallSystemPlugin({
+										params: { pluginId: system.pluginId, activationId: system.activationId },
+									}),
 								)
 								.pipe(Effect.ignore),
 				);
@@ -135,12 +132,10 @@ describe("plugin namespace backups", () => {
 					isInitialized: true,
 					health: "incompatible",
 				});
-				yield* getApiClient().call(
-					(contract) =>
-						contract.testSupport.uninstallSystemPlugin({
-							params: { pluginId: system.pluginId, activationId: system.activationId },
-						}),
-					adminHeaders(),
+				yield* getApiClient().adminCall((contract) =>
+					contract.testSupport.uninstallSystemPlugin({
+						params: { pluginId: system.pluginId, activationId: system.activationId },
+					}),
 				);
 				removed = true;
 				const exported = yield* exportAndDownloadBackup(source.client);
@@ -236,12 +231,11 @@ describe("plugin namespace backups", () => {
 					process,
 				);
 				const source = yield* createAuthenticatedClient();
-				const target = yield* createAuthenticatedClient(destinationApi);
+				const target = yield* createAuthenticatedClient(process.target);
 				const packages = pluginNamespacePackages();
 				const system = yield* installTestSupportSystemPlugin(packages.claim);
-				yield* getApiClient().call(
-					(contract) => contract.testSupport.reconcilePluginInstallations(),
-					adminHeaders(),
+				yield* getApiClient().adminCall((contract) =>
+					contract.testSupport.reconcilePluginInstallations(),
 				);
 				yield* namespaceInstallation(source.client, system.pluginId);
 				yield* createEntity(source.client, {
@@ -255,7 +249,7 @@ describe("plugin namespace backups", () => {
 				const trustedArchive = yield* exportAndDownloadBackup(source.client);
 				const originalViews = (yield* listSavedViews(target.client)).map(({ id }) => id);
 				const profile = yield* getUserSettings(target.client);
-				const missing = yield* restoreBackup(target.client, trustedArchive.bytes, destinationApi);
+				const missing = yield* restoreBackup(target.client, trustedArchive.bytes);
 				expect(missing.run).toMatchObject({
 					status: "failed",
 					failure: {
@@ -280,13 +274,12 @@ describe("plugin namespace backups", () => {
 				};
 				const destinationSystem = yield* installTestSupportSystemPlugin({
 					...incompatiblePackage,
-					baseUrl: destinationApi,
+					target: process.target,
 				});
-				yield* getApiClient(destinationApi).call(
-					(contract) => contract.testSupport.reconcilePluginInstallations(),
-					adminHeaders(),
+				yield* getApiClient(process.target).adminCall((contract) =>
+					contract.testSupport.reconcilePluginInstallations(),
 				);
-				const incompatibleTarget = yield* createAuthenticatedClient(destinationApi);
+				const incompatibleTarget = yield* createAuthenticatedClient(process.target);
 				const incompatibleViews = (yield* listSavedViews(incompatibleTarget.client)).map(
 					({ id }) => id,
 				);
@@ -295,11 +288,7 @@ describe("plugin namespace backups", () => {
 					incompatibleTarget.client,
 					destinationSystem.pluginId,
 				);
-				const incompatible = yield* restoreBackup(
-					incompatibleTarget.client,
-					trustedArchive.bytes,
-					destinationApi,
-				);
+				const incompatible = yield* restoreBackup(incompatibleTarget.client, trustedArchive.bytes);
 				expect(incompatible.run).toMatchObject({
 					status: "failed",
 					failure: {
@@ -609,12 +598,10 @@ describe("plugin namespace backups", () => {
 				const system = yield* installTestSupportSystemPlugin(packages.claim);
 				yield* Effect.addFinalizer(() =>
 					getApiClient()
-						.call(
-							(contract) =>
-								contract.testSupport.uninstallSystemPlugin({
-									params: { pluginId: system.pluginId, activationId: system.activationId },
-								}),
-							adminHeaders(),
+						.adminCall((contract) =>
+							contract.testSupport.uninstallSystemPlugin({
+								params: { pluginId: system.pluginId, activationId: system.activationId },
+							}),
 						)
 						.pipe(Effect.ignore),
 				);

@@ -14,7 +14,6 @@ import {
 } from "@ryot-app/ryotql";
 import { Effect, Result, Schema } from "effect";
 
-import { adminHeaders } from "./admin";
 import type { Client } from "./auth";
 import { getApiClient } from "./contract-client";
 import { getEntity } from "./entities";
@@ -62,17 +61,15 @@ export const seedEntityTranslation = (input: {
 	name?: string | null;
 	properties?: Record<string, unknown> | null;
 }) =>
-	getApiClient().call(
-		(c) =>
-			c.testSupport.upsertEntityTranslation({
-				payload: {
-					language: input.language,
-					name: input.name ?? null,
-					properties: input.properties ?? null,
-					entityId: EntityId.make(input.entityId),
-				},
-			}),
-		adminHeaders(),
+	getApiClient().adminCall((c) =>
+		c.testSupport.upsertEntityTranslation({
+			payload: {
+				language: input.language,
+				name: input.name ?? null,
+				properties: input.properties ?? null,
+				entityId: EntityId.make(input.entityId),
+			},
+		}),
 	);
 
 export const getEntityTranslationRow = (input: { entityId: string; language: string }) =>

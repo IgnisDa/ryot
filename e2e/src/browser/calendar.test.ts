@@ -11,7 +11,7 @@ import {
 import { requirePresent } from "~/support/assertions";
 import { pluginFrame, signInThroughHostedOAuth } from "~/support/browser";
 import { expect, it } from "~/support/effect-test";
-import { getApiUrl, getFrontendUrl } from "~/support/harness-target";
+import { getFrontendUrl } from "~/support/harness-target";
 
 const calendarPath = savedViewPath({ kind: "kernel", slug: "calendar" });
 
@@ -26,9 +26,8 @@ const waitForMonthParam = (page: Playwright.Page, previous: string | null) =>
 
 it.live("shows a new fixture entity today, navigates months, and keeps hidden state", () =>
 	Effect.gen(function* () {
-		const apiUrl = getApiUrl();
-		const { email, client, password } = yield* createAuthenticatedClient(apiUrl);
-		const installation = yield* installFixtureClientPlugin(client, "A", "", apiUrl);
+		const { email, client, password } = yield* createAuthenticatedClient();
+		const installation = yield* installFixtureClientPlugin(client);
 		const pokemonSchema = requirePresent(
 			(yield* listEntitySchemas(client, {
 				slugs: ["pokemon"],
@@ -84,7 +83,7 @@ it.live("shows a new fixture entity today, navigates months, and keeps hidden st
 
 it.live("hides the Calendar view from the sidebar and keeps it hidden after a reload", () =>
 	Effect.gen(function* () {
-		const { email, password } = yield* createAuthenticatedClient(getApiUrl());
+		const { email, password } = yield* createAuthenticatedClient();
 		const browser = yield* Playwright.Browser;
 		const page = yield* browser.newPage({ viewport: { width: 1280, height: 900 } });
 		yield* signInThroughHostedOAuth(page, email, password);

@@ -76,7 +76,7 @@ const scenarioNames: ScenarioName[] = [
 ];
 
 type ScenarioInstance = {
-	apiUrl: string;
+	target: Effect.Success<ReturnType<typeof spawnApiProcess>>["target"];
 	fake?: Effect.Success<ReturnType<typeof startFakeHttpServerScoped>>;
 };
 
@@ -120,7 +120,7 @@ beforeAll(() =>
 							extraEnv: { SERVER_PRO_KEY_VERIFICATION_URL: verificationUrl, ...config.extraEnv },
 						}),
 					);
-					scenarios.set(name, { fake, apiUrl: `${apiOrigin}/api` });
+					scenarios.set(name, { fake, target: process.target });
 					yield* waitForHealthCheck(
 						`${apiOrigin}/api/system/health`,
 						`Pro key ${name} setup`,
@@ -139,7 +139,7 @@ describe("GET /system/config without SERVER_PRO_KEY", () => {
 	it.live("reports isServerKeyValidated: false and makes no Unkey request", () =>
 		Effect.gen(function* () {
 			const instance = requireScenario("noKey");
-			const client = makeSession(instance.apiUrl);
+			const client = makeSession(instance.target);
 			const data = yield* client.call((c) => c.system.config());
 			expect(data.pro.isServerKeyValidated).toBe(false);
 			expect(requireFake(instance).requests).toHaveLength(0);
@@ -151,7 +151,7 @@ describe("GET /system/config with a valid Pro Key", () => {
 	it.live("reports isServerKeyValidated: true", () =>
 		Effect.gen(function* () {
 			const instance = requireScenario("validTrue");
-			const client = makeSession(instance.apiUrl);
+			const client = makeSession(instance.target);
 			const data = yield* client.call((c) => c.system.config());
 			expect(data.pro.isServerKeyValidated).toBe(true);
 		}),
@@ -162,7 +162,7 @@ describe("GET /system/config with an invalid Pro Key", () => {
 	it.live("reports isServerKeyValidated: false when Unkey reports valid: false", () =>
 		Effect.gen(function* () {
 			const instance = requireScenario("validFalse");
-			const client = makeSession(instance.apiUrl);
+			const client = makeSession(instance.target);
 			const data = yield* client.call((c) => c.system.config());
 			expect(data.pro.isServerKeyValidated).toBe(false);
 		}),
@@ -171,7 +171,7 @@ describe("GET /system/config with an invalid Pro Key", () => {
 	it.live("reports isServerKeyValidated: false when the key has expired", () =>
 		Effect.gen(function* () {
 			const instance = requireScenario("expiredMeta");
-			const client = makeSession(instance.apiUrl);
+			const client = makeSession(instance.target);
 			const data = yield* client.call((c) => c.system.config());
 			expect(data.pro.isServerKeyValidated).toBe(false);
 		}),
@@ -180,7 +180,7 @@ describe("GET /system/config with an invalid Pro Key", () => {
 	it.live("reports isServerKeyValidated: false when the expiry is not a date", () =>
 		Effect.gen(function* () {
 			const instance = requireScenario("malformedMeta");
-			const client = makeSession(instance.apiUrl);
+			const client = makeSession(instance.target);
 			const data = yield* client.call((c) => c.system.config());
 			expect(data.pro.isServerKeyValidated).toBe(false);
 		}),
@@ -191,7 +191,7 @@ describe("GET /system/config when Unkey is unavailable", () => {
 	it.live("fails safe to false and keeps the server healthy when Unkey returns 500", () =>
 		Effect.gen(function* () {
 			const instance = requireScenario("serverError");
-			const client = makeSession(instance.apiUrl);
+			const client = makeSession(instance.target);
 			const data = yield* client.call((c) => c.system.config());
 			expect(data.pro.isServerKeyValidated).toBe(false);
 			const health = yield* client.call((c) => c.system.health());
@@ -202,7 +202,7 @@ describe("GET /system/config when Unkey is unavailable", () => {
 	it.live("fails safe to false and keeps the server healthy when Unkey is unreachable", () =>
 		Effect.gen(function* () {
 			const instance = requireScenario("unreachable");
-			const client = makeSession(instance.apiUrl);
+			const client = makeSession(instance.target);
 			const data = yield* client.call((c) => c.system.config());
 			expect(data.pro.isServerKeyValidated).toBe(false);
 			const health = yield* client.call((c) => c.system.health());
@@ -215,7 +215,7 @@ describe("Pro Key verification cache", () => {
 	it.live("issues exactly one Unkey request across repeated /system/config hits", () =>
 		Effect.gen(function* () {
 			const instance = requireScenario("cache");
-			const client = makeSession(instance.apiUrl);
+			const client = makeSession(instance.target);
 			for (let attempt = 0; attempt < 3; attempt++) {
 				const data = yield* client.call((c) => c.system.config());
 				expect(data.pro.isServerKeyValidated).toBe(true);

@@ -6,7 +6,6 @@ import { Effect } from "effect";
 
 import {
 	adminAccessTokenHeaders,
-	adminHeaders,
 	collectRyotQLRecipeItems,
 	createApiKey,
 	createAuthenticatedClient,
@@ -46,9 +45,8 @@ const getUserIdByEmail = (email: string) =>
 const createNoAccountUser = (name: string) =>
 	Effect.gen(function* () {
 		const email = `${name.toLowerCase()}-${unique()}@example.com`;
-		const { userId } = yield* getApiClient().call(
-			(c) => c.instanceAdmin.provisionUser({ payload: { name, email, provider: "credential" } }),
-			adminHeaders(),
+		const { userId } = yield* getApiClient().adminCall((c) =>
+			c.instanceAdmin.provisionUser({ payload: { name, email, provider: "credential" } }),
 		);
 		return { email, userId: UserId.make(userId) };
 	});
@@ -56,12 +54,10 @@ const createNoAccountUser = (name: string) =>
 const createOidcUser = (name: string) =>
 	Effect.gen(function* () {
 		const email = `${name.toLowerCase()}-${unique()}@example.com`;
-		const { userId } = yield* getApiClient().call(
-			(c) =>
-				c.instanceAdmin.provisionUser({
-					payload: { name, email, provider: "oidc", oidcIssuerId: `oidc-sub-${unique()}` },
-				}),
-			adminHeaders(),
+		const { userId } = yield* getApiClient().adminCall((c) =>
+			c.instanceAdmin.provisionUser({
+				payload: { name, email, provider: "oidc", oidcIssuerId: `oidc-sub-${unique()}` },
+			}),
 		);
 		return { email, userId: UserId.make(userId) };
 	});
@@ -96,10 +92,8 @@ describe("Reset user admin token enforcement", () => {
 		Effect.gen(function* () {
 			const client = getApiClient();
 			const error = yield* Effect.flip(
-				client.call(
-					(c) =>
-						c.instanceAdmin.resetUser({ params: { userId: UserId.make(`missing-${unique()}`) } }),
-					adminHeaders(),
+				client.adminCall((c) =>
+					c.instanceAdmin.resetUser({ params: { userId: UserId.make(`missing-${unique()}`) } }),
 				),
 			);
 			assertTaggedError(error, "InstanceAdminNotFound");
@@ -186,9 +180,8 @@ describe("Reset user revokes outstanding reset links", () => {
 		Effect.gen(function* () {
 			const { email } = yield* createTestUser();
 			const userId = yield* getUserIdByEmail(email);
-			const { resetUrl } = yield* getApiClient().call(
-				(c) => c.instanceAdmin.resetUserPassword({ params: { userId } }),
-				adminHeaders(),
+			const { resetUrl } = yield* getApiClient().adminCall((c) =>
+				c.instanceAdmin.resetUserPassword({ params: { userId } }),
 			);
 			const token = requirePresent(new URL(resetUrl).searchParams.get("token"), "missing token");
 
@@ -260,16 +253,14 @@ describe("Reset user for mixed-auth user", () => {
 			const { token, email } = yield* createTestUser();
 			const userId = yield* getUserIdByEmail(email);
 
-			yield* client.call(
-				(c) =>
-					c.testSupport.linkAuthAccount({
-						payload: { userId, providerId: "oidc", accountId: `oidc-sub-${unique()}` },
-					}),
-				adminHeaders(),
+			yield* client.adminCall((c) =>
+				c.testSupport.linkAuthAccount({
+					payload: { userId, providerId: "oidc", accountId: `oidc-sub-${unique()}` },
+				}),
 			);
 
 			const error = yield* Effect.flip(
-				client.call((c) => c.instanceAdmin.resetUser({ params: { userId } }), adminHeaders()),
+				client.adminCall((c) => c.instanceAdmin.resetUser({ params: { userId } })),
 			);
 			assertTaggedError(error, "InstanceAdminRequestFailure");
 			expect(error.reason.code).toBe("mixed-auth-reset-unsupported");

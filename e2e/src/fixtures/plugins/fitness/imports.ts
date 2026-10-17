@@ -43,10 +43,10 @@ export const startOpenScaleImport = (
 		return requirePresent(result.id, "Import run id is missing");
 	});
 
-export const runOpenScaleImportFixture = (client: Client, token: string) =>
+export const runOpenScaleImportFixture = (client: Client) =>
 	Effect.gen(function* () {
 		const uploadToken = yield* uploadImportFile(
-			token,
+			client,
 			OPENSCALE_SAMPLE_CSV,
 			"openscale-export.csv",
 			"text/csv",
@@ -64,10 +64,10 @@ Push Day,2026-01-01T10:00:00,2026-01-01T11:00:00,Good session,Bench Press,,,2,10
 Push Day,2026-01-01T10:00:00,2026-01-01T11:00:00,Good session,Squat,,,1,140,3,normal,,
 `;
 
-export const runHevyImportFixture = (client: Client, token: string) =>
+export const runHevyImportFixture = (client: Client) =>
 	Effect.gen(function* () {
 		const uploadToken = yield* uploadImportFile(
-			token,
+			client,
 			HEVY_SAMPLE_CSV,
 			"hevy-export.csv",
 			"text/csv",

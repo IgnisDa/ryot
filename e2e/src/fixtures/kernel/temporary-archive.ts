@@ -6,7 +6,6 @@ import {
 } from "@ryot-app/plugin-archive";
 import { Effect } from "effect";
 
-import { getApiUrl } from "~/support/harness-target";
 import { webRequest } from "~/support/web-request";
 
 import type { Client } from "./auth";
@@ -15,7 +14,7 @@ import { compilePluginPackage, type PluginPackageInput } from "./compiled-packag
 export const uploadTemporaryArchive = (
 	client: Client,
 	bytes: Uint8Array,
-	options: { readonly baseUrl?: string; readonly fileName: string },
+	options: { readonly fileName: string },
 ) =>
 	Effect.gen(function* () {
 		const intent = yield* client.call((c) =>
@@ -23,10 +22,11 @@ export const uploadTemporaryArchive = (
 				payload: { kind: "temporary", fileName: options.fileName, contentType: "application/zip" },
 			}),
 		);
-		const uploadResponse = yield* webRequest(
-			new URL(intent.uploadUrl, `${options.baseUrl ?? getApiUrl()}/`),
-			{ method: intent.method, headers: intent.headers, body: new Uint8Array(bytes) },
-		);
+		const uploadResponse = yield* webRequest(new URL(intent.uploadUrl, `${client.baseUrl}/`), {
+			method: intent.method,
+			headers: intent.headers,
+			body: new Uint8Array(bytes),
+		});
 		if (!uploadResponse.ok) {
 			throw new Error(`Could not upload temporary archive (${uploadResponse.status})`);
 		}
@@ -43,7 +43,6 @@ export const uploadTemporaryArchive = (
 export const uploadPrivatePluginPackage = (
 	client: Client,
 	pluginPackage: PluginPackageInput | PluginArchivePackage,
-	baseUrl?: string,
 ) =>
 	Effect.gen(function* () {
 		const compiledPackage =
@@ -56,7 +55,6 @@ export const uploadPrivatePluginPackage = (
 					: new PluginArchiveError({ reason: "malformed-zip" }),
 		});
 		return yield* uploadTemporaryArchive(client, bytes, {
-			baseUrl,
 			fileName: `${pluginPackageSegments(pluginPackage.manifest.metadata.packageId).name}.zip`,
 		});
 	});

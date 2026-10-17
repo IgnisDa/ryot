@@ -51,6 +51,8 @@ let existingIntegration: ContractSuccess<"integrations", "create">;
 let keyedApiUrl: string;
 let lapsedApiUrl: string;
 let keylessApiUrl: string;
+let keylessTarget: Effect.Success<ReturnType<typeof spawnApiProcess>>["target"];
+let lapsedTarget: Effect.Success<ReturnType<typeof spawnApiProcess>>["target"];
 
 const resources = makeTestResourceScope();
 
@@ -116,9 +118,9 @@ beforeAll(() =>
 
 				const { plugin, providerSlug: slug } = yield* installTestIntegrationProvider(
 					settingsSchema,
-					{ requiresProKey: true, baseUrl: keyedApiUrl },
+					{ requiresProKey: true, target: keyedProcess.target },
 				);
-				const { client } = yield* createAuthenticatedClient(keyedApiUrl);
+				const { client } = yield* createAuthenticatedClient(keyedProcess.target);
 				providerReference = { slug, owner: { kind: "plugin", pluginId: plugin.pluginId } };
 				const integration = yield* createIntegration(client, {
 					providerSpecifics,
@@ -129,6 +131,7 @@ beforeAll(() =>
 				existingIntegration = integration;
 
 				const keylessProcess = yield* startApi("keyless", keylessPort, { SERVER_PRO_KEY: "" });
+				keylessTarget = keylessProcess.target;
 				const lapsedProcess = yield* startApi("lapsed", lapsedPort, {
 					SERVER_PRO_KEY: PRO_KEY_ENV_VALUE,
 					SERVER_PRO_KEY_VERIFICATION_URL: requirePresent(
@@ -142,6 +145,7 @@ beforeAll(() =>
 					keylessProcess,
 					90,
 				);
+				lapsedTarget = lapsedProcess.target;
 				yield* waitForHealthCheck(
 					`${lapsedApiUrl}/system/health`,
 					"Pro-gated lapsed setup",
@@ -158,7 +162,7 @@ afterAll(() => runPromise(resources.close));
 describe("Without a valid Pro Key", () => {
 	it.live("lists the pro-gated provider as not creatable", () =>
 		Effect.gen(function* () {
-			const { client } = yield* createAuthenticatedClient(keylessApiUrl);
+			const { client } = yield* createAuthenticatedClient(keylessTarget);
 			const providers = yield* listProviders(client);
 			const provider = requirePresent(
 				providers.find(({ slug }) => slug === providerSlug),
@@ -172,7 +176,7 @@ describe("Without a valid Pro Key", () => {
 
 	it.live("rejects creation with pro-key-required", () =>
 		Effect.gen(function* () {
-			const { client } = yield* createAuthenticatedClient(keylessApiUrl);
+			const { client } = yield* createAuthenticatedClient(keylessTarget);
 			const error = yield* Effect.flip(
 				createIntegration(client, { providerSpecifics, provider: providerReference }),
 			);
@@ -185,7 +189,7 @@ describe("Without a valid Pro Key", () => {
 		"fails an existing integration's webhook run with pro-key-required once the key has lapsed",
 		() =>
 			Effect.gen(function* () {
-				const lapsedSession = makeSession(lapsedApiUrl);
+				const lapsedSession = makeSession(lapsedTarget);
 				const { runId } = yield* postIntegrationWebhook(
 					lapsedSession,
 					existingIntegration,

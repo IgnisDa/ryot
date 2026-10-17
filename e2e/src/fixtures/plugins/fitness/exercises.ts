@@ -8,15 +8,17 @@ import { createEntity } from "~/fixtures/kernel/entities";
 import { findBuiltinSchemaBySlug } from "~/fixtures/kernel/entity-schemas";
 import { findPluginInstallationByPackage } from "~/fixtures/kernel/plugins";
 import { requirePresent } from "~/support/assertions";
+import { getSharedHarnessTarget } from "~/support/harness-target";
 
-export const fitnessFixtureInstallation = listAdminSystemPlugins.pipe(
-	Effect.map((plugins) =>
-		requirePresent(
-			plugins.find(({ packageId }) => packageId === fitnessPlugin.metadata.packageId),
-			"System fitness fixture installation missing",
+export const fitnessFixtureInstallation = (target = getSharedHarnessTarget()) =>
+	listAdminSystemPlugins(target).pipe(
+		Effect.map((plugins) =>
+			requirePresent(
+				plugins.find(({ packageId }) => packageId === fitnessPlugin.metadata.packageId),
+				"System fitness fixture installation missing",
+			),
 		),
-	),
-);
+	);
 
 export const findFitnessEntitySchema = (client: Client, slug: string) =>
 	Effect.gen(function* () {

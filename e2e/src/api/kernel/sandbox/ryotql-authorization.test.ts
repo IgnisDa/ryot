@@ -27,7 +27,6 @@ import { Effect, Schema } from "effect";
 
 import type { RyotQLResponse, TestPluginScript } from "~/fixtures/kernel";
 import {
-	adminHeaders,
 	createAuthenticatedClient,
 	createEntity,
 	createEventFixture,
@@ -180,12 +179,10 @@ describe("sandbox RyotQL pinned-plugin authorization", () => {
 				}
 				if (globalEntityIds.length > 0) {
 					yield* api
-						.call(
-							(c) =>
-								c.testSupport.deleteGlobalEntities({
-									payload: { ids: [...new Set(globalEntityIds)].map((id) => EntityId.make(id)) },
-								}),
-							adminHeaders(),
+						.adminCall((c) =>
+							c.testSupport.deleteGlobalEntities({
+								payload: { ids: [...new Set(globalEntityIds)].map((id) => EntityId.make(id)) },
+							}),
 						)
 						.pipe(Effect.ignore);
 				}
@@ -589,17 +586,15 @@ describe("sandbox RyotQL pinned-plugin authorization", () => {
 				readonly entitySchema: ContractPayload<"testSupport", "createGlobalEntity">["entitySchema"];
 				readonly properties?: Record<string, unknown>;
 			}) =>
-				api.call(
-					(c) =>
-						c.testSupport.createGlobalEntity({
-							payload: {
-								name: input.name,
-								externalId: input.externalId,
-								entitySchema: input.entitySchema,
-								properties: input.properties ?? {},
-							},
-						}),
-					adminHeaders(),
+				api.adminCall((c) =>
+					c.testSupport.createGlobalEntity({
+						payload: {
+							name: input.name,
+							externalId: input.externalId,
+							entitySchema: input.entitySchema,
+							properties: input.properties ?? {},
+						},
+					}),
 				);
 
 			const globalRoot = yield* createGlobalEntity({
@@ -689,12 +684,10 @@ describe("sandbox RyotQL pinned-plugin authorization", () => {
 
 			const runProbe = (probe: AuthorizationProbe) =>
 				Effect.gen(function* () {
-					const trigger = yield* api.call(
-						(c) =>
-							c.testSupport.triggerPluginCron({
-								payload: { cronSlug: probe.cronSlug, pluginId: installed.pluginId },
-							}),
-						adminHeaders(),
+					const trigger = yield* api.adminCall((c) =>
+						c.testSupport.triggerPluginCron({
+							payload: { cronSlug: probe.cronSlug, pluginId: installed.pluginId },
+						}),
 					);
 					if (trigger.status !== "executed") {
 						throw new Error(

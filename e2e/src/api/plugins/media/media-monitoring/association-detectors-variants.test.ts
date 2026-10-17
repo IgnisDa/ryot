@@ -25,6 +25,7 @@ import { startIsolatedHarness } from "~/support/isolated-harness";
 
 let fakeApprise: FakeHttpServer;
 let harness: Effect.Success<ReturnType<typeof startIsolatedHarness>> | undefined;
+let target: Effect.Success<ReturnType<typeof startIsolatedHarness>>["target"];
 let media: Effect.Success<ReturnType<typeof shippedPluginTestProviders>>;
 
 beforeAll(() =>
@@ -32,7 +33,8 @@ beforeAll(() =>
 		Effect.gen(function* () {
 			fakeApprise = yield* startFakeAppriseServer;
 			harness = yield* startIsolatedHarness("Association Detector Variants");
-			media = yield* shippedPluginTestProviders(mediaPlugin.metadata.packageId);
+			target = harness.target;
+			media = yield* shippedPluginTestProviders(mediaPlugin.metadata.packageId, target);
 		}),
 	),
 );
@@ -64,7 +66,7 @@ describe("company and media-group association variants", () => {
 			const companyExternalId = `association-company-${crypto.randomUUID()}`;
 			const movieExternalId = `association-variant-movie-${crypto.randomUUID()}`;
 
-			const { client } = yield* createAuthenticatedClient();
+			const { client } = yield* createAuthenticatedClient(target);
 			const [{ schema: companySchema }, { schema: movieSchema }] = yield* Effect.all([
 				findMediaEntitySchema(client, "company"),
 				findMediaEntitySchema(client, "movie"),
@@ -100,6 +102,7 @@ describe("company and media-group association variants", () => {
 			});
 
 			const company = yield* seedMediaEntity({
+				target,
 				properties: {},
 				name: companyName,
 				externalId: companyExternalId,
@@ -107,8 +110,8 @@ describe("company and media-group association variants", () => {
 				providerId: companyProvider.providerId,
 			});
 
-			const companyMonitor = yield* createAuthenticatedClient();
-			const importer = yield* createAuthenticatedClient();
+			const companyMonitor = yield* createAuthenticatedClient(target);
+			const importer = yield* createAuthenticatedClient(target);
 			yield* createNotificationChannel(companyMonitor.client, {
 				channelSpecifics: { kind: "apprise", key: "company-monitor", baseUrl: fakeApprise.url },
 			});
@@ -138,7 +141,7 @@ describe("company and media-group association variants", () => {
 			const companyExternalId = `media-group-company-${crypto.randomUUID()}`;
 			const musicGroupExternalId = `media-group-album-${crypto.randomUUID()}`;
 
-			const { client } = yield* createAuthenticatedClient();
+			const { client } = yield* createAuthenticatedClient(target);
 			const [{ schema: personSchema }, { schema: companySchema }, { schema: musicGroupSchema }] =
 				yield* Effect.all([
 					findMediaEntitySchema(client, "person"),
@@ -196,6 +199,7 @@ describe("company and media-group association variants", () => {
 
 			const [person, company] = yield* Effect.all([
 				seedMediaEntity({
+					target,
 					properties: {},
 					name: personName,
 					externalId: personExternalId,
@@ -203,6 +207,7 @@ describe("company and media-group association variants", () => {
 					providerId: personProvider.providerId,
 				}),
 				seedMediaEntity({
+					target,
 					properties: {},
 					name: companyName,
 					externalId: companyExternalId,
@@ -211,9 +216,9 @@ describe("company and media-group association variants", () => {
 				}),
 			]);
 
-			const personMonitor = yield* createAuthenticatedClient();
-			const companyMonitor = yield* createAuthenticatedClient();
-			const importer = yield* createAuthenticatedClient();
+			const personMonitor = yield* createAuthenticatedClient(target);
+			const companyMonitor = yield* createAuthenticatedClient(target);
+			const importer = yield* createAuthenticatedClient(target);
 			yield* Effect.all([
 				createNotificationChannel(personMonitor.client, {
 					channelSpecifics: {

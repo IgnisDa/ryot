@@ -13,7 +13,7 @@ import {
 import { findMediaEntitySchema } from "~/fixtures/plugins/media";
 import { assertTaggedError } from "~/support/assertions";
 import { afterAll, beforeAll, describe, expect, it, runPromise } from "~/support/effect-test";
-import { getApiUrl } from "~/support/harness-target";
+import { getApiUrl, getSharedHarnessTarget } from "~/support/harness-target";
 import {
 	buildApiEnv,
 	spawnApiProcess,
@@ -26,6 +26,7 @@ import { webRequest } from "~/support/web-request";
 const FALLBACK_S3_BUCKET_NAME = "ryot-upload-fallback-test";
 
 let fallbackApiPort: number;
+let fallbackTarget: Effect.Success<ReturnType<typeof spawnApiProcess>>["target"];
 const resources = makeTestResourceScope();
 
 const getFallbackApiUrl = () => `http://127.0.0.1:${fallbackApiPort}/api`;
@@ -66,6 +67,7 @@ beforeAll(() =>
 					"Upload fallback setup",
 					fallbackApiProcess,
 				);
+				fallbackTarget = fallbackApiProcess.target;
 			}),
 		),
 	),
@@ -76,15 +78,15 @@ afterAll(() => runPromise(resources.close));
 const uploadAndComplete = (
 	fileName: string,
 	contentType: string,
-	apiUrl = getApiUrl(),
+	target = getSharedHarnessTarget(),
 	body = "title\nexample",
 ) =>
 	Effect.gen(function* () {
-		const { client } = yield* createAuthenticatedClient(apiUrl);
+		const { client } = yield* createAuthenticatedClient(target);
 		const intent = yield* client.call((c) =>
 			c.uploads.createIntent({ payload: { fileName, contentType, kind: "permanent" } }),
 		);
-		const uploadResponse = yield* webRequest(new URL(intent.uploadUrl, `${apiUrl}/`), {
+		const uploadResponse = yield* webRequest(new URL(intent.uploadUrl, `${client.baseUrl}/`), {
 			body,
 			method: intent.method,
 			headers: intent.headers,
@@ -102,14 +104,14 @@ const uploadAndComplete = (
 describe("POST /uploads/cleanup", () => {
 	it.live("protects foreign uploads and retires abandoned local and S3 assets idempotently", () =>
 		Effect.gen(function* () {
-			for (const apiUrl of [getApiUrl(), getFallbackApiUrl()]) {
+			for (const target of [getSharedHarnessTarget(), fallbackTarget]) {
 				const { asset, client } = yield* uploadAndComplete(
 					"abandoned.png",
 					"image/png",
-					apiUrl,
+					target,
 					"synthetic-image",
 				);
-				const stranger = yield* createAuthenticatedClient(apiUrl);
+				const stranger = yield* createAuthenticatedClient(target);
 				const forbidden = yield* Effect.flip(
 					stranger.client.call((c) => c.uploads.cleanup({ payload: { asset } })),
 				);
@@ -250,7 +252,7 @@ describe("POST /uploads/intents", () => {
 	it.live("falls back to local storage for permanent uploads when S3 is not configured", () =>
 		Effect.gen(function* () {
 			const apiUrl = getFallbackApiUrl();
-			const { asset, client } = yield* uploadAndComplete("report.csv", "text/csv", apiUrl);
+			const { asset, client } = yield* uploadAndComplete("report.csv", "text/csv", fallbackTarget);
 			expect(asset).toMatchObject({ type: "local" });
 			expect(asset.key).toMatch(/^permanent\/.+\.csv$/);
 			const resolved = yield* client.call((c) =>
@@ -269,7 +271,12 @@ describe("POST /uploads/intents", () => {
 		Effect.gen(function* () {
 			const apiUrl = getFallbackApiUrl();
 			const svg = '<svg xmlns="http://www.w3.org/2000/svg" width="1" height="1" />';
-			const { asset, client } = yield* uploadAndComplete("cover.svg", "image/svg+xml", apiUrl, svg);
+			const { asset, client } = yield* uploadAndComplete(
+				"cover.svg",
+				"image/svg+xml",
+				fallbackTarget,
+				svg,
+			);
 			const [resolved] = yield* client.call((c) =>
 				c.uploads.resolveDownloads({ payload: { assets: [asset] } }),
 			);
@@ -470,7 +477,7 @@ describe("GET /uploads/local/download", () => {
 	it.live("serves local files with HEAD and byte range support", () =>
 		Effect.gen(function* () {
 			const apiUrl = getFallbackApiUrl();
-			const { asset, client } = yield* uploadAndComplete("report.csv", "text/csv", apiUrl);
+			const { asset, client } = yield* uploadAndComplete("report.csv", "text/csv", fallbackTarget);
 			const resolved = yield* client.call((c) =>
 				c.uploads.resolveDownloads({ payload: { assets: [asset] } }),
 			);

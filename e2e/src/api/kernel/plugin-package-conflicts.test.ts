@@ -4,7 +4,6 @@ import { genericImportSealInputSchema } from "@ryot-app/plugin-backend-sdk/impor
 import { Deferred, Effect, Schema } from "effect";
 
 import {
-	adminHeaders,
 	checkClientPageFreshness,
 	createAuthenticatedClient,
 	enqueueSandboxScript,
@@ -89,12 +88,10 @@ describe("plugin package conflicts", () => {
 				const system = yield* installTestSupportSystemPlugin(packages.claim);
 				yield* Effect.addFinalizer(() =>
 					getApiClient()
-						.call(
-							(contract) =>
-								contract.testSupport.uninstallSystemPlugin({
-									params: { pluginId: system.pluginId, activationId: system.activationId },
-								}),
-							adminHeaders(),
+						.adminCall((contract) =>
+							contract.testSupport.uninstallSystemPlugin({
+								params: { pluginId: system.pluginId, activationId: system.activationId },
+							}),
 						)
 						.pipe(Effect.ignore),
 				);
@@ -158,12 +155,10 @@ describe("plugin package conflicts", () => {
 					removed
 						? Effect.void
 						: getApiClient()
-								.call(
-									(contract) =>
-										contract.testSupport.uninstallSystemPlugin({
-											params: { pluginId: system.pluginId, activationId: system.activationId },
-										}),
-									adminHeaders(),
+								.adminCall((contract) =>
+									contract.testSupport.uninstallSystemPlugin({
+										params: { pluginId: system.pluginId, activationId: system.activationId },
+									}),
 								)
 								.pipe(Effect.ignore),
 				);
@@ -174,12 +169,10 @@ describe("plugin package conflicts", () => {
 					incompatibilityReason: "package-identity-conflict",
 				});
 				yield* Deferred.succeed(release, undefined);
-				yield* getApiClient().call(
-					(contract) =>
-						contract.testSupport.uninstallSystemPlugin({
-							params: { pluginId: system.pluginId, activationId: system.activationId },
-						}),
-					adminHeaders(),
+				yield* getApiClient().adminCall((contract) =>
+					contract.testSupport.uninstallSystemPlugin({
+						params: { pluginId: system.pluginId, activationId: system.activationId },
+					}),
 				);
 				removed = true;
 				expect((yield* namespaceInstallation(client, installed.pluginId)).health).toBe(
@@ -260,12 +253,10 @@ describe("plugin package conflicts", () => {
 				const system = yield* installTestSupportSystemPlugin(packages.claim);
 				yield* Effect.addFinalizer(() =>
 					getApiClient()
-						.call(
-							(contract) =>
-								contract.testSupport.uninstallSystemPlugin({
-									params: { pluginId: system.pluginId, activationId: system.activationId },
-								}),
-							adminHeaders(),
+						.adminCall((contract) =>
+							contract.testSupport.uninstallSystemPlugin({
+								params: { pluginId: system.pluginId, activationId: system.activationId },
+							}),
 						)
 						.pipe(Effect.ignore),
 				);
@@ -313,12 +304,10 @@ describe("plugin package conflicts", () => {
 					removed
 						? Effect.void
 						: getApiClient()
-								.call(
-									(contract) =>
-										contract.testSupport.uninstallSystemPlugin({
-											params: { pluginId: system.pluginId, activationId: system.activationId },
-										}),
-									adminHeaders(),
+								.adminCall((contract) =>
+									contract.testSupport.uninstallSystemPlugin({
+										params: { pluginId: system.pluginId, activationId: system.activationId },
+									}),
 								)
 								.pipe(Effect.ignore),
 				);
@@ -387,12 +376,10 @@ describe("plugin package conflicts", () => {
 				assertTaggedError(uninstall, "PluginConflictError");
 				expect(uninstall.reason.code).toBe("entity-referenced");
 				expect((yield* exportAndDownloadBackup(client)).run.status).toBe("completed");
-				yield* getApiClient().call(
-					(contract) =>
-						contract.testSupport.uninstallSystemPlugin({
-							params: { pluginId: system.pluginId, activationId: system.activationId },
-						}),
-					adminHeaders(),
+				yield* getApiClient().adminCall((contract) =>
+					contract.testSupport.uninstallSystemPlugin({
+						params: { pluginId: system.pluginId, activationId: system.activationId },
+					}),
 				);
 				removed = true;
 				expect(yield* namespaceInstallation(client, a.pluginId)).toMatchObject({
@@ -433,18 +420,15 @@ describe("plugin package conflicts", () => {
 			const system = yield* installTestSupportSystemPlugin(packages.claim);
 			yield* Effect.addFinalizer(() =>
 				getApiClient()
-					.call(
-						(contract) =>
-							contract.testSupport.uninstallSystemPlugin({
-								params: { pluginId: system.pluginId, activationId: system.activationId },
-							}),
-						adminHeaders(),
+					.adminCall((contract) =>
+						contract.testSupport.uninstallSystemPlugin({
+							params: { pluginId: system.pluginId, activationId: system.activationId },
+						}),
 					)
 					.pipe(Effect.ignore),
 			);
-			yield* getApiClient().call(
-				(contract) => contract.testSupport.reconcilePluginInstallations(),
-				adminHeaders(),
+			yield* getApiClient().adminCall((contract) =>
+				contract.testSupport.reconcilePluginInstallations(),
 			);
 			const installation = yield* namespaceInstallation(client, system.pluginId);
 			yield* client.call((contract) =>

@@ -3,12 +3,7 @@ import { gunzipSync } from "node:zlib";
 import { Effect } from "effect";
 import { unzipSync } from "fflate";
 
-import {
-	adminAccessTokenHeaders,
-	adminHeaders,
-	getApiClient,
-	seedServerLog,
-} from "~/fixtures/kernel";
+import { adminAccessTokenHeaders, getApiClient, seedServerLog } from "~/fixtures/kernel";
 import { assertTaggedError } from "~/support/assertions";
 import { assert, describe, expect, it } from "~/support/effect-test";
 import { getApiUrl } from "~/support/harness-target";
@@ -21,7 +16,7 @@ const isExcludedLogName = (name: string) =>
 
 const downloadFileUrl = (id: string) =>
 	getApiClient()
-		.call((api) => api.serverLogs.createFileDownloadTicket({ params: { id } }), adminHeaders())
+		.adminCall((api) => api.serverLogs.createFileDownloadTicket({ params: { id } }))
 		.pipe(Effect.map((ticket) => `${getApiUrl()}${ticket.url}`));
 
 describe("Server log API", () => {
@@ -49,9 +44,8 @@ describe("Server log API", () => {
 	it.live("lists and downloads active and retained logs", () =>
 		Effect.gen(function* () {
 			const seeded = yield* seedServerLog();
-			const firstPage = yield* getApiClient().call(
-				(api) => api.serverLogs.list({ query: { limit: 1 } }),
-				adminHeaders(),
+			const firstPage = yield* getApiClient().adminCall((api) =>
+				api.serverLogs.list({ query: { limit: 1 } }),
 			);
 			const nextCursor = firstPage.pageInfo.nextCursor;
 			assert(nextCursor);
@@ -60,9 +54,8 @@ describe("Server log API", () => {
 				hasMore: true,
 				nextCursor: firstPage.files[0]?.name,
 			});
-			const secondPage = yield* getApiClient().call(
-				(api) => api.serverLogs.list({ query: { limit: 100, after: nextCursor } }),
-				adminHeaders(),
+			const secondPage = yield* getApiClient().adminCall((api) =>
+				api.serverLogs.list({ query: { limit: 100, after: nextCursor } }),
 			);
 			const files = [...firstPage.files, ...secondPage.files];
 			const active = files.find((file) => file.name === seeded.activeName);
@@ -98,9 +91,8 @@ describe("Server log API", () => {
 				`filename="${seeded.activeName}"`,
 			);
 
-			const allTicket = yield* getApiClient().call(
-				(api) => api.serverLogs.createAllDownloadTicket(),
-				adminHeaders(),
+			const allTicket = yield* getApiClient().adminCall((api) =>
+				api.serverLogs.createAllDownloadTicket(),
 			);
 			const allResponse = yield* webRequest(`${getApiUrl()}${allTicket.url}`);
 			expect(allResponse.status).toBe(200);
@@ -125,12 +117,10 @@ describe("Server log API", () => {
 	it.live("returns the typed not-found error for an unavailable file id", () =>
 		Effect.gen(function* () {
 			const error = yield* Effect.flip(
-				getApiClient().call(
-					(api) =>
-						api.serverLogs.createFileDownloadTicket({
-							params: { id: `missing-${crypto.randomUUID()}` },
-						}),
-					adminHeaders(),
+				getApiClient().adminCall((api) =>
+					api.serverLogs.createFileDownloadTicket({
+						params: { id: `missing-${crypto.randomUUID()}` },
+					}),
 				),
 			);
 			assertTaggedError(error, "ServerLogsNotFound");

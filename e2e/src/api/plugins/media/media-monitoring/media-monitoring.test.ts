@@ -3,7 +3,6 @@ import { mediaPlugin } from "@ryot-app/media-plugin";
 import { Effect } from "effect";
 
 import {
-	adminHeaders,
 	createAuthenticatedClient,
 	createNotificationChannel,
 	fakeProviderDetailsResult,
@@ -70,6 +69,7 @@ let discoveryEntityId: string;
 let fakeApprise: FakeHttpServer;
 const extraGlobalEntityIds: string[] = [];
 let harness: Effect.Success<ReturnType<typeof startIsolatedHarness>> | undefined;
+let target: Effect.Success<ReturnType<typeof startIsolatedHarness>>["target"];
 let media: Effect.Success<ReturnType<typeof shippedPluginTestProviders>>;
 let provider: AttachedTestProvider;
 let discoveryProvider: AttachedTestProvider;
@@ -79,7 +79,8 @@ beforeAll(() =>
 		Effect.gen(function* () {
 			fakeApprise = yield* startFakeAppriseServer;
 			harness = yield* startIsolatedHarness("Media Monitoring");
-			media = yield* shippedPluginTestProviders(mediaPlugin.metadata.packageId);
+			target = harness.target;
+			media = yield* shippedPluginTestProviders(mediaPlugin.metadata.packageId, target);
 			({ movie: provider, show: discoveryProvider } = yield* media.attach({
 				movie: {
 					name: providerName,
@@ -92,12 +93,13 @@ beforeAll(() =>
 					details: discoveryProviderDetails(0),
 				},
 			}));
-			const { client } = yield* createAuthenticatedClient();
+			const { client } = yield* createAuthenticatedClient(target);
 			const { schema: movieSchema } = yield* findMediaEntitySchema(client, "movie");
 			movieSchemaId = movieSchema.id;
 			const { schema: showSchema } = yield* findMediaEntitySchema(client, "show");
 			const showSchemaId = showSchema.id;
 			const apiEntity = yield* seedMediaEntity({
+				target,
 				properties: {},
 				externalId: apiExternalId,
 				entitySchemaSlug: movieSchemaId,
@@ -105,6 +107,7 @@ beforeAll(() =>
 				name: "Media Monitoring API Target",
 			});
 			const cronEntity = yield* seedMediaEntity({
+				target,
 				properties: {},
 				externalId: cronExternalId,
 				entitySchemaSlug: movieSchemaId,
@@ -112,6 +115,7 @@ beforeAll(() =>
 				name: "Media Monitoring Cron Target",
 			});
 			const discoveryEntity = yield* seedMediaEntity({
+				target,
 				properties: {},
 				entitySchemaSlug: showSchemaId,
 				externalId: discoveryExternalId,
@@ -121,13 +125,11 @@ beforeAll(() =>
 			apiEntityId = apiEntity.id;
 			cronEntityId = cronEntity.id;
 			discoveryEntityId = discoveryEntity.id;
-			yield* getApiClient().call(
-				(c) =>
-					c.testSupport.setEntityPopulatedAt({
-						params: { entityId: EntityId.make(apiEntityId) },
-						payload: { populatedAt: new Date().toISOString() },
-					}),
-				adminHeaders(),
+			yield* getApiClient(target).adminCall((c) =>
+				c.testSupport.setEntityPopulatedAt({
+					params: { entityId: EntityId.make(apiEntityId) },
+					payload: { populatedAt: new Date().toISOString() },
+				}),
 			);
 		}),
 	),
@@ -139,17 +141,15 @@ afterAll(() =>
 			yield* Effect.promise(() => fakeApprise.stop());
 			const [firstExtraEntityId, ...remainingExtraEntityIds] = extraGlobalEntityIds;
 			if (firstExtraEntityId) {
-				yield* getApiClient().call(
-					(c) =>
-						c.testSupport.deleteGlobalEntities({
-							payload: {
-								ids: [
-									EntityId.make(firstExtraEntityId),
-									...remainingExtraEntityIds.map((id) => EntityId.make(id)),
-								],
-							},
-						}),
-					adminHeaders(),
+				yield* getApiClient(target).adminCall((c) =>
+					c.testSupport.deleteGlobalEntities({
+						payload: {
+							ids: [
+								EntityId.make(firstExtraEntityId),
+								...remainingExtraEntityIds.map((id) => EntityId.make(id)),
+							],
+						},
+					}),
 				);
 			}
 			yield* harness?.stop ?? Effect.void;
@@ -160,15 +160,15 @@ afterAll(() =>
 describe("media monitoring endpoints", () => {
 	it.live("requires authentication", () =>
 		Effect.gen(function* () {
-			const error = yield* Effect.flip(getMediaMonitoringStatus(getApiClient(), apiEntityId));
+			const error = yield* Effect.flip(getMediaMonitoringStatus(getApiClient(target), apiEntityId));
 			assertTaggedError(error, "AuthUnauthorized");
 		}),
 	);
 
 	it.live("keeps media monitoring status and relationships scoped to each user", () =>
 		Effect.gen(function* () {
-			const owner = yield* createAuthenticatedClient();
-			const other = yield* createAuthenticatedClient();
+			const owner = yield* createAuthenticatedClient(target);
+			const other = yield* createAuthenticatedClient(target);
 
 			expect(yield* getMediaMonitoringStatus(owner.client, apiEntityId)).toEqual({
 				status: "found",
@@ -219,8 +219,8 @@ describe("media monitoring endpoints", () => {
 
 	it.live("rejects invisible and unsupported media monitoring targets", () =>
 		Effect.gen(function* () {
-			const owner = yield* createAuthenticatedClient();
-			const other = yield* createAuthenticatedClient();
+			const owner = yield* createAuthenticatedClient(target);
+			const other = yield* createAuthenticatedClient(target);
 			const [{ schema: seasonSchema }, { schema: episodeSchema }, { schema: groupSchema }] =
 				yield* Effect.all([
 					findMediaEntitySchema(owner.client, "show-season"),
@@ -232,6 +232,7 @@ describe("media monitoring endpoints", () => {
 			const groupSchemaId = groupSchema.id;
 			const unsupported = yield* Effect.all([
 				seedMediaEntity({
+					target,
 					name: "Season",
 					properties: { seasonNumber: 1 },
 					providerId: provider.providerId,
@@ -239,6 +240,7 @@ describe("media monitoring endpoints", () => {
 					externalId: `media-monitoring-season-${crypto.randomUUID()}`,
 				}),
 				seedMediaEntity({
+					target,
 					name: "Episode",
 					providerId: provider.providerId,
 					entitySchemaSlug: episodeSchemaId,
@@ -246,6 +248,7 @@ describe("media monitoring endpoints", () => {
 					externalId: `media-monitoring-episode-${crypto.randomUUID()}`,
 				}),
 				seedMediaEntity({
+					target,
 					name: "Group",
 					properties: {},
 					entitySchemaSlug: groupSchemaId,
@@ -253,6 +256,7 @@ describe("media monitoring endpoints", () => {
 					externalId: `media-monitoring-group-${crypto.randomUUID()}`,
 				}),
 				seedMediaEntity({
+					target,
 					properties: {},
 					providerId: null,
 					name: "Custom Movie",
@@ -261,6 +265,7 @@ describe("media monitoring endpoints", () => {
 					entitySchemaSlug: movieSchemaId,
 				}),
 				seedMediaEntity({
+					target,
 					properties: {},
 					providerId: null,
 					userId: other.userId,
@@ -269,6 +274,7 @@ describe("media monitoring endpoints", () => {
 					entitySchemaSlug: movieSchemaId,
 				}),
 				seedMediaEntity({
+					target,
 					properties: {},
 					providerId: null,
 					name: "Incomplete Movie",
@@ -300,8 +306,8 @@ describe("media monitoring infrequent refresh", () => {
 		() =>
 			Effect.gen(function* () {
 				fakeApprise.requests.length = 0;
-				const first = yield* createAuthenticatedClient();
-				const second = yield* createAuthenticatedClient();
+				const first = yield* createAuthenticatedClient(target);
+				const second = yield* createAuthenticatedClient(target);
 				yield* Effect.all([
 					createNotificationChannel(first.client, {
 						channelSpecifics: { key: "first", kind: "apprise", baseUrl: fakeApprise.url },
@@ -362,7 +368,7 @@ describe("media monitoring infrequent refresh", () => {
 		() =>
 			Effect.gen(function* () {
 				fakeApprise.requests.length = 0;
-				const owner = yield* createAuthenticatedClient();
+				const owner = yield* createAuthenticatedClient(target);
 				yield* createNotificationChannel(owner.client, {
 					channelSpecifics: { kind: "apprise", key: "discovery", baseUrl: fakeApprise.url },
 				});

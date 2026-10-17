@@ -9,7 +9,6 @@ import { Playwright, PlaywrightSpawner } from "effect-playwright";
 import getPort from "get-port";
 
 import {
-	adminHeaders,
 	collectRyotQLRecipeItems,
 	createTestAuthClient,
 	executeAdminRyotQLRecipe,
@@ -22,6 +21,7 @@ import {
 } from "~/fixtures/kernel";
 import { requirePresent } from "~/support/assertions";
 import { afterAll, beforeAll, describe, expect, it, runPromise } from "~/support/effect-test";
+import type { HarnessTarget } from "~/support/harness-target";
 import {
 	buildApiEnv,
 	spawnApiProcess,
@@ -37,23 +37,23 @@ const OIDC_CLIENT_SECRET = "test-secret";
 const OIDC_BUTTON_LABEL = "Sign in with TestOIDC";
 const clientDist = fileURLToPath(new URL("../../../../../kernel/client/dist", import.meta.url));
 const existingOidcUsername = `user-${crypto.randomUUID()}`;
-const listUsers = (apiUrl: string, email: string) =>
-	executeAdminRyotQLRecipe(instanceAdminUsersRecipe({ limit: 50, search: email }), apiUrl);
+const listUsers = (target: HarnessTarget, email: string) =>
+	executeAdminRyotQLRecipe(instanceAdminUsersRecipe({ limit: 50, search: email }), target);
 const attempt = <A>(run: () => Promise<A>) => Effect.tryPromise(run).pipe(Effect.orDie);
 
-const countUsersByEmail = (apiUrl: string, email: string) =>
-	listUsers(apiUrl, email).pipe(Effect.map((data) => data.total));
+const countUsersByEmail = (target: HarnessTarget, email: string) =>
+	listUsers(target, email).pipe(Effect.map((data) => data.total));
 
-const findUserIdByEmail = (apiUrl: string, email: string) =>
-	listUsers(apiUrl, email).pipe(Effect.map((data) => data.items[0]?.id ?? null));
+const findUserIdByEmail = (target: HarnessTarget, email: string) =>
+	listUsers(target, email).pipe(Effect.map((data) => data.items[0]?.id ?? null));
 
-const listPlugins = (apiUrl: string, token: string) =>
-	collectRyotQLRecipeItems(makeSession(apiUrl, { Authorization: `Bearer ${token}` }), (after) =>
+const listPlugins = (target: HarnessTarget, token: string) =>
+	collectRyotQLRecipeItems(makeSession(target, { Authorization: `Bearer ${token}` }), (after) =>
 		pluginInstallationsRecipe({ after, limit: 100 }),
 	);
 
-const listPluginCount = (apiUrl: string, token: string) =>
-	listPlugins(apiUrl, token).pipe(Effect.map((plugins) => plugins.length));
+const listPluginCount = (target: HarnessTarget, token: string) =>
+	listPlugins(target, token).pipe(Effect.map((plugins) => plugins.length));
 
 let apiPortA: number;
 let apiPortB: number;
@@ -61,6 +61,9 @@ let apiPortC: number;
 let apiProcessA: Effect.Success<ReturnType<typeof spawnApiProcess>> | undefined;
 let apiProcessB: Effect.Success<ReturnType<typeof spawnApiProcess>> | undefined;
 let apiProcessC: Effect.Success<ReturnType<typeof spawnApiProcess>> | undefined;
+const targetA = () => requirePresent(apiProcessA, "OIDC API A is not initialised").target;
+const targetB = () => requirePresent(apiProcessB, "OIDC API B is not initialised").target;
+const targetC = () => requirePresent(apiProcessC, "OIDC API C is not initialised").target;
 let mockOidcServer: MockOidcServer | undefined;
 let coreInfrastructure: Effect.Success<ReturnType<typeof startCoreTestInfrastructure>> | undefined;
 const resources = makeTestResourceScope();
@@ -134,7 +137,7 @@ afterAll(() => runPromise(resources.close));
 describe("GET /system/config with OIDC enabled (API A)", () => {
 	it.live("returns oidcEnabled: true", () =>
 		Effect.gen(function* () {
-			const client = makeSession(getApiUrlA());
+			const client = makeSession(targetA());
 			const data = yield* client.call((c) => c.system.config());
 			expect(data.auth.oidcEnabled).toBe(true);
 		}),
@@ -142,7 +145,7 @@ describe("GET /system/config with OIDC enabled (API A)", () => {
 
 	it.live("returns oidcButtonLabel from env var", () =>
 		Effect.gen(function* () {
-			const client = makeSession(getApiUrlA());
+			const client = makeSession(targetA());
 			const data = yield* client.call((c) => c.system.config());
 			expect(data.auth.oidcButtonLabel).toBe(OIDC_BUTTON_LABEL);
 		}),
@@ -167,7 +170,7 @@ describe("Local auth disabled (API B)", () => {
 
 	it.live("returns localAuthDisabled: true", () =>
 		Effect.gen(function* () {
-			const client = makeSession(getApiUrlB());
+			const client = makeSession(targetB());
 			const data = yield* client.call((c) => c.system.config());
 			expect(data.auth.signupAllowed).toBe(false);
 			expect(data.auth.localAuthDisabled).toBe(true);
@@ -182,7 +185,7 @@ describe("Local auth disabled (API B)", () => {
 				authClient.signUp.email({ email, name: "Test", password: "password123" }),
 			);
 			expect(error).toBeDefined();
-			expect(yield* countUsersByEmail(getApiUrlB(), email)).toBe(0);
+			expect(yield* countUsersByEmail(targetB(), email)).toBe(0);
 		}),
 	);
 
@@ -272,7 +275,7 @@ describe("OIDC sign-in happy path (API A)", () => {
 		Effect.gen(function* () {
 			const username = `user-${crypto.randomUUID()}`;
 			const sessionToken = yield* oidcSignIn(requireMockOidcServer(), username, getApiUrlA());
-			yield* listPlugins(getApiUrlA(), sessionToken);
+			yield* listPlugins(targetA(), sessionToken);
 		}),
 	);
 
@@ -280,7 +283,7 @@ describe("OIDC sign-in happy path (API A)", () => {
 		Effect.gen(function* () {
 			const username = `user-${crypto.randomUUID()}`;
 			yield* oidcSignIn(requireMockOidcServer(), username, getApiUrlA());
-			expect(yield* countUsersByEmail(getApiUrlA(), `${username}@example.com`)).toBe(1);
+			expect(yield* countUsersByEmail(targetA(), `${username}@example.com`)).toBe(1);
 		}),
 	);
 
@@ -288,7 +291,7 @@ describe("OIDC sign-in happy path (API A)", () => {
 		Effect.gen(function* () {
 			const username = `user-${crypto.randomUUID()}`;
 			const sessionToken = yield* oidcSignIn(requireMockOidcServer(), username, getApiUrlA());
-			expect(yield* listPluginCount(getApiUrlA(), sessionToken)).toBeGreaterThan(0);
+			expect(yield* listPluginCount(targetA(), sessionToken)).toBeGreaterThan(0);
 		}),
 	);
 
@@ -298,7 +301,7 @@ describe("OIDC sign-in happy path (API A)", () => {
 			const sessionToken = yield* oidcSignIn(requireMockOidcServer(), username, getApiUrlA());
 
 			const headers = { Authorization: `Bearer ${sessionToken}` };
-			const client = makeSession(getApiUrlA(), headers);
+			const client = makeSession(targetA(), headers);
 			const [catalog, rules] = yield* Effect.all([
 				collectRyotQLRecipeItems(client, (after) =>
 					activeSignalSchemasRecipe({ after, limit: 100 }),
@@ -319,20 +322,18 @@ describe("OIDC idempotency (API A)", () => {
 		Effect.gen(function* () {
 			const username = `legacy-${crypto.randomUUID()}`;
 			const email = `${username}@example.com`;
-			const client = makeSession(getApiUrlA());
-			const provisioned = yield* client.call(
-				(c) =>
-					c.instanceAdmin.provisionUser({
-						payload: { email, name: username, provider: "oidc", oidcIssuerId: username },
-					}),
-				adminHeaders(),
+			const client = makeSession(targetA());
+			const provisioned = yield* client.adminCall((c) =>
+				c.instanceAdmin.provisionUser({
+					payload: { email, name: username, provider: "oidc", oidcIssuerId: username },
+				}),
 			);
 
 			const sessionToken = yield* oidcSignIn(requireMockOidcServer(), username, getApiUrlA());
-			yield* listPlugins(getApiUrlA(), sessionToken);
+			yield* listPlugins(targetA(), sessionToken);
 
-			expect(yield* findUserIdByEmail(getApiUrlA(), email)).toBe(provisioned.userId);
-			expect(yield* countUsersByEmail(getApiUrlA(), email)).toBe(1);
+			expect(yield* findUserIdByEmail(targetA(), email)).toBe(provisioned.userId);
+			expect(yield* countUsersByEmail(targetA(), email)).toBe(1);
 		}),
 	);
 
@@ -343,9 +344,9 @@ describe("OIDC idempotency (API A)", () => {
 			const token1 = yield* oidcSignIn(requireMockOidcServer(), username, getApiUrlA());
 			const token2 = yield* oidcSignIn(requireMockOidcServer(), username, getApiUrlA());
 
-			expect(yield* countUsersByEmail(getApiUrlA(), `${username}@example.com`)).toBe(1);
+			expect(yield* countUsersByEmail(targetA(), `${username}@example.com`)).toBe(1);
 
-			yield* Effect.all([listPlugins(getApiUrlA(), token1), listPlugins(getApiUrlA(), token2)]);
+			yield* Effect.all([listPlugins(targetA(), token1), listPlugins(targetA(), token2)]);
 		}),
 	);
 
@@ -354,11 +355,11 @@ describe("OIDC idempotency (API A)", () => {
 			const username = `user-${crypto.randomUUID()}`;
 
 			const token1 = yield* oidcSignIn(requireMockOidcServer(), username, getApiUrlA());
-			const firstCount = yield* listPluginCount(getApiUrlA(), token1);
+			const firstCount = yield* listPluginCount(targetA(), token1);
 			expect(firstCount).toBeGreaterThan(0);
 
 			const token2 = yield* oidcSignIn(requireMockOidcServer(), username, getApiUrlA());
-			const secondCount = yield* listPluginCount(getApiUrlA(), token2);
+			const secondCount = yield* listPluginCount(targetA(), token2);
 			expect(secondCount).toBe(firstCount);
 		}),
 	);
@@ -394,7 +395,7 @@ describe("Registration gating for OIDC (API C)", () => {
 			expect(step3Response.status).toBe(302);
 
 			expect(
-				yield* countUsersByEmail(getApiUrlC(), `${username}@example.com`),
+				yield* countUsersByEmail(targetC(), `${username}@example.com`),
 				"No user row must be created when registration is disabled",
 			).toBe(0);
 		}),
@@ -404,7 +405,7 @@ describe("Registration gating for OIDC (API C)", () => {
 		Effect.gen(function* () {
 			const email = `${existingOidcUsername}@example.com`;
 
-			const beforeId = yield* findUserIdByEmail(getApiUrlC(), email);
+			const beforeId = yield* findUserIdByEmail(targetC(), email);
 			expect(beforeId).not.toBeNull();
 
 			const sessionToken = yield* oidcSignIn(
@@ -412,9 +413,9 @@ describe("Registration gating for OIDC (API C)", () => {
 				existingOidcUsername,
 				getApiUrlC(),
 			);
-			yield* listPlugins(getApiUrlC(), sessionToken);
+			yield* listPlugins(targetC(), sessionToken);
 
-			const afterId = yield* findUserIdByEmail(getApiUrlC(), email);
+			const afterId = yield* findUserIdByEmail(targetC(), email);
 			expect(afterId).toBe(beforeId);
 		}),
 	);

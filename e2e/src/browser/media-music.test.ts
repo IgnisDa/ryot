@@ -20,7 +20,7 @@ import { seedGlobalMediaGenres } from "~/fixtures/plugins/media/genres";
 import { requirePresent } from "~/support/assertions";
 import { signInThroughHostedOAuth } from "~/support/browser";
 import { expect, it } from "~/support/effect-test";
-import { getApiUrl, getFrontendUrl } from "~/support/harness-target";
+import { getFrontendUrl } from "~/support/harness-target";
 
 const TRACK_COVER = `<svg xmlns="http://www.w3.org/2000/svg" width="60" height="60"><rect width="60" height="60" fill="#7c3aed"/></svg>`;
 
@@ -43,13 +43,12 @@ const sectionTitles = (media: Playwright.FrameLocator) =>
 
 it.live("renders a populated Music detail with its album rail and no watch providers", () =>
 	Effect.gen(function* () {
-		const apiUrl = getApiUrl();
 		const frontendUrl = getFrontendUrl();
 		const suffix = crypto.randomUUID();
 		const trackName = `Browser Tracer Track ${suffix}`;
 		const siblingName = `Browser Tracer B Side ${suffix}`;
 		const albumName = `Browser Tracer Album ${suffix}`;
-		const { email, client, password } = yield* createAuthenticatedClient(apiUrl);
+		const { email, client, password } = yield* createAuthenticatedClient();
 		const seeded = yield* seedGlobalMusicWithAlbum(client, {
 			albumName,
 			trackName,
@@ -169,11 +168,10 @@ it.live("renders a populated Music detail with its album rail and no watch provi
 
 it.live("renders the Music presentation facts in the canonical saved view", () =>
 	Effect.gen(function* () {
-		const apiUrl = getApiUrl();
 		const frontendUrl = getFrontendUrl();
 		const suffix = crypto.randomUUID();
 		const trackName = `Row Tracer Track ${suffix}`;
-		const { email, client, password } = yield* createAuthenticatedClient(apiUrl);
+		const { email, client, password } = yield* createAuthenticatedClient();
 		const seeded = yield* seedGlobalMusicWithAlbum(client, {
 			trackName,
 			albumName: `Row Tracer Album ${suffix}`,
