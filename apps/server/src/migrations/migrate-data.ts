@@ -298,6 +298,9 @@ export const migrateLegacyTables = Effect.gen(function* () {
 			),
 		),
 	];
+	for (const slug of libraryEligibleEntitySchemaSlugs) {
+		requireEventSchema(resolution, mediaPluginId, slug, "add-to-media-library");
+	}
 	const showSeasonEntitySchema = entitySchema(mediaPluginId, "show-season");
 	const showEpisodeEntitySchema = entitySchema(mediaPluginId, "show-episode");
 	const podcastEpisodeEntitySchema = entitySchema(mediaPluginId, "podcast-episode");
