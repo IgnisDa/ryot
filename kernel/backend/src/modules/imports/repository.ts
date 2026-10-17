@@ -945,15 +945,7 @@ export class ImportsRepository extends Context.Service<ImportsRepository>()("Imp
 				});
 			}
 			yield* database.run((db) =>
-				db
-					.insert(schema.importCapture)
-					.values({
-						data,
-						id: data.id,
-						phase: data.phase,
-						runId: scope.runId,
-						ordinal: data.ordinal,
-					}),
+				db.insert(schema.importCapture).values({ data, runId: scope.runId }),
 			);
 			return true;
 		});
@@ -1027,10 +1019,7 @@ export class ImportsRepository extends Context.Service<ImportsRepository>()("Imp
 						data,
 						operationIds: [...operationIds].sort(),
 						...execution,
-						id: data.id,
 						runId: scope.runId,
-						ordinal: data.ordinal,
-						captureId: data.captureId,
 					}),
 			);
 			return true;
@@ -1126,13 +1115,7 @@ export class ImportsRepository extends Context.Service<ImportsRepository>()("Imp
 			yield* database.run((db) =>
 				db
 					.insert(schema.importActivity)
-					.values({
-						data,
-						id: data.id,
-						runId: scope.runId,
-						batchId: data.batchId,
-						parentId: data.parentId,
-					})
+					.values({ data, runId: scope.runId })
 					.onConflictDoUpdate({
 						set: { data },
 						target: [schema.importActivity.runId, schema.importActivity.id],
@@ -1195,9 +1178,7 @@ export class ImportsRepository extends Context.Service<ImportsRepository>()("Imp
 				return false;
 			}
 			yield* database.run((db) =>
-				db
-					.insert(schema.importOutcome)
-					.values({ data, runId: scope.runId, operationId: data.operationId }),
+				db.insert(schema.importOutcome).values({ data, runId: scope.runId }),
 			);
 			return true;
 		});
@@ -1221,7 +1202,7 @@ export class ImportsRepository extends Context.Service<ImportsRepository>()("Imp
 				return false;
 			}
 			yield* database.run((db) =>
-				db.insert(schema.importIssue).values({ data, id: data.id, runId: scope.runId }),
+				db.insert(schema.importIssue).values({ data, runId: scope.runId }),
 			);
 			return true;
 		});

@@ -175,10 +175,12 @@ export const importRun = snakeCase.table(
 export const importActivity = snakeCase.table(
 	"import_activity",
 	{
-		batchId: text(),
-		parentId: text(),
-		id: text().notNull(),
 		data: jsonb().$type<IngestionActivity>().notNull(),
+		batchId: text().generatedAlwaysAs(sql`data->>'batchId'`),
+		parentId: text().generatedAlwaysAs(sql`data->>'parentId'`),
+		id: text()
+			.notNull()
+			.generatedAlwaysAs(sql`data->>'id'`),
 		runId: text()
 			.notNull()
 			.references(() => importRun.id, { onDelete: "cascade" }),
@@ -190,31 +192,33 @@ export const importActivity = snakeCase.table(
 			columns: [table.runId, table.batchId],
 			foreignColumns: [importBatch.runId, importBatch.id],
 		}),
-		check(
-			"import_activity_identity_check",
-			sql`${table.id} = ${table.data}->>'id' and ${table.parentId} is not distinct from ${table.data}->>'parentId' and ${table.batchId} is not distinct from ${table.data}->>'batchId' and ${table.id} is distinct from ${table.parentId}`,
-		),
+		check("import_activity_parent_check", sql`${table.id} is distinct from ${table.parentId}`),
 	],
 );
 
 export const importCapture = snakeCase.table(
 	"import_capture",
 	{
-		id: text().notNull(),
-		ordinal: integer().notNull(),
 		data: jsonb().$type<IngestionCapture>().notNull(),
-		phase: text().$type<IngestionCapture["phase"]>().notNull(),
+		id: text()
+			.notNull()
+			.generatedAlwaysAs(sql`data->>'id'`),
 		runId: text()
 			.notNull()
 			.references(() => importRun.id, { onDelete: "cascade" }),
+		ordinal: integer()
+			.notNull()
+			.generatedAlwaysAs(sql`(data->>'ordinal')::integer`),
+		phase: text()
+			.$type<IngestionCapture["phase"]>()
+			.notNull()
+			.generatedAlwaysAs(sql`data->>'phase'`),
 	},
 	(table) => [
 		primaryKey({ columns: [table.runId, table.id] }),
 		unique("import_capture_ordinal_unique").on(table.runId, table.phase, table.ordinal),
-		check(
-			"import_capture_identity_check",
-			sql`${table.id} = ${table.data}->>'id' and ${table.phase} = ${table.data}->>'phase' and ${table.phase} in ('collection', 'application') and ${table.ordinal} = (${table.data}->>'ordinal')::integer and ${table.ordinal} >= 0`,
-		),
+		check("import_capture_phase_check", sql`${table.phase} in ('collection', 'application')`),
+		check("import_capture_ordinal_check", sql`${table.ordinal} >= 0`),
 	],
 );
 
@@ -263,16 +267,22 @@ export const importPayloadReservation = snakeCase.table(
 export const importBatch = snakeCase.table(
 	"import_batch",
 	{
-		id: text().notNull(),
-		captureId: text().notNull(),
-		ordinal: integer().notNull(),
 		executionId: text().notNull(),
 		workflowName: text().notNull(),
 		operationIds: text().array().notNull(),
 		data: jsonb().$type<IngestionBatch>().notNull(),
+		id: text()
+			.notNull()
+			.generatedAlwaysAs(sql`data->>'id'`),
+		captureId: text()
+			.notNull()
+			.generatedAlwaysAs(sql`data->>'captureId'`),
 		runId: text()
 			.notNull()
 			.references(() => importRun.id, { onDelete: "cascade" }),
+		ordinal: integer()
+			.notNull()
+			.generatedAlwaysAs(sql`(data->>'ordinal')::integer`),
 	},
 	(table) => [
 		primaryKey({ columns: [table.runId, table.id] }),
@@ -281,44 +291,36 @@ export const importBatch = snakeCase.table(
 			columns: [table.runId, table.captureId],
 			foreignColumns: [importCapture.runId, importCapture.id],
 		}).onDelete("cascade"),
-		check(
-			"import_batch_identity_check",
-			sql`${table.id} = ${table.data}->>'id' and ${table.captureId} = ${table.data}->>'captureId' and ${table.ordinal} = (${table.data}->>'ordinal')::integer and ${table.ordinal} >= 0`,
-		),
+		check("import_batch_ordinal_check", sql`${table.ordinal} >= 0`),
 	],
 );
 
 export const importOutcome = snakeCase.table(
 	"import_outcome",
 	{
-		operationId: text().notNull(),
 		data: jsonb().$type<IngestionOutcome>().notNull(),
+		operationId: text()
+			.notNull()
+			.generatedAlwaysAs(sql`data->>'operationId'`),
 		runId: text()
 			.notNull()
 			.references(() => importRun.id, { onDelete: "cascade" }),
 	},
-	(table) => [
-		primaryKey({ columns: [table.runId, table.operationId] }),
-		check(
-			"import_outcome_identity_check",
-			sql`${table.operationId} = ${table.data}->>'operationId'`,
-		),
-	],
+	(table) => [primaryKey({ columns: [table.runId, table.operationId] })],
 );
 
 export const importIssue = snakeCase.table(
 	"import_issue",
 	{
-		id: text().notNull(),
 		data: jsonb().$type<IngestionIssue>().notNull(),
+		id: text()
+			.notNull()
+			.generatedAlwaysAs(sql`data->>'id'`),
 		runId: text()
 			.notNull()
 			.references(() => importRun.id, { onDelete: "cascade" }),
 	},
-	(table) => [
-		primaryKey({ columns: [table.runId, table.id] }),
-		check("import_issue_identity_check", sql`${table.id} = ${table.data}->>'id'`),
-	],
+	(table) => [primaryKey({ columns: [table.runId, table.id] })],
 );
 
 export const dataImportSubmission = snakeCase.table(

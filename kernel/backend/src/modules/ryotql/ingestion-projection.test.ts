@@ -48,10 +48,7 @@ layer(testLayer)((test) => {
 						yield* db
 							.insert(importCapture)
 							.values({
-								ordinal: 0,
 								runId: "run",
-								id: "capture",
-								phase: "collection",
 								data: {
 									ordinal: 0,
 									id: "capture",
@@ -66,12 +63,9 @@ layer(testLayer)((test) => {
 							yield* db
 								.insert(importBatch)
 								.values({
-									id,
-									ordinal,
 									runId: "run",
 									executionId: id,
 									operationIds: [],
-									captureId: "capture",
 									workflowName: "test-batch",
 									data: {
 										id,
@@ -98,7 +92,6 @@ layer(testLayer)((test) => {
 						yield* db
 							.insert(importActivity)
 							.values({
-								id: "read",
 								runId: "run",
 								data: {
 									id: "read",
@@ -117,7 +110,6 @@ layer(testLayer)((test) => {
 							yield* db
 								.insert(importIssue)
 								.values({
-									id,
 									runId: "run",
 									data: {
 										id,
