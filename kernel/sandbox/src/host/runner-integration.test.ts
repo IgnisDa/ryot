@@ -1038,6 +1038,63 @@ export default defineScript({ manifest, input: Schema.Struct({}), output: Schema
 		}),
 	);
 
+	test.effect("keeps pending durable interrupts outside application catches", () =>
+		Effect.gen(function* () {
+			const compiled = yield* compileTestScript(
+				defineNativeScript(
+					`(_input, host) => host.getCachedValue("first").pipe(Effect.catch((error) =>
+						error.message === "Missing config"
+							? Effect.succeed({ message: error.message, data: error.data })
+							: Effect.gen(function* () {
+								yield* host.log([{ level: "error", message: "Pending durable catch ran" }]);
+								return yield* Effect.sync(() => { throw new Error("Pending durable catch ran"); });
+							}),
+					))`,
+					{ kind: "operation" },
+				),
+			);
+			const caughtCalls: ReadonlyArray<unknown>[] = [];
+			const functions = {
+				log: (args: ReadonlyArray<unknown>) =>
+					Effect.sync(() => {
+						caughtCalls.push(args);
+						return hostSuccess(null);
+					}),
+			};
+			const pending = yield* runNative(
+				compiled,
+				{},
+				{ functions, replayJournal: [], workflowExecutionId: "durable-catch-pending" },
+			);
+			expect(caughtCalls).toEqual([]);
+			expect(pending.response).toMatchObject({
+				success: true,
+				value: { journalLength: 0, state: "pending", requests: [cachedRequest(0, "first")] },
+			});
+
+			const error = {
+				message: "Missing config",
+				data: { keys: ["apiToken"], code: "missing-required-config" },
+			};
+			const replay = yield* runNative(
+				compiled,
+				{},
+				{
+					functions,
+					workflowExecutionId: "durable-catch-pending",
+					replayJournal: [
+						{ request: cachedRequest(0, "first"), value: { error, state: "failure" } },
+					],
+				},
+			);
+			expect(caughtCalls).toEqual([]);
+			expect(replay.response).toMatchObject({
+				success: true,
+				value: { output: error, journalLength: 1, state: "completed" },
+			});
+		}),
+	);
+
 	test.effect("keeps inline success, failure, and committed replay evidence", () =>
 		Effect.gen(function* () {
 			const compiled = yield* compileTestScript(durableSource);
