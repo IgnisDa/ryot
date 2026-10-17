@@ -1,4 +1,4 @@
-import { definitionKey } from "@ryot-app/contract/modules/plugins/references";
+import { definitionKey, definitionOwner } from "@ryot-app/contract/modules/plugins/references";
 import {
 	AutomationExecutionId,
 	EntityId,
@@ -10,6 +10,7 @@ import { Context, Effect, Layer, Redacted, Ref } from "effect";
 import { Workflow } from "effect/workflow";
 import { WorkflowEngine } from "effect/workflow/WorkflowEngine";
 import { Client } from "pg";
+import { assert } from "vitest";
 
 import { LifecyclePlannerServiceLive } from "#modules/automations/layer";
 import { withLifecycleDispatch } from "#modules/automations/lifecycle.test-support";
@@ -22,6 +23,7 @@ import { DefinitionRepository } from "#modules/definitions/repository";
 import type { DefinitionSource } from "#modules/definitions/snapshot";
 import { EntitiesRepository } from "#modules/entities/repository";
 import { EntitiesService } from "#modules/entities/service";
+import { recordingDatabaseLayer } from "#modules/entities/statement-recording.test-support";
 import { DomainWriteChecksLive } from "#modules/entities/write-context";
 import { EventsRepository } from "#modules/events/repository";
 import { EventsService } from "#modules/events/service";
@@ -30,6 +32,11 @@ import { PluginConfigEncryptionKey } from "#modules/plugins/configuration/encryp
 import { PluginConfigRevisions } from "#modules/plugins/configuration/revisions";
 import { PluginInstallationRepository } from "#modules/plugins/installations/repository";
 import { PluginRepository } from "#modules/plugins/packages/repository";
+import {
+	installRevisionPackage,
+	revisionPackage,
+} from "#modules/plugins/packages/revision.test-support";
+import { PgClientLive } from "#platform/db/postgres";
 import { DatabaseSession } from "#platform/db/session";
 import { WorkflowExecutionNotifications } from "#platform/workflow/execution-notifications";
 import * as tables from "#schema/tables/combined";
@@ -78,6 +85,106 @@ export const command = (id: string, actorUserId: UserId = userId) => ({
 	writeContext: null,
 });
 
+export const ownedEndpoints = Effect.fnUntraced(function* (
+	installed: Pick<Effect.Success<ReturnType<typeof installRevisionPackage>>, "pluginId">,
+	slug: string,
+	scope: "global" | "user",
+) {
+	const entities = yield* EntitiesRepository;
+	const identity = {
+		properties: {},
+		populatedAt: null,
+		entitySchemaPluginId: installed.pluginId,
+		entitySchemaSlug: EntitySchemaSlug.make(slug),
+		...(scope === "global" ? { scope: "global" as const } : { userId, scope: "user" as const }),
+	};
+	const source = yield* entities.insertEntity({
+		...identity,
+		name: "Source",
+		id: EntityId.make(`${installed.pluginId}-source`),
+	});
+	const target = yield* entities.insertEntity({
+		...identity,
+		name: "Target",
+		id: EntityId.make(`${installed.pluginId}-target`),
+	});
+	return { sourceEntityId: source.entity.id, targetEntityId: target.entity.id };
+});
+
+export const installPolicyFixture = Effect.fn(function* (owner: UserId | null = userId) {
+	const fixture = revisionPackage(
+		"relationship-policy-scope",
+		"v1",
+		owner === null ? "global-policy-entity" : "fixture",
+	);
+	const script = fixture.scripts.find(({ metadata }) => metadata.kind === "automation");
+	const schema = fixture.manifest.relationshipSchemas[0];
+	assert(script?.metadata.kind === "automation" && schema);
+	const policy = {
+		...script,
+		slug: "relationship-policy-scope.policy",
+		contentHash: "relationship-policy-scope-hash",
+		metadata: {
+			...script.metadata,
+			capabilities: [],
+			automationType: "policy" as const,
+			slug: "relationship-policy-scope.policy",
+			inputProjection: { relationship: { properties: ["rank"] } },
+		},
+	};
+	const installed = yield* installRevisionPackage(
+		{
+			...fixture,
+			scripts: [...fixture.scripts, policy],
+			manifest: {
+				...fixture.manifest,
+				scripts: [
+					...fixture.manifest.scripts,
+					{ ...policy.metadata, entry: "backend/policy.sandbox.ts" },
+				],
+				relationshipSchemas: [
+					{
+						...schema,
+						propertiesSchema,
+						sourceEntitySchemaSlug: null,
+						targetEntitySchemaSlug: null,
+					},
+				],
+				hooks: [
+					...fixture.manifest.hooks,
+					...(["create", "update", "delete"] as const).map((operation) => ({
+						scriptSlug: policy.slug,
+						stage: "before" as const,
+						slug: `policy-${operation}`,
+						name: `Policy ${operation}`,
+						targets: [
+							{ operation, resource: "relationship" as const, relationshipSchemaSlug: schema.slug },
+						],
+					})),
+				],
+			},
+		},
+		owner,
+	);
+	const entityDeclaration = fixture.manifest.entitySchemas[0];
+	assert(entityDeclaration);
+	const endpoints = yield* ownedEndpoints(
+		installed,
+		entityDeclaration.slug,
+		owner === null ? "global" : "user",
+	);
+	return {
+		...baseInput,
+		...endpoints,
+		relationshipSchemaPluginId: installed.pluginId,
+		relationshipSchemaSlug: RelationshipSchemaSlug.make(schema.slug),
+		relationshipSchema: {
+			owner: definitionOwner(installed.pluginId),
+			slug: RelationshipSchemaSlug.make(schema.slug),
+		},
+	};
+});
+
 export class RelationshipFixture extends Context.Service<
 	RelationshipFixture,
 	{
@@ -108,6 +215,7 @@ export const relationshipsServiceWith = Effect.fnUntraced(function* (lifecycle: 
 
 export const relationshipDatabaseLayer = (
 	options: {
+		readonly holdLocks?: RegExp;
 		readonly activateSchemaOnWrite?: boolean;
 		readonly omitSchemaBeforeWrite?: boolean;
 		readonly mutableRelationshipSchema?: boolean;
@@ -273,7 +381,11 @@ export const relationshipDatabaseLayer = (
 			const services = Layer.mergeAll(RelationshipsService.layer, EntitiesService.layer).pipe(
 				Layer.provideMerge(RelationshipMutationPipeline.layer),
 				Layer.provideMerge(Layer.mergeAll(ownerDependencies, eventsRepository, eventsService)),
-				Layer.provideMerge(DatabaseSession.layer),
+				Layer.provideMerge(
+					recordingDatabaseLayer(options.holdLocks ? { holdLocks: options.holdLocks } : {}).pipe(
+						Layer.provide(PgClientLive),
+					),
+				),
 				Layer.provideMerge(config),
 			);
 			const seed = Layer.effectDiscard(

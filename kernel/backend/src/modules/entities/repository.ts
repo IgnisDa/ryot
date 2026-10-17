@@ -546,9 +546,9 @@ export class EntitiesRepository extends Context.Service<EntitiesRepository>()(
 				},
 			);
 
-			const getEntityScopeForUser = Effect.fn("EntitiesRepository.getEntityScopeForUser")(
-				function* (input: { userId: UserId; entityId: EntityId }) {
-					const [row] = yield* session.run((db) =>
+			const listEntityScopes = (where: SQL | undefined) =>
+				session
+					.run((db) =>
 						db
 							.select({
 								entityId: schema.entity.id,
@@ -558,23 +558,37 @@ export class EntitiesRepository extends Context.Service<EntitiesRepository>()(
 								entitySchemaPluginId: schema.entity.entitySchemaPluginId,
 							})
 							.from(schema.entity)
-							.where(
-								and(eq(schema.entity.id, input.entityId), entityVisibleToUserClause(input.userId)),
-							)
-							.limit(1),
+							.where(where),
+					)
+					.pipe(
+						Effect.map((rows) =>
+							rows.map((row) => ({
+								...row,
+								entityId: EntityId.make(row.entityId),
+								isBuiltin: row.entitySchemaPluginId === null,
+								entitySchemaSlug: EntitySchemaSlug.make(row.entitySchemaSlug),
+								entityUserId: row.entityUserId ? UserId.make(row.entityUserId) : null,
+							})),
+						),
 					);
-
-					if (!row) {
-						return null;
-					}
-
-					return {
-						...row,
-						entityId: EntityId.make(row.entityId),
-						isBuiltin: row.entitySchemaPluginId === null,
-						entitySchemaSlug: EntitySchemaSlug.make(row.entitySchemaSlug),
-						entityUserId: row.entityUserId ? UserId.make(row.entityUserId) : null,
-					};
+			const getEntityScopeForUser = Effect.fn("EntitiesRepository.getEntityScopeForUser")(
+				function* (input: { userId: UserId; entityId: EntityId }) {
+					const [scope] = yield* listEntityScopes(
+						and(eq(schema.entity.id, input.entityId), entityVisibleToUserClause(input.userId)),
+					);
+					return scope ?? null;
+				},
+			);
+			const getEntityScopesForUser = Effect.fn("EntitiesRepository.getEntityScopesForUser")(
+				function* (entityIds: ReadonlyArray<EntityId>, userId: UserId) {
+					const scopes = yield* Effect.forEach(
+						chunksOf([...new Set(entityIds)], STATEMENT_CHUNK_SIZE),
+						(ids) =>
+							listEntityScopes(
+								and(inArray(schema.entity.id, ids), entityVisibleToUserClause(userId)),
+							),
+					);
+					return new Map(scopes.flat().map((scope) => [scope.entityId, scope]));
 				},
 			);
 
@@ -1012,18 +1026,19 @@ export class EntitiesRepository extends Context.Service<EntitiesRepository>()(
 			});
 			const getMutationEntities = Effect.fn("EntitiesRepository.getMutationEntities")(function* (
 				entityIds: ReadonlyArray<EntityId>,
+				lock = false,
 			) {
 				const rows = yield* Effect.forEach(
 					chunksOf([...new Set(entityIds)].sort(), STATEMENT_CHUNK_SIZE),
 					(ids) =>
-						session.run((db) =>
-							db
+						session.run((db) => {
+							const query = db
 								.select({ ...entitySelection, userId: schema.entity.userId })
 								.from(schema.entity)
 								.where(inArray(schema.entity.id, ids))
-								.orderBy(sql`${schema.entity.id} collate "C"`)
-								.for("update"),
-						),
+								.orderBy(sql`${schema.entity.id} collate "C"`);
+							return lock ? query.for("update") : query;
+						}),
 				).pipe(Effect.map((chunks) => chunks.flat()));
 				return new Map(
 					rows.map(({ userId, ...row }) => [
@@ -1047,6 +1062,7 @@ export class EntitiesRepository extends Context.Service<EntitiesRepository>()(
 				findGlobalEntityById,
 				getEntityScopeForUser,
 				findEntityByExternalId,
+				getEntityScopesForUser,
 				findEntitySchemaForUser,
 				findEntitiesByExternalIds,
 				listEntityReferencesByIds,
