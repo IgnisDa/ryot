@@ -10,6 +10,7 @@ import {
 	mountPluginPage,
 	routeLocation,
 	savedViewPageContext,
+	waitForMessagePortMacrotask,
 } from "@ryot-app/plugin-client-sdk/testing";
 import { fireEvent, screen, waitFor } from "@testing-library/dom";
 import { Effect, Result, Schema } from "effect";
@@ -817,6 +818,47 @@ const replyChoices = (
 
 describe("entity browser filters", () => {
 	afterEach(() => disposePluginBridges());
+
+	it.live("shares the page and pending count across unrelated location and dialog updates", () =>
+		Effect.gen(function* () {
+			const search = filtersParam(statusRule);
+			const page = openBrowser({ search });
+			const first = yield* browserRequest(page, 0);
+			replyBrowser(page, first.requestId, [browserRow("item-1", "One")], true, "cursor-1");
+			fireEvent.click(
+				yield* Effect.promise(() => screen.findByRole("button", { name: "Count all" })),
+			);
+			const count = yield* Effect.promise(() =>
+				waitFor(() => {
+					const request = page.queryRequests("entityBrowserCount")[0];
+					if (request === undefined) {
+						throw new Error("Count request was not issued");
+					}
+					return request;
+				}),
+			);
+
+			page.navigate(routeLocation("/v/all-items", `${search}&panel=details`));
+			yield* openFilters();
+			yield* waitForMessagePortMacrotask;
+			expect(page.queryRequests("entityBrowser")).toHaveLength(1);
+			expect(page.queryRequests("entityBrowserCount")).toHaveLength(1);
+			expect(screen.getByRole("button", { name: "Counting..." })).toBeTruthy();
+
+			page.replyQuery(count.requestId, {
+				outcome: "success",
+				response: { data: { entityBrowserCount: { type: "aggregate", items: [{ total: 9 }] } } },
+			});
+			yield* Effect.promise(() => screen.findByText("1 of 9 results"));
+			fireEvent.click(screen.getByRole("button", { name: "Close filters" }));
+			page.navigate(routeLocation("/v/all-items", search));
+			yield* openFilters();
+			yield* waitForMessagePortMacrotask;
+			expect(page.queryRequests("entityBrowser")).toHaveLength(1);
+			expect(page.queryRequests("entityBrowserCount")).toHaveLength(1);
+			expect(screen.getByText("1 of 9 results")).toBeTruthy();
+		}),
+	);
 
 	it.live("applies a completed rule to the query, the URL and the badge", () =>
 		Effect.gen(function* () {

@@ -4,6 +4,7 @@ import {
 	FilterRules,
 	filtersLabel,
 	useViewFilter,
+	type ViewFilter,
 	ViewFiltersSheet,
 } from "@ryot-app/plugin-client-sdk/filters";
 import { PluginLink, usePageContext, useRyotViewport } from "@ryot-app/plugin-client-sdk/plugin";
@@ -18,7 +19,7 @@ import { PluginScreenFrame, ViewFiltersButton } from "@ryot-app/plugin-client-sd
 import { Button, LoadMoreButton, ScreenBarButton, StatusMessage } from "@ryot-app/plugin-ui-sdk";
 import { AppIcon } from "@ryot-app/plugin-ui-sdk/icon";
 import { DataTable, type DataTableColumn } from "@ryot-app/plugin-ui-sdk/table";
-import { effectiveFilterFields, NullableFilter } from "@ryot-app/ryotql-recipes/filters";
+import { effectiveFilterFields } from "@ryot-app/ryotql-recipes/filters";
 import {
 	ResultsTablePageInput,
 	resultsTableRecipe,
@@ -29,8 +30,7 @@ import { useRef, useState } from "react";
 import { BrowserNoMatches } from "./browser-states";
 import { cellText, CellValue, managedCellAssets } from "./display-value";
 
-const QueryInput = Schema.Struct({ filter: NullableFilter, after: Schema.NullOr(Schema.String) });
-const decodeQueryInput = Schema.decodeUnknownSync(Schema.fromJsonString(QueryInput));
+type QueryInput = { readonly filter: ViewFilter | null; readonly after: string | null };
 
 type TableItem = ResultsTableResult["items"][number];
 
@@ -67,10 +67,9 @@ const ResultsTable = ({ input }: { readonly input: typeof ResultsTablePageInput.
 	const filterFields = effectiveFilterFields("results-table", input.settings);
 	const { filter, setFilter, activeCount } = useViewFilter(filterFields);
 	const [query] = useState(() =>
-		createRyotQuery<string, ResultsTableResult>(
-			({ client, input: serialized }) =>
+		createRyotQuery<QueryInput, ResultsTableResult>(
+			({ client, input: { after, filter: applied } }) =>
 				Effect.gen(function* () {
-					const { after, filter: applied } = decodeQueryInput(serialized);
 					const now = yield* DateTime.now;
 					return yield* client.data.query(
 						Result.getOrThrow(
@@ -92,8 +91,7 @@ const ResultsTable = ({ input }: { readonly input: typeof ResultsTablePageInput.
 		{
 			initialPageParam: null,
 			getNextPageParam: nextPageCursor,
-			getPageInput: (selection, after: string | null) =>
-				JSON.stringify({ after, filter: selection.filter }),
+			getPageInput: (selection, after: string | null) => ({ after, filter: selection.filter }),
 		},
 	);
 	const state = {
