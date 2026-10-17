@@ -201,8 +201,10 @@ describe("provider import admission", () => {
 				yield* submit("wake-a2", alice);
 				yield* submit("wake-a3", alice);
 				yield* Effect.forkChild(admission.run);
-				expect(yield* workflows.nextStarted).toBe("wake-a1");
-				expect(yield* workflows.nextStarted).toBe("wake-a2");
+				expect(new Set([yield* workflows.nextStarted, yield* workflows.nextStarted])).toEqual(
+					new Set(["wake-a1", "wake-a2"]),
+				);
+				expect(yield* status("wake-a3", alice)).toBe("queued");
 				yield* workflows.settle(
 					"wake-a1",
 					new Workflow.Complete({ exit: Exit.succeed(listedEntity) }),

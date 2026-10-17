@@ -588,6 +588,8 @@ describe("EntitiesService committed lifecycle", () => {
 				).toMatchObject({ reason: { code: "entity-not-found" } });
 			}),
 		);
+	});
+	layer(entitiesLayer({ noHooks: true }))((test) => {
 		test.effect("replays a no-hook create after source deletion without new history", () =>
 			Effect.gen(function* () {
 				const service = yield* EntitiesService;
