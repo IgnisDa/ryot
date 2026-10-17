@@ -30,6 +30,8 @@ export {
 export { usePluginStorage, type PluginStorageState } from "./queries/storage";
 export type { RyotSubmission } from "./queries/submission";
 export { useRyotSubmission } from "./queries/submission-hook";
+export { usePagination, useRyotInfiniteQuery } from "./queries/pagination-hook";
+export { nextPageCursor, paginationItems, PaginationError } from "./queries/pagination";
 export { useEntityRefresh, useEntitySettle } from "./refresh/entity-hooks";
 export { usePageRefresh, usePageRefreshRequest } from "./refresh/page-registry";
 export { renderSchemaAsset, useSchemaAssetUpload } from "./assets/schema-form";
