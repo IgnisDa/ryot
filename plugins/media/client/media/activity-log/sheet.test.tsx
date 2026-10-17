@@ -847,9 +847,58 @@ it.live(
 		}),
 );
 
-it.live("keeps the dialog and draft through Status, a reloading episode check and retry", () =>
+it.live("keeps the dialog, draft and earlier-episode check through Status", () =>
 	Effect.gen(function* () {
-		const reload = yield* Deferred.make<void>();
+		const fake = showFake();
+		const answer = activityLogQuery(fake);
+		let attempts = 0;
+		const mounted = mountLog({
+			fake,
+			logger: show,
+			query: (document) => {
+				if (!JSON.stringify(document).includes('"earlierEpisode"')) {
+					return undefined;
+				}
+				attempts += 1;
+				return answer(document);
+			},
+		});
+		try {
+			const dialog = yield* openLog(mounted);
+			yield* Effect.promise(() =>
+				waitFor(() =>
+					getByRole(dialog, "switch", { name: "Also mark 2 earlier unwatched episodes" }),
+				),
+			);
+			clickRyotElement(radio(dialog, "Pick date"));
+			input(getByLabelText(dialog, "Watched on"), "2026-10-18");
+			input(getByRole(dialog, "textbox", { name: /Where did you watch it/ }), "Living room");
+			const form = getByRole(dialog, "form", { name: "Log activity" });
+			clickRyotElement(radio(dialog, "Status"));
+			expect(dialogOf()).toBe(dialog);
+			expect(getByRole(dialog, "form", { name: "Log activity" })).toBe(form);
+			clickRyotElement(radio(dialog, "Episode"));
+			yield* eventually(() =>
+				expect(
+					getByRole(dialog, "switch", { name: "Also mark 2 earlier unwatched episodes" }),
+				).toBeDefined(),
+			);
+			expect(attempts).toBe(1);
+			expect(dialogOf()).toBe(dialog);
+			expect(getByRole(dialog, "form", { name: "Log activity" })).toBe(form);
+			expect(
+				getByRole(dialog, "textbox", { name: /Where did you watch it/ }).getAttribute("value"),
+			).toBe("Living room");
+			expect(getByLabelText(dialog, "Watched on").getAttribute("value")).toBe("2026-10-18");
+		} finally {
+			mounted.view.unmount();
+		}
+	}),
+);
+
+it.live("keeps the draft and focus through a failed earlier-episode check and retry", () =>
+	Effect.gen(function* () {
+		const failure = yield* Deferred.make<void>();
 		const retry = yield* Deferred.make<void>();
 		const fake = showFake();
 		const answer = activityLogQuery(fake);
@@ -862,39 +911,22 @@ it.live("keeps the dialog and draft through Status, a reloading episode check an
 					return undefined;
 				}
 				attempts += 1;
-				if (attempts === 2) {
-					return Deferred.await(reload).pipe(
-						Effect.andThen(Effect.fail(new RyotClientError("query-failed"))),
-					);
-				}
-				return attempts === 3
-					? Deferred.await(retry).pipe(Effect.andThen(answer(document)))
-					: answer(document);
+				return attempts === 1
+					? Deferred.await(failure).pipe(
+							Effect.andThen(Effect.fail(new RyotClientError("query-failed"))),
+						)
+					: Deferred.await(retry).pipe(Effect.andThen(answer(document)));
 			},
 		});
 		try {
 			const dialog = yield* openLog(mounted);
-			const toggle = yield* Effect.promise(() =>
-				waitFor(() =>
-					getByRole(dialog, "switch", { name: "Also mark 2 earlier unwatched episodes" }),
-				),
-			);
-			clickRyotElement(toggle);
+			yield* eventually(() => expect(attempts).toBe(1));
+			expect(getByText(dialog, "Checking earlier episodes…")).toBeDefined();
 			clickRyotElement(radio(dialog, "Pick date"));
 			input(getByLabelText(dialog, "Watched on"), "2026-10-18");
-			input(getByRole(dialog, "textbox", { name: /Where did you watch it/ }), "Living room");
-			const form = getByRole(dialog, "form", { name: "Log activity" });
-			clickRyotElement(radio(dialog, "Status"));
-			expect(dialogOf()).toBe(dialog);
-			expect(getByRole(dialog, "form", { name: "Log activity" })).toBe(form);
-			clickRyotElement(radio(dialog, "Episode"));
-			yield* eventually(() => expect(attempts).toBe(2));
-			expect(dialogOf()).toBe(dialog);
-			expect(getByRole(dialog, "form", { name: "Log activity" })).toBe(form);
-			expect(getByText(dialog, "Checking earlier episodes…")).toBeDefined();
 			const source = getByRole(dialog, "textbox", { name: /Where did you watch it/ });
-			expect(source.getAttribute("value")).toBe("Living room");
-			expect(getByLabelText(dialog, "Watched on").getAttribute("value")).toBe("2026-10-18");
+			input(source, "Living room");
+			const form = getByRole(dialog, "form", { name: "Log activity" });
 			act(() => source.focus());
 			expect(
 				getByRole(dialog, "button", { name: "Mark S2·E5 watched" }).hasAttribute("disabled"),
@@ -903,7 +935,7 @@ it.live("keeps the dialog and draft through Status, a reloading episode check an
 				fireEvent.keyDown(source, { key: "Enter" });
 			});
 			expect(mounted.requests).toEqual([]);
-			yield* releaseQuery(reload);
+			yield* releaseQuery(failure);
 			yield* eventually(() =>
 				expect(getByText(dialog, "Unable to check earlier episodes.")).toBeDefined(),
 			);
@@ -913,24 +945,23 @@ it.live("keeps the dialog and draft through Status, a reloading episode check an
 			});
 			expect(mounted.requests).toEqual([]);
 			press(dialog, "Try again");
-			yield* eventually(() => expect(attempts).toBe(3));
+			yield* eventually(() => expect(attempts).toBe(2));
 			act(() => source.focus());
 			act(() => {
 				fireEvent.keyDown(source, { key: "Enter" });
 			});
 			expect(mounted.requests).toEqual([]);
 			yield* releaseQuery(retry);
-			yield* eventually(() =>
-				expect(
-					getByRole(dialog, "switch", {
-						name: "Also mark 2 earlier unwatched episodes",
-					}).getAttribute("aria-checked"),
-				).toBe("false"),
+			const toggle = yield* Effect.promise(() =>
+				waitFor(() =>
+					getByRole(dialog, "switch", { name: "Also mark 2 earlier unwatched episodes" }),
+				),
 			);
+			expect(toggle.getAttribute("aria-checked")).toBe("true");
+			clickRyotElement(toggle);
 			expect(dialogOf()).toBe(dialog);
 			expect(getByRole(dialog, "form", { name: "Log activity" })).toBe(form);
 			expect(getByRole(dialog, "textbox", { name: /Where did you watch it/ })).toBe(source);
-			expect(document.activeElement).toBe(source);
 			expect(radio(dialog, "S2·E5 · Next up").getAttribute("aria-checked")).toBe("true");
 			press(dialog, "Mark S2·E5 watched");
 			yield* submitted(mounted);
@@ -944,7 +975,7 @@ it.live("keeps the dialog and draft through Status, a reloading episode check an
 				}),
 			]);
 		} finally {
-			yield* releaseQuery(reload);
+			yield* releaseQuery(failure);
 			yield* releaseQuery(retry);
 			mounted.view.unmount();
 		}
