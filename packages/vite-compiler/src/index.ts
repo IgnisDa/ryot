@@ -3,12 +3,7 @@ export {
 	getCompilerWorkspaceRoot,
 	validateRelativePath,
 } from "./workspace";
-export type {
-	CompilerWorkspace,
-	CompilerWorkspaceInput,
-	CompilerWorkspaceOptions,
-	WorkspaceFile,
-} from "./workspace";
+export type { CompilerWorkspace, CompilerWorkspaceOptions, WorkspaceFile } from "./workspace";
 
 export { sanitizeEnvironment } from "./environment";
 export type { SanitizeEnvironmentOptions } from "./environment";

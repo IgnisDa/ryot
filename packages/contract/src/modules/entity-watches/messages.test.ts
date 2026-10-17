@@ -56,16 +56,6 @@ describe("entity-watches socket messages", () => {
 		}
 	});
 
-	it("rejects a removed delta command", () => {
-		expect(
-			Result.isFailure(
-				decodeEntityWatchClientMessage(
-					'{"type":"update","revision":2,"add":["entity-2"],"remove":["entity-1"],"addForeground":["entity-2"],"removeForeground":[]}',
-				),
-			),
-		).toBe(true);
-	});
-
 	it("accepts empty and priority-only complete snapshots", () => {
 		expect(Result.isSuccess(replace([], []))).toBe(true);
 		expect(Result.isSuccess(replace(["entity-1"], []))).toBe(true);

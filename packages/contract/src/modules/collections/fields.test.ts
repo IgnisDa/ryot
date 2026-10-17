@@ -55,7 +55,7 @@ const everyFieldType: ReadonlyArray<KeyedCollectionField> = [
 ];
 
 describe("collection field model", () => {
-	it("reloads all eight declarations in order without losing equal descriptions or historical keys", () => {
+	it("reloads all eight declarations in order without losing equal descriptions or keys", () => {
 		const fields = everyFieldType.toReversed();
 		expect(decodeCollectionFields(JSON.parse(JSON.stringify(fields)))).toEqual(
 			Result.succeed(fields),

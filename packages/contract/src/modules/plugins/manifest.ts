@@ -1125,10 +1125,7 @@ const hasValidAuthoredPluginManifestReferences = (
 	) {
 		return false;
 	}
-	if (manifest.importSources.some(({ workflowSlug }) => !workflowSlugs.has(workflowSlug))) {
-		return false;
-	}
-	return true;
+	return manifest.importSources.every(({ workflowSlug }) => workflowSlugs.has(workflowSlug));
 };
 
 export const AuthoredPluginManifest = AuthoredPluginManifestFields.pipe(

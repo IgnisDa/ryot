@@ -128,7 +128,7 @@ and `translate`, each as a separate provider script. Generated `providerSlug`/`p
 script tuples are the sole operation bindings. Each tuple must be unique and reference a declared
 provider. Dynamic choices in a search schema require that provider's `search-options` script.
 Authored and archive `providers` contain only descriptive metadata, including `rootEntitySchemaSlug`,
-which references an entity schema from the same plugin; they contain no operation map.
+which references an entity schema from the same plugin.
 User-effective provider and schema resolution includes ready private installations only for their
 owner; APIs without user context resolve system definitions only. Persisted provenance uses stable
 plugin ID, not installation ID.

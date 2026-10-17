@@ -20,7 +20,7 @@ export interface WorkspaceFile {
 	readonly contents: string | Uint8Array;
 }
 
-export interface CompilerWorkspaceInput extends CompilerWorkspaceOptions {
+interface CompilerWorkspaceInput extends CompilerWorkspaceOptions {
 	readonly sources?: readonly WorkspaceFile[];
 	readonly generated?:
 		readonly WorkspaceFile[] | ((paths: CompilerWorkspace) => readonly WorkspaceFile[]);
@@ -97,7 +97,7 @@ const createWorkspaceRoot = Effect.fn("createWorkspaceRoot")(function* (
 				Effect.mapError((cause) => filesystemError("create workspace parent", parentPath, cause)),
 			);
 		yield* fs
-			.makeDirectory(rootPath, { mode: 0o700 })
+			.makeDirectory(rootPath)
 			.pipe(
 				Effect.mapError((cause) =>
 					cause.reason._tag === "AlreadyExists"
@@ -122,15 +122,13 @@ const createWorkspaceRoot = Effect.fn("createWorkspaceRoot")(function* (
 	return rootPath;
 });
 
-type ValidatedWorkspaceFile = { readonly path: string; readonly contents: string | Uint8Array };
-
 const validateInputs = (
 	inputs: readonly WorkspaceFile[],
-): Result.Result<ValidatedWorkspaceFile[], ViteCompilerError> => {
+): Result.Result<WorkspaceFile[], ViteCompilerError> => {
 	if (!Array.isArray(inputs)) {
 		return Result.fail(viteCompilerError("invalid-input", "Workspace inputs must be an array"));
 	}
-	const files: ValidatedWorkspaceFile[] = [];
+	const files: WorkspaceFile[] = [];
 	for (const input of inputs) {
 		if (typeof input !== "object" || input === null || !("path" in input)) {
 			return Result.fail(viteCompilerError("invalid-input", "Workspace input must be a file"));
@@ -176,7 +174,7 @@ const validateInputs = (
 
 const stageFiles = Effect.fn("stageWorkspaceFiles")(function* (
 	namespacePath: string,
-	files: readonly ValidatedWorkspaceFile[],
+	files: readonly WorkspaceFile[],
 ) {
 	const fs = yield* FileSystem.FileSystem;
 	const path = yield* Path.Path;
@@ -225,14 +223,8 @@ export const acquireCompilerWorkspace = Effect.fn("acquireCompilerWorkspace")(fu
 			outputPath: path.join(rootPath, "output"),
 			generatedPath: path.join(rootPath, "generated"),
 		};
-		const generatedInputs = yield* Effect.try({
-			catch: (cause) =>
-				viteCompilerError("invalid-input", "Could not prepare generated workspace files", cause),
-			try: () =>
-				typeof input.generated === "function"
-					? input.generated(workspace)
-					: (input.generated ?? []),
-		});
+		const generatedInputs =
+			typeof input.generated === "function" ? input.generated(workspace) : (input.generated ?? []);
 		const generated = yield* Effect.fromResult(validateInputs(generatedInputs));
 		for (const directory of [workspace.sourcePath, workspace.generatedPath, workspace.outputPath]) {
 			yield* fs

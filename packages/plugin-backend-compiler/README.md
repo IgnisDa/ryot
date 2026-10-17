@@ -28,7 +28,7 @@ entries with bounded concurrency. A semantic or policy failure never reaches the
 
 Standalone and package adapters use the same validated-entry stage for manifest identity, execution
 metadata, workflow imports and determinism, declaration matching, and capabilities. Standalone entries
-still reject relative imports; package workflows validate their reachable local source graph.
+reject relative imports; package workflows validate their reachable local source graph.
 
 ## Execution Metadata
 

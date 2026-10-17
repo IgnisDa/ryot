@@ -415,7 +415,7 @@ const collectionHeaderFields = (
 	readonly fields: ReadonlyArray<KeyedCollectionField> | null;
 	readonly membershipPropertiesSchema: AppSchemaValue | null;
 } => {
-	const fields = decodeCollectionFields(rawFields === undefined ? [] : rawFields);
+	const fields = decodeCollectionFields(rawFields);
 	if (Result.isFailure(fields)) {
 		return { fields: null, membershipPropertiesSchema: null };
 	}
