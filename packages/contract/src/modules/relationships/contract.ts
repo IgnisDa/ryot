@@ -12,7 +12,7 @@ import {
 export const RelationshipsGroup = HttpApiGroup.make("relationships")
 	.annotate(OpenApi.Description, "Manage relationships between entities.")
 	.add(
-		AuthenticatedMutationEndpoint.post("allowed")("create", "/relationships", {
+		AuthenticatedMutationEndpoint.post("protected")("create", "/relationships", {
 			payload: CreateRelationshipBody,
 			success: RelationshipMutationResult.pipe(HttpApiSchema.status(201)),
 			error: [
