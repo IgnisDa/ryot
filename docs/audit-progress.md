@@ -15,7 +15,7 @@
 
 ## Status
 
-**34 implemented, 0 in progress, 49 pending; 3 excluded.**
+**35 implemented, 0 in progress, 48 pending; 3 excluded.**
 
 “Implemented” means affected checks and tests passed and the change is committed with this tracker. Batch-wide acceptance is recorded separately below. Rows follow the audit's ranked order; sequencing can change to respect dependencies and keep changes reviewable.
 
@@ -71,7 +71,7 @@
 | P12-R1 | Pending | Pass typed local renderer query values. |
 | P05-R1 | Pending | Render flat tables without the unused table engine. |
 | P05-R2 | Pending | Derive reorder preview from one destination. |
-| B30-R1 | Pending | Fill one bounded S3 response buffer. |
+| B30-R1 | Implemented | Fill one buffer sized to declared S3 content length; overflow stops consumption, while underflow and stream errors release resources. See this finding's audit commit. |
 | S03-R2 | Pending | Borrow result/console data during done serialization. |
 | S02-R2 | Pending | The writer owns physical chunk creation. |
 | S02-R1 | Pending | One reservation/buffer per inbound assembly. |
@@ -199,3 +199,4 @@
 - C08-R1: client type, format, and lint checks passed before 55 tests; read-only review reported no findings.
 - B15-R1: scoped type, format, and lint checks passed before 98 tests across 12 files; read-only review reported no findings. The full check was blocked by concurrent B05 work, now fixed. Existing development histories are disposable; no production data or drain machinery is needed. No compatibility path was added and no reset was performed.
 - B05-R1: backend type and scoped format/lint checks passed before 99 tests across five files; read-only review reported no findings. Redis shape changed without a dual decoder or compatibility path. No production data or drain machinery is involved; no reset was performed.
+- B30-R1: scoped type, format, and lint checks passed before five S3 tests; read-only review reported no findings. The full backend check had temporary concurrent errors; final acceptance remains pending. Configuration changes from B30-R2 were not included.
