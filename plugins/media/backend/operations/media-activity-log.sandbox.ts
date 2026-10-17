@@ -229,9 +229,7 @@ const buildEvents = (
 		}
 		return {
 			schemaSlug,
-			events: [...entry.episodeEntityIds]
-				.sort()
-				.map((id) => completeEvent(id, entry.when, submittedAt, entry)),
+			events: entry.episodeEntityIds.map((id) => completeEvent(id, entry.when, submittedAt, entry)),
 		};
 	});
 

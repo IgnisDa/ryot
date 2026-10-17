@@ -373,7 +373,7 @@ describe("media activity log", () => {
 		}),
 	);
 
-	it.live("writes one complete event per episode in a deterministic order", () =>
+	it.live("writes one complete event per episode in submission order", () =>
 		Effect.gen(function* () {
 			const { host, creates } = recordingHost({ schemaSlug: "show" });
 			yield* run(
@@ -389,7 +389,7 @@ describe("media activity log", () => {
 				host,
 			);
 			expect(creates).toEqual([
-				["episode-1", "episode-2", "episode-3"].map((entityId) => ({
+				["episode-3", "episode-1", "episode-2"].map((entityId) => ({
 					entityId,
 					occurredAt: submittedAt,
 					eventSchemaSlug: "complete",
@@ -401,12 +401,12 @@ describe("media activity log", () => {
 
 	it.live("splits many episodes into chunks with derived keys and reproduces them on retry", () =>
 		Effect.gen(function* () {
-			const ids = episodeIds(250);
+			const ids = Array.from({ length: 250 }, (_, index) => episodeId(249 - index));
 			const entry: MediaActivityEntry = {
 				kind: "episodes",
 				when: { kind: "now" },
+				episodeEntityIds: ids,
 				parentEntityId: "podcast-1",
-				episodeEntityIds: Array.from({ length: 250 }, (_, index) => episodeId(249 - index)),
 			};
 			const first = recordingHost({ schemaSlug: "podcast" });
 			expect(yield* run({ entry }, first.host)).toEqual({ count: 250, status: "saved" });

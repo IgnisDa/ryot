@@ -47,6 +47,7 @@ import { readEventCreateChunkScopes } from "./event-creation";
 import { EventsRepository } from "./repository";
 
 export const PreparedEventChange = Schema.Struct({
+	position: Schema.Int,
 	change: EventMutationChange,
 	draft: AutomationEventDraft,
 	propertiesSchema: AppSchema,
@@ -156,6 +157,7 @@ export class EventMutations extends Context.Service<EventMutations>()("EventMuta
 			changes: ReadonlyArray<EventMutationChange>;
 			proposedEntities?: Readonly<Record<string, AutomationEntityDraft>>;
 			independent?: boolean;
+			positionOffset?: number;
 		}) {
 			const writer = input.command.writeContext?.pluginRevision;
 			if (writer) {
@@ -215,7 +217,7 @@ export class EventMutations extends Context.Service<EventMutations>()("EventMuta
 				Effect.provideService(EntitiesRepository, entities),
 				Effect.provideService(DomainWriteChecks, writes),
 			);
-			const prepared = yield* Effect.forEach(changes, (item) =>
+			const prepared = yield* Effect.forEach(changes, (item, index) =>
 				Effect.gen(function* () {
 					const command = commandFor(input.command, item.change.itemIdentity);
 					const scope = yield* scopes.resolve(
@@ -244,6 +246,7 @@ export class EventMutations extends Context.Service<EventMutations>()("EventMuta
 						draft,
 						change: item.change,
 						source: item.source,
+						position: (input.positionOffset ?? 0) + index,
 						propertiesSchema: scope.eventSchemaScope.propertiesSchema,
 						schemaFingerprint: catalogDefinitionFingerprint(scope.eventSchemaScope),
 						receipt: mutationReceiptIdentity({
@@ -466,7 +469,7 @@ export class EventMutations extends Context.Service<EventMutations>()("EventMuta
 						sessionEntityId: draft.sessionEntityId ?? undefined,
 						occurredAt: DateTime.toDate(DateTime.makeUnsafe(draft.occurredAt)),
 						id: EventId.make(
-							`event_${sha256Base64Url(stableStringify([command.causation.executionId, command.itemIdentity]))}`,
+							`event_${row.position.toString(36).padStart(4, "0")}_${sha256Base64Url(stableStringify([command.causation.executionId, command.itemIdentity]))}`,
 						),
 					});
 					eventId = event.id;

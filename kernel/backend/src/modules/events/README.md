@@ -16,6 +16,19 @@ The processor runs with the user-scoped `event-projection` subject and that acco
 subject has read-only authority. The `event_projection` RyotQL table is also a read-only subject,
 visible through its parent event's ownership.
 
+## Event IDs and ordering
+
+A created event's ID is `event_<position>_<hash>`. The hash is derived from the command's execution ID
+and item identity, so replays reproduce the same ID. `position` is the item's zero-padded base-36
+index within its command, width 4, counted across workflow chunks. Backup restore keeps the IDs it is
+given.
+
+Within one command, ascending `(occurredAt, createdAt, id)` equals submission order and descending
+order is its exact reverse; ties on `occurredAt` and `createdAt` are broken by `position`. Separate
+commands, including the chunked calls a plugin makes for one logical batch, carry no shared position.
+Their order relies on `createdAt` being set per insert from the server clock, so a later call never
+sorts before an earlier one.
+
 ## Stream work and freshness
 
 A stream is keyed by user, entity, event-schema owner, and event-schema slug. Source event writes

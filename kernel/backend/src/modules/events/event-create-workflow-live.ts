@@ -126,6 +126,7 @@ export const runEventCreateWorkflow = Effect.fn("EventCreateWorkflow")(function*
 							.prepare({
 								changes,
 								independent: true,
+								positionOffset: first,
 								command: writeCommand,
 								userId: payload.userId,
 							})

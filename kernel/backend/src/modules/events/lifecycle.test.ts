@@ -21,6 +21,7 @@ import {
 import { assertExitFails } from "@ryot-app/testing/effect-assertions";
 import { and, eq, sql } from "drizzle-orm";
 import { Context, DateTime, Effect, Layer, Redacted, Ref, Schema, Scope } from "effect";
+import { TestClock } from "effect/testing";
 import { Workflow } from "effect/workflow";
 import { WorkflowEngine, WorkflowInstance } from "effect/workflow/WorkflowEngine";
 import { Client } from "pg";
@@ -508,6 +509,29 @@ const lifecycleDatabaseLayer = (
 			);
 		}),
 	).pipe(Layer.provide(isolatedDatabaseLayer("event_test")));
+
+const createRatings = (id: string, count: number) =>
+	runCreate(
+		{
+			userId,
+			command: command(id),
+			payload: Array.from({ length: count }, (_, rating) => ({
+				entityId,
+				eventSchemaSlug,
+				properties: { rating },
+			})),
+		},
+		id,
+	).pipe(
+		Effect.provideService(
+			LifecycleExecution,
+			withLifecycleDispatch({
+				after: () => Effect.succeed([]),
+				skipQueuedPolicies: () => Effect.void,
+				executePolicy: () => Effect.die("Unexpected policy"),
+			}),
+		),
+	);
 
 describe("Event lifecycle PostgreSQL", () => {
 	layer(Layer.merge(lifecycleDatabaseLayer(), workflowLayer))((test) => {
@@ -2432,6 +2456,56 @@ describe("Event lifecycle PostgreSQL", () => {
 					(yield* repository.getEventSnapshot({ userId, eventId }))?.snapshot.properties,
 				).toEqual({ rating: 1 });
 			}),
+		);
+	});
+
+	layer(Layer.merge(lifecycleDatabaseLayer(true), workflowLayer))((test) => {
+		test.effect("orders a command's events by submission across workflow chunks", () =>
+			Effect.gen(function* () {
+				const { observer } = yield* LifecycleDatabase;
+				const created = yield* createRatings("ordered-events", 120);
+				expect(created.count).toBe(120);
+				const { rows } = yield* Effect.promise(() =>
+					observer.query<{ id: string; rating: number }>(
+						`SELECT id, (properties->>'rating')::int AS rating FROM event ORDER BY occurred_at DESC, created_at DESC, id DESC`,
+					),
+				);
+				expect(rows.map(({ rating }) => rating)).toEqual(
+					Array.from({ length: 120 }, (_, index) => 119 - index),
+				);
+				expect(rows[0]?.id).toMatch(/^event_003b_/);
+				expect(rows[119]?.id).toMatch(/^event_0000_/);
+				const replayed = yield* createRatings("ordered-events", 120);
+				expect(replayed.count).toBe(120);
+				const after = yield* Effect.promise(() =>
+					observer.query<{ id: string }>(
+						`SELECT id FROM event ORDER BY occurred_at DESC, created_at DESC, id DESC`,
+					),
+				);
+				expect(after.rows.map(({ id }) => id)).toEqual(rows.map(({ id }) => id));
+			}),
+		);
+	});
+
+	layer(Layer.merge(lifecycleDatabaseLayer(true), workflowLayer))((test) => {
+		test.effect(
+			"sorts a later command after an earlier one and leaves single events unchanged",
+			() =>
+				Effect.gen(function* () {
+					const { observer } = yield* LifecycleDatabase;
+					yield* createRatings("ordered-first", 3);
+					yield* TestClock.adjust("1 millis");
+					yield* createRatings("ordered-second", 3);
+					yield* TestClock.adjust("1 millis");
+					yield* createRatings("ordered-single", 1);
+					const { rows } = yield* Effect.promise(() =>
+						observer.query<{ id: string; rating: number }>(
+							`SELECT id, (properties->>'rating')::int AS rating FROM event ORDER BY occurred_at DESC, created_at DESC, id DESC`,
+						),
+					);
+					expect(rows.map(({ rating }) => rating)).toEqual([0, 2, 1, 0, 2, 1, 0]);
+					expect(rows[0]?.id).toMatch(/^event_0000_/);
+				}),
 		);
 	});
 });

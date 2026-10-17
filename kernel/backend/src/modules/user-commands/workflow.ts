@@ -290,6 +290,7 @@ export const UserCommandWorkflowDefinitionsLive = Layer.mergeAll(
 							events.prepare({
 								command,
 								userId: payload.userId,
+								positionOffset: offset,
 								changes: changes.slice(offset, offset + 50),
 								proposedEntities: { [entity.entityId]: rawEntity.mutation.draft },
 							}),
