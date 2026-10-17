@@ -14,7 +14,6 @@ import type {
 } from "@ryot-app/contract/modules/relationships/schemas";
 import type { AccountGeneration } from "@ryot-app/contract/schema/account-generation";
 import {
-	type PluginId,
 	AutomationExecutionId,
 	EntityId,
 	EntitySchemaSlug,
@@ -127,13 +126,13 @@ export class EntityEditorService extends Context.Service<EntityEditorService>()(
 
 			const authorize = Effect.fn("EntityEditorService.authorize")(function* (
 				userId: UserId,
-				pluginId: PluginId,
 				submission: EntityEditorSubmission,
 			) {
 				const reference = submission.entitySchema;
-				if (reference.owner.kind !== "plugin" || reference.owner.pluginId !== pluginId) {
+				if (reference.owner.kind !== "plugin") {
 					return notEditable;
 				}
+				const { pluginId } = reference.owner;
 				if (!(yield* runtime.findPluginAvailableToUser(userId, pluginId))) {
 					return notEditable;
 				}
@@ -170,11 +169,15 @@ export class EntityEditorService extends Context.Service<EntityEditorService>()(
 
 			const save = Effect.fn("EntityEditorService.save")(function* (input: {
 				userId: UserId;
-				owner: PluginId;
 				lifecycle: DomainLifecycleCommand;
 				submission: EntityEditorSubmission;
 			}) {
 				const { userId, submission, lifecycle: command } = input;
+				const schemaOwner = submission.entitySchema.owner;
+				if (schemaOwner.kind !== "plugin") {
+					return { warnings: noWarnings, output: invalid(notEditable) };
+				}
+				const { pluginId } = schemaOwner;
 				const entitySchemaSlug = EntitySchemaSlug.make(submission.entitySchema.slug);
 				const slugs = submission.relationships.map(
 					({ relationshipSchemaSlug }) => relationshipSchemaSlug,
@@ -208,8 +211,8 @@ export class EntityEditorService extends Context.Service<EntityEditorService>()(
 					command,
 					ownerUserId: userId,
 					scopeUserId: userId,
+					input: { userId, submission },
 					commandKind: "entity-editor:save",
-					input: { userId, submission, owner: input.owner },
 				});
 				const replay = yield* receiptLookup(identity, SaveResult, false);
 				if (replay) {
@@ -222,11 +225,11 @@ export class EntityEditorService extends Context.Service<EntityEditorService>()(
 					};
 				}
 
-				const refusal = yield* authorize(userId, input.owner, submission);
+				const refusal = yield* authorize(userId, submission);
 				if (refusal !== null) {
 					return { warnings: noWarnings, output: invalid(refusal) };
 				}
-				const owner = definitionOwner(input.owner);
+				const owner = definitionOwner(pluginId);
 				const relationshipSlugs = slugs.map((slug) => RelationshipSchemaSlug.make(slug));
 
 				const entityCommand = itemCommand(command, "entity");
@@ -251,7 +254,7 @@ export class EntityEditorService extends Context.Service<EntityEditorService>()(
 						: relationshipsRepository.listUserOutgoingRelationships({
 								lock,
 								userId,
-								pluginId: input.owner,
+								pluginId,
 								sourceEntityId: prepared.entityId,
 								relationshipSchemaSlugs: relationshipSlugs,
 							});
@@ -351,7 +354,7 @@ export class EntityEditorService extends Context.Service<EntityEditorService>()(
 								entityId: prior.result.entityId,
 							};
 						}
-						const committedRefusal = yield* authorize(userId, input.owner, submission);
+						const committedRefusal = yield* authorize(userId, submission);
 						if (committedRefusal !== null) {
 							return { kind: "refused" as const, message: committedRefusal };
 						}
@@ -400,7 +403,7 @@ export class EntityEditorService extends Context.Service<EntityEditorService>()(
 				};
 			});
 
-			const savePublic = (input: Parameters<typeof save>[0]) =>
+			const handledSave = (input: Parameters<typeof save>[0]) =>
 				save(input).pipe(
 					Effect.catchTags({
 						EntityStale: () => Effect.succeed({ output: stale, warnings: noWarnings }),
@@ -445,17 +448,12 @@ export class EntityEditorService extends Context.Service<EntityEditorService>()(
 			}) {
 				const { userId, request, accountGeneration } = input;
 				const { submission } = request;
-				const owner = submission.entitySchema.owner;
-				if (owner.kind !== "plugin") {
-					return { warnings: noWarnings, output: invalid(notEditable) };
-				}
 				const executionId = AutomationExecutionId.make(
 					`entity-editor-${sha256Base64Url(stableStringify([accountGeneration, "entity-editor:save", submission.entitySchema, request.idempotencyKey]))}`,
 				);
-				return yield* savePublic({
+				return yield* handledSave({
 					userId,
 					submission,
-					owner: owner.pluginId,
 					lifecycle: {
 						...rootLifecycleCommand({
 							executionId,
@@ -471,7 +469,7 @@ export class EntityEditorService extends Context.Service<EntityEditorService>()(
 				});
 			});
 
-			return { submit, save: savePublic };
+			return { submit };
 		}),
 	},
 ) {
