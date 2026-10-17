@@ -49,7 +49,7 @@ export function ReturnShortcutBar(props: {
 		<aside
 			aria-label="Return shortcuts"
 			style={{ paddingBottom: Math.max(8, props.safeAreaBottom) }}
-			className="flex shrink-0 flex-wrap justify-center gap-2 border-t border-border bg-surface px-4 py-2"
+			className="flex shrink-0 flex-wrap justify-center gap-2 border-t border-border bg-bg px-4 py-2"
 		>
 			{scoped.map((shortcut) => (
 				<Button
