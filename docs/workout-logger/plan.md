@@ -25,16 +25,16 @@ This is a greenfield project. Refactor existing modules and change persisted sch
 | Drafts              | One active draft per server/user/device. Starting another action offers Resume or Discard. Navigation does not discard or pause it.                                                                                                              |
 | Storage units       | kg, km, seconds, and kcal. Display choices never relabel or modify the physical quantity.                                                                                                                                                        |
 | Duration            | Active duration includes ordinary rest and excludes explicit workout pauses. Countdown and stopwatch pause independently. Confirming a set resumes a paused workout.                                                                             |
-| Confirmation        | Only confirmed sets become workout history. Unconfirming cancels that set's active countdown safely.                                                                                                                                             |
+| Confirmation        | Only confirmed sets become workout history. Existing saved sets remain included even when they have no `confirmedAt`. Unconfirming cancels that set's active countdown safely.                                                                     |
 | Rest                | Automatic start or an inline manual start control. Explicit Skip rest and zero rest both perform normal progression. Save configured rest, not measured elapsed rest. Record automatic and manual rest-start times.                              |
-| Execution countdown | Honor the countdown preference; offer manual confirmation too. Validate required fields before automatic execution. Skip does not claim completion.                                                                                              |
+| Execution countdown | Honor the countdown preference; offer manual confirmation too. Validate required fields before automatic execution. Zero measurements are valid for manual confirmation; only positive durations start countdowns. Skip does not claim completion. |
 | Late completion     | Reconcile an expired execution countdown once, using its original deadline. Do not start a fresh overdue rest countdown. Deleted, replaced, or unconfirmed targets cannot receive a stale completion.                                            |
 | Supersets           | Preserve the cycling/navigation UX, membership, colors, collapse, and scrolling. Keep per-set rest; do not invent a separate end-of-round rest model. Use consistent cyclic targeting rather than the old first-other-incomplete implementation. |
 | Replacement         | Restrict candidates to the occurrence's kind. Replace only that occurrence's exercise identity; preserve its sets and completion state. Do not introduce the previously suggested confirmed-set block.                                           |
 | History             | Keep automatic prefill, Previous-value copy, and append-all-sets as distinct operations. Previous values span repeated occurrences and older sessions when necessary.                                                                            |
 | Preferences         | Follow precedence in `plugins/fitness/README.md`. Zero disables rest. Existing explicit values survive preference changes and set-type changes.                                                                                                  |
 | Historical edits    | Preserve original workout times, active duration, and existing set times. No live execution timers. New historical sets without a supplied time use workout start, not today's time.                                                             |
-| Repeats             | Copy reusable exercise/set data and structure. Clear session energy, reflections, completion times, active duration, and personal attachments.                                                                                                   |
+| Repeats             | Copy reusable exercise/set data and structure. Retain exercise and set notes. Clear session energy, workout reflections, RPE, completion times, active duration, and personal attachments.                                                   |
 | Templates           | No live execution or confirmations. Retain exercise-only entries. Omit completely empty set rows; allow partially specified planned measurements. Keep optional planned rest.                                                                    |
 | Save                | Write the workout before its sets through existing services. Retries reuse stable IDs and do not duplicate; clear the draft only after success. Retain set identities and reject conflicting edits.                                              |
 | Media               | Restore existing media when editing. Removal is a draft change until Save. Cancel cannot delete saved references. Support image preview and actual video playback.                                                                               |
@@ -51,9 +51,9 @@ The pre-work commits supply `activeDuration`, template-set `restTime`, nine inst
 
 Relevant owners:
 
-- `plugins/fitness/host/schemas/property.ts`: workout, template, set, measurement properties.
-- `plugins/fitness/host/schemas/user-settings.ts`: global Fitness preferences.
-- `plugins/fitness/host/schemas/relationship.ts`: exercise overrides and workout links.
+- `plugins/fitness/manifest/schemas/property.ts`: workout, template, set, and measurement properties.
+- `plugins/fitness/manifest/schemas/user-settings.ts`: global Fitness preferences.
+- `plugins/fitness/manifest/schemas/relationship.ts`: exercise overrides and workout links.
 - `plugins/fitness/shared/workout-records.ts`: canonical rounding, derived statistics, personal bests.
 - `plugins/fitness/backend/automations/`: context policies and existing record processing.
 - `apps/server/src/migrations/`: legacy copying only; not the runtime write path.
@@ -84,7 +84,7 @@ Across the three archives there are 2,484 workouts and 151 templates. Maxima are
 
 **Recommendation:** raise the existing plugin-storage value allowance from 8 KiB to 64 KiB. Keep one JSON draft value and the existing storage API. Re-measure with the actual codec before final acceptance, including a save input, Unicode notes, and many media locators. Count UTF-8 bytes, not JavaScript string length.
 
-Storage and invocation limits are separate. Sandbox invocation context is currently bounded at 64 KiB including its envelope. Validate the compact save input plus actual invocation overhead; reject oversize submissions explicitly. Do not increase unrelated sandbox limits or split a logical save into partial writes to evade a limit.
+Storage and invocation limits are separate. The sandbox checks each operation's UTF-8 JSON input against a 64 KiB limit; this check does not count the surrounding invocation envelope. Validate the compact save input against the real limit; reject oversize submissions explicitly. Do not increase unrelated sandbox limits or split a logical save into partial writes to evade a limit.
 
 ### Runtime gaps that must be implemented
 
@@ -198,7 +198,7 @@ Reuse existing lifecycle helpers, mutation receipts, and event-stream workers. A
 This is the first independently usable deliverable. Do not make it wait for the workout editor, native alerts, or a cross-resource transaction coordinator.
 **Status:** complete. All Measurements supports metric creation, pagination, reading log/edit/delete, and retry-safe new reading submissions.
 
-**Files:** `plugins/fitness/client/measurements/{screen,queries}.tsx/ts`, a reusable composer under `client/measurements/`, focused measurement operations/contracts under `shared/` and `backend/operations/`, and `host/plugin.ts`.
+**Files:** `plugins/fitness/client/measurements/{screen,queries}.tsx/ts`, a reusable composer under `client/measurements/`, focused measurement operations/contracts under `shared/` and `backend/operations/`, and `manifest/plugin.ts`.
 
 - [x] Replace the existing Log measurement TODO in the All Measurements saved-view page with the working composer.
 - [x] Use the current persisted model: metric entities supply names, keys, and optional units; reading events supply values, comments, and `occurredAt`. Do not add a grouped-entry name input or change the legacy migration.
@@ -220,13 +220,15 @@ The subsequent phases reuse this slice's contracts, helpers, submission handling
 
 ### Phase 1 — Shared contracts, importer extraction, and capacity tests
 
+**Status:** complete. Synthetic workout and template drafts fit the proposed 64 KiB allowance; compact save inputs fit the sandbox input limit. Fitness package and compiler tests pass. The plugin-storage allowance remains unchanged until Phase 4.
+
 **Files:** `plugins/fitness/shared/`, `plugins/fitness/backend/imports/{workout-domain,workout,hevy,strong-app,measurement}.ts`.
 
-- [ ] Define the canonical editor draft and compact save input/output schemas. Derive types from these schemas and existing measurements; no handwritten mirrors of entity/event wire shapes.
-- [ ] Extract the reusable domain functions listed above and update importer callers directly, without compatibility re-exports.
-- [ ] Implement clone, same-kind replacement, explicit/inherited rest, occurrence indexing, input validation, and set inclusion as pure tested transformations.
-- [ ] Add sanitized synthetic capacity fixtures: observed largest workout/template shapes, repeated exercise occurrences, at least 101 sets, Unicode notes, mixed displays, and media locators.
-- [ ] Check the encoded draft fits the proposed 64 KiB allowance and the save input fits the actual sandbox envelope. Failure never truncates data. Confirm public surface changes with package/compiler checks.
+- [x] Define the canonical editor draft and compact save input/output schemas. Derive types from these schemas and existing measurements; no handwritten mirrors of entity/event wire shapes.
+- [x] Extract the reusable domain functions listed above and update importer callers directly, without compatibility re-exports.
+- [x] Implement clone, same-kind replacement, explicit/inherited rest, occurrence indexing, input validation, and set inclusion as pure tested transformations.
+- [x] Add sanitized synthetic capacity fixtures: observed largest workout/template shapes, repeated exercise occurrences, at least 101 sets, Unicode notes, mixed displays, and media locators.
+- [x] Check the encoded draft fits the proposed 64 KiB allowance and the save input fits the actual sandbox input limit. Failure never truncates data. Confirm public surface changes with package/compiler checks.
 
 **Exit:** existing Hevy/Strong importer behavior remains green; domain tests express the settled rules and measured size envelope.
 
@@ -245,7 +247,7 @@ The subsequent phases reuse this slice's contracts, helpers, submission handling
 
 ### Phase 3 — Fitness operations and complete editor reads
 
-**Files:** new focused `plugins/fitness/shared/*-operations.ts` and `*-recipes.ts`; `backend/operations/*.sandbox.ts`; `backend/contracts/operation-recipes.ts`; `host/plugin.ts`.
+**Files:** new focused `plugins/fitness/shared/*-operations.ts` and `*-recipes.ts`; `backend/operations/*.sandbox.ts`; `backend/contracts/operation-recipes.ts`; `manifest/plugin.ts`.
 
 - [ ] Add create/update workout and create/update template operations using Phase 2. Add an explicit time-correction operation; preserve active duration unless deliberately corrected/cleared.
 - [ ] Add the editor-context operation for defaulted own settings and trusted Pro availability. Global settings editing remains kernel-owned; per-exercise override edits use the user's membership relationship and support removing a field to restore inheritance.
@@ -261,7 +263,7 @@ The subsequent phases reuse this slice's contracts, helpers, submission handling
 
 ### Phase 4 — Device primitives and draft recovery
 
-**Owners:** `packages/client-plugin-contract`, `packages/client-sdk`, `kernel/client/src/modules/{plugins,navigation,assets}`, `kernel/client/src/persistence`, native platform configuration.
+**Owners:** `packages/plugin-client-contract`, `packages/plugin-client-sdk`, `kernel/client/src/modules/{plugins,navigation,assets}`, `kernel/client/src/persistence`, native platform configuration.
 
 - [ ] Raise only the plugin-storage value allowance to the validated 64 KiB size; keep the current API and scope keys.
 - [ ] Implement ordered draft persistence and recovery in Fitness. Keep schema/decode/quota failures visible. Flush critical transitions; do not silently recover an unreadable value as an empty workout.
@@ -302,7 +304,7 @@ The subsequent phases reuse this slice's contracts, helpers, submission handling
 
 ### Phase 7 — Entry points and saved detail integration
 
-**Files:** `plugins/fitness/host/{plugin,saved-views}.ts`, `plugins/fitness/client/workout/{screen,overview,details-model}.tsx/ts`, template detail entry, `packages/kernel-renderers`, generic saved-view Add contract.
+**Files:** `plugins/fitness/manifest/{plugin,saved-views}.ts`, `plugins/fitness/client/workout/{screen,overview,details-model}.tsx/ts`, template detail entry, `packages/kernel-renderers`, generic saved-view Add contract.
 
 - [ ] Register explicit editor routes/exports and a template detail page. Wire new workout/template entry points and replace existing Repeat/Edit/Adjust time placeholders.
 - [ ] Add Create template from workout and Start workout/Edit template actions. A local draft guard applies to every entry, including cold notification entry.
@@ -335,20 +337,23 @@ The product and ownership decisions in this plan are settled:
 - The library picker, selection behavior, same-kind replacement, and provider-result consumption belong to Fitness. The kernel exposes the generic provider-add flow and correlated added-entity references.
 - The legacy walkthrough is deferred.
 - Greenfield refactors and persisted-schema changes are permitted when needed for long-term ownership and viability; obsolete paths and compatibility layers are not.
+- Template sets are meaningful when they contain any measurement, nonblank note or RPE, or explicit rest (including zero); set type alone is not enough.
+- Repeats retain exercise and set notes, but clear RPE.
+- Zero is valid for manual set confirmation. Execution countdowns require a positive duration.
 
 Implementation may refine module names, bounded payloads, and generic capability signatures. Those details must not silently change the settled UX, make the kernel Fitness-aware, or expand into unrequested frameworks.
 
 ## Research references
 
 - Legacy route and components: `crates/frontend/app/routes/_dashboard.fitness.$action.tsx`, `crates/frontend/app/components/routes/fitness.action/`, `crates/frontend/app/lib/state/fitness.ts`, `crates/frontend/app/entry.worker.ts`.
-- Fitness model and rules: `plugins/fitness/README.md`, `plugins/fitness/host/schemas/`, `plugins/fitness/shared/workout-records.ts`.
+- Fitness model and rules: `plugins/fitness/README.md`, `plugins/fitness/manifest/schemas/`, `plugins/fitness/shared/workout-records.ts`.
 - Reusable importer logic: `plugins/fitness/backend/imports/{workout-domain,workout,hevy,strong-app,measurement}.ts`.
 - Partial event creation: `kernel/backend/src/modules/events/event-create-workflow-live.ts`, `packages/contract/src/modules/events/contract.ts`.
-- Per-invocation identity: `kernel/backend/src/modules/plugins/operations-service.ts`.
+- Per-invocation identity: `kernel/backend/src/modules/plugins/operations/service.ts`.
 - Mutation ownership/receipts: `kernel/backend/src/modules/entities/{service,mutation-persistence}.ts`, `kernel/backend/src/modules/events/service.ts`, `kernel/backend/src/modules/relationships/service.ts`, `kernel/backend/src/modules/mutations/receipts.ts`.
 - Plugin preference visibility: `kernel/backend/src/modules/ryotql/catalog.ts`; settings reads: `packages/sandbox-sdk/src/core.ts`.
-- Local storage: `packages/client-sdk/src/react.tsx`, `kernel/client/src/modules/plugins/storage.ts`, `kernel/client/src/persistence/storage.ts`.
+- Local storage: `packages/plugin-client-sdk/src/react.tsx`, `kernel/client/src/modules/pages/bridge/storage.ts`, `kernel/client/src/persistence/storage.ts`.
 - Upload gap and reuse: `kernel/client/src/modules/assets/temporary-uploads.ts`, `kernel/backend/src/modules/uploads/intents/service.ts`, `kernel/backend/src/lib/domain/data-references.ts`.
-- SDK/native boundaries: `packages/client-sdk/README.md`, `packages/client-plugin-contract/src/index.ts`, `kernel/client/src/modules/plugins/bridge.ts`, `kernel/client/src/modules/navigation/native-navigation.ts`.
+- SDK/native boundaries: `packages/plugin-client-sdk/README.md`, `packages/plugin-client-contract/src/index.ts`, `kernel/client/src/modules/plugins/bridge.ts`, `kernel/client/src/modules/navigation/native-navigation.ts`.
 - Native notification constraints: <https://capacitorjs.com/docs/apis/local-notifications> (official v8 documentation checked during planning).
 - Keep-awake adapter: <https://github.com/capacitor-community/keep-awake> (verify the exact Capacitor-8 release before dependency installation).
