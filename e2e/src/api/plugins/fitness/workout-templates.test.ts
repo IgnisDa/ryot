@@ -1,14 +1,12 @@
 import type { AssetLocator } from "@ryot-app/contract/modules/assets/schemas";
-import {
-	builtinSavedViewReference,
-	definitionOwner,
-} from "@ryot-app/contract/modules/plugins/references";
+import { builtinSavedViewReference } from "@ryot-app/contract/modules/plugins/references";
 import type { IncludeResult, RowItem } from "@ryot-app/contract/modules/ryotql/language";
 import {
 	workoutDetailRecipe,
 	workoutTemplateDetailRecipe,
 	workoutTemplateListRecipe,
 } from "@ryot-app/fitness-plugin/query-recipes";
+import { PLUGIN_PACKAGE_ID } from "@ryot-app/fitness-plugin/shared/plugin-identity";
 import { Effect } from "effect";
 
 import {
@@ -239,8 +237,10 @@ describe("Workout Templates E2E", () => {
 						ownerPluginIdField: "ownerPluginId",
 						entitySchemaSlugField: "entitySchemaSlug",
 						addAction: {
-							type: "provider-search",
-							schema: { slug: "workout-template", owner: definitionOwner(pluginId) },
+							search: {},
+							type: "plugin-route",
+							path: "/templates/new",
+							packageId: PLUGIN_PACKAGE_ID,
 						},
 						tableColumns: [
 							{ label: "Name", field: "column0", displayKind: "text" },
