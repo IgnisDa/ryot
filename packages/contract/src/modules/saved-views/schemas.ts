@@ -11,6 +11,7 @@ import {
 	SavedViewReference,
 } from "../plugins/references";
 import { OutputFieldKey, RyotQLDocument } from "../ryotql/language";
+import { AuthoredFilterField, FilterField } from "./filters";
 
 const SavedViewBadRequestReason = Schema.Union([
 	Schema.Struct({ code: Schema.Literal("asset-forbidden") }),
@@ -187,6 +188,7 @@ export const EntityBrowserSavedViewSettings = strictStruct({
 	addAction: Schema.NullOr(EntityBrowserAddAction),
 	layouts: Schema.NonEmptyArray(EntityBrowserLayout),
 	sortChoices: Schema.Array(EntityBrowserSortChoice),
+	filterFields: Schema.optionalKey(Schema.Array(FilterField)),
 	tableColumns: Schema.NullOr(Schema.NonEmptyArray(SavedViewTableColumn)),
 });
 export type EntityBrowserSavedViewSettings = typeof EntityBrowserSavedViewSettings.Type;
@@ -195,6 +197,7 @@ export const AuthoredEntityBrowserSavedViewSettings = strictStruct({
 	...EntityBrowserSavedViewSettings.fields,
 	subject: AuthoredSavedViewSubject,
 	addAction: Schema.NullOr(AuthoredEntityBrowserAddAction),
+	filterFields: Schema.optionalKey(Schema.Array(AuthoredFilterField)),
 });
 export type AuthoredEntityBrowserSavedViewSettings =
 	typeof AuthoredEntityBrowserSavedViewSettings.Type;
@@ -204,6 +207,7 @@ export const ResultsTableSavedViewSettings = strictStruct({
 	sourceName: Schema.NonEmptyString,
 	rowKeyFields: Schema.NonEmptyArray(OutputFieldKey),
 	columns: Schema.NonEmptyArray(SavedViewTableColumn),
+	filterFields: Schema.optionalKey(Schema.Array(FilterField)),
 	entityLink: Schema.NullOr(strictStruct({ entityIdField: OutputFieldKey })),
 });
 export type ResultsTableSavedViewSettings = typeof ResultsTableSavedViewSettings.Type;

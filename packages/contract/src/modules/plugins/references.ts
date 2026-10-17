@@ -66,6 +66,12 @@ export const RelationshipSchemaReference = strictStruct({
 });
 export type RelationshipSchemaReference = typeof RelationshipSchemaReference.Type;
 
+export const AuthoredRelationshipSchemaReference = strictStruct({
+	slug: RelationshipSchemaSlug,
+	owner: AuthoredDefinitionOwner,
+});
+export type AuthoredRelationshipSchemaReference = typeof AuthoredRelationshipSchemaReference.Type;
+
 export const SignalSchemaReference = strictStruct({
 	owner: DefinitionOwner,
 	slug: SignalSchemaSlug,
