@@ -19,13 +19,16 @@ it("names the missing configuration when the provider is not configured", () => 
 			"Listen Notes",
 		),
 	).toEqual({
+		retryable: false,
 		title: "Listen Notes isn't configured on this server",
-		detail: "Add Listen Notes API key to this plugin's configuration, then try again.",
+		detail:
+			"A server administrator needs to add Listen Notes API key to this plugin's configuration.",
 	});
 });
 
 it("reports a provider error without claiming the server was unreachable", () => {
 	expect(describeSearchFailure(searchFailed({ code: "provider-error" }), "GiantBomb")).toEqual({
+		retryable: true,
 		title: "GiantBomb couldn't complete the search",
 		detail: "The provider returned an error. Try again later.",
 	});

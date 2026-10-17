@@ -412,7 +412,7 @@ describe("provider search panel", () => {
 		}),
 	);
 
-	it.live("explains a missing provider configuration instead of a connection problem", () =>
+	it.live("explains a missing provider configuration without offering a pointless retry", () =>
 		Effect.gen(function* () {
 			renderPanel({
 				initialQuery: "Sample",
@@ -435,6 +435,7 @@ describe("provider search panel", () => {
 				),
 			);
 			expect(screen.queryByText("Unable to reach the server")).toBeNull();
+			expect(screen.queryByRole("button", { name: "Try searching again" })).toBeNull();
 		}),
 	);
 

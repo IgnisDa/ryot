@@ -151,6 +151,7 @@ export function PanelFailure(props: {
 	readonly className?: string;
 	readonly error?: unknown;
 	readonly providerName?: string;
+	readonly onRetry?: () => void;
 }) {
 	const copy =
 		props.providerName === undefined
@@ -162,6 +163,11 @@ export function PanelFailure(props: {
 			<StatusMessage tone="error" className="max-w-xl text-center text-sm">
 				{copy.detail}
 			</StatusMessage>
+			{copy.retryable && props.onRetry !== undefined ? (
+				<Button onClick={props.onRetry} aria-label="Try searching again">
+					Try again
+				</Button>
+			) : null}
 		</div>
 	);
 }
@@ -582,16 +588,12 @@ function ProviderSearchForm(
 		if (pagination.pages.length === 0) {
 			if (pagination.isError) {
 				return (
-					<div className="grid gap-2">
-						<PanelFailure
-							className="min-h-32"
-							error={pagination.error}
-							providerName={props.provider.providerName}
-						/>
-						<Button onClick={pagination.retry} aria-label="Try searching again">
-							Try again
-						</Button>
-					</div>
+					<PanelFailure
+						className="min-h-32"
+						error={pagination.error}
+						onRetry={pagination.retry}
+						providerName={props.provider.providerName}
+					/>
 				);
 			}
 			return <Spinner label="Searching" className="min-h-32 items-center" />;
