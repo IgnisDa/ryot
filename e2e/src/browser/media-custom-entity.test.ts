@@ -1,12 +1,18 @@
 import { savedViewPath } from "@ryot-app/contract/modules/plugins/navigation";
 import { mediaPlugin } from "@ryot-app/media-plugin";
-import { Effect } from "effect";
+import { Effect, Fiber, Option, Stream } from "effect";
 import { Playwright, PlaywrightSpawner } from "effect-playwright";
 
-import { createAuthenticatedClient } from "~/fixtures/kernel";
+import { createAuthenticatedClient, getEntity } from "~/fixtures/kernel";
+import { requireString } from "~/support/assertions";
 import { signInThroughHostedOAuth } from "~/support/browser";
 import { expect, it } from "~/support/effect-test";
 import { getFrontendUrl } from "~/support/harness-target";
+
+const PIXEL_PNG = Buffer.from(
+	"iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR4nGP4z8DwHwAFAAH/q842iQAAAABJRU5ErkJggg==",
+	"base64",
+);
 
 it.live("creates a custom movie from the saved view's Create custom handoff", () =>
 	Effect.gen(function* () {
@@ -41,5 +47,101 @@ it.live("creates a custom movie from the saved view's Create custom handoff", ()
 			.contentFrame()
 			.getByRole("heading", { level: 1, exact: true, name: movieName })
 			.waitFor({ state: "visible" });
+	}).pipe(PlaywrightSpawner.withBrowser),
+);
+
+it.live("creates a custom show with nested providers, episode orders, and image metadata", () =>
+	Effect.gen(function* () {
+		const showName = `Custom show ${crypto.randomUUID()}`;
+		const { email, client, password } = yield* createAuthenticatedClient();
+		const page = yield* (yield* Playwright.Browser).newPage({
+			viewport: { width: 1280, height: 900 },
+		});
+		yield* signInThroughHostedOAuth(page, email, password);
+		yield* page.goto(
+			`${getFrontendUrl()}${savedViewPath({ kind: "plugin", slug: "all-shows", packageId: mediaPlugin.metadata.packageId })}`,
+		);
+		yield* page
+			.locator("iframe")
+			.contentFrame()
+			.getByRole("button", { exact: true, name: "Add" })
+			.click();
+		const provider = page.getByRole("dialog", { exact: true, name: "Add from a provider" });
+		yield* provider.getByLabel("Search providers").fill(showName);
+		yield* provider.getByRole("button", { exact: true, name: "Create custom" }).click();
+
+		const editor = page.locator('iframe[title="Media plugin"]:visible').contentFrame();
+		const form = editor.getByRole("form", { exact: true, name: "New Show" });
+		const name = form.getByLabel("Name", { exact: true });
+		yield* name.waitFor({ state: "visible" });
+		expect(yield* name.inputValue()).toBe(showName);
+
+		yield* form.getByRole("button", { exact: true, name: "Add Watch Providers item" }).click();
+		const watchProvider = form.getByRole("group", { exact: true, name: "Watch Providers item 1" });
+		yield* watchProvider.getByLabel("Country", { exact: true }).fill("US");
+		yield* watchProvider.getByRole("button", { exact: true, name: "Add Providers item" }).click();
+		const watchProviderItem = watchProvider.getByRole("group", {
+			exact: true,
+			name: "Providers item 1",
+		});
+		yield* watchProviderItem.getByLabel("Name", { exact: true }).fill("Offline streaming");
+		yield* watchProviderItem.getByRole("button", { exact: true, name: "Offers" }).click();
+		yield* editor.getByRole("checkbox", { exact: true, name: "stream" }).click();
+		yield* editor
+			.getByRole("dialog", { exact: true, name: "Offers" })
+			.getByRole("button", { exact: true, name: "Close options" })
+			.click();
+
+		yield* form.getByRole("button", { exact: true, name: "Add Episode Orders item" }).click();
+		const episodeOrder = form.getByRole("group", { exact: true, name: "Episode Orders item 1" });
+		yield* episodeOrder.getByLabel("Name", { exact: true }).fill("DVD order");
+		yield* episodeOrder.getByLabel("External Id", { exact: true }).fill("custom-dvd");
+		yield* episodeOrder.getByRole("radio", { exact: true, name: "dvd" }).click();
+		yield* episodeOrder.getByRole("button", { exact: true, name: "Add Groups item" }).click();
+		const group = episodeOrder.getByRole("group", { exact: true, name: "Groups item 1" });
+		yield* group.getByLabel("Name", { exact: true }).fill("Season 1");
+		yield* group.getByLabel("Order", { exact: true }).fill("1");
+		yield* group
+			.getByRole("button", { exact: true, name: "Add Episode External Ids item" })
+			.click();
+		yield* group.getByLabel("Episode External Ids item 1", { exact: true }).fill("episode-1");
+
+		const chooser = yield* page
+			.eventStream("filechooser")
+			.pipe(Stream.runHead, Effect.forkChild({ startImmediately: true }));
+		yield* form.getByRole("button", { exact: true, name: "Add Images" }).click();
+		const picked = Option.getOrThrow(yield* Fiber.join(chooser));
+		yield* picked.setFiles({ name: "photo.png", buffer: PIXEL_PNG, mimeType: "image/png" });
+		yield* form
+			.getByRole("button", { exact: true, name: "Remove Images 1" })
+			.waitFor({ state: "visible" });
+		yield* form.getByRole("radio", { exact: true, name: "cover" }).click();
+		yield* form.getByRole("button", { exact: true, name: "Save" }).click();
+
+		yield* page.waitForURL((url) => url.pathname.startsWith("/e/"));
+		const entityId = requireString(
+			new URL(page.url()).pathname.split("/").at(-1),
+			"Entity ID is missing from the URL",
+		);
+		yield* page
+			.locator('iframe[title="Media plugin"]:visible')
+			.contentFrame()
+			.getByRole("heading", { level: 1, exact: true, name: showName })
+			.waitFor({ state: "visible" });
+
+		expect((yield* getEntity(client, entityId)).properties).toMatchObject({
+			images: [{ purpose: "cover" }],
+			watchProviders: [
+				{ country: "US", providers: [{ offers: ["stream"], name: "Offline streaming" }] },
+			],
+			episodeOrders: [
+				{
+					type: "dvd",
+					name: "DVD order",
+					externalId: "custom-dvd",
+					groups: [{ order: 1, name: "Season 1", episodeExternalIds: ["episode-1"] }],
+				},
+			],
+		});
 	}).pipe(PlaywrightSpawner.withBrowser),
 );
