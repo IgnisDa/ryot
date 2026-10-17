@@ -34,6 +34,7 @@ import {
 	installRevisionPackage,
 	revisionPackage,
 } from "#modules/plugins/packages/revision.test-support";
+import { SandboxSubmissionCommands } from "#modules/scripts/host/submission-command";
 import { DatabaseSession } from "#platform/db/session";
 import * as tables from "#schema/tables/combined";
 
@@ -52,6 +53,7 @@ import {
 import { RelationshipMutationPipeline } from "./mutation-pipeline";
 import { itemCommand, type Mutation } from "./mutation-support";
 import { RelationshipsRepository } from "./repository";
+import { relationshipLifecycleHostSteps } from "./script-host";
 import { RelationshipsService } from "./service";
 
 const otherUserId = UserId.make("other-relationship-owner");
@@ -219,7 +221,228 @@ const concurrentChange = new RelationshipBadRequest({
 	reason: { code: "concurrent-relationship-change" },
 });
 
+const mutationState = Effect.gen(function* () {
+	const session = yield* DatabaseSession;
+	return yield* session.run((db) =>
+		Effect.all({
+			runs: db.select().from(tables.automationRun).orderBy(tables.automationRun.id),
+			relationships: db.select().from(tables.relationship).orderBy(tables.relationship.id),
+			receipts: db.select().from(tables.mutationReceipt).orderBy(tables.mutationReceipt.id),
+			triggers: db.select().from(tables.automationTrigger).orderBy(tables.automationTrigger.id),
+		}),
+	);
+});
+
 describe("Relationship set-based mutation pipeline", () => {
+	for (const scope of ["user", "global"] as const) {
+		layer(relationshipDatabaseLayer())((test) => {
+			test.effect(
+				`replays an already prepared ${scope} aggregate without changing item results or evidence`,
+				() =>
+					Effect.gen(function* () {
+						const session = yield* DatabaseSession;
+						const repository = yield* RelationshipsRepository;
+						if (scope === "global") {
+							yield* session.run((db) =>
+								db
+									.insert(tables.user)
+									.values({ id: "owner", name: "Owner", email: "owner@example.test" }),
+							);
+						}
+						const input = yield* installPolicyFixture(scope === "user" ? userId : null, true);
+						const pipeline = yield* pipelineWith(yield* policyLifecycle());
+						const [createdTarget, updatedTarget, deletedTarget, unchangedTarget] =
+							yield* insertEntities(
+								[
+									"aggregate-created",
+									"aggregate-updated",
+									"aggregate-deleted",
+									"aggregate-unchanged",
+								],
+								scope === "user" ? userId : null,
+								input.relationshipSchemaPluginId,
+							);
+						assert(createdTarget && updatedTarget && deletedTarget && unchangedTarget);
+						const identity = { ...input, scope };
+						const updated = yield* repository.createRelationship({
+							...identity,
+							properties: { rank: 0 },
+							targetEntityId: updatedTarget,
+						});
+						const deleted = yield* repository.createRelationship({
+							...identity,
+							properties: { rank: 0 },
+							targetEntityId: deletedTarget,
+						});
+						const unchanged = yield* repository.createRelationship({
+							...identity,
+							properties: { rank: 1 },
+							targetEntityId: unchangedTarget,
+						});
+						const targets = [createdTarget, input.targetEntityId, updatedTarget, unchangedTarget];
+						const initial = yield* mutationState;
+						const lifecycle = command(`aggregate-${scope}`);
+						const prepared =
+							scope === "user"
+								? yield* pipeline.prepareChangeUserBatch(
+										userId,
+										{
+											deletes: [{ ...input, targetEntityId: deletedTarget }],
+											creates: targets.map((targetEntityId) => ({
+												...input,
+												targetEntityId,
+												propertiesMode: "replace" as const,
+											})),
+										},
+										0,
+										lifecycle,
+									)
+								: yield* pipeline.prepareReconcileGlobalGroup(
+										reconciliationGroup(input, targets, 1),
+										0,
+										lifecycle,
+									);
+						assert(prepared._tag === "PoliciesRequired");
+						const pending = yield* pipeline.applyPolicies(prepared.pending);
+						const committed =
+							scope === "user"
+								? yield* pipeline.commitBatch(pending)
+								: yield* pipeline.commitReconciliation(pending);
+						assert(committed._tag === "Committed");
+						expect(committed.result).toEqual(
+							scope === "user"
+								? { created: 2, updated: 1, deleted: 1 }
+								: { created: 2, updated: 1, deleted: 1, upserted: 4 },
+						);
+						expect(committed.dispatch.length).toBeGreaterThan(0);
+						const before = yield* mutationState;
+						expect(before.relationships).toHaveLength(4);
+						expect(before.relationships.find(({ id }) => id === updated.id)?.properties).toEqual({
+							rank: 1,
+						});
+						expect(before.relationships.find(({ id }) => id === unchanged.id)).toEqual(
+							initial.relationships.find(({ id }) => id === unchanged.id),
+						);
+						expect(before.relationships.some(({ id }) => id === deleted.id)).toBe(false);
+						const created = before.relationships.find(
+							({ targetEntityId }) => targetEntityId === createdTarget,
+						);
+						assert(created);
+						const itemResults = before.receipts
+							.filter(
+								({ commandKind }) =>
+									commandKind !== "relationship:change-user-batch" &&
+									commandKind !== "relationship:reconcile-group",
+							)
+							.map(({ result }) => result);
+						for (const [operation, id] of [
+							["create", created.id],
+							["update", updated.id],
+							["delete", deleted.id],
+							["noop", unchanged.id],
+						]) {
+							expect(itemResults).toContainEqual(
+								expect.objectContaining({
+									operation,
+									relationship: expect.objectContaining({ id }),
+								}),
+							);
+						}
+						expect(
+							before.triggers
+								.filter(({ category }) => category === "change")
+								.map(({ operation }) => operation)
+								.sort(),
+						).toEqual(["batch", "create", "create", "delete", "update"]);
+						expect(before.receipts.find(({ id }) => id === pending.rootDecision?.id)?.result).toBe(
+							"sealed",
+						);
+						const service = yield* RelationshipsService;
+						const replayed =
+							scope === "user"
+								? yield* service.commitBatch(pending)
+								: yield* service.commitReconciliation(pending);
+						expect(replayed).toEqual(committed);
+						const hosts = relationshipLifecycleHostSteps(
+							pipeline,
+							yield* SandboxSubmissionCommands.make,
+						);
+						const hostReplay =
+							scope === "user"
+								? yield* hosts.changeUserRelationships
+										.itemWrite({
+											userId,
+											batches: [],
+											command: lifecycle,
+											_tag: "ChangeUserRelationships",
+										})
+										.commit()(pending)
+								: yield* hosts.upsertGlobalRelationships
+										.itemWrite({
+											groups: [],
+											command: lifecycle,
+											_tag: "UpsertGlobalRelationships",
+										})
+										.commit()(pending);
+						expect(hostReplay).toEqual(committed);
+						expect(yield* mutationState).toEqual(before);
+					}),
+			);
+		});
+	}
+
+	layer(relationshipDatabaseLayer())((test) => {
+		test.effect("commits and replays empty and no-op aggregates without hook history", () =>
+			Effect.gen(function* () {
+				const service = yield* RelationshipsService;
+				yield* service.create(baseInput, command("zero-seed"));
+				for (const [id, batches] of [
+					["zero-empty", [{ creates: [], deletes: [] }]],
+					[
+						"zero-noop",
+						[
+							{
+								deletes: [{ ...baseInput, targetEntityId: sourceEntityId }],
+								creates: [{ ...baseInput, propertiesMode: "replace" as const }],
+							},
+						],
+					],
+				] as const) {
+					const first = yield* service.changeUser(userId, batches, command(id));
+					expect(first).toEqual([{ created: 0, updated: 0, deleted: 0, warnings: [] }]);
+					const before = yield* mutationState;
+					expect(
+						before.receipts.find(
+							({ executionId, commandKind, receiptType }) =>
+								executionId === id &&
+								commandKind === "relationship:change-user" &&
+								receiptType === "batch-decision",
+						)?.result,
+					).toBe("sealed");
+					expect(yield* service.changeUser(userId, batches, command(id))).toEqual(first);
+					expect(yield* mutationState).toEqual(before);
+				}
+				expect(yield* service.changeUser(userId, [], command("zero-batches"))).toEqual([]);
+				expect(yield* service.reconcileGlobal([], command("zero-groups"))).toEqual([]);
+				const group = reconciliationGroup(baseInput, [], 1);
+				expect(yield* service.reconcileGlobal([group], command("zero-group"))).toEqual([
+					{ created: 0, updated: 0, deleted: 0, upserted: 0, warnings: [] },
+				]);
+				const before = yield* mutationState;
+				expect(yield* service.reconcileGlobal([group], command("zero-group"))).toEqual([
+					{ created: 0, updated: 0, deleted: 0, upserted: 0, warnings: [] },
+				]);
+				expect(yield* mutationState).toEqual(before);
+				expect(before.triggers).toEqual([]);
+				expect(
+					before.receipts
+						.filter(({ receiptType }) => receiptType === "batch-decision")
+						.every(({ result }) => result === "sealed"),
+				).toBe(true);
+			}),
+		);
+	});
+
 	layer(relationshipDatabaseLayer())((test) => {
 		test.effect("keeps a concurrent ensure from overwriting existing relationship metadata", () =>
 			Effect.gen(function* () {
@@ -233,7 +456,7 @@ describe("Relationship set-based mutation pipeline", () => {
 					{ rank: 2 },
 				);
 				assert(mutation);
-				const prepared = yield* pipeline.prepareMutations([{ ...mutation, mode: "ensure" }]);
+				const prepared = yield* pipeline.prepareSingle({ ...mutation, mode: "ensure" });
 				assert(prepared._tag === "PoliciesRequired");
 				const [pendingItem] = prepared.pending.items;
 				expect(pendingItem?.receipt.commandKind).toBe("relationship:ensure");
@@ -241,11 +464,12 @@ describe("Relationship set-based mutation pipeline", () => {
 				const existingProperties = { rank: 9, labels: ["saved"] };
 				yield* repository.createRelationship({ ...mutation.input, properties: existingProperties });
 				const pending = yield* pipeline.applyPolicies(prepared.pending);
-				const committed = yield* pipeline.commitProjected(pending, (results) => results);
+				const committed = yield* pipeline.commitSingle(pending);
 				assert(committed._tag === "Committed");
-				expect(committed.result).toMatchObject([
-					{ operation: "noop", relationship: { properties: existingProperties } },
-				]);
+				expect(committed.result).toMatchObject({
+					operation: "noop",
+					relationship: { properties: existingProperties },
+				});
 			}),
 		);
 	});
@@ -257,7 +481,6 @@ describe("Relationship set-based mutation pipeline", () => {
 				Effect.gen(function* () {
 					const session = yield* DatabaseSession;
 					const service = yield* RelationshipsService;
-					const pipeline = yield* RelationshipMutationPipeline;
 					const policyInput = yield* installPolicyFixture();
 					const policyPipeline = yield* pipelineWith(yield* policyLifecycle());
 					const counts = {
@@ -268,26 +491,34 @@ describe("Relationship set-based mutation pipeline", () => {
 					for (const size of [2, 20]) {
 						const names = Array.from({ length: size }, (_, index) => `invariance-${size}-${index}`);
 						const targets = yield* insertEntities(names);
-						yield* pipeline.prepareMutations(
-							yield* userMutations(baseInput, targets, `ordinary-${size}`),
+						yield* service.changeUser(
+							userId,
+							overlappingBatch(targets, 1),
+							command(`ordinary-${size}`),
 						);
 						counts.ordinary.push(yield* lastTransactionChecks);
-						const step = yield* policyPipeline.prepareMutations(
-							yield* userMutations(
-								policyInput,
-								yield* insertEntities(
-									names.map((name) => `policy-${name}`),
-									userId,
-									policyInput.relationshipSchemaPluginId,
-								),
-								`policy-${size}`,
-							),
+						const policyTargets = yield* insertEntities(
+							names.map((name) => `policy-${name}`),
+							userId,
+							policyInput.relationshipSchemaPluginId,
+						);
+						const step = yield* policyPipeline.prepareChangeUserBatch(
+							userId,
+							{
+								deletes: [],
+								creates: policyTargets.map((targetEntityId) => ({
+									targetEntityId,
+									properties: policyInput.properties,
+									propertiesMode: "replace" as const,
+									sourceEntityId: policyInput.sourceEntityId,
+									relationshipSchema: policyInput.relationshipSchema,
+								})),
+							},
+							0,
+							command(`policy-${size}`),
 						);
 						assert(step._tag === "PoliciesRequired");
-						yield* policyPipeline.commitProjected(
-							yield* policyPipeline.applyPolicies(step.pending),
-							(results) => results,
-						);
+						yield* policyPipeline.commitBatch(yield* policyPipeline.applyPolicies(step.pending));
 						counts.policy.push(yield* lastTransactionChecks);
 						yield* session.transaction(
 							service.persistPlannedReconciliation(
@@ -327,9 +558,10 @@ describe("Relationship set-based mutation pipeline", () => {
 				);
 				assert(ordinary && policy && reconciled && preparedCreate && preparedDelete);
 
-				const mutations = yield* userMutations(baseInput, [ordinary], "deleted-ordinary");
+				const [mutation] = yield* userMutations(baseInput, [ordinary], "deleted-ordinary");
+				assert(mutation);
 				yield* deleteEntity(session, ordinary);
-				expect(yield* pipeline.prepareMutations(mutations).pipe(Effect.flip)).toEqual(
+				expect(yield* pipeline.prepareSingle(mutation).pipe(Effect.flip)).toEqual(
 					entityNotFound(ordinary),
 				);
 
@@ -396,17 +628,16 @@ describe("Relationship set-based mutation pipeline", () => {
 				const policyPipeline = yield* pipelineWith(yield* policyLifecycle());
 				const foreign = yield* insertForeignEntity;
 				const foreignInput = { ...baseInput, targetEntityId: foreign };
+				const [ordinaryMutation] = yield* userMutations(baseInput, [foreign], "foreign-ordinary");
+				const [policyMutation] = yield* userMutations(policyInput, [foreign], "foreign-policy");
+				assert(ordinaryMutation && policyMutation);
 
-				expect(
-					yield* pipeline
-						.prepareMutations(yield* userMutations(baseInput, [foreign], "foreign-ordinary"))
-						.pipe(Effect.flip),
-				).toEqual(entityNotFound(foreign));
-				expect(
-					yield* policyPipeline
-						.prepareMutations(yield* userMutations(policyInput, [foreign], "foreign-policy"))
-						.pipe(Effect.flip),
-				).toEqual(entityNotFound(foreign, policyInput.sourceEntityId));
+				expect(yield* pipeline.prepareSingle(ordinaryMutation).pipe(Effect.flip)).toEqual(
+					entityNotFound(foreign),
+				);
+				expect(yield* policyPipeline.prepareSingle(policyMutation).pipe(Effect.flip)).toEqual(
+					entityNotFound(foreign, policyInput.sourceEntityId),
+				);
 				expect(
 					yield* session
 						.transaction(
