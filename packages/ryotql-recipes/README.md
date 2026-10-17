@@ -47,11 +47,14 @@ count, and results-table recipes accept `filter` with `now` and AND the predicat
 
 `propertyFilterFields` builds value fields from an `AppSchema` for plugin authors.
 
-Runtime compile, decode, and choices paths take `QueryFilterField`, whose relationship owner is a
-`QueryOwnerReference`; `effectiveFilterFields` maps a view's stored fields to it, and
+Runtime compile, decode, and choices paths take `QueryFilterField`, whose relationship and event
+owners are `QueryOwnerReference`s; `effectiveFilterFields` maps a view's stored fields to it, and
 `collectionsFilterField` is the kernel Collections field for plugin screens.
 
 `filters` also owns the URL codec used by the kernel browsers (`decodeFilterParam`,
 `encodeFilterParam`, `editableGroup`, `activeRuleCount`, the draft helpers) and
-`relationshipFilterChoicesRecipe`, which lists far-side entities by id and name for a relationship
-field (optionally narrowed by search text or explicit ids).
+`linkedFilterChoicesRecipe`, which lists linked entities by id and name for a relationship field
+(far side) or a `session-event` field (entities the events are logged on), optionally narrowed by
+search text or explicit ids. A `session-event` field matches subjects that are the `sessionEntityId`
+of events of one event schema; event slugs are unique only per entity schema, so compilation joins the
+event's entity and matches the full event identity.

@@ -1,5 +1,5 @@
 import type { Filter, FilterField } from "@ryot-app/contract/modules/filters/schemas";
-import { EntitySchemaSlug } from "@ryot-app/contract/schema/brands";
+import { EntitySchemaSlug, EventSchemaSlug } from "@ryot-app/contract/schema/brands";
 import { column, document, eq, field, join, jsonPath, rows, table } from "@ryot-app/ryotql";
 import { entityBrowserRecipe, resultsTableRecipe } from "@ryot-app/ryotql-recipes/saved-views";
 import { DateTime, Result } from "effect";
@@ -28,7 +28,17 @@ const filterFields = [
 	valueField("done", "boolean"),
 	valueField("added", "date"),
 	valueField("released", "date"),
-];
+	{
+		key: "exercises",
+		label: "Exercises",
+		kind: "session-event",
+		event: {
+			owner: { kind: "kernel" },
+			slug: EventSchemaSlug.make("workout-set"),
+			entitySchemaSlug: EntitySchemaSlug.make("exercise"),
+		},
+	},
+] satisfies readonly FilterField[];
 
 const selection = (extraJoins: readonly ReturnType<typeof join>[] = []) =>
 	document({
@@ -102,6 +112,11 @@ const operatorFamilies: readonly Filter[] = [
 	{ values: ["c1"], operator: "noneOf", field: "collections" },
 	{ operator: "empty", field: "collections" },
 	{ field: "collections", operator: "notEmpty" },
+	{ operator: "anyOf", field: "exercises", values: ["e1", "e2"] },
+	{ operator: "allOf", field: "exercises", values: ["e1", "e2"] },
+	{ values: ["e1"], operator: "noneOf", field: "exercises" },
+	{ operator: "empty", field: "exercises" },
+	{ field: "exercises", operator: "notEmpty" },
 ];
 
 it("compiles every operator family into a document the RyotQL validator accepts", () => {
@@ -173,6 +188,16 @@ it("applies value filters to results tables and rejects the Collections field th
 				settings: tableSettings,
 				queryDocument: selection(),
 				filter: { field: "collections", operator: "notEmpty" },
+			}),
+		),
+	).toBe(true);
+	expect(
+		Result.isFailure(
+			resultsTableRecipe({
+				now,
+				settings: tableSettings,
+				queryDocument: selection(),
+				filter: { field: "exercises", operator: "notEmpty" },
 			}),
 		),
 	).toBe(true);

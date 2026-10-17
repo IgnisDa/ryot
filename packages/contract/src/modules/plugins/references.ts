@@ -61,6 +61,20 @@ export const EventSchemaReference = strictStruct({
 });
 export type EventSchemaReference = typeof EventSchemaReference.Type;
 
+export const AuthoredEventSchemaReference = strictStruct({
+	slug: EventSchemaSlug,
+	owner: AuthoredDefinitionOwner,
+	entitySchemaSlug: EntitySchemaSlug,
+});
+export type AuthoredEventSchemaReference = typeof AuthoredEventSchemaReference.Type;
+
+export const QueryEventSchemaReference = strictStruct({
+	slug: EventSchemaSlug,
+	owner: QueryOwnerReference,
+	entitySchemaSlug: EntitySchemaSlug,
+});
+export type QueryEventSchemaReference = typeof QueryEventSchemaReference.Type;
+
 export const RelationshipSchemaReference = strictStruct({
 	owner: DefinitionOwner,
 	slug: RelationshipSchemaSlug,

@@ -1,7 +1,7 @@
 import type { Filter } from "@ryot-app/contract/modules/filters/schemas";
 import { EntityBrowserSavedViewSettings } from "@ryot-app/contract/modules/saved-views/schemas";
 import { EntityId } from "@ryot-app/contract/schema/brands";
-import { relationshipFilterChoicesRecipe } from "@ryot-app/ryotql-recipes/filters";
+import { linkedFilterChoicesRecipe } from "@ryot-app/ryotql-recipes/filters";
 import { entityBrowserRecipe } from "@ryot-app/ryotql-recipes/saved-views";
 import { DateTime, Effect, Schema } from "effect";
 
@@ -174,10 +174,9 @@ describe("Media genres", () => {
 				sourceEntityId: EntityId.make(privateMovie.id),
 				targetEntityId: EntityId.make(privateGenre.id),
 			});
-			const choicesRecipe = relationshipFilterChoicesRecipe({
-				direction: "outgoing",
+			const choicesRecipe = linkedFilterChoicesRecipe({
 				ids: [privateGenre.id],
-				relationship: queryRelationship,
+				link: { kind: "relationship", direction: "outgoing", relationship: queryRelationship },
 			});
 			const userAChoices = yield* executeRyotQLRecipe(userA.client, choicesRecipe);
 			const userBChoices = yield* executeRyotQLRecipe(userB.client, choicesRecipe);

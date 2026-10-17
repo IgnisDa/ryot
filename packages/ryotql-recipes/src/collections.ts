@@ -163,7 +163,7 @@ const collectionMemberFilter = (
 ) => {
 	const { entity, membership, entityJoin, ownerPluginJoin } = tables;
 	const projections = fields.flatMap((filterField) =>
-		filterField.kind === "relationship"
+		filterField.kind !== "value"
 			? []
 			: [
 					{

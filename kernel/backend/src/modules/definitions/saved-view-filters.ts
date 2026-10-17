@@ -26,9 +26,9 @@ export const filterFieldIssues = ({
 			return `Filter field key '${filterField.key}' must be unique`;
 		}
 		keys.add(filterField.key);
-		if (filterField.kind === "relationship") {
+		if (filterField.kind !== "value") {
 			if (renderer === "results-table") {
-				return `Filter field '${filterField.key}' cannot be a relationship on a results table`;
+				return `Filter field '${filterField.key}' cannot be a ${filterField.kind} on a results table`;
 			}
 			continue;
 		}

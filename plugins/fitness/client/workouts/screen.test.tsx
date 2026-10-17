@@ -283,7 +283,7 @@ describe("all workouts page", () => {
 				yield* settle(() => {
 					expect(body.getByRole("button", { name: "Filters, 1 active filter" })).toBeTruthy();
 					expect(body.getByRole("group", { name: "Active filters" }).textContent).toContain(
-						"Exercises",
+						"Exercise count",
 					);
 					expect(body.getByRole("link", { name: "Legs" })).toBeTruthy();
 				});

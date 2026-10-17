@@ -2,7 +2,7 @@ import {
 	Filter as FilterSchema,
 	FilterRule as FilterRuleSchema,
 	filterOperators,
-	relationshipFilterOperators,
+	linkFilterOperators,
 	type Filter,
 	mapFilterFieldReference,
 	type FilterField,
@@ -12,7 +12,10 @@ import {
 	type ValueFilterField,
 } from "@ryot-app/contract/modules/filters/schemas";
 import {
+	type DefinitionOwner,
 	ownerIdentityReference,
+	QueryEventSchemaReference,
+	type QueryOwnerReference,
 	QueryRelationshipSchemaReference,
 } from "@ryot-app/contract/modules/plugins/references";
 import type {
@@ -35,6 +38,7 @@ import {
 	contains,
 	defineRecipe,
 	eq,
+	eventSchemaPredicate,
 	exists,
 	groupAscending,
 	gt,
@@ -81,10 +85,10 @@ export const effectiveFilterFields = (
 	settings: { readonly filterFields?: readonly FilterField[] | undefined },
 ): readonly QueryFilterField[] => [
 	...(settings.filterFields ?? []).map((field) =>
-		mapFilterFieldReference(field, ({ slug, owner }) => ({
-			slug,
-			owner: ownerIdentityReference(owner),
-		})),
+		mapFilterFieldReference<
+			{ readonly owner: DefinitionOwner },
+			{ readonly owner: QueryOwnerReference }
+		>(field, ({ slug, owner }) => ({ slug, owner: ownerIdentityReference(owner) })),
 	),
 	...(renderer === "results-table" ? [] : [collectionsFilterField]),
 ];
@@ -159,6 +163,61 @@ const compileRelationship = (
 			return Result.succeed(linked());
 		case "empty":
 			return Result.succeed(not(linked()));
+		case "gte":
+		case "lte":
+		case "eq":
+		case "between":
+		case "before":
+		case "after":
+		case "betweenDates":
+		case "withinLastDays":
+		case "contains":
+		case "notContains":
+		case "is":
+		case "isTrue":
+		case "isFalse":
+			break;
+	}
+	return unavailable(rule, spec.key);
+};
+
+type QuerySessionEventFilterField = Extract<QueryFilterField, { readonly kind: "session-event" }>;
+
+const compileSessionEvent = (
+	context: CompileContext,
+	rule: FilterRule,
+	spec: QuerySessionEventFilterField,
+): Result.Result<Predicate, Error> => {
+	if (!context.subject) {
+		return failure(`Session event filter field '${spec.key}' requires a view subject`);
+	}
+	const sessionId = column(table("entity", context.subject.entityAlias), "id");
+	const { slug, owner, entitySchemaSlug } = spec.event;
+	const logged = (...extra: readonly ((event: ReturnType<typeof table>) => Predicate)[]) => {
+		const event = table("event", unusedAlias(context.aliases, "event"));
+		const entity = table("entity", unusedAlias(context.aliases, "eventEntity"));
+		return exists(event, {
+			joins: [join("inner", entity, eq(column(entity, "id"), column(event, "entityId")))],
+			where: and(
+				eventSchemaPredicate(event, entity, entitySchemaSlug, slug, owner),
+				eq(column(event, "sessionEntityId"), sessionId),
+				...extra.map((predicate) => predicate(event)),
+			),
+		});
+	};
+	const loggedFor = (ids: readonly string[]) =>
+		logged((event) => inArray(column(event, "entityId"), textLiterals(ids)));
+	switch (rule.operator) {
+		case "anyOf":
+			return Result.succeed(loggedFor(rule.values));
+		case "allOf":
+			return Result.succeed(and(...rule.values.map((value) => loggedFor([value]))));
+		case "noneOf":
+			return Result.succeed(not(loggedFor(rule.values)));
+		case "notEmpty":
+			return Result.succeed(logged());
+		case "empty":
+			return Result.succeed(not(logged()));
 		case "gte":
 		case "lte":
 		case "eq":
@@ -286,6 +345,9 @@ const compileRule = (
 	if (spec.kind === "relationship") {
 		return compileRelationship(context, rule, spec);
 	}
+	if (spec.kind === "session-event") {
+		return compileSessionEvent(context, rule, spec);
+	}
 	const operators: readonly string[] = filterOperators[spec.type];
 	if (!operators.includes(rule.operator)) {
 		return unavailable(rule, spec.key);
@@ -348,7 +410,7 @@ export const compileFilter = ({
 export const NullableFilter = Schema.NullOr(FilterSchema);
 
 export const filterOperatorsFor = (field: QueryFilterField): readonly FilterOperator[] =>
-	field.kind === "relationship" ? relationshipFilterOperators : filterOperators[field.type];
+	field.kind === "value" ? filterOperators[field.type] : linkFilterOperators;
 
 const decodeRule = Schema.decodeUnknownResult(FilterRuleSchema);
 
@@ -519,34 +581,79 @@ export const draftRule = (draft: FilterDraft): FilterRule | undefined => {
 
 const filterChoicePageSize = 50;
 
-export const RelationshipFilterChoicesInput = Schema.Struct({
+export const LinkedFilterChoicesInput = Schema.Struct({
 	searchText: Schema.optionalKey(Schema.String),
-	relationship: QueryRelationshipSchemaReference,
 	ids: Schema.optionalKey(Schema.Array(Schema.String)),
-	direction: Schema.Literals(["outgoing", "incoming"]),
+	link: Schema.Union([
+		Schema.Struct({
+			kind: Schema.Literal("relationship"),
+			relationship: QueryRelationshipSchemaReference,
+			direction: Schema.Literals(["outgoing", "incoming"]),
+		}),
+		Schema.Struct({ event: QueryEventSchemaReference, kind: Schema.Literal("session-event") }),
+	]),
 });
 
-export const relationshipFilterChoicesRecipe = defineRecipe(
-	(input: typeof RelationshipFilterChoicesInput.Type) => {
-		const link = table("relationship", "filterChoiceLink");
+export const linkedFilterChoicesInput = (
+	field: Exclude<QueryFilterField, { readonly kind: "value" }>,
+	input: { readonly searchText?: string; readonly ids?: readonly string[] },
+): typeof LinkedFilterChoicesInput.Type => ({
+	...input,
+	link:
+		field.kind === "relationship"
+			? { kind: "relationship", direction: field.direction, relationship: field.relationship }
+			: { event: field.event, kind: "session-event" },
+});
+
+const linkedChoicesSource = (
+	link: typeof LinkedFilterChoicesInput.Type.link,
+	far: ReturnType<typeof table>,
+) => {
+	if (link.kind === "relationship") {
+		const from = table("relationship", "filterChoiceLink");
+		return {
+			from,
+			farColumn: link.direction === "outgoing" ? "targetEntityId" : "sourceEntityId",
+			where: relationshipSchemaPredicate(from, link.relationship.slug, link.relationship.owner),
+		};
+	}
+	const from = table("event", "filterChoiceEvent");
+	return {
+		from,
+		farColumn: "entityId",
+		where: and(
+			eventSchemaPredicate(
+				from,
+				far,
+				link.event.entitySchemaSlug,
+				link.event.slug,
+				link.event.owner,
+			),
+			isNotNull(column(from, "sessionEntityId")),
+		),
+	};
+};
+
+export const linkedFilterChoicesRecipe = defineRecipe(
+	(input: typeof LinkedFilterChoicesInput.Type) => {
 		const far = table("entity", "filterChoiceEntity");
-		const farColumn = input.direction === "outgoing" ? "targetEntityId" : "sourceEntityId";
 		const search = input.searchText?.trim();
+		const source = linkedChoicesSource(input.link, far);
 		return {
 			map: ({ choices }) =>
 				Result.succeed(choices.items.map(({ id, name }) => ({ value: id, label: name }))),
 			queries: {
-				choices: selectedAggregate(link, {
+				choices: selectedAggregate(source.from, {
 					limit: filterChoicePageSize,
 					orderBy: [groupAscending("name"), groupAscending("id")],
 					measures: { links: selectedMeasure({ function: "count" }, Schema.Finite) },
-					joins: [join("inner", far, eq(column(link, farColumn), column(far, "id")))],
+					joins: [join("inner", far, eq(column(source.from, source.farColumn), column(far, "id")))],
 					groupBy: {
 						id: selectedField(column(far, "id"), Schema.String),
 						name: selectedField(column(far, "name"), Schema.String),
 					},
 					where: and(
-						relationshipSchemaPredicate(link, input.relationship.slug, input.relationship.owner),
+						source.where,
 						...(input.ids === undefined
 							? []
 							: [inArray(column(far, "id"), textLiterals(input.ids))]),
@@ -558,4 +665,4 @@ export const relationshipFilterChoicesRecipe = defineRecipe(
 	},
 );
 
-export type RelationshipFilterChoices = Recipe.Success<typeof relationshipFilterChoicesRecipe>;
+export type LinkedFilterChoices = Recipe.Success<typeof linkedFilterChoicesRecipe>;

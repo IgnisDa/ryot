@@ -1,9 +1,16 @@
 import { DateTime, Option, Schema } from "effect";
 
+import type {
+	EntitySchemaSlug,
+	EventSchemaSlug,
+	RelationshipSchemaSlug,
+} from "../../schema/brands";
 import { strictStruct } from "../../schema/utils";
 import {
+	AuthoredEventSchemaReference,
 	AuthoredRelationshipSchemaReference,
-	type QueryRelationshipSchemaReference,
+	EventSchemaReference,
+	type QueryOwnerReference,
 	RelationshipSchemaReference,
 } from "../plugins/references";
 import { OutputFieldKey } from "../ryotql/language";
@@ -29,13 +36,7 @@ export const filterOperators = {
 	date: ["before", "after", "betweenDates", "withinLastDays", "empty", "notEmpty"],
 } as const satisfies Record<FilterValueType, readonly string[]>;
 
-export const relationshipFilterOperators = [
-	"anyOf",
-	"allOf",
-	"noneOf",
-	"empty",
-	"notEmpty",
-] as const;
+export const linkFilterOperators = ["anyOf", "allOf", "noneOf", "empty", "notEmpty"] as const;
 
 const FilterChoice = strictStruct({ label: Schema.String, value: Schema.NonEmptyString });
 
@@ -76,28 +77,70 @@ export const AuthoredRelationshipFilterField = relationshipFilterField(
 );
 export type AuthoredRelationshipFilterField = typeof AuthoredRelationshipFilterField.Type;
 
-export const FilterField = Schema.Union([ValueFilterField, RelationshipFilterField]);
+export const sessionEventFilterField = <Reference extends Schema.Top>(event: Reference) =>
+	strictStruct({
+		event,
+		label: Schema.String,
+		key: Schema.NonEmptyString,
+		kind: Schema.Literal("session-event"),
+	});
+
+export const SessionEventFilterField = sessionEventFilterField(EventSchemaReference);
+export type SessionEventFilterField = typeof SessionEventFilterField.Type;
+
+export const AuthoredSessionEventFilterField = sessionEventFilterField(
+	AuthoredEventSchemaReference,
+);
+export type AuthoredSessionEventFilterField = typeof AuthoredSessionEventFilterField.Type;
+
+export const FilterField = Schema.Union([
+	ValueFilterField,
+	RelationshipFilterField,
+	SessionEventFilterField,
+]);
 export type FilterField = typeof FilterField.Type;
 
 export const AuthoredFilterField = Schema.Union([
 	ValueFilterField,
 	AuthoredRelationshipFilterField,
+	AuthoredSessionEventFilterField,
 ]);
 export type AuthoredFilterField = typeof AuthoredFilterField.Type;
 
-export type FilterFieldWith<Reference> =
+export type FilterFieldWith<Owner extends object> =
 	| ValueFilterField
-	| (Omit<RelationshipFilterField, "relationship"> & { readonly relationship: Reference });
+	| (Omit<RelationshipFilterField, "relationship"> & {
+			readonly relationship: Owner & { readonly slug: RelationshipSchemaSlug };
+	  })
+	| (Omit<SessionEventFilterField, "event"> & {
+			readonly event: Owner & {
+				readonly slug: EventSchemaSlug;
+				readonly entitySchemaSlug: EntitySchemaSlug;
+			};
+	  });
 
-export type QueryFilterField = FilterFieldWith<QueryRelationshipSchemaReference>;
+export type QueryFilterField = FilterFieldWith<{ readonly owner: QueryOwnerReference }>;
 
-export const mapFilterFieldReference = <Reference, Mapped>(
-	filterField: FilterFieldWith<Reference>,
-	mapReference: (reference: Reference) => Mapped,
-): FilterFieldWith<Mapped> =>
-	filterField.kind === "value"
-		? filterField
-		: { ...filterField, relationship: mapReference(filterField.relationship) };
+export const mapFilterFieldReference = <From extends object, To extends object>(
+	filterField: FilterFieldWith<From>,
+	mapReference: <Slug extends string>(
+		reference: From & { readonly slug: Slug },
+	) => To & { readonly slug: Slug },
+): FilterFieldWith<To> => {
+	if (filterField.kind === "value") {
+		return filterField;
+	}
+	if (filterField.kind === "relationship") {
+		return { ...filterField, relationship: mapReference(filterField.relationship) };
+	}
+	return {
+		...filterField,
+		event: {
+			...mapReference(filterField.event),
+			entitySchemaSlug: filterField.event.entitySchemaSlug,
+		},
+	};
+};
 
 const FilterDate = Schema.String.pipe(
 	Schema.check(Schema.makeFilter((value) => Option.isSome(DateTime.make(value)))),

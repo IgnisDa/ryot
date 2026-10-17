@@ -122,28 +122,101 @@ it.effect("rewrites the known renderer schema reference but preserves opaque plu
 	}),
 );
 
-it.effect("maps plugin-owned relationship filter field owners through the archive", () =>
-	Effect.gen(function* () {
-		const key = pluginPackageKey({ scope: "user", packageId: testPluginPackageId() });
-		const valueField = { key: "name", type: "text", label: "Name", kind: "value", field: "name" };
-		const settings = {
-			pageSize: 50,
-			addAction: null,
-			sortChoices: [],
-			searchFields: [],
-			layouts: ["grid"],
-			tableColumns: null,
-			sourceName: "records",
-			defaultLayout: "grid",
-			subject: { entityAlias: "entity", schemas: [{ slug: "bottle", owner: { kind: "kernel" } }] },
-			filterFields: [
+it.effect(
+	"maps plugin-owned relationship and session-event filter field owners through the archive",
+	() =>
+		Effect.gen(function* () {
+			const key = pluginPackageKey({ scope: "user", packageId: testPluginPackageId() });
+			const valueField = { key: "name", type: "text", label: "Name", kind: "value", field: "name" };
+			const sessionEventField = {
+				key: "exercises",
+				label: "Exercises",
+				kind: "session-event",
+				event: {
+					slug: "logged",
+					entitySchemaSlug: "exercise",
+					owner: { kind: "plugin", pluginId: "source-owner" },
+				},
+			};
+			const settings = {
+				pageSize: 50,
+				addAction: null,
+				sortChoices: [],
+				searchFields: [],
+				layouts: ["grid"],
+				tableColumns: null,
+				sourceName: "records",
+				defaultLayout: "grid",
+				subject: {
+					entityAlias: "entity",
+					schemas: [{ slug: "bottle", owner: { kind: "kernel" } }],
+				},
+				filterFields: [
+					valueField,
+					{
+						key: "tags",
+						label: "tags",
+						kind: "relationship",
+						direction: "incoming",
+						relationship: { slug: "tagged", owner: { kind: "plugin", pluginId: "source-owner" } },
+					},
+					{
+						key: "labels",
+						label: "labels",
+						kind: "relationship",
+						direction: "incoming",
+						relationship: { slug: "labelled", owner: { kind: "kernel" } },
+					},
+					sessionEventField,
+				],
+			};
+			const renderer = { kind: "kernel", name: "entity-browser" };
+			const exported = yield* exportRendererSettings(
+				renderer,
+				settings,
+				new Map([["source-owner", key]]),
+			);
+			expect(exported["filterFields"]).toEqual([
 				valueField,
 				{
 					key: "tags",
 					label: "tags",
 					kind: "relationship",
 					direction: "incoming",
-					relationship: { slug: "tagged", owner: { kind: "plugin", pluginId: "source-owner" } },
+					relationship: { pluginKey: key, slug: "tagged" },
+				},
+				{
+					key: "labels",
+					label: "labels",
+					kind: "relationship",
+					direction: "incoming",
+					relationship: { pluginKey: null, slug: "labelled" },
+				},
+				{
+					...sessionEventField,
+					event: { pluginKey: key, slug: "logged", entitySchemaSlug: "exercise" },
+				},
+			]);
+			const unmapped = yield* exportRendererSettings(renderer, settings, new Map()).pipe(
+				Effect.flip,
+			);
+			expect(unmapped.reason).toBe("missing_reference_mapping");
+			const restored = yield* importRendererSettings(
+				renderer,
+				exported,
+				new Map([[key, "destination-owner"]]),
+			);
+			expect(restored["filterFields"]).toEqual([
+				valueField,
+				{
+					key: "tags",
+					label: "tags",
+					kind: "relationship",
+					direction: "incoming",
+					relationship: {
+						slug: "tagged",
+						owner: { kind: "plugin", pluginId: "destination-owner" },
+					},
 				},
 				{
 					key: "labels",
@@ -152,58 +225,32 @@ it.effect("maps plugin-owned relationship filter field owners through the archiv
 					direction: "incoming",
 					relationship: { slug: "labelled", owner: { kind: "kernel" } },
 				},
-			],
-		};
-		const renderer = { kind: "kernel", name: "entity-browser" };
-		const exported = yield* exportRendererSettings(
-			renderer,
-			settings,
-			new Map([["source-owner", key]]),
-		);
-		expect(exported["filterFields"]).toEqual([
-			valueField,
-			{
-				key: "tags",
-				label: "tags",
-				kind: "relationship",
-				direction: "incoming",
-				relationship: { pluginKey: key, slug: "tagged" },
-			},
-			{
-				key: "labels",
-				label: "labels",
-				kind: "relationship",
-				direction: "incoming",
-				relationship: { pluginKey: null, slug: "labelled" },
-			},
-		]);
-		const unmapped = yield* exportRendererSettings(renderer, settings, new Map()).pipe(Effect.flip);
-		expect(unmapped.reason).toBe("missing_reference_mapping");
-		const restored = yield* importRendererSettings(
-			renderer,
-			exported,
-			new Map([[key, "destination-owner"]]),
-		);
-		expect(restored["filterFields"]).toEqual([
-			valueField,
-			{
-				key: "tags",
-				label: "tags",
-				kind: "relationship",
-				direction: "incoming",
-				relationship: { slug: "tagged", owner: { kind: "plugin", pluginId: "destination-owner" } },
-			},
-			{
-				key: "labels",
-				label: "labels",
-				kind: "relationship",
-				direction: "incoming",
-				relationship: { slug: "labelled", owner: { kind: "kernel" } },
-			},
-		]);
-		const missing = yield* importRendererSettings(renderer, exported, new Map()).pipe(Effect.flip);
-		expect(missing.reason).toBe("missing_reference_mapping");
-	}),
+				{
+					...sessionEventField,
+					event: {
+						...sessionEventField.event,
+						owner: { kind: "plugin", pluginId: "destination-owner" },
+					},
+				},
+			]);
+			const eventOnly = { ...settings, filterFields: [sessionEventField] };
+			const eventOnlyExport = yield* exportRendererSettings(
+				renderer,
+				eventOnly,
+				new Map([["source-owner", key]]),
+			);
+			expect(
+				(yield* exportRendererSettings(renderer, eventOnly, new Map()).pipe(Effect.flip)).reason,
+			).toBe("missing_reference_mapping");
+			expect(
+				(yield* importRendererSettings(renderer, eventOnlyExport, new Map()).pipe(Effect.flip))
+					.reason,
+			).toBe("missing_reference_mapping");
+			const missing = yield* importRendererSettings(renderer, exported, new Map()).pipe(
+				Effect.flip,
+			);
+			expect(missing.reason).toBe("missing_reference_mapping");
+		}),
 );
 
 it.effect("round-trips plugin-route add actions without remapping their package target", () =>

@@ -1,5 +1,6 @@
 export {
 	EntitySchemaSlug,
+	EventSchemaSlug,
 	PluginId,
 	PluginPackageId,
 	RelationshipSchemaSlug,

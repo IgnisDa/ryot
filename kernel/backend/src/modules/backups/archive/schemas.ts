@@ -1,6 +1,7 @@
 import { ProviderLibraryMembership } from "@ryot-app/contract/modules/entity-providers/schemas";
 import {
 	relationshipFilterField,
+	sessionEventFilterField,
 	ValueFilterField,
 } from "@ryot-app/contract/modules/filters/schemas";
 import {
@@ -18,7 +19,12 @@ import {
 	EntityBrowserSavedViewSettings,
 	KernelSavedViewRendererName,
 } from "@ryot-app/contract/modules/saved-views/schemas";
-import { PluginPackageId } from "@ryot-app/contract/schema/brands";
+import {
+	EntitySchemaSlug,
+	EventSchemaSlug,
+	PluginPackageId,
+	RelationshipSchemaSlug,
+} from "@ryot-app/contract/schema/brands";
 import { JsonValue } from "@ryot-app/contract/schema/json";
 import { UserPreferences } from "@ryot-app/contract/schema/user-preferences";
 import { strictStruct } from "@ryot-app/contract/schema/utils";
@@ -282,9 +288,22 @@ export const ArchiveEntitySchemaReference = strictStruct({
 });
 export type ArchiveEntitySchemaReference = typeof ArchiveEntitySchemaReference.Type;
 
+export const ArchiveRelationshipSchemaReference = strictStruct({
+	slug: RelationshipSchemaSlug,
+	pluginKey: Schema.NullOr(Schema.String),
+});
+
+export const ArchiveEventSchemaReference = strictStruct({
+	slug: EventSchemaSlug,
+	entitySchemaSlug: EntitySchemaSlug,
+	pluginKey: Schema.NullOr(Schema.String),
+});
+export type ArchiveEventSchemaReference = typeof ArchiveEventSchemaReference.Type;
+
 export const ArchiveFilterField = Schema.Union([
 	ValueFilterField,
-	relationshipFilterField(ArchiveEntitySchemaReference),
+	relationshipFilterField(ArchiveRelationshipSchemaReference),
+	sessionEventFilterField(ArchiveEventSchemaReference),
 ]);
 export type ArchiveFilterField = typeof ArchiveFilterField.Type;
 
