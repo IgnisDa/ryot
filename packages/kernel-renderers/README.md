@@ -18,7 +18,7 @@ SDKs, and the matching `@ryot-app/ryotql-recipes` entrypoints. Tests mount them 
 messages the renderer actually puts on the port.
 
 The browser owns its own screen chrome inside the iframe: the saved view's name and icon, search,
-layout, the Filters dialog (sort lives inside it when configured, otherwise it is empty), the
+layout, the Filters dialog (sort and the filter rules), active-filter chips, the
 result and sync count line, and the compact search row, options sheet, and add FAB. Entity-browser
 cards come from registered entity presentations, and the table renders entity art from a
 `managed-asset` table column. Collection-browser reuses the shared controller and renders kernel
@@ -41,3 +41,25 @@ the current workspace does not supply schema ownership.
 Renderer queries return Effects from `createRyotQuery` callbacks. The collection header loads before
 the member query uses its schema; aggregate, count, and member requests then run concurrently. Query
 cancellation follows Effect interruption when the page unmounts.
+
+## Filters
+
+Entity and collection browsers filter through the effective filter fields of their settings (the
+view's `filterFields` plus the automatic Collections relationship). `browser-filters.tsx` owns the
+rules panel, the chips row, and the relationship choices queries; `entity-browser-controller.tsx`
+composes them and owns the state. Renderer sources import filter helpers only from
+`@ryot-app/ryotql-recipes/saved-view-filters`, never from the contract.
+
+Filter state lives only in the `filters` search parameter: `base64url(JSON of Filter)`, written with
+the same pending-search path as sort and search so URL, query identity, and the visible results move
+together. Decoding is lenient: leaves with unknown fields, operators outside the field type, or
+invalid values are dropped. The panel edits one flat match-all or match-any group; a nested tree
+renders as one clearable Custom filter chip. Rules that are not yet complete stay in panel state and
+out of the query, and each completed change applies immediately. The Filters button, compact options
+button, and chips share one applied-rule count.
+
+Relationship values load through `relationshipFilterChoicesRecipe`: the editor pages by name search,
+and chips resolve names by the rule's entity IDs. Until names resolve, or for entities that no
+longer exist, a chip shows the count form (for example "Authors: 2 selected") instead of raw IDs.
+Count all, the pages, and the filter-aware empty state all use the applied filter; the query Effect
+reads `now` from the Effect clock for relative-date rules.

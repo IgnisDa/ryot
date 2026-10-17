@@ -563,6 +563,79 @@ describe("client page routes", () => {
 		}),
 	);
 
+	it.live("keeps the filters search value intact across host search rewrites", () =>
+		Effect.gen(function* () {
+			const filters =
+				"eyJmaWVsZCI6ImxldmVsIiwidmFsdWVzIjpbImJlZ2lubmVyIl0sIm9wZXJhdG9yIjoiYW55T2YifQ";
+			const view = mount({
+				entry: `/v/c/fixture-view?filters=${filters}`,
+				loadProviders: () =>
+					Effect.succeed({ items: [], pageInfo: { limit: 100, hasMore: false, nextCursor: null } }),
+				prepare: (_scope, request) => {
+					const target = request.payload.target;
+					if (target.kind !== "saved-view") {
+						return Effect.die("not used");
+					}
+					const prepared = preparedSavedView(SavedViewId.make("internal-id"));
+					const schema = { slug: "book", owner: { kind: "plugin", pluginId: "plugin-1" } };
+					return Effect.succeed({
+						...prepared,
+						context: {
+							...prepared.context,
+							target,
+							renderer: { kind: "kernel", name: "Entity browser" },
+							settings: {
+								pageSize: 20,
+								sortChoices: [],
+								searchFields: [],
+								tableColumns: null,
+								sourceName: "items",
+								defaultLayout: "list",
+								layouts: ["grid", "list"],
+								subject: { schemas: [schema], entityAlias: "entity" },
+								addAction: {
+									schema,
+									type: "provider-search",
+									library: {
+										librarySchemaSlug: "media-library",
+										relationshipSlug: "in-media-library",
+									},
+								},
+							},
+						},
+					});
+				},
+			});
+			const bridge = connectFrame(
+				yield* Effect.promise(() => screen.findByTitle<HTMLIFrameElement>("Fixture View plugin")),
+			);
+			yield* Effect.promise(() => waitFor(() => expect(bridge.messages).toHaveLength(1)));
+			expect(view.router.state.location.search).toMatchObject({ filters });
+			bridge.port.postMessage({
+				type: "pick-entity-screen",
+				requestId: "pick-entity-screen-1",
+				schema: { slug: "book", owner: { kind: "plugin", pluginId: "plugin-1" } },
+				library: { librarySchemaSlug: "media-library", relationshipSlug: "in-media-library" },
+			});
+			yield* Effect.promise(() =>
+				waitFor(() =>
+					expect(view.router.state.location.searchStr).toBe(`?filters=${filters}&add=true`),
+				),
+			);
+			yield* Effect.promise(() => screen.findByRole("dialog", { name: "Add from a provider" }));
+			fireEvent.click(screen.getAllByRole("button", { name: "Close" })[0]);
+			yield* Effect.promise(() =>
+				waitFor(() => expect(view.router.state.location.searchStr).toBe(`?filters=${filters}`)),
+			);
+			const locations = bridge.messages.flatMap((message) =>
+				typeof message === "object" && message !== null && "location" in message
+					? [message.location]
+					: [],
+			);
+			expect(locations.at(-1)).toMatchObject({ search: `filters=${filters}` });
+		}),
+	);
+
 	it.live("shows the saved-view error state when entity-browser settings are undecodable", () =>
 		Effect.gen(function* () {
 			mount({

@@ -294,7 +294,10 @@ export default function WorkoutsPage() {
 				options={viewLayoutOptions}
 				onChange={(value) => ryot.navigation.pageSearch.replace({ layout: value })}
 			/>
-			<ViewFiltersButton onClick={() => console.log("TODO: open workout filters")} />
+			<ViewFiltersButton
+				activeCount={0}
+				onClick={() => console.log("TODO: open workout filters")}
+			/>
 			<button
 				type="button"
 				onClick={start}

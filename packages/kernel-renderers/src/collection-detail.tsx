@@ -25,11 +25,11 @@ import type { BrowserColumns } from "./browser-table";
 import { EntityBrowserController, type BrowserQueryPage } from "./entity-browser-controller";
 import { useHostScreen } from "./host-screen";
 
-const QueryInput = Schema.Tuple([
-	Schema.String,
-	Schema.Union([Schema.Literal(""), CollectionMemberSort]),
-	Schema.NullOr(Schema.String),
-]);
+const QueryInput = Schema.Struct({
+	searchText: Schema.String,
+	cursor: Schema.NullOr(Schema.String),
+	sortChoice: Schema.Union([Schema.Literal(""), CollectionMemberSort]),
+});
 const decodeQueryInput = Schema.decodeUnknownSync(Schema.fromJsonString(QueryInput));
 
 type CollectionMeta = {
@@ -103,7 +103,7 @@ const CollectionDetail = ({ collectionId }: { readonly collectionId: string }) =
 		createRyotQuery<string, BrowserQueryPage<CollectionMeta>>(
 			({ input, client }) =>
 				Effect.gen(function* () {
-					const [searchText, sortChoice, after] = decodeQueryInput(input);
+					const { searchText, sortChoice, cursor: after } = decodeQueryInput(input);
 					const header = yield* client.data.query(collectionHeaderRecipe({ collectionId }));
 					const [groups, total, members] = yield* Effect.all(
 						[
@@ -145,7 +145,7 @@ const CollectionDetail = ({ collectionId }: { readonly collectionId: string }) =
 			name={(meta) => meta?.header?.name ?? "Collection"}
 			headerAction={{ icon: "pencil", run: editCollection, label: "Edit collection" }}
 			// oxlint-disable-next-line react/no-unstable-nested-components -- The slot needs this collection ID.
-			count={(search, onTotal) => (
+			count={({ onTotal, searchText: search }) => (
 				<CollectionCount
 					onTotal={onTotal}
 					searchText={search}
