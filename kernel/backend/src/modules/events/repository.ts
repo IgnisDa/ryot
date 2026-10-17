@@ -127,16 +127,12 @@ export class EventsRepository extends Context.Service<EventsRepository>()("Event
 			after: StreamKey;
 			beforeOccurredAt: Date;
 			afterOccurredAt: Date;
-			ownerWorkId?: string;
 		}) {
 			const occurredAt = minimumOccurredAt(input.beforeOccurredAt, input.afterOccurredAt);
-			yield* eventStreams.touch(
-				[
-					{ ...input.before, occurredAt },
-					{ ...input.after, occurredAt },
-				],
-				input.ownerWorkId,
-			);
+			yield* eventStreams.touch([
+				{ ...input.before, occurredAt },
+				{ ...input.after, occurredAt },
+			]);
 		});
 		const listUserEventsForBackup = Effect.fn("EventsRepository.listUserEventsForBackup")(
 			function* (input: { userId: UserId; afterId?: EventId | undefined }) {
@@ -340,7 +336,7 @@ export class EventsRepository extends Context.Service<EventsRepository>()("Event
 		});
 
 		const deletePreparedEvent = Effect.fn("EventsRepository.deletePreparedEvent")(function* (
-			input: EventIdentityInput & { expectedRevision: number; ownerWorkId?: string },
+			input: EventIdentityInput & { expectedRevision: number },
 		) {
 			yield* requireTransaction;
 			const current = yield* getEventForMutation(input);
@@ -367,7 +363,6 @@ export class EventsRepository extends Context.Service<EventsRepository>()("Event
 					before: streamKey,
 					afterOccurredAt: current.occurredAt,
 					beforeOccurredAt: current.occurredAt,
-					...(input.ownerWorkId === undefined ? {} : { ownerWorkId: input.ownerWorkId }),
 				});
 			}
 
@@ -432,7 +427,6 @@ export class EventsRepository extends Context.Service<EventsRepository>()("Event
 				draft: AutomationEventDraft;
 				expectedRevision: number;
 				updatedAt: Date;
-				ownerWorkId?: string;
 			},
 		) {
 			yield* requireTransaction;
@@ -469,7 +463,6 @@ export class EventsRepository extends Context.Service<EventsRepository>()("Event
 					afterOccurredAt,
 					before: beforeKey,
 					beforeOccurredAt: current.occurredAt,
-					...(input.ownerWorkId === undefined ? {} : { ownerWorkId: input.ownerWorkId }),
 				});
 			}
 

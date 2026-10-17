@@ -15,7 +15,7 @@
 
 ## Status
 
-**53 implemented, 0 in progress, 30 pending; 3 excluded.**
+**54 implemented, 0 in progress, 29 pending; 3 excluded.**
 
 “Implemented” means affected checks and tests passed and the change is committed with this tracker. Batch-wide acceptance is recorded separately below. Rows follow the audit's ranked order; sequencing can change to respect dependencies and keep changes reviewable.
 
@@ -91,7 +91,7 @@
 | B02-R1 | Pending | Delete the test-only live-environment runtime mode. |
 | B02-R2 | Pending | Readiness uses configured-key metadata, not decrypted values. |
 | B10-R2 | Pending | Delete unused definition-reader modes. |
-| B11-R1 | Pending | Remove the obsolete projection-worker invalidation exemption. |
+| B11-R1 | Implemented | Remove the projection-worker invalidation exemption and owner-work-ID threading while preserving event locks. See this finding's audit commit. |
 | B19-R2 | Implemented | Store the selected tagged composition module directly without synthetic namespaces or reverse lookup; preserve selection and grants. See this finding's audit commit. |
 | B24-R1 | Implemented | Delete the unused signal service, repository, layer, and test; preserve definition registration, invalidation, and publication because no semantic consumers remain. See this finding's audit commit. |
 | C03-R1 | Implemented | One shell owner controls presentation activation and deactivation, with stale-entry guards and overlays. See this finding's audit commit. |
@@ -219,3 +219,4 @@
 - B13-R2: coordinated full checks passed, followed by all affected workflow tests and 33 ingestion tests; read-only review reported no findings. Pending transitions directly to applying; B13-R1 and B15 behavior are preserved. Development state is resettable; no production compatibility or drain machinery was added, and no reset was performed.
 - F04-R2: fitness check passed before 73 tests across 12 files, e2e check passed, and the full server check passed; read-only review reported no findings. Stable entry IDs preserve complete child pages, session-linked events/analytics, and entry-ID update/delete; OpenScale legacy producers remain. F02 workout hunks in the shared import test were excluded. Restored normal/larger migration validation remains pending for coordinated follow-up; no reset or compatibility/drain path was needed.
 - T02-R1: e2e type, format, and lint checks passed before eight harness tests; read-only review passed. Release finalizers are registered during acquisition, including partial failure/interruption/stop, with API scope closed before infrastructure and capacity unchanged. The T05 seed script was not staged.
+- B11-R1: scoped checks passed before 79 tests across six files; read-only review passed. Removed projection-worker exemption and owner-work-ID threading while retaining locks.

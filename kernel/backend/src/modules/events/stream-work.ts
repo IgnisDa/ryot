@@ -301,15 +301,12 @@ export class EventStreamWorkService extends Context.Service<EventStreamWorkServi
 					occurredAt: workClaim.occurredAt,
 					writeContext: workClaim.pluginPin.writeContext,
 					accountGeneration: workClaim.accountGeneration,
-					causation: {
-						...rootLifecycleCausation({
-							lane: "background",
-							source: "bootstrap",
-							executionId: AutomationExecutionId.make(executionId),
-							initiator: { kind: "user", id: workClaim.accountGeneration.userId },
-						}),
-						eventStreamWorkId: workClaim.id,
-					},
+					causation: rootLifecycleCausation({
+						lane: "background",
+						source: "bootstrap",
+						executionId: AutomationExecutionId.make(executionId),
+						initiator: { kind: "user", id: workClaim.accountGeneration.userId },
+					}),
 				}).pipe(
 					Effect.mapError(() => new DbError({ message: "Invalid event stream lifecycle command" })),
 				);

@@ -192,43 +192,41 @@ layer(databaseLayer)((test) => {
 		}),
 	);
 
-	test.effect(
-		"keeps owner writes in the active claim and makes request replay revision-aware",
-		() =>
-			Effect.gen(function* () {
-				const session = yield* DatabaseSession;
-				const repository = yield* EventStreamRepository;
-				const { key } = yield* seed("owner-write");
-				const id = yield* session.transaction(repository.request(requestInput(key)));
-				const claim = yield* session.transaction(repository.claim(id, 0));
-				assert(claim);
+	test.effect("preserves completed work on request replay until a source write queues it", () =>
+		Effect.gen(function* () {
+			const session = yield* DatabaseSession;
+			const repository = yield* EventStreamRepository;
+			const { key } = yield* seed("completed-request-replay");
+			const id = yield* session.transaction(repository.request(requestInput(key)));
+			const claim = yield* session.transaction(repository.claim(id, 0));
+			assert(claim);
 
-				yield* session.transaction(
-					Effect.gen(function* () {
-						yield* repository.touch([{ ...key, occurredAt: date("2026-10-03T00:00:00.000Z") }], id);
-						expect(
-							yield* repository.finish(id, claim.attempt, { cursor: "owner-write" }, true),
-						).toBe(true);
-					}),
-				);
+			yield* session.transaction(
+				repository.finish(id, claim.attempt, { cursor: "completed" }, true),
+			);
 
-				const completed = yield* repository.get(id);
-				assert(completed);
-				expect(completed.status).toBe("completed");
-				expect(completed.streamRevision).toBe(claim.streamRevision + 1);
-				expect(yield* session.transaction(repository.request(requestInput(key)))).toBe(id);
-				expect((yield* repository.get(id))?.status).toBe("completed");
+			const completed = yield* repository.get(id);
+			assert(completed);
+			expect(completed.status).toBe("completed");
+			expect(completed.streamRevision).toBe(claim.streamRevision);
+			expect(yield* session.transaction(repository.request(requestInput(key)))).toBe(id);
+			const unchanged = yield* repository.get(id);
+			assert(unchanged);
+			expect(unchanged.status).toBe("completed");
+			expect(unchanged.checkpoint).toEqual({ cursor: "completed" });
+			expect(unchanged.claimedRevision).toBe(claim.streamRevision);
 
-				yield* session.transaction(
-					repository.touch([{ ...key, occurredAt: date("2026-10-04T00:00:00.000Z") }], id),
-				);
-				yield* session.transaction(repository.request(requestInput(key)));
-				const replayed = yield* repository.get(id);
-				assert(replayed);
-				expect(replayed.status).toBe("queued");
-				expect(replayed.dirtyFrom).toBeNull();
-				expect(replayed.checkpoint).toBeNull();
-			}),
+			yield* session.transaction(
+				repository.touch([{ ...key, occurredAt: date("2026-10-04T00:00:00.000Z") }]),
+			);
+			yield* session.transaction(repository.request(requestInput(key)));
+			const replayed = yield* repository.get(id);
+			assert(replayed);
+			expect(replayed.status).toBe("queued");
+			expect(replayed.streamRevision).toBe(claim.streamRevision + 1);
+			expect(replayed.dirtyFrom).toEqual(date("2026-10-04T00:00:00.000Z"));
+			expect(replayed.checkpoint).toEqual({ cursor: "completed" });
+		}),
 	);
 
 	test.effect(
