@@ -1998,10 +1998,7 @@ const favoritesHeader = {
 	name: "Favorites",
 	entityId: "collection-1",
 	properties: {
-		membershipPropertiesSchema: {
-			unknownKeys: "strict",
-			fields: { notes: { position: 0, type: "string", label: "Notes", description: "Notes" } },
-		},
+		membershipFields: [{ key: "notes", type: "text", label: "Notes", required: false }],
 	},
 };
 

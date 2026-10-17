@@ -1,5 +1,4 @@
 import { expect, it } from "@effect/vitest";
-import { collectionFieldsToAppSchema } from "@ryot-app/contract/modules/collections/fields";
 import { EntityId } from "@ryot-app/contract/schema/brands";
 import { type RyotClientAdapter, RyotClientError } from "@ryot-app/plugin-client-sdk";
 import { RyotProvider } from "@ryot-app/plugin-client-sdk/react";
@@ -74,9 +73,9 @@ const mountManager = (
 									name: "Favourites",
 									entityId: "collection-1",
 									properties: {
-										membershipPropertiesSchema: collectionFieldsToAppSchema([
+										membershipFields: [
 											{ key: "notes", type: "text", label: "Notes", required: true },
-										]),
+										],
 									},
 								},
 							]),

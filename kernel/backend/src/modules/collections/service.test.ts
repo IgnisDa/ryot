@@ -2,6 +2,10 @@ import { expect, layer } from "@effect/vitest";
 import type { CurrentUserValue } from "@ryot-app/contract/auth-middleware";
 import type { AutomationWarning } from "@ryot-app/contract/modules/automations/lifecycle";
 import {
+	type CollectionField,
+	decodeCollectionFields,
+} from "@ryot-app/contract/modules/collections/fields";
+import {
 	CollectionBadRequest,
 	CollectionNotFound,
 	type CreateMembershipBody,
@@ -31,7 +35,8 @@ import {
 import type { AppSchema } from "@ryot-app/contract/schema/property-schema";
 import { assertExitFails } from "@ryot-app/testing/effect-assertions";
 import { stableStringify } from "@ryot-app/ts-utils/json";
-import { Context, Effect, Layer, Ref } from "effect";
+import { isObjectRecord } from "@ryot-app/ts-utils/predicates";
+import { Context, Effect, Layer, Ref, Result } from "effect";
 import { WorkflowEngine, WorkflowInstance } from "effect/workflow/WorkflowEngine";
 
 import { rootLifecycleCommand } from "#modules/automations/lifecycle/command";
@@ -110,12 +115,17 @@ const memberOfSchema = {
 const collectionPropertiesSchema = {
 	fields: {
 		description: { label: "Description", type: "string" as const, description: "Description" },
-		membershipPropertiesSchema: {
-			properties: {},
-			type: "object" as const,
-			unknownKeys: "passthrough" as const,
-			label: "Membership Properties Schema",
-			description: "Membership Properties Schema",
+		membershipFields: {
+			type: "array" as const,
+			label: "Membership Fields",
+			description: "Membership Fields",
+			items: {
+				properties: {},
+				label: "Field",
+				description: "Field",
+				type: "object" as const,
+				unknownKeys: "passthrough" as const,
+			},
 		},
 	},
 } satisfies AppSchema;
@@ -142,13 +152,10 @@ const removeEventSchema = {
 	slug: "remove-entity-from-collection",
 	id: EventSchemaSlug.make("remove-event-schema-id"),
 };
-const noteSchema = {
-	unknownKeys: "strict",
-	fields: { note: { position: 0, label: "Note", type: "string", description: "Note" } },
-};
+const noteFields = [{ key: "note", type: "text", label: "Note", required: false }];
 const noteCollection = {
 	...collectionEntity,
-	properties: { description: "Notes", membershipPropertiesSchema: noteSchema },
+	properties: { description: "Notes", membershipFields: noteFields },
 };
 
 const membershipPlan = {
@@ -415,6 +422,89 @@ const createCommand = command("collection:create", "collection:create");
 const updateCommand = command("collection:update", "collection:update");
 const deleteCommand = command("collection:delete", "collection:delete");
 
+const allFields: ReadonlyArray<CollectionField> = [
+	{ type: "text", label: "Text", required: true, description: "Text", defaultValue: "kept" },
+	{ type: "number", label: "Number", required: false, defaultValue: 4.5 },
+	{ type: "boolean", required: false, label: "Boolean", defaultValue: false },
+	{ type: "date", label: "Date", required: false, defaultValue: "2026-01-01" },
+	{ required: false, type: "datetime", label: "Datetime", defaultValue: "2026-01-01T00:00:00Z" },
+	{ type: "choice", label: "Choice", required: false, defaultValue: "B", choices: ["A", "B"] },
+	{
+		label: "Multi",
+		required: false,
+		choices: ["A", "B"],
+		defaultValue: ["B"],
+		type: "multi-choice",
+	},
+	{ label: "List", required: false, type: "text-list", defaultValue: ["kept"] },
+];
+
+const propertyRecord = (properties: unknown): Record<string, unknown> =>
+	isObjectRecord(properties) ? properties : {};
+
+layer(
+	Layer.unwrap(
+		Effect.gen(function* () {
+			const properties = yield* Ref.make<Record<string, unknown>>({});
+			return makeServiceLayer({
+				collections: {
+					getCollectionById: () =>
+						Ref.get(properties).pipe(
+							Effect.map((stored) => ({ ...collectionEntity, properties: stored })),
+						),
+				},
+				entities: {
+					create: (input) =>
+						Ref.set(properties, propertyRecord(input.properties)).pipe(
+							Effect.as({ warnings: [], entity: collectionEntity }),
+						),
+					update: (input) =>
+						Ref.set(properties, propertyRecord(input.properties)).pipe(
+							Effect.as({ warnings: [], entity: collectionEntity }),
+						),
+				},
+			});
+		}),
+	),
+)((test) => {
+	test.effect(
+		"reloads and edits every persisted field type, retaining order, defaults and description intent",
+		() =>
+			Effect.gen(function* () {
+				const service = yield* CollectionsService;
+				const calls = yield* CollectionCalls;
+				yield* service.create(user, { fields: allFields, name: "All fields" }, createCommand);
+				const [created] = yield* calls.createdEntities;
+				const stored = Result.getOrThrow(
+					decodeCollectionFields(propertyRecord(created?.properties)["membershipFields"]),
+				);
+				expect(stored).toEqual(
+					allFields.map((field) => Object.assign({ key: field.label.toLowerCase() }, field)),
+				);
+				yield* service.update(
+					user,
+					{ collectionId, description: null, name: "All fields", fields: stored.toReversed() },
+					updateCommand,
+				);
+				const [updated] = yield* calls.updatedEntities;
+				expect(updated?.properties).toEqual({ membershipFields: stored.toReversed() });
+				yield* runMembershipWorkflow();
+				const [member] = yield* calls.relationshipInputs;
+				expect(member?.properties).toEqual({
+					rank: 0,
+					number: 4.5,
+					choice: "B",
+					text: "kept",
+					multi: ["B"],
+					boolean: false,
+					list: ["kept"],
+					date: "2026-01-01",
+					datetime: "2026-01-01T00:00:00Z",
+				});
+			}),
+	);
+});
+
 const updatePayload = {
 	collectionId,
 	name: "Renamed",
@@ -434,7 +524,7 @@ layer(makeServiceLayer())((test) => {
 		}),
 	);
 
-	test.effect("compiles member fields into a strict membership schema on create", () =>
+	test.effect("persists normalized ordered member fields on create", () =>
 		Effect.gen(function* () {
 			yield* (yield* CollectionsService).create(
 				user,
@@ -458,26 +548,17 @@ layer(makeServiceLayer())((test) => {
 			expect(input?.name).toBe("Wishlist");
 			expect(input?.properties).toEqual({
 				description: "Things to get",
-				membershipPropertiesSchema: {
-					unknownKeys: "strict",
-					fields: {
-						"owned-on": {
-							position: 0,
-							type: "date",
-							label: "Owned On",
-							description: "Owned On",
-							validation: { required: true },
-						},
-						format: {
-							position: 1,
-							type: "enum",
-							label: "Format",
-							defaultValue: "Vinyl",
-							description: "Format",
-							choices: { kind: "static", values: [{ value: "Vinyl" }, { value: "CD" }] },
-						},
+				membershipFields: [
+					{ type: "date", required: true, key: "owned-on", label: "Owned On" },
+					{
+						key: "format",
+						type: "choice",
+						label: "Format",
+						required: false,
+						defaultValue: "Vinyl",
+						choices: ["Vinyl", "CD"],
 					},
-				},
+				],
 			});
 		}),
 	);
@@ -643,7 +724,7 @@ layer(
 			const [input] = yield* (yield* CollectionCalls).createdEntities;
 			const { populatedAt: _populatedAt, ...expected } = collectionEntity;
 			expect(result).toEqual({ ...expected, warnings: [warning] });
-			expect(input?.properties).toEqual({});
+			expect(input?.properties).toEqual({ membershipFields: [] });
 			expect(input?.lifecycle.causation).toMatchObject({
 				depth: 0,
 				source: "api",
@@ -762,19 +843,10 @@ layer(
 				lifecycle: { kernelCollection: true },
 				expected: { updatedAt: now, name: "Favorites", properties: noteCollection.properties },
 				properties: {
-					membershipPropertiesSchema: {
-						unknownKeys: "strict",
-						fields: {
-							"note-2": { position: 1, label: "Note", type: "boolean", description: "Note" },
-							note: {
-								position: 0,
-								type: "string",
-								label: "Comment",
-								description: "Comment",
-								validation: { required: true },
-							},
-						},
-					},
+					membershipFields: [
+						{ key: "note", type: "text", required: true, label: "Comment" },
+						{ key: "note-2", label: "Note", type: "boolean", required: false },
+					],
 				},
 			});
 			expect(input?.properties).not.toHaveProperty("description");
@@ -1092,34 +1164,30 @@ layer(
 
 const catastrophicPattern = "^(a+)+$";
 
-for (const [name, membershipPropertiesSchema] of [
+for (const [name, membershipFields] of [
 	[
 		"a user-supplied pattern",
-		{
-			unknownKeys: "strict",
-			fields: {
-				note: {
-					label: "Note",
-					type: "string",
-					description: "Note",
-					validation: { pattern: catastrophicPattern },
-				},
+		[
+			{
+				key: "note",
+				type: "text",
+				label: "Note",
+				required: false,
+				validation: { pattern: catastrophicPattern },
 			},
-		},
+		],
 	],
 	[
 		"dynamic choices",
-		{
-			unknownKeys: "strict",
-			fields: {
-				format: {
-					type: "enum",
-					label: "Format",
-					description: "Format",
-					choices: { kind: "dynamic", source: "formats" },
-				},
+		[
+			{
+				key: "format",
+				type: "choice",
+				label: "Format",
+				required: false,
+				choices: { kind: "dynamic", source: "formats" },
 			},
-		},
+		],
 	],
 	["an undecodable value", { fields: "not-an-object" }],
 ] as const) {
@@ -1127,7 +1195,7 @@ for (const [name, membershipPropertiesSchema] of [
 		makeServiceLayer({
 			collections: {
 				getCollectionById: () =>
-					Effect.succeed({ ...collectionEntity, properties: { membershipPropertiesSchema } }),
+					Effect.succeed({ ...collectionEntity, properties: { membershipFields } }),
 			},
 		}),
 	)((test) => {
@@ -1140,6 +1208,17 @@ for (const [name, membershipPropertiesSchema] of [
 					new CollectionBadRequest({ reason: { code: "invalid-collection-schema" } }),
 				);
 				expect(yield* (yield* CollectionCalls).relationshipInputs).toEqual([]);
+			}),
+		);
+		test.effect(`rejects editing stored fields with ${name}`, () =>
+			Effect.gen(function* () {
+				assertExitFails(
+					yield* Effect.exit(
+						(yield* CollectionsService).update(user, updatePayload, updateCommand),
+					),
+					new CollectionBadRequest({ reason: { code: "invalid-collection-schema" } }),
+				);
+				expect(yield* (yield* CollectionCalls).updatedEntities).toEqual([]);
 			}),
 		);
 	});
