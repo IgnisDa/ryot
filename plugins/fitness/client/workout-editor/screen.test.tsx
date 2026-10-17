@@ -142,6 +142,7 @@ const openEditor = (
 	metrics: readonly MeasurementSummary[] = [],
 	screenProps: Omit<Parameters<typeof WorkoutEditorScreen>[0], "target"> = {},
 	proAvailable = true,
+	previousSets: readonly Record<string, unknown>[] = [],
 ) => {
 	let respond: (() => void) | undefined;
 	const page = mountPluginPage(() => <WorkoutEditorScreen target={target} {...screenProps} />, {
@@ -232,6 +233,8 @@ const openEditor = (
 						);
 					} else if (queryName === "metrics") {
 						data[queryName] = rows(metrics);
+					} else if (queryName === "sets") {
+						data[queryName] = rows(previousSets);
 					} else {
 						data[queryName] = rows([]);
 					}
@@ -700,8 +703,8 @@ describe("WorkoutEditorScreen", () => {
 				click(within(review).getByRole("button", { name: "Continue editing" }));
 
 				expect(screen.queryByRole("dialog", { name: "Review save" })).toBeNull();
-				expect(screen.getByRole("button", { name: "Unconfirm" })).toBeTruthy();
-				expect(screen.getByRole("button", { name: "Confirm" })).toBeTruthy();
+				expect(screen.getByRole("button", { pressed: true, name: "Complete set 1" })).toBeTruthy();
+				expect(screen.getByRole("button", { pressed: false, name: "Complete set 2" })).toBeTruthy();
 				expect(saveInputs).toHaveLength(0);
 				expect(storage.value).toBe(encodeWorkoutEditorDraft(draft));
 				expect(storageActions).not.toContain("remove");
@@ -802,8 +805,7 @@ describe("WorkoutEditorScreen", () => {
 				});
 				yield* waitForEditor(answerPending);
 
-				expect(screen.queryByRole("button", { name: "Confirm" })).toBeNull();
-				expect(screen.queryByRole("button", { name: "Unconfirm" })).toBeNull();
+				expect(screen.queryByRole("button", { name: /^Complete set/ })).toBeNull();
 				click(screen.getByRole("button", { name: "Save" }));
 				const review = screen.getByRole("dialog", { name: "Review save" });
 				expect(review.textContent).toContain(
@@ -834,6 +836,92 @@ describe("WorkoutEditorScreen", () => {
 		}),
 	);
 
+	it.live("marks missing values inline and copies the whole previous set", () =>
+		Effect.gen(function* () {
+			const clock = createTestRyotClock();
+			try {
+				yield* Effect.promise(() => clock.setTime(startedAtMillis));
+				const draft = editorDraft([
+					editorOccurrence("reps_and_weight", [
+						editorSet("empty-set", "reps_and_weight", { reps: undefined, weight: undefined }),
+					]),
+				]);
+				const { page, answerPending } = openEditor(
+					clock,
+					{ value: encodeWorkoutEditorDraft(draft) },
+					[],
+					{},
+					true,
+					[
+						{
+							rpe: 8,
+							reps: 7,
+							pace: null,
+							note: null,
+							weight: 80,
+							oneRm: null,
+							setOrder: 0,
+							volume: null,
+							restTime: null,
+							duration: null,
+							distance: null,
+							setLot: "normal",
+							exerciseOrder: 0,
+							id: "previous-set",
+							workoutId: "previous-workout",
+							recordedKind: "reps_and_weight",
+							occurredAt: "2026-10-10T10:00:00.000Z",
+							exerciseId: "exercise-reps-and-weight",
+							workoutStartedAt: "2026-10-10T10:00:00.000Z",
+						},
+					],
+				);
+				yield* waitForEditor(answerPending);
+				const set = within(screen.getByRole("region", { name: "Weight exercise" })).getByRole(
+					"group",
+					{ name: "Set 1" },
+				);
+
+				click(within(set).getByRole("button", { name: "Complete set 1" }));
+				expect(within(set).getByRole("alert").textContent).toBe(
+					"Enter reps and weight to complete this set. Zero is allowed.",
+				);
+				expect(
+					within(set)
+						.getByRole("textbox", { name: "Set 1 weight (kg)" })
+						.getAttribute("aria-invalid"),
+				).toBe("true");
+				expect(
+					within(set).getByRole("button", { pressed: false, name: "Complete set 1" }),
+				).toBeTruthy();
+
+				yield* Effect.promise(() =>
+					waitFor(() => {
+						answerPending();
+						expect(
+							within(set).getByRole("button", { name: "Set 1: copy previous 80 kg × 7" }),
+						).toBeTruthy();
+					}),
+				);
+				click(within(set).getByRole("button", { name: "Set 1: copy previous 80 kg × 7" }));
+				yield* Effect.promise(() =>
+					waitFor(() => {
+						answerPending();
+						expect(inputValue(within(set).getByRole("textbox", { name: "Set 1 reps" }))).toBe("7");
+						expect(
+							inputValue(within(set).getByRole("textbox", { name: "Set 1 weight (kg)" })),
+						).toBe("80");
+					}),
+				);
+				expect(within(set).queryByRole("alert")).toBeNull();
+				page.dispose();
+			} finally {
+				disposePluginBridges();
+				yield* Effect.promise(() => clock.dispose());
+			}
+		}),
+	);
+
 	it.live("supports prompted rest start and skip for zero-valued set measurements", () =>
 		Effect.gen(function* () {
 			const clock = createTestRyotClock();
@@ -853,30 +941,28 @@ describe("WorkoutEditorScreen", () => {
 				});
 				yield* waitForEditor(answerPending);
 				const exercise = screen.getByRole("region", { name: "Weight exercise" });
-				const firstSet = within(exercise).getByRole("listitem", { name: "Set 1" });
-				const secondSet = within(exercise).getByRole("listitem", { name: "Set 2" });
+				const firstSet = within(exercise).getByRole("group", { name: "Set 1" });
+				const secondSet = within(exercise).getByRole("group", { name: "Set 2" });
 
-				click(within(firstSet).getByRole("button", { name: "Confirm" }));
+				click(within(firstSet).getByRole("button", { name: "Complete set 1" }));
 				yield* Effect.promise(() =>
 					waitFor(() => {
 						answerPending();
-						expect(within(firstSet).getByRole("status").textContent).toContain(
-							"Ready for 20s rest?",
-						);
+						expect(within(firstSet).getByRole("status").textContent).toContain("Rest for 0:20?");
 					}),
 				);
 				click(within(firstSet).getByRole("button", { name: "Skip rest" }));
 				expect(within(firstSet).queryByRole("status")).toBeNull();
 				expect(screen.queryByRole("timer", { name: "Rest remaining" })).toBeNull();
-				expect(within(exercise).getAllByRole("button", { name: "Unconfirm" })).toHaveLength(1);
+				expect(
+					within(exercise).getAllByRole("button", { pressed: true, name: /^Complete set/ }),
+				).toHaveLength(1);
 
-				click(within(secondSet).getByRole("button", { name: "Confirm" }));
+				click(within(secondSet).getByRole("button", { name: "Complete set 2" }));
 				yield* Effect.promise(() =>
 					waitFor(() => {
 						answerPending();
-						expect(within(secondSet).getByRole("status").textContent).toContain(
-							"Ready for 20s rest?",
-						);
+						expect(within(secondSet).getByRole("status").textContent).toContain("Rest for 0:20?");
 					}),
 				);
 				click(within(secondSet).getByRole("button", { name: "Start rest" }));
@@ -886,7 +972,9 @@ describe("WorkoutEditorScreen", () => {
 						expect(screen.getByRole("timer", { name: "Rest remaining" })).toBeTruthy();
 					}),
 				);
-				expect(within(exercise).getAllByRole("button", { name: "Unconfirm" })).toHaveLength(2);
+				expect(
+					within(exercise).getAllByRole("button", { pressed: true, name: /^Complete set/ }),
+				).toHaveLength(2);
 				page.dispose();
 			} finally {
 				disposePluginBridges();
@@ -895,7 +983,7 @@ describe("WorkoutEditorScreen", () => {
 		}),
 	);
 
-	it.live("uses bridge Back to close the deepest select and RPE overlays only", () =>
+	it.live("uses bridge Back to close the deepest select and set sheets only", () =>
 		Effect.gen(function* () {
 			const clock = createTestRyotClock();
 			try {
@@ -942,21 +1030,20 @@ describe("WorkoutEditorScreen", () => {
 				);
 
 				const exercise = screen.getByRole("region", { name: "Weight exercise" });
-				click(within(exercise).getByText(/^Rest:/));
-				click(within(exercise).getByRole("button", { name: "RPE help" }));
-				expect(screen.getByRole("dialog", { name: "RPE instructions" })).toBeTruthy();
-				dismissOverlay(page, "dismiss-rpe");
+				click(within(exercise).getByRole("button", { name: "Set 1, Normal. Set options" }));
+				expect(screen.getByRole("dialog", { name: "Set 1" })).toBeTruthy();
+				dismissOverlay(page, "dismiss-set");
 				yield* Effect.promise(() =>
 					waitFor(() => {
 						answerPending();
 						expect(page.clientMessages()).toContainEqual(
 							expect.objectContaining({
 								dismissed: true,
-								requestId: "dismiss-rpe",
+								requestId: "dismiss-set",
 								type: "dismiss-overlay-result",
 							}),
 						);
-						expect(screen.queryByRole("dialog", { name: "RPE instructions" })).toBeNull();
+						expect(screen.queryByRole("dialog", { name: "Set 1" })).toBeNull();
 						expect(screen.getByRole("region", { name: "Weight exercise" })).toBeTruthy();
 					}),
 				);
