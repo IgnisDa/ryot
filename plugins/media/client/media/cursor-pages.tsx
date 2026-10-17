@@ -1,18 +1,17 @@
-import type { ManagedAssetLocator } from "@ryot-app/plugin-client-sdk";
+import { RyotClientError, type ManagedAssetLocator } from "@ryot-app/plugin-client-sdk";
 import {
 	ManagedAssetProvider,
-	useRyotQuery,
+	PaginationError,
+	nextPageCursor,
+	useRyotInfiniteQuery,
 	type RyotQuery,
 } from "@ryot-app/plugin-client-sdk/react";
-import { useState, type ReactNode } from "react";
+import { LoadMoreButton } from "@ryot-app/plugin-ui-sdk";
+import type { ReactNode } from "react";
 
-import {
-	mapMediaCursorPage,
-	type MediaCursorPage,
-	type MediaCursorPageFailure,
-} from "./cursor-page-state";
+import type { MediaCursorPage, MediaCursorPageFailure } from "./cursor-page-state";
 import type { MediaStatusCopy } from "./detail-screen";
-import { MediaLinkButton, MediaRefreshStatus, MediaStatusMessage } from "./primitives";
+import { MediaRefreshStatus, MediaStatusMessage } from "./primitives";
 
 export type MediaCursorPagesCopy = {
 	readonly empty: string;
@@ -20,55 +19,72 @@ export type MediaCursorPagesCopy = {
 	readonly error: (state: MediaCursorPageFailure) => MediaStatusCopy;
 };
 
-type MediaCursorPagesProps<Item, Input> = {
+type MediaCursorPagesProps<Item, Selection, Input> = {
 	readonly copy: MediaCursorPagesCopy;
-	readonly input: (after: string | null) => Input;
+	readonly input: Selection;
+	readonly getPageInput: (input: Selection, after: string | null) => Input;
 	readonly query: RyotQuery<Input, MediaCursorPage<Item>>;
 	readonly assets: (items: readonly Item[]) => readonly ManagedAssetLocator[];
 	readonly renderPage: (items: readonly Item[], index: number) => ReactNode;
 };
 
-function MediaCursorPageView<Item, Input>(
-	props: MediaCursorPagesProps<Item, Input> & {
-		readonly index: number;
-		readonly after: string | null;
-	},
+const mediaCursorPageFailure = (error: Error | null): MediaCursorPageFailure => ({
+	status:
+		error instanceof PaginationError ||
+		(error instanceof RyotClientError && error.reason === "malformed-result")
+			? "malformed"
+			: "transport-error",
+});
+
+export function MediaCursorPages<Item, Selection, Input>(
+	props: MediaCursorPagesProps<Item, Selection, Input>,
 ) {
-	const [expanded, setExpanded] = useState(false);
-	const result = useRyotQuery(props.query, props.input(props.after));
-	const state = mapMediaCursorPage(result);
-	if (state.status === "loading") {
+	const result = useRyotInfiniteQuery(props.query, props.input, {
+		initialPageParam: null,
+		getPageInput: props.getPageInput,
+		getNextPageParam: nextPageCursor,
+	});
+	if (result.pages.length === 0 && result.isPending) {
 		return <MediaStatusMessage {...props.copy.loading} />;
 	}
-	if (state.status === "transport-error" || state.status === "malformed") {
-		return <MediaStatusMessage {...props.copy.error(state)} onRetry={result.refetch} />;
+	if (result.pages.length === 0 && result.isError) {
+		return (
+			<MediaStatusMessage
+				{...props.copy.error(mediaCursorPageFailure(result.error))}
+				onRetry={result.retry}
+			/>
+		);
 	}
-	const { items, nextCursor } = state;
-	if (props.index === 0 && items.length === 0) {
+	if (result.pages[0]?.items.length === 0) {
 		return <p className="font-ui text-[13px] text-text-muted">{props.copy.empty}</p>;
 	}
 	return (
 		<>
-			<MediaRefreshStatus result={result} />
-			<ManagedAssetProvider assets={props.assets(items)}>
-				{props.renderPage(items, props.index)}
-			</ManagedAssetProvider>
-			{nextCursor !== null && expanded ? (
-				<MediaCursorPageView {...props} after={nextCursor} index={props.index + 1} />
+			{result.errorOperation === "refresh" ? <MediaRefreshStatus result={result} /> : null}
+			{result.pages.map((page, index) => (
+				<ManagedAssetProvider
+					assets={props.assets(page.items)}
+					key={JSON.stringify(result.pageParams[index])}
+				>
+					{props.renderPage(page.items, index)}
+				</ManagedAssetProvider>
+			))}
+			{result.errorOperation === "append" && result.isError ? (
+				<MediaStatusMessage
+					{...props.copy.error(mediaCursorPageFailure(result.error))}
+					onRetry={result.retry}
+				/>
 			) : null}
-			{nextCursor === null || expanded ? null : (
+			{!result.hasNextPage || result.errorOperation === "append" ? null : (
 				<div className="pt-1">
-					<MediaLinkButton label="Load more" onClick={() => setExpanded(true)} />
+					<LoadMoreButton
+						label="Load more"
+						disabled={result.isFetching}
+						onClick={result.fetchNextPage}
+						isFetchingNextPage={result.isFetchingNextPage}
+					/>
 				</div>
 			)}
 		</>
 	);
-}
-
-/**
- * Cursor-paged list. Every page owns its query and its own managed assets, so pressing
- * Load more appends a page without refetching the ones already on screen.
- */
-export function MediaCursorPages<Item, Input>(props: MediaCursorPagesProps<Item, Input>) {
-	return <MediaCursorPageView {...props} index={0} after={null} />;
 }

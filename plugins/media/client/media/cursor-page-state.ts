@@ -1,32 +1,14 @@
-import type { RyotQueryResult } from "@ryot-app/plugin-client-sdk/react";
-
-import { classifyRyotQueryResult, type MappedRyotQueryState } from "./query-state";
+import type { MappedRyotQueryState } from "./query-state";
 
 export type MediaCursorPage<Item> = {
 	readonly items: readonly Item[];
-	readonly pageInfo: { readonly nextCursor: string | null };
+	readonly pageInfo: { readonly hasMore?: boolean; readonly nextCursor: string | null };
 };
-
-export type MediaCursorPageState<Item> = MappedRyotQueryState<{
-	readonly status: "ready";
-	readonly items: readonly Item[];
-	readonly nextCursor: string | null;
-}>;
 
 export type MediaCursorPageFailure = Pick<
-	Extract<MediaCursorPageState<never>, { status: "transport-error" | "malformed" }>,
+	Extract<MappedRyotQueryState<never>, { status: "transport-error" | "malformed" }>,
 	"status"
 >;
-
-export const mapMediaCursorPage = <Item>(
-	result: RyotQueryResult<MediaCursorPage<Item>>,
-): MediaCursorPageState<Item> => {
-	const state = classifyRyotQueryResult(result);
-	if (state.status !== "ready") {
-		return state;
-	}
-	return { status: "ready", items: state.value.items, nextCursor: state.value.pageInfo.nextCursor };
-};
 
 export const mediaCursorPageError = (input: {
 	readonly noun: string;

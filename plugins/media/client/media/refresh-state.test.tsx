@@ -9,16 +9,12 @@ import {
 	readyQueryResult,
 } from "../../tests/client/query-result-fixture";
 import { decodeShowActivity } from "../../tests/client/show/activity-fixture";
-import {
-	decodeShowSeasonEpisodesResult,
-	decodeShowSeasonsResult,
-} from "../../tests/client/show/episodes-fixture";
+import { decodeShowSeasonsResult } from "../../tests/client/show/episodes-fixture";
 import { decodeShowOverview } from "../../tests/client/show/overview-fixture";
 import { decodeShowSummaryResult, showSummaryRow } from "../../tests/client/show/summary-fixture";
 import { mountRyotClient } from "../../tests/client/test-support";
 import { mapShowSeasons } from "../show/episodes-state";
 import { showSchema } from "../show/schema";
-import { mapMediaCursorPage } from "./cursor-page-state";
 import { mapMediaOverview } from "./overview-state";
 import { MediaRefreshStatus } from "./primitives";
 import { classifyRyotQueryResult } from "./query-state";
@@ -34,10 +30,8 @@ describe("show refresh failures", () => {
 			);
 			const overview = errorQueryResult(error, decodeShowOverview());
 			const seasons = errorQueryResult(error, decodeShowSeasonsResult({}));
-			const episodes = errorQueryResult(error, decodeShowSeasonEpisodesResult());
 			const activity = errorQueryResult(error, decodeShowActivity());
 			expect(mapShowSeasons(seasons).status).toBe("ready");
-			expect(mapMediaCursorPage(episodes).status).toBe("ready");
 			expect(showSchema.mapActivity(activity).status).toBe("ready");
 			let retries = 0;
 			const retry = () => {
