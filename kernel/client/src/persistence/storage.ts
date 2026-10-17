@@ -13,6 +13,7 @@ import { Context, Data, Effect, Layer, Option, Schema } from "effect";
 
 import { parseServerOrigin, type ServerOrigin } from "#/api/origin";
 import { type ApiScope, apiScopeKey } from "#/api/scope";
+import { type RecentDestination, RecentDestinations } from "#/modules/command-center/recents";
 import { DeviceState, emptyDeviceState } from "#/modules/device/state";
 import { isThemePreference, type ThemePreference } from "#/modules/theme/preference";
 
@@ -24,6 +25,10 @@ export const lastWorkspaceKey = (scope: ApiScope) =>
 	`${RYOT_STORAGE_PREFIX}workspace:${apiScopeKey(scope)}`;
 export const savedViewLayoutKey = (scope: ApiScope, slug: string) =>
 	`${RYOT_STORAGE_PREFIX}saved-view-layout:${apiScopeKey(scope)}:${slug}`;
+export const recentDestinationsKey = (scope: ApiScope) =>
+	`${RYOT_STORAGE_PREFIX}recent-destinations:${apiScopeKey(scope)}`;
+export const sidebarSectionExpandedKey = (scope: ApiScope, workspace: string, section: string) =>
+	`${RYOT_STORAGE_PREFIX}sidebar-expanded:${apiScopeKey(scope)}:${workspace}:${section}`;
 export const rememberedProviderKey = (scope: ApiScope, schemaKey: string) =>
 	`${RYOT_STORAGE_PREFIX}remembered-provider:${apiScopeKey(scope)}:${schemaKey}`;
 
@@ -47,6 +52,24 @@ const browserStorage = () => {
 	} catch {
 		return undefined;
 	}
+};
+const decodeRecentDestinations = Schema.decodeUnknownOption(
+	Schema.fromJsonString(RecentDestinations),
+);
+const encodeRecentDestinations = Schema.encodeSync(Schema.fromJsonString(RecentDestinations));
+const bestEffort = <A>(fallback: A, evaluate: () => A) =>
+	Effect.sync(() => {
+		try {
+			return evaluate();
+		} catch {
+			return fallback;
+		}
+	});
+const parseExpanded = (value: string | null | undefined) => {
+	if (value === "true") {
+		return true;
+	}
+	return value === "false" ? false : null;
 };
 const isPluginId = Schema.is(PluginId);
 const isSavedViewLayout = Schema.is(EntityBrowserLayout);
@@ -87,6 +110,14 @@ const makeStorage = (storage: BrowserStorage | undefined): ClientStorage["Servic
 			const value = storage?.getItem(lastWorkspaceKey(scope));
 			return isPluginId(value) ? value : null;
 		}),
+	setRecentDestinations: (scope, destinations) =>
+		bestEffort(undefined, () =>
+			storage?.setItem(recentDestinationsKey(scope), encodeRecentDestinations(destinations)),
+		),
+	getSidebarSectionExpanded: (scope, workspace, section) =>
+		bestEffort(null, () =>
+			parseExpanded(storage?.getItem(sidebarSectionExpandedKey(scope, workspace, section))),
+		),
 	setDeviceState: (state) =>
 		Effect.try({
 			catch: (cause) => new DeviceStateAccessError({ cause }),
@@ -97,6 +128,10 @@ const makeStorage = (storage: BrowserStorage | undefined): ClientStorage["Servic
 			const value = storage?.getItem(savedViewLayoutKey(scope, slug));
 			return isSavedViewLayout(value) ? value : "grid";
 		}),
+	setSidebarSectionExpanded: (scope, workspace, section, expanded) =>
+		bestEffort(undefined, () =>
+			storage?.setItem(sidebarSectionExpandedKey(scope, workspace, section), String(expanded)),
+		),
 	getRememberedProvider: (scope, schemaKey) =>
 		Effect.sync(() => {
 			const value = storage?.getItem(rememberedProviderKey(scope, schemaKey));
@@ -125,6 +160,14 @@ const makeStorage = (storage: BrowserStorage | undefined): ClientStorage["Servic
 			return value === null || value === undefined ? emptyDeviceState : decodeDeviceState(value);
 		},
 	}),
+	getRecentDestinations: (scope) =>
+		bestEffort([], () => {
+			const value = storage?.getItem(recentDestinationsKey(scope));
+			if (value === null || value === undefined) {
+				return [];
+			}
+			return Option.getOrElse(decodeRecentDestinations(value), () => []);
+		}),
 	setPluginValue: (scope, pluginId, key, value) => {
 		if (!storage) {
 			return Effect.fail(unavailablePluginStorageError());
@@ -169,6 +212,24 @@ export class ClientStorage extends Context.Service<
 		readonly setLastWorkspace: (scope: ApiScope, pluginId: PluginId) => Effect.Effect<void>;
 		readonly setThemePreference: (preference: ThemePreference) => Effect.Effect<void>;
 		readonly getSavedViewLayout: (scope: ApiScope, slug: string) => Effect.Effect<SavedViewLayout>;
+		readonly getRecentDestinations: (
+			scope: ApiScope,
+		) => Effect.Effect<readonly RecentDestination[]>;
+		readonly setRecentDestinations: (
+			scope: ApiScope,
+			destinations: readonly RecentDestination[],
+		) => Effect.Effect<void>;
+		readonly getSidebarSectionExpanded: (
+			scope: ApiScope,
+			workspace: string,
+			section: string,
+		) => Effect.Effect<boolean | null>;
+		readonly setSidebarSectionExpanded: (
+			scope: ApiScope,
+			workspace: string,
+			section: string,
+			expanded: boolean,
+		) => Effect.Effect<void>;
 		readonly getRememberedProvider: (
 			scope: ApiScope,
 			schemaKey: string,

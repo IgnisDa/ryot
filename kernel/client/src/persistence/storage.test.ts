@@ -9,12 +9,17 @@ import {
 	PluginStorageAccessError,
 	pluginStorageKey,
 	PluginStorageQuotaError,
+	recentDestinationsKey,
 	rememberedProviderKey,
 	savedViewLayoutKey,
 	SERVER_SELECTION_KEY,
 	THEME_PREFERENCE_KEY,
 } from "#/persistence/storage";
 import { FakeBrowserStorage, fakeClientStorageLayer } from "#/persistence/storage.test-layer";
+
+const unavailable = () => {
+	throw new Error("storage unavailable");
+};
 
 const oneOrigin = decodeServerOrigin("https://one.example.com");
 const twoOrigin = decodeServerOrigin("https://two.example.com/");
@@ -362,4 +367,39 @@ describe("browser persistence", () => {
 			});
 		},
 	);
+
+	const recent = { icon: "list", group: "Go to", label: "Queue", href: "/v/k/queue" };
+	const storageScope = { userId: "user-1", serverUrl: oneOrigin };
+
+	layer(fakeClientStorageLayer())((test) => {
+		test.effect("round-trips recent destinations and sidebar disclosure per workspace", () => {
+			return Effect.gen(function* () {
+				const service = yield* ClientStorage;
+				const storage = yield* FakeBrowserStorage;
+				expect(yield* service.getRecentDestinations(storageScope)).toEqual([]);
+				yield* service.setRecentDestinations(storageScope, [recent]);
+				expect(yield* service.getRecentDestinations(storageScope)).toEqual([recent]);
+				yield* storage.seed(recentDestinationsKey(storageScope), "{not json");
+				expect(yield* service.getRecentDestinations(storageScope)).toEqual([]);
+
+				expect(yield* service.getSidebarSectionExpanded(storageScope, "a", "views")).toBeNull();
+				yield* service.setSidebarSectionExpanded(storageScope, "a", "views", false);
+				yield* service.setSidebarSectionExpanded(storageScope, "b", "views", true);
+				expect(yield* service.getSidebarSectionExpanded(storageScope, "a", "views")).toBe(false);
+				expect(yield* service.getSidebarSectionExpanded(storageScope, "b", "views")).toBe(true);
+			});
+		});
+	});
+
+	layer(fakeClientStorageLayer({ getItem: unavailable, setItem: unavailable }))((test) => {
+		test.effect("degrades recents and sidebar disclosure when storage throws", () => {
+			return Effect.gen(function* () {
+				const service = yield* ClientStorage;
+				expect(yield* service.getRecentDestinations(storageScope)).toEqual([]);
+				yield* service.setRecentDestinations(storageScope, [recent]);
+				expect(yield* service.getSidebarSectionExpanded(storageScope, "a", "views")).toBeNull();
+				yield* service.setSidebarSectionExpanded(storageScope, "a", "views", true);
+			});
+		});
+	});
 });
