@@ -103,6 +103,51 @@ BEGIN
 END $$;
 `;
 
+export const buildWatchlistBacklogMigrationSql = (input: {
+	mediaPluginId: string;
+	mediaEntitySchemaSlugs: ReadonlyArray<string>;
+}) => `
+DO $$
+DECLARE
+	rows_inserted int;
+	started_at timestamptz := clock_timestamp();
+BEGIN
+	${buildRequireLegacyTableSql("Watchlist collection -> backlog", "collection")}
+	${buildRequireLegacyTableSql("Watchlist collection -> backlog", "collection_to_entity")}
+
+	INSERT INTO "event" (
+		"id",
+		"user_id",
+		"entity_id",
+		"event_schema_slug",
+		"event_schema_plugin_id",
+		"session_entity_id",
+		"properties",
+		"created_at",
+		"occurred_at"
+	)
+	SELECT
+		md5(cte.id::text || ':backlog'),
+		coll.user_id,
+		cte.entity_id,
+		'backlog',
+		${quoteSqlString(input.mediaPluginId)},
+		CASE WHEN src_entity.entity_schema_slug IN ('show', 'podcast') THEN cte.entity_id END,
+		'{}'::jsonb,
+		cte.created_on,
+		cte.created_on
+	FROM "collection_to_entity" cte
+	INNER JOIN "collection" coll ON coll.id = cte.collection_id AND coll.name = 'Watchlist'
+	INNER JOIN "entity" src_entity ON src_entity.id = cte.entity_id
+	WHERE src_entity.entity_schema_plugin_id = ${quoteSqlString(input.mediaPluginId)}
+		AND src_entity.entity_schema_slug IN (${input.mediaEntitySchemaSlugs.map(quoteSqlString).join(", ")})
+	ON CONFLICT DO NOTHING;
+
+	GET DIAGNOSTICS rows_inserted = ROW_COUNT;
+	${buildReportSql("Watchlist collection -> backlog", [{ count: "rows_inserted", message: "event(s) migrated" }])}
+END $$;
+`;
+
 export const buildMonitoringCollectionMigrationSql = (input: {
 	libraryEntitySchema: QualifiedSchema;
 	mediaMonitoringRelationshipSchema: QualifiedSchema;
