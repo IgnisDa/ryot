@@ -613,18 +613,14 @@ function SourceChips({
 }
 
 function SourcesSheet({
-	layout,
 	sources,
 	pending,
 	onClose,
 	onToggle,
-	onLayout,
 	triggerRef,
 }: {
-	readonly layout: Layout;
 	readonly onClose: () => void;
 	readonly pending: ReadonlySet<string>;
-	readonly onLayout: (layout: Layout) => void;
 	readonly sources: readonly CalendarSource[];
 	readonly onToggle: (source: CalendarSource) => void;
 	readonly triggerRef: RefObject<HTMLButtonElement | null>;
@@ -636,22 +632,9 @@ function SourcesSheet({
 	}
 	return (
 		<ViewFiltersSheet compact title="Sources" onClose={onClose} triggerRef={triggerRef}>
-			<p className="mt-2 text-[13px] text-text-muted">
+			<p className="mt-2 text-label text-text-muted">
 				Each installed plugin can add sources. What you hide is saved to your account.
 			</p>
-			<div className="mt-4 flex items-center justify-between gap-3">
-				<span className="text-[15px] text-text">View as</span>
-				<SegmentedControl
-					value={layout}
-					onChange={onLayout}
-					optionClassName="px-3"
-					label="Calendar layout"
-					options={[
-						{ value: "agenda", label: "Agenda", content: "Agenda" },
-						{ value: "month", label: "Month", content: "Month" },
-					]}
-				/>
-			</div>
 			{[...groups].map(([group, items]) => (
 				<div key={group} className="mt-4 grid gap-1">
 					<h3 className="px-0.5 text-xs font-medium text-text-muted">{group}</h3>
@@ -813,6 +796,18 @@ export default function CalendarPage() {
 		);
 	};
 
+	const layoutSwitch = (
+		<SegmentedControl
+			value={view.layout}
+			optionClassName="px-3"
+			label="Calendar layout"
+			onChange={(layout) => navigate({ layout })}
+			options={[
+				{ value: "agenda", label: "Agenda", content: "Agenda" },
+				{ value: "month", label: "Month", content: "Month" },
+			]}
+		/>
+	);
 	const monthNavigation = (
 		<div className={clsx("flex items-center gap-0.5", compact && "w-full")}>
 			<IconButton
@@ -917,23 +912,21 @@ export default function CalendarPage() {
 			))}
 			<PluginScreenFrame
 				title={name}
-				meta={compact ? monthNavigation : undefined}
 				titleIcon={<AppIcon size={22} name={icon} className="shrink-0 text-text-muted" />}
 				actions={
 					<div className="flex flex-wrap items-center gap-2">
 						{todayButton}
 						{monthNavigation}
-						<SegmentedControl
-							value={view.layout}
-							optionClassName="px-3"
-							label="Calendar layout"
-							onChange={(layout) => navigate({ layout })}
-							options={[
-								{ value: "agenda", label: "Agenda", content: "Agenda" },
-								{ value: "month", label: "Month", content: "Month" },
-							]}
-						/>
+						{layoutSwitch}
 					</div>
+				}
+				meta={
+					compact ? (
+						<div className="flex items-center justify-between gap-3">
+							{monthNavigation}
+							{layoutSwitch}
+						</div>
+					) : undefined
 				}
 				barActions={
 					<>
@@ -1002,10 +995,8 @@ export default function CalendarPage() {
 					sources={sources}
 					pending={pending}
 					onToggle={toggle}
-					layout={view.layout}
 					triggerRef={sheetTrigger}
 					onClose={() => setSheetOpen(false)}
-					onLayout={(layout) => navigate({ layout })}
 				/>
 			)}
 		</ManagedAssetProvider>
