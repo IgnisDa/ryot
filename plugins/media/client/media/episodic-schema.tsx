@@ -154,7 +154,6 @@ export type MediaEpisodicSchemaDescriptor<
 	readonly overviewTrailing?: (input: {
 		readonly summary: Summary;
 		readonly compact: boolean;
-		readonly divided: boolean;
 	}) => ReactNode;
 };
 
@@ -314,14 +313,9 @@ export const defineEpisodicMediaSchema = <
 			),
 	});
 
-	const overviewRelations: MediaOverviewRelationsRender<Overview> = ({
-		compact,
-		divided,
-		overview,
-	}) => (
+	const overviewRelations: MediaOverviewRelationsRender<Overview> = ({ compact, overview }) => (
 		<MediaOverviewRelations
 			compact={compact}
-			divided={divided}
 			overview={overview}
 			aspect={descriptor.aspect}
 			copy={descriptor.creditCopy}

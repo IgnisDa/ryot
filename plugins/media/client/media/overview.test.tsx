@@ -24,11 +24,10 @@ import { watchProviderGroups, watchProviderLink } from "./watch-providers";
 
 const noopAdapter = { query: () => Effect.succeed({}) };
 
-const relationsRender: MediaOverviewRelationsRender<Overview> = ({ divided, overview }) => (
+const relationsRender: MediaOverviewRelationsRender<Overview> = ({ overview }) => (
 	<MediaOverviewRelations
 		compact
 		aspect="poster"
-		divided={divided}
 		overview={overview}
 		onViewAllPeople={() => undefined}
 		copy={{ notice: "Cast", people: "Cast & crew", companies: "Production companies" }}
@@ -47,7 +46,7 @@ const overviewScreen = (input: {
 	readonly media?: ReturnType<typeof decodeShowSummary>;
 	readonly overview: MediaOverviewState<Overview>;
 	readonly refreshOverview?: () => void;
-	readonly trailing?: (slot: { readonly compact: boolean; readonly divided: boolean }) => ReactNode;
+	readonly trailing?: (slot: { readonly compact: boolean }) => ReactNode;
 }) => {
 	const media = input.media ?? decodeShowSummary();
 	return (
@@ -107,7 +106,6 @@ describe("MediaOverview", () => {
 			<MediaWatchProvidersSection
 				compact
 				region="US"
-				divided={false}
 				link={watchProviderLink(media, "US")}
 				groups={watchProviderGroups(media, "US")}
 			/>,
@@ -138,20 +136,17 @@ describe("MediaOverview", () => {
 		unmount();
 	});
 
-	it("renders the trailing slot last and divides it from the sections above", () => {
+	it("renders the trailing slot last", () => {
 		const { unmount, container } = mountRyotClient(
 			noopAdapter,
 			overviewScreen({
+				trailing: () => <section>Where to play</section>,
 				overview: { status: "ready", overview: readyOverview },
-				trailing: ({ divided }) => <section data-divided={divided}>Where to play</section>,
 			}),
 		);
 
 		expect(container.textContent).toContain("Where to play");
 		expect(container.firstElementChild?.lastElementChild?.textContent).toBe("Where to play");
-		expect(container.firstElementChild?.lastElementChild?.getAttribute("data-divided")).toBe(
-			"true",
-		);
 		unmount();
 	});
 

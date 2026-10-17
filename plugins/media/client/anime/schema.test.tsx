@@ -232,11 +232,7 @@ describe("anime schema", () => {
 
 		const { unmount, container } = mountRyotClient(
 			noopAdapter,
-			<AnimeAiringScheduleSection
-				compact
-				divided={false}
-				schedule={[AIRED_EPISODE, ...UPCOMING_EPISODES]}
-			/>,
+			<AnimeAiringScheduleSection schedule={[AIRED_EPISODE, ...UPCOMING_EPISODES]} />,
 		);
 		expect(container.textContent).toContain("Airing schedule");
 		expect(container.textContent).toContain("Episode 2");
@@ -248,7 +244,7 @@ describe("anime schema", () => {
 	it("renders no airing section when every episode has aired", () => {
 		const { unmount, container } = mountRyotClient(
 			noopAdapter,
-			<AnimeAiringScheduleSection compact divided={false} schedule={[AIRED_EPISODE]} />,
+			<AnimeAiringScheduleSection schedule={[AIRED_EPISODE]} />,
 		);
 
 		expect(container.textContent).toBe("");

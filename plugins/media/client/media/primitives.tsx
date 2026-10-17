@@ -161,29 +161,18 @@ export function MediaRail(props: { readonly compact: boolean; readonly children:
 
 export function MediaOverviewSection(props: {
 	readonly title: string;
-	readonly compact: boolean;
-	readonly divided?: boolean;
 	readonly action?: ReactNode;
 	readonly children: ReactNode;
 	readonly className?: string | undefined;
 	readonly sync?: MediaSyncCounts | undefined;
 }) {
 	return (
-		<section
-			className={clsx(props.divided !== false && "border-t border-border pt-5", props.className)}
-		>
-			<div className="flex items-center justify-between gap-3 pb-4">
+		<section className={clsx("grid gap-3", props.className)}>
+			<div className="flex flex-wrap items-center justify-between gap-3">
 				<div className="flex min-w-0 items-baseline gap-3">
-					<h2
-						className={clsx(
-							"font-display font-semibold text-text",
-							props.compact ? "text-[17px]" : "text-xl",
-						)}
-					>
-						{props.title}
-					</h2>
+					<h2 className="text-heading font-semibold text-text">{props.title}</h2>
 					{props.sync === undefined ? null : (
-						<span className="font-ui text-[12px] text-text-muted">
+						<span className="text-xs text-text-muted">
 							<SyncCountLine
 								populating={props.sync.populating}
 								translating={props.sync.translating}

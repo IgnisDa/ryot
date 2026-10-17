@@ -79,11 +79,7 @@ export function MediaDetailBody<
 	readonly overviewRelations: MediaOverviewRelationsRender<Overview>;
 	readonly summaryUnavailable: (reason: MediaSummaryUnavailableReason) => MediaStatusCopy;
 	readonly overviewTrailing?:
-		| ((input: {
-				readonly summary: Summary;
-				readonly compact: boolean;
-				readonly divided: boolean;
-		  }) => ReactNode)
+		| ((input: { readonly summary: Summary; readonly compact: boolean }) => ReactNode)
 		| undefined;
 }) {
 	const { state, overviewTrailing } = props;

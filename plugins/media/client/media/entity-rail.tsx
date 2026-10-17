@@ -71,7 +71,6 @@ export function MediaEntityTile(props: {
 type MediaSectionFrameProps = {
 	readonly title: string;
 	readonly compact: boolean;
-	readonly divided?: boolean;
 	readonly action?: ReactNode;
 	readonly status: MediaRailStatus;
 	readonly children?: ReactNode;
@@ -83,13 +82,7 @@ export function MediaSectionFrame(
 ) {
 	const { status } = props;
 	return (
-		<MediaOverviewSection
-			sync={props.sync}
-			title={props.title}
-			action={props.action}
-			compact={props.compact}
-			divided={props.divided ?? false}
-		>
+		<MediaOverviewSection sync={props.sync} title={props.title} action={props.action}>
 			{status.kind === "ready" ? props.children : null}
 			{status.kind === "pending" ? (
 				<div role="status" aria-label={`Loading ${props.title}`}>
@@ -132,7 +125,6 @@ export function MediaRailFrame(props: MediaSectionFrameProps) {
 export function MediaEntityRailSection<Item extends MediaPresentationSubject>(props: {
 	readonly title: string;
 	readonly compact: boolean;
-	readonly divided: boolean;
 	readonly action?: ReactNode;
 	readonly items: readonly Item[];
 	readonly aspect: (item: Item) => MediaArtworkAspect;
@@ -146,7 +138,6 @@ export function MediaEntityRailSection<Item extends MediaPresentationSubject>(pr
 			title={props.title}
 			action={props.action}
 			compact={props.compact}
-			divided={props.divided}
 			status={{ kind: "ready" }}
 			sync={mediaSyncCounts(props.items, (item) => mediaPosterAsset(item))}
 		>

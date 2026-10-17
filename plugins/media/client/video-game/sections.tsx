@@ -29,7 +29,6 @@ export const videoGameTimeToBeatFacts = (
 
 export function VideoGameTimeToBeatSection(props: {
 	readonly compact: boolean;
-	readonly divided: boolean;
 	readonly timeToBeat: TimeToBeatValue;
 }) {
 	const facts = videoGameTimeToBeatFacts(props.timeToBeat);
@@ -37,15 +36,13 @@ export function VideoGameTimeToBeatSection(props: {
 		return null;
 	}
 	return (
-		<MediaOverviewSection divided={props.divided} compact={props.compact} title="How long to beat">
+		<MediaOverviewSection title="How long to beat">
 			<MediaFactRow facts={facts} compact={props.compact} />
 		</MediaOverviewSection>
 	);
 }
 
 export function VideoGamePlatformsSection(props: {
-	readonly compact: boolean;
-	readonly divided: boolean;
 	readonly platformReleases: PlatformReleaseList;
 }) {
 	const releases = [...(props.platformReleases ?? [])].sort((left, right) =>
@@ -55,7 +52,7 @@ export function VideoGamePlatformsSection(props: {
 		return null;
 	}
 	return (
-		<MediaOverviewSection title="Platforms" divided={props.divided} compact={props.compact}>
+		<MediaOverviewSection title="Platforms">
 			<MediaLabeledRows
 				rows={releases.map((release) => {
 					const releaseDate = release.releaseDate ?? undefined;
@@ -74,23 +71,13 @@ export function VideoGamePlatformsSection(props: {
 
 export const videoGameOverviewTrailing = (input: {
 	readonly compact: boolean;
-	readonly divided: boolean;
 	readonly summary: VideoGameOverviewSummary;
 }): ReactNode => {
-	const { compact, divided, summary } = input;
-	const hasTimeToBeat = videoGameTimeToBeatFacts(summary.timeToBeat).length > 0;
+	const { compact, summary } = input;
 	return (
 		<>
-			<VideoGameTimeToBeatSection
-				compact={compact}
-				divided={divided}
-				timeToBeat={summary.timeToBeat}
-			/>
-			<VideoGamePlatformsSection
-				compact={compact}
-				divided={divided || hasTimeToBeat}
-				platformReleases={summary.platformReleases}
-			/>
+			<VideoGameTimeToBeatSection compact={compact} timeToBeat={summary.timeToBeat} />
+			<VideoGamePlatformsSection platformReleases={summary.platformReleases} />
 		</>
 	);
 };

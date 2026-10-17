@@ -38,14 +38,10 @@ const creditLines = (credit: MediaCreatorCredit) => [
 export function MediaCreditRails<Slug extends string>(props: {
 	readonly noun: string;
 	readonly compact: boolean;
-	readonly divided: boolean;
 	readonly overview: MediaCreditRailsOverview<Slug>;
 	readonly sections: readonly MediaCreditSection<Slug>[];
 }) {
-	const firstFilled = props.sections.findIndex(
-		(section) => props.overview[section.slug].items.length > 0,
-	);
-	return props.sections.map((section, index) => {
+	return props.sections.map((section) => {
 		const credits = props.overview[section.slug];
 		return (
 			<MediaEntityRailSection
@@ -55,7 +51,6 @@ export function MediaCreditRails<Slug extends string>(props: {
 				items={credits.items}
 				compact={props.compact}
 				aspect={() => section.aspect}
-				divided={props.divided || index > firstFilled}
 				action={
 					credits.pageInfo.hasMore ? (
 						<MediaLinkButton

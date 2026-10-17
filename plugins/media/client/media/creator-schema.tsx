@@ -132,14 +132,9 @@ export const defineCreatorMediaSchema = <
 	const overviewManagedAssets = (overview: Overview) =>
 		mediaCreditRailsManagedAssets<Slug>(overview);
 
-	const overviewRelations: MediaOverviewRelationsRender<Overview> = ({
-		compact,
-		divided,
-		overview,
-	}) => (
+	const overviewRelations: MediaOverviewRelationsRender<Overview> = ({ compact, overview }) => (
 		<MediaCreditRails
 			compact={compact}
-			divided={divided}
 			overview={overview}
 			noun={nouns.singular}
 			sections={descriptor.creditSections}
