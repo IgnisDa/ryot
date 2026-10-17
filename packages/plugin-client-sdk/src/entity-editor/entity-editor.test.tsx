@@ -225,6 +225,21 @@ describe("EntityEditor", () => {
 		}),
 	);
 
+	it.live("focuses the name and does not save when it is empty", () =>
+		Effect.gen(function* () {
+			const saves = recording({ kind: "saved", entityId: EntityId.make("part-3") });
+			const container = mount({ mode: { kind: "create" } }, adapterFor(saves.save));
+			const view = within(container);
+			const name = yield* Effect.promise(() => view.findByLabelText("Name"));
+
+			fireEvent.click(view.getByRole("button", { name: "Save" }));
+
+			yield* Effect.promise(() => view.findByText("Enter a name"));
+			expect(document.activeElement).toBe(name);
+			expect(saves.requests).toEqual([]);
+		}),
+	);
+
 	it.live("leaves targets unchanged when the entity picker is cancelled", () =>
 		Effect.gen(function* () {
 			const picks: PickEntityRequest[] = [];

@@ -516,7 +516,6 @@ function NodeControl(props: NodeProps) {
 					density="compact"
 					value={displayedValue}
 					aria-label={property.label}
-					placeholder={property.description}
 					inputMode={numeric ? "decimal" : undefined}
 					autoComplete={property.secret ? "off" : undefined}
 					step={field.format === "datetime" ? "any" : undefined}
@@ -594,6 +593,7 @@ function SchemaNode(props: NodeProps) {
 		? isAppSchemaPathEffectivelyRequired(props.context.schema, props.path, props.input)
 		: property.validation?.required === true;
 	const readOnly = props.mode === "edit" && property.immutable === true;
+	const hasHelp = property.description !== property.label;
 	const absentObject =
 		property.type === "object" &&
 		!property.validation?.asset &&
@@ -620,8 +620,12 @@ function SchemaNode(props: NodeProps) {
 		>
 			<fieldset
 				disabled={readOnly}
-				aria-describedby={issue ? `${id}-error` : undefined}
 				className="m-0 flex min-w-0 flex-col gap-2 border-0 p-0 disabled:opacity-60"
+				aria-describedby={
+					[issue ? `${id}-error` : undefined, hasHelp ? `${id}-help` : undefined]
+						.filter((describedBy) => describedBy !== undefined)
+						.join(" ") || undefined
+				}
 			>
 				{absentObject ? (
 					<Button
@@ -657,11 +661,10 @@ function SchemaNode(props: NodeProps) {
 			{readOnly ? (
 				<span className="text-xs text-text-subtle">Can't be changed after creation</span>
 			) : null}
-			{property.description !== property.label &&
-			property.type !== "string" &&
-			property.type !== "number" &&
-			property.type !== "integer" ? (
-				<span className="text-xs text-text-subtle">{property.description}</span>
+			{hasHelp ? (
+				<span id={`${id}-help`} className="text-xs text-text-subtle">
+					{property.description}
+				</span>
 			) : null}
 			{props.mode === "edit" && property.secret ? (
 				<span className="text-xs text-text-subtle">Leave blank to keep the current value.</span>

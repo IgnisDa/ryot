@@ -422,6 +422,24 @@ describe("SchemaForm", () => {
 		expect(screen.getByRole("radio", { name: "us" }).getAttribute("aria-checked")).toBe("true");
 	});
 
+	it("shows a text field description as linked help text instead of a placeholder", () => {
+		render(
+			<SchemaFormHarness
+				onSubmit={() => undefined}
+				schema={{
+					fields: {
+						link: { type: "string", label: "Source link", description: "Where this came from" },
+					},
+				}}
+			/>,
+		);
+
+		const input = screen.getByLabelText("Source link");
+		const help = screen.getByText("Where this came from");
+		expect(input.getAttribute("placeholder")).toBeNull();
+		expect(input.closest("fieldset")?.getAttribute("aria-describedby")).toBe(help.id);
+	});
+
 	it("sizes enum segments to their labels instead of using icon widths", () => {
 		render(
 			<SchemaFormHarness

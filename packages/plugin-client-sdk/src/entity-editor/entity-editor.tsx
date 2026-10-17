@@ -185,6 +185,7 @@ function EntityEditorForm(
 	const formMode = mode.kind === "edit" ? "edit" : "create";
 	const stored = source.entity?.properties ?? {};
 	const uploaded = useRef(new Map<string, ManagedAssetLocator>());
+	const nameInput = useRef<HTMLInputElement>(null);
 	const [nameError, setNameError] = useState<string>();
 	const [status, setStatus] = useState<SaveStatus>({ kind: "idle" });
 	const [name, setName] = useState(
@@ -227,6 +228,7 @@ function EntityEditorForm(
 		setRowErrors(errors);
 		if (name.trim() === "") {
 			setNameError("Enter a name");
+			nameInput.current?.focus();
 			return;
 		}
 		if (errors.size > 0) {
@@ -323,6 +325,7 @@ function EntityEditorForm(
 					<TextField
 						{...control}
 						value={name}
+						ref={nameInput}
 						onChange={(event) => setName(event.currentTarget.value)}
 					/>
 				)}
