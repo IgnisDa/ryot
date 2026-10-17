@@ -52,8 +52,8 @@ afterEach(() => {
 describe("show schema", () => {
 	it("lists the provider's season and episode counts", () => {
 		expect(showSummaryFacts(decodeShowSummary())).toEqual([
-			{ value: "1", label: "Season", icon: "layers-3" },
-			{ value: "4", icon: "tv", label: "Episodes" },
+			{ inline: true, label: "Season", icon: "layers-3", value: "1 season" },
+			{ icon: "tv", inline: true, label: "Episodes", value: "4 episodes" },
 		]);
 		expect(
 			showSummaryFacts(decodeShowSummary({ totalSeasons: null, totalEpisodes: null })),
@@ -87,7 +87,6 @@ describe("show schema", () => {
 			/>,
 		);
 
-		expect(container.textContent).toContain("TV Show");
 		expect(container.textContent).toContain("Cast & crew");
 		expect(container.textContent).toContain("Production companies");
 		expect(container.textContent).toContain("Where to watch");

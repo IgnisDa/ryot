@@ -12,9 +12,9 @@ import {
 	type RyotQueryResult,
 } from "@ryot-app/plugin-client-sdk/react";
 import { PluginScreenFrame } from "@ryot-app/plugin-client-sdk/screen";
+import { Tabs, tabId, type TabOption } from "@ryot-app/plugin-ui-sdk";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 
-import { MediaHero } from "./hero";
 import type { MediaImagePurposes } from "./image";
 import { MediaOverview, type MediaOverviewRelationsRender } from "./overview";
 import { mapMediaOverview, type MediaOverviewState } from "./overview-state";
@@ -29,7 +29,6 @@ import {
 	type MediaSummaryState,
 	type MediaSummaryUnavailableReason,
 } from "./summary-state";
-import { MediaTabBar, type MediaTab } from "./tabs";
 
 export type MediaStatusCopy = { readonly title: string; readonly detail: string };
 
@@ -46,6 +45,8 @@ export type MediaDetailBodyInput<Summary, Overview> = {
 	readonly overview: MediaOverviewState<Overview>;
 };
 
+const MEDIA_DETAIL_PANEL_ID = "media-detail-panel";
+
 const useMediaEntitySettle = (entityId: string) =>
 	useEntitySettle(useMemo(() => ({ visible: [], foreground: [entityId] }), [entityId]));
 
@@ -55,7 +56,6 @@ export function MediaDetailBody<
 	TabKey extends string,
 >(props: {
 	readonly compact: boolean;
-	readonly typeLabel: string;
 	readonly defaultTab: TabKey;
 	readonly overviewTab: TabKey;
 	readonly safeAreaTop: number;
@@ -66,7 +66,7 @@ export function MediaDetailBody<
 	readonly overviewLoadingDetail: string;
 	readonly summaryRefreshStatus: ReactNode;
 	readonly overviewRefreshStatus: ReactNode;
-	readonly tabs: readonly MediaTab<TabKey>[];
+	readonly tabs: readonly TabOption<TabKey>[];
 	readonly overviewEmpty?: MediaStatusCopy | undefined;
 	readonly state: MediaSummaryState<Summary>;
 	readonly overview: MediaOverviewState<Overview>;
@@ -100,44 +100,50 @@ export function MediaDetailBody<
 	}
 	const { summary } = state;
 	return (
-		<div className="flex flex-col gap-4">
+		<div className="grid gap-7">
 			{props.summaryRefreshStatus}
 			<MediaSummaryHeader
 				media={summary}
 				compact={props.compact}
 				settled={props.settled}
 				artwork={props.artwork}
-				typeLabel={props.typeLabel}
 				detail={props.header(summary)}
 			/>
-			<MediaTabBar
-				tabs={props.tabs}
-				activeTab={activeTab}
-				compact={props.compact}
-				onSelect={setActiveTab}
+			<Tabs
+				value={activeTab}
+				options={props.tabs}
+				label="Media sections"
+				onChange={setActiveTab}
+				panelId={MEDIA_DETAIL_PANEL_ID}
 			/>
-			{activeTab === props.overviewTab ? (
-				<MediaOverview
-					media={summary}
-					compact={props.compact}
-					overview={props.overview}
-					empty={props.overviewEmpty}
-					isEmpty={props.overviewIsEmpty}
-					safeAreaTop={props.safeAreaTop}
-					relations={props.overviewRelations}
-					refreshOverview={props.refreshOverview}
-					noticeTitle={props.overviewNoticeTitle}
-					refreshStatus={props.overviewRefreshStatus}
-					loadingDetail={props.overviewLoadingDetail}
-					trailing={
-						overviewTrailing === undefined
-							? undefined
-							: (input) => overviewTrailing({ ...input, summary })
-					}
-				/>
-			) : (
-				props.tabContent[activeTab]
-			)}
+			<div
+				role="tabpanel"
+				id={MEDIA_DETAIL_PANEL_ID}
+				aria-labelledby={tabId(MEDIA_DETAIL_PANEL_ID, activeTab)}
+			>
+				{activeTab === props.overviewTab ? (
+					<MediaOverview
+						media={summary}
+						compact={props.compact}
+						overview={props.overview}
+						empty={props.overviewEmpty}
+						isEmpty={props.overviewIsEmpty}
+						safeAreaTop={props.safeAreaTop}
+						relations={props.overviewRelations}
+						refreshOverview={props.refreshOverview}
+						noticeTitle={props.overviewNoticeTitle}
+						refreshStatus={props.overviewRefreshStatus}
+						loadingDetail={props.overviewLoadingDetail}
+						trailing={
+							overviewTrailing === undefined
+								? undefined
+								: (input) => overviewTrailing({ ...input, summary })
+						}
+					/>
+				) : (
+					props.tabContent[activeTab]
+				)}
+			</div>
 		</div>
 	);
 }
@@ -178,25 +184,7 @@ function MediaDetailFrame<SummaryData, OverviewData, Summary extends MediaEntity
 		state.status === "ready" ? mediaManagedAssets(state.summary, props.backdropPurposes) : [];
 	return (
 		<ManagedAssetProvider assets={assets}>
-			<PluginScreenFrame
-				hideTitle
-				title={state.status === "ready" ? state.summary.name : null}
-				hero={
-					state.status === "ready"
-						? {
-								height: props.heroHeight(compact),
-								node: (
-									<MediaHero
-										compact={compact}
-										media={state.summary}
-										posterPurpose={props.posterPurpose}
-										backdropPurposes={props.backdropPurposes}
-									/>
-								),
-							}
-						: undefined
-				}
-			>
+			<PluginScreenFrame hideTitle title={state.status === "ready" ? state.summary.name : null}>
 				<ManagedAssetProvider assets={props.overviewLocators}>
 					<props.Body
 						state={state}

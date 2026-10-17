@@ -36,7 +36,7 @@ afterEach(() => {
 describe("music schema", () => {
 	it("lists the track length as m:ss and various artists", () => {
 		expect(musicSummaryFacts(musicSummary())).toEqual([
-			{ icon: "clock", value: "3:42", label: "Length" },
+			{ inline: true, icon: "clock", value: "3:42", label: "Length" },
 			{ value: "No", icon: "users", label: "Various artists" },
 		]);
 		expect(musicSummaryFacts(musicSummary({ duration: null, byVariousArtists: null }))).toEqual([]);
@@ -49,7 +49,6 @@ describe("music schema", () => {
 			decodeFlatOverview(musicRecipes.overviewRecipe(FLAT_OVERVIEW_INPUT)),
 		);
 
-		expect(container.textContent).toContain("Music");
 		expect(container.textContent).toContain("Artists & credits");
 		expect(container.textContent).toContain("Labels");
 		expect(container.textContent).toContain("View album");

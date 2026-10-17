@@ -41,7 +41,6 @@ describe("music group schema", () => {
 		expect(getByRole(container, "tab", { name: "Tracks" }).getAttribute("aria-selected")).toBe(
 			"true",
 		);
-		expect(container.textContent).toContain("Album");
 		expect(container.textContent).toContain("2 of 5 listened");
 		expect(
 			container.querySelector(`img[src="${groupSummaryRow.memberImages[0]?.url}"]`)?.className,

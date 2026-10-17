@@ -124,7 +124,7 @@ it.live("renders a populated Movie detail with its collection rail", () =>
 			.waitFor({ state: "visible", timeout: 150_000 });
 
 		const body = media.locator("body");
-		yield* body.getByText("Movie • TMDB • 1999", { exact: true }).waitFor({ state: "visible" });
+		yield* body.getByText("1999·2h 49m·TMDB", { exact: true }).waitFor({ state: "visible" });
 		yield* body.getByText("Drama", { exact: true }).waitFor({ state: "visible" });
 		yield* body.getByText("2h 49m", { exact: true }).waitFor({ state: "visible" });
 		yield* body.getByText("Released", { exact: true }).waitFor({ state: "visible" });
@@ -133,7 +133,7 @@ it.live("renders a populated Movie detail with its collection rail", () =>
 		expect(yield* body.getByText("Episodes", { exact: true }).count).toBe(0);
 
 		yield* body.getByText("Your status", { exact: true }).waitFor({ state: "visible" });
-		yield* body.getByText("Complete", { exact: true }).waitFor({ state: "visible" });
+		yield* body.getByText("Complete", { exact: true }).first().waitFor({ state: "visible" });
 		yield* body.getByText("In media library", { exact: true }).waitFor({ state: "visible" });
 		yield* body.getByText("Ownership", { exact: true }).waitFor({ state: "visible" });
 		yield* body.getByText("Collections", { exact: true }).waitFor({ state: "visible" });

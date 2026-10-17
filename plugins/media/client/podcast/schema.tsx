@@ -69,7 +69,6 @@ export const podcastPresentationDetail = (podcast: PodcastPresentation) => {
 };
 
 export const podcastSchema = defineEpisodicMediaSchema({
-	typeLabel: "Podcast",
 	recipes: podcastRecipes,
 	facts: podcastSummaryFacts,
 	EpisodesTab: PodcastEpisodesTab,

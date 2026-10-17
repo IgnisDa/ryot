@@ -34,7 +34,7 @@ afterEach(() => {
 describe("book schema", () => {
 	it("lists the pages and compilation facts and drops the unrecorded ones", () => {
 		expect(bookSummaryFacts(bookSummary())).toEqual([
-			{ value: "320", label: "Pages", icon: "book-open" },
+			{ inline: true, label: "Pages", icon: "book-open", value: "320 pages" },
 			{ value: "No", icon: "layers", label: "Compilation" },
 		]);
 		expect(bookSummaryFacts(bookSummary({ isCompilation: true }))).toContainEqual({

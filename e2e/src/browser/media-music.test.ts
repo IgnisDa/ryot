@@ -112,12 +112,8 @@ it.live("renders a populated Music detail with its album rail and no watch provi
 			.waitFor({ state: "visible", timeout: 150_000 });
 
 		const body = media.locator("body");
-		yield* body
-			.getByText("Music • MusicBrainz • 1997", { exact: true })
-			.waitFor({ state: "visible" });
+		yield* body.getByText("1997·3:42·MusicBrainz", { exact: true }).waitFor({ state: "visible" });
 		yield* body.getByText("Alternative Rock", { exact: true }).waitFor({ state: "visible" });
-		yield* body.getByText("3:42", { exact: true }).waitFor({ state: "visible" });
-		yield* body.getByText("Length", { exact: true }).waitFor({ state: "visible" });
 		yield* body.getByText("Various artists", { exact: true }).waitFor({ state: "visible" });
 		yield* body.getByText("Released", { exact: true }).waitFor({ state: "visible" });
 		yield* body.getByText("MusicBrainz rating", { exact: true }).waitFor({ state: "visible" });
@@ -126,7 +122,7 @@ it.live("renders a populated Music detail with its album rail and no watch provi
 		expect(yield* body.getByText("Episodes", { exact: true }).count).toBe(0);
 
 		yield* body.getByText("Your status", { exact: true }).waitFor({ state: "visible" });
-		yield* body.getByText("Complete", { exact: true }).waitFor({ state: "visible" });
+		yield* body.getByText("Complete", { exact: true }).first().waitFor({ state: "visible" });
 		yield* body.getByText("In media library", { exact: true }).waitFor({ state: "visible" });
 
 		expect(yield* media.getByRole("tab").allTextContents()).toEqual(["Overview", "Activity"]);

@@ -1,5 +1,5 @@
 import type { EntitySettleReason } from "@ryot-app/plugin-client-sdk";
-import { Switch } from "@ryot-app/plugin-ui-sdk";
+import { Badge, Button, Row, RowGroup, Switch } from "@ryot-app/plugin-ui-sdk";
 import { AppIcon } from "@ryot-app/plugin-ui-sdk/icon";
 import { MarkdownContent, markdownPlainText } from "@ryot-app/plugin-ui-sdk/markdown";
 import {
@@ -9,18 +9,15 @@ import {
 	TranslationChip,
 } from "@ryot-app/plugin-ui-sdk/sync";
 import clsx from "clsx";
-import { useState, type ReactNode } from "react";
+import { Fragment, useState } from "react";
 
 import { mediaArtworkClass } from "./entity-presentation";
 import { ManagedAssetImage } from "./managed-assets";
 import {
-	MediaActionButton,
-	MediaChip,
 	MediaExternalLink,
 	MediaFactRow,
 	MediaLinkButton,
 	MediaProgressBar,
-	MediaRailRow,
 	useMediaOpenLink,
 } from "./primitives";
 import {
@@ -30,102 +27,119 @@ import {
 	type MediaEntitySummaryValue,
 	type MediaStatusRailConfig,
 	type MediaSummaryArtwork,
+	type MediaSummaryFact,
 	type MediaSummaryHeaderDetail,
 } from "./summary-state";
 
 function MediaIdentityLine(props: {
-	readonly typeLabel: string;
 	readonly detail: string | undefined;
+	readonly facts: readonly MediaSummaryFact[];
 	readonly media: MediaEntitySummaryValue;
 }) {
-	const { media, detail } = props;
+	const { providerName } = props.media;
+	const parts = [
+		...(props.detail === undefined ? [] : [{ key: "detail", text: props.detail }]),
+		...props.facts.map((fact) => ({ key: fact.label, text: `${fact.value}${fact.suffix ?? ""}` })),
+		...(providerName === null ? [] : [{ key: "provider", text: providerName }]),
+	];
+	if (parts.length === 0) {
+		return null;
+	}
 	return (
-		<p className="font-ui text-[13px] text-text">
-			{props.typeLabel}
-			{media.providerName === null ? null : (
-				<>
-					{" • "}
-					<span className="font-ui font-medium">{media.providerName}</span>
-				</>
-			)}
-			{detail === undefined ? null : ` • ${detail}`}
+		<p className="flex flex-wrap items-center gap-x-2.5 gap-y-1 text-sm text-text-muted">
+			{parts.map((part, index) => (
+				<Fragment key={part.key}>
+					{index === 0 ? null : <span aria-hidden="true">·</span>}
+					<span className="tabular-nums">{part.text}</span>
+				</Fragment>
+			))}
 		</p>
 	);
 }
 
-function MediaDescription(props: {
-	readonly text: string;
-	readonly onToggle: () => void;
-	readonly isExpanded: boolean;
-}) {
+function MediaDescription(props: { readonly text: string }) {
 	const { error, openLink } = useMediaOpenLink();
+	const [isExpanded, setIsExpanded] = useState(false);
 	return (
-		<div className="flex flex-col gap-1 pt-1">
-			{props.isExpanded ? (
-				<div className="font-ui text-[14px] leading-6 text-text">
+		<div className="flex max-w-[62ch] flex-col gap-1">
+			{isExpanded ? (
+				<div className="text-[15px] leading-6 text-text-muted">
 					<MarkdownContent text={props.text} onOpenLink={openLink} />
 				</div>
 			) : (
-				<p className="line-clamp-3 font-ui text-[14px] leading-6 text-text">
+				<p className="line-clamp-3 text-[15px] leading-6 text-text-muted">
 					{markdownPlainText(props.text)}
 				</p>
 			)}
 			{error === null ? null : (
-				<p role="alert" className="font-ui text-[13px] text-text-muted">
+				<p role="alert" className="text-[13px] text-text-muted">
 					{error}
 				</p>
 			)}
 			<div className="flex items-start">
 				<MediaLinkButton
 					tone="plain"
-					onClick={props.onToggle}
-					label={props.isExpanded ? "Less" : "More"}
+					label={isExpanded ? "Less" : "More"}
+					onClick={() => setIsExpanded(!isExpanded)}
 				/>
 			</div>
 		</div>
 	);
 }
 
+function MediaActions(props: { readonly logActivity: boolean }) {
+	return (
+		<div className="flex flex-wrap items-center gap-2">
+			{props.logActivity ? (
+				<Button onClick={() => console.log("TODO: open activity form")}>
+					<AppIcon size={15} name="plus" />
+					Log activity
+				</Button>
+			) : null}
+			<Button variant="secondary" onClick={() => console.log("TODO: open review form")}>
+				<AppIcon size={15} name="star" />
+				Write review
+			</Button>
+		</div>
+	);
+}
+
 function MediaIdentity(props: {
 	readonly compact: boolean;
-	readonly typeLabel: string;
-	readonly description: ReactNode;
 	readonly media: MediaEntitySummaryValue;
 	readonly detail: MediaSummaryHeaderDetail;
 	readonly settled: EntitySettleReason | undefined;
 }) {
 	const { media, detail, compact } = props;
+	const { status } = detail.rail;
+	const inlineFacts = detail.facts.filter((fact) => fact.inline === true);
+	const labelledFacts = detail.facts.filter((fact) => fact.inline !== true);
 	return (
-		<div className={clsx("flex min-w-0 flex-col", compact ? "gap-4" : "flex-1 gap-2.5")}>
-			<SettleHighlight
-				reason={props.settled}
+		<SettleHighlight reason={props.settled} className="grid min-w-0 content-start gap-3 rounded-lg">
+			<h1
 				className={clsx(
-					"flex flex-col gap-2.5 rounded-lg",
-					compact ? "min-h-48 justify-end pl-36" : "min-h-0 justify-start pl-0",
+					"font-display font-semibold tracking-tight text-balance text-text",
+					compact ? "text-[22px] leading-7" : "text-display",
 				)}
 			>
-				<h1
-					className={clsx(
-						"font-display font-semibold text-text",
-						compact ? "text-[22px] leading-7" : "text-[34px] leading-10",
+				{media.name}
+			</h1>
+			<MediaIdentityLine media={media} facts={inlineFacts} detail={detail.identityDetail} />
+			{status === undefined && detail.chips.length === 0 ? null : (
+				<div className="flex flex-wrap gap-1.5">
+					{status === undefined ? null : (
+						<Badge dot variant={status.tone}>
+							{status.label}
+						</Badge>
 					)}
-				>
-					{media.name}
-				</h1>
-				<MediaIdentityLine
-					media={media}
-					typeLabel={props.typeLabel}
-					detail={detail.identityDetail}
-				/>
-				{detail.chips.length === 0 ? null : (
-					<div className="flex flex-wrap gap-1.5">
-						{detail.chips.map((chip) => (
-							<MediaChip key={chip} label={chip} />
-						))}
-					</div>
-				)}
-			</SettleHighlight>
-			<MediaFactRow compact={compact} facts={detail.facts} />
+					{detail.chips.map((chip) => (
+						<Badge key={chip} variant="neutral">
+							{chip}
+						</Badge>
+					))}
+				</div>
+			)}
+			{labelledFacts.length === 0 ? null : <MediaFactRow compact={compact} facts={labelledFacts} />}
 			{detail.links.length === 0 ? null : (
 				<div className="flex flex-wrap gap-x-4 gap-y-2">
 					{detail.links.map((link) => (
@@ -133,13 +147,7 @@ function MediaIdentity(props: {
 					))}
 				</div>
 			)}
-			{props.description}
-			{isTitleProvisional(media) && (
-				<div className="flex items-start">
-					<TranslationChip icon={<AppIcon size={13} name="globe" />} />
-				</div>
-			)}
-		</div>
+		</SettleHighlight>
 	);
 }
 
@@ -155,144 +163,122 @@ function MediaLibraryBadge(props: { readonly isInMediaLibrary: boolean }) {
 }
 
 function MediaStatusRail(props: {
-	readonly compact: boolean;
 	readonly media: MediaEntitySummaryValue;
 	readonly config: MediaStatusRailConfig;
 }) {
-	const { media, config, compact } = props;
+	const { media, config } = props;
 	const { status, ownership } = config;
 	return (
-		<div className={clsx("flex flex-col", compact ? "gap-3" : "w-84 gap-2")}>
-			<div className="overflow-hidden rounded-lg border border-border bg-surface">
-				{status === undefined ? null : (
-					<>
-						<MediaRailRow
-							compact={compact}
-							icon="circle-check"
-							title="Your status"
-							detail="Status is calculated from your activity"
-							trailing={
-								<span className="font-ui font-medium text-[13px] text-success">{status.label}</span>
-							}
-						/>
-						{status.progress === undefined ? null : (
-							<div className="px-4 py-3.5">
-								<MediaProgressBar percent={status.progress.percent} />
-							</div>
-						)}
-					</>
-				)}
-				{media.providerName === null ? null : (
-					<MediaRailRow
-						icon="radio"
-						compact={compact}
-						title="Monitoring"
-						detail="Keep provider details up to date"
-						trailing={
-							<Switch
-								checked={media.isMonitored}
-								label="Toggle media monitoring"
-								onChange={() => console.log("TODO: toggle media monitoring")}
-							/>
-						}
-					/>
-				)}
-				<MediaRailRow
-					icon="library"
-					compact={compact}
-					title="In media library"
-					trailing={<MediaLibraryBadge isInMediaLibrary={media.isInMediaLibrary} />}
-				/>
-				{ownership === undefined ? null : (
-					<MediaRailRow
-						icon="tags"
-						compact={compact}
-						title="Ownership"
-						trailing={
-							<span className="font-ui text-[13px] text-text-muted">
-								{mediaOwnershipLabel(ownership.owned)}
-							</span>
-						}
-					/>
-				)}
-				<MediaRailRow
-					divided={false}
-					icon="layers-3"
-					compact={compact}
-					title="Collections"
-					detail={mediaCollectionsLabel(media.collections)}
+		<RowGroup className="self-start">
+			{status === undefined ? null : (
+				<Row
+					title="Your status"
 					trailing={
-						<MediaLinkButton
-							label="Manage"
-							onClick={() => console.log("TODO: manage collections")}
+						<Badge dot size="sm" variant={status.tone}>
+							{status.label}
+						</Badge>
+					}
+					description={
+						status.progress === undefined ? undefined : (
+							<MediaProgressBar percent={status.progress.percent} />
+						)
+					}
+				/>
+			)}
+			{media.providerName === null ? null : (
+				<Row
+					title="Monitoring"
+					description="Keep provider details up to date"
+					trailing={
+						<Switch
+							checked={media.isMonitored}
+							label="Toggle media monitoring"
+							onChange={() => console.log("TODO: toggle media monitoring")}
 						/>
 					}
 				/>
-			</div>
-			<div className={clsx("flex gap-2", !compact && "flex-col")}>
-				{config.logActivity ? (
-					<MediaActionButton
-						variant="primary"
-						compact={compact}
-						label="Log activity"
-						onClick={() => console.log("TODO: open activity form")}
-					/>
-				) : null}
-				<MediaActionButton
-					compact={compact}
-					variant="secondary"
-					label="Write review"
-					onClick={() => console.log("TODO: open review form")}
+			)}
+			<Row
+				title="In media library"
+				trailing={<MediaLibraryBadge isInMediaLibrary={media.isInMediaLibrary} />}
+			/>
+			{ownership === undefined ? null : (
+				<Row
+					title="Ownership"
+					trailing={
+						<span className="text-sm text-text-muted">{mediaOwnershipLabel(ownership.owned)}</span>
+					}
 				/>
-			</div>
-		</div>
+			)}
+			<Row
+				title="Collections"
+				description={mediaCollectionsLabel(media.collections)}
+				trailing={
+					<Button size="sm" variant="ghost" onClick={() => console.log("TODO: manage collections")}>
+						Manage
+					</Button>
+				}
+			/>
+		</RowGroup>
 	);
 }
 
 export function MediaSummaryHeader(props: {
 	readonly compact: boolean;
-	readonly typeLabel: string;
 	readonly media: MediaEntitySummaryValue;
 	readonly artwork: MediaSummaryArtwork;
 	readonly detail: MediaSummaryHeaderDetail;
 	readonly settled: EntitySettleReason | undefined;
 }) {
-	const { media, compact, artwork } = props;
+	const { media, detail, compact, artwork } = props;
 	const poster = mediaPosterAsset(media, artwork.purpose);
-	const { description } = media;
-	const [isExpanded, setIsExpanded] = useState(false);
-	const descriptionNode =
-		description === null ? null : (
-			<MediaDescription
-				text={description}
-				isExpanded={isExpanded}
-				onToggle={() => setIsExpanded(!isExpanded)}
-			/>
-		);
-	return (
-		<div className={clsx("flex gap-4", compact ? "flex-col" : "flex-row items-start gap-8")}>
-			<div
-				className={clsx("relative flex min-w-0", compact ? "flex-col" : "flex-1 flex-row gap-8")}
-			>
-				<div className={compact ? "absolute top-0 left-0 w-32" : "relative w-60 shrink-0"}>
-					<ManagedAssetImage
-						asset={poster}
-						fit={artwork.fit}
-						monogram={media.name}
-						state={fieldSyncState(poster, media)}
-						className={mediaArtworkClass({ compact, layout: "grid", aspect: artwork.aspect })}
-					/>
+	const art = (
+		<ManagedAssetImage
+			asset={poster}
+			fit={artwork.fit}
+			monogram={media.name}
+			state={fieldSyncState(poster, media)}
+			className={clsx(
+				"shadow-card",
+				mediaArtworkClass({ compact, layout: "grid", aspect: artwork.aspect }),
+			)}
+		/>
+	);
+	const identity = (
+		<MediaIdentity media={media} detail={detail} compact={compact} settled={props.settled} />
+	);
+	const content = (
+		<>
+			{media.description === null ? null : <MediaDescription text={media.description} />}
+			{isTitleProvisional(media) && (
+				<div className="flex items-start">
+					<TranslationChip icon={<AppIcon size={13} name="globe" />} />
 				</div>
-				<MediaIdentity
-					media={media}
-					compact={compact}
-					detail={props.detail}
-					settled={props.settled}
-					typeLabel={props.typeLabel}
-					description={descriptionNode}
-				/>
+			)}
+			<MediaActions logActivity={detail.rail.logActivity} />
+		</>
+	);
+	const rail = <MediaStatusRail media={media} config={detail.rail} />;
+	if (compact) {
+		return (
+			<div className="grid gap-5">
+				<div className="flex items-start gap-4">
+					<div className="w-28 shrink-0">{art}</div>
+					{identity}
+				</div>
+				{content}
+				{rail}
 			</div>
-			<MediaStatusRail media={media} compact={compact} config={props.detail.rail} />
+		);
+	}
+	return (
+		<div className="grid grid-cols-[11rem_minmax(0,1fr)_18rem] gap-7">
+			{art}
+			<div className="grid min-w-0 content-start gap-3.5">
+				{identity}
+				{content}
+			</div>
+			{rail}
 		</div>
 	);
 }

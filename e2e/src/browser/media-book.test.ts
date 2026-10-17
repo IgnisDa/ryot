@@ -136,10 +136,10 @@ it.live("renders a populated Book detail with its series rail and unlinked creat
 		yield* spoiler.waitFor({ state: "visible" });
 		yield* body.getByRole("button", { exact: true, name: "Less" }).click();
 		expect(yield* body.getByText("Hidden browser story detail.", { exact: true }).count).toBe(0);
-		yield* body.getByText("Book • Hardcover • 1997", { exact: true }).waitFor({ state: "visible" });
+		yield* body
+			.getByText("1997·320 pages·Hardcover", { exact: true })
+			.waitFor({ state: "visible" });
 		yield* body.getByText("Science Fiction", { exact: true }).waitFor({ state: "visible" });
-		yield* body.getByText("Pages", { exact: true }).waitFor({ state: "visible" });
-		yield* body.getByText("320", { exact: true }).waitFor({ state: "visible" });
 		yield* body.getByText("Compilation", { exact: true }).waitFor({ state: "visible" });
 		yield* body.getByText("No", { exact: true }).waitFor({ state: "visible" });
 		yield* body.getByText("Production status", { exact: true }).waitFor({ state: "visible" });
@@ -150,7 +150,7 @@ it.live("renders a populated Book detail with its series rail and unlinked creat
 		expect(yield* body.getByText("Seasons", { exact: true }).count).toBe(0);
 
 		yield* body.getByText("Your status", { exact: true }).waitFor({ state: "visible" });
-		yield* body.getByText("Complete", { exact: true }).waitFor({ state: "visible" });
+		yield* body.getByText("Complete", { exact: true }).first().waitFor({ state: "visible" });
 		yield* body.getByText("In media library", { exact: true }).waitFor({ state: "visible" });
 
 		expect(yield* media.getByRole("tab").allTextContents()).toEqual(["Overview", "Activity"]);

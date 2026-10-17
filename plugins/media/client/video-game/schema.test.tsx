@@ -139,7 +139,6 @@ describe("video game schema", () => {
 	it("titles the credits for games and names the group a collection", () => {
 		const { unmount, container } = renderBody();
 
-		expect(container.textContent).toContain("Video Game");
 		expect(container.textContent).toContain("Cast & credits");
 		expect(container.textContent).toContain("Developers & publishers");
 		expect(container.textContent).toContain("View collection");

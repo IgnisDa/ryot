@@ -94,7 +94,7 @@ describe("anime schema", () => {
 	it("lists the next episode and episode count facts and drops the unrecorded ones", () => {
 		expect(animeSummaryFacts(animeSummary())).toEqual([
 			expect.objectContaining({ icon: "clock", label: "Next episode" }),
-			{ icon: "tv", value: "24", label: "Episodes" },
+			{ icon: "tv", inline: true, label: "Episodes", value: "24 episodes" },
 		]);
 		expect(
 			animeSummaryFacts(animeSummary({ episodes: null, airingSchedule: [AIRED_EPISODE] })),

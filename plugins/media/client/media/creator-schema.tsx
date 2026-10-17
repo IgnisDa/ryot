@@ -4,6 +4,7 @@ import type {
 	PluginIdentityReference,
 } from "@ryot-app/plugin-client-sdk/plugin";
 import type { PreparedRecipe } from "@ryot-app/plugin-client-sdk/ryotql";
+import type { TabOption } from "@ryot-app/plugin-ui-sdk";
 import { createElement, type ReactNode } from "react";
 
 import type { MediaReviewActivityResult } from "../../shared/media-recipes";
@@ -35,7 +36,6 @@ import {
 	type MediaSummaryLink,
 	type MediaSummaryState,
 } from "./summary-state";
-import type { MediaTab } from "./tabs";
 
 const CREDIT_LIMIT = 12;
 const ALIAS_CHIP_LIMIT = 4;
@@ -81,9 +81,9 @@ export type MediaCreatorSchemaDescriptor<
 	readonly links: (summary: Summary) => readonly MediaSummaryLink[];
 };
 
-const TABS: readonly MediaTab<"overview" | "activity">[] = [
-	{ key: "overview", label: "Overview" },
-	{ key: "activity", label: "Activity" },
+const TABS: readonly TabOption<"overview" | "activity">[] = [
+	{ value: "overview", label: "Overview" },
+	{ value: "activity", label: "Activity" },
 ];
 
 const CREDITS_NOTICE = "Credits";
@@ -163,7 +163,6 @@ export const defineCreatorMediaSchema = <
 				compact={props.compact}
 				settled={props.settled}
 				refresh={props.refresh}
-				typeLabel={nouns.title}
 				overview={props.overview}
 				artwork={descriptor.artwork}
 				loading={summaryState.loading}

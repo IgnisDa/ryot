@@ -32,7 +32,7 @@ afterEach(() => {
 describe("movie schema", () => {
 	it("lists the runtime and drops it when unrecorded", () => {
 		expect(movieSummaryFacts(movieSummary())).toEqual([
-			{ icon: "clock", value: "2h 49m", label: "Runtime" },
+			{ inline: true, icon: "clock", value: "2h 49m", label: "Runtime" },
 		]);
 		expect(movieSummaryFacts(movieSummary({ runtime: null }))).toEqual([]);
 	});
@@ -44,7 +44,6 @@ describe("movie schema", () => {
 			decodeFlatOverview(movieRecipes.overviewRecipe(FLAT_OVERVIEW_INPUT)),
 		);
 
-		expect(container.textContent).toContain("Movie");
 		expect(container.textContent).toContain("Cast & crew");
 		expect(container.textContent).toContain("Production companies");
 		expect(container.textContent).toContain("View collection");

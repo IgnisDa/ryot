@@ -433,14 +433,13 @@ describe("ShowScreen", () => {
 			expect(container?.textContent).toContain("TMDB");
 			expect(container?.textContent).toContain("Drama");
 			expect(container?.textContent).toContain("Returning Series");
-			expect(container?.textContent).toContain("Seasons");
+			expect(container?.textContent).toContain("2 seasons");
 			expect(container?.textContent).toContain("A deterministic show description.");
 			expect(
 				Array.from(container?.querySelectorAll("img") ?? []).map((image) =>
 					image.getAttribute("src"),
 				),
 			).toEqual([
-				"https://images.test/backdrop.jpg",
 				"https://images.test/cover.jpg",
 				"https://images.test/backdrop.jpg",
 				"https://images.test/cover.jpg",
@@ -637,7 +636,7 @@ describe("ShowScreen", () => {
 				waitFor(() => expect(container?.textContent).toContain("Sparse Show")),
 			);
 			expect(container?.textContent).not.toContain("Production status");
-			expect(container?.textContent).not.toContain("Seasons");
+			expect(container?.textContent).not.toContain("season");
 			expect(container?.querySelector("img")).toBeNull();
 		}),
 	);

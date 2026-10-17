@@ -79,8 +79,8 @@ afterEach(() => {
 describe("manga schema", () => {
 	it("lists the chapter and volume facts and drops the unrecorded ones", () => {
 		expect(mangaSummaryFacts(mangaSummary())).toEqual([
-			{ value: "120", icon: "book-open", label: "Chapters" },
-			{ value: "12", icon: "layers", label: "Volumes" },
+			{ inline: true, icon: "book-open", label: "Chapters", value: "120 chapters" },
+			{ inline: true, icon: "layers", label: "Volumes", value: "12 volumes" },
 		]);
 		expect(mangaSummaryFacts(mangaSummary({ volumes: null, chapters: null }))).toEqual([]);
 	});
