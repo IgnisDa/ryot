@@ -1,8 +1,10 @@
 import { DbError } from "@ryot-app/contract/errors";
 import type { AutomationWarning } from "@ryot-app/contract/modules/automations/lifecycle";
-import type {
-	EntityEditorSaveOutput,
-	EntityEditorSubmission,
+import {
+	EntityEditorRefused,
+	type EntityEditorSaveOutput,
+	type EntityEditorSaveRequest,
+	type EntityEditorSubmission,
 } from "@ryot-app/contract/modules/entities/editor";
 import type { EntityBadRequest } from "@ryot-app/contract/modules/entities/schemas";
 import { definitionKey, definitionOwner } from "@ryot-app/contract/modules/plugins/references";
@@ -10,16 +12,21 @@ import type {
 	RelationshipBadRequest,
 	RelationshipNotFound,
 } from "@ryot-app/contract/modules/relationships/schemas";
+import type { AccountGeneration } from "@ryot-app/contract/schema/account-generation";
 import {
+	type PluginId,
+	AutomationExecutionId,
 	EntityId,
 	EntitySchemaSlug,
 	RelationshipSchemaSlug,
 	type UserId,
 } from "@ryot-app/contract/schema/brands";
-import { ENTITY_EDITOR_SANDBOX_LIMITS } from "@ryot-app/plugin-backend-sdk/core";
+import { USER_RELATIONSHIP_WRITE_SANDBOX_LIMITS } from "@ryot-app/plugin-backend-sdk/core";
+import { sha256Base64Url } from "@ryot-app/ts-utils/crypto";
 import { stableStringify } from "@ryot-app/ts-utils/json";
 import { Context, Effect, Layer, Schema } from "effect";
 
+import { rootLifecycleCommand } from "#modules/automations/lifecycle/command";
 import { LifecycleExecution } from "#modules/automations/lifecycle/execution";
 import {
 	type LifecycleDispatchPlan,
@@ -35,6 +42,7 @@ import {
 	MutationReceiptIdentityConflict,
 	MutationReceipts,
 } from "#modules/mutations/receipts";
+import { PluginRuntimeResolver } from "#modules/plugins/catalog/runtime-resolver";
 import type {
 	PreparedUserRelationshipCreate,
 	PreparedUserRelationshipDelete,
@@ -43,10 +51,11 @@ import { RelationshipsRepository } from "#modules/relationships/repository";
 import { RelationshipsService } from "#modules/relationships/service";
 import { DatabaseSession } from "#platform/db/session";
 
-export class EntityEditorRefused extends Schema.TaggedError<
-	EntityEditorRefused,
-	{ readonly brand: unique symbol }
->()("EntityEditorRefused", { message: Schema.String }) {}
+const limits = {
+	relationshipTargets: 200,
+	relationshipChanges: USER_RELATIONSHIP_WRITE_SANDBOX_LIMITS.changesPerBatch,
+} as const;
+const notEditable = "This entity schema cannot be edited here";
 
 const SaveResult = Schema.Struct({ entityId: EntityId });
 const refused = (message: string) => new EntityEditorRefused({ message });
@@ -98,6 +107,7 @@ export class EntityEditorService extends Context.Service<EntityEditorService>()(
 			const relationships = yield* RelationshipsService;
 			const entitiesRepository = yield* EntitiesRepository;
 			const relationshipsRepository = yield* RelationshipsRepository;
+			const runtime = yield* PluginRuntimeResolver;
 			const transaction = <A, E, R>(work: Effect.Effect<A, E, R>) =>
 				database
 					.transaction(entitiesRepository.lockSchemaCatalog().pipe(Effect.andThen(work)))
@@ -115,17 +125,57 @@ export class EntityEditorService extends Context.Service<EntityEditorService>()(
 					),
 				);
 
+			const authorize = Effect.fn("EntityEditorService.authorize")(function* (
+				userId: UserId,
+				pluginId: PluginId,
+				submission: EntityEditorSubmission,
+			) {
+				const reference = submission.entitySchema;
+				if (reference.owner.kind !== "plugin" || reference.owner.pluginId !== pluginId) {
+					return notEditable;
+				}
+				if (!(yield* runtime.findPluginAvailableToUser(userId, pluginId))) {
+					return notEditable;
+				}
+				const owner = definitionOwner(pluginId);
+				const entitySchema = (yield* definitions.findUserEntitySchemas(userId, [
+					{ owner, slug: reference.slug },
+				]))[definitionKey("entity", owner, reference.slug)];
+				const editor = entitySchema?.pluginId === pluginId ? entitySchema.editor : undefined;
+				if (!editor) {
+					return notEditable;
+				}
+				const slugs = submission.relationships.map(({ relationshipSchemaSlug }) =>
+					RelationshipSchemaSlug.make(relationshipSchemaSlug),
+				);
+				const undeclared = slugs.find((slug) => !editor.relationships.includes(slug));
+				if (undeclared !== undefined) {
+					return `Relationship ${undeclared} is not editable here`;
+				}
+				const relationshipSchemas = yield* definitions.findUserRelationshipSchemas(
+					userId,
+					slugs.map((slug) => ({ slug, owner })),
+				);
+				const unavailable = slugs.find((slug) => {
+					const definition = relationshipSchemas[definitionKey("relationship", owner, slug)];
+					return (
+						definition?.pluginId !== pluginId ||
+						definition.sourceEntitySchemaSlug !== reference.slug
+					);
+				});
+				return unavailable === undefined
+					? null
+					: `Relationship ${unavailable} is not editable here`;
+			}, Effect.orDie);
+
 			const save = Effect.fn("EntityEditorService.save")(function* (input: {
 				userId: UserId;
+				owner: PluginId;
 				lifecycle: DomainLifecycleCommand;
 				submission: EntityEditorSubmission;
 			}) {
 				const { userId, submission, lifecycle: command } = input;
-				const revision = command.writeContext?.pluginRevision;
-				if (!revision) {
-					return yield* refused("Entity editing requires a pinned plugin");
-				}
-				const entitySchemaSlug = EntitySchemaSlug.make(submission.entitySchemaSlug);
+				const entitySchemaSlug = EntitySchemaSlug.make(submission.entitySchema.slug);
 				const slugs = submission.relationships.map(
 					({ relationshipSchemaSlug }) => relationshipSchemaSlug,
 				);
@@ -145,11 +195,11 @@ export class EntityEditorService extends Context.Service<EntityEditorService>()(
 						output: invalid("Relationships repeat a schema or a target"),
 					};
 				}
-				if (targetCount > ENTITY_EDITOR_SANDBOX_LIMITS.relationshipTargets) {
+				if (targetCount > limits.relationshipTargets) {
 					return {
 						warnings: noWarnings,
 						output: invalid(
-							`Entity editor saves are limited to ${ENTITY_EDITOR_SANDBOX_LIMITS.relationshipTargets} relationship targets`,
+							`Entity editor saves are limited to ${limits.relationshipTargets} relationship targets`,
 						),
 					};
 				}
@@ -159,7 +209,7 @@ export class EntityEditorService extends Context.Service<EntityEditorService>()(
 					ownerUserId: userId,
 					scopeUserId: userId,
 					commandKind: "entity-editor:save",
-					input: { userId, submission, writeContext: command.writeContext },
+					input: { userId, submission, owner: input.owner },
 				});
 				const replay = yield* receiptLookup(identity, SaveResult, false);
 				if (replay) {
@@ -172,35 +222,12 @@ export class EntityEditorService extends Context.Service<EntityEditorService>()(
 					};
 				}
 
-				const owner = definitionOwner(revision.id);
-				const entitySchema = (yield* definitions
-					.findUserEntitySchemas(userId, [{ owner, slug: entitySchemaSlug }])
-					.pipe(Effect.orDie))[definitionKey("entity", owner, entitySchemaSlug)];
-				if (
-					!entitySchema ||
-					entitySchema.pluginId !== revision.id ||
-					!revision.schemaScope.entitySchemaSlugs.includes(entitySchemaSlug)
-				) {
-					return yield* refused("Entity schema is not owned by the executing plugin");
+				const refusal = yield* authorize(userId, input.owner, submission);
+				if (refusal !== null) {
+					return { warnings: noWarnings, output: invalid(refusal) };
 				}
+				const owner = definitionOwner(input.owner);
 				const relationshipSlugs = slugs.map((slug) => RelationshipSchemaSlug.make(slug));
-				const relationshipSchemas = yield* definitions
-					.findUserRelationshipSchemas(
-						userId,
-						relationshipSlugs.map((slug) => ({ slug, owner })),
-					)
-					.pipe(Effect.orDie);
-				for (const slug of relationshipSlugs) {
-					const definition = relationshipSchemas[definitionKey("relationship", owner, slug)];
-					if (
-						!definition ||
-						definition.pluginId !== revision.id ||
-						definition.sourceEntitySchemaSlug !== entitySchemaSlug ||
-						!revision.schemaScope.relationshipSchemaSlugs.includes(slug)
-					) {
-						return yield* refused("Relationship schema is not owned by the executing plugin");
-					}
-				}
 
 				const entityCommand = itemCommand(command, "entity");
 				const prepared = yield* entities.prepareUserSave({
@@ -224,7 +251,7 @@ export class EntityEditorService extends Context.Service<EntityEditorService>()(
 						: relationshipsRepository.listUserOutgoingRelationships({
 								lock,
 								userId,
-								pluginId: revision.id,
+								pluginId: input.owner,
 								sourceEntityId: prepared.entityId,
 								relationshipSchemaSlugs: relationshipSlugs,
 							});
@@ -272,11 +299,11 @@ export class EntityEditorService extends Context.Service<EntityEditorService>()(
 						}
 					}
 				}
-				if (changes.length > ENTITY_EDITOR_SANDBOX_LIMITS.relationshipChanges) {
+				if (changes.length > limits.relationshipChanges) {
 					return {
 						warnings: noWarnings,
 						output: invalid(
-							`Entity editor saves are limited to ${ENTITY_EDITOR_SANDBOX_LIMITS.relationshipChanges} relationship changes`,
+							`Entity editor saves are limited to ${limits.relationshipChanges} relationship changes`,
 						),
 					};
 				}
@@ -318,10 +345,18 @@ export class EntityEditorService extends Context.Service<EntityEditorService>()(
 					Effect.gen(function* () {
 						const prior = yield* receiptLookup(identity, SaveResult, true);
 						if (prior) {
-							return { dispatch: prior.dispatch, entityId: prior.result.entityId };
+							return {
+								kind: "saved" as const,
+								dispatch: prior.dispatch,
+								entityId: prior.result.entityId,
+							};
+						}
+						const committedRefusal = yield* authorize(userId, input.owner, submission);
+						if (committedRefusal !== null) {
+							return { kind: "refused" as const, message: committedRefusal };
 						}
 						if (basisOf(yield* currentRelationships(true)) !== basis) {
-							return null;
+							return { kind: "stale" as const };
 						}
 						const saved = yield* entities.persistPreparedUserSave(prepared);
 						const relationshipDispatch: LifecycleDispatchPlan[] = [];
@@ -350,11 +385,14 @@ export class EntityEditorService extends Context.Service<EntityEditorService>()(
 						}
 						const dispatch = [...saved.dispatch, ...relationshipDispatch];
 						yield* receipts.insert({ identity, dispatch, result: { entityId: saved.entity.id } });
-						return { dispatch, entityId: saved.entity.id };
+						return { dispatch, kind: "saved" as const, entityId: saved.entity.id };
 					}),
 				);
-				if (committed === null) {
+				if (committed.kind === "stale") {
 					return { output: stale, warnings: noWarnings };
+				}
+				if (committed.kind === "refused") {
+					return { warnings: noWarnings, output: invalid(committed.message) };
 				}
 				return {
 					warnings: yield* execution.dispatch(committed.dispatch),
@@ -362,45 +400,78 @@ export class EntityEditorService extends Context.Service<EntityEditorService>()(
 				};
 			});
 
-			return {
-				save: (input: Parameters<typeof save>[0]) =>
-					save(input).pipe(
-						Effect.catchTags({
-							EntityStale: () => Effect.succeed({ output: stale, warnings: noWarnings }),
-							LifecyclePersistenceError: (error: LifecyclePersistenceError) =>
-								Effect.fail(
-									new DbError({
-										message: `Entity editor lifecycle persistence failed: ${error.code}`,
-									}),
-								),
-							RelationshipNotFound: (error: RelationshipNotFound) =>
-								error.reason.code === "entity-not-found"
-									? Effect.succeed({
-											warnings: [] as ReadonlyArray<AutomationWarning>,
-											output: invalid("A relationship target was not found"),
-										})
-									: Effect.fail(error),
-							EntityBadRequest: (error: EntityBadRequest) => {
-								const message = invalidEntityReason(error);
-								if (message !== null) {
-									return Effect.succeed({ warnings: noWarnings, output: invalid(message) });
-								}
-								return error.reason.code === "mutation-conflict"
-									? Effect.succeed({ output: stale, warnings: noWarnings })
-									: Effect.fail(error);
-							},
-							RelationshipBadRequest: (error: RelationshipBadRequest) => {
-								const message = invalidRelationshipReason(error);
-								if (message !== null) {
-									return Effect.succeed({ warnings: noWarnings, output: invalid(message) });
-								}
-								return error.reason.code === "concurrent-relationship-change"
-									? Effect.succeed({ output: stale, warnings: noWarnings })
-									: Effect.fail(error);
-							},
+			const savePublic = (input: Parameters<typeof save>[0]) =>
+				save(input).pipe(
+					Effect.catchTags({
+						EntityStale: () => Effect.succeed({ output: stale, warnings: noWarnings }),
+						LifecyclePersistenceError: (error: LifecyclePersistenceError) =>
+							Effect.fail(
+								new DbError({
+									message: `Entity editor lifecycle persistence failed: ${error.code}`,
+								}),
+							),
+						RelationshipNotFound: (error: RelationshipNotFound) =>
+							error.reason.code === "entity-not-found"
+								? Effect.succeed({
+										warnings: [] as ReadonlyArray<AutomationWarning>,
+										output: invalid("A relationship target was not found"),
+									})
+								: Effect.fail(error),
+						EntityBadRequest: (error: EntityBadRequest) => {
+							const message = invalidEntityReason(error);
+							if (message !== null) {
+								return Effect.succeed({ warnings: noWarnings, output: invalid(message) });
+							}
+							return error.reason.code === "mutation-conflict"
+								? Effect.succeed({ output: stale, warnings: noWarnings })
+								: Effect.fail(error);
+						},
+						RelationshipBadRequest: (error: RelationshipBadRequest) => {
+							const message = invalidRelationshipReason(error);
+							if (message !== null) {
+								return Effect.succeed({ warnings: noWarnings, output: invalid(message) });
+							}
+							return error.reason.code === "concurrent-relationship-change"
+								? Effect.succeed({ output: stale, warnings: noWarnings })
+								: Effect.fail(error);
+						},
+					}),
+				);
+
+			const submit = Effect.fn("EntityEditorService.submit")(function* (input: {
+				userId: UserId;
+				accountGeneration: AccountGeneration;
+				request: EntityEditorSaveRequest;
+			}) {
+				const { userId, request, accountGeneration } = input;
+				const { submission } = request;
+				const owner = submission.entitySchema.owner;
+				if (owner.kind !== "plugin") {
+					return { warnings: noWarnings, output: invalid(notEditable) };
+				}
+				const executionId = AutomationExecutionId.make(
+					`entity-editor-${sha256Base64Url(stableStringify([accountGeneration, "entity-editor:save", submission.entitySchema, request.idempotencyKey]))}`,
+				);
+				return yield* savePublic({
+					userId,
+					submission,
+					owner: owner.pluginId,
+					lifecycle: {
+						...rootLifecycleCommand({
+							executionId,
+							source: "api",
+							accountGeneration,
+							lane: "interactive",
+							itemIdentity: "entity-editor",
+							occurredAt: request.submittedAt,
+							initiator: { id: userId, kind: "user" },
 						}),
-					),
-			};
+						writeContext: null,
+					},
+				});
+			});
+
+			return { submit, save: savePublic };
 		}),
 	},
 ) {

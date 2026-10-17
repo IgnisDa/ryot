@@ -7,6 +7,7 @@ import {
 	DemoOperationProtected,
 	UserInitializing,
 } from "@ryot-app/contract/auth-middleware";
+import { EntitiesGroup } from "@ryot-app/contract/modules/entities/contract";
 import { PluginsGroup } from "@ryot-app/contract/modules/plugins/contract";
 import {
 	OAUTH_DEMO_WEB_CLIENT_ID,
@@ -412,6 +413,7 @@ it.effect("rejects authenticated writes while a lifecycle operation is active", 
 const request = (
 	accessClass: "standard" | "demo",
 	endpoint:
+		| typeof EntitiesGroup.endpoints.saveEditor
 		| typeof PluginsGroup.endpoints.events
 		| typeof PluginsGroup.endpoints.install
 		| typeof PluginsGroup.endpoints.updatePluginState,
@@ -463,6 +465,12 @@ it.effect("enforces representative demo endpoint policies with a typed 403", () 
 		);
 		expect(error).not.toBeInstanceOf(AuthUnauthorized);
 		expect(demo.handlerCalled()).toBe(false);
+
+		const editorSave = request("demo", EntitiesGroup.endpoints.saveEditor);
+		expect(yield* Effect.flip(editorSave.effect)).toEqual(
+			new DemoOperationProtected({ reason: { code: "demo-operation-protected" } }),
+		);
+		expect(editorSave.handlerCalled()).toBe(false);
 
 		const stateUpdate = request("demo", PluginsGroup.endpoints.updatePluginState);
 		expect(yield* Effect.flip(stateUpdate.effect)).toEqual(

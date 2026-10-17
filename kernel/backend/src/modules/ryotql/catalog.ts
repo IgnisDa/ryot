@@ -472,6 +472,7 @@ const entitySchema: CatalogTable = {
 	},
 	fields: {
 		...definitionFields,
+		editor: physicalField("editor", "json"),
 		icon: physicalField("icon", "text", false),
 		userState: physicalField("user_state", "json"),
 		mergeIdentityProperties: textArrayField("merge_identity_properties"),

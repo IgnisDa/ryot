@@ -284,12 +284,6 @@ export const bindSandboxHostFunctions = <Input>(
 			domainSandboxHostContracts.requestEventStreamWork,
 			implementations.requestEventStreamWork,
 		),
-		saveUserEntity: bind(
-			"saveUserEntity",
-			domainSandboxHostContracts.saveUserEntity,
-			implementations.saveUserEntity,
-			{ failure: preserveWriteFailure },
-		),
 		executeRyotql: bind(
 			"executeRyotql",
 			domainSandboxHostContracts.executeRyotql,

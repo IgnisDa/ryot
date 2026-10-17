@@ -2,6 +2,8 @@ import { HttpApiGroup, HttpApiSchema, OpenApi } from "effect/http-api";
 
 import { AuthMiddleware } from "../../auth-middleware";
 import { AuthenticatedMutationEndpoint } from "../../authenticated-mutation-endpoint";
+import { RelationshipBadRequest, RelationshipNotFound } from "../relationships/schemas";
+import { EntityEditorRefused, EntityEditorSaveRequest, EntityEditorSaveResult } from "./editor";
 import {
 	CreateEntityBody,
 	EntityBadRequest,
@@ -22,5 +24,21 @@ export const EntitiesGroup = HttpApiGroup.make("entities")
 				EntityStale.pipe(HttpApiSchema.status(409)),
 			],
 		}).annotate(OpenApi.Description, "Create an entity."),
+	)
+	.add(
+		AuthenticatedMutationEndpoint.post("protected")("saveEditor", "/entities/editor", {
+			success: EntityEditorSaveResult,
+			payload: EntityEditorSaveRequest,
+			error: [
+				EntityBadRequest.pipe(HttpApiSchema.status(400)),
+				RelationshipBadRequest.pipe(HttpApiSchema.status(400)),
+				EntityNotFound.pipe(HttpApiSchema.status(404)),
+				RelationshipNotFound.pipe(HttpApiSchema.status(404)),
+				EntityEditorRefused.pipe(HttpApiSchema.status(409)),
+			],
+		}).annotate(
+			OpenApi.Description,
+			"Save a user entity and its declared outgoing relationships through its schema editor.",
+		),
 	)
 	.middleware(AuthMiddleware);

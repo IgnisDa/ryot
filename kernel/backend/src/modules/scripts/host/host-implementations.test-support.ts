@@ -50,7 +50,6 @@ export const unusedSandboxHostImplementations = (
 		createEvents: unusedHostCall,
 		updateEvents: unusedHostCall,
 		executeRyotql: unusedHostCall,
-		saveUserEntity: unusedHostCall,
 		getPluginConfig: unusedHostCall,
 		getUserSettings: unusedHostCall,
 		listIntegrations: unusedHostCall,

@@ -32,9 +32,6 @@ import {
 	mergeUserEntityDataArgsSchema,
 	mergeUserEntityDataDataSchema,
 	mergeUserEntityDataResultSchema,
-	saveUserEntityArgsSchema,
-	saveUserEntityDataSchema,
-	saveUserEntityResultSchema,
 	upsertGlobalEntitiesArgsSchema,
 	upsertGlobalEntitiesDataSchema,
 	upsertGlobalEntitiesResultSchema,
@@ -210,11 +207,6 @@ export const domainSandboxHostContracts = {
 		args: deleteEventsArgsSchema,
 		result: deleteEventsResultSchema,
 		success: deleteEventsResultDataSchema,
-	},
-	saveUserEntity: {
-		args: saveUserEntityArgsSchema,
-		success: saveUserEntityDataSchema,
-		result: saveUserEntityResultSchema,
 	},
 	listEventSchemas: {
 		args: listEventSchemasArgsSchema,

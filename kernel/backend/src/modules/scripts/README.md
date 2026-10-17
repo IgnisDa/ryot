@@ -150,17 +150,9 @@ policies, and receipts. Scripts cannot set global scope, provider provenance, ow
 | --------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
 | `createUserEntity` / `updateUserEntity` | Create one owned entity or update against expected name, time, and properties                                                                   |
 | `deleteUserEntity`                      | Delete the owned schema-matching entity through lifecycle handling, including referencing events                                                |
-| `saveUserEntity`                        | Atomically save one entity and replace outgoing user relationships for listed schemas; incoming/unlisted schemas remain unchanged               |
 | `mergeUserEntityData`                   | Move the user's events/relationships into a same-schema entity using merge policy and return moved counts                                       |
 | `updateEvents` / `deleteEvents`         | Atomic batches of at most 100; updates use `{ eventId, patch }` with properties `{ remove, set }`, occurrence time, entity, or nullable session |
 | `changeUserRelationships`               | Each create chooses merge (preserve unspecified fields/union arrays) or replace (full property record); membership writes use merge             |
-
-`saveUserEntity` requires owned relationship schemas whose source matches the entity schema. Its
-single `entity-editor:save` receipt retains entity ID and dispatch list for crash redispatch. Changed
-relationship sets, expected snapshots, or concurrent state return `stale`. Invalid properties/assets,
-immutable changes, duplicate targets, over 200 targets, or over 100 changes return `invalid`.
-Foreign/missing/unowned entities or schemas fail the call. Writes preserve the sandbox principal,
-not kernel collection authority.
 
 Merge requires a user-owned source and same-plugin/schema endpoints. It retains the sandbox principal
 but marks the command as a kernel collection command, allowing owned domain events and kernel

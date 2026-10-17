@@ -151,7 +151,7 @@ entry can therefore leave otherwise unreachable shared files unchecked.
 | `httpRateLimits`       | Deployment-global limits by normalized HTTP(S) origin                   |
 | `integrationProviders` | Push, sink, or yank integrations                                        |
 | `oauthProviders`       | Optional kernel-managed OAuth clients for integration settings (system) |
-| `entitySchemas`        | Entities, events, entity-user-data policy, and merge identity           |
+| `entitySchemas`        | Entities, events, editors, entity-user-data policy, and merge identity  |
 | `relationshipSchemas`  | Typed relationship endpoints                                            |
 | `signalSchemas`        | Signal audience, catalog, and formatter definitions                     |
 | `client`               | Version 1 public exports, routes, entities, dependencies, and home view |
@@ -163,8 +163,9 @@ Local declaration names can repeat across packages. Entity and relationship sche
 
 Client exports are stable names with kind `page`, `component`, or `presentation`. Routes map URL
 patterns to page exports; entity declarations map owned schema slugs to detail and grid/list
-presentation exports and may name a `createRoute`, one of the declared routes, that the provider-add
-flow offers as "Create custom" with the search text as the `name` search parameter; `homeView` names a plugin-owned saved view or is null. Saved views do not carry
+presentation exports and may name a `createRoute`, one of the declared routes, that the kernel library
+picker offers for creation with the search text as the `name` search parameter (other picks, and schemas
+without one but with a manifest `editor`, create inline); `homeView` names a plugin-owned saved view or is null. Saved views do not carry
 legacy display mappings or sandbox scripts.
 
 ### User Settings
@@ -477,6 +478,13 @@ validation.
 
 `mergeIdentityProperties` names unique top-level entity properties whose persisted JSON values must
 match before user state can merge. Omission means no property-based merge restriction.
+
+`editor: { relationships }` opts an entity schema into the kernel entity editor. Users can then
+create and edit their own entities of that schema, together with the listed outgoing relationships,
+through `EntityEditorScreen` and the kernel editor save; no plugin operation is involved. Each listed
+slug must be a unique relationship schema declared in the same manifest whose source is this entity
+schema. Omission means the schema has no editor. Adding, changing, or removing an editor is an
+allowed evolution.
 
 Crons target one script and use either `{ cron }` or `{ tier: "infrequent" }`. Boot entries target one
 script and run once per server start. Both run with system subject through durable execution; dispatch

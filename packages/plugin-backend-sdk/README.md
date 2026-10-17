@@ -63,12 +63,6 @@ global scope, provider provenance, or `populatedAt`. `ensureUserEntities` is boo
 general entity creation. Runtime authorization is detailed in
 [Script Writes](../../kernel/backend/src/modules/scripts/README.md#script-writes).
 
-`saveUserEntity(submission, options?)` creates or updates one user-owned entity together with its
-outgoing user relationships in one transaction. The submission is an `EntityEditorSubmission` and the
-result is an `EntityEditorSaveOutput`: `{ kind: "saved", entityId }`, `{ kind: "stale" }`, or
-`{ kind: "invalid", message }`. It requires a user-subject execution and entity and relationship schemas
-owned by the executing plugin.
-
 `mergeUserEntityData({ mergeFrom, mergeInto, entitySchemaSlug }, options?)` moves the user's events
 and relationships from one user-owned entity to another of the same plugin-owned schema and returns
 `{ movedEventsCount, movedRelationshipsCount }`. It requires a user-subject execution.

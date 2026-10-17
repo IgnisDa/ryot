@@ -43,7 +43,6 @@ import { LifecyclePlanner } from "#modules/automations/lifecycle/planning";
 import { kernelDefinitionSource } from "#modules/definitions/kernel-source";
 import { DefinitionRepository } from "#modules/definitions/repository";
 import { buildDefinitionSnapshot, type DefinitionSource } from "#modules/definitions/snapshot";
-import { EntityEditorService } from "#modules/entities/editor/service";
 import { EntitiesRepository } from "#modules/entities/repository";
 import { EntitiesService } from "#modules/entities/service";
 import { EntityUserDataService } from "#modules/entities/user-data/service";
@@ -532,7 +531,6 @@ const hostFunctionsLayer = (
 							),
 						),
 				}),
-				Layer.mock(EntityEditorService)({ save: () => Effect.die("unused entity editor") }),
 				Layer.mock(EntityUserDataService)({
 					mergeEntityUserDataForCommand: (userId, payload, command) =>
 						append(userDataMerges, { userId, payload, command }).pipe(

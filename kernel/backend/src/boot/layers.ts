@@ -41,6 +41,7 @@ import {
 } from "#modules/collections/add-entity-to-collection-workflow-live";
 import { CollectionsServiceLive } from "#modules/collections/layer";
 import { DefinitionRepository } from "#modules/definitions/repository";
+import { EntityEditorServiceLive } from "#modules/entities/editor/layer";
 import { EntitiesServiceMigrationLive, EntitiesServiceRuntimeLive } from "#modules/entities/layer";
 import { TranslateEntityWorkflowDefinitionsLive } from "#modules/entities/localization/entity-translation-workflow-live";
 import { TranslationsServiceLive } from "#modules/entities/localization/layer";
@@ -197,6 +198,7 @@ const ServicesLive = Layer.mergeAll(
 	BackupServicesLive,
 	CollectionsServiceLive,
 	EntitiesServiceRuntimeLive,
+	EntityEditorServiceLive,
 	EntityImportServiceLive,
 	EventsServiceLive,
 	EventStreamWorkServiceLive.pipe(

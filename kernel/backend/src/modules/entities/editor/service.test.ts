@@ -1,16 +1,22 @@
 import { expect, layer } from "@effect/vitest";
 import { DbError } from "@ryot-app/contract/errors";
-import type { EntityEditorSubmission } from "@ryot-app/contract/modules/entities/editor";
+import {
+	EntityEditorRefused,
+	type EntityEditorSaveRequest,
+	type EntityEditorSubmission,
+} from "@ryot-app/contract/modules/entities/editor";
 import { definitionOwner } from "@ryot-app/contract/modules/plugins/references";
 import {
 	AutomationExecutionId,
 	EntityId,
 	EntitySchemaSlug,
+	PluginId,
 	RelationshipSchemaSlug,
 	UserId,
 } from "@ryot-app/contract/schema/brands";
-import { eq } from "drizzle-orm";
-import { Effect, Layer, Ref, Schema } from "effect";
+import { column, field, rows, table } from "@ryot-app/ryotql";
+import { and, eq } from "drizzle-orm";
+import { DateTime, Effect, Layer, Ref, Schema } from "effect";
 import { assert, describe } from "vitest";
 
 import { rootLifecycleCommand } from "#modules/automations/lifecycle/command";
@@ -20,7 +26,7 @@ import { EntitiesRepository } from "#modules/entities/repository";
 import { EntitiesService } from "#modules/entities/service";
 import type { DomainLifecycleCommand } from "#modules/entities/write-context";
 import { MutationReceipts } from "#modules/mutations/receipts";
-import { PluginRuntimeResolver } from "#modules/plugins/catalog/runtime-resolver";
+import { PluginInstallationRepository } from "#modules/plugins/installations/repository";
 import {
 	installRevisionPackage,
 	revisionPackage,
@@ -29,12 +35,11 @@ import { testPluginPackageId } from "#modules/plugins/test-support";
 import { relationshipDatabaseLayer, userId } from "#modules/relationships/lifecycle.test-support";
 import { RelationshipsRepository } from "#modules/relationships/repository";
 import { RelationshipsService } from "#modules/relationships/service";
-import { ScriptExecutionPrincipal } from "#modules/scripts/authorization/principal";
-import { SandboxRepository } from "#modules/scripts/registry/repository";
+import { RyotQLService } from "#modules/ryotql/service";
 import { DatabaseSession } from "#platform/db/session";
 import * as tables from "#schema/tables/combined";
 
-import { EntityEditorRefused, EntityEditorService } from "./service";
+import { EntityEditorService } from "./service";
 
 const item = EntitySchemaSlug.make("item");
 const part = EntitySchemaSlug.make("part");
@@ -79,10 +84,16 @@ const editorPackage = (options: { readonly policy?: boolean } = {}) => {
 		scripts: options.policy ? [...source.scripts, policy] : source.scripts,
 		manifest: {
 			...source.manifest,
-			entitySchemas: [declaration("item", itemProperties), declaration("part", titleProperties)],
 			scripts: options.policy
 				? [...source.manifest.scripts, { ...policy.metadata, entry: "backend/policy.sandbox.ts" }]
 				: source.manifest.scripts,
+			entitySchemas: [
+				{
+					...declaration("item", itemProperties),
+					editor: { relationships: ["item-part", "item-link"] },
+				},
+				declaration("part", titleProperties),
+			],
 			relationshipSchemas: [
 				{
 					name: "Parts",
@@ -96,6 +107,13 @@ const editorPackage = (options: { readonly policy?: boolean } = {}) => {
 					slug: "item-link",
 					sourceEntitySchemaSlug: "item",
 					targetEntitySchemaSlug: "item",
+					propertiesSchema: { fields: {} },
+				},
+				{
+					name: "Extras",
+					slug: "item-extra",
+					sourceEntitySchemaSlug: "item",
+					targetEntitySchemaSlug: "part",
 					propertiesSchema: { fields: {} },
 				},
 				{
@@ -129,6 +147,7 @@ const editorPackage = (options: { readonly policy?: boolean } = {}) => {
 								resource: "relationship",
 								relationshipSchemaSlug: "item-part",
 							},
+							{ operation: "emit", resource: "signal", signalSchemaSlug: "editor.signal" },
 						] as const,
 					}),
 				),
@@ -154,47 +173,20 @@ const editorPackage = (options: { readonly policy?: boolean } = {}) => {
 	};
 };
 
-const principalFor = Effect.fnUntraced(function* (
-	installed: Effect.Success<ReturnType<typeof installRevisionPackage>>,
-	owner: UserId,
-) {
-	const runtime = yield* PluginRuntimeResolver;
-	const provider = yield* runtime.findProviderAvailableToUserByReference(owner, {
-		slug: "editor-provider",
-		owner: definitionOwner(installed.pluginId),
-	});
-	assert(provider);
-	const script = yield* runtime.resolveUserDetailsScript(owner, provider.id);
-	const subject = {
-		userId: owner,
-		type: "user" as const,
-		accountGeneration: { userId: owner, token: "test-account-generation" },
-	};
-	const pin = yield* (yield* SandboxRepository.make).getScriptPin(script.id, undefined, subject);
-	assert(pin?.pluginRevision);
-	return yield* Schema.decodeEffect(ScriptExecutionPrincipal)({ ...pin, subject });
+const commandFor = (executionId: string): DomainLifecycleCommand => ({
+	...rootLifecycleCommand({
+		source: "api",
+		lane: "interactive",
+		itemIdentity: "entity-editor",
+		occurredAt: "2026-10-13T00:00:00.000Z",
+		initiator: { id: userId, kind: "user" },
+		executionId: AutomationExecutionId.make(executionId),
+		accountGeneration: { userId, token: "test-account-generation" },
+	}),
+	writeContext: null,
 });
 
-const commandFor = (principal: ScriptExecutionPrincipal, executionId: string) => {
-	const command: DomainLifecycleCommand = {
-		...rootLifecycleCommand({
-			source: "api",
-			lane: "interactive",
-			itemIdentity: "saveUserEntity",
-			occurredAt: "2026-10-13T00:00:00.000Z",
-			initiator: { id: userId, kind: "user" },
-			executionId: AutomationExecutionId.make(executionId),
-			accountGeneration: { userId, token: "test-account-generation" },
-		}),
-		writeContext: principal,
-	};
-	return command;
-};
-
 const setup = Effect.fnUntraced(function* (options: { readonly policy?: boolean } = {}) {
-	const installed = yield* installRevisionPackage(editorPackage(options), userId);
-	const principal = yield* principalFor(installed, userId);
-	const entities = yield* EntitiesRepository;
 	const session = yield* DatabaseSession;
 	yield* session.run((db) =>
 		db
@@ -207,7 +199,10 @@ const setup = Effect.fnUntraced(function* (options: { readonly policy?: boolean 
 			})
 			.onConflictDoNothing(),
 	);
-	const insert = (id: string, slug: EntitySchemaSlug, owner: UserId | null, name = id) =>
+	const installed = yield* installRevisionPackage(editorPackage(options), userId);
+	const owner = PluginId.make(installed.pluginId);
+	const entities = yield* EntitiesRepository;
+	const insert = (id: string, slug: EntitySchemaSlug, ownerUserId: UserId | null, name = id) =>
 		entities
 			.insertEntities([
 				{
@@ -217,13 +212,13 @@ const setup = Effect.fnUntraced(function* (options: { readonly policy?: boolean 
 					entitySchemaSlug: slug,
 					entitySchemaPluginId: installed.pluginId,
 					properties: slug === item ? { code: "c", title: name } : { title: name },
-					...(owner === null
+					...(ownerUserId === null
 						? { scope: "global" as const }
-						: { userId: owner, scope: "user" as const }),
+						: { userId: ownerUserId, scope: "user" as const }),
 				},
 			])
 			.pipe(Effect.map(([entity]) => entity));
-	return { insert, installed, principal };
+	return { owner, insert, installed };
 });
 
 const makeEditor = Effect.fnUntraced(function* (
@@ -232,6 +227,7 @@ const makeEditor = Effect.fnUntraced(function* (
 		readonly entities?: Partial<EntitiesService["Service"]>;
 		readonly relationships?: Partial<RelationshipsService["Service"]>;
 		readonly relationshipsRepository?: Partial<RelationshipsRepository["Service"]>;
+		readonly receipts?: Partial<MutationReceipts["Service"]>;
 	} = {},
 ) {
 	const execution = { ...(yield* LifecycleExecution), ...overrides.execution };
@@ -241,7 +237,9 @@ const makeEditor = Effect.fnUntraced(function* (
 	};
 	const relationships = { ...(yield* RelationshipsService), ...overrides.relationships };
 	const repository = { ...(yield* RelationshipsRepository), ...overrides.relationshipsRepository };
+	const receipts = { ...(yield* MutationReceipts), ...overrides.receipts };
 	return yield* EntityEditorService.make.pipe(
+		Effect.provideService(MutationReceipts, receipts),
 		Effect.provideService(LifecycleExecution, execution),
 		Effect.provideService(EntitiesService, entities),
 		Effect.provideService(RelationshipsService, relationships),
@@ -250,12 +248,13 @@ const makeEditor = Effect.fnUntraced(function* (
 });
 
 const submission = (
+	owner: PluginId,
 	input: Partial<EntityEditorSubmission> & Pick<EntityEditorSubmission, "target">,
 ): EntityEditorSubmission => ({
 	name: "Item",
 	relationships: [],
-	entitySchemaSlug: "item",
 	properties: { code: "c", title: "Item" },
+	entitySchema: { slug: item, owner: definitionOwner(owner) },
 	...input,
 });
 
@@ -306,13 +305,13 @@ describe("EntityEditorService", () => {
 	editorCase(
 		"creates an entity with relationships in one commit and replays idempotently",
 		Effect.gen(function* () {
-			const { insert, principal } = yield* setup();
+			const { owner, insert } = yield* setup();
 			yield* insert("part-a", part, userId);
 			yield* insert("part-b", part, userId);
 			const log = yield* dispatched;
 			const editor = yield* makeEditor({ execution: { dispatch: log.dispatch } });
-			const command = commandFor(principal, "create-with-relationships");
-			const input = submission({
+			const command = commandFor("create-with-relationships");
+			const input = submission(owner, {
 				target: { kind: "create" },
 				relationships: [
 					{
@@ -321,7 +320,7 @@ describe("EntityEditorService", () => {
 					},
 				],
 			});
-			const first = yield* editor.save({ userId, submission: input, lifecycle: command });
+			const first = yield* editor.save({ owner, userId, submission: input, lifecycle: command });
 			assert(first.output.kind === "saved");
 			const savedId = first.output.entityId;
 			const state = yield* tablesState;
@@ -339,7 +338,7 @@ describe("EntityEditorService", () => {
 			]);
 			expect(state.editorReceipts).toHaveLength(1);
 
-			const replay = yield* editor.save({ userId, submission: input, lifecycle: command });
+			const replay = yield* editor.save({ owner, userId, submission: input, lifecycle: command });
 			expect(replay.output).toEqual(first.output);
 			const after = yield* tablesState;
 			expect(after.entityRows).toHaveLength(state.entityRows.length);
@@ -350,7 +349,7 @@ describe("EntityEditorService", () => {
 			expect(calls[0]?.length).toBeGreaterThan(0);
 
 			const conflict = yield* editor
-				.save({ userId, lifecycle: command, submission: { ...input, name: "Different" } })
+				.save({ owner, userId, lifecycle: command, submission: { ...input, name: "Different" } })
 				.pipe(Effect.flip);
 			expect(conflict).toBeInstanceOf(EntityEditorRefused);
 		}),
@@ -359,7 +358,7 @@ describe("EntityEditorService", () => {
 	editorCase(
 		"applies the relationship diff on update, replacing properties of kept targets",
 		Effect.gen(function* () {
-			const { insert, principal } = yield* setup();
+			const { owner, insert } = yield* setup();
 			const entity = yield* insert("diff-item", item, userId, "Diff");
 			assert(entity);
 			for (const id of ["diff-a", "diff-b", "diff-c"]) {
@@ -367,9 +366,10 @@ describe("EntityEditorService", () => {
 			}
 			const editor = yield* makeEditor();
 			const created = yield* editor.save({
+				owner,
 				userId,
-				lifecycle: commandFor(principal, "diff-seed"),
-				submission: submission({
+				lifecycle: commandFor("diff-seed"),
+				submission: submission(owner, {
 					target: { kind: "create" },
 					relationships: [
 						{
@@ -387,9 +387,10 @@ describe("EntityEditorService", () => {
 			);
 			assert(stored);
 			const updated = yield* editor.save({
+				owner,
 				userId,
-				lifecycle: commandFor(principal, "diff-update"),
-				submission: submission({
+				lifecycle: commandFor("diff-update"),
+				submission: submission(owner, {
 					name: "Renamed",
 					properties: { code: "c", title: "Renamed" },
 					relationships: [
@@ -427,14 +428,15 @@ describe("EntityEditorService", () => {
 	editorCase(
 		"reports stale when the expected snapshot differs",
 		Effect.gen(function* () {
-			const { insert, principal } = yield* setup();
+			const { owner, insert } = yield* setup();
 			const entity = yield* insert("stale-item", item, userId, "Stale");
 			assert(entity);
 			const editor = yield* makeEditor();
 			const result = yield* editor.save({
+				owner,
 				userId,
-				lifecycle: commandFor(principal, "stale-update"),
-				submission: submission({
+				lifecycle: commandFor("stale-update"),
+				submission: submission(owner, {
 					target: {
 						kind: "update",
 						entityId: entity.id,
@@ -450,15 +452,16 @@ describe("EntityEditorService", () => {
 	editorCase(
 		"rejects a changed or omitted immutable property as invalid",
 		Effect.gen(function* () {
-			const { insert, principal } = yield* setup();
+			const { owner, insert } = yield* setup();
 			const entity = yield* insert("immutable-item", item, userId, "Immutable");
 			assert(entity);
 			const editor = yield* makeEditor();
 			const update = (id: string, properties: Record<string, unknown>) =>
 				editor.save({
+					owner,
 					userId,
-					lifecycle: commandFor(principal, id),
-					submission: submission({
+					lifecycle: commandFor(id),
+					submission: submission(owner, {
 						properties,
 						target: { kind: "update", entityId: entity.id, expected: expectedOf(entity) },
 					}),
@@ -479,38 +482,55 @@ describe("EntityEditorService", () => {
 	);
 
 	editorCase(
-		"refuses foreign entity and relationship schemas",
+		"refuses schemas without an editor and relationships the editor does not declare",
 		Effect.gen(function* () {
-			const { principal } = yield* setup();
+			const { owner } = yield* setup();
 			const editor = yield* makeEditor();
 			const run = (id: string, input: EntityEditorSubmission) =>
-				editor
-					.save({ userId, submission: input, lifecycle: commandFor(principal, id) })
-					.pipe(Effect.flip);
-			expect(
-				yield* run(
-					"foreign-entity",
-					submission({ entitySchemaSlug: "nope", target: { kind: "create" } }),
-				),
-			).toBeInstanceOf(EntityEditorRefused);
-			for (const slug of ["nope", "part-link", "loose-link"]) {
-				expect(
-					yield* run(
-						`foreign-${slug}`,
-						submission({
-							target: { kind: "create" },
-							relationships: [{ targets: [], relationshipSchemaSlug: slug }],
-						}),
-					),
-				).toBeInstanceOf(EntityEditorRefused);
+				editor.save({ owner, userId, submission: input, lifecycle: commandFor(id) });
+			for (const slug of ["nope", "part"]) {
+				const result = yield* run(
+					`schema-${slug}`,
+					submission(owner, {
+						target: { kind: "create" },
+						properties: { title: "Part" },
+						entitySchema: { owner: definitionOwner(owner), slug: EntitySchemaSlug.make(slug) },
+					}),
+				);
+				expect(result.output).toEqual({
+					kind: "invalid",
+					message: "This entity schema cannot be edited here",
+				});
 			}
+			for (const slug of ["nope", "item-extra", "part-link", "loose-link"]) {
+				const result = yield* run(
+					`relationship-${slug}`,
+					submission(owner, {
+						target: { kind: "create" },
+						relationships: [{ targets: [], relationshipSchemaSlug: slug }],
+					}),
+				);
+				expect(result.output).toEqual({
+					kind: "invalid",
+					message: `Relationship ${slug} is not editable here`,
+				});
+			}
+			const kernel = yield* run(
+				"kernel-owner",
+				submission(owner, {
+					target: { kind: "create" },
+					entitySchema: { slug: item, owner: { kind: "kernel" } },
+				}),
+			);
+			expect(kernel.output).toMatchObject({ kind: "invalid" });
+			expect((yield* tablesState).entityRows.filter(({ name }) => name === "Item")).toEqual([]);
 		}),
 	);
 
 	editorCase(
 		"refuses non-user-owned, other-schema, and other-user entities identically",
 		Effect.gen(function* () {
-			const { insert, principal } = yield* setup();
+			const { owner, insert } = yield* setup();
 			const global = yield* insert("global-item", item, null);
 			const wrongSchema = yield* insert("wrong-schema", part, userId);
 			const foreign = yield* insert("foreign-item", item, otherUser);
@@ -519,9 +539,10 @@ describe("EntityEditorService", () => {
 			const run = (id: string, entityId: EntityId, expected: ReturnType<typeof expectedOf>) =>
 				editor
 					.save({
+						owner,
 						userId,
-						lifecycle: commandFor(principal, id),
-						submission: submission({ target: { entityId, expected, kind: "update" } }),
+						lifecycle: commandFor(id),
+						submission: submission(owner, { target: { entityId, expected, kind: "update" } }),
 					})
 					.pipe(Effect.flip);
 			for (const entity of [global, wrongSchema]) {
@@ -544,14 +565,14 @@ describe("EntityEditorService", () => {
 	editorCase(
 		"rejects over-cap, duplicate, and oversized relationship changes",
 		Effect.gen(function* () {
-			const { insert, principal } = yield* setup();
+			const { owner, insert } = yield* setup();
 			const editor = yield* makeEditor();
 			const run = (id: string, input: EntityEditorSubmission) =>
-				editor.save({ userId, submission: input, lifecycle: commandFor(principal, id) });
+				editor.save({ owner, userId, submission: input, lifecycle: commandFor(id) });
 			const many = Array.from({ length: 201 }, (_, index) => target(`cap-${index}`));
 			const overCap = yield* run(
 				"over-cap",
-				submission({
+				submission(owner, {
 					target: { kind: "create" },
 					relationships: [{ targets: many, relationshipSchemaSlug: "item-part" }],
 				}),
@@ -559,7 +580,7 @@ describe("EntityEditorService", () => {
 			expect(overCap.output).toMatchObject({ kind: "invalid" });
 			const duplicate = yield* run(
 				"duplicate",
-				submission({
+				submission(owner, {
 					target: { kind: "create" },
 					relationships: [
 						{ relationshipSchemaSlug: "item-part", targets: [target("dup"), target("dup")] },
@@ -569,7 +590,7 @@ describe("EntityEditorService", () => {
 			expect(duplicate.output).toMatchObject({ kind: "invalid" });
 			const duplicateGroup = yield* run(
 				"duplicate-group",
-				submission({
+				submission(owner, {
 					target: { kind: "create" },
 					relationships: [
 						{ targets: [], relationshipSchemaSlug: "item-part" },
@@ -600,7 +621,7 @@ describe("EntityEditorService", () => {
 			}
 			const deletes = yield* run(
 				"deletes",
-				submission({
+				submission(owner, {
 					relationships: [{ targets: [], relationshipSchemaSlug: "item-part" }],
 					target: { kind: "update", entityId: entity.id, expected: expectedOf(entity) },
 				}),
@@ -613,7 +634,7 @@ describe("EntityEditorService", () => {
 	editorCase(
 		"leaves incoming relationships and unlisted slugs untouched",
 		Effect.gen(function* () {
-			const { insert, installed, principal } = yield* setup();
+			const { owner, insert, installed } = yield* setup();
 			const entity = yield* insert("incoming-item", item, userId);
 			const peer = yield* insert("incoming-peer", item, userId);
 			assert(entity && peer);
@@ -649,19 +670,20 @@ describe("EntityEditorService", () => {
 			);
 			const editor = yield* makeEditor();
 			const result = yield* editor.save({
+				owner,
 				userId,
-				lifecycle: commandFor(principal, "incoming"),
-				submission: submission({
+				lifecycle: commandFor("incoming"),
+				submission: submission(owner, {
 					relationships: [{ targets: [], relationshipSchemaSlug: "item-link" }],
 					target: { kind: "update", entityId: entity.id, expected: expectedOf(entity) },
 				}),
 			});
 			expect(result.output.kind).toBe("saved");
-			const rows = (yield* tablesState).relationshipRows.map(
+			const links = (yield* tablesState).relationshipRows.map(
 				({ sourceEntityId, targetEntityId, relationshipSchemaSlug }) =>
 					[sourceEntityId, targetEntityId, relationshipSchemaSlug].join(":"),
 			);
-			expect(rows.sort()).toEqual([
+			expect(links.sort()).toEqual([
 				"incoming-item:incoming-part:item-part",
 				"incoming-peer:incoming-item:item-link",
 			]);
@@ -671,7 +693,7 @@ describe("EntityEditorService", () => {
 	editorCase(
 		"rolls back the entity when relationship persistence fails after it",
 		Effect.gen(function* () {
-			const { insert, principal } = yield* setup();
+			const { owner, insert } = yield* setup();
 			yield* insert("atomic-part", part, userId);
 			const entity = yield* insert("atomic-item", item, userId, "Before");
 			assert(entity);
@@ -698,17 +720,17 @@ describe("EntityEditorService", () => {
 				},
 			});
 			const before = yield* tablesState;
-			const create = submission({
+			const create = submission(owner, {
 				name: "Created",
 				target: { kind: "create" },
 				relationships: [{ targets: [target("atomic-part")], relationshipSchemaSlug: "item-part" }],
 			});
 			expect(
 				yield* failing
-					.save({ userId, submission: create, lifecycle: commandFor(principal, "atomic-create") })
+					.save({ owner, userId, submission: create, lifecycle: commandFor("atomic-create") })
 					.pipe(Effect.flip),
 			).toMatchObject({ message: "injected create failure" });
-			const update = submission({
+			const update = submission(owner, {
 				name: "After",
 				properties: { code: "c", title: "After" },
 				target: { kind: "update", entityId: entity.id, expected: expectedOf(entity) },
@@ -716,7 +738,7 @@ describe("EntityEditorService", () => {
 			});
 			expect(
 				yield* failing
-					.save({ userId, submission: update, lifecycle: commandFor(principal, "atomic-update") })
+					.save({ owner, userId, submission: update, lifecycle: commandFor("atomic-update") })
 					.pipe(Effect.flip),
 			).toMatchObject({ message: expect.stringContaining("injected") });
 			const after = yield* tablesState;
@@ -731,7 +753,7 @@ describe("EntityEditorService", () => {
 	editorCase(
 		"reports stale when the relationship set drifts before the commit re-read",
 		Effect.gen(function* () {
-			const { insert, installed, principal } = yield* setup();
+			const { owner, insert, installed } = yield* setup();
 			const entity = yield* insert("drift-item", item, userId, "Drift");
 			assert(entity);
 			yield* insert("drift-part", part, userId);
@@ -760,9 +782,10 @@ describe("EntityEditorService", () => {
 			});
 			const before = yield* tablesState;
 			const result = yield* editor.save({
+				owner,
 				userId,
-				lifecycle: commandFor(principal, "drift"),
-				submission: submission({
+				lifecycle: commandFor("drift"),
+				submission: submission(owner, {
 					name: "Drifted",
 					properties: { code: "c", title: "Drifted" },
 					relationships: [{ targets: [], relationshipSchemaSlug: "item-part" }],
@@ -780,7 +803,7 @@ describe("EntityEditorService", () => {
 	editorCase(
 		"re-dispatches the stored list when a commit is replayed after a crash",
 		Effect.gen(function* () {
-			const { insert, principal } = yield* setup();
+			const { owner, insert } = yield* setup();
 			yield* insert("crash-part", part, userId);
 			const log = yield* dispatched;
 			const crashing = yield* Ref.make(true);
@@ -796,17 +819,19 @@ describe("EntityEditorService", () => {
 						),
 				},
 			});
-			const command = commandFor(principal, "crash-replay");
-			const input = submission({
+			const command = commandFor("crash-replay");
+			const input = submission(owner, {
 				target: { kind: "create" },
 				relationships: [{ targets: [target("crash-part")], relationshipSchemaSlug: "item-part" }],
 			});
 			expect(
-				yield* editor.save({ userId, submission: input, lifecycle: command }).pipe(Effect.flip),
+				yield* editor
+					.save({ owner, userId, submission: input, lifecycle: command })
+					.pipe(Effect.flip),
 			).toMatchObject({ message: "crashed" });
 			const committed = yield* tablesState;
 			expect(committed.editorReceipts).toHaveLength(1);
-			const replay = yield* editor.save({ userId, submission: input, lifecycle: command });
+			const replay = yield* editor.save({ owner, userId, submission: input, lifecycle: command });
 			expect(replay.output.kind).toBe("saved");
 			const calls = yield* log.calls;
 			expect(calls).toHaveLength(2);
@@ -816,9 +841,9 @@ describe("EntityEditorService", () => {
 	);
 
 	editorCase(
-		"keeps the principal as the write context and never marks a kernel collection",
+		"saves as an api command without a write context or kernel collection",
 		Effect.gen(function* () {
-			const { insert, principal } = yield* setup();
+			const { owner, insert } = yield* setup();
 			yield* insert("context-part", part, userId);
 			const entities = yield* EntitiesService;
 			const relationships = yield* RelationshipsService;
@@ -838,9 +863,10 @@ describe("EntityEditorService", () => {
 				},
 			});
 			yield* editor.save({
+				owner,
 				userId,
-				lifecycle: commandFor(principal, "context"),
-				submission: submission({
+				lifecycle: commandFor("context"),
+				submission: submission(owner, {
 					target: { kind: "create" },
 					relationships: [
 						{ targets: [target("context-part")], relationshipSchemaSlug: "item-part" },
@@ -850,7 +876,9 @@ describe("EntityEditorService", () => {
 			const commands = yield* Ref.get(seen);
 			expect(commands).toHaveLength(2);
 			for (const command of commands) {
-				expect(command.writeContext).toBe(principal);
+				expect(command.writeContext).toBeNull();
+				expect(command.causation.source).toBe("api");
+				expect(command.causation.initiator).toEqual({ id: userId, kind: "user" });
 				expect(command.kernelCollection).toBeUndefined();
 			}
 		}),
@@ -859,13 +887,14 @@ describe("EntityEditorService", () => {
 	editorCase(
 		"refuses a relationship target the user cannot see",
 		Effect.gen(function* () {
-			const { insert, principal } = yield* setup();
+			const { owner, insert } = yield* setup();
 			yield* insert("hidden-part", part, otherUser);
 			const editor = yield* makeEditor();
 			const result = yield* editor.save({
+				owner,
 				userId,
-				lifecycle: commandFor(principal, "hidden-target"),
-				submission: submission({
+				lifecycle: commandFor("hidden-target"),
+				submission: submission(owner, {
 					target: { kind: "create" },
 					relationships: [
 						{ targets: [target("hidden-part")], relationshipSchemaSlug: "item-part" },
@@ -880,13 +909,14 @@ describe("EntityEditorService", () => {
 	editorCase(
 		"refuses a target of the wrong schema",
 		Effect.gen(function* () {
-			const { insert, principal } = yield* setup();
+			const { owner, insert } = yield* setup();
 			yield* insert("wrong-target", item, userId);
 			const editor = yield* makeEditor();
 			const result = yield* editor.save({
+				owner,
 				userId,
-				lifecycle: commandFor(principal, "wrong-target"),
-				submission: submission({
+				lifecycle: commandFor("wrong-target"),
+				submission: submission(owner, {
 					target: { kind: "create" },
 					relationships: [
 						{ targets: [target("wrong-target")], relationshipSchemaSlug: "item-part" },
@@ -900,7 +930,7 @@ describe("EntityEditorService", () => {
 	editorCase(
 		"rejects a before-stage policy that removes an immutable property inside the commit",
 		Effect.gen(function* () {
-			const { insert, principal } = yield* setup({ policy: true });
+			const { owner, insert } = yield* setup({ policy: true });
 			const entity = yield* insert("policy-item", item, userId, "Policy");
 			assert(entity);
 			const editor = yield* makeEditor({
@@ -917,9 +947,10 @@ describe("EntityEditorService", () => {
 			});
 			const before = yield* tablesState;
 			const result = yield* editor.save({
+				owner,
 				userId,
-				lifecycle: commandFor(principal, "policy-immutable"),
-				submission: submission({
+				lifecycle: commandFor("policy-immutable"),
+				submission: submission(owner, {
 					target: { kind: "update", entityId: entity.id, expected: expectedOf(entity) },
 				}),
 			});
@@ -932,19 +963,233 @@ describe("EntityEditorService", () => {
 	);
 
 	editorCase(
-		"refuses a principal without a pinned plugin",
+		"refuses owners that are unavailable to the user, even inside the commit",
 		Effect.gen(function* () {
-			const { principal } = yield* setup();
+			const { owner, installed } = yield* setup();
+			const session = yield* DatabaseSession;
+			const foreign = yield* installRevisionPackage(editorPackage(), otherUser);
 			const editor = yield* makeEditor();
-			const error = yield* editor
-				.save({
+			const foreignOwner = PluginId.make(foreign.pluginId);
+			const run = (id: string, pluginId: PluginId) =>
+				editor.save({
 					userId,
-					submission: submission({ target: { kind: "create" } }),
-					lifecycle: commandFor({ ...principal, pluginRevision: null }, "no-plugin"),
-				})
-				.pipe(Effect.flip);
-			expect(error).toBeInstanceOf(EntityEditorRefused);
-			expect((yield* tablesState).entityRows.filter(({ name }) => name === "Item")).toEqual([]);
+					owner: pluginId,
+					lifecycle: commandFor(id),
+					submission: submission(pluginId, { target: { kind: "create" } }),
+				});
+			expect((yield* run("foreign-private", foreignOwner)).output).toMatchObject({
+				kind: "invalid",
+			});
+			const mismatched = yield* editor.save({
+				owner,
+				userId,
+				lifecycle: commandFor("owner-mismatch"),
+				submission: submission(foreignOwner, { target: { kind: "create" } }),
+			});
+			expect(mismatched.output).toMatchObject({ kind: "invalid" });
+
+			const installation = and(
+				eq(tables.pluginInstallation.userId, userId),
+				eq(tables.pluginInstallation.pluginId, installed.pluginId),
+			);
+			const setInstallation = (values: Partial<typeof tables.pluginInstallation.$inferInsert>) =>
+				session.run((db) => db.update(tables.pluginInstallation).set(values).where(installation));
+			for (const [id, values] of [
+				["incompatible", { health: "incompatible" }],
+				[
+					"quarantined",
+					{ health: "incompatible", incompatibilityReason: "package-identity-conflict" },
+				],
+				["not-ready", { health: "installing" }],
+				["uninstalled", { uninstalledAt: DateTime.toDateUtc(yield* DateTime.now) }],
+			] as const) {
+				yield* setInstallation(values);
+				expect((yield* run(id, owner)).output).toMatchObject({ kind: "invalid" });
+				yield* setInstallation({
+					health: "ready",
+					uninstalledAt: null,
+					incompatibilityReason: null,
+				});
+			}
+
+			const receipts = yield* MutationReceipts;
+			const uninstalling = yield* makeEditor({
+				receipts: {
+					lookup: (identity, result) =>
+						setInstallation({ health: "incompatible" }).pipe(
+							Effect.andThen(receipts.lookup(identity, result)),
+						),
+				},
+			});
+			yield* (yield* EntitiesRepository).insertEntities([
+				{
+					userId,
+					name: "Late",
+					scope: "user",
+					populatedAt: null,
+					entitySchemaSlug: part,
+					properties: { title: "Late" },
+					id: EntityId.make("late-part"),
+					entitySchemaPluginId: installed.pluginId,
+				},
+			]);
+			const late = yield* uninstalling.save({
+				owner,
+				userId,
+				lifecycle: commandFor("late-unavailable"),
+				submission: submission(owner, {
+					target: { kind: "create" },
+					relationships: [{ targets: [target("late-part")], relationshipSchemaSlug: "item-part" }],
+				}),
+			});
+			expect(late.output).toMatchObject({ kind: "invalid" });
+			const state = yield* tablesState;
+			expect(state.entityRows.filter(({ name }) => name === "Item")).toEqual([]);
+			expect(state.editorReceipts).toEqual([]);
+		}),
+	);
+
+	editorCase(
+		"submits with a derived execution identity that replays, conflicts, and isolates users",
+		Effect.gen(function* () {
+			const { owner, installed } = yield* setup();
+			const installations = yield* PluginInstallationRepository;
+			yield* (yield* DatabaseSession).run((db) =>
+				db
+					.insert(tables.user)
+					.values({
+						id: "owner",
+						name: "Owner",
+						email: "owner@example.test",
+						accountGeneration: "test-account-generation",
+					}),
+			);
+			const system = yield* installRevisionPackage(editorPackage());
+			for (const user of [userId, otherUser]) {
+				yield* installations.upsertState({
+					config: {},
+					sortOrder: 1,
+					userId: user,
+					health: "ready",
+					isHidden: false,
+					pluginId: system.pluginId,
+				});
+			}
+			const entities = yield* EntitiesService;
+			const seen = yield* Ref.make<ReadonlyArray<DomainLifecycleCommand>>([]);
+			const editor = yield* makeEditor({
+				entities: {
+					prepareUserSave: (input) =>
+						Ref.update(seen, (all) => [...all, input.lifecycle]).pipe(
+							Effect.andThen(entities.prepareUserSave(input)),
+						),
+				},
+			});
+			const request = (
+				pluginId: PluginId,
+				overrides: Partial<EntityEditorSubmission> = {},
+			): EntityEditorSaveRequest => ({
+				idempotencyKey: "form-submission",
+				submittedAt: "2026-10-14T00:00:00.000Z",
+				submission: submission(pluginId, { target: { kind: "create" }, ...overrides }),
+			});
+			const submitAs = (user: UserId, value: EntityEditorSaveRequest) =>
+				editor.submit({
+					userId: user,
+					request: value,
+					accountGeneration: { userId: user, token: "test-account-generation" },
+				});
+
+			const first = yield* submitAs(userId, request(owner));
+			assert(first.output.kind === "saved");
+			const retry = yield* submitAs(userId, request(owner));
+			expect(retry.output).toEqual(first.output);
+			const [command] = yield* Ref.get(seen);
+			expect(command?.writeContext).toBeNull();
+			expect(command?.occurredAt).toBe("2026-10-14T00:00:00.000Z");
+			expect(command?.causation).toMatchObject({
+				source: "api",
+				initiator: { id: userId, kind: "user" },
+			});
+			expect(command?.causation.executionId).toMatch(/^entity-editor-/);
+			expect(
+				yield* submitAs(userId, request(owner, { name: "Changed" })).pipe(Effect.flip),
+			).toBeInstanceOf(EntityEditorRefused);
+
+			const systemOwner = PluginId.make(system.pluginId);
+			const mine = yield* submitAs(userId, request(systemOwner));
+			const theirs = yield* submitAs(otherUser, request(systemOwner));
+			assert(mine.output.kind === "saved" && theirs.output.kind === "saved");
+			expect(theirs.output.entityId).not.toBe(mine.output.entityId);
+			expect((yield* tablesState).editorReceipts).toHaveLength(3);
+
+			expect(
+				(yield* submitAs(userId, {
+					...request(owner),
+					idempotencyKey: "kernel",
+					submission: submission(owner, {
+						target: { kind: "create" },
+						entitySchema: { slug: item, owner: { kind: "kernel" } },
+					}),
+				})).output,
+			).toEqual({ kind: "invalid", message: "This entity schema cannot be edited here" });
+			expect(
+				(yield* submitAs(otherUser, { ...request(owner), idempotencyKey: "foreign" })).output,
+			).toEqual({ kind: "invalid", message: "This entity schema cannot be edited here" });
+			const invalidProperties = yield* submitAs(userId, {
+				...request(owner, { properties: { title: 7, code: "c" } }),
+				idempotencyKey: "invalid-properties",
+			});
+			expect(invalidProperties.output).toEqual({
+				kind: "invalid",
+				message: "The entity properties are invalid",
+			});
+			expect(installed.pluginId).toBe(owner);
+		}),
+	);
+
+	editorCase(
+		"reads the persisted editor through the catalog and enforces it on save",
+		Effect.gen(function* () {
+			const { owner, insert } = yield* setup();
+			yield* insert("catalog-part", part, userId);
+			const ryotql = yield* RyotQLService.make;
+			const source = table("entitySchema", "source");
+			const response = yield* ryotql.executeForUser(userId, null, "plugin", {
+				queries: {
+					rows: rows(source, {
+						fields: ["slug", "editor"].map((name) => field(name, column(source, name))),
+					}),
+				},
+			});
+			const result = response.data["rows"];
+			assert(result?.type === "rows");
+			expect(
+				result.items
+					.filter((row) => row["slug"] === "item" || row["slug"] === "part")
+					.sort((left, right) => String(left["slug"]).localeCompare(String(right["slug"]))),
+			).toEqual([
+				{ slug: "item", editor: { relationships: ["item-part", "item-link"] } },
+				{ slug: "part", editor: null },
+			]);
+			const editor = yield* makeEditor();
+			const save = (id: string, relationshipSchemaSlug: string) =>
+				editor.save({
+					owner,
+					userId,
+					lifecycle: commandFor(id),
+					submission: submission(owner, {
+						target: { kind: "create" },
+						relationships: [{ relationshipSchemaSlug, targets: [target("catalog-part")] }],
+					}),
+				});
+			expect((yield* save("catalog-declared", "item-part")).output).toMatchObject({
+				kind: "saved",
+			});
+			expect((yield* save("catalog-undeclared", "item-extra")).output).toEqual({
+				kind: "invalid",
+				message: "Relationship item-extra is not editable here",
+			});
 		}),
 	);
 });

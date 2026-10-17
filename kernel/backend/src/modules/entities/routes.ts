@@ -9,38 +9,49 @@ import { HttpApiBuilder } from "effect/http-api";
 
 import { rootLifecycleCommand } from "#modules/automations/lifecycle/command";
 
+import { EntityEditorService } from "./editor/service";
 import { EntitiesService } from "./service";
 
 export const EntitiesRoutesLive = HttpApiBuilder.group(AppContract, "entities", (handlers) =>
-	handlers.handle("create", ({ payload }) =>
-		Effect.gen(function* () {
-			const user = yield* CurrentUser;
-			const service = yield* EntitiesService;
-			const lifecycle = {
-				...rootLifecycleCommand({
-					source: "api",
-					lane: "interactive",
-					itemIdentity: "entity",
-					initiator: { id: user.id, kind: "user" },
-					accountGeneration: user.accountGeneration,
-					executionId: AutomationExecutionId.make(generateId()),
-					occurredAt: IsoUtcString.make((yield* DateTime.nowAsDate).toISOString()),
-				}),
-				writeContext: null,
-			};
+	handlers
+		.handle("create", ({ payload }) =>
+			Effect.gen(function* () {
+				const user = yield* CurrentUser;
+				const service = yield* EntitiesService;
+				const lifecycle = {
+					...rootLifecycleCommand({
+						source: "api",
+						lane: "interactive",
+						itemIdentity: "entity",
+						initiator: { id: user.id, kind: "user" },
+						accountGeneration: user.accountGeneration,
+						executionId: AutomationExecutionId.make(generateId()),
+						occurredAt: IsoUtcString.make((yield* DateTime.nowAsDate).toISOString()),
+					}),
+					writeContext: null,
+				};
 
-			return yield* service
-				.create({
-					lifecycle,
-					scope: "user",
-					userId: user.id,
-					name: payload.name,
-					externalId: payload.externalId,
-					properties: payload.properties,
-					providerId: payload.providerId,
-					entitySchema: payload.entitySchema,
-				})
-				.pipe(dieOnDbError);
-		}),
-	),
+				return yield* service
+					.create({
+						lifecycle,
+						scope: "user",
+						userId: user.id,
+						name: payload.name,
+						externalId: payload.externalId,
+						properties: payload.properties,
+						providerId: payload.providerId,
+						entitySchema: payload.entitySchema,
+					})
+					.pipe(dieOnDbError);
+			}),
+		)
+		.handle("saveEditor", ({ payload }) =>
+			Effect.gen(function* () {
+				const user = yield* CurrentUser;
+				const editor = yield* EntityEditorService;
+				return yield* editor
+					.submit({ userId: user.id, request: payload, accountGeneration: user.accountGeneration })
+					.pipe(dieOnDbError);
+			}),
+		),
 );

@@ -264,11 +264,18 @@ export const PluginEntityUserStatePolicy = strictStruct({
 
 export type PluginEntityUserStatePolicy = Schema.Schema.Type<typeof PluginEntityUserStatePolicy>;
 
+export const PluginEntityEditor = strictStruct({
+	relationships: Schema.Array(Schema.NonEmptyString),
+});
+
+export type PluginEntityEditor = Schema.Schema.Type<typeof PluginEntityEditor>;
+
 export const PluginEntitySchema = strictStruct({
 	icon: Schema.String,
 	name: Schema.String,
 	slug: pluginManifestSlug,
 	propertiesSchema: PluginAppSchema,
+	editor: Schema.optional(PluginEntityEditor),
 	eventSchemas: Schema.Array(PluginEventSchema),
 	userState: Schema.optional(PluginEntityUserStatePolicy),
 	mergeIdentityProperties: Schema.optional(Schema.Array(Schema.String)),
@@ -999,7 +1006,17 @@ const hasValidLocalDeclarations = (manifest: typeof AuthoredPluginManifestFields
 	}
 	const entities = new Set(manifest.entitySchemas.map(({ slug }) => slug));
 	const relationships = new Set(manifest.relationshipSchemas.map(({ slug }) => slug));
+	const hasValidEditor = ({ slug, editor }: PluginEntitySchema) =>
+		editor === undefined ||
+		(new Set(editor.relationships).size === editor.relationships.length &&
+			editor.relationships.every((relationshipSlug) =>
+				manifest.relationshipSchemas.some(
+					(relationship) =>
+						relationship.slug === relationshipSlug && relationship.sourceEntitySchemaSlug === slug,
+				),
+			));
 	return (
+		manifest.entitySchemas.every(hasValidEditor) &&
 		manifest.entitySchemas.every(({ eventSchemas }) => uniqueSlugs(eventSchemas)) &&
 		manifest.providers.every(({ rootEntitySchemaSlug }) => entities.has(rootEntitySchemaSlug)) &&
 		manifest.relationshipSchemas.every(

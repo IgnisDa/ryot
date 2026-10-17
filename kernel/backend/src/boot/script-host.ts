@@ -9,7 +9,6 @@ import { LifecycleServicesLive, SignalEmissionServiceLive } from "#modules/autom
 import { makeSignalScriptHost } from "#modules/automations/script-host";
 import { DefinitionRepository } from "#modules/definitions/repository";
 import { makeDefinitionScriptHost } from "#modules/definitions/script-host";
-import { EntityEditorServiceLive } from "#modules/entities/editor/layer";
 import { EntitiesServiceRuntimeLive } from "#modules/entities/layer";
 import { EntitiesRepositoryLive } from "#modules/entities/repository";
 import { entityLifecycleHostSteps, makeEntityScriptHost } from "#modules/entities/script-host";
@@ -112,7 +111,6 @@ export const ScriptHostImplementationsLive = Layer.effect(
 			EventStreamWorkServiceProvidedLive,
 			RyotQLService.layer,
 			RelationshipMutationPipelineLive,
-			EntityEditorServiceLive,
 			EntityUserDataServiceLive,
 			SignalEmissionServiceLive,
 			NotificationsServiceLive,

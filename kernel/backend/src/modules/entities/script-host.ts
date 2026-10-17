@@ -4,7 +4,6 @@ import {
 	createUserEntityArgsSchema,
 	deleteUserEntityArgsSchema,
 	mergeUserEntityDataArgsSchema,
-	saveUserEntityArgsSchema,
 	updateUserEntityArgsSchema,
 } from "@ryot-app/plugin-backend-sdk/core";
 import type { SandboxHostError } from "@ryot-app/plugin-backend-sdk/wire";
@@ -35,7 +34,6 @@ import {
 } from "#modules/scripts/host/lifecycle-host";
 import { SandboxSubmissionCommands } from "#modules/scripts/host/submission-command";
 
-import { EntityEditorService } from "./editor/service";
 import {
 	EntitiesService,
 	type GlobalEntityUpsertResults,
@@ -127,7 +125,6 @@ export type EntityLifecycleHostSteps = ReturnType<typeof entityLifecycleHostStep
 
 export const makeEntityScriptHost = Effect.gen(function* () {
 	const entities = yield* EntitiesService;
-	const editor = yield* EntityEditorService;
 	const userData = yield* EntityUserDataService;
 	const definitions = yield* DefinitionRepository;
 	const lifecycleExecution = yield* LifecycleExecution;
@@ -162,31 +159,6 @@ export const makeEntityScriptHost = Effect.gen(function* () {
 					});
 					yield* reportSandboxLifecycleWarnings("upsertGlobalEntities", warnings);
 					return lifecycle.upsertGlobalEntities.value(result);
-				}),
-			),
-		saveUserEntity: (
-			rawInput,
-			rawItem,
-			options?: Parameters<AdditionalScriptHostImplementationMap["saveUserEntity"]>[2],
-		) =>
-			sandboxHostEffect(
-				Effect.gen(function* () {
-					const input = yield* requireSandboxCapabilityInput(rawInput, "saveUserEntity");
-					const [submission, submissionOptions] = yield* Schema.decodeEffect(
-						saveUserEntityArgsSchema,
-					)([rawItem, options]);
-					const command = yield* submissions.commandFor(
-						input,
-						yield* sandboxLifecycleCommand(input, userLifecycleSource(input), "saveUserEntity"),
-						submissionOptions,
-					);
-					const { output, warnings } = yield* editor.save({
-						submission,
-						lifecycle: command,
-						userId: UserId.make(userSandboxRunUserId(input)),
-					});
-					yield* reportSandboxLifecycleWarnings("saveUserEntity", warnings);
-					return output;
 				}),
 			),
 		deleteUserEntity: (rawInput, rawItem, options) =>
@@ -378,7 +350,6 @@ export const makeEntityScriptHost = Effect.gen(function* () {
 	} satisfies Pick<
 		AdditionalScriptHostImplementationMap,
 		| "createUserEntity"
-		| "saveUserEntity"
 		| "mergeUserEntityData"
 		| "deleteUserEntity"
 		| "updateUserEntity"
