@@ -121,11 +121,12 @@ describe("Definitions E2E", () => {
 			const [schemas, plugins] = yield* Effect.all([listEntities(client), listPlugins(client)]);
 			const mediaPlugin = plugins.find(({ packageId }) => packageId === "ryot/media");
 			const collectionSchema = schemas.find((schema) => schema.slug === "collection");
-			const movieSchema = schemas.find((schema) => schema.slug === "movie");
 
 			expect(collectionSchema).toBeDefined();
 			expect(collectionSchema?.pluginId).toBeNull();
-			expect(movieSchema?.pluginId).toBe(mediaPlugin?.pluginId);
+			expect(schemas).toContainEqual(
+				expect.objectContaining({ slug: "movie", pluginId: mediaPlugin?.pluginId }),
+			);
 			expect(collectionSchema).toMatchObject({
 				icon: "folders",
 				name: "Collection",

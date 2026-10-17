@@ -2,7 +2,6 @@ import { Effect } from "effect";
 
 import {
 	createAuthenticatedClient,
-	createEntity,
 	createEventTestFixture,
 	listEventSchemas,
 	listEventsForEntity,
@@ -10,7 +9,7 @@ import {
 	waitForCreateEvents,
 	waitForEventCount,
 } from "~/fixtures/kernel";
-import { findFitnessEntitySchema } from "~/fixtures/plugins/fitness";
+import { createExerciseEntityFixture, findFitnessEntitySchema } from "~/fixtures/plugins/fitness";
 import {
 	createGlobalBookEntityFixture,
 	queryInMediaLibraryRelationship,
@@ -87,11 +86,7 @@ describe("media membership event exclusions", () => {
 			const { schema } = yield* findFitnessEntitySchema(client, "exercise");
 			const eventSchemas = yield* listEventSchemas(client, schema.reference);
 			const reviewEventSchema = requireEventSchemaBySlug(eventSchemas, "review");
-			const entity = yield* createEntity(client, {
-				properties: {},
-				name: "Event exercise",
-				entitySchema: schema.reference,
-			});
+			const { exercise: entity } = yield* createExerciseEntityFixture(client);
 
 			const result = yield* client.call((c) =>
 				c.events.create({
