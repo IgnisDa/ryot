@@ -19,7 +19,7 @@ import { MediaOverview, type MediaOverviewRelationsRender } from "./overview";
 import { mapMediaOverview, type MediaOverviewState } from "./overview-state";
 import { MediaPopulationFailure } from "./population-failure";
 import { MediaRefreshStatus, MediaStatusMessage } from "./primitives";
-import { MediaSummaryHeader } from "./summary-header";
+import { MediaSummaryHeader, MediaSummarySkeleton } from "./summary-header";
 import {
 	type MediaEntitySummaryValue,
 	mediaManagedAssets,
@@ -84,7 +84,13 @@ export function MediaDetailBody<
 	const { state, overviewTrailing } = props;
 	const [activeTab, setActiveTab] = useState<TabKey>(props.defaultTab);
 	if (state.status === "loading") {
-		return <MediaStatusMessage title={props.loading.title} detail={props.loading.detail} />;
+		return (
+			<MediaSummarySkeleton
+				compact={props.compact}
+				title={props.loading.title}
+				detail={props.loading.detail}
+			/>
+		);
 	}
 	if (state.status === "transport-error" || state.status === "malformed") {
 		return <MediaStatusMessage {...props.summaryError(state)} onRetry={props.refresh} />;

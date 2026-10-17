@@ -1,6 +1,6 @@
 import type { EntitySettleReason } from "@ryot-app/plugin-client-sdk";
 import { useAssetUrl } from "@ryot-app/plugin-client-sdk/react";
-import { Badge, Button, ProgressBar } from "@ryot-app/plugin-ui-sdk";
+import { Badge, Button, ProgressBar, Skeleton } from "@ryot-app/plugin-ui-sdk";
 import { AppIcon } from "@ryot-app/plugin-ui-sdk/icon";
 import { markdownPlainText } from "@ryot-app/plugin-ui-sdk/markdown";
 import {
@@ -268,5 +268,35 @@ export function MediaSummaryHeader(props: {
 				</div>
 			)}
 		</header>
+	);
+}
+
+export function MediaSummarySkeleton(props: {
+	readonly compact: boolean;
+	readonly title: string;
+	readonly detail: string;
+}) {
+	const lines = (
+		<div className="grid min-w-0 flex-1 content-start gap-3">
+			<Skeleton className={clsx("h-9", props.compact ? "w-4/5" : "w-2/3")} />
+			<Skeleton className="h-4 w-1/2" />
+			<Skeleton className="h-4 w-full max-w-xl" />
+			<Skeleton className="h-4 w-5/6 max-w-lg" />
+			<div className="flex gap-2 pt-1">
+				<Skeleton className="h-9 w-32" />
+				<Skeleton className="h-9 w-28" />
+			</div>
+		</div>
+	);
+	return (
+		<div role="status" className={clsx("flex gap-8", props.compact && "flex-col gap-5")}>
+			<span className="sr-only">
+				{props.title} {props.detail}
+			</span>
+			<Skeleton
+				className={clsx("shrink-0 rounded-lg", props.compact ? "h-42 w-28" : "h-72 w-48")}
+			/>
+			{lines}
+		</div>
 	);
 }
