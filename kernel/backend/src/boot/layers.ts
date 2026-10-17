@@ -36,9 +36,9 @@ import { ExportBackupWorkflowDefinitionsLive } from "#modules/backups/export/wor
 import { BackupServicesLive, BackupWorkflowOperationsLive } from "#modules/backups/layer";
 import { RestoreBackupWorkflowDefinitionsLive } from "#modules/backups/restore/workflow";
 import {
-	AddEntityToCollectionWorkflowDefinitionsLive,
-	AddEntityToCollectionWorkflowOperationsLive,
-} from "#modules/collections/add-entity-to-collection-workflow-live";
+	CollectionMembershipWorkflowDefinitionsLive,
+	CollectionMembershipWorkflowOperationsLive,
+} from "#modules/collections/collection-membership-workflow-live";
 import { CollectionsServiceLive } from "#modules/collections/layer";
 import { DefinitionRepository } from "#modules/definitions/repository";
 import { EntityEditorServiceLive } from "#modules/entities/editor/layer";
@@ -259,7 +259,7 @@ const ServicesWithTestSupportLive = Layer.merge(
 
 // Boot merges feature-owned definitions and keeps cross-feature composition explicit here.
 const RuntimeWorkflowDefinitionsLive = Layer.mergeAll(
-	AddEntityToCollectionWorkflowDefinitionsLive,
+	CollectionMembershipWorkflowDefinitionsLive,
 	AutomationRunWorkflowDefinitionsLive,
 	ProviderEntityPopulationWorkflowDefinitionsProvidedLive,
 	EntityImportWorkflowDefinitionsLive,
@@ -355,7 +355,7 @@ export const MigrationInfrastructureLive = Layer.mergeAll(
 // Workflow operations cross feature boundaries; boot composes their owning Layers.
 const RuntimeWorkflowOperationsLive = Layer.mergeAll(
 	SandboxDurableHostServicesLive,
-	AddEntityToCollectionWorkflowOperationsLive,
+	CollectionMembershipWorkflowOperationsLive,
 	Layer.provide(AutomationRunWorkflowOperationsServiceLive, ScriptExecutionServiceLive),
 	EntityImportWorkflowOperationsProvidedLive,
 	Layer.provide(

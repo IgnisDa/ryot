@@ -960,6 +960,14 @@ export class EntitiesService extends Context.Service<EntitiesService>()("Entitie
 			const { entity, warnings } = yield* saveCreate(input);
 			return { entity, warnings };
 		});
+		const createFromApi = Effect.fn("EntitiesService.createFromApi")(function* (
+			input: CreateEntityInput,
+		) {
+			if (input.entitySchema.owner.kind === "kernel") {
+				return yield* new EntityBadRequest({ reason: { code: "kernel-owned-schema" } });
+			}
+			return yield* create(input);
+		});
 		const createGlobal = Effect.fn("EntitiesService.createGlobal")(function* (
 			input: Omit<CreateEntityInput, "scope" | "userId">,
 		) {
@@ -2242,6 +2250,7 @@ export class EntitiesService extends Context.Service<EntitiesService>()("Entitie
 			update,
 			deleteByIds,
 			createGlobal,
+			createFromApi,
 			commitMutation,
 			prepareUserSave,
 			getByIdAnyScope,

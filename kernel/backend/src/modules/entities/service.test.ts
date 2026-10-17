@@ -47,6 +47,7 @@ import {
 import { LifecyclePlanner } from "#modules/automations/lifecycle/planning";
 import { AutomationTriggerRepository } from "#modules/automations/trigger-repository";
 import { EventSchemaReader } from "#modules/definitions/event-schemas";
+import { kernelDefinitionSource } from "#modules/definitions/kernel-source";
 import { DefinitionRepository } from "#modules/definitions/repository";
 import type { DefinitionSource } from "#modules/definitions/snapshot";
 import { revisionDefinitions } from "#modules/definitions/source";
@@ -192,6 +193,7 @@ const entitiesLayer = (options: TestOptions = {}) =>
 				relationshipSchemas: [],
 				entitySchemas: [
 					recordSchema,
+					...kernelDefinitionSource().entitySchemas,
 					...Array.from({ length: options.extraEntitySchemas ?? 0 }, (_, index) => ({
 						...recordSchema,
 						eventSchemas: [],
@@ -1152,6 +1154,48 @@ describe("EntitiesService committed lifecycle", () => {
 						(yield* service.deleteByIds([workout.entity.id], lifecycle, target)).deletedCount,
 					).toBe(1);
 				}),
+		);
+	});
+
+	layer(entitiesLayer({ noHooks: true }))((test) => {
+		test.effect("rejects a second kernel collection with the same trimmed name per user", () =>
+			Effect.gen(function* () {
+				const service = yield* EntitiesService;
+				const collection = {
+					owner: { kind: "kernel" as const },
+					slug: EntitySchemaSlug.make("collection"),
+				};
+				const create = (id: string, name: string) =>
+					service.create({
+						name,
+						userId: owner,
+						scope: "user",
+						properties: {},
+						lifecycle: command(id),
+						entitySchema: collection,
+					});
+				const first = yield* create("collection-first", "Favorites");
+				const other = yield* create("collection-other", "Other");
+				yield* service.create({ ...createInput("record-same-name"), name: "Favorites" });
+				const duplicate = new EntityBadRequest({ reason: { code: "duplicate-collection-name" } });
+				assertExitFails(yield* Effect.exit(create("collection-second", " Favorites ")), duplicate);
+				assertExitFails(
+					yield* Effect.exit(
+						service.update({
+							scope: "user",
+							userId: owner,
+							properties: {},
+							name: "Favorites",
+							requireUserOwned: true,
+							entityId: other.entity.id,
+							lifecycle: command("collection-rename"),
+						}),
+					),
+					duplicate,
+				);
+				expect(yield* service.getByIdAnyScope(other.entity.id)).toMatchObject({ name: "Other" });
+				expect(first.entity.name).toBe("Favorites");
+			}),
 		);
 	});
 

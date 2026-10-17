@@ -1,14 +1,16 @@
 import type { CurrentUserValue } from "@ryot-app/contract/auth-middleware";
-import type { AutomationWarning } from "@ryot-app/contract/modules/automations/lifecycle";
+import { collectionFieldsToAppSchema } from "@ryot-app/contract/modules/collections/fields";
 import {
 	CollectionBadRequest,
 	CollectionNotFound,
 	MembershipResponse,
 	type CreateCollectionBody,
 	type CreateMembershipBody,
+	type DeleteCollectionBody,
 	type DeleteMembershipBody,
+	type UpdateCollectionBody,
 } from "@ryot-app/contract/modules/collections/schemas";
-import { ListedEntity } from "@ryot-app/contract/modules/entities/schemas";
+import { type EntityBadRequest, ListedEntity } from "@ryot-app/contract/modules/entities/schemas";
 import type { RelationshipBadRequest } from "@ryot-app/contract/modules/relationships/schemas";
 import {
 	EntityId,
@@ -17,20 +19,15 @@ import {
 	type RelationshipId,
 	type UserId,
 } from "@ryot-app/contract/schema/brands";
-import { decodeStoredSchema } from "@ryot-app/contract/schema/core";
-import { AppSchema } from "@ryot-app/contract/schema/property-schema";
 import { stableStringify } from "@ryot-app/ts-utils/json";
-import { Context, Effect, Layer, Schema, Struct } from "effect";
+import { Context, Effect, Layer, Result, Schema, Struct } from "effect";
 import { WorkflowEngine } from "effect/workflow/WorkflowEngine";
 
 import type {
 	LifecycleCommittedStep,
 	LifecyclePreparedStep,
 } from "#modules/automations/lifecycle/write-step";
-import {
-	parseAppSchemaProperties,
-	parseLabeledPropertySchemaInput,
-} from "#modules/definitions/properties/runtime";
+import { parseAppSchemaProperties } from "#modules/definitions/properties/runtime";
 import { RelationshipSchemaReader } from "#modules/definitions/relationship-schemas";
 import type { EntitySnapshotResult } from "#modules/entities/mutation-outcomes";
 import { EntitiesService, type PendingEntityMutation } from "#modules/entities/service";
@@ -38,7 +35,6 @@ import {
 	kernelCollectionLifecycleCommand,
 	type DomainLifecycleCommand,
 } from "#modules/entities/write-context";
-import { EventsService } from "#modules/events/service";
 import { MutationReceipts } from "#modules/mutations/receipts";
 import { dispatchAdmittedWorkflow } from "#modules/mutations/workflow-dispatch";
 import {
@@ -48,7 +44,15 @@ import {
 import { RelationshipsService } from "#modules/relationships/service";
 import { trimToNull } from "#platform/validation";
 
-import { AddEntityToCollectionWorkflow } from "./add-entity-to-collection-workflow";
+import {
+	CollectionMembershipWorkflow,
+	type CollectionMembershipWorkflowPayload,
+} from "./collection-membership-workflow";
+import {
+	collectionMembershipSchema,
+	prepareCollectionFields,
+	storedCollectionFields,
+} from "./fields";
 import { CollectionsRepository } from "./repository";
 import { isPlainObject, toCollectionResponse } from "./service-support";
 
@@ -57,16 +61,20 @@ export const CollectionMembershipResult = Schema.Struct({
 	occurredAt: Schema.String,
 	entitySchemaSlug: Schema.String,
 	memberOf: MembershipResponse.fields.memberOf,
-	addEventSchemaSlug: Schema.NullOr(EventSchemaSlug),
+	eventSchemaSlug: Schema.NullOr(EventSchemaSlug),
 	operation: RelationshipSingleResult.fields.operation,
 });
 export type CollectionMembershipResult = typeof CollectionMembershipResult.Type;
 
+const PendingMembershipDetails = Schema.Struct({
+	...Struct.omit(CollectionMembershipResult.fields, ["memberOf", "operation"]),
+	collectionId: EntityId,
+	change: Schema.Literals(["add", "remove"]),
+});
+
 export const PendingCollectionMembership = Schema.Struct({
+	membership: PendingMembershipDetails,
 	mutations: PendingRelationshipMutations,
-	membership: Schema.Struct(
-		Struct.omit(CollectionMembershipResult.fields, ["memberOf", "operation"]),
-	),
 });
 export type PendingCollectionMembership = typeof PendingCollectionMembership.Type;
 
@@ -81,6 +89,13 @@ export const childCollectionLifecycleCommand = (
 	itemIdentity: stableStringify([command.itemIdentity, itemIdentity]),
 });
 
+type MembershipTarget = {
+	readonly userId: UserId;
+	readonly entityId: EntityId;
+	readonly collectionId: EntityId;
+	readonly command: DomainLifecycleCommand;
+};
+
 const invalidMembership = (error: RelationshipBadRequest) =>
 	new CollectionBadRequest({
 		reason: {
@@ -88,6 +103,19 @@ const invalidMembership = (error: RelationshipBadRequest) =>
 			paths: error.reason.code === "invalid-properties" ? error.reason.paths : [],
 		},
 	});
+
+const invalidCollection = (error: EntityBadRequest) =>
+	new CollectionBadRequest({
+		reason: {
+			code: "invalid-collection-properties",
+			paths: error.reason.code === "invalid-properties" ? error.reason.paths : [],
+		},
+	});
+
+const nameTaken = () => new CollectionBadRequest({ reason: { field: "name", code: "name-taken" } });
+
+const collectionNotFound = (collectionId: EntityId) =>
+	new CollectionNotFound({ reason: { collectionId, code: "collection-not-found" } });
 
 const collectionStep = (
 	prepared: LifecyclePreparedStep<EntitySnapshotResult, PendingEntityMutation>,
@@ -104,11 +132,33 @@ const requireBuiltinOrDie =
 	(found: T | null | undefined): Effect.Effect<T> =>
 		found != null ? Effect.succeed(found) : Effect.die(message);
 
+const requireName = (name: string) => {
+	const trimmed = trimToNull(name);
+	return trimmed
+		? Effect.succeed(trimmed)
+		: Effect.fail(new CollectionBadRequest({ reason: { field: "name", code: "name-required" } }));
+};
+
+const collectionProperties = (
+	description: string | null | undefined,
+	fields: Parameters<typeof collectionFieldsToAppSchema>[0],
+) => {
+	const trimmed = trimToNull(description ?? "");
+	return {
+		...(trimmed ? { description: trimmed } : {}),
+		...(fields.length > 0
+			? { membershipPropertiesSchema: collectionFieldsToAppSchema(fields) }
+			: {}),
+	};
+};
+
+const storedMembershipSchema = (properties: unknown) =>
+	isPlainObject(properties) ? properties["membershipPropertiesSchema"] : undefined;
+
 export class CollectionsService extends Context.Service<CollectionsService>()(
 	"CollectionsService",
 	{
 		make: Effect.gen(function* () {
-			const events = yield* EventsService;
 			const engine = yield* WorkflowEngine;
 			const entities = yield* EntitiesService;
 			const repository = yield* CollectionsRepository;
@@ -154,110 +204,145 @@ export class CollectionsService extends Context.Service<CollectionsService>()(
 				getBuiltinCollectionEventSchema("remove-entity-from-collection"),
 			);
 
-			const queueCollectionEvent = (input: {
-				readonly userId: UserId;
-				readonly entityId: EntityId;
-				readonly command: DomainLifecycleCommand;
-				readonly eventSchemaSlug: EventSchemaSlug;
-				readonly properties: Record<string, unknown>;
-			}) =>
-				events
-					.create(
-						{
-							userId: input.userId,
-							payload: [
-								{
-									entityId: input.entityId,
-									properties: input.properties,
-									occurredAt: input.command.occurredAt,
-									eventSchemaSlug: input.eventSchemaSlug,
-								},
-							],
-						},
-						input.command,
-					)
-					.pipe(
-						Effect.map(({ warnings }) => warnings),
-						Effect.catchCause((cause) =>
-							Effect.logWarning("collection event enqueue failed", cause).pipe(
-								Effect.as([] as ReadonlyArray<AutomationWarning>),
-							),
-						),
-					);
+			const memberOfReference = Effect.map(memberOfSchema, (schema) => ({
+				owner: { kind: "kernel" } as const,
+				slug: RelationshipSchemaSlug.make(schema.slug),
+			}));
+
+			const assertNameAvailable = Effect.fnUntraced(function* (
+				userId: UserId,
+				name: string,
+				collectionId?: EntityId,
+			) {
+				const existing = yield* repository.findCollectionByNameForUser({ name, userId });
+				if (existing && existing.id !== collectionId) {
+					return yield* nameTaken();
+				}
+				return undefined;
+			});
 
 			const create = Effect.fn("CollectionsService.create")(function* (
 				user: CurrentUserValue,
 				payload: CreateCollectionBody,
 				command: DomainLifecycleCommand,
 			) {
-				const name = trimToNull(payload.name);
-				if (!name) {
-					return yield* new CollectionBadRequest({
-						reason: { field: "name", code: "name-required" },
-					});
-				}
-				const lifecycle = kernelCollectionLifecycleCommand(command);
-
-				if (payload.membershipPropertiesSchema !== undefined) {
-					yield* parseLabeledPropertySchemaInput(
-						payload.membershipPropertiesSchema,
-						"membershipPropertiesSchema",
-					).pipe(
-						Effect.mapError(
-							(error) =>
-								new CollectionBadRequest({
-									reason: {
-										code: "invalid-membership-schema",
-										field: "membershipPropertiesSchema",
-										paths: error.issues.map(({ path }) => path),
-									},
-								}),
-						),
-					);
-				}
-
-				const properties: Record<string, unknown> = {};
-				if (payload.description !== undefined) {
-					properties["description"] = payload.description;
-				}
-				if (payload.membershipPropertiesSchema !== undefined) {
-					properties["membershipPropertiesSchema"] = payload.membershipPropertiesSchema;
-				}
-
+				const name = yield* requireName(payload.name);
+				const fields = yield* Effect.fromResult(
+					prepareCollectionFields(payload.fields ?? [], new Set()),
+				);
+				yield* assertNameAvailable(user.id, name);
 				const entitySchema = yield* collectionEntitySchema;
 				const created = yield* entities
 					.create({
 						name,
-						lifecycle,
-						properties,
 						scope: "user",
 						userId: user.id,
 						entitySchema: entitySchema.entitySchema,
+						lifecycle: kernelCollectionLifecycleCommand(command),
+						properties: collectionProperties(payload.description, fields),
 					})
 					.pipe(
 						Effect.catchTags({
 							EntityNotFound: (error) => Effect.die(error),
 							EntityBadRequest: (error) =>
-								new CollectionBadRequest({
-									reason: {
-										code: "invalid-collection-properties",
-										paths: error.reason.code === "invalid-properties" ? error.reason.paths : [],
-									},
-								}),
+								error.reason.code === "duplicate-collection-name"
+									? nameTaken()
+									: invalidCollection(error),
 						}),
 					);
 				return toCollectionResponse(created.entity, created.warnings);
 			});
 
+			const update = Effect.fn("CollectionsService.update")(function* (
+				user: CurrentUserValue,
+				payload: UpdateCollectionBody,
+				command: DomainLifecycleCommand,
+			) {
+				const current = yield* repository.getCollectionById(payload.collectionId, user.id);
+				if (!current) {
+					return yield* collectionNotFound(payload.collectionId);
+				}
+				const name = yield* requireName(payload.name);
+				const stored = storedCollectionFields(storedMembershipSchema(current.properties));
+				const fields = yield* Effect.fromResult(
+					prepareCollectionFields(
+						payload.fields,
+						new Set(Result.isSuccess(stored) ? stored.success.map(({ key }) => key) : []),
+					),
+				);
+				yield* assertNameAvailable(user.id, name, current.id);
+				const updated = yield* entities
+					.update({
+						name,
+						scope: "user",
+						userId: user.id,
+						entityId: current.id,
+						requireUserOwned: true,
+						lifecycle: kernelCollectionLifecycleCommand(command),
+						properties: collectionProperties(payload.description, fields),
+						expected: {
+							name: current.name,
+							updatedAt: current.updatedAt,
+							properties: current.properties,
+						},
+					})
+					.pipe(
+						Effect.catchTags({
+							EntityNotFound: () => collectionNotFound(current.id),
+							EntityStale: () =>
+								new CollectionBadRequest({
+									reason: { code: "collection-stale", collectionId: current.id },
+								}),
+							EntityBadRequest: (error) =>
+								error.reason.code === "duplicate-collection-name"
+									? nameTaken()
+									: invalidCollection(error),
+						}),
+					);
+				return toCollectionResponse(updated.entity, updated.warnings);
+			});
+
+			const deleteCollection = Effect.fn("CollectionsService.delete")(function* (
+				user: CurrentUserValue,
+				payload: DeleteCollectionBody,
+				command: DomainLifecycleCommand,
+			) {
+				const entitySchema = yield* collectionEntitySchema;
+				const deleted = yield* entities
+					.deleteByIds([payload.collectionId], kernelCollectionLifecycleCommand(command), {
+						userId: user.id,
+						entitySchema: entitySchema.entitySchema,
+					})
+					.pipe(
+						Effect.catchTags({
+							EntityBadRequest: invalidCollection,
+							EntityNotFound: () => collectionNotFound(payload.collectionId),
+						}),
+					);
+				if (deleted.deletedCount === 0) {
+					return yield* collectionNotFound(payload.collectionId);
+				}
+				return { id: payload.collectionId, warnings: deleted.warnings };
+			});
+
+			const findExistingCollection = Effect.fnUntraced(function* (userId: UserId, name: string) {
+				const existing = yield* repository.findCollectionByNameForUser({ name, userId });
+				if (!existing) {
+					return yield* Effect.die("duplicate collection name conflict has no surviving row");
+				}
+				return {
+					dispatch: [],
+					_tag: "Committed",
+					result: { id: existing.id },
+				} satisfies LifecycleCommittedStep<CollectionEntityResult>;
+			});
+
 			const prepareGetOrCreateCollection = Effect.fn(
 				"CollectionsService.prepareGetOrCreateCollection",
-			)(function* (userId: UserId, name: string, command: DomainLifecycleCommand) {
+			)(function* (userId: UserId, rawName: string, command: DomainLifecycleCommand) {
+				const name = rawName.trim();
 				const entitySchema = yield* collectionEntitySchema;
-				const existing = yield* repository.findCollectionByNameForUser({
-					name,
-					userId,
-					entitySchemaSlug: entitySchema.entitySchemaSlug,
-				});
+				const existing = yield* repository.findCollectionByNameForUser({ name, userId });
 				if (existing) {
 					return {
 						dispatch: [],
@@ -282,27 +367,39 @@ export class CollectionsService extends Context.Service<CollectionsService>()(
 						Effect.map(collectionStep),
 						Effect.catchTags({
 							EntityNotFound: (error) => Effect.die(error),
-							EntityBadRequest: (error) => Effect.die(error),
+							EntityBadRequest: (error) =>
+								error.reason.code === "duplicate-collection-name"
+									? findExistingCollection(userId, name)
+									: Effect.die(error),
 						}),
 					);
 			});
 
 			const committedMembership = Effect.fnUntraced(function* (
-				membership: PendingCollectionMembership["membership"],
+				pending: PendingCollectionMembership["membership"],
 				committed: LifecycleCommittedStep<RelationshipSingleResult>,
 			) {
+				const { change, collectionId, ...membership } = pending;
 				if (!committed.result.relationship) {
-					return yield* Effect.die("membership upsert returned no relationship");
+					return yield* change === "add"
+						? Effect.die("membership upsert returned no relationship")
+						: new CollectionNotFound({
+								reason: {
+									collectionId,
+									code: "membership-not-found",
+									entityId: membership.entityId,
+								},
+							});
 				}
 				const { wasInserted, ...memberOf } = committed.result.relationship;
-				const kernelMemberOf = { ...memberOf, relationshipSchemaPluginId: null };
+				const emitsEvent = change === "add" ? wasInserted : committed.result.operation === "delete";
 				return {
 					...committed,
 					result: {
 						...membership,
-						memberOf: kernelMemberOf,
 						operation: committed.result.operation,
-						addEventSchemaSlug: wasInserted ? membership.addEventSchemaSlug : null,
+						memberOf: { ...memberOf, relationshipSchemaPluginId: null },
+						eventSchemaSlug: emitsEvent ? membership.eventSchemaSlug : null,
 					},
 				} satisfies LifecycleCommittedStep<CollectionMembershipResult>;
 			});
@@ -326,130 +423,194 @@ export class CollectionsService extends Context.Service<CollectionsService>()(
 					),
 				);
 
-			const prepareMembership = Effect.fn("CollectionsService.prepareMembership")(
-				function* (input: {
-					userId: UserId;
-					entityId: EntityId;
-					command: DomainLifecycleCommand;
-					mode?: CreateMembershipBody["mode"];
-					properties?: unknown;
-					collectionId: EntityId;
-				}) {
-					if (input.collectionId === input.entityId) {
-						return yield* new CollectionBadRequest({ reason: { code: "circular-membership" } });
-					}
+			const membershipStep = Effect.fnUntraced(function* (
+				membership: PendingCollectionMembership["membership"],
+				prepared: LifecyclePreparedStep<RelationshipSingleResult, PendingRelationshipMutations>,
+			) {
+				if (prepared._tag === "PoliciesRequired") {
+					return {
+						_tag: "PoliciesRequired",
+						pending: { membership, mutations: prepared.pending },
+					} satisfies LifecyclePreparedStep<
+						CollectionMembershipResult,
+						PendingCollectionMembership
+					>;
+				}
+				return yield* committedMembership(membership, prepared);
+			});
 
-					const collection = yield* repository.getCollectionById(input.collectionId, input.userId);
-					if (!collection) {
-						return yield* new CollectionNotFound({
-							reason: { code: "collection-not-found", collectionId: input.collectionId },
-						});
-					}
+			const resolveMembershipTarget = Effect.fnUntraced(function* (input: MembershipTarget) {
+				const collection = yield* repository.getCollectionById(input.collectionId, input.userId);
+				if (!collection) {
+					return yield* collectionNotFound(input.collectionId);
+				}
+				const entity = yield* repository.getEntityForMembership(input.entityId, input.userId);
+				if (!entity) {
+					return yield* new CollectionNotFound({
+						reason: { code: "entity-not-found", entityId: input.entityId },
+					});
+				}
+				return { entity, collection };
+			});
 
-					const entity = yield* repository.getEntityForMembership(input.entityId, input.userId);
-					if (!entity) {
-						return yield* new CollectionNotFound({
-							reason: { code: "entity-not-found", entityId: input.entityId },
-						});
-					}
+			const memberRank = Effect.fnUntraced(function* (
+				input: MembershipTarget,
+				existing: { readonly properties: Record<string, unknown> } | null,
+			) {
+				const stored = existing?.properties["rank"];
+				if (typeof stored === "number") {
+					return stored;
+				}
+				const lowest = yield* repository.findLowestMemberRank(input);
+				return (lowest ?? 1) - 1;
+			});
 
-					const collectionProps = isPlainObject(collection.properties) ? collection.properties : {};
-					const rawMembershipSchema = collectionProps["membershipPropertiesSchema"];
-					let validatedProperties: Record<string, unknown>;
-
-					if (rawMembershipSchema !== undefined && rawMembershipSchema !== null) {
-						const membershipSchema = yield* decodeStoredSchema(
-							rawMembershipSchema,
-							AppSchema,
-							"Invalid membershipPropertiesSchema stored in collection",
-						).pipe(Effect.orDie);
-
-						validatedProperties = yield* parseAppSchemaProperties({
-							kind: "Membership",
-							propertiesSchema: membershipSchema,
-							properties: input.properties ?? {},
-						}).pipe(
-							Effect.mapError(
-								(error) =>
-									new CollectionBadRequest({
-										reason: {
-											code: "invalid-membership-properties",
-											paths: error.issues.map(({ path }) => path),
-										},
-									}),
-							),
-						);
-					} else {
-						validatedProperties = isPlainObject(input.properties) ? input.properties : {};
-					}
-
-					const addEvent = yield* addEventSchema;
-					const memberOfRelationshipSchema = yield* memberOfSchema;
-					const membershipInput = {
-						scope: "user",
-						userId: input.userId,
-						sourceEntityId: input.entityId,
-						properties: validatedProperties,
-						targetEntityId: input.collectionId,
-						ifAbsent: input.mode === "add-if-absent",
-						relationshipSchema: {
-							owner: { kind: "kernel" },
-							slug: RelationshipSchemaSlug.make(memberOfRelationshipSchema.slug),
-						},
-					} as const;
-					const membership = {
-						entityId: entity.id,
-						occurredAt: input.command.occurredAt,
-						addEventSchemaSlug: addEvent?.id ?? null,
-						entitySchemaSlug: entity.entitySchemaSlug,
-					};
-					const prepared = yield* relationships
-						.prepareCreate(membershipInput, input.command)
-						.pipe(
-							Effect.catchTags({
-								RelationshipBadRequest: invalidMembership,
-								RelationshipNotFound: (error) => Effect.die(error),
+			const prepareMembership = Effect.fn("CollectionsService.prepareMembership")(function* (
+				input: MembershipTarget & { mode?: CreateMembershipBody["mode"]; properties?: unknown },
+			) {
+				if (input.collectionId === input.entityId) {
+					return yield* new CollectionBadRequest({ reason: { code: "circular-membership" } });
+				}
+				const { entity, collection } = yield* resolveMembershipTarget(input);
+				const propertiesSchema = yield* Effect.fromResult(
+					collectionMembershipSchema(storedMembershipSchema(collection.properties)),
+				);
+				const validated = yield* parseAppSchemaProperties({
+					propertiesSchema,
+					kind: "Membership",
+					properties: input.properties ?? {},
+				}).pipe(
+					Effect.mapError(
+						(error) =>
+							new CollectionBadRequest({
+								reason: {
+									code: "invalid-membership-properties",
+									paths: error.issues.map(({ path }) => path),
+								},
 							}),
-						);
-					if (prepared._tag === "PoliciesRequired") {
-						return {
-							_tag: "PoliciesRequired",
-							pending: { membership, mutations: prepared.pending },
-						} satisfies LifecyclePreparedStep<
-							CollectionMembershipResult,
-							PendingCollectionMembership
-						>;
-					}
-					return yield* committedMembership(membership, prepared);
-				},
-			);
+					),
+				);
+				const existing = yield* repository.findMembership(input);
+				const rank = yield* memberRank(input, existing);
+				const addEvent = yield* addEventSchema;
+				const prepared = yield* relationships
+					.prepareCreate(
+						{
+							scope: "user",
+							userId: input.userId,
+							sourceEntityId: input.entityId,
+							targetEntityId: input.collectionId,
+							properties: { ...validated, rank },
+							ifAbsent: input.mode === "add-if-absent",
+							relationshipSchema: yield* memberOfReference,
+						},
+						input.command,
+					)
+					.pipe(
+						Effect.catchTags({
+							RelationshipBadRequest: invalidMembership,
+							RelationshipNotFound: (error) => Effect.die(error),
+						}),
+					);
+				return yield* membershipStep(
+					{
+						change: "add",
+						entityId: entity.id,
+						collectionId: input.collectionId,
+						occurredAt: input.command.occurredAt,
+						eventSchemaSlug: addEvent?.id ?? null,
+						entitySchemaSlug: entity.entitySchemaSlug,
+					},
+					prepared,
+				);
+			});
+
+			const prepareRemoval = Effect.fn("CollectionsService.prepareRemoval")(function* (
+				input: MembershipTarget,
+			) {
+				const { entity } = yield* resolveMembershipTarget(input);
+				const membershipNotFound = new CollectionNotFound({
+					reason: {
+						entityId: input.entityId,
+						code: "membership-not-found",
+						collectionId: input.collectionId,
+					},
+				});
+				const existing = yield* repository.findMembership(input);
+				if (!existing) {
+					return yield* membershipNotFound;
+				}
+				const removeEvent = yield* removeEventSchema;
+				const prepared = yield* relationships
+					.prepareDeleteUserRelationshipById(input.userId, existing.id, input.command)
+					.pipe(
+						Effect.catchTags({
+							RelationshipBadRequest: invalidMembership,
+							RelationshipNotFound: (error) => Effect.die(error),
+						}),
+					);
+				if (prepared._tag === "Committed" && !prepared.result.relationship) {
+					return yield* membershipNotFound;
+				}
+				return yield* membershipStep(
+					{
+						change: "remove",
+						entityId: entity.id,
+						collectionId: input.collectionId,
+						occurredAt: input.command.occurredAt,
+						eventSchemaSlug: removeEvent?.id ?? null,
+						entitySchemaSlug: entity.entitySchemaSlug,
+					},
+					prepared,
+				);
+			});
+
+			const dispatchMembership = (
+				user: CurrentUserValue,
+				payload: Omit<CollectionMembershipWorkflowPayload, "userId" | "executionId" | "command">,
+				command: DomainLifecycleCommand,
+			) => {
+				const executionId = command.causation.executionId;
+				return dispatchAdmittedWorkflow(
+					receipts,
+					engine,
+					CollectionMembershipWorkflow,
+					command.accountGeneration,
+					{ executionId, payload: { ...payload, command, executionId, userId: user.id } },
+					(admission) => admission,
+					(execution) => execution,
+				);
+			};
 
 			const addToCollection = Effect.fn("CollectionsService.addToCollection")(function* (
 				user: CurrentUserValue,
 				payload: CreateMembershipBody,
 				command: DomainLifecycleCommand,
 			) {
-				const executionId = command.causation.executionId;
-				return yield* dispatchAdmittedWorkflow(
-					receipts,
-					engine,
-					AddEntityToCollectionWorkflow,
-					command.accountGeneration,
+				return yield* dispatchMembership(
+					user,
 					{
-						executionId,
-						payload: {
-							command,
-							executionId,
-							userId: user.id,
-							mode: payload.mode,
-							entityId: payload.entityId,
-							properties: payload.properties,
-							collectionId: payload.collectionId,
-						},
+						operation: "add",
+						mode: payload.mode,
+						entityId: payload.entityId,
+						properties: payload.properties,
+						collectionId: payload.collectionId,
 					},
-					(admission) => admission,
-					(execution) => execution,
+					command,
 				);
+			});
+
+			const removeFromCollection = Effect.fn("CollectionsService.removeFromCollection")(function* (
+				user: CurrentUserValue,
+				payload: DeleteMembershipBody,
+				command: DomainLifecycleCommand,
+			) {
+				const { memberOf, warnings } = yield* dispatchMembership(
+					user,
+					{ operation: "remove", entityId: payload.entityId, collectionId: payload.collectionId },
+					command,
+				);
+				return { memberOf, warnings };
 			});
 
 			const prepareCompensation = (
@@ -466,6 +627,29 @@ export class CollectionsService extends Context.Service<CollectionsService>()(
 						}),
 					);
 
+			const prepareRestoration = Effect.fn("CollectionsService.prepareRestoration")(function* (
+				input: MembershipTarget & { properties: unknown },
+			) {
+				return yield* relationships
+					.prepareCreate(
+						{
+							scope: "user",
+							userId: input.userId,
+							properties: input.properties,
+							sourceEntityId: input.entityId,
+							targetEntityId: input.collectionId,
+							relationshipSchema: yield* memberOfReference,
+						},
+						input.command,
+					)
+					.pipe(
+						Effect.catchTags({
+							RelationshipNotFound: Effect.die,
+							RelationshipBadRequest: compensationFailed,
+						}),
+					);
+			});
+
 			const applyCompensationPolicies = (pending: PendingRelationshipMutations) =>
 				relationships
 					.applyPolicies(pending)
@@ -481,96 +665,19 @@ export class CollectionsService extends Context.Service<CollectionsService>()(
 						}),
 					);
 
-			const removeFromCollection = Effect.fn("CollectionsService.removeFromCollection")(function* (
-				user: CurrentUserValue,
-				payload: DeleteMembershipBody,
-				command: DomainLifecycleCommand,
-			) {
-				const lifecycle = kernelCollectionLifecycleCommand(command);
-				const collection = yield* repository.getCollectionById(payload.collectionId, user.id);
-				if (!collection) {
-					return yield* new CollectionNotFound({
-						reason: { code: "collection-not-found", collectionId: payload.collectionId },
-					});
-				}
-
-				const entity = yield* repository.getEntityForMembership(payload.entityId, user.id);
-				if (!entity) {
-					return yield* new CollectionNotFound({
-						reason: { code: "entity-not-found", entityId: payload.entityId },
-					});
-				}
-
-				const membershipSchema = yield* memberOfSchema;
-				const result = yield* relationships
-					.delete(
-						{
-							scope: "user",
-							userId: user.id,
-							sourceEntityId: payload.entityId,
-							targetEntityId: payload.collectionId,
-							relationshipSchema: {
-								owner: { kind: "kernel" },
-								slug: RelationshipSchemaSlug.make(membershipSchema.slug),
-							},
-						},
-						lifecycle,
-					)
-					.pipe(
-						Effect.catchTags({
-							RelationshipNotFound: Effect.die,
-							RelationshipBadRequest: (error) =>
-								new CollectionBadRequest({
-									reason: {
-										code: "invalid-membership-properties",
-										paths: error.reason.code === "invalid-properties" ? error.reason.paths : [],
-									},
-								}),
-						}),
-					);
-				const deleted = result.relationship;
-
-				if (!deleted) {
-					return yield* new CollectionNotFound({
-						reason: {
-							entityId: payload.entityId,
-							code: "membership-not-found",
-							collectionId: payload.collectionId,
-						},
-					});
-				}
-				const { wasInserted: _wasInserted, ...deletedRelationship } = deleted;
-				const memberOf = { ...deletedRelationship, relationshipSchemaPluginId: null };
-
-				const removeEvent = yield* removeEventSchema;
-				if (removeEvent) {
-					const eventWarnings = yield* queueCollectionEvent({
-						userId: user.id,
-						entityId: payload.collectionId,
-						eventSchemaSlug: removeEvent.id,
-						command: childCollectionLifecycleCommand(lifecycle, `event:${deleted.id}`),
-						properties: {
-							entityId: entity.id,
-							relationshipId: deleted.id,
-							entitySchemaSlug: entity.entitySchemaSlug,
-							relationshipProperties: deleted.properties,
-						},
-					});
-					return { memberOf, warnings: [...result.warnings, ...eventWarnings] };
-				}
-
-				return { memberOf, warnings: result.warnings };
-			});
-
 			return {
 				create,
+				update,
+				prepareRemoval,
 				addToCollection,
 				commitMembership,
 				prepareMembership,
 				commitCompensation,
+				prepareRestoration,
 				prepareCompensation,
 				removeFromCollection,
 				applyMembershipPolicies,
+				delete: deleteCollection,
 				applyCompensationPolicies,
 				prepareGetOrCreateCollection,
 				applyCollectionPolicies: (pending: PendingEntityMutation) =>
@@ -584,7 +691,10 @@ export class CollectionsService extends Context.Service<CollectionsService>()(
 							Effect.map(collectionStep),
 							Effect.catchTags({
 								EntityNotFound: (error) => Effect.die(error),
-								EntityBadRequest: (error) => Effect.die(error),
+								EntityBadRequest: (error) =>
+									error.reason.code === "duplicate-collection-name" && pending.scopeUserId !== null
+										? findExistingCollection(pending.scopeUserId, pending.draft.name)
+										: Effect.die(error),
 							}),
 						),
 			};

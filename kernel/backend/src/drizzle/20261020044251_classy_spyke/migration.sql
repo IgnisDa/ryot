@@ -1106,6 +1106,7 @@ CREATE INDEX "entity_provider_id_idx" ON "entity" ("provider_id");--> statement-
 CREATE INDEX "entity_entity_schema_slug_idx" ON "entity" ("entity_schema_slug");--> statement-breakpoint
 CREATE INDEX "entity_entity_schema_plugin_id_idx" ON "entity" ("entity_schema_plugin_id");--> statement-breakpoint
 CREATE INDEX "entity_properties_idx" ON "entity" USING gin ("properties");--> statement-breakpoint
+CREATE UNIQUE INDEX "entity_collection_name_unique" ON "entity" ("user_id","name") WHERE "entity_schema_slug" = 'collection' and "entity_schema_plugin_id" is null;--> statement-breakpoint
 CREATE UNIQUE INDEX "entity_external_identity_unique" ON "entity" ("external_id","entity_schema_slug",(case when "user_id" is null then '0' else '1' || "user_id" end),(case when "provider_id" is null then '0' else '1' || "provider_id" end),(case when "entity_schema_plugin_id" is null then '0' else '1' || "entity_schema_plugin_id" end)) WHERE "external_id" is not null and ("user_id" is null or "provider_id" is not null);--> statement-breakpoint
 CREATE INDEX "entity_translation_entity_id_idx" ON "entity_translation" ("entity_id");--> statement-breakpoint
 CREATE INDEX "event_user_id_idx" ON "event" ("user_id");--> statement-breakpoint

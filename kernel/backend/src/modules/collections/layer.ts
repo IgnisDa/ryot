@@ -3,7 +3,6 @@ import { Layer } from "effect";
 import { RelationshipSchemaReaderLive } from "#modules/definitions/layer";
 import { DefinitionRepository } from "#modules/definitions/repository";
 import { EntitiesServiceRuntimeLive } from "#modules/entities/layer";
-import { EventsServiceLive } from "#modules/events/layer";
 import { RelationshipsServiceLive } from "#modules/relationships/layer";
 
 import { CollectionsRepository } from "./repository";
@@ -18,7 +17,6 @@ export const CollectionsServiceLive = CollectionsService.layer.pipe(
 		Layer.mergeAll(
 			CollectionsRepositoryLive,
 			EntitiesServiceRuntimeLive,
-			EventsServiceLive,
 			RelationshipsServiceLive,
 			RelationshipSchemaReaderLive,
 		),

@@ -8,19 +8,24 @@ import {
 	SandboxProviderId,
 } from "../../schema/brands";
 import { AutomationWarning } from "../automations/lifecycle";
+import { CollectionField } from "./fields";
 
 const CollectionBadRequestReason = Schema.Union([
 	Schema.Struct({ code: Schema.Literal("circular-membership") }),
 	Schema.Struct({ code: Schema.Literal("membership-event-failed") }),
-	Schema.Struct({ field: Schema.Literal("name"), code: Schema.Literal("name-required") }),
+	Schema.Struct({ code: Schema.Literal("invalid-collection-schema") }),
+	Schema.Struct({ collectionId: EntityId, code: Schema.Literal("collection-stale") }),
 	Schema.Struct({
-		paths: Schema.Array(Schema.Array(Schema.String)),
-		code: Schema.Literal("invalid-collection-properties"),
+		field: Schema.Literal("name"),
+		code: Schema.Literals(["name-required", "name-taken"]),
 	}),
 	Schema.Struct({
 		paths: Schema.Array(Schema.Array(Schema.String)),
-		code: Schema.Literal("invalid-membership-schema"),
-		field: Schema.Literal("membershipPropertiesSchema"),
+		code: Schema.Literals(["invalid-fields", "reserved-field-key"]),
+	}),
+	Schema.Struct({
+		paths: Schema.Array(Schema.Array(Schema.String)),
+		code: Schema.Literal("invalid-collection-properties"),
 	}),
 	Schema.Struct({
 		paths: Schema.Array(Schema.Array(Schema.String)),
@@ -82,13 +87,43 @@ export const MembershipResponse = Schema.Struct({
 
 export type MembershipResponse = typeof MembershipResponse.Type;
 
+const CollectionName = Schema.String.pipe(
+	Schema.check(
+		Schema.makeFilter(
+			(value) => value.trim().length <= 200 || "Collection names are at most 200 characters",
+		),
+	),
+);
+
+const CollectionDescription = Schema.String.pipe(Schema.check(Schema.isMaxLength(2000)));
+
 export const CreateCollectionBody = Schema.Struct({
-	name: Schema.String,
-	description: Schema.optional(Schema.String),
-	membershipPropertiesSchema: Schema.optional(Schema.Unknown),
+	name: CollectionName,
+	description: Schema.optional(CollectionDescription),
+	fields: Schema.optional(Schema.Array(CollectionField)),
 });
 
 export type CreateCollectionBody = typeof CreateCollectionBody.Type;
+
+export const UpdateCollectionBody = Schema.Struct({
+	name: CollectionName,
+	collectionId: EntityId,
+	fields: Schema.Array(CollectionField),
+	description: Schema.NullOr(CollectionDescription),
+});
+
+export type UpdateCollectionBody = typeof UpdateCollectionBody.Type;
+
+export const DeleteCollectionBody = Schema.Struct({ collectionId: EntityId });
+
+export type DeleteCollectionBody = typeof DeleteCollectionBody.Type;
+
+export const DeleteCollectionResponse = Schema.Struct({
+	id: EntityId,
+	warnings: Schema.Array(AutomationWarning),
+});
+
+export type DeleteCollectionResponse = typeof DeleteCollectionResponse.Type;
 
 export const CreateMembershipBody = Schema.Struct({
 	entityId: EntityId,

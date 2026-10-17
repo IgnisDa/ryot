@@ -32,6 +32,7 @@ import {
 	type MutationReceipts,
 } from "#modules/mutations/receipts";
 import { CatalogDefinitionFingerprint } from "#modules/plugins/catalog/runtime-resolver";
+import { isUniqueConstraintError } from "#platform/db/errors";
 
 import { type EntitiesRepository, type MutationEntity, STATEMENT_CHUNK_SIZE } from "./repository";
 import { DomainLifecycleCommand, type DomainWritePin } from "./write-context";
@@ -62,6 +63,10 @@ export const same = (left: unknown, right: unknown) =>
 	stableStringify(left) === stableStringify(right);
 const conflict = (message: string) =>
 	new EntityBadRequest({ reason: { message, code: "mutation-conflict" } });
+const duplicateCollectionName = () =>
+	new EntityBadRequest({ reason: { code: "duplicate-collection-name" } });
+const isKernelCollection = (input: PreparedMutation) =>
+	input.entitySchemaPluginId === null && input.draft.entitySchemaSlug === "collection";
 
 const provenanceOf = (input: PreparedMutation) =>
 	input.draft.externalId === null || input.draft.providerId === null
@@ -276,7 +281,20 @@ export const makePersistMutation = <E, R, Result>({
 				})),
 			)).map((entity) => [entity.id, entity]),
 		);
-		if (creates.some(({ entityId }) => !inserted.has(entityId))) {
+		for (const input of creates) {
+			if (inserted.has(input.entityId)) {
+				continue;
+			}
+			if (
+				input.scopeUserId !== null &&
+				isKernelCollection(input) &&
+				(yield* repository.hasUserCollectionNamed({
+					name: input.draft.name,
+					userId: input.scopeUserId,
+				}))
+			) {
+				return yield* duplicateCollectionName();
+			}
 			return yield* conflict(
 				"Provider identity changed while policies ran; resubmit with a new command",
 			);
@@ -303,15 +321,22 @@ export const makePersistMutation = <E, R, Result>({
 					};
 				}
 			} else if (before && !same(draftOf(before), input.draft)) {
-				entity = yield* repository.updateEntity({
-					name: input.draft.name,
-					entityId: input.entityId,
-					properties: input.draft.properties,
-					populatedAt:
-						input.draft.populatedAt === null
-							? null
-							: DateTime.toDateUtc(DateTime.makeUnsafe(input.draft.populatedAt)),
-				});
+				entity = yield* repository
+					.updateEntity({
+						name: input.draft.name,
+						entityId: input.entityId,
+						properties: input.draft.properties,
+						populatedAt:
+							input.draft.populatedAt === null
+								? null
+								: DateTime.toDateUtc(DateTime.makeUnsafe(input.draft.populatedAt)),
+					})
+					.pipe(
+						Effect.catchIf(
+							isUniqueConstraintError("entity_collection_name_unique"),
+							duplicateCollectionName,
+						),
+					);
 				change = {
 					before,
 					category: "change",

@@ -30,7 +30,7 @@ export const RelationshipsRoutesLive = HttpApiBuilder.group(
 					}),
 					writeContext: null,
 				};
-				return yield* service.createUser(user.id, payload, command);
+				return yield* service.createFromApi(user.id, payload, command);
 			}).pipe(dieOnDbError),
 		),
 );

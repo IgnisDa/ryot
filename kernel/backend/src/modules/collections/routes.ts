@@ -40,6 +40,22 @@ export const CollectionsRoutesLive = HttpApiBuilder.group(AppContract, "collecti
 				return yield* service.create(user, payload, command).pipe(dieOnDbError);
 			}),
 		)
+		.handle("update", ({ payload }) =>
+			Effect.gen(function* () {
+				const user = yield* CurrentUser;
+				const service = yield* CollectionsService;
+				const command = yield* apiLifecycleCommand(user, "collection:update");
+				return yield* service.update(user, payload, command).pipe(dieOnDbError);
+			}),
+		)
+		.handle("delete", ({ payload }) =>
+			Effect.gen(function* () {
+				const user = yield* CurrentUser;
+				const service = yield* CollectionsService;
+				const command = yield* apiLifecycleCommand(user, "collection:delete");
+				return yield* service.delete(user, payload, command).pipe(dieOnDbError);
+			}),
+		)
 		.handle("createMembership", ({ payload }) =>
 			Effect.gen(function* () {
 				const user = yield* CurrentUser;

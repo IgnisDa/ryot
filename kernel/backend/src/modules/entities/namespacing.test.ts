@@ -826,7 +826,7 @@ layer(relationshipDatabaseLayer())((test) => {
 				scope: "user",
 				properties: {},
 				userId: firstUser,
-				name: "Collection",
+				name: "Merge collection",
 				entitySchema: collectionSchema,
 				lifecycle: kernelCollectionLifecycleCommand(nextCommand(command, "collection")),
 			})).entity;

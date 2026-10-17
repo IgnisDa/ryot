@@ -18,15 +18,15 @@ const CollectionMembershipWorkflowResult = Schema.Struct({
 	operation: RelationshipSingleResult.fields.operation,
 });
 
-export const AddEntityToCollectionWorkflowError = Schema.Union([
+export const CollectionMembershipWorkflowError = Schema.Union([
 	DbError,
 	CollectionBadRequest,
 	CollectionNotFound,
 ]);
 
-export type AddEntityToCollectionWorkflowError = typeof AddEntityToCollectionWorkflowError.Type;
+export type CollectionMembershipWorkflowError = typeof CollectionMembershipWorkflowError.Type;
 
-export const AddEntityToCollectionWorkflowPayload = Schema.Struct({
+export const CollectionMembershipWorkflowPayload = Schema.Struct({
 	userId: UserId,
 	entityId: EntityId,
 	collectionId: EntityId,
@@ -34,13 +34,14 @@ export const AddEntityToCollectionWorkflowPayload = Schema.Struct({
 	command: DomainLifecycleCommand,
 	mode: CreateMembershipBody.fields.mode,
 	properties: Schema.optional(Schema.Unknown),
+	operation: Schema.Literals(["add", "remove"]),
 });
 
-export type AddEntityToCollectionWorkflowPayload = typeof AddEntityToCollectionWorkflowPayload.Type;
+export type CollectionMembershipWorkflowPayload = typeof CollectionMembershipWorkflowPayload.Type;
 
-export const AddEntityToCollectionWorkflow = Workflow.make("AddEntityToCollectionWorkflow", {
+export const CollectionMembershipWorkflow = Workflow.make("CollectionMembershipWorkflow", {
 	idempotencyKey: ({ executionId }) => executionId,
-	error: AddEntityToCollectionWorkflowError satisfies DurableSchema,
+	error: CollectionMembershipWorkflowError satisfies DurableSchema,
 	success: CollectionMembershipWorkflowResult satisfies DurableSchema,
-	payload: AddEntityToCollectionWorkflowPayload satisfies DurableSchema,
+	payload: CollectionMembershipWorkflowPayload satisfies DurableSchema,
 });

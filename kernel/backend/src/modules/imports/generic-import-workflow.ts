@@ -43,7 +43,7 @@ import {
 	runLifecycleWriteStep,
 	type LifecyclePreparedStep,
 } from "#modules/automations/lifecycle/write-step";
-import { AddEntityToCollectionWorkflow } from "#modules/collections/add-entity-to-collection-workflow";
+import { CollectionMembershipWorkflow } from "#modules/collections/collection-membership-workflow";
 import { CollectionEntityResult, CollectionsService } from "#modules/collections/service";
 import { DefinitionRepository } from "#modules/definitions/repository";
 import { DefinitionSnapshot, definitionLookup } from "#modules/definitions/snapshot";
@@ -946,12 +946,13 @@ export const runProcessGenericImportChunksWorkflow = Effect.fn(
 					const collectionResult = yield* dispatchAdmittedWorkflow(
 						receipts,
 						engine,
-						AddEntityToCollectionWorkflow,
+						CollectionMembershipWorkflow,
 						payload.command.accountGeneration,
 						{
 							executionId: collectionExecutionId,
 							payload: {
 								properties: {},
+								operation: "add",
 								userId: payload.userId,
 								entityId: membership.entityId,
 								executionId: collectionExecutionId,
