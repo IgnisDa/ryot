@@ -31,16 +31,30 @@ struct RyotLiveActivityWidget: Widget {
                     ActivityDetails(context: context)
                 }
             } compactLeading: {
-                Image(systemName: activitySymbol(context)).foregroundStyle(toneColor(context.state.tone))
+                ActivityBrandMark(tone: context.state.tone)
             } compactTrailing: {
                 ActivityPrimaryValue(context: context)
                     .font(.caption).monospacedDigit()
                     .multilineTextAlignment(.trailing)
                     .frame(width: 58, alignment: .trailing)
             } minimal: {
-                Image(systemName: activitySymbol(context)).foregroundStyle(toneColor(context.state.tone))
+                ActivityBrandMark(tone: context.state.tone)
             }
         }
+    }
+}
+
+private struct ActivityBrandMark: View {
+    let tone: String
+
+    var body: some View {
+        Image("RyotLogo")
+            .renderingMode(.template)
+            .resizable()
+            .scaledToFit()
+            .frame(width: 24, height: 24)
+            .foregroundStyle(toneColor(tone))
+            .accessibilityLabel("Ryot")
     }
 }
 
