@@ -28,6 +28,7 @@ import { OAuthConnectionsServiceLive } from "#modules/oauth-connections/layer";
 import { OAuthConnectionsService } from "#modules/oauth-connections/service";
 import { IntegrationProviderCatalog } from "#modules/plugins/catalog/integration-providers";
 import { IngestionReadinessService } from "#modules/plugins/catalog/readiness-service";
+import { PluginInstallationRepository } from "#modules/plugins/installations/repository";
 import { PluginBackupRestoreLive } from "#modules/plugins/layer";
 import { PluginBackupRestore } from "#modules/plugins/packages/backup-restore";
 import { ingestionRetirementTestLayer } from "#modules/plugins/packages/ingestion-retirement.test-support";
@@ -244,6 +245,17 @@ layer(roundTripLayer)((test) => {
 							preferences: { ...defaultUserPreferences },
 						}),
 				);
+				const installations = yield* PluginInstallationRepository;
+				yield* installations.provisionSystemInstallationsForUser(owner);
+				const existingInstallation = yield* installations.findByUserAndPlugin(owner, pluginId);
+				assert(existingInstallation);
+				expect(existingInstallation).toMatchObject({
+					config: {},
+					sortOrder: 0,
+					health: "ready",
+					isHidden: false,
+					homeSavedView: null,
+				});
 				const writer = yield* BackupRestoreWriter;
 				const pluginRestore = yield* PluginBackupRestore;
 				const pluginIdByKey = yield* writer.assertRequiredPlugins(
@@ -273,6 +285,7 @@ layer(roundTripLayer)((test) => {
 						),
 				);
 				assert(restoredInstallation);
+				expect(restoredInstallation.id).toBe(existingInstallation.id);
 				const restoredIntegrations = yield* session.run((db) =>
 					db
 						.select({ id: tables.integration.id })

@@ -2,6 +2,7 @@ import { BunFileSystem } from "@effect/platform-bun";
 import { assert, describe, expect, it, layer } from "@effect/vitest";
 import { badRequest, DbError } from "@ryot-app/contract/errors";
 import { BackupBadRequest } from "@ryot-app/contract/modules/backups/schemas";
+import { dataJsonSource } from "@ryot-app/contract/modules/imports/data-json";
 import type { PluginManifest } from "@ryot-app/contract/modules/plugins/manifest";
 import {
 	definitionKey,
@@ -502,7 +503,6 @@ const provenanceRecords = (
 					isBuiltin: false,
 					name: "Owner view",
 					id: "saved-view-id",
-					installationId: null,
 					slug: "archived-user-view",
 					dataSources: provenanceQuery,
 					createdAt: "2026-08-23T12:00:00.000Z",
@@ -1359,7 +1359,6 @@ describe("account backup restore in PostgreSQL", () => {
 								lifecycleIntent: "ready",
 								config: { unit: "metric" },
 								incompatibilityReason: null,
-								id: "restored-installation",
 								configuredSecretPaths: ["/token"],
 								userSettings: { preference: true },
 							},
@@ -1766,23 +1765,6 @@ describe("account backup restore in PostgreSQL", () => {
 										signalSchemaPluginId: sourceId,
 										signalSchemaSlug: SignalSchemaSlug.make("whiskey.signal"),
 									});
-									yield* persistence.restoreForUser({
-										lot: "push",
-										name: label,
-										isDisabled: false,
-										userId: sourceUser,
-										provider: "import",
-										createdAt: fixedDate,
-										updatedAt: fixedDate,
-										syncOwnership: false,
-										minimumProgress: "0",
-										lastFinishedAt: null,
-										maximumProgress: "100",
-										id: crypto.randomUUID(),
-										pluginInstallationId: installation.id,
-										providerSpecifics: { note: sourceId },
-										extraSettings: { disableOnContinuousErrors: false },
-									});
 									yield* persistence.restoreBuiltinOverride({
 										userId: sourceUser,
 										pluginId: sourceId,
@@ -1798,32 +1780,55 @@ describe("account backup restore in PostgreSQL", () => {
 											slug: "bottle-dates",
 										});
 									}
-									const view = yield* persistence.restoreCustomView({
-										name: label,
-										icon: "box",
-										dataSources,
-										sortOrder: 0,
-										isHidden: false,
-										userId: sourceUser,
-										createdAt: fixedDate,
-										updatedAt: fixedDate,
-										id: crypto.randomUUID(),
-										pluginInstallationId: installation.id,
-										slug: `bottles-${label.toLowerCase()}`,
-										renderer: { kind: "kernel", name: "results-table" },
-										settings: {
-											pageSize: 50,
-											entityLink: null,
-											rowKeyFields: ["id"],
-											sourceName: "records",
-											columns: [{ label: "Owner", field: "owner", displayKind: "text" }],
-										},
-									});
-									assert(view);
-									yield* installations.setHomeSavedView(sourceUser, installation.id, {
-										kind: "custom",
-										savedViewId: SavedViewId.make(view.id),
-									});
+									for (const suffix of ["", "-extra", "-unassociated"]) {
+										const pluginInstallationId =
+											suffix === "-unassociated" ? null : installation.id;
+										yield* persistence.restoreForUser({
+											name: label,
+											isDisabled: false,
+											userId: sourceUser,
+											pluginInstallationId,
+											createdAt: fixedDate,
+											updatedAt: fixedDate,
+											syncOwnership: false,
+											minimumProgress: "0",
+											lastFinishedAt: null,
+											maximumProgress: "100",
+											id: crypto.randomUUID(),
+											extraSettings: { disableOnContinuousErrors: false },
+											lot: pluginInstallationId === null ? "sink" : "push",
+											provider: pluginInstallationId === null ? dataJsonSource : "import",
+											providerSpecifics: pluginInstallationId === null ? {} : { note: sourceId },
+										});
+										const view = yield* persistence.restoreCustomView({
+											name: label,
+											icon: "box",
+											dataSources,
+											sortOrder: 0,
+											isHidden: false,
+											userId: sourceUser,
+											pluginInstallationId,
+											createdAt: fixedDate,
+											updatedAt: fixedDate,
+											id: crypto.randomUUID(),
+											slug: `bottles-${label.toLowerCase()}${suffix}`,
+											renderer: { kind: "kernel", name: "results-table" },
+											settings: {
+												pageSize: 50,
+												entityLink: null,
+												rowKeyFields: ["id"],
+												sourceName: "records",
+												columns: [{ label: "Owner", field: "owner", displayKind: "text" }],
+											},
+										});
+										assert(view);
+										if (suffix === "") {
+											yield* installations.setHomeSavedView(sourceUser, installation.id, {
+												kind: "custom",
+												savedViewId: SavedViewId.make(view.id),
+											});
+										}
+									}
 								}),
 							);
 							sources.push({ sourceId, entityId, packageValue });
@@ -1953,6 +1958,7 @@ describe("account backup restore in PostgreSQL", () => {
 						const restoredViews = yield* (yield* SavedViewsRepository).listForBackup(
 							destinationUser,
 						);
+						expect(restoredViews.filter((view) => !view.isBuiltin)).toHaveLength(6);
 						for (const view of restoredViews) {
 							if (!view.isBuiltin) {
 								const index = view.name === "A" ? 0 : 1;
@@ -1975,10 +1981,15 @@ describe("account backup restore in PostgreSQL", () => {
 									destinationUser,
 									destinationId ?? "",
 								);
-								expect(installation?.homeSavedView).toEqual({
-									kind: "custom",
-									savedViewId: view.id,
-								});
+								expect(view.pluginInstallationId).toBe(
+									view.slug.endsWith("-unassociated") ? null : installation?.id,
+								);
+								if (!view.slug.endsWith("-extra") && !view.slug.endsWith("-unassociated")) {
+									expect(installation?.homeSavedView).toEqual({
+										kind: "custom",
+										savedViewId: view.id,
+									});
+								}
 							}
 						}
 						const reexported = yield* session.transaction(
@@ -2034,8 +2045,13 @@ describe("account backup restore in PostgreSQL", () => {
 						expect(reexported.records.calendarSourceOverrides).toEqual(
 							exported.records.calendarSourceOverrides,
 						);
-						expect(reexported.records.integrations).toHaveLength(2);
+						expect(reexported.records.integrations).toHaveLength(6);
 						for (const integration of reexported.records.integrations) {
+							if (integration.packageKey === null) {
+								expect(integration.provider).toBe(dataJsonSource);
+								expect(integration.providerSpecifics).toEqual({});
+								continue;
+							}
 							const source = sources[integration.name === "A" ? 0 : 1];
 							assert(source);
 							expect(integration.providerSpecifics).toEqual({ note: source.sourceId });
@@ -2302,7 +2318,6 @@ layer(assetRestoreLayer("user-id"))((test) => {
 								isBuiltin: false,
 								dataSources: null,
 								id: "calendar-copy",
-								installationId: null,
 								name: "Calendar copy",
 								slug: "calendar-copy",
 								createdAt: "2026-08-23T12:00:00.000Z",
@@ -2336,7 +2351,6 @@ layer(assetRestoreLayer("foreign-owner"))((test) => {
 								dataSources: null,
 								slug: "asset-view",
 								name: "Asset view",
-								installationId: null,
 								settings: { image: restoredAsset },
 								createdAt: "2026-08-23T12:00:00.000Z",
 								updatedAt: "2026-08-23T12:00:00.000Z",
