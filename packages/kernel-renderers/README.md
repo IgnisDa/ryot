@@ -66,7 +66,7 @@ button, and chips share one applied-rule count.
 
 Relationship values load through `relationshipFilterChoicesRecipe`: the editor pages by name search,
 and chips resolve names by the rule's entity IDs. Until names resolve, or for entities that no
-longer exist, a chip shows the count form (for example "Authors: 2 selected") instead of raw IDs.
+longer exist, a chip shows the count form (for example "<Field>: 2 selected") instead of raw IDs.
 Count all, the pages, and the filter-aware empty state all use the applied filter; the query Effect
 reads `now` from the Effect clock for relative-date rules.
 
