@@ -23,6 +23,17 @@ export type BrowserColumns = readonly DeclaredBrowserColumns[number][];
 
 const rowThumbnail = (item: BrowserItem) => item.cells.find(isAssetCell)?.value.value;
 
+const VALUE_COLUMN = {
+	text: {
+		header: "w-2/5 px-0 py-3 text-left font-semibold",
+		cell: "w-2/5 px-0 py-1 text-left text-sm text-text-muted",
+	},
+	compact: {
+		header: "w-20 px-0 py-3 text-right font-semibold whitespace-nowrap @2xl:w-28",
+		cell: "w-20 px-0 py-1 text-right text-sm whitespace-nowrap text-text-muted @2xl:w-28",
+	},
+} as const;
+
 const browserColumns = (
 	declared: BrowserColumns | null,
 	settled: EntitySettle,
@@ -35,15 +46,24 @@ const browserColumns = (
 			cellClassName:
 				index === 0
 					? "min-w-0 px-0 py-1"
-					: "w-16 px-0 py-1 text-right text-sm text-text-muted @2xl:w-28",
+					: VALUE_COLUMN[column.displayKind === "text" ? "text" : "compact"].cell,
 			headerClassName:
 				index === 0
 					? "min-w-0 px-0 py-3 text-left font-semibold"
-					: "w-16 px-0 py-3 text-right font-semibold @2xl:w-28",
+					: VALUE_COLUMN[column.displayKind === "text" ? "text" : "compact"].header,
 			cell: (item: BrowserItem) => {
 				const value = item.cells.find(({ key }) => key === column.field)?.value;
 				if (index !== 0) {
-					return value === undefined ? null : <CellValue value={value} />;
+					if (value === undefined) {
+						return null;
+					}
+					return column.displayKind === "text" ? (
+						<span className="line-clamp-2">
+							<CellValue value={value} />
+						</span>
+					) : (
+						<CellValue value={value} />
+					);
 				}
 				const asset = rowThumbnail(item);
 				return (
@@ -60,7 +80,7 @@ const browserColumns = (
 									state={fieldSyncState(asset, item.sync)}
 								/>
 							)}
-							<span className="truncate text-[15px] text-text">
+							<span className="truncate text-body text-text">
 								{value === undefined ? "" : cellText(value)}
 							</span>
 							{isTitleProvisional(item.sync) && <SyncPip reason="translating" />}
