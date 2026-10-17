@@ -15,7 +15,7 @@
 
 ## Status
 
-**59 implemented, 0 in progress, 24 pending; 3 excluded.**
+**60 implemented, 0 in progress, 23 pending; 3 excluded.**
 
 “Implemented” means affected checks and tests passed and the change is committed with this tracker. Batch-wide acceptance is recorded separately below. Rows follow the audit's ranked order; sequencing can change to respect dependencies and keep changes reviewable.
 
@@ -70,7 +70,7 @@
 | P10-R1 | Implemented | Decode presentation rows directly, including all selected fields, without fabricating pages. See this finding's audit commit. |
 | P12-R1 | Implemented | Pass typed local query values directly without encode/decode; retain wire, URL-sort, clock, and cancellation behavior. See this finding's audit commit. |
 | P05-R1 | Implemented | Render flat tables directly without table-engine boxing or scans; remove the unused engine dependency. See this finding's audit commit. |
-| P05-R2 | Pending | Derive reorder preview from one destination. |
+| P05-R2 | Implemented | Derive the reorder preview from one destination while preserving pointer-cancel, commit, and preview behavior. See this finding's audit commit. |
 | B30-R1 | Implemented | Fill one buffer sized to declared S3 content length; overflow stops consumption, while underflow and stream errors release resources. See this finding's audit commit. |
 | S03-R2 | Implemented | Borrow result and console data while serializing the done payload. See this finding's audit commit. |
 | S02-R2 | Pending | The writer owns physical chunk creation. |
@@ -225,3 +225,4 @@
 - B06-R1: scoped checks passed before 46 tests across five files, after fixing the P2 review finding; no extra review round. Column-count-aware chunks stay below 32,767 parameters; 4,000 runs use three inserts in one transaction, and late conflicts roll back.
 - P10-R1: RyotQL check passed before 37 tests; read-only review passed. Rows decode directly with selected fields and no fabricated pages.
 - P12-R1: renderer check passed before 62 tests across four files; read-only review passed. Typed local queries retain wire, URL-sort, clock, and cancellation behavior. Ignored generated sources were regenerated and not staged.
+- P05-R2: UI check passed before 21 focused tests and 325 full UI tests; read-only review passed. One destination drives the reorder preview; pointer cancellation and commit behavior remain.
