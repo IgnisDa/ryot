@@ -153,7 +153,7 @@ describe("notification subscription catalog and rules", () => {
 		}),
 	);
 
-	it.live("delivers an API-created workout through its default subscription", () =>
+	it.live("delivers a completed workout through its default subscription", () =>
 		Effect.gen(function* () {
 			fakeApprise.requests.length = 0;
 			const { client } = yield* createAuthenticatedClient();
