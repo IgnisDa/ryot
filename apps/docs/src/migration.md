@@ -14,8 +14,8 @@ Read this whole section before you start.
 
 ### Before you upgrade
 
-1. Upgrade the server to `v10.5.2` to make sure all `v10` migrations are applied. For
-   example, you can make this change: `image: "ignisda/ryot:v10.5.2"` in your
+1. Upgrade the server to `v10.5.5` to make sure all `v10` migrations are applied. For
+   example, you can make this change: `image: "ignisda/ryot:v10.5.5"` in your
    docker-compose file.
 2. Create a backup of your database. Follow this
    [guide](./backups.md#whole-server-backups). If you use S3 for file storage, back up your
