@@ -118,6 +118,8 @@
 		--ts-chart-tooltip-font: 500 0.75rem/1.3 var(--font-family-ui);
 	}
 
+	a[href]:not([aria-disabled="true"]),
+	[role="link"]:not([aria-disabled="true"]),
 	button:not(:disabled),
 	[role="button"]:not([aria-disabled="true"]),
 	label:has(input:where([type="checkbox"], [type="radio"]):not(:disabled)) {
