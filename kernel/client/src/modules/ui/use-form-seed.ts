@@ -12,6 +12,6 @@ export function useFormSeed(
 	}
 
 	useEffect(() => {
-		form.reset(seed.values);
+		form.reset({ fields: seed.values });
 	}, [form, seed.values]);
 }

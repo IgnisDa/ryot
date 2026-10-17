@@ -3,9 +3,12 @@ import { Effect } from "@ryot-app/plugin-client-sdk/effect";
 import {
 	createRyotMutation,
 	createRyotQuery,
+	renderSchemaAsset,
 	useRyot,
 	useRyotMutation,
 	useRyotQuery,
+	useRyotSchedule,
+	useSchemaAssetUpload,
 } from "@ryot-app/plugin-client-sdk/react";
 import { Button, Dialog, Field, Notice, TextField } from "@ryot-app/plugin-ui-sdk";
 import { AppIcon } from "@ryot-app/plugin-ui-sdk/icon";
@@ -22,6 +25,8 @@ import {
 	type CollectionPickerResult,
 } from "@ryot-app/ryotql-recipes/collections";
 import { useEffect, useState } from "react";
+
+import { PLUGIN_PACKAGE_ID } from "../shared/plugin-identity";
 
 const collectionOptions = createRyotQuery(
 	({
@@ -130,6 +135,9 @@ function MembershipForm(props: {
 }) {
 	const { onClose, collection } = props;
 	const client = useRyot();
+	const schedule = useRyotSchedule();
+	const identity = client.pluginIdentity(PLUGIN_PACKAGE_ID);
+	const uploadAsset = useSchemaAssetUpload();
 	const schema = collection.membershipPropertiesSchema ?? emptyMembershipSchema;
 	const [pendingInput, setPendingInput] =
 		useState<Parameters<RyotClient["collections"]["upsertMembership"]>[0]>();
@@ -147,7 +155,7 @@ function MembershipForm(props: {
 			save.mutate(input);
 		},
 	});
-	useEffect(() => form.reset(initialSchemaFormValues(schema)), [form, schema]);
+	useEffect(() => form.reset({ fields: initialSchemaFormValues(schema) }), [form, schema]);
 	useEffect(() => {
 		if (save.data) {
 			onClose();
@@ -187,6 +195,16 @@ function MembershipForm(props: {
 					form={form}
 					schema={schema}
 					onChange={() => {}}
+					uploadAsset={uploadAsset}
+					renderAsset={renderSchemaAsset}
+					onReorder={() =>
+						schedule.run(
+							client
+								.device({ action: "haptic", kind: "selection", pluginId: identity.pluginId })
+								.pipe(Effect.ignore),
+							() => undefined,
+						)
+					}
 					icons={{
 						close: <AppIcon name="x" size={16} />,
 						remove: <AppIcon name="x" size={16} />,

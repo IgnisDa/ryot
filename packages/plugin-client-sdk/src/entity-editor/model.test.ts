@@ -1,5 +1,6 @@
 import { describe, expect, it } from "@effect/vitest";
 import type { ManagedAssetLocator } from "@ryot-app/contract/modules/assets/schemas";
+import { imagesField } from "@ryot-app/contract/schema/core";
 import type { AppSchema } from "@ryot-app/contract/schema/property-schema";
 
 import {
@@ -12,7 +13,12 @@ import {
 const schema = {
 	fields: {
 		title: { label: "Title", type: "string", description: "Title" },
-		meta: { label: "Meta", type: "object", properties: {}, description: "Meta" },
+		meta: {
+			label: "Meta",
+			type: "object",
+			description: "Meta",
+			properties: { keep: { label: "Keep", type: "boolean", description: "Keep" } },
+		},
 		images: {
 			type: "array",
 			label: "Images",
@@ -29,7 +35,40 @@ const schema = {
 } satisfies AppSchema;
 
 describe("entity editor model", () => {
-	it("keeps stored values and unsupported properties across a save", () => {
+	it("finds nested uploads by schema and retains assets referenced by relationships", () => {
+		const nested: AppSchema = {
+			fields: {
+				exercises: {
+					type: "array",
+					label: "Exercises",
+					description: "Exercises",
+					items: {
+						type: "object",
+						label: "Exercise",
+						description: "Exercise",
+						properties: { images: imagesField("Images") },
+					},
+				},
+			},
+		};
+		const kept = { type: "local", key: "nested" } as const;
+		const relationship = { type: "local", key: "relationship" } as const;
+		const dropped = { type: "local", key: "dropped" } as const;
+		const uploaded = new Map<string, ManagedAssetLocator>([
+			["local:nested", kept],
+			["local:relationship", relationship],
+			["local:dropped", dropped],
+		]);
+		expect(
+			unreferencedUploads(
+				uploaded,
+				{ unrelated: [dropped], exercises: [{ images: [kept] }] },
+				nested,
+				[relationship],
+			),
+		).toEqual([dropped]);
+	});
+	it("keeps declared nested values across a save", () => {
 		const stored = { extra: 1, title: "A", meta: { keep: true } };
 		const values = entityFormValues(schema, stored);
 
@@ -48,7 +87,7 @@ describe("entity editor model", () => {
 			["local:dropped", dropped],
 		]);
 
-		expect(unreferencedUploads(uploaded, { images: [kept] })).toEqual([dropped]);
+		expect(unreferencedUploads(uploaded, { images: [kept] }, schema)).toEqual([dropped]);
 	});
 
 	it("builds a trimmed submission carrying relationship properties", () => {

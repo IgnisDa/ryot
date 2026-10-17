@@ -1,13 +1,16 @@
+import { renderSchemaAsset } from "@ryot-app/plugin-client-sdk/react";
 import { Button, FieldMessage } from "@ryot-app/plugin-ui-sdk";
 import { AppIcon } from "@ryot-app/plugin-ui-sdk/icon";
 import {
 	SchemaForm,
+	type SchemaAssetUpload,
 	type SchemaFileUpload,
 	type SchemaFormApi,
 } from "@ryot-app/plugin-ui-sdk/schema-form";
 import { useState } from "react";
 
 import type { ImportWizardSource } from "#/modules/imports/source-selection";
+import { schemaFormReorderFeedback } from "#/modules/ui/schema-form-feedback";
 import { schemaFormIcons } from "#/modules/ui/schema-form-icons";
 
 const HELP_LABEL = "Where do I find this file?";
@@ -63,6 +66,7 @@ export function ImportInputStep(props: {
 	readonly onContinue: () => void;
 	readonly source: ImportWizardSource;
 	readonly uploadFile: SchemaFileUpload;
+	readonly uploadAsset: SchemaAssetUpload;
 	readonly failureDetail: string | undefined;
 }) {
 	return (
@@ -79,7 +83,10 @@ export function ImportInputStep(props: {
 				icons={schemaFormIcons}
 				onChange={() => undefined}
 				uploadFile={props.uploadFile}
+				uploadAsset={props.uploadAsset}
+				renderAsset={renderSchemaAsset}
 				schema={props.source.inputSchema}
+				onReorder={schemaFormReorderFeedback}
 			/>
 			{props.failureDetail === undefined ? null : (
 				<FieldMessage>{props.failureDetail}</FieldMessage>

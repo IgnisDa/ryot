@@ -7,8 +7,6 @@ import type { AppSchema } from "@ryot-app/contract/schema/property-schema";
 import {
 	initialSchemaFormValues,
 	toSchemaFormPayload,
-	type SchemaFormArrayValue,
-	type SchemaFormValue,
 	type SchemaFormValues,
 } from "@ryot-app/plugin-ui-sdk/schema-form";
 
@@ -16,16 +14,6 @@ import type {
 	IntegrationClientDetail,
 	IntegrationProviderItem,
 } from "#/modules/integrations/service";
-
-const isArrayItem = (value: unknown): value is SchemaFormArrayValue =>
-	typeof value === "string" || typeof value === "number" || typeof value === "boolean";
-
-const toSchemaFormValue = (value: unknown): SchemaFormValue => {
-	if (isArrayItem(value)) {
-		return value;
-	}
-	return Array.isArray(value) && value.every(isArrayItem) ? value : undefined;
-};
 
 const stringField = (payload: Record<string, JsonValue>, key: string) => {
 	const value = payload[key];
@@ -79,9 +67,15 @@ export const createIntegrationBody = (input: {
 export const updateIntegrationBody = (input: {
 	readonly values: SchemaFormValues;
 	readonly provider: IntegrationProviderItem;
+	readonly originalSettings?: Readonly<Record<string, unknown>>;
 }): UpdateIntegrationBody => ({
 	...integrationCommonBody(input.provider.commonSchema, input.values),
-	providerSpecifics: toSchemaFormPayload(input.provider.settingsSchema, input.values),
+	providerSpecifics: toSchemaFormPayload(
+		input.provider.settingsSchema,
+		input.values,
+		"edit",
+		initialSchemaFormValues(input.provider.settingsSchema, undefined, input.originalSettings ?? {}),
+	),
 });
 
 export const initialIntegrationFormValues = (
@@ -99,15 +93,13 @@ export const storedIntegrationFormValues = (input: {
 	readonly integration: IntegrationClientDetail;
 	readonly provider: IntegrationProviderItem;
 }): SchemaFormValues => {
-	const stored = Object.fromEntries(
-		Object.keys(input.provider.settingsSchema.fields).flatMap((key) => {
-			const value = toSchemaFormValue(input.integration.providerSpecifics[key]);
-			return value === undefined ? [] : [[key, value]];
-		}),
-	);
 	return {
-		...initialIntegrationFormValues(input.provider),
-		...stored,
+		...initialSchemaFormValues(input.provider.commonSchema),
+		...initialSchemaFormValues(
+			input.provider.settingsSchema,
+			undefined,
+			input.integration.providerSpecifics,
+		),
 		name: input.integration.name ?? "",
 		isDisabled: input.integration.isDisabled,
 		syncOwnership: input.integration.syncOwnership,

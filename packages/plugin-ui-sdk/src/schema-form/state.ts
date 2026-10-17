@@ -1,39 +1,31 @@
-import { AssetLocator } from "@ryot-app/contract/modules/assets/schemas";
-import type { JsonValue } from "@ryot-app/contract/schema/json";
+import { isJsonValue, type JsonValue } from "@ryot-app/contract/schema/json";
 import {
 	type AppChoice,
 	type AppPropertyDefinition,
 	type AppSchema,
 	type AppArrayPropertyValidation,
-	evaluateAppSchemaRuleCondition,
+	type PropertyValidationIssue,
 	getOrderedAppSchemaFieldEntries,
 	isAppSchemaPathEffectivelyRequired,
 	isAppSchemaPathHidden,
-	isMissingAppSchemaRequiredValue,
 } from "@ryot-app/contract/schema/property-schema";
-import { Email, HttpUrl, isNamedTimeZone } from "@ryot-app/contract/schema/utils";
-import { Match, Result, Schema } from "effect";
+import { hasPropertySecrets } from "@ryot-app/contract/schema/property-secrets";
+import {
+	decodeAppSchemaPropertyValues,
+	parseAppSchemaPropertiesSafe,
+} from "@ryot-app/contract/schema/property-values";
+import { Result } from "effect";
 
-export type SchemaFormArrayValue = boolean | number | string;
-
-export type SchemaFormValue =
-	| boolean
-	| number
-	| string
-	| undefined
-	| readonly AssetLocator[]
-	| readonly SchemaFormArrayValue[];
-
-export type SchemaFormValues = Readonly<Record<string, SchemaFormValue>>;
-
+export type SchemaFormValue = JsonValue | undefined;
+export type SchemaFormValues = Readonly<Record<string, unknown>>;
 export type SchemaFormMode = "edit" | "create";
-
-export type SchemaFormTextFormat = "url" | "email";
-
+export type SchemaFormTextFormat = "url" | "email" | "date" | "datetime";
 export type SchemaFormControl =
 	| "list"
 	| "text"
+	| "asset"
 	| "assets"
+	| "object"
 	| "file"
 	| "chips"
 	| "switch"
@@ -42,23 +34,6 @@ export type SchemaFormControl =
 	| "multi-select"
 	| "oauth-connection";
 
-export type SchemaFormArrayItem = Extract<
-	AppPropertyDefinition,
-	{ readonly type: "string" | "number" | "integer" | "boolean" }
->;
-
-type SchemaFormFieldType =
-	| "date"
-	| "enum"
-	| "array"
-	| "assets"
-	| "number"
-	| "string"
-	| "boolean"
-	| "integer"
-	| "datetime"
-	| "enum-array";
-
 export type SchemaFormField = {
 	readonly key: string;
 	readonly label: string;
@@ -66,476 +41,377 @@ export type SchemaFormField = {
 	readonly readOnly: boolean;
 	readonly required: boolean;
 	readonly description: string;
-	readonly type: SchemaFormFieldType;
+	readonly property: AppPropertyDefinition;
+	readonly type: AppPropertyDefinition["type"] | "assets";
 	readonly control: SchemaFormControl;
 	readonly format: SchemaFormTextFormat | undefined;
 	readonly choices: readonly AppChoice[] | undefined;
 	readonly oauthProvider: string | undefined;
-	readonly arrayItem: SchemaFormArrayItem | undefined;
+	readonly arrayItem: AppPropertyDefinition | undefined;
 	readonly allowedFileExtensions: readonly string[] | undefined;
 	readonly arrayValidation: AppArrayPropertyValidation | undefined;
 };
 
-type SchemaFormFieldsDescription = {
-	readonly unsupported: readonly string[];
-	readonly fields: readonly SchemaFormField[];
-};
-
-const SEGMENTED_LABEL_LIMIT = 12;
-
-const SEGMENTED_CHOICE_LIMIT = 3;
-
 export const schemaChoiceLabel = (choice: AppChoice) => choice.label ?? choice.value;
 
-const schemaArrayItem = (property: AppPropertyDefinition): SchemaFormArrayItem | undefined => {
-	if (property.type !== "array") {
-		return undefined;
-	}
-	const item = property.items;
-	return item.type === "string" ||
-		item.type === "number" ||
-		item.type === "integer" ||
-		item.type === "boolean"
-		? item
-		: undefined;
-};
-
-const isAssetListProperty = (property: AppPropertyDefinition) =>
-	property.type === "array" &&
-	property.items.type === "object" &&
-	property.items.validation?.asset === true;
-
-const isAssetLocatorList = (value: unknown): value is readonly AssetLocator[] =>
-	Array.isArray(value) && value.every((item) => Schema.is(AssetLocator)(item));
-
-const schemaFieldType = (property: AppPropertyDefinition): SchemaFormFieldType | undefined => {
-	if (property.type === "array") {
-		if (isAssetListProperty(property)) {
-			return "assets";
-		}
-		return schemaArrayItem(property) === undefined ? undefined : "array";
-	}
-	return property.type === "object" ? undefined : property.type;
-};
-
-const schemaFieldChoices = (property: AppPropertyDefinition) => {
-	if (property.type !== "enum" && property.type !== "enum-array") {
-		return undefined;
-	}
-	return property.choices.kind === "static" ? property.choices.values : undefined;
-};
-
-const schemaFieldFormat = (property: AppPropertyDefinition): SchemaFormTextFormat | undefined =>
-	property.type === "string" &&
-	(property.format?.kind === "url" || property.format?.kind === "email")
-		? property.format.kind
-		: undefined;
-
-const hasDynamicChoices = (property: AppPropertyDefinition) =>
-	(property.type === "enum" || property.type === "enum-array") &&
-	property.choices.kind === "dynamic";
-
-const isTimeZoneProperty = (property: AppPropertyDefinition) =>
-	property.type === "string" && property.format?.kind === "timezone";
-
-const isUploadProperty = (property: AppPropertyDefinition) =>
-	property.type === "string" && property.format?.kind === "upload";
-
-const isFixedEnumProperty = (
-	property: AppPropertyDefinition,
-): property is Extract<AppPropertyDefinition, { readonly type: "enum" }> & {
-	readonly defaultValue: string;
-} =>
+export const isFixedEnumProperty = (property: AppPropertyDefinition) =>
 	property.type === "enum" &&
 	property.defaultValue !== undefined &&
 	property.choices.kind === "static" &&
 	property.choices.values.length === 1;
 
-const schemaFieldFileExtensions = (property: AppPropertyDefinition) =>
-	property.type === "string" && property.format?.kind === "upload"
-		? property.format.allowedFileExtensions
-		: undefined;
+export const isAssetProperty = (property: AppPropertyDefinition) =>
+	property.type === "object" && property.validation?.asset === true;
 
-const schemaFieldOAuthProvider = (property: AppPropertyDefinition) =>
-	property.type === "string" && property.format?.kind === "oauth-connection"
-		? property.format.provider
-		: undefined;
-
-const isSupportedProperty = (property: AppPropertyDefinition) =>
-	schemaFieldType(property) !== undefined && !hasDynamicChoices(property);
-
-const schemaFieldControl = (
-	property: AppPropertyDefinition,
-	choices: readonly AppChoice[] | undefined,
-): SchemaFormControl => {
+const schemaFieldControl = (property: AppPropertyDefinition): SchemaFormControl => {
+	if (isAssetProperty(property)) {
+		return "asset";
+	}
+	if (property.type === "object") {
+		return "object";
+	}
 	if (property.type === "boolean") {
 		return "switch";
 	}
-	if (isUploadProperty(property)) {
-		return "file";
-	}
-	if (schemaFieldOAuthProvider(property) !== undefined) {
-		return "oauth-connection";
-	}
-	if (isTimeZoneProperty(property)) {
-		return "timezone";
+	if (property.type === "string") {
+		if (property.format?.kind === "upload") {
+			return "file";
+		}
+		if (property.format?.kind === "oauth-connection") {
+			return "oauth-connection";
+		}
+		if (property.format?.kind === "timezone") {
+			return "timezone";
+		}
 	}
 	if (property.type === "enum-array") {
 		return "multi-select";
 	}
-	if (isAssetListProperty(property)) {
-		return "assets";
-	}
 	if (property.type === "array") {
-		return "list";
+		return isAssetProperty(property.items) ? "assets" : "list";
 	}
-	if (property.type !== "enum" || choices === undefined) {
+	if (property.type !== "enum" || property.choices.kind !== "static") {
 		return "text";
 	}
-	const fitsSegments =
-		choices.length > 1 &&
-		choices.length <= SEGMENTED_CHOICE_LIMIT &&
-		choices.every((choice) => schemaChoiceLabel(choice).length <= SEGMENTED_LABEL_LIMIT);
-	return fitsSegments ? "segmented" : "chips";
+	const choices = property.choices.values;
+	return choices.length > 1 &&
+		choices.length <= 3 &&
+		choices.every((choice) => schemaChoiceLabel(choice).length <= 12)
+		? "segmented"
+		: "chips";
 };
 
-const hasSchemaFormValue = (value: SchemaFormValue): value is Exclude<SchemaFormValue, undefined> =>
-	value !== undefined && value !== "" && (!Array.isArray(value) || value.length > 0);
+export const describeSchemaFormField = (
+	key: string,
+	property: AppPropertyDefinition,
+	mode: SchemaFormMode,
+	required = property.validation?.required === true,
+): SchemaFormField => {
+	const control = schemaFieldControl(property);
+	let format: SchemaFormTextFormat | undefined;
+	if (property.type === "date" || property.type === "datetime") {
+		format = property.type;
+	} else if (
+		property.type === "string" &&
+		(property.format?.kind === "url" || property.format?.kind === "email")
+	) {
+		format = property.format.kind;
+	}
+	return {
+		key,
+		format,
+		control,
+		property,
+		required,
+		label: property.label,
+		secret: property.secret === true,
+		description: property.description,
+		type: control === "assets" ? "assets" : property.type,
+		readOnly: mode === "edit" && property.immutable === true,
+		arrayItem: property.type === "array" ? property.items : undefined,
+		arrayValidation:
+			property.type === "array" || property.type === "enum-array" ? property.validation : undefined,
+		oauthProvider:
+			property.type === "string" && property.format?.kind === "oauth-connection"
+				? property.format.provider
+				: undefined,
+		allowedFileExtensions:
+			property.type === "string" && property.format?.kind === "upload"
+				? property.format.allowedFileExtensions
+				: undefined,
+		choices:
+			(property.type === "enum" || property.type === "enum-array") &&
+			property.choices.kind === "static"
+				? property.choices.values
+				: undefined,
+	};
+};
 
-const isMissingSchemaFormValue = (value: unknown) =>
-	isMissingAppSchemaRequiredValue(value) || (Array.isArray(value) && value.length === 0);
+const isRecord = (value: unknown): value is Readonly<Record<string, JsonValue>> =>
+	typeof value === "object" && value !== null && !Array.isArray(value) && isJsonValue(value);
 
-/**
- * Condition input deliberately treats an emptied list as absent, so `exists` rules stay false.
- * Validation still has to see the list the user actually holds, otherwise a field carrying a
- * non-empty `defaultValue` would be checked against that default instead of the cleared value.
- */
-const validatedFieldValue = (
-	field: SchemaFormField,
-	values: SchemaFormValues,
-	input: Readonly<Record<string, unknown>>,
-) =>
-	(field.type === "array" || field.type === "assets") && Array.isArray(values[field.key])
-		? values[field.key]
-		: input[field.key];
+export const propertyFormDefault = (
+	property: AppPropertyDefinition,
+	timeZone: string,
+): SchemaFormValue => {
+	if (isJsonValue(property.defaultValue)) {
+		return property.defaultValue;
+	}
+	return property.type === "string" && property.format?.kind === "timezone" ? timeZone : undefined;
+};
 
-/**
- * Redaction strips stored secrets before they reach the client, so an edit form cannot tell
- * "never set" from "set and hidden". Leaving a secret blank therefore means "keep the current
- * value": the key is omitted from the payload and the server merges the stored one back in.
- */
-export const isRetainedSecretField = (field: SchemaFormField, mode: SchemaFormMode) =>
-	mode === "edit" && field.secret;
+export const initialSchemaFormValues = (
+	schema: AppSchema,
+	timeZone: string = Intl.DateTimeFormat().resolvedOptions().timeZone,
+	stored: Readonly<Record<string, unknown>> = {},
+): SchemaFormValues => ({
+	...(schema.unknownKeys === "passthrough"
+		? Object.fromEntries(
+				Object.entries(stored).filter((entry): entry is [string, JsonValue] =>
+					isJsonValue(entry[1]),
+				),
+			)
+		: {}),
+	...Object.fromEntries(
+		getOrderedAppSchemaFieldEntries(schema.fields).map(([key, property]) => [
+			key,
+			isJsonValue(stored[key]) ? stored[key] : propertyFormDefault(property, timeZone),
+		]),
+	),
+});
 
-const effectiveConditionInput = (schema: AppSchema, values: SchemaFormValues) => {
-	const entries = getOrderedAppSchemaFieldEntries(schema.fields);
-	const supportedEntries = entries.filter(([, property]) => isSupportedProperty(property));
-	let input: Readonly<Record<string, unknown>> = Object.fromEntries(
-		entries.flatMap(([key, property]) => {
-			let value = property.defaultValue;
-			if (!isFixedEnumProperty(property) && hasSchemaFormValue(values[key])) {
-				value = values[key];
+const propertyPayload = (
+	property: AppPropertyDefinition,
+	value: unknown,
+	path: readonly string[],
+	schema: AppSchema,
+	input: SchemaFormValues,
+	addressable: boolean,
+	mode: SchemaFormMode,
+	original: unknown,
+): SchemaFormValue => {
+	if (addressable && isAppSchemaPathHidden(schema, path, input)) {
+		return undefined;
+	}
+	if (
+		mode === "edit" &&
+		property.type === "array" &&
+		hasPropertySecrets(property) &&
+		JSON.stringify(value) === JSON.stringify(original)
+	) {
+		return undefined;
+	}
+	if (isFixedEnumProperty(property) && isJsonValue(property.defaultValue)) {
+		return property.defaultValue;
+	}
+	if (value === undefined) {
+		return propertyFormDefault(property, Intl.DateTimeFormat().resolvedOptions().timeZone);
+	}
+	if (value === null) {
+		return null;
+	}
+	if (property.secret && value === "" && mode === "edit") {
+		return undefined;
+	}
+	if (property.type === "object" && isRecord(value)) {
+		const entries: [string, JsonValue][] = [];
+		if (property.unknownKeys === "passthrough" || property.unknownKeys === "strict") {
+			for (const [key, child] of Object.entries(value)) {
+				if (!Object.hasOwn(property.properties, key) && isJsonValue(child)) {
+					entries.push([key, child]);
+				}
 			}
-			return value === undefined ? [] : [[key, value]];
-		}),
-	);
-	for (let pass = 0; pass < supportedEntries.length; pass++) {
-		const hidden = new Set(
-			supportedEntries.flatMap(([key]) =>
-				Object.hasOwn(input, key) && isAppSchemaPathHidden(schema, [key], input) ? [key] : [],
-			),
-		);
-		if (hidden.size === 0) {
-			break;
 		}
-		input = Object.fromEntries(Object.entries(input).filter(([key]) => !hidden.has(key)));
+		for (const [key, child] of Object.entries(property.properties)) {
+			const next = propertyPayload(
+				child,
+				value[key],
+				[...path, key],
+				schema,
+				input,
+				addressable,
+				mode,
+				isRecord(original) ? original[key] : undefined,
+			);
+			if (next !== undefined) {
+				entries.push([key, next]);
+			}
+		}
+		return Object.fromEntries(entries);
+	}
+	if (property.type === "array" && Array.isArray(value)) {
+		return value.map(
+			(item, index) =>
+				propertyPayload(
+					property.items,
+					item,
+					[...path, String(index)],
+					schema,
+					input,
+					false,
+					"create",
+					undefined,
+				) ?? null,
+		);
+	}
+	return isJsonValue(value) ? value : undefined;
+};
+
+const rawPayload = (
+	schema: AppSchema,
+	values: SchemaFormValues,
+	mode: SchemaFormMode = "create",
+	original: SchemaFormValues = {},
+): Record<string, JsonValue> => {
+	const payload = new Map<string, JsonValue>();
+	if (schema.unknownKeys === "passthrough") {
+		for (const [key, value] of Object.entries(original)) {
+			if (!Object.hasOwn(schema.fields, key) && isJsonValue(value)) {
+				payload.set(key, value);
+			}
+		}
+	}
+	for (const [key, property] of Object.entries(schema.fields)) {
+		const value = propertyPayload(
+			property,
+			values[key],
+			[key],
+			schema,
+			values,
+			true,
+			mode,
+			original[key],
+		);
+		if (value !== undefined) {
+			payload.set(key, value);
+		}
+	}
+	return Object.fromEntries(payload);
+};
+
+export const schemaFormInput = (schema: AppSchema, values: SchemaFormValues): SchemaFormValues => {
+	const seeded = { ...initialSchemaFormValues(schema), ...values };
+	const decoded = decodeAppSchemaPropertyValues(schema, rawPayload(schema, seeded));
+	let input: SchemaFormValues = Result.isSuccess(decoded) ? decoded.success : seeded;
+	const fields = Object.keys(schema.fields).length + (schema.rules?.length ?? 0);
+	for (let pass = 0; pass <= fields; pass++) {
+		const next = rawPayload(schema, input);
+		if (JSON.stringify(next) === JSON.stringify(input)) {
+			return next;
+		}
+		input = next;
 	}
 	return input;
-};
-
-const describeSchemaFormFieldsWithInput = (
-	schema: AppSchema,
-	input: Readonly<Record<string, unknown>>,
-	mode: SchemaFormMode,
-): SchemaFormFieldsDescription => {
-	const fields: SchemaFormField[] = [];
-	const unsupported: string[] = [];
-	for (const [key, property] of getOrderedAppSchemaFieldEntries(schema.fields)) {
-		if (isAppSchemaPathHidden(schema, [key], input)) {
-			continue;
-		}
-		if (isFixedEnumProperty(property)) {
-			continue;
-		}
-		const type = schemaFieldType(property);
-		if (type === undefined || !isSupportedProperty(property)) {
-			unsupported.push(key);
-			continue;
-		}
-		const choices = schemaFieldChoices(property);
-		fields.push({
-			key,
-			type,
-			choices,
-			label: property.label,
-			secret: property.secret === true,
-			description: property.description,
-			format: schemaFieldFormat(property),
-			arrayItem: schemaArrayItem(property),
-			control: schemaFieldControl(property, choices),
-			oauthProvider: schemaFieldOAuthProvider(property),
-			readOnly: mode === "edit" && property.immutable === true,
-			allowedFileExtensions: schemaFieldFileExtensions(property),
-			required: isAppSchemaPathEffectivelyRequired(schema, [key], input),
-			arrayValidation: property.type === "array" ? property.validation : undefined,
-		});
-	}
-	return { fields, unsupported };
 };
 
 export const describeSchemaFormFields = (
 	schema: AppSchema,
 	values: SchemaFormValues = {},
 	mode: SchemaFormMode = "create",
-): SchemaFormFieldsDescription =>
-	describeSchemaFormFieldsWithInput(schema, effectiveConditionInput(schema, values), mode);
-
-const isSchemaFormArrayValue = (
-	value: unknown,
-	item: SchemaFormArrayItem,
-): value is SchemaFormArrayValue => {
-	if (item.type === "boolean") {
-		return typeof value === "boolean";
-	}
-	if (item.type === "string") {
-		return typeof value === "string";
-	}
-	return (
-		typeof value === "number" &&
-		Number.isFinite(value) &&
-		(item.type !== "integer" || Number.isInteger(value))
-	);
+) => {
+	const input = schemaFormInput(schema, values);
+	return {
+		fields: getOrderedAppSchemaFieldEntries(schema.fields).flatMap(([key, property]) =>
+			isAppSchemaPathHidden(schema, [key], input) || isFixedEnumProperty(property)
+				? []
+				: [
+						describeSchemaFormField(
+							key,
+							property,
+							mode,
+							isAppSchemaPathEffectivelyRequired(schema, [key], input),
+						),
+					],
+		),
+	};
 };
 
-const stringValidationMessage = (
-	property: Extract<AppPropertyDefinition, { readonly type: "string" }>,
+const retainedSecretPaths = (
+	property: AppPropertyDefinition,
 	value: unknown,
-	label: string,
-) => {
-	if (typeof value !== "string") {
-		return `${label} has an invalid value`;
+	path: readonly string[],
+	original: unknown,
+): readonly (readonly string[])[] => {
+	if (property.secret && (value === undefined || value === "")) {
+		return [path];
 	}
-	const validation = property.validation;
-	if (validation?.required === true && value === "") {
-		return `${label} is required`;
-	}
-	if (validation?.minLength !== undefined && value.length < validation.minLength) {
-		return `${label} is too short`;
-	}
-	if (validation?.maxLength !== undefined && value.length > validation.maxLength) {
-		return `${label} is too long`;
-	}
-	if (validation?.pattern !== undefined && !new RegExp(validation.pattern).test(value)) {
-		return `${label} has an invalid format`;
-	}
-	if (property.format?.kind === "url" && Result.isFailure(Schema.decodeResult(HttpUrl)(value))) {
-		return `${label} has an invalid format`;
-	}
-	if (property.format?.kind === "email" && Result.isFailure(Schema.decodeResult(Email)(value))) {
-		return `${label} has an invalid format`;
-	}
-	if (property.format?.kind === "timezone" && !isNamedTimeZone(value)) {
-		return `${label} has an invalid format`;
-	}
-	return undefined;
-};
-
-const numberValidationMessage = (
-	property: Extract<AppPropertyDefinition, { readonly type: "number" | "integer" }>,
-	value: unknown,
-	label: string,
-) => {
 	if (
-		typeof value !== "number" ||
-		!Number.isFinite(value) ||
-		(property.type === "integer" && !Number.isInteger(value))
+		property.type === "array" &&
+		hasPropertySecrets(property) &&
+		JSON.stringify(value) === JSON.stringify(original)
 	) {
-		return `${label} has an invalid value`;
+		return [path];
 	}
-	const validation = property.validation;
-	if (validation?.minimum !== undefined && value < validation.minimum) {
-		return `${label} is below the minimum`;
+	if (property.type === "object" && isRecord(value)) {
+		return Object.entries(property.properties).flatMap(([key, child]) =>
+			retainedSecretPaths(
+				child,
+				value[key],
+				[...path, key],
+				isRecord(original) ? original[key] : undefined,
+			),
+		);
 	}
-	if (validation?.maximum !== undefined && value > validation.maximum) {
-		return `${label} is above the maximum`;
-	}
-	if (validation?.exclusiveMinimum !== undefined && value <= validation.exclusiveMinimum) {
-		return `${label} must be above the minimum`;
-	}
-	if (validation?.exclusiveMaximum !== undefined && value >= validation.exclusiveMaximum) {
-		return `${label} must be below the maximum`;
-	}
-	if (validation?.multipleOf !== undefined && value % validation.multipleOf !== 0) {
-		return `${label} is not a valid increment`;
-	}
-	return undefined;
+	return [];
 };
 
-const arrayBoundsValidationMessage = (
-	property: Extract<AppPropertyDefinition, { readonly type: "array" | "enum-array" }>,
-	value: readonly unknown[],
-	label: string,
-) => {
-	if (property.validation?.minItems !== undefined && value.length < property.validation.minItems) {
-		return `${label} needs at least ${property.validation.minItems} items`;
-	}
-	if (property.validation?.maxItems !== undefined && value.length > property.validation.maxItems) {
-		return `${label} allows at most ${property.validation.maxItems} items`;
-	}
-	return undefined;
-};
-
-const propertyValueValidationMessage = (
-	property: AppPropertyDefinition,
-	value: unknown,
-	label: string,
-): string | undefined =>
-	Match.value(property).pipe(
-		Match.when({ type: "string" }, (matched) => stringValidationMessage(matched, value, label)),
-		Match.when({ type: "number" }, (matched) => numberValidationMessage(matched, value, label)),
-		Match.when({ type: "integer" }, (matched) => numberValidationMessage(matched, value, label)),
-		Match.when({ type: "boolean" }, () =>
-			typeof value === "boolean" ? undefined : `${label} has an invalid value`,
-		),
-		Match.when({ type: "date" }, () =>
-			typeof value === "string" &&
-			Result.isSuccess(Schema.decodeResult(Schema.DateFromString)(value))
-				? undefined
-				: `${label} has an invalid format`,
-		),
-		Match.when({ type: "datetime" }, () =>
-			typeof value === "string" &&
-			Result.isSuccess(Schema.decodeResult(Schema.DateTimeUtcFromString)(value))
-				? undefined
-				: `${label} has an invalid format`,
-		),
-		Match.when({ type: "enum" }, (matched) =>
-			typeof value === "string" &&
-			matched.choices.kind === "static" &&
-			matched.choices.values.some((choice) => choice.value === value)
-				? undefined
-				: `${label} has an invalid value`,
-		),
-		Match.when({ type: "enum-array" }, (matched) => {
-			if (!Array.isArray(value) || matched.choices.kind !== "static") {
-				return `${label} has an invalid value`;
-			}
-			const boundsMessage = arrayBoundsValidationMessage(matched, value, label);
-			if (boundsMessage !== undefined) {
-				return boundsMessage;
-			}
-			return value.every(
-				(item) =>
-					typeof item === "string" &&
-					matched.choices.kind === "static" &&
-					matched.choices.values.some((choice) => choice.value === item),
-			)
-				? undefined
-				: `${label} has an invalid value`;
-		}),
-		Match.when({ type: "array" }, (matched) => {
-			if (!Array.isArray(value)) {
-				return `${label} has an invalid value`;
-			}
-			const boundsMessage = arrayBoundsValidationMessage(matched, value, label);
-			if (boundsMessage !== undefined) {
-				return boundsMessage;
-			}
-			if (isAssetListProperty(matched)) {
-				return isAssetLocatorList(value) ? undefined : `${label} has an invalid value`;
-			}
-			for (const [index, item] of value.entries()) {
-				const message = propertyValueValidationMessage(
-					matched.items,
-					item,
-					`${matched.items.label} ${index + 1}`,
-				);
-				if (message !== undefined) {
-					return message;
-				}
-			}
-			return undefined;
-		}),
-		Match.when({ type: "object" }, () => `${label} has an invalid value`),
-		Match.exhaustive,
-	);
-
-const schemaFieldDefaultValue = (
-	property: AppPropertyDefinition,
-	browserTimeZone: string,
-): SchemaFormValue => {
-	if (property.type === "object") {
-		return undefined;
-	}
-	if (property.type !== "array") {
-		return property.defaultValue ?? (isTimeZoneProperty(property) ? browserTimeZone : undefined);
-	}
-	if (isAssetListProperty(property)) {
-		return isAssetLocatorList(property.defaultValue) ? property.defaultValue : undefined;
-	}
-	const item = schemaArrayItem(property);
-	return item !== undefined &&
-		property.defaultValue?.every((value) => isSchemaFormArrayValue(value, item))
-		? property.defaultValue
-		: undefined;
-};
-
-export const initialSchemaFormValues = (
+const schemaFormSubmission = (
 	schema: AppSchema,
-	browserTimeZone: string = Intl.DateTimeFormat().resolvedOptions().timeZone,
-): SchemaFormValues =>
-	Object.fromEntries(
-		getOrderedAppSchemaFieldEntries(schema.fields).flatMap(([key, property]) =>
-			isSupportedProperty(property)
-				? [[key, schemaFieldDefaultValue(property, browserTimeZone)]]
+	values: SchemaFormValues,
+	mode: SchemaFormMode,
+	original: SchemaFormValues,
+) => {
+	const payload = rawPayload(schema, schemaFormInput(schema, values), mode, original);
+	const parsed = parseAppSchemaPropertiesSafe({
+		properties: payload,
+		propertiesSchema: schema,
+		allowedMissingRequiredPaths:
+			mode === "edit"
+				? Object.entries(schema.fields).flatMap(([key, property]) =>
+						retainedSecretPaths(property, values[key], [key], original[key]),
+					)
 				: [],
-		),
-	);
+	});
+	return { parsed, payload };
+};
+
+export const schemaFormIssues = (
+	schema: AppSchema,
+	values: SchemaFormValues,
+	mode: SchemaFormMode = "create",
+	original: SchemaFormValues = {},
+): readonly PropertyValidationIssue[] => {
+	const { parsed: result } = schemaFormSubmission(schema, values, mode, original);
+	return result.success
+		? []
+		: result.issues.map((issue) => {
+				let property: AppPropertyDefinition | undefined = schema.fields[issue.path[0] ?? ""];
+				for (const segment of issue.path.slice(1)) {
+					if (property?.type === "array") {
+						property = property.items;
+					} else if (property?.type === "object") {
+						property = property.properties[segment];
+					} else {
+						property = undefined;
+					}
+				}
+				return issue.message === "is missing" && property !== undefined
+					? { path: issue.path, message: `${property.label} is required` }
+					: issue;
+			});
+};
 
 export const validateSchemaFormValues = (
 	schema: AppSchema,
 	values: SchemaFormValues,
 	mode: SchemaFormMode = "create",
+	original: SchemaFormValues = {},
 ): ReadonlyMap<string, string> => {
-	const input = effectiveConditionInput(schema, values);
-	const { fields } = describeSchemaFormFieldsWithInput(schema, input, mode);
 	const errors = new Map<string, string>();
-	for (const field of fields) {
-		const fieldValue = validatedFieldValue(field, values, input);
-		if (field.required && isMissingSchemaFormValue(fieldValue)) {
-			if (isRetainedSecretField(field, mode)) {
-				continue;
-			}
-			const conditionalMessage = (schema.rules ?? []).find(
-				(rule) =>
-					rule.kind === "validation" &&
-					rule.path.length === 1 &&
-					rule.path[0] === field.key &&
-					evaluateAppSchemaRuleCondition(rule.when, input),
-			)?.message;
-			errors.set(field.key, conditionalMessage ?? `${field.label} is required`);
-			continue;
-		}
-		if (fieldValue === undefined) {
-			continue;
-		}
-		const property = schema.fields[field.key];
-		if (property === undefined) {
-			continue;
-		}
-		const validationMessage = propertyValueValidationMessage(property, fieldValue, field.label);
-		if (validationMessage !== undefined) {
-			errors.set(field.key, validationMessage);
+	for (const issue of schemaFormIssues(schema, values, mode, original)) {
+		const key = issue.path[0] ?? "";
+		if (!errors.has(key)) {
+			errors.set(key, issue.message);
 		}
 	}
 	return errors;
@@ -544,34 +420,15 @@ export const validateSchemaFormValues = (
 export const toSchemaFormPayload = (
 	schema: AppSchema,
 	values: SchemaFormValues,
+	mode: SchemaFormMode = "create",
+	original: SchemaFormValues = {},
 ): Record<string, JsonValue> => {
-	const input = effectiveConditionInput(schema, values);
-	const payload: Record<string, JsonValue> = {};
-	const renderedKeys = new Set(
-		describeSchemaFormFieldsWithInput(schema, input, "create").fields.map((field) => field.key),
-	);
-	for (const [key, property] of getOrderedAppSchemaFieldEntries(schema.fields)) {
-		if (!isSupportedProperty(property)) {
-			continue;
-		}
-		if (isFixedEnumProperty(property)) {
-			if (Object.hasOwn(input, key)) {
-				payload[key] = property.defaultValue;
-			}
-			continue;
-		}
-		if (!renderedKeys.has(key)) {
-			continue;
-		}
-		const value = values[key];
-		// An emptied list is a real edit, so it has to reach the server for a stored list to clear.
-		if (Array.isArray(value)) {
-			payload[key] = [...value];
-			continue;
-		}
-		if (hasSchemaFormValue(value)) {
-			payload[key] = value;
-		}
-	}
-	return payload;
+	const { parsed, payload } = schemaFormSubmission(schema, values, mode, original);
+	return parsed.success
+		? Object.fromEntries(
+				Object.entries(parsed.data).filter((entry): entry is [string, JsonValue] =>
+					isJsonValue(entry[1]),
+				),
+			)
+		: payload;
 };

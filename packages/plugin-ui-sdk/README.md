@@ -98,10 +98,17 @@ curve.
   group identity in both themes. `groupColors` lists the names, `groupColorVariable(color, { soft })`
   returns the CSS variable, and `Card` marks its edge with `groupColor`. Pair a color with its name or a
   label, never color alone.
-- `SchemaForm` renders an array of managed-asset objects as a thumbnail grid with add and remove
-  buttons. The caller supplies the `uploadAsset` and `renderAsset` transports; without them the field
-  reports itself unsupported. In `edit` mode a property marked `immutable` renders disabled with
-  "Can't be changed after creation" and still contributes its value to the payload.
+- `SchemaForm` recursively renders `AppSchema` objects and arrays, including item-level choices,
+  dates, and asset metadata. Objects and lists are collapsible; list moves call the supplied haptic
+  callback. Callers supply upload, asset-preview, and OAuth transports. Missing capabilities and
+  unresolved dynamic choices produce field-specific errors. OAuth and temporary import uploads
+  must be top-level fields; backend schema admission enforces this restriction.
+- Schema forms share value decoding and numeric normalization with backend writes. Required means
+  present and non-null; use `minLength` or `minItems` to forbid empty values. Clear writes `null`,
+  while an emptied list stays `[]`. Date-only values stay unchanged; datetimes use the supplied time
+  zone, defaulting to the device zone, and submit UTC timestamps. Immutable fields are disabled on
+  edit. Omitted object secrets retain stored values. Unchanged secret-bearing arrays are retained;
+  edited arrays replace the whole list and require their declared secrets again.
 - `DataTable` stays unstyled; tables use 12px subtle headers, divided rows, `hover` row fill, and
   right-aligned tabular numbers.
 

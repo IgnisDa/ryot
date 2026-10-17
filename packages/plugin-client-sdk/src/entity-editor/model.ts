@@ -1,13 +1,12 @@
-import { AssetLocator, ManagedAssetLocator } from "@ryot-app/contract/modules/assets/schemas";
+import { ManagedAssetLocator } from "@ryot-app/contract/modules/assets/schemas";
 import type { EntityEditorSubmission } from "@ryot-app/contract/modules/entities/editor";
 import type { EntityId } from "@ryot-app/contract/schema/brands";
-import type { AppSchema } from "@ryot-app/contract/schema/property-schema";
+import type { AppPropertyDefinition, AppSchema } from "@ryot-app/contract/schema/property-schema";
+import { retainPropertySecrets } from "@ryot-app/contract/schema/property-secrets";
 import {
-	describeSchemaFormFields,
 	initialSchemaFormValues,
 	toSchemaFormPayload,
 	type SchemaFormMode,
-	type SchemaFormValue,
 	type SchemaFormValues,
 } from "@ryot-app/plugin-ui-sdk/schema-form";
 import { Schema } from "effect";
@@ -33,54 +32,67 @@ export type EditorRelationshipTargets = Readonly<
 	Record<string, readonly EditorRelationshipTarget[]>
 >;
 
-const SchemaFormValueSchema = Schema.Union([
-	Schema.String,
-	Schema.Finite,
-	Schema.Boolean,
-	Schema.Array(Schema.Union([Schema.String, Schema.Finite, Schema.Boolean])),
-	Schema.Array(AssetLocator),
-]);
-
-const isSchemaFormValue = Schema.is(SchemaFormValueSchema);
 const isManagedAsset = Schema.is(ManagedAssetLocator);
 
 export const entityFormValues = (
 	schema: AppSchema,
 	properties: EditorProperties,
-): SchemaFormValues => {
-	const stored = Object.fromEntries(
-		Object.entries(properties).filter((entry): entry is [string, SchemaFormValue] =>
-			isSchemaFormValue(entry[1]),
-		),
-	);
-	return { ...initialSchemaFormValues(schema), ...stored };
-};
+): SchemaFormValues => initialSchemaFormValues(schema, undefined, properties);
 
 export const entityPropertiesPayload = (
 	schema: AppSchema,
 	values: SchemaFormValues,
 	mode: SchemaFormMode,
 	stored: EditorProperties,
-): Record<string, unknown> => {
-	const { unsupported } = describeSchemaFormFields(schema, values, mode);
-	return {
-		...Object.fromEntries(
-			unsupported.flatMap((key) => (key in stored ? [[key, stored[key]]] : [])),
-		),
-		...toSchemaFormPayload(schema, values),
-	};
+): Record<string, unknown> =>
+	retainPropertySecrets(
+		schema,
+		stored,
+		toSchemaFormPayload(schema, values, mode, entityFormValues(schema, stored)),
+	);
+
+const propertyAssets = (
+	property: AppPropertyDefinition,
+	value: unknown,
+): readonly ManagedAssetLocator[] => {
+	if (property.type === "object" && property.validation?.asset) {
+		return isManagedAsset(value) ? [value] : [];
+	}
+	if (property.type === "array" && Array.isArray(value)) {
+		return value.flatMap((item) => propertyAssets(property.items, item));
+	}
+	if (
+		property.type === "object" &&
+		value !== null &&
+		typeof value === "object" &&
+		!Array.isArray(value)
+	) {
+		return Object.entries(property.properties).flatMap(([key, child]) =>
+			propertyAssets(child, Reflect.get(value, key)),
+		);
+	}
+	return [];
 };
 
-export const managedAssetsOf = (properties: EditorProperties): readonly ManagedAssetLocator[] =>
-	Object.values(properties).flatMap((value) =>
-		Array.isArray(value) ? value.filter((item) => isManagedAsset(item)) : [],
+export const managedAssetsOf = (
+	properties: EditorProperties,
+	schema: AppSchema,
+): readonly ManagedAssetLocator[] =>
+	Object.entries(schema.fields).flatMap(([key, property]) =>
+		propertyAssets(property, properties[key]),
 	);
 
 export const unreferencedUploads = (
 	uploaded: ReadonlyMap<string, ManagedAssetLocator>,
 	saved: EditorProperties,
+	schema: AppSchema,
+	relationshipAssets: readonly ManagedAssetLocator[] = [],
 ) => {
-	const referenced = new Set(managedAssetsOf(saved).map((asset) => managedAssetKey(asset)));
+	const referenced = new Set(
+		[...managedAssetsOf(saved, schema), ...relationshipAssets].map((asset) =>
+			managedAssetKey(asset),
+		),
+	);
 	return [...uploaded].flatMap(([key, asset]) => (referenced.has(key) ? [] : [asset]));
 };
 

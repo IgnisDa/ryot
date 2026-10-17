@@ -17,7 +17,8 @@ import { Effect } from "effect";
 import { useLayoutEffect, useRef, useState } from "react";
 
 import { managedAssetKey } from "../assets/keys";
-import { ManagedAssetProvider, useAssetUrl } from "../assets/provider";
+import { ManagedAssetProvider } from "../assets/provider";
+import { AssetImage } from "../assets/schema-form";
 import type { RyotClient } from "../client/client";
 import type { RyotClientError } from "../client/errors";
 import { PluginScreenFrame } from "../plugin-screen";
@@ -154,20 +155,7 @@ const sourceQuery = createRyotQuery(
 	{ cancelOnUnmount: true },
 );
 
-function AssetThumb(props: { readonly asset: AssetLocator }) {
-	const url = useAssetUrl(props.asset);
-	const [video, setVideo] = useState(false);
-	if (url === undefined) {
-		return <span aria-hidden="true" className="block size-full bg-surface-2" />;
-	}
-	return video ? (
-		<video muted src={url} preload="metadata" className="size-full object-cover" />
-	) : (
-		<img alt="" src={url} onError={() => setVideo(true)} className="size-full object-cover" />
-	);
-}
-
-const renderAsset = (asset: AssetLocator) => <AssetThumb asset={asset} />;
+const renderAsset = (asset: AssetLocator) => <AssetImage asset={asset} />;
 
 type SaveStatus =
 	| { readonly kind: "idle" }
@@ -192,6 +180,15 @@ function EntityEditorForm(
 ) {
 	const client = useRyot();
 	const schedule = useRyotSchedule();
+	const reorderFeedback = () => {
+		const identity = client.pluginIdentity(props.packageId);
+		schedule.run(
+			client
+				.device({ action: "haptic", kind: "selection", pluginId: identity.pluginId })
+				.pipe(Effect.ignore),
+			() => undefined,
+		);
+	};
 	const { mode, source, definitions } = props;
 	const schema = definitions.entity.propertiesSchema;
 	const formMode = mode.kind === "edit" ? "edit" : "create";
@@ -206,7 +203,15 @@ function EntityEditorForm(
 		source.relationships,
 	);
 	const [rowErrors, setRowErrors] = useState<ReadonlyMap<string, string>>(new Map());
-	const [managed, setManaged] = useState<readonly ManagedAssetLocator[]>(managedAssetsOf(stored));
+	const relationshipAssets = () =>
+		definitions.relationships.flatMap((definition) =>
+			(relationships[definition.slug] ?? []).flatMap((target) =>
+				managedAssetsOf(target.properties, definition.propertiesSchema),
+			),
+		);
+	const [managed, setManaged] = useState<readonly ManagedAssetLocator[]>(
+		managedAssetsOf(stored, schema),
+	);
 
 	const cleanup = (assets: readonly ManagedAssetLocator[]) =>
 		Effect.forEach(assets, (asset) => Effect.ignore(client.uploads.cleanup(asset)), {
@@ -264,9 +269,9 @@ function EntityEditorForm(
 						Effect.sync(() => setStatus({ kind: "error", message: SAVE_FAILED_MESSAGE })),
 					onSuccess: (output) => {
 						if (output.kind === "saved") {
-							return cleanup(unreferencedUploads(uploaded.current, properties)).pipe(
-								Effect.andThen(Effect.sync(() => props.onSaved(output.entityId))),
-							);
+							return cleanup(
+								unreferencedUploads(uploaded.current, properties, schema, relationshipAssets()),
+							).pipe(Effect.andThen(Effect.sync(() => props.onSaved(output.entityId))));
 						}
 						return Effect.sync(() =>
 							setStatus({
@@ -284,7 +289,7 @@ function EntityEditorForm(
 	const form = useSchemaForm({ mode: formMode, onSubmit: submit, schemas: [schema] });
 	const [initialValues] = useState(() => entityFormValues(schema, stored));
 	useLayoutEffect(() => {
-		form.reset(initialValues);
+		form.reset({ fields: initialValues });
 	}, [form, initialValues]);
 
 	const uploadAsset: SchemaAssetUpload = (request) =>
@@ -322,7 +327,7 @@ function EntityEditorForm(
 					/>
 				)}
 			</Field>
-			<ManagedAssetProvider assets={managed}>
+			<ManagedAssetProvider assets={[...managed, ...relationshipAssets()]}>
 				<SchemaForm
 					form={form}
 					schema={schema}
@@ -330,28 +335,35 @@ function EntityEditorForm(
 					icons={schemaFormIcons}
 					uploadAsset={uploadAsset}
 					renderAsset={renderAsset}
+					onReorder={reorderFeedback}
 					uploadFile={() =>
 						Promise.resolve({ kind: "failed", message: "File uploads are not supported here." })
 					}
 					onChange={() =>
 						setManaged(
-							managedAssetsOf(entityPropertiesPayload(schema, form.state.values, formMode, stored)),
+							managedAssetsOf(
+								entityPropertiesPayload(schema, form.state.values.fields, formMode, stored),
+								schema,
+							),
 						)
 					}
 				/>
+				{definitions.relationships.map((definition) => (
+					<RelationshipSection
+						errors={rowErrors}
+						key={definition.slug}
+						definition={definition}
+						uploadAsset={uploadAsset}
+						renderAsset={renderAsset}
+						packageId={props.packageId}
+						onReorder={reorderFeedback}
+						targets={relationships[definition.slug] ?? []}
+						onChange={(targets) =>
+							setRelationships((current) => ({ ...current, [definition.slug]: targets }))
+						}
+					/>
+				))}
 			</ManagedAssetProvider>
-			{definitions.relationships.map((definition) => (
-				<RelationshipSection
-					errors={rowErrors}
-					key={definition.slug}
-					definition={definition}
-					packageId={props.packageId}
-					targets={relationships[definition.slug] ?? []}
-					onChange={(targets) =>
-						setRelationships((current) => ({ ...current, [definition.slug]: targets }))
-					}
-				/>
-			))}
 			{status.kind === "error" ? (
 				<StatusMessage tone="error">{status.message}</StatusMessage>
 			) : null}

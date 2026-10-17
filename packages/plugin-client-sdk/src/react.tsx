@@ -32,3 +32,4 @@ export type { RyotSubmission } from "./queries/submission";
 export { useRyotSubmission } from "./queries/submission-hook";
 export { useEntityRefresh, useEntitySettle } from "./refresh/entity-hooks";
 export { usePageRefresh, usePageRefreshRequest } from "./refresh/page-registry";
+export { renderSchemaAsset, useSchemaAssetUpload } from "./assets/schema-form";

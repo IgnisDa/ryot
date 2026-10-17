@@ -157,9 +157,8 @@ const oauthSchema = {
 
 describe("schema form state", () => {
 	it("describes an OAuth connection property as a connect control for its provider", () => {
-		const { fields, unsupported } = describeSchemaFormFields(oauthSchema);
+		const { fields } = describeSchemaFormFields(oauthSchema);
 
-		expect(unsupported).toEqual([]);
 		expect(fields).toMatchObject([
 			{
 				key: "account",
@@ -182,9 +181,8 @@ describe("schema form state", () => {
 	});
 
 	it("describes upload properties as required file controls with their extensions", () => {
-		const { fields, unsupported } = describeSchemaFormFields(uploadSchema, { mode: "export" });
+		const { fields } = describeSchemaFormFields(uploadSchema, { mode: "export" });
 
-		expect(unsupported).toEqual([]);
 		expect(fields.map((field) => field.key)).toEqual(["collection", "mode", "exportUploadToken"]);
 		expect(fields.find((field) => field.key === "exportUploadToken")).toMatchObject({
 			required: true,
@@ -225,19 +223,28 @@ describe("schema form state", () => {
 		expect(toSchemaFormPayload(uploadSchema, values)).toEqual({ mode: "user", username: "ryot" });
 	});
 
-	it("describes supported fields and reports unsupported property types", () => {
-		const { fields, unsupported } = describeSchemaFormFields(schema);
+	it("describes object properties alongside supported field types", () => {
+		const { fields } = describeSchemaFormFields(schema);
 
 		expect(fields.map((field) => field.key).sort()).toEqual([
 			"adult",
 			"genres",
 			"note",
+			"payload",
+			"records",
 			"region",
 			"tags",
 			"title",
 			"year",
 		]);
-		expect([...unsupported].sort()).toEqual(["payload", "records"]);
+		expect(fields.find((field) => field.key === "payload")).toMatchObject({
+			type: "object",
+			control: "object",
+		});
+		expect(fields.find((field) => field.key === "records")).toMatchObject({
+			type: "array",
+			control: "list",
+		});
 		expect(fields.find((field) => field.key === "tags")).toMatchObject({
 			type: "array",
 			control: "list",
@@ -251,7 +258,7 @@ describe("schema form state", () => {
 		expect(fields.find((field) => field.key === "note")?.choices).toBeUndefined();
 	});
 
-	it("reports unresolved dynamic choices as unsupported", () => {
+	it("describes dynamic enum properties as text fields", () => {
 		const describedSchema = {
 			fields: {
 				region: {
@@ -262,10 +269,9 @@ describe("schema form state", () => {
 			},
 		} satisfies AppSchema;
 
-		expect(describeSchemaFormFields(describedSchema)).toEqual({
-			fields: [],
-			unsupported: ["region"],
-		});
+		expect(describeSchemaFormFields(describedSchema).fields).toMatchObject([
+			{ key: "region", control: "text" },
+		]);
 	});
 
 	it("orders fields by position and preserves declaration order for ties", () => {
@@ -300,7 +306,9 @@ describe("schema form state", () => {
 			0,
 		);
 		expect(
-			validateSchemaFormValues(visibilitySchema, { secret: "", advanced: true }).get("secret"),
+			validateSchemaFormValues(visibilitySchema, { advanced: true, secret: undefined }).get(
+				"secret",
+			),
 		).toBe("Secret is required");
 	});
 
@@ -339,11 +347,13 @@ describe("schema form state", () => {
 		).toBeUndefined();
 	});
 
-	it("reports declared required fields and treats empty selections as missing", () => {
+	it("accepts empty strings and selections but requires a missing declared field", () => {
 		const errors = validateSchemaFormValues(schema, { title: "", genres: [], region: "us" });
 
-		expect(errors.get("title")).toBe("Title is required");
-		expect(errors.get("genres")).toBeUndefined();
+		expect(errors.size).toBe(0);
+		expect(validateSchemaFormValues(schema, { region: "us", title: undefined }).has("title")).toBe(
+			true,
+		);
 	});
 
 	it("uses blank defaults for exists conditions and conditional requiredness", () => {
@@ -382,10 +392,10 @@ describe("schema form state", () => {
 		expect(validateSchemaFormValues(defaultedSchema, values).get("note")).toBe(
 			"Defaults make note required",
 		);
-		expect(toSchemaFormPayload(defaultedSchema, values)).toEqual({ selections: [] });
+		expect(toSchemaFormPayload(defaultedSchema, values)).toEqual({ text: "", selections: [] });
 	});
 
-	it("restores nonblank default semantics when the UI value is cleared", () => {
+	it("lets explicit null override a default", () => {
 		const defaultedSchema = {
 			rules: [
 				{
@@ -407,8 +417,8 @@ describe("schema form state", () => {
 		} satisfies AppSchema;
 
 		expect(validateSchemaFormValues(defaultedSchema, { region: "uk" }).has("note")).toBe(false);
-		expect(validateSchemaFormValues(defaultedSchema, { region: "" }).has("note")).toBe(true);
-		expect(toSchemaFormPayload(defaultedSchema, { region: "" })).toEqual({});
+		expect(validateSchemaFormValues(defaultedSchema, { region: null }).has("note")).toBe(false);
+		expect(toSchemaFormPayload(defaultedSchema, { region: null })).toEqual({ region: null });
 	});
 
 	it("prefers an active conditional message for a statically required field", () => {
@@ -428,9 +438,9 @@ describe("schema form state", () => {
 			],
 		} satisfies AppSchema;
 
-		expect(validateSchemaFormValues(requiredSchema, { title: "", region: "uk" }).get("title")).toBe(
-			"A UK title is required",
-		);
+		expect(
+			validateSchemaFormValues(requiredSchema, { region: "uk", title: undefined }).get("title"),
+		).toBe("A UK title is required");
 	});
 
 	it("evaluates existence, membership, and combined rule conditions", () => {
@@ -446,7 +456,7 @@ describe("schema form state", () => {
 				withRules([{ ...noteRule, when: { path: ["region"], operator: "exists" } }]),
 				values,
 			).get("note"),
-		).toBe("Note is required");
+		).toBe("note is required");
 		expect(
 			validateSchemaFormValues(
 				withRules([{ ...noteRule, when: { path: ["region"], operator: "not_exists" } }]),
@@ -460,7 +470,7 @@ describe("schema form state", () => {
 				]),
 				values,
 			).get("note"),
-		).toBe("Note is required");
+		).toBe("note is required");
 		expect(
 			validateSchemaFormValues(
 				withRules([{ ...noteRule, when: { value: ["uk"], path: ["region"], operator: "not_in" } }]),
@@ -483,7 +493,7 @@ describe("schema form state", () => {
 				]),
 				values,
 			).get("note"),
-		).toBe("Note is required");
+		).toBe("note is required");
 		expect(
 			validateSchemaFormValues(
 				withRules([
@@ -503,7 +513,7 @@ describe("schema form state", () => {
 	it.each([
 		["empty text", ""],
 		["empty selection", []],
-	] as const)("treats %s as absent for exists and not_exists", (_name, blank) => {
+	] as const)("treats %s as present for exists and not_exists", (_name, blank) => {
 		const conditional = (operator: "exists" | "not_exists") => {
 			const trigger =
 				typeof blank === "string"
@@ -527,13 +537,13 @@ describe("schema form state", () => {
 		};
 		const values = { trigger: blank, note: undefined };
 
-		expect(validateSchemaFormValues(conditional("exists"), values).get("note")).toBeUndefined();
-		expect(validateSchemaFormValues(conditional("not_exists"), values).get("note")).toBe(
-			"Note is required",
+		expect(validateSchemaFormValues(conditional("exists"), values).get("note")).toBe(
+			"note is required",
 		);
+		expect(validateSchemaFormValues(conditional("not_exists"), values).get("note")).toBeUndefined();
 	});
 
-	it("omits undefined and empty-string values from the payload", () => {
+	it("preserves empty strings and materialized defaults in the payload", () => {
 		expect(
 			toSchemaFormPayload(schema, {
 				note: "",
@@ -543,100 +553,20 @@ describe("schema form state", () => {
 				genres: ["epic"],
 				region: undefined,
 			}),
-		).toEqual({ year: 2026, adult: false, title: "Dune", genres: ["epic"] });
-		expect(toSchemaFormPayload(schema, { note: "", region: undefined })).toEqual({});
-	});
-
-	it("validates primitive array bounds and item declarations", () => {
-		const arrays = {
-			fields: {
-				scores: {
-					...described("Scores"),
-					type: "array",
-					items: {
-						...described("Score"),
-						type: "integer",
-						validation: { minimum: 0, maximum: 100 },
-					},
-				},
-				tags: {
-					...described("Tags"),
-					type: "array",
-					validation: { minItems: 2, maxItems: 3 },
-					items: { ...described("Tag"), type: "string", validation: { minLength: 2 } },
-				},
-			},
-		} satisfies AppSchema;
-
-		expect(validateSchemaFormValues(arrays, { tags: ["ok"] }).get("tags")).toContain("at least 2");
-		expect(
-			validateSchemaFormValues(arrays, { tags: ["ok", "yes", "no", "extra"] }).get("tags"),
-		).toContain("at most 3");
-		expect(validateSchemaFormValues(arrays, { tags: ["x", "ok"] }).get("tags")).toContain(
-			"too short",
-		);
-		expect(validateSchemaFormValues(arrays, { scores: [101] }).get("scores")).toContain(
-			"above the maximum",
-		);
-		expect(validateSchemaFormValues(arrays, { scores: [1.5] }).get("scores")).toContain(
-			"invalid value",
-		);
-		expect(validateSchemaFormValues(arrays, { scores: [50], tags: ["ok", "yes"] }).size).toBe(0);
-		expect(toSchemaFormPayload(arrays, { scores: [50], tags: ["ok", "yes"] })).toEqual({
-			scores: [50],
-			tags: ["ok", "yes"],
+		).toEqual({
+			note: "",
+			year: 2026,
+			adult: false,
+			region: "us",
+			title: "Dune",
+			genres: ["epic"],
 		});
-	});
-
-	it("validates scalar values with their complete property declarations", () => {
-		const scalars = {
-			fields: {
-				year: { ...described("Year"), type: "integer" },
-				site: { ...described("Site"), type: "string", format: { kind: "url" } },
-				region: { ...described("Region"), type: "enum", choices: choices("us", "uk") },
-				score: {
-					...described("Score"),
-					type: "number",
-					validation: { minimum: 0, maximum: 10, multipleOf: 2 },
-				},
-				handle: {
-					...described("Handle"),
-					type: "string",
-					validation: { minLength: 3, maxLength: 8, pattern: "^[a-z]+$" },
-				},
-			},
-		} satisfies AppSchema;
-
-		expect(validateSchemaFormValues(scalars, { handle: "ab" }).get("handle")).toBe(
-			"Handle is too short",
-		);
-		expect(validateSchemaFormValues(scalars, { handle: "TOOLONGVALUE" }).get("handle")).toBe(
-			"Handle is too long",
-		);
-		expect(validateSchemaFormValues(scalars, { handle: "abc1" }).get("handle")).toBe(
-			"Handle has an invalid format",
-		);
-		expect(validateSchemaFormValues(scalars, { site: "ftp://example.com" }).get("site")).toBe(
-			"Site has an invalid format",
-		);
-		expect(validateSchemaFormValues(scalars, { score: 3 }).get("score")).toBe(
-			"Score is not a valid increment",
-		);
-		expect(validateSchemaFormValues(scalars, { year: 2026.5 }).get("year")).toBe(
-			"Year has an invalid value",
-		);
-		expect(validateSchemaFormValues(scalars, { region: "ca" }).get("region")).toBe(
-			"Region has an invalid value",
-		);
-		expect(
-			validateSchemaFormValues(scalars, {
-				score: 4,
-				year: 2026,
-				region: "us",
-				handle: "ryot",
-				site: "https://example.com",
-			}).size,
-		).toBe(0);
+		expect(toSchemaFormPayload(schema, { note: "", region: undefined })).toEqual({
+			note: "",
+			year: 2026,
+			adult: false,
+			region: "us",
+		});
 	});
 
 	it("keeps a defaulted single-choice enum in the payload without rendering it", () => {
@@ -653,10 +583,9 @@ describe("schema form state", () => {
 			},
 		} satisfies AppSchema;
 
-		expect(describeSchemaFormFields(fixed)).toEqual({
-			unsupported: [],
-			fields: [expect.objectContaining({ key: "baseUrl" })],
-		});
+		expect(describeSchemaFormFields(fixed).fields).toEqual([
+			expect.objectContaining({ key: "baseUrl" }),
+		]);
 		expect(initialSchemaFormValues(fixed)).toEqual({ kind: "radarr", baseUrl: undefined });
 		expect(toSchemaFormPayload(fixed, { baseUrl: "https://radarr.test" })).toEqual({
 			kind: "radarr",
@@ -752,7 +681,7 @@ describe("schema form state", () => {
 		});
 	});
 
-	it("reports an emptied list as missing when the field is required", () => {
+	it("accepts an emptied list when the field is required", () => {
 		const listSchema = {
 			fields: {
 				sites: {
@@ -764,9 +693,7 @@ describe("schema form state", () => {
 			},
 		} satisfies AppSchema;
 
-		expect(validateSchemaFormValues(listSchema, { sites: [] }).get("sites")).toBe(
-			"Sites is required",
-		);
+		expect(validateSchemaFormValues(listSchema, { sites: [] }).has("sites")).toBe(false);
 		expect(validateSchemaFormValues(listSchema, { sites: ["a.example"] }).size).toBe(0);
 	});
 
@@ -782,12 +709,10 @@ describe("schema form state", () => {
 			},
 		} satisfies AppSchema;
 
-		expect(validateSchemaFormValues(listSchema, { sites: [] }).get("sites")).toBe(
-			"Sites needs at least 2 items",
-		);
+		expect(validateSchemaFormValues(listSchema, { sites: [] }).has("sites")).toBe(true);
 	});
 
-	it("keeps a blank required secret valid when editing but not when creating", () => {
+	it("keeps a missing required secret valid when editing but not when creating", () => {
 		const secretSchema = {
 			fields: {
 				baseUrl: { ...described("Base URL"), type: "string", validation: { required: true } },
@@ -799,7 +724,7 @@ describe("schema form state", () => {
 				},
 			},
 		} satisfies AppSchema;
-		const values = { apiKey: "", baseUrl: "https://a.example" };
+		const values = { apiKey: undefined, baseUrl: "https://a.example" };
 
 		expect(validateSchemaFormValues(secretSchema, values, "edit").size).toBe(0);
 		expect(validateSchemaFormValues(secretSchema, values, "create").get("apiKey")).toBe(
@@ -843,9 +768,7 @@ describe("timezone format", () => {
 		expect(validateSchemaFormValues(timezoneSchema, { timezone: "Asia/Calcutta" }).size).toBe(0);
 		expect(validateSchemaFormValues(timezoneSchema, { timezone: "UTC" }).size).toBe(0);
 		for (const timezone of ["Not/AZone", "+05:30"]) {
-			expect(validateSchemaFormValues(timezoneSchema, { timezone }).get("timezone")).toBe(
-				"Timezone has an invalid format",
-			);
+			expect(validateSchemaFormValues(timezoneSchema, { timezone }).has("timezone")).toBe(true);
 		}
 	});
 });
@@ -859,11 +782,10 @@ describe("asset lists", () => {
 		{ type: "remote", url: "https://example.test/b.png" },
 	] as const;
 
-	it("renders an asset array as an assets control instead of an unsupported field", () => {
-		const description = describeSchemaFormFields(assetSchema);
+	it("renders an asset array as an assets control", () => {
+		const { fields } = describeSchemaFormFields(assetSchema);
 
-		expect(description.unsupported).toEqual([]);
-		expect(description.fields).toEqual([
+		expect(fields).toEqual([
 			expect.objectContaining({ key: "images", type: "assets", control: "assets" }),
 			expect.objectContaining({ key: "note" }),
 		]);
@@ -884,8 +806,8 @@ describe("asset lists", () => {
 
 		expect(initialSchemaFormValues(defaulted)).toEqual({ images: locators });
 		expect(validateSchemaFormValues(assetSchema, { images: locators }).size).toBe(0);
-		expect(validateSchemaFormValues(assetSchema, { images: ["not-a-locator"] }).get("images")).toBe(
-			"Images has an invalid value",
+		expect(validateSchemaFormValues(assetSchema, { images: ["not-a-locator"] }).has("images")).toBe(
+			true,
 		);
 	});
 });

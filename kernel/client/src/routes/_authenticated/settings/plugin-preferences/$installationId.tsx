@@ -1,12 +1,15 @@
-import { useRyotMutation, useRyotQuery } from "@ryot-app/plugin-client-sdk/react";
+import {
+	renderSchemaAsset,
+	useRyotMutation,
+	useRyotQuery,
+	useSchemaAssetUpload,
+} from "@ryot-app/plugin-client-sdk/react";
 import { Button, DestructiveConfirmation, StatusMessage } from "@ryot-app/plugin-ui-sdk";
 import {
 	initialSchemaFormValues,
 	SchemaForm,
 	toSchemaFormPayload,
 	useSchemaForm,
-	type SchemaFormArrayValue,
-	type SchemaFormValue,
 	type SchemaFormValues,
 } from "@ryot-app/plugin-ui-sdk/schema-form";
 import type { PluginUserSettingsPage } from "@ryot-app/ryotql-recipes/plugin-user-settings";
@@ -22,6 +25,7 @@ import {
 	savePluginUserSettingsMutation,
 } from "#/modules/settings/plugin-preferences-service";
 import { SettingsFrame } from "#/modules/settings/settings-frame";
+import { schemaFormReorderFeedback } from "#/modules/ui/schema-form-feedback";
 import { schemaFormIcons } from "#/modules/ui/schema-form-icons";
 import { useSchemaFileUpload } from "#/modules/ui/schema-form-upload";
 import { useFormSeed } from "#/modules/ui/use-form-seed";
@@ -29,25 +33,8 @@ import { useFormSeed } from "#/modules/ui/use-form-seed";
 type PluginUserSetting = PluginUserSettingsPage["items"][number];
 type EditorStatus = "saved" | "save-failed" | "reset" | "reset-failed";
 
-const isSchemaFormArrayValue = (value: unknown): value is SchemaFormArrayValue =>
-	typeof value === "string" || typeof value === "number" || typeof value === "boolean";
-
-const toSchemaFormValue = (value: unknown): SchemaFormValue | undefined => {
-	if (isSchemaFormArrayValue(value)) {
-		return value;
-	}
-	return Array.isArray(value) && value.every(isSchemaFormArrayValue) ? value : undefined;
-};
-
-const initialPluginUserSettingsFormValues = (setting: PluginUserSetting): SchemaFormValues => {
-	const stored = Object.fromEntries(
-		Object.keys(setting.settingsSchema.fields).flatMap((key) => {
-			const value = toSchemaFormValue(setting.settings[key]);
-			return value === undefined ? [] : [[key, value]];
-		}),
-	);
-	return { ...initialSchemaFormValues(setting.settingsSchema), ...stored };
-};
+const initialPluginUserSettingsFormValues = (setting: PluginUserSetting): SchemaFormValues =>
+	initialSchemaFormValues(setting.settingsSchema, undefined, setting.settings);
 
 export const Route = createFileRoute("/_authenticated/settings/plugin-preferences/$installationId")(
 	{ component: PluginUserSettingsRoute },
@@ -91,6 +78,7 @@ function PluginUserSettingsEditor(props: {
 }) {
 	const { backInterceptors } = Route.useRouteContext();
 	const uploadFile = useSchemaFileUpload();
+	const uploadAsset = useSchemaAssetUpload();
 	const save = useRyotMutation(savePluginUserSettingsMutation);
 	const reset = useRyotMutation(resetPluginUserSettingsMutation);
 	const [status, setStatus] = useState<EditorStatus>();
@@ -100,7 +88,12 @@ function PluginUserSettingsEditor(props: {
 			save
 				.mutateEffect({
 					installationId: props.setting.id,
-					payload: toSchemaFormPayload(props.setting.settingsSchema, values),
+					payload: toSchemaFormPayload(
+						props.setting.settingsSchema,
+						values,
+						"edit",
+						initialPluginUserSettingsFormValues(props.setting),
+					),
 				})
 				.pipe(
 					Effect.tap(() => Effect.sync(() => setStatus("saved"))),
@@ -173,7 +166,10 @@ function PluginUserSettingsEditor(props: {
 							form={form}
 							icons={schemaFormIcons}
 							uploadFile={uploadFile}
+							uploadAsset={uploadAsset}
+							renderAsset={renderSchemaAsset}
 							onChange={() => setStatus(undefined)}
+							onReorder={schemaFormReorderFeedback}
 							schema={props.setting.settingsSchema}
 						/>
 					</fieldset>

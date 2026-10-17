@@ -5,7 +5,11 @@ import {
 } from "@ryot-app/contract/modules/plugins/references";
 import type { EntityId, SandboxProviderId } from "@ryot-app/contract/schema/brands";
 import type { ProviderSearchScreenOutcome } from "@ryot-app/plugin-client-contract";
-import { useRyot } from "@ryot-app/plugin-client-sdk/react";
+import {
+	renderSchemaAsset,
+	useRyot,
+	useSchemaAssetUpload,
+} from "@ryot-app/plugin-client-sdk/react";
 import { Modal } from "@ryot-app/plugin-ui-sdk";
 import { useRouteContext } from "@tanstack/react-router";
 import { Effect } from "effect";
@@ -50,6 +54,7 @@ const loadedProviderState = (
 });
 
 export function ProviderAddModal(props: ProviderAddModalProps) {
+	const uploadAsset = useSchemaAssetUpload();
 	const ryot = useRyot();
 	const uploadFile = useSchemaFileUpload();
 	const { scope, runtime } = useRouteContext({ from: "/_authenticated" });
@@ -204,8 +209,10 @@ export function ProviderAddModal(props: ProviderAddModalProps) {
 				search={search}
 				onClose={close}
 				uploadFile={uploadFile}
+				uploadAsset={uploadAsset}
 				providers={state.providers}
 				importEntity={importEntity}
+				renderAsset={renderSchemaAsset}
 				onSelectProvider={selectProvider}
 				initialQuery={props.initialQuery}
 				loadEntityLinks={loadEntityLinks}

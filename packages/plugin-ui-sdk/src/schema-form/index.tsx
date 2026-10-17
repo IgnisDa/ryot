@@ -14,11 +14,9 @@ export type { SchemaOAuthConnect, SchemaOAuthConnectOutcome } from "./oauth/conn
 export {
 	describeSchemaFormFields,
 	initialSchemaFormValues,
-	isRetainedSecretField,
 	schemaChoiceLabel,
 	toSchemaFormPayload,
 	validateSchemaFormValues,
-	type SchemaFormArrayValue,
 	type SchemaFormControl,
 	type SchemaFormField,
 	type SchemaFormMode,
