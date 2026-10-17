@@ -162,7 +162,11 @@ function ProviderResults(props: {
 				{heading}
 				{pagination.isError ? (
 					<div className="grid gap-2">
-						<PanelFailure className="min-h-24" />
+						<PanelFailure
+							className="min-h-24"
+							error={pagination.error}
+							providerName={props.provider.providerName}
+						/>
 						<Button onClick={pagination.retry} aria-label="Try searching again">
 							Try again
 						</Button>

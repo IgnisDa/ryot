@@ -1,8 +1,9 @@
 import { afterEach, describe, expect, it } from "@effect/vitest";
-import type {
-	SearchProviderEntitiesBody,
-	SearchProviderEntitiesResponse,
-	SearchProviderOptionsResponse,
+import {
+	ProviderEntityBadRequest,
+	type SearchProviderEntitiesBody,
+	type SearchProviderEntitiesResponse,
+	type SearchProviderOptionsResponse,
 } from "@ryot-app/contract/modules/entity-providers/schemas";
 import { EntityId, EntitySchemaSlug, SandboxProviderId } from "@ryot-app/contract/schema/brands";
 import { createRyotQuery, RyotProvider } from "@ryot-app/plugin-client-sdk/react";
@@ -408,6 +409,32 @@ describe("provider search panel", () => {
 					providerId: providers[0].providerId,
 				})),
 			);
+		}),
+	);
+
+	it.live("explains a missing provider configuration instead of a connection problem", () =>
+		Effect.gen(function* () {
+			renderPanel({
+				initialQuery: "Sample",
+				search: () =>
+					Effect.fail(
+						new ProviderAddLoadError({
+							stage: "search",
+							cause: new ProviderEntityBadRequest({
+								reason: {
+									code: "search-failed",
+									cause: { code: "missing-config", configNames: ["Provider API key"] },
+								},
+							}),
+						}),
+					),
+			});
+			yield* Effect.promise(() =>
+				waitFor(() =>
+					expect(screen.getByText("Provider 1 isn't configured on this server")).toBeTruthy(),
+				),
+			);
+			expect(screen.queryByText("Unable to reach the server")).toBeNull();
 		}),
 	);
 

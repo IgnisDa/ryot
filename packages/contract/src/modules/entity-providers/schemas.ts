@@ -110,8 +110,16 @@ export const SearchProviderEntitiesResponse = strictStruct({
 });
 export type SearchProviderEntitiesResponse = typeof SearchProviderEntitiesResponse.Type;
 
+const ProviderSearchFailureCause = Schema.Union([
+	strictStruct({
+		code: Schema.Literal("missing-config"),
+		configNames: Schema.Array(Schema.String),
+	}),
+	strictStruct({ code: Schema.Literal("provider-error") }),
+]);
+
 const ProviderEntityBadRequestReason = Schema.Union([
-	strictStruct({ code: Schema.Literal("search-failed") }),
+	strictStruct({ cause: ProviderSearchFailureCause, code: Schema.Literal("search-failed") }),
 	strictStruct({ code: Schema.Literal("invalid-search-result") }),
 	strictStruct({ code: Schema.Literal("invalid-search-options") }),
 	strictStruct({ code: Schema.Literal("search-options-unavailable") }),

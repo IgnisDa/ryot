@@ -219,7 +219,19 @@ export class ProviderEntitySearchService extends Context.Service<ProviderEntityS
 				});
 				if (execution.error) {
 					yield* Effect.logError("provider search execution failed", execution.error);
-					return yield* new ProviderEntityBadRequest({ reason: { code: "search-failed" } });
+					const missing = execution.error.data;
+					if (missing?.code === "missing-required-config" && missing.keys?.length) {
+						const configNames = yield* pluginRuntime.resolveConfigKeyLabels(
+							resolved.pluginRevisionId,
+							missing.keys,
+						);
+						return yield* new ProviderEntityBadRequest({
+							reason: { code: "search-failed", cause: { configNames, code: "missing-config" } },
+						});
+					}
+					return yield* new ProviderEntityBadRequest({
+						reason: { code: "search-failed", cause: { code: "provider-error" } },
+					});
 				}
 				const result = yield* decodeProviderSearchResult(execution.value).pipe(
 					Effect.tapError((error) => Effect.logError("invalid provider search result", error)),

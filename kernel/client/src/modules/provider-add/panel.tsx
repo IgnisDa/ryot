@@ -53,6 +53,7 @@ import {
 	buildSearchPayload,
 	type ProviderSearchResultItem,
 } from "#/modules/provider-add/search-controller";
+import { describeSearchFailure, TRANSPORT_FAILURE } from "#/modules/provider-add/search-failure";
 import type { ProviderAddLoadError, ProviderSearchSummary } from "#/modules/provider-add/service";
 import { schemaFormReorderFeedback } from "#/modules/ui/schema-form-feedback";
 import { useFormSeed } from "#/modules/ui/use-form-seed";
@@ -69,11 +70,6 @@ const nonEmptySearchOptions = (
 	options: NonNullable<SearchProviderEntitiesBody["options"]>,
 ): NonNullable<SearchProviderEntitiesBody["options"]> | undefined =>
 	Object.keys(options).length === 0 ? undefined : options;
-
-const TRANSPORT_FAILURE = {
-	title: "Unable to reach the server",
-	detail: "The server could not be reached. Check your connection and try again.",
-} as const;
 
 export type ProviderEntityLinks = ReadonlyMap<string, EntityId>;
 
@@ -151,12 +147,20 @@ export function Spinner(props: { readonly label: string; readonly className?: st
 	);
 }
 
-export function PanelFailure(props: { readonly className?: string }) {
+export function PanelFailure(props: {
+	readonly className?: string;
+	readonly error?: unknown;
+	readonly providerName?: string;
+}) {
+	const copy =
+		props.providerName === undefined
+			? TRANSPORT_FAILURE
+			: describeSearchFailure(props.error, props.providerName);
 	return (
 		<div className={clsx("flex flex-col items-center justify-center gap-3 px-6", props.className)}>
-			<p className="text-center text-base font-medium text-text">{TRANSPORT_FAILURE.title}</p>
+			<p className="text-center text-base font-medium text-text">{copy.title}</p>
 			<StatusMessage tone="error" className="max-w-xl text-center text-sm">
-				{TRANSPORT_FAILURE.detail}
+				{copy.detail}
 			</StatusMessage>
 		</div>
 	);
@@ -579,7 +583,11 @@ function ProviderSearchForm(
 			if (pagination.isError) {
 				return (
 					<div className="grid gap-2">
-						<PanelFailure className="min-h-32" />
+						<PanelFailure
+							className="min-h-32"
+							error={pagination.error}
+							providerName={props.provider.providerName}
+						/>
 						<Button onClick={pagination.retry} aria-label="Try searching again">
 							Try again
 						</Button>

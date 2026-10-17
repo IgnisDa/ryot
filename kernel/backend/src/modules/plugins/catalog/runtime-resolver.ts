@@ -776,6 +776,22 @@ export class PluginRuntimeResolver extends Context.Service<PluginRuntimeResolver
 								: null,
 					};
 				});
+			const resolveConfigKeyLabels = Effect.fn(function* (
+				pluginRevisionId: string | null,
+				keys: ReadonlyArray<string>,
+			) {
+				const [row] =
+					pluginRevisionId === null
+						? []
+						: yield* database.run((db) =>
+								db
+									.select({ configSchema: schema.pluginRevision.configSchema })
+									.from(schema.pluginRevision)
+									.where(eq(schema.pluginRevision.id, pluginRevisionId))
+									.limit(1),
+							);
+				return keys.map((key) => row?.configSchema.fields[key]?.label ?? key);
+			});
 			const systemOperation = (operation: PluginProviderOperation) => (id: SandboxProviderId) =>
 				resolveProviderOperation(operation, null, id);
 			const userOperation =
@@ -787,6 +803,7 @@ export class PluginRuntimeResolver extends Context.Service<PluginRuntimeResolver
 				listSchemaProviders,
 				findActiveScriptById,
 				findActiveProviderById,
+				resolveConfigKeyLabels,
 				resolveActivePluginCron,
 				listSystemCronSchedules,
 				listPrivateCronSchedules,
