@@ -1,8 +1,11 @@
 import { ManagedAssetProvider, type RyotQuery } from "@ryot-app/plugin-client-sdk/react";
+import { AppIcon } from "@ryot-app/plugin-ui-sdk/icon";
+import { markdownPlainText } from "@ryot-app/plugin-ui-sdk/markdown";
 import { fieldSyncState, isTitleProvisional, SyncPip } from "@ryot-app/plugin-ui-sdk/sync";
 import clsx from "clsx";
 import { useRef, useState } from "react";
 
+import { MediaActivityLogSheet } from "./activity-log/sheet";
 import type { ActivityEpisode, MediaActivityLogger } from "./activity-log/state";
 import type { MediaCursorPage } from "./cursor-page-state";
 import { MediaCursorPages, type MediaCursorPagesCopy } from "./cursor-pages";
@@ -50,7 +53,7 @@ type MediaEpisodePageQuery<Episode, Scope extends object> = RyotQuery<
 >;
 
 const ARTWORK_WIDTH_CLASS: Record<MediaEpisodeArtworkAspect, { compact: string; regular: string }> =
-	{ still: { compact: "w-28", regular: "w-44" }, square: { compact: "w-20", regular: "w-24" } };
+	{ still: { compact: "w-24", regular: "w-36" }, square: { compact: "w-16", regular: "w-20" } };
 
 const artworkClass = (aspect: MediaEpisodeArtworkAspect, compact: boolean) =>
 	clsx(mediaAspectClass(aspect), ARTWORK_WIDTH_CLASS[aspect][compact ? "compact" : "regular"]);
@@ -64,23 +67,24 @@ function MediaEpisodeRow<Episode extends MediaEpisode>(props: {
 	readonly render: MediaEpisodeRender<Episode>;
 }) {
 	const { render, episode } = props;
-	const [open, setOpen] = useState(false);
+	const [overlay, setOverlay] = useState<"details" | "log">();
 	const triggerRef = useRef<HTMLButtonElement>(null);
 	const asset = mediaEpisodeAsset(episode, render.purpose);
 	const synopsis = mediaEpisodeSynopsis(episode);
 	const lifecycle = mediaEpisodeStateLabel(episode.state, render.stateLabels);
 	const meta = mediaEpisodeMetadataLabel(episode);
+	const watched = episode.state === "complete";
 	return (
 		<>
 			<button
 				type="button"
 				ref={triggerRef}
 				aria-haspopup="dialog"
-				onClick={() => setOpen(true)}
 				aria-label={`Open ${episode.name}`}
+				onClick={() => setOverlay("details")}
 				className={clsx(
-					"flex w-full items-start text-left focus-visible:outline-2 focus-visible:outline-accent",
-					props.compact ? "gap-3 py-3" : "gap-4 py-4",
+					"group flex w-full items-center text-left focus-visible:outline-2 focus-visible:outline-accent",
+					props.compact ? "gap-3 py-2.5" : "gap-4 py-3",
 					props.divided && "border-t border-border",
 				)}
 			>
@@ -90,45 +94,57 @@ function MediaEpisodeRow<Episode extends MediaEpisode>(props: {
 					state={fieldSyncState(asset, episode)}
 					className={clsx("shrink-0", artworkClass(render.aspect, props.compact))}
 				/>
-				<div className="flex min-w-0 flex-1 flex-col gap-1">
+				<div className="flex min-w-0 flex-1 flex-col gap-0.5">
 					<div className="flex items-baseline gap-2">
-						<span className="font-ui font-medium text-[12px] text-text-subtle">
+						<span className="text-xs font-medium text-text-subtle tabular-nums">
 							{render.numberLabel(episode)}
 						</span>
-						<span className="line-clamp-1 min-w-0 flex-1 font-ui font-medium text-[14px] text-text">
+						<span className="line-clamp-1 min-w-0 flex-1 text-sm font-medium text-text group-hover:text-accent-text">
 							{episode.name}
 							{isTitleProvisional(episode) && <SyncPip className="ml-1.5" reason="translating" />}
 						</span>
-						{lifecycle === undefined ? null : (
-							<span
-								className={clsx(
-									"font-ui text-[12px]",
-									episode.state === "complete" ? "text-success" : "text-accent-text",
-								)}
-							>
-								{lifecycle}
-							</span>
-						)}
 					</div>
 					{meta === "" ? null : (
-						<span className="font-ui text-[12px] text-text-subtle">{meta}</span>
+						<span className="text-xs text-text-subtle tabular-nums">{meta}</span>
 					)}
-					{synopsis === undefined ? null : (
-						<span className="line-clamp-2 font-ui text-[13px] leading-5 text-text-muted">
-							{synopsis}
+					{synopsis === undefined || props.compact ? null : (
+						<span className="line-clamp-1 text-label text-text-muted">
+							{markdownPlainText(synopsis)}
 						</span>
 					)}
 				</div>
+				{lifecycle === undefined ? null : (
+					<span
+						className={clsx(
+							"flex shrink-0 items-center gap-1 text-xs font-medium",
+							watched ? "text-success" : "text-accent-text",
+						)}
+					>
+						<AppIcon size={16} name={watched ? "circle-check" : "play"} />
+						<span className={clsx(watched && "sr-only")}>{lifecycle}</span>
+					</span>
+				)}
 			</button>
-			{open ? (
+			{overlay === "details" ? (
 				<MediaEpisodeDetails
 					log={props.log}
 					render={render}
 					episode={episode}
 					compact={props.compact}
 					triggerRef={triggerRef}
-					onClose={() => setOpen(false)}
+					onLog={() => setOverlay("log")}
 					safeAreaTop={props.safeAreaTop}
+					onClose={() => setOverlay(undefined)}
+				/>
+			) : null}
+			{overlay === "log" ? (
+				<MediaActivityLogSheet
+					triggerRef={triggerRef}
+					compact={props.compact}
+					logger={props.log.logger}
+					entityId={props.log.parentEntityId}
+					onClose={() => setOverlay(undefined)}
+					initialEpisode={render.activityEpisode(episode)}
 				/>
 			) : null}
 		</>
@@ -145,17 +161,15 @@ function MediaNextUpCard<Episode extends MediaEpisode>(props: {
 	return (
 		<div
 			className={clsx(
-				"rounded-lg border border-border bg-surface pt-2.5 pb-1",
-				props.compact ? "px-3.5" : "px-4",
+				"mb-2 rounded-lg border border-accent-border bg-accent-soft/40 pt-2.5 pb-0.5",
+				props.compact ? "px-3" : "px-4",
 			)}
 		>
 			<div className="flex items-center gap-2">
-				<p className="font-ui font-medium text-[11px] tracking-widest text-text-subtle uppercase">
+				<p className="text-micro font-semibold tracking-widest text-accent-text uppercase">
 					Next up
 				</p>
-				<p className="font-ui text-[11px] text-text-subtle">
-					{props.render.originLabel(props.episode)}
-				</p>
+				<p className="text-micro text-text-subtle">{props.render.originLabel(props.episode)}</p>
 			</div>
 			<MediaEpisodeRow
 				divided={false}

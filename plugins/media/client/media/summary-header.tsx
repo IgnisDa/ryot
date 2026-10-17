@@ -66,9 +66,7 @@ function MediaDescription(props: { readonly text: string }) {
 					<MediaMarkdown text={props.text} />
 				</div>
 			) : (
-				<p className="line-clamp-3 text-body text-text-muted">
-					{markdownPlainText(props.text)}
-				</p>
+				<p className="line-clamp-3 text-body text-text-muted">{markdownPlainText(props.text)}</p>
 			)}
 			<div className="flex items-start">
 				<Button variant="linkPlain" onClick={() => setIsExpanded(!isExpanded)}>
@@ -181,10 +179,10 @@ function MediaLibraryStrip(props: {
 			</span>
 			{ownership === undefined ? null : (
 				<MediaOwnershipControl
-					key={`ownership:${media.id}`}
 					entityId={media.id}
 					owned={ownership.owned}
 					ownedOn={ownership.ownedOn}
+					key={`ownership:${media.id}`}
 				/>
 			)}
 			<MediaCollectionsControl
@@ -195,8 +193,8 @@ function MediaLibraryStrip(props: {
 			{media.providerName === null ? null : (
 				<MediaMonitoringControl
 					entityId={media.id}
-					key={`monitoring:${media.id}`}
 					monitored={media.isMonitored}
+					key={`monitoring:${media.id}`}
 				/>
 			)}
 		</div>

@@ -2,9 +2,8 @@ import { localDay, useRyotSchedule } from "@ryot-app/plugin-client-sdk/react";
 import { Badge, Button } from "@ryot-app/plugin-ui-sdk";
 import { fieldSyncState, isTitleProvisional, SyncPip } from "@ryot-app/plugin-ui-sdk/sync";
 import clsx from "clsx";
-import { type RefObject, useRef, useState } from "react";
+import type { RefObject } from "react";
 
-import { MediaActivityLogSheet } from "./activity-log/sheet";
 import { MediaSubmissionFeedback, useQuickLog } from "./activity-log/submission-feedback";
 import { MediaDetailModal } from "./detail-modal";
 import { mediaAspectClass } from "./entity-presentation";
@@ -19,17 +18,14 @@ import {
 import { ManagedAssetImage } from "./managed-assets";
 import { MediaMarkdown } from "./primitives";
 
-function MediaEpisodeActions<Episode extends MediaEpisode>(props: {
-	readonly episode: Episode;
-	readonly compact: boolean;
+function MediaEpisodeActions(props: {
+	readonly episode: MediaEpisode;
 	readonly log: MediaEpisodeLog;
-	readonly render: MediaEpisodeRender<Episode>;
+	readonly onLog: () => void;
 }) {
 	const { log, episode } = props;
 	const schedule = useRyotSchedule();
 	const { locked, log: mark } = useQuickLog(log.parentEntityId);
-	const [sheetOpen, setSheetOpen] = useState(false);
-	const sheetTrigger = useRef<HTMLButtonElement>(null);
 	if (episode.publishDate !== null && episode.publishDate > localDay(schedule.now())) {
 		return null;
 	}
@@ -50,21 +46,11 @@ function MediaEpisodeActions<Episode extends MediaEpisode>(props: {
 				>
 					{mark.isPending ? "Saving…" : `Mark ${participle}`}
 				</Button>
-				<Button ref={sheetTrigger} variant="secondary" onClick={() => setSheetOpen(true)}>
-					Log…
+				<Button variant="secondary" onClick={props.onLog}>
+					Log with details…
 				</Button>
 			</div>
 			<MediaSubmissionFeedback log={mark} doneText={`Marked ${participle}.`} />
-			{sheetOpen ? (
-				<MediaActivityLogSheet
-					logger={log.logger}
-					compact={props.compact}
-					triggerRef={sheetTrigger}
-					entityId={log.parentEntityId}
-					onClose={() => setSheetOpen(false)}
-					initialEpisode={props.render.activityEpisode(episode)}
-				/>
-			) : null}
 		</div>
 	);
 }
@@ -76,6 +62,7 @@ export function MediaEpisodeDetails<Episode extends MediaEpisode>(props: {
 	readonly compact: boolean;
 	readonly safeAreaTop: number;
 	readonly onClose: () => void;
+	readonly onLog: () => void;
 	readonly triggerRef: RefObject<HTMLButtonElement | null>;
 }) {
 	const { render, episode, compact } = props;
@@ -93,7 +80,12 @@ export function MediaEpisodeDetails<Episode extends MediaEpisode>(props: {
 			closeLabel="Close episode details"
 			title={render.originLabel(episode)}
 		>
-			<div className={clsx("mx-auto grid max-w-3xl gap-6", !compact && "py-4")}>
+			<div
+				className={clsx(
+					"mx-auto grid max-w-4xl gap-6",
+					!compact && "grid-cols-[minmax(0,2fr)_minmax(0,3fr)] items-start py-2",
+				)}
+			>
 				<ManagedAssetImage
 					asset={asset}
 					fit="contain"
@@ -105,18 +97,13 @@ export function MediaEpisodeDetails<Episode extends MediaEpisode>(props: {
 						render.aspect === "square" && "mx-auto max-w-80",
 					)}
 				/>
-				<div className="grid gap-3">
-					<h3
-						className={clsx(
-							"font-display font-semibold tracking-tight text-balance text-text",
-							compact ? "text-[22px] leading-7" : "text-display",
-						)}
-					>
+				<div className="grid content-start gap-3">
+					<h3 className="font-display text-title font-semibold tracking-tight text-balance text-text">
 						{episode.name}
 						{isTitleProvisional(episode) && <SyncPip className="ml-2" reason="translating" />}
 					</h3>
 					{metadata === "" ? null : (
-						<p className="font-ui text-sm text-text-muted tabular-nums">{metadata}</p>
+						<p className="text-sm text-text-muted tabular-nums">{metadata}</p>
 					)}
 					{state === undefined ? null : (
 						<div className="flex">
@@ -125,18 +112,13 @@ export function MediaEpisodeDetails<Episode extends MediaEpisode>(props: {
 							</Badge>
 						</div>
 					)}
-					<MediaEpisodeActions
-						log={props.log}
-						render={render}
-						episode={episode}
-						compact={compact}
-					/>
+					<MediaEpisodeActions log={props.log} episode={episode} onLog={props.onLog} />
+					{synopsis === undefined ? null : (
+						<div className="border-t border-border pt-4 text-body text-text-muted">
+							<MediaMarkdown text={synopsis} />
+						</div>
+					)}
 				</div>
-				{synopsis === undefined ? null : (
-					<div className="border-t border-border pt-5 text-[15px] leading-7 text-text-muted">
-						<MediaMarkdown text={synopsis} />
-					</div>
-				)}
 			</div>
 		</MediaDetailModal>
 	);

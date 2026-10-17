@@ -7,7 +7,8 @@ import {
 	usePluginStorage,
 	useRyotQuery,
 } from "@ryot-app/plugin-client-sdk/react";
-import { ChipRadioGroup } from "@ryot-app/plugin-ui-sdk";
+import { ChipRadioGroup, Select } from "@ryot-app/plugin-ui-sdk";
+import { AppIcon } from "@ryot-app/plugin-ui-sdk/icon";
 import { markdownPlainText } from "@ryot-app/plugin-ui-sdk/markdown";
 import { fieldSyncState, isTitleProvisional, SyncPip } from "@ryot-app/plugin-ui-sdk/sync";
 import clsx from "clsx";
@@ -210,12 +211,14 @@ function ShowEpisodeOrderSelector(props: {
 		return null;
 	}
 	return (
-		<ChipRadioGroup
-			overflow="scroll"
+		<Select
 			label="Episode order"
+			className="w-full max-w-64 self-end"
 			value={props.selected?.externalId ?? ""}
+			checkIcon={<AppIcon size={15} name="check" />}
+			chevronIcon={<AppIcon size={15} name="chevron-down" />}
 			onChange={(value) => props.onSelect(value === "" ? null : value)}
-			options={[
+			choices={[
 				{ value: "", label: "Aired order" },
 				...props.orders.map((order) => ({ label: order.name, value: order.externalId })),
 			]}

@@ -197,6 +197,28 @@ const radioLabels = (container: HTMLElement, group: string) =>
 		container.querySelectorAll(`[role="radiogroup"][aria-label="${group}"] [role="radio"]`),
 	).map((element) => element.textContent);
 
+const orderTrigger = (container: HTMLElement) =>
+	getByRole(container, "button", { name: /^Episode order:/ });
+
+const orderChoices = (container: HTMLElement) =>
+	Effect.gen(function* () {
+		yield* Effect.promise(() => click(orderTrigger(container)));
+		const dialog = getByRole(document.body, "dialog", { name: "Episode order" });
+		const labels = Array.from(dialog.querySelectorAll('[role="radio"]')).map(
+			(element) => element.textContent,
+		);
+		fireEvent.keyDown(dialog, { key: "Escape" });
+		return labels;
+	});
+
+const selectOrder = (container: HTMLElement, label: string) =>
+	Effect.gen(function* () {
+		yield* Effect.promise(() => click(orderTrigger(container)));
+		yield* Effect.promise(() =>
+			click(radio(getByRole(document.body, "dialog", { name: "Episode order" }), label)),
+		);
+	});
+
 const click = (element: Element | undefined) => {
 	if (element === undefined) {
 		throw new Error("Expected an element to click");
@@ -412,7 +434,7 @@ describe("show episode orders", () => {
 			yield* Effect.promise(() =>
 				waitFor(() => expect(view.container.textContent).toContain("Episode 1: The Arrest")),
 			);
-			expect(view.container.querySelector('[aria-label="Episode order"]')).toBeNull();
+			expect(view.container.querySelector('[aria-label^="Episode order"]')).toBeNull();
 			view.unmount();
 		}),
 	);
@@ -440,7 +462,9 @@ describe("show episode orders", () => {
 			yield* Effect.promise(() =>
 				waitFor(() => expect(view.container.textContent).toContain("Episode 1")),
 			);
-			expect(radio(view.container, "DVD Order")?.getAttribute("aria-checked")).toBe("true");
+			expect(orderTrigger(view.container).getAttribute("aria-label")).toBe(
+				"Episode order: DVD Order",
+			);
 			expect(radioLabels(view.container, "Episode group")).toEqual(["Volume 1", "Volume 2"]);
 			view.unmount();
 		}),
@@ -458,14 +482,16 @@ describe("show episode orders", () => {
 				waitFor(() => expect(view.container.textContent).toContain("Episode 1: The Arrest")),
 			);
 
-			expect(radioLabels(view.container, "Episode order")).toEqual([
+			expect(yield* orderChoices(view.container)).toEqual([
 				"Aired order",
 				"DVD Order",
 				"Absolute Order",
 			]);
-			expect(radio(view.container, "Aired order")?.getAttribute("aria-checked")).toBe("true");
+			expect(orderTrigger(view.container).getAttribute("aria-label")).toBe(
+				"Episode order: Aired order",
+			);
 
-			yield* Effect.promise(() => click(radio(view.container, "DVD Order")));
+			yield* selectOrder(view.container, "DVD Order");
 
 			yield* Effect.promise(() =>
 				waitFor(() =>
@@ -501,7 +527,7 @@ describe("show episode orders", () => {
 
 			expect(view.container.textContent).not.toContain("Next up");
 
-			yield* Effect.promise(() => click(radio(view.container, "Aired order")));
+			yield* selectOrder(view.container, "Aired order");
 
 			yield* Effect.promise(() =>
 				waitFor(() => expect(view.container.textContent).toContain("Next up")),
@@ -523,7 +549,9 @@ describe("show episode orders", () => {
 			yield* Effect.promise(() =>
 				waitFor(() => expect(view.container.textContent).toContain("Episode 1: The Arrest")),
 			);
-			expect(radio(view.container, "Aired order")?.getAttribute("aria-checked")).toBe("true");
+			expect(orderTrigger(view.container).getAttribute("aria-label")).toBe(
+				"Episode order: Aired order",
+			);
 			yield* Effect.promise(() =>
 				waitFor(() => expect(storage.entries.has(STORAGE_ENTRY)).toBe(false)),
 			);
@@ -611,7 +639,7 @@ describe("show episode logging", () => {
 				),
 			);
 			const details = getByRole(document.body, "dialog", { name: "Episode 2: The Interview" });
-			fireEvent.click(getByRole(details, "button", { name: "Log…" }));
+			fireEvent.click(getByRole(details, "button", { name: "Log with details…" }));
 			const sheet = yield* Effect.promise(() =>
 				waitFor(() => {
 					const found = getByRole(document.body, "dialog", { name: "Log activity" });
@@ -651,7 +679,7 @@ describe("show episode logging", () => {
 				),
 			);
 			const details = getByRole(document.body, "dialog", { name: "Episode 3" });
-			fireEvent.click(getByRole(details, "button", { name: "Log…" }));
+			fireEvent.click(getByRole(details, "button", { name: "Log with details…" }));
 			const sheet = yield* Effect.promise(() =>
 				waitFor(() => {
 					const found = getByRole(document.body, "dialog", { name: "Log activity" });

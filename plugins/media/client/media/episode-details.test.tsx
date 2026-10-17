@@ -330,36 +330,38 @@ describe("episode details actions", () => {
 			const upcoming = mountDetails({ publishDate: "2026-10-21" });
 			const upcomingDialog = yield* openDetails(upcoming);
 			expect(queryByRole(upcomingDialog, "button", { name: "Mark listened" })).toBeNull();
-			expect(queryByRole(upcomingDialog, "button", { name: "Log…" })).toBeNull();
+			expect(queryByRole(upcomingDialog, "button", { name: "Log with details…" })).toBeNull();
 			upcoming.view.unmount();
 			document.body.innerHTML = "";
 			const today = mountDetails({ publishDate: "2026-10-20" });
 			const todayDialog = yield* openDetails(today);
 			expect(getByRole(todayDialog, "button", { name: "Mark listened" })).toBeDefined();
-			expect(getByRole(todayDialog, "button", { name: "Log…" })).toBeDefined();
+			expect(getByRole(todayDialog, "button", { name: "Log with details…" })).toBeDefined();
 			today.view.unmount();
 		}),
 	);
 
-	it.live("stacks the log sheet over the details on an episode beyond the first picker page", () =>
-		Effect.gen(function* () {
-			const mounted = mountDetails({ podcast: [[podcastRow(5)], [podcastRow(1)]] });
-			const dialog = yield* openDetails(mounted);
-			clickRyotElement(getByRole(dialog, "button", { name: "Log…" }));
-			const sheet = yield* Effect.promise(() =>
-				waitFor(() => {
-					const found = getByRole(document.body, "dialog", { name: "Log activity" });
-					getByRole(found, "button", { name: "Mark Episode 1 listened" });
-					return found;
-				}),
-			);
-			expect(getByRole(sheet, "radio", { name: "Episode 5 · Next up" })).toBeDefined();
-			expect(queryByRole(sheet, "radio", { name: "Episode 1" })).toBeNull();
-			expect(
-				getByRole(document.body, "dialog", { hidden: true, name: "The Arrival" }),
-			).toBeDefined();
-			expect(mounted.requests).toEqual([]);
-			mounted.view.unmount();
-		}),
+	it.live(
+		"replaces the details with the log sheet on an episode beyond the first picker page",
+		() =>
+			Effect.gen(function* () {
+				const mounted = mountDetails({ podcast: [[podcastRow(5)], [podcastRow(1)]] });
+				const dialog = yield* openDetails(mounted);
+				clickRyotElement(getByRole(dialog, "button", { name: "Log with details…" }));
+				const sheet = yield* Effect.promise(() =>
+					waitFor(() => {
+						const found = getByRole(document.body, "dialog", { name: "Log activity" });
+						getByRole(found, "button", { name: "Mark Episode 1 listened" });
+						return found;
+					}),
+				);
+				expect(getByRole(sheet, "radio", { name: "Episode 5 · Next up" })).toBeDefined();
+				expect(queryByRole(sheet, "radio", { name: "Episode 1" })).toBeNull();
+				expect(
+					queryByRole(document.body, "dialog", { hidden: true, name: "The Arrival" }),
+				).toBeNull();
+				expect(mounted.requests).toEqual([]);
+				mounted.view.unmount();
+			}),
 	);
 });

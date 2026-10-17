@@ -52,7 +52,9 @@ for (const kind of ["saved", "removed", "cancelled"] as const) {
 					waitFor(() => expect(button.hasAttribute("disabled")).toBe(false)),
 				);
 				yield* Effect.promise(() => mounted.advance(250));
-				expect(button.textContent).toBe(kind === "cancelled" ? "1 collection" : "Add to collection");
+				expect(button.textContent).toBe(
+					kind === "cancelled" ? "1 collection" : "Add to collection",
+				);
 			} finally {
 				mounted.unmount();
 			}
