@@ -710,7 +710,7 @@ export const EntityResults = ({
 			<div
 				className={
 					layout === "grid"
-						? "grid grid-cols-2 gap-x-3 gap-y-5 @lg:grid-cols-3 @2xl:grid-cols-4 @4xl:grid-cols-5 @6xl:grid-cols-6"
+						? "grid grid-cols-2 gap-x-3 gap-y-5 @md:grid-cols-3 @xl:grid-cols-4 @3xl:grid-cols-5 @5xl:grid-cols-6 @7xl:grid-cols-7"
 						: "grid gap-3"
 				}
 			>
