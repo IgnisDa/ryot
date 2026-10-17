@@ -1,6 +1,10 @@
-import type { ContractRequest } from "@ryot-app/contract/client";
-import type { PluginPackageReference } from "@ryot-app/contract/modules/plugins/references";
-import type { PluginId } from "@ryot-app/contract/schema/brands";
+import type { ContractPayload, ContractRequest } from "@ryot-app/contract/client";
+import {
+	definitionKey,
+	definitionOwner,
+	type PluginPackageReference,
+} from "@ryot-app/contract/modules/plugins/references";
+import { EntitySchemaSlug } from "@ryot-app/contract/schema/brands";
 import { fixturePlugin } from "@ryot-app/fixture-plugin";
 import {
 	aggregate,
@@ -16,7 +20,6 @@ import {
 	jsonPath,
 	literal,
 	measure,
-	pluginId,
 	rows,
 	table,
 	timeSeries,
@@ -25,18 +28,18 @@ import { normalizeSlug } from "@ryot-app/ts-utils/slug";
 import { Effect } from "effect";
 
 import type { Client } from "./auth";
+import { getEntity } from "./entities";
 import { findPluginInstallationByPackage } from "./plugins";
 
-type CreateSavedViewRequest = ContractRequest<"savedViews", "create">;
-type CreateSavedViewPayload = CreateSavedViewRequest["payload"];
+type CreateSavedViewPayload = ContractPayload<"savedViews", "create">;
 type PrepareClientPageRequest = ContractRequest<"pages", "prepare">;
 type CheckClientPageFreshnessRequest = ContractRequest<"pages", "checkFreshness">;
-type PluginSavedViewPayload = Omit<CreateSavedViewPayload, "renderer"> & {
-	readonly renderer: Extract<CreateSavedViewPayload["renderer"], { kind: "plugin" }>;
-};
-type KernelSavedViewPayload = Omit<CreateSavedViewPayload, "renderer"> & {
-	readonly renderer: Extract<CreateSavedViewPayload["renderer"], { kind: "kernel" }>;
-};
+type PluginSavedViewPayload = Extract<CreateSavedViewPayload, { renderer: { kind: "plugin" } }>;
+type KernelSavedViewPayload = Extract<
+	CreateSavedViewPayload,
+	{ renderer: { name: "collection-browser" | "entity-browser" } }
+>;
+type SubjectSchemas = KernelSavedViewPayload["settings"]["subject"]["schemas"];
 type SavedViewClientPageTarget = Extract<
 	PrepareClientPageRequest["payload"]["target"],
 	{ kind: "saved-view" }
@@ -98,34 +101,25 @@ export const createPluginSavedView = (
 		);
 };
 
+const defaultSubjectSchemas: SubjectSchemas = [
+	{ owner: { kind: "kernel" }, slug: EntitySchemaSlug.make("collection") },
+];
+
 export const buildEntityBrowserSavedViewPayload = (
 	overrides: Partial<KernelSavedViewPayload> = {},
 	entityIds: readonly string[] = [],
-	entitySchemaSlug?: string,
-	ownerPluginId?: PluginId,
+	schemas: SubjectSchemas = defaultSubjectSchemas,
 ): KernelSavedViewPayload => {
 	const entity = table("entity", "browserEntity");
-	const predicates = [
-		...(entityIds.length === 0
+	const predicates =
+		entityIds.length === 0
 			? []
 			: [
 					inArray(
 						column(entity, "id"),
 						entityIds.map((entityId) => literal(entityId)),
 					),
-				]),
-		...(entitySchemaSlug === undefined
-			? []
-			: [eq(column(entity, "entitySchemaSlug"), literal(entitySchemaSlug))]),
-		...(ownerPluginId === undefined
-			? []
-			: [
-					eq(
-						column(entity, "entitySchemaPluginId"),
-						pluginId({ kind: "local", pluginId: ownerPluginId }),
-					),
-				]),
-	];
+				];
 	return {
 		icon: "library",
 		name: `Entity browser ${crypto.randomUUID()}`,
@@ -139,9 +133,7 @@ export const buildEntityBrowserSavedViewPayload = (
 			defaultLayout: "grid",
 			sourceName: "entities",
 			layouts: ["grid", "list"],
-			entityIdField: "entityId",
-			ownerPluginIdField: "ownerPluginId",
-			entitySchemaSlugField: "entitySchemaSlug",
+			subject: { schemas, entityAlias: "browserEntity" },
 		},
 		dataSources: document({
 			entities: rows(entity, {
@@ -151,9 +143,7 @@ export const buildEntityBrowserSavedViewPayload = (
 					: { where: predicates.length === 1 ? predicates[0] : and(...predicates) }),
 				orderBy: [ascending(column(entity, "name")), ascending(column(entity, "id"))],
 				fields: [
-					field("entityId", column(entity, "id")),
 					field("name", column(entity, "name")),
-					field("ownerPluginId", column(entity, "entitySchemaPluginId")),
 					field("entitySchemaSlug", column(entity, "entitySchemaSlug")),
 				],
 			}),
@@ -166,25 +156,30 @@ export const createEntityBrowserSavedView = (
 	client: Client,
 	overrides: Partial<KernelSavedViewPayload> = {},
 	entityIds: readonly string[] = [],
-	entitySchemaSlug?: string,
-	ownerPluginId?: PluginId,
-) => {
-	const payload = buildEntityBrowserSavedViewPayload(
-		overrides,
-		entityIds,
-		entitySchemaSlug,
-		ownerPluginId,
-	);
-	return client
-		.call((contract) => contract.savedViews.create({ payload }))
-		.pipe(
-			Effect.map((result) => ({
-				...result,
-				slug: normalizeSlug(payload.name),
-				reference: { savedViewId: result.id, kind: "custom" as const },
-			})),
+	schemas?: SubjectSchemas,
+) =>
+	Effect.gen(function* () {
+		const entities = yield* Effect.forEach(entityIds, (entityId) => getEntity(client, entityId));
+		const unique = new Map(
+			entities.map(({ entitySchemaSlug, entitySchemaPluginId }) => {
+				const owner = definitionOwner(entitySchemaPluginId);
+				return [
+					definitionKey("entity", owner, entitySchemaSlug),
+					{ owner, slug: entitySchemaSlug },
+				] as const;
+			}),
 		);
-};
+		const [first, ...rest] = unique.values();
+		const subject: SubjectSchemas =
+			schemas ?? (first === undefined ? defaultSubjectSchemas : [first, ...rest]);
+		const payload = buildEntityBrowserSavedViewPayload(overrides, entityIds, subject);
+		const result = yield* client.call((contract) => contract.savedViews.create({ payload }));
+		return {
+			...result,
+			slug: normalizeSlug(payload.name),
+			reference: { savedViewId: result.id, kind: "custom" as const },
+		};
+	});
 
 export const createResultsTableSavedView = (
 	client: Client,

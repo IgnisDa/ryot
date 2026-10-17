@@ -94,14 +94,15 @@ describe("Exercises E2E", () => {
 					defaultLayout: "grid",
 					searchFields: ["name"],
 					sourceName: "savedView",
-					entityIdField: "entityId",
 					layouts: ["grid", "list", "table"],
-					ownerPluginIdField: "ownerPluginId",
-					entitySchemaSlugField: "entitySchemaSlug",
 					tableColumns: [
 						{ label: "Name", field: "name" },
 						{ label: "Level", field: "level" },
 					],
+					subject: {
+						entityAlias: "entity",
+						schemas: [{ slug: "exercise", owner: definitionOwner(pluginId) }],
+					},
 					addAction: {
 						type: "provider-search",
 						schema: { slug: "exercise", owner: definitionOwner(pluginId) },

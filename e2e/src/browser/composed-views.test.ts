@@ -244,10 +244,11 @@ it.live("keeps configured entity-browser controls within their declared source",
 				defaultLayout: "grid",
 				sourceName: "entities",
 				searchFields: ["name"],
-				entityIdField: "entityId",
 				layouts: ["grid", "list", "table"],
-				ownerPluginIdField: "ownerPluginId",
-				entitySchemaSlugField: "entitySchemaSlug",
+				subject: {
+					entityAlias: "browserEntity",
+					schemas: [{ slug: schema.reference.slug, owner: schema.reference.owner }],
+				},
 				sortChoices: [
 					{
 						name: "name-desc",

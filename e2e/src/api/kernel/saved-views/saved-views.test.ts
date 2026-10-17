@@ -48,10 +48,11 @@ describe("saved view definitions", () => {
 				pageSize: 20,
 				defaultLayout: "grid",
 				sourceName: "savedView",
-				entityIdField: "entityId",
 				layouts: ["grid", "list", "table"],
-				ownerPluginIdField: "ownerPluginId",
-				entitySchemaSlugField: "entitySchemaSlug",
+				subject: {
+					entityAlias: "entity",
+					schemas: [{ slug: "book", owner: { pluginId, kind: "plugin" } }],
+				},
 			});
 			expect(allBooks.dataSources?.queries.savedView).toMatchObject({
 				from: { alias: "entity", table: "entity" },
@@ -71,7 +72,7 @@ describe("saved view definitions", () => {
 			const { pluginId } = yield* findMediaEntitySchema(client, "book");
 
 			expect(stored.renderer).toEqual({ kind: "kernel", name: "entity-browser" });
-			expect(stored.settings).toEqual(entityBrowserSettings);
+			expect(stored.settings).toEqual(entityBrowserSettings(pluginId));
 			expect(stored.dataSources).toEqual(
 				buildSavedViewDataSources(["book"], { pluginId, kind: "local" }),
 			);
@@ -87,9 +88,10 @@ describe("saved view definitions", () => {
 	it.live("updates settings and data sources together", () =>
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
-			const created = yield* createSavedView(client);
+			const { pluginId } = yield* findMediaEntitySchema(client, "book");
+			const created = yield* createSavedView(client, {});
 			const stored = yield* findSavedViewById(client, created.id);
-			const settings = { ...entityBrowserSettings, pageSize: 7 };
+			const settings = { ...entityBrowserSettings(pluginId), pageSize: 7 };
 			const updated = yield* updateSavedView(client, stored.reference, {
 				settings,
 				dataSources: alternateDataSources,

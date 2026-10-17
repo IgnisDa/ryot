@@ -21,7 +21,8 @@ import getPort from "get-port";
 import {
 	adminHeaders,
 	createAuthenticatedClient,
-	createSavedView,
+	createPluginSavedView,
+	createTableSavedView,
 	createEntity,
 	createIntegration,
 	listIntegrations,
@@ -83,11 +84,10 @@ describe("plugin namespace backups", () => {
 						),
 					}),
 				});
-				const created = yield* createSavedView(source.client, {
+				const created = yield* createTableSavedView(source.client, {
 					dataSources: query,
 					workspaceInstallationId: a.id,
 					name: "Retained quarantine query",
-					renderer: { kind: "kernel", name: "results-table" },
 					settings: {
 						pageSize: 25,
 						entityLink: null,
@@ -383,15 +383,18 @@ describe("plugin namespace backups", () => {
 						},
 					}),
 				);
-				const contributorView = yield* createSavedView(source.client, {
-					settings: {},
-					workspaceInstallationId: b.id,
-					name: "Private B contributor view",
-					renderer: { kind: "plugin", exportName: "home", pluginId: b.pluginId },
-					dataSources: namespaceBottlesRecipe({
-						reference: { kind: "local", pluginId: b.pluginId },
-					}).document,
-				});
+				const contributorView = yield* createPluginSavedView(
+					source.client,
+					{ kind: "plugin", exportName: "home", pluginId: b.pluginId },
+					{},
+					{
+						workspaceInstallationId: b.id,
+						name: "Private B contributor view",
+						dataSources: namespaceBottlesRecipe({
+							reference: { kind: "local", pluginId: b.pluginId },
+						}).document,
+					},
+				);
 				yield* source.client.call((contract) =>
 					contract.plugins.setHomeView({
 						params: { installationId: b.id },
@@ -414,11 +417,10 @@ describe("plugin namespace backups", () => {
 						],
 					}),
 				});
-				const view = yield* createSavedView(source.client, {
+				const view = yield* createTableSavedView(source.client, {
 					dataSources: query,
 					workspaceInstallationId: a.id,
 					name: "Namespace portable query",
-					renderer: { kind: "kernel", name: "results-table" },
 					settings: {
 						pageSize: 25,
 						entityLink: null,

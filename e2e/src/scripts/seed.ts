@@ -8,8 +8,15 @@ import {
 	type ContractProgram,
 	type ContractRequest,
 } from "@ryot-app/contract/client";
-import type { FieldSelection, ScalarExpression } from "@ryot-app/contract/modules/ryotql/language";
-import type { SavedViewTableColumn } from "@ryot-app/contract/modules/saved-views/schemas";
+import type {
+	FieldSelection,
+	RyotQLDocument,
+	ScalarExpression,
+} from "@ryot-app/contract/modules/ryotql/language";
+import type {
+	EntityBrowserSavedViewSettings,
+	SavedViewTableColumn,
+} from "@ryot-app/contract/modules/saved-views/schemas";
 import {
 	EntitySchemaSlug,
 	EventSchemaSlug,
@@ -44,7 +51,7 @@ import {
 import { entityDefinitionsRecipe } from "@ryot-app/ryotql-recipes/definitions";
 import { pluginInstallationsRecipe } from "@ryot-app/ryotql-recipes/plugin-installations";
 import { createAuthClient } from "better-auth/client";
-import { Effect, Result } from "effect";
+import { Array as Arr, Effect, Result } from "effect";
 
 import { requirePresent } from "~/support/assertions";
 import { runPromise } from "~/support/e2e-runtime";
@@ -136,9 +143,10 @@ async function createAndSignIn(): Promise<{
 
 type CreateCollectionBody = ContractPayload<"collections", "create">;
 type AddToCollectionBody = ContractPayload<"collections", "createMembership">;
-type CreateSavedViewBody = ContractRequest<"savedViews", "create">["payload"];
-type SavedViewDefinition = Pick<CreateSavedViewBody, "dataSources" | "settings">;
-type SavedViewSourceOwner = Parameters<typeof schemaOwnerPredicate>[2];
+type SavedViewDefinition = {
+	dataSources: RyotQLDocument;
+	settings: EntityBrowserSavedViewSettings;
+};
 
 type SavedViewSpec = {
 	name: string;
@@ -535,28 +543,28 @@ function buildSeedLayouts(
 		| { pluginSlug: string }
 		| { authors: ReadonlyArray<{ pluginSlug: string; entitySchemaSlugs: ReadonlyArray<string> }> },
 ): SavedViewDefinition {
+	const ownedSchemas = (
+		"pluginSlug" in source
+			? [{ pluginSlug: source.pluginSlug, entitySchemaSlugs: scope }]
+			: source.authors
+	).flatMap((author) =>
+		scope
+			.filter((slug) => author.entitySchemaSlugs.includes(slug))
+			.map((slug) => ({ slug, pluginId: seedPluginId(author.pluginSlug) })),
+	);
+	if (!Arr.isReadonlyArrayNonEmpty(ownedSchemas)) {
+		throw new Error("Seed saved view requires at least one owned schema");
+	}
+	if (!Arr.isReadonlyArrayNonEmpty(columns)) {
+		throw new Error("Seed saved view requires at least one table column");
+	}
 	const tableDocumentFor = (fields: readonly FieldSelection[]) => {
-		const predicates = (
-			"pluginSlug" in source
-				? [{ pluginSlug: source.pluginSlug, entitySchemaSlugs: scope }]
-				: source.authors
-		).flatMap((author) =>
-			scope
-				.filter((slug) => author.entitySchemaSlugs.includes(slug))
-				.map((slug) =>
-					and(
-						eq(column(seedEntity, "entitySchemaSlug"), literal(slug)),
-						schemaOwnerPredicate(
-							seedEntity,
-							"entitySchemaPluginId",
-							seedPluginOwner(author.pluginSlug),
-						),
-					),
-				),
+		const predicates = ownedSchemas.map(({ slug, pluginId }) =>
+			and(
+				eq(column(seedEntity, "entitySchemaSlug"), literal(slug)),
+				schemaOwnerPredicate(seedEntity, "entitySchemaPluginId", { kind: "local", pluginId }),
+			),
 		);
-		if (predicates.length === 0) {
-			throw new Error("Seed saved view requires at least one owned schema");
-		}
 		return document({
 			savedView: rows(seedEntity, {
 				fields,
@@ -583,20 +591,23 @@ function buildSeedLayouts(
 			defaultLayout: "grid",
 			layouts: ["grid", "list", "table"],
 			sourceName: "savedView",
-			entityIdField: "entityId",
-			ownerPluginIdField: "ownerPluginId",
-			entitySchemaSlugField: "entitySchemaSlug",
-			tableColumns: columns.map(({ expression: _, ...tableColumn }) => tableColumn),
+			subject: {
+				entityAlias: seedEntity.alias,
+				schemas: Arr.map(ownedSchemas, ({ slug, pluginId }) => ({
+					owner: { pluginId, kind: "plugin" as const },
+					slug: EntitySchemaSlug.make(slug),
+				})),
+			},
+			tableColumns: Arr.map(columns, ({ expression: _, ...tableColumn }) => tableColumn),
 		},
 	};
 }
 
-function seedPluginOwner(pluginSlug: string): SavedViewSourceOwner {
-	const registration = requirePresent(
+function seedPluginId(pluginSlug: string) {
+	return requirePresent(
 		seedPluginManifests.get(pluginSlug),
 		`Seed plugin '${pluginSlug}' was not installed`,
-	);
-	return { kind: "local", pluginId: registration.pluginId };
+	).pluginId;
 }
 
 async function createSavedView(

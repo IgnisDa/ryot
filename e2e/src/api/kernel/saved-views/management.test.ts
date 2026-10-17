@@ -7,6 +7,7 @@ import {
 	createPluginEntitySchema,
 	createSavedView,
 	deleteSavedView,
+	entityBrowserSettings,
 	findSavedViewById,
 	getSavedView,
 	listSavedViews,
@@ -14,6 +15,7 @@ import {
 	reorderSavedViews,
 	updateSavedView,
 } from "~/fixtures/kernel";
+import { findMediaEntitySchema } from "~/fixtures/plugins/media";
 import { requirePresent } from "~/support/assertions";
 import { describe, expect, it } from "~/support/effect-test";
 
@@ -21,6 +23,7 @@ describe("saved views management", () => {
 	it.live("clones renderer settings and data sources into an independent user view", () =>
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
+			const { pluginId } = yield* findMediaEntitySchema(client, "book");
 			const sourceCreated = yield* createSavedView(client, {
 				name: `Clone Source ${crypto.randomUUID()}`,
 			});
@@ -36,7 +39,7 @@ describe("saved views management", () => {
 
 			yield* updateSavedView(client, clone.reference, {
 				name: `${clone.name} Updated`,
-				settings: { ...clone.settings, pageSize: 5 },
+				settings: { ...entityBrowserSettings(pluginId), pageSize: 5 },
 			});
 			const unchangedSource = yield* getSavedView(client, source.reference);
 			expect(unchangedSource.name).toBe(source.name);

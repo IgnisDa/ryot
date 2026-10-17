@@ -8,6 +8,7 @@ import {
 	createEntity,
 	createEntityBrowserSavedView,
 	createSavedView,
+	entityBrowserSettings,
 	fakeProviderDetailsResult,
 	fakeProviderSearchResult,
 	fakeProviderTranslations,
@@ -146,11 +147,17 @@ beforeAll(() =>
 				tableColumns: null,
 				sourceName: "entities",
 				searchFields: ["name"],
-				entityIdField: "entityId",
 				defaultLayout: "grid" as const,
 				layouts: ["grid", "list"] as const,
-				ownerPluginIdField: "ownerPluginId",
-				entitySchemaSlugField: "entitySchemaSlug",
+				subject: {
+					entityAlias: "browserEntity",
+					schemas: [
+						{
+							owner: definitionOwner(ownerPluginId),
+							slug: makeEntitySchemaSlug(ENTITY_SCHEMA_SLUG),
+						},
+					] as const,
+				},
 				addAction: {
 					type: "provider-search" as const,
 					schema: {
@@ -177,19 +184,11 @@ beforeAll(() =>
 						},
 					},
 					[],
-					ENTITY_SCHEMA_SLUG,
-					ownerPluginId,
 				),
 			);
 			assertTaggedError(mismatch, "SavedViewBadRequest");
 			expect(mismatch.reason).toMatchObject({ code: "settings-incompatible" });
-			const view = yield* createEntityBrowserSavedView(
-				client,
-				{ settings, name: VIEW_NAME },
-				[],
-				ENTITY_SCHEMA_SLUG,
-				ownerPluginId,
-			);
+			const view = yield* createEntityBrowserSavedView(client, { settings, name: VIEW_NAME }, []);
 			const viewRecord = yield* findSavedViewById(client, view.id);
 			viewUrl = `${getFrontendUrl()}${savedViewRecordPath(viewRecord)}`;
 		}),
@@ -242,6 +241,7 @@ it.live("automatically populates and translates entities rendered by a saved vie
 		});
 		const view = yield* createSavedView(client, {
 			name: `Interest View ${id}`,
+			settings: entityBrowserSettings(offlineProvider.pluginId, schemaSlug),
 			dataSources: buildSavedViewDataSources([schemaSlug], {
 				kind: "local",
 				pluginId: offlineProvider.pluginId,
@@ -317,6 +317,7 @@ it.live("keeps source data visible when saved-view translation is outstanding", 
 		});
 		const view = yield* createSavedView(client, {
 			name: `Translating View ${id}`,
+			settings: entityBrowserSettings(untranslatedProvider.pluginId, schemaSlug),
 			dataSources: buildSavedViewDataSources([schemaSlug], {
 				kind: "local",
 				pluginId: untranslatedProvider.pluginId,
