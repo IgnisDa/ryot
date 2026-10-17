@@ -1,60 +1,36 @@
 # Ryot Change Guidelines
 
-## Documentation
+## Documentation And Ownership
 
-- Keep `AGENTS.md` to stable, non-obvious rules that affect changes. Put architecture, protocols, runbooks, and rationale in `README.md`; child files must not restate parent guidance.
-- Keep documentation lean and describe only the current state. Do not record history, superseded designs, or task progress.
-
-## Ownership
-
-- `kernel/backend` is domain-agnostic. `kernel/client` is the React DOM client kernel and Capacitor app.
-- `kernel/sandbox` owns script isolation: the Rust `ryot-sandboxd` daemon under `native/`, the trusted guest runner, the parent/daemon protocol, and the host that supervises daemons. It never imports `kernel/backend`; the backend supplies configuration, authority, and host functions through its ports.
-- `apps/server` assembles the backend kernel, owns one-time migrations, and ships plugin archives.
-- `plugins/*` own first-party plugins (`media`, `fitness`, `fixture`), each split into `manifest/`, archived `backend/`, archived `client/`, and environment-neutral `shared/`.
-- `packages/contract` owns the client-safe HTTP boundary, generic shared wire schemas, and plugin manifests; `packages/plugin-client-contract` owns the client plugin bridge protocol, artifact model, source file policy, and shared client-plugin capability payloads. `packages/plugin-kit` documents the plugin authoring surface.
-- `packages/plugin-client-sdk` and `packages/plugin-ui-sdk` are the environment-neutral plugin-facing client surfaces; `packages/plugin-backend-sdk` is their backend counterpart.
-- `packages/plugin-backend-compiler` and `packages/plugin-client-compiler` are independent engines sharing generic infrastructure from `packages/typescript-compiler`.
-- `packages/cli` builds canonical plugin archives for first-party and third-party plugins; `packages/plugin-archive` owns the shared deterministic archive reader and writer.
-- `packages/ryotql` builds query documents; `packages/ryotql-recipes` owns application recipes, and plugins own their domain recipes under `shared/`.
-- `packages/kernel-renderers` owns the kernel-shipped saved-view renderers as real client plugin sources.
+- Keep `AGENTS.md` to stable, non-obvious editing rules. Put architecture, protocols, runbooks, and rationale in READMEs. Describe only the current state; children must not repeat parent rules.
+- Follow the [code ownership map](README.md#code-ownership). Kernel code, sandbox code, and shared wire schemas stay product-agnostic, including copy and fixtures. Plugins supply domain vocabulary and behavior; never branch on their IDs or slugs in the kernel.
 
 ## Engineering
 
-- Make the smallest correct change. Do not add unrequested functionality, abstractions, or generalization.
-- Ryot is greenfield, with no deployments or user data to preserve. Do not add compatibility paths, bridges, fallbacks, adapters, or old code paths, and do not keep exports for outside consumers, including the plugin SDKs. Directories whose `AGENTS.md` declares them a legacy exception are exempt.
-- Keep artifact, backup, manifest, protocol, compiler, and API version constants at their current values. Outside legacy exceptions, do not name code after versions such as `V2` or `archive-v2`.
-- Import symbols from their defining module. Do not re-export or alias another module's symbols; package entry points and barrels documented in a child `AGENTS.md` are the only aggregation points.
-- Default to no comments. Add one only for a non-obvious reason, invariant, or external constraint that the code cannot express through naming or structure. Do not restate what the code does, narrate steps, label sections, echo names or types in JSDoc, or refer to history, tasks, plans, or the change being made. When editing, delete comments made stale or redundant by the change.
-- The project enforces `perfectionist` sorting rules. Write code that already follows them, so you don't have to go back and forth with the linter.
-- Lint suppressions and casts that bypass the type checker are a last resort; ask the user before adding one. The documented `effecttsgo/async-function` exemption is the only standing exception.
-- Derive types from schemas and existing types instead of writing mirrors. Use Effect Schema.
-- Build application-owned query documents with `@ryot-app/ryotql` and use named recipes when available.
-- Colocate app-owned RyotQL result schemas, decoders, and decoded types with their recipes. Consumers must not parse generic `RowItem` values directly; reusable wire codecs belong in `@ryot-app/contract`, while presentation-only transformations remain consumer-owned.
-- User preferences use the canonical contract schema on the user row. Better Auth sessions do not own or expose preferences; preference commands patch the row atomically.
-- Committed mutation receipts own command replay independently of automation history. Keep full change evidence only for matching hooks or pending batch-hook candidates.
-- Application-owned asynchronous work uses Effect; native Promises belong at platform and framework boundaries.
-- At APIs that natively require Promise-returning callbacks, prefer readable async/await with a narrow documented `effecttsgo/async-function` exemption; do not rewrite Promise boundaries as `.then` chains. Application-owned asynchronous orchestration remains Effect.
-- Resolve implementation dependencies in service constructors and Layers; service methods must not require their repositories or database session from callers.
-- Use `Effect.fn` or `Effect.fnUntraced` for reusable effectful operations, `Effect.gen` for local control flow, and `pipe` for short transformations.
-- Feature modules own their canonical Layers; boot modules compose feature Layers.
-- Reorder interactions must give haptic feedback through the shared platform capability; plugins must not invoke native APIs.
+- Make the smallest correct change; add no unrequested functionality or abstractions.
+- Ryot is greenfield. Add no compatibility paths or retained obsolete APIs, including SDK exports. Explicit legacy exceptions in child `AGENTS.md` files are exempt.
+- Keep artifact, backup, manifest, protocol, compiler, and API version constants unchanged. Outside legacy exceptions, do not name code after versions.
+- Import from defining modules. Re-exports and aliases are allowed only at aggregation points declared in child instructions.
+- Default to no comments. Explain only non-obvious constraints the code cannot express; remove redundant or stale comments when editing.
+- Ask before adding type-checker bypass casts or lint suppressions. The documented `effecttsgo/async-function` exemption is the only standing exception.
+- Application-owned asynchronous work uses Effect. Native Promises belong at platform/framework boundaries; use readable async/await there with the narrow documented exemption, not Promise chains.
+- Resolve dependencies in service constructors and feature-owned Layers; boot Layers compose features. Use `Effect.fn`/`Effect.fnUntraced` for reusable operations and `Effect.gen` for local flow.
+- Derive types from Effect Schema and existing types. Build queries with `@ryot-app/ryotql` and named recipes; colocate result schemas, decoders, and types with recipes. Consumers never parse generic `RowItem` values; reusable wire codecs belong in `@ryot-app/contract`.
+- Key rolling queries by stable selections; compute moving timestamps from the supplied clock during execution.
+- Plugin layouts use bridged `compact` and safe-area values, not iframe media queries or `env()`.
+- Reordering uses shared platform haptics; plugins never invoke native APIs.
 
 ## Testing
 
-- Do not add tautological tests.
-- Test app-owned behavior and branching, not library behavior.
-- Keep assertions inline; extract duplicated setup, not test intent.
-- Use assertion functions from the package's test surface for test-only narrowing.
-- Do not test schema libraries, TypeScript assignments, or passthrough type checks. Compile-time tests may constrain Ryot-owned generic contracts.
-- Name a test `.test.tsx` when it needs a DOM and `.test.ts` when it must keep node semantics; `@ryot-app/testing/vitest.client` maps those extensions onto the `node` and `dom` vitest projects, so never reach for a `@vitest-environment` docblock.
-- Do not use module mocks, spies, mock functions, or fake timers. Inject dependencies instead: deterministic Effect `Layer` implementations, `TestClock` for time, plain recording functions, and the harnesses on each package's own test surface.
+- Test application behavior and branches, not library behavior, schema libraries, or TypeScript assignments. Compile-time tests may constrain Ryot-owned generics.
+- Keep assertions inline and extract duplicated setup, not intent. Use package assertion helpers for test-only narrowing.
+- DOM tests use `.test.tsx`; node tests use `.test.ts`. The shared client Vitest config selects the environment; do not add environment docblocks.
+- Do not use module mocks, spies, mock functions, or fake timers. Inject Effect Layers, TestClock, plain recording functions, and package-owned harnesses instead.
 
 ## Workflow
 
-- Stay within the agreed scope. Ask before widening it, and do not start another review round once findings are addressed.
-- During implementation, make the affected packages' and apps' checks pass before running their tests. Make both checks and tests pass before handing work to review, and include the results in the handoff.
-- Reviews are read-only: reviewers read code and report findings. They never edit files and do not rerun checks or tests.
-- Run repository-wide checks and tests only at the end of the task, after implementation, review fixes, and cleanup are complete. Run `bun run check` first; once it passes, run `bun turbo --filter='!@ryot-app/e2e' test`. Both must pass before the task is done. Run only the affected e2e files, never the whole e2e suite.
-- When a task's changes are complete, read and execute `.agents/skills/codebase-cleanup` in the main session before reporting done.
-
-Last two steps apply only when code changes have landed.
+- Stay within the agreed scope. Ask before widening it; do not start another review round after findings are addressed.
+- During implementation, make affected package/app checks pass before running their tests. Both must pass before review; include results in the handoff.
+- Reviews are read-only. Reviewers report findings without editing files or rerunning checks/tests.
+- For code changes, complete implementation and review fixes, then execute `.agents/skills/codebase-cleanup` in the main session.
+- Run repository-wide validation only at the end. For code changes, `bun run check` must pass before `bun turbo --filter='!@ryot-app/e2e' test`; both must pass before completion. Run only affected e2e files, never the whole suite.

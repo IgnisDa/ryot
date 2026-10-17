@@ -68,6 +68,10 @@ the canonical URL. The kernel sends each accepted location with its history `ind
 `key`; page-state replacements retain that key, while screen navigation creates a new one. Plugin
 screen stacks use those values, never pathname inference, to distinguish push, pop, and replace.
 
+Document-declared page shortcuts register in the kernel realm alongside iframe registrations and
+are removed when the bridge closes. The desktop sidebar and mobile drawer share the authenticated
+loader's navigation data; consumers do not mutate that snapshot.
+
 Protocol schemas and bridge identity live in
 [`@ryot-app/plugin-client-contract`](../../packages/plugin-client-contract/README.md). SDK runtime
 behavior lives in [`@ryot-app/plugin-client-sdk`](../../packages/plugin-client-sdk/README.md), and shared screen and
@@ -127,6 +131,11 @@ history entry.
 
 `historyEntry` is the only code that may read TanStack Router's `__TSR_*` state. Every navigation path
 must supply an `index` and `key`.
+
+Saved-view renderers own their title and icon inside the iframe. Entity-browser layout selection is
+stored locally, with explicit URL state taking precedence. Provider search uses the saved view's
+explicit `addAction` owner and schema; its modal remains open after import and refreshes the page
+when it closes.
 
 ## Overlays And Back
 
@@ -202,6 +211,10 @@ Both platforms register only their variant's identifier as the deep-link scheme.
 `resolveDeepLinkHref` folds a custom scheme's authority into its path and accepts HTTP(S) paths;
 other schemes are ignored. Native launch URLs replace the current entry. Android hardware Back pops
 the global router history and exits only when no entry remains.
+
+OAuth connection returns are the routing exception: the live attempt's `DeepLinkClaims` claim
+receives them instead of the router. `/oauth/login`, its signed `oauth_query`, and its independence
+from `ServerService` form the server contract.
 
 `RuntimeOAuthClientService` is the only runtime selector for first-party OAuth. Native builds accept
 only `io.ryot.app` and `io.ryot.app.dev` and fail closed on an unknown application ID. The identifiers

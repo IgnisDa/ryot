@@ -1,23 +1,9 @@
 # Client UI SDK
 
-Rationale lives in `README.md`.
-
-- Ship no component stylesheets. Keep shared base rules, keyframes, and animation tokens in `theme.css`, and values in `palette.css`.
-- Give every token mapped by `theme.css` a `palette.css` root value. Dark modes override only changed values.
-- Guard each animated element with `motion-reduce:` because plugin documents do not receive kernel-only reduced-motion CSS.
-- Build screens from these components and tokens; do not restyle buttons, fields, or surfaces per screen. Size controls with `pointer-coarse:` variants, not viewport breakpoints.
-- Use base Tailwind and theme tokens only. Plugin documents do not have kernel `ui-*` utilities; touch-layout text inputs remain at least 16px.
-- Keep source scannable by Tailwind. New runtime dependencies and export subpaths also require client compiler allowlist review.
-- Keep `AppSchema`, icons, sync marks, and tint on their existing subpaths, not the root barrel. `EntityArtWell` remains the only missing-image placeholder.
-- Components accept icons as `ReactNode`; they never import the icon registry. Schema forms receive upload transport as a prop and remain independent of client capabilities.
-- Resolve image tint failures, including CORS and canvas failures, to no tint without throwing or blocking render.
-- Keep `ScreenFrame` free of a scroll container. It owns its bar, heading, gutters, rhythm, and safe-area arithmetic and receives `compact`, `safeAreaTop`, and `scrollRootRef`.
-- Do not add responsive variants or layout class props to `ScreenFrame`; plugin media queries measure the iframe. Use `width="readable"` for a narrow column.
-- Key title-collapse observation to the sentinel node. Search keeps one visually hidden `<h1>` and an opaque bar.
-- Keep hero input as `{ height, node }`; the frame positions the box and uses height as the collapse threshold. Hero content adds no chrome offset.
-- Draw bar controls with `ScreenBarButton`; keep caller-selectable color out of its baked classes.
-- Compose radiogroup controls from `RadioGroup`; consumers provide visuals and do not duplicate ARIA or roving-focus behavior. Keyboard selection keeps a radio picker open.
-- Register shortcuts through `useShortcut` and wrap each overlay in `OverlayScope`. Its scope stack is a module singleton, so each realm suppresses only its own registrations. `useFocusTrap` handles Tab only; `useFieldEscape` is only for search-shaped fields.
-- Keep `ReorderableList` pointer and keyboard operable. Its handle is a button supporting Arrow/Home/End with live-region announcements and no drag-and-drop dependency.
-- Keep focused editable fields visible through shared focus/viewport handling, including keyboard resize and overlay scroll containers.
-- The shared modal primitive owns sheet placement and downward drag-to-dismiss, respecting dismissibility and content scrolling.
+- Keep shared rules/keyframes in `theme.css` and token values in `palette.css`; ship no component stylesheets. Every mapped token needs a root value.
+- Use theme tokens and shared components, not per-screen restyling. Plugin documents lack kernel `ui-*` utilities; size touch controls with pointer variants and keep touch text inputs at least 16px.
+- Guard each animation with reduced-motion variants; kernel CSS does not reach plugin documents. Keep Tailwind source scannable and review compiler allowlists for new runtime dependencies/export subpaths.
+- Keep `AppSchema`, icons, sync marks, and tint on their existing subpaths. `EntityArtWell` is the missing-image primitive. Components accept icon nodes; forms receive upload transport rather than client capabilities.
+- Read `README.md` before changing `ScreenFrame`: it owns chrome and safe-area arithmetic, never a scroll container or caller-supplied responsive layout.
+- Compose radio behavior, keyboard/pointer reordering, focus visibility, and modal dismissal through shared primitives, not consumer copies.
+- Overlays use `OverlayScope`; shortcut stacks are realm-local. `useFocusTrap` owns Tab, not Escape arbitration. Tint failures must never block rendering or throw.

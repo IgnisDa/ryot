@@ -1,51 +1,18 @@
-# Kernel Backend Guidelines
+# Kernel Backend
 
-## Boundaries
-
-- Routes validate request data and call one service handler. Services own business rules and access control; repositories own persistence and row normalization.
-- Define services and repositories as Effect service classes; feature-owned Layers provide implementation dependencies, and boot Layers compose features.
-- Each table has one writing repository for runtime writes. Cross-module writes go through the owning service, except repository access required for one shared transaction and backup-owned historical restore persistence.
-- Importers, jobs, sandbox callbacks, bootstrap code, and HTTP handlers use the same write paths.
-- Modules depend only on more generic modules. Invert upward effects through a generic `DurableQueue` hook, its worker, and layer wiring.
-- Production code, schemas, reports, and docs never name a first-party plugin, its entity, event, relationship, provider, or script slugs, or its domain vocabulary (media titles, episodes, workouts, exercises, libraries). Plugins declare these and the kernel receives them as data; a branch on a plugin ID or slug in kernel code is a leak.
-- `package.json` `exports` lists each file consumed outside the backend explicitly; add an entry only for a real external consumer and never a wildcard or barrel.
-- Provider search, resolution, details, and population use sandbox provider scripts. Source connectors may fetch user data but must not call provider enrichment APIs.
-- Resolve foreign identifiers through sandbox resolve operations; pass provider-native identifiers only as resolved inputs.
-- Follow `packages/contract/AGENTS.md` for HTTP boundary changes.
-- Expose persisted-row reads only through RyotQL catalog tables and `@ryot-app/ryotql-recipes`. Reserve HTTP reads for non-row data such as streams, file bytes, workflow job results, process state, health, and public config. Writes return identifiers or genuine command results, not read models.
-
-## Persistence
-
-- Keep runtime schemas, persisted JSON, and TypeScript types aligned. Store timezone-aware timestamps and emit ISO 8601 UTC dates.
-- Auth owns preference persistence. Decode stored preferences; apply validated partial updates on the user row without copying values from an authenticated session.
-- Validate schema-backed entity, event, and relationship properties before writes.
-- Services own transaction boundaries; repositories capture `DatabaseSession` and run operations through `session.run`, which uses the active executor and maps native database failures. Raw executors stay inside the `run` callback. Shared writes participate in the owner's transaction without manual injection; owning services reject an already active transaction where required.
-- Lifecycle planning may invert module dependencies through the generic `LifecyclePlanner` transaction-scoped persistence port. Source writes, immutable triggers, recipients, and pinned runs share the caller's transaction; the port must not execute sandbox code or start workflows. Start execution only after commit.
-- Mutation receipts, not automation history, prove committed writes and provide replay results. Record only matching automation evidence; batch candidates are pinned before the first write, committed item evidence is retained only for candidate batches, and sealing releases that evidence after persisting actual batch runs. Dispatch item runs before batch runs.
-- Historical backup writes belong to `modules/backups/restore/persistence.ts`; ordinary repositories do not expose restore methods. Runtime callers use owning services.
-- Never hold a transaction across sandbox execution, network I/O, workflow boundaries, sleeps, or fan-out.
-- Provider population composes the import workflow. External event creation runs before-stage policy hooks, then plans pinned after-hook runs in the committing transaction.
-- Catalog reads query persisted revision content and definition views directly and never select sandbox script bodies; execution loads compiled code by script id.
-- Only the allowlisted cold owners reference `plugin_revision_manifest`, and only cold paths call them; every other reader uses revision section columns or `definition_*` rows. `ryot/no-hot-manifest-read` enforces the references.
-- Plugin revisions are immutable; a database trigger installed at startup enforces it.
-- Batch writers take locks, receipts, and lookups set-based per batch, not per item.
-
-## Durable Work
-
-- One workflow or durable-queue worker owns each durable business operation; other workflows compose that owner.
-- Activities never start workflows or durable queues. Workflow bodies dispatch them.
-- Derive child `executionId` values deterministically from the parent; random IDs can create children on replay.
-- Durable owners remain idempotent because ownership does not guarantee single-flight execution.
-- Background work uses the workflow engine, durable queues, and durable deferred signals; do not add another job queue.
-- Create activities with `makeActivity` and register workflows with `implementWorkflow` from `src/platform/workflow/scope.ts`; `LifecycleExecution.after` and `executePolicy` die inside activity bodies.
-
-## Infrastructure
-
-- Centralize backend Redis keys, channels, codecs, and parsing in Redis infrastructure; the sandbox owns its `ryot:sandbox:*` recovery and quarantine keys.
-- Keep sandbox and client-plugin compiler engines separate. They may share `@ryot-app/typescript-compiler` and server process supervision, but not policies, limits, protocols, output models, or public APIs.
-- Script execution: `src/modules/scripts/README.md`. Isolation: `kernel/sandbox/README.md`.
-- Entity watches: `src/modules/entities/watches/README.md`.
-- Authentication and proxy rules: `src/modules/accounts/auth/README.md`.
-- Public and service-owned event creates await `EventCreateWorkflow`; callers that use `discard: true` must poll for results.
-- Assert typed Effect failures with `assertExitFails` from `@ryot-app/testing/effect-assertions`; structural `Exit.fail` equality omits error messages.
-- `global-setup.ts` provisions one PostgreSQL and one Redis for the whole run, reusing an externally supplied `TEST_DATABASE_URL` or `TEST_REDIS_URL` when present, and hands them to suites through vitest `provide`/`inject` as `databaseUrl` and `redisUrl`. Database-backed suites read theirs with `testDatabaseUrl` and isolate themselves in a throwaway schema or database; Redis-backed suites read theirs with `testRedisUrl` and namespace their keys. Neither skips when its URL is absent.
+- Read `README.md` for persistence, workflow, and test infrastructure conventions; feature READMEs own their protocols.
+- Routes validate and call one service handler. Services own access control and business rules; repositories own persistence and normalization. Declare services and repositories as Effect service classes.
+- Each table has one runtime writing repository. All entrypoints use its owning service; shared transactions and backup-owned historical restore are the only cross-module persistence exceptions.
+- Depend only on more generic modules. Invert upward effects through generic ports and durable workers, never reverse imports.
+- Keep explicit per-file package exports for real external consumers, with no wildcard or barrel.
+- Expose persisted-row reads through RyotQL catalog tables and recipes. HTTP reads are for non-row data; writes return identifiers or genuine command results, not read models.
+- Provider enrichment and foreign-ID resolution use sandbox provider scripts. Pass provider-native IDs only as resolved inputs; source connectors may fetch user data, not enrichment APIs.
+- Services own transactions. Repositories capture `DatabaseSession` and use `session.run`; raw executors stay inside its callback. Never hold a transaction across sandbox/network I/O, workflow boundaries, sleeps, or fan-out.
+- Validate schema-backed properties before writes. Keep persisted JSON and schemas aligned; store timezone-aware timestamps and emit UTC ISO dates. Auth patches validated preferences on the user row, never from session copies.
+- Mutation receipts own replay independently of automation history. Retain change evidence only for matching hooks or pending batch candidates; start execution after commit.
+- Catalog reads exclude script bodies and hot manifest reads. Use persisted revision sections and definition views; cold manifest owners are enforced by `ryot/no-hot-manifest-read`.
+- Keep batch locks, receipts, and lookups set-based. Historical restore persistence belongs only to backups.
+- One durable owner implements each business operation. Activities never dispatch workflows/queues; workflow bodies do. Use deterministic child execution IDs and idempotent owners.
+- Register activities/workflows through `makeActivity` and `implementWorkflow` in `src/platform/workflow/scope.ts`; never call `LifecycleExecution.after` or `executePolicy` inside activities.
+- Redis infrastructure owns backend keys and codecs; sandbox recovery keys remain sandbox-owned.
+- Assert typed failures with `assertExitFails`. Database/Redis tests use shared setup URLs with isolated schemas/databases or namespaced keys; never skip because a URL is absent.

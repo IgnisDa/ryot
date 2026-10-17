@@ -106,6 +106,12 @@ Warnings are allowed by `code`, never by message text, so report copy can be rew
 
 Any warning whose code is not in `AnomalyCode`, and any other unexpected state, aborts startup. On restart, existing report rows remain and orchestration logs only newly appended rows.
 
+Per-record details are emitted set-based through `buildAnomalyReportSql` with `buildReportDetailSql`,
+or through bound parameters with `insertAnomalyReport`. Their `key`, `label`, `sentence`, and
+`provenance` fields are display-ready; Instance Admin does not interpret anomaly codes. Legacy SQL
+uses quoted bare table names so `search_path` selects the schema. Only controlled values are inlined
+through `quoteSqlString`; legacy user input is never interpolated into SQL text.
+
 A `RAISE EXCEPTION` rolls back its own `DO $$` block, so an abort can leave nothing behind in `migration_report`; the exception message is the only thing an operator sees. Abort messages therefore state what was found — with a bounded sample of offending identifiers — why it blocks the migration, and whether the fix is to change the V1 data, use a different build, or report a migration defect.
 
 ## Validation Runbook

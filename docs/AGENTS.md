@@ -1,3 +1,3 @@
 # Documentation
 
-`apps/docs` contains the maintained user documentation. This directory contains retained legacy and reference material; do not treat it as current product documentation.
+Maintained user documentation lives in `apps/docs`. Treat this directory as legacy and reference material, not current product documentation.

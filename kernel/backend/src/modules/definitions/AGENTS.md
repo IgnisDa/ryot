@@ -1,7 +1,5 @@
 # Definitions
 
-- Own schema, source-canonical saved-view, signal, and hook definitions. Definitions carry stable plugin identity plus a local slug; user data and persisted domain data do not belong here.
-- `DefinitionRepository` is the one persisted definition reader. `EventSchemaReader` and `RelationshipSchemaReader` add ownership-scoped projections over it; add another reader only when it owns policy.
-- The persisted `definition_*` tables and the `global_*`/`user_*` views are the only definition of precedence and effectiveness. Revision rows are immutable; kernel rows change only under the plugin ingestion lock. No definition state lives in process memory.
-- `kernelDefinitionSource` is source zero, not a synthetic plugin. `pluginId: null` identifies kernel ownership.
-- Signal definitions own formatter selection; kernel formatters remain kernel-owned.
+- Persist precedence and effectiveness in `definition_*` tables and their views, never process memory. Mutate kernel definitions only under the plugin ingestion lock.
+- Kernel ownership uses `pluginId: null`; `kernelDefinitionSource` is source zero, not a synthetic plugin.
+- Add a definition reader only when it owns policy; otherwise use `DefinitionRepository` or its ownership-scoped projections.

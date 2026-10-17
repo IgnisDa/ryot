@@ -1,6 +1,4 @@
 # Entity Interest
 
 - Read `README.md` before changing reconciliation, delivery, limits, or session ownership.
-- Wire schemas and completion reasons live in `packages/contract/src/modules/entity-watches/messages.ts`; Redis infrastructure owns transport only.
-- Thread any new completion reason through terminal mapping and both publisher workflows.
-- Behavior changes must update `README.md`, `e2e/src/fixtures/kernel/interest-websocket.ts`, and the relevant entity-watches or translation-status e2e tests.
+- New completion reasons must reach terminal mapping and both publisher workflows. Behavior changes also update the README, `e2e/src/fixtures/kernel/interest-websocket.ts`, and affected watch or translation-status e2e tests.

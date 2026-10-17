@@ -103,6 +103,24 @@ and more. [Explore Pro features](https://ryot.io/features).
 See the [contribution guide](CONTRIBUTING.md) to set up the project and validate
 changes.
 
+## Code Ownership
+
+| Path                                                                                  | Responsibility                                                                                                                                                          |
+| ------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `kernel/backend`                                                                      | Domain-independent backend services and persistence. See its [architecture](kernel/backend/README.md).                                                                  |
+| `kernel/client`                                                                       | React DOM client and Capacitor application.                                                                                                                             |
+| `kernel/sandbox`                                                                      | Script isolation: native daemon, trusted guest runner, parent/daemon protocol, and host supervision. Backend ports supply configuration, authority, and host functions. |
+| `apps/server`                                                                         | Backend assembly, one-time migrations, and shipped plugin archives.                                                                                                     |
+| `plugins/*`                                                                           | First-party domain plugins, with authored `manifest/`, `backend/`, `client/`, and environment-neutral `shared/` sources. Archives contain compiled artifacts.           |
+| `packages/contract`                                                                   | Client-safe HTTP boundary, generic wire schemas, and plugin manifests.                                                                                                  |
+| `packages/plugin-client-contract`                                                     | Iframe bridge protocol, client artifact model, source policy, and shared client capability payloads.                                                                    |
+| `packages/plugin-kit`                                                                 | Plugin authoring documentation.                                                                                                                                         |
+| `packages/plugin-client-sdk`, `packages/plugin-ui-sdk`, `packages/plugin-backend-sdk` | Environment-neutral plugin-facing APIs and UI components.                                                                                                               |
+| `packages/plugin-backend-compiler`, `packages/plugin-client-compiler`                 | Independent compiler engines sharing only generic `packages/typescript-compiler` infrastructure, not policies, protocols, limits, or public APIs.                       |
+| `packages/cli`, `packages/plugin-archive`                                             | Canonical plugin builds and deterministic archive reading/writing.                                                                                                      |
+| `packages/ryotql`, `packages/ryotql-recipes`                                          | Query documents and application recipes; domain recipes live in each plugin's `shared/`.                                                                                |
+| `packages/kernel-renderers`                                                           | Kernel-shipped saved-view renderers compiled as client plugin sources.                                                                                                  |
+
 ## Community
 
 Questions or feedback? Join the [Discord server](https://discord.gg/D9XTg2a7R8)

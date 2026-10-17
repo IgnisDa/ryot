@@ -1,27 +1,12 @@
 # Client SDK
 
-Rationale lives in `README.md`.
-
-- Validate embedded composition metadata before registering the message listener. Accept exactly one `MessagePort` from `window.parent`.
-- Decode all init markers, compare the composition hash with embedded metadata, and report embedded metadata in ready. Never echo init identity as proof.
-- Keep uploads as one capability on every adapter. The plugin sends only bytes, file name, and content type; the host owns the intent, upload URL, headers, and completion. Reject a non-`Blob` source with `invalid-input`.
-- Reconcile plugin screens only from kernel entry `index` and stable `key`, never from paths. Move focus only when the active key changes.
-- Retain screen React keys and hide inactive screens with `visibility: hidden`. Do not add separate scroll restoration.
-- Scroll inside the screen shell, never on the shell itself; the shell is the transform target and therefore a containing block for fixed descendants. Pinned chrome goes through `PluginScreenFrame`'s `floatingAction`.
-- Install shared focused-field visibility handling in each plugin document because the kernel cannot inspect sandboxed focus.
-- Derive visibility from rendered screen roles. Limit imperative writes to transition transforms and scrim opacity.
-- Keep transition ownership with its initiator. Animate pops only for compact layouts without reduced motion; retention is unconditional.
-- Keep reconciliation and gesture recognition DOM-free. Add no animation or gesture dependency.
-- `index.ts`, `react.tsx`, and `plugin.tsx` are the package's aggregation points: they only re-export from defining modules. Internal modules import from defining modules, never from these entries.
-- Keep `PluginScreenFrame` on `./screen`; keep frame-independent plugin APIs on `./plugin`.
-- `./plugin` is the public aggregation point for canonical `PluginId`, `PluginPackageId`, `EntitySchemaSlug`, and `PluginIdentityReference` from the contract's defining modules.
-- Use only bridged `compact` and safe-area values for plugin layout. Publish titles only from the active screen and current entry.
-- Keep drawer opening and title publication on router navigation, not `RyotClient`; kernel chrome is not a plugin capability.
-- Schedule every delay and clock read through `RyotSchedule`. Never call `setTimeout` or `Date.now()` in SDK source.
-- Construct page bootstraps with an instance-owned runtime factory. The page disposes its own runtime; a test harness owns its clock and must survive page disposal.
-- Take router navigation from `RyotNavigationService`, never a `PluginRouter` prop. Only a plugin artifact's runtime provides it.
-- Layers construct shared values; React context distributes them. Per-screen values (`RouterContext`, `PluginScreenContext`, `ActiveScreenContext`) cannot be Layers, because `PluginRouter` mounts several `Screen`s at once with different locations.
-- Keep every SDK layer synchronously constructible; `RyotProvider` resolves its services with `runtime.runSync` during render.
-- Keep asynchronous client capabilities and React query/mutation definitions as Effects. Run them as Promises only at React/framework boundaries. Preserve the existing RyotQL and asset cancel messages on fiber interruption.
-- Query inputs identify cached data. Keep rolling-window inputs semantic and stable; read the supplied `schedule.now()` inside each query execution, not while building its input. Refresh the same query to retain its loaded data; never carry data across unrelated query identities by default.
-- Use retained submissions only with retry-safe writes. A submission keeps one immutable input and write identity across attempts; bridge request IDs are transport correlation, not write identities.
+- Read the README's bootstrap and routing sections before changing bridge trust or retained-screen behavior.
+- Validate embedded composition metadata before listening. Accept one port from `window.parent`; verify init against embedded identity, never echoed input.
+- Reconcile screens from kernel index/key, never paths. Preserve React keys and inactive layout; do not add independent scroll restoration. Keep reconciliation/gestures DOM-free; add no animation/gesture dependency.
+- The screen shell owns transforms, not scrolling. Keep scroll roots inside it and pinned chrome in `PluginScreenFrame.floatingAction`.
+- `index.ts`, `react.tsx`, and `plugin.tsx` are aggregation points; internal imports use defining modules. Keep `PluginScreenFrame` on `./screen` and frame-independent APIs on `./plugin`, including its canonical identity exports.
+- Publish titles only for the active history entry. Navigation comes from `RyotNavigationService`, not `PluginRouter` props or `RyotClient` chrome methods.
+- Schedule delays and clock reads through `RyotSchedule`, never global timers/time. Each page owns its bootstrap runtime; tests retain ownership of their harness clock.
+- Layers construct shared values synchronously; context distributes them. Screen-specific contexts remain per-screen because retained screens coexist.
+- Fiber interruption must preserve RyotQL/asset cancellation messages. Upload adapters share one `Blob`/`File` capability without exposing host intent or transport details.
+- Retained submissions require retry-safe writes and one immutable input/write identity across attempts; transport request IDs are not write identities.
