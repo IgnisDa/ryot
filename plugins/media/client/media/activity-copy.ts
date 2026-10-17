@@ -1,4 +1,5 @@
 import type { ListStateProperties } from "../../shared/list-state";
+import { decimalLabel, type MediaActivityProgressRun } from "./activity-timeline";
 
 type MediaActivityVerb = "read" | "play" | "watch" | "listen";
 
@@ -130,3 +131,13 @@ export const mediaReviewActivityCopy = (noun: string) => ({
 	loadingDetail: `Fetching everything you have recorded for this ${noun}.`,
 	emptyDetail: `Nothing has been recorded for this ${noun}. Your reviews, media library changes and collection changes will appear here.`,
 });
+
+export const mediaActivityRunLabel = (run: MediaActivityProgressRun) =>
+	run.fromPercent === undefined
+		? `${run.updates} updates`
+		: `${run.updates} updates since ${decimalLabel(run.fromPercent)}%`;
+
+export const mediaActivityExpandLabel = (input: {
+	readonly count: number;
+	readonly expanded: boolean;
+}) => (input.expanded ? "Hide episodes" : `Show ${input.count} episodes`);

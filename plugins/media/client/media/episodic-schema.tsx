@@ -12,6 +12,7 @@ import type { MediaPresentationSource } from "../../shared/entity-presentations"
 import type { EpisodicActivityInput, EpisodicOverviewInput } from "../../shared/episodic-recipes";
 import type { EpisodicLifecycleState } from "../../shared/lifecycle-expressions";
 import type { MediaOverviewRows, MediaUnlinkedCreatorsOverview } from "../../shared/media-recipes";
+import { mediaActivityExpandLabel, mediaActivityRunLabel } from "./activity-copy";
 import { createMediaHistoryQuery, type MediaHistoryRecipe } from "./activity-history";
 import type { MediaActivityLogger } from "./activity-log/state";
 import {
@@ -24,7 +25,7 @@ import {
 	type MediaActivityCopy,
 	MediaActivityRecord,
 } from "./activity-tab";
-import { mediaActivitySpanLabel, mediaActivityTimeLabel } from "./activity-timeline";
+import { mergeActivityRuns } from "./activity-timeline";
 import { createMediaCreditsQuery, MediaCreditsButton, type MediaCreditsRecipe } from "./credits";
 import { createMediaEntityQuery, createMediaSummaryQuery } from "./detail-queries";
 import {
@@ -43,17 +44,20 @@ import {
 } from "./entity-presentation";
 import {
 	type MediaEpisodicActivityCopy,
+	mediaEpisodicActivityFigures,
 	mediaEpisodicActivityRow,
 	type MediaEpisodicActivityValue,
 	mediaEpisodicActivityView,
 	type MediaEpisodicCoverage,
-	mediaEpisodicEpisodesLabel,
+	mediaEpisodicEpisodesAreCollapsed,
 	type MediaEpisodicEpisodeValue,
 	type MediaEpisodicHistoryEvent,
+	mediaEpisodicRangeSummary,
 	type MediaEpisodicRow,
 	mediaEpisodicRowLabel,
-	type MediaEpisodicSummary,
 	type MediaEpisodicView,
+	type MediaEpisodicWatchedEpisode,
+	mergeEpisodicRuns,
 } from "./episodic-activity-state";
 import { MediaEpisodicCoverageStrip } from "./episodic-coverage";
 import {
@@ -158,6 +162,7 @@ export type MediaEpisodicSchemaDescriptor<
 		};
 	readonly coverage: (result: Activity) => MediaEpisodicCoverage;
 	readonly episodeOrigin: (episode: Origin) => string;
+	readonly episodeOrder: (episode: Origin) => readonly number[];
 	readonly facts: (summary: Summary) => readonly MediaSummaryFact[];
 	readonly presentationFacts: (data: Presentation) => readonly string[];
 	readonly presentationDetail: (data: Presentation) => string | undefined;
@@ -172,16 +177,6 @@ export type MediaEpisodicSchemaDescriptor<
 		readonly summary: Summary;
 		readonly compact: boolean;
 	}) => ReactNode;
-};
-
-const MARKER_TONE: Record<MediaEpisodicRow["type"], string> = {
-	beat: "bg-border",
-	watch: "bg-success",
-	review: "bg-accent",
-	progress: "bg-accent",
-	completion: "bg-accent",
-	"media-library": "bg-accent",
-	collection: "bg-transparent",
 };
 
 const TABS: readonly TabOption<"overview" | "episodes" | "activity">[] = [
@@ -264,40 +259,30 @@ export const defineEpisodicMediaSchema = <
 		mediaEpisodicActivityView<Origin>({
 			result,
 			coverage: descriptor.coverage(result),
-			episodeOrigin: descriptor.episodeOrigin,
+			episode: { order: descriptor.episodeOrder, origin: descriptor.episodeOrigin },
 		});
 
 	const activityRowLabel = (row: MediaEpisodicRow) => mediaEpisodicRowLabel(row, activityCopy);
 
 	const activityRender: MediaActivityRowRender<MediaEpisodicRow> = {
-		markerTone: MARKER_TONE,
 		rowLabel: activityRowLabel,
 		segmentNoun: activityCopy.segmentNoun,
 		rowSource: (row) => (row.type === "watch" || row.type === "progress" ? row.source : undefined),
+		rowRun: (row) =>
+			row.type === "progress" && row.run !== undefined ? mediaActivityRunLabel(row.run) : undefined,
 		rowBody: (row) => {
 			if (row.type === "watch") {
 				return <EpisodicWatchBody row={row} />;
 			}
 			return row.type === "review" ? <MediaActivityReviewDetail row={row} /> : null;
 		},
-	};
-
-	const activityFigures = (summary: MediaEpisodicSummary) => {
-		const span = mediaActivitySpanLabel(summary.span);
-		return [
-			{
-				detail: undefined,
-				label: activityCopy.figures.episodes,
-				value: mediaEpisodicEpisodesLabel(summary),
-			},
-			{ detail: undefined, value: `${summary.watches}`, label: activityCopy.figures.watches },
-			{
-				detail: undefined,
-				label: activityCopy.figures.time,
-				value: mediaActivityTimeLabel(summary.minutes),
-			},
-			{ label: span.label, value: span.value, detail: span.detail },
-		];
+		rowExpand: (row) =>
+			row.type === "watch" && mediaEpisodicEpisodesAreCollapsed(row.episodes)
+				? {
+						content: <EpisodicEpisodeList episodes={row.episodes} />,
+						label: (expanded) => mediaActivityExpandLabel({ expanded, count: row.episodes.length }),
+					}
+				: undefined,
 	};
 
 	function ActivityRecord(props: {
@@ -313,9 +298,9 @@ export const defineEpisodicMediaSchema = <
 				render={activityRender}
 				timeline={view.timeline}
 				recordLabel={activityCopy.recordLabel}
-				figures={activityFigures(view.summary)}
 				partial={view.summary.span.bound === "partial"}
 				aside={<MediaEpisodicCoverageStrip rows={view.coverage} />}
+				figures={mediaEpisodicActivityFigures(view.summary, activityCopy.figures)}
 			/>
 		);
 	}
@@ -327,12 +312,6 @@ export const defineEpisodicMediaSchema = <
 		Record: ActivityRecord,
 		emptyAction: descriptor.logActivity,
 		hasMoreActivities: (result) => result.hasMoreActivities,
-		renderHistory: (events) => (
-			<MediaActivityRows
-				render={activityRender}
-				rows={events.map((event) => mediaEpisodicActivityRow(event, descriptor.episodeOrigin))}
-			/>
-		),
 		historyQuery: createMediaHistoryQuery(recipes.historyRecipe, (events) =>
 			events.flatMap((event) => {
 				if (event.kind === "episode") {
@@ -340,6 +319,21 @@ export const defineEpisodicMediaSchema = <
 				}
 				return event.kind === "collection" ? [event.collection.id] : [];
 			}),
+		),
+		renderHistory: (events, compact) => (
+			<MediaActivityRows
+				compact={compact}
+				render={activityRender}
+				rows={mergeActivityRuns(
+					events.map((event) =>
+						mediaEpisodicActivityRow(event, {
+							order: descriptor.episodeOrder,
+							origin: descriptor.episodeOrigin,
+						}),
+					),
+					mergeEpisodicRuns,
+				)}
+			/>
 		),
 	});
 
@@ -535,20 +529,26 @@ export const defineEpisodicMediaSchema = <
 	};
 };
 
-function EpisodicWatchBody(props: { readonly row: Extract<MediaEpisodicRow, { type: "watch" }> }) {
-	if (props.row.episodes.length === 1) {
-		return null;
-	}
+function EpisodicEpisodeList(props: { readonly episodes: readonly MediaEpisodicWatchedEpisode[] }) {
 	return (
 		<div className="flex flex-col gap-0.5">
-			{props.row.episodes.map((episode) => (
+			{props.episodes.map((episode) => (
 				<div key={episode.id} className="flex gap-2">
-					<p className="w-14 font-ui text-[12px] text-text-subtle">{episode.origin}</p>
-					<p className="line-clamp-1 min-w-0 flex-1 font-ui text-[12px] text-text-muted">
-						{episode.name}
-					</p>
+					<p className="w-14 text-micro text-text-subtle">{episode.origin}</p>
+					<p className="line-clamp-1 min-w-0 flex-1 text-label text-text-muted">{episode.name}</p>
 				</div>
 			))}
 		</div>
 	);
+}
+
+function EpisodicWatchBody(props: { readonly row: Extract<MediaEpisodicRow, { type: "watch" }> }) {
+	const { episodes } = props.row;
+	if (episodes.length === 1) {
+		return null;
+	}
+	if (mediaEpisodicEpisodesAreCollapsed(episodes)) {
+		return <p className="text-label text-text-muted">{mediaEpisodicRangeSummary(episodes)}</p>;
+	}
+	return <EpisodicEpisodeList episodes={episodes} />;
 }

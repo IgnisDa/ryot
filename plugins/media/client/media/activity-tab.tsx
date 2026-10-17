@@ -10,7 +10,6 @@ import { MediaHistoryButton } from "./activity-history";
 import { MediaLogActivityButton } from "./activity-log/button";
 import type { MediaActivityLogger } from "./activity-log/state";
 import {
-	type MediaActivityFigure,
 	type MediaActivityRowRender,
 	MediaActivitySummaryFigures,
 	MediaActivityTimelineView,
@@ -18,6 +17,7 @@ import {
 import {
 	mapMediaActivity,
 	mediaActivityError,
+	type MediaActivityFigure,
 	type MediaActivityRowBase,
 	type MediaActivityState,
 	type MediaActivityTimeline,
@@ -41,9 +41,7 @@ function MediaActivityFooter(props: { readonly partial: boolean; readonly histor
 	return (
 		<div className="flex flex-col items-start gap-2 border-t border-border pt-4">
 			{props.partial ? (
-				<p className="font-ui text-[12px] text-text-subtle">
-					Only your most recent activity is shown here.
-				</p>
+				<p className="text-label text-text-subtle">Only your most recent activity is shown here.</p>
 			) : null}
 			{props.history}
 		</div>
@@ -95,7 +93,7 @@ export function MediaActivityRecord<Row extends MediaActivityRowBase>(props: {
 			)}
 		>
 			<div className={clsx("flex flex-col gap-5", !compact && "w-72 shrink-0")}>
-				<MediaActivitySummaryFigures compact={compact} figures={props.figures} />
+				<MediaActivitySummaryFigures compact figures={props.figures} />
 				{props.aside}
 			</div>
 			<div
@@ -103,7 +101,11 @@ export function MediaActivityRecord<Row extends MediaActivityRowBase>(props: {
 				aria-label={props.recordLabel}
 				className={clsx("flex min-w-0 flex-col gap-5", !compact && "max-w-2xl flex-1")}
 			>
-				<MediaActivityTimelineView render={props.render} timeline={props.timeline} />
+				<MediaActivityTimelineView
+					compact={compact}
+					render={props.render}
+					timeline={props.timeline}
+				/>
 				<MediaActivityFooter partial={props.partial} history={props.history} />
 			</div>
 		</div>
@@ -152,7 +154,7 @@ export const defineMediaActivityTab = <Result, View, Event>(input: {
 	readonly emptyAction: MediaActivityEmptyAction;
 	readonly view: (result: Result) => View | undefined;
 	readonly hasMoreActivities: (result: Result) => boolean;
-	readonly renderHistory: (items: readonly Event[]) => ReactNode;
+	readonly renderHistory: (items: readonly Event[], compact: boolean) => ReactNode;
 	readonly query: RyotQuery<{ readonly entityId: string }, Result>;
 	readonly historyQuery: RyotQuery<
 		{ readonly entityId: string; readonly after: string | null },

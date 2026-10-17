@@ -112,6 +112,11 @@ export const showSchema = defineEpisodicMediaSchema({
 	overviewTrailing: mediaWatchProvidersTrailing((summary) => summary),
 	overviewLoadingDetail: "Fetching the cast, companies and recommendations for this show.",
 	activityCopy: mediaEpisodicActivityCopy({ noun: "show", verb: "watch", watchedLabel: "Watched" }),
+	episodeOrder: (episode) => [
+		isSpecialsSeason(episode) ? 1 : 0,
+		episode.seasonNumber,
+		episode.episodeNumber,
+	],
 	logActivity: {
 		family: "show",
 		copy: { noun: "show", verb: "watch", gerund: "watching", participle: "watched" },

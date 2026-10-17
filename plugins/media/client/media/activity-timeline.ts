@@ -28,6 +28,19 @@ export type ActivityAnchor = {
 
 export type MediaActivityRowBase = ActivityAnchor & { readonly type: string };
 
+export type MediaActivityFigure = {
+	readonly label: string;
+	readonly value: string;
+	readonly detail: string | undefined;
+};
+
+export type MediaActivityProgressRun = {
+	readonly updates: number;
+	readonly fromPercent: number | undefined;
+};
+
+export type MediaActivityRunMerge<Row> = (current: Row, next: Row) => Row | undefined;
+
 export type MediaActivityEventRow = SelectedRow<ReturnType<typeof mediaActivityEventSelection>>;
 
 export type MediaActivityBeatRow<Beat extends string> = ActivityAnchor & {
@@ -250,6 +263,40 @@ export const mediaActivityTimeline = <Row extends ActivityAnchor>(
 	};
 };
 
+/** Folds adjacent rows, newest first, whenever `merge` joins the current row with the next one. */
+export const mergeActivityRuns = <Row>(
+	rows: readonly Row[],
+	merge: MediaActivityRunMerge<Row>,
+): Row[] => {
+	const merged: Row[] = [];
+	for (const row of rows) {
+		const current = merged.at(-1);
+		const joined = current === undefined ? undefined : merge(current, row);
+		if (joined === undefined) {
+			merged.push(row);
+		} else {
+			merged[merged.length - 1] = joined;
+		}
+	}
+	return merged;
+};
+
+export const mergeProgressRuns = <
+	Row extends {
+		readonly percent: number | undefined;
+		readonly run?: MediaActivityProgressRun | undefined;
+	},
+>(
+	current: Row,
+	next: Row,
+): Row => ({
+	...current,
+	run: {
+		updates: (current.run?.updates ?? 1) + (next.run?.updates ?? 1),
+		fromPercent: next.run === undefined ? next.percent : next.run.fromPercent,
+	},
+});
+
 export const activitySpan = <Row extends ActivityAnchor>(
 	rows: NonEmpty<Row>,
 	truncated: boolean,
@@ -273,13 +320,17 @@ export const mediaActivityRowsView = <Row extends ActivityAnchor>(
 	rows: readonly Row[],
 	predicates: ActivityRowPredicates<Row>,
 	truncated: boolean,
+	merge?: MediaActivityRunMerge<Row>,
 ) => {
 	const sorted = [...rows].sort(
 		(left, right) =>
 			right.occurredAt.localeCompare(left.occurredAt) || left.key.localeCompare(right.key),
 	);
 	const spanned = nonEmpty(sorted);
-	const timeline = mediaActivityTimeline(sorted, predicates);
+	const timeline = mediaActivityTimeline(
+		merge === undefined ? sorted : mergeActivityRuns(sorted, merge),
+		predicates,
+	);
 	return timeline === undefined || spanned === undefined
 		? undefined
 		: { timeline, span: activitySpan(spanned, truncated) };

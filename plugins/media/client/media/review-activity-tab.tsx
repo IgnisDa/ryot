@@ -26,12 +26,6 @@ import {
 const ACTIVITY_EVENT_LIMIT = 60;
 const ACTIVITY_COLLECTION_EVENT_LIMIT = 60;
 
-const MARKER_TONE: Record<MediaReviewActivityRow["type"], string> = {
-	review: "bg-accent",
-	"media-library": "bg-accent",
-	collection: "bg-transparent",
-};
-
 /** The activity tab of an entity whose only own events are reviews. */
 export const defineMediaReviewActivityTab = (input: {
 	readonly noun: string;
@@ -68,7 +62,6 @@ export const defineMediaReviewActivityTab = (input: {
 	};
 
 	const activityRender: MediaActivityRowRender<MediaReviewActivityRow> = {
-		markerTone: MARKER_TONE,
 		rowSource: () => undefined,
 		rowLabel: activityRowLabel,
 		segmentNoun: activityCopy.segmentNoun,
@@ -105,11 +98,15 @@ export const defineMediaReviewActivityTab = (input: {
 		emptyAction: "write-review",
 		view: mediaReviewActivityView,
 		hasMoreActivities: (result) => result.truncated,
-		renderHistory: (events) => (
-			<MediaActivityRows render={activityRender} rows={events.map(mediaReviewActivityRow)} />
-		),
 		historyQuery: createMediaHistoryQuery(input.historyRecipe, (events) =>
 			events.flatMap((event) => (event.kind === "collection" ? [event.collection.id] : [])),
+		),
+		renderHistory: (events, compact) => (
+			<MediaActivityRows
+				compact={compact}
+				render={activityRender}
+				rows={events.map(mediaReviewActivityRow)}
+			/>
 		),
 	});
 

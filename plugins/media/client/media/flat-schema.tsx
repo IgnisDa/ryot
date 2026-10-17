@@ -14,6 +14,7 @@ import type {
 	MediaFlatActivityEvent,
 	MediaUnlinkedCreatorsOverview,
 } from "../../shared/media-recipes";
+import { mediaActivityRunLabel } from "./activity-copy";
 import { createMediaHistoryQuery, type MediaHistoryRecipe } from "./activity-history";
 import type { MediaActivityLogger } from "./activity-log/state";
 import {
@@ -22,7 +23,7 @@ import {
 	MediaActivityRows,
 } from "./activity-rows";
 import { defineMediaActivityTab, MediaActivityRecord } from "./activity-tab";
-import { decimalLabel, mediaActivitySpanLabel, mediaCollectionRowLabel } from "./activity-timeline";
+import { decimalLabel, mediaCollectionRowLabel, mergeActivityRuns } from "./activity-timeline";
 import { createMediaCreditsQuery, MediaCreditsButton, type MediaCreditsRecipe } from "./credits";
 import { createMediaEntityQuery, createMediaSummaryQuery } from "./detail-queries";
 import {
@@ -43,11 +44,13 @@ import {
 import { MediaEntityRailSection } from "./entity-rail";
 import {
 	type MediaFlatActivityBeat,
+	mediaFlatActivityFigures,
 	type MediaFlatActivityRow,
 	mediaFlatActivityRow,
 	type MediaFlatActivitySummary,
 	type MediaFlatActivityView,
 	mediaFlatActivityView,
+	mergeFlatRuns,
 } from "./flat-activity-state";
 import {
 	type MediaGroupOverview,
@@ -195,16 +198,6 @@ export type MediaFlatSchemaDescriptor<
 	}) => ReactNode;
 };
 
-const MARKER_TONE: Record<MediaFlatSchemaRow["type"], string> = {
-	beat: "bg-border",
-	review: "bg-accent",
-	progress: "bg-accent",
-	snapshot: "bg-accent",
-	completion: "bg-accent",
-	"media-library": "bg-accent",
-	collection: "bg-transparent",
-};
-
 const TABS: readonly TabOption<"overview" | "activity">[] = [
 	{ value: "overview", label: "Overview" },
 	{ value: "activity", label: "Activity" },
@@ -280,8 +273,15 @@ export const defineFlatMediaSchema = <
 		select: ({ summary }) => summary,
 	});
 
+	const mergeRuns = mergeFlatRuns<FlatReviewSubject, Extra>(
+		(current, next) =>
+			activityCopy.rowLabels.progress(undefined, current) ===
+			activityCopy.rowLabels.progress(undefined, next),
+	);
+
 	const activityView = (result: MediaFlatActivityResult<Extra>) =>
 		mediaFlatActivityView({
+			merge: mergeRuns,
 			events: result.events,
 			subject: REVIEW_SUBJECT,
 			truncated: result.truncated,
@@ -315,10 +315,11 @@ export const defineFlatMediaSchema = <
 	};
 
 	const activityRender: MediaActivityRowRender<MediaFlatSchemaRow<Extra>> = {
-		markerTone: MARKER_TONE,
 		rowLabel: activityRowLabel,
 		segmentNoun: activityCopy.segmentNoun,
 		rowSource: (row) => (row.type === "progress" ? row.source : undefined),
+		rowRun: (row) =>
+			row.type === "progress" && row.run !== undefined ? mediaActivityRunLabel(row.run) : undefined,
 		rowBody: (row) => {
 			if (row.type === "review") {
 				return <MediaActivityReviewDetail row={row} />;
@@ -326,24 +327,11 @@ export const defineFlatMediaSchema = <
 			if (row.type === "snapshot") {
 				const detail = activityCopy.snapshot?.detail(row.extra);
 				return detail === undefined ? null : (
-					<p className="font-ui text-[11px] text-text-subtle">{detail}</p>
+					<p className="text-micro text-text-subtle">{detail}</p>
 				);
 			}
 			return null;
 		},
-	};
-
-	const activityFigures = (summary: MediaFlatActivitySummary) => {
-		const span = mediaActivitySpanLabel(summary.span);
-		return [
-			{ detail: undefined, value: `${summary.completions}`, label: activityCopy.completionsLabel },
-			{
-				detail: undefined,
-				label: descriptor.measureFigure.label,
-				value: descriptor.measureFigure.value(summary.amount),
-			},
-			{ label: span.label, value: span.value, detail: span.detail },
-		];
 	};
 
 	function ActivityRecord(props: {
@@ -359,8 +347,11 @@ export const defineFlatMediaSchema = <
 				render={activityRender}
 				timeline={view.timeline}
 				recordLabel={activityCopy.recordLabel}
-				figures={activityFigures(view.summary)}
 				partial={view.summary.span.bound === "partial"}
+				figures={mediaFlatActivityFigures(view.summary, {
+					measure: descriptor.measureFigure,
+					completions: activityCopy.completionsLabel,
+				})}
 			/>
 		);
 	}
@@ -375,10 +366,14 @@ export const defineFlatMediaSchema = <
 		historyQuery: createMediaHistoryQuery(recipes.historyRecipe, (events) =>
 			events.flatMap((event) => (event.kind === "collection" ? [event.collection.id] : [])),
 		),
-		renderHistory: (events) => (
+		renderHistory: (events, compact) => (
 			<MediaActivityRows
+				compact={compact}
 				render={activityRender}
-				rows={events.map((event) => mediaFlatActivityRow(event, REVIEW_SUBJECT))}
+				rows={mergeActivityRuns(
+					events.map((event) => mediaFlatActivityRow(event, REVIEW_SUBJECT)),
+					mergeRuns,
+				)}
 			/>
 		),
 	});

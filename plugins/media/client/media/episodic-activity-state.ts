@@ -5,10 +5,14 @@ import {
 	type MediaActivityCollectionRow,
 	type MediaActivityCompletionRow,
 	type MediaActivityEventRow,
+	type MediaActivityFigure,
 	type MediaActivityLibraryRow,
+	type MediaActivityProgressRun,
 	type MediaActivityReviewRow,
 	mediaActivityRowsView,
 	type MediaActivitySpan,
+	mediaActivitySpanLabel,
+	mediaActivityTimeLabel,
 	type MediaActivityTimeline,
 	mediaBeatRow,
 	mediaCollectionRow,
@@ -16,6 +20,7 @@ import {
 	mediaCompletionRow,
 	mediaLibraryRow,
 	mediaReviewRow,
+	mergeProgressRuns,
 	type NonEmpty,
 	nonEmpty,
 	optionalText,
@@ -57,9 +62,14 @@ export type MediaEpisodicHistoryEvent<Episode> =
 			readonly eventSchemaSlug: "review" | "progress" | "complete";
 	  });
 
+export type MediaEpisodicEpisodeVocabulary<Episode> = {
+	readonly origin: (episode: Episode) => string;
+	readonly order: (episode: Episode) => readonly number[];
+};
+
 export const mediaEpisodicActivityRow = <Episode extends MediaEpisodicEpisodeValue>(
 	event: MediaEpisodicHistoryEvent<Episode>,
-	episodeOrigin: (episode: Episode) => string,
+	vocabulary: MediaEpisodicEpisodeVocabulary<Episode>,
 ): MediaEpisodicRow => {
 	if (event.kind === "parent") {
 		return parentEventRow(event);
@@ -67,7 +77,8 @@ export const mediaEpisodicActivityRow = <Episode extends MediaEpisodicEpisodeVal
 	if (event.kind === "collection") {
 		return mediaCollectionRow(event);
 	}
-	const origin = episodeOrigin(event.episode);
+	const origin = vocabulary.origin(event.episode);
+	const order = vocabulary.order(event.episode);
 	if (event.eventSchemaSlug === "complete") {
 		return {
 			...anchorOf(event, "watch"),
@@ -75,6 +86,7 @@ export const mediaEpisodicActivityRow = <Episode extends MediaEpisodicEpisodeVal
 			source: optionalText(event.consumedOn),
 			episodes: [
 				{
+					order,
 					origin,
 					id: event.episode.id,
 					name: event.episode.name,
@@ -83,7 +95,7 @@ export const mediaEpisodicActivityRow = <Episode extends MediaEpisodicEpisodeVal
 			],
 		};
 	}
-	return episodeEventRow({ ...event, eventSchemaSlug: event.eventSchemaSlug }, origin);
+	return episodeEventRow({ ...event, eventSchemaSlug: event.eventSchemaSlug }, origin, order);
 };
 
 export type MediaEpisodicWatchDayRow = {
@@ -118,6 +130,7 @@ export type MediaEpisodicWatchedEpisode = {
 	readonly id: string;
 	readonly name: string;
 	readonly origin: string;
+	readonly order: readonly number[];
 	readonly minutes: number | undefined;
 };
 
@@ -141,6 +154,7 @@ export type MediaEpisodicProgressRow = {
 	readonly occurredAt: string;
 	readonly source: string | undefined;
 	readonly percent: number | undefined;
+	readonly run?: MediaActivityProgressRun;
 	readonly episode: MediaEpisodicWatchedEpisode;
 };
 
@@ -197,9 +211,24 @@ export type MediaEpisodicActivityCopy = {
 export const mediaEpisodicCoveragePercent = (watched: number, total: number) =>
 	total === 0 ? undefined : Math.min(Math.round((watched / total) * 100), 100);
 
+const compareOrder = (left: readonly number[], right: readonly number[]) => {
+	for (const [index, value] of left.entries()) {
+		const difference = value - (right[index] ?? 0);
+		if (difference !== 0) {
+			return difference;
+		}
+	}
+	return left.length - right.length;
+};
+
+const sortedEpisodes = (
+	episodes: readonly MediaEpisodicWatchedEpisode[],
+): NonEmpty<MediaEpisodicWatchedEpisode> | undefined =>
+	nonEmpty([...episodes].sort((left, right) => compareOrder(left.order, right.order)));
+
 const watchDayRows = <WatchDay extends MediaEpisodicWatchDayRow>(
 	watchDays: readonly WatchDay[],
-	episodeOrigin: (origin: WatchDay) => string,
+	vocabulary: MediaEpisodicEpisodeVocabulary<WatchDay>,
 ) => {
 	const days = new Map<string, Map<string, MediaEpisodicWatchedEpisode>>();
 	const sources = new Map<string, string>();
@@ -209,7 +238,8 @@ const watchDayRows = <WatchDay extends MediaEpisodicWatchDayRow>(
 			episodes.set(watch.episodeId, {
 				id: watch.episodeId,
 				name: watch.episodeName,
-				origin: episodeOrigin(watch),
+				order: vocabulary.order(watch),
+				origin: vocabulary.origin(watch),
 				minutes: watch.minutes ?? watch.runtime ?? undefined,
 			});
 		}
@@ -220,7 +250,7 @@ const watchDayRows = <WatchDay extends MediaEpisodicWatchDayRow>(
 		}
 	}
 	return [...days.entries()].flatMap(([day, episodes]): readonly MediaEpisodicWatchRow[] => {
-		const listed = nonEmpty([...episodes.values()]);
+		const listed = sortedEpisodes([...episodes.values()]);
 		return listed === undefined
 			? []
 			: [
@@ -252,6 +282,7 @@ const parentEventRow = (event: MediaEpisodicParentEvent): MediaEpisodicRow => {
 const episodeEventRow = (
 	event: MediaEpisodicEpisodeEvent<MediaEpisodicEpisodeValue>,
 	origin: string,
+	order: readonly number[],
 ): MediaEpisodicRow => {
 	if (event.eventSchemaSlug === "review") {
 		return mediaReviewRow(event, { origin, on: "episode", name: event.episode.name });
@@ -262,6 +293,7 @@ const episodeEventRow = (
 		source: optionalText(event.consumedOn),
 		percent: event.progressPercent ?? undefined,
 		episode: {
+			order,
 			origin,
 			id: event.episode.id,
 			name: event.episode.name,
@@ -275,22 +307,48 @@ const episodicPredicates = {
 	isWatching: (row: MediaEpisodicRow) => row.type === "watch" || row.type === "progress",
 };
 
+export const mergeEpisodicRuns = (
+	current: MediaEpisodicRow,
+	next: MediaEpisodicRow,
+): MediaEpisodicRow | undefined => {
+	if (
+		current.type === "watch" &&
+		next.type === "watch" &&
+		current.occurredAt === next.occurredAt &&
+		current.source === next.source
+	) {
+		const known = new Set(current.episodes.map((episode) => episode.id));
+		const episodes = sortedEpisodes([
+			...current.episodes,
+			...next.episodes.filter((episode) => !known.has(episode.id)),
+		]);
+		return episodes === undefined ? undefined : { ...current, episodes };
+	}
+	if (
+		current.type === "progress" &&
+		next.type === "progress" &&
+		current.episode.id === next.episode.id
+	) {
+		return mergeProgressRuns(current, next);
+	}
+	return undefined;
+};
+
 export const mediaEpisodicActivityView = <Origin>(input: {
 	readonly coverage: MediaEpisodicCoverage;
-	readonly episodeOrigin: (origin: Origin) => string;
+	readonly episode: MediaEpisodicEpisodeVocabulary<Origin>;
 	readonly result: MediaEpisodicActivityResult<
 		Origin & MediaEpisodicEpisodeValue,
 		Origin & MediaEpisodicWatchDayRow
 	>;
 }): MediaEpisodicView | undefined => {
 	const { result, coverage } = input;
-	const eventRows = result.events.map((event) =>
-		mediaEpisodicActivityRow(event, input.episodeOrigin),
-	);
+	const eventRows = result.events.map((event) => mediaEpisodicActivityRow(event, input.episode));
 	const view = mediaActivityRowsView(
-		[...watchDayRows(result.watchDays, input.episodeOrigin), ...eventRows],
+		[...watchDayRows(result.watchDays, input.episode), ...eventRows],
 		episodicPredicates,
 		result.truncated,
+		mergeEpisodicRuns,
 	);
 	if (view === undefined) {
 		return undefined;
@@ -341,3 +399,54 @@ export const mediaEpisodicEpisodesLabel = (summary: MediaEpisodicSummary) =>
 	summary.episodes.total === undefined
 		? `${summary.episodes.watched}`
 		: `${summary.episodes.watched} / ${summary.episodes.total}`;
+
+export const mediaEpisodicActivityFigures = (
+	summary: MediaEpisodicSummary,
+	labels: { readonly time: string; readonly watches: string; readonly episodes: string },
+): readonly MediaActivityFigure[] => {
+	const span = mediaActivitySpanLabel(summary.span);
+	return [
+		{ detail: undefined, label: labels.episodes, value: mediaEpisodicEpisodesLabel(summary) },
+		...(summary.watches === 0
+			? []
+			: [{ detail: undefined, label: labels.watches, value: `${summary.watches}` }]),
+		{ detail: undefined, label: labels.time, value: mediaActivityTimeLabel(summary.minutes) },
+		{ label: span.label, value: span.value, detail: span.detail },
+	];
+};
+
+const MAX_INLINE_EPISODES = 4;
+
+export const mediaEpisodicEpisodesAreCollapsed = (episodes: readonly unknown[]) =>
+	episodes.length > MAX_INLINE_EPISODES;
+
+const continuesRun = (previous: MediaEpisodicWatchedEpisode, next: MediaEpisodicWatchedEpisode) => {
+	const lastIndex = previous.order.length - 1;
+	return (
+		previous.order.length === next.order.length &&
+		previous.order.every((value, index) =>
+			index === lastIndex ? next.order[index] === value + 1 : next.order[index] === value,
+		)
+	);
+};
+
+/** Contiguous stretches of sorted episodes, each shown from its first to its last origin label. */
+export const mediaEpisodicRangeSummary = (episodes: readonly MediaEpisodicWatchedEpisode[]) => {
+	const ranges: MediaEpisodicWatchedEpisode[][] = [];
+	for (const episode of episodes) {
+		const range = ranges.at(-1);
+		const previous = range?.at(-1);
+		if (range !== undefined && previous !== undefined && continuesRun(previous, episode)) {
+			range.push(episode);
+		} else {
+			ranges.push([episode]);
+		}
+	}
+	return ranges
+		.map((range) => {
+			const first = range[0]?.origin;
+			const last = range.at(-1)?.origin;
+			return range.length === 1 || first === last ? first : `${first} – ${last}`;
+		})
+		.join(", ");
+};

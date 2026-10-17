@@ -28,7 +28,7 @@ describe("episodic activity state", () => {
 		assert(episode?.kind === "episode");
 		const complete = mediaEpisodicActivityRow(
 			{ ...episode, timeSpent: 25, eventSchemaSlug: "complete" },
-			() => "E1",
+			{ order: () => [1], origin: () => "E1" },
 		);
 		expect(complete).toMatchObject({
 			type: "watch",
@@ -37,7 +37,7 @@ describe("episodic activity state", () => {
 		});
 		const progress = mediaEpisodicActivityRow(
 			{ ...episode, progressPercent: 45, eventSchemaSlug: "progress" },
-			() => "E1",
+			{ order: () => [1], origin: () => "E1" },
 		);
 		expect(progress).toMatchObject({
 			percent: 45,

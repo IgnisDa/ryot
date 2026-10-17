@@ -76,6 +76,7 @@ export const podcastSchema = defineEpisodicMediaSchema({
 	episodeOrigin: podcastEpisodeOriginLabel,
 	presentationFacts: podcastPresentationFacts,
 	presentationDetail: podcastPresentationDetail,
+	episodeOrder: (episode) => [episode.episodeNumber],
 	nouns: { title: "Podcast", plural: "podcasts", singular: "podcast" },
 	overviewLoadingDetail: "Fetching the hosts, networks and recommendations for this podcast.",
 	activityCopy: mediaEpisodicActivityCopy({

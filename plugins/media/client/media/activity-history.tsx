@@ -41,7 +41,7 @@ export function MediaHistoryButton<Event>(props: {
 	readonly compact: boolean;
 	readonly safeAreaTop: number;
 	readonly query: RyotQuery<HistoryPageInput, MediaCursorPage<Event>>;
-	readonly renderPage: (items: readonly Event[]) => ReactNode;
+	readonly renderPage: (items: readonly Event[], compact: boolean) => ReactNode;
 }) {
 	return (
 		<MediaDetailModalButton
@@ -55,9 +55,9 @@ export function MediaHistoryButton<Event>(props: {
 				<MediaCursorPages
 					assets={() => []}
 					query={props.query}
-					renderPage={props.renderPage}
 					input={{ entityId: props.entityId }}
 					getPageInput={(input, after) => ({ ...input, after })}
+					renderPage={(items) => props.renderPage(items, props.compact)}
 					copy={{
 						empty: "No activity found.",
 						error: (state) => mediaCursorPageError({ state, noun: "activities" }),

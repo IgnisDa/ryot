@@ -42,6 +42,7 @@ export const episodicFixtureSchema = defineEpisodicMediaSchema({
 	overviewLoadingDetail: "Fetching the credits for this item.",
 	nouns: { plural: "items", title: "Fixture", singular: "item" },
 	creditCopy: { people: "People", notice: "Credits", companies: "Companies" },
+	episodeOrder: (episode: { readonly episodeNumber: number }) => [episode.episodeNumber],
 	episodeOrigin: (episode: { readonly episodeNumber: number }) => `Ep ${episode.episodeNumber}`,
 	logActivity: {
 		family: "show",
