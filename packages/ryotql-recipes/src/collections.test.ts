@@ -1,11 +1,13 @@
 import { collectionFieldsToAppSchema } from "@ryot-app/contract/modules/collections/fields";
+import type { Filter } from "@ryot-app/contract/modules/saved-views/filters";
 import { AppSchema } from "@ryot-app/contract/schema/property-schema";
-import { Result, Schema } from "effect";
+import { DateTime, Result, Schema } from "effect";
 import { assert, describe, expect, it } from "vitest";
 
 import {
 	allCollectionsRecipe,
 	collectionHeaderRecipe,
+	collectionMemberFilterFields,
 	collectionMemberTableColumns,
 	collectionMembersAggregateRecipe,
 	collectionMembersCountRecipe,
@@ -14,6 +16,7 @@ import {
 	collectionMembershipRecipe,
 	type CollectionMemberSort,
 } from "./collections";
+import type { FilterInput } from "./saved-view-filters";
 
 const pageInfo = { limit: 7, hasMore: false, nextCursor: null };
 
@@ -513,5 +516,115 @@ describe("collections recipes", () => {
 		expect(
 			Result.isFailure(recipe.decode({ data: { collections: { items: [], type: "aggregate" } } })),
 		).toBe(true);
+	});
+
+	describe("member filters", () => {
+		const now = DateTime.makeUnsafe("2026-03-10T12:00:00.000Z");
+		const groups = {
+			items: [
+				{
+					count: 2,
+					ownerPluginId: "media",
+					entitySchemaSlug: "book",
+					ownerPluginName: "Media",
+					typeLabel: "Media / book",
+				},
+				{
+					count: 1,
+					ownerPluginId: null,
+					ownerPluginName: null,
+					typeLabel: "Collections",
+					entitySchemaSlug: "collection",
+				},
+			],
+		};
+		const filterSchema = collectionFieldsToAppSchema([
+			{ key: "type", type: "text", label: "Type", required: false },
+			{ type: "text", required: false, key: "collections", label: "Collections" },
+		]);
+		const fields = collectionMemberFilterFields({
+			groups,
+			membershipPropertiesSchema: filterSchema,
+		});
+		const filter: Filter = {
+			type: "and",
+			filters: [
+				{ field: "type", operator: "anyOf", values: ["media/book"] },
+				{ operator: "anyOf", values: ["col-2"], field: "collections" },
+				{ value: "x", operator: "contains", field: "membership.type" },
+				{ value: "y", operator: "is", field: "membership.collections" },
+			],
+		};
+		const compiled = (applied: Filter | undefined) => {
+			const base = { searchText: "dune", filterFields: fields, collectionId: "collection-1" };
+			const input: FilterInput = applied ? { now, filter: applied } : {};
+			const members = collectionMembersRecipe({
+				...base,
+				...input,
+				membershipPropertiesSchema: filterSchema,
+			}).document.queries.members;
+			const count = collectionMembersCountRecipe({ ...base, ...input }).document.queries.count;
+			assert(members?.output.type === "rows");
+			assert(count);
+			return { count, members, projected: members.output.fields };
+		};
+
+		it("builds the type, also-in-collection and membership property fields with unique keys", () => {
+			expect(fields.map(({ key }) => key)).toEqual([
+				"type",
+				"collections",
+				"membership.type",
+				"membership.collections",
+			]);
+			expect(fields[0]).toMatchObject({
+				field: "memberType",
+				choices: [
+					{ value: "media/book", label: "Media / book" },
+					{ value: "/collection", label: "Collections" },
+				],
+			});
+			expect(fields[1]).toMatchObject({
+				kind: "relationship",
+				direction: "outgoing",
+				label: "Also in collection",
+				relationship: { slug: "member-of", owner: { kind: "kernel" } },
+			});
+			expect(fields.slice(2)).toMatchObject([
+				{ type: "text", field: "membership.type" },
+				{ type: "text", field: "membership.collections" },
+			]);
+		});
+
+		it("derives property fields from supported, non-secret membership properties", () => {
+			const keys = collectionMemberFilterFields({
+				membershipPropertiesSchema,
+				groups: { ...groups, items: [] },
+			}).map(({ key }) => key);
+			expect(keys).toEqual(
+				expect.arrayContaining(["collections", "membership.notes", "membership.status"]),
+			);
+			expect(keys).not.toContain("type");
+			expect(keys).not.toContain("membership.secret");
+			expect(keys).not.toContain("membership.metadata");
+		});
+
+		it("compiles each field against its own expression, identically for members and count", () => {
+			const { count, members, projected } = compiled(filter);
+			const where = JSON.stringify(members.where);
+			expect(where).toContain('"concat"');
+			expect(where).toContain('"exists"');
+			expect(where).toContain('"collectionMember"');
+			expect(JSON.stringify(projected)).toContain('"key":"memberType"');
+			expect(projected).toContainEqual({
+				key: "membership.type",
+				expr: expect.objectContaining({ path: ["type"], type: "jsonPath" }),
+			});
+			expect(projected).toContainEqual({
+				key: "membership.collections",
+				expr: expect.objectContaining({ type: "jsonPath", path: ["collections"] }),
+			});
+			expect(members.where).toEqual(count.where);
+			expect(members.where).not.toEqual(compiled(undefined).members.where);
+		});
 	});
 });

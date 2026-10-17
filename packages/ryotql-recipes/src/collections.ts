@@ -4,11 +4,16 @@ import {
 	type KeyedCollectionField,
 } from "@ryot-app/contract/modules/collections/fields";
 import { PopulationStatus, TranslationStatus } from "@ryot-app/contract/modules/entities/schemas";
+import type { Predicate } from "@ryot-app/contract/modules/ryotql/language";
+import type {
+	FilterField,
+	RelationshipFilterField,
+} from "@ryot-app/contract/modules/saved-views/filters";
 import {
 	SavedViewDisplayValue,
 	type SavedViewTableColumn,
 } from "@ryot-app/contract/modules/saved-views/schemas";
-import { EntityId } from "@ryot-app/contract/schema/brands";
+import { EntityId, RelationshipSchemaSlug } from "@ryot-app/contract/schema/brands";
 import { JsonValue } from "@ryot-app/contract/schema/json";
 import {
 	getOrderedAppSchemaFieldEntries,
@@ -20,7 +25,10 @@ import {
 	and,
 	ascending,
 	castNumber,
+	castText,
+	coalesce,
 	column,
+	concat,
 	contains,
 	defineRecipe,
 	entitySchemaPredicate,
@@ -35,6 +43,7 @@ import {
 	join,
 	jsonPath,
 	literal,
+	rows,
 	selectedAggregate,
 	selectedField,
 	selectedMeasure,
@@ -43,6 +52,9 @@ import {
 	table,
 } from "@ryot-app/ryotql";
 import { Result, Schema } from "effect";
+
+import { propertyFilterFields } from "./property-filter-fields";
+import { compileOptionalFilter, type FilterInput } from "./saved-view-filters";
 
 const MembershipProperties = Schema.Record(Schema.String, JsonValue);
 
@@ -81,13 +93,102 @@ const collectionMembershipWhere = (
 	entity: ReturnType<typeof table>,
 	collectionId: string,
 	searchText?: string,
+	filter?: Predicate,
 ) => {
 	const search = searchText?.trim();
 	return and(
 		eq(column(membership, "targetEntityId"), literal(collectionId)),
 		relationshipSchemaPredicate(membership, "member-of", { kind: "kernel" }),
 		...(search ? [contains(column(entity, "name"), literal(search))] : []),
+		...(filter ? [filter] : []),
 	);
+};
+
+const memberTypeField = "memberType";
+const membershipFieldPrefix = "membership.";
+
+const collectionMemberTypeValue = (group: {
+	readonly entitySchemaSlug: string;
+	readonly ownerPluginId: string | null;
+}) => `${group.ownerPluginId ?? ""}/${group.entitySchemaSlug}`;
+
+const alsoInCollectionField: RelationshipFilterField = {
+	key: "collections",
+	kind: "relationship",
+	direction: "outgoing",
+	label: "Also in collection",
+	relationship: { owner: { kind: "kernel" }, slug: RelationshipSchemaSlug.make("member-of") },
+};
+
+export const collectionMemberFilterFields = (input: {
+	readonly groups: CollectionMembersAggregateResult;
+	readonly membershipPropertiesSchema: AppSchemaValue | null;
+}): readonly FilterField[] => {
+	const [firstType, ...otherTypes] = input.groups.items.map((group) => ({
+		label: group.typeLabel,
+		value: collectionMemberTypeValue(group),
+	}));
+	const schema = input.membershipPropertiesSchema;
+	return [
+		...(firstType === undefined
+			? []
+			: [
+					{
+						key: "type",
+						type: "enum",
+						label: "Type",
+						kind: "value",
+						field: memberTypeField,
+						choices: [firstType, ...otherTypes],
+					} as const,
+				]),
+		alsoInCollectionField,
+		...(schema === null
+			? []
+			: getOrderedAppSchemaFieldEntries(schema.fields).flatMap(([property, definition]) => {
+					const key = `${membershipFieldPrefix}${property}`;
+					const result = propertyFilterFields(schema, [{ property, field: key }]);
+					return definition.secret === true || Result.isFailure(result)
+						? []
+						: result.success.map((valueField) => Object.assign({}, valueField, { key }));
+				})),
+	];
+};
+
+const collectionMemberFilter = (
+	tables: ReturnType<typeof collectionMembershipTables>,
+	fields: readonly FilterField[],
+	input: FilterInput,
+) => {
+	const { entity, membership, entityJoin, ownerPluginJoin } = tables;
+	const projections = fields.flatMap((filterField) =>
+		filterField.kind === "relationship"
+			? []
+			: [
+					{
+						key: filterField.field,
+						expr:
+							filterField.field === memberTypeField
+								? concat(
+										coalesce(castText(column(entity, "entitySchemaPluginId")), literal("")),
+										literal("/"),
+										column(entity, "entitySchemaSlug"),
+									)
+								: jsonPath(
+										column(membership, "properties"),
+										filterField.field.slice(membershipFieldPrefix.length),
+									),
+					},
+				],
+	);
+	const predicate = Result.getOrThrow(
+		compileOptionalFilter(input, {
+			fields,
+			subject: { entityAlias: entity.alias },
+			source: rows(membership, { fields: projections, joins: [entityJoin, ownerPluginJoin] }),
+		}),
+	);
+	return { predicate, projections };
 };
 
 const collectionTypeLabel = (input: {
@@ -377,21 +478,67 @@ export const collectionMembershipRecipe = defineRecipe(
 export type CollectionMembershipResult = Recipe.Success<typeof collectionMembershipRecipe>;
 
 export const collectionMembersRecipe = defineRecipe(
-	(input: {
-		readonly after?: string | undefined;
-		readonly limit?: number | undefined;
-		readonly collectionId: string;
-		readonly searchText?: string | undefined;
-		readonly sort?: CollectionMemberSort | undefined;
-		readonly membershipPropertiesSchema: AppSchemaValue | null;
-	}) => {
-		const { entity, membership, entityJoin, ownerPlugin, ownerPluginJoin } =
-			collectionMembershipTables();
+	(
+		input: FilterInput & {
+			readonly after?: string | undefined;
+			readonly limit?: number | undefined;
+			readonly collectionId: string;
+			readonly searchText?: string | undefined;
+			readonly sort?: CollectionMemberSort | undefined;
+			readonly filterFields?: readonly FilterField[] | undefined;
+			readonly membershipPropertiesSchema: AppSchemaValue | null;
+		},
+	) => {
+		const tables = collectionMembershipTables();
+		const { entity, membership, entityJoin, ownerPlugin, ownerPluginJoin } = tables;
+		const { predicate, projections } = collectionMemberFilter(
+			tables,
+			input.filterFields ?? [],
+			input,
+		);
+		const members = selectedRows(membership, {
+			after: input.after,
+			limit: input.limit,
+			joins: [entityJoin, ownerPluginJoin],
+			orderBy: collectionMemberOrder(input.sort ?? "collection-order", membership, entity),
+			where: collectionMembershipWhere(
+				membership,
+				entity,
+				input.collectionId,
+				input.searchText,
+				predicate,
+			),
+			selection: {
+				entityId: selectedField(column(entity, "id"), EntityId),
+				name: selectedField(column(entity, "name"), Schema.String),
+				properties: selectedField(column(membership, "properties"), MembershipProperties),
+				entitySchemaSlug: selectedField(column(entity, "entitySchemaSlug"), Schema.String),
+				populationStatus: selectedField(column(entity, "populationStatus"), PopulationStatus),
+				translationStatus: selectedField(column(entity, "translationStatus"), TranslationStatus),
+				ownerPluginName: selectedField(column(ownerPlugin, "name"), Schema.NullOr(Schema.String)),
+				ownerPluginId: selectedField(
+					column(entity, "entitySchemaPluginId"),
+					Schema.NullOr(Schema.String),
+				),
+			},
+		});
 		return {
-			map: ({ members }) =>
+			queries: {
+				members: {
+					...members,
+					document: {
+						...members.document,
+						output: {
+							...members.document.output,
+							fields: [...members.document.output.fields, ...projections],
+						},
+					},
+				},
+			},
+			map: ({ members: page }) =>
 				Result.succeed({
-					pageInfo: members.pageInfo,
-					items: members.items.map((member) => ({
+					pageInfo: page.pageInfo,
+					items: page.items.map((member) => ({
 						name: member.name,
 						presentation: null,
 						entityId: member.entityId,
@@ -404,39 +551,6 @@ export const collectionMembersRecipe = defineRecipe(
 						},
 					})),
 				}),
-			queries: {
-				members: selectedRows(membership, {
-					after: input.after,
-					limit: input.limit,
-					joins: [entityJoin, ownerPluginJoin],
-					orderBy: collectionMemberOrder(input.sort ?? "collection-order", membership, entity),
-					where: collectionMembershipWhere(
-						membership,
-						entity,
-						input.collectionId,
-						input.searchText,
-					),
-					selection: {
-						entityId: selectedField(column(entity, "id"), EntityId),
-						name: selectedField(column(entity, "name"), Schema.String),
-						properties: selectedField(column(membership, "properties"), MembershipProperties),
-						entitySchemaSlug: selectedField(column(entity, "entitySchemaSlug"), Schema.String),
-						populationStatus: selectedField(column(entity, "populationStatus"), PopulationStatus),
-						translationStatus: selectedField(
-							column(entity, "translationStatus"),
-							TranslationStatus,
-						),
-						ownerPluginName: selectedField(
-							column(ownerPlugin, "name"),
-							Schema.NullOr(Schema.String),
-						),
-						ownerPluginId: selectedField(
-							column(entity, "entitySchemaPluginId"),
-							Schema.NullOr(Schema.String),
-						),
-					},
-				}),
-			},
 		};
 	},
 );
@@ -444,8 +558,16 @@ export const collectionMembersRecipe = defineRecipe(
 export type CollectionMembersResult = Recipe.Success<typeof collectionMembersRecipe>;
 
 export const collectionMembersCountRecipe = defineRecipe(
-	(input: { readonly collectionId: string; readonly searchText?: string | undefined }) => {
-		const { entity, membership, entityJoin } = collectionMembershipTables();
+	(
+		input: FilterInput & {
+			readonly collectionId: string;
+			readonly searchText?: string | undefined;
+			readonly filterFields?: readonly FilterField[] | undefined;
+		},
+	) => {
+		const tables = collectionMembershipTables();
+		const { entity, membership, entityJoin } = tables;
+		const { predicate } = collectionMemberFilter(tables, input.filterFields ?? [], input);
 		return {
 			map: ({ count }) => Result.succeed(count.total),
 			queries: {
@@ -456,6 +578,7 @@ export const collectionMembersCountRecipe = defineRecipe(
 						entity,
 						input.collectionId,
 						input.searchText,
+						predicate,
 					),
 					measures: {
 						total: selectedMeasure(
