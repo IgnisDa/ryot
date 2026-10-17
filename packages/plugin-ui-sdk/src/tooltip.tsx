@@ -18,7 +18,7 @@ export function Tooltip(props: {
 			>
 				{props.content}
 				{props.shortcut !== undefined && (
-					<span className="font-mono text-[11px] opacity-70">{props.shortcut}</span>
+					<span className="font-mono text-micro opacity-70">{props.shortcut}</span>
 				)}
 			</span>
 		</span>

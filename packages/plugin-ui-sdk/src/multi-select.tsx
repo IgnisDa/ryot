@@ -88,7 +88,7 @@ export function MultiSelect<Value extends string>({
 					aria-expanded={open}
 					onClick={() => setOpen(true)}
 					className={clsx(
-						"inline-flex h-8 shrink-0 items-center gap-1.5 rounded-pill border px-3 text-[13px] font-medium whitespace-nowrap transition-colors duration-100 motion-reduce:transition-none pointer-coarse:h-10",
+						"inline-flex h-8 shrink-0 items-center gap-1.5 rounded-pill border px-3 text-label font-medium whitespace-nowrap transition-colors duration-100 motion-reduce:transition-none pointer-coarse:h-10",
 						selectedLabels.length === 0
 							? "border-border-emphasis bg-surface text-text hover:bg-hover"
 							: "border-accent-border bg-accent-soft text-accent-text",

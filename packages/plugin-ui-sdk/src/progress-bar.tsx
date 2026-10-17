@@ -2,6 +2,8 @@ import clsx from "clsx";
 
 const toneClasses = { info: "bg-info", accent: "bg-accent", success: "bg-success" } as const;
 
+const trackClasses = { art: "bg-raised/70", surface: "bg-surface-2" } as const;
+
 export function ProgressBar(props: {
 	readonly max: number;
 	readonly label: string;
@@ -9,6 +11,7 @@ export function ProgressBar(props: {
 	readonly className?: string | undefined;
 	readonly fillClassName?: string | undefined;
 	readonly tone: keyof typeof toneClasses;
+	readonly track?: keyof typeof trackClasses;
 }) {
 	const max = Math.max(0, props.max);
 	const value = Math.min(max, Math.max(0, props.value));
@@ -19,7 +22,11 @@ export function ProgressBar(props: {
 			aria-valuemax={max}
 			aria-label={props.label}
 			aria-valuenow={Math.round(value)}
-			className={clsx("h-1 overflow-hidden rounded-pill bg-surface-2", props.className)}
+			className={clsx(
+				"h-1 overflow-hidden rounded-pill",
+				trackClasses[props.track ?? "surface"],
+				props.className,
+			)}
 		>
 			<div
 				style={{ width: `${max === 0 ? 0 : (value / max) * 100}%` }}

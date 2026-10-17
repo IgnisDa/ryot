@@ -11,13 +11,13 @@ const variantClasses = {
 	warning: `${tone} bg-warning-soft text-warning`,
 	accent: `${tone} bg-accent-soft text-accent-text`,
 	outline: `${tone} text-text-muted ring-1 ring-border-emphasis ring-inset`,
-	count: "rounded-pill bg-accent-soft px-1.5 py-px text-[11px] text-accent-text tabular-nums",
-	key: "rounded border border-border-emphasis px-1.5 py-0.5 font-mono text-[11px] text-text-subtle",
+	count: "rounded-pill bg-accent-soft px-1.5 py-px text-micro text-accent-text tabular-nums",
+	key: "rounded border border-border-emphasis px-1.5 py-0.5 font-mono text-micro text-text-subtle",
 	keyOnAccent:
-		"rounded border border-accent-ink px-1.5 py-0.5 font-mono text-[11px] text-accent-ink",
+		"rounded border border-accent-ink px-1.5 py-0.5 font-mono text-micro text-accent-ink",
 } as const;
 
-const toneSizeClasses = { md: "h-5.5 text-xs", sm: "h-4.5 px-1.5 text-[11px]" } as const;
+const toneSizeClasses = { md: "h-5.5 text-xs", sm: "h-4.5 px-1.5 text-micro" } as const;
 
 type BadgeProps = ComponentProps<"span"> & {
 	readonly dot?: boolean;

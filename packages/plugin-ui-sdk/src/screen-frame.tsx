@@ -106,12 +106,7 @@ export function ScreenFrame({
 	const heading = (
 		<div className="flex min-w-0 items-center gap-2.5">
 			{titleIcon}
-			<h1
-				className={clsx(
-					"min-w-0 flex-1 truncate font-display font-semibold text-text",
-					compact ? "text-[28px] leading-[34px]" : "text-title",
-				)}
-			>
+			<h1 className="min-w-0 flex-1 truncate font-display text-title font-semibold text-text">
 				{title}
 			</h1>
 		</div>
@@ -172,7 +167,7 @@ export function ScreenFrame({
 							{leading}
 							<span
 								aria-hidden="true"
-								className="min-w-0 flex-1 translate-y-1.5 truncate font-ui text-[19px] font-semibold text-text opacity-0 transition-[opacity,transform] duration-150 ease-out group-data-[solid]:translate-y-0 group-data-[solid]:opacity-100 motion-reduce:transition-none"
+								className="min-w-0 flex-1 translate-y-1.5 truncate font-ui text-heading font-semibold text-text opacity-0 transition-[opacity,transform] duration-150 ease-out group-data-[solid]:translate-y-0 group-data-[solid]:opacity-100 motion-reduce:transition-none"
 							>
 								{title}
 							</span>

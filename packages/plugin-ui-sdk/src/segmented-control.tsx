@@ -42,7 +42,7 @@ export function SegmentedControl<T extends string>({
 			renderOption={(option, selected) => ({
 				content: option.content,
 				className: clsx(
-					"flex items-center justify-center gap-1.5 rounded-sm text-[13px] font-medium transition-colors duration-100 motion-reduce:transition-none",
+					"flex items-center justify-center gap-1.5 rounded-sm text-label font-medium transition-colors duration-100 motion-reduce:transition-none",
 					fill === true && "flex-1",
 					optionClassName ?? (fill === true ? undefined : "w-8 pointer-coarse:w-10"),
 					selected

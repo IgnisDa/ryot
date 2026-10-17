@@ -54,7 +54,7 @@ export function DestructiveConfirmation(props: {
 					{requiresConfirmation ? (
 						<label
 							htmlFor={confirmationId}
-							className="grid gap-1.5 text-[13px] font-medium text-text"
+							className="grid gap-1.5 text-label font-medium text-text"
 						>
 							{`Type "${props.confirmationPhrase}" to confirm`}
 							<TextField

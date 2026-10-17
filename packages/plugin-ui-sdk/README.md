@@ -51,9 +51,24 @@ reserved for things that float: menus, tooltips, and dialogs.
 | Status     | `success`, `danger`, `warning`, `info`, each with a `-soft` background       |
 
 Both themes use warm neutrals; dark cards rely on tone instead of edges. Contrast tests require
-4.5:1 text and 3:1 boundaries. Geist is the UI font; Lora is reserved for page/media titles. Use the
-`text-display`, `text-title`, `text-heading`, `text-metric`, and `text-timer` roles and tabular digits
-for changing values. Theme tokens own exact type, radius, and motion values.
+4.5:1 text and 3:1 boundaries. Geist is the UI font; Lora is reserved for page/media titles. Theme
+tokens own exact type, radius, and motion values; use roles, not pixel sizes:
+
+| Role                  | Size  | Use                                            |
+| --------------------- | ----- | ---------------------------------------------- |
+| `text-display`        | 36px  | Entity and hero titles                         |
+| `text-title`          | 28px  | Page titles                                    |
+| `text-metric`         | 22px  | Figures in stat strips                         |
+| `text-heading`        | 18px  | Section headings and compact bar titles        |
+| `text-body`           | 15px  | Primary row text, dialog titles, empty states  |
+| `text-sm` / `text-xs` | 14/12 | Controls / secondary metadata                  |
+| `text-label`          | 13px  | Field labels, compact controls, notices, tiles |
+| `text-micro`          | 11px  | Group eyebrows, badges, keys                   |
+
+Use tabular digits for changing values.
+
+Artwork carries identity: give tiles one aspect per shelf or grid, keep chrome away from art, and put
+one primary action per region with secondary actions in a `SplitButton` or `MenuButton`.
 
 Controls grow under `pointer-coarse:`; plugin iframe width is not device size. Each animation respects
 reduced motion inside its document, not through kernel-only CSS.
@@ -74,6 +89,11 @@ reduced motion inside its document, not through kernel-only CSS.
 | `Stepper`                       | Integer stepping; `clockFormat` adapts seconds to `m:ss`.                                                                                                                                                                                                                                                                                            |
 | `ProgressBar`                   | Determinate progress in a semantic tone.                                                                                                                                                                                                                                                                                                             |
 | `DataTable`                     | Unstyled data with divided rows and right-aligned tabular numbers.                                                                                                                                                                                                                                                                                   |
+| `Shelf`                         | Horizontal item rail with hidden scrollbar, Arrow-key item focus, and desktop paging controls (pass `icons`). Bleeds to the compact gutter.                                                                                                                                                                                                          |
+| `ArtTile`                       | Uniform artwork tile: caller-supplied art fills the aspect box; optional badge, progress, and secondary lines. Wrap in the link that owns focus.                                                                                                                                                                                                     |
+| `SplitButton`                   | One primary action plus a menu of related actions; both halves disable while loading.                                                                                                                                                                                                                                                                |
+| `StatStrip`                     | Description-list figures without a surface; values above labels, optional detail below.                                                                                                                                                                                                                                                              |
+| `Timeline`                      | `TimelineGroup` dates and `TimelineEntry` rows with semantic markers; `expand` reveals collapsed batches. Markers are decorative, so titles carry the meaning.                                                                                                                                                                                       |
 
 `groupColors`, `groupColorVariable`, and `Card.groupColor` provide labeled group identity; never
 communicate identity through color alone.

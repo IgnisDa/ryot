@@ -11,16 +11,16 @@ const variantClasses = {
 	switch:
 		"font-medium text-text-muted aria-pressed:bg-raised aria-pressed:text-text aria-pressed:shadow-sm",
 	linkPlain:
-		"font-ui font-medium text-[13px] text-text pointer-coarse:min-h-11 disabled:cursor-not-allowed disabled:opacity-50",
-	link: "font-ui font-medium text-[13px] text-accent-text pointer-coarse:min-h-11 disabled:cursor-not-allowed disabled:opacity-50",
+		"font-ui font-medium text-label text-text pointer-coarse:min-h-11 disabled:cursor-not-allowed disabled:opacity-50",
+	link: "font-ui font-medium text-label text-accent-text pointer-coarse:min-h-11 disabled:cursor-not-allowed disabled:opacity-50",
 } as const;
 
 const linkVariants: ReadonlySet<keyof typeof variantClasses> = new Set(["link", "linkPlain"]);
 
 const sizeClasses = {
 	md: "min-h-9 gap-2 rounded-md px-3.5 text-sm pointer-coarse:min-h-11",
-	lg: "min-h-11 gap-2 rounded-md px-4.5 text-[15px] pointer-coarse:min-h-12",
-	sm: "min-h-8 gap-1.5 rounded-sm px-2.5 text-[13px] pointer-coarse:min-h-10",
+	lg: "min-h-11 gap-2 rounded-md px-4.5 text-body pointer-coarse:min-h-12",
+	sm: "min-h-8 gap-1.5 rounded-sm px-2.5 text-label pointer-coarse:min-h-10",
 } as const;
 
 type ButtonProps = ComponentProps<"button"> & {

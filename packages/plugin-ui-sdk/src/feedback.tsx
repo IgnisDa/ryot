@@ -21,7 +21,7 @@ export function Notice(props: {
 		<div
 			role={props.tone === "danger" ? "alert" : "status"}
 			className={clsx(
-				"flex items-start gap-2.5 rounded-md px-3 py-2.5 text-[13px] leading-[18px] text-text",
+				"flex items-start gap-2.5 rounded-md px-3 py-2.5 text-label text-text",
 				tone.box,
 				props.className,
 			)}
@@ -59,9 +59,9 @@ export function EmptyState(props: {
 					{props.icon}
 				</span>
 			)}
-			<p className="text-[15px] font-semibold text-text">{props.title}</p>
+			<p className="text-body font-semibold text-text">{props.title}</p>
 			{props.description !== undefined && (
-				<p className="max-w-[44ch] text-[13px] text-text-muted">{props.description}</p>
+				<p className="max-w-[44ch] text-label text-text-muted">{props.description}</p>
 			)}
 			{props.action !== undefined && <div className="mt-3">{props.action}</div>}
 		</div>

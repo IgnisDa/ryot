@@ -1,7 +1,7 @@
 export { ActionForm } from "./action-form";
 export { Menu } from "./menu";
 export { MenuButton } from "./menu-button";
-export { Chip } from "./chips";
+export { Chip, ChipButton } from "./chips";
 export { ChipRadioGroup } from "./chip-radio-group";
 export { Badge } from "./badge";
 export { Button, IconButton } from "./button";
@@ -18,6 +18,14 @@ export {
 } from "./motion";
 export { ActionDock } from "./action-dock";
 export { ProgressBar } from "./progress-bar";
+export { ArtTile } from "./art-tile";
+export type { ArtTileAspect } from "./art-tile";
+export { Shelf } from "./shelf";
+export { SplitButton } from "./split-button";
+export { StatStrip } from "./stat-strip";
+export type { Stat } from "./stat-strip";
+export { Timeline, TimelineEntry, TimelineGroup } from "./timeline";
+export type { TimelineMarker } from "./timeline";
 export { clockFormat, Stepper } from "./stepper";
 export { Tabs, tabId } from "./tabs";
 export type { TabOption } from "./tabs";

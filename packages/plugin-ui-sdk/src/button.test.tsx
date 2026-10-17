@@ -68,7 +68,7 @@ describe("Button", () => {
 			);
 
 			expect(screen.getByRole("button", { name: "Open" }).className).toBe(
-				`font-ui font-medium text-[13px] ${tone} pointer-coarse:min-h-11 disabled:cursor-not-allowed disabled:opacity-50`,
+				`font-ui font-medium text-label ${tone} pointer-coarse:min-h-11 disabled:cursor-not-allowed disabled:opacity-50`,
 			);
 		},
 	);

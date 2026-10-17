@@ -125,7 +125,7 @@ export function SettleHighlight(props: {
 
 export function TranslationChip(props: { readonly icon: ReactNode }) {
 	return (
-		<span className="inline-flex items-center gap-1.5 rounded-pill border border-border bg-surface-2 px-2.5 py-1 font-ui text-[12px] text-text-muted">
+		<span className="inline-flex items-center gap-1.5 rounded-pill border border-border bg-surface-2 px-2.5 py-1 font-ui text-xs text-text-muted">
 			<span className="text-translate">{props.icon}</span>
 			Translating...
 		</span>

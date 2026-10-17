@@ -72,7 +72,7 @@ export function CellInput({
 			{...props}
 			aria-invalid={invalid}
 			className={clsx(
-				"h-9 w-full min-w-0 rounded-sm border px-1 text-center text-base font-medium text-text tabular-nums transition-[background-color,border-color,box-shadow] duration-100 placeholder:font-normal placeholder:text-text-subtle hover:border-border-emphasis focus-visible:bg-surface disabled:opacity-50 motion-reduce:transition-none pointer-coarse:h-11 pointer-fine:text-[15px]",
+				"h-9 w-full min-w-0 rounded-sm border px-1 text-center text-base font-medium text-text tabular-nums transition-[background-color,border-color,box-shadow] duration-100 placeholder:font-normal placeholder:text-text-subtle hover:border-border-emphasis focus-visible:bg-surface disabled:opacity-50 motion-reduce:transition-none pointer-coarse:h-11 pointer-fine:text-body",
 				focusRing,
 				invalid === true
 					? "border-danger bg-danger-soft focus-visible:border-danger focus-visible:ring-danger/25"
@@ -109,7 +109,7 @@ export function Field(props: {
 	const describedBy = [errorId, hintId].filter((value) => value !== undefined).join(" ");
 	return (
 		<div className={clsx("grid min-w-0 content-start gap-1.5", props.className)}>
-			<label htmlFor={id} className="text-[13px] leading-[18px] font-medium text-text">
+			<label htmlFor={id} className="text-label font-medium text-text">
 				{props.label}
 				{props.optional === true && (
 					<span className="font-normal text-text-subtle"> (optional)</span>

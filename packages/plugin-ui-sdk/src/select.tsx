@@ -112,7 +112,7 @@ export function Select({
 					className="flex max-h-[80%] w-full max-w-sm flex-col overflow-hidden rounded-xl bg-raised shadow-modal"
 				>
 					<div className="border-b border-border px-4 py-3">
-						<span className="text-[15px] font-semibold text-text">{label}</span>
+						<span className="text-body font-semibold text-text">{label}</span>
 					</div>
 					{searchIcon !== undefined && (
 						<div className="mx-3 my-3 flex h-9 items-center gap-2 rounded-md bg-surface-2 px-3 focus-within:ring-2 focus-within:ring-focus">
