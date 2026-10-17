@@ -24,6 +24,15 @@ resolve to an `entity` table in the source query, unique subject schemas, and an
 `addAction` schema to be one of them. Materialization and backups resolve or map subject schema
 owners the same way as `addAction` owners.
 
+Entity-browser, collection-browser, and results-table settings may declare optional `filterFields`
+(absent means none). Value fields name a projected output field and carry choices for enum types;
+relationship fields name a relationship schema and a direction. Validation requires unique keys that
+avoid the reserved kernel key `collections`, projected value-field outputs, and unique choices, and
+rejects relationship fields on results tables. Relationship existence and endpoint compatibility are
+not validated; an unknown relationship matches nothing. Materialization resolves `self` relationship
+owners and backups map them like subject schema owners. The reserved `collections` field is synthesized
+by the recipes for entity and collection browsers and is never stored.
+
 The renderer, data sources, and settings form a typed union in the write contract (`SavedViewRendererConfig`);
 wire bodies and listed views stay flat. Write paths (service create, update and clone, manifest
 materialization and validation, backup restore) decode with the typed settings and reject. Read paths

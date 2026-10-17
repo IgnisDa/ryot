@@ -10,6 +10,10 @@ import {
 import { PluginManifest } from "@ryot-app/contract/modules/plugins/manifest";
 import { RyotQLDocument } from "@ryot-app/contract/modules/ryotql/language";
 import {
+	relationshipFilterField,
+	ValueFilterField,
+} from "@ryot-app/contract/modules/saved-views/filters";
+import {
 	EntityBrowserPluginRouteAddAction,
 	EntityBrowserSavedViewSettings,
 	KernelSavedViewRendererName,
@@ -278,8 +282,15 @@ export const ArchiveEntitySchemaReference = strictStruct({
 });
 export type ArchiveEntitySchemaReference = typeof ArchiveEntitySchemaReference.Type;
 
+export const ArchiveFilterField = Schema.Union([
+	ValueFilterField,
+	relationshipFilterField(ArchiveEntitySchemaReference),
+]);
+export type ArchiveFilterField = typeof ArchiveFilterField.Type;
+
 export const ArchiveEntityBrowserSavedViewSettings = strictStruct({
 	...EntityBrowserSavedViewSettings.fields,
+	filterFields: Schema.optionalKey(Schema.Array(ArchiveFilterField)),
 	subject: strictStruct({
 		entityAlias: Schema.NonEmptyString,
 		schemas: Schema.NonEmptyArray(ArchiveEntitySchemaReference),

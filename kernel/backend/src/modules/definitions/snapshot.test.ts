@@ -1,8 +1,15 @@
 import { definitionKey, definitionOwner } from "@ryot-app/contract/modules/plugins/references";
 import { EntitySchemaSlug, EventSchemaSlug } from "@ryot-app/contract/schema/brands";
+import type { JsonValue } from "@ryot-app/contract/schema/json";
+import { column, document, field, rows, table } from "@ryot-app/ryotql";
 import { assert, expect, it } from "vitest";
 
-import { buildDefinitionSnapshot, definitionLookup, type DefinitionSource } from "./snapshot";
+import {
+	buildDefinitionSnapshot,
+	definitionLookup,
+	type DefinitionSource,
+	type SavedViewDefinition,
+} from "./snapshot";
 
 const source = (pluginId: string | null): DefinitionSource => ({
 	savedViews: [],
@@ -131,4 +138,41 @@ it("does not satisfy local relationship and audience references from another own
 			entitySchemas: [...a.entitySchemas, ...b.entitySchemas],
 		}),
 	).toThrow("references missing relationship schema bottled-by");
+});
+
+it("throws for invalid saved-view filter fields during snapshot validation", () => {
+	const entity = table("entity", "entity");
+	const savedView = (filterFields: readonly JsonValue[]): SavedViewDefinition => ({
+		icon: "box",
+		sortOrder: 0,
+		pluginId: null,
+		slug: "bottles",
+		name: "Bottles",
+		renderer: { kind: "kernel", name: "entity-browser" },
+		dataSources: document({
+			source: rows(entity, { fields: [field("name", column(entity, "name"))] }),
+		}),
+		settings: {
+			pageSize: 20,
+			filterFields,
+			addAction: null,
+			sortChoices: [],
+			searchFields: [],
+			layouts: ["grid"],
+			tableColumns: null,
+			sourceName: "source",
+			defaultLayout: "grid",
+			subject: { entityAlias: "entity", schemas: [{ slug: "bottle", owner: { kind: "kernel" } }] },
+		},
+	});
+	const nameField = { key: "name", type: "text", label: "Name", kind: "value", field: "name" };
+	const build = (filterFields: readonly JsonValue[]) =>
+		buildDefinitionSnapshot({ ...source(null), savedViews: [savedView(filterFields)] });
+	expect(() => build([nameField])).not.toThrow();
+	expect(() => build([nameField, nameField])).toThrow(
+		"Invalid saved view bottles: Filter field key 'name' must be unique",
+	);
+	expect(() => build([{ ...nameField, field: "missing" }])).toThrow(
+		"Invalid saved view bottles: Filter field 'name' must reference a projected scalar field",
+	);
 });

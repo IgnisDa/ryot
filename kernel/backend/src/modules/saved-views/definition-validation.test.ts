@@ -4,7 +4,12 @@ import type {
 	ResultsTableSavedViewSettings,
 } from "@ryot-app/contract/modules/saved-views/schemas";
 import { SavedViewBadRequest } from "@ryot-app/contract/modules/saved-views/schemas";
-import { EntitySchemaSlug, PluginId, PluginPackageId } from "@ryot-app/contract/schema/brands";
+import {
+	EntitySchemaSlug,
+	PluginId,
+	PluginPackageId,
+	RelationshipSchemaSlug,
+} from "@ryot-app/contract/schema/brands";
 import { and, column, document, eq, field, literal, pluginId, rows, table } from "@ryot-app/ryotql";
 import { assertExitFails } from "@ryot-app/testing/effect-assertions";
 import { Effect } from "effect";
@@ -135,6 +140,68 @@ it.effect("does not apply entity provenance validation to plugin-route add actio
 				packageId: PluginPackageId.make("test/target"),
 			},
 		},
+	}),
+);
+
+it.effect("accepts valid filter fields and rejects invalid ones as bad requests", () =>
+	Effect.gen(function* () {
+		const nameField = {
+			key: "name",
+			type: "text",
+			label: "Name",
+			kind: "value",
+			field: "name",
+		} as const;
+		yield* validateEntityBrowserSavedViewDefinition({
+			dataSources,
+			settings: { ...browserSettings, filterFields: [nameField] },
+		});
+		yield* rejectsBrowserSettings(
+			{ ...browserSettings, filterFields: [nameField, nameField] },
+			"Filter field key 'name' must be unique",
+		);
+		yield* rejectsBrowserSettings(
+			{ ...browserSettings, filterFields: [{ ...nameField, field: "missing" }] },
+			"Filter field 'name' must reference a projected scalar field",
+		);
+	}),
+);
+
+it.effect("rejects relationship filter fields on results tables", () =>
+	Effect.gen(function* () {
+		const exit = yield* Effect.exit(
+			validateResultsTableSavedViewDefinition({
+				dataSources,
+				settings: {
+					pageSize: 20,
+					entityLink: null,
+					sourceName: "entities",
+					rowKeyFields: ["entityId"],
+					columns: [{ label: "Name", field: "name", displayKind: "text" }],
+					filterFields: [
+						{
+							key: "tags",
+							label: "Tags",
+							kind: "relationship",
+							direction: "outgoing",
+							relationship: {
+								owner: { kind: "kernel" },
+								slug: RelationshipSchemaSlug.make("tagged"),
+							},
+						},
+					],
+				},
+			}),
+		);
+		assertExitFails(
+			exit,
+			new SavedViewBadRequest({
+				reason: {
+					code: "settings-incompatible",
+					message: "Filter field 'tags' cannot be a relationship on a results table",
+				},
+			}),
+		);
 	}),
 );
 
