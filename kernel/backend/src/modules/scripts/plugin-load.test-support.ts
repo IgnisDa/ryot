@@ -8,7 +8,7 @@ import { MiB, SANDBOX_LIMITS } from "@ryot-app/sandbox/protocol/limits";
 import {
 	SandboxInvocationResponseSchema,
 	SandboxInvocationSchema,
-	type SidecarInboundFrame,
+	type SidecarInboundLogicalMessage,
 	type SidecarOutboundFrame,
 	type SidecarTier,
 } from "@ryot-app/sandbox/protocol/messages";
@@ -53,7 +53,7 @@ export const pluginLoadLayer = Layer.mergeAll(
 	Layer.effect(PluginLoadVerificationSlots, Semaphore.make(2)),
 ).pipe(Layer.provide(BunServices.layer));
 
-const hostResult = (frame: SidecarHostCall): SidecarInboundFrame =>
+const hostResult = (frame: SidecarHostCall): SidecarInboundLogicalMessage =>
 	internalControlNames.has(frame.name)
 		? ({
 				seq: frame.seq,
@@ -64,7 +64,7 @@ const hostResult = (frame: SidecarHostCall): SidecarInboundFrame =>
 					status: "failure",
 					message: "Plugin load check does not dispatch internal sandbox controls",
 				},
-			} satisfies SidecarInboundFrame)
+			} satisfies SidecarInboundLogicalMessage)
 		: ({
 				seq: frame.seq,
 				type: "hostResult",
@@ -74,7 +74,7 @@ const hostResult = (frame: SidecarHostCall): SidecarInboundFrame =>
 					status: "success",
 					value: hostFailure("Plugin load check does not dispatch application capabilities"),
 				},
-			} satisfies SidecarInboundFrame);
+			} satisfies SidecarInboundLogicalMessage);
 
 const verifyScript = (
 	connection: Effect.Success<ReturnType<SandboxSidecarClient["Service"]["connect"]>>,

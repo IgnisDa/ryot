@@ -12,7 +12,7 @@ import {
 	SandboxInvocationSchema,
 	type SidecarHostCallFrame,
 	type SidecarHostResultFrame,
-	type SidecarInboundFrame,
+	type SidecarInboundLogicalMessage,
 } from "../protocol/messages";
 import { SandboxSidecarAdmission } from "./admission";
 import { SandboxSidecarClient } from "./client";
@@ -46,7 +46,10 @@ export type SidecarRecorder = {
 		frame: Effect.Success<SidecarConnection["next"]>,
 		settings: SidecarSettings,
 	) => void;
-	readonly sent?: (frame: SidecarInboundFrame, settings: SidecarSettings) => SidecarInboundFrame;
+	readonly sent?: (
+		frame: SidecarInboundLogicalMessage,
+		settings: SidecarSettings,
+	) => SidecarInboundLogicalMessage;
 	readonly retired?: (handle: string) => void;
 };
 
@@ -113,7 +116,7 @@ export const recordingSidecarClient = <R>(makeRecorder: Effect.Effect<SidecarRec
 						next: connection.next.pipe(
 							Effect.tap((frame) => Effect.sync(() => recorder.received?.(frame, settings))),
 						),
-						send: (frame: SidecarInboundFrame, released?: () => void) =>
+						send: (frame: SidecarInboundLogicalMessage, released?: () => void) =>
 							connection.send(recorder.sent?.(frame, settings) ?? frame, released),
 						retire: (handle: string) =>
 							connection
