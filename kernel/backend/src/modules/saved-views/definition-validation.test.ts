@@ -41,9 +41,15 @@ const browserSettings = {
 	sourceName: "entities",
 	searchFields: ["name"],
 	layouts: ["grid", "list"],
-	entityIdField: "entityId",
-	ownerPluginIdField: "ownerPluginId",
-	entitySchemaSlugField: "entitySchemaSlug",
+	subject: {
+		entityAlias: "entity",
+		schemas: [
+			{
+				slug: EntitySchemaSlug.make("book"),
+				owner: { kind: "plugin", pluginId: PluginId.make("media-plugin-id") },
+			},
+		],
+	},
 	addAction: {
 		type: "provider-search",
 		library: { librarySchemaSlug: "media-library", relationshipSlug: "in-media-library" },
@@ -58,33 +64,63 @@ it.effect("accepts a canonical entity-browser definition", () =>
 	validateEntityBrowserSavedViewDefinition({ dataSources, settings: browserSettings }),
 );
 
-it.effect("rejects provider add provenance that does not match the source", () =>
+const rejectsBrowserSettings = (
+	settings: EntityBrowserSavedViewSettings,
+	message: string,
+	source: typeof dataSources = dataSources,
+) =>
 	Effect.gen(function* () {
 		const exit = yield* Effect.exit(
-			validateEntityBrowserSavedViewDefinition({
-				dataSources,
-				settings: {
-					...browserSettings,
-					addAction: {
-						...browserSettings.addAction,
-						schema: {
-							...browserSettings.addAction.schema,
-							owner: { kind: "plugin", pluginId: PluginId.make("other-plugin-id") },
-						},
-					},
-				},
-			}),
+			validateEntityBrowserSavedViewDefinition({ settings, dataSources: source }),
 		);
 		assertExitFails(
 			exit,
-			new SavedViewBadRequest({
-				reason: {
-					code: "settings-incompatible",
-					message: "Entity-browser addAction must match the fixed source entity owner and schema",
-				},
-			}),
+			new SavedViewBadRequest({ reason: { message, code: "settings-incompatible" } }),
 		);
+	});
+
+it.effect("rejects a provider add action schema outside the subject", () =>
+	rejectsBrowserSettings(
+		{
+			...browserSettings,
+			addAction: {
+				...browserSettings.addAction,
+				schema: {
+					...browserSettings.addAction.schema,
+					owner: { kind: "plugin", pluginId: PluginId.make("other-plugin-id") },
+				},
+			},
+		},
+		"Entity-browser addAction schema must be one of the subject schemas",
+	),
+);
+
+it.effect("rejects a subject alias that is not an entity table in the source", () =>
+	Effect.gen(function* () {
+		const message =
+			"Entity-browser subject alias 'missing' must be an entity table in the source query";
+		const subject = { ...browserSettings.subject, entityAlias: "missing" };
+		yield* rejectsBrowserSettings({ ...browserSettings, subject }, message);
+		const eventSource = document({
+			entities: rows(table("event", "missing"), {
+				fields: [field("name", column(table("event", "missing"), "id"))],
+			}),
+		});
+		yield* rejectsBrowserSettings({ ...browserSettings, subject }, message, eventSource);
 	}),
+);
+
+it.effect("rejects duplicate subject schemas", () =>
+	rejectsBrowserSettings(
+		{
+			...browserSettings,
+			subject: {
+				...browserSettings.subject,
+				schemas: [browserSettings.subject.schemas[0], browserSettings.subject.schemas[0]],
+			},
+		},
+		"Entity-browser subject schemas must not contain duplicates",
+	),
 );
 
 it.effect("does not apply entity provenance validation to plugin-route add actions", () =>

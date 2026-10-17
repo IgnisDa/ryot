@@ -4,6 +4,7 @@ import { BunFileSystem } from "@effect/platform-bun";
 import { expect, it, layer } from "@effect/vitest";
 import { BadRequest } from "@ryot-app/contract/errors";
 import { pluginPackageKey } from "@ryot-app/contract/modules/plugins/references";
+import type { ResultsTableSavedViewSettings } from "@ryot-app/contract/modules/saved-views/schemas";
 import {
 	NotificationSubscriptionId,
 	SignalSchemaSlug,
@@ -331,27 +332,6 @@ const privateManifest = {
 			},
 		},
 	},
-	savedViews: [
-		{
-			icon: "box",
-			sortOrder: 0,
-			slug: "retained-view",
-			name: "Retained view",
-			renderer: { kind: "kernel" as const, name: "results-table" as const },
-			dataSources: document({
-				records: rows(table("entity", "retained"), {
-					fields: [field("id", column(table("entity", "retained"), "id"))],
-				}),
-			}),
-			settings: {
-				pageSize: 50,
-				entityLink: null,
-				rowKeyFields: ["id"],
-				sourceName: "records",
-				columns: [{ field: "id", label: "Id", displayKind: "text" }],
-			},
-		},
-	],
 	entitySchemas: [
 		{
 			icon: "box",
@@ -375,6 +355,27 @@ const privateManifest = {
 					},
 				},
 			},
+		},
+	],
+	savedViews: [
+		{
+			icon: "box",
+			sortOrder: 0,
+			slug: "retained-view",
+			name: "Retained view",
+			renderer: { kind: "kernel" as const, name: "results-table" as const },
+			dataSources: document({
+				records: rows(table("entity", "retained"), {
+					fields: [field("id", column(table("entity", "retained"), "id"))],
+				}),
+			}),
+			settings: {
+				pageSize: 50,
+				entityLink: null,
+				rowKeyFields: ["id"],
+				sourceName: "records",
+				columns: [{ field: "id", label: "Id", displayKind: "text" }],
+			} satisfies ResultsTableSavedViewSettings,
 		},
 	],
 	integrationProviders: [

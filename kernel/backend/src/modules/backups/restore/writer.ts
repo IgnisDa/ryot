@@ -574,11 +574,14 @@ export const preflightProvenance = Effect.fn(function* (
 				const decoded = yield* Schema.decodeUnknownEffect(EntityBrowserSavedViewSettings)(
 					settings,
 				).pipe(Effect.mapError((error) => badRequest(error.message)));
+				const schemas = [
+					...decoded.subject.schemas,
+					...(decoded.addAction?.type === "provider-search" ? [decoded.addAction.schema] : []),
+				];
 				if (
-					decoded.addAction?.type === "provider-search" &&
-					!definitions.entitySchemas[
-						definitionKey("entity", decoded.addAction.schema.owner, decoded.addAction.schema.slug)
-					]
+					schemas.some(
+						({ slug, owner }) => !definitions.entitySchemas[definitionKey("entity", owner, slug)],
+					)
 				) {
 					return yield* badRequest("Backup renderer references an unavailable entity schema");
 				}

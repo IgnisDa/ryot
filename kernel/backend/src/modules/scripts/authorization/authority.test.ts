@@ -1,6 +1,8 @@
 import { expect, layer } from "@effect/vitest";
 import { SandboxRunError } from "@ryot-app/contract/errors";
+import type { ResultsTableSavedViewSettings } from "@ryot-app/contract/modules/saved-views/schemas";
 import { SandboxProviderId, SandboxScriptId, UserId } from "@ryot-app/contract/schema/brands";
+import { column, field, rows as queryRows, table } from "@ryot-app/ryotql";
 import { SandboxExecutionAuthority } from "@ryot-app/sandbox/host/authority";
 import { nativeRecoveryLayer } from "@ryot-app/sandbox/host/recovery-native.test-support";
 import { SandboxSidecarSupervisor } from "@ryot-app/sandbox/host/supervisor";
@@ -27,6 +29,8 @@ import { SandboxRepository } from "../registry/repository";
 import { SandboxExecutionAuthorityLive } from "./authority";
 import { pluginSandboxAuthority } from "./plugin-authority";
 import { ScriptExecutionPrincipal } from "./principal";
+
+const savedViewEntity = table("entity", "entity");
 
 type PersistedScript = Parameters<PluginRepository["Service"]["persistKernelScript"]>[0];
 
@@ -132,11 +136,29 @@ describe("sandbox execution authority", () => {
 								{
 									sortOrder: 0,
 									icon: "bookmark",
-									dataSources: null,
 									name: "Large saved view",
 									slug: `${slug}-saved-view`,
 									renderer: { kind: "kernel", name: "results-table" },
-									settings: { payload: "large saved view payload ".repeat(512) },
+									dataSources: {
+										queries: {
+											records: queryRows(savedViewEntity, {
+												fields: [field("id", column(savedViewEntity, "id"))],
+											}),
+										},
+									},
+									settings: {
+										pageSize: 20,
+										entityLink: null,
+										rowKeyFields: ["id"],
+										sourceName: "records",
+										columns: [
+											{
+												field: "id",
+												displayKind: "text",
+												label: "large saved view payload ".repeat(512),
+											},
+										],
+									} satisfies ResultsTableSavedViewSettings,
 								},
 							],
 						},
@@ -193,9 +215,8 @@ describe("sandbox execution authority", () => {
 						stableStringify(expectedSandboxAuthority),
 					);
 					expect(revision.manifest.providers[0]?.information.source.length).toBeGreaterThan(10_000);
-					const savedViewPayload = revision.manifest.savedViews[0]?.settings["payload"];
-					assert(typeof savedViewPayload === "string");
-					expect(savedViewPayload.length).toBeGreaterThan(10_000);
+					const savedViewSettings = revision.manifest.savedViews[0]?.settings;
+					expect(stableStringify(savedViewSettings).length).toBeGreaterThan(10_000);
 					expect(revision.sandboxAuthority).not.toHaveProperty("providers");
 					expect(revision.sandboxAuthority).not.toHaveProperty("savedViews");
 					const [row] = yield* session.run((db) =>

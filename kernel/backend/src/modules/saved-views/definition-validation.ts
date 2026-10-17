@@ -1,8 +1,7 @@
-import { definitionOwnerPluginId } from "@ryot-app/contract/modules/plugins/references";
+import { definitionKey } from "@ryot-app/contract/modules/plugins/references";
 import type {
 	FieldSelection,
 	NamedQuery,
-	Predicate,
 	RyotQLDocument,
 } from "@ryot-app/contract/modules/ryotql/language";
 import {
@@ -42,37 +41,6 @@ const projectedField = (query: NamedQuery, key: string) =>
 				(selection): selection is FieldSelection => "key" in selection && selection.key === key,
 			)
 		: undefined;
-
-const hasFixedEntityValue = (
-	predicate: Predicate | undefined,
-	tableAlias: string,
-	field: "entitySchemaPluginId" | "entitySchemaSlug",
-	value: string | null,
-): boolean => {
-	if (predicate?.type === "and") {
-		return predicate.predicates.some((part) => hasFixedEntityValue(part, tableAlias, field, value));
-	}
-	if (predicate?.type === "isNull" && value === null) {
-		return (
-			predicate.expr.type === "column" &&
-			predicate.expr.tableAlias === tableAlias &&
-			predicate.expr.field === field
-		);
-	}
-	if (predicate?.type !== "comparison" || predicate.operator !== "eq") {
-		return false;
-	}
-	const matches = (left: typeof predicate.left, right: typeof predicate.right) =>
-		left.type === "column" &&
-		left.tableAlias === tableAlias &&
-		left.field === field &&
-		(field === "entitySchemaPluginId"
-			? right.type === "pluginId" &&
-				right.reference.kind === "local" &&
-				right.reference.pluginId === value
-			: right.type === "literal" && right.value === value);
-	return matches(predicate.left, predicate.right) || matches(predicate.right, predicate.left);
-};
 
 export const validateEntityBrowserSavedViewDefinition = Effect.fn(
 	"validateEntityBrowserSavedViewDefinition",
@@ -135,49 +103,27 @@ export const validateEntityBrowserSavedViewDefinition = Effect.fn(
 		);
 	}
 
-	const expectedFields = [
-		[settings.entityIdField, "id"],
-		[settings.ownerPluginIdField, "entitySchemaPluginId"],
-		[settings.entitySchemaSlugField, "entitySchemaSlug"],
-	] as const;
-	const scope = queryScope(query);
-	let entityAlias: string | undefined;
-	for (const [outputField, canonicalField] of expectedFields) {
-		const selection = projectedField(query, outputField);
-		if (
-			selection?.expr.type !== "column" ||
-			scope.get(selection.expr.tableAlias)?.name !== "entity" ||
-			selection.expr.field !== canonicalField
-		) {
-			return yield* invalidEntityBrowserDefinition(
-				`Entity-browser field '${outputField}' must project entity.${canonicalField}`,
-			);
-		}
-		entityAlias ??= selection.expr.tableAlias;
-		if (selection.expr.tableAlias !== entityAlias) {
-			return yield* invalidEntityBrowserDefinition(
-				"Entity-browser provenance fields must come from the same entity table alias",
-			);
-		}
+	if (queryScope(query).get(settings.subject.entityAlias)?.name !== "entity") {
+		return yield* invalidEntityBrowserDefinition(
+			`Entity-browser subject alias '${settings.subject.entityAlias}' must be an entity table in the source query`,
+		);
+	}
+	const subjectKeys = settings.subject.schemas.map(({ slug, owner }) =>
+		definitionKey("entity", owner, slug),
+	);
+	if (new Set(subjectKeys).size !== subjectKeys.length) {
+		return yield* invalidEntityBrowserDefinition(
+			"Entity-browser subject schemas must not contain duplicates",
+		);
 	}
 	if (
 		settings.addAction?.type === "provider-search" &&
-		(entityAlias === undefined ||
-			!hasFixedEntityValue(
-				query.where,
-				entityAlias,
-				"entitySchemaPluginId",
-				definitionOwnerPluginId(settings.addAction.schema.owner),
-			) ||
-			!hasFixedEntityValue(
-				query.where,
-				entityAlias,
-				"entitySchemaSlug",
-				settings.addAction.schema.slug,
-			))
+		!subjectKeys.includes(
+			definitionKey("entity", settings.addAction.schema.owner, settings.addAction.schema.slug),
+		)
 	) {
 		return yield* invalidEntityBrowserDefinition(
-			"Entity-browser addAction must match the fixed source entity owner and schema",
+			"Entity-browser addAction schema must be one of the subject schemas",
 		);
 	}
 	const configuredFields = [
