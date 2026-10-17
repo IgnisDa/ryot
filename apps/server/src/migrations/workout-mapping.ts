@@ -321,6 +321,67 @@ BEGIN
 END $$;
 `;
 
+export const buildWorkoutCompletedEventMigrationSql = (input: {
+	workoutEntitySchema: QualifiedSchema;
+	completedEventSchema: QualifiedSchema;
+}) => `
+DO $$
+DECLARE
+	rows_inserted int;
+	invalid_name_count int;
+	invalid_name_sample text;
+	missing_workout_count int;
+	missing_workout_sample text;
+	started_at timestamptz := clock_timestamp();
+BEGIN
+	${buildRequireLegacyTableSql("workout -> workout-completed event", "workout")}
+	${buildAbortOnRowsSql({
+		countVariable: "invalid_name_count",
+		sampleVariable: "invalid_name_sample",
+		source: `SELECT id AS label FROM "workout" WHERE name IS NULL OR name = ''`,
+		message:
+			"workout -> workout-completed event: % workout(s) have a missing or empty name: %. Completion events require a non-empty workoutName. Name those workouts in the V1 database, then start again.",
+	})}
+	${buildAbortOnRowsSql({
+		countVariable: "missing_workout_count",
+		sampleVariable: "missing_workout_sample",
+		message:
+			"workout -> workout-completed event: % legacy workout(s) have no matching migrated workout entity with the same owner and schema: %. Workout entities are copied earlier in this run, so this is a migration defect. Keep the dump and report it; retrying will not change the result.",
+		source: `SELECT w.id AS label FROM "workout" w
+			LEFT JOIN "entity" migrated ON migrated.id = w.id
+				AND migrated.user_id = w.user_id
+				AND migrated.entity_schema_slug = ${quoteSqlString(input.workoutEntitySchema.slug)}
+				AND migrated.entity_schema_plugin_id IS NOT DISTINCT FROM ${quoteNullableSqlString(input.workoutEntitySchema.pluginId)}
+			WHERE migrated.id IS NULL`,
+	})}
+
+	INSERT INTO "event" (
+		"id",
+		"user_id",
+		"entity_id",
+		"event_schema_slug",
+		"event_schema_plugin_id",
+		"properties",
+		"created_at",
+		"occurred_at"
+	)
+	SELECT
+		md5(w.id || ':workout-completed'),
+		w.user_id,
+		w.id,
+		${quoteSqlString(input.completedEventSchema.slug)},
+		${quoteNullableSqlString(input.completedEventSchema.pluginId)},
+		jsonb_build_object('workoutName', w.name),
+		w.end_time,
+		w.end_time
+	FROM "workout" w
+	ON CONFLICT DO NOTHING;
+
+	GET DIAGNOSTICS rows_inserted = ROW_COUNT;
+	${buildReportSql("workout -> workout-completed event", [{ count: "rows_inserted", message: "event(s) migrated" }])}
+END $$;
+`;
+
 export const buildWorkoutSetEventMigrationSql = (schema: QualifiedSchema) => `
 DO $$
 DECLARE
