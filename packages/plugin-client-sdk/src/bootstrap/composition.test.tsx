@@ -195,6 +195,21 @@ describe("composition bootstrap", () => {
 		}),
 	);
 
+	it.effect("bootstraps explicit routes without a home component", () =>
+		Effect.gen(function* () {
+			mountDescriptor({
+				automaticRegistry: [],
+				application: "plugin-route",
+				routes: { routes: [{ path: "/items/new", module: reference("/routes.js", "About") }] },
+			});
+			const { recorded, dependencies } = harness({ "/routes.js": { About } });
+			yield* Effect.promise(() => bootstrapComposition(dependencies));
+			expect(recorded.plugins[0]?.definition).toEqual({
+				routes: [{ component: About, path: "/items/new" }],
+			});
+		}),
+	);
+
 	it.effect("rejects a missing export with its specifier and binding", () =>
 		Effect.gen(function* () {
 			mountDescriptor({

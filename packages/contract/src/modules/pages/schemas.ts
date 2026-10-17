@@ -181,7 +181,7 @@ export const ClientPageCompositionIdentity = strictStruct({
 	),
 	routeRegistry: Schema.NullOr(
 		strictStruct({
-			home: Schema.String,
+			home: Schema.optional(Schema.String),
 			notFound: Schema.optional(Schema.String),
 			routes: Schema.Array(strictStruct({ path: Schema.String, exportSpecifier: Schema.String })),
 		}),
@@ -226,7 +226,7 @@ const clientCompositionDescriptor = <Registration extends Schema.Top>(registrati
 			application: Schema.Literal("plugin-route"),
 			automaticRegistry: Schema.Array(registration),
 			routes: strictStruct({
-				home: ClientCompositionModuleReference,
+				home: Schema.optional(ClientCompositionModuleReference),
 				notFound: Schema.optional(ClientCompositionModuleReference),
 				routes: Schema.Array(
 					strictStruct({ path: Schema.String, module: ClientCompositionModuleReference }),
