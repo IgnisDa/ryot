@@ -106,5 +106,11 @@ Shared metadata is sent once, not repeated per request, so normal batches retain
 
 `SandboxHostError` and `SandboxFilesystemError` carry a readable `message` and optional structured
 `data`. Stable boundary codes belong in `data`: `missing-required-config`, `missing-artifact-grant`,
-`unavailable-operation`, `invalid-executable-target`, and `execution-limit`. Callers can branch on
-those codes without replacing or parsing the message.
+`unavailable-operation`, `invalid-executable-target`, `execution-limit`, and `operation-rejected`.
+Callers can branch on those codes without replacing or parsing the message.
+
+An operation that refuses a request for a deterministic, user-correctable reason fails with
+`OperationRejectedError(message)` from `@ryot-app/plugin-backend-sdk/operation`. Its message reaches
+the caller as an HTTP 422 `PluginOperationRejected`; any other thrown error stays an HTTP 502
+`PluginInvocationError` with `runtime-failed`. Use it only for operation entrypoints, never for
+provider scripts, which report failures through their results.

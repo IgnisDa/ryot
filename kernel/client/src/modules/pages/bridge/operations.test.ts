@@ -13,6 +13,7 @@ import {
 	PluginConflictError,
 	PluginInvocationError,
 	PluginNotFoundError,
+	PluginOperationRejected,
 	PluginRequestError,
 } from "@ryot-app/contract/modules/plugins/schemas";
 import { PluginId, PluginPackageId } from "@ryot-app/contract/schema/brands";
@@ -163,6 +164,31 @@ describe("plugin operations service", () => {
 			);
 		});
 	}
+
+	layer(failing(new PluginOperationRejected({ message: "Episode is not part of this show" })))(
+		(test) => {
+			test.effect("carries the rejection message as an operation-rejected failure", () =>
+				Effect.gen(function* () {
+					const service = yield* PluginOperationsService;
+					const outcome = yield* service.invoke({
+						scope,
+						contentHash: "source-hash",
+						request: {
+							input: null,
+							operationSlug: "greet",
+							packageId: PluginPackageId.make("test/fixture"),
+						},
+					});
+
+					expect(outcome).toEqual({
+						outcome: "failure",
+						reason: "operation-rejected",
+						message: "Episode is not part of this show",
+					});
+				}),
+			);
+		},
+	);
 
 	layer(failing(new TypeError("network down")))((test) => {
 		test.effect("classifies an unrelated cause as a transport failure without leaking it", () =>

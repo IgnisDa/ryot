@@ -17,3 +17,8 @@ export const defineOperation = <
 ): Omit<GenericScriptDefinition<Manifest, Input, Output, Effect.Error<ReturnType<Run>>>, "run"> & {
 	readonly run: Run;
 } => ({ ...definition, definitionType: SANDBOX_SCRIPT_DEFINITION });
+
+export class OperationRejectedError extends Error {
+	readonly _tag = "OperationRejectedError";
+	readonly data = { code: "operation-rejected" } as const;
+}

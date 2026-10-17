@@ -43,7 +43,13 @@ declaration schema is uncapped; runtimes own aggregation and bounded selection.
 
 The complete public `RyotClientErrorReason` set is `disposed`, `protocol`, `transport`,
 `asset-failed`, `collection-failed`, `entity-save-failed`, `query-failed`, `invalid-input`,
-`operation-failed`, `malformed-result`, `unsupported-capability`, `invalid-request`, and `quota`.
+`operation-failed`, `operation-rejected`, `malformed-result`, `unsupported-capability`,
+`invalid-request`, and `quota`.
+
+`operation-result` failures carry `transport`, `operation-failed`, or `malformed-result`, or
+`operation-rejected` with the operation's `message`. `operation-failed` is a declared platform
+failure with no user-facing text; `operation-rejected` is a deterministic refusal whose message may
+be shown to the user, and retrying the same input cannot succeed.
 
 `entity-editor-save-request` carries an `EntityEditorSaveRequest` (submission, idempotency key, and
 UTC `submittedAt`). Its result returns the editor output or fails with `invalid-request` (schema owner

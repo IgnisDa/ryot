@@ -1168,7 +1168,12 @@ describe("plugin client bridge contract", () => {
 		const decodeQueryBridge = Schema.decodeUnknownResult(PluginRyotQLFailureReason);
 		const decodeAssetBridge = Schema.decodeUnknownResult(PluginAssetBridgeErrorReason);
 		const decodePublic = Schema.decodeUnknownResult(RyotClientErrorReason);
-		const operationBridgeReasons = ["transport", "operation-failed", "malformed-result"];
+		const operationBridgeReasons = [
+			"transport",
+			"operation-failed",
+			"operation-rejected",
+			"malformed-result",
+		];
 		const queryBridgeReasons = ["transport", "query-failed"];
 		const assetBridgeReasons = ["transport", "asset-failed", "malformed-result"];
 		const publicReasons = [
@@ -1181,6 +1186,7 @@ describe("plugin client bridge contract", () => {
 			"entity-save-failed",
 			"query-failed",
 			"operation-failed",
+			"operation-rejected",
 			"malformed-result",
 			"unsupported-capability",
 			"invalid-request",
@@ -1319,6 +1325,14 @@ describe("plugin client bridge contract", () => {
 				),
 			).toBe(true);
 		}
+		const rejected = {
+			outcome: "failure",
+			requestId: "request-1",
+			type: "operation-result",
+			reason: "operation-rejected",
+		};
+		expect(Result.isSuccess(decode({ ...rejected, message: "Not allowed" }))).toBe(true);
+		expect(Result.isFailure(decode(rejected))).toBe(true);
 		expect(
 			Result.isFailure(
 				decode({

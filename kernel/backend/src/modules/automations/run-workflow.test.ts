@@ -852,6 +852,35 @@ layer(harnessLayer({ run: beforeRun, trigger: requestTrigger }))((test) => {
 	);
 });
 
+layer(
+	harnessLayer({
+		run: beforeRun,
+		trigger: requestTrigger,
+		overrides: {
+			runSandbox: () =>
+				Effect.fail(
+					new SandboxRunError({
+						kind: "script-failure",
+						message: "Rule declined the request",
+						data: { code: "operation-rejected" },
+					}),
+				),
+		},
+	}),
+)((test) => {
+	test.effect("records an operation rejection as a business failure with its code", () =>
+		Effect.gen(function* () {
+			const harness = yield* RunWorkflowHarness;
+			const result = yield* execute();
+			expect(result.attempt?.failureKind).toBe("business-failure");
+			expect((yield* harness.outcomes)[0]?.error).toEqual({
+				code: "operation-rejected",
+				message: "Rule declined the request",
+			});
+		}),
+	);
+});
+
 layer(harnessLayer({ trigger: { ...trigger, payload: null } }))((test) => {
 	test.effect(
 		"finalizes missing retained input before dispatch and rejects a different workflow owner",
@@ -875,6 +904,17 @@ layer(harnessLayer({ trigger: { ...trigger, payload: null } }))((test) => {
 
 const classify = (kind: SandboxFailureKind) =>
 	classifyAutomationSandboxError({ kind, phase: "execute", message: "failed" });
+
+it("classifies an operation rejection raised by an automation script as a business failure", () => {
+	expect(
+		classifyAutomationSandboxError({
+			phase: "execute",
+			message: "Not allowed",
+			kind: "script-failure",
+			data: { code: "operation-rejected" },
+		}),
+	).toBe("business-failure");
+});
 
 it("maps every sandbox failure kind onto its automation failure kind", () => {
 	expect(classify("timeout")).toBe("sandbox-timeout");

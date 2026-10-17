@@ -3,6 +3,7 @@ import {
 	PluginConflictError,
 	PluginInvocationError,
 	PluginNotFoundError,
+	PluginOperationRejected,
 	PluginRequestError,
 } from "@ryot-app/contract/modules/plugins/schemas";
 import { pluginPackageSegments } from "@ryot-app/contract/schema/brands";
@@ -27,6 +28,8 @@ const isDeclaredFailure = Schema.is(
 		PluginInvocationError,
 	]),
 );
+
+const isOperationRejected = Schema.is(PluginOperationRejected);
 
 const isStaleRevision = (cause: unknown) =>
 	Schema.is(PluginConflictError)(cause) && cause.reason.code === "source-revision-stale";
@@ -64,6 +67,13 @@ export class PluginOperationsService extends Context.Service<PluginOperationsSer
 							onFailure: (error) => {
 								if (isStaleRevision(error.cause)) {
 									return { outcome: "stale-session" } as const;
+								}
+								if (isOperationRejected(error.cause)) {
+									return {
+										outcome: "failure",
+										message: error.cause.message,
+										reason: "operation-rejected",
+									} as const;
 								}
 								const reason = (
 									isDeclaredFailure(error.cause) || isDemoOperationProtectedError(error)

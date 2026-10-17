@@ -32,6 +32,7 @@ export const PLUGIN_STORAGE_VALUE_MAX_BYTES = 65536;
 export const PluginOperationBridgeErrorReason = Schema.Literals([
 	"transport",
 	"operation-failed",
+	"operation-rejected",
 	"malformed-result",
 ]);
 
@@ -69,6 +70,7 @@ export const RyotClientErrorReason = Schema.Literals([
 	"query-failed",
 	"invalid-input",
 	"operation-failed",
+	"operation-rejected",
 	"malformed-result",
 	"unsupported-capability",
 	"invalid-request",
@@ -317,10 +319,17 @@ export type PluginBridgeOperationRequest = Schema.Schema.Type<typeof PluginBridg
 
 const pluginOperationSuccessFields = { value: JsonValue, outcome: Schema.Literal("success") };
 
-const pluginOperationFailureFields = {
-	outcome: Schema.Literal("failure"),
-	reason: PluginOperationBridgeErrorReason,
-};
+const pluginOperationFailureVariants = [
+	{
+		outcome: Schema.Literal("failure"),
+		reason: Schema.Literals(["transport", "operation-failed", "malformed-result"]),
+	},
+	{
+		message: Schema.String,
+		outcome: Schema.Literal("failure"),
+		reason: Schema.Literal("operation-rejected"),
+	},
+] as const;
 
 const pluginBridgeOperationResultFields = {
 	requestId: Schema.String,
@@ -329,14 +338,16 @@ const pluginBridgeOperationResultFields = {
 
 export const PluginOperationOutcome = Schema.Union([
 	strictStruct(pluginOperationSuccessFields),
-	strictStruct(pluginOperationFailureFields),
+	...pluginOperationFailureVariants.map((fields) => strictStruct(fields)),
 ]);
 
 export type PluginOperationOutcome = Schema.Schema.Type<typeof PluginOperationOutcome>;
 
 export const PluginBridgeOperationResult = Schema.Union([
 	strictStruct({ ...pluginOperationSuccessFields, ...pluginBridgeOperationResultFields }),
-	strictStruct({ ...pluginOperationFailureFields, ...pluginBridgeOperationResultFields }),
+	...pluginOperationFailureVariants.map((fields) =>
+		strictStruct({ ...fields, ...pluginBridgeOperationResultFields }),
+	),
 ]);
 
 export type PluginBridgeOperationResult = Schema.Schema.Type<typeof PluginBridgeOperationResult>;

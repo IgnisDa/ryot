@@ -52,6 +52,8 @@ integration boundary.
 mutation listeners by default. `refreshOnSuccess: false` suppresses that notification for read-only
 context operations, so a page-refresh handler does not trigger itself again, and for writes whose
 caller calls `mutationCompleted.hint()` itself once later steps such as navigation finish.
+An operation that refuses the request fails with `operation-rejected`, and the `RyotClientError`
+`message` carries the operation's explanation; resubmitting the same input cannot succeed.
 Retryable writes may pass an `idempotencyKey`. Retain the same key and exact immutable input across
 retries; the server replays the recorded result and rejects reuse of the key with different input.
 Each bridge attempt has its own transport `requestId`; it is not a write identity.

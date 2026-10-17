@@ -12,6 +12,13 @@ executes their code.
 | `catalog/`       | Resolved availability, readiness, rate-limit policy, and catalog invalidation |
 | `operations/`    | Product-facing plugin operation entrypoints                                   |
 
+## Operation failures
+
+`OperationsService` distinguishes a refusal from a crash. A script error whose boundary reason is
+`operation-rejected` becomes HTTP 422 `PluginOperationRejected { message }`; every other sandbox
+failure remains HTTP 502 `PluginInvocationError` with `runtime-failed`, because proxies may replace
+502 bodies and the client treats them as transport failures.
+
 ## Repository composition
 
 `packages/repository-layer.ts` owns `PluginRepositoryLive`, which provides the repository's client-artifact dependency. Automations planner, retention, and signal Layers use this focused composition without importing the plugins runtime Layer. Reusing the Layer preserves Effect's shared-resource composition.

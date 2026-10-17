@@ -181,6 +181,11 @@ export class PluginInvocationError extends Schema.TaggedError<
 	{ readonly brand: unique symbol }
 >()("PluginInvocationError", { reason: PluginInvocationFailureReason }) {}
 
+export class PluginOperationRejected extends Schema.TaggedError<
+	PluginOperationRejected,
+	{ readonly brand: unique symbol }
+>()("PluginOperationRejected", { message: Schema.String }) {}
+
 export const InstallPluginBody = Schema.Struct({
 	uploadToken: Schema.String,
 	config: Schema.Record(Schema.String, JsonValue),

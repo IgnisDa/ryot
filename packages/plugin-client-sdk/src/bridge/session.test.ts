@@ -1095,6 +1095,38 @@ describe("plugin Effect request engine", () => {
 		}),
 	);
 
+	it.live("surfaces an operation rejection with its message", () =>
+		Effect.gen(function* () {
+			const { channel, runtime } = yield* openRuntime();
+			const pending = yield* Effect.forkChild(
+				Effect.result(
+					runtime.client.operations.invoke({
+						input: null,
+						slug: "greet",
+						output: Schema.String,
+						inputSchema: Schema.Null,
+						packageId: "test/fixture",
+					}),
+				),
+				{ startImmediately: true },
+			);
+			yield* waitForMessagePortMacrotask;
+			channel.port1.postMessage({
+				outcome: "failure",
+				type: "operation-result",
+				requestId: "operation-1",
+				reason: "operation-rejected",
+				message: "Every episode must belong to the selected parent",
+			});
+			expect(yield* Fiber.join(pending)).toMatchObject({
+				failure: new RyotClientError(
+					"operation-rejected",
+					"Every episode must belong to the selected parent",
+				),
+			});
+		}),
+	);
+
 	it.live("dispatches operation and collection results with semantic mutation hints", () =>
 		Effect.gen(function* () {
 			const { channel, runtime, messages } = yield* openRuntime();

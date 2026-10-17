@@ -4,6 +4,7 @@ import {
 	PluginConflictError,
 	PluginInvocationError,
 	PluginNotFoundError,
+	PluginOperationRejected,
 	PluginRequestError,
 } from "@ryot-app/contract/modules/plugins/schemas";
 import type { AccountGeneration } from "@ryot-app/contract/schema/account-generation";
@@ -92,6 +93,9 @@ export class OperationsService extends Context.Service<OperationsService>()("Ope
 					...(input.integrationId ? { integrationId: input.integrationId } : {}),
 				},
 			});
+			if (result.error?.data?.code === "operation-rejected") {
+				return yield* new PluginOperationRejected({ message: result.error.message });
+			}
 			if (result.error) {
 				return yield* new PluginInvocationError({
 					reason: {

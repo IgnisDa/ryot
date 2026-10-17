@@ -474,7 +474,7 @@ const publishPrimaryEntity = Effect.fn("publishProviderPrimaryEntity")(function*
 });
 
 const populationFailureOf = (error: SandboxExecutionError): EntityPopulationFailure | null => {
-	if (error.data === undefined) {
+	if (error.data === undefined || error.data.code === "operation-rejected") {
 		return error.kind === "script-failure" || error.kind === "invalid-output" ? error.kind : null;
 	}
 	return (error.kind === "script-failure" || error.kind === "resource-unavailable") &&

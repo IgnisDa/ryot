@@ -3,9 +3,10 @@ import { Data } from "effect";
 
 export class RyotClientError extends Data.TaggedError("RyotClientError")<{
 	readonly reason: RyotClientErrorReason;
+	readonly message?: string;
 }> {
-	constructor(reason: RyotClientErrorReason) {
-		super({ reason });
+	constructor(reason: RyotClientErrorReason, message?: string) {
+		super(message === undefined ? { reason } : { reason, message });
 	}
 }
 

@@ -351,6 +351,14 @@ layer(failureLayer)((test) => {
 					}),
 				},
 				{ failure: "invalid-output", result: completed({ properties: {} }) },
+				{
+					failure: "script-failure",
+					result: failed({
+						kind: "script-failure",
+						data: { code: "operation-rejected" },
+						message: "Provider rejected the request",
+					}),
+				},
 			] as const;
 			for (const [index, { result, failure }] of cases.entries()) {
 				const externalId = `deterministic-${index}`;

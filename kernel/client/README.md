@@ -121,6 +121,12 @@ messages only from the active installation and current history entry.
 `historyEntry` is the only code that may read TanStack Router's `__TSR_*` state. Every navigation path
 must supply an `index` and `key`.
 
+The bridge reports a 422 `PluginOperationRejected` as `operation-rejected` with the operation's
+message; other declared platform failures are `operation-failed` and unrelated causes are `transport`.
+Provider search names its failure: a `search-failed` refusal with cause `missing-config` shows which
+configuration field is missing, `provider-error` says the provider could not complete the search, and
+only real transport failures show the connection message.
+
 Saved-view renderers own their title and icon inside the iframe. Entity-browser layout selection is
 stored locally, with explicit URL state taking precedence. Plugin routes host the entity picker
 screen (`modules/provider-add`); plugin, entity, and saved-view documents host the collection editor

@@ -439,7 +439,11 @@ export const createPluginRuntime = (
 		requestId: string,
 		outcome:
 			| { readonly outcome: "success"; readonly value: unknown }
-			| { readonly outcome: "failure"; readonly reason: RyotClientErrorReason },
+			| {
+					readonly outcome: "failure";
+					readonly reason: RyotClientErrorReason;
+					readonly message?: string;
+			  },
 	) => {
 		const call = pending.get(requestId);
 		if (call?.type !== type || !pending.delete(requestId)) {
@@ -447,7 +451,7 @@ export const createPluginRuntime = (
 		}
 		call.complete(
 			outcome.outcome === "failure"
-				? Effect.fail(new RyotClientError(outcome.reason))
+				? Effect.fail(new RyotClientError(outcome.reason, outcome.message))
 				: Effect.succeed(outcome.value),
 		);
 	};

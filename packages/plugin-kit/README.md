@@ -571,7 +571,9 @@ Crons target one script and use either `{ cron }` or `{ tier: "infrequent" }`. B
 script and run once per server start. Both run with system subject through durable execution; dispatch
 is skipped when `scheduler.disableDispatchers` is enabled. Boot scripts must be idempotent.
 
-Operations map a public slug and `user` or `integration` auth to an `operation`-kind script. Import
+Operations map a public slug and `user` or `integration` auth to an `operation`-kind script.
+Refuse a request that cannot succeed as submitted with `OperationRejectedError(message)`; the caller
+receives the message (HTTP 422) instead of a generic runtime failure (HTTP 502). Import
 sources map strict input schemas to workflows. Uploads are top-level string fields with upload format;
 the kernel validates each file and exposes it by field name for `readNamedArtifact(key)`. Payload-only
 sources use ordinary fields.

@@ -106,6 +106,8 @@ A population of an entity row that exists and is not yet populated records a fai
 provider's `details` run fails deterministically:
 
 - a script error (`script-failure` without a boundary reason), stored as `script-failure`;
+- a script error carrying the `operation-rejected` boundary code, stored as `script-failure` so a
+  provider that ever raises it is still recorded rather than dropped;
 - invalid output (`invalid-output` without a boundary reason, or a result that fails details
   validation), stored as `invalid-output`;
 - a host-call budget overrun (`script-failure` or `resource-unavailable` with boundary code
