@@ -11,7 +11,7 @@
 		"check": "bun --check && oxfmt . --write && oxlint . --fix"
 	},
 	"dependencies": {
-		"effect": "4.0.0"
+		"effect": "4.0.5"
 	},
 	"devDependencies": {
 		"@ryot-app/contract": "workspace:*",

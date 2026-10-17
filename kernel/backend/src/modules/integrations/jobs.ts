@@ -33,7 +33,7 @@ export const IntegrationRecoveryPage = Schema.Struct({
 	next: Schema.NullOr(IngestionRecoveryCursor),
 });
 
-export class IntegrationRunError extends Schema.TaggedError<IntegrationRunError>()(
-	"IntegrationRunError",
-	{ message: Schema.String },
-) {}
+export class IntegrationRunError extends Schema.TaggedError<
+	IntegrationRunError,
+	{ readonly brand: unique symbol }
+>()("IntegrationRunError", { message: Schema.String }) {}

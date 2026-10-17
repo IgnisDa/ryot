@@ -20,10 +20,10 @@ export {
 	latestEventField,
 } from "@ryot-app/ryotql-recipes/event-expressions";
 
-export class RyotqlRecipeDecodeError extends Schema.TaggedError<RyotqlRecipeDecodeError>()(
-	"RyotqlRecipeDecodeError",
-	{ message: Schema.String },
-) {}
+export class RyotqlRecipeDecodeError extends Schema.TaggedError<
+	RyotqlRecipeDecodeError,
+	{ readonly brand: unique symbol }
+>()("RyotqlRecipeDecodeError", { message: Schema.String }) {}
 
 export const executeRyotqlRecipe = <Success, Error, Requirements>(
 	executeRyotql: (document: RyotQLDocument) => Effect.Effect<unknown, Error, Requirements>,

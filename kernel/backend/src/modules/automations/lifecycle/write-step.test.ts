@@ -9,9 +9,10 @@ import { makeMemoizingWorkflowEngine } from "#testing/effect";
 
 import { runLifecycleWriteStep, type LifecyclePreparedStep } from "./write-step";
 
-class StepFailure extends Schema.TaggedError<StepFailure>()("StepFailure", {
-	message: Schema.String,
-}) {}
+class StepFailure extends Schema.TaggedError<StepFailure, { readonly brand: unique symbol }>()(
+	"StepFailure",
+	{ message: Schema.String },
+) {}
 
 const Pending = Schema.Struct({ draft: Schema.String });
 const Result = Schema.Struct({ committed: Schema.String });

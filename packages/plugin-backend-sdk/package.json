@@ -113,7 +113,7 @@
 		"@types/mdast": "4.0.4",
 		"@types/papaparse": "5.5.2",
 		"cheerio": "1.2.0",
-		"effect": "4.0.0",
+		"effect": "4.0.5",
 		"fast-xml-parser": "5.8.0",
 		"fflate": "0.8.3",
 		"hast-util-raw": "9.1.0",
@@ -127,7 +127,7 @@
 		"youtubei.js": "17.2.0"
 	},
 	"devDependencies": {
-		"@effect/vitest": "4.0.0",
+		"@effect/vitest": "4.0.5",
 		"@ryot-app/testing": "workspace:*",
 		"vitest": "4.1.9"
 	}

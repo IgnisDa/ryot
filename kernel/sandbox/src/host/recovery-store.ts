@@ -2,10 +2,10 @@ import { Context, Effect, Layer, Schema } from "effect";
 
 import { SandboxRedis, sandboxRedisKeys } from "./redis";
 
-export class SandboxRecoveryStoreError extends Schema.TaggedError<SandboxRecoveryStoreError>()(
-	"SandboxRecoveryStoreError",
-	{ message: Schema.String },
-) {}
+export class SandboxRecoveryStoreError extends Schema.TaggedError<
+	SandboxRecoveryStoreError,
+	{ readonly brand: unique symbol }
+>()("SandboxRecoveryStoreError", { message: Schema.String }) {}
 
 const RECOVERY_LIMIT = 3;
 

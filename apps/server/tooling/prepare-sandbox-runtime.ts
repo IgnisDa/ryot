@@ -341,7 +341,7 @@ const smoke = Effect.gen(function* () {
 			});
 		}
 
-		const executionId = `production-runtime-smoke-${yield* crypto.randomUUIDv4}`;
+		const executionId = `production-runtime-smoke-${yield* crypto.randomUUIDv4()}`;
 		const input: SandboxRunInput = {
 			startedAt,
 			executionId,

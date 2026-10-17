@@ -10,7 +10,7 @@
 		"check": "bun --check && oxfmt . --write && oxlint . --fix"
 	},
 	"dependencies": {
-		"effect": "4.0.0",
+		"effect": "4.0.5",
 		"lodash": "4.18.1",
 		"slugify": "1.6.9"
 	},

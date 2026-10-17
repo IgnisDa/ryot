@@ -367,10 +367,13 @@ export const SidecarOutboundFrame = Schema.Union([
 ]);
 export type SidecarOutboundFrame = typeof SidecarOutboundFrame.Type;
 
-export class SidecarProtocolError extends Schema.TaggedError<SidecarProtocolError>()(
-	"SidecarProtocolError",
-	{ message: Schema.String, reason: Schema.Literals(["framing", "payload"]) },
-) {}
+export class SidecarProtocolError extends Schema.TaggedError<
+	SidecarProtocolError,
+	{ readonly brand: unique symbol }
+>()("SidecarProtocolError", {
+	message: Schema.String,
+	reason: Schema.Literals(["framing", "payload"]),
+}) {}
 
 const parseOptions = { onExcessProperty: "error" } as const;
 const decoder = new TextDecoder("utf-8", { fatal: true });

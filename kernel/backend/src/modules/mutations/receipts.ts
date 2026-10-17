@@ -101,10 +101,10 @@ const generationMismatch = (identity: MutationReceiptIdentity) => {
 		: undefined;
 };
 
-export class MutationReceiptIdentityConflict extends Schema.TaggedError<MutationReceiptIdentityConflict>()(
-	"MutationReceiptIdentityConflict",
-	{ receiptId: Schema.String },
-) {}
+export class MutationReceiptIdentityConflict extends Schema.TaggedError<
+	MutationReceiptIdentityConflict,
+	{ readonly brand: unique symbol }
+>()("MutationReceiptIdentityConflict", { receiptId: Schema.String }) {}
 
 const batchIdentity = (input: {
 	command: LifecycleCommand;

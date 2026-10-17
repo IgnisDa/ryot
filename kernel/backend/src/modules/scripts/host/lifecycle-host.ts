@@ -60,10 +60,13 @@ export type LifecycleHostInput<Tag extends SandboxLifecycleHostInput["_tag"]> = 
 	{ readonly _tag: Tag }
 >;
 
-export class SandboxLifecycleHostFailure extends Schema.TaggedError<SandboxLifecycleHostFailure>()(
-	"SandboxLifecycleHostFailure",
-	{ message: Schema.String, data: Schema.optional(jsonValueSchema) },
-) {}
+export class SandboxLifecycleHostFailure extends Schema.TaggedError<
+	SandboxLifecycleHostFailure,
+	{ readonly brand: unique symbol }
+>()("SandboxLifecycleHostFailure", {
+	message: Schema.String,
+	data: Schema.optional(jsonValueSchema),
+}) {}
 
 export const lifecycleHostFailure = (error: unknown) => {
 	const hostError = toSandboxHostError(error);

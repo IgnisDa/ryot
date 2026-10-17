@@ -106,10 +106,13 @@ export const SandboxCompilationDiagnostic = Schema.Struct({
 
 export type SandboxCompilationDiagnostic = Schema.Schema.Type<typeof SandboxCompilationDiagnostic>;
 
-export class SandboxCompilationFailure extends Schema.TaggedError<SandboxCompilationFailure>()(
-	"SandboxCompilationFailure",
-	{ message: Schema.String, diagnostics: Schema.Array(SandboxCompilationDiagnostic) },
-) {}
+export class SandboxCompilationFailure extends Schema.TaggedError<
+	SandboxCompilationFailure,
+	{ readonly brand: unique symbol }
+>()("SandboxCompilationFailure", {
+	message: Schema.String,
+	diagnostics: Schema.Array(SandboxCompilationDiagnostic),
+}) {}
 
 export const EnqueueSandboxBody = strictStruct({
 	scriptId: SandboxScriptId,

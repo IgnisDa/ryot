@@ -78,7 +78,10 @@ export const UpdateEventItem = strictStruct({
 
 export type UpdateEventItem = typeof UpdateEventItem.Type;
 
-export class EventBadRequest extends Schema.TaggedError<EventBadRequest>()("EventBadRequest", {
+export class EventBadRequest extends Schema.TaggedError<
+	EventBadRequest,
+	{ readonly brand: unique symbol }
+>()("EventBadRequest", {
 	reason: strictStruct({
 		message: Schema.String,
 		code: Schema.Literals([
@@ -94,13 +97,17 @@ export class EventBadRequest extends Schema.TaggedError<EventBadRequest>()("Even
 	}),
 }) {}
 
-export class EventNotFound extends Schema.TaggedError<EventNotFound>()("EventNotFound", {
+export class EventNotFound extends Schema.TaggedError<
+	EventNotFound,
+	{ readonly brand: unique symbol }
+>()("EventNotFound", {
 	reason: strictStruct({ eventId: EventId, code: Schema.Literal("event-not-found") }),
 }) {}
 
-export class EventStale extends Schema.TaggedError<EventStale>()("EventStale", {
-	reason: strictStruct({ eventId: EventId, code: Schema.Literal("event-stale") }),
-}) {}
+export class EventStale extends Schema.TaggedError<EventStale, { readonly brand: unique symbol }>()(
+	"EventStale",
+	{ reason: strictStruct({ eventId: EventId, code: Schema.Literal("event-stale") }) },
+) {}
 
 export const EventMutationResponse = strictStruct({
 	eventId: Schema.NullOr(EventId),
@@ -160,10 +167,10 @@ export const EventCreateFailureReason = Schema.Union([
 
 export type EventCreateFailureReason = typeof EventCreateFailureReason.Type;
 
-export class EventCreateItemError extends Schema.TaggedError<EventCreateItemError>()(
-	"EventCreateItemError",
-	{ reason: EventCreateFailureReason },
-) {}
+export class EventCreateItemError extends Schema.TaggedError<
+	EventCreateItemError,
+	{ readonly brand: unique symbol }
+>()("EventCreateItemError", { reason: EventCreateFailureReason }) {}
 
 export const EventCreateItemOutcome = Schema.Union([
 	strictStruct({ eventId: EventId, index: Schema.Finite, status: Schema.Literal("written") }),
@@ -214,12 +221,16 @@ export const EventCreateOperation = Schema.Union([
 	}),
 ]);
 
-export class EventsInternalError extends Schema.TaggedError<EventsInternalError>()(
-	"EventsInternalError",
-	{ reason: strictStruct({ code: Schema.Literal("unexpected-error") }) },
-) {}
+export class EventsInternalError extends Schema.TaggedError<
+	EventsInternalError,
+	{ readonly brand: unique symbol }
+>()("EventsInternalError", {
+	reason: strictStruct({ code: Schema.Literal("unexpected-error") }),
+}) {}
 
-export class EventOperationNotFound extends Schema.TaggedError<EventOperationNotFound>()(
-	"EventOperationNotFound",
-	{ reason: strictStruct({ code: Schema.Literal("operation-not-found") }) },
-) {}
+export class EventOperationNotFound extends Schema.TaggedError<
+	EventOperationNotFound,
+	{ readonly brand: unique symbol }
+>()("EventOperationNotFound", {
+	reason: strictStruct({ code: Schema.Literal("operation-not-found") }),
+}) {}

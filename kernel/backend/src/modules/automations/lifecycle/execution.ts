@@ -13,10 +13,13 @@ import type {
 	LifecyclePersistenceError,
 } from "./planning";
 
-export class AutomationPolicyExecutionError extends Schema.TaggedError<AutomationPolicyExecutionError>()(
-	"AutomationPolicyExecutionError",
-	{ runId: AutomationRunId, code: Schema.Literal("policy-execution-failed") },
-) {}
+export class AutomationPolicyExecutionError extends Schema.TaggedError<
+	AutomationPolicyExecutionError,
+	{ readonly brand: unique symbol }
+>()("AutomationPolicyExecutionError", {
+	runId: AutomationRunId,
+	code: Schema.Literal("policy-execution-failed"),
+}) {}
 
 export class LifecycleExecution extends Context.Service<
 	LifecycleExecution,

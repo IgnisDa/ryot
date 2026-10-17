@@ -21,7 +21,7 @@
 		"@ryot-app/ryotql-recipes": "workspace:*"
 	},
 	"devDependencies": {
-		"@effect/vitest": "4.0.0",
+		"@effect/vitest": "4.0.5",
 		"@ryot-app/cli": "workspace:*",
 		"@ryot-app/plugin-client-sdk": "workspace:*",
 		"@ryot-app/plugin-ui-sdk": "workspace:*",
@@ -30,7 +30,7 @@
 		"@types/react": "^19.2.0",
 		"@types/react-dom": "^19.2.0",
 		"clsx": "2.1.1",
-		"effect": "4.0.0",
+		"effect": "4.0.5",
 		"jsdom": "^30.0.1",
 		"react": "^19.2.0",
 		"react-dom": "^19.2.0",

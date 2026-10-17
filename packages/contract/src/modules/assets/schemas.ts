@@ -106,11 +106,14 @@ export const UploadFailureReason = Schema.Union([
 ]);
 export type UploadFailureReason = typeof UploadFailureReason.Type;
 
-export class UploadBadRequest extends Schema.TaggedError<UploadBadRequest>()("UploadBadRequest", {
-	reason: UploadFailureReason,
-}) {}
+export class UploadBadRequest extends Schema.TaggedError<
+	UploadBadRequest,
+	{ readonly brand: unique symbol }
+>()("UploadBadRequest", { reason: UploadFailureReason }) {}
 
-export class UploadInternalError extends Schema.TaggedError<UploadInternalError>()(
-	"UploadInternalError",
-	{ reason: Schema.Struct({ code: Schema.Literal("unexpected-error") }) },
-) {}
+export class UploadInternalError extends Schema.TaggedError<
+	UploadInternalError,
+	{ readonly brand: unique symbol }
+>()("UploadInternalError", {
+	reason: Schema.Struct({ code: Schema.Literal("unexpected-error") }),
+}) {}

@@ -9,10 +9,10 @@ import {
 	type BuiltinSignalSchemaInput,
 } from "./signal-schemas-repository";
 
-export class SignalSchemaContractDrift extends Schema.TaggedError<SignalSchemaContractDrift>()(
-	"SignalSchemaContractDrift",
-	{ message: Schema.String },
-) {}
+export class SignalSchemaContractDrift extends Schema.TaggedError<
+	SignalSchemaContractDrift,
+	{ readonly brand: unique symbol }
+>()("SignalSchemaContractDrift", { message: Schema.String }) {}
 
 const signalSchemaSlugPattern = /^[a-z0-9]+(?:[.-][a-z0-9]+)*$/;
 

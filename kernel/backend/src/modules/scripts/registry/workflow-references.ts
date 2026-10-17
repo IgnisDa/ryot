@@ -20,13 +20,13 @@ type SandboxWorkflowReference = Omit<WorkflowReferenceRow, "scriptId"> & {
 	readonly contentHash: string;
 };
 
-export class SandboxWorkflowReferenceRegistrationError extends Schema.TaggedError<SandboxWorkflowReferenceRegistrationError>()(
-	"SandboxWorkflowReferenceRegistrationError",
-	{
-		message: Schema.String,
-		reason: Schema.Literals(["plugin-inactive", "execution-conflict", "script-mismatch"]),
-	},
-) {}
+export class SandboxWorkflowReferenceRegistrationError extends Schema.TaggedError<
+	SandboxWorkflowReferenceRegistrationError,
+	{ readonly brand: unique symbol }
+>()("SandboxWorkflowReferenceRegistrationError", {
+	message: Schema.String,
+	reason: Schema.Literals(["plugin-inactive", "execution-conflict", "script-mismatch"]),
+}) {}
 
 const toReference = (
 	row: WorkflowReferenceRow & { pluginId: string; contentHash: string },
