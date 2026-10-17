@@ -9,7 +9,7 @@ import { defineSandboxTestHost } from "@ryot-app/plugin-backend-sdk/testing";
 import type { EpisodicLifecycleState } from "../../shared/lifecycle-expressions";
 import {
 	automationContext,
-	eventAutomationContext,
+	eventBatchContext,
 	hostSuccess,
 } from "../../tests/backend/automations/automation-test-utils";
 import { ryotqlDocumentNodes } from "../../tests/ryotql-test-utils";
@@ -36,7 +36,7 @@ type ChildEvent = EventOrderTuple & {
 	readonly eventSchemaSlug: "progress" | "complete";
 };
 
-type AutomationEventSnapshot = Parameters<typeof eventAutomationContext>[0];
+type AutomationEventSnapshot = Parameters<typeof eventBatchContext>[0];
 
 const childEvent = (
 	id: string,
@@ -55,7 +55,11 @@ const childEvent = (
 	createdAt: occurredAt,
 });
 
-const completeCoverage = (productionStatus = "Ended"): SnapshotFixture => ({
+const completeCoverage = (
+	productionStatus = "Ended",
+	parentEntityId = "show-1",
+): SnapshotFixture => ({
+	parentEntityId,
 	productionStatus,
 	state: "caught_up",
 	coverageComplete: true,
@@ -130,20 +134,24 @@ const snapshotRow = (fixture: SnapshotFixture) => {
 	};
 };
 
+const completeEvent = (
+	overrides: Partial<AutomationEventSnapshot> = {},
+	entitySchemaSlug = "show-episode",
+): AutomationEventSnapshot => ({
+	entitySchemaSlug,
+	id: "trigger-event",
+	entityId: "episode-2",
+	sessionEntityId: "show-1",
+	eventSchemaSlug: "complete",
+	createdAt: "2026-01-04T00:00:00.000Z",
+	occurredAt: "2026-01-04T00:00:00.000Z",
+	...overrides,
+});
+
 const eventContext = (
 	overrides: Partial<AutomationEventSnapshot> = {},
 	entitySchemaSlug = "show-episode",
-) =>
-	eventAutomationContext({
-		entitySchemaSlug,
-		id: "trigger-event",
-		entityId: "episode-2",
-		sessionEntityId: "show-1",
-		eventSchemaSlug: "complete",
-		createdAt: "2026-01-04T00:00:00.000Z",
-		occurredAt: "2026-01-04T00:00:00.000Z",
-		...overrides,
-	});
+) => eventBatchContext(completeEvent(overrides, entitySchemaSlug));
 
 const statusSignalContext = (
 	oldStatus: string,
@@ -225,6 +233,12 @@ const createHost = (
 		}),
 	};
 };
+
+const twoEpisodeBatch = () =>
+	eventBatchContext(
+		completeEvent({ id: "a", entityId: "episode-1" }),
+		completeEvent({ id: "b", entityId: "episode-2" }),
+	);
 
 const run = (context: AutomationInput, host: ReturnType<typeof createHost>["host"]) =>
 	definition.run(context, host);
@@ -762,6 +776,80 @@ describe("auto-complete-episodic-parent sandbox script", () => {
 				eventSchemaSlug: "complete",
 				occurredAt: "2026-01-03T00:00:00.000Z",
 			});
+		}),
+	);
+
+	it.live("evaluates each parent once using its latest trigger event", () =>
+		Effect.gen(function* () {
+			const testHost = createHost([
+				completeCoverage("Ended", "show-1"),
+				completeCoverage("Ended", "show-1"),
+				completeCoverage("Ended", "show-2"),
+				completeCoverage("Ended", "show-2"),
+			]);
+			yield* run(
+				eventBatchContext(
+					completeEvent({ id: "a-1", entityId: "episode-1", sessionEntityId: "show-1" }),
+					completeEvent({ id: "b-1", entityId: "episode-1", sessionEntityId: "show-2" }),
+					completeEvent({
+						id: "a-2",
+						entityId: "episode-2",
+						sessionEntityId: "show-1",
+						createdAt: "2026-01-06T00:00:00.000Z",
+						occurredAt: "2026-01-06T00:00:00.000Z",
+					}),
+					completeEvent({ id: "b-2", entityId: "episode-2", sessionEntityId: "show-2" }),
+				),
+				testHost.host,
+			);
+			expect(testHost.claims).toEqual([
+				["media-parent-completion:show-1:initial", true, PARENT_COMPLETION_CLAIM_TTL_SECONDS],
+				["media-parent-completion:show-2:initial", true, PARENT_COMPLETION_CLAIM_TTL_SECONDS],
+			]);
+			expect(testHost.created.flat().map(({ entityId }) => entityId)).toEqual(["show-1", "show-2"]);
+		}),
+	);
+
+	it.live("ignores unrelated batch items and a trigger at the boundary", () =>
+		Effect.gen(function* () {
+			const boundary = {
+				id: "trigger-event",
+				createdAt: "2026-01-04T00:00:00.000Z",
+				occurredAt: "2026-01-04T00:00:00.000Z",
+			};
+			const testHost = createHost([{ ...completeCoverage(), boundary }]);
+			yield* run(
+				eventBatchContext(
+					completeEvent({ id: "progress", eventSchemaSlug: "progress" }),
+					completeEvent({ id: "anime", entityId: "anime-1" }, "anime"),
+					completeEvent({ id: "no-session", sessionEntityId: undefined }),
+					completeEvent(),
+				),
+				testHost.host,
+			);
+			expect(testHost.queryCount).toBe(1);
+			expect(testHost.claims).toEqual([]);
+			expect(testHost.created).toEqual([]);
+		}),
+	);
+
+	it.live("makes a repeated batch a no-op once the parent claim is held", () =>
+		Effect.gen(function* () {
+			const claimed = new Set<string>();
+			const claim = (key: string) => {
+				if (claimed.has(key)) {
+					return hostSuccess({ value: null, claimed: false as const });
+				}
+				claimed.add(key);
+				return hostSuccess({ claimed: true as const });
+			};
+			const created: CreateEventItem[][] = [];
+			const first = createHost([completeCoverage(), completeCoverage()], { claim, created });
+			const repeated = createHost([completeCoverage()], { claim, created });
+			yield* run(twoEpisodeBatch(), first.host);
+			yield* run(twoEpisodeBatch(), repeated.host);
+			expect(created).toHaveLength(1);
+			expect(repeated.queryCount).toBe(1);
 		}),
 	);
 });

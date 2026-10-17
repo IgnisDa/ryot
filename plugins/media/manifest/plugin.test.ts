@@ -968,6 +968,8 @@ it("records newly-created media library memberships as events", () => {
 	expect(hooks).toEqual([
 		{
 			stage: "after",
+			batchMaxItems: 80,
+			frequency: "batch",
 			delivery: "required",
 			executionScope: "user",
 			name: "Record media library membership event",
@@ -1031,6 +1033,8 @@ it("binds episodic parent completion to child completions and per-user status ch
 	).toEqual([
 		{
 			stage: "after",
+			batchMaxItems: 60,
+			frequency: "batch",
 			delivery: "required",
 			executionScope: "user",
 			name: "Complete episodic parent",

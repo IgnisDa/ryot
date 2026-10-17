@@ -1,9 +1,12 @@
 import { defineAutomation } from "@ryot-app/plugin-backend-sdk/automation";
+import type { CreateEventItem } from "@ryot-app/plugin-backend-sdk/core";
 import { defineManifest } from "@ryot-app/plugin-backend-sdk/driver";
 import { Effect } from "@ryot-app/plugin-backend-sdk/effect";
+import { entityReadRecipe, executeRyotqlRecipe } from "@ryot-app/plugin-backend-sdk/ryotql";
 
 import { mediaLibraryMemberEntitySchemaSlugs } from "../../shared/media-schema-slugs";
-import { eventSchemaBySlug, fetchEntity } from "../lib/host-reads";
+import { MediaSandboxError } from "../lib/failures";
+import { eventSchemaBySlug } from "../lib/host-reads";
 
 export const manifest = defineManifest({
 	kind: "automation",
@@ -22,33 +25,59 @@ export default defineAutomation({
 	run: ({ automation }, host) =>
 		Effect.gen(function* () {
 			const payload = automation.payload;
-			if (
-				payload.resource !== "relationship" ||
-				payload.operation !== "create" ||
-				payload.after.relationshipSchemaSlug !== "in-media-library"
-			) {
+			if (payload.resource !== "relationship" || payload.operation !== "batch") {
 				return null;
 			}
-			const entity = yield* fetchEntity(host, payload.after.sourceEntityId);
-			if (!libraryMemberEntitySchemaSlugs.has(entity.entitySchemaSlug)) {
-				return null;
-			}
-			const eventSchema = yield* eventSchemaBySlug(
-				host,
-				entity.entitySchemaSlug,
-				"add-to-media-library",
+			const memberships = payload.items.flatMap((item) =>
+				item.operation === "create" && item.after.relationshipSchemaSlug === "in-media-library"
+					? [item.after]
+					: [],
 			);
-			if (eventSchema === null) {
+			const [firstEntityId, ...otherEntityIds] = new Set(
+				memberships.map(({ sourceEntityId }) => sourceEntityId),
+			);
+			if (firstEntityId === undefined) {
 				return null;
 			}
-			yield* host.createEvents([
-				{
+			const { items: entities } = yield* executeRyotqlRecipe(
+				host.executeRyotql,
+				entityReadRecipe({ entityIds: [firstEntityId, ...otherEntityIds] }),
+			);
+			const entitySlugById = new Map(
+				entities.map((entity) => [entity.id, entity.entitySchemaSlug]),
+			);
+			const eventSchemaSlugsByEntitySchema = new Map<string, string | null>();
+			const events: CreateEventItem[] = [];
+			for (const { createdAt, sourceEntityId } of memberships) {
+				const entitySchemaSlug = entitySlugById.get(sourceEntityId);
+				if (entitySchemaSlug === undefined) {
+					return yield* new MediaSandboxError({ message: "Entity not found" });
+				}
+				if (!libraryMemberEntitySchemaSlugs.has(entitySchemaSlug)) {
+					continue;
+				}
+				if (!eventSchemaSlugsByEntitySchema.has(entitySchemaSlug)) {
+					const eventSchema = yield* eventSchemaBySlug(
+						host,
+						entitySchemaSlug,
+						"add-to-media-library",
+					);
+					eventSchemaSlugsByEntitySchema.set(entitySchemaSlug, eventSchema?.slug ?? null);
+				}
+				const eventSchemaSlug = eventSchemaSlugsByEntitySchema.get(entitySchemaSlug);
+				if (eventSchemaSlug === null || eventSchemaSlug === undefined) {
+					continue;
+				}
+				events.push({
 					properties: {},
-					entityId: entity.id,
-					eventSchemaSlug: eventSchema.slug,
-					occurredAt: payload.after.createdAt,
-				},
-			]);
+					eventSchemaSlug,
+					occurredAt: createdAt,
+					entityId: sourceEntityId,
+				});
+			}
+			if (events.length > 0) {
+				yield* host.createEvents(events);
+			}
 			return null;
 		}),
 });

@@ -12,26 +12,44 @@ import {
 } from "../../tests/backend/automations/automation-test-utils";
 import definition, { manifest } from "./record-media-library-membership-event.sandbox";
 
-const relationshipContext = (overrides: Record<string, unknown> = {}) =>
+const membership = (
+	id: string,
+	sourceEntityId: string,
+	createdAt = "2026-01-01T00:00:00.000Z",
+) => ({
+	id,
+	createdAt,
+	sourceEntityId,
+	properties: {},
+	updatedAt: createdAt,
+	targetEntityId: "library-1",
+	relationshipSchemaPluginId: "media-owner",
+	relationshipSchemaSlug: "in-media-library",
+});
+
+const batchContext = (
+	...items: readonly {
+		readonly operation?: "create" | "delete";
+		readonly relationship: ReturnType<typeof membership>;
+	}[]
+) =>
 	automationContext({
 		category: "change",
-		operation: "create",
+		operation: "batch",
 		resource: "relationship",
-		after: {
-			properties: {},
-			id: "relationship-1",
-			sourceEntityId: "entity-1",
-			targetEntityId: "library-1",
-			createdAt: "2026-01-01T00:00:00.000Z",
-			updatedAt: "2026-01-01T00:00:00.000Z",
-			relationshipSchemaPluginId: "media-owner",
-			relationshipSchemaSlug: "in-media-library",
-			...overrides,
-		},
+		items: items.map(({ relationship, operation = "create" }) => ({
+			operation,
+			category: "change",
+			resource: "relationship",
+			[operation === "create" ? "after" : "before"]: relationship,
+		})),
 	});
 
-const mediaEntityRows = (entitySchemaSlug = "book") =>
-	ryotqlRows("entities", [entityRecord({ entitySchemaSlug })]);
+const mediaEntityRows = (...entities: readonly [string, string][]) =>
+	ryotqlRows(
+		"entities",
+		entities.map(([id, entitySchemaSlug]) => entityRecord({ id, entitySchemaSlug })),
+	);
 
 const addToMediaLibrarySchema = {
 	id: "event-schema-1",
@@ -42,26 +60,47 @@ const addToMediaLibrarySchema = {
 	pluginId: PluginId.make("media-owner"),
 };
 
-it.live("records an add-to-media-library event for a newly-created media membership", () =>
-	Effect.gen(function* () {
-		const created: unknown[] = [];
-		const host = defineSandboxTestHost(manifest, {
-			executeRyotql: () => hostSuccess(mediaEntityRows()),
-			listEventSchemas: () => hostSuccess([addToMediaLibrarySchema]),
-			createEvents: (events) => {
-				created.push(events);
-				return hostSuccess({
-					count: events.length,
-					outcomes: events.map((_, index) => ({
-						index,
-						status: "written" as const,
-						eventId: EventId.make(`created-event-${index}`),
-					})),
-				});
-			},
-		});
+const createHost = (entities: readonly [string, string][]) => {
+	const created: unknown[][] = [];
+	const calls = { entityReads: 0, schemaReads: 0 };
+	const host = defineSandboxTestHost(manifest, {
+		executeRyotql: () => {
+			calls.entityReads += 1;
+			return hostSuccess(mediaEntityRows(...entities));
+		},
+		listEventSchemas: () => {
+			calls.schemaReads += 1;
+			return hostSuccess([addToMediaLibrarySchema]);
+		},
+		createEvents: (events) => {
+			created.push([...events]);
+			return hostSuccess({
+				count: events.length,
+				outcomes: events.map((_, index) => ({
+					index,
+					status: "written" as const,
+					eventId: EventId.make(`created-event-${index}`),
+				})),
+			});
+		},
+	});
+	return { host, calls, created };
+};
 
-		yield* definition.run(relationshipContext(), host);
+it.live("records one add-to-media-library event per membership in a single write", () =>
+	Effect.gen(function* () {
+		const { host, calls, created } = createHost([
+			["entity-1", "book"],
+			["entity-2", "book"],
+		]);
+
+		yield* definition.run(
+			batchContext(
+				{ relationship: membership("relationship-1", "entity-1") },
+				{ relationship: membership("relationship-2", "entity-2", "2026-01-02T00:00:00.000Z") },
+			),
+			host,
+		);
 
 		expect(created).toEqual([
 			[
@@ -71,39 +110,54 @@ it.live("records an add-to-media-library event for a newly-created media members
 					occurredAt: "2026-01-01T00:00:00.000Z",
 					eventSchemaSlug: "add-to-media-library",
 				},
+				{
+					properties: {},
+					entityId: "entity-2",
+					occurredAt: "2026-01-02T00:00:00.000Z",
+					eventSchemaSlug: "add-to-media-library",
+				},
 			],
 		]);
+		expect(calls).toEqual({ entityReads: 1, schemaReads: 1 });
 	}),
 );
 
-it.live("ignores non-media relationships", () =>
+it.live("skips non-membership relationships, deletions, and non-media entities", () =>
 	Effect.gen(function* () {
-		let calls = 0;
-		const host = defineSandboxTestHost(manifest, {
-			executeRyotql: () => {
-				calls += 1;
-				return hostSuccess(mediaEntityRows("workout"));
-			},
-			listEventSchemas: () => {
-				calls += 1;
-				return hostSuccess([addToMediaLibrarySchema]);
-			},
-			createEvents: (events) => {
-				calls += 1;
-				return hostSuccess({
-					count: 1,
-					outcomes: events.map((_, index) => ({
-						index,
-						status: "written" as const,
-						eventId: EventId.make(`created-event-${index}`),
-					})),
-				});
-			},
-		});
+		const { host, calls, created } = createHost([
+			["entity-1", "workout"],
+			["entity-2", "book"],
+		]);
 
-		yield* definition.run(relationshipContext({ relationshipSchemaSlug: "owns" }), host);
-		yield* definition.run(relationshipContext(), host);
+		yield* definition.run(
+			batchContext(
+				{
+					relationship: {
+						...membership("relationship-1", "entity-2"),
+						relationshipSchemaSlug: "owns",
+					},
+				},
+				{ operation: "delete", relationship: membership("relationship-2", "entity-2") },
+				{ relationship: membership("relationship-3", "entity-1") },
+			),
+			host,
+		);
 
-		expect(calls).toBe(1);
+		expect(created).toEqual([]);
+		expect(calls).toEqual({ entityReads: 1, schemaReads: 0 });
+	}),
+);
+
+it.live("does nothing when the batch has no membership creations", () =>
+	Effect.gen(function* () {
+		const { host, calls, created } = createHost([]);
+
+		yield* definition.run(
+			batchContext({ operation: "delete", relationship: membership("relationship-1", "entity-1") }),
+			host,
+		);
+
+		expect(created).toEqual([]);
+		expect(calls).toEqual({ entityReads: 0, schemaReads: 0 });
 	}),
 );

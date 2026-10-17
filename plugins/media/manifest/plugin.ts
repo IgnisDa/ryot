@@ -818,6 +818,8 @@ export const mediaPlugin = definePlugin({
 		},
 		{
 			stage: "after",
+			batchMaxItems: 80,
+			frequency: "batch",
 			delivery: "required",
 			executionScope: "user",
 			name: "Record media library membership event",
@@ -925,6 +927,8 @@ export const mediaPlugin = definePlugin({
 		},
 		{
 			stage: "after",
+			batchMaxItems: 60,
+			frequency: "batch",
 			delivery: "required",
 			executionScope: "user",
 			name: "Complete episodic parent",

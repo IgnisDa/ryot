@@ -6,7 +6,7 @@ import { defineSandboxTestHost } from "@ryot-app/plugin-backend-sdk/testing";
 import {
 	automationContext,
 	entityRecord,
-	eventAutomationContext,
+	eventBatchContext,
 	hostSuccess,
 } from "../../tests/backend/automations/automation-test-utils";
 import definition, { manifest } from "./ensure-media-library-membership.sandbox";
@@ -33,21 +33,6 @@ const context = (entitySchemaSlug: string): AutomationInput =>
 		resource: "provider-entity-import",
 		entitySchemaPluginId: "media-owner",
 	});
-
-const eventBatch = (...events: Parameters<typeof eventAutomationContext>[0][]): AutomationInput => {
-	const items = events.map((event) => {
-		const payload = eventAutomationContext(event).automation.payload;
-		if (
-			payload.category !== "change" ||
-			payload.resource !== "event" ||
-			payload.operation !== "create"
-		) {
-			throw new Error("Expected event create change");
-		}
-		return payload;
-	});
-	return automationContext({ items, resource: "event", category: "change", operation: "batch" });
-};
 
 it.each(["book", "show", "anime", "manga", "video-game", "music", "person", "company"])(
 	"adds %s to the user's media library",
@@ -123,13 +108,13 @@ it("ignores irrelevant entity and event inputs", () => {
 			return hostSuccess(mediaLibraryRows);
 		},
 	});
-	const eventInput = eventBatch({ entitySchemaSlug: "workout" });
-	const mediaLibraryInput = eventBatch({ entitySchemaSlug: "media-library" });
-	const membershipEventInput = eventBatch({
+	const eventInput = eventBatchContext({ entitySchemaSlug: "workout" });
+	const mediaLibraryInput = eventBatchContext({ entitySchemaSlug: "media-library" });
+	const membershipEventInput = eventBatchContext({
 		entitySchemaSlug: "book",
 		eventSchemaSlug: "add-to-media-library",
 	});
-	const untargetedCollectionInput = eventBatch({
+	const untargetedCollectionInput = eventBatchContext({
 		eventSchemaPluginId: null,
 		entitySchemaPluginId: null,
 		entitySchemaSlug: "collection",
@@ -182,7 +167,7 @@ it("upserts each distinct event or collection target once per written batch", ()
 		Effect.gen(function* () {
 			expect(
 				yield* definition.run(
-					eventBatch(
+					eventBatchContext(
 						{ entitySchemaSlug: "movie", eventSchemaSlug: "progress" },
 						{ entitySchemaSlug: "movie", eventSchemaSlug: "complete" },
 						{ entitySchemaSlug: "workout", eventSchemaSlug: "progress" },
@@ -239,7 +224,7 @@ it("splits a batch of distinct membership targets within the host write limit", 
 	return Effect.runPromise(
 		definition
 			.run(
-				eventBatch(
+				eventBatchContext(
 					...Array.from({ length: 101 }, (_, index) => ({
 						entitySchemaSlug: "book",
 						entityId: `entity-${index}`,
@@ -270,7 +255,7 @@ it.live("does not treat a plugin-owned collection name as kernel membership evid
 			},
 		});
 		yield* definition.run(
-			eventBatch({
+			eventBatchContext({
 				entitySchemaSlug: "collection",
 				eventSchemaSlug: "add-entity-to-collection",
 				properties: { entityId: "entity-2", entitySchemaSlug: "movie" },
@@ -306,7 +291,7 @@ it.live(
 				},
 			});
 			yield* definition.run(
-				eventBatch({
+				eventBatchContext({
 					eventSchemaPluginId: null,
 					entitySchemaPluginId: null,
 					entitySchemaSlug: "collection",

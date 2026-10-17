@@ -71,6 +71,21 @@ export const eventAutomationContext = (
 		hookMetadata === undefined ? {} : { hookMetadata },
 	);
 
+export const eventBatchContext = (...events: Parameters<typeof eventAutomationContext>[0][]) => {
+	const items = events.map((event) => {
+		const payload = eventAutomationContext(event).automation.payload;
+		if (
+			payload.category !== "change" ||
+			payload.resource !== "event" ||
+			payload.operation !== "create"
+		) {
+			throw new Error("Expected event create change");
+		}
+		return payload;
+	});
+	return automationContext({ items, resource: "event", category: "change", operation: "batch" });
+};
+
 export const policyAutomationContext = (
 	overrides: Partial<typeof AutomationEventDraft.Encoded> = {},
 ) =>
