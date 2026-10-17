@@ -89,7 +89,10 @@ export const validateEntityBrowserSavedViewDefinition = Effect.fn(
 	if (input.dataSources === null) {
 		return yield* invalidEntityBrowserDefinition("Entity-browser dataSources are required");
 	}
-	const semanticError = validateRyotQLDocument(input.dataSources, savedViewDataSourceAccess);
+	const { error: semanticError } = validateRyotQLDocument(
+		input.dataSources,
+		savedViewDataSourceAccess,
+	);
 	if (semanticError) {
 		return yield* invalidEntityBrowserDefinition(semanticError);
 	}
@@ -191,7 +194,7 @@ export const validateSavedViewDefinition = Effect.fn("validateSavedViewDefinitio
 		return null;
 	}
 	if (dataSources !== null) {
-		const semanticError = validateRyotQLDocument(dataSources, savedViewDataSourceAccess);
+		const { error: semanticError } = validateRyotQLDocument(dataSources, savedViewDataSourceAccess);
 		if (semanticError) {
 			return yield* settingsIncompatible(semanticError);
 		}
@@ -256,7 +259,10 @@ export const validateResultsTableSavedViewDefinition = Effect.fn(
 	if (input.dataSources === null) {
 		return yield* settingsIncompatible("Results-table dataSources are required");
 	}
-	const semanticError = validateRyotQLDocument(input.dataSources, savedViewDataSourceAccess);
+	const { error: semanticError } = validateRyotQLDocument(
+		input.dataSources,
+		savedViewDataSourceAccess,
+	);
 	if (semanticError) {
 		return yield* settingsIncompatible(semanticError);
 	}

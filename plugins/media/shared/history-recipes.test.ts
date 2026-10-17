@@ -112,7 +112,7 @@ describe("complete activity history recipes", () => {
 				validateRyotQLDocument(
 					historyRecipe({ ...input, before: page.pageInfo.nextCursor }).document,
 					{ type: "plugin" },
-				),
+				).error,
 			).toBeNull();
 		}
 		for (const name of ["events", "collectionEvents"]) {

@@ -61,7 +61,7 @@ describe("episodic lifecycle documents", () => {
 			podcastEpisodesRecipe({ limit: 10, containerId: "pod-1", reference: { kind: "self" } }),
 		],
 	])("validates the %s document", (_name, recipe) => {
-		expect(validateRyotQLDocument(recipe.document, savedViewDataSourceAccess)).toBeNull();
+		expect(validateRyotQLDocument(recipe.document, savedViewDataSourceAccess).error).toBeNull();
 	});
 
 	it.each([showEpisodicKindConfig, podcastEpisodicKindConfig])(
@@ -72,7 +72,7 @@ describe("episodic lifecycle documents", () => {
 				parentEntityId: "parent-1",
 				reference: { kind: "self" },
 			});
-			expect(validateRyotQLDocument(recipe.document, { type: "plugin" })).toBeNull();
+			expect(validateRyotQLDocument(recipe.document, { type: "plugin" }).error).toBeNull();
 		},
 	);
 });

@@ -63,7 +63,7 @@ const decodeContext = (
 	});
 
 const valid = (recipe: { readonly document: Parameters<typeof validateRyotQLDocument>[0] }) =>
-	expect(validateRyotQLDocument(recipe.document, savedViewDataSourceAccess)).toBeNull();
+	expect(validateRyotQLDocument(recipe.document, savedViewDataSourceAccess).error).toBeNull();
 
 describe("media activity log context recipe", () => {
 	it("validates the document", () => {

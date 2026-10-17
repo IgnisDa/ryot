@@ -5,7 +5,9 @@ import {
 import { RyotQLBadRequest } from "@ryot-app/contract/modules/ryotql/contract";
 import {
 	mapPluginIdentityReferences,
+	type RowSelection,
 	type RyotQLDocument,
+	type RyotQLDocumentWithSelections,
 } from "@ryot-app/contract/modules/ryotql/language";
 import { PluginId, PluginPackageId } from "@ryot-app/contract/schema/brands";
 import { stableStringify } from "@ryot-app/ts-utils/json";
@@ -40,8 +42,10 @@ export const pluginIdentityReferences = (document: RyotQLDocument) => {
 	return [...references.values()];
 };
 
-export const bindRyotQLDocument = Effect.fn("bindRyotQLDocument")(function* (
-	document: RyotQLDocument,
+export const bindRyotQLDocument = Effect.fn("bindRyotQLDocument")(function* <
+	Selection extends RowSelection,
+>(
+	document: RyotQLDocumentWithSelections<Selection>,
 	scope: RyotQLExecutionScope,
 	catalog: ReadonlyArray<PluginBinding>,
 ) {

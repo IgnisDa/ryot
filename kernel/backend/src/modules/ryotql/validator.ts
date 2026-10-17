@@ -1,13 +1,18 @@
 import type {
 	AggregateOutput,
 	CorrelatedQuerySet,
+	FieldSelection,
 	Include,
+	IncludeWithSelections,
 	JsonElementsJoin,
 	NamedQuery,
+	NamedQueryWithSelections,
 	OrderBy,
 	Predicate,
 	RowSelection,
+	RowsOutputWithSelections,
 	RyotQLDocument,
+	RyotQLDocumentWithSelections,
 	ScalarExpression,
 	TableReference,
 	TimeSeriesOutput,
@@ -44,6 +49,18 @@ export const savedViewDataSourceAccess: RyotQLAccess = {
 
 type AliasEntry = { readonly key: string; readonly table: CatalogTable };
 type AliasScope = ReadonlyMap<string, AliasEntry>;
+
+export type ExpandedInclude = IncludeWithSelections<FieldSelection>;
+export type ExpandedRowsOutput = RowsOutputWithSelections<FieldSelection>;
+export type ExpandedNamedQuery = NamedQueryWithSelections<FieldSelection>;
+export type ExpandedRyotQLDocument = RyotQLDocumentWithSelections<FieldSelection>;
+
+type Validation<A> =
+	{ readonly value: A; readonly error: null } | { readonly value: null; readonly error: string };
+
+const invalid = (error: string): Validation<never> => ({ error, value: null });
+
+const isNonEmpty = <A>(values: readonly A[]): values is readonly [A, ...A[]] => values.length > 0;
 
 const requiredNameError = (value: string, label: string) =>
 	value.trim().length === 0 ? `${label} must not be empty` : null;
@@ -474,7 +491,7 @@ const validateQuerySet = (
 	ancestors: AliasScope,
 	correlatedDepth: number,
 	executionScope: RyotQLAccess,
-) => {
+): { scope: AliasScope; error: null } | { scope: null; error: string } => {
 	const joins = query.joins ?? [];
 	if (joins.length > MAX_QUERY_JOINS) {
 		return { scope: null, error: `A query may contain at most ${MAX_QUERY_JOINS} joins` };
@@ -514,7 +531,7 @@ const validateSelections = (
 	scope: AliasScope,
 	depth: number,
 	executionScope: RyotQLAccess,
-): string | null => {
+): Validation<Pick<ExpandedRowsOutput, "fields" | "include">> => {
 	const keys = new Set<string>();
 	const expanded = expandCatalogSelections(
 		fields,
@@ -522,42 +539,43 @@ const validateSelections = (
 		executionScope,
 	);
 	if (expanded.error) {
-		return expanded.error;
+		return invalid(expanded.error);
 	}
 	for (const field of expanded.fields) {
 		const keyError = requiredNameError(field.key, "Output field key");
 		if (keyError) {
-			return keyError;
+			return invalid(keyError);
 		}
 		if (keys.has(field.key)) {
-			return `Duplicate output field key '${field.key}'`;
+			return invalid(`Duplicate output field key '${field.key}'`);
 		}
 		keys.add(field.key);
 		const fieldError = validateExpression(field.expr, scope, 0, executionScope);
 		if (fieldError) {
-			return fieldError;
+			return invalid(fieldError);
 		}
 	}
+	const children: ExpandedInclude[] = [];
 	for (const nested of include) {
 		const keyError = requiredNameError(nested.key, "Include key");
 		if (keyError) {
-			return keyError;
+			return invalid(keyError);
 		}
 		if (keys.has(nested.key)) {
-			return `Duplicate output key '${nested.key}'`;
+			return invalid(`Duplicate output key '${nested.key}'`);
 		}
 		keys.add(nested.key);
 		if (depth >= MAX_INCLUDE_DEPTH) {
-			return `Include depth must not exceed ${MAX_INCLUDE_DEPTH}`;
+			return invalid(`Include depth must not exceed ${MAX_INCLUDE_DEPTH}`);
 		}
 		if (nested.limit > MAX_INCLUDE_LIMIT) {
-			return `Include limit must not exceed ${MAX_INCLUDE_LIMIT}`;
+			return invalid(`Include limit must not exceed ${MAX_INCLUDE_LIMIT}`);
 		}
 		const nestedQuerySet = validateQuerySet(nested, scope, 0, executionScope);
 		if (nestedQuerySet.error || !nestedQuerySet.scope) {
-			return `Include '${nested.key}': ${nestedQuerySet.error}`;
+			return invalid(`Include '${nested.key}': ${nestedQuerySet.error}`);
 		}
-		const nestedError = validateSelections(
+		const selections = validateSelections(
 			nested.fields,
 			nested.orderBy,
 			nested.include ?? [],
@@ -565,20 +583,25 @@ const validateSelections = (
 			depth + 1,
 			executionScope,
 		);
-		if (nestedError) {
-			return `Include '${nested.key}': ${nestedError}`;
+		if (selections.error !== null) {
+			return invalid(`Include '${nested.key}': ${selections.error}`);
 		}
+		const { fields: _fields, include: _include, ...rest } = nested;
+		children.push({ ...rest, ...selections.value });
 	}
 	for (const order of orderBy) {
 		const expressionError = validateExpression(order.expr, scope, 0, executionScope);
 		if (expressionError) {
-			return expressionError;
+			return invalid(expressionError);
 		}
 		if (expressionKind(order.expr, scope, executionScope) === "json") {
-			return "Ordering expressions must resolve to scalar values";
+			return invalid("Ordering expressions must resolve to scalar values");
 		}
 	}
-	return null;
+	return {
+		error: null,
+		value: { fields: expanded.fields, ...(isNonEmpty(children) ? { include: children } : {}) },
+	};
 };
 
 const validateAggregateOutput = (
@@ -731,21 +754,26 @@ const validateTimeSeriesOutput = (
 		: validateExpression(output.measure.aggregation.expr, scope, 0, executionScope);
 };
 
-const validateNamedQuery = (query: NamedQuery, executionScope: RyotQLAccess): string | null => {
+const validateNamedQuery = (
+	query: NamedQuery,
+	executionScope: RyotQLAccess,
+): Validation<ExpandedNamedQuery> => {
 	const querySet = validateQuerySet(query, new Map(), 0, executionScope);
-	if (querySet.error || !querySet.scope) {
-		return querySet.error;
+	if (querySet.error !== null) {
+		return invalid(querySet.error);
 	}
 	if (query.output.type === "aggregate") {
-		return validateAggregateOutput(query.output, querySet.scope, executionScope);
+		const error = validateAggregateOutput(query.output, querySet.scope, executionScope);
+		return error ? invalid(error) : { error: null, value: { ...query, output: query.output } };
 	}
 	if (query.output.type === "timeSeries") {
-		return validateTimeSeriesOutput(query.output, querySet.scope, executionScope);
+		const error = validateTimeSeriesOutput(query.output, querySet.scope, executionScope);
+		return error ? invalid(error) : { error: null, value: { ...query, output: query.output } };
 	}
 	if (query.output.pagination.limit > MAX_ROOT_PAGE_SIZE) {
-		return `Rows limit must not exceed ${MAX_ROOT_PAGE_SIZE}`;
+		return invalid(`Rows limit must not exceed ${MAX_ROOT_PAGE_SIZE}`);
 	}
-	return validateSelections(
+	const selections = validateSelections(
 		query.output.fields,
 		query.output.orderBy,
 		query.output.include ?? [],
@@ -753,28 +781,35 @@ const validateNamedQuery = (query: NamedQuery, executionScope: RyotQLAccess): st
 		0,
 		executionScope,
 	);
+	if (selections.error !== null) {
+		return invalid(selections.error);
+	}
+	const { fields: _fields, include: _include, ...output } = query.output;
+	return { error: null, value: { ...query, output: { ...output, ...selections.value } } };
 };
 
 export const validateRyotQLDocument = (
 	document: RyotQLDocument,
 	executionScope: RyotQLAccess,
-): string | null => {
+): Validation<ExpandedRyotQLDocument> => {
 	const queries = Object.entries(document.queries);
 	if (queries.length === 0) {
-		return "A RyotQL document must contain at least one named query";
+		return invalid("A RyotQL document must contain at least one named query");
 	}
 	if (queries.length > MAX_DOCUMENT_QUERIES) {
-		return `A RyotQL document may contain at most ${MAX_DOCUMENT_QUERIES} named queries`;
+		return invalid(`A RyotQL document may contain at most ${MAX_DOCUMENT_QUERIES} named queries`);
 	}
+	const expanded: Array<readonly [string, ExpandedNamedQuery]> = [];
 	for (const [name, query] of queries) {
 		const nameError = requiredNameError(name, "Query name");
 		if (nameError) {
-			return nameError;
+			return invalid(nameError);
 		}
-		const queryError = validateNamedQuery(query, executionScope);
-		if (queryError) {
-			return `Query '${name}': ${queryError}`;
+		const validated = validateNamedQuery(query, executionScope);
+		if (validated.error !== null) {
+			return invalid(`Query '${name}': ${validated.error}`);
 		}
+		expanded.push([name, validated.value]);
 	}
-	return null;
+	return { error: null, value: { queries: Object.fromEntries(expanded) } };
 };

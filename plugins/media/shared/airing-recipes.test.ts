@@ -43,7 +43,7 @@ describe("shows airing soon recipe", () => {
 			until: "2026-09-15",
 			reference: { kind: "self" },
 		});
-		expect(validateRyotQLDocument(recipe.document, savedViewDataSourceAccess)).toBeNull();
+		expect(validateRyotQLDocument(recipe.document, savedViewDataSourceAccess).error).toBeNull();
 	});
 
 	it("maps each show to its soonest episode and same-day count", () => {
@@ -95,7 +95,7 @@ describe("anime airing soon recipe", () => {
 			validateRyotQLDocument(
 				animeAiringSoonRecipe({ ...ANIME_INPUT, reference: { kind: "self" } }).document,
 				savedViewDataSourceAccess,
-			),
+			).error,
 		).toBeNull();
 	});
 

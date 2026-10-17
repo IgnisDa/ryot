@@ -19,7 +19,7 @@ describe("media activity recipe", () => {
 			validateRyotQLDocument(
 				mediaActivityRecipe({ ...INPUT, reference: { kind: "self" } }).document,
 				savedViewDataSourceAccess,
-			),
+			).error,
 		).toBeNull();
 	});
 

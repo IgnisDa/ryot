@@ -79,7 +79,7 @@ const issue = (filter: Filter, queryDocument = selection()) =>
 	validateRyotQLDocument(
 		Result.getOrThrow(entityBrowserRecipe({ now, filter, settings, queryDocument })).document,
 		savedViewDataSourceAccess,
-	);
+	).error;
 
 const operatorFamilies: readonly Filter[] = [
 	{ field: "level", operator: "anyOf", values: ["a", "b"] },
@@ -179,7 +179,7 @@ it("applies value filters to results tables and rejects the Collections field th
 		filter: { days: 7, field: "added", operator: "withinLastDays" },
 	});
 	expect(
-		validateRyotQLDocument(Result.getOrThrow(prepared).document, savedViewDataSourceAccess),
+		validateRyotQLDocument(Result.getOrThrow(prepared).document, savedViewDataSourceAccess).error,
 	).toBeNull();
 	expect(
 		Result.isFailure(
