@@ -381,7 +381,36 @@ export class DefinitionRepository extends Context.Service<DefinitionRepository>(
 										settingsSchema: definition.settingsSchema,
 										requiresProKey: definition.requiresProKey ?? false,
 										supportsOwnershipSync: definition.supportsOwnershipSync ?? false,
+										plan: definition.lot === "push" ? null : (definition.plan ?? null),
 										scriptSlug: definition.lot === "push" ? null : definition.scriptSlug,
+									})),
+								),
+						);
+					}
+					if (definitions.providers.length > 0) {
+						yield* session.run((db) =>
+							db
+								.insert(schema.definitionProvider)
+								.values(
+									definitions.providers.map((definition, position) => ({
+										position,
+										pluginRevisionId,
+										slug: definition.slug,
+										rootEntitySchemaSlug: definition.rootEntitySchemaSlug,
+									})),
+								),
+						);
+					}
+					if (definitions.providerOperations.length > 0) {
+						yield* session.run((db) =>
+							db
+								.insert(schema.definitionProviderOperation)
+								.values(
+									definitions.providerOperations.map((definition) => ({
+										pluginRevisionId,
+										operation: definition.operation,
+										scriptSlug: definition.scriptSlug,
+										providerSlug: definition.providerSlug,
 									})),
 								),
 						);

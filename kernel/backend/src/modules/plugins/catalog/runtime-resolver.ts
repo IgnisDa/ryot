@@ -19,7 +19,7 @@ import { decodeStoredSchema } from "@ryot-app/contract/schema/core";
 import type { PluginClientImport } from "@ryot-app/plugin-client-contract";
 import { sha256Base64Url } from "@ryot-app/ts-utils/crypto";
 import { stableStringify } from "@ryot-app/ts-utils/json";
-import { and, asc, eq, exists, isNull, sql, type SQL } from "drizzle-orm";
+import { and, asc, eq, isNull, sql, type SQL } from "drizzle-orm";
 import { Context, Data, Effect, Layer, Schema } from "effect";
 
 import { referencesWhere, referenceWhere } from "#platform/db/definition-owner";
@@ -96,10 +96,6 @@ const revisionSection = <Key extends "crons" | "userBootstrap">(key: Key) =>
 	sql<PluginManifest[Key]>`${schema.pluginRevision[key]}`;
 
 const activeSystemPlugin = and(eq(schema.plugin.status, "active"), isNull(schema.plugin.ownerId));
-
-const declaresProvider = exists(
-	sql`(select 1 from jsonb_array_elements(${schema.pluginRevision.providers}) m where m ->> 'slug' = ${schema.sandboxProvider.slug})`,
-);
 
 export const findRevisionScriptForSession = (database: DatabaseSession["Service"]) =>
 	Effect.fn(function* (pluginRevisionId: string, scriptSlug: string) {
@@ -595,8 +591,11 @@ export class PluginRuntimeResolver extends Context.Service<PluginRuntimeResolver
 						.from(schema.sandboxProvider)
 						.innerJoin(schema.plugin, eq(schema.plugin.id, schema.sandboxProvider.pluginId))
 						.innerJoin(
-							schema.pluginRevision,
-							eq(schema.pluginRevision.id, schema.plugin.activeRevisionId),
+							schema.definitionProvider,
+							and(
+								eq(schema.definitionProvider.pluginRevisionId, schema.plugin.activeRevisionId),
+								eq(schema.definitionProvider.slug, schema.sandboxProvider.slug),
+							),
 						)
 						.innerJoin(
 							schema.globalEntitySchema,
@@ -605,7 +604,7 @@ export class PluginRuntimeResolver extends Context.Service<PluginRuntimeResolver
 								eq(schema.globalEntitySchema.slug, schema.sandboxProvider.rootEntitySchemaSlug),
 							),
 						)
-						.where(and(activeSystemPlugin, declaresProvider, predicate))
+						.where(and(activeSystemPlugin, predicate))
 						.orderBy(asc(schema.sandboxProvider.id))
 						.limit(1),
 				);

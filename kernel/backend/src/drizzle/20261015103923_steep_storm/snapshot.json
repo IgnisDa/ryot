@@ -1,7 +1,7 @@
 {
 	"version": "8",
 	"dialect": "postgres",
-	"id": "bfc3c4c2-e174-4e69-8e72-0c9b85e827b6",
+	"id": "dad5c451-7117-4249-9bcd-19943fd2c4b0",
 	"prevIds": ["00000000-0000-0000-0000-000000000000"],
 	"ddl": [
 		{ "isRlsEnabled": false, "name": "account", "entityType": "tables", "schema": "public" },
@@ -71,6 +71,18 @@
 		{
 			"isRlsEnabled": false,
 			"name": "definition_integration_provider",
+			"entityType": "tables",
+			"schema": "public"
+		},
+		{
+			"isRlsEnabled": false,
+			"name": "definition_provider",
+			"entityType": "tables",
+			"schema": "public"
+		},
+		{
+			"isRlsEnabled": false,
+			"name": "definition_provider_operation",
 			"entityType": "tables",
 			"schema": "public"
 		},
@@ -2481,6 +2493,19 @@
 			"table": "definition_integration_provider"
 		},
 		{
+			"type": "jsonb",
+			"typeSchema": null,
+			"notNull": false,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
+			"name": "plan",
+			"entityType": "columns",
+			"schema": "public",
+			"table": "definition_integration_provider"
+		},
+		{
 			"type": "text",
 			"typeSchema": null,
 			"notNull": true,
@@ -2557,6 +2582,110 @@
 			"entityType": "columns",
 			"schema": "public",
 			"table": "definition_integration_provider"
+		},
+		{
+			"type": "text",
+			"typeSchema": null,
+			"notNull": true,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
+			"name": "slug",
+			"entityType": "columns",
+			"schema": "public",
+			"table": "definition_provider"
+		},
+		{
+			"type": "integer",
+			"typeSchema": null,
+			"notNull": true,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
+			"name": "position",
+			"entityType": "columns",
+			"schema": "public",
+			"table": "definition_provider"
+		},
+		{
+			"type": "text",
+			"typeSchema": null,
+			"notNull": true,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
+			"name": "root_entity_schema_slug",
+			"entityType": "columns",
+			"schema": "public",
+			"table": "definition_provider"
+		},
+		{
+			"type": "text",
+			"typeSchema": null,
+			"notNull": true,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
+			"name": "plugin_revision_id",
+			"entityType": "columns",
+			"schema": "public",
+			"table": "definition_provider"
+		},
+		{
+			"type": "text",
+			"typeSchema": null,
+			"notNull": true,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
+			"name": "operation",
+			"entityType": "columns",
+			"schema": "public",
+			"table": "definition_provider_operation"
+		},
+		{
+			"type": "text",
+			"typeSchema": null,
+			"notNull": true,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
+			"name": "script_slug",
+			"entityType": "columns",
+			"schema": "public",
+			"table": "definition_provider_operation"
+		},
+		{
+			"type": "text",
+			"typeSchema": null,
+			"notNull": true,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
+			"name": "provider_slug",
+			"entityType": "columns",
+			"schema": "public",
+			"table": "definition_provider_operation"
+		},
+		{
+			"type": "text",
+			"typeSchema": null,
+			"notNull": true,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
+			"name": "plugin_revision_id",
+			"entityType": "columns",
+			"schema": "public",
+			"table": "definition_provider_operation"
 		},
 		{
 			"type": "text",
@@ -12752,6 +12881,32 @@
 			"columnsTo": ["id"],
 			"onUpdate": "NO ACTION",
 			"onDelete": "CASCADE",
+			"name": "definition_provider_plugin_revision_id_plugin_revision_id_fkey",
+			"entityType": "fks",
+			"schema": "public",
+			"table": "definition_provider"
+		},
+		{
+			"nameExplicit": true,
+			"columns": ["plugin_revision_id", "provider_slug"],
+			"schemaTo": "public",
+			"tableTo": "definition_provider",
+			"columnsTo": ["plugin_revision_id", "slug"],
+			"onUpdate": "NO ACTION",
+			"onDelete": "CASCADE",
+			"name": "definition_provider_operation_provider_fk",
+			"entityType": "fks",
+			"schema": "public",
+			"table": "definition_provider_operation"
+		},
+		{
+			"nameExplicit": false,
+			"columns": ["plugin_revision_id"],
+			"schemaTo": "public",
+			"tableTo": "plugin_revision",
+			"columnsTo": ["id"],
+			"onUpdate": "NO ACTION",
+			"onDelete": "CASCADE",
 			"name": "definition_relationship_schema_F2xV1mUphM5y_fkey",
 			"entityType": "fks",
 			"schema": "public",
@@ -13895,6 +14050,22 @@
 			"entityType": "pks",
 			"schema": "public",
 			"table": "client_artifact_file"
+		},
+		{
+			"columns": ["plugin_revision_id", "slug"],
+			"nameExplicit": false,
+			"name": "definition_provider_pkey",
+			"entityType": "pks",
+			"schema": "public",
+			"table": "definition_provider"
+		},
+		{
+			"columns": ["plugin_revision_id", "provider_slug", "operation"],
+			"nameExplicit": false,
+			"name": "definition_provider_operation_pkey",
+			"entityType": "pks",
+			"schema": "public",
+			"table": "definition_provider_operation"
 		},
 		{
 			"columns": ["entity_id", "language"],
@@ -15241,7 +15412,7 @@
 			"schema": "public"
 		},
 		{
-			"definition": "\n\t\t\tselect p.user_id, d.id, p.plugin_id, p.package_id, d.plugin_revision_id, p.scope as plugin_scope, p.installation_id, p.config_revision_id, d.slug, d.name, d.description, d.position, d.lot, d.script_slug, s.id as script_id, d.settings_schema, d.requires_pro_key, d.supports_ownership_sync\n\t\t\tfrom \"user_plugin\" p\n\t\t\tjoin definition_integration_provider d on d.plugin_revision_id = p.active_revision_id\n\t\t\tleft join sandbox_script s on s.plugin_revision_id = d.plugin_revision_id and s.slug = d.script_slug\n\t\t\twhere p.is_executable\n\t\t\tunion all\n\t\t\tselect u.id, 'kernel:data-json:' || u.id, null::text, null::text, null::text, null::text, null::text, null::text, 'data-json', 'Data webhook', 'Receive generic entities, relationships, and events as JSON.', 0, 'sink', null::text, null::text, '{\"fields\":{},\"unknownKeys\":\"strict\"}'::jsonb, false, false\n\t\t\tfrom \"user\" u\n\t\t",
+			"definition": "\n\t\t\tselect p.user_id, d.id, p.plugin_id, p.package_id, d.plugin_revision_id, p.scope as plugin_scope, p.installation_id, p.config_revision_id, d.slug, d.name, d.description, d.position, d.lot, d.script_slug, s.id as script_id, d.settings_schema, d.requires_pro_key, d.supports_ownership_sync, d.plan\n\t\t\tfrom \"user_plugin\" p\n\t\t\tjoin definition_integration_provider d on d.plugin_revision_id = p.active_revision_id\n\t\t\tleft join sandbox_script s on s.plugin_revision_id = d.plugin_revision_id and s.slug = d.script_slug\n\t\t\twhere p.is_executable\n\t\t\tunion all\n\t\t\tselect u.id, 'kernel:data-json:' || u.id, null::text, null::text, null::text, null::text, null::text, null::text, 'data-json', 'Data webhook', 'Receive generic entities, relationships, and events as JSON.', 0, 'sink', null::text, null::text, '{\"fields\":{},\"unknownKeys\":\"strict\"}'::jsonb, false, false, null::jsonb\n\t\t\tfrom \"user\" u\n\t\t",
 			"with": null,
 			"withNoData": null,
 			"using": null,
@@ -15263,7 +15434,7 @@
 			"schema": "public"
 		},
 		{
-			"definition": "\n\t\t\tselect p.user_id, s.id, s.plugin_id, p.package_id, p.scope as plugin_scope, p.installation_id, s.slug, s.name, s.root_entity_schema_slug, s.information, s.created_at, s.updated_at\n\t\t\tfrom \"user_plugin\" p\n\t\t\tjoin sandbox_provider s on s.plugin_id = p.plugin_id\n\t\t\tjoin plugin_revision r on r.id = p.active_revision_id\n\t\t\twhere p.is_executable and exists (select 1 from jsonb_array_elements(r.providers) m where m ->> 'slug' = s.slug and m ->> 'rootEntitySchemaSlug' = s.root_entity_schema_slug) and exists (select 1 from \"user_entity_schema\" e where e.user_id = p.user_id and e.plugin_id = s.plugin_id and e.slug = s.root_entity_schema_slug and e.is_effective)\n\t\t",
+			"definition": "\n\t\t\tselect p.user_id, s.id, s.plugin_id, p.package_id, p.scope as plugin_scope, p.installation_id, s.slug, s.name, s.root_entity_schema_slug, s.information, s.created_at, s.updated_at\n\t\t\tfrom \"user_plugin\" p\n\t\t\tjoin sandbox_provider s on s.plugin_id = p.plugin_id\n\t\t\tjoin definition_provider d on d.plugin_revision_id = p.active_revision_id and d.slug = s.slug and d.root_entity_schema_slug = s.root_entity_schema_slug\n\t\t\twhere p.is_executable and exists (select 1 from \"user_entity_schema\" e where e.user_id = p.user_id and e.plugin_id = s.plugin_id and e.slug = s.root_entity_schema_slug and e.is_effective)\n\t\t",
 			"with": null,
 			"withNoData": null,
 			"using": null,
@@ -15274,7 +15445,7 @@
 			"schema": "public"
 		},
 		{
-			"definition": "\n\t\tselect provider.user_id, provider.id as provider_id, provider.plugin_id, provider.package_id,\n\t\t\tcase when operation.key = 'searchOptions' then 'search-options' else operation.key end as operation,\n\t\t\tcase when operation.key = 'search' then script.metadata -> 'searchOptionsSchema' else null end as options_schema\n\t\tfrom \"user_sandbox_provider\" provider\n\t\tjoin plugin p on p.id = provider.plugin_id\n\t\tjoin plugin_revision r on r.id = p.active_revision_id\n\t\tjoin lateral jsonb_array_elements(r.providers) as definition(value) on definition.value ->> 'slug' = provider.slug\n\t\tjoin lateral jsonb_each_text(definition.value -> 'operations') as operation(key, value) on true\n\t\tjoin sandbox_script script on script.plugin_revision_id = r.id\n\t\t\tand script.slug = operation.value and script.provider_id = provider.id\n\t\t\tand script.metadata ->> 'kind' = 'provider'\n\t\t\tand script.metadata ->> 'providerOperation' = case when operation.key = 'searchOptions' then 'search-options' else operation.key end\n\t",
+			"definition": "\n\t\tselect provider.user_id, provider.id as provider_id, provider.plugin_id, provider.package_id,\n\t\t\toperation.operation,\n\t\t\tcase when operation.operation = 'search' then script.metadata -> 'searchOptionsSchema' else null end as options_schema\n\t\tfrom \"user_sandbox_provider\" provider\n\t\tjoin plugin p on p.id = provider.plugin_id\n\t\tjoin definition_provider_operation operation on operation.plugin_revision_id = p.active_revision_id and operation.provider_slug = provider.slug\n\t\tjoin sandbox_script script on script.plugin_revision_id = operation.plugin_revision_id\n\t\t\tand script.slug = operation.script_slug and script.provider_id = provider.id\n\t\t\tand script.metadata ->> 'kind' = 'provider'\n\t\t\tand script.metadata ->> 'providerOperation' = operation.operation\n\t",
 			"with": null,
 			"withNoData": null,
 			"using": null,

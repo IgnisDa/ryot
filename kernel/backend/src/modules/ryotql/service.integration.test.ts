@@ -542,6 +542,7 @@ const seedCatalog = Effect.gen(function* () {
 					requiresProKey: true,
 					scriptSlug: "sys.yank",
 					settingsSchema: { fields: {} },
+					plan: { selections: { collector: { value: "remote" } } },
 				},
 				{
 					...pluginDefinition("provider-missing", "system-plugin", 2),
