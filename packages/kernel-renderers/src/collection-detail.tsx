@@ -20,7 +20,7 @@ import {
 	type CollectionHeaderResult,
 	type CollectionMembersAggregateResult,
 } from "@ryot-app/ryotql-recipes/collections";
-import { NullableFilter } from "@ryot-app/ryotql-recipes/saved-view-filters";
+import { NullableFilter } from "@ryot-app/ryotql-recipes/filters";
 import { useEffect, useEffectEvent, useState } from "react";
 
 import { BrowserInlineError } from "./browser-states";

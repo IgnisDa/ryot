@@ -224,6 +224,12 @@ targets with empty relationship properties. One form
 submission keeps its idempotency key and SDK-clock `submittedAt` across retries of the same body; an
 edited body starts a new submission.
 
+`@ryot-app/plugin-client-sdk/filters` is the shared filter UI and URL state for saved-view
+screens. `useViewFilter(fields)` reads and replaces the `filters` page-search parameter,
+`FilterRules`, `FilterChips`, and `ViewFiltersSheet` render the panel, chips, and dialog, and
+`filtersLabel` names the trigger. Fields are `QueryFilterField`s, so a plugin declares relationship
+fields with `client.pluginIdentity(...)` owners.
+
 ## Entity Presentations
 
 `defineEntityPresentation` accepts an Effect-returning loader. Its context has only `client` and

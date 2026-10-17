@@ -535,6 +535,7 @@
         "@ryot-app/plugin-client-contract": "workspace:*",
         "@ryot-app/plugin-ui-sdk": "workspace:*",
         "@ryot-app/ryotql": "workspace:*",
+        "@ryot-app/ryotql-recipes": "workspace:*",
         "effect": "4.0.5",
         "react": "^19.2.0",
         "react-dom": "^19.2.0",

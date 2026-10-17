@@ -1,8 +1,11 @@
 import { Result, Schema } from "effect";
 import { describe, expect, it } from "vitest";
 
-import { AuthoredFilterField, Filter, FilterField } from "./filters";
-import { EntityBrowserSavedViewSettings, ResultsTableSavedViewSettings } from "./schemas";
+import {
+	EntityBrowserSavedViewSettings,
+	ResultsTableSavedViewSettings,
+} from "../saved-views/schemas";
+import { AuthoredFilterField, Filter, FilterField } from "./schemas";
 
 const decodes = <A, I>(schema: Schema.Codec<A, I>, value: unknown) =>
 	Result.isSuccess(Schema.decodeUnknownResult(schema)(value));

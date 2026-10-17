@@ -3,6 +3,7 @@ import { DateTime, Option, Schema } from "effect";
 import { strictStruct } from "../../schema/utils";
 import {
 	AuthoredRelationshipSchemaReference,
+	type QueryRelationshipSchemaReference,
 	RelationshipSchemaReference,
 } from "../plugins/references";
 import { OutputFieldKey } from "../ryotql/language";
@@ -87,6 +88,8 @@ export type AuthoredFilterField = typeof AuthoredFilterField.Type;
 export type FilterFieldWith<Reference> =
 	| ValueFilterField
 	| (Omit<RelationshipFilterField, "relationship"> & { readonly relationship: Reference });
+
+export type QueryFilterField = FilterFieldWith<QueryRelationshipSchemaReference>;
 
 export const mapFilterFieldReference = <Reference, Mapped>(
 	filterField: FilterFieldWith<Reference>,

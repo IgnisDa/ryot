@@ -1,5 +1,13 @@
-import type { Filter, FilterField } from "@ryot-app/contract/modules/saved-views/filters";
-import { EntitySchemaSlug } from "@ryot-app/contract/schema/brands";
+import type {
+	Filter,
+	QueryFilterField,
+	ValueFilterField,
+} from "@ryot-app/contract/modules/filters/schemas";
+import {
+	EntitySchemaSlug,
+	PluginId,
+	RelationshipSchemaSlug,
+} from "@ryot-app/contract/schema/brands";
 import {
 	and,
 	castBoolean,
@@ -44,7 +52,7 @@ import {
 	groupFilter,
 	newFilterDraft,
 	relationshipFilterChoicesRecipe,
-} from "./saved-view-filters";
+} from "./filters";
 import { entityBrowserCountRecipe, entityBrowserRecipe, resultsTableRecipe } from "./saved-views";
 import { requireRowsQuery } from "./test-utils";
 
@@ -76,12 +84,12 @@ const source = requireRowsQuery(
 const valueField = (
 	key: string,
 	type: "enum" | "enum-list" | "text" | "text-list" | "number" | "date" | "boolean",
-): FilterField =>
+): ValueFilterField =>
 	type === "enum" || type === "enum-list"
 		? { key, type, label: key, field: key, kind: "value", choices: [{ value: "a", label: "A" }] }
 		: { key, type, label: key, field: key, kind: "value" };
 
-const fields: readonly FilterField[] = [
+const fields: readonly QueryFilterField[] = [
 	valueField("name", "text"),
 	valueField("level", "enum"),
 	valueField("muscles", "enum-list"),
@@ -267,7 +275,7 @@ describe("filter compiler", () => {
 				compile({ values: ["c1"], operator: "anyOf", field: "collections" }, { source: crowded }),
 			),
 		).toEqual(linked("_relationship", ["c1"]));
-		const incoming: FilterField = {
+		const incoming: QueryFilterField = {
 			key: "parents",
 			label: "Parents",
 			kind: "relationship",
@@ -311,6 +319,30 @@ describe("effective filter fields", () => {
 			"collections",
 		]);
 		expect(effectiveFilterFields("results-table", { filterFields: authored })).toEqual(authored);
+		expect(
+			effectiveFilterFields("results-table", {
+				filterFields: [
+					{
+						key: "related",
+						label: "Related",
+						kind: "relationship",
+						direction: "outgoing",
+						relationship: {
+							slug: RelationshipSchemaSlug.make("related-to"),
+							owner: { kind: "plugin", pluginId: PluginId.make("plugin-1") },
+						},
+					},
+				],
+			}),
+		).toEqual([
+			{
+				key: "related",
+				label: "Related",
+				kind: "relationship",
+				direction: "outgoing",
+				relationship: { slug: "related-to", owner: { kind: "local", pluginId: "plugin-1" } },
+			},
+		]);
 		expect(effectiveCollections().relationship).toEqual({
 			slug: "member-of",
 			owner: { kind: "kernel" },

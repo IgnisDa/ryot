@@ -5,13 +5,13 @@ import { JsonValue } from "../../schema/json";
 import { strictStruct } from "../../schema/utils";
 import { AssetLocator } from "../assets/schemas";
 import { ProviderLibraryMembership } from "../entity-providers/schemas";
+import { AuthoredFilterField, FilterField } from "../filters/schemas";
 import {
 	AuthoredEntitySchemaReference,
 	EntitySchemaReference,
 	SavedViewReference,
 } from "../plugins/references";
 import { OutputFieldKey, RyotQLDocument } from "../ryotql/language";
-import { AuthoredFilterField, FilterField } from "./filters";
 
 const SavedViewBadRequestReason = Schema.Union([
 	Schema.Struct({ code: Schema.Literal("asset-forbidden") }),

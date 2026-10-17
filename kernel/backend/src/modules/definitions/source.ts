@@ -1,3 +1,4 @@
+import { mapFilterFieldReference } from "@ryot-app/contract/modules/filters/schemas";
 import { sourcePlanConfigKeys } from "@ryot-app/contract/modules/plugins/execution";
 import type { PluginManifest } from "@ryot-app/contract/modules/plugins/manifest";
 import {
@@ -6,7 +7,6 @@ import {
 	definitionOwner,
 } from "@ryot-app/contract/modules/plugins/references";
 import { mapPluginIdentityReferences } from "@ryot-app/contract/modules/ryotql/language";
-import { mapFilterFieldReference } from "@ryot-app/contract/modules/saved-views/filters";
 import {
 	AuthoredEntityBrowserSavedViewSettings,
 	mapEntityBrowserAddActionSchema,

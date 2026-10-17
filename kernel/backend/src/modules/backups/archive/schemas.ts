@@ -1,5 +1,9 @@
 import { ProviderLibraryMembership } from "@ryot-app/contract/modules/entity-providers/schemas";
 import {
+	relationshipFilterField,
+	ValueFilterField,
+} from "@ryot-app/contract/modules/filters/schemas";
+import {
 	DataRecordProperties,
 	DataRecordTimestamp,
 	dataJsonSource,
@@ -9,10 +13,6 @@ import {
 } from "@ryot-app/contract/modules/imports/data-json";
 import { PluginManifest } from "@ryot-app/contract/modules/plugins/manifest";
 import { RyotQLDocument } from "@ryot-app/contract/modules/ryotql/language";
-import {
-	relationshipFilterField,
-	ValueFilterField,
-} from "@ryot-app/contract/modules/saved-views/filters";
 import {
 	EntityBrowserPluginRouteAddAction,
 	EntityBrowserSavedViewSettings,

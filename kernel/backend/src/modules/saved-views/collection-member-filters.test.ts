@@ -1,5 +1,5 @@
 import { collectionFieldsToAppSchema } from "@ryot-app/contract/modules/collections/fields";
-import type { Filter } from "@ryot-app/contract/modules/saved-views/filters";
+import type { Filter } from "@ryot-app/contract/modules/filters/schemas";
 import {
 	collectionMemberFilterFields,
 	collectionMembersCountRecipe,

@@ -1,5 +1,3 @@
-import { Effect, Schema } from "@ryot-app/plugin-client-sdk/effect";
-import { createRyotQuery, useRyotQuery } from "@ryot-app/plugin-client-sdk/react";
 import {
 	Button,
 	Checkbox,
@@ -13,6 +11,8 @@ import {
 } from "@ryot-app/plugin-ui-sdk";
 import { AppIcon } from "@ryot-app/plugin-ui-sdk/icon";
 import {
+	activeRuleCount,
+	decodeFilterParam,
 	draftFromRule,
 	draftRule,
 	editableGroup,
@@ -22,19 +22,73 @@ import {
 	newFilterDraft,
 	RelationshipFilterChoicesInput,
 	relationshipFilterChoicesRecipe,
-	type decodeFilterParam,
 	type effectiveFilterFields,
 	type FilterDraft,
 	type RelationshipFilterChoices,
-} from "@ryot-app/ryotql-recipes/saved-view-filters";
-import { useDeferredValue, useState, type ReactNode } from "react";
+} from "@ryot-app/ryotql-recipes/filters";
+import { Effect, Schema } from "effect";
+import { useDeferredValue, useState, type ReactNode, type RefObject } from "react";
 
-export type BrowserFilterField = ReturnType<typeof effectiveFilterFields>[number];
-export type BrowserFilter = NonNullable<ReturnType<typeof decodeFilterParam>>;
-type BrowserFilterRule = NonNullable<ReturnType<typeof draftRule>>;
+import { usePluginLocation } from "./navigation/routing";
+import { createRyotQuery } from "./queries/definitions";
+import { useRyotQuery } from "./queries/hooks";
+import { useRyot } from "./queries/provider";
+
+export type ViewFilterField = ReturnType<typeof effectiveFilterFields>[number];
+export type ViewFilter = NonNullable<ReturnType<typeof decodeFilterParam>>;
+type ViewFilterRule = NonNullable<ReturnType<typeof draftRule>>;
 type FilterOperator = ReturnType<typeof filterOperatorsFor>[number];
-type RelationshipField = Extract<BrowserFilterField, { readonly kind: "relationship" }>;
+type RelationshipField = Extract<ViewFilterField, { readonly kind: "relationship" }>;
 type RuleGroup = NonNullable<ReturnType<typeof editableGroup>>;
+
+export const activeFiltersPhrase = (count: number) =>
+	`${count} active ${count === 1 ? "filter" : "filters"}`;
+
+export const filtersLabel = (count: number) => `Filters, ${activeFiltersPhrase(count)}`;
+
+export const useViewFilter = (fields: readonly ViewFilterField[]) => {
+	const ryot = useRyot();
+	const { search } = usePluginLocation();
+	const filter = decodeFilterParam(new URLSearchParams(search).get("filters"), fields);
+	return {
+		filter,
+		activeCount: activeRuleCount(filter),
+		setFilter: (next: ViewFilter | undefined) =>
+			ryot.navigation.pageSearch.replace({ filters: encodeFilterParam(next) }),
+	};
+};
+
+export function ViewFiltersSheet({
+	title,
+	compact,
+	onClose,
+	children,
+	triggerRef,
+}: {
+	readonly title: string;
+	readonly compact: boolean;
+	readonly onClose: () => void;
+	readonly children: ReactNode;
+	readonly triggerRef?: RefObject<HTMLElement | null> | undefined;
+}) {
+	return (
+		<Modal
+			label={title}
+			onClose={onClose}
+			triggerRef={triggerRef}
+			closeLabel={`Close ${title.toLowerCase()}`}
+			containerClassName={compact ? "items-end justify-center" : "items-center justify-center p-4"}
+			className={
+				compact
+					? "max-h-[90%] w-full overflow-y-auto rounded-t-xl border-t border-border bg-surface p-5"
+					: "max-h-[90%] w-full max-w-xl overflow-y-auto rounded-xl border border-border bg-surface p-5"
+			}
+		>
+			<h2 className="font-display text-lg font-semibold text-text">{title}</h2>
+			{children}
+		</Modal>
+	);
+}
 
 const decodeChoicesInput = Schema.decodeUnknownSync(
 	Schema.fromJsonString(RelationshipFilterChoicesInput),
@@ -78,14 +132,14 @@ const listOperatorLabels: Partial<Record<FilterOperator, string>> = {
 	noneOf: "includes none of",
 };
 
-const operatorLabel = (field: BrowserFilterField, operator: FilterOperator) =>
+const operatorLabel = (field: ViewFilterField, operator: FilterOperator) =>
 	(field.kind === "relationship" || field.type === "enum-list"
 		? listOperatorLabels[operator]
 		: undefined) ?? operatorLabels[operator];
 
-const fieldChoices = (field: BrowserFilterField) => ("choices" in field ? field.choices : []);
+const fieldChoices = (field: ViewFilterField) => ("choices" in field ? field.choices : []);
 
-const ruleValueText = (rule: BrowserFilterRule, labelOf: (value: string) => string) => {
+const ruleValueText = (rule: ViewFilterRule, labelOf: (value: string) => string) => {
 	if ("values" in rule) {
 		return rule.values.map(labelOf).join(", ");
 	}
@@ -101,7 +155,7 @@ const ruleValueText = (rule: BrowserFilterRule, labelOf: (value: string) => stri
 	return "days" in rule ? `${rule.days} days` : "";
 };
 
-const ruleText = (field: BrowserFilterField, rule: BrowserFilterRule, valueText: string) =>
+const ruleText = (field: ViewFilterField, rule: ViewFilterRule, valueText: string) =>
 	[field.label, operatorLabel(field, rule.operator), valueText].filter(Boolean).join(" ");
 
 type PanelRow = { readonly id: number; readonly draft: FilterDraft };
@@ -228,7 +282,7 @@ function ValueEditor({
 	onChange,
 }: {
 	readonly draft: FilterDraft;
-	readonly field: BrowserFilterField;
+	readonly field: ViewFilterField;
 	readonly onChange: (update: Partial<FilterDraft>) => void;
 }) {
 	const { operator } = draft;
@@ -320,7 +374,7 @@ function RuleRow({
 	readonly draft: FilterDraft;
 	readonly onRemove: () => void;
 	readonly onChange: (draft: FilterDraft) => void;
-	readonly fields: readonly BrowserFilterField[];
+	readonly fields: readonly ViewFilterField[];
 }) {
 	const field = fields.find(({ key }) => key === draft.field);
 	if (field === undefined) {
@@ -385,9 +439,9 @@ export function FilterRules({
 	onChange,
 }: {
 	readonly compact: boolean;
-	readonly filter: BrowserFilter | undefined;
-	readonly onChange: (filter: BrowserFilter | undefined) => void;
-	readonly fields: readonly BrowserFilterField[];
+	readonly filter: ViewFilter | undefined;
+	readonly onChange: (filter: ViewFilter | undefined) => void;
+	readonly fields: readonly ViewFilterField[];
 }) {
 	const group = editableGroup(filter);
 	const [state, setState] = useState<PanelState>(() =>
@@ -515,7 +569,7 @@ function RelationshipRuleChip({
 }: {
 	readonly ids: readonly string[];
 	readonly field: RelationshipField;
-	readonly rule: BrowserFilterRule;
+	readonly rule: ViewFilterRule;
 	readonly onOpen: () => void;
 	readonly onRemove: () => void;
 }) {
@@ -543,9 +597,9 @@ export function FilterChips({
 	onChange,
 }: {
 	readonly onOpen: () => void;
-	readonly filter: BrowserFilter | undefined;
-	readonly fields: readonly BrowserFilterField[];
-	readonly onChange: (filter: BrowserFilter | undefined) => void;
+	readonly filter: ViewFilter | undefined;
+	readonly fields: readonly ViewFilterField[];
+	readonly onChange: (filter: ViewFilter | undefined) => void;
 }) {
 	if (filter === undefined) {
 		return null;

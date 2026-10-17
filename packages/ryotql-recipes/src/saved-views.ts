@@ -45,7 +45,7 @@ import {
 	effectiveFilterFields,
 	type FilterInput,
 	type RowsQuery,
-} from "./saved-view-filters";
+} from "./filters";
 
 const populationStatusField = "populationStatus";
 

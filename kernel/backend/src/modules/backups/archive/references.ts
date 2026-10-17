@@ -1,5 +1,9 @@
 import type { AssetLocator } from "@ryot-app/contract/modules/assets/schemas";
 import {
+	mapFilterFieldReference,
+	type FilterFieldWith,
+} from "@ryot-app/contract/modules/filters/schemas";
+import {
 	pluginPackageKey,
 	type PluginIdentityReference,
 	type PluginPackageReference,
@@ -10,10 +14,6 @@ import {
 	mapPluginIdentityReferences,
 	type RyotQLDocument,
 } from "@ryot-app/contract/modules/ryotql/language";
-import {
-	mapFilterFieldReference,
-	type FilterFieldWith,
-} from "@ryot-app/contract/modules/saved-views/filters";
 import {
 	EntityBrowserSavedViewSettings,
 	mapEntityBrowserAddActionSchema,

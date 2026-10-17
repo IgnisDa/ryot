@@ -8,7 +8,7 @@ import {
 } from "@ryot-app/plugin-client-sdk/react";
 import { PluginScreenFrame } from "@ryot-app/plugin-client-sdk/screen";
 import { Button, StatusMessage } from "@ryot-app/plugin-ui-sdk";
-import { effectiveFilterFields, NullableFilter } from "@ryot-app/ryotql-recipes/saved-view-filters";
+import { effectiveFilterFields, NullableFilter } from "@ryot-app/ryotql-recipes/filters";
 import {
 	EntityBrowserPageInput,
 	entityBrowserCountRecipe,
