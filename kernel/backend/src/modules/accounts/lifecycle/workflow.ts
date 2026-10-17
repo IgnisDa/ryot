@@ -8,7 +8,7 @@ import {
 import { UserId } from "@ryot-app/contract/schema/brands";
 import { Cause, Context, DateTime, Effect, Layer, Result, Schema } from "effect";
 import { Activity, Workflow } from "effect/workflow";
-import { WorkflowEngine, WorkflowInstance } from "effect/workflow/WorkflowEngine";
+import { WorkflowEngine } from "effect/workflow/WorkflowEngine";
 
 import type { DurableSchema } from "#boot/workflow-engine";
 import { AuthService } from "#modules/accounts/auth/service";
@@ -22,7 +22,11 @@ import { dispatchAdmittedWorkflow } from "#modules/mutations/workflow-dispatch";
 import { DatabaseSession } from "#platform/db/session";
 import { WorkflowExecutionNotifications } from "#platform/workflow/execution-notifications";
 import { interruptWorkflowAndWait } from "#platform/workflow/interruption";
-import { implementWorkflow, makeActivity } from "#platform/workflow/scope";
+import {
+	asIndependentWorkflowRoot,
+	implementWorkflow,
+	makeActivity,
+} from "#platform/workflow/scope";
 
 import { UserLifecycleRepository } from "./repository";
 
@@ -214,11 +218,7 @@ export const UserLifecycleWorkflowOperationsLive = Layer.effect(
 						{ executionId, payload: { userId, accountGeneration } },
 						(admission) => admission,
 						(execution) => execution.pipe(Effect.asVoid),
-					).pipe(
-						Effect.updateContext((context: Context.Context<never>) =>
-							Context.omit(WorkflowInstance)(context),
-						),
-					);
+					).pipe(asIndependentWorkflowRoot);
 				}),
 				"Reset user bootstrap failed",
 			);

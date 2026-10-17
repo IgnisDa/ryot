@@ -78,7 +78,7 @@ const applyCase = (
 		const outcomes = new Map<string, IngestionOutcome>();
 		const issues = new Map<string, IngestionIssue>();
 		const registrations: string[][] = [];
-		const starts: Parameters<ImportsRepository["Service"]["advanceBatch"]>[] = [];
+		const starts: Parameters<ImportsRepository["Service"]["startBatch"]>[] = [];
 		let definitionReads = 0;
 		const dependencies = Layer.mergeAll(
 			ingestionTestDatabase(),
@@ -127,7 +127,7 @@ const applyCase = (
 				getOutcome: (_scope, id) => Effect.sync(() => outcomes.get(id) ?? null),
 				listBatches: () => Effect.sync(() => [...batches.values()].map((data) => ({ data }))),
 				getBatchIssues: () => Effect.sync(() => [...issues.values()].map((data) => ({ data }))),
-				advanceBatch: (...input) =>
+				startBatch: (...input) =>
 					Effect.sync(() => {
 						starts.push(input);
 						return true;
@@ -234,7 +234,7 @@ it.effect("projects source failures once and reuses the applied projection on re
 		]);
 		expect(result.replay).toEqual(result.first);
 		expect(result.registrations).toEqual([["play-4", "play-4-again"]]);
-		expect(result.starts).toEqual([[ingestionTestScope, "batch", "applying"]]);
+		expect(result.starts).toEqual([[ingestionTestScope, "batch"]]);
 		expect([...result.outcomes.keys()]).toEqual(["play-4", "play-4-again"]);
 		expect([...result.issues.keys()]).toEqual(["play-4", "play-4-again"]);
 		expect(result.definitionReads).toBe(1);

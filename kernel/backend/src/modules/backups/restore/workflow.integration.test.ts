@@ -158,7 +158,7 @@ const dependencies = Layer.unwrap(
 					),
 			}),
 			Layer.mock(ObjectStorageService)({
-				selectStorageProvider: () => Effect.succeed("local" as const),
+				permanentStorageProvider: Effect.succeed("local" as const),
 				openObject: () =>
 					record("open").pipe(
 						Effect.as(

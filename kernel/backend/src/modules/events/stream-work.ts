@@ -20,7 +20,7 @@ import { stableStringify } from "@ryot-app/ts-utils/json";
 import { and, eq } from "drizzle-orm";
 import { Context, DateTime, Effect, Layer, Schema } from "effect";
 import { Workflow } from "effect/workflow";
-import { WorkflowEngine, WorkflowInstance } from "effect/workflow/WorkflowEngine";
+import { WorkflowEngine } from "effect/workflow/WorkflowEngine";
 
 import { ManagedAssetReferenceLocker } from "#lib/domain/managed-asset-writes";
 import { rootLifecycleCausation } from "#modules/automations/lifecycle/command";
@@ -37,7 +37,11 @@ import {
 } from "#modules/scripts/authorization/principal";
 import { DatabaseSession } from "#platform/db/session";
 import { redisKeys, RedisService } from "#platform/redis";
-import { implementWorkflow, makeActivity } from "#platform/workflow/scope";
+import {
+	asIndependentWorkflowRoot,
+	implementWorkflow,
+	makeActivity,
+} from "#platform/workflow/scope";
 import * as tables from "#schema/tables/combined";
 
 import { resolveEventCreateItemScopes } from "./event-creation";
@@ -240,11 +244,7 @@ export class EventStreamWorkService extends Context.Service<EventStreamWorkServi
 					},
 					(effect) => effect,
 					(effect) => effect,
-				).pipe(
-					Effect.updateContext((context: Context.Context<never>) =>
-						Context.omit(WorkflowInstance)(context),
-					),
-				);
+				).pipe(asIndependentWorkflowRoot);
 			});
 
 			const claim = Effect.fn("EventStreamWorkService.claim")(function* (

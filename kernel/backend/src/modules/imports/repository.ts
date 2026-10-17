@@ -53,6 +53,9 @@ const IngestionRunControl = Schema.Struct(
 
 export type ImportRunExecutionKind = "source" | "integration";
 
+const executionKind = (row: { integrationId: string | null }) =>
+	row.integrationId === null ? ("source" as const) : ("integration" as const);
+
 const normalizeRun = (row: ImportRunRow): ListedImportRun => ({
 	source: row.source,
 	status: row.status,
@@ -391,12 +394,7 @@ export class ImportsRepository extends Context.Service<ImportsRepository>()("Imp
 						.limit(1),
 				);
 				return row
-					? {
-							status: row.status,
-							id: ImportRunId.make(row.id),
-							executionKind:
-								row.integrationId === null ? ("source" as const) : ("integration" as const),
-						}
+					? { status: row.status, id: ImportRunId.make(row.id), executionKind: executionKind(row) }
 					: null;
 			},
 		);
@@ -1239,11 +1237,11 @@ export class ImportsRepository extends Context.Service<ImportsRepository>()("Imp
 			}
 			return yield* Schema.decodeEffect(IngestionRunControl)({
 				...run,
+				executionKind: executionKind(run),
 				acceptedAt: run.createdAt.toISOString(),
 				startedAt: run.startedAt?.toISOString() ?? null,
 				finishedAt: run.finishedAt?.toISOString() ?? null,
 				blockDeadline: run.blockDeadline?.toISOString() ?? null,
-				executionKind: run.integrationId === null ? "source" : "integration",
 				accountGeneration: { userId: run.userId, token: run.accountGeneration },
 			});
 		});
@@ -1338,18 +1336,15 @@ export class ImportsRepository extends Context.Service<ImportsRepository>()("Imp
 			);
 			return rows.length > 0;
 		});
-		const advanceBatch = Effect.fn("ImportsRepository.advanceBatch")(function* (
+		const startBatch = Effect.fn("ImportsRepository.startBatch")(function* (
 			scope: IngestionScope,
 			batchId: string,
-			state: "applying",
 		) {
 			yield* lockProjection(scope);
 			const rows = yield* database.run((db) =>
 				db
 					.update(schema.importBatch)
-					.set({
-						data: sql`jsonb_set(${schema.importBatch.data}, '{state}', ${JSON.stringify(state)}::jsonb)`,
-					})
+					.set({ data: sql`jsonb_set(${schema.importBatch.data}, '{state}', '"applying"'::jsonb)` })
 					.where(
 						and(
 							eq(schema.importBatch.runId, scope.runId),
@@ -1943,10 +1938,10 @@ export class ImportsRepository extends Context.Service<ImportsRepository>()("Imp
 			listIssues,
 			getRunById,
 			getCapture,
+			startBatch,
 			listBatches,
 			putActivity,
 			recordIssue,
-			advanceBatch,
 			pinIngestion,
 			listCaptures,
 			pageCaptures,

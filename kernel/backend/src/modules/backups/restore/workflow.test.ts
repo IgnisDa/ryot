@@ -206,7 +206,7 @@ layer(
 			assertRequiredPlugins: (required) => resolveRequiredPluginIds(required, []),
 		},
 		objectStorage: {
-			selectStorageProvider: () => record("stage-assets").pipe(Effect.as("local" as const)),
+			permanentStorageProvider: Effect.succeed("local" as const),
 			openObject: openArchive(
 				createArchiveStream({
 					assets: [],
@@ -346,7 +346,7 @@ layer(
 				completeRun: () => Effect.succeed({ ...runningRun, status: "completed" as const }),
 			},
 			objectStorage: {
-				selectStorageProvider: () => Effect.succeed("local" as const),
+				permanentStorageProvider: Effect.succeed("local" as const),
 				openObject: openArchive(
 					createArchiveStream({
 						assets: [],
@@ -393,7 +393,7 @@ layer(
 					}),
 			},
 			objectStorage: {
-				selectStorageProvider: () => Effect.succeed("local" as const),
+				permanentStorageProvider: Effect.succeed("local" as const),
 				openObject: openArchive(
 					createArchiveStream({
 						assets: [],
@@ -428,7 +428,7 @@ layer(
 				Effect.fail(new BackupBadRequest({ reason: { code: "asset-forbidden" } })),
 		},
 		objectStorage: {
-			selectStorageProvider: () => Effect.succeed("local" as const),
+			permanentStorageProvider: Effect.succeed("local" as const),
 			openObject: openArchive(
 				createArchiveStream({
 					assets: [],
@@ -536,7 +536,7 @@ layer(
 			completeRun: () => Effect.die("failed transaction must not complete"),
 		},
 		objectStorage: {
-			selectStorageProvider: () => Effect.succeed("local" as const),
+			permanentStorageProvider: Effect.succeed("local" as const),
 			openObject: openArchive(archiveWithAsset(new TextEncoder().encode("restore asset"))),
 		},
 		writer: {

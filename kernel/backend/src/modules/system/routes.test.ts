@@ -1,9 +1,11 @@
 import { expect, layer } from "@effect/vitest";
 import { Effect, Layer, Option } from "effect";
 
+import { ObjectStorageService } from "#modules/assets/storage/object-storage";
 import { AppConfig } from "#platform/config/service";
+import { LocalStorageService } from "#platform/storage/local-storage";
 import { S3Service } from "#platform/storage/s3";
-import { makeConfigProviderLayer } from "#testing/effect";
+import { makeRequiredConfigLayer } from "#testing/effect";
 
 import { publicSystemConfig } from "./routes";
 
@@ -12,11 +14,8 @@ for (const oidc of [false, true]) {
 		for (const s3 of ["absent", "partial", "complete"] as const) {
 			const configLayer = AppConfig.layer.pipe(
 				Layer.provide(
-					makeConfigProviderLayer({
-						REDIS_URL: "unused",
-						DATABASE_URL: "unused",
+					makeRequiredConfigLayer({
 						USERS_DISABLE_LOCAL_AUTH: oidc,
-						SERVER_ADMIN_ACCESS_TOKEN: "unused",
 						...(oidc
 							? {
 									SERVER_OIDC_CLIENT_ID: "client",
@@ -43,14 +42,25 @@ for (const oidc of [false, true]) {
 					}),
 				),
 			);
-			layer(S3Service.layer.pipe(Layer.provideMerge(configLayer)))((test) => {
+			layer(
+				ObjectStorageService.layer.pipe(
+					Layer.provideMerge(Layer.mock(LocalStorageService)({})),
+					Layer.provideMerge(S3Service.layer),
+					Layer.provideMerge(configLayer),
+				),
+			)((test) => {
 				test.effect(
 					`public flags agree with normalized config: OIDC ${oidc}, SMTP ${smtp}, S3 ${s3}`,
 					() =>
 						Effect.gen(function* () {
 							const config = yield* AppConfig;
 							const storage = yield* S3Service;
-							const publicConfig = publicSystemConfig(config, false);
+							const objectStorage = yield* ObjectStorageService;
+							const publicConfig = publicSystemConfig(
+								config,
+								false,
+								yield* objectStorage.permanentStorageProvider,
+							);
 							expect(publicConfig.auth).toMatchObject({
 								oidcEnabled: oidc,
 								signupAllowed: !oidc,

@@ -1,5 +1,6 @@
 import { Context, Effect, type Schema } from "effect";
 import { Activity, type Workflow } from "effect/workflow";
+import { WorkflowInstance } from "effect/workflow/WorkflowEngine";
 
 export const ActivityBody = Context.Reference<boolean>("ryot/ActivityBody", {
 	defaultValue: () => false,
@@ -27,4 +28,9 @@ export const implementWorkflow = <
 ) =>
 	workflow.toLayer((payload, executionId) =>
 		execute(payload, executionId).pipe(Effect.provideService(ActivityBody, false)),
+	);
+
+export const asIndependentWorkflowRoot = <A, E>(effect: Effect.Effect<A, E>) =>
+	Effect.updateContext(effect, (context: Context.Context<never>) =>
+		Context.omit(WorkflowInstance)(context),
 	);

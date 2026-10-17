@@ -493,7 +493,7 @@ export const runDataImportSegmentWorkflow = Effect.fn("runDataImportSegmentWorkf
 			error: ImportRunError,
 			name: "start-data-batch",
 			execute: database
-				.transaction(repository.advanceBatch(scope, input.batch.id, "applying"))
+				.transaction(repository.startBatch(scope, input.batch.id))
 				.pipe(Effect.mapError(toWorkflowError)),
 		});
 		const entities = yield* EntitiesService;

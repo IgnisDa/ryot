@@ -153,9 +153,8 @@ export const ExportBackupWorkflowOperationsLive = Layer.effect(
 					if (!run) {
 						return yield* internalError("Backup export run is unavailable");
 					}
-					const provider = yield* uploads.selectStorageProvider("temporary");
 					const key = `temporary/${payload.runId}.zip`;
-					const locator = { key, type: provider } as const;
+					const locator = { key, type: "local" } as const;
 					const archive = createArchiveStream({
 						assets,
 						archiveId: payload.runId,
@@ -183,7 +182,7 @@ export const ExportBackupWorkflowOperationsLive = Layer.effect(
 									.pipe(Effect.ignore, Effect.andThen(Effect.failCause(cause))),
 							),
 						);
-					return { key, provider, expiresAt: expiresAt.toISOString() };
+					return { key, provider: locator.type, expiresAt: expiresAt.toISOString() };
 				}).pipe(Effect.scoped),
 				"Backup export failed",
 			);

@@ -84,7 +84,7 @@ export class IngestionPayloads extends Context.Service<IngestionPayloads>()("Ing
 		}) {
 			const checksum = ingestionPayloadDigest(input.bytes);
 			const key = `permanent/ingestion-${ingestionPayloadDigest(stableStringify([input.scope, input.id]))}.bin`;
-			const locator = { key, type: yield* storage.selectStorageProvider("permanent") };
+			const locator = { key, type: yield* storage.permanentStorageProvider };
 			const payload = {
 				checksum,
 				byteSize: input.bytes.byteLength,

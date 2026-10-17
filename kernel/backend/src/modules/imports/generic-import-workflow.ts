@@ -834,7 +834,7 @@ export const runProcessGenericImportChunksWorkflow = Effect.fn(
 							executionId,
 							workflowName: ProcessGenericImportChunksWorkflow._tag,
 						});
-						yield* repository.advanceBatch(scope, batch.id, "applying");
+						yield* repository.startBatch(scope, batch.id);
 					}),
 				)
 				.pipe(Effect.mapError(toWorkflowError)),

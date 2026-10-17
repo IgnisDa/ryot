@@ -229,6 +229,14 @@ export const makeAppConfigLayer = (
 export const makeConfigProviderLayer = (values: Readonly<Record<string, unknown>> = {}) =>
 	ConfigProvider.layer(ConfigProvider.fromUnknown(values));
 
+export const makeRequiredConfigLayer = (values: Readonly<Record<string, unknown>> = {}) =>
+	makeConfigProviderLayer({
+		REDIS_URL: "unused",
+		DATABASE_URL: "unused",
+		SERVER_ADMIN_ACCESS_TOKEN: "unused",
+		...values,
+	});
+
 export const makeMemoizingWorkflowEngine = (
 	instance: WorkflowInstance["Service"],
 	activityRuns: string[],

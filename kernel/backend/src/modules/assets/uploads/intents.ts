@@ -79,6 +79,27 @@ const IntentJson = Schema.fromJsonString(UploadIntentMetadata);
 const decodeIntent = Schema.decodeEffect(IntentJson, { onExcessProperty: "error" });
 const encodeIntent = Schema.encodeEffect(IntentJson);
 
+const intentDeadline = (metadata: typeof UploadIntentMetadata.Type) => {
+	switch (metadata.state) {
+		case "pending":
+			return metadata.expiresAt;
+		case "claimed":
+			return metadata.leaseExpiresAt;
+		case "completed":
+			return metadata.kind === "permanent" ? null : metadata.completion.expiresAt;
+	}
+};
+
+const completionResponse = (
+	completion: typeof TemporaryCompletion.Type | typeof ManagedAssetLocator.Type,
+) =>
+	"token" in completion
+		? {
+				token: completion.token,
+				expiresAt: DateTime.formatIso(DateTime.makeUnsafe(completion.expiresAt * 1000)),
+			}
+		: completion;
+
 const UploadTokenValue = Schema.Struct({ userId: UserId, intentId: Schema.String });
 
 const resolveExtension = (contentType: UploadContentType) =>
@@ -142,9 +163,7 @@ export class UploadIntentsService extends Context.Service<UploadIntentsService>(
 				const fileName = yield* resolveFileName(input.fileName);
 				const contentType = yield* resolveIntentContentType(input.contentType, fileName);
 				const provider =
-					input.kind === "temporary"
-						? "local"
-						: yield* objectStorage.selectStorageProvider(input.kind);
+					input.kind === "temporary" ? "local" : yield* objectStorage.permanentStorageProvider;
 				const intentId = generateId();
 				const objectKey = `${input.kind}/${generateId()}.${resolveExtension(contentType)}`;
 				const now = Math.floor((yield* Clock.currentTimeMillis) / 1000);
@@ -161,7 +180,7 @@ export class UploadIntentsService extends Context.Service<UploadIntentsService>(
 									UPLOAD_URL_EXPIRY_SECONDS,
 								),
 							};
-				const metadata = {
+				const pending = {
 					intentId,
 					fileName,
 					objectKey,
@@ -169,11 +188,12 @@ export class UploadIntentsService extends Context.Service<UploadIntentsService>(
 					contentType,
 					createdAt: now,
 					userId: user.id,
-					...(input.kind === "temporary"
-						? { kind: input.kind, provider: "local" as const }
-						: { provider, kind: input.kind }),
 					state: "pending" as const,
 				};
+				const metadata =
+					input.kind === "temporary"
+						? { ...pending, kind: "temporary" as const, provider: "local" as const }
+						: { ...pending, provider, kind: "permanent" as const };
 				const encoded = yield* encodeIntent(metadata).pipe(Effect.orDie);
 				yield* redis.setAndIndex(
 					redisKeys.uploadIntent(intentId),
@@ -217,7 +237,7 @@ export class UploadIntentsService extends Context.Service<UploadIntentsService>(
 							return yield* uploadError({ intentId, code: "intent-forbidden" });
 						}
 						if (metadata.state !== "pending") {
-							return metadata.completion;
+							return completionResponse(metadata.completion);
 						}
 						const now = Math.floor((yield* Clock.currentTimeMillis) / 1000);
 						if (metadata.expiresAt <= now) {
@@ -296,8 +316,9 @@ export class UploadIntentsService extends Context.Service<UploadIntentsService>(
 								encoded,
 								redisKeys.uploadIntentExpiry,
 								intentId,
+								UPLOAD_URL_EXPIRY_SECONDS,
 							);
-							return locator;
+							return completionResponse(locator);
 						}
 						const completion = { token: generateId(), expiresAt: now + UPLOAD_TOKEN_TTL_SECONDS };
 						const { expiresAt: _expiresAt, ...temporary } = metadata;
@@ -316,7 +337,7 @@ export class UploadIntentsService extends Context.Service<UploadIntentsService>(
 							tokenValue,
 							UPLOAD_TOKEN_TTL_SECONDS,
 						);
-						return completion;
+						return completionResponse(completion);
 					}).pipe(Effect.ensuring(redis.releaseLease(lockKey, lease)));
 				},
 			);
@@ -404,6 +425,7 @@ export class UploadIntentsService extends Context.Service<UploadIntentsService>(
 			const removeIntentRecord = (intentId: string, metadata: typeof UploadIntentMetadata.Type) =>
 				Effect.gen(function* () {
 					if (metadata.kind === "permanent" && metadata.state === "completed") {
+						yield* redis.del(redisKeys.uploadIntent(intentId));
 						yield* redis.zrem(redisKeys.uploadIntentExpiry, intentId);
 						return;
 					}
@@ -448,22 +470,9 @@ export class UploadIntentsService extends Context.Service<UploadIntentsService>(
 								const metadata = yield* decodeIntent(raw).pipe(
 									Effect.mapError(() => uploadError({ intentId, code: "intent-invalid" })),
 								);
-								if (metadata.kind === "permanent" && metadata.state === "completed") {
-									return yield* redis.zrem(redisKeys.uploadIntentExpiry, intentId);
-								}
-								let expiresAt: number;
-								switch (metadata.state) {
-									case "pending":
-										expiresAt = metadata.expiresAt;
-										break;
-									case "claimed":
-										expiresAt = metadata.leaseExpiresAt;
-										break;
-									case "completed":
-										expiresAt = metadata.completion.expiresAt;
-								}
-								if (expiresAt > now) {
-									return yield* redis.zadd(redisKeys.uploadIntentExpiry, expiresAt, intentId);
+								const deadline = intentDeadline(metadata);
+								if (deadline !== null && deadline > now) {
+									return yield* redis.zadd(redisKeys.uploadIntentExpiry, deadline, intentId);
 								}
 								return yield* removeIntentRecord(intentId, metadata);
 							}).pipe(Effect.ensuring(redis.releaseLease(lockKey, lease)));
@@ -498,13 +507,13 @@ export class UploadIntentsService extends Context.Service<UploadIntentsService>(
 					return yield* Effect.gen(function* () {
 						const metadata = yield* getIntent(tokenValue.intentId);
 						const now = Math.floor((yield* Clock.currentTimeMillis) / 1000);
+						const deadline = intentDeadline(metadata);
 						if (
 							metadata.userId !== userId ||
 							metadata.kind !== "temporary" ||
 							metadata.state === "pending" ||
-							(metadata.state === "claimed"
-								? metadata.leaseExpiresAt
-								: metadata.completion.expiresAt) <= now ||
+							deadline === null ||
+							deadline <= now ||
 							metadata.completion.token !== token
 						) {
 							return yield* uploadError({ code: "token-invalid" });

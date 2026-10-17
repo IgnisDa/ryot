@@ -21,6 +21,11 @@ import {
 const statisticKeySql = (name: string) =>
 	`trim('_' from regexp_replace(lower(${name}), '[^a-z0-9]+', '_', 'g'))`;
 
+const statisticsArraySql = `CASE WHEN jsonb_typeof(um.information -> 'statistics') = 'array'
+		THEN um.information -> 'statistics' ELSE '[]'::jsonb END`;
+
+const measurementEntryIdSql = "md5(um.user_id || '|measurement-entry|' || um.timestamp::text)";
+
 const legacyStatisticsSql = `
 	SELECT
 		um.user_id,
@@ -31,8 +36,7 @@ const legacyStatisticsSql = `
 		stat.value ->> 'value' AS value
 	FROM "user_measurement" um
 	CROSS JOIN LATERAL jsonb_array_elements(
-		CASE WHEN jsonb_typeof(um.information -> 'statistics') = 'array'
-			THEN um.information -> 'statistics' ELSE '[]'::jsonb END
+		${statisticsArraySql}
 	) WITH ORDINALITY AS stat(value, ordinality)
 	WHERE stat.value ->> 'name' IS NOT NULL
 `;
@@ -238,7 +242,7 @@ BEGIN
 			"name", "properties", "created_at", "updated_at"
 		)
 		SELECT
-			md5(um.user_id || '|measurement-entry|' || um.timestamp::text),
+			${measurementEntryIdSql},
 			um.user_id,
 			${quoteSqlString(input.entryEntitySchema.slug)},
 			${quoteNullableSqlString(input.entryEntitySchema.pluginId)},
@@ -253,8 +257,7 @@ BEGIN
 			AND (um.user_id, um.timestamp) <= (next_cursor_user_id, next_cursor_ts)
 			AND EXISTS (
 				SELECT 1 FROM jsonb_array_elements(
-					CASE WHEN jsonb_typeof(um.information -> 'statistics') = 'array'
-						THEN um.information -> 'statistics' ELSE '[]'::jsonb END
+					${statisticsArraySql}
 				) AS stat(value)
 				WHERE stat.value ->> 'name' IS NOT NULL
 			)
@@ -277,7 +280,7 @@ BEGIN
 			md5(um.user_id || '|' || um.timestamp::text || '|' || ${statisticKeySql("stat.value ->> 'name'")}),
 			um.user_id,
 			md5(um.user_id || '|measurement-metric|' || ${statisticKeySql("stat.value ->> 'name'")}),
-			md5(um.user_id || '|measurement-entry|' || um.timestamp::text),
+			${measurementEntryIdSql},
 			${quoteSqlString(input.readingEventSchema.slug)},
 			${quoteNullableSqlString(input.readingEventSchema.pluginId)},
 			jsonb_build_object('value', (stat.value ->> 'value')::float8),
@@ -285,8 +288,7 @@ BEGIN
 			um.timestamp
 		FROM "user_measurement" um
 		CROSS JOIN LATERAL jsonb_array_elements(
-			CASE WHEN jsonb_typeof(um.information -> 'statistics') = 'array'
-				THEN um.information -> 'statistics' ELSE '[]'::jsonb END
+			${statisticsArraySql}
 		) AS stat(value)
 		WHERE (um.user_id, um.timestamp) > (cursor_user_id, cursor_ts)
 		  AND (um.user_id, um.timestamp) <= (next_cursor_user_id, next_cursor_ts)
@@ -304,8 +306,7 @@ BEGIN
 	WHERE NOT EXISTS (
 		SELECT 1
 		FROM jsonb_array_elements(
-			CASE WHEN jsonb_typeof(um.information -> 'statistics') = 'array'
-				THEN um.information -> 'statistics' ELSE '[]'::jsonb END
+			${statisticsArraySql}
 		) AS stat(value)
 		WHERE stat.value ->> 'name' IS NOT NULL
 	);
