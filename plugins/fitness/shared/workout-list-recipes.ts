@@ -161,6 +161,7 @@ export const workoutCardsRecipe = defineRecipe(
 	(input: {
 		readonly reference: Reference;
 		readonly search: string;
+		readonly limit?: number | undefined;
 		readonly after?: string | undefined;
 		readonly workoutIds?: readonly string[] | undefined;
 	}) => {
@@ -180,7 +181,7 @@ export const workoutCardsRecipe = defineRecipe(
 			queries: {
 				workouts: selectedRows(workout, {
 					after: input.after,
-					limit: WORKOUT_LIST_PAGE_SIZE,
+					limit: input.limit ?? WORKOUT_LIST_PAGE_SIZE,
 					orderBy: [descending(startedAt(workout)), descending(column(workout, "id"))],
 					include: {
 						sets: workoutSetsInclude(workout),
