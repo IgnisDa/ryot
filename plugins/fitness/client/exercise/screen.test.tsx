@@ -377,11 +377,22 @@ describe("exercise details view", () => {
 		}),
 	);
 
-	it.live("opens the collection picker from the header", () =>
+	it.live("asks the host to open its add-to-collection screen from the header", () =>
 		Effect.gen(function* () {
-			yield* mounted(exerciseDetails());
+			const details = exerciseDetails();
+			const page = yield* mountedPage(details, null);
 			click(screen.getByRole("button", { name: "Add to collection" }));
-			expect(screen.getByRole("dialog", { name: "Add to collection" })).toBeTruthy();
+			const request = yield* Effect.promise(() =>
+				waitFor(() => {
+					const message = page
+						.clientMessages()
+						.find((candidate) => candidate.type === "add-to-collection-screen");
+					assert(message?.type === "add-to-collection-screen");
+					return message;
+				}),
+			);
+			expect(request.entityId).toBe(details.exercise?.id);
+			expect(request.collectionId).toBeUndefined();
 		}),
 	);
 

@@ -76,6 +76,7 @@ const renderSidebar = (
 		readonly onCustomize?: () => void;
 		readonly onEditSection?: (section: "views" | "savedViews") => void;
 	},
+	onCreateCollection: () => void = () => undefined,
 ) =>
 	render(
 		<SidebarNav
@@ -90,6 +91,7 @@ const renderSidebar = (
 			onNavigateItem={() => undefined}
 			onSelectWorkspace={() => undefined}
 			onCustomize={customize?.onCustomize}
+			onCreateCollection={onCreateCollection}
 			showSearchShortcut={showSearchShortcut}
 			onEditSection={customize?.onEditSection}
 			activeKey="view:/v/p/ryot/media/media-queue"
@@ -119,6 +121,17 @@ describe("sidebar navigation", () => {
 		).toBe("Mod+K");
 	});
 
+	it("starts a new collection from the collections section", () => {
+		let creating = 0;
+		renderSidebar(false, undefined, () => {
+			creating += 1;
+		});
+
+		fireEvent.click(screen.getByRole("button", { name: "New collection" }));
+
+		expect(creating).toBe(1);
+	});
+
 	it("opens search and hides the shortcut when requested", () => {
 		let opened = false;
 		render(
@@ -134,6 +147,7 @@ describe("sidebar navigation", () => {
 				onNavigateHome={() => undefined}
 				onNavigateItem={() => undefined}
 				onSelectWorkspace={() => undefined}
+				onCreateCollection={() => undefined}
 				onWorkspaceSwitcherOpenChange={() => undefined}
 				onOpenSearch={() => {
 					opened = true;

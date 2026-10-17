@@ -346,6 +346,36 @@ export const collectionHeaderRecipe = defineRecipe((input: { readonly collection
 
 export type CollectionHeaderResult = Recipe.Success<typeof collectionHeaderRecipe>;
 
+export const collectionMembershipRecipe = defineRecipe(
+	(input: { readonly collectionId: string; readonly entityId: string }) => {
+		const membership = table("relationship", "collectionMembership");
+		return {
+			map: ({ membership: row }) => {
+				if (row === undefined) {
+					return Result.succeed(null);
+				}
+				const { rank: _rank, ...properties } = row.properties;
+				return Result.succeed({ properties });
+			},
+			queries: {
+				membership: selectedOptionalRow(membership, {
+					orderBy: [ascending(column(membership, "id"))],
+					selection: {
+						properties: selectedField(column(membership, "properties"), MembershipProperties),
+					},
+					where: and(
+						relationshipSchemaPredicate(membership, "member-of", { kind: "kernel" }),
+						eq(column(membership, "sourceEntityId"), literal(input.entityId)),
+						eq(column(membership, "targetEntityId"), literal(input.collectionId)),
+					),
+				}),
+			},
+		};
+	},
+);
+
+export type CollectionMembershipResult = Recipe.Success<typeof collectionMembershipRecipe>;
+
 export const collectionMembersRecipe = defineRecipe(
 	(input: {
 		readonly after?: string | undefined;

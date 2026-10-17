@@ -123,7 +123,9 @@ must supply an `index` and `key`.
 
 Saved-view renderers own their title and icon inside the iframe. Entity-browser layout selection is
 stored locally, with explicit URL state taking precedence. Plugin routes host the entity picker
-screen (`modules/provider-add`): one session at a time, with the document inert while it is open.
+screen (`modules/provider-add`); plugin, entity, and saved-view documents host the collection editor
+and add-to-collection screens (`modules/collections`). The bridge allows one pending host screen per
+frame across types, and the document is inert while any screen is open.
 Saved views accept only library picks matching their explicit `addAction` owner and schema; that
 modal remains open after import and refreshes the page when it closes. Library picks create through
 the catalog `createRoute` when one exists; otherwise, and always for plain picks, creation uses the

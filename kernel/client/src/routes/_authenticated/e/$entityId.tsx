@@ -2,6 +2,7 @@ import { EntityId } from "@ryot-app/contract/schema/brands";
 import { createFileRoute } from "@tanstack/react-router";
 import { Effect } from "effect";
 
+import { useCollectionScreens } from "#/modules/collections/screens";
 import {
 	useClearClientPageDocument,
 	useClientPageDocument,
@@ -42,8 +43,15 @@ function EntityPage() {
 function EntityDocument(props: {
 	readonly prepared: Parameters<typeof useClientPageDocument>[0]["prepared"];
 }) {
-	useClientPageDocument({ title: "Entity details", prepared: props.prepared });
-	return null;
+	const collections = useCollectionScreens();
+	useClientPageDocument({
+		title: "Entity details",
+		inert: collections.open,
+		prepared: props.prepared,
+		onEditCollection: collections.onEditCollection,
+		onAddToCollection: collections.onAddToCollection,
+	});
+	return collections.screen;
 }
 
 function EntityPending() {

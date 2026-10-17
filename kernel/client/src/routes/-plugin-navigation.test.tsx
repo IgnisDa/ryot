@@ -1,4 +1,5 @@
 import { describe, expect, it } from "@effect/vitest";
+import { CollectionBadRequest } from "@ryot-app/contract/modules/collections/schemas";
 import type { EntityEditorSaveRequest } from "@ryot-app/contract/modules/entities/editor";
 import type {
 	ImportEntityRunResult,
@@ -14,6 +15,8 @@ import {
 	EntitySchemaSlug,
 	PluginId,
 	PluginPackageId,
+	RelationshipId,
+	RelationshipSchemaSlug,
 	SandboxProviderId,
 	SavedViewId,
 } from "@ryot-app/contract/schema/brands";
@@ -29,13 +32,14 @@ import {
 } from "@ryot-app/plugin-client-contract";
 import type { PluginClientCatalog } from "@ryot-app/ryotql-recipes/plugin-client-catalog";
 import { createMemoryHistory, RouterProvider } from "@tanstack/react-router";
-import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { Effect, Layer, ManagedRuntime, Schema } from "effect";
 
 import { AuthenticatedApiError } from "#/api/authenticated";
 import type { CollectionsApi } from "#/api/collections";
 import { PagesApi } from "#/api/pages";
-import { KernelApiTestLayer, makeCollectionsApi } from "#/api/ports.test-layer";
+import { KernelApiTestLayer, makeCollectionsApi, makeRyotQLApi } from "#/api/ports.test-layer";
+import type { RyotQLApi } from "#/api/ryotql";
 import { EntitiesService } from "#/modules/entities/service";
 import { createBackInterceptors } from "#/modules/navigation/back-interceptors";
 import { NavigationService } from "#/modules/navigation/service";
@@ -170,6 +174,19 @@ const preparedSavedView = (savedViewId: SavedViewId): PreparedClientPage => {
 	};
 };
 
+const collectionResponse = (id: string, name: string) => ({
+	name,
+	warnings: [],
+	properties: {},
+	externalId: null,
+	providerId: null,
+	id: EntityId.make(id),
+	entitySchemaPluginId: null,
+	createdAt: "2026-10-20T00:00:00.000Z",
+	updatedAt: "2026-10-20T00:00:00.000Z",
+	entitySchemaSlug: EntitySchemaSlug.make("collection"),
+});
+
 function mount(options: {
 	readonly entry: string;
 	readonly entries?: PluginClientCatalog;
@@ -179,7 +196,8 @@ function mount(options: {
 	readonly providerAdd?: Partial<ProviderAddService["Service"]>;
 	readonly prepare?: PagesApi["Service"]["prepare"];
 	readonly check?: ClientPageFreshness["Service"]["check"];
-	readonly createCollection?: CollectionsApi["Service"]["create"];
+	readonly collections?: Partial<CollectionsApi["Service"]>;
+	readonly ryotql?: RyotQLApi["Service"]["execute"];
 }) {
 	const targets: ClientPageTarget[] = [];
 	let navigationLoads = 0;
@@ -269,9 +287,8 @@ function mount(options: {
 			makePluginQueries(),
 			makePluginStorage(),
 			makePluginEntitySaves(),
-			makeCollectionsApi(
-				options.createCollection === undefined ? {} : { create: options.createCollection },
-			),
+			makeCollectionsApi(options.collections),
+			makeRyotQLApi(options.ryotql === undefined ? {} : { execute: options.ryotql }),
 		).pipe(
 			Layer.provideMerge(OAuthRouteStubs),
 			Layer.provideMerge(
@@ -1167,19 +1184,10 @@ describe("client page routes", () => {
 		Effect.gen(function* () {
 			const view = mount({
 				entry: "/p/test/plugin-1/details/one",
-				createCollection: (_scope, request) =>
-					Effect.succeed({
-						warnings: [],
-						properties: {},
-						externalId: null,
-						providerId: null,
-						name: request.payload.name,
-						entitySchemaPluginId: null,
-						id: EntityId.make("collection-1"),
-						createdAt: "2026-10-20T00:00:00.000Z",
-						updatedAt: "2026-10-20T00:00:00.000Z",
-						entitySchemaSlug: EntitySchemaSlug.make("collection"),
-					}),
+				collections: {
+					create: (_scope, request) =>
+						Effect.succeed(collectionResponse("collection-1", request.payload.name)),
+				},
 			});
 			const frame = yield* Effect.promise(() =>
 				screen.findByTitle<HTMLIFrameElement>("Fixture plugin"),
@@ -1784,6 +1792,320 @@ describe("client page routes", () => {
 			});
 			yield* Effect.promise(() => screen.findByRole("heading", { name: "Plugin page not found" }));
 			expect(document.querySelectorAll("iframe")).toHaveLength(0);
+		}),
+	);
+});
+
+const ryotqlRows =
+	(
+		rows: (query: string) => ReadonlyArray<Readonly<Record<string, unknown>>>,
+	): RyotQLApi["Service"]["execute"] =>
+	(_scope, request) =>
+		Effect.succeed({
+			data: Object.fromEntries(
+				Object.keys(request.payload.queries).map((name) => [
+					name,
+					{
+						items: rows(name),
+						type: "rows" as const,
+						pageInfo: { limit: 30, hasMore: false, nextCursor: null },
+					},
+				]),
+			),
+		});
+
+const membershipResponse = (properties: Record<string, unknown>) => ({
+	warnings: [],
+	memberOf: {
+		properties,
+		relationshipSchemaPluginId: null,
+		createdAt: "2026-10-20T00:00:00.000Z",
+		id: RelationshipId.make("membership-1"),
+		sourceEntityId: EntityId.make("book-1"),
+		targetEntityId: EntityId.make("collection-1"),
+		relationshipSchemaSlug: RelationshipSchemaSlug.make("member-of"),
+	},
+});
+
+const favoritesHeader = {
+	name: "Favorites",
+	entityId: "collection-1",
+	properties: {
+		membershipPropertiesSchema: {
+			unknownKeys: "strict",
+			fields: { notes: { position: 0, type: "string", label: "Notes", description: "Notes" } },
+		},
+	},
+};
+
+const openPluginFrame = (view: ReturnType<typeof mount>) =>
+	Effect.gen(function* () {
+		const frame = yield* Effect.promise(() =>
+			screen.findByTitle<HTMLIFrameElement>("Fixture plugin"),
+		);
+		const bridge = connectFrame(frame);
+		yield* Effect.promise(() => waitFor(() => expect(bridge.messages).toHaveLength(1)));
+		return { view, frame, bridge };
+	});
+
+const screenResult = (bridge: ReturnType<typeof connectFrame>, type: string, value: unknown) =>
+	Effect.promise(() =>
+		waitFor(() =>
+			expect(bridge.messages).toContainEqual({
+				type,
+				value,
+				outcome: "success",
+				requestId: "screen-1",
+			}),
+		),
+	);
+
+describe("collection host screens", () => {
+	it.live("creates a collection with member fields from a plugin request", () =>
+		Effect.gen(function* () {
+			const created: unknown[] = [];
+			const { view, frame, bridge } = yield* openPluginFrame(
+				mount({
+					entry: "/p/test/plugin-1/details/one",
+					collections: {
+						create: (_scope, request) => {
+							created.push(request.payload);
+							return Effect.succeed(collectionResponse("collection-2", request.payload.name));
+						},
+					},
+				}),
+			);
+			const loadsBefore = view.getNavigationLoads();
+			bridge.port.postMessage({ requestId: "screen-1", type: "edit-collection-screen" });
+
+			const dialog = yield* Effect.promise(() =>
+				screen.findByRole("dialog", { name: "New collection" }),
+			);
+			expect(frame.hasAttribute("inert")).toBe(true);
+			fireEvent.change(within(dialog).getByRole("textbox", { name: "Name" }), {
+				target: { value: " Reading " },
+			});
+			fireEvent.click(within(dialog).getByRole("button", { name: "Add field" }));
+			fireEvent.change(within(dialog).getByRole("textbox", { name: "Label" }), {
+				target: { value: "Mood" },
+			});
+			fireEvent.click(within(dialog).getByRole("button", { name: "Create collection" }));
+
+			yield* screenResult(bridge, "edit-collection-screen-result", {
+				kind: "saved",
+				collectionId: "collection-2",
+			});
+			expect(created).toEqual([
+				{ name: "Reading", fields: [{ type: "text", label: "Mood", required: false }] },
+			]);
+			expect(view.getNavigationLoads()).toBeGreaterThan(loadsBefore);
+			yield* Effect.promise(() => waitFor(() => expect(frame.hasAttribute("inert")).toBe(false)));
+		}),
+	);
+
+	it.live("keeps the editor open with a name error when the name is taken", () =>
+		Effect.gen(function* () {
+			const { bridge } = yield* openPluginFrame(
+				mount({
+					entry: "/p/test/plugin-1/details/one",
+					collections: {
+						create: () =>
+							Effect.fail(
+								new AuthenticatedApiError({
+									cause: new CollectionBadRequest({
+										reason: { field: "name", code: "name-taken" },
+									}),
+								}),
+							),
+					},
+				}),
+			);
+			bridge.port.postMessage({ requestId: "screen-1", type: "edit-collection-screen" });
+			const dialog = yield* Effect.promise(() =>
+				screen.findByRole("dialog", { name: "New collection" }),
+			);
+			fireEvent.change(within(dialog).getByRole("textbox", { name: "Name" }), {
+				target: { value: "Favorites" },
+			});
+			fireEvent.click(within(dialog).getByRole("button", { name: "Create collection" }));
+
+			yield* Effect.promise(() =>
+				within(dialog).findByText("You already have a collection with this name."),
+			);
+			expect(
+				bridge.messages.some(
+					(message) =>
+						typeof message === "object" &&
+						message !== null &&
+						"type" in message &&
+						message.type === "edit-collection-screen-result",
+				),
+			).toBe(false);
+		}),
+	);
+
+	it.live("deletes an existing collection only after the kernel confirmation", () =>
+		Effect.gen(function* () {
+			const deleted: unknown[] = [];
+			const { bridge } = yield* openPluginFrame(
+				mount({
+					entry: "/p/test/plugin-1/details/one",
+					ryotql: ryotqlRows((query) => (query === "collection" ? [favoritesHeader] : [])),
+					collections: {
+						delete: (_scope, request) => {
+							deleted.push(request.payload);
+							return Effect.succeed({ warnings: [], id: request.payload.collectionId });
+						},
+					},
+				}),
+			);
+			bridge.port.postMessage({
+				requestId: "screen-1",
+				collectionId: "collection-1",
+				type: "edit-collection-screen",
+			});
+			const dialog = yield* Effect.promise(() =>
+				screen.findByRole("dialog", { name: "Edit Favorites" }),
+			);
+			expect(within(dialog).getByRole("textbox", { name: "Label" })).toHaveProperty(
+				"value",
+				"Notes",
+			);
+			fireEvent.click(within(dialog).getByRole("button", { name: "Delete collection" }));
+			expect(deleted).toEqual([]);
+			const confirmation = yield* Effect.promise(() =>
+				screen.findByRole("dialog", { name: "Delete Favorites?" }),
+			);
+			fireEvent.click(within(confirmation).getByRole("button", { name: "Delete collection" }));
+
+			yield* screenResult(bridge, "edit-collection-screen-result", { kind: "deleted" });
+			expect(deleted).toEqual([{ collectionId: "collection-1" }]);
+		}),
+	);
+
+	it.live("edits and removes an existing membership's details", () =>
+		Effect.gen(function* () {
+			const saved: unknown[] = [];
+			const removed: unknown[] = [];
+			const view = mount({
+				entry: "/p/test/plugin-1/details/one",
+				ryotql: ryotqlRows((query) => {
+					if (query === "collection") {
+						return [favoritesHeader];
+					}
+					return query === "membership" ? [{ properties: { rank: -1, notes: "Old" } }] : [];
+				}),
+				collections: {
+					createMembership: (_scope, request) => {
+						saved.push(request.payload);
+						return Effect.succeed(membershipResponse({ notes: "New" }));
+					},
+					deleteMembership: (_scope, request) => {
+						removed.push(request.payload);
+						return Effect.succeed(membershipResponse({ notes: "New" }));
+					},
+				},
+			});
+			const { bridge } = yield* openPluginFrame(view);
+			const request = {
+				entityId: "book-1",
+				collectionId: "collection-1",
+				type: "add-to-collection-screen",
+			};
+			bridge.port.postMessage({ ...request, requestId: "screen-1" });
+			const dialog = yield* Effect.promise(() =>
+				screen.findByRole("dialog", { name: "Details in Favorites" }),
+			);
+			const notes = yield* Effect.promise(() =>
+				waitFor(() => {
+					const field = within(dialog).getByRole("textbox", { name: "Notes" });
+					expect(field).toHaveProperty("value", "Old");
+					return field;
+				}),
+			);
+			fireEvent.change(notes, { target: { value: "New" } });
+			fireEvent.click(within(dialog).getByRole("button", { name: "Save details" }));
+			yield* screenResult(bridge, "add-to-collection-screen-result", { kind: "saved" });
+			expect(saved).toEqual([
+				{ entityId: "book-1", collectionId: "collection-1", properties: { notes: "New" } },
+			]);
+
+			bridge.port.postMessage({ ...request, requestId: "screen-2" });
+			const reopened = yield* Effect.promise(() =>
+				screen.findByRole("dialog", { name: "Details in Favorites" }),
+			);
+			fireEvent.click(within(reopened).getByRole("button", { name: "Remove from collection" }));
+			const confirmation = yield* Effect.promise(() =>
+				screen.findByRole("dialog", { name: "Remove from Favorites?" }),
+			);
+			fireEvent.click(within(confirmation).getByRole("button", { name: "Remove from collection" }));
+			yield* Effect.promise(() =>
+				waitFor(() =>
+					expect(bridge.messages).toContainEqual({
+						outcome: "success",
+						requestId: "screen-2",
+						value: { kind: "removed" },
+						type: "add-to-collection-screen-result",
+					}),
+				),
+			);
+			expect(removed).toEqual([{ entityId: "book-1", collectionId: "collection-1" }]);
+		}),
+	);
+
+	it.live("creates a collection inline from the picker and adds the entity to it", () =>
+		Effect.gen(function* () {
+			const added: unknown[] = [];
+			let createdName: string | undefined;
+			const view = mount({
+				entry: "/p/test/plugin-1/details/one",
+				ryotql: ryotqlRows((query) =>
+					query === "collection" && createdName !== undefined
+						? [{ properties: {}, name: createdName, entityId: "collection-2" }]
+						: [],
+				),
+				collections: {
+					createMembership: (_scope, request) => {
+						added.push(request.payload);
+						return Effect.succeed(membershipResponse({}));
+					},
+					create: (_scope, request) => {
+						createdName = request.payload.name;
+						return Effect.succeed(collectionResponse("collection-2", request.payload.name));
+					},
+				},
+			});
+			const { bridge } = yield* openPluginFrame(view);
+			bridge.port.postMessage({
+				entityId: "book-1",
+				requestId: "screen-1",
+				type: "add-to-collection-screen",
+			});
+			const picker = yield* Effect.promise(() =>
+				screen.findByRole("dialog", { name: "Add to collection" }),
+			);
+			yield* Effect.promise(() => within(picker).findByText("You have no collections yet."));
+			fireEvent.change(within(picker).getByRole("textbox", { name: "Search collections" }), {
+				target: { value: "Books" },
+			});
+			fireEvent.click(within(picker).getByRole("button", { name: "Create “Books” and add" }));
+			const editor = yield* Effect.promise(() =>
+				screen.findByRole("dialog", { name: "New collection" }),
+			);
+			expect(within(editor).getByRole("textbox", { name: "Name" })).toHaveProperty(
+				"value",
+				"Books",
+			);
+			fireEvent.click(within(editor).getByRole("button", { name: "Create collection" }));
+			const membership = yield* Effect.promise(() =>
+				screen.findByRole("dialog", { name: "Add to Books" }),
+			);
+			fireEvent.click(within(membership).getByRole("button", { name: "Add to collection" }));
+
+			yield* screenResult(bridge, "add-to-collection-screen-result", { kind: "saved" });
+			expect(added).toEqual([
+				{ properties: {}, entityId: "book-1", mode: "add-if-absent", collectionId: "collection-2" },
+			]);
 		}),
 	);
 });

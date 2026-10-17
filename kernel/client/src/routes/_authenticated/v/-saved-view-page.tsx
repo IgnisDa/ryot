@@ -18,6 +18,7 @@ import { useEffect, useRef } from "react";
 
 import { PagesApi } from "#/api/pages";
 import type { ApiScope } from "#/api/scope";
+import { useCollectionScreens } from "#/modules/collections/screens";
 import { usePageTitle } from "#/modules/navigation/page-title";
 import { mainContentProps } from "#/modules/navigation/skip-link";
 import {
@@ -155,23 +156,31 @@ export function SavedViewPage({
 			),
 		);
 	}, [layout, loaded.prepared, loaded.viewPath, runtime, scope]);
+	const collections = useCollectionScreens();
 	useClientPageDocument({
-		inert: addOpen,
 		onPickEntity: openAdd,
 		prepared: loaded.prepared,
+		inert: addOpen || collections.open,
+		onEditCollection: collections.onEditCollection,
+		onAddToCollection: collections.onAddToCollection,
 		title: loaded.prepared.context.view?.name ?? "Saved view",
 	});
 
-	return addOpen ? (
-		<EntityPickerModal
-			initialQuery={q}
-			onClose={closeAdd}
-			onComplete={session?.complete}
-			schema={providerAddAction.schema}
-			library={providerAddAction.library}
-			onCreate={(href) => void navigate({ href, replace: true })}
-		/>
-	) : null;
+	return (
+		<>
+			{addOpen ? (
+				<EntityPickerModal
+					initialQuery={q}
+					onClose={closeAdd}
+					onComplete={session?.complete}
+					schema={providerAddAction.schema}
+					library={providerAddAction.library}
+					onCreate={(href) => void navigate({ href, replace: true })}
+				/>
+			) : null}
+			{collections.screen}
+		</>
+	);
 }
 
 function SavedViewPending() {
