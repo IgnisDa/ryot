@@ -21,6 +21,7 @@ type CommandCenterDialogProps = {
 
 function OptionRow(props: {
 	readonly id: string;
+	readonly leading: boolean;
 	readonly active: boolean;
 	readonly option: CommandOption;
 	readonly onHover: () => void;
@@ -43,6 +44,7 @@ function OptionRow(props: {
 			aria-selected={props.active}
 			className={clsx(
 				"flex min-h-9 cursor-pointer items-center gap-2.5 rounded-md px-2.5 py-1.5",
+				props.leading && "scroll-mt-8",
 				props.active ? "bg-nav-indicator" : "hover:bg-hover",
 			)}
 		>
@@ -148,10 +150,11 @@ export function CommandCenterDialog(props: CommandCenterDialogProps) {
 								>
 									{group.heading}
 								</li>
-								{group.options.map((option) => (
+								{group.options.map((option, index) => (
 									<OptionRow
 										option={option}
 										key={option.id}
+										leading={index === 0}
 										id={optionDomId(option.id)}
 										active={option.id === active?.id}
 										onSelect={() => props.onSelect(option)}

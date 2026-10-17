@@ -121,7 +121,6 @@ export function CommandCenter(props: CommandCenterProps) {
 			return idle.filter(({ options }) => options.length > 0);
 		}
 		const matches = filterOptions(destinations, trimmed);
-		const actions = providerAddOptions(views, trimmed);
 		const library = views.map((view): CommandGroup => {
 			const result = results.query === trimmed ? results.byView.get(view.id) : undefined;
 			if (result === undefined) {
@@ -131,6 +130,10 @@ export function CommandCenter(props: CommandCenterProps) {
 				? { options: [], key: view.id, status: "failed", heading: view.name }
 				: { key: view.id, status: "ready", heading: view.name, options: result.success };
 		});
+		const matched = new Set(
+			library.filter(({ options }) => options.length > 0).map(({ key }) => key),
+		);
+		const actions = providerAddOptions(views, trimmed, matched);
 		return [
 			{ key: "go-to", options: matches, heading: GO_TO_GROUP, status: "ready" as const },
 			...library,

@@ -24,6 +24,7 @@ const LIBRARY_FETCH_LIMIT = 5;
 
 export const GO_TO_GROUP = "Go to";
 export const ACTIONS_GROUP = "Actions";
+const PROVIDER_ACTION_LIMIT = 3;
 
 export type CommandOption = {
 	readonly id: string;
@@ -152,9 +153,14 @@ export const libraryViews = (records: readonly SavedViewRecord[]): readonly Libr
 export const providerAddOptions = (
 	views: readonly LibraryView[],
 	query: string,
+	matchedViewIds: ReadonlySet<string>,
 ): readonly CommandOption[] =>
 	views
 		.filter((view) => view.providerAdd)
+		.sort(
+			(left, right) => Number(matchedViewIds.has(right.id)) - Number(matchedViewIds.has(left.id)),
+		)
+		.slice(0, PROVIDER_ACTION_LIMIT)
 		.map((view) => ({
 			icon: "plus",
 			group: ACTIONS_GROUP,

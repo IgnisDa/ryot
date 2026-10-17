@@ -205,7 +205,7 @@ describe("command center library views", () => {
 			record("plain"),
 			record("adder", { settings: { ...settings, addAction: providerAction } }),
 		]);
-		const options = providerAddOptions(found, "dune 2");
+		const options = providerAddOptions(found, "dune 2", new Set());
 
 		expect(options).toHaveLength(1);
 		expect(options[0]).toMatchObject({
@@ -213,6 +213,18 @@ describe("command center library views", () => {
 			href: "/v/c/adder?q=dune+2&add=true",
 			label: 'Search providers for "dune 2"',
 		});
+	});
+
+	it("ranks provider actions for views with library matches first and caps them at three", () => {
+		const found = libraryViews(
+			["a", "b", "c", "d"].map((slug) =>
+				record(slug, { settings: { ...settings, addAction: providerAction } }),
+			),
+		);
+		const matched = new Set([found[3]?.id ?? ""]);
+		const options = providerAddOptions(found, "dune", matched);
+
+		expect(options.map(({ description }) => description)).toEqual(["View d", "View a", "View b"]);
 	});
 });
 
