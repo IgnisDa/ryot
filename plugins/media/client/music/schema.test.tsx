@@ -71,7 +71,7 @@ describe("music schema", () => {
 			noopAdapter,
 			<musicSchema.RowContent compact data={data} entityId="media-1" />,
 		);
-		expect(row.container.querySelector("article > a > *")?.className).toContain("h-20 w-20");
+		expect(row.container.querySelector("article > a > *")?.className).toContain("h-14 w-14");
 		row.unmount();
 
 		expect(musicPresentationFacts(data)).toEqual(["3:42"]);

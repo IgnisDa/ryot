@@ -81,12 +81,12 @@ export const mediaArtworkClass = (input: {
 		);
 	}
 	if (input.aspect === "square") {
-		return input.compact ? "h-20 w-20" : "h-24 w-24";
+		return input.compact ? "h-14 w-14" : "h-16 w-16";
 	}
 	if (input.aspect === "still") {
-		return input.compact ? "h-20 w-35.5" : "h-24 w-42.75";
+		return input.compact ? "h-14 w-25" : "h-16 w-28.5";
 	}
-	return input.compact ? "h-20 w-14" : "h-24 w-16";
+	return input.compact ? "h-16 w-11" : "h-20 w-13.5";
 };
 
 export const createMediaPresentationPrepare =
@@ -169,16 +169,19 @@ export function MediaEntityArtwork(props: {
 function MediaPresentationTitle(props: {
 	readonly compact: boolean;
 	readonly entityId: string;
-	readonly leading?: string;
+	readonly layout: "grid" | "list";
 	readonly data: MediaSavedViewPresentationSubject;
 	readonly facts: ReactNode;
 }) {
 	return (
-		<div className="flex min-w-0 flex-col gap-1.5">
+		<div className={clsx("flex min-w-0 flex-col", props.layout === "grid" ? "gap-1.5" : "gap-1")}>
 			<span className="flex min-w-0 items-baseline gap-1.5">
 				<PluginLink className="block min-w-0" to={{ kind: "entity", entityId: props.entityId }}>
 					<span
-						className={clsx("line-clamp-2 font-display font-semibold text-text", props.leading)}
+						className={clsx(
+							"line-clamp-2 font-semibold text-text",
+							props.layout === "grid" ? "font-display leading-5" : "text-sm",
+						)}
 					>
 						{props.data.name}
 					</span>
@@ -213,8 +216,8 @@ export function MediaCardContent<Data extends MediaSavedViewPresentationSubject>
 					/>
 				</PluginLink>
 				<MediaPresentationTitle
+					layout="grid"
 					data={props.data}
-					leading="leading-5"
 					facts={props.facts}
 					compact={props.compact}
 					entityId={props.entityId}
@@ -246,7 +249,7 @@ export function MediaRowContent<Data extends MediaSavedViewPresentationSubject>(
 				)}
 			>
 				{props.position === undefined ? null : (
-					<span className="text-right font-ui font-medium text-[12px] text-text-subtle tabular-nums">
+					<span className="text-right text-xs font-medium text-text-subtle tabular-nums">
 						{props.position}
 					</span>
 				)}
@@ -259,6 +262,7 @@ export function MediaRowContent<Data extends MediaSavedViewPresentationSubject>(
 					/>
 				</PluginLink>
 				<MediaPresentationTitle
+					layout="list"
 					data={props.data}
 					facts={props.facts}
 					compact={props.compact}

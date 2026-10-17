@@ -57,7 +57,7 @@ describe("book schema", () => {
 		);
 		expect(container.textContent).toContain("320 pages");
 		expect(container.textContent).toContain("42% read");
-		expect(container.querySelector("article > a > *")?.className).toContain("h-20 w-14");
+		expect(container.querySelector("article > a > *")?.className).toContain("h-16 w-11");
 		unmount();
 	});
 

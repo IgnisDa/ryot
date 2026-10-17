@@ -128,7 +128,7 @@ describe("podcast schema", () => {
 			noopAdapter,
 			<podcastSchema.RowContent compact data={data} entityId="podcast-1" />,
 		);
-		expect(row.container.querySelector("article > a > *")?.className).toContain("h-20 w-20");
+		expect(row.container.querySelector("article > a > *")?.className).toContain("h-14 w-14");
 		row.unmount();
 
 		expect(podcastPresentationFacts(data)).toEqual(["Ended"]);

@@ -22,7 +22,7 @@ describe("movie group schema", () => {
 
 		expect(container.textContent).toContain("5 movies");
 		expect(container.textContent).toContain("2 of 5 watched");
-		expect(container.querySelector("article > a > *")?.className).toContain("h-20 w-14");
+		expect(container.querySelector("article > a > *")?.className).toContain("h-16 w-11");
 		unmount();
 	});
 });
