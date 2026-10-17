@@ -37,3 +37,20 @@ export const EntityEditorSaveOutput = Schema.Union([
 	strictStruct({ message: Schema.String, kind: Schema.Literal("invalid") }),
 ]);
 export type EntityEditorSaveOutput = typeof EntityEditorSaveOutput.Type;
+
+export type EntityEditorAllowlist = Readonly<Record<string, ReadonlyArray<string>>>;
+
+export const isEntityEditorSubmissionAllowed = (
+	allowlist: EntityEditorAllowlist,
+	submission: EntityEditorSubmission,
+) => {
+	const relationshipSlugs = Object.hasOwn(allowlist, submission.entitySchemaSlug)
+		? allowlist[submission.entitySchemaSlug]
+		: undefined;
+	return (
+		relationshipSlugs !== undefined &&
+		submission.relationships.every(({ relationshipSchemaSlug }) =>
+			relationshipSlugs.includes(relationshipSchemaSlug),
+		)
+	);
+};

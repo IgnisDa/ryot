@@ -17,4 +17,6 @@ export {
 	EntityEditorRelationshipTarget,
 	EntityEditorSaveOutput,
 	EntityEditorSubmission,
+	isEntityEditorSubmissionAllowed,
+	type EntityEditorAllowlist,
 } from "@ryot-app/contract/modules/entities/editor";
