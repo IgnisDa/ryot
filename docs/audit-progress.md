@@ -15,7 +15,7 @@
 
 ## Status
 
-**69 implemented, 0 in progress, 14 pending; 3 excluded.**
+**70 implemented, 0 in progress, 13 pending; 3 excluded.**
 
 “Implemented” means affected checks and tests passed and the change is committed with this tracker. Batch-wide acceptance is recorded separately below. Rows follow the audit's ranked order; sequencing can change to respect dependencies and keep changes reviewable.
 
@@ -88,7 +88,7 @@
 | T05-R1 | Implemented | Install each of the three seed plugins once with complete definitions instead of seven updates and five definition reads. See this finding's audit commit. |
 | B01-R1 | Implemented | Replace watch deltas with complete membership/foreground sets while preserving caps, coalescing, acknowledgements, and grace tokens. See this finding's audit commit. |
 | B01-R2 | Pending | Persistence owns lock sorting. |
-| B02-R1 | Pending | Delete the test-only live-environment runtime mode. |
+| B02-R1 | Implemented | Delete the test-only live-environment runtime mode; resolve only pinned installation configuration for the admitted execution. See this finding's audit commit. |
 | B02-R2 | Pending | Readiness uses configured-key metadata, not decrypted values. |
 | B10-R2 | Pending | Delete unused definition-reader modes. |
 | B11-R1 | Implemented | Remove the projection-worker invalidation exemption and owner-work-ID threading while preserving event locks. See this finding's audit commit. |
@@ -236,3 +236,4 @@
 - B01-R1: scoped checks passed before 56 backend, 22 client, and eight contract tests; read-only review passed. Complete sets preserve caps/coalescing/acknowledgements/grace tokens. Validated 550 UUID entries, 21,513 JSON bytes, and 21,521 masked-frame bytes. T02-R2 base-URL binding hunks in the shared websocket fixture remain unstaged.
 
 - C07-R1: client type, format, and lint checks passed before 44 navigation and 20 host tests; read-only review passed. Removed the unused saved-view client service and its wiring; canonical preparation and the managed-asset stub remain.
+- B02-R1: backend type, format, and lint checks passed before 103 tests across seven files; read-only review passed. Deleted the test-only live-environment runtime mode and verified that late host reads retain the execution's exact config pin across environment reactivation. B02-R2 readiness changes were not included.

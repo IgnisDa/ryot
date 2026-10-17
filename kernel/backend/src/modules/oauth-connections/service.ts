@@ -183,7 +183,7 @@ export class OAuthConnectionsService extends Context.Service<OAuthConnectionsSer
 										configContext.ownerUserId === null ? null : registered.installationId,
 								});
 					const parsed = yield* resolveContextConfig(
-						{ config, kind: "installation", configSchema: configContext.configSchema },
+						{ config, configSchema: configContext.configSchema },
 						[provider.clientIdConfigKey, provider.clientSecretConfigKey],
 					);
 					const clientId = parsed[provider.clientIdConfigKey];
