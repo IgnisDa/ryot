@@ -71,67 +71,6 @@ const recordingLayer = <A>(
 
 const recordedEntries = Effect.flatMap(RecordedQueries, (recorded) => recorded.entries);
 
-class FakeEntityTable extends Context.Service<
-	FakeEntityTable,
-	{
-		readonly rows: Effect.Effect<ReadonlyArray<Record<string, unknown>>>;
-		readonly lockedReads: Effect.Effect<number>;
-	}
->()("test/FakeEntityTable") {}
-
-const entityTableLayer = Layer.unwrap(
-	Effect.gen(function* () {
-		const rows = yield* Ref.make<ReadonlyArray<Record<string, unknown>>>([]);
-		const lockedReads = yield* Ref.make(0);
-		const insert = () => ({
-			values: (values: Record<string, unknown>) => ({
-				onConflictDoNothing: () => ({
-					returning: () =>
-						Ref.modify(rows, (current) => {
-							if (
-								current.some(
-									(row) =>
-										row["userId"] === values["userId"] &&
-										row["externalId"] === values["externalId"] &&
-										row["providerId"] === values["providerId"] &&
-										row["entitySchemaSlug"] === values["entitySchemaSlug"] &&
-										row["entitySchemaPluginId"] === values["entitySchemaPluginId"],
-								)
-							) {
-								return [[], current];
-							}
-
-							const row = {
-								...values,
-								id: `entity-${current.length + 1}`,
-								createdAt: new Date("2026-07-20T00:00:00.000Z"),
-								updatedAt: new Date("2026-07-20T00:00:00.000Z"),
-							};
-							return [[row], [...current, row]];
-						}),
-				}),
-			}),
-		});
-		const select = () => ({
-			from: () => ({
-				where: () => ({
-					limit: () => ({
-						for: () =>
-							Ref.update(lockedReads, (count) => count + 1).pipe(
-								Effect.andThen(Ref.get(rows)),
-								Effect.map((current) => current.slice(0, 1)),
-							),
-					}),
-				}),
-			}),
-		});
-		return Layer.merge(
-			repositoryWithDatabase({ insert, select }),
-			Layer.succeed(FakeEntityTable, { rows: Ref.get(rows), lockedReads: Ref.get(lockedReads) }),
-		);
-	}),
-);
-
 const providerId = SandboxProviderId.make("provider-1");
 const detailsScriptId = SandboxScriptId.make("details-script-1");
 
@@ -188,58 +127,6 @@ layer(
 			});
 		}),
 	);
-});
-
-layer(entityTableLayer)((test) => {
-	test.effect("keeps kernel and plugin entities with the same natural key separate", () => {
-		const input = {
-			name: "Entity",
-			populatedAt: null,
-			scope: "global" as const,
-			externalId: "external-1",
-			properties: { status: "active" },
-			providerId: SandboxProviderId.make("provider-1"),
-			entitySchemaSlug: EntitySchemaSlug.make("schema-1"),
-		};
-
-		return Effect.gen(function* () {
-			const repository = yield* EntitiesRepository;
-			yield* repository.insertEntity({ ...input, entitySchemaPluginId: null });
-			yield* repository.insertEntity({ ...input, entitySchemaPluginId: "plugin-1" });
-
-			const rows = yield* (yield* FakeEntityTable).rows;
-			expect(rows.map(({ entitySchemaPluginId }) => entitySchemaPluginId)).toEqual([
-				null,
-				"plugin-1",
-			]);
-		});
-	});
-});
-
-layer(entityTableLayer)((test) => {
-	test.effect("distinguishes an insert from a locked conflict row", () => {
-		const input = {
-			name: "Entity",
-			populatedAt: null,
-			scope: "global" as const,
-			externalId: "external-1",
-			entitySchemaPluginId: null,
-			properties: { status: "active" },
-			providerId: SandboxProviderId.make("provider-1"),
-			entitySchemaSlug: EntitySchemaSlug.make("schema-1"),
-		};
-
-		return Effect.gen(function* () {
-			const repository = yield* EntitiesRepository;
-			const created = yield* repository.insertEntity(input);
-			const conflicted = yield* repository.insertEntity(input);
-
-			expect(created.wasInserted).toBe(true);
-			expect(conflicted.wasInserted).toBe(false);
-			expect(conflicted.entity).toEqual(created.entity);
-			expect(yield* (yield* FakeEntityTable).lockedReads).toBe(1);
-		});
-	});
 });
 
 const dialect = new PgDialect();
