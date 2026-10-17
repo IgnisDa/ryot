@@ -8,6 +8,7 @@ import type {
 	PluginEntityUserStatePolicy,
 	PluginImportSource,
 	PluginIntegrationProvider,
+	PluginRelationshipUserWritePolicy,
 	PluginSignalAudiencePolicy,
 	PluginSignalSchema,
 } from "@ryot-app/contract/modules/plugins/manifest";
@@ -95,6 +96,7 @@ export const definitionRelationshipSchema = snakeCase.table(
 		sourceEntitySchemaSlug: text(),
 		targetEntitySchemaSlug: text(),
 		propertiesSchema: jsonb().$type<AppSchema>().notNull(),
+		userWritePolicy: text().$type<PluginRelationshipUserWritePolicy>(),
 		pluginRevisionId: text().references(() => pluginRevision.id, { onDelete: "cascade" }),
 	},
 	(table) => [
@@ -360,6 +362,7 @@ const relationshipSchemaColumns = () => ({
 	sourceEntitySchemaSlug: text(),
 	targetEntitySchemaSlug: text(),
 	propertiesSchema: jsonb().$type<AppSchema>().notNull(),
+	userWritePolicy: text().$type<PluginRelationshipUserWritePolicy>(),
 });
 
 const signalSchemaColumns = () => ({
@@ -401,7 +404,7 @@ export const globalRelationshipSchema = snakeCase
 	.view("global_relationship_schema", { ...globalColumns(), ...relationshipSchemaColumns() })
 	.as(
 		sql`
-			select d.id, r.plugin_id, g.package_id, d.plugin_revision_id, d.slug, d.name, d.position, d.source_entity_schema_slug, d.target_entity_schema_slug, d.properties_schema
+			select d.id, r.plugin_id, g.package_id, d.plugin_revision_id, d.slug, d.name, d.position, d.source_entity_schema_slug, d.target_entity_schema_slug, d.properties_schema, d.user_write_policy
 			from definition_relationship_schema d
 			left join plugin_revision r on r.id = d.plugin_revision_id
 			left join ${globalPlugin} g on g.plugin_id = r.plugin_id and g.active_revision_id = d.plugin_revision_id
@@ -467,12 +470,12 @@ export const userRelationshipSchema = snakeCase
 	.view("user_relationship_schema", { ...userColumns(), ...relationshipSchemaColumns() })
 	.as(
 		sql`
-			select u.id as user_id, d.id, null::text as plugin_id, null::text as package_id, d.plugin_revision_id, null::text as plugin_scope, d.slug, d.name, d.position, d.source_entity_schema_slug, d.target_entity_schema_slug, d.properties_schema, true as is_effective
+			select u.id as user_id, d.id, null::text as plugin_id, null::text as package_id, d.plugin_revision_id, null::text as plugin_scope, d.slug, d.name, d.position, d.source_entity_schema_slug, d.target_entity_schema_slug, d.properties_schema, true as is_effective, d.user_write_policy
 			from definition_relationship_schema d
 			cross join "user" u
 			where d.plugin_revision_id is null
 			union all
-			select p.user_id, d.id, p.plugin_id, p.package_id, d.plugin_revision_id, p.scope, d.slug, d.name, d.position, d.source_entity_schema_slug, d.target_entity_schema_slug, d.properties_schema, p.is_definition_effective and (d.source_entity_schema_slug is null or exists (select 1 from definition_entity_schema e where e.plugin_revision_id = p.active_revision_id and e.slug = d.source_entity_schema_slug)) and (d.target_entity_schema_slug is null or exists (select 1 from definition_entity_schema e where e.plugin_revision_id = p.active_revision_id and e.slug = d.target_entity_schema_slug))
+			select p.user_id, d.id, p.plugin_id, p.package_id, d.plugin_revision_id, p.scope, d.slug, d.name, d.position, d.source_entity_schema_slug, d.target_entity_schema_slug, d.properties_schema, p.is_definition_effective and (d.source_entity_schema_slug is null or exists (select 1 from definition_entity_schema e where e.plugin_revision_id = p.active_revision_id and e.slug = d.source_entity_schema_slug)) and (d.target_entity_schema_slug is null or exists (select 1 from definition_entity_schema e where e.plugin_revision_id = p.active_revision_id and e.slug = d.target_entity_schema_slug)), d.user_write_policy
 			from ${userPlugin} p
 			join definition_relationship_schema d on d.plugin_revision_id = p.active_revision_id
 			where p.is_listed and (d.source_entity_schema_slug is null or exists (select 1 from definition_entity_schema e where e.plugin_revision_id = p.active_revision_id and e.slug = d.source_entity_schema_slug)) and (d.target_entity_schema_slug is null or exists (select 1 from definition_entity_schema e where e.plugin_revision_id = p.active_revision_id and e.slug = d.target_entity_schema_slug))

@@ -6,6 +6,15 @@
 
 User relationship batch creates require `propertiesMode`: `merge` overlays supplied properties and preserves omitted values, while `replace` uses only the supplied properties. Single creates and generic imports keep their existing upsert semantics.
 
+A relationship schema may declare `userWritePolicy: "source-owner"`. User-scoped creates, updates,
+and deletes then require the source entity to belong to the writing user; a visible global target
+is allowed. Omitted policy retains annotation-style relationships from visible global sources.
+The shared mutation validator enforces the restriction during preparation and commit, using the
+stricter of pinned and active declarations. Prepared editor sources use their verified creation
+token until persistence can read the stored source. Authorized global writes remain governed by
+their existing plugin and execution authority; this rule neither grants global authority nor runs
+a sandbox policy during provider reconciliation.
+
 `prepared-mutations.ts` returns opaque user-mutation handles for entity-user-data operations. Preparation opens its own short transaction. Persistence joins the caller's active transaction, uses conditional source writes, and returns only item dispatch references. The multi-item owner seals the resource batch and dispatches after commit. Initial no-ops return no handle; a policy-transformed prepared update still writes even when its final properties match the source.
 
 `planned-reconciliation.ts` joins the provider or host owner's active transaction. It rejects matching before-policies with `before-policy-requires-owner`, rather than executing them in that transaction. It seals each group and records replay-stable group results.

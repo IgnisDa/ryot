@@ -1,6 +1,7 @@
 import {
 	PluginEntityEditor,
 	PluginEntityUserStatePolicy,
+	PluginRelationshipUserWritePolicy,
 	PluginSignalAudiencePolicy,
 } from "@ryot-app/contract/modules/plugins/manifest";
 import {
@@ -64,6 +65,7 @@ export const RelationshipSchemaDefinition = Schema.Struct({
 	propertiesSchema: AppSchema,
 	sourceEntitySchemaSlug: Schema.NullOr(Schema.String),
 	targetEntitySchemaSlug: Schema.NullOr(Schema.String),
+	userWritePolicy: Schema.optional(PluginRelationshipUserWritePolicy),
 });
 
 export type RelationshipSchemaDefinition = typeof RelationshipSchemaDefinition.Type;

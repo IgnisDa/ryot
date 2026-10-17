@@ -164,7 +164,7 @@ export const makePlannedRelationshipReconciliation = (
 				}
 				seen.add(key);
 				if (scope.scope === "user") {
-					yield* validateUserRelationshipEntities(scopes, relationship, definition);
+					yield* validateUserRelationshipEntities(scopes, relationship, definition, scope.userId);
 				}
 				desired.push({
 					...relationship,

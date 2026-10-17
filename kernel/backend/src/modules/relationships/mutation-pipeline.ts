@@ -734,7 +734,7 @@ export class RelationshipMutationPipeline extends Context.Service<RelationshipMu
 											reason: { schema: reference, code: "relationship-schema-not-found" },
 										});
 									}
-									yield* validateUserRelationshipEntities(scopes, change.input, definition);
+									yield* validateUserRelationshipEntities(scopes, change.input, definition, userId);
 									const input = {
 										...change.input,
 										userId,

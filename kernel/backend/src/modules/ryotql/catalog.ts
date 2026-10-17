@@ -502,6 +502,7 @@ const relationshipSchema: CatalogTable = {
 	},
 	fields: {
 		...definitionFields,
+		userWritePolicy: physicalField("user_write_policy", "text"),
 		sourceEntitySchemaSlug: physicalField("source_entity_schema_slug", "text"),
 		targetEntitySchemaSlug: physicalField("target_entity_schema_slug", "text"),
 	},

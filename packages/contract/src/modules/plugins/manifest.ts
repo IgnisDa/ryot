@@ -280,12 +280,19 @@ export const PluginEntitySchema = strictStruct({
 
 export type PluginEntitySchema = Schema.Schema.Type<typeof PluginEntitySchema>;
 
+export const PluginRelationshipUserWritePolicy = Schema.Literal("source-owner");
+
+export type PluginRelationshipUserWritePolicy = Schema.Schema.Type<
+	typeof PluginRelationshipUserWritePolicy
+>;
+
 export const PluginRelationshipSchema = strictStruct({
 	name: Schema.String,
 	slug: pluginManifestSlug,
 	propertiesSchema: PluginAppSchema,
 	sourceEntitySchemaSlug: Schema.NullOr(Schema.String),
 	targetEntitySchemaSlug: Schema.NullOr(Schema.String),
+	userWritePolicy: Schema.optional(PluginRelationshipUserWritePolicy),
 });
 
 export type PluginRelationshipSchema = Schema.Schema.Type<typeof PluginRelationshipSchema>;

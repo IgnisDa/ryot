@@ -208,7 +208,8 @@ export const makeRelationshipMutationPrimitives = ({
 			yield* validateUserRelationshipEntities(
 				reads.users.get(mutation.input.userId) ?? new Map(),
 				mutation.input,
-				pinned,
+				{ ...pinned, userWritePolicy: active.userWritePolicy ?? pinned.userWritePolicy },
+				mutation.input.userId,
 			);
 		} else {
 			const source = reads.global.get(mutation.input.sourceEntityId);

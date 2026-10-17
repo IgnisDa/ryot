@@ -152,11 +152,18 @@ entry can therefore leave otherwise unreachable shared files unchecked.
 | `integrationProviders` | Push, sink, or yank integrations                                        |
 | `oauthProviders`       | Optional kernel-managed OAuth clients for integration settings (system) |
 | `entitySchemas`        | Entities, events, editors, entity-user-data policy, and merge identity  |
-| `relationshipSchemas`  | Typed relationship endpoints                                            |
+| `relationshipSchemas`  | Typed relationship endpoints and optional user-write ownership rules    |
 | `signalSchemas`        | Signal audience, catalog, and formatter definitions                     |
-| `client`               | Version 1 public exports, routes, entities, dependencies, and home view |
-| `savedViews`           | Renderer, settings, and optional named RyotQL data sources              |
-| `hooks`                | Stable before/after lifecycle hooks                                     |
+
+Set `userWritePolicy: "source-owner"` on structural relationship schemas when user-scoped writes
+must require ownership of the source entity. The target may be global and visible. The rule covers
+creates, updates, and deletes through HTTP, editors, and sandbox writers; authorized global provider
+writes retain their existing authority. Leave it omitted for personal annotations that may reference
+global sources. Enforcement uses both the pinned and active schema, so an older execution cannot
+bypass an active ownership restriction.
+| `client` | Version 1 public exports, routes, entities, dependencies, and home view |
+| `savedViews` | Renderer, settings, and optional named RyotQL data sources |
+| `hooks` | Stable before/after lifecycle hooks |
 
 All referenced scripts, workflows, providers, and config keys must exist within the declaring package.
 Local declaration names can repeat across packages. Entity and relationship schema evolution is additive.
