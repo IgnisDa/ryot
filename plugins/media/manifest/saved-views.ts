@@ -1,6 +1,7 @@
 import type { FieldSelection } from "@ryot-app/contract/modules/ryotql/language";
 import type { AuthoredEntityBrowserSavedViewSettings } from "@ryot-app/contract/modules/saved-views/schemas";
 import { EntitySchemaSlug } from "@ryot-app/contract/schema/brands";
+import type { AppSchema } from "@ryot-app/contract/schema/property-schema";
 import {
 	and,
 	castNumber,
@@ -21,6 +22,8 @@ import {
 	relationshipSchemaPredicate,
 	schemaOwnerPredicate,
 } from "@ryot-app/ryotql";
+import { propertyFilterFields } from "@ryot-app/ryotql-recipes/property-filter-fields";
+import { Result } from "effect";
 
 import { animeRecipes } from "../shared/anime-recipes";
 import { audiobookGroupRecipes } from "../shared/audiobook-group-recipes";
@@ -139,6 +142,30 @@ const mergePresentationFields = (
 	];
 };
 
+const mediaFilterProperties = [
+	{ label: "Genres", property: "genres" },
+	{ label: "Publish year", property: "publishYear" },
+	{ label: "Provider rating", property: "providerRating" },
+	{ property: "isNsfw", label: "Adult content" },
+] as const;
+
+const mediaFilterKey = (property: string) => `${property}Value`;
+
+const mediaFilterFields = (schema: { readonly propertiesSchema: AppSchema }) => {
+	const declared = mediaFilterProperties.filter(
+		({ property }) => property in schema.propertiesSchema.fields,
+	);
+	const labels = new Map<string, string>(declared.map(({ label, property }) => [property, label]));
+	return Result.getOrThrow(
+		propertyFilterFields(
+			schema.propertiesSchema,
+			declared.map(({ property }) => ({ property, field: mediaFilterKey(property) })),
+		),
+	).map((filterField) =>
+		Object.assign(filterField, { label: labels.get(filterField.key) ?? filterField.label }),
+	);
+};
+
 const savedViewOrderBy = (slug: string) => {
 	const entity = table("entity", "entity");
 	if (slug === "person" || slug === "company") {
@@ -201,6 +228,7 @@ export const mediaSavedViews = () => {
 		}
 		const { table: tableExpressions } = buildViewExpressions(view.entitySchemaSlug);
 		const presentation = presentationProjection(view.entitySchemaSlug);
+		const filterFields = mediaFilterFields(schema);
 		const fields = mergePresentationFields(
 			[
 				field("entityId", column(entity, "id")),
@@ -210,6 +238,9 @@ export const mediaSavedViews = () => {
 				),
 				field("ownerPluginId", column(entity, "entitySchemaPluginId")),
 				field("entitySchemaSlug", column(entity, "entitySchemaSlug")),
+				...filterFields.map(({ key }) =>
+					field(mediaFilterKey(key), jsonPath(column(entity, "properties"), key)),
+				),
 			],
 			presentation,
 		);
@@ -239,6 +270,7 @@ export const mediaSavedViews = () => {
 						{ owner: { kind: "self" }, slug: EntitySchemaSlug.make(view.entitySchemaSlug) },
 					],
 				},
+				...(filterFields.length === 0 ? {} : { filterFields }),
 				addAction: {
 					type: "provider-search",
 					library: mediaLibraryMembership,

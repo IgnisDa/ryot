@@ -49,6 +49,7 @@ const buildDefinition = (
 	image: ScalarExpression | null,
 	columns: NonEmptyColumns,
 	presentationFields: ReturnType<typeof pokemonPresentationSource>["fields"],
+	filterFields?: AuthoredEntityBrowserSavedViewSettings["filterFields"],
 ) => {
 	const dataSources = document({
 		savedView: rows(entity, {
@@ -74,6 +75,7 @@ const buildDefinition = (
 			sortChoices: [],
 			searchFields: ["name"],
 			sourceName: "savedView",
+			...(filterFields === undefined ? {} : { filterFields }),
 			defaultLayout: "grid" as const,
 			layouts: ["grid", "list", "table"] as const,
 			tableColumns: image === null ? tableColumns : Arr.prepend(tableColumns, imageColumn),
@@ -127,6 +129,7 @@ export const fixtureSavedViews = [
 			pokemonImage,
 			pokemonColumns,
 			pokemonPresentationSource().fields,
+			[{ key: "height", kind: "value", type: "number", label: "Height", field: "height" }],
 		),
 	},
 	{

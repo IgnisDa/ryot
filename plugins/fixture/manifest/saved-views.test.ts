@@ -40,4 +40,15 @@ describe("fixture saved-view presentations", () => {
 			expr: expect.objectContaining({ type: "jsonPath", path: ["images", 0] }),
 		});
 	});
+
+	it("authors one number filter over a selected Pokemon projection", () => {
+		const [pokemon, moves] = fixtureSavedViews;
+		expect(pokemon.settings.filterFields).toEqual([
+			{ key: "height", kind: "value", type: "number", label: "Height", field: "height" },
+		]);
+		expect(pokemon.dataSources.queries.savedView.output.fields).toContainEqual(
+			expect.objectContaining({ key: "height" }),
+		);
+		expect(moves.settings).not.toHaveProperty("filterFields");
+	});
 });
