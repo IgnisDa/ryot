@@ -15,7 +15,7 @@
 
 ## Status
 
-**68 implemented, 0 in progress, 15 pending; 3 excluded.**
+**69 implemented, 0 in progress, 14 pending; 3 excluded.**
 
 “Implemented” means affected checks and tests passed and the change is committed with this tracker. Batch-wide acceptance is recorded separately below. Rows follow the audit's ranked order; sequencing can change to respect dependencies and keep changes reviewable.
 
@@ -96,7 +96,7 @@
 | B24-R1 | Implemented | Delete the unused signal service, repository, layer, and test; preserve definition registration, invalidation, and publication because no semantic consumers remain. See this finding's audit commit. |
 | C03-R1 | Implemented | One shell owner controls presentation activation and deactivation, with stale-entry guards and overlays. See this finding's audit commit. |
 | C06-R1 | Implemented | Delete the unused entity/provenance facade while retaining the active watch recipe and route preparation. See this finding's audit commit. |
-| C07-R1 | Pending | Delete the unused saved-view facade. |
+| C07-R1 | Implemented | Delete the unused saved-view client service and test, its boot layer, and its route-stub wiring; retain the managed-asset stub. See this finding's audit commit. |
 | C07-R2 | Implemented | Shared collection-editor mutation ownership interrupts departure and suppresses late callbacks and refresh; it does not imply server rollback. See this finding's audit commit. |
 | C08-R1 | Implemented | Admin operations return ordinary Effects instead of Exit; remove null busy markers, represent busy requests and skipped outcomes explicitly, and clear request state in finalizers. See this finding's audit commit. |
 | P03-R1 | Pending | Normalize existing Request headers/body once. |
@@ -234,3 +234,5 @@
 - B28-R1: backend type, all-format, lint, and database-generation checks passed before 38 tests, including three real-PostgreSQL tests; read-only review passed. Generated identity projections for five ingestion tables come from JSON; parallel writes are removed and constraints remain.
 - T05-R1: e2e checks and offline comparison passed; 450 entity and 540 event writes, five entity and five event definitions, order and ownership were preserved; read-only review passed. Seed installs three complete plugins once instead of seven updates and five definition reads.
 - B01-R1: scoped checks passed before 56 backend, 22 client, and eight contract tests; read-only review passed. Complete sets preserve caps/coalescing/acknowledgements/grace tokens. Validated 550 UUID entries, 21,513 JSON bytes, and 21,521 masked-frame bytes. T02-R2 base-URL binding hunks in the shared websocket fixture remain unstaged.
+
+- C07-R1: client type, format, and lint checks passed before 44 navigation and 20 host tests; read-only review passed. Removed the unused saved-view client service and its wiring; canonical preparation and the managed-asset stub remain.
