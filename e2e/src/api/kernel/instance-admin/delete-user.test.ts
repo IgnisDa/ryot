@@ -58,14 +58,13 @@ const listPluginsWithHeaders = (headers: Record<string, string>) =>
 let harness: Effect.Success<ReturnType<typeof startIsolatedHarness>> | undefined;
 let media: Effect.Success<ReturnType<typeof shippedPluginTestProviders>>;
 
-beforeAll(
-	() =>
-		runPromise(
-			Effect.gen(function* () {
-				harness = yield* startIsolatedHarness("Delete User");
-				media = yield* shippedPluginTestProviders(mediaPlugin.metadata.packageId);
-			}),
-		),
+beforeAll(() =>
+	runPromise(
+		Effect.gen(function* () {
+			harness = yield* startIsolatedHarness("Delete User");
+			media = yield* shippedPluginTestProviders(mediaPlugin.metadata.packageId);
+		}),
+	),
 );
 
 afterAll(() => runPromise(harness?.stop ?? Effect.void));

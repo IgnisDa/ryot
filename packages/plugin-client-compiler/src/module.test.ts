@@ -497,28 +497,26 @@ export default function Alpha() {
 		}),
 	);
 
-	test.effect(
-		"emits deterministic module files",
-		() =>
-			Effect.gen(function* () {
-				const input = {
-					...pluginIdentity,
-					name: "CLI test plugin",
-					apiVersion: CLIENT_API_VERSION,
-					publicExports: { home: { entry: "client/home.tsx", kind: "component" as const } },
-					files: {
-						"client/styles.css": bytes(".client-test { color: red; }"),
-						"shared/util.ts": bytes('export const sharedLabel = "shared";'),
-						"client/home.tsx": bytes('const Home = () => "home"; export default Home;'),
-					},
-				};
-				const first = yield* compileClientPluginModule(input);
-				const second = yield* compileClientPluginModule(input);
-				expect(
-					second.artifact.files.map(({ name, contents }) => [name, sha256Hex(contents)]),
-				).toEqual(first.artifact.files.map(({ name, contents }) => [name, sha256Hex(contents)]));
-				expect(second.artifact.hash).toBe(first.artifact.hash);
-			}),
+	test.effect("emits deterministic module files", () =>
+		Effect.gen(function* () {
+			const input = {
+				...pluginIdentity,
+				name: "CLI test plugin",
+				apiVersion: CLIENT_API_VERSION,
+				publicExports: { home: { entry: "client/home.tsx", kind: "component" as const } },
+				files: {
+					"client/styles.css": bytes(".client-test { color: red; }"),
+					"shared/util.ts": bytes('export const sharedLabel = "shared";'),
+					"client/home.tsx": bytes('const Home = () => "home"; export default Home;'),
+				},
+			};
+			const first = yield* compileClientPluginModule(input);
+			const second = yield* compileClientPluginModule(input);
+			expect(
+				second.artifact.files.map(({ name, contents }) => [name, sha256Hex(contents)]),
+			).toEqual(first.artifact.files.map(({ name, contents }) => [name, sha256Hex(contents)]));
+			expect(second.artifact.hash).toBe(first.artifact.hash);
+		}),
 	);
 	test.effect(
 		"binds identical aliases independently and leaves import-like strings unchanged",

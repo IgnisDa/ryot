@@ -26,15 +26,14 @@ let fakeApprise: FakeHttpServer;
 let harness: Effect.Success<ReturnType<typeof startIsolatedHarness>> | undefined;
 let media: Effect.Success<ReturnType<typeof shippedPluginTestProviders>>;
 
-beforeAll(
-	() =>
-		runPromise(
-			Effect.gen(function* () {
-				fakeApprise = yield* startFakeAppriseServer;
-				harness = yield* startIsolatedHarness("Association Detector Variants");
-				media = yield* shippedPluginTestProviders(mediaPlugin.metadata.packageId);
-			}),
-		),
+beforeAll(() =>
+	runPromise(
+		Effect.gen(function* () {
+			fakeApprise = yield* startFakeAppriseServer;
+			harness = yield* startIsolatedHarness("Association Detector Variants");
+			media = yield* shippedPluginTestProviders(mediaPlugin.metadata.packageId);
+		}),
+	),
 );
 
 afterAll(() =>

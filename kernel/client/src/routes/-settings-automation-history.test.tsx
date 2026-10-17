@@ -289,48 +289,46 @@ describe("automation history", () => {
 		}),
 	);
 
-	it.live(
-		"refreshes the first page while preserving loaded older runs",
-		() =>
-			Effect.gen(function* () {
-				const cursors: Array<string | undefined> = [];
-				const older = makeRun({
-					status: "failed",
-					hookName: "Library Update Hook",
-					id: AutomationRunId.make("automation-run-older"),
-				});
-				mountView(
-					"/settings/automation-history",
-					makeAutomationHistoryApi(),
-					undefined,
-					makeAutomationQueries({
-						list: (cursor) => {
-							cursors.push(cursor);
-							if (cursor !== undefined) {
-								return Effect.succeed({ items: [older], nextCursor: null });
-							}
-							return Effect.succeed({
-								nextCursor: "opaque-next",
-								items: [makeRun({ status: cursors.length === 1 ? "queued" : "succeeded" })],
-							});
-						},
-					}),
-				);
+	it.live("refreshes the first page while preserving loaded older runs", () =>
+		Effect.gen(function* () {
+			const cursors: Array<string | undefined> = [];
+			const older = makeRun({
+				status: "failed",
+				hookName: "Library Update Hook",
+				id: AutomationRunId.make("automation-run-older"),
+			});
+			mountView(
+				"/settings/automation-history",
+				makeAutomationHistoryApi(),
+				undefined,
+				makeAutomationQueries({
+					list: (cursor) => {
+						cursors.push(cursor);
+						if (cursor !== undefined) {
+							return Effect.succeed({ items: [older], nextCursor: null });
+						}
+						return Effect.succeed({
+							nextCursor: "opaque-next",
+							items: [makeRun({ status: cursors.length === 1 ? "queued" : "succeeded" })],
+						});
+					},
+				}),
+			);
 
-				yield* Effect.promise(() => screen.findByText("Queued"));
-				fireEvent.click(screen.getByRole("button", { name: "Show older runs" }));
-				yield* Effect.promise(() => screen.findByText("Library Update Hook"));
-				yield* Effect.promise(() =>
-					waitFor(
-						() => {
-							expect(screen.getByText("Succeeded")).toBeTruthy();
-							expect(screen.getByText("Library Update Hook")).toBeTruthy();
-							expect(cursors).toEqual([undefined, "opaque-next", undefined]);
-						},
-						{ timeout: RUN_LIST_POLL_MS + 1_000 },
-					),
-				);
-			}),
+			yield* Effect.promise(() => screen.findByText("Queued"));
+			fireEvent.click(screen.getByRole("button", { name: "Show older runs" }));
+			yield* Effect.promise(() => screen.findByText("Library Update Hook"));
+			yield* Effect.promise(() =>
+				waitFor(
+					() => {
+						expect(screen.getByText("Succeeded")).toBeTruthy();
+						expect(screen.getByText("Library Update Hook")).toBeTruthy();
+						expect(cursors).toEqual([undefined, "opaque-next", undefined]);
+					},
+					{ timeout: RUN_LIST_POLL_MS + 1_000 },
+				),
+			);
+		}),
 	);
 
 	it.live(
@@ -392,53 +390,51 @@ describe("automation history", () => {
 			}),
 	);
 
-	it.live(
-		"polls an active older page until the run reaches a terminal state",
-		() =>
-			Effect.gen(function* () {
-				const cursors: Array<string | undefined> = [];
-				let olderReads = 0;
-				const recent = makeRun({
-					hookName: "Recent terminal run",
-					id: AutomationRunId.make("automation-run-recent"),
-				});
-				const older = makeRun({
-					hookName: "Active older run",
-					id: AutomationRunId.make("automation-run-active-older"),
-				});
-				mountView(
-					"/settings/automation-history",
-					makeAutomationHistoryApi(),
-					undefined,
-					makeAutomationQueries({
-						list: (cursor) => {
-							cursors.push(cursor);
-							if (cursor === undefined) {
-								return Effect.succeed({ items: [recent], nextCursor: "older-page" });
-							}
-							olderReads += 1;
-							return Effect.succeed({
-								nextCursor: null,
-								items: [makeRun({ ...older, status: olderReads === 1 ? "queued" : "succeeded" })],
-							});
-						},
-					}),
-				);
+	it.live("polls an active older page until the run reaches a terminal state", () =>
+		Effect.gen(function* () {
+			const cursors: Array<string | undefined> = [];
+			let olderReads = 0;
+			const recent = makeRun({
+				hookName: "Recent terminal run",
+				id: AutomationRunId.make("automation-run-recent"),
+			});
+			const older = makeRun({
+				hookName: "Active older run",
+				id: AutomationRunId.make("automation-run-active-older"),
+			});
+			mountView(
+				"/settings/automation-history",
+				makeAutomationHistoryApi(),
+				undefined,
+				makeAutomationQueries({
+					list: (cursor) => {
+						cursors.push(cursor);
+						if (cursor === undefined) {
+							return Effect.succeed({ items: [recent], nextCursor: "older-page" });
+						}
+						olderReads += 1;
+						return Effect.succeed({
+							nextCursor: null,
+							items: [makeRun({ ...older, status: olderReads === 1 ? "queued" : "succeeded" })],
+						});
+					},
+				}),
+			);
 
-				yield* Effect.promise(() => screen.findByText("Recent terminal run"));
-				fireEvent.click(screen.getByRole("button", { name: "Show older runs" }));
-				yield* Effect.promise(() => screen.findByText("Queued"));
-				yield* Effect.promise(() =>
-					waitFor(
-						() => {
-							expect(screen.getByText("Succeeded")).toBeTruthy();
-							expect(olderReads).toBe(2);
-							expect(cursors).toEqual([undefined, "older-page", undefined, "older-page"]);
-						},
-						{ timeout: RUN_LIST_POLL_MS + 1_000 },
-					),
-				);
-			}),
+			yield* Effect.promise(() => screen.findByText("Recent terminal run"));
+			fireEvent.click(screen.getByRole("button", { name: "Show older runs" }));
+			yield* Effect.promise(() => screen.findByText("Queued"));
+			yield* Effect.promise(() =>
+				waitFor(
+					() => {
+						expect(screen.getByText("Succeeded")).toBeTruthy();
+						expect(olderReads).toBe(2);
+						expect(cursors).toEqual([undefined, "older-page", undefined, "older-page"]);
+					},
+					{ timeout: RUN_LIST_POLL_MS + 1_000 },
+				),
+			);
+		}),
 	);
 
 	it.live("shows bounded retained trigger, error, and log diagnostics", () =>

@@ -185,47 +185,46 @@ function findWorkflowSpan(userId: string) {
 	);
 }
 
-beforeAll(
-	() =>
-		runPromise(
-			Effect.gen(function* () {
-				const [infrastructure, server, port] = yield* Effect.all(
-					[
-						startCoreTestInfrastructure({ bucketName: S3_BUCKET_NAME }),
-						startFakeHttpServer(),
-						Effect.promise(() => getPort()),
-					],
-					{ concurrency: "unbounded" },
-				);
-				apiPort = port;
-				otlpServer = server;
-				coreInfrastructure = infrastructure;
+beforeAll(() =>
+	runPromise(
+		Effect.gen(function* () {
+			const [infrastructure, server, port] = yield* Effect.all(
+				[
+					startCoreTestInfrastructure({ bucketName: S3_BUCKET_NAME }),
+					startFakeHttpServer(),
+					Effect.promise(() => getPort()),
+				],
+				{ concurrency: "unbounded" },
+			);
+			apiPort = port;
+			otlpServer = server;
+			coreInfrastructure = infrastructure;
 
-				const apiOrigin = `http://127.0.0.1:${apiPort}`;
-				const env = buildApiEnv({
-					port: apiPort,
-					frontendUrl: apiOrigin,
-					label: "Observability API",
-					dbUrl: infrastructure.dbUrl,
-					s3BucketName: S3_BUCKET_NAME,
-					redisUrl: infrastructure.redisUrl,
-					s3Endpoint: infrastructure.s3Endpoint,
-					extraEnv: {
-						SERVER_LOG_LEVEL: "debug",
-						OTEL_EXPORTER_OTLP_ENDPOINT: server.url,
-						OTEL_EXPORTER_OTLP_HEADERS: "x-ryot-collector-token=collector-secret",
-					},
-				});
-				logFile = requireString(env.SERVER_LOG_FILE, "Observability api log file is missing");
-				apiProcess = spawnApiProcess(env);
-				yield* waitForHealthCheck(
-					`${apiOrigin}/api/system/health`,
-					"Observability Setup",
-					apiProcess,
-					90,
-				);
-			}),
-		),
+			const apiOrigin = `http://127.0.0.1:${apiPort}`;
+			const env = buildApiEnv({
+				port: apiPort,
+				frontendUrl: apiOrigin,
+				label: "Observability API",
+				dbUrl: infrastructure.dbUrl,
+				s3BucketName: S3_BUCKET_NAME,
+				redisUrl: infrastructure.redisUrl,
+				s3Endpoint: infrastructure.s3Endpoint,
+				extraEnv: {
+					SERVER_LOG_LEVEL: "debug",
+					OTEL_EXPORTER_OTLP_ENDPOINT: server.url,
+					OTEL_EXPORTER_OTLP_HEADERS: "x-ryot-collector-token=collector-secret",
+				},
+			});
+			logFile = requireString(env.SERVER_LOG_FILE, "Observability api log file is missing");
+			apiProcess = spawnApiProcess(env);
+			yield* waitForHealthCheck(
+				`${apiOrigin}/api/system/health`,
+				"Observability Setup",
+				apiProcess,
+				90,
+			);
+		}),
+	),
 );
 
 afterAll(() =>
