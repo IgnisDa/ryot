@@ -1,4 +1,4 @@
-import { expect, it } from "@effect/vitest";
+import { assert, expect, it } from "@effect/vitest";
 import { SandboxScriptId, UserId } from "@ryot-app/contract/schema/brands";
 import { sandboxHostContracts } from "@ryot-app/plugin-backend-sdk/core";
 import {
@@ -13,9 +13,9 @@ import { fixtureManifest } from "#modules/plugins/test-support";
 import { makeUserPluginRevision, makeUserPrincipal } from "../authorization/principal.test-support";
 import {
 	prepareSandboxCreateEvents,
+	prepareSandboxDurableHttpHop,
 	prepareSandboxSendNotification,
 	SandboxDurableHostServiceWorkflow,
-	sandboxDurableHttpRequestUrl,
 } from "./durable-dispatcher";
 import { SandboxSubmissionCommands } from "./submission-command";
 
@@ -257,16 +257,34 @@ it.effect(
 		}),
 );
 
-it("extracts the durable HTTP request URL when options are null", () => {
-	expect(
-		sandboxDurableHttpRequestUrl({
-			index: 0,
-			kind: "host",
-			name: "httpCall",
-			args: { capability: "httpCall", args: ["GET", "https://provider.test/path", null] },
-		}),
-	).toBe("https://provider.test/path");
-});
+it.effect("prepares one normalized durable HTTP hop when options are null", () =>
+	Effect.gen(function* () {
+		const prepared = yield* prepareSandboxDurableHttpHop(
+			{
+				index: 0,
+				kind: "host",
+				name: "httpCall",
+				args: { capability: "httpCall", args: [" get ", "https://PROVIDER.test:443/path", null] },
+			},
+			{
+				context: {},
+				lane: "interactive",
+				executionId: "sandbox-parent",
+				startedAt: "2026-08-06T00:00:00.000Z",
+				principal: makeUserPrincipal({
+					metadata: { runtimeImports: [], capabilities: ["httpCall"] },
+				}),
+			},
+		);
+		assert(prepared._tag === "prepared");
+		expect(prepared.current).toEqual({
+			hop: 0,
+			method: "GET",
+			url: "https://provider.test/path",
+			headers: { "User-Agent": "Ryot ( https://github.com/ignisda/ryot )" },
+		});
+	}),
+);
 
 it("derives service workflow identity from the parent and call index", () => {
 	const request = {

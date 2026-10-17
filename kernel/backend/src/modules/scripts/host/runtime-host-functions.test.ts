@@ -424,8 +424,8 @@ describe("runtime sandbox host functions", () => {
 				Effect.gen(function* () {
 					const { sent, client } = yield* redirecting({});
 					const error = yield* executeSandboxHttp(
-						{ headers: {}, method: "BREW", url: "https://a.test/forged" },
-						{ hop: 1, classify: followAll, allowInsecureConnections: undefined },
+						{ hop: 1, headers: {}, method: "BREW", url: "https://a.test/forged" },
+						followAll,
 					).pipe(Effect.provideService(HttpClient.HttpClient, client), Effect.flip);
 
 					expect(error).toEqual({ message: "httpCall method is not a valid HTTP method" });
