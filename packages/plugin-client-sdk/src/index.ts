@@ -27,3 +27,4 @@ export { createRyotClient, type RyotClient } from "./client/client";
 export { RyotClientError } from "./client/errors";
 export { RyotNavigationTarget } from "./client/navigation-target";
 export type { EntitySettle, EntitySettleReason } from "./refresh/settle";
+export type { RyotSchedule } from "./schedule";

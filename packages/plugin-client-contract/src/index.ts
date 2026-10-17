@@ -23,6 +23,7 @@ export {
 
 export { CLIENT_API_VERSION };
 export * from "./bridge/capabilities";
+export * from "./bridge/device";
 export * from "./bridge/lifecycle";
 export * from "./bridge/messages";
 export * from "./navigation";

@@ -10,7 +10,7 @@ import {
 	type PluginBridgeInit,
 	type ClientPageContext,
 } from "@ryot-app/plugin-client-contract";
-import { Effect, Fiber, Result, Schema } from "effect";
+import { Deferred, Effect, Fiber, Result, Schema } from "effect";
 import { createElement, Fragment } from "react";
 
 import { RyotClientError } from "../client/errors";
@@ -119,6 +119,82 @@ afterEach(() => {
 });
 
 describe("plugin Effect request engine", () => {
+	it.live("correlates device availability and preserves disposal failures", () =>
+		Effect.gen(function* () {
+			const { channel, runtime, messages } = yield* openRuntime();
+			const call = yield* Effect.forkChild(
+				runtime.client.device({ action: "haptic", pluginId: PluginId.make("fixture") }),
+				{ startImmediately: true },
+			);
+			yield* waitForMessagePortMacrotask;
+			expect(sent(messages, "device-request")).toEqual([
+				{ action: "haptic", pluginId: "fixture", requestId: "device-1", type: "device-request" },
+			]);
+			channel.port1.postMessage({
+				outcome: "success",
+				type: "device-result",
+				requestId: "device-1",
+				value: { status: "unsupported" },
+			});
+			expect(yield* Fiber.join(call)).toEqual({ status: "unsupported" });
+			const disposed = yield* Effect.forkChild(
+				Effect.result(
+					runtime.client.device({ action: "haptic", pluginId: PluginId.make("fixture") }),
+				),
+				{ startImmediately: true },
+			);
+			runtime.dispose();
+			expect(yield* Fiber.join(disposed)).toMatchObject({
+				_tag: "Failure",
+				failure: { reason: "disposed" },
+			});
+		}),
+	);
+
+	it.live("acknowledges a flush only after registered persistence completes", () =>
+		Effect.gen(function* () {
+			const { channel, runtime, messages } = yield* openRuntime();
+			const waitForFlush = (requestId: string) =>
+				Effect.callback<boolean>((resume) => {
+					const receive = ({ data }: MessageEvent<unknown>) => {
+						if (
+							typeof data === "object" &&
+							data !== null &&
+							"type" in data &&
+							data.type === "flush-result" &&
+							"requestId" in data &&
+							data.requestId === requestId &&
+							"flushed" in data &&
+							typeof data.flushed === "boolean"
+						) {
+							resume(Effect.succeed(data.flushed));
+						}
+					};
+					channel.port1.addEventListener("message", receive);
+					return Effect.sync(() => channel.port1.removeEventListener("message", receive));
+				});
+			const gate = yield* Deferred.make<void, RyotClientError>();
+			const remove = runtime.client.persistence.registerFlush(() => Deferred.await(gate));
+			const first = yield* Effect.forkChild(waitForFlush("leave-1"), { startImmediately: true });
+			channel.port1.postMessage({ requestId: "leave-1", type: "flush-request" });
+			yield* waitForMessagePortMacrotask;
+			expect(sent(messages, "flush-result")).toEqual([]);
+			yield* Deferred.fail(gate, new RyotClientError("quota"));
+			expect(yield* Fiber.join(first)).toBe(false);
+			expect(sent(messages, "flush-result")).toEqual([
+				{ flushed: false, type: "flush-result", requestId: "leave-1" },
+			]);
+			remove();
+			const second = yield* Effect.forkChild(waitForFlush("leave-2"), { startImmediately: true });
+			channel.port1.postMessage({ requestId: "leave-2", type: "flush-request" });
+			expect(yield* Fiber.join(second)).toBe(true);
+			expect(sent(messages, "flush-result")).toContainEqual({
+				flushed: true,
+				type: "flush-result",
+				requestId: "leave-2",
+			});
+		}),
+	);
 	it.live("binds only the exact prepared contributors and rejects foreign storage ownership", () =>
 		Effect.gen(function* () {
 			const packageId = PluginPackageId.make("test/fixture");

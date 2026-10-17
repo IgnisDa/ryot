@@ -21,6 +21,7 @@ import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react"
 
 import { useAuthenticatedSession } from "#/modules/auth/session-boundary";
 import { useIsDemoSession } from "#/modules/demo-protection";
+import { DeviceScope, ReturnShortcutBar } from "#/modules/device/lifecycle";
 import { CONTENT_SHIFT } from "#/modules/navigation/drawer-metrics";
 import { EdgeGesture } from "#/modules/navigation/edge-gesture";
 import {
@@ -38,7 +39,7 @@ import {
 } from "#/modules/navigation/workspace-state";
 import { ClientPageDocumentProvider } from "#/modules/pages/documents/state";
 import { ClientPageDocumentHost } from "#/modules/pages/runtime/document-host";
-import { effectiveCatalogPlugin } from "#/modules/plugins/catalog/location";
+import { toNavigationRequest, effectiveCatalogPlugin } from "#/modules/plugins/catalog/location";
 import { usePluginCatalog } from "#/modules/plugins/catalog/provider";
 import {
 	CustomizeContext,
@@ -125,6 +126,12 @@ export function AuthenticatedShell(props: {
 	const contentShift = useTransform(progress, [0, 1], [0, CONTENT_SHIFT]);
 	const triggerRef = useRef<HTMLElement>(null);
 	const { scope, server, runtime, backInterceptors } = useRouteContext({ from: "/_authenticated" });
+	const navigateDeviceTarget = (target: Parameters<typeof toNavigationRequest>[0]["target"]) => {
+		const request = toNavigationRequest({ target, mode: "push", type: "navigate" }, catalog);
+		if (request) {
+			void navigate({ href: request.href });
+		}
+	};
 	const [drawerOpen, setDrawerOpen] = useState(false);
 	const [searchOpen, setSearchOpen] = useState(false);
 	const [workspaceSwitcherOpen, setWorkspaceSwitcherOpen] = useState(false);
@@ -431,6 +438,7 @@ export function AuthenticatedShell(props: {
 				onNavigateSettings={() => navigate({ href: "/settings" })}
 			/>
 			<RememberedWorkspaceContext value={rememberedPluginId}>
+				<DeviceScope scope={scope} runtime={runtime} onNavigate={navigateDeviceTarget} />
 				<CustomizeContext value={customizeController}>
 					<PluginHeaderContext value={header}>
 						<PluginTitleContext value={pluginTitle}>
@@ -459,6 +467,12 @@ export function AuthenticatedShell(props: {
 														<Outlet />
 													</ClientPageDocumentProvider>
 												</div>
+												<ReturnShortcutBar
+													scope={scope}
+													runtime={runtime}
+													onNavigate={navigateDeviceTarget}
+													safeAreaBottom={safeAreaInsets.safeAreaBottom}
+												/>
 											</motion.div>
 										</ClientPageOverlayContext>
 									</ClientPageScreenContext>
