@@ -3,6 +3,8 @@ import { Effect, Layer } from "effect";
 
 import { AuthRepository } from "#modules/accounts/auth/repository";
 import { makeAuthScriptHost } from "#modules/accounts/auth/script-host";
+import { ManagedAssetsServiceLive } from "#modules/assets/layer";
+import { makeAssetsScriptHost } from "#modules/assets/script-host";
 import { LifecycleServicesLive, SignalEmissionServiceLive } from "#modules/automations/layer";
 import { makeSignalScriptHost } from "#modules/automations/script-host";
 import { DefinitionRepository } from "#modules/definitions/repository";
@@ -54,11 +56,13 @@ import {
 	SandboxRedisLive,
 } from "#modules/scripts/host/sandbox-host-live";
 import { ScriptExecutionServiceLive } from "#modules/scripts/layer";
+import { makeProKeyScriptHost } from "#modules/scripts/pro-key-script-host";
 import { SandboxRepository } from "#modules/scripts/registry/repository";
 
 export const makeAdditionalScriptHostFunctions = Effect.gen(function* () {
 	return {
 		...(yield* makeAuthScriptHost),
+		...(yield* makeAssetsScriptHost),
 		...(yield* makeDefinitionScriptHost),
 		...(yield* makeEntityScriptHost),
 		...(yield* makeEventScriptHost),
@@ -67,6 +71,7 @@ export const makeAdditionalScriptHostFunctions = Effect.gen(function* () {
 		...(yield* makePluginScriptHost),
 		...(yield* makeRelationshipScriptHost),
 		...(yield* makeRyotQLScriptHost),
+		...(yield* makeProKeyScriptHost),
 	} satisfies AdditionalScriptHostImplementationMap;
 });
 
@@ -103,6 +108,7 @@ export const ScriptHostImplementationsLive = Layer.effect(
 	Layer.provide(
 		Layer.mergeAll(
 			EventsServiceLive,
+			ManagedAssetsServiceLive,
 			EventStreamWorkServiceProvidedLive,
 			RyotQLService.layer,
 			RelationshipMutationPipelineLive,

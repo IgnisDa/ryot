@@ -40,6 +40,8 @@ const SANDBOX_CAPABILITY_REQUIREMENTS = {
 	getEntitySchemas: { bridge: true, subjects: ["user", "automation-run"] as const },
 	httpCall: { bridge: true, subjects: ["user", "automation-run", "system"] as const },
 	getUserPreferences: { bridge: true, subjects: ["user", "automation-run"] as const },
+	getProAvailability: { bridge: true, subjects: ["user", "automation-run"] as const },
+	verifyManagedAssets: { bridge: true, subjects: ["user", "automation-run"] as const },
 	getCurrentIntegration: { bridge: true, subjects: ["user", "automation-run"] as const },
 	changeUserRelationships: { bridge: true, subjects: ["user", "automation-run"] as const },
 	getCachedValue: { bridge: true, subjects: ["user", "automation-run", "system"] as const },

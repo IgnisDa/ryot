@@ -8,8 +8,10 @@ export const CORE_SANDBOX_HOST_CAPABILITIES = [
 	"getCachedValue",
 	"setCachedValue",
 	"getPluginConfig",
+	"getProAvailability",
 	"getUserPreferences",
 	"getUserSettings",
+	"verifyManagedAssets",
 	"claimPersistentValue",
 	"getPersistentValue",
 ] as const;

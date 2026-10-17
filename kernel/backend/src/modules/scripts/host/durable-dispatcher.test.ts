@@ -32,6 +32,15 @@ it("classifies every bridge host capability exactly once", () => {
 		ensureUserEntities: { dispatch: "service-workflow" },
 		sendNotification: { dispatch: "notification-workflow" },
 	});
+	expect(SANDBOX_HOST_EXECUTION_POLICY.getProAvailability).toMatchObject({
+		dispatch: "activity",
+		resultBytes: expect.any(Number),
+	});
+	expect(SANDBOX_HOST_EXECUTION_POLICY.verifyManagedAssets).toMatchObject({
+		dispatch: "activity",
+		wireBytes: expect.any(Number),
+		resultBytes: expect.any(Number),
+	});
 	expect(sandboxDurableHostDispatchStrategy("scratch")).toBeNull();
 });
 
