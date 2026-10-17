@@ -20,6 +20,18 @@ export const CollectionFieldType = Schema.Literals([
 
 export type CollectionFieldType = typeof CollectionFieldType.Type;
 
+export const collectionFieldLimits = {
+	fields: 50,
+	choices: 100,
+	labelLength: 100,
+	choiceLength: 100,
+	descriptionLength: 500,
+} as const;
+
+const choiceFieldTypes: ReadonlySet<CollectionFieldType> = new Set(["choice", "multi-choice"]);
+
+export const hasCollectionFieldChoices = (type: CollectionFieldType) => choiceFieldTypes.has(type);
+
 export const CollectionField = strictStruct({
 	label: Schema.String,
 	required: Schema.Boolean,

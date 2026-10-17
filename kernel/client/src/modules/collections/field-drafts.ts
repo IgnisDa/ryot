@@ -1,7 +1,8 @@
-import type {
-	CollectionField,
-	CollectionFieldType,
-	KeyedCollectionField,
+import {
+	hasCollectionFieldChoices,
+	type CollectionField,
+	type CollectionFieldType,
+	type KeyedCollectionField,
 } from "@ryot-app/contract/modules/collections/fields";
 
 export type FieldDraft = {
@@ -28,10 +29,6 @@ export const fieldTypeChoices: ReadonlyArray<{
 	{ value: "multi-choice", label: "Multiple choice" },
 	{ value: "text-list", label: "List of text" },
 ];
-
-const choiceTypes: ReadonlySet<CollectionFieldType> = new Set(["choice", "multi-choice"]);
-
-export const hasChoices = (type: CollectionFieldType) => choiceTypes.has(type);
 
 export const hasDefaultValue = (type: CollectionFieldType) =>
 	type === "text" ||
@@ -98,7 +95,7 @@ export const collectionFieldFrom = (draft: FieldDraft): CollectionField => {
 		label: draft.label.trim(),
 		...(draft.key === undefined ? {} : { key: draft.key }),
 		...(description === "" ? {} : { description }),
-		...(hasChoices(draft.type) ? { choices: choiceLines(draft.choices) } : {}),
+		...(hasCollectionFieldChoices(draft.type) ? { choices: choiceLines(draft.choices) } : {}),
 		...(defaultValue === undefined ? {} : { defaultValue }),
 	};
 };

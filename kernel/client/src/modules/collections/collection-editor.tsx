@@ -1,4 +1,8 @@
 import {
+	collectionFieldLimits,
+	hasCollectionFieldChoices,
+} from "@ryot-app/contract/modules/collections/fields";
+import {
 	CollectionBadRequest,
 	CollectionNotFound,
 } from "@ryot-app/contract/modules/collections/schemas";
@@ -26,11 +30,11 @@ import { useRef, useState } from "react";
 
 import { AuthenticatedApiError } from "#/api/authenticated";
 import { CollectionsApi } from "#/api/collections";
+import { CollectionLoadDialog } from "#/modules/collections/collection-load-dialog";
 import {
 	collectionFieldFrom,
 	fieldDraftFrom,
 	fieldTypeChoices,
-	hasChoices,
 	hasDefaultValue,
 	newFieldDraft,
 	type FieldDraft,
@@ -62,11 +66,11 @@ const isBadRequest = Schema.is(CollectionBadRequest);
 const isNotFound = Schema.is(CollectionNotFound);
 
 const fieldErrorLabels: Partial<Record<string, string>> = {
-	label: "Enter a label of at most 100 characters.",
-	description: "Descriptions are at most 500 characters.",
 	defaultValue: "The default value doesn't fit this field.",
 	key: "This field can't be kept; remove it and add it again.",
-	choices: "Enter at least one unique choice per line, each at most 100 characters.",
+	label: `Enter a label of at most ${collectionFieldLimits.labelLength} characters.`,
+	description: `Descriptions are at most ${collectionFieldLimits.descriptionLength} characters.`,
+	choices: `Enter at least one unique choice per line, each at most ${collectionFieldLimits.choiceLength} characters.`,
 };
 
 const editorErrors = (error: unknown): EditorErrors => {
@@ -96,7 +100,7 @@ const editorErrors = (error: unknown): EditorErrors => {
 			if (path[0] === "fields" && Number.isInteger(index) && label !== undefined) {
 				fields[index] = [...(fields[index] ?? []), label];
 			} else {
-				general = "Collections can have at most 50 fields.";
+				general = `Collections can have at most ${collectionFieldLimits.fields} fields.`;
 			}
 		}
 		return { fields, general };
@@ -158,7 +162,7 @@ function FieldDraftEditor(props: {
 					/>
 				)}
 			</Field>
-			{hasChoices(draft.type) ? (
+			{hasCollectionFieldChoices(draft.type) ? (
 				<Field label="Choices" hint="One choice per line">
 					{(control) => (
 						<TextArea
@@ -437,23 +441,13 @@ function ExistingCollectionEditor(props: {
 		return <CollectionEditorForm {...props} initialName="" header={result.data} />;
 	}
 	return (
-		<Dialog onClose={props.onClose} title="Edit collection" closeLabel="Close collection editor">
-			{result.isError ? (
-				<Notice
-					tone="danger"
-					action={
-						<Button variant="secondary" onClick={result.refetch}>
-							Retry collection
-						</Button>
-					}
-				>
-					The collection could not be loaded.
-				</Notice>
-			) : (
-				<p role="status">
-					{result.data === null ? "This collection no longer exists." : "Loading collection…"}
-				</p>
-			)}
-		</Dialog>
+		<CollectionLoadDialog
+			title="Edit collection"
+			onClose={props.onClose}
+			failed={result.isError}
+			onRetry={result.refetch}
+			missing={result.data === null}
+			closeLabel="Close collection editor"
+		/>
 	);
 }

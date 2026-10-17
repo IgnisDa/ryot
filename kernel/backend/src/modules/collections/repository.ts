@@ -52,6 +52,13 @@ const toCollectionResponse = (row: CollectionRow) => ({
 	providerId: row.providerId ? SandboxProviderId.make(row.providerId) : null,
 });
 
+const userCollectionWhere = (userId: UserId) =>
+	and(
+		eq(schema.entity.userId, userId),
+		eq(schema.entity.entitySchemaSlug, "collection"),
+		isNull(schema.entity.entitySchemaPluginId),
+	);
+
 const membershipWhere = (input: { userId: UserId; collectionId: EntityId }) =>
 	and(
 		eq(schema.relationship.userId, input.userId),
@@ -93,14 +100,7 @@ export class CollectionsRepository extends Context.Service<CollectionsRepository
 					db
 						.select(collectionSelection)
 						.from(schema.entity)
-						.where(
-							and(
-								eq(schema.entity.name, input.name),
-								eq(schema.entity.userId, input.userId),
-								eq(schema.entity.entitySchemaSlug, "collection"),
-								isNull(schema.entity.entitySchemaPluginId),
-							),
-						)
+						.where(and(eq(schema.entity.name, input.name), userCollectionWhere(input.userId)))
 						.limit(1),
 				);
 
@@ -150,14 +150,7 @@ export class CollectionsRepository extends Context.Service<CollectionsRepository
 					db
 						.select(collectionSelection)
 						.from(schema.entity)
-						.where(
-							and(
-								eq(schema.entity.id, collectionId),
-								eq(schema.entity.userId, userId),
-								eq(schema.entity.entitySchemaSlug, "collection"),
-								isNull(schema.entity.entitySchemaPluginId),
-							),
-						)
+						.where(and(eq(schema.entity.id, collectionId), userCollectionWhere(userId)))
 						.limit(1),
 				);
 

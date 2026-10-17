@@ -40,6 +40,7 @@ import { Effect } from "effect";
 import { useEffect, useRef, useState } from "react";
 
 import { CollectionEditor } from "#/modules/collections/collection-editor";
+import { CollectionLoadDialog } from "#/modules/collections/collection-load-dialog";
 import { schemaFormReorderFeedback } from "#/modules/ui/schema-form-feedback";
 import { schemaFormIcons } from "#/modules/ui/schema-form-icons";
 import { useSchemaFileUpload } from "#/modules/ui/schema-form-upload";
@@ -279,24 +280,14 @@ function SelectedCollection(props: {
 		return <MembershipForm {...props} header={header} membership={result.data.membership} />;
 	}
 	return (
-		<Dialog title="Collection" onClose={props.onClose} closeLabel="Close collection membership">
-			{result.isError ? (
-				<Notice
-					tone="danger"
-					action={
-						<Button variant="secondary" onClick={result.refetch}>
-							Retry collection
-						</Button>
-					}
-				>
-					The collection could not be loaded.
-				</Notice>
-			) : (
-				<p role="status">
-					{result.data ? "This collection no longer exists." : "Loading collection…"}
-				</p>
-			)}
-		</Dialog>
+		<CollectionLoadDialog
+			title="Collection"
+			onClose={props.onClose}
+			failed={result.isError}
+			onRetry={result.refetch}
+			missing={result.data !== undefined}
+			closeLabel="Close collection membership"
+		/>
 	);
 }
 

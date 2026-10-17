@@ -5,7 +5,6 @@ import {
 	usePageRefreshRequest,
 	useRyot,
 	useRyotQuery,
-	useRyotSchedule,
 } from "@ryot-app/plugin-client-sdk/react";
 import { PluginScreenFrame } from "@ryot-app/plugin-client-sdk/screen";
 import { Button, IconButton, StatusMessage } from "@ryot-app/plugin-ui-sdk";
@@ -24,6 +23,7 @@ import { useEffect, useEffectEvent, useState } from "react";
 
 import type { BrowserColumns } from "./browser-table";
 import { EntityBrowserController, type BrowserQueryPage } from "./entity-browser-controller";
+import { useHostScreen } from "./host-screen";
 
 const QueryInput = Schema.Tuple([
 	Schema.String,
@@ -80,19 +80,8 @@ const CollectionCount = ({
 
 const CollectionDetail = ({ collectionId }: { readonly collectionId: string }) => {
 	const ryot = useRyot();
-	const schedule = useRyotSchedule();
 	const refresh = usePageRefreshRequest();
-	const openScreen = <Outcome extends { readonly kind: string }>(
-		screen: Effect.Effect<Outcome, unknown>,
-		onOutcome: (outcome: Outcome) => void,
-	) =>
-		schedule.run(
-			screen.pipe(
-				Effect.tap((outcome) => Effect.sync(() => onOutcome(outcome))),
-				Effect.ignore,
-			),
-			() => undefined,
-		);
+	const openScreen = useHostScreen();
 	const editCollection = () =>
 		openScreen(ryot.screens.editCollection({ collectionId }), (outcome) => {
 			if (outcome.kind === "deleted") {
