@@ -26,7 +26,7 @@ Live smoke may require credentials and tests stable provider properties, not exa
 ## Harness
 
 `global-setup.ts` builds required artifacts, provisions PostgreSQL, Redis, and object storage, then starts one shared backend serving the SPA and `/api` from one origin. It publishes that backend through `E2E_API_URL`, `E2E_FRONTEND_URL`, and `E2E_ADMIN_ACCESS_TOKEN`, which worker processes inherit. The shared server uses an isolated log directory; `E2E_SERVER_LOG_FILE` lets scoped fixtures add retained log files without changing the active log.
-Testcontainers' Ryuk reaper removes the containers if the test process exits unexpectedly; normal teardown also stops the backend process.
+Each acquired container, storage client, and API process registers a Scope finalizer before later setup runs. Startup failure or interruption closes acquired resources; normal teardown stops API processes before their infrastructure. Testcontainers' Ryuk reaper removes containers if the test process exits unexpectedly. Server and PostgreSQL logs are retained after teardown.
 On macOS, setup holds a `caffeinate` idle-sleep assertion until teardown or runner exit so wall-clock deadlines and OAuth tokens remain valid during the run.
 
 The PostgreSQL container enables lock-wait and failed-statement logging with PID and transaction ID
@@ -38,6 +38,12 @@ Up to six files share the backend concurrently. Tests and hooks time out after 1
 Fixtures mirror ownership: generic platform fixtures live under `src/fixtures/kernel`, plugin-owned domain fixtures under `src/fixtures/plugins/<plugin>`, and cross-cutting harness code under `src/support`. There is no aggregate fixture barrel. Kernel suites that need plugin-owned schemas import that plugin fixture explicitly.
 
 Effect-native fixtures return effects. `it.live` supplies per-test `Scope` and the shared E2E services (HTTP client, Playwright spawner, plugin compilers) without `TestClock`; do not use `it.effect` for real-time waits. Scoped network resources use `Effect.acquireRelease`; `startFakeHttpServerScoped` and `startFakeAppriseServerScoped` close their servers with the test Scope. Plain Vitest hooks run Effect setup with the harness `runPromise`, which provides the same services, and await `stop()` cleanup. Wrap unavoidable third-party Promise APIs at fixture boundaries with typed `Effect.tryPromise` errors.
+
+Harness ownership tests run without global setup or containers:
+
+```bash
+bun --bun run vitest run --config vitest.harness.config.ts src/support/resource-scope.test.ts
+```
 
 E2E enforces the normal Effect async, HTTP, JSON, and platform rules. Keep local inline suppressions only where Playwright evaluates an async callback in the browser or an external API requires a Promise callback; state the boundary in the comment. The two seed scripts have explicit file-scoped lint exemptions and remain untouched.
 

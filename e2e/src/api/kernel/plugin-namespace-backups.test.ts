@@ -59,8 +59,6 @@ import {
 	buildApiEnv,
 	spawnApiProcess,
 	startCoreTestInfrastructure,
-	stopApiProcess,
-	stopCoreTestInfrastructure,
 	waitForHealthCheck,
 } from "~/support/provisioning";
 
@@ -217,28 +215,20 @@ describe("plugin namespace backups", () => {
 		() =>
 			Effect.gen(function* () {
 				const bucketName = `namespace-backup-${crypto.randomUUID()}`;
-				const infrastructure = yield* Effect.acquireRelease(
-					startCoreTestInfrastructure({ bucketName }),
-					stopCoreTestInfrastructure,
-				);
+				const infrastructure = yield* startCoreTestInfrastructure({ bucketName });
 				const port = yield* Effect.promise(() => getPort());
 				const origin = `http://127.0.0.1:${port}`;
 				const destinationApi = `${origin}/api`;
-				const process = yield* Effect.acquireRelease(
-					Effect.sync(() =>
-						spawnApiProcess(
-							buildApiEnv({
-								port,
-								frontendUrl: origin,
-								s3BucketName: bucketName,
-								dbUrl: infrastructure.dbUrl,
-								redisUrl: infrastructure.redisUrl,
-								label: "Namespace backup destination",
-								s3Endpoint: infrastructure.s3Endpoint,
-							}),
-						),
-					),
-					stopApiProcess,
+				const process = yield* spawnApiProcess(
+					buildApiEnv({
+						port,
+						frontendUrl: origin,
+						s3BucketName: bucketName,
+						dbUrl: infrastructure.dbUrl,
+						redisUrl: infrastructure.redisUrl,
+						label: "Namespace backup destination",
+						s3Endpoint: infrastructure.s3Endpoint,
+					}),
 				);
 				yield* waitForHealthCheck(
 					`${destinationApi}/system/health`,

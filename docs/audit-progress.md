@@ -15,7 +15,7 @@
 
 ## Status
 
-**52 implemented, 0 in progress, 31 pending; 3 excluded.**
+**53 implemented, 0 in progress, 30 pending; 3 excluded.**
 
 “Implemented” means affected checks and tests passed and the change is committed with this tracker. Batch-wide acceptance is recorded separately below. Rows follow the audit's ranked order; sequencing can change to respect dependencies and keep changes reviewable.
 
@@ -83,7 +83,7 @@
 | F02-R1 | Pending | Normalize the already-selected workout group once. |
 | F04-R1 | Implemented | Read the persisted numeric template plan directly and enrich distinct choices without editor hydration; preserve validation, units, and pro-media behavior. See this finding's audit commit. |
 | A02-R1 | Pending | One event-ID migration scan. |
-| T02-R1 | Pending | Register test resource finalizers during acquisition. |
+| T02-R1 | Implemented | Register release finalizers at acquisition, including partial failure, interruption, and stop; close the API scope before infrastructure and keep capacity unchanged. See this finding's audit commit. |
 | T02-R2 | Pending | Bind sessions and admin authority to one server target. |
 | T05-R1 | Pending | Three complete seed installs replace seven updates and catalog rereads. |
 | B01-R1 | Pending | Replace watch deltas with complete membership/foreground sets. |
@@ -218,3 +218,4 @@
 - B07-R1: scoped package checks passed; full backend/server checks and all backup tests passed in the coordinator 31-file run; read-only review reported no findings. Package keys are the sole portable identity; no version or compatibility path changed.
 - B13-R2: coordinated full checks passed, followed by all affected workflow tests and 33 ingestion tests; read-only review reported no findings. Pending transitions directly to applying; B13-R1 and B15 behavior are preserved. Development state is resettable; no production compatibility or drain machinery was added, and no reset was performed.
 - F04-R2: fitness check passed before 73 tests across 12 files, e2e check passed, and the full server check passed; read-only review reported no findings. Stable entry IDs preserve complete child pages, session-linked events/analytics, and entry-ID update/delete; OpenScale legacy producers remain. F02 workout hunks in the shared import test were excluded. Restored normal/larger migration validation remains pending for coordinated follow-up; no reset or compatibility/drain path was needed.
+- T02-R1: e2e type, format, and lint checks passed before eight harness tests; read-only review passed. Release finalizers are registered during acquisition, including partial failure/interruption/stop, with API scope closed before infrastructure and capacity unchanged. The T05 seed script was not staged.

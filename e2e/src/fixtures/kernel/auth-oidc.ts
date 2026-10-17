@@ -3,6 +3,7 @@ import type { HttpClient } from "effect/http";
 import { Events, OAuth2Server } from "oauth2-mock-server";
 
 import { requirePresent } from "~/support/assertions";
+import { acquireInChildScope } from "~/support/resource-scope";
 import { webRequest } from "~/support/web-request";
 
 import {
@@ -28,9 +29,13 @@ const mapAuthError = <A, E, R>(effect: Effect.Effect<A, E, R>) =>
 	effect.pipe(Effect.mapError((cause) => new OidcFixtureError({ cause })));
 
 export const startMockOidcServer = Effect.gen(function* () {
-	const server = new OAuth2Server();
+	const server = yield* Effect.acquireRelease(
+		Effect.sync(() => new OAuth2Server()),
+		(acquired) =>
+			acquired.listening ? attempt(() => acquired.stop()).pipe(Effect.orDie) : Effect.void,
+	);
 	yield* attempt(() => server.issuer.keys.generate("RS256"));
-	yield* attempt(() => server.start(0, "127.0.0.1"));
+	yield* attempt(() => server.start(0, "127.0.0.1")).pipe(Effect.uninterruptible);
 
 	const claimsByCode = new Map<string, Record<string, unknown>>();
 	let nextClaims: Record<string, unknown> | undefined;
@@ -58,10 +63,7 @@ export const startMockOidcServer = Effect.gen(function* () {
 		},
 		issuerUrl: requirePresent(server.issuer.url, "Mock OIDC server failed to expose an issuer URL"),
 	};
-});
-
-export const stopMockOidcServer = (mockOidcServer?: MockOidcServer) =>
-	mockOidcServer?.server.listening ? attempt(() => mockOidcServer.server.stop()) : Effect.void;
+}).pipe(acquireInChildScope);
 
 export const performOidcSignIn = (
 	mockOidcServer: MockOidcServer,

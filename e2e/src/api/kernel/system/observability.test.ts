@@ -9,24 +9,22 @@ import {
 	requireString,
 } from "~/support/assertions";
 import { afterAll, beforeAll, describe, expect, it, runPromise } from "~/support/effect-test";
-import { type FakeHttpServer, startFakeHttpServer } from "~/support/fake-http-server";
+import { startFakeHttpServerScoped } from "~/support/fake-http-server";
 import {
 	buildApiEnv,
 	spawnApiProcess,
 	startCoreTestInfrastructure,
-	stopApiProcess,
-	stopCoreTestInfrastructure,
 	waitForHealthCheck,
 } from "~/support/provisioning";
+import { makeTestResourceScope } from "~/support/resource-scope";
 
 const S3_BUCKET_NAME = "ryot-observability-test";
 const WORKFLOW_NAME = "NotificationDeliveryWorkflow";
 
 let apiPort: number;
 let logFile: string | undefined;
-let otlpServer: FakeHttpServer | undefined;
-let apiProcess: ReturnType<typeof spawnApiProcess> | undefined;
-let coreInfrastructure: Effect.Success<ReturnType<typeof startCoreTestInfrastructure>> | undefined;
+let otlpServer: Effect.Success<ReturnType<typeof startFakeHttpServerScoped>> | undefined;
+const resources = makeTestResourceScope();
 
 function getApiUrl() {
 	return `http://127.0.0.1:${apiPort}/api`;
@@ -187,58 +185,48 @@ function findWorkflowSpan(userId: string) {
 
 beforeAll(() =>
 	runPromise(
-		Effect.gen(function* () {
-			const [infrastructure, server, port] = yield* Effect.all(
-				[
-					startCoreTestInfrastructure({ bucketName: S3_BUCKET_NAME }),
-					startFakeHttpServer(),
-					Effect.promise(() => getPort()),
-				],
-				{ concurrency: "unbounded" },
-			);
-			apiPort = port;
-			otlpServer = server;
-			coreInfrastructure = infrastructure;
+		resources.run(
+			Effect.gen(function* () {
+				const [infrastructure, server, port] = yield* Effect.all(
+					[
+						startCoreTestInfrastructure({ bucketName: S3_BUCKET_NAME }),
+						startFakeHttpServerScoped(),
+						Effect.promise(() => getPort()),
+					],
+					{ concurrency: "unbounded" },
+				);
+				apiPort = port;
+				otlpServer = server;
 
-			const apiOrigin = `http://127.0.0.1:${apiPort}`;
-			const env = buildApiEnv({
-				port: apiPort,
-				frontendUrl: apiOrigin,
-				label: "Observability API",
-				dbUrl: infrastructure.dbUrl,
-				s3BucketName: S3_BUCKET_NAME,
-				redisUrl: infrastructure.redisUrl,
-				s3Endpoint: infrastructure.s3Endpoint,
-				extraEnv: {
-					SERVER_LOG_LEVEL: "debug",
-					OTEL_EXPORTER_OTLP_ENDPOINT: server.url,
-					OTEL_EXPORTER_OTLP_HEADERS: "x-ryot-collector-token=collector-secret",
-				},
-			});
-			logFile = requireString(env.SERVER_LOG_FILE, "Observability api log file is missing");
-			apiProcess = spawnApiProcess(env);
-			yield* waitForHealthCheck(
-				`${apiOrigin}/api/system/health`,
-				"Observability Setup",
-				apiProcess,
-				90,
-			);
-		}),
+				const apiOrigin = `http://127.0.0.1:${apiPort}`;
+				const env = buildApiEnv({
+					port: apiPort,
+					frontendUrl: apiOrigin,
+					label: "Observability API",
+					dbUrl: infrastructure.dbUrl,
+					s3BucketName: S3_BUCKET_NAME,
+					redisUrl: infrastructure.redisUrl,
+					s3Endpoint: infrastructure.s3Endpoint,
+					extraEnv: {
+						SERVER_LOG_LEVEL: "debug",
+						OTEL_EXPORTER_OTLP_ENDPOINT: server.url,
+						OTEL_EXPORTER_OTLP_HEADERS: "x-ryot-collector-token=collector-secret",
+					},
+				});
+				logFile = requireString(env.SERVER_LOG_FILE, "Observability api log file is missing");
+				const apiProcess = yield* spawnApiProcess(env);
+				yield* waitForHealthCheck(
+					`${apiOrigin}/api/system/health`,
+					"Observability Setup",
+					apiProcess,
+					90,
+				);
+			}),
+		),
 	),
 );
 
-afterAll(() =>
-	runPromise(
-		Effect.gen(function* () {
-			yield* stopApiProcess(apiProcess);
-			const server = otlpServer;
-			if (server) {
-				yield* Effect.promise(() => server.stop());
-			}
-			yield* stopCoreTestInfrastructure(coreInfrastructure);
-		}),
-	),
-);
+afterAll(() => runPromise(resources.close));
 
 describe("API observability", () => {
 	it.live("exports spans with correlatable workflow and request logs", () =>

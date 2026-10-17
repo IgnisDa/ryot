@@ -60,9 +60,9 @@ import {
 	spawnApiProcess,
 	startCoreTestInfrastructure,
 	stopApiProcess,
-	stopCoreTestInfrastructure,
 	waitForHealthCheck,
 } from "~/support/provisioning";
+import { makeTestResourceScope } from "~/support/resource-scope";
 import { webRequest } from "~/support/web-request";
 
 const S3_BUCKET_NAME = "ryot-demo-access-test";
@@ -70,7 +70,7 @@ const DEMO_COLLECTION_NAME = `Demo acceptance ${crypto.randomUUID()}`;
 
 let apiUrl: string;
 let apiOrigin: string;
-let apiProcess: ReturnType<typeof spawnApiProcess> | undefined;
+let apiProcess: Effect.Success<ReturnType<typeof spawnApiProcess>> | undefined;
 let demoApiKey: string;
 let demoUserId: string;
 let demoEmail: string;
@@ -79,7 +79,7 @@ let integrationId: string;
 let integrationWebhookUrl: string;
 let ownerSessionCookie: string;
 let infrastructure: Effect.Success<ReturnType<typeof startCoreTestInfrastructure>> | undefined;
-let restoreHarnessTarget: Effect.Effect<void> = Effect.void;
+const resources = makeTestResourceScope();
 
 const authControlPlaneRequests = (accountId: string, apiKeyId: string) =>
 	[
@@ -131,7 +131,7 @@ const startApi = (extraEnv: Record<string, string | undefined>) =>
 			redisUrl: activeInfrastructure.redisUrl,
 			s3Endpoint: activeInfrastructure.s3Endpoint,
 		});
-		apiProcess = spawnApiProcess(env);
+		apiProcess = yield* spawnApiProcess(env);
 		yield* waitForHealthCheck(`${apiUrl}/system/health`, "Demo access acceptance", apiProcess, 90);
 		return env;
 	});
@@ -228,58 +228,58 @@ const getDemoToken = (sessionCookie: string) =>
 
 beforeAll(() =>
 	runPromise(
-		Effect.gen(function* () {
-			const port = yield* Effect.promise(() => getPort());
-			apiOrigin = `http://127.0.0.1:${port}`;
-			apiUrl = `${apiOrigin}/api`;
-			infrastructure = yield* startCoreTestInfrastructure({ bucketName: S3_BUCKET_NAME });
+		resources.run(
+			Effect.gen(function* () {
+				const port = yield* Effect.promise(() => getPort());
+				apiOrigin = `http://127.0.0.1:${port}`;
+				apiUrl = `${apiOrigin}/api`;
+				infrastructure = yield* startCoreTestInfrastructure({ bucketName: S3_BUCKET_NAME });
 
-			yield* startApi({ USERS_ALLOW_REGISTRATION: "true", USERS_DEMO_ACCOUNT_ID: undefined });
-			const seeded = yield* createTestUser(apiUrl);
-			demoUserId = seeded.userId;
-			demoEmail = seeded.email;
-			demoPassword = seeded.password;
-			ownerSessionCookie = seeded.sessionCookie;
-			demoApiKey = yield* createApiKey(seeded.sessionCookie, "Demo account key", apiUrl);
-			const owner = makeSession(apiUrl, { Authorization: `Bearer ${seeded.token}` });
-			const integration = yield* createKodiIntegration(owner);
-			integrationId = integration.id;
-			const detail = requirePresent(
-				Option.getOrUndefined(
-					yield* executeRyotQLRecipe(owner, integrationRecipe({ id: integrationId })),
-				),
-				"Seeded integration detail is missing",
-			);
-			const { frontendOrigin } = yield* owner.call((c) => c.system.config());
-			integrationWebhookUrl = buildIntegrationWebhookUrl(
-				frontendOrigin,
-				requirePresent(detail.webhookToken, "Seeded integration did not expose its webhook token"),
-			);
+				yield* startApi({ USERS_ALLOW_REGISTRATION: "true", USERS_DEMO_ACCOUNT_ID: undefined });
+				const seeded = yield* createTestUser(apiUrl);
+				demoUserId = seeded.userId;
+				demoEmail = seeded.email;
+				demoPassword = seeded.password;
+				ownerSessionCookie = seeded.sessionCookie;
+				demoApiKey = yield* createApiKey(seeded.sessionCookie, "Demo account key", apiUrl);
+				const owner = makeSession(apiUrl, { Authorization: `Bearer ${seeded.token}` });
+				const integration = yield* createKodiIntegration(owner);
+				integrationId = integration.id;
+				const detail = requirePresent(
+					Option.getOrUndefined(
+						yield* executeRyotQLRecipe(owner, integrationRecipe({ id: integrationId })),
+					),
+					"Seeded integration detail is missing",
+				);
+				const { frontendOrigin } = yield* owner.call((c) => c.system.config());
+				integrationWebhookUrl = buildIntegrationWebhookUrl(
+					frontendOrigin,
+					requirePresent(
+						detail.webhookToken,
+						"Seeded integration did not expose its webhook token",
+					),
+				);
 
-			yield* stopApiProcess(apiProcess);
-			apiProcess = undefined;
-			const env = yield* startApi({
-				USERS_ALLOW_REGISTRATION: "false",
-				USERS_DEMO_ACCOUNT_ID: demoUserId,
-			});
-			restoreHarnessTarget = yield* retargetHarness({
-				origin: apiOrigin,
-				serverLogFile: env.SERVER_LOG_FILE,
-				adminAccessToken: requirePresent(env.SERVER_ADMIN_ACCESS_TOKEN, "Admin token missing"),
-			});
-		}),
+				yield* stopApiProcess(apiProcess);
+				apiProcess = undefined;
+				const env = yield* startApi({
+					USERS_ALLOW_REGISTRATION: "false",
+					USERS_DEMO_ACCOUNT_ID: demoUserId,
+				});
+				yield* Effect.acquireRelease(
+					retargetHarness({
+						origin: apiOrigin,
+						serverLogFile: env.SERVER_LOG_FILE,
+						adminAccessToken: requirePresent(env.SERVER_ADMIN_ACCESS_TOKEN, "Admin token missing"),
+					}),
+					(restore) => restore,
+				).pipe(Effect.asVoid);
+			}),
+		),
 	),
 );
 
-afterAll(() =>
-	runPromise(
-		Effect.gen(function* () {
-			yield* restoreHarnessTarget;
-			yield* stopApiProcess(apiProcess);
-			yield* stopCoreTestInfrastructure(infrastructure);
-		}),
-	),
-);
+afterAll(() => runPromise(resources.close));
 
 describe("shared demo access acceptance", () => {
 	it.live("enters the configured account and issues restricted demo OAuth authority", () =>

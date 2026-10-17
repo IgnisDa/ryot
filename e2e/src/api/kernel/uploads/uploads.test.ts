@@ -11,25 +11,22 @@ import {
 	uploadPermanentAsset,
 } from "~/fixtures/kernel";
 import { findMediaEntitySchema } from "~/fixtures/plugins/media";
-import { assertTaggedError, requirePresent } from "~/support/assertions";
+import { assertTaggedError } from "~/support/assertions";
 import { afterAll, beforeAll, describe, expect, it, runPromise } from "~/support/effect-test";
 import { getApiUrl } from "~/support/harness-target";
 import {
 	buildApiEnv,
 	spawnApiProcess,
 	startCoreTestInfrastructure,
-	stopApiProcess,
-	stopCoreTestInfrastructure,
 	waitForHealthCheck,
 } from "~/support/provisioning";
+import { makeTestResourceScope } from "~/support/resource-scope";
 import { webRequest } from "~/support/web-request";
 
 const FALLBACK_S3_BUCKET_NAME = "ryot-upload-fallback-test";
 
 let fallbackApiPort: number;
-let fallbackApiProcess: ReturnType<typeof spawnApiProcess> | undefined;
-let fallbackInfrastructure:
-	Effect.Success<ReturnType<typeof startCoreTestInfrastructure>> | undefined;
+const resources = makeTestResourceScope();
 
 const getFallbackApiUrl = () => `http://127.0.0.1:${fallbackApiPort}/api`;
 
@@ -40,52 +37,41 @@ const expectValidExpiry = (expiresAt: string | undefined) => {
 
 beforeAll(() =>
 	runPromise(
-		Effect.gen(function* () {
-			fallbackApiPort = yield* Effect.promise(() => getPort());
-			fallbackInfrastructure = yield* startCoreTestInfrastructure({
-				bucketName: FALLBACK_S3_BUCKET_NAME,
-			});
-			const infrastructure = requirePresent(
-				fallbackInfrastructure,
-				"Upload fallback infrastructure is not initialised",
-			);
-			fallbackApiProcess = spawnApiProcess(
-				buildApiEnv({
-					port: fallbackApiPort,
-					dbUrl: infrastructure.dbUrl,
-					label: "Upload fallback api",
-					redisUrl: infrastructure.redisUrl,
-					s3Endpoint: infrastructure.s3Endpoint,
-					s3BucketName: FALLBACK_S3_BUCKET_NAME,
-					frontendUrl: `http://127.0.0.1:${fallbackApiPort}`,
-					extraEnv: {
-						FILE_STORAGE_S3_URL: "",
-						FILE_STORAGE_S3_REGION: "",
-						FILE_STORAGE_S3_BUCKET_NAME: "",
-						FILE_STORAGE_S3_ACCESS_KEY_ID: "",
-						FILE_STORAGE_S3_SECRET_ACCESS_KEY: "",
-					},
-				}),
-			);
-			yield* waitForHealthCheck(
-				`http://127.0.0.1:${fallbackApiPort}/api/system/health`,
-				"Upload fallback setup",
-				fallbackApiProcess,
-			);
-		}),
+		resources.run(
+			Effect.gen(function* () {
+				fallbackApiPort = yield* Effect.promise(() => getPort());
+				const infrastructure = yield* startCoreTestInfrastructure({
+					bucketName: FALLBACK_S3_BUCKET_NAME,
+				});
+				const fallbackApiProcess = yield* spawnApiProcess(
+					buildApiEnv({
+						port: fallbackApiPort,
+						dbUrl: infrastructure.dbUrl,
+						label: "Upload fallback api",
+						redisUrl: infrastructure.redisUrl,
+						s3Endpoint: infrastructure.s3Endpoint,
+						s3BucketName: FALLBACK_S3_BUCKET_NAME,
+						frontendUrl: `http://127.0.0.1:${fallbackApiPort}`,
+						extraEnv: {
+							FILE_STORAGE_S3_URL: "",
+							FILE_STORAGE_S3_REGION: "",
+							FILE_STORAGE_S3_BUCKET_NAME: "",
+							FILE_STORAGE_S3_ACCESS_KEY_ID: "",
+							FILE_STORAGE_S3_SECRET_ACCESS_KEY: "",
+						},
+					}),
+				);
+				yield* waitForHealthCheck(
+					`http://127.0.0.1:${fallbackApiPort}/api/system/health`,
+					"Upload fallback setup",
+					fallbackApiProcess,
+				);
+			}),
+		),
 	),
 );
 
-afterAll(() =>
-	runPromise(
-		Effect.gen(function* () {
-			yield* stopApiProcess(fallbackApiProcess);
-			if (fallbackInfrastructure) {
-				yield* stopCoreTestInfrastructure(fallbackInfrastructure);
-			}
-		}),
-	),
-);
+afterAll(() => runPromise(resources.close));
 
 const uploadAndComplete = (
 	fileName: string,
