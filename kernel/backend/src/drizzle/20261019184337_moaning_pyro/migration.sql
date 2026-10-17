@@ -191,6 +191,7 @@ CREATE TABLE "definition_entity_schema" (
 	"position" integer NOT NULL,
 	"id" text PRIMARY KEY,
 	"icon" text NOT NULL,
+	"editor" jsonb,
 	"merge_identity_properties" text[] NOT NULL,
 	"properties_schema" jsonb NOT NULL,
 	"user_state" jsonb,
@@ -525,13 +526,13 @@ CREATE TABLE "managed_asset" (
 );
 --> statement-breakpoint
 CREATE TABLE "migration_report" (
+	"code" text,
 	"count" integer,
 	"phase" text NOT NULL,
 	"message" text NOT NULL,
 	"seq" serial PRIMARY KEY,
 	"elapsed_seconds" double precision,
 	"created_at" timestamp(3) with time zone DEFAULT now() NOT NULL,
-	"code" text,
 	"level" text NOT NULL,
 	CONSTRAINT "migration_report_level_check" CHECK ("level" in ('info', 'warning')),
 	CONSTRAINT "migration_report_warning_code_check" CHECK ("level" <> 'warning' or "code" is not null)
@@ -1310,7 +1311,7 @@ ALTER TABLE "user_plugin_state" ADD CONSTRAINT "user_plugin_state_user_id_user_i
 ALTER TABLE "user_plugin_state" ADD CONSTRAINT "user_plugin_state_plugin_id_plugin_id_fkey" FOREIGN KEY ("plugin_id") REFERENCES "plugin"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "user_plugin_state" ADD CONSTRAINT "user_plugin_state_installation_id_plugin_installation_id_fkey" FOREIGN KEY ("installation_id") REFERENCES "plugin_installation"("id") ON DELETE CASCADE;--> statement-breakpoint
 CREATE VIEW "global_entity_schema" AS (
-			select d.id, r.plugin_id, g.package_id, d.plugin_revision_id, d.slug, d.name, d.position, d.icon, d.properties_schema, d.user_state, d.merge_identity_properties
+			select d.id, r.plugin_id, g.package_id, d.plugin_revision_id, d.slug, d.name, d.position, d.icon, d.properties_schema, d.user_state, d.editor, d.merge_identity_properties
 			from definition_entity_schema d
 			left join plugin_revision r on r.id = d.plugin_revision_id
 			left join (
@@ -1354,12 +1355,12 @@ CREATE VIEW "global_signal_schema" AS (
 			where d.plugin_revision_id is null or g.plugin_id is not null
 		);--> statement-breakpoint
 CREATE VIEW "user_entity_schema" AS (
-			select u.id as user_id, d.id, null::text as plugin_id, null::text as package_id, d.plugin_revision_id, null::text as plugin_scope, d.slug, d.name, d.position, d.icon, d.properties_schema, d.user_state, d.merge_identity_properties, true as is_effective
+			select u.id as user_id, d.id, null::text as plugin_id, null::text as package_id, d.plugin_revision_id, null::text as plugin_scope, d.slug, d.name, d.position, d.icon, d.properties_schema, d.user_state, d.editor, d.merge_identity_properties, true as is_effective
 			from definition_entity_schema d
 			cross join "user" u
 			where d.plugin_revision_id is null
 			union all
-			select p.user_id, d.id, p.plugin_id, p.package_id, d.plugin_revision_id, p.scope, d.slug, d.name, d.position, d.icon, d.properties_schema, d.user_state, d.merge_identity_properties, p.is_definition_effective
+			select p.user_id, d.id, p.plugin_id, p.package_id, d.plugin_revision_id, p.scope, d.slug, d.name, d.position, d.icon, d.properties_schema, d.user_state, d.editor, d.merge_identity_properties, p.is_definition_effective
 			from "user_plugin_state" p
 			join definition_entity_schema d on d.plugin_revision_id = p.active_revision_id
 			where p.is_present and p.is_listed

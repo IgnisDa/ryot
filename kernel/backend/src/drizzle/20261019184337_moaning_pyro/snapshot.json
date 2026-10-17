@@ -1,7 +1,7 @@
 {
 	"version": "8",
 	"dialect": "postgres",
-	"id": "0de3598b-1311-4d39-8c75-2a7187777b7c",
+	"id": "644bcbef-11d1-4372-8c8e-4f47f6e57a8f",
 	"prevIds": ["00000000-0000-0000-0000-000000000000"],
 	"ddl": [
 		{ "isRlsEnabled": false, "name": "account", "entityType": "tables", "schema": "public" },
@@ -2143,6 +2143,19 @@
 			"generated": null,
 			"identity": null,
 			"name": "icon",
+			"entityType": "columns",
+			"schema": "public",
+			"table": "definition_entity_schema"
+		},
+		{
+			"type": "jsonb",
+			"typeSchema": null,
+			"notNull": false,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
+			"name": "editor",
 			"entityType": "columns",
 			"schema": "public",
 			"table": "definition_entity_schema"
@@ -4930,6 +4943,19 @@
 			"table": "managed_asset"
 		},
 		{
+			"type": "text",
+			"typeSchema": null,
+			"notNull": false,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
+			"name": "code",
+			"entityType": "columns",
+			"schema": "public",
+			"table": "migration_report"
+		},
+		{
 			"type": "integer",
 			"typeSchema": null,
 			"notNull": false,
@@ -5003,19 +5029,6 @@
 			"generated": null,
 			"identity": null,
 			"name": "created_at",
-			"entityType": "columns",
-			"schema": "public",
-			"table": "migration_report"
-		},
-		{
-			"type": "text",
-			"typeSchema": null,
-			"notNull": false,
-			"dimensions": 0,
-			"default": null,
-			"generated": null,
-			"identity": null,
-			"name": "code",
 			"entityType": "columns",
 			"schema": "public",
 			"table": "migration_report"
@@ -15776,7 +15789,7 @@
 			"table": "workflow_execution"
 		},
 		{
-			"definition": "\n\t\t\tselect d.id, r.plugin_id, g.package_id, d.plugin_revision_id, d.slug, d.name, d.position, d.icon, d.properties_schema, d.user_state, d.merge_identity_properties\n\t\t\tfrom definition_entity_schema d\n\t\t\tleft join plugin_revision r on r.id = d.plugin_revision_id\n\t\t\tleft join (\n select p.id as plugin_id, p.package_id, p.active_revision_id, p.environment_config_revision_id as config_revision_id, coalesce(c.owner_user_id is null and c.encrypted_payload is not null, false) as is_executable\n\tfrom plugin p\n\tleft join plugin_config_revision c on c.id = p.environment_config_revision_id\n\twhere p.owner_user_id is null and p.status = 'active'\n) g on g.plugin_id = r.plugin_id and g.active_revision_id = d.plugin_revision_id\n\t\t\twhere d.plugin_revision_id is null or g.plugin_id is not null\n\t\t",
+			"definition": "\n\t\t\tselect d.id, r.plugin_id, g.package_id, d.plugin_revision_id, d.slug, d.name, d.position, d.icon, d.properties_schema, d.user_state, d.editor, d.merge_identity_properties\n\t\t\tfrom definition_entity_schema d\n\t\t\tleft join plugin_revision r on r.id = d.plugin_revision_id\n\t\t\tleft join (\n select p.id as plugin_id, p.package_id, p.active_revision_id, p.environment_config_revision_id as config_revision_id, coalesce(c.owner_user_id is null and c.encrypted_payload is not null, false) as is_executable\n\tfrom plugin p\n\tleft join plugin_config_revision c on c.id = p.environment_config_revision_id\n\twhere p.owner_user_id is null and p.status = 'active'\n) g on g.plugin_id = r.plugin_id and g.active_revision_id = d.plugin_revision_id\n\t\t\twhere d.plugin_revision_id is null or g.plugin_id is not null\n\t\t",
 			"with": null,
 			"withNoData": null,
 			"using": null,
@@ -15842,7 +15855,7 @@
 			"schema": "public"
 		},
 		{
-			"definition": "\n\t\t\tselect u.id as user_id, d.id, null::text as plugin_id, null::text as package_id, d.plugin_revision_id, null::text as plugin_scope, d.slug, d.name, d.position, d.icon, d.properties_schema, d.user_state, d.merge_identity_properties, true as is_effective\n\t\t\tfrom definition_entity_schema d\n\t\t\tcross join \"user\" u\n\t\t\twhere d.plugin_revision_id is null\n\t\t\tunion all\n\t\t\tselect p.user_id, d.id, p.plugin_id, p.package_id, d.plugin_revision_id, p.scope, d.slug, d.name, d.position, d.icon, d.properties_schema, d.user_state, d.merge_identity_properties, p.is_definition_effective\n\t\t\tfrom \"user_plugin_state\" p\n\t\t\tjoin definition_entity_schema d on d.plugin_revision_id = p.active_revision_id\n\t\t\twhere p.is_present and p.is_listed\n\t\t",
+			"definition": "\n\t\t\tselect u.id as user_id, d.id, null::text as plugin_id, null::text as package_id, d.plugin_revision_id, null::text as plugin_scope, d.slug, d.name, d.position, d.icon, d.properties_schema, d.user_state, d.editor, d.merge_identity_properties, true as is_effective\n\t\t\tfrom definition_entity_schema d\n\t\t\tcross join \"user\" u\n\t\t\twhere d.plugin_revision_id is null\n\t\t\tunion all\n\t\t\tselect p.user_id, d.id, p.plugin_id, p.package_id, d.plugin_revision_id, p.scope, d.slug, d.name, d.position, d.icon, d.properties_schema, d.user_state, d.editor, d.merge_identity_properties, p.is_definition_effective\n\t\t\tfrom \"user_plugin_state\" p\n\t\t\tjoin definition_entity_schema d on d.plugin_revision_id = p.active_revision_id\n\t\t\twhere p.is_present and p.is_listed\n\t\t",
 			"with": null,
 			"withNoData": null,
 			"using": null,
