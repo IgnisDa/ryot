@@ -3,6 +3,7 @@ import { Effect } from "@ryot-app/plugin-backend-sdk/effect";
 import { defineProvider } from "@ryot-app/plugin-backend-sdk/provider";
 
 import { MediaSandboxError } from "../../../lib/failures";
+import { mediaGenreGroups } from "../../../lib/media-genres";
 import { type UnknownRecord, asRecord, numberValue, stringValue } from "../../../lib/records";
 import { normalizeRichDescription } from "../../../lib/rich-description";
 import { createRoleAccumulator, type RoleRelatedEntity } from "../../../lib/role-accumulator";
@@ -37,11 +38,16 @@ const collectImages = (imageField: unknown, imagesArray: unknown) => {
 	return [...imageSet];
 };
 
-const collectGenres = (cachedTags: unknown) => {
+const collectGenres = Effect.fnUntraced(function* (cachedTags: unknown) {
 	const record = asRecord(cachedTags);
 	const genreArray = record?.["Genre"];
+	if (genreArray === undefined || genreArray === null) {
+		return null;
+	}
 	if (!Array.isArray(genreArray)) {
-		return [];
+		return yield* new MediaSandboxError({
+			message: "Hardcover cached genre tags must be an array",
+		});
 	}
 	const genreSet = new Set<string>();
 	for (const genreItem of genreArray) {
@@ -55,7 +61,7 @@ const collectGenres = (cachedTags: unknown) => {
 		}
 	}
 	return [...genreSet];
-};
+});
 
 const collectPeople = (contributions: unknown): RoleRelatedEntity[] => {
 	if (!Array.isArray(contributions)) {
@@ -254,6 +260,7 @@ query GetHardcoverBookDetails($id: Int!) {
 					: input.externalId;
 			const pages = numberValue(bookData["pages"]);
 			const releaseYear = numberValue(bookData["release_year"]);
+			const genres = yield* collectGenres(bookData["cached_tags"]);
 			const slug = stringValue(bookData["slug"]);
 			const sourceUrl = slug
 				? `https://hardcover.app/books/${slug}`
@@ -268,7 +275,6 @@ query GetHardcoverBookDetails($id: Int!) {
 					sourceUrl,
 					unlinkedCreators: [],
 					publishYear: releaseYear,
-					genres: collectGenres(bookData["cached_tags"]),
 					publishDate: stringValue(bookData["release_date"]),
 					pages: pages === null ? null : Math.max(0, Math.trunc(pages)),
 					description: yield* normalizeRichDescription(
@@ -306,6 +312,7 @@ query GetHardcoverBookDetails($id: Int!) {
 							(entity) => entity.providerSlug === "book-group.hardcover",
 						),
 					},
+					...mediaGenreGroups("book", genres),
 				],
 			};
 		});

@@ -14,6 +14,7 @@ import { manifest as igdbSearchManifest } from "../backend/providers/video-game/
 import { manifest as monitoringTargetsManifest } from "../backend/workflows/media-monitoring-targets.sandbox";
 import { mediaEntityEditors } from "../shared/media-entity-editors";
 import {
+	builtinMediaEntitySchemaSlugs,
 	mediaLibraryEligibleEntitySchemaSlugs,
 	mediaLibraryMemberEntitySchemaSlugs,
 } from "../shared/media-schema-slugs";
@@ -86,6 +87,7 @@ it("declares the complete media-owned source", () => {
 			"/manga/new": "media-entity-editor",
 			"/movie/new": "media-entity-editor",
 			"/music/new": "media-entity-editor",
+			"/genre/new": "media-entity-editor",
 			"/person/new": "media-entity-editor",
 			"/company/new": "media-entity-editor",
 			"/podcast/new": "media-entity-editor",
@@ -575,7 +577,7 @@ it("declares the complete media-owned source", () => {
 	expect(mediaPlugin.httpRateLimits.flatMap(({ origins }) => origins)).not.toContain(
 		"https://coverartarchive.org",
 	);
-	expect(mediaPlugin.providers).toHaveLength(51);
+	expect(mediaPlugin.providers).toHaveLength(52);
 	expect(mediaPlugin.integrationProviders).toHaveLength(14);
 	expect(mediaPlugin.oauthProviders).toEqual([
 		{
@@ -784,8 +786,72 @@ it("declares the complete media-owned source", () => {
 		expect.objectContaining({ rootEntitySchemaSlug: "book" }),
 	);
 	expect(mediaPlugin.entitySchemas.map(({ slug }) => slug).sort()).toEqual(
-		[...mediaLibraryEligibleEntitySchemaSlugs].sort(),
+		[...mediaLibraryEligibleEntitySchemaSlugs, "genre"].sort(),
 	);
+});
+
+it("declares genres as provider-backed entities with outgoing media relationships", () => {
+	expect(mediaPlugin.entitySchemas.find(({ slug }) => slug === "genre")).toEqual({
+		icon: "tags",
+		slug: "genre",
+		name: "Genre",
+		eventSchemas: [],
+		editor: { relationships: [] },
+		propertiesSchema: { fields: {} },
+	});
+	expect(mediaPlugin.providers.find(({ slug }) => slug === "genre.media-catalog")).toEqual({
+		name: "Media Catalog",
+		slug: "genre.media-catalog",
+		rootEntitySchemaSlug: "genre",
+		information: { source: "media-catalog", canonicalLanguage: "en" },
+		operations: {
+			search: "genre.media-catalog.search",
+			details: "genre.media-catalog.details",
+			resolve: "genre.media-catalog.resolve",
+		},
+	});
+	expect(
+		mediaPlugin.relationshipSchemas.filter(
+			({ targetEntitySchemaSlug }) => targetEntitySchemaSlug === "genre",
+		),
+	).toEqual(
+		[
+			"book",
+			"comic-book",
+			"anime",
+			"movie",
+			"show",
+			"manga",
+			"audiobook",
+			"podcast",
+			"video-game",
+			"music",
+			"visual-novel",
+		].map((sourceEntitySchemaSlug) => ({
+			sourceEntitySchemaSlug,
+			userWritePolicy: "source-owner",
+			targetEntitySchemaSlug: "genre",
+			propertiesSchema: { fields: {} },
+			slug: `${sourceEntitySchemaSlug}-to-genre`,
+			name: `${
+				sourceEntitySchemaSlug.charAt(0).toUpperCase() + sourceEntitySchemaSlug.slice(1)
+			} to Genre`,
+		})),
+	);
+	expect(
+		Object.fromEntries(
+			builtinMediaEntitySchemaSlugs.map((slug) => [slug, mediaEntityEditors[slug]]),
+		),
+	).toEqual({
+		...Object.fromEntries(
+			builtinMediaEntitySchemaSlugs.map((slug) => [slug, [`${slug}-to-genre`]]),
+		),
+		"video-game": ["video-game-to-video-game", "video-game-to-genre"],
+	});
+	expect(mediaEntityEditors.genre).toEqual([]);
+	expect(mediaLibraryMemberEntitySchemaSlugs).not.toContain("genre");
+	expect(mediaPlugin.savedViews.map(({ name }) => name)).not.toContain("All Genres");
+	expect(mediaPlugin.client.entities).not.toHaveProperty("genre");
 });
 
 it("keeps entity and import membership immediate and groups event membership by batch", () => {

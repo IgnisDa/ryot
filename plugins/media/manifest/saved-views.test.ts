@@ -27,7 +27,6 @@ describe("media saved views", () => {
 			"productionStatus",
 			"ownerPluginId",
 			"entitySchemaSlug",
-			"genresValue",
 			"publishYearValue",
 			"providerRatingValue",
 			"isNsfwValue",
@@ -65,10 +64,9 @@ describe("media saved views", () => {
 		}
 	});
 
-	it("declares base-field filters on media views over raw-value projections", () => {
+	it("declares value and relationship filters without projecting genre properties", () => {
 		const { view, output } = source("All Books");
 		expect(view.settings.filterFields).toEqual([
-			{ key: "genres", kind: "value", label: "Genres", type: "text-list", field: "genresValue" },
 			{
 				kind: "value",
 				type: "number",
@@ -90,20 +88,38 @@ describe("media saved views", () => {
 				field: "isNsfwValue",
 				label: "Adult content",
 			},
+			{
+				key: "genres",
+				label: "Genres",
+				kind: "relationship",
+				direction: "outgoing",
+				relationship: { slug: "book-to-genre", owner: { kind: "self" } },
+			},
 		]);
 		const keys = output.fields.flatMap((selection) => ("key" in selection ? [selection.key] : []));
 		expect(keys).toEqual(
+			expect.arrayContaining(["publishYearValue", "providerRatingValue", "isNsfwValue"]),
+		);
+		expect(keys).not.toContain("genresValue");
+	});
+
+	it("adds genre relationship filters only to builtin media roots", () => {
+		const books = source("All Books").view.settings.filterFields;
+		const groups = source("All Book Series").view.settings.filterFields;
+
+		expect(books).toEqual(
 			expect.arrayContaining([
-				"genresValue",
-				"publishYearValue",
-				"providerRatingValue",
-				"isNsfwValue",
+				expect.objectContaining({
+					key: "genres",
+					kind: "relationship",
+					direction: "outgoing",
+					relationship: { slug: "book-to-genre", owner: { kind: "self" } },
+				}),
 			]),
 		);
-		const genres = output.fields.find(
-			(selection) => "key" in selection && selection.key === "genresValue",
+		expect(groups).not.toEqual(
+			expect.arrayContaining([expect.objectContaining({ key: "genres" })]),
 		);
-		expect(genres).toMatchObject({ expr: { type: "jsonPath", path: ["genres"] } });
 	});
 
 	it("leaves persons and companies with only the kernel Collections filter", () => {

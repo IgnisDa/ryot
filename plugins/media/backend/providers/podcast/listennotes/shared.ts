@@ -4,6 +4,7 @@ import { DateTime, Effect, Option } from "@ryot-app/plugin-backend-sdk/effect";
 import { defineProvider } from "@ryot-app/plugin-backend-sdk/provider";
 
 import { MediaSandboxError } from "../../../lib/failures";
+import { mediaGenreGroups } from "../../../lib/media-genres";
 import { decodeJsonResponse, trimmedString } from "../../../lib/records";
 import { normalizeRichDescription } from "../../../lib/rich-description";
 
@@ -118,28 +119,43 @@ const getGenresById = (host: ListennotesHost) =>
 				return Effect.succeed(parsed);
 			}
 			return listennotesGet(host, "/genres").pipe(
-				Effect.flatMap((payload) => {
-					const genres = asRecord(payload)?.["genres"];
-					const byId: Record<string, string> = {};
-					for (const raw of Array.isArray(genres) ? genres : []) {
-						const genre = asRecord(raw);
-						const id = truncInt(genre?.["id"]);
-						const name = trimmedString(genre?.["name"]);
-						if (id === null || !name) {
-							continue;
+				Effect.flatMap((payload) =>
+					Effect.gen(function* () {
+						const genres = asRecord(payload)?.["genres"];
+						if (!Array.isArray(genres)) {
+							return yield* new MediaSandboxError({
+								message: "Listen Notes genres must be an array",
+							});
 						}
-						byId[String(id)] = name;
-					}
-					return host
-						.setCachedValue(GENRE_CACHE_KEY, byId, GENRE_CACHE_TTL_SECONDS)
-						.pipe(Effect.as(byId));
-				}),
+						const byId: Record<string, string> = {};
+						for (const raw of genres) {
+							const genre = asRecord(raw);
+							const id = truncInt(genre?.["id"]);
+							const name = trimmedString(genre?.["name"]);
+							if (id === null || !name) {
+								continue;
+							}
+							byId[String(id)] = name;
+						}
+						yield* host.setCachedValue(GENRE_CACHE_KEY, byId, GENRE_CACHE_TTL_SECONDS);
+						return byId;
+					}),
+				),
 			);
 		}),
 	);
-const collectGenres = (genreIds: unknown, genresById: Record<string, string>) => {
+const collectGenres = Effect.fnUntraced(function* (
+	genreIds: unknown,
+	genresById: Record<string, string>,
+) {
+	if (genreIds === undefined || genreIds === null) {
+		return null;
+	}
+	if (!Array.isArray(genreIds)) {
+		return yield* new MediaSandboxError({ message: "Listen Notes genre IDs must be an array" });
+	}
 	const values = new Set<string>();
-	for (const raw of Array.isArray(genreIds) ? genreIds : []) {
+	for (const raw of genreIds) {
 		const id = truncInt(raw);
 		if (id === null) {
 			continue;
@@ -150,7 +166,7 @@ const collectGenres = (genreIds: unknown, genresById: Record<string, string>) =>
 		}
 	}
 	return [...values];
-};
+});
 const mapSearchItem = (raw: unknown) => {
 	const item = asRecord(raw);
 	const externalId = trimmedString(item?.["id"]);
@@ -310,6 +326,7 @@ export const details = defineProvider({
 			const publisher = stringValue(firstPage?.["publisher"]);
 			const image = stringValue(firstPage?.["image"]);
 			const explicit = firstPage?.["explicit_content"];
+			const genres = yield* collectGenres(firstPage?.["genre_ids"], genresById);
 			const childEntities = yield* Effect.forEach(episodes, (episode) =>
 				Effect.gen(function* () {
 					return {
@@ -342,13 +359,13 @@ export const details = defineProvider({
 						synchronization: "authoritative" as const,
 						relationshipSchemaSlug: "media-suggestion",
 					},
+					...mediaGenreGroups("podcast", genres),
 				],
 				properties: {
 					totalEpisodes: totalEpisodes ?? episodes.length,
 					sourceUrl: getSourceUrl(title, input.externalId),
 					isNsfw: typeof explicit === "boolean" ? explicit : null,
 					providerRating: numberValue(firstPage?.["listen_score"]),
-					genres: collectGenres(firstPage?.["genre_ids"], genresById),
 					publishDate: getIsoDateFromTimestamp(firstPage?.["earliest_pub_date_ms"]),
 					unlinkedCreators: publisher ? [{ name: publisher, role: "Publisher" }] : [],
 					publishYear: getPublishYearFromTimestamp(firstPage?.["earliest_pub_date_ms"]),

@@ -11,8 +11,9 @@ const creditRelationshipSlugs = (source: "company" | "person") =>
 	);
 
 export const mediaEntityEditors: Readonly<Record<string, readonly string[]>> = {
-	...Object.fromEntries(builtinMediaEntitySchemaSlugs.map((slug) => [slug, []])),
-	"video-game": ["video-game-to-video-game"],
+	...Object.fromEntries(builtinMediaEntitySchemaSlugs.map((slug) => [slug, [`${slug}-to-genre`]])),
+	genre: [],
+	"video-game": ["video-game-to-video-game", "video-game-to-genre"],
 	...Object.fromEntries(
 		mediaGroupSlugs.map((group) => [group, [`${group}-to-${mediaGroupMemberSlugs[group]}`]]),
 	),

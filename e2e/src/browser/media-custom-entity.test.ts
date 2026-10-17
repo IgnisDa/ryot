@@ -50,6 +50,52 @@ it.live("creates a custom movie from the saved view's Create custom handoff", ()
 	}).pipe(PlaywrightSpawner.withBrowser),
 );
 
+it.live("creates a private genre inline and shows it on a custom movie", () =>
+	Effect.gen(function* () {
+		const { email, password } = yield* createAuthenticatedClient();
+		const movieName = `Custom movie ${crypto.randomUUID()}`;
+		const genreName = `Private genre ${crypto.randomUUID()}`;
+		const page = yield* (yield* Playwright.Browser).newPage({
+			viewport: { width: 1280, height: 900 },
+		});
+		yield* signInThroughHostedOAuth(page, email, password);
+		yield* page.goto(
+			`${getFrontendUrl()}${savedViewPath({ kind: "plugin", slug: "all-movies", packageId: mediaPlugin.metadata.packageId })}`,
+		);
+		const browser = page.locator("iframe").contentFrame();
+		yield* browser.getByRole("button", { name: "Add", exact: true }).click();
+		const provider = page.getByRole("dialog", { exact: true, name: "Add from a provider" });
+		yield* provider.getByLabel("Search providers").fill(movieName);
+		yield* provider.getByRole("button", { exact: true, name: "Create custom" }).click();
+
+		const editor = page.locator('iframe[title="Media plugin"]:visible').contentFrame();
+		const form = editor.getByRole("form", { exact: true, name: "New Movie" });
+		const name = form.getByLabel("Name", { exact: true });
+		yield* name.waitFor({ state: "visible" });
+		expect(yield* name.inputValue()).toBe(movieName);
+		yield* form.getByRole("button", { exact: true, name: "Add Movie to Genre" }).click();
+
+		const picker = page.getByRole("dialog", { exact: true, name: "Choose Genre" });
+		yield* picker.getByLabel("Search", { exact: true }).fill(genreName);
+		yield* picker.getByRole("button", { exact: true, name: `Create "${genreName}"` }).click();
+		const inlineGenre = page.getByRole("form", { exact: true, name: "New Genre" });
+		expect(yield* inlineGenre.getByLabel("Name", { exact: true }).inputValue()).toBe(genreName);
+		yield* inlineGenre.getByRole("button", { exact: true, name: "Create" }).click();
+		yield* form.getByText(genreName, { exact: true }).waitFor({ state: "visible" });
+		yield* form.getByRole("button", { exact: true, name: "Save" }).click();
+
+		yield* page.waitForURL((url) => url.pathname.startsWith("/e/"));
+		const detail = page.locator('iframe[title="Media plugin"]:visible').contentFrame();
+		yield* detail
+			.getByRole("heading", { level: 1, exact: true, name: movieName })
+			.waitFor({ state: "visible" });
+		yield* detail
+			.locator("body")
+			.getByText(genreName, { exact: true })
+			.waitFor({ state: "visible" });
+	}).pipe(PlaywrightSpawner.withBrowser),
+);
+
 it.live("creates a custom show with nested providers, episode orders, and image metadata", () =>
 	Effect.gen(function* () {
 		const showName = `Custom show ${crypto.randomUUID()}`;

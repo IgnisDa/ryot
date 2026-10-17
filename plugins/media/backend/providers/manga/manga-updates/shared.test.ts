@@ -53,6 +53,12 @@ describe("manga.manga-updates sandbox script", () => {
 								{ name: "Related", externalId: "3", providerSlug: "manga.manga-updates" },
 							],
 						},
+						{
+							entities: [],
+							direction: "outgoing",
+							synchronization: "authoritative",
+							relationshipSchemaSlug: "manga-to-genre",
+						},
 					]);
 					return undefined;
 				}),
@@ -88,9 +94,16 @@ describe("manga.manga-updates sandbox script", () => {
 						providerRating: 8.53,
 						description: "A story",
 						productionStatus: "Ongoing",
-						genres: ["Action", "Isekai"],
 						sourceUrl: "https://www.mangaupdates.com/series/source",
 						images: [{ type: "remote", purpose: "cover", url: "https://img/cover.jpg" }],
+					});
+					expect(result.relatedEntityGroups?.[1]).toEqual({
+						direction: "outgoing",
+						synchronization: "authoritative",
+						relationshipSchemaSlug: "manga-to-genre",
+						entities: [
+							{ name: "Action", externalId: "action", providerSlug: "genre.media-catalog" },
+						],
 					});
 					return undefined;
 				}),

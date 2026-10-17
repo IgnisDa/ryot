@@ -400,7 +400,6 @@ describe("Events built-in status schemas", () => {
 				name: `Show Events ${crypto.randomUUID()}`,
 				externalId: `show-events-${crypto.randomUUID()}`,
 				properties: {
-					genres: [],
 					images: [],
 					isNsfw: null,
 					sourceUrl: null,

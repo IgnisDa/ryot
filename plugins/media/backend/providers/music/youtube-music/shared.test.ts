@@ -55,7 +55,6 @@ describe("music.youtube-music sandbox script", () => {
 				Effect.map((details) => {
 					expect(details.name).toBe("Source");
 					expect(details.properties).toEqual({
-						genres: [],
 						duration: 180,
 						publishYear: 2024,
 						byVariousArtists: false,
@@ -97,6 +96,12 @@ describe("music.youtube-music sandbox script", () => {
 								{ name: "Pick One", externalId: "track-2", providerSlug: "music.youtube-music" },
 								{ name: "Pick Two", externalId: "track-3", providerSlug: "music.youtube-music" },
 							],
+						},
+						{
+							entities: [],
+							direction: "outgoing",
+							synchronization: "authoritative",
+							relationshipSchemaSlug: "music-to-genre",
 						},
 					]);
 					return undefined;

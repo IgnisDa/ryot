@@ -79,8 +79,6 @@ const watchProvidersField = (description: string) =>
 	}) satisfies AppPropertyDefinition;
 
 const mediaBaseFields = {
-	// TODO: Model genres as entities so filters and pickers can reference them instead of typed strings.
-	genres: stringArrayField("Genres", "List of genres this media is categorized under"),
 	publishYear: integerField("Publish Year", "Year this media was first published or released"),
 	sourceUrl: stringField("Source Url", "Link to the original source or external provider page"),
 	isNsfw: booleanField("Is Nsfw", "Whether this media contains adult or not-safe-for-work content"),

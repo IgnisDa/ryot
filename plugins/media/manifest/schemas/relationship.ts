@@ -1,3 +1,4 @@
+import type { PluginRelationshipSchema } from "@ryot-app/contract/modules/plugins/manifest";
 import type { AppSchema } from "@ryot-app/contract/schema/property-schema";
 
 import {
@@ -12,6 +13,7 @@ type BuiltinRelationshipSchema = {
 	propertiesSchema: AppSchema;
 	sourceEntitySchemaSlug: string | null;
 	targetEntitySchemaSlug: string | null;
+	userWritePolicy?: PluginRelationshipSchema["userWritePolicy"];
 };
 
 const groupRolesPropertiesSchema = {
@@ -155,6 +157,16 @@ export const builtinRelationshipSchemas = (): BuiltinRelationshipSchema[] => [
 		name: "Podcast to Podcast Episode",
 		targetEntitySchemaSlug: "podcast-episode",
 	},
+	...builtinMediaEntitySchemaSlugs.map((sourceEntitySchemaSlug) => ({
+		sourceEntitySchemaSlug,
+		targetEntitySchemaSlug: "genre",
+		propertiesSchema: { fields: {} },
+		userWritePolicy: "source-owner" as const,
+		slug: `${sourceEntitySchemaSlug}-to-genre`,
+		name: `${
+			sourceEntitySchemaSlug.charAt(0).toUpperCase() + sourceEntitySchemaSlug.slice(1)
+		} to Genre`,
+	})),
 	...buildCreditRelationshipSchemas({
 		sourceSlug: "person",
 		targetEntitySchemaSlugs: builtinMediaEntitySchemaSlugs,

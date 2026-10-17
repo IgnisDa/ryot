@@ -18,6 +18,7 @@ import {
 	seedMediaEntity,
 	seedGlobalShowEpisodeTree,
 } from "~/fixtures/plugins/media";
+import { seedGlobalMediaGenres } from "~/fixtures/plugins/media/genres";
 import { signInThroughHostedOAuth } from "~/support/browser";
 import { afterAll, beforeAll, expect, it, runPromise } from "~/support/effect-test";
 import { getApiUrl, getFrontendUrl } from "~/support/harness-target";
@@ -90,20 +91,8 @@ it.live("automatically populates and translates a partial Show in the compiled M
 			.getByRole("heading", { level: 1, exact: true, name: translatedName })
 			.waitFor({ state: "visible", timeout: 150_000 });
 		yield* expectVisibleText(media.locator("body"), translatedDescription);
-		yield* expectVisibleText(
-			media
-				.locator("p")
-				.filter({ hasText: /^Seasons$/ })
-				.locator(".."),
-			"3",
-		);
-		yield* expectVisibleText(
-			media
-				.locator("p")
-				.filter({ hasText: /^Episodes$/ })
-				.locator(".."),
-			"24",
-		);
+		yield* expectVisibleText(media.locator("body"), "3 seasons");
+		yield* expectVisibleText(media.locator("body"), "24 episodes");
 		expect((yield* getEntity(client, show.id)).populatedAt).not.toBeNull();
 	}).pipe(PlaywrightSpawner.withBrowser),
 );
@@ -120,11 +109,15 @@ it.live("opens a Media Show entity from the canonical saved-view route", () =>
 				totalSeasons: 2,
 				totalEpisodes: 12,
 				publishYear: 2025,
-				genres: ["Drama", "Mystery"],
 				productionStatus: "Returning Series",
 				description: "A deterministic browser tracer show.",
 				images: [{ url: coverUrl, type: "remote", purpose: "cover" }],
 			},
+		});
+		yield* seedGlobalMediaGenres({
+			entityId: showId,
+			entitySchemaSlug: "show",
+			names: ["Drama", "Mystery"],
 		});
 		yield* insertLibraryMembership(client, { mediaEntityId: showId });
 		const browser = yield* Playwright.Browser;

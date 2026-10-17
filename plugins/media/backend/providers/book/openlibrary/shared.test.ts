@@ -71,8 +71,8 @@ describe("book.openlibrary sandbox script", () => {
 				covers: [111],
 				title: "The Work",
 				key: "/works/OL1W",
-				subjects: ["Fiction, Fantasy"],
 				description: { value: "Desc." },
+				subjects: ["Fiction, Fantasy", "Best Seller"],
 				authors: [{ author: { key: "/authors/OL1A" } }],
 			});
 		});
@@ -94,12 +94,20 @@ describe("book.openlibrary sandbox script", () => {
 								},
 							],
 						},
+						{
+							direction: "outgoing",
+							synchronization: "authoritative",
+							relationshipSchemaSlug: "book-to-genre",
+							entities: [
+								{ name: "Fiction", externalId: "fiction", providerSlug: "genre.media-catalog" },
+								{ name: "Fantasy", externalId: "fantasy", providerSlug: "genre.media-catalog" },
+							],
+						},
 					]);
 					expect(result.properties).toEqual({
 						pages: 320,
 						publishYear: 1999,
 						description: "Desc.",
-						genres: ["Fiction", "Fantasy"],
 						sourceUrl: "https://openlibrary.org/works/OL1W/The Work",
 						images: [
 							{

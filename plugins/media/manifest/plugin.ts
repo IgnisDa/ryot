@@ -11,6 +11,7 @@ import {
 	mediaEntityEditorRoutes,
 	mediaEntityEditors,
 } from "../shared/media-entity-editors";
+import { mediaGenreProviderSlug } from "../shared/media-genres";
 import {
 	builtinMediaEntitySchemaSlugs,
 	mediaGroupSlugs,
@@ -310,6 +311,14 @@ const mediaProviders = [
 		"search",
 		"search-options",
 	]),
+	provider(
+		"genre",
+		mediaGenreProviderSlug,
+		"Media Catalog",
+		"media-catalog",
+		["details", "search", "resolve"],
+		"en",
+	),
 	provider("visual-novel", "visual-novel.vndb", "VNDB", "vndb", ["details", "search"]),
 ] as const;
 

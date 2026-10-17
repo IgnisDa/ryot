@@ -3,6 +3,7 @@ import { Effect } from "@ryot-app/plugin-backend-sdk/effect";
 import { defineSandboxTestHost, runSandboxTestScript } from "@ryot-app/plugin-backend-sdk/testing";
 import { describe, expect, it } from "vitest";
 
+import { mediaFailureMessage } from "../../../lib/error-message";
 import details, { manifest as detailsManifest } from "./details.sandbox";
 import search, { manifest as searchManifest } from "./search.sandbox";
 import { manifest } from "./shared";
@@ -90,6 +91,12 @@ describe("anime.myanimelist sandbox script", () => {
 								{ externalId: "2", name: "Anime Pick", providerSlug: "anime.myanimelist" },
 							],
 						},
+						{
+							entities: [],
+							direction: "outgoing",
+							synchronization: "authoritative",
+							relationshipSchemaSlug: "anime-to-genre",
+						},
 					]);
 					return undefined;
 				}),
@@ -108,8 +115,8 @@ describe("anime.myanimelist sandbox script", () => {
 				start_date: "2024-01-05",
 				status: "currently_airing",
 				synopsis: "Plain synopsis",
-				genres: [{ name: "Action" }, { name: "Action" }],
 				main_picture: { large: "https://img/l.jpg", medium: "https://img/m.jpg" },
+				genres: [{ name: "Action" }, { name: "sci-fi" }, { name: "Science Fiction" }],
 			}),
 		);
 		return Effect.runPromise(
@@ -119,7 +126,6 @@ describe("anime.myanimelist sandbox script", () => {
 						isNsfw: true,
 						episodes: 12,
 						publishYear: 2024,
-						genres: ["Action"],
 						providerRating: 8.1,
 						publishDate: "2024-01-05",
 						description: "Plain synopsis",
@@ -131,9 +137,45 @@ describe("anime.myanimelist sandbox script", () => {
 							{ type: "remote", purpose: "cover", url: "https://img/m.jpg" },
 						],
 					});
+					expect(result.relatedEntityGroups?.[1]).toEqual({
+						direction: "outgoing",
+						synchronization: "authoritative",
+						relationshipSchemaSlug: "anime-to-genre",
+						entities: [
+							{ name: "Action", externalId: "action", providerSlug: "genre.media-catalog" },
+							{
+								name: "Science Fiction",
+								externalId: "science fiction",
+								providerSlug: "genre.media-catalog",
+							},
+						],
+					});
 					return undefined;
 				}),
 			),
+		);
+	});
+	it("omits absent genres and fails malformed genre collections", () => {
+		const omittedHost = makeHost(() => httpSuccess({ id: 1, title: "Source" }));
+		const malformedHost = makeHost(() => httpSuccess({ id: 1, title: "Source", genres: "Action" }));
+		return Effect.runPromise(
+			Effect.gen(function* () {
+				const omitted = yield* runSandboxTestScript(
+					details,
+					{ externalId: "1" },
+					omittedHost,
+					execution,
+				);
+				const malformed = yield* Effect.flip(
+					runSandboxTestScript(details, { externalId: "1" }, malformedHost, execution),
+				);
+				expect(
+					omitted.relatedEntityGroups?.some(
+						(group) => group.relationshipSchemaSlug === "anime-to-genre",
+					),
+				).toBe(false);
+				expect(mediaFailureMessage(malformed)).toContain("MyAnimeList genres must be an array");
+			}),
 		);
 	});
 

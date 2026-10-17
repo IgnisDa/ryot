@@ -156,7 +156,6 @@ describe("book.google-books sandbox script", () => {
 						pages: 250,
 						publishYear: 2010,
 						description: "Desc.",
-						genres: ["Fiction", "Fantasy", "Best Seller"],
 						sourceUrl: "https://www.google.co.in/books/edition/G Book/g1",
 						unlinkedCreators: [
 							{ role: "Author", name: "Author A" },
@@ -167,6 +166,17 @@ describe("book.google-books sandbox script", () => {
 							{ type: "remote", purpose: "cover", url: "https://img/s.jpg" },
 						],
 					});
+					expect(result.relatedEntityGroups).toEqual([
+						{
+							direction: "outgoing",
+							synchronization: "authoritative",
+							relationshipSchemaSlug: "book-to-genre",
+							entities: [
+								{ name: "Fiction", externalId: "fiction", providerSlug: "genre.media-catalog" },
+								{ name: "Fantasy", externalId: "fantasy", providerSlug: "genre.media-catalog" },
+							],
+						},
+					]);
 					return undefined;
 				}),
 			),

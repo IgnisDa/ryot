@@ -195,10 +195,24 @@ describe("podcast.itunes sandbox script", () => {
 					expect(result.properties).toMatchObject({
 						totalEpisodes: 2,
 						publishYear: 2020,
-						genres: ["Technology", "News"],
 						unlinkedCreators: [{ role: "Artist", name: "Some Artist" }],
 						sourceUrl: "https://podcasts.apple.com/us/podcast/the-podcast/idp1",
 					});
+					expect(result.relatedEntityGroups).toEqual([
+						{
+							direction: "outgoing",
+							synchronization: "authoritative",
+							relationshipSchemaSlug: "podcast-to-genre",
+							entities: [
+								{
+									name: "Technology",
+									externalId: "technology",
+									providerSlug: "genre.media-catalog",
+								},
+								{ name: "News", externalId: "news", providerSlug: "genre.media-catalog" },
+							],
+						},
+					]);
 					return undefined;
 				}),
 			),

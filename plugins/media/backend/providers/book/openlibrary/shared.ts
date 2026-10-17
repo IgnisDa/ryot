@@ -2,7 +2,9 @@ import { defineManifest } from "@ryot-app/plugin-backend-sdk/driver";
 import { Effect } from "@ryot-app/plugin-backend-sdk/effect";
 import { defineProvider } from "@ryot-app/plugin-backend-sdk/provider";
 
+import { recognizedMediaGenres } from "../../../../shared/media-genres";
 import { MediaSandboxError } from "../../../lib/failures";
+import { mediaGenreGroups } from "../../../lib/media-genres";
 import {
 	type UnknownRecord,
 	asRecord,
@@ -12,7 +14,6 @@ import {
 } from "../../../lib/records";
 import { normalizeRichDescription } from "../../../lib/rich-description";
 import { createRoleAccumulator } from "../../../lib/role-accumulator";
-import { toTitleCase } from "../../../lib/title-case";
 import {
 	getKeySegment,
 	loadOpenLibraryJson,
@@ -233,19 +234,18 @@ export const details = defineProvider({
 
 			const publishYear = earliestDate ? earliestDate.getUTCFullYear() : null;
 
-			const genreSet = new Set<string>();
 			const subjects = workPayload?.["subjects"];
-			for (const subject of Array.isArray(subjects) ? subjects : []) {
-				if (typeof subject !== "string") {
-					continue;
-				}
-				for (const token of subject.split(", ")) {
-					const titleToken = toTitleCase(token.trim());
-					if (titleToken) {
-						genreSet.add(titleToken);
-					}
-				}
+			if (subjects !== undefined && subjects !== null && !Array.isArray(subjects)) {
+				return yield* new MediaSandboxError({ message: "OpenLibrary subjects must be an array" });
 			}
+			const genres =
+				subjects === undefined || subjects === null
+					? null
+					: recognizedMediaGenres(
+							subjects.flatMap((subject) =>
+								typeof subject === "string" ? subject.split(", ").map((token) => token.trim()) : [],
+							),
+						);
 
 			const entities = yield* collectAuthors(host, workPayload);
 			return {
@@ -257,11 +257,11 @@ export const details = defineProvider({
 						relationshipSchemaSlug: "person-to-book",
 						synchronization: "authoritative" as const,
 					},
+					...mediaGenreGroups("book", genres),
 				],
 				properties: {
 					pages,
 					publishYear,
-					genres: [...genreSet],
 					sourceUrl: `https://openlibrary.org/works/${externalId}/${title}`,
 					description: yield* normalizeRichDescription(
 						parseDescription(workPayload?.["description"]),

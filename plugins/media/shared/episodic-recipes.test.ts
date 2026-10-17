@@ -217,7 +217,6 @@ describe("episodic media recipes", () => {
 			"owned",
 			"publishDate",
 			"publishYear",
-			"genres",
 			"providerRating",
 			"productionStatus",
 			"state",
@@ -228,6 +227,12 @@ describe("episodic media recipes", () => {
 			"inProgressEpisodes",
 		]);
 		expect(summary.output.include?.[0]).toMatchObject({ limit: 6, key: "collections" });
+		const genres = summary.output.include?.find((include) => include.key === "genres");
+		if (genres === undefined || !("fields" in genres)) {
+			throw new Error("Expected the genres include");
+		}
+		expect(genres).toMatchObject({ limit: 100, key: "genres" });
+		expect(JSON.stringify(genres.where)).toContain("podcast-to-genre");
 	});
 
 	it("resolves next up forward past an anchor for a show and newest first for a podcast", () => {

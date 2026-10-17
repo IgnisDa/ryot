@@ -72,6 +72,7 @@ import {
 	mediaCollectionActivityEvents,
 	mediaCollectionEventsQuery,
 	mediaEntityEventsQuery,
+	mediaGenresInclude,
 	mediaOverviewQueries,
 	mediaSummaryQueries,
 	mediaSummaryResult,
@@ -643,6 +644,7 @@ export const mediaEpisodicRecipes = <
 				...input,
 				slug: config.slug,
 				include: (entity) => ({
+					genres: mediaGenresInclude(entity, config.slug, input.reference),
 					nextUp: episodicNextUpInclude(config.config, entity, (episode) => ({
 						...episodicEpisodeSelection(episode, entity, `${config.alias}NextUpState`),
 						...config.episodeFields(episode),

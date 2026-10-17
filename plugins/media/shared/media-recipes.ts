@@ -121,6 +121,37 @@ export const collectionMembershipInclude = (collectionLimit: number) => {
 	});
 };
 
+export const mediaGenresInclude = (
+	entity: Table,
+	slug: string,
+	reference: PluginIdentityReference,
+) => {
+	const genre = table("entity", "genre");
+	const relationship = table("relationship", "genreRelationship");
+
+	return selectedInclude(genre, {
+		limit: 100,
+		orderBy: [ascending(column(genre, "name")), ascending(column(genre, "id"))],
+		joins: [
+			join("inner", relationship, eq(column(relationship, "targetEntityId"), column(genre, "id"))),
+		],
+		selection: {
+			id: selectedField(column(genre, "id"), EntityId),
+			name: selectedField(column(genre, "name"), Schema.String),
+		},
+		where: and(
+			entitySchemaPredicate(genre, "genre", reference),
+			eq(column(relationship, "sourceEntityId"), column(entity, "id")),
+			relationshipSchemaPredicate(relationship, `${slug}-to-genre`, reference),
+		),
+	});
+};
+
+export type MediaGenresList = SelectedRow<
+	Record<never, never>,
+	{ readonly genres: ReturnType<typeof mediaGenresInclude> }
+>["genres"];
+
 export const requestedSchemaQuery = (id: string) => {
 	const requested = table("entity", "requested");
 	return selectedOptionalRow(requested, {
@@ -157,7 +188,6 @@ export const mediaSummarySelection = (entity: Table, provider: Table) => ({
 	owned: selectedField(libraryOwnership(entity), Schema.NullOr(Schema.Boolean)),
 	publishDate: selectedField(propertyText(entity, "publishDate"), Schema.NullOr(Schema.String)),
 	publishYear: selectedField(propertyNumber(entity, "publishYear"), Schema.NullOr(Schema.Finite)),
-	genres: selectedField(propertyJson(entity, "genres"), Schema.NullOr(Schema.Array(Schema.String))),
 	providerRating: selectedField(
 		propertyNumber(entity, "providerRating"),
 		Schema.NullOr(Schema.Finite),
@@ -878,7 +908,7 @@ export const mediaFlatRecipes = <
 			queries: mediaSummaryQueries({
 				...input,
 				slug: config.slug,
-				include: () => ({}),
+				include: (entity) => ({ genres: mediaGenresInclude(entity, config.slug, input.reference) }),
 				selection: (entity, provider) => {
 					const lifecycle = mediaLifecycleExpressions(entity, `${config.alias}SummaryLifecycle`);
 					return {

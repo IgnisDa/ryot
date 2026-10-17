@@ -107,9 +107,14 @@ describe("music.music-brainz sandbox script", () => {
 								},
 							],
 						},
+						{
+							entities: [],
+							direction: "outgoing",
+							synchronization: "authoritative",
+							relationshipSchemaSlug: "music-to-genre",
+						},
 					]);
 					expect(result.properties).toEqual({
-						genres: [],
 						images: [],
 						duration: 245,
 						publishYear: 2001,

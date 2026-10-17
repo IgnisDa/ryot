@@ -73,11 +73,17 @@ const readyResponse = {
 				isInMediaLibrary: false,
 				populationStatus: "ready",
 				translationStatus: "none",
-				genres: ["Drama", "Mystery"],
 				productionStatus: "Returning Series",
 				description: "A deterministic show description.",
 				nextUp: { items: [], pageInfo: { limit: 1, hasMore: false } },
 				collections: { items: [], pageInfo: { limit: 6, hasMore: false } },
+				genres: {
+					pageInfo: { limit: 100, hasMore: false },
+					items: [
+						{ name: "Drama", id: "genre-drama" },
+						{ name: "Mystery", id: "genre-mystery" },
+					],
+				},
 				images: [
 					{ type: "remote", purpose: "backdrop", url: "https://images.test/backdrop.jpg" },
 					{ type: "remote", purpose: "cover", url: "https://images.test/cover.jpg" },
@@ -602,7 +608,6 @@ describe("ShowScreen", () => {
 							{
 								owned: null,
 								id: "show-1",
-								genres: null,
 								images: null,
 								airedEpisodes: 0,
 								publishYear: null,
@@ -625,6 +630,7 @@ describe("ShowScreen", () => {
 								populationStatus: "none",
 								translationStatus: "none",
 								nextUp: { items: [], pageInfo: { limit: 1, hasMore: false } },
+								genres: { items: [], pageInfo: { limit: 100, hasMore: false } },
 								collections: { items: [], pageInfo: { limit: 6, hasMore: false } },
 							},
 						]),

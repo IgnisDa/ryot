@@ -15,37 +15,15 @@ import {
 	insertLibraryMembership,
 	seedGlobalBookWithSeries,
 } from "~/fixtures/plugins/media";
+import { seedGlobalMediaGenres } from "~/fixtures/plugins/media/genres";
 import { requirePresent } from "~/support/assertions";
 import { signInThroughHostedOAuth } from "~/support/browser";
 import { expect, it } from "~/support/effect-test";
 import { getApiUrl, getFrontendUrl } from "~/support/harness-target";
-import { webRequest } from "~/support/web-request";
 
 const BOOK_COVER = `<svg xmlns="http://www.w3.org/2000/svg" width="40" height="60"><rect width="40" height="60" fill="#0f766e"/></svg>`;
 
 const SIBLING_COVER = `<svg xmlns="http://www.w3.org/2000/svg" width="40" height="60"><rect width="40" height="60" fill="#be123c"/></svg>`;
-
-const uploadPermanentAsset = (apiUrl: string, client: Client, body: string) =>
-	Effect.gen(function* () {
-		const intent = yield* client.call((c) =>
-			c.uploads.createIntent({
-				payload: { kind: "permanent", fileName: "book-art.svg", contentType: "image/svg+xml" },
-			}),
-		);
-		const upload = yield* webRequest(new URL(intent.uploadUrl, `${apiUrl}/`), {
-			body,
-			method: intent.method,
-			headers: intent.headers,
-		});
-		expect([200, 204]).toContain(upload.status);
-		const asset = yield* client.call((c) =>
-			c.uploads.completeIntent({ params: { intentId: intent.intentId } }),
-		);
-		if (!("key" in asset)) {
-			throw new Error("Expected a permanent asset locator");
-		}
-		return asset;
-	});
 
 const bookEventSchemas = (client: Client) =>
 	Effect.gen(function* () {
@@ -71,8 +49,8 @@ it.live("renders a populated Book detail with its series rail and unlinked creat
 		const unlinkedAuthor = `Unlinked Author ${suffix}`;
 		const unlinkedPublisher = `Unlinked Press ${suffix}`;
 		const { email, client, password } = yield* createAuthenticatedClient(apiUrl);
-		const cover = yield* uploadPermanentAsset(apiUrl, client, BOOK_COVER);
-		const siblingCover = yield* uploadPermanentAsset(apiUrl, client, SIBLING_COVER);
+		const cover = { type: "remote" as const, url: "https://images.test/book-cover.svg" };
+		const siblingCover = { type: "remote" as const, url: "https://images.test/book-sibling.svg" };
 		const seeded = yield* seedGlobalBookWithSeries(client, {
 			bookName,
 			seriesName,
@@ -84,7 +62,6 @@ it.live("renders a populated Book detail with its series rail and unlinked creat
 				publishYear: 1997,
 				providerRating: 92.5,
 				isCompilation: false,
-				genres: ["Science Fiction"],
 				productionStatus: "Released",
 				images: [{ ...cover, purpose: "cover" }],
 				unlinkedCreators: [
@@ -94,6 +71,11 @@ it.live("renders a populated Book detail with its series rail and unlinked creat
 				description:
 					"A **deterministic** browser tracer book.\n\nAn *expanded* second paragraph.\n\n:::spoiler\nHidden browser story detail.\n:::",
 			},
+		});
+		yield* seedGlobalMediaGenres({
+			entityId: seeded.book.id,
+			entitySchemaSlug: "book",
+			names: ["Science Fiction"],
 		});
 		yield* insertLibraryMembership(client, { mediaEntityId: seeded.book.id });
 		const events = yield* bookEventSchemas(client);
@@ -115,6 +97,20 @@ it.live("renders a populated Book detail with its series rail and unlinked creat
 			locale: "en-US",
 			viewport: { width: 1280, height: 900 },
 		});
+		yield* page.use((native) =>
+			native
+				.context()
+				.route(cover.url, (route) =>
+					route.fulfill({ body: BOOK_COVER, contentType: "image/svg+xml" }),
+				),
+		);
+		yield* page.use((native) =>
+			native
+				.context()
+				.route(siblingCover.url, (route) =>
+					route.fulfill({ body: SIBLING_COVER, contentType: "image/svg+xml" }),
+				),
+		);
 		yield* signInThroughHostedOAuth(page, email, password);
 		yield* page.goto(`${frontendUrl}/e/${seeded.book.id}`);
 		const frame = page.locator('iframe[title="Media plugin"]');
@@ -180,7 +176,7 @@ it.live("renders a populated Book detail with its series rail and unlinked creat
 			yield* siblingArt.getAttribute("src"),
 			"Missing series sibling artwork",
 		);
-		expect(siblingSrc).toContain(siblingCover.key);
+		expect(siblingSrc).toBe(siblingCover.url);
 		expect(yield* media.getByRole("link", { name: `Open ${bookName}` }).count).toBe(0);
 		yield* media
 			.getByRole("link", { exact: true, name: "View series" })

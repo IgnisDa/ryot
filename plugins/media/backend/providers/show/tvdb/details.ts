@@ -5,6 +5,7 @@ import type {
 } from "@ryot-app/plugin-backend-sdk/provider";
 
 import { MediaSandboxError } from "../../../lib/failures";
+import { mediaGenreGroups } from "../../../lib/media-genres";
 import { parsePublishYear } from "../../../lib/parse-publish-year";
 import { normalizePlainDescription } from "../../../lib/plain-description";
 import {
@@ -117,7 +118,7 @@ export const getTvdbShowDetails = (
 			return yield* new MediaSandboxError({ message: "TVDB returned no name for this series" });
 		}
 		const images = collectImages([show["image"]], show["artworks"], "cover");
-		const genres = collectGenres(show["genres"]);
+		const genres = yield* collectGenres(show["genres"]);
 		const companyTypes = collectCompanyTypes(companyTypesData?.["data"]);
 		const people = collectPeople(show["characters"]);
 		const relatedEntities = people.relatedEntities.map((entity) => ({
@@ -179,7 +180,6 @@ export const getTvdbShowDetails = (
 			expectedChildEntitySchemaSlug: "show-season",
 			properties: {
 				images,
-				genres,
 				sourceUrl,
 				publishYear,
 				totalEpisodes,
@@ -212,6 +212,7 @@ export const getTvdbShowDetails = (
 					synchronization: "authoritative" as const,
 					relationshipSchemaSlug: "media-suggestion",
 				},
+				...mediaGenreGroups("show", genres),
 			],
 		};
 	});

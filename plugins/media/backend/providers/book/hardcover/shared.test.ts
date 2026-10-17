@@ -145,6 +145,19 @@ describe("book.hardcover sandbox script", () => {
 								},
 							],
 						},
+						{
+							direction: "outgoing",
+							synchronization: "authoritative",
+							relationshipSchemaSlug: "book-to-genre",
+							entities: [
+								{
+									name: "Science Fiction",
+									externalId: "science fiction",
+									providerSlug: "genre.media-catalog",
+								},
+								{ name: "Adventure", externalId: "adventure", providerSlug: "genre.media-catalog" },
+							],
+						},
 					]);
 					expect(result.properties).toEqual({
 						pages: 300,
@@ -152,7 +165,6 @@ describe("book.hardcover sandbox script", () => {
 						unlinkedCreators: [],
 						description: "A book.",
 						publishDate: "2020-01-01",
-						genres: ["Science Fiction", "Adventure"],
 						sourceUrl: "https://hardcover.app/books/the-book",
 						images: [
 							{ type: "remote", purpose: "cover", url: "https://img/cover.jpg" },

@@ -109,11 +109,18 @@ export const collectImages = (
 	return images;
 };
 
-export const collectGenres = (genres: unknown) =>
-	recordsValue(genres).flatMap((genre) => {
-		const name = stringValue(genre["name"]);
+export const collectGenres = (genres: unknown) => {
+	if (genres === undefined || genres === null) {
+		return null;
+	}
+	if (!Array.isArray(genres)) {
+		throw new MediaSandboxError({ message: "TMDB genres must be an array" });
+	}
+	return genres.flatMap((genre) => {
+		const name = stringValue(asRecord(genre)?.["name"]);
 		return name ? [name] : [];
 	});
+};
 
 type TmdbWatchProvider = { name: string; image: string | null; offers: WatchProviderOffer[] };
 type TmdbWatchProviderCountry = {

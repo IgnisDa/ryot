@@ -130,7 +130,6 @@ describe("saved views execution", () => {
 				name: `Isolated All Shows ${crypto.randomUUID()}`,
 				externalId: `isolated-all-shows-${crypto.randomUUID()}`,
 				properties: {
-					genres: [],
 					images: [],
 					isNsfw: null,
 					sourceUrl: null,

@@ -61,6 +61,12 @@ describe("manga.myanimelist sandbox script", () => {
 								{ externalId: "2", name: "Manga Pick", providerSlug: "manga.myanimelist" },
 							],
 						},
+						{
+							entities: [],
+							direction: "outgoing",
+							synchronization: "authoritative",
+							relationshipSchemaSlug: "manga-to-genre",
+						},
 					]);
 					expect(result.properties).toMatchObject({
 						volumes: 10,

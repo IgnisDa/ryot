@@ -118,7 +118,6 @@ it.live.each([false, true])("maps track details through the queue (automix: %s)"
 		expect(yield* buildTrackDetails(client, "track")).toEqual({
 			name: "Track",
 			properties: {
-				genres: [],
 				duration: 201,
 				publishYear: 2024,
 				byVariousArtists: false,
@@ -159,6 +158,12 @@ it.live.each([false, true])("maps track details through the queue (automix: %s)"
 					entities: [
 						{ name: "Neighbor", externalId: "neighbor", providerSlug: "music.youtube-music" },
 					],
+				},
+				{
+					entities: [],
+					direction: "outgoing",
+					synchronization: "authoritative",
+					relationshipSchemaSlug: "music-to-genre",
 				},
 			],
 		});

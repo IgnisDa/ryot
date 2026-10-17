@@ -385,6 +385,13 @@ export const mediaEntitySchemas = () => [
 		),
 	},
 	{
+		icon: "tags",
+		slug: "genre",
+		name: "Genre",
+		eventSchemas: [],
+		propertiesSchema: { fields: {} },
+	},
+	{
 		slug: "company",
 		name: "Company",
 		icon: "building-2",

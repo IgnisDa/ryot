@@ -222,7 +222,6 @@ describe("show.tvdb sandbox script", () => {
 						},
 					]);
 					expect(result.properties).toEqual({
-						genres: [],
 						totalSeasons: 3,
 						totalEpisodes: 3,
 						publishYear: null,
@@ -281,7 +280,6 @@ describe("show.tvdb sandbox script", () => {
 					expect(result.childEntities).toEqual([]);
 					expect(result.expectedChildEntitySchemaSlug).toBe("show-season");
 					expect(result.properties).toEqual({
-						genres: [],
 						images: [],
 						totalSeasons: 0,
 						totalEpisodes: 0,

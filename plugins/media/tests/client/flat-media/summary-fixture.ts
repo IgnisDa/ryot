@@ -27,11 +27,17 @@ export const flatSummaryRow = {
 	translationStatus: "none",
 	publishDate: "1999-10-15",
 	productionStatus: "Released",
-	genres: ["Drama", "Thriller"],
 	description: "An insomniac office worker.",
 	collections: {
 		pageInfo: { limit: 6, hasMore: false },
 		items: [{ name: "Completed", id: "collection-1" }],
+	},
+	genres: {
+		pageInfo: { limit: 100, hasMore: false },
+		items: [
+			{ name: "Drama", id: "genre-drama" },
+			{ name: "Thriller", id: "genre-thriller" },
+		],
 	},
 	images: [
 		{ type: "remote", purpose: "backdrop", url: "https://images.test/fc-backdrop.jpg" },

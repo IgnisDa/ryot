@@ -2,6 +2,7 @@ import { defineManifest } from "@ryot-app/plugin-backend-sdk/driver";
 import { DateTime, Effect, Option } from "@ryot-app/plugin-backend-sdk/effect";
 import { defineProvider } from "@ryot-app/plugin-backend-sdk/provider";
 
+import { mediaGenreGroups } from "../../../lib/media-genres";
 import { asRecord, numberValue, stringValue } from "../../../lib/records";
 import { normalizeRichDescription } from "../../../lib/rich-description";
 import type { RoleRelatedEntity } from "../../../lib/role-accumulator";
@@ -221,7 +222,6 @@ export const details = defineProvider({
 			return {
 				name: title,
 				properties: {
-					genres: [],
 					publishDate: parsePublishDate(payload["cover_date"]),
 					publishYear: parsePublishYear(payload["cover_date"]),
 					pages: pageCount === null ? null : Math.trunc(pageCount),
@@ -248,6 +248,7 @@ export const details = defineProvider({
 						synchronization: "authoritative" as const,
 						relationshipSchemaSlug: "media-suggestion",
 					},
+					...mediaGenreGroups("comic-book", []),
 				],
 			};
 		}),

@@ -4,6 +4,7 @@ import { DateTime, Effect, Option } from "@ryot-app/plugin-backend-sdk/effect";
 import { defineProvider } from "@ryot-app/plugin-backend-sdk/provider";
 
 import { MediaSandboxError } from "../../../lib/failures";
+import { mediaGenreGroups } from "../../../lib/media-genres";
 import { decodeJsonResponse, trimmedString } from "../../../lib/records";
 import { normalizeRichDescription } from "../../../lib/rich-description";
 
@@ -86,8 +87,15 @@ const collectImages = (item: UnknownRecord) => {
 	}
 	return images;
 };
-const collectGenres = (item: UnknownRecord) => {
-	const genres = Array.isArray(item["genres"]) ? item["genres"] : [];
+const collectGenres = Effect.fnUntraced(function* (item: UnknownRecord) {
+	const rawGenres = item["genres"];
+	if (rawGenres === undefined || rawGenres === null) {
+		return null;
+	}
+	if (!Array.isArray(rawGenres)) {
+		return yield* new MediaSandboxError({ message: "iTunes genres must be an array" });
+	}
+	const genres = rawGenres;
 	const values = new Set<string>();
 	for (const genre of genres) {
 		if (typeof genre === "string") {
@@ -103,7 +111,7 @@ const collectGenres = (item: UnknownRecord) => {
 		}
 	}
 	return [...values];
-};
+});
 const buildSourceUrl = (externalId: string, title: string) => {
 	const slug = encodeURIComponent(title.toLowerCase().replace(/\s+/g, "-"));
 	return `https://podcasts.apple.com/us/podcast/${slug}/id${externalId}`;
@@ -226,6 +234,7 @@ export const details = defineProvider({
 						return yield* new MediaSandboxError({ message: "Podcast is missing title" });
 					}
 					const totalEpisodes = positiveInt(podcast["trackCount"]);
+					const genres = yield* collectGenres(podcast);
 					const episodeLookup: Record<string, string> = {
 						lang: language,
 						media: "podcast",
@@ -314,7 +323,6 @@ export const details = defineProvider({
 									expectedChildEntitySchemaSlug: "podcast-episode",
 									properties: {
 										unlinkedCreators,
-										genres: collectGenres(podcast),
 										publishDate: getIsoDate(podcast["releaseDate"]),
 										totalEpisodes: totalEpisodes ?? episodes.length,
 										sourceUrl: buildSourceUrl(input.externalId, title),
@@ -329,6 +337,9 @@ export const details = defineProvider({
 											purpose: "cover" as const,
 										})),
 									},
+									...(genres === null
+										? {}
+										: { relatedEntityGroups: mediaGenreGroups("podcast", genres) }),
 								};
 							}),
 						),

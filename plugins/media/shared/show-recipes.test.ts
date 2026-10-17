@@ -147,12 +147,18 @@ const SHOW_SUMMARY_ROW = {
 	translationStatus: "none",
 	productionStatus: "Ended",
 	publishDate: "2025-03-13",
-	genres: ["Drama", "Crime"],
 	description: "A synopsis.",
 	nextUp: { items: [], pageInfo: { limit: 1, hasMore: false } },
 	collections: {
 		pageInfo: { limit: 6, hasMore: false },
 		items: [{ name: "Completed", id: "collection-1" }],
+	},
+	genres: {
+		pageInfo: { limit: 100, hasMore: false },
+		items: [
+			{ name: "Crime", id: "genre-crime" },
+			{ name: "Drama", id: "genre-drama" },
+		],
 	},
 	images: [
 		{ type: "remote", purpose: "backdrop", url: "https://images.test/backdrop.jpg" },
@@ -544,7 +550,6 @@ describe("media show query recipes", () => {
 			"owned",
 			"publishDate",
 			"publishYear",
-			"genres",
 			"providerRating",
 			"productionStatus",
 			"state",
@@ -557,6 +562,16 @@ describe("media show query recipes", () => {
 			"totalSeasons",
 		]);
 		expect(summary.output.include?.[0]).toMatchObject({ limit: 6, key: "collections" });
+		const genres = summary.output.include?.find((include) => include.key === "genres");
+		if (genres === undefined || !("fields" in genres)) {
+			throw new Error("Expected the genres include");
+		}
+		expect(genres).toMatchObject({ limit: 100, key: "genres" });
+		expect(genres.fields.map((field) => ("key" in field ? field.key : null))).toEqual([
+			"id",
+			"name",
+		]);
+		expect(JSON.stringify(genres.where)).toContain("show-to-genre");
 		expect(summary.joins?.[0]).toMatchObject({ type: "left", table: { alias: "provider" } });
 	});
 
@@ -586,8 +601,14 @@ describe("media show query recipes", () => {
 					isMonitored: true,
 					providerName: "TMDB",
 					isInMediaLibrary: true,
-					genres: ["Drama", "Crime"],
 					collections: { items: [{ name: "Completed", id: "collection-1" }] },
+					genres: {
+						pageInfo: { limit: 100, hasMore: false },
+						items: [
+							{ name: "Crime", id: "genre-crime" },
+							{ name: "Drama", id: "genre-drama" },
+						],
+					},
 					images: [
 						{ type: "remote", purpose: "backdrop", url: "https://images.test/backdrop.jpg" },
 						{ type: "remote", purpose: "cover", url: "https://images.test/cover.jpg" },
@@ -673,7 +694,6 @@ describe("media show query recipes", () => {
 					summary: showRows([
 						{
 							...SHOW_SUMMARY_ROW,
-							genres: null,
 							images: null,
 							publishYear: null,
 							description: null,
@@ -684,6 +704,7 @@ describe("media show query recipes", () => {
 							providerRating: null,
 							watchProviders: null,
 							productionStatus: null,
+							genres: { items: [], pageInfo: { limit: 100, hasMore: false } },
 						},
 					]),
 				},
@@ -691,11 +712,11 @@ describe("media show query recipes", () => {
 		).toMatchObject({
 			success: {
 				summary: {
-					genres: null,
 					images: null,
 					publishYear: null,
 					providerName: null,
 					watchProviders: null,
+					genres: { items: [], pageInfo: { limit: 100, hasMore: false } },
 				},
 			},
 		});

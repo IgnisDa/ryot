@@ -467,6 +467,12 @@ describe("video-game.igdb sandbox script", () => {
 							synchronization: "authoritative",
 							relationshipSchemaSlug: "video-game-to-video-game",
 						},
+						{
+							entities: [],
+							direction: "outgoing",
+							synchronization: "authoritative",
+							relationshipSchemaSlug: "video-game-to-genre",
+						},
 					]);
 					return undefined;
 				}),
