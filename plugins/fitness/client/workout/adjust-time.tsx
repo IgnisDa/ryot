@@ -7,7 +7,15 @@ import {
 	useRyotSubmission,
 	type RyotSubmission,
 } from "@ryot-app/plugin-client-sdk/react";
-import { Button, Modal, StatusMessage, TextField } from "@ryot-app/plugin-ui-sdk";
+import {
+	Button,
+	Dialog,
+	Field,
+	Notice,
+	SegmentedControl,
+	TextField,
+} from "@ryot-app/plugin-ui-sdk";
+import { AppIcon } from "@ryot-app/plugin-ui-sdk/icon";
 import { useEffect, useState } from "react";
 
 import { PLUGIN_PACKAGE_ID } from "../../shared/plugin-identity";
@@ -21,7 +29,6 @@ import {
 	WorkoutTimeCorrectionInputSchema,
 	WorkoutTimeCorrectionOutputSchema,
 } from "../../shared/workout-time-operations";
-import { EditorSelect, editorModalClass } from "../workout-editor/controls";
 
 type Correction = Omit<
 	typeof WorkoutTimeCorrectionInputSchema.Type,
@@ -135,79 +142,95 @@ function TimeForm(props: {
 		submitLabel = "Saving…";
 	}
 	return (
-		<Modal
+		<Dialog
 			onClose={onClose}
-			label="Adjust workout time"
-			className={editorModalClass}
+			title="Adjust workout time"
 			dismissible={!save.isPending}
 			closeLabel="Close time correction"
+			closeIcon={<AppIcon name="x" size={18} />}
+			description="Change session timestamps only. Set, confirmation, and rest-start times stay unchanged."
+			footer={
+				<Button
+					onClick={save.status === "retained" ? save.retry : submit}
+					disabled={
+						save.isPending || save.data?.kind === "conflict" || save.data?.kind === "invalid"
+					}
+				>
+					{submitLabel}
+				</Button>
+			}
 		>
-			<h2>Adjust workout time</h2>
-			<p>Change session timestamps only. Set, confirmation, and rest-start times stay unchanged.</p>
-			<fieldset
-				className="flex flex-col gap-3"
-				disabled={save.isPending || save.status === "retained"}
-			>
-				<label>
-					Start time
-					<TextField
-						value={start}
-						type="datetime-local"
-						onChange={(event) => setStart(event.target.value)}
-					/>
-				</label>
-				<label>
-					End time
-					<TextField
-						value={end}
-						type="datetime-local"
-						onChange={(event) => setEnd(event.target.value)}
-					/>
-				</label>
-				<EditorSelect
-					value={intent}
-					onChange={setIntent}
-					label="Active duration"
-					choices={[
-						{ value: "preserve", label: "Keep recorded duration" },
-						{ value: "set", label: "Set duration" },
-						{ value: "clear", label: "Clear to unknown" },
-					]}
-				/>
-				{intent === "set" ? (
-					<label>
-						Active duration (seconds)
-						<TextField
-							value={seconds}
-							inputMode="numeric"
-							onChange={(event) => setSeconds(event.target.value)}
+			<div className="grid gap-4">
+				<fieldset
+					className="grid min-w-0 gap-4 border-0 p-0"
+					disabled={save.isPending || save.status === "retained"}
+				>
+					<Field label="Start time">
+						{(control) => (
+							<TextField
+								{...control}
+								value={start}
+								type="datetime-local"
+								onChange={(event) => setStart(event.target.value)}
+							/>
+						)}
+					</Field>
+					<Field label="End time">
+						{(control) => (
+							<TextField
+								{...control}
+								value={end}
+								type="datetime-local"
+								onChange={(event) => setEnd(event.target.value)}
+							/>
+						)}
+					</Field>
+					<div className="grid gap-1.5">
+						<span className="text-[13px] font-medium">Active duration</span>
+						<SegmentedControl
+							value={intent}
+							className="w-full"
+							onChange={setIntent}
+							label="Active duration"
+							optionClassName="flex-1 px-2"
+							options={[
+								{ content: "Keep", value: "preserve", label: "Keep recorded duration" },
+								{ value: "set", content: "Set", label: "Set duration" },
+								{ value: "clear", content: "Clear", label: "Clear to unknown" },
+							]}
 						/>
-					</label>
+					</div>
+					{intent === "set" ? (
+						<Field label="Active duration (seconds)">
+							{(control) => (
+								<TextField
+									{...control}
+									value={seconds}
+									inputMode="numeric"
+									onChange={(event) => setSeconds(event.target.value)}
+								/>
+							)}
+						</Field>
+					) : null}
+				</fieldset>
+				{message ? <Notice tone="danger">{message}</Notice> : null}
+				{save.error ? (
+					<Notice tone="danger">
+						The result could not be confirmed. Retry the same correction.
+					</Notice>
 				) : null}
-			</fieldset>
-			{message ? <StatusMessage tone="error">{message}</StatusMessage> : null}
-			{save.error ? (
-				<StatusMessage tone="error">
-					The result could not be confirmed. Retry the same correction.
-				</StatusMessage>
-			) : null}
-			{save.data?.kind === "conflict" ? (
-				<StatusMessage tone="error">
-					This workout changed. Close and reopen Adjust time to load the saved version.
-				</StatusMessage>
-			) : null}
-			{save.data?.kind === "invalid" ? (
-				<StatusMessage tone="error">
-					This correction is invalid. Close and reopen the form to try again.
-				</StatusMessage>
-			) : null}
-			<Button
-				onClick={save.status === "retained" ? save.retry : submit}
-				disabled={save.isPending || save.data?.kind === "conflict" || save.data?.kind === "invalid"}
-			>
-				{submitLabel}
-			</Button>
-		</Modal>
+				{save.data?.kind === "conflict" ? (
+					<Notice tone="danger">
+						This workout changed. Close and reopen Adjust time to load the saved version.
+					</Notice>
+				) : null}
+				{save.data?.kind === "invalid" ? (
+					<Notice tone="danger">
+						This correction is invalid. Close and reopen the form to try again.
+					</Notice>
+				) : null}
+			</div>
+		</Dialog>
 	);
 }
 
@@ -221,23 +244,28 @@ export function AdjustWorkoutTime(props: {
 		return <TimeForm entity={source.data} onClose={props.onClose} />;
 	}
 	return (
-		<Modal
+		<Dialog
 			onClose={props.onClose}
-			label="Adjust workout time"
-			className={editorModalClass}
+			title="Adjust workout time"
 			closeLabel="Close time correction"
+			closeIcon={<AppIcon name="x" size={18} />}
 		>
-			<h2>Adjust workout time</h2>
 			{source.isError ? (
-				<>
-					<StatusMessage tone="error">Workout times could not be loaded.</StatusMessage>
-					<Button onClick={source.refetch}>Retry times</Button>
-				</>
+				<Notice
+					tone="danger"
+					action={
+						<Button size="sm" variant="secondary" onClick={source.refetch}>
+							Retry times
+						</Button>
+					}
+				>
+					Workout times could not be loaded.
+				</Notice>
 			) : (
-				<StatusMessage tone="pending">
+				<p role="status" className="text-text-muted">
 					{source.data === null ? "This workout no longer exists." : "Loading workout times…"}
-				</StatusMessage>
+				</p>
 			)}
-		</Modal>
+		</Dialog>
 	);
 }

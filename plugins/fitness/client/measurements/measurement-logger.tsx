@@ -1,6 +1,6 @@
 import { useRyotQuery } from "@ryot-app/plugin-client-sdk/react";
 import { Button, StatusMessage } from "@ryot-app/plugin-ui-sdk";
-import { useRef, useState } from "react";
+import { useMemo, useState } from "react";
 
 import type { MeasurementSummary } from "../../shared/measurement-recipes";
 import { AddMetricDialog } from "./add-metric";
@@ -9,60 +9,92 @@ import { summaryQuery } from "./queries";
 
 const RANGE_START = "1970-01-01T00:00:00.000Z";
 
-export function MeasurementLogger(props: { readonly disabled?: boolean }) {
-	const [addingMetric, setAddingMetric] = useState(false);
-	const [logging, setLogging] = useState<readonly MeasurementSummary[] | null>(null);
-	const triggerRef = useRef<HTMLButtonElement>(null);
+type MeasurementDialog = {
+	readonly kind: "add-metric" | "log";
+	readonly metrics: readonly MeasurementSummary[];
+};
+
+export const useMeasurementLogger = () => {
+	const [dialog, setDialog] = useState<MeasurementDialog>();
+	const [trigger, setTrigger] = useState<HTMLButtonElement | null>(null);
 	const result = useRyotQuery(summaryQuery, { rangeStart: RANGE_START });
-	const queryUnavailable = result.data === undefined || result.isFetching || result.isError;
 	const log = () => {
-		if (result.data === undefined) {
-			return;
+		if (result.data !== undefined) {
+			setDialog({ metrics: result.data, kind: result.data.length === 0 ? "add-metric" : "log" });
 		}
-		if (result.data.length === 0) {
-			setAddingMetric(true);
-			return;
-		}
-		setLogging(result.data);
 	};
+	return {
+		log,
+		dialog,
+		trigger,
+		setTrigger,
+		error: result.isError,
+		retry: result.refetch,
+		close: () => setDialog(undefined),
+		loading: result.data === undefined && !result.isError,
+		unavailable: result.data === undefined || result.isFetching || result.isError,
+	};
+};
+
+export function MeasurementDialogs(props: {
+	readonly onClose: () => void;
+	readonly trigger: HTMLButtonElement | null;
+	readonly dialog: MeasurementDialog | undefined;
+}) {
+	const focusTarget = useMemo(() => ({ current: props.trigger }), [props.trigger]);
+	if (props.dialog === undefined) {
+		return null;
+	}
+	return props.dialog.kind === "add-metric" ? (
+		<AddMetricDialog
+			onClose={props.onClose}
+			triggerRef={focusTarget}
+			metrics={props.dialog.metrics}
+		/>
+	) : (
+		<LogMeasurementDialog
+			onClose={props.onClose}
+			triggerRef={focusTarget}
+			metrics={props.dialog.metrics}
+		/>
+	);
+}
+
+export function MeasurementLogger(props: { readonly disabled?: boolean }) {
+	const {
+		log: loggerLog,
+		error: loggerError,
+		retry: loggerRetry,
+		close: loggerClose,
+		dialog: loggerDialog,
+		trigger: loggerTrigger,
+		loading: loggerLoading,
+		setTrigger: loggerSetTrigger,
+		unavailable: loggerUnavailable,
+	} = useMeasurementLogger();
 	return (
 		<div className="flex flex-wrap items-center gap-2.5 font-ui">
 			<div className="flex flex-wrap items-center gap-2.5">
 				<Button
-					onClick={log}
-					ref={triggerRef}
+					onClick={loggerLog}
+					ref={loggerSetTrigger}
 					className="min-h-9 px-3.5 py-1.5"
-					disabled={props.disabled === true || queryUnavailable}
+					disabled={props.disabled === true || loggerUnavailable}
 				>
 					Log measurement
 				</Button>
 				<p className="text-sm text-text-muted">Measurements save separately from this workout.</p>
 			</div>
-			{result.isError ? (
+			{loggerError ? (
 				<div className="flex flex-wrap items-center gap-2.5">
 					<StatusMessage tone="error">Your measurements couldn&apos;t be loaded.</StatusMessage>
-					<Button variant="secondary" onClick={result.refetch} disabled={props.disabled}>
+					<Button variant="secondary" onClick={loggerRetry} disabled={props.disabled}>
 						Try again
 					</Button>
 				</div>
 			) : null}
-			{result.data === undefined && !result.isError ? (
-				<StatusMessage tone="pending">Loading measurements…</StatusMessage>
-			) : null}
-			{addingMetric && result.data !== undefined ? (
-				<AddMetricDialog
-					metrics={result.data}
-					triggerRef={triggerRef}
-					onClose={() => setAddingMetric(false)}
-				/>
-			) : null}
-			{logging !== null ? (
-				<LogMeasurementDialog
-					metrics={logging}
-					triggerRef={triggerRef}
-					onClose={() => setLogging(null)}
-				/>
-			) : null}
+			{loggerLoading ? <StatusMessage tone="pending">Loading measurements…</StatusMessage> : null}
+			<MeasurementDialogs dialog={loggerDialog} onClose={loggerClose} trigger={loggerTrigger} />
 		</div>
 	);
 }

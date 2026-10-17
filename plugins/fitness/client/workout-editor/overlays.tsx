@@ -3,13 +3,16 @@ import {
 	Button,
 	Card,
 	Dialog,
+	Checkbox,
 	EmptyState,
-	Modal,
+	IconButton,
 	Notice,
+	RadioGroup,
 	ReorderableList,
 	Skeleton,
 } from "@ryot-app/plugin-ui-sdk";
 import { AppIcon } from "@ryot-app/plugin-ui-sdk/icon";
+import clsx from "clsx";
 import { useRef, useState } from "react";
 
 import type { WorkoutEditorDraft } from "../../shared/workout-editor-draft";
@@ -17,9 +20,15 @@ import type {
 	WorkoutHistoryResult,
 	WorkoutHistorySetResult,
 } from "../../shared/workout-history-recipes";
+import {
+	supersetColor,
+	supersetColors,
+	supersetColorVariable,
+	supersetSoftColorVariable,
+} from "../group-colors";
 import { removeWorkoutItems } from "./actions";
-import { EditorSelect, editorModalClass } from "./controls";
 import { editorHistoryQuery, readHistorySets } from "./queries";
+import { supersetNames } from "./superset-group";
 
 const historySetsQuery = createRyotQuery<
 	{ readonly workoutId: string; readonly exerciseId: string },
@@ -241,22 +250,32 @@ export function HistoryOverlay(props: {
 	);
 }
 
-export function ReorderOverlay(props: {
+type DraftOverlayProps = {
+	readonly compact: boolean;
+	readonly safeAreaBottom: number;
 	readonly draft: WorkoutEditorDraft;
 	readonly names: ReadonlyMap<string, string>;
 	readonly onChange: (transform: (draft: WorkoutEditorDraft) => WorkoutEditorDraft) => void;
 	readonly onClose: () => void;
-}) {
+};
+
+const sectionHeading = "text-[11px] font-semibold tracking-wider text-text-subtle uppercase";
+
+export function ReorderOverlay(props: DraftOverlayProps) {
 	const scrollRef = useRef<HTMLDivElement>(null);
+	const groups = supersetNames(props.draft);
 	return (
-		<Modal
+		<Dialog
 			onClose={props.onClose}
-			label="Reorder exercises"
+			title="Reorder exercises"
 			closeLabel="Close reorder"
-			className={editorModalClass}
+			safeAreaBottom={props.safeAreaBottom}
+			description="Changes apply right away."
+			closeIcon={<AppIcon name="x" size={18} />}
+			placement={props.compact ? "sheet" : "center"}
+			footer={<Button onClick={props.onClose}>Done</Button>}
 		>
-			<h2 className="text-xl font-semibold">Reorder exercises</h2>
-			<div ref={scrollRef} className="max-h-96 overflow-y-auto">
+			<div ref={scrollRef} className="max-h-[60vh] overflow-y-auto">
 				<ReorderableList
 					itemHeight={56}
 					scrollRef={scrollRef}
@@ -265,14 +284,6 @@ export function ReorderOverlay(props: {
 					itemKey={(item) => item.clientId}
 					handleIcon={<AppIcon size={18} name="grip-vertical" />}
 					itemLabel={(item) => props.names.get(item.exerciseId) ?? "Unavailable exercise"}
-					renderItem={({ item, handle }) => (
-						<div className="flex h-14 items-center gap-3">
-							{handle}
-							<span className="min-w-0 flex-1 truncate">
-								{props.names.get(item.exerciseId) ?? "Unavailable exercise"}
-							</span>
-						</div>
-					)}
 					onReorder={(from, to) =>
 						props.onChange((draft) => {
 							const occurrences = [...draft.occurrences];
@@ -284,177 +295,284 @@ export function ReorderOverlay(props: {
 							return { ...draft, occurrences };
 						})
 					}
+					renderItem={({ item, handle }) => {
+						const group = props.draft.supersets.find(({ occurrenceIds }) =>
+							occurrenceIds.includes(item.clientId),
+						);
+						return (
+							<div className="flex h-14 items-center gap-3 border-b border-border">
+								{handle}
+								<span className="min-w-0 flex-1 truncate text-sm font-semibold">
+									{props.names.get(item.exerciseId) ?? "Unavailable exercise"}
+								</span>
+								{group === undefined ? null : (
+									<span
+										className="rounded-pill px-2 py-0.5 text-xs font-semibold"
+										style={{
+											color: supersetColorVariable(group.color),
+											backgroundColor: supersetSoftColorVariable(group.color),
+										}}
+									>
+										{groups.get(group.clientId)}
+									</span>
+								)}
+							</div>
+						);
+					}}
 				/>
 			</div>
-			<Button onClick={props.onClose}>Done</Button>
-		</Modal>
+		</Dialog>
 	);
 }
 
 const toggleSelection = (values: readonly string[], id: string) =>
 	values.includes(id) ? values.filter((value) => value !== id) : [...values, id];
 
-export function BulkDeleteOverlay(props: {
-	readonly draft: WorkoutEditorDraft;
-	readonly names: ReadonlyMap<string, string>;
-	readonly onChange: (transform: (draft: WorkoutEditorDraft) => WorkoutEditorDraft) => void;
-	readonly onClose: () => void;
-}) {
+export function BulkDeleteOverlay(props: DraftOverlayProps) {
 	const [occurrences, setOccurrences] = useState<readonly string[]>([]);
 	const [sets, setSets] = useState<readonly string[]>([]);
+	const count = occurrences.length + sets.length;
 	return (
-		<Modal
-			label="Bulk delete"
+		<Dialog
 			onClose={props.onClose}
-			className={editorModalClass}
 			closeLabel="Cancel bulk delete"
+			title="Delete exercises or sets"
+			safeAreaBottom={props.safeAreaBottom}
+			closeIcon={<AppIcon name="x" size={18} />}
+			placement={props.compact ? "sheet" : "center"}
+			footer={
+				<>
+					<Button variant="secondary" onClick={props.onClose}>
+						Cancel
+					</Button>
+					<Button
+						variant="danger"
+						disabled={count === 0}
+						onClick={() => {
+							props.onChange((draft) => removeWorkoutItems(draft, occurrences, sets));
+							props.onClose();
+						}}
+					>
+						{count === 0 ? "Delete selected" : `Delete ${count} selected`}
+					</Button>
+				</>
+			}
 		>
-			<h2 className="text-xl font-semibold">Delete exercises or sets</h2>
-			{props.draft.occurrences.map((occurrence, index) => (
-				<fieldset
-					key={occurrence.clientId}
-					className="flex flex-col gap-2 rounded-lg border border-border p-3"
-				>
-					<legend>
-						Exercise {index + 1}: {props.names.get(occurrence.exerciseId) ?? "Unavailable exercise"}
-					</legend>
-					<label>
-						<input
-							type="checkbox"
-							checked={occurrences.includes(occurrence.clientId)}
-							onChange={() => setOccurrences(toggleSelection(occurrences, occurrence.clientId))}
-						/>{" "}
-						Delete whole exercise
-					</label>
-					{occurrence.sets.map((set, setIndex) => (
-						<label key={set.clientId}>
-							<input
-								type="checkbox"
-								disabled={occurrences.includes(occurrence.clientId)}
-								onChange={() => setSets(toggleSelection(sets, set.clientId))}
-								checked={occurrences.includes(occurrence.clientId) || sets.includes(set.clientId)}
-							/>{" "}
-							Set {setIndex + 1}
-						</label>
-					))}
-				</fieldset>
-			))}
-			<Button
-				disabled={occurrences.length + sets.length === 0}
-				onClick={() => {
-					props.onChange((draft) => removeWorkoutItems(draft, occurrences, sets));
-					props.onClose();
-				}}
-			>
-				Delete selected
-			</Button>
-			<Button variant="secondary" onClick={props.onClose}>
-				Cancel
-			</Button>
-		</Modal>
+			<div className="grid gap-3">
+				{props.draft.occurrences.map((occurrence) => {
+					const name = props.names.get(occurrence.exerciseId) ?? "Unavailable exercise";
+					const whole = occurrences.includes(occurrence.clientId);
+					return (
+						<fieldset
+							key={occurrence.clientId}
+							className="grid min-w-0 gap-1 rounded-lg border border-border-card bg-surface px-3 py-2"
+						>
+							<legend className="sr-only">{name}</legend>
+							<Checkbox
+								checked={whole}
+								onChange={() => setOccurrences(toggleSelection(occurrences, occurrence.clientId))}
+								label={
+									<span className="min-w-0">
+										<span className="font-semibold [overflow-wrap:anywhere]">{name}</span>
+										<span className="text-text-muted"> · whole exercise</span>
+									</span>
+								}
+							/>
+							{occurrence.sets.length === 0 ? null : (
+								<div className="flex flex-wrap gap-x-4 pl-7">
+									{occurrence.sets.map((set, setIndex) => (
+										<Checkbox
+											disabled={whole}
+											key={set.clientId}
+											label={`Set ${setIndex + 1}`}
+											checked={whole || sets.includes(set.clientId)}
+											onChange={() => setSets(toggleSelection(sets, set.clientId))}
+										/>
+									))}
+								</div>
+							)}
+						</fieldset>
+					);
+				})}
+			</div>
+		</Dialog>
 	);
 }
 
-export function SupersetOverlay(props: {
-	readonly draft: WorkoutEditorDraft;
-	readonly names: ReadonlyMap<string, string>;
-	readonly onChange: (transform: (draft: WorkoutEditorDraft) => WorkoutEditorDraft) => void;
-	readonly onClose: () => void;
-}) {
+export function SupersetOverlay(props: DraftOverlayProps) {
 	const [editing, setEditing] = useState<string>();
 	const [selected, setSelected] = useState<readonly string[]>([]);
-	const [color, setColor] = useState("blue");
+	const [color, setColor] = useState<(typeof supersetColors)[number]>("blue");
+	const groups = supersetNames(props.draft);
+	const memberNames = (occurrenceIds: readonly string[]) =>
+		occurrenceIds
+			.map((id) => {
+				const occurrence = props.draft.occurrences.find(({ clientId }) => clientId === id);
+				return occurrence === undefined ? "" : props.names.get(occurrence.exerciseId);
+			})
+			.join(" + ");
 	return (
-		<Modal
-			label="Supersets"
+		<Dialog
+			title="Supersets"
 			onClose={props.onClose}
 			closeLabel="Close supersets"
-			className={editorModalClass}
-		>
-			<h2 className="text-xl font-semibold">Supersets</h2>
-			{props.draft.supersets.map((group) => (
-				<div key={group.clientId} className="flex flex-wrap items-center gap-2">
-					<span>
-						{group.color}:{" "}
-						{group.occurrenceIds
-							.map((id) => {
-								const occurrence = props.draft.occurrences.find(({ clientId }) => clientId === id);
-								return occurrence === undefined ? "" : props.names.get(occurrence.exerciseId);
-							})
-							.join(" + ")}
-					</span>
-					<Button
-						variant="secondary"
-						onClick={() => {
-							setEditing(group.clientId);
-							setSelected(group.occurrenceIds);
-							setColor(group.color);
-						}}
-					>
-						Edit superset
+			safeAreaBottom={props.safeAreaBottom}
+			closeIcon={<AppIcon name="x" size={18} />}
+			placement={props.compact ? "sheet" : "center"}
+			description="Group exercises you alternate between."
+			footer={
+				<>
+					<Button variant="secondary" onClick={props.onClose}>
+						Done
 					</Button>
 					<Button
-						variant="ghost"
-						onClick={() =>
+						disabled={selected.length < 2}
+						onClick={() => {
 							props.onChange((draft) => ({
 								...draft,
-								supersets: draft.supersets.filter(({ clientId }) => clientId !== group.clientId),
-							}))
-						}
+								supersets: [
+									...draft.supersets
+										.filter(({ clientId }) => clientId !== editing)
+										.flatMap((group) => {
+											const occurrenceIds = group.occurrenceIds.filter(
+												(id) => !selected.includes(id),
+											);
+											return occurrenceIds.length < 2 ? [] : [{ ...group, occurrenceIds }];
+										}),
+									{ color, occurrenceIds: selected, clientId: editing ?? crypto.randomUUID() },
+								],
+							}));
+							setEditing(undefined);
+							setSelected([]);
+						}}
 					>
-						Delete superset
+						{editing === undefined ? "Create superset" : "Save superset"}
 					</Button>
-				</div>
-			))}
-			{props.draft.occurrences.map((occurrence, index) => (
-				<label key={occurrence.clientId} className="flex items-center gap-2">
-					<input
-						type="checkbox"
-						checked={selected.includes(occurrence.clientId)}
-						onChange={() =>
-							setSelected(
-								selected.includes(occurrence.clientId)
-									? selected.filter((id) => id !== occurrence.clientId)
-									: [...selected, occurrence.clientId],
-							)
-						}
-					/>
-					{index + 1}. {props.names.get(occurrence.exerciseId) ?? "Unavailable exercise"}
-				</label>
-			))}
-			<EditorSelect
-				value={color}
-				onChange={setColor}
-				label="Superset color"
-				choices={["blue", "purple", "teal", "orange", "crimson"].map((value) => ({
-					value,
-					label: value[0]?.toUpperCase() + value.slice(1),
-				}))}
-			/>
-			<Button
-				disabled={selected.length < 2 || color.trim() === ""}
-				onClick={() => {
-					props.onChange((draft) => ({
-						...draft,
-						supersets: [
-							...draft.supersets
-								.filter(({ clientId }) => clientId !== editing)
-								.flatMap((group) => {
-									const occurrenceIds = group.occurrenceIds.filter((id) => !selected.includes(id));
-									return occurrenceIds.length < 2 ? [] : [{ ...group, occurrenceIds }];
-								}),
-							{ color, occurrenceIds: selected, clientId: editing ?? crypto.randomUUID() },
-						],
-					}));
-					setEditing(undefined);
-					setSelected([]);
-				}}
-			>
-				{editing === undefined ? "Create superset" : "Save superset"}
-			</Button>
-			<Button variant="secondary" onClick={props.onClose}>
-				Done
-			</Button>
-		</Modal>
+				</>
+			}
+		>
+			<div className="grid gap-5">
+				{props.draft.supersets.length === 0 ? null : (
+					<section className="grid gap-2">
+						<h3 className={sectionHeading}>Current</h3>
+						{props.draft.supersets.map((group) => {
+							const name = groups.get(group.clientId) ?? "Superset";
+							return (
+								<Card
+									padding="none"
+									key={group.clientId}
+									className="flex items-center gap-2.5 px-3 py-2.5"
+								>
+									<span
+										aria-hidden="true"
+										className="size-2.5 shrink-0 rounded-[3px]"
+										style={{ backgroundColor: supersetColorVariable(group.color) }}
+									/>
+									<div className="min-w-0 flex-1 text-sm">
+										<p className="font-semibold">{name}</p>
+										<p className="text-text-muted [overflow-wrap:anywhere]">
+											{memberNames(group.occurrenceIds)}
+										</p>
+									</div>
+									<Button
+										size="sm"
+										variant="ghost"
+										aria-label={`Edit ${name}`}
+										onClick={() => {
+											setEditing(group.clientId);
+											setSelected(group.occurrenceIds);
+											setColor(supersetColor(group.color));
+										}}
+									>
+										Edit
+									</Button>
+									<IconButton
+										size="sm"
+										tone="danger"
+										label={`Delete ${name}`}
+										onClick={() =>
+											props.onChange((draft) => ({
+												...draft,
+												supersets: draft.supersets.filter(
+													({ clientId }) => clientId !== group.clientId,
+												),
+											}))
+										}
+									>
+										<AppIcon size={16} name="trash-2" />
+									</IconButton>
+								</Card>
+							);
+						})}
+					</section>
+				)}
+				<section className="grid gap-2">
+					<h3 className={sectionHeading}>
+						{editing === undefined
+							? "New superset · pick two or more"
+							: `Editing ${groups.get(editing) ?? "superset"}`}
+					</h3>
+					<div className="grid divide-y divide-border rounded-lg border border-border-card bg-surface px-3">
+						{props.draft.occurrences.map((occurrence) => {
+							const other = props.draft.supersets.find(
+								({ clientId, occurrenceIds }) =>
+									clientId !== editing && occurrenceIds.includes(occurrence.clientId),
+							);
+							return (
+								<Checkbox
+									className="py-2"
+									key={occurrence.clientId}
+									checked={selected.includes(occurrence.clientId)}
+									onChange={() => setSelected(toggleSelection(selected, occurrence.clientId))}
+									label={
+										<span className="min-w-0 [overflow-wrap:anywhere]">
+											{props.names.get(occurrence.exerciseId) ?? "Unavailable exercise"}
+											{other === undefined ? null : (
+												<span className="text-text-subtle"> · in {groups.get(other.clientId)}</span>
+											)}
+										</span>
+									}
+								/>
+							);
+						})}
+					</div>
+					<div className="grid gap-1.5">
+						<span className="text-[13px] font-medium">Color</span>
+						<RadioGroup
+							value={color}
+							onChange={setColor}
+							label="Superset color"
+							className="flex flex-wrap gap-2"
+							options={supersetColors.map((value) => ({
+								value,
+								label: `${value[0]?.toUpperCase()}${value.slice(1)}`,
+							}))}
+							renderOption={(option, checked) => ({
+								className: clsx(
+									"grid size-10 place-items-center rounded-md border-2 pointer-coarse:size-11",
+									checked ? "border-text" : "border-transparent",
+								),
+								content: (
+									<span
+										aria-hidden="true"
+										className="grid size-full place-items-center rounded-sm"
+										style={{ backgroundColor: supersetSoftColorVariable(option.value) }}
+									>
+										<span
+											className="size-4.5 rounded-[5px]"
+											style={{ backgroundColor: supersetColorVariable(option.value) }}
+										/>
+									</span>
+								),
+							})}
+						/>
+					</div>
+					<p className="text-xs text-text-muted">
+						Moving an exercise here takes it out of its current superset. Supersets left with one
+						exercise are removed.
+					</p>
+				</section>
+			</div>
+		</Dialog>
 	);
 }

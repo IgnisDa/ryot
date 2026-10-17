@@ -306,11 +306,11 @@ describe("WorkoutEditorScreen", () => {
 				);
 				yield* waitForEditor(answerPending);
 				yield* Effect.promise(() =>
-					waitFor(() => expect(screen.getByRole("dialog", { name: "Pro required" })).toBeTruthy()),
+					waitFor(() =>
+						expect(screen.getByRole("dialog", { name: "Templates require Pro" })).toBeTruthy(),
+					),
 				);
-				expect(
-					screen.queryByRole("button", { name: "Discard and start requested action" }),
-				).toBeNull();
+				expect(screen.queryByRole("button", { name: "Discard and start" })).toBeNull();
 				expect(prepared).toBe(0);
 				const decoded = decodeWorkoutEditorDraft(storage.value);
 				assert(decoded._tag === "Success");
@@ -345,14 +345,18 @@ describe("WorkoutEditorScreen", () => {
 					yield* waitForEditor(answerPending);
 					yield* Effect.promise(() =>
 						waitFor(() =>
-							expect(screen.getByRole("dialog", { name: "Existing draft" })).toBeTruthy(),
+							expect(
+								screen.getByRole("dialog", { name: "You have a workout in progress" }),
+							).toBeTruthy(),
 						),
 					);
 					expect(prepared).toBe(0);
-					click(screen.getByRole("button", { name: "Resume draft" }));
+					click(screen.getByRole("button", { name: "Resume workout" }));
 					expect(resumed).toBe(1);
 					expect(prepared).toBe(0);
-					expect(screen.queryByRole("dialog", { name: "Existing draft" })).toBeNull();
+					expect(
+						screen.queryByRole("dialog", { name: "You have a workout in progress" }),
+					).toBeNull();
 				} finally {
 					yield* Effect.promise(() => clock.dispose());
 				}
@@ -385,10 +389,12 @@ describe("WorkoutEditorScreen", () => {
 				yield* waitForEditor(answerPending);
 				yield* Effect.promise(() =>
 					waitFor(() =>
-						expect(screen.getByRole("dialog", { name: "Existing draft" })).toBeTruthy(),
+						expect(
+							screen.getByRole("dialog", { name: "You have a workout in progress" }),
+						).toBeTruthy(),
 					),
 				);
-				click(screen.getByRole("button", { name: "Discard and start requested action" }));
+				click(screen.getByRole("button", { name: "Discard and start" }));
 				yield* waitForEditor(answerPending);
 				yield* Effect.promise(() =>
 					waitFor(() => {
@@ -400,7 +406,7 @@ describe("WorkoutEditorScreen", () => {
 				const decoded = decodeWorkoutEditorDraft(storage.value);
 				assert(decoded._tag === "Success");
 				expect(decoded.success.draftId).toBe("requested");
-				expect(screen.queryByRole("dialog", { name: "Existing draft" })).toBeNull();
+				expect(screen.queryByRole("dialog", { name: "You have a workout in progress" })).toBeNull();
 			} finally {
 				yield* Effect.promise(() => clock.dispose());
 			}
@@ -476,10 +482,10 @@ describe("WorkoutEditorScreen", () => {
 					{ value: 0, metricId: "weight" },
 				]);
 				expect(submitted.comment).toBe("During workout");
-				click(screen.getByRole("button", { name: "Cancel and discard" }));
+				click(screen.getByRole("button", { name: "Discard workout" }));
 				click(
-					within(screen.getByRole("dialog", { name: "Discard draft" })).getByRole("button", {
-						name: "Discard draft",
+					within(screen.getByRole("dialog", { name: "Discard workout?" })).getByRole("button", {
+						name: "Discard workout",
 					}),
 				);
 				yield* Effect.promise(() =>
@@ -573,13 +579,9 @@ describe("WorkoutEditorScreen", () => {
 						});
 						yield* waitForEditor(answerPending);
 						if (mode.kind === "live") {
-							expect(
-								screen.getByText("Measurements save separately from this workout."),
-							).toBeTruthy();
+							expect(screen.getByRole("button", { name: "Log measurement" })).toBeTruthy();
 						} else {
-							expect(
-								screen.queryByText("Measurements save separately from this workout."),
-							).toBeNull();
+							expect(screen.queryByRole("button", { name: "Log measurement" })).toBeNull();
 						}
 						page.dispose();
 					}
@@ -642,18 +644,21 @@ describe("WorkoutEditorScreen", () => {
 				});
 				yield* waitForEditor(answerPending);
 
-				const name = screen.getByRole("textbox", { name: "Name" });
+				click(screen.getByRole("button", { name: "Details" }));
+				const details = screen.getByRole("dialog", { name: "Workout details" });
+				const name = within(details).getByRole("textbox", { name: "Name" });
+				change(name, "Latest workout name");
+				expect(inputValue(name)).toBe("Latest workout name");
+				click(within(details).getByRole("button", { name: "Done" }));
 				const reps = screen.getByRole("textbox", { name: "Set 1 reps" });
 				const weight = screen.getByRole("textbox", { name: "Set 1 weight (kg)" });
-				change(name, "Latest workout name");
 				change(reps, "9");
 				change(weight, "22.5");
-				expect(inputValue(name)).toBe("Latest workout name");
 				expect(inputValue(reps)).toBe("9");
 				expect(inputValue(weight)).toBe("22.5");
 
 				click(screen.getByRole("button", { name: "Finish" }));
-				const review = screen.getByRole("dialog", { name: "Review save" });
+				const review = screen.getByRole("dialog", { name: "Finish workout?" });
 				click(within(review).getByRole("button", { name: "Save workout" }));
 				yield* Effect.promise(() =>
 					waitFor(() => {
@@ -697,13 +702,12 @@ describe("WorkoutEditorScreen", () => {
 				yield* waitForEditor(answerPending);
 
 				click(screen.getByRole("button", { name: "Finish" }));
-				const review = screen.getByRole("dialog", { name: "Review save" });
-				expect(review.textContent).toContain(
-					"1 confirmed sets will be saved; 1 unconfirmed sets will be omitted.",
-				);
-				click(within(review).getByRole("button", { name: "Continue editing" }));
+				const review = screen.getByRole("dialog", { name: "Finish workout?" });
+				expect(review.textContent).toContain("Sets saved1");
+				expect(review.textContent).toContain("1 unfinished set won't be saved");
+				click(within(review).getByRole("button", { name: "Keep logging" }));
 
-				expect(screen.queryByRole("dialog", { name: "Review save" })).toBeNull();
+				expect(screen.queryByRole("dialog", { name: "Finish workout?" })).toBeNull();
 				expect(screen.getByRole("button", { pressed: true, name: "Complete set 1" })).toBeTruthy();
 				expect(screen.getByRole("button", { pressed: false, name: "Complete set 2" })).toBeTruthy();
 				expect(saveInputs).toHaveLength(0);
@@ -755,10 +759,9 @@ describe("WorkoutEditorScreen", () => {
 				).toBe(false);
 
 				click(screen.getByRole("button", { name: "Save" }));
-				const review = screen.getByRole("dialog", { name: "Review save" });
-				expect(review.textContent).toContain(
-					"1 included sets will be saved; 0 unconfirmed sets will be omitted.",
-				);
+				const review = screen.getByRole("dialog", { name: "Save changes?" });
+				expect(review.textContent).toContain("Included sets1");
+				expect(review.textContent).toContain("Excluded0");
 				click(within(review).getByRole("button", { name: "Save workout" }));
 				yield* Effect.promise(() =>
 					waitFor(() => {
@@ -808,9 +811,9 @@ describe("WorkoutEditorScreen", () => {
 
 				expect(screen.queryByRole("button", { name: /^Complete set/ })).toBeNull();
 				click(screen.getByRole("button", { name: "Save" }));
-				const review = screen.getByRole("dialog", { name: "Review save" });
+				const review = screen.getByRole("dialog", { name: "Save template?" });
 				expect(review.textContent).toContain(
-					"Exercise-only entries and partially specified plans are retained.",
+					"2 exercises and 2 planned sets. Partly filled sets are kept; completely empty set rows are dropped.",
 				);
 				click(within(review).getByRole("button", { name: "Save template" }));
 				yield* Effect.promise(() =>
@@ -949,11 +952,13 @@ describe("WorkoutEditorScreen", () => {
 				yield* Effect.promise(() =>
 					waitFor(() => {
 						answerPending();
-						expect(within(firstSet).getByRole("status").textContent).toContain("Rest for 0:20?");
+						expect(screen.getByRole("status", { name: "Rest prompt" }).textContent).toContain(
+							"Rest for 0:20?",
+						);
 					}),
 				);
-				click(within(firstSet).getByRole("button", { name: "Skip rest" }));
-				expect(within(firstSet).queryByRole("status")).toBeNull();
+				click(screen.getByRole("button", { name: "Skip rest" }));
+				expect(screen.queryByRole("status", { name: "Rest prompt" })).toBeNull();
 				expect(screen.queryByRole("timer", { name: "Rest remaining" })).toBeNull();
 				expect(
 					within(exercise).getAllByRole("button", { pressed: true, name: /^Complete set/ }),
@@ -963,10 +968,12 @@ describe("WorkoutEditorScreen", () => {
 				yield* Effect.promise(() =>
 					waitFor(() => {
 						answerPending();
-						expect(within(secondSet).getByRole("status").textContent).toContain("Rest for 0:20?");
+						expect(screen.getByRole("status", { name: "Rest prompt" }).textContent).toContain(
+							"Rest for 0:20?",
+						);
 					}),
 				);
-				click(within(secondSet).getByRole("button", { name: "Start rest" }));
+				click(screen.getByRole("button", { name: "Start rest" }));
 				yield* Effect.promise(() =>
 					waitFor(() => {
 						answerPending();
@@ -1052,7 +1059,9 @@ describe("WorkoutEditorScreen", () => {
 				const storage: EditorStorage = { value: encodeWorkoutEditorDraft(draft) };
 				const first = openEditor(clock, storage);
 				yield* waitForEditor(first.answerPending);
+				click(screen.getByRole("button", { name: "Details" }));
 				change(screen.getByRole("textbox", { name: "Name" }), "Stored workout name");
+				click(screen.getByRole("button", { name: "Done" }));
 				change(screen.getByRole("textbox", { name: "Set 1 reps" }), "11");
 				yield* Effect.promise(() =>
 					waitFor(() => {
@@ -1069,9 +1078,9 @@ describe("WorkoutEditorScreen", () => {
 				yield* Effect.promise(() =>
 					waitFor(() => {
 						recovered.answerPending();
-						expect(inputValue(screen.getByRole("textbox", { name: "Name" }))).toBe(
-							"Stored workout name",
-						);
+						expect(
+							screen.getByRole("heading", { level: 1, name: "Stored workout name" }),
+						).toBeTruthy();
 						expect(inputValue(screen.getByRole("textbox", { name: "Set 1 reps" }))).toBe("11");
 					}),
 				);
