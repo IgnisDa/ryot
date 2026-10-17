@@ -138,6 +138,7 @@ it.live("searches collection options and retries the same membership properties"
 							entityId: "collection-1",
 							properties: {
 								membershipPropertiesSchema: {
+									unknownKeys: "strict",
 									fields: {
 										note: {
 											label: "Note",

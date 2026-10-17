@@ -1,3 +1,8 @@
+import {
+	appSchemaToCollectionFields,
+	collectionFieldsToAppSchema,
+	type KeyedCollectionField,
+} from "@ryot-app/contract/modules/collections/fields";
 import { PopulationStatus, TranslationStatus } from "@ryot-app/contract/modules/entities/schemas";
 import {
 	SavedViewDisplayValue,
@@ -6,7 +11,6 @@ import {
 import { EntityId } from "@ryot-app/contract/schema/brands";
 import { JsonValue } from "@ryot-app/contract/schema/json";
 import {
-	AppSchema,
 	getOrderedAppSchemaFieldEntries,
 	type AppPropertyDefinition,
 	type AppSchema as AppSchemaValue,
@@ -158,10 +162,15 @@ export const collectionMemberTableColumns = (
 		({ column: tableColumn }) => tableColumn,
 	);
 
+const decodeDisplayValue = Schema.decodeUnknownResult(SavedViewDisplayValue);
+
 const displayValue = (
 	value: JsonValue | undefined,
 	displayKind: SavedViewDisplayValue["displayKind"],
-) => Schema.decodeUnknownResult(SavedViewDisplayValue)({ displayKind, value: value ?? null });
+) =>
+	Result.getOrElse(decodeDisplayValue({ displayKind, value: value ?? null }), () =>
+		Result.getOrThrow(decodeDisplayValue({ displayKind, value: null })),
+	);
 
 const collectionMemberCells = (
 	member: {
@@ -172,30 +181,26 @@ const collectionMemberCells = (
 		readonly properties: Readonly<Record<string, JsonValue>>;
 	},
 	membershipPropertiesSchema: AppSchemaValue | null,
-) =>
-	Result.gen(function* () {
-		const typeLabel = collectionTypeLabel(member);
-		const cells = yield* Result.all(
-			collectionMemberColumnDescriptors(membershipPropertiesSchema).map(
-				({ source, column: tableColumn }) => {
-					let rawValue: JsonValue | undefined;
-					if (source === "name") {
-						rawValue = member.name;
-					} else if (source === "type") {
-						rawValue = typeLabel;
-					} else {
-						rawValue = member.properties[source.property];
-					}
-					return Result.map(displayValue(rawValue, tableColumn.displayKind), (value) => ({
-						value,
-						key: tableColumn.field,
-						label: tableColumn.label,
-					}));
-				},
-			),
-		);
-		return cells;
-	});
+) => {
+	const typeLabel = collectionTypeLabel(member);
+	return collectionMemberColumnDescriptors(membershipPropertiesSchema).map(
+		({ source, column: tableColumn }) => {
+			let rawValue: JsonValue | undefined;
+			if (source === "name") {
+				rawValue = member.name;
+			} else if (source === "type") {
+				rawValue = typeLabel;
+			} else {
+				rawValue = member.properties[source.property];
+			}
+			return {
+				key: tableColumn.field,
+				label: tableColumn.label,
+				value: displayValue(rawValue, tableColumn.displayKind),
+			};
+		},
+	);
+};
 
 const collectionMemberOrder = (
 	sort: CollectionMemberSort,
@@ -286,6 +291,26 @@ export const collectionPickerRecipe = defineRecipe(
 
 export type CollectionPickerResult = Recipe.Success<typeof collectionPickerRecipe>;
 
+const collectionHeaderFields = (
+	rawSchema: JsonValue | undefined,
+): {
+	readonly fields: ReadonlyArray<KeyedCollectionField> | null;
+	readonly membershipPropertiesSchema: AppSchemaValue | null;
+} => {
+	if (rawSchema === undefined || rawSchema === null) {
+		return { fields: [], membershipPropertiesSchema: null };
+	}
+	const fields = appSchemaToCollectionFields(rawSchema);
+	if (Result.isFailure(fields)) {
+		return { fields: null, membershipPropertiesSchema: null };
+	}
+	return {
+		fields: fields.success,
+		membershipPropertiesSchema:
+			fields.success.length === 0 ? null : collectionFieldsToAppSchema(fields.success),
+	};
+};
+
 export const collectionHeaderRecipe = defineRecipe((input: { readonly collectionId: string }) => {
 	const collection = table("entity", "collectionHeader");
 	return {
@@ -293,17 +318,13 @@ export const collectionHeaderRecipe = defineRecipe((input: { readonly collection
 			if (header === undefined) {
 				return Result.succeed(null);
 			}
-			const rawSchema = header.properties["membershipPropertiesSchema"];
-			return Result.map(
-				rawSchema === undefined || rawSchema === null
-					? Result.succeed(null)
-					: Schema.decodeResult(AppSchema)(rawSchema),
-				(membershipPropertiesSchema) => ({
-					name: header.name,
-					entityId: header.entityId,
-					membershipPropertiesSchema,
-				}),
-			);
+			const description = header.properties["description"];
+			return Result.succeed({
+				name: header.name,
+				entityId: header.entityId,
+				...collectionHeaderFields(header.properties["membershipPropertiesSchema"]),
+				description: typeof description === "string" && description !== "" ? description : null,
+			});
 		},
 		queries: {
 			collection: selectedOptionalRow(collection, {
@@ -338,28 +359,21 @@ export const collectionMembersRecipe = defineRecipe(
 			collectionMembershipTables();
 		return {
 			map: ({ members }) =>
-				Result.map(
-					Result.all(
-						members.items.map((member) =>
-							Result.map(
-								collectionMemberCells(member, input.membershipPropertiesSchema),
-								(cells) => ({
-									cells,
-									name: member.name,
-									presentation: null,
-									entityId: member.entityId,
-									ownerPluginId: member.ownerPluginId,
-									entitySchemaSlug: member.entitySchemaSlug,
-									sync: {
-										populationStatus: member.populationStatus,
-										translationStatus: member.translationStatus,
-									},
-								}),
-							),
-						),
-					),
-					(items) => ({ items, pageInfo: members.pageInfo }),
-				),
+				Result.succeed({
+					pageInfo: members.pageInfo,
+					items: members.items.map((member) => ({
+						name: member.name,
+						presentation: null,
+						entityId: member.entityId,
+						ownerPluginId: member.ownerPluginId,
+						entitySchemaSlug: member.entitySchemaSlug,
+						cells: collectionMemberCells(member, input.membershipPropertiesSchema),
+						sync: {
+							populationStatus: member.populationStatus,
+							translationStatus: member.translationStatus,
+						},
+					})),
+				}),
 			queries: {
 				members: selectedRows(membership, {
 					after: input.after,

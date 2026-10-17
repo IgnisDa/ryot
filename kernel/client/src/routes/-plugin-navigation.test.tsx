@@ -33,10 +33,12 @@ import { act, fireEvent, render, screen, waitFor } from "@testing-library/react"
 import { Effect, Layer, ManagedRuntime, Schema } from "effect";
 
 import { AuthenticatedApiError } from "#/api/authenticated";
+import type { CollectionsApi } from "#/api/collections";
 import { PagesApi } from "#/api/pages";
-import { KernelApiTestLayer } from "#/api/ports.test-layer";
+import { KernelApiTestLayer, makeCollectionsApi } from "#/api/ports.test-layer";
 import { EntitiesService } from "#/modules/entities/service";
 import { createBackInterceptors } from "#/modules/navigation/back-interceptors";
+import { NavigationService } from "#/modules/navigation/service";
 import { PluginOperationsService } from "#/modules/pages/bridge/operations";
 import {
 	makePluginEntitySaves,
@@ -55,7 +57,6 @@ import {
 	ImportsRouteStubs,
 	IntegrationRouteStubs,
 	DeviceRouteStubs,
-	NavigationRouteStubs,
 	NotificationChannelRouteStubs,
 	OAuthRouteStubs,
 	ProviderAddRouteStubs,
@@ -64,6 +65,7 @@ import {
 	catalog,
 	clientCompositionDocument,
 	makeAuthStub,
+	navigationData,
 	makeProviderAddStub,
 	makePublicApiStub,
 	makeStorageStub,
@@ -177,8 +179,10 @@ function mount(options: {
 	readonly providerAdd?: Partial<ProviderAddService["Service"]>;
 	readonly prepare?: PagesApi["Service"]["prepare"];
 	readonly check?: ClientPageFreshness["Service"]["check"];
+	readonly createCollection?: CollectionsApi["Service"]["create"];
 }) {
 	const targets: ClientPageTarget[] = [];
+	let navigationLoads = 0;
 	let documentLoads = 0;
 	const loadDocument: PagesApi["Service"]["document"] = (_scope, request) => {
 		documentLoads += 1;
@@ -242,7 +246,13 @@ function mount(options: {
 					}),
 			}),
 			DeviceRouteStubs,
-			NavigationRouteStubs,
+			Layer.succeed(NavigationService, {
+				load: () =>
+					Effect.sync(() => {
+						navigationLoads += 1;
+						return navigationData;
+					}),
+			}),
 			CustomizeRouteStubs,
 			Layer.succeed(PagesApi, {
 				prepare,
@@ -259,6 +269,9 @@ function mount(options: {
 			makePluginQueries(),
 			makePluginStorage(),
 			makePluginEntitySaves(),
+			makeCollectionsApi(
+				options.createCollection === undefined ? {} : { create: options.createCollection },
+			),
 		).pipe(
 			Layer.provideMerge(OAuthRouteStubs),
 			Layer.provideMerge(
@@ -279,6 +292,7 @@ function mount(options: {
 		operations,
 		getCatalogLoads: () => catalogLoads,
 		getDocumentLoads: () => documentLoads,
+		getNavigationLoads: () => navigationLoads,
 	};
 }
 
@@ -1146,6 +1160,53 @@ describe("client page routes", () => {
 				contentHash: "operations-only-source",
 				request: { input: null, operationSlug: "mutate", packageId: "test/operations-only" },
 			});
+		}),
+	);
+
+	it.live("reloads navigation after a plugin creates a collection", () =>
+		Effect.gen(function* () {
+			const view = mount({
+				entry: "/p/test/plugin-1/details/one",
+				createCollection: (_scope, request) =>
+					Effect.succeed({
+						warnings: [],
+						properties: {},
+						externalId: null,
+						providerId: null,
+						name: request.payload.name,
+						entitySchemaPluginId: null,
+						id: EntityId.make("collection-1"),
+						createdAt: "2026-10-20T00:00:00.000Z",
+						updatedAt: "2026-10-20T00:00:00.000Z",
+						entitySchemaSlug: EntitySchemaSlug.make("collection"),
+					}),
+			});
+			const frame = yield* Effect.promise(() =>
+				screen.findByTitle<HTMLIFrameElement>("Fixture plugin"),
+			);
+			const bridge = connectFrame(frame);
+			yield* Effect.promise(() => waitFor(() => expect(bridge.messages).toHaveLength(1)));
+			const loadsBefore = view.getNavigationLoads();
+
+			bridge.port.postMessage({
+				action: "create",
+				requestId: "collection-1",
+				type: "collection-request",
+				input: { name: "Favorites" },
+			});
+
+			yield* Effect.promise(() =>
+				waitFor(() =>
+					expect(bridge.messages).toContainEqual(
+						expect.objectContaining({
+							outcome: "success",
+							requestId: "collection-1",
+							type: "collection-result",
+						}),
+					),
+				),
+			);
+			expect(view.getNavigationLoads()).toBeGreaterThan(loadsBefore);
 		}),
 	);
 
