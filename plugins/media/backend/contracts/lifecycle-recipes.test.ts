@@ -1,7 +1,11 @@
 import { describe, expect, it } from "@effect/vitest";
 import { Effect } from "@ryot-app/plugin-backend-sdk/effect";
 
-import { showEpisodicKindConfig } from "../../shared/lifecycle-expressions";
+import {
+	podcastEpisodicKindConfig,
+	showEpisodicKindConfig,
+} from "../../shared/lifecycle-expressions";
+import { ryotqlDocumentNodes } from "../../tests/ryotql-test-utils";
 import {
 	episodicLifecycleSnapshotRecipe,
 	readEpisodicLifecycleSnapshot,
@@ -14,25 +18,52 @@ const input = {
 } satisfies Parameters<typeof episodicLifecycleSnapshotRecipe>[0];
 
 describe("media lifecycle recipes", () => {
-	it("builds the episodic snapshot as one parent query without pagination", () => {
-		const recipe = episodicLifecycleSnapshotRecipe(input);
+	it.each([showEpisodicKindConfig, podcastEpisodicKindConfig])(
+		"selects only completion-consumer fields in one bounded $kind parent query",
+		(config) => {
+			const recipe = episodicLifecycleSnapshotRecipe({ ...input, config });
 
-		expect(Object.keys(recipe.document.queries)).toEqual(["parent"]);
-		const query = recipe.document.queries["parent"];
+			expect(Object.keys(recipe.document.queries)).toEqual(["parent"]);
+			const query = recipe.document.queries["parent"];
+			if (query?.output.type !== "rows") {
+				throw new Error("Expected lifecycle parent rows query");
+			}
+			expect(query.output.pagination).toEqual({ limit: 2 });
+			expect(query.output.fields.map((field) => ("key" in field ? field.key : null))).toEqual([
+				"parentEntityId",
+				"state",
+				"allDatesUnknown",
+				"closingId",
+				"agreedConsumedOn",
+				"boundaryId",
+				"closingCreatedAt",
+				"closingOccurredAt",
+				"boundaryCreatedAt",
+				"boundaryOccurredAt",
+				"coverageComplete",
+				"productionStatus",
+			]);
+		},
+	);
+
+	it("retains aggregate signals for state and the nonempty-coverage guard within calculations", () => {
+		const query = episodicLifecycleSnapshotRecipe(input).document.queries["parent"];
 		if (query?.output.type !== "rows") {
 			throw new Error("Expected lifecycle parent rows query");
 		}
-		expect(query.output.pagination).toEqual({ limit: 2 });
-		expect(query.output.fields.map((field) => ("key" in field ? field.key : null))).toEqual(
-			expect.arrayContaining([
-				"boundaryId",
-				"coverageComplete",
-				"agreedConsumedOn",
-				"allDatesUnknown",
-				"closingId",
-				"closingCreatedAt",
-				"closingOccurredAt",
-			]),
+		const state = query.output.fields.find((field) => "key" in field && field.key === "state");
+		const coverage = query.output.fields.find(
+			(field) => "key" in field && field.key === "coverageComplete",
+		);
+		expect(ryotqlDocumentNodes(state)).toContainEqual(
+			expect.objectContaining({ tableAlias: "lifecycleSnapshotSignalEvent" }),
+		);
+		expect(ryotqlDocumentNodes(coverage)).toContainEqual(
+			expect.objectContaining({
+				operator: "gt",
+				right: { value: 0, type: "literal" },
+				left: expect.objectContaining({ aggregation: { function: "count" } }),
+			}),
 		);
 	});
 
@@ -54,9 +85,29 @@ describe("media lifecycle recipes", () => {
 		expect(document).toContain('"alias":"lifecycleSnapshotCoverageRequiredSeason"');
 		expect(document).toContain('"alias":"lifecycleSnapshotCompletionSeason"');
 		expect(document.match(/"type":"currentDate"/g)?.length).toBeGreaterThanOrEqual(2);
+		expect(document).not.toContain("episodeOrders");
 	});
 
-	it.live("executes and decodes one query per snapshot read", () =>
+	it("judges podcast coverage through direct episode relationships without seasons", () => {
+		const document = JSON.stringify(
+			episodicLifecycleSnapshotRecipe({ ...input, config: podcastEpisodicKindConfig }).document,
+		);
+
+		expect(document).toContain('"value":"podcast-to-podcast-episode"');
+		expect(document).toContain('"value":"podcast-episode"');
+		expect(document).toContain('"type":"currentDate"');
+		expect(document).not.toContain("seasonNumber");
+		expect(document).not.toContain("show-season");
+	});
+
+	it.live.each([
+		null,
+		{
+			id: "parent-complete-1",
+			createdAt: "2026-01-01T00:00:00.000Z",
+			occurredAt: "2026-01-01T00:00:00.000Z",
+		},
+	])("executes and decodes only consumed fields with boundary %j", (boundary) =>
 		Effect.gen(function* () {
 			let calls = 0;
 			const snapshot = yield* readEpisodicLifecycleSnapshot(input, (document) => {
@@ -69,24 +120,18 @@ describe("media lifecycle recipes", () => {
 							pageInfo: { limit: 2, hasMore: false, nextCursor: null },
 							items: [
 								{
-									boundaryId: null,
 									state: "caught_up",
-									entityId: "episode-2",
 									allDatesUnknown: true,
 									coverageComplete: true,
-									boundaryCreatedAt: null,
-									id: "episode-complete-2",
-									boundaryOccurredAt: null,
 									parentEntityId: "show-1",
 									agreedConsumedOn: "Plex",
 									productionStatus: "Ended",
-									eventSchemaSlug: "complete",
-									coverageStructureValid: true,
 									closingId: "episode-complete-2",
-									createdAt: "2026-01-03T00:00:00.000Z",
-									occurredAt: "2026-01-03T00:00:00.000Z",
+									boundaryId: boundary?.id ?? null,
 									closingCreatedAt: "2026-01-03T00:00:00.000Z",
 									closingOccurredAt: "2026-01-03T00:00:00.000Z",
+									boundaryCreatedAt: boundary?.createdAt ?? null,
+									boundaryOccurredAt: boundary?.occurredAt ?? null,
 								},
 							],
 						},
@@ -95,11 +140,14 @@ describe("media lifecycle recipes", () => {
 			});
 
 			expect(calls).toBe(1);
-			expect(snapshot).toMatchObject({
+			expect(snapshot).toEqual({
+				state: "caught_up",
 				allDatesUnknown: true,
 				coverageComplete: true,
 				parentEntityId: "show-1",
 				agreedConsumedOn: "Plex",
+				productionStatus: "Ended",
+				boundaryCompleteEvent: boundary,
 				coverageClosingEvent: {
 					id: "episode-complete-2",
 					createdAt: "2026-01-03T00:00:00.000Z",
