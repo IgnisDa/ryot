@@ -330,6 +330,7 @@ globalThis.__ryotExtend(({ define, toBytes, hostCall, ops }) => {
 	};
 
 	const kBody = Symbol("body");
+	const kTransferBody = Symbol("transferBody");
 
 	class Body {
 		[kBody] = null;
@@ -343,6 +344,14 @@ globalThis.__ryotExtend(({ define, toBytes, hostCall, ops }) => {
 		}
 		get bodyUsed() {
 			return this.#used;
+		}
+		[kTransferBody]() {
+			const source = this[kBody];
+			if (this.#used || (source instanceof ReadableStream && source.locked)) {
+				throw new TypeError_("Request body has already been consumed or is locked");
+			}
+			this.#used = true;
+			return source;
 		}
 		async arrayBuffer() {
 			return (await this.bytes()).buffer;
@@ -379,16 +388,19 @@ globalThis.__ryotExtend(({ define, toBytes, hostCall, ops }) => {
 			this.#headers = new Headers(init?.headers ?? source?.headers);
 			this.#redirect = init?.redirect ?? source?.redirect ?? "follow";
 			this.#signal = init?.signal ?? source?.signal ?? new AbortController().signal;
-			const body = init?.body !== undefined ? init.body : source ? source[kBody] : null;
-			if (
-				body !== null &&
-				body !== undefined &&
-				(this.#method === "GET" || this.#method === "HEAD")
-			) {
+			const initBody = init?.body ?? null;
+			const inputBody = source ? source[kBody] : null;
+			const body = initBody ?? inputBody;
+			if (body !== null && (this.#method === "GET" || this.#method === "HEAD")) {
 				throw new TypeError_("Request with GET/HEAD method cannot have body");
 			}
-			this[kBody] = bodyBytes(body);
-			const contentType = defaultContentType(init?.body);
+			this[kBody] =
+				initBody !== null
+					? bodyBytes(initBody)
+					: inputBody !== null
+						? source[kTransferBody]()
+						: null;
+			const contentType = defaultContentType(initBody);
 			if (contentType && !this.#headers.has("content-type"))
 				this.#headers.set("content-type", contentType);
 		}
@@ -408,7 +420,11 @@ globalThis.__ryotExtend(({ define, toBytes, hostCall, ops }) => {
 			return this.#signal;
 		}
 		clone() {
-			return new Request(this);
+			const body = this[kBody];
+			if (body !== null && (this.bodyUsed || (body instanceof ReadableStream && body.locked))) {
+				throw new TypeError_("Request body has already been consumed or is locked");
+			}
+			return new Request(this, { body });
 		}
 	}
 

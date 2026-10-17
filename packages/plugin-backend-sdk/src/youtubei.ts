@@ -13,110 +13,37 @@ export type YoutubeiClientOptions = {
 	readonly retrieveInnertubeConfig?: boolean;
 };
 
-type RequestParts = {
-	url: string;
-	method: string;
-	body: string | undefined;
-	headers: Record<string, string>;
-};
-
-const mergeHeaders = (target: Record<string, string>, source: unknown) => {
-	if (source instanceof Headers) {
-		for (const [key, value] of source.entries()) {
-			target[key] = value;
-		}
-	} else if (Array.isArray(source)) {
-		for (const entry of source) {
-			if (Array.isArray(entry) && typeof entry[0] === "string" && typeof entry[1] === "string") {
-				target[entry[0]] = entry[1];
-			}
-		}
-	} else {
-		const record = asRecord(source);
-		if (record) {
-			for (const [key, value] of Object.entries(record)) {
-				if (typeof value === "string") {
-					target[key] = value;
-				}
-			}
-		}
-	}
-};
-
-const resolveRequestParts = (
-	input: Request | string | URL,
-	init?: RequestInit,
-): Effect.Effect<RequestParts> => {
-	const headers: Record<string, string> = {};
-	const applyInit = (base: { body: string | undefined; method: string; url: string }) => {
-		let method = base.method;
-		let body = base.body;
-		if (init) {
-			if (init.method) {
-				method = init.method;
-			}
-			if (init.headers) {
-				mergeHeaders(headers, init.headers);
-			}
-			const rawBody = init.body;
-			if (rawBody !== null && rawBody !== undefined) {
-				if (typeof rawBody === "string") {
-					body = rawBody;
-				} else if (ArrayBuffer.isView(rawBody)) {
-					body = new TextDecoder().decode(rawBody);
-				} else if (rawBody instanceof ArrayBuffer) {
-					body = new TextDecoder().decode(new Uint8Array(rawBody));
-				} else if (rawBody instanceof URLSearchParams) {
-					body = rawBody.toString();
-				}
-			}
-		}
-		return { body, method, headers, url: base.url };
-	};
-	if (input instanceof Request) {
-		mergeHeaders(headers, input.headers);
-		return Effect.tryPromise(() => input.text()).pipe(
-			Effect.map((text) =>
-				applyInit({ url: input.url, method: input.method, body: text ? text : undefined }),
-			),
-			Effect.orElseSucceed(() =>
-				applyInit({ url: input.url, body: undefined, method: input.method }),
-			),
-		);
-	}
-	return Effect.succeed(applyInit({ method: "GET", body: undefined, url: String(input) }));
-};
-
 const isHostError = (error: unknown): error is { message: string } =>
 	typeof asRecord(error)?.["message"] === "string";
 
 const makeFetch = (host: YoutubeiHost): typeof fetch =>
 	Object.assign(
 		(input: Request | string | URL, init?: RequestInit): Promise<Response> =>
-			resolveRequestParts(input, init).pipe(
-				Effect.flatMap((parts) => {
-					if (new URL(parts.url).origin === "https://www.youtube.com") {
-						parts.headers["origin"] = "https://www.youtube.com";
-					}
-					const options: { body?: string; headers?: Record<string, string> } = {};
-					if (parts.body !== undefined) {
-						options.body = parts.body;
-					}
-					if (Object.keys(parts.headers).length > 0) {
-						options.headers = parts.headers;
-					}
-					return host.httpCall(parts.method, parts.url, options).pipe(
-						Effect.map(
-							(result) =>
-								new Response(result.body, { status: result.status, headers: result.headers }),
-						),
-						Effect.catchIf(isHostError, (error) =>
-							Effect.succeed(new Response(error.message, { status: 500 })),
-						),
-					);
-				}),
-				Effect.runPromise,
-			),
+			Effect.gen(function* () {
+				const request = yield* Effect.try(() => new Request(input, init));
+				const body =
+					request.body === null ? undefined : yield* Effect.tryPromise(() => request.text());
+				const headers = Object.fromEntries(request.headers);
+				if (new URL(request.url).origin === "https://www.youtube.com") {
+					headers["origin"] = "https://www.youtube.com";
+				}
+				const options: { body?: string; headers?: Record<string, string> } = {};
+				if (body !== undefined) {
+					options.body = body;
+				}
+				if (Object.keys(headers).length > 0) {
+					options.headers = headers;
+				}
+				return yield* host.httpCall(request.method, request.url, options).pipe(
+					Effect.map(
+						(result) =>
+							new Response(result.body, { status: result.status, headers: result.headers }),
+					),
+					Effect.catchIf(isHostError, (error) =>
+						Effect.succeed(new Response(error.message, { status: 500 })),
+					),
+				);
+			}).pipe(Effect.runPromise),
 		{ preconnect: () => undefined },
 	);
 
