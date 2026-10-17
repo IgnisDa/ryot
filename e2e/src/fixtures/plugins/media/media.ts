@@ -116,8 +116,14 @@ export const queryInMediaLibraryRelationship = (
 	});
 };
 
+type SeedEntityInput = Parameters<typeof seedEntity>[0];
+
 export const seedMediaEntity = (
-	input: Omit<Parameters<typeof seedEntity>[0], "entitySchema"> & { entitySchemaSlug: string },
+	input: (SeedEntityInput extends infer Variant
+		? Variant extends unknown
+			? Omit<Variant, "entitySchema">
+			: never
+		: never) & { entitySchemaSlug: string },
 ) =>
 	Effect.gen(function* () {
 		const { entitySchemaSlug, ...rest } = input;
@@ -198,9 +204,9 @@ const seedShowEpisodeEntity = (
 	Effect.gen(function* () {
 		const { suffix, episode, seasonId, seasonNumber } = input;
 		const entity = yield* seedMediaEntity({
-			client,
 			userId: null,
 			providerId: null,
+			target: client.target,
 			entitySchemaSlug: schemas.episodeSchemaId,
 			name: `S${seasonNumber}E${episode.episodeNumber} ${suffix}`,
 			externalId: `seeded-episode-${seasonNumber}-${episode.episodeNumber}-${suffix}`,
@@ -246,9 +252,9 @@ export const seedShow = (
 		const schemas = yield* loadShowSeedSchemas(client);
 		const suffix = crypto.randomUUID();
 		const show = yield* seedMediaEntity({
-			client,
 			userId: null,
 			providerId: null,
+			target: client.target,
 			externalId: `seeded-show-${suffix}`,
 			name: input.name ?? `Show ${suffix}`,
 			entitySchemaSlug: schemas.showSchemaId,
@@ -266,9 +272,9 @@ export const seedShow = (
 		const episodes: Array<Effect.Success<ReturnType<typeof seedShowEpisodeEntity>>> = [];
 		for (const { seasonNumber, episodes: seasonEpisodes } of input.seasons) {
 			const season = yield* seedMediaEntity({
-				client,
 				userId: null,
 				providerId: null,
+				target: client.target,
 				properties: { seasonNumber },
 				entitySchemaSlug: schemas.seasonSchemaId,
 				name: `Season ${seasonNumber} ${suffix}`,
@@ -333,9 +339,9 @@ export const seedPodcast = (
 		).reference;
 		const suffix = crypto.randomUUID();
 		const podcast = yield* seedMediaEntity({
-			client,
 			userId: null,
 			providerId: null,
+			target: client.target,
 			externalId: `seeded-podcast-${suffix}`,
 			name: input.name ?? `Podcast ${suffix}`,
 			entitySchemaSlug: podcastSchema.schema.id,
@@ -347,9 +353,9 @@ export const seedPodcast = (
 		const episodes: Array<SeededMedia & { episodeNumber: number }> = [];
 		for (const episode of input.episodes) {
 			const entity = yield* seedMediaEntity({
-				client,
 				userId: null,
 				providerId: null,
+				target: client.target,
 				entitySchemaSlug: episodeSchema.schema.id,
 				name: `Podcast Episode ${episode.episodeNumber} ${suffix}`,
 				externalId: `seeded-podcast-episode-${episode.episodeNumber}-${suffix}`,
@@ -378,9 +384,9 @@ export const createGlobalBookEntityFixture = (
 	Effect.gen(function* () {
 		const { schema, pluginId } = yield* findBuiltinSchemaWithProviders(client);
 		const entity = yield* seedMediaEntity({
-			client,
 			userId: null,
 			properties: {},
+			target: client.target,
 			entitySchemaSlug: schema.id,
 			name: options.name ?? `Global Built-in Book ${crypto.randomUUID()}`,
 			externalId: options.externalId ?? `global-book-${crypto.randomUUID()}`,

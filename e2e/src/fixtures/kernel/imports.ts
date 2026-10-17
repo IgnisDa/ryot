@@ -637,11 +637,10 @@ export const uploadImportFile = (
 			c.uploads.createIntent({ payload: { fileName, kind: "temporary", contentType: mimeType } }),
 		);
 
-		const uploadResponse = yield* webRequest(new URL(intent.uploadUrl, `${client.baseUrl}/`), {
-			body: content,
-			method: intent.method,
-			headers: intent.headers,
-		});
+		const uploadResponse = yield* webRequest(
+			new URL(intent.uploadUrl, `${client.target.apiUrl}/`),
+			{ body: content, method: intent.method, headers: intent.headers },
+		);
 		if (!uploadResponse.ok) {
 			throw new Error(`Could not upload import file (${uploadResponse.status})`);
 		}

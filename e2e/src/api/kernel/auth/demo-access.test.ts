@@ -56,10 +56,9 @@ import {
 import { afterAll, beforeAll, describe, expect, it, runPromise } from "~/support/effect-test";
 import {
 	buildApiEnv,
-	spawnApiProcess,
+	startApiProcess,
 	startCoreTestInfrastructure,
 	stopApiProcess,
-	waitForHealthCheck,
 } from "~/support/provisioning";
 import { makeTestResourceScope } from "~/support/resource-scope";
 import { webRequest } from "~/support/web-request";
@@ -68,9 +67,9 @@ const S3_BUCKET_NAME = "ryot-demo-access-test";
 const DEMO_COLLECTION_NAME = `Demo acceptance ${crypto.randomUUID()}`;
 
 let apiUrl: string;
-let harnessTarget: Effect.Success<ReturnType<typeof spawnApiProcess>>["target"];
+let harnessTarget: Effect.Success<ReturnType<typeof startApiProcess>>["target"];
 let apiOrigin: string;
-let apiProcess: Effect.Success<ReturnType<typeof spawnApiProcess>> | undefined;
+let apiProcess: Effect.Success<ReturnType<typeof startApiProcess>> | undefined;
 let demoApiKey: string;
 let demoUserId: string;
 let demoEmail: string;
@@ -131,9 +130,8 @@ const startApi = (extraEnv: Record<string, string | undefined>) =>
 			redisUrl: activeInfrastructure.redisUrl,
 			s3Endpoint: activeInfrastructure.s3Endpoint,
 		});
-		apiProcess = yield* spawnApiProcess(env);
+		apiProcess = yield* startApiProcess(env, "Demo access acceptance");
 		harnessTarget = apiProcess.target;
-		yield* waitForHealthCheck(`${apiUrl}/system/health`, "Demo access acceptance", apiProcess, 90);
 		return env;
 	});
 

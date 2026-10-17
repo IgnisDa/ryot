@@ -16,7 +16,6 @@ import {
 	table,
 } from "@ryot-app/ryotql";
 import { Effect } from "effect";
-import getPort from "get-port";
 
 import {
 	createAuthenticatedClient,
@@ -54,12 +53,7 @@ import {
 } from "~/fixtures/kernel";
 import { assertCompleted, assertTaggedError, requirePresent } from "~/support/assertions";
 import { describe, expect, it } from "~/support/effect-test";
-import {
-	buildApiEnv,
-	spawnApiProcess,
-	startCoreTestInfrastructure,
-	waitForHealthCheck,
-} from "~/support/provisioning";
+import { startIsolatedApiServer } from "~/support/isolated-harness";
 
 describe("plugin namespace backups", () => {
 	it.live(
@@ -209,29 +203,11 @@ describe("plugin namespace backups", () => {
 		"preflights missing and incompatible system dependencies before account replacement",
 		() =>
 			Effect.gen(function* () {
-				const bucketName = `namespace-backup-${crypto.randomUUID()}`;
-				const infrastructure = yield* startCoreTestInfrastructure({ bucketName });
-				const port = yield* Effect.promise(() => getPort());
-				const origin = `http://127.0.0.1:${port}`;
-				const destinationApi = `${origin}/api`;
-				const process = yield* spawnApiProcess(
-					buildApiEnv({
-						port,
-						frontendUrl: origin,
-						s3BucketName: bucketName,
-						dbUrl: infrastructure.dbUrl,
-						redisUrl: infrastructure.redisUrl,
-						label: "Namespace backup destination",
-						s3Endpoint: infrastructure.s3Endpoint,
-					}),
-				);
-				yield* waitForHealthCheck(
-					`${destinationApi}/system/health`,
-					"Namespace backup destination",
-					process,
-				);
+				const destination = yield* startIsolatedApiServer({
+					label: "Namespace backup destination",
+				});
 				const source = yield* createAuthenticatedClient();
-				const target = yield* createAuthenticatedClient(process.target);
+				const target = yield* createAuthenticatedClient(destination.target);
 				const packages = pluginNamespacePackages();
 				const system = yield* installTestSupportSystemPlugin(packages.claim);
 				yield* getApiClient().adminCall((contract) =>
@@ -274,12 +250,12 @@ describe("plugin namespace backups", () => {
 				};
 				const destinationSystem = yield* installTestSupportSystemPlugin({
 					...incompatiblePackage,
-					target: process.target,
+					target: destination.target,
 				});
-				yield* getApiClient(process.target).adminCall((contract) =>
+				yield* getApiClient(destination.target).adminCall((contract) =>
 					contract.testSupport.reconcilePluginInstallations(),
 				);
-				const incompatibleTarget = yield* createAuthenticatedClient(process.target);
+				const incompatibleTarget = yield* createAuthenticatedClient(destination.target);
 				const incompatibleViews = (yield* listSavedViews(incompatibleTarget.client)).map(
 					({ id }) => id,
 				);

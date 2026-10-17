@@ -1,6 +1,6 @@
 import { integrationWebhookUrl } from "@ryot-app/contract/modules/integrations/schemas";
 import { definitionOwner } from "@ryot-app/contract/modules/plugins/references";
-import { DateTime, Effect, Option } from "effect";
+import { Effect, Option } from "effect";
 
 import {
 	createAuthenticatedClient,
@@ -9,9 +9,9 @@ import {
 	getIntegration,
 	listEventsForEntity,
 	listEventSlugs,
+	markEntityPopulated,
 	pollImportRunUntilTerminal,
 	postIntegrationWebhookAndWait,
-	setEntityPopulatedAt,
 	waitForEventSlugs,
 	waitForEventWithSchema,
 } from "~/fixtures/kernel";
@@ -126,7 +126,7 @@ describe("Webhook routes", () => {
 				providerId: provider.providerId,
 				name: "Plex Multipart Sink Movie",
 			});
-			yield* setEntityPopulatedAt(movie.id, DateTime.formatIso(yield* DateTime.now));
+			yield* markEntityPopulated(movie.id);
 
 			const boundary = "----RyotPlexBoundary";
 			const detail = requirePresent(

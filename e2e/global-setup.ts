@@ -8,9 +8,9 @@ import { verifyNativeSandboxProvisioning } from "./src/support/native-sandbox-pr
 import {
 	buildApiEnv,
 	harnessApiEnv,
-	spawnApiProcess,
+	startApiProcess,
 	startCoreTestInfrastructure,
-	waitForHealthCheck,
+	waitForFrontend,
 } from "./src/support/provisioning";
 import { makeTestResourceScope } from "./src/support/resource-scope";
 
@@ -90,11 +90,8 @@ export default async () => {
 					s3Endpoint: coreInfrastructure.s3Endpoint,
 					extraEnv: { ...harnessApiEnv, SERVER_LOG_FILE: path.join(logDirectory, "ryot.log") },
 				});
-				const apiProcess = yield* spawnApiProcess(apiEnv, serverCwd);
-
-				const healthCheckUrl = `http://127.0.0.1:${apiPort}/api/system/health`;
-				yield* waitForHealthCheck(healthCheckUrl, "E2E Setup", apiProcess);
-				yield* waitForHealthCheck(frontendUrl, "E2E SPA", apiProcess);
+				const apiProcess = yield* startApiProcess(apiEnv, "E2E Setup", serverCwd);
+				yield* waitForFrontend(apiProcess, frontendUrl);
 
 				return {
 					frontendUrl,

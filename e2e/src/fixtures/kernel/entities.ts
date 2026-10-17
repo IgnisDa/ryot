@@ -185,44 +185,39 @@ export const createPluginSchemaAndEntity = (client: Client) =>
 		return { slug, entityId: entity.id };
 	});
 
-export const seedEntity = (input: {
-	target?: HarnessTarget;
+type SeedEntityBase = {
 	name: string;
-	client?: Client;
 	externalId?: string;
-	userId?: string | null;
-	entitySchema: EntitySchemaReference;
 	providerId: string | null;
+	entitySchema: EntitySchemaReference;
 	properties: Record<string, unknown>;
-}) =>
+};
+
+type GlobalSeedEntityInput = SeedEntityBase & {
+	userId?: null;
+	client?: undefined;
+	target?: HarnessTarget;
+};
+
+export const seedEntity = (
+	input:
+		| GlobalSeedEntityInput
+		| (SeedEntityBase & { userId: string; client: Client; target?: undefined }),
+) =>
 	Effect.gen(function* () {
 		const { entitySchema } = input;
 		const providerId = input.providerId ? SandboxProviderId.make(input.providerId) : undefined;
-		const result = input.userId
-			? yield* requirePresent(
-					input.client,
-					"Client is required for user-scoped entity seeding",
-				).call((c) =>
-					c.entities.create({
-						payload: {
-							providerId,
-							entitySchema,
-							name: input.name,
-							properties: input.properties,
-							externalId: input.externalId,
-						},
-					}),
-				)
-			: yield* getApiClient(input.client?.target ?? input.target).adminCall((c) =>
-					c.testSupport.createGlobalEntity({
-						payload: {
-							providerId,
-							entitySchema,
-							name: input.name,
-							properties: input.properties,
-							externalId: input.externalId,
-						},
-					}),
+		const payload = {
+			providerId,
+			entitySchema,
+			name: input.name,
+			properties: input.properties,
+			externalId: input.externalId,
+		};
+		const result = input.client
+			? yield* input.client.call((c) => c.entities.create({ payload }))
+			: yield* getApiClient(input.target).adminCall((c) =>
+					c.testSupport.createGlobalEntity({ payload }),
 				);
 		const entity = "entity" in result ? result.entity : result;
 		const warnings = "warnings" in result ? result.warnings : undefined;
@@ -239,11 +234,9 @@ export const seedEntity = (input: {
 		};
 	});
 
-export const seedPopulatedEntity = (
-	input: Omit<Parameters<typeof seedEntity>[0], "client" | "userId">,
-) =>
+export const seedPopulatedEntity = (input: SeedEntityBase & { target?: HarnessTarget }) =>
 	Effect.gen(function* () {
-		const seeded = yield* seedEntity({ ...input, userId: null });
+		const seeded = yield* seedEntity(input);
 		yield* markEntityPopulated(seeded.id, "full", input.target);
 		return seeded;
 	});

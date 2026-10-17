@@ -6,7 +6,7 @@ import {
 	workoutEditorSetsRecipe,
 } from "@ryot-app/fitness-plugin/workout-editor-recipes";
 import { workoutCardsRecipe } from "@ryot-app/fitness-plugin/workout-list-recipes";
-import { DateTime, Effect, Exit, Scope, Struct } from "effect";
+import { DateTime, Effect, Struct } from "effect";
 
 import {
 	createAuthenticatedClient,
@@ -42,29 +42,23 @@ import {
 } from "~/fixtures/plugins/fitness";
 import { assertCondition, assertTaggedError, requirePresent } from "~/support/assertions";
 import { afterAll, beforeAll, describe, expect, it, runPromise } from "~/support/effect-test";
-import { startIsolatedApiServer } from "~/support/isolated-harness";
+import { startIsolatedHarness } from "~/support/isolated-harness";
 
 const { endedAt, startedAt, setOccurredAt } = workoutEditorTimes;
 
-const scope = Scope.makeUnsafe();
-let target: Effect.Success<ReturnType<typeof startIsolatedApiServer>>["target"];
+let harness: Effect.Success<ReturnType<typeof startIsolatedHarness>> | undefined;
+let target: Effect.Success<ReturnType<typeof startIsolatedHarness>>["target"];
 
 beforeAll(() =>
 	runPromise(
 		Effect.gen(function* () {
-			const server = yield* startIsolatedApiServer({
-				label: "Workout editor keyless",
-				extraEnv: { SERVER_PRO_KEY: "" },
-			});
-			target = server.target;
-		}).pipe(
-			Effect.provideService(Scope.Scope, scope),
-			Effect.onError(() => Scope.close(scope, Exit.void)),
-		),
+			harness = yield* startIsolatedHarness("Workout editor keyless", { SERVER_PRO_KEY: "" });
+			target = harness.target;
+		}),
 	),
 );
 
-afterAll(() => runPromise(Scope.close(scope, Exit.void)));
+afterAll(() => runPromise(harness?.stop ?? Effect.void));
 
 const createImportedWorkout = (client: Client, exerciseId: EntityId) =>
 	Effect.gen(function* () {

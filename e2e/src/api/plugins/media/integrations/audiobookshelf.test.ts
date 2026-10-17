@@ -1,5 +1,5 @@
 import { definitionOwner } from "@ryot-app/contract/modules/plugins/references";
-import { DateTime, Effect } from "effect";
+import { Effect } from "effect";
 
 import {
 	createAuthenticatedClient,
@@ -7,8 +7,8 @@ import {
 	deleteIntegration,
 	listEventsForEntity,
 	listIntegrationImportRuns,
+	markEntityPopulated,
 	pollImportRunUntilTerminal,
-	setEntityPopulatedAt,
 } from "~/fixtures/kernel";
 import { pollUntil } from "~/fixtures/kernel/polling";
 import {
@@ -38,7 +38,7 @@ describe("Audiobookshelf integration", () => {
 				name: "In-progress audiobook",
 				providerId: provider.providerId,
 			});
-			yield* setEntityPopulatedAt(audiobook.id, DateTime.formatIso(yield* DateTime.now));
+			yield* markEntityPopulated(audiobook.id);
 
 			const http = yield* startFakeHttpServerScoped((url) => {
 				if (url.pathname === "/api/me") {

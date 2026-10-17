@@ -6,7 +6,6 @@ import {
 import { and, column, document, eq, field, join, literal, rows, table } from "@ryot-app/ryotql";
 import { pluginInstallationsRecipe } from "@ryot-app/ryotql-recipes/plugin-installations";
 import { Effect } from "effect";
-import getPort from "get-port";
 
 import type { Client } from "~/fixtures/kernel";
 import {
@@ -31,25 +30,15 @@ import {
 } from "~/fixtures/kernel";
 import { requirePresent } from "~/support/assertions";
 import { afterAll, beforeAll, describe, expect, it, runPromise } from "~/support/effect-test";
-import {
-	buildApiEnv,
-	spawnApiProcess,
-	startCoreTestInfrastructure,
-	waitForHealthCheck,
-} from "~/support/provisioning";
-import { makeTestResourceScope } from "~/support/resource-scope";
-
-const S3_BUCKET_NAME = "ryot-plugin-reconciliation-test";
-const API_LABEL = "Plugin Reconciliation API";
+import { startIsolatedHarness } from "~/support/isolated-harness";
 
 const privateConfig = {
 	[PRIVATE_PLUGIN_CONFIG_KEY]: "alpha",
 	[PRIVATE_PLUGIN_SECRET_KEY]: "token-alpha",
 };
 
-let apiPort: number;
-let target: Effect.Success<ReturnType<typeof spawnApiProcess>>["target"];
-const resources = makeTestResourceScope();
+let harness: Effect.Success<ReturnType<typeof startIsolatedHarness>> | undefined;
+let target: Effect.Success<ReturnType<typeof startIsolatedHarness>>["target"];
 
 const adminSession = () => makeSession(target);
 
@@ -157,36 +146,14 @@ const ownedInstallation = (client: Client, packageId: PluginPackageId) =>
 
 beforeAll(() =>
 	runPromise(
-		resources.run(
-			Effect.gen(function* () {
-				const [infrastructure, port] = yield* Effect.all(
-					[
-						startCoreTestInfrastructure({ bucketName: S3_BUCKET_NAME }),
-						Effect.promise(() => getPort()),
-					],
-					{ concurrency: "unbounded" },
-				);
-				apiPort = port;
-				const apiOrigin = `http://127.0.0.1:${apiPort}`;
-				const apiProcess = yield* spawnApiProcess(
-					buildApiEnv({
-						port: apiPort,
-						label: API_LABEL,
-						frontendUrl: apiOrigin,
-						dbUrl: infrastructure.dbUrl,
-						s3BucketName: S3_BUCKET_NAME,
-						redisUrl: infrastructure.redisUrl,
-						s3Endpoint: infrastructure.s3Endpoint,
-					}),
-				);
-				yield* waitForHealthCheck(`${apiOrigin}/api/system/health`, API_LABEL, apiProcess, 90);
-				target = apiProcess.target;
-			}),
-		),
+		Effect.gen(function* () {
+			harness = yield* startIsolatedHarness("Plugin Reconciliation API");
+			target = harness.target;
+		}),
 	),
 );
 
-afterAll(() => runPromise(resources.close));
+afterAll(() => runPromise(harness?.stop ?? Effect.void));
 
 describe("system plugin reconciliation", () => {
 	it.live("keeps a shadowed private installation quarantined until it is explicitly updated", () =>

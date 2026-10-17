@@ -19,12 +19,7 @@ import {
 import { assertTaggedError, requirePresent } from "~/support/assertions";
 import { afterAll, beforeAll, describe, expect, it, runPromise } from "~/support/effect-test";
 import { startFakeHttpServerScoped } from "~/support/fake-http-server";
-import {
-	buildApiEnv,
-	spawnApiProcess,
-	startCoreTestInfrastructure,
-	waitForHealthCheck,
-} from "~/support/provisioning";
+import { buildApiEnv, startApiProcess, startCoreTestInfrastructure } from "~/support/provisioning";
 import { makeTestResourceScope } from "~/support/resource-scope";
 
 const S3_BUCKET_NAME = "ryot-pro-gated-providers-test";
@@ -48,11 +43,8 @@ let providerSlug: string;
 let providerReference: ContractPayload<"integrations", "create">["provider"];
 let existingIntegration: ContractSuccess<"integrations", "create">;
 
-let keyedApiUrl: string;
-let lapsedApiUrl: string;
-let keylessApiUrl: string;
-let keylessTarget: Effect.Success<ReturnType<typeof spawnApiProcess>>["target"];
-let lapsedTarget: Effect.Success<ReturnType<typeof spawnApiProcess>>["target"];
+let keylessTarget: Effect.Success<ReturnType<typeof startApiProcess>>["target"];
+let lapsedTarget: Effect.Success<ReturnType<typeof startApiProcess>>["target"];
 
 const resources = makeTestResourceScope();
 
@@ -80,15 +72,12 @@ beforeAll(() =>
 					],
 					{ concurrency: "unbounded" },
 				);
-				keyedApiUrl = `http://127.0.0.1:${keyedPort}/api`;
-				keylessApiUrl = `http://127.0.0.1:${keylessPort}/api`;
-				lapsedApiUrl = `http://127.0.0.1:${lapsedPort}/api`;
 
 				// Processes on one database share a FRONTEND_URL: the internal OAuth client and API resource
 				// are provisioned from it, as they are for replicas of a single deployment.
 				const sharedFrontendUrl = `http://127.0.0.1:${keyedPort}`;
 				const startApi = (label: string, port: number, extraEnv: Record<string, string>) =>
-					spawnApiProcess(
+					startApiProcess(
 						buildApiEnv({
 							port,
 							extraEnv,
@@ -99,6 +88,7 @@ beforeAll(() =>
 							redisUrl: infrastructure.redisUrl,
 							s3Endpoint: infrastructure.s3Endpoint,
 						}),
+						`Pro-gated ${label}`,
 					);
 
 				// The keyed api boots first: the plugin catalog is a per-process, boot-time snapshot, so the
@@ -109,12 +99,6 @@ beforeAll(() =>
 					SERVER_PRO_KEY_VERIFICATION_URL: requirePresent(validUnkey, "Valid fake Unkey missing")
 						.url,
 				});
-				yield* waitForHealthCheck(
-					`${keyedApiUrl}/system/health`,
-					"Pro-gated keyed setup",
-					keyedProcess,
-					90,
-				);
 
 				const { plugin, providerSlug: slug } = yield* installTestIntegrationProvider(
 					settingsSchema,
@@ -130,28 +114,21 @@ beforeAll(() =>
 				keyedClient = client;
 				existingIntegration = integration;
 
-				const keylessProcess = yield* startApi("keyless", keylessPort, { SERVER_PRO_KEY: "" });
+				const [keylessProcess, lapsedProcess] = yield* Effect.all(
+					[
+						startApi("keyless", keylessPort, { SERVER_PRO_KEY: "" }),
+						startApi("lapsed", lapsedPort, {
+							SERVER_PRO_KEY: PRO_KEY_ENV_VALUE,
+							SERVER_PRO_KEY_VERIFICATION_URL: requirePresent(
+								invalidUnkey,
+								"Invalid fake Unkey missing",
+							).url,
+						}),
+					],
+					{ concurrency: "unbounded" },
+				);
 				keylessTarget = keylessProcess.target;
-				const lapsedProcess = yield* startApi("lapsed", lapsedPort, {
-					SERVER_PRO_KEY: PRO_KEY_ENV_VALUE,
-					SERVER_PRO_KEY_VERIFICATION_URL: requirePresent(
-						invalidUnkey,
-						"Invalid fake Unkey missing",
-					).url,
-				});
-				yield* waitForHealthCheck(
-					`${keylessApiUrl}/system/health`,
-					"Pro-gated keyless setup",
-					keylessProcess,
-					90,
-				);
 				lapsedTarget = lapsedProcess.target;
-				yield* waitForHealthCheck(
-					`${lapsedApiUrl}/system/health`,
-					"Pro-gated lapsed setup",
-					lapsedProcess,
-					90,
-				);
 			}),
 		),
 	),

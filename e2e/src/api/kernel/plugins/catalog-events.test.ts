@@ -1,6 +1,5 @@
 import { pluginClientCatalogRecipe } from "@ryot-app/ryotql-recipes/plugin-client-catalog";
 import { Effect } from "effect";
-import getPort from "get-port";
 
 import {
 	createApiKey,
@@ -19,22 +18,11 @@ import {
 } from "~/fixtures/kernel";
 import { requirePresent } from "~/support/assertions";
 import { afterAll, beforeAll, describe, expect, it, runPromise } from "~/support/effect-test";
-import {
-	buildApiEnv,
-	spawnApiProcess,
-	startCoreTestInfrastructure,
-	waitForHealthCheck,
-} from "~/support/provisioning";
-import { makeTestResourceScope } from "~/support/resource-scope";
+import { startIsolatedHarness } from "~/support/isolated-harness";
 
-const S3_BUCKET_NAME = "ryot-plugin-catalog-events-test";
-const API_LABEL = "Plugin Catalog Events API";
+let harness: Effect.Success<ReturnType<typeof startIsolatedHarness>> | undefined;
+let target: Effect.Success<ReturnType<typeof startIsolatedHarness>>["target"];
 
-let apiPort: number;
-let target: Effect.Success<ReturnType<typeof spawnApiProcess>>["target"];
-const resources = makeTestResourceScope();
-
-const apiUrl = () => `http://127.0.0.1:${apiPort}/api`;
 const adminSession = () => makeSession(target);
 
 const fixtureCatalogEntry = (client: Parameters<typeof executeRyotQLRecipe>[0]) =>
@@ -48,36 +36,14 @@ const fixtureCatalogEntry = (client: Parameters<typeof executeRyotQLRecipe>[0]) 
 
 beforeAll(() =>
 	runPromise(
-		resources.run(
-			Effect.gen(function* () {
-				const [infrastructure, port] = yield* Effect.all(
-					[
-						startCoreTestInfrastructure({ bucketName: S3_BUCKET_NAME }),
-						Effect.promise(() => getPort()),
-					],
-					{ concurrency: "unbounded" },
-				);
-				apiPort = port;
-				const apiOrigin = `http://127.0.0.1:${apiPort}`;
-				const apiProcess = yield* spawnApiProcess(
-					buildApiEnv({
-						port: apiPort,
-						label: API_LABEL,
-						frontendUrl: apiOrigin,
-						dbUrl: infrastructure.dbUrl,
-						s3BucketName: S3_BUCKET_NAME,
-						redisUrl: infrastructure.redisUrl,
-						s3Endpoint: infrastructure.s3Endpoint,
-					}),
-				);
-				yield* waitForHealthCheck(`${apiOrigin}/api/system/health`, API_LABEL, apiProcess, 90);
-				target = apiProcess.target;
-			}),
-		),
+		Effect.gen(function* () {
+			harness = yield* startIsolatedHarness("Plugin Catalog Events API");
+			target = harness.target;
+		}),
 	),
 );
 
-afterAll(() => runPromise(resources.close));
+afterAll(() => runPromise(harness?.stop ?? Effect.void));
 
 describe("plugin catalog events", () => {
 	it.live("streams isolated private changes, reconnect state, and global reconciliation", () =>
@@ -169,7 +135,7 @@ describe("plugin catalog events", () => {
 			const apiKey = yield* createApiKey(
 				auth.sessionCookie,
 				"E2E catalog events API key",
-				apiUrl(),
+				target.apiUrl,
 			);
 			const events = yield* openPluginCatalogEventsScoped({
 				client: makeSession(target, { "X-Api-Key": apiKey }),

@@ -20,10 +20,9 @@ import {
 import { describe, expect, it } from "~/support/effect-test";
 import {
 	buildApiEnv,
-	spawnApiProcess,
+	startApiProcess,
 	startCoreTestInfrastructure,
 	stopApiProcess,
-	waitForHealthCheck,
 } from "~/support/provisioning";
 
 const CONFIG_KEY = "fixtureValue";
@@ -206,7 +205,6 @@ describe("isolated import durability", () => {
 			const infrastructure = yield* startCoreTestInfrastructure({ bucketName: S3_BUCKET_NAME });
 			const port = yield* Effect.promise(() => getPort());
 			const origin = `http://127.0.0.1:${port}`;
-			const baseUrl = `${origin}/api`;
 			const suffix = crypto.randomUUID();
 			const pluginSlug = `e2e-import-durability-${suffix}`;
 			const pluginPackageId = testPluginPackageId();
@@ -230,11 +228,7 @@ describe("isolated import durability", () => {
 					extraEnv: { [configEnvironmentKey]: configValue },
 				});
 			const startApi = (label: string, configValue: string) =>
-				Effect.gen(function* () {
-					const process = yield* spawnApiProcess(apiEnv(label, configValue));
-					yield* waitForHealthCheck(`${baseUrl}/system/health`, label, process, 90);
-					return process;
-				});
+				startApiProcess(apiEnv(label, configValue), label);
 
 			const processA = yield* startApi("Import Durability API A", OLD_CONFIG_VALUE);
 			const pluginManifest = testPluginManifest({
