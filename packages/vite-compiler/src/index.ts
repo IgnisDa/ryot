@@ -1,8 +1,6 @@
 export {
 	acquireCompilerWorkspace,
 	getCompilerWorkspaceRoot,
-	stageGeneratedFiles,
-	stageSourceFiles,
 	validateRelativePath,
 } from "./workspace";
 export type { CompilerWorkspace, CompilerWorkspaceOptions, WorkspaceFile } from "./workspace";

@@ -12,6 +12,8 @@ import {
 } from "@ryot-app/ryotql";
 import { Result, Schema } from "effect";
 
+import type { HarnessTarget } from "~/support/harness-target";
+
 import { collectAdminRyotQLRecipeItems } from "./ryotql";
 
 const plugin = table("plugin", "plugin");
@@ -42,6 +44,5 @@ export const adminSystemPluginsRecipe = defineRecipe((input: { readonly after?: 
 	},
 }));
 
-export const listAdminSystemPlugins = collectAdminRyotQLRecipeItems((after) =>
-	adminSystemPluginsRecipe({ after }),
-);
+export const listAdminSystemPlugins = (target?: HarnessTarget) =>
+	collectAdminRyotQLRecipeItems((after) => adminSystemPluginsRecipe({ after }), target);

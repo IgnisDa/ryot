@@ -437,9 +437,22 @@ export const measurementMetricPropertiesSchema: AppSchema = {
 	},
 };
 
-export const measurementReadingPropertiesSchema: AppSchema = {
+export const measurementEntryPropertiesSchema: AppSchema = {
+	unknownKeys: "strict",
 	fields: {
-		comment: { type: "string", label: "Comment", description: "Optional notes about this reading" },
+		comment: { type: "string", label: "Comment", description: "Optional notes about this entry" },
+		occurredAt: {
+			type: "datetime",
+			label: "Taken at",
+			validation: { required: true },
+			description: "Time this measurement entry was recorded",
+		},
+	},
+};
+
+export const measurementReadingPropertiesSchema: AppSchema = {
+	unknownKeys: "strict",
+	fields: {
 		value: {
 			type: "number",
 			label: "Value",

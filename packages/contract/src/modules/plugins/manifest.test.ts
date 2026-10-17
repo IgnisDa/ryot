@@ -68,6 +68,14 @@ const authoredManifest = definePlugin({
 			description: "Resolve test references",
 		},
 	],
+	providers: [
+		{
+			slug: "provider.test",
+			name: "Test provider",
+			rootEntitySchemaSlug: "entity.test",
+			information: { source: "Test source", canonicalLanguage: "en" },
+		},
+	],
 	signalSchemas: [
 		{
 			name: "Test signal",
@@ -98,15 +106,6 @@ const authoredManifest = definePlugin({
 			name: "Test notification",
 			scriptSlug: "automation.test",
 			targets: [{ operation: "emit", resource: "signal", signalSchemaSlug: "test.signal" }],
-		},
-	],
-	providers: [
-		{
-			slug: "provider.test",
-			name: "Test provider",
-			rootEntitySchemaSlug: "entity.test",
-			information: { source: "Test source", canonicalLanguage: "en" },
-			operations: { search: "provider.test.search", details: "provider.test.details" },
 		},
 	],
 	savedViews: [
@@ -1149,9 +1148,6 @@ describe("definePlugin", () => {
 		};
 		const dynamicManifest = {
 			...manifest,
-			providers: [
-				{ ...provider, operations: { ...provider.operations, searchOptions: searchOptions.slug } },
-			],
 			scripts: [
 				...manifest.scripts.filter(({ slug }) => slug !== search.slug),
 				dynamicSearch,
@@ -1163,26 +1159,29 @@ describe("definePlugin", () => {
 		expect(() =>
 			Schema.decodeSync(PluginManifest)({
 				...dynamicManifest,
-				providers: [{ ...provider, operations: provider.operations }],
+				scripts: dynamicManifest.scripts.filter(({ slug }) => slug !== searchOptions.slug),
 			}),
 		).toThrow();
 		expect(() =>
 			Schema.decodeSync(PluginManifest)({
-				...manifest,
-				providers: [
-					{ ...provider, operations: { ...provider.operations, searchOptions: "missing.script" } },
+				...dynamicManifest,
+				providers: [...manifest.providers, { ...provider, slug: "other.provider" }],
+				scripts: [
+					...dynamicManifest.scripts.filter(({ slug }) => slug !== searchOptions.slug),
+					{ ...manifest.scripts[2], slug: "other.details", providerSlug: "other.provider" },
+					{ ...searchOptions, providerSlug: "other.provider" },
 				],
 			}),
 		).toThrow();
-		expect(() =>
+		expect(
 			Schema.decodeSync(PluginManifest)({
 				...manifest,
 				scripts: [...manifest.scripts, searchOptions],
 			}),
-		).toThrow();
+		).toBeTruthy();
 	});
 
-	it("accepts a related provider operation only when the provider binds its script", () => {
+	it("binds related operations from generated script metadata alone", () => {
 		const provider = manifest.providers[0];
 		assert(provider);
 		const related = {
@@ -1193,18 +1192,14 @@ describe("definePlugin", () => {
 			slug: "provider.test.related",
 			providerOperation: "related" as const,
 		};
-		const relatedManifest = {
-			...manifest,
-			scripts: [...manifest.scripts, related],
-			providers: [{ ...provider, operations: { ...provider.operations, related: related.slug } }],
-		};
+		const relatedManifest = { ...manifest, scripts: [...manifest.scripts, related] };
 
 		expect(Schema.decodeSync(PluginManifest)(relatedManifest)).toBeTruthy();
 		expect(() =>
-			Schema.decodeSync(PluginManifest)({ ...relatedManifest, providers: manifest.providers }),
-		).toThrow();
-		expect(() =>
-			Schema.decodeSync(PluginManifest)({ ...manifest, scripts: [...manifest.scripts, related] }),
+			Schema.decodeSync(PluginManifest)({
+				...manifest,
+				scripts: [...manifest.scripts, related, { ...related, slug: "another.related" }],
+			}),
 		).toThrow();
 	});
 
@@ -1212,11 +1207,6 @@ describe("definePlugin", () => {
 		const provider = manifest.providers[0];
 		const detailsScript = manifest.scripts[2];
 		const preloadScript = manifest.scripts[4];
-		const otherDetailsScript = {
-			...detailsScript,
-			slug: "provider.other.details",
-			providerSlug: "provider.other",
-		};
 		expect(() =>
 			Schema.decodeUnknownSync(PluginManifest)({
 				...manifest,
@@ -1252,18 +1242,13 @@ describe("definePlugin", () => {
 		expect(() =>
 			Schema.decodeSync(PluginManifest)({
 				...manifest,
-				providers: [{ ...provider, operations: { details: "missing.script" } }],
+				scripts: manifest.scripts.filter(({ slug }) => slug !== detailsScript.slug),
 			}),
 		).toThrow();
 		expect(() =>
 			Schema.decodeSync(PluginManifest)({
 				...manifest,
-				providers: [
-					{
-						...provider,
-						operations: { search: "provider.test.details", details: "provider.test.details" },
-					},
-				],
+				scripts: [...manifest.scripts, { ...detailsScript, slug: "another.details" }],
 			}),
 		).toThrow();
 		expect(() =>
@@ -1298,7 +1283,9 @@ describe("definePlugin", () => {
 		expect(() =>
 			Schema.decodeSync(PluginManifest)({
 				...manifest,
-				providers: [{ ...provider, operations: { details: preloadScript.slug } }],
+				scripts: manifest.scripts.map((script) =>
+					script.slug === detailsScript.slug ? { ...script, kind: "script" as const } : script,
+				),
 			}),
 		).toThrow();
 		expect(() =>
@@ -1307,20 +1294,16 @@ describe("definePlugin", () => {
 				scripts: [{ ...manifest.scripts[0], providerSlug: provider.slug }],
 			}),
 		).toThrow();
-		expect(() =>
+		expect(
 			Schema.decodeSync(PluginManifest)({
 				...manifest,
+				providers: [...manifest.providers, { ...provider, slug: "provider.other" }],
 				scripts: [
 					...manifest.scripts,
-					otherDetailsScript,
-					{ ...preloadScript, providerSlug: "provider.other" },
-				],
-				providers: [
-					...manifest.providers,
-					{ ...provider, slug: "provider.other", operations: { details: otherDetailsScript.slug } },
+					{ ...detailsScript, slug: "provider.other.details", providerSlug: "provider.other" },
 				],
 			}),
-		).toThrow();
+		).toBeTruthy();
 	});
 
 	it("rejects removed provider links and aliases", () => {

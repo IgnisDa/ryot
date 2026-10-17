@@ -110,7 +110,7 @@ it.live("keeps independently saved zero measurements when the workout is discard
 		yield* measurement.waitFor({ state: "hidden" });
 		yield* discardDraft(frame);
 		const readings = yield* listEventsForEntity(client, metric.entityId, undefined, 100);
-		expect(readings).toMatchObject([{ properties: { value: 0, comment: "Saved independently" } }]);
+		expect(readings).toMatchObject([{ properties: { value: 0 } }]);
 		yield* page.goto(`${getFrontendUrl()}/v/p/ryot/fitness/all-measurements`);
 		yield* frame.getByText("Saved independently", { exact: true }).waitFor({ state: "visible" });
 	}).pipe(PlaywrightSpawner.withBrowser),
@@ -124,11 +124,7 @@ it.live("retries a committed workout after a lost response and reload without du
 		const second = `Second ${name}`;
 		for (const exerciseName of [first, second]) {
 			const { exerciseId } = yield* createExerciseEntityFixture(client, { name: exerciseName });
-			yield* updateExerciseOverrides(client, {
-				exerciseId,
-				remove: [],
-				set: { normalRestTime: 0 },
-			});
+			yield* updateExerciseOverrides(client, { exerciseId, overrides: { normalRestTime: 0 } });
 		}
 		const page = yield* (yield* Playwright.Browser).newPage();
 		yield* signInThroughHostedOAuth(page, email, password);

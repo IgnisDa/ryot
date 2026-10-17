@@ -17,7 +17,7 @@ use crate::protocol::{
     Assembled, Assembly, ChunkedType, DrainReason, Finished, FramingError, Inbound, Lane, Outbound,
     Outcome, Phase, Run, decode_inbound, inbound_type, read_frame, valid_handle,
 };
-use crate::registry::{Entry, Registry};
+use crate::registry::{Entry, Registry, StopCause};
 use crate::snapshots::Snapshot;
 use crate::watchdog;
 
@@ -142,12 +142,18 @@ fn spawn_workers(
                         + run.limits.external_bytes
                         + (run.module.source.len() + run.input.get().len()) as u64;
                     let finished = match shared.budget.reserve(reserve) {
-                        None => Outcome::Failed(
-                            Phase::Admission,
-                            format!("execution needs {reserve} bytes, more than the memory budget"),
-                        )
+                        None => Outcome::Failed {
+                            phase: Phase::Admission,
+                            message: format!(
+                                "execution needs {reserve} bytes, more than the memory budget"
+                            ),
+                        }
                         .without_run(),
-                        Some(_reservation) if entry.state().cancelled => {
+                        Some(_reservation)
+                            if entry.state().stopping.as_ref().is_some_and(|stopping| {
+                                matches!(stopping.cause, StopCause::Cancelled)
+                            }) =>
+                        {
                             Outcome::Cancelled.without_run()
                         }
                         Some(_reservation) => executor.execute(&run, &entry),
@@ -175,7 +181,11 @@ impl Reader {
         self.shared.in_flight.fetch_add(1, Ordering::SeqCst);
         self.shared.finish(
             handle,
-            Outcome::Failed(Phase::Protocol, message).without_run(),
+            Outcome::Failed {
+                phase: Phase::Protocol,
+                message,
+            }
+            .without_run(),
         );
     }
 
@@ -205,13 +215,13 @@ impl Reader {
         if run.tier != self.shared.config.tier {
             self.shared.finish(
                 &run.handle,
-                Outcome::Failed(
-                    Phase::Admission,
-                    format!(
+                Outcome::Failed {
+                    phase: Phase::Admission,
+                    message: format!(
                         "this sidecar serves the {} tier",
                         self.shared.config.tier.as_str()
                     ),
-                )
+                }
                 .without_run(),
             );
             return;
@@ -219,7 +229,11 @@ impl Reader {
         if self.shared.draining.load(Ordering::SeqCst) {
             self.shared.finish(
                 &run.handle,
-                Outcome::Failed(Phase::Admission, "sidecar is draining".to_owned()).without_run(),
+                Outcome::Failed {
+                    phase: Phase::Admission,
+                    message: "sidecar is draining".to_owned(),
+                }
+                .without_run(),
             );
             return;
         }

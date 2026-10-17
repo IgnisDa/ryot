@@ -78,6 +78,7 @@ const applyCase = (
 		const outcomes = new Map<string, IngestionOutcome>();
 		const issues = new Map<string, IngestionIssue>();
 		const registrations: string[][] = [];
+		const starts: Parameters<ImportsRepository["Service"]["startBatch"]>[] = [];
 		let definitionReads = 0;
 		const dependencies = Layer.mergeAll(
 			ingestionTestDatabase(),
@@ -123,11 +124,15 @@ const applyCase = (
 				read: () => Effect.succeed(Buffer.from(JSON.stringify(chunk))),
 			}),
 			Layer.mock(ImportsRepository)({
-				advanceBatch: () => Effect.succeed(true),
 				getOutcome: (_scope, id) => Effect.sync(() => outcomes.get(id) ?? null),
 				listBatches: () => Effect.sync(() => [...batches.values()].map((data) => ({ data }))),
 				getBatchIssues: () => Effect.sync(() => [...issues.values()].map((data) => ({ data }))),
-				getIngestionRun: () =>
+				startBatch: (...input) =>
+					Effect.sync(() => {
+						starts.push(input);
+						return true;
+					}),
+				getIngestionRunControl: () =>
 					Effect.succeed(ingestionTestRun({ status: cancelled ? "cancelling" : "running" })),
 				recordIssue: (_scope, issue) =>
 					Effect.sync(() => {
@@ -192,7 +197,7 @@ const applyCase = (
 		const replay = yield* runProcessGenericImportChunksWorkflow(payload, "batch-owner").pipe(
 			Effect.provideContext(yield* Layer.build(dependencies)),
 		);
-		return { first, replay, issues, batches, outcomes, registrations, definitionReads };
+		return { first, replay, issues, starts, batches, outcomes, registrations, definitionReads };
 	});
 
 it.effect("projects source failures once and reuses the applied projection on replay", () =>
@@ -229,6 +234,7 @@ it.effect("projects source failures once and reuses the applied projection on re
 		]);
 		expect(result.replay).toEqual(result.first);
 		expect(result.registrations).toEqual([["play-4", "play-4-again"]]);
+		expect(result.starts).toEqual([[ingestionTestScope, "batch"]]);
 		expect([...result.outcomes.keys()]).toEqual(["play-4", "play-4-again"]);
 		expect([...result.issues.keys()]).toEqual(["play-4", "play-4-again"]);
 		expect(result.definitionReads).toBe(1);

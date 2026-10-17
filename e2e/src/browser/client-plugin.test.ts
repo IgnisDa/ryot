@@ -178,9 +178,8 @@ const expectVisibleText = (locator: Playwright.Locator, text: string) =>
 
 it.live("shows the minimal interstitial while loading a plugin on desktop and mobile", () =>
 	Effect.gen(function* () {
-		const apiUrl = getApiUrl();
-		const { email, client, password } = yield* createAuthenticatedClient(apiUrl);
-		const installed = yield* installFixtureClientPlugin(client, "A", "", apiUrl);
+		const { email, client, password } = yield* createAuthenticatedClient();
+		const installed = yield* installFixtureClientPlugin(client);
 		const fixtureUrl = `${getFrontendUrl()}${pluginPath(installed.packageId)}`;
 		const runPromise = Effect.runPromiseWith(yield* Effect.context());
 		const browser = yield* Playwright.Browser;
@@ -271,8 +270,8 @@ it.live("runs the client plugin lifecycle in a real browser", () =>
 	Effect.gen(function* () {
 		const apiUrl = getApiUrl();
 		const frontendUrl = getFrontendUrl();
-		const { email, client, password } = yield* createAuthenticatedClient(apiUrl);
-		const installed = yield* installFixtureClientPlugin(client, "A", "", apiUrl);
+		const { email, client, password } = yield* createAuthenticatedClient();
+		const installed = yield* installFixtureClientPlugin(client);
 		const fixtureUrl = `${frontendUrl}${pluginPath(installed.packageId)}`;
 		const pokemonSchema = requirePresent(
 			(yield* listEntitySchemas(client, { slugs: ["pokemon"], pluginId: installed.pluginId }))[0],
@@ -513,7 +512,7 @@ it.live("runs the client plugin lifecycle in a real browser", () =>
 		yield* frame.evaluate((element) => element.setAttribute("data-e2e-revision", "A"));
 		const revisionAFrame = Option.getOrThrow(yield* frame.elementHandle());
 
-		yield* updateFixtureClientPlugin(client, "B", "", apiUrl);
+		yield* updateFixtureClientPlugin(client, "B");
 		yield* expectVisibleText(
 			page.locator("body"),
 			"An update is available. Reloading will discard unsaved local state.",
@@ -567,13 +566,12 @@ it.live("opens an external link from a sandbox click through host authority", ()
 	Effect.gen(function* () {
 		const apiUrl = getApiUrl();
 		const frontendUrl = getFrontendUrl();
-		const { email, client, password } = yield* createAuthenticatedClient(apiUrl);
+		const { email, client, password } = yield* createAuthenticatedClient();
 		const pluginSlug = `external-link-${crypto.randomUUID()}`;
 		const destination = `${frontendUrl}/e2e-external-link-${crypto.randomUUID()}`;
 		const { id: installationId } = yield* installPrivatePluginPackage({
 			client,
 			config: {},
-			baseUrl: apiUrl,
 			pluginPackage: {
 				manifest: testPluginManifest({
 					pluginSlug,

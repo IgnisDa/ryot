@@ -9,10 +9,16 @@ Every build receives its target compiler's self-contained TypeScript project opt
 Rolldown use the runtime-relevant transform options without discovering `tsconfig.json` files from
 resolved package sources; normal Vite filesystem and package resolution remains enabled.
 
-Workspace acquisition and staging are typed Effect APIs. `acquireCompilerWorkspace` uses the
-standard Effect `FileSystem` service and `Effect.acquireRelease`; its workspace is removed when the
-owning scope closes. A caller can supply `parentPath` and `jobId` so its supervisor knows the job
-directory before worker startup. `ViteBuildService.layer` provides the live Vite invocation and can
+`acquireCompilerWorkspace` accepts complete `sources` and `generated` file sets. A trusted pure
+`generated` callback can calculate file contents from the workspace paths, such as stylesheet source
+roots. Acquisition exclusively creates a fresh root with owner-only access, registers cleanup before
+preparation, validates both namespaces, and writes files exclusively before returning the handle.
+Existing addressed directories, files, and symlinks are rejected
+without changing them. Parent directories are trusted supervisor/compiler locations; private roots
+do not isolate code running as the same OS user. The standard Effect `FileSystem` service supplies
+filesystem access; the workspace is removed on acquisition failure or when its owning scope closes.
+A caller can supply `parentPath` and `jobId` so its supervisor knows the job directory before worker
+startup. `ViteBuildService.layer` provides the live Vite invocation and can
 be replaced by a deterministic Layer in tests. Its `build` operation maps Vite's Promise rejection
 to a typed `ViteCompilerError`, retaining the original cause for diagnostic normalization. The
 Vite plugin transform hook itself follows Vite's Promise callback API. Public failures use

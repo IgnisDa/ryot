@@ -22,7 +22,11 @@ import { dispatchAdmittedWorkflow } from "#modules/mutations/workflow-dispatch";
 import { DatabaseSession } from "#platform/db/session";
 import { WorkflowExecutionNotifications } from "#platform/workflow/execution-notifications";
 import { interruptWorkflowAndWait } from "#platform/workflow/interruption";
-import { implementWorkflow, makeActivity } from "#platform/workflow/scope";
+import {
+	asIndependentWorkflowRoot,
+	implementWorkflow,
+	makeActivity,
+} from "#platform/workflow/scope";
 
 import { UserLifecycleRepository } from "./repository";
 
@@ -43,7 +47,7 @@ type UserLifecycleWorkflowOperationsValue = {
 	cleanupObjects: (operationId: string) => Effect.Effect<void, InternalError>;
 	deleteDatabaseUser: (operationId: string) => Effect.Effect<void, InternalError>;
 	recreateResetUser: (operationId: string) => Effect.Effect<UserId, InternalError>;
-	bootstrapResetUser: (userId: UserId, operationId: string) => Effect.Effect<void, InternalError>;
+	bootstrapResetUser: (userId: UserId) => Effect.Effect<void, InternalError>;
 	finishResetUser: (operationId: string) => Effect.Effect<UserResetResult, InternalError>;
 	complete: (
 		operationId: string,
@@ -201,20 +205,20 @@ export const UserLifecycleWorkflowOperationsLive = Layer.effect(
 				"Reset user recreation failed",
 			);
 
-		const bootstrapResetUser = (userId: UserId, operationId: string) =>
+		const bootstrapResetUser = (userId: UserId) =>
 			asInternal(
 				Effect.gen(function* () {
 					const accountGeneration = yield* receipts.currentAccount(userId);
-					const executionId = `${userBootstrapWorkflowExecutionId(userId, accountGeneration)}-reset-${operationId}`;
+					const executionId = userBootstrapWorkflowExecutionId(userId, accountGeneration);
 					return yield* dispatchAdmittedWorkflow(
 						receipts,
 						engine,
 						UserBootstrapWorkflow,
 						accountGeneration,
-						{ executionId, payload: { userId, accountGeneration, generation: operationId } },
+						{ executionId, payload: { userId, accountGeneration } },
 						(admission) => admission,
 						(execution) => execution.pipe(Effect.asVoid),
-					);
+					).pipe(asIndependentWorkflowRoot);
 				}),
 				"Reset user bootstrap failed",
 			);
@@ -327,7 +331,7 @@ export const runUserLifecycleWorkflow = Effect.fn("UserLifecycleWorkflow")(
 				}).pipe(Activity.retry({ times: 3 }));
 				return;
 			}
-			yield* operations.bootstrapResetUser(recreated.success, payload.operationId);
+			yield* operations.bootstrapResetUser(recreated.success);
 			const finished = yield* makeActivity({
 				name: "finish-reset-user",
 				error: InternalError satisfies DurableSchema,

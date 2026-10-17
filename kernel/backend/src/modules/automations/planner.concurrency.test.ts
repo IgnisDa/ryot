@@ -5,7 +5,7 @@ import {
 	SignalSchemaSlug,
 } from "@ryot-app/contract/schema/brands";
 import { emptySandboxExecutionMetadata } from "@ryot-app/contract/testing";
-import { makeRecordingTracer } from "@ryot-app/testing/recording-tracer";
+import { makeRecordingTracer, recordedStatements } from "@ryot-app/testing/recording-tracer";
 import { eq, sql } from "drizzle-orm";
 import { Context, Deferred, Effect, Fiber, Layer, type Tracer } from "effect";
 import { assert, describe } from "vitest";
@@ -129,10 +129,7 @@ const withRoot = (id: string, rootExecutionId: string) => {
 };
 
 const countStatements = (spans: ReadonlyArray<Tracer.Span>, fragment: string) =>
-	spans.filter((span) => {
-		const text = span.attributes.get("db.query.text");
-		return typeof text === "string" && text.includes(fragment);
-	}).length;
+	recordedStatements(spans).filter((text) => text.includes(fragment)).length;
 
 const counted = (spans: ReadonlyArray<Tracer.Span>) => ({
 	exclusive: countStatements(spans, "pg_advisory_xact_lock("),

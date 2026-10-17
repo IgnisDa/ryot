@@ -1,9 +1,4 @@
-import type { SandboxSourceExecutionMetadata } from "@ryot-app/contract/modules/plugins/execution-metadata";
-import type { SandboxManifest } from "@ryot-app/plugin-backend-sdk/core";
-import type { ProviderOperation } from "@ryot-app/plugin-backend-sdk/provider";
 import { Effect } from "effect";
-import * as ts from "typescript/unstable/ast";
-import { DiagnosticCategory } from "typescript/unstable/async";
 
 import { bundleSandboxPackage } from "./compiler-bundle";
 import { resolveSandboxCompilerDependencies } from "./compiler-dependencies";
@@ -11,23 +6,23 @@ import {
 	pluginBackendCompilerDiagnostic,
 	PluginBackendCompilerFailure,
 	sandboxCompilationFailure,
-	toTypeScriptDiagnostic,
 } from "./compiler-diagnostics";
-import { extractSandboxManifest } from "./compiler-manifest";
-import { finalizeCompiledModule, validateSandboxCapabilities } from "./compiler-metadata";
+import { finalizeCompiledModule } from "./compiler-metadata";
 import {
 	createTypeScriptSourcesProjectForEntries,
 	sandboxSourcePath,
 	type SandboxTypeScriptSources,
 } from "./compiler-project";
 import type { CompiledSandboxModule } from "./compiler-protocol";
+import { inspectSandboxModuleImports } from "./compiler-source";
 import {
-	inspectSandboxModuleImports,
-	inspectSandboxSource,
-	inspectWorkflowDeterminism,
-	inspectWorkflowImports,
-	sandboxDefinitionMismatch,
-} from "./compiler-source";
+	type InspectedSandboxEntry,
+	inspectSandboxEntry,
+	type SandboxEntryDeclaration,
+	type ValidatedSandboxEntry,
+	validateSandboxEntry,
+	validateSandboxProjectDiagnostics,
+} from "./compiler-validation";
 import { SANDBOX_COMPILER_LIMITS, utf8ByteLength } from "./limits";
 
 export type BuiltInSandboxEntry = SandboxTypeScriptSources;
@@ -39,76 +34,10 @@ export type CompiledBuiltInSandboxEntry = {
 	readonly providerOperation: string | null;
 };
 
-export type SandboxEntryDeclaration =
-	| {
-			readonly kind: Exclude<SandboxManifest["kind"], "provider">;
-			readonly providerOperation?: never;
-	  }
-	| { readonly kind: "provider"; readonly providerOperation: ProviderOperation };
-
 type SandboxPackageProject = Effect.Success<
 	ReturnType<typeof createTypeScriptSourcesProjectForEntries>
 >;
 type SandboxCompilerDependencies = Effect.Success<typeof resolveSandboxCompilerDependencies>;
-type InspectedSandboxEntry = {
-	readonly entry: string;
-	readonly source: string;
-	readonly sourceFile: ts.SourceFile;
-	readonly inspection: ReturnType<typeof inspectSandboxSource>;
-};
-type ValidatedSandboxEntry = InspectedSandboxEntry & {
-	readonly manifest: SandboxManifest;
-	readonly metadata: SandboxSourceExecutionMetadata;
-};
-
-const relativeModulePath = (sourceFile: ts.SourceFile, specifier: string) => {
-	const segments = sourceFile.fileName.split("/").slice(0, -1);
-	for (const segment of specifier.split("/")) {
-		if (segment === "..") {
-			segments.pop();
-		} else if (segment !== ".") {
-			segments.push(segment);
-		}
-	}
-	return segments.join("/");
-};
-
-const workflowSourceFiles = (entry: ts.SourceFile, sourceFiles: ReadonlyArray<ts.SourceFile>) => {
-	const byName = new Map(sourceFiles.map((file) => [file.fileName, file]));
-	const visited = new Set<string>();
-	const reachable: ts.SourceFile[] = [];
-	const visit = (file: ts.SourceFile) => {
-		if (visited.has(file.fileName)) {
-			return;
-		}
-		visited.add(file.fileName);
-		reachable.push(file);
-		for (const statement of file.statements) {
-			if (!ts.isImportDeclaration(statement) && !ts.isExportDeclaration(statement)) {
-				continue;
-			}
-			const moduleSpecifier = statement.moduleSpecifier;
-			if (!moduleSpecifier || !ts.isStringLiteralLikeNode(moduleSpecifier)) {
-				continue;
-			}
-			const specifier = moduleSpecifier.text;
-			if (!specifier.startsWith(".")) {
-				continue;
-			}
-			const path = relativeModulePath(file, specifier);
-			const dependency =
-				byName.get(path) ??
-				byName.get(`${path}.ts`) ??
-				byName.get(path.replace(/\.js$/, ".ts")) ??
-				byName.get(`${path}/index.ts`);
-			if (dependency) {
-				visit(dependency);
-			}
-		}
-	};
-	visit(entry);
-	return reachable;
-};
 
 export const compileBuiltInSandboxEntry = (sources: BuiltInSandboxEntry) =>
 	sources.files[sources.entry] === undefined
@@ -178,60 +107,30 @@ const createSandboxPackageProject = (
 						]),
 			),
 		);
-		const typeErrors = project.diagnostics.filter(
-			(diagnostic) => diagnostic.category === DiagnosticCategory.Error,
-		);
-		const firstEntry = entries[0];
-		const fallbackSourceFile = firstEntry ? project.entrySourceFiles[firstEntry] : undefined;
+		const fallbackSourceFile = project.entries[0]?.sourceFile;
 		if (!fallbackSourceFile) {
 			return yield* sandboxCompilationFailure([
 				pluginBackendCompilerDiagnostic("RYOT_SANDBOX_ENTRY", "Sandbox entries were not loaded"),
 			]);
 		}
-		return { project, typeErrors, dependencies, fallbackSourceFile };
+		return { project, dependencies, fallbackSourceFile };
 	});
-
-const validateSandboxProjectDiagnostics = (
-	project: SandboxPackageProject,
-	typeErrors: SandboxPackageProject["diagnostics"],
-	fallbackSourceFile: ts.SourceFile,
-) =>
-	typeErrors.length === 0
-		? Effect.void
-		: sandboxCompilationFailure(
-				typeErrors
-					.slice(0, SANDBOX_COMPILER_LIMITS.diagnosticCount)
-					.map((diagnostic) =>
-						toTypeScriptDiagnostic(diagnostic, project.sourceFiles, fallbackSourceFile),
-					),
-			);
 
 const inspectSandboxPackageEntries = (
 	sources: SandboxTypeScriptSources,
-	entries: ReadonlyArray<string>,
 	project: SandboxPackageProject,
 ) =>
-	Effect.forEach(entries, (entry) => {
-		const source = sources.files[entry];
-		const sourceFile = project.entrySourceFiles[entry];
-		if (!source || !sourceFile) {
+	Effect.forEach(project.entries, (projectEntry) => {
+		const source = sources.files[projectEntry.entry];
+		if (!source) {
 			return sandboxCompilationFailure([
 				pluginBackendCompilerDiagnostic(
 					"RYOT_SANDBOX_ENTRY",
-					`Sandbox entry was not loaded: ${entry}`,
+					`Sandbox entry was not loaded: ${projectEntry.entry}`,
 				),
 			]);
 		}
-		const inspection = inspectSandboxSource(sourceFile, { allowRelativeImports: true });
-		if (inspection.diagnostics.length > 0) {
-			return sandboxCompilationFailure(inspection.diagnostics);
-		}
-		return Effect.succeed({
-			entry,
-			source,
-			sourceFile,
-			inspection,
-		} satisfies InspectedSandboxEntry);
+		return inspectSandboxEntry(projectEntry, source, { allowRelativeImports: true });
 	});
 
 const validateSandboxPackageEntries = (
@@ -245,80 +144,17 @@ const validateSandboxPackageEntries = (
 			inspectSandboxModuleImports(file, sandboxSourcePath(file.fileName)),
 		]),
 	);
-	return Effect.forEach(entries, ({ entry, source, sourceFile, inspection }) =>
-		Effect.gen(function* () {
-			const execution = project.executionByEntry[entry];
-			if (!execution) {
-				return yield* sandboxCompilationFailure([
-					pluginBackendCompilerDiagnostic("RYOT_DEPENDENCY", "Executable analysis is missing"),
-				]);
-			}
-			if (execution.diagnostics.length) {
-				return yield* sandboxCompilationFailure(execution.diagnostics);
-			}
-			const moduleDiagnostics = project.sourceFiles
-				.filter((file) => file !== sourceFile)
-				.flatMap((file) => moduleDiagnosticsBySource.get(file) ?? []);
-			if (moduleDiagnostics.length > 0) {
-				return yield* sandboxCompilationFailure(moduleDiagnostics);
-			}
-
-			const extracted = extractSandboxManifest(sourceFile, inspection.manifestHelpers);
-			if (extracted.diagnostic) {
-				return yield* sandboxCompilationFailure([extracted.diagnostic]);
-			}
-			const definitionMismatch = sandboxDefinitionMismatch(inspection, extracted.manifest);
-			if (definitionMismatch) {
-				return yield* sandboxCompilationFailure([
-					pluginBackendCompilerDiagnostic("RYOT_DEFINITION", definitionMismatch),
-				]);
-			}
-			if (extracted.manifest.kind === "workflow") {
-				const diagnostics = workflowSourceFiles(sourceFile, project.sourceFiles).flatMap((file) =>
-					inspectWorkflowImports(file).concat(inspectWorkflowDeterminism(file)),
-				);
-				if (diagnostics.length > 0) {
-					return yield* sandboxCompilationFailure(diagnostics);
-				}
-			}
-			const declaration = declarations.get(entry);
-			if (declaration && inspection.definitionKind !== declaration.kind) {
-				return yield* sandboxCompilationFailure([
-					pluginBackendCompilerDiagnostic(
-						"RYOT_DEFINITION",
-						`Plugin declaration kind "${declaration.kind}" must use the matching definition helper`,
-					),
-				]);
-			}
-			if (
-				declaration?.kind === "provider" &&
-				inspection.providerOperation !== declaration.providerOperation
-			) {
-				return yield* sandboxCompilationFailure([
-					pluginBackendCompilerDiagnostic(
-						"RYOT_DEFINITION",
-						`Provider definition operation "${inspection.providerOperation ?? "none"}" does not match plugin declaration "${declaration.providerOperation}"`,
-					),
-				]);
-			}
-			const capabilityDiagnostic = validateSandboxCapabilities({
-				...extracted.manifest,
-				...execution.metadata,
-			});
-			if (capabilityDiagnostic) {
-				return yield* sandboxCompilationFailure([capabilityDiagnostic]);
-			}
-
-			return {
-				entry,
-				source,
-				sourceFile,
-				inspection,
-				manifest: extracted.manifest,
-				metadata: execution.metadata,
-			};
-		}),
-	);
+	return Effect.forEach(entries, (inspected) => {
+		const declaration = declarations.get(inspected.entry);
+		return validateSandboxEntry({
+			inspected,
+			sourceFiles: project.sourceFiles,
+			moduleDiagnostics: project.sourceFiles
+				.filter((file) => file !== inspected.sourceFile)
+				.flatMap((file) => moduleDiagnosticsBySource.get(file) ?? []),
+			...(declaration ? { declaration } : {}),
+		});
+	});
 };
 
 const compileValidatedSandboxEntries = (
@@ -372,10 +208,12 @@ export const compileSandboxPackageEntries = (
 		if (entries.length === 0) {
 			return [];
 		}
-		const { project, typeErrors, dependencies, fallbackSourceFile } =
-			yield* createSandboxPackageProject(sources, entries);
-		const inspectedEntries = yield* inspectSandboxPackageEntries(sources, entries, project);
-		yield* validateSandboxProjectDiagnostics(project, typeErrors, fallbackSourceFile);
+		const { project, dependencies, fallbackSourceFile } = yield* createSandboxPackageProject(
+			sources,
+			entries,
+		);
+		const inspectedEntries = yield* inspectSandboxPackageEntries(sources, project);
+		yield* validateSandboxProjectDiagnostics(project, fallbackSourceFile);
 		const validatedEntries = yield* validateSandboxPackageEntries(
 			inspectedEntries,
 			project,

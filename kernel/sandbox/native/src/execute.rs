@@ -24,7 +24,7 @@ use crate::protocol::{
     ChunkedType, Finished, HostOutcome, LimitKind, NAME_LENGTH, Outbound, Outcome, Phase, Run,
     Usage,
 };
-use crate::registry::{Entry, Meter};
+use crate::registry::{Entry, Meter, StopCause};
 use crate::snapshots::Snapshot;
 use crate::surface::{
     Bridge, ConsoleSinkHandle, ExecutionClock, HostBridge, HostFuture, ResolutionRejection, ryot,
@@ -427,10 +427,10 @@ impl Executor {
     pub fn execute(&self, run: &Run, entry: &Arc<Entry>) -> Finished {
         let digest = format!("{:x}", Sha256::digest(run.module.source.as_bytes()));
         if digest != run.module.sha256 {
-            return Outcome::Failed(
-                Phase::Integrity,
-                "module source does not match its sha256".to_owned(),
-            )
+            return Outcome::Failed {
+                phase: Phase::Integrity,
+                message: "module source does not match its sha256".to_owned(),
+            }
             .without_run();
         }
         let _enter = self.tokio.enter();
@@ -469,8 +469,11 @@ impl Executor {
         let mut runtime = match runtime {
             Ok(runtime) => runtime,
             Err(error) => {
-                return Outcome::Failed(Phase::Evaluation, bounded(error.to_string()))
-                    .without_run();
+                return Outcome::Failed {
+                    phase: Phase::Evaluation,
+                    message: bounded(error.to_string()),
+                }
+                .without_run();
             }
         };
         runtime
@@ -526,7 +529,7 @@ impl Executor {
                 paused: Default::default(),
                 paused_since: None,
             });
-            if state.cancelled || state.limit.is_some() {
+            if state.stopping.is_some() {
                 state.terminate_isolate();
             }
         }
@@ -556,23 +559,33 @@ impl Executor {
         }
 
         let state = entry.state();
-        let outcome = if state.cancelled {
-            Outcome::Cancelled
-        } else if let Some((limit, message)) = state.limit.clone() {
-            Outcome::Limit(limit, message)
-        } else {
-            match result {
-                Some(Ok(value)) if value.len() > RESULT_BYTES => Outcome::Failed(
-                    Phase::Result,
-                    format!("result exceeds {RESULT_BYTES} bytes"),
-                ),
-                Some(Ok(value)) => match RawValue::from_string(value) {
-                    Ok(value) => Outcome::Completed(value),
-                    Err(error) => Outcome::Failed(Phase::Result, error.to_string()),
+        let outcome = match state.stopping.as_ref().map(|stopping| &stopping.cause) {
+            Some(StopCause::Cancelled) => Outcome::Cancelled,
+            Some(StopCause::Limit { kind, message }) => Outcome::Limit {
+                limit: *kind,
+                message: message.clone(),
+            },
+            None => match result {
+                Some(Ok(value)) if value.len() > RESULT_BYTES => Outcome::Failed {
+                    phase: Phase::Result,
+                    message: format!("result exceeds {RESULT_BYTES} bytes"),
                 },
-                Some(Err((phase, message))) => Outcome::Failed(phase, bounded(message)),
-                None => Outcome::Failed(Phase::Execution, "execution was stopped".to_owned()),
-            }
+                Some(Ok(value)) => match RawValue::from_string(value) {
+                    Ok(value) => Outcome::Completed { value },
+                    Err(error) => Outcome::Failed {
+                        phase: Phase::Result,
+                        message: error.to_string(),
+                    },
+                },
+                Some(Err((phase, message))) => Outcome::Failed {
+                    phase,
+                    message: bounded(message),
+                },
+                None => Outcome::Failed {
+                    phase: Phase::Execution,
+                    message: "execution was stopped".to_owned(),
+                },
+            },
         };
         let usage = Usage {
             heap_bytes: peak.heap.load(Ordering::SeqCst) as u64,

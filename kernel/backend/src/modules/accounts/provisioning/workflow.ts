@@ -13,7 +13,6 @@ import { UserBootstrap } from "./bootstrap";
 const UserBootstrapWorkflowPayload = Schema.Struct({
 	userId: UserId,
 	accountGeneration: AccountGeneration,
-	generation: Schema.optional(Schema.String),
 });
 type UserBootstrapWorkflowPayload = typeof UserBootstrapWorkflowPayload.Type;
 
@@ -30,7 +29,6 @@ export class UserBootstrapWorkflowOperations extends Context.Service<
 		perform: (
 			userId: UserId,
 			accountGeneration: AccountGeneration,
-			generation?: string,
 		) => Effect.Effect<void, InternalError>;
 	}
 >()("UserBootstrapWorkflowOperations") {}
@@ -40,8 +38,8 @@ export const UserBootstrapWorkflowOperationsLive = Layer.effect(
 	Effect.gen(function* () {
 		const bootstrap = yield* UserBootstrap;
 		return {
-			perform: (userId: UserId, accountGeneration: AccountGeneration, generation?: string) =>
-				bootstrap.perform(userId, accountGeneration, generation).pipe(
+			perform: (userId: UserId, accountGeneration: AccountGeneration) =>
+				bootstrap.perform(userId, accountGeneration).pipe(
 					Effect.catchCauseIf(
 						(cause) => !Cause.hasInterruptsOnly(cause),
 						(cause) =>
@@ -68,7 +66,7 @@ export const runUserBootstrapWorkflow = Effect.fn("UserBootstrapWorkflow")(funct
 			name: `bootstrap-user-${attemptNumber}`,
 			error: InternalError satisfies DurableSchema,
 			success: Schema.Void satisfies DurableSchema,
-			execute: operations.perform(payload.userId, payload.accountGeneration, payload.generation),
+			execute: operations.perform(payload.userId, payload.accountGeneration),
 		}).pipe(Effect.result);
 	let result = yield* performAttempt(attempt);
 	while (Result.isFailure(result)) {

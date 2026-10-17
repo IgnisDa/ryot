@@ -22,6 +22,7 @@ import { startIsolatedHarness } from "~/support/isolated-harness";
 
 let fakeApprise: FakeHttpServer;
 let harness: Effect.Success<ReturnType<typeof startIsolatedHarness>> | undefined;
+let target: Effect.Success<ReturnType<typeof startIsolatedHarness>>["target"];
 let media: Effect.Success<ReturnType<typeof shippedPluginTestProviders>>;
 
 beforeAll(() =>
@@ -29,7 +30,8 @@ beforeAll(() =>
 		Effect.gen(function* () {
 			fakeApprise = yield* startFakeAppriseServer;
 			harness = yield* startIsolatedHarness("Media Entity Update Signals");
-			media = yield* shippedPluginTestProviders(mediaPlugin.metadata.packageId);
+			target = harness.target;
+			media = yield* shippedPluginTestProviders(mediaPlugin.metadata.packageId, target);
 		}),
 	),
 );
@@ -66,7 +68,7 @@ describe("hierarchical media entity-update signals", () => {
 					properties: { episodes, publishYear, productionStatus: "Continuing" },
 				});
 
-			const { client } = yield* createAuthenticatedClient();
+			const { client } = yield* createAuthenticatedClient(target);
 			const { schema: animeSchema } = yield* findMediaEntitySchema(client, "anime");
 			const animeSchemaId = animeSchema.id;
 			const animeProvider = yield* media.attachProvider({
@@ -76,6 +78,7 @@ describe("hierarchical media entity-update signals", () => {
 			});
 
 			const anime = yield* seedMediaEntity({
+				target,
 				properties: {},
 				name: animeName,
 				externalId: animeExternalId,
@@ -83,9 +86,8 @@ describe("hierarchical media entity-update signals", () => {
 				providerId: animeProvider.providerId,
 			});
 
-			const monitor = yield* createAuthenticatedClient();
+			const monitor = yield* createAuthenticatedClient(target);
 			yield* createNotificationChannel(monitor.client, {
-				channel: "apprise",
 				channelSpecifics: { kind: "apprise", key: "anime-monitor", baseUrl: fakeApprise.url },
 			});
 			yield* enableMediaMonitoring(monitor.client, anime.id);
@@ -176,7 +178,7 @@ describe("hierarchical media entity-update signals", () => {
 						],
 					});
 
-				const { client } = yield* createAuthenticatedClient();
+				const { client } = yield* createAuthenticatedClient(target);
 				const { schema: showSchema } = yield* findMediaEntitySchema(client, "show");
 				const showSchemaId = showSchema.id;
 				const showProvider = yield* media.attachProvider({
@@ -192,6 +194,7 @@ describe("hierarchical media entity-update signals", () => {
 				});
 
 				const show = yield* seedMediaEntity({
+					target,
 					name: showName,
 					properties: {},
 					externalId: showExternalId,
@@ -199,9 +202,8 @@ describe("hierarchical media entity-update signals", () => {
 					providerId: showProvider.providerId,
 				});
 
-				const monitor = yield* createAuthenticatedClient();
+				const monitor = yield* createAuthenticatedClient(target);
 				yield* createNotificationChannel(monitor.client, {
-					channel: "apprise",
 					channelSpecifics: {
 						kind: "apprise",
 						baseUrl: fakeApprise.url,

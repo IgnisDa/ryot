@@ -1,5 +1,13 @@
 # Provider entities
 
+## Operation bindings
+
+Generated provider scripts supply each `providerSlug`/`providerOperation` tuple. Ingestion persists
+these in `definition_provider_operation` for the exact revision. Provider declarations contain only
+descriptive metadata. Active dispatch selects the active revision's tuple; admitted population and
+resolve work select the retained principal's revision and owner. Neither path falls back to another
+revision or another provider when an operation is absent.
+
 ## Import admission
 
 `POST /entity-providers/imports` does not start a workflow. It writes a `queued` row to
@@ -44,10 +52,13 @@ with the child's `populated_at` when it is still null.
 
 `ensure` at `base` runs only while `populated_at` is null; `ensure` at `full` also runs while
 `related_populated_at` is null, upgrading a base-populated entity. `refresh` always requests `full`.
-An `ensure` run upserts the root with `preservePopulatedAt`, so the entity update keeps a non-null
-`populated_at` in SQL (`coalesce`) instead of clearing it, even when an overlapping base run stamped
-the entity after this run read it; every other entity update writes `populated_at` as given. Child
-sets keep their initial (non-refresh) semantics during an upgrade.
+An `ensure` run preserves an existing root `populated_at` during both the initial upsert and final
+stamp. Persistence selects the stored non-null timestamp first in SQL (`coalesce`), even when an
+overlapping base run stamped the entity after this run read it. The final stamp fills an unset base
+timestamp and stamps the related level with the current command's timestamp. Mutation comparison
+uses the preserved base timestamp, so a timestamp-only ensure does not emit an entity change.
+Refresh and other entity updates write `populated_at` as given. Child sets keep their initial
+(non-refresh) semantics during an upgrade.
 
 `EntityImportWorkflow` (and so `kernel:entity-import`) requests `base`. Entity interest requests
 `base` for visible and `full` for foreground interest (see the entity-interest README). The kernel
@@ -171,6 +182,13 @@ lock one entity and then discover another mutation target.
 
 The locks are granular. Unrelated entity graphs continue concurrently, while transactions touching
 the same provider entity or relationship serialize their conflicting mutations.
+
+Repositories own lock sorting; provider callers submit children and deduplicated related entities in
+provider order. Results, receipt batch indexes, and sibling lifecycle dispatch follow that order,
+with entity dispatch before relationship dispatch. Item command and receipt identities do not depend
+on sibling positions. Replayed receipts retain their recorded dispatch; newly admitted batches use
+provider order. Child-related stamps stay in the child-set transaction, and nested child sets use the
+same provider-order result positions as their input subtrees.
 
 ### Deadlock retry
 

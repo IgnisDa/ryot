@@ -4,56 +4,46 @@ import { defineSandboxTestHost, runSandboxTestScript } from "@ryot-app/plugin-ba
 
 import { executeMeasurementRyotql } from "./in-memory-ryotql.test-support";
 import deleteDefinition, { manifest } from "./measurement-reading-delete.sandbox";
-import { MeasurementReadingNotFoundError } from "./measurement-readings";
+import { MeasurementEntryNotFoundError } from "./measurement-readings";
 
 const execution = { metadata: {}, sandboxScriptId: "script-test" };
 
-const recordingHost = (deletes: (readonly string[])[]) =>
-	defineSandboxTestHost(manifest, {
-		executeRyotql: executeMeasurementRyotql,
-		deleteEvents: (ids) =>
-			Effect.sync(() => {
-				deletes.push(ids);
-				return { count: ids.length };
-			}),
-	});
-
 describe("measurement reading delete operation", () => {
-	it.live("deletes every reading in the request once", () =>
+	it.live("deletes the entry so all session children are removed, without client reading IDs", () =>
 		Effect.gen(function* () {
-			const deletes: (readonly string[])[] = [];
-
+			const deletes: unknown[] = [];
+			const host = defineSandboxTestHost(manifest, {
+				executeRyotql: executeMeasurementRyotql,
+				deleteUserEntity: (item) =>
+					Effect.sync(() => {
+						deletes.push(item);
+						return { entityId: item.entityId };
+					}),
+			});
 			expect(
-				yield* runSandboxTestScript(
-					deleteDefinition,
-					{ readingIds: ["reading-1", "reading-2", "reading-1"] },
-					recordingHost(deletes),
-					execution,
-				),
+				yield* runSandboxTestScript(deleteDefinition, { entryId: "entry-1" }, host, execution),
 			).toEqual({ count: 2 });
-			expect(deletes).toEqual([["reading-1", "reading-2"]]);
+			expect(deletes).toEqual([{ entityId: "entry-1", entitySchemaSlug: "measurement-entry" }]);
 		}),
 	);
 
-	it.live("rejects any id that is not a measurement reading without deleting", () =>
+	it.live("rejects missing, wrong-schema and non-owned entries before deleting", () =>
 		Effect.gen(function* () {
-			const deletes: (readonly string[])[] = [];
-			const host = recordingHost(deletes);
-
-			for (const readingIds of [
-				["reading-1", "missing"],
-				["reading-1", "note-1"],
-				["fake-reading"],
-			]) {
-				const failure = yield* Effect.flip(
-					runSandboxTestScript(deleteDefinition, { readingIds }, host, execution),
-				);
-				expect(failure).toBeInstanceOf(MeasurementReadingNotFoundError);
+			const deletes: unknown[] = [];
+			const host = defineSandboxTestHost(manifest, {
+				executeRyotql: executeMeasurementRyotql,
+				deleteUserEntity: (item) =>
+					Effect.sync(() => {
+						deletes.push(item);
+						return { entityId: item.entityId };
+					}),
+			});
+			for (const entryId of ["missing", "weight", "fake-reading"]) {
+				expect(
+					yield* Effect.flip(runSandboxTestScript(deleteDefinition, { entryId }, host, execution)),
+				).toBeInstanceOf(MeasurementEntryNotFoundError);
 			}
-			yield* Effect.flip(
-				runSandboxTestScript(deleteDefinition, { readingIds: [] }, host, execution),
-			);
-
+			yield* Effect.flip(runSandboxTestScript(deleteDefinition, { entryId: "" }, host, execution));
 			expect(deletes).toEqual([]);
 		}),
 	);

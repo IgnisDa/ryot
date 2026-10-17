@@ -1,16 +1,9 @@
-import { assert, describe, expect, it, layer } from "@effect/vitest";
-import { Cause, Effect, Exit, Option, Redacted, Result } from "effect";
+import { assert, describe, expect, layer } from "@effect/vitest";
+import { Cause, Effect, Exit, Option, Redacted } from "effect";
+import { IpNetwork } from "effect/net";
 
-import type { AppConfigValue } from "#platform/config/service";
-import { AppConfig, parseOtlpHeaders, validateSystemConfig } from "#platform/config/service";
-import { makeAppConfigLayer, makeConfigProviderLayer } from "#testing/effect";
-
-const validated = Effect.exit(
-	Effect.gen(function* () {
-		const config: AppConfigValue = yield* AppConfig;
-		return yield* validateSystemConfig(config);
-	}),
-);
+import { AppConfig } from "#platform/config/service";
+import { makeRequiredConfigLayer } from "#testing/effect";
 
 const loaded = Effect.exit(AppConfig.make);
 
@@ -22,10 +15,7 @@ const systemEnvironmentLayer = (
 		readonly logRotationInterval?: string;
 	} = {},
 ) =>
-	makeConfigProviderLayer({
-		REDIS_URL: "unused",
-		DATABASE_URL: "unused",
-		SERVER_ADMIN_ACCESS_TOKEN: "unused",
+	makeRequiredConfigLayer({
 		...(options.logFile === undefined ? {} : { SERVER_LOG_FILE: options.logFile }),
 		...(options.logLevel === undefined ? {} : { SERVER_LOG_LEVEL: options.logLevel }),
 		...(options.logRotationSize === undefined
@@ -37,7 +27,7 @@ const systemEnvironmentLayer = (
 	});
 
 const otlpEndpointLayer = (endpoint: string) =>
-	makeAppConfigLayer({ observability: { otlp: { endpoint: Option.some(endpoint) } } });
+	makeRequiredConfigLayer({ OTEL_EXPORTER_OTLP_ENDPOINT: endpoint });
 
 describe("system log config", () => {
 	layer(systemEnvironmentLayer())((test) => {
@@ -124,10 +114,10 @@ describe("system log config", () => {
 });
 
 describe("validateSystemConfig sandbox capacity", () => {
-	layer(makeAppConfigLayer())((test) => {
+	layer(makeRequiredConfigLayer())((test) => {
 		test.effect("passes with default sandbox capacity", () =>
 			Effect.gen(function* () {
-				expect(Exit.isSuccess(yield* validated)).toBe(true);
+				expect(Exit.isSuccess(yield* loaded)).toBe(true);
 			}),
 		);
 	});
@@ -138,12 +128,17 @@ describe("validateSystemConfig sandbox capacity", () => {
 		[10, 5, true],
 		[9, 5, false],
 	] as const) {
-		layer(makeAppConfigLayer({ database: { poolMax }, sandbox: { workerConcurrency } }))((test) => {
+		layer(
+			makeRequiredConfigLayer({
+				DATABASE_POOL_MAX: poolMax,
+				SANDBOX_WORKER_CONCURRENCY: workerConcurrency,
+			}),
+		)((test) => {
 			test.effect(
 				`${isValid ? "accepts" : "rejects"} pool ${poolMax} with ${workerConcurrency} sandbox workers`,
 				() =>
 					Effect.gen(function* () {
-						const result = yield* validated;
+						const result = yield* loaded;
 						expect(Exit.isSuccess(result)).toBe(isValid);
 						if (!isValid) {
 							assert(Exit.isFailure(result));
@@ -162,22 +157,20 @@ describe("validateSystemConfig sandbox capacity", () => {
 	}
 
 	for (const value of [0, -1, 1.5, Number.NaN]) {
-		for (const [key, sandbox] of [
-			["SANDBOX_WORKER_CONCURRENCY", { workerConcurrency: value }],
-			["SANDBOX_IMPORT_CONCURRENCY", { importConcurrency: value }],
-			["SANDBOX_MEMORY_BUDGET_MIB", { memoryBudgetMiB: Option.some(value) }],
-		] as const) {
-			layer(makeAppConfigLayer({ sandbox }))((test) => {
+		for (const key of [
+			"SANDBOX_WORKER_CONCURRENCY",
+			"SANDBOX_IMPORT_CONCURRENCY",
+			"SANDBOX_MEMORY_BUDGET_MIB",
+		]) {
+			layer(makeRequiredConfigLayer({ [key]: value }))((test) => {
 				test.effect(`rejects ${key} ${value}`, () =>
 					Effect.gen(function* () {
-						const result = yield* validated;
+						const result = yield* loaded;
 						assert(Exit.isFailure(result));
 						const failure = Cause.findErrorOption(result.cause);
 						assert(Option.isSome(failure));
 						expect(failure.value).toMatchObject({ _tag: "ConfigError" });
-						expect(Cause.pretty(result.cause)).toContain(
-							`${key} (${value}) must be a positive integer`,
-						);
+						expect(Cause.pretty(result.cause)).toContain(key);
 					}),
 				);
 			});
@@ -186,10 +179,10 @@ describe("validateSystemConfig sandbox capacity", () => {
 });
 
 describe("FRONTEND_URL validation", () => {
-	layer(makeAppConfigLayer({ frontendUrl: "https://ryot.example/" }))((test) => {
+	layer(makeRequiredConfigLayer({ FRONTEND_URL: "https://ryot.example/" }))((test) => {
 		test.effect("normalizes an absolute HTTP origin", () =>
 			Effect.gen(function* () {
-				const result = yield* validated;
+				const result = yield* loaded;
 				assert(Exit.isSuccess(result));
 				expect(result.value.frontendUrl).toBe("https://ryot.example");
 			}),
@@ -201,10 +194,10 @@ describe("FRONTEND_URL validation", () => {
 		"http://192.168.1.50:8000",
 		"http://localhost:3005",
 	]) {
-		layer(makeAppConfigLayer({ frontendUrl }))((test) => {
+		layer(makeRequiredConfigLayer({ FRONTEND_URL: frontendUrl }))((test) => {
 			test.effect(`accepts plain-HTTP origin ${frontendUrl} for self-hosters without TLS`, () =>
 				Effect.gen(function* () {
-					const result = yield* validated;
+					const result = yield* loaded;
 					assert(Exit.isSuccess(result));
 					expect(result.value.frontendUrl).toBe(frontendUrl);
 				}),
@@ -221,10 +214,10 @@ describe("FRONTEND_URL validation", () => {
 		"https://ryot.example?query=yes",
 		"https://ryot.example#fragment",
 	]) {
-		layer(makeAppConfigLayer({ frontendUrl }))((test) => {
+		layer(makeRequiredConfigLayer({ FRONTEND_URL: frontendUrl }))((test) => {
 			test.effect(`rejects non-origin value ${frontendUrl}`, () =>
 				Effect.gen(function* () {
-					const result = yield* validated;
+					const result = yield* loaded;
 					expect(Exit.isFailure(result)).toBe(true);
 					if (Exit.isFailure(result)) {
 						expect(Cause.pretty(result.cause)).toContain(
@@ -246,7 +239,7 @@ describe("OTEL_EXPORTER_OTLP_ENDPOINT validation", () => {
 		layer(otlpEndpointLayer(endpoint))((test) => {
 			test.effect(`accepts collector base URL ${endpoint}`, () =>
 				Effect.gen(function* () {
-					const result = yield* validated;
+					const result = yield* loaded;
 					expect(Exit.isSuccess(result)).toBe(true);
 				}),
 			);
@@ -257,7 +250,7 @@ describe("OTEL_EXPORTER_OTLP_ENDPOINT validation", () => {
 		layer(otlpEndpointLayer(endpoint))((test) => {
 			test.effect(`rejects non-HTTP endpoint ${endpoint}`, () =>
 				Effect.gen(function* () {
-					const result = yield* validated;
+					const result = yield* loaded;
 					assert(Exit.isFailure(result));
 					expect(Cause.pretty(result.cause)).toContain(
 						"OTEL_EXPORTER_OTLP_ENDPOINT must be an absolute HTTP or HTTPS URL",
@@ -275,7 +268,7 @@ describe("OTEL_EXPORTER_OTLP_ENDPOINT validation", () => {
 		layer(otlpEndpointLayer(endpoint))((test) => {
 			test.effect(`rejects endpoint ${endpoint} carrying a query, fragment, or credentials`, () =>
 				Effect.gen(function* () {
-					const result = yield* validated;
+					const result = yield* loaded;
 					assert(Exit.isFailure(result));
 					expect(Cause.pretty(result.cause)).toContain(
 						"OTEL_EXPORTER_OTLP_ENDPOINT must not contain a query, fragment, or credentials",
@@ -296,7 +289,7 @@ describe("OTEL_EXPORTER_OTLP_ENDPOINT validation", () => {
 				`rejects endpoint ${endpoint} that already carries the appended signal path`,
 				() =>
 					Effect.gen(function* () {
-						const result = yield* validated;
+						const result = yield* loaded;
 						assert(Exit.isFailure(result));
 						expect(Cause.pretty(result.cause)).toContain("without an OTLP signal path");
 					}),
@@ -306,14 +299,11 @@ describe("OTEL_EXPORTER_OTLP_ENDPOINT validation", () => {
 });
 
 const egressAllowedNetworksLayer = (value: string) =>
-	makeAppConfigLayer({ server: { egressAllowedNetworks: Option.some(value) } });
+	makeRequiredConfigLayer({ SERVER_EGRESS_ALLOWED_NETWORKS: value });
 
 describe("SERVER_EGRESS_ALLOWED_NETWORKS validation", () => {
 	layer(
-		makeConfigProviderLayer({
-			REDIS_URL: "unused",
-			DATABASE_URL: "unused",
-			SERVER_ADMIN_ACCESS_TOKEN: "unused",
+		makeRequiredConfigLayer({
 			SERVER_EGRESS_ALLOWED_NETWORKS: " 127.0.0.1/32, ::1/128 ,10.0.0.0/8,fd00::/8,0.0.0.0/0",
 		}),
 	)((test) => {
@@ -322,7 +312,9 @@ describe("SERVER_EGRESS_ALLOWED_NETWORKS validation", () => {
 				const result = yield* loaded;
 				assert(Exit.isSuccess(result));
 				expect(result.value.server.egressAllowedNetworks).toEqual(
-					Option.some(" 127.0.0.1/32, ::1/128 ,10.0.0.0/8,fd00::/8,0.0.0.0/0"),
+					["127.0.0.1/32", "::1/128", "10.0.0.0/8", "fd00::/8", "0.0.0.0/0"].map(
+						IpNetwork.fromStringUnsafe,
+					),
 				);
 			}),
 		);
@@ -342,7 +334,7 @@ describe("SERVER_EGRESS_ALLOWED_NETWORKS validation", () => {
 		layer(egressAllowedNetworksLayer(value))((test) => {
 			test.effect(`rejects ${value}`, () =>
 				Effect.gen(function* () {
-					const result = yield* validated;
+					const result = yield* loaded;
 					assert(Exit.isFailure(result));
 					expect(Cause.pretty(result.cause)).toContain(
 						`SERVER_EGRESS_ALLOWED_NETWORKS is invalid: ${message}.`,
@@ -354,81 +346,213 @@ describe("SERVER_EGRESS_ALLOWED_NETWORKS validation", () => {
 });
 
 describe("OTEL_EXPORTER_OTLP_HEADERS validation", () => {
-	it("parses comma-separated pairs and keeps separators inside values", () => {
-		const parsed = parseOtlpHeaders("x-honeycomb-team=abc123 , authorization=Basic dXNlcj1wdw==");
-		assert(Result.isSuccess(parsed));
-		expect(parsed.success).toEqual({
-			"x-honeycomb-team": "abc123",
-			authorization: "Basic dXNlcj1wdw==",
+	for (const values of [{}, { OTEL_EXPORTER_OTLP_HEADERS: "" }]) {
+		layer(makeRequiredConfigLayer(values))((test) => {
+			test.effect("keeps absent or empty deployment headers disabled", () =>
+				Effect.gen(function* () {
+					const result = yield* loaded;
+					assert(Exit.isSuccess(result));
+					expect(result.value.observability.otlp.headers).toEqual(Option.none());
+				}),
+			);
 		});
-	});
-
-	it("ignores empty entries left by a trailing comma", () => {
-		const parsed = parseOtlpHeaders("x-api-key=abc123,");
-		assert(Result.isSuccess(parsed));
-		expect(parsed.success).toEqual({ "x-api-key": "abc123" });
-	});
-
-	it("keeps the token out of the failure message for a pair with no separator", () => {
-		const parsed = parseOtlpHeaders("s3cret-token");
-		assert(Result.isFailure(parsed));
-		expect(parsed.failure).toBe("entry 1 is not a key=value pair");
-	});
-
-	it.each(["x-api-key=", "x-api-key=   "])("rejects header %s with an empty value", (value) => {
-		const parsed = parseOtlpHeaders(value);
-		assert(Result.isFailure(parsed));
-		expect(parsed.failure).toBe("header 'x-api-key' has an empty value");
-	});
-
-	it.each(["", "  ", ","])("rejects value %s that yields no headers", (value) => {
-		const parsed = parseOtlpHeaders(value);
-		assert(Result.isFailure(parsed));
-		expect(parsed.failure).toBe("it is set but contains no headers");
-	});
-
+	}
 	layer(
-		makeAppConfigLayer({
-			observability: { otlp: { headers: Option.some(Redacted.make("s3cret-token")) } },
+		makeRequiredConfigLayer({
+			OTEL_EXPORTER_OTLP_HEADERS: "x-api-key=abc123 , authorization=Basic dXNlcj1wdw==,",
 		}),
 	)((test) => {
-		test.effect("fails startup when the configured headers are malformed", () =>
+		test.effect("retains parsed, redacted headers including value separators", () =>
 			Effect.gen(function* () {
-				const result = yield* validated;
-				assert(Exit.isFailure(result));
-				expect(Cause.pretty(result.cause)).toContain(
-					"OTEL_EXPORTER_OTLP_HEADERS is invalid: entry 1 is not a key=value pair",
-				);
+				const result = yield* loaded;
+				assert(Exit.isSuccess(result));
+				const headers = result.value.observability.otlp.headers;
+				assert(Option.isSome(headers));
+				expect(Redacted.value(headers.value)).toEqual({
+					"x-api-key": "abc123",
+					authorization: "Basic dXNlcj1wdw==",
+				});
 			}),
 		);
 	});
+	for (const [value, message] of [
+		["s3cret-token", "entry 1 is not a key=value pair"],
+		["x-api-key=", "header 'x-api-key' has an empty value"],
+		["x-api-key=   ", "header 'x-api-key' has an empty value"],
+		["  ", "it is set but contains no headers"],
+		[",", "it is set but contains no headers"],
+	] as const) {
+		layer(makeRequiredConfigLayer({ OTEL_EXPORTER_OTLP_HEADERS: value }))((test) => {
+			test.effect(`rejects malformed headers: '${value}'`, () =>
+				Effect.gen(function* () {
+					const result = yield* loaded;
+					assert(Exit.isFailure(result));
+					const error = Cause.pretty(result.cause);
+					expect(error).toContain(`OTEL_EXPORTER_OTLP_HEADERS is invalid: ${message}`);
+					expect(error).not.toContain("s3cret-token");
+				}),
+			);
+		});
+	}
 });
 
 describe("automation configuration", () => {
-	layer(makeAppConfigLayer({ automations: { retryWindowDays: 8, historyRetentionDays: 7 } }))(
-		(test) => {
-			test.effect("rejects history retention shorter than the retry window", () =>
-				Effect.gen(function* () {
-					expect(Exit.isFailure(yield* validated)).toBe(true);
-				}),
-			);
-		},
-	);
-
-	layer(makeAppConfigLayer())((test) => {
-		test.effect("rejects unbounded or fractional recursion limits", () =>
+	layer(
+		makeRequiredConfigLayer({
+			AUTOMATIONS_RETRY_WINDOW_DAYS: 8,
+			AUTOMATIONS_HISTORY_RETENTION_DAYS: 7,
+		}),
+	)((test) => {
+		test.effect("rejects history retention shorter than the retry window", () =>
 			Effect.gen(function* () {
-				const config = yield* AppConfig;
-				for (const automations of [{ maxDepth: 1.5 }, { maxRuns: 10001 }]) {
-					const result = yield* Effect.exit(
-						validateSystemConfig({
-							...config,
-							automations: { ...config.automations, ...automations },
-						}),
-					);
-					expect(Exit.isFailure(result)).toBe(true);
-				}
+				expect(Exit.isFailure(yield* loaded)).toBe(true);
 			}),
 		);
 	});
+
+	for (const values of [{ AUTOMATIONS_MAX_DEPTH: 1.5 }, { AUTOMATIONS_MAX_RUNS: 10001 }]) {
+		layer(makeRequiredConfigLayer(values))((test) => {
+			test.effect("rejects unbounded or fractional recursion limits", () =>
+				Effect.gen(function* () {
+					expect(Exit.isFailure(yield* loaded)).toBe(true);
+				}),
+			);
+		});
+	}
+});
+
+describe("normalized optional credentials", () => {
+	for (const { name, entries } of [
+		{
+			name: "OIDC",
+			entries: [
+				["SERVER_OIDC_CLIENT_ID", "client"],
+				["SERVER_OIDC_ISSUER_URL", "https://issuer.example"],
+				["SERVER_OIDC_CLIENT_SECRET", "oidc-secret"],
+			],
+		},
+		{
+			name: "SMTP",
+			entries: [
+				["SERVER_SMTP_SERVER", "smtp.example"],
+				["SERVER_SMTP_USER", "smtp-user"],
+				["SERVER_SMTP_PASSWORD", "smtp-secret"],
+			],
+		},
+	] as const) {
+		for (const unset of ["absent", "empty"] as const) {
+			for (let mask = 0; mask < 8; mask++) {
+				const values = Object.fromEntries(
+					entries.flatMap(([key, value], index) => {
+						if ((mask & (1 << index)) !== 0) {
+							return [[key, value]];
+						}
+						return unset === "empty" ? [[key, ""]] : [];
+					}),
+				);
+				layer(makeRequiredConfigLayer(values))((test) => {
+					test.effect(`${name} mask ${mask} with ${unset} fields`, () =>
+						Effect.gen(function* () {
+							const result = yield* loaded;
+							if (mask > 0 && mask < 7) {
+								assert(Exit.isFailure(result));
+								expect(Cause.pretty(result.cause)).toContain(
+									`Partial ${name} configuration detected`,
+								);
+								return;
+							}
+							assert(Exit.isSuccess(result));
+							const config = result.value;
+							if (name === "OIDC") {
+								expect(Option.isSome(config.server.oidc)).toBe(mask === 7);
+								if (Option.isSome(config.server.oidc)) {
+									expect(config.server.oidc.value.clientId).toBe("client");
+									expect(config.server.oidc.value.issuerUrl).toBe("https://issuer.example");
+									expect(Redacted.value(config.server.oidc.value.clientSecret)).toBe("oidc-secret");
+								}
+							} else {
+								expect(Option.isSome(config.server.smtp)).toBe(mask === 7);
+								if (Option.isSome(config.server.smtp)) {
+									expect(config.server.smtp.value.server).toBe("smtp.example");
+									expect(config.server.smtp.value.mailbox).toBe("Ryot <no-reply@ryot.io>");
+									expect(Redacted.value(config.server.smtp.value.user)).toBe("smtp-user");
+									expect(Redacted.value(config.server.smtp.value.password)).toBe("smtp-secret");
+								}
+							}
+						}),
+					);
+				});
+			}
+		}
+	}
+	for (const complete of [false, true]) {
+		layer(
+			makeRequiredConfigLayer({
+				USERS_DISABLE_LOCAL_AUTH: true,
+				...(complete
+					? {
+							SERVER_OIDC_CLIENT_ID: "client",
+							SERVER_OIDC_CLIENT_SECRET: "secret",
+							SERVER_OIDC_ISSUER_URL: "https://issuer.example",
+						}
+					: {}),
+			}),
+		)((test) => {
+			test.effect(
+				`${complete ? "accepts" : "rejects"} disabled local auth with ${complete ? "complete" : "absent"} OIDC`,
+				() =>
+					Effect.gen(function* () {
+						const result = yield* loaded;
+						if (!complete) {
+							assert(Exit.isFailure(result));
+							expect(Cause.pretty(result.cause)).toContain("USERS_DISABLE_LOCAL_AUTH");
+							return;
+						}
+						assert(Exit.isSuccess(result));
+						expect(Option.isSome(result.value.server.oidc)).toBe(true);
+						expect(result.value.users.disableLocalAuth).toBe(true);
+					}),
+			);
+		});
+	}
+	const s3Entries = [
+		["FILE_STORAGE_S3_URL", "https://s3.example"],
+		["FILE_STORAGE_S3_BUCKET_NAME", "bucket"],
+		["FILE_STORAGE_S3_ACCESS_KEY_ID", "access"],
+		["FILE_STORAGE_S3_SECRET_ACCESS_KEY", "s3-secret"],
+	] as const;
+	for (const unset of ["absent", "empty"] as const) {
+		for (let mask = 0; mask < 16; mask++) {
+			const values = Object.fromEntries(
+				s3Entries.flatMap(([key, value], index) => {
+					if ((mask & (1 << index)) !== 0) {
+						return [[key, value]];
+					}
+					return unset === "empty" ? [[key, ""]] : [];
+				}),
+			);
+			layer(makeRequiredConfigLayer({ ...values, FILE_STORAGE_S3_REGION: "" }))((test) => {
+				test.effect(
+					`S3 mask ${mask} with ${unset} fields retains complete credentials or local fallback`,
+					() =>
+						Effect.gen(function* () {
+							const result = yield* loaded;
+							assert(Exit.isSuccess(result));
+							const config = result.value;
+							expect(Option.isSome(config.fileStorage.s3)).toBe(mask === 15);
+							expect(config.fileStorage).not.toHaveProperty("accessKeyId");
+							if (Option.isSome(config.fileStorage.s3)) {
+								expect(config.fileStorage.s3.value.url).toBe("https://s3.example");
+								expect(config.fileStorage.s3.value.bucketName).toBe("bucket");
+								expect(config.fileStorage.s3.value.region).toEqual(Option.none());
+								expect(Redacted.value(config.fileStorage.s3.value.accessKeyId)).toBe("access");
+								expect(Redacted.value(config.fileStorage.s3.value.secretAccessKey)).toBe(
+									"s3-secret",
+								);
+							}
+						}),
+				);
+			});
+		}
+	}
 });

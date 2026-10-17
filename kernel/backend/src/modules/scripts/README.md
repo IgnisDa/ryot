@@ -72,6 +72,13 @@ slots and retained tickets. Interrupt cleanup cancels the last declaration bindi
 extends its local journal, and the parent validates request identities/argument hashes before
 persisting returned entries ahead of the ending request.
 
+HTTP continuation carries one prepared current hop, including its redirect index, normalized request,
+and TLS option. Admission and network attempts consume that same hop; a redirect replaces it as a
+whole. `Admitting` retains any prior 429 result, `ApplyingRateLimitBlock` requires that result and its
+declaration/delay, and `WaitingForRateLimitBlock` retains the acknowledged deadline and result. Resuming
+an acknowledged block waits only its remaining time, without sending its response or applying it again.
+Drain or reset retained executions when replacing this private continuation shape.
+
 Inline sleep/admission waits share a 1,000 ms allowance per replay and a 1,000 ms per-wait threshold.
 Allowance is reserved before waiting and unused cancelled time is refunded by monotonic clock.
 Longer/exhausted waits defer. A batch also defers when journal indexes diverge, bytes/results or

@@ -24,16 +24,16 @@ import { stableStringify } from "@ryot-app/ts-utils/json";
 import { Effect, Result, Schema } from "effect";
 
 import { requirePresent } from "~/support/assertions";
+import { getSharedHarnessTarget, type HarnessTarget } from "~/support/harness-target";
 
-import { adminHeaders } from "./admin";
 import { listAdminSandboxScripts } from "./admin-sandbox-scripts";
-import { adminSystemPluginsRecipe, listAdminSystemPlugins } from "./admin-system-plugins";
+import { listAdminSystemPlugins } from "./admin-system-plugins";
 import type { Client } from "./auth";
 import { compilePluginPackage, type PluginPackageInput } from "./compiled-package";
 import { getApiClient } from "./contract-client";
 import { listInstalledPlugins } from "./plugins";
 import { pollUntil } from "./polling";
-import { collectAdminRyotQLRecipeItems, executeAdminRyotQLRecipe } from "./ryotql";
+import { executeAdminRyotQLRecipe } from "./ryotql";
 import { authoredEntityBrowserSettings, rowsDataSources } from "./saved-views";
 import { uploadPrivatePluginPackage } from "./temporary-archive";
 
@@ -85,9 +85,15 @@ type TestPluginManifestInput = Partial<
 	packageId?: TestPluginManifest["metadata"]["packageId"];
 };
 
-type TestPluginOwner = { client?: undefined; scope: "system" } | { client: Client; scope?: "user" };
+type TestPluginOwner =
+	| { client?: undefined; scope: "system"; target?: HarnessTarget }
+	| { client: Client; scope?: "user" };
+
+const testPluginOwnerTarget = (owner: TestPluginOwner) =>
+	owner.scope === "system" ? (owner.target ?? getSharedHarnessTarget()) : owner.client.target;
 
 export type InstalledTestPlugin = {
+	target: HarnessTarget;
 	slug: string;
 	client?: Client;
 	active: boolean;
@@ -127,26 +133,24 @@ export const encodePluginSourceFiles = (files: Readonly<Record<string, string>>)
 	);
 
 export const installTestSupportSystemPlugin = (
-	input: (PluginPackageInput | PluginArchivePackage) & { baseUrl?: string },
+	input: (PluginPackageInput | PluginArchivePackage) & { target?: HarnessTarget },
 ) =>
 	Effect.gen(function* () {
 		const pluginPackage = "files" in input ? yield* compilePluginPackage(input) : input;
-		return yield* getApiClient(input.baseUrl).call(
-			(c) =>
-				c.testSupport.installSystemPlugin({
-					payload: {
-						manifest: pluginPackage.manifest,
-						compiledScripts: pluginPackage.compiledScripts,
-						...(pluginPackage.compiledClient === undefined
-							? {}
-							: {
-									compiledClient: Schema.encodeUnknownSync(PluginClientArtifactFromBase64)(
-										pluginPackage.compiledClient,
-									),
-								}),
-					},
-				}),
-			adminHeaders(),
+		return yield* getApiClient(input.target).adminCall((c) =>
+			c.testSupport.installSystemPlugin({
+				payload: {
+					manifest: pluginPackage.manifest,
+					compiledScripts: pluginPackage.compiledScripts,
+					...(pluginPackage.compiledClient === undefined
+						? {}
+						: {
+								compiledClient: Schema.encodeUnknownSync(PluginClientArtifactFromBase64)(
+									pluginPackage.compiledClient,
+								),
+							}),
+				},
+			}),
 		);
 	});
 
@@ -154,29 +158,27 @@ export const updateTestSupportSystemPlugin = (
 	input: (PluginPackageInput | PluginArchivePackage) & {
 		readonly pluginId: PluginId;
 		readonly contentHash: string;
-		readonly baseUrl?: string;
+		readonly target?: HarnessTarget;
 	},
 ) =>
 	Effect.gen(function* () {
 		const pluginPackage = "files" in input ? yield* compilePluginPackage(input) : input;
-		return yield* getApiClient(input.baseUrl).call(
-			(contract) =>
-				contract.testSupport.updateSystemPlugin({
-					params: { pluginId: input.pluginId },
-					payload: {
-						contentHash: input.contentHash,
-						manifest: pluginPackage.manifest,
-						compiledScripts: pluginPackage.compiledScripts,
-						...(pluginPackage.compiledClient === undefined
-							? {}
-							: {
-									compiledClient: Schema.encodeUnknownSync(PluginClientArtifactFromBase64)(
-										pluginPackage.compiledClient,
-									),
-								}),
-					},
-				}),
-			adminHeaders(),
+		return yield* getApiClient(input.target).adminCall((contract) =>
+			contract.testSupport.updateSystemPlugin({
+				params: { pluginId: input.pluginId },
+				payload: {
+					contentHash: input.contentHash,
+					manifest: pluginPackage.manifest,
+					compiledScripts: pluginPackage.compiledScripts,
+					...(pluginPackage.compiledClient === undefined
+						? {}
+						: {
+								compiledClient: Schema.encodeUnknownSync(PluginClientArtifactFromBase64)(
+									pluginPackage.compiledClient,
+								),
+							}),
+				},
+			}),
 		);
 	});
 
@@ -185,6 +187,7 @@ export const findTestEntitySchema = (client: Client, reference: EntitySchemaRefe
 		if (
 			reference.owner.kind !== "plugin" ||
 			registration.pluginId !== reference.owner.pluginId ||
+			registration.client.target.apiUrl !== client.target.apiUrl ||
 			registration.client.userId !== client.userId
 		) {
 			continue;
@@ -270,13 +273,11 @@ const installedSourceHash = (
 	pluginId: PluginId,
 	installationId: string | null,
 	client?: Client,
-	baseUrl?: string,
+	target?: HarnessTarget,
 ) =>
 	Effect.gen(function* () {
 		if (scope === "system") {
-			const plugins = yield* baseUrl === undefined
-				? listAdminSystemPlugins
-				: collectAdminRyotQLRecipeItems((after) => adminSystemPluginsRecipe({ after }), baseUrl);
+			const plugins = yield* listAdminSystemPlugins(target);
 			const plugin = requirePresent(
 				plugins.find(({ id }) => id === pluginId),
 				`System plugin '${pluginId}' was not found after installation`,
@@ -328,13 +329,13 @@ const privatePluginOperationRecipe = defineRecipe((installationId: string) => ({
 	},
 }));
 
-const privatePluginOperationResult = (installationId: string, baseUrl?: string) =>
+const privatePluginOperationResult = (installationId: string, target: HarnessTarget) =>
 	Effect.gen(function* () {
 		const operation = requirePresent(
-			yield* executeAdminRyotQLRecipe(privatePluginOperationRecipe(installationId), baseUrl),
+			yield* executeAdminRyotQLRecipe(privatePluginOperationRecipe(installationId), target),
 			`Private plugin installation '${installationId}' was not found`,
 		);
-		const scripts = yield* listAdminSandboxScripts(operation.activePluginRevisionId, baseUrl);
+		const scripts = yield* listAdminSandboxScripts(operation.activePluginRevisionId, target);
 		return { ...operation, scripts: scripts.map(({ id, slug }) => ({ id, slug })) };
 	});
 
@@ -357,6 +358,7 @@ export const installTestPlugin = (
 ) =>
 	Effect.gen(function* () {
 		const entry = `backend/scripts/${input.script.kind}.sandbox.ts`;
+		const target = testPluginOwnerTarget(input);
 		const pluginSlug = input.pluginSlug ?? `e2e-plugin-${crypto.randomUUID()}`;
 		const manifest = testPluginManifest({
 			pluginSlug,
@@ -374,13 +376,13 @@ export const installTestPlugin = (
 		const files = { [entry]: encoder.encode(input.source) };
 		let operationResult: PluginOperationResult;
 		if (input.scope === "system") {
-			operationResult = yield* installTestSupportSystemPlugin({ files, manifest });
+			operationResult = yield* installTestSupportSystemPlugin({ files, target, manifest });
 		} else {
 			const uploadToken = yield* uploadPrivatePluginPackage(input.client, { files, manifest });
 			const installed = yield* input.client.call((c) =>
 				c.plugins.install({ payload: { uploadToken, config: input.config ?? {} } }),
 			);
-			operationResult = yield* privatePluginOperationResult(installed.id);
+			operationResult = yield* privatePluginOperationResult(installed.id, target);
 			const installationId = requirePresent(
 				operationResult.installationId,
 				"Private test plugin installation ID missing",
@@ -408,9 +410,11 @@ export const installTestPlugin = (
 			operationResult.pluginId,
 			operationResult.installationId,
 			input.client,
+			target,
 		);
 		const installed: InstalledTestPlugin = {
 			files,
+			target,
 			manifest,
 			scriptId,
 			scriptIds,
@@ -432,7 +436,6 @@ export const installTestPlugin = (
 
 export const installTestPluginBundle = (
 	input: {
-		baseUrl?: string;
 		pluginSlug?: string;
 		packageId?: TestPluginManifest["metadata"]["packageId"];
 		crons?: TestPluginManifest["crons"];
@@ -456,6 +459,7 @@ export const installTestPluginBundle = (
 ) =>
 	Effect.gen(function* () {
 		const files = encodePluginSourceFiles(input.files);
+		const target = testPluginOwnerTarget(input);
 		const pluginSlug = input.pluginSlug ?? `e2e-plugin-${crypto.randomUUID()}`;
 		const manifest = testPluginManifest({
 			pluginSlug,
@@ -478,21 +482,13 @@ export const installTestPluginBundle = (
 		});
 		let operationResult: PluginOperationResult;
 		if (input.scope === "system") {
-			operationResult = yield* installTestSupportSystemPlugin({
-				files,
-				manifest,
-				baseUrl: input.baseUrl,
-			});
+			operationResult = yield* installTestSupportSystemPlugin({ files, target, manifest });
 		} else {
-			const uploadToken = yield* uploadPrivatePluginPackage(
-				input.client,
-				{ files, manifest },
-				input.baseUrl,
-			);
+			const uploadToken = yield* uploadPrivatePluginPackage(input.client, { files, manifest });
 			const installed = yield* input.client.call((c) =>
 				c.plugins.install({ payload: { uploadToken, config: input.config ?? {} } }),
 			);
-			operationResult = yield* privatePluginOperationResult(installed.id, input.baseUrl);
+			operationResult = yield* privatePluginOperationResult(installed.id, target);
 			const installationId = requirePresent(
 				operationResult.installationId,
 				"Private test plugin installation ID missing",
@@ -511,9 +507,13 @@ export const installTestPluginBundle = (
 			);
 		}
 		const scriptIds = operationScriptIds(operationResult);
-		const scriptId =
-			scriptIds[input.providers?.[0]?.operations.details ?? ""] ??
-			scriptIds[input.scripts[0]?.slug ?? ""];
+		const details = manifest.scripts.find(
+			(script) =>
+				script.kind === "provider" &&
+				script.providerOperation === "details" &&
+				script.providerSlug === input.providers?.[0]?.slug,
+		);
+		const scriptId = scriptIds[details?.slug ?? ""] ?? scriptIds[input.scripts[0]?.slug ?? ""];
 		if (!scriptId) {
 			return yield* Effect.die(new Error("Test plugin bundle requires at least one script"));
 		}
@@ -522,10 +522,11 @@ export const installTestPluginBundle = (
 			operationResult.pluginId,
 			operationResult.installationId,
 			input.client,
-			input.baseUrl,
+			target,
 		);
 		const installed: InstalledTestPlugin = {
 			files,
+			target,
 			manifest,
 			scriptId,
 			scriptIds,
@@ -564,6 +565,7 @@ export const installTestDefinitions = (input: {
 }) =>
 	Effect.gen(function* () {
 		const registrationKey = stableStringify([
+			input.client.target.apiUrl,
 			requirePresent(input.client.userId, "Private test plugin client has no fixture user ID"),
 			input.pluginSlug,
 		]);
@@ -659,6 +661,7 @@ export const reinstallTestPluginScript = (
 			operationResult = yield* updateTestSupportSystemPlugin({
 				files,
 				manifest,
+				target: installed.target,
 				pluginId: installed.pluginId,
 				contentHash: installed.contentHash,
 			});
@@ -676,7 +679,7 @@ export const reinstallTestPluginScript = (
 					},
 				}),
 			);
-			operationResult = yield* privatePluginOperationResult(updated.id);
+			operationResult = yield* privatePluginOperationResult(updated.id, installed.target);
 		}
 		const nextScriptIds = operationScriptIds(operationResult);
 		const scriptId = requirePresent(
@@ -689,6 +692,7 @@ export const reinstallTestPluginScript = (
 			operationResult.pluginId,
 			operationResult.installationId,
 			installed.client,
+			installed.target,
 		);
 		const nextInstalled: InstalledTestPlugin = {
 			...installed,
@@ -721,12 +725,10 @@ export const uninstallTestPluginStrict = (installed: InstalledTestPlugin) =>
 			return;
 		}
 		if (installed.scope === "system") {
-			yield* getApiClient().call(
-				(c) =>
-					c.testSupport.uninstallSystemPlugin({
-						params: { pluginId: installed.pluginId, activationId: installed.activationId },
-					}),
-				adminHeaders(),
+			yield* getApiClient(installed.target).adminCall((c) =>
+				c.testSupport.uninstallSystemPlugin({
+					params: { pluginId: installed.pluginId, activationId: installed.activationId },
+				}),
 			);
 		} else {
 			const client = requirePresent(installed.client, "User test plugin has no client");

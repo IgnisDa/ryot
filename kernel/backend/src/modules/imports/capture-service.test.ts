@@ -68,7 +68,7 @@ const fixture = Effect.fnUntraced(function* (
 		makeAppConfigLayer(),
 		Layer.mock(ImportsRepository)({
 			getCapture: () => Effect.sync(() => capture),
-			getIngestionRun: () => Effect.sync(() => run),
+			getIngestionRunControl: () => Effect.sync(() => run),
 			getPayloadReservation: () => Effect.sync(() => reservation ?? null),
 			clearPayloadRecovery: () =>
 				Effect.sync(() => {

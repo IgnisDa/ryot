@@ -52,7 +52,7 @@ export function WorkoutEditorScreen(props: {
 	const schedule = useRyotSchedule();
 	const { compact, safeAreaBottom } = useRyotViewport();
 	const { isActive, floatingRoot, scrollRootRef } = usePluginScreenSurface();
-	const { sounds, snapshot, controller } = useWorkoutEditor(props.target);
+	const { saved, sounds, saving, snapshot, controller } = useWorkoutEditor(props.target);
 	const [overlay, setOverlay] = useState<EditorOverlay>();
 	const [mediaTarget, setMediaTarget] = useState<WorkoutMediaTarget>();
 	const editorRoot = useRef<HTMLDivElement>(null);
@@ -84,6 +84,7 @@ export function WorkoutEditorScreen(props: {
 		scrollRoot: scrollRootRef,
 	});
 	const actions = useEditorActions({
+		saved,
 		sounds,
 		context,
 		controller,
@@ -95,9 +96,9 @@ export function WorkoutEditorScreen(props: {
 		closeMedia: () => setMediaTarget(undefined),
 		pendingAddExerciseId: props.pendingAddExerciseId,
 	});
-	const { local, saved, change, invalid, message, setInvalid, setMessage } = actions;
+	const { local, change, invalid, message, setInvalid, setMessage } = actions;
 	const request = useInitialDraft({
-		saved,
+		saving,
 		context,
 		message,
 		isActive,
@@ -122,8 +123,7 @@ export function WorkoutEditorScreen(props: {
 	}, [editorDraft?.activeOccurrenceId, editorDraft?.activeSetId, isActive, scrollToEditorTarget]);
 
 	const names = new Map(exercises.data?.map(({ id, name }) => [id, name]));
-	const disabled =
-		snapshot.status !== "ready" || snapshot.saving || editorDraft?.submission !== undefined;
+	const disabled = snapshot.status !== "ready" || saving || editorDraft?.submission !== undefined;
 	const uploading = snapshot.status === "ready" && snapshot.uploading;
 	const locked = disabled || request.existingGuard;
 	const ready = snapshot.status === "ready" && editorDraft !== undefined && context !== undefined;

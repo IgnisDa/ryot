@@ -16,7 +16,7 @@ import { UserId } from "@ryot-app/contract/schema/brands";
 import { Clock, Effect, Schema } from "effect";
 
 import { requirePresent } from "~/support/assertions";
-import { getApiUrl } from "~/support/harness-target";
+import { getSharedHarnessTarget } from "~/support/harness-target";
 import { webRequest } from "~/support/web-request";
 
 import { adminHeaders } from "./admin";
@@ -42,9 +42,10 @@ type ImpersonationSession = {
 
 export const prepareImpersonationAuthorization = (
 	clientId: ImpersonationAuthorization["clientId"],
+	target = getSharedHarnessTarget(),
 ) =>
 	Effect.gen(function* () {
-		const pending = yield* prepareOAuth(getApiUrl());
+		const pending = yield* prepareOAuth(target.apiUrl);
 		const authorizationUrl = new URL(pending.authorizationUrl);
 		const authorization = {
 			clientId,
@@ -68,9 +69,10 @@ export const prepareImpersonationAuthorization = (
 export const startUserImpersonation = (
 	userId: string,
 	authorization: StartUserImpersonationBody,
-	headers: RequestHeaders = adminHeaders(),
+	target = getSharedHarnessTarget(),
+	headers: RequestHeaders = adminHeaders(getApiClient(target)),
 ) =>
-	getApiClient().call(
+	getApiClient(target).call(
 		(client) =>
 			client.instanceAdmin.startUserImpersonation({
 				payload: authorization,
@@ -79,10 +81,10 @@ export const startUserImpersonation = (
 		headers,
 	);
 
-export const redeemImpersonationHandoff = (ticket: string) =>
+export const redeemImpersonationHandoff = (ticket: string, target = getSharedHarnessTarget()) =>
 	Effect.gen(function* () {
 		const response = yield* webRequest(
-			getOAuthEndpoint(new URL(getApiUrl()).origin, "/api/auth/impersonation/redeem"),
+			getOAuthEndpoint(new URL(target.apiUrl).origin, "/api/auth/impersonation/redeem"),
 			{
 				method: "POST",
 				headers: { "content-type": "application/json" },
@@ -104,15 +106,17 @@ export const redeemImpersonationHandoff = (ticket: string) =>
 export const createImpersonationSession = (
 	userId: string,
 	clientId: ImpersonationAuthorization["clientId"] = OAUTH_IMPERSONATION_WEB_CLIENT_ID,
+	target = getSharedHarnessTarget(),
 ) =>
 	Effect.gen(function* () {
-		const { pending, authorization } = yield* prepareImpersonationAuthorization(clientId);
+		const { pending, authorization } = yield* prepareImpersonationAuthorization(clientId, target);
 		const handoff: StartUserImpersonationResult = yield* startUserImpersonation(
 			userId,
 			authorization,
+			target,
 		);
 		const redeemedAt = yield* Clock.currentTimeMillis;
-		const redeemed = yield* redeemImpersonationHandoff(handoff.ticket);
+		const redeemed = yield* redeemImpersonationHandoff(handoff.ticket, target);
 		if (!redeemed.response.ok) {
 			throw new Error(`Impersonation handoff redemption failed: ${redeemed.response.status}`);
 		}
@@ -165,7 +169,7 @@ export const createImpersonationSession = (
 			yield* Effect.promise(() => tokenResponse.json()),
 		);
 		const client = makeSession(
-			getApiUrl(),
+			target,
 			{ Authorization: `Bearer ${tokens.access_token}` },
 			UserId.make(userId),
 		);

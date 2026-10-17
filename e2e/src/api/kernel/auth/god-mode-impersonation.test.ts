@@ -14,7 +14,6 @@ import { Clock, Effect, Schema } from "effect";
 
 import {
 	adminAccessTokenHeaders,
-	adminHeaders,
 	createAuthenticatedClient,
 	createImpersonationSession,
 	endImpersonationSession,
@@ -35,7 +34,6 @@ import {
 	requireString,
 } from "~/support/assertions";
 import { describe, expect, it } from "~/support/effect-test";
-import { getApiUrl } from "~/support/harness-target";
 import { webRequest } from "~/support/web-request";
 
 const WRONG_TOKEN = "wrong-token";
@@ -177,7 +175,7 @@ const runImpersonationClientFlow = (
 		const rotated = requirePresent(refresh.tokens, "Impersonation refresh returned no tokens");
 		expect(rotated.access_token).not.toBe(impersonation.tokens.access_token);
 		const refreshedClient = makeSession(
-			getApiUrl(),
+			impersonation.client.target,
 			{ Authorization: `Bearer ${rotated.access_token}` },
 			UserId.make(target.userId),
 		);
@@ -196,7 +194,12 @@ describe("Instance Admin impersonation", () => {
 			);
 
 			const wrongAdmin = yield* Effect.flip(
-				startUserImpersonation(target.userId, authorization, adminAccessTokenHeaders(WRONG_TOKEN)),
+				startUserImpersonation(
+					target.userId,
+					authorization,
+					target.client.target,
+					adminAccessTokenHeaders(WRONG_TOKEN),
+				),
 			);
 			assertTaggedError(wrongAdmin, "AuthUnauthorized");
 			expect(wrongAdmin.reason.code).toBe("admin-access-required");
@@ -207,13 +210,11 @@ describe("Instance Admin impersonation", () => {
 			assertTaggedError(unknownUser, "InstanceAdminNotFound");
 			expect(unknownUser.reason.code).toBe("user-not-found");
 
-			yield* getApiClient().call(
-				(client) =>
-					client.instanceAdmin.setUserDisabled({
-						payload: { disabled: true },
-						params: { userId: UserId.make(target.userId) },
-					}),
-				adminHeaders(),
+			yield* getApiClient().adminCall((client) =>
+				client.instanceAdmin.setUserDisabled({
+					payload: { disabled: true },
+					params: { userId: UserId.make(target.userId) },
+				}),
 			);
 			const disabledUser = yield* Effect.flip(startUserImpersonation(target.userId, authorization));
 			assertTaggedError(disabledUser, "InstanceAdminRequestFailure");
@@ -300,7 +301,7 @@ describe("Instance Admin impersonation", () => {
 
 			const invalidAccessToken = yield* Effect.flip(
 				getTwoFactorStatus(
-					makeSession(getApiUrl(), { Authorization: `Bearer ${rotated.access_token}` }),
+					makeSession(undefined, { Authorization: `Bearer ${rotated.access_token}` }),
 				),
 			);
 			assertTaggedError(invalidAccessToken, "AuthUnauthorized");

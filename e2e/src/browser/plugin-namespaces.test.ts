@@ -3,7 +3,6 @@ import { Effect } from "effect";
 import { Playwright, PlaywrightSpawner } from "effect-playwright";
 
 import {
-	adminHeaders,
 	checkClientPageFreshness,
 	createAuthenticatedClient,
 	getApiClient,
@@ -233,12 +232,10 @@ describe("Whiskey namespace workspaces", () => {
 					const system = yield* installTestSupportSystemPlugin(packages.claim);
 					yield* Effect.addFinalizer(() =>
 						getApiClient()
-							.call(
-								(contract) =>
-									contract.testSupport.uninstallSystemPlugin({
-										params: { pluginId: system.pluginId, activationId: system.activationId },
-									}),
-								adminHeaders(),
+							.adminCall((contract) =>
+								contract.testSupport.uninstallSystemPlugin({
+									params: { pluginId: system.pluginId, activationId: system.activationId },
+								}),
 							)
 							.pipe(Effect.ignore),
 					);

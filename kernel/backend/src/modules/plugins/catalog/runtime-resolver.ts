@@ -718,29 +718,48 @@ export class PluginRuntimeResolver extends Context.Service<PluginRuntimeResolver
 							reason: "inactive_provider",
 						});
 					}
-					const [revision] = yield* database.run((db) =>
+					const [definition] = yield* database.run((db) =>
 						db
-							.select({ id: schema.pluginRevision.id, providers: schema.pluginRevision.providers })
+							.select({
+								revisionId: schema.definitionProvider.pluginRevisionId,
+								scriptSlug: schema.definitionProviderOperation.scriptSlug,
+								rootEntitySchemaSlug: schema.definitionProvider.rootEntitySchemaSlug,
+							})
 							.from(schema.plugin)
 							.innerJoin(
-								schema.pluginRevision,
-								eq(schema.pluginRevision.id, schema.plugin.activeRevisionId),
+								schema.definitionProvider,
+								and(
+									eq(schema.definitionProvider.pluginRevisionId, schema.plugin.activeRevisionId),
+									eq(schema.definitionProvider.slug, provider.slug),
+								),
+							)
+							.leftJoin(
+								schema.definitionProviderOperation,
+								and(
+									eq(
+										schema.definitionProviderOperation.pluginRevisionId,
+										schema.definitionProvider.pluginRevisionId,
+									),
+									eq(
+										schema.definitionProviderOperation.providerSlug,
+										schema.definitionProvider.slug,
+									),
+									eq(schema.definitionProviderOperation.operation, operation),
+								),
 							)
 							.where(eq(schema.plugin.id, provider.pluginId))
 							.limit(1),
 					);
-					const definition = revision?.providers.find(({ slug }) => slug === provider.slug);
-					const scriptSlug =
-						operation === "search-options"
-							? definition?.operations.searchOptions
-							: definition?.operations[operation];
+					const scriptSlug = definition?.scriptSlug;
 					const script =
-						revision && scriptSlug ? yield* findRevisionScript(revision.id, scriptSlug) : null;
+						definition && scriptSlug
+							? yield* findRevisionScript(definition.revisionId, scriptSlug)
+							: null;
 					if (
 						definition?.rootEntitySchemaSlug !== provider.rootEntitySchemaSlug ||
 						script?.metadata.kind !== "provider" ||
 						script.providerId !== providerId ||
-						script.pluginRevisionId !== revision?.id
+						script.pluginRevisionId !== definition.revisionId
 					) {
 						return yield* new UnsupportedProviderOperationError({
 							operation,

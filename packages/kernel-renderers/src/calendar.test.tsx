@@ -238,6 +238,50 @@ const march14 = Date.UTC(2026, 2, 14, 12);
 describe("calendar renderer", () => {
 	useTimeZone("UTC");
 
+	it.live("shares the month window across layout changes while paging a source", () =>
+		Effect.gen(function* () {
+			const page = yield* open({ now: march14, search: "month=2026-03" });
+			yield* answerSources(page, [source("tasks")]);
+			const first = yield* nextOccurrenceRequest(page, "tasks");
+			page.navigate(routeLocation("/v/k/calendar", "month=2026-03&layout=month&panel=details"));
+			yield* Effect.promise(() => screen.findByRole("grid"));
+			yield* waitForMessagePortMacrotask;
+			expect(occurrenceRequests(page, "tasks")).toHaveLength(1);
+			page.replyQuery(first.requestId, {
+				outcome: "success",
+				response: {
+					data: {
+						calendarOccurrences: rows(
+							[occurrence("Alpha", "2026-03-14T00:00:00.000Z", "First")],
+							"cursor-1",
+						),
+					},
+				},
+			});
+			const second = yield* answerOccurrences(page, "tasks", [
+				occurrence("Beta", "2026-03-14T00:00:00.000Z", "Second"),
+			]);
+			const document = encodeJson(second.document);
+			expect(document).toContain("cursor-1");
+			expect(document).toContain("2026-03-01T00:00:00.000Z");
+			expect(document).toContain("2026-04-01T00:00:00.000Z");
+
+			page.navigate(routeLocation("/v/k/calendar", "month=2026-03"));
+			const day = yield* daySection("2026-03-14");
+			yield* Effect.promise(() =>
+				waitFor(() =>
+					expect(rowTexts(day)).toEqual([
+						expect.stringContaining("AlphaFirst"),
+						expect.stringContaining("BetaSecond"),
+					]),
+				),
+			);
+			yield* waitForMessagePortMacrotask;
+			expect(occurrenceRequests(page, "tasks")).toHaveLength(2);
+			expect(page.queryRequests("calendarSources")).toHaveLength(1);
+		}),
+	);
+
 	it.live("groups a month by day with date-only items first, dimmed past days and fallbacks", () =>
 		Effect.gen(function* () {
 			const page = yield* open({ now: march14 });

@@ -1,4 +1,7 @@
-import { reservedCollectionFieldKeys } from "@ryot-app/contract/modules/collections/fields";
+import {
+	collectionFieldLimits,
+	reservedCollectionFieldKeys,
+} from "@ryot-app/contract/modules/collections/fields";
 import { maximumCollectionNameLength } from "@ryot-app/contract/modules/collections/schemas";
 
 import type { QualifiedSchema } from "./migration-resolution";
@@ -97,6 +100,51 @@ BEGIN
 		{ count: "relationships_inserted", message: "relationship(s) migrated" },
 		{ count: "events_inserted", message: "add event(s) migrated" },
 	])}
+END $$;
+`;
+
+export const buildWatchlistBacklogMigrationSql = (input: {
+	mediaPluginId: string;
+	mediaEntitySchemaSlugs: ReadonlyArray<string>;
+}) => `
+DO $$
+DECLARE
+	rows_inserted int;
+	started_at timestamptz := clock_timestamp();
+BEGIN
+	${buildRequireLegacyTableSql("Watchlist collection -> backlog", "collection")}
+	${buildRequireLegacyTableSql("Watchlist collection -> backlog", "collection_to_entity")}
+
+	INSERT INTO "event" (
+		"id",
+		"user_id",
+		"entity_id",
+		"event_schema_slug",
+		"event_schema_plugin_id",
+		"session_entity_id",
+		"properties",
+		"created_at",
+		"occurred_at"
+	)
+	SELECT
+		md5(cte.id::text || ':backlog'),
+		coll.user_id,
+		cte.entity_id,
+		'backlog',
+		${quoteSqlString(input.mediaPluginId)},
+		CASE WHEN src_entity.entity_schema_slug IN ('show', 'podcast') THEN cte.entity_id END,
+		'{}'::jsonb,
+		cte.created_on,
+		cte.created_on
+	FROM "collection_to_entity" cte
+	INNER JOIN "collection" coll ON coll.id = cte.collection_id AND coll.name = 'Watchlist'
+	INNER JOIN "entity" src_entity ON src_entity.id = cte.entity_id
+	WHERE src_entity.entity_schema_plugin_id = ${quoteSqlString(input.mediaPluginId)}
+		AND src_entity.entity_schema_slug IN (${input.mediaEntitySchemaSlugs.map(quoteSqlString).join(", ")})
+	ON CONFLICT DO NOTHING;
+
+	GET DIAGNOSTICS rows_inserted = ROW_COUNT;
+	${buildReportSql("Watchlist collection -> backlog", [{ count: "rows_inserted", message: "event(s) migrated" }])}
 END $$;
 `;
 
@@ -209,6 +257,13 @@ BEGIN
 END $$;
 `;
 
+const ecmaScriptTrimCharactersSql = quoteSqlString(
+	"\u0009\u000a\u000b\u000c\u000d\u0020\u00a0\u1680\u2000\u2001\u2002\u2003\u2004\u2005\u2006\u2007\u2008\u2009\u200a\u2028\u2029\u202f\u205f\u3000\ufeff",
+);
+
+const trimCollectionFieldSql = (expression: string) =>
+	`btrim(${expression}, ${ecmaScriptTrimCharactersSql})`;
+
 const legacyTemplateFieldsSql = `
 	SELECT
 		collection.id AS collection_id,
@@ -217,23 +272,23 @@ const legacyTemplateFieldsSql = `
 			THEN (field.element->>'name') || '-field'
 			ELSE field.element->>'name'
 		END AS key,
-		btrim(field.element->>'name') AS label,
-		COALESCE(NULLIF(btrim(field.element->>'description'), ''), btrim(field.element->>'name')) AS description,
+		${trimCollectionFieldSql("field.element->>'name'")} AS label,
+		COALESCE(NULLIF(${trimCollectionFieldSql("field.element->>'description'")}, ''), ${trimCollectionFieldSql("field.element->>'name'")}) AS description,
 		field.element->>'lot' AS lot,
 		COALESCE((field.element->>'required')::boolean, false) AS required,
-		NULLIF(btrim(field.element->>'default_value'), '') AS default_value,
+		NULLIF(${trimCollectionFieldSql("field.element->>'default_value'")}, '') AS default_value,
 		(
-			SELECT jsonb_agg(jsonb_build_object('value', choice.value) ORDER BY choice.first_position)
+			SELECT jsonb_agg(choice.value ORDER BY choice.first_position)
 			FROM (
-				SELECT btrim(option.value) AS value, min(option.position) AS first_position
+				SELECT ${trimCollectionFieldSql("option.value")} AS value, min(option.position) AS first_position
 				FROM jsonb_array_elements_text(
 					CASE WHEN jsonb_typeof(field.element->'possible_values') = 'array'
 						THEN field.element->'possible_values'
 						ELSE '[]'::jsonb
 					END
 				) WITH ORDINALITY AS option(value, position)
-				WHERE btrim(option.value) <> ''
-				GROUP BY btrim(option.value)
+				WHERE ${trimCollectionFieldSql("option.value")} <> ''
+				GROUP BY ${trimCollectionFieldSql("option.value")}
 			) choice
 		) AS choices
 	FROM "collection" collection
@@ -245,24 +300,25 @@ const legacyTemplateFieldsSql = `
 	) WITH ORDINALITY AS field(element, position)
 `;
 
-const legacyTemplatePropertySql = `
-	jsonb_build_object('label', field.label, 'description', field.description, 'position', field.position - 1)
-	|| CASE WHEN field.required THEN '{"validation": {"required": true}}'::jsonb ELSE '{}'::jsonb END
+const legacyTemplateFieldSql = `
+	jsonb_build_object('key', field.key, 'label', field.label, 'description', field.description, 'required', field.required)
 	|| CASE
 		WHEN field.choices IS NOT NULL AND field.lot = 'StringArray'
-			THEN jsonb_build_object('type', 'enum-array', 'choices', jsonb_build_object('kind', 'static', 'values', field.choices))
+			THEN jsonb_build_object('type', 'multi-choice', 'choices', field.choices)
 		WHEN field.choices IS NOT NULL
-			THEN jsonb_build_object('type', 'enum', 'choices', jsonb_build_object('kind', 'static', 'values', field.choices))
-				|| CASE WHEN field.choices @> jsonb_build_array(jsonb_build_object('value', field.default_value))
+			THEN jsonb_build_object('type', 'choice', 'choices', field.choices)
+				|| CASE WHEN field.choices @> jsonb_build_array(field.default_value)
 					THEN jsonb_build_object('defaultValue', field.default_value)
 					ELSE '{}'::jsonb
 				END
 		WHEN field.lot = 'StringArray'
-			THEN '{"type": "array", "items": {"type": "string", "label": "Item", "description": "Item"}}'::jsonb
+			THEN '{"type": "text-list"}'::jsonb
 		WHEN field.lot = 'Number'
 			THEN '{"type": "number"}'::jsonb
 				|| CASE WHEN field.default_value ~ '^-?[0-9]+(\\.[0-9]+)?$'
-					THEN jsonb_build_object('defaultValue', field.default_value::numeric)
+					THEN CASE WHEN abs(field.default_value::numeric) <= ${Number.MAX_VALUE}
+						THEN jsonb_build_object('defaultValue', field.default_value::numeric)
+						ELSE '{}'::jsonb END
 					ELSE '{}'::jsonb
 				END
 		WHEN field.lot = 'Boolean'
@@ -285,7 +341,7 @@ const legacyTemplatePropertySql = `
 					THEN jsonb_build_object('defaultValue', field.default_value)
 					ELSE '{}'::jsonb
 				END
-		ELSE '{"type": "string"}'::jsonb
+		ELSE '{"type": "text"}'::jsonb
 			|| CASE WHEN field.default_value IS NOT NULL
 				THEN jsonb_build_object('defaultValue', field.default_value)
 				ELSE '{}'::jsonb
@@ -303,6 +359,8 @@ DECLARE
 	duplicate_name_sample text;
 	unnamed_field_count int;
 	unnamed_field_sample text;
+	invalid_field_count int;
+	invalid_field_sample text;
 	started_at timestamptz := clock_timestamp();
 BEGIN
 	${buildRequireLegacyTableSql("collection -> entity", "collection")}
@@ -340,6 +398,23 @@ BEGIN
 		message:
 			"collection -> entity: % collection information template field(s) have a blank name: %. Each V2 collection field needs a label. Name or remove those fields in the V1 collection settings, then start the server again.",
 	})}
+	${buildAbortOnRowsSql({
+		countVariable: "invalid_field_count",
+		sampleVariable: "invalid_field_sample",
+		message:
+			"collection -> entity: % information template field(s) exceed V2 field limits or have duplicate keys after reserved-key mapping: %. V2 requires unique keys and bounded field declarations. Shorten or remove those fields or choices, or rename colliding fields in V1, then restart the migration.",
+		source: `
+			WITH fields AS (${legacyTemplateFieldsSql})
+			SELECT field.collection_id || ':' || field.position::text AS label
+			FROM fields field
+			WHERE char_length(field.label) > ${collectionFieldLimits.labelLength}
+				OR char_length(field.description) > ${collectionFieldLimits.descriptionLength}
+				OR jsonb_array_length(COALESCE(field.choices, '[]'::jsonb)) > ${collectionFieldLimits.choices}
+				OR EXISTS (SELECT 1 FROM jsonb_array_elements_text(field.choices) choice(value) WHERE char_length(choice.value) > ${collectionFieldLimits.choiceLength})
+				OR (SELECT count(*) FROM fields other WHERE other.collection_id = field.collection_id) > ${collectionFieldLimits.fields}
+				OR (SELECT count(*) FROM fields other WHERE other.collection_id = field.collection_id AND other.key = field.key) > 1
+		`,
+	})}
 
 	INSERT INTO "entity" (
 		"id",
@@ -369,13 +444,7 @@ BEGIN
 		)
 		||
 		(
-			CASE WHEN template.fields IS NULL
-				THEN '{}'::jsonb
-				ELSE jsonb_build_object(
-					'membershipPropertiesSchema',
-					jsonb_build_object('unknownKeys', 'strict', 'fields', template.fields)
-				)
-			END
+			jsonb_build_object('membershipFields', COALESCE(template.fields, '[]'::jsonb))
 		),
 		${quoteSqlString(entitySchema.slug)},
 		${quoteNullableSqlString(entitySchema.pluginId)},
@@ -383,7 +452,7 @@ BEGIN
 		collection.last_updated_on
 	FROM "collection"
 	LEFT JOIN LATERAL (
-		SELECT jsonb_object_agg(field.key, ${legacyTemplatePropertySql} ORDER BY field.position) AS fields
+		SELECT jsonb_agg(${legacyTemplateFieldSql} ORDER BY field.position) AS fields
 		FROM (${legacyTemplateFieldsSql}) field
 		WHERE field.collection_id = collection.id
 	) template ON true

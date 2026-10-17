@@ -356,6 +356,7 @@ export const SidecarInboundFrame = Schema.Union([
 	SidecarPartFrame,
 ]);
 export type SidecarInboundFrame = typeof SidecarInboundFrame.Type;
+export type SidecarInboundLogicalMessage = Exclude<SidecarInboundFrame, { readonly type: "part" }>;
 
 export const SidecarOutboundFrame = Schema.Union([
 	SidecarReadyFrame,

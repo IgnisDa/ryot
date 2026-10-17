@@ -233,12 +233,15 @@ describe("show.tmdb sandbox script", () => {
 				show: {
 					id: 1,
 					name: "Long Runner",
-					seasons: Array.from({ length: 25 }, (_, index) => ({ season_number: index })),
+					seasons: Array.from({ length: 25 }, (_, index) => ({
+						id: 100 + index,
+						season_number: index,
+					})),
 				},
 				appended: Object.fromEntries(
 					Array.from({ length: 25 }, (_, index) => [
 						`season/${index}`,
-						{ episodes: [], id: 100 + index, season_number: index, name: `Season ${index}` },
+						{ episodes: [], season_number: index, name: `Season ${index}` },
 					]),
 				),
 			},
@@ -258,8 +261,8 @@ describe("show.tmdb sandbox script", () => {
 						Array.from({ length: 20 }, (_, index) => `season/${index}`),
 						Array.from({ length: 5 }, (_, index) => `season/${index + 20}`),
 					]);
-					expect(result.childEntities?.map(({ name }) => name)).toEqual(
-						Array.from({ length: 25 }, (_, index) => `Season ${index}`),
+					expect(result.childEntities?.map(({ name, externalId }) => [name, externalId])).toEqual(
+						Array.from({ length: 25 }, (_, index) => [`Season ${index}`, String(100 + index)]),
 					);
 					return undefined;
 				}),
@@ -318,7 +321,6 @@ describe("show.tmdb sandbox script", () => {
 		const host = makeTvHost("1", {
 			appended: {
 				"season/1": {
-					id: 101,
 					name: "Season 1",
 					season_number: 1,
 					poster_path: "/season.jpg",
@@ -333,8 +335,8 @@ describe("show.tmdb sandbox script", () => {
 				created_by: [],
 				poster_path: "/show.jpg",
 				production_companies: [],
-				seasons: [{ season_number: 1 }],
 				backdrop_path: "/show-backdrop.jpg",
+				seasons: [{ id: 101, season_number: 1 }],
 			},
 		});
 		return Effect.runPromise(

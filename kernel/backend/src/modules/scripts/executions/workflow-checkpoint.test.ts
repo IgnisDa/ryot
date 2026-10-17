@@ -45,6 +45,7 @@ import {
 
 import { SandboxDurableHostDispatcher } from "../host/durable-dispatcher";
 import type { ScriptInlineProgress } from "../host/http-progress";
+import { httpProgressPhases } from "../host/http-progress.test-support";
 import { KernelWorkflowReferences } from "../registry/kernel-workflow-references";
 import { SandboxRepository } from "../registry/repository";
 import { SandboxWorkflowReferenceRepository } from "../registry/workflow-references";
@@ -81,28 +82,24 @@ const httpRequest = {
 	kind: "host" as const,
 	args: { capability: "httpCall" as const, args: ["GET", "https://api.test/start"] },
 };
+const httpDeclaration = {
+	requests: 1,
+	intervalMs: 1_000,
+	key: "http:api.test",
+	hash: "checkpoint-hash",
+};
 const httpProgress = Schema.decodeSync(SandboxHttpProgress)({
-	hop: 1,
 	attempt: 1,
 	networkAttempt: 2,
-	pendingBlock: null,
 	blockWaitAttempt: 3,
 	admissionAttempt: 4,
-	blockedUntilMs: null,
 	coordinationAttempt: 5,
 	registrationAttempt: 6,
-	terminalRateLimit: null,
 	coordinationBackoffAttempt: 7,
-	url: "https://api.test/redirected",
-	redirect: {
-		hop: 1,
-		headers: {},
-		method: "GET",
-		_tag: "redirected",
-		url: "https://api.test/redirected",
-	},
+	phase: { rateLimit: null, _tag: "Admitting" },
+	current: { hop: 1, headers: {}, method: "GET", url: "https://api.test/redirected" },
 	cleanup: {
-		declaration: { requests: 1, intervalMs: 1_000, key: "http:api.test", hash: "checkpoint-hash" },
+		declaration: httpDeclaration,
 		ticket: {
 			lane: "interactive",
 			tenant: "checkpoint-tenant",
@@ -484,41 +481,46 @@ it.effect.each(invalidInlineProgressCases)(
 		}),
 );
 
-it.effect("deferred_inline_http_passes_retained_attempt_to_durable_dispatch", () =>
-	Effect.gen(function* () {
-		const dispatchProgress: Array<SandboxHttpProgress | undefined> = [];
-		const dispatcher = SandboxDurableHostDispatcher.of({
-			cancelInline: () => Effect.void,
-			settleInline: () => Effect.die("unused"),
-			dispatch: (_request, _payload, _principal, _id, progress) =>
-				Effect.sync(() => {
-					dispatchProgress.push(progress);
-				}).pipe(Effect.andThen(Effect.succeed(httpResult))),
-		});
-		const h = makeHarness({ dispatcher, capabilities: ["httpCall"] });
-		const envelope: WorkflowReplayEnvelope = {
-			journalLength: 0,
-			state: "pending",
-			requests: [httpRequest],
-		};
-		const first = yield* h.fresh(envelope, payload, [httpPending]).body;
-		assert(first._tag === "Complete");
-		expect(yield* first.exit).toBe("done");
-		expect(dispatchProgress).toEqual([httpProgress]);
-		const stored = h.slots.get("sandbox-request-0");
-		assert(stored !== undefined);
-		assert(Exit.isSuccess(stored));
-		expect(stored.value).toEqual({
-			targetScriptId: null,
-			entry: { value: httpResult, request: httpRequest },
-		});
-		expect(h.appends).toEqual(["0:1"]);
+const retainedHttpPhases = httpProgressPhases(httpDeclaration);
 
-		const resumed = yield* h.fresh(envelope).body;
-		assert(resumed._tag === "Complete");
-		expect(yield* resumed.exit).toBe("done");
-		expect(dispatchProgress).toEqual([httpProgress]);
-	}),
+it.effect.each(retainedHttpPhases)(
+	"deferred_inline_http_passes_retained_$_tag_to_durable_dispatch",
+	(phase) =>
+		Effect.gen(function* () {
+			const progress = { ...httpProgress, phase };
+			const dispatchProgress: Array<SandboxHttpProgress | undefined> = [];
+			const dispatcher = SandboxDurableHostDispatcher.of({
+				cancelInline: () => Effect.void,
+				settleInline: () => Effect.die("unused"),
+				dispatch: (_request, _payload, _principal, _id, retained) =>
+					Effect.sync(() => {
+						dispatchProgress.push(retained);
+					}).pipe(Effect.andThen(Effect.succeed(httpResult))),
+			});
+			const h = makeHarness({ dispatcher, capabilities: ["httpCall"] });
+			const envelope: WorkflowReplayEnvelope = {
+				journalLength: 0,
+				state: "pending",
+				requests: [httpRequest],
+			};
+			const first = yield* h.fresh(envelope, payload, [{ ...httpPending, progress }]).body;
+			assert(first._tag === "Complete");
+			expect(yield* first.exit).toBe("done");
+			expect(dispatchProgress).toEqual([progress]);
+			const stored = h.slots.get("sandbox-request-0");
+			assert(stored !== undefined);
+			assert(Exit.isSuccess(stored));
+			expect(stored.value).toEqual({
+				targetScriptId: null,
+				entry: { value: httpResult, request: httpRequest },
+			});
+			expect(h.appends).toEqual(["0:1"]);
+
+			const resumed = yield* h.fresh(envelope).body;
+			assert(resumed._tag === "Complete");
+			expect(yield* resumed.exit).toBe("done");
+			expect(dispatchProgress).toEqual([progress]);
+		}),
 );
 
 it.effect("deferred_inline_http_cancels_retained_progress_once_on_parent_interruption", () =>

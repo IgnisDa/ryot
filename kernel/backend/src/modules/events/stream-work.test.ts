@@ -757,7 +757,7 @@ layer(streamWorkTestLayer)((test) => {
 
 				const source = yield* events.getEventSnapshot({ userId, eventId });
 				assert(source);
-				expect(source.properties).toEqual({ rating: 2 });
+				expect(source.snapshot.properties).toEqual({ rating: 2 });
 				const work = yield* streams.get(id);
 				assert(work);
 				expect(work.status).toBe("queued");

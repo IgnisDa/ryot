@@ -1,5 +1,4 @@
 import type { ContractRequest } from "@ryot-app/contract/client";
-import { sameDeclaration } from "@ryot-app/contract/modules/plugins/references";
 import { ImportRunId } from "@ryot-app/contract/schema/brands";
 import { createRyotMutation, createRyotQuery } from "@ryot-app/plugin-client-sdk/react";
 import {
@@ -106,27 +105,6 @@ export const importSourcesQuery = createRyotQuery<
 export type ImportSourceItem = Omit<ImportSourcesPage["items"][number], "id" | "exportHelp"> & {
 	readonly exportHelp?: NonNullable<ImportSourcesPage["items"][number]["exportHelp"]>;
 };
-
-export const selectedImportReadinessQuery = createRyotQuery<
-	NonNullable<Parameters<typeof importSourcesRecipe>[0]["selected"]>,
-	ImportSourcesPage["items"][number] | undefined,
-	KernelHostServices
->(({ input, client }) =>
-	Effect.gen(function* () {
-		let after: string | undefined;
-		do {
-			const page = yield* client.data.query(
-				importSourcesRecipe({ after, limit: 100, selected: input }),
-			);
-			const source = page.items.find((item) => sameDeclaration(item.reference, input.reference));
-			if (source !== undefined) {
-				return source;
-			}
-			after = page.pageInfo.nextCursor ?? undefined;
-		} while (after !== undefined);
-		return undefined;
-	}),
-);
 
 type CreateRunPayload = ContractRequest<"imports", "createRun">["payload"];
 

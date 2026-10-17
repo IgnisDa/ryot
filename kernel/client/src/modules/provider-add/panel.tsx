@@ -8,7 +8,12 @@ import type {
 	EntitySchemaSlug,
 	SandboxProviderId,
 } from "@ryot-app/contract/schema/brands";
-import { paginationItems, usePagination } from "@ryot-app/plugin-client-sdk/react";
+import {
+	paginationItems,
+	type RyotQuery,
+	usePagination,
+	useRyotQuery,
+} from "@ryot-app/plugin-client-sdk/react";
 import {
 	Button,
 	Chip,
@@ -27,12 +32,13 @@ import {
 	type SchemaFileUpload,
 	SchemaForm,
 	type SchemaFormIcons,
+	type SchemaFormValues,
 	toSchemaFormPayload,
 	useSchemaForm,
 } from "@ryot-app/plugin-ui-sdk/schema-form";
 import clsx from "clsx";
 import { Effect, Match } from "effect";
-import { useEffect, useEffectEvent, useRef, useState } from "react";
+import { type ReactNode, useEffect, useEffectEvent, useRef, useState } from "react";
 
 import {
 	createProviderEntityImportState,
@@ -41,13 +47,6 @@ import {
 	type ProviderEntityImportState,
 	setProviderEntityImportEntry,
 } from "#/modules/provider-add/import-controller";
-import {
-	applyProviderOptionsFailure,
-	applyProviderOptionsResponse,
-	createProviderOptionsState,
-	isProviderOptionsRequestCurrent,
-	type ProviderOptionsState,
-} from "#/modules/provider-add/options-state";
 import { selectPreferredProvider } from "#/modules/provider-add/preferred-provider";
 import { ProviderSearchResultRow } from "#/modules/provider-add/result-row";
 import {
@@ -66,24 +65,15 @@ type ProviderSearchInput = {
 	readonly options?: NonNullable<SearchProviderEntitiesBody["options"]> | undefined;
 };
 
-type CommittedProviderSearch = { readonly input: ProviderSearchInput; readonly generation: number };
-
 const nonEmptySearchOptions = (
 	options: NonNullable<SearchProviderEntitiesBody["options"]>,
 ): NonNullable<SearchProviderEntitiesBody["options"]> | undefined =>
 	Object.keys(options).length === 0 ? undefined : options;
 
-const sameSearchOptions = (
-	left: ProviderSearchInput["options"],
-	right: ProviderSearchInput["options"],
-) => JSON.stringify(left ?? null) === JSON.stringify(right ?? null);
-
 const TRANSPORT_FAILURE = {
 	title: "Unable to reach the server",
 	detail: "The server could not be reached. Check your connection and try again.",
 } as const;
-
-export type ProviderAddOutcome<A> = { readonly cause: unknown } | { readonly value: A };
 
 export type ProviderEntityLinks = ReadonlyMap<string, EntityId>;
 
@@ -114,9 +104,12 @@ type ProviderSearchPanelProps = {
 	readonly librarySchemaSlug: string;
 	readonly selectedProviderId: SandboxProviderId | undefined;
 	readonly onSelectProvider: (providerId: SandboxProviderId) => void;
-	readonly loadSearchOptions: (
-		providerId: SandboxProviderId,
-	) => Effect.Effect<SearchProviderOptionsResponse, ProviderAddLoadError>;
+	readonly searchOptionsQuery: RyotQuery<
+		SandboxProviderId,
+		SearchProviderOptionsResponse,
+		unknown,
+		Error
+	>;
 	readonly loadEntityLinks: (
 		input: ProviderEntityLinksInput,
 	) => Effect.Effect<ProviderEntityLinks, ProviderAddLoadError>;
@@ -454,185 +447,116 @@ function ProviderSearchResults(props: {
 export function ProviderSearchPanel(props: ProviderSearchPanelProps) {
 	const available = props.providers.status === "ready" ? props.providers.providers : [];
 	const selected = selectPreferredProvider(available, props.selectedProviderId ?? null);
-
-	const [advancedOptionsOpen, setAdvancedOptionsOpen] = useState(false);
+	const [query, setQuery] = useState(props.initialQuery ?? "");
 	const { importItem, importState } = useProviderEntityImports({
 		showImported: true,
 		onImported: props.onImported,
 		importEntity: props.importEntity,
 	});
-	const [options, setOptions] = useState<ProviderOptionsState>(() =>
-		createProviderOptionsState(selected),
+	const session = { ...props, query, importItem, importState, onQueryChange: setQuery };
+	if (selected === undefined) {
+		return <ProviderSearchLayout {...session} />;
+	}
+	return <ProviderSearchSession key={selected.providerId} {...session} provider={selected} />;
+}
+
+type ProviderSearchSessionProps = ProviderSearchPanelProps & {
+	readonly query: string;
+	readonly onQueryChange: (query: string) => void;
+	readonly provider: ProviderSearchSummary;
+	readonly importItem: (providerId: SandboxProviderId, externalId: string) => void;
+	readonly importState: ProviderEntityImportState;
+};
+
+function ProviderSearchSession(props: ProviderSearchSessionProps) {
+	return props.provider.searchOptionsSchema === null ? (
+		<ProviderSearchForm {...props} />
+	) : (
+		<ProviderSearchOptions {...props} />
 	);
-	const [query, setQuery] = useState(props.initialQuery ?? "");
-	const [searchRevision, setSearchRevision] = useState(0);
-	const [committedSearch, setCommittedSearch] = useState<CommittedProviderSearch>();
-	const searchGeneration = useRef(0);
-	const invalidateSearch = () => {
-		setCommittedSearch(undefined);
-		setSearchRevision((revision) => revision + 1);
-	};
-	const changeQuery = (next: string) => {
-		if (next === query) {
-			return;
-		}
-		setQuery(next);
-		invalidateSearch();
-	};
-	const commitSearchInput = (input: ProviderSearchInput) => {
-		setCommittedSearch({ input, generation: ++searchGeneration.current });
-	};
-	const optionsSchema = options.status === "ready" ? options.schema : undefined;
+}
+
+function ProviderSearchOptions(props: ProviderSearchSessionProps) {
+	const options = useRyotQuery(props.searchOptionsQuery, props.provider.providerId, {
+		refreshOnMutation: false,
+	});
+	if (!options.isSuccess || options.isFetching || options.data === undefined) {
+		return (
+			<ProviderSearchLayout {...props}>
+				{options.isError && !options.isFetching ? (
+					<div className="grid gap-2 rounded-lg bg-surface-2 p-3">
+						<p className="text-sm text-text-muted">Could not load filters.</p>
+						<Button onClick={options.refetch} aria-label="Retry loading filters">
+							Retry
+						</Button>
+					</div>
+				) : (
+					<Spinner label="Loading filters" className="items-center py-2" />
+				)}
+			</ProviderSearchLayout>
+		);
+	}
+	return <ProviderSearchForm {...props} optionsSchema={options.data.schema ?? undefined} />;
+}
+
+function ProviderSearchForm(
+	props: ProviderSearchSessionProps & {
+		readonly optionsSchema?: SearchProviderOptionsResponse["schema"] | undefined;
+	},
+) {
+	const [advancedOptionsOpen, setAdvancedOptionsOpen] = useState(false);
+	const [submitted, setSubmitted] = useState<ProviderSearchInput>();
+	const optionsSchema = props.optionsSchema ?? undefined;
 	const optionsForm = useSchemaForm({
 		schemas: [optionsSchema],
 		onSubmit: (values) => {
-			if (
-				selected === undefined ||
-				options.status !== "ready" ||
-				options.providerId !== selected.providerId
-			) {
+			if (props.query.trim() === "") {
 				return;
 			}
-			commitSearchInput({
-				query,
-				providerId: selected.providerId,
-				options: nonEmptySearchOptions(toSchemaFormPayload(options.schema, values)),
-			});
+			const next = {
+				query: props.query.trim(),
+				providerId: props.provider.providerId,
+				options:
+					optionsSchema === undefined
+						? undefined
+						: nonEmptySearchOptions(toSchemaFormPayload(optionsSchema, values)),
+			};
+			if (JSON.stringify(next) === JSON.stringify(submitted)) {
+				pagination.refetch();
+			} else {
+				setSubmitted(next);
+			}
 		},
 	});
-	const optionsRequestId = useRef(0);
-
-	useFormSeed(optionsForm, `${options.providerId}:${options.status}`, () =>
+	useFormSeed(optionsForm, JSON.stringify(optionsSchema), () =>
 		optionsSchema === undefined ? {} : initialSchemaFormValues(optionsSchema),
 	);
-
-	const selectedProviderId = selected?.providerId;
-	useValueChange(selectedProviderId, () => {
-		setOptions(createProviderOptionsState(selected));
-		invalidateSearch();
-	});
-
-	const fetchProviderOptions = (provider: ProviderSearchSummary | undefined) => {
-		const requestId = ++optionsRequestId.current;
-		if (provider === undefined) {
-			return Effect.void;
-		}
-		if (provider.searchOptionsSchema === null) {
-			return Effect.void;
-		}
-		return props.loadSearchOptions(provider.providerId).pipe(
-			Effect.match({
-				onFailure: (cause): ProviderAddOutcome<SearchProviderOptionsResponse> => ({ cause }),
-				onSuccess: (value): ProviderAddOutcome<SearchProviderOptionsResponse> => ({ value }),
-			}),
-			Effect.tap((result) =>
-				Effect.sync(() => {
-					if (optionsRequestId.current !== requestId) {
-						return;
-					}
-					setOptions((current) => {
-						if (
-							!isProviderOptionsRequestCurrent(
-								current,
-								provider.providerId,
-								requestId,
-								optionsRequestId.current,
-							)
-						) {
-							return current;
-						}
-						return "value" in result
-							? applyProviderOptionsResponse(current, result.value)
-							: applyProviderOptionsFailure(current, result.cause);
-					});
-				}),
-			),
-			Effect.asVoid,
-		);
-	};
-	const fetchSelectedProviderOptions = useEffectEvent(
-		(providerId: SandboxProviderId | undefined) =>
-			void Effect.runPromise(
-				fetchProviderOptions(available.find((provider) => provider.providerId === providerId)),
-			),
-	);
-
-	useEffect(() => {
-		fetchSelectedProviderOptions(selectedProviderId);
-	}, [selectedProviderId]);
-
+	useValueChange(props.query, () => setSubmitted(undefined));
 	const requestSearch = () => {
-		if (query.trim() === "" || selected === undefined) {
+		if (props.query.trim() === "") {
 			return;
 		}
-		if (options.status === "ready" && options.providerId === selected.providerId) {
-			Effect.runFork(
-				Effect.promise(() => optionsForm.handleSubmit()).pipe(
-					Effect.map((errors) => {
+		Effect.runFork(
+			Effect.promise(() => optionsForm.handleSubmit()).pipe(
+				Effect.tap((errors) =>
+					Effect.sync(() => {
 						if (errors.length > 0) {
 							setAdvancedOptionsOpen(true);
 						}
 					}),
 				),
-			);
-			return;
-		}
-		commitSearchInput({ query, providerId: selected.providerId });
+			),
+		);
 	};
-
-	const submitSearch = useEffectEvent(() => requestSearch());
-	const debouncedSearch =
-		query.trim() === "" || selectedProviderId === undefined
-			? undefined
-			: JSON.stringify([searchRevision, query, selectedProviderId]);
-	const searchDebounceTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
-	useEffect(() => {
-		if (debouncedSearch === undefined) {
-			return undefined;
-		}
-		const timer = setTimeout(() => {
-			searchDebounceTimer.current = undefined;
-			submitSearch();
-		}, SEARCH_DEBOUNCE_MS);
-		searchDebounceTimer.current = timer;
-		return () => {
-			clearTimeout(timer);
-			if (searchDebounceTimer.current === timer) {
-				searchDebounceTimer.current = undefined;
-			}
-		};
-	}, [debouncedSearch]);
-
-	const retryProviderOptions = () => {
-		if (selected?.searchOptionsSchema === null) {
-			return;
-		}
-		setOptions(createProviderOptionsState(selected));
-		void Effect.runPromise(fetchProviderOptions(selected));
-	};
-	const activeOptionCount =
-		options.status === "ready"
-			? Object.keys(toSchemaFormPayload(options.schema, optionsForm.state.values.fields)).length
-			: 0;
-	const currentOptions =
-		options.status === "ready" && options.providerId === selected?.providerId
-			? nonEmptySearchOptions(toSchemaFormPayload(options.schema, optionsForm.state.values.fields))
-			: undefined;
-	const committedSearchIsCurrent =
-		committedSearch !== undefined &&
-		selected !== undefined &&
-		committedSearch.input.query === query &&
-		committedSearch.input.providerId === selected.providerId &&
-		sameSearchOptions(committedSearch.input.options, currentOptions);
 	const pagination = usePagination<SearchProviderEntitiesResponse, number>({
 		initialPageParam: 1,
-		enabled: committedSearchIsCurrent,
+		enabled: submitted !== undefined,
+		identity: JSON.stringify(submitted),
 		getNextPageParam: (page) => page.details?.nextPage ?? null,
-		identity: JSON.stringify([committedSearch?.input ?? null, committedSearch?.generation ?? null]),
 		load: (page) =>
-			committedSearch === undefined
+			submitted === undefined
 				? Effect.interrupt
-				: props.search(buildSearchPayload({ ...committedSearch.input, page })),
+				: props.search(buildSearchPayload({ ...submitted, page })),
 	});
 	const resultItems = paginationItems(
 		pagination.pages,
@@ -640,13 +564,13 @@ export function ProviderSearchPanel(props: ProviderSearchPanelProps) {
 		(item) => item.externalId,
 	);
 
-	const renderSearchState = (provider: ProviderSearchSummary) => {
-		if (!committedSearchIsCurrent) {
+	const renderSearchState = () => {
+		if (submitted === undefined) {
 			return (
 				<EmptyState
 					className="py-16"
-					title={`Search ${provider.providerName}`}
 					icon={<AppIcon size={18} name="search" />}
+					title={`Search ${props.provider.providerName}`}
 					description="Start typing above to find something to add."
 				/>
 			);
@@ -666,12 +590,12 @@ export function ProviderSearchPanel(props: ProviderSearchPanelProps) {
 		}
 		return (
 			<ProviderSearchResults
-				query={query}
 				items={resultItems}
-				importState={importState}
+				query={submitted.query}
 				onRetry={pagination.retry}
+				importState={props.importState}
 				hasMore={pagination.hasNextPage}
-				providerId={provider.providerId}
+				providerId={submitted.providerId}
 				isFetching={pagination.isFetching}
 				onLoadMore={pagination.fetchNextPage}
 				isRefreshing={pagination.isRefreshing}
@@ -681,28 +605,110 @@ export function ProviderSearchPanel(props: ProviderSearchPanelProps) {
 				errorOperation={pagination.errorOperation}
 				librarySchemaSlug={props.librarySchemaSlug}
 				isFetchingNextPage={pagination.isFetchingNextPage}
-				onAdd={(externalId) => importItem(provider.providerId, externalId)}
+				onAdd={(externalId) => props.importItem(submitted.providerId, externalId)}
 			/>
 		);
 	};
 
 	return (
+		<optionsForm.Subscribe selector={(state) => state.values.fields}>
+			{(fields) => {
+				const activeOptionCount =
+					optionsSchema === undefined
+						? 0
+						: Object.keys(toSchemaFormPayload(optionsSchema, fields)).length;
+				return (
+					<ProviderSearchLayout {...props} fields={fields} onEnter={requestSearch}>
+						{optionsSchema === undefined ? null : (
+							<button
+								type="button"
+								aria-label="Advanced options"
+								aria-expanded={advancedOptionsOpen}
+								onClick={() => setAdvancedOptionsOpen((current) => !current)}
+								className="flex items-center justify-between rounded-lg border border-border bg-surface-2 px-3 py-2.5"
+							>
+								<span className="flex items-center gap-2">
+									<AppIcon size={15} name="sliders-horizontal" className="text-text-muted" />
+									<span className="text-sm font-medium text-text">Advanced options</span>
+									{activeOptionCount > 0 ? (
+										<span className="text-xs text-text-muted">({activeOptionCount})</span>
+									) : null}
+								</span>
+								<AppIcon
+									size={16}
+									className="text-text-muted"
+									name={advancedOptionsOpen ? "chevron-up" : "chevron-down"}
+								/>
+							</button>
+						)}
+						{advancedOptionsOpen && optionsSchema !== undefined ? (
+							<SchemaForm
+								form={optionsForm}
+								schema={optionsSchema}
+								icons={schemaFormIcons}
+								uploadFile={props.uploadFile}
+								uploadAsset={props.uploadAsset}
+								renderAsset={props.renderAsset}
+								onReorder={schemaFormReorderFeedback}
+								onChange={() => setSubmitted(undefined)}
+							/>
+						) : null}
+						{renderSearchState()}
+					</ProviderSearchLayout>
+				);
+			}}
+		</optionsForm.Subscribe>
+	);
+}
+
+function ProviderSearchLayout(
+	props: ProviderSearchPanelProps & {
+		readonly query: string;
+		readonly onQueryChange: (query: string) => void;
+		readonly provider?: ProviderSearchSummary;
+		readonly onEnter?: () => void;
+		readonly fields?: SchemaFormValues;
+		readonly children?: ReactNode;
+	},
+) {
+	const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+	const submit = useEffectEvent(() => props.onEnter?.());
+	const searchKey =
+		props.onEnter === undefined || props.query.trim() === ""
+			? undefined
+			: JSON.stringify([props.query, props.fields]);
+	useEffect(() => {
+		if (searchKey === undefined) {
+			return undefined;
+		}
+		const scheduled = setTimeout(() => {
+			timer.current = undefined;
+			submit();
+		}, SEARCH_DEBOUNCE_MS);
+		timer.current = scheduled;
+		return () => {
+			clearTimeout(scheduled);
+			if (timer.current === scheduled) {
+				timer.current = undefined;
+			}
+		};
+	}, [searchKey]);
+	return (
 		<div className="flex min-h-0 flex-1 flex-col">
 			<div className="grid gap-3 p-4 pb-3">
 				<PickerSearchBar
-					query={query}
-					onChange={changeQuery}
+					query={props.query}
 					onClose={props.onClose}
 					label="Search providers"
+					onChange={props.onQueryChange}
 					onEnter={() => {
-						if (searchDebounceTimer.current !== undefined) {
-							clearTimeout(searchDebounceTimer.current);
-							searchDebounceTimer.current = undefined;
+						if (timer.current !== undefined) {
+							clearTimeout(timer.current);
+							timer.current = undefined;
 						}
-						requestSearch();
+						props.onEnter?.();
 					}}
 				/>
-
 				{Match.value(props.providers).pipe(
 					Match.when({ status: "loading" }, () => (
 						<Spinner label="Loading providers" className="min-h-32 items-center" />
@@ -714,7 +720,7 @@ export function ProviderSearchPanel(props: ProviderSearchPanelProps) {
 						) : (
 							<ProviderChips
 								providers={ready.providers}
-								selectedProviderId={selected?.providerId}
+								selectedProviderId={props.provider?.providerId}
 								onSelect={(provider) => props.onSelectProvider(provider.providerId)}
 							/>
 						),
@@ -722,81 +728,13 @@ export function ProviderSearchPanel(props: ProviderSearchPanelProps) {
 					Match.exhaustive,
 				)}
 			</div>
-
 			<div className="min-h-0 flex-1 overflow-y-auto px-4 pb-4">
-				{selected === undefined ? null : (
-					<div className="grid gap-3">
-						{selected.searchOptionsSchema === null ? null : (
-							<>
-								<button
-									type="button"
-									aria-label="Advanced options"
-									aria-expanded={advancedOptionsOpen}
-									onClick={() => setAdvancedOptionsOpen((current) => !current)}
-									className="flex items-center justify-between rounded-lg border border-border bg-surface-2 px-3 py-2.5"
-								>
-									<span className="flex items-center gap-2">
-										<AppIcon size={15} name="sliders-horizontal" className="text-text-muted" />
-										<span className="text-sm font-medium text-text">Advanced options</span>
-										{activeOptionCount > 0 ? (
-											<span className="text-xs text-text-muted">({activeOptionCount})</span>
-										) : null}
-									</span>
-									<AppIcon
-										size={16}
-										className="text-text-muted"
-										name={advancedOptionsOpen ? "chevron-up" : "chevron-down"}
-									/>
-								</button>
-
-								{advancedOptionsOpen &&
-									(options.providerId !== selected.providerId ? (
-										<Spinner label="Loading filters" className="items-center py-2" />
-									) : (
-										Match.value(options).pipe(
-											Match.when({ status: "none" }, () => null),
-											Match.when({ status: "loading" }, () => (
-												<Spinner label="Loading filters" className="items-center py-2" />
-											)),
-											Match.when({ status: "failed" }, () => (
-												<div className="grid gap-2 rounded-lg bg-surface-2 p-3">
-													<p className="text-sm text-text-muted">Could not load filters.</p>
-													<Button
-														className="justify-self-start"
-														onClick={retryProviderOptions}
-														aria-label="Retry loading filters"
-													>
-														Retry
-													</Button>
-												</div>
-											)),
-											Match.when({ status: "ready" }, (ready) => (
-												<SchemaForm
-													form={optionsForm}
-													schema={ready.schema}
-													icons={schemaFormIcons}
-													onChange={invalidateSearch}
-													uploadFile={props.uploadFile}
-													uploadAsset={props.uploadAsset}
-													renderAsset={props.renderAsset}
-													onReorder={schemaFormReorderFeedback}
-												/>
-											)),
-											Match.exhaustive,
-										)
-									))}
-							</>
-						)}
-
-						{renderSearchState(selected)}
-					</div>
-				)}
+				<div className="grid gap-3">{props.children}</div>
 			</div>
-
 			{props.onCreateCustom === undefined ? null : (
 				<div className="flex items-center justify-end gap-3 border-t border-border px-4 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
 					<p className="text-sm text-text-muted">Can't find it?</p>
-					<Button variant="secondary" onClick={() => props.onCreateCustom?.(query.trim())}>
+					<Button variant="secondary" onClick={() => props.onCreateCustom?.(props.query.trim())}>
 						<AppIcon size={15} name="plus" />
 						Create custom
 					</Button>

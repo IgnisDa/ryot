@@ -18,7 +18,6 @@ import {
 } from "@ryot-app/ryotql";
 import { DateTime, Effect } from "effect";
 
-import { adminHeaders } from "~/fixtures/kernel/admin";
 import { listAdminSystemPlugins } from "~/fixtures/kernel/admin-system-plugins";
 import type { Client } from "~/fixtures/kernel/auth";
 import { getApiClient } from "~/fixtures/kernel/contract-client";
@@ -46,7 +45,7 @@ export const queryInMediaLibraryRelationship = (
 ) => {
 	return Effect.gen(function* () {
 		const selectedEntity = yield* getEntity(client, entityId);
-		const mediaPluginId = (yield* mediaFixtureInstallation).id;
+		const mediaPluginId = (yield* mediaFixtureInstallation(client.target)).id;
 		const entity = table("entity", "entity");
 		const membership = table("relationship", "membership");
 		const mediaLibrary = table("entity", "mediaLibrary");
@@ -117,13 +116,19 @@ export const queryInMediaLibraryRelationship = (
 	});
 };
 
+type SeedEntityInput = Parameters<typeof seedEntity>[0];
+
 export const seedMediaEntity = (
-	input: Omit<Parameters<typeof seedEntity>[0], "entitySchema"> & { entitySchemaSlug: string },
+	input: (SeedEntityInput extends infer Variant
+		? Variant extends unknown
+			? Omit<Variant, "entitySchema">
+			: never
+		: never) & { entitySchemaSlug: string },
 ) =>
 	Effect.gen(function* () {
 		const { entitySchemaSlug, ...rest } = input;
 		const plugin = requirePresent(
-			(yield* listAdminSystemPlugins).find(
+			(yield* listAdminSystemPlugins(input.client?.target ?? input.target)).find(
 				({ packageId }) => packageId === mediaPlugin.metadata.packageId,
 			),
 			"System media plugin missing",
@@ -191,12 +196,17 @@ type ShowEpisodeSeedInput = {
 	readonly episode: SeedEpisodeSpec;
 };
 
-const seedShowEpisodeEntity = (schemas: ShowSeedSchemas, input: ShowEpisodeSeedInput) =>
+const seedShowEpisodeEntity = (
+	client: Client,
+	schemas: ShowSeedSchemas,
+	input: ShowEpisodeSeedInput,
+) =>
 	Effect.gen(function* () {
 		const { suffix, episode, seasonId, seasonNumber } = input;
 		const entity = yield* seedMediaEntity({
 			userId: null,
 			providerId: null,
+			target: client.target,
 			entitySchemaSlug: schemas.episodeSchemaId,
 			name: `S${seasonNumber}E${episode.episodeNumber} ${suffix}`,
 			externalId: `seeded-episode-${seasonNumber}-${episode.episodeNumber}-${suffix}`,
@@ -209,6 +219,7 @@ const seedShowEpisodeEntity = (schemas: ShowSeedSchemas, input: ShowEpisodeSeedI
 			},
 		});
 		yield* insertGlobalRelationship({
+			target: client.target,
 			sourceEntityId: seasonId,
 			targetEntityId: entity.id,
 			relationshipSchema: schemas.seasonToEpisode,
@@ -218,7 +229,7 @@ const seedShowEpisodeEntity = (schemas: ShowSeedSchemas, input: ShowEpisodeSeedI
 
 export const seedShowEpisode = (client: Client, input: ShowEpisodeSeedInput) =>
 	loadShowSeedSchemas(client).pipe(
-		Effect.flatMap((schemas) => seedShowEpisodeEntity(schemas, input)),
+		Effect.flatMap((schemas) => seedShowEpisodeEntity(client, schemas, input)),
 	);
 
 /**
@@ -243,6 +254,7 @@ export const seedShow = (
 		const show = yield* seedMediaEntity({
 			userId: null,
 			providerId: null,
+			target: client.target,
 			externalId: `seeded-show-${suffix}`,
 			name: input.name ?? `Show ${suffix}`,
 			entitySchemaSlug: schemas.showSchemaId,
@@ -262,12 +274,14 @@ export const seedShow = (
 			const season = yield* seedMediaEntity({
 				userId: null,
 				providerId: null,
+				target: client.target,
 				properties: { seasonNumber },
 				entitySchemaSlug: schemas.seasonSchemaId,
 				name: `Season ${seasonNumber} ${suffix}`,
 				externalId: `seeded-season-${seasonNumber}-${suffix}`,
 			});
 			yield* insertGlobalRelationship({
+				target: client.target,
 				sourceEntityId: show.id,
 				targetEntityId: season.id,
 				relationshipSchema: schemas.showToSeason,
@@ -275,7 +289,7 @@ export const seedShow = (
 			seasons.push({ ...season, seasonNumber });
 			for (const episode of seasonEpisodes) {
 				episodes.push(
-					yield* seedShowEpisodeEntity(schemas, {
+					yield* seedShowEpisodeEntity(client, schemas, {
 						suffix,
 						episode,
 						seasonNumber,
@@ -327,6 +341,7 @@ export const seedPodcast = (
 		const podcast = yield* seedMediaEntity({
 			userId: null,
 			providerId: null,
+			target: client.target,
 			externalId: `seeded-podcast-${suffix}`,
 			name: input.name ?? `Podcast ${suffix}`,
 			entitySchemaSlug: podcastSchema.schema.id,
@@ -340,6 +355,7 @@ export const seedPodcast = (
 			const entity = yield* seedMediaEntity({
 				userId: null,
 				providerId: null,
+				target: client.target,
 				entitySchemaSlug: episodeSchema.schema.id,
 				name: `Podcast Episode ${episode.episodeNumber} ${suffix}`,
 				externalId: `seeded-podcast-episode-${episode.episodeNumber}-${suffix}`,
@@ -352,6 +368,7 @@ export const seedPodcast = (
 			});
 			yield* insertGlobalRelationship({
 				relationshipSchema,
+				target: client.target,
 				targetEntityId: entity.id,
 				sourceEntityId: podcast.id,
 			});
@@ -369,6 +386,7 @@ export const createGlobalBookEntityFixture = (
 		const entity = yield* seedMediaEntity({
 			userId: null,
 			properties: {},
+			target: client.target,
 			entitySchemaSlug: schema.id,
 			name: options.name ?? `Global Built-in Book ${crypto.randomUUID()}`,
 			externalId: options.externalId ?? `global-book-${crypto.randomUUID()}`,
@@ -406,29 +424,27 @@ export const seedGlobalShowEpisodeTree = (
 
 		const tmdbId = String(Math.floor(Math.random() * 1_000_000_000));
 		const populatedAt = DateTime.formatIso(DateTime.nowUnsafe());
-		const api = getApiClient();
+		const api = getApiClient(client.target);
 		const createGlobalEntity = (input: {
 			name: string;
 			externalId: string;
 			entitySchemaSlug: string;
 			properties: Record<string, unknown>;
 		}) =>
-			api.call(
-				(c) =>
-					c.testSupport.createGlobalEntity({
-						payload: {
-							populatedAt,
-							name: input.name,
-							externalId: input.externalId,
-							properties: input.properties,
-							providerId: SandboxProviderId.make(tmdbProvider.providerId),
-							entitySchema: {
-								owner: showSchema.reference.owner,
-								slug: EntitySchemaSlug.make(input.entitySchemaSlug),
-							},
+			api.adminCall((c) =>
+				c.testSupport.createGlobalEntity({
+					payload: {
+						populatedAt,
+						name: input.name,
+						externalId: input.externalId,
+						properties: input.properties,
+						providerId: SandboxProviderId.make(tmdbProvider.providerId),
+						entitySchema: {
+							owner: showSchema.reference.owner,
+							slug: EntitySchemaSlug.make(input.entitySchemaSlug),
 						},
-					}),
-				adminHeaders(),
+					},
+				}),
 			);
 		const show = yield* createGlobalEntity({
 			externalId: tmdbId,
@@ -448,27 +464,23 @@ export const seedGlobalShowEpisodeTree = (
 			entitySchemaSlug: episodeSchemaId,
 			properties: { seasonNumber: 1, episodeNumber: 2 },
 		});
-		yield* api.call(
-			(c) =>
-				c.testSupport.upsertGlobalRelationship({
-					payload: {
-						sourceEntityId: show.id,
-						targetEntityId: season.id,
-						relationshipSchema: showToSeason.reference,
-					},
-				}),
-			adminHeaders(),
+		yield* api.adminCall((c) =>
+			c.testSupport.upsertGlobalRelationship({
+				payload: {
+					sourceEntityId: show.id,
+					targetEntityId: season.id,
+					relationshipSchema: showToSeason.reference,
+				},
+			}),
 		);
-		yield* api.call(
-			(c) =>
-				c.testSupport.upsertGlobalRelationship({
-					payload: {
-						sourceEntityId: season.id,
-						targetEntityId: episode.id,
-						relationshipSchema: seasonToEpisode.reference,
-					},
-				}),
-			adminHeaders(),
+		yield* api.adminCall((c) =>
+			c.testSupport.upsertGlobalRelationship({
+				payload: {
+					sourceEntityId: season.id,
+					targetEntityId: episode.id,
+					relationshipSchema: seasonToEpisode.reference,
+				},
+			}),
 		);
 
 		return { tmdbId, showId: show.id, seasonId: season.id, episodeId: episode.id };
@@ -528,29 +540,27 @@ export const seedGlobalMovieWithCollection = (
 
 		const tmdbId = String(Math.floor(Math.random() * 1_000_000_000));
 		const populatedAt = DateTime.formatIso(DateTime.nowUnsafe());
-		const api = getApiClient();
+		const api = getApiClient(client.target);
 		const createGlobalEntity = (input: {
 			name: string;
 			externalId: string;
 			entitySchemaSlug: string;
 			properties: Record<string, unknown>;
 		}) =>
-			api.call(
-				(c) =>
-					c.testSupport.createGlobalEntity({
-						payload: {
-							populatedAt,
-							name: input.name,
-							externalId: input.externalId,
-							properties: input.properties,
-							providerId: SandboxProviderId.make(tmdbProvider.providerId),
-							entitySchema: {
-								owner: movieSchema.reference.owner,
-								slug: EntitySchemaSlug.make(input.entitySchemaSlug),
-							},
+			api.adminCall((c) =>
+				c.testSupport.createGlobalEntity({
+					payload: {
+						populatedAt,
+						name: input.name,
+						externalId: input.externalId,
+						properties: input.properties,
+						providerId: SandboxProviderId.make(tmdbProvider.providerId),
+						entitySchema: {
+							owner: movieSchema.reference.owner,
+							slug: EntitySchemaSlug.make(input.entitySchemaSlug),
 						},
-					}),
-				adminHeaders(),
+					},
+				}),
 			);
 
 		const movie = yield* createGlobalEntity({
@@ -572,12 +582,14 @@ export const seedGlobalMovieWithCollection = (
 			properties: options.siblingProperties ?? {},
 		});
 		yield* insertGlobalRelationship({
+			target: client.target,
 			properties: { order: 1 },
 			targetEntityId: movie.id,
 			sourceEntityId: group.id,
 			relationshipSchema: groupToMovie.reference,
 		});
 		yield* insertGlobalRelationship({
+			target: client.target,
 			properties: { order: 2 },
 			sourceEntityId: group.id,
 			targetEntityId: sibling.id,
@@ -607,12 +619,14 @@ export const seedGlobalMovieWithCollection = (
 			externalId: `movie-suggested-${tmdbId}`,
 		});
 		yield* insertGlobalRelationship({
+			target: client.target,
 			targetEntityId: movie.id,
 			sourceEntityId: person.id,
 			relationshipSchema: personToMovie.reference,
 			properties: { order: 1, roles: ["Actor"], character: "The Lead" },
 		});
 		yield* insertGlobalRelationship({
+			target: client.target,
 			targetEntityId: movie.id,
 			sourceEntityId: company.id,
 			relationshipSchema: companyToMovie.reference,
@@ -620,6 +634,7 @@ export const seedGlobalMovieWithCollection = (
 		});
 		yield* insertGlobalRelationship({
 			properties: {},
+			target: client.target,
 			sourceEntityId: movie.id,
 			targetEntityId: suggested.id,
 			relationshipSchema: suggestion.reference,
@@ -681,29 +696,27 @@ export const seedGlobalMusicWithAlbum = (
 
 		const externalId = String(Math.floor(Math.random() * 1_000_000_000));
 		const populatedAt = DateTime.formatIso(DateTime.nowUnsafe());
-		const api = getApiClient();
+		const api = getApiClient(client.target);
 		const createGlobalEntity = (input: {
 			name: string;
 			externalId: string;
 			entitySchemaSlug: string;
 			properties: Record<string, unknown>;
 		}) =>
-			api.call(
-				(c) =>
-					c.testSupport.createGlobalEntity({
-						payload: {
-							populatedAt,
-							name: input.name,
-							externalId: input.externalId,
-							properties: input.properties,
-							providerId: SandboxProviderId.make(musicBrainz.providerId),
-							entitySchema: {
-								owner: musicSchema.reference.owner,
-								slug: EntitySchemaSlug.make(input.entitySchemaSlug),
-							},
+			api.adminCall((c) =>
+				c.testSupport.createGlobalEntity({
+					payload: {
+						populatedAt,
+						name: input.name,
+						externalId: input.externalId,
+						properties: input.properties,
+						providerId: SandboxProviderId.make(musicBrainz.providerId),
+						entitySchema: {
+							owner: musicSchema.reference.owner,
+							slug: EntitySchemaSlug.make(input.entitySchemaSlug),
 						},
-					}),
-				adminHeaders(),
+					},
+				}),
 			);
 
 		const track = yield* createGlobalEntity({
@@ -725,12 +738,14 @@ export const seedGlobalMusicWithAlbum = (
 			properties: options.siblingProperties ?? {},
 		});
 		yield* insertGlobalRelationship({
+			target: client.target,
 			properties: { order: 1 },
 			targetEntityId: track.id,
 			sourceEntityId: album.id,
 			relationshipSchema: albumToMusic.reference,
 		});
 		yield* insertGlobalRelationship({
+			target: client.target,
 			properties: { order: 2 },
 			sourceEntityId: album.id,
 			targetEntityId: sibling.id,
@@ -760,12 +775,14 @@ export const seedGlobalMusicWithAlbum = (
 			externalId: `music-suggested-${externalId}`,
 		});
 		yield* insertGlobalRelationship({
+			target: client.target,
 			targetEntityId: track.id,
 			sourceEntityId: person.id,
 			relationshipSchema: personToMusic.reference,
 			properties: { order: 1, roles: ["Artist"] },
 		});
 		yield* insertGlobalRelationship({
+			target: client.target,
 			targetEntityId: track.id,
 			sourceEntityId: company.id,
 			properties: { order: 1, roles: ["Label"] },
@@ -773,6 +790,7 @@ export const seedGlobalMusicWithAlbum = (
 		});
 		yield* insertGlobalRelationship({
 			properties: {},
+			target: client.target,
 			sourceEntityId: track.id,
 			targetEntityId: suggested.id,
 			relationshipSchema: suggestion.reference,
@@ -828,29 +846,27 @@ export const seedGlobalBookWithSeries = (
 
 		const externalId = String(Math.floor(Math.random() * 1_000_000_000));
 		const populatedAt = DateTime.formatIso(DateTime.nowUnsafe());
-		const api = getApiClient();
+		const api = getApiClient(client.target);
 		const createGlobalEntity = (input: {
 			name: string;
 			externalId: string;
 			entitySchemaSlug: string;
 			properties: Record<string, unknown>;
 		}) =>
-			api.call(
-				(c) =>
-					c.testSupport.createGlobalEntity({
-						payload: {
-							populatedAt,
-							name: input.name,
-							externalId: input.externalId,
-							properties: input.properties,
-							providerId: SandboxProviderId.make(hardcover.providerId),
-							entitySchema: {
-								owner: bookSchema.reference.owner,
-								slug: EntitySchemaSlug.make(input.entitySchemaSlug),
-							},
+			api.adminCall((c) =>
+				c.testSupport.createGlobalEntity({
+					payload: {
+						populatedAt,
+						name: input.name,
+						externalId: input.externalId,
+						properties: input.properties,
+						providerId: SandboxProviderId.make(hardcover.providerId),
+						entitySchema: {
+							owner: bookSchema.reference.owner,
+							slug: EntitySchemaSlug.make(input.entitySchemaSlug),
 						},
-					}),
-				adminHeaders(),
+					},
+				}),
 			);
 
 		const book = yield* createGlobalEntity({
@@ -872,12 +888,14 @@ export const seedGlobalBookWithSeries = (
 			properties: options.siblingProperties ?? {},
 		});
 		yield* insertGlobalRelationship({
+			target: client.target,
 			targetEntityId: book.id,
 			properties: { order: 1 },
 			sourceEntityId: series.id,
 			relationshipSchema: seriesToBook.reference,
 		});
 		yield* insertGlobalRelationship({
+			target: client.target,
 			properties: { order: 2 },
 			sourceEntityId: series.id,
 			targetEntityId: sibling.id,
@@ -907,12 +925,14 @@ export const seedGlobalBookWithSeries = (
 			externalId: `book-suggested-${externalId}`,
 		});
 		yield* insertGlobalRelationship({
+			target: client.target,
 			targetEntityId: book.id,
 			sourceEntityId: person.id,
 			relationshipSchema: personToBook.reference,
 			properties: { order: 1, roles: ["Author"] },
 		});
 		yield* insertGlobalRelationship({
+			target: client.target,
 			targetEntityId: book.id,
 			sourceEntityId: company.id,
 			relationshipSchema: companyToBook.reference,
@@ -920,6 +940,7 @@ export const seedGlobalBookWithSeries = (
 		});
 		yield* insertGlobalRelationship({
 			properties: {},
+			target: client.target,
 			sourceEntityId: book.id,
 			targetEntityId: suggested.id,
 			relationshipSchema: suggestion.reference,
@@ -938,7 +959,7 @@ export const insertLibraryMembership = (
 		const inMediaLibrarySchema = requireRelationshipSchemaBySlug(
 			schemas,
 			"in-media-library",
-			definitionOwner((yield* mediaFixtureInstallation).id),
+			definitionOwner((yield* mediaFixtureInstallation(client.target)).id),
 		);
 
 		yield* createRelationship(client, {
@@ -956,7 +977,7 @@ export const insertMediaMonitoring = (client: Client, entityId: string) =>
 		const monitoringSchema = requireRelationshipSchemaBySlug(
 			schemas,
 			"media-monitoring",
-			definitionOwner((yield* mediaFixtureInstallation).id),
+			definitionOwner((yield* mediaFixtureInstallation(client.target)).id),
 		);
 
 		yield* createRelationship(client, {

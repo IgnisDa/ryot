@@ -155,7 +155,9 @@ export const runDataImportWorkflow = Effect.fn("runDataImportWorkflow")(
 		const execution = yield* IngestionExecution;
 		const database = yield* DatabaseSession;
 		const ownsSettlement = input.command.causation.source === "import";
-		const initial = yield* repository.getIngestionRun(scope).pipe(Effect.mapError(toWorkflowError));
+		const initial = yield* repository
+			.getIngestionRunControl(scope)
+			.pipe(Effect.mapError(toWorkflowError));
 		if (!initial || ["completed", "failed", "cancelled", "expired"].includes(initial.status)) {
 			if (ownsSettlement) {
 				yield* execution.cleanup(scope);
@@ -194,7 +196,7 @@ export const runDataImportWorkflow = Effect.fn("runDataImportWorkflow")(
 								) {
 									return "started" as const;
 								}
-								const run = yield* repository.getIngestionRun(scope);
+								const run = yield* repository.getIngestionRunControl(scope);
 								return run?.status === "cancelling"
 									? ("cancellation-requested" as const)
 									: ("preserved" as const);
@@ -421,7 +423,10 @@ export const runDataImportWorkflow = Effect.fn("runDataImportWorkflow")(
 					})
 					.pipe(Effect.mapError(toWorkflowError)),
 			});
-			if (!settlement && (yield* repository.getIngestionRun(scope))?.status === "cancelling") {
+			if (
+				!settlement &&
+				(yield* repository.getIngestionRunControl(scope))?.status === "cancelling"
+			) {
 				yield* cancel;
 			}
 		});
@@ -488,12 +493,7 @@ export const runDataImportSegmentWorkflow = Effect.fn("runDataImportSegmentWorkf
 			error: ImportRunError,
 			name: "start-data-batch",
 			execute: database
-				.transaction(
-					Effect.gen(function* () {
-						yield* repository.advanceBatch(scope, input.batch.id, "preparing");
-						yield* repository.advanceBatch(scope, input.batch.id, "applying");
-					}),
-				)
+				.transaction(repository.startBatch(scope, input.batch.id))
 				.pipe(Effect.mapError(toWorkflowError)),
 		});
 		const entities = yield* EntitiesService;
@@ -773,7 +773,7 @@ export const runDataImportSegmentWorkflow = Effect.fn("runDataImportSegmentWorkf
 			return undefined;
 		});
 		for (const item of records) {
-			if ((yield* repository.getIngestionRun(scope))?.status !== "running") {
+			if ((yield* repository.getIngestionRunControl(scope))?.status !== "running") {
 				break;
 			}
 			const index = processedItems;

@@ -81,7 +81,6 @@ export type MediaCreatorSchemaDescriptor<
 		readonly historyRecipe: MediaHistoryRecipe<MediaReviewActivityEvent>;
 	};
 	readonly artwork: MediaSummaryArtwork;
-	readonly heroHeight: (compact: boolean) => number;
 	readonly creditSections: readonly MediaCreditSection<Slug>[];
 	readonly nouns: { readonly title: string; readonly singular: string; readonly plural: string };
 	readonly facts: (summary: Summary) => readonly MediaSummaryFact[];
@@ -215,10 +214,8 @@ export const defineCreatorMediaSchema = <
 				entityId={props.entityId}
 				summaryQuery={summaryQuery}
 				overviewQuery={overviewQuery}
-				heroHeight={descriptor.heroHeight}
 				mapSummary={summaryState.mapSummary}
 				overviewAssets={overviewManagedAssets}
-				posterPurpose={descriptor.artwork.purpose}
 			/>
 		);
 	}

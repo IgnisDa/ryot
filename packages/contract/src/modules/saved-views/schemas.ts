@@ -17,7 +17,6 @@ const SavedViewBadRequestReason = Schema.Union([
 	Schema.Struct({ code: Schema.Literal("asset-forbidden") }),
 	Schema.Struct({ code: Schema.Literal("duplicate-name") }),
 	Schema.Struct({ code: Schema.Literal("renderer-not-found") }),
-	Schema.Struct({ code: Schema.Literal("renderer-unpublished") }),
 	Schema.Struct({ code: Schema.Literal("renderer-kind-unavailable") }),
 	Schema.Struct({ installationId: Schema.String, code: Schema.Literal("plugin-not-found") }),
 	Schema.Struct({ message: Schema.String, code: Schema.Literal("settings-incompatible") }),
@@ -29,7 +28,7 @@ const SavedViewBadRequestReason = Schema.Union([
 	Schema.Struct({
 		code: Schema.Literal("invalid-reorder"),
 		references: Schema.Array(SavedViewReference),
-		issue: Schema.Literals(["empty", "duplicate", "unknown-view", "update-failed"]),
+		issue: Schema.Literals(["empty", "duplicate", "unknown-view"]),
 	}),
 ]);
 

@@ -22,7 +22,7 @@ import { RyotContext } from "./provider";
 export const usePagination = <Page, Param>(
 	options: PaginationOptions<Page, Param> & {
 		readonly identity: unknown;
-		readonly enabled?: boolean;
+		readonly enabled?: boolean | undefined;
 	},
 ) => {
 	const [stored, setStored] = useState(() => ({
@@ -115,6 +115,7 @@ export const useRyotInfiniteQuery = <
 		readonly getPageInput: (input: Input, param: Param) => QueryInput;
 		readonly getNextPageParam: PaginationOptions<Page, Param>["getNextPageParam"];
 		readonly mode?: "append" | "replace" | undefined;
+		readonly enabled?: boolean | undefined;
 	},
 ) => {
 	const context = useContext(RyotContext);
@@ -127,18 +128,21 @@ export const useRyotInfiniteQuery = <
 	}
 	const { client, schedule, hostServices } = context;
 	const inputKey = JSON.stringify(input);
+	const enabled = options.enabled !== false;
 	const identity = useMemo(
 		() => ({
 			query,
 			client,
+			enabled,
 			registry,
 			inputKey,
 			mode: options.mode,
 			initialPageParam: options.initialPageParam,
 		}),
-		[query, registry, client, inputKey, options.mode, options.initialPageParam],
+		[query, registry, client, enabled, inputKey, options.mode, options.initialPageParam],
 	);
 	const result = usePagination<Page, Param>({
+		enabled,
 		identity,
 		mode: options.mode,
 		initialPageParam: options.initialPageParam,
@@ -165,7 +169,7 @@ export const useRyotInfiniteQuery = <
 				);
 			}),
 	});
-	usePageRefresh(result.refresh);
+	usePageRefresh(() => (enabled ? result.refresh() : Effect.void));
 	const interests =
 		result.pages.length === 0
 			? [
@@ -187,7 +191,7 @@ export const useRyotInfiniteQuery = <
 		blocked: false,
 		identity: inputKey,
 		onRefresh: result.refresh,
-		enabled: query.entityWatch !== undefined,
+		enabled: query.entityWatch !== undefined && enabled,
 		interest: {
 			visible: [...new Set(interests.flatMap((interest) => interest?.visible ?? []))],
 			foreground: [...new Set(interests.flatMap((interest) => interest?.foreground ?? []))],

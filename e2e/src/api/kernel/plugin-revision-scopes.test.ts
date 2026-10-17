@@ -11,7 +11,6 @@ import { entityDefinitionsRecipe } from "@ryot-app/ryotql-recipes/definitions";
 import { Deferred, Effect, Schema } from "effect";
 
 import {
-	adminHeaders,
 	createAuthenticatedClient,
 	enqueueSandboxScript,
 	executeRyotQLRecipe,
@@ -272,18 +271,15 @@ describe("plugin revision scopes", () => {
 				let activationId = system.activationId;
 				yield* Effect.addFinalizer(() =>
 					getApiClient()
-						.call(
-							(contract) =>
-								contract.testSupport.uninstallSystemPlugin({
-									params: { activationId, pluginId: system.pluginId },
-								}),
-							adminHeaders(),
+						.adminCall((contract) =>
+							contract.testSupport.uninstallSystemPlugin({
+								params: { activationId, pluginId: system.pluginId },
+							}),
 						)
 						.pipe(Effect.ignore),
 				);
-				yield* getApiClient().call(
-					(contract) => contract.testSupport.reconcilePluginInstallations(),
-					adminHeaders(),
+				yield* getApiClient().adminCall((contract) =>
+					contract.testSupport.reconcilePluginInstallations(),
 				);
 				const original = yield* namespaceInstallation(alice.client, system.pluginId);
 				const updated = yield* updateTestSupportSystemPlugin({

@@ -17,7 +17,7 @@ A document has a non-empty `queries` record. Each named query has `from: { table
 }
 ```
 
-The response is `{ data: { [queryName]: result } }`. The complete document validates before execution. Queries run sequentially in declaration order in one repeatable-read, read-only transaction and share one snapshot. Any validation or execution failure fails the request; there are no partial results.
+The response is `{ data: { [queryName]: result } }`. Semantic validation expands row selections and nested includes before opening the execution transaction. Identity binding preserves that fields-only document inside the transaction. Queries run sequentially in declaration order in one repeatable-read, read-only transaction and share one snapshot. Any validation or execution failure fails the request; there are no partial results.
 
 Rows select `{ key, expr }` fields or `{ type: "wildcard", tableAlias }`. A wildcard expands only the approved fields for that alias; hidden physical and authorization columns remain inaccessible. Duplicate output keys fail validation.
 

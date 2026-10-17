@@ -15,10 +15,10 @@ import { mediaActivityDurationLabel } from "./activity-timeline";
 import type { MediaArtworkAspect } from "./entity-presentation";
 import {
 	collectManagedAssetLocators,
+	mediaImageAsset,
 	mediaImageAssets,
 	type MediaImagePurposes,
 	type MediaImages,
-	orderedMediaImageAsset,
 	preferredMediaImageAsset,
 } from "./image";
 import { classifyRyotQueryResult, type MappedRyotQueryState } from "./query-state";
@@ -110,27 +110,18 @@ const RATING_SUFFIX = " / 100";
 
 type MediaImaged = { readonly images: MediaImages };
 
-const DEFAULT_BACKDROP_PURPOSES: MediaImagePurposes = ["backdrop"];
-
 export const mediaPosterAsset = (
 	media: MediaImaged,
 	purpose: MediaImagePurposes[number] = "cover",
 ) => preferredMediaImageAsset(media.images, purpose);
 
-export const mediaBackdropAsset = (
-	media: MediaImaged,
-	purposes: MediaImagePurposes = DEFAULT_BACKDROP_PURPOSES,
-) => orderedMediaImageAsset(media.images, purposes);
+export const mediaBackdropAsset = (media: MediaImaged) => mediaImageAsset(media.images, "backdrop");
 
 export const mediaGalleryAssets = (media: MediaImaged) =>
 	mediaImageAssets(media.images).slice(0, MEDIA_GALLERY_LIMIT);
 
-export const mediaManagedAssets = (media: MediaImaged, purposes?: MediaImagePurposes) =>
-	collectManagedAssetLocators([
-		mediaPosterAsset(media),
-		mediaBackdropAsset(media, purposes),
-		...mediaImageAssets(media.images),
-	]);
+export const mediaManagedAssets = (media: MediaImaged) =>
+	collectManagedAssetLocators(mediaImageAssets(media.images));
 
 export const mediaReleaseLabel = (media: {
 	readonly publishDate: string | null;

@@ -1,3 +1,4 @@
+import type { ContractRequest } from "@ryot-app/contract/client";
 import {
 	collectionFieldLimits,
 	hasCollectionFieldChoices,
@@ -7,7 +8,12 @@ import {
 	CollectionNotFound,
 } from "@ryot-app/contract/modules/collections/schemas";
 import type { EntityId } from "@ryot-app/contract/schema/brands";
-import { createRyotQuery, useRyotQuery } from "@ryot-app/plugin-client-sdk/react";
+import {
+	createRyotMutation,
+	createRyotQuery,
+	useRyotMutation,
+	useRyotQuery,
+} from "@ryot-app/plugin-client-sdk/react";
 import {
 	Button,
 	Checkbox,
@@ -24,12 +30,13 @@ import {
 	collectionHeaderRecipe,
 	type CollectionHeaderResult,
 } from "@ryot-app/ryotql-recipes/collections";
-import { useRouteContext, useRouter } from "@tanstack/react-router";
+import { useRouter } from "@tanstack/react-router";
 import { Effect, Schema } from "effect";
-import { useRef, useState } from "react";
+import { useEffect, useEffectEvent, useRef, useState } from "react";
 
 import { AuthenticatedApiError } from "#/api/authenticated";
 import { CollectionsApi } from "#/api/collections";
+import type { KernelHostServices } from "#/host-services";
 import { CollectionLoadDialog } from "#/modules/collections/collection-load-dialog";
 import {
 	collectionFieldFrom,
@@ -42,6 +49,49 @@ import {
 
 const collectionHeader = createRyotQuery<EntityId, CollectionHeaderResult>(({ input, client }) =>
 	client.data.query(collectionHeaderRecipe({ collectionId: input })),
+);
+
+type SaveRequest =
+	| { readonly action: "create"; readonly request: ContractRequest<"collections", "create"> }
+	| { readonly action: "update"; readonly request: ContractRequest<"collections", "update"> };
+
+const saveCollection = createRyotMutation<
+	{
+		readonly save: SaveRequest;
+		readonly invalidate: () => Promise<void>;
+		readonly onSaved: (collectionId: EntityId) => void;
+	},
+	void,
+	KernelHostServices,
+	AuthenticatedApiError
+>(({ input, hostServices }) =>
+	Effect.gen(function* () {
+		const api = hostServices.runtime.runSync(CollectionsApi);
+		const saved = yield* input.save.action === "create"
+			? api.create(hostServices.scope, input.save.request)
+			: api.update(hostServices.scope, input.save.request);
+		yield* Effect.tryPromise(input.invalidate).pipe(Effect.ignore);
+		input.onSaved(saved.id);
+	}),
+);
+
+const deleteCollection = createRyotMutation<
+	{
+		readonly collectionId: EntityId;
+		readonly invalidate: () => Promise<void>;
+		readonly onDeleted: () => void;
+	},
+	void,
+	KernelHostServices,
+	AuthenticatedApiError
+>(({ input, hostServices }) =>
+	hostServices.runtime
+		.runSync(CollectionsApi)
+		.delete(hostServices.scope, { payload: { collectionId: input.collectionId } })
+		.pipe(
+			Effect.andThen(() => Effect.tryPromise(input.invalidate).pipe(Effect.ignore)),
+			Effect.andThen(() => Effect.sync(input.onDeleted)),
+		),
 );
 
 const defaultInputTypes: Partial<Record<FieldDraft["type"], string>> = {
@@ -229,85 +279,75 @@ function CollectionEditorForm(props: {
 }) {
 	const { header } = props;
 	const router = useRouter();
-	const { scope, runtime } = useRouteContext({ from: "/_authenticated" });
+	const saveMutation = useRyotMutation(saveCollection);
+	const deleteMutation = useRyotMutation(deleteCollection);
 	const deleteTrigger = useRef<HTMLButtonElement>(null);
 	const [name, setName] = useState(header?.name ?? props.initialName);
 	const [description, setDescription] = useState(header?.description ?? "");
 	const [drafts, setDrafts] = useState<ReadonlyArray<FieldDraft>>(() =>
 		(header?.fields ?? []).map(fieldDraftFrom),
 	);
-	const [errors, setErrors] = useState<EditorErrors>(noErrors);
-	const [pending, setPending] = useState<"save" | "delete" | undefined>();
+	const [nameRequired, setNameRequired] = useState(false);
 	const [confirmingDelete, setConfirmingDelete] = useState(false);
-	const [deleteFailed, setDeleteFailed] = useState(false);
-	const api = runtime.runSync(CollectionsApi);
+	const resetMutations = useEffectEvent(() => {
+		saveMutation.reset();
+		deleteMutation.reset();
+	});
+	useEffect(() => () => resetMutations(), []);
 
-	const settle = <A,>(
-		action: "save" | "delete",
-		effect: Effect.Effect<A, unknown>,
-		onSuccess: (value: A) => void,
-		onFailure: (error: unknown) => void,
-	) => {
-		setPending(action);
-		void runtime.runPromise(
-			effect.pipe(
-				Effect.tap(() => Effect.tryPromise(() => router.invalidate()).pipe(Effect.ignore)),
-				Effect.match({
-					onSuccess: (value) => {
-						setPending(undefined);
-						onSuccess(value);
-					},
-					onFailure: (error) => {
-						setPending(undefined);
-						onFailure(error);
-					},
-				}),
-			),
-		);
-	};
+	let errors = noErrors;
+	if (nameRequired) {
+		errors = { ...noErrors, name: "Enter a name." };
+	} else if (saveMutation.error !== null && !saveMutation.isPending) {
+		errors = editorErrors(saveMutation.error);
+	}
 
 	const save = () => {
 		if (name.trim() === "") {
-			setErrors({ ...noErrors, name: "Enter a name." });
+			setNameRequired(true);
 			return;
 		}
-		setErrors(noErrors);
+		setNameRequired(false);
 		const fields = drafts.map(collectionFieldFrom);
 		const trimmedDescription = description.trim();
-		const request =
+		const request: SaveRequest =
 			header === null
-				? api.create(scope, {
-						payload: {
-							fields,
-							name: name.trim(),
-							...(trimmedDescription === "" ? {} : { description: trimmedDescription }),
+				? {
+						action: "create",
+						request: {
+							payload: {
+								fields,
+								name: name.trim(),
+								...(trimmedDescription === "" ? {} : { description: trimmedDescription }),
+							},
 						},
-					})
-				: api.update(scope, {
-						payload: {
-							fields,
-							name: name.trim(),
-							collectionId: header.entityId,
-							description: trimmedDescription === "" ? null : trimmedDescription,
+					}
+				: {
+						action: "update",
+						request: {
+							payload: {
+								fields,
+								name: name.trim(),
+								collectionId: header.entityId,
+								description: trimmedDescription === "" ? null : trimmedDescription,
+							},
 						},
-					});
-		settle(
-			"save",
-			request,
-			(saved) => props.onSaved(saved.id),
-			(error) => setErrors(editorErrors(error)),
-		);
+					};
+		saveMutation.mutate({
+			save: request,
+			onSaved: props.onSaved,
+			invalidate: () => router.invalidate(),
+		});
 	};
 
 	const remove = (collectionId: EntityId) =>
-		settle(
-			"delete",
-			api.delete(scope, { payload: { collectionId } }),
-			() => props.onDeleted(),
-			() => setDeleteFailed(true),
-		);
+		deleteMutation.mutate({
+			collectionId,
+			onDeleted: props.onDeleted,
+			invalidate: () => router.invalidate(),
+		});
 
-	const busy = pending !== undefined;
+	const busy = saveMutation.isPending || deleteMutation.isPending;
 	return (
 		<Dialog
 			size="lg"
@@ -324,7 +364,7 @@ function CollectionEditorForm(props: {
 							ref={deleteTrigger}
 							className="mr-auto"
 							onClick={() => {
-								setDeleteFailed(false);
+								deleteMutation.reset();
 								setConfirmingDelete(true);
 							}}
 						>
@@ -334,7 +374,7 @@ function CollectionEditorForm(props: {
 					<Button disabled={busy} variant="secondary" onClick={props.onClose}>
 						Cancel
 					</Button>
-					<Button onClick={save} disabled={busy} loading={pending === "save"}>
+					<Button onClick={save} disabled={busy} loading={saveMutation.isPending}>
 						{header === null ? "Create collection" : "Save collection"}
 					</Button>
 				</>
@@ -402,14 +442,16 @@ function CollectionEditorForm(props: {
 				<DestructiveConfirmation
 					triggerRef={deleteTrigger}
 					pendingLabel="Deleting..."
-					pending={pending === "delete"}
 					actionLabel="Delete collection"
 					title={`Delete ${header.name}?`}
+					pending={deleteMutation.isPending}
 					onConfirm={() => remove(header.entityId)}
 					onClose={() => setConfirmingDelete(false)}
 					detail="The collection, its memberships, and its history are deleted. The items in it are kept."
 					errorMessage={
-						deleteFailed ? "The collection could not be deleted. Try again." : undefined
+						deleteMutation.error !== null && !deleteMutation.isPending
+							? "The collection could not be deleted. Try again."
+							: undefined
 					}
 				/>
 			) : null}

@@ -133,11 +133,10 @@ describe("Definitions E2E", () => {
 				propertiesSchema: {
 					fields: {
 						description: { type: "string", label: "Description" },
-						membershipPropertiesSchema: {
-							type: "object",
-							properties: {},
-							unknownKeys: "passthrough",
-							label: "Membership Properties Schema",
+						membershipFields: {
+							type: "array",
+							label: "Membership Fields",
+							items: { type: "object", properties: {}, unknownKeys: "passthrough" },
 						},
 					},
 				},

@@ -40,7 +40,6 @@ import type { CollectionsApi } from "#/api/collections";
 import { PagesApi } from "#/api/pages";
 import { KernelApiTestLayer, makeCollectionsApi, makeRyotQLApi } from "#/api/ports.test-layer";
 import type { RyotQLApi } from "#/api/ryotql";
-import { EntitiesService } from "#/modules/entities/service";
 import { createBackInterceptors } from "#/modules/navigation/back-interceptors";
 import { NavigationService } from "#/modules/navigation/service";
 import { PluginOperationsService } from "#/modules/pages/bridge/operations";
@@ -69,11 +68,11 @@ import {
 	makeProviderAddStub,
 	makePublicApiStub,
 	makeStorageStub,
+	ManagedAssetRouteStubs,
 	navigationData,
 	NotificationChannelRouteStubs,
 	OAuthRouteStubs,
 	ProviderAddRouteStubs,
-	SavedViewRouteStubs,
 	ServerStub,
 	theme,
 } from "#/routes/-route-fixtures";
@@ -254,8 +253,7 @@ function mount(options: {
 			options.auth ?? makeAuthStub(),
 			InstanceAdminRouteStubs,
 			ServerStub,
-			SavedViewRouteStubs,
-			Layer.succeed(EntitiesService, { loadRouteProvenance: () => Effect.die("not used") }),
+			ManagedAssetRouteStubs,
 			makePublicApiStub(),
 			KernelApiTestLayer,
 			events.layer,
@@ -2000,10 +1998,7 @@ const favoritesHeader = {
 	name: "Favorites",
 	entityId: "collection-1",
 	properties: {
-		membershipPropertiesSchema: {
-			unknownKeys: "strict",
-			fields: { notes: { position: 0, type: "string", label: "Notes", description: "Notes" } },
-		},
+		membershipFields: [{ key: "notes", type: "text", label: "Notes", required: false }],
 	},
 };
 

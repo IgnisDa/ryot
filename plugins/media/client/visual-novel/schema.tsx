@@ -3,7 +3,6 @@ import { visualNovelRecipes } from "../../shared/visual-novel-recipes";
 import { mediaFlatActivityCopy } from "../media/activity-copy";
 import { mediaActivityTimeLabel } from "../media/activity-timeline";
 import { defineFlatMediaSchema } from "../media/flat-schema";
-import { MEDIA_ART_HEIGHT } from "../media/hero";
 import {
 	mediaDurationFact,
 	mediaDurationLabels,
@@ -26,7 +25,6 @@ export const visualNovelPresentationFacts = (visualNovel: VisualNovelPresentatio
 export const visualNovelSchema = defineFlatMediaSchema({
 	recipes: visualNovelRecipes,
 	facts: visualNovelSummaryFacts,
-	heroHeight: () => MEDIA_ART_HEIGHT,
 	aspect: mediaSchemaAspects["visual-novel"],
 	presentationFacts: visualNovelPresentationFacts,
 	measureFigure: { label: "Time", value: mediaActivityTimeLabel },

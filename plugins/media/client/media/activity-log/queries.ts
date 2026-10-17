@@ -50,7 +50,7 @@ export const showSeasonChoicesQuery = createRyotQuery<
 	),
 );
 
-export const earlierUnwatchedQuery = createRyotQuery<
+export const earlierEpisodesQuery = createRyotQuery<
 	{
 		readonly after: string | null;
 		readonly kind: "show" | "podcast";

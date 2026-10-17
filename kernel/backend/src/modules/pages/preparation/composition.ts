@@ -6,9 +6,14 @@ import type {
 } from "@ryot-app/contract/modules/pages/schemas";
 import { pluginExportSpecifier } from "@ryot-app/plugin-client-contract";
 
+import { kernelRendererModule } from "./kernel-renderers";
+
 export type ArtifactDescription = {
 	readonly files: ReadonlyArray<{ readonly name: string; readonly contentType: string }>;
 };
+
+const missing = (specifier: string) =>
+	new Error(`Client composition export is missing: ${specifier}`);
 
 export const composeClientPage = (input: {
 	readonly identity: ClientPageCompositionIdentity;
@@ -50,11 +55,8 @@ export const composeClientPage = (input: {
 	};
 	for (const contributor of identity.contributors) {
 		if (contributor.kind === "kernel-renderer") {
-			addImport(
-				`@ryot-app/kernel-renderers/${contributor.name}`,
-				file(contributor.artifactHash, "module.js"),
-				"page",
-			);
+			const { binding, specifier } = kernelRendererModule(contributor.name);
+			addImport(specifier, file(contributor.artifactHash, "module.js"), binding);
 		} else {
 			for (const declaration of contributor.exports) {
 				addImport(
@@ -65,17 +67,23 @@ export const composeClientPage = (input: {
 			}
 		}
 	}
-	const module = (specifier: string): ClientCompositionModuleReference => {
+	const module = (reference: ClientCompositionModuleReference) => {
+		if (bindings.get(reference.specifier) !== reference.binding) {
+			throw missing(reference.specifier);
+		}
+		return reference;
+	};
+	const lookup = (specifier: string): ClientCompositionModuleReference => {
 		const binding = bindings.get(specifier);
 		if (!binding) {
-			throw new Error(`Client composition export is missing: ${specifier}`);
+			throw missing(specifier);
 		}
 		return { binding, specifier };
 	};
 	const automaticRegistry = identity.automaticRegistry.map((registration) => ({
 		layout: registration.layout,
 		ownerPluginId: registration.ownerPluginId,
-		module: module(registration.exportSpecifier),
+		module: lookup(registration.exportSpecifier),
 		artifactClosure: registration.artifactClosure,
 		entitySchemaSlug: registration.entitySchemaSlug,
 		stylesheets: registration.artifactClosure.flatMap((hash) =>
@@ -84,46 +92,23 @@ export const composeClientPage = (input: {
 				.map(({ name }) => file(hash, name)),
 		),
 	}));
-	const routes = identity.routeRegistry;
 	let descriptor: ClientPageCompositionManifest["descriptor"];
 	if (identity.application === "plugin-route") {
-		if (!routes) {
-			throw new Error("Plugin-route composition is missing its route registry");
-		}
+		const routes = identity.routes;
 		descriptor = {
 			automaticRegistry,
 			application: "plugin-route",
 			routes: {
 				...(routes.home === undefined ? {} : { home: module(routes.home) }),
-				routes: routes.routes.map(({ path, exportSpecifier }) => ({
+				routes: routes.routes.map(({ path, module: reference }) => ({
 					path,
-					module: module(exportSpecifier),
+					module: module(reference),
 				})),
 				...(routes.notFound ? { notFound: module(routes.notFound) } : {}),
 			},
 		};
 	} else {
-		const contributor = identity.contributors.find(
-			(item) =>
-				item.namespace === identity.entry.contributor &&
-				(item.kind !== "kernel-renderer" || item.entry === identity.entry.path),
-		);
-		if (!contributor) {
-			throw new Error("Client page entry is missing its contributor");
-		}
-		const specifier =
-			contributor.kind === "kernel-renderer"
-				? `@ryot-app/kernel-renderers/${contributor.name}`
-				: identity.selectedExports.find((candidate) => {
-						const declaration = contributor.exports.find(
-							({ name }) => candidate === pluginExportSpecifier(contributor, name),
-						);
-						return declaration?.entry === identity.entry.path && declaration.kind === "page";
-					});
-		if (!specifier) {
-			throw new Error("Client page entry does not match a selected export");
-		}
-		descriptor = { automaticRegistry, application: "page", entry: module(specifier) };
+		descriptor = { automaticRegistry, application: "page", entry: module(identity.entry) };
 	}
 	return {
 		imports,

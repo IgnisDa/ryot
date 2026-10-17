@@ -9,12 +9,12 @@ import {
 	entitySchemaPredicate,
 	eq,
 	gte,
+	isNotNull,
 	join,
 	jsonPath,
 	JsonValue,
 	literal,
 	type Recipe,
-	schemaOwnerPredicate,
 	selectedField,
 	selectedInclude,
 	selectedOptionalRow,
@@ -26,6 +26,7 @@ import type { PluginIdentityReference } from "@ryot-app/plugin-kit/schema";
 import {
 	entityIdentitySelection,
 	property,
+	propertyDate,
 	propertyNumber,
 	workoutDatesSelection,
 } from "./entity-selections";
@@ -143,46 +144,33 @@ export const exerciseListRecipe = defineRecipe(
 	},
 );
 
-export const measurementReadingListRecipe = defineRecipe(
+export const measurementEntryListRecipe = defineRecipe(
 	(
 		input: Pick<Parameters<typeof selectedRows>[1], "after" | "limit"> & {
 			readonly reference: PluginIdentityReference;
 			startAt?: string | undefined;
 		},
 	) => {
-		const event = table("event", "reading");
-		const metric = table("entity", "metric");
+		const entry = table("entity", "entry");
 		return {
-			map: ({ readings }) => Result.succeed(readings),
+			map: ({ entries }) => Result.succeed(entries),
 			queries: {
-				readings: selectedRows(event, {
+				entries: selectedRows(entry, {
 					after: input.after,
 					limit: input.limit,
-					joins: [join("inner", metric, eq(column(event, "entityId"), column(metric, "id")))],
-					orderBy: [
-						descending(column(event, "occurredAt")),
-						ascending(property(metric, "key")),
-						ascending(column(event, "id")),
-					],
+					orderBy: [descending(propertyDate(entry, "occurredAt")), ascending(column(entry, "id"))],
+					selection: {
+						id: selectedField(column(entry, "id"), Schema.String),
+						occurredAt: selectedField(propertyDate(entry, "occurredAt"), Schema.String),
+						comment: selectedField(property(entry, "comment"), Schema.NullOr(Schema.String)),
+					},
 					where: and(
-						schemaOwnerPredicate(event, "eventSchemaPluginId", input.reference),
-						schemaOwnerPredicate(metric, "entitySchemaPluginId", input.reference),
-						eq(column(event, "eventSchemaSlug"), literal("measurement-reading")),
-						eq(column(metric, "entitySchemaSlug"), literal("measurement-metric")),
+						entitySchemaPredicate(entry, "measurement-entry", input.reference),
+						isNotNull(column(entry, "userId")),
 						...(input.startAt === undefined
 							? []
-							: [gte(column(event, "occurredAt"), castDate(literal(input.startAt)))]),
+							: [gte(propertyDate(entry, "occurredAt"), castDate(literal(input.startAt)))]),
 					),
-					selection: {
-						id: selectedField(column(event, "id"), Schema.String),
-						metricId: selectedField(column(metric, "id"), Schema.String),
-						metricName: selectedField(column(metric, "name"), Schema.String),
-						value: selectedField(propertyNumber(event, "value"), Schema.Finite),
-						occurredAt: selectedField(column(event, "occurredAt"), Schema.String),
-						unit: selectedField(property(metric, "unit"), Schema.NullOr(Schema.String)),
-						metricKey: selectedField(property(metric, "key"), Schema.NullOr(Schema.String)),
-						comment: selectedField(property(event, "comment"), Schema.NullOr(Schema.String)),
-					},
 				}),
 			},
 		};
@@ -248,7 +236,7 @@ export const workoutTemplateDetailRecipe = defineRecipe(
 );
 
 export type ExerciseListResult = Recipe.Success<typeof exerciseListRecipe>;
-export type MeasurementReadingListResult = Recipe.Success<typeof measurementReadingListRecipe>;
+export type MeasurementEntryListResult = Recipe.Success<typeof measurementEntryListRecipe>;
 export type WorkoutTemplateListResult = Recipe.Success<typeof workoutTemplateListRecipe>;
 export type WorkoutDetailResult = Recipe.Success<typeof workoutDetailRecipe>;
 export type WorkoutTemplateDetailResult = Recipe.Success<typeof workoutTemplateDetailRecipe>;

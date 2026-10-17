@@ -1,14 +1,13 @@
 import {
-	appSchemaToCollectionFields,
 	type CollectionField,
-	collectionFieldLimits,
 	collectionFieldsToAppSchema,
-	hasCollectionFieldChoices,
+	decodeCollectionFields,
 	type KeyedCollectionField,
+	keyedCollectionFieldIssues,
+	normalizeCollectionField,
 	reservedCollectionFieldKeys,
 } from "@ryot-app/contract/modules/collections/fields";
 import { CollectionBadRequest } from "@ryot-app/contract/modules/collections/schemas";
-import { parseAppSchemaPropertiesSafe } from "@ryot-app/contract/schema/property-values";
 import { Result } from "effect";
 
 const slugOf = (label: string) => {
@@ -31,62 +30,6 @@ const uniqueKey = (base: string, taken: ReadonlySet<string>) => {
 	return `${base}-${suffix}`;
 };
 
-const normalizeField = (field: CollectionField): CollectionField => {
-	const description = field.description?.trim();
-	return {
-		type: field.type,
-		required: field.required,
-		label: field.label.trim(),
-		...(field.key === undefined ? {} : { key: field.key }),
-		...(description ? { description } : {}),
-		...(field.choices === undefined
-			? {}
-			: { choices: field.choices.map((choice) => choice.trim()) }),
-		...(field.defaultValue === undefined ? {} : { defaultValue: field.defaultValue }),
-	};
-};
-
-const fieldIssues = (field: CollectionField, index: number) => {
-	const path = (...segments: ReadonlyArray<string>) => ["fields", String(index), ...segments];
-	const issues: Array<ReadonlyArray<string>> = [];
-	if (field.label === "" || field.label.length > collectionFieldLimits.labelLength) {
-		issues.push(path("label"));
-	}
-	if ((field.description?.length ?? 0) > collectionFieldLimits.descriptionLength) {
-		issues.push(path("description"));
-	}
-	const choices = field.choices;
-	if (hasCollectionFieldChoices(field.type)) {
-		if (
-			!choices ||
-			choices.length === 0 ||
-			choices.length > collectionFieldLimits.choices ||
-			new Set(choices).size !== choices.length
-		) {
-			issues.push(path("choices"));
-		}
-		for (const [choiceIndex, choice] of (choices ?? []).entries()) {
-			if (choice === "" || choice.length > collectionFieldLimits.choiceLength) {
-				issues.push(path("choices", String(choiceIndex)));
-			}
-		}
-	} else if (choices !== undefined) {
-		issues.push(path("choices"));
-	}
-	return issues;
-};
-
-const defaultValueIssue = (field: KeyedCollectionField, index: number) => {
-	if (field.defaultValue === undefined) {
-		return [];
-	}
-	const parsed = parseAppSchemaPropertiesSafe({
-		properties: { [field.key]: field.defaultValue },
-		propertiesSchema: collectionFieldsToAppSchema([field]),
-	});
-	return parsed.success ? [] : [["fields", String(index), "defaultValue"]];
-};
-
 export const prepareCollectionFields = (
 	input: ReadonlyArray<CollectionField>,
 	storedKeys: ReadonlySet<string>,
@@ -101,43 +44,30 @@ export const prepareCollectionFields = (
 			new CollectionBadRequest({ reason: { paths: reserved, code: "reserved-field-key" } }),
 		);
 	}
-	const fields = input.map(normalizeField);
-	const issues: Array<ReadonlyArray<string>> =
-		input.length > collectionFieldLimits.fields ? [["fields"]] : [];
-	const providedKeys = new Set<string>();
-	for (const [index, field] of fields.entries()) {
-		issues.push(...fieldIssues(field, index));
-		if (field.key !== undefined) {
-			if (!storedKeys.has(field.key) || providedKeys.has(field.key)) {
-				issues.push(["fields", String(index), "key"]);
-			}
-			providedKeys.add(field.key);
-		}
-	}
-	const taken = new Set([...storedKeys, ...reservedCollectionFieldKeys]);
+	const fields = input.map(normalizeCollectionField);
+	const providedKeys = new Set(fields.flatMap(({ key }) => (key === undefined ? [] : [key])));
+	const taken = new Set([...storedKeys, ...reservedCollectionFieldKeys, ...providedKeys]);
+	const generatedKeys = new Set<string>();
 	const keyed: Array<KeyedCollectionField> = [];
 	for (const field of fields) {
 		const key = field.key ?? uniqueKey(slugOf(field.label), taken);
+		if (field.key === undefined) {
+			generatedKeys.add(key);
+		}
 		taken.add(key);
 		keyed.push({ ...field, key });
 	}
-	if (issues.length === 0) {
-		issues.push(...keyed.flatMap(defaultValueIssue));
-	}
+	const issues = keyedCollectionFieldIssues(
+		keyed,
+		(key) => storedKeys.has(key) || generatedKeys.has(key),
+	);
 	return issues.length > 0
 		? Result.fail(new CollectionBadRequest({ reason: { paths: issues, code: "invalid-fields" } }))
 		: Result.succeed(keyed);
 };
 
-export const storedCollectionFields = (
-	membershipPropertiesSchema: unknown,
-): Result.Result<ReadonlyArray<KeyedCollectionField>, string> =>
-	membershipPropertiesSchema === undefined || membershipPropertiesSchema === null
-		? Result.succeed([])
-		: appSchemaToCollectionFields(membershipPropertiesSchema);
-
-export const collectionMembershipSchema = (membershipPropertiesSchema: unknown) => {
-	const fields = storedCollectionFields(membershipPropertiesSchema);
+export const collectionMembershipSchema = (membershipFields: unknown) => {
+	const fields = decodeCollectionFields(membershipFields);
 	return Result.isSuccess(fields)
 		? Result.succeed(collectionFieldsToAppSchema(fields.success))
 		: Result.fail(new CollectionBadRequest({ reason: { code: "invalid-collection-schema" } }));

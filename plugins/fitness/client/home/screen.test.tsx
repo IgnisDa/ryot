@@ -127,10 +127,12 @@ const respond = (
 			]),
 		};
 	}
-	if (names.includes("groups")) {
+	if (names.includes("activity")) {
 		return {
-			targets: rows([{ name: "Chest" }, { name: "Neck" }]),
-			groups: aggregate([{ sets: 4, name: "Chest", role: "primary", lastAt: hoursAgo(24 * 4) }]),
+			activity: aggregate([
+				{ id: "chest", name: "Chest", weeklySets: 4, lastTrainedAt: hoursAgo(24 * 4) },
+				{ id: "neck", name: "Neck", weeklySets: 0, lastTrainedAt: null },
+			]),
 		};
 	}
 	if (names.includes("templates")) {
@@ -272,7 +274,7 @@ describe("fitness home", () => {
 				const count = page.queryRequests().length;
 				const previous = page
 					.queryRequests()
-					.findLast((request) => "groups" in request.document.queries);
+					.findLast((request) => "activity" in request.document.queries);
 				yield* Effect.promise(() => clock.advance(HOUR_MS));
 				page.send({ type: "page-refresh" });
 				yield* Effect.promise(() => clock.advance(0));
@@ -290,7 +292,7 @@ describe("fitness home", () => {
 				const refreshed = page
 					.queryRequests()
 					.slice(count)
-					.filter((request) => "groups" in request.document.queries);
+					.filter((request) => "activity" in request.document.queries);
 				expect(refreshed).toHaveLength(1);
 				expect(refreshed[0]?.document).not.toEqual(previous?.document);
 				answerPending();

@@ -36,7 +36,6 @@ export const automationTrigger = snakeCase.table(
 		integrationId: text(),
 		parentTriggerId: text(),
 		id: text().primaryKey(),
-		eventStreamWorkId: text(),
 		depth: integer().notNull(),
 		providerExecutionId: text(),
 		executionId: text().notNull(),

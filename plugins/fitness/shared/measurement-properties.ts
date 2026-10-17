@@ -3,7 +3,15 @@ export const measurementMetricProperties = (key: string, unit: string | undefine
 	...(unit ? { unit } : {}),
 });
 
-export const measurementReadingProperties = (
-	value: number,
+export const measurementEntryProperties = (
+	occurredAt: string,
 	comment: string | null | undefined,
-) => ({ value, ...(comment ? { comment } : {}) });
+) => ({ occurredAt, ...(comment ? { comment } : {}) });
+
+export const measurementEntryEntity = (occurredAt: string, comment: string | null | undefined) => ({
+	name: "Measurement",
+	entitySchemaSlug: "measurement-entry",
+	properties: measurementEntryProperties(occurredAt, comment),
+});
+
+export const measurementReadingProperties = (value: number) => ({ value });

@@ -136,7 +136,7 @@ export class ImportsService extends Context.Service<ImportsService>()("ImportsSe
 		) {
 			const { user, runId, uploadIntentIds } = input;
 			const scope = { runId, userId: user.id, accountGeneration: user.accountGeneration };
-			const run = yield* repository.getIngestionRun(scope).pipe(Effect.orDie);
+			const run = yield* repository.getIngestionRunControl(scope).pipe(Effect.orDie);
 			if (!run) {
 				return yield* new ImportRequestError({ reason: { field: null, code: "invalid-input" } });
 			}
@@ -286,13 +286,6 @@ export class ImportsService extends Context.Service<ImportsService>()("ImportsSe
 					});
 				}
 				claimedUploadIntentIds.push(claim.success.intentId);
-				if (claim.success.locator.type !== "local" || !claim.success.resolvedPath) {
-					yield* cleanupUploads(claimedUploadIntentIds);
-					yield* deleteRun({ runId: run.id, userId: user.id }).pipe(Effect.ignore);
-					return yield* new ImportRequestError({
-						reason: { code: "upload-unavailable", field: sourceFileInput.key },
-					});
-				}
 
 				const safePath = claim.success.resolvedPath;
 

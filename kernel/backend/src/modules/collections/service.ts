@@ -1,5 +1,8 @@
 import type { CurrentUserValue } from "@ryot-app/contract/auth-middleware";
-import { collectionFieldsToAppSchema } from "@ryot-app/contract/modules/collections/fields";
+import {
+	decodeCollectionFields,
+	type KeyedCollectionField,
+} from "@ryot-app/contract/modules/collections/fields";
 import {
 	CollectionBadRequest,
 	CollectionNotFound,
@@ -21,7 +24,7 @@ import {
 } from "@ryot-app/contract/schema/brands";
 import { stableStringify } from "@ryot-app/ts-utils/json";
 import { isObjectRecord } from "@ryot-app/ts-utils/predicates";
-import { Context, Effect, Layer, Result, Schema, Struct } from "effect";
+import { Context, Effect, Layer, Schema, Struct } from "effect";
 import { WorkflowEngine } from "effect/workflow/WorkflowEngine";
 
 import type {
@@ -49,11 +52,7 @@ import {
 	CollectionMembershipWorkflow,
 	type CollectionMembershipWorkflowPayload,
 } from "./collection-membership-workflow";
-import {
-	collectionMembershipSchema,
-	prepareCollectionFields,
-	storedCollectionFields,
-} from "./fields";
+import { collectionMembershipSchema, prepareCollectionFields } from "./fields";
 import { CollectionsRepository } from "./repository";
 import { toCollectionResponse } from "./service-support";
 
@@ -142,19 +141,14 @@ const requireName = (name: string) => {
 
 const collectionProperties = (
 	description: string | null | undefined,
-	fields: Parameters<typeof collectionFieldsToAppSchema>[0],
+	fields: ReadonlyArray<KeyedCollectionField>,
 ) => {
 	const trimmed = trimToNull(description ?? "");
-	return {
-		...(trimmed ? { description: trimmed } : {}),
-		...(fields.length > 0
-			? { membershipPropertiesSchema: collectionFieldsToAppSchema(fields) }
-			: {}),
-	};
+	return { ...(trimmed ? { description: trimmed } : {}), membershipFields: fields };
 };
 
-const storedMembershipSchema = (properties: unknown) =>
-	isObjectRecord(properties) ? properties["membershipPropertiesSchema"] : undefined;
+const storedMembershipFields = (properties: unknown) =>
+	isObjectRecord(properties) ? properties["membershipFields"] : undefined;
 
 export class CollectionsService extends Context.Service<CollectionsService>()(
 	"CollectionsService",
@@ -264,12 +258,15 @@ export class CollectionsService extends Context.Service<CollectionsService>()(
 					return yield* collectionNotFound(payload.collectionId);
 				}
 				const name = yield* requireName(payload.name);
-				const stored = storedCollectionFields(storedMembershipSchema(current.properties));
-				const fields = yield* Effect.fromResult(
-					prepareCollectionFields(
-						payload.fields,
-						new Set(Result.isSuccess(stored) ? stored.success.map(({ key }) => key) : []),
+				const stored = yield* Effect.fromResult(
+					decodeCollectionFields(storedMembershipFields(current.properties)),
+				).pipe(
+					Effect.mapError(
+						() => new CollectionBadRequest({ reason: { code: "invalid-collection-schema" } }),
 					),
+				);
+				const fields = yield* Effect.fromResult(
+					prepareCollectionFields(payload.fields, new Set(stored.map(({ key }) => key))),
 				);
 				yield* assertNameAvailable(user.id, name, current.id);
 				const updated = yield* entities
@@ -361,8 +358,8 @@ export class CollectionsService extends Context.Service<CollectionsService>()(
 						userId,
 						lifecycle,
 						scope: "user",
-						properties: {},
 						entitySchema: entitySchema.entitySchema,
+						properties: collectionProperties(undefined, []),
 					})
 					.pipe(
 						Effect.map(collectionStep),
@@ -417,11 +414,7 @@ export class CollectionsService extends Context.Service<CollectionsService>()(
 						RelationshipBadRequest: invalidMembership,
 						RelationshipNotFound: (error) => Effect.die(error),
 					}),
-					Effect.flatMap((committed) =>
-						committed._tag === "Committed"
-							? committedMembership(pending.membership, committed)
-							: Effect.die("membership commit requires policies"),
-					),
+					Effect.flatMap((committed) => committedMembership(pending.membership, committed)),
 				);
 
 			const membershipStep = Effect.fnUntraced(function* (
@@ -474,7 +467,7 @@ export class CollectionsService extends Context.Service<CollectionsService>()(
 				}
 				const { entity, collection } = yield* resolveMembershipTarget(input);
 				const propertiesSchema = yield* Effect.fromResult(
-					collectionMembershipSchema(storedMembershipSchema(collection.properties)),
+					collectionMembershipSchema(storedMembershipFields(collection.properties)),
 				);
 				const validated = yield* parseAppSchemaProperties({
 					propertiesSchema,

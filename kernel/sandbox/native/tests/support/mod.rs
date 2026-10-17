@@ -83,21 +83,21 @@ pub struct Done {
 impl Done {
     pub fn value(&self) -> Value {
         match &self.outcome {
-            Outcome::Completed(value) => serde_json::from_str(value.get()).expect("json"),
+            Outcome::Completed { value } => serde_json::from_str(value.get()).expect("json"),
             other => panic!("expected completion, got {other:?}"),
         }
     }
 
     pub fn failure(&self) -> (Phase, &str) {
         match &self.outcome {
-            Outcome::Failed(phase, message) => (*phase, message),
+            Outcome::Failed { phase, message } => (*phase, message),
             other => panic!("expected failure, got {other:?}"),
         }
     }
 
     pub fn limit(&self) -> LimitKind {
         match &self.outcome {
-            Outcome::Limit(limit, _) => *limit,
+            Outcome::Limit { limit, .. } => *limit,
             other => panic!("expected a limit, got {other:?}"),
         }
     }

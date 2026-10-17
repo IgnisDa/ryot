@@ -4,7 +4,6 @@ import { useEffect, useEffectEvent, useRef, useState } from "react";
 
 import { PLUGIN_PACKAGE_ID } from "../../shared/plugin-identity";
 import type { WorkoutEditorContextOutputSchema } from "../../shared/workout-editor-context-operations";
-import { workoutEditorSaveOperationSlug } from "../../shared/workout-editor-context-operations";
 import type {
 	WorkoutEditorDraft,
 	WorkoutEditorOccurrence,
@@ -13,7 +12,6 @@ import type {
 import {
 	WorkoutEditorSaveInputSchema,
 	type WorkoutEditorSaveOutput,
-	WorkoutEditorSaveOutputSchema,
 } from "../../shared/workout-editor-operations";
 import {
 	resolveWorkoutLocalPreferences,
@@ -83,6 +81,7 @@ export function useEditorActions(input: {
 	readonly sounds: Editor["sounds"];
 	readonly context: Context | undefined;
 	readonly controller: Editor["controller"];
+	readonly saved: Editor["saved"];
 	readonly draft: WorkoutEditorDraft | undefined;
 	readonly exercises: readonly EditorExercise[] | undefined;
 	readonly closeMedia: () => void;
@@ -92,16 +91,14 @@ export function useEditorActions(input: {
 	readonly onSaved: ((entityId: SavedEntityId) => void) | undefined;
 }) {
 	const { context, exercises, closeMedia, controller, closeOverlay, draft: editorDraft } = input;
-	const { scrollTo } = input;
+	const { saved, scrollTo } = input;
 	const client = useRyot();
 	const schedule = useRyotSchedule();
 	const { pluginId } = client.pluginIdentity(PLUGIN_PACKAGE_ID);
-	const submitting = useRef(false);
 	const addedExerciseId = useRef<string | undefined>(undefined);
 	const [message, setMessage] = useState<string>();
-	const [saved, setSaved] = useState<SavedEntityId>();
 	const [invalid, setInvalid] = useState<InvalidSet>();
-	const [conflict, setConflict] = useState<{ readonly reloadable: boolean }>();
+	const [conflict, setConflict] = useState(false);
 	const local =
 		editorDraft !== undefined && context !== undefined
 			? resolveWorkoutLocalPreferences(editorDraft.localPreferences, context.settings)
@@ -134,6 +131,15 @@ export function useEditorActions(input: {
 		setMessage(text);
 		closeOverlay();
 	};
+	const acknowledgeSave = useEffectEvent(() => {
+		closeMedia();
+		closeOverlay();
+	});
+	useEffect(() => {
+		if (saved !== undefined) {
+			acknowledgeSave();
+		}
+	}, [saved]);
 
 	const save = () => {
 		const current = controller.getSnapshot();
@@ -141,96 +147,56 @@ export function useEditorActions(input: {
 			setMessage("Wait for the attachment upload to finish before saving.");
 			return;
 		}
-		if (submitting.current || context === undefined) {
-			return;
-		}
-		submitting.current = true;
 		run(
 			Effect.gen(function* () {
-				if (saved !== undefined) {
-					if (yield* controller.finish()) {
-						input.onSaved?.(saved);
-					}
-					return;
-				}
-				yield* controller.reconcile();
-				const latest = controller.getSnapshot();
-				if (latest.status !== "ready") {
-					return;
-				}
-				const saveContext = latest.context ?? context;
-				const candidate =
-					latest.draft.submission === undefined
-						? finishWorkoutDraft(latest.draft, schedule.now())
-						: latest.draft;
-				const built = buildWorkoutEditorSaveInput(
-					candidate,
-					{ submissionId: crypto.randomUUID(), submittedAt: toIso(schedule.now()) },
-					{
-						restSettings: saveContext.settings,
-						unitSystem: saveContext.settings.unitSystem,
-						exerciseOverridesById: Object.fromEntries(
-							(exercises ?? []).map((exercise) => [exercise.id, exercise.overrides]),
-						),
-					},
+				const result = yield* controller.save((latest) =>
+					Effect.gen(function* () {
+						const candidate = finishWorkoutDraft(latest.draft, schedule.now());
+						const built = buildWorkoutEditorSaveInput(
+							candidate,
+							{ submissionId: crypto.randomUUID(), submittedAt: toIso(schedule.now()) },
+							{
+								restSettings: latest.context.settings,
+								unitSystem: latest.context.settings.unitSystem,
+								exerciseOverridesById: Object.fromEntries(
+									(exercises ?? []).map((exercise) => [exercise.id, exercise.overrides]),
+								),
+							},
+						);
+						if (built.input === undefined) {
+							blocked(
+								`Check the workout: ${[...new Set(built.issues.map(({ code }) => code.replaceAll("-", " ")))].join(", ")}.`,
+							);
+							return undefined;
+						}
+						const encodedInput = yield* Schema.encodeEffect(
+							Schema.fromJsonString(WorkoutEditorSaveInputSchema),
+						)(built.input);
+						if (new TextEncoder().encode(encodedInput).byteLength > saveLimitBytes) {
+							blocked(
+								"This workout exceeds the 64 KiB save limit. Shorten notes or remove entries before saving. Nothing was truncated.",
+							);
+							return undefined;
+						}
+						return { draft: candidate, input: built.input };
+					}),
 				);
-				if (built.input === undefined) {
-					blocked(
-						`Check the workout: ${[...new Set(built.issues.map(({ code }) => code.replaceAll("-", " ")))].join(", ")}.`,
-					);
+				if (result === undefined) {
 					return;
 				}
-				const encodedInput = yield* Schema.encodeEffect(
-					Schema.fromJsonString(WorkoutEditorSaveInputSchema),
-				)(built.input);
-				if (new TextEncoder().encode(encodedInput).byteLength > saveLimitBytes) {
-					blocked(
-						"This workout exceeds the 64 KiB save limit. Shorten notes or remove entries before saving. Nothing was truncated.",
-					);
-					return;
-				}
-				controller.change(() => candidate);
-				const submission = yield* controller.beginSubmission(built.input);
-				controller.setSaving(true);
-				const result = yield* client.operations
-					.invoke({
-						input: submission,
-						refreshOnSuccess: false,
-						packageId: PLUGIN_PACKAGE_ID,
-						slug: workoutEditorSaveOperationSlug,
-						output: WorkoutEditorSaveOutputSchema,
-						idempotencyKey: submission.submissionId,
-						inputSchema: WorkoutEditorSaveInputSchema,
-					})
-					.pipe(Effect.ensuring(Effect.sync(() => controller.setSaving(false))));
 				if (result.kind === "saved") {
-					setSaved(result.entityId);
-					closeMedia();
-					client.mutationCompleted.hint();
-					closeOverlay();
-					if (yield* controller.finish()) {
-						input.onSaved?.(result.entityId);
-					}
+					input.onSaved?.(result.entityId);
 					return;
 				}
-				const editable = yield* controller.rejectSubmission(result);
-				setConflict(result.kind === "conflict" ? { reloadable: editable } : undefined);
+				setConflict(result.kind === "conflict");
 				closeOverlay();
 				setMessage(saveFailureMessage(result));
-				if (editable) {
-					controller.change((rejected) =>
-						rejected.mode.kind === "live"
-							? { ...rejected, endedAt: undefined, activeDurationStartedAt: toIso(schedule.now()) }
-							: rejected,
-					);
-				}
-			}).pipe(
-				Effect.ensuring(
-					Effect.sync(() => {
-						submitting.current = false;
-					}),
-				),
-			),
+				controller.change((rejected) =>
+					rejected.mode.kind === "live"
+						? { ...rejected, endedAt: undefined, activeDurationStartedAt: toIso(schedule.now()) }
+						: rejected,
+				);
+			}),
 		);
 	};
 
@@ -578,7 +544,7 @@ export function useEditorActions(input: {
 				if (yield* controller.discard()) {
 					yield* controller.start(loaded.draft);
 					onReloaded();
-					setConflict(undefined);
+					setConflict(false);
 					setMessage(undefined);
 					closeOverlay();
 				}
@@ -589,7 +555,6 @@ export function useEditorActions(input: {
 		run,
 		save,
 		local,
-		saved,
 		change,
 		confirm,
 		message,

@@ -2,7 +2,8 @@ import type { ContractPayload } from "@ryot-app/contract/client";
 import { EntityId, EventSchemaSlug } from "@ryot-app/contract/schema/brands";
 import { Effect } from "effect";
 
-import { adminHeaders } from "./admin";
+import type { HarnessTarget } from "~/support/harness-target";
+
 import { type Client, createAuthenticatedClient } from "./auth";
 import { getApiClient } from "./contract-client";
 import { createEntity } from "./entities";
@@ -95,22 +96,21 @@ export const createEventFixture = (
 	});
 
 export const insertGlobalRelationship = (input: {
+	target?: HarnessTarget;
 	sourceEntityId: string;
 	targetEntityId: string;
 	relationshipSchema: ContractPayload<"relationships", "create">["relationshipSchema"];
 	properties?: Record<string, unknown>;
 }) =>
-	getApiClient().call(
-		(c) =>
-			c.testSupport.upsertGlobalRelationship({
-				payload: {
-					properties: input.properties,
-					relationshipSchema: input.relationshipSchema,
-					sourceEntityId: EntityId.make(input.sourceEntityId),
-					targetEntityId: EntityId.make(input.targetEntityId),
-				},
-			}),
-		adminHeaders(),
+	getApiClient(input.target).adminCall((c) =>
+		c.testSupport.upsertGlobalRelationship({
+			payload: {
+				properties: input.properties,
+				relationshipSchema: input.relationshipSchema,
+				sourceEntityId: EntityId.make(input.sourceEntityId),
+				targetEntityId: EntityId.make(input.targetEntityId),
+			},
+		}),
 	);
 
 export const createCourseLessonFilterFixture = Effect.gen(function* () {

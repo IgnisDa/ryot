@@ -3,7 +3,6 @@ import {
 	mediaEpisodicCoveragePercent,
 } from "../../../client/media/episodic-activity-state";
 import { defineEpisodicMediaSchema } from "../../../client/media/episodic-schema";
-import { MEDIA_ART_HEIGHT } from "../../../client/media/hero";
 import { type EpisodicFixtureActivityResult, episodicFixtureRecipes } from "./recipes";
 
 export const episodicFixtureCoverage = (
@@ -39,7 +38,6 @@ export const episodicFixtureSchema = defineEpisodicMediaSchema({
 	presentationFacts: () => [],
 	recipes: episodicFixtureRecipes,
 	coverage: episodicFixtureCoverage,
-	heroHeight: () => MEDIA_ART_HEIGHT,
 	presentationDetail: () => undefined,
 	overviewLoadingDetail: "Fetching the credits for this item.",
 	nouns: { plural: "items", title: "Fixture", singular: "item" },

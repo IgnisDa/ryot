@@ -7,21 +7,14 @@ import { AuthenticatedApi, makeAuthenticatedApi } from "#/api/authenticated";
 import { backupArchiveFileName, BackupsApi } from "#/api/backups";
 import { decodeServerOrigin } from "#/api/origin";
 import type { ApiScope } from "#/api/scope";
-import type { OAuthTokenService } from "#/modules/auth/token-service";
+import { makeOAuthTokenServiceStub } from "#/modules/auth/token-service.test-layer";
 import { type FileDownloadRequest, FileDownloads } from "#/modules/downloads/file";
 
 const scope: ApiScope = { userId: "user-1", serverUrl: decodeServerOrigin("https://ryot.example") };
 const runId = BackupRunId.make("backup_1");
 const accessToken = "test.eyJzdWIiOiJ1c2VyLTEifQ.signature";
 
-const tokens: OAuthTokenService["Service"] = {
-	clear: () => Effect.void,
-	logout: () => Effect.succeed(null),
-	userInfo: () => Effect.succeed(null),
-	accessToken: () => Effect.succeed(accessToken),
-	rejectAuthorization: () => Effect.die("not used"),
-	completeAuthorization: () => Effect.die("not used"),
-};
+const tokens = makeOAuthTokenServiceStub({ accessToken: () => Effect.succeed(accessToken) });
 
 const runDownload = Effect.flatMap(BackupsApi, (api) => api.downloadArchive(scope, runId));
 

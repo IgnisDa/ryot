@@ -11,8 +11,8 @@ import {
 	sourceOutput,
 	writeMediaCapture,
 } from "./collection";
-import { MediaSourceInput, MediaSourceOutput } from "./collection-schemas";
-import { adaptTraktExport } from "./trakt";
+import { MediaSourceInput, MediaSourceOutput, type MediaSourceRecord } from "./collection-schemas";
+import { normalizeTraktRecord, type TraktRecordContext } from "./trakt";
 import { classifyTraktExportName } from "./trakt-files";
 
 export const manifest = defineManifest({
@@ -20,13 +20,10 @@ export const manifest = defineManifest({
 	slug: "import.trakt-export",
 	name: "Collect Trakt export",
 });
-const encoder = new TextEncoder();
-const ListMetadata = Schema.Array(
-	Schema.Struct({
-		name: Schema.String,
-		ids: Schema.Struct({ trakt: Schema.optional(Schema.Finite) }),
-	}),
-);
+const ListMetadata = Schema.Struct({
+	name: Schema.String,
+	ids: Schema.Struct({ trakt: Schema.optional(Schema.Finite) }),
+});
 export default defineScript({
 	manifest,
 	input: MediaSourceInput,
@@ -64,7 +61,16 @@ export default defineScript({
 						)),
 					]
 				: [];
-			const records = [];
+			const lists = new Map<number, string>();
+			const rememberList = (list: typeof ListMetadata.Type) => {
+				if (list.ids.trakt !== undefined) {
+					lists.set(list.ids.trakt, list.name);
+				}
+			};
+			for (const list of yield* Schema.decodeUnknownEffect(Schema.Array(ListMetadata))(metadata)) {
+				rememberList(list);
+			}
+			const records: MediaSourceRecord[] = [];
 			for (let count = 0; count < 20; count++) {
 				const next = yield* read("records", offset);
 				if (!next) {
@@ -77,27 +83,40 @@ export default defineScript({
 				if (!record.section) {
 					throw new Error("Trakt captured record is missing its source file");
 				}
-				if (classifyTraktExportName(record.section)?.kind.type === "list-metadata") {
+				const entry = classifyTraktExportName(record.section);
+				if (!entry) {
+					throw new Error(`Unrecognized Trakt captured source file: ${record.section}`);
+				}
+				if (entry.kind.type === "list-metadata") {
+					const list = yield* Schema.decodeUnknownEffect(ListMetadata)(record.raw);
 					metadata.push(record.raw);
+					rememberList(list);
 					continue;
 				}
-				const archive = {
-					"lists-lists.json": encoder.encode(
-						yield* Schema.encodeEffect(Schema.fromJsonString(Schema.Array(Schema.Unknown)))(
-							metadata,
-						),
-					),
-					[record.section]: encoder.encode(
-						yield* Schema.encodeEffect(Schema.fromJsonString(Schema.Array(Schema.Unknown)))([
-							record.raw,
-						]),
-					),
-				};
+				let context: TraktRecordContext;
+				if (entry.kind.type === "collection") {
+					context = { name: "Owned", type: "collection" };
+				} else if (entry.kind.type === "system-list") {
+					context = {
+						type: "collection",
+						name: entry.name.includes("watchlist") ? "Watchlist" : "Favorites",
+					};
+				} else if (entry.kind.type === "custom-list") {
+					context = {
+						type: "collection",
+						name: lists.get(entry.kind.id) ?? `Trakt List ${entry.kind.id}`,
+					};
+				} else {
+					context = { type: entry.kind.type };
+				}
 				records.push(
-					...normalizeMediaRecords(adaptTraktExport(archive), record.itemIndex, "trakt"),
+					...normalizeMediaRecords(
+						normalizeTraktRecord(record.raw, context),
+						record.itemIndex,
+						"trakt",
+					),
 				);
 			}
-			yield* Schema.decodeUnknownEffect(ListMetadata)(metadata);
 			const carry = yield* Schema.encodeEffect(Schema.fromJsonString(Schema.Array(Schema.Unknown)))(
 				metadata,
 			);

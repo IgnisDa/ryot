@@ -11,6 +11,7 @@ import {
 	parseSidecarOutboundJson,
 	SIDECAR_PROTOCOL_LIMITS,
 	type SidecarInboundFrame,
+	type SidecarInboundLogicalMessage,
 	type SidecarOutboundFrame,
 	SidecarProtocolError,
 } from "./messages";
@@ -45,7 +46,7 @@ type Assembly = {
 	readonly frameType: "done" | "hostCall";
 	readonly count: number;
 	readonly byteLength: number;
-	readonly chunks: Uint8Array[];
+	readonly buffer: Uint8Array;
 	bytes: number;
 	index: number;
 };
@@ -103,14 +104,33 @@ export const makeSidecarFrameReader = ({
 	const clearAssembly = (key: string) => {
 		const assembly = assemblies.get(key);
 		if (assembly !== undefined) {
-			bufferedBytes -= assembly.bytes;
+			bufferedBytes -= assembly.byteLength;
 			assemblies.delete(key);
 		}
+	};
+
+	const clearHandleAssemblies = (handle: string) => {
+		for (const [key, assembly] of assemblies) {
+			if (assembly.envelope.handle === handle) {
+				clearAssembly(key);
+			}
+		}
+	};
+
+	const reset = () => {
+		closed = true;
+		assemblies.clear();
+		body = undefined;
+		bufferedBytes = 0;
+		headerBytes = 0;
+		bodyBytes = 0;
 	};
 
 	const invalidActive = (handle: string, message: string, key?: string) => {
 		if (key !== undefined) {
 			clearAssembly(key);
+		} else {
+			clearHandleAssemblies(handle);
 		}
 		if (isActive(handle)) {
 			onInvalid(handle, message);
@@ -119,6 +139,7 @@ export const makeSidecarFrameReader = ({
 
 	const fail = (error: SidecarProtocolError): never => {
 		failure = error;
+		reset();
 		throw error;
 	};
 
@@ -160,16 +181,20 @@ export const makeSidecarFrameReader = ({
 			if (assemblies.size >= maximumAssemblies) {
 				fail(protocolError("framing", `pending assembly count exceeds ${maximumAssemblies}`));
 			}
+			if (bufferedBytes + frame.byteLength > maximumBufferedBytes) {
+				fail(protocolError("framing", `pending bytes exceed ${maximumBufferedBytes}`));
+			}
 			assembly = {
 				bytes: 0,
 				index: 0,
-				chunks: [],
 				count: frame.count,
 				frameType: frame.frameType,
 				byteLength: frame.byteLength,
+				buffer: new Uint8Array(frame.byteLength),
 				envelope: { seq: frame.seq, handle: frame.handle, generation: frame.generation },
 			};
 			assemblies.set(key, assembly);
+			bufferedBytes += assembly.byteLength;
 		}
 		if (
 			frame.index !== assembly.index ||
@@ -197,36 +222,24 @@ export const makeSidecarFrameReader = ({
 			invalidActive(frame.handle, "part data is not base64", key);
 			return;
 		}
-		const part = decoded.success;
-		assembly.chunks.push(part);
-		assembly.bytes += part.byteLength;
+		assembly.buffer.set(decoded.success, assembly.bytes);
+		assembly.bytes += decoded.success.byteLength;
 		assembly.index += 1;
-		bufferedBytes += part.byteLength;
 		if (assembly.index < assembly.count) {
 			return;
 		}
-		if (bufferedBytes + assembly.byteLength > maximumBufferedBytes) {
-			fail(protocolError("framing", `pending bytes exceed ${maximumBufferedBytes}`));
-		}
-		const logicalBytes = new Uint8Array(assembly.byteLength);
-		let offset = 0;
-		for (const chunk of assembly.chunks) {
-			logicalBytes.set(chunk, offset);
-			offset += chunk.byteLength;
-		}
-		clearAssembly(key);
-		bufferedBytes += logicalBytes.byteLength;
 		let logicalFrame: SidecarOutboundFrame;
 		try {
-			logicalFrame = decodeSidecarOutboundLogicalMessage(logicalBytes);
+			logicalFrame = decodeSidecarOutboundLogicalMessage(assembly.buffer);
 		} catch (error) {
 			invalidActive(
 				frame.handle,
 				error instanceof Error ? error.message : "invalid assembled logical message",
+				key,
 			);
 			return;
 		} finally {
-			bufferedBytes -= logicalBytes.byteLength;
+			clearAssembly(key);
 		}
 		if (
 			logicalFrame.type !== assembly.frameType ||
@@ -298,21 +311,8 @@ export const makeSidecarFrameReader = ({
 	};
 
 	return {
-		close() {
-			closed = true;
-			assemblies.clear();
-			body = undefined;
-			bufferedBytes = 0;
-			headerBytes = 0;
-			bodyBytes = 0;
-		},
-		retire(handle: string) {
-			for (const [key, assembly] of assemblies) {
-				if (assembly.envelope.handle === handle) {
-					clearAssembly(key);
-				}
-			}
-		},
+		close: reset,
+		retire: clearHandleAssemblies,
 		feed(bytes: Uint8Array) {
 			if (closed) {
 				throw failure ?? protocolError("framing", "reader is closed");
@@ -361,9 +361,11 @@ export const makeSidecarFrameReader = ({
 				try {
 					processPayload(completeBody);
 				} finally {
-					body = undefined;
-					bodyBytes = 0;
-					bufferedBytes -= completeBody.byteLength;
+					if (body === completeBody) {
+						body = undefined;
+						bodyBytes = 0;
+						bufferedBytes -= completeBody.byteLength;
+					}
 				}
 			}
 		},
@@ -374,7 +376,7 @@ type QueuedMessage = {
 	readonly handle: string;
 	readonly lane: ExecutionLane | undefined;
 	readonly queue: "run" | "control" | ExecutionLane;
-	readonly frame: SidecarInboundFrame;
+	readonly frame: SidecarInboundLogicalMessage;
 	readonly payload: Uint8Array;
 	readonly count: number;
 	readonly released: (() => void) | undefined;
@@ -386,38 +388,7 @@ type QueuedMessage = {
 
 type CurrentFrame = { readonly message: QueuedMessage; readonly bytes: Uint8Array; offset: number };
 
-const messageCategory = (frame: SidecarInboundFrame): "run" | "control" => {
-	if (frame.type === "run") {
-		return "run";
-	}
-	if (frame.type === "part") {
-		if (frame.frameType !== "run" && frame.frameType !== "hostResult") {
-			throw protocolError("payload", `inbound part type ${frame.frameType} is not supported`);
-		}
-		const maximumBytes = SIDECAR_PROTOCOL_LIMITS.messageBytes[frame.frameType];
-		const partLength = base64DecodedLength(frame.data);
-		const expectedCount = Math.ceil(frame.byteLength / maximumPartBytes);
-		const expectedPartLength = Math.min(
-			maximumPartBytes,
-			frame.byteLength - frame.index * maximumPartBytes,
-		);
-		if (
-			frame.byteLength > maximumBytes ||
-			frame.count !== expectedCount ||
-			partLength === 0 ||
-			partLength !== expectedPartLength
-		) {
-			throw protocolError("payload", "inbound part metadata does not match its payload");
-		}
-		if (frame.frameType === "run") {
-			return "run";
-		}
-		return "control";
-	}
-	return "control";
-};
-
-const partCount = (frame: SidecarInboundFrame, payload: Uint8Array) =>
+const partCount = (frame: SidecarInboundLogicalMessage, payload: Uint8Array) =>
 	(frame.type === "run" || frame.type === "hostResult") && payload.byteLength > maximumFrameBytes
 		? Math.ceil(payload.byteLength / maximumPartBytes)
 		: 1;
@@ -612,7 +583,7 @@ export const makeSidecarFrameWriter = ({
 				}
 			}
 		},
-		enqueue(frame: SidecarInboundFrame, released?: () => void) {
+		enqueue(frame: SidecarInboundLogicalMessage, released?: () => void) {
 			if (closed) {
 				throw protocolError("framing", "writer is closed");
 			}
@@ -635,7 +606,7 @@ export const makeSidecarFrameWriter = ({
 			if (payload.byteLength > logicalCap) {
 				throw protocolError("payload", `logical ${frame.type} message exceeds ${logicalCap} bytes`);
 			}
-			let queue: QueuedMessage["queue"] = messageCategory(frame);
+			let queue: QueuedMessage["queue"] = frame.type === "run" ? "run" : "control";
 			const handleLane = lane(frame.handle);
 			if (frame.type === "hostResult") {
 				if (handleLane === undefined) {

@@ -22,7 +22,7 @@ import { seedGlobalMediaGenres } from "~/fixtures/plugins/media/genres";
 import { requirePresent } from "~/support/assertions";
 import { signInThroughHostedOAuth } from "~/support/browser";
 import { expect, it } from "~/support/effect-test";
-import { getApiUrl, getFrontendUrl } from "~/support/harness-target";
+import { getFrontendUrl } from "~/support/harness-target";
 
 const MOVIE_COVER = `<svg xmlns="http://www.w3.org/2000/svg" width="60" height="90"><rect width="60" height="90" fill="#2563eb"/></svg>`;
 
@@ -48,13 +48,12 @@ const sectionTitles = (media: Playwright.FrameLocator) =>
 
 it.live("renders a populated Movie detail with its collection rail", () =>
 	Effect.gen(function* () {
-		const apiUrl = getApiUrl();
 		const frontendUrl = getFrontendUrl();
 		const suffix = crypto.randomUUID();
 		const movieName = `Browser Tracer Movie ${suffix}`;
 		const siblingName = `Browser Tracer Sequel ${suffix}`;
 		const collectionName = `Browser Tracer Collection ${suffix}`;
-		const { email, client, password } = yield* createAuthenticatedClient(apiUrl);
+		const { email, client, password } = yield* createAuthenticatedClient();
 		const cover = { type: "remote" as const, url: "https://images.test/movie-cover.svg" };
 		const siblingCover = { type: "remote" as const, url: "https://images.test/movie-sibling.svg" };
 		const seeded = yield* seedGlobalMovieWithCollection(client, {
@@ -186,13 +185,12 @@ it.live("renders a populated Movie detail with its collection rail", () =>
 
 it.live("keeps the collection rail for a Movie with no credits or recommendations", () =>
 	Effect.gen(function* () {
-		const apiUrl = getApiUrl();
 		const frontendUrl = getFrontendUrl();
 		const suffix = crypto.randomUUID();
 		const movieName = `Bare Tracer Movie ${suffix}`;
 		const siblingName = `Bare Tracer Sequel ${suffix}`;
 		const collectionName = `Bare Tracer Collection ${suffix}`;
-		const { email, client, password } = yield* createAuthenticatedClient(apiUrl);
+		const { email, client, password } = yield* createAuthenticatedClient();
 		const seeded = yield* seedGlobalMovieWithCollection(client, {
 			movieName,
 			siblingName,
@@ -234,11 +232,10 @@ it.live("keeps the collection rail for a Movie with no credits or recommendation
 
 it.live("renders the Movie presentation facts in the canonical saved view", () =>
 	Effect.gen(function* () {
-		const apiUrl = getApiUrl();
 		const frontendUrl = getFrontendUrl();
 		const suffix = crypto.randomUUID();
 		const movieName = `Row Tracer Movie ${suffix}`;
-		const { email, client, password } = yield* createAuthenticatedClient(apiUrl);
+		const { email, client, password } = yield* createAuthenticatedClient();
 		const seeded = yield* seedGlobalMovieWithCollection(client, {
 			movieName,
 			siblingName: `Row Tracer Sequel ${suffix}`,
@@ -279,11 +276,10 @@ it.live("renders the Movie presentation facts in the canonical saved view", () =
 
 it.live("logs a finished Movie from the Log activity sheet without a reload", () =>
 	Effect.gen(function* () {
-		const apiUrl = getApiUrl();
 		const frontendUrl = getFrontendUrl();
 		const suffix = crypto.randomUUID();
 		const movieName = `Logger Tracer Movie ${suffix}`;
-		const { email, client, password } = yield* createAuthenticatedClient(apiUrl);
+		const { email, client, password } = yield* createAuthenticatedClient();
 		const seeded = yield* seedGlobalMovieWithCollection(client, {
 			movieName,
 			siblingName: `Logger Tracer Sequel ${suffix}`,
@@ -335,12 +331,11 @@ it.live("logs a finished Movie from the Log activity sheet without a reload", ()
 
 it.live("suggests the user's Where you consume list in the Log activity sheet and grows it", () =>
 	Effect.gen(function* () {
-		const apiUrl = getApiUrl();
 		const frontendUrl = getFrontendUrl();
 		const suffix = crypto.randomUUID();
 		const movieName = `Source Tracer Movie ${suffix}`;
 		const source = `Source ${suffix.slice(0, 8)}`;
-		const { email, client, password } = yield* createAuthenticatedClient(apiUrl);
+		const { email, client, password } = yield* createAuthenticatedClient();
 		const seeded = yield* seedGlobalMovieWithCollection(client, {
 			movieName,
 			siblingName: `Source Tracer Sequel ${suffix}`,
@@ -399,11 +394,10 @@ it.live("suggests the user's Where you consume list in the Log activity sheet an
 
 it.live("fits an untracked Movie detail and its Log activity sheet to a phone width", () =>
 	Effect.gen(function* () {
-		const apiUrl = getApiUrl();
 		const frontendUrl = getFrontendUrl();
 		const suffix = crypto.randomUUID();
 		const movieName = `Phone Tracer Movie ${suffix}`;
-		const { email, client, password } = yield* createAuthenticatedClient(apiUrl);
+		const { email, client, password } = yield* createAuthenticatedClient();
 		const seeded = yield* seedGlobalMovieWithCollection(client, {
 			movieName,
 			withCredits: true,

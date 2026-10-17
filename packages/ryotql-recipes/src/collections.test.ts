@@ -131,12 +131,7 @@ describe("collections recipes", () => {
 				}),
 			);
 
-		expect(
-			decodeHeader({
-				description: "Shelf",
-				membershipPropertiesSchema: collectionFieldsToAppSchema(fields),
-			}),
-		).toEqual({
+		expect(decodeHeader({ description: "Shelf", membershipFields: fields })).toEqual({
 			fields,
 			name: "Favorites",
 			description: "Shelf",
@@ -150,7 +145,7 @@ describe("collections recipes", () => {
 			entityId: "collection-1",
 			membershipPropertiesSchema: null,
 		});
-		expect(decodeHeader({ membershipPropertiesSchema })).toEqual({
+		expect(decodeHeader({ membershipFields: membershipPropertiesSchema })).toEqual({
 			fields: null,
 			description: null,
 			name: "Favorites",

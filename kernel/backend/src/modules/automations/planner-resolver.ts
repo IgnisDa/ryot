@@ -45,7 +45,13 @@ type PlannerPlugin = {
 type TransactionCatalogMemo = {
 	readonly lockedSets: Set<string>;
 	readonly catalogs: Map<UserId | null, ReadonlyArray<PlannerPlugin>>;
+	readonly scripts: Map<string, PlannedAutomationScript>;
 };
+
+const scriptKey = (pluginRevisionId: string, slug: string) =>
+	JSON.stringify([pluginRevisionId, slug]);
+
+type SelectedHook = { hook: PluginHook; plugin: PlannerPlugin };
 
 const plannerPluginFields = {
 	hooks: tables.pluginRevision.hooks,
@@ -265,7 +271,11 @@ export class AutomationPlannerResolver extends Context.Service<AutomationPlanner
 				if (existing) {
 					return existing;
 				}
-				const created: TransactionCatalogMemo = { catalogs: new Map(), lockedSets: new Set() };
+				const created: TransactionCatalogMemo = {
+					scripts: new Map(),
+					catalogs: new Map(),
+					lockedSets: new Set(),
+				};
 				memos.set(db, created);
 				return created;
 			};
@@ -293,6 +303,58 @@ export class AutomationPlannerResolver extends Context.Service<AutomationPlanner
 						const resolved = yield* catalogUncached(userId);
 						memo.catalogs.set(userId, resolved);
 						return resolved;
+					}),
+				);
+			});
+			const materialize = Effect.fn(function* (selected: ReadonlyArray<SelectedHook>) {
+				return yield* session.run((db) =>
+					Effect.gen(function* () {
+						const memo = memoFor(db);
+						const missing = new Map(
+							selected
+								.map(({ hook, plugin }) => ({
+									slug: hook.scriptSlug,
+									pluginRevisionId: plugin.pluginRevisionId,
+								}))
+								.filter(
+									({ slug, pluginRevisionId }) =>
+										!memo.scripts.has(scriptKey(pluginRevisionId, slug)),
+								)
+								.map((reference) => [
+									scriptKey(reference.pluginRevisionId, reference.slug),
+									reference,
+								]),
+						);
+						if (missing.size) {
+							const scripts = yield* db
+								.select({ ...plannedScriptFields, pluginRevisionId: tables.pluginRevision.id })
+								.from(tables.sandboxScript)
+								.innerJoin(
+									tables.pluginRevision,
+									eq(tables.pluginRevision.id, tables.sandboxScript.pluginRevisionId),
+								)
+								.where(
+									or(
+										...[...missing.values()].map(({ slug, pluginRevisionId }) =>
+											and(
+												eq(tables.sandboxScript.pluginRevisionId, pluginRevisionId),
+												eq(tables.sandboxScript.slug, slug),
+											),
+										),
+									),
+								);
+							for (const script of scripts) {
+								memo.scripts.set(scriptKey(script.pluginRevisionId, script.slug), script);
+							}
+						}
+						return yield* Effect.forEach(selected, ({ hook, plugin }) => {
+							const script = memo.scripts.get(scriptKey(plugin.pluginRevisionId, hook.scriptSlug));
+							return script?.metadata.kind === "automation"
+								? Effect.succeed({ hook, plugin, script })
+								: Effect.fail(
+										new DbError({ message: `Missing automation script ${plugin.id}/${hook.slug}` }),
+									);
+						});
 					}),
 				);
 			});
@@ -350,6 +412,7 @@ export class AutomationPlannerResolver extends Context.Service<AutomationPlanner
 					return result;
 				}
 				const isBatch = trigger.kind.operation === "batch";
+				const selected: SelectedHook[] = [];
 				for (const plugin of available) {
 					for (const hook of plugin.hooks) {
 						if (
@@ -410,25 +473,17 @@ export class AutomationPlannerResolver extends Context.Service<AutomationPlanner
 								message: `Invalid automation hook script ${plugin.id}/${hook.slug}`,
 							});
 						}
-						const [script] = yield* session.run((db) =>
-							db
-								.select(plannedScriptFields)
-								.from(tables.sandboxScript)
-								.where(
-									and(
-										eq(tables.sandboxScript.pluginRevisionId, plugin.pluginRevisionId),
-										eq(tables.sandboxScript.slug, hook.scriptSlug),
-									),
-								),
-						);
-						if (script?.metadata.kind !== "automation") {
-							return yield* new DbError({
-								message: `Missing automation script ${plugin.id}/${hook.slug}`,
-							});
-						}
-						result.push({ hook, plugin, script, executionUserId });
+						selected.push({ hook, plugin });
 					}
 				}
+				result.push(
+					...(yield* materialize(selected)).map(({ hook, plugin, script }) => ({
+						hook,
+						plugin,
+						script,
+						executionUserId,
+					})),
+				);
 				if (
 					kernelSignal?.catalogState === "active" &&
 					signal?.signalSchemaSlug === "integration.disabled" &&
@@ -477,7 +532,7 @@ export class AutomationPlannerResolver extends Context.Service<AutomationPlanner
 				source: AutomationTrigger["causation"]["source"];
 			}) {
 				const available = yield* catalog(input.userId);
-				const selected: BatchHookPin[] = [];
+				const selected: SelectedHook[] = [];
 				for (const plugin of available) {
 					for (const hook of plugin.hooks) {
 						if (
@@ -496,35 +551,19 @@ export class AutomationPlannerResolver extends Context.Service<AutomationPlanner
 								message: `Invalid batch hook script ${plugin.id}/${hook.slug}`,
 							});
 						}
-						const [script] = yield* session.run((db) =>
-							db
-								.select(plannedScriptFields)
-								.from(tables.sandboxScript)
-								.where(
-									and(
-										eq(tables.sandboxScript.pluginRevisionId, plugin.pluginRevisionId),
-										eq(tables.sandboxScript.slug, hook.scriptSlug),
-									),
-								),
-						);
-						if (script?.metadata.kind !== "automation") {
-							return yield* new DbError({
-								message: `Missing batch hook script ${plugin.id}/${hook.slug}`,
-							});
-						}
-						selected.push({
-							hook,
-							scriptSlug: script.slug,
-							sandboxScriptId: script.id,
-							executionUserId: input.userId,
-							pluginId: PluginId.make(plugin.id),
-							scriptContentHash: script.contentHash,
-							pluginRevisionId: plugin.pluginRevisionId,
-							pluginConfigRevisionId: plugin.pluginConfigRevisionId,
-						});
+						selected.push({ hook, plugin });
 					}
 				}
-				return selected;
+				return (yield* materialize(selected)).map(({ hook, plugin, script }): BatchHookPin => ({
+					payload: { hook, scriptSlug: script.slug, scriptContentHash: script.contentHash },
+					references: {
+						scopeUserId: input.userId,
+						sandboxScriptId: script.id,
+						pluginId: PluginId.make(plugin.id),
+						pluginRevisionId: plugin.pluginRevisionId,
+						pluginConfigRevisionId: plugin.pluginConfigRevisionId,
+					},
+				}));
 			});
 			return { resolve, lockCatalog, resolveBatchCandidates };
 		}),

@@ -375,8 +375,9 @@ layer(layerFor([systemInstallation("sample")]))((test) => {
 			const userId = UserId.make("user-1");
 			const accountGeneration = { userId, token: "test-account-generation" };
 			yield* dispatcher.dispatchAll(userId, accountGeneration);
-			yield* dispatcher.dispatchAll(userId, accountGeneration, "reset-operation-1");
-			yield* dispatcher.dispatchAll(userId, accountGeneration, "reset-operation-1");
+			const recreatedGeneration = { userId, token: "recreated-account-generation" };
+			yield* dispatcher.dispatchAll(userId, recreatedGeneration);
+			yield* dispatcher.dispatchAll(userId, recreatedGeneration);
 			expect(executionIds[1]).not.toBe(executionIds[0]);
 			expect(executionIds[2]).toBe(executionIds[1]);
 		});

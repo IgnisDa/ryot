@@ -1,15 +1,14 @@
 import { Schema } from "@ryot-app/plugin-backend-sdk/effect";
 
 import { MediaSandboxError } from "../lib/failures";
-import { getOrCreateMediaEntityGroup, type ImportMediaEntityGroupBuilder } from "./groups";
+import type { ImportMediaEntityGroupBuilder } from "./groups";
 import {
 	addCollectionMembership,
+	createBacklogEvent,
 	createCompleteEvent,
 	createReviewEvent,
-	finalizeEntityGroups,
 } from "./helpers";
-import type { ImportEntityRef, MediaImportAdapterFailure } from "./schemas";
-import { classifyTraktExportName } from "./trakt-files";
+import type { ImportEntityRef, ImportMediaEvent, MediaIntegrationAdapterResult } from "./schemas";
 
 const Ids = Schema.Struct({
 	slug: Schema.optional(Schema.String),
@@ -39,28 +38,12 @@ const ExportItem = Schema.Struct({
 	rating: Schema.optional(Schema.Finite),
 	comment: Schema.optional(ExportComment),
 	rated_at: Schema.optional(Schema.String),
+	listed_at: Schema.optional(Schema.String),
 	watched_at: Schema.optional(Schema.String),
 	season: Schema.optional(ExportCoordinates),
 	episode: Schema.optional(ExportCoordinates),
 });
 type ExportItem = typeof ExportItem.Type;
-const ExportList = Schema.Struct({
-	ids: Ids,
-	name: Schema.String,
-	description: Schema.optional(Schema.String),
-});
-
-const decodeExportEntry = <A>(
-	name: string,
-	bytes: Uint8Array,
-	schema: Schema.Schema<A> & Schema.Decoder<A>,
-) => {
-	try {
-		return Schema.decodeUnknownSync(schema)(JSON.parse(new TextDecoder().decode(bytes)));
-	} catch (error) {
-		throw new Error(`Invalid JSON in Trakt export entry ${name}`, { cause: error });
-	}
-};
 
 const exportCoordinates = (item: ExportItem) =>
 	item.episode?.season !== undefined && item.episode.number !== undefined
@@ -77,147 +60,119 @@ const exportReviewTarget = (item: ExportItem) =>
 		? undefined
 		: { type: "show-season" as const, seasonNumber: item.season.number });
 
-export const adaptTraktExport = (archive: Record<string, Uint8Array>) => {
-	const entries = Object.entries(archive)
-		.flatMap(([path, bytes]) => {
-			const classified = classifyTraktExportName(path);
-			return classified ? [{ ...classified, bytes }] : [];
-		})
-		.sort(
-			(left, right) =>
-				left.kind.order - right.kind.order ||
-				(left.kind.type === "custom-list" && right.kind.type === "custom-list"
-					? left.kind.id - right.kind.id
-					: 0) ||
-				left.page - right.page ||
-				left.name.localeCompare(right.name),
-		);
-	if (entries.length === 0) {
-		throw new Error("Trakt export ZIP does not contain any recognized files");
+export type TraktRecordContext =
+	| { type: "history" | "rating" | "comment" }
+	| { type: "collection"; name: string }
+	| { type: "backlog"; importedAt: string };
+
+export const TraktApiKind = Schema.Literals([
+	"lists",
+	"list",
+	"collection",
+	"watchlist",
+	"history",
+	"rating",
+]);
+
+export const traktApiRecordContext = (
+	kind: Exclude<typeof TraktApiKind.Type, "lists">,
+	listName: string,
+	importedAt: string,
+): TraktRecordContext => {
+	if (kind === "list") {
+		return { name: listName, type: "collection" };
 	}
-
-	const lists = new Map<number, string>();
-	for (const entry of entries) {
-		if (entry.kind.type !== "list-metadata") {
-			continue;
-		}
-		for (const list of decodeExportEntry(entry.name, entry.bytes, Schema.Array(ExportList))) {
-			if (typeof list.ids.trakt === "number") {
-				lists.set(list.ids.trakt, list.name);
-			}
-		}
+	if (kind === "collection") {
+		return { name: "Owned", type: "collection" };
 	}
+	if (kind === "watchlist") {
+		return { importedAt, type: "backlog" };
+	}
+	return { type: kind };
+};
 
-	const failures: MediaImportAdapterFailure[] = [];
-	const groups = new Map<string, ImportMediaEntityGroupBuilder>();
-	let itemIndex = 0;
-	const fail = (item: ExportItem, currentIndex: number, message: string) => {
-		const source = item.movie ?? item.show;
-		failures.push({
-			message,
-			itemIndex: currentIndex,
-			sourceLabel: source?.title,
-			sourceIdentifier:
-				typeof source?.ids.trakt === "number" ? String(source.ids.trakt) : undefined,
-		});
-	};
-	const groupFor = (item: ExportItem, currentIndex: number) => {
-		let entitySchemaSlug: "movie" | "show" | undefined;
-		if (item.movie) {
-			entitySchemaSlug = "movie";
-		} else if (item.show) {
-			entitySchemaSlug = "show";
+export const normalizeTraktRecord = (
+	raw: unknown,
+	context: TraktRecordContext,
+): MediaIntegrationAdapterResult => {
+	const item = Schema.decodeUnknownSync(ExportItem)(raw);
+	const source = item.movie ?? item.show;
+	const fail = (message: string): MediaIntegrationAdapterResult => ({
+		entityGroups: [],
+		failures: [
+			{
+				message,
+				itemIndex: 0,
+				sourceLabel: source?.title,
+				sourceIdentifier:
+					typeof source?.ids.trakt === "number" ? String(source.ids.trakt) : undefined,
+			},
+		],
+	});
+	const events: ImportMediaEvent[] = [];
+	if (context.type === "history") {
+		if (!item.watched_at) {
+			return fail("History item does not have a watched date");
 		}
-		const source = item.movie ?? item.show;
-		if (!source || !entitySchemaSlug) {
-			fail(item, currentIndex, "Item is neither a movie nor a show");
-			return undefined;
+		const unresolvedEpisode = item.show ? exportCoordinates(item) : undefined;
+		if (item.show && !unresolvedEpisode) {
+			return fail("Show history item has no episode coordinates");
 		}
-		const entityRef = ref(source, entitySchemaSlug);
-		if (!entityRef) {
-			fail(
-				item,
-				currentIndex,
-				`${entitySchemaSlug === "movie" ? "Movie" : "Show"} does not have a TMDB or IMDb id`,
-			);
-			return undefined;
-		}
-		return getOrCreateMediaEntityGroup(groups, entityRef, currentIndex);
-	};
-
-	for (const entry of entries) {
-		if (entry.kind.type === "list-metadata") {
-			continue;
-		}
-		const items = decodeExportEntry(entry.name, entry.bytes, Schema.Array(ExportItem));
-		for (const item of items) {
-			const currentIndex = itemIndex++;
-			if (entry.kind.type === "history") {
-				if (!item.watched_at) {
-					fail(item, currentIndex, "History item does not have a watched date");
-					continue;
-				}
-				const unresolvedEpisode = item.show ? exportCoordinates(item) : undefined;
-				if (item.show && !unresolvedEpisode) {
-					fail(item, currentIndex, "Show history item has no episode coordinates");
-					continue;
-				}
-				const group = groupFor(item, currentIndex);
-				if (!group) {
-					continue;
-				}
-				if (unresolvedEpisode) {
-					group.events.push({
+		events.push(
+			unresolvedEpisode
+				? {
 						unresolvedEpisode,
 						occurredAt: item.watched_at,
 						eventSchemaSlug: "progress",
 						properties: { progressPercent: 100 },
-					});
-				} else {
-					group.events.push(createCompleteEvent({ occurredAt: item.watched_at }));
-				}
-				continue;
-			}
-			if (entry.kind.type === "rating" || entry.kind.type === "comment") {
-				const comment = entry.kind.type === "comment" ? item.comment : undefined;
-				const occurredAt = comment?.created_at ?? item.rated_at;
-				const rating =
-					entry.kind.type === "rating" && item.rating !== undefined ? item.rating * 10 : undefined;
-				const review = occurredAt
-					? createReviewEvent({
-							occurredAt,
-							...(comment ? { text: comment.comment, isSpoiler: comment.spoiler } : {}),
-							...(rating === undefined ? {} : { rating }),
-						})
-					: null;
-				if (!review) {
-					fail(item, currentIndex, `Trakt ${entry.kind.type} item does not contain review data`);
-					continue;
-				}
-				const group = groupFor(item, currentIndex);
-				if (!group) {
-					continue;
-				}
-				const unresolvedEpisode = exportReviewTarget(item);
-				group.events.push(unresolvedEpisode ? { ...review, unresolvedEpisode } : review);
-				continue;
-			}
-			const group = groupFor(item, currentIndex);
-			if (!group) {
-				continue;
-			}
-			let collectionName: string;
-			if (entry.kind.type === "collection") {
-				collectionName = "Owned";
-			} else if (entry.kind.type === "system-list") {
-				collectionName = entry.name.includes("watchlist") ? "Watchlist" : "Favorites";
-			} else {
-				collectionName = lists.get(entry.kind.id) ?? `Trakt List ${entry.kind.id}`;
-			}
-			addCollectionMembership(group, collectionName);
+					}
+				: createCompleteEvent({ occurredAt: item.watched_at }),
+		);
+	} else if (context.type === "rating" || context.type === "comment") {
+		const comment = context.type === "comment" ? item.comment : undefined;
+		const occurredAt = comment?.created_at ?? item.rated_at;
+		const rating =
+			context.type === "rating" && item.rating !== undefined ? item.rating * 10 : undefined;
+		const review = occurredAt
+			? createReviewEvent({
+					occurredAt,
+					...(comment ? { text: comment.comment, isSpoiler: comment.spoiler } : {}),
+					...(rating === undefined ? {} : { rating }),
+				})
+			: null;
+		if (!review) {
+			return fail(`Trakt ${context.type} item does not contain review data`);
 		}
+		const unresolvedEpisode = exportReviewTarget(item);
+		events.push(unresolvedEpisode ? { ...review, unresolvedEpisode } : review);
 	}
-	return { failures, totalItems: itemIndex, entityGroups: finalizeEntityGroups(groups.values()) };
+	let entitySchemaSlug: "movie" | "show" | undefined;
+	if (item.movie) {
+		entitySchemaSlug = "movie";
+	} else if (item.show) {
+		entitySchemaSlug = "show";
+	}
+	if (!source || !entitySchemaSlug) {
+		return fail("Item is neither a movie nor a show");
+	}
+	const entityRef = ref(source, entitySchemaSlug);
+	if (!entityRef) {
+		return fail(
+			`${entitySchemaSlug === "movie" ? "Movie" : "Show"} does not have a TMDB or IMDb id`,
+		);
+	}
+	const group: ImportMediaEntityGroupBuilder = {
+		events,
+		entityRef,
+		itemIndex: 0,
+		collectionMemberships: [],
+	};
+	if (context.type === "collection") {
+		addCollectionMembership(group, context.name);
+	} else if (context.type === "backlog") {
+		group.events.push(createBacklogEvent(item.listed_at ?? context.importedAt));
+	}
+	return { failures: [], entityGroups: [group] };
 };
 
 const invalidListUrl = () =>

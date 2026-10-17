@@ -1,7 +1,7 @@
 {
 	"version": "8",
 	"dialect": "postgres",
-	"id": "51904c21-a30a-4480-8b2f-2062ceed3221",
+	"id": "6b3dd885-7748-4af2-8f48-30e653de6e4b",
 	"prevIds": ["00000000-0000-0000-0000-000000000000"],
 	"ddl": [
 		{ "isRlsEnabled": false, "name": "account", "entityType": "tables", "schema": "public" },
@@ -1400,19 +1400,6 @@
 			"generated": null,
 			"identity": null,
 			"name": "id",
-			"entityType": "columns",
-			"schema": "public",
-			"table": "automation_trigger"
-		},
-		{
-			"type": "text",
-			"typeSchema": null,
-			"notNull": false,
-			"dimensions": 0,
-			"default": null,
-			"generated": null,
-			"identity": null,
-			"name": "event_stream_work_id",
 			"entityType": "columns",
 			"schema": "public",
 			"table": "automation_trigger"
@@ -3407,19 +3394,6 @@
 			"table": "entity"
 		},
 		{
-			"type": "timestamp(3) with time zone",
-			"typeSchema": null,
-			"notNull": false,
-			"dimensions": 0,
-			"default": null,
-			"generated": null,
-			"identity": null,
-			"name": "related_population_failed_at",
-			"entityType": "columns",
-			"schema": "public",
-			"table": "entity"
-		},
-		{
 			"type": "text",
 			"typeSchema": null,
 			"notNull": true,
@@ -3428,6 +3402,19 @@
 			"generated": null,
 			"identity": null,
 			"name": "entity_schema_slug",
+			"entityType": "columns",
+			"schema": "public",
+			"table": "entity"
+		},
+		{
+			"type": "timestamp(3) with time zone",
+			"typeSchema": null,
+			"notNull": false,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
+			"name": "related_population_failed_at",
 			"entityType": "columns",
 			"schema": "public",
 			"table": "entity"
@@ -3466,7 +3453,7 @@
 			"default": null,
 			"generated": null,
 			"identity": null,
-			"name": "related_population_failure",
+			"name": "user_id",
 			"entityType": "columns",
 			"schema": "public",
 			"table": "entity"
@@ -3479,7 +3466,7 @@
 			"default": null,
 			"generated": null,
 			"identity": null,
-			"name": "user_id",
+			"name": "related_population_failure",
 			"entityType": "columns",
 			"schema": "public",
 			"table": "entity"
@@ -4083,12 +4070,25 @@
 			"table": "event_stream_work"
 		},
 		{
+			"type": "jsonb",
+			"typeSchema": null,
+			"notNull": true,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
+			"name": "data",
+			"entityType": "columns",
+			"schema": "public",
+			"table": "import_activity"
+		},
+		{
 			"type": "text",
 			"typeSchema": null,
 			"notNull": false,
 			"dimensions": 0,
 			"default": null,
-			"generated": null,
+			"generated": { "as": "data->>'batchId'", "type": "stored" },
 			"identity": null,
 			"name": "batch_id",
 			"entityType": "columns",
@@ -4101,7 +4101,7 @@
 			"notNull": false,
 			"dimensions": 0,
 			"default": null,
-			"generated": null,
+			"generated": { "as": "data->>'parentId'", "type": "stored" },
 			"identity": null,
 			"name": "parent_id",
 			"entityType": "columns",
@@ -4114,22 +4114,9 @@
 			"notNull": true,
 			"dimensions": 0,
 			"default": null,
-			"generated": null,
+			"generated": { "as": "data->>'id'", "type": "stored" },
 			"identity": null,
 			"name": "id",
-			"entityType": "columns",
-			"schema": "public",
-			"table": "import_activity"
-		},
-		{
-			"type": "jsonb",
-			"typeSchema": null,
-			"notNull": true,
-			"dimensions": 0,
-			"default": null,
-			"generated": null,
-			"identity": null,
-			"name": "data",
 			"entityType": "columns",
 			"schema": "public",
 			"table": "import_activity"
@@ -4146,45 +4133,6 @@
 			"entityType": "columns",
 			"schema": "public",
 			"table": "import_activity"
-		},
-		{
-			"type": "text",
-			"typeSchema": null,
-			"notNull": true,
-			"dimensions": 0,
-			"default": null,
-			"generated": null,
-			"identity": null,
-			"name": "id",
-			"entityType": "columns",
-			"schema": "public",
-			"table": "import_batch"
-		},
-		{
-			"type": "text",
-			"typeSchema": null,
-			"notNull": true,
-			"dimensions": 0,
-			"default": null,
-			"generated": null,
-			"identity": null,
-			"name": "capture_id",
-			"entityType": "columns",
-			"schema": "public",
-			"table": "import_batch"
-		},
-		{
-			"type": "integer",
-			"typeSchema": null,
-			"notNull": true,
-			"dimensions": 0,
-			"default": null,
-			"generated": null,
-			"identity": null,
-			"name": "ordinal",
-			"entityType": "columns",
-			"schema": "public",
-			"table": "import_batch"
 		},
 		{
 			"type": "text",
@@ -4244,9 +4192,22 @@
 			"notNull": true,
 			"dimensions": 0,
 			"default": null,
-			"generated": null,
+			"generated": { "as": "data->>'id'", "type": "stored" },
 			"identity": null,
-			"name": "run_id",
+			"name": "id",
+			"entityType": "columns",
+			"schema": "public",
+			"table": "import_batch"
+		},
+		{
+			"type": "text",
+			"typeSchema": null,
+			"notNull": true,
+			"dimensions": 0,
+			"default": null,
+			"generated": { "as": "data->>'captureId'", "type": "stored" },
+			"identity": null,
+			"name": "capture_id",
 			"entityType": "columns",
 			"schema": "public",
 			"table": "import_batch"
@@ -4259,7 +4220,59 @@
 			"default": null,
 			"generated": null,
 			"identity": null,
+			"name": "run_id",
+			"entityType": "columns",
+			"schema": "public",
+			"table": "import_batch"
+		},
+		{
+			"type": "integer",
+			"typeSchema": null,
+			"notNull": true,
+			"dimensions": 0,
+			"default": null,
+			"generated": { "as": "(data->>'ordinal')::integer", "type": "stored" },
+			"identity": null,
+			"name": "ordinal",
+			"entityType": "columns",
+			"schema": "public",
+			"table": "import_batch"
+		},
+		{
+			"type": "jsonb",
+			"typeSchema": null,
+			"notNull": true,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
+			"name": "data",
+			"entityType": "columns",
+			"schema": "public",
+			"table": "import_capture"
+		},
+		{
+			"type": "text",
+			"typeSchema": null,
+			"notNull": true,
+			"dimensions": 0,
+			"default": null,
+			"generated": { "as": "data->>'id'", "type": "stored" },
+			"identity": null,
 			"name": "id",
+			"entityType": "columns",
+			"schema": "public",
+			"table": "import_capture"
+		},
+		{
+			"type": "text",
+			"typeSchema": null,
+			"notNull": true,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
+			"name": "run_id",
 			"entityType": "columns",
 			"schema": "public",
 			"table": "import_capture"
@@ -4270,7 +4283,7 @@
 			"notNull": true,
 			"dimensions": 0,
 			"default": null,
-			"generated": null,
+			"generated": { "as": "(data->>'ordinal')::integer", "type": "stored" },
 			"identity": null,
 			"name": "ordinal",
 			"entityType": "columns",
@@ -4278,25 +4291,12 @@
 			"table": "import_capture"
 		},
 		{
-			"type": "jsonb",
-			"typeSchema": null,
-			"notNull": true,
-			"dimensions": 0,
-			"default": null,
-			"generated": null,
-			"identity": null,
-			"name": "data",
-			"entityType": "columns",
-			"schema": "public",
-			"table": "import_capture"
-		},
-		{
 			"type": "text",
 			"typeSchema": null,
 			"notNull": true,
 			"dimensions": 0,
 			"default": null,
-			"generated": null,
+			"generated": { "as": "data->>'phase'", "type": "stored" },
 			"identity": null,
 			"name": "phase",
 			"entityType": "columns",
@@ -4304,17 +4304,17 @@
 			"table": "import_capture"
 		},
 		{
-			"type": "text",
+			"type": "jsonb",
 			"typeSchema": null,
 			"notNull": true,
 			"dimensions": 0,
 			"default": null,
 			"generated": null,
 			"identity": null,
-			"name": "run_id",
+			"name": "data",
 			"entityType": "columns",
 			"schema": "public",
-			"table": "import_capture"
+			"table": "import_issue"
 		},
 		{
 			"type": "text",
@@ -4322,7 +4322,7 @@
 			"notNull": true,
 			"dimensions": 0,
 			"default": null,
-			"generated": null,
+			"generated": { "as": "data->>'id'", "type": "stored" },
 			"identity": null,
 			"name": "id",
 			"entityType": "columns",
@@ -4330,19 +4330,6 @@
 			"table": "import_issue"
 		},
 		{
-			"type": "jsonb",
-			"typeSchema": null,
-			"notNull": true,
-			"dimensions": 0,
-			"default": null,
-			"generated": null,
-			"identity": null,
-			"name": "data",
-			"entityType": "columns",
-			"schema": "public",
-			"table": "import_issue"
-		},
-		{
 			"type": "text",
 			"typeSchema": null,
 			"notNull": true,
@@ -4356,19 +4343,6 @@
 			"table": "import_issue"
 		},
 		{
-			"type": "text",
-			"typeSchema": null,
-			"notNull": true,
-			"dimensions": 0,
-			"default": null,
-			"generated": null,
-			"identity": null,
-			"name": "operation_id",
-			"entityType": "columns",
-			"schema": "public",
-			"table": "import_outcome"
-		},
-		{
 			"type": "jsonb",
 			"typeSchema": null,
 			"notNull": true,
@@ -4377,6 +4351,19 @@
 			"generated": null,
 			"identity": null,
 			"name": "data",
+			"entityType": "columns",
+			"schema": "public",
+			"table": "import_outcome"
+		},
+		{
+			"type": "text",
+			"typeSchema": null,
+			"notNull": true,
+			"dimensions": 0,
+			"default": null,
+			"generated": { "as": "data->>'operationId'", "type": "stored" },
+			"identity": null,
+			"name": "operation_id",
 			"entityType": "columns",
 			"schema": "public",
 			"table": "import_outcome"
@@ -5830,7 +5817,7 @@
 			"notNull": true,
 			"dimensions": 0,
 			"default": null,
-			"generated": null,
+			"generated": { "as": "platform_specifics->>'kind'", "type": "stored" },
 			"identity": null,
 			"name": "platform",
 			"entityType": "columns",
@@ -16226,39 +16213,32 @@
 			"table": "event_stream_work"
 		},
 		{
-			"value": "\"id\" = \"data\"->>'id' and \"parent_id\" is not distinct from \"data\"->>'parentId' and \"batch_id\" is not distinct from \"data\"->>'batchId' and \"id\" is distinct from \"parent_id\"",
-			"name": "import_activity_identity_check",
+			"value": "\"id\" is distinct from \"parent_id\"",
+			"name": "import_activity_parent_check",
 			"entityType": "checks",
 			"schema": "public",
 			"table": "import_activity"
 		},
 		{
-			"value": "\"id\" = \"data\"->>'id' and \"capture_id\" = \"data\"->>'captureId' and \"ordinal\" = (\"data\"->>'ordinal')::integer and \"ordinal\" >= 0",
-			"name": "import_batch_identity_check",
+			"value": "\"ordinal\" >= 0",
+			"name": "import_batch_ordinal_check",
 			"entityType": "checks",
 			"schema": "public",
 			"table": "import_batch"
 		},
 		{
-			"value": "\"id\" = \"data\"->>'id' and \"phase\" = \"data\"->>'phase' and \"phase\" in ('collection', 'application') and \"ordinal\" = (\"data\"->>'ordinal')::integer and \"ordinal\" >= 0",
-			"name": "import_capture_identity_check",
+			"value": "\"phase\" in ('collection', 'application')",
+			"name": "import_capture_phase_check",
 			"entityType": "checks",
 			"schema": "public",
 			"table": "import_capture"
 		},
 		{
-			"value": "\"id\" = \"data\"->>'id'",
-			"name": "import_issue_identity_check",
+			"value": "\"ordinal\" >= 0",
+			"name": "import_capture_ordinal_check",
 			"entityType": "checks",
 			"schema": "public",
-			"table": "import_issue"
-		},
-		{
-			"value": "\"operation_id\" = \"data\"->>'operationId'",
-			"name": "import_outcome_identity_check",
-			"entityType": "checks",
-			"schema": "public",
-			"table": "import_outcome"
+			"table": "import_capture"
 		},
 		{
 			"value": "\"capture_phase\" in ('collection', 'application')",

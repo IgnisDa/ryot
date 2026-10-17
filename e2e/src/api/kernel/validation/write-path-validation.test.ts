@@ -245,7 +245,7 @@ describe("Collection entity write path — propertiesSchema validation", () => {
 			});
 
 			expect(collection.id).toBeDefined();
-			expect(collection.properties.membershipPropertiesSchema).toBeDefined();
+			expect(collection.properties.membershipFields).toBeDefined();
 		}),
 	);
 });

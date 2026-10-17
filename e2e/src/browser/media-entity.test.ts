@@ -23,20 +23,21 @@ import { mediaPluginFrame } from "~/fixtures/plugins/media/frame";
 import { seedGlobalMediaGenres } from "~/fixtures/plugins/media/genres";
 import { signInThroughHostedOAuth } from "~/support/browser";
 import { afterAll, beforeAll, expect, it, runPromise } from "~/support/effect-test";
-import { getApiUrl, getFrontendUrl } from "~/support/harness-target";
 import { startIsolatedHarness } from "~/support/isolated-harness";
 
 const SHOW_NAME = "Media Entity Tracer Show";
 const SHOW_COVER = `<svg xmlns="http://www.w3.org/2000/svg" width="60" height="90"><rect width="60" height="90" fill="#8b5cf6"/></svg>`;
 
 let harness: Effect.Success<ReturnType<typeof startIsolatedHarness>> | undefined;
+let target: Effect.Success<ReturnType<typeof startIsolatedHarness>>["target"];
 let mediaProviders: Effect.Success<ReturnType<typeof shippedPluginTestProviders>>;
 
 beforeAll(() =>
 	runPromise(
 		Effect.gen(function* () {
 			harness = yield* startIsolatedHarness("Browser Media Entity");
-			mediaProviders = yield* shippedPluginTestProviders(mediaPlugin.metadata.packageId);
+			target = harness.target;
+			mediaProviders = yield* shippedPluginTestProviders(mediaPlugin.metadata.packageId, target);
 		}),
 	),
 );
@@ -55,7 +56,7 @@ it.live("automatically populates and translates a partial Show in the compiled M
 		const id = crypto.randomUUID();
 		const translatedName = `Serie traducida ${id}`;
 		const translatedDescription = `Resumen de la serie ${id}.`;
-		const { email, client, password } = yield* createAuthenticatedClient();
+		const { email, client, password } = yield* createAuthenticatedClient(target);
 		yield* setUserLanguage(client, "es");
 		const { schema } = yield* findMediaEntitySchema(client, "show");
 		const provider = yield* mediaProviders.attachProvider({
@@ -74,6 +75,7 @@ it.live("automatically populates and translates a partial Show in the compiled M
 			}),
 		});
 		const show = yield* seedMediaEntity({
+			target,
 			userId: null,
 			properties: {},
 			externalId: id,
@@ -84,8 +86,8 @@ it.live("automatically populates and translates a partial Show in the compiled M
 		expect((yield* getEntity(client, show.id)).populatedAt).toBeNull();
 		const browser = yield* Playwright.Browser;
 		const page = yield* browser.newPage();
-		yield* signInThroughHostedOAuth(page, email, password);
-		yield* page.goto(`${getFrontendUrl()}/e/${show.id}`);
+		yield* signInThroughHostedOAuth(page, email, password, { frontendUrl: target.frontendUrl });
+		yield* page.goto(`${target.frontendUrl}/e/${show.id}`);
 		const frame = mediaPluginFrame(page);
 		yield* frame.waitFor({ state: "visible" });
 		const media = frame.contentFrame();
@@ -104,7 +106,7 @@ it.live("shows a failed Media population and repopulates it after Try again", ()
 		const id = crypto.randomUUID();
 		const providerName = `Failing Provider ${id}`;
 		const populatedName = `Recovered Show ${id}`;
-		const { email, client, password } = yield* createAuthenticatedClient();
+		const { email, client, password } = yield* createAuthenticatedClient(target);
 		const { schema } = yield* findMediaEntitySchema(client, "show");
 		const provider = yield* mediaProviders.attachProvider({
 			name: providerName,
@@ -113,6 +115,7 @@ it.live("shows a failed Media population and repopulates it after Try again", ()
 			details: fakeProviderDetailsResult({ name: populatedName }),
 		});
 		const show = yield* seedMediaEntity({
+			target,
 			userId: null,
 			properties: {},
 			externalId: id,
@@ -122,8 +125,8 @@ it.live("shows a failed Media population and repopulates it after Try again", ()
 		});
 		const browser = yield* Playwright.Browser;
 		const page = yield* browser.newPage();
-		yield* signInThroughHostedOAuth(page, email, password);
-		yield* page.goto(`${getFrontendUrl()}/e/${show.id}`);
+		yield* signInThroughHostedOAuth(page, email, password, { frontendUrl: target.frontendUrl });
+		yield* page.goto(`${target.frontendUrl}/e/${show.id}`);
 		const frame = mediaPluginFrame(page);
 		yield* frame.waitFor({ state: "visible" });
 		const media = frame.contentFrame();
@@ -149,7 +152,7 @@ it.live("opens a base-populated Media Movie and shows its credits once they arri
 	Effect.gen(function* () {
 		const id = crypto.randomUUID();
 		const personName = `Credited Person ${id}`;
-		const { email, client, password } = yield* createAuthenticatedClient();
+		const { email, client, password } = yield* createAuthenticatedClient(target);
 		const { schema: movieSchema } = yield* findMediaEntitySchema(client, "movie");
 		const { schema: personSchema } = yield* findMediaEntitySchema(client, "person");
 		const personProvider = yield* mediaProviders.attachProvider({
@@ -178,6 +181,7 @@ it.live("opens a base-populated Media Movie and shows its credits once they arri
 			}),
 		});
 		const movie = yield* seedMediaEntity({
+			target,
 			userId: null,
 			externalId: id,
 			properties: {},
@@ -185,13 +189,13 @@ it.live("opens a base-populated Media Movie and shows its credits once they arri
 			entitySchemaSlug: movieSchema.id,
 			providerId: movieProvider.providerId,
 		});
-		yield* markEntityPopulated(movie.id, "base");
+		yield* markEntityPopulated(movie.id, "base", target);
 		expect((yield* getEntity(client, movie.id)).relatedPopulationStatus).toBe("pending");
 
 		const browser = yield* Playwright.Browser;
 		const page = yield* browser.newPage();
-		yield* signInThroughHostedOAuth(page, email, password);
-		yield* page.goto(`${getFrontendUrl()}/e/${movie.id}`);
+		yield* signInThroughHostedOAuth(page, email, password, { frontendUrl: target.frontendUrl });
+		yield* page.goto(`${target.frontendUrl}/e/${movie.id}`);
 		const frame = mediaPluginFrame(page);
 		yield* frame.waitFor({ state: "visible" });
 		const media = frame.contentFrame();
@@ -204,9 +208,8 @@ it.live("opens a base-populated Media Movie and shows its credits once they arri
 
 it.live("opens a Media Show entity from the canonical saved-view route", () =>
 	Effect.gen(function* () {
-		const apiUrl = getApiUrl();
-		const frontendUrl = getFrontendUrl();
-		const { email, client, password } = yield* createAuthenticatedClient(apiUrl);
+		const frontendUrl = target.frontendUrl;
+		const { email, client, password } = yield* createAuthenticatedClient(target);
 		const coverUrl = "https://images.test/show-cover.svg";
 		const { showId } = yield* seedGlobalShowEpisodeTree(client, {
 			showName: SHOW_NAME,
@@ -220,6 +223,7 @@ it.live("opens a Media Show entity from the canonical saved-view route", () =>
 			},
 		});
 		yield* seedGlobalMediaGenres({
+			target,
 			entityId: showId,
 			entitySchemaSlug: "show",
 			names: ["Drama", "Mystery"],
@@ -234,7 +238,7 @@ it.live("opens a Media Show entity from the canonical saved-view route", () =>
 					route.fulfill({ body: SHOW_COVER, contentType: "image/svg+xml" }),
 				),
 		);
-		yield* signInThroughHostedOAuth(page, email, password);
+		yield* signInThroughHostedOAuth(page, email, password, { frontendUrl: target.frontendUrl });
 		yield* page.goto(
 			`${frontendUrl}${savedViewPath({ kind: "plugin", slug: "all-shows", packageId: mediaPlugin.metadata.packageId })}`,
 		);
@@ -306,9 +310,8 @@ it.live("opens a Media Show entity from the canonical saved-view route", () =>
 
 it.live("shows a kernel notice for a Media schema with no detail renderer", () =>
 	Effect.gen(function* () {
-		const apiUrl = getApiUrl();
-		const frontendUrl = getFrontendUrl();
-		const { email, client, password } = yield* createAuthenticatedClient(apiUrl);
+		const frontendUrl = target.frontendUrl;
+		const { email, client, password } = yield* createAuthenticatedClient(target);
 		const { schema } = yield* findMediaEntitySchema(client, "media-library");
 		const library = yield* createEntity(client, {
 			properties: {},
@@ -317,7 +320,7 @@ it.live("shows a kernel notice for a Media schema with no detail renderer", () =
 		});
 		const browser = yield* Playwright.Browser;
 		const page = yield* browser.newPage();
-		yield* signInThroughHostedOAuth(page, email, password);
+		yield* signInThroughHostedOAuth(page, email, password, { frontendUrl: target.frontendUrl });
 		yield* page.goto(`${frontendUrl}/e/${library.id}`);
 		yield* page.waitForURL(`${frontendUrl}/e/${library.id}`);
 

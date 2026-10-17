@@ -3,7 +3,6 @@ import { Effect } from "effect";
 
 import {
 	adminAccessTokenHeaders,
-	adminHeaders,
 	type Client,
 	createAuthenticatedClient,
 	fakeProviderDetailsResult,
@@ -78,7 +77,6 @@ describe("plugin cron global writes", () => {
 							information: { source: "e2e" },
 							name: "E2E Test Trending Provider",
 							rootEntitySchemaSlug: MOVIE_SCHEMA_SLUG,
-							operations: { details: DETAILS_SCRIPT_SLUG },
 						},
 					],
 					files: {
@@ -170,12 +168,10 @@ describe("plugin cron global writes", () => {
 
 	it.live("runs a direct cron script end-to-end and writes ranked self-edges", () =>
 		Effect.gen(function* () {
-			const result = yield* getApiClient().call(
-				(c) =>
-					c.testSupport.triggerPluginCron({
-						payload: { pluginId: trendingPluginId, cronSlug: "e2e-test-trending" },
-					}),
-				adminHeaders(),
+			const result = yield* getApiClient().adminCall((c) =>
+				c.testSupport.triggerPluginCron({
+					payload: { pluginId: trendingPluginId, cronSlug: "e2e-test-trending" },
+				}),
 			);
 			assert(result.status === "executed");
 			const { executionId } = result;

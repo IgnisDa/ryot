@@ -123,8 +123,12 @@ build-derived script metadata. There are no driver maps or runtime kind selectio
 | `automation` | `defineAutomationPolicy` | Before hook (`automationType: "policy"`)                        |
 | `provider`   | `defineProvider`         | One logical provider operation                                  |
 
-A logical provider requires `details` and may declare `search`, `related`, `resolve`, and `translate`,
-each as a separate provider script. `rootEntitySchemaSlug` may reference an entity schema from the same plugin.
+A logical provider requires `details` and may declare `search`, `search-options`, `related`, `resolve`,
+and `translate`, each as a separate provider script. Generated `providerSlug`/`providerOperation`
+script tuples are the sole operation bindings. Each tuple must be unique and reference a declared
+provider. Dynamic choices in a search schema require that provider's `search-options` script.
+Authored and archive `providers` contain only descriptive metadata, including `rootEntitySchemaSlug`,
+which references an entity schema from the same plugin.
 User-effective provider and schema resolution includes ready private installations only for their
 owner; APIs without user context resolve system definitions only. Persisted provenance uses stable
 plugin ID, not installation ID.
@@ -159,7 +163,7 @@ entry can therefore leave otherwise unreachable shared files unchecked.
 | `configSchema`         | Plugin-owned environment configuration                                  |
 | `userSettingsSchema`   | Optional non-secret per-user preferences rendered by the kernel         |
 | `scripts`              | Build-derived sandbox entries and requirements                          |
-| `providers`            | Logical providers mapped to provider-operation scripts                  |
+| `providers`            | Logical provider names, information, and root entity schemas            |
 | `workflows`            | Public workflow slugs                                                   |
 | `operations`           | Public user- or integration-authenticated operations                    |
 | `userBootstrap`        | Per-user bootstrap dispatches for system and private plugins            |
@@ -486,12 +490,15 @@ settings `field` and finite `cases` mapping setting values to alternative keys. 
 validated against compiled dependencies. Plan selection is pure and returns an ingestion operation
 and selection map; it performs no source requests or writes.
 
-Ingestion setup uses `importSourcesRecipe({ selected: { reference, settings }, limit })` and
-`integrationProvidersRecipe({ selected: { reference, settings, integrationId? }, limit })` from
-`@ryot-app/ryotql-recipes`. Their structured `readiness` contains `ready`, the selected `plan`, and
-`blockReasons`; installation metadata scopes configuration to the exact system or private plugin.
+Ingestion setup loads `importSourcesRecipe({ limit })` and
+`integrationProvidersRecipe({ limit })` from `@ryot-app/ryotql-recipes`.
+Use `evaluateImportSourceReadiness(item, settings)` or
+`evaluateIntegrationProviderReadiness(item, settings, integrationId?)` with the selected catalog item.
+Their structured `readiness` contains `ready`, the selected `plan`, and `blockReasons`;
+installation metadata scopes configuration to the exact system or private plugin.
 Picker readiness covers unconditional requirements. Selected settings refine branch and account
-connection requirements; backend admission rechecks them. Presence does not validate remote credentials.
+connection requirements; backend admission rechecks them. Refresh the catalog after OAuth success
+or configuration changes. Presence does not validate remote credentials.
 
 Run reports use `@ryot-app/contract/modules/imports/ingestion`: each activity has its own ID, real unit,
 completed count, optional exact total, last advancement, and wait. Batch outcomes count committed

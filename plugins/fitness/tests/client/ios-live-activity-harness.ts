@@ -1,17 +1,21 @@
 import { createRyotClient, RyotClientError } from "@ryot-app/plugin-client-sdk";
 import { Effect } from "@ryot-app/plugin-client-sdk/effect";
 import type {
+	PluginIosLiveActivityListResult,
 	PluginIosLiveActivityRequest,
-	PluginIosLiveActivityResult,
 } from "@ryot-app/plugin-client-sdk/plugin";
 
-type Activity = NonNullable<PluginIosLiveActivityResult["activities"]>[number];
+type Activity = Extract<
+	PluginIosLiveActivityListResult,
+	{ readonly status: "done" }
+>["activities"][number];
 
 export const iosLiveActivityHarness = (
 	options: {
 		readonly activities?: readonly Activity[];
 		readonly onRequest?: (request: PluginIosLiveActivityRequest) => void;
 		readonly fails?: boolean;
+		readonly listResult?: () => unknown;
 		readonly beforeRequest?: (
 			request: PluginIosLiveActivityRequest,
 		) => Effect.Effect<void, RyotClientError>;
@@ -34,7 +38,9 @@ export const iosLiveActivityHarness = (
 					return { status: "available" };
 				}
 				if (request.action === "list") {
-					return { status: "done", activities: [...activities.values()] };
+					return options.listResult === undefined
+						? { status: "done", activities: [...activities.values()] }
+						: options.listResult();
 				}
 				const previous = activities.get(request.key);
 				if (request.action === "end") {

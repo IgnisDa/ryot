@@ -404,7 +404,7 @@ const stampRootPopulatedAt = Effect.fn("stampProviderRootPopulatedAt")(function*
 	payload: EntityImportPayload,
 	details: ValidatedEntityDetails,
 	population: AutomationPopulationContext,
-	level: PopulationLevel,
+	options: SynchronizeOptions,
 ) {
 	const session = yield* DatabaseSession;
 	const entities = yield* EntitiesService;
@@ -428,6 +428,7 @@ const stampRootPopulatedAt = Effect.fn("stampProviderRootPopulatedAt")(function*
 							properties: details.properties,
 							externalId: payload.externalId,
 							providerId: payload.providerId,
+							preservePopulatedAt: options.mode === "initial",
 							entitySchema: {
 								slug: payload.entitySchemaSlug,
 								owner: definitionOwner(payload.pluginId),
@@ -437,7 +438,7 @@ const stampRootPopulatedAt = Effect.fn("stampProviderRootPopulatedAt")(function*
 								...populationLifecycleCommand(payload.command, ["root", "stamp"], population),
 							},
 						});
-						if (level === "full") {
+						if (options.level === "full") {
 							yield* repository.stampRelatedPopulated(stamped.result.entity.id, populatedAt);
 						}
 						return stamped;
@@ -844,7 +845,7 @@ const synchronizeEntityGraph = Effect.fn("synchronizeEntityGraph")(function* (
 			? { expectedChildEntitySchemaSlug: details.expectedChildEntitySchemaSlug }
 			: {}),
 	});
-	const stamped = yield* stampRootPopulatedAt(payload, details, population, options.level);
+	const stamped = yield* stampRootPopulatedAt(payload, details, population, options);
 	yield* logEntityWarnings(stamped.dispatch, "root-stamp");
 	yield* publishPrimaryEntity(stamped.result.entity.id);
 	for (const { index, group } of continued) {

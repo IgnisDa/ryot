@@ -3,7 +3,7 @@ import {
 	useRyotMutation,
 	useSchemaAssetUpload,
 } from "@ryot-app/plugin-client-sdk/react";
-import { Button, FieldMessage, StatusMessage } from "@ryot-app/plugin-ui-sdk";
+import { Button, FieldMessage } from "@ryot-app/plugin-ui-sdk";
 import {
 	type SchemaAssetUpload,
 	SchemaForm,
@@ -11,7 +11,7 @@ import {
 	type SchemaFormValues,
 	useSchemaForm,
 } from "@ryot-app/plugin-ui-sdk/schema-form";
-import { Cause, Effect, Match, Result } from "effect";
+import { Effect, Match, Result } from "effect";
 import { useReducer, useState } from "react";
 
 import {
@@ -24,11 +24,6 @@ import {
 	createNotificationChannelBody,
 	initialNotificationChannelFormValues,
 } from "#/modules/notifications/payload";
-import {
-	INVALID_CHANNEL_DETAILS_MESSAGE,
-	type NotificationChannelSaveFailure,
-	notificationChannelSaveFailure,
-} from "#/modules/notifications/save-failure";
 import { createNotificationChannelMutation } from "#/modules/notifications/service";
 import { CatalogPicker } from "#/modules/ui/catalog/picker";
 import { findBySlug } from "#/modules/ui/catalog/selection";
@@ -175,7 +170,9 @@ export function NotificationChannelCreateWizard(props: {
 }) {
 	const create = useRyotMutation(createNotificationChannelMutation);
 	const uploadAsset = useSchemaAssetUpload();
-	const [failure, setFailure] = useState<NotificationChannelSaveFailure | undefined>();
+	const [failure, setFailure] = useState<
+		{ readonly step: "configure" | "review"; readonly detail: string } | undefined
+	>();
 	const [state, dispatch] = useReducer(wizardReducer, undefined, createWizardState);
 	const definition = findBySlug(notificationChannelList, state.slug);
 
@@ -187,7 +184,10 @@ export function NotificationChannelCreateWizard(props: {
 				}
 				const body = createNotificationChannelBody({ values, kind: definition.slug });
 				if (Result.isFailure(body)) {
-					setFailure({ step: "configure", detail: INVALID_CHANNEL_DETAILS_MESSAGE });
+					setFailure({
+						step: "configure",
+						detail: "Some of these details could not be used. Check them and try again.",
+					});
 					dispatch({ step: "configure", type: "recover-at" });
 					return;
 				}
@@ -199,13 +199,9 @@ export function NotificationChannelCreateWizard(props: {
 							props.onClose();
 						}),
 					),
-					Effect.catchCause((cause) =>
+					Effect.catchCause(() =>
 						Effect.sync(() => {
-							const saveFailure = notificationChannelSaveFailure(Cause.squash(cause));
-							setFailure(saveFailure);
-							if (saveFailure.step !== undefined) {
-								dispatch({ type: "recover-at", step: saveFailure.step });
-							}
+							setFailure({ step: "review", detail: "This channel could not be saved. Try again." });
 						}),
 					),
 				);
@@ -234,26 +230,18 @@ export function NotificationChannelCreateWizard(props: {
 		dispatch({ slug, type: "picked" });
 	};
 
-	const reviewFailure = failure?.step === undefined ? failure?.detail : undefined;
+	const reviewFailure = failure?.step === "review" ? failure.detail : undefined;
 	const configureFailure = failure?.step === "configure" ? failure.detail : undefined;
-	const pickFailure = failure?.step === "pick" ? failure.detail : undefined;
 
 	const stepBody = Match.value(state.step).pipe(
 		Match.when("pick", () => (
-			<>
-				{pickFailure === undefined ? null : (
-					<StatusMessage tone="error" className="text-sm">
-						{pickFailure}
-					</StatusMessage>
-				)}
-				<CatalogPicker
-					copy={pickerCopy}
-					onChoose={chooseChannel}
-					chooseLabel={notificationChannelChooseLabel}
-					state={{ status: "ready", sources: notificationChannelList }}
-					toEntry={notificationChannelEntry({ smtpEnabled: props.smtpEnabled })}
-				/>
-			</>
+			<CatalogPicker
+				copy={pickerCopy}
+				onChoose={chooseChannel}
+				chooseLabel={notificationChannelChooseLabel}
+				state={{ status: "ready", sources: notificationChannelList }}
+				toEntry={notificationChannelEntry({ smtpEnabled: props.smtpEnabled })}
+			/>
 		)),
 		Match.when("configure", () =>
 			definition === undefined ? null : (

@@ -8,6 +8,7 @@ import {
 	useEffect,
 	useEffectEvent,
 	useMemo,
+	useRef,
 	useState,
 } from "react";
 
@@ -74,4 +75,16 @@ export function usePluginCatalog() {
 		throw new Error("usePluginCatalog must be used within PluginCatalogProvider");
 	}
 	return context;
+}
+
+export function useIngestionCatalogRefresh(refetch: () => void) {
+	const { invalidationRevision } = usePluginCatalog();
+	const previous = useRef(invalidationRevision);
+	const refresh = useEffectEvent(refetch);
+	useEffect(() => {
+		if (previous.current !== invalidationRevision) {
+			previous.current = invalidationRevision;
+			refresh();
+		}
+	}, [invalidationRevision]);
 }

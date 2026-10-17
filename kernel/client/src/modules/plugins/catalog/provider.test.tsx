@@ -14,6 +14,7 @@ import type { ReactNode } from "react";
 import { decodeServerOrigin } from "#/api/origin";
 import type { ApiScope } from "#/api/scope";
 import { OAuthTokenService } from "#/modules/auth/token-service";
+import { makeOAuthTokenServiceStub } from "#/modules/auth/token-service.test-layer";
 import { makePluginCatalogEventsLayer } from "#/modules/plugins/catalog/events";
 import { makePluginCatalogEventsTestLayer } from "#/modules/plugins/catalog/events.test-layer";
 import { PluginCatalogProvider, usePluginCatalog } from "#/modules/plugins/catalog/provider";
@@ -104,14 +105,10 @@ describe("plugin catalog provider", () => {
 					Schedule.spaced("1 millis"),
 				).pipe(
 					Layer.provide(
-						Layer.succeed(OAuthTokenService, {
-							clear: () => Effect.void,
-							logout: () => Effect.succeed(null),
-							userInfo: () => Effect.succeed(null),
-							accessToken: () => Effect.succeed("token"),
-							rejectAuthorization: () => Effect.die("not used"),
-							completeAuthorization: () => Effect.die("not used"),
-						}),
+						Layer.succeed(
+							OAuthTokenService,
+							makeOAuthTokenServiceStub({ accessToken: () => Effect.succeed("token") }),
+						),
 					),
 				),
 			),

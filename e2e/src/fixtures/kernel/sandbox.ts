@@ -5,7 +5,6 @@ import { Effect } from "effect";
 
 import { assertCompleted, requirePresent } from "~/support/assertions";
 
-import { adminHeaders } from "./admin";
 import { type Client, createAuthenticatedClient } from "./auth";
 import { getApiClient } from "./contract-client";
 import { pollUntil } from "./polling";
@@ -47,7 +46,9 @@ const installSandboxScript = (input: InstallSandboxScriptInput) => {
 		},
 	};
 	return installTestPlugin(
-		input.scope === "system" ? { scope: "system", ...common } : { client: input.client, ...common },
+		input.scope === "system"
+			? { scope: "system", target: input.client.target, ...common }
+			: { client: input.client, ...common },
 	);
 };
 
@@ -56,12 +57,10 @@ export const installSandboxScriptScoped = (input: Parameters<typeof installSandb
 
 export const enqueueSandboxScript = (executingUserId: string, body: EnqueueSandboxBody) =>
 	Effect.gen(function* () {
-		const result = yield* getApiClient().call(
-			(c) =>
-				c.testSupport.enqueueSandbox({
-					payload: { ...body, executingUserId: UserId.make(executingUserId) },
-				}),
-			adminHeaders(),
+		const result = yield* getApiClient().adminCall((c) =>
+			c.testSupport.enqueueSandbox({
+				payload: { ...body, executingUserId: UserId.make(executingUserId) },
+			}),
 		);
 		return {
 			executionId: result.executionId,
@@ -73,22 +72,19 @@ export const pollSandboxResult = (executingUserId: string, jobId: string) =>
 	pollUntil(
 		`sandbox job '${jobId}'`,
 		Effect.gen(function* () {
-			const result = yield* getApiClient().call(
-				(c) =>
-					c.testSupport.getSandboxResult({
-						params: { jobId },
-						query: { executingUserId: UserId.make(executingUserId) },
-					}),
-				adminHeaders(),
+			const result = yield* getApiClient().adminCall((c) =>
+				c.testSupport.getSandboxResult({
+					params: { jobId },
+					query: { executingUserId: UserId.make(executingUserId) },
+				}),
 			);
 			return result.status !== "pending" ? result : null;
 		}),
 	);
 
 export const deleteSandboxReplayProjection = (executionId: string) =>
-	getApiClient().call(
-		(client) => client.testSupport.deleteSandboxReplayProjection({ payload: { executionId } }),
-		adminHeaders(),
+	getApiClient().adminCall((client) =>
+		client.testSupport.deleteSandboxReplayProjection({ payload: { executionId } }),
 	);
 
 function formatSandboxExecutionError(error: SandboxExecutionError) {

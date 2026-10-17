@@ -64,6 +64,7 @@ import {
 	selectedOptionalRow,
 	selectedRow,
 	selectedRows,
+	selectedRowsSource,
 	selectedTimeSeries,
 	star,
 	subtract,
@@ -236,6 +237,154 @@ describe("RyotQL builders", () => {
 			}),
 		) satisfies Recipe.Success<typeof recipe>;
 		expect(success).toBe("course");
+	});
+
+	it.each([undefined, {}])("omits absent or empty source includes: %j", (includes) => {
+		const entity = table("entity", "presentation");
+		const source = selectedRowsSource(entity, {
+			include: includes,
+			selection: {
+				entityId: selectedField(column(entity, "id"), Schema.String),
+				score: selectedField(column(entity, "score"), Schema.NullOr(Schema.FiniteFromString)),
+			},
+		});
+		const where = eq(column(entity, "id"), literal("entity-1"));
+		const orderBy = [ascending(column(entity, "score"))];
+		const query = source.query({ where, orderBy, limit: 7, after: "cursor" });
+
+		expect(source.include).toBeUndefined();
+		expect(source.fields).toEqual([
+			{ key: "entityId", expr: column(entity, "id") },
+			{ key: "score", expr: column(entity, "score") },
+		]);
+		expect(query.document).toEqual({
+			where,
+			from: entity,
+			output: {
+				orderBy,
+				type: "rows",
+				fields: source.fields,
+				pagination: { limit: 7, after: "cursor" },
+			},
+		});
+		expect(source.query().document.output).toMatchObject({ pagination: { limit: 20 } });
+		expect(Result.getOrThrow(source.decode({ score: null, entityId: "entity-1" }))).toEqual({
+			score: null,
+			entityId: "entity-1",
+		});
+	});
+
+	it("decodes standalone source rows like query rows with transforms and recursive includes", () => {
+		const entity = table("entity", "presentation");
+		const child = table("entity", "child");
+		const leaf = table("entity", "leaf");
+		const source = selectedRowsSource(entity, {
+			selection: { score: selectedField(column(entity, "score"), Schema.FiniteFromString) },
+			include: {
+				children: selectedInclude(child, {
+					limit: 2,
+					orderBy: [ascending(column(child, "id"))],
+					selection: { childId: selectedField(column(child, "id"), Schema.String) },
+					include: {
+						leaves: selectedInclude(leaf, {
+							limit: 3,
+							orderBy: [ascending(column(leaf, "id"))],
+							selection: { value: selectedField(column(leaf, "value"), Schema.FiniteFromString) },
+						}),
+					},
+				}),
+			},
+		});
+		const row = {
+			score: "42",
+			unselected: "ignored",
+			children: {
+				pageInfo: { limit: 2, hasMore: true },
+				items: [
+					{
+						childId: "child-1",
+						leaves: { items: [{ value: "3" }], pageInfo: { limit: 3, hasMore: false } },
+					},
+				],
+			},
+		};
+		const query = source.query();
+		const decoded = Result.getOrThrow(source.decode(row));
+
+		expect(source.include).toEqual(
+			query.document.output.type === "rows" ? query.document.output.include : undefined,
+		);
+		expect(source.include).toMatchObject([
+			{
+				key: "children",
+				fields: [{ key: "childId" }],
+				include: [{ key: "leaves", fields: [{ key: "value" }] }],
+			},
+		]);
+		expect(decoded).toEqual({
+			score: 42,
+			children: {
+				pageInfo: { limit: 2, hasMore: true },
+				items: [
+					{
+						childId: "child-1",
+						leaves: { items: [{ value: 3 }], pageInfo: { limit: 3, hasMore: false } },
+					},
+				],
+			},
+		});
+		expect(
+			Result.getOrThrow(
+				query.decodeResult({
+					type: "rows",
+					items: [row],
+					pageInfo: { limit: 20, hasMore: false, nextCursor: null },
+				}),
+			).items,
+		).toEqual([decoded]);
+	});
+
+	it.each([
+		{ row: null, message: "RyotQL row is malformed" },
+		{ row: [], message: "RyotQL row is malformed" },
+		{ row: {}, message: "RyotQL row is missing selected field 'score'" },
+		{ row: { score: undefined }, message: "RyotQL row is missing selected field 'score'" },
+		{ row: { score: "bad" }, message: "RyotQL field 'score' is malformed" },
+		{ row: { score: null }, message: "RyotQL row is missing selected include 'children'" },
+		{ row: { score: "2", children: null }, message: "RyotQL include result is malformed" },
+		{
+			row: { score: "2", children: { items: [] } },
+			message: "RyotQL include pageInfo is malformed",
+		},
+		{
+			message: "RyotQL row is missing selected field 'childId'",
+			row: { score: "2", children: { items: [{}], pageInfo: { limit: 1, hasMore: false } } },
+		},
+	])("rejects malformed source rows with the query decoder error: $message", ({ row, message }) => {
+		const entity = table("entity", "presentation");
+		const source = selectedRowsSource(entity, {
+			selection: {
+				score: selectedField(column(entity, "score"), Schema.NullOr(Schema.FiniteFromString)),
+			},
+			include: {
+				children: selectedInclude(entity, {
+					limit: 1,
+					orderBy: [ascending(column(entity, "id"))],
+					selection: { childId: selectedField(column(entity, "id"), Schema.String) },
+				}),
+			},
+		});
+		const decoded = source.decode(row);
+		expect(decoded).toMatchObject({ _tag: "Failure", failure: { message } });
+		expect(
+			source
+				.query()
+				.decodeResult({
+					type: "rows",
+					items: [row],
+					pageInfo: { limit: 20, hasMore: false, nextCursor: null },
+				}),
+		).toEqual(decoded);
 	});
 
 	it("defaults recipe success to decoded queries without a mapper", () => {

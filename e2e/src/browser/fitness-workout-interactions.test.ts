@@ -18,11 +18,7 @@ const startWorkoutWith = (names: readonly string[], reducedMotion: "no-preferenc
 		const { email, client, password } = yield* createAuthenticatedClient();
 		for (const name of names) {
 			const { exerciseId } = yield* createExerciseEntityFixture(client, { name });
-			yield* updateExerciseOverrides(client, {
-				exerciseId,
-				remove: [],
-				set: { normalRestTime: 0 },
-			});
+			yield* updateExerciseOverrides(client, { exerciseId, overrides: { normalRestTime: 0 } });
 		}
 		const page = yield* (yield* Playwright.Browser).newPage();
 		yield* page.setViewportSize({ width: 390, height: 844 });

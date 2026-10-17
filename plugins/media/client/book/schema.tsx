@@ -3,7 +3,6 @@ import type { MediaPresentationDataOf, MediaSummaryOf } from "../../shared/media
 import { mediaFlatActivityCopy } from "../media/activity-copy";
 import { mediaActivityCountFigure } from "../media/activity-timeline";
 import { defineFlatMediaSchema } from "../media/flat-schema";
-import { MEDIA_ART_HEIGHT } from "../media/hero";
 import { mediaCountFact, mediaCountLabels, type MediaSummaryFact } from "../media/summary-state";
 import { mediaSchemaAspects } from "../schema-aspects";
 
@@ -26,7 +25,6 @@ export const bookSchema = defineFlatMediaSchema({
 	recipes: bookRecipes,
 	facts: bookSummaryFacts,
 	aspect: mediaSchemaAspects.book,
-	heroHeight: () => MEDIA_ART_HEIGHT,
 	presentationFacts: bookPresentationFacts,
 	nouns: { title: "Book", plural: "books", singular: "book" },
 	measureFigure: { label: "Pages", value: mediaActivityCountFigure },

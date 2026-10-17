@@ -7,13 +7,13 @@ import {
 	formatValue,
 	groupByMonth,
 	groupReadings,
-	type MeasurementReading,
 	rangeStartAt,
 	rollingAverage,
 	selectPinnedMetrics,
 	seriesWindow,
 	sortMetricRows,
 } from "./model";
+import type { MeasurementLogEntry } from "./queries";
 
 const now = new Date("2026-10-12T12:00:00.000Z");
 
@@ -42,15 +42,11 @@ const reading = (
 	value: number,
 	occurredAt: string,
 	comment: string | null = null,
-): MeasurementReading => ({
+): MeasurementLogEntry => ({
 	id,
-	value,
 	comment,
-	metricId,
 	occurredAt,
-	unit: "kg",
-	metricKey: metricId,
-	metricName: metricId,
+	readings: [{ value, metricId, entryId: id, id: `${id}-reading` }],
 });
 
 describe("rollingAverage", () => {
@@ -165,13 +161,11 @@ describe("formatting", () => {
 describe("groupReadings", () => {
 	const readings = [
 		reading("r5", "weight", 73.6, "2026-10-08T04:38:00.000Z", "after run"),
-		reading("r4", "fat", 18, "2026-10-08T04:38:00.000Z"),
 		reading("r3", "weight", 73.1, "2026-09-30T05:00:00.000Z"),
 		reading("r2", "weight", 73.1, "2026-09-02T05:00:00.000Z"),
-		reading("r1", "fat", 19, "2026-09-02T05:00:00.000Z"),
 	];
 
-	it("merges readings sharing a timestamp, keeps one comment, and diffs against each metric's previous reading", () => {
+	it("keeps entry identity and diffs against each metric's previous entry", () => {
 		const groups = groupReadings(readings);
 		expect(groups.map(({ occurredAt }) => occurredAt)).toEqual([
 			"2026-10-08T04:38:00.000Z",
@@ -180,8 +174,25 @@ describe("groupReadings", () => {
 		]);
 		expect(groups[0]?.comment).toBe("after run");
 		expect(groups[0]?.values.get("weight")).toMatchObject({ value: 73.6, previous: 73.1 });
-		expect(groups[0]?.values.get("fat")).toMatchObject({ value: 18, previous: 19 });
 		expect(groups[2]?.values.get("weight")?.previous).toBeNull();
+	});
+
+	it("preserves equal-time submissions with the same metric and separate comments", () => {
+		const at = "2026-10-08T04:38:00.000Z";
+		const groups = groupReadings([
+			reading("first", "weight", 70, at, "Morning"),
+			reading("second", "weight", 72, at, "After run"),
+		]);
+		expect(
+			groups.map(({ id, values, comment }) => ({
+				id,
+				comment,
+				value: values.get("weight")?.value,
+			})),
+		).toEqual([
+			{ value: 70, id: "first", comment: "Morning" },
+			{ value: 72, id: "second", comment: "After run" },
+		]);
 	});
 
 	it("groups consecutive readings into month sections in the given time zone", () => {

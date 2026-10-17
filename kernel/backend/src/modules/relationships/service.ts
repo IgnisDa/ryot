@@ -31,12 +31,8 @@ import { DatabaseSession } from "#platform/db/session";
 
 import {
 	type PendingRelationshipMutations,
-	prepareProjectedRelationshipMutations,
-	reconciliationSummary,
 	RelationshipMutationPipeline,
 	type RelationshipSingleResult,
-	singleRelationshipResult,
-	summarizeRelationshipMutations,
 } from "./mutation-pipeline";
 import { classifyRelationshipReceiptConflict } from "./mutation-primitives";
 import {
@@ -81,20 +77,15 @@ export class RelationshipsService extends Context.Service<RelationshipsService>(
 				schemaFingerprint?: CatalogDefinitionFingerprint,
 				receipt?: MutationReceiptIdentity,
 			) =>
-				prepareProjectedRelationshipMutations(
-					mutations.prepareMutations([
-						{
-							mode,
-							input,
-							command,
-							properties,
-							propertiesSchema,
-							schemaFingerprint,
-							...(receipt ? { receipt } : {}),
-						},
-					]),
-					singleRelationshipResult,
-				);
+				mutations.prepareSingle({
+					mode,
+					input,
+					command,
+					properties,
+					propertiesSchema,
+					schemaFingerprint,
+					...(receipt ? { receipt } : {}),
+				});
 			const prepareSingleWithCatalog = Effect.fnUntraced(function* (
 				input: RelationshipIdentityInput,
 				command: DomainLifecycleCommand,
@@ -221,8 +212,7 @@ export class RelationshipsService extends Context.Service<RelationshipsService>(
 					},
 				} satisfies LifecycleCommittedStep<RelationshipSingleResult>;
 			});
-			const commitSingle = (pending: PendingRelationshipMutations) =>
-				mutations.commitProjected(pending, singleRelationshipResult);
+			const commitSingle = mutations.commitSingle;
 			const single = <E>(
 				prepare: Effect.Effect<
 					LifecyclePreparedStep<RelationshipSingleResult, PendingRelationshipMutations>,
@@ -261,12 +251,8 @@ export class RelationshipsService extends Context.Service<RelationshipsService>(
 				persistPreparedUserCreate: mutations.persistPreparedUserCreate,
 				persistPreparedUserDelete: mutations.persistPreparedUserDelete,
 				persistPlannedReconciliation: mutations.persistPlannedReconciliation,
-				commitBatch: (pending: PendingRelationshipMutations) =>
-					mutations.commitProjected(pending, summarizeRelationshipMutations),
 				delete: (input: DeleteRelationshipInput, command: DomainLifecycleCommand) =>
 					single(prepareSingle(relationshipIdentity(input), command, "delete")),
-				commitReconciliation: (pending: PendingRelationshipMutations, upserted: number) =>
-					mutations.commitProjected(pending, reconciliationSummary(upserted)),
 				reconcileGlobal: (
 					groups: ReadonlyArray<ReconcileGlobalRelationshipGroup>,
 					command: DomainLifecycleCommand,

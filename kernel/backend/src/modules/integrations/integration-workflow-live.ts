@@ -12,7 +12,7 @@ import {
 import { jsonValueSchema } from "@ryot-app/plugin-backend-sdk/wire";
 import { ExecutionFileStore } from "@ryot-app/sandbox/host/execution-files";
 import { stableStringify } from "@ryot-app/ts-utils/json";
-import { Cause, DateTime, Effect, FileSystem, Layer, Schema } from "effect";
+import { Cause, DateTime, Effect, Layer, Schema } from "effect";
 import { DurableClock, Workflow } from "effect/workflow";
 import { WorkflowEngine, WorkflowInstance } from "effect/workflow/WorkflowEngine";
 
@@ -25,7 +25,6 @@ import { ImportsRepository } from "#modules/imports/repository";
 import { MutationReceipts } from "#modules/mutations/receipts";
 import { admitWorkflow, dispatchAdmittedWorkflow } from "#modules/mutations/workflow-dispatch";
 import { ScriptExecutionService } from "#modules/scripts/executions/service";
-import { AppConfig } from "#platform/config/service";
 import { DatabaseSession } from "#platform/db/session";
 import { implementWorkflow, makeActivity } from "#platform/workflow/scope";
 
@@ -65,7 +64,7 @@ export const runIntegrationRunWorkflow = Effect.fn("ProcessIntegrationRunWorkflo
 		const reference = `${executionId}-integration-orchestrator`;
 		const artifacts = yield* ExecutionFileStore;
 		const release = () => artifacts.release(owner, reference);
-		const initial = yield* repository.getIngestionRun(scope);
+		const initial = yield* repository.getIngestionRunControl(scope);
 		if (!initial || ["cancelled", "expired"].includes(initial.status)) {
 			yield* execution.cleanup(scope);
 			yield* release();
@@ -149,7 +148,7 @@ export const runIntegrationRunWorkflow = Effect.fn("ProcessIntegrationRunWorkflo
 				if (started) {
 					break;
 				}
-				const waiting = yield* repository.getIngestionRun(scope);
+				const waiting = yield* repository.getIngestionRunControl(scope);
 				if (waiting?.status !== "pending") {
 					if (waiting?.status === "cancelling") {
 						yield* settle("cancelled");
@@ -161,7 +160,7 @@ export const runIntegrationRunWorkflow = Effect.fn("ProcessIntegrationRunWorkflo
 					name: `await-integration-application:${attempt}`,
 				});
 			}
-			const run = yield* repository.getIngestionRun(scope);
+			const run = yield* repository.getIngestionRunControl(scope);
 			if (run?.status !== "running") {
 				if (run?.status === "cancelling") {
 					yield* settle("cancelled");
@@ -185,14 +184,10 @@ export const runIntegrationRunWorkflow = Effect.fn("ProcessIntegrationRunWorkflo
 			} else {
 				const sandbox = yield* ScriptExecutionService;
 				const state = yield* ingestion.recoverInput(scope);
-				const fs = yield* FileSystem.FileSystem;
-				const config = yield* AppConfig;
-				const path = yield* fs.makeTempFileScoped({
-					directory: yield* fs.realPath(config.fileStorage.localTempDir),
-				});
-				yield* fs.writeFileString(path, stableStringify(state.sourcePayload));
 				yield* artifacts.retain(owner, reference);
-				const [sourcePayloadHandle] = yield* artifacts.materializeOutputs(owner, [path]);
+				const [sourcePayloadHandle] = yield* artifacts.materializeOutputs(owner, [
+					new TextEncoder().encode(stableStringify(state.sourcePayload)),
+				]);
 				if (!sourcePayloadHandle) {
 					return yield* new IntegrationRunError({
 						message: "Integration admitted input is unavailable",
@@ -257,7 +252,7 @@ export const runIntegrationRunWorkflow = Effect.fn("ProcessIntegrationRunWorkflo
 			error: IntegrationRunError,
 			name: "integration-terminal-status",
 			success: Schema.NullOr(ImportRunStatus),
-			execute: repository.getIngestionRun(scope).pipe(
+			execute: repository.getIngestionRunControl(scope).pipe(
 				Effect.map((run) => run?.status ?? null),
 				Effect.mapError(toIntegrationWorkflowError),
 			),

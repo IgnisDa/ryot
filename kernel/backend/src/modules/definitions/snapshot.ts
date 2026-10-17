@@ -232,7 +232,10 @@ const assertSchemaDefinition = (kind: string, slug: string, schema: AppSchema) =
 
 const validateSavedViewDefinition = (savedView: SavedViewDefinition) => {
 	if (savedView.dataSources !== null) {
-		const issue = validateRyotQLDocument(savedView.dataSources, savedViewDataSourceAccess);
+		const { error: issue } = validateRyotQLDocument(
+			savedView.dataSources,
+			savedViewDataSourceAccess,
+		);
 		if (issue) {
 			throw new Error(`Invalid saved view ${savedView.slug}: ${issue}`);
 		}

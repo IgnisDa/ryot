@@ -1,7 +1,6 @@
 import type { GenericImportWriteItem } from "@ryot-app/plugin-backend-sdk/imports";
 import { Effect, Schema } from "effect";
 
-import { adminHeaders } from "./admin";
 import type { Client } from "./auth";
 import { getApiClient } from "./contract-client";
 import { providerSandboxSource } from "./sandbox-provider";
@@ -69,12 +68,15 @@ export const installSidecarRecoveryImport = (client: Client, checkpointUrl: stri
 			],
 		});
 		yield* Effect.acquireRelease(
-			installTestSupportSystemPlugin({ files: {}, manifest: policyManifest }),
+			installTestSupportSystemPlugin({
+				files: {},
+				target: client.target,
+				manifest: policyManifest,
+			}),
 			({ pluginId, activationId }) =>
-				getApiClient()
-					.call(
-						(c) => c.testSupport.uninstallSystemPlugin({ params: { pluginId, activationId } }),
-						adminHeaders(),
+				getApiClient(client.target)
+					.adminCall((c) =>
+						c.testSupport.uninstallSystemPlugin({ params: { pluginId, activationId } }),
 					)
 					.pipe(Effect.orDie),
 		);
@@ -83,6 +85,14 @@ export const installSidecarRecoveryImport = (client: Client, checkpointUrl: stri
 			scope: "user",
 			pluginSlug: `sidecar-recovery-import-${suffix}`,
 			workflows: [{ slug: workflowSlug, scriptSlug: workflowScriptSlug }],
+			providers: [
+				{
+					slug: providerSlug,
+					information: { source: "e2e" },
+					name: "Sidecar recovery provider",
+					rootEntitySchemaSlug: entitySchemaSlug,
+				},
+			],
 			entitySchemas: [
 				{
 					icon: "file",
@@ -90,15 +100,6 @@ export const installSidecarRecoveryImport = (client: Client, checkpointUrl: stri
 					slug: entitySchemaSlug,
 					name: "Sidecar recovery record",
 					propertiesSchema: { fields: {}, unknownKeys: "strict" },
-				},
-			],
-			providers: [
-				{
-					slug: providerSlug,
-					information: { source: "e2e" },
-					name: "Sidecar recovery provider",
-					rootEntitySchemaSlug: entitySchemaSlug,
-					operations: { details: detailsSlug, resolve: resolveSlug },
 				},
 			],
 			importSources: [

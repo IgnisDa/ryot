@@ -2,6 +2,7 @@ import type { GenericImportWriteItem } from "@ryot-app/plugin-backend-sdk/import
 
 import { measurementMetricUnit } from "../../shared/measurement-metrics";
 import {
+	measurementEntryEntity,
 	measurementMetricProperties,
 	measurementReadingProperties,
 } from "../../shared/measurement-properties";
@@ -21,7 +22,7 @@ export const toMeasurementWriteItem = (
 	};
 	return {
 		relationships: [],
-		subjectEntityAlias: "metric-0",
+		subjectEntityAlias: "entry",
 		itemIndex: measurement.itemIndex,
 		sourceLabel: measurement.sourceLabel,
 		sourceIdentifier: measurement.sourceIdentifier,
@@ -29,27 +30,36 @@ export const toMeasurementWriteItem = (
 		events: statistics.map((statistic, index) => ({
 			attribution,
 			occurredAt: recordedAt,
+			sessionEntityAlias: "entry",
 			entityAlias: `metric-${index}`,
 			eventSchemaSlug: "measurement-reading",
 			operationId: operationId("reading", index),
-			properties: measurementReadingProperties(statistic.value, comment),
+			properties: measurementReadingProperties(statistic.value),
 			...(index === 0 ? { outcome: { unit: "measurements", recordKind: "measurements" } } : {}),
 		})),
-		entities: statistics.map((statistic, index) => {
-			const unit = measurementMetricUnit(statistic.key);
-			return {
-				name: statistic.label,
-				scope: "user" as const,
-				alias: `metric-${index}`,
-				entitySchemaSlug: "measurement-metric",
-				operationId: operationId("metric", index),
-				properties: measurementMetricProperties(statistic.key, unit),
-				match: {
+		entities: [
+			{
+				scope: "user",
+				alias: "entry",
+				operationId: operationId("entry"),
+				...measurementEntryEntity(recordedAt, comment),
+			},
+			...statistics.map((statistic, index) => {
+				const unit = measurementMetricUnit(statistic.key);
+				return {
 					name: statistic.label,
-					nameNormalization: "slug" as const,
-					properties: { key: statistic.key },
-				},
-			};
-		}),
+					scope: "user" as const,
+					alias: `metric-${index}`,
+					entitySchemaSlug: "measurement-metric",
+					operationId: operationId("metric", index),
+					properties: measurementMetricProperties(statistic.key, unit),
+					match: {
+						name: statistic.label,
+						nameNormalization: "slug" as const,
+						properties: { key: statistic.key },
+					},
+				};
+			}),
+		],
 	};
 };

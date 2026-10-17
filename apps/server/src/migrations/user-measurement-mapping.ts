@@ -1,5 +1,7 @@
 // V1 user_measurement (composite PK user_id+timestamp) -> V2 `measurement-metric` entities and
-// `measurement-reading` events. A metric is one (user, normalized statistic key); its id is
+// `measurement-entry` entities and `measurement-reading` events. Each legacy row is a trustworthy
+// submission boundary; its entry id is md5(user_id || '|measurement-entry|' || timestamp::text).
+// A metric is one (user, normalized statistic key); its id is
 // md5(user_id || '|measurement-metric|' || key). A reading is one statistic of one V1 row; its id
 // is md5(user_id || '|' || timestamp::text || '|' || key). statistics[].value is a rust_decimal
 // JSON string (extracted via ->> then ::float8). Units come from the V1 user preferences
@@ -19,6 +21,11 @@ import {
 const statisticKeySql = (name: string) =>
 	`trim('_' from regexp_replace(lower(${name}), '[^a-z0-9]+', '_', 'g'))`;
 
+const statisticsArraySql = `CASE WHEN jsonb_typeof(um.information -> 'statistics') = 'array'
+		THEN um.information -> 'statistics' ELSE '[]'::jsonb END`;
+
+const measurementEntryIdSql = "md5(um.user_id || '|measurement-entry|' || um.timestamp::text)";
+
 const legacyStatisticsSql = `
 	SELECT
 		um.user_id,
@@ -29,8 +36,7 @@ const legacyStatisticsSql = `
 		stat.value ->> 'value' AS value
 	FROM "user_measurement" um
 	CROSS JOIN LATERAL jsonb_array_elements(
-		CASE WHEN jsonb_typeof(um.information -> 'statistics') = 'array'
-			THEN um.information -> 'statistics' ELSE '[]'::jsonb END
+		${statisticsArraySql}
 	) WITH ORDINALITY AS stat(value, ordinality)
 	WHERE stat.value ->> 'name' IS NOT NULL
 `;
@@ -65,6 +71,7 @@ const fitnessLibraryJoinSql = (libraryEntitySchema: QualifiedSchema, userIdSql: 
 export const buildMeasurementMigrationSql = (input: {
 	readingEventSchema: QualifiedSchema;
 	metricEntitySchema: QualifiedSchema;
+	entryEntitySchema: QualifiedSchema;
 	libraryEntitySchema: QualifiedSchema;
 	pinRelationshipSchema: QualifiedSchema;
 }) => `
@@ -79,6 +86,7 @@ DECLARE
 	metrics_inserted  int         := 0;
 	pins_inserted     int         := 0;
 	readings_inserted int         := 0;
+	entries_inserted int         := 0;
 	rows_without_statistics int;
 	unnamed_count     int;
 	unnamed_sample    text;
@@ -229,10 +237,39 @@ BEGIN
 
 		EXIT WHEN next_cursor_user_id IS NULL;
 
+		INSERT INTO "entity" (
+			"id", "user_id", "entity_schema_slug", "entity_schema_plugin_id",
+			"name", "properties", "created_at", "updated_at"
+		)
+		SELECT
+			${measurementEntryIdSql},
+			um.user_id,
+			${quoteSqlString(input.entryEntitySchema.slug)},
+			${quoteNullableSqlString(input.entryEntitySchema.pluginId)},
+			'Measurement',
+			jsonb_build_object('occurredAt', um.timestamp)
+				|| CASE WHEN NULLIF(um.comment, '') IS NULL THEN '{}'::jsonb
+					ELSE jsonb_build_object('comment', um.comment) END,
+			um.timestamp,
+			um.timestamp
+		FROM "user_measurement" um
+		WHERE (um.user_id, um.timestamp) > (cursor_user_id, cursor_ts)
+			AND (um.user_id, um.timestamp) <= (next_cursor_user_id, next_cursor_ts)
+			AND EXISTS (
+				SELECT 1 FROM jsonb_array_elements(
+					${statisticsArraySql}
+				) AS stat(value)
+				WHERE stat.value ->> 'name' IS NOT NULL
+			)
+		ON CONFLICT ("id") DO NOTHING;
+		GET DIAGNOSTICS batch_rows_inserted = ROW_COUNT;
+		entries_inserted := entries_inserted + batch_rows_inserted;
+
 		INSERT INTO "event" (
 			"id",
 			"user_id",
 			"entity_id",
+			"session_entity_id",
 			"event_schema_slug",
 			"event_schema_plugin_id",
 			"properties",
@@ -243,17 +280,15 @@ BEGIN
 			md5(um.user_id || '|' || um.timestamp::text || '|' || ${statisticKeySql("stat.value ->> 'name'")}),
 			um.user_id,
 			md5(um.user_id || '|measurement-metric|' || ${statisticKeySql("stat.value ->> 'name'")}),
+			${measurementEntryIdSql},
 			${quoteSqlString(input.readingEventSchema.slug)},
 			${quoteNullableSqlString(input.readingEventSchema.pluginId)},
-			jsonb_build_object('value', (stat.value ->> 'value')::float8)
-				|| CASE WHEN NULLIF(um.comment, '') IS NULL THEN '{}'::jsonb
-					ELSE jsonb_build_object('comment', um.comment) END,
+			jsonb_build_object('value', (stat.value ->> 'value')::float8),
 			um.timestamp,
 			um.timestamp
 		FROM "user_measurement" um
 		CROSS JOIN LATERAL jsonb_array_elements(
-			CASE WHEN jsonb_typeof(um.information -> 'statistics') = 'array'
-				THEN um.information -> 'statistics' ELSE '[]'::jsonb END
+			${statisticsArraySql}
 		) AS stat(value)
 		WHERE (um.user_id, um.timestamp) > (cursor_user_id, cursor_ts)
 		  AND (um.user_id, um.timestamp) <= (next_cursor_user_id, next_cursor_ts)
@@ -271,13 +306,13 @@ BEGIN
 	WHERE NOT EXISTS (
 		SELECT 1
 		FROM jsonb_array_elements(
-			CASE WHEN jsonb_typeof(um.information -> 'statistics') = 'array'
-				THEN um.information -> 'statistics' ELSE '[]'::jsonb END
+			${statisticsArraySql}
 		) AS stat(value)
 		WHERE stat.value ->> 'name' IS NOT NULL
 	);
 
 	${buildReportSql("user_measurement -> measurement-metric", [{ count: "metrics_inserted", message: "metric(s) migrated total" }])}
+	${buildReportSql("user_measurement -> measurement-entry", [{ count: "entries_inserted", message: "entry(s) migrated total" }])}
 	${buildReportSql("user_measurement -> measurement-metric-pinned", [{ count: "pins_inserted", message: "pin(s) migrated total" }])}
 	${buildReportSql("user_measurement -> measurement-reading", [
 		{ count: "readings_inserted", message: "reading(s) migrated total" },

@@ -1,10 +1,7 @@
 import { Result, Schema } from "effect";
 
-import {
-	type AppPropertyDefinition,
-	AppSchema,
-	type AppSchema as AppSchemaType,
-} from "../../schema/property-schema";
+import type { AppPropertyDefinition, AppSchema } from "../../schema/property-schema";
+import { parseAppSchemaPropertiesSafe } from "../../schema/property-values";
 import { strictStruct } from "../../schema/utils";
 
 export const CollectionFieldType = Schema.Literals([
@@ -46,7 +43,8 @@ export const CollectionField = strictStruct({
 
 export type CollectionField = typeof CollectionField.Type;
 
-export type KeyedCollectionField = CollectionField & { readonly key: string };
+export const KeyedCollectionField = strictStruct({ ...CollectionField.fields, key: Schema.String });
+export type KeyedCollectionField = typeof KeyedCollectionField.Type;
 
 export const reservedCollectionFieldKeys: ReadonlySet<string> = new Set([
 	"rank",
@@ -114,7 +112,7 @@ const fieldProperties: Record<
 
 export const collectionFieldsToAppSchema = (
 	fields: ReadonlyArray<KeyedCollectionField>,
-): AppSchemaType => ({
+): AppSchema => ({
 	unknownKeys: "strict",
 	fields: Object.fromEntries(
 		fields.map((field, position) => [
@@ -124,131 +122,108 @@ export const collectionFieldsToAppSchema = (
 	),
 });
 
-const requiredValidation = Schema.optional(
-	strictStruct({ required: Schema.optional(Schema.Literal(true)) }),
-);
-
-const representableBase = {
-	label: Schema.String,
-	description: Schema.String,
-	validation: requiredValidation,
-	position: Schema.optional(Schema.Finite),
+export const normalizeCollectionField = (field: CollectionField): CollectionField => {
+	const description = field.description?.trim();
+	return {
+		type: field.type,
+		required: field.required,
+		label: field.label.trim(),
+		...(field.key === undefined ? {} : { key: field.key }),
+		...(description ? { description } : {}),
+		...(field.choices === undefined
+			? {}
+			: { choices: field.choices.map((choice) => choice.trim()) }),
+		...(field.defaultValue === undefined ? {} : { defaultValue: field.defaultValue }),
+	};
 };
 
-const representableChoices = strictStruct({
-	kind: Schema.Literal("static"),
-	values: Schema.Array(strictStruct({ value: Schema.String })),
-});
-
-const RepresentableProperty = Schema.Union([
-	strictStruct({
-		...representableBase,
-		type: Schema.Literal("string"),
-		defaultValue: Schema.optional(Schema.String),
-	}),
-	strictStruct({
-		...representableBase,
-		type: Schema.Literal("number"),
-		defaultValue: Schema.optional(Schema.Finite),
-	}),
-	strictStruct({
-		...representableBase,
-		type: Schema.Literal("boolean"),
-		defaultValue: Schema.optional(Schema.Boolean),
-	}),
-	strictStruct({
-		...representableBase,
-		type: Schema.Literals(["date", "datetime"]),
-		defaultValue: Schema.optional(Schema.String),
-	}),
-	strictStruct({
-		...representableBase,
-		type: Schema.Literal("enum"),
-		choices: representableChoices,
-		defaultValue: Schema.optional(Schema.String),
-	}),
-	strictStruct({
-		...representableBase,
-		choices: representableChoices,
-		type: Schema.Literal("enum-array"),
-		defaultValue: Schema.optional(Schema.Array(Schema.String)),
-	}),
-	strictStruct({
-		...representableBase,
-		type: Schema.Literal("array"),
-		defaultValue: Schema.optional(Schema.Array(Schema.String)),
-		items: strictStruct({
-			type: Schema.Literal("string"),
-			label: Schema.Literal(textListItem.label),
-			description: Schema.Literal(textListItem.description),
-		}),
-	}),
-]);
-
-type RepresentableProperty = typeof RepresentableProperty.Type;
-
-const RepresentableSchema = strictStruct({
-	unknownKeys: Schema.Literal("strict"),
-	fields: Schema.Record(Schema.String, RepresentableProperty),
-});
-
-const fieldTypes = {
-	date: "date",
-	enum: "choice",
-	string: "text",
-	number: "number",
-	array: "text-list",
-	boolean: "boolean",
-	datetime: "datetime",
-	"enum-array": "multi-choice",
-} as const satisfies Record<RepresentableProperty["type"], CollectionFieldType>;
-
-const toCollectionField = (key: string, property: RepresentableProperty): KeyedCollectionField => ({
-	key,
-	label: property.label,
-	type: fieldTypes[property.type],
-	required: property.validation?.required === true,
-	...(property.description === property.label ? {} : { description: property.description }),
-	...(property.defaultValue === undefined ? {} : { defaultValue: property.defaultValue }),
-	...("choices" in property ? { choices: property.choices.values.map(({ value }) => value) } : {}),
-});
-
-const declarationOrder = (
-	entries: ReadonlyArray<readonly [string, RepresentableProperty]>,
-): ReadonlyArray<readonly [string, RepresentableProperty]> =>
-	entries
-		.map((entry, index) => ({ entry, index }))
-		.sort((left, right) => {
-			const leftPosition = left.entry[1].position;
-			const rightPosition = right.entry[1].position;
-			if (leftPosition === undefined && rightPosition === undefined) {
-				return left.index - right.index;
-			}
-			if (leftPosition === undefined) {
-				return 1;
-			}
-			if (rightPosition === undefined) {
-				return -1;
-			}
-			return leftPosition - rightPosition || left.index - right.index;
-		})
-		.map(({ entry }) => entry);
-
-export const appSchemaToCollectionFields = (
-	schema: unknown,
-): Result.Result<ReadonlyArray<KeyedCollectionField>, string> => {
-	const representable = Schema.decodeUnknownResult(RepresentableSchema)(schema);
-	if (Result.isFailure(representable)) {
-		return Result.fail("Membership schema uses unsupported collection field shapes");
+const collectionFieldIssues = (field: CollectionField, index: number) => {
+	const path = (...segments: ReadonlyArray<string>) => ["fields", String(index), ...segments];
+	const issues: Array<ReadonlyArray<string>> = [];
+	if (field.label === "" || field.label.length > collectionFieldLimits.labelLength) {
+		issues.push(path("label"));
 	}
-	if (Result.isFailure(Schema.decodeResult(AppSchema)(representable.success))) {
-		return Result.fail("Membership schema is not a valid property schema");
+	if ((field.description?.length ?? 0) > collectionFieldLimits.descriptionLength) {
+		issues.push(path("description"));
 	}
-	const entries = Object.entries(representable.success.fields);
-	if (entries.some(([key]) => reservedCollectionFieldKeys.has(key))) {
-		return Result.fail("Membership schema uses a reserved field key");
+	const choices = field.choices;
+	if (hasCollectionFieldChoices(field.type)) {
+		if (
+			!choices ||
+			choices.length === 0 ||
+			choices.length > collectionFieldLimits.choices ||
+			new Set(choices).size !== choices.length
+		) {
+			issues.push(path("choices"));
+		}
+		for (const [choiceIndex, choice] of (choices ?? []).entries()) {
+			if (choice === "" || choice.length > collectionFieldLimits.choiceLength) {
+				issues.push(path("choices", String(choiceIndex)));
+			}
+		}
+	} else if (choices !== undefined) {
+		issues.push(path("choices"));
 	}
-	return Result.succeed(
-		declarationOrder(entries).map(([key, property]) => toCollectionField(key, property)),
+	return issues;
+};
+
+const collectionFieldDefaultIssues = (field: KeyedCollectionField, index: number) => {
+	if (field.defaultValue === undefined) {
+		return [];
+	}
+	const parsed = parseAppSchemaPropertiesSafe({
+		properties: { [field.key]: field.defaultValue },
+		propertiesSchema: collectionFieldsToAppSchema([field]),
+	});
+	return parsed.success ? [] : [["fields", String(index), "defaultValue"]];
+};
+
+export const keyedCollectionFieldIssues = (
+	fields: ReadonlyArray<KeyedCollectionField>,
+	isAcceptedKey: (key: string) => boolean = () => true,
+) => {
+	const issues: Array<ReadonlyArray<string>> =
+		fields.length > collectionFieldLimits.fields ? [["fields"]] : [];
+	const keys = new Set<string>();
+	for (const [index, field] of fields.entries()) {
+		issues.push(...collectionFieldIssues(field, index));
+		if (
+			field.key.trim() === "" ||
+			keys.has(field.key) ||
+			reservedCollectionFieldKeys.has(field.key) ||
+			!isAcceptedKey(field.key)
+		) {
+			issues.push(["fields", String(index), "key"]);
+		}
+		keys.add(field.key);
+	}
+	if (issues.length === 0) {
+		issues.push(...fields.flatMap(collectionFieldDefaultIssues));
+	}
+	return issues;
+};
+
+const isNormalizedCollectionField = (field: KeyedCollectionField) => {
+	const normalized = normalizeCollectionField(field);
+	return (
+		normalized.label === field.label &&
+		normalized.description === field.description &&
+		(normalized.choices ?? []).every((choice, index) => choice === field.choices?.[index])
 	);
+};
+
+export const decodeCollectionFields = (
+	input: unknown,
+): Result.Result<ReadonlyArray<KeyedCollectionField>, string> => {
+	const decoded = Schema.decodeUnknownResult(Schema.Array(KeyedCollectionField))(
+		input === undefined ? [] : input,
+	);
+	if (Result.isFailure(decoded)) {
+		return Result.fail("Invalid collection field declarations");
+	}
+	const fields = decoded.success;
+	if (!fields.every(isNormalizedCollectionField) || keyedCollectionFieldIssues(fields).length > 0) {
+		return Result.fail("Invalid collection field declaration");
+	}
+	return Result.succeed(fields);
 };

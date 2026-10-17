@@ -132,6 +132,20 @@ const fixtures: ReadonlyArray<Fixture> = [
 			],
 		},
 	}),
+	outbound("done-completed-null", {
+		...envelope,
+		usage,
+		type: "done",
+		console: { entries: [], truncated: false },
+		outcome: { value: null, status: "completed" },
+	}),
+	outbound("done-completed-unicode", {
+		...envelope,
+		usage,
+		type: "done",
+		outcome: { status: "completed", value: { nullable: null, text: 'é € 😀\n"\\' } },
+		console: { truncated: true, entries: [{ level: "warn", message: 'é € 😀\n"\\' }] },
+	}),
 	outbound("done-failed", {
 		...envelope,
 		usage,
@@ -227,6 +241,13 @@ const fixtures: ReadonlyArray<Fixture> = [
 		type: "done",
 		console: { entries: [], truncated: false },
 		outcome: { message: "x", phase: "boot", status: "failed" },
+	}),
+	invalidPayload("done-completed-missing-value", "outbound", {
+		...envelope,
+		usage,
+		type: "done",
+		outcome: { status: "completed" },
+		console: { entries: [], truncated: false },
 	}),
 	invalid("not-json", "inbound", "payload", framed(new TextEncoder().encode("{run"))),
 	invalid(

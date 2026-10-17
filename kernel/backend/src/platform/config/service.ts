@@ -28,13 +28,7 @@ const logLevels: Record<string, LogLevel.LogLevel> = {
 	warning: "Warn",
 };
 
-export type AppConfigValue = Omit<SystemConfigValue, "observability"> & {
-	readonly observability: Omit<SystemConfigValue["observability"], "logging"> & {
-		readonly logging: Omit<SystemConfigValue["observability"]["logging"], "level"> & {
-			readonly level: LogLevel.LogLevel;
-		};
-	};
-};
+export type AppConfigValue = Effect.Success<ReturnType<typeof validateSystemConfig>>;
 
 const mapLogLevel = (config: SystemConfigValue) => {
 	const level = logLevels[config.observability.logging.level.toLowerCase()];
@@ -102,7 +96,22 @@ const otlpEndpointError = (endpoint: string) => {
 	return undefined;
 };
 
-export const parseOtlpHeaders = (value: string): Result.Result<Record<string, string>, string> => {
+const parseOptional = <I, A>(
+	name: string,
+	value: Option.Option<I>,
+	parse: (value: I) => Result.Result<A, string>,
+) =>
+	Option.match(value, {
+		onNone: () => Effect.succeedNone,
+		onSome: (input) => {
+			const parsed = parse(input);
+			return Result.isFailure(parsed)
+				? Effect.fail(configError(`${name} is invalid: ${parsed.failure}.`))
+				: Effect.succeedSome(parsed.success);
+		},
+	});
+
+const parseOtlpHeaders = (value: string): Result.Result<Record<string, string>, string> => {
 	const headers: Record<string, string> = {};
 	for (const [index, entry] of value.split(",").entries()) {
 		const trimmed = entry.trim();
@@ -125,34 +134,6 @@ export const parseOtlpHeaders = (value: string): Result.Result<Record<string, st
 		: Result.succeed(headers);
 };
 
-export const isOidcEnabled = (config: AppConfigValue): boolean => {
-	const { clientId, issuerUrl, clientSecret } = config.server.oidc;
-	return isNonEmpty(clientId) && isNonEmpty(issuerUrl) && isNonEmptyRedacted(clientSecret);
-};
-
-export const getSmtpCredentials = (
-	config: AppConfigValue,
-): Option.Option<{ server: string; user: Redacted.Redacted; password: Redacted.Redacted }> => {
-	const { user, server, password } = config.server.smtp;
-	if (!isNonEmpty(server) || !isNonEmptyRedacted(user) || !isNonEmptyRedacted(password)) {
-		return Option.none();
-	}
-	return Option.some({ user: user.value, server: server.value, password: password.value });
-};
-
-export const isSmtpEnabled = (config: AppConfigValue): boolean =>
-	Option.isSome(getSmtpCredentials(config));
-
-export const isS3Configured = (config: AppConfigValue): boolean => {
-	const { url, bucketName, accessKeyId, secretAccessKey } = config.fileStorage;
-	return (
-		isNonEmpty(url) &&
-		isNonEmpty(bucketName) &&
-		isNonEmptyRedacted(accessKeyId) &&
-		isNonEmptyRedacted(secretAccessKey)
-	);
-};
-
 // One cluster runner connection, two durable queue worker connections, and one application connection.
 const fixedApplicationConnections = 4;
 
@@ -164,8 +145,9 @@ export const databaseConnectionBudget = (config: {
 	return { application, sandboxDispatch: config.database.poolMax - application };
 };
 
-export const validateSystemConfig = (config: AppConfigValue) =>
+export const validateSystemConfig = (system: SystemConfigValue) =>
 	Effect.gen(function* () {
+		const config = yield* mapLogLevel(system);
 		const limits = config.automations;
 		if (
 			!Number.isInteger(limits.maxDepth) ||
@@ -232,23 +214,17 @@ export const validateSystemConfig = (config: AppConfigValue) =>
 			}
 		}
 
-		if (Option.isSome(otlp.headers)) {
-			const headers = parseOtlpHeaders(Redacted.value(otlp.headers.value));
-			if (Result.isFailure(headers)) {
-				return yield* Effect.fail(
-					configError(`OTEL_EXPORTER_OTLP_HEADERS is invalid: ${headers.failure}.`),
-				);
-			}
-		}
-
-		if (Option.isSome(config.server.egressAllowedNetworks)) {
-			const networks = parseEgressAllowedNetworks(config.server.egressAllowedNetworks.value);
-			if (Result.isFailure(networks)) {
-				return yield* Effect.fail(
-					configError(`SERVER_EGRESS_ALLOWED_NETWORKS is invalid: ${networks.failure}.`),
-				);
-			}
-		}
+		const headers = yield* parseOptional("OTEL_EXPORTER_OTLP_HEADERS", otlp.headers, (value) =>
+			Result.map(parseOtlpHeaders(Redacted.value(value)), Redacted.make),
+		);
+		const egressAllowedNetworks = Option.getOrElse(
+			yield* parseOptional(
+				"SERVER_EGRESS_ALLOWED_NETWORKS",
+				config.server.egressAllowedNetworks,
+				parseEgressAllowedNetworks,
+			),
+			() => [],
+		);
 
 		if (logging.file.path.trim().length === 0) {
 			return yield* Effect.fail(configError("SERVER_LOG_FILE must not be empty."));
@@ -271,11 +247,10 @@ export const validateSystemConfig = (config: AppConfigValue) =>
 		}
 
 		const { clientId, issuerUrl, clientSecret } = config.server.oidc;
-		const oidcSetCount = [
-			isNonEmpty(clientId),
-			isNonEmpty(issuerUrl),
-			isNonEmptyRedacted(clientSecret),
-		].filter(Boolean).length;
+		const hasClientId = isNonEmpty(clientId);
+		const hasIssuerUrl = isNonEmpty(issuerUrl);
+		const hasClientSecret = isNonEmptyRedacted(clientSecret);
+		const oidcSetCount = [hasClientId, hasIssuerUrl, hasClientSecret].filter(Boolean).length;
 
 		if (oidcSetCount > 0 && oidcSetCount < 3) {
 			return yield* Effect.fail(
@@ -285,8 +260,15 @@ export const validateSystemConfig = (config: AppConfigValue) =>
 			);
 		}
 
-		const oidcEnabled = oidcSetCount === 3;
-		if (config.users.disableLocalAuth && !oidcEnabled) {
+		const oidc =
+			hasClientId && hasIssuerUrl && hasClientSecret
+				? Option.some({
+						clientId: clientId.value,
+						issuerUrl: issuerUrl.value,
+						clientSecret: clientSecret.value,
+					})
+				: Option.none();
+		if (config.users.disableLocalAuth && Option.isNone(oidc)) {
 			return yield* Effect.fail(
 				configError(
 					"USERS_DISABLE_LOCAL_AUTH is set but OIDC credentials are incomplete. Set SERVER_OIDC_CLIENT_ID, SERVER_OIDC_ISSUER_URL, and SERVER_OIDC_CLIENT_SECRET.",
@@ -295,11 +277,10 @@ export const validateSystemConfig = (config: AppConfigValue) =>
 		}
 
 		const { user, server, password } = config.server.smtp;
-		const smtpSetCount = [
-			isNonEmpty(server),
-			isNonEmptyRedacted(user),
-			isNonEmptyRedacted(password),
-		].filter(Boolean).length;
+		const hasServer = isNonEmpty(server);
+		const hasUser = isNonEmptyRedacted(user);
+		const hasPassword = isNonEmptyRedacted(password);
+		const smtpSetCount = [hasServer, hasUser, hasPassword].filter(Boolean).length;
 		if (smtpSetCount > 0 && smtpSetCount < 3) {
 			return yield* Effect.fail(
 				configError(
@@ -307,6 +288,29 @@ export const validateSystemConfig = (config: AppConfigValue) =>
 				),
 			);
 		}
+		const smtp =
+			hasServer && hasUser && hasPassword
+				? Option.some({
+						user: user.value,
+						server: server.value,
+						password: password.value,
+						mailbox: config.server.smtp.mailbox,
+					})
+				: Option.none();
+		const { url, region, bucketName, accessKeyId, secretAccessKey } = config.fileStorage;
+		const s3 =
+			isNonEmpty(url) &&
+			isNonEmpty(bucketName) &&
+			isNonEmptyRedacted(accessKeyId) &&
+			isNonEmptyRedacted(secretAccessKey)
+				? Option.some({
+						url: url.value,
+						bucketName: bucketName.value,
+						accessKeyId: accessKeyId.value,
+						secretAccessKey: secretAccessKey.value,
+						region: Option.filter(region, (value) => value.length > 0),
+					})
+				: Option.none();
 
 		const permanentPath = normalizePath(config.fileStorage.localDir);
 		const temporaryPath = normalizePath(config.fileStorage.localTempDir);
@@ -339,13 +343,23 @@ export const validateSystemConfig = (config: AppConfigValue) =>
 			);
 		}
 
-		return { ...config, frontendUrl: frontendUrl.origin };
+		return {
+			...config,
+			frontendUrl: frontendUrl.origin,
+			server: { ...config.server, oidc, smtp, egressAllowedNetworks },
+			observability: { ...config.observability, otlp: { ...otlp, headers } },
+			fileStorage: {
+				s3,
+				localDir: config.fileStorage.localDir,
+				localTempDir: config.fileStorage.localTempDir,
+			},
+		};
 	});
 
 export class AppConfig extends Context.Service<AppConfig>()("AppConfig", {
 	make: Effect.gen(function* () {
 		const system = yield* SystemConfigSource;
-		return yield* validateSystemConfig(yield* mapLogLevel(system));
+		return yield* validateSystemConfig(system);
 	}),
 }) {
 	static readonly layer = Layer.effect(this, this.make);

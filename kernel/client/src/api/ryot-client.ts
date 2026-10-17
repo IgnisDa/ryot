@@ -3,7 +3,6 @@ import {
 	type RyotClientAdapter,
 	RyotClientError,
 } from "@ryot-app/plugin-client-sdk";
-import { makeRyotRuntime, type RyotRuntime } from "@ryot-app/plugin-client-sdk/runtime";
 import { Effect } from "effect";
 
 import { classifyCollectionFailure, CollectionsApi } from "#/api/collections";
@@ -82,25 +81,40 @@ export const createKernelRyotClient = (
 
 export type KernelRyotClient = ReturnType<typeof createKernelRyotClient>;
 
-export type KernelRyotSession = {
-	readonly runtime: RyotRuntime;
+export type KernelRyotClientEntry = {
 	readonly client: KernelRyotClient;
 	readonly hostServices: KernelHostServices;
 };
 
-export type KernelRyotClientStore = { readonly get: (scope: ApiScope) => KernelRyotSession };
+export type KernelRyotClientStore = {
+	readonly get: (scope: ApiScope) => KernelRyotClientEntry;
+	readonly commit: (entry: KernelRyotClientEntry) => () => void;
+};
 
 export const createKernelRyotClientStore = (
 	runtime: ClientRuntime,
 	theme: ThemeStore,
 ): KernelRyotClientStore => {
-	const sessions = new Map<string, KernelRyotSession>();
+	type Slot = { readonly key: string; readonly entry: KernelRyotClientEntry };
+	let last: Slot | undefined;
+	let committed: Slot | undefined;
 	return {
+		commit: (entry) => {
+			const slot = { entry, key: apiScopeKey(entry.hostServices.scope) };
+			committed = slot;
+			return () => {
+				if (committed === slot) {
+					committed = undefined;
+				}
+			};
+		},
 		get: (scope) => {
 			const key = apiScopeKey(scope);
-			const existing = sessions.get(key);
-			if (existing !== undefined) {
-				return existing;
+			if (committed?.key === key) {
+				return committed.entry;
+			}
+			if (last?.key === key) {
+				return last.entry;
 			}
 			const client = createKernelRyotClient(
 				runtime,
@@ -108,13 +122,9 @@ export const createKernelRyotClientStore = (
 				theme,
 				runtime.runSync(ExternalLinks).open,
 			);
-			const session = {
-				client,
-				runtime: makeRyotRuntime(client),
-				hostServices: { scope, runtime },
-			};
-			sessions.set(key, session);
-			return session;
+			const entry = { client, hostServices: { scope, runtime } };
+			last = { key, entry };
+			return entry;
 		},
 	};
 };

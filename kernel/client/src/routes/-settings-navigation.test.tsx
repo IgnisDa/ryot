@@ -14,7 +14,7 @@ import { AuthenticatedApiError } from "#/api/authenticated";
 import { KernelApiTestLayer, makeEntityWatchService, makeRyotQLApi } from "#/api/ports.test-layer";
 import { PublicApi, PublicApiError } from "#/api/public";
 import type { RyotQLApi } from "#/api/ryotql";
-import type { AuthService } from "#/modules/auth/service";
+import type { AuthService, SettledAuthSession } from "#/modules/auth/service";
 import { createBackInterceptors } from "#/modules/navigation/back-interceptors";
 import { pluginBridgeServicesTestLayer } from "#/modules/pages/bridge/services.test-layer";
 import { makePluginCatalogEventsTestLayer } from "#/modules/plugins/catalog/events.test-layer";
@@ -27,7 +27,6 @@ import {
 	ClientPageSessionsRouteStubs,
 	CustomizeRouteStubs,
 	DeviceRouteStubs,
-	EntityRouteStubs,
 	ImportsRouteStubs,
 	InstanceAdminRouteStubs,
 	IntegrationRouteStubs,
@@ -37,12 +36,12 @@ import {
 	makeStorageStub,
 	makeUserSettingsStub,
 	makeWorkspaceRecorder,
+	ManagedAssetRouteStubs,
 	NavigationRouteStubs,
 	NotificationChannelRouteStubs,
 	OAuthRouteStubs,
 	PagesApiRouteStubs,
 	ProviderAddRouteStubs,
-	SavedViewRouteStubs,
 	server,
 	ServerStub,
 	stubDesktopMatchMedia,
@@ -106,8 +105,7 @@ const mountView = (
 			authLayer,
 			InstanceAdminRouteStubs,
 			ServerStub,
-			SavedViewRouteStubs,
-			EntityRouteStubs,
+			ManagedAssetRouteStubs,
 			publicLayer,
 			KernelApiTestLayer,
 			PagesApiRouteStubs,
@@ -142,7 +140,7 @@ const mountView = (
 		createMemoryHistory({ initialEntries }),
 	);
 	const view = render(<RouterProvider router={router} />);
-	return { ...view, router, interestEvents };
+	return { ...view, router, runtime, interestEvents };
 };
 
 const mountImpersonationView = (
@@ -161,6 +159,33 @@ const mountImpersonationView = (
 	);
 
 describe("authenticated route gate", () => {
+	it.live("releases the committed authenticated layout when logout redirects to auth", () =>
+		Effect.gen(function* () {
+			let session: SettledAuthSession = authenticated;
+			const view = mountView(
+				"/settings",
+				undefined,
+				undefined,
+				makeAuthStub({ settledSession: () => Effect.sync(() => session) }),
+			);
+			yield* Effect.gen(function* () {
+				yield* Effect.promise(() => screen.findByRole("heading", { level: 1, name: "Settings" }));
+				expect(view.interestEvents).toEqual(["acquire"]);
+				session = { ...authenticated, user: { ...authenticated.user, name: "Updated profile" } };
+				yield* Effect.promise(() => view.router.invalidate());
+				expect(view.interestEvents).toEqual(["acquire"]);
+				session = unauthenticated;
+				yield* Effect.promise(() => view.router.invalidate());
+				yield* Effect.promise(() =>
+					waitFor(() => expect(view.router.state.location.pathname).toBe("/auth")),
+				);
+				yield* Effect.promise(() =>
+					waitFor(() => expect(view.interestEvents).toEqual(["acquire", "release"])),
+				);
+				view.unmount();
+			}).pipe(Effect.ensuring(view.runtime.disposeEffect));
+		}),
+	);
 	it.live(
 		"owns one interest session across loader revalidation and releases it on unmount without fetching preferences",
 		() =>

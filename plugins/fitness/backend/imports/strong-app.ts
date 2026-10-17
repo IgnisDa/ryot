@@ -1,12 +1,11 @@
 import { DateTime, Duration, Option, Result } from "@ryot-app/plugin-backend-sdk/effect";
 
 import { milesToKilometers, poundsToKilograms } from "../../shared/workout-units";
-import { parseCsvText, readCsvCell, readOptionalCsvNumber, readRequiredCsvCell } from "./csv";
+import { readCsvCell, readOptionalCsvNumber, readRequiredCsvCell } from "./csv";
 import {
-	determineWorkoutExerciseKind,
+	buildWorkoutItem,
 	type WorkoutAdapterFailure,
 	type WorkoutAdapterResult,
-	type WorkoutImportExercise,
 	type WorkoutImportSet,
 } from "./workout-domain";
 
@@ -120,17 +119,6 @@ export const strongAppWorkoutKey = (row: Record<string, string>) =>
 		workoutName: readCsvCell(row, workoutNameColumns) ?? "",
 	});
 
-export const adaptStrongAppCsv = (csvText: string, timezone: string): WorkoutAdapterResult => {
-	const { rows, headers } = parseCsvText(csvText);
-	if (headers.length === 0) {
-		throw new Error("StrongApp CSV is empty or has no header row");
-	}
-	return adaptStrongAppRows(
-		rows.map((row, itemIndex) => ({ row, itemIndex })),
-		timezone,
-	);
-};
-
 export const adaptStrongAppRows = (
 	rows: ReadonlyArray<{ row: Record<string, string>; itemIndex: number }>,
 	timezone: string,
@@ -157,89 +145,49 @@ export const adaptStrongAppRows = (
 		}
 	}
 
-	const workoutsBySourceKey = new Map<string, StrongAppRow[]>();
-	for (const row of parsedRows) {
-		const sourceKey = sourceIdentifierForWorkout(row);
-		const workoutRows = workoutsBySourceKey.get(sourceKey) ?? [];
-		workoutRows.push(row);
-		workoutsBySourceKey.set(sourceKey, workoutRows);
+	const firstRow = parsedRows[0];
+	if (!firstRow) {
+		return { failures };
+	}
+	const sourceIdentifier = sourceIdentifierForWorkout(firstRow);
+	const date = firstRow.date;
+	const sourceLabel = sourceLabelForWorkout(firstRow);
+	const startedAt = DateTime.makeZoned(date.replace(" ", "T"), {
+		timeZone: timezone,
+		adjustForTimeZone: true,
+	});
+	if (Option.isNone(startedAt)) {
+		failures.push({
+			sourceLabel,
+			unit: "workouts",
+			sourceIdentifier,
+			itemIndex: firstRow.itemIndex,
+			message: `Could not parse workout date "${date}"`,
+		});
+		return { failures };
 	}
 
-	const items: WorkoutAdapterResult["items"] = [];
-	for (const [sourceIdentifier, workoutRows] of workoutsBySourceKey) {
-		const firstRow = workoutRows[0];
-		if (!firstRow) {
-			continue;
-		}
-		const date = firstRow.date;
-		const sourceLabel = sourceLabelForWorkout(firstRow);
-		const startedAt = DateTime.makeZoned(date.replace(" ", "T"), {
-			timeZone: timezone,
-			adjustForTimeZone: true,
+	const parsedDuration = Result.try(() => parseWorkoutDurationSeconds(firstRow.workoutDuration));
+	if (Result.isFailure(parsedDuration)) {
+		failures.push({
+			sourceLabel,
+			unit: "workouts",
+			sourceIdentifier,
+			itemIndex: firstRow.itemIndex,
+			message:
+				parsedDuration.failure instanceof Error
+					? parsedDuration.failure.message
+					: "Could not parse workout duration",
 		});
-		if (Option.isNone(startedAt)) {
-			failures.push({
-				sourceLabel,
-				unit: "workouts",
-				sourceIdentifier,
-				itemIndex: firstRow.itemIndex,
-				message: `Could not parse workout date "${date}"`,
-			});
-			continue;
-		}
+		return { failures };
+	}
 
-		const parsedDuration = Result.try(() => parseWorkoutDurationSeconds(firstRow.workoutDuration));
-		if (Result.isFailure(parsedDuration)) {
-			failures.push({
-				sourceLabel,
-				unit: "workouts",
-				sourceIdentifier,
-				itemIndex: firstRow.itemIndex,
-				message:
-					parsedDuration.failure instanceof Error
-						? parsedDuration.failure.message
-						: "Could not parse workout duration",
-			});
-			continue;
-		}
-
-		const exercisesByName = new Map<string, StrongAppRow[]>();
-		for (const row of workoutRows) {
-			const exerciseRows = exercisesByName.get(row.exerciseName) ?? [];
-			exerciseRows.push(row);
-			exercisesByName.set(row.exerciseName, exerciseRows);
-		}
-
-		const exercises: WorkoutImportExercise[] = [];
-		for (const [exerciseName, exerciseRows] of exercisesByName) {
-			const sets = exerciseRows.map(toWorkoutSet);
-			const kind = determineWorkoutExerciseKind(sets);
-			if (!kind) {
-				failures.push({
-					unit: "exercises",
-					sourceLabel: `Exercise: ${exerciseName}`,
-					sourceIdentifier: `${sourceIdentifier}:${exerciseName}`,
-					itemIndex: exerciseRows[0]?.itemIndex ?? firstRow.itemIndex,
-					message: `Could not determine exercise kind from ${sets.length} sets`,
-				});
-				continue;
-			}
-			exercises.push({ kind, sets, name: exerciseName });
-		}
-
-		if (exercises.length === 0) {
-			failures.push({
-				sourceLabel,
-				unit: "workouts",
-				sourceIdentifier,
-				itemIndex: firstRow.itemIndex,
-				message: "Workout has no importable exercises",
-			});
-			continue;
-		}
-
-		items.push({
-			exercises,
+	return buildWorkoutItem({
+		failures,
+		rows: parsedRows,
+		toSet: toWorkoutSet,
+		exerciseName: (row) => row.exerciseName,
+		item: {
 			sourceLabel,
 			sourceIdentifier,
 			name: firstRow.workoutName,
@@ -250,8 +198,6 @@ export const adaptStrongAppRows = (
 			endedAt: DateTime.formatIso(
 				DateTime.addDuration(startedAt.value, Duration.seconds(parsedDuration.success)),
 			),
-		});
-	}
-
-	return { items, failures };
+		},
+	});
 };

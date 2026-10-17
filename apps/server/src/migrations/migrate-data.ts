@@ -14,6 +14,7 @@ import {
 	buildCollectionToEntityRelationshipMigrationSql,
 	buildMonitoringCollectionMigrationSql,
 	buildOwnedCollectionOwnershipMigrationSql,
+	buildWatchlistBacklogMigrationSql,
 } from "./collection-mapping";
 import {
 	createLegacyDescriptionInputsSql,
@@ -95,6 +96,7 @@ import { buildMeasurementMigrationSql } from "./user-measurement-mapping";
 import { migrateLegacyUserSettings } from "./user-settings-mapping";
 import { buildUserToEntityInLibraryMigrationSql } from "./user-to-entity-mapping";
 import {
+	buildWorkoutCompletedEventMigrationSql,
 	buildWorkoutMigrationSql,
 	buildWorkoutRepeatedFromRelationshipMigrationSql,
 	buildWorkoutSetEventMigrationSql,
@@ -210,6 +212,10 @@ export const migrateLegacyTables = Effect.gen(function* () {
 		};
 	});
 	const collectionEntitySchema = entitySchema(null, "collection");
+	const backlogEntitySchemaSlugs = builtinMediaEntitySchemaSlugs.map((slug) => {
+		requireEventSchema(resolution, mediaPluginId, slug, "backlog");
+		return entitySchema(mediaPluginId, slug).slug;
+	});
 	const libraryEntitySchema = entitySchema(mediaPluginId, "media-library");
 	const memberOfRelationshipSchema = relationshipSchema(null, "member-of");
 	const inLibraryRelationshipSchema = relationshipSchema(mediaPluginId, "in-media-library");
@@ -254,6 +260,7 @@ export const migrateLegacyTables = Effect.gen(function* () {
 		"add-entity-to-collection",
 	);
 	const measurementMetricEntitySchema = entitySchema(fitnessPluginId, "measurement-metric");
+	const measurementEntryEntitySchema = entitySchema(fitnessPluginId, "measurement-entry");
 	const measurementMetricPinnedRelationshipSchema = relationshipSchema(
 		fitnessPluginId,
 		"measurement-metric-pinned",
@@ -265,6 +272,12 @@ export const migrateLegacyTables = Effect.gen(function* () {
 		"measurement-reading",
 	);
 	const workoutEntitySchema = entitySchema(fitnessPluginId, "workout");
+	const workoutCompletedEventSchema = requireEventSchema(
+		resolution,
+		fitnessPluginId,
+		"workout",
+		"workout-completed",
+	);
 	const workoutTemplateEntitySchema = entitySchema(fitnessPluginId, "workout-template");
 	const workoutSetEventSchema = requireEventSchema(
 		resolution,
@@ -292,6 +305,9 @@ export const migrateLegacyTables = Effect.gen(function* () {
 			),
 		),
 	];
+	for (const slug of libraryEligibleEntitySchemaSlugs) {
+		requireEventSchema(resolution, mediaPluginId, slug, "add-to-media-library");
+	}
 	const showSeasonEntitySchema = entitySchema(mediaPluginId, "show-season");
 	const showEpisodeEntitySchema = entitySchema(mediaPluginId, "show-episode");
 	const podcastEpisodeEntitySchema = entitySchema(mediaPluginId, "podcast-episode");
@@ -534,6 +550,7 @@ export const migrateLegacyTables = Effect.gen(function* () {
 			);
 			yield* connection.executeRaw(
 				buildMeasurementMigrationSql({
+					entryEntitySchema: measurementEntryEntitySchema,
 					libraryEntitySchema: fitnessLibraryEntitySchema,
 					metricEntitySchema: measurementMetricEntitySchema,
 					readingEventSchema: measurementReadingEventSchema,
@@ -546,6 +563,13 @@ export const migrateLegacyTables = Effect.gen(function* () {
 				[],
 			);
 			yield* connection.executeRaw(buildWorkoutMigrationSql(workoutEntitySchema), []);
+			yield* connection.executeRaw(
+				buildWorkoutCompletedEventMigrationSql({
+					workoutEntitySchema,
+					completedEventSchema: workoutCompletedEventSchema,
+				}),
+				[],
+			);
 			yield* connection.executeRaw(buildWorkoutSetEventMigrationSql(workoutSetEventSchema), []);
 			yield* connection.executeRaw(
 				buildWorkoutToTemplateRelationshipMigrationSql(workoutToWorkoutTemplateRelationshipSchema),
@@ -561,6 +585,13 @@ export const migrateLegacyTables = Effect.gen(function* () {
 			);
 			yield* connection.executeRaw(buildReviewMigrationSql(mediaPluginId), []);
 			reportSequence = yield* logReportRows(connection, reportSequence);
+			yield* connection.executeRaw(
+				buildWatchlistBacklogMigrationSql({
+					mediaPluginId,
+					mediaEntitySchemaSlugs: backlogEntitySchemaSlugs,
+				}),
+				[],
+			);
 			yield* connection.executeRaw(buildSeenMigrationSql(mediaPluginId), []);
 			reportSequence = yield* logReportRows(connection, reportSequence);
 			yield* connection.executeRaw(buildSeenEpisodicCompletionMigrationSql(mediaPluginId), []);

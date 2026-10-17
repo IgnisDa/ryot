@@ -7,7 +7,6 @@ import type {
 import { mediaFlatActivityCopy, mediaListStateDetail } from "../media/activity-copy";
 import { decimalLabel, mediaActivityCountFigure } from "../media/activity-timeline";
 import { defineFlatMediaSchema } from "../media/flat-schema";
-import { MEDIA_ART_HEIGHT } from "../media/hero";
 import { mediaCountFact, mediaCountLabels, type MediaSummaryFact } from "../media/summary-state";
 import { mediaSchemaAspects } from "../schema-aspects";
 
@@ -66,7 +65,6 @@ export const mangaSchema = defineFlatMediaSchema({
 	recipes: mangaRecipes,
 	facts: mangaSummaryFacts,
 	aspect: mediaSchemaAspects.manga,
-	heroHeight: () => MEDIA_ART_HEIGHT,
 	presentationFacts: mangaPresentationFacts,
 	nouns: { title: "Manga", plural: "manga", singular: "manga" },
 	measureFigure: { label: "Chapters", value: mediaActivityCountFigure },

@@ -8,14 +8,18 @@ import {
 import { RyotScheduleService } from "@ryot-app/plugin-client-sdk/schedule";
 import { Schema } from "@ryot-app/plugin-kit/effect";
 import { EntityId } from "@ryot-app/plugin-kit/schema";
-import { Layer } from "effect";
+import { Fiber, Layer } from "effect";
 import * as Deferred from "effect/Deferred";
 import { TestClock } from "effect/testing";
 
-import { decodeWorkoutEditorDraft } from "../../shared/workout-editor-draft";
+import {
+	decodeWorkoutEditorDraft,
+	type WorkoutEditorDraft,
+} from "../../shared/workout-editor-draft";
 import { WorkoutEditorSaveInputSchema } from "../../shared/workout-editor-operations";
 import { controllerHarness } from "../../tests/client/controller-harness";
 import { exerciseOccurrence, liveDraft, startTime } from "../../tests/client/draft-fixtures";
+import { isWorkoutEditorSaving } from "./controller-types";
 
 const draft = (name = "Session") => liveDraft({ name });
 
@@ -137,78 +141,239 @@ describe("workout editor controller", () => {
 		}),
 	);
 
-	it.live("persists a frozen submission before execution and blocks discard while saving", () =>
+	it.live("admits one caller before persistence and stays busy through acknowledged cleanup", () =>
 		Effect.gen(function* () {
-			const harness = createController();
+			const writing = yield* Deferred.make<void>();
+			const releaseWrite = yield* Deferred.make<void>();
+			const invoking = yield* Deferred.make<void>();
+			const releaseInvoke = yield* Deferred.make<void>();
+			const cleaning = yield* Deferred.make<void>();
+			const releaseCleanup = yield* Deferred.make<void>();
+			const secondStarted = yield* Deferred.make<void>();
+			const submitted = saveInput();
+			const result = { sets: [], kind: "saved" as const, entityId: EntityId.make("saved-workout") };
+			let preparations = 0;
+			const harness = createController({
+				remove: Deferred.succeed(cleaning, undefined).pipe(
+					Effect.andThen(Deferred.await(releaseCleanup)),
+				),
+				onWrite: (value) =>
+					Effect.gen(function* () {
+						const decoded = decodeWorkoutEditorDraft(value);
+						if (decoded._tag === "Success" && decoded.success.submission !== undefined) {
+							yield* Deferred.succeed(writing, undefined);
+							yield* Deferred.await(releaseWrite);
+						}
+					}),
+				save: () =>
+					Effect.gen(function* () {
+						const stored = decodeWorkoutEditorDraft(harness.stored);
+						expect(stored._tag === "Success" && stored.success.submission).toEqual(submitted);
+						yield* Deferred.succeed(invoking, undefined);
+						yield* Deferred.await(releaseInvoke);
+						return result;
+					}),
+			});
 			yield* harness.controller.load();
 			yield* harness.controller.start(draft());
-			const submitted = saveInput();
-			expect(yield* harness.controller.beginSubmission(submitted)).toEqual(submitted);
-			const storedDraft = decodeWorkoutEditorDraft(harness.stored);
-			expect(storedDraft._tag).toBe("Success");
-			if (storedDraft._tag === "Success") {
-				expect(storedDraft.success.submission).toEqual(submitted);
-			}
-			expect(yield* harness.controller.beginSubmission(saveInput("other"))).toEqual(submitted);
-			harness.controller.setSaving(true);
+			const first = yield* Effect.forkChild(
+				harness.controller.save((current) =>
+					Effect.sync(() => {
+						preparations += 1;
+						return { input: submitted, draft: current.draft };
+					}),
+				),
+			);
+			yield* Deferred.await(writing);
+			expect(isWorkoutEditorSaving(harness.controller.getSnapshot())).toBe(true);
+			expect(harness.submissions).toHaveLength(0);
+			const second = yield* Effect.forkChild(
+				Effect.gen(function* () {
+					yield* Deferred.succeed(secondStarted, undefined);
+					return yield* harness.controller.save((current) =>
+						Effect.sync(() => {
+							preparations += 1;
+							return { draft: current.draft, input: saveInput("other") };
+						}),
+					);
+				}),
+			);
+			yield* Deferred.await(secondStarted);
+			expect(yield* Fiber.join(second)).toBeUndefined();
+			expect(preparations).toBe(1);
 			expect(yield* harness.controller.discard()).toBe(false);
-			expect(harness.removals).toBe(0);
-			harness.controller.setSaving(false);
+			yield* Deferred.succeed(releaseWrite, undefined);
+			yield* Deferred.await(invoking);
+			expect(harness.submissions).toEqual([submitted]);
+			yield* Deferred.succeed(releaseInvoke, undefined);
+			yield* Deferred.await(cleaning);
+			expect(harness.controller.getSnapshot().saveState).toEqual({
+				result,
+				cleaning: true,
+				phase: "acknowledged",
+			});
+			expect(isWorkoutEditorSaving(harness.controller.getSnapshot())).toBe(true);
 			expect(
 				harness.controller.change((current) => ({ ...current, name: "Must stay frozen" })),
 			).toBe(false);
 			expect(yield* harness.controller.discard()).toBe(false);
-			expect(yield* harness.controller.finish()).toBe(true);
+			expect(yield* harness.controller.save(() => Effect.die("must decline"))).toBeUndefined();
+			yield* Deferred.succeed(releaseCleanup, undefined);
+			expect(yield* Fiber.join(first)).toEqual(result);
+			expect(isWorkoutEditorSaving(harness.controller.getSnapshot())).toBe(false);
 			expect(harness.stored).toBeNull();
 			expect(harness.controller.getSnapshot().status).toBe("empty");
+			expect(harness.submissions).toHaveLength(1);
 		}),
 	);
 
-	it.live("unlocks only a definitely unwritten rejected submission", () =>
+	it.live("retains acknowledgement across remount and retries only failed local cleanup", () =>
 		Effect.gen(function* () {
-			const harness = createController();
+			let failRemoval = true;
+			const result = { sets: [], kind: "saved" as const, entityId: EntityId.make("saved-workout") };
+			const states: boolean[] = [];
+			const harness = createController({
+				save: () => Effect.succeed(result),
+				remove: Effect.suspend(() => (failRemoval ? Effect.fail("quota") : Effect.void)),
+			});
+			harness.controller.subscribe(() => {
+				states.push(isWorkoutEditorSaving(harness.controller.getSnapshot()));
+			});
 			yield* harness.controller.load();
 			yield* harness.controller.start(draft());
-			yield* harness.controller.beginSubmission(saveInput());
-			harness.controller.setSaving(true);
-			harness.controller.setSaving(false);
+			const failed = yield* Effect.exit(
+				harness.controller.save((current) =>
+					Effect.succeed({ input: saveInput(), draft: current.draft }),
+				),
+			);
+			expect(failed._tag).toBe("Failure");
+			expect(harness.controller.getSnapshot().saveState).toEqual({
+				result,
+				cleaning: false,
+				phase: "acknowledged",
+			});
+			harness.controller.dispose();
+			yield* harness.controller.load();
+			expect(harness.reads).toBe(1);
+			expect(harness.controller.getSnapshot().saveState).toEqual({
+				result,
+				cleaning: false,
+				phase: "acknowledged",
+			});
+			expect(yield* harness.controller.discard()).toBe(false);
 			expect(harness.controller.change((current) => ({ ...current, name: "Unsafe edit" }))).toBe(
 				false,
 			);
-			expect(
-				yield* harness.controller.rejectSubmission({
-					kind: "invalid",
-					code: "missing-measurement",
-				}),
-			).toBe(true);
-			expect(
-				harness.controller.change((current) => ({ ...current, name: "Corrected input" })),
-			).toBe(true);
-			yield* harness.controller.flush();
-			const recovered = decodeWorkoutEditorDraft(harness.stored);
-			expect(recovered._tag).toBe("Success");
-			if (recovered._tag === "Success") {
-				expect(recovered.success.submission).toBeUndefined();
-				expect(recovered.success.name).toBe("Corrected input");
-			}
+			states.length = 0;
+			failRemoval = false;
+			expect(yield* harness.controller.save(() => Effect.die("must not rebuild"))).toEqual(result);
+			expect(states.slice(0, -1).every(Boolean)).toBe(true);
+			expect(states.at(-1)).toBe(false);
+			expect(harness.submissions).toEqual([saveInput()]);
+			expect(harness.removals).toBe(2);
+			expect(harness.stored).toBeNull();
+			expect(harness.controller.getSnapshot().saveState).toEqual({ result, phase: "saved" });
+			expect(yield* harness.controller.start(draft("Next workout"))).toBe(true);
+			expect(harness.controller.getSnapshot().saveState).toEqual({ phase: "idle" });
 		}),
 	);
 
-	it.live("unlocks a retry once its atomic rejection is known", () =>
+	it.live("keeps an uncertain submission frozen and retries identical input after recovery", () =>
 		Effect.gen(function* () {
-			const harness = createController();
+			const submitted = saveInput();
+			const harness = createController({ save: () => Effect.fail("transport") });
 			yield* harness.controller.load();
 			yield* harness.controller.start(draft());
-			yield* harness.controller.beginSubmission(saveInput());
-			harness.controller.setSaving(true);
-			harness.controller.setSaving(false);
-			yield* harness.controller.beginSubmission(saveInput());
-			harness.controller.setSaving(true);
-			harness.controller.setSaving(false);
-			expect(yield* harness.controller.rejectSubmission({ kind: "pro-required" })).toBe(true);
 			expect(
-				harness.controller.change((current) => ({ ...current, name: "Corrected retry" })),
+				(yield* Effect.exit(
+					harness.controller.save((current) =>
+						Effect.succeed({ input: submitted, draft: current.draft }),
+					),
+				))._tag,
+			).toBe("Failure");
+			expect(isWorkoutEditorSaving(harness.controller.getSnapshot())).toBe(false);
+			expect(harness.controller.change((current) => ({ ...current, name: "Unsafe edit" }))).toBe(
+				false,
+			);
+			expect(yield* harness.controller.discard()).toBe(false);
+			expect(
+				(yield* Effect.exit(harness.controller.save(() => Effect.die("must use frozen input"))))
+					._tag,
+			).toBe("Failure");
+			expect(harness.submissions).toEqual([submitted, submitted]);
+			const recovered = createController({
+				stored: harness.stored,
+				save: () => Effect.succeed({ kind: "pro-required" }),
+			});
+			yield* recovered.controller.load();
+			expect(yield* recovered.controller.save(() => Effect.die("must use durable input"))).toEqual({
+				kind: "pro-required",
+			});
+			expect(recovered.submissions).toEqual([submitted]);
+			expect(
+				recovered.controller.change((current) => ({ ...current, name: "Corrected retry" })),
 			).toBe(true);
+		}),
+	);
+
+	it.live(
+		"does not invoke until its frozen submission is durable, including persistence retries",
+		() =>
+			Effect.gen(function* () {
+				let failWrite = false;
+				const submitted = saveInput();
+				const harness = createController({
+					save: () => Effect.succeed({ kind: "conflict" }),
+					onWrite: () => (failWrite ? Effect.fail("quota") : Effect.void),
+				});
+				yield* harness.controller.load();
+				yield* harness.controller.start(draft());
+				failWrite = true;
+				expect(
+					(yield* Effect.exit(
+						harness.controller.save((current) =>
+							Effect.succeed({ input: submitted, draft: current.draft }),
+						),
+					))._tag,
+				).toBe("Failure");
+				expect(harness.submissions).toHaveLength(0);
+				expect(harness.controller.change((current) => ({ ...current, name: "Unsafe edit" }))).toBe(
+					false,
+				);
+				failWrite = false;
+				expect(yield* harness.controller.save(() => Effect.die("must retry frozen input"))).toEqual(
+					{ kind: "conflict" },
+				);
+				expect(harness.submissions).toEqual([submitted]);
+			}),
+	);
+
+	it.live("unlocks and persists only definite business rejections", () =>
+		Effect.gen(function* () {
+			for (const result of [
+				{ kind: "invalid", code: "missing-measurement" },
+				{ kind: "conflict" },
+				{ kind: "pro-required" },
+			] as const) {
+				const harness = createController({ save: () => Effect.succeed(result) });
+				yield* harness.controller.load();
+				yield* harness.controller.start(draft());
+				expect(
+					yield* harness.controller.save((current) =>
+						Effect.succeed({ input: saveInput(), draft: current.draft }),
+					),
+				).toEqual(result);
+				expect(
+					harness.controller.change((current) => ({ ...current, name: "Corrected input" })),
+				).toBe(true);
+				yield* harness.controller.flush();
+				const recovered = decodeWorkoutEditorDraft(harness.stored);
+				expect(recovered._tag).toBe("Success");
+				if (recovered._tag === "Success") {
+					expect(recovered.success.submission).toBeUndefined();
+					expect(recovered.success.name).toBe("Corrected input");
+				}
+			}
 		}),
 	);
 
@@ -450,6 +615,74 @@ describe("workout editor controller", () => {
 			const writes = harness.writes.length;
 			yield* harness.controller.reconcile();
 			expect(harness.writes).toHaveLength(writes);
+		}),
+	);
+
+	it.live("persists invalid expiry without confirmation, progression, or prompted rest", () =>
+		Effect.gen(function* () {
+			for (const prompt of [false, true]) {
+				let now = Date.parse(startTime);
+				const harness = createController({ now: Effect.sync(() => now) });
+				const running: WorkoutEditorDraft = {
+					...timerDraft(),
+					activeSetId: "set-1",
+					activeOccurrenceId: "occurrence-1",
+					localPreferences: { promptForRestTimer: prompt },
+					occurrences: [
+						exerciseOccurrence("duration", {
+							duration: "20",
+							restChoice: { kind: "explicit", seconds: "invalid" },
+						}),
+						exerciseOccurrence(
+							"duration",
+							{ duration: "20", clientId: "next-set" },
+							{ isCollapsed: true, clientId: "next-occurrence" },
+						),
+					],
+				};
+				yield* harness.controller.load();
+				yield* harness.controller.start(running);
+				now += 20_500;
+				yield* harness.controller.reconcile({ executionClientId: "execution-1" });
+				const persisted = decodeWorkoutEditorDraft(harness.stored);
+				expect(persisted._tag).toBe("Success");
+				if (persisted._tag === "Success") {
+					expect({
+						rest: persisted.success.restCountdown,
+						activeSetId: persisted.success.activeSetId,
+						pendingRest: persisted.success.pendingRest,
+						execution: persisted.success.executionCountdown,
+						activeOccurrenceId: persisted.success.activeOccurrenceId,
+						occurrences: persisted.success.occurrences.map(({ sets, isCollapsed }) => ({
+							isCollapsed,
+							sets: sets.map(({ included, confirmedAt, restTimerStartedAt }) => ({
+								included,
+								confirmedAt,
+								restTimerStartedAt,
+							})),
+						})),
+					}).toEqual({
+						rest: undefined,
+						activeSetId: "set-1",
+						execution: undefined,
+						pendingRest: undefined,
+						activeOccurrenceId: "occurrence-1",
+						occurrences: [
+							{
+								isCollapsed: false,
+								sets: [{ included: false, confirmedAt: undefined, restTimerStartedAt: undefined }],
+							},
+							{
+								isCollapsed: true,
+								sets: [{ included: false, confirmedAt: undefined, restTimerStartedAt: undefined }],
+							},
+						],
+					});
+				}
+				const writes = harness.writes.length;
+				yield* harness.controller.reconcile();
+				expect(harness.writes).toHaveLength(writes);
+			}
 		}),
 	);
 });

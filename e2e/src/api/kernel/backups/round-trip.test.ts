@@ -691,7 +691,6 @@ describe("backup export and restore round trip", () => {
 							name: "Backup Provider",
 							information: { source: "e2e" },
 							rootEntitySchemaSlug: entitySchemaSlug,
-							operations: { details: detailsScriptSlug },
 						},
 					],
 					relationshipSchemas: [

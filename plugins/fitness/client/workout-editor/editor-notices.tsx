@@ -3,7 +3,7 @@ import { AppIcon } from "@ryot-app/plugin-ui-sdk/icon";
 
 import type { WorkoutEditorDraft } from "../../shared/workout-editor-draft";
 import { clockTime } from "./clock";
-import type { WorkoutEditorControllerSnapshot } from "./controller-types";
+import { isWorkoutEditorSaving, type WorkoutEditorControllerSnapshot } from "./controller-types";
 import type { SavedEntityId } from "./use-editor-actions";
 
 const alert = <AppIcon size={16} name="circle-alert" />;
@@ -25,7 +25,7 @@ export function EditorNotices(props: {
 	readonly draft: WorkoutEditorDraft | undefined;
 	readonly measurementError: boolean;
 	readonly snapshot: WorkoutEditorControllerSnapshot;
-	readonly conflict: { readonly reloadable: boolean } | undefined;
+	readonly conflict: boolean;
 	readonly exercises: { readonly isError: boolean; readonly refetch: () => void };
 	readonly onSave: () => void;
 	readonly onFlush: () => void;
@@ -41,13 +41,13 @@ export function EditorNotices(props: {
 	const ready = snapshot.status === "ready" && draft !== undefined && props.hasContext;
 	return (
 		<MotionList className="grid gap-3 empty:hidden">
-			{props.conflict !== undefined && draft !== undefined ? (
+			{props.conflict && draft !== undefined ? (
 				<Notice
 					icon={alert}
 					tone="danger"
 					title="This workout changed elsewhere"
 					action={
-						props.disabled || !props.conflict.reloadable ? undefined : (
+						props.disabled ? undefined : (
 							<Button size="sm" variant="secondary" onClick={props.onReload}>
 								Reload saved version
 							</Button>
@@ -191,7 +191,7 @@ export function EditorNotices(props: {
 					title={saved === undefined ? "Saving didn't finish" : "Workout saved"}
 					icon={<AppIcon size={16} name={saved === undefined ? "refresh-cw" : "circle-check"} />}
 					action={
-						<Button size="sm" onClick={props.onSave} disabled={snapshot.saving}>
+						<Button size="sm" onClick={props.onSave} disabled={isWorkoutEditorSaving(snapshot)}>
 							{saved === undefined ? "Retry save" : "Finish local cleanup"}
 						</Button>
 					}

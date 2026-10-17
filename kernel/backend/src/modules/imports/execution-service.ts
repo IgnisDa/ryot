@@ -32,7 +32,7 @@ export class IngestionExecution extends Context.Service<IngestionExecution>()(
 			const canCleanup = Effect.fn("IngestionExecution.canCleanup")(function* (
 				scope: IngestionScope,
 			) {
-				const run = yield* repository.getIngestionRun(scope);
+				const run = yield* repository.getIngestionRunControl(scope);
 				if (run?.failureReason?.code !== "package-identity-conflict") {
 					return true;
 				}
@@ -65,7 +65,7 @@ export class IngestionExecution extends Context.Service<IngestionExecution>()(
 				return yield* captures.canCleanup(scope);
 			});
 			const cleanup = Effect.fn("IngestionExecution.cleanup")(function* (scope: IngestionScope) {
-				const run = yield* repository.getIngestionRun(scope);
+				const run = yield* repository.getIngestionRunControl(scope);
 				if (!run || !["completed", "failed", "cancelled", "expired"].includes(run.status)) {
 					return;
 				}
@@ -93,7 +93,7 @@ export class IngestionExecution extends Context.Service<IngestionExecution>()(
 					batch: IngestionBatch,
 				) => Effect.Effect<void, ConfirmationError, ConfirmationServices>;
 			}) {
-				const run = yield* repository.getIngestionRun(input.scope);
+				const run = yield* repository.getIngestionRunControl(input.scope);
 				if (!run) {
 					return false;
 				}
@@ -168,7 +168,10 @@ export class IngestionExecution extends Context.Service<IngestionExecution>()(
 						});
 					}),
 				);
-				if (!settled && (yield* repository.getIngestionRun(input.scope))?.status === "cancelling") {
+				if (
+					!settled &&
+					(yield* repository.getIngestionRunControl(input.scope))?.status === "cancelling"
+				) {
 					yield* repository.settleIngestion({
 						scope: input.scope,
 						status: "cancelled",
@@ -210,7 +213,7 @@ export class IngestionExecution extends Context.Service<IngestionExecution>()(
 				scope: IngestionScope,
 			) {
 				yield* repository.claimAdmissionAbort(scope);
-				const run = yield* repository.getIngestionRun(scope);
+				const run = yield* repository.getIngestionRunControl(scope);
 				if (!run || run.plan || run.status !== "cancelling") {
 					return false;
 				}

@@ -6,6 +6,7 @@ import { Effect, Layer, ManagedRuntime } from "effect";
 import type { ServerOrigin } from "#/api/origin";
 import { KernelApiTestLayer } from "#/api/ports.test-layer";
 import type { OAuthLaunchPlan } from "#/modules/auth/oauth-launcher";
+import { makePendingAuthorization } from "#/modules/auth/oauth-storage.test-support";
 import { createBackInterceptors } from "#/modules/navigation/back-interceptors";
 import { pluginBridgeServicesTestLayer } from "#/modules/pages/bridge/services.test-layer";
 import { makePluginCatalogEventsTestLayer } from "#/modules/plugins/catalog/events.test-layer";
@@ -16,7 +17,6 @@ import {
 	ClientPageSessionsRouteStubs,
 	CustomizeRouteStubs,
 	DeviceRouteStubs,
-	EntityRouteStubs,
 	ImportsRouteStubs,
 	InstanceAdminRouteStubs,
 	IntegrationRouteStubs,
@@ -24,11 +24,11 @@ import {
 	makeOAuthRouteStubs,
 	makePublicApiStub,
 	makeStorageStubLayer,
+	ManagedAssetRouteStubs,
 	NavigationRouteStubs,
 	NotificationChannelRouteStubs,
 	PagesApiRouteStubs,
 	ProviderAddRouteStubs,
-	SavedViewRouteStubs,
 	server,
 	ServerStub,
 	theme,
@@ -43,21 +43,12 @@ const makePlan = (nativeApplicationId: OAuthLaunchPlan["client"]["nativeApplicat
 	return {
 		codeChallenge: "challenge",
 		authorizationUrl: `${server}/api/auth/oauth2/authorize`,
+		pending: makePendingAuthorization(server, { clientId, redirectUri: callbackUri }),
 		client: {
 			clientId,
 			callbackUri,
 			nativeApplicationId,
 			logoutUri: `${server}/auth/logout/callback`,
-		},
-		pending: {
-			clientId,
-			createdAt: 1,
-			state: "state",
-			nonce: "nonce",
-			destination: "/",
-			serverOrigin: server,
-			codeVerifier: "verifier",
-			redirectUri: callbackUri,
 		},
 	} satisfies OAuthLaunchPlan;
 };
@@ -86,8 +77,7 @@ const mountAuth = (plan: OAuthLaunchPlan) => {
 			),
 			InstanceAdminRouteStubs,
 			ServerStub,
-			SavedViewRouteStubs,
-			EntityRouteStubs,
+			ManagedAssetRouteStubs,
 			makePublicApiStub(),
 			makePluginCatalog(catalog),
 			DeviceRouteStubs,

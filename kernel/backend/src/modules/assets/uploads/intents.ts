@@ -4,7 +4,6 @@ import {
 	UploadBadRequest,
 	type UploadFailureReason,
 	type UploadIntentInput,
-	UploadKind,
 	UploadProvider,
 } from "@ryot-app/contract/modules/assets/schemas";
 import {
@@ -32,26 +31,71 @@ const CLEANUP_LEASE_SECONDS = 60;
 
 const uploadError = (reason: UploadFailureReason) => new UploadBadRequest({ reason });
 
-const UploadIntentMetadata = Schema.Struct({
+const intentFields = {
 	userId: UserId,
-	kind: UploadKind,
 	intentId: Schema.String,
 	fileName: Schema.String,
-	objectKey: Schema.String,
 	createdAt: Schema.Finite,
-	expiresAt: Schema.Finite,
-	provider: UploadProvider,
 	contentType: Schema.String,
-	claimId: Schema.optional(Schema.String),
-	claimedAt: Schema.optional(Schema.Finite),
-	state: Schema.Literals(["pending", "completed", "claimed"]),
-	completion: Schema.optional(
-		Schema.Union([
-			ManagedAssetLocator,
-			Schema.Struct({ token: Schema.String, expiresAt: Schema.Finite }),
-		]),
-	),
-});
+};
+const temporaryFields = {
+	...intentFields,
+	objectKey: Schema.String,
+	kind: Schema.Literal("temporary"),
+	provider: Schema.Literal("local"),
+};
+const TemporaryCompletion = Schema.Struct({ token: Schema.String, expiresAt: Schema.Finite });
+const UploadIntentMetadata = Schema.Union([
+	Schema.Struct({ ...temporaryFields, expiresAt: Schema.Finite, state: Schema.Literal("pending") }),
+	Schema.Struct({
+		...intentFields,
+		provider: UploadProvider,
+		objectKey: Schema.String,
+		expiresAt: Schema.Finite,
+		state: Schema.Literal("pending"),
+		kind: Schema.Literal("permanent"),
+	}),
+	Schema.Struct({
+		...temporaryFields,
+		completion: TemporaryCompletion,
+		state: Schema.Literal("completed"),
+	}),
+	Schema.Struct({
+		...intentFields,
+		completion: ManagedAssetLocator,
+		kind: Schema.Literal("permanent"),
+		state: Schema.Literal("completed"),
+	}),
+	Schema.Struct({
+		...temporaryFields,
+		claimId: Schema.String,
+		claimedAt: Schema.Finite,
+		leaseExpiresAt: Schema.Finite,
+		completion: TemporaryCompletion,
+		state: Schema.Literal("claimed"),
+	}),
+]);
+const IntentJson = Schema.fromJsonString(UploadIntentMetadata);
+const decodeIntent = Schema.decodeEffect(IntentJson, { onExcessProperty: "error" });
+const encodeIntent = Schema.encodeEffect(IntentJson);
+
+const intentDeadline = (metadata: typeof UploadIntentMetadata.Type) => {
+	if (metadata.state === "pending") {
+		return metadata.expiresAt;
+	}
+	if (metadata.state === "claimed") {
+		return metadata.leaseExpiresAt;
+	}
+	return metadata.kind === "permanent" ? null : metadata.completion.expiresAt;
+};
+
+const completionResponse = (completion: typeof TemporaryCompletion.Type | ManagedAssetLocator) =>
+	"token" in completion
+		? {
+				token: completion.token,
+				expiresAt: DateTime.formatIso(DateTime.makeUnsafe(completion.expiresAt * 1000)),
+			}
+		: completion;
 
 const UploadTokenValue = Schema.Struct({ userId: UserId, intentId: Schema.String });
 
@@ -115,7 +159,8 @@ export class UploadIntentsService extends Context.Service<UploadIntentsService>(
 			) {
 				const fileName = yield* resolveFileName(input.fileName);
 				const contentType = yield* resolveIntentContentType(input.contentType, fileName);
-				const provider = yield* objectStorage.selectStorageProvider(input.kind);
+				const provider =
+					input.kind === "temporary" ? "local" : yield* objectStorage.permanentStorageProvider;
 				const intentId = generateId();
 				const objectKey = `${input.kind}/${generateId()}.${resolveExtension(contentType)}`;
 				const now = Math.floor((yield* Clock.currentTimeMillis) / 1000);
@@ -132,21 +177,21 @@ export class UploadIntentsService extends Context.Service<UploadIntentsService>(
 									UPLOAD_URL_EXPIRY_SECONDS,
 								),
 							};
-				const metadata = {
+				const pending = {
 					intentId,
 					fileName,
-					provider,
 					objectKey,
 					expiresAt,
 					contentType,
 					createdAt: now,
 					userId: user.id,
-					kind: input.kind,
 					state: "pending" as const,
 				};
-				const encoded = yield* Schema.encodeUnknownEffect(
-					Schema.fromJsonString(UploadIntentMetadata),
-				)(metadata).pipe(Effect.orDie);
+				const metadata =
+					input.kind === "temporary"
+						? { ...pending, kind: "temporary" as const, provider: "local" as const }
+						: { ...pending, provider, kind: "permanent" as const };
+				const encoded = yield* encodeIntent(metadata).pipe(Effect.orDie);
 				yield* redis.setAndIndex(
 					redisKeys.uploadIntent(intentId),
 					encoded,
@@ -169,7 +214,7 @@ export class UploadIntentsService extends Context.Service<UploadIntentsService>(
 					.pipe(
 						Effect.flatMap((raw) =>
 							raw
-								? Schema.decodeEffect(Schema.fromJsonString(UploadIntentMetadata))(raw).pipe(
+								? decodeIntent(raw).pipe(
 										Effect.mapError(() => uploadError({ intentId, code: "intent-invalid" })),
 									)
 								: Effect.fail(uploadError({ intentId, code: "intent-expired" })),
@@ -188,15 +233,8 @@ export class UploadIntentsService extends Context.Service<UploadIntentsService>(
 						if (metadata.userId !== user.id) {
 							return yield* uploadError({ intentId, code: "intent-forbidden" });
 						}
-						if (metadata.state !== "pending" && metadata.completion) {
-							return "token" in metadata.completion
-								? {
-										token: metadata.completion.token,
-										expiresAt: DateTime.formatIso(
-											DateTime.makeUnsafe(metadata.completion.expiresAt * 1000),
-										),
-									}
-								: metadata.completion;
+						if (metadata.state !== "pending") {
+							return completionResponse(metadata.completion);
 						}
 						const now = Math.floor((yield* Clock.currentTimeMillis) / 1000);
 						if (metadata.expiresAt <= now) {
@@ -234,15 +272,6 @@ export class UploadIntentsService extends Context.Service<UploadIntentsService>(
 								expected: metadata.contentType,
 							});
 						}
-						const completion =
-							metadata.kind === "temporary"
-								? {
-										token: generateId(),
-										expiresAt: DateTime.formatIso(
-											DateTime.makeUnsafe((now + UPLOAD_TOKEN_TTL_SECONDS) * 1000),
-										),
-									}
-								: { type: metadata.provider, key: metadata.objectKey };
 						if (metadata.kind === "permanent") {
 							const locator: ManagedAssetLocator = {
 								type: metadata.provider,
@@ -269,48 +298,43 @@ export class UploadIntentsService extends Context.Service<UploadIntentsService>(
 										Effect.fail(uploadError({ code: "upload-failed" })),
 									),
 								);
-						}
-						const storedCompletion =
-							metadata.kind === "temporary"
-								? { token: completion.token, expiresAt: now + UPLOAD_TOKEN_TTL_SECONDS }
-								: completion;
-						const completed = {
-							...metadata,
-							state: "completed" as const,
-							completion: storedCompletion,
-							expiresAt:
-								metadata.kind === "temporary" ? now + UPLOAD_TOKEN_TTL_SECONDS : metadata.expiresAt,
-						};
-						const encoded = yield* Schema.encodeUnknownEffect(
-							Schema.fromJsonString(UploadIntentMetadata),
-						)(completed).pipe(Effect.orDie);
-						if (metadata.kind === "temporary") {
-							const completionToken = completion.token;
-							if (completionToken === undefined) {
-								return yield* uploadError({ intentId, code: "intent-invalid" });
-							}
-							const tokenValue = yield* Schema.encodeUnknownEffect(
-								Schema.fromJsonString(UploadTokenValue),
-							)({ intentId, userId: user.id }).pipe(Effect.orDie);
-							yield* redis.setAndIndexAndSet(
-								redisKeys.uploadIntent(intentId),
-								encoded,
-								redisKeys.uploadIntentExpiry,
-								completed.expiresAt,
+							const encoded = yield* encodeIntent({
 								intentId,
-								redisKeys.uploadToken(completionToken),
-								tokenValue,
-								UPLOAD_TOKEN_TTL_SECONDS,
-							);
-						} else {
+								kind: "permanent",
+								state: "completed",
+								completion: locator,
+								userId: metadata.userId,
+								fileName: metadata.fileName,
+								createdAt: metadata.createdAt,
+								contentType: metadata.contentType,
+							}).pipe(Effect.orDie);
 							yield* redis.setAndRemoveFromIndex(
 								redisKeys.uploadIntent(intentId),
 								encoded,
 								redisKeys.uploadIntentExpiry,
 								intentId,
+								UPLOAD_URL_EXPIRY_SECONDS,
 							);
+							return completionResponse(locator);
 						}
-						return completion;
+						const completion = { token: generateId(), expiresAt: now + UPLOAD_TOKEN_TTL_SECONDS };
+						const { expiresAt: _expiresAt, ...temporary } = metadata;
+						const completed = { ...temporary, completion, state: "completed" as const };
+						const encoded = yield* encodeIntent(completed).pipe(Effect.orDie);
+						const tokenValue = yield* Schema.encodeUnknownEffect(
+							Schema.fromJsonString(UploadTokenValue),
+						)({ intentId, userId: user.id }).pipe(Effect.orDie);
+						yield* redis.setAndIndexAndSet(
+							redisKeys.uploadIntent(intentId),
+							encoded,
+							redisKeys.uploadIntentExpiry,
+							completion.expiresAt,
+							intentId,
+							redisKeys.uploadToken(completion.token),
+							tokenValue,
+							UPLOAD_TOKEN_TTL_SECONDS,
+						);
+						return completionResponse(completion);
 					}).pipe(Effect.ensuring(redis.releaseLease(lockKey, lease)));
 				},
 			);
@@ -338,9 +362,9 @@ export class UploadIntentsService extends Context.Service<UploadIntentsService>(
 					if (!raw) {
 						return yield* uploadError({ intentId, code: "intent-expired" });
 					}
-					const metadata = yield* Schema.decodeEffect(Schema.fromJsonString(UploadIntentMetadata))(
-						raw,
-					).pipe(Effect.mapError(() => uploadError({ intentId, code: "intent-invalid" })));
+					const metadata = yield* decodeIntent(raw).pipe(
+						Effect.mapError(() => uploadError({ intentId, code: "intent-invalid" })),
+					);
 					if (metadata.state !== "pending") {
 						return yield* uploadError({ intentId, code: "intent-expired" });
 					}
@@ -397,8 +421,13 @@ export class UploadIntentsService extends Context.Service<UploadIntentsService>(
 
 			const removeIntentRecord = (intentId: string, metadata: typeof UploadIntentMetadata.Type) =>
 				Effect.gen(function* () {
+					if (metadata.kind === "permanent" && metadata.state === "completed") {
+						yield* redis.del(redisKeys.uploadIntent(intentId));
+						yield* redis.zrem(redisKeys.uploadIntentExpiry, intentId);
+						return;
+					}
 					yield* objectStorage.deleteObject({ type: metadata.provider, key: metadata.objectKey });
-					if (metadata.completion && "token" in metadata.completion) {
+					if (metadata.kind === "temporary" && metadata.state !== "pending") {
 						yield* redis.del(redisKeys.uploadToken(metadata.completion.token));
 					}
 					yield* redis.del(redisKeys.uploadIntent(intentId));
@@ -413,9 +442,9 @@ export class UploadIntentsService extends Context.Service<UploadIntentsService>(
 					yield* redis.zrem(redisKeys.uploadIntentExpiry, intentId);
 					return;
 				}
-				const metadata = yield* Schema.decodeEffect(Schema.fromJsonString(UploadIntentMetadata))(
-					raw,
-				).pipe(Effect.mapError(() => uploadError({ intentId, code: "intent-invalid" })));
+				const metadata = yield* decodeIntent(raw).pipe(
+					Effect.mapError(() => uploadError({ intentId, code: "intent-invalid" })),
+				);
 				yield* removeIntentRecord(intentId, metadata);
 			});
 
@@ -435,17 +464,12 @@ export class UploadIntentsService extends Context.Service<UploadIntentsService>(
 								if (!raw) {
 									return yield* redis.zrem(redisKeys.uploadIntentExpiry, intentId);
 								}
-								const metadata = yield* Schema.decodeEffect(
-									Schema.fromJsonString(UploadIntentMetadata),
-								)(raw).pipe(
+								const metadata = yield* decodeIntent(raw).pipe(
 									Effect.mapError(() => uploadError({ intentId, code: "intent-invalid" })),
 								);
-								if (metadata.expiresAt > now) {
-									return yield* redis.zadd(
-										redisKeys.uploadIntentExpiry,
-										metadata.expiresAt,
-										intentId,
-									);
+								const deadline = intentDeadline(metadata);
+								if (deadline !== null && deadline > now) {
+									return yield* redis.zadd(redisKeys.uploadIntentExpiry, deadline, intentId);
 								}
 								return yield* removeIntentRecord(intentId, metadata);
 							}).pipe(Effect.ensuring(redis.releaseLease(lockKey, lease)));
@@ -480,13 +504,13 @@ export class UploadIntentsService extends Context.Service<UploadIntentsService>(
 					return yield* Effect.gen(function* () {
 						const metadata = yield* getIntent(tokenValue.intentId);
 						const now = Math.floor((yield* Clock.currentTimeMillis) / 1000);
+						const deadline = intentDeadline(metadata);
 						if (
 							metadata.userId !== userId ||
 							metadata.kind !== "temporary" ||
-							(metadata.state !== "completed" && metadata.state !== "claimed") ||
-							metadata.expiresAt <= now ||
-							!metadata.completion ||
-							!("token" in metadata.completion) ||
+							metadata.state === "pending" ||
+							deadline === null ||
+							deadline <= now ||
 							metadata.completion.token !== token
 						) {
 							return yield* uploadError({ code: "token-invalid" });
@@ -494,50 +518,41 @@ export class UploadIntentsService extends Context.Service<UploadIntentsService>(
 						if (metadata.state === "claimed" && metadata.claimId !== claimId) {
 							return yield* uploadError({ code: "token-already-claimed" });
 						}
-						const resolvedPath =
-							metadata.provider === "local"
-								? yield* localStorage
-										.resolveObjectPath(metadata.objectKey)
-										.pipe(
-											Effect.mapError(() =>
-												uploadError({ code: "object-missing", intentId: tokenValue.intentId }),
-											),
-										)
-								: null;
-						if (metadata.state === "claimed") {
-							return {
-								fileName: metadata.fileName,
-								intentId: tokenValue.intentId,
-								...(resolvedPath === null ? {} : { resolvedPath }),
-								locator: { type: metadata.provider, key: metadata.objectKey },
-								leaseExpiresAt: DateTime.formatIso(DateTime.makeUnsafe(metadata.expiresAt * 1000)),
+						const resolvedPath = yield* localStorage
+							.resolveObjectPath(metadata.objectKey)
+							.pipe(
+								Effect.mapError(() =>
+									uploadError({ code: "object-missing", intentId: tokenValue.intentId }),
+								),
+							);
+						const leaseExpiresAt =
+							metadata.state === "claimed"
+								? metadata.leaseExpiresAt
+								: now + PROCESSING_LEASE_SECONDS;
+						if (metadata.state === "completed") {
+							const claimed = {
+								...metadata,
+								claimId,
+								claimedAt: now,
+								leaseExpiresAt,
+								state: "claimed" as const,
 							};
+							const encoded = yield* encodeIntent(claimed).pipe(Effect.orDie);
+							yield* redis.setAndIndexAndSet(
+								redisKeys.uploadIntent(tokenValue.intentId),
+								encoded,
+								redisKeys.uploadIntentExpiry,
+								leaseExpiresAt,
+								tokenValue.intentId,
+								redisKeys.uploadToken(token),
+								rawToken,
+								PROCESSING_LEASE_SECONDS,
+							);
 						}
-						const leaseExpiresAt = now + PROCESSING_LEASE_SECONDS;
-						const claimed = {
-							...metadata,
-							claimId,
-							claimedAt: now,
-							state: "claimed" as const,
-							expiresAt: leaseExpiresAt,
-						};
-						const encoded = yield* Schema.encodeUnknownEffect(
-							Schema.fromJsonString(UploadIntentMetadata),
-						)(claimed).pipe(Effect.orDie);
-						yield* redis.setAndIndexAndSet(
-							redisKeys.uploadIntent(tokenValue.intentId),
-							encoded,
-							redisKeys.uploadIntentExpiry,
-							leaseExpiresAt,
-							tokenValue.intentId,
-							redisKeys.uploadToken(token),
-							rawToken,
-							PROCESSING_LEASE_SECONDS,
-						);
 						return {
+							resolvedPath,
 							fileName: metadata.fileName,
 							intentId: tokenValue.intentId,
-							...(resolvedPath === null ? {} : { resolvedPath }),
 							locator: { type: metadata.provider, key: metadata.objectKey },
 							leaseExpiresAt: DateTime.formatIso(DateTime.makeUnsafe(leaseExpiresAt * 1000)),
 						};

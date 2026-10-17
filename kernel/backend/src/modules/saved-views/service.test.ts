@@ -13,7 +13,6 @@ import {
 	insertManagedAsset,
 	managedAssetProperty,
 } from "#lib/domain/managed-asset-writes.test-support";
-import { DefinitionRepository } from "#modules/definitions/repository";
 import { PluginCatalogInvalidator } from "#modules/plugins/catalog/events";
 import { PluginRuntimeResolver } from "#modules/plugins/catalog/runtime-resolver";
 import { PluginInstallationRepository } from "#modules/plugins/installations/repository";
@@ -169,7 +168,6 @@ const makeLayer = (options: {
 							user: () => record("invalidate"),
 							deliverPending: () => Effect.void,
 						}),
-						Layer.mock(DefinitionRepository)({ listUserSavedViews: () => Effect.succeed([]) }),
 						Layer.mock(PluginRepository)({ lockIngestionShared: () => Effect.void }),
 						Layer.mock(PluginRuntimeResolver)({
 							listPluginsAvailableToUser: () =>
@@ -261,6 +259,41 @@ const calendarView = {
 	reference: { slug: "calendar", kind: "kernel" as const },
 	renderer: { kind: "kernel" as const, name: "calendar" as const },
 };
+
+layer(
+	makeLayer({
+		repository: {
+			lockCustom: () => Effect.succeed(baseView),
+			findByReference: () => Effect.succeed(pluginView),
+			create: () => Effect.die("An unavailable renderer must not be saved"),
+			updateCustom: () => Effect.die("An unavailable renderer must not be saved"),
+		},
+	}),
+)((test) => {
+	test.effect("rejects unavailable plugin renderers before create, update, or clone writes", () =>
+		Effect.gen(function* () {
+			const service = yield* SavedViewsService;
+			const config = {
+				dataSources: null,
+				renderer: pluginRenderer,
+				settings: { title: "Fixture" },
+			};
+			for (const operation of [
+				service.create(user, { ...config, icon: "record", name: "Plugin view" }),
+				service.update(user, baseView.reference, { ...config, isHidden: false }),
+				service.clone(user, pluginView.reference),
+			]) {
+				assertExitFails(
+					yield* Effect.exit(operation),
+					new SavedViewBadRequest({ reason: { code: "renderer-not-found" } }),
+				);
+			}
+			const calls = yield* SavedViewsCalls;
+			expect(yield* calls.created).toEqual([]);
+			expect(yield* calls.events).toEqual([]);
+		}),
+	);
+});
 
 layer(
 	makeLayer({

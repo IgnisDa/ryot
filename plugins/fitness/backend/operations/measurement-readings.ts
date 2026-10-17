@@ -1,45 +1,58 @@
 import { Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
-import { executeRyotqlRecipe, type RyotQLDocument } from "@ryot-app/plugin-backend-sdk/ryotql";
+import {
+	executeRyotqlRecipe,
+	readAllRyotqlPages,
+	type RyotQLDocument,
+} from "@ryot-app/plugin-backend-sdk/ryotql";
 import type { SandboxHostError } from "@ryot-app/plugin-backend-sdk/wire";
 
+import { chunk } from "../../shared/collections";
+import { MEASUREMENT_EVENT_BATCH_SIZE } from "../../shared/measurement-reading-operations";
 import {
+	measurementEntryReadingsRecipe,
+	measurementEntryRecipe,
 	measurementMetricIdsRecipe,
-	measurementReadingsRecipe,
 } from "../../shared/measurement-recipes";
 
 type ExecuteRyotql = (document: RyotQLDocument) => Effect.Effect<unknown, SandboxHostError>;
 
-export class MeasurementReadingNotFoundError extends Schema.TaggedError<
-	MeasurementReadingNotFoundError,
+export class MeasurementEntryNotFoundError extends Schema.TaggedError<
+	MeasurementEntryNotFoundError,
 	{ readonly brand: unique symbol }
->()("MeasurementReadingNotFoundError", { message: Schema.String }) {}
+>()("MeasurementEntryNotFoundError", { message: Schema.String }) {}
 
 export class MeasurementMetricNotFoundError extends Schema.TaggedError<
 	MeasurementMetricNotFoundError,
 	{ readonly brand: unique symbol }
 >()("MeasurementMetricNotFoundError", { message: Schema.String }) {}
 
-export const requireMeasurementReadings = Effect.fn("requireMeasurementReadings")(function* (
-	readingIds: readonly string[],
+export const requireMeasurementEntry = Effect.fn("requireMeasurementEntry")(function* (
+	entryId: string,
 	executeRyotql: ExecuteRyotql,
 ) {
-	const unique = [...new Set(readingIds)];
-	const found = yield* executeRyotqlRecipe(executeRyotql, measurementReadingsRecipe(unique));
-	if (found.length !== unique.length) {
-		return yield* new MeasurementReadingNotFoundError({ message: "Measurement reading not found" });
+	const found = yield* executeRyotqlRecipe(executeRyotql, measurementEntryRecipe(entryId));
+	if (found === null) {
+		return yield* new MeasurementEntryNotFoundError({ message: "Measurement entry not found" });
 	}
 	return found;
 });
+
+export const readMeasurementEntryReadings = (entryId: string, executeRyotql: ExecuteRyotql) =>
+	readAllRyotqlPages((after) =>
+		executeRyotqlRecipe(
+			executeRyotql,
+			measurementEntryReadingsRecipe({ after, entryId, reference: { kind: "self" } }),
+		),
+	);
 
 export const requireMeasurementMetrics = Effect.fn("requireMeasurementMetrics")(function* (
 	metricIds: readonly string[],
 	executeRyotql: ExecuteRyotql,
 ) {
 	const unique = [...new Set(metricIds)];
-	const found =
-		unique.length === 0
-			? []
-			: yield* executeRyotqlRecipe(executeRyotql, measurementMetricIdsRecipe(unique));
+	const found = (yield* Effect.forEach(chunk(unique, MEASUREMENT_EVENT_BATCH_SIZE), (ids) =>
+		executeRyotqlRecipe(executeRyotql, measurementMetricIdsRecipe(ids)),
+	)).flat();
 	if (found.length !== unique.length) {
 		return yield* new MeasurementMetricNotFoundError({ message: "Measurement metric not found" });
 	}

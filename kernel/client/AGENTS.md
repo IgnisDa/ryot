@@ -13,4 +13,5 @@
 - Use UI SDK overlay/focus/shortcut primitives and shared focused-field visibility. React-state overlays use `BackInterceptor`; URL-state overlays push history and close by pop.
 - Preserve selected uploads as `Blob`/`File` through the SDK capability. Only backup downloads may obtain bearer headers directly.
 - Keep native identity in platform configuration and regenerate assets through `bun run generate-assets`, never by editing generated files.
+- Render saved views through the shell client-page document host, never a parallel kernel-DOM path. The iframe renderer owns view title and icon. Provider search uses the saved view's explicit `addAction` owner and schema.
 - Desktop sidebar and mobile drawer use shared authenticated navigation data; never patch loader data in place.

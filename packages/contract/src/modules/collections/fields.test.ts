@@ -3,18 +3,38 @@ import { describe, expect, it } from "vitest";
 
 import { AppSchema } from "../../schema/property-schema";
 import {
-	appSchemaToCollectionFields,
 	collectionFieldsToAppSchema,
+	decodeCollectionFields,
 	type KeyedCollectionField,
 } from "./fields";
 import { CreateCollectionBody, UpdateCollectionBody } from "./schemas";
 
 const everyFieldType: ReadonlyArray<KeyedCollectionField> = [
-	{ key: "note", type: "text", label: "Note", required: true, defaultValue: "none" },
+	{
+		key: "note",
+		type: "text",
+		label: "Note",
+		required: true,
+		description: "Note",
+		defaultValue: "none",
+	},
 	{ key: "score", label: "Score", type: "number", required: false, defaultValue: 4.5 },
 	{ key: "owned", label: "Owned", type: "boolean", required: false, defaultValue: false },
-	{ type: "date", key: "owned-on", required: false, label: "Owned On", description: "When" },
-	{ key: "seen-at", required: false, label: "Seen At", type: "datetime" },
+	{
+		type: "date",
+		key: "Owned On",
+		required: false,
+		label: "Owned On",
+		description: "When",
+		defaultValue: "2026-01-01",
+	},
+	{
+		key: "seen-at",
+		required: false,
+		label: "Seen At",
+		type: "datetime",
+		defaultValue: "2026-01-01T00:00:00Z",
+	},
 	{
 		key: "format",
 		type: "choice",
@@ -35,137 +55,67 @@ const everyFieldType: ReadonlyArray<KeyedCollectionField> = [
 ];
 
 describe("collection field model", () => {
-	it("round-trips every field type through a strict app schema in field order", () => {
-		const schema = collectionFieldsToAppSchema(everyFieldType.toReversed());
+	it("reloads all eight declarations in order without losing equal descriptions or keys", () => {
+		const fields = everyFieldType.toReversed();
+		expect(decodeCollectionFields(JSON.parse(JSON.stringify(fields)))).toEqual(
+			Result.succeed(fields),
+		);
+		const schema = collectionFieldsToAppSchema(fields);
 		expect(Result.isSuccess(Schema.decodeResult(AppSchema)(schema))).toBe(true);
 		expect(schema.unknownKeys).toBe("strict");
-		expect(appSchemaToCollectionFields(JSON.parse(JSON.stringify(schema)))).toEqual(
-			Result.succeed(everyFieldType.toReversed()),
-		);
-	});
-
-	it("defaults blank descriptions to the label", () => {
-		const schema = collectionFieldsToAppSchema([
-			{ key: "note", type: "text", label: "Note", required: false, description: "  " },
+		expect(Object.values(schema.fields).map(({ position }) => position)).toEqual([
+			0, 1, 2, 3, 4, 5, 6, 7,
 		]);
-		expect(schema.fields["note"]?.description).toBe("Note");
 	});
 
-	it("decodes a v1-shaped schema keyed by display names", () => {
-		expect(
-			appSchemaToCollectionFields({
-				unknownKeys: "strict",
-				fields: {
-					"Owned On": { type: "date", label: "Owned On", description: "Owned On" },
-					Tags: {
-						type: "array",
-						label: "Tags",
-						description: "Tags",
-						items: { label: "Item", type: "string", description: "Item" },
-					},
-					Rating: {
-						type: "number",
-						label: "Rating",
-						defaultValue: 3,
-						description: "Out of five",
-						validation: { required: true },
-					},
-					Format: {
-						type: "enum",
-						label: "Format",
-						description: "Format",
-						choices: { kind: "static", values: [{ value: "CD" }, { value: "Vinyl" }] },
-					},
-				},
-			}),
-		).toEqual(
-			Result.succeed([
-				{ type: "date", key: "Owned On", required: false, label: "Owned On" },
-				{ key: "Tags", label: "Tags", required: false, type: "text-list" },
-				{
-					key: "Rating",
-					type: "number",
-					required: true,
-					label: "Rating",
-					defaultValue: 3,
-					description: "Out of five",
-				},
-				{
-					key: "Format",
-					type: "choice",
-					label: "Format",
-					required: false,
-					choices: ["CD", "Vinyl"],
-				},
-			]),
-		);
+	it("defaults absent descriptions only in the compiled schema", () => {
+		const fields = [{ key: "note", type: "text", label: "Note", required: false }] as const;
+		expect(decodeCollectionFields(fields)).toEqual(Result.succeed(fields));
+		expect(collectionFieldsToAppSchema(fields).fields["note"]?.description).toBe("Note");
 	});
 
 	it.each([
+		["missing keys", [{ label: "A", type: "text", required: false }]],
+		["unknown properties", [{ ...everyFieldType[0], position: 0 }]],
+		["compiled schemas", collectionFieldsToAppSchema(everyFieldType)],
+		["null", null],
+		["duplicate keys", [everyFieldType[0], everyFieldType[0]]],
+		["reserved keys", [{ ...everyFieldType[0], key: "rank" }]],
+		["unsafe keys", [{ ...everyFieldType[0], key: "__proto__" }]],
+		["blank keys", [{ ...everyFieldType[0], key: " " }]],
+		["blank labels", [{ ...everyFieldType[0], label: "" }]],
+		["unnormalized labels", [{ ...everyFieldType[0], label: " A " }]],
+		["blank descriptions", [{ ...everyFieldType[0], description: "" }]],
+		["invalid defaults", [{ ...everyFieldType[0], defaultValue: false }]],
 		[
-			"patterns",
-			{ label: "A", type: "string", description: "A", validation: { pattern: "^(a+)+$" } },
+			"invalid dates",
+			[{ key: "date", type: "date", label: "Date", required: false, defaultValue: "bad" }],
+		],
+		["missing choices", [{ key: "a", label: "A", type: "choice", required: false }]],
+		[
+			"duplicate choices",
+			[{ key: "a", label: "A", type: "choice", required: false, choices: ["x", "x"] }],
 		],
 		[
-			"dynamic choices",
-			{ label: "A", type: "enum", description: "A", choices: { source: "x", kind: "dynamic" } },
+			"unlisted defaults",
+			[
+				{
+					key: "a",
+					label: "A",
+					type: "choice",
+					choices: ["x"],
+					required: false,
+					defaultValue: "y",
+				},
+			],
 		],
-		["formats", { label: "A", type: "string", description: "A", format: { kind: "url" } }],
+		["wrong choices", [{ ...everyFieldType[0], choices: ["x"] }]],
 		[
-			"references",
-			{ label: "A", type: "string", description: "A", reference: { kind: "entity-id" } },
+			"too many fields",
+			Array.from({ length: 51 }, (_, index) => ({ ...everyFieldType[0], key: String(index) })),
 		],
-		["secrets", { label: "A", secret: true, type: "string", description: "A" }],
-		["objects", { label: "A", type: "object", properties: {}, description: "A" }],
-		["integers", { label: "A", type: "integer", description: "A" }],
-		[
-			"choice labels",
-			{
-				label: "A",
-				type: "enum",
-				description: "A",
-				choices: { kind: "static", values: [{ value: "x", label: "X" }] },
-			},
-		],
-		[
-			"invalid choice defaults",
-			{
-				label: "A",
-				type: "enum",
-				description: "A",
-				defaultValue: "y",
-				choices: { kind: "static", values: [{ value: "x" }] },
-			},
-		],
-	])("rejects stored schemas with %s", (_name, property) => {
-		expect(
-			Result.isFailure(
-				appSchemaToCollectionFields({ unknownKeys: "strict", fields: { field: property } }),
-			),
-		).toBe(true);
-	});
-
-	it("rejects stored schemas with rules, non-strict keys, or reserved keys", () => {
-		const note = { label: "Note", type: "string", description: "Note" };
-		for (const schema of [
-			{ fields: { note } },
-			{ fields: { note }, unknownKeys: "passthrough" },
-			{ unknownKeys: "strict", fields: { rank: note } },
-			{
-				fields: { note },
-				unknownKeys: "strict",
-				rules: [
-					{
-						path: ["note"],
-						kind: "validation",
-						validation: { required: true },
-						when: { path: ["note"], operator: "exists" },
-					},
-				],
-			},
-		]) {
-			expect(Result.isFailure(appSchemaToCollectionFields(schema))).toBe(true);
-		}
+	])("rejects stored declarations with %s", (_name, input) => {
+		expect(Result.isFailure(decodeCollectionFields(input))).toBe(true);
 	});
 });
 

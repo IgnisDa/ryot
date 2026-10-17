@@ -207,14 +207,23 @@ layer(
 				providerId: SandboxProviderId.make("provider-1"),
 				entitySchemaSlug: EntitySchemaSlug.make("person"),
 			};
-			yield* repository.lockProviderEntityMutations([
+			const inputs = [
 				{ ...common, externalId: "zeta" },
 				{ ...common, externalId: "alpha" },
+				{ ...common, externalId: "Alpha" },
 				{ ...common, externalId: "zeta" },
-			]);
+			];
+			yield* repository.lockProviderEntityMutations(inputs);
+			yield* repository.lockProviderEntityMutations(inputs.toReversed());
 
 			expect(yield* recordedEntries).toEqual([
 				[
+					'["provider-entity","global","global","plugin-1","person","provider-1","Alpha"]',
+					'["provider-entity","global","global","plugin-1","person","provider-1","alpha"]',
+					'["provider-entity","global","global","plugin-1","person","provider-1","zeta"]',
+				],
+				[
+					'["provider-entity","global","global","plugin-1","person","provider-1","Alpha"]',
 					'["provider-entity","global","global","plugin-1","person","provider-1","alpha"]',
 					'["provider-entity","global","global","plugin-1","person","provider-1","zeta"]',
 				],
@@ -646,10 +655,14 @@ layer(eventStreamRepositoriesLayer)((test) => {
 			expect(yield* populatedAtOf(plain)).toBeNull();
 			expect((yield* update(flagged, null, true)).populatedAt).toBe(populatedAt.toISOString());
 			expect(yield* populatedAtOf(flagged)).toEqual(populatedAt);
-			yield* update(flagged, later, true);
+			expect((yield* update(flagged, later, true)).populatedAt).toBe(populatedAt.toISOString());
+			expect(yield* populatedAtOf(flagged)).toEqual(populatedAt);
+			expect((yield* update(flagged, later)).populatedAt).toBe(later.toISOString());
 			expect(yield* populatedAtOf(flagged)).toEqual(later);
 			yield* update(unpopulated, null, true);
 			expect(yield* populatedAtOf(unpopulated)).toBeNull();
+			expect((yield* update(unpopulated, later, true)).populatedAt).toBe(later.toISOString());
+			expect(yield* populatedAtOf(unpopulated)).toEqual(later);
 		}),
 	);
 
@@ -688,7 +701,7 @@ layer(eventStreamRepositoriesLayer)((test) => {
 			yield* session.transaction(
 				Effect.all([
 					repository.stampRelatedPopulated(root, populatedAt),
-					repository.stampChildRelatedPopulated([child, stampedChild, unpopulatedChild]),
+					repository.stampChildRelatedPopulated([child, stampedChild, child, unpopulatedChild]),
 				]),
 			);
 

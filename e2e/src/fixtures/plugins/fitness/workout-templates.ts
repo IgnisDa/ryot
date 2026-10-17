@@ -16,7 +16,7 @@ import {
 
 export const findFitnessRelationshipSchema = (client: Client, slug: string) =>
 	Effect.gen(function* () {
-		const owner = definitionOwner((yield* fitnessFixtureInstallation).id);
+		const owner = definitionOwner((yield* fitnessFixtureInstallation(client.target)).id);
 		const schemas = yield* listRelationshipSchemas(client, { owner, slugs: [slug] });
 		return requireRelationshipSchemaBySlug(schemas, slug, owner);
 	});

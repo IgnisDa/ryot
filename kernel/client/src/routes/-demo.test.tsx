@@ -7,6 +7,7 @@ import { Effect, Layer, ManagedRuntime } from "effect";
 import { KernelApiTestLayer } from "#/api/ports.test-layer";
 import { HostedAuthError } from "#/modules/auth/hosted-service";
 import type { ExplicitOAuthClientDescriptor, OAuthLaunchPlan } from "#/modules/auth/oauth-launcher";
+import { makePendingAuthorization } from "#/modules/auth/oauth-storage.test-support";
 import { createBackInterceptors } from "#/modules/navigation/back-interceptors";
 import { pluginBridgeServicesTestLayer } from "#/modules/pages/bridge/services.test-layer";
 import { makePluginCatalogEventsTestLayer } from "#/modules/plugins/catalog/events.test-layer";
@@ -16,7 +17,6 @@ import {
 	ClientPageSessionsRouteStubs,
 	CustomizeRouteStubs,
 	DeviceRouteStubs,
-	EntityRouteStubs,
 	ImportsRouteStubs,
 	InstanceAdminRouteStubs,
 	IntegrationRouteStubs,
@@ -24,11 +24,11 @@ import {
 	makeOAuthRouteStubs,
 	makePublicApiStub,
 	makeStorageStubLayer,
+	ManagedAssetRouteStubs,
 	NavigationRouteStubs,
 	NotificationChannelRouteStubs,
 	PagesApiRouteStubs,
 	ProviderAddRouteStubs,
-	SavedViewRouteStubs,
 	server,
 	ServerStub,
 	theme,
@@ -79,16 +79,10 @@ const mountDemo = (
 						client,
 						codeChallenge: "challenge",
 						authorizationUrl: `${server}/api/auth/oauth2/authorize`,
-						pending: {
-							createdAt: 1,
-							state: "state",
-							nonce: "nonce",
-							destination: "/",
-							codeVerifier: "verifier",
+						pending: makePendingAuthorization(explicit?.serverOrigin ?? server, {
 							clientId: client.clientId,
 							redirectUri: client.callbackUri,
-							serverOrigin: explicit?.serverOrigin ?? server,
-						},
+						}),
 					},
 				});
 			},
@@ -103,8 +97,7 @@ const mountDemo = (
 			makeAuthStub({}, options.accessClass ? authenticated(options.accessClass) : unauthenticated),
 			InstanceAdminRouteStubs,
 			ServerStub,
-			SavedViewRouteStubs,
-			EntityRouteStubs,
+			ManagedAssetRouteStubs,
 			makePublicApiStub(),
 			makePluginCatalog([]),
 			DeviceRouteStubs,

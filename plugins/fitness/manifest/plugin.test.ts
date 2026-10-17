@@ -74,6 +74,7 @@ it("declares the complete fitness-owned source", () => {
 		"exercise-equipment",
 		"workout",
 		"workout-template",
+		"measurement-entry",
 		"measurement-metric",
 	]);
 	expect(fitnessPlugin.relationshipSchemas.map(({ slug }) => slug)).toEqual([
@@ -275,33 +276,18 @@ it("declares the complete fitness-owned source", () => {
 			rootEntitySchemaSlug: "exercise",
 			slug: "exercise.free-exercise-db",
 			information: { source: "free-exercise-db" },
-			operations: {
-				search: "exercise.free-exercise-db.search",
-				details: "exercise.free-exercise-db.details",
-				resolve: "exercise.free-exercise-db.resolve",
-			},
 		},
 		{
 			name: "Exercise Target Fitness Catalog",
 			rootEntitySchemaSlug: "exercise-target",
 			slug: "exercise-target.fitness-catalog",
 			information: { source: "fitness-catalog" },
-			operations: {
-				search: "exercise-target.fitness-catalog.search",
-				details: "exercise-target.fitness-catalog.details",
-				resolve: "exercise-target.fitness-catalog.resolve",
-			},
 		},
 		{
 			name: "Exercise Equipment Fitness Catalog",
 			rootEntitySchemaSlug: "exercise-equipment",
 			slug: "exercise-equipment.fitness-catalog",
 			information: { source: "fitness-catalog" },
-			operations: {
-				search: "exercise-equipment.fitness-catalog.search",
-				details: "exercise-equipment.fitness-catalog.details",
-				resolve: "exercise-equipment.fitness-catalog.resolve",
-			},
 		},
 	]);
 	expect(fitnessPlugin.workflows).toEqual([

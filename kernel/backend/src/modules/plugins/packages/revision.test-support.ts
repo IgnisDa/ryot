@@ -124,6 +124,14 @@ export const revisionPackage = (
 				token: { secret: true, type: "string", label: "Token", description: "Private token" },
 			},
 		},
+		providers: [
+			{
+				name: "Provider",
+				slug: `${slug}-provider`,
+				rootEntitySchemaSlug: entitySlug,
+				information: { source: "fixture" },
+			},
+		],
 		relationshipSchemas: [
 			{
 				name: "Link",
@@ -141,15 +149,6 @@ export const revisionPackage = (
 				propertiesSchema: { fields: {} },
 				audiencePolicy: { kind: "actor" },
 				notificationHookSlug: `${slug}.notify`,
-			},
-		],
-		providers: [
-			{
-				name: "Provider",
-				slug: `${slug}-provider`,
-				rootEntitySchemaSlug: entitySlug,
-				information: { source: "fixture" },
-				operations: { search: `${slug}.search`, details: `${slug}.details` },
 			},
 		],
 		hooks: [

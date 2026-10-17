@@ -5,6 +5,8 @@ import { createRyotQuery } from "@ryot-app/plugin-client-sdk/react";
 import { chunk } from "../../shared/collections";
 import {
 	MEASUREMENT_SERIES_BATCH_SIZE,
+	type MeasurementEntryReading,
+	measurementPageReadingsRecipe,
 	type MeasurementSeries,
 	measurementSeriesRecipe,
 	type MeasurementSummary,
@@ -12,12 +14,20 @@ import {
 } from "../../shared/measurement-recipes";
 import { PLUGIN_PACKAGE_ID } from "../../shared/plugin-identity";
 import {
-	measurementReadingListRecipe,
-	type MeasurementReadingListResult,
+	measurementEntryListRecipe,
+	type MeasurementEntryListResult,
 } from "../../shared/query-recipes";
 import { type RangeKey, rangeStartAt, seriesWindow } from "./model";
 
 const READING_PAGE_SIZE = 100;
+
+export type MeasurementLogEntry = MeasurementEntryListResult["items"][number] & {
+	readonly readings: readonly MeasurementEntryReading[];
+};
+
+type MeasurementLogPage = Omit<MeasurementEntryListResult, "items"> & {
+	readonly items: readonly MeasurementLogEntry[];
+};
 
 export const summaryQuery = createRyotQuery<
 	{ readonly range: RangeKey },
@@ -76,20 +86,35 @@ export const seriesQuery = createRyotQuery<
 
 export const readingsQuery = createRyotQuery<
 	{ readonly after: string | undefined; readonly range: RangeKey },
-	MeasurementReadingListResult
+	MeasurementLogPage
 >(({ input, client, schedule }) =>
-	Effect.suspend(() => {
+	Effect.gen(function* () {
 		const startAt = rangeStartAt(
 			input.range,
 			DateTime.toDateUtc(DateTime.makeUnsafe(schedule.now())),
 		);
-		return client.data.query(
-			measurementReadingListRecipe({
+		const reference = client.pluginIdentity(PLUGIN_PACKAGE_ID);
+		const page = yield* client.data.query(
+			measurementEntryListRecipe({
 				startAt,
+				reference,
 				after: input.after,
 				limit: READING_PAGE_SIZE,
-				reference: client.pluginIdentity(PLUGIN_PACKAGE_ID),
 			}),
 		);
+		const { items: readings } = yield* readCursorPages((after) =>
+			client.data.query(
+				measurementPageReadingsRecipe({
+					after,
+					reference,
+					entryIds: page.items.map(({ id }) => id),
+				}),
+			),
+		);
+		const items = page.items.map((entry) => ({
+			...entry,
+			readings: readings.filter(({ entryId }) => entryId === entry.id),
+		}));
+		return { ...page, items };
 	}),
 );

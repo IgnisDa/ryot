@@ -27,7 +27,7 @@ import {
 } from "@ryot-app/contract/schema/brands";
 import { stableStringify } from "@ryot-app/ts-utils/json";
 import { and, asc, desc, eq, gt, inArray, isNotNull, isNull, lte, or, sql } from "drizzle-orm";
-import { Context, Effect, Layer, Schema } from "effect";
+import { Context, Effect, Layer, Schema, Struct } from "effect";
 
 import { PluginConfigEncryptionKey } from "#modules/plugins/configuration/encryption-key";
 import { lockPluginIngestionShared } from "#modules/plugins/packages/ingestion-fence";
@@ -47,7 +47,14 @@ import { ImportRunError } from "./runtime/workflow-errors";
 
 type ImportRunRow = typeof schema.importRun.$inferSelect;
 
+const IngestionRunControl = Schema.Struct(
+	Struct.omit(IngestionRun.fields, ["summary", "activities"]),
+);
+
 export type ImportRunExecutionKind = "source" | "integration";
+
+const executionKind = (row: { integrationId: string | null }) =>
+	row.integrationId === null ? ("source" as const) : ("integration" as const);
 
 const normalizeRun = (row: ImportRunRow): ListedImportRun => ({
 	source: row.source,
@@ -387,12 +394,7 @@ export class ImportsRepository extends Context.Service<ImportsRepository>()("Imp
 						.limit(1),
 				);
 				return row
-					? {
-							status: row.status,
-							id: ImportRunId.make(row.id),
-							executionKind:
-								row.integrationId === null ? ("source" as const) : ("integration" as const),
-						}
+					? { status: row.status, id: ImportRunId.make(row.id), executionKind: executionKind(row) }
 					: null;
 			},
 		);
@@ -641,7 +643,11 @@ export class ImportsRepository extends Context.Service<ImportsRepository>()("Imp
 					.limit(1),
 			);
 			return run
-				? yield* getIngestionRun({ userId, accountGeneration, runId: ImportRunId.make(run.id) })
+				? yield* getIngestionRunControl({
+						userId,
+						accountGeneration,
+						runId: ImportRunId.make(run.id),
+					})
 				: null;
 		});
 		const startPayloadWrite = Effect.fn("ImportsRepository.startPayloadWrite")(function* (
@@ -937,15 +943,7 @@ export class ImportsRepository extends Context.Service<ImportsRepository>()("Imp
 				});
 			}
 			yield* database.run((db) =>
-				db
-					.insert(schema.importCapture)
-					.values({
-						data,
-						id: data.id,
-						phase: data.phase,
-						runId: scope.runId,
-						ordinal: data.ordinal,
-					}),
+				db.insert(schema.importCapture).values({ data, runId: scope.runId }),
 			);
 			return true;
 		});
@@ -1019,10 +1017,7 @@ export class ImportsRepository extends Context.Service<ImportsRepository>()("Imp
 						data,
 						operationIds: [...operationIds].sort(),
 						...execution,
-						id: data.id,
 						runId: scope.runId,
-						ordinal: data.ordinal,
-						captureId: data.captureId,
 					}),
 			);
 			return true;
@@ -1118,13 +1113,7 @@ export class ImportsRepository extends Context.Service<ImportsRepository>()("Imp
 			yield* database.run((db) =>
 				db
 					.insert(schema.importActivity)
-					.values({
-						data,
-						id: data.id,
-						runId: scope.runId,
-						batchId: data.batchId,
-						parentId: data.parentId,
-					})
+					.values({ data, runId: scope.runId })
 					.onConflictDoUpdate({
 						set: { data },
 						target: [schema.importActivity.runId, schema.importActivity.id],
@@ -1187,9 +1176,7 @@ export class ImportsRepository extends Context.Service<ImportsRepository>()("Imp
 				return false;
 			}
 			yield* database.run((db) =>
-				db
-					.insert(schema.importOutcome)
-					.values({ data, runId: scope.runId, operationId: data.operationId }),
+				db.insert(schema.importOutcome).values({ data, runId: scope.runId }),
 			);
 			return true;
 		});
@@ -1213,16 +1200,55 @@ export class ImportsRepository extends Context.Service<ImportsRepository>()("Imp
 				return false;
 			}
 			yield* database.run((db) =>
-				db.insert(schema.importIssue).values({ data, id: data.id, runId: scope.runId }),
+				db.insert(schema.importIssue).values({ data, runId: scope.runId }),
 			);
 			return true;
+		});
+		const getIngestionRunControl = Effect.fn("ImportsRepository.getIngestionRunControl")(function* (
+			scope: IngestionScope,
+		) {
+			const [run] = yield* database.run((db) =>
+				db
+					.select({
+						id: schema.importRun.id,
+						plan: schema.importRun.plan,
+						pins: schema.importRun.pins,
+						userId: schema.importRun.userId,
+						source: schema.importRun.source,
+						status: schema.importRun.status,
+						createdAt: schema.importRun.createdAt,
+						startedAt: schema.importRun.startedAt,
+						finishedAt: schema.importRun.finishedAt,
+						blockReasons: schema.importRun.blockReasons,
+						expiryReason: schema.importRun.expiryReason,
+						failureReason: schema.importRun.failureReason,
+						integrationId: schema.importRun.integrationId,
+						blockDeadline: schema.importRun.blockDeadline,
+						collectionSealed: schema.importRun.collectionSealed,
+						accountGeneration: schema.importRun.accountGeneration,
+						pluginInstallationId: schema.importRun.pluginInstallationId,
+					})
+					.from(schema.importRun)
+					.where(owned(scope))
+					.limit(1),
+			);
+			if (!run) {
+				return null;
+			}
+			return yield* Schema.decodeEffect(IngestionRunControl)({
+				...run,
+				executionKind: executionKind(run),
+				acceptedAt: run.createdAt.toISOString(),
+				startedAt: run.startedAt?.toISOString() ?? null,
+				finishedAt: run.finishedAt?.toISOString() ?? null,
+				blockDeadline: run.blockDeadline?.toISOString() ?? null,
+				accountGeneration: { userId: run.userId, token: run.accountGeneration },
+			});
 		});
 		const getIngestionRun = Effect.fn("ImportsRepository.getIngestionRun")(function* (
 			scope: IngestionScope,
 		) {
-			const [run] = yield* database.run((db) =>
-				db.select().from(schema.importRun).where(owned(scope)).limit(1),
-			);
+			const run = yield* getIngestionRunControl(scope);
 			if (!run) {
 				return null;
 			}
@@ -1263,26 +1289,9 @@ export class ImportsRepository extends Context.Service<ImportsRepository>()("Imp
 				}
 			}
 			return yield* Schema.decodeEffect(IngestionRun)({
+				...run,
 				summary,
-				id: run.id,
-				plan: run.plan,
-				pins: run.pins,
-				userId: run.userId,
-				source: run.source,
-				status: run.status,
-				blockReasons: run.blockReasons,
-				expiryReason: run.expiryReason,
-				failureReason: run.failureReason,
-				integrationId: run.integrationId,
-				collectionSealed: run.collectionSealed,
-				acceptedAt: run.createdAt.toISOString(),
-				pluginInstallationId: run.pluginInstallationId,
-				startedAt: run.startedAt?.toISOString() ?? null,
-				finishedAt: run.finishedAt?.toISOString() ?? null,
-				blockDeadline: run.blockDeadline?.toISOString() ?? null,
 				activities: activities.map((activity) => activity.data),
-				executionKind: run.integrationId === null ? "source" : "integration",
-				accountGeneration: { userId: run.userId, token: run.accountGeneration },
 			});
 		});
 		const cancelIngestion = Effect.fn("ImportsRepository.cancelIngestion")(function* (
@@ -1327,23 +1336,20 @@ export class ImportsRepository extends Context.Service<ImportsRepository>()("Imp
 			);
 			return rows.length > 0;
 		});
-		const advanceBatch = Effect.fn("ImportsRepository.advanceBatch")(function* (
+		const startBatch = Effect.fn("ImportsRepository.startBatch")(function* (
 			scope: IngestionScope,
 			batchId: string,
-			state: "preparing" | "applying",
 		) {
 			yield* lockProjection(scope);
 			const rows = yield* database.run((db) =>
 				db
 					.update(schema.importBatch)
-					.set({
-						data: sql`jsonb_set(${schema.importBatch.data}, '{state}', ${JSON.stringify(state)}::jsonb)`,
-					})
+					.set({ data: sql`jsonb_set(${schema.importBatch.data}, '{state}', '"applying"'::jsonb)` })
 					.where(
 						and(
 							eq(schema.importBatch.runId, scope.runId),
 							eq(schema.importBatch.id, batchId),
-							sql`${schema.importBatch.data}->>'state' = ${state === "preparing" ? "pending" : "preparing"}`,
+							sql`${schema.importBatch.data}->>'state' = 'pending'`,
 						),
 					)
 					.returning({ id: schema.importBatch.id }),
@@ -1617,6 +1623,20 @@ export class ImportsRepository extends Context.Service<ImportsRepository>()("Imp
 					.orderBy(asc(schema.importRun.createdAt))
 					.limit(Math.min(100, Math.max(1, limit))),
 			);
+		});
+		const captureIntegrationRecoveryCutoff = Effect.fn(
+			"ImportsRepository.captureIntegrationRecoveryCutoff",
+		)(function* () {
+			const [row] = yield* database.run((db) =>
+				db.execute<{ cutoff: string }>(
+					sql`select to_char(statement_timestamp()::timestamptz(3) at time zone 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') as cutoff`,
+					"objects",
+				),
+			);
+			if (!row) {
+				return yield* new DbError({ message: "Integration recovery cutoff returned no row" });
+			}
+			return row.cutoff;
 		});
 		const listIntegrationRecoveryRuns = Effect.fn("ImportsRepository.listIntegrationRecoveryRuns")(
 			function* (input: { limit: number; before: Date; after: IngestionRecoveryCursor | null }) {
@@ -1918,10 +1938,10 @@ export class ImportsRepository extends Context.Service<ImportsRepository>()("Imp
 			listIssues,
 			getRunById,
 			getCapture,
+			startBatch,
 			listBatches,
 			putActivity,
 			recordIssue,
-			advanceBatch,
 			pinIngestion,
 			listCaptures,
 			pageCaptures,
@@ -1966,12 +1986,14 @@ export class ImportsRepository extends Context.Service<ImportsRepository>()("Imp
 			putSettlementActivity,
 			deleteIngestionReport,
 			getPayloadReservation,
+			getIngestionRunControl,
 			listPayloadReservations,
 			purgePayloadReservations,
 			startIntegrationIngestion,
 			releasePayloadReservation,
 			createIntegrationRunIfIdle,
 			listIntegrationRecoveryRuns,
+			captureIntegrationRecoveryCutoff,
 			listRecentStatusesByIntegrationId,
 		};
 	}),

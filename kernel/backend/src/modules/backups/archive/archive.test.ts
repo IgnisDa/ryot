@@ -1,5 +1,6 @@
 import { BunFileSystem } from "@effect/platform-bun";
 import { assert, expect, layer } from "@effect/vitest";
+import { dataJsonSource } from "@ryot-app/contract/modules/imports/data-json";
 import { pluginPackageKey } from "@ryot-app/contract/modules/plugins/references";
 import {
 	CLIENT_API_VERSION,
@@ -61,7 +62,6 @@ const records: ArchiveRecords = {
 			healthReason: null,
 			hiddenIntent: false,
 			isInitialized: true,
-			id: "installation-1",
 			createdAt: timestamp,
 			updatedAt: timestamp,
 			packageKey: systemKey,
@@ -82,7 +82,6 @@ const records: ArchiveRecords = {
 			pluginKey: null,
 			isHidden: false,
 			isBuiltin: false,
-			installationId: null,
 			createdAt: timestamp,
 			updatedAt: timestamp,
 			dataSources: savedViewQuery,
@@ -149,7 +148,12 @@ const mutateArchive = Effect.fn(function* (
 	return zipSync(files);
 });
 
-const replaceSection = (files: Record<string, Uint8Array>, path: string, payload: Uint8Array) => {
+const replaceSection = (
+	files: Record<string, Uint8Array>,
+	path: string,
+	payload: Uint8Array,
+	count?: number,
+) => {
 	const manifestFile = files["manifest.json"];
 	assert(manifestFile !== undefined);
 	const manifest = decodeManifest(manifestFile);
@@ -160,7 +164,9 @@ const replaceSection = (files: Record<string, Uint8Array>, path: string, payload
 	files["manifest.json"] = encodeManifest({
 		...manifest,
 		sections: manifest.sections.map((section) =>
-			section.path === path ? Object.assign({}, section, { sha256 }) : section,
+			section.path === path
+				? Object.assign({}, section, { sha256, count: count ?? section.count })
+				: section,
 		),
 	});
 };
@@ -204,6 +210,24 @@ const entity = (): ArchiveRecords["entities"][number] => ({
 	updatedAt: timestamp,
 	entitySchemaSlug: "entity",
 	entitySchemaPluginKey: null,
+});
+
+const integration = (packageKey: string | null): ArchiveRecords["integrations"][number] => ({
+	packageKey,
+	name: null,
+	lot: "sink",
+	isDisabled: false,
+	id: "integration-1",
+	syncOwnership: false,
+	minimumProgress: "0",
+	createdAt: timestamp,
+	updatedAt: timestamp,
+	lastFinishedAt: null,
+	providerSpecifics: {},
+	maximumProgress: "100",
+	configuredSecretPaths: [],
+	extraSettings: { disableOnContinuousErrors: false },
+	provider: packageKey === null ? dataJsonSource : "import",
 });
 
 const assetInput = () => {
@@ -330,6 +354,144 @@ layer(BunFileSystem.layer)((test) => {
 			expect(validated.manifest.version).toBe(1);
 			expect(validated.records).toEqual(records);
 		}).pipe(Effect.scoped),
+	);
+
+	test.effect(
+		"round-trips shared installation keys across scopes without source installation IDs",
+		() =>
+			Effect.gen(function* () {
+				const installation = records.installations[0];
+				const view = records.savedViews[0];
+				assert(installation && view?.kind === "custom");
+				const manifest = fixtureManifest();
+				const privateKey = pluginPackageKey({ packageId, scope: "user" });
+				const archiveRecords: ArchiveRecords = {
+					...records,
+					installations: [{ ...installation, packageKey: privateKey }, installation],
+					integrations: [null, systemKey, systemKey, privateKey, privateKey].map((key, index) =>
+						Object.assign(integration(key), { id: `integration-${index}` }),
+					),
+					privatePlugins: [
+						{
+							manifest,
+							packageId,
+							key: privateKey,
+							compiledScripts: [],
+							version: manifest.metadata.version,
+							contentHash: pluginContentHash(manifest, []),
+						},
+					],
+					savedViews: [
+						view,
+						...[systemKey, privateKey].flatMap((pluginKey, index) =>
+							[1, 2].map((number) =>
+								Object.assign({}, view, {
+									pluginKey,
+									id: `view-${index}-${number}`,
+									slug: `view-${index}-${number}`,
+								}),
+							),
+						),
+					],
+				};
+				const first = yield* archiveBytes(input({ records: archiveRecords }));
+				const second = yield* archiveBytes(
+					input({
+						records: {
+							...archiveRecords,
+							installations: archiveRecords.installations.toReversed(),
+						},
+					}),
+				);
+				expect(first).toEqual(second);
+				const validated = yield* validateArchive(asChunks(first));
+				expect(validated.records.installations.map(({ packageKey }) => packageKey)).toEqual([
+					systemKey,
+					privateKey,
+				]);
+				expect(validated.records.savedViews).toEqual(
+					archiveRecords.savedViews.slice().sort((a, b) => a.id.localeCompare(b.id)),
+				);
+				expect(validated.records.integrations).toEqual(archiveRecords.integrations);
+				for (const state of validated.records.installations) {
+					expect(state).not.toHaveProperty("id");
+				}
+				for (const record of [...validated.records.savedViews, ...validated.records.integrations]) {
+					expect(record).not.toHaveProperty("installationId");
+				}
+			}).pipe(Effect.scoped),
+	);
+
+	test.effect("rejects duplicate installation keys and missing workspace or integration keys", () =>
+		Effect.gen(function* () {
+			const installation = records.installations[0];
+			const view = records.savedViews[0];
+			assert(installation && view?.kind === "custom");
+			for (const { path, values, reason } of [
+				{
+					path: "installations.ndjson",
+					reason: "duplicate_record_id",
+					values: [installation, installation],
+				},
+				{
+					path: "saved-views.ndjson",
+					reason: "missing_reference_mapping",
+					values: [{ ...view, pluginKey: pluginPackageKey({ packageId, scope: "user" }) }],
+				},
+				{
+					path: "integrations.ndjson",
+					reason: "missing_reference_mapping",
+					values: [integration(pluginPackageKey({ packageId, scope: "user" }))],
+				},
+				{
+					path: "installations.ndjson",
+					reason: "missing_reference_mapping",
+					values: [{ ...installation, packageKey: "undeclared" }],
+				},
+			] as const) {
+				const archive = yield* mutateArchive(input(), (files) => {
+					replaceSection(
+						files,
+						path,
+						encoder.encode(values.map((value) => `${JSON.stringify(value)}\n`).join("")),
+						values.length,
+					);
+				});
+				expect((yield* validationError(archive)).reason).toBe(reason);
+			}
+			for (const associated of [
+				{ ...records, installations: [], savedViews: [{ ...view, pluginKey: systemKey }] },
+				{ ...records, installations: [], integrations: [integration(systemKey)] },
+			]) {
+				const error = yield* archiveBytes(input({ records: associated })).pipe(Effect.flip);
+				expect(error.reason).toBe("missing_reference_mapping");
+			}
+		}),
+	);
+
+	test.effect("rejects source installation IDs and invalid null integration ownership", () =>
+		Effect.gen(function* () {
+			const installation = records.installations[0];
+			const view = records.savedViews[0];
+			assert(installation && view);
+			for (const { path, value } of [
+				{ path: "installations.ndjson", value: { ...installation, id: "source-installation" } },
+				{ path: "saved-views.ndjson", value: { ...view, installationId: "source-installation" } },
+				{
+					path: "integrations.ndjson",
+					value: { ...integration(systemKey), installationId: "source-installation" },
+				},
+				{
+					path: "integrations.ndjson",
+					value: { ...integration(null), provider: "plugin-provider" },
+				},
+			] as const) {
+				const archive = yield* mutateArchive(input(), (files) => {
+					replaceSection(files, path, encoder.encode(`${JSON.stringify(value)}\n`), 1);
+				});
+				expect(yield* validationError(archive)).toMatchObject({ path, reason: "invalid_entry" });
+			}
+		}),
 	);
 
 	test.effect(

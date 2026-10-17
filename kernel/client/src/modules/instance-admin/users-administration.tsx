@@ -10,7 +10,7 @@ import {
 import { AppIcon } from "@ryot-app/plugin-ui-sdk/icon";
 import { DataTable, type DataTableColumn } from "@ryot-app/plugin-ui-sdk/table";
 import clsx from "clsx";
-import { Cause, Effect, Exit } from "effect";
+import { Cause, Effect } from "effect";
 import {
 	type RefObject,
 	type SyntheticEvent,
@@ -21,7 +21,11 @@ import {
 	useState,
 } from "react";
 
-import { isUnauthorizedCause, readAdminResult } from "#/modules/instance-admin/errors";
+import {
+	isUnauthorizedCause,
+	runAdminAction,
+	withAdminAuthorization,
+} from "#/modules/instance-admin/errors";
 import type { AdminLinkTransfer } from "#/modules/instance-admin/link-transfer";
 import type {
 	InstanceAdminPasswordResetResult,
@@ -34,10 +38,9 @@ import type {
 	InstanceAdminUserResetResult,
 } from "#/modules/instance-admin/user-lifecycle";
 import type { BackInterceptors } from "#/modules/navigation/back-interceptors";
+import { useUnmountSignal } from "#/modules/ui/use-unmount-signal";
 
 const PAGE_SIZE = 50;
-
-type OperationResult<A> = Effect.Effect<Exit.Exit<A, unknown>>;
 
 type UserAction = "password" | "disabled" | "reset" | "delete" | "impersonate";
 
@@ -61,19 +64,23 @@ function UserPageStatus(props: {
 }
 
 export type InstanceAdminUserOperations = {
-	readonly resetUser: (userId: string) => OperationResult<InstanceAdminUserResetResult>;
-	readonly deleteUser: (userId: string) => OperationResult<InstanceAdminUserLifecycleOperation>;
-	readonly resetUserPassword: (userId: string) => OperationResult<InstanceAdminPasswordResetResult>;
+	readonly resetUser: (userId: string) => Effect.Effect<InstanceAdminUserResetResult, unknown>;
+	readonly deleteUser: (
+		userId: string,
+	) => Effect.Effect<InstanceAdminUserLifecycleOperation, unknown>;
+	readonly resetUserPassword: (
+		userId: string,
+	) => Effect.Effect<InstanceAdminPasswordResetResult, unknown>;
 	readonly setUserDisabled: (
 		userId: string,
 		disabled: boolean,
-	) => OperationResult<InstanceAdminSetDisabledResult>;
+	) => Effect.Effect<InstanceAdminSetDisabledResult, unknown>;
 	readonly listUsers: (
 		search: string,
 		after: string | undefined,
 		limit: number,
-	) => OperationResult<InstanceAdminUsers>;
-	readonly impersonateUser: (userId: string) => OperationResult<string>;
+	) => Effect.Effect<InstanceAdminUsers, unknown>;
+	readonly impersonateUser: (userId: string) => Effect.Effect<string, unknown>;
 };
 
 type UsersAdministrationProps = {
@@ -112,7 +119,7 @@ export function UsersAdministration(props: UsersAdministrationProps) {
 		initialPageParam: undefined,
 		getNextPageParam: nextPageCursor,
 		load: (after) =>
-			readAdminResult(
+			withAdminAuthorization(
 				props.operations.listUsers(query, after, PAGE_SIZE),
 				props.onUnauthorized,
 			).pipe(
@@ -248,6 +255,7 @@ function UserRow(props: {
 	const triggerRef = useRef<HTMLButtonElement>(null);
 	const copyTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
 	const pendingRef = useRef<string | null>(null);
+	const unmountSignal = useUnmountSignal();
 	const menuId = useId();
 	const [copied, setCopied] = useState(false);
 	const [error, setError] = useState<string>();
@@ -285,99 +293,100 @@ function UserRow(props: {
 		[],
 	);
 
-	const run = <A,>(kind: NonNullable<typeof pending>, operation: () => OperationResult<A>) => {
-		if (pendingRef.current !== null) {
-			return Effect.succeed(null);
-		}
-		pendingRef.current = kind;
-		setPending(kind);
-		setError(undefined);
-		return operation().pipe(
-			Effect.map((exit) => {
-				pendingRef.current = null;
-				setPending(null);
-				if (Exit.isSuccess(exit)) {
-					return exit.value;
-				}
-				if (isUnauthorizedCause(exit.cause)) {
-					props.onUnauthorized();
-				} else {
-					logFailure(`instance-admin user ${kind} request failed`, exit.cause);
-				}
-				return null;
-			}),
+	const run = <A,>(
+		kind: NonNullable<typeof pending>,
+		operation: () => Effect.Effect<A, unknown>,
+		onSuccess: (value: A) => void,
+		failureMessage: string,
+	) =>
+		Effect.suspend(() => {
+			const signal = unmountSignal();
+			if (pendingRef.current !== null || signal.aborted) {
+				return Effect.void;
+			}
+			pendingRef.current = kind;
+			setPending(kind);
+			setError(undefined);
+			return runAdminAction({
+				signal,
+				operation,
+				onSuccess,
+				onUnauthorized: props.onUnauthorized,
+				onSettled: (aborted) => {
+					pendingRef.current = null;
+					if (!aborted) {
+						setPending(null);
+					}
+				},
+				onFailure: (cause) => {
+					logFailure(`instance-admin user ${kind} request failed`, cause);
+					setError(failureMessage);
+				},
+			});
+		});
+	const resetPassword = () =>
+		run(
+			"password",
+			() => {
+				setCopied(false);
+				setResult(null);
+				setImpersonationUrl(null);
+				return props.operations.resetUserPassword(props.user.id);
+			},
+			setResult,
+			"Could not generate a reset link. Try again.",
 		);
-	};
-	const resetPassword = () => {
-		setCopied(false);
-		setResult(null);
-		setImpersonationUrl(null);
-		return run("password", () => props.operations.resetUserPassword(props.user.id)).pipe(
-			Effect.map((value) => {
-				if (value !== null) {
-					setResult(value);
-				} else if (pendingRef.current === null) {
-					setError("Could not generate a reset link. Try again.");
-				}
-			}),
-		);
-	};
 	const toggleDisabled = () =>
-		run("disabled", () => props.operations.setUserDisabled(props.user.id, !isDisabled)).pipe(
-			Effect.map((value) => {
-				if (value !== null) {
-					props.onRefresh();
-				} else if (pendingRef.current === null) {
-					setError(`Could not ${isDisabled ? "enable" : "disable"} this user. Try again.`);
-				}
-			}),
+		run(
+			"disabled",
+			() => props.operations.setUserDisabled(props.user.id, !isDisabled),
+			props.onRefresh,
+			`Could not ${isDisabled ? "enable" : "disable"} this user. Try again.`,
 		);
-	const impersonate = () => {
-		setCopied(false);
-		setResult(null);
-		setImpersonationUrl(null);
-		return run("impersonation", () => props.operations.impersonateUser(props.user.id)).pipe(
-			Effect.map((value) => {
-				if (value !== null) {
-					setImpersonationUrl(value);
-				} else if (pendingRef.current === null) {
-					setError("Could not start impersonation. Try again.");
-				}
-			}),
+	const impersonate = () =>
+		run(
+			"impersonation",
+			() => {
+				setCopied(false);
+				setResult(null);
+				setImpersonationUrl(null);
+				return props.operations.impersonateUser(props.user.id);
+			},
+			setImpersonationUrl,
+			"Could not start impersonation. Try again.",
 		);
-	};
 	const confirm = () => {
-		setResult(null);
-		setImpersonationUrl(null);
 		const kind = confirmation;
 		if (kind === null) {
 			return Effect.void;
 		}
 		if (kind === "reset") {
-			return run("reset", () => props.operations.resetUser(props.user.id)).pipe(
-				Effect.map((value) => {
-					if (value === null) {
-						if (pendingRef.current === null) {
-							setError("Could not reset this user. Try again.");
-						}
-						return;
-					}
+			return run(
+				"reset",
+				() => {
+					setResult(null);
+					setImpersonationUrl(null);
+					return props.operations.resetUser(props.user.id);
+				},
+				(value) => {
 					setConfirmation(null);
 					setResult(value);
-				}),
+				},
+				"Could not reset this user. Try again.",
 			);
 		}
-		return run("delete", () => props.operations.deleteUser(props.user.id)).pipe(
-			Effect.map((value) => {
-				if (value === null) {
-					if (pendingRef.current === null) {
-						setError("Could not delete this user. Try again.");
-					}
-					return;
-				}
+		return run(
+			"delete",
+			() => {
+				setResult(null);
+				setImpersonationUrl(null);
+				return props.operations.deleteUser(props.user.id);
+			},
+			() => {
 				setConfirmation(null);
 				props.onRefresh();
-			}),
+			},
+			"Could not delete this user. Try again.",
 		);
 	};
 	const transfer = () => {
@@ -411,14 +420,14 @@ function UserRow(props: {
 			return;
 		}
 		if (kind === "password") {
-			queueMicrotask(() => Effect.runFork(resetPassword()));
+			queueMicrotask(() => Effect.runFork(resetPassword(), { signal: unmountSignal() }));
 			return;
 		}
 		if (kind === "disabled") {
-			queueMicrotask(() => Effect.runFork(toggleDisabled()));
+			queueMicrotask(() => Effect.runFork(toggleDisabled(), { signal: unmountSignal() }));
 			return;
 		}
-		queueMicrotask(() => Effect.runFork(impersonate()));
+		queueMicrotask(() => Effect.runFork(impersonate(), { signal: unmountSignal() }));
 	};
 	const actionItems: ReadonlyArray<MenuItem> = [
 		{
@@ -574,9 +583,9 @@ function UserRow(props: {
 					triggerRef={triggerRef}
 					pending={pending === confirmation}
 					backInterceptors={props.backInterceptors}
-					onConfirm={() => Effect.runFork(confirm())}
+					onConfirm={() => Effect.runFork(confirm(), { signal: unmountSignal() })}
 					onClose={() => {
-						if (pending === null) {
+						if (pendingRef.current === null) {
 							setError(undefined);
 							setConfirmation(null);
 						}

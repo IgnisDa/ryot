@@ -39,7 +39,8 @@ const makeLayer = (executionKind: ImportRunExecutionKind, cancellable = true) =>
 			};
 			const repository = Layer.mock(ImportsRepository)({
 				cancelIngestion: () => appendEvent("request").pipe(Effect.as(cancellable)),
-				getIngestionRun: () => Effect.succeed({ ...ingestionTestRun(), ...control, executionKind }),
+				getIngestionRunControl: () =>
+					Effect.succeed({ ...ingestionTestRun(), ...control, executionKind }),
 			});
 			return Layer.mergeAll(
 				repository,

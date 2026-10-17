@@ -4,7 +4,7 @@ use std::time::{Duration, Instant};
 
 use crate::execute::check_external_memory;
 use crate::protocol::LimitKind;
-use crate::registry::{Entry, Registry};
+use crate::registry::{Entry, Registry, StopCause};
 
 pub const TICK: Duration = Duration::from_millis(5);
 const INLINE_SETTLEMENT_LIMIT: Duration = Duration::from_secs(30);
@@ -22,7 +22,7 @@ pub fn run(registry: Registry, grace: Duration, escalate: impl Fn(&Entry)) {
             let Some(isolate) = state.isolate.as_ref() else {
                 continue;
             };
-            if let Some(since) = state.terminating_since {
+            if let Some(stopping) = &state.stopping {
                 isolate.terminate_execution();
                 // Only an isolate that keeps running or stays blocked in inline settlement after
                 // termination is a culprit; one waiting for a CPU slot stops as soon as it is polled.
@@ -31,7 +31,8 @@ pub fn run(registry: Registry, grace: Duration, escalate: impl Fn(&Entry)) {
                     .into_iter()
                     .chain(state.sync_waiting_since)
                     .max();
-                let ignoring = active_since.is_some_and(|active| now - since.max(active) > grace);
+                let ignoring =
+                    active_since.is_some_and(|active| now - stopping.since.max(active) > grace);
                 if ignoring {
                     drop(state);
                     escalate(&entry);
@@ -72,9 +73,8 @@ pub fn run(registry: Registry, grace: Duration, escalate: impl Fn(&Entry)) {
             } else {
                 None
             };
-            if let Some(limit) = exceeded {
-                state.limit.get_or_insert(limit);
-                entry.stop(&mut state);
+            if let Some((kind, message)) = exceeded {
+                entry.stop(&mut state, StopCause::Limit { kind, message });
                 continue;
             }
             if state.interrupt.is_none() {

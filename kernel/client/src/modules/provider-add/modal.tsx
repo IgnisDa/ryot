@@ -20,14 +20,14 @@ import { toGlobalHref } from "#/modules/plugins/catalog/location";
 import { usePluginCatalog } from "#/modules/plugins/catalog/provider";
 import { importProviderEntity } from "#/modules/provider-add/import-controller";
 import { InlineEntityCreate } from "#/modules/provider-add/inline-create";
+import { providerSearchOptionsQuery } from "#/modules/provider-add/options-query";
 import {
-	type ProviderAddOutcome,
 	type ProviderEntityLinks,
 	ProviderSearchPanel,
 	type ProviderSummariesState,
 } from "#/modules/provider-add/panel";
 import { EntityPickPanel } from "#/modules/provider-add/pick-panel";
-import { ProviderAddService, type ProviderSearchSummary } from "#/modules/provider-add/service";
+import { ProviderAddService } from "#/modules/provider-add/service";
 import { useSchemaFileUpload } from "#/modules/ui/schema-form-upload";
 import { ClientStorage } from "#/persistence/storage";
 
@@ -49,15 +49,6 @@ type EntityPickerModalState = {
 
 type EntityPickerView =
 	{ readonly kind: "browse" } | { readonly kind: "create"; readonly name: string };
-
-const loadedProviderState = (
-	remembered: SandboxProviderId | null,
-	result: ProviderAddOutcome<{ readonly items: readonly ProviderSearchSummary[] }>,
-): EntityPickerModalState => ({
-	selectedProviderId: remembered ?? undefined,
-	providers:
-		"value" in result ? { status: "ready", providers: result.value.items } : { status: "failed" },
-});
 
 export function EntityPickerModal(props: EntityPickerModalProps) {
 	const uploadAsset = useSchemaAssetUpload();
@@ -95,16 +86,11 @@ export function EntityPickerModal(props: EntityPickerModalProps) {
 								.loadProviders(ryot, schema)
 								.pipe(
 									Effect.match({
-										onFailure: (
-											cause,
-										): ProviderAddOutcome<{
-											readonly items: readonly ProviderSearchSummary[];
-										}> => ({ cause }),
-										onSuccess: (
-											value,
-										): ProviderAddOutcome<{
-											readonly items: readonly ProviderSearchSummary[];
-										}> => ({ value }),
+										onFailure: (): ProviderSummariesState => ({ status: "failed" }),
+										onSuccess: (value): ProviderSummariesState => ({
+											status: "ready",
+											providers: value.items,
+										}),
 									}),
 								),
 							providerService
@@ -114,7 +100,7 @@ export function EntityPickerModal(props: EntityPickerModalProps) {
 						{ concurrency: "unbounded" },
 					);
 					if (isActive()) {
-						setState(loadedProviderState(remembered, result));
+						setState({ providers: result, selectedProviderId: remembered ?? undefined });
 						setDefinition(loadedDefinition);
 					}
 				}),
@@ -149,9 +135,6 @@ export function EntityPickerModal(props: EntityPickerModalProps) {
 
 	const search: ComponentProps<typeof ProviderSearchPanel>["search"] = (payload) =>
 		providerService.search(scope, payload);
-	const loadSearchOptions: ComponentProps<typeof ProviderSearchPanel>["loadSearchOptions"] = (
-		providerId,
-	) => providerService.loadSearchOptions(scope, providerId);
 	const importEntity: ComponentProps<typeof ProviderSearchPanel>["importEntity"] = ({
 		externalId,
 		onProgress,
@@ -273,8 +256,8 @@ export function EntityPickerModal(props: EntityPickerModalProps) {
 				initialQuery={props.initialQuery}
 				loadEntityLinks={loadEntityLinks}
 				entitySchemaSlug={entitySchemaSlug}
-				loadSearchOptions={loadSearchOptions}
 				selectedProviderId={state.selectedProviderId}
+				searchOptionsQuery={providerSearchOptionsQuery}
 				relationshipSlug={props.library.relationshipSlug}
 				librarySchemaSlug={props.library.librarySchemaSlug}
 			/>

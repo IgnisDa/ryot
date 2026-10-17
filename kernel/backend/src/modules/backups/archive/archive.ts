@@ -112,11 +112,13 @@ const sortArchiveRecords = (records: ArchiveRecords): ArchiveRecords => ({
 	entities: sortedIfNeeded(records.entities, compareId),
 	savedViews: sortedIfNeeded(records.savedViews, compareId),
 	integrations: sortedIfNeeded(records.integrations, compareId),
-	installations: sortedIfNeeded(records.installations, compareId),
 	relationships: sortedIfNeeded(records.relationships, compareId),
 	entityDependencies: sortDependencies(records.entityDependencies),
 	privatePlugins: sortedIfNeeded(records.privatePlugins, (left, right) =>
 		left.key.localeCompare(right.key),
+	),
+	installations: sortedIfNeeded(records.installations, (left, right) =>
+		left.packageKey.localeCompare(right.packageKey),
 	),
 	notificationSubscriptions: sortedIfNeeded(records.notificationSubscriptions, (left, right) =>
 		left.signalSchemaSlug.localeCompare(right.signalSchemaSlug),
@@ -185,7 +187,6 @@ const validateRecordKeys = (records: ArchiveRecords) => {
 	requireUniqueIds("entities.ndjson", records.entities);
 	requireUniqueIds("saved-views.ndjson", records.savedViews);
 	requireUniqueIds("integrations.ndjson", records.integrations);
-	requireUniqueIds("installations.ndjson", records.installations);
 	requireUniqueIds("relationships.ndjson", records.relationships);
 	requireUniqueIds("entity-dependencies.ndjson", records.entityDependencies);
 	const entityIds = new Set(records.entities.map(({ id }) => id));
@@ -227,30 +228,25 @@ const validateRecordKeys = (records: ArchiveRecords) => {
 	}
 	const customViews = records.savedViews.filter((view) => view.kind === "custom");
 	const customViewIds = new Set(customViews.map(({ id }) => id));
-	const installationById = new Map(records.installations.map((record) => [record.id, record]));
+	const installationKeys = new Set<string>();
+	for (const installation of records.installations) {
+		if (installationKeys.has(installation.packageKey)) {
+			throw archiveError(
+				"duplicate_record_id",
+				"Backup contains duplicate plugin installations",
+				"installations.ndjson",
+			);
+		}
+		installationKeys.add(installation.packageKey);
+	}
 	for (const integration of records.integrations) {
-		if (integration.installationId === null) {
-			continue;
-		}
-		const installation = installationById.get(integration.installationId);
-		if (!installation) {
+		if (integration.packageKey !== null && !installationKeys.has(integration.packageKey)) {
 			throw archiveError("missing_reference_mapping", "Backup references an unknown installation");
-		}
-		if (installation.packageKey !== integration.packageKey) {
-			throw archiveError("invalid_entry", "Backup integration installation owner is inconsistent");
 		}
 	}
 	for (const view of customViews) {
-		const installation =
-			view.installationId === null ? null : installationById.get(view.installationId);
-		if (view.installationId !== null && !installation) {
+		if (view.pluginKey !== null && !installationKeys.has(view.pluginKey)) {
 			throw archiveError("missing_reference_mapping", "Backup references an unknown installation");
-		}
-		if ((installation?.packageKey ?? null) !== view.pluginKey) {
-			throw archiveError(
-				"invalid_entry",
-				"Backup custom view workspace association is inconsistent",
-			);
 		}
 	}
 	for (const installation of records.installations) {
@@ -306,17 +302,6 @@ const validateRecordKeys = (records: ArchiveRecords) => {
 			throw archiveError("duplicate_record_id", "Invalid or duplicate private plugin key");
 		}
 		privateKeys.add(plugin.key);
-	}
-	const installationKeys = new Set<string>();
-	for (const installation of records.installations) {
-		if (installationKeys.has(installation.packageKey)) {
-			throw archiveError(
-				"duplicate_record_id",
-				"Backup contains duplicate plugin installations",
-				"installations.ndjson",
-			);
-		}
-		installationKeys.add(installation.packageKey);
 	}
 };
 

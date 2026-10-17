@@ -221,6 +221,7 @@ it.effect.each(["spotify", "youtube-music"] as const)(
 					getBatchIssues: () => Effect.succeed([]),
 					listBatchExecutions: () => Effect.succeed([]),
 					finishActivities: () => Effect.succeed("cancelled"),
+					getIngestionRunControl: () => Effect.sync(() => run),
 					listBatches: () => Effect.sync(() => [{ data: batch }]),
 					getIngestionRun: () =>
 						Effect.sync(() => ({ ...run, activities: [...activities.values()] })),

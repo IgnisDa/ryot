@@ -10,7 +10,6 @@ import {
 	mediaEpisodicCoveragePercent,
 } from "../media/episodic-activity-state";
 import { defineEpisodicMediaSchema } from "../media/episodic-schema";
-import { MEDIA_ART_HEIGHT, MEDIA_BACKDROP_HEIGHT } from "../media/hero";
 import { mediaWatchProvidersTrailing } from "../media/overview";
 import { mediaCountFact, mediaCountLabel, type MediaSummaryFact } from "../media/summary-state";
 import { mediaSchemaAspects } from "../schema-aspects";
@@ -111,7 +110,6 @@ export const showSchema = defineEpisodicMediaSchema({
 	presentationDetail: showPresentationDetail,
 	nouns: { title: "Show", plural: "shows", singular: "show" },
 	overviewTrailing: mediaWatchProvidersTrailing((summary) => summary),
-	heroHeight: (compact) => (compact ? MEDIA_ART_HEIGHT : MEDIA_BACKDROP_HEIGHT),
 	overviewLoadingDetail: "Fetching the cast, companies and recommendations for this show.",
 	activityCopy: mediaEpisodicActivityCopy({ noun: "show", verb: "watch", watchedLabel: "Watched" }),
 	logActivity: {

@@ -145,6 +145,7 @@ describe("notification subscription catalog and rules", () => {
 			expect(conflict.reason).toEqual({ signalSchema, code: "rule-already-installed" });
 
 			const arbitraryFields = yield* postApiJson(
+				owner.client,
 				"/automations/rules",
 				{ signalSchema, operation: "signal", scriptId: "caller-selected-script" },
 				owner.token,
@@ -158,7 +159,6 @@ describe("notification subscription catalog and rules", () => {
 			fakeApprise.requests.length = 0;
 			const { client } = yield* createAuthenticatedClient();
 			yield* createNotificationChannel(client, {
-				channel: "apprise",
 				channelSpecifics: { key: "workout", kind: "apprise", baseUrl: fakeApprise.url },
 			});
 			const { schema } = yield* findFitnessEntitySchema(client, "workout");
@@ -189,7 +189,6 @@ describe("notification subscription catalog and rules", () => {
 			fakeApprise.requests.length = 0;
 			const { client } = yield* createAuthenticatedClient();
 			yield* createNotificationChannel(client, {
-				channel: "apprise",
 				channelSpecifics: { key: "review", kind: "apprise", baseUrl: fakeApprise.url },
 			});
 			const { entityId, reviewEventSchemaSlug } = yield* createBuiltinMediaLifecycleFixture(client);

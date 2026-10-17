@@ -1,5 +1,8 @@
 import { expect, it, layer } from "@effect/vitest";
-import { MAX_FOREGROUND_ENTITY_IDS } from "@ryot-app/contract/modules/entity-watches/messages";
+import {
+	MAX_FOREGROUND_ENTITY_IDS,
+	MAX_INTEREST_ENTITY_IDS,
+} from "@ryot-app/contract/modules/entity-watches/messages";
 import { UserId } from "@ryot-app/contract/schema/brands";
 import { Effect, Layer } from "effect";
 import { describe } from "vitest";
@@ -75,6 +78,95 @@ const withSession = <A, E, R>(
 const storeLayer = EntityWatchStore.layer.pipe(Layer.provideMerge(testRedisServiceLayer));
 
 layer(storeLayer, { excludeTestServices: true })((test) => {
+	test.effect(
+		"replaces complete sets, keeps retained tokens, and fences remove-and-re-add work",
+		() =>
+			withSession(["a", "b", "c"], ({ store, tokens, sessionId }) =>
+				Effect.gen(function* () {
+					const replace = (
+						revision: number,
+						entityIds: readonly string[],
+						foregroundIds: readonly string[],
+					) => store.replaceInterest({ revision, sessionId, entityIds, foregroundIds });
+					yield* replace(1, ["a", "b", "b"], ["a", "a"]);
+					expect(yield* tokens).toEqual({ a: "pending:1:f", b: "pending:1:v" });
+					expect(yield* store.listInterestedSessions("a")).toContain(sessionId);
+					yield* replace(2, ["b", "c"], ["c"]);
+					expect(yield* tokens).toEqual({ b: "pending:1:v", c: "pending:2:f" });
+					expect(yield* store.listInterestedSessions("a")).not.toContain(sessionId);
+					expect(yield* store.listInterestedSessions("b")).toContain(sessionId);
+					expect(yield* store.listInterestedSessions("c")).toContain(sessionId);
+					yield* store.markReconciled({
+						sessionId,
+						pending: [{ revision: 1, entityId: "b", priority: "visible" }],
+					});
+					yield* replace(3, ["c", "b"], ["c"]);
+					expect(yield* tokens).toEqual({ b: "watching:v", c: "pending:2:f" });
+					expect(yield* replace(4, [], [])).toEqual({
+						revision: 4,
+						pending: [],
+						status: "applied",
+					});
+					expect(yield* tokens).toEqual({});
+					for (const id of ["a", "b", "c"]) {
+						expect(yield* store.listInterestedSessions(id)).not.toContain(sessionId);
+					}
+					yield* replace(5, ["a"], ["a"]);
+					const stale = [{ revision: 1, entityId: "a", priority: "foreground" as const }];
+					expect(yield* store.markReconciled({ sessionId, pending: stale })).toEqual([]);
+					expect(yield* store.removePending({ sessionId, pending: stale })).toEqual([]);
+					expect(yield* tokens).toEqual({ a: "pending:5:f" });
+					expect(yield* store.listInterestedSessions("a")).toContain(sessionId);
+					expect(
+						yield* store.markReconciled({
+							sessionId,
+							pending: [{ revision: 5, entityId: "a", priority: "foreground" }],
+						}),
+					).toEqual(["a"]);
+					yield* replace(6, ["a"], ["a"]);
+					expect(yield* tokens).toEqual({ a: "watching:f" });
+				}),
+			),
+	);
+
+	test.effect(
+		"accepts 500 members plus 50 foreground IDs and rejects replacements atomically",
+		() =>
+			withSession(ids("members", MAX_INTEREST_ENTITY_IDS + 1), ({ store, tokens, sessionId }) =>
+				Effect.gen(function* () {
+					const members = ids("members", MAX_INTEREST_ENTITY_IDS);
+					const foreground = members.slice(0, MAX_FOREGROUND_ENTITY_IDS);
+					const replace = (
+						revision: number,
+						entityIds: readonly string[],
+						foregroundIds: readonly string[],
+					) => store.replaceInterest({ revision, sessionId, entityIds, foregroundIds });
+					expect(yield* replace(2, members, foreground)).toEqual({ status: "revision-mismatch" });
+					expect(yield* tokens).toEqual({});
+					yield* replace(1, members, foreground);
+					const before = yield* tokens;
+					expect(Object.keys(before)).toHaveLength(500);
+					expect(Object.values(before).filter((token) => token === "pending:1:f")).toHaveLength(50);
+					expect(yield* replace(2, [...members, "members-500"], foreground)).toEqual({
+						status: "limit-exceeded",
+					});
+					expect(yield* replace(1, [], [])).toEqual({ status: "revision-mismatch" });
+					expect(yield* tokens).toEqual(before);
+					expect(yield* store.listInterestedSessions("members-0")).toContain(sessionId);
+					expect(yield* store.listInterestedSessions("members-500")).not.toContain(sessionId);
+					expect((yield* store.getSessionMetadata([sessionId]))[0]?.revision).toBe(1);
+					expect(yield* replace(2, [], [])).toEqual({
+						revision: 2,
+						pending: [],
+						status: "applied",
+					});
+					yield* store.closeSession(sessionId);
+					expect(yield* replace(3, members, foreground)).toEqual({ status: "missing-session" });
+					expect(yield* tokens).toEqual({});
+				}),
+			),
+	);
+
 	test.effect("stores priority in membership tokens and returns it with pending interest", () =>
 		withSession(["a", "b"], ({ store, tokens, sessionId }) =>
 			Effect.gen(function* () {
@@ -131,13 +223,11 @@ layer(storeLayer, { excludeTestServices: true })((test) => {
 					],
 				});
 
-				const updated = yield* store.updateInterest({
-					add: [],
+				const updated = yield* store.replaceInterest({
 					sessionId,
-					remove: [],
 					revision: 2,
-					addForeground: ["a"],
-					removeForeground: ["b"],
+					foregroundIds: ["a"],
+					entityIds: ["a", "b"],
 				});
 
 				expect(updated).toEqual({
@@ -173,17 +263,10 @@ layer(storeLayer, { excludeTestServices: true })((test) => {
 					entityIds: ["a"],
 					foregroundIds: [],
 				});
-				const update = (revision: number, change: "addForeground" | "removeForeground") =>
-					store.updateInterest({
-						add: [],
-						revision,
-						sessionId,
-						remove: [],
-						addForeground: change === "addForeground" ? ["a"] : [],
-						removeForeground: change === "removeForeground" ? ["a"] : [],
-					});
-				yield* update(2, "addForeground");
-				expect(yield* update(3, "removeForeground")).toEqual({
+				const replace = (revision: number, foregroundIds: readonly string[]) =>
+					store.replaceInterest({ revision, sessionId, foregroundIds, entityIds: ["a"] });
+				yield* replace(2, ["a"]);
+				expect(yield* replace(3, [])).toEqual({
 					revision: 3,
 					status: "applied",
 					pending: [{ revision: 3, entityId: "a", priority: "visible" }],
@@ -233,65 +316,6 @@ layer(storeLayer, { excludeTestServices: true })((test) => {
 
 				expect(yield* tokens).toEqual({ a: "pending:1:f", b: "pending:1:v" });
 				expect(yield* store.listWatchingSessions("a")).toEqual([]);
-			}),
-		),
-	);
-
-	test.effect("enforces the foreground cap and foreground membership", () =>
-		withSession(ids("cap", MAX_FOREGROUND_ENTITY_IDS + 2), ({ store, tokens, sessionId }) =>
-			Effect.gen(function* () {
-				const members = ids("cap", MAX_FOREGROUND_ENTITY_IDS + 2);
-				expect(
-					yield* store.replaceInterest({
-						sessionId,
-						revision: 1,
-						entityIds: members,
-						foregroundIds: members.slice(0, MAX_FOREGROUND_ENTITY_IDS + 1),
-					}),
-				).toEqual({ status: "limit-exceeded" });
-				expect(
-					yield* store.replaceInterest({
-						sessionId,
-						revision: 1,
-						entityIds: ["cap-0"],
-						foregroundIds: ["cap-1"],
-					}),
-				).toEqual({ status: "invalid-foreground" });
-				expect(yield* tokens).toEqual({});
-				yield* store.replaceInterest({
-					sessionId,
-					revision: 1,
-					entityIds: members,
-					foregroundIds: members.slice(0, MAX_FOREGROUND_ENTITY_IDS),
-				});
-				const update = (input: {
-					readonly add?: readonly string[];
-					readonly remove?: readonly string[];
-					readonly addForeground?: readonly string[];
-					readonly removeForeground?: readonly string[];
-				}) =>
-					store.updateInterest({
-						sessionId,
-						revision: 2,
-						add: input.add ?? [],
-						remove: input.remove ?? [],
-						addForeground: input.addForeground ?? [],
-						removeForeground: input.removeForeground ?? [],
-					});
-				const extra = `cap-${MAX_FOREGROUND_ENTITY_IDS}`;
-
-				expect(yield* update({ addForeground: [extra] })).toEqual({ status: "limit-exceeded" });
-				expect(yield* update({ addForeground: ["not-a-member"] })).toEqual({
-					status: "invalid-foreground",
-				});
-				expect(yield* update({ remove: [extra], removeForeground: [extra] })).toEqual({
-					status: "invalid-foreground",
-				});
-				expect(yield* update({ remove: ["cap-0"], addForeground: [extra] })).toMatchObject({
-					revision: 2,
-					status: "applied",
-				});
-				expect((yield* tokens)[extra]).toBe("pending:2:f");
 			}),
 		),
 	);

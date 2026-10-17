@@ -34,6 +34,7 @@ const provider = (pluginId: string, packageId: PluginPackageId): IntegrationProv
 	plan: null,
 	lot: "yank",
 	slug: "common",
+	hasScript: true,
 	name: "Whiskey",
 	isCreatable: true,
 	scriptSlug: "sync",

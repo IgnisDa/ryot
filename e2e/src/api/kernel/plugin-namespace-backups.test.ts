@@ -16,10 +16,8 @@ import {
 	table,
 } from "@ryot-app/ryotql";
 import { Effect } from "effect";
-import getPort from "get-port";
 
 import {
-	adminHeaders,
 	createAuthenticatedClient,
 	createEntity,
 	createIntegration,
@@ -55,14 +53,7 @@ import {
 } from "~/fixtures/kernel";
 import { assertCompleted, assertTaggedError, requirePresent } from "~/support/assertions";
 import { describe, expect, it } from "~/support/effect-test";
-import {
-	buildApiEnv,
-	spawnApiProcess,
-	startCoreTestInfrastructure,
-	stopApiProcess,
-	stopCoreTestInfrastructure,
-	waitForHealthCheck,
-} from "~/support/provisioning";
+import { startIsolatedApiServer } from "~/support/isolated-harness";
 
 describe("plugin namespace backups", () => {
 	it.live(
@@ -123,12 +114,10 @@ describe("plugin namespace backups", () => {
 					removed
 						? Effect.void
 						: getApiClient()
-								.call(
-									(contract) =>
-										contract.testSupport.uninstallSystemPlugin({
-											params: { pluginId: system.pluginId, activationId: system.activationId },
-										}),
-									adminHeaders(),
+								.adminCall((contract) =>
+									contract.testSupport.uninstallSystemPlugin({
+										params: { pluginId: system.pluginId, activationId: system.activationId },
+									}),
 								)
 								.pipe(Effect.ignore),
 				);
@@ -137,12 +126,10 @@ describe("plugin namespace backups", () => {
 					isInitialized: true,
 					health: "incompatible",
 				});
-				yield* getApiClient().call(
-					(contract) =>
-						contract.testSupport.uninstallSystemPlugin({
-							params: { pluginId: system.pluginId, activationId: system.activationId },
-						}),
-					adminHeaders(),
+				yield* getApiClient().adminCall((contract) =>
+					contract.testSupport.uninstallSystemPlugin({
+						params: { pluginId: system.pluginId, activationId: system.activationId },
+					}),
 				);
 				removed = true;
 				const exported = yield* exportAndDownloadBackup(source.client);
@@ -216,42 +203,15 @@ describe("plugin namespace backups", () => {
 		"preflights missing and incompatible system dependencies before account replacement",
 		() =>
 			Effect.gen(function* () {
-				const bucketName = `namespace-backup-${crypto.randomUUID()}`;
-				const infrastructure = yield* Effect.acquireRelease(
-					startCoreTestInfrastructure({ bucketName }),
-					stopCoreTestInfrastructure,
-				);
-				const port = yield* Effect.promise(() => getPort());
-				const origin = `http://127.0.0.1:${port}`;
-				const destinationApi = `${origin}/api`;
-				const process = yield* Effect.acquireRelease(
-					Effect.sync(() =>
-						spawnApiProcess(
-							buildApiEnv({
-								port,
-								frontendUrl: origin,
-								s3BucketName: bucketName,
-								dbUrl: infrastructure.dbUrl,
-								redisUrl: infrastructure.redisUrl,
-								label: "Namespace backup destination",
-								s3Endpoint: infrastructure.s3Endpoint,
-							}),
-						),
-					),
-					stopApiProcess,
-				);
-				yield* waitForHealthCheck(
-					`${destinationApi}/system/health`,
-					"Namespace backup destination",
-					process,
-				);
+				const destination = yield* startIsolatedApiServer({
+					label: "Namespace backup destination",
+				});
 				const source = yield* createAuthenticatedClient();
-				const target = yield* createAuthenticatedClient(destinationApi);
+				const target = yield* createAuthenticatedClient(destination.target);
 				const packages = pluginNamespacePackages();
 				const system = yield* installTestSupportSystemPlugin(packages.claim);
-				yield* getApiClient().call(
-					(contract) => contract.testSupport.reconcilePluginInstallations(),
-					adminHeaders(),
+				yield* getApiClient().adminCall((contract) =>
+					contract.testSupport.reconcilePluginInstallations(),
 				);
 				yield* namespaceInstallation(source.client, system.pluginId);
 				yield* createEntity(source.client, {
@@ -265,7 +225,7 @@ describe("plugin namespace backups", () => {
 				const trustedArchive = yield* exportAndDownloadBackup(source.client);
 				const originalViews = (yield* listSavedViews(target.client)).map(({ id }) => id);
 				const profile = yield* getUserSettings(target.client);
-				const missing = yield* restoreBackup(target.client, trustedArchive.bytes, destinationApi);
+				const missing = yield* restoreBackup(target.client, trustedArchive.bytes);
 				expect(missing.run).toMatchObject({
 					status: "failed",
 					failure: {
@@ -290,13 +250,12 @@ describe("plugin namespace backups", () => {
 				};
 				const destinationSystem = yield* installTestSupportSystemPlugin({
 					...incompatiblePackage,
-					baseUrl: destinationApi,
+					target: destination.target,
 				});
-				yield* getApiClient(destinationApi).call(
-					(contract) => contract.testSupport.reconcilePluginInstallations(),
-					adminHeaders(),
+				yield* getApiClient(destination.target).adminCall((contract) =>
+					contract.testSupport.reconcilePluginInstallations(),
 				);
-				const incompatibleTarget = yield* createAuthenticatedClient(destinationApi);
+				const incompatibleTarget = yield* createAuthenticatedClient(destination.target);
 				const incompatibleViews = (yield* listSavedViews(incompatibleTarget.client)).map(
 					({ id }) => id,
 				);
@@ -305,11 +264,7 @@ describe("plugin namespace backups", () => {
 					incompatibleTarget.client,
 					destinationSystem.pluginId,
 				);
-				const incompatible = yield* restoreBackup(
-					incompatibleTarget.client,
-					trustedArchive.bytes,
-					destinationApi,
-				);
+				const incompatible = yield* restoreBackup(incompatibleTarget.client, trustedArchive.bytes);
 				expect(incompatible.run).toMatchObject({
 					status: "failed",
 					failure: {
@@ -619,12 +574,10 @@ describe("plugin namespace backups", () => {
 				const system = yield* installTestSupportSystemPlugin(packages.claim);
 				yield* Effect.addFinalizer(() =>
 					getApiClient()
-						.call(
-							(contract) =>
-								contract.testSupport.uninstallSystemPlugin({
-									params: { pluginId: system.pluginId, activationId: system.activationId },
-								}),
-							adminHeaders(),
+						.adminCall((contract) =>
+							contract.testSupport.uninstallSystemPlugin({
+								params: { pluginId: system.pluginId, activationId: system.activationId },
+							}),
 						)
 						.pipe(Effect.ignore),
 				);

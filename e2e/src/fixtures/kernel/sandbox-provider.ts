@@ -21,6 +21,7 @@ import type {
 import { Effect, Record } from "effect";
 
 import { requirePresent } from "~/support/assertions";
+import { getSharedHarnessTarget, type HarnessTarget } from "~/support/harness-target";
 
 import { listAdminSandboxScripts } from "./admin-sandbox-scripts";
 import { listAdminSystemPlugins } from "./admin-system-plugins";
@@ -195,16 +196,6 @@ const testProviderDeclaration = (input: TestProviderSpec): TestProviderDeclarati
 		slug: providerSlug,
 		rootEntitySchemaSlug: input.rootEntitySchemaSlug,
 		information: input.information ?? { source: "e2e" },
-		operations: {
-			details: `${providerSlug}.details`,
-			...(input.search ? { search: `${providerSlug}.search` } : {}),
-			...(input.resolve ? { resolve: `${providerSlug}.resolve` } : {}),
-			...(input.relatedPages ? { related: `${providerSlug}.related` } : {}),
-			...(input.translations ? { translate: `${providerSlug}.translate` } : {}),
-			...(input.searchOptions !== undefined || input.searchOptionsFailure !== undefined
-				? { searchOptions: `${providerSlug}.search-options` }
-				: {}),
-		},
 	};
 	return { files, scripts, provider };
 };
@@ -212,11 +203,12 @@ const testProviderDeclaration = (input: TestProviderSpec): TestProviderDeclarati
 const resolveTestProviders = <Key extends string>(
 	declarations: Readonly<Record<Key, ReturnType<typeof testProviderDeclaration>>>,
 	installed: {
+		readonly target: HarnessTarget;
 		readonly activePluginRevisionId: string;
 		readonly scriptIds: Readonly<Record<string, SandboxScriptId>>;
 	},
 ) =>
-	listAdminSandboxScripts(installed.activePluginRevisionId).pipe(
+	listAdminSandboxScripts(installed.activePluginRevisionId, installed.target).pipe(
 		Effect.map((storedScripts) =>
 			Record.map(declarations, ({ provider: { slug: providerSlug } }) => {
 				const scriptId = (operation: string) => installed.scriptIds[`${providerSlug}.${operation}`];
@@ -270,7 +262,7 @@ export const installTestProviders = <Key extends string>(
 		};
 		const installed = yield* installTestPluginBundle(
 			input.scope === "system"
-				? { scope: "system", ...common }
+				? { scope: "system", target: input.client.target, ...common }
 				: { client: input.client, ...common },
 		);
 		const providers = yield* resolveTestProviders(declarations, installed);
@@ -280,7 +272,10 @@ export const installTestProviders = <Key extends string>(
 		}));
 	});
 
-export const shippedPluginTestProviders = (packageId: PluginPackageId) =>
+export const shippedPluginTestProviders = (
+	packageId: PluginPackageId,
+	target = getSharedHarnessTarget(),
+) =>
 	Effect.gen(function* () {
 		const archiveUrl = new URL(
 			`../../../../plugins/${pluginPackageSegments(packageId).name}/dist/${packageId}.zip`,
@@ -290,7 +285,7 @@ export const shippedPluginTestProviders = (packageId: PluginPackageId) =>
 			yield* Effect.promise(() => Bun.file(archiveUrl).bytes()),
 		);
 		const pluginId = requirePresent(
-			(yield* listAdminSystemPlugins).find((plugin) => plugin.packageId === packageId),
+			(yield* listAdminSystemPlugins(target)).find((plugin) => plugin.packageId === packageId),
 			`Shipped plugin '${packageId}' is not installed`,
 		).id;
 		const specs = new Map<string, TestProviderSpec>();
@@ -313,10 +308,11 @@ export const shippedPluginTestProviders = (packageId: PluginPackageId) =>
 				}),
 			});
 			const current = requirePresent(
-				(yield* listAdminSystemPlugins).find(({ id }) => id === pluginId),
+				(yield* listAdminSystemPlugins(target)).find(({ id }) => id === pluginId),
 				`Shipped plugin '${packageId}' is not installed`,
 			);
 			const updated = yield* updateTestSupportSystemPlugin({
+				target,
 				...shipped,
 				pluginId,
 				compiledScripts: [...shipped.compiledScripts, ...compiled.compiledScripts],
@@ -328,6 +324,7 @@ export const shippedPluginTestProviders = (packageId: PluginPackageId) =>
 				},
 			});
 			return yield* resolveTestProviders(declarations, {
+				target,
 				activePluginRevisionId: updated.activePluginRevisionId,
 				scriptIds: Object.fromEntries(updated.scripts.map(({ id, slug }) => [slug, id])),
 			});

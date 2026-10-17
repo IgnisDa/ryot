@@ -90,9 +90,7 @@ function EditMeasurementDialog(props: {
 			pending={update.isPending}
 			triggerRef={props.triggerRef}
 			errorMessage={readingFailureMessage(update.error, "edit")}
-			onSubmit={(readings) =>
-				update.mutate({ ...readings, readingIds: [...group.values.values()].map(({ id }) => id) })
-			}
+			onSubmit={(readings) => update.mutate({ ...readings, entryId: group.id })}
 		/>
 	);
 }
@@ -119,10 +117,8 @@ function DeleteMeasurementConfirmation(props: {
 			title="Delete measurement?"
 			triggerRef={props.triggerRef}
 			actionLabel="Delete measurement"
+			onConfirm={() => remove.mutate({ entryId: group.id })}
 			errorMessage={readingFailureMessage(remove.error, "delete")}
-			onConfirm={() =>
-				remove.mutate({ readingIds: [...group.values.values()].map(({ id }) => id) })
-			}
 			detail={`The ${count === 1 ? "reading" : `${count} readings`} taken on ${takenAt} will be removed permanently.`}
 		/>
 	);
@@ -243,9 +239,9 @@ export function ReadingLogTable(props: {
 								const others = metrics.filter(
 									({ id }) => !columnIds.has(id) && group.values.has(id),
 								);
-								const open = expanded.has(group.occurredAt);
+								const open = expanded.has(group.id);
 								return (
-									<Fragment key={group.occurredAt}>
+									<Fragment key={group.id}>
 										<tr className="border-t border-border">
 											<td className="px-3 py-2 whitespace-nowrap">
 												{formatDay(group.occurredAt, timeZone)}{" "}
@@ -263,7 +259,7 @@ export function ReadingLogTable(props: {
 													<button
 														type="button"
 														aria-expanded={open}
-														onClick={() => toggle(group.occurredAt)}
+														onClick={() => toggle(group.id)}
 														className="rounded-md border border-border px-2 py-0.5 text-[12px] whitespace-nowrap text-text-muted"
 													>
 														{open ? "Hide" : `+${others.length}`}

@@ -102,32 +102,41 @@ const companyRelationship = (animeId: string) =>
 	}).pipe(Effect.exit);
 
 describe("entity population levels", () => {
-	it.live("imports at base and upgrades to full for foreground interest", () =>
-		Effect.gen(function* () {
-			const anime = yield* importAnime;
-			const imported = yield* getEntity(auth.client, anime.id);
-			expect(imported.populatedAt).not.toBeNull();
-			expect(imported.relatedPopulationStatus).toBe("pending");
-			expect(Exit.isFailure(yield* companyRelationship(anime.id))).toBe(true);
+	it.live(
+		"imports at base and upgrades on a complete foreground replacement without changing its base stamp",
+		() =>
+			Effect.gen(function* () {
+				const anime = yield* importAnime;
+				const imported = yield* getEntity(auth.client, anime.id);
+				expect(imported.populatedAt).not.toBeNull();
+				expect(imported.relatedPopulationStatus).toBe("pending");
+				expect(Exit.isFailure(yield* companyRelationship(anime.id))).toBe(true);
 
-			const socket = yield* openInterestWebSocketScoped(auth);
-			yield* socket.replaceInterest([anime.id], [anime.id]);
-			yield* socket.waitForEntityUpdated(anime.id, "populated", { timeoutMs: 30_000 });
-			const upgraded = yield* pollUntil(
-				`anime '${anime.id}' related level ready`,
-				getEntity(auth.client, anime.id).pipe(
-					Effect.map((entity) => (entity.relatedPopulationStatus === "ready" ? entity : null)),
-				),
-			);
-			expect(upgraded.populatedAt).not.toBeNull();
-			const relationship = yield* pollUntil(
-				"company relationship written by the upgrade",
-				companyRelationship(anime.id).pipe(
-					Effect.map((exit) => (Exit.isSuccess(exit) ? exit.value : null)),
-				),
-			);
-			expect(relationship.targetEntityId).toBe(anime.id);
-		}),
+				const socket = yield* openInterestWebSocketScoped(auth);
+				expect(yield* socket.replaceInterest([anime.id])).toEqual({ revision: 1, type: "applied" });
+				yield* socket.waitForEntityUpdated(anime.id, "populated", { timeoutMs: 30_000 });
+				const visible = yield* getEntity(auth.client, anime.id);
+				expect(visible.populatedAt).toBe(imported.populatedAt);
+				expect(visible.relatedPopulationStatus).toBe("pending");
+				expect(yield* socket.replaceInterest([anime.id], [anime.id])).toEqual({
+					revision: 2,
+					type: "applied",
+				});
+				const upgraded = yield* pollUntil(
+					`anime '${anime.id}' related level ready`,
+					getEntity(auth.client, anime.id).pipe(
+						Effect.map((entity) => (entity.relatedPopulationStatus === "ready" ? entity : null)),
+					),
+				);
+				expect(upgraded.populatedAt).toBe(imported.populatedAt);
+				const relationship = yield* pollUntil(
+					"company relationship written by the upgrade",
+					companyRelationship(anime.id).pipe(
+						Effect.map((exit) => (Exit.isSuccess(exit) ? exit.value : null)),
+					),
+				);
+				expect(relationship.targetEntityId).toBe(anime.id);
+			}),
 	);
 
 	it.live("never upgrades an entity that is only visible", () =>

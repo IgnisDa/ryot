@@ -48,10 +48,6 @@ const repositoryLayer = EventSchemaReader.layer.pipe(
 	Layer.provideMerge(Layer.mock(DatabaseSession)({})),
 	Layer.provideMerge(
 		Layer.mock(DefinitionRepository)({
-			listUserEventSchemas: (_userId, reference) => {
-				const key = definitionKey("entity", reference.owner, reference.slug);
-				return Effect.succeed(Object.values(snapshot.entitySchemas[key]?.eventSchemas ?? {}));
-			},
 			findUserEntitySchemas: (_userId, references) =>
 				Effect.succeed(
 					Object.fromEntries(
@@ -95,24 +91,6 @@ layer(repositoryLayer)((test) => {
 					userId: UserId.make("owner"),
 				}),
 			).toBeNull();
-		}),
-	);
-
-	test.effect("takes qualified entity references for user event listings and scopes", () =>
-		Effect.gen(function* () {
-			const repository = yield* EventSchemaReader;
-			const userId = UserId.make("owner");
-			const entitySchema = {
-				slug: entitySchemaSlug,
-				owner: { pluginId: privateOwner, kind: "plugin" as const },
-			};
-			expect(yield* repository.getEntitySchemaScopeById({ userId, entitySchema })).toMatchObject({
-				slug: entitySchemaSlug,
-				pluginId: privateOwner,
-			});
-			expect(yield* repository.listByEntitySchemaForUser({ userId, entitySchema })).toMatchObject([
-				{ slug: eventSchemaSlug, pluginId: privateOwner },
-			]);
 		}),
 	);
 });

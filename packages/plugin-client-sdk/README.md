@@ -168,6 +168,9 @@ entry and does not inherit unrelated data. Presentation clocks must not change r
 The hook owns page accumulation and registers one refresh handler; callers do not register another
 query refresh for the same collection. Query-declared entity interests cover all loaded pages.
 
+`useRyotInfiniteQuery` also accepts `enabled`; while it is false nothing loads and page refreshes
+are no-ops.
+
 `usePagination` provides the same state machine for Effect-returning loaders outside `RyotProvider`,
 including token-scoped administration and numbered provider searches. Its optional `enabled` flag
 supports explicit search admission. Loaders receive the page parameter and whether a fresh request

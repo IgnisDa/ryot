@@ -14,12 +14,11 @@ Entity interest lets authenticated clients declare which entities are visible an
 
 Client frames:
 
-| `type`         | Fields                                                                                                                     |
-| -------------- | -------------------------------------------------------------------------------------------------------------------------- |
-| `authenticate` | `ticket: string`                                                                                                           |
-| `replace`      | `revision: positive integer`, `entityIds: string[]`, `foregroundIds: string[]`                                             |
-| `update`       | `revision: positive integer`, `add: string[]`, `remove: string[]`, `addForeground: string[]`, `removeForeground: string[]` |
-| `pong`         | `nonce: string`                                                                                                            |
+| `type`         | Fields                                                                         |
+| -------------- | ------------------------------------------------------------------------------ |
+| `authenticate` | `ticket: string`                                                               |
+| `replace`      | `revision: positive integer`, `entityIds: string[]`, `foregroundIds: string[]` |
+| `pong`         | `nonce: string`                                                                |
 
 Server frames:
 
@@ -31,9 +30,9 @@ Server frames:
 | `entity-updated` | `entityId`, `reason`: `populated`, `translated`, `population-failed`, or `projection-updated` |
 | `ping`           | `nonce`                                                                                       |
 
-After `ready`, send a complete `replace` at revision 1. Each later `replace` or `update` increments the current revision by one. Reconnect starts a new session and revision sequence. Keep at most one command unacknowledged and coalesce later changes until `applied`.
+After `ready`, send a complete `replace` at revision 1. Each later `replace` increments the current revision by one and carries both complete sets. Reconnect starts a new session and revision sequence. Keep at most one command unacknowledged and coalesce later changes until `applied`.
 
-IDs are deduplicated. `update` must change membership or priority; `add` and `remove` cannot overlap, `addForeground` and `removeForeground` cannot overlap, and neither foreground list may name a removed ID. An empty replacement is valid. The final membership may contain at most 500 IDs and at most 50 foreground IDs; an over-limit command is rejected without partial mutation (`rejected` with `interest-limit-exceeded`). A frame that itself lists more than 50 foreground IDs is malformed. `foregroundIds` must be a subset of `entityIds`, and both foreground lists of an `update` must name IDs in the resulting membership; a violation is a protocol error. Every other member has visible priority. A new member is foreground when it is in `addForeground`; an existing member keeps its priority unless a foreground list changes it.
+IDs are deduplicated. An empty replacement is valid. Membership may contain at most 500 IDs; an over-limit command is rejected without partial mutation or revision advancement (`rejected` with `interest-limit-exceeded`). A frame that lists more than 50 distinct foreground IDs is malformed. `foregroundIds` must be a subset of `entityIds`; a violation is a protocol error. Every other member has visible priority.
 
 Priority chooses the population level. Pending interest in an unpopulated entity requests a `base` population when visible and a `full` population when foreground. Foreground interest in a populated entity whose `relatedPopulationStatus` is `pending` also requests a `full` upgrade, with execution ID `populate-<entityId>-full-<generation>-<populatedAtMs>-<hourBucket>` (the hour bucket comes from the reconciliation clock), so a failed or lost upgrade is requested again at most once per hour per user. Visible interest never requests `full`. Reconciliation never withholds the terminal update for the related level: base and full populations each publish `populated`, and clients read `relatedPopulationStatus` to show related-data placeholders. A related-level failure adds no completion reason; its population publishes `populated` and the status reads `failed`.
 
@@ -61,7 +60,7 @@ Normal close removes local routing before Redis membership and indexes. Process 
 
 ## Atomicity And Races
 
-One Redis operation verifies session existence and next revision, computes the final size and foreground count, then updates membership, reverse indexes, revision, and TTLs atomically. Membership tokens carry priority (`f` or `v`): new IDs receive `pending:<revision>:<priority>` and reconciled IDs hold `watching:<priority>`. Retained values with an unchanged priority survive. A promotion re-marks the ID `pending:<revision>:f` so it reconciles again; a demotion of a pending ID re-marks it `pending:<revision>:v` with the new revision, and a demotion of a watching ID becomes `watching:v` without reconciling. `applied` means this state is durable, not that reconciliation has finished.
+One Redis operation verifies session existence and next revision, computes the final size, then updates membership, reverse indexes, revision, and TTLs atomically. Membership tokens carry priority (`f` or `v`): new IDs receive `pending:<revision>:<priority>` and reconciled IDs hold `watching:<priority>`. Retained values with an unchanged priority survive. A promotion re-marks the ID `pending:<revision>:f` so it reconciles again; a demotion of a pending ID re-marks it `pending:<revision>:v` with the new revision, and a demotion of a watching ID becomes `watching:v` without reconciling. `applied` means this state is durable, not that reconciliation has finished.
 
 Reconciliation runs afterward in bounded sequential chunks. It authorizes each pending entity, triggers population before translation when needed, and changes or removes membership only if the exact pending token, including priority, still matches. Re-marking a watching entity pending after a progression failure keeps its priority. Output uses the same token check. This prevents stale work from emitting or marking a remove-and-re-added entity. Failures retry with exponential backoff while the session remains active; a progression failure leaves the current membership pending.
 

@@ -31,7 +31,13 @@ import {
 	updateOccurrence,
 	updateSet,
 } from "./draft-ops";
-import { confirmSet, pauseWorkout, startRest, unconfirmSet } from "./timers";
+import {
+	confirmSet,
+	invalidateWorkoutCountdowns,
+	pauseWorkout,
+	startRest,
+	unconfirmSet,
+} from "./timers";
 
 export const emptyWorkoutDraft = (input: {
 	readonly id: string;
@@ -313,11 +319,68 @@ export const completeWorkoutSet = (
 	if (
 		next.restCountdown !== undefined &&
 		(Date.parse(next.restCountdown.deadline) <= (input.observedAt ?? input.now) ||
-			(input.observedAt !== undefined && input.observedAt - input.now >= 1500))
+			(input.observedAt !== undefined &&
+				input.observedAt - input.now >= COUNTDOWN_FEEDBACK_WINDOW_MS))
 	) {
 		next = { ...next, restCountdown: undefined };
 	}
 	return advanceWorkout({ ...next, pendingRest: undefined }, input.occurrenceId);
+};
+
+export type ExpectedCountdowns = {
+	readonly executionClientId?: string;
+	readonly restClientId?: string;
+};
+
+const COUNTDOWN_FEEDBACK_WINDOW_MS = 1500;
+
+export const reconcileWorkoutTimers = (
+	draft: WorkoutEditorDraft,
+	now: number,
+	input: {
+		readonly settings: Partial<WorkoutRestSettings>;
+		readonly prompt: boolean;
+		readonly expected?: ExpectedCountdowns | undefined;
+	},
+) => {
+	let next = invalidateWorkoutCountdowns(draft).draft;
+	let feedback = false;
+	if (next.mode.kind === "live" && Number.isFinite(now)) {
+		const execution = next.executionCountdown;
+		const rest = next.restCountdown;
+		const restExpired =
+			rest !== undefined &&
+			(input.expected === undefined || rest.clientId === input.expected.restClientId) &&
+			rest.pausedRemainingSeconds === undefined &&
+			Date.parse(rest.deadline) <= now;
+		if (
+			execution !== undefined &&
+			(input.expected === undefined || execution.clientId === input.expected.executionClientId) &&
+			execution.pausedRemainingSeconds === undefined &&
+			Date.parse(execution.deadline) <= now
+		) {
+			const deadline = Date.parse(execution.deadline);
+			const completed = completeWorkoutSet(next, {
+				overrides: {},
+				now: deadline,
+				observedAt: now,
+				prompt: input.prompt,
+				setId: execution.setId,
+				settings: input.settings,
+				occurrenceId: execution.occurrenceId,
+				timerId: `${execution.clientId}:rest`,
+			});
+			feedback = completed !== next && now - deadline < COUNTDOWN_FEEDBACK_WINDOW_MS;
+			next = completed === next ? { ...next, executionCountdown: undefined } : completed;
+		}
+		if (restExpired) {
+			if (next.restCountdown === rest) {
+				next = { ...next, restCountdown: undefined };
+			}
+			feedback ||= now - Date.parse(rest.deadline) < COUNTDOWN_FEEDBACK_WINDOW_MS;
+		}
+	}
+	return { feedback, draft: next, changed: next !== draft };
 };
 
 export const resolvePendingRest = (

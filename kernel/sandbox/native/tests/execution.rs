@@ -273,7 +273,7 @@ fn synchronous_inline_settlement_freezes_timers_and_wakes_on_cancel() {
     match sidecar.recv_within(Duration::from_millis(650)) {
         Some(Outbound::Done {
             handle,
-            outcome: Outcome::Completed(value),
+            outcome: Outcome::Completed { value },
             ..
         }) => {
             assert_eq!(handle, "during-inline");
@@ -400,6 +400,200 @@ fn youtubei_client_is_constructed_through_http_call_host_calls() {
         done.value(),
         json!({ "music": "function", "session": "string" }),
         "requested {urls:?}"
+    );
+}
+
+#[test]
+fn fetch_normalizes_request_bodies_and_rejects_unreadable_ones() {
+    let mut sidecar = support::spawn(Tier::Full, &[]);
+    let source = r#"
+        export default async () => {
+            await fetch(new Request("https://example.com/resource", {
+                method: "POST",
+                body: "old body",
+                headers: { "x-old": "remove", "content-type": "old/type" },
+            }), {
+                method: "put",
+                body: new URLSearchParams({ query: "a b" }),
+                headers: [["X-New", " replacement "]],
+            });
+            await fetch("https://example.com/stream", {
+                method: "POST",
+                body: new ReadableStream({
+                    start(controller) {
+                        controller.enqueue(new TextEncoder().encode("stream body"));
+                        controller.close();
+                    },
+                }),
+            });
+            await fetch("https://example.com/empty", { method: "POST", body: "" });
+            const consumed = new Request("https://example.com/consumed", { method: "POST", body: "used" });
+            await consumed.text();
+            const failures = [];
+            for (const init of [undefined, { body: null }]) {
+                try {
+                    await fetch(consumed, init);
+                } catch (error) {
+                    failures.push(error.message);
+                }
+            }
+            try {
+                await fetch("https://example.com/rejected", {
+                    method: "POST",
+                    body: new ReadableStream({
+                        start(controller) { controller.error(new Error("body read failed")); },
+                    }),
+                });
+            } catch (error) {
+                failures.push(error.message);
+            }
+            try {
+                await fetch("https://example.com/malformed", { method: "GET", body: "invalid" });
+            } catch (error) {
+                failures.push(error.message);
+            }
+            return failures;
+        };
+    "#;
+    sidecar.send(&support::run_frame(
+        "fetch-requests",
+        Tier::Full,
+        source,
+        Value::Null,
+        support::limits(),
+    ));
+    let mut requests = Vec::new();
+    let done = sidecar.finish("fetch-requests", |name, args| {
+        assert_eq!(name, "httpCall");
+        requests.push(args);
+        json!({ "status": 200, "headers": {}, "body": "{}" })
+    });
+    assert_eq!(
+        requests,
+        vec![
+            json!(["PUT", "https://example.com/resource", {
+                "body": "query=a+b",
+                "headers": {
+                    "content-type": "application/x-www-form-urlencoded;charset=UTF-8",
+                    "x-new": "replacement",
+                },
+            }]),
+            json!(["POST", "https://example.com/stream", { "body": "stream body" }]),
+            json!(["POST", "https://example.com/empty", {
+                "body": "",
+                "headers": { "content-type": "text/plain;charset=UTF-8" },
+            }]),
+        ]
+    );
+    assert_eq!(
+        done.value(),
+        json!([
+            "Request body has already been consumed or is locked",
+            "Request body has already been consumed or is locked",
+            "body read failed",
+            "Request with GET/HEAD method cannot have body",
+        ])
+    );
+}
+
+#[test]
+fn request_transfers_inherited_bodies_but_not_replaced_bodies() {
+    let mut sidecar = support::spawn(Tier::Full, &[]);
+    let source = r#"
+        export default async () => {
+            const states = [];
+            for (const [name, body] of [
+                ["bytes", "original"],
+                ["stream", new ReadableStream({
+                    start(controller) {
+                        controller.enqueue(new TextEncoder().encode("original"));
+                        controller.close();
+                    },
+                })],
+            ]) {
+                const input = new Request(`https://example.com/${name}`, {
+                    method: "POST", body, headers: { "content-type": "application/custom" },
+                });
+                await fetch(input, { body: "replacement" });
+                const afterReplacement = input.bodyUsed;
+                await fetch(input);
+                const afterInherited = input.bodyUsed;
+                let rejected = false;
+                try { await fetch(input); } catch (error) { rejected = error instanceof TypeError; }
+                let nullRejected = false;
+                try { await fetch(input, { body: null }); } catch (error) { nullRejected = error instanceof TypeError; }
+                await fetch(input, { body: "after consumption" });
+                states.push({ name, afterReplacement, afterInherited, rejected, nullRejected });
+            }
+            return states;
+        };
+    "#;
+    sidecar.send(&support::run_frame(
+        "request-body-ownership",
+        Tier::Full,
+        source,
+        Value::Null,
+        support::limits(),
+    ));
+    let mut requests = Vec::new();
+    let done = sidecar.finish("request-body-ownership", |name, args| {
+        assert_eq!(name, "httpCall");
+        requests.push(args);
+        json!({ "status": 200, "headers": {}, "body": "{}" })
+    });
+    let mut expected = Vec::new();
+    for name in ["bytes", "stream"] {
+        for body in ["replacement", "original", "after consumption"] {
+            expected.push(json!(["POST", format!("https://example.com/{name}"), {
+                "body": body,
+                "headers": { "content-type": "application/custom" },
+            }]));
+        }
+    }
+    assert_eq!(requests, expected);
+    assert_eq!(
+        done.value(),
+        json!([
+            { "name": "bytes", "afterReplacement": false, "afterInherited": true, "rejected": true, "nullRejected": true },
+            { "name": "stream", "afterReplacement": false, "afterInherited": true, "rejected": true, "nullRejected": true },
+        ])
+    );
+}
+
+#[test]
+fn request_clone_preserves_bytes_and_stream_bodies() {
+    let source = r#"
+        export default async () => {
+            const results = [];
+            for (const [name, body] of [
+                ["bytes", "clone body"],
+                ["stream", new ReadableStream({
+                    start(controller) {
+                        controller.enqueue(new TextEncoder().encode("clone "));
+                        controller.enqueue(new TextEncoder().encode("body"));
+                        controller.close();
+                    },
+                })],
+            ]) {
+                const input = new Request(`https://example.com/${name}`, { method: "POST", body });
+                const cloned = input.clone();
+                const afterClone = input.bodyUsed;
+                const clonedText = await cloned.text();
+                const originalText = await input.text();
+                let usedCloneRejected = false;
+                try { input.clone(); } catch (error) { usedCloneRejected = error instanceof TypeError; }
+                results.push({ name, afterClone, clonedText, originalText, usedCloneRejected });
+            }
+            return results;
+        };
+    "#;
+    let done = support::spawn(Tier::Full, &[]).execute(Tier::Full, source, Value::Null);
+    assert_eq!(
+        done.value(),
+        json!([
+            { "name": "bytes", "afterClone": false, "clonedText": "clone body", "originalText": "clone body", "usedCloneRejected": true },
+            { "name": "stream", "afterClone": false, "clonedText": "clone body", "originalText": "clone body", "usedCloneRejected": true },
+        ])
     );
 }
 

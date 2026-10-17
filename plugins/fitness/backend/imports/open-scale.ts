@@ -1,7 +1,6 @@
 import { DateTime, Option, Schema } from "@ryot-app/plugin-backend-sdk/effect";
 
 import { measurementMetricKey } from "../../shared/measurement-metrics";
-import { parseCsvText } from "./csv";
 
 const DATE_COLUMN_NAMES = ["date"];
 const TIME_COLUMN_NAMES = ["time"];
@@ -42,12 +41,10 @@ const OpenScaleAdapterFailureSchema = Schema.Struct({
 
 type OpenScaleAdapterFailure = typeof OpenScaleAdapterFailureSchema.Type;
 
-const OpenScaleAdapterResultSchema = Schema.Struct({
-	items: Schema.mutable(Schema.Array(OpenScaleNormalizedItemSchema)),
-	failures: Schema.mutable(Schema.Array(OpenScaleAdapterFailureSchema)),
-});
-
-type OpenScaleAdapterResult = typeof OpenScaleAdapterResultSchema.Type;
+type OpenScaleAdapterResult = {
+	readonly item?: OpenScaleNormalizedItem;
+	readonly failures: OpenScaleAdapterFailure[];
+};
 
 const parseOpenScaleDate = (raw: string, timezone: string) => {
 	const value = raw.trim().replace(" ", "T");
@@ -74,20 +71,8 @@ const parseOpenScaleDate = (raw: string, timezone: string) => {
 		: Option.none();
 };
 
-export const adaptOpenScaleCsv = (csvText: string, timezone: string): OpenScaleAdapterResult => {
-	const { rows, headers } = parseCsvText(csvText);
-	if (headers.length === 0) {
-		throw new Error("OpenScale CSV is empty or has no header row");
-	}
-	return adaptOpenScaleRows(
-		rows.map((row, itemIndex) => ({ row, itemIndex })),
-		headers,
-		timezone,
-	);
-};
-
-export const adaptOpenScaleRows = (
-	rows: ReadonlyArray<{ row: Record<string, string>; itemIndex: number }>,
+export const adaptOpenScaleRow = (
+	{ row, itemIndex: rowIdx }: { row: Record<string, string>; itemIndex: number },
 	headers: ReadonlyArray<string>,
 	timezone: string,
 ): OpenScaleAdapterResult => {
@@ -116,105 +101,101 @@ export const adaptOpenScaleRows = (
 		);
 	}
 
-	const items: OpenScaleNormalizedItem[] = [];
 	const failures: OpenScaleAdapterFailure[] = [];
-	for (const { row, itemIndex: rowIdx } of rows) {
-		let datetimeRaw: string | undefined;
-		if (hasDatetime) {
-			datetimeRaw = headers[datetimeColIdx] ? row[headers[datetimeColIdx]] : undefined;
-		} else if (hasDateAndTime) {
-			const dateVal =
-				dateColIdx >= 0 && headers[dateColIdx] ? (row[headers[dateColIdx]] ?? "") : "";
-			const timeVal =
-				timeColIdx >= 0 && headers[timeColIdx] ? (row[headers[timeColIdx]] ?? "") : "";
-			datetimeRaw = `${dateVal}T${timeVal}`;
-		} else if (hasDateOnly) {
-			datetimeRaw = dateColIdx >= 0 && headers[dateColIdx] ? row[headers[dateColIdx]] : undefined;
-		}
+	let datetimeRaw: string | undefined;
+	if (hasDatetime) {
+		datetimeRaw = headers[datetimeColIdx] ? row[headers[datetimeColIdx]] : undefined;
+	} else if (hasDateAndTime) {
+		const dateVal = dateColIdx >= 0 && headers[dateColIdx] ? (row[headers[dateColIdx]] ?? "") : "";
+		const timeVal = timeColIdx >= 0 && headers[timeColIdx] ? (row[headers[timeColIdx]] ?? "") : "";
+		datetimeRaw = `${dateVal}T${timeVal}`;
+	} else if (hasDateOnly) {
+		datetimeRaw = dateColIdx >= 0 && headers[dateColIdx] ? row[headers[dateColIdx]] : undefined;
+	}
 
-		if (!datetimeRaw || datetimeRaw.trim().length === 0) {
-			failures.push({
-				itemIndex: rowIdx,
-				sourceLabel: `Row ${rowIdx + 1}`,
-				sourceIdentifier: String(rowIdx + 1),
-				message: "Row is missing a date/time value",
-			});
+	if (!datetimeRaw || datetimeRaw.trim().length === 0) {
+		failures.push({
+			itemIndex: rowIdx,
+			sourceLabel: `Row ${rowIdx + 1}`,
+			sourceIdentifier: String(rowIdx + 1),
+			message: "Row is missing a date/time value",
+		});
+		return { failures };
+	}
+
+	const parsed = parseOpenScaleDate(datetimeRaw, timezone);
+	if (Option.isNone(parsed)) {
+		failures.push({
+			itemIndex: rowIdx,
+			sourceLabel: `Row ${rowIdx + 1}`,
+			sourceIdentifier: String(rowIdx + 1),
+			message: "Could not parse date/time value",
+		});
+		return { failures };
+	}
+
+	const recordedAt = DateTime.formatIso(parsed.value);
+	const sourceLabel = recordedAt.slice(0, 16).replace("T", " ");
+	const sourceIdentifier = recordedAt;
+	const commentKey = commentColIdx >= 0 && headers[commentColIdx] ? headers[commentColIdx] : null;
+	const rawComment = commentKey ? row[commentKey]?.trim() : undefined;
+	const comment = rawComment?.length ? rawComment : null;
+	const statistics: Array<typeof OpenScaleStatisticSchema.Type> = [];
+	const normalizedSkip = new Set(
+		headers.filter((_, index) => {
+			const normalized = normalizedHeaders[index] ?? "";
+			return (
+				SKIP_COLUMN_NAMES.has(normalized) ||
+				index === datetimeColIdx ||
+				index === dateColIdx ||
+				index === timeColIdx ||
+				index === commentColIdx
+			);
+		}),
+	);
+
+	let hasBadNumeric = false;
+	for (const header of headers) {
+		if (normalizedSkip.has(header)) {
 			continue;
 		}
-
-		const parsed = parseOpenScaleDate(datetimeRaw, timezone);
-		if (Option.isNone(parsed)) {
-			failures.push({
-				itemIndex: rowIdx,
-				sourceLabel: `Row ${rowIdx + 1}`,
-				sourceIdentifier: String(rowIdx + 1),
-				message: "Could not parse date/time value",
-			});
+		const raw = row[header];
+		if (!raw || raw.trim() === "") {
 			continue;
 		}
-
-		const recordedAt = DateTime.formatIso(parsed.value);
-		const sourceLabel = recordedAt.slice(0, 16).replace("T", " ");
-		const sourceIdentifier = recordedAt;
-		const commentKey = commentColIdx >= 0 && headers[commentColIdx] ? headers[commentColIdx] : null;
-		const rawComment = commentKey ? row[commentKey]?.trim() : undefined;
-		const comment = rawComment?.length ? rawComment : null;
-		const statistics: Array<typeof OpenScaleStatisticSchema.Type> = [];
-		const normalizedSkip = new Set(
-			headers.filter((_, index) => {
-				const normalized = normalizedHeaders[index] ?? "";
-				return (
-					SKIP_COLUMN_NAMES.has(normalized) ||
-					index === datetimeColIdx ||
-					index === dateColIdx ||
-					index === timeColIdx ||
-					index === commentColIdx
-				);
-			}),
-		);
-
-		let hasBadNumeric = false;
-		for (const header of headers) {
-			if (normalizedSkip.has(header)) {
-				continue;
-			}
-			const raw = row[header];
-			if (!raw || raw.trim() === "") {
-				continue;
-			}
-			const numVal = Number(raw.trim());
-			if (Number.isNaN(numVal)) {
-				failures.push({
-					sourceLabel,
-					sourceIdentifier,
-					itemIndex: rowIdx,
-					message: `Could not parse numeric value for column "${header}"`,
-				});
-				hasBadNumeric = true;
-				break;
-			}
-			statistics.push({ label: header, value: numVal, key: measurementMetricKey(header) });
-		}
-
-		if (hasBadNumeric) {
-			continue;
-		}
-		if (statistics.length === 0) {
+		const numVal = Number(raw.trim());
+		if (Number.isNaN(numVal)) {
 			failures.push({
 				sourceLabel,
 				sourceIdentifier,
 				itemIndex: rowIdx,
-				message: "OpenScale row has no measurement values",
+				message: `Could not parse numeric value for column "${header}"`,
 			});
-			continue;
+			hasBadNumeric = true;
+			break;
 		}
-		items.push({
+		statistics.push({ label: header, value: numVal, key: measurementMetricKey(header) });
+	}
+
+	if (hasBadNumeric) {
+		return { failures };
+	}
+	if (statistics.length === 0) {
+		failures.push({
+			sourceLabel,
+			sourceIdentifier,
+			itemIndex: rowIdx,
+			message: "OpenScale row has no measurement values",
+		});
+		return { failures };
+	}
+	return {
+		failures,
+		item: {
 			sourceLabel,
 			sourceIdentifier,
 			itemIndex: rowIdx,
 			properties: { comment, recordedAt, statistics },
-		});
-	}
-
-	return { items, failures };
+		},
+	};
 };

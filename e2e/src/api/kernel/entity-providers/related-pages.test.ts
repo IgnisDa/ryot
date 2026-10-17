@@ -2,7 +2,6 @@ import { Effect, Exit } from "effect";
 
 import type { Client } from "~/fixtures/kernel";
 import {
-	adminHeaders,
 	createAuthenticatedClient,
 	enqueueProviderEntityImport,
 	fakeProviderDetailsResult,
@@ -104,9 +103,8 @@ beforeAll(() =>
 					},
 				},
 			}));
-			yield* getApiClient().call(
-				(contract) => contract.testSupport.reconcilePluginInstallations(),
-				adminHeaders(),
+			yield* getApiClient().adminCall((contract) =>
+				contract.testSupport.reconcilePluginInstallations(),
 			);
 			yield* namespaceInstallation(client, studioProvider.pluginId);
 		}),

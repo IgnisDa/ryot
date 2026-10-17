@@ -1,4 +1,4 @@
-import { expect, it } from "@effect/vitest";
+import { assert, expect, it } from "@effect/vitest";
 import { PluginId, PluginPackageId, PluginRevisionId } from "@ryot-app/contract/schema/brands";
 import {
 	aggregate,
@@ -25,12 +25,14 @@ import {
 	measure,
 	pluginId,
 	rows,
+	star,
 	table,
 	timeSeries,
 } from "@ryot-app/ryotql";
 import { Effect } from "effect";
 
 import { bindRyotQLDocument, pluginIdentityReferences } from "./binding";
+import { validateRyotQLDocument } from "./validator";
 
 const countMatchingValues = (value: unknown, key: string, expected: string): number => {
 	if (Array.isArray(value)) {
@@ -59,6 +61,64 @@ const catalog = [
 	{ packageId, scope: "user", pluginId: "private-a" },
 	{ packageId, scope: "system", pluginId: "system-a" },
 ] as const;
+
+it.effect("binds package and self references without widening expanded selections", () =>
+	Effect.gen(function* () {
+		const nested = table("entity", "nested");
+		const owner = pluginId({ packageId, scope: "user", kind: "package" });
+		const self = pluginId({ kind: "self" });
+		const validated = validateRyotQLDocument(
+			{
+				queries: {
+					rows: rows(root, {
+						fields: [star(root), field("owner", owner)],
+						include: [
+							include(nested, {
+								limit: 1,
+								key: "nested",
+								orderBy: [ascending(column(nested, "id"))],
+								fields: [star(nested), field("self", self)],
+								where: eq(column(nested, "entitySchemaPluginId"), self),
+							}),
+						],
+					}),
+				},
+			},
+			user,
+		);
+		assert(validated.error === null);
+		const bound = yield* bindRyotQLDocument(
+			validated.value,
+			{
+				...user,
+				definitionContext: {
+					pluginId: local.pluginId,
+					pluginRevisionId: PluginRevisionId.make("pinned"),
+				},
+			},
+			catalog,
+		);
+		const query = bound.queries["rows"];
+		const original = validated.value.queries["rows"];
+		assert(query?.output.type === "rows");
+		assert(original?.output.type === "rows");
+		expect(query.output.fields.map(({ key }) => key)).toEqual(
+			original.output.fields.map(({ key }) => key),
+		);
+		expect(query.output.fields.at(-1)).toEqual(field("owner", pluginId(local)));
+		expect(query.output.include?.[0].fields.at(-1)).toEqual(field("self", pluginId(local)));
+		expect(query.output.include?.[0].fields.map(({ expr }) => expr.type)).toEqual(
+			original.output.include?.[0].fields.map(({ expr }) => expr.type),
+		);
+		expect(query.output.include?.[0].where).toEqual(
+			eq(column(nested, "entitySchemaPluginId"), pluginId(local)),
+		);
+		expect(pluginIdentityReferences(validated.value)).toEqual([
+			{ packageId, scope: "user", kind: "package" },
+			{ kind: "self" },
+		]);
+	}),
+);
 
 it.effect(
 	"binds package identities in all query expression locations without changing literals",

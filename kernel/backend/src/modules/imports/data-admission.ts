@@ -105,7 +105,7 @@ export class DataImportAdmission extends Context.Service<DataImportAdmission>()(
 						});
 					}
 					const admittedScope = { ...scope, runId: admitted.runId };
-					const run = yield* repository.getIngestionRun(admittedScope);
+					const run = yield* repository.getIngestionRunControl(admittedScope);
 					if (run && ["pending", "blocked", "running"].includes(run.status)) {
 						yield* Effect.gen(function* () {
 							yield* captures.publish({
@@ -151,16 +151,14 @@ export class DataImportAdmission extends Context.Service<DataImportAdmission>()(
 				user: CurrentUserValue,
 				runId: ImportRunId,
 			) {
-				const control = yield* repository.getRunControlForUser({ runId, userId: user.id });
-				if (control?.status === "pending") {
-					const run = yield* repository
-						.getIngestionRun({ runId, userId: user.id, accountGeneration: user.accountGeneration })
-						.pipe(Effect.orDie);
-					if (!run) {
-						return yield* new ImportRequestError({
-							reason: { field: null, code: "invalid-input" },
-						});
-					}
+				const run = yield* repository
+					.getIngestionRunControl({
+						runId,
+						userId: user.id,
+						accountGeneration: user.accountGeneration,
+					})
+					.pipe(Effect.orDie);
+				if (run?.status === "pending") {
 					const command = rootLifecycleCommand({
 						source: "import",
 						lane: "background",
@@ -233,11 +231,6 @@ export class DataImportAdmission extends Context.Service<DataImportAdmission>()(
 									}),
 							),
 						);
-						if (!claim.resolvedPath || claim.locator.type !== "local") {
-							return yield* new ImportRequestError({
-								reason: { field: "uploadToken", code: "upload-unavailable" },
-							});
-						}
 						const stat = yield* fs
 							.stat(claim.resolvedPath)
 							.pipe(

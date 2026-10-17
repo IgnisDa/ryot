@@ -36,7 +36,7 @@ import { PLUGIN_PACKAGE_ID } from "../../../shared/plugin-identity";
 import { podcastEpisodesQuery } from "../../podcast/episodes-query";
 import {
 	activityLogContextQuery,
-	earlierUnwatchedQuery,
+	earlierEpisodesQuery,
 	logActivityMutation,
 	showSeasonChoicesQuery,
 } from "./queries";
@@ -88,8 +88,6 @@ type Earlier =
 			readonly tooMany: boolean;
 			readonly episodes: readonly ActivityEpisode[];
 	  };
-
-type EarlierReport = { readonly episodeId: string; readonly earlier: Earlier };
 
 const FIRST_PAGE: string | null = null;
 
@@ -179,17 +177,18 @@ function PodcastEpisodes(props: {
 	});
 }
 
-function EarlierEpisodes(props: {
+function useEarlierEpisodes(props: {
 	readonly entityId: string;
-	readonly episodeId: string;
-	readonly kind: "show" | "podcast";
-	readonly onChange: (report: EarlierReport) => void;
-}) {
-	const { kind, entityId, onChange, episodeId } = props;
+	readonly episodeId: string | undefined;
+	readonly kind: "show" | "podcast" | undefined;
+}): Earlier {
+	const { kind, entityId, episodeId } = props;
+	const enabled = kind !== undefined && episodeId !== undefined;
 	const query = useRyotInfiniteQuery(
-		earlierUnwatchedQuery,
-		{ kind, parentEntityId: entityId, episodeEntityId: episodeId },
+		earlierEpisodesQuery,
+		{ kind: kind ?? "show", parentEntityId: entityId, episodeEntityId: episodeId ?? "" },
 		{
+			enabled,
 			initialPageParam: FIRST_PAGE,
 			getPageInput: (input, after) => ({ ...input, after }),
 			getNextPageParam: (page) => (page.hasMore ? page.nextCursor : null),
@@ -222,10 +221,7 @@ function EarlierEpisodes(props: {
 		}));
 		return { episodes, status: "ready", tooMany: episodes.length > BACKFILL_LIMIT };
 	}, [hasNextPage, isError, isPending, pages, pagesLoaded, retry]);
-	useEffect(() => {
-		onChange({ earlier, episodeId });
-	}, [earlier, episodeId, onChange]);
-	return null;
+	return enabled ? earlier : { status: "none" };
 }
 
 function EpisodeList(props: {
@@ -785,7 +781,7 @@ function ActivityLogFields(props: Body) {
 	);
 }
 
-function ActivityLogDialog(props: {
+type ActivityLogDialogProps = {
 	readonly name: string;
 	readonly compact: boolean;
 	readonly entityId: string;
@@ -795,22 +791,26 @@ function ActivityLogDialog(props: {
 	readonly context: MediaActivityLogContext;
 	readonly initialEpisode?: ActivityEpisode;
 	readonly triggerRef: RefObject<HTMLButtonElement | null>;
-}) {
+};
+
+function ActivityLogForm(
+	props: ActivityLogDialogProps & {
+		readonly pager: EpisodePager | undefined;
+		readonly seasonNumber: number | undefined;
+		readonly episodeId: string | undefined;
+		readonly onSelect: (episodeId: string) => void;
+		readonly onSeason: (seasonNumber: number) => void;
+	},
+) {
 	const { logger, context, entityId, initialEpisode } = props;
+	const { pager, episodeId, seasonNumber } = props;
 	const schedule = useRyotSchedule();
 	const today = localDay(schedule.now());
 	const log = useRyotSubmission(logActivityMutation, {
 		isComplete: (result) => result.status === "saved",
 	});
 	const [draft, setDraft] = useState(() => initialActivityDraft(logger, context, today));
-	const [seasonNumber, setSeasonNumber] = useState(() =>
-		logger.family === "show"
-			? (initialEpisode?.seasonNumber ?? defaultSeasonNumber(context))
-			: undefined,
-	);
-	const [episodeId, setEpisodeId] = useState(initialEpisode?.id);
 	const [backfill, setBackfill] = useState(true);
-	const [report, setReport] = useState<EarlierReport | undefined>(undefined);
 	const [done, setDone] = useState<{ text: string; offerReview: boolean } | undefined>(undefined);
 	const patch = (next: Partial<ActivityDraft>) => setDraft((current) => ({ ...current, ...next }));
 	const locked = log.status !== "idle";
@@ -822,149 +822,157 @@ function ActivityLogDialog(props: {
 		context.consumedOn,
 	);
 
-	const render = (pager: EpisodePager | undefined) => {
-		const selected =
-			pager === undefined
-				? undefined
-				: selectedEpisode({
-						selectedId: episodeId,
-						choices: pager.choices,
-						nextUp: context.nextUp,
-						initial: initialEpisode,
-						seasonNumber: seasonNumber ?? null,
-					});
-		const special = logger.family === "show" && selected?.seasonNumber === 0;
-		const checking =
-			draft.intent === "episode" &&
-			selected !== undefined &&
-			!special &&
-			(logger.family === "show" || logger.family === "podcast")
-				? logger.family
-				: undefined;
-		let earlier: Earlier = { status: "none" };
-		if (checking !== undefined && selected !== undefined) {
-			earlier = report?.episodeId === selected.id ? report.earlier : { status: "loading" };
+	const selected =
+		pager === undefined
+			? undefined
+			: selectedEpisode({
+					selectedId: episodeId,
+					choices: pager.choices,
+					nextUp: context.nextUp,
+					initial: initialEpisode,
+					seasonNumber: seasonNumber ?? null,
+				});
+	const special = logger.family === "show" && selected?.seasonNumber === 0;
+	const checking =
+		!saved &&
+		draft.intent === "episode" &&
+		selected !== undefined &&
+		!special &&
+		(logger.family === "show" || logger.family === "podcast")
+			? logger.family
+			: undefined;
+	const earlier = useEarlierEpisodes({ entityId, kind: checking, episodeId: selected?.id });
+	const earlierIds =
+		backfill && earlier.status === "ready" && !earlier.tooMany
+			? earlier.episodes.map((episode) => episode.id)
+			: [];
+	const episodeEntityIds = selected === undefined ? [] : [...earlierIds, selected.id];
+	const errors = activityDraftErrors({ draft, today, logger, context });
+	const waiting =
+		draft.intent === "episode" &&
+		(selected === undefined || earlier.status === "loading" || earlier.status === "error");
+	const labels = activityCopyLabels({
+		draft,
+		logger,
+		context,
+		name: props.name,
+		episodeCount: episodeEntityIds.length,
+		episodeCode: selected === undefined ? undefined : episodeCode(logger, selected),
+	});
+	const submit = () => {
+		if (waiting || hasActivityErrors(errors) || log.status !== "idle") {
+			return;
 		}
-		const earlierIds =
-			backfill && earlier.status === "ready" && !earlier.tooMany
-				? earlier.episodes.map((episode) => episode.id)
-				: [];
-		const episodeEntityIds = selected === undefined ? [] : [...earlierIds, selected.id];
-		const errors = activityDraftErrors({ draft, today, logger, context });
-		const waiting =
-			draft.intent === "episode" &&
-			(selected === undefined || earlier.status === "loading" || earlier.status === "error");
-		const labels = activityCopyLabels({
-			draft,
-			logger,
-			context,
-			name: props.name,
-			episodeCount: episodeEntityIds.length,
-			episodeCode: selected === undefined ? undefined : episodeCode(logger, selected),
-		});
-		const submit = () => {
-			if (waiting || hasActivityErrors(errors) || log.status !== "idle") {
-				return;
-			}
-			setDone({ text: labels.success, offerReview: labels.offerReview });
-			log.submit(activityEntryDraft({ draft, logger, context, entityId, episodeEntityIds }));
-		};
-		return (
-			<Dialog
-				title="Log activity"
-				onClose={props.onClose}
-				dismissible={!log.isPending}
-				triggerRef={props.triggerRef}
-				closeLabel="Close log activity"
-				placement={props.compact ? "sheet" : "center"}
-				footer={
-					saved ? (
-						<Button onClick={props.onClose}>Done</Button>
-					) : (
-						<>
-							<Button variant="secondary" onClick={props.onClose} disabled={log.isPending}>
-								Cancel
-							</Button>
-							{log.status === "retained" ? (
-								<Button onClick={log.retry}>Retry</Button>
-							) : (
-								<Button
-									onClick={submit}
-									loading={log.isPending}
-									disabled={waiting || hasActivityErrors(errors)}
-								>
-									{labels.submit}
-								</Button>
-							)}
-						</>
-					)
-				}
-			>
-				{saved ? (
-					<div className="flex flex-col items-start gap-3">
-						<StatusMessage tone="success">{done?.text}</StatusMessage>
-						{done?.offerReview === true && props.onReview !== undefined ? (
-							<p className="text-text-muted">
-								Want to say what you thought?{" "}
-								<Button variant="link" onClick={props.onReview}>
-									Write a review
-								</Button>
-							</p>
-						) : null}
-					</div>
-				) : (
-					<ActionForm onSubmit={submit} label="Log activity" className="flex flex-col gap-4">
-						{activityIntents(logger).length < 2 ? null : (
-							<SegmentedControl
-								fill
-								value={draft.intent}
-								label="What happened"
-								optionClassName="px-3"
-								options={activityIntents(logger)}
-								onChange={(intent) => patch({ intent })}
-							/>
-						)}
-						<fieldset disabled={locked} className="flex min-w-0 flex-col gap-4">
-							<ActivityLogFields
-								draft={draft}
-								today={today}
-								pager={pager}
-								locked={locked}
-								logger={logger}
-								onChange={patch}
-								earlier={earlier}
-								context={context}
-								backfill={backfill}
-								selected={selected}
-								onSelect={setEpisodeId}
-								onBackfill={setBackfill}
-								suggestions={suggestions}
-								seasonNumber={seasonNumber}
-								onSeason={(next) => {
-									setSeasonNumber(next);
-									setEpisodeId(undefined);
-								}}
-							/>
-						</fieldset>
-						{checking === undefined || selected === undefined ? null : (
-							<EarlierEpisodes
-								kind={checking}
-								entityId={entityId}
-								onChange={setReport}
-								episodeId={selected.id}
-							/>
-						)}
-						{log.status === "retained" ? (
-							<StatusMessage tone="error">
-								This may already be saved. Retry the same submission to finish without duplicates.
-								Cancel closes this form but does not undo anything already saved.
-							</StatusMessage>
-						) : null}
-					</ActionForm>
-				)}
-			</Dialog>
-		);
+		setDone({ text: labels.success, offerReview: labels.offerReview });
+		log.submit(activityEntryDraft({ draft, logger, context, entityId, episodeEntityIds }));
 	};
+	return (
+		<Dialog
+			title="Log activity"
+			onClose={props.onClose}
+			dismissible={!log.isPending}
+			triggerRef={props.triggerRef}
+			closeLabel="Close log activity"
+			placement={props.compact ? "sheet" : "center"}
+			footer={
+				saved ? (
+					<Button onClick={props.onClose}>Done</Button>
+				) : (
+					<>
+						<Button variant="secondary" onClick={props.onClose} disabled={log.isPending}>
+							Cancel
+						</Button>
+						{log.status === "retained" ? (
+							<Button onClick={log.retry}>Retry</Button>
+						) : (
+							<Button
+								onClick={submit}
+								loading={log.isPending}
+								disabled={waiting || hasActivityErrors(errors)}
+							>
+								{labels.submit}
+							</Button>
+						)}
+					</>
+				)
+			}
+		>
+			{saved ? (
+				<div className="flex flex-col items-start gap-3">
+					<StatusMessage tone="success">{done?.text}</StatusMessage>
+					{done?.offerReview === true && props.onReview !== undefined ? (
+						<p className="text-text-muted">
+							Want to say what you thought?{" "}
+							<Button variant="link" onClick={props.onReview}>
+								Write a review
+							</Button>
+						</p>
+					) : null}
+				</div>
+			) : (
+				<ActionForm onSubmit={submit} label="Log activity" className="flex flex-col gap-4">
+					{activityIntents(logger).length < 2 ? null : (
+						<SegmentedControl
+							fill
+							value={draft.intent}
+							label="What happened"
+							optionClassName="px-3"
+							options={activityIntents(logger)}
+							onChange={(intent) => patch({ intent })}
+						/>
+					)}
+					<fieldset disabled={locked} className="flex min-w-0 flex-col gap-4">
+						<ActivityLogFields
+							draft={draft}
+							today={today}
+							pager={pager}
+							locked={locked}
+							logger={logger}
+							onChange={patch}
+							earlier={earlier}
+							context={context}
+							backfill={backfill}
+							selected={selected}
+							onBackfill={setBackfill}
+							onSelect={props.onSelect}
+							suggestions={suggestions}
+							onSeason={props.onSeason}
+							seasonNumber={seasonNumber}
+						/>
+					</fieldset>
+					{log.status === "retained" ? (
+						<StatusMessage tone="error">
+							This may already be saved. Retry the same submission to finish without duplicates.
+							Cancel closes this form but does not undo anything already saved.
+						</StatusMessage>
+					) : null}
+				</ActionForm>
+			)}
+		</Dialog>
+	);
+}
+
+function ActivityLogDialog(props: ActivityLogDialogProps) {
+	const { logger, context, entityId, initialEpisode } = props;
+	const [seasonNumber, setSeasonNumber] = useState(() =>
+		logger.family === "show"
+			? (initialEpisode?.seasonNumber ?? defaultSeasonNumber(context))
+			: undefined,
+	);
+	const [episodeId, setEpisodeId] = useState(initialEpisode?.id);
+	const render = (pager: EpisodePager | undefined) => (
+		<ActivityLogForm
+			{...props}
+			pager={pager}
+			episodeId={episodeId}
+			onSelect={setEpisodeId}
+			seasonNumber={seasonNumber}
+			onSeason={(next) => {
+				setSeasonNumber(next);
+				setEpisodeId(undefined);
+			}}
+		/>
+	);
 
 	if (logger.family === "show" && seasonNumber !== undefined) {
 		return (

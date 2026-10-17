@@ -1,6 +1,3 @@
-import { tmpdir } from "node:os";
-
-import { BunFileSystem } from "@effect/platform-bun";
 import { expect, it } from "@effect/vitest";
 import { SandboxRunError } from "@ryot-app/contract/errors";
 import type { IngestionIssue, IngestionRun } from "@ryot-app/contract/modules/imports/ingestion";
@@ -22,7 +19,7 @@ import {
 import { ImportsRepository } from "#modules/imports/repository";
 import { mutationAdmissionTestLayer } from "#modules/mutations/admission.test-support";
 import { ScriptExecutionService } from "#modules/scripts/executions/service";
-import { makeAppConfigLayer, makeWorkflowEngine } from "#testing/effect";
+import { makeWorkflowEngine } from "#testing/effect";
 
 import { IntegrationConfirmationError, IntegrationIngestion } from "./ingestion";
 import { ProcessIntegrationRunWorkflow } from "./integration-workflow";
@@ -58,12 +55,11 @@ const rootCase = (
 		const reasons: Array<ImportRunFailureReason | undefined> = [];
 		const issues: IngestionIssue[] = [];
 		const finished: unknown[] = [];
+		const storedInputs: Array<{ owner: string; outputs: ReadonlyArray<Uint8Array> }> = [];
 		const instance = WorkflowInstance.initial(ProcessIntegrationRunWorkflow, payload.runId);
 		instance.suspended = failure === "suspend";
 		const dependencies = Layer.mergeAll(
 			mutationAdmissionTestLayer,
-			BunFileSystem.layer,
-			makeAppConfigLayer({ fileStorage: { localTempDir: tmpdir() } }),
 			Layer.succeed(WorkflowInstance, instance),
 			Layer.succeed(
 				WorkflowEngine,
@@ -73,7 +69,7 @@ const rootCase = (
 				}),
 			),
 			Layer.mock(ImportsRepository)({
-				getIngestionRun: () => Effect.sync(() => run),
+				getIngestionRunControl: () => Effect.sync(() => run),
 				recordIssue: (_scope, issue) =>
 					Effect.sync(() => {
 						issues.push(issue);
@@ -132,7 +128,11 @@ const rootCase = (
 			Layer.mock(ExecutionFileStore)({
 				retain: () => Effect.void,
 				release: () => Effect.void,
-				materializeOutputs: () => Effect.succeed(["durable-input-handle"]),
+				materializeOutputs: (owner, outputs) =>
+					Effect.sync(() => {
+						storedInputs.push({ owner, outputs });
+						return ["durable-input-handle"];
+					}),
 			}),
 			Layer.mock(ScriptExecutionService)({
 				executeWorkflow: (input) =>
@@ -159,7 +159,7 @@ const rootCase = (
 			Effect.exit,
 			Effect.provideContext(yield* Layer.build(dependencies)),
 		);
-		return { issues, reasons, finished, executions, settlements };
+		return { issues, reasons, finished, executions, settlements, storedInputs };
 	});
 
 it.effect(
@@ -167,6 +167,14 @@ it.effect(
 	() =>
 		Effect.gen(function* () {
 			const result = yield* rootCase("pending");
+			expect(result.storedInputs).toEqual([
+				{
+					owner: `${rootPayload.runId}-import`,
+					outputs: [
+						new TextEncoder().encode('{"apiKey":"private-credential","integrationContext":{}}'),
+					],
+				},
+			]);
 			expect(result.executions).toEqual([
 				expect.objectContaining({
 					lane: "background",

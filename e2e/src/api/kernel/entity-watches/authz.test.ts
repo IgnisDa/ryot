@@ -124,7 +124,7 @@ describe("interest authorization", () => {
 			const auth = yield* createAuthenticatedClient();
 			const apiKey = yield* createApiKey(auth.sessionCookie);
 			const socket = yield* openInterestWebSocketScoped({
-				client: makeSession(getApiUrl(), { "X-Api-Key": apiKey }),
+				client: makeSession(undefined, { "X-Api-Key": apiKey }),
 			});
 			expect(socket.ready.sessionId).toEqual(expect.any(String));
 		}),

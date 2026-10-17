@@ -6,16 +6,13 @@ export const measurementReadingLogOperationSlug = "measurement-reading-log";
 export const measurementReadingUpdateOperationSlug = "measurement-reading-update";
 export const measurementReadingDeleteOperationSlug = "measurement-reading-delete";
 
-const MeasurementReadingIds = Schema.Array(NonEmptyString).pipe(
-	Schema.check(Schema.isMinLength(1)),
-);
+export const MEASUREMENT_EVENT_BATCH_SIZE = 100;
 
 export const MeasurementEntry = Schema.Struct({
 	occurredAt: IsoTimestamp,
 	comment: Schema.optional(Schema.Trim),
 	values: Schema.Array(Schema.Struct({ value: Schema.Finite, metricId: NonEmptyString })).pipe(
 		Schema.check(Schema.isMinLength(1)),
-		Schema.check(Schema.isMaxLength(100)),
 		Schema.check(
 			Schema.makeFilter(
 				(values) =>
@@ -30,6 +27,9 @@ export type MeasurementEntry = typeof MeasurementEntry.Type;
 
 export const MeasurementReadingLogInput = Schema.Struct({
 	...MeasurementEntry.fields,
+	values: MeasurementEntry.fields.values.pipe(
+		Schema.check(Schema.isMaxLength(MEASUREMENT_EVENT_BATCH_SIZE)),
+	),
 	...SubmissionEnvelope.fields,
 });
 
@@ -37,10 +37,10 @@ export type MeasurementReadingLogInput = typeof MeasurementReadingLogInput.Type;
 
 export const MeasurementReadingUpdateInput = Schema.Struct({
 	...MeasurementEntry.fields,
-	readingIds: MeasurementReadingIds,
+	entryId: NonEmptyString,
 });
 
-export const MeasurementReadingDeleteInput = Schema.Struct({ readingIds: MeasurementReadingIds });
+export const MeasurementReadingDeleteInput = Schema.Struct({ entryId: NonEmptyString });
 
 export const MeasurementReadingOutput = Schema.Struct({ count: Schema.Int });
 

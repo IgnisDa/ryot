@@ -1,56 +1,31 @@
-import type { RyotClient } from "@ryot-app/plugin-client-sdk";
 import { usePluginLocation, useRyotViewport } from "@ryot-app/plugin-client-sdk/plugin";
-import {
-	createRyotQuery,
-	ManagedAssetProvider,
-	useRyot,
-	useRyotQuery,
-} from "@ryot-app/plugin-client-sdk/react";
+import { ManagedAssetProvider, useRyot, useRyotQuery } from "@ryot-app/plugin-client-sdk/react";
 import { PluginScreenFrame } from "@ryot-app/plugin-client-sdk/screen";
 import { Button, Card, StatusMessage } from "@ryot-app/plugin-ui-sdk";
 import clsx from "clsx";
 import { useState } from "react";
 
 import { supersetColor } from "../../shared/superset-colors";
-import type { WorkoutEditorOccurrence } from "../../shared/workout-editor-draft";
+import type { TemplateOccurrenceProperties } from "../../shared/workout-editor-properties";
 import { fitnessRoute } from "../../shared/workout-editor-routes";
 import { durationDisplayUnit } from "../../shared/workout-units";
 import { AssetArtWell, managedAssetBatch } from "../asset-urls";
 import { useAddToCollection } from "../collections";
 import { DeleteFitnessEntity } from "../entity-delete";
-import { supersetColorVariable } from "../group-colors";
+import { supersetColorVariable, supersetName } from "../group-colors";
 import { HeaderActionsMenu } from "../header-actions-menu";
 import { WorkoutMediaViewer } from "../media-viewer";
 import { setLabels, setLots } from "../set-lots";
 import { workoutEditorContextQuery } from "../workout-editor/context-query";
-import {
-	type EditorExercise,
-	editorExercisesQuery,
-	loadEditorSource,
-} from "../workout-editor/queries";
-import { supersetNames } from "../workout-editor/superset-group";
 import { formatClock, formatExerciseMeta, formatSetMain } from "../workout/format";
-
-const templateQuery = createRyotQuery(
-	({ input, client }: { readonly client: RyotClient; readonly input: string }) =>
-		loadEditorSource(client, {
-			entityId: input,
-			kind: "template",
-			draftId: `template-detail:${input}`,
-		}),
-	{ entityWatch: ({ input }) => ({ visible: [], foreground: [input] }) },
-);
-const number = (value: string | undefined) => (value === undefined ? null : Number(value));
+import { type TemplateExercise, templateQuery } from "./queries";
 
 function TemplateDetails(props: { readonly entityId: string }) {
 	const client = useRyot();
 	const { compact } = useRyotViewport();
 	const source = useRyotQuery(templateQuery, props.entityId);
 	const context = useRyotQuery(workoutEditorContextQuery, undefined);
-	const draft = source.data?.kind === "ready" ? source.data.draft : undefined;
-	const exercises = useRyotQuery(editorExercisesQuery, {
-		exerciseIds: [...new Set(draft?.occurrences.map(({ exerciseId }) => exerciseId) ?? [])],
-	});
+	const template = source.data?.kind === "ready" ? source.data : undefined;
 	const [dialog, setDialog] = useState<"delete">();
 	const addToCollection = useAddToCollection();
 	const imperial = context.data?.settings.unitSystem === "imperial";
@@ -58,7 +33,7 @@ function TemplateDetails(props: { readonly entityId: string }) {
 		client.navigation.push(
 			fitnessRoute(`/templates/${encodeURIComponent(props.entityId)}/${kind}`),
 		);
-	if (source.isError || context.isError || exercises.isError) {
+	if (source.isError || context.isError) {
 		return (
 			<PluginScreenFrame title="Workout template">
 				<StatusMessage tone="error">
@@ -69,7 +44,6 @@ function TemplateDetails(props: { readonly entityId: string }) {
 					onClick={() => {
 						source.refetch();
 						context.refetch();
-						exercises.refetch();
 					}}
 				>
 					Retry template
@@ -88,19 +62,28 @@ function TemplateDetails(props: { readonly entityId: string }) {
 			</PluginScreenFrame>
 		);
 	}
-	if (draft === undefined || context.data === undefined || exercises.data === undefined) {
+	if (template === undefined || context.data === undefined) {
 		return (
 			<PluginScreenFrame title="Workout template">
 				<StatusMessage tone="pending">Loading template…</StatusMessage>
 			</PluginScreenFrame>
 		);
 	}
-	const names = supersetNames(draft);
-	const plannedSets = draft.occurrences.reduce((total, { sets }) => total + sets.length, 0);
+	const { plan, entity, exercises } = template;
+	const names = new Map<number, string>();
+	for (const occurrence of plan.exercises) {
+		const index = plan.supersets?.findIndex(({ exercises: orders }) =>
+			orders.includes(occurrence.exerciseOrder),
+		);
+		if (index !== undefined && index !== -1 && !names.has(index)) {
+			names.set(index, supersetName(names.size));
+		}
+	}
+	const plannedSets = plan.exercises.reduce((total, { sets }) => total + sets.length, 0);
 	return (
-		<PluginScreenFrame hideTitle title={draft.name}>
+		<PluginScreenFrame hideTitle title={entity.name}>
 			<ManagedAssetProvider
-				assets={managedAssetBatch(exercises.data.map((exercise) => exercise.images?.[0]))}
+				assets={managedAssetBatch(exercises.map((exercise) => exercise.images?.[0]))}
 			>
 				<div className="mx-auto flex w-full max-w-5xl flex-col gap-6 font-ui">
 					<header
@@ -119,7 +102,7 @@ function TemplateDetails(props: { readonly entityId: string }) {
 									compact ? "text-[34px] leading-tight" : "text-5xl leading-none",
 								)}
 							>
-								{draft.name}
+								{entity.name}
 							</h1>
 						</div>
 						<div className={clsx("flex gap-2", compact && "w-full")}>
@@ -148,7 +131,7 @@ function TemplateDetails(props: { readonly entityId: string }) {
 							{dialog === "delete" ? (
 								<DeleteFitnessEntity
 									kind="template"
-									name={draft.name}
+									name={entity.name}
 									entityId={props.entityId}
 									onClose={() => setDialog(undefined)}
 								/>
@@ -160,7 +143,7 @@ function TemplateDetails(props: { readonly entityId: string }) {
 						className="grid grid-cols-2 gap-px overflow-hidden rounded-lg border border-border-card bg-border"
 					>
 						{[
-							{ label: "Exercises", value: draft.occurrences.length },
+							{ label: "Exercises", value: plan.exercises.length },
 							{ value: plannedSets, label: "Planned sets" },
 						].map((stat) => (
 							<div key={stat.label} className="flex flex-col gap-1 bg-surface p-4">
@@ -176,36 +159,40 @@ function TemplateDetails(props: { readonly entityId: string }) {
 							</div>
 						))}
 					</section>
-					{draft.comment ? (
-						<Card className="text-[15px] whitespace-pre-wrap text-text">{draft.comment}</Card>
+					{plan.comment ? (
+						<Card className="text-[15px] whitespace-pre-wrap text-text">{plan.comment}</Card>
 					) : null}
-					<WorkoutMediaViewer label={draft.name} images={draft.images} videos={draft.videos} />
+					<WorkoutMediaViewer
+						label={entity.name}
+						images={plan.images ?? []}
+						videos={plan.videos ?? []}
+					/>
 					<section aria-label="Planned exercises" className="flex flex-col gap-4">
 						<div className="flex items-baseline justify-between">
 							<h2 className="font-display text-[22px] font-semibold text-text">Exercises</h2>
 							<span className="text-[14px] text-text-muted">
-								{draft.occurrences.length}{" "}
-								{draft.occurrences.length === 1 ? "exercise" : "exercises"} · {plannedSets}{" "}
-								{plannedSets === 1 ? "set" : "sets"}
+								{plan.exercises.length} {plan.exercises.length === 1 ? "exercise" : "exercises"} ·{" "}
+								{plannedSets} {plannedSets === 1 ? "set" : "sets"}
 							</span>
 						</div>
 						<div className={clsx("grid items-start gap-4", !compact && "grid-cols-2")}>
-							{draft.occurrences.map((occurrence) => {
-								const exercise = exercises.data?.find(({ id }) => id === occurrence.exerciseId);
-								const group = draft.supersets.find(({ occurrenceIds }) =>
-									occurrenceIds.includes(occurrence.clientId),
+							{plan.exercises.map((occurrence) => {
+								const exercise = exercises.find(({ id }) => id === occurrence.exerciseId);
+								const groupIndex = plan.supersets?.findIndex(({ exercises: orders }) =>
+									orders.includes(occurrence.exerciseOrder),
 								);
+								const group = groupIndex === undefined ? undefined : plan.supersets?.[groupIndex];
 								return (
 									<PlannedExercise
 										compact={compact}
 										imperial={imperial}
 										exercise={exercise}
 										occurrence={occurrence}
-										key={occurrence.clientId}
+										key={occurrence.exerciseOrder}
 										group={
 											group === undefined
 												? undefined
-												: { color: group.color, name: names.get(group.clientId) ?? "Superset" }
+												: { color: group.color, name: names.get(groupIndex ?? -1) ?? "Superset" }
 										}
 									/>
 								);
@@ -221,8 +208,8 @@ function TemplateDetails(props: { readonly entityId: string }) {
 function PlannedExercise(props: {
 	readonly compact: boolean;
 	readonly imperial: boolean;
-	readonly occurrence: WorkoutEditorOccurrence;
-	readonly exercise: EditorExercise | undefined;
+	readonly occurrence: TemplateOccurrenceProperties;
+	readonly exercise: TemplateExercise | undefined;
 	readonly group: { readonly name: string; readonly color: string } | undefined;
 }) {
 	const { exercise, occurrence } = props;
@@ -273,7 +260,7 @@ function PlannedExercise(props: {
 						const lot = setLots[set.setLot];
 						return (
 							<li
-								key={set.clientId}
+								key={set.setOrder}
 								className="grid grid-cols-[2rem_minmax(0,1fr)] items-baseline gap-x-2 border-t border-border px-4 py-2.5 text-[15px]"
 							>
 								<span className={clsx("text-[13px] font-semibold", lot.tone ?? "text-text-muted")}>
@@ -281,21 +268,19 @@ function PlannedExercise(props: {
 								</span>
 								<span className="text-text">
 									{formatSetMain(
-										occurrence.exerciseKind,
+										exercise?.exerciseKind ?? null,
 										{
-											reps: number(set.reps),
-											weight: number(set.weight),
-											distance: number(set.distance),
-											duration: number(set.duration),
+											reps: set.reps ?? null,
+											weight: set.weight ?? null,
+											distance: set.distance ?? null,
+											duration: set.duration ?? null,
 										},
 										props.imperial,
 										durationDisplayUnit(exercise?.overrides.defaultDurationUnit),
 									) || "Measurements not specified"}
 									<span className="text-[13px] text-text-muted">
-										{set.restChoice.kind === "explicit"
-											? ` · Rest ${formatClock(Number(set.restChoice.seconds))}`
-											: ""}
-										{set.rpe === undefined ? "" : ` · RPE ${set.rpe}`}
+										{set.restTime == null ? "" : ` · Rest ${formatClock(set.restTime)}`}
+										{set.rpe == null ? "" : ` · RPE ${set.rpe}`}
 									</span>
 								</span>
 								{set.note ? (
@@ -306,7 +291,11 @@ function PlannedExercise(props: {
 					})}
 				</ol>
 			)}
-			<WorkoutMediaViewer label={name} images={occurrence.images} videos={occurrence.videos} />
+			<WorkoutMediaViewer
+				label={name}
+				images={occurrence.images ?? []}
+				videos={occurrence.videos ?? []}
+			/>
 		</Card>
 	);
 }

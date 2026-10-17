@@ -7,14 +7,9 @@ import { sql } from "drizzle-orm";
 import { Effect, Option } from "effect";
 import { HttpApiBuilder } from "effect/http-api";
 
+import { ObjectStorageService } from "#modules/assets/storage/object-storage";
 import { RYOT_VERSION } from "#platform/build-info";
-import {
-	AppConfig,
-	type AppConfigValue,
-	isOidcEnabled,
-	isS3Configured,
-	isSmtpEnabled,
-} from "#platform/config/service";
+import { AppConfig, type AppConfigValue } from "#platform/config/service";
 import { DatabaseSession } from "#platform/db/session";
 import { ProKeyService } from "#platform/pro-key";
 import { RedisService } from "#platform/redis";
@@ -34,19 +29,23 @@ const umamiAnalytics = (config: AppConfigValue) => {
 	return { hostUrl: hostUrl.value, websiteId: websiteId.value };
 };
 
-export const publicSystemConfig = (config: AppConfigValue, isServerKeyValidated: boolean) =>
+export const publicSystemConfig = (
+	config: AppConfigValue,
+	isServerKeyValidated: boolean,
+	permanentUploadProvider: "local" | "s3",
+) =>
 	({
 		version: RYOT_VERSION,
 		pro: { isServerKeyValidated },
 		frontendOrigin: config.frontendUrl,
 		analytics: { umami: umamiAnalytics(config) },
-		notifications: { smtpEnabled: isSmtpEnabled(config) },
+		notifications: { smtpEnabled: Option.isSome(config.server.smtp) },
 		fileStorage: {
 			temporaryUploadProvider: "local",
-			preferredPermanentUploadProvider: isS3Configured(config) ? "s3" : "local",
+			preferredPermanentUploadProvider: permanentUploadProvider,
 		},
 		auth: {
-			oidcEnabled: isOidcEnabled(config),
+			oidcEnabled: Option.isSome(config.server.oidc),
 			localAuthDisabled: config.users.disableLocalAuth,
 			signupAllowed: config.users.allowRegistration && !config.users.disableLocalAuth,
 			oidcButtonLabel: Option.getOrUndefined(nonEmpty(config.frontend.oidcButtonLabel)),
@@ -88,8 +87,13 @@ export const SystemRoutesLive = HttpApiBuilder.group(AppContract, "system", (han
 			Effect.gen(function* () {
 				const config = yield* AppConfig;
 				const proKey = yield* ProKeyService;
+				const objectStorage = yield* ObjectStorageService;
 				const isServerKeyValidated = yield* proKey.isValidated;
-				return publicSystemConfig(config, isServerKeyValidated);
+				return publicSystemConfig(
+					config,
+					isServerKeyValidated,
+					yield* objectStorage.permanentStorageProvider,
+				);
 			}),
 		),
 );

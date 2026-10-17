@@ -6,8 +6,6 @@ import type { InlineConfig } from "vite";
 import {
 	acquireCompilerWorkspace,
 	buildWithVite,
-	stageGeneratedFiles,
-	stageSourceFiles,
 	ViteBuildService,
 	ViteCompilerError,
 } from "./index";
@@ -198,10 +196,9 @@ describe("Vite build", () => {
 			Effect.gen(function* () {
 				const fs = yield* FileSystem.FileSystem;
 				const path = yield* Path.Path;
-				const workspace = yield* acquireCompilerWorkspace();
-				yield* stageGeneratedFiles(workspace, [
-					{ path: "entry.ts", contents: "export const value: number = 1;" },
-				]);
+				const workspace = yield* acquireCompilerWorkspace({
+					generated: [{ path: "entry.ts", contents: "export const value: number = 1;" }],
+				});
 				const result = yield* buildWithVite({
 					workspace,
 					typeScriptProject,
@@ -218,17 +215,18 @@ describe("Vite build", () => {
 		test.effect("does not load a staged source package tsconfig", () =>
 			Effect.gen(function* () {
 				const path = yield* Path.Path;
-				const workspace = yield* acquireCompilerWorkspace();
-				yield* stageSourceFiles(workspace, [
-					{ path: "dependency/index.ts", contents: "export const value: number = 1;" },
-					{
-						path: "dependency/tsconfig.json",
-						contents: '{"extends":"../../missing-tsconfig.json"}',
-					},
-				]);
-				yield* stageGeneratedFiles(workspace, [
-					{ path: "entry.ts", contents: 'export { value } from "../source/dependency/index";' },
-				]);
+				const workspace = yield* acquireCompilerWorkspace({
+					generated: [
+						{ path: "entry.ts", contents: 'export { value } from "../source/dependency/index";' },
+					],
+					sources: [
+						{ path: "dependency/index.ts", contents: "export const value: number = 1;" },
+						{
+							path: "dependency/tsconfig.json",
+							contents: '{"extends":"../../missing-tsconfig.json"}',
+						},
+					],
+				});
 				const result = yield* buildWithVite({
 					workspace,
 					typeScriptProject,

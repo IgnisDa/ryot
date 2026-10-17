@@ -1,6 +1,6 @@
 import { integrationWebhookUrl } from "@ryot-app/contract/modules/integrations/schemas";
 import { definitionOwner } from "@ryot-app/contract/modules/plugins/references";
-import { DateTime, Effect, Option } from "effect";
+import { Effect, Option } from "effect";
 
 import {
 	createAuthenticatedClient,
@@ -9,9 +9,9 @@ import {
 	getIntegration,
 	listEventsForEntity,
 	listEventSlugs,
+	markEntityPopulated,
 	pollImportRunUntilTerminal,
 	postIntegrationWebhookAndWait,
-	setEntityPopulatedAt,
 	waitForEventSlugs,
 	waitForEventWithSchema,
 } from "~/fixtures/kernel";
@@ -41,7 +41,10 @@ describe("Webhook routes", () => {
 			const { client } = yield* createAuthenticatedClient();
 			const integration = yield* createIntegration(client, {
 				providerSpecifics: { kind: "emby" },
-				provider: { slug: "emby", owner: definitionOwner((yield* mediaFixtureInstallation).id) },
+				provider: {
+					slug: "emby",
+					owner: definitionOwner((yield* mediaFixtureInstallation(client.target)).id),
+				},
 			});
 			const { tmdbId, episodeId } = yield* seedGlobalShowEpisodeTree(client, {
 				showName: "Emby Identity Show",
@@ -106,7 +109,7 @@ describe("Webhook routes", () => {
 				providerSpecifics: { kind: "plex_sink" },
 				provider: {
 					slug: "plex_sink",
-					owner: definitionOwner((yield* mediaFixtureInstallation).id),
+					owner: definitionOwner((yield* mediaFixtureInstallation(client.target)).id),
 				},
 			});
 
@@ -123,7 +126,7 @@ describe("Webhook routes", () => {
 				providerId: provider.providerId,
 				name: "Plex Multipart Sink Movie",
 			});
-			yield* setEntityPopulatedAt(movie.id, DateTime.formatIso(yield* DateTime.now));
+			yield* markEntityPopulated(movie.id);
 
 			const boundary = "----RyotPlexBoundary";
 			const detail = requirePresent(
@@ -174,7 +177,10 @@ describe("Progress normalization", () => {
 				const integration = yield* createIntegration(client, {
 					maximumProgress: 90,
 					providerSpecifics: { kind: "kodi" },
-					provider: { slug: "kodi", owner: definitionOwner((yield* mediaFixtureInstallation).id) },
+					provider: {
+						slug: "kodi",
+						owner: definitionOwner((yield* mediaFixtureInstallation(client.target)).id),
+					},
 				});
 
 				const { tmdbId, episodeId } = yield* seedGlobalShowEpisodeTree(client, {
@@ -216,7 +222,10 @@ describe("Progress normalization", () => {
 				const integration = yield* createIntegration(client, {
 					minimumProgress: 10,
 					providerSpecifics: { kind: "kodi" },
-					provider: { slug: "kodi", owner: definitionOwner((yield* mediaFixtureInstallation).id) },
+					provider: {
+						slug: "kodi",
+						owner: definitionOwner((yield* mediaFixtureInstallation(client.target)).id),
+					},
 				});
 
 				const { tmdbId, episodeId } = yield* seedGlobalShowEpisodeTree(client, {

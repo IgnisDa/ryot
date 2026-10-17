@@ -7,9 +7,6 @@ import { Effect, FileSystem, Path, Schema } from "effect";
 
 import { SANDBOX_LIMITS } from "../protocol/limits";
 
-export const SANDBOX_SCRATCH_DIRECTORY_PREFIX = "ryot-sandbox-scratch-";
-export const SANDBOX_HARVEST_DIRECTORY_PREFIX = "ryot-sandbox-harvest-";
-
 export const sanitizeSandboxExecutionSegment = (executionId: string) =>
 	executionId.replace(/[^a-zA-Z0-9._-]/g, "-");
 

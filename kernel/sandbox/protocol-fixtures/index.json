@@ -60,6 +60,16 @@
 		"direction": "outbound"
 	},
 	{
+		"name": "done-completed-null",
+		"expect": "valid",
+		"direction": "outbound"
+	},
+	{
+		"name": "done-completed-unicode",
+		"expect": "valid",
+		"direction": "outbound"
+	},
+	{
 		"name": "done-failed",
 		"expect": "valid",
 		"direction": "outbound"
@@ -156,6 +166,11 @@
 	},
 	{
 		"name": "done-unknown-phase",
+		"expect": "payload",
+		"direction": "outbound"
+	},
+	{
+		"name": "done-completed-missing-value",
 		"expect": "payload",
 		"direction": "outbound"
 	},

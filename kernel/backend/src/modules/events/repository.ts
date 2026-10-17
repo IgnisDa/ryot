@@ -127,16 +127,12 @@ export class EventsRepository extends Context.Service<EventsRepository>()("Event
 			after: StreamKey;
 			beforeOccurredAt: Date;
 			afterOccurredAt: Date;
-			ownerWorkId?: string;
 		}) {
 			const occurredAt = minimumOccurredAt(input.beforeOccurredAt, input.afterOccurredAt);
-			yield* eventStreams.touch(
-				[
-					{ ...input.before, occurredAt },
-					{ ...input.after, occurredAt },
-				],
-				input.ownerWorkId,
-			);
+			yield* eventStreams.touch([
+				{ ...input.before, occurredAt },
+				{ ...input.after, occurredAt },
+			]);
 		});
 		const listUserEventsForBackup = Effect.fn("EventsRepository.listUserEventsForBackup")(
 			function* (input: { userId: UserId; afterId?: EventId | undefined }) {
@@ -340,7 +336,7 @@ export class EventsRepository extends Context.Service<EventsRepository>()("Event
 		});
 
 		const deletePreparedEvent = Effect.fn("EventsRepository.deletePreparedEvent")(function* (
-			input: EventIdentityInput & { expectedRevision: number; ownerWorkId?: string },
+			input: EventIdentityInput & { expectedRevision: number },
 		) {
 			yield* requireTransaction;
 			const current = yield* getEventForMutation(input);
@@ -367,7 +363,6 @@ export class EventsRepository extends Context.Service<EventsRepository>()("Event
 					before: streamKey,
 					afterOccurredAt: current.occurredAt,
 					beforeOccurredAt: current.occurredAt,
-					...(input.ownerWorkId === undefined ? {} : { ownerWorkId: input.ownerWorkId }),
 				});
 			}
 
@@ -432,7 +427,6 @@ export class EventsRepository extends Context.Service<EventsRepository>()("Event
 				draft: AutomationEventDraft;
 				expectedRevision: number;
 				updatedAt: Date;
-				ownerWorkId?: string;
 			},
 		) {
 			yield* requireTransaction;
@@ -469,7 +463,6 @@ export class EventsRepository extends Context.Service<EventsRepository>()("Event
 					afterOccurredAt,
 					before: beforeKey,
 					beforeOccurredAt: current.occurredAt,
-					...(input.ownerWorkId === undefined ? {} : { ownerWorkId: input.ownerWorkId }),
 				});
 			}
 
@@ -495,19 +488,6 @@ export class EventsRepository extends Context.Service<EventsRepository>()("Event
 			);
 		});
 
-		const getEventRevision = Effect.fn("EventsRepository.getEventRevision")(function* (
-			input: EventIdentityInput,
-		) {
-			const [row] = yield* session.run((db) =>
-				db
-					.select({ revision: schema.event.revision })
-					.from(schema.event)
-					.where(and(eq(schema.event.id, input.eventId), eq(schema.event.userId, input.userId)))
-					.limit(1),
-			);
-			return row?.revision ?? null;
-		});
-
 		const getEventSnapshot = Effect.fn("EventsRepository.getEventSnapshot")(function* (
 			input: EventIdentityInput,
 		) {
@@ -515,6 +495,7 @@ export class EventsRepository extends Context.Service<EventsRepository>()("Event
 				db
 					.select({
 						...createdEventSelection,
+						revision: schema.event.revision,
 						entitySchemaSlug: schema.entity.entitySchemaSlug,
 						entitySchemaPluginId: schema.entity.entitySchemaPluginId,
 					})
@@ -544,7 +525,7 @@ export class EventsRepository extends Context.Service<EventsRepository>()("Event
 				eventSchemaPluginId: row.eventSchemaPluginId,
 				entitySchemaPluginId: row.entitySchemaPluginId,
 			}).pipe(Effect.mapError(() => new DbError({ message: "Invalid persisted event snapshot" })));
-			return event;
+			return { snapshot: event, revision: row.revision };
 		});
 		const getCreateProgress = Effect.fn("EventsRepository.getCreateProgress")(function* (
 			userId: UserId,
@@ -573,7 +554,6 @@ export class EventsRepository extends Context.Service<EventsRepository>()("Event
 			createEvent,
 			hasUserEvents,
 			lockEventRows,
-			getEventRevision,
 			getEventSnapshot,
 			getCreateProgress,
 			deletePreparedEvent,

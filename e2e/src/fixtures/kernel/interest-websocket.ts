@@ -5,10 +5,9 @@ import {
 	type EntityWatchEntityUpdatedMessage,
 	type EntityWatchReadyMessage,
 	type EntityWatchRejectedMessage,
+	type EntityWatchReplaceMessage,
 } from "@ryot-app/contract/modules/entity-watches/messages";
 import { Duration, Effect, Exit, Result, Semaphore } from "effect";
-
-import { getApiUrl } from "~/support/harness-target";
 
 import type { ContractSession } from "./contract-client";
 import { getEntity } from "./entities";
@@ -39,12 +38,6 @@ type InterestWebSocket = {
 		entityId: string,
 		options: { windowMs: number; reason?: EntityWatchEntityUpdatedMessage["reason"] },
 	) => Effect.Effect<void>;
-	updateInterest: (input: {
-		readonly add: readonly string[];
-		readonly remove: readonly string[];
-		readonly addForeground?: readonly string[];
-		readonly removeForeground?: readonly string[];
-	}) => Effect.Effect<EntityWatchCommandResult>;
 	waitForEntityUpdated: (
 		entityId: string,
 		reason?: EntityWatchEntityUpdatedMessage["reason"],
@@ -66,7 +59,7 @@ export const openInterestWebSocket = (
 		const { ticket } = yield* auth.client.call((contract) =>
 			contract["entity-watches"].createSocketTicket(),
 		);
-		const url = `${getApiUrl()}/entity-watches/ws`;
+		const url = `${auth.client.target.apiUrl}/entity-watches/ws`;
 		const socket = new WebSocket(url);
 		const timeoutMs = options.timeoutMs ?? 10_000;
 
@@ -194,21 +187,7 @@ export const openInterestWebSocket = (
 			),
 		);
 
-		const sendCommand = (
-			message:
-				| {
-						readonly type: "replace";
-						readonly entityIds: readonly string[];
-						readonly foregroundIds: readonly string[];
-				  }
-				| {
-						readonly type: "update";
-						readonly add: readonly string[];
-						readonly remove: readonly string[];
-						readonly addForeground: readonly string[];
-						readonly removeForeground: readonly string[];
-				  },
-		) =>
+		const sendCommand = (message: Omit<EntityWatchReplaceMessage, "revision">) =>
 			commands.withPermit(
 				Effect.gen(function* () {
 					let commandRevision = 0;
@@ -341,8 +320,6 @@ export const openInterestWebSocket = (
 			getEntityUpdatedMessages: () => messages.slice(),
 			replaceInterest: (entityIds, foregroundIds = []) =>
 				sendCommand({ entityIds, foregroundIds, type: "replace" }),
-			updateInterest: ({ addForeground = [], removeForeground = [], ...input }) =>
-				sendCommand({ ...input, addForeground, type: "update", removeForeground }),
 			close: () =>
 				Effect.callback<void>((resume) => {
 					if (socket.readyState === WebSocket.CLOSED) {

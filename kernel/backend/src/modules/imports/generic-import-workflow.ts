@@ -834,8 +834,7 @@ export const runProcessGenericImportChunksWorkflow = Effect.fn(
 							executionId,
 							workflowName: ProcessGenericImportChunksWorkflow._tag,
 						});
-						yield* repository.advanceBatch(scope, batch.id, "preparing");
-						yield* repository.advanceBatch(scope, batch.id, "applying");
+						yield* repository.startBatch(scope, batch.id);
 					}),
 				)
 				.pipe(Effect.mapError(toWorkflowError)),
@@ -879,7 +878,7 @@ export const runProcessGenericImportChunksWorkflow = Effect.fn(
 		const sourceState = yield* (yield* ImportSourceStateStore)
 			.load(scope)
 			.pipe(Effect.mapError(toWorkflowError));
-		const admitted = yield* repository.getIngestionRun(scope);
+		const admitted = yield* repository.getIngestionRunControl(scope);
 		if (
 			payload.command.writeContext?.pluginRevision?.id !== sourceState.pluginId ||
 			!sameRevisionPin(payload.command.writeContext.pluginRevision, sourceState.pluginRevision)
@@ -919,7 +918,7 @@ export const runProcessGenericImportChunksWorkflow = Effect.fn(
 			);
 		}
 		for (const [index, item] of chunk.items.entries()) {
-			const run = yield* repository.getIngestionRun(scope);
+			const run = yield* repository.getIngestionRunControl(scope);
 			if (run?.status !== "running") {
 				break;
 			}
@@ -1019,7 +1018,7 @@ export const runProcessGenericImportChunksWorkflow = Effect.fn(
 			}
 			if (
 				failureCode !== null &&
-				(yield* repository.getIngestionRun(scope))?.status === "running"
+				(yield* repository.getIngestionRunControl(scope))?.status === "running"
 			) {
 				const candidates = operations.filter((operation) =>
 					genericImportItemIntents(item).some(

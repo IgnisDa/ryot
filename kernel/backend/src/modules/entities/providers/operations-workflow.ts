@@ -108,19 +108,20 @@ export const EntityImportWorkflowOperationsLive = Layer.effect(
 			pluginRevision: { id: string; revisionId: string };
 		}) {
 			const owner = definitionOwner(input.pluginRevision.id);
-			const pin = yield* writes
+			yield* writes
 				.check(input.command, owner, input.userId)
 				.pipe(Effect.mapError((error) => toSandboxRunError(error, "invalid-input")));
 			const provider = yield* writes
 				.checkProvider(input.providerId, owner)
 				.pipe(Effect.mapError((error) => toSandboxRunError(error, "invalid-input")));
-			const providers = pin
-				? yield* reads
-						.findRevisionProviders(pin.id)
-						.pipe(Effect.mapError((error) => toSandboxRunError(error, "infrastructure")))
-				: undefined;
-			const slug = providers?.find(({ slug: providerSlug }) => providerSlug === provider.slug)
-				?.operations[input.operation];
+			const slug = yield* reads
+				.findRevisionProviderOperation({
+					operation: input.operation,
+					providerSlug: provider.slug,
+					pluginId: input.pluginRevision.id,
+					revisionId: input.pluginRevision.revisionId,
+				})
+				.pipe(Effect.mapError((error) => toSandboxRunError(error, "infrastructure")));
 			const script = slug
 				? yield* reads
 						.findRevisionScript(input.pluginRevision.revisionId, slug)

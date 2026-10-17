@@ -1,17 +1,13 @@
-import { assert, describe, expect, it, layer } from "@effect/vitest";
-import { pluginConfigEnvironmentKey } from "@ryot-app/contract/modules/plugins/plugin-config";
-import { PluginPackageId } from "@ryot-app/contract/schema/brands";
+import { describe, expect, it } from "@effect/vitest";
 import type { AppSchema } from "@ryot-app/contract/schema/property-schema";
 import { Effect } from "effect";
 
-import { makeConfigProviderLayer } from "#testing/effect";
-
 import { getPluginConfig } from "./access";
 
-const packageId = PluginPackageId.make("ryot/fixture");
 const pluginConfigSchema = {
 	unknownKeys: "strict",
 	fields: {
+		region: { type: "string", label: "Region", description: "Region", defaultValue: "local" },
 		requestLimit: { type: "integer", label: "Request limit", description: "Maximum requests" },
 		enabled: { type: "boolean", label: "Enabled", description: "Whether the plugin is enabled" },
 		apiToken: {
@@ -23,64 +19,23 @@ const pluginConfigSchema = {
 	},
 } satisfies AppSchema;
 
-const pluginEnvironmentLayer = (values: Readonly<Record<string, string>>) =>
-	makeConfigProviderLayer(
-		Object.fromEntries(
-			Object.entries(values).map(([configKey, value]) => [
-				pluginConfigEnvironmentKey(packageId, configKey),
-				value,
-			]),
-		),
-	);
-
-const runPluginConfig = (
-	keys: ReadonlyArray<string>,
-	requiredPluginConfigKeys: ReadonlyArray<string> = keys,
-) =>
-	getPluginConfig({
-		access: { required: keys },
-		metadata: { requiredPluginConfigKeys },
-		context: { packageId, kind: "environment", configSchema: pluginConfigSchema },
-	}).pipe(Effect.result);
-
-const runInstallationConfig = (
-	keys: ReadonlyArray<string>,
-	config: Readonly<Record<string, unknown>>,
-	requiredPluginConfigKeys: ReadonlyArray<string> = keys,
-) =>
-	getPluginConfig({
-		access: { required: keys },
-		metadata: { requiredPluginConfigKeys },
-		context: { config, kind: "installation", configSchema: pluginConfigSchema },
-	}).pipe(Effect.result);
-
 describe("getPluginConfig", () => {
 	it.effect("omits unavailable optional reads and retains false and zero", () =>
 		Effect.gen(function* () {
-			const values = yield* getPluginConfig({
-				access: { optional: ["requestLimit", "enabled"] },
-				metadata: {
-					requiredPluginConfigKeys: [],
-					optionalPluginConfigKeys: ["requestLimit", "enabled"],
-				},
-				context: {
-					kind: "installation",
-					config: { enabled: false },
-					configSchema: pluginConfigSchema,
-				},
-			});
-			expect(values).toEqual({ enabled: false });
 			expect(
 				yield* getPluginConfig({
-					access: { required: ["requestLimit", "enabled"] },
-					metadata: {
-						optionalPluginConfigKeys: [],
-						requiredPluginConfigKeys: ["requestLimit", "enabled"],
-					},
+					access: { optional: ["requestLimit", "enabled"] },
+					metadata: { optionalPluginConfigKeys: ["requestLimit", "enabled"] },
+					context: { config: { enabled: false }, configSchema: pluginConfigSchema },
+				}),
+			).toEqual({ enabled: false });
+			expect(
+				yield* getPluginConfig({
+					access: { required: ["requestLimit", "enabled", "requestLimit"] },
+					metadata: { requiredPluginConfigKeys: ["requestLimit", "enabled"] },
 					context: {
-						kind: "installation",
 						configSchema: pluginConfigSchema,
-						config: { enabled: false, requestLimit: 0 },
+						config: { apiToken: 42, enabled: false, requestLimit: 0 },
 					},
 				}),
 			).toEqual({ enabled: false, requestLimit: 0 });
@@ -88,12 +43,8 @@ describe("getPluginConfig", () => {
 	);
 	it.effect("permits optional reads of required schema fields and validates selected values", () =>
 		Effect.gen(function* () {
-			const context = {
-				config: {},
-				kind: "installation" as const,
-				configSchema: pluginConfigSchema,
-			};
-			const metadata = { requiredPluginConfigKeys: [], optionalPluginConfigKeys: ["apiToken"] };
+			const context = { config: {}, configSchema: pluginConfigSchema };
+			const metadata = { optionalPluginConfigKeys: ["apiToken"] };
 			expect(
 				yield* getPluginConfig({ context, metadata, access: { optional: ["apiToken"] } }),
 			).toEqual({});
@@ -106,137 +57,64 @@ describe("getPluginConfig", () => {
 			).toMatchObject({ _tag: "Failure" });
 		}),
 	);
-	layer(pluginEnvironmentLayer({ enabled: "false", requestLimit: "0" }))((test) => {
-		test.effect("loads selected environment keys without unrelated required fields", () =>
-			Effect.gen(function* () {
-				expect(yield* runPluginConfig(["enabled", "requestLimit"])).toMatchObject({
-					_tag: "Success",
-					success: { enabled: false, requestLimit: 0 },
-				});
-				expect(
-					yield* getPluginConfig({
-						access: { optional: ["apiToken"] },
-						context: { packageId, kind: "environment", configSchema: pluginConfigSchema },
-						metadata: { requiredPluginConfigKeys: [], optionalPluginConfigKeys: ["apiToken"] },
-					}),
-				).toEqual({});
-			}),
-		);
-	});
-	it.effect("denies optional access outside generated keys and required promotion", () =>
+	it.effect("applies defaults only to declared selected keys", () =>
 		Effect.gen(function* () {
-			const context = {
-				kind: "installation" as const,
-				config: { apiToken: "secret" },
-				configSchema: pluginConfigSchema,
-			};
 			expect(
 				yield* getPluginConfig({
-					context,
-					access: { optional: ["enabled"] },
-					metadata: { requiredPluginConfigKeys: [], optionalPluginConfigKeys: [] },
-				}).pipe(Effect.flip),
+					access: { required: ["region"] },
+					metadata: { requiredPluginConfigKeys: ["region"] },
+					context: { config: {}, configSchema: pluginConfigSchema },
+				}),
+			).toEqual({ region: "local" });
+		}),
+	);
+	it.effect("denies undeclared, unknown, and promoted required reads", () =>
+		Effect.gen(function* () {
+			const context = { config: { apiToken: "secret" }, configSchema: pluginConfigSchema };
+			expect(
+				yield* getPluginConfig({ context, metadata: {}, access: { optional: ["enabled"] } }).pipe(
+					Effect.flip,
+				),
 			).toBe('Plugin config key "enabled" is not declared by this script');
 			expect(
 				yield* getPluginConfig({
 					context,
 					access: { required: ["enabled"] },
-					metadata: { requiredPluginConfigKeys: [], optionalPluginConfigKeys: ["enabled"] },
+					metadata: { optionalPluginConfigKeys: ["enabled"] },
 				}).pipe(Effect.flip),
 			).toBe('Plugin config key "enabled" is not a required read by this script');
+			expect(
+				yield* getPluginConfig({
+					context,
+					access: { required: ["missing"] },
+					metadata: { requiredPluginConfigKeys: ["missing"] },
+				}).pipe(Effect.flip),
+			).toBe('Plugin config key "missing" does not exist');
 		}),
 	);
-	it("selects package-specific environment configuration", () => {
-		expect(pluginConfigEnvironmentKey(packageId, "apiToken")).toBe(
-			"RYOT_PLUGIN__RYOT__FIXTURE__API_TOKEN",
-		);
-	});
-
-	layer(pluginEnvironmentLayer({ enabled: "true", apiToken: "secret", requestLimit: "12" }))(
-		(test) => {
-			test.effect("reads and parses declared plugin config from the config provider", () =>
-				Effect.gen(function* () {
-					expect(yield* runPluginConfig(["requestLimit", "enabled", "requestLimit"])).toMatchObject(
-						{ _tag: "Success", success: { enabled: true, requestLimit: 12 } },
-					);
+	it.effect("returns an empty record without validating unrelated config", () =>
+		Effect.gen(function* () {
+			expect(
+				yield* getPluginConfig({
+					access: {},
+					metadata: {},
+					context: { config: { enabled: "invalid" }, configSchema: pluginConfigSchema },
 				}),
-			);
-		},
+			).toEqual({});
+		}),
 	);
-
-	layer(pluginEnvironmentLayer({}))((test) => {
-		test.effect("returns an empty record without loading config", () =>
-			Effect.gen(function* () {
-				expect(yield* runPluginConfig([])).toMatchObject({ success: {}, _tag: "Success" });
-			}),
-		);
-	});
-
-	layer(pluginEnvironmentLayer({ apiToken: "secret" }))((test) => {
-		test.effect("rejects undeclared, unknown, and unconfigured plugin config", () =>
-			Effect.gen(function* () {
-				expect(yield* runPluginConfig(["apiToken", "requestLimit"], ["apiToken"])).toMatchObject({
-					_tag: "Failure",
-					failure: expect.stringContaining("is not declared"),
-				});
-				expect(yield* runPluginConfig(["missing"])).toMatchObject({
-					_tag: "Failure",
-					failure: expect.stringContaining("does not exist"),
-				});
-				expect(yield* runPluginConfig(["enabled"])).toMatchObject({
-					_tag: "Failure",
-					failure: {
-						message: expect.stringContaining("is not configured"),
-						data: { keys: ["enabled"], code: "missing-required-config" },
-					},
-				});
-			}),
-		);
-	});
-});
-
-describe("getPluginConfig for an installation", () => {
-	layer(makeConfigProviderLayer())((test) => {
-		test.effect("reads declared plugin config from the stored installation values", () =>
-			Effect.gen(function* () {
-				expect(
-					yield* runInstallationConfig(["requestLimit", "enabled"], {
-						enabled: true,
-						requestLimit: 12,
-						apiToken: "secret",
-					}),
-				).toMatchObject({ _tag: "Success", success: { enabled: true, requestLimit: 12 } });
-			}),
-		);
-
-		test.effect("rejects undeclared and unknown installation config keys", () =>
-			Effect.gen(function* () {
-				expect(
-					yield* runInstallationConfig(["apiToken", "requestLimit"], { apiToken: "secret" }, [
-						"apiToken",
-					]),
-				).toMatchObject({ _tag: "Failure", failure: expect.stringContaining("is not declared") });
-				expect(yield* runInstallationConfig(["missing"], { apiToken: "secret" })).toMatchObject({
-					_tag: "Failure",
-					failure: expect.stringContaining("does not exist"),
-				});
-			}),
-		);
-
-		test.effect("reports unconfigured installation keys without naming environment variables", () =>
-			Effect.gen(function* () {
-				const result = yield* runInstallationConfig(["enabled"], { apiToken: "secret" });
-				expect(result).toMatchObject({
-					_tag: "Failure",
-					failure: {
-						data: { keys: ["enabled"], code: "missing-required-config" },
-						message: expect.stringContaining("is not configured for this installation"),
-					},
-				});
-				assert(result._tag === "Failure");
-				assert(typeof result.failure !== "string");
-				expect(result.failure.message).not.toContain("RYOT_PLUGIN");
-			}),
-		);
-	});
+	it.effect("reports missing required values for the pinned execution", () =>
+		Effect.gen(function* () {
+			expect(
+				yield* getPluginConfig({
+					access: { required: ["apiToken"] },
+					metadata: { requiredPluginConfigKeys: ["apiToken"] },
+					context: { config: {}, configSchema: pluginConfigSchema },
+				}).pipe(Effect.flip),
+			).toEqual({
+				data: { keys: ["apiToken"], code: "missing-required-config" },
+				message: 'Plugin config key "apiToken" is not configured for this execution',
+			});
+		}),
+	);
 });

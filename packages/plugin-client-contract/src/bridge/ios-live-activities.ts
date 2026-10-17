@@ -66,24 +66,31 @@ const variants = [
 export const PluginIosLiveActivityRequest = Schema.Union(variants);
 export type PluginIosLiveActivityRequest = typeof PluginIosLiveActivityRequest.Type;
 
-export const PluginIosLiveActivityResult = strictStruct({
-	activities: Schema.optional(
-		Schema.Array(
-			strictStruct({ key, state: Schema.Literals(["active", "stale", "ended", "dismissed"]) }),
-		),
+const inventoryResult = strictStruct({
+	status: Schema.Literal("done"),
+	activities: Schema.Array(
+		strictStruct({ key, state: Schema.Literals(["active", "stale", "ended", "dismissed"]) }),
 	),
-	status: Schema.Literals([
-		"available",
-		"unsupported",
-		"disabled",
-		"foreground-required",
-		"capacity",
-		"active",
-		"ended",
-		"dismissed",
-		"done",
-	]),
 });
+const unsupportedResult = strictStruct({ status: Schema.Literal("unsupported") });
+
+export const PluginIosLiveActivityListResult = Schema.Union([inventoryResult, unsupportedResult]);
+export type PluginIosLiveActivityListResult = typeof PluginIosLiveActivityListResult.Type;
+
+export const PluginIosLiveActivityResult = Schema.Union([
+	...PluginIosLiveActivityListResult.members,
+	strictStruct({
+		status: Schema.Literals([
+			"available",
+			"disabled",
+			"foreground-required",
+			"capacity",
+			"active",
+			"ended",
+			"dismissed",
+		]),
+	}),
+]);
 export type PluginIosLiveActivityResult = typeof PluginIosLiveActivityResult.Type;
 
 const success = { outcome: Schema.Literal("success"), value: PluginIosLiveActivityResult };

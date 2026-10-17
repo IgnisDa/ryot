@@ -126,10 +126,6 @@
 			"types": "./shared/plugin-identity.ts",
 			"default": "./shared/plugin-identity.ts"
 		},
-		"./import-sources": {
-			"types": "./manifest/import-sources.ts",
-			"default": "./manifest/import-sources.ts"
-		},
 		"./contracts/workflows": {
 			"types": "./backend/contracts/workflows.ts",
 			"default": "./backend/contracts/workflows.ts"

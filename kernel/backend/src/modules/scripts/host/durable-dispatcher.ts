@@ -2,7 +2,7 @@ import { SandboxRunError, unknownToMessage } from "@ryot-app/contract/errors";
 import type { ExecutionLane } from "@ryot-app/contract/modules/automations/lifecycle";
 import type { JsonValue } from "@ryot-app/contract/schema/json";
 import { SANDBOX_COMPILED_FORMAT } from "@ryot-app/plugin-backend-compiler/protocol";
-import { httpCallArgsSchema, sandboxHostContracts } from "@ryot-app/plugin-backend-sdk/core";
+import { sandboxHostContracts } from "@ryot-app/plugin-backend-sdk/core";
 import {
 	hostFailure,
 	hostSuccess,
@@ -24,7 +24,7 @@ import {
 } from "@ryot-app/sandbox/host/bridge-adapter";
 import type { SandboxInlineProgress } from "@ryot-app/sandbox/host/inline-progress";
 import type { SandboxShortWait } from "@ryot-app/sandbox/host/short-wait";
-import { Context, Effect, Option, Schema } from "effect";
+import { Context, Effect, Schema } from "effect";
 import { Workflow } from "effect/workflow";
 import type { WorkflowEngine, WorkflowInstance } from "effect/workflow/WorkflowEngine";
 
@@ -38,7 +38,7 @@ import {
 	executeSandboxHttp,
 	prepareSandboxHttpRequest,
 	type SandboxHttpClassify,
-	type SandboxHttpRedirect,
+	type SandboxHttpHop,
 } from "#modules/scripts/host/runtime-host-functions";
 import type { SandboxSubmissionCommands } from "#modules/scripts/host/submission-command";
 
@@ -66,14 +66,6 @@ export const durableHostFailure = (message: string, data?: JsonValue): WorkflowD
 	state: "failure",
 	error: data === undefined ? { message } : { data, message },
 });
-
-export const sandboxDurableHttpRequestUrl = (request: HostRequest) =>
-	Option.getOrNull(
-		Option.map(
-			Schema.decodeUnknownOption(httpCallArgsSchema)(normalizeOptionalNull(request.args.args, 2)),
-			(args) => args[1],
-		),
-	);
 
 export const sandboxHttpRedirectClassifier =
 	(resolve: PluginHttpRateLimitAuthority["Service"]["resolve"]): SandboxHttpClassify =>
@@ -170,39 +162,38 @@ export const dispatchSandboxHostActivity = Effect.fn("dispatchSandboxHostActivit
 
 const encodeHttpCallResult = Schema.encodeUnknownEffect(sandboxHostContracts.httpCall.result);
 
-/**
- * Runs one durable network activity for a matched or proven-unmatched hop: the script's request
- * when `redirect` is null, otherwise the journaled redirect it continues from.
- */
-export const dispatchSandboxHttpHop = Effect.fn("dispatchSandboxHttpHop")(function* (
+export const prepareSandboxDurableHttpHop = Effect.fn("prepareSandboxDurableHttpHop")(function* (
 	request: HostRequest,
 	scope: HostCallScope,
-	redirect: SandboxHttpRedirect | null,
-	classify: SandboxHttpClassify,
 ) {
 	yield* loadDispatchInput(request, scope);
-	const outcome = yield* Effect.gen(function* () {
+	return yield* Effect.gen(function* () {
 		const [method, url, options] = yield* decodeSandboxHostArguments(
 			"httpCall",
 			sandboxHostContracts.httpCall,
 		)(normalizeOptionalNull(request.args.args, 2)).pipe(
 			Effect.mapError((error): SandboxHostError => error),
 		);
-		const next =
-			redirect === null
-				? yield* prepareSandboxHttpRequest(method, url, options)
-				: {
-						url: redirect.url,
-						method: redirect.method,
-						headers: redirect.headers,
-						...(redirect.body === undefined ? {} : { body: redirect.body }),
-					};
-		return yield* executeSandboxHttp(next, {
-			classify,
-			hop: redirect?.hop ?? 0,
-			allowInsecureConnections: options?.allowInsecureConnections,
-		});
+		return yield* prepareSandboxHttpRequest(method, url, options);
 	}).pipe(
+		Effect.match({
+			onSuccess: (current) => ({ current, _tag: "prepared" as const }),
+			onFailure: (error) => ({
+				_tag: "completed" as const,
+				result: durableHostFailure(error.message, error.data),
+			}),
+		}),
+	);
+});
+
+export const dispatchSandboxHttpHop = Effect.fn("dispatchSandboxHttpHop")(function* (
+	request: HostRequest,
+	scope: HostCallScope,
+	current: SandboxHttpHop,
+	classify: SandboxHttpClassify,
+) {
+	yield* loadDispatchInput(request, scope);
+	const outcome = yield* executeSandboxHttp(current, classify).pipe(
 		Effect.match({
 			onFailure: (error) => hostFailure(error.message, error.data),
 			onSuccess: (hop) => (hop._tag === "completed" ? hostSuccess(hop.result) : hop),

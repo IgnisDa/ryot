@@ -51,7 +51,7 @@ fn contain(tier: Tier, abuses: &[(&str, &str, Limits)]) -> HashMap<String, Outco
     }
     for index in 0..4 {
         match &outcomes[&format!("neighbour-{index}")] {
-            Outcome::Completed(value) => assert_eq!(value.get(), index.to_string()),
+            Outcome::Completed { value } => assert_eq!(value.get(), index.to_string()),
             other => panic!("neighbour {index} was affected: {other:?}"),
         }
     }
@@ -60,7 +60,7 @@ fn contain(tier: Tier, abuses: &[(&str, &str, Limits)]) -> HashMap<String, Outco
 
 fn limit_of(outcome: &Outcome) -> Option<LimitKind> {
     match outcome {
-        Outcome::Limit(limit, _) => Some(*limit),
+        Outcome::Limit { limit, .. } => Some(*limit),
         _ => None,
     }
 }
@@ -357,7 +357,12 @@ fn crash_probes_do_not_crash_the_process() {
             tight(),
         );
         match &done.outcome {
-            Outcome::Completed(_) | Outcome::Limit(..) | Outcome::Failed(Phase::Execution, _) => {}
+            Outcome::Completed { .. }
+            | Outcome::Limit { .. }
+            | Outcome::Failed {
+                phase: Phase::Execution,
+                ..
+            } => {}
             other => panic!("{probe}: unexpected outcome {other:?}"),
         }
         assert_eq!(

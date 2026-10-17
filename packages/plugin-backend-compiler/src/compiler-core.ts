@@ -1,6 +1,5 @@
 import type { CompilerWorkspaceOptions } from "@ryot-app/vite-compiler";
 import { Effect } from "effect";
-import { DiagnosticCategory } from "typescript/unstable/async";
 
 import { bundleUserScript } from "./compiler-bundle";
 import { resolveSandboxCompilerDependencies } from "./compiler-dependencies";
@@ -9,12 +8,14 @@ import {
 	PluginBackendCompilerFailure,
 	SANDBOX_SOURCE_FILE,
 	sandboxCompilationFailure,
-	toTypeScriptDiagnostic,
 } from "./compiler-diagnostics";
-import { extractSandboxManifest } from "./compiler-manifest";
-import { finalizeCompiledModule, validateSandboxCapabilities } from "./compiler-metadata";
+import { finalizeCompiledModule } from "./compiler-metadata";
 import { createTypeScriptSourcesProject } from "./compiler-project";
-import { inspectSandboxSource, sandboxDefinitionMismatch } from "./compiler-source";
+import {
+	inspectSandboxEntry,
+	validateSandboxEntry,
+	validateSandboxProjectDiagnostics,
+} from "./compiler-validation";
 import { SANDBOX_COMPILER_LIMITS, utf8ByteLength } from "./limits";
 
 export const compileSandboxSource = (source: string, workspaceOptions?: CompilerWorkspaceOptions) =>
@@ -45,56 +46,21 @@ export const compileSandboxSource = (source: string, workspaceOptions?: Compiler
 						]),
 			),
 		);
-		const inspection = inspectSandboxSource(project.sourceFile);
-		if (!project.execution) {
-			return yield* sandboxCompilationFailure([
-				pluginBackendCompilerDiagnostic("RYOT_DEPENDENCY", "Executable analysis is missing"),
-			]);
-		}
-		if (project.execution.diagnostics.length) {
-			return yield* sandboxCompilationFailure(project.execution.diagnostics);
-		}
-		if (inspection.diagnostics.length > 0) {
-			return yield* sandboxCompilationFailure(inspection.diagnostics);
-		}
-
-		const hasTypeErrors = project.diagnostics.some(
-			(diagnostic) => diagnostic.category === DiagnosticCategory.Error,
-		);
-		if (hasTypeErrors) {
-			return yield* sandboxCompilationFailure(
-				project.diagnostics
-					.filter((diagnostic) => diagnostic.category === DiagnosticCategory.Error)
-					.slice(0, SANDBOX_COMPILER_LIMITS.diagnosticCount)
-					.map((diagnostic) =>
-						toTypeScriptDiagnostic(diagnostic, project.sourceFiles, project.sourceFile),
-					),
-			);
-		}
-
-		const extracted = extractSandboxManifest(project.sourceFile, inspection.manifestHelpers);
-		if (extracted.diagnostic) {
-			return yield* sandboxCompilationFailure([extracted.diagnostic]);
-		}
-		const definitionMismatch = sandboxDefinitionMismatch(inspection, extracted.manifest);
-		if (definitionMismatch) {
-			return yield* sandboxCompilationFailure([
-				pluginBackendCompilerDiagnostic("RYOT_DEFINITION", definitionMismatch),
-			]);
-		}
-		const capabilityDiagnostic = validateSandboxCapabilities({
-			...extracted.manifest,
-			...project.execution.metadata,
+		const inspected = yield* inspectSandboxEntry(project.entry, source, {
+			allowRelativeImports: false,
 		});
-		if (capabilityDiagnostic) {
-			return yield* sandboxCompilationFailure([capabilityDiagnostic]);
-		}
+		yield* validateSandboxProjectDiagnostics(project, project.entry.sourceFile);
+		const validated = yield* validateSandboxEntry({
+			inspected,
+			moduleDiagnostics: [],
+			sourceFiles: project.sourceFiles,
+		});
 
 		const compiled = yield* bundleUserScript(source, dependencies.sdkEntries, workspaceOptions);
 		return yield* finalizeCompiledModule({
-			manifest: extracted.manifest,
+			manifest: validated.manifest,
+			metadata: validated.metadata,
 			javascript: compiled.javascript,
-			metadata: project.execution.metadata,
 			runtimeImports: compiled.runtimeImports,
 		});
 	});

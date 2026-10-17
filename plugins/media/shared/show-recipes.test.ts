@@ -1,6 +1,7 @@
 import { rowsResult } from "@ryot-app/ryotql-recipes/test-utils";
 import { describe, expect, it } from "vitest";
 
+import { mediaImagePurposes } from "./media-image";
 import {
 	showOrderEpisodesRecipe,
 	showOrderGroupCoverageRecipe,
@@ -854,7 +855,11 @@ describe("media show query recipes", () => {
 		).toBe("Failure");
 	});
 
-	it("decodes images without a recorded purpose", () => {
+	it.each([
+		{ type: "s3", key: "untagged-image" },
+		{ type: "local", key: "untagged-image" },
+		{ type: "remote", url: "https://images.test/untagged.jpg" },
+	])("rejects a show summary whose $type image has no purpose", (image) => {
 		const recipe = showRecipes.summaryRecipe({
 			collectionLimit: 6,
 			entityId: "show-1",
@@ -865,12 +870,32 @@ describe("media show query recipes", () => {
 			recipe.decode({
 				data: {
 					requested: showRows([{ schemaSlug: "show" }]),
-					summary: showRows([
-						{ ...SHOW_SUMMARY_ROW, images: [{ type: "s3", key: "legacy-image" }] },
-					]),
+					summary: showRows([{ ...SHOW_SUMMARY_ROW, images: [image] }]),
+				},
+			})._tag,
+		).toBe("Failure");
+	});
+
+	it("decodes all seven image purposes for each locator type", () => {
+		const recipe = showRecipes.summaryRecipe({
+			collectionLimit: 6,
+			entityId: "show-1",
+			reference: { kind: "self" },
+		});
+		const images = mediaImagePurposes.flatMap((purpose) => [
+			{ purpose, type: "s3", key: `s3-${purpose}` },
+			{ purpose, type: "local", key: `local-${purpose}` },
+			{ purpose, type: "remote", url: `https://images.test/${purpose}.jpg` },
+		]);
+
+		expect(
+			recipe.decode({
+				data: {
+					requested: showRows([{ schemaSlug: "show" }]),
+					summary: showRows([{ ...SHOW_SUMMARY_ROW, images }]),
 				},
 			}),
-		).toMatchObject({ success: { summary: { images: [{ type: "s3", key: "legacy-image" }] } } });
+		).toMatchObject({ success: { summary: { images } } });
 	});
 
 	it("reads show credits from the relationship side that points at the show", () => {

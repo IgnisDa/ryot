@@ -1,4 +1,4 @@
-import { Effect, FileSystem, Path, Result } from "effect";
+import { Effect, Exit, FileSystem, Path, Result, Scope } from "effect";
 
 import { viteCompilerError } from "./error";
 import type { ViteCompilerError } from "./error";
@@ -18,6 +18,12 @@ export interface CompilerWorkspaceOptions {
 export interface WorkspaceFile {
 	readonly path: string;
 	readonly contents: string | Uint8Array;
+}
+
+interface CompilerWorkspaceInput extends CompilerWorkspaceOptions {
+	readonly sources?: readonly WorkspaceFile[];
+	readonly generated?:
+		readonly WorkspaceFile[] | ((paths: CompilerWorkspace) => readonly WorkspaceFile[]);
 }
 
 const jobIdPattern = /^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/;
@@ -68,7 +74,7 @@ export const getCompilerWorkspaceRoot = (
 const filesystemError = (operation: string, path: string, cause: unknown) =>
 	viteCompilerError("workspace-filesystem", `Could not ${operation}: ${path}`, cause);
 
-const createCompilerWorkspace = Effect.fn("createCompilerWorkspace")(function* (
+const createWorkspaceRoot = Effect.fn("createWorkspaceRoot")(function* (
 	options: CompilerWorkspaceOptions,
 ) {
 	const fs = yield* FileSystem.FileSystem;
@@ -92,7 +98,17 @@ const createCompilerWorkspace = Effect.fn("createCompilerWorkspace")(function* (
 			);
 		yield* fs
 			.makeDirectory(rootPath)
-			.pipe(Effect.mapError((cause) => filesystemError("create workspace", rootPath, cause)));
+			.pipe(
+				Effect.mapError((cause) =>
+					cause.reason._tag === "AlreadyExists"
+						? viteCompilerError(
+								"workspace-collision",
+								`Workspace path collision: ${rootPath}`,
+								cause,
+							)
+						: filesystemError("create workspace", rootPath, cause),
+				),
+			);
 	} else {
 		rootPath = yield* fs
 			.makeTempDirectory({ prefix: "ryot-vite-", directory: options.parentPath })
@@ -103,47 +119,16 @@ const createCompilerWorkspace = Effect.fn("createCompilerWorkspace")(function* (
 			);
 	}
 
-	const workspace = {
-		rootPath,
-		sourcePath: path.join(rootPath, "source"),
-		outputPath: path.join(rootPath, "output"),
-		generatedPath: path.join(rootPath, "generated"),
-	} satisfies CompilerWorkspace;
-	return yield* Effect.forEach(
-		[workspace.sourcePath, workspace.generatedPath, workspace.outputPath],
-		(directory) =>
-			fs
-				.makeDirectory(directory)
-				.pipe(
-					Effect.mapError((cause) =>
-						filesystemError("create workspace namespace", directory, cause),
-					),
-				),
-		{ discard: true },
-	).pipe(
-		Effect.as(workspace),
-		Effect.onError(() => fs.remove(rootPath, { force: true, recursive: true }).pipe(Effect.ignore)),
-	);
+	return rootPath;
 });
-
-export const acquireCompilerWorkspace = Effect.fn("acquireCompilerWorkspace")(function* (
-	options: CompilerWorkspaceOptions = {},
-) {
-	const fs = yield* FileSystem.FileSystem;
-	return yield* Effect.acquireRelease(createCompilerWorkspace(options), (workspace) =>
-		fs.remove(workspace.rootPath, { force: true, recursive: true }).pipe(Effect.orDie),
-	);
-});
-
-type ValidatedWorkspaceFile = { readonly path: string; readonly contents: string | Uint8Array };
 
 const validateInputs = (
 	inputs: readonly WorkspaceFile[],
-): Result.Result<ValidatedWorkspaceFile[], ViteCompilerError> => {
+): Result.Result<WorkspaceFile[], ViteCompilerError> => {
 	if (!Array.isArray(inputs)) {
 		return Result.fail(viteCompilerError("invalid-input", "Workspace inputs must be an array"));
 	}
-	const files: ValidatedWorkspaceFile[] = [];
+	const files: WorkspaceFile[] = [];
 	for (const input of inputs) {
 		if (typeof input !== "object" || input === null || !("path" in input)) {
 			return Result.fail(viteCompilerError("invalid-input", "Workspace input must be a file"));
@@ -171,113 +156,90 @@ const validateInputs = (
 		}
 		return 0;
 	});
-	for (let index = 1; index < files.length; index += 1) {
-		const previousPath = files[index - 1]?.path;
-		const currentPath = files[index]?.path;
-		if (previousPath === currentPath || currentPath?.startsWith(`${previousPath}/`)) {
+	const paths = new Set<string>();
+	for (const file of files) {
+		const components = file.path.split("/");
+		if (
+			paths.has(file.path) ||
+			components.some((_, index) => paths.has(components.slice(0, index).join("/")))
+		) {
 			return Result.fail(
-				viteCompilerError("workspace-collision", `Workspace path collision: ${currentPath}`),
+				viteCompilerError("workspace-collision", `Workspace path collision: ${file.path}`),
 			);
 		}
+		paths.add(file.path);
 	}
 	return Result.succeed(files);
 };
 
 const stageFiles = Effect.fn("stageWorkspaceFiles")(function* (
 	namespacePath: string,
-	inputs: readonly WorkspaceFile[],
+	files: readonly WorkspaceFile[],
 ) {
 	const fs = yield* FileSystem.FileSystem;
 	const path = yield* Path.Path;
-	const ordered = yield* Effect.fromResult(validateInputs(inputs));
-	const namespaceRealPath = yield* fs
-		.realPath(namespacePath)
-		.pipe(
-			Effect.mapError((cause) =>
-				filesystemError("resolve workspace namespace", namespacePath, cause),
-			),
-		);
-	const destinations = yield* Effect.forEach(ordered, (file) =>
-		Effect.gen(function* () {
-			const destination = path.resolve(namespacePath, file.path);
-			const parent = path.resolve(destination, "..");
-			yield* fs
-				.makeDirectory(parent, { recursive: true })
-				.pipe(
-					Effect.mapError((cause) => filesystemError("create workspace directory", parent, cause)),
-				);
-			let componentPath = namespacePath;
-			for (const component of file.path.split("/").slice(0, -1)) {
-				componentPath = path.join(componentPath, component);
-				const componentStatus = yield* fs
-					.stat(componentPath)
-					.pipe(
-						Effect.mapError((cause) =>
-							filesystemError("inspect workspace path", componentPath, cause),
-						),
-					);
-				if (componentStatus.type === "SymbolicLink") {
-					return yield* viteCompilerError(
-						"workspace-symlink",
-						`Workspace path escapes through a symlink: ${file.path}`,
-					);
-				}
-			}
-			const parentRealPath = yield* fs
-				.realPath(parent)
-				.pipe(
-					Effect.mapError((cause) => filesystemError("resolve workspace directory", parent, cause)),
-				);
-			const relativeParent = path.relative(namespaceRealPath, parentRealPath);
-			if (relativeParent === ".." || relativeParent.startsWith(`..${path.sep}`)) {
-				return yield* viteCompilerError(
-					"workspace-symlink",
-					`Workspace path escapes its namespace: ${file.path}`,
-				);
-			}
-			const exists = yield* fs
-				.exists(destination)
-				.pipe(
-					Effect.mapError((cause) => filesystemError("inspect workspace file", destination, cause)),
-				);
-			if (exists) {
-				const status = yield* fs
-					.stat(destination)
-					.pipe(
-						Effect.mapError((cause) =>
-							filesystemError("inspect workspace file", destination, cause),
-						),
-					);
-				return yield* viteCompilerError(
-					status.type === "SymbolicLink" ? "workspace-symlink" : "workspace-collision",
-					status.type === "SymbolicLink"
-						? `Workspace destination is a symlink: ${file.path}`
-						: `Workspace path collision: ${file.path}`,
-				);
-			}
-			return { file, destination };
-		}),
-	);
 	yield* Effect.forEach(
-		destinations,
-		({ file, destination }) => {
-			const write =
-				typeof file.contents === "string"
-					? fs.writeFileString(destination, file.contents, { flag: "wx" })
-					: fs.writeFile(destination, file.contents, { flag: "wx" });
-			return write.pipe(
-				Effect.mapError((cause) => filesystemError("write workspace file", destination, cause)),
-			);
-		},
+		files,
+		(file) =>
+			Effect.gen(function* () {
+				const destination = path.resolve(namespacePath, file.path);
+				const parent = path.resolve(destination, "..");
+				yield* fs
+					.makeDirectory(parent, { recursive: true })
+					.pipe(
+						Effect.mapError((cause) =>
+							filesystemError("create workspace directory", parent, cause),
+						),
+					);
+				const write =
+					typeof file.contents === "string"
+						? fs.writeFileString(destination, file.contents, { flag: "wx" })
+						: fs.writeFile(destination, file.contents, { flag: "wx" });
+				yield* write.pipe(
+					Effect.mapError((cause) => filesystemError("write workspace file", destination, cause)),
+				);
+			}),
 		{ discard: true },
 	);
-	return ordered.map((file) => file.path);
 });
 
-export const stageSourceFiles = (workspace: CompilerWorkspace, inputs: readonly WorkspaceFile[]) =>
-	stageFiles(workspace.sourcePath, inputs);
-
-export const stageGeneratedFiles = (
-	workspace: CompilerWorkspace,
-	inputs: readonly WorkspaceFile[],
-) => stageFiles(workspace.generatedPath, inputs);
+export const acquireCompilerWorkspace = Effect.fn("acquireCompilerWorkspace")(function* (
+	input: CompilerWorkspaceInput = {},
+) {
+	const fs = yield* FileSystem.FileSystem;
+	const path = yield* Path.Path;
+	const sources = yield* Effect.fromResult(validateInputs(input.sources ?? []));
+	const scope = yield* Scope.fork(yield* Effect.scope);
+	return yield* Effect.gen(function* () {
+		const rootPath = yield* Effect.acquireRelease(createWorkspaceRoot(input), (root) =>
+			fs.remove(root, { force: true, recursive: true }).pipe(Effect.orDie),
+		);
+		yield* fs
+			.chmod(rootPath, 0o700)
+			.pipe(Effect.mapError((cause) => filesystemError("make workspace private", rootPath, cause)));
+		const workspace: CompilerWorkspace = {
+			rootPath,
+			sourcePath: path.join(rootPath, "source"),
+			outputPath: path.join(rootPath, "output"),
+			generatedPath: path.join(rootPath, "generated"),
+		};
+		const generatedInputs =
+			typeof input.generated === "function" ? input.generated(workspace) : (input.generated ?? []);
+		const generated = yield* Effect.fromResult(validateInputs(generatedInputs));
+		for (const directory of [workspace.sourcePath, workspace.generatedPath, workspace.outputPath]) {
+			yield* fs
+				.makeDirectory(directory)
+				.pipe(
+					Effect.mapError((cause) =>
+						filesystemError("create workspace namespace", directory, cause),
+					),
+				);
+		}
+		yield* stageFiles(workspace.sourcePath, sources);
+		yield* stageFiles(workspace.generatedPath, generated);
+		return workspace;
+	}).pipe(
+		Effect.provideService(Scope.Scope, scope),
+		Effect.onError((cause) => Scope.close(scope, Exit.failCause(cause))),
+	);
+});

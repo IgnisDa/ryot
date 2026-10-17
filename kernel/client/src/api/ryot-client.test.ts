@@ -242,6 +242,7 @@ describe("kernel Ryot client", () => {
 			expect(store.get({ ...scope })).toBe(first);
 			expect(first.hostServices).toEqual({ scope, runtime });
 			expect(store.get({ ...scope, userId: "user-2" })).not.toBe(first);
+			expect(store.get(scope)).not.toBe(first);
 		}).pipe(Effect.ensuring(Effect.promise(() => runtime.dispose())));
 	});
 

@@ -74,7 +74,6 @@ export const attachFitnessTaxonomyProvider = (
 					name: "E2E Free Exercise DB",
 					information: { source: "e2e" },
 					rootEntitySchemaSlug: "exercise",
-					operations: { details: detailsScriptSlug },
 				},
 				files: {
 					"shared/taxonomy.ts": taxonomySource,

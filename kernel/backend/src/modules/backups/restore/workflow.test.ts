@@ -142,11 +142,7 @@ const makeLayer = (
 		),
 	);
 
-const archiveLocator = {
-	intentId: "intent-id",
-	provider: "local" as const,
-	key: "temporary/archive.zip",
-};
+const archiveLocator = { intentId: "intent-id", key: "temporary/archive.zip" };
 
 const emptyRecords = {
 	entities: [],
@@ -206,7 +202,7 @@ layer(
 			assertRequiredPlugins: (required) => resolveRequiredPluginIds(required, []),
 		},
 		objectStorage: {
-			selectStorageProvider: () => record("stage-assets").pipe(Effect.as("local" as const)),
+			permanentStorageProvider: Effect.succeed("local" as const),
 			openObject: openArchive(
 				createArchiveStream({
 					assets: [],
@@ -271,6 +267,7 @@ layer(
 					Effect.as({
 						intentId: "intent-id",
 						fileName: "archive.zip",
+						resolvedPath: "/isolated-test/archive.zip",
 						leaseExpiresAt: "2026-08-23T13:00:00.000Z",
 						locator: { type: "local" as const, key: "temporary/archive.zip" },
 					}),
@@ -289,14 +286,17 @@ layer(
 
 layer(
 	makeLayer(() => ({
-		repository: { getRunById: () => Effect.succeed({ ...runningRun, progress: 90 }) },
-		writer: { restoreRecords: () => Effect.die("checkpoint replay must not restore rows") },
-		objectStorage: { openObject: () => Effect.die("checkpoint replay must not read the archive") },
+		writer: { restoreRecords: () => Effect.die("completed replay must not restore rows") },
+		objectStorage: { openObject: () => Effect.die("completed replay must not read the archive") },
+		repository: {
+			getRunById: () => Effect.succeed({ ...runningRun, status: "completed" as const }),
+		},
 	})),
 )((test) => {
-	test.effect("skips archive validation and mutation after the restore checkpoint", () =>
+	test.effect("skips begin, archive validation and mutation after completion", () =>
 		Effect.gen(function* () {
 			const operations = yield* RestoreBackupWorkflowOperations;
+			expect(yield* operations.begin(payload)).toBe(false);
 			yield* operations.restore(payload, archiveLocator);
 		}),
 	);
@@ -304,10 +304,7 @@ layer(
 
 layer(
 	makeLayer(({ record }) => ({
-		repository: {
-			completeRun: () =>
-				record("complete").pipe(Effect.as({ ...runningRun, status: "completed" as const })),
-		},
+		repository: { completeRun: () => Effect.die("cleanup must not complete the run") },
 		uploadIntents: {
 			deleteTemporaryUpload: () =>
 				record("delete").pipe(
@@ -316,16 +313,11 @@ layer(
 		},
 	})),
 )((test) => {
-	test.effect("completes before best-effort temporary cleanup", () =>
+	test.effect("retries unavailable temporary cleanup without accessing run persistence", () =>
 		Effect.gen(function* () {
 			const operations = yield* RestoreBackupWorkflowOperations;
 			yield* operations.cleanup(payload, archiveLocator);
-			expect(yield* (yield* FakeRestoreDependencies).calls).toEqual([
-				"complete",
-				"delete",
-				"delete",
-				"delete",
-			]);
+			expect(yield* (yield* FakeRestoreDependencies).calls).toEqual(["delete", "delete", "delete"]);
 		}),
 	);
 });
@@ -347,10 +339,10 @@ layer(
 			},
 			repository: {
 				getRunById: () => Effect.succeed(runningRun),
-				updateProgress: () => Effect.succeed({ ...runningRun, progress: 90 }),
+				completeRun: () => Effect.succeed({ ...runningRun, status: "completed" as const }),
 			},
 			objectStorage: {
-				selectStorageProvider: () => Effect.succeed("local" as const),
+				permanentStorageProvider: Effect.succeed("local" as const),
 				openObject: openArchive(
 					createArchiveStream({
 						assets: [],
@@ -383,7 +375,7 @@ layer(
 			cleanliness: { assertAccountIsClean: () => Effect.void.pipe(Effect.as(undefined)) },
 			repository: {
 				getRunById: () => Effect.succeed(runningRun),
-				updateProgress: () => Effect.succeed({ ...runningRun, progress: 90 }),
+				completeRun: () => Effect.succeed({ ...runningRun, status: "completed" as const }),
 			},
 			writer: {
 				assertRequiredPlugins: () => Effect.succeed(new Map()),
@@ -397,7 +389,7 @@ layer(
 					}),
 			},
 			objectStorage: {
-				selectStorageProvider: () => Effect.succeed("local" as const),
+				permanentStorageProvider: Effect.succeed("local" as const),
 				openObject: openArchive(
 					createArchiveStream({
 						assets: [],
@@ -432,7 +424,7 @@ layer(
 				Effect.fail(new BackupBadRequest({ reason: { code: "asset-forbidden" } })),
 		},
 		objectStorage: {
-			selectStorageProvider: () => Effect.succeed("local" as const),
+			permanentStorageProvider: Effect.succeed("local" as const),
 			openObject: openArchive(
 				createArchiveStream({
 					assets: [],
@@ -490,16 +482,17 @@ layer(
 
 layer(
 	makeLayer(({ record }) => ({
-		repository: {
-			failRun: (input) =>
-				record(`fail:${input.failure.code}`).pipe(
-					Effect.as({ ...runningRun, status: "failed" as const }),
-				),
-		},
 		uploadIntents: {
 			deleteTemporaryUpload: () =>
 				record("delete").pipe(
 					Effect.andThen(Effect.fail(new BadRequest({ message: "storage unavailable" }))),
+				),
+		},
+		repository: {
+			getRunById: () => Effect.succeed(runningRun),
+			failRun: (input) =>
+				record(`fail:${input.failure.code}`).pipe(
+					Effect.as({ ...runningRun, status: "failed" as const }),
 				),
 		},
 	})),
@@ -536,10 +529,10 @@ layer(
 		cleanliness: { assertAccountIsClean: () => Effect.void.pipe(Effect.as(undefined)) },
 		repository: {
 			getRunById: () => Effect.succeed(runningRun),
-			updateProgress: () => Effect.die("failed transaction must not checkpoint"),
+			completeRun: () => Effect.die("failed transaction must not complete"),
 		},
 		objectStorage: {
-			selectStorageProvider: () => Effect.succeed("local" as const),
+			permanentStorageProvider: Effect.succeed("local" as const),
 			openObject: openArchive(archiveWithAsset(new TextEncoder().encode("restore asset"))),
 		},
 		writer: {
@@ -650,13 +643,7 @@ const recordingOperationsLayer = Layer.mergeAll(
 					cleanup: () => record("cleanup"),
 					begin: () => record("begin").pipe(Effect.as(true)),
 					claim: () =>
-						record("claim").pipe(
-							Effect.as({
-								intentId: "intent",
-								provider: "local" as const,
-								key: "temporary/input.zip",
-							}),
-						),
+						record("claim").pipe(Effect.as({ intentId: "intent", key: "temporary/input.zip" })),
 				}),
 			);
 		}),

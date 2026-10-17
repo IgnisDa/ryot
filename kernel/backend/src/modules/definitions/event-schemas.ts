@@ -1,8 +1,4 @@
-import {
-	definitionKey,
-	definitionOwner,
-	type EntitySchemaReference,
-} from "@ryot-app/contract/modules/plugins/references";
+import { definitionKey, definitionOwner } from "@ryot-app/contract/modules/plugins/references";
 import { EntitySchemaSlug, EventSchemaSlug, type UserId } from "@ryot-app/contract/schema/brands";
 import { Context, Effect, Layer } from "effect";
 
@@ -31,60 +27,6 @@ export class EventSchemaReader extends Context.Service<EventSchemaReader>()("Eve
 		const definitions = yield* DefinitionRepository;
 		const pluginRuntime = yield* PluginRuntimeResolver;
 		const lockCatalog = pluginRuntime.lockCatalog;
-		const findEntitySchema = (userId: UserId, reference: EntitySchemaReference) =>
-			definitions
-				.findUserEntitySchemas(userId, [reference])
-				.pipe(
-					Effect.map(
-						(found) => found[definitionKey("entity", reference.owner, reference.slug)] ?? null,
-					),
-				);
-		const getEntitySchemaScopeById = (input: {
-			userId: UserId;
-			entitySchema: EntitySchemaReference;
-		}) =>
-			findEntitySchema(input.userId, input.entitySchema).pipe(
-				Effect.map((definition) => {
-					return definition
-						? {
-								userId: null,
-								slug: definition.slug,
-								id: input.entitySchema.slug,
-								pluginId: definition.pluginId,
-								isBuiltin: definition.pluginId === null,
-							}
-						: null;
-				}),
-			);
-		const getBuiltinBySlug = (input: { entitySchemaSlug: EntitySchemaSlug; slug: string }) =>
-			definitions
-				.findGlobalEventSchema({
-					owner: { kind: "kernel" },
-					slug: EventSchemaSlug.make(input.slug),
-					entitySchemaSlug: input.entitySchemaSlug,
-				})
-				.pipe(
-					Effect.map((event) =>
-						event
-							? {
-									slug: event.slug,
-									pluginId: event.pluginId,
-									id: EventSchemaSlug.make(event.slug),
-									propertiesSchema: event.propertiesSchema,
-									...(event.projection === undefined ? {} : { projection: event.projection }),
-								}
-							: null,
-					),
-				);
-		const listByEntitySchemaForUser = (input: {
-			userId: UserId;
-			entitySchema: EntitySchemaReference;
-		}) =>
-			definitions
-				.listUserEventSchemas(input.userId, input.entitySchema)
-				.pipe(
-					Effect.map((events) => events.map((event) => toListed(input.entitySchema.slug, event))),
-				);
 		const getScopesForUser = (userId: UserId, inputs: ReadonlyArray<EventSchemaScopeInput>) => {
 			const references = inputs.map((input) => ({
 				slug: input.entitySchemaSlug,
@@ -116,14 +58,7 @@ export class EventSchemaReader extends Context.Service<EventSchemaReader>()("Eve
 		const getScopeForUser = (input: EventSchemaScopeInput & { userId: UserId }) =>
 			getScopesForUser(input.userId, [input]).pipe(Effect.map(([scope]) => scope ?? null));
 
-		return {
-			lockCatalog,
-			getScopeForUser,
-			getScopesForUser,
-			getBuiltinBySlug,
-			getEntitySchemaScopeById,
-			listByEntitySchemaForUser,
-		};
+		return { lockCatalog, getScopeForUser, getScopesForUser };
 	}),
 }) {
 	static readonly layer = Layer.effect(this, this.make);

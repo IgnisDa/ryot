@@ -8,6 +8,7 @@ import {
 } from "@ryot-app/contract/modules/oauth-connections/schemas";
 import type { DeclarationReference } from "@ryot-app/contract/modules/plugins/references";
 import type { IntegrationId, OAuthConnectionId } from "@ryot-app/contract/schema/brands";
+import { useRyot } from "@ryot-app/plugin-client-sdk/react";
 import type {
 	SchemaOAuthConnect,
 	SchemaOAuthConnectOutcome,
@@ -38,6 +39,7 @@ import { AuthService } from "#/modules/auth/service";
 import { DEMO_PROTECTION_MESSAGE, useIsDemoSession } from "#/modules/demo-protection";
 import { decodeOAuthReturnFragment } from "#/modules/integrations/oauth-return";
 import { DeepLinkClaims } from "#/modules/navigation/deep-link";
+import { nativeListener } from "#/modules/navigation/native-navigation";
 
 const ATTEMPT_TIMEOUT = Duration.minutes(10);
 const NATIVE_RETURN_GRACE = Duration.seconds(5);
@@ -97,10 +99,12 @@ export class OAuthConnectPlatform extends Context.Service<
 					catch: () => new OAuthConnectFailed({ message: MESSAGES.browser }),
 				}),
 			onFinished: (handler) =>
-				Effect.tryPromise({
-					try: () => Browser.addListener("browserFinished", handler),
-					catch: () => new OAuthConnectFailed({ message: MESSAGES.browser }),
-				}).pipe(Effect.map((listener) => () => void listener.remove())),
+				nativeListener(
+					Effect.tryPromise({
+						try: () => Browser.addListener("browserFinished", handler),
+						catch: () => new OAuthConnectFailed({ message: MESSAGES.browser }),
+					}),
+				),
 		},
 	});
 }
@@ -377,6 +381,7 @@ export const useOAuthConnect = (input: {
 	readonly integrationId?: IntegrationId;
 }): { readonly connect: SchemaOAuthConnect; readonly disabledReason: string | undefined } => {
 	const { scope, server, runtime } = useRouteContext({ from: "/_authenticated" });
+	const client = useRyot();
 	const isDemo = useIsDemoSession(runtime.runSync(AuthService).session(server));
 	const connect: SchemaOAuthConnect = (request) => {
 		if (isDemo) {
@@ -384,7 +389,15 @@ export const useOAuthConnect = (input: {
 		}
 		const service = runtime.runSync(OAuthConnectService);
 		return Effect.runPromise(
-			service.connect({ ...input, scope, field: request.field, signal: request.signal }),
+			service.connect({ ...input, scope, field: request.field, signal: request.signal }).pipe(
+				Effect.tap((outcome) =>
+					Effect.sync(() => {
+						if (outcome.kind === "connected") {
+							client.mutationCompleted.hint();
+						}
+					}),
+				),
+			),
 		);
 	};
 	return { connect, disabledReason: isDemo ? DEMO_PROTECTION_MESSAGE : undefined };

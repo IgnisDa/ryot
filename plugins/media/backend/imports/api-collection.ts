@@ -12,9 +12,8 @@ import {
 	writeMediaCapture,
 } from "./collection";
 import type { MediaSourceInput, MediaSourceRecord } from "./collection-schemas";
-import { createBacklogEvent } from "./helpers";
 import { type HttpHost, requestSourceResponse } from "./source-api";
-import { adaptTraktExport, parseListUrl } from "./trakt";
+import { normalizeTraktRecord, parseListUrl, TraktApiKind, traktApiRecordContext } from "./trakt";
 
 export const MediaApiTask = Schema.Struct({
 	path: Schema.String,
@@ -125,14 +124,14 @@ export const collectTraktApi = Effect.fn(function* (
 				{
 					page: 1,
 					context: {},
-					kind: "export",
+					kind: "rating",
 					name: "ratings-movies.json",
 					path: `${user}/ratings/movies`,
 				},
 				{
 					page: 1,
 					context: {},
-					kind: "export",
+					kind: "rating",
 					name: "ratings-shows.json",
 					path: `${user}/ratings/shows`,
 				},
@@ -147,14 +146,14 @@ export const collectTraktApi = Effect.fn(function* (
 				{
 					page: 1,
 					context: {},
-					kind: "export",
+					kind: "collection",
 					name: "collection-movies.json",
 					path: `${user}/collection/movies`,
 				},
 				{
 					page: 1,
 					context: {},
-					kind: "export",
+					kind: "collection",
 					name: "collection-shows.json",
 					path: `${user}/collection/shows`,
 				},
@@ -165,6 +164,7 @@ export const collectTraktApi = Effect.fn(function* (
 	if (!task) {
 		return yield* writeMediaApiState(state, [], input.itemIndex);
 	}
+	const kind = yield* Schema.decodeUnknownEffect(TraktApiKind)(task.kind);
 	const response = yield* requestSourceResponse(host, {
 		path: task.path,
 		baseUrl: "https://api.trakt.tv",
@@ -188,7 +188,7 @@ export const collectTraktApi = Effect.fn(function* (
 	const records: MediaSourceRecord[] = [];
 	let itemIndex = input.itemIndex;
 	for (const raw of rows) {
-		if (task.kind === "lists") {
+		if (kind === "lists") {
 			const list = yield* Schema.decodeUnknownEffect(
 				Schema.Struct({
 					name: Schema.String,
@@ -206,7 +206,7 @@ export const collectTraktApi = Effect.fn(function* (
 			}
 			continue;
 		}
-		if (task.kind === "list") {
+		if (kind === "list") {
 			const target = yield* Schema.decodeUnknownEffect(
 				Schema.Struct({
 					type: Schema.String,
@@ -222,27 +222,10 @@ export const collectTraktApi = Effect.fn(function* (
 				continue;
 			}
 		}
-		const name = task.kind === "list" ? "lists-list-0-items.json" : task.name;
-		const archive = {
-			[name]: new TextEncoder().encode(
-				yield* Schema.encodeEffect(Schema.fromJsonString(Schema.Array(Schema.Unknown)))([raw]),
-			),
-			"lists-lists.json": new TextEncoder().encode(
-				yield* Schema.encodeEffect(Schema.fromJsonString(Schema.Array(Schema.Unknown)))([
-					{ name: task.name, ids: { trakt: 0 } },
-				]),
-			),
-		};
-		const adapted = adaptTraktExport(archive);
-		if (task.kind === "watchlist") {
-			for (const group of adapted.entityGroups) {
-				group.collectionMemberships = [];
-				const source = yield* Schema.decodeUnknownEffect(
-					Schema.Struct({ listed_at: Schema.optional(Schema.String) }),
-				)(raw);
-				group.events.push(createBacklogEvent(source.listed_at ?? input.importedAt));
-			}
-		}
+		const adapted = normalizeTraktRecord(
+			raw,
+			traktApiRecordContext(kind, task.name, input.importedAt),
+		);
 		records.push(...normalizeMediaRecords(adapted, itemIndex++, "trakt"));
 	}
 	return yield* writeMediaApiState({ ...state, tasks }, records, itemIndex);

@@ -20,11 +20,9 @@ import {
 import { describe, expect, it } from "~/support/effect-test";
 import {
 	buildApiEnv,
-	spawnApiProcess,
+	startApiProcess,
 	startCoreTestInfrastructure,
 	stopApiProcess,
-	stopCoreTestInfrastructure,
-	waitForHealthCheck,
 } from "~/support/provisioning";
 
 const CONFIG_KEY = "fixtureValue";
@@ -204,13 +202,9 @@ const waitForRunningImport = (client: Client, runId: string) =>
 describe("isolated import durability", () => {
 	it.live("pins configuration and preserves cancellation across API restarts", () =>
 		Effect.gen(function* () {
-			const infrastructure = yield* Effect.acquireRelease(
-				startCoreTestInfrastructure({ bucketName: S3_BUCKET_NAME }),
-				stopCoreTestInfrastructure,
-			);
+			const infrastructure = yield* startCoreTestInfrastructure({ bucketName: S3_BUCKET_NAME });
 			const port = yield* Effect.promise(() => getPort());
 			const origin = `http://127.0.0.1:${port}`;
-			const baseUrl = `${origin}/api`;
 			const suffix = crypto.randomUUID();
 			const pluginSlug = `e2e-import-durability-${suffix}`;
 			const pluginPackageId = testPluginPackageId();
@@ -234,16 +228,7 @@ describe("isolated import durability", () => {
 					extraEnv: { [configEnvironmentKey]: configValue },
 				});
 			const startApi = (label: string, configValue: string) =>
-				Effect.acquireRelease(
-					Effect.gen(function* () {
-						const process = spawnApiProcess(apiEnv(label, configValue));
-						yield* waitForHealthCheck(`${baseUrl}/system/health`, label, process, 90).pipe(
-							Effect.onError(() => stopApiProcess(process)),
-						);
-						return process;
-					}),
-					stopApiProcess,
-				);
+				startApiProcess(apiEnv(label, configValue), label);
 
 			const processA = yield* startApi("Import Durability API A", OLD_CONFIG_VALUE);
 			const pluginManifest = testPluginManifest({
@@ -314,7 +299,7 @@ describe("isolated import durability", () => {
 				],
 			});
 			const plugin = yield* installTestSupportSystemPlugin({
-				baseUrl,
+				target: processA.target,
 				manifest: pluginManifest,
 				files: encodePluginSourceFiles({
 					[activityEntry]: configActivitySource(activityScriptSlug),
@@ -327,7 +312,7 @@ describe("isolated import durability", () => {
 				}),
 			});
 
-			const { client } = yield* createAuthenticatedClient(baseUrl);
+			const { client } = yield* createAuthenticatedClient(processA.target);
 			const oldRun = yield* client.call((c) =>
 				c.imports.createRun({
 					payload: {

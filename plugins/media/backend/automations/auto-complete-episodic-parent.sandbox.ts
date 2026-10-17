@@ -172,7 +172,7 @@ export default defineAutomation({
 				return null;
 			}
 
-			const boundaryId = initialSnapshot.boundaryCompleteEventId ?? "initial";
+			const boundaryId = initialSnapshot.boundaryCompleteEvent?.id ?? "initial";
 			const claim = yield* host.claimPersistentValue(
 				`media-parent-completion:${trigger.parentEntityId}:${boundaryId}`,
 				true,

@@ -2,7 +2,6 @@ import type {
 	NotificationChannelSpecifics,
 	UpdateNotificationChannelBody,
 } from "@ryot-app/contract/modules/notifications/schemas";
-import type { NotificationChannelKind } from "@ryot-app/contract/modules/notifications/types";
 import { NotificationChannelId, UserId } from "@ryot-app/contract/schema/brands";
 import { and, desc, eq } from "drizzle-orm";
 import { Context, Effect, Layer, Match, Option } from "effect";
@@ -89,7 +88,6 @@ export class NotificationsRepository extends Context.Service<NotificationsReposi
 			const createForUser = Effect.fn("NotificationsRepository.createForUser")(function* (input: {
 				userId: UserId;
 				isDisabled: boolean;
-				channel: NotificationChannelKind;
 				channelSpecifics: NotificationChannelSpecifics;
 			}) {
 				const [row] = yield* database.run((db) =>
@@ -97,7 +95,6 @@ export class NotificationsRepository extends Context.Service<NotificationsReposi
 						.insert(schema.notificationChannel)
 						.values({
 							userId: input.userId,
-							channel: input.channel,
 							isDisabled: input.isDisabled,
 							channelSpecifics: input.channelSpecifics,
 							description: describeNotificationChannel(input.channelSpecifics),

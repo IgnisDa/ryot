@@ -51,19 +51,10 @@ const boundedWriteLayer = ObjectStorageService.layer.pipe(
 );
 
 layer(makeSelectionLayer(true))((test) => {
-	test.effect("always selects local storage for temporary uploads", () =>
-		Effect.gen(function* () {
-			const service = yield* ObjectStorageService;
-			expect(yield* service.selectStorageProvider("temporary")).toBe("local");
-		}),
-	);
-});
-
-layer(makeSelectionLayer(true))((test) => {
 	test.effect("prefers S3 storage for permanent uploads", () =>
 		Effect.gen(function* () {
 			const service = yield* ObjectStorageService;
-			expect(yield* service.selectStorageProvider("permanent")).toBe("s3");
+			expect(yield* service.permanentStorageProvider).toBe("s3");
 		}),
 	);
 });
@@ -72,7 +63,7 @@ layer(makeSelectionLayer(false))((test) => {
 	test.effect("falls back to local storage for permanent uploads", () =>
 		Effect.gen(function* () {
 			const service = yield* ObjectStorageService;
-			expect(yield* service.selectStorageProvider("permanent")).toBe("local");
+			expect(yield* service.permanentStorageProvider).toBe("local");
 		}),
 	);
 });

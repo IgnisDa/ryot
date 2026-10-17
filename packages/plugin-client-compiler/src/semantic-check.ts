@@ -89,12 +89,14 @@ export const analyzeClientPluginTypes = (
 		Effect.map(({ diagnostics, sourceFiles, entrySourceFiles }) => {
 			const fallbackFile = entrySourceFiles[entries[0] ?? AMBIENT_FILE];
 			if (!fallbackFile) {
-				return { sources: [], diagnostics: [] };
+				return { sourceFiles: {}, diagnostics: [] };
 			}
 			return {
-				sources: sourceFiles
-					.map(({ fileName }) => logicalFile(fileName))
-					.filter((path) => Object.hasOwn(files, path)),
+				sourceFiles: Object.fromEntries(
+					sourceFiles
+						.filter(({ fileName }) => Object.hasOwn(files, logicalFile(fileName)))
+						.map((file) => [logicalFile(file.fileName), file]),
+				),
 				diagnostics: diagnostics
 					.map((diagnostic): ClientPluginCompilerDiagnostic =>
 						normalizeTypeScriptDiagnostic(diagnostic, sourceFiles, fallbackFile, logicalFile),

@@ -32,7 +32,7 @@ const PROVIDER_OPERATIONS = new Set([
 ]);
 
 layer(BunFileSystem.layer)((test) => {
-	test.effect("backs every declared provider operation with its entry file", () =>
+	test.effect("declares descriptive metadata for each discovered provider", () =>
 		Effect.gen(function* () {
 			const fs = yield* FileSystem.FileSystem;
 			const entries = yield* fs.glob("backend/providers/**/*.sandbox.ts", { root: process.cwd() });
@@ -54,12 +54,7 @@ layer(BunFileSystem.layer)((test) => {
 			const associatedScripts: string[] = [];
 			for (const provider of mediaPlugin.providers) {
 				const files = operationsByProvider.get(provider.slug) ?? [];
-				const declared = Object.keys(provider.operations).map((operation) =>
-					operation === "searchOptions" ? "search-options" : operation,
-				);
-				expect(sortBy(files.filter((file) => PROVIDER_OPERATIONS.has(file)))).toEqual(
-					sortBy(declared),
-				);
+				expect(files).toContain("details");
 				associatedScripts.push(
 					...files
 						.filter((file) => !PROVIDER_OPERATIONS.has(file))
@@ -657,18 +652,10 @@ it("declares the complete media-owned source", () => {
 			},
 		},
 	});
-	expect(mediaPlugin.providers.find(({ slug }) => slug === "video-game.igdb")).toMatchObject({
-		operations: { searchOptions: "video-game.igdb.search-options" },
-	});
 	expect(igdbSearchOptionsManifest).toMatchObject({
 		kind: "provider",
 		slug: "video-game.igdb.search-options",
 	});
-	expect(
-		mediaPlugin.providers
-			.filter(({ slug }) => slug === "movie.tmdb" || slug === "show.tmdb")
-			.every(({ operations }) => !("trending" in operations)),
-	).toBe(true);
 	expect(mediaPlugin.operations).toEqual([
 		{
 			auth: "user",
@@ -824,11 +811,6 @@ it("declares genres as provider-backed entities with outgoing media relationship
 		slug: "genre.media-catalog",
 		rootEntitySchemaSlug: "genre",
 		information: { source: "media-catalog", canonicalLanguage: "en" },
-		operations: {
-			search: "genre.media-catalog.search",
-			details: "genre.media-catalog.details",
-			resolve: "genre.media-catalog.resolve",
-		},
 	});
 	expect(
 		mediaPlugin.relationshipSchemas.filter(

@@ -101,7 +101,6 @@ CREATE TABLE "automation_trigger" (
 	"integration_id" text,
 	"parent_trigger_id" text,
 	"id" text PRIMARY KEY,
-	"event_stream_work_id" text,
 	"depth" integer NOT NULL,
 	"provider_execution_id" text,
 	"execution_id" text NOT NULL,
@@ -331,12 +330,12 @@ CREATE TABLE "entity" (
 	"updated_at" timestamp(3) with time zone DEFAULT now() NOT NULL,
 	"population_failed_at" timestamp(3) with time zone,
 	"related_populated_at" timestamp(3) with time zone,
-	"related_population_failed_at" timestamp(3) with time zone,
 	"entity_schema_slug" text NOT NULL,
+	"related_population_failed_at" timestamp(3) with time zone,
 	"created_at" timestamp(3) with time zone DEFAULT now() NOT NULL,
 	"population_failure" text,
-	"related_population_failure" text,
 	"user_id" text,
+	"related_population_failure" text,
 	"properties" jsonb DEFAULT '{}' NOT NULL,
 	"provider_id" text,
 	"entity_schema_plugin_id" text,
@@ -406,54 +405,53 @@ CREATE TABLE "event_stream_work" (
 );
 --> statement-breakpoint
 CREATE TABLE "import_activity" (
-	"batch_id" text,
-	"parent_id" text,
-	"id" text,
 	"data" jsonb NOT NULL,
+	"batch_id" text GENERATED ALWAYS AS (data->>'batchId') STORED,
+	"parent_id" text GENERATED ALWAYS AS (data->>'parentId') STORED,
+	"id" text GENERATED ALWAYS AS (data->>'id') STORED,
 	"run_id" text,
 	CONSTRAINT "import_activity_pkey" PRIMARY KEY("run_id","id"),
-	CONSTRAINT "import_activity_identity_check" CHECK ("id" = "data"->>'id' and "parent_id" is not distinct from "data"->>'parentId' and "batch_id" is not distinct from "data"->>'batchId' and "id" is distinct from "parent_id")
+	CONSTRAINT "import_activity_parent_check" CHECK ("id" is distinct from "parent_id")
 );
 --> statement-breakpoint
 CREATE TABLE "import_batch" (
-	"id" text,
-	"capture_id" text NOT NULL,
-	"ordinal" integer NOT NULL,
 	"execution_id" text NOT NULL,
 	"workflow_name" text NOT NULL,
 	"operation_ids" text[] NOT NULL,
 	"data" jsonb NOT NULL,
+	"id" text GENERATED ALWAYS AS (data->>'id') STORED,
+	"capture_id" text GENERATED ALWAYS AS (data->>'captureId') STORED NOT NULL,
 	"run_id" text,
+	"ordinal" integer GENERATED ALWAYS AS ((data->>'ordinal')::integer) STORED NOT NULL,
 	CONSTRAINT "import_batch_pkey" PRIMARY KEY("run_id","id"),
 	CONSTRAINT "import_batch_ordinal_unique" UNIQUE("run_id","ordinal"),
-	CONSTRAINT "import_batch_identity_check" CHECK ("id" = "data"->>'id' and "capture_id" = "data"->>'captureId' and "ordinal" = ("data"->>'ordinal')::integer and "ordinal" >= 0)
+	CONSTRAINT "import_batch_ordinal_check" CHECK ("ordinal" >= 0)
 );
 --> statement-breakpoint
 CREATE TABLE "import_capture" (
-	"id" text,
-	"ordinal" integer NOT NULL,
 	"data" jsonb NOT NULL,
-	"phase" text NOT NULL,
+	"id" text GENERATED ALWAYS AS (data->>'id') STORED,
 	"run_id" text,
+	"ordinal" integer GENERATED ALWAYS AS ((data->>'ordinal')::integer) STORED NOT NULL,
+	"phase" text GENERATED ALWAYS AS (data->>'phase') STORED NOT NULL,
 	CONSTRAINT "import_capture_pkey" PRIMARY KEY("run_id","id"),
 	CONSTRAINT "import_capture_ordinal_unique" UNIQUE("run_id","phase","ordinal"),
-	CONSTRAINT "import_capture_identity_check" CHECK ("id" = "data"->>'id' and "phase" = "data"->>'phase' and "phase" in ('collection', 'application') and "ordinal" = ("data"->>'ordinal')::integer and "ordinal" >= 0)
+	CONSTRAINT "import_capture_phase_check" CHECK ("phase" in ('collection', 'application')),
+	CONSTRAINT "import_capture_ordinal_check" CHECK ("ordinal" >= 0)
 );
 --> statement-breakpoint
 CREATE TABLE "import_issue" (
-	"id" text,
 	"data" jsonb NOT NULL,
+	"id" text GENERATED ALWAYS AS (data->>'id') STORED,
 	"run_id" text,
-	CONSTRAINT "import_issue_pkey" PRIMARY KEY("run_id","id"),
-	CONSTRAINT "import_issue_identity_check" CHECK ("id" = "data"->>'id')
+	CONSTRAINT "import_issue_pkey" PRIMARY KEY("run_id","id")
 );
 --> statement-breakpoint
 CREATE TABLE "import_outcome" (
-	"operation_id" text,
 	"data" jsonb NOT NULL,
+	"operation_id" text GENERATED ALWAYS AS (data->>'operationId') STORED,
 	"run_id" text,
-	CONSTRAINT "import_outcome_pkey" PRIMARY KEY("run_id","operation_id"),
-	CONSTRAINT "import_outcome_identity_check" CHECK ("operation_id" = "data"->>'operationId')
+	CONSTRAINT "import_outcome_pkey" PRIMARY KEY("run_id","operation_id")
 );
 --> statement-breakpoint
 CREATE TABLE "import_payload_reservation" (
@@ -619,7 +617,7 @@ CREATE TABLE "notification_channel" (
 	"description" text NOT NULL,
 	"is_disabled" boolean DEFAULT false NOT NULL,
 	"created_at" timestamp(3) with time zone DEFAULT now() NOT NULL,
-	"platform" text NOT NULL,
+	"platform" text GENERATED ALWAYS AS (platform_specifics->>'kind') STORED NOT NULL,
 	"user_id" text NOT NULL,
 	"id" text PRIMARY KEY,
 	"platform_specifics" jsonb NOT NULL

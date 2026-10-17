@@ -12,7 +12,7 @@ import {
 	SandboxInvocationSchema,
 	type SidecarHostCallFrame,
 	type SidecarHostResultFrame,
-	type SidecarInboundFrame,
+	type SidecarInboundLogicalMessage,
 } from "../protocol/messages";
 import { SandboxSidecarAdmission } from "./admission";
 import { SandboxSidecarClient } from "./client";
@@ -46,7 +46,10 @@ export type SidecarRecorder = {
 		frame: Effect.Success<SidecarConnection["next"]>,
 		settings: SidecarSettings,
 	) => void;
-	readonly sent?: (frame: SidecarInboundFrame, settings: SidecarSettings) => SidecarInboundFrame;
+	readonly sent?: (
+		frame: SidecarInboundLogicalMessage,
+		settings: SidecarSettings,
+	) => SidecarInboundLogicalMessage;
 	readonly retired?: (handle: string) => void;
 };
 
@@ -75,7 +78,7 @@ export const defineNativeScript = (
 		readonly kind?: "script" | "operation" | "workflow" | "provider" | "automation";
 	} = {},
 ) => `
-import { Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
+${options.kind === "workflow" ? 'import { Effect, Schema } from "@ryot-app/plugin-backend-sdk/workflow";' : 'import { Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";'}
 import { defineManifest, defineScript } from "@ryot-app/plugin-backend-sdk/driver";
 ${options.kind === "operation" ? 'import { defineOperation } from "@ryot-app/plugin-backend-sdk/operation";' : ""}
 ${options.kind === "workflow" ? 'import { defineWorkflow } from "@ryot-app/plugin-backend-sdk/workflow";' : ""}
@@ -113,7 +116,7 @@ export const recordingSidecarClient = <R>(makeRecorder: Effect.Effect<SidecarRec
 						next: connection.next.pipe(
 							Effect.tap((frame) => Effect.sync(() => recorder.received?.(frame, settings))),
 						),
-						send: (frame: SidecarInboundFrame, released?: () => void) =>
+						send: (frame: SidecarInboundLogicalMessage, released?: () => void) =>
 							connection.send(recorder.sent?.(frame, settings) ?? frame, released),
 						retire: (handle: string) =>
 							connection

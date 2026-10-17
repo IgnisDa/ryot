@@ -22,9 +22,14 @@ semantic and Vite Sandbox ESM build stages, but retain their separate public API
 
 ## Build Pipeline
 
-The compiler creates a TypeScript 7 no-emit project and reports bounded semantic diagnostics. It then
-inspects each entry, validates declarations, workflows, and literal manifests, and compiles validated
-entries with bounded concurrency. A semantic or policy failure never reaches the build stage.
+The compiler creates a TypeScript 7 no-emit project, inspects each entry's import policy and
+definition shape, and then reports bounded semantic diagnostics. Only inspected entries reach
+validation of execution metadata, declarations, workflows, and literal manifests; validated entries
+compile with bounded concurrency. A semantic or policy failure never reaches the build stage.
+
+Standalone and package adapters use the same validated-entry stage for manifest identity, execution
+metadata, workflow imports and determinism, declaration matching, and capabilities. Standalone entries
+reject relative imports; package workflows validate their reachable local source graph.
 
 ## Execution Metadata
 

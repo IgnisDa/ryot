@@ -7,12 +7,18 @@ import {
 	EventId,
 	UserId,
 } from "@ryot-app/contract/schema/brands";
+import {
+	makeRecordingTracer,
+	maxBindParameter,
+	recordedStatements,
+} from "@ryot-app/testing/recording-tracer";
 import { eq, inArray, sql } from "drizzle-orm";
-import { DateTime, Deferred, Effect, Fiber, Layer, Schema } from "effect";
+import { DateTime, Deferred, Effect, Fiber, Layer, Schema, type Tracer } from "effect";
 import { Workflow } from "effect/workflow";
 import { WorkflowInstance } from "effect/workflow/WorkflowEngine";
 
 import { rootLifecycleCommand } from "#modules/automations/lifecycle/command";
+import { bindParameterLimit, insertChunkSize } from "#platform/db/bind-parameters";
 import { DatabaseSession } from "#platform/db/session";
 import * as tables from "#schema/tables/combined";
 import { makeWorkflowEngine } from "#testing/effect";
@@ -20,6 +26,7 @@ import { isolatedDatabaseLayer } from "#testing/isolated-database";
 
 import type { MutationReceiptIdentity } from "./receipts";
 import { mutationReceiptIdentity, MutationReceipts } from "./receipts";
+import { pinReferences, seedPinTargets } from "./receipts.test-support";
 import { dispatchAdmittedWorkflow } from "./workflow-dispatch";
 
 const owner = UserId.make("receipt-owner");
@@ -58,6 +65,18 @@ const record = (receipt: MutationReceiptIdentity) => ({
 	identity: receipt,
 	result: { entityId },
 });
+const batchPins = (
+	prefix: string,
+	count: number,
+	payload: (index: number) => unknown = (index) => ({ index }),
+) =>
+	Array.from({ length: count }, (_, index) => ({
+		payload: payload(index),
+		id: `${prefix}-${String(index).padStart(4, "0")}`,
+		references: pinReferences(index % 2 === 0 ? null : setOwner),
+	}));
+const receiptInsertStatements = (spans: ReadonlyArray<Tracer.Span>) =>
+	recordedStatements(spans).filter((text) => text.startsWith('insert into "mutation_receipt"'));
 
 const seedAccount = Effect.fn(function* (account: typeof setAccount) {
 	const session = yield* DatabaseSession;
@@ -432,6 +451,262 @@ layer(
 				writtenCount: 1,
 			});
 		}),
+	);
+
+	test.effect(
+		"returns canonical references with decoded payloads and preserves the admitted pins on replay",
+		() =>
+			Effect.gen(function* () {
+				const session = yield* DatabaseSession;
+				const receipts = yield* MutationReceipts;
+				const account = { token: "batch-pin-generation", userId: UserId.make("batch-pin-owner") };
+				yield* seedAccount(account);
+				const batch = receipts.batchIdentity({
+					resource: "entity",
+					ownerUserId: account.userId,
+					identity: ["canonical-pins"],
+					command: { ...command, accountGeneration: account },
+				});
+				yield* seedPinTargets();
+				const pins = [null, account.userId].map((scopeUserId, index) => ({
+					id: `canonical-pin-${index}`,
+					references: pinReferences(scopeUserId),
+					payload: { snapshot: `snapshot-${index}` },
+				}));
+				yield* session.transaction(
+					Effect.gen(function* () {
+						const decision = yield* receipts.beginBatch({ pins, maxItems: 3, identity: batch });
+						expect(yield* receipts.beginBatch({ pins: [], maxItems: 99, identity: batch })).toEqual(
+							decision,
+						);
+						const contents = yield* receipts.batchContents(
+							batch,
+							Schema.Struct({ snapshot: Schema.String }),
+						);
+						expect(contents.pins).toEqual(
+							pins.map(({ payload, references }) => ({ payload, references })),
+						);
+						expect(contents.maxItems).toBe(3);
+						const rows = yield* session.run((db) =>
+							db
+								.select()
+								.from(tables.mutationReceipt)
+								.where(
+									inArray(
+										tables.mutationReceipt.id,
+										pins.map(({ id }) => id),
+									),
+								)
+								.orderBy(tables.mutationReceipt.id),
+						);
+						expect(
+							rows.map(({ result, scopeUserId, ownerUserId }) => ({
+								result,
+								scopeUserId,
+								ownerUserId,
+							})),
+						).toEqual(
+							pins.map(({ payload, references }) => ({
+								result: payload,
+								ownerUserId: account.userId,
+								scopeUserId: references.scopeUserId,
+							})),
+						);
+						yield* receipts.sealBatch(batch, []);
+						expect(
+							yield* receipts.batchContents(batch, Schema.Struct({ snapshot: Schema.String })),
+						).toMatchObject({ pins: [], sealed: true, evidence: [] });
+					}),
+				);
+			}),
+	);
+
+	test.effect(
+		"inserts zero, multiple, and chunk-boundary candidates with bounded SQL statements",
+		() =>
+			Effect.gen(function* () {
+				const session = yield* DatabaseSession;
+				const receipts = yield* MutationReceipts;
+				yield* seedAccount(setAccount);
+				yield* seedPinTargets();
+				for (const { count, expectedInserts } of [
+					{ count: 0, expectedInserts: 1 },
+					{ count: 3, expectedInserts: 2 },
+					{ expectedInserts: 2, count: insertChunkSize(tables.mutationReceipt) },
+					{ expectedInserts: 3, count: insertChunkSize(tables.mutationReceipt) + 1 },
+				]) {
+					const batch = receipts.batchIdentity({
+						resource: "entity",
+						ownerUserId: setOwner,
+						identity: [`bulk-pins-${count}`],
+						command: { ...command, accountGeneration: setAccount },
+					});
+					const pins = batchPins(`bulk-pins-${count}`, count);
+					const spans: Tracer.Span[] = [];
+					const decision = yield* session.transaction(
+						receipts
+							.beginBatch({ pins, maxItems: 1, identity: batch })
+							.pipe(Effect.withTracer(makeRecordingTracer(spans))),
+					);
+					expect(decision).toEqual({
+						maxItems: 1,
+						dispatch: [],
+						sealed: false,
+						candidateCount: count,
+					});
+					const statements = receiptInsertStatements(spans);
+					expect(statements).toHaveLength(expectedInserts);
+					for (const statement of statements) {
+						expect(maxBindParameter(statement)).toBeLessThanOrEqual(bindParameterLimit);
+					}
+					const contents = yield* session.transaction(
+						receipts.batchContents(batch, Schema.Struct({ index: Schema.Int })),
+					);
+					expect(contents.pins).toEqual(
+						pins.map(({ payload, references }) => ({ payload, references })),
+					);
+					expect(contents.candidateCount).toBe(count);
+					const replaySpans: Tracer.Span[] = [];
+					expect(
+						yield* session.transaction(
+							receipts
+								.beginBatch({
+									maxItems: 99,
+									identity: batch,
+									pins: batchPins("ignored-replay-pin", 1, () => undefined),
+								})
+								.pipe(Effect.withTracer(makeRecordingTracer(replaySpans))),
+						),
+					).toEqual(decision);
+					expect(receiptInsertStatements(replaySpans)).toEqual([]);
+				}
+			}),
+	);
+
+	test.effect("decodes every candidate before inserting the decision or any candidates", () =>
+		Effect.gen(function* () {
+			const session = yield* DatabaseSession;
+			const receipts = yield* MutationReceipts;
+			yield* seedAccount(setAccount);
+			yield* seedPinTargets();
+			const batch = receipts.batchIdentity({
+				resource: "entity",
+				ownerUserId: setOwner,
+				identity: ["invalid-bulk-pin"],
+				command: { ...command, accountGeneration: setAccount },
+			});
+			const lastIndex = insertChunkSize(tables.mutationReceipt);
+			const pins = batchPins("invalid-bulk-pin", lastIndex + 1, (index) =>
+				index === lastIndex ? undefined : { index },
+			);
+			const spans: Tracer.Span[] = [];
+			expect(
+				yield* session
+					.transaction(
+						receipts
+							.beginBatch({ pins, maxItems: 1, identity: batch })
+							.pipe(Effect.withTracer(makeRecordingTracer(spans))),
+					)
+					.pipe(Effect.flip),
+			).toMatchObject({ _tag: "DbError", message: expect.stringContaining("Invalid batch pin") });
+			expect(receiptInsertStatements(spans)).toEqual([]);
+			expect(yield* receiptRowIds([batch.id, ...pins.map(({ id }) => id)])).toEqual([]);
+		}),
+	);
+
+	test.effect(
+		"checks admission and stored identity conflicts before decoding candidate payloads",
+		() =>
+			Effect.gen(function* () {
+				const session = yield* DatabaseSession;
+				const receipts = yield* MutationReceipts;
+				yield* seedAccount(setAccount);
+				const batch = receipts.batchIdentity({
+					resource: "entity",
+					ownerUserId: setOwner,
+					identity: ["bulk-pin-error-order"],
+					command: { ...command, accountGeneration: setAccount },
+				});
+				yield* session.transaction(receipts.beginBatch({ pins: [], maxItems: 1, identity: batch }));
+				const pins = batchPins("bulk-pin-error-order", 1, () => undefined);
+				expect(
+					yield* session
+						.transaction(
+							receipts.beginBatch({
+								pins,
+								maxItems: 1,
+								identity: { ...batch, accountGeneration: null, inputFingerprint: "changed" },
+							}),
+						)
+						.pipe(Effect.flip),
+				).toMatchObject({
+					_tag: "DbError",
+					message: "Mutation command account generation is missing",
+				});
+				expect(
+					yield* session
+						.transaction(
+							receipts.beginBatch({
+								pins,
+								maxItems: 1,
+								identity: { ...batch, inputFingerprint: "changed" },
+							}),
+						)
+						.pipe(Effect.flip),
+				).toMatchObject({ receiptId: batch.id, _tag: "MutationReceiptIdentityConflict" });
+			}),
+	);
+
+	test.effect(
+		"rolls back the decision and earlier chunks on duplicate, FK, or conflicting pins",
+		() =>
+			Effect.gen(function* () {
+				const session = yield* DatabaseSession;
+				const receipts = yield* MutationReceipts;
+				yield* seedAccount(setAccount);
+				yield* seedPinTargets();
+				const stored = setIdentity("bulk-pin-existing-conflict");
+				yield* session.transaction(receipts.insert(record(stored)));
+				for (const failure of ["duplicate", "foreign-key", "conflict"]) {
+					const batch = receipts.batchIdentity({
+						resource: "entity",
+						ownerUserId: setOwner,
+						identity: [`failed-bulk-pins-${failure}`],
+						command: { ...command, accountGeneration: setAccount },
+					});
+					const lastIndex = insertChunkSize(tables.mutationReceipt);
+					const pins = batchPins(`failed-bulk-pins-${failure}`, lastIndex + 1);
+					const first = pins[0];
+					assert(first !== undefined);
+					const failingPins = pins.map((pin, index) => {
+						if (index !== lastIndex) {
+							return pin;
+						}
+						return failure === "foreign-key"
+							? {
+									...pin,
+									references: {
+										...pin.references,
+										scopeUserId: UserId.make("missing-bulk-pin-owner"),
+									},
+								}
+							: { ...pin, id: failure === "duplicate" ? first.id : stored.id };
+					});
+					const spans: Tracer.Span[] = [];
+					expect(
+						yield* session
+							.transaction(
+								receipts
+									.beginBatch({ maxItems: 1, identity: batch, pins: failingPins })
+									.pipe(Effect.withTracer(makeRecordingTracer(spans))),
+							)
+							.pipe(Effect.flip),
+					).toMatchObject({ _tag: "DbError", code: failure === "foreign-key" ? "23503" : "23505" });
+					expect(receiptInsertStatements(spans)).toHaveLength(3);
+					expect(yield* receiptRowIds([batch.id, ...pins.map(({ id }) => id)])).toEqual([]);
+					expect(yield* session.transaction(receipts.lookup(stored, Result))).toEqual(hit);
+				}
+			}),
 	);
 
 	test.effect(

@@ -8,7 +8,7 @@ import { PLUGIN_PACKAGE_ID } from "../../shared/plugin-identity";
 import { ActivitySection } from "./activity-section";
 import { airingQuery, AiringRail } from "./airing-rail";
 import { BacklogRail } from "./backlog-rail";
-import { ContinueRail, libraryEntries, libraryStateQuery } from "./continue-rail";
+import { ContinueRail, libraryStateQuery } from "./continue-rail";
 import { FirstRun } from "./first-run";
 import { LazySection } from "./lazy-section";
 import { SuggestionsRail } from "./suggestions-rail";
@@ -35,10 +35,6 @@ function HomeSkeleton() {
 	);
 }
 
-/**
- * The gate decides between the first-run panel and the rails. It fails open: when the count errors
- * the rails still load, and the first-run panel shows only if every eager rail loads empty.
- */
 export function HomeBody(props: {
 	readonly compact: boolean;
 	readonly scrollRootRef: RefObject<HTMLElement | null>;
@@ -52,14 +48,7 @@ export function HomeBody(props: {
 	if (gate.data === undefined && gate.status !== "error") {
 		return <HomeSkeleton />;
 	}
-	const railsEmpty =
-		continuing.data !== undefined &&
-		libraryEntries(continuing.data).length === 0 &&
-		backlog.data !== undefined &&
-		libraryEntries(backlog.data).length === 0 &&
-		airing.data !== undefined &&
-		airing.data.shows.length + airing.data.anime.length === 0;
-	if (gate.data === 0 || (gate.data === undefined && railsEmpty)) {
+	if (gate.data === 0) {
 		return <FirstRun compact={compact} />;
 	}
 	return (

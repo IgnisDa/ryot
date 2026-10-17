@@ -22,11 +22,9 @@ import {
 import { Effect, Result, Schema } from "effect";
 
 import { requirePresent } from "~/support/assertions";
-import { getApiUrl } from "~/support/harness-target";
 import { webRequest } from "~/support/web-request";
 
 import type { Client } from "./auth";
-import { getApiClient } from "./contract-client";
 import { pollUntil } from "./polling";
 import { executeRyotQLRecipe } from "./ryotql";
 import { providerSandboxSource } from "./sandbox-provider";
@@ -479,6 +477,14 @@ export const installTestPartialResultCancellationImportPlugin = Effect.suspend((
 	return installTestPluginBundle({
 		scope: "system",
 		workflows: [{ slug: workflowSlug, scriptSlug: workflowScriptSlug }],
+		providers: [
+			{
+				slug: providerSlug,
+				information: { source: "e2e" },
+				rootEntitySchemaSlug: entitySchemaSlug,
+				name: "E2E partial-result cancellation provider",
+			},
+		],
 		entitySchemas: [
 			{
 				icon: "file",
@@ -503,15 +509,6 @@ export const installTestPartialResultCancellationImportPlugin = Effect.suspend((
 			[chunkEntry]: partialResultCancellationChunkSource(chunkScriptSlug, items),
 			[workflowEntry]: partialResultCancellationWorkflowSource(workflowScriptSlug, chunkScriptSlug),
 		},
-		providers: [
-			{
-				slug: providerSlug,
-				information: { source: "e2e" },
-				rootEntitySchemaSlug: entitySchemaSlug,
-				name: "E2E partial-result cancellation provider",
-				operations: { details: detailsScriptSlug, resolve: resolveScriptSlug },
-			},
-		],
 		scripts: [
 			{
 				kind: "workflow",
@@ -630,32 +627,26 @@ export const installTestImportPinningPlugin = Effect.suspend(() => {
 });
 
 export const uploadImportFile = (
-	authToken: string,
+	client: Client,
 	content: string,
 	fileName: string,
 	mimeType: string,
 ) =>
 	Effect.gen(function* () {
-		const headers = { Authorization: `Bearer ${authToken}` };
-		const client = getApiClient();
-		const intent = yield* client.call(
-			(c) =>
-				c.uploads.createIntent({ payload: { fileName, kind: "temporary", contentType: mimeType } }),
-			headers,
+		const intent = yield* client.call((c) =>
+			c.uploads.createIntent({ payload: { fileName, kind: "temporary", contentType: mimeType } }),
 		);
 
-		const uploadResponse = yield* webRequest(new URL(intent.uploadUrl, `${getApiUrl()}/`), {
-			body: content,
-			method: intent.method,
-			headers: intent.headers,
-		});
+		const uploadResponse = yield* webRequest(
+			new URL(intent.uploadUrl, `${client.target.apiUrl}/`),
+			{ body: content, method: intent.method, headers: intent.headers },
+		);
 		if (!uploadResponse.ok) {
 			throw new Error(`Could not upload import file (${uploadResponse.status})`);
 		}
 
-		const completion = yield* client.call(
-			(c) => c.uploads.completeIntent({ params: { intentId: intent.intentId } }),
-			headers,
+		const completion = yield* client.call((c) =>
+			c.uploads.completeIntent({ params: { intentId: intent.intentId } }),
 		);
 		const { token } = yield* Schema.decodeUnknownEffect(TemporaryUploadToken)(completion);
 		return token;

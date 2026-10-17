@@ -5,7 +5,6 @@ import { Effect, Schema } from "effect";
 
 import type { Client, TestPluginScript } from "~/fixtures/kernel";
 import {
-	adminHeaders,
 	adminSystemPluginsRecipe,
 	collectRyotQLRecipeItems,
 	createAuthenticatedClient,
@@ -46,9 +45,8 @@ const listPlugins = (client: Client) =>
 	collectRyotQLRecipeItems(client, (after) => pluginInstallationsRecipe({ after, limit: 100 }));
 
 const uninstallSystemPlugin = (pluginId: PluginId, activationId: string) =>
-	getApiClient().call(
-		(c) => c.testSupport.uninstallSystemPlugin({ params: { pluginId, activationId } }),
-		adminHeaders(),
+	getApiClient().adminCall((c) =>
+		c.testSupport.uninstallSystemPlugin({ params: { pluginId, activationId } }),
 	);
 
 describe("plugins", () => {
@@ -75,7 +73,7 @@ describe("plugins", () => {
 				expect(replacement.activationId).not.toBe(first.activationId);
 				expect(yield* uninstallSystemPlugin(first.pluginId, first.activationId)).toEqual(removed);
 				expect(
-					(yield* listAdminSystemPlugins).some(
+					(yield* listAdminSystemPlugins()).some(
 						({ packageId }) => packageId === pluginPackage.manifest.metadata.packageId,
 					),
 				).toBe(true);
@@ -219,7 +217,6 @@ export default defineAutomation({
 							information: { source: "e2e" },
 							name: "E2E Lifecycle Provider",
 							rootEntitySchemaSlug: schemaSlug,
-							operations: { search: searchSlug, details: detailsSlug },
 						},
 					],
 					hooks: [
@@ -302,12 +299,10 @@ export default defineAutomation({
 						const cleanupEntityId = entityId;
 						if (cleanupEntityId) {
 							yield* getApiClient()
-								.call(
-									(c) =>
-										c.testSupport.deleteGlobalEntities({
-											payload: { ids: [EntityId.make(cleanupEntityId)] },
-										}),
-									adminHeaders(),
+								.adminCall((c) =>
+									c.testSupport.deleteGlobalEntities({
+										payload: { ids: [EntityId.make(cleanupEntityId)] },
+									}),
 								)
 								.pipe(
 									Effect.catch((error) =>
@@ -319,7 +314,7 @@ export default defineAutomation({
 					}),
 			);
 			const { client: installedClient } = yield* createAuthenticatedClient();
-			const listed = yield* listAdminSystemPlugins;
+			const listed = yield* listAdminSystemPlugins();
 			const activePlugin = listed.find(
 				({ packageId }) => packageId === provider.manifest.metadata.packageId,
 			);
@@ -466,7 +461,7 @@ export default defineAutomation({
 				"Missing automation execution properties",
 			);
 			expect(automatedProperties["runId"]).toEqual(expect.any(String));
-			const reingestedPlugin = (yield* listAdminSystemPlugins).find(
+			const reingestedPlugin = (yield* listAdminSystemPlugins()).find(
 				({ packageId }) => packageId === provider.manifest.metadata.packageId,
 			);
 			assertPresent(reingestedPlugin, "Missing reingested lifecycle plugin");
@@ -474,35 +469,29 @@ export default defineAutomation({
 			expect(reingestedPlugin.contentHash).not.toBe(activePlugin.contentHash);
 
 			const refusal = yield* Effect.flip(
-				getApiClient().call(
-					(c) =>
-						c.testSupport.uninstallSystemPlugin({
-							params: { pluginId: provider.pluginId, activationId: provider.activationId },
-						}),
-					adminHeaders(),
+				getApiClient().adminCall((c) =>
+					c.testSupport.uninstallSystemPlugin({
+						params: { pluginId: provider.pluginId, activationId: provider.activationId },
+					}),
 				),
 			);
 			assertTaggedError(refusal, "PluginConflictError");
 			expect(refusal.reason.code).toBe("entity-referenced");
 
-			const deleted = yield* getApiClient().call(
-				(c) =>
-					c.testSupport.deleteGlobalEntities({
-						payload: { ids: [EntityId.make(importResult.data.id)] },
-					}),
-				adminHeaders(),
+			const deleted = yield* getApiClient().adminCall((c) =>
+				c.testSupport.deleteGlobalEntities({
+					payload: { ids: [EntityId.make(importResult.data.id)] },
+				}),
 			);
 			expect(deleted).toEqual({ deleted: 1 });
 			entityId = null;
 			const uninstalled = yield* pollUntil(
 				`uninstall of '${provider.pluginSlug}' after workflow pin release`,
 				getApiClient()
-					.call(
-						(c) =>
-							c.testSupport.uninstallSystemPlugin({
-								params: { pluginId: provider.pluginId, activationId: provider.activationId },
-							}),
-						adminHeaders(),
+					.adminCall((c) =>
+						c.testSupport.uninstallSystemPlugin({
+							params: { pluginId: provider.pluginId, activationId: provider.activationId },
+						}),
 					)
 					.pipe(
 						Effect.catchTag("PluginConflictError", (error) =>
@@ -514,7 +503,7 @@ export default defineAutomation({
 			);
 			provider.active = false;
 			expect(uninstalled).toEqual({ pluginId: reingestedPlugin.id });
-			const after = yield* listAdminSystemPlugins;
+			const after = yield* listAdminSystemPlugins();
 			expect(
 				after.some(({ packageId }) => packageId === provider.manifest.metadata.packageId),
 			).toBe(false);

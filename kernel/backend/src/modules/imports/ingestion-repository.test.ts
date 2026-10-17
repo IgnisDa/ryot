@@ -8,9 +8,10 @@ import type {
 import { ImportRunId, IntegrationId, UserId } from "@ryot-app/contract/schema/brands";
 import { genericImportChunkOperationIds } from "@ryot-app/plugin-backend-sdk/imports";
 import { assertExitFails } from "@ryot-app/testing/effect-assertions";
+import { makeRecordingTracer, recordedStatements } from "@ryot-app/testing/recording-tracer";
 import { stableStringify } from "@ryot-app/ts-utils/json";
 import { eq, sql } from "drizzle-orm";
-import { DateTime, Effect, Layer } from "effect";
+import { DateTime, Effect, Layer, type Tracer } from "effect";
 
 import { IntegrationsRepository } from "#modules/integrations/repository";
 import { PluginConfigEncryptionKey } from "#modules/plugins/configuration/encryption-key";
@@ -734,6 +735,7 @@ layer(
 				{ ...scope, accountGeneration: { token: "generation", userId: UserId.make("other-user") } },
 			]) {
 				expect(yield* repository.getIngestionRun(denied)).toBeNull();
+				expect(yield* repository.getIngestionRunControl(denied)).toBeNull();
 				expect(
 					yield* repository.releaseBlocked({ plan, pins, scope: denied, now: acceptedAt }),
 				).toBe(false);
@@ -749,12 +751,76 @@ layer(
 			);
 			expect(yield* repository.startIngestion({ scope, startedAt: acceptedAt })).toBe(false);
 			expect(yield* repository.getIngestionRun(scope)).toBeNull();
+			expect(yield* repository.getIngestionRunControl(scope)).toBeNull();
 			yield* session.run((db) =>
 				db
 					.update(tables.user)
 					.set({ accountGeneration: "generation" })
 					.where(eq(tables.user.id, userId)),
 			);
+		}),
+	);
+
+	test.effect("reads live execution control with one statement regardless of report size", () =>
+		Effect.gen(function* () {
+			const scope = yield* runningRun();
+			const repository = yield* ImportsRepository;
+			const session = yield* DatabaseSession;
+			for (const size of [0, 25]) {
+				if (size > 0) {
+					yield* session.transaction(
+						Effect.gen(function* () {
+							yield* repository.publishCapture(scope, capture);
+							for (let ordinal = 0; ordinal < size; ordinal++) {
+								const item = { ...batch, ordinal, id: `control-batch-${ordinal}` };
+								yield* repository.registerBatch(scope, item, [], batchOwner);
+								yield* repository.startBatch(scope, item.id);
+								yield* repository.projectBatch(scope, { ...item, summary, state: "applied" });
+								yield* repository.putActivity(scope, {
+									wait: null,
+									completed: 1,
+									parentId: null,
+									unit: "records",
+									kind: "writing",
+									exactTotal: null,
+									state: "running",
+									batchId: item.id,
+									id: `control-activity-${ordinal}`,
+									lastAdvancedAt: acceptedAt.toISOString(),
+								});
+							}
+						}),
+					);
+				}
+				const spans: Tracer.Span[] = [];
+				const control = yield* repository
+					.getIngestionRunControl(scope)
+					.pipe(Effect.withTracer(makeRecordingTracer(spans)));
+				const statements = recordedStatements(spans);
+				expect(statements).toHaveLength(1);
+				expect(statements[0]).toContain('from "import_run"');
+				expect(statements[0]).not.toMatch(/import_batch|import_activity/);
+				expect(control).toMatchObject({
+					plan,
+					pins,
+					id: scope.runId,
+					status: "running",
+					accountGeneration: scope.accountGeneration,
+				});
+				expect(control).not.toHaveProperty("summary");
+				expect(control).not.toHaveProperty("activities");
+			}
+			const report = yield* repository.getIngestionRun(scope);
+			expect(report?.activities).toHaveLength(25);
+			expect(report?.summary).toEqual([
+				{
+					unit: "plays",
+					recordKind: "listening-event",
+					counts: { updated: 0, created: 50, skipped: 75, unchanged: 25, unsuccessful: 25 },
+				},
+			]);
+			yield* repository.cancelIngestion(scope);
+			expect((yield* repository.getIngestionRunControl(scope))?.status).toBe("cancelling");
 		}),
 	);
 
@@ -767,6 +833,15 @@ layer(
 				const session = yield* DatabaseSession;
 				expect(yield* session.transaction(repository.publishCapture(scope, capture))).toBe(true);
 				expect(yield* session.transaction(repository.publishCapture(scope, capture))).toBe(false);
+				for (const changed of [
+					{ ...capture, ordinal: 1 },
+					{ ...capture, phase: "application" as const },
+				]) {
+					const exit = yield* Effect.exit(
+						session.transaction(repository.publishCapture(scope, changed)),
+					);
+					assertExitFails(exit, new DbError({ message: "Capture identity conflict" }));
+				}
 				expect(
 					(yield* Effect.exit(
 						session.transaction(
@@ -862,6 +937,90 @@ layer(
 			}),
 	);
 
+	test.effect("starts a batch once with one update and retains only started owners", () =>
+		Effect.gen(function* () {
+			const scope = yield* runningRun();
+			const repository = yield* ImportsRepository;
+			const session = yield* DatabaseSession;
+			yield* session.transaction(repository.publishCapture(scope, capture));
+			yield* session.transaction(repository.registerBatch(scope, batch, [], batchOwner));
+			expect(yield* repository.listBatchExecutions(scope)).toEqual([]);
+			for (const changed of [
+				{ ...batch, ordinal: 1 },
+				{ ...batch, captureId: "changed-capture" },
+			]) {
+				assertExitFails(
+					yield* Effect.exit(
+						session.transaction(repository.registerBatch(scope, changed, [], batchOwner)),
+					),
+					new DbError({ message: "Batch identity conflict" }),
+				);
+				assertExitFails(
+					yield* Effect.exit(
+						session.transaction(repository.projectBatch(scope, { ...changed, state: "applied" })),
+					),
+					new DbError({ message: "Batch identity conflict" }),
+				);
+			}
+			const spans: Tracer.Span[] = [];
+			expect(
+				yield* session
+					.transaction(repository.startBatch(scope, batch.id))
+					.pipe(Effect.withTracer(makeRecordingTracer(spans))),
+			).toBe(true);
+			const updates = recordedStatements(spans).filter((text) =>
+				text.startsWith('update "import_batch"'),
+			);
+			expect(updates).toHaveLength(1);
+			expect(yield* repository.listBatches(scope)).toEqual([
+				{ data: { ...batch, state: "applying" } },
+			]);
+			expect(yield* repository.listBatchExecutions(scope)).toEqual([batchOwner]);
+			expect(yield* session.transaction(repository.startBatch(scope, batch.id))).toBe(false);
+			expect(yield* session.transaction(repository.startBatch(scope, "missing"))).toBe(false);
+			yield* session.transaction(repository.projectBatch(scope, { ...batch, state: "applied" }));
+			expect(yield* session.transaction(repository.startBatch(scope, batch.id))).toBe(false);
+			expect(yield* repository.listBatchExecutions(scope)).toEqual([batchOwner]);
+		}),
+	);
+
+	test.effect("cancellation before batch start leaves its pending owner unstarted", () =>
+		Effect.gen(function* () {
+			const scope = yield* runningRun();
+			const repository = yield* ImportsRepository;
+			const session = yield* DatabaseSession;
+			yield* session.transaction(repository.publishCapture(scope, capture));
+			yield* session.transaction(repository.registerBatch(scope, batch, [], batchOwner));
+			expect(yield* repository.cancelIngestion(scope)).toBe(true);
+			const exit = yield* Effect.exit(session.transaction(repository.startBatch(scope, batch.id)));
+			assertExitFails(exit, new DbError({ message: "Ingestion owner is not active" }));
+			expect(yield* repository.listBatches(scope)).toEqual([{ data: batch }]);
+			expect(yield* repository.listBatchExecutions(scope)).toEqual([]);
+		}),
+	);
+
+	test.effect("rolls back registration and batch start together", () =>
+		Effect.gen(function* () {
+			const scope = yield* runningRun();
+			const repository = yield* ImportsRepository;
+			const session = yield* DatabaseSession;
+			yield* session.transaction(repository.publishCapture(scope, capture));
+			const error = new DbError({ message: "Admission failed" });
+			const exit = yield* Effect.exit(
+				session.transaction(
+					Effect.gen(function* () {
+						yield* repository.registerBatch(scope, batch, [], batchOwner);
+						expect(yield* repository.startBatch(scope, batch.id)).toBe(true);
+						return yield* error;
+					}),
+				),
+			);
+			assertExitFails(exit, error);
+			expect(yield* repository.listBatches(scope)).toEqual([]);
+			expect(yield* repository.listBatchExecutions(scope)).toEqual([]);
+		}),
+	);
+
 	test.effect(
 		"projects batch results once while cancelling and preserves them through terminal cleanup",
 		() =>
@@ -874,18 +1033,8 @@ layer(
 				expect(
 					yield* session.transaction(repository.registerBatch(scope, batch, [], batchOwner)),
 				).toBe(false);
-				expect(
-					yield* session.transaction(repository.advanceBatch(scope, batch.id, "applying")),
-				).toBe(false);
-				expect(
-					yield* session.transaction(repository.advanceBatch(scope, batch.id, "preparing")),
-				).toBe(true);
-				expect(
-					yield* session.transaction(repository.advanceBatch(scope, batch.id, "applying")),
-				).toBe(true);
-				expect(
-					yield* session.transaction(repository.advanceBatch(scope, batch.id, "preparing")),
-				).toBe(false);
+				expect(yield* session.transaction(repository.startBatch(scope, batch.id))).toBe(true);
+				expect(yield* session.transaction(repository.startBatch(scope, batch.id))).toBe(false);
 				expect(
 					(yield* Effect.exit(
 						session.transaction(
@@ -900,6 +1049,7 @@ layer(
 				).toBe("Failure");
 				expect(yield* repository.releaseCapture(scope, capture.id)).toBe(false);
 				expect(yield* repository.cancelIngestion(scope)).toBe(true);
+				expect(yield* repository.listBatchExecutions(scope)).toEqual([batchOwner]);
 				expect(
 					(yield* Effect.exit(
 						session.transaction(
@@ -925,6 +1075,22 @@ layer(
 				expect(yield* repository.releaseCapture(scope, capture.id)).toBe(true);
 				expect(yield* repository.listCaptures(scope)).toEqual([
 					{ data: { ...capture, payload: null, state: "released" } },
+				]);
+				expect(
+					yield* session.run((db) =>
+						db
+							.select()
+							.from(tables.importCapture)
+							.where(eq(tables.importCapture.runId, scope.runId)),
+					),
+				).toEqual([
+					{
+						id: capture.id,
+						runId: scope.runId,
+						phase: capture.phase,
+						ordinal: capture.ordinal,
+						data: { ...capture, payload: null, state: "released" },
+					},
 				]);
 				expect(yield* repository.getIngestionRun(scope)).toMatchObject({
 					summary,
@@ -954,6 +1120,15 @@ layer(
 					lastAdvancedAt: acceptedAt.toISOString(),
 				};
 				yield* session.transaction(repository.putActivity(scope, activity));
+				for (const changed of [
+					{ ...activity, batchId: "changed-batch" },
+					{ ...activity, parentId: "changed-parent" },
+				]) {
+					const exit = yield* Effect.exit(
+						session.transaction(repository.putActivity(scope, changed)),
+					);
+					assertExitFails(exit, new DbError({ message: "Activity identity or progress conflict" }));
+				}
 				expect(
 					(yield* Effect.exit(
 						session.transaction(repository.putActivity(scope, { ...activity, unit: "plays" })),

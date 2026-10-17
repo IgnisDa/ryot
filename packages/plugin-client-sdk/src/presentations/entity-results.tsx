@@ -10,7 +10,6 @@ import {
 } from "@ryot-app/plugin-ui-sdk/sync";
 import * as Effect from "effect/Effect";
 import * as Result from "effect/Result";
-import * as Schema from "effect/Schema";
 import {
 	Component,
 	type ComponentType,
@@ -96,7 +95,7 @@ export type EntityPresentationRegistration = {
 	readonly load: () => Promise<EntityPresentationDefinition>;
 };
 
-type BatchInput = string;
+type BatchInput = readonly EntityReference[];
 type PresentationRuntime = {
 	readonly definition: EntityPresentationDefinition;
 	readonly query: RyotQuery<BatchInput, Readonly<Record<string, unknown>>>;
@@ -116,43 +115,6 @@ const registryKey = (
 	entitySchemaSlug: string,
 	layout: EntityResultsLayout,
 ) => `${ownerPluginId}\u0000${entitySchemaSlug}\u0000${layout}`;
-
-const BatchReferences = Schema.Array(
-	Schema.Tuple([
-		Schema.String,
-		Schema.NullOr(Schema.String),
-		Schema.String,
-		Schema.NullOr(Schema.String),
-		Schema.Literals(["pending", "ready", "none"]),
-		Schema.Literals(["pending", "ready", "none"]),
-	]),
-);
-
-const decodeBatchInput = Schema.decodeUnknownSync(Schema.fromJsonString(BatchReferences));
-
-const encodeBatchInput = (references: readonly EntityReference[]) =>
-	JSON.stringify(
-		references.map((reference) => [
-			reference.entityId,
-			reference.ownerPluginId,
-			reference.entitySchemaSlug,
-			reference.name,
-			reference.populationStatus,
-			reference.translationStatus,
-		]),
-	);
-
-const referencesFromBatchInput = (input: BatchInput): readonly EntityReference[] =>
-	decodeBatchInput(input).map(
-		([entityId, ownerPluginId, entitySchemaSlug, name, populationStatus, translationStatus]) => ({
-			name,
-			entityId,
-			ownerPluginId,
-			entitySchemaSlug,
-			populationStatus,
-			translationStatus,
-		}),
-	);
 
 const PresentationRegistryContext = createContext<ReadonlyMap<string, PresentationEntry> | null>(
 	null,
@@ -191,8 +153,7 @@ const createPresentationRuntime = (registrations: readonly EntityPresentationReg
 							Effect.flatMap((definition) =>
 								Effect.sync(() => {
 									const query = createRyotQuery<BatchInput, Readonly<Record<string, unknown>>>(
-										({ input, client }) => {
-											const references = referencesFromBatchInput(input);
+										({ client, input: references }) => {
 											const requested = new Set(references.map(({ entityId }) => entityId));
 											return Effect.flatMap(definition.loader({ client, references }), (result) => {
 												for (const entityId of Object.keys(result)) {
@@ -701,9 +662,8 @@ export const EntityResults = ({
 					}
 				}
 				if (result === undefined || Result.isFailure(result)) {
-					const input = encodeBatchInput(batchReferences);
 					for (const reference of batchReferences) {
-						runtimeLoads.set(reference.entityId, input);
+						runtimeLoads.set(reference.entityId, batchReferences);
 					}
 					continue;
 				}

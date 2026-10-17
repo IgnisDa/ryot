@@ -4,7 +4,6 @@ import { ApiLive, TransportLive } from "#/api/layer";
 import { AssetsLive } from "#/modules/assets/layer";
 import { AuthLive } from "#/modules/auth/layer";
 import { DeviceLive } from "#/modules/device/layer";
-import { EntitiesService } from "#/modules/entities/service";
 import { EntityWatchLive } from "#/modules/entity-watches/layer";
 import { ExternalLinksLive } from "#/modules/external-links/layer";
 import { ImportsService } from "#/modules/imports/service";
@@ -17,7 +16,6 @@ import { NotificationChannelsService } from "#/modules/notifications/service";
 import { PagesLive } from "#/modules/pages/layer";
 import { PluginsLive } from "#/modules/plugins/layer";
 import { ProviderAddLive } from "#/modules/provider-add/layer";
-import { SavedViewsService } from "#/modules/saved-views/service";
 import { ServerLive } from "#/modules/server/layer";
 import { ShellLive } from "#/modules/shell/layer";
 
@@ -25,7 +23,6 @@ export const ClientLive = Layer.mergeAll(
 	IosLiveActivitiesLive,
 	DeviceLive,
 	AssetsLive,
-	EntitiesService.layer,
 	EntityWatchLive,
 	ExternalLinksLive,
 	InstanceAdminLive,
@@ -37,6 +34,5 @@ export const ClientLive = Layer.mergeAll(
 	PagesLive,
 	PluginsLive.pipe(Layer.provideMerge(AuthLive)),
 	ProviderAddLive,
-	SavedViewsService.layer,
 	ServerLive,
 ).pipe(Layer.provideMerge(ApiLive), Layer.provide(TransportLive));

@@ -3,6 +3,7 @@ import {
 	withTypeScriptProject,
 } from "@ryot-app/typescript-compiler";
 import { Data, Effect } from "effect";
+import type * as ts from "typescript/unstable/ast";
 
 import { createSandboxExecutionAnalyzer } from "./compiler-execution";
 
@@ -39,6 +40,16 @@ export type SandboxTypeScriptSources = {
 	readonly files: Readonly<Record<string, string>>;
 };
 
+type SandboxEntryExecution = Effect.Success<
+	ReturnType<ReturnType<typeof createSandboxExecutionAnalyzer>>
+>;
+
+export type SandboxProjectEntry = {
+	readonly entry: string;
+	readonly sourceFile: ts.SourceFile;
+	readonly execution: SandboxEntryExecution;
+};
+
 export const createTypeScriptSourcesProjectForEntries = (
 	sources: SandboxTypeScriptSources,
 	entries: ReadonlyArray<string>,
@@ -65,24 +76,22 @@ export const createTypeScriptSourcesProjectForEntries = (
 		(project) =>
 			Effect.gen(function* () {
 				const analyzeSandboxExecution = createSandboxExecutionAnalyzer(project);
-				const executionByEntry = Object.fromEntries(
-					yield* Effect.forEach(entries, (entry) =>
-						Effect.gen(function* () {
-							const file = project.entrySourceFiles[entry];
-							if (!file) {
-								return yield* new TypeScriptProjectError({
-									message: `TypeScript did not load ${entry}`,
-								});
-							}
-							return [entry, yield* analyzeSandboxExecution(file)] as const;
-						}),
-					),
+				const projectEntries = yield* Effect.forEach(entries, (entry) =>
+					Effect.gen(function* () {
+						const sourceFile = project.entrySourceFiles[entry];
+						if (!sourceFile) {
+							return yield* new TypeScriptProjectError({
+								message: `TypeScript did not load ${entry}`,
+							});
+						}
+						const execution = yield* analyzeSandboxExecution(sourceFile);
+						return { entry, execution, sourceFile } satisfies SandboxProjectEntry;
+					}),
 				);
 				return {
-					executionByEntry,
+					entries: projectEntries,
 					diagnostics: project.diagnostics,
 					sourceFiles: project.sourceFiles,
-					entrySourceFiles: project.entrySourceFiles,
 				};
 			}),
 	);
@@ -93,19 +102,9 @@ export const createTypeScriptSourcesProject = (
 	tsserverPath: string,
 ) =>
 	createTypeScriptSourcesProjectForEntries(sources, [sources.entry], sdkEntries, tsserverPath).pipe(
-		Effect.flatMap(({ diagnostics, sourceFiles, entrySourceFiles, executionByEntry }) => {
-			const sourceFile = entrySourceFiles[sources.entry];
-			return sourceFile
-				? Effect.succeed({
-						sourceFile,
-						diagnostics,
-						sourceFiles,
-						execution: executionByEntry[sources.entry],
-					})
-				: Effect.fail(
-						new TypeScriptProjectError({
-							message: "TypeScript did not load the sandbox entry file",
-						}),
-					);
-		}),
+		Effect.flatMap(({ diagnostics, sourceFiles, entries: [entry] }) =>
+			entry
+				? Effect.succeed({ entry, diagnostics, sourceFiles })
+				: Effect.die(`TypeScript returned no analysis for ${sources.entry}`),
+		),
 	);

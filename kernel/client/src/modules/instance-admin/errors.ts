@@ -1,5 +1,5 @@
 import { AuthUnauthorized } from "@ryot-app/contract/auth-middleware";
-import { Cause, Effect, Exit, Option } from "effect";
+import { Cause, Effect, Option } from "effect";
 
 import { AdminApiError } from "#/api/admin";
 
@@ -10,16 +10,41 @@ const isUnauthorizedError = (error: unknown): boolean =>
 export const isUnauthorizedCause = (cause: Cause.Cause<unknown>) =>
 	Option.exists(Cause.findErrorOption(cause), isUnauthorizedError);
 
-export const readAdminResult = Effect.fnUntraced(function* <A>(
-	request: Effect.Effect<Exit.Exit<A, unknown>>,
+export const withAdminAuthorization = <A, E>(
+	request: Effect.Effect<A, E>,
 	onUnauthorized: () => void,
-) {
-	const result = yield* request;
-	if (Exit.isSuccess(result)) {
-		return result.value;
-	}
-	if (isUnauthorizedCause(result.cause)) {
-		yield* Effect.sync(onUnauthorized);
-	}
-	return yield* Effect.failCause(result.cause);
-});
+) =>
+	request.pipe(
+		Effect.tapCause((cause) =>
+			isUnauthorizedCause(cause) ? Effect.sync(onUnauthorized) : Effect.void,
+		),
+	);
+
+export const runAdminAction = <A>(input: {
+	readonly signal: AbortSignal;
+	readonly onUnauthorized: () => void;
+	readonly onSuccess: (value: A) => void;
+	readonly onSettled: (aborted: boolean) => void;
+	readonly onFailure: (cause: Cause.Cause<unknown>) => void;
+	readonly operation: () => Effect.Effect<A, unknown>;
+}) =>
+	Effect.suspend(input.operation).pipe(
+		Effect.matchCause({
+			onSuccess: (value) => {
+				if (!input.signal.aborted) {
+					input.onSuccess(value);
+				}
+			},
+			onFailure: (cause) => {
+				if (input.signal.aborted || Cause.hasInterruptsOnly(cause)) {
+					return;
+				}
+				if (isUnauthorizedCause(cause)) {
+					input.onUnauthorized();
+				} else {
+					input.onFailure(cause);
+				}
+			},
+		}),
+		Effect.ensuring(Effect.sync(() => input.onSettled(input.signal.aborted))),
+	);

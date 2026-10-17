@@ -58,6 +58,7 @@ import type { DomainWriteChecks } from "#modules/entities/write-context";
 import { DomainWriteChecksLive } from "#modules/entities/write-context";
 import { ImportsRepository } from "#modules/imports/repository";
 import { MutationReceiptIdentity, MutationReceipts } from "#modules/mutations/receipts";
+import { pinReferences, seedPinTargets } from "#modules/mutations/receipts.test-support";
 import { AdmittedWorkflowCatalogue } from "#modules/mutations/workflow-catalogue";
 import { ingestionRetirementTestLayer } from "#modules/plugins/packages/ingestion-retirement.test-support";
 import { testPluginPackageId } from "#modules/plugins/test-support";
@@ -119,22 +120,21 @@ const updateEventProperties = (
 		const input = { userId, eventId };
 		const current = yield* repository.getEventSnapshot(input);
 		assert(current);
-		const expectedRevision = yield* repository.getEventRevision(input);
-		assert(expectedRevision !== null);
+		const { snapshot, revision: expectedRevision } = current;
 		const updated = yield* session.transaction(
 			repository.updatePreparedEvent({
 				...input,
 				expectedRevision,
 				updatedAt: DateTime.toDateUtc(DateTime.makeUnsafe("2026-09-16T00:00:00.000Z")),
 				draft: {
-					entityId: current.entityId,
-					occurredAt: current.occurredAt,
-					properties: update(current.properties),
-					eventSchemaSlug: current.eventSchemaSlug,
-					sessionEntityId: current.sessionEntityId,
-					entitySchemaSlug: current.entitySchemaSlug,
-					eventSchemaPluginId: current.eventSchemaPluginId,
-					entitySchemaPluginId: current.entitySchemaPluginId,
+					entityId: snapshot.entityId,
+					occurredAt: snapshot.occurredAt,
+					properties: update(snapshot.properties),
+					eventSchemaSlug: snapshot.eventSchemaSlug,
+					sessionEntityId: snapshot.sessionEntityId,
+					entitySchemaSlug: snapshot.entitySchemaSlug,
+					eventSchemaPluginId: snapshot.eventSchemaPluginId,
+					entitySchemaPluginId: snapshot.entitySchemaPluginId,
 				},
 			}),
 		);
@@ -631,21 +631,14 @@ describe("Event lifecycle PostgreSQL", () => {
 						...eventCreateBatchInput(invalidInput),
 						ownerUserId: userId,
 					});
+					yield* seedPinTargets();
 					const candidateId = `receipt-candidate-${emptyDecision.id}`;
 					yield* session.transaction(
 						receipts.beginBatch({
 							maxItems: 200,
 							identity: emptyDecision,
 							pins: [
-								{
-									pluginId: null,
-									id: candidateId,
-									sandboxScriptId: null,
-									pluginRevisionId: null,
-									executionUserId: userId,
-									result: { hook: "batch" },
-									pluginConfigRevisionId: null,
-								},
+								{ id: candidateId, payload: { hook: "batch" }, references: pinReferences(userId) },
 							],
 						}),
 					);
@@ -834,10 +827,10 @@ describe("Event lifecycle PostgreSQL", () => {
 					const expected = {
 						absentProperties: [],
 						kind: "fields" as const,
-						entityId: before.entityId,
-						occurredAt: before.occurredAt,
-						properties: before.properties,
-						sessionEntityId: before.sessionEntityId,
+						entityId: before.snapshot.entityId,
+						occurredAt: before.snapshot.occurredAt,
+						properties: before.snapshot.properties,
+						sessionEntityId: before.snapshot.sessionEntityId,
 					};
 					const item = {
 						eventId,
@@ -866,10 +859,10 @@ describe("Event lifecycle PostgreSQL", () => {
 						[eventId]: {
 							absentProperties: [],
 							kind: "fields" as const,
-							entityId: current.entityId,
-							occurredAt: current.occurredAt,
-							properties: current.properties,
-							sessionEntityId: current.sessionEntityId,
+							entityId: current.snapshot.entityId,
+							occurredAt: current.snapshot.occurredAt,
+							properties: current.snapshot.properties,
+							sessionEntityId: current.snapshot.sessionEntityId,
 						},
 					};
 					const deleteCommand = command("conditional-delete");
@@ -932,13 +925,16 @@ describe("Event lifecycle PostgreSQL", () => {
 						occurredAt: DateTime.toDate(DateTime.makeUnsafe(now)),
 					}),
 				);
-				const snapshot = yield* repository.getEventSnapshot(identity);
-				expect(snapshot).toMatchObject({
+				const current = yield* repository.getEventSnapshot(identity);
+				assert(current);
+				expect(current.revision).toBe(0);
+				expect(current.snapshot).toMatchObject({
 					sessionEntityId: movedId,
 					properties: { rating: 5 },
 					entitySchemaSlug: "record",
 					eventSchemaPluginId: "event-plugin",
 				});
+				expect(current.snapshot).not.toHaveProperty("revision");
 				expect(
 					yield* repository.listEventIdentitiesForEntities([movedId, entityId, movedId]),
 				).toEqual([{ userId, eventId }]);
@@ -1032,9 +1028,8 @@ describe("Event lifecycle PostgreSQL", () => {
 					new DbError({ message: "planning failed after run insertion" }),
 				);
 				expect(yield* repository.getEventSnapshot({ userId, eventId })).toMatchObject({
-					entityId,
-					sessionEntityId: entityId,
-					updatedAt: created.createdAt,
+					revision: 0,
+					snapshot: { entityId, sessionEntityId: entityId, updatedAt: created.createdAt },
 				});
 				expect(
 					yield* service.delete(
@@ -1059,14 +1054,19 @@ describe("Event lifecycle PostgreSQL", () => {
 					eventId,
 					warnings: [],
 				});
-				const snapshot = yield* repository.getEventSnapshot({ userId, eventId });
-				expect(snapshot).toMatchObject({
-					updatedAt: now,
-					entityId: movedId,
-					sessionEntityId: movedId,
-					properties: { rating: 3 },
-					createdAt: created.createdAt,
-					occurredAt: beforeTime.toISOString(),
+				const current = yield* repository.getEventSnapshot({ userId, eventId });
+				assert(current);
+				const { snapshot } = current;
+				expect(current).toMatchObject({
+					revision: 1,
+					snapshot: {
+						updatedAt: now,
+						entityId: movedId,
+						sessionEntityId: movedId,
+						properties: { rating: 3 },
+						createdAt: created.createdAt,
+						occurredAt: beforeTime.toISOString(),
+					},
 				});
 				expect(yield* service.moveReferences(move, command("noop"))).toEqual({
 					warnings: [],
@@ -1076,7 +1076,7 @@ describe("Event lifecycle PostgreSQL", () => {
 					yield* Effect.exit(failingService.delete({ userId, eventId }, command("failed-delete"))),
 					new DbError({ message: "planning failed after run insertion" }),
 				);
-				expect(yield* repository.getEventSnapshot({ userId, eventId })).toEqual(snapshot);
+				expect(yield* repository.getEventSnapshot({ userId, eventId })).toEqual(current);
 				expect(yield* service.delete({ userId, eventId }, command("delete"))).toEqual({
 					eventId,
 					warnings: [],
@@ -1105,6 +1105,7 @@ describe("Event lifecycle PostgreSQL", () => {
 					operation: "update",
 					before: { entityId, sessionEntityId: entityId, updatedAt: created.createdAt },
 				});
+				expect(result.rows[0]?.["payload"]?.["after"]).toEqual(snapshot);
 				expect(result.rows[1]?.["payload"]).toEqual({
 					before: snapshot,
 					resource: "event",
@@ -1232,7 +1233,7 @@ describe("Event lifecycle PostgreSQL", () => {
 						.pipe(Effect.flip),
 				).toMatchObject({ message: "Rollback prepared events" });
 				expect(yield* repository.getEventSnapshot({ userId, eventId: updateId })).toMatchObject({
-					entityId,
+					snapshot: { entityId },
 				});
 				expect(yield* repository.getEventSnapshot({ userId, eventId: deleteId })).not.toBeNull();
 				const rolledBack = yield* Effect.promise(() =>
@@ -1406,7 +1407,9 @@ describe("Event lifecycle PostgreSQL", () => {
 						),
 					);
 					expect(failure).toBeInstanceOf(EventStale);
-					expect((yield* repository.getEventSnapshot({ userId, eventId }))?.occurredAt).toBe(now);
+					expect(
+						(yield* repository.getEventSnapshot({ userId, eventId }))?.snapshot.occurredAt,
+					).toBe(now);
 				}),
 		);
 	});
@@ -1780,7 +1783,9 @@ describe("Event lifecycle PostgreSQL", () => {
 				const move = { userId, eventId, mergeInto: movedId, mergeFrom: entityId };
 				const updated = yield* service.moveReferences(move, command("no-hook-update"));
 				expect(updated).toEqual({ eventId, warnings: [] });
-				expect((yield* repository.getEventSnapshot({ userId, eventId }))?.entityId).toBe(movedId);
+				expect((yield* repository.getEventSnapshot({ userId, eventId }))?.snapshot.entityId).toBe(
+					movedId,
+				);
 				const noop = yield* service.moveReferences(move, command("no-hook-noop"));
 				expect(noop).toEqual({ warnings: [], eventId: null });
 				yield* session.transaction(
@@ -1792,7 +1797,9 @@ describe("Event lifecycle PostgreSQL", () => {
 					}),
 				);
 				expect(yield* service.moveReferences(move, command("no-hook-noop"))).toEqual(noop);
-				expect((yield* repository.getEventSnapshot({ userId, eventId }))?.entityId).toBe(entityId);
+				expect((yield* repository.getEventSnapshot({ userId, eventId }))?.snapshot.entityId).toBe(
+					entityId,
+				);
 				expect(
 					yield* service
 						.moveReferences({ ...move, mergeInto: entityId }, command("no-hook-noop"))
@@ -1903,9 +1910,9 @@ describe("Event lifecycle PostgreSQL", () => {
 						},
 					},
 				]);
-				expect((yield* repository.getEventSnapshot({ userId, eventId }))?.properties).toEqual({
-					rating: 10,
-				});
+				expect(
+					(yield* repository.getEventSnapshot({ userId, eventId }))?.snapshot.properties,
+				).toEqual({ rating: 10 });
 				expect(yield* service.edit(submitted, userId, lifecycle)).toEqual({
 					eventId,
 					warnings: [],
@@ -1954,7 +1961,7 @@ describe("Event lifecycle PostgreSQL", () => {
 					},
 				]);
 				const moved = yield* repository.getEventSnapshot({ userId, eventId: moveEventId });
-				expect(moved).toMatchObject({
+				expect(moved?.snapshot).toMatchObject({
 					entityId: movedId,
 					properties: { rating: 10 },
 					occurredAt: "2026-09-16T00:00:00.000Z",
@@ -2011,9 +2018,9 @@ describe("Event lifecycle PostgreSQL", () => {
 					_tag: "EventBadRequest",
 					reason: { code: "mutation-conflict" },
 				});
-				expect((yield* repository.getEventSnapshot({ userId, eventId }))?.properties).toEqual({
-					rating: 1,
-				});
+				expect(
+					(yield* repository.getEventSnapshot({ userId, eventId }))?.snapshot.properties,
+				).toEqual({ rating: 1 });
 			}),
 		);
 	});
@@ -2054,8 +2061,8 @@ describe("Event lifecycle PostgreSQL", () => {
 				);
 				const changed = yield* repository.getEventSnapshot({ userId, eventId });
 				assert(changed);
-				expect(changed.updatedAt).not.toBe(now);
-				expect(changed.properties).toEqual({ rating: 1, note: "after" });
+				expect(changed.snapshot.updatedAt).not.toBe(now);
+				expect(changed.snapshot.properties).toEqual({ rating: 1, note: "after" });
 				expect(
 					yield* service.edit(
 						{
@@ -2158,12 +2165,14 @@ describe("Event lifecycle PostgreSQL", () => {
 						eventId,
 						mergeInto: movedId,
 						mergeFrom: entityId,
-						updatedAt: DateTime.toDateUtc(DateTime.makeUnsafe(before.updatedAt)),
+						updatedAt: DateTime.toDateUtc(DateTime.makeUnsafe(before.snapshot.updatedAt)),
 					}),
 				);
 				const after = yield* repository.getEventSnapshot({ userId, eventId });
 				assert(after);
-				expect(after.updatedAt).toBe(before.updatedAt);
+				expect(after.snapshot.updatedAt).toBe(before.snapshot.updatedAt);
+				expect(after.revision).toBe(before.revision + 1);
+				expect(after.snapshot.entityId).toBe(movedId);
 				const stale = yield* session
 					.transaction(service.persistPreparedUpdate(prepared))
 					.pipe(Effect.flip);
@@ -2248,8 +2257,8 @@ describe("Event lifecycle PostgreSQL", () => {
 				expect(retryPolicyInputs).toHaveLength(2);
 				const retryResult = yield* repository.getEventSnapshot({ userId, eventId: retryEventId });
 				assert(retryResult);
-				expect(retryResult.properties).toEqual({ rating: 2, note: "policy-derived" });
-				expect(yield* repository.getEventRevision({ userId, eventId: retryEventId })).toBe(2);
+				expect(retryResult.snapshot.properties).toEqual({ rating: 2, note: "policy-derived" });
+				expect(retryResult.revision).toBe(2);
 				const requests = yield* Effect.promise(() =>
 					fixture.observer.query<{ id: string; note: string }>(
 						`SELECT id, payload->'before'->'properties'->>'note' AS note
@@ -2279,8 +2288,8 @@ describe("Event lifecycle PostgreSQL", () => {
 					eventId: protectedEventId,
 				});
 				assert(protectedResult);
-				expect(protectedResult.properties).toEqual({ rating: 99, note: "protected" });
-				expect(yield* repository.getEventRevision({ userId, eventId: protectedEventId })).toBe(1);
+				expect(protectedResult.snapshot.properties).toEqual({ rating: 99, note: "protected" });
+				expect(protectedResult.revision).toBe(1);
 			}),
 		);
 	});
@@ -2319,9 +2328,9 @@ describe("Event lifecycle PostgreSQL", () => {
 				);
 				expect(failure).toMatchObject({ message: "planning failed after run insertion" });
 				for (const eventId of eventIds) {
-					expect((yield* repository.getEventSnapshot({ userId, eventId }))?.properties).toEqual({
-						rating: 1,
-					});
+					expect(
+						(yield* repository.getEventSnapshot({ userId, eventId }))?.snapshot.properties,
+					).toEqual({ rating: 1 });
 				}
 				expect(
 					yield* session.run((db) =>
@@ -2419,9 +2428,9 @@ describe("Event lifecycle PostgreSQL", () => {
 					),
 					new EventBadRequest({ reason: { code: "asset-forbidden" } }),
 				);
-				expect((yield* repository.getEventSnapshot({ userId, eventId }))?.properties).toEqual({
-					rating: 1,
-				});
+				expect(
+					(yield* repository.getEventSnapshot({ userId, eventId }))?.snapshot.properties,
+				).toEqual({ rating: 1 });
 			}),
 		);
 	});

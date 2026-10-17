@@ -4,15 +4,16 @@ import {
 	LifecycleCommand,
 } from "@ryot-app/contract/modules/automations/lifecycle";
 import type { AccountGeneration } from "@ryot-app/contract/schema/account-generation";
-import { UserId } from "@ryot-app/contract/schema/brands";
+import { PluginId, UserId } from "@ryot-app/contract/schema/brands";
 import { decodeStoredSchema } from "@ryot-app/contract/schema/core";
 import { JsonValue } from "@ryot-app/contract/schema/json";
 import { sha256Base64Url } from "@ryot-app/ts-utils/crypto";
 import { stableStringify } from "@ryot-app/ts-utils/json";
 import { and, asc, eq, inArray, isNotNull, or, sql } from "drizzle-orm";
-import { Context, Effect, Layer, Result, Schema } from "effect";
+import { Array as Arr, Context, Effect, Layer, Result, Schema } from "effect";
 
 import { LifecycleDispatchPlan } from "#modules/automations/lifecycle/planning";
+import { insertChunkSize } from "#platform/db/bind-parameters";
 import { DatabaseSession, DatabaseSessionStateError } from "#platform/db/session";
 import { user } from "#schema/tables/auth";
 import { mutationReceipt } from "#schema/tables/mutations";
@@ -75,6 +76,18 @@ export const MutationReceiptIdentity = Schema.Struct({
 	rootExecutionId: LifecycleCommand.fields.causation.fields.rootExecutionId,
 });
 export type MutationReceiptIdentity = typeof MutationReceiptIdentity.Type;
+
+const MutationBatchPinReferences = Schema.Struct({
+	pluginId: PluginId,
+	sandboxScriptId: Schema.String,
+	pluginRevisionId: Schema.String,
+	scopeUserId: Schema.NullOr(UserId),
+	pluginConfigRevisionId: Schema.NullOr(Schema.String),
+});
+export type MutationBatchPin<Payload> = {
+	readonly references: typeof MutationBatchPinReferences.Type;
+	readonly payload: Payload;
+};
 
 const WorkflowOwnerState = Schema.Struct({
 	retiring: Schema.Boolean,
@@ -529,12 +542,8 @@ export class MutationReceipts extends Context.Service<MutationReceipts>()("Mutat
 			maxItems: number;
 			pins: ReadonlyArray<{
 				readonly id: string;
-				readonly result: unknown;
-				readonly executionUserId: UserId | null;
-				readonly pluginId: string | null;
-				readonly pluginRevisionId: string | null;
-				readonly pluginConfigRevisionId: string | null;
-				readonly sandboxScriptId: string | null;
+				readonly payload: unknown;
+				readonly references: typeof MutationBatchPinReferences.Type;
 			}>;
 		}) {
 			yield* requireTransaction;
@@ -548,6 +557,23 @@ export class MutationReceipts extends Context.Service<MutationReceipts>()("Mutat
 			if (existing) {
 				return existing;
 			}
+			const candidates = yield* Effect.forEach(
+				input.pins,
+				Effect.fnUntraced(function* (pin) {
+					const row: typeof mutationReceipt.$inferInsert = {
+						...input.identity,
+						...pin.references,
+						id: pin.id,
+						dispatch: [],
+						batchId: input.identity.id,
+						receiptType: "batch-candidate",
+						ownerUserId: pin.references.scopeUserId ?? input.identity.ownerUserId,
+						mutationScope: pin.references.scopeUserId === null ? "global" : "user",
+						result: yield* decodeStoredSchema(pin.payload, JsonValue, "Invalid batch pin"),
+					};
+					return row;
+				}),
+			);
 			yield* session.run((db) =>
 				db
 					.insert(mutationReceipt)
@@ -558,27 +584,8 @@ export class MutationReceipts extends Context.Service<MutationReceipts>()("Mutat
 						result: { maxItems: input.maxItems, candidateCount: input.pins.length },
 					}),
 			);
-			for (const pin of input.pins) {
-				const result = yield* decodeStoredSchema(pin.result, JsonValue, "Invalid batch pin");
-				yield* session.run((db) =>
-					db
-						.insert(mutationReceipt)
-						.values({
-							...input.identity,
-							result,
-							id: pin.id,
-							dispatch: [],
-							pluginId: pin.pluginId,
-							batchId: input.identity.id,
-							receiptType: "batch-candidate",
-							scopeUserId: pin.executionUserId,
-							sandboxScriptId: pin.sandboxScriptId,
-							pluginRevisionId: pin.pluginRevisionId,
-							pluginConfigRevisionId: pin.pluginConfigRevisionId,
-							ownerUserId: pin.executionUserId ?? input.identity.ownerUserId,
-							mutationScope: pin.executionUserId === null ? "global" : "user",
-						}),
-				);
+			for (const chunk of Arr.chunksOf(candidates, insertChunkSize(mutationReceipt))) {
+				yield* session.run((db) => db.insert(mutationReceipt).values(chunk));
 			}
 			return {
 				dispatch: [],
@@ -630,9 +637,6 @@ export class MutationReceipts extends Context.Service<MutationReceipts>()("Mutat
 			return {
 				...decision,
 				maxItems: decision.maxItems,
-				pins: yield* Effect.forEach(rows, (row) =>
-					decodeStoredSchema(row.result, pinSchema, `Invalid batch pin ${row.id}`),
-				),
 				evidence: yield* Effect.forEach(items, (row) =>
 					decodeStoredSchema(
 						row.evidence,
@@ -643,6 +647,22 @@ export class MutationReceipts extends Context.Service<MutationReceipts>()("Mutat
 							payload,
 							scopeUserId: row.scopeUserId === null ? null : UserId.make(row.scopeUserId),
 						})),
+					),
+				),
+				pins: yield* Effect.forEach(rows, (row) =>
+					decodeStoredSchema(
+						{
+							payload: row.result,
+							references: {
+								pluginId: row.pluginId,
+								scopeUserId: row.scopeUserId,
+								sandboxScriptId: row.sandboxScriptId,
+								pluginRevisionId: row.pluginRevisionId,
+								pluginConfigRevisionId: row.pluginConfigRevisionId,
+							},
+						},
+						Schema.Struct({ payload: pinSchema, references: MutationBatchPinReferences }),
+						`Invalid batch pin ${row.id}`,
 					),
 				),
 			};

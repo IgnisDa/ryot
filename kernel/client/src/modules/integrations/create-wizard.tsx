@@ -35,6 +35,7 @@ import { CatalogPicker, type CatalogPickerState } from "#/modules/ui/catalog/pic
 import { schemaReviewRows } from "#/modules/ui/review-rows";
 import { useSchemaFileUpload } from "#/modules/ui/schema-form-upload";
 import { useFormSeed } from "#/modules/ui/use-form-seed";
+import { useLatestDefined } from "#/modules/ui/use-latest-defined";
 import { WizardShell } from "#/modules/ui/wizard/wizard-shell";
 import {
 	createWizardState,
@@ -204,7 +205,9 @@ export function IntegrationCreateWizard(props: CreateWizardProps) {
 	const [failure, setFailure] = useState<IntegrationSaveFailure | undefined>();
 	const [state, dispatch] = useReducer(wizardReducer, undefined, createWizardState);
 	const listed = props.providers.status === "ready" ? props.providers.sources : [];
-	const provider = listed.find((item) => integrationProviderItemKey(item) === state.slug);
+	const provider = useLatestDefined(
+		listed.find((item) => integrationProviderItemKey(item) === state.slug),
+	);
 
 	const connect = (values: SchemaFormValues) => {
 		return Effect.runPromise(

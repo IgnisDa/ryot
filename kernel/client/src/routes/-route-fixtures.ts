@@ -33,9 +33,9 @@ import { OAuthStorage } from "#/modules/auth/oauth-storage";
 import { RuntimeOAuthClientService } from "#/modules/auth/runtime-client";
 import { AuthService, type SettledAuthSession } from "#/modules/auth/service";
 import { OAuthTokenService } from "#/modules/auth/token-service";
+import { makeOAuthTokenServiceStub } from "#/modules/auth/token-service.test-layer";
 import { noopDevicePlatform } from "#/modules/device/platform.test-layer";
 import { DevicePlatform, DeviceService } from "#/modules/device/service";
-import { EntitiesService } from "#/modules/entities/service";
 import { ImportsService } from "#/modules/imports/service";
 import { InstanceAdminImpersonationService } from "#/modules/instance-admin/impersonation";
 import { InstanceAdminService } from "#/modules/instance-admin/service";
@@ -53,7 +53,6 @@ import { NavigationService } from "#/modules/navigation/service";
 import { NotificationChannelsService } from "#/modules/notifications/service";
 import { ClientPageFreshness } from "#/modules/pages/preparation/freshness";
 import { ProviderAddService } from "#/modules/provider-add/service";
-import { SavedViewsService } from "#/modules/saved-views/service";
 import { ServerService } from "#/modules/server/service";
 import { CustomizeSidebarService } from "#/modules/shell/customize/service";
 import type { ThemeStore } from "#/modules/theme/store";
@@ -240,15 +239,7 @@ export const makeOAuthRouteStubs = (
 				}),
 			...runtimeOverrides,
 		}),
-		Layer.succeed(OAuthTokenService, {
-			clear: () => Effect.void,
-			logout: () => Effect.succeed(null),
-			userInfo: () => Effect.succeed(null),
-			accessToken: () => Effect.succeed(null),
-			rejectAuthorization: () => Effect.die("not used"),
-			completeAuthorization: () => Effect.die("not used"),
-			...tokenOverrides,
-		}),
+		Layer.succeed(OAuthTokenService, makeOAuthTokenServiceStub(tokenOverrides)),
 		Layer.succeed(OAuthLauncher, {
 			launch: () => Effect.void,
 			prepareImpersonation: () =>
@@ -320,20 +311,10 @@ export const InstanceAdminRouteStubs = Layer.mergeAll(
 	}),
 );
 
-export const makeEntityRouteStub = (
-	loadRouteProvenance: EntitiesService["Service"]["loadRouteProvenance"] = () =>
-		Effect.die("not used"),
-) => Layer.succeed(EntitiesService, { loadRouteProvenance });
-
-export const EntityRouteStubs = makeEntityRouteStub();
-
-export const SavedViewRouteStubs = Layer.mergeAll(
-	Layer.succeed(ManagedAssetsService, {
-		read: () => Effect.succeed([]),
-		outcome: () => Effect.die("not used"),
-	}),
-	Layer.succeed(SavedViewsService, { loadRecord: () => Effect.die("not used") }),
-);
+export const ManagedAssetRouteStubs = Layer.succeed(ManagedAssetsService, {
+	read: () => Effect.succeed([]),
+	outcome: () => Effect.die("not used"),
+});
 
 export const makeImportsStub = (overrides: Partial<ImportsService["Service"]> = {}) =>
 	Layer.succeed(ImportsService, {

@@ -45,14 +45,12 @@ export const fixturePlugin = definePlugin({
 			slug: "pokemon.pokeapi",
 			rootEntitySchemaSlug: "pokemon",
 			information: { source: "pokeapi" },
-			operations: { search: "pokemon.pokeapi.search", details: "pokemon.pokeapi.details" },
 		},
 		{
 			name: "PokeAPI",
 			slug: "move.pokeapi",
 			rootEntitySchemaSlug: "move",
 			information: { source: "pokeapi" },
-			operations: { search: "move.pokeapi.search", details: "move.pokeapi.details" },
 		},
 	],
 	entitySchemas: [

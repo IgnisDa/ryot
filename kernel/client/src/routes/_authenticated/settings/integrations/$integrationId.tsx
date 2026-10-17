@@ -36,11 +36,13 @@ import {
 	integrationRunsQuery,
 	updateIntegrationMutation,
 } from "#/modules/integrations/service";
+import { useIngestionCatalogRefresh } from "#/modules/plugins/catalog/provider";
 import { SettingsFrame } from "#/modules/settings/settings-frame";
 import { isTerminalRunStatus } from "#/modules/ui/run/run-status";
 import { useSchemaFileUpload } from "#/modules/ui/schema-form-upload";
 import { StatusState } from "#/modules/ui/status-state";
 import { useFormSeed } from "#/modules/ui/use-form-seed";
+import { useLatestDefined } from "#/modules/ui/use-latest-defined";
 import { RELATIVE_TIME_REFRESH_MS, useNowMs } from "#/modules/ui/use-now-ms";
 
 const RUN_LIST_POLL_MS = 10_000;
@@ -123,6 +125,7 @@ function StandardIntegrationDetail(props: { readonly integration: IntegrationCli
 	const [deleteFailed, setDeleteFailed] = useState(false);
 	const detail = useRyotQuery(integrationDetailQuery, props.integration.id);
 	const providers = useRyotQuery(integrationProvidersQuery);
+	useIngestionCatalogRefresh(providers.refetch);
 	const integration = detail.data ?? props.integration;
 	const runs = useRyotInfiniteQuery(integrationRunsQuery, integration.id, {
 		mode: "replace",
@@ -137,7 +140,9 @@ function StandardIntegrationDetail(props: { readonly integration: IntegrationCli
 	const title = integrationTitle(integration, providerNames);
 	const [saveDetail, setSaveDetail] = useState<string | undefined>();
 	const { backInterceptors } = Route.useRouteContext();
-	const provider = findOwnedIntegrationProvider(providers.data ?? [], integration);
+	const provider = useLatestDefined(
+		findOwnedIntegrationProvider(providers.data ?? [], integration),
+	);
 	const oauth = useOAuthConnect({
 		integrationId: integration.id,
 		integrationProvider: {

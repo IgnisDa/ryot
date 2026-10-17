@@ -59,11 +59,6 @@ export const EntityWatchAuthenticateMessage = Schema.Struct({
 });
 export type EntityWatchAuthenticateMessage = typeof EntityWatchAuthenticateMessage.Type;
 
-const disjoint = (left: readonly string[], right: readonly string[]) => {
-	const rightIds = new Set(right);
-	return left.every((entityId) => !rightIds.has(entityId));
-};
-
 const FOREGROUND_LIMIT_MESSAGE = `Expected at most ${MAX_FOREGROUND_ENTITY_IDS} foreground entity IDs`;
 
 export const EntityWatchReplaceMessage = Schema.Struct({
@@ -86,41 +81,6 @@ export const EntityWatchReplaceMessage = Schema.Struct({
 );
 export type EntityWatchReplaceMessage = typeof EntityWatchReplaceMessage.Type;
 
-export const EntityWatchUpdateMessage = Schema.Struct({
-	add: EntityIds,
-	remove: EntityIds,
-	revision: Revision,
-	addForeground: EntityIds,
-	removeForeground: EntityIds,
-	type: Schema.Literal("update"),
-}).pipe(
-	Schema.check(
-		Schema.makeFilter(({ add, remove, addForeground, removeForeground }) => {
-			if (
-				add.length === 0 &&
-				remove.length === 0 &&
-				addForeground.length === 0 &&
-				removeForeground.length === 0
-			) {
-				return "Expected at least one membership or foreground change";
-			}
-			if (addForeground.length > MAX_FOREGROUND_ENTITY_IDS) {
-				return FOREGROUND_LIMIT_MESSAGE;
-			}
-			if (!disjoint(add, remove)) {
-				return "Expected added and removed entity IDs not to overlap";
-			}
-			if (!disjoint(addForeground, removeForeground)) {
-				return "Expected added and removed foreground entity IDs not to overlap";
-			}
-			return disjoint(addForeground, remove) && disjoint(removeForeground, remove)
-				? true
-				: "Expected foreground changes not to name removed entity IDs";
-		}),
-	),
-);
-export type EntityWatchUpdateMessage = typeof EntityWatchUpdateMessage.Type;
-
 export const EntityWatchPongMessage = Schema.Struct({
 	nonce: Schema.String,
 	type: Schema.Literal("pong"),
@@ -129,7 +89,6 @@ export type EntityWatchPongMessage = typeof EntityWatchPongMessage.Type;
 
 export const EntityWatchClientMessage = Schema.Union([
 	EntityWatchPongMessage,
-	EntityWatchUpdateMessage,
 	EntityWatchReplaceMessage,
 	EntityWatchAuthenticateMessage,
 ]);

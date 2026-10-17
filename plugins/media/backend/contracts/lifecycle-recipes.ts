@@ -22,7 +22,6 @@ import {
 	literal,
 	neq,
 	type PreparedRecipe,
-	type Recipe,
 	type RyotQLDocument,
 	selectedField,
 	selectedOptionalRow,
@@ -68,29 +67,6 @@ export const EpisodeParentResolutionSchema = Schema.Union([
 
 export type EpisodeParentResolution = Schema.Schema.Type<typeof EpisodeParentResolutionSchema>;
 
-const AggregateLifecycleSignalSlugSchema = Schema.Literals([
-	"backlog",
-	"progress",
-	"complete",
-	"dropped",
-	"on_hold",
-]);
-
-export const AggregateLifecycleSignalSchema = Schema.Struct({
-	id: Schema.String,
-	entityId: Schema.String,
-	createdAt: Schema.String,
-	occurredAt: Schema.String,
-	kind: Schema.Literals(["parent", "episode"]),
-	eventSchemaSlug: AggregateLifecycleSignalSlugSchema,
-});
-
-export type AggregateLifecycleSignal = Schema.Schema.Type<typeof AggregateLifecycleSignalSchema>;
-
-export const CoverageClosingEventSchema = EventOrderTupleSchema;
-
-export type CoverageClosingEvent = Schema.Schema.Type<typeof CoverageClosingEventSchema>;
-
 export const EpisodicLifecycleSnapshotSchema = Schema.Struct({
 	parentEntityId: Schema.String,
 	allDatesUnknown: Schema.Boolean,
@@ -98,10 +74,8 @@ export const EpisodicLifecycleSnapshotSchema = Schema.Struct({
 	state: EpisodicLifecycleStateSchema,
 	agreedConsumedOn: Schema.NullOr(Schema.String),
 	productionStatus: Schema.NullOr(Schema.String),
-	boundaryCompleteEventId: Schema.NullOr(Schema.String),
-	latestSignal: Schema.NullOr(AggregateLifecycleSignalSchema),
+	coverageClosingEvent: Schema.NullOr(EventOrderTupleSchema),
 	boundaryCompleteEvent: Schema.NullOr(EventOrderTupleSchema),
-	coverageClosingEvent: Schema.NullOr(CoverageClosingEventSchema),
 });
 
 export type EpisodicLifecycleSnapshot = Schema.Schema.Type<typeof EpisodicLifecycleSnapshotSchema>;
@@ -215,52 +189,6 @@ export function resolveEpisodeParentRecipe(input: {
 		},
 	}))();
 }
-
-const signalSelection = (expressions: {
-	readonly id: ScalarExpression;
-	readonly entityId: ScalarExpression;
-	readonly createdAt: ScalarExpression;
-	readonly occurredAt: ScalarExpression;
-	readonly eventSchemaSlug: ScalarExpression;
-}) => ({
-	id: selectedField(expressions.id, Schema.NullOr(Schema.String)),
-	entityId: selectedField(expressions.entityId, Schema.NullOr(Schema.String)),
-	createdAt: selectedField(expressions.createdAt, Schema.NullOr(Schema.String)),
-	occurredAt: selectedField(expressions.occurredAt, Schema.NullOr(Schema.String)),
-	eventSchemaSlug: selectedField(
-		expressions.eventSchemaSlug,
-		Schema.NullOr(AggregateLifecycleSignalSlugSchema),
-	),
-});
-
-const signalFromNullableFields = (
-	parentEntityId: string,
-	fields: {
-		readonly id: string | null;
-		readonly entityId: string | null;
-		readonly createdAt: string | null;
-		readonly occurredAt: string | null;
-		readonly eventSchemaSlug: AggregateLifecycleSignal["eventSchemaSlug"] | null;
-	},
-): AggregateLifecycleSignal | null => {
-	if (
-		fields.id === null ||
-		fields.entityId === null ||
-		fields.createdAt === null ||
-		fields.occurredAt === null ||
-		fields.eventSchemaSlug === null
-	) {
-		return null;
-	}
-	return {
-		id: fields.id,
-		entityId: fields.entityId,
-		createdAt: fields.createdAt,
-		occurredAt: fields.occurredAt,
-		eventSchemaSlug: fields.eventSchemaSlug,
-		kind: fields.entityId === parentEntityId ? "parent" : "episode",
-	};
-};
 
 const eventOrderFromNullableFields = (fields: {
 	readonly id: string | null;
@@ -456,8 +384,6 @@ export const episodicLifecycleSnapshotRecipe = defineRecipe(
 					agreedConsumedOn: parentResult.agreedConsumedOn,
 					coverageComplete: parentResult.coverageComplete,
 					productionStatus: parentResult.productionStatus,
-					boundaryCompleteEventId: boundaryCompleteEvent?.id ?? null,
-					latestSignal: signalFromNullableFields(input.parentEntityId, parentResult),
 				});
 			},
 			queries: {
@@ -468,7 +394,6 @@ export const episodicLifecycleSnapshotRecipe = defineRecipe(
 						eq(column(parent, "id"), literal(input.parentEntityId)),
 					),
 					selection: {
-						...signalSelection(expressions.latestSignal),
 						parentEntityId: selectedField(column(parent, "id"), Schema.String),
 						state: selectedField(expressions.state, EpisodicLifecycleStateSchema),
 						allDatesUnknown: selectedField(completion.allDatesUnknown, Schema.Boolean),
@@ -505,20 +430,12 @@ export const episodicLifecycleSnapshotRecipe = defineRecipe(
 							castText(jsonPath(column(parent, "properties"), "productionStatus")),
 							Schema.NullOr(Schema.String),
 						),
-						coverageStructureValid: selectedField(
-							conditional(expressions.coverageStructureValid, literal(true), literal(false)),
-							Schema.Boolean,
-						),
 					},
 				}),
 			},
 		};
 	},
 );
-
-export type EpisodicLifecycleSnapshotResult = Recipe.Success<
-	typeof episodicLifecycleSnapshotRecipe
->;
 
 export const readEpisodicLifecycleSnapshot = <Requirements>(
 	input: {

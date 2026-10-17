@@ -107,11 +107,6 @@ export class RedisService extends Context.Service<RedisService>()("RedisService"
 				Effect.tryPromise(() =>
 					ttlSeconds ? client.set(key, value, "EX", ttlSeconds) : client.set(key, value),
 				).pipe(Effect.asVoid, Effect.orDie),
-			setAndRemoveFromIndex: (key: string, value: string, indexKey: string, member: string) =>
-				Effect.tryPromise(() => client.multi().set(key, value).zrem(indexKey, member).exec()).pipe(
-					Effect.asVoid,
-					Effect.orDie,
-				),
 			setAndIndex: (key: string, value: string, indexKey: string, score: number, member: string) =>
 				Effect.tryPromise(() =>
 					client.multi().set(key, value).zadd(indexKey, score, member).exec(),
@@ -124,6 +119,16 @@ export class RedisService extends Context.Service<RedisService>()("RedisService"
 						key,
 						owner,
 					),
+				).pipe(Effect.asVoid, Effect.orDie),
+			setAndRemoveFromIndex: (
+				key: string,
+				value: string,
+				indexKey: string,
+				member: string,
+				ttlSeconds: number,
+			) =>
+				Effect.tryPromise(() =>
+					client.multi().set(key, value, "EX", ttlSeconds).zrem(indexKey, member).exec(),
 				).pipe(Effect.asVoid, Effect.orDie),
 			acquireLease: (key: string, ttlSeconds: number) =>
 				Effect.gen(function* () {

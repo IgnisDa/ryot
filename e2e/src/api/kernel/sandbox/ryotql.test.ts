@@ -3,7 +3,6 @@ import { column, document, eq, field, literal, rows, table } from "@ryot-app/ryo
 import { Effect } from "effect";
 
 import {
-	adminHeaders,
 	createAuthenticatedClient,
 	createEntity,
 	createPluginSchema,
@@ -164,7 +163,6 @@ describe("sandbox RyotQL reads", () => {
 							name: "RyotQL system provider",
 							information: { source: "e2e" },
 							rootEntitySchemaSlug: entitySchemaSlug,
-							operations: { details: providerScriptSlug },
 						},
 					],
 					entitySchemas: [
@@ -226,9 +224,8 @@ describe("sandbox RyotQL reads", () => {
 					Effect.gen(function* () {
 						if (globalEntityIds.length > 0) {
 							yield* api
-								.call(
-									(c) => c.testSupport.deleteGlobalEntities({ payload: { ids: globalEntityIds } }),
-									adminHeaders(),
+								.adminCall((c) =>
+									c.testSupport.deleteGlobalEntities({ payload: { ids: globalEntityIds } }),
 								)
 								.pipe(Effect.ignore);
 						}
@@ -241,17 +238,15 @@ describe("sandbox RyotQL reads", () => {
 			};
 			const { client, userId } = yield* createAuthenticatedClient();
 			yield* Effect.addFinalizer(() => deleteUserAndWait(userId).pipe(Effect.ignore));
-			const globalEntity = yield* api.call(
-				(c) =>
-					c.testSupport.createGlobalEntity({
-						payload: {
-							properties: {},
-							name: "Owned global entity",
-							entitySchema: entitySchemaReference,
-							externalId: `owned-global-${suffix}`,
-						},
-					}),
-				adminHeaders(),
+			const globalEntity = yield* api.adminCall((c) =>
+				c.testSupport.createGlobalEntity({
+					payload: {
+						properties: {},
+						name: "Owned global entity",
+						entitySchema: entitySchemaReference,
+						externalId: `owned-global-${suffix}`,
+					},
+				}),
 			);
 			globalEntityIds = [globalEntity.id];
 			yield* createEntity(client, {
@@ -260,10 +255,8 @@ describe("sandbox RyotQL reads", () => {
 				entitySchema: entitySchemaReference,
 			});
 
-			const trigger = yield* api.call(
-				(c) =>
-					c.testSupport.triggerPluginCron({ payload: { cronSlug, pluginId: installed.pluginId } }),
-				adminHeaders(),
+			const trigger = yield* api.adminCall((c) =>
+				c.testSupport.triggerPluginCron({ payload: { cronSlug, pluginId: installed.pluginId } }),
 			);
 			expect(trigger.status).toBe("executed");
 

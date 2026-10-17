@@ -429,64 +429,6 @@ describe("definition views", () => {
 	});
 
 	layer(revisionDatabaseLayer)((test) => {
-		test.effect(
-			"finds global relationship schemas by both endpoints in view precedence order",
-			() =>
-				Effect.gen(function* () {
-					const definitions = yield* DefinitionRepository;
-					const kernel = kernelDefinitionSource();
-					yield* seedKernelDefinitions({
-						...kernel,
-						relationshipSchemas: [
-							{
-								...relationshipSchema("kernel-pair", "shared-source", "shared-target"),
-								pluginId: null,
-							},
-							{
-								...relationshipSchema("kernel-other-target", "shared-source", "other-target"),
-								pluginId: null,
-							},
-						],
-					});
-					const alpha = yield* installRevisionPackage(
-						withRelationshipSchemas(
-							revisionPackage("alpha", "v1", undefined, PluginPackageId.make("test/alpha")),
-							[relationshipSchema("alpha-pair", "shared-source", "shared-target")],
-						),
-					);
-					yield* installRevisionPackage(
-						withRelationshipSchemas(
-							revisionPackage("beta", "v1", undefined, PluginPackageId.make("test/beta")),
-							[relationshipSchema("beta-pair", "shared-source", "shared-target")],
-						),
-					);
-
-					expect(
-						yield* definitions.findGlobalRelationshipSchemaByEndpoints(
-							definitionOwner(alpha.pluginId),
-							"shared-source",
-							"shared-target",
-						),
-					).toMatchObject({ slug: "alpha-pair", pluginId: alpha.pluginId });
-					expect(
-						yield* definitions.findGlobalRelationshipSchemaByEndpoints(
-							definitionOwner(null),
-							"shared-source",
-							"other-target",
-						),
-					).toMatchObject({ pluginId: null, slug: "kernel-other-target" });
-					expect(
-						yield* definitions.findGlobalRelationshipSchemaByEndpoints(
-							definitionOwner(alpha.pluginId),
-							"shared-source",
-							"missing-target",
-						),
-					).toBeNull();
-				}),
-		);
-	});
-
-	layer(revisionDatabaseLayer)((test) => {
 		test.effect("keeps same-named private definitions independent from the global system set", () =>
 			Effect.gen(function* () {
 				const definitions = yield* DefinitionRepository;

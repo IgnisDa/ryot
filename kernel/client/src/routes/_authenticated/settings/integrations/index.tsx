@@ -26,6 +26,7 @@ import {
 	integrationsQuery,
 	syncIntegrationsMutation,
 } from "#/modules/integrations/service";
+import { useIngestionCatalogRefresh } from "#/modules/plugins/catalog/provider";
 import {
 	preferencesQuery,
 	updatePreferencesMutation,
@@ -72,6 +73,7 @@ function IntegrationsRoute() {
 			page.pageInfo.hasMore ? limit + INTEGRATIONS_PAGE_SIZE : null,
 	});
 	const providerQuery = useRyotQuery(integrationProvidersQuery);
+	useIngestionCatalogRefresh(providerQuery.refetch);
 	const sync = useRyotMutation(syncIntegrationsMutation);
 	const preferences = useRyotQuery(preferencesQuery);
 	const updatePreferences = useRyotMutation(updatePreferencesMutation);

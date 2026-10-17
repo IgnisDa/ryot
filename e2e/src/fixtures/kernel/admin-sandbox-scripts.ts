@@ -13,6 +13,8 @@ import {
 } from "@ryot-app/ryotql";
 import { Result, Schema } from "effect";
 
+import type { HarnessTarget } from "~/support/harness-target";
+
 import { collectAdminRyotQLRecipeItems } from "./ryotql";
 
 const script = table("sandboxScript", "script");
@@ -49,8 +51,8 @@ const adminSandboxScriptsRecipe = defineRecipe(
 
 export type AdminSandboxScript = Recipe.Success<typeof adminSandboxScriptsRecipe>["items"][number];
 
-export const listAdminSandboxScripts = (pluginRevisionId?: string, baseUrl?: string) =>
+export const listAdminSandboxScripts = (pluginRevisionId?: string, target?: HarnessTarget) =>
 	collectAdminRyotQLRecipeItems(
 		(after) => adminSandboxScriptsRecipe({ after, pluginRevisionId }),
-		baseUrl,
+		target,
 	);

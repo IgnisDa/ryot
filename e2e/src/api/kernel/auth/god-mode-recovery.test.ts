@@ -5,7 +5,6 @@ import { DateTime, Effect } from "effect";
 
 import {
 	adminAccessTokenHeaders,
-	adminHeaders,
 	collectRyotQLRecipeItems,
 	createApiKey,
 	createTestAuthClient,
@@ -40,9 +39,8 @@ const getUserIdByEmail = (email: string) =>
 
 const issueResetToken = (userId: UserId) =>
 	Effect.gen(function* () {
-		const { resetUrl } = yield* getApiClient().call(
-			(c) => c.instanceAdmin.resetUserPassword({ params: { userId } }),
-			adminHeaders(),
+		const { resetUrl } = yield* getApiClient().adminCall((c) =>
+			c.instanceAdmin.resetUserPassword({ params: { userId } }),
 		);
 		return requirePresent(new URL(resetUrl).searchParams.get("token"), "missing token");
 	});
@@ -53,9 +51,8 @@ const resetPasswordWith = (token: string, newPassword: string) =>
 const createNoAccountUser = (name: string) =>
 	Effect.gen(function* () {
 		const email = `${name.toLowerCase()}-${uniqueTimestamp()}@example.com`;
-		const { userId } = yield* getApiClient().call(
-			(c) => c.instanceAdmin.provisionUser({ payload: { name, email, provider: "credential" } }),
-			adminHeaders(),
+		const { userId } = yield* getApiClient().adminCall((c) =>
+			c.instanceAdmin.provisionUser({ payload: { name, email, provider: "credential" } }),
 		);
 		return { email, userId: UserId.make(userId) };
 	});
@@ -63,12 +60,10 @@ const createNoAccountUser = (name: string) =>
 const createOidcUser = (name: string) =>
 	Effect.gen(function* () {
 		const email = `${name.toLowerCase()}-${uniqueTimestamp()}@example.com`;
-		const { userId } = yield* getApiClient().call(
-			(c) =>
-				c.instanceAdmin.provisionUser({
-					payload: { name, email, provider: "oidc", oidcIssuerId: `oidc-sub-${uniqueTimestamp()}` },
-				}),
-			adminHeaders(),
+		const { userId } = yield* getApiClient().adminCall((c) =>
+			c.instanceAdmin.provisionUser({
+				payload: { name, email, provider: "oidc", oidcIssuerId: `oidc-sub-${uniqueTimestamp()}` },
+			}),
 		);
 		return { email, userId: UserId.make(userId) };
 	});
@@ -195,12 +190,10 @@ describe("User listing with correct admin token", () => {
 			const { email } = yield* createTestUser();
 			const userId = yield* getUserIdByEmail(email);
 
-			yield* client.call(
-				(c) =>
-					c.testSupport.linkAuthAccount({
-						payload: { userId, providerId: "oidc", accountId: `oidc-sub-${uniqueTimestamp()}` },
-					}),
-				adminHeaders(),
+			yield* client.adminCall((c) =>
+				c.testSupport.linkAuthAccount({
+					payload: { userId, providerId: "oidc", accountId: `oidc-sub-${uniqueTimestamp()}` },
+				}),
 			);
 
 			const data = yield* listUsers(email);
@@ -215,12 +208,10 @@ describe("User provisioning", () => {
 			const client = getApiClient();
 			const email = `provision-cred-${uniqueTimestamp()}@example.com`;
 
-			yield* client.call(
-				(c) =>
-					c.instanceAdmin.provisionUser({
-						payload: { email, provider: "credential", name: "Provisioned Credential" },
-					}),
-				adminHeaders(),
+			yield* client.adminCall((c) =>
+				c.instanceAdmin.provisionUser({
+					payload: { email, provider: "credential", name: "Provisioned Credential" },
+				}),
 			);
 
 			const listData = yield* listUsers(email);
@@ -233,17 +224,15 @@ describe("User provisioning", () => {
 			const client = getApiClient();
 			const email = `provision-oidc-${uniqueTimestamp()}@example.com`;
 
-			yield* client.call(
-				(c) =>
-					c.instanceAdmin.provisionUser({
-						payload: {
-							email,
-							provider: "oidc",
-							name: "Provisioned Oidc",
-							oidcIssuerId: `oidc-sub-${uniqueTimestamp()}`,
-						},
-					}),
-				adminHeaders(),
+			yield* client.adminCall((c) =>
+				c.instanceAdmin.provisionUser({
+					payload: {
+						email,
+						provider: "oidc",
+						name: "Provisioned Oidc",
+						oidcIssuerId: `oidc-sub-${uniqueTimestamp()}`,
+					},
+				}),
 			);
 
 			const listData = yield* listUsers(email);
@@ -257,12 +246,10 @@ describe("User provisioning", () => {
 			const { email } = yield* createTestUser();
 
 			const error = yield* Effect.flip(
-				client.call(
-					(c) =>
-						c.instanceAdmin.provisionUser({
-							payload: { email, name: "Duplicate", provider: "credential" },
-						}),
-					adminHeaders(),
+				client.adminCall((c) =>
+					c.instanceAdmin.provisionUser({
+						payload: { email, name: "Duplicate", provider: "credential" },
+					}),
 				),
 			);
 			assertTaggedError(error, "InstanceAdminRequestFailure");
@@ -283,9 +270,8 @@ describe("God-mode disable set", () => {
 
 			yield* listPluginsWithHeaders({ "X-Api-Key": apiKey });
 
-			const disabledData = yield* client.call(
-				(c) => c.instanceAdmin.setUserDisabled({ params: { userId }, payload: { disabled: true } }),
-				adminHeaders(),
+			const disabledData = yield* client.adminCall((c) =>
+				c.instanceAdmin.setUserDisabled({ params: { userId }, payload: { disabled: true } }),
 			);
 			expect(disabledData).toEqual({ id: userId });
 
@@ -303,10 +289,8 @@ describe("God-mode disable set", () => {
 			const blockedSignIn = yield* signInWithPassword(email, password);
 			expect(blockedSignIn.error?.status).toBe(403);
 
-			const enableData = yield* client.call(
-				(c) =>
-					c.instanceAdmin.setUserDisabled({ params: { userId }, payload: { disabled: false } }),
-				adminHeaders(),
+			const enableData = yield* client.adminCall((c) =>
+				c.instanceAdmin.setUserDisabled({ params: { userId }, payload: { disabled: false } }),
 			);
 			expect(enableData).toEqual({ id: userId });
 
@@ -327,9 +311,8 @@ describe("Reset link generation and completion for credential user", () => {
 
 			const userId = yield* getUserIdByEmail(email);
 
-			const resetData = yield* client.call(
-				(c) => c.instanceAdmin.resetUserPassword({ params: { userId } }),
-				adminHeaders(),
+			const resetData = yield* client.adminCall((c) =>
+				c.instanceAdmin.resetUserPassword({ params: { userId } }),
 			);
 			expect(resetData.email).toBe(email);
 			expect(typeof resetData.resetUrl).toBe("string");
@@ -361,9 +344,8 @@ describe("Reset link generation and completion for credential user", () => {
 
 			const userId = yield* getUserIdByEmail(email);
 
-			const resetData = yield* client.call(
-				(c) => c.instanceAdmin.resetUserPassword({ params: { userId } }),
-				adminHeaders(),
+			const resetData = yield* client.adminCall((c) =>
+				c.instanceAdmin.resetUserPassword({ params: { userId } }),
 			);
 			const token = new URL(resetData.resetUrl).searchParams.get("token");
 			expect(typeof token).toBe("string");
@@ -447,9 +429,8 @@ describe("Reset link generation and completion for no-account user", () => {
 			const client = getApiClient();
 			const { email, userId } = yield* createNoAccountUser("NoneReset");
 
-			const resetData = yield* client.call(
-				(c) => c.instanceAdmin.resetUserPassword({ params: { userId } }),
-				adminHeaders(),
+			const resetData = yield* client.adminCall((c) =>
+				c.instanceAdmin.resetUserPassword({ params: { userId } }),
 			);
 			expect(resetData.email).toBe(email);
 			const token = new URL(resetData.resetUrl).searchParams.get("token");
@@ -478,10 +459,7 @@ describe("OIDC user restrictions", () => {
 			const { userId } = yield* createOidcUser("BlockedOidc");
 
 			const error = yield* Effect.flip(
-				client.call(
-					(c) => c.instanceAdmin.resetUserPassword({ params: { userId } }),
-					adminHeaders(),
-				),
+				client.adminCall((c) => c.instanceAdmin.resetUserPassword({ params: { userId } })),
 			);
 			assertTaggedError(error, "InstanceAdminRequestFailure");
 			expect(error.reason).toEqual({ authState: "oidc", code: "password-reset-unsupported" });
@@ -496,19 +474,14 @@ describe("Mixed auth user restrictions", () => {
 			const { email } = yield* createTestUser();
 			const userId = yield* getUserIdByEmail(email);
 
-			yield* client.call(
-				(c) =>
-					c.testSupport.linkAuthAccount({
-						payload: { userId, providerId: "oidc", accountId: `oidc-sub-${uniqueTimestamp()}` },
-					}),
-				adminHeaders(),
+			yield* client.adminCall((c) =>
+				c.testSupport.linkAuthAccount({
+					payload: { userId, providerId: "oidc", accountId: `oidc-sub-${uniqueTimestamp()}` },
+				}),
 			);
 
 			const error = yield* Effect.flip(
-				client.call(
-					(c) => c.instanceAdmin.resetUserPassword({ params: { userId } }),
-					adminHeaders(),
-				),
+				client.adminCall((c) => c.instanceAdmin.resetUserPassword({ params: { userId } })),
 			);
 			assertTaggedError(error, "InstanceAdminRequestFailure");
 			expect(error.reason).toEqual({ authState: "mixed", code: "password-reset-unsupported" });

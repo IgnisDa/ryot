@@ -1,8 +1,5 @@
 import type { IngestionPlan } from "@ryot-app/contract/modules/imports/ingestion";
-import {
-	evaluateIngestionReadiness,
-	type IngestionReadinessMetadata,
-} from "@ryot-app/contract/modules/plugins/ingestion-readiness";
+import { evaluateIngestionReadiness } from "@ryot-app/contract/modules/plugins/ingestion-readiness";
 import type { IntegrationId, UserId } from "@ryot-app/contract/schema/brands";
 import type { AppSchema } from "@ryot-app/contract/schema/property-schema";
 import { Context, Data, Effect, Layer } from "effect";
@@ -10,11 +7,8 @@ import { Context, Data, Effect, Layer } from "effect";
 import { parseAppSchemaProperties } from "#modules/definitions/properties/runtime";
 import { OAuthConnectionsRepository } from "#modules/oauth-connections/repository";
 
-import { PluginConfigRevisions } from "../configuration/revisions";
 import { ImportSourceCatalog } from "./import-sources";
 import { IntegrationProviderCatalog } from "./integration-providers";
-import { availablePluginConfigKeys } from "./readiness-metadata";
-import type { pluginConfigContextFor } from "./runtime-resolver";
 
 export class IngestionReadinessError extends Data.TaggedError("IngestionReadinessError")<{
 	readonly message: string;
@@ -56,26 +50,7 @@ export class IngestionReadinessService extends Context.Service<IngestionReadines
 		make: Effect.gen(function* () {
 			const imports = yield* ImportSourceCatalog;
 			const integrations = yield* IntegrationProviderCatalog;
-			const configs = yield* PluginConfigRevisions;
 			const connections = yield* OAuthConnectionsRepository;
-			const availableConfigKeys = Effect.fn("IngestionReadinessService.availableConfigKeys")(
-				function* (
-					context: ReturnType<typeof pluginConfigContextFor>,
-					installationId: string,
-					oauthProviders: IngestionReadinessMetadata["oauthProviders"],
-				) {
-					const config =
-						context.pluginConfigRevisionId === null
-							? {}
-							: yield* configs.read({
-									ownerUserId: context.ownerUserId,
-									id: context.pluginConfigRevisionId,
-									pluginRevisionId: context.pluginRevisionId,
-									pluginInstallationId: context.ownerUserId === null ? null : installationId,
-								});
-					return availablePluginConfigKeys(context.configSchema, oauthProviders, config);
-				},
-			);
 			const evaluateImport = Effect.fn("IngestionReadinessService.evaluateImport")(
 				function* (input: {
 					readonly userId: UserId;
@@ -96,11 +71,6 @@ export class IngestionReadinessService extends Context.Service<IngestionReadines
 					}
 					const { source, script } = resolved;
 					const settings = yield* parseSettings(source.inputSchema, input.settings);
-					const available = yield* availableConfigKeys(
-						source.configContext,
-						source.installationId,
-						source.readinessMetadata.oauthProviders,
-					);
 					const readiness = yield* evaluate({
 						settings,
 						kind: "workflow",
@@ -108,7 +78,7 @@ export class IngestionReadinessService extends Context.Service<IngestionReadines
 						operation: source.workflowSlug,
 						acceptedPlan: input.acceptedPlan,
 						settingsSchema: source.inputSchema,
-						metadata: { ...source.readinessMetadata, availableConfigKeys: available },
+						metadata: source.readinessMetadata,
 					});
 					return {
 						...resolved,
@@ -165,11 +135,6 @@ export class IngestionReadinessService extends Context.Service<IngestionReadines
 							);
 						})
 						.map(({ field }) => field);
-					const available = yield* availableConfigKeys(
-						provider.configContext,
-						provider.installationId,
-						provider.readinessMetadata.oauthProviders,
-					);
 					const readiness = yield* evaluate({
 						settings,
 						kind: "script",
@@ -177,8 +142,8 @@ export class IngestionReadinessService extends Context.Service<IngestionReadines
 						operation: script.slug,
 						sourcePlan: provider.plan,
 						acceptedPlan: input.acceptedPlan,
+						metadata: provider.readinessMetadata,
 						settingsSchema: provider.settingsSchema,
-						metadata: { ...provider.readinessMetadata, availableConfigKeys: available },
 					});
 					return {
 						...resolved,
@@ -199,7 +164,6 @@ export class IngestionReadinessService extends Context.Service<IngestionReadines
 		Layer.provide([
 			ImportSourceCatalog.layer,
 			IntegrationProviderCatalog.layer,
-			PluginConfigRevisions.layer,
 			OAuthConnectionsRepository.layer,
 		]),
 	);
