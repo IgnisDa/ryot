@@ -10,7 +10,7 @@ import {
 import { fireEvent, waitFor, within } from "@testing-library/dom";
 
 import { PLUGIN_PACKAGE_ID } from "../../shared/plugin-identity";
-import { MeasurementLogger } from "./measurement-logger";
+import { MeasurementDialogs, useMeasurementLogger } from "./measurement-logger";
 import { formatDay, formatTime } from "./model";
 import { ReadingLog } from "./reading-log";
 import MeasurementsPage from "./screen";
@@ -112,11 +112,25 @@ function ReadingLogPage() {
 }
 
 function MeasurementLoggerPage() {
-	return <MeasurementLogger />;
-}
-
-function DisabledMeasurementLoggerPage() {
-	return <MeasurementLogger disabled />;
+	const { log, close, retry, error, dialog, loading, trigger, setTrigger, unavailable } =
+		useMeasurementLogger();
+	return (
+		<>
+			<button type="button" onClick={log} ref={setTrigger} disabled={unavailable}>
+				Log measurement
+			</button>
+			{error ? (
+				<>
+					<p>Your measurements couldn&apos;t be loaded.</p>
+					<button type="button" onClick={retry}>
+						Try again
+					</button>
+				</>
+			) : null}
+			{loading ? <p>Loading measurements…</p> : null}
+			<MeasurementDialogs dialog={dialog} onClose={close} trigger={trigger} />
+		</>
+	);
 }
 
 const openPage = (
@@ -124,7 +138,6 @@ const openPage = (
 	options: {
 		readonly readingsOnly?: boolean;
 		readonly loggerOnly?: boolean;
-		readonly loggerDisabled?: boolean;
 		readonly metricsPage?: (after: string | undefined) => ReturnType<typeof rows> | null;
 		readonly readingsPage?: (after: string | undefined) => ReturnType<typeof rows> | null;
 	} = {},
@@ -133,7 +146,7 @@ const openPage = (
 	if (options.readingsOnly) {
 		pageComponent = ReadingLogPage;
 	} else if (options.loggerOnly) {
-		pageComponent = options.loggerDisabled ? DisabledMeasurementLoggerPage : MeasurementLoggerPage;
+		pageComponent = MeasurementLoggerPage;
 	}
 	const page = mountPluginPage(pageComponent, {
 		location: routeLocation("/v/all-measurements"),
@@ -488,21 +501,6 @@ describe("measurements page", () => {
 				waitFor(() => expect(body.getByRole("dialog", { name: "Add metric" })).toBeTruthy()),
 			);
 			expect(page.queryRequests("metrics")).toHaveLength(2);
-		}),
-	);
-
-	it.live("disables the measurement logger when its caller disables it", () =>
-		Effect.gen(function* () {
-			const { answerPending } = openPage(rows([]), { loggerOnly: true, loggerDisabled: true });
-			const body = within(document.body);
-			yield* Effect.promise(() =>
-				waitFor(() => {
-					answerPending();
-					expect(
-						body.getByRole("button", { name: "Log measurement" }).hasAttribute("disabled"),
-					).toBe(true);
-				}),
-			);
 		}),
 	);
 

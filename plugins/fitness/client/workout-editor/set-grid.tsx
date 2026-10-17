@@ -10,7 +10,7 @@ import type {
 import { requiredWorkoutMeasurementsByKind, type WorkoutSetLot } from "../../shared/workout-set";
 import { formatEditorSeconds } from "./session-timers";
 
-export type SetMeasurement =
+type SetMeasurement =
 	(typeof requiredWorkoutMeasurementsByKind)[keyof typeof requiredWorkoutMeasurementsByKind][number];
 
 export type InvalidSet = { readonly setId: string; readonly fields: readonly SetMeasurement[] };
@@ -22,13 +22,15 @@ export const setLotLabels: Record<WorkoutSetLot, string> = {
 	failure: "Failure",
 };
 
-const lotTags: Partial<Record<WorkoutSetLot, { readonly tag: string; readonly tone: string }>> = {
+export const setLotTags: Partial<
+	Record<WorkoutSetLot, { readonly tag: string; readonly tone: string }>
+> = {
 	drop: { tag: "D", tone: "text-info" },
 	failure: { tag: "F", tone: "text-danger" },
 	warm_up: { tag: "W", tone: "text-warning" },
 };
 
-export const measurementUnit = (field: SetMeasurement, occurrence: WorkoutEditorOccurrence) => {
+const measurementUnit = (field: SetMeasurement, occurrence: WorkoutEditorOccurrence) => {
 	if (field === "weight") {
 		return occurrence.display?.weightUnit ?? "kg";
 	}
@@ -154,7 +156,7 @@ export function SetGrid(props: {
 			</div>
 			{occurrence.sets.map((set, index) => {
 				const number = index + 1;
-				const lot = lotTags[set.setLot];
+				const lot = setLotTags[set.setLot];
 				const previous = props.previous.get(set.clientId);
 				const summary = previousSummary(previous, occurrence);
 				const invalid = props.invalid?.setId === set.clientId ? props.invalid : undefined;
