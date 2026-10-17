@@ -1151,6 +1151,21 @@ const tables: Readonly<Record<string, CatalogTable>> = {
 	automationTriggerRecipient,
 };
 
+export const jsonElementsTable: CatalogTable = {
+	visibility: {},
+	name: "jsonElements",
+	primaryKey: ["ordinal"],
+	fields: {
+		ordinal: physicalField("ordinal", "number", false),
+		value: {
+			kind: "json",
+			nullable: true,
+			resolve: ({ sqlAlias }) =>
+				sql`NULLIF(${sql.raw(sqlAlias)}.${sql.identifier("value")}, 'null'::jsonb)`,
+		},
+	},
+};
+
 export const getCatalogTable = (name: string) =>
 	Object.hasOwn(tables, name) ? tables[name] : undefined;
 

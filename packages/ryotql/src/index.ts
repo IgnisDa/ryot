@@ -19,6 +19,7 @@ import type {
 	JsonArrayExistsExpression,
 	JsonArrayFirstExpression,
 	JsonElementExpression,
+	JsonElementsJoin,
 	LiteralExpression,
 	NamedQuery,
 	OrderBy,
@@ -59,11 +60,11 @@ export const table = (tableName: string, alias: string): TableReference => ({
 	table: tableName,
 });
 
-export const column = (tableName: TableReference, field: string): ColumnExpression => ({
-	field,
-	type: "column",
-	tableAlias: tableName.alias,
-});
+export function column(elements: JsonElementsJoin, field: "ordinal" | "value"): ColumnExpression;
+export function column(tableName: TableReference, field: string): ColumnExpression;
+export function column(tableName: Pick<TableReference, "alias">, field: string): ColumnExpression {
+	return { field, type: "column", tableAlias: tableName.alias };
+}
 
 const assertFiniteNumbers = (value: JsonValue) => {
 	if (typeof value === "number" && !Number.isFinite(value)) {
@@ -272,11 +273,17 @@ export const ascending = (expr: ScalarExpression): OrderBy => ({ expr, direction
 
 export const descending = (expr: ScalarExpression): OrderBy => ({ expr, direction: "desc" });
 
-export const join = (type: Join["type"], tableName: TableReference, on: Predicate): Join => ({
+export const join = (type: "inner" | "left", tableName: TableReference, on: Predicate): Join => ({
 	on,
 	type,
 	table: tableName,
 });
+
+export const jsonElementsJoin = (
+	mode: "inner" | "left",
+	alias: string,
+	expr: ScalarExpression,
+): JsonElementsJoin => ({ expr, mode, alias, type: "jsonElements" });
 
 const correlatedQuery = (
 	from: TableReference,

@@ -11,6 +11,7 @@ import type {
 import {
 	expandCatalogSelections,
 	getCatalogTable,
+	jsonElementsTable,
 	type CatalogTable,
 	type RyotQLAccess,
 } from "./catalog";
@@ -36,14 +37,23 @@ export type NormalizedRyotQLDocument = {
 	readonly queries: Readonly<Record<string, NormalizedNamedQuery>>;
 };
 
+const requireTable = (name: string) => {
+	const table = getCatalogTable(name);
+	if (!table) {
+		throw new Error(`RyotQL normalizer received unknown table '${name}'`);
+	}
+	return table;
+};
+
 const buildScope = (query: QuerySet, ancestors: AliasScope) => {
 	const scope = new Map(ancestors);
-	for (const reference of [query.from, ...(query.joins ?? []).map((join) => join.table)]) {
-		const table = getCatalogTable(reference.table);
-		if (!table) {
-			throw new Error(`RyotQL normalizer received unknown table '${reference.table}'`);
+	scope.set(query.from.alias, requireTable(query.from.table));
+	for (const join of query.joins ?? []) {
+		if (join.type === "jsonElements") {
+			scope.set(join.alias, jsonElementsTable);
+		} else {
+			scope.set(join.table.alias, requireTable(join.table.table));
 		}
-		scope.set(reference.alias, table);
 	}
 	return scope;
 };

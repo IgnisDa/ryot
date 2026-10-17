@@ -28,6 +28,7 @@ import {
 	jsonArrayExists,
 	jsonArrayFirst,
 	jsonElement,
+	jsonElementsJoin,
 	jsonPath,
 	kebabCase,
 	literal,
@@ -1563,4 +1564,153 @@ it("validates JSON array operators, element scope, and outer references", () => 
 			userAccess,
 		),
 	).toBe("Query 'entities': JSON array depth must not exceed 3");
+});
+
+it("validates JSON elements joins in lexical scope with audience-aware field checks", () => {
+	const entity = table("entity", "entity");
+	const later = table("entity", "later");
+	const items = jsonPath(column(entity, "properties"), "items");
+	const element = jsonElementsJoin("inner", "element", items);
+	const laterElement = jsonElementsJoin(
+		"left",
+		"laterElement",
+		jsonPath(column(later, "properties"), "items"),
+	);
+	const startsAt = castDate(jsonPath(column(element, "value"), "startsAt"));
+	const query = (
+		joins: Parameters<typeof rows>[1]["joins"],
+		fields: Parameters<typeof rows>[1]["fields"] = [star(entity)],
+	) => document({ entities: rows(entity, { joins, fields }) });
+	const plugin = { ...userAccess, audience: "plugin" } as const;
+	const demo = { ...userAccess, accessClass: "demo" } as const;
+
+	expect(
+		validateRyotQLDocument(
+			document({
+				correlated: rows(entity, {
+					fields: [],
+					where: exists(later, {
+						joins: [laterElement],
+						where: eq(column(laterElement, "ordinal"), literal(1)),
+					}),
+				}),
+				entities: rows(entity, {
+					joins: [element],
+					where: gt(startsAt, castDate(literal("2026-01-01T00:00:00.000Z"))),
+					orderBy: [ascending(startsAt), ascending(column(element, "ordinal"))],
+					fields: [
+						{ type: "wildcard", tableAlias: "element" },
+						field("startsAt", startsAt),
+						field("day", dateBucket(startsAt, { bucket: "day", timeZone: "UTC" })),
+					],
+					include: [
+						include(later, {
+							limit: 10,
+							key: "later",
+							joins: [laterElement],
+							orderBy: [ascending(column(later, "id"))],
+							fields: [field("value", column(laterElement, "value"))],
+						}),
+					],
+				}),
+			}),
+			plugin,
+		),
+	).toBeNull();
+	expect(
+		validateRyotQLDocument(query([jsonElementsJoin("left", "element", items)]), plugin),
+	).toBeNull();
+	for (const mode of ["inner", "left"] as const) {
+		expect(
+			validateRyotQLDocument(
+				query([jsonElementsJoin(mode, "element", column(entity, "name"))]),
+				userAccess,
+			),
+		).toBe("Query 'entities': JSON elements joins require a JSON expression");
+	}
+	expect(
+		validateRyotQLDocument(
+			query([
+				jsonElementsJoin(
+					"inner",
+					"element",
+					jsonPath(column(table("entity", "missing"), "properties"), "items"),
+				),
+			]),
+			userAccess,
+		),
+	).toBe("Query 'entities': Unknown table alias 'missing'");
+	expect(
+		validateRyotQLDocument(
+			query([
+				jsonElementsJoin("inner", "element", jsonPath(column(later, "properties"), "items")),
+				join("inner", later, eq(column(entity, "id"), column(later, "id"))),
+			]),
+			userAccess,
+		),
+	).toBe("Query 'entities': Unknown table alias 'later'");
+	expect(
+		validateRyotQLDocument(
+			query([jsonElementsJoin("inner", "element", column(element, "value"))]),
+			userAccess,
+		),
+	).toBe("Query 'entities': Unknown table alias 'element'");
+	expect(
+		validateRyotQLDocument(
+			query([jsonElementsJoin("inner", "element", jsonElement())]),
+			userAccess,
+		),
+	).toBe("Query 'entities': JSON element expressions require a JSON array operator");
+	expect(
+		validateRyotQLDocument(query([jsonElementsJoin("inner", "entity", items)]), userAccess),
+	).toBe("Query 'entities': Duplicate table alias 'entity'");
+	expect(validateRyotQLDocument(query([element, element]), userAccess)).toBe(
+		"Query 'entities': Duplicate table alias 'element'",
+	);
+	expect(validateRyotQLDocument(query([jsonElementsJoin("inner", " ", items)]), userAccess)).toBe(
+		"Query 'entities': Table alias must not be empty",
+	);
+	expect(
+		validateRyotQLDocument(
+			query([element], [field("other", { type: "column", field: "other", tableAlias: "element" })]),
+			userAccess,
+		),
+	).toBe("Query 'entities': Unknown field 'other' on table 'jsonElements'");
+	const tableJoins = Array.from({ length: 8 }, (_, index) => {
+		const joined = table("entity", `joined${index}`);
+		return join("inner", joined, eq(column(entity, "id"), column(joined, "id")));
+	});
+	expect(validateRyotQLDocument(query(tableJoins), userAccess)).toBeNull();
+	expect(validateRyotQLDocument(query([...tableJoins, element]), userAccess)).toBe(
+		"Query 'entities': A query may contain at most 8 joins",
+	);
+
+	const integration = table("integration", "integration");
+	const secrets = document({
+		integrations: rows(integration, {
+			fields: [],
+			joins: [jsonElementsJoin("inner", "secret", column(integration, "providerSpecifics"))],
+		}),
+	});
+	expect(validateRyotQLDocument(secrets, userAccess)).toBeNull();
+	for (const access of [plugin, demo]) {
+		expect(validateRyotQLDocument(secrets, access)).toBe(
+			"Query 'integrations': Unknown field 'providerSpecifics' on table 'integration'",
+		);
+	}
+	const account = table("user", "account");
+	const accountPreferences = query([
+		jsonElementsJoin(
+			"inner",
+			"element",
+			first(account, {
+				select: column(account, "preferences"),
+				orderBy: [ascending(column(account, "id"))],
+			}),
+		),
+	]);
+	expect(validateRyotQLDocument(accountPreferences, userAccess)).toBeNull();
+	expect(validateRyotQLDocument(accountPreferences, plugin)).toBe(
+		"Query 'entities': Table 'user' is not available to the plugin audience",
+	);
 });

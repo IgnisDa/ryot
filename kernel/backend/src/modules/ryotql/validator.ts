@@ -2,6 +2,7 @@ import type {
 	AggregateOutput,
 	CorrelatedQuerySet,
 	Include,
+	JsonElementsJoin,
 	NamedQuery,
 	OrderBy,
 	Predicate,
@@ -18,6 +19,7 @@ import {
 	canAccessCatalogTable,
 	expandCatalogSelections,
 	getCatalogTable,
+	jsonElementsTable,
 	resolveCatalogField,
 	type CatalogTable,
 	type RyotQLAccess,
@@ -416,14 +418,46 @@ const addTable = (
 	return null;
 };
 
+const addJsonElements = (
+	scope: Map<string, AliasEntry>,
+	join: JsonElementsJoin,
+	correlatedDepth: number,
+	executionScope: RyotQLAccess,
+): string | null => {
+	const aliasError = requiredNameError(join.alias, "Table alias");
+	if (aliasError) {
+		return aliasError;
+	}
+	if (scope.has(join.alias)) {
+		return `Duplicate table alias '${join.alias}'`;
+	}
+	const expressionError = validateExpression(join.expr, scope, correlatedDepth, executionScope);
+	if (expressionError) {
+		return expressionError;
+	}
+	if (expressionKind(join.expr, scope, executionScope) !== "json") {
+		return "JSON elements joins require a JSON expression";
+	}
+	scope.set(join.alias, { table: jsonElementsTable, key: jsonElementsTable.name });
+	return null;
+};
+
 type QuerySet = Pick<NamedQuery, "from" | "joins" | "where"> | CorrelatedQuerySet | Include;
 
 const expressionScope = (query: CorrelatedQuerySet, ancestors: AliasScope) => {
 	const scope = new Map(ancestors);
-	for (const reference of [query.from, ...(query.joins ?? []).map((join) => join.table)]) {
+	const addReference = (reference: TableReference) => {
 		const table = getCatalogTable(reference.table);
 		if (table) {
 			scope.set(reference.alias, { table, key: reference.table });
+		}
+	};
+	addReference(query.from);
+	for (const join of query.joins ?? []) {
+		if (join.type === "jsonElements") {
+			scope.set(join.alias, { table: jsonElementsTable, key: jsonElementsTable.name });
+		} else {
+			addReference(join.table);
 		}
 	}
 	return scope;
@@ -445,6 +479,13 @@ const validateQuerySet = (
 		return { scope: null, error: rootError };
 	}
 	for (const join of joins) {
+		if (join.type === "jsonElements") {
+			const elementsError = addJsonElements(scope, join, correlatedDepth, executionScope);
+			if (elementsError) {
+				return { scope: null, error: elementsError };
+			}
+			continue;
+		}
 		const tableError = addTable(scope, join.table, executionScope);
 		if (tableError) {
 			return { scope: null, error: tableError };
