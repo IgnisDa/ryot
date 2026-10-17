@@ -599,4 +599,69 @@ layer(Layer.effectContext(TestClock.withLive(Layer.build(collectorLayer))))((tes
 			yield* storage.clearAddress(address);
 		}),
 	);
+
+	test.effect("saves a re-sent request without waiting for a tree expiry lock", () =>
+		Effect.gen(function* () {
+			yield* TestClock.setTime(Date.parse("2026-10-01T00:00:00Z"));
+			const root = { executionId: "resend-root", workflowName: "ResendWorkflow" };
+			yield* saveRun(root);
+			const generator = yield* Snowflake.Generator;
+			const storage = yield* MessageStorage.MessageStorage;
+			const address = EntityAddress.make({
+				shardId: defaultShard,
+				entityId: EntityId.make(root.executionId),
+				entityType: EntityType.make(`Workflow/${root.workflowName}`),
+			});
+			const deferred = () =>
+				new Message.OutgoingRequest({
+					rpc: deferredRpc,
+					context: Context.empty(),
+					respond: () => Effect.void,
+					annotations: Context.empty(),
+					lastReceivedReply: Option.none(),
+					envelope: Envelope.makeRequest<typeof deferredRpc>({
+						address,
+						tag: "deferred",
+						headers: Headers.empty,
+						requestId: generator.nextUnsafe(),
+						payload: deferredRpc.payloadSchema.make({ name: "signal" }),
+					}),
+				});
+			yield* storage.saveRequest(deferred());
+			const session = yield* DatabaseSession;
+			const locked = yield* Deferred.make<void>();
+			const release = yield* Deferred.make<void>();
+			const expiry = yield* Effect.forkScoped(
+				session
+					.transaction(
+						Effect.gen(function* () {
+							yield* session.run((db) =>
+								db
+									.select()
+									.from(workflowExecution)
+									.where(
+										and(
+											eq(workflowExecution.workflowName, root.workflowName),
+											eq(workflowExecution.executionId, root.executionId),
+										),
+									)
+									.for("update"),
+							);
+							yield* Deferred.succeed(locked, undefined);
+							yield* Deferred.await(release);
+						}),
+					)
+					.pipe(Effect.ensuring(Deferred.succeed(release, undefined))),
+			);
+			yield* Deferred.await(locked);
+			const resent = yield* TestClock.withLive(
+				Effect.timeoutOption(storage.saveRequest(deferred()), "5 seconds"),
+			);
+			yield* Deferred.succeed(release, undefined);
+			yield* Fiber.join(expiry);
+			assert(Option.isSome(resent));
+			expect(resent.value._tag).toBe("Duplicate");
+			yield* storage.clearAddress(address);
+		}),
+	);
 });
