@@ -143,6 +143,7 @@ export type EntityBrowserResult = SavedViewResult<EntityBrowserResultItem>;
 
 type EntityBrowserRecipeInput = FilterInput & {
 	readonly after?: string | undefined;
+	readonly pageSize?: number | undefined;
 	readonly queryDocument: RyotQLDocument;
 	readonly searchText?: string | undefined;
 	readonly sortChoice?: string | undefined;
@@ -299,7 +300,7 @@ export const entityBrowserRecipe = (
 				...source.output,
 				orderBy,
 				pagination: {
-					limit: input.settings.pageSize,
+					limit: input.pageSize ?? input.settings.pageSize,
 					...(input.after === undefined ? {} : { after: input.after }),
 				},
 				fields: [

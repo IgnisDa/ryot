@@ -56,6 +56,14 @@ const browserSource = document({
 	}),
 });
 
+const pageLimit = (pageSize?: number) => {
+	const prepared = Result.getOrThrow(
+		entityBrowserRecipe({ pageSize, settings: browserSettings, queryDocument: browserSource }),
+	);
+	const output = prepared.document.queries.entityBrowser?.output;
+	return output?.type === "rows" ? output.pagination.limit : undefined;
+};
+
 describe("saved-view recipes", () => {
 	it("prepares the named entity selection with runtime pagination and canonical fields", () => {
 		const prepared = Result.getOrThrow(
@@ -123,6 +131,11 @@ describe("saved-view recipes", () => {
 				}),
 			),
 		).toBe(true);
+	});
+
+	it("overrides the configured page size only when asked", () => {
+		expect(pageLimit(5)).toBe(5);
+		expect(pageLimit()).toBe(2);
 	});
 
 	it("decodes canonical entity references and rejects duplicate IDs within a page", () => {
