@@ -12,6 +12,7 @@ import { manifest as googleBooksSearchManifest } from "../backend/providers/book
 import { manifest as igdbSearchOptionsManifest } from "../backend/providers/video-game/igdb/search-options.sandbox";
 import { manifest as igdbSearchManifest } from "../backend/providers/video-game/igdb/search.sandbox";
 import { manifest as monitoringTargetsManifest } from "../backend/workflows/media-monitoring-targets.sandbox";
+import { mediaEntityEditors } from "../shared/media-entity-editors";
 import {
 	mediaLibraryEligibleEntitySchemaSlugs,
 	mediaLibraryMemberEntitySchemaSlugs,
@@ -76,8 +77,29 @@ it("declares the complete media-owned source", () => {
 	expect(mediaPlugin.client).toEqual({
 		homeView: null,
 		entities: expect.any(Object),
-		routes: { "/": "media-home" },
 		apiVersion: CLIENT_API_VERSION,
+		routes: {
+			"/": "media-home",
+			"/book/new": "media-entity-editor",
+			"/show/new": "media-entity-editor",
+			"/anime/new": "media-entity-editor",
+			"/manga/new": "media-entity-editor",
+			"/movie/new": "media-entity-editor",
+			"/music/new": "media-entity-editor",
+			"/person/new": "media-entity-editor",
+			"/company/new": "media-entity-editor",
+			"/podcast/new": "media-entity-editor",
+			"/audiobook/new": "media-entity-editor",
+			"/book-group/new": "media-entity-editor",
+			"/comic-book/new": "media-entity-editor",
+			"/video-game/new": "media-entity-editor",
+			"/movie-group/new": "media-entity-editor",
+			"/music-group/new": "media-entity-editor",
+			"/visual-novel/new": "media-entity-editor",
+			"/audiobook-group/new": "media-entity-editor",
+			"/comic-book-group/new": "media-entity-editor",
+			"/video-game-group/new": "media-entity-editor",
+		},
 		exports: {
 			"show-progress": {
 				kind: "component",
@@ -360,6 +382,12 @@ it("declares the complete media-owned source", () => {
 				automaticEntityPresentations: false,
 				entry: "client/music-group/screen.tsx",
 			},
+			"media-entity-editor": {
+				kind: "page",
+				settingsSchema: { fields: {} },
+				automaticEntityPresentations: false,
+				entry: "client/entity-editor/page.tsx",
+			},
 			"visual-novel-detail": {
 				kind: "page",
 				settingsSchema: { fields: {} },
@@ -390,96 +418,115 @@ it("declares the complete media-owned source", () => {
 	expect(Object.keys(registrations)).toHaveLength(mediaSavedViews().length);
 	const dedicatedRenderers: Record<string, unknown> = {
 		show: {
+			createRoute: "/show/new",
 			detailPage: "show-detail",
 			listPresentation: "show-row",
 			gridPresentation: "show-card",
 		},
 		book: {
+			createRoute: "/book/new",
 			detailPage: "book-detail",
 			listPresentation: "book-row",
 			gridPresentation: "book-card",
 		},
 		anime: {
+			createRoute: "/anime/new",
 			detailPage: "anime-detail",
 			listPresentation: "anime-row",
 			gridPresentation: "anime-card",
 		},
 		manga: {
+			createRoute: "/manga/new",
 			detailPage: "manga-detail",
 			listPresentation: "manga-row",
 			gridPresentation: "manga-card",
 		},
 		movie: {
+			createRoute: "/movie/new",
 			detailPage: "movie-detail",
 			listPresentation: "movie-row",
 			gridPresentation: "movie-card",
 		},
 		music: {
+			createRoute: "/music/new",
 			detailPage: "music-detail",
 			listPresentation: "music-row",
 			gridPresentation: "music-card",
 		},
 		person: {
+			createRoute: "/person/new",
 			detailPage: "person-detail",
 			listPresentation: "media-row",
 			gridPresentation: "media-card",
 		},
 		company: {
+			createRoute: "/company/new",
 			detailPage: "company-detail",
 			listPresentation: "media-row",
 			gridPresentation: "media-card",
 		},
 		podcast: {
+			createRoute: "/podcast/new",
 			detailPage: "podcast-detail",
 			listPresentation: "podcast-row",
 			gridPresentation: "podcast-card",
 		},
 		audiobook: {
+			createRoute: "/audiobook/new",
 			detailPage: "audiobook-detail",
 			listPresentation: "audiobook-row",
 			gridPresentation: "audiobook-card",
 		},
 		"comic-book": {
+			createRoute: "/comic-book/new",
 			detailPage: "comic-book-detail",
 			listPresentation: "comic-book-row",
 			gridPresentation: "comic-book-card",
 		},
 		"video-game": {
+			createRoute: "/video-game/new",
 			detailPage: "video-game-detail",
 			listPresentation: "video-game-row",
 			gridPresentation: "video-game-card",
 		},
 		"book-group": {
+			createRoute: "/book-group/new",
 			detailPage: "book-group-detail",
 			listPresentation: "book-group-row",
 			gridPresentation: "book-group-card",
 		},
 		"movie-group": {
+			createRoute: "/movie-group/new",
 			detailPage: "movie-group-detail",
 			listPresentation: "movie-group-row",
 			gridPresentation: "movie-group-card",
 		},
 		"music-group": {
+			createRoute: "/music-group/new",
 			detailPage: "music-group-detail",
 			listPresentation: "music-group-row",
 			gridPresentation: "music-group-card",
 		},
 		"visual-novel": {
+			createRoute: "/visual-novel/new",
 			detailPage: "visual-novel-detail",
 			listPresentation: "visual-novel-row",
 			gridPresentation: "visual-novel-card",
 		},
 		"audiobook-group": {
+			createRoute: "/audiobook-group/new",
 			detailPage: "audiobook-group-detail",
 			listPresentation: "audiobook-group-row",
 			gridPresentation: "audiobook-group-card",
 		},
 		"comic-book-group": {
+			createRoute: "/comic-book-group/new",
 			detailPage: "comic-book-group-detail",
 			listPresentation: "comic-book-group-row",
 			gridPresentation: "comic-book-group-card",
 		},
 		"video-game-group": {
+			createRoute: "/video-game-group/new",
 			detailPage: "video-game-group-detail",
 			listPresentation: "video-game-group-row",
 			gridPresentation: "video-game-group-card",
@@ -645,6 +692,13 @@ it("declares the complete media-owned source", () => {
 			slug: "metadata-lookup",
 			scriptSlug: "operation.metadata-lookup",
 			description: "Match browser extension titles to TMDB movies and shows",
+		},
+		{
+			auth: "user",
+			demoAccess: "protected",
+			slug: "media-entity-save",
+			scriptSlug: "operation.media-entity-save",
+			description: "Save a custom media entity",
 		},
 		{
 			auth: "user",
@@ -961,5 +1015,16 @@ it("does not automatically retry external pushes or notifications", () => {
 			delivery: "async",
 			retry: { maxAttempts: 1, externalIdempotency: "none" },
 		});
+	}
+});
+
+it("lets media entity editors link only relationships the edited schema sources", () => {
+	for (const [entitySchemaSlug, relationshipSlugs] of Object.entries(mediaEntityEditors)) {
+		for (const relationshipSlug of relationshipSlugs) {
+			expect(
+				mediaPlugin.relationshipSchemas.find(({ slug }) => slug === relationshipSlug)
+					?.sourceEntitySchemaSlug,
+			).toBe(entitySchemaSlug);
+		}
 	}
 });

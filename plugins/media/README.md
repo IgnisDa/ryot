@@ -340,8 +340,19 @@ Media operations accept lists and return `results`. Per-item misses are values s
 alignment. `resolve-episodes` instead echoes caller-assigned unique indexes, and its workflow rejects
 missing, duplicate, or unexpected indexes.
 
-Demo sessions may read monitoring status and resolve episodes. Enabling or disabling monitoring is
-protected. Integration-authenticated metadata lookup does not use demo access policy.
+Demo sessions may read monitoring status and resolve episodes. Enabling or disabling monitoring and
+saving custom entities are protected. Integration-authenticated metadata lookup does not use demo
+access policy.
+
+Every media item, group, person, and company declares `/<schema>/new` as its provider-add create
+route. `client/entity-editor/page.tsx` serves them all, resolving the schema from the route path and
+rendering the client SDK `EntityEditorScreen` with the `name` search parameter as the initial name.
+`shared/media-entity-editors.ts` maps each schema to the relationships it sources and may link: video
+games link related games, groups link their members, and people and companies link their credits.
+Season, episode, and incoming credit relationships are not editable. `media-entity-save` saves one
+submission rather than a list; it refuses schemas and relationships outside that map and forwards the
+rest to the atomic `saveUserEntity` host call, and library membership comes from the existing
+entity-create hook.
 
 `metadata-lookup` accepts only the `ryot_browser_extension` integration. It composes movie and show
 TMDB search with movie first because result position affects matching. IGDB game search options are

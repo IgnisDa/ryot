@@ -6,6 +6,11 @@ import {
 } from "@ryot-app/contract/modules/plugins/manifest";
 
 import {
+	mediaEntityCreateRoute,
+	mediaEntityEditorRoutes,
+	mediaEntitySaveOperationSlug,
+} from "../shared/media-entity-editors";
+import {
 	builtinMediaEntitySchemaSlugs,
 	mediaGroupSlugs,
 	mediaLibraryMemberEntitySchemaSlugs,
@@ -557,6 +562,7 @@ const schemaClient = (slug: string) => ({
 		detailPage: `${slug}-detail`,
 		listPresentation: `${slug}-row`,
 		gridPresentation: `${slug}-card`,
+		createRoute: mediaEntityCreateRoute(slug),
 	},
 	exports: {
 		[`${slug}-row`]: {
@@ -595,6 +601,7 @@ const creatorClients = ["person", "company"].map((slug) => ({
 		detailPage: `${slug}-detail`,
 		listPresentation: "media-row",
 		gridPresentation: "media-card",
+		createRoute: mediaEntityCreateRoute(slug),
 	},
 }));
 
@@ -688,36 +695,6 @@ export const mediaPlugin = definePlugin({
 			authorizeUrl: "https://accounts.spotify.com/authorize",
 		},
 	],
-	client: {
-		homeView: null,
-		routes: { "/": "media-home" },
-		apiVersion: CLIENT_API_VERSION,
-		entities: Object.fromEntries(entityClients.map(({ slug, entity }) => [slug, entity])),
-		exports: {
-			"show-progress": {
-				kind: "component",
-				entry: "client/show/progress.tsx",
-				automaticEntityPresentations: false,
-			},
-			"media-row": {
-				kind: "presentation",
-				automaticEntityPresentations: false,
-				entry: "client/media-row-presentation.ts",
-			},
-			"media-card": {
-				kind: "presentation",
-				automaticEntityPresentations: false,
-				entry: "client/media-card-presentation.ts",
-			},
-			"media-home": {
-				kind: "page",
-				settingsSchema: { fields: {} },
-				entry: "client/home/screen.tsx",
-				automaticEntityPresentations: false,
-			},
-			...Object.fromEntries(entityClients.flatMap((client) => Object.entries(client.exports))),
-		},
-	},
 	workflows: [
 		{ slug: "import", scriptSlug: "workflow.media-import" },
 		{ slug: "integration", scriptSlug: "workflow.media-integration" },
@@ -761,12 +738,60 @@ export const mediaPlugin = definePlugin({
 		},
 		{
 			auth: "user",
+			demoAccess: "protected",
+			slug: mediaEntitySaveOperationSlug,
+			scriptSlug: "operation.media-entity-save",
+			description: "Save a custom media entity",
+		},
+		{
+			auth: "user",
 			demoAccess: "allowed",
 			slug: "resolve-episodes",
 			scriptSlug: "operation.resolve-episodes",
 			description: "Resolve show and podcast episode references to entity ids",
 		},
 	],
+	client: {
+		homeView: null,
+		apiVersion: CLIENT_API_VERSION,
+		entities: Object.fromEntries(entityClients.map(({ slug, entity }) => [slug, entity])),
+		routes: {
+			"/": "media-home",
+			...Object.fromEntries(
+				Object.keys(mediaEntityEditorRoutes).map((route) => [route, "media-entity-editor"]),
+			),
+		},
+		exports: {
+			"show-progress": {
+				kind: "component",
+				entry: "client/show/progress.tsx",
+				automaticEntityPresentations: false,
+			},
+			"media-row": {
+				kind: "presentation",
+				automaticEntityPresentations: false,
+				entry: "client/media-row-presentation.ts",
+			},
+			"media-card": {
+				kind: "presentation",
+				automaticEntityPresentations: false,
+				entry: "client/media-card-presentation.ts",
+			},
+			"media-home": {
+				kind: "page",
+				settingsSchema: { fields: {} },
+				entry: "client/home/screen.tsx",
+				automaticEntityPresentations: false,
+			},
+			"media-entity-editor": {
+				kind: "page",
+				settingsSchema: { fields: {} },
+				automaticEntityPresentations: false,
+				entry: "client/entity-editor/page.tsx",
+			},
+			...Object.fromEntries(entityClients.flatMap((client) => Object.entries(client.exports))),
+		},
+	},
 	hooks: [
 		{
 			stage: "after",
