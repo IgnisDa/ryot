@@ -693,6 +693,86 @@ describe("Event lifecycle PostgreSQL", () => {
 	});
 
 	layer(lifecycleDatabaseLayer())((test) => {
+		test.effect(
+			"conditional event edits and deletes reject stale input and replay committed results",
+			() =>
+				Effect.gen(function* () {
+					const session = yield* DatabaseSession;
+					const repository = yield* EventsRepository;
+					const service = yield* EventsService;
+					const eventId = EventId.make("conditional-event");
+					yield* session.transaction(
+						repository.createEvent({
+							userId,
+							entityId,
+							id: eventId,
+							eventSchemaSlug,
+							eventSchemaPluginId: null,
+							eventSchemaName: "Rating",
+							properties: { rating: 3 },
+							occurredAt: DateTime.toDateUtc(DateTime.makeUnsafe(now)),
+						}),
+					);
+					const before = yield* repository.getEventSnapshot({ userId, eventId });
+					assert(before);
+					const expected = {
+						entityId: before.entityId,
+						updatedAt: before.updatedAt,
+						occurredAt: before.occurredAt,
+						properties: before.properties,
+						sessionEntityId: before.sessionEntityId,
+					};
+					const item = {
+						eventId,
+						expected,
+						patch: { properties: { remove: [], set: { rating: 5 } } },
+					};
+					const editCommand = command("conditional-edit");
+					const saved = yield* service.updateBatch([item], userId, editCommand);
+					expect(saved.count).toBe(1);
+					expect(yield* service.updateBatch([item], userId, editCommand)).toEqual(saved);
+					assertExitFails(
+						yield* Effect.exit(service.updateBatch([item], userId, command("stale-edit"))),
+						new EventStale({ reason: { eventId, code: "event-stale" } }),
+					);
+					assertExitFails(
+						yield* Effect.exit(
+							service.deleteBatch([eventId], userId, command("stale-delete"), {
+								[eventId]: expected,
+							}),
+						),
+						new EventStale({ reason: { eventId, code: "event-stale" } }),
+					);
+					const current = yield* repository.getEventSnapshot({ userId, eventId });
+					assert(current);
+					const deleteExpected = {
+						[eventId]: {
+							entityId: current.entityId,
+							updatedAt: current.updatedAt,
+							occurredAt: current.occurredAt,
+							properties: current.properties,
+							sessionEntityId: current.sessionEntityId,
+						},
+					};
+					const deleteCommand = command("conditional-delete");
+					const deleted = yield* service.deleteBatch(
+						[eventId],
+						userId,
+						deleteCommand,
+						deleteExpected,
+					);
+					expect(deleted.count).toBe(1);
+					expect(
+						yield* service.deleteBatch([eventId], userId, deleteCommand, deleteExpected),
+					).toEqual(deleted);
+					expect(
+						yield* service
+							.deleteBatch([eventId], userId, deleteCommand, { [eventId]: expected })
+							.pipe(Effect.flip),
+					).toMatchObject({ reason: { code: "mutation-conflict" } });
+					expect(yield* repository.getEventSnapshot({ userId, eventId })).toBeNull();
+				}),
+		);
 		test.effect("snapshots preserve ownership and missing-row semantics", () =>
 			Effect.gen(function* () {
 				const session = yield* DatabaseSession;

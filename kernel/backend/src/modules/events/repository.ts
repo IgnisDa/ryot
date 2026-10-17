@@ -3,7 +3,10 @@ import {
 	type AutomationEventDraft,
 	AutomationEventSnapshot,
 } from "@ryot-app/contract/modules/automations/lifecycle";
-import type { ListedEvent } from "@ryot-app/contract/modules/events/schemas";
+import type {
+	EventWritePrecondition,
+	ListedEvent,
+} from "@ryot-app/contract/modules/events/schemas";
 import {
 	EntityId,
 	EventId,
@@ -34,7 +37,11 @@ type EventRow = Pick<
 	| "sessionEntityId"
 > & { readonly eventSchemaName: string };
 
-export type EventIdentityInput = { readonly eventId: EventId; readonly userId: UserId };
+export type EventIdentityInput = {
+	readonly eventId: EventId;
+	readonly userId: UserId;
+	readonly expected?: EventWritePrecondition | undefined;
+};
 
 export type UpdateEventEntityReferencesInput = EventIdentityInput & {
 	readonly mergeFrom: EntityId;
