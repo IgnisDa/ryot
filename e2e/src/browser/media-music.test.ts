@@ -19,33 +19,12 @@ import { requirePresent } from "~/support/assertions";
 import { signInThroughHostedOAuth } from "~/support/browser";
 import { expect, it } from "~/support/effect-test";
 import { getApiUrl, getFrontendUrl } from "~/support/harness-target";
-import { webRequest } from "~/support/web-request";
 
 const TRACK_COVER = `<svg xmlns="http://www.w3.org/2000/svg" width="60" height="60"><rect width="60" height="60" fill="#7c3aed"/></svg>`;
 
 const SIBLING_COVER = `<svg xmlns="http://www.w3.org/2000/svg" width="40" height="40"><rect width="40" height="40" fill="#ea580c"/></svg>`;
-
-const uploadPermanentAsset = (apiUrl: string, client: Client, body: string) =>
-	Effect.gen(function* () {
-		const intent = yield* client.call((c) =>
-			c.uploads.createIntent({
-				payload: { kind: "permanent", fileName: "music-art.svg", contentType: "image/svg+xml" },
-			}),
-		);
-		const upload = yield* webRequest(new URL(intent.uploadUrl, `${apiUrl}/`), {
-			body,
-			method: intent.method,
-			headers: intent.headers,
-		});
-		expect([200, 204]).toContain(upload.status);
-		const asset = yield* client.call((c) =>
-			c.uploads.completeIntent({ params: { intentId: intent.intentId } }),
-		);
-		if (!("key" in asset)) {
-			throw new Error("Expected a permanent asset locator");
-		}
-		return asset;
-	});
+const TRACK_COVER_URL = "https://artwork.example.test/music-track.svg";
+const SIBLING_COVER_URL = "https://artwork.example.test/music-sibling.svg";
 
 const musicEventSchemas = (client: Client) =>
 	Effect.gen(function* () {
@@ -69,14 +48,12 @@ it.live("renders a populated Music detail with its album rail and no watch provi
 		const siblingName = `Browser Tracer B Side ${suffix}`;
 		const albumName = `Browser Tracer Album ${suffix}`;
 		const { email, client, password } = yield* createAuthenticatedClient(apiUrl);
-		const cover = yield* uploadPermanentAsset(apiUrl, client, TRACK_COVER);
-		const siblingCover = yield* uploadPermanentAsset(apiUrl, client, SIBLING_COVER);
 		const seeded = yield* seedGlobalMusicWithAlbum(client, {
 			albumName,
 			trackName,
 			siblingName,
 			withCredits: true,
-			siblingProperties: { images: [{ ...siblingCover, purpose: "cover" }] },
+			siblingProperties: { images: [{ type: "remote", purpose: "cover", url: SIBLING_COVER_URL }] },
 			trackProperties: {
 				duration: 222,
 				publishYear: 1997,
@@ -84,8 +61,8 @@ it.live("renders a populated Music detail with its album rail and no watch provi
 				byVariousArtists: false,
 				productionStatus: "Released",
 				genres: ["Alternative Rock"],
-				images: [{ ...cover, purpose: "cover" }],
 				description: "A deterministic browser tracer track.",
+				images: [{ type: "remote", purpose: "cover", url: TRACK_COVER_URL }],
 			},
 		});
 		yield* insertLibraryMembership(client, { mediaEntityId: seeded.track.id });
@@ -108,6 +85,23 @@ it.live("renders a populated Music detail with its album rail and no watch provi
 			locale: "en-US",
 			viewport: { width: 1280, height: 900 },
 		});
+		yield* Effect.forEach(
+			[
+				{ body: TRACK_COVER, url: TRACK_COVER_URL },
+				{ body: SIBLING_COVER, url: SIBLING_COVER_URL },
+			],
+			({ url, body }) =>
+				page.use((raw) =>
+					raw.route(url, (route) =>
+						route.fulfill({
+							body,
+							contentType: "image/svg+xml",
+							headers: { "access-control-allow-origin": "*" },
+						}),
+					),
+				),
+			{ discard: true },
+		);
 		yield* signInThroughHostedOAuth(page, email, password);
 		yield* page.goto(`${frontendUrl}/e/${seeded.track.id}`);
 		const frame = page.locator('iframe[title="Media plugin"]');
@@ -158,7 +152,7 @@ it.live("renders a populated Music detail with its album rail and no watch provi
 			yield* siblingArt.getAttribute("src"),
 			"Missing album sibling artwork",
 		);
-		expect(siblingSrc).toContain(siblingCover.key);
+		expect(siblingSrc).toBe(SIBLING_COVER_URL);
 		expect(yield* media.getByRole("link", { name: `Open ${trackName}` }).count).toBe(0);
 
 		yield* media.getByRole("tab", { name: "Activity" }).click();
