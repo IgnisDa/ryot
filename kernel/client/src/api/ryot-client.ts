@@ -86,16 +86,33 @@ export type KernelRyotClientEntry = {
 	readonly hostServices: KernelHostServices;
 };
 
-export type KernelRyotClientStore = { readonly get: (scope: ApiScope) => KernelRyotClientEntry };
+export type KernelRyotClientStore = {
+	readonly get: (scope: ApiScope) => KernelRyotClientEntry;
+	readonly commit: (entry: KernelRyotClientEntry) => () => void;
+};
 
 export const createKernelRyotClientStore = (
 	runtime: ClientRuntime,
 	theme: ThemeStore,
 ): KernelRyotClientStore => {
-	let last: { readonly key: string; readonly entry: KernelRyotClientEntry } | undefined;
+	type Slot = { readonly key: string; readonly entry: KernelRyotClientEntry };
+	let last: Slot | undefined;
+	let committed: Slot | undefined;
 	return {
+		commit: (entry) => {
+			const slot = { entry, key: apiScopeKey(entry.hostServices.scope) };
+			committed = slot;
+			return () => {
+				if (committed === slot) {
+					committed = undefined;
+				}
+			};
+		},
 		get: (scope) => {
 			const key = apiScopeKey(scope);
+			if (committed?.key === key) {
+				return committed.entry;
+			}
 			if (last?.key === key) {
 				return last.entry;
 			}

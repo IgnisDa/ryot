@@ -1,25 +1,26 @@
 import { RyotProvider } from "@ryot-app/plugin-client-sdk/react";
 import { makeRyotRuntime, type RyotRuntime } from "@ryot-app/plugin-client-sdk/runtime";
 import { Effect } from "effect";
-import { type ReactNode, useEffect, useState } from "react";
+import { type ReactNode, useEffect, useMemo, useState } from "react";
 
-import type { KernelRyotClientEntry } from "#/api/ryot-client";
+import type { KernelRyotClientEntry, KernelRyotClientStore } from "#/api/ryot-client";
 import { apiScopeKey } from "#/api/scope";
 
-type Props = KernelRyotClientEntry & { readonly children: ReactNode };
+type Props = KernelRyotClientEntry & {
+	readonly children: ReactNode;
+	readonly store: KernelRyotClientStore;
+};
 
 export function KernelRyotProvider(props: Props) {
 	return <CommittedRyotProvider key={apiScopeKey(props.hostServices.scope)} {...props} />;
 }
 
 function CommittedRyotProvider(props: Props) {
-	// Equivalent scopes can get a new loader client after a different scope was preloaded.
-	const [entry] = useState<KernelRyotClientEntry>(() => ({
-		client: props.client,
-		hostServices: props.hostServices,
-	}));
+	const { store, client, hostServices } = props;
+	const entry = useMemo(() => ({ client, hostServices }), [client, hostServices]);
 	const [runtime, setRuntime] = useState<RyotRuntime>();
 	useEffect(() => {
+		const release = store.commit(entry);
 		const lifetime = entry.hostServices.runtime.runFork(
 			Effect.acquireUseRelease(
 				Effect.sync(() => makeRyotRuntime(entry.client)),
@@ -27,8 +28,11 @@ function CommittedRyotProvider(props: Props) {
 				(owned) => owned.disposeEffect,
 			),
 		);
-		return () => lifetime.interruptUnsafe();
-	}, [entry]);
+		return () => {
+			release();
+			lifetime.interruptUnsafe();
+		};
+	}, [store, entry]);
 	if (runtime === undefined) {
 		return null;
 	}

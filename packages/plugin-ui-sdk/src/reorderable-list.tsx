@@ -233,14 +233,14 @@ export function ReorderableList<T>(props: ReorderableListProps<T>) {
 					const isDragging = key === dragKey;
 					let slot = index;
 					if (
-						dragKey !== null &&
+						fromIndex !== -1 &&
 						fromIndex < destination &&
 						index > fromIndex &&
 						index <= destination
 					) {
 						slot -= 1;
 					} else if (
-						dragKey !== null &&
+						fromIndex !== -1 &&
 						fromIndex > destination &&
 						index >= destination &&
 						index < fromIndex

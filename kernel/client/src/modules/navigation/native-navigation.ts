@@ -1,5 +1,5 @@
 import { App } from "@capacitor/app";
-import { Capacitor } from "@capacitor/core";
+import { Capacitor, type PluginListenerHandle } from "@capacitor/core";
 import { Effect } from "effect";
 
 import {
@@ -9,17 +9,18 @@ import {
 	type NativeAppSource,
 } from "#/modules/navigation/deep-link";
 
+export const nativeListener = <E>(add: Effect.Effect<PluginListenerHandle, E>) =>
+	Effect.map(add, (listener) => () => void listener.remove());
+
 const capacitorAppSource: NativeAppSource = {
 	exitApp: () => void App.exitApp(),
 	getLaunchUrl: () =>
 		Effect.tryPromise(() => App.getLaunchUrl()).pipe(Effect.map((launch) => launch?.url ?? null)),
 	onBackButton: (handler) =>
-		Effect.tryPromise(() => App.addListener("backButton", () => handler())).pipe(
-			Effect.map((listener) => () => void listener.remove()),
-		),
+		nativeListener(Effect.tryPromise(() => App.addListener("backButton", () => handler()))),
 	onUrlOpen: (handler) =>
-		Effect.tryPromise(() => App.addListener("appUrlOpen", (event) => handler(event.url))).pipe(
-			Effect.map((listener) => () => void listener.remove()),
+		nativeListener(
+			Effect.tryPromise(() => App.addListener("appUrlOpen", (event) => handler(event.url))),
 		),
 };
 

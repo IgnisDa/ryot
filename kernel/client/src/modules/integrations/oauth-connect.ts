@@ -39,6 +39,7 @@ import { AuthService } from "#/modules/auth/service";
 import { DEMO_PROTECTION_MESSAGE, useIsDemoSession } from "#/modules/demo-protection";
 import { decodeOAuthReturnFragment } from "#/modules/integrations/oauth-return";
 import { DeepLinkClaims } from "#/modules/navigation/deep-link";
+import { nativeListener } from "#/modules/navigation/native-navigation";
 
 const ATTEMPT_TIMEOUT = Duration.minutes(10);
 const NATIVE_RETURN_GRACE = Duration.seconds(5);
@@ -98,10 +99,12 @@ export class OAuthConnectPlatform extends Context.Service<
 					catch: () => new OAuthConnectFailed({ message: MESSAGES.browser }),
 				}),
 			onFinished: (handler) =>
-				Effect.tryPromise({
-					try: () => Browser.addListener("browserFinished", handler),
-					catch: () => new OAuthConnectFailed({ message: MESSAGES.browser }),
-				}).pipe(Effect.map((listener) => () => void listener.remove())),
+				nativeListener(
+					Effect.tryPromise({
+						try: () => Browser.addListener("browserFinished", handler),
+						catch: () => new OAuthConnectFailed({ message: MESSAGES.browser }),
+					}),
+				),
 		},
 	});
 }

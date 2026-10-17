@@ -4,6 +4,7 @@ import { render, screen, waitFor } from "@testing-library/react";
 import { Effect, Layer, ManagedRuntime } from "effect";
 
 import { KernelApiTestLayer } from "#/api/ports.test-layer";
+import { makePendingAuthorization } from "#/modules/auth/oauth-storage.test-support";
 import { OAuthTokenError } from "#/modules/auth/token-service";
 import { createBackInterceptors } from "#/modules/navigation/back-interceptors";
 import { pluginBridgeServicesTestLayer } from "#/modules/pages/bridge/services.test-layer";
@@ -22,11 +23,11 @@ import {
 	makeOAuthRouteStubs,
 	makePublicApiStub,
 	makeStorageStubLayer,
+	ManagedAssetRouteStubs,
 	NavigationRouteStubs,
 	NotificationChannelRouteStubs,
 	PagesApiRouteStubs,
 	ProviderAddRouteStubs,
-	SavedViewRouteStubs,
 	server,
 	ServerStub,
 	theme,
@@ -40,16 +41,7 @@ type Exchange = {
 	readonly redirectUri: string;
 };
 
-const pending = (destination = "/") => ({
-	destination,
-	createdAt: 1,
-	state: "state",
-	nonce: "nonce",
-	serverOrigin: server,
-	codeVerifier: "verifier",
-	clientId: "ryot-web" as const,
-	redirectUri: `${server}/auth/callback`,
-});
+const pending = (destination = "/") => makePendingAuthorization(server, { destination });
 
 const mountCallback = (
 	initialEntry: string | readonly string[],
@@ -100,7 +92,7 @@ const mountCallback = (
 			makeAuthStub(),
 			InstanceAdminRouteStubs,
 			ServerStub,
-			SavedViewRouteStubs,
+			ManagedAssetRouteStubs,
 			makePublicApiStub(),
 			makePluginCatalog(catalog),
 			DeviceRouteStubs,

@@ -20,11 +20,27 @@ type QueryRefresh = {
 	readonly dispose: () => void;
 };
 
-const queries = new WeakMap<AtomRegistry.AtomRegistry, WeakMap<object, QueryRefresh | null>>();
-const pageGenerations = new WeakMap<
-	AtomRegistry.AtomRegistry,
-	WeakMap<object, WeakMap<PageRefreshRegistry, PageGeneration>>
->();
+type AtomRefresh = {
+	controller: QueryRefresh | undefined;
+	retired: boolean;
+	readonly pages: WeakMap<PageRefreshRegistry, PageGeneration>;
+};
+
+const atomRefreshes = new WeakMap<AtomRegistry.AtomRegistry, WeakMap<object, AtomRefresh>>();
+
+const atomRefresh = (registry: AtomRegistry.AtomRegistry, atom: object) => {
+	let atoms = atomRefreshes.get(registry);
+	if (!atoms) {
+		atoms = new WeakMap();
+		atomRefreshes.set(registry, atoms);
+	}
+	let record = atoms.get(atom);
+	if (!record) {
+		record = { retired: false, pages: new WeakMap(), controller: undefined };
+		atoms.set(atom, record);
+	}
+	return record;
+};
 
 const retainQueryRefresh = <Data, Failure extends Error>(
 	registry: AtomRegistry.AtomRegistry,
@@ -34,14 +50,9 @@ const retainQueryRefresh = <Data, Failure extends Error>(
 	queryInput: unknown,
 	interest: RyotQueryOptions<unknown, Data>["entityWatch"],
 ) => {
-	let controllers = queries.get(registry);
-	if (!controllers) {
-		controllers = new WeakMap();
-		queries.set(registry, controllers);
-	}
-	let controller = controllers.get(atom);
-	const remount =
-		!controller && controllers.has(atom) && !AsyncResult.isInitial(registry.get(atom));
+	const record = atomRefresh(registry, atom);
+	let controller = record.controller;
+	const remount = !controller && record.retired && !AsyncResult.isInitial(registry.get(atom));
 	if (!controller) {
 		let data: Data | undefined;
 		let subscription: EntityWatchSubscription | undefined;
@@ -112,7 +123,7 @@ const retainQueryRefresh = <Data, Failure extends Error>(
 				};
 			},
 		};
-		controllers.set(atom, controller);
+		record.controller = controller;
 	}
 	controller.users++;
 	return {
@@ -121,7 +132,8 @@ const retainQueryRefresh = <Data, Failure extends Error>(
 		release: () => {
 			if (--controller.users === 0) {
 				controller.dispose();
-				controllers.set(atom, null);
+				record.controller = undefined;
+				record.retired = true;
 			}
 		},
 	};
@@ -168,16 +180,7 @@ export const useQueryRefresh = <Data, Failure extends Error>(
 		if (!pageRegistry || !refreshOnMutation) {
 			return undefined;
 		}
-		let atoms = pageGenerations.get(registry);
-		if (!atoms) {
-			atoms = new WeakMap();
-			pageGenerations.set(registry, atoms);
-		}
-		let pages = atoms.get(atom);
-		if (!pages) {
-			pages = new WeakMap();
-			atoms.set(atom, pages);
-		}
+		const { pages } = atomRefresh(registry, atom);
 		let consumed = pages.get(pageRegistry);
 		if (!consumed) {
 			consumed = { generation: pageRegistry.generation() };

@@ -6,6 +6,7 @@ import { makeAuthorizationState } from "#/modules/auth/authorization";
 import { makeRuntimeOAuthClient, RuntimeOAuthClientService } from "#/modules/auth/runtime-client";
 import { AuthService } from "#/modules/auth/service";
 import { OAuthTokenError, OAuthTokenService } from "#/modules/auth/token-service";
+import { makeOAuthTokenServiceStub } from "#/modules/auth/token-service.test-layer";
 import { makeClientStorage } from "#/persistence/storage.test-layer";
 
 const origin = decodeServerOrigin("https://example.com");
@@ -68,10 +69,8 @@ const authLayer = (
 			);
 			const recordClear = (name: string) => Ref.update(clears, (all) => [...all, name]);
 			const authorization = makeAuthorizationState();
-			const tokenService: OAuthTokenService["Service"] = {
+			const tokenService = makeOAuthTokenServiceStub({
 				authorization,
-				rejectAuthorization: () => Effect.die("not used"),
-				completeAuthorization: () => Effect.die("not used"),
 				userInfo: (server, originating) =>
 					Ref.update(userInfoCalls, (count) => count + 1).pipe(
 						Effect.andThen(tokens.userInfo?.(server, originating) ?? Effect.succeed(null)),
@@ -97,7 +96,7 @@ const authLayer = (
 							}),
 						),
 					),
-			};
+			});
 			return Layer.merge(
 				AuthService.layer.pipe(
 					Layer.provide(Layer.succeed(OAuthTokenService, tokenService)),

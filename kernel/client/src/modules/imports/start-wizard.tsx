@@ -22,6 +22,7 @@ import { type ImportStartFailure, importStartFailure } from "#/modules/imports/s
 import { CatalogPicker, type CatalogPickerState } from "#/modules/ui/catalog/picker";
 import { useSchemaFileUpload } from "#/modules/ui/schema-form-upload";
 import { useFormSeed } from "#/modules/ui/use-form-seed";
+import { useLatestDefined } from "#/modules/ui/use-latest-defined";
 import { WizardShell } from "#/modules/ui/wizard/wizard-shell";
 import {
 	createWizardState,
@@ -64,9 +65,8 @@ export function ImportStartWizard(props: {
 	const startMutation = useRyotMutation(createImportRunMutation);
 	const [failure, setFailure] = useState<ImportStartFailure | undefined>();
 	const [state, dispatch] = useReducer(wizardReducer, undefined, createWizardState);
-	const [selectedSource, setSelectedSource] = useState<ImportSourceItem>();
 	const listed = props.sources.status === "ready" ? props.sources.sources : [];
-	const source = listed.find((item) => importSourceKey(item) === state.slug) ?? selectedSource;
+	const source = useLatestDefined(listed.find((item) => importSourceKey(item) === state.slug));
 	const schema = source?.inputSchema;
 
 	const startRun = (values: SchemaFormValues) => {
@@ -119,7 +119,6 @@ export function ImportStartWizard(props: {
 	};
 
 	const chooseSource = (slug: string) => {
-		setSelectedSource(listed.find((item) => importSourceKey(item) === slug));
 		setFailure(undefined);
 		dispatch({ slug, type: "picked" });
 	};

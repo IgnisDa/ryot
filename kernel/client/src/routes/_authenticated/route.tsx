@@ -68,7 +68,7 @@ export const Route = createFileRoute("/_authenticated")({
 
 function AuthenticatedLayout() {
 	const { isPro, catalog, navigation, rememberedPluginId } = Route.useLoaderData();
-	const { ryot, scope, runtime, hostServices } = Route.useRouteContext();
+	const { ryot, scope, runtime, ryotClients, hostServices } = Route.useRouteContext();
 	const { userId, serverUrl } = scope;
 	useEffect(
 		() =>
@@ -78,7 +78,7 @@ function AuthenticatedLayout() {
 		[runtime, serverUrl, userId],
 	);
 	return (
-		<KernelRyotProvider client={ryot} hostServices={hostServices}>
+		<KernelRyotProvider client={ryot} store={ryotClients} hostServices={hostServices}>
 			<PluginCatalogProvider scope={scope} runtime={runtime} initialCatalog={catalog}>
 				<AuthenticatedShell
 					isPro={isPro}

@@ -21,11 +21,11 @@ import {
 	makeAuthStub,
 	makeOAuthRouteStubs,
 	makeStorageStubLayer,
+	ManagedAssetRouteStubs,
 	NavigationRouteStubs,
 	NotificationChannelRouteStubs,
 	PagesApiRouteStubs,
 	ProviderAddRouteStubs,
-	SavedViewRouteStubs,
 	ServerStub,
 	theme,
 } from "#/routes/-route-fixtures";
@@ -67,7 +67,7 @@ const mountLogin = (config: ReturnType<typeof systemConfig>) => {
 			makeAuthStub(),
 			InstanceAdminRouteStubs,
 			ServerStub,
-			SavedViewRouteStubs,
+			ManagedAssetRouteStubs,
 			Layer.succeed(PublicApi, {
 				checkHealth: () => Effect.void,
 				getSystemConfig: (origin) =>

@@ -2,12 +2,17 @@ import { nextPageCursor, paginationItems, usePagination } from "@ryot-app/plugin
 import { Button, LoadMoreButton } from "@ryot-app/plugin-ui-sdk";
 import { DataTable, type DataTableColumn } from "@ryot-app/plugin-ui-sdk/table";
 import { Cause, Effect, Option } from "effect";
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
 
 import { AdminApiError } from "#/api/admin";
 import { FileDownloadError } from "#/modules/downloads/file";
-import { isUnauthorizedCause, withAdminAuthorization } from "#/modules/instance-admin/errors";
+import {
+	isUnauthorizedCause,
+	runAdminAction,
+	withAdminAuthorization,
+} from "#/modules/instance-admin/errors";
 import type { InstanceAdminLogs } from "#/modules/instance-admin/service";
+import { useUnmountSignal } from "#/modules/ui/use-unmount-signal";
 
 const PAGE_SIZE = 25;
 
@@ -41,7 +46,7 @@ export function ServerLogsView(props: {
 	const [downloadError, setDownloadError] = useState<string>();
 	const [downloading, setDownloading] = useState<string>();
 	const downloadBusy = useRef(false);
-	const downloadController = useRef(new AbortController());
+	const unmountSignal = useUnmountSignal();
 	const pagination = usePagination<InstanceAdminLogs, string | undefined>({
 		initialPageParam: undefined,
 		getNextPageParam: nextPageCursor,
@@ -69,39 +74,24 @@ export function ServerLogsView(props: {
 		downloadBusy.current = true;
 		setDownloading(file?.id ?? "all");
 		setDownloadError(undefined);
-		const { signal } = downloadController.current;
+		const signal = unmountSignal();
 		Effect.runFork(
-			Effect.suspend(() => props.download(file)).pipe(
-				Effect.matchCause({
-					onSuccess: () => undefined,
-					onFailure: (cause) => {
-						if (signal.aborted || Cause.hasInterruptsOnly(cause)) {
-							return;
-						}
-						if (isUnauthorizedCause(cause)) {
-							props.unauthorized();
-						} else {
-							setDownloadError(downloadMessage(cause));
-						}
-					},
-				}),
-				Effect.ensuring(
-					Effect.sync(() => {
-						downloadBusy.current = false;
-						if (!signal.aborted) {
-							setDownloading(undefined);
-						}
-					}),
-				),
-			),
+			runAdminAction({
+				signal,
+				onSuccess: () => undefined,
+				onUnauthorized: props.unauthorized,
+				operation: () => props.download(file),
+				onFailure: (cause) => setDownloadError(downloadMessage(cause)),
+				onSettled: (aborted) => {
+					downloadBusy.current = false;
+					if (!aborted) {
+						setDownloading(undefined);
+					}
+				},
+			}),
 			{ signal },
 		);
 	};
-	useEffect(() => {
-		const controller = new AbortController();
-		downloadController.current = controller;
-		return () => controller.abort();
-	}, []);
 
 	return (
 		<section className="ui-card w-full" aria-labelledby="server-logs-title">

@@ -27,13 +27,13 @@ import { makeAccountApi, makeInstanceAdminApi } from "#/api/ports.test-layer";
 import { PublicApi } from "#/api/public";
 import type { ApiScope } from "#/api/scope";
 import { ManagedAssetsService } from "#/modules/assets/managed-assets";
-import { makeAuthorizationState } from "#/modules/auth/authorization";
 import { HostedAuthService } from "#/modules/auth/hosted-service";
 import { OAuthLauncher } from "#/modules/auth/oauth-launcher";
 import { OAuthStorage } from "#/modules/auth/oauth-storage";
 import { RuntimeOAuthClientService } from "#/modules/auth/runtime-client";
 import { AuthService, type SettledAuthSession } from "#/modules/auth/service";
 import { OAuthTokenService } from "#/modules/auth/token-service";
+import { makeOAuthTokenServiceStub } from "#/modules/auth/token-service.test-layer";
 import { noopDevicePlatform } from "#/modules/device/platform.test-layer";
 import { DevicePlatform, DeviceService } from "#/modules/device/service";
 import { ImportsService } from "#/modules/imports/service";
@@ -239,16 +239,7 @@ export const makeOAuthRouteStubs = (
 				}),
 			...runtimeOverrides,
 		}),
-		Layer.succeed(OAuthTokenService, {
-			clear: () => Effect.void,
-			logout: () => Effect.succeed(null),
-			userInfo: () => Effect.succeed(null),
-			authorization: makeAuthorizationState(),
-			accessToken: () => Effect.succeed(null),
-			rejectAuthorization: () => Effect.die("not used"),
-			completeAuthorization: () => Effect.die("not used"),
-			...tokenOverrides,
-		}),
+		Layer.succeed(OAuthTokenService, makeOAuthTokenServiceStub(tokenOverrides)),
 		Layer.succeed(OAuthLauncher, {
 			launch: () => Effect.void,
 			prepareImpersonation: () =>
@@ -320,7 +311,7 @@ export const InstanceAdminRouteStubs = Layer.mergeAll(
 	}),
 );
 
-export const SavedViewRouteStubs = Layer.succeed(ManagedAssetsService, {
+export const ManagedAssetRouteStubs = Layer.succeed(ManagedAssetsService, {
 	read: () => Effect.succeed([]),
 	outcome: () => Effect.die("not used"),
 });

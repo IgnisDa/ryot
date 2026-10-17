@@ -10,14 +10,14 @@ export type DataTableColumn<T> = {
 	readonly cell?: (item: T) => ReactNode;
 };
 
-export type DataTableBodyEndRow = {
+type DataTableBodyEndRow = {
 	readonly id: string;
 	readonly content: ReactNode;
 	readonly rowClassName?: string;
 	readonly cellClassName?: string;
 };
 
-export type DataTableProps<T> = Omit<ComponentProps<"table">, "children"> & {
+type DataTableProps<T> = Omit<ComponentProps<"table">, "children"> & {
 	readonly rowClassName?: string;
 	readonly data: ReadonlyArray<T>;
 	readonly headerClassName?: string;

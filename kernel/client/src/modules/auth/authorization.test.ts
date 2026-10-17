@@ -8,7 +8,11 @@ import { Context, Deferred, Effect, Fiber, Layer, Queue } from "effect";
 
 import { decodeServerOrigin } from "#/api/origin";
 import { OAuthStorage } from "#/modules/auth/oauth-storage";
-import { fakeOAuthStorageLayer } from "#/modules/auth/oauth-storage.test-support";
+import {
+	fakeOAuthStorageLayer,
+	makePendingAuthorization,
+	makeStoredTokenSet,
+} from "#/modules/auth/oauth-storage.test-support";
 import { makeRuntimeOAuthClient, RuntimeOAuthClientService } from "#/modules/auth/runtime-client";
 import { AuthService } from "#/modules/auth/service";
 import { OAuthTokenService, oauthTokenServiceLayer } from "#/modules/auth/token-service";
@@ -17,15 +21,14 @@ import { makeClientStorage } from "#/persistence/storage.test-layer";
 const origin = decodeServerOrigin("https://authorization.test");
 const now = 1_800_000_000_000;
 const idToken = `header.${btoa(JSON.stringify({ nonce: "nonce" }))}.signature`;
-const tokens = (accessToken: string, accessTokenExpiresAt = now + 900_000): StoredTokenSet => ({
-	idToken,
-	accessToken,
-	tokenType: "Bearer",
-	accessTokenExpiresAt,
-	scope: "openid ryot:api",
-	clientId: OAUTH_WEB_CLIENT_ID,
-	refreshToken: `refresh-${accessToken}`,
-});
+const tokens = (accessToken: string, accessTokenExpiresAt = now + 900_000) =>
+	makeStoredTokenSet({
+		idToken,
+		accessToken,
+		accessTokenExpiresAt,
+		scope: "openid ryot:api",
+		refreshToken: `refresh-${accessToken}`,
+	});
 const response = (accessToken: string) => ({
 	expires_in: 900,
 	id_token: idToken,
@@ -84,16 +87,13 @@ const authorizationLayer = Layer.unwrap(
 	}),
 );
 
-const pendingAuthorization = (clientId: StoredTokenSet["clientId"] = OAUTH_WEB_CLIENT_ID) => ({
-	clientId,
-	nonce: "nonce",
-	createdAt: now,
-	state: "replacement",
-	serverOrigin: origin,
-	destination: "/settings",
-	codeVerifier: "verifier",
-	redirectUri: `${origin}/auth/callback`,
-});
+const pendingAuthorization = (clientId: StoredTokenSet["clientId"] = OAUTH_WEB_CLIENT_ID) =>
+	makePendingAuthorization(origin, {
+		clientId,
+		createdAt: now,
+		state: "replacement",
+		destination: "/settings",
+	});
 
 const replaceAuthorization = Effect.fnUntraced(function* (
 	accessToken: string,
