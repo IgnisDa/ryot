@@ -199,6 +199,9 @@ export const createResultsTableSavedView = (
 						sourceName: "events",
 						rowKeyFields: ["entityId", "occurredAt"],
 						entityLink: { entityIdField: "entityId" },
+						filterFields: [
+							{ key: "note", type: "text", label: "Note", field: "note", kind: "value" },
+						],
 						columns: [
 							{ field: "note", label: "Note", displayKind: "text" },
 							{ label: "Occurred", field: "occurredAt", displayKind: "date" },
