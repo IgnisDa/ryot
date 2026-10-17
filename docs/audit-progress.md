@@ -15,7 +15,7 @@
 
 ## Status
 
-**74 implemented, 0 in progress, 9 pending; 3 excluded.**
+**75 implemented, 0 in progress, 8 pending; 3 excluded.**
 
 “Implemented” means affected checks and tests passed and the change is committed with this tracker. Batch-wide acceptance is recorded separately below. Rows follow the audit's ranked order; sequencing can change to respect dependencies and keep changes reviewable.
 
@@ -89,7 +89,7 @@
 | B01-R1 | Implemented | Replace watch deltas with complete membership/foreground sets while preserving caps, coalescing, acknowledgements, and grace tokens. See this finding's audit commit. |
 | B01-R2 | Implemented | Keep provider input/result/receipt order while repositories sort locks; preserve subtree stamps and new-batch lifecycle order, with replay using recorded dispatch. See this finding's audit commit. |
 | B02-R1 | Implemented | Delete the test-only live-environment runtime mode; resolve only pinned installation configuration for the admitted execution. See this finding's audit commit. |
-| B02-R2 | Pending | Readiness uses configured-key metadata, not decrypted values. |
+| B02-R2 | Implemented | Derive readiness from exact revision/owner configured-key metadata without loading or decrypting ciphertext; startup and execution still authenticate it. See this finding's audit commit. |
 | B10-R2 | Pending | Delete unused definition-reader modes. |
 | B11-R1 | Implemented | Remove the projection-worker invalidation exemption and owner-work-ID threading while preserving event locks. See this finding's audit commit. |
 | B19-R2 | Implemented | Store the selected tagged composition module directly without synthetic namespaces or reverse lookup; preserve selection and grants. See this finding's audit commit. |
@@ -241,3 +241,4 @@
 - B05-R2: scoped checks passed before 60 tests across four files, including real-PostgreSQL coverage; read-only review passed. Bounded `EXISTS` lookups cover 13 sources, ownership, encryption, nested locators, and schema-declared configuration paths.
 - B20-R1: backend type, format, and lint checks passed before 245 tests across 13 files; read-only review passed. Aggregate replay returns persisted summaries and dispatch without fabricated per-item outcomes; real item receipts remain. The shared lifecycle fixture change adds after-hooks used by this finding's aggregate replay coverage.
 - B01-R2: scoped checks passed before 81 tests across four files; final read-only review reported no findings. Provider order now owns results, receipt indexes, child/subtree stamps, and new lifecycle dispatch; repositories sort canonical mutation locks.
+- B02-R2: backend type, format, and lint checks passed before 94 tests across 11 files; read-only review passed. Readiness uses exact configured-key metadata and does not decrypt; startup and execution continue to authenticate configuration ciphertext.
