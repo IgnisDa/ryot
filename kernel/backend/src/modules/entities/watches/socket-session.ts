@@ -187,12 +187,7 @@ const processCommand = Effect.fn("EntityWatchSocketSession.processCommand")(func
 	if (message.type === "authenticate" || message.type === "pong") {
 		return false;
 	}
-	const outcome = yield* store.replaceInterest({
-		sessionId,
-		revision: message.revision,
-		entityIds: message.entityIds,
-		foregroundIds: message.foregroundIds,
-	});
+	const outcome = yield* store.replaceInterest({ ...message, sessionId });
 	if (outcome.status === "limit-exceeded") {
 		yield* output.enqueue({
 			type: "rejected",

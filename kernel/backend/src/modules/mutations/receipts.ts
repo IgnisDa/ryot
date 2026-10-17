@@ -10,9 +10,10 @@ import { JsonValue } from "@ryot-app/contract/schema/json";
 import { sha256Base64Url } from "@ryot-app/ts-utils/crypto";
 import { stableStringify } from "@ryot-app/ts-utils/json";
 import { and, asc, eq, inArray, isNotNull, or, sql } from "drizzle-orm";
-import { Context, Effect, Layer, Result, Schema } from "effect";
+import { Array as Arr, Context, Effect, Layer, Result, Schema } from "effect";
 
 import { LifecycleDispatchPlan } from "#modules/automations/lifecycle/planning";
+import { insertChunkSize } from "#platform/db/bind-parameters";
 import { DatabaseSession, DatabaseSessionStateError } from "#platform/db/session";
 import { user } from "#schema/tables/auth";
 import { mutationReceipt } from "#schema/tables/mutations";
@@ -77,10 +78,10 @@ export const MutationReceiptIdentity = Schema.Struct({
 export type MutationReceiptIdentity = typeof MutationReceiptIdentity.Type;
 
 const MutationBatchPinReferences = Schema.Struct({
-	pluginId: Schema.NullOr(PluginId),
+	pluginId: PluginId,
 	scopeUserId: Schema.NullOr(UserId),
-	sandboxScriptId: Schema.NullOr(Schema.String),
-	pluginRevisionId: Schema.NullOr(Schema.String),
+	sandboxScriptId: Schema.String,
+	pluginRevisionId: Schema.String,
 	pluginConfigRevisionId: Schema.NullOr(Schema.String),
 });
 export type MutationBatchPin<Payload> = {
@@ -92,9 +93,6 @@ const WorkflowOwnerState = Schema.Struct({
 	retiring: Schema.Boolean,
 	fingerprint: Schema.NullOr(Schema.String),
 });
-
-// Keep receipt rows below PostgreSQL's 65,535 bind-parameter limit per statement.
-const batchCandidateChunkSize = 1000;
 
 const retiringAccountFilter = (account: AccountGeneration) =>
 	and(
@@ -586,12 +584,8 @@ export class MutationReceipts extends Context.Service<MutationReceipts>()("Mutat
 						result: { maxItems: input.maxItems, candidateCount: input.pins.length },
 					}),
 			);
-			for (let offset = 0; offset < candidates.length; offset += batchCandidateChunkSize) {
-				yield* session.run((db) =>
-					db
-						.insert(mutationReceipt)
-						.values(candidates.slice(offset, offset + batchCandidateChunkSize)),
-				);
+			for (const chunk of Arr.chunksOf(candidates, insertChunkSize(mutationReceipt))) {
+				yield* session.run((db) => db.insert(mutationReceipt).values(chunk));
 			}
 			return {
 				dispatch: [],

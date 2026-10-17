@@ -108,33 +108,26 @@ export const EntityImportWorkflowOperationsLive = Layer.effect(
 			pluginRevision: { id: string; revisionId: string };
 		}) {
 			const owner = definitionOwner(input.pluginRevision.id);
-			const pin = yield* writes
+			yield* writes
 				.check(input.command, owner, input.userId)
 				.pipe(Effect.mapError((error) => toSandboxRunError(error, "invalid-input")));
 			const provider = yield* writes
 				.checkProvider(input.providerId, owner)
 				.pipe(Effect.mapError((error) => toSandboxRunError(error, "invalid-input")));
-			const slug = pin
-				? yield* reads
-						.findRevisionProviderOperation({
-							revisionId: pin.id,
-							operation: input.operation,
-							providerSlug: provider.slug,
-							pluginId: input.pluginRevision.id,
-						})
-						.pipe(Effect.mapError((error) => toSandboxRunError(error, "infrastructure")))
-				: undefined;
+			const slug = yield* reads
+				.findRevisionProviderOperation({
+					operation: input.operation,
+					providerSlug: provider.slug,
+					pluginId: input.pluginRevision.id,
+					revisionId: input.pluginRevision.revisionId,
+				})
+				.pipe(Effect.mapError((error) => toSandboxRunError(error, "infrastructure")));
 			const script = slug
 				? yield* reads
 						.findRevisionScript(input.pluginRevision.revisionId, slug)
 						.pipe(Effect.mapError((error) => toSandboxRunError(error, "infrastructure")))
 				: null;
-			if (
-				!script ||
-				script.providerId !== input.providerId ||
-				script.metadata.kind !== "provider" ||
-				script.pluginRevisionId !== input.pluginRevision.revisionId
-			) {
+			if (!script || script.providerId !== input.providerId || script.metadata.kind !== "provider") {
 				return yield* new SandboxRunError({
 					kind: "missing-artifact",
 					message: `Pinned provider ${input.operation} script is unavailable`,

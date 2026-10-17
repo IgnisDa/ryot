@@ -17,7 +17,6 @@ import {
 	and,
 	asc,
 	eq,
-	getTableColumns,
 	gt,
 	inArray,
 	isNotNull,
@@ -27,18 +26,13 @@ import {
 	or,
 	sql,
 } from "drizzle-orm";
-import { Context, DateTime, Effect, Layer, Schema } from "effect";
+import { Array as Arr, Context, DateTime, Effect, Layer, Schema } from "effect";
 
 import { redactPluginConfig } from "#modules/plugins/configuration/redaction";
+import { insertChunkSize } from "#platform/db/bind-parameters";
 import { DatabaseSession } from "#platform/db/session";
 import { automationRun as table } from "#schema/tables/automations";
 import { pluginRevision } from "#schema/tables/core";
-
-// The SQL driver's Bind encoder limits parameter counts to signed 16-bit values.
-const statementParameterLimit = 32_767;
-const insertChunkSize = Math.floor(
-	statementParameterLimit / Object.keys(getTableColumns(table)).length,
-);
 
 const policyChainStopped = Schema.decodeSync(AutomationRunSkipReason)({
 	code: "policy-chain-stopped",
@@ -260,13 +254,8 @@ export class AutomationRunRepository extends Context.Service<AutomationRunReposi
 						artifactsExpireAt: DateTime.toDate(DateTime.makeUnsafe(value.artifactsExpireAt)),
 					};
 				});
-				for (let offset = 0; offset < rows.length; offset += insertChunkSize) {
-					yield* session.run((db) =>
-						db
-							.insert(table)
-							.values(rows.slice(offset, offset + insertChunkSize))
-							.onConflictDoNothing(),
-					);
+				for (const chunk of Arr.chunksOf(rows, insertChunkSize(table))) {
+					yield* session.run((db) => db.insert(table).values(chunk).onConflictDoNothing());
 				}
 				const storedRows = yield* session.run((db) =>
 					db

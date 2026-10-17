@@ -5,15 +5,22 @@ import {
 	EntityId,
 	EntitySchemaSlug,
 	EventId,
+	PluginId,
 	UserId,
 } from "@ryot-app/contract/schema/brands";
-import { makeRecordingTracer } from "@ryot-app/testing/recording-tracer";
+import {
+	makeRecordingTracer,
+	maxBindParameter,
+	recordedStatements,
+} from "@ryot-app/testing/recording-tracer";
 import { eq, inArray, sql } from "drizzle-orm";
 import { DateTime, Deferred, Effect, Fiber, Layer, Schema, type Tracer } from "effect";
 import { Workflow } from "effect/workflow";
 import { WorkflowInstance } from "effect/workflow/WorkflowEngine";
 
 import { rootLifecycleCommand } from "#modules/automations/lifecycle/command";
+import { fixtureManifest, insertPluginRevision } from "#modules/plugins/test-support";
+import { bindParameterLimit, insertChunkSize } from "#platform/db/bind-parameters";
 import { DatabaseSession } from "#platform/db/session";
 import * as tables from "#schema/tables/combined";
 import { makeWorkflowEngine } from "#testing/effect";
@@ -59,6 +66,13 @@ const record = (receipt: MutationReceiptIdentity) => ({
 	identity: receipt,
 	result: { entityId },
 });
+const pinReferences = (scopeUserId: UserId | null) => ({
+	scopeUserId,
+	pluginConfigRevisionId: null,
+	pluginId: PluginId.make("receipt-pin-plugin"),
+	sandboxScriptId: "receipt-pin-script",
+	pluginRevisionId: "receipt-pin-revision",
+});
 const batchPins = (
 	prefix: string,
 	count: number,
@@ -67,21 +81,48 @@ const batchPins = (
 	Array.from({ length: count }, (_, index) => ({
 		payload: payload(index),
 		id: `${prefix}-${String(index).padStart(4, "0")}`,
-		references: {
-			pluginId: null,
-			sandboxScriptId: null,
-			pluginRevisionId: null,
-			pluginConfigRevisionId: null,
-			scopeUserId: index % 2 === 0 ? null : setOwner,
-		},
+		references: pinReferences(index % 2 === 0 ? null : setOwner),
 	}));
 const receiptInsertStatements = (spans: ReadonlyArray<Tracer.Span>) =>
-	spans.flatMap((span) => {
-		const text = span.attributes.get("db.query.text");
-		return typeof text === "string" && text.startsWith('insert into "mutation_receipt"')
-			? [text]
-			: [];
-	});
+	recordedStatements(spans).filter((text) => text.startsWith('insert into "mutation_receipt"'));
+
+const seedPinTargets = Effect.fn(function* () {
+	const session = yield* DatabaseSession;
+	const { pluginId, sandboxScriptId, pluginRevisionId } = pinReferences(null);
+	yield* session.run((db) =>
+		Effect.gen(function* () {
+			const manifest = fixtureManifest();
+			yield* db
+				.insert(tables.plugin)
+				.values({ id: pluginId, status: "disabled", packageId: manifest.metadata.packageId })
+				.onConflictDoNothing();
+			const existing = yield* db
+				.select({ id: tables.pluginRevision.id })
+				.from(tables.pluginRevision)
+				.where(eq(tables.pluginRevision.id, pluginRevisionId));
+			if (existing.length === 0) {
+				yield* insertPluginRevision(db, {
+					manifest,
+					pluginId,
+					id: pluginRevisionId,
+					contentHash: "receipt-pin-hash",
+				});
+			}
+			yield* db
+				.insert(tables.sandboxScript)
+				.values({
+					pluginRevisionId,
+					id: sandboxScriptId,
+					name: "Pinned",
+					slug: "pinned",
+					contentHash: "hash",
+					compiledCode: "code",
+					metadata: { kind: "automation", runtimeImports: [] },
+				})
+				.onConflictDoNothing();
+		}),
+	);
+});
 
 const seedAccount = Effect.fn(function* (account: typeof setAccount) {
 	const session = yield* DatabaseSession;
@@ -472,16 +513,11 @@ layer(
 					identity: ["canonical-pins"],
 					command: { ...command, accountGeneration: account },
 				});
+				yield* seedPinTargets();
 				const pins = [null, account.userId].map((scopeUserId, index) => ({
 					id: `canonical-pin-${index}`,
 					payload: { snapshot: `snapshot-${index}` },
-					references: {
-						scopeUserId,
-						pluginId: null,
-						sandboxScriptId: null,
-						pluginRevisionId: null,
-						pluginConfigRevisionId: null,
-					},
+					references: pinReferences(scopeUserId),
 				}));
 				yield* session.transaction(
 					Effect.gen(function* () {
@@ -538,11 +574,12 @@ layer(
 				const session = yield* DatabaseSession;
 				const receipts = yield* MutationReceipts;
 				yield* seedAccount(setAccount);
+				yield* seedPinTargets();
 				for (const { count, expectedInserts } of [
 					{ count: 0, expectedInserts: 1 },
 					{ count: 3, expectedInserts: 2 },
-					{ count: 1000, expectedInserts: 2 },
-					{ count: 1001, expectedInserts: 3 },
+					{ count: insertChunkSize(tables.mutationReceipt), expectedInserts: 2 },
+					{ count: insertChunkSize(tables.mutationReceipt) + 1, expectedInserts: 3 },
 				]) {
 					const batch = receipts.batchIdentity({
 						resource: "entity",
@@ -566,8 +603,7 @@ layer(
 					const statements = receiptInsertStatements(spans);
 					expect(statements).toHaveLength(expectedInserts);
 					for (const statement of statements) {
-						const parameters = [...statement.matchAll(/\$(\d+)/g)].map((match) => Number(match[1]));
-						expect(Math.max(...parameters)).toBeLessThanOrEqual(65_535);
+						expect(maxBindParameter(statement)).toBeLessThanOrEqual(bindParameterLimit);
 					}
 					const contents = yield* session.transaction(
 						receipts.batchContents(batch, Schema.Struct({ index: Schema.Int })),
@@ -598,14 +634,16 @@ layer(
 			const session = yield* DatabaseSession;
 			const receipts = yield* MutationReceipts;
 			yield* seedAccount(setAccount);
+			yield* seedPinTargets();
 			const batch = receipts.batchIdentity({
 				resource: "entity",
 				ownerUserId: setOwner,
 				identity: ["invalid-bulk-pin"],
 				command: { ...command, accountGeneration: setAccount },
 			});
-			const pins = batchPins("invalid-bulk-pin", 1001, (index) =>
-				index === 1000 ? undefined : { index },
+			const lastIndex = insertChunkSize(tables.mutationReceipt);
+			const pins = batchPins("invalid-bulk-pin", lastIndex + 1, (index) =>
+				index === lastIndex ? undefined : { index },
 			);
 			const spans: Tracer.Span[] = [];
 			expect(
@@ -672,6 +710,7 @@ layer(
 				const session = yield* DatabaseSession;
 				const receipts = yield* MutationReceipts;
 				yield* seedAccount(setAccount);
+				yield* seedPinTargets();
 				const stored = setIdentity("bulk-pin-existing-conflict");
 				yield* session.transaction(receipts.insert(record(stored)));
 				for (const failure of ["duplicate", "foreign-key", "conflict"]) {
@@ -681,11 +720,12 @@ layer(
 						identity: [`failed-bulk-pins-${failure}`],
 						command: { ...command, accountGeneration: setAccount },
 					});
-					const pins = batchPins(`failed-bulk-pins-${failure}`, 1001);
+					const lastIndex = insertChunkSize(tables.mutationReceipt);
+					const pins = batchPins(`failed-bulk-pins-${failure}`, lastIndex + 1);
 					const first = pins[0];
 					assert(first !== undefined);
 					const failingPins = pins.map((pin, index) => {
-						if (index !== 1000) {
+						if (index !== lastIndex) {
 							return pin;
 						}
 						return failure === "foreign-key"

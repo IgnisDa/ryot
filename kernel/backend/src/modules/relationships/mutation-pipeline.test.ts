@@ -357,11 +357,10 @@ describe("Relationship set-based mutation pipeline", () => {
 						expect(before.receipts.find(({ id }) => id === pending.rootDecision?.id)?.result).toBe(
 							"sealed",
 						);
-						const service = yield* RelationshipsService;
 						const replayed =
 							scope === "user"
-								? yield* service.commitBatch(pending)
-								: yield* service.commitReconciliation(pending);
+								? yield* pipeline.commitBatch(pending)
+								: yield* pipeline.commitReconciliation(pending);
 						expect(replayed).toEqual(committed);
 						const hosts = relationshipLifecycleHostSteps(
 							pipeline,

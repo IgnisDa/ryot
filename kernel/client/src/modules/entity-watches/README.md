@@ -21,9 +21,19 @@ receive no callbacks; new demand evicts grace entries when capacity is full.
 
 The authenticated ticket port supplies a fresh ticket for each connection. The WebSocket URL has no
 credentials or query string; its first frame authenticates with the ticket. After `ready`, the client
-sends a full `replace` (with `foregroundIds`) at revision 1, then sends membership and foreground
-diffs with at most one unacknowledged command.
-Reconnect always restarts at revision 1 with current selection.
+sends a full `replace` (with `foregroundIds`) at revision 1. Later commands also carry the complete
+membership and foreground sets; the client suppresses unchanged pairs, waits for acknowledgment, and
+sends only the latest pair, so at most one command is unacknowledged. Reconnect always restarts at
+revision 1 with current selection.
+
+A full frame carries up to 550 IDs: 500 members plus 50 repeated foreground IDs. With 36-byte UUIDs
+and a single-digit revision its JSON payload is 21,513 bytes (21,521 bytes including the masked
+client WebSocket header), below the server's 1-MiB WebSocket payload limit; each additional revision
+digit adds one byte. With fast acknowledgments, sustained declaration churn can produce about ten
+full snapshots per second through 100-ms batching: about 215 KB/s of JSON. Grace expiry can emit
+additional snapshots, so batching is not a strict rate limit. This trades larger changed frames for a
+single command model; it does not promise a measured bandwidth reduction. IDs are strings, so this
+UUID budget is not a general frame-size limit.
 
 All frames use contract decoders. Invalid frames, duplicate readiness, rejected commands, mismatched
 acknowledgements, timeout, or missed heartbeat close and retry. Connection, authentication, and
