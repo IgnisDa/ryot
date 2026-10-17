@@ -1,5 +1,12 @@
 import type { PluginPackageId } from "@ryot-app/contract/schema/brands";
-import { Button, Dialog, FieldMessage, SearchField, StatusMessage } from "@ryot-app/plugin-ui-sdk";
+import {
+	Button,
+	Dialog,
+	FieldMessage,
+	LoadMoreButton,
+	SearchField,
+	StatusMessage,
+} from "@ryot-app/plugin-ui-sdk";
 import { AppIcon } from "@ryot-app/plugin-ui-sdk/icon";
 import {
 	describeSchemaFormFields,
@@ -11,9 +18,9 @@ import {
 import { useDeferredValue, useLayoutEffect, useState } from "react";
 
 import type { RyotClient } from "../client/client";
-import { readCursorPages } from "../queries/cursor-pages";
 import { createRyotQuery } from "../queries/definitions";
-import { useRyotQuery } from "../queries/hooks";
+import { nextPageCursor, paginationItems } from "../queries/pagination";
+import { useRyotInfiniteQuery } from "../queries/pagination-hook";
 import {
 	entityFormValues,
 	entityPropertiesPayload,
@@ -31,23 +38,19 @@ const candidatesQuery = createRyotQuery(
 	}: {
 		readonly client: RyotClient;
 		readonly input: {
-			readonly pages: number;
+			readonly after: string | undefined;
 			readonly search: string;
 			readonly packageId: PluginPackageId;
 			readonly entitySchemaSlug: string;
 		};
 	}) =>
-		readCursorPages(
-			(after) =>
-				client.data.query(
-					entityEditorCandidatesRecipe({
-						after,
-						search: input.search,
-						entitySchemaSlug: input.entitySchemaSlug,
-						reference: client.pluginIdentity(input.packageId),
-					}),
-				),
-			{ maxPages: input.pages },
+		client.data.query(
+			entityEditorCandidatesRecipe({
+				after: input.after,
+				search: input.search,
+				entitySchemaSlug: input.entitySchemaSlug,
+				reference: client.pluginIdentity(input.packageId),
+			}),
 		),
 	{ cancelOnUnmount: true },
 );
@@ -60,14 +63,25 @@ function TargetPicker(props: {
 	readonly onPick: (candidate: Pick<EditorRelationshipTarget, "entityId" | "name">) => void;
 }) {
 	const [search, setSearch] = useState("");
-	const [pages, setPages] = useState(1);
 	const deferredSearch = useDeferredValue(search);
-	const result = useRyotQuery(candidatesQuery, {
-		pages,
-		search: deferredSearch,
-		packageId: props.packageId,
-		entitySchemaSlug: props.definition.targetEntitySchemaSlug ?? "",
-	});
+	const result = useRyotInfiniteQuery(
+		candidatesQuery,
+		{
+			search: deferredSearch,
+			packageId: props.packageId,
+			entitySchemaSlug: props.definition.targetEntitySchemaSlug ?? "",
+		},
+		{
+			initialPageParam: undefined,
+			getNextPageParam: nextPageCursor,
+			getPageInput: (input, after: string | undefined) => ({ ...input, after }),
+		},
+	);
+	const candidates = paginationItems(
+		result.pages,
+		(page) => page.items,
+		(item) => item.id,
+	);
 	return (
 		<Dialog
 			size="md"
@@ -84,7 +98,6 @@ function TargetPicker(props: {
 					clearIcon={<AppIcon name="x" size={14} />}
 					onChange={(value) => {
 						setSearch(value);
-						setPages(1);
 					}}
 				/>
 				{result.isError ? (
@@ -93,11 +106,11 @@ function TargetPicker(props: {
 				{result.data === undefined && !result.isError ? (
 					<StatusMessage tone="pending">Loading…</StatusMessage>
 				) : null}
-				{result.data?.items.length === 0 ? (
+				{result.data !== undefined && candidates.length === 0 ? (
 					<StatusMessage tone="pending">Nothing matches.</StatusMessage>
 				) : null}
 				<ul className="m-0 flex list-none flex-col gap-1 p-0">
-					{result.data?.items.map((candidate) => (
+					{candidates.map((candidate) => (
 						<li key={candidate.id}>
 							<Button
 								size="sm"
@@ -114,10 +127,14 @@ function TargetPicker(props: {
 						</li>
 					))}
 				</ul>
-				{result.data?.hasMore === true ? (
-					<Button size="sm" variant="secondary" onClick={() => setPages((count) => count + 1)}>
-						Show more
-					</Button>
+				{result.hasNextPage ? (
+					<LoadMoreButton
+						size="sm"
+						label="Show more"
+						disabled={result.isFetching}
+						onClick={result.fetchNextPage}
+						isFetchingNextPage={result.isFetchingNextPage}
+					/>
 				) : null}
 			</div>
 		</Dialog>

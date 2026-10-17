@@ -1,12 +1,14 @@
-import { Effect, Result, Schema } from "@ryot-app/plugin-client-sdk/effect";
-import { PluginLink, usePageContext, usePageRefresh } from "@ryot-app/plugin-client-sdk/plugin";
+import { Result, Schema } from "@ryot-app/plugin-client-sdk/effect";
+import { PluginLink, usePageContext } from "@ryot-app/plugin-client-sdk/plugin";
 import {
 	ManagedAssetProvider,
 	createRyotQuery,
-	useRyotQuery,
+	useRyotInfiniteQuery,
+	nextPageCursor,
+	paginationItems,
 } from "@ryot-app/plugin-client-sdk/react";
 import { PluginScreenFrame } from "@ryot-app/plugin-client-sdk/screen";
-import { Button, StatusMessage } from "@ryot-app/plugin-ui-sdk";
+import { Button, LoadMoreButton, StatusMessage } from "@ryot-app/plugin-ui-sdk";
 import { AppIcon } from "@ryot-app/plugin-ui-sdk/icon";
 import { DataTable, type DataTableColumn } from "@ryot-app/plugin-ui-sdk/table";
 import {
@@ -14,20 +16,11 @@ import {
 	resultsTableRecipe,
 	type ResultsTableResult,
 } from "@ryot-app/ryotql-recipes/saved-views";
-import { useEffect, useRef, useState } from "react";
+import { useState } from "react";
 
 import { CellValue, cellText, managedCellAssets } from "./display-value";
 
-const QueryInput = Schema.Tuple([Schema.NullOr(Schema.String), Schema.Finite]);
-
-const decodeQueryInput = Schema.decodeUnknownSync(Schema.fromJsonString(QueryInput));
-
 type TableItem = ResultsTableResult["items"][number];
-type TablePage = { readonly input: string; readonly result: ResultsTableResult };
-type TableState = {
-	readonly items: ResultsTableResult["items"];
-	readonly pageInfo: ResultsTableResult["pageInfo"] | null;
-};
 
 const rowLabel = (item: TableItem) => {
 	const text = item.cells.find(({ value }) => value.displayKind === "text");
@@ -55,68 +48,34 @@ const resultsTableColumns = (
 const ResultsTable = ({ input }: { readonly input: typeof ResultsTablePageInput.Type }) => {
 	const viewName = input.view?.name ?? "Results table";
 	const viewIcon = input.view?.icon ?? "table";
-	const [cursor, setCursor] = useState<string | null>(null);
-	const [state, setState] = useState<TableState>({ items: [], pageInfo: null });
-	const appliedCursors = useRef(new Set<string>());
-	const [refreshGeneration, setRefreshGeneration] = useState(0);
-	const activeGeneration = useRef(refreshGeneration);
-	const refresh = () => Effect.sync(() => setRefreshGeneration((current) => current + 1));
-	usePageRefresh(refresh);
 	const [query] = useState(() =>
-		createRyotQuery<string, TablePage>(
-			({ client, input: serialized }) => {
-				const [after] = decodeQueryInput(serialized);
-				return Effect.map(
-					client.data.query(
-						Result.getOrThrow(
-							resultsTableRecipe({
-								settings: input.settings,
-								queryDocument: input.dataSources,
-								...(after === null ? {} : { after }),
-							}),
-						),
+		createRyotQuery<string | null, ResultsTableResult>(
+			({ client, input: after }) =>
+				client.data.query(
+					Result.getOrThrow(
+						resultsTableRecipe({
+							settings: input.settings,
+							queryDocument: input.dataSources,
+							...(after === null ? {} : { after }),
+						}),
 					),
-					(result) => ({ result, input: serialized }),
-				);
-			},
+				),
 			{ cancelOnUnmount: true },
 		),
 	);
-	const queryInput = JSON.stringify([cursor, refreshGeneration]);
-	const result = useRyotQuery(query, queryInput);
-
-	useEffect(() => {
-		if (activeGeneration.current === refreshGeneration) {
-			return;
-		}
-		activeGeneration.current = refreshGeneration;
-		appliedCursors.current.clear();
-		setCursor(null);
-		setState({ items: [], pageInfo: null });
-	}, [refreshGeneration]);
-
-	useEffect(() => {
-		const page = result.data;
-		if (!page || page.input !== queryInput) {
-			return;
-		}
-		const pageKey = page.input;
-		if (appliedCursors.current.has(pageKey)) {
-			return;
-		}
-		appliedCursors.current.add(pageKey);
-		setState((current) => {
-			const seen = new Set(current.items.map(({ key }) => key));
-			const items = [...current.items];
-			for (const item of page.result.items) {
-				if (!seen.has(item.key)) {
-					seen.add(item.key);
-					items.push(item);
-				}
-			}
-			return { items, pageInfo: page.result.pageInfo };
-		});
-	}, [queryInput, result.data]);
+	const result = useRyotInfiniteQuery(query, input.target.reference, {
+		initialPageParam: null,
+		getNextPageParam: nextPageCursor,
+		getPageInput: (_, after: string | null) => after,
+	});
+	const state = {
+		pageInfo: result.data?.pageInfo ?? null,
+		items: paginationItems(
+			result.pages,
+			(page) => page.items,
+			(item) => item.key,
+		),
+	};
 
 	const initial = state.pageInfo === null;
 	const assets = state.items.flatMap((item) => managedCellAssets(item.cells));
@@ -167,27 +126,21 @@ const ResultsTable = ({ input }: { readonly input: typeof ResultsTablePageInput.
 							className="flex items-center justify-center gap-3 text-sm text-danger"
 						>
 							<span>More results could not be loaded.</span>
-							<Button variant="ghost" className="text-sm" onClick={result.refetch}>
+							<Button variant="ghost" className="text-sm" onClick={result.retry}>
 								Retry
 							</Button>
 						</div>
 					)}
 					{state.pageInfo?.hasMore && !result.isError && (
-						<button
-							type="button"
+						<LoadMoreButton
+							label="Load more"
 							disabled={result.isFetching}
-							aria-label={result.isFetching ? "Loading more results" : "Load more results"}
-							onClick={() => {
-								const next = state.pageInfo?.nextCursor;
-								if (next) {
-									setCursor(next);
-								}
-							}}
+							onClick={result.fetchNextPage}
+							isFetchingNextPage={result.isFetchingNextPage}
+							icon={<AppIcon size={16} name="chevron-down" className="text-text" />}
+							aria-label={result.isFetchingNextPage ? "Loading more results" : "Load more results"}
 							className="flex h-12 w-full items-center justify-center gap-2 rounded-md bg-surface-2 px-4 text-[15px] text-text disabled:opacity-60 @2xl:h-8.5 @2xl:w-auto @2xl:self-center @2xl:border @2xl:border-border @2xl:bg-surface @2xl:text-[13px]"
-						>
-							<AppIcon size={16} name="chevron-down" className="text-text" />
-							{result.isFetching ? "Loading..." : "Load more"}
-						</button>
+						/>
 					)}
 					{state.pageInfo !== null && !state.pageInfo.hasMore && state.items.length > 0 && (
 						<p className="text-center text-xs text-text-subtle">

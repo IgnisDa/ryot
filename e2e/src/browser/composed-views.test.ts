@@ -653,6 +653,31 @@ it.live("keeps one rich mixed entity browser runtime across pagination and layou
 		expect(assetRequests).toContain(fitnessCss);
 		yield* runtime.locator("article").nth(3).waitFor({ state: "visible" });
 		expect(yield* runtime.locator("article").count).toBe(4);
+		yield* runtime.locator("body").evaluate((body) => {
+			const observer = new MutationObserver(() => {
+				if (body.querySelector('button[aria-label="Loading more results"]')) {
+					body.setAttribute("data-e2e-background-append", "true");
+				}
+				if (body.querySelector('section[aria-busy="true"]')) {
+					body.setAttribute("data-e2e-background-started", "true");
+				} else if (body.getAttribute("data-e2e-background-started") === "true") {
+					body.setAttribute("data-e2e-background-complete", "true");
+					observer.disconnect();
+				}
+			});
+			observer.observe(body, {
+				subtree: true,
+				childList: true,
+				attributes: true,
+				attributeFilter: ["aria-busy", "aria-label"],
+			});
+			document.dispatchEvent(new Event("visibilitychange"));
+		});
+		yield* runtime
+			.locator("body")
+			.waitForFunction((body) => body.getAttribute("data-e2e-background-complete") === "true");
+		expect(yield* runtime.locator("body").getAttribute("data-e2e-background-append")).toBeNull();
+		expect(yield* runtime.locator("article").count).toBe(4);
 		yield* runtime.getByRole("button", { name: "Load more" }).click();
 		yield* runtime
 			.getByRole("link", { exact: true, name: "05 Composed Bulbasaur" })

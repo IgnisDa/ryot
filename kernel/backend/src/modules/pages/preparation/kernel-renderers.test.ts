@@ -7,7 +7,6 @@ it("looks up each supported kernel renderer with its compilation policy", () => 
 	const collectionBrowser = getKernelClientRenderer("collection-browser");
 	const table = getKernelClientRenderer("results-table");
 	const collection = getKernelEntityRenderer("collection");
-	const controller = browser?.files["client/entity-browser-controller.tsx"];
 
 	expect(browser?.definition.entry).toBe("client/entity-browser.tsx");
 	expect(browser?.definition.automaticEntityPresentations).toBe(true);
@@ -23,7 +22,6 @@ it("looks up each supported kernel renderer with its compilation policy", () => 
 		"client/collection-card-results.tsx",
 	);
 	expect(Object.keys(collection?.files ?? {})).toContain("client/entity-browser-controller.tsx");
-	expect(new TextDecoder().decode(controller)).toContain("refreshOnMutation: false");
 	expect(getKernelClientRenderer("unknown")).toBeUndefined();
 	expect(getKernelEntityRenderer("unknown")).toBeUndefined();
 });
