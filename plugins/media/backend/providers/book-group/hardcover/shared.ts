@@ -5,12 +5,7 @@ import { defineProvider } from "@ryot-app/plugin-backend-sdk/provider";
 import { MediaSandboxError } from "../../../lib/failures";
 import { asRecord, numberValue, stringValue } from "../../../lib/records";
 import { normalizeRichDescription } from "../../../lib/rich-description";
-import {
-	escapeGraphqlString,
-	getHardcoverApiKey,
-	hardcoverGql,
-	idValue,
-} from "../../../lib/vendors/hardcover";
+import { getHardcoverApiKey, hardcoverGql, idValue } from "../../../lib/vendors/hardcover";
 
 export const manifest = defineManifest({
 	kind: "provider",
@@ -25,11 +20,11 @@ export const search = defineProvider({
 		Effect.gen(function* () {
 			const apiKey = yield* getHardcoverApiKey(host);
 			const graphqlQuery = `
-query {
+query SearchHardcover($query: String!) {
   search(
     page: ${input.page},
     per_page: ${input.pageSize},
-    query: "${escapeGraphqlString(input.query)}",
+    query: $query,
     query_type: "series"
   ) {
     results
@@ -38,7 +33,7 @@ query {
 `;
 			const payloadValue = yield* hardcoverGql(
 				host,
-				{ query: graphqlQuery },
+				{ query: graphqlQuery, variables: { query: input.query } },
 				apiKey,
 				"Hardcover GraphQL request failed",
 			);

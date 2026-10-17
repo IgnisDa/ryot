@@ -38,7 +38,7 @@ describe("music-group.music-brainz sandbox script", () => {
 
 	it("emits ordered track members from the chosen release's recordings", () => {
 		const host = makeHost((url) => {
-			if (url.includes("coverartarchive.org")) {
+			if (new URL(url).hostname === "coverartarchive.org") {
 				return null;
 			}
 			if (url.includes("/release-group/")) {
