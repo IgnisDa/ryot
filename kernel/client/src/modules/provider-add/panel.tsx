@@ -181,14 +181,15 @@ export function ProviderChips(props: {
 	}));
 
 	return (
-		<div className="overflow-x-auto">
+		<div className="-mx-4 overflow-x-auto px-4 [scrollbar-width:none]">
 			<RadioGroup
 				options={options}
 				label="Search provider"
-				className="flex gap-1.5"
+				className="flex w-max gap-1.5"
 				value={props.selectedProviderId}
 				renderOption={(option, selected) => ({
-					content: <Chip checked={selected} label={option.label} />,
+					className: "shrink-0",
+					content: <Chip checked={selected} label={option.label} className="whitespace-nowrap" />,
 				})}
 				onChange={(value) => {
 					const selected = options.find((option) => option.value === value);
