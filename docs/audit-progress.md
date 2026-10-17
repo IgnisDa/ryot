@@ -15,7 +15,7 @@
 
 ## Status
 
-**82 implemented, 0 in progress, 1 pending; 3 excluded.**
+**82 implemented, 1 in progress, 0 pending; 3 excluded.**
 
 “Implemented” means affected checks and tests passed and the change is committed with this tracker. Batch-wide acceptance is recorded separately below. Rows follow the audit's ranked order; sequencing can change to respect dependencies and keep changes reviewable.
 
@@ -84,7 +84,7 @@
 | F04-R1 | Implemented | Read the persisted numeric template plan directly and enrich distinct choices without editor hydration; preserve validation, units, and pro-media behavior. See this finding's audit commit. |
 | A02-R1 | Implemented | Scan event IDs once in 500-row C-collated pages across distinct streams, bulk processing normalized timestamps and warning multisets. See this finding's audit commit. |
 | T02-R1 | Implemented | Register release finalizers at acquisition, including partial failure, interruption, and stop; close the API scope before infrastructure and keep capacity unchanged. See this finding's audit commit. |
-| T02-R2 | Pending | Bind sessions and admin authority to one server target. |
+| T02-R2 | In progress | Bind sessions and admin authority to one immutable server target. |
 | T05-R1 | Implemented | Install each of the three seed plugins once with complete definitions instead of seven updates and five definition reads. See this finding's audit commit. |
 | B01-R1 | Implemented | Replace watch deltas with complete membership/foreground sets while preserving caps, coalescing, acknowledgements, and grace tokens. See this finding's audit commit. |
 | B01-R2 | Implemented | Keep provider input/result/receipt order while repositories sort locks; preserve subtree stamps and new-batch lifecycle order, with replay using recorded dispatch. See this finding's audit commit. |
@@ -249,3 +249,11 @@
 - S02-R2: 62 TypeScript tests and five plus one Rust fixture tests passed; backend type and sandbox checks passed again before nine tests across four files for the cross-package logical-message annotation fix. Read-only review passed. Only writer and logical-type hunks were staged from shared `framing.ts`; reader assembly changes remain unstaged.
 - S02-R1: scoped checks passed before 21 tests across two files, including 15 reader tests; read-only review passed. The reader reserves the full declared buffer once, copies decoded parts into it, and releases budgets on completion and all failure, retirement, and reset paths. S02-R2 writer changes were committed separately.
 - B11-R2: backend type, format, and lint passed before 71 tests across five test files, after fixing exact event-snapshot fixture equality; first read-only review reported no findings. Snapshot and revision now travel together from the locked repository read. Production behavior was already correct; the duplicate nullable revision query and public wrapper were removed.
+
+### Combined acceptance — active
+
+- Combined package checks passed before full suites: backend 321 files / 2,682 tests; client 136 files / 1,114 tests; fitness 85 files / 565 tests; media 220 files / 1,601 tests; renderers four files / 62 tests. Native formatting and Clippy passed before all 75 native tests; one generated doctest remains ignored. The client production build passed.
+- Shared-package checks passed before their full suites: contract 283 tests; client contract 47; client SDK 243; backend SDK 98; archive 71; RyotQL 37; recipes 121; UI SDK 325. These total 138 files / 1,225 tests. No package files changed during this validation.
+- Restored-dump validation passed for B09-R1, F04-R2, and A02-R1 on disposable isolated infrastructure, with fresh builds and canonical assembly. Normal/larger dumps preserved 41,531 / 11,095 workout sets and 226 / 62 measurement entries with 474 / 75 readings. All 329 / 166 out-of-session detail records matched. Eligible projections matched for 41,531 / 5,870 sets with zero differences; 5,225 disabled-owner sets in the larger dump correctly remain unprocessed.
+- Both restored dumps passed restart idempotence, preference interruption/recovery, strict Unicode collection fields, 125-statistic entries, 615 mixed-kind sets in one stream, and malformed-input aborts. All four automation tables stayed empty. Normal assets passed 43/43. The larger dump's 103 unavailable cached asset locators were reported and retained, as required; no source dump or remote storage was changed.
+- Retained migration commands, timings, checksums, and logs: `/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/combined-restored-20261024/REPORT.md`. Only task-owned containers were removed. Main-session cleanup and final repository/e2e acceptance remain pending.
