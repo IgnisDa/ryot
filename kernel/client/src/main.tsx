@@ -13,6 +13,7 @@ import {
 } from "#/modules/navigation/back-interceptors";
 import { DeepLinkClaims } from "#/modules/navigation/deep-link";
 import { startNativeNavigation } from "#/modules/navigation/native-navigation";
+import { revealFocusedFieldOnResize } from "#/modules/shell/focused-field";
 import { createThemeStore, type ThemeStore } from "#/modules/theme/store";
 import { ClientStorage } from "#/persistence/storage";
 import { getRouter } from "#/router";
@@ -37,6 +38,7 @@ function ClientApplication(props: {
 		);
 		return () => navigation.destroy();
 	}, [backInterceptors, router, runtime]);
+	useEffect(() => revealFocusedFieldOnResize(), []);
 	useEffect(
 		() => () => {
 			props.theme.destroy();
