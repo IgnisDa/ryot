@@ -4,6 +4,7 @@ import {
 	type RyotClientError,
 } from "@ryot-app/plugin-client-sdk";
 import { DateTime, Effect } from "@ryot-app/plugin-client-sdk/effect";
+import type { ViewFilter } from "@ryot-app/plugin-client-sdk/filters";
 import { createRyotQuery } from "@ryot-app/plugin-client-sdk/react";
 
 import { chunk } from "../../shared/collections";
@@ -16,11 +17,13 @@ import {
 	workoutSummaryRecipe,
 	workoutWeeksRecipe,
 	type WorkoutComparison,
+	type WorkoutFilterPredicate,
 	type WorkoutExerciseTargets,
 	type WorkoutListItem,
 	type WorkoutPeriodTotals,
 	type WorkoutSummary,
 } from "../../shared/workout-list-recipes";
+import { compileWorkoutFilter } from "./filters";
 import { summaryWindows, type PeriodKey } from "./model";
 
 const LOOKUP_BATCH_SIZE = 100;
@@ -78,6 +81,7 @@ export const loadWorkoutPages = (
 		readonly pages: number;
 		readonly search: string;
 		readonly limit?: number | undefined;
+		readonly filter?: WorkoutFilterPredicate | undefined;
 		readonly workoutIds?: readonly string[] | undefined;
 	},
 ) =>
@@ -90,6 +94,7 @@ export const loadWorkoutPages = (
 						after,
 						reference,
 						limit: input.limit,
+						filter: input.filter,
 						search: input.search,
 						workoutIds: input.workoutIds,
 					}),
@@ -101,38 +106,77 @@ export const loadWorkoutPages = (
 
 export const loadWorkoutPage = (
 	client: RyotClient,
-	input: { readonly after: string | undefined; readonly search: string },
+	input: {
+		readonly search: string;
+		readonly after: string | undefined;
+		readonly filter: WorkoutFilterPredicate | undefined;
+	},
 ) =>
 	Effect.gen(function* () {
 		const reference = client.pluginIdentity(PLUGIN_PACKAGE_ID);
 		const page = yield* client.data.query(
-			workoutCardsRecipe({ reference, after: input.after, search: input.search }),
+			workoutCardsRecipe({
+				reference,
+				after: input.after,
+				filter: input.filter,
+				search: input.search,
+			}),
 		);
 		return { ...page, ...(yield* enrichWorkoutItems(client, page.items)) } satisfies WorkoutPage;
 	});
 
 export const workoutsQuery = createRyotQuery<
-	{ readonly after: string | undefined; readonly search: string },
-	WorkoutPage
->(({ input, client }) => loadWorkoutPage(client, input));
+	{
+		readonly search: string;
+		readonly after: string | undefined;
+		readonly filter: ViewFilter | null;
+	},
+	WorkoutPage,
+	undefined,
+	Error
+>(({ input, client }) =>
+	Effect.gen(function* () {
+		const filter = yield* compileWorkoutFilter({
+			target: "list",
+			filter: input.filter,
+			reference: client.pluginIdentity(PLUGIN_PACKAGE_ID),
+		});
+		return yield* loadWorkoutPage(client, { ...input, filter });
+	}),
+);
 
-export const workoutCountQuery = createRyotQuery<{ readonly search: string }, number>(
-	({ input, client }) =>
-		client.data.query(
-			workoutCountRecipe({
-				search: input.search,
-				reference: client.pluginIdentity(PLUGIN_PACKAGE_ID),
-			}),
-		),
+export const workoutCountQuery = createRyotQuery<
+	{ readonly search: string; readonly filter: ViewFilter | null },
+	number,
+	undefined,
+	Error
+>(({ input, client }) =>
+	Effect.gen(function* () {
+		const reference = client.pluginIdentity(PLUGIN_PACKAGE_ID);
+		const filter = yield* compileWorkoutFilter({ reference, target: "list", filter: input.filter });
+		return yield* client.data.query(
+			workoutCountRecipe({ filter, reference, search: input.search }),
+		);
+	}),
 );
 
 export const workoutWeeksQuery = createRyotQuery<
-	Omit<Parameters<typeof workoutWeeksRecipe>[0], "reference">,
-	readonly WorkoutPeriodTotals[]
+	Omit<Parameters<typeof workoutWeeksRecipe>[0], "reference" | "filter"> & {
+		readonly filter: ViewFilter | null;
+	},
+	readonly WorkoutPeriodTotals[],
+	undefined,
+	Error
 >(({ input, client }) =>
-	client.data.query(
-		workoutWeeksRecipe({ ...input, reference: client.pluginIdentity(PLUGIN_PACKAGE_ID) }),
-	),
+	Effect.gen(function* () {
+		const reference = client.pluginIdentity(PLUGIN_PACKAGE_ID);
+		const filter = yield* compileWorkoutFilter({
+			reference,
+			target: "weeks",
+			filter: input.filter,
+		});
+		return yield* client.data.query(workoutWeeksRecipe({ ...input, filter, reference }));
+	}),
 );
 
 export const workoutSummaryQuery = createRyotQuery<

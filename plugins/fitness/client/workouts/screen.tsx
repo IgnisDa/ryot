@@ -1,5 +1,12 @@
 import { DateTime, Effect } from "@ryot-app/plugin-client-sdk/effect";
 import {
+	FilterChips,
+	FilterRules,
+	useViewFilter,
+	ViewFiltersSheet,
+	type ViewFilter,
+} from "@ryot-app/plugin-client-sdk/filters";
+import {
 	usePageContext,
 	usePageRefresh,
 	usePageShortcut,
@@ -35,8 +42,10 @@ import { AppIcon } from "@ryot-app/plugin-ui-sdk/icon";
 import clsx from "clsx";
 import { useEffect, useEffectEvent, useMemo, useRef, useState } from "react";
 
+import { PLUGIN_PACKAGE_ID } from "../../shared/plugin-identity";
 import { fitnessRoute } from "../../shared/workout-editor-routes";
 import { DisplayPreferences } from "../display-preferences";
+import { workoutFilterFields } from "./filters";
 import {
 	buildWorkoutCards,
 	groupByWeek,
@@ -55,9 +64,10 @@ import { WorkoutSummarySection } from "./summary";
 
 function WorkoutCount(props: {
 	readonly search: string;
+	readonly filter: ViewFilter | null;
 	readonly onTotal: (total: number) => void;
 }) {
-	const result = useRyotQuery(workoutCountQuery, { search: props.search });
+	const result = useRyotQuery(workoutCountQuery, { search: props.search, filter: props.filter });
 	const { onTotal } = props;
 	useEffect(() => {
 		if (result.data !== undefined) {
@@ -79,6 +89,7 @@ function WeekResults(props: {
 	readonly search: string;
 	readonly imperial: boolean;
 	readonly timeZone: string;
+	readonly filter: ViewFilter | null;
 	readonly layout: "grid" | "list";
 	readonly cards: readonly WorkoutCard[];
 	readonly window: { readonly startAt: string; readonly endAt: string };
@@ -87,6 +98,7 @@ function WeekResults(props: {
 	const weeks = useRyotQuery(workoutWeeksQuery, {
 		timeZone,
 		...props.window,
+		filter: props.filter,
 		search: props.search,
 	});
 	const sections = useMemo(
@@ -102,12 +114,14 @@ function WorkoutResults(props: {
 	readonly search: string;
 	readonly imperial: boolean;
 	readonly timeZone: string;
+	readonly filter: ViewFilter | null;
+	readonly onClearFilters: () => void;
 	readonly onLoaded: (loaded: { readonly count: number; readonly hasMore: boolean }) => void;
 }) {
-	const { now, search, imperial, timeZone, onLoaded } = props;
+	const { now, search, filter, imperial, timeZone, onLoaded } = props;
 	const result = useRyotInfiniteQuery(
 		workoutsQuery,
-		{ search },
+		{ search, filter },
 		{
 			initialPageParam: undefined,
 			getNextPageParam: nextPageCursor,
@@ -160,12 +174,12 @@ function WorkoutResults(props: {
 			</div>
 		) : (
 			<StatusMessage tone="pending" className="font-ui">
-				{search === "" ? "Loading workouts…" : "Searching…"}
+				{search === "" && filter === null ? "Loading workouts…" : "Searching…"}
 			</StatusMessage>
 		);
 	}
 	if (cards.length === 0) {
-		return search === "" ? (
+		return search === "" && filter === null ? (
 			<EmptyState
 				className="font-ui"
 				title="No workouts yet"
@@ -175,7 +189,18 @@ function WorkoutResults(props: {
 			<EmptyState
 				className="font-ui"
 				title="No matching workouts"
-				description={`No workout names contain “${search}”.`}
+				action={
+					filter === null ? undefined : (
+						<Button variant="secondary" onClick={props.onClearFilters}>
+							Clear filters
+						</Button>
+					)
+				}
+				description={
+					search === ""
+						? "No workouts match these filters."
+						: `No workout names contain “${search}”${filter === null ? "" : " and match these filters"}.`
+				}
 			/>
 		);
 	}
@@ -188,6 +213,7 @@ function WorkoutResults(props: {
 				<WeekResults
 					now={now}
 					cards={cards}
+					filter={filter}
 					search={search}
 					window={window}
 					imperial={imperial}
@@ -242,6 +268,13 @@ export default function WorkoutsPage() {
 	const { view } = usePageContext();
 	const { compact } = useRyotViewport();
 	const location = usePluginLocation();
+	const filterFields = useMemo(
+		() => workoutFilterFields(ryot.pluginIdentity(PLUGIN_PACKAGE_ID)),
+		[ryot],
+	);
+	const { filter, setFilter, activeCount } = useViewFilter(filterFields);
+	const [filtersOpen, setFiltersOpen] = useState(false);
+	const filtersTrigger = useRef<HTMLButtonElement>(null);
 	const params = new URLSearchParams(location.search);
 	const requestedLayout = params.get("layout");
 	const search = params.get("search") ?? "";
@@ -261,6 +294,10 @@ export default function WorkoutsPage() {
 	);
 	useValueChange(search, () => {
 		setDraftSearch(search);
+		setShowCount(false);
+		setTotal(undefined);
+	});
+	useValueChange(params.get("filters"), () => {
 		setShowCount(false);
 		setTotal(undefined);
 	});
@@ -295,8 +332,9 @@ export default function WorkoutsPage() {
 				onChange={(value) => ryot.navigation.pageSearch.replace({ layout: value })}
 			/>
 			<ViewFiltersButton
-				activeCount={0}
-				onClick={() => console.log("TODO: open workout filters")}
+				ref={filtersTrigger}
+				activeCount={activeCount}
+				onClick={() => setFiltersOpen(true)}
 			/>
 			<button
 				type="button"
@@ -317,33 +355,41 @@ export default function WorkoutsPage() {
 				<AppIcon size={20} name={view?.icon ?? "dumbbell"} className="shrink-0 text-text-muted" />
 			}
 			meta={
-				loaded === undefined ? undefined : (
-					<div
-						role="status"
-						className="flex h-10 items-center gap-2 text-xs text-text-muted @2xl:text-sm"
-					>
-						<span>
-							{viewResultLabel({
-								total,
-								loaded: loaded.count,
-								hasMore: loaded.hasMore,
-								noun: { one: "workout", other: "workouts" },
-							})}
-						</span>
-						{loaded.hasMore && !showCount ? (
-							<Button
-								variant="ghost"
-								onClick={() => setShowCount(true)}
-								className="text-sm text-accent-text"
-							>
-								Count all
-							</Button>
-						) : null}
-						{loaded.hasMore && showCount ? (
-							<WorkoutCount search={search} onTotal={setTotal} />
-						) : null}
-					</div>
-				)
+				<>
+					{loaded === undefined ? null : (
+						<div
+							role="status"
+							className="flex h-10 items-center gap-2 text-xs text-text-muted @2xl:text-sm"
+						>
+							<span>
+								{viewResultLabel({
+									total,
+									loaded: loaded.count,
+									hasMore: loaded.hasMore,
+									noun: { one: "workout", other: "workouts" },
+								})}
+							</span>
+							{loaded.hasMore && !showCount ? (
+								<Button
+									variant="ghost"
+									onClick={() => setShowCount(true)}
+									className="text-sm text-accent-text"
+								>
+									Count all
+								</Button>
+							) : null}
+							{loaded.hasMore && showCount ? (
+								<WorkoutCount search={search} onTotal={setTotal} filter={filter ?? null} />
+							) : null}
+						</div>
+					)}
+					<FilterChips
+						filter={filter}
+						onChange={setFilter}
+						fields={filterFields}
+						onOpen={() => setFiltersOpen(true)}
+					/>
+				</>
 			}
 		>
 			{compact ? controls : null}
@@ -361,11 +407,28 @@ export default function WorkoutsPage() {
 							search={search}
 							timeZone={timeZone}
 							onLoaded={setLoaded}
+							filter={filter ?? null}
+							onClearFilters={() => setFilter(undefined)}
 							imperial={settings.unitSystem === "imperial"}
 						/>
 					</div>
 				)}
 			</DisplayPreferences>
+			{filtersOpen ? (
+				<ViewFiltersSheet
+					title="Filters"
+					compact={compact}
+					triggerRef={filtersTrigger}
+					onClose={() => setFiltersOpen(false)}
+				>
+					<FilterRules
+						filter={filter}
+						compact={compact}
+						onChange={setFilter}
+						fields={filterFields}
+					/>
+				</ViewFiltersSheet>
+			) : null}
 		</PluginScreenFrame>
 	);
 }

@@ -1,8 +1,8 @@
-import { Effect } from "effect";
+import { DateTime, Effect } from "effect";
 import { Playwright, PlaywrightSpawner } from "effect-playwright";
 
 import { createAuthenticatedClient } from "~/fixtures/kernel";
-import { createWorkoutEntityFixture } from "~/fixtures/plugins/fitness";
+import { createWorkoutEntityFixture, openFitnessPage } from "~/fixtures/plugins/fitness";
 import { signInThroughHostedOAuth } from "~/support/browser";
 import { it } from "~/support/effect-test";
 import { getFrontendUrl } from "~/support/harness-target";
@@ -42,5 +42,46 @@ it.live("adds a saved workout to an existing collection and confirms permanent d
 		yield* frame.getByRole("menuitem", { exact: true, name: "Delete workout" }).click();
 		yield* deletion.getByRole("button", { exact: true, name: "Delete workout" }).click();
 		yield* page.waitForURL((url) => url.pathname === "/v/p/ryot/fitness/all-workouts");
+	}).pipe(PlaywrightSpawner.withBrowser),
+);
+
+it.live("narrows the workouts list by a Started filter and keeps it after reload", () =>
+	Effect.gen(function* () {
+		const { email, client, password } = yield* createAuthenticatedClient();
+		const suffix = crypto.randomUUID();
+		const recent = `Recent workout ${suffix}`;
+		const old = `Old workout ${suffix}`;
+		const yesterday = DateTime.subtract(yield* DateTime.now, { days: 1 });
+		yield* createWorkoutEntityFixture(client, {
+			name: recent,
+			startedAt: DateTime.formatIso(yesterday),
+			endedAt: DateTime.formatIso(DateTime.add(yesterday, { hours: 1 })),
+		});
+		yield* createWorkoutEntityFixture(client, { name: old });
+		const page = yield* (yield* Playwright.Browser).newPage();
+		yield* signInThroughHostedOAuth(page, email, password);
+		const frame = yield* openFitnessPage(page, "/v/p/ryot/fitness/all-workouts");
+		yield* frame.getByRole("link", { name: old, exact: true }).waitFor({ state: "visible" });
+		yield* frame.getByRole("link", { exact: true, name: recent }).waitFor({ state: "visible" });
+		yield* frame.getByRole("button", { name: /^Filters/ }).click();
+		const dialog = frame.getByRole("dialog", { exact: true, name: "Filters" });
+		yield* dialog.getByRole("button", { name: /^Add filter/ }).click();
+		yield* frame.getByRole("radio", { exact: true, name: "Started" }).click();
+		yield* dialog.getByRole("button", { name: /^Filter 1 operator/ }).click();
+		yield* frame.getByRole("radio", { name: "is within the last (days)" }).click();
+		yield* dialog.getByRole("spinbutton", { name: "Started days" }).fill("7");
+		yield* page.keyboard.press("Escape");
+		yield* dialog.waitFor({ state: "hidden" });
+		yield* frame
+			.getByRole("button", { exact: true, name: "Filters, 1 active filter" })
+			.waitFor({ state: "visible" });
+		yield* frame.getByRole("link", { name: old, exact: true }).waitFor({ state: "detached" });
+		yield* frame.getByRole("link", { exact: true, name: recent }).waitFor({ state: "visible" });
+		yield* page.reload;
+		yield* frame
+			.getByRole("button", { exact: true, name: "Filters, 1 active filter" })
+			.waitFor({ state: "visible" });
+		yield* frame.getByRole("link", { exact: true, name: recent }).waitFor({ state: "visible" });
+		yield* frame.getByRole("link", { name: old, exact: true }).waitFor({ state: "detached" });
 	}).pipe(PlaywrightSpawner.withBrowser),
 );
