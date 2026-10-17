@@ -177,6 +177,7 @@ describe("RyotQL wildcard projections", () => {
 					"populationStatus",
 					"properties",
 					"providerId",
+					"relatedPopulationStatus",
 					"translationStatus",
 					"updatedAt",
 					"userId",
@@ -184,6 +185,7 @@ describe("RyotQL wildcard projections", () => {
 			);
 			expect(requireRyotQLValue(entityItem, "name")).toBe("RyotQLWildcardInclude Entity");
 			expect(requireRyotQLValue(entityItem, "properties")).toEqual({});
+			expect(requireRyotQLValue(entityItem, "relatedPopulationStatus")).toBe("none");
 
 			const includedEvents = requireInclude(entityItem, "events");
 			expect(includedEvents.pageInfo).toEqual({ limit: 10, hasMore: false });
