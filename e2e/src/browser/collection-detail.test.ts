@@ -82,18 +82,16 @@ it.live("browses collection members with membership properties", () =>
 		const zuluName = `Zulu member ${id}`;
 		const collection = yield* createCollection(client, {
 			name: collectionName,
-			membershipPropertiesSchema: {
-				fields: {
-					notes: { position: 1, type: "string", label: "Notes", description: "Notes" },
-					rating: { position: 0, type: "integer", label: "Rating", description: "Rating" },
-					template: {
-						position: 2,
-						type: "boolean",
-						label: "Template",
-						description: "Uses the collection template",
-					},
+			fields: [
+				{ type: "number", label: "Rating", required: false },
+				{ type: "text", label: "Notes", required: false },
+				{
+					type: "boolean",
+					required: false,
+					label: "Template",
+					description: "Uses the collection template",
 				},
-			},
+			],
 		});
 		const alpha = yield* createCollection(client, { name: alphaName });
 		const zulu = yield* createCollection(client, { name: zuluName });
@@ -145,18 +143,18 @@ it.live("browses collection members with membership properties", () =>
 			"Template",
 		]);
 		expect(yield* rows.nth(0).locator("td").allInnerTexts()).toEqual([
-			alphaName,
-			"Collections",
-			"5",
-			"First member",
-			"Yes",
-		]);
-		expect(yield* rows.nth(1).locator("td").allInnerTexts()).toEqual([
 			zuluName,
 			"Collections",
 			"3",
 			"Second member",
 			"No",
+		]);
+		expect(yield* rows.nth(1).locator("td").allInnerTexts()).toEqual([
+			alphaName,
+			"Collections",
+			"5",
+			"First member",
+			"Yes",
 		]);
 
 		const search = detail.getByRole("searchbox", { name: `Search ${collectionName}` });
@@ -171,9 +169,9 @@ it.live("browses collection members with membership properties", () =>
 
 		yield* detail.getByRole("button", { name: /Filters/ }).click();
 		yield* detail.getByRole("button", { name: "Sort results: Collection order" }).click();
-		yield* detail.getByRole("radio", { name: "Name Z-A" }).click();
-		yield* page.waitForURL((url) => url.searchParams.get("sort") === "name-desc");
-		yield* rows.nth(0).getByText(zuluName, { exact: true }).waitFor({ state: "visible" });
-		yield* rows.nth(1).getByText(alphaName, { exact: true }).waitFor({ state: "visible" });
+		yield* detail.getByRole("radio", { name: "Name A-Z" }).click();
+		yield* page.waitForURL((url) => url.searchParams.get("sort") === "name-asc");
+		yield* rows.nth(0).getByText(alphaName, { exact: true }).waitFor({ state: "visible" });
+		yield* rows.nth(1).getByText(zuluName, { exact: true }).waitFor({ state: "visible" });
 	}).pipe(PlaywrightSpawner.withBrowser),
 );

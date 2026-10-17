@@ -16,7 +16,6 @@ import {
 	createAuthenticatedClient,
 	createCollection,
 	createEventFixture,
-	createRelationship,
 	executeRyotQLRecipe,
 	insertGlobalRelationship,
 	listEventSchemas,
@@ -463,13 +462,6 @@ describe("Media RyotQL query recipe results", () => {
 			const { client } = yield* createAuthenticatedClient();
 			const { pluginId, schema: showSchema } = yield* findMediaEntitySchema(client, "show");
 			const reference: MediaReference = { pluginId, kind: "local" };
-			const relationshipSchemas = yield* listRelationshipSchemas(client, {
-				slugs: ["member-of"],
-				owner: { kind: "kernel" },
-			});
-			const memberOf = requireRelationshipSchemaBySlug(relationshipSchemas, "member-of", {
-				kind: "kernel",
-			});
 			const collection = yield* createCollection(client, {
 				name: `Summary Collection ${crypto.randomUUID()}`,
 			});
@@ -503,12 +495,11 @@ describe("Media RyotQL query recipe results", () => {
 				properties: { owned: true },
 			});
 			yield* insertMediaMonitoring(client, show.id);
-			yield* createRelationship(client, {
-				properties: {},
-				sourceEntityId: show.id,
-				targetEntityId: collection.id,
-				relationshipSchema: memberOf.reference,
-			});
+			yield* client.call((c) =>
+				c.collections.createMembership({
+					payload: { entityId: show.id, collectionId: collection.id },
+				}),
+			);
 
 			const summary = yield* executeRyotQLRecipe(
 				client,

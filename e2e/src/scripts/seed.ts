@@ -1621,82 +1621,58 @@ async function seedCollections(
 	const recommendedPours = await createCollection(client, {
 		name: "Recommended Pours",
 		description: "Whiskeys friends keep insisting deserve another pour",
-		membershipPropertiesSchema: {
-			fields: {
-				tags: {
-					type: "array" as const,
-					label: "Tags",
-					description: "Tags for the whiskey",
-					items: { type: "string" as const, label: "Tag", description: "A single tag" },
-				},
-				notes: { type: "string" as const, label: "Notes", description: "Notes about the whiskey" },
-				rating: {
-					type: "integer" as const,
-					label: "Rating",
-					description: "Rating for the whiskey",
-				},
-				context: {
-					type: "object" as const,
-					label: "Context",
-					description: "Context for the recommendation",
-					unknownKeys: "passthrough" as const,
-					properties: {
-						mood: { type: "string" as const, label: "Mood", description: "Mood while drinking" },
-						venue: {
-							type: "string" as const,
-							label: "Venue",
-							description: "Venue where the whiskey was enjoyed",
-						},
-					},
-				},
-				recommendedBy: {
-					type: "string" as const,
-					label: "Recommended By",
-					description: "Person who recommended the whiskey",
-				},
+		fields: [
+			{ label: "Tags", type: "text-list", required: false, description: "Tags for the whiskey" },
+			{ label: "Notes", type: "text", required: false, description: "Notes about the whiskey" },
+			{ label: "Rating", type: "number", required: false, description: "Rating for the whiskey" },
+			{
+				label: "Recommended By",
+				type: "text",
+				required: false,
+				description: "Person who recommended the whiskey",
 			},
-		},
-	} as unknown as CreateCollectionBody);
+		],
+	});
 
 	const weekendEscapes = await createCollection(client, {
 		name: "Weekend Escapes",
 		description: "Places worth a short trip or a spontaneous Saturday",
-		membershipPropertiesSchema: {
-			fields: {
-				notes: { type: "string" as const, label: "Notes", description: "Notes about the place" },
-				priority: { type: "integer" as const, label: "Priority", description: "Visit priority" },
-				idealSeason: {
-					type: "string" as const,
-					label: "Ideal Season",
-					description: "Ideal season to visit",
-				},
-				visitWindow: {
-					type: "string" as const,
-					label: "Visit Window",
-					description: "Preferred time of day to visit",
-				},
+		fields: [
+			{ label: "Notes", type: "text", required: false, description: "Notes about the place" },
+			{ label: "Priority", type: "number", required: false, description: "Visit priority" },
+			{
+				label: "Ideal Season",
+				type: "text",
+				required: false,
+				description: "Ideal season to visit",
 			},
-		},
+			{
+				label: "Visit Window",
+				type: "text",
+				required: false,
+				description: "Preferred time of day to visit",
+			},
+		],
 	});
 
 	const pocketFavorites = await createCollection(client, {
 		name: "Pocket Favorites",
 		description: "Phones and tablets that feel great to keep around",
-		membershipPropertiesSchema: {
-			fields: {
-				notes: { type: "string" as const, label: "Notes", description: "Notes about the device" },
-				status: {
-					type: "string" as const,
-					label: "Status",
-					description: "Current status of the device",
-				},
-				carryScore: {
-					type: "integer" as const,
-					label: "Carry Score",
-					description: "How often the device is carried",
-				},
+		fields: [
+			{ label: "Notes", type: "text", required: false, description: "Notes about the device" },
+			{
+				label: "Status",
+				type: "text",
+				required: false,
+				description: "Current status of the device",
 			},
-		},
+			{
+				label: "Carry Score",
+				type: "number",
+				required: false,
+				description: "How often the device is carried",
+			},
+		],
 	});
 
 	const allStarPicks = await createCollection(client, {
@@ -1707,21 +1683,21 @@ async function seedCollections(
 	const collectionGuide = await createCollection(client, {
 		name: "Collection Guide",
 		description: "A collection of collections for browsing the seeded demo shelves",
-		membershipPropertiesSchema: {
-			fields: {
-				blurb: {
-					type: "string" as const,
-					label: "Blurb",
-					description: "Short description of the collection",
-				},
-				section: {
-					type: "string" as const,
-					label: "Section",
-					description: "Section this collection belongs to",
-				},
-				priority: { type: "integer" as const, label: "Priority", description: "Display priority" },
+		fields: [
+			{
+				label: "Blurb",
+				type: "text",
+				required: false,
+				description: "Short description of the collection",
 			},
-		},
+			{
+				label: "Section",
+				type: "text",
+				required: false,
+				description: "Section this collection belongs to",
+			},
+			{ label: "Priority", type: "number", required: false, description: "Display priority" },
+		],
 	});
 
 	let membershipCount = 0;
@@ -1740,12 +1716,7 @@ async function seedCollections(
 				),
 				notes: faker.lorem.sentence(),
 				rating: randomInt(6, 10),
-				context: {
-					mood: randomChoice(["quiet-night", "celebration", "tasting-flight"]),
-					venue: faker.location.city(),
-					shelf: randomChoice(["top", "middle", "shared"]),
-				},
-				recommendedBy: faker.person.firstName(),
+				"recommended-by": faker.person.firstName(),
 			},
 		});
 		membershipCount++;
@@ -1760,8 +1731,8 @@ async function seedCollections(
 			properties: {
 				notes: faker.lorem.sentence(),
 				priority: index + 1,
-				idealSeason: randomChoice(["spring", "summer", "autumn", "winter"]),
-				visitWindow: randomChoice(["morning", "afternoon", "evening"]),
+				"ideal-season": randomChoice(["spring", "summer", "autumn", "winter"]),
+				"visit-window": randomChoice(["morning", "afternoon", "evening"]),
 			},
 		});
 		membershipCount++;
@@ -1776,7 +1747,7 @@ async function seedCollections(
 			properties: {
 				notes: faker.lorem.sentence(),
 				status: randomChoice(["daily", "display", "backup"]),
-				carryScore: randomInt(6, 10),
+				"carry-score": randomInt(6, 10),
 			},
 		});
 		membershipCount++;
@@ -1788,17 +1759,11 @@ async function seedCollections(
 		...faker.helpers.arrayElements(input.places, 3),
 		...faker.helpers.arrayElements(input.phones, 3),
 	];
-	for (const [index, entity] of showcaseMembers.entries()) {
+	for (const entity of showcaseMembers) {
 		// oxlint-disable-next-line no-await-in-loop
 		await addEntityToCollection(client, {
 			entityId: entity.id,
 			collectionId: allStarPicks.id,
-			properties: {
-				lane: randomChoice(["featured", "deep-cut", "starter-pack"]),
-				pickedAt: faker.date.recent({ days: 90 }).toISOString().slice(0, 10),
-				priority: index + 1,
-				featuredBecause: faker.lorem.sentence(),
-			},
 		});
 		membershipCount++;
 	}
