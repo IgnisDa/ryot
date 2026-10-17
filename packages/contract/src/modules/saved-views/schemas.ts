@@ -28,7 +28,7 @@ const SavedViewBadRequestReason = Schema.Union([
 	Schema.Struct({
 		code: Schema.Literal("invalid-reorder"),
 		references: Schema.Array(SavedViewReference),
-		issue: Schema.Literals(["empty", "duplicate", "unknown-view", "update-failed"]),
+		issue: Schema.Literals(["empty", "duplicate", "unknown-view"]),
 	}),
 ]);
 

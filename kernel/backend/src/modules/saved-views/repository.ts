@@ -456,9 +456,8 @@ export class SavedViewsRepository extends Context.Service<SavedViewsRepository>(
 						}
 					}
 				}
-				let updated = 0;
 				if (custom.length > 0) {
-					const rows = yield* session.run((db) =>
+					yield* session.run((db) =>
 						db
 							.update(schema.savedView)
 							.set({
@@ -477,13 +476,11 @@ export class SavedViewsRepository extends Context.Service<SavedViewsRepository>(
 										custom.map((entry) => entry.id),
 									),
 								),
-							)
-							.returning({ id: schema.savedView.id }),
+							),
 					);
-					updated += rows.length;
 				}
 				if (defaults.length > 0) {
-					const rows = yield* session.run((db) =>
+					yield* session.run((db) =>
 						db
 							.delete(schema.savedViewOverride)
 							.where(
@@ -491,10 +488,8 @@ export class SavedViewsRepository extends Context.Service<SavedViewsRepository>(
 									eq(schema.savedViewOverride.userId, userId),
 									or(...defaults.map(overrideKeyMatches)),
 								),
-							)
-							.returning({ slug: schema.savedViewOverride.slug }),
+							),
 					);
-					updated += rows.length;
 				}
 				for (const kernel of [true, false]) {
 					const [first, ...rest] = overrides.filter(
@@ -503,14 +498,10 @@ export class SavedViewsRepository extends Context.Service<SavedViewsRepository>(
 					if (first === undefined) {
 						continue;
 					}
-					const rows = yield* session.run((db) =>
-						upsertSavedViewOverride(db, [first, ...rest], overriddenFieldsSet).returning({
-							slug: schema.savedViewOverride.slug,
-						}),
+					yield* session.run((db) =>
+						upsertSavedViewOverride(db, [first, ...rest], overriddenFieldsSet),
 					);
-					updated += rows.length;
 				}
-				return updated === custom.length + defaults.length + overrides.length;
 			});
 
 			const deleteCustom = Effect.fn("SavedViewsRepository.deleteCustom")(function* (

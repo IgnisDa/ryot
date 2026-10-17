@@ -56,7 +56,6 @@ BEGIN
 	INSERT INTO "notification_channel" (
 		"id",
 		"user_id",
-		"platform",
 		"description",
 		"platform_specifics",
 		"is_disabled",
@@ -66,7 +65,6 @@ BEGIN
 	SELECT
 		op.id,
 		op.user_id,
-		op.lot,
 		CASE op.lot
 			WHEN 'apprise' THEN 'Apprise configured'
 			WHEN 'discord' THEN 'Discord configured'

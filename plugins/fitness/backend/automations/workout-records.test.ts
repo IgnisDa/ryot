@@ -25,7 +25,6 @@ const eventSnapshot = (id: string, entityId: string, overrides: Record<string, u
 
 const automationInput = (
 	items: readonly unknown[],
-	eventStreamWorkId?: string,
 	source: "api" | "import" = "api",
 ) =>
 	Schema.decodeUnknownSync(automationInputSchema)({
@@ -45,7 +44,6 @@ const automationInput = (
 				rootExecutionId: "execution-1",
 				initiator: { kind: "user", id: "user-1" },
 				lane: source === "import" ? "background" : "interactive",
-				...(eventStreamWorkId === undefined ? {} : { eventStreamWorkId }),
 			},
 		},
 	});
@@ -261,7 +259,7 @@ describe("workout record automation", () => {
 		);
 	});
 
-	it("requests work for source updates with event stream causation and declares the batch hook", () => {
+	it("requests work for source updates and declares the batch hook", () => {
 		const before = eventSnapshot("event-1", "exercise-1");
 		const sourceUpdate = automationInput(
 			[
@@ -274,7 +272,6 @@ describe("workout record automation", () => {
 					after: eventSnapshot("event-1", "exercise-1", { properties: { weight: 30 } }),
 				},
 			],
-			"stream-work-1",
 		);
 		const { host, requests, workflows } = recordingHost();
 

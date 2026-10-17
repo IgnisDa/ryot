@@ -144,7 +144,6 @@ const makeLayer = (
 
 const archiveLocator = {
 	intentId: "intent-id",
-	provider: "local" as const,
 	key: "temporary/archive.zip",
 };
 
@@ -650,7 +649,6 @@ const recordingOperationsLayer = Layer.mergeAll(
 						record("claim").pipe(
 							Effect.as({
 								intentId: "intent",
-								provider: "local" as const,
 								key: "temporary/input.zip",
 							}),
 						),

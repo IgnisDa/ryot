@@ -120,7 +120,6 @@ export const AutomationCausation = strictStruct({
 	importRunId: Schema.optional(ImportRunId),
 	parentRunId: Schema.NullOr(AutomationRunId),
 	integrationId: Schema.optional(IntegrationId),
-	eventStreamWorkId: Schema.optional(Schema.String),
 	parentTriggerId: Schema.NullOr(AutomationTriggerId),
 	providerExecutionId: Schema.optional(AutomationExecutionId),
 }).pipe(

@@ -53,7 +53,6 @@ const profile = {
 };
 const archiveLocator = {
 	intentId: "restore-intent",
-	provider: "local" as const,
 	key: "temporary/restore.zip",
 };
 const failure = new BackupWorkflowError({

@@ -78,7 +78,6 @@ import { eventCreateBatchInput } from "./mutation-receipts";
 import { EventMutations } from "./mutations";
 import { EventsRepository } from "./repository";
 import { EventsService } from "./service";
-import { EventStreamRepository } from "./stream-repository";
 
 const userId = UserId.make("event-owner");
 const entityId = EntityId.make("event-subject");
@@ -1853,80 +1852,6 @@ describe("Event lifecycle PostgreSQL", () => {
 				expect(transactions[0]).toBe(transactions[1]);
 				expect(transactions[2]).toBe(transactions[3]);
 			}),
-		);
-	});
-
-	layer(Layer.merge(lifecycleDatabaseLayer(true), workflowLayer))((test) => {
-		test.effect(
-			"source edits and deletes invalidate claims despite inherited stream causation",
-			() =>
-				Effect.gen(function* () {
-					const service = yield* EventsService;
-					const repository = yield* EventsRepository;
-					const session = yield* DatabaseSession;
-					const streams = yield* EventStreamRepository.make;
-					const eventId = EventId.make("inherited-stream-causation");
-					yield* session.transaction(
-						repository.createEvent({
-							userId,
-							entityId,
-							id: eventId,
-							eventSchemaSlug,
-							properties: { rating: 1 },
-							eventSchemaName: "Rating",
-							eventSchemaPluginId: null,
-							occurredAt: DateTime.toDateUtc(DateTime.makeUnsafe(now)),
-						}),
-					);
-					const id = yield* session.transaction(
-						streams.request({
-							processorScriptId: "script",
-							pluginRevisionId: "stream-revision",
-							accountToken: "test-account-generation",
-							pluginPin: { revisionId: "stream-revision" },
-							key: { userId, entityId, eventSchemaSlug, eventSchemaPluginId: null },
-							outputSchema: {
-								unknownKeys: "strict",
-								fields: { score: { type: "number", label: "Score", description: "Score" } },
-							},
-						}),
-					);
-					for (const operation of ["edit", "delete"] as const) {
-						const claim = yield* session.transaction(streams.claim(id));
-						assert(claim);
-						const sourceCommand = command(`inherited-stream-${operation}`);
-						const inheritedCommand = {
-							...sourceCommand,
-							causation: { ...sourceCommand.causation, eventStreamWorkId: id },
-						};
-						const mutation =
-							operation === "edit"
-								? service.edit(
-										updateItem(eventId, { properties: { remove: [], set: { rating: 2 } } }),
-										userId,
-										inheritedCommand,
-									)
-								: service.delete({ userId, eventId }, inheritedCommand);
-						expect(yield* mutation).toEqual({ eventId, warnings: [] });
-						const invalidated = yield* streams.get(id);
-						assert(invalidated);
-						expect(invalidated.status).toBe("queued");
-						expect(invalidated.streamRevision).toBe(claim.streamRevision + 1);
-						expect(invalidated.checkpoint).toBeNull();
-						expect(
-							yield* session.transaction(
-								streams.currentClaim(id, claim.attempt, claim.streamRevision),
-							),
-						).toBe(false);
-						expect(
-							yield* session.transaction(
-								streams.finish(id, claim.attempt, { cursor: "stale" }, true),
-							),
-						).toBe(false);
-						expect(yield* mutation).toEqual({ eventId, warnings: [] });
-						expect((yield* streams.get(id))?.streamRevision).toBe(invalidated.streamRevision);
-					}
-				}),
 		);
 	});
 

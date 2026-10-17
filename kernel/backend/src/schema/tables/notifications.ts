@@ -1,6 +1,7 @@
 import type { NotificationChannelSpecifics } from "@ryot-app/contract/modules/notifications/schemas";
 import type { NotificationChannelKind } from "@ryot-app/contract/modules/notifications/types";
 import { generateId } from "better-auth";
+import { sql } from "drizzle-orm";
 import { boolean, index, jsonb, snakeCase, text } from "drizzle-orm/pg-core";
 
 import { user } from "./auth";
@@ -13,7 +14,10 @@ export const notificationChannel = snakeCase.table(
 		description: text().notNull(),
 		isDisabled: boolean().notNull().default(false),
 		createdAt: timestamptz().defaultNow().notNull(),
-		channel: text("platform").notNull().$type<NotificationChannelKind>(),
+		channel: text("platform")
+			.notNull()
+			.$type<NotificationChannelKind>()
+			.generatedAlwaysAs(sql`platform_specifics->>'kind'`),
 		userId: text()
 			.notNull()
 			.references(() => user.id, { onDelete: "cascade" }),

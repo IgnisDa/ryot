@@ -544,52 +544,6 @@ layer(testLayer)((test) => {
 	);
 
 	test.effect(
-		"reports update-failed and rolls back every partition after a defensive affected-row mismatch",
-		() =>
-			Effect.scoped(
-				Effect.gen(function* () {
-					yield* seed;
-					const session = yield* DatabaseSession;
-					yield* session.run((db) =>
-						Effect.gen(function* () {
-							yield* db
-								.insert(tables.savedView)
-								.values([customView("skipped", 3), customView("changed", 4)]);
-							yield* db.insert(tables.definitionSavedView).values(definition("builtin", 0));
-						}),
-					);
-					yield* Effect.acquireRelease(
-						session.run((db) =>
-							Effect.gen(function* () {
-								yield* db.execute(
-									sql`create function skip_reorder() returns trigger language plpgsql as $$ begin if new.id = 'skipped' then return null; end if; return new; end $$`,
-								);
-								yield* db.execute(
-									sql`create trigger skip_reorder before update on saved_view for each row execute function skip_reorder()`,
-								);
-							}),
-						),
-						() =>
-							session
-								.run((db) => db.execute(sql`drop function skip_reorder() cascade`))
-								.pipe(Effect.orDie),
-					);
-					const before = yield* stored;
-					const events = yield* (yield* ReorderEvents).events;
-					const references = [custom("skipped"), custom("changed")];
-					assertExitFails(
-						yield* Effect.exit((yield* SavedViewsService).reorder(user, { references })),
-						new SavedViewBadRequest({
-							reason: { references, issue: "update-failed", code: "invalid-reorder" },
-						}),
-					);
-					expect(yield* stored).toEqual(before);
-					expect(yield* (yield* ReorderEvents).events).toEqual(events);
-				}),
-			),
-	);
-
-	test.effect(
 		"keeps read/write statement counts constant as mixed scopes grow and writes nothing for unchanged plans",
 		() =>
 			Effect.gen(function* () {
