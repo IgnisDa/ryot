@@ -46,7 +46,7 @@ Harness ownership tests run without global setup or containers:
 bun --bun run vitest run --config vitest.harness.config.ts src/support/resource-scope.test.ts src/support/harness-target.test.ts
 ```
 
-E2E enforces the normal Effect async, HTTP, JSON, and platform rules. Keep local inline suppressions only where Playwright evaluates an async callback in the browser or an external API requires a Promise callback; state the boundary in the comment. The two seed scripts have explicit file-scoped lint exemptions and remain untouched.
+E2E enforces the normal Effect async, HTTP, JSON, and platform rules. Keep local inline suppressions only where Playwright evaluates an async callback in the browser or an external API requires a Promise callback; state the boundary in the comment. The two seed scripts have explicit file-scoped lint exemptions.
 
 Provider fixtures install offline scripts through the real admin plugin endpoint. Best-effort teardown stops on persistent references; tests that assert removal must delete references and use strict uninstall. Admin setup uses typed `testSupport` operations. Resolve plugin-owned definitions by plugin plus local slug because local slugs are not globally unique.
 

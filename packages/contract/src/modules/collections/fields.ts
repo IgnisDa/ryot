@@ -1,9 +1,6 @@
 import { Result, Schema } from "effect";
 
-import type {
-	AppPropertyDefinition,
-	AppSchema as AppSchemaType,
-} from "../../schema/property-schema";
+import type { AppPropertyDefinition, AppSchema } from "../../schema/property-schema";
 import { parseAppSchemaPropertiesSafe } from "../../schema/property-values";
 import { strictStruct } from "../../schema/utils";
 
@@ -115,7 +112,7 @@ const fieldProperties: Record<
 
 export const collectionFieldsToAppSchema = (
 	fields: ReadonlyArray<KeyedCollectionField>,
-): AppSchemaType => ({
+): AppSchema => ({
 	unknownKeys: "strict",
 	fields: Object.fromEntries(
 		fields.map((field, position) => [

@@ -35,9 +35,6 @@ function HomeSkeleton() {
 	);
 }
 
-/**
- * Only the library count establishes an empty library. Count failures leave sections available.
- */
 export function HomeBody(props: {
 	readonly compact: boolean;
 	readonly scrollRootRef: RefObject<HTMLElement | null>;
