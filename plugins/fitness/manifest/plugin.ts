@@ -17,6 +17,7 @@ import {
 	workoutEditorSaveOperationSlug,
 	workoutTimeCorrectionOperationSlug,
 } from "../shared/workout-editor-context-operations";
+import { workoutEditorRoutes } from "../shared/workout-editor-routes";
 import { fitnessConfigSchema } from "./config";
 import { fitnessSavedViews } from "./saved-views";
 import { fitnessEntitySchemas } from "./schemas/entity";
@@ -165,9 +166,9 @@ export const fitnessPlugin = definePlugin({
 	),
 	client: {
 		homeView: null,
+		routes: workoutEditorRoutes,
 		apiVersion: CLIENT_API_VERSION,
 		entities: {
-			"workout-template": { listPresentation: "entity-row", gridPresentation: "entity-card" },
 			"measurement-metric": { listPresentation: "entity-row", gridPresentation: "entity-card" },
 			exercise: {
 				detailPage: "exercise-detail",
@@ -178,6 +179,11 @@ export const fitnessPlugin = definePlugin({
 				detailPage: "workout-detail",
 				listPresentation: "workout-row",
 				gridPresentation: "workout-card",
+			},
+			"workout-template": {
+				listPresentation: "entity-row",
+				gridPresentation: "entity-card",
+				detailPage: "workout-template-detail",
 			},
 		},
 		exports: {
@@ -218,6 +224,18 @@ export const fitnessPlugin = definePlugin({
 				settingsSchema: { fields: {} },
 				entry: "client/exercise/screen.tsx",
 				automaticEntityPresentations: false,
+			},
+			"workout-editor": {
+				kind: "page",
+				settingsSchema: { fields: {} },
+				automaticEntityPresentations: false,
+				entry: "client/workout-editor/page.tsx",
+			},
+			"workout-template-detail": {
+				kind: "page",
+				settingsSchema: { fields: {} },
+				automaticEntityPresentations: false,
+				entry: "client/workout-template/screen.tsx",
 			},
 		},
 	},

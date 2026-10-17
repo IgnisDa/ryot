@@ -1,0 +1,65 @@
+import { Effect } from "@ryot-app/plugin-client-sdk/effect";
+import { createRyotQuery } from "@ryot-app/plugin-client-sdk/react";
+
+import { PLUGIN_PACKAGE_ID } from "../../shared/plugin-identity";
+import {
+	workoutDetailsExercisesRecipe,
+	workoutDetailsRecipe,
+	workoutDetailsSetsRecipe,
+	type WorkoutDetails,
+} from "../../shared/workout-details-recipes";
+import { readEditorPages } from "../workout-editor/queries";
+
+export const workoutDetailsQuery = createRyotQuery<
+	{ readonly entityId: string },
+	WorkoutDetails | null
+>(
+	({ input, client }) =>
+		Effect.gen(function* () {
+			const reference = client.pluginIdentity(PLUGIN_PACKAGE_ID);
+			const workoutId = input.entityId;
+			const workout = yield* client.data.query(workoutDetailsRecipe({ reference, workoutId }));
+			if (workout === null) {
+				return null;
+			}
+			const exercises = yield* readEditorPages((after) =>
+				client.data.query(workoutDetailsExercisesRecipe({ after, reference, workoutId })),
+			);
+			const sets = yield* readEditorPages((after) =>
+				client.data.query(workoutDetailsSetsRecipe({ after, reference, workoutId })),
+			);
+			const loaded = yield* Effect.forEach(
+				exercises,
+				(exercise) =>
+					Effect.gen(function* () {
+						const previousWorkoutId = exercise.previousWorkoutId;
+						const previousSets =
+							previousWorkoutId === null
+								? []
+								: yield* readEditorPages((after) =>
+										client.data.query(
+											workoutDetailsSetsRecipe({
+												after,
+												reference,
+												exerciseId: exercise.id,
+												workoutId: previousWorkoutId,
+											}),
+										),
+									);
+						return {
+							...exercise,
+							previousSets: { items: previousSets },
+							sets: { items: sets.filter((set) => set.exerciseId === exercise.id) },
+						};
+					}),
+				{ concurrency: 4 },
+			);
+			return { ...workout, exercises: { items: loaded } };
+		}),
+	{
+		entityWatch: ({ data, input }) => ({
+			foreground: [input.entityId],
+			visible: data?.exercises.items.map(({ id }) => id) ?? [],
+		}),
+	},
+);

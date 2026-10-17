@@ -12,10 +12,10 @@ workout presentation query. List recipes share input types with pagination deriv
 inputs. The shared sources use the neutral Plugin Kit imports so both plugin compilers can resolve
 them.
 
-The workout detail page reads one `workoutDetailsRecipe` document from
-`shared/workout-details-recipes.ts`: the workout, its repeated-from and template links, and each
-exercise with its sets, targets, equipment, and the sets of its latest earlier session, chosen by
-workout start through a correlated `first`. Each exercise returns at most 100 sets per session.
+The workout detail page reads metadata and source links through `workoutDetailsRecipe` in
+`shared/workout-details-recipes.ts`. Separate cursor-paged recipes load all exercises, current sets,
+and each exercise's latest earlier session sets. Totals and comparisons use the complete loaded sets.
+Workout and occurrence attachments support image preview and video playback with renewed signed URLs.
 
 The exercise detail page reads one `exerciseDetailsRecipe` document from
 `shared/exercise-details-recipes.ts`: the exercise with its targets and equipment, ungrouped totals
@@ -77,7 +77,9 @@ duration means unknown, not zero; elapsed time from timestamps is a separate mea
 sessions sum unpaused draft intervals and truncate the total once. Historical edits preserve recorded
 active duration unless explicitly corrected or cleared; repeats and templates do not copy it into a
 new session. Running timers, pause intervals, unconfirmed sets, and collapse state belong to local
-drafts, not saved properties. Current workout detail presentation uses elapsed time and metric values.
+drafts, not saved properties. Workout details label active and elapsed duration separately and convert
+measurements and energy using Fitness preferences. Session flow remains timestamp-based; configured
+rest is not measured elapsed rest.
 
 ## Measurements
 
@@ -215,14 +217,22 @@ adding or changing them requires Pro. Template changes and replacement remain Pr
 selected exercises, membership overrides, and source links. Picker/taxonomy and history/Previous
 recipes are separate paged reads, not Pro data permissions. `shared/workout-editor-source.ts`
 hydrates historical/template drafts and clones sources, retaining the baseline when an unavailable
-exercise or malformed record blocks loading. These contracts do not register editor screens.
+exercise or malformed record blocks loading.
 
 `client/workout-editor/screen.tsx` exports the shared editor with a semantic resume target, an optional
 initial draft, and a saved-entity callback. Retained screens share one controller per client runtime
 for immediate input, ordered device persistence, and active-screen wake demand. Live completion and
 recovery share set progression; prompted rest retains its target in
 the draft. Historical and template modes do not start execution clocks. Finish reviews included and
-omitted sets before freezing the submission. The editor component does not register production routes.
+omitted sets before freezing the submission.
+
+`shared/workout-editor-routes.ts` declares new, repeat, edit, template-start, and template-from-workout
+routes. Their shared page checks device recovery before preparing a source. Existing drafts require
+Resume or explicit Discard; unavailable Pro creation never offers to discard an existing draft.
+Successful entry replaces the action route with `/workout-editor`, the resume-only alert and return
+target. Save clears the draft before replacing the route with the returned entity. Templates have a
+read-only detail page with Start workout and Edit template actions. Adjust time uses a separate retained
+submission, preserves unchanged timestamp precision, and requires explicit active-duration set/clear.
 
 Personal media belongs to the workout or an exercise occurrence, never a set. Workout `exerciseMedia`
 stores occurrence images and videos by `exerciseOrder`; templates store them on their exercise entries.

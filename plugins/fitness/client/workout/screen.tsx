@@ -1,6 +1,5 @@
 import { usePluginLocation, useRyotViewport } from "@ryot-app/plugin-client-sdk/plugin";
 import {
-	createRyotQuery,
 	ManagedAssetProvider,
 	useRyotQuery,
 	type RyotQueryResult,
@@ -10,9 +9,11 @@ import { Button, StatusMessage } from "@ryot-app/plugin-ui-sdk";
 import clsx from "clsx";
 import { useMemo } from "react";
 
-import { PLUGIN_PACKAGE_ID } from "../../shared/plugin-identity";
-import { workoutDetailsRecipe, type WorkoutDetails } from "../../shared/workout-details-recipes";
+import type { WorkoutDetails } from "../../shared/workout-details-recipes";
+import type { WorkoutPreferenceSettings } from "../../shared/workout-editor-preferences";
 import { managedAssetBatch } from "../asset-urls";
+import { WorkoutMediaViewer } from "../media-viewer";
+import { workoutEditorContextQuery } from "../workout-editor/context-query";
 import {
 	buildExerciseGroups,
 	buildTimeline,
@@ -22,24 +23,11 @@ import {
 } from "./details-model";
 import { ExerciseGroups } from "./exercise-card";
 import { WorkoutComment, WorkoutHeader, WorkoutSession, WorkoutSummaryRow } from "./overview";
-
-const workoutDetailsQuery = createRyotQuery<{ readonly entityId: string }, WorkoutDetails | null>(
-	({ input, client }) =>
-		client.data.query(
-			workoutDetailsRecipe({
-				workoutId: input.entityId,
-				reference: client.pluginIdentity(PLUGIN_PACKAGE_ID),
-			}),
-		),
-	{
-		entityWatch: ({ data, input }) => ({
-			foreground: [input.entityId],
-			visible: data?.exercises.items.map(({ id }) => id) ?? [],
-		}),
-	},
-);
+import { workoutDetailsQuery } from "./queries";
 
 export function WorkoutDetailsView(props: {
+	readonly settings?: Pick<WorkoutPreferenceSettings, "unitSystem" | "energyUnit">;
+	readonly proAvailable?: boolean;
 	readonly compact: boolean;
 	readonly workout: WorkoutDetails;
 }) {
@@ -60,8 +48,18 @@ export function WorkoutDetailsView(props: {
 			assets={managedAssetBatch(workout.exercises.items.map((exercise) => exercise.images?.[0]))}
 		>
 			<div className={clsx("mx-auto flex w-full max-w-6xl flex-col", compact ? "gap-5" : "gap-7")}>
-				<WorkoutHeader compact={compact} workout={workout} />
-				<WorkoutSummaryRow compact={compact} workout={workout} summary={view.summary} />
+				<WorkoutHeader
+					compact={compact}
+					workout={workout}
+					proAvailable={props.proAvailable ?? false}
+				/>
+				<WorkoutSummaryRow
+					compact={compact}
+					workout={workout}
+					summary={view.summary}
+					energyUnit={props.settings?.energyUnit ?? "kcal"}
+					imperial={props.settings?.unitSystem === "imperial"}
+				/>
 				<WorkoutSession
 					compact={compact}
 					muscles={view.muscles}
@@ -69,6 +67,11 @@ export function WorkoutDetailsView(props: {
 					equipment={view.equipment}
 				/>
 				<WorkoutComment comment={workout.comment} />
+				<WorkoutMediaViewer
+					label={workout.name}
+					images={workout.images ?? []}
+					videos={workout.videos ?? []}
+				/>
 				<section aria-label="Exercises" className="flex flex-col gap-4">
 					<div className="flex items-baseline justify-between font-ui">
 						<h2 className="font-display font-semibold text-[22px] text-text">Exercises</h2>
@@ -81,6 +84,7 @@ export function WorkoutDetailsView(props: {
 						compact={compact}
 						groups={view.groups}
 						workoutStartedAt={workout.startedAt}
+						imperial={props.settings?.unitSystem === "imperial"}
 					/>
 				</section>
 			</div>
@@ -89,13 +93,22 @@ export function WorkoutDetailsView(props: {
 }
 
 function WorkoutDetailsBody(props: {
+	readonly settings: Pick<WorkoutPreferenceSettings, "unitSystem" | "energyUnit">;
+	readonly proAvailable: boolean;
 	readonly compact: boolean;
 	readonly result: RyotQueryResult<WorkoutDetails | null>;
 }) {
 	const { result, compact } = props;
 	const workout = result.data;
 	if (workout !== undefined && workout !== null) {
-		return <WorkoutDetailsView compact={compact} workout={workout} />;
+		return (
+			<WorkoutDetailsView
+				compact={compact}
+				workout={workout}
+				settings={props.settings}
+				proAvailable={props.proAvailable}
+			/>
+		);
 	}
 	if (result.isError) {
 		return (
@@ -117,9 +130,29 @@ function WorkoutDetailsBody(props: {
 function WorkoutDetailsScreen(props: { readonly entityId: string }) {
 	const { compact } = useRyotViewport();
 	const result = useRyotQuery(workoutDetailsQuery, { entityId: props.entityId });
+	const context = useRyotQuery(workoutEditorContextQuery, undefined);
+	let body = <StatusMessage tone="pending">Loading display preferences…</StatusMessage>;
+	if (context.isError) {
+		body = (
+			<>
+				<StatusMessage tone="error">Display preferences could not be loaded.</StatusMessage>
+				<Button onClick={context.refetch}>Retry preferences</Button>
+			</>
+		);
+	}
+	if (context.data) {
+		body = (
+			<WorkoutDetailsBody
+				result={result}
+				compact={compact}
+				settings={context.data.settings}
+				proAvailable={context.data.proAvailable}
+			/>
+		);
+	}
 	return (
 		<PluginScreenFrame hideTitle title={result.data?.name ?? null}>
-			<WorkoutDetailsBody result={result} compact={compact} />
+			{body}
 		</PluginScreenFrame>
 	);
 }
