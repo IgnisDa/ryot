@@ -177,6 +177,39 @@ take a unit for the known OpenScale keys (`weight`, `lbm`, `bone` in kg; `bmi` i
 `muscle` in %; `waist`, `hip` in cm). Each row counts as one measurement, reported on its first reading. A row
 with a valid date and no numeric value is an unsuccessful measurement.
 
+## Workout Editor Contracts
+
+`workout-editor-context` returns the caller's defaulted installation settings and trusted Pro
+availability. `exercise-override-update` changes only the caller's library membership; removing a
+field restores inheritance. Global settings remain kernel-owned.
+
+`workout-editor-save` creates and updates workouts and templates. Update inputs retain the source
+baseline and source exercise positions, so reordering does not change occurrence or event identity.
+`encodeWorkoutEditorDraft` stores one losslessly compressed JSON string; its decoder and the baseline
+decoder each bound expansion to 128 KiB. Encoded drafts and complete save inputs must still fit their
+separate 64 KiB budgets. Save data stays uncompressed. A submission's data, baseline, ID, and timestamp
+must remain fixed across retries. Each service write uses mutation receipts; no outer transaction
+rolls back earlier writes on a later failure.
+
+The draft's optional `submission` retains the complete save input. Save-input construction reuses it
+unchanged until completion, including after settings or display context changes.
+
+The workout is written before its sets and relationships. A new save writes a `workout-completed`
+event only after its required writes succeed. Its after hook emits `workout.created`; personal-best
+recalculation remains independent. Templates store planned sets on the entity and have no execution
+events. Typed results distinguish completion, incomplete saves, conflicts, validation, and Pro gates.
+
+Ordinary historical edits preserve workout and set times. `workout-time-correction` changes only
+workout start/end, preserving active duration unless the input explicitly sets or clears it. Free
+historical edits retain existing protected notes and media; removing those values is allowed, while
+adding or changing them requires Pro. Template changes and replacement remain Pro-gated.
+
+`shared/workout-editor-recipes.ts` provides complete entity properties, cursor-paged top-level sets,
+selected exercises, membership overrides, and source links. Picker/taxonomy and history/Previous
+recipes are separate paged reads, not Pro data permissions. `shared/workout-editor-source.ts`
+hydrates historical/template drafts and clones sources, retaining the baseline when an unavailable
+exercise or malformed record blocks loading. These contracts do not register editor screens.
+
 ## Automations
 
 `fitness.ensure-fitness-library-membership` is a required, user-scoped after hook on exercise
@@ -184,8 +217,8 @@ creation and exercise provider-entity-import completion; it upserts `in-fitness-
 user's `fitness-library`. Workout imports write the same relationship for each imported exercise in
 their write items. The All Exercises saved view lists only exercises with that relationship.
 
-`fitness.workout-created` is an async after hook for API-created workouts. The manifest's
-causation filter excludes imports and other sources. Its script reads the immutable entity snapshot
+`fitness.workout-created` is an async after hook for API-created workout completion events. The manifest's
+causation filter excludes imports and other sources. Its script reads the immutable event snapshot
 from `automation.payload` and emits `workout.created`.
 
 `fitness.notification` is the signal's stable notification hook. It reads the inline signal payload
@@ -193,8 +226,9 @@ and formats the plugin-owned message. Notification delivery has one attempt and 
 of uncertain external outcomes. Neither script queries execution records through RyotQL.
 
 Workouts require a valid `startedAt`, which the kernel validates on every write. `policy.workout-context`
-requires workout-set events to reference a workout and sets `occurredAt` from `confirmedAt`, or from
-the workout start when confirmation is absent.
+requires workout-set events to reference a workout and sets `occurredAt` from `confirmedAt` when
+present. Without confirmation it preserves the event time; writers supply workout start for a new
+untimed historical set.
 `policy.workout-set` records the exercise kind on each set: a supplied or stored `exerciseKind` is
 kept, and an absent one is taken from the exercise. Sets accept only canonical metric measurements
 (kg, km, seconds) and reject undeclared properties; writers convert before writing. The policy derives
@@ -202,7 +236,7 @@ statistics from the set's kind and removes supplied personal-best badges outside
 updates. Fitness policies target only workout-set
 events, so exercise and workout updates, including provider refreshes, never run them. `fitness.workout-records` batches
 workout-set changes by exercise and dispatches `script.workout-record-step`; the worker reads the
-current user-scoped event stream, normalizes event times, and recomputes derived statistics and
+current user-scoped event stream, normalizes confirmed event times, and recomputes derived statistics and
 personal-best badges in bounded pages, tracking bests separately for each recorded kind. It does not
 replay historical automation triggers. `fitness.workout-context-records` repairs the streams of a
 workout's exercises when its start time changes.

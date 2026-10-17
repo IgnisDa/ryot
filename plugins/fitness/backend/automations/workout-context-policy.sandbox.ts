@@ -60,17 +60,17 @@ const eventContextPolicy = (host: AutomationHost, payload: EventPayload) =>
 		}
 
 		const confirmedAt = payload.draft.properties["confirmedAt"];
-		let occurredAt = startedAt;
-		if (confirmedAt !== undefined && confirmedAt !== null) {
-			if (typeof confirmedAt !== "string") {
-				return reject("workout_set_confirmed_at_invalid");
-			}
-			const decoded = Schema.decodeResult(IsoDateString)(confirmedAt);
-			if (decoded._tag === "Failure") {
-				return reject("workout_set_confirmed_at_invalid");
-			}
-			occurredAt = decoded.success;
+		if (confirmedAt === undefined || confirmedAt === null) {
+			return allow();
 		}
+		if (typeof confirmedAt !== "string") {
+			return reject("workout_set_confirmed_at_invalid");
+		}
+		const decoded = Schema.decodeResult(IsoDateString)(confirmedAt);
+		if (decoded._tag === "Failure") {
+			return reject("workout_set_confirmed_at_invalid");
+		}
+		const occurredAt = decoded.success;
 		return payload.draft.occurredAt === occurredAt ? allow() : patchOccurredAt(occurredAt);
 	});
 

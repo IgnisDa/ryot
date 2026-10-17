@@ -26,8 +26,51 @@ import {
 	measurementReadingUpdateOperationSlug,
 } from "../../shared/measurement-reading-operations";
 import { PLUGIN_PACKAGE_ID } from "../../shared/plugin-identity";
+import {
+	ExerciseOverrideUpdateInputSchema,
+	ExerciseOverrideUpdateOutputSchema,
+	WorkoutEditorContextInputSchema,
+	WorkoutEditorContextOutputSchema,
+	exerciseOverrideUpdateOperationSlug,
+	workoutEditorContextOperationSlug,
+	workoutEditorSaveOperationSlug,
+	workoutTimeCorrectionOperationSlug,
+} from "../../shared/workout-editor-context-operations";
+import {
+	WorkoutEditorSaveInputSchema,
+	WorkoutEditorSaveOutputSchema,
+} from "../../shared/workout-editor-operations";
+import {
+	WorkoutTimeCorrectionInputSchema,
+	WorkoutTimeCorrectionOutputSchema,
+} from "../../shared/workout-time-operations";
 
 const packageId = PLUGIN_PACKAGE_ID;
+
+export const workoutEditorSaveRecipe = defineOperationRecipe({
+	packageId,
+	input: WorkoutEditorSaveInputSchema,
+	output: WorkoutEditorSaveOutputSchema,
+	operationSlug: workoutEditorSaveOperationSlug,
+});
+export const workoutEditorContextRecipe = defineOperationRecipe({
+	packageId,
+	input: WorkoutEditorContextInputSchema,
+	output: WorkoutEditorContextOutputSchema,
+	operationSlug: workoutEditorContextOperationSlug,
+});
+export const exerciseOverrideUpdateRecipe = defineOperationRecipe({
+	packageId,
+	input: ExerciseOverrideUpdateInputSchema,
+	output: ExerciseOverrideUpdateOutputSchema,
+	operationSlug: exerciseOverrideUpdateOperationSlug,
+});
+export const workoutTimeCorrectionRecipe = defineOperationRecipe({
+	packageId,
+	input: WorkoutTimeCorrectionInputSchema,
+	output: WorkoutTimeCorrectionOutputSchema,
+	operationSlug: workoutTimeCorrectionOperationSlug,
+});
 
 export const measurementMetricCreateRecipe = defineOperationRecipe({
 	packageId,

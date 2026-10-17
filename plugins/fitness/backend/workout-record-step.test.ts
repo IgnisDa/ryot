@@ -78,7 +78,7 @@ const makeHost = (
 };
 
 describe("workout record step", () => {
-	it("normalizes only event time anchors and keeps missing confirmations and rest data intact", () => {
+	it("normalizes confirmed event times and preserves unconfirmed timestamps", () => {
 		const calls: RyotQLDocument[] = [];
 		const writes: unknown[] = [];
 		const host = makeHost(
@@ -108,7 +108,6 @@ describe("workout record step", () => {
 					expect(result.done).toBe(false);
 					expect(result.checkpoint).toMatchObject({ after: null, phase: "records" });
 					expect(result.updates).toEqual([
-						{ eventId: "set-1", patch: { occurredAt: "2026-01-01T08:00:00.000Z" } },
 						{ eventId: "set-2", patch: { occurredAt: "2026-01-01T08:30:00.000Z" } },
 					]);
 					expect(writes).toEqual([]);
@@ -222,7 +221,11 @@ describe("workout record step", () => {
 
 	it("keeps a full fifty-row normalization page within the event update cap", () => {
 		const records = Array.from({ length: 50 }, (_, index) =>
-			workoutRecord({ id: `set-${index}`, occurredAt: "2026-01-01T07:59:00.000Z" }),
+			workoutRecord({
+				id: `set-${index}`,
+				confirmedAt: timestamp,
+				occurredAt: "2026-01-01T07:59:00.000Z",
+			}),
 		);
 		const calls: RyotQLDocument[] = [];
 		const host = makeHost([page(records, { hasMore: true, nextCursor: "cursor-50" })], calls);
