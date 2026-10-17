@@ -24,7 +24,7 @@ redis.call('EXPIRE', KEYS[1], ARGV[3])
 return 'ok'
 `;
 
-const PRIORITY_TOKEN_FUNCTIONS = `
+const REPLACE_INTEREST_SCRIPT = `
 local function tokenPriority(token)
   return token and string.match(token, ':([fv])$')
 end
@@ -53,9 +53,6 @@ local function appliedResult(key, revision)
   end
   return result
 end
-`;
-
-const REPLACE_INTEREST_SCRIPT = `${PRIORITY_TOKEN_FUNCTIONS}
 if redis.call('EXISTS', KEYS[1]) == 0 then
   return { 'missing-session' }
 end
@@ -98,106 +95,6 @@ for _, entityId in ipairs(current) do
 end
 for _, entityId in ipairs(requestedIds) do
   setPriority(KEYS[2], entityId, foreground[entityId] and 'f' or 'v', ARGV[1])
-  redis.call('ZADD', ARGV[6] .. entityId .. ARGV[7], ARGV[3], ARGV[2])
-end
-redis.call('HSET', KEYS[1], 'revision', ARGV[1])
-redis.call('EXPIRE', KEYS[1], ARGV[4])
-if redis.call('EXISTS', KEYS[2]) == 1 then
-  redis.call('EXPIRE', KEYS[2], ARGV[4])
-end
-return appliedResult(KEYS[2], ARGV[1])
-`;
-
-const UPDATE_INTEREST_SCRIPT = `${PRIORITY_TOKEN_FUNCTIONS}
-if redis.call('EXISTS', KEYS[1]) == 0 then
-  return { 'missing-session' }
-end
-local currentRevision = tonumber(redis.call('HGET', KEYS[1], 'revision'))
-local incomingRevision = tonumber(ARGV[1])
-if not currentRevision or incomingRevision ~= currentRevision + 1 then
-  return { 'revision-mismatch' }
-end
-local addEnd = 12 + tonumber(ARGV[9])
-local removeEnd = addEnd + tonumber(ARGV[10])
-local addForegroundEnd = removeEnd + tonumber(ARGV[11])
-local function collect(first, last)
-  local set = {}
-  local ids = {}
-  for index = first, last - 1 do
-    local entityId = ARGV[index]
-    if not set[entityId] then
-      set[entityId] = true
-      table.insert(ids, entityId)
-    end
-  end
-  return set, ids
-end
-local add, addIds = collect(12, addEnd)
-local remove, removeIds = collect(addEnd, removeEnd)
-local addForeground, addForegroundIds = collect(removeEnd, addForegroundEnd)
-local removeForeground, removeForegroundIds = collect(addForegroundEnd, #ARGV + 1)
-for _, entityId in ipairs(removeIds) do
-  if add[entityId] then
-    return { 'overlap' }
-  end
-end
-for _, entityId in ipairs(removeForegroundIds) do
-  if addForeground[entityId] then
-    return { 'overlap' }
-  end
-end
-local currentPriority = {}
-local memberships = redis.call('HGETALL', KEYS[2])
-for index = 1, #memberships, 2 do
-  currentPriority[memberships[index]] = tokenPriority(memberships[index + 1]) or 'v'
-end
-local function isFinalMember(entityId)
-  return not remove[entityId] and (add[entityId] or currentPriority[entityId] ~= nil)
-end
-for _, ids in ipairs({ addForegroundIds, removeForegroundIds }) do
-  for _, entityId in ipairs(ids) do
-    if not isFinalMember(entityId) then
-      return { 'invalid-foreground' }
-    end
-  end
-end
-local function finalPriority(entityId)
-  if addForeground[entityId] then
-    return 'f'
-  end
-  if removeForeground[entityId] then
-    return 'v'
-  end
-  return currentPriority[entityId] or 'v'
-end
-local finalCount = 0
-local foregroundCount = 0
-local counted = {}
-for _, ids in ipairs({ addIds, redis.call('HKEYS', KEYS[2]) }) do
-  for _, entityId in ipairs(ids) do
-    if not counted[entityId] and isFinalMember(entityId) then
-      counted[entityId] = true
-      finalCount = finalCount + 1
-      if finalPriority(entityId) == 'f' then
-        foregroundCount = foregroundCount + 1
-      end
-    end
-  end
-end
-if finalCount > tonumber(ARGV[5]) or foregroundCount > tonumber(ARGV[8]) then
-  return { 'limit-exceeded' }
-end
-for _, entityId in ipairs(removeIds) do
-  redis.call('HDEL', KEYS[2], entityId)
-  redis.call('ZREM', ARGV[6] .. entityId .. ARGV[7], ARGV[2])
-end
-for _, ids in ipairs({ addIds, addForegroundIds, removeForegroundIds }) do
-  for _, entityId in ipairs(ids) do
-    setPriority(KEYS[2], entityId, finalPriority(entityId), ARGV[1])
-  end
-end
-local current = redis.call('HKEYS', KEYS[2])
-for _, entityId in ipairs(current) do
   redis.call('ZADD', ARGV[6] .. entityId .. ARGV[7], ARGV[3], ARGV[2])
 end
 redis.call('HSET', KEYS[1], 'revision', ARGV[1])
@@ -315,7 +212,6 @@ const pendingArgs = (pending: readonly PendingInterest[]) =>
 	]);
 
 type InterestCommandOutcome =
-	| { readonly status: "overlap" }
 	| { readonly status: "invalid-foreground" }
 	| { readonly status: "limit-exceeded" }
 	| { readonly status: "missing-session" }
@@ -349,8 +245,7 @@ const parseCommandOutcome = (result: unknown): InterestCommandOutcome => {
 		status === "missing-session" ||
 		status === "revision-mismatch" ||
 		status === "limit-exceeded" ||
-		status === "invalid-foreground" ||
-		status === "overlap"
+		status === "invalid-foreground"
 	) {
 		return { status };
 	}
@@ -435,29 +330,6 @@ export class EntityWatchStore extends Context.Service<EntityWatchStore>()("Entit
 					String(input.entityIds.length),
 					...input.entityIds,
 					...input.foregroundIds,
-				]),
-			);
-		});
-
-		const updateInterest = Effect.fn("EntityWatchStore.updateInterest")(function* (input: {
-			readonly revision: number;
-			readonly sessionId: string;
-			readonly add: readonly string[];
-			readonly remove: readonly string[];
-			readonly addForeground: readonly string[];
-			readonly removeForeground: readonly string[];
-		}) {
-			const args = yield* commandArgs(input.sessionId, input.revision);
-			return parseCommandOutcome(
-				yield* evaluate(UPDATE_INTEREST_SCRIPT, sessionKeys(input.sessionId), [
-					...args,
-					String(input.add.length),
-					String(input.remove.length),
-					String(input.addForeground.length),
-					...input.add,
-					...input.remove,
-					...input.addForeground,
-					...input.removeForeground,
 				]),
 			);
 		});
@@ -623,7 +495,6 @@ export class EntityWatchStore extends Context.Service<EntityWatchStore>()("Entit
 			closeSession,
 			renewSession,
 			removePending,
-			updateInterest,
 			markReconciled,
 			replaceInterest,
 			getSessionMetadata,

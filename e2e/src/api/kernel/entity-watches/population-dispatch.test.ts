@@ -78,10 +78,7 @@ describe("entity population via client-declared interest", () => {
 
 			const socket = yield* openInterestWebSocketScoped(auth);
 			expect(yield* socket.replaceInterest([])).toEqual({ revision: 1, type: "applied" });
-			expect(yield* socket.updateInterest({ remove: [], add: [seeded.id] })).toEqual({
-				revision: 2,
-				type: "applied",
-			});
+			expect(yield* socket.replaceInterest([seeded.id])).toEqual({ revision: 2, type: "applied" });
 
 			const populated = yield* waitForEntityPopulated(client, provenance);
 			expect(populated.populatedAt).not.toBeNull();
@@ -116,15 +113,14 @@ describe("entity population via client-declared interest", () => {
 				`interest session '${socket.ready.sessionId}' closed`,
 				Effect.gen(function* () {
 					const result = yield* getApiClient()
-						.call(
+						.adminCall(
 							(c) =>
 								c.testSupport.setEntityWatchMembership({
 									payload: {
 										sessionId: socket.ready.sessionId,
 										entityIds: [EntityId.make(entity.id)],
 									},
-								}),
-							adminHeaders(),
+								})
 						)
 						.pipe(Effect.result);
 					return Result.isFailure(result) ? true : null;
@@ -144,7 +140,7 @@ describe("entity population via client-declared interest", () => {
 		}),
 	);
 
-	it.live("stops delivery after an incremental remove", () =>
+	it.live("stops delivery after an empty replacement", () =>
 		Effect.gen(function* () {
 			const auth = yield* createAuthenticatedClient();
 			const { client } = auth;
@@ -167,10 +163,7 @@ describe("entity population via client-declared interest", () => {
 				revision: 1,
 				type: "applied",
 			});
-			expect(yield* replaced.updateInterest({ add: [], remove: [entity.id] })).toEqual({
-				revision: 2,
-				type: "applied",
-			});
+			expect(yield* replaced.replaceInterest([])).toEqual({ revision: 2, type: "applied" });
 
 			const active = yield* openInterestWebSocketScoped(auth);
 			yield* active.replaceInterest([entity.id]);

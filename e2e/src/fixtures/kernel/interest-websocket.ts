@@ -5,6 +5,7 @@ import {
 	type EntityWatchEntityUpdatedMessage,
 	type EntityWatchReadyMessage,
 	type EntityWatchRejectedMessage,
+	type EntityWatchReplaceMessage,
 } from "@ryot-app/contract/modules/entity-watches/messages";
 import { Duration, Effect, Exit, Result, Semaphore } from "effect";
 
@@ -39,12 +40,6 @@ type InterestWebSocket = {
 		entityId: string,
 		options: { windowMs: number; reason?: EntityWatchEntityUpdatedMessage["reason"] },
 	) => Effect.Effect<void>;
-	updateInterest: (input: {
-		readonly add: readonly string[];
-		readonly remove: readonly string[];
-		readonly addForeground?: readonly string[];
-		readonly removeForeground?: readonly string[];
-	}) => Effect.Effect<EntityWatchCommandResult>;
 	waitForEntityUpdated: (
 		entityId: string,
 		reason?: EntityWatchEntityUpdatedMessage["reason"],
@@ -194,21 +189,7 @@ export const openInterestWebSocket = (
 			),
 		);
 
-		const sendCommand = (
-			message:
-				| {
-						readonly type: "replace";
-						readonly entityIds: readonly string[];
-						readonly foregroundIds: readonly string[];
-				  }
-				| {
-						readonly type: "update";
-						readonly add: readonly string[];
-						readonly remove: readonly string[];
-						readonly addForeground: readonly string[];
-						readonly removeForeground: readonly string[];
-				  },
-		) =>
+		const sendCommand = (message: Omit<EntityWatchReplaceMessage, "revision">) =>
 			commands.withPermit(
 				Effect.gen(function* () {
 					let commandRevision = 0;
@@ -341,8 +322,6 @@ export const openInterestWebSocket = (
 			getEntityUpdatedMessages: () => messages.slice(),
 			replaceInterest: (entityIds, foregroundIds = []) =>
 				sendCommand({ entityIds, foregroundIds, type: "replace" }),
-			updateInterest: ({ addForeground = [], removeForeground = [], ...input }) =>
-				sendCommand({ ...input, addForeground, type: "update", removeForeground }),
 			close: () =>
 				Effect.callback<void>((resume) => {
 					if (socket.readyState === WebSocket.CLOSED) {

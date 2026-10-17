@@ -215,12 +215,10 @@ describe("entity interest session", () => {
 				expect(test.sockets).toHaveLength(1);
 				expect(test.tickets()).toBe(1);
 				expect(socket.sent.at(-1)).toEqual({
-					remove: [],
 					revision: 2,
-					add: ["new"],
-					type: "update",
-					removeForeground: [],
-					addForeground: ["new"],
+					type: "replace",
+					entityIds: ["new"],
+					foregroundIds: ["new"],
 				});
 				firstRelease();
 				firstRelease();
@@ -431,6 +429,44 @@ describe("entity interest session", () => {
 			}),
 	);
 
+	it.live("sends all 500 admitted members and 50 foreground IDs on a priority-only change", () =>
+		Effect.gen(function* () {
+			const test = setup();
+			const ids = Array.from(
+				{ length: 500 },
+				(_, index) => `member-${String(index).padStart(3, "0")}`,
+			);
+			const owner = test.service.watch(
+				scope,
+				{ visible: ids, foreground: ids.slice(0, 50) },
+				() => {},
+			);
+			test.service.acquire(scope);
+			yield* Effect.promise(() => settle());
+			const socket = test.socket();
+			socket.ready();
+			expect(socket.sent).toHaveLength(2);
+			expect(socket.sent.at(-1)).toEqual({
+				revision: 1,
+				entityIds: ids,
+				type: "replace",
+				foregroundIds: ids.slice(0, 50),
+			});
+			socket.frame({ revision: 1, type: "applied" });
+			owner.update({ visible: ids, foreground: ids.slice(1, 51) });
+			test.advance(100);
+			expect(socket.sent).toHaveLength(3);
+			expect(socket.sent.at(-1)).toEqual({
+				revision: 2,
+				entityIds: ids,
+				type: "replace",
+				foregroundIds: ids.slice(1, 51),
+			});
+			socket.frame({ revision: 2, type: "applied" });
+			expect(socket.sent).toHaveLength(3);
+		}),
+	);
+
 	it.live("admits the active owner's interests first after activation changes", () =>
 		Effect.gen(function* () {
 			const test = setup();
@@ -468,11 +504,9 @@ describe("entity interest session", () => {
 			test.advance(100);
 			expect(socket.sent.at(-1)).toEqual({
 				revision: 2,
-				type: "update",
-				addForeground: [],
-				add: [retained[499]],
-				removeForeground: [],
-				remove: ["zz-active"],
+				type: "replace",
+				foregroundIds: [],
+				entityIds: retained,
 			});
 			socket.frame({ revision: 2, type: "applied" });
 
@@ -481,55 +515,95 @@ describe("entity interest session", () => {
 			test.advance(100);
 			expect(socket.sent.at(-1)).toEqual({
 				revision: 3,
-				type: "update",
-				add: ["zz-active"],
-				removeForeground: [],
-				remove: [retained[499]],
-				addForeground: ["zz-active"],
+				type: "replace",
+				foregroundIds: ["zz-active"],
+				entityIds: [...retained.slice(0, 499), "zz-active"].sort(),
+			});
+		}),
+	);
+
+	it.live("sends at most 50 foreground IDs, only from active owners, in complete snapshots", () =>
+		Effect.gen(function* () {
+			const test = setup();
+			let retainedActive = false;
+			const foreground = Array.from(
+				{ length: 60 },
+				(_, index) => `foreground-${String(index).padStart(2, "0")}`,
+			);
+			test.service.watch(scope, { foreground, visible: ["card"] }, () => {});
+			test.service.watch(
+				scope,
+				{ visible: [], foreground: ["aa-retained"] },
+				() => {},
+				() => retainedActive,
+			);
+			test.service.acquire(scope);
+			yield* Effect.promise(() => settle());
+			const socket = test.socket();
+			socket.ready();
+			expect(socket.sent.at(-1)).toEqual({
+				revision: 1,
+				type: "replace",
+				foregroundIds: foreground.slice(0, 50),
+				entityIds: ["aa-retained", "card", ...foreground],
+			});
+			socket.frame({ revision: 1, type: "applied" });
+
+			retainedActive = true;
+			test.service.refresh(scope);
+			test.advance(100);
+			expect(socket.sent.at(-1)).toEqual({
+				revision: 2,
+				type: "replace",
+				entityIds: ["aa-retained", "card", ...foreground],
+				foregroundIds: ["aa-retained", ...foreground.slice(0, 49)],
 			});
 		}),
 	);
 
 	it.live(
-		"sends at most 50 foreground IDs, only from active owners, and diffs priority changes",
+		"coalesces the latest complete pair and suppresses unchanged sets after acknowledgements",
 		() =>
 			Effect.gen(function* () {
 				const test = setup();
-				let retainedActive = false;
-				const foreground = Array.from(
-					{ length: 60 },
-					(_, index) => `foreground-${String(index).padStart(2, "0")}`,
-				);
-				test.service.watch(scope, { foreground, visible: ["card"] }, () => {});
-				test.service.watch(
-					scope,
-					{ visible: [], foreground: ["aa-retained"] },
-					() => {},
-					() => retainedActive,
-				);
+				const owner = test.service.watch(scope, { visible: ["a"], foreground: [] }, () => {});
 				test.service.acquire(scope);
 				yield* Effect.promise(() => settle());
 				const socket = test.socket();
 				socket.ready();
-				expect(socket.sent.at(-1)).toEqual({
-					revision: 1,
-					type: "replace",
-					foregroundIds: foreground.slice(0, 50),
-					entityIds: ["aa-retained", "card", ...foreground],
-				});
+				owner.update({ visible: ["b"], foreground: ["a"] });
+				test.advance(100);
+				owner.update({ visible: ["c"], foreground: ["b"] });
+				test.advance(2000);
+				expect(socket.sent).toHaveLength(2);
 				socket.frame({ revision: 1, type: "applied" });
-
-				retainedActive = true;
+				expect(socket.sent).toHaveLength(3);
+				expect(socket.sent.at(-1)).toEqual({
+					revision: 2,
+					type: "replace",
+					foregroundIds: ["b"],
+					entityIds: ["b", "c"],
+				});
+				owner.update({ foreground: ["b", "b"], visible: ["c", "b", "c"] });
+				test.advance(100);
+				socket.frame({ revision: 2, type: "applied" });
 				test.service.refresh(scope);
 				test.advance(100);
+				expect(socket.sent).toHaveLength(3);
+				owner.update({ visible: ["b"], foreground: ["c"] });
+				test.advance(100);
 				expect(socket.sent.at(-1)).toEqual({
-					add: [],
-					remove: [],
-					revision: 2,
-					type: "update",
-					addForeground: ["aa-retained"],
-					removeForeground: ["foreground-49"],
+					revision: 3,
+					type: "replace",
+					foregroundIds: ["c"],
+					entityIds: ["b", "c"],
 				});
+				owner.update({ visible: ["c"], foreground: ["b"] });
+				test.advance(100);
+				owner.update({ visible: ["b"], foreground: ["c"] });
+				test.advance(100);
+				socket.frame({ revision: 3, type: "applied" });
+				expect(socket.sent).toHaveLength(4);
 			}),
 	);
 
@@ -546,12 +620,10 @@ describe("entity interest session", () => {
 			expect(socket.sent).toHaveLength(2);
 			socket.frame({ revision: 1, type: "applied" });
 			expect(socket.sent.at(-1)).toEqual({
-				add: ["b"],
-				remove: [],
 				revision: 2,
-				type: "update",
-				addForeground: ["b"],
-				removeForeground: [],
+				type: "replace",
+				entityIds: ["a", "b"],
+				foregroundIds: ["a", "b"],
 			});
 			owner.update({ visible: [], foreground: ["b", "c"] });
 			test.advance(99);
@@ -559,24 +631,20 @@ describe("entity interest session", () => {
 			expect(socket.sent).toHaveLength(3);
 			test.advance(1);
 			expect(socket.sent.at(-1)).toEqual({
-				add: ["c"],
-				remove: [],
 				revision: 3,
-				type: "update",
-				addForeground: ["c"],
-				removeForeground: [],
+				type: "replace",
+				entityIds: ["a", "b", "c"],
+				foregroundIds: ["a", "b", "c"],
 			});
 			socket.frame({ revision: 3, type: "applied" });
 			test.advance(1899);
 			expect(socket.sent).toHaveLength(4);
 			test.advance(1);
 			expect(socket.sent.at(-1)).toEqual({
-				add: [],
 				revision: 4,
-				remove: ["a"],
-				type: "update",
-				addForeground: [],
-				removeForeground: [],
+				type: "replace",
+				entityIds: ["b", "c"],
+				foregroundIds: ["b", "c"],
 			});
 		}),
 	);
@@ -595,11 +663,9 @@ describe("entity interest session", () => {
 			test.advance(100);
 			expect(socket.sent.at(-1)).toEqual({
 				revision: 2,
-				add: ["new"],
-				type: "update",
-				remove: ["id-0"],
-				removeForeground: [],
-				addForeground: ["new"],
+				type: "replace",
+				foregroundIds: ["new"],
+				entityIds: [...ids.slice(1), "new"].sort(),
 			});
 			socket.frame({ revision: 2, type: "applied" });
 			owner.update(empty);
@@ -690,6 +756,37 @@ describe("entity interest session", () => {
 				yield* Effect.promise(() => settle());
 				expect(test.tickets()).toBe(4);
 			}),
+	);
+
+	it.live("reconnects with the latest full pair and ignores stale acknowledgements", () =>
+		Effect.gen(function* () {
+			const test = setup();
+			const owner = test.service.watch(scope, { visible: ["a"], foreground: [] }, () => {});
+			test.service.acquire(scope);
+			yield* Effect.promise(() => settle());
+			const first = test.socket();
+			first.ready();
+			first.frame({ revision: 1, type: "applied" });
+			owner.update({ visible: [], foreground: ["a"] });
+			test.advance(100);
+			const stale = first.messageListener;
+			first.dispatchEvent(new CloseEvent("close", { code: 4001 }));
+			owner.update({ visible: [], foreground: ["b"] });
+			test.advance(2000);
+			yield* Effect.promise(() => settle());
+			const next = test.socket();
+			next.ready();
+			stale?.(
+				new MessageEvent("message", { data: yield* encodeJson({ revision: 2, type: "applied" }) }),
+			);
+			expect(next.closed).toBe(false);
+			expect(next.sent).toEqual([
+				{ ticket: "ticket-2", type: "authenticate" },
+				{ revision: 1, type: "replace", entityIds: ["b"], foregroundIds: ["b"] },
+			]);
+			next.frame({ revision: 1, type: "applied" });
+			expect(next.sent).toHaveLength(2);
+		}),
 	);
 
 	it.live.each([
