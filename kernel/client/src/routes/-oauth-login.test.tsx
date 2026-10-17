@@ -15,7 +15,6 @@ import {
 	ClientPageSessionsRouteStubs,
 	CustomizeRouteStubs,
 	DeviceRouteStubs,
-	EntityRouteStubs,
 	ImportsRouteStubs,
 	InstanceAdminRouteStubs,
 	IntegrationRouteStubs,
@@ -69,7 +68,6 @@ const mountLogin = (config: ReturnType<typeof systemConfig>) => {
 			InstanceAdminRouteStubs,
 			ServerStub,
 			SavedViewRouteStubs,
-			EntityRouteStubs,
 			Layer.succeed(PublicApi, {
 				checkHealth: () => Effect.void,
 				getSystemConfig: (origin) =>

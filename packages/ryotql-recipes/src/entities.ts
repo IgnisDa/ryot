@@ -12,11 +12,9 @@ import {
 	ascending,
 	column,
 	defineRecipe,
-	eq,
 	inArray,
 	literal,
 	selectedField,
-	selectedOptionalRow,
 	selectedRows,
 	table,
 } from "@ryot-app/ryotql";
@@ -69,25 +67,3 @@ export const entityWatchRecipe = defineRecipe(
 );
 
 export type EntityWatchResult = Recipe.Success<typeof entityWatchRecipe>;
-
-export const entityRouteProvenanceRecipe = defineRecipe((input: { readonly entityId: string }) => {
-	const entity = table("entity", "entity");
-	return {
-		map: ({ entity: provenance }) => Result.succeed(provenance ?? null),
-		queries: {
-			entity: selectedOptionalRow(entity, {
-				orderBy: [ascending(column(entity, "id"))],
-				where: eq(column(entity, "id"), literal(input.entityId)),
-				selection: {
-					entitySchemaSlug: selectedField(column(entity, "entitySchemaSlug"), EntitySchemaSlug),
-					entitySchemaPluginId: selectedField(
-						column(entity, "entitySchemaPluginId"),
-						Schema.NullOr(Schema.String),
-					),
-				},
-			}),
-		},
-	};
-});
-
-export type EntityRouteProvenance = Recipe.Success<typeof entityRouteProvenanceRecipe>;

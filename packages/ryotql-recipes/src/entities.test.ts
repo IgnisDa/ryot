@@ -1,7 +1,7 @@
 import { Result } from "effect";
 import { assert, describe, expect, it } from "vitest";
 
-import { entityRouteProvenanceRecipe, entityWatchRecipe } from "./entities";
+import { entityWatchRecipe } from "./entities";
 import { rowsResponse } from "./test-utils";
 
 const pageInfo = { limit: 2, hasMore: false, nextCursor: null };
@@ -18,7 +18,6 @@ const item = {
 	entitySchemaPluginId: "plugin-fixture",
 	populatedAt: "2026-10-23T10:15:30.123Z",
 };
-const provenanceResponse = (items: readonly unknown[]) => rowsResponse("entity", items, pageInfo);
 const responseWithItems = (items: readonly unknown[]) => rowsResponse("entities", items, pageInfo);
 
 describe("entity recipes", () => {
@@ -95,66 +94,6 @@ describe("entity recipes", () => {
 		).toBe(true);
 		expect(
 			Result.isFailure(recipe.decode({ data: { entities: { items: [], type: "aggregate" } } })),
-		).toBe(true);
-	});
-
-	it("prepares an exact-ID query with only route provenance fields", () => {
-		const recipe = entityRouteProvenanceRecipe({ entityId: "entity-1" });
-		const query = recipe.document.queries.entity;
-		assert(query);
-		assert(query.output.type === "rows");
-
-		expect(query.output.pagination).toEqual({ limit: 2 });
-		expect(
-			query.output.fields.map((selection) => ("key" in selection ? selection.key : null)),
-		).toEqual(["entitySchemaSlug", "entitySchemaPluginId"]);
-		expect(query.where).toEqual({
-			operator: "eq",
-			type: "comparison",
-			right: { type: "literal", value: "entity-1" },
-			left: { field: "id", type: "column", tableAlias: "entity" },
-		});
-	});
-
-	it("decodes plugin-owned route provenance", () => {
-		const recipe = entityRouteProvenanceRecipe({ entityId: "entity-1" });
-
-		expect(
-			Result.getOrThrow(
-				recipe.decode(
-					provenanceResponse([
-						{ entitySchemaSlug: "unit", entitySchemaPluginId: "plugin-fixture" },
-					]),
-				),
-			),
-		).toEqual({ entitySchemaSlug: "unit", entitySchemaPluginId: "plugin-fixture" });
-	});
-
-	it("decodes kernel-owned route provenance with a null plugin ID", () => {
-		const recipe = entityRouteProvenanceRecipe({ entityId: "entity-1" });
-
-		expect(
-			Result.getOrThrow(
-				recipe.decode(
-					provenanceResponse([{ entitySchemaSlug: "unit", entitySchemaPluginId: null }]),
-				),
-			),
-		).toEqual({ entitySchemaSlug: "unit", entitySchemaPluginId: null });
-	});
-
-	it("maps a missing entity row to null", () => {
-		const recipe = entityRouteProvenanceRecipe({ entityId: "missing" });
-
-		expect(Result.getOrThrow(recipe.decode(provenanceResponse([])))).toBeNull();
-	});
-
-	it("rejects malformed route provenance", () => {
-		const recipe = entityRouteProvenanceRecipe({ entityId: "entity-1" });
-
-		expect(
-			Result.isFailure(
-				recipe.decode(provenanceResponse([{ entitySchemaSlug: "unit", entitySchemaPluginId: 42 }])),
-			),
 		).toBe(true);
 	});
 });

@@ -4,7 +4,6 @@ import { ApiLive, TransportLive } from "#/api/layer";
 import { AssetsLive } from "#/modules/assets/layer";
 import { AuthLive } from "#/modules/auth/layer";
 import { DeviceLive } from "#/modules/device/layer";
-import { EntitiesService } from "#/modules/entities/service";
 import { EntityWatchLive } from "#/modules/entity-watches/layer";
 import { ExternalLinksLive } from "#/modules/external-links/layer";
 import { ImportsService } from "#/modules/imports/service";
@@ -25,7 +24,6 @@ export const ClientLive = Layer.mergeAll(
 	IosLiveActivitiesLive,
 	DeviceLive,
 	AssetsLive,
-	EntitiesService.layer,
 	EntityWatchLive,
 	ExternalLinksLive,
 	InstanceAdminLive,
