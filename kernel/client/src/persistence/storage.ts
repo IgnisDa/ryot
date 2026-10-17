@@ -29,15 +29,34 @@ export const pluginStorageKey = (scope: ApiScope, pluginId: PluginId, key: strin
 	`${RYOT_STORAGE_PREFIX}plugin-storage:${identityTupleKey(scope.serverUrl, scope.userId, pluginId, key)}`;
 
 export class PluginStorageQuotaError extends Data.TaggedError("PluginStorageQuotaError") {}
+export class PluginStorageAccessError extends Data.TaggedError("PluginStorageAccessError")<{
+	readonly cause: unknown;
+}> {}
 
 export type BrowserStorage = Pick<Storage, "getItem" | "removeItem" | "setItem">;
 
-const browserStorage = () => (typeof localStorage === "undefined" ? undefined : localStorage);
+const browserStorage = () => {
+	try {
+		return globalThis.localStorage;
+	} catch {
+		return undefined;
+	}
+};
 const isPluginId = Schema.is(PluginId);
 const isSavedViewLayout = Schema.is(EntityBrowserLayout);
 const isSandboxProviderId = Schema.is(SandboxProviderId);
 const decodePluginValue = Schema.decodeUnknownOption(Schema.fromJsonString(JsonValue));
 const encodePluginValue = Schema.encodeSync(Schema.fromJsonString(JsonValue));
+const unavailablePluginStorageError = () =>
+	new PluginStorageAccessError({ cause: new Error("Browser storage is unavailable") });
+const attemptPluginStorageAccess = <A>(evaluate: () => A) =>
+	Effect.try({
+		try: evaluate,
+		catch: (cause) =>
+			cause instanceof PluginStorageAccessError ? cause : new PluginStorageAccessError({ cause }),
+	});
+const isQuotaExceededError = (cause: unknown) =>
+	cause instanceof DOMException && cause.name === "QuotaExceededError";
 
 const makeStorage = (storage: BrowserStorage | undefined): ClientStorage["Service"] => ({
 	clearServerSelection: Effect.sync(() => storage?.removeItem(SERVER_SELECTION_KEY)),
@@ -49,8 +68,6 @@ const makeStorage = (storage: BrowserStorage | undefined): ClientStorage["Servic
 		Effect.sync(() => storage?.setItem(lastWorkspaceKey(scope), pluginId)),
 	setSavedViewLayout: (scope, slug, layout) =>
 		Effect.sync(() => storage?.setItem(savedViewLayoutKey(scope, slug), layout)),
-	removePluginValue: (scope, pluginId, key) =>
-		Effect.sync(() => storage?.removeItem(pluginStorageKey(scope, pluginId, key))),
 	setRememberedProvider: (scope, schemaKey, providerId) =>
 		Effect.sync(() => storage?.setItem(rememberedProviderKey(scope, schemaKey), providerId)),
 	getThemePreference: Effect.sync(() => {
@@ -72,11 +89,14 @@ const makeStorage = (storage: BrowserStorage | undefined): ClientStorage["Servic
 			const value = storage?.getItem(rememberedProviderKey(scope, schemaKey));
 			return isSandboxProviderId(value) ? value : null;
 		}),
-	setPluginValue: (scope, pluginId, key, value) =>
-		Effect.try({
-			catch: () => new PluginStorageQuotaError(),
-			try: () => storage?.setItem(pluginStorageKey(scope, pluginId, key), encodePluginValue(value)),
-		}),
+	removePluginValue: (scope, pluginId, key) => {
+		if (!storage) {
+			return Effect.fail(unavailablePluginStorageError());
+		}
+		return attemptPluginStorageAccess(() =>
+			storage.removeItem(pluginStorageKey(scope, pluginId, key)),
+		);
+	},
 	getServerSelection: Effect.sync(() => {
 		const value = storage?.getItem(SERVER_SELECTION_KEY);
 		if (value === null || value === undefined) {
@@ -85,13 +105,34 @@ const makeStorage = (storage: BrowserStorage | undefined): ClientStorage["Servic
 		const result = parseServerOrigin(value);
 		return result.ok ? result.origin : null;
 	}),
-	getPluginValue: (scope, pluginId, key) =>
-		Effect.sync(() => {
-			const value = storage?.getItem(pluginStorageKey(scope, pluginId, key));
-			return value === null || value === undefined
-				? null
-				: Option.getOrNull(decodePluginValue(value));
-		}),
+	setPluginValue: (scope, pluginId, key, value) => {
+		if (!storage) {
+			return Effect.fail(unavailablePluginStorageError());
+		}
+		return Effect.try({
+			try: () => storage.setItem(pluginStorageKey(scope, pluginId, key), encodePluginValue(value)),
+			catch: (cause) =>
+				isQuotaExceededError(cause)
+					? new PluginStorageQuotaError()
+					: new PluginStorageAccessError({ cause }),
+		});
+	},
+	getPluginValue: (scope, pluginId, key) => {
+		if (!storage) {
+			return Effect.fail(unavailablePluginStorageError());
+		}
+		return attemptPluginStorageAccess(() => {
+			const value = storage.getItem(pluginStorageKey(scope, pluginId, key));
+			if (value === null) {
+				return null;
+			}
+			const decoded = decodePluginValue(value);
+			if (Option.isNone(decoded)) {
+				throw new PluginStorageAccessError({ cause: new Error("Stored plugin value is invalid") });
+			}
+			return decoded.value;
+		});
+	},
 });
 
 export class ClientStorage extends Context.Service<
@@ -124,18 +165,18 @@ export class ClientStorage extends Context.Service<
 			scope: ApiScope,
 			pluginId: PluginId,
 			key: string,
-		) => Effect.Effect<JsonValue | null>;
+		) => Effect.Effect<JsonValue | null, PluginStorageAccessError>;
 		readonly setPluginValue: (
 			scope: ApiScope,
 			pluginId: PluginId,
 			key: string,
 			value: JsonValue,
-		) => Effect.Effect<void, PluginStorageQuotaError>;
+		) => Effect.Effect<void, PluginStorageAccessError | PluginStorageQuotaError>;
 		readonly removePluginValue: (
 			scope: ApiScope,
 			pluginId: PluginId,
 			key: string,
-		) => Effect.Effect<void>;
+		) => Effect.Effect<void, PluginStorageAccessError>;
 	}
 >()("ClientStorage") {
 	static readonly layer = Layer.effect(
