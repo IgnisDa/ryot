@@ -45,7 +45,7 @@ export const packageDependencyDeclarations = (pluginDependencies: readonly strin
 const layerOrder = "@layer properties, theme, base, components, utilities;";
 
 export const runtimeStylesheet = `${layerOrder}
-@import "@fontsource-variable/outfit";
+@import "@fontsource-variable/geist";
 @import "@fontsource-variable/lora";
 @import "tailwindcss/theme.css" layer(theme) theme(static);
 @import "tailwindcss/preflight.css" layer(base);

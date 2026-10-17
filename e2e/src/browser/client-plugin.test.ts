@@ -242,7 +242,7 @@ it.live("runs the client plugin lifecycle in a real browser", () =>
 		// oxlint-disable-next-line effecttsgo/async-function -- Runs in the browser realm via Playwright evaluate; Effect is unavailable there.
 		const typography = yield* home.evaluate(async (element) => {
 			const heading = element.querySelector("h1");
-			const uiFaces = await document.fonts.load('16px "Outfit Variable"', "Fixture");
+			const uiFaces = await document.fonts.load('16px "Geist Variable"', "Fixture");
 			const displayFaces = await document.fonts.load('16px "Lora Variable"', "Fixture");
 			return {
 				hasHeading: heading !== null,
@@ -254,7 +254,7 @@ it.live("runs the client plugin lifecycle in a real browser", () =>
 			};
 		});
 		expect(typography.hasHeading).toBe(true);
-		expect(typography.uiFamily).toContain("Outfit Variable");
+		expect(typography.uiFamily).toContain("Geist Variable");
 		expect(typography.displayFamily).toContain("Lora Variable");
 		expect(typography.uiLoaded).toBe(true);
 		expect(typography.displayLoaded).toBe(true);
