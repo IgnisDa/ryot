@@ -1,0 +1,189 @@
+import { changeCase } from "@ryot-app/ts-utils/string";
+import clsx from "clsx";
+import { LinearGradient } from "expo-linear-gradient";
+import { Check, Library, Plus } from "lucide-react-native";
+import { Image } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+
+import { Box } from "@/components/ui/box";
+import { Pressable } from "@/components/ui/pressable";
+import { Text } from "@/components/ui/text";
+
+import { formatMinutes } from "./duration";
+import { getPrimaryCreator } from "./people";
+import type { EntityDetail, AppUnlinkedCreator } from "./types";
+
+export function HeroSection(props: { creators: AppUnlinkedCreator[]; entity: EntityDetail }) {
+	const entity = props.entity;
+	const insets = useSafeAreaInsets();
+	const primaryCreator = getPrimaryCreator(props.creators);
+	const images = entity.properties.images ?? [];
+	const genres = entity.properties.genres ?? [];
+	const firstImage = entity.image ?? images[0];
+	const providerRating = entity.properties.providerRating ?? null;
+	const imageUrl = firstImage.type === "remote" ? firstImage.url : undefined;
+	const runtime = "runtime" in entity.properties ? (entity.properties.runtime ?? null) : null;
+
+	return (
+		<Box className="relative min-h-100 w-full overflow-hidden md:min-h-120">
+			{imageUrl ? (
+				<Image
+					blurRadius={2}
+					resizeMode="cover"
+					source={{ uri: imageUrl }}
+					className="absolute inset-0 h-full w-full opacity-[0.45]"
+				/>
+			) : (
+				<Box className="absolute inset-0 bg-[rgba(201,148,58,0.12)]" />
+			)}
+
+			<LinearGradient
+				locations={[0.3, 0.7, 1]}
+				style={{ position: "absolute", inset: 0 }}
+				colors={["transparent", "rgba(0,0,0,0.5)", "rgba(0,0,0,0.82)"]}
+			/>
+
+			<LinearGradient
+				end={{ x: 1, y: 0 }}
+				start={{ x: 0, y: 0 }}
+				locations={[0, 0.6, 1]}
+				style={{ position: "absolute", inset: 0 }}
+				colors={["rgba(10,10,15,0.85)", "rgba(10,10,15,0.3)", "transparent"]}
+			/>
+
+			<Box className="relative z-10 justify-end px-7 pb-6 pt-10 md:px-10 md:pb-10 md:pt-16 web:mx-auto web:max-w-7xl web:w-full">
+				<Box style={{ paddingTop: insets.top }}>
+					<Box className="flex flex-col items-start gap-5 md:flex-row md:items-end md:gap-10">
+						{imageUrl && (
+							<Box
+								className="w-35 overflow-hidden rounded-lg md:w-55"
+								style={{
+									elevation: 20,
+									shadowRadius: 50,
+									shadowOpacity: 0.5,
+									shadowColor: "#000",
+									shadowOffset: { width: 0, height: 16 },
+								}}
+							>
+								<Image
+									resizeMode="cover"
+									source={{ uri: imageUrl }}
+									className="aspect-2/3 w-full"
+								/>
+							</Box>
+						)}
+
+						<Box className="min-w-0 grow">
+							<Box className="mb-2 self-start rounded bg-[rgba(201,148,58,0.35)] px-2 py-0.5">
+								<Text className="text-[11px] font-sans-semibold uppercase tracking-[1px] text-[#C9943A] web:text-[13px]">
+									{changeCase(entity.entitySchemaSlug)}
+								</Text>
+							</Box>
+
+							<Text
+								numberOfLines={3}
+								className="text-[28px] font-heading-semibold leading-tight text-white md:text-[36px] lg:text-[42px]"
+								style={{
+									textShadowRadius: 20,
+									textShadowColor: "rgba(0,0,0,0.4)",
+									textShadowOffset: { width: 0, height: 2 },
+								}}
+							>
+								{entity.name}
+							</Text>
+
+							<Box className="mt-3 flex-row flex-wrap items-center gap-3">
+								{entity.properties.publishYear != null && (
+									<Text className="text-[13px] text-white/70 web:text-[15px]">
+										{entity.properties.publishYear}
+									</Text>
+								)}
+								{entity.properties.publishYear != null && runtime !== null && (
+									<Text className="text-[13px] text-white/40 web:text-[15px]">·</Text>
+								)}
+								{runtime !== null && (
+									<Text className="text-[13px] text-white/70 web:text-[15px]">
+										{formatMinutes(runtime)}
+									</Text>
+								)}
+								{primaryCreator && (
+									<>
+										<Text className="text-[13px] text-white/40 web:text-[15px]">·</Text>
+										<Text className="text-[13px] text-white/70 web:text-[15px]">
+											{primaryCreator.name}
+										</Text>
+									</>
+								)}
+							</Box>
+
+							{genres.length > 0 && (
+								<Box className="mt-4 flex-row flex-wrap gap-2">
+									{genres.map((genre) => (
+										<Box
+											key={genre}
+											className="rounded-full border border-white/10 bg-white/15 px-2.5 py-1"
+										>
+											<Text className="text-[11px] font-sans-medium text-white/85 web:text-[13px]">
+												{genre}
+											</Text>
+										</Box>
+									))}
+								</Box>
+							)}
+
+							{providerRating !== null && (
+								<Box className="mt-5 flex-row flex-wrap items-center gap-6 border-t border-white/12 pt-4">
+									<Box className="flex-row items-center gap-2">
+										<Check size={16} color="#4ade80" strokeWidth={2} />
+										<Text className="text-[13px] font-sans-semibold text-[#4ade80]">Completed</Text>
+									</Box>
+									<Box className="flex-row items-center gap-2">
+										<Box className="flex-row gap-0.75">
+											{[1, 2, 3, 4, 5].map((i) => {
+												const filled = i <= Math.round(providerRating / 2);
+												return (
+													<Box
+														key={i}
+														className={clsx(
+															"h-6 w-5 rounded-[3px]",
+															filled ? "bg-[#C9943A]" : "bg-white/15",
+														)}
+													/>
+												);
+											})}
+										</Box>
+										<Text className="ml-2 font-heading-semibold text-[22px] text-white">
+											{providerRating.toFixed(1)}
+										</Text>
+									</Box>
+								</Box>
+							)}
+
+							<Box className="mt-5 flex-row flex-wrap gap-3">
+								<Pressable
+									disabled
+									className="flex-row items-center gap-2 rounded-full bg-[#C9943A] px-4 py-2.5 opacity-50"
+								>
+									<Plus size={16} color="#1c1917" strokeWidth={2} />
+									<Text className="text-[13px] font-sans-semibold text-[#1c1917] web:text-[15px]">
+										Log Event
+									</Text>
+								</Pressable>
+								<Pressable
+									disabled
+									accessibilityState={{ disabled: true }}
+									className="flex-row items-center gap-2 rounded-full border border-white/20 bg-white/12 px-4 py-2.5"
+								>
+									<Library size={16} color="#fff" strokeWidth={2} />
+									<Text className="text-[13px] font-sans-semibold text-white web:text-[15px]">
+										Add to Collection
+									</Text>
+								</Pressable>
+							</Box>
+						</Box>
+					</Box>
+				</Box>
+			</Box>
+		</Box>
+	);
+}

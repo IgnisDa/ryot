@@ -1,0 +1,16 @@
+{
+	"compilerOptions": {
+		"strict": true,
+		"noEmit": true,
+		"outDir": "dist",
+		"target": "ES2022",
+		"module": "ESNext",
+		"skipLibCheck": true,
+		"types": ["bun-types"],
+		"esModuleInterop": true,
+		"lib": ["ESNext", "DOM"],
+		"paths": { "~/*": ["./src/*"] },
+		"noUncheckedIndexedAccess": true,
+		"forceConsistentCasingInFileNames": true
+	}
+}

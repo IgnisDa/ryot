@@ -7,11 +7,7 @@ type BlogFrontmatter = {
 	properties: { labels: string[] };
 };
 
-export type BlogTableOfContentsItem = {
-	id: string;
-	depth: 2 | 3;
-	label: string;
-};
+export type BlogTableOfContentsItem = { id: string; depth: 2 | 3; label: string };
 
 type BlogPostModule = {
 	default: ComponentType;
@@ -25,10 +21,7 @@ export type BlogPost = {
 	tableOfContents?: readonly BlogTableOfContentsItem[];
 };
 
-const modules = import.meta.glob("./blog/**/*.mdx", { eager: true }) as Record<
-	string,
-	BlogPostModule
->;
+const modules = import.meta.glob<BlogPostModule>("./blog/**/*.mdx", { eager: true });
 
 const posts: Record<string, BlogPost> = Object.fromEntries(
 	Object.entries(modules).map(([path, module]) => [

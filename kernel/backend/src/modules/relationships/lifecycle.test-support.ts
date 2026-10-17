@@ -1,0 +1,435 @@
+import { definitionKey, definitionOwner } from "@ryot-app/contract/modules/plugins/references";
+import {
+	AutomationExecutionId,
+	EntityId,
+	EntitySchemaSlug,
+	RelationshipSchemaSlug,
+	UserId,
+} from "@ryot-app/contract/schema/brands";
+import { Context, Effect, Layer, Redacted, Ref } from "effect";
+import { Workflow } from "effect/workflow";
+import { WorkflowEngine } from "effect/workflow/WorkflowEngine";
+import { Client } from "pg";
+import { assert } from "vitest";
+
+import { managedAssetProperty } from "#lib/domain/managed-asset-writes.test-support";
+import { LifecyclePlannerServiceLive } from "#modules/automations/layer";
+import { withLifecycleDispatch } from "#modules/automations/lifecycle.test-support";
+import { rootLifecycleCommand } from "#modules/automations/lifecycle/command";
+import { LifecycleExecution } from "#modules/automations/lifecycle/execution";
+import { LifecyclePlanner } from "#modules/automations/lifecycle/planning";
+import { AutomationRunRepository } from "#modules/automations/run-repository";
+import { EventSchemaReader } from "#modules/definitions/event-schemas";
+import { DefinitionRepository } from "#modules/definitions/repository";
+import type { DefinitionSource } from "#modules/definitions/snapshot";
+import { EntitiesRepository } from "#modules/entities/repository";
+import { EntitiesService } from "#modules/entities/service";
+import { recordingDatabaseLayer } from "#modules/entities/statement-recording.test-support";
+import { DomainWriteChecksLive } from "#modules/entities/write-context";
+import { EventsRepository } from "#modules/events/repository";
+import { EventsService } from "#modules/events/service";
+import { PluginRuntimeResolver } from "#modules/plugins/catalog/runtime-resolver";
+import { PluginConfigEncryptionKey } from "#modules/plugins/configuration/encryption-key";
+import { PluginConfigRevisions } from "#modules/plugins/configuration/revisions";
+import { PluginInstallationRepository } from "#modules/plugins/installations/repository";
+import { PluginRepository } from "#modules/plugins/packages/repository";
+import {
+	installRevisionPackage,
+	revisionPackage,
+} from "#modules/plugins/packages/revision.test-support";
+import { PgClientLive } from "#platform/db/postgres";
+import { DatabaseSession } from "#platform/db/session";
+import { WorkflowExecutionNotifications } from "#platform/workflow/execution-notifications";
+import * as tables from "#schema/tables/combined";
+import { makeAppConfigLayer, makeConfigProviderLayer, makeWorkflowEngine } from "#testing/effect";
+import { IsolatedDatabase, isolatedDatabaseLayer } from "#testing/isolated-database";
+
+import { RelationshipMutationPipeline } from "./mutation-pipeline";
+import { RelationshipsRepository } from "./repository";
+import { RelationshipsService } from "./service";
+
+export const userId = UserId.make("relationship-owner");
+export const sourceEntityId = EntityId.make("relationship-source");
+export const targetEntityId = EntityId.make("relationship-target");
+export const relationshipSchemaSlug = RelationshipSchemaSlug.make("relationship-link");
+export const propertiesSchema = {
+	fields: {
+		image: managedAssetProperty,
+		rank: { label: "Rank", type: "number", description: "Rank" },
+		labels: {
+			type: "array",
+			label: "Labels",
+			description: "Labels",
+			items: { label: "Label", type: "string", description: "Label" },
+		},
+	},
+} as const;
+export const baseInput = {
+	userId,
+	sourceEntityId,
+	targetEntityId,
+	scope: "user" as const,
+	relationshipSchemaSlug,
+	properties: { rank: 1 },
+	relationshipSchemaPluginId: null,
+	relationshipSchema: { slug: relationshipSchemaSlug, owner: { kind: "kernel" as const } },
+};
+export const command = (id: string, actorUserId: UserId = userId) => ({
+	...rootLifecycleCommand({
+		source: "api",
+		lane: "interactive",
+		itemIdentity: "relationship",
+		occurredAt: "2026-09-15T00:00:00.000Z",
+		executionId: AutomationExecutionId.make(id),
+		initiator: { kind: "user", id: actorUserId },
+		accountGeneration: { userId: actorUserId, token: "test-account-generation" },
+	}),
+	writeContext: null,
+});
+
+export const ownedEndpoints = Effect.fnUntraced(function* (
+	installed: Pick<Effect.Success<ReturnType<typeof installRevisionPackage>>, "pluginId">,
+	slug: string,
+	scope: "global" | "user",
+) {
+	const entities = yield* EntitiesRepository;
+	const identity = {
+		properties: {},
+		populatedAt: null,
+		entitySchemaPluginId: installed.pluginId,
+		entitySchemaSlug: EntitySchemaSlug.make(slug),
+		...(scope === "global" ? { scope: "global" as const } : { userId, scope: "user" as const }),
+	};
+	const [source, target] = yield* entities.insertEntities([
+		{ ...identity, name: "Source", id: EntityId.make(`${installed.pluginId}-source`) },
+		{ ...identity, name: "Target", id: EntityId.make(`${installed.pluginId}-target`) },
+	]);
+	if (!source || !target) {
+		return yield* Effect.die("Fixture entities were not inserted");
+	}
+	return { sourceEntityId: source.id, targetEntityId: target.id };
+});
+
+export const installPolicyFixture = Effect.fn(function* (owner: UserId | null = userId) {
+	const fixture = revisionPackage(
+		"relationship-policy-scope",
+		"v1",
+		owner === null ? "global-policy-entity" : "fixture",
+	);
+	const script = fixture.scripts.find(({ metadata }) => metadata.kind === "automation");
+	const schema = fixture.manifest.relationshipSchemas[0];
+	assert(script?.metadata.kind === "automation" && schema);
+	const policy = {
+		...script,
+		slug: "relationship-policy-scope.policy",
+		contentHash: "relationship-policy-scope-hash",
+		metadata: {
+			...script.metadata,
+			capabilities: [],
+			automationType: "policy" as const,
+			slug: "relationship-policy-scope.policy",
+			inputProjection: { relationship: { properties: ["rank"] } },
+		},
+	};
+	const installed = yield* installRevisionPackage(
+		{
+			...fixture,
+			scripts: [...fixture.scripts, policy],
+			manifest: {
+				...fixture.manifest,
+				scripts: [
+					...fixture.manifest.scripts,
+					{ ...policy.metadata, entry: "backend/policy.sandbox.ts" },
+				],
+				relationshipSchemas: [
+					{
+						...schema,
+						propertiesSchema,
+						sourceEntitySchemaSlug: null,
+						targetEntitySchemaSlug: null,
+					},
+				],
+				hooks: [
+					...fixture.manifest.hooks,
+					...(["create", "update", "delete"] as const).map((operation) => ({
+						scriptSlug: policy.slug,
+						stage: "before" as const,
+						slug: `policy-${operation}`,
+						name: `Policy ${operation}`,
+						targets: [
+							{ operation, resource: "relationship" as const, relationshipSchemaSlug: schema.slug },
+						],
+					})),
+				],
+			},
+		},
+		owner,
+	);
+	const entityDeclaration = fixture.manifest.entitySchemas[0];
+	assert(entityDeclaration);
+	const endpoints = yield* ownedEndpoints(
+		installed,
+		entityDeclaration.slug,
+		owner === null ? "global" : "user",
+	);
+	return {
+		...baseInput,
+		...endpoints,
+		relationshipSchemaPluginId: installed.pluginId,
+		relationshipSchemaSlug: RelationshipSchemaSlug.make(schema.slug),
+		relationshipSchema: {
+			owner: definitionOwner(installed.pluginId),
+			slug: RelationshipSchemaSlug.make(schema.slug),
+		},
+	};
+});
+
+export class RelationshipFixture extends Context.Service<
+	RelationshipFixture,
+	{
+		readonly observer: Client;
+		readonly runLimitedPlanner: LifecyclePlanner["Service"];
+		readonly globalRelationshipSchemaCalls: Effect.Effect<ReadonlyArray<ReadonlyArray<string>>>;
+		readonly updateRelationshipSchema: Effect.Effect<void>;
+		readonly disableRelationshipSchema: Effect.Effect<void>;
+	}
+>()("test/RelationshipFixture") {}
+
+export const relationshipsServiceWith = Effect.fnUntraced(function* (lifecycle: {
+	readonly planner?: LifecyclePlanner["Service"];
+	readonly execution?: LifecycleExecution["Service"];
+}) {
+	const planner = lifecycle.planner ?? (yield* LifecyclePlanner);
+	const execution = lifecycle.execution ?? (yield* LifecycleExecution);
+	const provideLifecycle = <A, E, R>(effect: Effect.Effect<A, E, R>) =>
+		effect.pipe(
+			Effect.provideService(LifecyclePlanner, planner),
+			Effect.provideService(LifecycleExecution, execution),
+		);
+	const mutations = yield* provideLifecycle(RelationshipMutationPipeline.make);
+	return yield* provideLifecycle(
+		RelationshipsService.make.pipe(Effect.provideService(RelationshipMutationPipeline, mutations)),
+	);
+});
+
+export const relationshipDatabaseLayer = (
+	options: {
+		readonly holdLocks?: RegExp;
+		readonly activateSchemaOnWrite?: boolean;
+		readonly omitSchemaBeforeWrite?: boolean;
+		readonly mutableRelationshipSchema?: boolean;
+	} = {},
+) =>
+	Layer.unwrap(
+		Effect.gen(function* () {
+			const { url } = yield* IsolatedDatabase;
+			const observer = yield* Effect.acquireRelease(
+				Effect.gen(function* () {
+					const client = new Client({ connectionString: url });
+					yield* Effect.tryPromise(() => client.connect());
+					return client;
+				}),
+				(client) => Effect.promise(() => client.end()),
+			);
+			const database = { url: Redacted.make(url) };
+			const config = makeAppConfigLayer({ database });
+			const relationshipSchema = {
+				name: "Link",
+				pluginId: null,
+				propertiesSchema,
+				slug: relationshipSchemaSlug,
+				sourceEntitySchemaSlug: null,
+				targetEntitySchemaSlug: null,
+			};
+			const source: DefinitionSource = {
+				savedViews: [],
+				signalSchemas: [],
+				relationshipSchemas: [relationshipSchema],
+				entitySchemas: [
+					{
+						pluginId: null,
+						name: "Fixture",
+						icon: "fixture",
+						eventSchemas: [],
+						slug: EntitySchemaSlug.make("fixture"),
+						propertiesSchema: {
+							fields: { title: { label: "Title", type: "string", description: "Title" } },
+						},
+					},
+				],
+			};
+			const dependencies = Layer.mergeAll(
+				PluginRepository.layer,
+				PluginInstallationRepository.layer,
+				PluginConfigRevisions.layer,
+				PluginConfigEncryptionKey.layer,
+				RelationshipsRepository.layer,
+			);
+			const schemaActivated = yield* Ref.make(false);
+			const schemaState = yield* Ref.make<"active" | "disabled" | "updated">("active");
+			const globalRelationshipSchemaCalls = yield* Ref.make<Array<ReadonlyArray<string>>>([]);
+			const runtimeOnly =
+				options.activateSchemaOnWrite ||
+				options.omitSchemaBeforeWrite ||
+				options.mutableRelationshipSchema
+					? Layer.merge(
+							Layer.mock(PluginRuntimeResolver)({
+								lockCatalog: () => Ref.set(schemaActivated, options.activateSchemaOnWrite ?? false),
+							}),
+							Layer.effect(
+								DefinitionRepository,
+								Effect.gen(function* () {
+									const definitions = yield* DefinitionRepository.make;
+									return {
+										...definitions,
+										findGlobalRelationshipSchemas: (slugs) =>
+											Effect.gen(function* () {
+												yield* Ref.update(globalRelationshipSchemaCalls, (calls) => [
+													...calls,
+													slugs.map(({ slug }) => slug),
+												]);
+												return yield* definitions.findGlobalRelationshipSchemas(slugs);
+											}),
+										findUserRelationshipSchemas: (_userId, slugs) =>
+											Effect.gen(function* () {
+												const state = yield* Ref.get(schemaState);
+												const activated = yield* Ref.get(schemaActivated);
+												return options.omitSchemaBeforeWrite ||
+													state === "disabled" ||
+													!slugs.some(
+														({ slug, owner }) =>
+															owner.kind === "kernel" && slug === relationshipSchemaSlug,
+													)
+													? {}
+													: {
+															[definitionKey(
+																"relationship",
+																{ kind: "kernel" },
+																relationshipSchemaSlug,
+															)]:
+																activated || state === "updated"
+																	? {
+																			...relationshipSchema,
+																			propertiesSchema: {
+																				fields: {
+																					...relationshipSchema.propertiesSchema.fields,
+																					activated: {
+																						label: "Activated",
+																						type: "boolean" as const,
+																						description: "Activated",
+																					},
+																				},
+																			},
+																		}
+																	: relationshipSchema,
+														};
+											}),
+									};
+								}),
+							),
+						)
+					: Layer.merge(
+							PluginRuntimeResolver.layer.pipe(Layer.provide(dependencies)),
+							DefinitionRepository.layer,
+						);
+			const runtime = Layer.merge(dependencies, runtimeOnly);
+			const ownerDependencies = Layer.mergeAll(
+				EntitiesRepository.layer,
+				DomainWriteChecksLive,
+				LifecyclePlannerServiceLive,
+			).pipe(
+				Layer.provideMerge(runtime),
+				Layer.provideMerge(
+					Layer.effect(
+						LifecycleExecution,
+						Effect.gen(function* () {
+							const session = yield* DatabaseSession;
+							const runs = yield* AutomationRunRepository.make;
+							return withLifecycleDispatch(
+								{
+									after: () => Effect.succeed([]),
+									skipQueuedPolicies: (input) => runs.skipQueuedPolicies(input),
+									executePolicy: () => Effect.die("Unexpected policy in relationship fixture"),
+								},
+								session,
+							);
+						}),
+					),
+				),
+			);
+			const eventsRepository = EventsRepository.layer;
+			const eventSchemasRepository = EventSchemaReader.layer.pipe(Layer.provide(runtime));
+			const eventEngine = Layer.succeed(
+				WorkflowEngine,
+				makeWorkflowEngine({
+					activityExecute: (activity) =>
+						Effect.map(Effect.exit(activity.execute), (exit) => new Workflow.Complete({ exit })),
+				}),
+			);
+			const eventsService = EventsService.layer.pipe(
+				Layer.provide(
+					Layer.mergeAll(
+						ownerDependencies,
+						eventsRepository,
+						eventSchemasRepository,
+						eventEngine,
+						WorkflowExecutionNotifications.layer,
+					),
+				),
+			);
+			const services = Layer.mergeAll(RelationshipsService.layer, EntitiesService.layer).pipe(
+				Layer.provideMerge(RelationshipMutationPipeline.layer),
+				Layer.provideMerge(Layer.mergeAll(ownerDependencies, eventsRepository, eventsService)),
+				Layer.provideMerge(
+					recordingDatabaseLayer(options.holdLocks ? { holdLocks: options.holdLocks } : {}).pipe(
+						Layer.provide(PgClientLive),
+					),
+				),
+				Layer.provideMerge(config),
+			);
+			const seed = Layer.effectDiscard(
+				Effect.gen(function* () {
+					const session = yield* DatabaseSession;
+					yield* (yield* DefinitionRepository.make).replaceKernelDefinitions(source);
+					yield* session.run((db) =>
+						Effect.gen(function* () {
+							yield* db
+								.insert(tables.user)
+								.values({
+									id: userId,
+									name: "Owner",
+									email: "relationship@example.test",
+									accountGeneration: "test-account-generation",
+								});
+							yield* db.insert(tables.entity).values([
+								{ name: "Source", properties: {}, id: sourceEntityId, entitySchemaSlug: "fixture" },
+								{ name: "Target", properties: {}, id: targetEntityId, entitySchemaSlug: "fixture" },
+							]);
+						}),
+					);
+				}),
+			);
+			const fixture = Layer.effect(
+				RelationshipFixture,
+				Effect.gen(function* () {
+					return {
+						observer,
+						runLimitedPlanner: yield* LifecyclePlanner,
+						updateRelationshipSchema: Ref.set(schemaState, "updated"),
+						disableRelationshipSchema: Ref.set(schemaState, "disabled"),
+						globalRelationshipSchemaCalls: Ref.get(globalRelationshipSchemaCalls),
+					};
+				}),
+			).pipe(
+				Layer.provide(
+					Layer.fresh(LifecyclePlannerServiceLive).pipe(
+						Layer.provide(makeAppConfigLayer({ database, automations: { maxRuns: 1 } })),
+					),
+				),
+			);
+			return Layer.merge(seed, fixture).pipe(Layer.provideMerge(services));
+		}),
+	).pipe(
+		Layer.provide(isolatedDatabaseLayer("relationship_test")),
+		Layer.provideMerge(makeConfigProviderLayer()),
+	);

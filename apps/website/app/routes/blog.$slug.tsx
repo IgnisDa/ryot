@@ -2,12 +2,16 @@ import { ArrowLeft } from "lucide-react";
 import type { MetaFunction } from "react-router";
 import { Link } from "react-router";
 import { $path } from "safe-routes";
+
 import { getBlogPost } from "~/content/blog-registry";
 import { Badge } from "~/lib/components/ui/badge";
+
 import type { Route } from "./+types/blog.$slug";
 
 export function loader({ params }: Route.LoaderArgs) {
 	if (!getBlogPost(params.slug)) {
+		// React Router uses thrown responses to render the route-level 404 boundary.
+		// oxlint-disable-next-line typescript/only-throw-error
 		throw new Response("Not Found", { status: 404 });
 	}
 
@@ -30,7 +34,9 @@ export const meta: MetaFunction<typeof loader> = ({ params }) => {
 export default function Page(props: Route.ComponentProps) {
 	const post = getBlogPost(props.params.slug);
 
-	if (!post) return null;
+	if (!post) {
+		return null;
+	}
 
 	const Article = post.content;
 	const publishedDate = new Intl.DateTimeFormat("en-US", {
@@ -60,9 +66,7 @@ export default function Page(props: Route.ComponentProps) {
 						{post.frontmatter.title}
 					</h1>
 					<p className="mt-4 text-sm text-muted-foreground">
-						<time dateTime={post.frontmatter.publishedAt}>
-							Published on {publishedDate}
-						</time>
+						<time dateTime={post.frontmatter.publishedAt}>Published on {publishedDate}</time>
 					</p>
 					<p className="mt-6 max-w-3xl text-lg leading-relaxed text-muted-foreground sm:text-xl">
 						{post.frontmatter.description}
@@ -81,7 +85,7 @@ export default function Page(props: Route.ComponentProps) {
 								<p className="mb-4 text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">
 									On this page
 								</p>
-								<nav aria-label="Table of contents" className="space-y-2">
+								<nav className="space-y-2" aria-label="Table of contents">
 									{post.tableOfContents.map((item) => (
 										<a
 											key={item.id}

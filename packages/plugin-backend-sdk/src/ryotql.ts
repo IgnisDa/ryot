@@ -1,0 +1,46 @@
+import type { RyotQLDocument } from "@ryot-app/contract/modules/ryotql/language";
+import { Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
+import type { PreparedRecipe } from "@ryot-app/ryotql";
+
+export * from "@ryot-app/ryotql";
+export type { RyotQLDocument } from "@ryot-app/contract/modules/ryotql/language";
+export { JsonValue } from "@ryot-app/contract/schema/json";
+export {
+	entityReadRecipe,
+	eventReadRecipe,
+	type EntityReadResult,
+	type EventReadResult,
+} from "@ryot-app/ryotql-recipes/scripts";
+export { userMediaLibraryRecipe } from "@ryot-app/ryotql-recipes/user-media-library";
+export { IsoDateString } from "@ryot-app/ryotql-recipes/codecs";
+export {
+	eventIsAfter,
+	eventOrderAscending,
+	eventOrderDescending,
+	latestEventField,
+} from "@ryot-app/ryotql-recipes/event-expressions";
+
+export class RyotqlRecipeDecodeError extends Schema.TaggedError<
+	RyotqlRecipeDecodeError,
+	{ readonly brand: unique symbol }
+>()("RyotqlRecipeDecodeError", { message: Schema.String }) {}
+
+export const executeRyotqlRecipe = <Success, Error, Requirements>(
+	executeRyotql: (document: RyotQLDocument) => Effect.Effect<unknown, Error, Requirements>,
+	recipe: PreparedRecipe<Success>,
+) =>
+	executeRyotql(recipe.document).pipe(
+		Effect.flatMap((response) => {
+			const decoded = recipe.decode(response);
+			return decoded._tag === "Failure"
+				? Effect.fail(
+						new RyotqlRecipeDecodeError({
+							message:
+								decoded.failure instanceof Error
+									? decoded.failure.message
+									: "RyotQL recipe response is malformed",
+						}),
+					)
+				: Effect.succeed(decoded.success);
+		}),
+	);

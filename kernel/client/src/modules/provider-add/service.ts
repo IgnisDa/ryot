@@ -1,0 +1,102 @@
+import type {
+	ImportEntityBody,
+	SearchProviderEntitiesBody,
+} from "@ryot-app/contract/modules/entity-providers/schemas";
+import type { EntitySchemaReference } from "@ryot-app/contract/modules/plugins/references";
+import type { SandboxProviderId } from "@ryot-app/contract/schema/brands";
+import { providerEntityLinksRecipe } from "@ryot-app/ryotql-recipes/provider-entity-links";
+import { providerSearchRecipe } from "@ryot-app/ryotql-recipes/provider-search";
+import type { ProviderSearchResult } from "@ryot-app/ryotql-recipes/provider-search";
+import { Context, Data, Effect, Layer } from "effect";
+
+import { EntityProvidersApi } from "#/api/entity-providers";
+import type { KernelRyotClient } from "#/api/ryot-client";
+import type { ApiScope } from "#/api/scope";
+
+type ProviderAddClient = Pick<KernelRyotClient, "data">;
+
+export type ProviderSearchSummary = ProviderSearchResult["items"][number];
+
+export class ProviderAddLoadError extends Data.TaggedError("ProviderAddLoadError")<{
+	readonly cause: unknown;
+	readonly stage: "providers" | "links" | "options" | "search" | "import";
+}> {}
+
+export class ProviderAddService extends Context.Service<ProviderAddService>()(
+	"ProviderAddService",
+	{
+		make: Effect.gen(function* () {
+			const api = yield* EntityProvidersApi;
+			const loadProviders = Effect.fn("ProviderAddService.loadProviders")(function* (
+				client: ProviderAddClient,
+				rootEntitySchema: EntitySchemaReference,
+			) {
+				return yield* client.data
+					.query(providerSearchRecipe({ schema: rootEntitySchema }))
+					.pipe(
+						Effect.mapError((cause) => new ProviderAddLoadError({ cause, stage: "providers" })),
+					);
+			});
+			const loadEntityLinks = Effect.fn("ProviderAddService.loadEntityLinks")(function* (
+				client: ProviderAddClient,
+				input: Parameters<typeof providerEntityLinksRecipe>[0],
+			) {
+				return yield* client.data
+					.query(providerEntityLinksRecipe(input))
+					.pipe(Effect.mapError((cause) => new ProviderAddLoadError({ cause, stage: "links" })));
+			});
+			const loadSearchOptions = Effect.fn("ProviderAddService.loadSearchOptions")(function* (
+				scope: ApiScope,
+				providerId: SandboxProviderId,
+			) {
+				return yield* api
+					.searchOptions(scope, { payload: { providerId } })
+					.pipe(
+						Effect.mapError(
+							(error) => new ProviderAddLoadError({ stage: "options", cause: error.cause }),
+						),
+					);
+			});
+			const search = Effect.fn("ProviderAddService.search")(function* (
+				scope: ApiScope,
+				payload: SearchProviderEntitiesBody,
+			) {
+				return yield* api
+					.search(scope, { payload })
+					.pipe(
+						Effect.mapError(
+							(error) => new ProviderAddLoadError({ stage: "search", cause: error.cause }),
+						),
+					);
+			});
+			const startImport = Effect.fn("ProviderAddService.startImport")(function* (
+				scope: ApiScope,
+				payload: ImportEntityBody,
+			) {
+				return yield* api
+					.import(scope, { payload })
+					.pipe(
+						Effect.mapError(
+							(error) => new ProviderAddLoadError({ stage: "import", cause: error.cause }),
+						),
+					);
+			});
+			const pollImport = Effect.fn("ProviderAddService.pollImport")(function* (
+				scope: ApiScope,
+				jobId: string,
+			) {
+				return yield* api
+					.getImportResult(scope, { params: { jobId } })
+					.pipe(
+						Effect.mapError(
+							(error) => new ProviderAddLoadError({ stage: "import", cause: error.cause }),
+						),
+					);
+			});
+
+			return { search, pollImport, startImport, loadProviders, loadEntityLinks, loadSearchOptions };
+		}),
+	},
+) {
+	static readonly layer = Layer.effect(this, this.make);
+}

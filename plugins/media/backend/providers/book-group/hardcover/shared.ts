@@ -1,0 +1,160 @@
+import { defineManifest } from "@ryot-app/plugin-backend-sdk/driver";
+import { Effect } from "@ryot-app/plugin-backend-sdk/effect";
+import { defineProvider } from "@ryot-app/plugin-backend-sdk/provider";
+
+import { MediaSandboxError } from "../../../lib/failures";
+import { asRecord, numberValue, stringValue } from "../../../lib/records";
+import { normalizeRichDescription } from "../../../lib/rich-description";
+import { getHardcoverApiKey, hardcoverGql, idValue } from "../../../lib/vendors/hardcover";
+
+export const manifest = defineManifest({
+	kind: "provider",
+	name: "Hardcover",
+	slug: "book-group.hardcover",
+});
+
+export const search = defineProvider({
+	manifest,
+	operation: "search",
+	run: (input, host) =>
+		Effect.gen(function* () {
+			const apiKey = yield* getHardcoverApiKey(host);
+			const graphqlQuery = `
+query SearchHardcover($query: String!) {
+  search(
+    page: ${input.page},
+    per_page: ${input.pageSize},
+    query: $query,
+    query_type: "series"
+  ) {
+    results
+  }
+}
+`;
+			const payloadValue = yield* hardcoverGql(
+				host,
+				{ query: graphqlQuery, variables: { query: input.query } },
+				apiKey,
+				"Hardcover GraphQL request failed",
+			);
+			const payload = asRecord(payloadValue);
+			const resultsData = asRecord(asRecord(asRecord(payload?.["data"])?.["search"])?.["results"]);
+			if (!resultsData) {
+				return yield* new MediaSandboxError({
+					message: "Hardcover returned invalid response structure",
+				});
+			}
+			const found = numberValue(resultsData["found"]);
+			const totalItems = found === null ? 0 : Math.max(0, Math.trunc(found));
+			const hits = resultsData["hits"];
+			const items = (Array.isArray(hits) ? hits : []).flatMap((hit) => {
+				const doc = asRecord(asRecord(hit)?.["document"]);
+				const externalId = idValue(doc?.["id"]);
+				const name = stringValue(doc?.["name"]);
+				if (!externalId || !name) {
+					return [];
+				}
+				const parts = numberValue(doc?.["books_count"]);
+				const image = stringValue(asRecord(doc?.["image"])?.["url"]);
+				return [
+					{
+						externalId,
+						title: name,
+						...(image === null ? {} : { imageUrl: image }),
+						...(parts === null ? {} : { metadata: [parts] as const }),
+					},
+				];
+			});
+			return {
+				items,
+				details: {
+					totalItems,
+					nextPage: input.page * input.pageSize < totalItems ? input.page + 1 : null,
+				},
+			};
+		}),
+});
+
+export const details = defineProvider({
+	manifest,
+	operation: "details",
+	run: (input, host) =>
+		Effect.gen(function* () {
+			const graphqlQuery = `
+{
+  series_by_pk(id: ${input.externalId}) {
+    id
+    name
+    slug
+    books_count
+    description
+    book_series(
+      order_by: { position: asc }
+      where: {
+        book: {
+          book_status_id: { _eq: "1" }, compilation: { _eq: false },
+          default_physical_edition: { language_id: { _eq: 1 } }
+        }
+      }
+    ) {
+      book { id title }
+    }
+  }
+}
+`;
+			const apiKey = yield* getHardcoverApiKey(host);
+			const payloadValue = yield* hardcoverGql(
+				host,
+				{ query: graphqlQuery },
+				apiKey,
+				"Hardcover GraphQL request failed",
+			);
+			const data = asRecord(asRecord(asRecord(payloadValue)?.["data"])?.["series_by_pk"]);
+			if (!data) {
+				return yield* new MediaSandboxError({ message: "Hardcover returned no series data" });
+			}
+			const title = stringValue(data["name"]);
+			if (!title) {
+				return yield* new MediaSandboxError({ message: "Hardcover series is missing name" });
+			}
+			const bookSeries = data["book_series"];
+			const relatedEntities = (Array.isArray(bookSeries) ? bookSeries : []).flatMap(
+				(entry, idx) => {
+					const book = asRecord(asRecord(entry)?.["book"]);
+					const memberId = idValue(book?.["id"]);
+					if (!memberId) {
+						return [];
+					}
+					return [
+						{
+							externalId: memberId,
+							providerSlug: "book.hardcover",
+							relationshipProperties: { order: idx + 1 },
+							name: stringValue(book?.["title"]) ?? "Loading...",
+						},
+					];
+				},
+			);
+			const slug = stringValue(data["slug"]);
+			return {
+				name: title,
+				relatedEntityGroups: [
+					{
+						entities: relatedEntities,
+						direction: "outgoing" as const,
+						synchronization: "authoritative" as const,
+						relationshipSchemaSlug: "book-group-to-book",
+					},
+				],
+				properties: {
+					images: [],
+					parts: numberValue(data["books_count"]),
+					sourceUrl: slug ? `https://hardcover.app/series/${slug}` : null,
+					description: yield* normalizeRichDescription(
+						data["description"],
+						"https://hardcover.app",
+					),
+				},
+			};
+		}),
+});

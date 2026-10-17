@@ -1,0 +1,90 @@
+import type { DbError } from "@ryot-app/contract/errors";
+import type { AutomationRun } from "@ryot-app/contract/modules/automations/lifecycle";
+import { Context, DateTime, Duration, Effect, Layer } from "effect";
+
+import type { CronTask } from "#modules/scheduler/types";
+
+import {
+	AUTOMATION_IMMEDIATE_CONCURRENCY,
+	AUTOMATION_IMMEDIATE_TIMEOUT_MS,
+	AutomationExecutionOperations,
+} from "./execution";
+import { AutomationRunRepository } from "./run-repository";
+
+export const AUTOMATION_RECONCILIATION_BATCH_SIZE = 100;
+
+export class AutomationReconciliationOperations extends Context.Service<
+	AutomationReconciliationOperations,
+	{
+		listQueuedCandidates: (input: {
+			now: Date;
+			limit: number;
+			initialQueuedBefore: Date;
+		}) => Effect.Effect<ReadonlyArray<Pick<AutomationRun, "id" | "attemptCount">>, DbError>;
+		submit: AutomationExecutionOperations["Service"]["submit"];
+	}
+>()("AutomationReconciliationOperations") {}
+
+export const AutomationReconciliationOperationsLive = Layer.effect(
+	AutomationReconciliationOperations,
+	Effect.gen(function* () {
+		const repository = yield* AutomationRunRepository;
+		const execution = yield* AutomationExecutionOperations;
+		return AutomationReconciliationOperations.of({
+			submit: execution.submit,
+			listQueuedCandidates: (input) => repository.listQueuedCandidates(input),
+		});
+	}),
+);
+
+export class AutomationReconciliation extends Context.Service<AutomationReconciliation>()(
+	"AutomationReconciliation",
+	{
+		make: Effect.gen(function* () {
+			const operations = yield* AutomationReconciliationOperations;
+			const reconcile = Effect.fn("AutomationReconciliation.reconcile")(function* () {
+				const current = yield* DateTime.now;
+				const now = DateTime.toDate(current);
+				const candidates = yield* operations.listQueuedCandidates({
+					now,
+					limit: AUTOMATION_RECONCILIATION_BATCH_SIZE,
+					// The committing workflow must submit a new run first to become its parent and be woken by its
+					// exit, so a first attempt is reconciled only after that wait ends.
+					initialQueuedBefore: DateTime.toDate(
+						DateTime.subtractDuration(current, Duration.millis(AUTOMATION_IMMEDIATE_TIMEOUT_MS)),
+					),
+				});
+				yield* Effect.forEach(
+					candidates,
+					(run) => {
+						const payload = {
+							runId: run.id,
+							acceptedPatches: [],
+							attemptNumber: run.attemptCount + 1,
+						};
+						return operations.submit(payload).pipe(
+							Effect.timeout(AUTOMATION_IMMEDIATE_TIMEOUT_MS),
+							Effect.catchCause(() =>
+								Effect.logWarning("automation reconciliation submission failed").pipe(
+									Effect.annotateLogs(payload),
+								),
+							),
+						);
+					},
+					{ discard: true, concurrency: AUTOMATION_IMMEDIATE_CONCURRENCY },
+				);
+			});
+			return { reconcile };
+		}),
+	},
+) {
+	static readonly layer = Layer.effect(this, this.make);
+}
+
+export const automationsFrequentTask: CronTask<never, AutomationReconciliation> = {
+	name: "automations-reconciliation",
+	run: () =>
+		Effect.flatMap(AutomationReconciliation, (service) => service.reconcile()).pipe(
+			Effect.catchCause(() => Effect.logWarning("automation reconciliation listing failed")),
+		),
+};

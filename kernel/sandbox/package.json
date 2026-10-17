@@ -1,0 +1,62 @@
+{
+	"name": "@ryot-app/sandbox",
+	"private": true,
+	"exports": {
+		"./host/admission": "./src/host/admission.ts",
+		"./host/authority": "./src/host/authority.ts",
+		"./host/bridge-adapter": "./src/host/bridge-adapter.ts",
+		"./host/client": "./src/host/client.ts",
+		"./host/config": "./src/host/config.ts",
+		"./host/execution-file-staging": "./src/host/execution-file-staging.ts",
+		"./host/execution-files": "./src/host/execution-files.ts",
+		"./host/executor": "./src/host/executor.ts",
+		"./host/executor.test-support": "./src/host/executor.test-support.ts",
+		"./host/file-access": "./src/host/file-access.ts",
+		"./host/filesystem-grants": "./src/host/filesystem-grants.ts",
+		"./host/host-call-gate": "./src/host/host-call-gate.ts",
+		"./host/host-execution-policy": "./src/host/host-execution-policy.ts",
+		"./host/host-functions": "./src/host/host-functions.ts",
+		"./host/host.test-support": "./src/host/host.test-support.ts",
+		"./host/inline-progress": "./src/host/inline-progress.ts",
+		"./host/invocation": "./src/host/invocation.ts",
+		"./host/metrics": "./src/host/metrics.ts",
+		"./host/observability": "./src/host/observability.ts",
+		"./host/pinned-journal": "./src/host/pinned-journal.ts",
+		"./host/pinned-journal.test-support": "./src/host/pinned-journal.test-support.ts",
+		"./host/principal": "./src/host/principal.ts",
+		"./host/quarantine": "./src/host/quarantine.ts",
+		"./host/recovery-native.test-support": "./src/host/recovery-native.test-support.ts",
+		"./host/recovery-store": "./src/host/recovery-store.ts",
+		"./host/redis": "./src/host/redis.ts",
+		"./host/run-input.test-support": "./src/host/run-input.test-support.ts",
+		"./host/short-wait": "./src/host/short-wait.ts",
+		"./host/snapshot-tier": "./src/host/snapshot-tier.ts",
+		"./host/supervisor": "./src/host/supervisor.ts",
+		"./protocol/limits": "./src/protocol/limits.ts",
+		"./protocol/messages": "./src/protocol/messages.ts"
+	},
+	"scripts": {
+		"protocol:fixtures": "bun tooling/protocol-fixtures.ts",
+		"test": "bun --bun run vitest run && cd native && cargo test",
+		"build": "bun run tooling/runtime.ts && cd native && cargo build --release --bins && cargo run --release --bin ryot-sandbox-artifacts -- ../dist",
+		"check": "oxfmt . --write && oxlint . --fix && bun tooling/protocol-fixtures.ts --check && cd native && cargo fmt --check && cargo clippy --all-targets -- -D warnings"
+	},
+	"dependencies": {
+		"@effect/platform-bun": "4.0.5",
+		"@ryot-app/contract": "workspace:*",
+		"@ryot-app/plugin-backend-compiler": "workspace:*",
+		"@ryot-app/plugin-backend-sdk": "workspace:*",
+		"@ryot-app/ts-utils": "workspace:*",
+		"@ryot-app/vite-compiler": "workspace:*",
+		"effect": "4.0.5",
+		"ioredis": "5.11.1"
+	},
+	"devDependencies": {
+		"@effect/vitest": "4.0.5",
+		"@ryot-app/testing": "workspace:*",
+		"@types/ioredis": "5.0.0",
+		"bun-types": "1.4.3",
+		"dotenv": "17.3.1",
+		"vitest": "4.1.9"
+	}
+}

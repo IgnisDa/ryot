@@ -1,0 +1,100 @@
+import { Effect, FileSystem, Path } from "effect";
+
+import type { shippedPluginTestProviders } from "~/fixtures/kernel/sandbox-provider";
+
+const detailsSource = (input: { exerciseName: string; slug: string }) => `
+import { defineManifest } from "@ryot-app/plugin-backend-sdk/driver";
+import { Effect } from "@ryot-app/plugin-backend-sdk/effect";
+import { defineProvider } from "@ryot-app/plugin-backend-sdk/provider";
+
+import { getExerciseDetails } from "../free-exercise-db/shared";
+
+export const manifest = defineManifest({
+  kind: "provider",
+  name: "E2E Free Exercise DB details",
+  slug: ${JSON.stringify(input.slug)},
+});
+
+const exerciseData = ${JSON.stringify([
+	{
+		force: "push",
+		level: "beginner",
+		category: "strength",
+		equipment: "barbell",
+		mechanic: "compound",
+		name: input.exerciseName,
+		primaryMuscles: ["chest"],
+		images: ["e2e-taxonomy.jpg"],
+		secondaryMuscles: ["triceps"],
+		instructions: ["Press the bar with control."],
+	},
+])};
+const host = {
+  httpCall: () => Effect.succeed({
+    status: 200,
+    headers: {},
+    body: JSON.stringify(exerciseData),
+  }),
+  getCachedValue: () => Effect.succeed(null),
+  setCachedValue: () => Effect.succeed(null),
+};
+
+export default defineProvider({
+  manifest,
+  operation: "details",
+  run: (input, _host, execution) => getExerciseDetails(input, host, execution),
+});
+`;
+
+export const attachFitnessTaxonomyProvider = (
+	providers: Effect.Success<ReturnType<typeof shippedPluginTestProviders>>,
+) =>
+	Effect.gen(function* () {
+		const path = yield* Path.Path;
+		const fs = yield* FileSystem.FileSystem;
+		const fitnessRoot = yield* path.fromFileUrl(
+			new URL("../../../../../plugins/fitness/", import.meta.url),
+		);
+		const [sharedSource, exerciseKindsSource, taxonomySource] = yield* Effect.all([
+			fs.readFileString(
+				path.join(fitnessRoot, "backend/providers/exercise/free-exercise-db/shared.ts"),
+			),
+			fs.readFileString(path.join(fitnessRoot, "shared/exercise-kinds.ts")),
+			fs.readFileString(path.join(fitnessRoot, "shared/taxonomy.ts")),
+		]);
+		const suffix = crypto.randomUUID();
+		const exerciseName = `E2E Taxonomy Exercise ${suffix}`;
+		const providerSlug = `exercise.e2e-free-exercise-db-${suffix}`;
+		const detailsScriptSlug = `${providerSlug}.details`;
+		const detailsEntry = `backend/providers/exercise/e2e-free-exercise-db-${suffix}/details.sandbox.ts`;
+		const { taxonomy } = yield* providers.attachDeclarations({
+			taxonomy: {
+				provider: {
+					slug: providerSlug,
+					name: "E2E Free Exercise DB",
+					information: { source: "e2e" },
+					rootEntitySchemaSlug: "exercise",
+					operations: { details: detailsScriptSlug },
+				},
+				files: {
+					"shared/taxonomy.ts": taxonomySource,
+					"shared/exercise-kinds.ts": exerciseKindsSource,
+					"backend/providers/exercise/free-exercise-db/shared.ts": sharedSource,
+					[detailsEntry]: detailsSource({ exerciseName, slug: detailsScriptSlug }),
+				},
+				scripts: [
+					{
+						providerSlug,
+						capabilities: [],
+						kind: "provider",
+						entry: detailsEntry,
+						slug: detailsScriptSlug,
+						providerOperation: "details",
+						requiredPluginConfigKeys: [],
+						name: "E2E Free Exercise DB details",
+					},
+				],
+			},
+		});
+		return { exerciseName, providerId: taxonomy.providerId };
+	});

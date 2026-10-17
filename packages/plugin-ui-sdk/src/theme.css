@@ -1,0 +1,165 @@
+@theme inline {
+	--color-bg: var(--bg);
+	--color-info: var(--info);
+	--color-text: var(--text);
+	--color-hover: var(--hover);
+	--color-focus: var(--focus);
+	--color-overlay: var(--overlay);
+	--color-accent-deep: var(--accent-deep);
+	--color-accent: var(--accent);
+	--color-border: var(--border);
+	--color-border-card: var(--border-card);
+	--color-danger: var(--danger);
+	--color-raised: var(--raised);
+	--color-success: var(--success);
+	--color-warning: var(--warning);
+	--color-surface: var(--surface);
+	--color-surface-2: var(--surface-2);
+	--color-surface-3: var(--surface-3);
+	--color-info-soft: var(--info-soft);
+	--color-translate: var(--translate);
+	--color-text-muted: var(--text-muted);
+	--color-accent-ink: var(--accent-ink);
+	--color-danger-ink: var(--danger-ink);
+	--color-accent-soft: var(--accent-soft);
+	--color-danger-soft: var(--danger-soft);
+	--color-accent-hover: var(--accent-hover);
+	--color-warning-soft: var(--warning-soft);
+	--color-accent-text: var(--accent-text);
+	--color-text-subtle: var(--text-subtle);
+	--color-danger-solid: var(--danger-solid);
+	--color-nav-indicator: var(--nav-indicator);
+	--color-success-soft: var(--success-soft);
+	--color-accent-border: var(--accent-border);
+	--color-border-strong: var(--border-strong);
+	--color-border-emphasis: var(--border-emphasis);
+	--color-group-blue: var(--group-blue);
+	--color-group-teal: var(--group-teal);
+	--color-group-purple: var(--group-purple);
+	--color-group-orange: var(--group-orange);
+	--color-group-crimson: var(--group-crimson);
+	--color-group-blue-soft: var(--group-blue-soft);
+	--color-group-teal-soft: var(--group-teal-soft);
+	--color-group-purple-soft: var(--group-purple-soft);
+	--color-group-orange-soft: var(--group-orange-soft);
+	--color-group-crimson-soft: var(--group-crimson-soft);
+	--color-chart-accent: var(--chart-accent);
+	--color-chart-seq-0: var(--chart-seq-0);
+	--color-chart-seq-1: var(--chart-seq-1);
+	--color-chart-seq-2: var(--chart-seq-2);
+	--color-chart-seq-3: var(--chart-seq-3);
+	--color-chart-seq-4: var(--chart-seq-4);
+	--color-chart-seq-5: var(--chart-seq-5);
+	--font-ui: var(--font-family-ui);
+	--font-display: var(--font-family-display);
+	--text-title: 1.75rem;
+	--text-title--line-height: 2.125rem;
+	--text-timer: 2rem;
+	--text-timer--line-height: 2.25rem;
+	--text-metric: 1.375rem;
+	--text-metric--line-height: 1.625rem;
+	--text-display: 2.25rem;
+	--text-display--line-height: 2.625rem;
+	--text-heading: 1.125rem;
+	--text-heading--line-height: 1.5rem;
+	--radius-sm: var(--r-sm);
+	--radius-md: var(--r-md);
+	--radius-lg: var(--r-lg);
+	--radius-xl: var(--r-xl);
+	--radius-pill: var(--r-pill);
+	--shadow-sm: var(--shadow-small);
+	--shadow-card: var(--shadow-raised);
+	--shadow-modal: var(--shadow-overlay);
+	--animate-sheet-in: sheet-in 240ms cubic-bezier(0.2, 0.7, 0.2, 1);
+	--animate-sheet-up: sheet-up 240ms cubic-bezier(0.2, 0.7, 0.2, 1);
+	--animate-dialog-in: dialog-in 200ms cubic-bezier(0.2, 0.7, 0.2, 1);
+	--animate-sync-pulse: sync-pulse 1.4s ease-in-out infinite;
+	--animate-settle-ring: settle-ring 900ms ease-out forwards;
+	--animate-sync-sweep: sync-sweep 1.8s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+@keyframes dialog-in {
+	from {
+		opacity: 0;
+		transform: translateY(6px) scale(0.98);
+	}
+}
+
+@keyframes sheet-in {
+	from {
+		transform: translateX(24px);
+		opacity: 0;
+	}
+}
+
+@keyframes sheet-up {
+	from {
+		transform: translateY(40px);
+		opacity: 0;
+	}
+}
+
+@keyframes sync-pulse {
+	0%,
+	100% {
+		opacity: 1;
+	}
+
+	50% {
+		opacity: 0.3;
+	}
+}
+
+@keyframes sync-sweep {
+	from {
+		transform: translateX(-100%);
+	}
+
+	to {
+		transform: translateX(100%);
+	}
+}
+
+@keyframes settle-ring {
+	from {
+		box-shadow: 0 0 0 2px var(--settle-ring-color);
+	}
+
+	to {
+		box-shadow: 0 0 0 7px transparent;
+	}
+}
+
+@layer base {
+	:root {
+		--ts-chart-1: var(--chart-accent);
+		--ts-chart-focus-fill: var(--surface);
+		--ts-chart-tooltip-color: var(--text);
+		--ts-chart-tooltip-background: var(--raised);
+		--ts-chart-tooltip-border: 1px solid var(--border);
+		--ts-chart-tooltip-border-radius: var(--r-sm);
+		--ts-chart-tooltip-shadow: var(--shadow-raised);
+		--ts-chart-tooltip-font: 500 0.75rem/1.3 var(--font-family-ui);
+	}
+
+	button:not(:disabled),
+	[role="button"]:not([aria-disabled="true"]),
+	label:has(input:where([type="checkbox"], [type="radio"]):not(:disabled)) {
+		cursor: pointer;
+	}
+
+	button:disabled,
+	fieldset:disabled,
+	[aria-disabled="true"] {
+		cursor: not-allowed;
+	}
+
+	input:where([inputmode="decimal"], [inputmode="numeric"], [type="number"]) {
+		font-variant-numeric: tabular-nums;
+	}
+
+	:focus-visible {
+		outline: 2px solid var(--focus);
+		outline-offset: 2px;
+	}
+}

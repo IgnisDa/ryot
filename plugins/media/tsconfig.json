@@ -1,0 +1,15 @@
+{
+	"extends": "../../tsconfig.options.json",
+	"compilerOptions": {
+		"strict": true,
+		"outDir": "dist",
+		"jsx": "react-jsx",
+		"module": "esnext",
+		"types": ["bun-types"],
+		"lib": ["ESNext", "DOM"],
+		"moduleResolution": "bundler",
+		"verbatimModuleSyntax": false,
+		"noUncheckedIndexedAccess": true,
+		"allowSyntheticDefaultImports": true
+	}
+}

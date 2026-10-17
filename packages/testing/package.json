@@ -1,0 +1,60 @@
+{
+	"name": "@ryot-app/testing",
+	"private": true,
+	"type": "module",
+	"exports": {
+		"./vitest.shared": {
+			"types": "./src/vitest.shared.ts",
+			"default": "./src/vitest.shared.ts"
+		},
+		"./vitest.client": {
+			"types": "./src/vitest.client.ts",
+			"default": "./src/vitest.client.ts"
+		},
+		"./postgres-container": {
+			"types": "./src/postgres-container.ts",
+			"default": "./src/postgres-container.ts"
+		},
+		"./redis-container": {
+			"types": "./src/redis-container.ts",
+			"default": "./src/redis-container.ts"
+		},
+		"./jsdom-blob-clone": {
+			"types": "./src/jsdom-blob-clone.ts",
+			"default": "./src/jsdom-blob-clone.ts"
+		},
+		"./effect-assertions": {
+			"types": "./src/effect-assertions.ts",
+			"default": "./src/effect-assertions.ts"
+		},
+		"./recording-tracer": {
+			"types": "./src/recording-tracer.ts",
+			"default": "./src/recording-tracer.ts"
+		}
+	},
+	"scripts": {
+		"check": "bun --check && oxfmt . --write && oxlint . --fix"
+	},
+	"dependencies": {
+		"@effect/platform-bun": "4.0.5",
+		"effect": "4.0.5",
+		"vitest": "4.1.9"
+	},
+	"devDependencies": {
+		"@testcontainers/postgresql": "11.14.0",
+		"bun-types": "1.4.3",
+		"testcontainers": "11.14.0"
+	},
+	"peerDependencies": {
+		"@testcontainers/postgresql": "11.14.0",
+		"testcontainers": "11.14.0"
+	},
+	"peerDependenciesMeta": {
+		"@testcontainers/postgresql": {
+			"optional": true
+		},
+		"testcontainers": {
+			"optional": true
+		}
+	}
+}

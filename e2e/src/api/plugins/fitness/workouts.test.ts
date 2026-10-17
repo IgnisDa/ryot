@@ -1,0 +1,503 @@
+import { builtinSavedViewReference } from "@ryot-app/contract/modules/plugins/references";
+import { EntityId } from "@ryot-app/contract/schema/brands";
+import { workoutListRecipe } from "@ryot-app/fitness-plugin/query-recipes";
+import { PLUGIN_PACKAGE_ID } from "@ryot-app/fitness-plugin/shared/plugin-identity";
+import { Effect } from "effect";
+
+import {
+	createAuthenticatedClient,
+	createEntity,
+	executeRyotQL,
+	executeRyotQLRecipe,
+	getSavedView,
+	getEntity,
+	insertRelationshipRow,
+	listSavedViews,
+	waitForCreateEvents,
+	waitForEventCount,
+	requireRows,
+	requireRyotQLText,
+	uploadPermanentAsset,
+} from "~/fixtures/kernel";
+import {
+	createWorkoutEntityFixture,
+	createExerciseEntityFixture,
+	findFitnessEntitySchema,
+	findFitnessRelationshipSchema,
+	findWorkoutSetEventSchema,
+	waitForSessionEventCount,
+} from "~/fixtures/plugins/fitness";
+import {
+	assertCondition,
+	assertPresent,
+	assertTaggedError,
+	requirePresent,
+} from "~/support/assertions";
+import { describe, expect, it } from "~/support/effect-test";
+
+describe("Workouts E2E", () => {
+	it.live("links the built-in workout schema to the fitness plugin", () =>
+		Effect.gen(function* () {
+			const { client } = yield* createAuthenticatedClient();
+			const { pluginId, schema: workoutSchema } = yield* findFitnessEntitySchema(client, "workout");
+
+			expect(workoutSchema.name).toBe("Workout");
+			expect(workoutSchema.pluginId).toBe(pluginId);
+			expect(workoutSchema.isBuiltin).toBe(true);
+		}),
+	);
+
+	it.live("exposes the workout schema properties", () =>
+		Effect.gen(function* () {
+			const { client } = yield* createAuthenticatedClient();
+			const { schema: workoutSchema } = yield* findFitnessEntitySchema(client, "workout");
+			const { workoutSetEventSchema } = yield* findWorkoutSetEventSchema(client);
+
+			expect(workoutSchema.propertiesSchema.fields).toMatchObject({
+				images: { type: "array", label: "Images", description: "Images attached to this workout" },
+				videos: { type: "array", label: "Videos", description: "Videos attached to this workout" },
+				endedAt: {
+					type: "datetime",
+					label: "Ended At",
+					description: "Date and time this workout session ended",
+				},
+				comment: {
+					type: "string",
+					label: "Comment",
+					description: "Optional notes or comments about this workout",
+				},
+				startedAt: {
+					type: "datetime",
+					label: "Started At",
+					description: "Date and time this workout session began",
+				},
+				exerciseMedia: {
+					type: "array",
+					label: "Exercise Media",
+					description: "Images and videos for each exercise occurrence in this workout",
+				},
+				caloriesBurnt: {
+					type: "number",
+					label: "Calories Burnt",
+					description: "Estimated energy burned during this workout in kilocalories (kcal)",
+				},
+			});
+			expect(workoutSetEventSchema.propertiesSchema.fields).not.toHaveProperty("images");
+			expect(workoutSetEventSchema.propertiesSchema.fields).not.toHaveProperty("videos");
+		}),
+	);
+
+	it.live("rejects a workout without a start time", () =>
+		Effect.gen(function* () {
+			const { client } = yield* createAuthenticatedClient();
+			const { schema: workoutSchema } = yield* findFitnessEntitySchema(client, "workout");
+
+			const error = yield* Effect.flip(
+				client.call((c) =>
+					c.entities.create({
+						payload: {
+							properties: {},
+							name: "Workout without start",
+							entitySchema: workoutSchema.reference,
+						},
+					}),
+				),
+			);
+
+			assertTaggedError(error, "EntityBadRequest");
+			expect(error.reason).toMatchObject({ code: "invalid-properties" });
+		}),
+	);
+
+	it.live("rejects invalid recorded duration and energy without inventing unknown values", () =>
+		Effect.gen(function* () {
+			const { client } = yield* createAuthenticatedClient();
+			const { schema: workoutSchema } = yield* findFitnessEntitySchema(client, "workout");
+			const startedAt = "2026-04-27T10:00:00Z";
+			for (const properties of [
+				{ startedAt, activeDuration: -1 },
+				{ startedAt, activeDuration: 1.5 },
+				{ startedAt, caloriesBurnt: -1 },
+			]) {
+				const error = yield* Effect.flip(
+					createEntity(client, {
+						properties,
+						name: "Invalid workout",
+						entitySchema: workoutSchema.reference,
+					}),
+				);
+				assertTaggedError(error, "EntityBadRequest");
+				expect(error.reason.code).toBe("invalid-properties");
+			}
+			const workout = yield* createEntity(client, {
+				properties: { startedAt },
+				name: "Unknown duration workout",
+				entitySchema: workoutSchema.reference,
+			});
+			const stored = yield* getEntity(client, workout.id);
+			expect(stored.properties).not.toHaveProperty("activeDuration");
+			expect(stored.properties).not.toHaveProperty("caloriesBurnt");
+		}),
+	);
+
+	it.live(
+		"persists normalized workout media and recorded duration independently of elapsed time",
+		() =>
+			Effect.gen(function* () {
+				const { client } = yield* createAuthenticatedClient();
+				const { schema: workoutSchema } = yield* findFitnessEntitySchema(client, "workout");
+				const video = yield* uploadPermanentAsset(client, {
+					fileName: "workout.mp4",
+					contentType: "video/mp4",
+				});
+				const image = yield* uploadPermanentAsset(client, {
+					fileName: "workout.jpg",
+					contentType: "image/jpeg",
+				});
+				const exerciseVideo = yield* uploadPermanentAsset(client, {
+					fileName: "exercise.mp4",
+					contentType: "video/mp4",
+				});
+				const workout = yield* createEntity(client, {
+					entitySchema: workoutSchema.reference,
+					name: `Workout ${crypto.randomUUID()}`,
+					properties: {
+						videos: [video],
+						images: [image],
+						caloriesBurnt: 150,
+						activeDuration: 2400,
+						endedAt: "2026-04-27T11:00:00Z",
+						startedAt: "2026-04-27T10:00:00Z",
+						exerciseMedia: [
+							{
+								exerciseOrder: 0,
+								videos: [exerciseVideo],
+								images: [{ type: "remote", url: "https://example.com/exercise.jpg" }],
+							},
+						],
+					},
+				});
+				const entity = yield* getEntity(client, workout.id);
+
+				expect(entity.properties).toMatchObject({
+					videos: [video],
+					images: [image],
+					caloriesBurnt: 150,
+					activeDuration: 2400,
+					endedAt: "2026-04-27T11:00:00Z",
+					startedAt: "2026-04-27T10:00:00Z",
+					exerciseMedia: [
+						{
+							exerciseOrder: 0,
+							videos: [exerciseVideo],
+							images: [{ type: "remote", url: "https://example.com/exercise.jpg" }],
+						},
+					],
+				});
+			}),
+	);
+
+	it.live("creates the built-in All Workouts saved view with workout defaults", () =>
+		Effect.gen(function* () {
+			const { client } = yield* createAuthenticatedClient();
+			const { pluginId } = yield* findFitnessEntitySchema(client, "workout");
+			const views = yield* listSavedViews(client, { pluginId });
+			const allWorkoutsView = views.find((view) => view.name === "All Workouts");
+			assertPresent(allWorkoutsView, "Expected the built-in All Workouts saved view");
+			const dataSources = requirePresent(
+				allWorkoutsView.dataSources,
+				"All Workouts saved view has no data sources",
+			);
+			const savedViewSource = dataSources.queries.savedView;
+			assertPresent(savedViewSource, "Expected the All Workouts named source");
+			assertCondition(
+				savedViewSource.output.type === "rows",
+				"Expected the All Workouts named source to use rows output",
+			);
+
+			expect(allWorkoutsView).toMatchObject({
+				isBuiltin: true,
+				name: "All Workouts",
+				renderer: { kind: "kernel", name: "entity-browser" },
+				reference: builtinSavedViewReference(pluginId, "all-workouts"),
+				settings: {
+					defaultLayout: "grid",
+					sourceName: "savedView",
+					entityIdField: "entityId",
+					searchFields: ["column0"],
+					layouts: ["grid", "list", "table"],
+					ownerPluginIdField: "ownerPluginId",
+					entitySchemaSlugField: "entitySchemaSlug",
+					addAction: {
+						search: {},
+						type: "plugin-route",
+						path: "/workouts/new",
+						packageId: PLUGIN_PACKAGE_ID,
+					},
+					tableColumns: [
+						{ label: "Name", field: "column0", displayKind: "text" },
+						{ field: "column1", label: "Started At", displayKind: "date" },
+						{ field: "column2", label: "Ended At", displayKind: "date" },
+					],
+				},
+			});
+			expect(savedViewSource.output.fields).toEqual(
+				expect.arrayContaining([
+					expect.objectContaining({
+						key: "entityId",
+						expr: { field: "id", type: "column", tableAlias: "entity" },
+					}),
+					expect.objectContaining({
+						key: "ownerPluginId",
+						expr: { type: "column", tableAlias: "entity", field: "entitySchemaPluginId" },
+					}),
+					expect.objectContaining({
+						key: "entitySchemaSlug",
+						expr: { type: "column", tableAlias: "entity", field: "entitySchemaSlug" },
+					}),
+				]),
+			);
+			expect(savedViewSource.where).toMatchObject({
+				type: "and",
+				predicates: expect.arrayContaining([
+					expect.objectContaining({
+						type: "and",
+						predicates: expect.arrayContaining([
+							expect.objectContaining({
+								right: { type: "literal", value: "workout" },
+								left: { type: "column", tableAlias: "entity", field: "entitySchemaSlug" },
+							}),
+							expect.objectContaining({
+								right: { type: "pluginId", reference: { pluginId, kind: "local" } },
+								left: { type: "column", tableAlias: "entity", field: "entitySchemaPluginId" },
+							}),
+						]),
+					}),
+				]),
+			});
+			expect(
+				savedViewSource.output.fields.map((selection) => "key" in selection && selection.key),
+			).toEqual([
+				"entityId",
+				"column0",
+				"column1",
+				"column2",
+				"populationStatus",
+				"translationStatus",
+				"ownerPluginId",
+				"entitySchemaSlug",
+				"presentationId",
+				"presentationName",
+				"presentationEndedAt",
+				"presentationStartedAt",
+				"presentationExerciseNotes",
+			]);
+		}),
+	);
+
+	it.live("sorts All Workouts by ended time descending", () =>
+		Effect.gen(function* () {
+			const { client } = yield* createAuthenticatedClient();
+			const { pluginId } = yield* findFitnessEntitySchema(client, "workout");
+			const { workoutId: alphaWorkoutId } = yield* createWorkoutEntityFixture(client, {
+				name: "Alpha",
+				endedAt: "2026-01-01T11:00:00Z",
+				startedAt: "2026-01-01T10:00:00Z",
+			});
+			const { workoutId: betaWorkoutId } = yield* createWorkoutEntityFixture(client, {
+				name: "Beta",
+				endedAt: "2026-02-01T11:00:00Z",
+				startedAt: "2026-02-01T10:00:00Z",
+			});
+			const { workoutId: zuluWorkoutId } = yield* createWorkoutEntityFixture(client, {
+				name: "Zulu",
+				endedAt: "2026-03-01T11:00:00Z",
+				startedAt: "2026-03-01T10:00:00Z",
+			});
+
+			const savedView = yield* getSavedView(client, {
+				pluginId,
+				kind: "plugin",
+				slug: "all-workouts",
+			});
+			const dataSources = requirePresent(
+				savedView.dataSources,
+				"All Workouts saved view has no data sources",
+			);
+			const sourceName = savedView.settings["sourceName"];
+			assertCondition(typeof sourceName === "string", "Expected a named saved-view source");
+			const result = requireRows(
+				(yield* executeRyotQL(client, dataSources)).data[sourceName],
+				sourceName,
+			);
+
+			const workoutIds = [zuluWorkoutId, betaWorkoutId, alphaWorkoutId];
+			expect(
+				result.items
+					.map((item) => requireRyotQLText(item, "entityId"))
+					.filter((id) => workoutIds.includes(EntityId.make(id))),
+			).toEqual(workoutIds);
+		}),
+	);
+
+	it.live("creates a workout entity and retrieves it by id", () =>
+		Effect.gen(function* () {
+			const { client } = yield* createAuthenticatedClient();
+			const { workoutId } = yield* createWorkoutEntityFixture(client);
+			const entity = yield* getEntity(client, workoutId);
+
+			expect(entity.id).toBe(workoutId);
+			expect(entity.properties).toMatchObject({
+				endedAt: "2026-04-27T11:00:00Z",
+				startedAt: "2026-04-27T10:00:00Z",
+			});
+		}),
+	);
+
+	it.live("shows workout entities through the All Workouts saved-view defaults", () =>
+		Effect.gen(function* () {
+			const { client } = yield* createAuthenticatedClient();
+			const { pluginId } = yield* findFitnessEntitySchema(client, "workout");
+			yield* createWorkoutEntityFixture(client);
+
+			const result = yield* executeRyotQLRecipe(
+				client,
+				workoutListRecipe({ reference: { pluginId, kind: "local" } }),
+			);
+
+			const firstWorkout = result.items[0];
+			assertPresent(firstWorkout, "Expected at least one workout item");
+			expect(result.items.length).toBeGreaterThan(0);
+			expect(firstWorkout.startedAt).toEqual(expect.any(String));
+		}),
+	);
+
+	it.live("logs a workout set linked to a workout via sessionEntityId", () =>
+		Effect.gen(function* () {
+			const { client } = yield* createAuthenticatedClient();
+			const { workoutId } = yield* createWorkoutEntityFixture(client);
+			const { workoutSetEventSchema } = yield* findWorkoutSetEventSchema(client);
+			const { exerciseId } = yield* createExerciseEntityFixture(client);
+
+			const createResult = yield* client.call((c) =>
+				c.events.create({
+					payload: [
+						{
+							entityId: exerciseId,
+							sessionEntityId: workoutId,
+							eventSchemaSlug: workoutSetEventSchema.id,
+							properties: { reps: 10, weight: 60, setOrder: 0, setLot: "normal", exerciseOrder: 0 },
+						},
+					],
+				}),
+			);
+
+			expect((yield* waitForCreateEvents(client, createResult)).count).toBe(1);
+
+			const events = yield* waitForSessionEventCount(client, workoutId, 1);
+			expect(events[0]?.sessionEntityId).toBe(workoutId);
+			expect(events[0]?.entityId).toBe(exerciseId);
+			expect(events[0]?.properties).toMatchObject({ exerciseOrder: 0 });
+			expect(events[0]?.properties).not.toHaveProperty("images");
+			expect(events[0]?.properties).not.toHaveProperty("videos");
+		}),
+	);
+
+	it.live("listing events by sessionEntityId returns only sets for that workout", () =>
+		Effect.gen(function* () {
+			const { client } = yield* createAuthenticatedClient();
+			const { workoutId: workoutOneId } = yield* createWorkoutEntityFixture(client);
+			const { workoutId: workoutTwoId } = yield* createWorkoutEntityFixture(client);
+			const { workoutSetEventSchema } = yield* findWorkoutSetEventSchema(client);
+			const { exerciseId } = yield* createExerciseEntityFixture(client);
+
+			yield* client.call((c) =>
+				c.events.create({
+					payload: [
+						{
+							entityId: exerciseId,
+							sessionEntityId: workoutOneId,
+							eventSchemaSlug: workoutSetEventSchema.id,
+							properties: { reps: 10, setOrder: 0, setLot: "normal", exerciseOrder: 0 },
+						},
+						{
+							entityId: exerciseId,
+							sessionEntityId: workoutOneId,
+							eventSchemaSlug: workoutSetEventSchema.id,
+							properties: { reps: 8, setOrder: 1, setLot: "normal", exerciseOrder: 0 },
+						},
+						{
+							entityId: exerciseId,
+							sessionEntityId: workoutTwoId,
+							eventSchemaSlug: workoutSetEventSchema.id,
+							properties: { reps: 6, setOrder: 0, setLot: "normal", exerciseOrder: 0 },
+						},
+					],
+				}),
+			);
+
+			const workoutOneEvents = yield* waitForSessionEventCount(client, workoutOneId, 2);
+			expect(workoutOneEvents).toHaveLength(2);
+			expect(workoutOneEvents.every((event) => event.sessionEntityId === workoutOneId)).toBe(true);
+		}),
+	);
+
+	it.live("listing events by entityId spans multiple workouts for the same exercise", () =>
+		Effect.gen(function* () {
+			const { client } = yield* createAuthenticatedClient();
+			const { workoutId: workoutOneId } = yield* createWorkoutEntityFixture(client);
+			const { workoutId: workoutTwoId } = yield* createWorkoutEntityFixture(client);
+			const { workoutSetEventSchema } = yield* findWorkoutSetEventSchema(client);
+			const { exerciseId } = yield* createExerciseEntityFixture(client);
+
+			yield* client.call((c) =>
+				c.events.create({
+					payload: [
+						{
+							entityId: exerciseId,
+							sessionEntityId: workoutOneId,
+							eventSchemaSlug: workoutSetEventSchema.id,
+							properties: { reps: 10, setOrder: 0, setLot: "normal", exerciseOrder: 0 },
+						},
+						{
+							entityId: exerciseId,
+							sessionEntityId: workoutTwoId,
+							eventSchemaSlug: workoutSetEventSchema.id,
+							properties: { reps: 8, setOrder: 0, setLot: "normal", exerciseOrder: 0 },
+						},
+					],
+				}),
+			);
+
+			const exerciseEvents = yield* waitForEventCount(client, exerciseId, 2);
+			expect(exerciseEvents).toHaveLength(2);
+			expect(new Set(exerciseEvents.map((event) => event.sessionEntityId))).toEqual(
+				new Set([workoutOneId, workoutTwoId]),
+			);
+		}),
+	);
+
+	it.live("creates a workout-repeated-from relationship between two workouts", () =>
+		Effect.gen(function* () {
+			const { client } = yield* createAuthenticatedClient();
+			const { workoutId: originalWorkoutId } = yield* createWorkoutEntityFixture(client);
+			const { workoutId: copiedWorkoutId } = yield* createWorkoutEntityFixture(client);
+
+			const relationshipSchema = yield* findFitnessRelationshipSchema(
+				client,
+				"workout-repeated-from",
+			);
+
+			const relationship = yield* insertRelationshipRow(client, {
+				sourceEntityId: copiedWorkoutId,
+				targetEntityId: originalWorkoutId,
+				relationshipSchema: relationshipSchema.reference,
+			});
+
+			expect(relationship.wasInserted).toBe(true);
+			expect(relationship.sourceEntityId).toBe(copiedWorkoutId);
+			expect(relationship.targetEntityId).toBe(originalWorkoutId);
+			expect(relationship.relationshipSchemaSlug).toBe(relationshipSchema.id);
+		}),
+	);
+});

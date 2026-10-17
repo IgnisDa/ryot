@@ -1,0 +1,44 @@
+import { SandboxRunError } from "@ryot-app/contract/errors";
+import { ExecutionLane } from "@ryot-app/contract/modules/automations/lifecycle";
+import { AccountGeneration } from "@ryot-app/contract/schema/account-generation";
+import { EntityId, SandboxProviderId, UserId } from "@ryot-app/contract/schema/brands";
+import { Schema } from "effect";
+import { Workflow } from "effect/workflow";
+
+import type { DurableSchema } from "#boot/workflow-engine";
+import { DomainLifecycleCommand } from "#modules/entities/write-context";
+import { ScriptExecutionPrincipal } from "#modules/scripts/authorization/principal";
+
+export const TranslateEntityWorkflowPayload = Schema.Struct({
+	userId: UserId,
+	entityId: EntityId,
+	lane: ExecutionLane,
+	language: Schema.String,
+	externalId: Schema.String,
+	properties: Schema.Unknown,
+	executionId: Schema.String,
+	providerId: SandboxProviderId,
+	command: DomainLifecycleCommand,
+	entitySchemaSlug: Schema.String,
+	accountGeneration: AccountGeneration,
+	entitySchemaPluginId: Schema.NullOr(Schema.String),
+});
+
+export type TranslateEntityWorkflowPayload = typeof TranslateEntityWorkflowPayload.Type;
+
+export const TranslationExecution = Schema.Struct({
+	properties: Schema.Unknown,
+	principal: ScriptExecutionPrincipal,
+	entityScopeUserId: Schema.NullOr(UserId),
+});
+export type TranslationExecution = typeof TranslationExecution.Type;
+
+export const translateEntityExecutionId = (input: { entityId: EntityId; language: string }) =>
+	`translate-${input.entityId}-${input.language}`;
+
+export const TranslateEntityWorkflow = Workflow.make("TranslateEntityWorkflow", {
+	success: Schema.Void satisfies DurableSchema,
+	error: SandboxRunError satisfies DurableSchema,
+	idempotencyKey: ({ executionId }) => executionId,
+	payload: TranslateEntityWorkflowPayload satisfies DurableSchema,
+});

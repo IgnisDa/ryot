@@ -1,0 +1,133 @@
+import { DbError } from "@ryot-app/contract/errors";
+import { Effect, Layer } from "effect";
+
+import { ObjectStorageServiceLive, UploadServicesLive } from "#modules/assets/layer";
+import { DefinitionRepository } from "#modules/definitions/repository";
+import { ScriptGarbageCollectorLive } from "#modules/garbage-collection/layer";
+import { IngestionRetirementLive } from "#modules/imports/layer";
+import { IngestionRetirement } from "#modules/imports/retirement-service";
+import {
+	IntegrationPluginRevisionActivationLive,
+	IntegrationsRepository,
+} from "#modules/integrations/repository";
+import { SavedViewPluginReferencesProvidedLive } from "#modules/saved-views/layer";
+import { SandboxWorkflowReferenceRepository } from "#modules/scripts/registry/workflow-references";
+
+import {
+	PluginCatalogInvalidator,
+	PluginCatalogInvalidatorLive,
+	PluginCatalogHub,
+	PluginInvalidationSubscriber,
+} from "./catalog/events";
+import { PluginInstallationRepository } from "./installations/repository";
+import { PluginInstallationService } from "./installations/service";
+import {
+	PluginInstallationLifecycleDispatcher,
+	PluginInstallationLifecycleDispatcherLive,
+} from "./installations/workflow";
+import { PluginBackupRestore } from "./packages/backup-restore";
+import { PluginIngestionLock } from "./packages/ingestion-lock";
+import { PluginIngestionRetirement } from "./packages/ingestion-retirement";
+import { PluginIngestionService } from "./packages/ingestion-service";
+import { PluginRepository } from "./packages/repository";
+import { SystemPlugins } from "./packages/system";
+import { SystemPluginBootstrap } from "./packages/system-bootstrap";
+
+export const PluginRevisionActivationLive = IntegrationPluginRevisionActivationLive.pipe(
+	Layer.provide(IntegrationsRepository.layer),
+);
+
+export const PluginIngestionLockLive = PluginIngestionLock.layer.pipe(
+	Layer.provide(
+		Layer.mergeAll(
+			PluginRepository.layer,
+			PluginInstallationRepository.layer,
+			PluginRevisionActivationLive,
+			SystemPlugins.layer,
+		),
+	),
+);
+
+export const PluginInvalidationSubscriberLive = PluginInvalidationSubscriber.layer.pipe(
+	Layer.provide(PluginCatalogHub.layer),
+);
+
+const pluginIngestionRetirement = Layer.effect(
+	PluginIngestionRetirement,
+	Effect.map(IngestionRetirement, (retirement) => ({
+		retire: (input: Parameters<PluginIngestionRetirement["Service"]["retire"]>[0]) =>
+			retirement
+				.retire(input)
+				.pipe(Effect.mapError((error) => new DbError({ message: String(error) }))),
+	})),
+).pipe(Layer.provide(IngestionRetirementLive));
+
+export const PluginIngestionServiceLive = PluginIngestionService.layer.pipe(
+	Layer.provide(
+		Layer.mergeAll(
+			PluginRevisionActivationLive,
+			PluginRepository.layer,
+			PluginInstallationRepository.layer,
+			DefinitionRepository.layer,
+			SystemPlugins.layer,
+			PluginCatalogInvalidatorLive,
+			pluginIngestionRetirement,
+		),
+	),
+);
+
+const installationRepositories = Layer.mergeAll(
+	DefinitionRepository.layer,
+	PluginIngestionLockLive,
+	PluginRepository.layer,
+	PluginInstallationRepository.layer,
+	SandboxWorkflowReferenceRepository.layer,
+	SystemPlugins.layer,
+);
+
+export const PluginInstallationMigrationLive = PluginInstallationService.layerMigration.pipe(
+	Layer.provide(
+		Layer.mergeAll(
+			installationRepositories,
+			pluginIngestionRetirement,
+			PluginCatalogInvalidator.layer,
+			PluginInstallationLifecycleDispatcher.layer,
+			UploadServicesLive,
+			ObjectStorageServiceLive,
+			SavedViewPluginReferencesProvidedLive,
+		),
+	),
+);
+
+export const PluginInstallationRuntimeLive = PluginInstallationService.layerRuntime.pipe(
+	Layer.provide(
+		Layer.mergeAll(
+			installationRepositories,
+			pluginIngestionRetirement,
+			PluginInstallationLifecycleDispatcherLive,
+			UploadServicesLive,
+			ObjectStorageServiceLive,
+			SavedViewPluginReferencesProvidedLive,
+			PluginCatalogInvalidatorLive,
+		),
+	),
+);
+
+export const PluginBackupRestoreLive = PluginBackupRestore.layer.pipe(
+	Layer.provide(
+		Layer.mergeAll(PluginRepository.layer, DefinitionRepository.layer, PluginIngestionLockLive),
+	),
+);
+
+export const SystemPluginIngestionLive = SystemPluginBootstrap.layer.pipe(
+	Layer.provide(
+		Layer.mergeAll(
+			PluginIngestionServiceLive,
+			PluginRepository.layer,
+			DefinitionRepository.layer,
+			ScriptGarbageCollectorLive,
+			PluginInstallationMigrationLive,
+			SystemPlugins.layer,
+		),
+	),
+);

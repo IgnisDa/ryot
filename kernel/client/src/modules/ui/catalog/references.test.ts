@@ -1,0 +1,74 @@
+import { PluginId, PluginPackageId } from "@ryot-app/contract/schema/brands";
+import { expect, it } from "vitest";
+
+import type { ImportSourceItem } from "#/modules/imports/service";
+import { importSourceEntry, importSourceKey } from "#/modules/imports/source-selection";
+import { createIntegrationBody } from "#/modules/integrations/payload";
+import {
+	integrationProviderEntry,
+	findOwnedIntegrationProvider,
+} from "#/modules/integrations/provider-selection";
+import type { IntegrationProviderItem } from "#/modules/integrations/service";
+
+const source = (pluginId: string, packageId: PluginPackageId): ImportSourceItem => ({
+	packageId,
+	plan: null,
+	slug: "common",
+	name: "Whiskey",
+	isStartable: true,
+	pluginScope: "user",
+	workflowSlug: "import",
+	readinessMetadata: null,
+	inputSchema: { fields: {} },
+	missingPluginConfigKeys: [],
+	requiredPluginConfigKeys: [],
+	pluginId: PluginId.make(pluginId),
+	description: "Independent declaration",
+	installationId: `${pluginId}-installation`,
+	readiness: { plan: null, ready: true, blockReasons: [] },
+	reference: { slug: "common", owner: { kind: "plugin", pluginId: PluginId.make(pluginId) } },
+});
+
+const provider = (pluginId: string, packageId: PluginPackageId): IntegrationProviderItem => ({
+	packageId,
+	plan: null,
+	lot: "yank",
+	slug: "common",
+	name: "Whiskey",
+	isCreatable: true,
+	scriptSlug: "sync",
+	pluginScope: "user",
+	requiresProKey: false,
+	readinessMetadata: null,
+	readinessConnections: [],
+	commonSchema: { fields: {} },
+	supportsOwnershipSync: false,
+	settingsSchema: { fields: {} },
+	pluginId: PluginId.make(pluginId),
+	description: "Independent declaration",
+	installationId: `${pluginId}-installation`,
+	readiness: { plan: null, ready: true, blockReasons: [] },
+	reference: { slug: "common", owner: { kind: "plugin", pluginId: PluginId.make(pluginId) } },
+});
+
+const leftPackage = PluginPackageId.make("home/whiskey");
+const rightPackage = PluginPackageId.make("acme/whiskey");
+
+it("keeps same-name importer option values and groups owner-qualified", () => {
+	const left = source("left-owner", leftPackage);
+	const right = source("right-owner", rightPackage);
+	expect(importSourceEntry(left).key).toBe(importSourceKey(left));
+	expect(importSourceEntry(left).key).not.toBe(importSourceEntry(right).key);
+	expect(importSourceEntry(left).group.key).not.toBe(importSourceEntry(right).group.key);
+	expect(importSourceEntry(left).group.heading).toContain("Private · home/whiskey");
+});
+
+it("selects and submits the exact integration owner despite equal provider slugs", () => {
+	const left = provider("left-owner", leftPackage);
+	const right = provider("right-owner", rightPackage);
+	expect(integrationProviderEntry(left).key).not.toBe(integrationProviderEntry(right).key);
+	expect(
+		findOwnedIntegrationProvider([left, right], { provider: "common", pluginId: right.pluginId }),
+	).toBe(right);
+	expect(createIntegrationBody({ values: {}, provider: right }).provider).toEqual(right.reference);
+});

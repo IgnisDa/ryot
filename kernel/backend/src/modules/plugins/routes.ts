@@ -1,0 +1,117 @@
+import { CurrentUser } from "@ryot-app/contract/auth-middleware";
+import { AppContract } from "@ryot-app/contract/contract";
+import { dieOnDbError } from "@ryot-app/contract/errors";
+import { pluginPackageIdFromSegments } from "@ryot-app/contract/schema/brands";
+import { Effect } from "effect";
+import { HttpServerRequest, HttpServerResponse } from "effect/http";
+import { HttpApiBuilder } from "effect/http-api";
+
+import { PluginCatalogHub } from "./catalog/events";
+import { PluginInstallationService } from "./installations/service";
+import { OperationsService } from "./operations/service";
+
+export const PluginsRoutesLive = HttpApiBuilder.group(AppContract, "plugins", (handlers) =>
+	handlers
+		.handleRaw("events", () =>
+			Effect.gen(function* () {
+				const user = yield* CurrentUser;
+				const hub = yield* PluginCatalogHub;
+				return HttpServerResponse.stream(hub.stream(user.id), {
+					headers: {
+						connection: "keep-alive",
+						"x-accel-buffering": "no",
+						"cache-control": "no-cache",
+						"content-type": "text/event-stream",
+					},
+				});
+			}),
+		)
+		.handle("install", ({ payload }) =>
+			Effect.gen(function* () {
+				const user = yield* CurrentUser;
+				const service = yield* PluginInstallationService;
+				return yield* service
+					.installPrivatePlugin({
+						userId: user.id,
+						config: payload.config,
+						uploadToken: payload.uploadToken,
+					})
+					.pipe(dieOnDbError);
+			}),
+		)
+		.handle("update", ({ params, payload }) =>
+			Effect.gen(function* () {
+				const user = yield* CurrentUser;
+				const service = yield* PluginInstallationService;
+				return yield* service
+					.updatePrivatePlugin({
+						userId: user.id,
+						config: payload.config,
+						contentHash: payload.contentHash,
+						uploadToken: payload.uploadToken,
+						installationId: params.installationId,
+						unsetConfigKeys: payload.unsetConfigKeys,
+					})
+					.pipe(dieOnDbError);
+			}),
+		)
+		.handle("uninstall", ({ params }) =>
+			Effect.gen(function* () {
+				const user = yield* CurrentUser;
+				const service = yield* PluginInstallationService;
+				return yield* service
+					.uninstallPlugin(user.id, params.installationId, params.activationId)
+					.pipe(dieOnDbError);
+			}),
+		)
+		.handle("updatePluginState", ({ params, payload }) =>
+			Effect.gen(function* () {
+				const user = yield* CurrentUser;
+				const service = yield* PluginInstallationService;
+				return yield* service
+					.updateInstallation(user.id, params.installationId, payload)
+					.pipe(dieOnDbError);
+			}),
+		)
+		.handle("setHomeView", ({ params, payload }) =>
+			Effect.gen(function* () {
+				const user = yield* CurrentUser;
+				const service = yield* PluginInstallationService;
+				return yield* service
+					.setHomeView(user.id, params.installationId, payload)
+					.pipe(dieOnDbError);
+			}),
+		)
+		.handle("saveUserSettings", ({ params, payload }) =>
+			Effect.gen(function* () {
+				const user = yield* CurrentUser;
+				const service = yield* PluginInstallationService;
+				yield* service.saveUserSettings(user.id, params.installationId, payload).pipe(dieOnDbError);
+			}),
+		)
+		.handle("resetUserSettings", ({ params }) =>
+			Effect.gen(function* () {
+				const user = yield* CurrentUser;
+				const service = yield* PluginInstallationService;
+				yield* service
+					.saveUserSettings(user.id, params.installationId, {}, true)
+					.pipe(dieOnDbError);
+			}),
+		)
+		.handle("invoke", ({ params, payload }) =>
+			Effect.gen(function* () {
+				const request = yield* HttpServerRequest.HttpServerRequest;
+				const service = yield* OperationsService;
+				const result = yield* service
+					.invoke({
+						payload: payload.payload,
+						headers: request.headers,
+						operationSlug: params.operationSlug,
+						packageId: pluginPackageIdFromSegments(params),
+						...(payload.contentHash === undefined ? {} : { contentHash: payload.contentHash }),
+					})
+					.pipe(dieOnDbError);
+				return { result };
+			}),
+		),
+);
