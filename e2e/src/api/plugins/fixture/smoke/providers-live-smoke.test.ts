@@ -168,22 +168,16 @@ describe.skipIf(!RUN_LIVE)("live fixture provider smoke (real external APIs)", (
 			});
 			expect(view.settings["tableColumns"]).toEqual([
 				{ field: "image", label: "Image", displayKind: "managed-asset" },
-				{ label: "Name", field: "column0", displayKind: "text" },
-				{ field: "column1", displayKind: "number", label: "Pokedex Number" },
-				{ label: "Types", field: "column2", displayKind: "json" },
-				{ field: "column3", label: "Abilities", displayKind: "json" },
-				{ field: "column4", label: "Height (dm)", displayKind: "number" },
-				{ field: "column5", label: "Weight (hg)", displayKind: "number" },
-				{ field: "column6", displayKind: "number", label: "Base Experience" },
+				{ label: "Name", field: "name", displayKind: "text" },
+				{ displayKind: "number", field: "pokedexNumber", label: "Pokedex Number" },
+				{ label: "Types", field: "types", displayKind: "json" },
+				{ field: "abilities", label: "Abilities", displayKind: "json" },
+				{ field: "height", label: "Height (dm)", displayKind: "number" },
+				{ field: "weight", label: "Weight (hg)", displayKind: "number" },
+				{ displayKind: "number", field: "baseExperience", label: "Base Experience" },
 			]);
 			expect(source.output.fields.map((selection) => "key" in selection && selection.key)).toEqual(
-				expect.arrayContaining([
-					"entityId",
-					"column0",
-					"image",
-					"ownerPluginId",
-					"entitySchemaSlug",
-				]),
+				expect.arrayContaining(["entityId", "name", "image", "ownerPluginId", "entitySchemaSlug"]),
 			);
 		}),
 	);
@@ -344,7 +338,7 @@ describe.skipIf(!RUN_LIVE)("live fixture provider smoke (real external APIs)", (
 				),
 			);
 			expect(source.output.fields.map((selection) => "key" in selection && selection.key)).toEqual(
-				expect.arrayContaining(["entityId", "column0", "ownerPluginId", "entitySchemaSlug"]),
+				expect.arrayContaining(["entityId", "name", "ownerPluginId", "entitySchemaSlug"]),
 			);
 		}),
 	);

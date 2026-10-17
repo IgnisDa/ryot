@@ -1,18 +1,18 @@
 import type { PluginHook } from "@ryot-app/contract/modules/plugins/manifest";
 import {
 	and,
+	ascending,
 	column,
 	countDistinct,
+	document,
+	entitySchemaPredicate,
 	eq,
 	field,
 	literal,
+	rows,
 	schemaOwnerPredicate,
 	table,
 } from "@ryot-app/ryotql";
-import {
-	buildSavedViewLayoutProjections,
-	savedViewRecipe,
-} from "@ryot-app/ryotql-recipes/saved-views";
 
 import { manifest as notificationManifest } from "./kernel-scripts/notification.sandbox";
 import type { DefinitionSource } from "./snapshot";
@@ -118,22 +118,14 @@ const collectionSchema = {
 
 const collection = table("entity", "entity");
 const collectionMembership = table("relationship", "collectionMembership");
-const collectionProjections = buildSavedViewLayoutProjections({
-	table: {
-		image: null,
-		entity: collection,
-		columns: [{ label: "Name", displayKind: "text", expression: column(collection, "name") }],
-	},
-});
 
-const collectionDataSources = savedViewRecipe({
-	layout: { type: "table", mapping: collectionProjections.table.mappings },
-	source: {
-		type: "generated",
-		owner: { kind: "kernel" },
-		entitySchemaSlugs: ["collection"],
+const collectionDataSources = document({
+	savedView: rows(collection, {
+		orderBy: [ascending(column(collection, "name"))],
+		where: entitySchemaPredicate(collection, "collection", { kind: "kernel" }),
 		fields: [
-			...collectionProjections.table.fields,
+			field("entityId", column(collection, "id")),
+			field("name", column(collection, "name")),
 			field(
 				"presentationMemberCount",
 				countDistinct(collectionMembership, column(collectionMembership, "sourceEntityId"), {
@@ -149,8 +141,8 @@ const collectionDataSources = savedViewRecipe({
 			field("ownerPluginId", column(collection, "entitySchemaPluginId")),
 			field("entitySchemaSlug", column(collection, "entitySchemaSlug")),
 		],
-	},
-}).document;
+	}),
+});
 
 export const kernelDefinitionSource = (): DefinitionSource => ({
 	entitySchemas: [collectionSchema],
@@ -188,13 +180,13 @@ export const kernelDefinitionSource = (): DefinitionSource => ({
 				addAction: null,
 				sortChoices: [],
 				defaultLayout: "grid",
+				searchFields: ["name"],
 				sourceName: "savedView",
 				entityIdField: "entityId",
-				searchFields: ["column0"],
 				layouts: ["grid", "list", "table"],
 				ownerPluginIdField: "ownerPluginId",
 				entitySchemaSlugField: "entitySchemaSlug",
-				tableColumns: collectionProjections.table.mappings.columns,
+				tableColumns: [{ label: "Name", field: "name", displayKind: "text" }],
 			},
 		},
 	],

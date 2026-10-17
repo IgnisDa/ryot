@@ -9,6 +9,7 @@ import {
 	type ContractRequest,
 } from "@ryot-app/contract/client";
 import type { FieldSelection, ScalarExpression } from "@ryot-app/contract/modules/ryotql/language";
+import type { SavedViewTableColumn } from "@ryot-app/contract/modules/saved-views/schemas";
 import {
 	EntitySchemaSlug,
 	EventSchemaSlug,
@@ -42,10 +43,6 @@ import {
 } from "@ryot-app/ryotql";
 import { entityDefinitionsRecipe } from "@ryot-app/ryotql-recipes/definitions";
 import { pluginInstallationsRecipe } from "@ryot-app/ryotql-recipes/plugin-installations";
-import {
-	buildSavedViewLayoutProjections,
-	savedViewRecipe,
-} from "@ryot-app/ryotql-recipes/saved-views";
 import { createAuthClient } from "better-auth/client";
 import { Effect, Result } from "effect";
 
@@ -141,12 +138,7 @@ type CreateCollectionBody = ContractPayload<"collections", "create">;
 type AddToCollectionBody = ContractPayload<"collections", "createMembership">;
 type CreateSavedViewBody = ContractRequest<"savedViews", "create">["payload"];
 type SavedViewDefinition = Pick<CreateSavedViewBody, "dataSources" | "settings">;
-type SavedViewProjectionInput = Parameters<typeof buildSavedViewLayoutProjections>[0];
-type SavedViewGeneratedSource = Extract<
-	Parameters<typeof savedViewRecipe>[0]["source"],
-	{ type: "generated" }
->;
-type SavedViewSourceOwner = SavedViewGeneratedSource["owner"];
+type SavedViewSourceOwner = Parameters<typeof schemaOwnerPredicate>[2];
 
 type SavedViewSpec = {
 	name: string;
@@ -534,7 +526,7 @@ const seedEntity = table("entity", "entity");
 const seedProperties = column(seedEntity, "properties");
 const seedProperty = (property: string) => jsonPath(seedProperties, property);
 const seedImage = () => castJson(jsonPath(seedProperties, "images", 0));
-type SeedTableColumn = SavedViewProjectionInput["table"]["columns"][number];
+type SeedTableColumn = SavedViewTableColumn & { readonly expression: ScalarExpression };
 
 function buildSeedLayouts(
 	scope: readonly string[],
@@ -543,35 +535,12 @@ function buildSeedLayouts(
 		| { pluginSlug: string }
 		| { authors: ReadonlyArray<{ pluginSlug: string; entitySchemaSlugs: ReadonlyArray<string> }> },
 ): SavedViewDefinition {
-	const [first] = scope;
-	if (!first) {
-		throw new Error("Seed saved view requires at least one schema");
-	}
-	const projections = buildSavedViewLayoutProjections({
-		table: {
-			image: seedImage(),
-			entity: seedEntity,
-			columns: columns as [SeedTableColumn, ...SeedTableColumn[]],
-		},
-	});
 	const tableDocumentFor = (fields: readonly FieldSelection[]) => {
-		const layout: Parameters<typeof savedViewRecipe>[0]["layout"] = {
-			type: "table",
-			mapping: projections.table.mappings,
-		};
-		if ("pluginSlug" in source) {
-			return savedViewRecipe({
-				layout,
-				source: {
-					type: "generated",
-					fields,
-					limit: 20,
-					entitySchemaSlugs: scope as [string, ...string[]],
-					owner: seedPluginOwner(source.pluginSlug),
-				},
-			}).document;
-		}
-		const predicates = source.authors.flatMap((author) =>
+		const predicates = (
+			"pluginSlug" in source
+				? [{ pluginSlug: source.pluginSlug, entitySchemaSlugs: scope }]
+				: source.authors
+		).flatMap((author) =>
 			scope
 				.filter((slug) => author.entitySchemaSlugs.includes(slug))
 				.map((slug) =>
@@ -588,23 +557,19 @@ function buildSeedLayouts(
 		if (predicates.length === 0) {
 			throw new Error("Seed saved view requires at least one owned schema");
 		}
-		return savedViewRecipe({
-			layout,
-			source: {
-				type: "persisted",
-				queryDocument: document({
-					savedView: rows(seedEntity, {
-						fields,
-						limit: 20,
-						orderBy: [ascending(column(seedEntity, "name"))],
-						where: or(...predicates),
-					}),
-				}),
-			},
-		}).document;
+		return document({
+			savedView: rows(seedEntity, {
+				fields,
+				limit: 20,
+				orderBy: [ascending(column(seedEntity, "name"))],
+				where: or(...predicates),
+			}),
+		});
 	};
 	const dataSources = tableDocumentFor([
-		...projections.table.fields,
+		field("entityId", column(seedEntity, "id")),
+		field("image", seedImage()),
+		...columns.map((tableColumn) => field(tableColumn.field, tableColumn.expression)),
 		field("ownerPluginId", column(seedEntity, "entitySchemaPluginId")),
 		field("entitySchemaSlug", column(seedEntity, "entitySchemaSlug")),
 	]);
@@ -621,7 +586,7 @@ function buildSeedLayouts(
 			entityIdField: "entityId",
 			ownerPluginIdField: "ownerPluginId",
 			entitySchemaSlugField: "entitySchemaSlug",
-			tableColumns: projections.table.mappings.columns,
+			tableColumns: columns.map(({ expression: _, ...tableColumn }) => tableColumn),
 		},
 	};
 }
@@ -689,7 +654,13 @@ function tableColumn(
 	...expressions: ReadonlyArray<ScalarExpression | string>
 ): SeedTableColumn {
 	const expression = expressions.map(displayExpression).find((value) => value !== null);
-	return { label, displayKind: "text", expression: expression ?? literal(null) };
+	const [first = "", ...rest] = label
+		.replace(/\(.*?\)/g, "")
+		.trim()
+		.toLowerCase()
+		.split(/\s+/);
+	const key = [first, ...rest.map((word) => word.charAt(0).toUpperCase() + word.slice(1))].join("");
+	return { label, field: key, displayKind: "text", expression: expression ?? literal(null) };
 }
 
 function generateWhiskey(): { name: string; properties: Record<string, unknown> } {

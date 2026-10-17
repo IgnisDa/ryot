@@ -8,8 +8,8 @@ export const browserDataSources = document({
 		orderBy: [ascending(column(entity, "name"))],
 		fields: [
 			field("entityId", column(entity, "id")),
-			field("column0", column(entity, "name")),
-			field("column1", jsonPath(column(entity, "properties"), "publishYear")),
+			field("name", column(entity, "name")),
+			field("year", jsonPath(column(entity, "properties"), "publishYear")),
 			field("image", jsonPath(column(entity, "properties"), "images", 0)),
 			field("ownerPluginId", column(entity, "entitySchemaPluginId")),
 			field("entitySchemaSlug", column(entity, "entitySchemaSlug")),
@@ -21,29 +21,29 @@ export const browserSettings = {
 	pageSize: 2,
 	sortChoices: [],
 	defaultLayout: "grid",
+	searchFields: ["name"],
 	sourceName: "savedView",
-	searchFields: ["column0"],
 	entityIdField: "entityId",
 	layouts: ["grid", "list", "table"],
 	ownerPluginIdField: "ownerPluginId",
 	entitySchemaSlugField: "entitySchemaSlug",
+	tableColumns: [
+		{ label: "Image", field: "image", displayKind: "managed-asset" },
+		{ label: "Name", field: "name", displayKind: "text" },
+		{ label: "Year", field: "year", displayKind: "number" },
+	],
 	addAction: {
 		type: "provider-search",
 		schema: { slug: "book", owner: { kind: "plugin", pluginId: "media" } },
 		library: { librarySchemaSlug: "media-library", relationshipSlug: "in-media-library" },
 	},
-	tableColumns: [
-		{ label: "Image", field: "image", displayKind: "managed-asset" },
-		{ label: "Name", field: "column0", displayKind: "text" },
-		{ label: "Year", field: "column1", displayKind: "number" },
-	],
 };
 
 export const browserRow = (entityId: string, name: string) => ({
+	name,
 	entityId,
+	year: 2026,
 	image: null,
-	column0: name,
-	column1: 2026,
 	ownerPluginId: "media",
 	entitySchemaSlug: "book",
 	__entityBrowserName: name,

@@ -24,11 +24,7 @@ describe("fixture saved-view presentations", () => {
 			],
 		];
 		fixtureSavedViews.forEach((view, index) => {
-			const query = view.dataSources.queries.savedView;
-			if (query?.output.type !== "rows") {
-				throw new Error("Expected fixture saved-view rows query");
-			}
-			const fields = query.output.fields
+			const fields = view.dataSources.queries.savedView.output.fields
 				.flatMap((selection) => ("key" in selection ? [selection.key] : []))
 				.filter((field) => field.startsWith("presentation"))
 				.sort();
@@ -37,11 +33,7 @@ describe("fixture saved-view presentations", () => {
 	});
 
 	it("projects only the first Pokemon artwork locator", () => {
-		const query = fixtureSavedViews[0].dataSources.queries.savedView;
-		if (query?.output.type !== "rows") {
-			throw new Error("Expected Pokemon saved-view rows query");
-		}
-		const artwork = query.output.fields.find(
+		const artwork = fixtureSavedViews[0].dataSources.queries.savedView.output.fields.find(
 			(selection) => "key" in selection && selection.key === "presentationArtwork",
 		);
 		expect(artwork).toMatchObject({

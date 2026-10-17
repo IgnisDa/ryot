@@ -175,7 +175,7 @@ describe("entity browser", () => {
 					Result.all(
 						Object.fromEntries(
 							references.map(({ entityId }) => {
-								const value = sources.get(entityId)?.["column0"];
+								const value = sources.get(entityId)?.["name"];
 								return [
 									entityId,
 									typeof value === "string"

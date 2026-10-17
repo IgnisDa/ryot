@@ -1,8 +1,15 @@
 import type { ScalarExpression } from "@ryot-app/contract/modules/ryotql/language";
+import type { SavedViewTableColumn } from "@ryot-app/contract/modules/saved-views/schemas";
 import { castJson, column, jsonPath, table, titleCase } from "@ryot-app/ryotql";
-import type { SavedViewLayoutProjectionsInput } from "@ryot-app/ryotql-recipes/saved-views";
 
-type ViewExpressions = { readonly table: Omit<SavedViewLayoutProjectionsInput["table"], "entity"> };
+type ViewColumn = SavedViewTableColumn & { readonly expression: ScalarExpression };
+
+type ViewExpressions = {
+	readonly table: {
+		readonly image: ScalarExpression | null;
+		readonly columns: readonly ViewColumn[];
+	};
+};
 
 const entity = table("entity", "entity");
 const entityColumn = (name: string) => column(entity, name);
@@ -12,14 +19,14 @@ const text = (expression: ScalarExpression) => ({ expression, displayKind: "text
 const date = (expression: ScalarExpression) => ({ expression, displayKind: "date" as const });
 
 const tableColumns = (slug: string): ViewExpressions["table"]["columns"] => {
-	const name = { label: "Name", ...text(entityColumn("name")) };
+	const name = { field: "name", label: "Name", ...text(entityColumn("name")) };
 	if (slug === "exercise") {
-		return [name, { label: "Level", ...text(titleCase(entityProperty("level"))) }];
+		return [name, { field: "level", label: "Level", ...text(titleCase(entityProperty("level"))) }];
 	}
 	return [
 		name,
-		{ label: "Created At", ...date(entityColumn("createdAt")) },
-		{ label: "Comment", ...text(entityProperty("comment")) },
+		{ field: "createdAt", label: "Created At", ...date(entityColumn("createdAt")) },
+		{ field: "comment", label: "Comment", ...text(entityProperty("comment")) },
 	];
 };
 

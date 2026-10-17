@@ -19,9 +19,7 @@ it("keeps source zero limited to generic kernel definitions", () => {
 	assert(query?.output.type === "rows");
 	expect(query.output.fields).toMatchObject([
 		{ key: "entityId" },
-		{ key: "column0" },
-		{ key: "populationStatus" },
-		{ key: "translationStatus" },
+		{ key: "name" },
 		{ key: "presentationMemberCount" },
 		{ key: "ownerPluginId" },
 		{ key: "entitySchemaSlug" },

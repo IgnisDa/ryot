@@ -231,9 +231,9 @@ describe("Workout Templates E2E", () => {
 					reference: builtinSavedViewReference(pluginId, "all-workout-templates"),
 					settings: {
 						defaultLayout: "grid",
+						searchFields: ["name"],
 						sourceName: "savedView",
 						entityIdField: "entityId",
-						searchFields: ["column0"],
 						layouts: ["grid", "list", "table"],
 						ownerPluginIdField: "ownerPluginId",
 						entitySchemaSlugField: "entitySchemaSlug",
@@ -244,9 +244,9 @@ describe("Workout Templates E2E", () => {
 							packageId: PLUGIN_PACKAGE_ID,
 						},
 						tableColumns: [
-							{ label: "Name", field: "column0", displayKind: "text" },
-							{ field: "column1", label: "Created At", displayKind: "date" },
-							{ label: "Comment", field: "column2", displayKind: "text" },
+							{ label: "Name", field: "name", displayKind: "text" },
+							{ field: "createdAt", label: "Created At", displayKind: "date" },
+							{ label: "Comment", field: "comment", displayKind: "text" },
 						],
 					},
 				});
@@ -293,11 +293,9 @@ describe("Workout Templates E2E", () => {
 					savedViewSource.output.fields.map((selection) => "key" in selection && selection.key),
 				).toEqual([
 					"entityId",
-					"column0",
-					"column1",
-					"column2",
-					"populationStatus",
-					"translationStatus",
+					"name",
+					"createdAt",
+					"comment",
 					"ownerPluginId",
 					"entitySchemaSlug",
 					"presentationId",
