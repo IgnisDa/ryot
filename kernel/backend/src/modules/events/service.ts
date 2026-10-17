@@ -198,15 +198,31 @@ const eventWriteFailure = (error: DbError | DomainWriteConflict) =>
 const matchesEventPrecondition = (
 	before: AutomationEventSnapshot,
 	expected: NonNullable<UpdateEventItem["expected"]>,
-) =>
-	stableStringify(expected) ===
-	stableStringify({
-		entityId: before.entityId,
-		updatedAt: before.updatedAt,
-		occurredAt: before.occurredAt,
-		properties: before.properties,
-		sessionEntityId: before.sessionEntityId,
-	});
+) => {
+	if ("kind" in expected) {
+		return (
+			expected.entityId === before.entityId &&
+			expected.occurredAt === before.occurredAt &&
+			expected.sessionEntityId === before.sessionEntityId &&
+			Object.entries(expected.properties).every(
+				([key, value]) =>
+					Object.hasOwn(before.properties, key) &&
+					stableStringify(before.properties[key]) === stableStringify(value),
+			) &&
+			expected.absentProperties.every((key) => !Object.hasOwn(before.properties, key))
+		);
+	}
+	return (
+		stableStringify(expected) ===
+		stableStringify({
+			entityId: before.entityId,
+			updatedAt: before.updatedAt,
+			occurredAt: before.occurredAt,
+			properties: before.properties,
+			sessionEntityId: before.sessionEntityId,
+		})
+	);
+};
 
 const applyUpdatePatch = (before: AutomationEventSnapshot, patch: EventUpdatePatch) => {
 	const properties = { ...before.properties };
@@ -257,6 +273,30 @@ export class EventsService extends Context.Service<EventsService>()("EventsServi
 		const eventSchemas = yield* EventSchemaReader;
 		const session = yield* DatabaseSession;
 		const writeChecks = yield* DomainWriteChecks;
+		const retryFieldPreconditionStale = <A, E, R>(
+			work: Effect.Effect<A, E, R>,
+			userId: UserId,
+			expectedForEvent: (eventId: EventId) => UpdateEventItem["expected"],
+		) =>
+			Effect.retry(work, {
+				times: 2,
+				while: (error) => {
+					if (!(error instanceof EventStale)) {
+						return Effect.succeed(false);
+					}
+					const expected = expectedForEvent(error.reason.eventId);
+					if (!expected || !("kind" in expected)) {
+						return Effect.succeed(false);
+					}
+					return repository
+						.getEventSnapshot({ userId, eventId: error.reason.eventId })
+						.pipe(
+							Effect.map(
+								(current) => current !== null && matchesEventPrecondition(current, expected),
+							),
+						);
+				},
+			});
 		const authorizeEventDelete = Effect.fnUntraced(function* (
 			command: DomainLifecycleCommand,
 			input: EventIdentityInput,
@@ -677,7 +717,20 @@ export class EventsService extends Context.Service<EventsService>()("EventsServi
 						operation: "update",
 						draft: initial.draft,
 					};
-					const plan = yield* planner.plan({ trigger: lifecycleTrigger(command, userId, request) });
+					const trigger =
+						submitted.expected && "kind" in submitted.expected
+							? lifecycleTrigger(
+									command,
+									userId,
+									request,
+									stableStringify([
+										"event-update",
+										expectedRevision,
+										initial.referenceContextFingerprint,
+									]),
+								)
+							: lifecycleTrigger(command, userId, request);
+					const plan = yield* planner.plan({ trigger });
 					return {
 						plan,
 						input,
@@ -934,8 +987,19 @@ export class EventsService extends Context.Service<EventsService>()("EventsServi
 							operation: "delete",
 						};
 					}
+					const discriminator =
+						input.expected && "kind" in input.expected
+							? stableStringify([
+									move ? "event-move" : "event-delete",
+									expectedRevision,
+									referenceContextFingerprint ?? stableStringify(before),
+								])
+							: undefined;
 					const plan = yield* planner.plan({
-						trigger: lifecycleTrigger(command, input.userId, request),
+						trigger:
+							discriminator === undefined
+								? lifecycleTrigger(command, input.userId, request)
+								: lifecycleTrigger(command, input.userId, request, discriminator),
 					});
 					if (plan.trigger?.blockedReason) {
 						return yield* eventBadRequest(
@@ -1414,22 +1478,30 @@ export class EventsService extends Context.Service<EventsService>()("EventsServi
 			yield* assertRootTransaction;
 			const input = { userId, eventId: submitted.eventId };
 			const mutation = { submitted, operation: "edit" as const };
-			const replay = yield* replaySingle(input, command, mutation);
-			if (replay) {
-				return replay;
-			}
-			const prepared = yield* prepareUpdate(submitted, userId, command);
-			if (!prepared) {
-				const racedReplay = yield* replaySingle(input, command, mutation);
-				if (racedReplay) {
-					return racedReplay;
-				}
-				return yield* new EventNotFound({
-					reason: { code: "event-not-found", eventId: submitted.eventId },
-				});
-			}
-			const work = yield* transaction(withBatch(command, persist(prepared[preparedEventUpdate])));
-			return { eventId: work.result, warnings: yield* execution.dispatch(work.dispatch) };
+			return yield* retryFieldPreconditionStale(
+				Effect.gen(function* () {
+					const replay = yield* replaySingle(input, command, mutation);
+					if (replay) {
+						return replay;
+					}
+					const prepared = yield* prepareUpdate(submitted, userId, command);
+					if (!prepared) {
+						const racedReplay = yield* replaySingle(input, command, mutation);
+						if (racedReplay) {
+							return racedReplay;
+						}
+						return yield* new EventNotFound({
+							reason: { code: "event-not-found", eventId: submitted.eventId },
+						});
+					}
+					const work = yield* transaction(
+						withBatch(command, persist(prepared[preparedEventUpdate])),
+					);
+					return { eventId: work.result, warnings: yield* execution.dispatch(work.dispatch) };
+				}),
+				userId,
+				(eventId) => (eventId === submitted.eventId ? submitted.expected : undefined),
+			);
 		});
 		const deleteOne = Effect.fn("EventsService.delete")(function* (
 			input: EventIdentityInput,
@@ -1437,25 +1509,31 @@ export class EventsService extends Context.Service<EventsService>()("EventsServi
 		) {
 			yield* assertRootTransaction;
 			const mutation = { operation: "delete" as const };
-			const replay = yield* replaySingle(input, command, mutation);
-			if (replay) {
-				return replay;
-			}
-			const prepared = yield* prepareMoveOrDelete(input, command, undefined, true);
-			if (!prepared) {
-				const racedReplay = yield* replaySingle(input, command, mutation);
-				if (racedReplay) {
-					return racedReplay;
-				}
-				return yield* new EventNotFound({
-					reason: { eventId: input.eventId, code: "event-not-found" },
-				});
-			}
-			const work =
-				"_tag" in prepared
-					? prepared.work
-					: yield* transaction(withBatch(command, persist(prepared)));
-			return { eventId: work.result, warnings: yield* execution.dispatch(work.dispatch) };
+			return yield* retryFieldPreconditionStale(
+				Effect.gen(function* () {
+					const replay = yield* replaySingle(input, command, mutation);
+					if (replay) {
+						return replay;
+					}
+					const prepared = yield* prepareMoveOrDelete(input, command, undefined, true);
+					if (!prepared) {
+						const racedReplay = yield* replaySingle(input, command, mutation);
+						if (racedReplay) {
+							return racedReplay;
+						}
+						return yield* new EventNotFound({
+							reason: { eventId: input.eventId, code: "event-not-found" },
+						});
+					}
+					const work =
+						"_tag" in prepared
+							? prepared.work
+							: yield* transaction(withBatch(command, persist(prepared)));
+					return { eventId: work.result, warnings: yield* execution.dispatch(work.dispatch) };
+				}),
+				input.userId,
+				(eventId) => (eventId === input.eventId ? input.expected : undefined),
+			);
 		});
 		const batchReplay = Effect.fnUntraced(function* (
 			input:
@@ -1545,89 +1623,98 @@ export class EventsService extends Context.Service<EventsService>()("EventsServi
 				submitted: items,
 				operation: "edit",
 			});
-			const prior = yield* batchReplay({
-				items,
-				userId,
-				command,
-				submitted: items,
-				operation: "edit",
-			});
-			if (prior) {
-				return yield* dispatchBatchResult(prior);
-			}
-			const prepared: PreparedEventUpdate[] = [];
-			for (const [index, item] of items.entries()) {
-				const value = yield* prepareUpdate(item, userId, indexedCommand(command, index));
-				if (!value) {
-					const racedReplay = yield* batchReplay({
+			return yield* retryFieldPreconditionStale(
+				Effect.gen(function* () {
+					const prior = yield* batchReplay({
 						items,
 						userId,
 						command,
 						submitted: items,
 						operation: "edit",
 					});
-					if (racedReplay) {
-						return yield* dispatchBatchResult(racedReplay);
+					if (prior) {
+						return yield* dispatchBatchResult(prior);
 					}
-					return yield* new EventNotFound({
-						reason: { eventId: item.eventId, code: "event-not-found" },
-					});
-				}
-				prepared.push(value);
-			}
-			const work = yield* transaction(
-				Effect.gen(function* () {
-					yield* writeChecks
-						.check(command, principalOwner(command.writeContext), userId, true)
-						.pipe(Effect.mapError(eventWriteFailure));
-					const aggregateReplay = yield* receipts
-						.lookup(batchIdentity, EventMutationBatchReceiptResult)
-						.pipe(Effect.mapError(receiptConflict));
-					if (aggregateReplay) {
-						return { _tag: "Replay" as const, receipt: aggregateReplay };
+					const prepared: PreparedEventUpdate[] = [];
+					for (const [index, item] of items.entries()) {
+						const value = yield* prepareUpdate(item, userId, indexedCommand(command, index));
+						if (!value) {
+							const racedReplay = yield* batchReplay({
+								items,
+								userId,
+								command,
+								submitted: items,
+								operation: "edit",
+							});
+							if (racedReplay) {
+								return yield* dispatchBatchResult(racedReplay);
+							}
+							return yield* new EventNotFound({
+								reason: { eventId: item.eventId, code: "event-not-found" },
+							});
+						}
+						prepared.push(value);
 					}
-					yield* entities.lockEntityReferencesByIds(
-						prepared.flatMap(({ [preparedEventUpdate]: item }) => [
-							item.before.entityId,
-							...(item.before.sessionEntityId === null ? [] : [item.before.sessionEntityId]),
-							item.draft.entityId,
-							...(item.draft.sessionEntityId === null ? [] : [item.draft.sessionEntityId]),
-						]),
+					const work = yield* transaction(
+						Effect.gen(function* () {
+							yield* writeChecks
+								.check(command, principalOwner(command.writeContext), userId, true)
+								.pipe(Effect.mapError(eventWriteFailure));
+							const aggregateReplay = yield* receipts
+								.lookup(batchIdentity, EventMutationBatchReceiptResult)
+								.pipe(Effect.mapError(receiptConflict));
+							if (aggregateReplay) {
+								return { _tag: "Replay" as const, receipt: aggregateReplay };
+							}
+							yield* entities.lockEntityReferencesByIds(
+								prepared.flatMap(({ [preparedEventUpdate]: item }) => [
+									item.before.entityId,
+									...(item.before.sessionEntityId === null ? [] : [item.before.sessionEntityId]),
+									item.draft.entityId,
+									...(item.draft.sessionEntityId === null ? [] : [item.draft.sessionEntityId]),
+								]),
+							);
+							yield* eventSchemas.lockCatalog();
+							yield* repository.lockEventRows({
+								userId,
+								eventIds: items.map((item) => item.eventId),
+							});
+							const commandInput = items;
+							const mutationBatch = { command, commandInput, identity: ["events"] };
+							yield* planner.prepareBatch({
+								command,
+								commandInput,
+								scopes: [userId],
+								resource: "event",
+								identity: ["events"],
+							});
+							const writes = [];
+							for (const [index, item] of prepared.entries()) {
+								writes.push(yield* persist(item[preparedEventUpdate], { ...mutationBatch, index }));
+							}
+							const batchDispatch = yield* planner.planBatch({
+								command,
+								commandInput,
+								resource: "event",
+								identity: ["events"],
+							});
+							const dispatch = [...writes.flatMap((item) => item.dispatch), ...batchDispatch];
+							const result = { eventIds: writes.map((item) => item.result) };
+							yield* receipts.insert({ result, dispatch, identity: batchIdentity });
+							return { result, dispatch, _tag: "Committed" as const };
+						}),
 					);
-					yield* eventSchemas.lockCatalog();
-					yield* repository.lockEventRows({ userId, eventIds: items.map((item) => item.eventId) });
-					const commandInput = items;
-					const mutationBatch = { command, commandInput, identity: ["events"] };
-					yield* planner.prepareBatch({
-						command,
-						commandInput,
-						scopes: [userId],
-						resource: "event",
-						identity: ["events"],
-					});
-					const writes = [];
-					for (const [index, item] of prepared.entries()) {
-						writes.push(yield* persist(item[preparedEventUpdate], { ...mutationBatch, index }));
+					if (work._tag === "Replay") {
+						return yield* dispatchBatchResult(work.receipt);
 					}
-					const batchDispatch = yield* planner.planBatch({
-						command,
-						commandInput,
-						resource: "event",
-						identity: ["events"],
-					});
-					const dispatch = [...writes.flatMap((item) => item.dispatch), ...batchDispatch];
-					const result = { eventIds: writes.map((item) => item.result) };
-					yield* receipts.insert({ result, dispatch, identity: batchIdentity });
-					return { result, dispatch, _tag: "Committed" as const };
+					return {
+						warnings: yield* execution.dispatch(work.dispatch),
+						count: work.result.eventIds.filter((eventId) => eventId !== null).length,
+					};
 				}),
+				userId,
+				(eventId) => items.find((item) => item.eventId === eventId)?.expected,
 			);
-			if (work._tag === "Replay") {
-				return yield* dispatchBatchResult(work.receipt);
-			}
-			return {
-				warnings: yield* execution.dispatch(work.dispatch),
-				count: work.result.eventIds.filter((eventId) => eventId !== null).length,
-			};
 		});
 		const deleteBatch = Effect.fn("EventsService.deleteBatch")(function* (
 			eventIds: ReadonlyArray<EventId>,
@@ -1666,105 +1753,121 @@ export class EventsService extends Context.Service<EventsService>()("EventsServi
 				submitted,
 				operation: "delete",
 			});
-			const prior = yield* batchReplay({ items, userId, command, submitted, operation: "delete" });
-			if (prior) {
-				return yield* dispatchBatchResult(prior);
-			}
-			const prepared: Array<PreparedEventDelete | null> = [];
-			for (const [index, input] of items.entries()) {
-				const value = yield* prepareDelete(input, indexedCommand(command, index));
-				if (!value) {
-					const racedReplay = yield* batchReplay({
+			return yield* retryFieldPreconditionStale(
+				Effect.gen(function* () {
+					const prior = yield* batchReplay({
 						items,
 						userId,
 						command,
 						submitted,
 						operation: "delete",
 					});
-					if (racedReplay) {
-						return yield* dispatchBatchResult(racedReplay);
+					if (prior) {
+						return yield* dispatchBatchResult(prior);
 					}
-					prepared.push(null);
-					continue;
-				}
-				prepared.push(value);
-			}
-			const work = yield* transaction(
-				Effect.gen(function* () {
-					yield* writeChecks
-						.check(command, principalOwner(command.writeContext), userId, true)
-						.pipe(Effect.mapError(eventWriteFailure));
-					const aggregateReplay = yield* receipts
-						.lookup(batchIdentity, EventMutationBatchReceiptResult)
-						.pipe(Effect.mapError(receiptConflict));
-					if (aggregateReplay) {
-						return { _tag: "Replay" as const, receipt: aggregateReplay };
-					}
-					yield* entities.lockEntityReferencesByIds(
-						prepared.flatMap((item) =>
-							item
-								? [
-										item[preparedEventDelete].before.entityId,
-										...(item[preparedEventDelete].before.sessionEntityId === null
-											? []
-											: [item[preparedEventDelete].before.sessionEntityId]),
-									]
-								: [],
-						),
-					);
-					yield* repository.lockEventRows({ userId, eventIds });
-					const commandInput = submitted;
-					const mutationBatch = { command, commandInput, identity: ["events"] };
-					const batch = prepared.some((item) => item !== null)
-						? yield* planner.prepareBatch({
+					const prepared: Array<PreparedEventDelete | null> = [];
+					for (const [index, input] of items.entries()) {
+						const value = yield* prepareDelete(input, indexedCommand(command, index));
+						if (!value) {
+							const racedReplay = yield* batchReplay({
+								items,
+								userId,
 								command,
-								commandInput,
-								scopes: [userId],
-								resource: "event",
-								identity: ["events"],
-							})
-						: null;
-					const writes: Array<Effect.Success<ReturnType<typeof persist>>> = [];
-					for (const [index, item] of prepared.entries()) {
-						const input = items[index];
-						if (!input) {
-							return yield* new DbError({ message: "Missing event delete batch item" });
-						}
-						if (item) {
-							writes.push(yield* persist(item[preparedEventDelete], { ...mutationBatch, index }));
+								submitted,
+								operation: "delete",
+							});
+							if (racedReplay) {
+								return yield* dispatchBatchResult(racedReplay);
+							}
+							prepared.push(null);
 							continue;
 						}
-						const itemCommand = indexedCommand(command, index);
-						const dispatch: ReadonlyArray<LifecycleDispatchPlan> = [];
-						yield* receipts.insert({
-							dispatch,
-							result: { eventId: null },
-							identity: eventMutationReceiptIdentity(input, itemCommand, { operation: "delete" }),
-							...(batch ? { batchId: batch.id, batchIndex: index } : {}),
-						});
-						writes.push({ dispatch, result: null });
+						prepared.push(value);
 					}
-					const batchDispatch = batch
-						? yield* planner.planBatch({
-								command,
-								commandInput,
-								resource: "event",
-								identity: ["events"],
-							})
-						: [];
-					const dispatch = [...writes.flatMap((item) => item.dispatch), ...batchDispatch];
-					const result = { eventIds: writes.map((item) => item.result) };
-					yield* receipts.insert({ result, dispatch, identity: batchIdentity });
-					return { result, dispatch, _tag: "Committed" as const };
+					const work = yield* transaction(
+						Effect.gen(function* () {
+							yield* writeChecks
+								.check(command, principalOwner(command.writeContext), userId, true)
+								.pipe(Effect.mapError(eventWriteFailure));
+							const aggregateReplay = yield* receipts
+								.lookup(batchIdentity, EventMutationBatchReceiptResult)
+								.pipe(Effect.mapError(receiptConflict));
+							if (aggregateReplay) {
+								return { _tag: "Replay" as const, receipt: aggregateReplay };
+							}
+							yield* entities.lockEntityReferencesByIds(
+								prepared.flatMap((item) =>
+									item
+										? [
+												item[preparedEventDelete].before.entityId,
+												...(item[preparedEventDelete].before.sessionEntityId === null
+													? []
+													: [item[preparedEventDelete].before.sessionEntityId]),
+											]
+										: [],
+								),
+							);
+							yield* repository.lockEventRows({ userId, eventIds });
+							const commandInput = submitted;
+							const mutationBatch = { command, commandInput, identity: ["events"] };
+							const batch = prepared.some((item) => item !== null)
+								? yield* planner.prepareBatch({
+										command,
+										commandInput,
+										scopes: [userId],
+										resource: "event",
+										identity: ["events"],
+									})
+								: null;
+							const writes: Array<Effect.Success<ReturnType<typeof persist>>> = [];
+							for (const [index, item] of prepared.entries()) {
+								const input = items[index];
+								if (!input) {
+									return yield* new DbError({ message: "Missing event delete batch item" });
+								}
+								if (item) {
+									writes.push(
+										yield* persist(item[preparedEventDelete], { ...mutationBatch, index }),
+									);
+									continue;
+								}
+								const itemCommand = indexedCommand(command, index);
+								const dispatch: ReadonlyArray<LifecycleDispatchPlan> = [];
+								yield* receipts.insert({
+									dispatch,
+									result: { eventId: null },
+									identity: eventMutationReceiptIdentity(input, itemCommand, {
+										operation: "delete",
+									}),
+									...(batch ? { batchId: batch.id, batchIndex: index } : {}),
+								});
+								writes.push({ dispatch, result: null });
+							}
+							const batchDispatch = batch
+								? yield* planner.planBatch({
+										command,
+										commandInput,
+										resource: "event",
+										identity: ["events"],
+									})
+								: [];
+							const dispatch = [...writes.flatMap((item) => item.dispatch), ...batchDispatch];
+							const result = { eventIds: writes.map((item) => item.result) };
+							yield* receipts.insert({ result, dispatch, identity: batchIdentity });
+							return { result, dispatch, _tag: "Committed" as const };
+						}),
+					);
+					if (work._tag === "Replay") {
+						return yield* dispatchBatchResult(work.receipt);
+					}
+					return {
+						warnings: yield* execution.dispatch(work.dispatch),
+						count: work.result.eventIds.filter((eventId) => eventId !== null).length,
+					};
 				}),
+				userId,
+				(eventId) => expected?.[eventId],
 			);
-			if (work._tag === "Replay") {
-				return yield* dispatchBatchResult(work.receipt);
-			}
-			return {
-				warnings: yield* execution.dispatch(work.dispatch),
-				count: work.result.eventIds.filter((eventId) => eventId !== null).length,
-			};
 		});
 		const moveReferences = Effect.fn("EventsService.moveReferences")(function* (
 			input: UpdateEventEntityReferencesInput,
