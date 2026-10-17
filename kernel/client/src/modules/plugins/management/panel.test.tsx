@@ -24,13 +24,17 @@ it("shows a retained private identity separately from the system copy without lo
 			onAction={(action) => actions.push(action)}
 		/>,
 	);
-	const summary = screen.getByText("Whiskey · Private · test/whiskey · incompatible");
-	fireEvent.click(summary);
-	const details = summary.closest("details");
+	const [systemDetails, details] = view.container.querySelectorAll("details");
 	assert(details);
+	assert(systemDetails);
+	for (const summary of view.container.querySelectorAll("summary")) {
+		fireEvent.click(summary);
+	}
 	const row = within(details);
+	expect(row.getByText("Private")).toBeDefined();
+	expect(row.getByText("Incompatible")).toBeDefined();
 	expect(row.getByText("private-owner")).toBeDefined();
-	expect(row.getByText(retained.packageId)).toBeDefined();
+	expect(row.getAllByText(retained.packageId)).toHaveLength(2);
 	expect(row.getByText("Completed")).toBeDefined();
 	expect(row.getByText("Shown")).toBeDefined();
 	expect(row.getByText("package-identity-conflict")).toBeDefined();
@@ -40,26 +44,27 @@ it("shows a retained private identity separately from the system copy without lo
 	expect(row.getByRole("link", { name: "Back up retained data" }).getAttribute("href")).toBe(
 		"/settings/backups",
 	);
-	const systemSummary = screen.getByText("Whiskey · System · test/whiskey · ready");
-	fireEvent.click(systemSummary);
-	const systemDetails = systemSummary.closest("details");
-	assert(systemDetails);
-	expect(within(systemDetails).queryByRole("button", { name: "Uninstall" })).toBeNull();
+	const systemRow = within(systemDetails);
+	expect(systemRow.getByText("System")).toBeDefined();
+	expect(systemRow.getByText("Ready")).toBeDefined();
+	expect(systemRow.queryByRole("button", { name: "Uninstall" })).toBeNull();
 });
 
 it("requires confirmation for exact private removal and offers no system package removal", () => {
 	const installation = managedInstallation();
 	const actions: PluginManagementAction[] = [];
-	render(
+	const view = render(
 		<PluginManagementPanel
 			pending={false}
 			installations={[installation]}
 			onAction={(action) => actions.push(action)}
 		/>,
 	);
-	fireEvent.click(screen.getByText("Whiskey · Private · test/whiskey · incompatible"));
+	const summary = view.container.querySelector("summary");
+	assert(summary);
+	fireEvent.click(summary);
 	fireEvent.click(screen.getByRole("button", { name: "Uninstall" }));
 	expect(actions).toEqual([]);
-	fireEvent.click(screen.getByRole("button", { name: "Confirm uninstall" }));
+	fireEvent.click(screen.getByRole("button", { name: "Uninstall plugin" }));
 	expect(actions).toEqual([{ installation, kind: "uninstall" }]);
 });

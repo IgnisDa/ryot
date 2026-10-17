@@ -1,5 +1,6 @@
 import { useRyotMutation, useRyotQuery } from "@ryot-app/plugin-client-sdk/react";
 import { Button } from "@ryot-app/plugin-ui-sdk";
+import { AppIcon } from "@ryot-app/plugin-ui-sdk/icon";
 import { createFileRoute } from "@tanstack/react-router";
 import { Effect } from "effect";
 
@@ -20,10 +21,18 @@ function PluginManagement() {
 	const mutation = useRyotMutation(pluginManagementMutation);
 	const content = (() => {
 		if (query.status === "pending") {
-			return <p role="status">Loading installations…</p>;
+			return (
+				<p role="status" className="text-sm text-text-muted">
+					Loading installations…
+				</p>
+			);
 		}
 		if (query.status === "error") {
-			return <p role="alert">{errorDetail(query.error)}</p>;
+			return (
+				<p role="alert" className="text-sm text-danger">
+					{errorDetail(query.error)}
+				</p>
+			);
 		}
 		return (
 			<PluginManagementPanel
@@ -51,8 +60,13 @@ function PluginManagement() {
 			title="Plugins"
 			backFallbackHref="/settings"
 			actions={
-				<Button variant="secondary" onClick={query.refetch}>
-					Refresh state
+				<Button
+					variant="secondary"
+					onClick={query.refetch}
+					className="flex min-h-9 items-center gap-1.5 px-3 py-1.5 text-sm"
+				>
+					<AppIcon size={14} name="rotate-ccw" className="text-text" />
+					Refresh
 				</Button>
 			}
 		>

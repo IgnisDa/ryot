@@ -124,7 +124,7 @@ describe("workspace switcher", () => {
 			within(menu)
 				.getAllByRole("menuitemradio")
 				.map((item) => item.getAttribute("aria-label")),
-		).toEqual(["Switch to Media · System · ryot/media workspace"]);
+		).toEqual(["Switch to Media workspace"]);
 		expect(within(menu).queryByRole("menuitemradio", { name: /^Switch to Hidden / })).toBeNull();
 	});
 

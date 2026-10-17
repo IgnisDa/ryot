@@ -273,7 +273,7 @@ describe("settings navigation", () => {
 					.getAllByRole("link")
 					.map((link) => link.textContent);
 
-			expect(labels("You")).toEqual(["Preferences", "Plugin preferences", "Plugins", "Account"]);
+			expect(labels("You")).toEqual(["Preferences", "Plugins", "Plugin preferences", "Account"]);
 			expect(labels("Server")).toEqual(["Administration", "About"]);
 		}),
 	);
