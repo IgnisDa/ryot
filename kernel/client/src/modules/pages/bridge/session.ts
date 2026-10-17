@@ -529,13 +529,8 @@ export function openPluginBridge(options: PluginBridgeOptions): PluginBridgeSess
 	}
 
 	function handleUpload(request: PluginBridgeUploadRequest) {
-		runRequest(request.requestId, "upload", () =>
-			options.onUpload({
-				source: request.source,
-				fileName: request.fileName,
-				contentType: request.contentType,
-			}),
-		);
+		const { requestId, type: _type, ...capabilityRequest }: PluginBridgeUploadRequest = request;
+		runRequest(requestId, "upload", () => options.onUpload(capabilityRequest));
 	}
 
 	function handleAssets(request: PluginBridgeAssetRequest) {

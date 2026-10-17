@@ -8,7 +8,7 @@ import { Context, Effect, Layer, Ref, Schema } from "effect";
 import { AuthenticatedApiError } from "#/api/authenticated";
 import { decodeServerOrigin } from "#/api/origin";
 import { PluginInstallationsApi } from "#/api/plugin-installations";
-import { TemporaryUploads } from "#/modules/assets/temporary-uploads";
+import { Uploads } from "#/modules/assets/uploads";
 import { PluginManagementService } from "#/modules/plugins/management/service";
 import { managedInstallation } from "#/modules/plugins/management/service.test-fixtures";
 
@@ -38,16 +38,17 @@ const dependencies = Layer.effectContext(
 						}),
 					),
 			}),
-			Context.add(TemporaryUploads, {
+			Context.add(Uploads, {
 				outcome: () => Effect.succeed({ outcome: "failure", reason: "transport" }),
 				upload: (_scope, request) =>
 					Ref.update(calls, (all) => [...all, { request, method: "upload" }]).pipe(
-						Effect.as(
-							Schema.decodeSync(TemporaryUploadToken)({
+						Effect.as({
+							action: "temporary" as const,
+							token: Schema.decodeSync(TemporaryUploadToken)({
 								token: "archive-token",
 								expiresAt: "2026-10-13T00:00:00.000Z",
 							}),
-						),
+						}),
 					),
 			}),
 		);
@@ -120,7 +121,12 @@ layer(PluginManagementService.layer.pipe(Layer.provideMerge(dependencies)))((tes
 			expect((yield* (yield* Commands).calls).slice(-2)).toEqual([
 				{
 					method: "upload",
-					request: { source: file, fileName: "whiskey.zip", contentType: "application/zip" },
+					request: {
+						source: file,
+						action: "temporary",
+						fileName: "whiskey.zip",
+						contentType: "application/zip",
+					},
 				},
 				{
 					method: "package",

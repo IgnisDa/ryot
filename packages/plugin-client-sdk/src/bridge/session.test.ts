@@ -501,7 +501,7 @@ describe("plugin Effect request engine", () => {
 		}),
 	);
 
-	it.live("sends Blob uploads and accepts storage results", () =>
+	it.live("sends temporary, permanent, and cleanup uploads and accepts storage results", () =>
 		Effect.gen(function* () {
 			const { channel, runtime, messages } = yield* openRuntime();
 			const source = new Blob(["id,title"], { type: "text/csv" });
@@ -516,6 +516,7 @@ describe("plugin Effect request engine", () => {
 			yield* waitForMessagePortMacrotask;
 			const request = sent(messages, "upload-request")[0];
 			expect(request).toMatchObject({
+				action: "temporary",
 				requestId: "upload-1",
 				fileName: "items.csv",
 				contentType: "text/csv",
@@ -528,11 +529,52 @@ describe("plugin Effect request engine", () => {
 			expect(yield* Effect.promise(() => uploadSource.text())).toBe("id,title");
 			channel.port1.postMessage({
 				outcome: "success",
+				action: "temporary",
 				type: "upload-result",
 				requestId: "upload-1",
 				token: { token: "upload-token", expiresAt: "2026-01-01T00:15:00.000Z" },
 			});
 			expect(yield* Fiber.join(upload)).toMatchObject({ token: "upload-token" });
+			const permanentUpload = yield* Effect.forkChild(
+				runtime.client.uploads.uploadPermanent({
+					source,
+					fileName: "items.csv",
+					contentType: "text/csv",
+				}),
+				{ startImmediately: true },
+			);
+			yield* waitForMessagePortMacrotask;
+			expect(sent(messages, "upload-request")[1]).toMatchObject({
+				source,
+				action: "permanent",
+				requestId: "upload-2",
+			});
+			channel.port1.postMessage({
+				asset,
+				outcome: "success",
+				action: "permanent",
+				type: "upload-result",
+				requestId: "upload-2",
+			});
+			expect(yield* Fiber.join(permanentUpload)).toEqual(asset);
+			const cleanup = yield* Effect.forkChild(runtime.client.uploads.cleanup(asset), {
+				startImmediately: true,
+			});
+			yield* waitForMessagePortMacrotask;
+			expect(sent(messages, "upload-request")[2]).toEqual({
+				asset,
+				action: "cleanup",
+				requestId: "upload-3",
+				type: "upload-request",
+			});
+			channel.port1.postMessage({
+				action: "cleanup",
+				outcome: "success",
+				status: "referenced",
+				type: "upload-result",
+				requestId: "upload-3",
+			});
+			expect(yield* Fiber.join(cleanup)).toEqual({ status: "referenced" });
 			const storage = yield* Effect.forkChild(
 				Effect.result(runtime.client.storage.get(PluginId.make("fixture"), "key")),
 				{ startImmediately: true },
@@ -542,7 +584,7 @@ describe("plugin Effect request engine", () => {
 				reason: "quota",
 				outcome: "failure",
 				type: "storage-result",
-				requestId: "storage-2",
+				requestId: "storage-4",
 			});
 			expect(yield* Fiber.join(storage)).toMatchObject({ failure: { reason: "quota" } });
 		}),

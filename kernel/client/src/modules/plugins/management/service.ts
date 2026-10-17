@@ -17,7 +17,7 @@ import { PluginInstallationsApi } from "#/api/plugin-installations";
 import type { KernelRyotClient } from "#/api/ryot-client";
 import type { ApiScope } from "#/api/scope";
 import type { KernelHostServices } from "#/host-services";
-import { TemporaryUploads } from "#/modules/assets/temporary-uploads";
+import { Uploads } from "#/modules/assets/uploads";
 
 export type ManagedPluginInstallation = PluginInstallationsPage["items"][number];
 
@@ -97,7 +97,7 @@ export class PluginManagementService extends Context.Service<PluginManagementSer
 	{
 		make: Effect.gen(function* () {
 			const api = yield* PluginInstallationsApi;
-			const uploads = yield* TemporaryUploads;
+			const uploads = yield* Uploads;
 			const load = Effect.fn("PluginManagement.load")(function* (
 				client: Pick<KernelRyotClient, "data">,
 			) {
@@ -137,8 +137,9 @@ export class PluginManagementService extends Context.Service<PluginManagementSer
 						.pipe(Effect.mapError(commandFailure));
 				}
 				if (action.kind === "package") {
-					const token = yield* uploads
+					const upload = yield* uploads
 						.upload(scope, {
+							action: "temporary",
 							source: action.file,
 							fileName: action.file.name,
 							contentType: action.file.type || "application/zip",
@@ -151,10 +152,15 @@ export class PluginManagementService extends Context.Service<PluginManagementSer
 									}),
 							),
 						);
+					if (upload.action !== "temporary") {
+						return yield* new PluginManagementError({
+							detail: "Could not upload the selected plugin archive.",
+						});
+					}
 					return yield* api
 						.updatePackage(scope, {
 							params,
-							payload: { uploadToken: token.token, contentHash: installation.contentHash },
+							payload: { uploadToken: upload.token.token, contentHash: installation.contentHash },
 						})
 						.pipe(Effect.mapError(commandFailure));
 				}
@@ -170,7 +176,7 @@ export class PluginManagementService extends Context.Service<PluginManagementSer
 }
 
 export const PluginManagementLive = PluginManagementService.layer.pipe(
-	Layer.provide(Layer.mergeAll(PluginInstallationsApi.layer, TemporaryUploads.layer)),
+	Layer.provide(Layer.mergeAll(PluginInstallationsApi.layer, Uploads.layer)),
 );
 
 export const pluginManagementQuery = createRyotQuery<

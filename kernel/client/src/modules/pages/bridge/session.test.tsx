@@ -91,6 +91,7 @@ const capabilityRequests = {
 	ryotql: { document, type: "ryotql-request" },
 
 	upload: {
+		action: "temporary",
 		fileName: "items.csv",
 		type: "upload-request",
 		contentType: "text/csv",
@@ -1514,13 +1515,14 @@ describe("plugin bridge", () => {
 			const { init, received, pluginPort } = connect({
 				onUpload: (request) => {
 					calls.push(request);
-					return Effect.succeed({ token, outcome: "success" });
+					return Effect.succeed({ token, outcome: "success", action: "temporary" });
 				},
 			});
 			pluginPort.postMessage(readyFor(init));
 			yield* Effect.promise(() => waitFor(() => expect(received).toHaveLength(1)));
 
 			pluginPort.postMessage({
+				action: "temporary",
 				fileName: "items.csv",
 				requestId: "upload-1",
 				type: "upload-request",
@@ -1533,6 +1535,7 @@ describe("plugin bridge", () => {
 					expect(received).toContainEqual({
 						token,
 						outcome: "success",
+						action: "temporary",
 						requestId: "upload-1",
 						type: "upload-result",
 					}),
@@ -1540,9 +1543,67 @@ describe("plugin bridge", () => {
 			);
 			expect(calls).toHaveLength(1);
 			const uploaded = calls[0];
+			if (uploaded.action !== "temporary") {
+				throw new Error("Expected a temporary upload");
+			}
 			expect(uploaded).toMatchObject({ fileName: "items.csv", contentType: "text/csv" });
 			expect(uploaded.source).toBeInstanceOf(Blob);
 			expect(yield* Effect.promise(() => uploaded.source.text())).toBe("id,title");
+		}),
+	);
+
+	it.live("round-trips permanent uploads and cleanup on the same capability", () =>
+		Effect.gen(function* () {
+			const calls: PluginUploadRequest[] = [];
+			const asset = { type: "local", key: "permanent/items.csv" } as const;
+			const { init, received, pluginPort } = connect({
+				onUpload: (request) => {
+					calls.push(request);
+					return request.action === "permanent"
+						? Effect.succeed({ asset, outcome: "success", action: "permanent" })
+						: Effect.succeed({ action: "cleanup", outcome: "success", status: "referenced" });
+				},
+			});
+			pluginPort.postMessage(readyFor(init));
+			yield* Effect.promise(() => waitFor(() => expect(received).toHaveLength(1)));
+
+			pluginPort.postMessage({
+				action: "permanent",
+				fileName: "items.csv",
+				type: "upload-request",
+				contentType: "text/csv",
+				requestId: "upload-permanent",
+				source: new Blob(["id,title"], { type: "text/csv" }),
+			});
+			yield* Effect.promise(() =>
+				waitFor(() =>
+					expect(received).toContainEqual({
+						asset,
+						outcome: "success",
+						action: "permanent",
+						type: "upload-result",
+						requestId: "upload-permanent",
+					}),
+				),
+			);
+			pluginPort.postMessage({
+				asset,
+				action: "cleanup",
+				type: "upload-request",
+				requestId: "upload-cleanup",
+			});
+			yield* Effect.promise(() =>
+				waitFor(() =>
+					expect(received).toContainEqual({
+						action: "cleanup",
+						outcome: "success",
+						status: "referenced",
+						type: "upload-result",
+						requestId: "upload-cleanup",
+					}),
+				),
+			);
+			expect(calls.map(({ action }) => action)).toEqual(["permanent", "cleanup"]);
 		}),
 	);
 
@@ -1556,6 +1617,7 @@ describe("plugin bridge", () => {
 				const storage: PluginStorageOutcome = { value: null, outcome: "success" };
 				const upload: PluginUploadOutcome = {
 					outcome: "success",
+					action: "temporary",
 					token: { token: "upload", expiresAt: "2026-01-01T00:00:00.000Z" },
 				};
 				const ryotql: PluginRyotQLOutcome = { outcome: "success", response: { data: {} } };
@@ -1692,6 +1754,7 @@ describe("plugin bridge", () => {
 			yield* Effect.promise(() => waitFor(() => expect(received).toHaveLength(1)));
 
 			pluginPort.postMessage({
+				action: "temporary",
 				fileName: "items.csv",
 				requestId: "upload-1",
 				type: "upload-request",
@@ -1711,8 +1774,9 @@ describe("plugin bridge", () => {
 
 			pluginPort.postMessage({
 				source: {},
-				requestId: "upload-2",
+				action: "temporary",
 				fileName: "items.csv",
+				requestId: "upload-2",
 				type: "upload-request",
 				contentType: "text/csv",
 			});
