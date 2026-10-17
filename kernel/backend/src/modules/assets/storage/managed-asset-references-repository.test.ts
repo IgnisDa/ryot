@@ -10,6 +10,10 @@ import { eq } from "drizzle-orm";
 import { Effect, Layer } from "effect";
 
 import {
+	insertManagedAsset,
+	managedAssetProperty,
+} from "#lib/domain/managed-asset-writes.test-support";
+import {
 	installRevisionPackage,
 	revisionDatabaseLayer,
 	revisionPackage,
@@ -18,7 +22,6 @@ import { DatabaseSession } from "#platform/db/session";
 import * as tables from "#schema/tables/combined";
 
 import { ManagedAssetReferencesRepository } from "./managed-asset-references-repository";
-import { insertManagedAsset, managedAssetProperty } from "./managed-assets.test-support";
 
 const testLayer = ManagedAssetReferencesRepository.layer.pipe(
 	Layer.provideMerge(revisionDatabaseLayer),

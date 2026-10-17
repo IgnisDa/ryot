@@ -18,7 +18,7 @@ import { WorkflowEngine } from "effect/workflow/WorkflowEngine";
 import {
 	insertManagedAsset,
 	managedAssetProperty,
-} from "#modules/assets/storage/managed-assets.test-support";
+} from "#lib/domain/managed-asset-writes.test-support";
 import { DataImportAdmission } from "#modules/imports/data-admission";
 import { IngestionExecution } from "#modules/imports/execution-service";
 import { ImportsRepository } from "#modules/imports/repository";

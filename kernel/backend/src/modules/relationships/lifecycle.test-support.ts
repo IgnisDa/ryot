@@ -12,7 +12,7 @@ import { WorkflowEngine } from "effect/workflow/WorkflowEngine";
 import { Client } from "pg";
 import { assert } from "vitest";
 
-import { managedAssetProperty } from "#modules/assets/storage/managed-assets.test-support";
+import { managedAssetProperty } from "#lib/domain/managed-asset-writes.test-support";
 import { LifecyclePlannerServiceLive } from "#modules/automations/layer";
 import { withLifecycleDispatch } from "#modules/automations/lifecycle.test-support";
 import { rootLifecycleCommand } from "#modules/automations/lifecycle/command";

@@ -25,6 +25,10 @@ import { Workflow } from "effect/workflow";
 import { WorkflowEngine, WorkflowInstance } from "effect/workflow/WorkflowEngine";
 import { Client } from "pg";
 
+import {
+	insertManagedAsset,
+	managedAssetProperty,
+} from "#lib/domain/managed-asset-writes.test-support";
 import { AuthService } from "#modules/accounts/auth/service";
 import { UserLifecycleRepository } from "#modules/accounts/lifecycle/repository";
 import { UserLifecycleService } from "#modules/accounts/lifecycle/service";
@@ -34,10 +38,6 @@ import {
 	UserLifecycleWorkflowOperations,
 	UserLifecycleWorkflowOperationsLive,
 } from "#modules/accounts/lifecycle/workflow";
-import {
-	insertManagedAsset,
-	managedAssetProperty,
-} from "#modules/assets/storage/managed-assets.test-support";
 import { ObjectStorageService } from "#modules/assets/storage/object-storage";
 import {
 	withLifecycleBatchPlanning,

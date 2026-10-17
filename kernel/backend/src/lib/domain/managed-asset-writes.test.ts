@@ -11,52 +11,16 @@ import {
 	ManagedAssetReferenceRejected,
 	type OwnedManagedAssetPropertyRecord,
 } from "#lib/domain/managed-asset-writes";
+import {
+	insertManagedAsset,
+	managedAssetProperty,
+} from "#lib/domain/managed-asset-writes.test-support";
 import { DatabaseSession } from "#platform/db/session";
-import * as tables from "#schema/tables/combined";
 import { isolatedDatabaseLayer } from "#testing/isolated-database";
 
-const assetSchema: AppSchema = {
-	fields: {
-		image: {
-			type: "object",
-			properties: {},
-			label: "Image",
-			description: "Image",
-			validation: { asset: true },
-		},
-	},
-};
+const assetSchema: AppSchema = { fields: { image: managedAssetProperty } };
 
-const createUser = Effect.fn(function* () {
-	const session = yield* DatabaseSession;
-	const id = UserId.make(crypto.randomUUID());
-	yield* session.run((db) =>
-		db.insert(tables.user).values({ id, name: "Asset owner", email: `${id}@example.test` }),
-	);
-	return id;
-});
-
-const createAsset = Effect.fn(function* (ownerUserId: UserId, retired = false) {
-	const session = yield* DatabaseSession;
-	const locator: ManagedAssetLocator = {
-		type: "s3",
-		key: `permanent/${ownerUserId}_${crypto.randomUUID()}.png`,
-	};
-	yield* session.run((db) =>
-		db
-			.insert(tables.managedAsset)
-			.values({
-				size: 1,
-				ownerUserId,
-				key: locator.key,
-				provider: locator.type,
-				sha256: "a".repeat(64),
-				contentType: "image/png",
-				retiredAt: retired ? new Date() : null,
-			}),
-	);
-	return locator;
-});
+const newUserId = () => UserId.make(crypto.randomUUID());
 
 const record = (
 	ownerUserId: UserId | null,
@@ -77,24 +41,24 @@ const lock = (records: ReadonlyArray<OwnedManagedAssetPropertyRecord>) =>
 layer(isolatedDatabaseLayer("managed_asset_writes"))((test) => {
 	test.effect("accepts a locator owned by the record owner", () =>
 		Effect.gen(function* () {
-			const owner = yield* createUser();
-			const locator = yield* createAsset(owner);
+			const owner = newUserId();
+			const locator = yield* insertManagedAsset(owner);
 			assert(Exit.isSuccess(yield* lock([record(owner, locator)])));
 		}),
 	);
 
 	test.effect("rejects a locator owned by another user", () =>
 		Effect.gen(function* () {
-			const owner = yield* createUser();
-			const other = yield* createUser();
-			const locator = yield* createAsset(other);
+			const owner = newUserId();
+			const other = newUserId();
+			const locator = yield* insertManagedAsset(other);
 			assertExitFails(yield* lock([record(owner, locator)]), new ManagedAssetReferenceRejected());
 		}),
 	);
 
 	test.effect("rejects a locator without a managed asset row", () =>
 		Effect.gen(function* () {
-			const owner = yield* createUser();
+			const owner = newUserId();
 			assertExitFails(
 				yield* lock([record(owner, { type: "local", key: `permanent/${owner}_missing.png` })]),
 				new ManagedAssetReferenceRejected(),
@@ -104,25 +68,25 @@ layer(isolatedDatabaseLayer("managed_asset_writes"))((test) => {
 
 	test.effect("rejects a retired locator", () =>
 		Effect.gen(function* () {
-			const owner = yield* createUser();
-			const locator = yield* createAsset(owner, true);
+			const owner = newUserId();
+			const locator = yield* insertManagedAsset(owner, true);
 			assertExitFails(yield* lock([record(owner, locator)]), new ManagedAssetReferenceRejected());
 		}),
 	);
 
 	test.effect("rejects a managed locator on a record without an owner", () =>
 		Effect.gen(function* () {
-			const owner = yield* createUser();
-			const locator = yield* createAsset(owner);
+			const owner = newUserId();
+			const locator = yield* insertManagedAsset(owner);
 			assertExitFails(yield* lock([record(null, locator)]), new ManagedAssetReferenceRejected());
 		}),
 	);
 
 	test.effect("rejects a mixed-owner batch when the unowned record carries a locator", () =>
 		Effect.gen(function* () {
-			const owner = yield* createUser();
-			const owned = yield* createAsset(owner);
-			const shared = yield* createAsset(owner);
+			const owner = newUserId();
+			const owned = yield* insertManagedAsset(owner);
+			const shared = yield* insertManagedAsset(owner);
 			assertExitFails(
 				yield* lock([record(owner, owned), record(null, shared)]),
 				new ManagedAssetReferenceRejected(),
@@ -132,9 +96,9 @@ layer(isolatedDatabaseLayer("managed_asset_writes"))((test) => {
 
 	test.effect("accepts a batch whose records all share the asset owner", () =>
 		Effect.gen(function* () {
-			const owner = yield* createUser();
-			const first = yield* createAsset(owner);
-			const second = yield* createAsset(owner);
+			const owner = newUserId();
+			const first = yield* insertManagedAsset(owner);
+			const second = yield* insertManagedAsset(owner);
 			assert(Exit.isSuccess(yield* lock([record(owner, first), record(owner, second)])));
 		}),
 	);

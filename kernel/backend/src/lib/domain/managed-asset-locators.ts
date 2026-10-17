@@ -6,7 +6,8 @@ type JsonObject = Record<string, unknown>;
 
 const isJsonObject = (value: unknown): value is JsonObject => isObjectRecord(value);
 
-const assetKey = (locator: ManagedAssetLocator) => `${locator.type}:${locator.key}`;
+export const managedAssetLocatorKey = (locator: ManagedAssetLocator) =>
+	`${locator.type}:${locator.key}`;
 
 export type ManagedAssetPropertyRecord = {
 	readonly propertiesSchema: AppSchema;
@@ -58,12 +59,14 @@ export const collectManagedAssetLocatorsInto = (
 		}
 	}
 	for (const asset of assets) {
-		collected.set(assetKey(asset), asset);
+		collected.set(managedAssetLocatorKey(asset), asset);
 	}
 };
 
 export const sortedManagedAssetLocators = (collected: ReadonlyMap<string, ManagedAssetLocator>) =>
-	[...collected.values()].sort((left, right) => assetKey(left).localeCompare(assetKey(right)));
+	[...collected.values()].sort((left, right) =>
+		managedAssetLocatorKey(left).localeCompare(managedAssetLocatorKey(right)),
+	);
 
 export const collectManagedAssetLocators = (
 	records: ReadonlyArray<ManagedAssetPropertyRecord>,
