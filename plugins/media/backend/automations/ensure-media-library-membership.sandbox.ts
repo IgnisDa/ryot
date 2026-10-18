@@ -89,7 +89,7 @@ const ownMembershipTargetsRecipe = defineRecipe(
 
 const collectionMembershipTarget = (event: {
 	properties: Readonly<Record<string, unknown>>;
-}): MediaLibraryTarget | null => {
+}): null | MediaLibraryTarget => {
 	const entityId = event.properties["entityId"];
 	const entitySchemaSlug = event.properties["entitySchemaSlug"];
 	return typeof entityId === "string" && typeof entitySchemaSlug === "string"

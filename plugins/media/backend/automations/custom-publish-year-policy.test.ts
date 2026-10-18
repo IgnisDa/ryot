@@ -13,9 +13,9 @@ import definition from "./custom-publish-year-policy.sandbox";
 const run = (
 	properties: EntityRecord["properties"],
 	options: {
-		readonly operation?: "create" | "update" | "delete";
 		readonly providerId?: string;
 		readonly entitySchemaSlug?: string;
+		readonly operation?: "create" | "update" | "delete";
 	} = {},
 ) => {
 	const snapshot = entityRecord({

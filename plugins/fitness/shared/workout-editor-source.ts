@@ -24,11 +24,6 @@ import {
 } from "./workout-editor-recipes";
 import { storageWorkoutDisplay } from "./workout-units";
 
-type SourceBlocker = {
-	readonly exerciseId: string;
-	readonly code: "missing-exercise" | "invalid-record";
-};
-
 export type WorkoutEditorSourceHydration =
 	| { readonly kind: "ready"; readonly draft: WorkoutEditorDraft }
 	| {
@@ -36,6 +31,11 @@ export type WorkoutEditorSourceHydration =
 			readonly baseline: WorkoutEditorBaseline;
 			readonly blockers: ReadonlyArray<SourceBlocker>;
 	  };
+
+type SourceBlocker = {
+	readonly exerciseId: string;
+	readonly code: "invalid-record" | "missing-exercise";
+};
 
 const valid = <A>(schema: Schema.Codec<A, unknown>, value: unknown): A | undefined => {
 	const result = Schema.decodeUnknownResult(schema)(value);
@@ -51,15 +51,15 @@ const measuredStrings = (
 	distance: asMeasurement(source.distance),
 });
 
-const asMeasurement = (value: number | null | undefined) =>
+const asMeasurement = (value: null | number | undefined) =>
 	value !== null && value !== undefined && Number.isFinite(value) ? String(value) : undefined;
 
-const restChoiceOf = (restTime: number | null | undefined): WorkoutEditorSet["restChoice"] =>
+const restChoiceOf = (restTime: null | number | undefined): WorkoutEditorSet["restChoice"] =>
 	restTime === undefined || restTime === null
 		? { kind: "inherited" }
 		: { kind: "explicit", seconds: String(restTime) };
 
-const rpeInput = (rpe: number | null | undefined) =>
+const rpeInput = (rpe: null | number | undefined) =>
 	rpe === undefined || rpe === null ? undefined : String(rpe);
 
 const sourceOccurrenceId = (entityId: string, order: number) =>
@@ -102,7 +102,7 @@ const sourceSupersets = (
 	baseline: WorkoutEditorBaseline,
 	value: unknown,
 	occurrences: ReadonlyArray<WorkoutEditorOccurrence>,
-): { readonly supersets: WorkoutEditorDraft["supersets"]; readonly blocker?: SourceBlocker } => {
+): { readonly blocker?: SourceBlocker; readonly supersets: WorkoutEditorDraft["supersets"] } => {
 	if (value === undefined || value === null) {
 		return { supersets: [] };
 	}
@@ -373,10 +373,10 @@ const templateDraft = (
 };
 
 export const hydrateWorkoutEditorSource = (input: {
+	readonly draftId: string;
+	readonly kind: "workout" | "template";
 	readonly baseline: WorkoutEditorBaseline;
 	readonly exercises: readonly WorkoutEditorExercise[];
-	readonly kind: "workout" | "template";
-	readonly draftId: string;
 }): WorkoutEditorSourceHydration =>
 	input.kind === "workout"
 		? workoutDraft(input.baseline, input.exercises, input.draftId)

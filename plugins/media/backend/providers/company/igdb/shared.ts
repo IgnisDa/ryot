@@ -77,7 +77,7 @@ export const details = defineProvider({
 					throw new Error("IGDB company payload is missing name");
 				}
 
-				const images: Array<{ type: "remote"; url: string; purpose: "logo" }> = [];
+				const images: Array<{ url: string; type: "remote"; purpose: "logo" }> = [];
 				const logoImageId = stringValue(asRecord(company?.["logo"])?.["image_id"]);
 				if (logoImageId) {
 					images.push({ type: "remote", purpose: "logo", url: getImageUrl(logoImageId) });

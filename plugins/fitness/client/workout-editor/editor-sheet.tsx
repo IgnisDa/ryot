@@ -3,9 +3,10 @@ import { Dialog } from "@ryot-app/plugin-ui-sdk";
 import type { ComponentProps } from "react";
 
 export function EditorSheet(
-	props: Omit<ComponentProps<typeof Dialog>, "placement" | "safeAreaBottom"> & {
-		readonly wide?: "center" | "side";
-	},
+	props: { readonly wide?: "side" | "center" } & Omit<
+		ComponentProps<typeof Dialog>,
+		"placement" | "safeAreaBottom"
+	>,
 ) {
 	const { compact, safeAreaBottom } = useRyotViewport();
 	const { wide = "center", ...dialog } = props;

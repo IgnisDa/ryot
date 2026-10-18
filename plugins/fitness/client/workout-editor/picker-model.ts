@@ -59,5 +59,5 @@ export const sortOrder: readonly PickerSort[] = ["times-performed", "name", "rec
 
 export const capitalize = (text: string) => `${text.charAt(0).toUpperCase()}${text.slice(1)}`;
 
-export const labelForKind = (kind: ExerciseKind | null) =>
+export const labelForKind = (kind: null | ExerciseKind) =>
 	kind === null ? "Exercise" : capitalize(kind.replaceAll("_", " "));

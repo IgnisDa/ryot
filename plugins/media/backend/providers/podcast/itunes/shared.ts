@@ -14,8 +14,8 @@ export const manifest = defineManifest({
 	kind: "provider",
 	slug: "podcast.itunes",
 });
-type ItunesHost = Pick<ScriptHost, "httpCall">;
 type UnknownRecord = Record<string, unknown>;
+type ItunesHost = Pick<ScriptHost, "httpCall">;
 const idString = (value: unknown) => {
 	if (typeof value === "number" && Number.isFinite(value)) {
 		return String(value);
@@ -129,7 +129,7 @@ const itunesGet = (
 const lookup = (host: ItunesHost, params: Record<string, string>) =>
 	itunesGet(host, "lookup", params, "iTunes lookup request failed");
 const translationResult = Effect.fn("itunesTranslationResult")(function* (
-	item: UnknownRecord | null,
+	item: null | UnknownRecord,
 	nameKey: string,
 	missing: string,
 ) {
@@ -206,9 +206,9 @@ type MappedEpisode = {
 	title: string;
 	number: number;
 	publishDate: string;
-	runtime: number | null;
-	overview: string | null;
-	thumbnail: string | null;
+	runtime: null | number;
+	overview: null | string;
+	thumbnail: null | string;
 };
 export const details = defineProvider({
 	manifest,

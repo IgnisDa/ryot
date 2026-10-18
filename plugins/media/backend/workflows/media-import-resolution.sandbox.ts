@@ -48,7 +48,7 @@ export default defineWorkflow({
 				[];
 			for (const item of input.items) {
 				const errors: string[] = [];
-				let resolved: { externalId: string; providerSlug: string } | null = null;
+				let resolved: null | { externalId: string; providerSlug: string } = null;
 				for (const [candidateIndex, candidate] of item.candidates.entries()) {
 					const result = yield* replay.activity(
 						`resolve-${item.index}-${candidateIndex}`,

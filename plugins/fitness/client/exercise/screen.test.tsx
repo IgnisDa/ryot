@@ -34,7 +34,7 @@ const pageContext: ClientPageContext = {
 	contributors: [pluginContributor({ pluginId, name: "Fitness", packageId: PLUGIN_PACKAGE_ID })],
 };
 
-const renderDetails = (details: ReturnType<typeof exerciseDetails>, storedDraft: string | null) => {
+const renderDetails = (details: ReturnType<typeof exerciseDetails>, storedDraft: null | string) => {
 	const page = mountPluginPage(
 		() => (
 			<ExerciseDetailsView
@@ -64,7 +64,7 @@ const renderDetails = (details: ReturnType<typeof exerciseDetails>, storedDraft:
 	return page;
 };
 
-const mountedPage = (details: ReturnType<typeof exerciseDetails>, storedDraft: string | null) =>
+const mountedPage = (details: ReturnType<typeof exerciseDetails>, storedDraft: null | string) =>
 	Effect.gen(function* () {
 		const page = renderDetails(details, storedDraft);
 		yield* Effect.promise(() =>
@@ -75,7 +75,7 @@ const mountedPage = (details: ReturnType<typeof exerciseDetails>, storedDraft: s
 		return page;
 	});
 
-const mounted = (details: ReturnType<typeof exerciseDetails>, storedDraft: string | null = null) =>
+const mounted = (details: ReturnType<typeof exerciseDetails>, storedDraft: null | string = null) =>
 	mountedPage(details, storedDraft).pipe(Effect.map((page) => page.container));
 
 const click = (element: Element) =>

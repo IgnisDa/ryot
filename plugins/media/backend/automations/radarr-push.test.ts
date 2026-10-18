@@ -17,6 +17,7 @@ import {
 } from "../../tests/backend/automations/automation-test-utils";
 import definition, { manifest } from "./radarr-push.sandbox";
 
+type HttpCall = { url: string; method: string; options: Record<string, unknown> };
 type RadarrHost = Pick<
 	ScriptHost,
 	| "log"
@@ -26,7 +27,6 @@ type RadarrHost = Pick<
 	| "listIntegrations"
 	| "getUserPreferences"
 >;
-type HttpCall = { url: string; method: string; options: Record<string, unknown> };
 
 const movieEntity = entityRecord({
 	id: "movie-1",
@@ -82,10 +82,10 @@ const createLog =
 		});
 
 const createHost = (options: {
+	log?: RadarrHost["log"];
 	disableIntegrations?: boolean;
 	httpCall: RadarrHost["httpCall"];
-	log?: RadarrHost["log"];
-	entity?: ReturnType<typeof entityRecord> | null;
+	entity?: null | ReturnType<typeof entityRecord>;
 	integrations?: ReturnType<typeof integrationRecord>[];
 }) =>
 	defineSandboxTestHost(manifest, {

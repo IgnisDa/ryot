@@ -71,11 +71,11 @@ type WorkoutExercisePickerInput = typeof WorkoutExercisePickerFiltersSchema.Type
 const exerciseTaxonomyFilter = (
 	exercise: Table,
 	input: {
-		readonly entityAlias: string;
 		readonly entitySlug: string;
+		readonly entityAlias: string;
 		readonly ids: readonly string[];
-		readonly relationshipAlias: string;
 		readonly relationshipSlug: string;
+		readonly relationshipAlias: string;
 	},
 ) => {
 	const relationship = table("relationship", input.relationshipAlias);
@@ -168,7 +168,7 @@ const exercisePickerWhere = (input: WorkoutExercisePickerInput, exercise: Table)
 export const membershipField = (
 	exercise: Table,
 	reference: PluginIdentityReference,
-	field: "properties" | "createdAt",
+	field: "createdAt" | "properties",
 ) => {
 	const relationship = table("relationship", "pickerMembershipRelationship");
 	const library = table("entity", "pickerMembershipLibrary");

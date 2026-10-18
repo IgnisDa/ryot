@@ -24,75 +24,34 @@ import { type DraftChange, isTemplateDraft } from "./draft-ops";
 import { EditorSheet } from "./editor-sheet";
 import { activeDurationSeconds } from "./timers";
 
-export function WorkoutDetailsSheet(props: {
-	readonly disabled: boolean;
-	readonly draft: WorkoutEditorDraft;
-	readonly onChange: DraftChange;
+export function ConfirmDialog(props: {
+	readonly title: string;
+	readonly disabled?: boolean;
+	readonly description: string;
+	readonly cancelLabel: string;
 	readonly onClose: () => void;
+	readonly confirmLabel: string;
+	readonly onConfirm: () => void;
 }) {
-	const { draft, onChange } = props;
-	const template = isTemplateDraft(draft);
 	return (
-		<EditorSheet
-			wide="side"
+		<Dialog
+			size="sm"
+			closeIcon={null}
+			title={props.title}
 			onClose={props.onClose}
-			closeLabel="Close details"
-			footer={<Button onClick={props.onClose}>Done</Button>}
-			title={template ? "Template details" : "Workout details"}
-		>
-			<fieldset disabled={props.disabled} className="grid min-w-0 gap-4 border-0 p-0">
-				<Field label="Name">
-					{(control) => (
-						<TextField
-							{...control}
-							value={draft.name}
-							onChange={(event) =>
-								onChange((current) => ({ ...current, name: event.target.value }))
-							}
-						/>
-					)}
-				</Field>
-				<Field label={template ? "Template comment" : "Reflection"}>
-					{(control) => (
-						<TextArea
-							{...control}
-							value={draft.comment ?? ""}
-							placeholder={template ? "Who it's for, progression notes…" : "How did it go?"}
-							onChange={(event) =>
-								onChange((current) => ({ ...current, comment: event.target.value }))
-							}
-						/>
-					)}
-				</Field>
-				{template ? null : (
-					<Field optional label={`Energy burned (${draft.displayEnergyUnit})`}>
-						{(control) => (
-							<div className="flex items-center gap-2">
-								<TextField
-									{...control}
-									inputMode="decimal"
-									className="min-w-0 flex-1"
-									value={draft.caloriesBurnt ?? ""}
-									onChange={(event) =>
-										onChange((current) => ({ ...current, caloriesBurnt: event.target.value }))
-									}
-								/>
-								<SegmentedControl
-									label="Energy unit"
-									value={draft.displayEnergyUnit}
-									optionClassName="w-12 pointer-coarse:w-14"
-									onChange={(unit) => onChange((current) => changeWorkoutEnergyUnit(current, unit))}
-									options={[
-										{ value: "kcal", label: "kcal", content: "kcal" },
-										{ value: "kJ", label: "kJ", content: "kJ" },
-									]}
-								/>
-							</div>
-						)}
-					</Field>
-				)}
-			</fieldset>
-		</EditorSheet>
+			closeLabel={props.cancelLabel}
+			description={props.description}
+			footer={
+				<>
+					<Button variant="secondary" onClick={props.onClose}>
+						{props.cancelLabel}
+					</Button>
+					<Button variant="danger" disabled={props.disabled} onClick={props.onConfirm}>
+						{props.confirmLabel}
+					</Button>
+				</>
+			}
+		/>
 	);
 }
 
@@ -172,6 +131,78 @@ export function WorkoutPreferencesSheet(props: {
 					"Count down the target time before completing",
 				)}
 			</RowGroup>
+		</EditorSheet>
+	);
+}
+
+export function WorkoutDetailsSheet(props: {
+	readonly disabled: boolean;
+	readonly onClose: () => void;
+	readonly onChange: DraftChange;
+	readonly draft: WorkoutEditorDraft;
+}) {
+	const { draft, onChange } = props;
+	const template = isTemplateDraft(draft);
+	return (
+		<EditorSheet
+			wide="side"
+			onClose={props.onClose}
+			closeLabel="Close details"
+			footer={<Button onClick={props.onClose}>Done</Button>}
+			title={template ? "Template details" : "Workout details"}
+		>
+			<fieldset disabled={props.disabled} className="grid min-w-0 gap-4 border-0 p-0">
+				<Field label="Name">
+					{(control) => (
+						<TextField
+							{...control}
+							value={draft.name}
+							onChange={(event) =>
+								onChange((current) => ({ ...current, name: event.target.value }))
+							}
+						/>
+					)}
+				</Field>
+				<Field label={template ? "Template comment" : "Reflection"}>
+					{(control) => (
+						<TextArea
+							{...control}
+							value={draft.comment ?? ""}
+							placeholder={template ? "Who it's for, progression notes…" : "How did it go?"}
+							onChange={(event) =>
+								onChange((current) => ({ ...current, comment: event.target.value }))
+							}
+						/>
+					)}
+				</Field>
+				{template ? null : (
+					<Field optional label={`Energy burned (${draft.displayEnergyUnit})`}>
+						{(control) => (
+							<div className="flex items-center gap-2">
+								<TextField
+									{...control}
+									inputMode="decimal"
+									className="min-w-0 flex-1"
+									value={draft.caloriesBurnt ?? ""}
+									onChange={(event) =>
+										onChange((current) => ({ ...current, caloriesBurnt: event.target.value }))
+									}
+								/>
+								<SegmentedControl
+									label="Energy unit"
+									value={draft.displayEnergyUnit}
+									optionClassName="w-12 pointer-coarse:w-14"
+									onChange={(unit) => onChange((current) => changeWorkoutEnergyUnit(current, unit))}
+									options={[
+										{ value: "kcal", label: "kcal", content: "kcal" },
+										{ value: "kJ", label: "kJ", content: "kJ" },
+									]}
+								/>
+							</div>
+						)}
+					</Field>
+				)}
+			</fieldset>
 		</EditorSheet>
 	);
 }
@@ -295,36 +326,5 @@ export function FinishReview(props: {
 				)}
 			</div>
 		</EditorSheet>
-	);
-}
-
-export function ConfirmDialog(props: {
-	readonly title: string;
-	readonly description: string;
-	readonly cancelLabel: string;
-	readonly confirmLabel: string;
-	readonly disabled?: boolean;
-	readonly onConfirm: () => void;
-	readonly onClose: () => void;
-}) {
-	return (
-		<Dialog
-			size="sm"
-			closeIcon={null}
-			title={props.title}
-			onClose={props.onClose}
-			closeLabel={props.cancelLabel}
-			description={props.description}
-			footer={
-				<>
-					<Button variant="secondary" onClick={props.onClose}>
-						{props.cancelLabel}
-					</Button>
-					<Button variant="danger" disabled={props.disabled} onClick={props.onConfirm}>
-						{props.confirmLabel}
-					</Button>
-				</>
-			}
-		/>
 	);
 }

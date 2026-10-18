@@ -16,9 +16,9 @@ import {
 export const mediaSavedViewDataSources = (input: {
 	readonly schema: string;
 	readonly orderBy: readonly OrderBy[];
-	readonly reference: PluginIdentityReference;
 	readonly fields: readonly FieldSelection[];
-	readonly include?: readonly [Include, ...Include[]] | undefined;
+	readonly reference: PluginIdentityReference;
+	readonly include?: undefined | readonly [Include, ...Include[]];
 }) => {
 	const entity = table("entity", "entity");
 	const mediaLibrary = table("entity", "mediaLibrary");

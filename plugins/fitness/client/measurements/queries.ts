@@ -85,7 +85,7 @@ export const seriesQuery = createRyotQuery<
 );
 
 export const readingsQuery = createRyotQuery<
-	{ readonly after: string | undefined; readonly range: RangeKey },
+	{ readonly range: RangeKey; readonly after: string | undefined },
 	MeasurementLogPage
 >(({ input, client, schedule }) =>
 	Effect.gen(function* () {

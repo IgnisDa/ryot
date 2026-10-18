@@ -79,7 +79,7 @@ const click = (element: Element) =>
 type SheetProps = Parameters<typeof SetSheet>[0];
 
 const mountSheet = (initial: SheetProps) => {
-	let update: ((props: SheetProps) => void) | undefined;
+	let update: undefined | ((props: SheetProps) => void);
 	function Probe() {
 		const [props, setProps] = useState(initial);
 		useEffect(() => {

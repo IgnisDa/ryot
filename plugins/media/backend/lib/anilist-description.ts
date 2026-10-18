@@ -101,7 +101,7 @@ const nativeSpoilerHtml = (source: string): string => {
 export const normalizeAnilistDescription = Effect.fn("normalizeAnilistDescription")(function* (
 	input: unknown,
 	baseUrl?: string,
-): Effect.fn.Return<string | null, MediaSandboxError> {
+): Effect.fn.Return<null | string, MediaSandboxError> {
 	if (typeof input !== "string" || !input.trim()) {
 		return null;
 	}

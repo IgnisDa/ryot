@@ -32,19 +32,49 @@ import {
 type EditSheetProps = {
 	readonly compact: boolean;
 	readonly onClose: () => void;
-	readonly record: MediaActivityEventRef;
 	readonly intent: ActivityEditIntent;
 	readonly logger: MediaActivityLogger;
-	readonly triggerRef: RefObject<HTMLButtonElement | null>;
+	readonly record: MediaActivityEventRef;
+	readonly triggerRef: RefObject<null | HTMLButtonElement>;
 };
+
+/** Edits one stored completion or progress update with the Log activity fields. */
+export function MediaActivityEditSheet(props: EditSheetProps & { readonly entityId: string }) {
+	const result = useRyotQuery(activityLogContextQuery, { entityId: props.entityId });
+	if (result.data === undefined || result.data === null) {
+		let message = "Loading…";
+		if (result.data === null) {
+			message = "This activity can't be edited.";
+		} else if (result.isError) {
+			message = "Unable to load this item.";
+		}
+		return (
+			<Dialog
+				title="Edit activity"
+				onClose={props.onClose}
+				triggerRef={props.triggerRef}
+				closeLabel="Close edit activity"
+				placement={props.compact ? "sheet" : "center"}
+			>
+				<StatusMessage
+					tone={result.isError ? "error" : "pending"}
+					action={result.isError ? { label: "Try again", onClick: result.refetch } : undefined}
+				>
+					{message}
+				</StatusMessage>
+			</Dialog>
+		);
+	}
+	return <EditForm {...props} context={result.data} />;
+}
 
 function EditFields(props: {
 	readonly today: string;
 	readonly draft: ActivityDraft;
+	readonly ownProgress: boolean;
 	readonly logger: MediaActivityLogger;
 	readonly suggestions: readonly string[];
 	readonly context: MediaActivityLogContext;
-	readonly ownProgress: boolean;
 	readonly onChange: (patch: Partial<ActivityDraft>) => void;
 }) {
 	const { draft, today, logger, context } = props;
@@ -173,34 +203,4 @@ function EditForm(props: EditSheetProps & { readonly context: MediaActivityLogCo
 			</ActionForm>
 		</Dialog>
 	);
-}
-
-/** Edits one stored completion or progress update with the Log activity fields. */
-export function MediaActivityEditSheet(props: EditSheetProps & { readonly entityId: string }) {
-	const result = useRyotQuery(activityLogContextQuery, { entityId: props.entityId });
-	if (result.data === undefined || result.data === null) {
-		let message = "Loading…";
-		if (result.data === null) {
-			message = "This activity can't be edited.";
-		} else if (result.isError) {
-			message = "Unable to load this item.";
-		}
-		return (
-			<Dialog
-				title="Edit activity"
-				onClose={props.onClose}
-				triggerRef={props.triggerRef}
-				closeLabel="Close edit activity"
-				placement={props.compact ? "sheet" : "center"}
-			>
-				<StatusMessage
-					tone={result.isError ? "error" : "pending"}
-					action={result.isError ? { label: "Try again", onClick: result.refetch } : undefined}
-				>
-					{message}
-				</StatusMessage>
-			</Dialog>
-		);
-	}
-	return <EditForm {...props} context={result.data} />;
 }

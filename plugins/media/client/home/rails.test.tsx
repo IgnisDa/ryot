@@ -256,7 +256,7 @@ const airingShow = (publishDate: string, sameDayCount: number, still = true) => 
 	]),
 });
 
-const airingAnime = (id: string, name: string, airingAt: string, publishDate: string | null) => ({
+const airingAnime = (id: string, name: string, airingAt: string, publishDate: null | string) => ({
 	...mediaIdentity(id, name, "anime"),
 	publishDate,
 	nextEpisode: 4,

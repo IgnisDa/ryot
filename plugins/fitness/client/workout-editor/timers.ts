@@ -8,7 +8,7 @@ import { isoAt, maxDateMillis, toIso } from "./clock";
 import { updateSet } from "./draft-ops";
 
 type Countdown = typeof WorkoutEditorCountdownSchema.Type;
-type CountdownKey = "executionCountdown" | "restCountdown";
+type CountdownKey = "restCountdown" | "executionCountdown";
 
 type TimerTransition = { readonly changed: boolean; readonly draft: WorkoutEditorDraft };
 

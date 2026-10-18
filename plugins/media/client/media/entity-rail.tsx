@@ -17,19 +17,109 @@ import { mediaPosterAsset } from "./summary-state";
 import { type MediaSyncCounts, mediaSyncCounts } from "./sync-counts";
 
 export type MediaRailStatus =
-	| { readonly kind: "pending" }
 	| { readonly kind: "ready" }
+	| { readonly kind: "pending" }
 	| { readonly kind: "error"; readonly retry: () => void };
 
 const PENDING_TILE_COUNT = 4;
 
+type MediaSectionFrameProps = {
+	readonly title: string;
+	readonly compact: boolean;
+	readonly action?: ReactNode;
+	readonly children?: ReactNode;
+	readonly status: MediaRailStatus;
+	readonly sync?: undefined | MediaSyncCounts;
+};
+
+export function MediaRailFrame(props: MediaSectionFrameProps) {
+	return (
+		<MediaSectionFrame
+			{...props}
+			placeholder={
+				<Shelf label={props.title} compact={props.compact} icons={mediaShelfIcons}>
+					{Array.from({ length: PENDING_TILE_COUNT }, (_, index) => (
+						<div
+							key={index}
+							className={clsx(
+								"animate-pulse rounded-lg bg-surface-2",
+								mediaArtworkClass({ layout: "rail", aspect: "poster", compact: props.compact }),
+							)}
+						/>
+					))}
+				</Shelf>
+			}
+		>
+			<Shelf label={props.title} compact={props.compact} icons={mediaShelfIcons}>
+				{props.children}
+			</Shelf>
+		</MediaSectionFrame>
+	);
+}
+
+export function MediaSectionFrame(
+	props: MediaSectionFrameProps & { readonly placeholder: ReactNode },
+) {
+	const { status } = props;
+	return (
+		<MediaOverviewSection sync={props.sync} title={props.title} action={props.action}>
+			{status.kind === "ready" ? props.children : null}
+			{status.kind === "pending" ? (
+				<div role="status" aria-label={`Loading ${props.title}`}>
+					{props.placeholder}
+				</div>
+			) : null}
+			{status.kind === "error" ? (
+				<div role="alert" className="flex flex-col items-start gap-2">
+					<p className="font-ui text-[13px] text-text-muted">Unable to load this section.</p>
+					<Button variant="link" onClick={status.retry}>
+						Try again
+					</Button>
+				</div>
+			) : null}
+		</MediaOverviewSection>
+	);
+}
+
+export function MediaEntityRailSection<Item extends MediaPresentationSubject>(props: {
+	readonly title: string;
+	readonly compact: boolean;
+	readonly action?: ReactNode;
+	readonly items: readonly Item[];
+	readonly aspect: (item: Item) => MediaArtworkAspect;
+	readonly lines?: undefined | ((item: Item) => readonly (string | undefined)[]);
+}) {
+	if (props.items.length === 0) {
+		return null;
+	}
+	return (
+		<MediaRailFrame
+			title={props.title}
+			action={props.action}
+			compact={props.compact}
+			status={{ kind: "ready" }}
+			sync={mediaSyncCounts(props.items, (item) => mediaPosterAsset(item))}
+		>
+			{props.items.map((item) => (
+				<MediaEntityTile
+					item={item}
+					key={item.id}
+					compact={props.compact}
+					aspect={props.aspect(item)}
+					lines={props.lines?.(item)}
+				/>
+			))}
+		</MediaRailFrame>
+	);
+}
+
 export function MediaEntityTile(props: {
 	readonly compact: boolean;
+	readonly overlay?: ReactNode;
 	readonly aspect: MediaArtworkAspect;
 	readonly item: MediaPresentationSubject;
-	readonly overlay?: ReactNode;
-	readonly art?: MediaImageAsset | undefined;
-	readonly lines?: readonly (string | undefined)[] | undefined;
+	readonly art?: undefined | MediaImageAsset;
+	readonly lines?: undefined | readonly (string | undefined)[];
 }) {
 	const { item } = props;
 	const art = props.art ?? mediaPosterAsset(item);
@@ -65,95 +155,5 @@ export function MediaEntityTile(props: {
 				),
 			)}
 		</PluginLink>
-	);
-}
-
-type MediaSectionFrameProps = {
-	readonly title: string;
-	readonly compact: boolean;
-	readonly action?: ReactNode;
-	readonly status: MediaRailStatus;
-	readonly children?: ReactNode;
-	readonly sync?: MediaSyncCounts | undefined;
-};
-
-export function MediaSectionFrame(
-	props: MediaSectionFrameProps & { readonly placeholder: ReactNode },
-) {
-	const { status } = props;
-	return (
-		<MediaOverviewSection sync={props.sync} title={props.title} action={props.action}>
-			{status.kind === "ready" ? props.children : null}
-			{status.kind === "pending" ? (
-				<div role="status" aria-label={`Loading ${props.title}`}>
-					{props.placeholder}
-				</div>
-			) : null}
-			{status.kind === "error" ? (
-				<div role="alert" className="flex flex-col items-start gap-2">
-					<p className="font-ui text-[13px] text-text-muted">Unable to load this section.</p>
-					<Button variant="link" onClick={status.retry}>
-						Try again
-					</Button>
-				</div>
-			) : null}
-		</MediaOverviewSection>
-	);
-}
-
-export function MediaRailFrame(props: MediaSectionFrameProps) {
-	return (
-		<MediaSectionFrame
-			{...props}
-			placeholder={
-				<Shelf label={props.title} compact={props.compact} icons={mediaShelfIcons}>
-					{Array.from({ length: PENDING_TILE_COUNT }, (_, index) => (
-						<div
-							key={index}
-							className={clsx(
-								"animate-pulse rounded-lg bg-surface-2",
-								mediaArtworkClass({ layout: "rail", aspect: "poster", compact: props.compact }),
-							)}
-						/>
-					))}
-				</Shelf>
-			}
-		>
-			<Shelf label={props.title} compact={props.compact} icons={mediaShelfIcons}>
-				{props.children}
-			</Shelf>
-		</MediaSectionFrame>
-	);
-}
-
-export function MediaEntityRailSection<Item extends MediaPresentationSubject>(props: {
-	readonly title: string;
-	readonly compact: boolean;
-	readonly action?: ReactNode;
-	readonly items: readonly Item[];
-	readonly aspect: (item: Item) => MediaArtworkAspect;
-	readonly lines?: ((item: Item) => readonly (string | undefined)[]) | undefined;
-}) {
-	if (props.items.length === 0) {
-		return null;
-	}
-	return (
-		<MediaRailFrame
-			title={props.title}
-			action={props.action}
-			compact={props.compact}
-			status={{ kind: "ready" }}
-			sync={mediaSyncCounts(props.items, (item) => mediaPosterAsset(item))}
-		>
-			{props.items.map((item) => (
-				<MediaEntityTile
-					item={item}
-					key={item.id}
-					compact={props.compact}
-					aspect={props.aspect(item)}
-					lines={props.lines?.(item)}
-				/>
-			))}
-		</MediaRailFrame>
 	);
 }

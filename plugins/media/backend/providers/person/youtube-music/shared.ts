@@ -19,12 +19,12 @@ type ArtistRelatedEntity = {
 	relationshipProperties: { roles: string[] };
 };
 
-const getArtistName = (artist: UnknownRecord | null) => {
+const getArtistName = (artist: null | UnknownRecord) => {
 	const raw = asRecord(asRecord(artist?.["header"])?.["title"])?.["text"] ?? artist?.["name"] ?? "";
 	return coerceTrimmed(raw);
 };
 
-const collectArtistEntities = (artist: UnknownRecord | null) => {
+const collectArtistEntities = (artist: null | UnknownRecord) => {
 	const media: ArtistRelatedEntity[] = [];
 	const groups: ArtistRelatedEntity[] = [];
 	const sections = artist?.["sections"];

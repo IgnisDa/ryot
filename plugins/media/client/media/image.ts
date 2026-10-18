@@ -3,7 +3,11 @@ import { managedAssetKey } from "@ryot-app/plugin-client-sdk/react";
 
 import type { MediaImage } from "../../shared/media-image";
 
-export type MediaImages = readonly MediaImage[] | null;
+export type MediaImages = null | readonly MediaImage[];
+
+export type MediaImagePurposes = readonly MediaImage["purpose"][];
+
+export type MediaGalleryImage = MediaImageAsset & Pick<MediaImage, "purpose">;
 
 export type MediaImageAsset = MediaImage extends infer Image
 	? Image extends MediaImage
@@ -11,11 +15,7 @@ export type MediaImageAsset = MediaImage extends infer Image
 		: never
 	: never;
 
-export type MediaGalleryImage = MediaImageAsset & Pick<MediaImage, "purpose">;
-
-export type MediaImagePurposes = readonly MediaImage["purpose"][];
-
-const locator = (image: MediaImage | undefined): MediaImageAsset | undefined => {
+const locator = (image: undefined | MediaImage): undefined | MediaImageAsset => {
 	if (image === undefined) {
 		return undefined;
 	}
@@ -41,7 +41,7 @@ export const mediaImageAsset = (images: MediaImages, purpose: MediaImage["purpos
 export const preferredMediaImageAsset = (images: MediaImages, purpose: MediaImage["purpose"]) =>
 	mediaImageAsset(images, purpose) ?? locator((images ?? []).at(0));
 
-export const collectManagedAssetLocators = (assets: readonly (MediaImageAsset | undefined)[]) => {
+export const collectManagedAssetLocators = (assets: readonly (undefined | MediaImageAsset)[]) => {
 	const managed = assets.filter(
 		(asset): asset is ManagedAssetLocator => asset !== undefined && asset.type !== "remote",
 	);

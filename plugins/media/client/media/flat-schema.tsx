@@ -98,35 +98,17 @@ export type MediaFlatSchemaActivityView<Extra = unknown> = MediaFlatActivityView
 	Extra
 >;
 
-type FlatSummary = MediaSummaryValue & {
-	readonly state: MediaLifecycleState;
-	readonly progressPercent: number | null;
-	readonly collections: { readonly items: readonly { readonly id: string }[] };
-};
-
 export type MediaOverviewRail = {
 	readonly key: string;
 	readonly title: string;
 	readonly items: readonly MediaPresentationSubject[];
 };
 
-type FlatPresentation = MediaSavedViewPresentationSubject & {
-	readonly state: MediaLifecycleState;
-	readonly publishDate: string | null;
-	readonly publishYear: number | null;
-	readonly progressPercent: number | null;
-};
-
-type FlatSummaryResult<Summary> = {
-	readonly summary: Summary | null;
-	readonly entitySchemaSlug: string | null;
-};
-
 export type MediaFlatActivityResult<Extra = unknown> = {
 	readonly truncated: boolean;
 	readonly completionCount: number;
 	readonly unknownAmountCount: number;
-	readonly consumedAmount: number | null;
+	readonly consumedAmount: null | number;
 	readonly events: readonly MediaFlatActivityEvent<Extra>[];
 };
 
@@ -136,66 +118,84 @@ export type MediaFlatSchemaDescriptor<
 	Presentation extends FlatPresentation,
 	Extra = unknown,
 > = {
-	readonly recipes: {
-		readonly historyRecipe: MediaHistoryRecipe<MediaFlatActivityEvent<NoInfer<Extra>>>;
-		readonly peopleRecipe: MediaCreditsRecipe;
-		readonly summaryRecipe: (input: {
-			readonly reference: PluginIdentityReference;
-			readonly entityId: string;
-			readonly collectionLimit: number;
-		}) => PreparedRecipe<FlatSummaryResult<Summary>>;
-		readonly overviewRecipe: (input: {
-			readonly reference: PluginIdentityReference;
-			readonly entityId: string;
-			readonly groupLimit: number;
-			readonly peopleLimit: number;
-			readonly companyLimit: number;
-			readonly recommendationLimit: number;
-		}) => PreparedRecipe<Overview>;
-		readonly activityRecipe: (input: {
-			readonly reference: PluginIdentityReference;
-			readonly entityId: string;
-			readonly eventLimit: number;
-			readonly collectionEventLimit: number;
-		}) => PreparedRecipe<MediaFlatActivityResult<NoInfer<Extra>>>;
-		readonly presentationSource: MediaPresentationSource<Presentation>;
-	};
 	readonly aspect: MediaArtworkAspect;
+	readonly creditCopy: MediaCreditCopy;
+	readonly overviewLoadingDetail: string;
 	readonly logActivity: MediaActivityLogger;
-	readonly nouns: { readonly title: string; readonly singular: string; readonly plural: string };
+	readonly facts: (summary: Summary) => readonly MediaSummaryFact[];
+	readonly presentationFacts: (data: Presentation) => readonly string[];
+	readonly overviewRails?: (overview: Overview) => readonly MediaOverviewRail[];
+	readonly group?: { readonly actionLabel: string; readonly title: (name: string) => string };
+	readonly nouns: { readonly title: string; readonly plural: string; readonly singular: string };
+	readonly overviewTrailing?: (input: {
+		readonly summary: Summary;
+		readonly compact: boolean;
+	}) => ReactNode;
+	readonly measureFigure: {
+		readonly label: string;
+		readonly value: (amount: MediaFlatActivitySummary["amount"]) => string;
+	};
 	readonly activityCopy: {
-		readonly libraryLabel: string;
 		readonly recordLabel: string;
 		readonly segmentNoun: string;
 		readonly emptyDetail: string;
-		readonly loadingDetail: string;
+		readonly libraryLabel: string;
 		readonly progressVerb: string;
+		readonly loadingDetail: string;
+		readonly completionsLabel: string;
+		readonly beats: Record<Exclude<MediaFlatActivityBeat, "backlog">, string>;
 		readonly snapshot?: {
 			readonly label: string;
 			readonly detail: (extra: Extra) => string | undefined;
 		};
-		readonly completionsLabel: string;
 		readonly rowLabels: {
 			readonly review: string;
 			readonly completion: string;
 			readonly progress: (percent: string | undefined, extra: Extra) => string;
 		};
-		readonly beats: Record<Exclude<MediaFlatActivityBeat, "backlog">, string>;
 	};
-	readonly measureFigure: {
-		readonly label: string;
-		readonly value: (amount: MediaFlatActivitySummary["amount"]) => string;
+	readonly recipes: {
+		readonly peopleRecipe: MediaCreditsRecipe;
+		readonly presentationSource: MediaPresentationSource<Presentation>;
+		readonly historyRecipe: MediaHistoryRecipe<MediaFlatActivityEvent<NoInfer<Extra>>>;
+		readonly summaryRecipe: (input: {
+			readonly entityId: string;
+			readonly collectionLimit: number;
+			readonly reference: PluginIdentityReference;
+		}) => PreparedRecipe<FlatSummaryResult<Summary>>;
+		readonly activityRecipe: (input: {
+			readonly entityId: string;
+			readonly eventLimit: number;
+			readonly collectionEventLimit: number;
+			readonly reference: PluginIdentityReference;
+		}) => PreparedRecipe<MediaFlatActivityResult<NoInfer<Extra>>>;
+		readonly overviewRecipe: (input: {
+			readonly entityId: string;
+			readonly groupLimit: number;
+			readonly peopleLimit: number;
+			readonly companyLimit: number;
+			readonly recommendationLimit: number;
+			readonly reference: PluginIdentityReference;
+		}) => PreparedRecipe<Overview>;
 	};
-	readonly creditCopy: MediaCreditCopy;
-	readonly overviewLoadingDetail: string;
-	readonly group?: { readonly actionLabel: string; readonly title: (name: string) => string };
-	readonly facts: (summary: Summary) => readonly MediaSummaryFact[];
-	readonly overviewRails?: (overview: Overview) => readonly MediaOverviewRail[];
-	readonly presentationFacts: (data: Presentation) => readonly string[];
-	readonly overviewTrailing?: (input: {
-		readonly summary: Summary;
-		readonly compact: boolean;
-	}) => ReactNode;
+};
+
+type FlatSummaryResult<Summary> = {
+	readonly summary: null | Summary;
+	readonly entitySchemaSlug: null | string;
+};
+
+type FlatSummary = MediaSummaryValue & {
+	readonly state: MediaLifecycleState;
+	readonly progressPercent: null | number;
+	readonly collections: { readonly items: readonly { readonly id: string }[] };
+};
+
+type FlatPresentation = MediaSavedViewPresentationSubject & {
+	readonly state: MediaLifecycleState;
+	readonly publishDate: null | string;
+	readonly publishYear: null | number;
+	readonly progressPercent: null | number;
 };
 
 const TABS: readonly TabOption<"overview" | "activity">[] = [
@@ -338,8 +338,8 @@ export const defineFlatMediaSchema = <
 
 	function ActivityRecord(props: {
 		readonly compact: boolean;
-		readonly view: MediaFlatSchemaActivityView<Extra>;
 		readonly history?: ReactNode;
+		readonly view: MediaFlatSchemaActivityView<Extra>;
 	}) {
 		const { view } = props;
 		return (
@@ -451,7 +451,7 @@ export const defineFlatMediaSchema = <
 		readonly overviewRefreshStatus?: ReactNode;
 		readonly state: MediaSummaryState<Summary>;
 		readonly overview: MediaOverviewState<Overview>;
-		readonly settled: EntitySettleReason | undefined;
+		readonly settled: undefined | EntitySettleReason;
 	}) {
 		return (
 			<MediaDetailBody

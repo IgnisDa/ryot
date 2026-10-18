@@ -2,6 +2,8 @@ import { DateTime, Option } from "@ryot-app/plugin-backend-sdk/effect";
 
 const escapeRegex = (value: string) => value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
+type CapturedKey = keyof Captured;
+
 type Captured = {
 	day: string;
 	year: string;
@@ -9,10 +11,8 @@ type Captured = {
 	hours: string;
 	minutes: string;
 	seconds: string;
-	offset: string | null;
+	offset: null | string;
 };
-
-type CapturedKey = keyof Captured;
 
 const buildMatcher = (format: string) => {
 	const order: CapturedKey[] = [];
@@ -169,7 +169,7 @@ export const getOccurredAtValue = (value: string) =>
 export const nowIso = () => DateTime.formatIso(DateTime.nowUnsafe());
 
 export const parseDateInput = (
-	value: number | string | null | undefined,
+	value: null | number | string | undefined,
 	options: { unixSeconds?: boolean } = {},
 ) => {
 	if (typeof value === "number") {

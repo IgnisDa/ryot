@@ -19,7 +19,7 @@ import { manifest } from "./write-chunks.sandbox";
 const input = (
 	properties: Readonly<Record<string, JsonValue>> = { consumedOn: "Plex", progressPercent: 50 },
 	event: Partial<MediaImportWriteChunkInput["entityGroups"][number]["events"][number]> = {},
-	entity: { entitySchemaSlug: string; providerSlug: string } = {
+	entity: { providerSlug: string; entitySchemaSlug: string } = {
 		entitySchemaSlug: "movie",
 		providerSlug: "movie.tmdb",
 	},

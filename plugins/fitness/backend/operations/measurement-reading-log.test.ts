@@ -17,7 +17,7 @@ type CreateEventOptions = NonNullable<Parameters<DomainSandboxHostMethodMap["cre
 
 const recordingHost = (
 	creates: (readonly CreateEventItem[])[],
-	createOptions: (CreateEventOptions | undefined)[],
+	createOptions: (undefined | CreateEventOptions)[],
 ) =>
 	defineSandboxTestHost(manifest, {
 		executeRyotql: executeMeasurementRyotql,
@@ -65,7 +65,7 @@ describe("measurement reading log operation", () => {
 		"reports a partial commit without claiming completion and retries with the same write identity",
 		() =>
 			Effect.gen(function* () {
-				const options: (CreateEventOptions | undefined)[] = [];
+				const options: (undefined | CreateEventOptions)[] = [];
 				const entries: unknown[] = [];
 				const host = defineSandboxTestHost(manifest, {
 					executeRyotql: executeMeasurementRyotql,
@@ -135,7 +135,7 @@ describe("measurement reading log operation", () => {
 	it.live("records every value, including zero, at one time with the shared comment", () =>
 		Effect.gen(function* () {
 			const creates: (readonly CreateEventItem[])[] = [];
-			const createOptions: (CreateEventOptions | undefined)[] = [];
+			const createOptions: (undefined | CreateEventOptions)[] = [];
 
 			expect(
 				yield* runSandboxTestScript(
@@ -181,7 +181,7 @@ describe("measurement reading log operation", () => {
 	it.live("omits a blank comment", () =>
 		Effect.gen(function* () {
 			const creates: (readonly CreateEventItem[])[] = [];
-			const createOptions: (CreateEventOptions | undefined)[] = [];
+			const createOptions: (undefined | CreateEventOptions)[] = [];
 
 			yield* runSandboxTestScript(
 				logDefinition,
@@ -205,7 +205,7 @@ describe("measurement reading log operation", () => {
 	it.live("rejects metrics that are not the caller's measurement metrics without writing", () =>
 		Effect.gen(function* () {
 			const creates: (readonly CreateEventItem[])[] = [];
-			const createOptions: (CreateEventOptions | undefined)[] = [];
+			const createOptions: (undefined | CreateEventOptions)[] = [];
 			const host = recordingHost(creates, createOptions);
 
 			for (const metricId of ["missing", "exercise-1"]) {

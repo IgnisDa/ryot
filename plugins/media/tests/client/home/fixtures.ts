@@ -26,10 +26,10 @@ export const flatRow = (
 	name: string,
 	schemaSlug: string,
 	fields: {
-		readonly latestActivityAt: string;
 		readonly mangaVolume?: number;
 		readonly animeEpisode?: number;
 		readonly mangaChapter?: number;
+		readonly latestActivityAt: string;
 		readonly progressPercent?: number;
 	},
 ) => ({
@@ -42,7 +42,7 @@ export const flatRow = (
 	progressPercent: fields.progressPercent ?? null,
 });
 
-export const nextUpRow = (seasonNumber: number | null, episodeNumber: number, name: string) => ({
+export const nextUpRow = (seasonNumber: null | number, episodeNumber: number, name: string) => ({
 	...mediaIdentity(`episode-${episodeNumber}`, name, "show-episode"),
 	name,
 	seasonNumber,
@@ -58,7 +58,7 @@ export const episodicRow = (
 	name: string,
 	schemaSlug: "show" | "podcast",
 	latestActivityAt: string,
-	nextUp: ReturnType<typeof nextUpRow> | null,
+	nextUp: null | ReturnType<typeof nextUpRow>,
 ) => ({
 	...mediaIdentity(id, name, schemaSlug),
 	latestActivityAt,

@@ -98,23 +98,23 @@ const mediaViewName: Record<(typeof mediaEntitySchemaSlugs)[number], string> = {
 type PresentationProjection = Pick<MediaPresentationSource<unknown>, "fields" | "include">;
 
 const schemaPresentationSources = new Map<string, PresentationProjection>([
-	["anime", animeRecipes.presentationSource],
-	["audiobook", audiobookRecipes.presentationSource],
-	["audiobook-group", audiobookGroupRecipes.presentationSource],
 	["book", bookRecipes.presentationSource],
-	["book-group", bookGroupRecipes.presentationSource],
-	["comic-book", comicBookRecipes.presentationSource],
-	["comic-book-group", comicBookGroupRecipes.presentationSource],
+	["show", showRecipes.presentationSource],
+	["anime", animeRecipes.presentationSource],
 	["manga", mangaRecipes.presentationSource],
 	["movie", movieRecipes.presentationSource],
-	["movie-group", movieGroupRecipes.presentationSource],
 	["music", musicRecipes.presentationSource],
-	["music-group", musicGroupRecipes.presentationSource],
 	["podcast", podcastRecipes.presentationSource],
-	["show", showRecipes.presentationSource],
+	["audiobook", audiobookRecipes.presentationSource],
+	["book-group", bookGroupRecipes.presentationSource],
+	["comic-book", comicBookRecipes.presentationSource],
 	["video-game", videoGameRecipes.presentationSource],
-	["video-game-group", videoGameGroupRecipes.presentationSource],
+	["movie-group", movieGroupRecipes.presentationSource],
+	["music-group", musicGroupRecipes.presentationSource],
 	["visual-novel", visualNovelRecipes.presentationSource],
+	["audiobook-group", audiobookGroupRecipes.presentationSource],
+	["comic-book-group", comicBookGroupRecipes.presentationSource],
+	["video-game-group", videoGameGroupRecipes.presentationSource],
 ]);
 
 const presentationProjection = (slug: string): PresentationProjection => {

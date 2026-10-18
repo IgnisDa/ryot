@@ -63,12 +63,12 @@ const source = (patch: Readonly<Record<string, JsonValue>> = {}) => ({
 	properties: { progressPercent: 100 },
 	...patch,
 });
-const rows = (items: readonly JsonValue[], nextCursor: string | null = null) => ({
+const rows = (items: readonly JsonValue[], nextCursor: null | string = null) => ({
 	items,
 	type: "rows" as const,
 	pageInfo: { limit: 100, nextCursor, hasMore: nextCursor !== null },
 });
-const reply = (name: string, items: readonly JsonValue[], nextCursor: string | null = null) => ({
+const reply = (name: string, items: readonly JsonValue[], nextCursor: null | string = null) => ({
 	data: { [name]: rows(items, nextCursor) },
 });
 
@@ -91,12 +91,12 @@ const inventoryFingerprint = JSON.stringify([
 
 const harness = (
 	input: {
-		state?: HistoryCorrection;
-		sourceRevision?: number;
-		inventory?: typeof inventoryRow;
 		schemaSlug?: string;
-		properties?: Readonly<Record<string, JsonValue>>;
+		sourceRevision?: number;
+		state?: HistoryCorrection;
+		inventory?: typeof inventoryRow;
 		responses?: readonly ReturnType<typeof reply>[];
+		properties?: Readonly<Record<string, JsonValue>>;
 	} = {},
 ) => {
 	const commands: UserCommandInput[] = [];

@@ -69,10 +69,10 @@ export const flatGroupRow = {
 export type FlatOverviewRows = {
 	readonly group?: readonly Record<string, unknown>[];
 	readonly people?: readonly Record<string, unknown>[];
-	readonly companies?: readonly Record<string, unknown>[];
 	readonly members?: readonly Record<string, unknown>[];
+	readonly companies?: readonly Record<string, unknown>[];
 	readonly recommendations?: readonly Record<string, unknown>[];
-	readonly unlinkedCreators?: readonly Record<string, unknown>[] | null;
+	readonly unlinkedCreators?: null | readonly Record<string, unknown>[];
 };
 
 export const flatOverviewRows = (items: readonly Record<string, unknown>[]) =>

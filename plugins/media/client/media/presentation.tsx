@@ -49,7 +49,7 @@ export const loadMediaPresentations: EntityPresentationLoader<MediaPresentationV
 	return createMediaPresentationLoader(mediaPresentationSource(slug))(context);
 };
 
-const ratingLabel = (rating: number | null) =>
+const ratingLabel = (rating: null | number) =>
 	rating === null ? undefined : rating.toLocaleString(undefined, { maximumFractionDigits: 1 });
 
 function MediaArtwork(props: {
@@ -151,14 +151,14 @@ export function MediaRowContent(props: {
 	);
 }
 
-function MediaCard({ data }: EntityPresentationComponentProps<MediaPresentationViewData>) {
-	const { compact } = useRyotViewport();
-	return <MediaCardContent data={data} compact={compact} />;
-}
-
 function MediaRow({ data }: EntityPresentationComponentProps<MediaPresentationViewData>) {
 	const { compact } = useRyotViewport();
 	return <MediaRowContent data={data} compact={compact} />;
+}
+
+function MediaCard({ data }: EntityPresentationComponentProps<MediaPresentationViewData>) {
+	const { compact } = useRyotViewport();
+	return <MediaCardContent data={data} compact={compact} />;
 }
 
 export const mediaCardPresentation = defineEntityPresentation({

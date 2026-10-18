@@ -10,11 +10,11 @@ import { MediaDetailModalButton } from "./detail-modal";
 
 const HISTORY_PAGE_SIZE = 100;
 
-type HistoryPageInput = { readonly entityId: string; readonly after: string | null };
-
 export type MediaHistoryRecipe<Event> = (
 	input: MediaHistoryInput,
 ) => PreparedRecipe<MediaCursorPage<Event>>;
+
+type HistoryPageInput = { readonly entityId: string; readonly after: null | string };
 
 export const createMediaHistoryQuery = <Event,>(
 	recipe: MediaHistoryRecipe<Event>,

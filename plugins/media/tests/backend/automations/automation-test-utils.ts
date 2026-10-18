@@ -179,7 +179,7 @@ export const hostFailure = (message = "not found") => Effect.fail({ message });
 export const ryotqlRows = (
 	queryName: string,
 	records: readonly Record<string, unknown>[],
-	pageInfo: { readonly hasMore: boolean; readonly nextCursor: string | null } = {
+	pageInfo: { readonly hasMore: boolean; readonly nextCursor: null | string } = {
 		hasMore: false,
 		nextCursor: null,
 	},

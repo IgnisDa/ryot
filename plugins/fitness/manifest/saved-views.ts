@@ -82,7 +82,7 @@ export const fitnessSavedViews = () => {
 		readonly name: string;
 		readonly slug: string;
 		readonly sortOrder: number;
-		readonly orderBy?: readonly OrderBy[] | undefined;
+		readonly orderBy?: undefined | readonly OrderBy[];
 		readonly entitySchemaSlug: "exercise" | "workout-template";
 	}> = [
 		{
@@ -173,7 +173,7 @@ export const fitnessSavedViews = () => {
 		readonly slug: string;
 		readonly sortOrder: number;
 		readonly exportName: string;
-		readonly entitySchemaSlug: "measurement-metric" | "workout";
+		readonly entitySchemaSlug: "workout" | "measurement-metric";
 	}) => ({
 		settings: {},
 		name: input.name,

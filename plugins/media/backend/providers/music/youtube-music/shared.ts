@@ -15,7 +15,7 @@ import {
 	tryYoutubeMusic,
 } from "../../../lib/vendors/youtube-music";
 
-const getTrackTitle = (track: UnknownRecord | null) => {
+const getTrackTitle = (track: null | UnknownRecord) => {
 	const raw = asRecord(track?.["title"])?.["text"] ?? track?.["title"] ?? "";
 	return coerceTrimmed(raw);
 };
@@ -238,7 +238,7 @@ export const buildHistory = (client: HistoryClient, timezone: string, startedAt:
 	};
 	return client.getHistory().pipe(
 		Effect.flatMap((history) => {
-			const songs: { videoId: string; title: string }[] = [];
+			const songs: { title: string; videoId: string }[] = [];
 			const rootContents = asRecord(asRecord(history)?.["contents"]);
 			const browseResults = asRecord(rootContents?.["singleColumnBrowseResultsRenderer"]);
 			const tabs = browseResults?.["tabs"];

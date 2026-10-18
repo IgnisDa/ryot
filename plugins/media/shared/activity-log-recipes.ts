@@ -135,7 +135,7 @@ const consumedOnSuggestions = (input: {
  * and for shows and podcasts the next-up episode plus a show's seasons.
  */
 export const mediaActivityLogContextRecipe = defineRecipe(
-	(input: { readonly reference: PluginIdentityReference; readonly entityId: string }) => {
+	(input: { readonly entityId: string; readonly reference: PluginIdentityReference }) => {
 		const entity = table("entity", "logEntity");
 		const season = table("entity", "logSeason");
 		const seasonRelationship = table("relationship", "logSeasonRelationship");
@@ -254,8 +254,8 @@ export const showSeasonEpisodeChoicesRecipe = defineRecipe(
 	(input: {
 		readonly limit: number;
 		readonly seasonNumber: number;
-		readonly after?: string | undefined;
 		readonly showEntityId: string;
+		readonly after?: string | undefined;
 		readonly reference: PluginIdentityReference;
 	}) => {
 		const episode = table("entity", "choiceEpisode");
@@ -314,9 +314,9 @@ export const episodicEarlierUnwatchedRecipe = defineRecipe(
 	(input: {
 		readonly limit: number;
 		readonly kind: EpisodicKind;
-		readonly after?: string | undefined;
 		readonly parentEntityId: string;
 		readonly episodeEntityId: string;
+		readonly after?: string | undefined;
 		readonly reference: PluginIdentityReference;
 	}) => {
 		const config = kindConfigs[input.kind];

@@ -8,7 +8,7 @@ export const rowsResult = (
 	pageInfo: {
 		readonly limit: number;
 		readonly hasMore: boolean;
-		readonly nextCursor: string | null;
+		readonly nextCursor: null | string;
 	},
 ) => ({ items, pageInfo, type: "rows" as const });
 

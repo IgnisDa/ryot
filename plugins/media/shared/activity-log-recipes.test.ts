@@ -50,7 +50,7 @@ const targetRow = (overrides: Record<string, unknown> = {}) => ({
 });
 
 const decodeContext = (
-	target: Record<string, unknown> | undefined,
+	target: undefined | Record<string, unknown>,
 	entityConsumedOn: readonly string[] = [],
 	recentConsumedOn: readonly string[] = [],
 ) =>

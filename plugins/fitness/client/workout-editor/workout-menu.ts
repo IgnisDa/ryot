@@ -12,11 +12,11 @@ export const workoutMenuItems = (input: {
 	readonly discardLabel: string;
 	readonly discardBlocked: boolean;
 	readonly stopwatchRunning: boolean;
-	readonly measurementUnavailable: boolean;
 	readonly onResetStopwatch: () => void;
-	readonly onToggleStopwatch: () => void;
 	readonly onLogMeasurement: () => void;
+	readonly onToggleStopwatch: () => void;
 	readonly onOpenWorkoutMedia: () => void;
+	readonly measurementUnavailable: boolean;
 	readonly onOverlay: (overlay: EditorOverlay) => void;
 }): MenuItem[] => [
 	{

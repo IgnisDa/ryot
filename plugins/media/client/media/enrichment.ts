@@ -6,10 +6,10 @@ import { PLUGIN_PACKAGE_ID } from "../../shared/plugin-identity";
 export const useMediaEnrichment = (
 	entityId: string,
 	operation: "population" | "translation",
-	action: "refresh" | "retry",
+	action: "retry" | "refresh",
 ) => {
 	const mutation = useRequestEntityEnrichment();
-	const key = useRef<string | null>(null);
+	const key = useRef<null | string>(null);
 	return {
 		...mutation,
 		submit: () => {

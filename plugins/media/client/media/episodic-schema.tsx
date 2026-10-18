@@ -95,37 +95,20 @@ const ACTIVITY_EPISODE_EVENT_LIMIT = 100;
 const ACTIVITY_COLLECTION_EVENT_LIMIT = 60;
 const ACTIVITY_EPISODE_PROGRESS_LIMIT = 100;
 
-type EpisodicCounts = {
-	readonly airedEpisodes: number;
-	readonly watchedEpisodes: number;
-	readonly upcomingEpisodes: number;
-	readonly inProgressEpisodes: number;
-};
-
-export type MediaEpisodicSummaryValue = MediaSummaryValue &
-	EpisodicCounts & {
+export type MediaEpisodicPresentationValue = EpisodicCounts &
+	MediaSavedViewPresentationSubject & {
+		readonly publishDate: null | string;
+		readonly publishYear: null | number;
 		readonly state: EpisodicLifecycleState;
-		readonly totalEpisodes: number | null;
-		readonly nextUp: { readonly id: string } | null;
+	};
+
+export type MediaEpisodicSummaryValue = EpisodicCounts &
+	MediaSummaryValue & {
+		readonly totalEpisodes: null | number;
+		readonly state: EpisodicLifecycleState;
+		readonly nextUp: null | { readonly id: string };
 		readonly collections: { readonly items: readonly { readonly id: string }[] };
 	};
-
-export type MediaEpisodicPresentationValue = MediaSavedViewPresentationSubject &
-	EpisodicCounts & {
-		readonly state: EpisodicLifecycleState;
-		readonly publishDate: string | null;
-		readonly publishYear: number | null;
-	};
-
-type EpisodicSummaryResult<Summary> = {
-	readonly summary: Summary | null;
-	readonly entitySchemaSlug: string | null;
-};
-
-type EpisodicActivityValue<Origin> = MediaEpisodicActivityValue<Origin> & {
-	readonly coverage: readonly { readonly id: string }[];
-	readonly hasMoreActivities: boolean;
-};
 
 export type MediaEpisodicSchemaDescriptor<
 	Summary extends MediaEpisodicSummaryValue,
@@ -134,47 +117,64 @@ export type MediaEpisodicSchemaDescriptor<
 	Origin,
 	Activity extends EpisodicActivityValue<Origin>,
 > = {
-	readonly recipes: {
-		readonly historyRecipe: MediaHistoryRecipe<
-			MediaEpisodicHistoryEvent<Origin & MediaEpisodicEpisodeValue>
-		>;
-		readonly peopleRecipe: MediaCreditsRecipe;
-		readonly summaryRecipe: (input: {
-			readonly reference: PluginIdentityReference;
-			readonly entityId: string;
-			readonly collectionLimit: number;
-		}) => PreparedRecipe<EpisodicSummaryResult<Summary>>;
-		readonly overviewRecipe: (input: EpisodicOverviewInput) => PreparedRecipe<Overview>;
-		readonly activityRecipe: (input: EpisodicActivityInput) => PreparedRecipe<Activity>;
-		readonly presentationSource: MediaPresentationSource<Presentation>;
-	};
 	readonly aspect: MediaArtworkAspect;
-	readonly logActivity: MediaActivityLogger;
 	readonly creditCopy: MediaCreditCopy;
 	readonly overviewLoadingDetail: string;
-	readonly nouns: { readonly title: string; readonly singular: string; readonly plural: string };
+	readonly logActivity: MediaActivityLogger;
+	readonly episodeOrigin: (episode: Origin) => string;
+	readonly episodeOrder: (episode: Origin) => readonly number[];
+	readonly coverage: (result: Activity) => MediaEpisodicCoverage;
+	readonly facts: (summary: Summary) => readonly MediaSummaryFact[];
+	readonly presentationFacts: (data: Presentation) => readonly string[];
+	readonly presentationDetail: (data: Presentation) => string | undefined;
+	readonly nouns: { readonly title: string; readonly plural: string; readonly singular: string };
+	readonly overviewTrailing?: (input: {
+		readonly summary: Summary;
+		readonly compact: boolean;
+	}) => ReactNode;
 	readonly activityCopy: MediaActivityCopy &
 		MediaEpisodicActivityCopy & {
 			readonly segmentNoun: string;
 			readonly figures: MediaEpisodicFigureLabels;
 		};
-	readonly coverage: (result: Activity) => MediaEpisodicCoverage;
-	readonly episodeOrigin: (episode: Origin) => string;
-	readonly episodeOrder: (episode: Origin) => readonly number[];
-	readonly facts: (summary: Summary) => readonly MediaSummaryFact[];
-	readonly presentationFacts: (data: Presentation) => readonly string[];
-	readonly presentationDetail: (data: Presentation) => string | undefined;
 	readonly EpisodesTab: (props: {
 		readonly compact: boolean;
-		readonly logger: MediaActivityLogger;
 		readonly entityId: string;
 		readonly safeAreaTop: number;
+		readonly logger: MediaActivityLogger;
 		readonly summary: Summary | undefined;
 	}) => ReactNode;
-	readonly overviewTrailing?: (input: {
-		readonly summary: Summary;
-		readonly compact: boolean;
-	}) => ReactNode;
+	readonly recipes: {
+		readonly peopleRecipe: MediaCreditsRecipe;
+		readonly presentationSource: MediaPresentationSource<Presentation>;
+		readonly overviewRecipe: (input: EpisodicOverviewInput) => PreparedRecipe<Overview>;
+		readonly activityRecipe: (input: EpisodicActivityInput) => PreparedRecipe<Activity>;
+		readonly historyRecipe: MediaHistoryRecipe<
+			MediaEpisodicHistoryEvent<Origin & MediaEpisodicEpisodeValue>
+		>;
+		readonly summaryRecipe: (input: {
+			readonly entityId: string;
+			readonly collectionLimit: number;
+			readonly reference: PluginIdentityReference;
+		}) => PreparedRecipe<EpisodicSummaryResult<Summary>>;
+	};
+};
+
+type EpisodicSummaryResult<Summary> = {
+	readonly summary: null | Summary;
+	readonly entitySchemaSlug: null | string;
+};
+
+type EpisodicCounts = {
+	readonly airedEpisodes: number;
+	readonly watchedEpisodes: number;
+	readonly upcomingEpisodes: number;
+	readonly inProgressEpisodes: number;
+};
+
+type EpisodicActivityValue<Origin> = MediaEpisodicActivityValue<Origin> & {
+	readonly hasMoreActivities: boolean;
+	readonly coverage: readonly { readonly id: string }[];
 };
 
 const TABS: readonly TabOption<"overview" | "episodes" | "activity">[] = [
@@ -288,8 +288,8 @@ export const defineEpisodicMediaSchema = <
 
 	function ActivityRecord(props: {
 		readonly compact: boolean;
-		readonly view: MediaEpisodicView;
 		readonly history?: ReactNode;
+		readonly view: MediaEpisodicView;
 	}) {
 		const { view } = props;
 		return (
@@ -385,7 +385,7 @@ export const defineEpisodicMediaSchema = <
 		readonly overviewRefreshStatus?: ReactNode;
 		readonly state: MediaSummaryState<Summary>;
 		readonly overview: MediaOverviewState<Overview>;
-		readonly settled: EntitySettleReason | undefined;
+		readonly settled: undefined | EntitySettleReason;
 	}) {
 		return (
 			<MediaDetailBody
@@ -530,6 +530,17 @@ export const defineEpisodicMediaSchema = <
 	};
 };
 
+function EpisodicWatchBody(props: { readonly row: Extract<MediaEpisodicRow, { type: "watch" }> }) {
+	const { episodes } = props.row;
+	if (episodes.length === 1) {
+		return null;
+	}
+	if (mediaEpisodicEpisodesAreCollapsed(episodes)) {
+		return <p className="text-label text-text-muted">{mediaEpisodicRangeSummary(episodes)}</p>;
+	}
+	return <EpisodicEpisodeList episodes={episodes} />;
+}
+
 function EpisodicEpisodeList(props: { readonly episodes: readonly MediaEpisodicWatchedEpisode[] }) {
 	return (
 		<div className="flex flex-col gap-0.5">
@@ -541,15 +552,4 @@ function EpisodicEpisodeList(props: { readonly episodes: readonly MediaEpisodicW
 			))}
 		</div>
 	);
-}
-
-function EpisodicWatchBody(props: { readonly row: Extract<MediaEpisodicRow, { type: "watch" }> }) {
-	const { episodes } = props.row;
-	if (episodes.length === 1) {
-		return null;
-	}
-	if (mediaEpisodicEpisodesAreCollapsed(episodes)) {
-		return <p className="text-label text-text-muted">{mediaEpisodicRangeSummary(episodes)}</p>;
-	}
-	return <EpisodicEpisodeList episodes={episodes} />;
 }

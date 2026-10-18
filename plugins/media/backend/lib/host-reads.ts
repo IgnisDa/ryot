@@ -23,7 +23,7 @@ export const eventSchemaBySlug = (
 		.listEventSchemas([entitySchemaSlug])
 		.pipe(
 			Effect.map(
-				(schemas): EventSchemaRecord | null =>
+				(schemas): null | EventSchemaRecord =>
 					schemas.find((schema) => schema.slug === slug) ?? null,
 			),
 		);

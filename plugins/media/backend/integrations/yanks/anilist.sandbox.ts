@@ -82,10 +82,10 @@ const encodeRequest = Schema.encodeSync(
 
 type AniListHost = Pick<
 	ScriptHost,
-	| "executeRyotql"
-	| "getCurrentIntegration"
-	| "getOAuthAccessToken"
 	| "httpCall"
+	| "executeRyotql"
+	| "getOAuthAccessToken"
+	| "getCurrentIntegration"
 	| "invalidateOAuthAccessToken"
 >;
 
@@ -258,7 +258,7 @@ const runAniListYank = Effect.fn("AniList.collect")(function* (
 	const collection = yield* Schema.decodeUnknownEffect(AniListCollectionData)(collectionData).pipe(
 		Effect.mapError(() => requestFailure()),
 	);
-	const identityById = new Map<number, { readonly mediaId: number; readonly value: unknown }>();
+	const identityById = new Map<number, { readonly value: unknown; readonly mediaId: number }>();
 	for (const list of collection.MediaListCollection.lists) {
 		for (const value of list.entries) {
 			const identity = anilistEntryIdentity(value);
@@ -280,10 +280,10 @@ const runAniListYank = Effect.fn("AniList.collect")(function* (
 	);
 	const failures: Array<MediaIntegrationAdapterResult["failures"][number]> = [];
 	const pending: Array<{
-		readonly itemIndex: number;
 		readonly mediaId: number;
-		readonly sourceEntryId: string;
+		readonly itemIndex: number;
 		readonly sourceLabel: string;
+		readonly sourceEntryId: string;
 		readonly properties: ListStateProperties;
 	}> = [];
 	let sourceIndex = cursor.sourceIndex;
@@ -372,7 +372,7 @@ const runAniListYank = Effect.fn("AniList.collect")(function* (
 			],
 		});
 	}
-	let next: typeof AniListCarry.Type | null = null;
+	let next: null | typeof AniListCarry.Type = null;
 	if (collection.MediaListCollection.hasNextChunk) {
 		next = { ...cursor, sourceIndex, chunk: cursor.chunk + 1 };
 	} else if (cursor.nextMediaType) {

@@ -4,39 +4,13 @@ import type { PersonalBest } from "../../shared/workout-records";
 import { supersetLetter } from "../group-colors";
 import { parseDate } from "./format";
 
-export type WorkoutExercise = WorkoutDetails["exercises"]["items"][number];
-export type WorkoutSet = WorkoutExercise["sets"]["items"][number];
-type PreviousSet = WorkoutExercise["previousSets"]["items"][number];
-type Measured = Pick<PreviousSet, "distance" | "duration" | "reps" | "volume">;
-
 export type MeasureUnit = "kg" | "km" | "reps" | "seconds";
-
-export type ExerciseCard = {
-	readonly key: string;
-	readonly order: number;
-	readonly kind: ExerciseKind | null;
-	readonly notes: readonly string[];
-	readonly media: NonNullable<WorkoutDetails["exerciseMedia"]>[number] | undefined;
-	readonly exercise: WorkoutExercise;
-	readonly sets: readonly WorkoutSet[];
-	readonly supersetTag: string | null;
-	readonly recordStatus: WorkoutSet["recordStatus"];
-	readonly comparison: {
-		readonly delta: number;
-		readonly unit: MeasureUnit;
-		readonly previousStartedAt: string;
-	} | null;
-	readonly total: { readonly value: number; readonly unit: MeasureUnit } | null;
+export type WorkoutSet = WorkoutExercise["sets"]["items"][number];
+export type WorkoutExercise = WorkoutDetails["exercises"]["items"][number];
+export type WorkoutTimeline = {
+	readonly restSeconds: number;
+	readonly segments: readonly TimelineSegment[];
 };
-
-export type CardGroup =
-	| { readonly kind: "single"; readonly card: ExerciseCard }
-	| {
-			readonly kind: "superset";
-			readonly label: string;
-			readonly color: string;
-			readonly cards: readonly ExerciseCard[];
-	  };
 
 export type TimelineSegment = {
 	readonly key: string;
@@ -45,22 +19,48 @@ export type TimelineSegment = {
 	readonly superset: boolean;
 };
 
-export type WorkoutTimeline = {
-	readonly segments: readonly TimelineSegment[];
-	readonly restSeconds: number;
-};
+export type CardGroup =
+	| { readonly kind: "single"; readonly card: ExerciseCard }
+	| {
+			readonly label: string;
+			readonly color: string;
+			readonly kind: "superset";
+			readonly cards: readonly ExerciseCard[];
+	  };
 
 export type WorkoutSummary = {
 	readonly reps: number;
 	readonly sets: number;
 	readonly volume: number;
 	readonly records: number;
-	readonly recordSets: number;
 	readonly exercises: number;
+	readonly recordSets: number;
 	readonly restSeconds: number;
-	readonly durationSeconds: number | null;
-	readonly volumeDelta: number | null;
+	readonly volumeDelta: null | number;
+	readonly durationSeconds: null | number;
 };
+
+export type ExerciseCard = {
+	readonly key: string;
+	readonly order: number;
+	readonly notes: readonly string[];
+	readonly kind: null | ExerciseKind;
+	readonly exercise: WorkoutExercise;
+	readonly supersetTag: null | string;
+	readonly sets: readonly WorkoutSet[];
+	readonly recordStatus: WorkoutSet["recordStatus"];
+	readonly total: null | { readonly value: number; readonly unit: MeasureUnit };
+	readonly media: undefined | NonNullable<WorkoutDetails["exerciseMedia"]>[number];
+	readonly comparison: null | {
+		readonly delta: number;
+		readonly unit: MeasureUnit;
+		readonly previousStartedAt: string;
+	};
+};
+
+type PreviousSet = WorkoutExercise["previousSets"]["items"][number];
+
+type Measured = Pick<PreviousSet, "reps" | "volume" | "distance" | "duration">;
 
 const measureUnitByKind: Record<ExerciseKind, MeasureUnit> = {
 	reps: "reps",
@@ -87,7 +87,7 @@ const measureOf = (set: Measured, unit: MeasureUnit) => {
 const sumMeasure = (sets: readonly Measured[], unit: MeasureUnit) =>
 	sets.reduce((total, set) => total + measureOf(set, unit), 0);
 
-const timeOf = (value: string | null) => parseDate(value)?.getTime() ?? null;
+const timeOf = (value: null | string) => parseDate(value)?.getTime() ?? null;
 
 const cardRecordStatus = (sets: readonly WorkoutSet[]): WorkoutSet["recordStatus"] => {
 	if (sets.some((set) => set.recordStatus === "failed")) {
@@ -199,7 +199,7 @@ export const buildTimeline = (
 	workout: WorkoutDetails,
 	groups: readonly CardGroup[],
 	restSeconds: number,
-): WorkoutTimeline | null => {
+): null | WorkoutTimeline => {
 	const started = timeOf(workout.startedAt);
 	const ended = timeOf(workout.endedAt);
 	if (started === null || ended === null || ended <= started || groups.length === 0) {
@@ -238,7 +238,7 @@ export type MuscleCount = { readonly name: string; readonly sets: number };
 
 export type MuscleSource = {
 	readonly sets: number;
-	readonly targets: readonly { readonly name: string; readonly role: string | null }[];
+	readonly targets: readonly { readonly name: string; readonly role: null | string }[];
 };
 
 export const cardMuscleSources = (groups: readonly CardGroup[]): readonly MuscleSource[] =>

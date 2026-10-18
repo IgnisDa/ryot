@@ -35,7 +35,7 @@ export const episodicEpisode = (overrides: Record<string, unknown>) => ({
 });
 
 export const episodicEpisodePageData = (input: {
-	readonly nextCursor?: string | null;
+	readonly nextCursor?: null | string;
 	readonly episodes?: readonly Record<string, unknown>[];
 }) => ({
 	data: {
@@ -49,7 +49,7 @@ export const episodicEpisodePageData = (input: {
 
 export const decodeEpisodicEpisodePage = (
 	input: {
-		readonly nextCursor?: string | null;
+		readonly nextCursor?: null | string;
 		readonly episodes?: readonly Record<string, unknown>[];
 	} = {},
 ) =>

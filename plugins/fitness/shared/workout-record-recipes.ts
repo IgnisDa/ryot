@@ -47,9 +47,9 @@ export const existingExerciseIdsRecipe = defineRecipe(
 
 export const workoutSetExerciseIdsRecipe = defineRecipe(
 	(input: {
-		readonly reference: PluginIdentityReference;
-		readonly after?: string | undefined;
 		readonly workoutId: string;
+		readonly after?: string | undefined;
+		readonly reference: PluginIdentityReference;
 	}) => {
 		const event = table("event", "workoutSetContextEvent");
 		const exercise = table("entity", "workoutSetContextExercise");
@@ -88,10 +88,10 @@ export const workoutSetExerciseIdsRecipe = defineRecipe(
 
 export const workoutRecordRowsRecipe = defineRecipe(
 	(input: {
-		readonly reference: PluginIdentityReference;
-		readonly after?: string | undefined;
-		readonly exerciseId: string;
 		readonly limit: number;
+		readonly exerciseId: string;
+		readonly after?: string | undefined;
+		readonly reference: PluginIdentityReference;
 	}) => {
 		const event = table("event", "workoutRecord");
 		const exercise = table("entity", "exercise");

@@ -20,38 +20,6 @@ import {
 	secondaryLinkClass,
 } from "./section";
 
-export function ResumeBanner(props: {
-	readonly now: Date;
-	readonly timeZone: string;
-	readonly draft: ActiveEditorDraft;
-}) {
-	const client = useRyot();
-	const banner = draftBanner(props.draft, props.now, props.timeZone);
-	return (
-		<section
-			aria-label={banner.title}
-			className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-accent bg-accent-soft p-4 font-ui"
-		>
-			<div className="flex min-w-0 items-center gap-3">
-				<span
-					aria-hidden="true"
-					className="flex size-9 shrink-0 items-center justify-center rounded-full bg-accent text-accent-ink"
-				>
-					<AppIcon size={16} name="play" />
-				</span>
-				<div className="min-w-0">
-					<p className="text-[12.5px] text-text-muted">{banner.title}</p>
-					<p className="truncate text-[15px] font-semibold text-text">{props.draft.name}</p>
-					<p className="text-[12.5px] text-text-muted tabular-nums">{banner.detail}</p>
-				</div>
-			</div>
-			<Button onClick={() => client.navigation.push(fitnessRoute("/workout-editor"))}>
-				Resume
-			</Button>
-		</section>
-	);
-}
-
 export function SetGoalCard() {
 	return (
 		<HomeCard label="Weekly goal" title="Set a weekly goal">
@@ -103,12 +71,99 @@ export function WeekGoalSection(props: {
 	);
 }
 
+export function ResumeBanner(props: {
+	readonly now: Date;
+	readonly timeZone: string;
+	readonly draft: ActiveEditorDraft;
+}) {
+	const client = useRyot();
+	const banner = draftBanner(props.draft, props.now, props.timeZone);
+	return (
+		<section
+			aria-label={banner.title}
+			className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-accent bg-accent-soft p-4 font-ui"
+		>
+			<div className="flex min-w-0 items-center gap-3">
+				<span
+					aria-hidden="true"
+					className="flex size-9 shrink-0 items-center justify-center rounded-full bg-accent text-accent-ink"
+				>
+					<AppIcon size={16} name="play" />
+				</span>
+				<div className="min-w-0">
+					<p className="text-[12.5px] text-text-muted">{banner.title}</p>
+					<p className="truncate text-[15px] font-semibold text-text">{props.draft.name}</p>
+					<p className="text-[12.5px] text-text-muted tabular-nums">{banner.detail}</p>
+				</div>
+			</div>
+			<Button onClick={() => client.navigation.push(fitnessRoute("/workout-editor"))}>
+				Resume
+			</Button>
+		</section>
+	);
+}
+
+export function LastWorkoutCard(props: { readonly card: WorkoutCard }) {
+	const { card } = props;
+	return (
+		<HomeCard
+			title="Last workout"
+			label="Last workout"
+			link={
+				<PluginLink className={linkClass} to={{ kind: "entity", entityId: card.id }}>
+					View
+				</PluginLink>
+			}
+		>
+			<div className="flex flex-col gap-0.5">
+				<span className="text-[17px] font-semibold text-text">{card.name}</span>
+				<span className="text-[12.5px] text-text-muted">
+					{[card.day, card.time].filter((part) => part !== null).join(" · ")}
+				</span>
+			</div>
+			<div className="grid grid-cols-3 gap-2 text-text tabular-nums">
+				<Stat value={card.duration?.value ?? "—"} label={card.duration?.label ?? "Duration"} />
+				<Stat label="Volume" value={card.volume ?? "—"} />
+				<Stat
+					value={String(card.sets)}
+					label={`Sets · ${card.exercises} ${card.exercises === 1 ? "exercise" : "exercises"}`}
+				/>
+			</div>
+			{card.muscles.length === 0 ? null : <Chips names={card.muscles} more={card.moreMuscles} />}
+			<div className="flex flex-wrap gap-2">
+				<PluginLink
+					className={secondaryLinkClass}
+					to={fitnessRoute(`/workouts/${encodeURIComponent(card.id)}/repeat`)}
+				>
+					<AppIcon size={14} name="rotate-ccw" />
+					Repeat
+				</PluginLink>
+				<PluginLink
+					className={secondaryLinkClass}
+					to={fitnessRoute(`/workouts/${encodeURIComponent(card.id)}/create-template`)}
+				>
+					Save as template
+				</PluginLink>
+			</div>
+		</HomeCard>
+	);
+}
+
+function Stat(props: { readonly value: string; readonly label: string }) {
+	return (
+		<Card padding="none" className="flex min-w-0 flex-col gap-0.5 bg-surface-2 px-3 py-2">
+			<span className="truncate text-[15px] font-semibold">{props.value}</span>
+			<span className="text-[11.5px] text-text-muted">{props.label}</span>
+		</Card>
+	);
+}
+
 function WeekGoalCard(props: {
 	readonly now: Date;
 	readonly goal: number;
 	readonly timeZone: string;
-	readonly summary: WorkoutSummary;
 	readonly hasLiveDraft: boolean;
+	readonly summary: WorkoutSummary;
 }) {
 	const { now, goal, summary, timeZone } = props;
 	const week = buildWeekProgress({ now, goal, summary, timeZone });
@@ -172,60 +227,5 @@ function WeekGoalCard(props: {
 				</div>
 			</div>
 		</HomeCard>
-	);
-}
-
-export function LastWorkoutCard(props: { readonly card: WorkoutCard }) {
-	const { card } = props;
-	return (
-		<HomeCard
-			title="Last workout"
-			label="Last workout"
-			link={
-				<PluginLink className={linkClass} to={{ kind: "entity", entityId: card.id }}>
-					View
-				</PluginLink>
-			}
-		>
-			<div className="flex flex-col gap-0.5">
-				<span className="text-[17px] font-semibold text-text">{card.name}</span>
-				<span className="text-[12.5px] text-text-muted">
-					{[card.day, card.time].filter((part) => part !== null).join(" · ")}
-				</span>
-			</div>
-			<div className="grid grid-cols-3 gap-2 text-text tabular-nums">
-				<Stat value={card.duration?.value ?? "—"} label={card.duration?.label ?? "Duration"} />
-				<Stat label="Volume" value={card.volume ?? "—"} />
-				<Stat
-					value={String(card.sets)}
-					label={`Sets · ${card.exercises} ${card.exercises === 1 ? "exercise" : "exercises"}`}
-				/>
-			</div>
-			{card.muscles.length === 0 ? null : <Chips names={card.muscles} more={card.moreMuscles} />}
-			<div className="flex flex-wrap gap-2">
-				<PluginLink
-					className={secondaryLinkClass}
-					to={fitnessRoute(`/workouts/${encodeURIComponent(card.id)}/repeat`)}
-				>
-					<AppIcon size={14} name="rotate-ccw" />
-					Repeat
-				</PluginLink>
-				<PluginLink
-					className={secondaryLinkClass}
-					to={fitnessRoute(`/workouts/${encodeURIComponent(card.id)}/create-template`)}
-				>
-					Save as template
-				</PluginLink>
-			</div>
-		</HomeCard>
-	);
-}
-
-function Stat(props: { readonly value: string; readonly label: string }) {
-	return (
-		<Card padding="none" className="flex min-w-0 flex-col gap-0.5 bg-surface-2 px-3 py-2">
-			<span className="truncate text-[15px] font-semibold">{props.value}</span>
-			<span className="text-[11.5px] text-text-muted">{props.label}</span>
-		</Card>
 	);
 }

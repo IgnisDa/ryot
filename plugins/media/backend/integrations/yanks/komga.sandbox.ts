@@ -56,21 +56,21 @@ const cursorJson = Schema.fromJsonString(Cursor);
 const linkUrl = (value: string) => {
 	try {
 		const url = new URL(value);
-		return ["https:", "http:"].includes(url.protocol) ? url : null;
+		return ["http:", "https:"].includes(url.protocol) ? url : null;
 	} catch {
 		return null;
 	}
 };
 
-const positiveId = (value: string | null) =>
+const positiveId = (value: null | string) =>
 	value && /^\d+$/.test(value) && Number.isSafeInteger(Number(value)) && Number(value) > 0
 		? String(Number(value))
 		: null;
 
 export const mangaRef = (
-	links: ReadonlyArray<{ label: string; url: string }>,
+	links: ReadonlyArray<{ url: string; label: string }>,
 	title: string,
-): ImportEntityRef | null => {
+): null | ImportEntityRef => {
 	for (const { label, url: value } of links) {
 		const url = linkUrl(value);
 		if (!url) {
@@ -78,14 +78,14 @@ export const mangaRef = (
 		}
 		const normalized = label.toLowerCase();
 		const hostname = url.hostname.replace(/^www\./, "");
-		let externalId: string | null = null;
+		let externalId: null | string = null;
 		let providerSlug = "";
 		let entitySchemaSlug = "manga";
 		if (normalized === "anilist" && hostname === "anilist.co") {
 			externalId = positiveId(url.pathname.match(/^\/manga\/(\d+)(?:\/|$)/)?.[1] ?? null);
 			providerSlug = "manga.anilist";
 		}
-		if (["myanimelist", "mal"].includes(normalized) && hostname === "myanimelist.net") {
+		if (["mal", "myanimelist"].includes(normalized) && hostname === "myanimelist.net") {
 			externalId = positiveId(url.pathname.match(/^\/manga\/(\d+)(?:\/|$)/)?.[1] ?? null);
 			providerSlug = "manga.myanimelist";
 		}
@@ -342,7 +342,7 @@ export default defineScript({
 					],
 				});
 			}
-			let next: typeof Cursor.Type | null = null;
+			let next: null | typeof Cursor.Type = null;
 			if (cursor.page + 1 < (response.totalPages ?? 1)) {
 				next = { ...cursor, itemIndex, page: cursor.page + 1 };
 			} else if (!cursor.ownership && integration.syncOwnership) {

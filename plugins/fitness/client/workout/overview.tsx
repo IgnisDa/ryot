@@ -31,10 +31,91 @@ import {
 	formatTimeRange,
 } from "./format";
 
+type Stat = {
+	readonly label: string;
+	readonly value: string;
+	readonly unit?: string | undefined;
+	readonly detail?: null | string | undefined;
+	readonly tone?: "accent" | "success" | undefined;
+};
+
+export function WorkoutHeader(props: {
+	readonly compact: boolean;
+	readonly proAvailable: boolean;
+	readonly workout: WorkoutDetails;
+}) {
+	const { workout } = props;
+	const date = formatLongDate(workout.startedAt);
+	const time = formatTimeRange(workout.startedAt, workout.endedAt);
+	return (
+		<header
+			className={clsx(
+				"flex gap-4",
+				props.compact ? "flex-col" : "flex-row flex-wrap items-end justify-between",
+			)}
+		>
+			<div className="flex min-w-0 flex-col gap-2">
+				<span className="font-ui font-semibold text-[13px] tracking-wide text-accent-text uppercase">
+					Workout
+				</span>
+				<h1
+					className={clsx(
+						"font-display font-semibold text-text",
+						props.compact ? "text-[34px] leading-tight" : "text-5xl leading-none",
+					)}
+				>
+					{workout.name}
+				</h1>
+				<p className="flex flex-wrap gap-x-3 gap-y-1 font-ui text-[15px] text-text-muted">
+					{date === null ? null : <span>{date}</span>}
+					{time === null ? null : <span>{time}</span>}
+					<LinkedWorkout
+						label="Repeated from"
+						workoutStartedAt={workout.startedAt}
+						linked={workout.repeatedFrom.items[0]}
+					/>
+					<LinkedWorkout
+						label="Template:"
+						linked={workout.template.items[0]}
+						workoutStartedAt={workout.startedAt}
+					/>
+				</p>
+			</div>
+			<WorkoutActions
+				name={workout.name}
+				entityId={workout.id}
+				compact={props.compact}
+				proAvailable={props.proAvailable}
+			/>
+		</header>
+	);
+}
+
+function LinkedWorkout(props: {
+	readonly label: string;
+	readonly workoutStartedAt: null | string;
+	readonly linked:
+		undefined | { readonly id: string; readonly name: string; readonly startedAt?: null | string };
+}) {
+	if (props.linked === undefined) {
+		return null;
+	}
+	const date =
+		props.linked.startedAt === undefined || props.linked.startedAt === null
+			? null
+			: formatShortDate(props.linked.startedAt, props.workoutStartedAt);
+	return (
+		<PluginLink className="text-accent-text" to={{ kind: "entity", entityId: props.linked.id }}>
+			{props.label} {props.linked.name}
+			{date === null ? "" : ` · ${date}`}
+		</PluginLink>
+	);
+}
+
 function WorkoutActions(props: {
+	readonly name: string;
 	readonly compact: boolean;
 	readonly entityId: string;
-	readonly name: string;
 	readonly proAvailable: boolean;
 }) {
 	const client = useRyot();
@@ -90,87 +171,6 @@ function WorkoutActions(props: {
 		</div>
 	);
 }
-
-function LinkedWorkout(props: {
-	readonly label: string;
-	readonly workoutStartedAt: string | null;
-	readonly linked:
-		{ readonly id: string; readonly name: string; readonly startedAt?: string | null } | undefined;
-}) {
-	if (props.linked === undefined) {
-		return null;
-	}
-	const date =
-		props.linked.startedAt === undefined || props.linked.startedAt === null
-			? null
-			: formatShortDate(props.linked.startedAt, props.workoutStartedAt);
-	return (
-		<PluginLink className="text-accent-text" to={{ kind: "entity", entityId: props.linked.id }}>
-			{props.label} {props.linked.name}
-			{date === null ? "" : ` · ${date}`}
-		</PluginLink>
-	);
-}
-
-export function WorkoutHeader(props: {
-	readonly proAvailable: boolean;
-	readonly compact: boolean;
-	readonly workout: WorkoutDetails;
-}) {
-	const { workout } = props;
-	const date = formatLongDate(workout.startedAt);
-	const time = formatTimeRange(workout.startedAt, workout.endedAt);
-	return (
-		<header
-			className={clsx(
-				"flex gap-4",
-				props.compact ? "flex-col" : "flex-row flex-wrap items-end justify-between",
-			)}
-		>
-			<div className="flex min-w-0 flex-col gap-2">
-				<span className="font-ui font-semibold text-[13px] tracking-wide text-accent-text uppercase">
-					Workout
-				</span>
-				<h1
-					className={clsx(
-						"font-display font-semibold text-text",
-						props.compact ? "text-[34px] leading-tight" : "text-5xl leading-none",
-					)}
-				>
-					{workout.name}
-				</h1>
-				<p className="flex flex-wrap gap-x-3 gap-y-1 font-ui text-[15px] text-text-muted">
-					{date === null ? null : <span>{date}</span>}
-					{time === null ? null : <span>{time}</span>}
-					<LinkedWorkout
-						label="Repeated from"
-						workoutStartedAt={workout.startedAt}
-						linked={workout.repeatedFrom.items[0]}
-					/>
-					<LinkedWorkout
-						label="Template:"
-						linked={workout.template.items[0]}
-						workoutStartedAt={workout.startedAt}
-					/>
-				</p>
-			</div>
-			<WorkoutActions
-				name={workout.name}
-				entityId={workout.id}
-				compact={props.compact}
-				proAvailable={props.proAvailable}
-			/>
-		</header>
-	);
-}
-
-type Stat = {
-	readonly label: string;
-	readonly value: string;
-	readonly unit?: string | undefined;
-	readonly detail?: string | null | undefined;
-	readonly tone?: "accent" | "success" | undefined;
-};
 
 const summaryStats = (
 	workout: WorkoutDetails,
@@ -231,9 +231,9 @@ const summaryStats = (
 };
 
 export function WorkoutSummaryRow(props: {
+	readonly compact: boolean;
 	readonly imperial: boolean;
 	readonly energyUnit: EnergyUnit;
-	readonly compact: boolean;
 	readonly summary: WorkoutSummary;
 	readonly workout: WorkoutDetails;
 }) {
@@ -287,6 +287,41 @@ const segmentTone = (segment: TimelineSegment, index: number) => {
 	}
 	return index % 2 === 0 ? "bg-chart-seq-4 text-accent-ink" : "bg-chart-seq-3 text-accent-ink";
 };
+
+export function WorkoutComment(props: { readonly comment: null | string }) {
+	if (props.comment === null || props.comment.trim() === "") {
+		return null;
+	}
+	return <Card className="font-ui text-[15px] whitespace-pre-wrap text-text">{props.comment}</Card>;
+}
+
+export function WorkoutSession(props: {
+	readonly compact: boolean;
+	readonly muscles: readonly MuscleCount[];
+	readonly timeline: null | WorkoutTimeline;
+	readonly equipment: readonly { readonly name: string; readonly exercises: number }[];
+}) {
+	if (props.timeline === null && props.muscles.length === 0) {
+		return null;
+	}
+	return (
+		<section
+			aria-label="Session"
+			className={clsx(
+				"grid gap-4",
+				!props.compact &&
+					props.timeline !== null &&
+					props.muscles.length > 0 &&
+					"grid-cols-[minmax(0,2fr)_minmax(0,1fr)]",
+			)}
+		>
+			{props.timeline === null ? null : <SessionTimeline timeline={props.timeline} />}
+			{props.muscles.length === 0 ? null : (
+				<MusclesWorked muscles={props.muscles} equipment={props.equipment} />
+			)}
+		</section>
+	);
+}
 
 function SessionTimeline(props: { readonly timeline: WorkoutTimeline }) {
 	const { timeline } = props;
@@ -352,39 +387,4 @@ function MusclesWorked(props: {
 			)}
 		</Card>
 	);
-}
-
-export function WorkoutSession(props: {
-	readonly compact: boolean;
-	readonly timeline: WorkoutTimeline | null;
-	readonly muscles: readonly MuscleCount[];
-	readonly equipment: readonly { readonly name: string; readonly exercises: number }[];
-}) {
-	if (props.timeline === null && props.muscles.length === 0) {
-		return null;
-	}
-	return (
-		<section
-			aria-label="Session"
-			className={clsx(
-				"grid gap-4",
-				!props.compact &&
-					props.timeline !== null &&
-					props.muscles.length > 0 &&
-					"grid-cols-[minmax(0,2fr)_minmax(0,1fr)]",
-			)}
-		>
-			{props.timeline === null ? null : <SessionTimeline timeline={props.timeline} />}
-			{props.muscles.length === 0 ? null : (
-				<MusclesWorked muscles={props.muscles} equipment={props.equipment} />
-			)}
-		</section>
-	);
-}
-
-export function WorkoutComment(props: { readonly comment: string | null }) {
-	if (props.comment === null || props.comment.trim() === "") {
-		return null;
-	}
-	return <Card className="font-ui text-[15px] whitespace-pre-wrap text-text">{props.comment}</Card>;
 }

@@ -22,7 +22,7 @@ export const manifest = defineManifest({
 	slug: "company.giant-bomb",
 });
 
-const getGameGuid = (game: Record<string, unknown> | null) => {
+const getGameGuid = (game: null | Record<string, unknown>) => {
 	const guid = stringValue(game?.["guid"]);
 	if (guid && GUID_PATTERN.test(guid)) {
 		return guid;
@@ -31,7 +31,7 @@ const getGameGuid = (game: Record<string, unknown> | null) => {
 	if (typeof apiDetailUrl !== "string") {
 		return null;
 	}
-	let lastGuid: string | null = null;
+	let lastGuid: null | string = null;
 	for (const part of apiDetailUrl.split("/")) {
 		if (GUID_PATTERN.test(part)) {
 			lastGuid = part;

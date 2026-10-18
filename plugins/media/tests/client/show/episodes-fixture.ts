@@ -50,7 +50,7 @@ export const showSeasonRow = {
 };
 
 export const decodeShowSeasonsResult = (input: {
-	readonly show?: Record<string, unknown> | null;
+	readonly show?: null | Record<string, unknown>;
 	readonly seasons?: readonly Record<string, unknown>[];
 }) => {
 	const seasons = input.seasons ?? [showSeasonRow];
@@ -79,7 +79,7 @@ export const decodeShowSeasonsResult = (input: {
 
 export const decodeShowSeasonEpisodesResult = (
 	input: {
-		readonly nextCursor?: string | null;
+		readonly nextCursor?: null | string;
 		readonly episodes?: readonly Record<string, unknown>[];
 	} = {},
 ) =>

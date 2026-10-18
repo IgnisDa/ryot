@@ -208,7 +208,7 @@ const runJellyfin = (
 	payload: unknown,
 	providerSpecifics?: Record<string, string>,
 	lookupHost: Partial<
-		Pick<ScriptHost, "httpCall" | "getPluginConfig" | "getCachedValue" | "setCachedValue">
+		Pick<ScriptHost, "httpCall" | "getCachedValue" | "setCachedValue" | "getPluginConfig">
 	> = {},
 ) =>
 	runIntegrationTestScript(
@@ -424,7 +424,7 @@ const notFound = Symbol("notFound");
 type Route = JsonValue | typeof notFound;
 type PlexHost = Pick<
 	ScriptHost,
-	"getCurrentIntegration" | "httpCall" | "getPluginConfig" | "getCachedValue" | "setCachedValue"
+	"httpCall" | "getCachedValue" | "setCachedValue" | "getPluginConfig" | "getCurrentIntegration"
 >;
 
 const tmdbRoutes =
@@ -454,7 +454,7 @@ const officialEpisode = {
 const jellyfinLookupHost = (
 	routes: Record<string, Route>,
 	cache = new Map<string, JsonValue>(),
-): Omit<PlexHost, "getCurrentIntegration" | "getPluginConfig"> => ({
+): Omit<PlexHost, "getPluginConfig" | "getCurrentIntegration"> => ({
 	httpCall: tmdbRoutes(routes),
 	setCachedValue: (key: string, value: JsonValue) => {
 		cache.set(key, value);

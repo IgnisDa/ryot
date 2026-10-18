@@ -76,7 +76,7 @@ export const entityRef = (
 	details: typeof Details.Type,
 	type: typeof MediaType.Type,
 	sourceLabel: string,
-): ImportEntityRef | "goodreads" | null => {
+): null | "goodreads" | ImportEntityRef => {
 	if (type === "movie" || type === "tv") {
 		return details.tmdbId
 			? {

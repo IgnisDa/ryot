@@ -10,6 +10,22 @@ import { type ReactNode, useState } from "react";
 import type { MediaSummaryFact } from "./summary-state";
 import type { MediaSyncCounts } from "./sync-counts";
 
+export function MediaFactDivider() {
+	return <div className="h-9 w-px bg-border" />;
+}
+
+export function MediaProgressBar(props: { readonly percent: number }) {
+	return (
+		<ProgressBar
+			max={100}
+			tone="success"
+			label="Progress"
+			className="max-w-md"
+			value={props.percent}
+		/>
+	);
+}
+
 export function MediaRefreshStatus(props: { readonly result: RyotQueryResult<unknown> }) {
 	if (props.result.status !== "error" || props.result.data === undefined) {
 		return null;
@@ -43,8 +59,25 @@ export function MediaFact(props: {
 	);
 }
 
-export function MediaFactDivider() {
-	return <div className="h-9 w-px bg-border" />;
+export function MediaLabeledRows(props: {
+	readonly rows: readonly {
+		readonly key: string;
+		readonly title: string;
+		readonly detail?: string | undefined;
+	}[];
+}) {
+	return (
+		<div className="flex flex-col gap-2.5">
+			{props.rows.map((row) => (
+				<div key={row.key} className="flex flex-col">
+					<p className="font-ui font-medium text-[13px] leading-4.5 text-text">{row.title}</p>
+					{row.detail === undefined || row.detail === "" ? null : (
+						<p className="font-ui text-[11px] leading-3.75 text-text-subtle">{row.detail}</p>
+					)}
+				</div>
+			))}
+		</div>
+	);
 }
 
 export function MediaFactRow(props: {
@@ -85,85 +118,10 @@ export function MediaFactRow(props: {
 	);
 }
 
-export function MediaProgressBar(props: { readonly percent: number }) {
-	return (
-		<ProgressBar
-			max={100}
-			tone="success"
-			label="Progress"
-			className="max-w-md"
-			value={props.percent}
-		/>
-	);
-}
-
-export function MediaLabeledRows(props: {
-	readonly rows: readonly {
-		readonly key: string;
-		readonly title: string;
-		readonly detail?: string | undefined;
-	}[];
-}) {
-	return (
-		<div className="flex flex-col gap-2.5">
-			{props.rows.map((row) => (
-				<div key={row.key} className="flex flex-col">
-					<p className="font-ui font-medium text-[13px] leading-4.5 text-text">{row.title}</p>
-					{row.detail === undefined || row.detail === "" ? null : (
-						<p className="font-ui text-[11px] leading-3.75 text-text-subtle">{row.detail}</p>
-					)}
-				</div>
-			))}
-		</div>
-	);
-}
-
 export const mediaShelfIcons = {
 	next: <AppIcon size={16} name="chevron-right" />,
 	previous: <AppIcon size={16} name="chevron-left" />,
 };
-
-export function MediaOverviewSection(props: {
-	readonly title: string;
-	readonly action?: ReactNode;
-	readonly children: ReactNode;
-	readonly className?: string | undefined;
-	readonly sync?: MediaSyncCounts | undefined;
-}) {
-	return (
-		<section className={clsx("grid grid-cols-[minmax(0,1fr)] gap-3", props.className)}>
-			<div className="flex flex-wrap items-center justify-between gap-3">
-				<div className="flex min-w-0 items-baseline gap-3">
-					<h2 className="text-heading font-semibold text-text">{props.title}</h2>
-					{props.sync === undefined ? null : (
-						<span className="text-xs text-text-muted">
-							<SyncCountLine
-								populating={props.sync.populating}
-								translating={props.sync.translating}
-							/>
-						</span>
-					)}
-				</div>
-				{props.action}
-			</div>
-			{props.children}
-		</section>
-	);
-}
-
-export function useMediaOpenLink() {
-	const client = useRyot();
-	const [error, setError] = useState<string | null>(null);
-	return {
-		error,
-		openLink: (url: string) => {
-			setError(null);
-			void Effect.runPromise(client.links.open({ url })).catch(() => {
-				setError("Unable to open link. Try again.");
-			});
-		},
-	};
-}
 
 export function MediaMarkdown(props: { readonly text: string }) {
 	const { error, openLink } = useMediaOpenLink();
@@ -176,6 +134,38 @@ export function MediaMarkdown(props: { readonly text: string }) {
 				</p>
 			)}
 		</>
+	);
+}
+
+export function useMediaOpenLink() {
+	const client = useRyot();
+	const [error, setError] = useState<null | string>(null);
+	return {
+		error,
+		openLink: (url: string) => {
+			setError(null);
+			void Effect.runPromise(client.links.open({ url })).catch(() => {
+				setError("Unable to open link. Try again.");
+			});
+		},
+	};
+}
+
+export function MediaStatusMessage(props: {
+	readonly title: string;
+	readonly detail: string;
+	readonly onRetry?: () => void;
+}) {
+	return (
+		<div className="flex min-h-96 flex-col items-center justify-center gap-3 px-6">
+			<p className="text-center font-ui font-medium text-base text-text">{props.title}</p>
+			<p className="max-w-xl text-center font-ui text-sm text-text-muted">{props.detail}</p>
+			{props.onRetry === undefined ? null : (
+				<Button variant="link" onClick={props.onRetry}>
+					Try again
+				</Button>
+			)}
+		</div>
 	);
 }
 
@@ -208,20 +198,30 @@ export function MediaExternalLink(props: { readonly href: string; readonly label
 	);
 }
 
-export function MediaStatusMessage(props: {
+export function MediaOverviewSection(props: {
 	readonly title: string;
-	readonly detail: string;
-	readonly onRetry?: () => void;
+	readonly action?: ReactNode;
+	readonly children: ReactNode;
+	readonly className?: string | undefined;
+	readonly sync?: undefined | MediaSyncCounts;
 }) {
 	return (
-		<div className="flex min-h-96 flex-col items-center justify-center gap-3 px-6">
-			<p className="text-center font-ui font-medium text-base text-text">{props.title}</p>
-			<p className="max-w-xl text-center font-ui text-sm text-text-muted">{props.detail}</p>
-			{props.onRetry === undefined ? null : (
-				<Button variant="link" onClick={props.onRetry}>
-					Try again
-				</Button>
-			)}
-		</div>
+		<section className={clsx("grid grid-cols-[minmax(0,1fr)] gap-3", props.className)}>
+			<div className="flex flex-wrap items-center justify-between gap-3">
+				<div className="flex min-w-0 items-baseline gap-3">
+					<h2 className="text-heading font-semibold text-text">{props.title}</h2>
+					{props.sync === undefined ? null : (
+						<span className="text-xs text-text-muted">
+							<SyncCountLine
+								populating={props.sync.populating}
+								translating={props.sync.translating}
+							/>
+						</span>
+					)}
+				</div>
+				{props.action}
+			</div>
+			{props.children}
+		</section>
 	);
 }

@@ -29,11 +29,66 @@ const setOwnership = createRyotBackgroundSubmission({
 		input.owned ? "Marked as owned" : "Marked as not owned",
 });
 
+export function MediaOwnershipControl(props: {
+	readonly entityId: string;
+	readonly owned: null | boolean;
+	readonly ownedOn: null | string;
+}) {
+	const [dialogOpen, setDialogOpen] = useState(false);
+	const ownership = useBackgroundSubmission(setOwnership);
+	const [optimistic, setOptimistic] = useState<null | MediaOwnershipSetInput>(null);
+	const rolledBack = ownership.last?.status === "failed" || ownership.error !== null;
+	if (
+		(props.owned === true) === optimistic?.owned &&
+		(!optimistic.owned || props.ownedOn === optimistic.ownedOn)
+	) {
+		setOptimistic(null);
+	}
+	const intent = rolledBack ? null : optimistic;
+	const owned = intent === null ? props.owned === true : intent.owned;
+	const ownedOn = intent?.owned === true ? intent.ownedOn : props.ownedOn;
+	const submit = (input: MediaOwnershipSetInput, onAccepted?: () => void) => {
+		setOptimistic(input);
+		ownership.submit(input, onAccepted === undefined ? {} : { onAccepted });
+	};
+	return (
+		<>
+			<ChipButton
+				pressed={owned}
+				disabled={ownership.isSending}
+				icon={<AppIcon size={13} name="box" />}
+				onClick={() =>
+					owned ? submit({ owned: false, entityIds: [props.entityId] }) : setDialogOpen(true)
+				}
+			>
+				{owned ? mediaOwnedLabel(ownedOn) : "Mark owned"}
+			</ChipButton>
+			{rolledBack && !dialogOpen ? (
+				<span role="alert" className="text-xs text-danger">
+					Unable to change ownership. Try again.
+				</span>
+			) : null}
+			{dialogOpen ? (
+				<MediaOwnedOnDialog
+					sending={ownership.isSending}
+					failed={ownership.error !== null}
+					onClose={() => setDialogOpen(false)}
+					onSave={(date) =>
+						submit({ owned: true, ownedOn: date, entityIds: [props.entityId] }, () =>
+							setDialogOpen(false),
+						)
+					}
+				/>
+			) : null}
+		</>
+	);
+}
+
 function MediaOwnedOnDialog(props: {
-	readonly sending: boolean;
 	readonly failed: boolean;
+	readonly sending: boolean;
 	readonly onClose: () => void;
-	readonly onSave: (ownedOn: string | null) => void;
+	readonly onSave: (ownedOn: null | string) => void;
 }) {
 	const schedule = useRyotSchedule();
 	const today = localDay(schedule.now());
@@ -89,60 +144,5 @@ function MediaOwnedOnDialog(props: {
 				</div>
 			</ActionForm>
 		</Dialog>
-	);
-}
-
-export function MediaOwnershipControl(props: {
-	readonly entityId: string;
-	readonly owned: boolean | null;
-	readonly ownedOn: string | null;
-}) {
-	const [dialogOpen, setDialogOpen] = useState(false);
-	const ownership = useBackgroundSubmission(setOwnership);
-	const [optimistic, setOptimistic] = useState<MediaOwnershipSetInput | null>(null);
-	const rolledBack = ownership.last?.status === "failed" || ownership.error !== null;
-	if (
-		(props.owned === true) === optimistic?.owned &&
-		(!optimistic.owned || props.ownedOn === optimistic.ownedOn)
-	) {
-		setOptimistic(null);
-	}
-	const intent = rolledBack ? null : optimistic;
-	const owned = intent === null ? props.owned === true : intent.owned;
-	const ownedOn = intent?.owned === true ? intent.ownedOn : props.ownedOn;
-	const submit = (input: MediaOwnershipSetInput, onAccepted?: () => void) => {
-		setOptimistic(input);
-		ownership.submit(input, onAccepted === undefined ? {} : { onAccepted });
-	};
-	return (
-		<>
-			<ChipButton
-				pressed={owned}
-				disabled={ownership.isSending}
-				icon={<AppIcon size={13} name="box" />}
-				onClick={() =>
-					owned ? submit({ owned: false, entityIds: [props.entityId] }) : setDialogOpen(true)
-				}
-			>
-				{owned ? mediaOwnedLabel(ownedOn) : "Mark owned"}
-			</ChipButton>
-			{rolledBack && !dialogOpen ? (
-				<span role="alert" className="text-xs text-danger">
-					Unable to change ownership. Try again.
-				</span>
-			) : null}
-			{dialogOpen ? (
-				<MediaOwnedOnDialog
-					sending={ownership.isSending}
-					failed={ownership.error !== null}
-					onClose={() => setDialogOpen(false)}
-					onSave={(date) =>
-						submit({ owned: true, ownedOn: date, entityIds: [props.entityId] }, () =>
-							setDialogOpen(false),
-						)
-					}
-				/>
-			) : null}
-		</>
 	);
 }

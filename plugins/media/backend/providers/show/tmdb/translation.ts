@@ -100,7 +100,7 @@ export const translateTmdbShow = (input: ProviderTranslateInput, host: TmdbHost,
 		const imageUrl = getLocalizedImageUrl(imagesData, request.imageKey, langCode);
 		const properties: Record<
 			string,
-			string | Array<{ type: "remote"; url: string; purpose: "cover" | "still" }>
+			string | Array<{ url: string; type: "remote"; purpose: "cover" | "still" }>
 		> = {};
 		if (description) {
 			properties["description"] = description;

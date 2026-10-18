@@ -24,7 +24,7 @@ import {
 } from "./pokemon-schema";
 
 export const pokemonDetailRecipe = defineRecipe(
-	(input: { readonly reference: PluginIdentityReference; readonly entityId: string }) => {
+	(input: { readonly entityId: string; readonly reference: PluginIdentityReference }) => {
 		const requested = table("entity", "requested");
 		const pokemon = table("entity", "pokemon");
 		const property = (key: string) => jsonPath(column(pokemon, "properties"), key);

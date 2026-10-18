@@ -7,7 +7,7 @@ import { details, manifest, search } from "./shared";
 
 type IgdbGroupHost = Pick<
 	ScriptHost,
-	"httpCall" | "getPluginConfig" | "getCachedValue" | "setCachedValue"
+	"httpCall" | "getCachedValue" | "setCachedValue" | "getPluginConfig"
 >;
 
 const httpSuccess = (body: unknown, headers: Record<string, string> = {}) =>

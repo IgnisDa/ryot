@@ -25,7 +25,7 @@ import {
 	formatSignedMeasure,
 } from "./format";
 
-function ExerciseArtwork(props: { readonly card: ExerciseCard; readonly compact: boolean }) {
+function ExerciseArtwork(props: { readonly compact: boolean; readonly card: ExerciseCard }) {
 	return (
 		<AssetArtWell
 			name={props.card.exercise.name}
@@ -64,10 +64,170 @@ const wideColumns = (showOneRm: boolean, showRpe: boolean) => {
 		: "grid-cols-[2.5rem_minmax(0,1.3fr)_3.5rem_minmax(0,1.3fr)]";
 };
 
-function SetTable(props: {
-	readonly card: ExerciseCard;
+export function ExerciseGroups(props: {
 	readonly compact: boolean;
 	readonly imperial: boolean;
+	readonly groups: readonly CardGroup[];
+	readonly workoutStartedAt: null | string;
+}) {
+	return (
+		<div className={clsx("grid items-start gap-4", !props.compact && "grid-cols-2")}>
+			{props.groups.map((group) =>
+				group.kind === "single" ? (
+					<ExerciseCardView
+						card={group.card}
+						key={group.card.key}
+						compact={props.compact}
+						imperial={props.imperial}
+						workoutStartedAt={props.workoutStartedAt}
+					/>
+				) : (
+					<section
+						className="col-span-full grid gap-3"
+						aria-label={`Superset ${group.label}`}
+						key={group.cards.map((card) => card.key).join("+")}
+					>
+						<div className="flex items-center gap-3 font-ui">
+							<span
+								className="rounded-pill px-2.5 py-1 font-semibold text-[13px]"
+								style={{
+									color: supersetColorVariable(group.color),
+									backgroundColor: supersetColorVariable(group.color, { soft: true }),
+								}}
+							>
+								Superset {group.label}
+							</span>
+							<span className="text-[14px] text-text-muted">
+								Alternate {group.cards.map((card) => card.supersetTag).join(" and ")}
+							</span>
+						</div>
+						<div className={clsx("grid items-start gap-4", !props.compact && "grid-cols-2")}>
+							{group.cards.map((card) => (
+								<ExerciseCardView
+									card={card}
+									key={card.key}
+									compact={props.compact}
+									groupColor={group.color}
+									imperial={props.imperial}
+									workoutStartedAt={props.workoutStartedAt}
+								/>
+							))}
+						</div>
+					</section>
+				),
+			)}
+		</div>
+	);
+}
+
+export function ExerciseCardView(props: {
+	readonly compact: boolean;
+	readonly imperial: boolean;
+	readonly card: ExerciseCard;
+	readonly groupColor?: string;
+	readonly workoutStartedAt: null | string;
+}) {
+	const { card, compact } = props;
+	const meta = formatExerciseMeta({
+		targets: card.exercise.targets.items,
+		equipment: card.exercise.equipment.items,
+	});
+	return (
+		<Card
+			padding="none"
+			data-exercise-id={card.exercise.id}
+			className="min-w-0 overflow-hidden"
+			groupColor={props.groupColor === undefined ? undefined : supersetColor(props.groupColor)}
+		>
+			<div className="flex items-start gap-3 px-4 pt-4 pb-3">
+				<PluginLink
+					aria-label={`Open ${card.exercise.name}`}
+					to={{ kind: "entity", entityId: card.exercise.id }}
+				>
+					<ExerciseArtwork card={card} compact={compact} />
+				</PluginLink>
+				<div className="flex min-w-0 flex-1 flex-col gap-0.5">
+					<div className="flex min-w-0 items-center gap-2">
+						{card.supersetTag === null ? null : (
+							<span
+								className="shrink-0 rounded-sm px-1.5 py-0.5 font-ui font-bold text-[12px]"
+								style={
+									props.groupColor === undefined
+										? undefined
+										: {
+												color: supersetColorVariable(props.groupColor),
+												backgroundColor: supersetColorVariable(props.groupColor, { soft: true }),
+											}
+								}
+							>
+								{card.supersetTag}
+							</span>
+						)}
+						<PluginLink className="min-w-0" to={{ kind: "entity", entityId: card.exercise.id }}>
+							<h3 className="font-ui font-semibold text-[16px] text-text">{card.exercise.name}</h3>
+						</PluginLink>
+					</div>
+					{meta === "" ? null : <p className="font-ui text-[13px] text-text-muted">{meta}</p>}
+				</div>
+				<div className="flex shrink-0 flex-col items-end gap-0.5 text-right font-ui">
+					{card.total === null ? null : (
+						<span className="font-semibold text-[15px] text-text">
+							{formatMeasure(card.total.value, card.total.unit, props.imperial)}
+						</span>
+					)}
+					{card.comparison === null ? null : (
+						<span
+							className={clsx(
+								"text-[13px]",
+								card.comparison.delta > 0 ? "text-success" : "text-text-muted",
+							)}
+						>
+							{formatSignedMeasure(card.comparison.delta, card.comparison.unit, props.imperial)}
+							{card.comparison.delta === 0
+								? ""
+								: ` vs ${formatShortDate(card.comparison.previousStartedAt, props.workoutStartedAt)}`}
+						</span>
+					)}
+				</div>
+			</div>
+			{card.notes.map((note) => (
+				<p
+					key={note}
+					className="mx-4 mb-3 rounded-md bg-surface-2 px-3 py-2 font-ui text-[14px] text-text-muted"
+				>
+					{note}
+				</p>
+			))}
+			<RecordStatusNote card={card} />
+			<SetTable card={card} compact={compact} imperial={props.imperial} />
+			{card.media ? (
+				<WorkoutMediaViewer
+					label={card.exercise.name}
+					images={card.media.images}
+					videos={card.media.videos}
+				/>
+			) : null}
+		</Card>
+	);
+}
+
+function RecordStatusNote(props: { readonly card: ExerciseCard }) {
+	if (props.card.recordStatus === "ready") {
+		return null;
+	}
+	return (
+		<p role="status" className="px-4 pb-2 font-ui text-[13px] text-text-muted">
+			{props.card.recordStatus === "failed"
+				? "Records couldn't be updated for this exercise."
+				: "Updating records…"}
+		</p>
+	);
+}
+
+function SetTable(props: {
+	readonly compact: boolean;
+	readonly imperial: boolean;
+	readonly card: ExerciseCard;
 }) {
 	const { card, compact } = props;
 	const processing = useComputedResultsStatus();
@@ -166,166 +326,6 @@ function SetTable(props: {
 					</div>
 				);
 			})}
-		</div>
-	);
-}
-
-function RecordStatusNote(props: { readonly card: ExerciseCard }) {
-	if (props.card.recordStatus === "ready") {
-		return null;
-	}
-	return (
-		<p role="status" className="px-4 pb-2 font-ui text-[13px] text-text-muted">
-			{props.card.recordStatus === "failed"
-				? "Records couldn't be updated for this exercise."
-				: "Updating records…"}
-		</p>
-	);
-}
-
-export function ExerciseCardView(props: {
-	readonly groupColor?: string;
-	readonly imperial: boolean;
-	readonly compact: boolean;
-	readonly card: ExerciseCard;
-	readonly workoutStartedAt: string | null;
-}) {
-	const { card, compact } = props;
-	const meta = formatExerciseMeta({
-		targets: card.exercise.targets.items,
-		equipment: card.exercise.equipment.items,
-	});
-	return (
-		<Card
-			padding="none"
-			data-exercise-id={card.exercise.id}
-			className="min-w-0 overflow-hidden"
-			groupColor={props.groupColor === undefined ? undefined : supersetColor(props.groupColor)}
-		>
-			<div className="flex items-start gap-3 px-4 pt-4 pb-3">
-				<PluginLink
-					aria-label={`Open ${card.exercise.name}`}
-					to={{ kind: "entity", entityId: card.exercise.id }}
-				>
-					<ExerciseArtwork card={card} compact={compact} />
-				</PluginLink>
-				<div className="flex min-w-0 flex-1 flex-col gap-0.5">
-					<div className="flex min-w-0 items-center gap-2">
-						{card.supersetTag === null ? null : (
-							<span
-								className="shrink-0 rounded-sm px-1.5 py-0.5 font-ui font-bold text-[12px]"
-								style={
-									props.groupColor === undefined
-										? undefined
-										: {
-												color: supersetColorVariable(props.groupColor),
-												backgroundColor: supersetColorVariable(props.groupColor, { soft: true }),
-											}
-								}
-							>
-								{card.supersetTag}
-							</span>
-						)}
-						<PluginLink className="min-w-0" to={{ kind: "entity", entityId: card.exercise.id }}>
-							<h3 className="font-ui font-semibold text-[16px] text-text">{card.exercise.name}</h3>
-						</PluginLink>
-					</div>
-					{meta === "" ? null : <p className="font-ui text-[13px] text-text-muted">{meta}</p>}
-				</div>
-				<div className="flex shrink-0 flex-col items-end gap-0.5 text-right font-ui">
-					{card.total === null ? null : (
-						<span className="font-semibold text-[15px] text-text">
-							{formatMeasure(card.total.value, card.total.unit, props.imperial)}
-						</span>
-					)}
-					{card.comparison === null ? null : (
-						<span
-							className={clsx(
-								"text-[13px]",
-								card.comparison.delta > 0 ? "text-success" : "text-text-muted",
-							)}
-						>
-							{formatSignedMeasure(card.comparison.delta, card.comparison.unit, props.imperial)}
-							{card.comparison.delta === 0
-								? ""
-								: ` vs ${formatShortDate(card.comparison.previousStartedAt, props.workoutStartedAt)}`}
-						</span>
-					)}
-				</div>
-			</div>
-			{card.notes.map((note) => (
-				<p
-					key={note}
-					className="mx-4 mb-3 rounded-md bg-surface-2 px-3 py-2 font-ui text-[14px] text-text-muted"
-				>
-					{note}
-				</p>
-			))}
-			<RecordStatusNote card={card} />
-			<SetTable card={card} compact={compact} imperial={props.imperial} />
-			{card.media ? (
-				<WorkoutMediaViewer
-					label={card.exercise.name}
-					images={card.media.images}
-					videos={card.media.videos}
-				/>
-			) : null}
-		</Card>
-	);
-}
-
-export function ExerciseGroups(props: {
-	readonly imperial: boolean;
-	readonly compact: boolean;
-	readonly groups: readonly CardGroup[];
-	readonly workoutStartedAt: string | null;
-}) {
-	return (
-		<div className={clsx("grid items-start gap-4", !props.compact && "grid-cols-2")}>
-			{props.groups.map((group) =>
-				group.kind === "single" ? (
-					<ExerciseCardView
-						card={group.card}
-						key={group.card.key}
-						compact={props.compact}
-						imperial={props.imperial}
-						workoutStartedAt={props.workoutStartedAt}
-					/>
-				) : (
-					<section
-						className="col-span-full grid gap-3"
-						aria-label={`Superset ${group.label}`}
-						key={group.cards.map((card) => card.key).join("+")}
-					>
-						<div className="flex items-center gap-3 font-ui">
-							<span
-								className="rounded-pill px-2.5 py-1 font-semibold text-[13px]"
-								style={{
-									color: supersetColorVariable(group.color),
-									backgroundColor: supersetColorVariable(group.color, { soft: true }),
-								}}
-							>
-								Superset {group.label}
-							</span>
-							<span className="text-[14px] text-text-muted">
-								Alternate {group.cards.map((card) => card.supersetTag).join(" and ")}
-							</span>
-						</div>
-						<div className={clsx("grid items-start gap-4", !props.compact && "grid-cols-2")}>
-							{group.cards.map((card) => (
-								<ExerciseCardView
-									card={card}
-									key={card.key}
-									compact={props.compact}
-									groupColor={group.color}
-									imperial={props.imperial}
-									workoutStartedAt={props.workoutStartedAt}
-								/>
-							))}
-						</div>
-					</section>
-				),
-			)}
 		</div>
 	);
 }

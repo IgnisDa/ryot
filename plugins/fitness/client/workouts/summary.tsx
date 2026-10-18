@@ -16,63 +16,14 @@ const levelClasses = [
 
 const headingClass = "text-[13px] font-medium tracking-wider text-text-subtle uppercase";
 
-function Heatmap(props: {
-	readonly now: Date;
-	readonly timeZone: string;
-	readonly summary: WorkoutSummary;
-}) {
-	const { weeks, streak } = buildHeatmap(props.summary, props.now, props.timeZone);
-	return (
-		<Card className="flex min-w-0 flex-[1_1_400px] flex-col gap-3">
-			<div className="flex items-baseline justify-between gap-2 text-[13px]">
-				<span className="text-text-muted">Consistency · {weeks.length} weeks</span>
-				{streak > 1 ? <span className="text-success">{streak}-week streak</span> : null}
-			</div>
-			<div
-				role="img"
-				className="flex gap-0.75 overflow-x-auto"
-				aria-label={`Training days over the last ${weeks.length} weeks`}
-			>
-				{weeks.map((week) => (
-					<div key={week.key} className="flex flex-col gap-0.75">
-						{week.cells.map((cell) => (
-							<span
-								key={cell.key}
-								className={clsx(
-									"size-2.75 rounded-[2px]",
-									cell.level === null ? "bg-transparent" : levelClasses[cell.level],
-								)}
-							/>
-						))}
-					</div>
-				))}
-			</div>
-			<div className="flex items-center justify-between gap-2 text-[11.5px] text-text-subtle">
-				<span className="flex gap-3">
-					{weeks.flatMap(({ key, month }) =>
-						month === null ? [] : [<span key={key}>{month}</span>],
-					)}
-				</span>
-				<span className="flex items-center gap-0.75">
-					Less
-					{levelClasses.map((level) => (
-						<span key={level} className={clsx("size-2.25 rounded-[2px]", level)} />
-					))}
-					More volume
-				</span>
-			</div>
-		</Card>
-	);
-}
-
 export function WorkoutSummarySection(props: {
 	readonly now: Date;
-	readonly imperial: boolean;
-	readonly period: PeriodKey;
 	readonly timeZone: string;
 	readonly isError: boolean;
+	readonly imperial: boolean;
+	readonly period: PeriodKey;
 	readonly onRetry: () => void;
-	readonly summary: WorkoutSummary | undefined;
+	readonly summary: undefined | WorkoutSummary;
 	readonly onPeriodChange: (period: PeriodKey) => void;
 }) {
 	const { period, summary } = props;
@@ -122,5 +73,54 @@ export function WorkoutSummarySection(props: {
 			</div>
 			<ComputedResults>{content}</ComputedResults>
 		</section>
+	);
+}
+
+function Heatmap(props: {
+	readonly now: Date;
+	readonly timeZone: string;
+	readonly summary: WorkoutSummary;
+}) {
+	const { weeks, streak } = buildHeatmap(props.summary, props.now, props.timeZone);
+	return (
+		<Card className="flex min-w-0 flex-[1_1_400px] flex-col gap-3">
+			<div className="flex items-baseline justify-between gap-2 text-[13px]">
+				<span className="text-text-muted">Consistency · {weeks.length} weeks</span>
+				{streak > 1 ? <span className="text-success">{streak}-week streak</span> : null}
+			</div>
+			<div
+				role="img"
+				className="flex gap-0.75 overflow-x-auto"
+				aria-label={`Training days over the last ${weeks.length} weeks`}
+			>
+				{weeks.map((week) => (
+					<div key={week.key} className="flex flex-col gap-0.75">
+						{week.cells.map((cell) => (
+							<span
+								key={cell.key}
+								className={clsx(
+									"size-2.75 rounded-[2px]",
+									cell.level === null ? "bg-transparent" : levelClasses[cell.level],
+								)}
+							/>
+						))}
+					</div>
+				))}
+			</div>
+			<div className="flex items-center justify-between gap-2 text-[11.5px] text-text-subtle">
+				<span className="flex gap-3">
+					{weeks.flatMap(({ key, month }) =>
+						month === null ? [] : [<span key={key}>{month}</span>],
+					)}
+				</span>
+				<span className="flex items-center gap-0.75">
+					Less
+					{levelClasses.map((level) => (
+						<span key={level} className={clsx("size-2.25 rounded-[2px]", level)} />
+					))}
+					More volume
+				</span>
+			</div>
+		</Card>
 	);
 }

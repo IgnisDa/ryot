@@ -85,14 +85,14 @@ export const formatVolume = (kilograms: number, imperial: boolean, compact = fal
 export const plural = (count: number, noun: string) =>
 	`${formatNumber(count)} ${noun}${count === 1 ? "" : "s"}`;
 
-export const percentChange = (current: number | null, previous: number | null | undefined) =>
+export const percentChange = (current: null | number, previous: null | number | undefined) =>
 	current === null || previous === null || previous === undefined || previous === 0
 		? null
 		: Math.round(((current - previous) / previous) * 100);
 
-export type Tone = "down" | "muted" | "record" | "up";
+export type Tone = "up" | "down" | "muted" | "record";
 
-export const changeTone = (change: number | null): Tone => {
+export const changeTone = (change: null | number): Tone => {
 	if (change === null || change === 0) {
 		return "muted";
 	}
@@ -143,9 +143,9 @@ const exerciseGroups = (sets: readonly ListSet[]) => {
 type Comparison =
 	| { readonly kind: "none" }
 	| {
-			readonly kind: "repeated" | "template";
 			readonly label: string;
-			readonly change: number | null;
+			readonly change: null | number;
+			readonly kind: "repeated" | "template";
 	  };
 
 const comparisonFor = (
@@ -180,7 +180,7 @@ const comparisonFor = (
 };
 
 export const durationOf = (
-	item: Pick<WorkoutListItem, "activeDuration" | "endedAt" | "startedAt">,
+	item: Pick<WorkoutListItem, "endedAt" | "startedAt" | "activeDuration">,
 ) => {
 	if (item.activeDuration !== null) {
 		return { label: "Duration", value: formatDuration(item.activeDuration) };
@@ -196,8 +196,8 @@ export type WorkoutCard = ReturnType<typeof buildWorkoutCards>[number];
 
 export const buildWorkoutCards = (input: {
 	readonly now: Date;
-	readonly imperial: boolean;
 	readonly timeZone: string;
+	readonly imperial: boolean;
 	readonly items: readonly WorkoutListItem[];
 	readonly comparisons: readonly WorkoutComparison[];
 	readonly targets: readonly WorkoutExerciseTargets[];
@@ -272,7 +272,7 @@ export const buildWorkoutCards = (input: {
 	});
 };
 
-export const formatTotals = (totals: WorkoutPeriodTotals | undefined, imperial: boolean) =>
+export const formatTotals = (totals: undefined | WorkoutPeriodTotals, imperial: boolean) =>
 	totals === undefined
 		? null
 		: [
@@ -288,8 +288,8 @@ export type WeekSection = ReturnType<typeof groupByWeek>[number];
 
 export const groupByWeek = (input: {
 	readonly now: Date;
-	readonly imperial: boolean;
 	readonly timeZone: string;
+	readonly imperial: boolean;
 	readonly cards: readonly WorkoutCard[];
 	readonly totals: readonly WorkoutPeriodTotals[];
 }) => {

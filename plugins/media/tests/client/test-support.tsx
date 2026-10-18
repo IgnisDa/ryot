@@ -14,8 +14,8 @@ import { PLUGIN_PACKAGE_ID } from "../../shared/plugin-identity";
 
 type LocalDateTimeParts = {
 	readonly day: number;
-	readonly month: number;
 	readonly year: number;
+	readonly month: number;
 	readonly hour?: number;
 	readonly minute?: number;
 	readonly second?: number;

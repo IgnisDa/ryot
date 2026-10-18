@@ -2,7 +2,7 @@ import type { ScriptHost } from "@ryot-app/plugin-backend-sdk/core";
 import { Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
 
 export type HttpHost = Pick<ScriptHost, "httpCall">;
-type QueryValue = boolean | number | string | undefined;
+type QueryValue = number | string | boolean | undefined;
 
 export const withSourceRequestOptions = (
 	host: HttpHost,
@@ -43,8 +43,8 @@ export const requestSourceResponse = (
 	host: HttpHost,
 	input: {
 		path: string;
-		baseUrl: string;
 		body?: string;
+		baseUrl: string;
 		headers?: Record<string, string>;
 		method?: "GET" | "HEAD" | "POST";
 		query?: Record<string, QueryValue>;

@@ -130,7 +130,7 @@ export const loadEditTargets = (
 
 export const requireDeclaredProperties = (
 	target: EditTarget,
-	declared: readonly string[] | undefined,
+	declared: undefined | readonly string[],
 ) =>
 	declared !== undefined && Object.keys(target.properties).every((key) => declared.includes(key))
 		? Effect.void

@@ -64,7 +64,7 @@ it.live(
 			);
 			let offset = 0;
 			let itemIndex = 0;
-			let dedupKey: string | null = null;
+			let dedupKey: null | string = null;
 			const events = [];
 			for (;;) {
 				const batch: typeof MediaReadBatchOutput.Type = yield* reader.run({

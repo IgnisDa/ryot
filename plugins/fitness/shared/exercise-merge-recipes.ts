@@ -27,9 +27,9 @@ const exerciseMergeDetachedRelationshipSlugs = [
 
 export const exerciseMergeSubjectsRecipe = defineRecipe(
 	(input: {
-		readonly reference: PluginIdentityReference;
 		readonly mergeFrom: string;
 		readonly mergeInto: string;
+		readonly reference: PluginIdentityReference;
 	}) => {
 		const exercise = table("entity", "mergeExercise");
 		return {
@@ -55,9 +55,9 @@ export const exerciseMergeSubjectsRecipe = defineRecipe(
 
 export const exerciseMergeLinksRecipe = defineRecipe(
 	(input: {
-		readonly reference: PluginIdentityReference;
 		readonly mergeFrom: string;
 		readonly after?: string | undefined;
+		readonly reference: PluginIdentityReference;
 	}) => {
 		const link = table("relationship", "mergeLink");
 		return {
@@ -87,7 +87,7 @@ export const exerciseMergeLinksRecipe = defineRecipe(
 );
 
 export const exerciseMergeTemplatesRecipe = defineRecipe(
-	(input: { readonly reference: PluginIdentityReference; readonly after?: string | undefined }) => {
+	(input: { readonly after?: string | undefined; readonly reference: PluginIdentityReference }) => {
 		const template = table("entity", "mergeTemplate");
 		return {
 			map: ({ templates }) => Result.succeed(templates),

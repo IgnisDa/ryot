@@ -19,58 +19,16 @@ import {
 import { ManagedAssetImage } from "./managed-assets";
 import { MediaMarkdown } from "./primitives";
 
-function MediaEpisodeActions(props: {
-	readonly episode: MediaEpisode;
-	readonly log: MediaEpisodeLog;
-	readonly onLog: () => void;
-}) {
-	const { log, episode } = props;
-	const schedule = useRyotSchedule();
-	const { locked, log: mark } = useQuickLog(log.parentEntityId);
-	if (episode.publishDate !== null && episode.publishDate > localDay(schedule.now())) {
-		return null;
-	}
-	const { participle } = log.logger.copy;
-	return (
-		<div className="flex flex-col items-start gap-2">
-			<div className="flex flex-wrap gap-2">
-				<Button
-					disabled={locked}
-					onClick={() =>
-						mark.submit({
-							label: `Marked ${episode.name} ${participle}.`,
-							entry: {
-								kind: "episodes",
-								when: { kind: "now" },
-								episodeEntityIds: [episode.id],
-								parentEntityId: log.parentEntityId,
-							},
-						})
-					}
-				>
-					{mark.isSending ? "Saving…" : `Mark ${participle}`}
-				</Button>
-				<Button variant="secondary" onClick={props.onLog}>
-					Log with details…
-				</Button>
-			</div>
-			{mark.error === null ? null : (
-				<StatusMessage tone="error">Couldn't start saving. Try again.</StatusMessage>
-			)}
-		</div>
-	);
-}
-
 export function MediaEpisodeDetails<Episode extends MediaEpisode>(props: {
 	readonly episode: Episode;
-	readonly log: MediaEpisodeLog;
-	readonly editable: boolean;
-	readonly render: MediaEpisodeRender<Episode>;
 	readonly compact: boolean;
+	readonly editable: boolean;
+	readonly onLog: () => void;
 	readonly safeAreaTop: number;
 	readonly onClose: () => void;
-	readonly onLog: () => void;
-	readonly triggerRef: RefObject<HTMLButtonElement | null>;
+	readonly log: MediaEpisodeLog;
+	readonly render: MediaEpisodeRender<Episode>;
+	readonly triggerRef: RefObject<null | HTMLButtonElement>;
 }) {
 	const { render, episode, compact } = props;
 	const asset = mediaEpisodeAsset(episode, render.purpose);
@@ -138,5 +96,47 @@ export function MediaEpisodeDetails<Episode extends MediaEpisode>(props: {
 				</div>
 			</div>
 		</MediaDetailModal>
+	);
+}
+
+function MediaEpisodeActions(props: {
+	readonly onLog: () => void;
+	readonly log: MediaEpisodeLog;
+	readonly episode: MediaEpisode;
+}) {
+	const { log, episode } = props;
+	const schedule = useRyotSchedule();
+	const { locked, log: mark } = useQuickLog(log.parentEntityId);
+	if (episode.publishDate !== null && episode.publishDate > localDay(schedule.now())) {
+		return null;
+	}
+	const { participle } = log.logger.copy;
+	return (
+		<div className="flex flex-col items-start gap-2">
+			<div className="flex flex-wrap gap-2">
+				<Button
+					disabled={locked}
+					onClick={() =>
+						mark.submit({
+							label: `Marked ${episode.name} ${participle}.`,
+							entry: {
+								kind: "episodes",
+								when: { kind: "now" },
+								episodeEntityIds: [episode.id],
+								parentEntityId: log.parentEntityId,
+							},
+						})
+					}
+				>
+					{mark.isSending ? "Saving…" : `Mark ${participle}`}
+				</Button>
+				<Button variant="secondary" onClick={props.onLog}>
+					Log with details…
+				</Button>
+			</div>
+			{mark.error === null ? null : (
+				<StatusMessage tone="error">Couldn't start saving. Try again.</StatusMessage>
+			)}
+		</div>
 	);
 }

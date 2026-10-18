@@ -5,8 +5,8 @@ import { useWorkoutProcessing } from "./use-workout-processing";
 const ProcessingContext = createContext({ failed: false, pending: false, loading: false });
 
 export function WorkoutProcessing(props: {
-	readonly exerciseId?: string;
 	readonly workoutId?: string;
+	readonly exerciseId?: string;
 	readonly children: ReactNode;
 }) {
 	const processing = useWorkoutProcessing({

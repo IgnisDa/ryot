@@ -25,7 +25,7 @@ export const manifest = defineManifest({
 
 const lastNonEmptySegment = (value: unknown) => {
 	const apiUrl = typeof value === "string" ? value : "";
-	let lastSegment: string | null = null;
+	let lastSegment: null | string = null;
 	for (const segment of apiUrl.split("/")) {
 		if (segment.length > 0) {
 			lastSegment = segment;

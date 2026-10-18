@@ -8,7 +8,7 @@ export const showEpisodeOrderStorageKey = (showEntityId: string) => `episode-ord
  */
 export const resolveShowEpisodeOrder = (
 	orders: readonly ShowEpisodeOrder[],
-	storedId: string | null,
+	storedId: null | string,
 ) => {
 	const order = storedId === null ? null : (orders.find((o) => o.externalId === storedId) ?? null);
 	return { order, stale: storedId !== null && order === null };
@@ -20,7 +20,7 @@ export const resolveShowEpisodeOrder = (
  */
 export const showOrderEpisodePage = (
 	externalIds: readonly string[],
-	after: string | null,
+	after: null | string,
 	limit: number,
 ) => {
 	const offset = after === null ? 0 : Number(after);

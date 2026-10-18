@@ -56,7 +56,7 @@ export const pinMetricMutation = createRyotMutation<
 	}),
 );
 
-export const readingFailureMessage = (error: Error | null, action: "delete" | "edit" | "log") =>
+export const readingFailureMessage = (error: null | Error, action: "log" | "edit" | "delete") =>
 	error === null
 		? undefined
 		: `The measurement couldn't be ${action === "delete" ? "deleted" : "saved"}. Try again.`;

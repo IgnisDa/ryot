@@ -28,53 +28,13 @@ import { MediaHistoryCorrectionStatus } from "./history-correction-status";
 import { MediaRefreshStatus, MediaStatusMessage } from "./primitives";
 import { MediaReviewButton } from "./review";
 
+export type MediaActivityEmptyAction = "write-review" | MediaActivityLogger;
+
 export type MediaActivityCopy = {
 	readonly recordLabel: string;
 	readonly emptyDetail: string;
 	readonly loadingDetail: string;
 };
-
-export type MediaActivityEmptyAction = MediaActivityLogger | "write-review";
-
-function MediaActivityFooter(props: { readonly partial: boolean; readonly history?: ReactNode }) {
-	if (!props.partial && !props.history) {
-		return null;
-	}
-	return (
-		<div className="flex flex-col items-start gap-2 border-t border-border pt-4">
-			{props.partial ? (
-				<p className="text-label text-text-subtle">Only your most recent activity is shown here.</p>
-			) : null}
-			{props.history}
-		</div>
-	);
-}
-
-function MediaActivityEmpty(props: {
-	readonly detail: string;
-	readonly compact: boolean;
-	readonly entityId: string;
-	readonly action: MediaActivityEmptyAction;
-	readonly onOpenChange: (open: boolean) => void;
-}) {
-	return (
-		<div className="flex min-h-96 flex-col items-center justify-center gap-3 px-6">
-			<p className="text-center font-ui font-medium text-base text-text">No activity yet</p>
-			<p className="max-w-xl text-center font-ui text-sm text-text-muted">{props.detail}</p>
-			{props.action === "write-review" ? (
-				<MediaReviewButton link entityId={props.entityId} />
-			) : (
-				<MediaLogActivityButton
-					link
-					logger={props.action}
-					compact={props.compact}
-					entityId={props.entityId}
-					onOpenChange={props.onOpenChange}
-				/>
-			)}
-		</div>
-	);
-}
 
 export function MediaActivityRecord<Row extends MediaActivityRowBase>(props: {
 	readonly compact: boolean;
@@ -118,10 +78,10 @@ export function MediaActivity<View>(props: {
 	readonly entityId: string;
 	readonly compact: boolean;
 	readonly refresh: () => void;
+	readonly history?: ReactNode;
 	readonly copy: MediaActivityCopy;
 	readonly state: MediaActivityState<View>;
 	readonly emptyAction: MediaActivityEmptyAction;
-	readonly history?: ReactNode;
 	readonly Record: (input: {
 		readonly view: View;
 		readonly compact: boolean;
@@ -160,16 +120,56 @@ export function MediaActivity<View>(props: {
 	);
 }
 
+function MediaActivityFooter(props: { readonly partial: boolean; readonly history?: ReactNode }) {
+	if (!props.partial && !props.history) {
+		return null;
+	}
+	return (
+		<div className="flex flex-col items-start gap-2 border-t border-border pt-4">
+			{props.partial ? (
+				<p className="text-label text-text-subtle">Only your most recent activity is shown here.</p>
+			) : null}
+			{props.history}
+		</div>
+	);
+}
+
+function MediaActivityEmpty(props: {
+	readonly detail: string;
+	readonly compact: boolean;
+	readonly entityId: string;
+	readonly action: MediaActivityEmptyAction;
+	readonly onOpenChange: (open: boolean) => void;
+}) {
+	return (
+		<div className="flex min-h-96 flex-col items-center justify-center gap-3 px-6">
+			<p className="text-center font-ui font-medium text-base text-text">No activity yet</p>
+			<p className="max-w-xl text-center font-ui text-sm text-text-muted">{props.detail}</p>
+			{props.action === "write-review" ? (
+				<MediaReviewButton link entityId={props.entityId} />
+			) : (
+				<MediaLogActivityButton
+					link
+					logger={props.action}
+					compact={props.compact}
+					entityId={props.entityId}
+					onOpenChange={props.onOpenChange}
+				/>
+			)}
+		</div>
+	);
+}
+
 /** The activity state mapper, its screen, and the tab that loads it for one entity. */
 export const defineMediaActivityTab = <Result, View, Event>(input: {
 	readonly copy: MediaActivityCopy;
 	readonly emptyAction: MediaActivityEmptyAction;
 	readonly view: (result: Result) => View | undefined;
 	readonly hasMoreActivities: (result: Result) => boolean;
-	readonly renderHistory: (items: readonly Event[], compact: boolean) => ReactNode;
 	readonly query: RyotQuery<{ readonly entityId: string }, Result>;
+	readonly renderHistory: (items: readonly Event[], compact: boolean) => ReactNode;
 	readonly historyQuery: RyotQuery<
-		{ readonly entityId: string; readonly after: string | null },
+		{ readonly entityId: string; readonly after: null | string },
 		MediaCursorPage<Event>
 	>;
 	readonly Record: (props: {

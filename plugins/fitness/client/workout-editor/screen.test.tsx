@@ -134,7 +134,7 @@ const rows = (items: readonly Record<string, unknown>[]) => ({
 	pageInfo: { limit: 100, hasMore: false, nextCursor: null },
 });
 
-type EditorStorage = { value: JsonValue | null };
+type EditorStorage = { value: null | JsonValue };
 
 const previousWeightSet = {
 	rpe: 8,
@@ -168,7 +168,7 @@ const openEditor = (
 	historySessions: readonly Record<string, unknown>[] = [],
 	pickerExercises: readonly Record<string, unknown>[] = [],
 ) => {
-	let respond: (() => void) | undefined;
+	let respond: undefined | (() => void);
 	const page = mountPluginPage(() => <WorkoutEditorScreen target={target} {...screenProps} />, {
 		page: pageContext,
 		bootstrap: clock.bootstrap,
@@ -355,7 +355,7 @@ const dismissOverlay = (page: ReturnType<typeof mountPluginPage>, requestId: str
 
 afterEach(disposePluginBridges);
 
-const pickerExercise = (id: string, name: string, kind: ExerciseKind | null) => ({
+const pickerExercise = (id: string, name: string, kind: null | ExerciseKind) => ({
 	id,
 	kind,
 	name,

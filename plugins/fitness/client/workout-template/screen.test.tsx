@@ -44,11 +44,11 @@ const occurrence = {
 };
 
 const mountTemplate = (input: {
-	readonly properties: Record<string, unknown>;
-	readonly exercises?: readonly Record<string, unknown>[];
-	readonly overrides?: Record<string, unknown>;
 	readonly proAvailable?: boolean;
 	readonly unitSystem?: "metric" | "imperial";
+	readonly properties: Record<string, unknown>;
+	readonly overrides?: Record<string, unknown>;
+	readonly exercises?: readonly Record<string, unknown>[];
 }) => {
 	const pluginId = PluginId.make("fitness");
 	const context: ClientPageContext = {
@@ -65,7 +65,7 @@ const mountTemplate = (input: {
 			entitySchemaSlug: EntitySchemaSlug.make("workout-template"),
 		},
 	};
-	let answer: (() => void) | undefined;
+	let answer: undefined | (() => void);
 	const page = mountPluginPage(WorkoutTemplatePage, {
 		page: context,
 		onClientMessage: () => answer?.(),
@@ -116,15 +116,6 @@ const mountTemplate = (input: {
 										},
 									]),
 								];
-							case "exercises":
-								return [name, rows(input.exercises ?? [exercise])];
-							case "membership":
-								return [
-									name,
-									rows([
-										{ id: "member", targetEntityId: "library", properties: input.overrides ?? {} },
-									]),
-								];
 							case "targets":
 								return [
 									name,
@@ -139,6 +130,8 @@ const mountTemplate = (input: {
 										},
 									]),
 								];
+							case "exercises":
+								return [name, rows(input.exercises ?? [exercise])];
 							case "equipment":
 								return [
 									name,
@@ -149,6 +142,13 @@ const mountTemplate = (input: {
 											name: "Barbell",
 											relationshipId: "equipment-link",
 										},
+									]),
+								];
+							case "membership":
+								return [
+									name,
+									rows([
+										{ id: "member", targetEntityId: "library", properties: input.overrides ?? {} },
 									]),
 								];
 							default:

@@ -29,9 +29,9 @@ export function EditorStates(props: {
 	readonly saved: boolean;
 	readonly preparing: boolean;
 	readonly requested: boolean;
-	readonly snapshot: WorkoutEditorControllerSnapshot;
-	readonly context: typeof WorkoutEditorContextOutputSchema.Type | undefined;
 	readonly onStart: (template: boolean) => void;
+	readonly snapshot: WorkoutEditorControllerSnapshot;
+	readonly context: undefined | typeof WorkoutEditorContextOutputSchema.Type;
 }) {
 	const { context, snapshot } = props;
 	return (

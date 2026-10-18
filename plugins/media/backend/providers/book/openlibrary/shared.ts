@@ -122,7 +122,7 @@ const loadAuthorName = (host: OpenLibraryHost, cache: Map<string, string>, autho
 	);
 };
 
-const authorKeyOf = (record: UnknownRecord, nestedAuthor: UnknownRecord | null) => {
+const authorKeyOf = (record: UnknownRecord, nestedAuthor: null | UnknownRecord) => {
 	if (typeof record["key"] === "string") {
 		return record["key"];
 	}
@@ -132,7 +132,7 @@ const authorKeyOf = (record: UnknownRecord, nestedAuthor: UnknownRecord | null) 
 	return "";
 };
 
-const collectAuthors = (host: OpenLibraryHost, workPayload: UnknownRecord | null) => {
+const collectAuthors = (host: OpenLibraryHost, workPayload: null | UnknownRecord) => {
 	const accumulator = createRoleAccumulator();
 	const authorNameCache = new Map<string, string>();
 	const authors = workPayload?.["authors"];
@@ -192,7 +192,7 @@ export const details = defineProvider({
 			const entries = asRecord(editionsValue)?.["entries"];
 			const editions = Array.isArray(entries) ? entries : [];
 
-			let pages: number | null = null;
+			let pages: null | number = null;
 			let earliestDate: Date | null = null;
 			const coverIdSet = new Set<number>();
 			const addCoverId = (value: unknown) => {

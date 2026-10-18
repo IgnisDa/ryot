@@ -21,7 +21,7 @@ const accessToken = "spotify-access-token";
 const errorBody = "spotify-error-body";
 
 const play = (
-	trackId: string | null,
+	trackId: null | string,
 	playedAt: string,
 	name = trackId ?? "",
 	durationMs = 200_000,
@@ -29,9 +29,9 @@ const play = (
 
 type Response = { status: number; items: Array<Record<string, JsonValue>> };
 
-const setup = (lastFinishedAt: string | null = null) => {
+const setup = (lastFinishedAt: null | string = null) => {
 	const claims = new Set<string>();
-	const requests: Array<{ url: string; headers: Record<string, string> | undefined }> = [];
+	const requests: Array<{ url: string; headers: undefined | Record<string, string> }> = [];
 	const tokenRequests: Array<{ field: string }> = [];
 	const logs: Array<string> = [];
 	let response: Response = { items: [], status: 200 };

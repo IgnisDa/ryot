@@ -30,7 +30,7 @@ const book = (
 	metadata: { number, title: id, links: [link] },
 });
 
-const setup = (responses: Array<JsonValue | Error>, syncOwnership = false) => {
+const setup = (responses: Array<Error | JsonValue>, syncOwnership = false) => {
 	const calls: Array<Parameters<ScriptHost["httpCall"]>> = [];
 	const host = defineSandboxTestHost(manifest, {
 		getPluginConfig: () => hostSuccess({ hardcoverApiKey: "hardcover-key" }),

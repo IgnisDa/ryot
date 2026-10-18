@@ -35,13 +35,18 @@ const exerciseDetailsQuery = createRyotQuery<
 	{ entityWatch: ({ input }) => ({ visible: [], foreground: [input.entityId] }) },
 );
 
+export default function ExerciseDetailsPage() {
+	const location = usePluginLocation();
+	return location.kind === "entity" ? <ExerciseDetailsScreen entityId={location.entityId} /> : null;
+}
+
 export function ExerciseDetailsView(props: {
 	readonly now: Date;
 	readonly compact: boolean;
 	readonly timeZone: string;
+	readonly onChanged: () => void;
 	readonly details: ExerciseDetails;
 	readonly exercise: ExerciseRecord;
-	readonly onChanged: () => void;
 }) {
 	const { now, compact, details, exercise, timeZone, onChanged } = props;
 	const draft = useActiveEditorDraft();
@@ -95,6 +100,19 @@ export function ExerciseDetailsView(props: {
 	);
 }
 
+function ExerciseDetailsScreen(props: { readonly entityId: string }) {
+	const { compact } = useRyotViewport();
+	const [timeZone] = useState(() => Intl.DateTimeFormat().resolvedOptions().timeZone);
+	const result = useRyotQuery(exerciseDetailsQuery, { timeZone, entityId: props.entityId });
+	return (
+		<WorkoutProcessing exerciseId={props.entityId}>
+			<PluginScreenFrame hideTitle title={result.data?.exercise?.name ?? null}>
+				<ExerciseDetailsBody result={result} compact={compact} timeZone={timeZone} />
+			</PluginScreenFrame>
+		</WorkoutProcessing>
+	);
+}
+
 function ExerciseDetailsBody(props: {
 	readonly compact: boolean;
 	readonly timeZone: string;
@@ -130,22 +148,4 @@ function ExerciseDetailsBody(props: {
 			{details === undefined ? "Loading exercise…" : "This exercise no longer exists."}
 		</StatusMessage>
 	);
-}
-
-function ExerciseDetailsScreen(props: { readonly entityId: string }) {
-	const { compact } = useRyotViewport();
-	const [timeZone] = useState(() => Intl.DateTimeFormat().resolvedOptions().timeZone);
-	const result = useRyotQuery(exerciseDetailsQuery, { timeZone, entityId: props.entityId });
-	return (
-		<WorkoutProcessing exerciseId={props.entityId}>
-			<PluginScreenFrame hideTitle title={result.data?.exercise?.name ?? null}>
-				<ExerciseDetailsBody result={result} compact={compact} timeZone={timeZone} />
-			</PluginScreenFrame>
-		</WorkoutProcessing>
-	);
-}
-
-export default function ExerciseDetailsPage() {
-	const location = usePluginLocation();
-	return location.kind === "entity" ? <ExerciseDetailsScreen entityId={location.entityId} /> : null;
 }

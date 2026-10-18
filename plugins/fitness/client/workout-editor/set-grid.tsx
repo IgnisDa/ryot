@@ -14,10 +14,10 @@ import { CompletionToggle } from "./completion-toggle";
 import { occurrenceDisplay } from "./draft-ops";
 import { remainingSeconds } from "./timers";
 
+export type InvalidSet = { readonly setId: string; readonly fields: readonly SetMeasurement[] };
+
 type SetMeasurement =
 	(typeof requiredWorkoutMeasurementsByKind)[keyof typeof requiredWorkoutMeasurementsByKind][number];
-
-export type InvalidSet = { readonly setId: string; readonly fields: readonly SetMeasurement[] };
 
 const measurementUnit = (field: SetMeasurement, occurrence: WorkoutEditorOccurrence) => {
 	const display = occurrenceDisplay(occurrence);
@@ -46,7 +46,7 @@ const unitAbbreviations: Partial<Record<string, string>> = { seconds: "s", minut
 const has = (value: string | undefined) => value !== undefined && value.trim() !== "";
 
 export const previousSummary = (
-	previous: WorkoutEditorSet | undefined,
+	previous: undefined | WorkoutEditorSet,
 	occurrence: WorkoutEditorOccurrence,
 ) => {
 	if (previous === undefined) {
@@ -78,19 +78,19 @@ export function SetGrid(props: {
 	readonly disabled: boolean;
 	readonly draft: WorkoutEditorDraft;
 	readonly countdownEnabled: boolean;
-	readonly invalid: InvalidSet | undefined;
+	readonly invalid: undefined | InvalidSet;
 	readonly currentSetId: string | undefined;
 	readonly occurrence: WorkoutEditorOccurrence;
+	readonly onStart: (set: WorkoutEditorSet) => void;
+	readonly onOpenSet: (set: WorkoutEditorSet) => void;
+	readonly onComplete: (set: WorkoutEditorSet) => void;
 	readonly previous: ReadonlyMap<string, WorkoutEditorSet>;
+	readonly onCopyPrevious: (set: WorkoutEditorSet) => void;
 	readonly restSeconds: (set: WorkoutEditorSet) => number | undefined;
 	readonly onChange: (
 		setId: string,
 		transform: (set: WorkoutEditorSet) => WorkoutEditorSet,
 	) => void;
-	readonly onStart: (set: WorkoutEditorSet) => void;
-	readonly onComplete: (set: WorkoutEditorSet) => void;
-	readonly onCopyPrevious: (set: WorkoutEditorSet) => void;
-	readonly onOpenSet: (set: WorkoutEditorSet) => void;
 }) {
 	const { draft, compact, occurrence } = props;
 	const live = draft.mode.kind === "live";

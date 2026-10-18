@@ -41,11 +41,11 @@ const recordingHost = (input: {
 	const documents: RyotQLDocument[] = [];
 	const updates: {
 		readonly items: readonly UpdateEventItem[];
-		readonly options: UpdateOptions | undefined;
+		readonly options: undefined | UpdateOptions;
 	}[] = [];
 	const deletes: {
 		readonly ids: readonly string[];
-		readonly options: DeleteOptions | undefined;
+		readonly options: undefined | DeleteOptions;
 	}[] = [];
 	const row = {
 		id: "review-1",
@@ -76,7 +76,7 @@ const recordingHost = (input: {
 };
 
 const update = (
-	input: { readonly rating: number | null; readonly text?: string | null },
+	input: { readonly text?: null | string; readonly rating: null | number },
 	host: ReturnType<typeof recordingHost>["host"],
 ) =>
 	runSandboxTestScript(

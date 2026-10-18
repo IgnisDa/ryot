@@ -17,6 +17,7 @@ import {
 } from "../../tests/backend/automations/automation-test-utils";
 import definition, { manifest } from "./sonarr-push.sandbox";
 
+type HttpCall = { url: string; method: string; options: Record<string, unknown> };
 type SonarrHost = Pick<
 	ScriptHost,
 	| "log"
@@ -26,7 +27,6 @@ type SonarrHost = Pick<
 	| "listIntegrations"
 	| "getUserPreferences"
 >;
-type HttpCall = { url: string; method: string; options: Record<string, unknown> };
 
 const showEntity = entityRecord({
 	id: "show-1",
@@ -82,9 +82,9 @@ const createLog =
 		});
 
 const createHost = (options: {
-	httpCall: SonarrHost["httpCall"];
 	log?: SonarrHost["log"];
-	entity?: ReturnType<typeof entityRecord> | null;
+	httpCall: SonarrHost["httpCall"];
+	entity?: null | ReturnType<typeof entityRecord>;
 	integrations?: ReturnType<typeof integrationRecord>[];
 }) =>
 	defineSandboxTestHost(manifest, {

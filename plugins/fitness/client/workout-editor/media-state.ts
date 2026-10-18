@@ -3,9 +3,9 @@ import type { ManagedAssetLocator } from "@ryot-app/plugin-client-sdk";
 import type { WorkoutEditorDraft } from "../../shared/workout-editor-draft";
 import type { WorkoutSetAssetLocator } from "../../shared/workout-set";
 
+export type WorkoutMediaKind = "images" | "videos";
 export type WorkoutMediaTarget =
 	{ readonly kind: "workout" } | { readonly kind: "occurrence"; readonly occurrenceId: string };
-export type WorkoutMediaKind = "images" | "videos";
 
 export const sameMedia = (left: WorkoutSetAssetLocator, right: WorkoutSetAssetLocator) =>
 	left.type === "remote"

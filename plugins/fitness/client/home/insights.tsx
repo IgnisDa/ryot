@@ -75,8 +75,8 @@ export function MusclesSection(props: { readonly now: Date; readonly timeZone: s
 
 export function PersonalBestsSection(props: {
 	readonly now: Date;
-	readonly imperial: boolean;
 	readonly timeZone: string;
+	readonly imperial: boolean;
 }) {
 	const { now, imperial, timeZone } = props;
 	const result = useRyotQuery(recentPersonalBestsQuery);

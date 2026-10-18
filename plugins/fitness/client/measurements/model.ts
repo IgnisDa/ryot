@@ -6,7 +6,7 @@ import { formatNumber } from "../workout/format";
 import type { MeasurementLogEntry } from "./queries";
 
 export type RangeKey = "1M" | "3M" | "1Y" | "All";
-export type MetricSort = "recent" | "changed" | "az";
+export type MetricSort = "az" | "recent" | "changed";
 
 export const DAY_MS = 86_400_000;
 export const STALE_AFTER_DAYS = 45;
@@ -23,7 +23,7 @@ export const rangeOptions = [
 ] as const satisfies readonly {
 	readonly key: RangeKey;
 	readonly phrase: string;
-	readonly days: number | null;
+	readonly days: null | number;
 }[];
 
 const rangeDays = (range: RangeKey) => rangeOptions.find(({ key }) => key === range)?.days ?? null;
@@ -69,9 +69,9 @@ export const rollingAverage = (points: readonly TimeSeriesPoint[]): readonly Tim
 };
 
 export type MetricRow = {
-	readonly summary: MeasurementSummary;
-	readonly change: number | null;
+	readonly change: null | number;
 	readonly relativeChange: number;
+	readonly summary: MeasurementSummary;
 	readonly trend: readonly TimeSeriesPoint[];
 	readonly readings: readonly TimeSeriesPoint[];
 };
@@ -135,10 +135,10 @@ export const sortMetricRows = (rows: readonly MetricRow[], sort: MetricSort) =>
 export const isStale = (latestAt: string, now: Date) =>
 	now.getTime() - Date.parse(latestAt) > STALE_AFTER_DAYS * DAY_MS;
 
-export const unitSuffix = (unit: string | null) =>
+export const unitSuffix = (unit: null | string) =>
 	unit === null || unit === "" ? "" : ` (${unit})`;
 
-export const formatValue = (value: number, unit: string | null) => {
+export const formatValue = (value: number, unit: null | string) => {
 	const text = formatNumber(value);
 	if (unit === null || unit === "") {
 		return text;
@@ -146,7 +146,7 @@ export const formatValue = (value: number, unit: string | null) => {
 	return unit === "%" ? `${text}%` : `${text} ${unit}`;
 };
 
-export const formatChange = (change: number, unit: string | null) => {
+export const formatChange = (change: number, unit: null | string) => {
 	if (formatNumber(Math.abs(change)) === "0") {
 		return `±${formatValue(0, unit)}`;
 	}
@@ -179,13 +179,13 @@ export type ReadingValue = {
 	readonly id: string;
 	readonly value: number;
 	readonly metricId: string;
-	readonly previous: number | null;
+	readonly previous: null | number;
 };
 
 export type ReadingGroup = {
 	readonly id: string;
 	readonly occurredAt: string;
-	readonly comment: string | null;
+	readonly comment: null | string;
 	readonly values: ReadonlyMap<string, ReadingValue>;
 };
 

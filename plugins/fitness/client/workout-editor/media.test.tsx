@@ -42,7 +42,7 @@ it.live(
 					},
 				],
 			});
-			const uploads: { readonly kind: WorkoutMediaKind; readonly file: File }[] = [];
+			const uploads: { readonly file: File; readonly kind: WorkoutMediaKind }[] = [];
 			const page = mountPluginPage(
 				() => (
 					<WorkoutMediaOverlay

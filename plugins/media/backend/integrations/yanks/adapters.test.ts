@@ -32,11 +32,11 @@ import {
 
 const failure = Symbol("failure");
 type Route = JsonValue | typeof failure;
+type EntityGroup = MediaIntegrationAdapterResult["entityGroups"][number];
 type HttpCall = Pick<
 	ScriptHost,
-	"getCurrentIntegration" | "httpCall" | "getPluginConfig" | "getCachedValue" | "setCachedValue"
+	"httpCall" | "getCachedValue" | "setCachedValue" | "getPluginConfig" | "getCurrentIntegration"
 >["httpCall"];
-type EntityGroup = MediaIntegrationAdapterResult["entityGroups"][number];
 
 const routeKey = (url: string) => {
 	const parsed = new URL(url);

@@ -40,13 +40,13 @@ const number = (key: string) => ({
 	displayKind: "number" as const,
 });
 
-type TableColumn = SavedViewTableColumn & { readonly expression: ScalarExpression };
 type NonEmptyColumns = readonly [TableColumn, ...TableColumn[]];
+type TableColumn = SavedViewTableColumn & { readonly expression: ScalarExpression };
 
 const buildDefinition = (
 	entitySchemaSlug: string,
 	orderBy: ReturnType<typeof ascending>,
-	image: ScalarExpression | null,
+	image: null | ScalarExpression,
 	columns: NonEmptyColumns,
 	presentationFields: ReturnType<typeof pokemonPresentationSource>["fields"],
 	subtitle: AuthoredEntityBrowserSavedViewSettings["summary"]["subtitle"],

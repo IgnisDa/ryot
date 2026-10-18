@@ -5,13 +5,13 @@ import type { PreparedRecipe } from "@ryot-app/plugin-client-sdk/ryotql";
 
 import { PLUGIN_PACKAGE_ID } from "../../shared/plugin-identity";
 
-type SectionRecipes = Readonly<Record<string, PreparedRecipe<unknown>>>;
-
 export type SectionData<Recipes extends SectionRecipes> = {
 	readonly [Key in keyof Recipes]: Recipes[Key] extends PreparedRecipe<infer Success>
 		? Success
 		: never;
 };
+
+type SectionRecipes = Readonly<Record<string, PreparedRecipe<unknown>>>;
 
 const responseData = (response: unknown) =>
 	typeof response === "object" &&

@@ -54,14 +54,14 @@ const WatcharrItem = Schema.Struct({
 const decodeWatcharrItem = Schema.decodeUnknownResult(WatcharrItem);
 const decodeWatcharrActivityData = Schema.decodeUnknownResult(WatcharrActivityData);
 
-const normalizeOccurredAt = (value: string | null | undefined, fallback: string) =>
+const normalizeOccurredAt = (value: null | string | undefined, fallback: string) =>
 	parseDateInput(value) ?? fallback;
 
 const latestOccurredAt = (left: string, right: string) =>
 	getOccurredAtValue(left) >= getOccurredAtValue(right) ? left : right;
 
 const episodeWatchDates = (activities: ReadonlyArray<WatcharrActivity>) => {
-	const dates = new Map<string, { occurredAt: string | null; usesFallback: boolean }>();
+	const dates = new Map<string, { usesFallback: boolean; occurredAt: null | string }>();
 	for (const activity of activities) {
 		const activityData = activity.data;
 		if (!activity.type.includes("EPISODE") || !activityData) {

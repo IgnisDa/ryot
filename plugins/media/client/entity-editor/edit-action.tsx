@@ -10,34 +10,11 @@ import {
 } from "../../shared/media-entity-editors";
 import { PLUGIN_PACKAGE_ID } from "../../shared/plugin-identity";
 
-function MediaEditorRouteButton(props: {
-	readonly path: string;
-	readonly label: string;
-	readonly search?: Readonly<Record<string, string>>;
-}) {
-	const client = useRyot();
-	return (
-		<Button
-			variant="secondary"
-			onClick={() =>
-				client.navigation.push({
-					path: props.path,
-					kind: "plugin-route",
-					search: props.search ?? {},
-					packageId: PLUGIN_PACKAGE_ID,
-				})
-			}
-		>
-			{props.label}
-		</Button>
-	);
-}
-
 export function MediaEntityEditAction(props: {
-	readonly entityId: string;
-	readonly entitySchemaSlug: string;
-	readonly isCustom: boolean;
 	readonly label?: string;
+	readonly entityId: string;
+	readonly isCustom: boolean;
+	readonly entitySchemaSlug: string;
 }) {
 	if (!props.isCustom || !Object.hasOwn(mediaEntityEditors, props.entitySchemaSlug)) {
 		return null;
@@ -62,5 +39,28 @@ export function MediaChildCreateAction(props: {
 			path={mediaEntityCreateRoute(props.childSchemaSlug)}
 			search={mediaChildCreateSearch(props.parentEntityId, props.initialProperties)}
 		/>
+	);
+}
+
+function MediaEditorRouteButton(props: {
+	readonly path: string;
+	readonly label: string;
+	readonly search?: Readonly<Record<string, string>>;
+}) {
+	const client = useRyot();
+	return (
+		<Button
+			variant="secondary"
+			onClick={() =>
+				client.navigation.push({
+					path: props.path,
+					kind: "plugin-route",
+					search: props.search ?? {},
+					packageId: PLUGIN_PACKAGE_ID,
+				})
+			}
+		>
+			{props.label}
+		</Button>
 	);
 }

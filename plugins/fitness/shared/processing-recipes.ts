@@ -16,12 +16,12 @@ import type { PluginIdentityReference } from "@ryot-app/plugin-kit/schema";
 
 export const workoutProcessingRecipe = defineRecipe(
 	(input: {
-		readonly reference: PluginIdentityReference;
-		readonly exerciseId?: string | undefined;
 		readonly workoutId?: string | undefined;
+		readonly exerciseId?: string | undefined;
+		readonly reference: PluginIdentityReference;
 	}) => {
 		const set = table("event", "processingSet");
-		const countStatus = (status: "pending" | "failed") =>
+		const countStatus = (status: "failed" | "pending") =>
 			selectedMeasure(
 				{
 					function: "sum",

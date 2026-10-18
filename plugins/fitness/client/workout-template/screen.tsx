@@ -20,6 +20,106 @@ import { workoutEditorContextQuery } from "../workout-editor/context-query";
 import { formatClock, formatExerciseMeta, formatSetMain } from "../workout/format";
 import { type TemplateExercise, templateQuery } from "./queries";
 
+export default function WorkoutTemplatePage() {
+	const location = usePluginLocation();
+	return location.kind === "entity" ? <TemplateDetails entityId={location.entityId} /> : null;
+}
+
+function PlannedExercise(props: {
+	readonly compact: boolean;
+	readonly imperial: boolean;
+	readonly exercise: undefined | TemplateExercise;
+	readonly occurrence: TemplateOccurrenceProperties;
+	readonly group: undefined | { readonly name: string; readonly color: string };
+}) {
+	const { exercise, occurrence } = props;
+	const name = exercise?.name ?? "Exercise unavailable";
+	const notes = occurrence.notes.join("\n").trim();
+	const meta = exercise === undefined ? "" : formatExerciseMeta(exercise);
+	const labels = setLabels(occurrence.sets.map(({ setLot }) => setLot));
+	return (
+		<Card
+			padding="none"
+			className="min-w-0 overflow-hidden"
+			groupColor={props.group === undefined ? undefined : supersetColor(props.group.color)}
+		>
+			<div className="flex items-start gap-3 px-4 pt-4 pb-3">
+				<AssetArtWell
+					name={name}
+					asset={exercise?.images?.[0]}
+					className={clsx("shrink-0", props.compact ? "size-11" : "size-14")}
+				/>
+				<div className="flex min-w-0 flex-1 flex-col gap-0.5">
+					<h3 className="text-[16px] font-semibold text-text wrap-anywhere">{name}</h3>
+					<p className="text-[13px] text-text-muted">
+						{meta}
+						{props.group === undefined ? null : (
+							<span
+								className="font-semibold"
+								style={{ color: supersetColorVariable(props.group.color) }}
+							>
+								{meta === "" ? "" : " · "}
+								{props.group.name}
+							</span>
+						)}
+					</p>
+				</div>
+			</div>
+			{notes === "" ? null : (
+				<p className="mx-4 mb-3 rounded-md bg-surface-2 px-3 py-2 text-[14px] whitespace-pre-wrap text-text-muted">
+					{notes}
+				</p>
+			)}
+			{occurrence.sets.length === 0 ? (
+				<p className="border-t border-border px-4 py-2.5 text-[14px] text-text-muted">
+					No planned sets.
+				</p>
+			) : (
+				<ol aria-label={`Planned sets for ${name}`}>
+					{occurrence.sets.map((set, index) => {
+						const lot = setLots[set.setLot];
+						return (
+							<li
+								key={set.setOrder}
+								className="grid grid-cols-[2rem_minmax(0,1fr)] items-baseline gap-x-2 border-t border-border px-4 py-2.5 text-[15px]"
+							>
+								<span className={clsx("text-[13px] font-semibold", lot.tone ?? "text-text-muted")}>
+									{labels[index]}
+								</span>
+								<span className="text-text">
+									{formatSetMain(
+										exercise?.exerciseKind ?? null,
+										{
+											reps: set.reps ?? null,
+											weight: set.weight ?? null,
+											distance: set.distance ?? null,
+											duration: set.duration ?? null,
+										},
+										props.imperial,
+										durationDisplayUnit(exercise?.overrides.defaultDurationUnit),
+									) || "Measurements not specified"}
+									<span className="text-[13px] text-text-muted">
+										{set.restTime == null ? "" : ` · Rest ${formatClock(set.restTime)}`}
+										{set.rpe == null ? "" : ` · RPE ${set.rpe}`}
+									</span>
+								</span>
+								{set.note ? (
+									<p className="col-start-2 text-[13px] text-text-muted italic">“{set.note}”</p>
+								) : null}
+							</li>
+						);
+					})}
+				</ol>
+			)}
+			<WorkoutMediaViewer
+				label={name}
+				images={occurrence.images ?? []}
+				videos={occurrence.videos ?? []}
+			/>
+		</Card>
+	);
+}
+
 function TemplateDetails(props: { readonly entityId: string }) {
 	const client = useRyot();
 	const { compact } = useRyotViewport();
@@ -29,7 +129,7 @@ function TemplateDetails(props: { readonly entityId: string }) {
 	const [dialog, setDialog] = useState<"delete">();
 	const addToCollection = useAddToCollection();
 	const imperial = context.data?.settings.unitSystem === "imperial";
-	const action = (kind: "start" | "edit") =>
+	const action = (kind: "edit" | "start") =>
 		client.navigation.push(
 			fitnessRoute(`/templates/${encodeURIComponent(props.entityId)}/${kind}`),
 		);
@@ -203,104 +303,4 @@ function TemplateDetails(props: { readonly entityId: string }) {
 			</ManagedAssetProvider>
 		</PluginScreenFrame>
 	);
-}
-
-function PlannedExercise(props: {
-	readonly compact: boolean;
-	readonly imperial: boolean;
-	readonly occurrence: TemplateOccurrenceProperties;
-	readonly exercise: TemplateExercise | undefined;
-	readonly group: { readonly name: string; readonly color: string } | undefined;
-}) {
-	const { exercise, occurrence } = props;
-	const name = exercise?.name ?? "Exercise unavailable";
-	const notes = occurrence.notes.join("\n").trim();
-	const meta = exercise === undefined ? "" : formatExerciseMeta(exercise);
-	const labels = setLabels(occurrence.sets.map(({ setLot }) => setLot));
-	return (
-		<Card
-			padding="none"
-			className="min-w-0 overflow-hidden"
-			groupColor={props.group === undefined ? undefined : supersetColor(props.group.color)}
-		>
-			<div className="flex items-start gap-3 px-4 pt-4 pb-3">
-				<AssetArtWell
-					name={name}
-					asset={exercise?.images?.[0]}
-					className={clsx("shrink-0", props.compact ? "size-11" : "size-14")}
-				/>
-				<div className="flex min-w-0 flex-1 flex-col gap-0.5">
-					<h3 className="text-[16px] font-semibold text-text wrap-anywhere">{name}</h3>
-					<p className="text-[13px] text-text-muted">
-						{meta}
-						{props.group === undefined ? null : (
-							<span
-								className="font-semibold"
-								style={{ color: supersetColorVariable(props.group.color) }}
-							>
-								{meta === "" ? "" : " · "}
-								{props.group.name}
-							</span>
-						)}
-					</p>
-				</div>
-			</div>
-			{notes === "" ? null : (
-				<p className="mx-4 mb-3 rounded-md bg-surface-2 px-3 py-2 text-[14px] whitespace-pre-wrap text-text-muted">
-					{notes}
-				</p>
-			)}
-			{occurrence.sets.length === 0 ? (
-				<p className="border-t border-border px-4 py-2.5 text-[14px] text-text-muted">
-					No planned sets.
-				</p>
-			) : (
-				<ol aria-label={`Planned sets for ${name}`}>
-					{occurrence.sets.map((set, index) => {
-						const lot = setLots[set.setLot];
-						return (
-							<li
-								key={set.setOrder}
-								className="grid grid-cols-[2rem_minmax(0,1fr)] items-baseline gap-x-2 border-t border-border px-4 py-2.5 text-[15px]"
-							>
-								<span className={clsx("text-[13px] font-semibold", lot.tone ?? "text-text-muted")}>
-									{labels[index]}
-								</span>
-								<span className="text-text">
-									{formatSetMain(
-										exercise?.exerciseKind ?? null,
-										{
-											reps: set.reps ?? null,
-											weight: set.weight ?? null,
-											distance: set.distance ?? null,
-											duration: set.duration ?? null,
-										},
-										props.imperial,
-										durationDisplayUnit(exercise?.overrides.defaultDurationUnit),
-									) || "Measurements not specified"}
-									<span className="text-[13px] text-text-muted">
-										{set.restTime == null ? "" : ` · Rest ${formatClock(set.restTime)}`}
-										{set.rpe == null ? "" : ` · RPE ${set.rpe}`}
-									</span>
-								</span>
-								{set.note ? (
-									<p className="col-start-2 text-[13px] text-text-muted italic">“{set.note}”</p>
-								) : null}
-							</li>
-						);
-					})}
-				</ol>
-			)}
-			<WorkoutMediaViewer
-				label={name}
-				images={occurrence.images ?? []}
-				videos={occurrence.videos ?? []}
-			/>
-		</Card>
-	);
-}
-
-export default function WorkoutTemplatePage() {
-	const location = usePluginLocation();
-	return location.kind === "entity" ? <TemplateDetails entityId={location.entityId} /> : null;
 }

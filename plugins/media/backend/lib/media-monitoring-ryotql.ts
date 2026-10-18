@@ -130,5 +130,5 @@ export const mediaMonitoringSweepRecipe = defineRecipe(
 	},
 );
 
-export type MediaMonitoringTarget = Recipe.Success<typeof mediaMonitoringTargetsRecipe>[number];
 export type MediaMonitoringSweep = Recipe.Success<typeof mediaMonitoringSweepRecipe>;
+export type MediaMonitoringTarget = Recipe.Success<typeof mediaMonitoringTargetsRecipe>[number];

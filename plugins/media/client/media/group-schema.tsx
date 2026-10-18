@@ -62,64 +62,6 @@ const MEMBER_PAGE_LIMIT = 20;
 const PEOPLE_LIMIT = 12;
 const COMPANY_LIMIT = 6;
 
-type GroupProgress = {
-	readonly parts: number | null;
-	readonly memberCount: number;
-	readonly completedMemberCount: number;
-};
-
-type GroupSummary = MediaEntitySummaryValue &
-	GroupProgress & {
-		readonly sourceUrl: string | null;
-		readonly collections: { readonly items: readonly { readonly id: string }[] };
-	};
-
-type GroupPresentation = MediaSavedViewPresentationSubject & GroupProgress;
-
-type GroupMember = MediaSavedViewPresentationSubject & { readonly position: number | null };
-
-type GroupCredits = {
-	readonly people: { readonly items: readonly MediaCreditPerson[] };
-	readonly companies: { readonly items: readonly MediaCompany[] };
-};
-
-type GroupSummaryResult<Summary> = {
-	readonly summary: Summary | null;
-	readonly entitySchemaSlug: string | null;
-};
-
-type GroupOverview<Overview> = Overview | Record<never, never>;
-
-type MediaGroupSchemaRecipes<Summary, Presentation, Member> = {
-	readonly peopleRecipe: MediaCreditsRecipe;
-	readonly summaryRecipe: (input: {
-		readonly reference: PluginIdentityReference;
-		readonly entityId: string;
-		readonly collectionLimit: number;
-	}) => PreparedRecipe<GroupSummaryResult<Summary>>;
-	readonly membersRecipe: (input: {
-		readonly reference: PluginIdentityReference;
-		readonly limit: number;
-		readonly groupId: string;
-		readonly after?: string | undefined;
-	}) => PreparedRecipe<MediaCursorPage<Member>>;
-	readonly activityRecipe: (input: {
-		readonly reference: PluginIdentityReference;
-		readonly entityId: string;
-		readonly eventLimit: number;
-		readonly collectionEventLimit: number;
-	}) => PreparedRecipe<MediaReviewActivityResult>;
-	readonly historyRecipe: MediaHistoryRecipe<MediaReviewActivityEvent>;
-	readonly presentationSource: MediaPresentationSource<Presentation>;
-};
-
-type MediaGroupOverviewRecipe<Overview> = (input: {
-	readonly reference: PluginIdentityReference;
-	readonly entityId: string;
-	readonly peopleLimit: number;
-	readonly companyLimit: number;
-}) => PreparedRecipe<Overview>;
-
 export type MediaGroupSchemaDescriptor<
 	Summary extends GroupSummary,
 	Presentation extends GroupPresentation,
@@ -127,8 +69,8 @@ export type MediaGroupSchemaDescriptor<
 	Overview extends GroupCredits,
 > = {
 	readonly aspect: MediaArtworkAspect;
-	readonly nouns: { readonly title: string; readonly singular: string; readonly plural: string };
 	readonly members: { readonly tab: string; readonly noun: string; readonly verb: string };
+	readonly nouns: { readonly title: string; readonly plural: string; readonly singular: string };
 	readonly member: {
 		readonly RowContent: (props: {
 			readonly compact: boolean;
@@ -139,20 +81,80 @@ export type MediaGroupSchemaDescriptor<
 	};
 } & (
 	| {
+			readonly creditCopy?: undefined;
+			readonly recipes: { readonly overviewRecipe?: undefined } & MediaGroupSchemaRecipes<
+				Summary,
+				Presentation,
+				Member
+			>;
+	  }
+	| {
 			readonly creditCopy: MediaCreditCopy;
 			readonly recipes: MediaGroupSchemaRecipes<Summary, Presentation, Member> & {
 				readonly overviewRecipe: MediaGroupOverviewRecipe<Overview>;
 			};
 	  }
-	| {
-			readonly creditCopy?: undefined;
-			readonly recipes: MediaGroupSchemaRecipes<Summary, Presentation, Member> & {
-				readonly overviewRecipe?: undefined;
-			};
-	  }
 );
 
 type GroupTabKey = "members" | "overview" | "activity";
+
+type GroupOverview<Overview> = Overview | Record<never, never>;
+
+type GroupPresentation = GroupProgress & MediaSavedViewPresentationSubject;
+
+type GroupMember = MediaSavedViewPresentationSubject & { readonly position: null | number };
+
+type GroupSummaryResult<Summary> = {
+	readonly summary: null | Summary;
+	readonly entitySchemaSlug: null | string;
+};
+
+type GroupProgress = {
+	readonly memberCount: number;
+	readonly parts: null | number;
+	readonly completedMemberCount: number;
+};
+
+type GroupCredits = {
+	readonly companies: { readonly items: readonly MediaCompany[] };
+	readonly people: { readonly items: readonly MediaCreditPerson[] };
+};
+
+type GroupSummary = GroupProgress &
+	MediaEntitySummaryValue & {
+		readonly sourceUrl: null | string;
+		readonly collections: { readonly items: readonly { readonly id: string }[] };
+	};
+
+type MediaGroupOverviewRecipe<Overview> = (input: {
+	readonly entityId: string;
+	readonly peopleLimit: number;
+	readonly companyLimit: number;
+	readonly reference: PluginIdentityReference;
+}) => PreparedRecipe<Overview>;
+
+type MediaGroupSchemaRecipes<Summary, Presentation, Member> = {
+	readonly peopleRecipe: MediaCreditsRecipe;
+	readonly presentationSource: MediaPresentationSource<Presentation>;
+	readonly historyRecipe: MediaHistoryRecipe<MediaReviewActivityEvent>;
+	readonly summaryRecipe: (input: {
+		readonly entityId: string;
+		readonly collectionLimit: number;
+		readonly reference: PluginIdentityReference;
+	}) => PreparedRecipe<GroupSummaryResult<Summary>>;
+	readonly membersRecipe: (input: {
+		readonly limit: number;
+		readonly groupId: string;
+		readonly after?: string | undefined;
+		readonly reference: PluginIdentityReference;
+	}) => PreparedRecipe<MediaCursorPage<Member>>;
+	readonly activityRecipe: (input: {
+		readonly entityId: string;
+		readonly eventLimit: number;
+		readonly collectionEventLimit: number;
+		readonly reference: PluginIdentityReference;
+	}) => PreparedRecipe<MediaReviewActivityResult>;
+};
 
 const groupProgressLabel = (progress: GroupProgress, verb: string) =>
 	progress.memberCount === 0
@@ -210,7 +212,7 @@ export const defineGroupMediaSchema = <
 				);
 
 	const membersQuery = createRyotQuery<
-		{ readonly entityId: string; readonly after: string | null },
+		{ readonly entityId: string; readonly after: null | string },
 		MediaCursorPage<Member>
 	>(
 		({ input, client }) =>
@@ -333,15 +335,15 @@ export const defineGroupMediaSchema = <
 
 	function ScreenBody(props: {
 		readonly compact: boolean;
+		readonly members: ReactNode;
 		readonly safeAreaTop: number;
 		readonly refresh: () => void;
-		readonly members: ReactNode;
 		readonly activity: ReactNode;
 		readonly refreshOverview: () => void;
 		readonly summaryRefreshStatus?: ReactNode;
 		readonly overviewRefreshStatus?: ReactNode;
 		readonly state: MediaSummaryState<Summary>;
-		readonly settled: EntitySettleReason | undefined;
+		readonly settled: undefined | EntitySettleReason;
 		readonly overview: MediaOverviewState<GroupOverview<Overview>>;
 	}) {
 		return (

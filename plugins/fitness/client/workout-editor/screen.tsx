@@ -41,10 +41,10 @@ import { useWorkoutEditor } from "./use-workout-editor";
 import { workoutMenuItems } from "./workout-menu";
 
 export function WorkoutEditorScreen(props: {
-	readonly target: PluginNavigationTarget;
-	readonly prepareDraft?: PrepareDraft;
-	readonly onStarted?: () => void;
 	readonly requiresPro?: boolean;
+	readonly onStarted?: () => void;
+	readonly prepareDraft?: PrepareDraft;
+	readonly target: PluginNavigationTarget;
 	readonly pendingAddExerciseId?: string | undefined;
 	readonly onSaved?: (entityId: SavedEntityId) => void;
 }) {

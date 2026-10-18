@@ -3,12 +3,12 @@ import type { ComponentProps, ReactNode } from "react";
 
 type CompletionToggleProps = Omit<
 	ComponentProps<"button">,
-	"aria-checked" | "aria-label" | "aria-pressed" | "children" | "role"
+	"role" | "children" | "aria-label" | "aria-checked" | "aria-pressed"
 > & {
 	readonly label: string;
 	readonly icon: ReactNode;
 	readonly pressed: boolean;
-	readonly variant: "complete" | "include" | "start";
+	readonly variant: "start" | "include" | "complete";
 };
 
 const press =

@@ -64,7 +64,7 @@ const mountProbe = (
 	};
 };
 
-let unmount: (() => void) | undefined;
+let unmount: undefined | (() => void);
 
 afterEach(() => {
 	unmount?.();

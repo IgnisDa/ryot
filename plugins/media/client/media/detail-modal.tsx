@@ -6,9 +6,10 @@ import { type ComponentProps, type ReactNode, type RefObject, useRef, useState }
 export function MediaDetailModalButton({
 	triggerLabel,
 	...props
-}: Omit<ComponentProps<typeof MediaDetailModal>, "triggerRef" | "onClose" | "label"> & {
-	readonly triggerLabel: string;
-}) {
+}: { readonly triggerLabel: string } & Omit<
+	ComponentProps<typeof MediaDetailModal>,
+	"label" | "onClose" | "triggerRef"
+>) {
 	const [open, setOpen] = useState(false);
 	const triggerRef = useRef<HTMLButtonElement>(null);
 	return (
@@ -44,16 +45,16 @@ export function MediaDetailModal({
 }: {
 	readonly title: string;
 	readonly label: string;
-	readonly closeLabel: string;
 	readonly compact: boolean;
+	readonly closeLabel: string;
 	readonly safeAreaTop: number;
 	readonly onClose: () => void;
-	readonly triggerRef: RefObject<HTMLElement | null>;
-	readonly headerAside?: ReactNode;
 	readonly toolbar?: ReactNode;
-	readonly contentRef?: RefObject<HTMLDivElement | null>;
 	readonly children: ReactNode;
 	readonly overlay?: ReactNode;
+	readonly headerAside?: ReactNode;
+	readonly triggerRef: RefObject<null | HTMLElement>;
+	readonly contentRef?: RefObject<null | HTMLDivElement>;
 }) {
 	return (
 		<Modal

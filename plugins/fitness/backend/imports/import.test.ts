@@ -127,7 +127,7 @@ const runImport = Effect.fn(function* (source: string, csv: string) {
 		request: WorkflowReplayEnvelope["requests"][number],
 	): Effect.Effect<
 		JsonValue,
-		Effect.Error<ReturnType<typeof runFitnessStage>> | Effect.Error<ReturnType<typeof workflow.run>>
+		Effect.Error<ReturnType<typeof workflow.run>> | Effect.Error<ReturnType<typeof runFitnessStage>>
 	> =>
 		Effect.gen(function* () {
 			requests.push(request);
@@ -216,21 +216,6 @@ const runImport = Effect.fn(function* (source: string, csv: string) {
 				expect(child.command).toEqual(command);
 				const operation = child.operation;
 				switch (operation.action) {
-					case "capture": {
-						const bytes = handles.get(operation.handle);
-						assert(bytes);
-						captures.set(operation.captureId, bytes);
-						handles.delete(operation.handle);
-						value = {
-							handle: operation.handle,
-							captureId: operation.captureId,
-							inputFingerprint: `fingerprint:${operation.captureId}`,
-						};
-						break;
-					}
-					case "activity":
-						value = { recorded: true };
-						break;
 					case "seal":
 						value = { summary, sealed: true };
 						break;
@@ -308,6 +293,21 @@ const runImport = Effect.fn(function* (source: string, csv: string) {
 						};
 						break;
 					}
+					case "capture": {
+						const bytes = handles.get(operation.handle);
+						assert(bytes);
+						captures.set(operation.captureId, bytes);
+						handles.delete(operation.handle);
+						value = {
+							handle: operation.handle,
+							captureId: operation.captureId,
+							inputFingerprint: `fingerprint:${operation.captureId}`,
+						};
+						break;
+					}
+					case "activity":
+						value = { recorded: true };
+						break;
 					case "captures":
 					case "materialize":
 						assert.fail("Unexpected core operation");

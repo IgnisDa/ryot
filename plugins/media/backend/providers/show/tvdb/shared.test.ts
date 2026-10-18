@@ -351,7 +351,7 @@ describe("show.tvdb sandbox script", () => {
 		);
 	});
 	it("derives season and episode translation paths from the parent show id", () => {
-		const requested: Array<{ method: string; path: string }> = [];
+		const requested: Array<{ path: string; method: string }> = [];
 		const host = makeHost((method, url) => {
 			const { pathname } = new URL(url);
 			requested.push({ method, path: pathname });

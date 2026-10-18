@@ -42,9 +42,9 @@ import spotify, { manifest as spotifyManifest } from "./yanks/spotify.sandbox";
 type DriverError =
 	| Schema.SchemaError
 	| Effect.Error<ReturnType<typeof root.run>>
-	| Effect.Error<ReturnType<typeof spotify.run>>
 	| Effect.Error<ReturnType<typeof reader.run>>
-	| Effect.Error<ReturnType<typeof writer.run>>;
+	| Effect.Error<ReturnType<typeof writer.run>>
+	| Effect.Error<ReturnType<typeof spotify.run>>;
 
 afterEach(resetMediaFilesystem);
 it.effect(

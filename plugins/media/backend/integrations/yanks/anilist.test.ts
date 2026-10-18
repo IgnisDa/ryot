@@ -31,21 +31,21 @@ const entry = (
 	mediaId: number,
 	status: string,
 	options: {
-		completedAt?: {
-			readonly day: number | null;
-			readonly month: number | null;
-			readonly year: number | null;
-		} | null;
-		mediaTitle?: string | null;
-		progress?: number | null;
-		progressVolumes?: number | null;
 		repeat?: number;
-		startedAt?: {
-			readonly day: number | null;
-			readonly month: number | null;
-			readonly year: number | null;
-		} | null;
 		updatedAt?: number;
+		progress?: null | number;
+		mediaTitle?: null | string;
+		progressVolumes?: null | number;
+		startedAt?: null | {
+			readonly day: null | number;
+			readonly year: null | number;
+			readonly month: null | number;
+		};
+		completedAt?: null | {
+			readonly day: null | number;
+			readonly year: null | number;
+			readonly month: null | number;
+		};
 	} = {},
 ) => ({
 	id,
@@ -86,28 +86,28 @@ const snapshot = (sourceEntryId: string, properties: Partial<ListStateProperties
 const snapshotPage = (
 	items: ReadonlyArray<ReturnType<typeof snapshot>>,
 	pageInfo: {
-		readonly hasMore: boolean;
 		readonly limit: number;
-		readonly nextCursor: string | null;
+		readonly hasMore: boolean;
+		readonly nextCursor: null | string;
 	} = { limit: 100, hasMore: false, nextCursor: null },
 ) => rowsResult(items, pageInfo);
 
 type SetupOptions = {
-	readonly httpFailures?: readonly (number | undefined)[];
 	readonly responses?: readonly JsonValue[];
-	readonly settings?: { readonly syncAnime?: boolean; readonly syncManga?: boolean };
 	readonly snapshotPages?: readonly unknown[];
+	readonly httpFailures?: readonly (number | undefined)[];
+	readonly settings?: { readonly syncAnime?: boolean; readonly syncManga?: boolean };
 };
 
 const setup = (options: SetupOptions = {}) => {
 	const requests: Array<{
-		readonly body: string;
-		readonly headers: Record<string, string> | undefined;
-		readonly method: string;
 		readonly url: string;
+		readonly body: string;
+		readonly method: string;
+		readonly headers: undefined | Record<string, string>;
 	}> = [];
 	const tokenRequests: Array<{ readonly field: string }> = [];
-	const invalidations: Array<{ readonly accessToken: string; readonly field: string }> = [];
+	const invalidations: Array<{ readonly field: string; readonly accessToken: string }> = [];
 	const documents: RyotQLDocument[] = [];
 	const admittedConnectionId = "connection-1";
 	let currentConnectionId = admittedConnectionId;
@@ -256,12 +256,12 @@ describe("AniList yank", () => {
 				expect(stateByExternalId).toEqual(
 					new Map([
 						["101", "backlog"],
-						["102", "in_progress"],
-						["103", "in_progress"],
-						["104", "complete"],
 						["105", "on_hold"],
 						["106", "dropped"],
+						["104", "complete"],
 						["207", "complete"],
+						["102", "in_progress"],
+						["103", "in_progress"],
 					]),
 				);
 				const currentAnime = captured.find(

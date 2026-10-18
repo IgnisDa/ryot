@@ -2,6 +2,26 @@ import clsx from "clsx";
 
 import type { MediaEpisodicCoverageRow } from "./episodic-activity-state";
 
+export function MediaEpisodicCoverageStrip(props: {
+	readonly rows: readonly MediaEpisodicCoverageRow[];
+}) {
+	if (props.rows.length === 0) {
+		return null;
+	}
+	return (
+		<div className="flex flex-col gap-2.5">
+			<p className="font-ui font-medium text-[11px] tracking-widest text-text-subtle uppercase">
+				Coverage
+			</p>
+			<div className="flex flex-col gap-2">
+				{props.rows.map((row) => (
+					<MediaEpisodicCoverageBar row={row} key={row.key} />
+				))}
+			</div>
+		</div>
+	);
+}
+
 function MediaEpisodicCoverageBar(props: { readonly row: MediaEpisodicCoverageRow }) {
 	const { row } = props;
 	return (
@@ -19,26 +39,6 @@ function MediaEpisodicCoverageBar(props: { readonly row: MediaEpisodicCoverageRo
 			<p className="w-14 text-right font-ui text-[11.5px] text-text-subtle tabular-nums">
 				{`${row.watched}/${row.total}`}
 			</p>
-		</div>
-	);
-}
-
-export function MediaEpisodicCoverageStrip(props: {
-	readonly rows: readonly MediaEpisodicCoverageRow[];
-}) {
-	if (props.rows.length === 0) {
-		return null;
-	}
-	return (
-		<div className="flex flex-col gap-2.5">
-			<p className="font-ui font-medium text-[11px] tracking-widest text-text-subtle uppercase">
-				Coverage
-			</p>
-			<div className="flex flex-col gap-2">
-				{props.rows.map((row) => (
-					<MediaEpisodicCoverageBar row={row} key={row.key} />
-				))}
-			</div>
 		</div>
 	);
 }

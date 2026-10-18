@@ -58,7 +58,7 @@ const shelf = (title: string, contents: readonly unknown[]) => ({
 	musicShelfRenderer: { contents, title: text(title) },
 });
 
-export const searchResponse = (kind: "song" | "artist" | "album") => ({
+export const searchResponse = (kind: "song" | "album" | "artist") => ({
 	contents: {
 		tabbedSearchResultsRenderer: {
 			tabs: [

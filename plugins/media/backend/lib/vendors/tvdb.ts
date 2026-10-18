@@ -13,13 +13,13 @@ import {
 } from "../records";
 import { createRoleAccumulator, type RoleRelatedEntity } from "../role-accumulator";
 
+export type RemoteImage = { url: string; type: "remote"; purpose: TvdbImagePurpose };
+
+export type TvdbImagePurpose = "logo" | "cover" | "still" | "profile" | "artwork" | "backdrop";
 export type TvdbHost = Pick<
 	ScriptHost,
 	"httpCall" | "getCachedValue" | "setCachedValue" | "getPluginConfig"
 >;
-
-export type TvdbImagePurpose = "cover" | "backdrop" | "profile" | "logo" | "still" | "artwork";
-export type RemoteImage = { type: "remote"; url: string; purpose: TvdbImagePurpose };
 
 const TVDB_BASE_URL = "https://api4.thetvdb.com/v4";
 const TOKEN_CACHE_KEY = "tvdb_access_token";
@@ -27,7 +27,7 @@ const TOKEN_CACHE_KEY = "tvdb_access_token";
 const TOKEN_CACHE_TTL_SECONDS = 23 * 60 * 60;
 
 export const firstStringValue = (record: UnknownRecord, keys: readonly string[]) =>
-	keys.reduce<string | null>((value, key) => value ?? stringValue(record[key]), null);
+	keys.reduce<null | string>((value, key) => value ?? stringValue(record[key]), null);
 
 const getTvdbApiKey = (host: TvdbHost) =>
 	host.getPluginConfig({ required: ["tvdbApiKey"] }).pipe(
@@ -94,7 +94,7 @@ export const getTvdbAccessToken = (host: TvdbHost) =>
 const tvdbRequest = (
 	host: TvdbHost,
 	path: string,
-	params: Readonly<Record<string, string>> | undefined,
+	params: undefined | Readonly<Record<string, string>>,
 	options: { readonly allowMissing: boolean },
 ) =>
 	getTvdbAccessToken(host).pipe(
@@ -182,7 +182,7 @@ export const bcp47ToTvdb = (language: string) => {
 	return TVDB_LANGUAGE_MAP[base] ?? base;
 };
 
-const getTranslationRecord = (payload: UnknownRecord | null) => {
+const getTranslationRecord = (payload: null | UnknownRecord) => {
 	const data = payload?.["data"];
 	if (Array.isArray(data)) {
 		const primary = data.find((entry) => asRecord(entry)?.["isPrimary"] === true);
@@ -191,7 +191,7 @@ const getTranslationRecord = (payload: UnknownRecord | null) => {
 	return asRecord(data);
 };
 
-export const getTranslationFields = (payload: UnknownRecord | null) => {
+export const getTranslationFields = (payload: null | UnknownRecord) => {
 	const record = getTranslationRecord(payload);
 	return {
 		name: record ? stringValue(record["name"]) : null,
@@ -212,8 +212,8 @@ export const getLocalizedArtwork = (
 };
 
 export const buildTranslationResult = (
-	translationData: UnknownRecord | null,
-	image: RemoteImage | null,
+	translationData: null | UnknownRecord,
+	image: null | RemoteImage,
 ) => {
 	const { name, description } = getTranslationFields(translationData);
 	const properties: Record<string, string | RemoteImage[]> = {};

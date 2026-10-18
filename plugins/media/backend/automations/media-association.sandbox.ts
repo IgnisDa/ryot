@@ -16,7 +16,7 @@ export const manifest = defineManifest({
 	},
 });
 
-const roles = (properties: Readonly<Record<string, JsonValue>> | undefined) => {
+const roles = (properties: undefined | Readonly<Record<string, JsonValue>>) => {
 	const value = properties?.["roles"];
 	return Array.isArray(value)
 		? value.filter((role): role is string => typeof role === "string")

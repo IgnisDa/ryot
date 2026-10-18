@@ -30,7 +30,7 @@ type AutomationHost = Pick<ScriptHost, "executeRyotql">;
 
 type EventPayload = Extract<AutomationPolicyInput["automation"]["payload"], { resource: "event" }>;
 
-const sessionPolicyResult = (payload: EventPayload, resolution: EpisodeParentResolution | null) => {
+const sessionPolicyResult = (payload: EventPayload, resolution: null | EpisodeParentResolution) => {
 	if (resolution === null) {
 		return { action: "reject", reason: "episodic_parent_not_found" } as const;
 	}

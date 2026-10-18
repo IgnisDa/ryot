@@ -198,7 +198,7 @@ const decodeActivity = (
 		},
 	});
 
-const nextUpOf = (recipes: typeof fixtureRecipes | typeof nestedRecipes) => {
+const nextUpOf = (recipes: typeof nestedRecipes | typeof fixtureRecipes) => {
 	const summary = recipes.summaryRecipe({
 		collectionLimit: 6,
 		entityId: "parent-1",

@@ -228,12 +228,12 @@ const NOW = DateTime.toEpochMillis(localDateTime({ day: 20, hour: 9, month: 10, 
 
 const mountDetails = (options: {
 	readonly state?: string;
-	readonly publishDate?: string | null;
+	readonly publishDate?: null | string;
+	readonly podcast?: Parameters<typeof activityLogQuery>[0]["podcast"];
+	readonly accept?: (attempt: number) => Effect.Effect<string, RyotClientError>;
 	readonly refresh?: (
 		answer: Effect.Effect<unknown, RyotClientError>,
 	) => Effect.Effect<unknown, RyotClientError>;
-	readonly podcast?: Parameters<typeof activityLogQuery>[0]["podcast"];
-	readonly accept?: (attempt: number) => Effect.Effect<string, RyotClientError>;
 }) => {
 	const background = createTestBackgroundSubmissions(
 		() =>

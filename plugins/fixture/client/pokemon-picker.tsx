@@ -26,7 +26,7 @@ const pokemonChoicesQuery = createRyotQuery(({ client }) =>
 );
 
 const addToCollectionMutation = createRyotMutation<
-	{ readonly collectionId: string; readonly entityId: string; readonly onSuccess: () => void },
+	{ readonly entityId: string; readonly collectionId: string; readonly onSuccess: () => void },
 	void
 >(({ input, client }) =>
 	Effect.gen(function* () {

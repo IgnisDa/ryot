@@ -21,7 +21,7 @@ type MediaScreenBody<Summary, Overview> = (props: {
 	readonly refreshOverview: () => void;
 	readonly state: MediaSummaryState<Summary>;
 	readonly overview: MediaOverviewState<Overview>;
-	readonly settled: EntitySettleReason | undefined;
+	readonly settled: undefined | EntitySettleReason;
 }) => ReactNode;
 
 export const renderMediaScreenBody = <Summary, Overview>(

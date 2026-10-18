@@ -106,7 +106,7 @@ const collectStudioPages = (
 	host: AnilistHost,
 	studioId: number,
 	page: number,
-	collected: { studio: UnknownRecord | null; mediaEdges: unknown[] },
+	collected: { mediaEdges: unknown[]; studio: null | UnknownRecord },
 ): Effect.Effect<StudioPages, Effect.Error<ReturnType<typeof getStudioPage>>> =>
 	getStudioPage(host, studioId, page).pipe(
 		Effect.flatMap((studioPage) => {

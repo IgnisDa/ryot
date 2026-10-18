@@ -63,9 +63,36 @@ import {
 import { WorkoutTable, WorkoutWeeks } from "./results";
 import { WorkoutSummarySection } from "./summary";
 
+export default function WorkoutsPage() {
+	return (
+		<WorkoutProcessing>
+			<WorkoutsBody />
+		</WorkoutProcessing>
+	);
+}
+
+function SummaryLoader(props: {
+	readonly now: Date;
+	readonly timeZone: string;
+	readonly imperial: boolean;
+}) {
+	const [period, setPeriod] = useState<PeriodKey>("1M");
+	const summary = useRyotQuery(workoutSummaryQuery, { period, timeZone: props.timeZone });
+	return (
+		<WorkoutSummarySection
+			{...props}
+			period={period}
+			summary={summary.data}
+			isError={summary.isError}
+			onRetry={summary.refetch}
+			onPeriodChange={setPeriod}
+		/>
+	);
+}
+
 function WorkoutCount(props: {
 	readonly search: string;
-	readonly filter: ViewFilter | null;
+	readonly filter: null | ViewFilter;
 	readonly onTotal: (total: number) => void;
 }) {
 	const result = useRyotQuery(workoutCountQuery, { search: props.search, filter: props.filter });
@@ -88,12 +115,12 @@ function WorkoutCount(props: {
 function WeekResults(props: {
 	readonly now: Date;
 	readonly search: string;
-	readonly imperial: boolean;
 	readonly timeZone: string;
-	readonly filter: ViewFilter | null;
+	readonly imperial: boolean;
 	readonly layout: "grid" | "list";
+	readonly filter: null | ViewFilter;
 	readonly cards: readonly WorkoutCard[];
-	readonly window: { readonly startAt: string; readonly endAt: string };
+	readonly window: { readonly endAt: string; readonly startAt: string };
 }) {
 	const { now, cards, imperial, timeZone } = props;
 	const weeks = useRyotQuery(workoutWeeksQuery, {
@@ -111,12 +138,12 @@ function WeekResults(props: {
 
 function WorkoutResults(props: {
 	readonly now: Date;
-	readonly layout: EntityBrowserLayout;
 	readonly search: string;
-	readonly imperial: boolean;
 	readonly timeZone: string;
-	readonly filter: ViewFilter | null;
+	readonly imperial: boolean;
+	readonly filter: null | ViewFilter;
 	readonly onClearFilters: () => void;
+	readonly layout: EntityBrowserLayout;
 	readonly onLoaded: (loaded: { readonly count: number; readonly hasMore: boolean }) => void;
 }) {
 	const { now, search, filter, imperial, timeZone, onLoaded } = props;
@@ -241,33 +268,6 @@ function WorkoutResults(props: {
 				/>
 			) : null}
 		</div>
-	);
-}
-
-function SummaryLoader(props: {
-	readonly now: Date;
-	readonly imperial: boolean;
-	readonly timeZone: string;
-}) {
-	const [period, setPeriod] = useState<PeriodKey>("1M");
-	const summary = useRyotQuery(workoutSummaryQuery, { period, timeZone: props.timeZone });
-	return (
-		<WorkoutSummarySection
-			{...props}
-			period={period}
-			summary={summary.data}
-			isError={summary.isError}
-			onRetry={summary.refetch}
-			onPeriodChange={setPeriod}
-		/>
-	);
-}
-
-export default function WorkoutsPage() {
-	return (
-		<WorkoutProcessing>
-			<WorkoutsBody />
-		</WorkoutProcessing>
 	);
 }
 

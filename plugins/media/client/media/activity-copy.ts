@@ -12,7 +12,7 @@ const MEDIA_LIST_STATE_LABELS: Record<ListStateProperties["state"], string> = {
 };
 
 export const mediaListStateDetail = (
-	listState: ListStateProperties | null,
+	listState: null | ListStateProperties,
 	positions: readonly (string | undefined)[],
 ) =>
 	listState === null
@@ -110,8 +110,8 @@ export const mediaFlatActivityCopy = <Extra = unknown>(input: {
 
 export const mediaEpisodicActivityCopy = (input: {
 	readonly noun: string;
-	readonly verb: MediaActivityVerb;
 	readonly watchedLabel: string;
+	readonly verb: MediaActivityVerb;
 }) => {
 	const verb = MEDIA_ACTIVITY_VERBS[input.verb];
 	const { rowLabels, ...copy } = mediaActivityCopy(verb, input.noun);

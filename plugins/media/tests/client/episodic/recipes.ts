@@ -49,10 +49,10 @@ export type EpisodicFixtureActivityResult = Recipe.Success<
 export type EpisodicFixtureOverviewResult = Recipe.Success<
 	typeof episodicFixtureRecipes.overviewRecipe
 >;
+export type EpisodicFixtureEpisode = Recipe.Success<
+	typeof episodicFixtureEpisodesRecipe
+>["items"][number];
 export type EpisodicFixturePresentationData =
 	typeof episodicFixtureRecipes.presentationSource extends MediaPresentationSource<infer Data>
 		? Data
 		: never;
-export type EpisodicFixtureEpisode = Recipe.Success<
-	typeof episodicFixtureEpisodesRecipe
->["items"][number];

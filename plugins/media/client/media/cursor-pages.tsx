@@ -20,15 +20,15 @@ export type MediaCursorPagesCopy = {
 };
 
 type MediaCursorPagesProps<Item, Selection, Input> = {
-	readonly copy: MediaCursorPagesCopy;
 	readonly input: Selection;
-	readonly getPageInput: (input: Selection, after: string | null) => Input;
+	readonly copy: MediaCursorPagesCopy;
 	readonly query: RyotQuery<Input, MediaCursorPage<Item>>;
-	readonly assets: (items: readonly Item[]) => readonly ManagedAssetLocator[];
 	readonly renderItems: (items: readonly Item[]) => ReactNode;
+	readonly getPageInput: (input: Selection, after: null | string) => Input;
+	readonly assets: (items: readonly Item[]) => readonly ManagedAssetLocator[];
 };
 
-const mediaCursorPageFailure = (error: Error | null): MediaCursorPageFailure => ({
+const mediaCursorPageFailure = (error: null | Error): MediaCursorPageFailure => ({
 	status:
 		error instanceof PaginationError ||
 		(error instanceof RyotClientError && error.reason === "malformed-result")

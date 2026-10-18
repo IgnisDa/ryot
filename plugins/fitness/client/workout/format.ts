@@ -25,7 +25,7 @@ export const formatDuration = (seconds: number) => {
 
 export const formatExerciseMeta = (exercise: {
 	readonly equipment: readonly { readonly name: string }[];
-	readonly targets: readonly { readonly name: string; readonly role: string | null }[];
+	readonly targets: readonly { readonly name: string; readonly role: null | string }[];
 }) =>
 	[
 		...exercise.targets
@@ -55,7 +55,7 @@ export const formatSignedMeasure = (value: number, unit: MeasureUnit, imperial =
 	return value > 0 ? `+${magnitude}` : `−${magnitude}`;
 };
 
-export type SetMeasures = Pick<WorkoutSet, "distance" | "duration" | "reps" | "weight">;
+export type SetMeasures = Pick<WorkoutSet, "reps" | "weight" | "distance" | "duration">;
 
 const weightReps = (set: SetMeasures, imperial: boolean) => {
 	if (set.weight === null || set.weight === 0) {
@@ -65,13 +65,13 @@ const weightReps = (set: SetMeasures, imperial: boolean) => {
 };
 
 export const formatSetMain = (
-	kind: ExerciseKind | null,
+	kind: null | ExerciseKind,
 	set: SetMeasures,
 	imperial = false,
-	durationUnit?: "seconds" | "minutes" | null,
+	durationUnit?: null | "seconds" | "minutes",
 ) => {
 	const reps = set.reps === null ? null : `${formatNumber(set.reps)} reps`;
-	let duration: string | null = null;
+	let duration: null | string = null;
 	if (set.duration !== null) {
 		duration = formatDuration(set.duration);
 		if (durationUnit === "seconds") {
@@ -91,7 +91,7 @@ export const formatSetMain = (
 	return [distance, reps, duration].filter((part) => part !== null).join(" · ");
 };
 
-export const parseDate = (value: string | null) => {
+export const parseDate = (value: null | string) => {
 	if (value === null) {
 		return null;
 	}
@@ -99,7 +99,7 @@ export const parseDate = (value: string | null) => {
 	return Number.isFinite(date.getTime()) ? date : null;
 };
 
-export const formatLongDate = (value: string | null) => {
+export const formatLongDate = (value: null | string) => {
 	const date = parseDate(value);
 	return date === null
 		? null
@@ -111,7 +111,7 @@ export const formatLongDate = (value: string | null) => {
 			}).format(date);
 };
 
-export const formatTimeRange = (startedAt: string | null, endedAt: string | null) => {
+export const formatTimeRange = (startedAt: null | string, endedAt: null | string) => {
 	const start = parseDate(startedAt);
 	const end = parseDate(endedAt);
 	if (start === null) {
@@ -121,7 +121,7 @@ export const formatTimeRange = (startedAt: string | null, endedAt: string | null
 	return end === null ? time.format(start) : time.formatRange(start, end);
 };
 
-export const formatShortDate = (value: string, reference: string | null) => {
+export const formatShortDate = (value: string, reference: null | string) => {
 	const date = parseDate(value);
 	if (date === null) {
 		return value;

@@ -53,9 +53,9 @@ export const workoutFilterFields = (reference: Reference): readonly ViewFilterFi
 ];
 
 export const compileWorkoutFilter = Effect.fnUntraced(function* (input: {
-	readonly filter: ViewFilter | null;
-	readonly target: "list" | "weeks";
 	readonly reference: Reference;
+	readonly target: "list" | "weeks";
+	readonly filter: null | ViewFilter;
 }) {
 	const { filter } = input;
 	if (filter === null) {

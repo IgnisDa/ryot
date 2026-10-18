@@ -1,7 +1,7 @@
 import type { ImportEntityRef, MediaImportAdapterFailure } from "./schemas";
 
 export const resolvedMediaRef = (
-	entitySchemaSlug: "movie" | "show",
+	entitySchemaSlug: "show" | "movie",
 	provider: "tmdb" | "tvdb",
 	externalId: string,
 	sourceLabel: string,
@@ -15,9 +15,9 @@ export const resolvedMediaRef = (
 
 export const movieOrShowImportRef = (input: {
 	sourceLabel: string;
-	entitySchemaSlug: "movie" | "show";
+	entitySchemaSlug: "show" | "movie";
 	providerIds: { imdb?: string | undefined; tmdb?: string | undefined; tvdb?: string | undefined };
-}): ImportEntityRef | null => {
+}): null | ImportEntityRef => {
 	const tmdb = input.providerIds.tmdb?.trim();
 	if (tmdb) {
 		return resolvedMediaRef(input.entitySchemaSlug, "tmdb", tmdb, input.sourceLabel);

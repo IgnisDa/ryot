@@ -12,7 +12,7 @@ import { parseMediaServer } from "./shared";
 
 type LookupHost = Pick<
 	ScriptHost,
-	"httpCall" | "getPluginConfig" | "getCachedValue" | "setCachedValue"
+	"httpCall" | "getCachedValue" | "setCachedValue" | "getPluginConfig"
 >;
 
 const encodeJson = Schema.encodeSync(Schema.fromJsonString(Schema.Unknown));

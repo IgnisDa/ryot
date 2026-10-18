@@ -76,7 +76,7 @@ const workoutOf = (workout: Table) => ({
 	workoutStartedAt: selectedField(propertyDate(workout, "startedAt"), nullableString),
 });
 
-const numberMeasure = (function_: "maximum" | "sum", expr: Parameters<typeof conditional>[1]) =>
+const numberMeasure = (function_: "sum" | "maximum", expr: Parameters<typeof conditional>[1]) =>
 	selectedMeasure({ expr, function: function_ }, nullableNumber);
 
 const countWhen = (predicate: Parameters<typeof conditional>[0]) =>
@@ -385,9 +385,9 @@ const exerciseQuery = (reference: PluginIdentityReference, exerciseId: string) =
 
 export const exerciseDetailsRecipe = defineRecipe(
 	(input: {
-		readonly reference: PluginIdentityReference;
-		readonly exerciseId: string;
 		readonly timeZone: string;
+		readonly exerciseId: string;
+		readonly reference: PluginIdentityReference;
 	}) => ({
 		map: ({
 			notes,

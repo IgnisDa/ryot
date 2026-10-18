@@ -13,8 +13,8 @@ const target = (index: number) => ({
 });
 
 type DurableRequest = WorkflowReplayEnvelope["requests"][number];
-type ActivityRequest = Extract<DurableRequest, { readonly kind: "activity" }>;
 type ChildRequest = Extract<DurableRequest, { readonly kind: "child" }>;
+type ActivityRequest = Extract<DurableRequest, { readonly kind: "activity" }>;
 
 const RefreshInput = Schema.Struct({
 	mode: Schema.Literal("refresh"),

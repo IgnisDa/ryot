@@ -37,9 +37,9 @@ import { readingsQuery } from "./queries";
 import { MeasurementDialog } from "./reading-composer";
 import { tableHeaderClass } from "./styles";
 
-type LogMetric = { readonly id: string; readonly name: string; readonly unit: string | null };
+type LogMetric = { readonly id: string; readonly name: string; readonly unit: null | string };
 
-function ValueCell(props: { readonly reading: ReadingValue | undefined }) {
+function ValueCell(props: { readonly reading: undefined | ReadingValue }) {
 	const { reading } = props;
 	if (reading === undefined) {
 		return <td className="px-3 py-2 text-right text-border-strong">—</td>;
@@ -61,112 +61,76 @@ function ValueCell(props: { readonly reading: ReadingValue | undefined }) {
 
 const actionButtonClass = "rounded-md border border-border px-2 py-0.5 text-[12px] text-text-muted";
 
-function EditMeasurementDialog(props: {
-	readonly group: ReadingGroup;
-	readonly onClose: () => void;
-	readonly metrics: readonly LogMetric[];
-	readonly triggerRef: RefObject<HTMLButtonElement | null>;
-}) {
-	const { group, metrics, onClose } = props;
-	const update = useBackgroundSubmission(updateReadingsSubmission);
-	const [initial] = useState(() => ({
-		comment: group.comment,
-		occurredAt: group.occurredAt,
-		values: metrics.flatMap(({ id }) => {
-			const reading = group.values.get(id);
-			return reading === undefined ? [] : [{ metricId: id, value: reading.value }];
-		}),
-	}));
-	return (
-		<MeasurementDialog
-			initial={initial}
-			metrics={metrics}
-			onClose={onClose}
-			submitLabel="Save"
-			pendingLabel="Saving…"
-			label="Edit measurement"
-			pending={update.isSending}
-			triggerRef={props.triggerRef}
-			errorMessage={readingFailureMessage(update.error, "edit")}
-			onSubmit={(readings) =>
-				update.submit({ ...readings, entryId: group.id }, { onAccepted: onClose })
-			}
-		/>
-	);
-}
-
-function DeleteMeasurementConfirmation(props: {
-	readonly group: ReadingGroup;
-	readonly takenAt: string;
-	readonly onClose: () => void;
-	readonly triggerRef: RefObject<HTMLButtonElement | null>;
-}) {
-	const { group, onClose, takenAt } = props;
-	const remove = useBackgroundSubmission(deleteReadingsSubmission);
-	const count = group.values.size;
-	return (
-		<DestructiveConfirmation
-			onClose={onClose}
-			pendingLabel="Deleting…"
-			pending={remove.isSending}
-			title="Delete measurement?"
-			triggerRef={props.triggerRef}
-			actionLabel="Delete measurement"
-			errorMessage={readingFailureMessage(remove.error, "delete")}
-			onConfirm={() => remove.submit({ entryId: group.id }, { onAccepted: onClose })}
-			detail={`The ${count === 1 ? "reading" : `${count} readings`} taken on ${takenAt} will be removed permanently.`}
-		/>
-	);
-}
-
-function ReadingActions(props: {
+export function ReadingLog(props: {
+	readonly range: RangeKey;
 	readonly timeZone: string;
-	readonly group: ReadingGroup;
+	readonly columns: readonly LogMetric[];
 	readonly metrics: readonly LogMetric[];
 }) {
-	const { group, metrics, timeZone } = props;
-	const editTrigger = useRef<HTMLButtonElement>(null);
-	const deleteTrigger = useRef<HTMLButtonElement>(null);
-	const [editing, setEditing] = useState(false);
-	const [confirming, setConfirming] = useState(false);
-	const takenAt = `${formatDay(group.occurredAt, timeZone)} ${formatTime(group.occurredAt, timeZone)}`;
+	const { range, columns, metrics, timeZone } = props;
+	const result = useRyotInfiniteQuery(
+		readingsQuery,
+		{ range },
+		{
+			initialPageParam: undefined,
+			getNextPageParam: nextPageCursor,
+			getPageInput: (input, after: string | undefined) => ({ ...input, after }),
+		},
+	);
+	const readings = useMemo(
+		() =>
+			paginationItems(
+				result.pages,
+				(page) => page.items,
+				({ id }) => id,
+			),
+		[result.pages],
+	);
+	const groups = useMemo(() => groupReadings(readings), [readings]);
+	const sections = useMemo(() => groupByMonth(groups, timeZone), [groups, timeZone]);
 	return (
-		<td className="px-3 py-2 text-right whitespace-nowrap">
-			<button
-				type="button"
-				ref={editTrigger}
-				onClick={() => setEditing(true)}
-				className={clsx(actionButtonClass, "mr-1")}
-				aria-label={`Edit measurement from ${takenAt}`}
-			>
-				Edit
-			</button>
-			<button
-				type="button"
-				ref={deleteTrigger}
-				className={actionButtonClass}
-				onClick={() => setConfirming(true)}
-				aria-label={`Delete measurement from ${takenAt}`}
-			>
-				Delete
-			</button>
-			{confirming ? (
-				<DeleteMeasurementConfirmation
-					group={group}
-					takenAt={takenAt}
-					triggerRef={deleteTrigger}
-					onClose={() => setConfirming(false)}
-				/>
-			) : null}
-			{editing ? (
-				<EditMeasurementDialog
-					group={group}
-					metrics={metrics}
-					triggerRef={editTrigger}
-					onClose={() => setEditing(false)}
-				/>
-			) : null}
-		</td>
+		<section aria-label="Log" className="flex min-w-0 flex-col gap-2.5 font-ui">
+			<div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
+				<h2 className={sectionHeadingClass}>Log</h2>
+				{result.pages.length === 0 ? null : (
+					<span className="text-[13px] text-text-muted tabular-nums">
+						{groups.length}
+						{result.hasNextPage ? "+" : ""} reading{groups.length === 1 ? "" : "s"} in{" "}
+						{range === "All" ? "your history" : `the last ${rangePhrase(range)}`}
+					</span>
+				)}
+			</div>
+			{result.pages.length === 0 ? (
+				<LogPlaceholder onRetry={result.retry} failed={result.isError} />
+			) : (
+				<>
+					<ReadingLogTable
+						columns={columns}
+						metrics={metrics}
+						sections={sections}
+						timeZone={timeZone}
+					/>
+					{result.isError ? (
+						<div className="flex flex-col items-start gap-3">
+							<StatusMessage tone="error">More readings couldn't be loaded.</StatusMessage>
+							<Button variant="secondary" onClick={result.retry} disabled={result.isFetching}>
+								Try again
+							</Button>
+						</div>
+					) : null}
+					{result.hasNextPage && !result.isError ? (
+						<LoadMoreButton
+							variant="secondary"
+							className="self-center"
+							label="Show more readings"
+							disabled={result.isFetching}
+							onClick={result.fetchNextPage}
+							isFetchingNextPage={result.isFetchingNextPage}
+						/>
+					) : null}
+				</>
+			)}
+		</section>
 	);
 }
 
@@ -307,75 +271,111 @@ function LogPlaceholder(props: { readonly failed: boolean; readonly onRetry: () 
 	);
 }
 
-export function ReadingLog(props: {
-	readonly range: RangeKey;
+function DeleteMeasurementConfirmation(props: {
+	readonly takenAt: string;
+	readonly group: ReadingGroup;
+	readonly onClose: () => void;
+	readonly triggerRef: RefObject<null | HTMLButtonElement>;
+}) {
+	const { group, onClose, takenAt } = props;
+	const remove = useBackgroundSubmission(deleteReadingsSubmission);
+	const count = group.values.size;
+	return (
+		<DestructiveConfirmation
+			onClose={onClose}
+			pendingLabel="Deleting…"
+			pending={remove.isSending}
+			title="Delete measurement?"
+			triggerRef={props.triggerRef}
+			actionLabel="Delete measurement"
+			errorMessage={readingFailureMessage(remove.error, "delete")}
+			onConfirm={() => remove.submit({ entryId: group.id }, { onAccepted: onClose })}
+			detail={`The ${count === 1 ? "reading" : `${count} readings`} taken on ${takenAt} will be removed permanently.`}
+		/>
+	);
+}
+
+function EditMeasurementDialog(props: {
+	readonly group: ReadingGroup;
+	readonly onClose: () => void;
+	readonly metrics: readonly LogMetric[];
+	readonly triggerRef: RefObject<null | HTMLButtonElement>;
+}) {
+	const { group, metrics, onClose } = props;
+	const update = useBackgroundSubmission(updateReadingsSubmission);
+	const [initial] = useState(() => ({
+		comment: group.comment,
+		occurredAt: group.occurredAt,
+		values: metrics.flatMap(({ id }) => {
+			const reading = group.values.get(id);
+			return reading === undefined ? [] : [{ metricId: id, value: reading.value }];
+		}),
+	}));
+	return (
+		<MeasurementDialog
+			initial={initial}
+			metrics={metrics}
+			onClose={onClose}
+			submitLabel="Save"
+			pendingLabel="Saving…"
+			label="Edit measurement"
+			pending={update.isSending}
+			triggerRef={props.triggerRef}
+			errorMessage={readingFailureMessage(update.error, "edit")}
+			onSubmit={(readings) =>
+				update.submit({ ...readings, entryId: group.id }, { onAccepted: onClose })
+			}
+		/>
+	);
+}
+
+function ReadingActions(props: {
 	readonly timeZone: string;
-	readonly columns: readonly LogMetric[];
+	readonly group: ReadingGroup;
 	readonly metrics: readonly LogMetric[];
 }) {
-	const { range, columns, metrics, timeZone } = props;
-	const result = useRyotInfiniteQuery(
-		readingsQuery,
-		{ range },
-		{
-			initialPageParam: undefined,
-			getNextPageParam: nextPageCursor,
-			getPageInput: (input, after: string | undefined) => ({ ...input, after }),
-		},
-	);
-	const readings = useMemo(
-		() =>
-			paginationItems(
-				result.pages,
-				(page) => page.items,
-				({ id }) => id,
-			),
-		[result.pages],
-	);
-	const groups = useMemo(() => groupReadings(readings), [readings]);
-	const sections = useMemo(() => groupByMonth(groups, timeZone), [groups, timeZone]);
+	const { group, metrics, timeZone } = props;
+	const editTrigger = useRef<HTMLButtonElement>(null);
+	const deleteTrigger = useRef<HTMLButtonElement>(null);
+	const [editing, setEditing] = useState(false);
+	const [confirming, setConfirming] = useState(false);
+	const takenAt = `${formatDay(group.occurredAt, timeZone)} ${formatTime(group.occurredAt, timeZone)}`;
 	return (
-		<section aria-label="Log" className="flex min-w-0 flex-col gap-2.5 font-ui">
-			<div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
-				<h2 className={sectionHeadingClass}>Log</h2>
-				{result.pages.length === 0 ? null : (
-					<span className="text-[13px] text-text-muted tabular-nums">
-						{groups.length}
-						{result.hasNextPage ? "+" : ""} reading{groups.length === 1 ? "" : "s"} in{" "}
-						{range === "All" ? "your history" : `the last ${rangePhrase(range)}`}
-					</span>
-				)}
-			</div>
-			{result.pages.length === 0 ? (
-				<LogPlaceholder onRetry={result.retry} failed={result.isError} />
-			) : (
-				<>
-					<ReadingLogTable
-						columns={columns}
-						metrics={metrics}
-						sections={sections}
-						timeZone={timeZone}
-					/>
-					{result.isError ? (
-						<div className="flex flex-col items-start gap-3">
-							<StatusMessage tone="error">More readings couldn't be loaded.</StatusMessage>
-							<Button variant="secondary" onClick={result.retry} disabled={result.isFetching}>
-								Try again
-							</Button>
-						</div>
-					) : null}
-					{result.hasNextPage && !result.isError ? (
-						<LoadMoreButton
-							variant="secondary"
-							className="self-center"
-							label="Show more readings"
-							disabled={result.isFetching}
-							onClick={result.fetchNextPage}
-							isFetchingNextPage={result.isFetchingNextPage}
-						/>
-					) : null}
-				</>
-			)}
-		</section>
+		<td className="px-3 py-2 text-right whitespace-nowrap">
+			<button
+				type="button"
+				ref={editTrigger}
+				onClick={() => setEditing(true)}
+				className={clsx(actionButtonClass, "mr-1")}
+				aria-label={`Edit measurement from ${takenAt}`}
+			>
+				Edit
+			</button>
+			<button
+				type="button"
+				ref={deleteTrigger}
+				className={actionButtonClass}
+				onClick={() => setConfirming(true)}
+				aria-label={`Delete measurement from ${takenAt}`}
+			>
+				Delete
+			</button>
+			{confirming ? (
+				<DeleteMeasurementConfirmation
+					group={group}
+					takenAt={takenAt}
+					triggerRef={deleteTrigger}
+					onClose={() => setConfirming(false)}
+				/>
+			) : null}
+			{editing ? (
+				<EditMeasurementDialog
+					group={group}
+					metrics={metrics}
+					triggerRef={editTrigger}
+					onClose={() => setEditing(false)}
+				/>
+			) : null}
+		</td>
 	);
 }

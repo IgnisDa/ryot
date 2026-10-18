@@ -6,10 +6,10 @@ export type StubResponse = { body?: unknown; headers?: Record<string, string> };
 
 export const stubHttpHost = (
 	respond: (request: {
-		method: string;
-		path: string;
 		url: URL;
-		options?: { allowInsecureConnections?: boolean | undefined } | undefined;
+		path: string;
+		method: string;
+		options?: undefined | { allowInsecureConnections?: boolean | undefined };
 	}) => StubResponse,
 ) =>
 	({

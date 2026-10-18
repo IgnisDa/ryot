@@ -82,9 +82,9 @@ export const editorExercisesQuery = createRyotQuery(
 export const loadEditorSource = Effect.fnUntraced(function* (
 	client: RyotClient,
 	input: {
+		readonly draftId: string;
 		readonly entityId: string;
 		readonly kind: "workout" | "template";
-		readonly draftId: string;
 	},
 ) {
 	const reference = client.pluginIdentity(PLUGIN_PACKAGE_ID);
@@ -153,7 +153,7 @@ export const readHistorySets = Effect.fnUntraced(function* (
 
 export const readPreviousSets = Effect.fnUntraced(function* (
 	client: RyotClient,
-	input: Omit<Parameters<typeof workoutExercisePreviousValuesRecipe>[0], "reference" | "after">,
+	input: Omit<Parameters<typeof workoutExercisePreviousValuesRecipe>[0], "after" | "reference">,
 	count: number,
 ) {
 	const { items } = yield* readCursorPages(

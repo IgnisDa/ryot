@@ -34,12 +34,12 @@ import { exerciseEquipmentInclude } from "./taxonomy-recipes";
 
 type Table = ReturnType<typeof table>;
 type EntityFilterInput = {
-	readonly reference: PluginIdentityReference;
-	entityId?: string | undefined;
 	name?: string | undefined;
+	entityId?: string | undefined;
+	readonly reference: PluginIdentityReference;
 };
-type EntityListInput = Pick<Parameters<typeof selectedRows>[1], "after" | "limit"> &
-	Pick<EntityFilterInput, "entityId" | "reference">;
+type EntityListInput = Pick<EntityFilterInput, "entityId" | "reference"> &
+	Pick<Parameters<typeof selectedRows>[1], "after" | "limit">;
 
 const entityWhere = (entity: Table, schemaSlug: string, input: EntityFilterInput) =>
 	and(
@@ -147,8 +147,8 @@ export const exerciseListRecipe = defineRecipe(
 export const measurementEntryListRecipe = defineRecipe(
 	(
 		input: Pick<Parameters<typeof selectedRows>[1], "after" | "limit"> & {
-			readonly reference: PluginIdentityReference;
 			startAt?: string | undefined;
+			readonly reference: PluginIdentityReference;
 		},
 	) => {
 		const entry = table("entity", "entry");
@@ -195,9 +195,9 @@ export const workoutTemplateListRecipe = defineRecipe((input: EntityListInput) =
 
 export const workoutDetailRecipe = defineRecipe(
 	(input: {
-		readonly reference: PluginIdentityReference;
 		entityId: string;
 		templateLimit: number;
+		readonly reference: PluginIdentityReference;
 	}) => {
 		const entity = table("entity", "entity");
 		return {
@@ -216,9 +216,9 @@ export const workoutDetailRecipe = defineRecipe(
 
 export const workoutTemplateDetailRecipe = defineRecipe(
 	(input: {
-		readonly reference: PluginIdentityReference;
 		entityId: string;
 		workoutLimit: number;
+		readonly reference: PluginIdentityReference;
 	}) => {
 		const entity = table("entity", "entity");
 		return {
@@ -236,7 +236,7 @@ export const workoutTemplateDetailRecipe = defineRecipe(
 );
 
 export type ExerciseListResult = Recipe.Success<typeof exerciseListRecipe>;
-export type MeasurementEntryListResult = Recipe.Success<typeof measurementEntryListRecipe>;
-export type WorkoutTemplateListResult = Recipe.Success<typeof workoutTemplateListRecipe>;
 export type WorkoutDetailResult = Recipe.Success<typeof workoutDetailRecipe>;
+export type WorkoutTemplateListResult = Recipe.Success<typeof workoutTemplateListRecipe>;
+export type MeasurementEntryListResult = Recipe.Success<typeof measurementEntryListRecipe>;
 export type WorkoutTemplateDetailResult = Recipe.Success<typeof workoutTemplateDetailRecipe>;

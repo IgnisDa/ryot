@@ -9,9 +9,9 @@ import { eventTimestamp, jsonObject } from "../lib/records";
 import type { MediaProgressEvent } from "../lib/ryotql";
 import type { MediaImportWriteChunkInput } from "./schemas";
 
-type Host = Pick<ScriptHost, "getPluginConfig" | "executeRyotql" | "getCurrentIntegration" | "log">;
 type Properties = Readonly<Record<string, JsonValue>>;
-type ProgressEvent = Pick<MediaProgressEvent, "properties" | "occurredAt" | "createdAt">;
+type ProgressEvent = Pick<MediaProgressEvent, "createdAt" | "properties" | "occurredAt">;
+type Host = Pick<ScriptHost, "log" | "executeRyotql" | "getPluginConfig" | "getCurrentIntegration">;
 const encodeProgressIdentity = Schema.encodeSync(
 	Schema.fromJsonString(Schema.Array(Schema.String)),
 );

@@ -75,7 +75,7 @@ export const calculateWorkoutSetStatistics = (
 	measurements: WorkoutSetMeasurements,
 ) => {
 	const normalized = normalizeWorkoutMeasurements(measurements);
-	const statistics: { oneRm?: number; volume?: number; pace?: number } = {};
+	const statistics: { pace?: number; oneRm?: number; volume?: number } = {};
 	if (
 		kind === "reps_and_weight" &&
 		normalized.reps !== undefined &&

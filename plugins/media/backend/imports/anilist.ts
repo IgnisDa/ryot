@@ -85,13 +85,13 @@ const getSeriesTarget = (seriesType: number) => {
 	return undefined;
 };
 const getFavoriteTarget = (favoriteType: number) => getSeriesTarget(favoriteType - 1);
-const parseAnilistDate = (value: string | null | undefined, timezone: string) =>
+const parseAnilistDate = (value: null | string | undefined, timezone: string) =>
 	value ? parseZonedDateTime(value, ["YYYY-MM-DD HH:mm:ss"], timezone) : null;
 const getLifecycle = (status: string | undefined) => {
 	const state = anilistListState(status?.trim().toUpperCase() ?? "");
 	return state === "in_progress" ? "progress" : state;
 };
-const parseCustomListIds = (value: string | null | undefined) => {
+const parseCustomListIds = (value: null | string | undefined) => {
 	const raw = value?.trim();
 	if (!raw) {
 		return [];

@@ -33,7 +33,7 @@ const SECOND_PAGE = [
 
 const [SUMMARY_NEXT_UP] = decodeEpisodicEpisodePage({ episodes: SECOND_PAGE }).items;
 
-function Pages(props: { readonly nextUp?: EpisodicFixtureEpisode | null }) {
+function Pages(props: { readonly nextUp?: null | EpisodicFixtureEpisode }) {
 	return (
 		<MediaEpisodePages
 			compact

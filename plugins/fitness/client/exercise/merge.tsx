@@ -42,7 +42,7 @@ const failureMessages: Record<MergeFailure, string> = {
 	"kind-mismatch": "Exercises can only be merged into an exercise of the same kind.",
 };
 
-const mergeErrorMessage = (error: Error | null) => {
+const mergeErrorMessage = (error: null | Error) => {
 	if (error === null) {
 		return undefined;
 	}
@@ -51,8 +51,12 @@ const mergeErrorMessage = (error: Error | null) => {
 		: "The merge didn't finish. Try again to complete it.";
 };
 
-export const mergeBlockedReason = (draftKind: "template" | "workout") =>
+export const mergeBlockedReason = (draftKind: "workout" | "template") =>
 	`Not available while this exercise is in your current ${draftKind}`;
+
+export function MergeFailureMessage(props: { readonly failure: MergeFailure }) {
+	return <StatusMessage tone="error">{failureMessages[props.failure]}</StatusMessage>;
+}
 
 export function ExerciseMergeFlow(props: {
 	readonly name: string;
@@ -118,8 +122,4 @@ export function ExerciseMergeFlow(props: {
 			detail={`Merge ${name} into ${target.name}? Its history, notes and collection memberships move to ${target.name}. ${name} is removed from your library.`}
 		/>
 	);
-}
-
-export function MergeFailureMessage(props: { readonly failure: MergeFailure }) {
-	return <StatusMessage tone="error">{failureMessages[props.failure]}</StatusMessage>;
 }

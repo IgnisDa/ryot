@@ -87,11 +87,11 @@ const mountHome = (adapter: Partial<RyotClientAdapter>) =>
 const observers: RecordingIntersectionObserver[] = [];
 
 class RecordingIntersectionObserver implements IntersectionObserver {
-	readonly root: Element | Document | null;
-	readonly rootMargin: string;
-	readonly thresholds: readonly number[] = [];
 	readonly scrollMargin = "";
+	readonly rootMargin: string;
 	readonly targets = new Set<Element>();
+	readonly root: null | Element | Document;
+	readonly thresholds: readonly number[] = [];
 
 	constructor(
 		private readonly callback: IntersectionObserverCallback,
@@ -102,20 +102,20 @@ class RecordingIntersectionObserver implements IntersectionObserver {
 		observers.push(this);
 	}
 
-	observe(target: Element) {
-		this.targets.add(target);
-	}
-
-	unobserve(target: Element) {
-		this.targets.delete(target);
+	takeRecords() {
+		return [];
 	}
 
 	disconnect() {
 		this.targets.clear();
 	}
 
-	takeRecords() {
-		return [];
+	observe(target: Element) {
+		this.targets.add(target);
+	}
+
+	unobserve(target: Element) {
+		this.targets.delete(target);
 	}
 
 	intersect() {

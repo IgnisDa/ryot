@@ -135,7 +135,7 @@ export const details = defineProvider({
 				return yield* new MediaSandboxError({ message: "VNDB VN payload is missing title" });
 			}
 
-			const images: Array<{ type: "remote"; url: string; purpose: string }> = [];
+			const images: Array<{ url: string; type: "remote"; purpose: string }> = [];
 			const cover = imageUrl(vn["image"]);
 			if (cover) {
 				images.push({ url: cover, type: "remote", purpose: "cover" as const });

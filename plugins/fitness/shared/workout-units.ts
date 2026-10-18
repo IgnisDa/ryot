@@ -22,7 +22,7 @@ export const storageWorkoutDisplay = {
 } as const;
 
 export const durationDisplayUnit = (
-	...choices: ReadonlyArray<DurationUnit | null | undefined>
+	...choices: ReadonlyArray<null | undefined | DurationUnit>
 ): DurationUnit => choices.find((choice) => choice !== null && choice !== undefined) ?? "minutes";
 
 export const milesToKilometers = (miles: number) => miles * KILOMETERS_PER_MILE;

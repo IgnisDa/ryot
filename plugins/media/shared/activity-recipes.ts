@@ -82,10 +82,10 @@ const DAY_LIMIT = 400;
  */
 export const mediaActivityRecipe = defineRecipe(
 	(input: {
-		readonly reference: PluginIdentityReference;
 		readonly from: string;
 		readonly until: string;
 		readonly timeZone: string;
+		readonly reference: PluginIdentityReference;
 	}) => {
 		const scoped = (alias: string, eventSlugs: readonly string[], dated = false) => {
 			const event = table("event", `${alias}Event`);

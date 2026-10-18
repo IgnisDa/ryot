@@ -96,8 +96,8 @@ export const flatCollectionAddedEventRow = {
 type ActivityRows = {
 	readonly truncated?: boolean;
 	readonly completionCount?: number;
-	readonly consumedAmount?: number | null;
 	readonly unknownAmountCount?: number;
+	readonly consumedAmount?: null | number;
 	readonly events?: readonly Record<string, unknown>[];
 	readonly collectionEvents?: readonly Record<string, unknown>[];
 };

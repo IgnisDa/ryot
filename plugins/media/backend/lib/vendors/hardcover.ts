@@ -53,7 +53,7 @@ export const hardcoverGql = (
 			Effect.flatMap((response) => decodeJsonResponse(response.body, "Hardcover")),
 		);
 
-export const firstGraphqlErrorMessage = (payload: UnknownRecord | null) => {
+export const firstGraphqlErrorMessage = (payload: null | UnknownRecord) => {
 	const errors = payload?.["errors"];
 	if (!Array.isArray(errors) || errors.length === 0) {
 		return null;

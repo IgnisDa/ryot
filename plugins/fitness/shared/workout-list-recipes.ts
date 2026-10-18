@@ -51,10 +51,10 @@ import { workoutTemplateInclude } from "./query-recipes";
 import { exerciseTargetInclude } from "./taxonomy-recipes";
 import { PersonalBestSchema } from "./workout-records";
 
+export type WorkoutFilterPredicate = ReturnType<typeof and>;
 type Table = ReturnType<typeof table>;
 type Reference = PluginIdentityReference;
-type Range = { readonly startAt: string; readonly endAt: string };
-export type WorkoutFilterPredicate = ReturnType<typeof and>;
+type Range = { readonly endAt: string; readonly startAt: string };
 
 export const WORKOUT_LIST_PAGE_SIZE = 20;
 
@@ -202,12 +202,12 @@ const workoutSetsInclude = (workout: Table) => {
 
 export const workoutCardsRecipe = defineRecipe(
 	(input: {
-		readonly reference: Reference;
 		readonly search: string;
+		readonly reference: Reference;
 		readonly limit?: number | undefined;
 		readonly after?: string | undefined;
-		readonly filter?: WorkoutFilterPredicate | undefined;
-		readonly workoutIds?: readonly string[] | undefined;
+		readonly workoutIds?: undefined | readonly string[];
+		readonly filter?: undefined | WorkoutFilterPredicate;
 	}) => {
 		const workout = table("entity", LIST_WORKOUT_ALIAS);
 		const totals = workoutTotals(workout, "listTotalsSet");
@@ -265,7 +265,7 @@ export const workoutCountRecipe = defineRecipe(
 	(input: {
 		readonly search: string;
 		readonly reference: Reference;
-		readonly filter?: WorkoutFilterPredicate | undefined;
+		readonly filter?: undefined | WorkoutFilterPredicate;
 	}) => {
 		const workout = table("entity", LIST_WORKOUT_ALIAS);
 		return {
@@ -386,7 +386,7 @@ const rangeBuckets = (
 		readonly search: string;
 		readonly timeZone: string;
 		readonly bucket: "day" | "week";
-		readonly filter?: WorkoutFilterPredicate | undefined;
+		readonly filter?: undefined | WorkoutFilterPredicate;
 	},
 	alias: string,
 ) => {
@@ -416,8 +416,8 @@ const rangeBuckets = (
 	] as const;
 };
 
-type WorkoutTotals = SelectedAggregateRow<Record<never, never>, ReturnType<typeof workoutMeasures>>;
 type SetTotals = SelectedAggregateRow<Record<never, never>, ReturnType<typeof setMeasures>>;
+type WorkoutTotals = SelectedAggregateRow<Record<never, never>, ReturnType<typeof workoutMeasures>>;
 
 const combineTotals = (workouts: WorkoutTotals, sets: SetTotals) => ({
 	...workouts,
@@ -440,12 +440,12 @@ const combineBuckets = (
 
 export const workoutWeeksRecipe = defineRecipe(
 	(
-		input: {
+		input: Range & {
 			readonly search: string;
 			readonly timeZone: string;
 			readonly reference: Reference;
-			readonly filter?: WorkoutFilterPredicate | undefined;
-		} & Range,
+			readonly filter?: undefined | WorkoutFilterPredicate;
+		},
 	) => {
 		const [workouts, sets] = rangeBuckets(
 			input.reference,
@@ -483,11 +483,11 @@ const latestRecordQuery = (reference: Reference, range: Range) => {
 
 export const workoutSummaryRecipe = defineRecipe(
 	(input: {
-		readonly reference: Reference;
-		readonly timeZone: string;
+		readonly days: Range;
 		readonly current: Range;
 		readonly previous: Range;
-		readonly days: Range;
+		readonly timeZone: string;
+		readonly reference: Reference;
 	}) => {
 		const [currentWorkouts, currentSets] = rangeTotals(input.reference, input.current, "current");
 		const [previousWorkouts, previousSets] = rangeTotals(
@@ -521,8 +521,8 @@ export const workoutSummaryRecipe = defineRecipe(
 	},
 );
 
-export type WorkoutListItem = Recipe.Success<typeof workoutCardsRecipe>["items"][number];
-export type WorkoutComparison = Recipe.Success<typeof workoutComparisonsRecipe>[number];
-export type WorkoutExerciseTargets = Recipe.Success<typeof workoutExerciseTargetsRecipe>[number];
-export type WorkoutPeriodTotals = Recipe.Success<typeof workoutWeeksRecipe>[number];
 export type WorkoutSummary = Recipe.Success<typeof workoutSummaryRecipe>;
+export type WorkoutPeriodTotals = Recipe.Success<typeof workoutWeeksRecipe>[number];
+export type WorkoutComparison = Recipe.Success<typeof workoutComparisonsRecipe>[number];
+export type WorkoutListItem = Recipe.Success<typeof workoutCardsRecipe>["items"][number];
+export type WorkoutExerciseTargets = Recipe.Success<typeof workoutExerciseTargetsRecipe>[number];

@@ -20,97 +20,33 @@ import { EditorStats } from "./summary";
 
 type TimerProps = Omit<
 	ComponentProps<typeof DockTimers>,
-	"draft" | "onAddExercises" | "onJumpToSet"
+	"draft" | "onJumpToSet" | "onAddExercises"
 >;
 
 type EditorLayoutProps = {
 	readonly now: number;
 	readonly title: string;
 	readonly live: boolean;
-	readonly template: boolean;
-	readonly historical: boolean;
-	readonly cards: ReactNode;
-	readonly notices: ReactNode;
-	readonly onOverlay: (overlay: EditorOverlay) => void;
-	readonly draft: WorkoutEditorDraft;
-	readonly editorRoot: RefObject<HTMLDivElement | null>;
-	readonly context: typeof WorkoutEditorContextOutputSchema.Type;
 	readonly locked: boolean;
+	readonly cards: ReactNode;
+	readonly template: boolean;
+	readonly notices: ReactNode;
+	readonly historical: boolean;
+	readonly draft: WorkoutEditorDraft;
+	readonly onOverlay: (overlay: EditorOverlay) => void;
+	readonly editorRoot: RefObject<null | HTMLDivElement>;
+	readonly context: typeof WorkoutEditorContextOutputSchema.Type;
 };
 
 const barButtonClass = "text-text hover:bg-surface-2";
-
-function RailButton(
-	props: Omit<ComponentProps<"button">, "children"> & {
-		readonly label: string;
-		readonly trailing: ReactNode;
-		readonly icon: ComponentProps<typeof AppIcon>["name"];
-	},
-) {
-	const { icon, label, trailing, ...button } = props;
-	return (
-		<button
-			type="button"
-			{...button}
-			className="flex min-h-12 w-full items-center gap-3 px-3.5 py-2 text-left hover:bg-hover disabled:opacity-50"
-		>
-			<AppIcon size={17} name={icon} className="shrink-0 text-text-muted" />
-			<span className="flex-1 text-sm font-medium">{label}</span>
-			{trailing}
-		</button>
-	);
-}
-
-export function CompactDock(props: {
-	readonly live: boolean;
-	readonly locked: boolean;
-	readonly template: boolean;
-	readonly saveBlocked: boolean;
-	readonly safeAreaBottom: number;
-	readonly draft: WorkoutEditorDraft;
-	readonly timerProps: TimerProps;
-	readonly onJumpToSet: (setId: string) => void;
-	readonly onOverlay: (overlay: EditorOverlay) => void;
-}) {
-	return (
-		<ActionDock
-			safeAreaBottom={props.safeAreaBottom}
-			label={props.live ? "Timers" : "Editor actions"}
-		>
-			{props.live ? (
-				<DockTimers
-					{...props.timerProps}
-					draft={props.draft}
-					onJumpToSet={props.onJumpToSet}
-					onAddExercises={() => props.onOverlay("picker")}
-				/>
-			) : (
-				<div className="flex items-center gap-2">
-					<Button
-						variant="secondary"
-						disabled={props.locked}
-						onClick={() => props.onOverlay("picker")}
-					>
-						<AppIcon size={16} name="plus" />
-						Exercise
-					</Button>
-					<span className="flex-1" />
-					<Button disabled={props.saveBlocked} onClick={() => props.onOverlay("finish")}>
-						{props.template ? "Save template" : "Save changes"}
-					</Button>
-				</div>
-			)}
-		</ActionDock>
-	);
-}
 
 export function CompactBarActions(props: {
 	readonly live: boolean;
 	readonly paused: boolean;
 	readonly locked: boolean;
 	readonly menu: MenuItem[];
-	readonly saveBlocked: boolean;
 	readonly finishLabel: string;
+	readonly saveBlocked: boolean;
 	readonly onTogglePause: () => void;
 	readonly onOverlay: (overlay: EditorOverlay) => void;
 }) {
@@ -144,6 +80,49 @@ export function CompactBarActions(props: {
 				{props.finishLabel}
 			</Button>
 		</>
+	);
+}
+
+export function CompactDock(props: {
+	readonly live: boolean;
+	readonly locked: boolean;
+	readonly template: boolean;
+	readonly saveBlocked: boolean;
+	readonly safeAreaBottom: number;
+	readonly timerProps: TimerProps;
+	readonly draft: WorkoutEditorDraft;
+	readonly onJumpToSet: (setId: string) => void;
+	readonly onOverlay: (overlay: EditorOverlay) => void;
+}) {
+	return (
+		<ActionDock
+			safeAreaBottom={props.safeAreaBottom}
+			label={props.live ? "Timers" : "Editor actions"}
+		>
+			{props.live ? (
+				<DockTimers
+					{...props.timerProps}
+					draft={props.draft}
+					onJumpToSet={props.onJumpToSet}
+					onAddExercises={() => props.onOverlay("picker")}
+				/>
+			) : (
+				<div className="flex items-center gap-2">
+					<Button
+						variant="secondary"
+						disabled={props.locked}
+						onClick={() => props.onOverlay("picker")}
+					>
+						<AppIcon size={16} name="plus" />
+						Exercise
+					</Button>
+					<span className="flex-1" />
+					<Button disabled={props.saveBlocked} onClick={() => props.onOverlay("finish")}>
+						{props.template ? "Save template" : "Save changes"}
+					</Button>
+				</div>
+			)}
+		</ActionDock>
 	);
 }
 
@@ -201,11 +180,11 @@ export function WideEditor({
 	readonly finishLabel: string;
 	readonly discardLabel: string;
 	readonly saveBlocked: boolean;
+	readonly timerProps: TimerProps;
 	readonly discardBlocked: boolean;
 	readonly workoutAttachments: number;
-	readonly timerProps: TimerProps;
-	readonly measurement: ReturnType<typeof useMeasurementLogger>;
 	readonly onOpenWorkoutMedia: () => void;
+	readonly measurement: ReturnType<typeof useMeasurementLogger>;
 }) {
 	const { draft, locked, onOverlay } = props;
 	const { setTrigger, trigger: _trigger, ...measurement } = props.measurement;
@@ -335,5 +314,26 @@ export function WideEditor({
 				</Button>
 			</aside>
 		</div>
+	);
+}
+
+function RailButton(
+	props: Omit<ComponentProps<"button">, "children"> & {
+		readonly label: string;
+		readonly trailing: ReactNode;
+		readonly icon: ComponentProps<typeof AppIcon>["name"];
+	},
+) {
+	const { icon, label, trailing, ...button } = props;
+	return (
+		<button
+			type="button"
+			{...button}
+			className="flex min-h-12 w-full items-center gap-3 px-3.5 py-2 text-left hover:bg-hover disabled:opacity-50"
+		>
+			<AppIcon size={17} name={icon} className="shrink-0 text-text-muted" />
+			<span className="flex-1 text-sm font-medium">{label}</span>
+			{trailing}
+		</button>
 	);
 }

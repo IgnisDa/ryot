@@ -45,7 +45,7 @@ const loadTemplate = Effect.fnUntraced(function* (client: RyotClient, entityId: 
 });
 
 export const templateQuery = createRyotQuery(
-	({ input, client }: { readonly client: RyotClient; readonly input: string }) =>
+	({ input, client }: { readonly input: string; readonly client: RyotClient }) =>
 		loadTemplate(client, input),
 	{ entityWatch: ({ input }) => ({ visible: [], foreground: [input] }) },
 );

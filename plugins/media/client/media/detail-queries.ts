@@ -29,11 +29,11 @@ type SummaryVisible = {
 	readonly collections: { readonly items: readonly { readonly id: string }[] };
 };
 
-export const createMediaSummaryQuery = <Data extends { readonly summary: SummaryVisible | null }>(
+export const createMediaSummaryQuery = <Data extends { readonly summary: null | SummaryVisible }>(
 	summaryRecipe: (input: {
-		readonly reference: PluginIdentityReference;
 		readonly entityId: string;
 		readonly collectionLimit: number;
+		readonly reference: PluginIdentityReference;
 	}) => PreparedRecipe<Data>,
 	summaryVisible: (summary: NonNullable<Data["summary"]>) => readonly string[] = () => [],
 ) =>

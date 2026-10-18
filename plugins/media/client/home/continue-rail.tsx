@@ -20,7 +20,7 @@ import { createHomeSectionQuery, type SectionData } from "./section-query";
 const RAIL_LIMIT = 20;
 
 const libraryStateRecipes = (
-	input: { readonly state: "in_progress" | "backlog" },
+	input: { readonly state: "backlog" | "in_progress" },
 	reference: PluginIdentityReference,
 ) => ({
 	flat: flatByLifecycleStateRecipe({ reference, limit: RAIL_LIMIT, states: [input.state] }),

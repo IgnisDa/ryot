@@ -23,7 +23,7 @@ export const DirectoriesResponse = Schema.Struct({
 export const MetadataResponse = Schema.Struct({
 	MediaContainer: Schema.Struct({ Metadata: Schema.optional(Schema.Array(Metadata)) }),
 });
-export const providerIds = (guids: ReadonlyArray<{ id: string }> | undefined) => {
+export const providerIds = (guids: undefined | ReadonlyArray<{ id: string }>) => {
 	const get = (prefix: string) =>
 		guids?.find(({ id }) => id.startsWith(`${prefix}://`))?.id.slice(prefix.length + 3);
 	return { imdb: get("imdb"), tmdb: get("tmdb"), tvdb: get("tvdb") };

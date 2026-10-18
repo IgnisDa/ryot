@@ -50,7 +50,7 @@ const cachedExercisesMetadataSchema = Schema.Struct({
 });
 const exercisePayloadSchema = Schema.Array(Schema.Unknown);
 
-type EnumResult = { ok: boolean; value: string | null };
+type EnumResult = { ok: boolean; value: null | string };
 
 const CACHE_TTL_SECONDS = 86400;
 const CACHE_CHUNK_BYTE_LIMIT = 80000;
@@ -68,7 +68,7 @@ const executionStartedAt = (execution: ExecutionMetadata) =>
 const equipmentAliases: Record<string, string> = { "e-z curl bar": "ez_curl_bar" };
 
 const validForce = new Set(["pull", "push", "static"]);
-const validLevel = new Set(["beginner", "intermediate", "expert"]);
+const validLevel = new Set(["expert", "beginner", "intermediate"]);
 const validMechanic = new Set(["compound", "isolation"]);
 const validMuscles = new Set<string>(exerciseTargetCatalog.map(({ externalId }) => externalId));
 const validEquipment = new Set<string>(
@@ -164,7 +164,7 @@ const getImages = (value: unknown): ExerciseImage[] => {
 		.map((path) => ({ type: "remote" as const, url: `${IMAGES_PREFIX_URL}/${path}` }));
 };
 
-const normalizeSearchText = (parts: ReadonlyArray<string | readonly string[] | null>) =>
+const normalizeSearchText = (parts: ReadonlyArray<null | string | readonly string[]>) =>
 	parts
 		.filter((part): part is string | readonly string[] => part !== null)
 		.flatMap((part) => (Array.isArray(part) ? part : [part]))
@@ -174,7 +174,7 @@ const normalizeSearchText = (parts: ReadonlyArray<string | readonly string[] | n
 		.replace(/\s+/g, " ")
 		.trim();
 
-const normalizeExercise = (value: unknown): NormalizedExercise | null => {
+const normalizeExercise = (value: unknown): null | NormalizedExercise => {
 	const exercise = asRecord(value);
 	const category = typeof exercise?.["category"] === "string" ? exercise["category"] : "";
 	const kind = categoryToKind(category);
@@ -236,7 +236,7 @@ const normalizeExercise = (value: unknown): NormalizedExercise | null => {
 	};
 };
 
-const reviveExercise = (value: unknown): NormalizedExercise | null => {
+const reviveExercise = (value: unknown): null | NormalizedExercise => {
 	const decoded = Schema.decodeUnknownResult(normalizedExerciseSchema)(value);
 	if (decoded._tag === "Failure") {
 		return null;

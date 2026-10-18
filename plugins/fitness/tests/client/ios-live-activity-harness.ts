@@ -12,10 +12,10 @@ type Activity = Extract<
 
 export const iosLiveActivityHarness = (
 	options: {
-		readonly activities?: readonly Activity[];
-		readonly onRequest?: (request: PluginIosLiveActivityRequest) => void;
 		readonly fails?: boolean;
 		readonly listResult?: () => unknown;
+		readonly activities?: readonly Activity[];
+		readonly onRequest?: (request: PluginIosLiveActivityRequest) => void;
 		readonly beforeRequest?: (
 			request: PluginIosLiveActivityRequest,
 		) => Effect.Effect<void, RyotClientError>;

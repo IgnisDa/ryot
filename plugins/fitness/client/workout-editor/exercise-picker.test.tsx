@@ -21,7 +21,7 @@ type PickerExercise = WorkoutExercisePickerResult["items"][number];
 
 const rows = (
 	items: readonly Record<string, unknown>[],
-	pageInfo: { readonly hasMore?: boolean; readonly nextCursor?: string | null } = {},
+	pageInfo: { readonly hasMore?: boolean; readonly nextCursor?: null | string } = {},
 ) => ({
 	items,
 	type: "rows" as const,
@@ -54,8 +54,8 @@ const pageContext = () => ({
 });
 
 function PickerProbe(props: {
-	readonly replacement?: { readonly name: string; readonly kind: "reps" | "duration" };
 	readonly onApply: (exercises: readonly PickerExercise[]) => void;
+	readonly replacement?: { readonly name: string; readonly kind: "reps" | "duration" };
 }) {
 	const [open, setOpen] = useState(true);
 	return open ? (
@@ -98,11 +98,11 @@ const createRequestAnswerer = () => {
 	return (
 		page: ReturnType<typeof mountPluginPage>,
 		options: {
+			readonly storedPresets?: JsonValue;
 			readonly exercisePage: (
 				pageIndex: number,
 				after: string | undefined,
 			) => ReturnType<typeof rows>;
-			readonly storedPresets?: JsonValue;
 		},
 	) => {
 		type QuerySuccess = Extract<

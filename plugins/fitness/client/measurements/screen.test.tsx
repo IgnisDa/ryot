@@ -22,7 +22,7 @@ const daysAgo = (days: number) => new Date(Date.now() - days * DAY_MS).toISOStri
 
 const rows = (
 	items: readonly Record<string, unknown>[],
-	pageInfo: { readonly hasMore: boolean; readonly nextCursor: string | null } = {
+	pageInfo: { readonly hasMore: boolean; readonly nextCursor: null | string } = {
 		hasMore: false,
 		nextCursor: null,
 	},
@@ -35,7 +35,7 @@ const summary = (
 	rangeCount: number,
 	latestValue: number,
 	latestAt: string,
-	pinnedAt: string | null = null,
+	pinnedAt: null | string = null,
 ) => ({ id, name, unit, key: id, latestAt, pinnedAt, rangeCount, latestValue, firstAt: latestAt });
 
 const metrics = rows([
@@ -129,13 +129,13 @@ function MeasurementLoggerPage() {
 const openPage = (
 	metricRows = metrics,
 	options: {
-		readonly readingsOnly?: boolean;
 		readonly loggerOnly?: boolean;
-		readonly metricsPage?: (after: string | undefined) => ReturnType<typeof rows> | null;
-		readonly readingsPage?: (after: string | undefined) => ReturnType<typeof rows> | null;
+		readonly readingsOnly?: boolean;
+		readonly metricsPage?: (after: string | undefined) => null | ReturnType<typeof rows>;
+		readonly readingsPage?: (after: string | undefined) => null | ReturnType<typeof rows>;
 		readonly entryReadingsPage?: (
 			after: string | undefined,
-		) => ReturnType<typeof rows> | null | undefined;
+		) => null | undefined | ReturnType<typeof rows>;
 	} = {},
 ) => {
 	let pageComponent = MeasurementsPage;
@@ -225,7 +225,7 @@ const openPage = (
 	return { page, answerPending };
 };
 
-const text = (element: Element | null) => element?.textContent ?? "";
+const text = (element: null | Element) => element?.textContent ?? "";
 
 describe("measurements page", () => {
 	it.live("keeps equal-time submissions and their comments separate", () =>

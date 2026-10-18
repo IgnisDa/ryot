@@ -77,11 +77,11 @@ const isOneOf = (expression: Parameters<typeof inArray>[0], values: readonly str
  */
 export const episodicByLifecycleStateRecipe = defineRecipe(
 	(input: {
-		readonly reference: PluginIdentityReference;
 		readonly limit: number;
 		readonly config: EpisodicKindConfig;
 		readonly after?: string | undefined;
 		readonly entityId?: string | undefined;
+		readonly reference: PluginIdentityReference;
 		readonly states: NonEmpty<EpisodicLifecycleState>;
 	}) => {
 		const entity = table("entity", "entity");
@@ -137,8 +137,8 @@ export type EpisodicByLifecycleStateResult = Recipe.Success<typeof episodicByLif
  */
 export const flatByLifecycleStateRecipe = defineRecipe(
 	(input: {
-		readonly reference: PluginIdentityReference;
 		readonly limit: number;
+		readonly reference: PluginIdentityReference;
 		readonly states: NonEmpty<MediaLifecycleState>;
 	}) => {
 		const entity = table("entity", "entity");

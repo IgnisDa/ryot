@@ -10,7 +10,7 @@ import { manifest } from "./shared";
 
 type ListennotesHost = Pick<
 	ScriptHost,
-	"httpCall" | "getPluginConfig" | "getCachedValue" | "setCachedValue"
+	"httpCall" | "getCachedValue" | "setCachedValue" | "getPluginConfig"
 >;
 
 const httpSuccess = (body: unknown) =>

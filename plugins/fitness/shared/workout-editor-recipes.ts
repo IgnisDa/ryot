@@ -44,13 +44,13 @@ export const WorkoutEditorBaselineSchema = Schema.Struct({
 	entity: WorkoutEditorEntitySchema,
 	sets: Schema.Array(WorkoutEditorEventSchema),
 });
-export type WorkoutEditorBaseline = typeof WorkoutEditorBaselineSchema.Type;
 export type WorkoutEditorEvent = typeof WorkoutEditorEventSchema.Type;
+export type WorkoutEditorBaseline = typeof WorkoutEditorBaselineSchema.Type;
 
 export const workoutEditorEntityRecipe = defineRecipe(
 	(input: {
-		readonly reference: PluginIdentityReference;
 		readonly entityId: string;
+		readonly reference: PluginIdentityReference;
 		readonly kind: "workout" | "workout-template";
 	}) => {
 		const entity = table("entity", "editorEntity");
@@ -77,9 +77,9 @@ export const workoutEditorEntityRecipe = defineRecipe(
 
 export const workoutEditorSetsRecipe = defineRecipe(
 	(input: {
-		readonly reference: PluginIdentityReference;
 		readonly workoutId: string;
 		readonly after?: string | undefined;
+		readonly reference: PluginIdentityReference;
 	}) => {
 		const event = table("event", "editorSet");
 		return {
@@ -109,9 +109,9 @@ export const workoutEditorSetsRecipe = defineRecipe(
 
 export const workoutEditorExercisesRecipe = defineRecipe(
 	(input: {
-		readonly reference: PluginIdentityReference;
-		readonly exerciseIds: readonly string[];
 		readonly after?: string | undefined;
+		readonly exerciseIds: readonly string[];
+		readonly reference: PluginIdentityReference;
 	}) => {
 		const exercise = table("entity", "editorExercise");
 		return {
@@ -149,8 +149,8 @@ export const workoutEditorExercisesRecipe = defineRecipe(
 
 export const workoutEditorEventIdentitiesRecipe = defineRecipe(
 	(input: {
-		readonly reference: PluginIdentityReference;
 		readonly eventIds: readonly string[];
+		readonly reference: PluginIdentityReference;
 	}) => {
 		const event = table("event", "editorEventIdentity");
 		return {
@@ -179,7 +179,7 @@ export const workoutEditorEventIdentitiesRecipe = defineRecipe(
 );
 
 export const workoutEditorMembershipRecipe = defineRecipe(
-	(input: { readonly reference: PluginIdentityReference; readonly exerciseId: string }) => {
+	(input: { readonly exerciseId: string; readonly reference: PluginIdentityReference }) => {
 		const link = table("relationship", "editorMembership");
 		return {
 			map: ({ membership }) => Result.succeed(membership ?? null),
@@ -203,7 +203,7 @@ export const workoutEditorMembershipRecipe = defineRecipe(
 );
 
 export const workoutEditorLinksRecipe = defineRecipe(
-	(input: { readonly reference: PluginIdentityReference; readonly workoutId: string }) => {
+	(input: { readonly workoutId: string; readonly reference: PluginIdentityReference }) => {
 		const link = table("relationship", "editorSourceLink");
 		return {
 			map: ({ links }) => Result.succeed(links),

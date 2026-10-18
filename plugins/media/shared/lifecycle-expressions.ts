@@ -32,8 +32,8 @@ import {
 } from "@ryot-app/plugin-kit/ryotql";
 
 export type Predicate = Parameters<typeof conditional>[0];
-export type ScalarExpression = Parameters<typeof ascending>[0];
 export type TableReference = Parameters<typeof column>[0];
+export type ScalarExpression = Parameters<typeof ascending>[0];
 
 export const EpisodicLifecycleStateSchema = Schema.Literals([
 	"untracked",
@@ -68,17 +68,17 @@ export type EpisodeLifecycleState = Schema.Schema.Type<typeof EpisodeLifecycleSt
 
 export type EpisodicKindConfig =
 	| {
+			readonly kind: "podcast";
+			readonly parentSchemaSlug: "podcast";
+			readonly episodeSchemaSlug: "podcast-episode";
+			readonly parentEpisodeRelationshipSlug: "podcast-to-podcast-episode";
+	  }
+	| {
 			readonly kind: "show";
 			readonly parentSchemaSlug: "show";
 			readonly episodeSchemaSlug: "show-episode";
 			readonly parentSeasonRelationshipSlug: "show-to-show-season";
 			readonly seasonEpisodeRelationshipSlug: "show-season-to-show-episode";
-	  }
-	| {
-			readonly kind: "podcast";
-			readonly parentSchemaSlug: "podcast";
-			readonly episodeSchemaSlug: "podcast-episode";
-			readonly parentEpisodeRelationshipSlug: "podcast-to-podcast-episode";
 	  };
 
 export const showEpisodicKindConfig = {
@@ -397,7 +397,7 @@ export const episodeHasAired = (episode: TableReference) =>
 export const episodeIsUpcoming = (episode: TableReference) =>
 	and(isNotNull(publishDate(episode)), gt(publishDate(episode), currentDate()));
 
-type EpisodeAiring = "aired" | "upcoming" | "any";
+type EpisodeAiring = "any" | "aired" | "upcoming";
 
 const airingFilters = {
 	any: () => undefined,
@@ -418,7 +418,7 @@ export const episodicEpisodeQuery = (
 	episode: TableReference,
 	alias: string,
 	airing: EpisodeAiring = "aired",
-	seasons: "regular" | "all" = "regular",
+	seasons: "all" | "regular" = "regular",
 ) => {
 	const airingFilter = airingFilters[airing](episode);
 	const airingPredicates = airingFilter === undefined ? [] : [airingFilter];

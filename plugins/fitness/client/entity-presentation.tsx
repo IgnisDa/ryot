@@ -28,12 +28,12 @@ import { managedAssetBatch } from "./asset-urls";
 import { formatDay, formatValue } from "./measurements/model";
 
 export type FitnessPresentationViewData = {
-	readonly callout: string | null;
-	readonly image: FitnessPresentationSourceData["presentationImage"];
 	readonly name: string;
-	readonly primary: string | null;
-	readonly secondary: string | null;
+	readonly callout: null | string;
+	readonly primary: null | string;
+	readonly secondary: null | string;
 	readonly batchAssets: readonly ManagedAssetLocator[];
+	readonly image: FitnessPresentationSourceData["presentationImage"];
 };
 
 const buildFitnessPresentations = (
@@ -120,11 +120,27 @@ const artworkSize = (layout: "grid" | "list", compact: boolean) => {
 	return compact ? "h-24 w-16" : "h-16 w-11";
 };
 
+function FitnessRow({
+	data,
+	reference,
+}: EntityPresentationComponentProps<FitnessPresentationViewData>) {
+	const { compact } = useRyotViewport();
+	return <FitnessPresentation data={data} layout="list" compact={compact} reference={reference} />;
+}
+
+function FitnessCard({
+	data,
+	reference,
+}: EntityPresentationComponentProps<FitnessPresentationViewData>) {
+	const { compact } = useRyotViewport();
+	return <FitnessPresentation data={data} layout="grid" compact={compact} reference={reference} />;
+}
+
 function FitnessArtwork(props: {
 	readonly compact: boolean;
 	readonly layout: "grid" | "list";
-	readonly data: FitnessPresentationViewData;
 	readonly reference: EntityReference;
+	readonly data: FitnessPresentationViewData;
 }) {
 	const asset = props.data.image ?? undefined;
 	const url = useAssetUrl(asset);
@@ -140,8 +156,8 @@ function FitnessArtwork(props: {
 }
 
 function FitnessFacts(props: {
-	readonly data: FitnessPresentationViewData;
 	readonly reference: EntityReference;
+	readonly data: FitnessPresentationViewData;
 }) {
 	return (
 		<div className="grid min-w-0 gap-1">
@@ -174,8 +190,8 @@ function FitnessFacts(props: {
 function FitnessPresentation(props: {
 	readonly compact: boolean;
 	readonly layout: "grid" | "list";
-	readonly data: FitnessPresentationViewData;
 	readonly reference: EntityReference;
+	readonly data: FitnessPresentationViewData;
 }) {
 	return (
 		<ManagedAssetProvider assets={props.data.batchAssets}>
@@ -210,22 +226,6 @@ function FitnessPresentation(props: {
 			</article>
 		</ManagedAssetProvider>
 	);
-}
-
-function FitnessCard({
-	data,
-	reference,
-}: EntityPresentationComponentProps<FitnessPresentationViewData>) {
-	const { compact } = useRyotViewport();
-	return <FitnessPresentation data={data} layout="grid" compact={compact} reference={reference} />;
-}
-
-function FitnessRow({
-	data,
-	reference,
-}: EntityPresentationComponentProps<FitnessPresentationViewData>) {
-	const { compact } = useRyotViewport();
-	return <FitnessPresentation data={data} layout="list" compact={compact} reference={reference} />;
 }
 
 export const fitnessCardPresentation = defineEntityPresentation({

@@ -80,9 +80,9 @@ describe("run and expand copy", () => {
 type TestEpisode = {
 	readonly id: string;
 	readonly name: string;
-	readonly runtime: number | null;
 	readonly season: number;
 	readonly number: number;
+	readonly runtime: null | number;
 };
 
 const vocabulary = {
@@ -107,8 +107,8 @@ const historyEvent = (input: {
 	readonly number: number;
 	readonly occurredAt: string;
 	readonly consumedOn?: string;
-	readonly slug: "complete" | "progress";
 	readonly progressPercent?: number;
+	readonly slug: "complete" | "progress";
 }): MediaEpisodicHistoryEvent<TestEpisode> => ({
 	text: null,
 	rating: null,

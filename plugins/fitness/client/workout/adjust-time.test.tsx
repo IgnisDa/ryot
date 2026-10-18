@@ -18,8 +18,8 @@ afterEach(disposePluginBridges);
 
 const openWorkout = (
 	properties: {
-		readonly startedAt: string;
 		readonly endedAt?: string;
+		readonly startedAt: string;
 		readonly activeDuration?: number;
 	},
 	onClose: () => void,

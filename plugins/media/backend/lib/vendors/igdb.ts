@@ -7,16 +7,16 @@ import { decodeJsonResponse, numberValue, stringValue } from "../records";
 
 export type IgdbHost = Pick<
 	ScriptHost,
-	"httpCall" | "getPluginConfig" | "getCachedValue" | "setCachedValue"
+	"httpCall" | "getCachedValue" | "setCachedValue" | "getPluginConfig"
 >;
 
 const BASE_URL = "https://api.igdb.com/v4";
 const AUTH_URL = "https://id.twitch.tv/oauth2/token";
 const TOKEN_CACHE_KEY = "access_token";
 
-type CachedToken = { accessToken: string; clientId: string };
+type CachedToken = { clientId: string; accessToken: string };
 
-const asCachedToken = (value: unknown): CachedToken | null => {
+const asCachedToken = (value: unknown): null | CachedToken => {
 	const record = asRecord(value);
 	const accessToken = record?.["accessToken"];
 	const clientId = record?.["clientId"];

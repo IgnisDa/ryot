@@ -51,21 +51,21 @@ const workoutSetSchemaSlug = Schema.decodeSync(EventStreamStepInput.fields.event
 	"workout-set",
 );
 
-class WorkoutRecordAutomationError extends Error {
-	readonly _tag = "WorkoutRecordAutomationError";
-}
+type EventSnapshot = Extract<EventBatchItem, { operation: "create" }>["after"];
 
+type AutomationHost = Pick<ScriptHost, "executeRyotql" | "requestEventStreamWork">;
 type EntityUpdate = Extract<
 	AutomationInput["automation"]["payload"],
-	{ operation: "update"; resource: "entity" }
+	{ resource: "entity"; operation: "update" }
 >;
-type AutomationHost = Pick<ScriptHost, "executeRyotql" | "requestEventStreamWork">;
 
 type EventBatchItem = Extract<
 	AutomationInput["automation"]["payload"],
-	{ operation: "batch"; resource: "event" }
+	{ resource: "event"; operation: "batch" }
 >["items"][number];
-type EventSnapshot = Extract<EventBatchItem, { operation: "create" }>["after"];
+class WorkoutRecordAutomationError extends Error {
+	readonly _tag = "WorkoutRecordAutomationError";
+}
 
 const snapshotsOf = (item: EventBatchItem): readonly EventSnapshot[] => {
 	if (item.operation === "create") {

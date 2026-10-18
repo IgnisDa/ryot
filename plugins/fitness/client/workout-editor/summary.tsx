@@ -18,10 +18,10 @@ const quantity = (text: string | undefined) =>
 		: 0;
 
 export function EditorStats(props: {
-	readonly draft: WorkoutEditorDraft;
 	readonly now: number;
 	readonly compact: boolean;
 	readonly imperial: boolean;
+	readonly draft: WorkoutEditorDraft;
 }) {
 	const { draft } = props;
 	const included = includedWorkoutOccurrences(draft);

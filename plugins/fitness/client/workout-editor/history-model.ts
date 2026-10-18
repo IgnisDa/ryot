@@ -8,7 +8,7 @@ export const historySetForOccurrence = (
 	row: WorkoutHistorySetResult["items"][number],
 	occurrence: WorkoutEditorOccurrence,
 	id: string,
-): WorkoutEditorSet | undefined => {
+): undefined | WorkoutEditorSet => {
 	if (row.recordedKind !== occurrence.exerciseKind) {
 		return undefined;
 	}

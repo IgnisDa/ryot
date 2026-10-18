@@ -28,7 +28,7 @@ export const formatHomeDate = (now: Date, timeZone: string) => {
 	return `${part({ weekday: "long" })}, ${part({ month: "long", day: "numeric" })}`;
 };
 
-export const lastWorkoutPhrase = (startedAt: string | null, now: Date, timeZone: string) => {
+export const lastWorkoutPhrase = (startedAt: null | string, now: Date, timeZone: string) => {
 	const days = startedAt === null ? null : daysSince(startedAt, now, timeZone);
 	return days === null ? null : `last workout ${describeAgo(days)}`;
 };
@@ -71,7 +71,7 @@ export const muscleBands = ["cold", "stale", "fresh", "recent"] as const;
 
 export type MuscleBand = (typeof muscleBands)[number];
 
-const bandOf = (days: number | null): MuscleBand => {
+const bandOf = (days: null | number): MuscleBand => {
 	if (days === null || days >= 14) {
 		return "cold";
 	}
@@ -130,8 +130,8 @@ export const buildTemplateCards = (input: {
 
 export const buildPersonalBests = (input: {
 	readonly now: Date;
-	readonly imperial: boolean;
 	readonly timeZone: string;
+	readonly imperial: boolean;
 	readonly items: readonly HomePersonalBest[];
 }) => {
 	const { now, imperial, timeZone } = input;
@@ -187,8 +187,8 @@ export const draftBanner = (draft: ActiveEditorDraft, now: Date, timeZone: strin
 
 export const setupSteps = (input: {
 	readonly goalSet: boolean;
-	readonly hasTemplate: boolean;
 	readonly hasMetric: boolean;
+	readonly hasTemplate: boolean;
 }) => [
 	{
 		key: "goal",
@@ -220,7 +220,7 @@ export const setupSteps = (input: {
 	},
 ];
 
-export const loggedPhrase = (latestAt: string | null, now: Date, timeZone: string) => {
+export const loggedPhrase = (latestAt: null | string, now: Date, timeZone: string) => {
 	if (latestAt === null) {
 		return "Not logged yet";
 	}
@@ -230,5 +230,5 @@ export const loggedPhrase = (latestAt: string | null, now: Date, timeZone: strin
 		: `Last logged ${formatDay(latestAt, timeZone, true)}`;
 };
 
-export const measurementValue = (value: number | null, unit: string | null) =>
+export const measurementValue = (value: null | number, unit: null | string) =>
 	value === null ? "—" : formatValue(value, unit);

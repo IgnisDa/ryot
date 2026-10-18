@@ -24,7 +24,7 @@ import {
 
 const noopAdapter = { query: () => Effect.succeed({}) };
 
-const relatedRow = (id: string, name: string, kind: string | null) => ({
+const relatedRow = (id: string, name: string, kind: null | string) => ({
 	...flatRecommendationRow,
 	id,
 	name,
@@ -69,7 +69,7 @@ const renderBody = (
 	overview: ReturnType<typeof videoGameOverview> = videoGameOverview(),
 ) => renderMediaScreenBody(videoGameSchema, videoGameSummary(overrides), overview);
 
-const presentationData = (timeToBeatNormally: number | null) =>
+const presentationData = (timeToBeatNormally: null | number) =>
 	decodeFlatPresentation(videoGameRecipes, { timeToBeatNormally, schemaSlug: "video-game" });
 
 afterEach(() => {

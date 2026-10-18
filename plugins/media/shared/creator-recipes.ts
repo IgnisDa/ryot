@@ -37,9 +37,9 @@ import {
 	type MediaCreatorCreditSlug,
 } from "./media-schema-slugs";
 
-type MediaTargetSlug = (typeof builtinMediaEntitySchemaSlugs)[number];
-
 type GroupTargetSlug = (typeof creatorGroupTargetSlugs)[number];
+
+type MediaTargetSlug = (typeof builtinMediaEntitySchemaSlugs)[number];
 
 type CreditIncludeInput = {
 	readonly slug: string;
@@ -108,12 +108,12 @@ const groupCreditInclude = (input: CreditIncludeInput) =>
 const isGroupTarget = (target: MediaCreatorCreditSlug): target is GroupTargetSlug =>
 	creatorGroupTargetSlugs.some((slug) => slug === target);
 
-export type MediaCreatorCredit = SelectedRow<ReturnType<typeof creditSelection>> & {
-	readonly character?: string | null | undefined;
-};
-
 export type MediaCreatorOverviewOf<Recipes extends { readonly overviewRecipe: unknown }> =
 	Recipe.Success<Recipes["overviewRecipe"]>;
+
+export type MediaCreatorCredit = SelectedRow<ReturnType<typeof creditSelection>> & {
+	readonly character?: null | string | undefined;
+};
 
 export const mediaCreatorRecipes = <
 	const SummaryFields extends SelectedSelection,
@@ -126,9 +126,9 @@ export const mediaCreatorRecipes = <
 }) => {
 	const summaryRecipe = defineRecipe(
 		(input: {
-			readonly reference: PluginIdentityReference;
 			readonly entityId: string;
 			readonly collectionLimit: number;
+			readonly reference: PluginIdentityReference;
 		}) => ({
 			map: (result) => mediaSummaryResult(result),
 			queries: mediaSummaryQueries({
@@ -152,14 +152,14 @@ export const mediaCreatorRecipes = <
 		config.creditFields?.(relationship) ?? ({} as CreditFields);
 
 	type CreditIncludes = {
-		readonly [Target in MediaTargetSlug]: ReturnType<typeof mediaCreditInclude<CreditFields>>;
-	} & { readonly [Target in GroupTargetSlug]: ReturnType<typeof groupCreditInclude> };
+		readonly [Target in GroupTargetSlug]: ReturnType<typeof groupCreditInclude>;
+	} & { readonly [Target in MediaTargetSlug]: ReturnType<typeof mediaCreditInclude<CreditFields>> };
 
 	const overviewRecipe = defineRecipe(
 		(input: {
-			readonly reference: PluginIdentityReference;
 			readonly entityId: string;
 			readonly creditLimit: number;
+			readonly reference: PluginIdentityReference;
 		}) => {
 			const creator = table("entity", `${config.alias}CreditCreator`);
 			const targets = [...builtinMediaEntitySchemaSlugs, ...creatorGroupTargetSlugs];
@@ -216,11 +216,11 @@ export const mediaCreatorRecipes = <
 	});
 	const creditsRecipe = defineRecipe(
 		(input: {
-			readonly reference: PluginIdentityReference;
-			readonly entityId: string;
-			readonly target: MediaCreatorCreditSlug;
 			readonly limit: number;
+			readonly entityId: string;
 			readonly after?: string | undefined;
+			readonly target: MediaCreatorCreditSlug;
+			readonly reference: PluginIdentityReference;
 		}) => {
 			const credit = table("entity", "credit");
 			const relationship = table("relationship", "creditRelationship");

@@ -40,14 +40,14 @@ const creditLines = (credit: MediaCreatorCredit) => [
 
 export function MediaCreditRails<Slug extends string>(props: {
 	readonly entityId: string;
-	readonly safeAreaTop: number;
-	readonly creditsQuery: RyotQuery<
-		{ readonly entityId: string; readonly target: Slug; readonly after: string | null },
-		MediaCursorPage<MediaCreatorCredit>
-	>;
 	readonly compact: boolean;
+	readonly safeAreaTop: number;
 	readonly overview: MediaCreditRailsOverview<Slug>;
 	readonly sections: readonly MediaCreditSection<Slug>[];
+	readonly creditsQuery: RyotQuery<
+		{ readonly target: Slug; readonly entityId: string; readonly after: null | string },
+		MediaCursorPage<MediaCreatorCredit>
+	>;
 }) {
 	return props.sections.map((section) => {
 		const credits = props.overview[section.slug];

@@ -46,7 +46,7 @@ export default defineAutomation({
 			const entitySlugById = new Map(
 				entities.map((entity) => [entity.id, entity.entitySchemaSlug]),
 			);
-			const eventSchemaSlugsByEntitySchema = new Map<string, string | null>();
+			const eventSchemaSlugsByEntitySchema = new Map<string, null | string>();
 			const events: CreateEventItem[] = [];
 			for (const { createdAt, sourceEntityId } of memberships) {
 				const entitySchemaSlug = entitySlugById.get(sourceEntityId);

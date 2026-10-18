@@ -6,10 +6,10 @@ import type {
 } from "@ryot-app/contract/modules/ryotql/language";
 import { Effect } from "@ryot-app/plugin-backend-sdk/effect";
 
-type Expression = ScalarExpression | Predicate;
-type StoredRow = Readonly<Record<string, unknown>>;
-type Rows = Readonly<Record<string, StoredRow>>;
 export type StoredTables = Readonly<Record<string, readonly StoredRow[]>>;
+type Expression = Predicate | ScalarExpression;
+type Rows = Readonly<Record<string, StoredRow>>;
+type StoredRow = Readonly<Record<string, unknown>>;
 
 export const measurementTables: StoredTables = {
 	event: [

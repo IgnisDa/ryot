@@ -43,9 +43,9 @@ const watchProvidersTrailing = mediaWatchProvidersTrailing<ReturnType<typeof dec
 );
 
 const overviewScreen = (input: {
-	readonly media?: ReturnType<typeof decodeShowSummary>;
-	readonly overview: MediaOverviewState<Overview>;
 	readonly refreshOverview?: () => void;
+	readonly overview: MediaOverviewState<Overview>;
+	readonly media?: ReturnType<typeof decodeShowSummary>;
 	readonly trailing?: (slot: { readonly compact: boolean }) => ReactNode;
 }) => {
 	const media = input.media ?? decodeShowSummary();

@@ -26,12 +26,12 @@ const localMidnight = (date: string, timeZone: string) =>
 	);
 
 export type ActivityWindow = {
-	/** First local date shown, always a Monday. */
-	readonly start: string;
 	/** Last local date shown: today. */
 	readonly end: string;
 	/** Instant `start` begins in the time zone, inclusive. */
 	readonly from: string;
+	/** First local date shown, always a Monday. */
+	readonly start: string;
 	/** Instant the day after `end` begins in the time zone, exclusive. */
 	readonly until: string;
 };

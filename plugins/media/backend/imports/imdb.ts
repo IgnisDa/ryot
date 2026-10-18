@@ -14,7 +14,7 @@ const getEntitySchemaSlug = (titleType: string) => {
 	if (["Movie", "Video", "movie", "video"].includes(titleType)) {
 		return "movie" as const;
 	}
-	if (["TV Series", "TV Mini Series", "tvSeries", "tvMiniSeries"].includes(titleType)) {
+	if (["tvSeries", "TV Series", "tvMiniSeries", "TV Mini Series"].includes(titleType)) {
 		return "show" as const;
 	}
 	return undefined;

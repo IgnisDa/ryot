@@ -42,8 +42,8 @@ const mediaImportResolutionActivitySlugByProvider = {
 	"book.google-books": "media-import-resolve.book.google-books",
 } as const;
 
-type FinalizedEntityGroup = MediaImportWriteChunkInput["entityGroups"][number];
 type FinalizedEvent = FinalizedEntityGroup["events"][number];
+type FinalizedEntityGroup = MediaImportWriteChunkInput["entityGroups"][number];
 
 const unresolvedEpisodeMessage = (episode: UnresolvedEpisodeRef) => {
 	if (episode.type === "show-season") {
@@ -272,7 +272,7 @@ export function* runMediaImportBatch(
 			? yield* replay.activity(`episodes-${batchIndex}`, episodes, { refs: episodeRefs })
 			: { results: [] };
 	const answeredRequests = new Set<number>();
-	const episodeEntityIdByEvent = new Map<string, string | null>();
+	const episodeEntityIdByEvent = new Map<string, null | string>();
 	for (const result of episodeOutput.results) {
 		const request = episodeRequests[result.index];
 		if (!request) {

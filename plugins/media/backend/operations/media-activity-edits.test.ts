@@ -45,7 +45,7 @@ const page = (items: readonly unknown[]) => ({
 	pageInfo: { limit: 100, hasMore: false, nextCursor: null },
 });
 
-const isLiteral = (node: unknown): node is { readonly type: "literal"; readonly value: string } =>
+const isLiteral = (node: unknown): node is { readonly value: string; readonly type: "literal" } =>
 	typeof node === "object" && node !== null && "type" in node && node.type === "literal";
 
 const requestedIds = (document: RyotQLDocument) =>
@@ -60,21 +60,21 @@ const requestedIds = (document: RyotQLDocument) =>
 const recordingHost = (input: {
 	readonly events: readonly StoredEvent[];
 	readonly disallowed?: readonly string[];
+	readonly updateEvents?: () => Effect.Effect<{ readonly count: number }, SandboxHostError>;
 	readonly deleteEvents?: (
 		ids: readonly string[],
-		options: DeleteOptions | undefined,
-	) => Effect.Effect<{ readonly count: number }, SandboxHostError> | undefined;
-	readonly updateEvents?: () => Effect.Effect<{ readonly count: number }, SandboxHostError>;
+		options: undefined | DeleteOptions,
+	) => undefined | Effect.Effect<{ readonly count: number }, SandboxHostError>;
 }) => {
 	const calls: string[] = [];
 	const documents: RyotQLDocument[] = [];
 	const deletes: {
 		readonly ids: readonly string[];
-		readonly options: DeleteOptions | undefined;
+		readonly options: undefined | DeleteOptions;
 	}[] = [];
 	const updates: {
 		readonly items: readonly UpdateEventItem[];
-		readonly options: UpdateOptions | undefined;
+		readonly options: undefined | UpdateOptions;
 	}[] = [];
 	const host = defineSandboxTestHost(updateManifest, {
 		updateEvents: (items, options) =>
@@ -122,7 +122,7 @@ const update = (patch: MediaActivityPatch, host: ReturnType<typeof recordingHost
 	);
 
 const remove = (
-	input: { readonly eventIds: readonly string[]; readonly submissionId?: string },
+	input: { readonly submissionId?: string; readonly eventIds: readonly string[] },
 	host: ReturnType<typeof recordingHost>["host"],
 ) =>
 	runSandboxTestScript(

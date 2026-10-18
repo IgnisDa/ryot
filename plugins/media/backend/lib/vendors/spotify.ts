@@ -8,7 +8,7 @@ import { decodeJsonResponse, numberValue, stringValue } from "../records";
 
 export type SpotifyHost = Pick<
 	ScriptHost,
-	"httpCall" | "getPluginConfig" | "getCachedValue" | "setCachedValue"
+	"httpCall" | "getCachedValue" | "setCachedValue" | "getPluginConfig"
 >;
 
 const SPOTIFY_TOKEN_URL = "https://accounts.spotify.com/api/token";
@@ -17,7 +17,7 @@ const TOKEN_CACHE_KEY = "spotify_access_token";
 
 export const SPOTIFY_SEARCH_PAGE_SIZE = 10;
 
-const getHttpFailureDetails = (error: unknown): { status: number; body: string } | null => {
+const getHttpFailureDetails = (error: unknown): null | { body: string; status: number } => {
 	const data = asRecord(asRecord(error)?.["data"]);
 	const status = numberValue(data?.["status"]);
 	const body = data?.["body"];
@@ -27,7 +27,7 @@ const getHttpFailureDetails = (error: unknown): { status: number; body: string }
 	return { body, status: Math.trunc(status) };
 };
 
-export const getSpotifyErrorStatus = (error: unknown): number | null => {
+export const getSpotifyErrorStatus = (error: unknown): null | number => {
 	const details = getHttpFailureDetails(error);
 	if (details) {
 		return details.status;
@@ -36,7 +36,7 @@ export const getSpotifyErrorStatus = (error: unknown): number | null => {
 	if (status !== null) {
 		return Math.trunc(status);
 	}
-	let message: string | null = null;
+	let message: null | string = null;
 	if (error instanceof Error) {
 		message = error.message;
 	} else {

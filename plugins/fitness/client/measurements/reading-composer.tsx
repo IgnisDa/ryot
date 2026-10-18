@@ -17,12 +17,12 @@ import { DateTimeField } from "../datetime-field";
 import { useDateTimeInput } from "../use-datetime-input";
 import { unitSuffix } from "./model";
 
-type ComposerMetric = { readonly id: string; readonly name: string; readonly unit: string | null };
+type ComposerMetric = { readonly id: string; readonly name: string; readonly unit: null | string };
 
 type MeasurementDraft = {
-	readonly comment: string | null;
 	readonly occurredAt: string;
-	readonly values: readonly { readonly metricId: string; readonly value: number | null }[];
+	readonly comment: null | string;
+	readonly values: readonly { readonly metricId: string; readonly value: null | number }[];
 };
 
 const parseValue = (text: string) => {
@@ -34,55 +34,17 @@ const parseValue = (text: string) => {
 	return Number.isFinite(value) ? value : undefined;
 };
 
-function MetricValueField(props: {
-	readonly text: string;
-	readonly invalid: boolean;
-	readonly onRemove: () => void;
-	readonly metric: ComposerMetric;
-	readonly onChange: (text: string) => void;
-}) {
-	const { text, metric, invalid } = props;
-	return (
-		<li>
-			<Field
-				error={invalid ? "Enter a number." : undefined}
-				label={`${metric.name}${unitSuffix(metric.unit)}`}
-			>
-				{(control) => (
-					<div className="flex items-center gap-2">
-						<TextField
-							{...control}
-							value={text}
-							inputMode="decimal"
-							className="min-w-0 flex-1"
-							onChange={(event) => props.onChange(event.target.value)}
-						/>
-						<Button
-							type="button"
-							variant="secondary"
-							onClick={props.onRemove}
-							aria-label={`Remove ${metric.name}`}
-						>
-							<AppIcon name="x" size={16} />
-						</Button>
-					</div>
-				)}
-			</Field>
-		</li>
-	);
-}
-
 export function MeasurementDialog(props: {
 	readonly label: string;
 	readonly pending: boolean;
 	readonly submitLabel: string;
-	readonly pendingLabel: string;
 	readonly onClose: () => void;
+	readonly pendingLabel: string;
 	readonly initial: MeasurementDraft;
 	readonly errorMessage: string | undefined;
 	readonly metrics: readonly ComposerMetric[];
-	readonly triggerRef: RefObject<HTMLButtonElement | null>;
 	readonly onSubmit: (readings: MeasurementEntry) => void;
+	readonly triggerRef: RefObject<null | HTMLButtonElement>;
 }) {
 	const {
 		label,
@@ -216,5 +178,43 @@ export function MeasurementDialog(props: {
 				)}
 			</ActionForm>
 		</Dialog>
+	);
+}
+
+function MetricValueField(props: {
+	readonly text: string;
+	readonly invalid: boolean;
+	readonly onRemove: () => void;
+	readonly metric: ComposerMetric;
+	readonly onChange: (text: string) => void;
+}) {
+	const { text, metric, invalid } = props;
+	return (
+		<li>
+			<Field
+				error={invalid ? "Enter a number." : undefined}
+				label={`${metric.name}${unitSuffix(metric.unit)}`}
+			>
+				{(control) => (
+					<div className="flex items-center gap-2">
+						<TextField
+							{...control}
+							value={text}
+							inputMode="decimal"
+							className="min-w-0 flex-1"
+							onChange={(event) => props.onChange(event.target.value)}
+						/>
+						<Button
+							type="button"
+							variant="secondary"
+							onClick={props.onRemove}
+							aria-label={`Remove ${metric.name}`}
+						>
+							<AppIcon name="x" size={16} />
+						</Button>
+					</div>
+				)}
+			</Field>
+		</li>
 	);
 }

@@ -51,7 +51,7 @@ const MUSCLE_TARGET_LIMIT = 100;
 const SECONDARY_WEIGHT = 0.5;
 
 export const muscleActivityRecipe = defineRecipe(
-	(input: { readonly reference: Reference; readonly weekStartAt: string }) => {
+	(input: { readonly weekStartAt: string; readonly reference: Reference }) => {
 		const set = table("event", "muscleSet");
 		const link = table("relationship", "muscleLink");
 		const target = table("entity", "muscleTarget");
@@ -153,7 +153,7 @@ const recentPersonalBestSelection = (
 });
 
 export const recentPersonalBestsRecipe = defineRecipe(
-	(input: { readonly reference: Reference; readonly limit: number; readonly since: string }) => {
+	(input: { readonly limit: number; readonly since: string; readonly reference: Reference }) => {
 		const set = table("event", "recordSet");
 		const exercise = table("entity", "recordExercise");
 		const countedSet = table("event", "recordCountSet");
@@ -195,7 +195,7 @@ const linkedTo = (link: ReturnType<typeof table>, workout: ReturnType<typeof tab
 const TemplateExercisesSchema = Schema.Array(Schema.Struct({ exerciseId: Schema.String }));
 
 export const homeTemplatesRecipe = defineRecipe(
-	(input: { readonly reference: Reference; readonly limit: number }) => {
+	(input: { readonly limit: number; readonly reference: Reference }) => {
 		const template = table("entity", "homeTemplate");
 		const lastLink = table("relationship", "homeLastLink");
 		const lastWorkout = table("entity", "homeLastWorkout");
@@ -271,6 +271,6 @@ export const homeTemplatesRecipe = defineRecipe(
 	},
 );
 
+export type HomeTemplate = Recipe.Success<typeof homeTemplatesRecipe>[number];
 export type MuscleActivity = Recipe.Success<typeof muscleActivityRecipe>[number];
 export type HomePersonalBest = Recipe.Success<typeof recentPersonalBestsRecipe>["items"][number];
-export type HomeTemplate = Recipe.Success<typeof homeTemplatesRecipe>[number];

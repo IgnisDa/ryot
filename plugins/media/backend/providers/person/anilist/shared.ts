@@ -134,7 +134,7 @@ const formatFuzzyDate = (value: unknown) => {
 	return DateTime.formatIsoDateUtc(dt);
 };
 
-type StaffPages = { staffData: UnknownRecord; staffEdges: unknown[]; characterEdges: unknown[] };
+type StaffPages = { staffEdges: unknown[]; staffData: UnknownRecord; characterEdges: unknown[] };
 
 const getStaffPage = (host: AnilistHost, staffId: number, page: number) =>
 	anilistGraphql(host, "person details", STAFF_DETAILS_QUERY, { page, id: staffId }).pipe(
@@ -151,7 +151,7 @@ const collectStaffPages = (
 	host: AnilistHost,
 	staffId: number,
 	page: number,
-	collected: Omit<StaffPages, "staffData"> & { staffData: UnknownRecord | null },
+	collected: Omit<StaffPages, "staffData"> & { staffData: null | UnknownRecord },
 ): Effect.Effect<StaffPages, Effect.Error<ReturnType<typeof getStaffPage>>> =>
 	getStaffPage(host, staffId, page).pipe(
 		Effect.flatMap((staffPage) => {
@@ -196,7 +196,7 @@ export const details = defineProvider({
 					}
 
 					const related = createRoleAccumulator();
-					const addMedia = (media: unknown, role: string, character: string | null = null) => {
+					const addMedia = (media: unknown, role: string, character: null | string = null) => {
 						const record = asRecord(media);
 						if (!record) {
 							return;

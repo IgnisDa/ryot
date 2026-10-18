@@ -20,10 +20,10 @@ const references = {
 const input = (
 	properties: Record<string, unknown>,
 	options: {
-		operation?: "create" | "update" | "delete";
-		sessionEntityId?: string | null;
 		entitySchemaSlug?: string;
+		sessionEntityId?: null | string;
 		references?: Record<string, unknown>;
+		operation?: "create" | "update" | "delete";
 	} = {},
 ) => {
 	const draft = {

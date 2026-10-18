@@ -84,7 +84,7 @@ export default defineWorkflow({
 			const state = { ordinal: 64 };
 			const runs = mediaSortedRuns(replay, attribution, state);
 			const issues: Array<(typeof genericImportWorkflowResultSchema.Type)["issues"][number]> = [];
-			let carry: string | null = null;
+			let carry: null | string = null;
 			let collectionPage = 0;
 			for (let segment = 0; ; segment++) {
 				const collected: typeof MediaIntegrationCollectionOutput.Type = yield* replay.child(
@@ -125,7 +125,7 @@ export default defineWorkflow({
 				let offset = 0;
 				let batch = 0;
 				let itemIndex = 0;
-				let dedupKey: string | null = null;
+				let dedupKey: null | string = null;
 				for (let segment = 0; ; segment++) {
 					const result: typeof MediaApplicationOutput.Type = yield* replay.child(
 						`application:${segment}`,

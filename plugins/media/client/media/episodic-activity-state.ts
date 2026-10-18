@@ -33,31 +33,15 @@ import { formatLocalDateKey } from "./date";
 
 export type MediaEpisodicBeat = "backlog" | "dropped" | "on_hold";
 
-export type MediaEpisodicParentEvent = MediaActivityEventRow & {
-	readonly kind: "parent";
-	readonly startedOn: string | null;
-	readonly dateUnknown: boolean | null;
-	readonly eventSchemaSlug: MediaEpisodicBeat | "complete" | "review" | "add-to-media-library";
-};
+export type MediaEpisodicActivityEvent<Episode> =
+	MediaEpisodicParentEvent | MediaEpisodicCollectionEvent | MediaEpisodicEpisodeEvent<Episode>;
 
 export type MediaEpisodicEpisodeEvent<Episode> = MediaActivityEventRow & {
 	readonly kind: "episode";
 	readonly episode: Episode;
-	readonly progressPercent: number | null;
+	readonly progressPercent: null | number;
 	readonly eventSchemaSlug: "review" | "progress";
 };
-
-export type MediaEpisodicCollectionEvent = {
-	readonly id: string;
-	readonly kind: "collection";
-	readonly createdAt: string;
-	readonly occurredAt: string;
-	readonly eventSchemaSlug: string;
-	readonly collection: { readonly id: string; readonly name: string };
-};
-
-export type MediaEpisodicActivityEvent<Episode> =
-	MediaEpisodicParentEvent | MediaEpisodicEpisodeEvent<Episode> | MediaEpisodicCollectionEvent;
 
 export type MediaEpisodicHistoryEvent<Episode> =
 	| MediaEpisodicParentEvent
@@ -65,6 +49,22 @@ export type MediaEpisodicHistoryEvent<Episode> =
 	| (Omit<MediaEpisodicEpisodeEvent<Episode>, "eventSchemaSlug"> & {
 			readonly eventSchemaSlug: "review" | "progress" | "complete";
 	  });
+
+export type MediaEpisodicParentEvent = MediaActivityEventRow & {
+	readonly kind: "parent";
+	readonly startedOn: null | string;
+	readonly dateUnknown: null | boolean;
+	readonly eventSchemaSlug: "review" | "complete" | MediaEpisodicBeat | "add-to-media-library";
+};
+
+export type MediaEpisodicCollectionEvent = {
+	readonly id: string;
+	readonly createdAt: string;
+	readonly kind: "collection";
+	readonly occurredAt: string;
+	readonly eventSchemaSlug: string;
+	readonly collection: { readonly id: string; readonly name: string };
+};
 
 type MediaEpisodicEpisodeVocabulary<Episode> = {
 	readonly origin: (episode: Episode) => string;
@@ -103,27 +103,25 @@ export const mediaEpisodicActivityRow = <Episode extends MediaEpisodicEpisodeVal
 	return episodeEventRow({ ...event, eventSchemaSlug: event.eventSchemaSlug }, origin, order);
 };
 
-export type MediaEpisodicWatchDayRow = {
-	readonly day: string;
-	readonly episodeId: string;
-	readonly episodeName: string;
-	readonly runtime: number | null;
-	readonly minutes: number | null;
-	readonly consumedOn: string | null;
-	readonly lastWatchedAt: string;
-};
+export type MediaEpisodicTimeline = MediaActivityTimeline<MediaEpisodicRow>;
 
-export type MediaEpisodicActivityResult<Episode, WatchDay> = {
-	readonly truncated: boolean;
-	readonly watchCount: number;
-	readonly watchDays: readonly WatchDay[];
-	readonly events: readonly MediaEpisodicActivityEvent<Episode>[];
-};
+export type MediaEpisodicReviewRow = MediaActivityReviewRow<MediaEpisodicReviewSubject>;
 
 export type MediaEpisodicEpisodeValue = {
 	readonly id: string;
 	readonly name: string;
-	readonly runtime: number | null;
+	readonly runtime: null | number;
+};
+
+export type MediaEpisodicReviewSubject =
+	| { readonly on: "parent" }
+	| { readonly name: string; readonly on: "episode"; readonly origin: string };
+
+export type MediaEpisodicFigureLabels = {
+	readonly time: string;
+	readonly current: string;
+	readonly watches: string;
+	readonly episodes: string;
 };
 
 /** What an episodic activity recipe must return once its episode rows carry `Origin`. */
@@ -131,6 +129,12 @@ export type MediaEpisodicActivityValue<Origin> = MediaEpisodicActivityResult<
 	Origin & MediaEpisodicEpisodeValue,
 	Origin & MediaEpisodicWatchDayRow
 >;
+
+export type MediaEpisodicView = {
+	readonly summary: MediaEpisodicSummary;
+	readonly timeline: MediaEpisodicTimeline;
+	readonly coverage: readonly MediaEpisodicCoverageRow[];
+};
 
 export type MediaEpisodicWatchedEpisode = {
 	readonly id: string;
@@ -140,53 +144,38 @@ export type MediaEpisodicWatchedEpisode = {
 	readonly minutes: number | undefined;
 };
 
-export type MediaEpisodicReviewSubject =
-	| { readonly on: "parent" }
-	| { readonly on: "episode"; readonly name: string; readonly origin: string };
-
-export type MediaEpisodicWatchRow = {
-	readonly events: readonly MediaActivityEventRef[];
-	readonly key: string;
-	readonly dateKey: string;
-	readonly type: "watch";
-	readonly occurredAt: string;
-	readonly source: string | undefined;
-	readonly episodes: NonEmpty<MediaEpisodicWatchedEpisode>;
-	readonly run?: MediaActivityProgressRun;
-	readonly absorbed?: number;
-};
-
-export type MediaEpisodicProgressRow = {
-	readonly events: readonly MediaActivityEventRef[];
-	readonly key: string;
-	readonly dateKey: string;
-	readonly type: "progress";
-	readonly occurredAt: string;
-	readonly source: string | undefined;
-	readonly percent: number | undefined;
-	readonly run?: MediaActivityProgressRun;
-	readonly episode: MediaEpisodicWatchedEpisode;
-};
-
-export type MediaEpisodicReviewRow = MediaActivityReviewRow<MediaEpisodicReviewSubject>;
-
-export type MediaEpisodicRow =
-	| MediaEpisodicWatchRow
-	| MediaEpisodicReviewRow
-	| MediaEpisodicProgressRow
-	| MediaActivityCollectionRow
-	| MediaActivityCompletionRow
-	| MediaActivityLibraryRow
-	| MediaActivityBeatRow<MediaEpisodicBeat>;
-
-export type MediaEpisodicTimeline = MediaActivityTimeline<MediaEpisodicRow>;
-
 export type MediaEpisodicCoverageRow = {
 	readonly key: string;
 	readonly label: string;
 	readonly watched: number;
 	readonly total: number | undefined;
 	readonly percent: number | undefined;
+};
+
+export type MediaEpisodicActivityResult<Episode, WatchDay> = {
+	readonly truncated: boolean;
+	readonly watchCount: number;
+	readonly watchDays: readonly WatchDay[];
+	readonly events: readonly MediaEpisodicActivityEvent<Episode>[];
+};
+
+export type MediaEpisodicRow =
+	| MediaEpisodicWatchRow
+	| MediaEpisodicReviewRow
+	| MediaActivityLibraryRow
+	| MediaEpisodicProgressRow
+	| MediaActivityCollectionRow
+	| MediaActivityCompletionRow
+	| MediaActivityBeatRow<MediaEpisodicBeat>;
+
+export type MediaEpisodicActivityCopy = {
+	readonly libraryLabel: string;
+	readonly beats: Record<MediaEpisodicBeat, string>;
+	readonly rowLabels: {
+		readonly review: string;
+		readonly watched: string;
+		readonly completion: string;
+	};
 };
 
 export type MediaEpisodicCoverage = {
@@ -202,27 +191,38 @@ export type MediaEpisodicSummary = {
 	readonly episodes: { readonly watched: number; readonly total: number | undefined };
 };
 
-export type MediaEpisodicView = {
-	readonly summary: MediaEpisodicSummary;
-	readonly timeline: MediaEpisodicTimeline;
-	readonly coverage: readonly MediaEpisodicCoverageRow[];
+export type MediaEpisodicWatchDayRow = {
+	readonly day: string;
+	readonly episodeId: string;
+	readonly episodeName: string;
+	readonly lastWatchedAt: string;
+	readonly runtime: null | number;
+	readonly minutes: null | number;
+	readonly consumedOn: null | string;
 };
 
-export type MediaEpisodicFigureLabels = {
-	readonly time: string;
-	readonly current: string;
-	readonly watches: string;
-	readonly episodes: string;
+export type MediaEpisodicWatchRow = {
+	readonly key: string;
+	readonly type: "watch";
+	readonly dateKey: string;
+	readonly absorbed?: number;
+	readonly occurredAt: string;
+	readonly source: string | undefined;
+	readonly run?: MediaActivityProgressRun;
+	readonly events: readonly MediaActivityEventRef[];
+	readonly episodes: NonEmpty<MediaEpisodicWatchedEpisode>;
 };
 
-export type MediaEpisodicActivityCopy = {
-	readonly libraryLabel: string;
-	readonly beats: Record<MediaEpisodicBeat, string>;
-	readonly rowLabels: {
-		readonly review: string;
-		readonly watched: string;
-		readonly completion: string;
-	};
+export type MediaEpisodicProgressRow = {
+	readonly key: string;
+	readonly dateKey: string;
+	readonly type: "progress";
+	readonly occurredAt: string;
+	readonly source: string | undefined;
+	readonly percent: number | undefined;
+	readonly run?: MediaActivityProgressRun;
+	readonly episode: MediaEpisodicWatchedEpisode;
+	readonly events: readonly MediaActivityEventRef[];
 };
 
 export const mediaEpisodicCoveragePercent = (watched: number, total: number) =>
@@ -240,7 +240,7 @@ const compareOrder = (left: readonly number[], right: readonly number[]) => {
 
 const sortedEpisodes = (
 	episodes: readonly MediaEpisodicWatchedEpisode[],
-): NonEmpty<MediaEpisodicWatchedEpisode> | undefined =>
+): undefined | NonEmpty<MediaEpisodicWatchedEpisode> =>
 	nonEmpty([...episodes].sort((left, right) => compareOrder(left.order, right.order)));
 
 const watchDayRows = <WatchDay extends MediaEpisodicWatchDayRow>(
@@ -341,7 +341,7 @@ const episodicPredicates = {
 export const mergeEpisodicRuns = (
 	current: MediaEpisodicRow,
 	next: MediaEpisodicRow,
-): MediaEpisodicRow | undefined => {
+): undefined | MediaEpisodicRow => {
 	if (
 		current.type === "watch" &&
 		next.type === "watch" &&
@@ -382,7 +382,7 @@ export const mediaEpisodicActivityView = <Origin>(input: {
 		Origin & MediaEpisodicEpisodeValue,
 		Origin & MediaEpisodicWatchDayRow
 	>;
-}): MediaEpisodicView | undefined => {
+}): undefined | MediaEpisodicView => {
 	const { result, coverage } = input;
 	const eventRows = result.events.map((event) => mediaEpisodicActivityRow(event, input.episode));
 	const view = mediaActivityRowsView(

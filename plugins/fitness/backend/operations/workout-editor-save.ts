@@ -51,22 +51,22 @@ import {
 } from "../../shared/workout-set";
 
 type Data = WorkoutEditorSaveInput["data"];
+type Properties = WorkoutEditorEvent["properties"];
 type WorkoutData = Extract<Data, { kind: "workout" }>;
 type TemplateData = Extract<Data, { kind: "template" }>;
-type Properties = WorkoutEditorEvent["properties"];
-type InvalidCode = Extract<WorkoutEditorSaveOutput, { kind: "invalid" }>["code"];
-type SavedSet = Extract<WorkoutEditorSaveOutput, { kind: "saved" }>["sets"][number];
-
 type SourceSet = WorkoutEditorEvent & { readonly set: WorkoutSetProperties };
+type InvalidCode = Extract<WorkoutEditorSaveOutput, { kind: "invalid" }>["code"];
+
+type SavedSet = Extract<WorkoutEditorSaveOutput, { kind: "saved" }>["sets"][number];
 type Baseline = {
-	readonly entity: WorkoutEditorBaseline["entity"];
-	readonly endedAt: string | null | undefined;
-	readonly exercises: ReadonlyArray<TemplateOccurrenceProperties>;
-	readonly images: ReadonlyArray<WorkoutSetAssetLocator>;
-	readonly media: ReadonlyArray<WorkoutSetAssetLocator>;
-	readonly sets: ReadonlyArray<SourceSet>;
 	readonly startedAt: string | undefined;
+	readonly sets: ReadonlyArray<SourceSet>;
+	readonly endedAt: null | string | undefined;
+	readonly entity: WorkoutEditorBaseline["entity"];
+	readonly media: ReadonlyArray<WorkoutSetAssetLocator>;
+	readonly images: ReadonlyArray<WorkoutSetAssetLocator>;
 	readonly videos: ReadonlyArray<WorkoutSetAssetLocator>;
+	readonly exercises: ReadonlyArray<TemplateOccurrenceProperties>;
 };
 
 class WorkoutSaveHalt extends Schema.TaggedError<
@@ -92,7 +92,7 @@ const chunked = <Item>(items: ReadonlyArray<Item>, size: number) =>
 
 const editableFields: ReadonlyArray<string> = workoutSetEditableFields;
 
-const exerciseKindOf = (exercise: Pick<WorkoutEditorExercise, "properties"> | undefined) => {
+const exerciseKindOf = (exercise: undefined | Pick<WorkoutEditorExercise, "properties">) => {
 	const decoded = Schema.decodeUnknownOption(Schema.Struct({ kind: exerciseKindSchema }))(
 		exercise?.properties,
 	);
@@ -192,16 +192,16 @@ const introducesMedia = (
 ) => next.some((item) => !before.some((old) => jsonValueEquals(item, old)));
 
 const mediaOf = (properties: {
-	readonly images?: ReadonlyArray<WorkoutSetAssetLocator> | null | undefined;
-	readonly videos?: ReadonlyArray<WorkoutSetAssetLocator> | null | undefined;
+	readonly images?: null | undefined | ReadonlyArray<WorkoutSetAssetLocator>;
+	readonly videos?: null | undefined | ReadonlyArray<WorkoutSetAssetLocator>;
 }) => [...(properties.images ?? []), ...(properties.videos ?? [])];
 
 const decodeBaselineProperties = (
 	kind: Data["kind"],
 	entity: WorkoutEditorBaseline["entity"],
 ):
-	| Pick<Baseline, "endedAt" | "exercises" | "images" | "media" | "startedAt" | "videos">
-	| undefined => {
+	| undefined
+	| Pick<Baseline, "media" | "images" | "videos" | "endedAt" | "exercises" | "startedAt"> => {
 	if (kind === "workout") {
 		const decoded = Schema.decodeUnknownOption(WorkoutPropertiesSchema)(entity.properties);
 		if (Option.isNone(decoded)) {
@@ -269,7 +269,7 @@ const loadBaseline = Effect.fn("loadBaseline")(function* (data: Data, host: Scri
 	} satisfies Baseline;
 });
 
-const validateGraph = (data: Data, baseline: Baseline | undefined): InvalidCode | undefined => {
+const validateGraph = (data: Data, baseline: Baseline | undefined): undefined | InvalidCode => {
 	if (
 		baseline &&
 		(new Set(baseline.sets.map(({ id }) => id)).size !== baseline.sets.length ||
@@ -442,9 +442,9 @@ const loadExercises = Effect.fn("loadExercises")(function* (
 const checkReplacement = Effect.fn("checkReplacement")(function* (
 	occurrence: { readonly exerciseId: string; readonly sourceExerciseOrder?: number | undefined },
 	source: {
-		readonly exerciseId: string | undefined;
-		readonly kindMismatchedSets?: boolean;
 		readonly template?: boolean;
+		readonly kindMismatchedSets?: boolean;
+		readonly exerciseId: string | undefined;
 	},
 	currentKind: ReturnType<typeof exerciseKindOf>,
 	proAvailable: boolean,
@@ -779,7 +779,7 @@ const persistWorkoutEditor = Effect.fn("persistWorkoutEditor")(function* (
 });
 
 export type WorkoutEditorSaveError =
-	RyotqlRecipeDecodeError | WorkoutCommandInputError | SandboxHostError;
+	SandboxHostError | RyotqlRecipeDecodeError | WorkoutCommandInputError;
 
 export const saveWorkoutEditor = (
 	input: WorkoutEditorSaveInput,

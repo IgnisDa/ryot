@@ -11,7 +11,7 @@ import { manifest } from "./shared";
 
 type IgdbVideoGameHost = Pick<
 	ScriptHost,
-	"httpCall" | "getPluginConfig" | "getCachedValue" | "setCachedValue"
+	"httpCall" | "getCachedValue" | "setCachedValue" | "getPluginConfig"
 >;
 const httpSuccess = (body: unknown, headers: Record<string, string> = {}) =>
 	Effect.succeed({ headers, status: 200, body: JSON.stringify(body) });
@@ -80,7 +80,7 @@ describe("video-game.igdb sandbox script", () => {
 		const requestedPaths: Array<string> = [];
 		const requestedBodies: Record<string, string> = {};
 		let tokenPosts = 0;
-		let cachedToken: JsonValue | null = null;
+		let cachedToken: null | JsonValue = null;
 		const host = makeHost({
 			getCachedValue: () => Effect.succeed(cachedToken),
 			setCachedValue: (_key, value) => {
@@ -569,7 +569,7 @@ const videoGameGroups = (result: DetailsResult, direction: "incoming" | "outgoin
 			group.relationshipSchemaSlug === "video-game-to-video-game" && group.direction === direction,
 	);
 
-const edges = (group: NonNullable<DetailsResult["relatedEntityGroups"]>[number] | undefined) =>
+const edges = (group: undefined | NonNullable<DetailsResult["relatedEntityGroups"]>[number]) =>
 	group?.entities.map((entity) => [entity.externalId, entity.relationshipProperties]);
 
 const modPage = (start: number) =>

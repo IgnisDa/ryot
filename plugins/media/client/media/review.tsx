@@ -63,14 +63,89 @@ export const deleteReviewSubmission = createRyotBackgroundSubmission({
 	}),
 });
 
+export function MediaReviewForm(props: {
+	readonly entityId: string;
+	readonly onClose: () => void;
+	readonly triggerRef: RefObject<null | HTMLButtonElement>;
+}) {
+	const review = useBackgroundSubmission(createReview);
+	return (
+		<MediaReviewComposer
+			title="Rate or review"
+			onClose={props.onClose}
+			isSending={review.isSending}
+			triggerRef={props.triggerRef}
+			failed={review.error !== null}
+			onSave={(draft) =>
+				review.submit({ ...draft, entityId: props.entityId }, { onAccepted: props.onClose })
+			}
+		/>
+	);
+}
+
+export function MediaReviewButton(props: { readonly link?: boolean; readonly entityId: string }) {
+	const [open, setOpen] = useState(false);
+	const triggerRef = useRef<HTMLButtonElement>(null);
+	return (
+		<>
+			{props.link ? (
+				<Button variant="link" ref={triggerRef} onClick={() => setOpen(true)}>
+					Rate or review
+				</Button>
+			) : (
+				<Button ref={triggerRef} variant="secondary" onClick={() => setOpen(true)}>
+					<AppIcon size={15} name="star" />
+					Rate or review
+				</Button>
+			)}
+			{open ? (
+				<MediaReviewForm
+					triggerRef={triggerRef}
+					entityId={props.entityId}
+					onClose={() => setOpen(false)}
+				/>
+			) : null}
+		</>
+	);
+}
+
+export function MediaReviewEditForm(props: {
+	readonly onClose: () => void;
+	readonly record: MediaActivityEventRef;
+	readonly initial: typeof MediaReviewContent.Type;
+	readonly triggerRef: RefObject<null | HTMLButtonElement>;
+}) {
+	const review = useBackgroundSubmission(updateReview);
+	return (
+		<MediaReviewComposer
+			title="Edit review"
+			initial={props.initial}
+			onClose={props.onClose}
+			isSending={review.isSending}
+			triggerRef={props.triggerRef}
+			failed={review.error !== null}
+			onSave={(draft) =>
+				review.submit(
+					{
+						...draft,
+						eventId: props.record.id,
+						expected: eventPrecondition(props.record, mediaReviewPatchableKeys),
+					},
+					{ onAccepted: props.onClose },
+				)
+			}
+		/>
+	);
+}
+
 function MediaReviewComposer(props: {
 	readonly title: string;
-	readonly onClose: () => void;
-	readonly isSending: boolean;
 	readonly failed: boolean;
+	readonly isSending: boolean;
+	readonly onClose: () => void;
 	readonly initial?: typeof MediaReviewContent.Type;
+	readonly triggerRef: RefObject<null | HTMLButtonElement>;
 	readonly onSave: (review: typeof MediaReviewContent.Type) => void;
-	readonly triggerRef: RefObject<HTMLButtonElement | null>;
 }) {
 	const id = useId();
 	const ratingRef = useRef<HTMLInputElement>(null);
@@ -164,80 +239,5 @@ function MediaReviewComposer(props: {
 				</div>
 			</ActionForm>
 		</Dialog>
-	);
-}
-
-export function MediaReviewForm(props: {
-	readonly entityId: string;
-	readonly onClose: () => void;
-	readonly triggerRef: RefObject<HTMLButtonElement | null>;
-}) {
-	const review = useBackgroundSubmission(createReview);
-	return (
-		<MediaReviewComposer
-			title="Rate or review"
-			onClose={props.onClose}
-			isSending={review.isSending}
-			triggerRef={props.triggerRef}
-			failed={review.error !== null}
-			onSave={(draft) =>
-				review.submit({ ...draft, entityId: props.entityId }, { onAccepted: props.onClose })
-			}
-		/>
-	);
-}
-
-export function MediaReviewEditForm(props: {
-	readonly onClose: () => void;
-	readonly record: MediaActivityEventRef;
-	readonly initial: typeof MediaReviewContent.Type;
-	readonly triggerRef: RefObject<HTMLButtonElement | null>;
-}) {
-	const review = useBackgroundSubmission(updateReview);
-	return (
-		<MediaReviewComposer
-			title="Edit review"
-			initial={props.initial}
-			onClose={props.onClose}
-			isSending={review.isSending}
-			triggerRef={props.triggerRef}
-			failed={review.error !== null}
-			onSave={(draft) =>
-				review.submit(
-					{
-						...draft,
-						eventId: props.record.id,
-						expected: eventPrecondition(props.record, mediaReviewPatchableKeys),
-					},
-					{ onAccepted: props.onClose },
-				)
-			}
-		/>
-	);
-}
-
-export function MediaReviewButton(props: { readonly entityId: string; readonly link?: boolean }) {
-	const [open, setOpen] = useState(false);
-	const triggerRef = useRef<HTMLButtonElement>(null);
-	return (
-		<>
-			{props.link ? (
-				<Button variant="link" ref={triggerRef} onClick={() => setOpen(true)}>
-					Rate or review
-				</Button>
-			) : (
-				<Button ref={triggerRef} variant="secondary" onClick={() => setOpen(true)}>
-					<AppIcon size={15} name="star" />
-					Rate or review
-				</Button>
-			)}
-			{open ? (
-				<MediaReviewForm
-					triggerRef={triggerRef}
-					entityId={props.entityId}
-					onClose={() => setOpen(false)}
-				/>
-			) : null}
-		</>
 	);
 }

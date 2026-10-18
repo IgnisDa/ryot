@@ -11,5 +11,5 @@ export const PokemonDetailsSchema = Schema.Struct({
 	abilities: PokemonStringsSchema,
 });
 
-export type PokemonArtworkAsset = Schema.Schema.Type<typeof PokemonArtworkSchema>;
 export type PokemonDetailsData = Schema.Schema.Type<typeof PokemonDetailsSchema>;
+export type PokemonArtworkAsset = Schema.Schema.Type<typeof PokemonArtworkSchema>;

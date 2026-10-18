@@ -12,8 +12,8 @@ export type HomeTile = {
 	readonly overlay?: ReactNode;
 	readonly aspect: MediaArtworkAspect;
 	readonly item: MediaPresentationSubject;
-	readonly art?: MediaImageAsset | undefined;
-	readonly lines?: readonly (string | undefined)[] | undefined;
+	readonly art?: undefined | MediaImageAsset;
+	readonly lines?: undefined | readonly (string | undefined)[];
 };
 
 export function HomeTileBadge(props: { readonly label: string }) {

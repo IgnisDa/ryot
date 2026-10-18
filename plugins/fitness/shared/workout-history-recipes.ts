@@ -61,11 +61,11 @@ const workoutSetSelection = (event: Table) => ({
 
 export const workoutHistoryRecipe = defineRecipe(
 	(input: {
+		readonly exerciseId: string;
 		readonly after?: string | undefined;
+		readonly reference: PluginIdentityReference;
 		readonly beforeStartedAt?: string | undefined;
 		readonly excludeWorkoutId?: string | undefined;
-		readonly exerciseId: string;
-		readonly reference: PluginIdentityReference;
 	}) => {
 		const workout = table("entity", "historyWorkout");
 		const set = table("event", "historyWorkoutSet");
@@ -107,10 +107,10 @@ export const workoutHistoryRecipe = defineRecipe(
 
 export const workoutHistorySetsRecipe = defineRecipe(
 	(input: {
-		readonly after?: string | undefined;
-		readonly exerciseId: string;
-		readonly reference: PluginIdentityReference;
 		readonly workoutId: string;
+		readonly exerciseId: string;
+		readonly after?: string | undefined;
+		readonly reference: PluginIdentityReference;
 	}) => {
 		const event = table("event", "historySet");
 		const workout = table("entity", "historySetWorkout");
@@ -143,10 +143,10 @@ export const workoutHistorySetsRecipe = defineRecipe(
 
 export const workoutExercisePreviousValuesRecipe = defineRecipe(
 	(input: {
-		readonly after?: string | undefined;
-		readonly beforeStartedAt: string;
 		readonly exerciseId: string;
+		readonly beforeStartedAt: string;
 		readonly excludeWorkoutId: string;
+		readonly after?: string | undefined;
 		readonly recordedKind: ExerciseKind;
 		readonly reference: PluginIdentityReference;
 	}) => {

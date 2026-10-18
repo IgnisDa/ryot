@@ -43,14 +43,15 @@ import {
 } from "../contracts/history-correction-recipes";
 import { MediaSandboxError } from "../lib/failures";
 
-type Host = Pick<ScriptHost, "executeRyotql" | "commitUserChanges">;
-type RecordRow<A> = Pick<HistoryEvent, "id" | "revision" | "occurredAt"> & {
-	readonly properties: A;
-};
 type Request = typeof HistoryCorrectionRequest.Type;
-type Context = Recipe.Success<typeof historyCorrectionContextRecipe>;
+type Host = Pick<ScriptHost, "executeRyotql" | "commitUserChanges">;
 type Creates = Array<UserCommandInput["events"]["creates"][number]>;
 type Changes = Array<UserCommandInput["events"]["changes"][number]>;
+type Context = Recipe.Success<typeof historyCorrectionContextRecipe>;
+type RecordRow<A> = { readonly properties: A } & Pick<
+	HistoryEvent,
+	"id" | "revision" | "occurredAt"
+>;
 
 const propertiesMatch = (
 	actual: Readonly<Record<string, JsonValue>>,
@@ -163,7 +164,7 @@ const writer = (libraryId: string, subjectEntityId: string) => {
 		occurrence: RecordRow<CompletionOccurrence>,
 		value: CompletionOccurrence,
 		anchor: HistoryEvent,
-		actual: HistoryEvent | undefined,
+		actual: undefined | HistoryEvent,
 	) => {
 		if (value.status === "suppressed" || value.status === "overridden") {
 			return;
@@ -235,7 +236,7 @@ const positive = (value: JsonValue | undefined) =>
 const preserveDecision = (value: CompletionOccurrence): CompletionOccurrence["status"] =>
 	value.status === "suppressed" || value.status === "overridden" ? value.status : "active";
 const validNext = (page: {
-	readonly pageInfo: { readonly hasMore: boolean; readonly nextCursor: string | null };
+	readonly pageInfo: { readonly hasMore: boolean; readonly nextCursor: null | string };
 }) => {
 	if (page.pageInfo.hasMore && page.pageInfo.nextCursor === null) {
 		throw new Error("History page has no continuation cursor");
@@ -302,7 +303,7 @@ export const advanceHistoryCorrection = Effect.fn("advanceHistoryCorrection")(fu
 		}).pipe(Effect.map((page) => page.items[0]));
 	const actual = (id: string) =>
 		executeRyotqlRecipe(host.executeRyotql, historyRecordRecipe({ occurrenceId: id }));
-	let config: EpisodicKindConfig | undefined;
+	let config: undefined | EpisodicKindConfig;
 	if (context.target.schemaSlug === "show") {
 		config = showEpisodicKindConfig;
 	}
@@ -341,7 +342,7 @@ export const advanceHistoryCorrection = Effect.fn("advanceHistoryCorrection")(fu
 		}
 	};
 	const finishCoverageItem = (page: {
-		readonly pageInfo: { readonly hasMore: boolean; readonly nextCursor: string | null };
+		readonly pageInfo: { readonly hasMore: boolean; readonly nextCursor: null | string };
 	}) => {
 		advanceCursor(validNext(page));
 		if (state.after === undefined) {

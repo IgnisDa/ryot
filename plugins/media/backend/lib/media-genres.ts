@@ -4,7 +4,7 @@ import { mediaGenre, mediaGenreProviderSlug } from "../../shared/media-genres";
 
 export const mediaGenreGroups = (
 	slug: string,
-	values: readonly string[] | null,
+	values: null | readonly string[],
 ): ProviderDetailsRelatedEntityGroup[] => {
 	if (values === null) {
 		return [];

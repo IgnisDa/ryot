@@ -2,7 +2,7 @@ import { useState } from "react";
 
 import { resolveDateTimeInput, toDateTimeInput } from "./datetime-input";
 
-export const useDateTimeInput = (original: string | null | undefined) => {
+export const useDateTimeInput = (original: null | string | undefined) => {
 	const [value, setValue] = useState(() => (original ? toDateTimeInput(original) : ""));
 	const [occurrence, setOccurrence] = useState<string>();
 	return {

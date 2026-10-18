@@ -25,13 +25,13 @@ import { PokemonArtwork, PokemonDetails } from "./pokemon-display";
 import PokemonTypes from "./pokemon-types";
 
 export type PokemonPresentationViewData = {
-	readonly abilities: PokemonPresentationSourceData["presentationAbilities"];
-	readonly artwork: PokemonPresentationSourceData["presentationArtwork"];
-	readonly batchAssets: readonly ManagedAssetLocator[];
-	readonly height: PokemonPresentationSourceData["presentationHeight"];
 	readonly name: string;
+	readonly batchAssets: readonly ManagedAssetLocator[];
 	readonly types: PokemonPresentationSourceData["presentationTypes"];
+	readonly height: PokemonPresentationSourceData["presentationHeight"];
 	readonly weight: PokemonPresentationSourceData["presentationWeight"];
+	readonly artwork: PokemonPresentationSourceData["presentationArtwork"];
+	readonly abilities: PokemonPresentationSourceData["presentationAbilities"];
 };
 
 const buildPokemonPresentations = (
@@ -119,7 +119,7 @@ const PokemonExpandedDetails = ({
 	entityId,
 }: {
 	readonly entityId: string;
-	readonly layout: "card" | "row";
+	readonly layout: "row" | "card";
 	readonly data: PokemonPresentationViewData;
 }) => {
 	const [expanded, setExpanded] = useState(false);

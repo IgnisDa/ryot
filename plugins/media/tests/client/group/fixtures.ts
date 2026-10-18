@@ -36,12 +36,12 @@ export const groupSummaryRow = {
 export const decodeGroupSummaryOf = <Summary>(
 	recipes: {
 		readonly summaryRecipe: (input: {
-			readonly reference: PluginIdentityReference;
 			readonly entityId: string;
 			readonly collectionLimit: number;
+			readonly reference: PluginIdentityReference;
 		}) => PreparedRecipe<{
-			readonly summary: Summary | null;
-			readonly entitySchemaSlug: string | null;
+			readonly summary: null | Summary;
+			readonly entitySchemaSlug: null | string;
 		}>;
 	},
 	overrides: Record<string, unknown> = {},
@@ -74,7 +74,7 @@ export const groupMemberRow = (overrides: Record<string, unknown>) => ({
 });
 
 export const groupMemberPageData = (input: {
-	readonly nextCursor?: string | null;
+	readonly nextCursor?: null | string;
 	readonly members: readonly Record<string, unknown>[];
 }) => ({
 	data: {
@@ -113,10 +113,10 @@ export const groupLabelCreditRow = {
 
 export const decodeCreditGroupOverviewOf = <Overview>(recipes: {
 	readonly overviewRecipe: (input: {
-		readonly reference: PluginIdentityReference;
 		readonly entityId: string;
 		readonly peopleLimit: number;
 		readonly companyLimit: number;
+		readonly reference: PluginIdentityReference;
 	}) => PreparedRecipe<Overview>;
 }) =>
 	Result.getOrThrow(

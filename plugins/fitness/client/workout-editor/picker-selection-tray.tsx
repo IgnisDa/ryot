@@ -4,10 +4,10 @@ import { AppIcon } from "@ryot-app/plugin-ui-sdk/icon";
 import type { PickerExercise } from "./picker-model";
 
 export function PickerSelectionTray(props: {
-	readonly replacing: boolean;
 	readonly disabled: boolean;
-	readonly applyLabel?: string | undefined;
+	readonly replacing: boolean;
 	readonly onApply: () => void;
+	readonly applyLabel?: string | undefined;
 	readonly selected: readonly PickerExercise[];
 	readonly onRemove: (exercise: PickerExercise) => void;
 }) {

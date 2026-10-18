@@ -78,16 +78,16 @@ export const WorkoutSetPropertiesSchema = Schema.Struct({
 });
 
 export type WorkoutProperties = typeof WorkoutPropertiesSchema.Type;
+export type WorkoutSetProperties = typeof WorkoutSetPropertiesSchema.Type;
 export type TemplateSetProperties = typeof TemplateSetPropertiesSchema.Type;
 export type TemplateOccurrenceProperties = typeof TemplateOccurrencePropertiesSchema.Type;
-export type WorkoutSetProperties = typeof WorkoutSetPropertiesSchema.Type;
 
 export const applyWorkoutTimes = (
 	properties: typeof WorkoutEditorPropertiesSchema.Type,
 	times: {
-		readonly activeDuration: WorkoutActiveDurationChange;
-		readonly endedAt?: string | undefined;
 		readonly startedAt: string;
+		readonly endedAt?: string | undefined;
+		readonly activeDuration: WorkoutActiveDurationChange;
 	},
 ) => {
 	const next: Record<string, (typeof WorkoutEditorPropertiesSchema.Type)[string]> = {

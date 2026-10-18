@@ -25,9 +25,11 @@ import {
 import { collectManagedAssetLocators, type MediaImageAsset, type MediaImages } from "./image";
 import { ManagedAssetImage } from "./managed-assets";
 
-export type MediaArtworkAspect = "poster" | "square" | "still";
+export type MediaArtworkAspect = "still" | "poster" | "square";
 
-type MediaArtworkLayout = "grid" | "list" | "rail";
+export type MediaPresentationViewData<Data> = Data & {
+	readonly batchAssets: readonly ManagedAssetLocator[];
+};
 
 export type MediaPresentationSubject = EntitySyncState & {
 	readonly id: string;
@@ -38,12 +40,10 @@ export type MediaPresentationSubject = EntitySyncState & {
 export type MediaSavedViewPresentationSubject = EntitySyncState & {
 	readonly id: string;
 	readonly name: string;
-	readonly image: MediaImageAsset | null;
+	readonly image: null | MediaImageAsset;
 };
 
-export type MediaPresentationViewData<Data> = Data & {
-	readonly batchAssets: readonly ManagedAssetLocator[];
-};
+type MediaArtworkLayout = "grid" | "list" | "rail";
 
 const GRID_ASPECT_CLASS: Record<MediaArtworkAspect, string> = {
 	poster: "aspect-2/3",
@@ -165,33 +165,6 @@ export function MediaEntityArtwork(props: {
 	);
 }
 
-function MediaPresentationTitle(props: {
-	readonly compact: boolean;
-	readonly entityId: string;
-	readonly layout: "grid" | "list";
-	readonly data: MediaSavedViewPresentationSubject;
-	readonly facts: ReactNode;
-}) {
-	return (
-		<div className={clsx("flex min-w-0 flex-col", props.layout === "grid" ? "gap-1.5" : "gap-1")}>
-			<span className="flex min-w-0 items-baseline gap-1.5">
-				<PluginLink className="block min-w-0" to={{ kind: "entity", entityId: props.entityId }}>
-					<span
-						className={clsx(
-							"line-clamp-2 font-semibold text-text",
-							props.layout === "grid" ? "font-display leading-5" : "text-sm",
-						)}
-					>
-						{props.data.name}
-					</span>
-				</PluginLink>
-				{isTitleProvisional(props.data) && <SyncPip reason="translating" />}
-			</span>
-			{props.facts}
-		</div>
-	);
-}
-
 export function MediaCardContent<Data extends MediaSavedViewPresentationSubject>(props: {
 	readonly compact: boolean;
 	readonly entityId: string;
@@ -230,8 +203,8 @@ export function MediaRowContent<Data extends MediaSavedViewPresentationSubject>(
 	readonly compact: boolean;
 	readonly entityId: string;
 	readonly facts: ReactNode;
-	readonly position?: string | undefined;
 	readonly aspect: MediaArtworkAspect;
+	readonly position?: string | undefined;
 	readonly data: MediaPresentationViewData<Data>;
 }) {
 	return (
@@ -272,10 +245,37 @@ export function MediaRowContent<Data extends MediaSavedViewPresentationSubject>(
 	);
 }
 
+function MediaPresentationTitle(props: {
+	readonly compact: boolean;
+	readonly entityId: string;
+	readonly facts: ReactNode;
+	readonly layout: "grid" | "list";
+	readonly data: MediaSavedViewPresentationSubject;
+}) {
+	return (
+		<div className={clsx("flex min-w-0 flex-col", props.layout === "grid" ? "gap-1.5" : "gap-1")}>
+			<span className="flex min-w-0 items-baseline gap-1.5">
+				<PluginLink className="block min-w-0" to={{ kind: "entity", entityId: props.entityId }}>
+					<span
+						className={clsx(
+							"line-clamp-2 font-semibold text-text",
+							props.layout === "grid" ? "font-display leading-5" : "text-sm",
+						)}
+					>
+						{props.data.name}
+					</span>
+				</PluginLink>
+				{isTitleProvisional(props.data) && <SyncPip reason="translating" />}
+			</span>
+			{props.facts}
+		</div>
+	);
+}
+
 export const defineMediaPresentationPair = <Data extends MediaSavedViewPresentationSubject>(input: {
 	readonly aspect: MediaArtworkAspect;
 	readonly source: MediaPresentationSource<Data>;
-	readonly Facts: (props: { readonly compact: boolean; readonly data: Data }) => ReactNode;
+	readonly Facts: (props: { readonly data: Data; readonly compact: boolean }) => ReactNode;
 }) => {
 	const { Facts } = input;
 	const loader = createMediaPresentationLoader(input.source);

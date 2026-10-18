@@ -23,7 +23,7 @@ const activitySlugs = new Set<string>(mediaActivityEntitySchemaSlugs);
 const subject = (event: {
 	readonly entityId: string;
 	readonly entitySchemaSlug: string;
-	readonly sessionEntityId: string | null;
+	readonly sessionEntityId: null | string;
 }) =>
 	["show-episode", "podcast-episode"].includes(event.entitySchemaSlug)
 		? (event.sessionEntityId ?? event.entityId)

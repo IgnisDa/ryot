@@ -11,21 +11,21 @@ import { WorkoutEditorPrepareError } from "./prepare-error";
 import { readEditorExercises } from "./queries";
 import type { useWorkoutEditor } from "./use-workout-editor";
 
-type Context = typeof WorkoutEditorContextOutputSchema.Type;
-
 export type PrepareDraft = (context: Context) => Effect.Effect<WorkoutEditorDraft, unknown>;
+
+type Context = typeof WorkoutEditorContextOutputSchema.Type;
 
 const startInitialDraft = (input: {
 	readonly context: Context;
-	readonly prepare: PrepareDraft;
 	readonly client: RyotClient;
-	readonly schedule: RyotSchedule;
-	readonly starting: { current: boolean };
-	readonly controller: ReturnType<typeof useWorkoutEditor>["controller"];
-	readonly setMessage: (message: string) => void;
-	readonly isActive: () => boolean;
-	readonly onPrepared: () => void;
+	readonly prepare: PrepareDraft;
 	readonly onStarted: () => void;
+	readonly schedule: RyotSchedule;
+	readonly onPrepared: () => void;
+	readonly isActive: () => boolean;
+	readonly starting: { current: boolean };
+	readonly setMessage: (message: string) => void;
+	readonly controller: ReturnType<typeof useWorkoutEditor>["controller"];
 }) => {
 	input.starting.current = true;
 	input.schedule.run(
@@ -77,17 +77,17 @@ const startInitialDraft = (input: {
 };
 
 export function useInitialDraft(input: {
-	readonly isActive: boolean;
 	readonly saving: boolean;
+	readonly isActive: boolean;
 	readonly message: string | undefined;
-	readonly onStarted: (() => void) | undefined;
 	readonly context: Context | undefined;
 	readonly requiresPro: boolean | undefined;
-	readonly prepareDraft: PrepareDraft | undefined;
+	readonly onStarted: undefined | (() => void);
 	readonly setMessage: (message: string) => void;
-	readonly draft: WorkoutEditorDraft | undefined;
-	readonly snapshotStatus: ReturnType<typeof useWorkoutEditor>["snapshot"]["status"];
+	readonly draft: undefined | WorkoutEditorDraft;
+	readonly prepareDraft: undefined | PrepareDraft;
 	readonly controller: ReturnType<typeof useWorkoutEditor>["controller"];
+	readonly snapshotStatus: ReturnType<typeof useWorkoutEditor>["snapshot"]["status"];
 }) {
 	const { saving, context, message, isActive, onStarted, controller, setMessage, prepareDraft } =
 		input;

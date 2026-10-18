@@ -12,8 +12,8 @@ export const queryMediaMonitoringTargets = (
 
 export const alignedMediaMonitoringResults = (
 	entityIds: readonly string[],
-	targets: readonly { entityId: string; monitoringLibraryId: string | null }[],
-	isMediaMonitored: (target: { monitoringLibraryId: string | null }) => boolean,
+	targets: readonly { entityId: string; monitoringLibraryId: null | string }[],
+	isMediaMonitored: (target: { monitoringLibraryId: null | string }) => boolean,
 ): MediaMonitoringResult[] => {
 	const targetById = new Map(targets.map((target) => [target.entityId, target]));
 	return entityIds.map((entityId) => {

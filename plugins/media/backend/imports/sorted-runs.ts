@@ -16,15 +16,15 @@ export const mediaSortedRuns = (
 	attribution: Pick<typeof MediaMergeInput.Type, "runId" | "command">,
 	state: { ordinal: number },
 ): {
+	finish: (
+		prefix: string,
+	) => Generator<ReturnType<WorkflowReplay["child"]>, null | MediaSortedRun, unknown>;
 	add: (
 		initial: MediaSortedRun,
 		prefix: string,
 	) => Generator<ReturnType<WorkflowReplay["child"]>, void, unknown>;
-	finish: (
-		prefix: string,
-	) => Generator<ReturnType<WorkflowReplay["child"]>, MediaSortedRun | null, unknown>;
 } => {
-	let runs: Array<MediaSortedRun | undefined> = [];
+	let runs: Array<undefined | MediaSortedRun> = [];
 	const merge = function* (
 		left: MediaSortedRun,
 		right: MediaSortedRun,
@@ -57,7 +57,7 @@ export const mediaSortedRuns = (
 	};
 	return {
 		finish: function* (prefix: string) {
-			let result: MediaSortedRun | null = null;
+			let result: null | MediaSortedRun = null;
 			for (const [level, run] of runs.entries()) {
 				if (run) {
 					result = result ? yield* merge(result, run, `${prefix}-${level}`) : run;

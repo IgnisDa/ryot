@@ -138,7 +138,7 @@ export const translate = defineProvider({
 			const imageUrl = getLocalizedImageUrl(imagesData, "posters", langCode);
 			const properties: Record<
 				string,
-				string | Array<{ type: "remote"; url: string; purpose: "cover" }>
+				string | Array<{ url: string; type: "remote"; purpose: "cover" }>
 			> = {};
 			if (description) {
 				properties["description"] = description;

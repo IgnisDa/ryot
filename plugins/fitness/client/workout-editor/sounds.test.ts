@@ -3,11 +3,11 @@ import { describe, expect, it } from "vitest";
 
 import { createWorkoutEditorSounds } from "./sounds";
 
-type CreateContext = NonNullable<Parameters<typeof createWorkoutEditorSounds>[0]>;
 type SoundContext = ReturnType<CreateContext>;
 type SoundSource = ReturnType<SoundContext["createBufferSource"]>;
-type LoadSound = NonNullable<Parameters<typeof createWorkoutEditorSounds>[1]>;
 type WorkoutEditorSounds = ReturnType<typeof createWorkoutEditorSounds>;
+type LoadSound = NonNullable<Parameters<typeof createWorkoutEditorSounds>[1]>;
+type CreateContext = NonNullable<Parameters<typeof createWorkoutEditorSounds>[0]>;
 
 const createFakeContext = (
 	initialState: AudioContextState = "running",

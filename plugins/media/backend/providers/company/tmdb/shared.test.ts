@@ -82,7 +82,7 @@ describe("company.tmdb sandbox script", () => {
 	});
 
 	it("fetches only the first discover page and continues when more pages exist", () => {
-		const requests: Array<{ page: string | null; path: string; company: string | null }> = [];
+		const requests: Array<{ path: string; page: null | string; company: null | string }> = [];
 		const host = makeHost((_method, url) => {
 			const requestUrl = new URL(url);
 			if (requestUrl.pathname.endsWith("/company/1")) {

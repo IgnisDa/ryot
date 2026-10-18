@@ -120,7 +120,7 @@ export const strongAppWorkoutKey = (row: Record<string, string>) =>
 	});
 
 export const adaptStrongAppRows = (
-	rows: ReadonlyArray<{ row: Record<string, string>; itemIndex: number }>,
+	rows: ReadonlyArray<{ itemIndex: number; row: Record<string, string> }>,
 	timezone: string,
 ): WorkoutAdapterResult => {
 	const failures: WorkoutAdapterFailure[] = [];

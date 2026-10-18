@@ -51,7 +51,7 @@ export const flatSummaryRow = {
 };
 
 export const decodeFlatSummary = <Summary>(
-	recipe: PreparedRecipe<{ readonly summary: Summary | null }>,
+	recipe: PreparedRecipe<{ readonly summary: null | Summary }>,
 	overrides: Record<string, unknown> = {},
 ) => {
 	const { summary } = decodeMediaSummaryResult(recipe, {

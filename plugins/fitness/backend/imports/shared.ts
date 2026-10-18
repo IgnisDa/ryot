@@ -110,7 +110,7 @@ export const csvRecordEnds = (bytes: Uint8Array, eof: boolean) => {
 const readCsvPage = Effect.fn(function* (
 	offset: number,
 	buffered: Uint8Array,
-	sourceSize: number | null,
+	sourceSize: null | number,
 ) {
 	let bytes = buffered;
 	let next = offset;
@@ -221,7 +221,7 @@ const collect = Effect.fn(function* (
 });
 
 const recordReader = () => {
-	const windows = new Map<string, { offset: number; bytes: Uint8Array; size: number }>();
+	const windows = new Map<string, { size: number; offset: number; bytes: Uint8Array }>();
 	return Effect.fn(function* (key: string, offset: number) {
 		let bytes = new Uint8Array();
 		for (;;) {
@@ -490,10 +490,10 @@ export const runFitnessStage = Effect.fn(function* (
 	input: typeof FitnessStageInput.Type,
 ) {
 	switch (input.action) {
-		case "collect":
-			return yield* collect(source, input);
 		case "merge":
 			return yield* merge(input);
+		case "collect":
+			return yield* collect(source, input);
 		case "normalize":
 			return yield* normalize(source, input);
 		case "application":

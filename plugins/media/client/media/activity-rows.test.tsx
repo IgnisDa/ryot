@@ -150,7 +150,7 @@ const render: MediaActivityRowRender<Row> = {
 const julyDays = ["2026-07-26", "2026-07-20", "2026-07-11", "2026-07-02"];
 const juneDays = ["2026-06-28", "2026-06-21", "2026-06-14", "2026-06-07", "2026-06-01"];
 
-const mountRows = (rows: readonly Row[], monthly: { readonly openNewest: boolean } | undefined) => {
+const mountRows = (rows: readonly Row[], monthly: undefined | { readonly openNewest: boolean }) => {
 	const container = document.createElement("div");
 	document.body.append(container);
 	const root = createRoot(container);

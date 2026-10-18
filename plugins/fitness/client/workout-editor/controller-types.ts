@@ -14,65 +14,65 @@ import type {
 	WorkoutEditorSaveOutput,
 } from "../../shared/workout-editor-operations";
 
+export type TimerName = "rest" | "execution";
 export type WorkoutEditorContext = typeof WorkoutEditorContextOutputSchema.Type;
-export type TimerName = "execution" | "rest";
 
 type SavedResult = Extract<WorkoutEditorSaveOutput, { readonly kind: "saved" }>;
+
+type ContextSnapshot = {
+	readonly saveState: SaveState;
+	readonly contextError: unknown;
+	readonly context: undefined | WorkoutEditorContext;
+};
 
 type SaveState =
 	| { readonly phase: "idle" }
 	| { readonly phase: "in-flight" }
-	| { readonly phase: "acknowledged"; readonly result: SavedResult; readonly cleaning: boolean }
-	| { readonly phase: "saved"; readonly result: SavedResult };
-
-type ContextSnapshot = {
-	readonly context: WorkoutEditorContext | undefined;
-	readonly contextError: unknown;
-	readonly saveState: SaveState;
-};
+	| { readonly phase: "saved"; readonly result: SavedResult }
+	| { readonly cleaning: boolean; readonly result: SavedResult; readonly phase: "acknowledged" };
 
 export const isWorkoutEditorSaving = (snapshot: WorkoutEditorControllerSnapshot) =>
 	snapshot.saveState.phase === "in-flight" ||
 	(snapshot.saveState.phase === "acknowledged" && snapshot.saveState.cleaning);
 
+export type ReadySnapshot = Extract<WorkoutEditorControllerSnapshot, { readonly status: "ready" }>;
+
 export type WorkoutEditorControllerSnapshot =
-	| (ContextSnapshot & { readonly status: "loading" })
 	| (ContextSnapshot & { readonly status: "empty" })
+	| (ContextSnapshot & { readonly status: "loading" })
 	| (ContextSnapshot & {
 			readonly error: unknown;
 			readonly rawValue: unknown;
 			readonly status: "recovery-error";
 	  })
 	| (ContextSnapshot & {
-			readonly alertStatus: Readonly<Partial<Record<TimerName, PluginDeviceResult["status"]>>>;
-			readonly deviceError: unknown;
 			readonly dirty: boolean;
+			readonly status: "ready";
+			readonly uploading: boolean;
+			readonly timerError: unknown;
+			readonly deviceError: unknown;
+			readonly uploadError?: unknown;
 			readonly draft: WorkoutEditorDraft;
 			readonly persistenceError: unknown;
-			readonly uploading: boolean;
-			readonly uploadError?: unknown;
-			readonly status: "ready";
-			readonly timerError: unknown;
+			readonly alertStatus: Readonly<Partial<Record<TimerName, PluginDeviceResult["status"]>>>;
 	  });
 
-export type ReadySnapshot = Extract<WorkoutEditorControllerSnapshot, { readonly status: "ready" }>;
-
 export type WorkoutEditorControllerPorts = {
-	readonly iosLiveActivities: RyotClient["iosLiveActivities"];
 	readonly pluginId: PluginId;
-	readonly target: PluginNavigationTarget;
 	readonly foreground: () => boolean;
+	readonly target: PluginNavigationTarget;
 	readonly now: Effect.Effect<number, unknown>;
 	readonly feedback: () => Effect.Effect<void>;
 	readonly cleanup: RyotClient["uploads"]["cleanup"];
-	readonly save: (input: WorkoutEditorSaveInput) => Effect.Effect<WorkoutEditorSaveOutput, unknown>;
+	readonly schedule: Pick<RyotSchedule, "run" | "after">;
 	readonly upload: RyotClient["uploads"]["uploadPermanent"];
+	readonly iosLiveActivities: RyotClient["iosLiveActivities"];
 	readonly refreshContext: Effect.Effect<WorkoutEditorContext, unknown>;
-	readonly schedule: Pick<RyotSchedule, "after" | "run">;
 	readonly device: (request: PluginDeviceRequest) => Effect.Effect<PluginDeviceResult, unknown>;
+	readonly save: (input: WorkoutEditorSaveInput) => Effect.Effect<WorkoutEditorSaveOutput, unknown>;
 	readonly storage: {
-		readonly read: Effect.Effect<unknown, unknown>;
 		readonly remove: Effect.Effect<void, unknown>;
+		readonly read: Effect.Effect<unknown, unknown>;
 		readonly write: (value: string) => Effect.Effect<void, unknown>;
 	};
 };

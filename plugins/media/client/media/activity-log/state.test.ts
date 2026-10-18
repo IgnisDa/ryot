@@ -387,7 +387,7 @@ describe("episodes and copy", () => {
 			{ id: "b", name: "B", seasonNumber: 1, episodeNumber: 2, state: "untracked" as const },
 		];
 		const nextUp = { id: "b", name: "B", seasonNumber: 1, episodeNumber: 2 };
-		const pick = (selectedId: string | undefined, season: number | null, up = nextUp) =>
+		const pick = (selectedId: string | undefined, season: null | number, up = nextUp) =>
 			selectedEpisode({ choices, nextUp: up, selectedId, initial: undefined, seasonNumber: season })
 				?.id;
 		expect(pick("a", 1)).toBe("a");
@@ -491,7 +491,7 @@ describe("episodes and copy", () => {
 	});
 });
 
-const episodes = (seasonNumber: number | null) => ({
+const episodes = (seasonNumber: null | number) => ({
 	pageInfo: { limit: 1, hasMore: false },
 	items: [{ id: "next", name: "Five", seasonNumber, episodeNumber: 5 }],
 });
@@ -576,11 +576,11 @@ const stored = (properties: Record<string, string | number | boolean>, entityId 
 });
 
 const edit = (input: {
-	readonly logger?: MediaActivityLogger;
-	readonly intent: "finished" | "episode" | "progress";
-	readonly record: ReturnType<typeof stored>;
-	readonly change: Partial<ActivityDraft>;
 	readonly schemaSlug?: string;
+	readonly logger?: MediaActivityLogger;
+	readonly change: Partial<ActivityDraft>;
+	readonly record: ReturnType<typeof stored>;
+	readonly intent: "episode" | "finished" | "progress";
 }) => {
 	const logger = input.logger ?? flat;
 	const target = loaded(input.schemaSlug === undefined ? {} : { schemaSlug: input.schemaSlug });

@@ -59,7 +59,7 @@ const historySetText = (set: WorkoutHistorySetResult["items"][number], imperial:
 		.join(" · ");
 
 const useRevealInitial = (
-	ref: RefObject<HTMLElement | null>,
+	ref: RefObject<null | HTMLElement>,
 	initialOccurrenceId: string | undefined,
 ) => {
 	const reduced = usePrefersReducedMotion();
@@ -75,91 +75,18 @@ const useRevealInitial = (
 	}, [initialOccurrenceId, reduced, ref]);
 };
 
-function HistorySession(props: {
-	readonly session: WorkoutHistoryResult["items"][number];
-	readonly exerciseId: string;
-	readonly imperial: boolean;
-	readonly onAppend: (sets: WorkoutHistorySetResult["items"]) => void;
-}) {
-	const [confirming, setConfirming] = useState(false);
-	const result = useRyotQuery(historySetsQuery, {
-		workoutId: props.session.id,
-		exerciseId: props.exerciseId,
-	});
-	return (
-		<Card className="grid gap-2">
-			<div className="flex items-start gap-2">
-				<div className="min-w-0 flex-1">
-					<h3 className="font-semibold [overflow-wrap:anywhere]">{props.session.name}</h3>
-					<p className="text-xs text-text-muted">
-						{new Date(props.session.startedAt).toLocaleString()}
-					</p>
-				</div>
-				<Button
-					size="sm"
-					variant="secondary"
-					onClick={() => setConfirming(true)}
-					disabled={result.data === undefined}
-				>
-					<AppIcon size={14} name="plus" />
-					Add sets
-				</Button>
-			</div>
-			{props.session.comment ? (
-				<p className="text-sm text-text-muted">{props.session.comment}</p>
-			) : null}
-			{result.data === undefined && !result.isError ? (
-				<div role="status" className="grid gap-1.5" aria-label="Loading sets">
-					<Skeleton className="h-4 w-2/3" />
-					<Skeleton className="h-4 w-1/2" />
-				</div>
-			) : null}
-			{result.data === undefined ? null : (
-				<ol className="grid list-decimal gap-0.5 pl-5 text-sm tabular-nums">
-					{result.data.map((set) => (
-						<li key={set.id}>{historySetText(set, props.imperial)}</li>
-					))}
-				</ol>
-			)}
-			{result.isError ? (
-				<Notice
-					tone="danger"
-					icon={<AppIcon size={16} name="circle-alert" />}
-					action={
-						<Button size="sm" variant="secondary" onClick={result.refetch}>
-							Retry history sets
-						</Button>
-					}
-				>
-					History sets could not be loaded.
-				</Notice>
-			) : null}
-			<MotionPresence>
-				{confirming ? (
-					<ConfirmDialog
-						key="append-history"
-						cancelLabel="Cancel"
-						confirmLabel="Add sets"
-						disabled={result.data === undefined}
-						onClose={() => setConfirming(false)}
-						title={`Add sets from ${props.session.name}?`}
-						description={`${result.data?.length ?? 0} ${result.data?.length === 1 ? "set" : "sets"} from this session will be added to the exercise.`}
-						onConfirm={() => {
-							if (result.data !== undefined) {
-								props.onAppend(result.data);
-							}
-							setConfirming(false);
-						}}
-					/>
-				) : null}
-			</MotionPresence>
-		</Card>
-	);
-}
+type DraftOverlayProps = {
+	readonly onClose: () => void;
+	readonly onChange: DraftChange;
+	readonly draft: WorkoutEditorDraft;
+	readonly names: ReadonlyMap<string, string>;
+	readonly initialOccurrenceId?: string | undefined;
+	readonly onMoved?: (occurrenceId: string) => void;
+};
 
 export function HistoryRequiresPro(props: {
-	readonly exerciseName: string;
 	readonly onClose: () => void;
+	readonly exerciseName: string;
 }) {
 	return (
 		<EditorSheet
@@ -184,10 +111,10 @@ export function HistoryRequiresPro(props: {
 export function HistoryOverlay(props: {
 	readonly imperial: boolean;
 	readonly exerciseId: string;
+	readonly onClose: () => void;
 	readonly exerciseName: string;
 	readonly beforeStartedAt: string | undefined;
 	readonly excludeWorkoutId: string | undefined;
-	readonly onClose: () => void;
 	readonly onAppend: (sets: WorkoutHistorySetResult["items"]) => void;
 }) {
 	const history = useRyotInfiniteQuery(
@@ -278,19 +205,92 @@ export function HistoryOverlay(props: {
 	);
 }
 
-type DraftOverlayProps = {
-	readonly draft: WorkoutEditorDraft;
-	readonly names: ReadonlyMap<string, string>;
-	readonly initialOccurrenceId?: string | undefined;
-	readonly onChange: DraftChange;
-	readonly onClose: () => void;
-	readonly onMoved?: (occurrenceId: string) => void;
-};
+function HistorySession(props: {
+	readonly imperial: boolean;
+	readonly exerciseId: string;
+	readonly session: WorkoutHistoryResult["items"][number];
+	readonly onAppend: (sets: WorkoutHistorySetResult["items"]) => void;
+}) {
+	const [confirming, setConfirming] = useState(false);
+	const result = useRyotQuery(historySetsQuery, {
+		workoutId: props.session.id,
+		exerciseId: props.exerciseId,
+	});
+	return (
+		<Card className="grid gap-2">
+			<div className="flex items-start gap-2">
+				<div className="min-w-0 flex-1">
+					<h3 className="font-semibold [overflow-wrap:anywhere]">{props.session.name}</h3>
+					<p className="text-xs text-text-muted">
+						{new Date(props.session.startedAt).toLocaleString()}
+					</p>
+				</div>
+				<Button
+					size="sm"
+					variant="secondary"
+					onClick={() => setConfirming(true)}
+					disabled={result.data === undefined}
+				>
+					<AppIcon size={14} name="plus" />
+					Add sets
+				</Button>
+			</div>
+			{props.session.comment ? (
+				<p className="text-sm text-text-muted">{props.session.comment}</p>
+			) : null}
+			{result.data === undefined && !result.isError ? (
+				<div role="status" className="grid gap-1.5" aria-label="Loading sets">
+					<Skeleton className="h-4 w-2/3" />
+					<Skeleton className="h-4 w-1/2" />
+				</div>
+			) : null}
+			{result.data === undefined ? null : (
+				<ol className="grid list-decimal gap-0.5 pl-5 text-sm tabular-nums">
+					{result.data.map((set) => (
+						<li key={set.id}>{historySetText(set, props.imperial)}</li>
+					))}
+				</ol>
+			)}
+			{result.isError ? (
+				<Notice
+					tone="danger"
+					icon={<AppIcon size={16} name="circle-alert" />}
+					action={
+						<Button size="sm" variant="secondary" onClick={result.refetch}>
+							Retry history sets
+						</Button>
+					}
+				>
+					History sets could not be loaded.
+				</Notice>
+			) : null}
+			<MotionPresence>
+				{confirming ? (
+					<ConfirmDialog
+						key="append-history"
+						cancelLabel="Cancel"
+						confirmLabel="Add sets"
+						disabled={result.data === undefined}
+						onClose={() => setConfirming(false)}
+						title={`Add sets from ${props.session.name}?`}
+						description={`${result.data?.length ?? 0} ${result.data?.length === 1 ? "set" : "sets"} from this session will be added to the exercise.`}
+						onConfirm={() => {
+							if (result.data !== undefined) {
+								props.onAppend(result.data);
+							}
+							setConfirming(false);
+						}}
+					/>
+				) : null}
+			</MotionPresence>
+		</Card>
+	);
+}
 
 const sectionHeading = "text-[11px] font-semibold tracking-wider text-text-subtle uppercase";
 
 export function ReorderOverlay(
-	props: DraftOverlayProps & { readonly onPickUp: () => void; readonly onDrop: () => void },
+	props: DraftOverlayProps & { readonly onDrop: () => void; readonly onPickUp: () => void },
 ) {
 	const scrollRef = useRef<HTMLDivElement>(null);
 	const initialOccurrenceRef = useRef<HTMLDivElement>(null);

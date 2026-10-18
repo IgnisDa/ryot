@@ -13,7 +13,7 @@ type Superset = WorkoutEditorDraft["supersets"][number];
 
 type OccurrenceSegment = {
 	readonly occurrences: WorkoutEditorOccurrence[];
-	readonly group: (Superset & { readonly name: string }) | undefined;
+	readonly group: undefined | (Superset & { readonly name: string });
 };
 
 export const supersetNames = (draft: WorkoutEditorDraft) => {

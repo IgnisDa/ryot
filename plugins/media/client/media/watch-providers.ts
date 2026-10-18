@@ -14,13 +14,13 @@ const OFFER_LABELS: Record<WatchProviderOffer, string> = {
 	ads: "Free with ads",
 };
 
+export type MediaWatchProviders = { readonly watchProviders: WatchProviderList };
+
 export type WatchProviderGroup = {
 	readonly label: string;
 	readonly offer: WatchProviderOffer;
 	readonly providers: readonly WatchProvider[];
 };
-
-export type MediaWatchProviders = { readonly watchProviders: WatchProviderList };
 
 const regionAvailability = (media: MediaWatchProviders, region: string | undefined) =>
 	region === undefined
@@ -53,7 +53,7 @@ export const watchProviderGroups = (
 export const watchProviderLink = (media: MediaWatchProviders, region: string | undefined) =>
 	regionAvailability(media, region)?.link ?? undefined;
 
-export const watchProviderAsset = (provider: WatchProvider): MediaImageAsset | undefined =>
+export const watchProviderAsset = (provider: WatchProvider): undefined | MediaImageAsset =>
 	provider.image === null || provider.image === undefined
 		? undefined
 		: { type: "remote", url: provider.image };

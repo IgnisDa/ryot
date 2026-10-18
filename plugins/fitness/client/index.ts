@@ -1,2 +1,2 @@
-export { workoutCardPresentation, workoutRowPresentation } from "./workout-presentation";
-export { fitnessCardPresentation, fitnessRowPresentation } from "./entity-presentation";
+export { fitnessRowPresentation, fitnessCardPresentation } from "./entity-presentation";
+export { workoutRowPresentation, workoutCardPresentation } from "./workout-presentation";

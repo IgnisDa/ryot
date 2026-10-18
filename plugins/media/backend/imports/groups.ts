@@ -1,11 +1,11 @@
 import type { ImportEntityRef, ImportMediaEvent } from "./schemas";
 
 export type ImportMediaEntityGroupBuilder = {
-	entityRef: ImportEntityRef;
 	itemIndex: number;
+	entityRef: ImportEntityRef;
 	events: ImportMediaEvent[];
-	collectionMemberships: Array<{ collectionName: string }>;
 	ownershipProvider?: string | undefined;
+	collectionMemberships: Array<{ collectionName: string }>;
 };
 
 export const importEntityRefIdentifier = (ref: ImportEntityRef) =>

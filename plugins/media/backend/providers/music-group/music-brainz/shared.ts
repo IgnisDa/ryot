@@ -59,7 +59,7 @@ const parseDate = (value: unknown) => {
 	return Number.isNaN(parsed.getTime()) ? null : parsed;
 };
 
-const chooseRelease = (releases: readonly unknown[]): UnknownRecord | null => {
+const chooseRelease = (releases: readonly unknown[]): null | UnknownRecord => {
 	const records = releases.flatMap((release) => {
 		const record = asRecord(release);
 		return record ? [record] : [];
@@ -69,7 +69,7 @@ const chooseRelease = (releases: readonly unknown[]): UnknownRecord | null => {
 	}
 	const official = records.filter((record) => record["status"] === "Official");
 	const candidates = official.length > 0 ? official : records;
-	let best: UnknownRecord | null = null;
+	let best: null | UnknownRecord = null;
 	for (const release of candidates) {
 		if (!best) {
 			best = release;

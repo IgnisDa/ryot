@@ -33,32 +33,32 @@ import type { EditorExercise } from "./queries";
 import { type InvalidSet, SetGrid } from "./set-grid";
 import { SetSheet } from "./set-sheet";
 
-export type ExerciseSheet = "attachments" | "defaults" | "history" | "notes" | "replace";
+export type ExerciseSheet = "notes" | "history" | "replace" | "defaults" | "attachments";
 
 export function ExerciseCard(props: {
 	readonly now: number;
 	readonly pro: boolean;
-	readonly disabled: boolean;
-	readonly unavailable: boolean;
 	readonly grouped: boolean;
+	readonly disabled: boolean;
+	readonly onCycle: () => void;
+	readonly unavailable: boolean;
+	readonly onDelete: () => void;
+	readonly onDeletedSet: () => void;
 	readonly countdownEnabled: boolean;
 	readonly draft: WorkoutEditorDraft;
-	readonly invalid: InvalidSet | undefined;
+	readonly invalid: undefined | InvalidSet;
 	readonly currentSetId: string | undefined;
 	readonly occurrence: WorkoutEditorOccurrence;
 	readonly settings: WorkoutPreferenceSettings;
-	readonly exercise: EditorExercise | undefined;
-	readonly onChange: (transform: Parameters<DraftChange>[0]) => boolean;
-	readonly onConfirm: (set: WorkoutEditorSet) => void;
-	readonly onStartExecution: (set: WorkoutEditorSet) => void;
-	readonly onPrevious: (set: WorkoutEditorSet) => void;
+	readonly onAddedSet: (setId: string) => void;
+	readonly exercise: undefined | EditorExercise;
 	readonly onSetChanged: (setId: string) => void;
 	readonly onSheet: (sheet: ExerciseSheet) => void;
-	readonly onDelete: () => void;
-	readonly onCycle: () => void;
-	readonly onAddedSet: (setId: string) => void;
-	readonly onDeletedSet: () => void;
-	readonly onManage: (kind: "reorder" | "bulk-delete" | "supersets") => void;
+	readonly onConfirm: (set: WorkoutEditorSet) => void;
+	readonly onPrevious: (set: WorkoutEditorSet) => void;
+	readonly onStartExecution: (set: WorkoutEditorSet) => void;
+	readonly onChange: (transform: Parameters<DraftChange>[0]) => boolean;
+	readonly onManage: (kind: "reorder" | "supersets" | "bulk-delete") => void;
 }) {
 	const { exercise, settings, onChange, occurrence, draft: editorDraft } = props;
 	const { compact } = useRyotViewport();
@@ -71,7 +71,7 @@ export function ExerciseCard(props: {
 	const previous = usePreviousSets(editorDraft, occurrence);
 	const [openSetId, setOpenSetId] = useState<string>();
 	const openSet = occurrence.sets.find(({ clientId }) => clientId === openSetId);
-	const restFor = (set: Pick<WorkoutEditorSet, "restChoice" | "setLot">) =>
+	const restFor = (set: Pick<WorkoutEditorSet, "setLot" | "restChoice">) =>
 		resolveSetRestTime(set, settings, exercise?.overrides ?? {});
 	const inheritedRestFor = (setLot: WorkoutSetLot) =>
 		restFor({ setLot, restChoice: { kind: "inherited" } });

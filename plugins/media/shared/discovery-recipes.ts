@@ -97,7 +97,7 @@ const suggestionSourceId = (reference: PluginIdentityReference) => {
  * another, so the items query repeats the source `first()` rather than taking its id.
  */
 export const latestCompletionSuggestionsRecipe = defineRecipe(
-	(input: { readonly reference: PluginIdentityReference; readonly limit: number }) => {
+	(input: { readonly limit: number; readonly reference: PluginIdentityReference }) => {
 		const source = table("entity", "source");
 		const suggestion = table("relationship", "suggestion");
 		const target = table("entity", "target");
@@ -143,9 +143,9 @@ const trendingFetchedAt = (relationship: Table) =>
  */
 export const trendingLatestMediaRecipe = defineRecipe(
 	(input: {
-		readonly reference: PluginIdentityReference;
 		readonly limit: number;
 		readonly after?: string | undefined;
+		readonly reference: PluginIdentityReference;
 		readonly entitySchemaSlugs: readonly [string, ...string[]];
 	}) => {
 		const relationship = table("relationship", "trending");

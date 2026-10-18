@@ -113,7 +113,7 @@ const completeEvent = (
 	id: string,
 	when: MediaActivityWhen,
 	submittedAt: string,
-	extras: { readonly consumedOn?: string | undefined; readonly timeSpent?: number | undefined },
+	extras: { readonly timeSpent?: number | undefined; readonly consumedOn?: string | undefined },
 ): CreateEventItem => ({
 	entityId: id,
 	eventSchemaSlug: "complete",
@@ -126,13 +126,13 @@ const completeEvent = (
 	},
 });
 
-type ActivityHost = Pick<ScriptHost, "executeRyotql" | "createEvents">;
+type ActivityHost = Pick<ScriptHost, "createEvents" | "executeRyotql">;
 
 type SettingsHost = Pick<ScriptHost, "log" | "getUserSettings" | "updateUserSettings">;
 
 type BuiltEvents = {
-	readonly events: readonly CreateEventItem[];
 	readonly schemaSlug?: string | undefined;
+	readonly events: readonly CreateEventItem[];
 };
 
 const findTarget = (host: ActivityHost, id: string) =>

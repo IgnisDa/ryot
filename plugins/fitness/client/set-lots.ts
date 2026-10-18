@@ -2,8 +2,8 @@ import type { WorkoutSetLot } from "../shared/workout-set";
 
 type SetLotPresentation = {
 	readonly name: string;
-	readonly label: string;
 	readonly pill: string;
+	readonly label: string;
 	readonly tag: string | undefined;
 	readonly tone: string | undefined;
 };
@@ -39,7 +39,7 @@ export const setLots: Record<WorkoutSetLot, SetLotPresentation> = {
 	},
 };
 
-export const setLabels = (lots: readonly (WorkoutSetLot | null | undefined)[]) => {
+export const setLabels = (lots: readonly (null | undefined | WorkoutSetLot)[]) => {
 	let working = 0;
 	return lots.map((lot) => {
 		const tag = setLots[lot ?? "normal"].tag;

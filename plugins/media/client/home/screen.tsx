@@ -27,26 +27,23 @@ const BACKLOG = { state: "backlog" } as const;
 
 const SKELETON_RAILS = 3;
 
-function HomeSkeleton() {
+export default function Home() {
+	const { compact } = useRyotViewport();
+	const { scrollRootRef } = usePluginScreenSurface();
 	return (
-		<div role="status" aria-label="Loading your media" className="flex flex-col gap-8">
-			{Array.from({ length: SKELETON_RAILS }, (_rail, index) => (
-				<div key={index} className="flex flex-col gap-3">
-					<Skeleton className="h-5 w-40" />
-					<div className="flex gap-4 overflow-hidden">
-						{Array.from({ length: 6 }, (_tile, tile) => (
-							<Skeleton key={tile} className="h-48 w-32 shrink-0 rounded-lg" />
-						))}
-					</div>
-				</div>
-			))}
-		</div>
+		<PluginScreenFrame
+			title="Media"
+			actions={<AddTitleMenu variant="button" />}
+			barActions={<AddTitleMenu variant="icon" />}
+		>
+			<HomeBody compact={compact} scrollRootRef={scrollRootRef} />
+		</PluginScreenFrame>
 	);
 }
 
 export function HomeBody(props: {
 	readonly compact: boolean;
-	readonly scrollRootRef: RefObject<HTMLElement | null>;
+	readonly scrollRootRef: RefObject<null | HTMLElement>;
 }) {
 	const { compact, scrollRootRef } = props;
 	const today = useLocalToday();
@@ -78,16 +75,19 @@ export function HomeBody(props: {
 	);
 }
 
-export default function Home() {
-	const { compact } = useRyotViewport();
-	const { scrollRootRef } = usePluginScreenSurface();
+function HomeSkeleton() {
 	return (
-		<PluginScreenFrame
-			title="Media"
-			actions={<AddTitleMenu variant="button" />}
-			barActions={<AddTitleMenu variant="icon" />}
-		>
-			<HomeBody compact={compact} scrollRootRef={scrollRootRef} />
-		</PluginScreenFrame>
+		<div role="status" aria-label="Loading your media" className="flex flex-col gap-8">
+			{Array.from({ length: SKELETON_RAILS }, (_rail, index) => (
+				<div key={index} className="flex flex-col gap-3">
+					<Skeleton className="h-5 w-40" />
+					<div className="flex gap-4 overflow-hidden">
+						{Array.from({ length: 6 }, (_tile, tile) => (
+							<Skeleton key={tile} className="h-48 w-32 shrink-0 rounded-lg" />
+						))}
+					</div>
+				</div>
+			))}
+		</div>
 	);
 }

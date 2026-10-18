@@ -26,15 +26,15 @@ const readLibraryExercises = (client: RyotClient, exerciseIds: PickerInput["exer
 
 export function useProviderSearch(input: {
 	readonly search: string;
-	readonly replacementKind: ExerciseKind | undefined;
 	readonly onCreateRequested: () => void;
+	readonly replacementKind: undefined | ExerciseKind;
 	readonly onFound: (exercises: readonly PickerExercise[]) => void;
 }) {
 	const client = useRyot();
 	const schedule = useRyotSchedule();
 	const { pluginId } = client.pluginIdentity(PLUGIN_PACKAGE_ID);
 	const running = useRef(false);
-	const cancel = useRef<(() => void) | undefined>(undefined);
+	const cancel = useRef<undefined | (() => void)>(undefined);
 	const [pending, setPending] = useState(false);
 	const [failed, setFailed] = useState(false);
 	const [notice, setNotice] = useState<string>();

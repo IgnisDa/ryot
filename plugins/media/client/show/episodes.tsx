@@ -204,10 +204,98 @@ const SHOW_ORDER_EPISODE_PAGES_COPY: MediaEpisodePagesCopy = {
 const metaLabel = (parts: readonly (string | undefined)[]) =>
 	parts.filter((part) => part !== undefined).join(" • ");
 
+export function ShowEpisodes(props: {
+	readonly compact: boolean;
+	readonly entityId: string;
+	readonly editable: boolean;
+	readonly safeAreaTop: number;
+	readonly refresh: () => void;
+	readonly state: ShowSeasonsState;
+	readonly selectedId: null | string;
+	readonly nextUp: null | ShowEpisode;
+	readonly logger: MediaActivityLogger;
+	readonly order: null | ShowEpisodeOrder;
+	readonly onSelect: (seasonId: string) => void;
+	readonly onSelectOrder: (orderId: null | string) => void;
+}) {
+	const { state, order } = props;
+	if (state.status === "loading") {
+		return (
+			<MediaStatusMessage
+				title="Loading episodes..."
+				detail="Fetching the seasons for this show."
+			/>
+		);
+	}
+	if (state.status === "transport-error" || state.status === "malformed") {
+		return <MediaStatusMessage {...showSeasonsError(state)} onRetry={props.refresh} />;
+	}
+	if (state.status === "empty") {
+		return (
+			<div className={clsx("flex flex-col", props.compact ? "gap-5 pt-6" : "gap-6 pt-8")}>
+				<MediaStatusMessage
+					title="No episodes yet"
+					detail="This show has no seasons or episodes recorded yet."
+				/>
+				{props.editable ? <ShowAddSeasonAction seasons={[]} entityId={props.entityId} /> : null}
+			</div>
+		);
+	}
+	return (
+		<div className={clsx("flex flex-col", props.compact ? "gap-5 pt-6" : "gap-6 pt-8")}>
+			<ShowEpisodeOrderSelector
+				selected={order}
+				orders={state.episodeOrders}
+				onSelect={props.onSelectOrder}
+			/>
+			{order === null ? (
+				<ShowSeasonBrowser
+					logger={props.logger}
+					nextUp={props.nextUp}
+					seasons={state.seasons}
+					compact={props.compact}
+					editable={props.editable}
+					entityId={props.entityId}
+					onSelect={props.onSelect}
+					selectedId={props.selectedId}
+					safeAreaTop={props.safeAreaTop}
+				/>
+			) : (
+				<ShowOrderBrowser
+					order={order}
+					logger={props.logger}
+					key={order.externalId}
+					compact={props.compact}
+					entityId={props.entityId}
+					safeAreaTop={props.safeAreaTop}
+				/>
+			)}
+		</div>
+	);
+}
+
+function ShowAddSeasonAction(props: {
+	readonly entityId: string;
+	readonly seasons: readonly [] | ShowSeasonList;
+}) {
+	return (
+		<div className="flex">
+			<MediaChildCreateAction
+				label="Add season"
+				childSchemaSlug="show-season"
+				parentEntityId={props.entityId}
+				initialProperties={{
+					seasonNumber: Math.max(0, ...props.seasons.map(({ seasonNumber }) => seasonNumber)) + 1,
+				}}
+			/>
+		</div>
+	);
+}
+
 function ShowEpisodeOrderSelector(props: {
-	readonly selected: ShowEpisodeOrder | null;
+	readonly selected: null | ShowEpisodeOrder;
 	readonly orders: readonly ShowEpisodeOrder[];
-	readonly onSelect: (orderId: string | null) => void;
+	readonly onSelect: (orderId: null | string) => void;
 }) {
 	if (props.orders.length === 0) {
 		return null;
@@ -225,6 +313,135 @@ function ShowEpisodeOrderSelector(props: {
 				...props.orders.map((order) => ({ label: order.name, value: order.externalId })),
 			]}
 		/>
+	);
+}
+
+function ShowOrderGroupHeader(props: {
+	readonly compact: boolean;
+	readonly entityId: string;
+	readonly group: ShowEpisodeOrder["groups"][number];
+}) {
+	const result = useRyotQuery(showOrderGroupCoverageQuery, {
+		entityId: props.entityId,
+		externalIds: props.group.episodeExternalIds,
+	});
+	const coverage = result.data ?? null;
+	const percent = coverage === null ? undefined : showCoverageCompletionPercent(coverage);
+	const meta = coverage === null ? undefined : showCoverageAiredLabel(coverage);
+	return (
+		<div className="flex flex-col gap-3">
+			<div className="flex flex-col gap-1">
+				<p
+					className={clsx(
+						"font-display font-semibold text-text",
+						props.compact ? "text-[17px]" : "text-xl",
+					)}
+				>
+					{props.group.name}
+				</p>
+				{meta === undefined ? null : <p className="font-ui text-[12px] text-text-subtle">{meta}</p>}
+			</div>
+			{percent === undefined ? null : <MediaProgressBar percent={percent} />}
+		</div>
+	);
+}
+
+/** An episode order's groups in place of seasons; it starts on the first group. */
+function ShowOrderBrowser(props: {
+	readonly compact: boolean;
+	readonly entityId: string;
+	readonly safeAreaTop: number;
+	readonly order: ShowEpisodeOrder;
+	readonly logger: MediaActivityLogger;
+}) {
+	const { order } = props;
+	const [selectedIndex, setSelectedIndex] = useState(0);
+	const index = selectedIndex < order.groups.length ? selectedIndex : 0;
+	const group = order.groups[index];
+	if (group === undefined) {
+		return (
+			<MediaStatusMessage
+				title="No episodes yet"
+				detail="This episode order has no groups recorded yet."
+			/>
+		);
+	}
+	return (
+		<>
+			{order.groups.length === 1 ? null : (
+				<ChipRadioGroup
+					overflow="scroll"
+					label="Episode group"
+					value={String(index)}
+					onChange={(value) => setSelectedIndex(Number(value))}
+					options={order.groups.map((option, optionIndex) => ({
+						label: option.name,
+						value: String(optionIndex),
+					}))}
+				/>
+			)}
+			<ShowOrderGroupHeader group={group} compact={props.compact} entityId={props.entityId} />
+			<MediaEpisodePages
+				nextUp={null}
+				editable={false}
+				compact={props.compact}
+				entityId={props.entityId}
+				query={showOrderEpisodesQuery}
+				safeAreaTop={props.safeAreaTop}
+				render={SHOW_ORDER_EPISODE_RENDER}
+				copy={SHOW_ORDER_EPISODE_PAGES_COPY}
+				containerId={`${order.externalId}:${index}`}
+				scope={{ episodeExternalIds: group.episodeExternalIds }}
+				log={{ logger: props.logger, parentEntityId: props.entityId }}
+			/>
+		</>
+	);
+}
+
+function ShowSeasonBrowser(props: {
+	readonly compact: boolean;
+	readonly entityId: string;
+	readonly editable: boolean;
+	readonly safeAreaTop: number;
+	readonly seasons: ShowSeasonList;
+	readonly selectedId: null | string;
+	readonly nextUp: null | ShowEpisode;
+	readonly logger: MediaActivityLogger;
+	readonly onSelect: (seasonId: string) => void;
+}) {
+	const { nextUp } = props;
+	const season = selectedShowSeason(props.seasons, props.selectedId);
+	return (
+		<ManagedAssetProvider assets={showSeasonsManagedAssets(props.seasons)}>
+			{props.seasons.length === 1 ? null : (
+				<ChipRadioGroup
+					label="Season"
+					value={season.id}
+					overflow="scroll"
+					onChange={props.onSelect}
+					options={props.seasons.map((option) => ({
+						value: option.id,
+						label: showSeasonLabel(option),
+					}))}
+				/>
+			)}
+			{props.editable ? (
+				<ShowAddSeasonAction seasons={props.seasons} entityId={props.entityId} />
+			) : null}
+			<ShowSeasonHeader season={season} compact={props.compact} editable={props.editable} />
+			<MediaEpisodePages
+				containerId={season.id}
+				compact={props.compact}
+				editable={props.editable}
+				entityId={props.entityId}
+				render={SHOW_EPISODE_RENDER}
+				copy={SHOW_EPISODE_PAGES_COPY}
+				safeAreaTop={props.safeAreaTop}
+				query={showSeasonEpisodesQuery}
+				log={{ logger: props.logger, parentEntityId: props.entityId }}
+				nextUp={nextUp?.seasonNumber === season.seasonNumber ? nextUp : null}
+			/>
+		</ManagedAssetProvider>
 	);
 }
 
@@ -292,238 +509,53 @@ function ShowSeasonHeader(props: {
 	);
 }
 
-function ShowAddSeasonAction(props: {
-	readonly entityId: string;
-	readonly seasons: ShowSeasonList | readonly [];
-}) {
-	return (
-		<div className="flex">
-			<MediaChildCreateAction
-				label="Add season"
-				childSchemaSlug="show-season"
-				parentEntityId={props.entityId}
-				initialProperties={{
-					seasonNumber: Math.max(0, ...props.seasons.map(({ seasonNumber }) => seasonNumber)) + 1,
-				}}
-			/>
-		</div>
-	);
-}
-
-function ShowSeasonBrowser(props: {
-	readonly editable: boolean;
-	readonly compact: boolean;
-	readonly logger: MediaActivityLogger;
-	readonly entityId: string;
-	readonly safeAreaTop: number;
-	readonly seasons: ShowSeasonList;
-	readonly nextUp: ShowEpisode | null;
-	readonly selectedId: string | null;
-	readonly onSelect: (seasonId: string) => void;
-}) {
-	const { nextUp } = props;
-	const season = selectedShowSeason(props.seasons, props.selectedId);
-	return (
-		<ManagedAssetProvider assets={showSeasonsManagedAssets(props.seasons)}>
-			{props.seasons.length === 1 ? null : (
-				<ChipRadioGroup
-					label="Season"
-					value={season.id}
-					overflow="scroll"
-					onChange={props.onSelect}
-					options={props.seasons.map((option) => ({
-						value: option.id,
-						label: showSeasonLabel(option),
-					}))}
-				/>
-			)}
-			{props.editable ? (
-				<ShowAddSeasonAction seasons={props.seasons} entityId={props.entityId} />
-			) : null}
-			<ShowSeasonHeader season={season} compact={props.compact} editable={props.editable} />
-			<MediaEpisodePages
-				containerId={season.id}
-				compact={props.compact}
-				editable={props.editable}
-				entityId={props.entityId}
-				render={SHOW_EPISODE_RENDER}
-				copy={SHOW_EPISODE_PAGES_COPY}
-				safeAreaTop={props.safeAreaTop}
-				query={showSeasonEpisodesQuery}
-				log={{ logger: props.logger, parentEntityId: props.entityId }}
-				nextUp={nextUp?.seasonNumber === season.seasonNumber ? nextUp : null}
-			/>
-		</ManagedAssetProvider>
-	);
-}
-
-function ShowOrderGroupHeader(props: {
-	readonly compact: boolean;
-	readonly entityId: string;
-	readonly group: ShowEpisodeOrder["groups"][number];
-}) {
-	const result = useRyotQuery(showOrderGroupCoverageQuery, {
-		entityId: props.entityId,
-		externalIds: props.group.episodeExternalIds,
-	});
-	const coverage = result.data ?? null;
-	const percent = coverage === null ? undefined : showCoverageCompletionPercent(coverage);
-	const meta = coverage === null ? undefined : showCoverageAiredLabel(coverage);
-	return (
-		<div className="flex flex-col gap-3">
-			<div className="flex flex-col gap-1">
-				<p
-					className={clsx(
-						"font-display font-semibold text-text",
-						props.compact ? "text-[17px]" : "text-xl",
-					)}
-				>
-					{props.group.name}
-				</p>
-				{meta === undefined ? null : <p className="font-ui text-[12px] text-text-subtle">{meta}</p>}
-			</div>
-			{percent === undefined ? null : <MediaProgressBar percent={percent} />}
-		</div>
-	);
-}
-
-/** An episode order's groups in place of seasons; it starts on the first group. */
-function ShowOrderBrowser(props: {
-	readonly compact: boolean;
-	readonly logger: MediaActivityLogger;
-	readonly entityId: string;
-	readonly safeAreaTop: number;
-	readonly order: ShowEpisodeOrder;
-}) {
-	const { order } = props;
-	const [selectedIndex, setSelectedIndex] = useState(0);
-	const index = selectedIndex < order.groups.length ? selectedIndex : 0;
-	const group = order.groups[index];
-	if (group === undefined) {
-		return (
-			<MediaStatusMessage
-				title="No episodes yet"
-				detail="This episode order has no groups recorded yet."
-			/>
-		);
-	}
-	return (
-		<>
-			{order.groups.length === 1 ? null : (
-				<ChipRadioGroup
-					overflow="scroll"
-					label="Episode group"
-					value={String(index)}
-					onChange={(value) => setSelectedIndex(Number(value))}
-					options={order.groups.map((option, optionIndex) => ({
-						label: option.name,
-						value: String(optionIndex),
-					}))}
-				/>
-			)}
-			<ShowOrderGroupHeader group={group} compact={props.compact} entityId={props.entityId} />
-			<MediaEpisodePages
-				nextUp={null}
-				editable={false}
-				compact={props.compact}
-				entityId={props.entityId}
-				query={showOrderEpisodesQuery}
-				safeAreaTop={props.safeAreaTop}
-				render={SHOW_ORDER_EPISODE_RENDER}
-				copy={SHOW_ORDER_EPISODE_PAGES_COPY}
-				containerId={`${order.externalId}:${index}`}
-				scope={{ episodeExternalIds: group.episodeExternalIds }}
-				log={{ logger: props.logger, parentEntityId: props.entityId }}
-			/>
-		</>
-	);
-}
-
-export function ShowEpisodes(props: {
-	readonly editable: boolean;
-	readonly compact: boolean;
-	readonly logger: MediaActivityLogger;
-	readonly entityId: string;
-	readonly safeAreaTop: number;
-	readonly refresh: () => void;
-	readonly state: ShowSeasonsState;
-	readonly nextUp: ShowEpisode | null;
-	readonly selectedId: string | null;
-	readonly onSelect: (seasonId: string) => void;
-	readonly order: ShowEpisodeOrder | null;
-	readonly onSelectOrder: (orderId: string | null) => void;
-}) {
-	const { state, order } = props;
-	if (state.status === "loading") {
-		return (
-			<MediaStatusMessage
-				title="Loading episodes..."
-				detail="Fetching the seasons for this show."
-			/>
-		);
-	}
-	if (state.status === "transport-error" || state.status === "malformed") {
-		return <MediaStatusMessage {...showSeasonsError(state)} onRetry={props.refresh} />;
-	}
-	if (state.status === "empty") {
-		return (
-			<div className={clsx("flex flex-col", props.compact ? "gap-5 pt-6" : "gap-6 pt-8")}>
-				<MediaStatusMessage
-					title="No episodes yet"
-					detail="This show has no seasons or episodes recorded yet."
-				/>
-				{props.editable ? <ShowAddSeasonAction seasons={[]} entityId={props.entityId} /> : null}
-			</div>
-		);
-	}
-	return (
-		<div className={clsx("flex flex-col", props.compact ? "gap-5 pt-6" : "gap-6 pt-8")}>
-			<ShowEpisodeOrderSelector
-				selected={order}
-				orders={state.episodeOrders}
-				onSelect={props.onSelectOrder}
-			/>
-			{order === null ? (
-				<ShowSeasonBrowser
-					logger={props.logger}
-					nextUp={props.nextUp}
-					seasons={state.seasons}
-					compact={props.compact}
-					editable={props.editable}
-					entityId={props.entityId}
-					onSelect={props.onSelect}
-					selectedId={props.selectedId}
-					safeAreaTop={props.safeAreaTop}
-				/>
-			) : (
-				<ShowOrderBrowser
-					order={order}
-					logger={props.logger}
-					key={order.externalId}
-					compact={props.compact}
-					entityId={props.entityId}
-					safeAreaTop={props.safeAreaTop}
-				/>
-			)}
-		</div>
-	);
-}
-
 const persistOrder = (write: Promise<void>) => {
 	Effect.runFork(Effect.ignore(Effect.tryPromise(() => write)));
 };
 
-function ShowEpisodesWithOrder(props: {
-	readonly editable: boolean;
+/** Resolves the device's stored episode order before the seasons query runs. */
+export function ShowEpisodesTab(props: {
 	readonly compact: boolean;
-	readonly logger: MediaActivityLogger;
 	readonly entityId: string;
 	readonly safeAreaTop: number;
-	readonly nextUp: ShowEpisode | null;
+	readonly logger: MediaActivityLogger;
+	readonly summary: undefined | { readonly isCustom: boolean; readonly nextUp: null | ShowEpisode };
+}) {
+	const identity = usePluginIdentity(PLUGIN_PACKAGE_ID);
+	const storage = usePluginStorage({
+		schema: Schema.String,
+		pluginId: identity.pluginId,
+		key: showEpisodeOrderStorageKey(props.entityId),
+	});
+	if (storage.status === "loading") {
+		return (
+			<MediaStatusMessage title="Loading episodes..." detail="Restoring your episode order." />
+		);
+	}
+	return (
+		<ShowEpisodesWithOrder
+			storage={storage}
+			logger={props.logger}
+			compact={props.compact}
+			entityId={props.entityId}
+			safeAreaTop={props.safeAreaTop}
+			nextUp={props.summary?.nextUp ?? null}
+			editable={props.summary?.isCustom === true}
+		/>
+	);
+}
+
+function ShowEpisodesWithOrder(props: {
+	readonly compact: boolean;
+	readonly entityId: string;
+	readonly editable: boolean;
+	readonly safeAreaTop: number;
+	readonly nextUp: null | ShowEpisode;
+	readonly logger: MediaActivityLogger;
 	readonly storage: Extract<PluginStorageState<string>, { readonly status: "ready" }>;
 }) {
 	const { storage } = props;
-	const [selectedId, setSelectedId] = useState<string | null>(null);
+	const [selectedId, setSelectedId] = useState<null | string>(null);
 	const result = useRyotQuery(showSeasonsQuery, { entityId: props.entityId });
 	const state = mapShowSeasons(result);
 	const resolved =
@@ -555,37 +587,5 @@ function ShowEpisodesWithOrder(props: {
 				}
 			/>
 		</>
-	);
-}
-
-/** Resolves the device's stored episode order before the seasons query runs. */
-export function ShowEpisodesTab(props: {
-	readonly compact: boolean;
-	readonly logger: MediaActivityLogger;
-	readonly entityId: string;
-	readonly safeAreaTop: number;
-	readonly summary: { readonly nextUp: ShowEpisode | null; readonly isCustom: boolean } | undefined;
-}) {
-	const identity = usePluginIdentity(PLUGIN_PACKAGE_ID);
-	const storage = usePluginStorage({
-		schema: Schema.String,
-		pluginId: identity.pluginId,
-		key: showEpisodeOrderStorageKey(props.entityId),
-	});
-	if (storage.status === "loading") {
-		return (
-			<MediaStatusMessage title="Loading episodes..." detail="Restoring your episode order." />
-		);
-	}
-	return (
-		<ShowEpisodesWithOrder
-			storage={storage}
-			logger={props.logger}
-			compact={props.compact}
-			entityId={props.entityId}
-			safeAreaTop={props.safeAreaTop}
-			nextUp={props.summary?.nextUp ?? null}
-			editable={props.summary?.isCustom === true}
-		/>
 	);
 }

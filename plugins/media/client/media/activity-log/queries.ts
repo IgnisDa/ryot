@@ -26,7 +26,7 @@ const SEASON_CHOICES_LIMIT = 100;
 
 export const activityLogContextQuery = createRyotQuery<
 	{ readonly entityId: string },
-	MediaActivityLogContext | null
+	null | MediaActivityLogContext
 >(
 	({ input, client }) =>
 		client.data.query(
@@ -39,7 +39,7 @@ export const activityLogContextQuery = createRyotQuery<
 );
 
 export const showSeasonChoicesQuery = createRyotQuery<
-	{ readonly after: string | null; readonly seasonNumber: number; readonly showEntityId: string },
+	{ readonly after: null | string; readonly seasonNumber: number; readonly showEntityId: string },
 	ShowSeasonEpisodeChoices
 >(({ input, client }) =>
 	client.data.query(
@@ -55,10 +55,10 @@ export const showSeasonChoicesQuery = createRyotQuery<
 
 export const earlierEpisodesQuery = createRyotQuery<
 	{
-		readonly after: string | null;
-		readonly kind: "show" | "podcast";
+		readonly after: null | string;
 		readonly parentEntityId: string;
 		readonly episodeEntityId: string;
+		readonly kind: "show" | "podcast";
 	},
 	EpisodicEarlierUnwatched
 >(({ input, client }) =>
@@ -111,7 +111,7 @@ export const deleteActivitySubmission = createRyotBackgroundSubmission({
 		submissionId,
 	}: RyotSubmission<{
 		readonly eventIds: readonly string[];
-		readonly expected?: MediaEventSnapshot | undefined;
+		readonly expected?: undefined | MediaEventSnapshot;
 	}>) => ({
 		submittedAt,
 		submissionId,

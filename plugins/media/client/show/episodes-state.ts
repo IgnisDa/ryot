@@ -13,19 +13,17 @@ import { collectManagedAssetLocators, preferredMediaImageAsset } from "../media/
 import { classifyRyotQueryResult, type MappedRyotQueryState } from "../media/query-state";
 import { mediaEpisodicAiredLabel } from "../media/summary-state";
 
-export type ShowSeasonsResult = Recipe.Success<typeof showSeasonsRecipe>;
-
-type ShowSeasons = NonNullable<ShowSeasonsResult>;
-
 export type ShowSeason = ShowSeasons["seasons"]["items"][number];
 
-export type ShowEpisode = Recipe.Success<typeof showSeasonEpisodesRecipe>["items"][number];
+export type ShowSeasonList = readonly [ShowSeason, ...ShowSeason[]];
+
+export type ShowSeasonsResult = Recipe.Success<typeof showSeasonsRecipe>;
 
 export type ShowOrderEpisode = Recipe.Success<typeof showOrderEpisodesRecipe>[number];
 
 export type ShowOrderGroupCoverage = Recipe.Success<typeof showOrderGroupCoverageRecipe>;
 
-export type ShowSeasonList = readonly [ShowSeason, ...ShowSeason[]];
+export type ShowEpisode = Recipe.Success<typeof showSeasonEpisodesRecipe>["items"][number];
 
 export type ShowSeasonsState = MappedRyotQueryState<
 	| { readonly status: "empty" }
@@ -36,10 +34,12 @@ export type ShowSeasonsState = MappedRyotQueryState<
 	  }
 >;
 
+type ShowSeasons = NonNullable<ShowSeasonsResult>;
+
 type ShowEpisodeCoverage = Pick<ShowSeason, "episodeTotal" | "watchedTotal" | "upcomingTotal">;
 
 type ShowSeasonsFailure = Pick<
-	Extract<ShowSeasonsState, { status: "transport-error" | "malformed" }>,
+	Extract<ShowSeasonsState, { status: "malformed" | "transport-error" }>,
 	"status"
 >;
 
@@ -80,7 +80,7 @@ export const showSeasonsError = (state: ShowSeasonsFailure) => ({
 			: "These seasons came back in a form that could not be displayed. Try again later.",
 });
 
-export const selectedShowSeason = (seasons: ShowSeasonList, seasonId: string | null) =>
+export const selectedShowSeason = (seasons: ShowSeasonList, seasonId: null | string) =>
 	seasons.find((season) => season.id === seasonId) ??
 	seasons.find((season) => !isSpecialsSeason(season)) ??
 	seasons[0];

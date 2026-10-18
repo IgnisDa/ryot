@@ -156,10 +156,10 @@ export const changeWorkoutEnergyUnit = (
 export const newWorkoutOccurrence = (input: {
 	readonly id: string;
 	readonly setId: string;
-	readonly exerciseId: WorkoutEditorOccurrence["exerciseId"];
 	readonly kind: ExerciseKind;
 	readonly settings: WorkoutPreferenceSettings;
 	readonly overrides: WorkoutExerciseOverrides;
+	readonly exerciseId: WorkoutEditorOccurrence["exerciseId"];
 }): WorkoutEditorOccurrence => ({
 	notes: [],
 	images: [],
@@ -267,14 +267,14 @@ const advanceWorkout = (draft: WorkoutEditorDraft, occurrenceId: string): Workou
 export const completeWorkoutSet = (
 	draft: WorkoutEditorDraft,
 	input: {
-		readonly occurrenceId: string;
-		readonly setId: string;
 		readonly now: number;
-		readonly observedAt?: number;
+		readonly setId: string;
 		readonly timerId: string;
 		readonly prompt: boolean;
-		readonly settings: Partial<WorkoutRestSettings>;
+		readonly observedAt?: number;
+		readonly occurrenceId: string;
 		readonly overrides: WorkoutExerciseOverrides;
+		readonly settings: Partial<WorkoutRestSettings>;
 	},
 ): WorkoutEditorDraft => {
 	const occurrence = draft.occurrences.find(({ clientId }) => clientId === input.occurrenceId);
@@ -328,8 +328,8 @@ export const completeWorkoutSet = (
 };
 
 export type ExpectedCountdowns = {
-	readonly executionClientId?: string;
 	readonly restClientId?: string;
+	readonly executionClientId?: string;
 };
 
 const COUNTDOWN_FEEDBACK_WINDOW_MS = 1500;
@@ -338,9 +338,9 @@ export const reconcileWorkoutTimers = (
 	draft: WorkoutEditorDraft,
 	now: number,
 	input: {
-		readonly settings: Partial<WorkoutRestSettings>;
 		readonly prompt: boolean;
-		readonly expected?: ExpectedCountdowns | undefined;
+		readonly settings: Partial<WorkoutRestSettings>;
+		readonly expected?: undefined | ExpectedCountdowns;
 	},
 ) => {
 	let next = invalidateWorkoutCountdowns(draft).draft;

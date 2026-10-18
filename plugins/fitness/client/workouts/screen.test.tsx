@@ -21,7 +21,7 @@ afterEach(disposePluginBridges);
 const HOUR_MS = 3_600_000;
 const hoursAgo = (hours: number) => new Date(Date.now() - hours * HOUR_MS).toISOString();
 
-const rows = (items: readonly Record<string, unknown>[], nextCursor: string | null = null) => ({
+const rows = (items: readonly Record<string, unknown>[], nextCursor: null | string = null) => ({
 	items,
 	type: "rows" as const,
 	pageInfo: { limit: 100, nextCursor, hasMore: nextCursor !== null },
@@ -63,16 +63,16 @@ const listWorkout = (id: string, name: string, startedAt: string) => ({
 	sets: rows([listSet("squat", "Back Squat", 0), listSet("press", "Leg Press", 1)]),
 });
 
+type Queries = ReturnType<
+	ReturnType<typeof mountPluginPage>["queryRequests"]
+>[number]["document"]["queries"];
+
 type Answers = {
 	readonly total?: number;
 	readonly deferProcessing?: boolean;
 	readonly processingPending?: boolean;
 	readonly list?: (after: string | undefined) => ReturnType<typeof rows>;
 };
-
-type Queries = ReturnType<
-	ReturnType<typeof mountPluginPage>["queryRequests"]
->[number]["document"]["queries"];
 
 const respond = (queries: Queries, answers: Answers) => {
 	if ("processing" in queries) {

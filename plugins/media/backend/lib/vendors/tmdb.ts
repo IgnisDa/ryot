@@ -20,7 +20,7 @@ export type TmdbHost = Pick<ScriptHost, "httpCall" | "getPluginConfig">;
 export type TmdbTrendingHost = TmdbHost & Pick<ScriptHost, "log" | "upsertGlobalEntities">;
 
 type TmdbImagePurpose = "cover" | "backdrop";
-type TmdbRemoteImage = { type: "remote"; url: string; purpose: TmdbImagePurpose };
+type TmdbRemoteImage = { url: string; type: "remote"; purpose: TmdbImagePurpose };
 
 const TMDB_BASE_URL = "https://api.themoviedb.org/3";
 const TMDB_IMAGE_BASE = "https://image.tmdb.org/t/p/original";
@@ -125,10 +125,10 @@ export const collectGenres = (genres: unknown) => {
 	});
 };
 
-type TmdbWatchProvider = { name: string; image: string | null; offers: WatchProviderOffer[] };
+type TmdbWatchProvider = { name: string; image: null | string; offers: WatchProviderOffer[] };
 type TmdbWatchProviderCountry = {
 	country: string;
-	link: string | null;
+	link: null | string;
 	providers: TmdbWatchProvider[];
 };
 
@@ -183,12 +183,12 @@ export const collectWatchProviders = (payload: unknown) => {
 
 export const collectSuggestions = (
 	results: unknown,
-	options: { readonly nameKeys: readonly string[]; readonly providerSlug: string },
+	options: { readonly providerSlug: string; readonly nameKeys: readonly string[] },
 ) => {
 	const suggestions = new Map<string, ProviderDetailsRelatedEntity>();
 	for (const result of recordsValue(results)) {
 		const id = numberValue(result["id"]);
-		const name = options.nameKeys.reduce<string | null>(
+		const name = options.nameKeys.reduce<null | string>(
 			(value, key) => value ?? stringValue(result[key]),
 			null,
 		);
@@ -207,7 +207,7 @@ export const collectSuggestions = (
 
 export const collectPeople = (cast: unknown, crew: unknown, createdBy?: unknown) => {
 	const related = createRoleAccumulator();
-	const addPerson = (person: UnknownRecord, role: string, character: string | null = null) => {
+	const addPerson = (person: UnknownRecord, role: string, character: null | string = null) => {
 		const name = stringValue(person["name"]) ?? "Loading...";
 		const id = numberValue(person["id"]);
 		if (id === null) {
@@ -231,7 +231,7 @@ export const collectPeople = (cast: unknown, crew: unknown, createdBy?: unknown)
 			stringValue(member["character"]),
 		);
 	}
-	const notableJobs = new Set(["Director", "Producer", "Screenplay", "Writer", "Story"]);
+	const notableJobs = new Set(["Story", "Writer", "Director", "Producer", "Screenplay"]);
 	for (const member of recordsValue(crew)) {
 		const job = stringValue(member["job"]);
 		if (job && notableJobs.has(job)) {
@@ -281,7 +281,7 @@ const fetchTrendingItems = (
 	path: string,
 	language: string,
 	token: string,
-	options: { readonly nameKeys: readonly string[]; readonly providerSlug: string },
+	options: { readonly providerSlug: string; readonly nameKeys: readonly string[] },
 ) =>
 	Effect.gen(function* () {
 		const results: unknown[] = [];
@@ -364,7 +364,7 @@ export const parseTranslationLanguage = (language: string) => {
 export const orderedTranslationCandidates = (
 	translationsData: UnknownRecord,
 	langCode: string,
-	region: string | null,
+	region: null | string,
 ) => {
 	const candidates = recordsValue(translationsData["translations"]).filter(
 		(entry) => stringValue(entry["iso_639_1"])?.toLowerCase() === langCode,

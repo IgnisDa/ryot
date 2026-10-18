@@ -51,7 +51,7 @@ const showLookupCacheTtlSeconds = 24 * 60 * 60;
 const findTmdbShow = Effect.fnUntraced(function* (
 	host: Pick<
 		ScriptHost,
-		"getCurrentIntegration" | "httpCall" | "getPluginConfig" | "getCachedValue" | "setCachedValue"
+		"httpCall" | "getCachedValue" | "setCachedValue" | "getPluginConfig" | "getCurrentIntegration"
 	>,
 	episode: TmdbEpisode,
 ) {
@@ -92,10 +92,10 @@ export default defineScript({
 					return emptyResult();
 				}
 				const event = (textValue(payload["event"]) ?? "").toLowerCase().replace(/^media\./, "");
-				if (!["play", "pause", "resume", "scrobble", "stop"].includes(event)) {
+				if (!["play", "stop", "pause", "resume", "scrobble"].includes(event)) {
 					return emptyResult();
 				}
-				let lot: "movie" | "show" | null = null;
+				let lot: null | "show" | "movie" = null;
 				if (metadata["type"] === "episode" || metadata["librarySectionType"] === "show") {
 					lot = "show";
 				}

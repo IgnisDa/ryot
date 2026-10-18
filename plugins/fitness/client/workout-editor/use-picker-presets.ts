@@ -26,9 +26,9 @@ export function usePickerPresets() {
 	const { pluginId } = client.pluginIdentity(PLUGIN_PACKAGE_ID);
 	const writing = useRef(false);
 	const [presets, setPresets] = useState<readonly PickerPreset[]>([]);
-	const [status, setStatus] = useState<"error" | "loading" | "ready">("loading");
+	const [status, setStatus] = useState<"error" | "ready" | "loading">("loading");
 	const [writeError, setWriteError] = useState(false);
-	const [pendingWrite, setPendingWrite] = useState<readonly PickerPreset[] | null>(null);
+	const [pendingWrite, setPendingWrite] = useState<null | readonly PickerPreset[]>(null);
 
 	const reload = useCallback(
 		() =>

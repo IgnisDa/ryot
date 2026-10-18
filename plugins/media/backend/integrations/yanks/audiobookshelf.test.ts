@@ -27,7 +27,7 @@ const routeKey = (url: string) => {
 const audiobookItem = (
 	id: string,
 	metadata: JsonValue,
-	ebookFormat?: string | null,
+	ebookFormat?: null | string,
 ): JsonValue => ({
 	id,
 	media: { metadata, ...(ebookFormat === undefined ? {} : { ebookFormat }) },
@@ -49,14 +49,14 @@ const setup = (
 	items: readonly JsonValue[],
 	options: {
 		readonly baseUrl?: string;
-		readonly routes?: Record<string, Route>;
 		readonly syncOwnership?: boolean;
+		readonly routes?: Record<string, Route>;
 	} = {},
 ) => {
 	const requests: Array<{
-		readonly headers: Record<string, string> | undefined;
-		readonly method: string;
 		readonly url: string;
+		readonly method: string;
+		readonly headers: undefined | Record<string, string>;
 	}> = [];
 	let integrationReads = 0;
 	const routes: Record<string, Route> = {

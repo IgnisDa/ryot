@@ -8,7 +8,7 @@ import definition, { manifest } from "./workout-record-step.sandbox";
 
 const timestamp = "2026-01-01T08:00:00.000Z";
 
-const input = (checkpoint: unknown = null, dirtyFrom: string | null = null) =>
+const input = (checkpoint: unknown = null, dirtyFrom: null | string = null) =>
 	Schema.decodeUnknownSync(EventStreamStepInput)({
 		dirtyFrom,
 		checkpoint,
@@ -38,7 +38,7 @@ const workoutRecord = (overrides: Readonly<Record<string, unknown>> = {}) => ({
 
 const page = (
 	items: readonly Readonly<Record<string, unknown>>[],
-	options: { readonly hasMore?: boolean; readonly nextCursor?: string | null } = {},
+	options: { readonly hasMore?: boolean; readonly nextCursor?: null | string } = {},
 ) => ({
 	items,
 	type: "rows" as const,

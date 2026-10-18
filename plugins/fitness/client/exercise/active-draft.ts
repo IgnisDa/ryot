@@ -14,8 +14,8 @@ export type ActiveEditorDraft = {
 	readonly name: string;
 	readonly totalSets: number;
 	readonly confirmedSets: number;
-	readonly startedAt: string | undefined;
 	readonly mode: WorkoutEditorMode;
+	readonly startedAt: string | undefined;
 	readonly exerciseIds: readonly string[];
 };
 
@@ -28,7 +28,7 @@ const addToDraftLabels: Record<WorkoutEditorMode["kind"], string> = {
 
 export const addToDraftLabel = (mode: WorkoutEditorMode) => addToDraftLabels[mode.kind];
 
-const activeDraftOf = (value: unknown): ActiveEditorDraft | undefined => {
+const activeDraftOf = (value: unknown): undefined | ActiveEditorDraft => {
 	if (value === null || value === undefined) {
 		return undefined;
 	}

@@ -37,19 +37,19 @@ const EpisodeParentResolutionSchema = Schema.Union([
 export type EpisodeParentResolution = Schema.Schema.Type<typeof EpisodeParentResolutionSchema>;
 
 export function resolveEpisodeParentRecipe(input: {
+	readonly episodeEntityId: string;
 	readonly reference: PluginIdentityReference;
 	readonly config: typeof showEpisodicKindConfig;
-	readonly episodeEntityId: string;
-}): PreparedRecipe<Extract<EpisodeParentResolution, { kind: "show" }> | null>;
+}): PreparedRecipe<null | Extract<EpisodeParentResolution, { kind: "show" }>>;
 export function resolveEpisodeParentRecipe(input: {
+	readonly episodeEntityId: string;
 	readonly reference: PluginIdentityReference;
 	readonly config: typeof podcastEpisodicKindConfig;
-	readonly episodeEntityId: string;
-}): PreparedRecipe<Extract<EpisodeParentResolution, { kind: "podcast" }> | null>;
+}): PreparedRecipe<null | Extract<EpisodeParentResolution, { kind: "podcast" }>>;
 export function resolveEpisodeParentRecipe(input: {
-	readonly reference: PluginIdentityReference;
-	readonly config: EpisodicKindConfig;
 	readonly episodeEntityId: string;
+	readonly config: EpisodicKindConfig;
+	readonly reference: PluginIdentityReference;
 }) {
 	const episode = table("entity", "resolvedEpisode");
 	const parent = table("entity", "resolvedParent");

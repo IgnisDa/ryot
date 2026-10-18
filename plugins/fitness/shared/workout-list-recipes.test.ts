@@ -12,7 +12,7 @@ import {
 
 const aggregate = (items: readonly Record<string, unknown>[]) => ({ items, type: "aggregate" });
 const range = { endAt: "2026-10-18T00:00:00.000Z", startAt: "2026-09-18T00:00:00.000Z" };
-const workoutTotals = (workouts: number, activeDuration: number | null, timedWorkouts: number) => ({
+const workoutTotals = (workouts: number, activeDuration: null | number, timedWorkouts: number) => ({
 	workouts,
 	timedWorkouts,
 	activeDuration,

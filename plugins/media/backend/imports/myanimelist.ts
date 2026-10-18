@@ -92,10 +92,10 @@ const lifecycle = (status: string) => {
 		.toLowerCase()
 		.replace(/[^a-z]+/g, " ")
 		.trim();
-	if (["watching", "reading"].includes(normalized)) {
+	if (["reading", "watching"].includes(normalized)) {
 		return "progress" as const;
 	}
-	if (["plan to watch", "plan to read"].includes(normalized)) {
+	if (["plan to read", "plan to watch"].includes(normalized)) {
 		return "backlog" as const;
 	}
 	if (normalized === "dropped") {
@@ -113,7 +113,7 @@ const malDate = (value: string) =>
 const adaptLot = (
 	groups: Map<string, ImportMediaEntityGroupBuilder>,
 	failures: MediaImportAdapterFailure[],
-	input: { itemIndex: number; lot: MyanimelistLot; xmlText: string; importedAt: string },
+	input: { xmlText: string; itemIndex: number; importedAt: string; lot: MyanimelistLot },
 ) => {
 	let itemIndex = input.itemIndex;
 	for (const item of lotItems(input.xmlText, input.lot)) {
@@ -190,9 +190,9 @@ const adaptLot = (
 };
 
 export const adaptMyanimelistExports = (input: {
-	importedAt?: string | undefined;
 	animeXml?: string | undefined;
 	mangaXml?: string | undefined;
+	importedAt?: string | undefined;
 }) => {
 	const failures: MediaImportAdapterFailure[] = [];
 	const groups = new Map<string, ImportMediaEntityGroupBuilder>();

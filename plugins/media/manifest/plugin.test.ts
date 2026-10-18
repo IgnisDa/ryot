@@ -27,12 +27,12 @@ import { mediaPlugin } from "./plugin";
 import { mediaSavedViews } from "./saved-views";
 
 const PROVIDER_OPERATIONS = new Set([
+	"search",
 	"details",
 	"related",
 	"resolve",
-	"search",
-	"search-options",
 	"translate",
+	"search-options",
 ]);
 
 layer(BunFileSystem.layer)((test) => {
@@ -1131,8 +1131,8 @@ it("does not automatically retry external pushes or notifications", () => {
 		[
 			"media.radarr-push",
 			"media.sonarr-push",
-			"media.jellyfin-push",
 			"media.notification",
+			"media.jellyfin-push",
 		].includes(slug),
 	);
 	expect(hooks).toHaveLength(4);

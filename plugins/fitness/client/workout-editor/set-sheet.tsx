@@ -32,16 +32,16 @@ const rpeOptions = Array.from({ length: 11 }, (_, value) => ({
 export function SetSheet(props: {
 	readonly pro: boolean;
 	readonly disabled: boolean;
+	readonly onClose: () => void;
 	readonly exerciseName: string;
+	readonly onDelete: () => void;
 	readonly set: WorkoutEditorSet;
 	readonly draft: WorkoutEditorDraft;
-	readonly occurrence: WorkoutEditorOccurrence;
-	readonly inheritedRestSeconds: number;
-	readonly previous: WorkoutEditorSet | undefined;
-	readonly onChange: (transform: (set: WorkoutEditorSet) => WorkoutEditorSet) => void;
 	readonly onCopyPrevious: () => void;
-	readonly onDelete: () => void;
-	readonly onClose: () => void;
+	readonly inheritedRestSeconds: number;
+	readonly occurrence: WorkoutEditorOccurrence;
+	readonly previous: undefined | WorkoutEditorSet;
+	readonly onChange: (transform: (set: WorkoutEditorSet) => WorkoutEditorSet) => void;
 }) {
 	const { set, onChange } = props;
 	const [rpeHelp, setRpeHelp] = useState(false);

@@ -57,9 +57,9 @@ export const runYoutubeMusicYank = (
 		| "log"
 		| "span"
 		| "httpCall"
-		| "getCurrentIntegration"
-		| "claimPersistentValue"
 		| "getPersistentValue"
+		| "claimPersistentValue"
+		| "getCurrentIntegration"
 	>,
 	execution: ExecutionMetadata,
 	createClient: HistoryClientFactory = createYoutubeHistoryClient,
@@ -122,7 +122,7 @@ export const runYoutubeMusicYank = (
 		const groups = yield* Effect.forEach(songs, (song, itemIndex) =>
 			Effect.gen(function* () {
 				const key = `${cursor.integrationId}:${song.videoId}:${localDate}`;
-				let progressPercent: number | null = null;
+				let progressPercent: null | number = null;
 				const completed = yield* host.getPersistentValue(`${key}:completed`);
 				if (completed !== true) {
 					const seen = yield* host.getPersistentValue(`${key}:seen`);

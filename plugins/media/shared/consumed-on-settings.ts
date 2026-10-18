@@ -21,5 +21,5 @@ export const consumedOnSettingKeys = {
 export type ConsumedOnSettingKey =
 	(typeof consumedOnSettingKeys)[keyof typeof consumedOnSettingKeys];
 
-export const consumedOnSettingKey = (schemaSlug: string): ConsumedOnSettingKey | undefined =>
+export const consumedOnSettingKey = (schemaSlug: string): undefined | ConsumedOnSettingKey =>
 	Object.entries(consumedOnSettingKeys).find(([slug]) => slug === schemaSlug)?.[1];

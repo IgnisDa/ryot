@@ -36,10 +36,10 @@ export type WorkoutPages = {
 };
 
 export type WorkoutPage = {
-	readonly pageInfo: { readonly hasMore: boolean; readonly nextCursor: string | null };
 	readonly items: readonly WorkoutListItem[];
 	readonly comparisons: readonly WorkoutComparison[];
 	readonly targets: readonly WorkoutExerciseTargets[];
+	readonly pageInfo: { readonly hasMore: boolean; readonly nextCursor: null | string };
 };
 
 export const batched = <A>(
@@ -81,8 +81,8 @@ export const loadWorkoutPages = (
 		readonly pages: number;
 		readonly search: string;
 		readonly limit?: number | undefined;
-		readonly filter?: WorkoutFilterPredicate | undefined;
-		readonly workoutIds?: readonly string[] | undefined;
+		readonly workoutIds?: undefined | readonly string[];
+		readonly filter?: undefined | WorkoutFilterPredicate;
 	},
 ) =>
 	Effect.gen(function* () {
@@ -109,7 +109,7 @@ export const loadWorkoutPage = (
 	input: {
 		readonly search: string;
 		readonly after: string | undefined;
-		readonly filter: WorkoutFilterPredicate | undefined;
+		readonly filter: undefined | WorkoutFilterPredicate;
 	},
 ) =>
 	Effect.gen(function* () {
@@ -129,7 +129,7 @@ export const workoutsQuery = createRyotQuery<
 	{
 		readonly search: string;
 		readonly after: string | undefined;
-		readonly filter: ViewFilter | null;
+		readonly filter: null | ViewFilter;
 	},
 	WorkoutPage,
 	undefined,
@@ -146,7 +146,7 @@ export const workoutsQuery = createRyotQuery<
 );
 
 export const workoutCountQuery = createRyotQuery<
-	{ readonly search: string; readonly filter: ViewFilter | null },
+	{ readonly search: string; readonly filter: null | ViewFilter },
 	number,
 	undefined,
 	Error
@@ -161,9 +161,10 @@ export const workoutCountQuery = createRyotQuery<
 );
 
 export const workoutWeeksQuery = createRyotQuery<
-	Omit<Parameters<typeof workoutWeeksRecipe>[0], "reference" | "filter"> & {
-		readonly filter: ViewFilter | null;
-	},
+	{ readonly filter: null | ViewFilter } & Omit<
+		Parameters<typeof workoutWeeksRecipe>[0],
+		"filter" | "reference"
+	>,
 	readonly WorkoutPeriodTotals[],
 	undefined,
 	Error
@@ -180,7 +181,7 @@ export const workoutWeeksQuery = createRyotQuery<
 );
 
 export const workoutSummaryQuery = createRyotQuery<
-	{ readonly period: PeriodKey; readonly timeZone: string },
+	{ readonly timeZone: string; readonly period: PeriodKey },
 	WorkoutSummary
 >(({ input, client, schedule }) =>
 	Effect.suspend(() =>

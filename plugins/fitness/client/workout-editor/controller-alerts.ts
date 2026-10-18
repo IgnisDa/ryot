@@ -11,9 +11,9 @@ import type {
 } from "./controller-types";
 
 type TimerSnapshot = {
+	readonly key: string;
 	readonly clientId: string;
 	readonly deadline: string;
-	readonly key: string;
 	readonly audible: boolean;
 };
 
@@ -24,15 +24,15 @@ const alertKey = (draftId: string, timer: TimerName) =>
 	`fitness-workout-editor:${draftId}:${timer}`;
 
 export const createAlertSynchronizer = (host: {
-	readonly ports: Pick<
-		WorkoutEditorControllerPorts,
-		"device" | "now" | "pluginId" | "schedule" | "target"
-	>;
 	readonly isDisposed: () => boolean;
 	readonly foreground: () => boolean;
 	readonly getSnapshot: () => WorkoutEditorControllerSnapshot;
 	readonly updateReady: (update: (current: ReadySnapshot) => ReadySnapshot) => void;
 	readonly reconcile: (expected: ExpectedCountdowns) => Effect.Effect<void, unknown>;
+	readonly ports: Pick<
+		WorkoutEditorControllerPorts,
+		"now" | "device" | "target" | "pluginId" | "schedule"
+	>;
 }) => {
 	const { ports } = host;
 	const timerCallbacks = new Map<
@@ -50,7 +50,7 @@ export const createAlertSynchronizer = (host: {
 		},
 	});
 
-	const runDevice = (request: PluginDeviceRequest): Effect.Effect<PluginDeviceResult | undefined> =>
+	const runDevice = (request: PluginDeviceRequest): Effect.Effect<undefined | PluginDeviceResult> =>
 		Effect.match(ports.device(request), {
 			onSuccess: (result) => result,
 			onFailure: (error) => {
@@ -59,7 +59,7 @@ export const createAlertSynchronizer = (host: {
 			},
 		});
 
-	const syncShortcut = (draft: WorkoutEditorDraft | undefined) => {
+	const syncShortcut = (draft: undefined | WorkoutEditorDraft) => {
 		const shouldSet = draft?.mode.kind === "live" && draft.endedAt === undefined;
 		if (shouldSet === shortcutSet) {
 			return Effect.void;
@@ -83,7 +83,7 @@ export const createAlertSynchronizer = (host: {
 		);
 	};
 
-	const desiredTimer = (draft: WorkoutEditorDraft, timer: TimerName): TimerSnapshot | undefined => {
+	const desiredTimer = (draft: WorkoutEditorDraft, timer: TimerName): undefined | TimerSnapshot => {
 		const countdown = timer === "execution" ? draft.executionCountdown : draft.restCountdown;
 		if (countdown === undefined || countdown.pausedRemainingSeconds !== undefined) {
 			return undefined;
@@ -197,7 +197,7 @@ export const createAlertSynchronizer = (host: {
 			}
 		});
 
-	const syncAlerts = (draft: WorkoutEditorDraft | undefined, removedDraftId?: string) =>
+	const syncAlerts = (draft: undefined | WorkoutEditorDraft, removedDraftId?: string) =>
 		Effect.gen(function* () {
 			for (const timer of timerNames) {
 				const wanted = draft === undefined ? undefined : desiredTimer(draft, timer);
@@ -205,7 +205,7 @@ export const createAlertSynchronizer = (host: {
 				if (wanted === undefined) {
 					const draftId = draft?.draftId ?? removedDraftId;
 					const stableKey = draftId === undefined ? undefined : alertKey(draftId, timer);
-					for (const key of new Set([current?.key, stableKey])) {
+					for (const key of new Set([stableKey, current?.key])) {
 						if (key !== undefined) {
 							yield* cancelAlert(timer, key);
 						}
@@ -255,7 +255,7 @@ export const createAlertSynchronizer = (host: {
 	return {
 		readNow,
 		dispose: cancelTimerCallbacks,
-		synchronize: (draft: WorkoutEditorDraft | undefined, removedDraftId?: string) =>
+		synchronize: (draft: undefined | WorkoutEditorDraft, removedDraftId?: string) =>
 			Effect.gen(function* () {
 				yield* syncAlerts(draft, removedDraftId);
 				yield* syncShortcut(draft);

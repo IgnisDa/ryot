@@ -24,7 +24,7 @@ export default defineScript({
 			const results: Array<(typeof NetflixResolutionOutput.Type)["results"][number]> = [];
 			for (const item of input.items) {
 				const query = extractMetadataLookupBaseTitle(item.title);
-				let preferredEntitySchemaSlug: "movie" | "show" | undefined;
+				let preferredEntitySchemaSlug: "show" | "movie" | undefined;
 				if (item.entitySchemaSlug === "show" || item.entitySchemaSlug === "movie") {
 					preferredEntitySchemaSlug = item.entitySchemaSlug;
 				}

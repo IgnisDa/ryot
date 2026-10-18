@@ -11,7 +11,7 @@ type Row = Readonly<Record<string, unknown>>;
 const mergeFrom = EntityId.make("custom-1");
 const mergeInto = EntityId.make("global-1");
 
-const subject = (id: string, userId: string | null, kind = "reps_weight") => ({ id, kind, userId });
+const subject = (id: string, userId: null | string, kind = "reps_weight") => ({ id, kind, userId });
 
 const rowsFor = (
 	document: RyotQLDocument,

@@ -37,7 +37,7 @@ const parseJson = (value: string) => {
 	const parsed = Result.try(() => JSON.parse(value.trim()) as unknown);
 	return Result.isFailure(parsed) ? undefined : parsed.success;
 };
-const parseGrouveeDate = (value: string | null | undefined) => {
+const parseGrouveeDate = (value: null | string | undefined) => {
 	const raw = value?.trim();
 	return !raw || raw === "None"
 		? null

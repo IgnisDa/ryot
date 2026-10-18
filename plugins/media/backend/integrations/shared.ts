@@ -149,7 +149,7 @@ export const firstPathText = (payload: unknown, paths: string[][]) =>
 export const truthy = (value: unknown) =>
 	value === true ||
 	(typeof value === "number" && value !== 0) ||
-	(typeof value === "string" && ["true", "1", "yes", "y"].includes(value.trim().toLowerCase()));
+	(typeof value === "string" && ["1", "y", "yes", "true"].includes(value.trim().toLowerCase()));
 
 export const requestJson = (
 	host: Pick<ScriptHost, "httpCall">,

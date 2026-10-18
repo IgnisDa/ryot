@@ -19,7 +19,7 @@ type ReviewSubject = { readonly on: "entity" };
 const REVIEW_SUBJECT: ReviewSubject = { on: "entity" };
 
 export type MediaReviewActivityRow =
-	MediaActivityCollectionRow | MediaActivityLibraryRow | MediaActivityReviewRow<ReviewSubject>;
+	MediaActivityLibraryRow | MediaActivityCollectionRow | MediaActivityReviewRow<ReviewSubject>;
 
 export type MediaReviewActivityView = {
 	readonly timeline: MediaActivityTimeline<MediaReviewActivityRow>;
@@ -41,7 +41,7 @@ export const mediaReviewActivityRow = (event: MediaReviewActivityEvent): MediaRe
 /** Reviews and collection changes as one flat timeline; the entity has no watches to segment. */
 export const mediaReviewActivityView = (
 	result: MediaReviewActivityResult,
-): MediaReviewActivityView | undefined => {
+): undefined | MediaReviewActivityView => {
 	const view = mediaActivityRowsView<MediaReviewActivityRow>(
 		result.events.map(mediaReviewActivityRow),
 		FLAT_PREDICATES,

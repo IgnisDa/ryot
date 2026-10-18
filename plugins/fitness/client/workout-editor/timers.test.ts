@@ -25,7 +25,7 @@ const now = Date.parse(startTime);
 const reconcile = (
 	value: WorkoutEditorDraft,
 	observedAt: number,
-	expected?: { readonly executionClientId?: string; readonly restClientId?: string },
+	expected?: { readonly restClientId?: string; readonly executionClientId?: string },
 ) => reconcileWorkoutTimers(value, observedAt, { expected, settings: {}, prompt: false });
 
 const draft = (overrides: Partial<WorkoutEditorDraft> = {}) =>

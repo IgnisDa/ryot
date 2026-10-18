@@ -105,13 +105,9 @@ const responseWithImages = (images: readonly Record<string, unknown>[]) => ({
 	},
 });
 
-type AssetLocator = { readonly key: string; readonly type: "local" | "s3" };
+type Bootstrap = ReturnType<typeof bootstrapClientPage>;
 
-type AssetRequest = {
-	readonly requestId: string;
-	readonly type: "asset-request";
-	readonly assets: readonly AssetLocator[];
-};
+type AssetLocator = { readonly key: string; readonly type: "s3" | "local" };
 
 type AssetCancel = { readonly requestId: string; readonly type: "asset-cancel" };
 
@@ -121,13 +117,17 @@ type AssetResolution = {
 	readonly asset: AssetLocator;
 };
 
+type AssetRequest = {
+	readonly requestId: string;
+	readonly type: "asset-request";
+	readonly assets: readonly AssetLocator[];
+};
+
 type RyotQLRequest = {
 	readonly requestId: string;
 	readonly type: "ryotql-request";
 	readonly document: { readonly queries: Record<string, unknown> };
 };
-
-type Bootstrap = ReturnType<typeof bootstrapClientPage>;
 
 const bootstraps: Bootstrap[] = [];
 const channels: MessageChannel[] = [];
@@ -253,8 +253,8 @@ const reply = (
 	channel: MessageChannel,
 	requestId: string,
 	result:
-		| { readonly outcome: "failure"; readonly reason: "query-failed" }
-		| { readonly outcome: "success"; readonly response: unknown },
+		| { readonly response: unknown; readonly outcome: "success" }
+		| { readonly outcome: "failure"; readonly reason: "query-failed" },
 ) => channel.port1.postMessage({ requestId, type: "ryotql-result", ...result });
 
 const assetReply = (
@@ -271,7 +271,7 @@ const replyOverview = (channel: MessageChannel, messages: readonly unknown[], in
 		response: emptyOverviewResponse,
 	});
 
-const managedCoverImage = (container: HTMLElement | null) =>
+const managedCoverImage = (container: null | HTMLElement) =>
 	Array.from(container?.querySelectorAll('img[loading="lazy"]') ?? []).find((image) =>
 		(image.getAttribute("src") ?? "").includes("assets.test"),
 	);

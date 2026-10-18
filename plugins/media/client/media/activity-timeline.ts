@@ -15,11 +15,16 @@ import {
 } from "./date";
 import { classifyRyotQueryResult, type MappedRyotQueryState } from "./query-state";
 
-export type MediaActivityState<View> = MappedRyotQueryState<
-	{ readonly status: "empty" } | { readonly status: "ready"; readonly view: View }
->;
-
 export type NonEmpty<Value> = readonly [Value, ...Value[]];
+
+export type MediaActivityRunMerge<Row> = (current: Row, next: Row) => Row | undefined;
+
+export type MediaActivityLibraryRow = ActivityAnchor & { readonly type: "media-library" };
+
+/** A stored event as a row last saw it, enough to edit or delete it under a precondition. */
+export type MediaActivityEventRef = SelectedRow<ReturnType<typeof mediaEventSnapshotSelection>>;
+
+export type MediaActivityEventRow = SelectedRow<ReturnType<typeof mediaActivityEventSelection>>;
 
 export type ActivityAnchor = {
 	readonly key: string;
@@ -27,13 +32,9 @@ export type ActivityAnchor = {
 	readonly occurredAt: string;
 };
 
-/** A stored event as a row last saw it, enough to edit or delete it under a precondition. */
-export type MediaActivityEventRef = SelectedRow<ReturnType<typeof mediaEventSnapshotSelection>>;
-
-export type MediaActivityRowBase = ActivityAnchor & {
-	readonly type: string;
-	readonly events?: readonly MediaActivityEventRef[];
-	readonly absorbed?: number;
+export type MediaActivityProgressRun = {
+	readonly updates: number;
+	readonly fromPercent: number | undefined;
 };
 
 export type MediaActivityFigure = {
@@ -42,39 +43,9 @@ export type MediaActivityFigure = {
 	readonly detail: string | undefined;
 };
 
-export type MediaActivityProgressRun = {
-	readonly updates: number;
-	readonly fromPercent: number | undefined;
-};
-
-export type MediaActivityRunMerge<Row> = (current: Row, next: Row) => Row | undefined;
-
-export type MediaActivityEventRow = SelectedRow<ReturnType<typeof mediaActivityEventSelection>>;
-
-export type MediaActivityBeatRow<Beat extends string> = ActivityAnchor & {
-	readonly beat: Beat;
-	readonly type: "beat";
-	readonly events: readonly MediaActivityEventRef[];
-};
-
-export type MediaActivityCompletionRow = ActivityAnchor & {
-	readonly type: "completion";
-	readonly minutes: number | undefined;
-	readonly startedOn: string | undefined;
-	readonly dateUnknown: boolean;
-	readonly run?: MediaActivityProgressRun;
-	readonly absorbed?: number;
-	readonly events: readonly MediaActivityEventRef[];
-};
-
-export type MediaActivityReviewRow<Subject> = ActivityAnchor & {
-	readonly type: "review";
-	readonly subject: Subject;
-	readonly event: MediaActivityEventRef;
-	readonly events: readonly MediaActivityEventRef[];
-	readonly rating: number | undefined;
-	readonly body: { readonly text: string; readonly isSpoiler: boolean } | undefined;
-};
+export type MediaActivityState<View> = MappedRyotQueryState<
+	{ readonly status: "empty" } | { readonly view: View; readonly status: "ready" }
+>;
 
 export type MediaActivityCollectionRow = ActivityAnchor & {
 	readonly name: string;
@@ -82,28 +53,31 @@ export type MediaActivityCollectionRow = ActivityAnchor & {
 	readonly change: "added" | "removed";
 };
 
-export type MediaActivityLibraryRow = ActivityAnchor & { readonly type: "media-library" };
-
 export type MediaActivityCompletedWatch<Row extends ActivityAnchor> = {
 	readonly key: string;
-	readonly rows: NonEmpty<Row>;
 	readonly completion: Row;
+	readonly rows: NonEmpty<Row>;
 };
 
-export type MediaActivityTimeline<Row extends ActivityAnchor> =
-	| { readonly layout: "flat"; readonly rows: NonEmpty<Row> }
-	| {
-			readonly layout: "segmented";
-			readonly open: NonEmpty<Row> | undefined;
-			readonly completed: readonly [
-				MediaActivityCompletedWatch<Row>,
-				MediaActivityCompletedWatch<Row>,
-				...MediaActivityCompletedWatch<Row>[],
-			];
-	  };
+export type ActivityRowPredicates<Row extends ActivityAnchor> = {
+	readonly isWatching: (row: Row) => boolean;
+	readonly isCompletion: (row: Row) => boolean;
+};
+
+export type MediaActivityRowBase = ActivityAnchor & {
+	readonly type: string;
+	readonly absorbed?: number;
+	readonly events?: readonly MediaActivityEventRef[];
+};
+
+export type MediaActivityBeatRow<Beat extends string> = ActivityAnchor & {
+	readonly beat: Beat;
+	readonly type: "beat";
+	readonly events: readonly MediaActivityEventRef[];
+};
 
 export type MediaActivitySpan =
-	| { readonly bound: "partial"; readonly latest: string }
+	| { readonly latest: string; readonly bound: "partial" }
 	| {
 			readonly days: number;
 			readonly bound: "full";
@@ -111,15 +85,41 @@ export type MediaActivitySpan =
 			readonly earliest: string;
 	  };
 
-export type ActivityRowPredicates<Row extends ActivityAnchor> = {
-	readonly isWatching: (row: Row) => boolean;
-	readonly isCompletion: (row: Row) => boolean;
+export type MediaActivityCompletionRow = ActivityAnchor & {
+	readonly absorbed?: number;
+	readonly type: "completion";
+	readonly dateUnknown: boolean;
+	readonly minutes: number | undefined;
+	readonly startedOn: string | undefined;
+	readonly run?: MediaActivityProgressRun;
+	readonly events: readonly MediaActivityEventRef[];
 };
 
-export const optionalText = (value: string | null) =>
+export type MediaActivityReviewRow<Subject> = ActivityAnchor & {
+	readonly type: "review";
+	readonly subject: Subject;
+	readonly rating: number | undefined;
+	readonly event: MediaActivityEventRef;
+	readonly events: readonly MediaActivityEventRef[];
+	readonly body: undefined | { readonly text: string; readonly isSpoiler: boolean };
+};
+
+export type MediaActivityTimeline<Row extends ActivityAnchor> =
+	| { readonly layout: "flat"; readonly rows: NonEmpty<Row> }
+	| {
+			readonly layout: "segmented";
+			readonly open: undefined | NonEmpty<Row>;
+			readonly completed: readonly [
+				MediaActivityCompletedWatch<Row>,
+				MediaActivityCompletedWatch<Row>,
+				...MediaActivityCompletedWatch<Row>[],
+			];
+	  };
+
+export const optionalText = (value: null | string) =>
 	value === null || value.trim() === "" ? undefined : value;
 
-export const nonEmpty = <Value>(values: readonly Value[]): NonEmpty<Value> | undefined => {
+export const nonEmpty = <Value>(values: readonly Value[]): undefined | NonEmpty<Value> => {
 	const [head, ...tail] = values;
 	return head === undefined ? undefined : [head, ...tail];
 };
@@ -148,8 +148,8 @@ export const anchorOf = (
 });
 
 export const reviewBody = (event: {
-	readonly text: string | null;
-	readonly isSpoiler: boolean | null;
+	readonly text: null | string;
+	readonly isSpoiler: null | boolean;
 }) => {
 	const text = optionalText(event.text);
 	return text === undefined ? undefined : { text, isSpoiler: event.isSpoiler === true };
@@ -157,8 +157,8 @@ export const reviewBody = (event: {
 
 export const mediaCompletionRow = (
 	event: MediaActivityEventRow & {
-		readonly startedOn: string | null;
-		readonly dateUnknown: boolean | null;
+		readonly startedOn: null | string;
+		readonly dateUnknown: null | boolean;
 	},
 ): MediaActivityCompletionRow => {
 	const dateUnknown = event.dateUnknown === true;
@@ -235,7 +235,7 @@ const segmentRows = <Row extends ActivityAnchor>(
 ) => {
 	const completed: MediaActivityCompletedWatch<Row>[] = [];
 	const pending: Row[] = [];
-	let current: { readonly completion: Row; rows: Row[] } | undefined = undefined;
+	let current: undefined | { rows: Row[]; readonly completion: Row } = undefined;
 	const close = () => {
 		if (current !== undefined) {
 			completed.push({
@@ -284,7 +284,7 @@ const foldSegments = <Row extends ActivityAnchor>(
 export const mediaActivityTimeline = <Row extends ActivityAnchor>(
 	rows: readonly Row[],
 	predicates: ActivityRowPredicates<Row>,
-): MediaActivityTimeline<Row> | undefined => {
+): undefined | MediaActivityTimeline<Row> => {
 	const { open, completed } = foldSegments(rows, predicates);
 	const first = completed.at(0);
 	const second = completed.at(1);
@@ -320,8 +320,8 @@ export const mergeActivityRuns = <Row>(
 export const mergeProgressRuns = <
 	Row extends {
 		readonly percent: number | undefined;
-		readonly run?: MediaActivityProgressRun | undefined;
 		readonly events: readonly MediaActivityEventRef[];
+		readonly run?: undefined | MediaActivityProgressRun;
 	},
 >(
 	current: Row,
@@ -338,16 +338,16 @@ export const mergeProgressRuns = <
 /** Folds an older progress update into the row that finished it, such as a watch or completion. */
 export const absorbProgressRun = <
 	Row extends {
-		readonly run?: MediaActivityProgressRun;
 		readonly absorbed?: number;
+		readonly run?: MediaActivityProgressRun;
 		readonly events: readonly MediaActivityEventRef[];
 	},
 >(
 	current: Row,
 	next: {
 		readonly percent: number | undefined;
-		readonly run?: MediaActivityProgressRun | undefined;
 		readonly events: readonly MediaActivityEventRef[];
+		readonly run?: undefined | MediaActivityProgressRun;
 	},
 ): Row => ({
 	...current,
@@ -474,7 +474,7 @@ export const mediaActivitySpanLabel = (span: MediaActivitySpan) => {
 };
 
 export const mediaActivityError = (state: {
-	readonly status: "transport-error" | "malformed";
+	readonly status: "malformed" | "transport-error";
 }) => ({
 	title: "Unable to load activity",
 	detail:

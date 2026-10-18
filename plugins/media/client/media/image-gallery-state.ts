@@ -1,8 +1,6 @@
 import { type MediaImage, mediaImagePurposes } from "../../shared/media-image";
 import { type MediaGalleryImage, mediaGalleryImages } from "./image";
 
-type MediaImagePurpose = MediaImage["purpose"];
-
 export type GalleryFilter = "all" | MediaImagePurpose;
 
 export type GalleryFilterOption = {
@@ -10,6 +8,8 @@ export type GalleryFilterOption = {
 	readonly label: string;
 	readonly filter: GalleryFilter;
 };
+
+type MediaImagePurpose = MediaImage["purpose"];
 
 const PURPOSE_LABELS: Record<MediaImagePurpose, string> = {
 	logo: "Logos",

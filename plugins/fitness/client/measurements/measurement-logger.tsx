@@ -7,13 +7,13 @@ import { LogMeasurementDialog } from "./log-measurement-dialog";
 import { summaryQuery } from "./queries";
 
 export type MeasurementDialogState = {
-	readonly kind: "add-metric" | "log";
+	readonly kind: "log" | "add-metric";
 	readonly metrics: readonly MeasurementSummary[];
 };
 
 export const useMeasurementLogger = () => {
 	const [dialog, setDialog] = useState<MeasurementDialogState>();
-	const trigger = useRef<HTMLButtonElement | null>(null);
+	const trigger = useRef<null | HTMLButtonElement>(null);
 	const result = useRyotQuery(summaryQuery, { range: "All" });
 	const log = () => {
 		if (result.data !== undefined) {
@@ -29,7 +29,7 @@ export const useMeasurementLogger = () => {
 		close: () => setDialog(undefined),
 		loading: result.data === undefined && !result.isError,
 		unavailable: result.data === undefined || result.isFetching || result.isError,
-		setTrigger: (node: HTMLButtonElement | null) => {
+		setTrigger: (node: null | HTMLButtonElement) => {
 			trigger.current = node;
 		},
 	};
@@ -37,8 +37,8 @@ export const useMeasurementLogger = () => {
 
 export function MeasurementDialogs(props: {
 	readonly onClose: () => void;
-	readonly trigger: RefObject<HTMLButtonElement | null>;
-	readonly dialog: MeasurementDialogState | undefined;
+	readonly dialog: undefined | MeasurementDialogState;
+	readonly trigger: RefObject<null | HTMLButtonElement>;
 }) {
 	if (props.dialog === undefined) {
 		return null;

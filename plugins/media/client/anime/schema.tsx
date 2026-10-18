@@ -16,14 +16,14 @@ type AnimeSummary = MediaSummaryOf<typeof animeRecipes>;
 
 type AnimePresentation = MediaPresentationDataOf<typeof animeRecipes>;
 
-type AnimeProgressPosition = Pick<
-	Extract<MediaActivityEventOf<typeof animeRecipes>, { readonly kind: "media" }>,
-	"animeEpisode"
->;
-
 type AnimeListStateSnapshot = Pick<
 	Extract<MediaActivityEventOf<typeof animeRecipes>, { readonly kind: "media" }>,
 	"listState"
+>;
+
+type AnimeProgressPosition = Pick<
+	Extract<MediaActivityEventOf<typeof animeRecipes>, { readonly kind: "media" }>,
+	"animeEpisode"
 >;
 
 export const animeSummaryFacts = (anime: AnimeSummary): readonly MediaSummaryFact[] => {

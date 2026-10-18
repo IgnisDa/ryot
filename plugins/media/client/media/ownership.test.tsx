@@ -18,9 +18,9 @@ import type { MediaEntitySummaryValue } from "./summary-state";
 const NOW = DateTime.toEpochMillis(localDateTime({ day: 20, hour: 9, month: 10, year: 2026 }));
 
 function Header(props: {
+	readonly owned: null | boolean;
+	readonly ownedOn: null | string;
 	readonly media: MediaEntitySummaryValue;
-	readonly owned: boolean | null;
-	readonly ownedOn: string | null;
 }) {
 	return (
 		<MediaSummaryHeader
@@ -59,8 +59,8 @@ const ownershipRequest = (request: MediaOwnershipSetInput) => ({
 
 it.live("asks for an ownership date and applies set and unset optimistically", () =>
 	Effect.gen(function* () {
-		let owned: boolean | null = null;
-		let ownedOn: string | null = null;
+		let owned: null | boolean = null;
+		let ownedOn: null | string = null;
 		const background = createTestBackgroundSubmissions();
 		const query = createRyotQuery(() =>
 			Effect.sync(() => decodeFlatSummary(fixtureSummaryRecipe, { owned, ownedOn, images: [] })),

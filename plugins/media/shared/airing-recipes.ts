@@ -96,10 +96,10 @@ const unwatchedShowEpisodes = (show: Table, alias: string) => {
  */
 export const showsAiringSoonRecipe = defineRecipe(
 	(input: {
-		readonly reference: PluginIdentityReference;
 		readonly from: string;
 		readonly until: string;
 		readonly limit: number;
+		readonly reference: PluginIdentityReference;
 	}) => {
 		const show = table("entity", "airingShow");
 		const lifecycle = episodicLifecycleExpressions(showEpisodicKindConfig, show, "airingLifecycle");
@@ -205,11 +205,11 @@ const DATE_ONLY_TIME = "T00:00:00.000Z";
  */
 export const animeAiringSoonRecipe = defineRecipe(
 	(input: {
-		readonly reference: PluginIdentityReference;
 		readonly now: string;
 		readonly until: string;
 		readonly fromDate: string;
 		readonly untilDate: string;
+		readonly reference: PluginIdentityReference;
 	}) => {
 		const anime = table("entity", "airingAnime");
 		const lifecycle = mediaLifecycleExpressions(anime, "airingLifecycle");

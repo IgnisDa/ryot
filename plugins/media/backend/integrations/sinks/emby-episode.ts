@@ -10,7 +10,7 @@ import { isNotFound, searchTmdbShow, tmdbEpisodeExternalIds } from "./tmdb-episo
 
 type LookupHost = Pick<
 	ScriptHost,
-	"httpCall" | "getPluginConfig" | "getCachedValue" | "setCachedValue"
+	"httpCall" | "getCachedValue" | "setCachedValue" | "getPluginConfig"
 >;
 
 const episodeId = (payload: unknown, provider: string) =>

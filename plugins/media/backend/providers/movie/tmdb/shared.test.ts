@@ -25,8 +25,8 @@ const makeHost = (httpCall: TmdbHost["httpCall"]) =>
 			Effect.succeed(Object.fromEntries(keys.map((key) => [key, "token"]))),
 	});
 type MovieFixtures = {
-	movie: Record<string, unknown>;
 	images?: unknown;
+	movie: Record<string, unknown>;
 	appended?: Record<string, unknown>;
 };
 const makeMovieHost = (fixtures: MovieFixtures, requests: URL[] = []) =>

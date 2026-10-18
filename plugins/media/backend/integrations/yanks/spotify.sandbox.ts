@@ -46,10 +46,10 @@ const runSpotifyYank = (
 		| "log"
 		| "span"
 		| "httpCall"
-		| "getCurrentIntegration"
+		| "getPersistentValue"
 		| "getOAuthAccessToken"
 		| "claimPersistentValue"
-		| "getPersistentValue"
+		| "getCurrentIntegration"
 	>,
 	execution: ExecutionMetadata,
 ) =>

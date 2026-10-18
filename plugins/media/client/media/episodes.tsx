@@ -23,11 +23,17 @@ import {
 } from "./episodes-state";
 import { ManagedAssetImage } from "./managed-assets";
 
-type MediaEpisodeArtworkAspect = Extract<MediaArtworkAspect, "still" | "square">;
+export type MediaEpisodePagesCopy = MediaCursorPagesCopy;
 
 export type MediaEpisodeLog = {
 	readonly parentEntityId: string;
 	readonly logger: MediaActivityLogger;
+};
+
+export type MediaEpisodePageInput<Scope extends object = Record<never, never>> = Scope & {
+	readonly entityId: string;
+	readonly containerId: string;
+	readonly after: null | string;
 };
 
 export type MediaEpisodeRender<Episode extends MediaEpisode> = {
@@ -40,13 +46,7 @@ export type MediaEpisodeRender<Episode extends MediaEpisode> = {
 	readonly activityEpisode: (episode: Episode) => ActivityEpisode;
 };
 
-export type MediaEpisodePagesCopy = MediaCursorPagesCopy;
-
-export type MediaEpisodePageInput<Scope extends object = Record<never, never>> = Scope & {
-	readonly after: string | null;
-	readonly entityId: string;
-	readonly containerId: string;
-};
+type MediaEpisodeArtworkAspect = Extract<MediaArtworkAspect, "still" | "square">;
 
 type MediaEpisodePageQuery<Episode, Scope extends object> = RyotQuery<
 	MediaEpisodePageInput<Scope>,
@@ -59,17 +59,136 @@ const ARTWORK_WIDTH_CLASS: Record<MediaEpisodeArtworkAspect, { compact: string; 
 const artworkClass = (aspect: MediaEpisodeArtworkAspect, compact: boolean) =>
 	clsx(mediaAspectClass(aspect), ARTWORK_WIDTH_CLASS[aspect][compact ? "compact" : "regular"]);
 
-function MediaEpisodeRow<Episode extends MediaEpisode>(props: {
-	readonly log: MediaEpisodeLog;
-	readonly editable: boolean;
+/**
+ * Cursor-paged episode list whose first page leads with the parent's next-up episode, which the
+ * summary resolves server-side; the caller passes it only to the container that holds it.
+ */
+export function MediaEpisodePages<
+	Episode extends MediaEpisode,
+	Scope extends object = Record<never, never>,
+>(props: {
+	readonly scope?: Scope;
 	readonly compact: boolean;
+	readonly entityId: string;
+	readonly editable: boolean;
 	readonly safeAreaTop: number;
+	readonly containerId: string;
+	readonly log: MediaEpisodeLog;
+	readonly nextUp: null | Episode;
+	readonly copy: MediaEpisodePagesCopy;
+	readonly render: MediaEpisodeRender<Episode>;
+	readonly query: MediaEpisodePageQuery<Episode, Scope>;
+}) {
+	const { render, nextUp } = props;
+	return (
+		<MediaCursorPages
+			copy={props.copy}
+			query={props.query}
+			key={props.containerId}
+			getPageInput={(input, after) => ({ ...input, after })}
+			assets={(episodes) => mediaEpisodesManagedAssets(episodes, render.purpose)}
+			input={{ ...props.scope, entityId: props.entityId, containerId: props.containerId }}
+			renderItems={(episodes) => {
+				return (
+					<>
+						{nextUp === null ? null : (
+							<ManagedAssetProvider assets={mediaEpisodesManagedAssets([nextUp], render.purpose)}>
+								<MediaNextUpCard
+									log={props.log}
+									render={render}
+									episode={nextUp}
+									compact={props.compact}
+									editable={props.editable}
+									safeAreaTop={props.safeAreaTop}
+								/>
+							</ManagedAssetProvider>
+						)}
+						<MediaEpisodeList
+							log={props.log}
+							render={render}
+							episodes={episodes}
+							compact={props.compact}
+							editable={props.editable}
+							safeAreaTop={props.safeAreaTop}
+						/>
+					</>
+				);
+			}}
+		/>
+	);
+}
+
+function MediaEpisodeList<Episode extends MediaEpisode>(props: {
+	readonly compact: boolean;
+	readonly editable: boolean;
+	readonly safeAreaTop: number;
+	readonly log: MediaEpisodeLog;
+	readonly episodes: readonly Episode[];
+	readonly render: MediaEpisodeRender<Episode>;
+}) {
+	return (
+		<div>
+			{props.episodes.map((episode, index) => (
+				<MediaEpisodeRow
+					log={props.log}
+					key={episode.id}
+					episode={episode}
+					divided={index > 0}
+					render={props.render}
+					compact={props.compact}
+					editable={props.editable}
+					safeAreaTop={props.safeAreaTop}
+				/>
+			))}
+		</div>
+	);
+}
+
+function MediaNextUpCard<Episode extends MediaEpisode>(props: {
+	readonly compact: boolean;
+	readonly episode: Episode;
+	readonly editable: boolean;
+	readonly safeAreaTop: number;
+	readonly log: MediaEpisodeLog;
+	readonly render: MediaEpisodeRender<Episode>;
+}) {
+	return (
+		<div
+			className={clsx(
+				"mb-2 rounded-lg border border-accent-border bg-accent-soft/40 pt-2.5 pb-0.5",
+				props.compact ? "px-3" : "px-4",
+			)}
+		>
+			<div className="flex items-center gap-2">
+				<p className="text-micro font-semibold tracking-widest text-accent-text uppercase">
+					Next up
+				</p>
+				<p className="text-micro text-text-subtle">{props.render.originLabel(props.episode)}</p>
+			</div>
+			<MediaEpisodeRow
+				divided={false}
+				log={props.log}
+				render={props.render}
+				episode={props.episode}
+				compact={props.compact}
+				editable={props.editable}
+				safeAreaTop={props.safeAreaTop}
+			/>
+		</div>
+	);
+}
+
+function MediaEpisodeRow<Episode extends MediaEpisode>(props: {
+	readonly compact: boolean;
 	readonly divided: boolean;
 	readonly episode: Episode;
+	readonly editable: boolean;
+	readonly safeAreaTop: number;
+	readonly log: MediaEpisodeLog;
 	readonly render: MediaEpisodeRender<Episode>;
 }) {
 	const { render, episode } = props;
-	const [overlay, setOverlay] = useState<"details" | "log">();
+	const [overlay, setOverlay] = useState<"log" | "details">();
 	const triggerRef = useRef<HTMLButtonElement>(null);
 	const asset = mediaEpisodeAsset(episode, render.purpose);
 	const synopsis = mediaEpisodeSynopsis(episode);
@@ -151,124 +270,5 @@ function MediaEpisodeRow<Episode extends MediaEpisode>(props: {
 				/>
 			) : null}
 		</>
-	);
-}
-
-function MediaNextUpCard<Episode extends MediaEpisode>(props: {
-	readonly log: MediaEpisodeLog;
-	readonly editable: boolean;
-	readonly compact: boolean;
-	readonly safeAreaTop: number;
-	readonly episode: Episode;
-	readonly render: MediaEpisodeRender<Episode>;
-}) {
-	return (
-		<div
-			className={clsx(
-				"mb-2 rounded-lg border border-accent-border bg-accent-soft/40 pt-2.5 pb-0.5",
-				props.compact ? "px-3" : "px-4",
-			)}
-		>
-			<div className="flex items-center gap-2">
-				<p className="text-micro font-semibold tracking-widest text-accent-text uppercase">
-					Next up
-				</p>
-				<p className="text-micro text-text-subtle">{props.render.originLabel(props.episode)}</p>
-			</div>
-			<MediaEpisodeRow
-				divided={false}
-				log={props.log}
-				render={props.render}
-				episode={props.episode}
-				compact={props.compact}
-				editable={props.editable}
-				safeAreaTop={props.safeAreaTop}
-			/>
-		</div>
-	);
-}
-
-function MediaEpisodeList<Episode extends MediaEpisode>(props: {
-	readonly log: MediaEpisodeLog;
-	readonly editable: boolean;
-	readonly compact: boolean;
-	readonly safeAreaTop: number;
-	readonly episodes: readonly Episode[];
-	readonly render: MediaEpisodeRender<Episode>;
-}) {
-	return (
-		<div>
-			{props.episodes.map((episode, index) => (
-				<MediaEpisodeRow
-					log={props.log}
-					key={episode.id}
-					episode={episode}
-					divided={index > 0}
-					render={props.render}
-					compact={props.compact}
-					editable={props.editable}
-					safeAreaTop={props.safeAreaTop}
-				/>
-			))}
-		</div>
-	);
-}
-
-/**
- * Cursor-paged episode list whose first page leads with the parent's next-up episode, which the
- * summary resolves server-side; the caller passes it only to the container that holds it.
- */
-export function MediaEpisodePages<
-	Episode extends MediaEpisode,
-	Scope extends object = Record<never, never>,
->(props: {
-	readonly scope?: Scope;
-	readonly log: MediaEpisodeLog;
-	readonly editable: boolean;
-	readonly compact: boolean;
-	readonly safeAreaTop: number;
-	readonly entityId: string;
-	readonly containerId: string;
-	readonly copy: MediaEpisodePagesCopy;
-	readonly render: MediaEpisodeRender<Episode>;
-	readonly query: MediaEpisodePageQuery<Episode, Scope>;
-	readonly nextUp: Episode | null;
-}) {
-	const { render, nextUp } = props;
-	return (
-		<MediaCursorPages
-			copy={props.copy}
-			query={props.query}
-			key={props.containerId}
-			getPageInput={(input, after) => ({ ...input, after })}
-			assets={(episodes) => mediaEpisodesManagedAssets(episodes, render.purpose)}
-			input={{ ...props.scope, entityId: props.entityId, containerId: props.containerId }}
-			renderItems={(episodes) => {
-				return (
-					<>
-						{nextUp === null ? null : (
-							<ManagedAssetProvider assets={mediaEpisodesManagedAssets([nextUp], render.purpose)}>
-								<MediaNextUpCard
-									log={props.log}
-									render={render}
-									episode={nextUp}
-									compact={props.compact}
-									editable={props.editable}
-									safeAreaTop={props.safeAreaTop}
-								/>
-							</ManagedAssetProvider>
-						)}
-						<MediaEpisodeList
-							log={props.log}
-							render={render}
-							episodes={episodes}
-							compact={props.compact}
-							editable={props.editable}
-							safeAreaTop={props.safeAreaTop}
-						/>
-					</>
-				);
-			}}
-		/>
 	);
 }

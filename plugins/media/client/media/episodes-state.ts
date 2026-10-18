@@ -8,20 +8,20 @@ import { collectManagedAssetLocators, type MediaImages, preferredMediaImageAsset
 
 export type MediaEpisodeImagePurpose = MediaImage["purpose"];
 
+export type MediaEpisodeStateLabels = Record<EpisodeLifecycleState, string | undefined>;
+
 export type MediaEpisode = EntitySyncState & {
 	readonly id: string;
 	readonly name: string;
 	readonly images: MediaImages;
 	readonly episodeNumber: number;
-	readonly runtime: number | null;
-	readonly publishDate: string | null;
-	readonly description: string | null;
+	readonly runtime: null | number;
+	readonly publishDate: null | string;
+	readonly description: null | string;
 	readonly state: EpisodeLifecycleState;
 };
 
-export type MediaEpisodeStateLabels = Record<EpisodeLifecycleState, string | undefined>;
-
-export const mediaDateLabel = (value: string | null) => {
+export const mediaDateLabel = (value: null | string) => {
 	const text = optionalText(value);
 	return text === undefined ? undefined : formatDateOnlyLabel(text);
 };

@@ -31,11 +31,11 @@ export default defineOperation({
 					if (
 						reason._tag === "Success" &&
 						[
-							"mutation-conflict",
-							"entity-stale",
 							"event-stale",
+							"entity-stale",
 							"event-not-found",
 							"entity-not-found",
+							"mutation-conflict",
 						].includes(reason.success.code)
 					) {
 						return Effect.succeed({ kind: "conflict" } as const);

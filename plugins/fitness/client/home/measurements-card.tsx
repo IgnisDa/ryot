@@ -9,43 +9,6 @@ import { seriesQuery, summaryQuery } from "../measurements/queries";
 import { loggedPhrase, measurementValue } from "./model";
 import { HomeCard, QueryBody, SavedViewLink } from "./section";
 
-function PinnedTiles(props: {
-	readonly now: Date;
-	readonly timeZone: string;
-	readonly pinned: readonly MeasurementSummary[];
-	readonly summaries: readonly MeasurementSummary[];
-}) {
-	const { now, pinned, timeZone } = props;
-	const series = useRyotQuery(seriesQuery, {
-		range: "3M",
-		metricIds: pinned.map(({ id }) => id),
-		firstReadings: props.summaries.map(({ firstAt }) => ({ firstAt })),
-	});
-	return (
-		<div className="flex flex-col gap-2">
-			{buildMetricRows(pinned, series.data ?? []).map(({ trend, summary }) => (
-				<div
-					key={summary.id}
-					className="flex items-center justify-between gap-3 rounded-lg bg-surface-2 px-3 py-2.5"
-				>
-					<div className="flex min-w-0 flex-col">
-						<span className="truncate text-[13px] text-text-muted">{summary.name}</span>
-						<span className="text-[20px] leading-tight font-semibold text-text tabular-nums">
-							{measurementValue(summary.latestValue, summary.unit)}
-						</span>
-						<span className="text-[12px] text-text-muted">
-							{loggedPhrase(summary.latestAt, now, timeZone)}
-						</span>
-					</div>
-					{series.data === undefined ? null : (
-						<Sparkline tone="accent" points={trend} ariaLabel={`${summary.name} trend`} />
-					)}
-				</div>
-			))}
-		</div>
-	);
-}
-
 export function LogMeasurementButton(props: {
 	readonly label: string;
 	readonly measurement: ReturnType<typeof useMeasurementLogger>;
@@ -97,5 +60,42 @@ export function MeasurementsCard(props: { readonly now: Date; readonly timeZone:
 			</QueryBody>
 			<LogMeasurementButton measurement={logger} label="Log measurement" />
 		</HomeCard>
+	);
+}
+
+function PinnedTiles(props: {
+	readonly now: Date;
+	readonly timeZone: string;
+	readonly pinned: readonly MeasurementSummary[];
+	readonly summaries: readonly MeasurementSummary[];
+}) {
+	const { now, pinned, timeZone } = props;
+	const series = useRyotQuery(seriesQuery, {
+		range: "3M",
+		metricIds: pinned.map(({ id }) => id),
+		firstReadings: props.summaries.map(({ firstAt }) => ({ firstAt })),
+	});
+	return (
+		<div className="flex flex-col gap-2">
+			{buildMetricRows(pinned, series.data ?? []).map(({ trend, summary }) => (
+				<div
+					key={summary.id}
+					className="flex items-center justify-between gap-3 rounded-lg bg-surface-2 px-3 py-2.5"
+				>
+					<div className="flex min-w-0 flex-col">
+						<span className="truncate text-[13px] text-text-muted">{summary.name}</span>
+						<span className="text-[20px] leading-tight font-semibold text-text tabular-nums">
+							{measurementValue(summary.latestValue, summary.unit)}
+						</span>
+						<span className="text-[12px] text-text-muted">
+							{loggedPhrase(summary.latestAt, now, timeZone)}
+						</span>
+					</div>
+					{series.data === undefined ? null : (
+						<Sparkline tone="accent" points={trend} ariaLabel={`${summary.name} trend`} />
+					)}
+				</div>
+			))}
+		</div>
 	);
 }

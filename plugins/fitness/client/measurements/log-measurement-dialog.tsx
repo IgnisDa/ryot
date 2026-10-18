@@ -9,7 +9,7 @@ import { MeasurementDialog } from "./reading-composer";
 export function LogMeasurementDialog(props: {
 	readonly onClose: () => void;
 	readonly metrics: readonly MeasurementSummary[];
-	readonly triggerRef: RefObject<HTMLButtonElement | null>;
+	readonly triggerRef: RefObject<null | HTMLButtonElement>;
 }) {
 	const { metrics, onClose } = props;
 	const log = useBackgroundSubmission(logReadingsSubmission);

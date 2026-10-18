@@ -14,14 +14,14 @@ type MangaSummary = MediaSummaryOf<typeof mangaRecipes>;
 
 type MangaPresentation = MediaPresentationDataOf<typeof mangaRecipes>;
 
-type MangaProgressPosition = Pick<
-	Extract<MediaActivityEventOf<typeof mangaRecipes>, { readonly kind: "media" }>,
-	"mangaChapter" | "mangaVolume"
->;
-
 type MangaListStateSnapshot = Pick<
 	Extract<MediaActivityEventOf<typeof mangaRecipes>, { readonly kind: "media" }>,
 	"listState"
+>;
+
+type MangaProgressPosition = Pick<
+	Extract<MediaActivityEventOf<typeof mangaRecipes>, { readonly kind: "media" }>,
+	"mangaVolume" | "mangaChapter"
 >;
 
 export const mangaSummaryFacts = (manga: MangaSummary): readonly MediaSummaryFact[] =>

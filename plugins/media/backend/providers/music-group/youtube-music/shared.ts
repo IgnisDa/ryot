@@ -12,7 +12,7 @@ import {
 	tryYoutubeMusic,
 } from "../../../lib/vendors/youtube-music";
 
-const getAlbumTitle = (album: UnknownRecord | null) => {
+const getAlbumTitle = (album: null | UnknownRecord) => {
 	const raw = album?.["title"] ?? asRecord(asRecord(album?.["header"])?.["title"])?.["text"] ?? "";
 	return coerceTrimmed(raw);
 };

@@ -320,7 +320,7 @@ query GetHardcoverBookDetails($id: Int!) {
 	},
 });
 
-const resolveIsbnBookId = (payload: UnknownRecord | null) => {
+const resolveIsbnBookId = (payload: null | UnknownRecord) => {
 	const editions = asRecord(payload?.["data"])?.["editions"];
 	const firstEdition = asRecord(Array.isArray(editions) ? editions[0] : undefined);
 	return idValue(firstEdition?.["book_id"]);
@@ -343,7 +343,7 @@ export const resolve = defineProvider({
 			apiKey: string,
 			index: number,
 		): Effect.Effect<
-			{ externalId: string | null },
+			{ externalId: null | string },
 			Effect.Error<ReturnType<typeof hardcoverGql>>
 		> => {
 			const query = isbnQueries[index];

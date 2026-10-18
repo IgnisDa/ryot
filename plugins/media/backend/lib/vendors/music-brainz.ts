@@ -30,7 +30,7 @@ export const fetchCoverArtUrl = (
 	host: MusicBrainzHost,
 	resourceType: string,
 	resourceId: string,
-): Effect.Effect<string | null> => {
+): Effect.Effect<null | string> => {
 	const url = `${CAA_BASE}/${resourceType}/${resourceId}`;
 	return host.httpCall("GET", url, { headers: { Accept: "application/json" } }).pipe(
 		Effect.map((response) => {
@@ -66,9 +66,9 @@ export const fetchCoverArtUrl = (
 export const findCoverArtFromReleases = (
 	host: MusicBrainzHost,
 	releases: readonly unknown[],
-): Effect.Effect<string | null> => {
+): Effect.Effect<null | string> => {
 	const firstThree = releases.slice(0, 3);
-	const tryGroups = (index: number, seen: Set<string>): Effect.Effect<string | null> => {
+	const tryGroups = (index: number, seen: Set<string>): Effect.Effect<null | string> => {
 		if (index >= firstThree.length) {
 			return Effect.succeed(null);
 		}
@@ -86,7 +86,7 @@ export const findCoverArtFromReleases = (
 			),
 		);
 	};
-	const tryReleases = (index: number): Effect.Effect<string | null> => {
+	const tryReleases = (index: number): Effect.Effect<null | string> => {
 		if (index >= firstThree.length) {
 			return tryGroups(0, new Set<string>());
 		}

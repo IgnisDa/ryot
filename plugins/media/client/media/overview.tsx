@@ -48,22 +48,22 @@ const CREDIT_COLUMN_CLASS = "min-w-0 flex-1";
 
 const COMPANY_COLUMN_CLASS = "w-72 shrink-0";
 
-export type MediaOverviewSubject = Pick<
-	MediaSummaryFields,
-	"id" | "name" | "images" | "relatedPopulationStatus"
->;
-
 export type MediaCreditCopy = {
 	readonly people: string;
 	readonly notice: string;
 	readonly companies: string;
 };
 
+export type MediaOverviewSubject = Pick<
+	MediaSummaryFields,
+	"id" | "name" | "images" | "relatedPopulationStatus"
+>;
+
 export type MediaOverviewRelationsRender<Overview> = (input: {
 	readonly compact: boolean;
 	readonly entityId: string;
-	readonly safeAreaTop: number;
 	readonly overview: Overview;
+	readonly safeAreaTop: number;
 }) => ReactNode;
 
 export function MediaImageGallerySection(props: {
@@ -186,12 +186,217 @@ export const mediaWatchProvidersTrailing =
 		<MediaRegionWatchProvidersSection compact={input.compact} media={select(input.summary)} />
 	);
 
+export function MediaRecommendationsSection(props: {
+	readonly compact: boolean;
+	readonly aspect: MediaArtworkAspect;
+	readonly recommendations: readonly MediaRecommendation[];
+}) {
+	return (
+		<MediaEntityRailSection
+			title="More like this"
+			compact={props.compact}
+			aspect={() => props.aspect}
+			items={props.recommendations}
+		/>
+	);
+}
+
+export function MediaOverviewRelations(props: {
+	readonly compact: boolean;
+	readonly trailing?: ReactNode;
+	readonly copy: MediaCreditCopy;
+	readonly peopleAction: ReactNode;
+	readonly aspect: MediaArtworkAspect;
+	readonly overview: MediaOverviewRows;
+	readonly unlinked?: undefined | readonly MediaUnlinkedCreator[];
+}) {
+	const { people, companies, recommendations } = props.overview;
+	return (
+		<>
+			<MediaCreditColumns
+				copy={props.copy}
+				people={people.items}
+				compact={props.compact}
+				unlinked={props.unlinked}
+				companies={companies.items}
+				peopleAction={props.peopleAction}
+			/>
+			<MediaRecommendationsSection
+				aspect={props.aspect}
+				compact={props.compact}
+				recommendations={recommendations.items}
+			/>
+			{props.trailing}
+		</>
+	);
+}
+
+export function MediaCreditColumns(props: {
+	readonly compact: boolean;
+	readonly copy: MediaCreditCopy;
+	readonly peopleAction: ReactNode;
+	readonly companies: readonly MediaCompany[];
+	readonly people: readonly MediaCreditPerson[];
+	readonly unlinked?: undefined | readonly MediaUnlinkedCreator[];
+}) {
+	const unlinked = mediaUnlinkedCredits(props.unlinked ?? []);
+	if (
+		props.people.length +
+			props.companies.length +
+			unlinked.people.length +
+			unlinked.companies.length ===
+		0
+	) {
+		return null;
+	}
+	return (
+		<div className={clsx("flex", props.compact ? "flex-col gap-8" : "flex-row gap-10")}>
+			<MediaPeopleSection
+				people={props.people}
+				compact={props.compact}
+				title={props.copy.people}
+				unlinked={unlinked.people}
+				action={props.peopleAction}
+			/>
+			<MediaCompaniesSection
+				compact={props.compact}
+				companies={props.companies}
+				title={props.copy.companies}
+				unlinked={unlinked.companies}
+			/>
+		</div>
+	);
+}
+
+export function MediaOverview<Overview>(props: {
+	readonly compact: boolean;
+	readonly noticeTitle: string;
+	readonly safeAreaTop: number;
+	readonly loadingDetail: string;
+	readonly refreshStatus?: ReactNode;
+	readonly refreshOverview: () => void;
+	readonly media: MediaOverviewSubject;
+	readonly empty?: undefined | MediaStatusCopy;
+	readonly overview: MediaOverviewState<Overview>;
+	readonly isEmpty: (overview: Overview) => boolean;
+	readonly relations: MediaOverviewRelationsRender<Overview>;
+	readonly trailing?: undefined | ((input: { readonly compact: boolean }) => ReactNode);
+}) {
+	const gallery = mediaGalleryAssets(props.media);
+	const related = props.media.relatedPopulationStatus;
+	const relations =
+		isEnrichmentActive(related) ||
+		related.state === "failed" ||
+		props.overview.status !== "ready" ||
+		!props.isEmpty(props.overview.overview);
+	if (props.empty !== undefined && !relations && gallery.length === 0) {
+		return (
+			<>
+				{props.refreshStatus}
+				<MediaStatusMessage title={props.empty.title} detail={props.empty.detail} />
+			</>
+		);
+	}
+	return (
+		<div className="grid grid-cols-[minmax(0,1fr)] gap-8">
+			{props.refreshStatus}
+			<MediaImageGallerySection
+				assets={gallery}
+				name={props.media.name}
+				compact={props.compact}
+				safeAreaTop={props.safeAreaTop}
+				images={galleryImages(props.media.images)}
+			/>
+			<MediaOverviewBody
+				related={related}
+				state={props.overview}
+				compact={props.compact}
+				entityId={props.media.id}
+				relations={props.relations}
+				safeAreaTop={props.safeAreaTop}
+				noticeTitle={props.noticeTitle}
+				refresh={props.refreshOverview}
+				loadingDetail={props.loadingDetail}
+			/>
+			{props.trailing?.({ compact: props.compact })}
+		</div>
+	);
+}
+
+export function MediaCompaniesSection(props: {
+	readonly title: string;
+	readonly compact: boolean;
+	readonly companies: readonly MediaCompany[];
+	readonly unlinked?: undefined | readonly MediaUnlinkedCreator[];
+}) {
+	const unlinked = props.unlinked ?? [];
+	if (props.companies.length === 0 && unlinked.length === 0) {
+		return null;
+	}
+	return (
+		<MediaOverviewSection
+			title={props.title}
+			sync={mediaSyncCounts(props.companies, mediaCompanyAsset)}
+			className={props.compact ? undefined : COMPANY_COLUMN_CLASS}
+		>
+			<div className="flex flex-col gap-3.5">
+				{props.companies.map((company) => {
+					const roles = mediaRolesLabel(company.roles);
+					return (
+						<PluginLink
+							key={company.id}
+							aria-label={`Open ${company.name}`}
+							to={{ kind: "entity", entityId: company.id }}
+							className="flex items-center gap-3 rounded-lg focus-visible:outline-2 focus-visible:outline-accent"
+						>
+							<ManagedAssetImage
+								monogram={company.name}
+								className="h-9 w-9 shrink-0"
+								asset={mediaCompanyAsset(company)}
+								state={fieldSyncState(mediaCompanyAsset(company), company)}
+							/>
+							<div className="flex min-w-0 flex-1 flex-col">
+								<p className="line-clamp-1 font-ui font-medium text-[13px] leading-4.5 text-text">
+									{company.name}
+								</p>
+								{roles === undefined ? null : (
+									<p className="line-clamp-1 font-ui text-[11px] leading-3.75 text-text-subtle">
+										{roles}
+									</p>
+								)}
+							</div>
+						</PluginLink>
+					);
+				})}
+				{unlinked.map((creator) => (
+					<div className="flex items-center gap-3" key={`${creator.role}:${creator.name}`}>
+						<ManagedAssetImage
+							state="ready"
+							asset={undefined}
+							monogram={creator.name}
+							className="h-9 w-9 shrink-0"
+						/>
+						<div className="flex min-w-0 flex-1 flex-col">
+							<p className="line-clamp-1 font-ui font-medium text-[13px] leading-4.5 text-text">
+								{creator.name}
+							</p>
+							<p className="line-clamp-1 font-ui text-[11px] leading-3.75 text-text-subtle">
+								{creator.role}
+							</p>
+						</div>
+					</div>
+				))}
+			</div>
+		</MediaOverviewSection>
+	);
+}
+
 export function MediaPeopleSection(props: {
 	readonly title: string;
 	readonly compact: boolean;
 	readonly action: ReactNode;
 	readonly people: readonly MediaCreditPerson[];
-	readonly unlinked?: readonly MediaUnlinkedCreator[] | undefined;
+	readonly unlinked?: undefined | readonly MediaUnlinkedCreator[];
 }) {
 	const unlinked = props.unlinked ?? [];
 	if (props.people.length === 0 && unlinked.length === 0) {
@@ -270,85 +475,17 @@ export function MediaPeopleSection(props: {
 	);
 }
 
-export function MediaCompaniesSection(props: {
-	readonly title: string;
-	readonly compact: boolean;
-	readonly companies: readonly MediaCompany[];
-	readonly unlinked?: readonly MediaUnlinkedCreator[] | undefined;
+function MediaRelatedPopulationFailure(props: {
+	readonly entityId: string;
+	readonly noticeTitle: string;
 }) {
-	const unlinked = props.unlinked ?? [];
-	if (props.companies.length === 0 && unlinked.length === 0) {
-		return null;
-	}
+	const retry = useMediaEnrichment(props.entityId, "population", "retry");
 	return (
-		<MediaOverviewSection
-			title={props.title}
-			sync={mediaSyncCounts(props.companies, mediaCompanyAsset)}
-			className={props.compact ? undefined : COMPANY_COLUMN_CLASS}
-		>
-			<div className="flex flex-col gap-3.5">
-				{props.companies.map((company) => {
-					const roles = mediaRolesLabel(company.roles);
-					return (
-						<PluginLink
-							key={company.id}
-							aria-label={`Open ${company.name}`}
-							to={{ kind: "entity", entityId: company.id }}
-							className="flex items-center gap-3 rounded-lg focus-visible:outline-2 focus-visible:outline-accent"
-						>
-							<ManagedAssetImage
-								monogram={company.name}
-								className="h-9 w-9 shrink-0"
-								asset={mediaCompanyAsset(company)}
-								state={fieldSyncState(mediaCompanyAsset(company), company)}
-							/>
-							<div className="flex min-w-0 flex-1 flex-col">
-								<p className="line-clamp-1 font-ui font-medium text-[13px] leading-4.5 text-text">
-									{company.name}
-								</p>
-								{roles === undefined ? null : (
-									<p className="line-clamp-1 font-ui text-[11px] leading-3.75 text-text-subtle">
-										{roles}
-									</p>
-								)}
-							</div>
-						</PluginLink>
-					);
-				})}
-				{unlinked.map((creator) => (
-					<div className="flex items-center gap-3" key={`${creator.role}:${creator.name}`}>
-						<ManagedAssetImage
-							state="ready"
-							asset={undefined}
-							monogram={creator.name}
-							className="h-9 w-9 shrink-0"
-						/>
-						<div className="flex min-w-0 flex-1 flex-col">
-							<p className="line-clamp-1 font-ui font-medium text-[13px] leading-4.5 text-text">
-								{creator.name}
-							</p>
-							<p className="line-clamp-1 font-ui text-[11px] leading-3.75 text-text-subtle">
-								{creator.role}
-							</p>
-						</div>
-					</div>
-				))}
-			</div>
-		</MediaOverviewSection>
-	);
-}
-
-export function MediaRecommendationsSection(props: {
-	readonly compact: boolean;
-	readonly aspect: MediaArtworkAspect;
-	readonly recommendations: readonly MediaRecommendation[];
-}) {
-	return (
-		<MediaEntityRailSection
-			title="More like this"
-			compact={props.compact}
-			aspect={() => props.aspect}
-			items={props.recommendations}
+		<MediaOverviewNotice
+			status="Couldn't load"
+			title={props.noticeTitle}
+			detail={`${props.noticeTitle} could not be loaded from the provider.`}
+			{...(retry.isPending ? {} : { onRetry: retry.submit })}
 		/>
 	);
 }
@@ -374,88 +511,6 @@ function MediaOverviewNotice(props: {
 	);
 }
 
-export function MediaCreditColumns(props: {
-	readonly compact: boolean;
-	readonly copy: MediaCreditCopy;
-	readonly peopleAction: ReactNode;
-	readonly companies: readonly MediaCompany[];
-	readonly people: readonly MediaCreditPerson[];
-	readonly unlinked?: readonly MediaUnlinkedCreator[] | undefined;
-}) {
-	const unlinked = mediaUnlinkedCredits(props.unlinked ?? []);
-	if (
-		props.people.length +
-			props.companies.length +
-			unlinked.people.length +
-			unlinked.companies.length ===
-		0
-	) {
-		return null;
-	}
-	return (
-		<div className={clsx("flex", props.compact ? "flex-col gap-8" : "flex-row gap-10")}>
-			<MediaPeopleSection
-				people={props.people}
-				compact={props.compact}
-				title={props.copy.people}
-				unlinked={unlinked.people}
-				action={props.peopleAction}
-			/>
-			<MediaCompaniesSection
-				compact={props.compact}
-				companies={props.companies}
-				title={props.copy.companies}
-				unlinked={unlinked.companies}
-			/>
-		</div>
-	);
-}
-
-export function MediaOverviewRelations(props: {
-	readonly compact: boolean;
-	readonly copy: MediaCreditCopy;
-	readonly trailing?: ReactNode;
-	readonly aspect: MediaArtworkAspect;
-	readonly peopleAction: ReactNode;
-	readonly overview: MediaOverviewRows;
-	readonly unlinked?: readonly MediaUnlinkedCreator[] | undefined;
-}) {
-	const { people, companies, recommendations } = props.overview;
-	return (
-		<>
-			<MediaCreditColumns
-				copy={props.copy}
-				people={people.items}
-				compact={props.compact}
-				unlinked={props.unlinked}
-				companies={companies.items}
-				peopleAction={props.peopleAction}
-			/>
-			<MediaRecommendationsSection
-				aspect={props.aspect}
-				compact={props.compact}
-				recommendations={recommendations.items}
-			/>
-			{props.trailing}
-		</>
-	);
-}
-
-function MediaRelatedPopulationFailure(props: {
-	readonly entityId: string;
-	readonly noticeTitle: string;
-}) {
-	const retry = useMediaEnrichment(props.entityId, "population", "retry");
-	return (
-		<MediaOverviewNotice
-			status="Couldn't load"
-			title={props.noticeTitle}
-			detail={`${props.noticeTitle} could not be loaded from the provider.`}
-			{...(retry.isPending ? {} : { onRetry: retry.submit })}
-		/>
-	);
-}
-
 function MediaOverviewBody<Overview>(props: {
 	readonly compact: boolean;
 	readonly entityId: string;
@@ -463,9 +518,9 @@ function MediaOverviewBody<Overview>(props: {
 	readonly noticeTitle: string;
 	readonly refresh: () => void;
 	readonly loadingDetail: string;
-	readonly related: MediaOverviewSubject["relatedPopulationStatus"];
 	readonly state: MediaOverviewState<Overview>;
 	readonly relations: MediaOverviewRelationsRender<Overview>;
+	readonly related: MediaOverviewSubject["relatedPopulationStatus"];
 }) {
 	const { state } = props;
 	let notice: ReactNode = null;
@@ -518,60 +573,5 @@ function MediaOverviewBody<Overview>(props: {
 				safeAreaTop: props.safeAreaTop,
 			})}
 		</>
-	);
-}
-
-export function MediaOverview<Overview>(props: {
-	readonly compact: boolean;
-	readonly noticeTitle: string;
-	readonly safeAreaTop: number;
-	readonly loadingDetail: string;
-	readonly refreshStatus?: ReactNode;
-	readonly refreshOverview: () => void;
-	readonly media: MediaOverviewSubject;
-	readonly empty?: MediaStatusCopy | undefined;
-	readonly isEmpty: (overview: Overview) => boolean;
-	readonly overview: MediaOverviewState<Overview>;
-	readonly relations: MediaOverviewRelationsRender<Overview>;
-	readonly trailing?: ((input: { readonly compact: boolean }) => ReactNode) | undefined;
-}) {
-	const gallery = mediaGalleryAssets(props.media);
-	const related = props.media.relatedPopulationStatus;
-	const relations =
-		isEnrichmentActive(related) ||
-		related.state === "failed" ||
-		props.overview.status !== "ready" ||
-		!props.isEmpty(props.overview.overview);
-	if (props.empty !== undefined && !relations && gallery.length === 0) {
-		return (
-			<>
-				{props.refreshStatus}
-				<MediaStatusMessage title={props.empty.title} detail={props.empty.detail} />
-			</>
-		);
-	}
-	return (
-		<div className="grid grid-cols-[minmax(0,1fr)] gap-8">
-			{props.refreshStatus}
-			<MediaImageGallerySection
-				assets={gallery}
-				name={props.media.name}
-				compact={props.compact}
-				safeAreaTop={props.safeAreaTop}
-				images={galleryImages(props.media.images)}
-			/>
-			<MediaOverviewBody
-				related={related}
-				state={props.overview}
-				compact={props.compact}
-				entityId={props.media.id}
-				relations={props.relations}
-				safeAreaTop={props.safeAreaTop}
-				noticeTitle={props.noticeTitle}
-				refresh={props.refreshOverview}
-				loadingDetail={props.loadingDetail}
-			/>
-			{props.trailing?.({ compact: props.compact })}
-		</div>
 	);
 }

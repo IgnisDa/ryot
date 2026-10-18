@@ -69,16 +69,6 @@ import {
 	selectedEpisode,
 } from "./state";
 
-type EpisodePager = {
-	readonly isError: boolean;
-	readonly retry: () => void;
-	readonly isPending: boolean;
-	readonly hasNextPage: boolean;
-	readonly fetchNextPage: () => void;
-	readonly isFetchingNextPage: boolean;
-	readonly choices: readonly ActivityEpisode[];
-};
-
 type Earlier =
 	| { readonly status: "none" }
 	| { readonly status: "loading" }
@@ -89,7 +79,17 @@ type Earlier =
 			readonly episodes: readonly ActivityEpisode[];
 	  };
 
-const FIRST_PAGE: string | null = null;
+type EpisodePager = {
+	readonly isError: boolean;
+	readonly retry: () => void;
+	readonly isPending: boolean;
+	readonly hasNextPage: boolean;
+	readonly fetchNextPage: () => void;
+	readonly isFetchingNextPage: boolean;
+	readonly choices: readonly ActivityEpisode[];
+};
+
+const FIRST_PAGE: null | string = null;
 
 const whenOptions = (episode: boolean) =>
 	[
@@ -101,197 +101,40 @@ const whenOptions = (episode: boolean) =>
 		},
 		{ value: "unknown", label: "I don’t remember", content: "I don’t remember" },
 	] as const satisfies readonly {
-		readonly value: ActivityWhenKind;
 		readonly label: string;
 		readonly content: string;
+		readonly value: ActivityWhenKind;
 	}[];
 
-function ShowEpisodes(props: {
+type ActivityLogDialogProps = {
+	readonly name: string;
+	readonly compact: boolean;
 	readonly entityId: string;
-	readonly seasonNumber: number;
-	readonly children: (pager: EpisodePager) => ReactNode;
-}) {
-	const query = useRyotInfiniteQuery(
-		showSeasonChoicesQuery,
-		{ showEntityId: props.entityId, seasonNumber: props.seasonNumber },
-		{
-			initialPageParam: FIRST_PAGE,
-			getNextPageParam: nextPageCursor,
-			getPageInput: (input, after) => ({ ...input, after }),
-		},
-	);
-	const choices = paginationItems(
-		query.pages,
-		(page) => page.items,
-		(item) => item.id,
-	).map((item) => ({
-		id: item.id,
-		name: item.name,
-		state: item.state,
-		seasonNumber: props.seasonNumber,
-		episodeNumber: item.episodeNumber,
-	}));
-	return props.children({
-		choices,
-		retry: query.retry,
-		isError: query.isError,
-		isPending: query.isPending,
-		hasNextPage: query.hasNextPage,
-		fetchNextPage: query.fetchNextPage,
-		isFetchingNextPage: query.isFetchingNextPage,
-	});
-}
-
-function PodcastEpisodes(props: {
-	readonly entityId: string;
-	readonly children: (pager: EpisodePager) => ReactNode;
-}) {
-	const query = useRyotInfiniteQuery(
-		podcastEpisodesQuery,
-		{ entityId: props.entityId, containerId: props.entityId },
-		{
-			initialPageParam: FIRST_PAGE,
-			getNextPageParam: nextPageCursor,
-			getPageInput: (input, after) => ({ ...input, after }),
-		},
-	);
-	const choices = paginationItems(
-		query.pages,
-		(page) => page.items,
-		(item) => item.id,
-	).map((item) => ({
-		id: item.id,
-		name: item.name,
-		state: item.state,
-		seasonNumber: null,
-		episodeNumber: item.episodeNumber,
-	}));
-	return props.children({
-		choices,
-		retry: query.retry,
-		isError: query.isError,
-		isPending: query.isPending,
-		hasNextPage: query.hasNextPage,
-		fetchNextPage: query.fetchNextPage,
-		isFetchingNextPage: query.isFetchingNextPage,
-	});
-}
-
-function useEarlierEpisodes(props: {
-	readonly entityId: string;
-	readonly episodeId: string | undefined;
-	readonly kind: "show" | "podcast" | undefined;
-}): Earlier {
-	const { kind, entityId, episodeId } = props;
-	const enabled = kind !== undefined && episodeId !== undefined;
-	const query = useRyotInfiniteQuery(
-		earlierEpisodesQuery,
-		{ kind: kind ?? "show", parentEntityId: entityId, episodeEntityId: episodeId ?? "" },
-		{
-			enabled,
-			initialPageParam: FIRST_PAGE,
-			getPageInput: (input, after) => ({ ...input, after }),
-			getNextPageParam: (page) => (page.hasMore ? page.nextCursor : null),
-		},
-	);
-	const { pages, retry, isError, isPending, isFetching, hasNextPage, fetchNextPage } = query;
-	const pagesLoaded = pages.length;
-	useEffect(() => {
-		if (hasNextPage && !isFetching && !isError && pagesLoaded < EARLIER_MAX_PAGES) {
-			fetchNextPage();
-		}
-	}, [fetchNextPage, hasNextPage, isError, isFetching, pagesLoaded]);
-	const earlier = useMemo((): Earlier => {
-		if (isError) {
-			return { retry, status: "error" };
-		}
-		if (isPending || (hasNextPage && pagesLoaded < EARLIER_MAX_PAGES)) {
-			return { status: "loading" };
-		}
-		const episodes = paginationItems(
-			pages,
-			(page) => page.items,
-			(item) => item.id,
-		).map((item) => ({
-			id: item.id,
-			name: item.name,
-			state: "untracked" as const,
-			seasonNumber: item.seasonNumber,
-			episodeNumber: item.episodeNumber,
-		}));
-		return { episodes, status: "ready", tooMany: episodes.length > BACKFILL_LIMIT };
-	}, [hasNextPage, isError, isPending, pages, pagesLoaded, retry]);
-	return enabled ? earlier : { status: "none" };
-}
-
-function EpisodeList(props: {
-	readonly pager: EpisodePager;
-	readonly nextUpId: string | undefined;
-	readonly selectedId: string | undefined;
+	readonly onClose: () => void;
+	readonly onReview?: () => void;
 	readonly logger: MediaActivityLogger;
+	readonly context: MediaActivityLogContext;
+	readonly initialEpisode?: ActivityEpisode;
+	readonly triggerRef: RefObject<null | HTMLButtonElement>;
+};
+
+type Body = {
+	readonly today: string;
+	readonly locked: boolean;
+	readonly earlier: Earlier;
+	readonly backfill: boolean;
+	readonly draft: ActivityDraft;
+	readonly logger: MediaActivityLogger;
+	readonly suggestions: readonly string[];
 	readonly onSelect: (id: string) => void;
-}) {
-	const { pager, logger } = props;
-	if (pager.isError && pager.choices.length === 0) {
-		return (
-			<StatusMessage tone="error" action={{ label: "Try again", onClick: pager.retry }}>
-				Unable to load episodes.
-			</StatusMessage>
-		);
-	}
-	if (pager.isPending) {
-		return <StatusMessage tone="pending">Loading episodes…</StatusMessage>;
-	}
-	if (pager.choices.length === 0) {
-		return <p className="text-text-muted">There are no episodes to log yet.</p>;
-	}
-	return (
-		<div className="flex flex-col gap-2">
-			<RadioGroup
-				label="Episode"
-				value={props.selectedId}
-				onChange={props.onSelect}
-				className="max-h-56 overflow-y-auto rounded-md border border-border"
-				options={pager.choices.map((episode) => {
-					const state = episodeStateLabel({ logger, episode, nextUpId: props.nextUpId });
-					return {
-						state,
-						episode,
-						value: episode.id,
-						label: `${episodeCode(logger, episode)}${state === undefined ? "" : ` · ${state}`}`,
-					};
-				})}
-				renderOption={(option, selected) => ({
-					className: clsx(
-						"flex min-h-11 w-full items-center justify-between gap-3 border-t border-border px-3 text-left first:border-t-0",
-						selected ? "bg-accent-soft" : "hover:bg-hover",
-					),
-					content: (
-						<>
-							<span className="min-w-0 flex-1 truncate">
-								<span className="font-medium text-text">{episodeCode(logger, option.episode)}</span>
-								{option.episode.name === "" ? null : (
-									<span className="text-text-muted"> · {option.episode.name}</span>
-								)}
-							</span>
-							{option.state === undefined ? null : (
-								<span className="shrink-0 text-xs text-text-subtle">{option.state}</span>
-							)}
-						</>
-					),
-				})}
-			/>
-			{pager.hasNextPage ? (
-				<LoadMoreButton
-					label="Load more"
-					onClick={pager.fetchNextPage}
-					disabled={pager.isFetchingNextPage}
-					isFetchingNextPage={pager.isFetchingNextPage}
-				/>
-			) : null}
-		</div>
-	);
-}
+	readonly pager: undefined | EpisodePager;
+	readonly seasonNumber: number | undefined;
+	readonly context: MediaActivityLogContext;
+	readonly onBackfill: (value: boolean) => void;
+	readonly selected: undefined | ActivityEpisode;
+	readonly onSeason: (seasonNumber: number) => void;
+	readonly onChange: (patch: Partial<ActivityDraft>) => void;
+};
 
 export function SourceField(props: {
 	readonly value: string;
@@ -331,9 +174,46 @@ export function SourceField(props: {
 	);
 }
 
+export function MediaActivityLogSheet(props: {
+	readonly compact: boolean;
+	readonly entityId: string;
+	readonly onClose: () => void;
+	readonly onReview?: () => void;
+	readonly logger: MediaActivityLogger;
+	readonly initialEpisode?: ActivityEpisode;
+	readonly triggerRef: RefObject<null | HTMLButtonElement>;
+}) {
+	const result = useRyotQuery(activityLogContextQuery, { entityId: props.entityId });
+	if (result.data === undefined || result.data === null) {
+		let message = "Loading…";
+		if (result.data === null) {
+			message = "This item can't be logged.";
+		} else if (result.isError) {
+			message = "Unable to load this item.";
+		}
+		return (
+			<Dialog
+				title="Log activity"
+				onClose={props.onClose}
+				triggerRef={props.triggerRef}
+				closeLabel="Close log activity"
+				placement={props.compact ? "sheet" : "center"}
+			>
+				<StatusMessage
+					tone={result.isError ? "error" : "pending"}
+					action={result.isError ? { label: "Try again", onClick: result.refetch } : undefined}
+				>
+					{message}
+				</StatusMessage>
+			</Dialog>
+		);
+	}
+	return <ActivityLogDialog {...props} context={result.data} name={result.data.name} />;
+}
+
 export function TimeSpentField(props: {
-	readonly label: string;
 	readonly hint: string;
+	readonly label: string;
 	readonly draft: ActivityDraft;
 	readonly error: string | undefined;
 	readonly onChange: (patch: Partial<ActivityDraft>) => void;
@@ -374,12 +254,57 @@ export function TimeSpentField(props: {
 	);
 }
 
+export function PositionProgress(props: {
+	readonly draft: ActivityDraft;
+	readonly error: string | undefined;
+	readonly context: MediaActivityLogContext;
+	readonly onChange: (patch: Partial<ActivityDraft>) => void;
+	readonly logger: Extract<MediaActivityLogger, { family: "positional" }>;
+}) {
+	const { draft, logger } = props;
+	const total = activityPositionTotal(logger, props.context);
+	const { plural, singular } = logger.progressUnit;
+	const percent =
+		total === null || draft.position === undefined
+			? undefined
+			: Math.round((draft.position / total) * 100);
+	return (
+		<div className="flex flex-col gap-2">
+			<span className="text-[13px] font-medium text-text">
+				{capitalized(logger.copy.participle)} through {singular}
+			</span>
+			<div className="flex items-center gap-3">
+				<Stepper
+					min={1}
+					step={1}
+					className="w-44"
+					value={draft.position}
+					invalid={props.error !== undefined}
+					incrementIcon={<AppIcon size={16} name="plus" />}
+					decrementIcon={<AppIcon size={16} name="minus" />}
+					onChange={(position) => props.onChange({ position })}
+					label={`${capitalized(logger.copy.participle)} through ${singular}`}
+				/>
+				{total === null ? null : <span className="text-text-muted">of {total}</span>}
+			</div>
+			{props.error === undefined ? (
+				<p className="text-xs text-text-muted">
+					{percent === undefined ? "" : `${percent}% of the ${logger.copy.noun} · `}earlier {plural}{" "}
+					count as {logger.copy.participle}
+				</p>
+			) : (
+				<FieldMessage>{props.error}</FieldMessage>
+			)}
+		</div>
+	);
+}
+
 export function WhenField(props: {
-	readonly kinds?: readonly ActivityWhenKind[];
 	readonly today: string;
 	readonly draft: ActivityDraft;
 	readonly error: string | undefined;
 	readonly logger: MediaActivityLogger;
+	readonly kinds?: readonly ActivityWhenKind[];
 	readonly onChange: (patch: Partial<ActivityDraft>) => void;
 }) {
 	const { draft, logger } = props;
@@ -439,8 +364,8 @@ export function WhenField(props: {
 
 export function FlatProgress(props: {
 	readonly draft: ActivityDraft;
-	readonly logger: MediaActivityLogger;
 	readonly error: string | undefined;
+	readonly logger: MediaActivityLogger;
 	readonly context: MediaActivityLogContext;
 	readonly onChange: (patch: Partial<ActivityDraft>) => void;
 }) {
@@ -504,49 +429,157 @@ export function FlatProgress(props: {
 	);
 }
 
-export function PositionProgress(props: {
-	readonly draft: ActivityDraft;
-	readonly error: string | undefined;
-	readonly context: MediaActivityLogContext;
-	readonly logger: Extract<MediaActivityLogger, { family: "positional" }>;
-	readonly onChange: (patch: Partial<ActivityDraft>) => void;
+function PodcastEpisodes(props: {
+	readonly entityId: string;
+	readonly children: (pager: EpisodePager) => ReactNode;
 }) {
-	const { draft, logger } = props;
-	const total = activityPositionTotal(logger, props.context);
-	const { plural, singular } = logger.progressUnit;
-	const percent =
-		total === null || draft.position === undefined
-			? undefined
-			: Math.round((draft.position / total) * 100);
-	return (
-		<div className="flex flex-col gap-2">
-			<span className="text-[13px] font-medium text-text">
-				{capitalized(logger.copy.participle)} through {singular}
-			</span>
-			<div className="flex items-center gap-3">
-				<Stepper
-					min={1}
-					step={1}
-					className="w-44"
-					value={draft.position}
-					invalid={props.error !== undefined}
-					incrementIcon={<AppIcon size={16} name="plus" />}
-					decrementIcon={<AppIcon size={16} name="minus" />}
-					onChange={(position) => props.onChange({ position })}
-					label={`${capitalized(logger.copy.participle)} through ${singular}`}
-				/>
-				{total === null ? null : <span className="text-text-muted">of {total}</span>}
-			</div>
-			{props.error === undefined ? (
-				<p className="text-xs text-text-muted">
-					{percent === undefined ? "" : `${percent}% of the ${logger.copy.noun} · `}earlier {plural}{" "}
-					count as {logger.copy.participle}
-				</p>
-			) : (
-				<FieldMessage>{props.error}</FieldMessage>
-			)}
-		</div>
+	const query = useRyotInfiniteQuery(
+		podcastEpisodesQuery,
+		{ entityId: props.entityId, containerId: props.entityId },
+		{
+			initialPageParam: FIRST_PAGE,
+			getNextPageParam: nextPageCursor,
+			getPageInput: (input, after) => ({ ...input, after }),
+		},
 	);
+	const choices = paginationItems(
+		query.pages,
+		(page) => page.items,
+		(item) => item.id,
+	).map((item) => ({
+		id: item.id,
+		name: item.name,
+		state: item.state,
+		seasonNumber: null,
+		episodeNumber: item.episodeNumber,
+	}));
+	return props.children({
+		choices,
+		retry: query.retry,
+		isError: query.isError,
+		isPending: query.isPending,
+		hasNextPage: query.hasNextPage,
+		fetchNextPage: query.fetchNextPage,
+		isFetchingNextPage: query.isFetchingNextPage,
+	});
+}
+
+function ShowEpisodes(props: {
+	readonly entityId: string;
+	readonly seasonNumber: number;
+	readonly children: (pager: EpisodePager) => ReactNode;
+}) {
+	const query = useRyotInfiniteQuery(
+		showSeasonChoicesQuery,
+		{ showEntityId: props.entityId, seasonNumber: props.seasonNumber },
+		{
+			initialPageParam: FIRST_PAGE,
+			getNextPageParam: nextPageCursor,
+			getPageInput: (input, after) => ({ ...input, after }),
+		},
+	);
+	const choices = paginationItems(
+		query.pages,
+		(page) => page.items,
+		(item) => item.id,
+	).map((item) => ({
+		id: item.id,
+		name: item.name,
+		state: item.state,
+		seasonNumber: props.seasonNumber,
+		episodeNumber: item.episodeNumber,
+	}));
+	return props.children({
+		choices,
+		retry: query.retry,
+		isError: query.isError,
+		isPending: query.isPending,
+		hasNextPage: query.hasNextPage,
+		fetchNextPage: query.fetchNextPage,
+		isFetchingNextPage: query.isFetchingNextPage,
+	});
+}
+
+function ActivityLogDialog(props: ActivityLogDialogProps) {
+	const { logger, context, entityId, initialEpisode } = props;
+	const [seasonNumber, setSeasonNumber] = useState(() =>
+		logger.family === "show"
+			? (initialEpisode?.seasonNumber ?? defaultSeasonNumber(context))
+			: undefined,
+	);
+	const [episodeId, setEpisodeId] = useState(initialEpisode?.id);
+	const render = (pager: undefined | EpisodePager) => (
+		<ActivityLogForm
+			{...props}
+			pager={pager}
+			episodeId={episodeId}
+			onSelect={setEpisodeId}
+			seasonNumber={seasonNumber}
+			onSeason={(next) => {
+				setSeasonNumber(next);
+				setEpisodeId(undefined);
+			}}
+		/>
+	);
+
+	if (logger.family === "show" && seasonNumber !== undefined) {
+		return (
+			<ShowEpisodes entityId={entityId} seasonNumber={seasonNumber}>
+				{render}
+			</ShowEpisodes>
+		);
+	}
+	if (logger.family === "podcast") {
+		return <PodcastEpisodes entityId={entityId}>{render}</PodcastEpisodes>;
+	}
+	return render(undefined);
+}
+
+function useEarlierEpisodes(props: {
+	readonly entityId: string;
+	readonly episodeId: string | undefined;
+	readonly kind: "show" | "podcast" | undefined;
+}): Earlier {
+	const { kind, entityId, episodeId } = props;
+	const enabled = kind !== undefined && episodeId !== undefined;
+	const query = useRyotInfiniteQuery(
+		earlierEpisodesQuery,
+		{ kind: kind ?? "show", parentEntityId: entityId, episodeEntityId: episodeId ?? "" },
+		{
+			enabled,
+			initialPageParam: FIRST_PAGE,
+			getPageInput: (input, after) => ({ ...input, after }),
+			getNextPageParam: (page) => (page.hasMore ? page.nextCursor : null),
+		},
+	);
+	const { pages, retry, isError, isPending, isFetching, hasNextPage, fetchNextPage } = query;
+	const pagesLoaded = pages.length;
+	useEffect(() => {
+		if (hasNextPage && !isFetching && !isError && pagesLoaded < EARLIER_MAX_PAGES) {
+			fetchNextPage();
+		}
+	}, [fetchNextPage, hasNextPage, isError, isFetching, pagesLoaded]);
+	const earlier = useMemo((): Earlier => {
+		if (isError) {
+			return { retry, status: "error" };
+		}
+		if (isPending || (hasNextPage && pagesLoaded < EARLIER_MAX_PAGES)) {
+			return { status: "loading" };
+		}
+		const episodes = paginationItems(
+			pages,
+			(page) => page.items,
+			(item) => item.id,
+		).map((item) => ({
+			id: item.id,
+			name: item.name,
+			state: "untracked" as const,
+			seasonNumber: item.seasonNumber,
+			episodeNumber: item.episodeNumber,
+		}));
+		return { episodes, status: "ready", tooMany: episodes.length > BACKFILL_LIMIT };
+	}, [hasNextPage, isError, isPending, pages, pagesLoaded, retry]);
+	return enabled ? earlier : { status: "none" };
 }
 
 function StatusPicker(props: {
@@ -601,103 +634,71 @@ function StatusPicker(props: {
 	);
 }
 
-type Body = {
-	readonly today: string;
-	readonly draft: ActivityDraft;
-	readonly earlier: Earlier;
-	readonly backfill: boolean;
-	readonly locked: boolean;
-	readonly suggestions: readonly string[];
+function EpisodeList(props: {
+	readonly pager: EpisodePager;
 	readonly logger: MediaActivityLogger;
-	readonly pager: EpisodePager | undefined;
-	readonly seasonNumber: number | undefined;
-	readonly context: MediaActivityLogContext;
-	readonly selected: ActivityEpisode | undefined;
-	readonly onBackfill: (value: boolean) => void;
+	readonly nextUpId: string | undefined;
+	readonly selectedId: string | undefined;
 	readonly onSelect: (id: string) => void;
-	readonly onSeason: (seasonNumber: number) => void;
-	readonly onChange: (patch: Partial<ActivityDraft>) => void;
-};
-
-function EpisodeStep(props: Body) {
-	const { pager, logger, context, earlier, selected } = props;
-	const special = logger.family === "show" && selected?.seasonNumber === 0;
-	const summary =
-		earlier.status === "ready" && earlier.episodes.length > 0
-			? backfillSummary(logger, earlier.episodes)
-			: undefined;
+}) {
+	const { pager, logger } = props;
+	if (pager.isError && pager.choices.length === 0) {
+		return (
+			<StatusMessage tone="error" action={{ label: "Try again", onClick: pager.retry }}>
+				Unable to load episodes.
+			</StatusMessage>
+		);
+	}
+	if (pager.isPending) {
+		return <StatusMessage tone="pending">Loading episodes…</StatusMessage>;
+	}
+	if (pager.choices.length === 0) {
+		return <p className="text-text-muted">There are no episodes to log yet.</p>;
+	}
 	return (
-		<div className="flex flex-col gap-3">
-			{logger.family === "show" ? (
-				<Field label="Season">
-					{(control) => (
-						<Select
-							label="Season"
-							id={control.id}
-							value={String(props.seasonNumber ?? "")}
-							checkIcon={<AppIcon size={16} name="check" />}
-							onChange={(value) => props.onSeason(Number(value))}
-							chevronIcon={<AppIcon size={16} name="chevron-down" />}
-							choices={context.seasons.map((season) => ({
-								value: String(season.seasonNumber),
-								label: seasonLabel(season.seasonNumber),
-							}))}
-						/>
-					)}
-				</Field>
-			) : null}
-			{pager === undefined ? (
-				<p className="text-text-muted">This show has no episodes to log yet.</p>
-			) : (
-				<EpisodeList
-					pager={pager}
-					logger={logger}
-					onSelect={props.onSelect}
-					selectedId={selected?.id}
-					nextUpId={context.nextUp?.id}
-				/>
-			)}
-			{selected?.state === "complete" ? (
-				<p className="text-text-muted">
-					You've already {logger.copy.participle} this one. It will be logged as a rewatch.
-				</p>
-			) : null}
-			{earlier.status === "error" ? (
-				<StatusMessage tone="error" action={{ label: "Try again", onClick: earlier.retry }}>
-					Unable to check earlier episodes.
-				</StatusMessage>
-			) : null}
-			{earlier.status === "loading" ? (
-				<StatusMessage tone="pending">Checking earlier episodes…</StatusMessage>
-			) : null}
-			{earlier.status === "ready" && earlier.tooMany && !special ? (
-				<Row
-					title="Also mark earlier episodes"
-					description={`More than ${BACKFILL_LIMIT} earlier episodes are unwatched, so none can be marked together. Mark them in smaller steps.`}
-					trailing={
-						<Switch
-							disabled
-							checked={false}
-							onChange={() => undefined}
-							label="Mark earlier episodes"
-						/>
-					}
+		<div className="flex flex-col gap-2">
+			<RadioGroup
+				label="Episode"
+				value={props.selectedId}
+				onChange={props.onSelect}
+				className="max-h-56 overflow-y-auto rounded-md border border-border"
+				options={pager.choices.map((episode) => {
+					const state = episodeStateLabel({ logger, episode, nextUpId: props.nextUpId });
+					return {
+						state,
+						episode,
+						value: episode.id,
+						label: `${episodeCode(logger, episode)}${state === undefined ? "" : ` · ${state}`}`,
+					};
+				})}
+				renderOption={(option, selected) => ({
+					className: clsx(
+						"flex min-h-11 w-full items-center justify-between gap-3 border-t border-border px-3 text-left first:border-t-0",
+						selected ? "bg-accent-soft" : "hover:bg-hover",
+					),
+					content: (
+						<>
+							<span className="min-w-0 flex-1 truncate">
+								<span className="font-medium text-text">{episodeCode(logger, option.episode)}</span>
+								{option.episode.name === "" ? null : (
+									<span className="text-text-muted"> · {option.episode.name}</span>
+								)}
+							</span>
+							{option.state === undefined ? null : (
+								<span className="shrink-0 text-xs text-text-subtle">{option.state}</span>
+							)}
+						</>
+					),
+				})}
+			/>
+			{pager.hasNextPage ? (
+				<LoadMoreButton
+					label="Load more"
+					onClick={pager.fetchNextPage}
+					disabled={pager.isFetchingNextPage}
+					isFetchingNextPage={pager.isFetchingNextPage}
 				/>
 			) : null}
-			{summary === undefined || earlier.status !== "ready" || earlier.tooMany ? null : (
-				<Row
-					title={summary.label}
-					description={summary.detail}
-					trailing={
-						<Switch
-							label={summary.label}
-							disabled={props.locked}
-							checked={props.backfill}
-							onChange={props.onBackfill}
-						/>
-					}
-				/>
-			)}
 		</div>
 	);
 }
@@ -784,23 +785,94 @@ function ActivityLogFields(props: Body) {
 	);
 }
 
-type ActivityLogDialogProps = {
-	readonly name: string;
-	readonly compact: boolean;
-	readonly entityId: string;
-	readonly onClose: () => void;
-	readonly onReview?: () => void;
-	readonly logger: MediaActivityLogger;
-	readonly context: MediaActivityLogContext;
-	readonly initialEpisode?: ActivityEpisode;
-	readonly triggerRef: RefObject<HTMLButtonElement | null>;
-};
+function EpisodeStep(props: Body) {
+	const { pager, logger, context, earlier, selected } = props;
+	const special = logger.family === "show" && selected?.seasonNumber === 0;
+	const summary =
+		earlier.status === "ready" && earlier.episodes.length > 0
+			? backfillSummary(logger, earlier.episodes)
+			: undefined;
+	return (
+		<div className="flex flex-col gap-3">
+			{logger.family === "show" ? (
+				<Field label="Season">
+					{(control) => (
+						<Select
+							label="Season"
+							id={control.id}
+							value={String(props.seasonNumber ?? "")}
+							checkIcon={<AppIcon size={16} name="check" />}
+							onChange={(value) => props.onSeason(Number(value))}
+							chevronIcon={<AppIcon size={16} name="chevron-down" />}
+							choices={context.seasons.map((season) => ({
+								value: String(season.seasonNumber),
+								label: seasonLabel(season.seasonNumber),
+							}))}
+						/>
+					)}
+				</Field>
+			) : null}
+			{pager === undefined ? (
+				<p className="text-text-muted">This show has no episodes to log yet.</p>
+			) : (
+				<EpisodeList
+					pager={pager}
+					logger={logger}
+					onSelect={props.onSelect}
+					selectedId={selected?.id}
+					nextUpId={context.nextUp?.id}
+				/>
+			)}
+			{selected?.state === "complete" ? (
+				<p className="text-text-muted">
+					You've already {logger.copy.participle} this one. It will be logged as a rewatch.
+				</p>
+			) : null}
+			{earlier.status === "error" ? (
+				<StatusMessage tone="error" action={{ label: "Try again", onClick: earlier.retry }}>
+					Unable to check earlier episodes.
+				</StatusMessage>
+			) : null}
+			{earlier.status === "loading" ? (
+				<StatusMessage tone="pending">Checking earlier episodes…</StatusMessage>
+			) : null}
+			{earlier.status === "ready" && earlier.tooMany && !special ? (
+				<Row
+					title="Also mark earlier episodes"
+					description={`More than ${BACKFILL_LIMIT} earlier episodes are unwatched, so none can be marked together. Mark them in smaller steps.`}
+					trailing={
+						<Switch
+							disabled
+							checked={false}
+							onChange={() => undefined}
+							label="Mark earlier episodes"
+						/>
+					}
+				/>
+			) : null}
+			{summary === undefined || earlier.status !== "ready" || earlier.tooMany ? null : (
+				<Row
+					title={summary.label}
+					description={summary.detail}
+					trailing={
+						<Switch
+							label={summary.label}
+							disabled={props.locked}
+							checked={props.backfill}
+							onChange={props.onBackfill}
+						/>
+					}
+				/>
+			)}
+		</div>
+	);
+}
 
 function ActivityLogForm(
 	props: ActivityLogDialogProps & {
-		readonly pager: EpisodePager | undefined;
-		readonly seasonNumber: number | undefined;
 		readonly episodeId: string | undefined;
+		readonly pager: undefined | EpisodePager;
+		readonly seasonNumber: number | undefined;
 		readonly onSelect: (episodeId: string) => void;
 		readonly onSeason: (seasonNumber: number) => void;
 	},
@@ -929,76 +1001,4 @@ function ActivityLogForm(
 			</ActionForm>
 		</Dialog>
 	);
-}
-
-function ActivityLogDialog(props: ActivityLogDialogProps) {
-	const { logger, context, entityId, initialEpisode } = props;
-	const [seasonNumber, setSeasonNumber] = useState(() =>
-		logger.family === "show"
-			? (initialEpisode?.seasonNumber ?? defaultSeasonNumber(context))
-			: undefined,
-	);
-	const [episodeId, setEpisodeId] = useState(initialEpisode?.id);
-	const render = (pager: EpisodePager | undefined) => (
-		<ActivityLogForm
-			{...props}
-			pager={pager}
-			episodeId={episodeId}
-			onSelect={setEpisodeId}
-			seasonNumber={seasonNumber}
-			onSeason={(next) => {
-				setSeasonNumber(next);
-				setEpisodeId(undefined);
-			}}
-		/>
-	);
-
-	if (logger.family === "show" && seasonNumber !== undefined) {
-		return (
-			<ShowEpisodes entityId={entityId} seasonNumber={seasonNumber}>
-				{render}
-			</ShowEpisodes>
-		);
-	}
-	if (logger.family === "podcast") {
-		return <PodcastEpisodes entityId={entityId}>{render}</PodcastEpisodes>;
-	}
-	return render(undefined);
-}
-
-export function MediaActivityLogSheet(props: {
-	readonly compact: boolean;
-	readonly entityId: string;
-	readonly onClose: () => void;
-	readonly onReview?: () => void;
-	readonly logger: MediaActivityLogger;
-	readonly initialEpisode?: ActivityEpisode;
-	readonly triggerRef: RefObject<HTMLButtonElement | null>;
-}) {
-	const result = useRyotQuery(activityLogContextQuery, { entityId: props.entityId });
-	if (result.data === undefined || result.data === null) {
-		let message = "Loading…";
-		if (result.data === null) {
-			message = "This item can't be logged.";
-		} else if (result.isError) {
-			message = "Unable to load this item.";
-		}
-		return (
-			<Dialog
-				title="Log activity"
-				onClose={props.onClose}
-				triggerRef={props.triggerRef}
-				closeLabel="Close log activity"
-				placement={props.compact ? "sheet" : "center"}
-			>
-				<StatusMessage
-					tone={result.isError ? "error" : "pending"}
-					action={result.isError ? { label: "Try again", onClick: result.refetch } : undefined}
-				>
-					{message}
-				</StatusMessage>
-			</Dialog>
-		);
-	}
-	return <ActivityLogDialog {...props} context={result.data} name={result.data.name} />;
 }

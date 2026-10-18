@@ -214,30 +214,9 @@ const probeSubmission = Schema.decodeSync(WorkoutEditorSaveInputSchema)({
 	},
 });
 
-function SaveConsumer({ name }: { readonly name: string }) {
-	const { saved, saving, snapshot, controller } = useWorkoutEditor(saveProbeTarget);
-	const schedule = useRyotSchedule();
-	const cancelSave = useRef<(() => void) | undefined>(undefined);
-	useEffect(() => () => cancelSave.current?.(), []);
-	return (
-		<>
-			<p>{`${name}: ${snapshot.status}, ${saving ? "busy" : "idle"}, ${saved ?? "unsaved"}`}</p>
-			<button
-				onClick={() => {
-					cancelSave.current = schedule.run(
-						controller
-							.save((current) => Effect.succeed({ draft: current.draft, input: probeSubmission }))
-							.pipe(Effect.ignore),
-						() => undefined,
-					);
-				}}
-			>
-				Save {name}
-			</button>
-			<button onClick={() => cancelSave.current?.()}>Interrupt {name}</button>
-		</>
-	);
-}
+type Removal = "pending" | "failure" | "success";
+
+type SaveStage = "cleanup" | "invocation" | "persistence";
 
 function SaveProbe() {
 	const [mounted, setMounted] = useState(true);
@@ -277,9 +256,30 @@ function PrepareConsumer() {
 		<p>{`${snapshot.status === "ready" ? snapshot.draft.name : snapshot.status}, ${request.requestHandled ? "started" : "preparing"}, ${saved ?? "unsaved"}`}</p>
 	);
 }
-
-type SaveStage = "persistence" | "invocation" | "cleanup";
-type Removal = "pending" | "failure" | "success";
+function SaveConsumer({ name }: { readonly name: string }) {
+	const { saved, saving, snapshot, controller } = useWorkoutEditor(saveProbeTarget);
+	const schedule = useRyotSchedule();
+	const cancelSave = useRef<undefined | (() => void)>(undefined);
+	useEffect(() => () => cancelSave.current?.(), []);
+	return (
+		<>
+			<p>{`${name}: ${snapshot.status}, ${saving ? "busy" : "idle"}, ${saved ?? "unsaved"}`}</p>
+			<button
+				onClick={() => {
+					cancelSave.current = schedule.run(
+						controller
+							.save((current) => Effect.succeed({ draft: current.draft, input: probeSubmission }))
+							.pipe(Effect.ignore),
+						() => undefined,
+					);
+				}}
+			>
+				Save {name}
+			</button>
+			<button onClick={() => cancelSave.current?.()}>Interrupt {name}</button>
+		</>
+	);
+}
 
 const saveProbeHarness = (
 	clock: ReturnType<typeof createTestRyotClock>,
@@ -305,7 +305,7 @@ const saveProbeHarness = (
 			],
 		},
 	});
-	let stored: string | null = encodeWorkoutEditorDraft(liveDraft());
+	let stored: null | string = encodeWorkoutEditorDraft(liveDraft());
 	let removal: Removal = "pending";
 	const answered = new Set<string>();
 	const respond = () => {

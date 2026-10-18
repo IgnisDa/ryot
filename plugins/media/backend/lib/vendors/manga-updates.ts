@@ -50,7 +50,7 @@ export const mangaUpdatesPost = (
 			Effect.flatMap((response) => decodeJsonResponse(response.body, "MangaUpdates")),
 		);
 
-export const searchTotalItems = (payload: UnknownRecord | null) => {
+export const searchTotalItems = (payload: null | UnknownRecord) => {
 	const totalValue = numberValue(payload?.["total_hits"]);
 	return totalValue === null ? 0 : Math.max(0, Math.trunc(totalValue));
 };

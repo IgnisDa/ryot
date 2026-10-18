@@ -56,11 +56,11 @@ export const creatorGroupTargetSlugs = [
 	"video-game-group",
 ] as const satisfies readonly MediaGroupSlug[];
 
-export type MediaCreatorCreditSlug =
-	(typeof builtinMediaEntitySchemaSlugs)[number] | (typeof creatorGroupTargetSlugs)[number];
-
 export type MediaArtworkSchemaSlug =
-	(typeof builtinMediaEntitySchemaSlugs)[number] | MediaGroupSlug;
+	MediaGroupSlug | (typeof builtinMediaEntitySchemaSlugs)[number];
+
+export type MediaCreatorCreditSlug =
+	(typeof creatorGroupTargetSlugs)[number] | (typeof builtinMediaEntitySchemaSlugs)[number];
 
 export const mediaLibraryMemberEntitySchemaSlugs = [
 	"person",

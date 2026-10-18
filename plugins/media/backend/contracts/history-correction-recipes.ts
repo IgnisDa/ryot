@@ -79,12 +79,12 @@ const historySelection = (event: TableReference, entity: TableReference) => ({
 export const correctionRecordsRecipe = <A, I>(
 	codec: Schema.Codec<A, I>,
 	input: {
+		slug: string;
 		libraryId: string;
 		subjectEntityId: string;
-		slug: string;
 		after?: string | undefined;
 		limit?: number | undefined;
-		where?: ((event: TableReference) => Predicate) | undefined;
+		where?: undefined | ((event: TableReference) => Predicate);
 	},
 ) =>
 	defineRecipe(() => {
@@ -178,7 +178,7 @@ export const historyRecordRecipe = defineRecipe(
 );
 
 export const progressCompletionBlockersRecipe = defineRecipe(
-	(input: { source: HistoryEvent; positional: boolean; libraryId: string; runKey: string }) => {
+	(input: { runKey: string; libraryId: string; positional: boolean; source: HistoryEvent }) => {
 		const parent = table("entity", "progressSubject");
 		const explicit = table("event", "explicitCompletion");
 		const occurrence = table("event", "progressOccurrence");
@@ -243,10 +243,10 @@ export const progressCompletionBlockersRecipe = defineRecipe(
 
 export const coverageBasisRecipe = defineRecipe(
 	(input: {
-		libraryId: string;
-		subjectEntityId: string;
-		sourceEventId: string;
 		runKey: string;
+		libraryId: string;
+		sourceEventId: string;
+		subjectEntityId: string;
 	}) => {
 		const occurrence = table("event", "coverageOccurrence");
 		const episode = table("event", "coverageEvidence");
@@ -354,9 +354,9 @@ export const historyCorrectionContextRecipe = defineRecipe(
 const requiredEpisodes = (
 	parent: TableReference,
 	input: {
-		config: EpisodicKindConfig;
-		subjectEntityId: string;
 		libraryId: string;
+		subjectEntityId: string;
+		config: EpisodicKindConfig;
 		basisId?: string | undefined;
 	},
 ) => {
@@ -381,13 +381,13 @@ const requiredEpisodes = (
 
 export const correctionCoverageRecipe = defineRecipe(
 	(input: {
+		cycle: number;
+		runKey: string;
 		libraryId: string;
 		subjectEntityId: string;
-		runKey: string;
-		cycle: number;
 		config: EpisodicKindConfig;
 		basisId?: string | undefined;
-		liveSourceIds?: readonly string[] | undefined;
+		liveSourceIds?: undefined | readonly string[];
 	}) => {
 		const parent = table("entity", "coverageParent");
 		const required = requiredEpisodes(parent, input);
@@ -498,13 +498,13 @@ export const correctionCoverageRecipe = defineRecipe(
 
 export const correctionInventoryRecipe = defineRecipe(
 	(input: {
+		cycle: number;
+		runKey: string;
 		libraryId: string;
 		subjectEntityId: string;
-		runKey: string;
-		cycle: number;
 		config: EpisodicKindConfig;
-		basisId?: string | undefined;
 		after?: string | undefined;
+		basisId?: string | undefined;
 	}) => {
 		const parent = table("entity", "snapshotParent");
 		const required = requiredEpisodes(parent, input);
@@ -553,7 +553,7 @@ export const correctionInventoryRecipe = defineRecipe(
 );
 
 export const correctionInventoryFingerprintRecipe = defineRecipe(
-	(input: { config: EpisodicKindConfig; subjectEntityId: string }) => {
+	(input: { subjectEntityId: string; config: EpisodicKindConfig }) => {
 		const parent = table("entity", "fingerprintParent");
 		const required = table("entity", "fingerprintRequired");
 		const total = table("entity", "fingerprintTotal");

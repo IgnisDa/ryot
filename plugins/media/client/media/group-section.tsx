@@ -12,11 +12,11 @@ import {
 } from "./overview-state";
 import { mediaPosterAsset } from "./summary-state";
 
-type SelectedQuerySuccess<Query> = Query extends SelectedQuery<infer Success> ? Success : never;
-
 export type MediaGroup = NonNullable<SelectedQuerySuccess<ReturnType<typeof mediaGroupQuery>>>;
 
-export type MediaGroupOverview = MediaOverviewRows & { readonly group?: MediaGroup | undefined };
+export type MediaGroupOverview = MediaOverviewRows & { readonly group?: undefined | MediaGroup };
+
+type SelectedQuerySuccess<Query> = Query extends SelectedQuery<infer Success> ? Success : never;
 
 const mediaGroupMembers = (overview: MediaGroupOverview) => overview.group?.members.items ?? [];
 
@@ -35,7 +35,7 @@ export function MediaPartOfSection(props: {
 	readonly title: string;
 	readonly compact: boolean;
 	readonly actionLabel: string;
-	readonly group: MediaGroup | null;
+	readonly group: null | MediaGroup;
 	readonly aspect: MediaArtworkAspect;
 }) {
 	const { group } = props;

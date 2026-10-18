@@ -7,7 +7,7 @@ export function useQuickLog(entityId: string) {
 	const context = useRyotQuery(activityLogContextQuery, { entityId });
 	const log = useBackgroundSubmission(logActivitySubmission);
 	const saved = log.last?.status === "succeeded";
-	const [refresh, setRefresh] = useState<"idle" | "requested" | "fetching" | "settled">("idle");
+	const [refresh, setRefresh] = useState<"idle" | "settled" | "fetching" | "requested">("idle");
 	const { refetch, isFetching } = context;
 	let next = refresh;
 	if (!saved) {

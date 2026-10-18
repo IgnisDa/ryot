@@ -13,7 +13,7 @@ import {
 	starsToRating,
 } from "./details-model";
 
-const month = (iso: string, maxWeight: number | null) => ({
+const month = (iso: string, maxWeight: null | number) => ({
 	maxWeight,
 	reps: null,
 	month: iso,

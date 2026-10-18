@@ -91,7 +91,7 @@ export const adaptGoodreadsCsv = (
 		const shelves = splitCommaList(row["Bookshelves"] ?? "");
 		const lifecycleStatus = selectLifecycleStatus(shelves);
 		const dateRead = row["Date Read"]?.trim() ?? "";
-		let completedOn: string | null = null;
+		let completedOn: null | string = null;
 		if (dateRead) {
 			if (dateRead.split("/")[0]?.length === 4) {
 				completedOn = parseDateWithFormat(dateRead, "YYYY/MM/DD");

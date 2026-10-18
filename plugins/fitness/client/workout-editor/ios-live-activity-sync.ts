@@ -12,13 +12,13 @@ import {
 const maximumActivityMillis = 8 * 60 * 60 * 1000;
 
 export const createWorkoutIosActivitySynchronizer = (
-	ports: Pick<WorkoutEditorControllerPorts, "iosLiveActivities" | "pluginId" | "now">,
+	ports: Pick<WorkoutEditorControllerPorts, "now" | "pluginId" | "iosLiveActivities">,
 ) => {
 	let lastPublished: string | undefined;
 	let lastKey: string | undefined;
 	let unavailable = false;
 	const synchronize = Effect.fnUntraced(function* (
-		draft: WorkoutEditorDraft | undefined,
+		draft: undefined | WorkoutEditorDraft,
 		names: ReadonlyMap<string, string>,
 		imperial = false,
 	) {
@@ -75,7 +75,7 @@ export const createWorkoutIosActivitySynchronizer = (
 		}
 	});
 	const finish = Effect.fnUntraced(function* (
-		draft: WorkoutEditorDraft | undefined,
+		draft: undefined | WorkoutEditorDraft,
 		names: ReadonlyMap<string, string>,
 		saved: boolean,
 		imperial = false,
@@ -99,10 +99,10 @@ export const createWorkoutIosActivitySynchronizer = (
 };
 
 export const createWorkoutIosActivityPublisher = (
-	ports: Pick<WorkoutEditorControllerPorts, "iosLiveActivities" | "pluginId" | "now" | "schedule">,
+	ports: Pick<WorkoutEditorControllerPorts, "now" | "pluginId" | "schedule" | "iosLiveActivities">,
 ) => {
 	const synchronizer = createWorkoutIosActivitySynchronizer(ports);
-	const pending: { readonly effect: Effect.Effect<void>; readonly coalesce: boolean }[] = [];
+	const pending: { readonly coalesce: boolean; readonly effect: Effect.Effect<void> }[] = [];
 	let running = false;
 	const drain = Effect.fnUntraced(function* () {
 		for (;;) {

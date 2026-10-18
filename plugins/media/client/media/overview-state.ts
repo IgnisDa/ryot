@@ -12,15 +12,15 @@ import { mediaPosterAsset } from "./summary-state";
 
 export type MediaPerson = MediaOverviewRows["people"]["items"][number];
 
-export type MediaCreditPerson = SelectedRow<ReturnType<typeof creditSelection>> & {
-	readonly character?: string | null | undefined;
-};
-
 export type MediaCompany = MediaOverviewRows["companies"]["items"][number];
+
+export type MediaUnlinkedCreator = { readonly name: string; readonly role: string };
 
 export type MediaRecommendation = MediaOverviewRows["recommendations"]["items"][number];
 
-export type MediaUnlinkedCreator = { readonly name: string; readonly role: string };
+export type MediaCreditPerson = SelectedRow<ReturnType<typeof creditSelection>> & {
+	readonly character?: null | string | undefined;
+};
 
 export const mediaUnlinkedCreators = (overview: MediaUnlinkedCreatorsOverview) =>
 	overview.creators?.unlinkedCreators ?? [];
@@ -31,7 +31,7 @@ export type MediaOverviewState<Overview> = MappedRyotQueryState<{
 }>;
 
 type MediaOverviewFailure = Pick<
-	Extract<MediaOverviewState<never>, { status: "transport-error" | "malformed" }>,
+	Extract<MediaOverviewState<never>, { status: "malformed" | "transport-error" }>,
 	"status"
 >;
 
@@ -57,8 +57,8 @@ export const mediaCompanyAsset = (company: MediaCompany) =>
 	preferredMediaImageAsset(company.images, "logo");
 
 export const mediaCreditAssets = (credits: {
-	readonly people: { readonly items: readonly MediaCreditPerson[] };
 	readonly companies: { readonly items: readonly MediaCompany[] };
+	readonly people: { readonly items: readonly MediaCreditPerson[] };
 }) => [
 	...credits.people.items.map(mediaPersonAsset),
 	...credits.companies.items.map(mediaCompanyAsset),
@@ -72,10 +72,10 @@ export const mediaOverviewAssets = (overview: MediaOverviewRows) => [
 export const mediaOverviewManagedAssets = (overview: MediaOverviewRows) =>
 	collectManagedAssetLocators(mediaOverviewAssets(overview));
 
-export const mediaRolesLabel = (roles: readonly string[] | null) =>
+export const mediaRolesLabel = (roles: null | readonly string[]) =>
 	roles === null || roles.length === 0 ? undefined : roles.join(", ");
 
-export const mediaCharacterLabel = (character: string | null) =>
+export const mediaCharacterLabel = (character: null | string) =>
 	character === null || character === "" ? undefined : `as ${character}`;
 
 const UNLINKED_COMPANY_ROLE = "Publisher";

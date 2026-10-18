@@ -75,11 +75,11 @@ const collectCredits = (combinedCredits: UnknownRecord) => {
 	const addMedia = (
 		media: UnknownRecord,
 		fallbackRole: string,
-		character: string | null = null,
+		character: null | string = null,
 	) => {
 		const id = numberValue(media["id"]);
 		const mediaType = stringValue(media["media_type"]);
-		let providerSlug: string | null = null;
+		let providerSlug: null | string = null;
 		if (mediaType === "movie") {
 			providerSlug = "movie.tmdb";
 		} else if (mediaType === "tv") {
@@ -230,7 +230,7 @@ export const translate = defineProvider({
 				const imageUrl = getLocalizedImageUrl(imagesData, "profiles", langCode);
 				const properties: Record<
 					string,
-					string | Array<{ type: "remote"; url: string; purpose: "profile" }>
+					string | Array<{ url: string; type: "remote"; purpose: "profile" }>
 				> = {};
 				if (description) {
 					properties["description"] = description;

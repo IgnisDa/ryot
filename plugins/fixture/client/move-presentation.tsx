@@ -21,11 +21,11 @@ import {
 } from "../shared/entity-presentations";
 
 export type MovePresentationData = {
-	readonly damageClass: MovePresentationSourceData["presentationDamageClass"];
-	readonly generation: MovePresentationSourceData["presentationGeneration"];
 	readonly name: string;
-	readonly power: MovePresentationSourceData["presentationPower"];
 	readonly type: MovePresentationSourceData["presentationType"];
+	readonly power: MovePresentationSourceData["presentationPower"];
+	readonly generation: MovePresentationSourceData["presentationGeneration"];
+	readonly damageClass: MovePresentationSourceData["presentationDamageClass"];
 };
 
 const buildMovePresentations = (
@@ -93,6 +93,16 @@ export const loadMovePresentations: EntityPresentationLoader<MovePresentationDat
 	return client.data.query(recipe);
 };
 
+function MoveRow({ data, reference }: EntityPresentationComponentProps<MovePresentationData>) {
+	const { compact } = useRyotViewport();
+	return <MovePresentation data={data} layout="list" compact={compact} reference={reference} />;
+}
+
+function MoveCard({ data, reference }: EntityPresentationComponentProps<MovePresentationData>) {
+	const { compact } = useRyotViewport();
+	return <MovePresentation data={data} layout="grid" compact={compact} reference={reference} />;
+}
+
 function MovePresentation(props: {
 	readonly compact: boolean;
 	readonly layout: "grid" | "list";
@@ -134,16 +144,6 @@ function MovePresentation(props: {
 			{props.data.power !== null && <Badge>{props.data.power}</Badge>}
 		</article>
 	);
-}
-
-function MoveCard({ data, reference }: EntityPresentationComponentProps<MovePresentationData>) {
-	const { compact } = useRyotViewport();
-	return <MovePresentation data={data} layout="grid" compact={compact} reference={reference} />;
-}
-
-function MoveRow({ data, reference }: EntityPresentationComponentProps<MovePresentationData>) {
-	const { compact } = useRyotViewport();
-	return <MovePresentation data={data} layout="list" compact={compact} reference={reference} />;
 }
 
 export const moveCardPresentation = defineEntityPresentation({

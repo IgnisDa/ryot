@@ -233,7 +233,7 @@ export const collectMediaCsv = Effect.fn(function* (
 	adapt: (
 		text: string,
 		eventOffset: number,
-	) => MediaIntegrationAdapterResult & { nextEventOffset?: number },
+	) => { nextEventOffset?: number } & MediaIntegrationAdapterResult,
 	key = "uploadToken",
 	mapRecord?: (text: string, itemIndex: number) => MediaSourceRecord[],
 ) {
@@ -322,7 +322,7 @@ export const collectMediaCsv = Effect.fn(function* (
 
 const makeMediaRecordReader = <S extends Schema.Decoder<unknown>>(record: S) => {
 	const decodeRecord = Schema.decodeEffect(Schema.fromJsonString(record));
-	const windows = new Map<string, { offset: number; size: number; bytes: Uint8Array }>();
+	const windows = new Map<string, { size: number; offset: number; bytes: Uint8Array }>();
 	return Effect.fn(function* (key: string, offset: number) {
 		let bytes = new Uint8Array();
 		for (;;) {
@@ -404,8 +404,8 @@ export const mediaArchiveDirectory = Effect.fn(function* (key: string, after?: n
 export const readMediaSourceRange = Effect.fn(function* (input: {
 	key: string;
 	offset: number;
-	entry?: typeof zipEntrySchema.Type;
 	gzip?: boolean;
+	entry?: typeof zipEntrySchema.Type;
 }) {
 	if (input.entry) {
 		return yield* readZipEntryRange({ ...input, entry: input.entry, length: WINDOW_BYTES });
@@ -434,7 +434,7 @@ export const jsonArrayFrames = (
 	let cursor = 0;
 	let isOpened = opened;
 	let separatorRequired = expectSeparator;
-	const frames: Array<{ start: number; end: number }> = [];
+	const frames: Array<{ end: number; start: number }> = [];
 	while (whitespace(bytes[cursor])) {
 		cursor++;
 	}
@@ -545,7 +545,7 @@ export const collectMediaJson = Effect.fn(function* (
 	adapt: (
 		rows: unknown[],
 		eventOffset: number,
-	) => MediaIntegrationAdapterResult & { nextEventOffset?: number },
+	) => { nextEventOffset?: number } & MediaIntegrationAdapterResult,
 	key = "uploadToken",
 	mapRecord?: (row: unknown, itemIndex: number) => MediaSourceRecord[],
 ) {
@@ -662,9 +662,9 @@ export const collectMediaJson = Effect.fn(function* (
 
 export const xmlRecordFrames = (bytes: Uint8Array, tag: string, eof: boolean) => {
 	const text = new TextDecoder("latin1").decode(bytes);
-	const frames: Array<{ start: number; end: number }> = [];
+	const frames: Array<{ end: number; start: number }> = [];
 	const stack: string[] = [];
-	let start: number | null = null;
+	let start: null | number = null;
 	let closed = false;
 	for (let cursor = 0; cursor < text.length;) {
 		const open = text.indexOf("<", cursor);

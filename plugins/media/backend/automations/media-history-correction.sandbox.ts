@@ -22,7 +22,7 @@ const stale = (error: { readonly data?: unknown }) => {
 	const reason = Schema.decodeUnknownOption(Schema.Struct({ code: Schema.String }))(error.data);
 	return (
 		reason._tag === "Some" &&
-		["entity-stale", "event-stale", "event-not-found", "mutation-conflict"].includes(
+		["event-stale", "entity-stale", "event-not-found", "mutation-conflict"].includes(
 			reason.value.code,
 		)
 	);

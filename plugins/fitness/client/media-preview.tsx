@@ -5,9 +5,9 @@ import { useEffect, useRef, useState } from "react";
 import type { WorkoutSetAssetLocator } from "../shared/workout-set";
 
 export function MediaPreview(props: {
-	readonly asset: WorkoutSetAssetLocator;
-	readonly kind: "images" | "videos";
 	readonly label: string;
+	readonly kind: "images" | "videos";
+	readonly asset: WorkoutSetAssetLocator;
 }) {
 	const url = useAssetUrl(props.asset);
 	const video = useRef<HTMLVideoElement>(null);

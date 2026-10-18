@@ -67,11 +67,11 @@ const defaultRestSeconds: WorkoutRestSettings = {
 };
 
 export const resolveWorkoutRestTime = (input: {
-	readonly explicitSeconds?: string | undefined;
 	readonly lot: WorkoutSetLot;
 	readonly overrides: WorkoutExerciseOverrides;
+	readonly explicitSeconds?: string | undefined;
 	readonly settings: Partial<WorkoutRestSettings>;
-}): { readonly kind: "invalid" } | { readonly kind: "resolved"; readonly seconds: number } => {
+}): { readonly kind: "invalid" } | { readonly seconds: number; readonly kind: "resolved" } => {
 	if (input.explicitSeconds !== undefined) {
 		if (input.explicitSeconds.trim() === "") {
 			return { kind: "invalid" };
@@ -89,10 +89,10 @@ export const resolveWorkoutRestTime = (input: {
 };
 
 export const resolveWorkoutDisplay = (input: {
-	readonly occurrence?: Partial<WorkoutEditorDisplay> | undefined;
-	readonly exerciseDurationUnit?: DurationUnit | null | undefined;
-	readonly globalEnergyUnit?: EnergyUnit | undefined;
 	readonly unitSystem: UnitSystem;
+	readonly globalEnergyUnit?: undefined | EnergyUnit;
+	readonly occurrence?: undefined | Partial<WorkoutEditorDisplay>;
+	readonly exerciseDurationUnit?: null | undefined | DurationUnit;
 }) => ({
 	energyUnit: input.globalEnergyUnit ?? "kcal",
 	weightUnit: input.occurrence?.weightUnit ?? (input.unitSystem === "metric" ? "kg" : "lb"),
@@ -101,7 +101,7 @@ export const resolveWorkoutDisplay = (input: {
 });
 
 export const resolveWorkoutLocalPreferences = (
-	local: WorkoutEditorLocalPreferences | undefined,
+	local: undefined | WorkoutEditorLocalPreferences,
 	global: Pick<
 		WorkoutPreferenceSettings,
 		"muteSounds" | "promptForRestTimer" | "startTimerForDurationExercises"

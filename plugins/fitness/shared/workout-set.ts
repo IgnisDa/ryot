@@ -61,7 +61,7 @@ export const workoutSetEditableFields = [
 ] as const satisfies ReadonlyArray<keyof WorkoutSetPropertiesInput>;
 export const workoutSetDerivedFields = ["oneRm", "pace", "personalBests", "volume"] as const;
 export type WorkoutSetField =
-	(typeof workoutSetEditableFields)[number] | (typeof workoutSetDerivedFields)[number];
+	(typeof workoutSetDerivedFields)[number] | (typeof workoutSetEditableFields)[number];
 
 export const selectWorkoutSetMeasurements = (
 	kind: ExerciseKind,
@@ -90,8 +90,8 @@ export const buildWorkoutSetEventProperties = (input: WorkoutSetPropertiesInput)
 });
 
 export const hasTemplateSetContent = (set: {
-	readonly hasMeasurement: boolean;
-	readonly hasRest: boolean;
 	readonly hasRpe: boolean;
+	readonly hasRest: boolean;
+	readonly hasMeasurement: boolean;
 	readonly note: string | undefined;
 }) => set.hasMeasurement || set.hasRest || set.hasRpe || (set.note?.trim().length ?? 0) > 0;

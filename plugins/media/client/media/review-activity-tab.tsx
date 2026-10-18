@@ -31,10 +31,10 @@ export const defineMediaReviewActivityTab = (input: {
 	readonly noun: string;
 	readonly historyRecipe: MediaHistoryRecipe<MediaReviewActivityEvent>;
 	readonly activityRecipe: (input: {
-		readonly reference: PluginIdentityReference;
 		readonly entityId: string;
 		readonly eventLimit: number;
 		readonly collectionEventLimit: number;
+		readonly reference: PluginIdentityReference;
 	}) => PreparedRecipe<MediaReviewActivityResult>;
 }) => {
 	const activityCopy = mediaReviewActivityCopy(input.noun);
@@ -70,8 +70,8 @@ export const defineMediaReviewActivityTab = (input: {
 
 	function ActivityRecord(props: {
 		readonly compact: boolean;
-		readonly view: MediaReviewActivityView;
 		readonly history?: ReactNode;
+		readonly view: MediaReviewActivityView;
 	}) {
 		const { summary, timeline } = props.view;
 		const span = mediaActivitySpanLabel(summary.span);

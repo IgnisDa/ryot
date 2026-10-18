@@ -21,10 +21,10 @@ import { deleteReviewSubmission, MediaReviewEditForm } from "./review";
 type MediaActivityActions = {
 	readonly entityId: string;
 	readonly compact: boolean;
-	readonly logger: MediaActivityLogger | undefined;
+	readonly logger: undefined | MediaActivityLogger;
 };
 
-export const MediaActivityActionsContext = createContext<MediaActivityActions | undefined>(
+export const MediaActivityActionsContext = createContext<undefined | MediaActivityActions>(
 	undefined,
 );
 
@@ -37,72 +37,14 @@ const EDIT_INTENTS: Partial<Record<string, ActivityEditIntent>> = {
 const isReviewRow = (row: MediaActivityRowBase): row is MediaActivityReviewRow<unknown> =>
 	row.type === "review" && "event" in row;
 
-const failureMessage = (error: Error | null) =>
+const failureMessage = (error: null | Error) =>
 	error === null ? undefined : "Couldn't start deleting. Try again.";
-
-function DeleteRecords(props: {
-	readonly onClose: () => void;
-	readonly events: readonly MediaActivityEventRef[];
-	readonly triggerRef: RefObject<HTMLButtonElement | null>;
-}) {
-	const remove = useBackgroundSubmission(deleteActivitySubmission);
-	const [only] = props.events;
-	const count = props.events.length;
-	return (
-		<DestructiveConfirmation
-			onClose={props.onClose}
-			pendingLabel="Deleting…"
-			pending={remove.isSending}
-			triggerRef={props.triggerRef}
-			errorMessage={failureMessage(remove.error)}
-			actionLabel={count === 1 ? "Delete record" : `Delete ${count} records`}
-			title={count === 1 ? "Delete this record?" : `Delete ${count} records?`}
-			detail={
-				count === 1
-					? "This record will be removed from your history permanently."
-					: `This row stands for ${count} records. All of them will be removed from your history permanently.`
-			}
-			onConfirm={() =>
-				remove.submit(
-					{
-						eventIds: props.events.map(({ id }) => id),
-						...(count === 1 && only !== undefined
-							? { expected: eventPrecondition(only, mediaActivityPatchableKeys) }
-							: {}),
-					},
-					{ onAccepted: props.onClose },
-				)
-			}
-		/>
-	);
-}
-
-function DeleteReview(props: {
-	readonly eventId: string;
-	readonly onClose: () => void;
-	readonly triggerRef: RefObject<HTMLButtonElement | null>;
-}) {
-	const remove = useBackgroundSubmission(deleteReviewSubmission);
-	return (
-		<DestructiveConfirmation
-			onClose={props.onClose}
-			pendingLabel="Deleting…"
-			pending={remove.isSending}
-			title="Delete this review?"
-			actionLabel="Delete review"
-			triggerRef={props.triggerRef}
-			errorMessage={failureMessage(remove.error)}
-			detail="This review will be removed permanently."
-			onConfirm={() => remove.submit({ eventId: props.eventId }, { onAccepted: props.onClose })}
-		/>
-	);
-}
 
 /** Edit and delete for a row that maps to stored records; rows without records get nothing. */
 export function MediaActivityRowMenu(props: { readonly row: MediaActivityRowBase }) {
 	const { row } = props;
 	const actions = useContext(MediaActivityActionsContext);
-	const triggerRef = useRef<HTMLButtonElement | null>(null);
+	const triggerRef = useRef<null | HTMLButtonElement>(null);
 	const [open, setOpen] = useState<"edit" | "delete" | undefined>(undefined);
 	const events = row.events ?? [];
 	const [only] = events;
@@ -168,5 +110,63 @@ export function MediaActivityRowMenu(props: { readonly row: MediaActivityRowBase
 				/>
 			) : null}
 		</>
+	);
+}
+
+function DeleteReview(props: {
+	readonly eventId: string;
+	readonly onClose: () => void;
+	readonly triggerRef: RefObject<null | HTMLButtonElement>;
+}) {
+	const remove = useBackgroundSubmission(deleteReviewSubmission);
+	return (
+		<DestructiveConfirmation
+			onClose={props.onClose}
+			pendingLabel="Deleting…"
+			pending={remove.isSending}
+			title="Delete this review?"
+			actionLabel="Delete review"
+			triggerRef={props.triggerRef}
+			errorMessage={failureMessage(remove.error)}
+			detail="This review will be removed permanently."
+			onConfirm={() => remove.submit({ eventId: props.eventId }, { onAccepted: props.onClose })}
+		/>
+	);
+}
+
+function DeleteRecords(props: {
+	readonly onClose: () => void;
+	readonly events: readonly MediaActivityEventRef[];
+	readonly triggerRef: RefObject<null | HTMLButtonElement>;
+}) {
+	const remove = useBackgroundSubmission(deleteActivitySubmission);
+	const [only] = props.events;
+	const count = props.events.length;
+	return (
+		<DestructiveConfirmation
+			onClose={props.onClose}
+			pendingLabel="Deleting…"
+			pending={remove.isSending}
+			triggerRef={props.triggerRef}
+			errorMessage={failureMessage(remove.error)}
+			actionLabel={count === 1 ? "Delete record" : `Delete ${count} records`}
+			title={count === 1 ? "Delete this record?" : `Delete ${count} records?`}
+			detail={
+				count === 1
+					? "This record will be removed from your history permanently."
+					: `This row stands for ${count} records. All of them will be removed from your history permanently.`
+			}
+			onConfirm={() =>
+				remove.submit(
+					{
+						eventIds: props.events.map(({ id }) => id),
+						...(count === 1 && only !== undefined
+							? { expected: eventPrecondition(only, mediaActivityPatchableKeys) }
+							: {}),
+					},
+					{ onAccepted: props.onClose },
+				)
+			}
+		/>
 	);
 }

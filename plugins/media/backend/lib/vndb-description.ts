@@ -74,12 +74,12 @@ const textHtml = (text: string, inLink: boolean): string => {
 };
 
 interface Frame {
-	body: string;
-	inLink: boolean;
-	opening: string;
-	start: number;
 	tag: string;
 	url: string;
+	body: string;
+	start: number;
+	inLink: boolean;
+	opening: string;
 }
 
 const frameHtml = (frame: Frame, source: string, end: number, closed: boolean): string => {
@@ -94,10 +94,10 @@ const frameHtml = (frame: Frame, source: string, end: number, closed: boolean): 
 		case "u":
 		case "s":
 			return frame.body;
-		case "quote":
-			return `<blockquote>${frame.body}</blockquote>`;
 		case "url":
 			return wrapInlineHtml(frame.body, `<a href="${escapeHtml(frame.url)}">`, "</a>");
+		case "quote":
+			return `<blockquote>${frame.body}</blockquote>`;
 		case "spoiler": {
 			const block = /\n[ \t]*\n/.test(source.slice(frame.start, end));
 			const element = block ? "div" : "span";
@@ -166,7 +166,7 @@ const vndbHtml = (source: string): string => {
 export const normalizeVndbDescription = Effect.fn("normalizeVndbDescription")(function* (
 	input: unknown,
 	baseUrl?: string,
-): Effect.fn.Return<string | null, MediaSandboxError> {
+): Effect.fn.Return<null | string, MediaSandboxError> {
 	if (typeof input !== "string" || !input.trim()) {
 		return null;
 	}

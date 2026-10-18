@@ -72,7 +72,7 @@ const parseOpenScaleDate = (raw: string, timezone: string) => {
 };
 
 export const adaptOpenScaleRow = (
-	{ row, itemIndex: rowIdx }: { row: Record<string, string>; itemIndex: number },
+	{ row, itemIndex: rowIdx }: { itemIndex: number; row: Record<string, string> },
 	headers: ReadonlyArray<string>,
 	timezone: string,
 ): OpenScaleAdapterResult => {

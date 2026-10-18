@@ -79,7 +79,7 @@ export const anilistEntryLabel = (value: unknown, entryId: number) => {
 	return title !== undefined && title.length > 0 ? title : String(entryId);
 };
 
-const partialDate = (value: typeof AniListDate.Type | null) => {
+const partialDate = (value: null | typeof AniListDate.Type) => {
 	if (value === null) {
 		return undefined;
 	}
@@ -93,7 +93,7 @@ const partialDate = (value: typeof AniListDate.Type | null) => {
 
 export const parseAniListEntry = (
 	value: unknown,
-	input: { mediaType: AniListMediaType; sourceAccountId: string },
+	input: { sourceAccountId: string; mediaType: AniListMediaType },
 ) => {
 	const decoded = Schema.decodeUnknownOption(AniListEntry)(value);
 	if (Option.isNone(decoded)) {

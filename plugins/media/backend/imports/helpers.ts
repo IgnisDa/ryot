@@ -59,33 +59,33 @@ const normalizeLifecycleValue = (value: string) =>
 
 export const normalizeLifecycleStatus = (value: string) => {
 	const normalized = normalizeLifecycleValue(value);
-	if (["read", "completed", "complete", "finished"].includes(normalized)) {
+	if (["read", "complete", "finished", "completed"].includes(normalized)) {
 		return "complete" as const;
 	}
 	if (
 		[
-			"currently-reading",
-			"currentlyreading",
 			"current",
-			"in-progress",
-			"inprogress",
-			"progress",
 			"reading",
+			"progress",
+			"inprogress",
+			"in-progress",
+			"currentlyreading",
+			"currently-reading",
 		].includes(normalized)
 	) {
 		return "progress" as const;
 	}
 	if (
-		["watchlist", "want-to-read", "toread", "to-read", "planned", "backlog", "wanttoread"].includes(
+		["toread", "to-read", "planned", "backlog", "watchlist", "wanttoread", "want-to-read"].includes(
 			normalized,
 		)
 	) {
 		return "backlog" as const;
 	}
-	if (["dropped", "dnf", "did-not-finish", "didnotfinish"].includes(normalized)) {
+	if (["dnf", "dropped", "didnotfinish", "did-not-finish"].includes(normalized)) {
 		return "dropped" as const;
 	}
-	if (["on-hold", "onhold", "paused", "pause"].includes(normalized)) {
+	if (["pause", "onhold", "paused", "on-hold"].includes(normalized)) {
 		return "on_hold" as const;
 	}
 	return undefined;
@@ -116,7 +116,7 @@ export const createProgressEvent = (occurredAt: string): ImportMediaEvent => ({
 
 export const createDroppedEvent = (input: {
 	occurredAt: string;
-	startedOn?: string | null;
+	startedOn?: null | string;
 }): ImportMediaEvent => ({
 	eventSchemaSlug: "dropped",
 	occurredAt: input.occurredAt,
@@ -125,7 +125,7 @@ export const createDroppedEvent = (input: {
 
 export const createOnHoldEvent = (input: {
 	occurredAt: string;
-	startedOn?: string | null;
+	startedOn?: null | string;
 }): ImportMediaEvent => ({
 	eventSchemaSlug: "on_hold",
 	occurredAt: input.occurredAt,
@@ -134,8 +134,8 @@ export const createOnHoldEvent = (input: {
 
 export const createCompleteEvent = (input: {
 	occurredAt: string;
-	startedOn?: string | null;
 	dateUnknown?: boolean;
+	startedOn?: null | string;
 }): ImportMediaEvent => ({
 	eventSchemaSlug: "complete",
 	occurredAt: input.occurredAt,
@@ -146,11 +146,11 @@ export const createCompleteEvent = (input: {
 });
 
 export const createReviewEvent = (input: {
-	text?: string | null;
-	rating?: number | null;
-	isSpoiler?: boolean;
 	occurredAt: string;
-}): ImportMediaEvent | null => {
+	isSpoiler?: boolean;
+	text?: null | string;
+	rating?: null | number;
+}): null | ImportMediaEvent => {
 	const text = input.text?.trim() ?? "";
 	return input.rating == null && !text
 		? null

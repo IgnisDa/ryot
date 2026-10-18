@@ -29,48 +29,48 @@ import {
 	WorkoutPreferencesSheet,
 } from "./workout-sheets";
 
+export type EditorOverlay =
+	OverlayKind | { readonly kind: OverlayKind; readonly occurrenceId: string };
+
 type OverlayKind =
-	| Exclude<ExerciseSheet, "attachments">
-	| "bulk-delete"
-	| "delete-exercise"
-	| "details"
-	| "discard"
 	| "finish"
 	| "picker"
-	| "preferences"
 	| "reload"
+	| "details"
+	| "discard"
 	| "reorder"
-	| "supersets";
-
-export type EditorOverlay =
-	OverlayKind | { readonly occurrenceId: string; readonly kind: OverlayKind };
+	| "supersets"
+	| "bulk-delete"
+	| "preferences"
+	| "delete-exercise"
+	| Exclude<ExerciseSheet, "attachments">;
 
 export function EditorOverlays(props: {
 	readonly now: number;
 	readonly locked: boolean;
 	readonly disabled: boolean;
+	readonly mediaLabel: string;
+	readonly onSave: () => void;
+	readonly onClose: () => void;
+	readonly existingGuard: boolean;
+	readonly onReloaded: () => void;
 	readonly requestBlocked: boolean;
 	readonly requestHandled: boolean;
-	readonly existingGuard: boolean;
-	readonly onClose: () => void;
-	readonly onFinishRequest: () => void;
-	readonly mediaLabel: string;
-	readonly names: ReadonlyMap<string, string>;
-	readonly overlay: EditorOverlay | undefined;
-	readonly draft: WorkoutEditorDraft | undefined;
-	readonly mediaTarget: WorkoutMediaTarget | undefined;
-	readonly exercises: readonly EditorExercise[] | undefined;
-	readonly refetchExercises: () => void;
-	readonly onCloseMedia: () => void;
 	readonly onDiscarded: () => void;
-	readonly onReloaded: () => void;
-	readonly onSave: () => void;
+	readonly onCloseMedia: () => void;
+	readonly onFinishRequest: () => void;
+	readonly refetchExercises: () => void;
 	readonly scrollTo: (id: string) => void;
+	readonly names: ReadonlyMap<string, string>;
+	readonly overlay: undefined | EditorOverlay;
+	readonly draft: undefined | WorkoutEditorDraft;
 	readonly snapshot: WorkoutEditorControllerSnapshot;
+	readonly mediaTarget: undefined | WorkoutMediaTarget;
 	readonly actions: ReturnType<typeof useEditorActions>;
+	readonly exercises: undefined | readonly EditorExercise[];
 	readonly measurement: ReturnType<typeof useMeasurementLogger>;
 	readonly controller: ReturnType<typeof useWorkoutEditor>["controller"];
-	readonly context: typeof WorkoutEditorContextOutputSchema.Type | undefined;
+	readonly context: undefined | typeof WorkoutEditorContextOutputSchema.Type;
 }) {
 	const { draft, actions, context, onClose, overlay, snapshot, exercises, controller } = props;
 	const kind = typeof overlay === "string" ? overlay : overlay?.kind;

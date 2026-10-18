@@ -18,19 +18,19 @@ export const tryYoutubeMusic = <A>(tryCall: () => Promise<A>) =>
 
 export type YoutubeMusicHost = YoutubeiHost;
 
-type MusicSearchType = "song" | "artist" | "album";
+export type AlbumClient = { music: { getAlbum: (albumId: string) => Promise<unknown> } };
+
+export type ArtistClient = { music: { getArtist: (artistId: string) => Promise<unknown> } };
+
+export type HistoryClient = { getHistory: () => Effect.Effect<unknown, MediaSandboxError> };
+
+export type TrackQueueClient = { music: { getUpNext: (videoId: string) => Promise<unknown> } };
 
 export type MusicSearchClient = {
 	music: { search: (query: string, filters: { type: MusicSearchType }) => Promise<unknown> };
 };
 
-export type TrackQueueClient = { music: { getUpNext: (videoId: string) => Promise<unknown> } };
-
-export type ArtistClient = { music: { getArtist: (artistId: string) => Promise<unknown> } };
-
-export type AlbumClient = { music: { getAlbum: (albumId: string) => Promise<unknown> } };
-
-export type HistoryClient = { getHistory: () => Effect.Effect<unknown, MediaSandboxError> };
+type MusicSearchType = "song" | "album" | "artist";
 
 export const coerceTrimmed = (value: unknown) =>
 	typeof value === "string" ? value.trim() : String(value).trim();

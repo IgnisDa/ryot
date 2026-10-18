@@ -19,10 +19,10 @@ import {
 	toggleWorkoutPause,
 } from "./timers";
 
+type CountdownKey = "restCountdown" | "executionCountdown";
 type Countdown = NonNullable<WorkoutEditorDraft["restCountdown"]>;
-type CountdownKey = "executionCountdown" | "restCountdown";
 
-type NextSet = { readonly setId: string; readonly name: string; readonly number: number };
+type NextSet = { readonly name: string; readonly setId: string; readonly number: number };
 
 export const useEditorNow = (running: boolean) => {
 	const schedule = useRyotSchedule();
@@ -45,15 +45,88 @@ export const useEditorNow = (running: boolean) => {
 const timeClass = (dock: boolean) =>
 	clsx("font-semibold tabular-nums", dock ? "text-[26px] leading-[30px]" : "text-timer");
 
+type TimerProps = {
+	readonly now: number;
+	readonly disabled: boolean;
+	readonly onChange: DraftChange;
+	readonly onSkipRest: () => void;
+	readonly onStartRest: () => void;
+	readonly draft: WorkoutEditorDraft;
+	readonly nextSet: NextSet | undefined;
+	readonly onFinishExecution: () => void;
+	readonly names: ReadonlyMap<string, string>;
+};
+
+function PendingRestPrompt(props: {
+	readonly seconds: number;
+	readonly disabled: boolean;
+	readonly onSkipRest: () => void;
+	readonly onStartRest: () => void;
+}) {
+	return (
+		<div role="status" aria-label="Rest prompt" className="flex flex-wrap items-center gap-2">
+			<div className="min-w-0 flex-1">
+				<p className="text-xs font-semibold text-success">Set completed</p>
+				<p className="text-base font-semibold">Rest for {formatEditorSeconds(props.seconds)}?</p>
+			</div>
+			<Button variant="ghost" disabled={props.disabled} onClick={props.onSkipRest}>
+				Skip rest
+			</Button>
+			<Button disabled={props.disabled} onClick={props.onStartRest}>
+				Start rest
+			</Button>
+		</div>
+	);
+}
+
+function StopwatchControls(props: {
+	readonly now: number;
+	readonly disabled: boolean;
+	readonly onChange: DraftChange;
+	readonly draft: WorkoutEditorDraft;
+}) {
+	const schedule = useRyotSchedule();
+	const running = props.draft.stopwatchStartedAt !== undefined;
+	const seconds = stopwatchSeconds(props.draft, props.now);
+	return (
+		<div className="flex items-center gap-2">
+			<div className="min-w-0 flex-1">
+				<p className="text-[11px] font-semibold tracking-wider text-text-subtle uppercase">
+					Stopwatch
+				</p>
+				<p role="timer" aria-label="Stopwatch" className="text-xl font-semibold tabular-nums">
+					{formatEditorSeconds(seconds)}
+				</p>
+			</div>
+			<IconButton
+				tone="filled"
+				disabled={props.disabled}
+				label={running ? "Pause stopwatch" : "Start stopwatch"}
+				onClick={() => props.onChange((draft) => toggleStopwatch(draft, schedule.now()).draft)}
+			>
+				<AppIcon size={18} name={running ? "pause" : "play"} />
+			</IconButton>
+			<Button
+				size="sm"
+				variant="ghost"
+				disabled={props.disabled || seconds === 0}
+				onClick={() => props.onChange((draft) => resetStopwatch(draft).draft)}
+			>
+				Reset stopwatch
+			</Button>
+		</div>
+	);
+}
+
 function CountdownBlock(props: {
 	readonly now: number;
 	readonly dock: boolean;
+	readonly heading: string;
 	readonly disabled: boolean;
 	readonly kind: CountdownKey;
 	readonly countdown: Countdown;
-	readonly heading: string;
-	readonly onChange: DraftChange;
 	readonly onFinish: () => void;
+	readonly onChange: DraftChange;
 }) {
 	const schedule = useRyotSchedule();
 	const { onChange, countdown } = props;
@@ -162,79 +235,6 @@ function CountdownBlock(props: {
 	);
 }
 
-function StopwatchControls(props: {
-	readonly now: number;
-	readonly disabled: boolean;
-	readonly draft: WorkoutEditorDraft;
-	readonly onChange: DraftChange;
-}) {
-	const schedule = useRyotSchedule();
-	const running = props.draft.stopwatchStartedAt !== undefined;
-	const seconds = stopwatchSeconds(props.draft, props.now);
-	return (
-		<div className="flex items-center gap-2">
-			<div className="min-w-0 flex-1">
-				<p className="text-[11px] font-semibold tracking-wider text-text-subtle uppercase">
-					Stopwatch
-				</p>
-				<p role="timer" aria-label="Stopwatch" className="text-xl font-semibold tabular-nums">
-					{formatEditorSeconds(seconds)}
-				</p>
-			</div>
-			<IconButton
-				tone="filled"
-				disabled={props.disabled}
-				label={running ? "Pause stopwatch" : "Start stopwatch"}
-				onClick={() => props.onChange((draft) => toggleStopwatch(draft, schedule.now()).draft)}
-			>
-				<AppIcon size={18} name={running ? "pause" : "play"} />
-			</IconButton>
-			<Button
-				size="sm"
-				variant="ghost"
-				disabled={props.disabled || seconds === 0}
-				onClick={() => props.onChange((draft) => resetStopwatch(draft).draft)}
-			>
-				Reset stopwatch
-			</Button>
-		</div>
-	);
-}
-
-function PendingRestPrompt(props: {
-	readonly seconds: number;
-	readonly disabled: boolean;
-	readonly onStartRest: () => void;
-	readonly onSkipRest: () => void;
-}) {
-	return (
-		<div role="status" aria-label="Rest prompt" className="flex flex-wrap items-center gap-2">
-			<div className="min-w-0 flex-1">
-				<p className="text-xs font-semibold text-success">Set completed</p>
-				<p className="text-base font-semibold">Rest for {formatEditorSeconds(props.seconds)}?</p>
-			</div>
-			<Button variant="ghost" disabled={props.disabled} onClick={props.onSkipRest}>
-				Skip rest
-			</Button>
-			<Button disabled={props.disabled} onClick={props.onStartRest}>
-				Start rest
-			</Button>
-		</div>
-	);
-}
-
-type TimerProps = {
-	readonly now: number;
-	readonly disabled: boolean;
-	readonly draft: WorkoutEditorDraft;
-	readonly nextSet: NextSet | undefined;
-	readonly names: ReadonlyMap<string, string>;
-	readonly onChange: DraftChange;
-	readonly onFinishExecution: () => void;
-	readonly onStartRest: () => void;
-	readonly onSkipRest: () => void;
-};
-
 const activeTimer = (props: TimerProps, dock: boolean) => {
 	const { draft } = props;
 	if (draft.executionCountdown !== undefined) {
@@ -289,61 +289,6 @@ const timerStateKey = (draft: WorkoutEditorDraft) => {
 	}
 	return draft.restCountdown === undefined ? "idle" : `rest:${draft.restCountdown.clientId}`;
 };
-
-export function DockTimers(
-	props: TimerProps & {
-		readonly onJumpToSet: (setId: string) => void;
-		readonly onAddExercises: () => void;
-	},
-) {
-	const schedule = useRyotSchedule();
-	const active = activeTimer(props, true);
-	if (active !== undefined) {
-		return <MotionSwap stateKey={timerStateKey(props.draft)}>{active}</MotionSwap>;
-	}
-	const running = props.draft.stopwatchStartedAt !== undefined;
-	const stopwatch = stopwatchSeconds(props.draft, props.now);
-	return (
-		<MotionSwap stateKey="idle">
-			<div className="flex items-center gap-2">
-				{running || stopwatch > 0 ? (
-					<button
-						type="button"
-						disabled={props.disabled}
-						onClick={() => props.onChange((draft) => toggleStopwatch(draft, schedule.now()).draft)}
-						aria-label={`${running ? "Pause" : "Resume"} stopwatch ${formatEditorSeconds(stopwatch)}`}
-						className="inline-flex h-8 shrink-0 items-center gap-1.5 rounded-pill border border-border-emphasis bg-surface px-3 text-[13px] font-medium tabular-nums pointer-coarse:h-10"
-					>
-						<AppIcon size={14} name={running ? "pause" : "timer"} />
-						{formatEditorSeconds(stopwatch)}
-					</button>
-				) : null}
-				{props.nextSet === undefined ? (
-					<p className="min-w-0 flex-1 text-sm font-semibold">All sets done</p>
-				) : (
-					<button
-						type="button"
-						className="min-w-0 flex-1 py-0.5 text-left"
-						onClick={() => {
-							if (props.nextSet !== undefined) {
-								props.onJumpToSet(props.nextSet.setId);
-							}
-						}}
-					>
-						<span className="block text-xs text-text-muted">Up next</span>
-						<span className="block truncate text-sm font-semibold">
-							{props.nextSet.name} · set {props.nextSet.number}
-						</span>
-					</button>
-				)}
-				<Button variant="secondary" disabled={props.disabled} onClick={props.onAddExercises}>
-					<AppIcon size={16} name="plus" />
-					Exercise
-				</Button>
-			</div>
-		</MotionSwap>
-	);
-}
 
 export function RailTimers(props: TimerProps & { readonly startedAt: string | undefined }) {
 	const schedule = useRyotSchedule();
@@ -404,5 +349,60 @@ export function RailTimers(props: TimerProps & { readonly startedAt: string | un
 				</Card>
 			)}
 		</>
+	);
+}
+
+export function DockTimers(
+	props: TimerProps & {
+		readonly onAddExercises: () => void;
+		readonly onJumpToSet: (setId: string) => void;
+	},
+) {
+	const schedule = useRyotSchedule();
+	const active = activeTimer(props, true);
+	if (active !== undefined) {
+		return <MotionSwap stateKey={timerStateKey(props.draft)}>{active}</MotionSwap>;
+	}
+	const running = props.draft.stopwatchStartedAt !== undefined;
+	const stopwatch = stopwatchSeconds(props.draft, props.now);
+	return (
+		<MotionSwap stateKey="idle">
+			<div className="flex items-center gap-2">
+				{running || stopwatch > 0 ? (
+					<button
+						type="button"
+						disabled={props.disabled}
+						onClick={() => props.onChange((draft) => toggleStopwatch(draft, schedule.now()).draft)}
+						aria-label={`${running ? "Pause" : "Resume"} stopwatch ${formatEditorSeconds(stopwatch)}`}
+						className="inline-flex h-8 shrink-0 items-center gap-1.5 rounded-pill border border-border-emphasis bg-surface px-3 text-[13px] font-medium tabular-nums pointer-coarse:h-10"
+					>
+						<AppIcon size={14} name={running ? "pause" : "timer"} />
+						{formatEditorSeconds(stopwatch)}
+					</button>
+				) : null}
+				{props.nextSet === undefined ? (
+					<p className="min-w-0 flex-1 text-sm font-semibold">All sets done</p>
+				) : (
+					<button
+						type="button"
+						className="min-w-0 flex-1 py-0.5 text-left"
+						onClick={() => {
+							if (props.nextSet !== undefined) {
+								props.onJumpToSet(props.nextSet.setId);
+							}
+						}}
+					>
+						<span className="block text-xs text-text-muted">Up next</span>
+						<span className="block truncate text-sm font-semibold">
+							{props.nextSet.name} · set {props.nextSet.number}
+						</span>
+					</button>
+				)}
+				<Button variant="secondary" disabled={props.disabled} onClick={props.onAddExercises}>
+					<AppIcon size={16} name="plus" />
+					Exercise
+				</Button>
+			</div>
+		</MotionSwap>
 	);
 }

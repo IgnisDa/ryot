@@ -10,7 +10,7 @@ type ViewColumn = SavedViewTableColumn & { readonly expression: ScalarExpression
 type ViewExpressions = {
 	readonly summary: EntityBrowserSummary;
 	readonly table: {
-		readonly image: ScalarExpression | null;
+		readonly image: null | ScalarExpression;
 		readonly columns: readonly [ViewColumn, ...ViewColumn[]];
 	};
 };

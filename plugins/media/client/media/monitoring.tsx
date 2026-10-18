@@ -36,7 +36,7 @@ export function MediaMonitoringControl(props: {
 }) {
 	const enable = useBackgroundSubmission(enableMonitoring);
 	const disable = useBackgroundSubmission(disableMonitoring);
-	const [optimistic, setOptimistic] = useState<boolean | null>(null);
+	const [optimistic, setOptimistic] = useState<null | boolean>(null);
 	const latest = optimistic === false ? disable : enable;
 	const rolledBack = latest.last?.status === "failed" || latest.error !== null;
 	if (optimistic !== null && optimistic === props.monitored) {

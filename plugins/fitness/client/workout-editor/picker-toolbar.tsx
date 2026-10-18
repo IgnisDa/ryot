@@ -28,11 +28,48 @@ const chevron = <AppIcon size={13} name="chevron-down" />;
 
 type FilterOption = { readonly id: string; readonly name: string };
 
-const optionChoices = (options: readonly FilterOption[] | undefined) =>
+const optionChoices = (options: undefined | readonly FilterOption[]) =>
 	(options ?? []).map(({ id, name }) => ({ value: id, label: name }));
 
 const literalChoices = <Value extends string>(values: readonly Value[]) =>
 	values.map((value) => ({ value, label: capitalize(value) }));
+
+export function PresetForm(props: {
+	readonly name: string;
+	readonly used: number;
+	readonly canSave: boolean;
+	readonly nameError: boolean;
+	readonly onSave: () => void;
+	readonly onCancel: () => void;
+	readonly onName: (name: string) => void;
+}) {
+	return (
+		<Card className="grid gap-2.5 p-3">
+			<Field
+				label="Preset name"
+				error={props.nameError ? "Enter a name with 1 to 80 characters." : undefined}
+				hint={`Saves search, filters and sort on this device. ${props.used} of ${maxPickerPresets} used.`}
+			>
+				{(control) => (
+					<TextField
+						{...control}
+						maxLength={80}
+						value={props.name}
+						onChange={(event) => props.onName(event.currentTarget.value)}
+					/>
+				)}
+			</Field>
+			<div className="flex justify-end gap-2">
+				<Button size="sm" variant="ghost" onClick={props.onCancel}>
+					Cancel
+				</Button>
+				<Button size="sm" onClick={props.onSave} disabled={!props.canSave}>
+					Save preset
+				</Button>
+			</div>
+		</Card>
+	);
+}
 
 export function PickerToolbar({
 	searchRef,
@@ -40,26 +77,26 @@ export function PickerToolbar({
 }: {
 	readonly search: string;
 	readonly sort: PickerSort;
+	readonly presetsFull: boolean;
 	readonly activePresetId: string;
 	readonly filters: PickerFilters;
 	readonly canWritePresets: boolean;
-	readonly presetsFull: boolean;
+	readonly onSavePreset: () => void;
+	readonly onDeletePreset: () => void;
 	readonly presets: readonly PickerPreset[];
-	readonly searchRef: RefObject<HTMLInputElement | null>;
-	readonly replacementKind: ExerciseKind | undefined;
+	readonly onSearch: (search: string) => void;
+	readonly onSort: (sort: PickerSort) => void;
+	readonly onApplyPreset: (id: string) => void;
+	readonly replacementKind: undefined | ExerciseKind;
+	readonly searchRef: RefObject<null | HTMLInputElement>;
+	readonly onFilter: <Key extends keyof PickerFilters>(key: Key, value: PickerFilters[Key]) => void;
 	readonly options:
+		| undefined
 		| {
 				readonly targets: readonly FilterOption[];
 				readonly equipment: readonly FilterOption[];
 				readonly collections: readonly FilterOption[];
-		  }
-		| undefined;
-	readonly onSearch: (search: string) => void;
-	readonly onSort: (sort: PickerSort) => void;
-	readonly onSavePreset: () => void;
-	readonly onDeletePreset: () => void;
-	readonly onApplyPreset: (id: string) => void;
-	readonly onFilter: <Key extends keyof PickerFilters>(key: Key, value: PickerFilters[Key]) => void;
+		  };
 }) {
 	const { filters, options, onFilter } = props;
 	const appliedPreset = props.presets.find(({ id }) => id === props.activePresetId);
@@ -206,42 +243,5 @@ export function PickerToolbar({
 				) : null}
 			</div>
 		</div>
-	);
-}
-
-export function PresetForm(props: {
-	readonly name: string;
-	readonly used: number;
-	readonly nameError: boolean;
-	readonly canSave: boolean;
-	readonly onCancel: () => void;
-	readonly onSave: () => void;
-	readonly onName: (name: string) => void;
-}) {
-	return (
-		<Card className="grid gap-2.5 p-3">
-			<Field
-				label="Preset name"
-				error={props.nameError ? "Enter a name with 1 to 80 characters." : undefined}
-				hint={`Saves search, filters and sort on this device. ${props.used} of ${maxPickerPresets} used.`}
-			>
-				{(control) => (
-					<TextField
-						{...control}
-						maxLength={80}
-						value={props.name}
-						onChange={(event) => props.onName(event.currentTarget.value)}
-					/>
-				)}
-			</Field>
-			<div className="flex justify-end gap-2">
-				<Button size="sm" variant="ghost" onClick={props.onCancel}>
-					Cancel
-				</Button>
-				<Button size="sm" onClick={props.onSave} disabled={!props.canSave}>
-					Save preset
-				</Button>
-			</div>
-		</Card>
 	);
 }

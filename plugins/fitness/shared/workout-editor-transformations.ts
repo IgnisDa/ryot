@@ -29,18 +29,18 @@ import {
 } from "./workout-units";
 
 export type WorkoutEditorValidationIssue = {
-	readonly code:
-		| "duplicate-id"
-		| "invalid-measurement"
-		| "invalid-rest"
-		| "invalid-rpe"
-		| "invalid-superset"
-		| "missing-measurement"
-		| "missing-name"
-		| "missing-start-time"
-		| "unconfirmed-set";
-	readonly occurrenceId?: string;
 	readonly setId?: string;
+	readonly occurrenceId?: string;
+	readonly code:
+		| "invalid-rpe"
+		| "duplicate-id"
+		| "invalid-rest"
+		| "missing-name"
+		| "unconfirmed-set"
+		| "invalid-superset"
+		| "missing-start-time"
+		| "invalid-measurement"
+		| "missing-measurement";
 };
 
 const inputFields = ["reps", "weight", "duration", "distance"] as const;
@@ -218,10 +218,10 @@ export const replaceWorkoutOccurrence = (
 
 export const cloneWorkoutEditorSource = (
 	source: WorkoutEditorDraft,
-	input: { readonly draftId: string; readonly idFor: () => string; readonly name: string } & (
-		| { readonly kind: "repeat"; readonly sourceWorkoutId: EntityId; readonly startedAt: string }
-		| { readonly kind: "live"; readonly templateId: EntityId; readonly startedAt: string }
+	input: { readonly name: string; readonly draftId: string; readonly idFor: () => string } & (
 		| { readonly kind: "template-create"; readonly sourceWorkoutId: EntityId }
+		| { readonly kind: "live"; readonly startedAt: string; readonly templateId: EntityId }
+		| { readonly kind: "repeat"; readonly startedAt: string; readonly sourceWorkoutId: EntityId }
 	),
 ): WorkoutEditorDraft => {
 	const startedAt = input.kind === "template-create" ? undefined : input.startedAt;
@@ -350,15 +350,15 @@ const occurrenceFields = (occurrence: WorkoutEditorOccurrence) => ({
 
 export const buildWorkoutEditorSaveInput = (
 	draft: WorkoutEditorDraft,
-	input: { readonly submissionId: string; readonly submittedAt: string },
+	input: { readonly submittedAt: string; readonly submissionId: string },
 	context: {
-		readonly exerciseOverridesById: Readonly<Record<string, WorkoutExerciseOverrides>>;
-		readonly restSettings: WorkoutRestSettings;
 		readonly unitSystem: UnitSystem;
+		readonly restSettings: WorkoutRestSettings;
+		readonly exerciseOverridesById: Readonly<Record<string, WorkoutExerciseOverrides>>;
 	},
 ): {
-	readonly issues: ReadonlyArray<WorkoutEditorValidationIssue>;
 	readonly input?: WorkoutEditorSaveInput;
+	readonly issues: ReadonlyArray<WorkoutEditorValidationIssue>;
 } => {
 	if (draft.submission !== undefined) {
 		return { issues: [], input: draft.submission };

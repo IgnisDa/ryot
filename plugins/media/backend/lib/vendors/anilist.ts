@@ -11,19 +11,19 @@ import { MediaSandboxError } from "../failures";
 import { getUserAllowNsfw } from "../host";
 import { decodeJsonResponse, numberValue, stringValue, type UnknownRecord } from "../records";
 
+export type AnilistMediaType = "ANIME" | "MANGA";
+
 export type AnilistHost = Pick<ScriptHost, "httpCall">;
+
+export type AnilistTitleLanguage = "native" | "romaji" | "english";
 
 export type AnilistUserHost = Pick<ScriptHost, "httpCall" | "getUserSettings">;
 
-export type AnilistMediaType = "ANIME" | "MANGA";
-
-export type AnilistTitleLanguage = "english" | "native" | "romaji";
-
-type AnilistRemoteImage = { type: "remote"; url: string; purpose: "cover" | "backdrop" };
+type AnilistRemoteImage = { url: string; type: "remote"; purpose: "cover" | "backdrop" };
 
 const ANILIST_GRAPHQL_URL = "https://graphql.anilist.co";
 
-const extractGraphQlErrorMessage = (payload: UnknownRecord | null) => {
+const extractGraphQlErrorMessage = (payload: null | UnknownRecord) => {
 	const errors = payload?.["errors"];
 	if (!Array.isArray(errors) || errors.length === 0) {
 		return null;
@@ -63,14 +63,14 @@ export const anilistGraphql = (
 			}),
 		);
 
-export const normalizeAnilistTitleLanguage = (language: unknown): AnilistTitleLanguage | null => {
+export const normalizeAnilistTitleLanguage = (language: unknown): null | AnilistTitleLanguage => {
 	const normalized = typeof language === "string" ? language.trim().toLowerCase() : "";
 	return normalized === "english" || normalized === "romaji" || normalized === "native"
 		? normalized
 		: null;
 };
 
-export const bcp47ToAnilistMode = (language: string): AnilistTitleLanguage | null => {
+export const bcp47ToAnilistMode = (language: string): null | AnilistTitleLanguage => {
 	const normalized = language.trim().toLowerCase();
 	if (normalized === "en") {
 		return "english";
@@ -204,7 +204,7 @@ export const collectGenres = (genres: unknown) => {
 	return [...genreSet];
 };
 
-export const requireAnilistMedia = (data: UnknownRecord | null, type: AnilistMediaType) => {
+export const requireAnilistMedia = (data: null | UnknownRecord, type: AnilistMediaType) => {
 	const media = asRecord(data?.["Media"]);
 	if (!media) {
 		throw new Error("Anilist returned no media data");
@@ -237,7 +237,7 @@ query MediaSearchQuery($page: Int!, $perPage: Int!, $search: String!, $type: Med
 export const searchAnilistMedia = (
 	host: AnilistUserHost,
 	input: ProviderSearchInput,
-	options: { readonly type: AnilistMediaType; readonly label: string },
+	options: { readonly label: string; readonly type: AnilistMediaType },
 ) =>
 	getUserAllowNsfw(host).pipe(
 		Effect.flatMap((allowNsfw) =>
@@ -307,7 +307,7 @@ query MediaTranslationQuery($id: Int!) {
 export const translateAnilistMedia = (
 	host: AnilistHost,
 	input: ProviderTranslateInput,
-	options: { readonly type: AnilistMediaType; readonly label: string },
+	options: { readonly label: string; readonly type: AnilistMediaType },
 ) => {
 	const titleLanguage = bcp47ToAnilistMode(input.language);
 	if (!titleLanguage) {

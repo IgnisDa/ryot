@@ -39,9 +39,9 @@ const nullableString = Schema.NullOr(Schema.String);
 
 export const measurementSummaryRecipe = defineRecipe(
 	(input: {
-		readonly reference: PluginIdentityReference;
 		readonly rangeStart: string;
 		readonly after?: string | undefined;
+		readonly reference: PluginIdentityReference;
 	}) => {
 		const metric = table("entity", "metric");
 		const reading = table("event", "summaryReading");
@@ -147,11 +147,11 @@ const seriesQueries = (input: SeriesInput) => {
 };
 
 type SeriesInput = {
-	readonly reference: PluginIdentityReference;
 	readonly endAt: string;
 	readonly startAt: string;
 	readonly bucket: "day" | "week";
 	readonly metricIds: readonly string[];
+	readonly reference: PluginIdentityReference;
 };
 
 export const measurementSeriesRecipe = defineRecipe((input: SeriesInput) => ({
@@ -174,8 +174,8 @@ export const measurementSeriesRecipe = defineRecipe((input: SeriesInput) => ({
 		),
 }));
 
-export type MeasurementSummary = Recipe.Success<typeof measurementSummaryRecipe>["items"][number];
 export type MeasurementSeries = Recipe.Success<typeof measurementSeriesRecipe>[number];
+export type MeasurementSummary = Recipe.Success<typeof measurementSummaryRecipe>["items"][number];
 
 export const measurementEntryRecipe = defineRecipe((entryId: string) => {
 	const entry = table("entity", "entry");
@@ -217,8 +217,8 @@ export const measurementEntryRecipe = defineRecipe((entryId: string) => {
 export const measurementEntryReadingsRecipe = defineRecipe(
 	(input: {
 		readonly entryId: string;
-		readonly reference: PluginIdentityReference;
 		readonly after?: string | undefined;
+		readonly reference: PluginIdentityReference;
 	}) => {
 		const reading = table("event", "reading");
 		const metric = table("entity", "metric");
@@ -271,9 +271,9 @@ export const measurementMetricIdsRecipe = defineRecipe((metricIds: readonly stri
 
 export const measurementPageReadingsRecipe = defineRecipe(
 	(input: {
+		readonly after?: string | undefined;
 		readonly entryIds: readonly string[];
 		readonly reference: PluginIdentityReference;
-		readonly after?: string | undefined;
 	}) => {
 		const reading = table("event", "reading");
 		const metric = table("entity", "metric");

@@ -72,7 +72,7 @@ export const MediaNormalizedSourceRecord = Schema.Struct({
 			return true;
 		}
 		const encoder = new TextEncoder();
-		const size = (value: string | null) => (value === null ? 0 : encoder.encode(value).length);
+		const size = (value: null | string) => (value === null ? 0 : encoder.encode(value).length);
 		return (
 			(group.events.length <= 1 &&
 				group.collectionMemberships.length <= 1 &&

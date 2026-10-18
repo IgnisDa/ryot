@@ -21,6 +21,91 @@ const SWIPE_THRESHOLD = 44;
 
 const DOT_LIMIT = 12;
 
+export function MediaImageGallery(props: {
+	readonly name: string;
+	readonly compact: boolean;
+	readonly safeAreaTop: number;
+	readonly onClose: () => void;
+	readonly images: readonly MediaGalleryImage[];
+	readonly triggerRef: RefObject<null | HTMLElement>;
+}) {
+	const [filter, setFilter] = useState<GalleryFilter>("all");
+	const [lightbox, setLightbox] = useState<number>();
+	const tileRef = useRef<null | HTMLElement>(null);
+	const gridRef = useRef<HTMLDivElement>(null);
+	const visible = galleryFilterImages(props.images, filter);
+
+	const selectFilter = (next: GalleryFilter) => {
+		setFilter(next);
+		if (gridRef.current !== null) {
+			gridRef.current.scrollTop = 0;
+		}
+	};
+
+	return (
+		<MediaDetailModal
+			title="Images"
+			contentRef={gridRef}
+			compact={props.compact}
+			onClose={props.onClose}
+			closeLabel="Close images"
+			triggerRef={props.triggerRef}
+			label={`${props.name} images`}
+			safeAreaTop={props.safeAreaTop}
+			toolbar={<GalleryFilterRow active={filter} images={props.images} onSelect={selectFilter} />}
+			headerAside={
+				<span className="font-ui text-[12px] text-text-muted">
+					{galleryCountLabel(visible.length)}
+				</span>
+			}
+			overlay={
+				lightbox === undefined ? null : (
+					<Modal
+						triggerRef={tileRef}
+						closeLabel="Close image"
+						onClose={() => setLightbox(undefined)}
+						className="flex h-full w-full flex-col bg-bg"
+						label={`Image ${lightbox + 1} of ${visible.length}`}
+					>
+						<GalleryLightboxBody
+							images={visible}
+							index={lightbox}
+							name={props.name}
+							onSelect={setLightbox}
+							compact={props.compact}
+							safeAreaTop={props.safeAreaTop}
+							onClose={() => setLightbox(undefined)}
+						/>
+					</Modal>
+				)
+			}
+		>
+			<div className={clsx("grid gap-2.5", galleryTileColumns(filter, props.compact))}>
+				{visible.map((image, index) => (
+					<button
+						type="button"
+						key={imageAssetKey(image)}
+						aria-label={`View image ${index + 1}`}
+						className="rounded-lg focus-visible:outline-2 focus-visible:outline-accent"
+						onClick={(event) => {
+							tileRef.current = event.currentTarget;
+							setLightbox(index);
+						}}
+					>
+						<ManagedAssetImage
+							asset={image}
+							state="ready"
+							monogram={props.name}
+							fit={galleryTileFit(filter)}
+							className={clsx("w-full", galleryTileAspect(filter))}
+						/>
+					</button>
+				))}
+			</div>
+		</MediaDetailModal>
+	);
+}
+
 function GalleryCloseButton(props: { readonly label: string; readonly onClick: () => void }) {
 	return (
 		<button
@@ -217,90 +302,5 @@ function GalleryLightboxBody(props: {
 				onSelect={props.onSelect}
 			/>
 		</>
-	);
-}
-
-export function MediaImageGallery(props: {
-	readonly name: string;
-	readonly compact: boolean;
-	readonly safeAreaTop: number;
-	readonly onClose: () => void;
-	readonly triggerRef: RefObject<HTMLElement | null>;
-	readonly images: readonly MediaGalleryImage[];
-}) {
-	const [filter, setFilter] = useState<GalleryFilter>("all");
-	const [lightbox, setLightbox] = useState<number>();
-	const tileRef = useRef<HTMLElement | null>(null);
-	const gridRef = useRef<HTMLDivElement>(null);
-	const visible = galleryFilterImages(props.images, filter);
-
-	const selectFilter = (next: GalleryFilter) => {
-		setFilter(next);
-		if (gridRef.current !== null) {
-			gridRef.current.scrollTop = 0;
-		}
-	};
-
-	return (
-		<MediaDetailModal
-			title="Images"
-			contentRef={gridRef}
-			compact={props.compact}
-			onClose={props.onClose}
-			closeLabel="Close images"
-			triggerRef={props.triggerRef}
-			label={`${props.name} images`}
-			safeAreaTop={props.safeAreaTop}
-			toolbar={<GalleryFilterRow active={filter} images={props.images} onSelect={selectFilter} />}
-			headerAside={
-				<span className="font-ui text-[12px] text-text-muted">
-					{galleryCountLabel(visible.length)}
-				</span>
-			}
-			overlay={
-				lightbox === undefined ? null : (
-					<Modal
-						triggerRef={tileRef}
-						closeLabel="Close image"
-						onClose={() => setLightbox(undefined)}
-						className="flex h-full w-full flex-col bg-bg"
-						label={`Image ${lightbox + 1} of ${visible.length}`}
-					>
-						<GalleryLightboxBody
-							images={visible}
-							index={lightbox}
-							name={props.name}
-							onSelect={setLightbox}
-							compact={props.compact}
-							safeAreaTop={props.safeAreaTop}
-							onClose={() => setLightbox(undefined)}
-						/>
-					</Modal>
-				)
-			}
-		>
-			<div className={clsx("grid gap-2.5", galleryTileColumns(filter, props.compact))}>
-				{visible.map((image, index) => (
-					<button
-						type="button"
-						key={imageAssetKey(image)}
-						aria-label={`View image ${index + 1}`}
-						className="rounded-lg focus-visible:outline-2 focus-visible:outline-accent"
-						onClick={(event) => {
-							tileRef.current = event.currentTarget;
-							setLightbox(index);
-						}}
-					>
-						<ManagedAssetImage
-							asset={image}
-							state="ready"
-							monogram={props.name}
-							fit={galleryTileFit(filter)}
-							className={clsx("w-full", galleryTileAspect(filter))}
-						/>
-					</button>
-				))}
-			</div>
-		</MediaDetailModal>
 	);
 }

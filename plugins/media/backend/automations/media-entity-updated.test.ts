@@ -10,16 +10,16 @@ import {
 } from "../../tests/backend/automations/automation-test-utils";
 import definition, { manifest } from "./media-entity-updated.sandbox";
 
-type Population = typeof AutomationPopulationContext.Encoded;
 type EntitySnapshot = ReturnType<typeof entityRecord>;
+type Population = typeof AutomationPopulationContext.Encoded;
 
 const input = (
 	overrides: {
-		rootPreviouslyPopulated?: boolean;
 		changedProperties?: string[];
-		parentEntity?: NonNullable<Population["parentEntity"]>;
 		after?: Partial<EntitySnapshot>;
 		before?: Partial<EntitySnapshot>;
+		rootPreviouslyPopulated?: boolean;
+		parentEntity?: NonNullable<Population["parentEntity"]>;
 	} = {},
 ) => {
 	const population: Population = {

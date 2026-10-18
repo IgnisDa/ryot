@@ -28,15 +28,15 @@ export const manifest = defineManifest({
 });
 
 const parentMediaSlugs = new Set([
-	"anime",
-	"audiobook",
 	"book",
-	"comic-book",
+	"show",
+	"anime",
 	"manga",
 	"movie",
 	"music",
 	"podcast",
-	"show",
+	"audiobook",
+	"comic-book",
 	"video-game",
 	"visual-novel",
 ]);

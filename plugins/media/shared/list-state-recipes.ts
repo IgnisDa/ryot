@@ -35,11 +35,11 @@ export const listStateActivityPropertiesField = (event: Table) =>
 
 export const listStateSnapshotsRecipe = defineRecipe(
 	(input: {
-		readonly reference: PluginIdentityReference;
-		readonly after?: string | undefined;
 		readonly limit: number;
 		readonly sourceAccountId: string;
+		readonly after?: string | undefined;
 		readonly sourceEntryIds: readonly string[];
+		readonly reference: PluginIdentityReference;
 	}) => {
 		const event = table("event", "listStateSnapshot");
 		const entity = table("entity", "listStateSnapshotEntity");

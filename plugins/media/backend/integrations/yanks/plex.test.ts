@@ -105,7 +105,7 @@ for (const count of [127, 128, 129, 300]) {
 						},
 						syncOwnership,
 					);
-					let carry: Uint8Array | undefined;
+					let carry: undefined | Uint8Array;
 					for (let offset = 0; offset < count; offset += 128) {
 						const window = yield* run(carry);
 						const events = window.records.filter((record) => record.group?.events.length);

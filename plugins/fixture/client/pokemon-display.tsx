@@ -12,7 +12,7 @@ export const PokemonArtwork = ({
 	readonly name: string;
 	readonly className: string;
 	readonly state: FieldSyncState;
-	readonly asset: PokemonArtworkAsset | undefined;
+	readonly asset: undefined | PokemonArtworkAsset;
 }) => {
 	const url = useAssetUrl(asset);
 	return (

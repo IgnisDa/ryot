@@ -14,13 +14,50 @@ import {
 } from "../../../shared/media-activity-operations";
 import { mediaActivityDurationLabel, type MediaActivityEventRef } from "../activity-timeline";
 
+export type ActivityWhenKind = "now" | "date" | "unknown";
+
+export type ActivityEntryDraft = EntryDraftShape<MediaActivityEntry>;
+
+export type ActivityEpisode = {
+	readonly id: string;
+	readonly name: string;
+	readonly episodeNumber: number;
+	readonly seasonNumber: null | number;
+	readonly state: EpisodeLifecycleState;
+};
+
+export type MediaActivityLogger =
+	| { readonly family: "show" | "podcast"; readonly copy: MediaActivityLogCopy }
+	| {
+			readonly family: "positional";
+			readonly copy: MediaActivityLogCopy;
+			readonly progressUnit: MediaActivityLogUnit;
+	  }
+	| {
+			readonly family: "flat";
+			readonly timePrimary?: boolean;
+			readonly copy: MediaActivityLogCopy;
+			readonly progressUnit?: MediaActivityLogUnit;
+	  };
+
+export type ActivityDraft = {
+	readonly hours: string;
+	readonly amount: string;
+	readonly minutes: string;
+	readonly startedDay: string;
+	readonly consumedOn: string;
+	readonly finishedDay: string;
+	readonly intent: ActivityIntent;
+	readonly when: ActivityWhenKind;
+	readonly status: MediaActivityStatus;
+	readonly position: number | undefined;
+	readonly amountUnit: "unit" | "percent";
+	readonly progressMode: "amount" | "started";
+};
+
 type MediaActivityStatus = (typeof mediaActivityStatuses)[number];
 
-type MediaActivityLogUnit = {
-	readonly field: "pages" | "runtime" | "episodes" | "chapters";
-	readonly singular: string;
-	readonly plural: string;
-};
+type ActivityIntent = "status" | "episode" | "finished" | "progress";
 
 type MediaActivityLogCopy = {
 	readonly verb: string;
@@ -29,57 +66,20 @@ type MediaActivityLogCopy = {
 	readonly participle: string;
 };
 
-export type MediaActivityLogger =
-	| {
-			readonly family: "flat";
-			readonly timePrimary?: boolean;
-			readonly copy: MediaActivityLogCopy;
-			readonly progressUnit?: MediaActivityLogUnit;
-	  }
-	| {
-			readonly family: "positional";
-			readonly copy: MediaActivityLogCopy;
-			readonly progressUnit: MediaActivityLogUnit;
-	  }
-	| { readonly family: "show" | "podcast"; readonly copy: MediaActivityLogCopy };
-
-type ActivityIntent = "finished" | "progress" | "status" | "episode";
-
-export type ActivityWhenKind = "now" | "date" | "unknown";
-
-export type ActivityDraft = {
-	readonly intent: ActivityIntent;
-	readonly when: ActivityWhenKind;
-	readonly finishedDay: string;
-	readonly startedDay: string;
-	readonly consumedOn: string;
-	readonly hours: string;
-	readonly minutes: string;
-	readonly progressMode: "started" | "amount";
-	readonly amount: string;
-	readonly amountUnit: "percent" | "unit";
-	readonly position: number | undefined;
-	readonly status: MediaActivityStatus;
+type MediaActivityLogUnit = {
+	readonly plural: string;
+	readonly singular: string;
+	readonly field: "pages" | "runtime" | "episodes" | "chapters";
 };
-
-type ActivityWhenDraft =
-	| { readonly kind: "now" }
-	| { readonly kind: "unknown" }
-	| { readonly kind: "date"; readonly finishedDay: string; readonly startedDay?: string };
 
 type EntryDraftShape<Entry> = Entry extends { readonly when: MediaActivityWhen }
 	? Omit<Entry, "when"> & { readonly when: ActivityWhenDraft }
 	: Entry;
 
-export type ActivityEntryDraft = EntryDraftShape<MediaActivityEntry>;
-
-export type ActivityEpisode = {
-	readonly id: string;
-	readonly name: string;
-	readonly episodeNumber: number;
-	readonly seasonNumber: number | null;
-	readonly state: EpisodeLifecycleState;
-};
+type ActivityWhenDraft =
+	| { readonly kind: "now" }
+	| { readonly kind: "unknown" }
+	| { readonly kind: "date"; readonly finishedDay: string; readonly startedDay?: string };
 
 export const EARLIER_PAGE_LIMIT = 100;
 export const EARLIER_MAX_PAGES = 5;
@@ -167,7 +167,7 @@ const unitPercent = (amount: string, total: number) => {
 		: undefined;
 };
 
-export const draftProgressPercent = (draft: ActivityDraft, total: number | null) =>
+export const draftProgressPercent = (draft: ActivityDraft, total: null | number) =>
 	draft.amountUnit === "unit" && total !== null
 		? unitPercent(draft.amount, total)
 		: percentValue(draft.amount);
@@ -216,8 +216,8 @@ export const initialActivityDraft = (
 type ActivityDraftErrors = {
 	readonly when?: string;
 	readonly time?: string;
-	readonly percent?: string;
 	readonly status?: string;
+	readonly percent?: string;
 	readonly position?: string;
 	readonly consumedOn?: string;
 };
@@ -393,7 +393,7 @@ export const activityLogInput = (
 
 export const episodeCode = (
 	logger: MediaActivityLogger,
-	episode: Pick<ActivityEpisode, "episodeNumber" | "seasonNumber">,
+	episode: Pick<ActivityEpisode, "seasonNumber" | "episodeNumber">,
 ) =>
 	logger.family === "show"
 		? `S${episode.seasonNumber ?? 0}·E${episode.episodeNumber}`
@@ -403,8 +403,8 @@ export const seasonLabel = (seasonNumber: number) =>
 	seasonNumber === 0 ? "Specials" : `Season ${seasonNumber}`;
 
 export const defaultSeasonNumber = (context: {
-	readonly nextUp: { readonly seasonNumber: number | null } | null;
 	readonly seasons: readonly { readonly seasonNumber: number }[];
+	readonly nextUp: null | { readonly seasonNumber: null | number };
 }) => {
 	const seasons = context.seasons.map(({ seasonNumber }) => seasonNumber);
 	const next = context.nextUp?.seasonNumber;
@@ -415,12 +415,12 @@ export const defaultSeasonNumber = (context: {
 };
 
 export const selectedEpisode = (input: {
-	readonly seasonNumber: number | null;
+	readonly seasonNumber: null | number;
 	readonly selectedId: string | undefined;
 	readonly choices: readonly ActivityEpisode[];
-	readonly initial: ActivityEpisode | undefined;
-	readonly nextUp: Omit<ActivityEpisode, "state"> | null;
-}): ActivityEpisode | undefined => {
+	readonly initial: undefined | ActivityEpisode;
+	readonly nextUp: null | Omit<ActivityEpisode, "state">;
+}): undefined | ActivityEpisode => {
 	const { nextUp, choices, initial } = input;
 	const nextUpApplies = nextUp !== null && (nextUp.seasonNumber ?? null) === input.seasonNumber;
 	const id = input.selectedId ?? (nextUpApplies ? nextUp.id : choices[0]?.id);
@@ -446,7 +446,7 @@ type ActivityQuickAction = {
 export const activityQuickAction = (
 	logger: MediaActivityLogger,
 	context: MediaActivityLogContext,
-): ActivityQuickAction | null => {
+): null | ActivityQuickAction => {
 	const { participle } = logger.copy;
 	if (logger.family === "show" || logger.family === "podcast") {
 		const { nextUp } = context;
@@ -482,8 +482,8 @@ export const activityQuickAction = (
 };
 
 export const episodeStateLabel = (input: {
-	readonly nextUpId: string | undefined;
 	readonly logger: MediaActivityLogger;
+	readonly nextUpId: string | undefined;
 	readonly episode: Pick<ActivityEpisode, "id" | "state">;
 }) => {
 	if (input.episode.state === "complete") {
@@ -497,7 +497,7 @@ export const episodeStateLabel = (input: {
 
 export const backfillSummary = (
 	logger: MediaActivityLogger,
-	earlier: readonly Pick<ActivityEpisode, "episodeNumber" | "seasonNumber">[],
+	earlier: readonly Pick<ActivityEpisode, "seasonNumber" | "episodeNumber">[],
 ) => {
 	const codes = earlier.slice(0, 3).map((episode) => episodeCode(logger, episode));
 	const more = earlier.length > 3 ? ` and ${earlier.length - 3} more` : "";
@@ -508,11 +508,11 @@ export const backfillSummary = (
 };
 
 export const activityCopyLabels = (input: {
-	readonly episodeCount: number;
-	readonly episodeCode: string | undefined;
-	readonly logger: MediaActivityLogger;
-	readonly draft: ActivityDraft;
 	readonly name: string;
+	readonly episodeCount: number;
+	readonly draft: ActivityDraft;
+	readonly logger: MediaActivityLogger;
+	readonly episodeCode: string | undefined;
 	readonly context: MediaActivityLogContext;
 }) => {
 	const { draft, logger } = input;
@@ -584,7 +584,7 @@ export const activityStatusNote = (
 	return progress > 0 ? `Keeps your progress at ${Math.round(progress)}%.` : undefined;
 };
 
-export const activityRuntimeHint = (runtime: number | null) =>
+export const activityRuntimeHint = (runtime: null | number) =>
 	runtime === null
 		? "Leave empty if you don't know."
 		: `Leave empty to use the runtime (${mediaActivityDurationLabel(runtime)}).`;
@@ -604,7 +604,7 @@ export const consumedOnSuggestions = (userList: unknown, history: readonly strin
 	});
 };
 
-export type ActivityEditIntent = Extract<ActivityIntent, "finished" | "episode" | "progress">;
+export type ActivityEditIntent = Extract<ActivityIntent, "episode" | "finished" | "progress">;
 
 const numberProperty = (ref: MediaActivityEventRef, key: string | undefined) => {
 	const value = key === undefined ? undefined : ref.properties[key];
@@ -689,13 +689,13 @@ const editWhen = (
 
 /** The fields the edit changed, or `undefined` when nothing differs from the stored record. */
 export const activityEditPatch = (input: {
+	readonly submittedAt: string;
 	readonly draft: ActivityDraft;
 	readonly initial: ActivityDraft;
-	readonly submittedAt: string;
 	readonly ref: MediaActivityEventRef;
 	readonly logger: MediaActivityLogger;
 	readonly context: MediaActivityLogContext;
-}): MediaActivityPatch | undefined => {
+}): undefined | MediaActivityPatch => {
 	const { ref, draft, initial } = input;
 	const patch: { -readonly [Key in keyof MediaActivityPatch]: MediaActivityPatch[Key] } = {};
 	if (draft.intent === "progress") {

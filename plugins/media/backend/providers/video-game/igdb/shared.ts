@@ -147,13 +147,13 @@ const EDITION_KIND = "Edition";
 const RELATED_KIND = "Related";
 const CHILD_PAGE_SIZE = 500;
 const CHILD_MAX_PAGES = 4;
-const gameTypeName = (game: Record<string, unknown> | null) =>
+const gameTypeName = (game: null | Record<string, unknown>) =>
 	stringValue(asRecord(game?.["game_type"])?.["type"]);
 const gameId = (value: unknown) => {
 	const id = numberValue(typeof value === "object" ? asRecord(value)?.["id"] : value);
 	return id === null ? null : String(Math.trunc(id));
 };
-const parentGameKind = (parentType: string | null, childType: string | null) =>
+const parentGameKind = (parentType: null | string, childType: null | string) =>
 	parentType === BUNDLE_TYPE || childType === BUNDLE_TYPE ? null : (childType ?? RELATED_KIND);
 const videoGameRelation = (
 	externalId: string,
@@ -166,7 +166,7 @@ const videoGameRelation = (
 	name: stringValue(name) ?? "Loading...",
 });
 const collectChildren = (
-	gameRecord: Record<string, unknown> | null,
+	gameRecord: null | Record<string, unknown>,
 	children: readonly unknown[],
 ) => {
 	const parentId = gameId(gameRecord);
@@ -188,7 +188,7 @@ const collectChildren = (
 	}
 	return [...entities.values()];
 };
-const collectParents = (game: Record<string, unknown> | null) => {
+const collectParents = (game: null | Record<string, unknown>) => {
 	const entities = new Map<string, ProviderDetailsRelatedEntity>();
 	const versionParent = asRecord(game?.["version_parent"]);
 	const versionParentId = gameId(versionParent);
@@ -437,7 +437,7 @@ export const details = defineProvider({
 					if (!name) {
 						return yield* new MediaSandboxError({ message: "IGDB game payload is missing name" });
 					}
-					const images: Array<{ type: "remote"; url: string; purpose: string }> = [];
+					const images: Array<{ url: string; type: "remote"; purpose: string }> = [];
 					const coverImageId = stringValue(asRecord(game?.["cover"])?.["image_id"]);
 					if (coverImageId) {
 						images.push({

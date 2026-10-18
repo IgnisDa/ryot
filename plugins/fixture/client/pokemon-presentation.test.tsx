@@ -97,13 +97,6 @@ describe("Pokemon presentations", () => {
 				references,
 				sources: new Map([
 					[
-						"pokemon-1",
-						presentationSource("pokemon-1", "Bulbasaur", {
-							type: "local",
-							key: "pokemon/shared.png",
-						}),
-					],
-					[
 						"pokemon-2",
 						presentationSource("pokemon-2", "Ivysaur", {
 							type: "local",
@@ -115,6 +108,13 @@ describe("Pokemon presentations", () => {
 						presentationSource("pokemon-3", "Venusaur", {
 							type: "s3",
 							key: "pokemon/venusaur.png",
+						}),
+					],
+					[
+						"pokemon-1",
+						presentationSource("pokemon-1", "Bulbasaur", {
+							type: "local",
+							key: "pokemon/shared.png",
 						}),
 					],
 					[

@@ -31,11 +31,11 @@ export const workoutSet = (overrides: Partial<WorkoutSet> = {}): WorkoutSet => (
 });
 
 export const workoutExercise = (
-	overrides: Partial<Omit<WorkoutExercise, "equipment" | "previousSets" | "sets" | "targets">> & {
+	overrides: Partial<Omit<WorkoutExercise, "sets" | "targets" | "equipment" | "previousSets">> & {
 		readonly sets?: readonly WorkoutSet[];
-		readonly previousSets?: WorkoutExercise["previousSets"]["items"];
 		readonly targets?: WorkoutExercise["targets"]["items"];
 		readonly equipment?: WorkoutExercise["equipment"]["items"];
+		readonly previousSets?: WorkoutExercise["previousSets"]["items"];
 	} = {},
 ): WorkoutExercise => ({
 	images: null,
@@ -52,9 +52,9 @@ export const workoutExercise = (
 });
 
 export const workoutDetails = (
-	overrides: Partial<Omit<WorkoutDetails, "exercises" | "repeatedFrom" | "template">> & {
-		readonly exercises?: readonly WorkoutExercise[];
-	} = {},
+	overrides: { readonly exercises?: readonly WorkoutExercise[] } & Partial<
+		Omit<WorkoutDetails, "template" | "exercises" | "repeatedFrom">
+	> = {},
 ): WorkoutDetails => ({
 	name: "Pull",
 	images: null,

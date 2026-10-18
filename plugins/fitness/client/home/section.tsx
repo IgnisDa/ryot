@@ -38,7 +38,7 @@ export function SavedViewLink(props: { readonly slug: string; readonly children:
 	);
 }
 
-export function Chips(props: { readonly names: readonly string[]; readonly more: number }) {
+export function Chips(props: { readonly more: number; readonly names: readonly string[] }) {
 	return (
 		<div className="flex flex-wrap gap-1.5">
 			{[...props.names, ...(props.more > 0 ? [`+${props.more}`] : [])].map((name) => (
@@ -53,43 +53,6 @@ export function Chips(props: { readonly names: readonly string[]; readonly more:
 	);
 }
 
-function SectionHeader(props: {
-	readonly title: string;
-	readonly id?: string | undefined;
-	readonly hint?: ReactNode;
-	readonly link?: ReactNode;
-}) {
-	return (
-		<div className="flex items-baseline justify-between gap-3">
-			<div className="flex min-w-0 flex-wrap items-baseline gap-x-3 gap-y-0.5">
-				<h2 id={props.id} className={cardHeadingClass}>
-					{props.title}
-				</h2>
-				{props.hint === undefined ? null : (
-					<span className="text-[12.5px] text-text-muted">{props.hint}</span>
-				)}
-			</div>
-			{props.link}
-		</div>
-	);
-}
-
-export function HomeCard(props: {
-	readonly title: string;
-	readonly label: string;
-	readonly hint?: ReactNode;
-	readonly link?: ReactNode;
-	readonly children: ReactNode;
-	readonly className?: string;
-}) {
-	return (
-		<section aria-label={props.label} className={clsx(cardClass, props.className)}>
-			<SectionHeader hint={props.hint} link={props.link} title={props.title} />
-			{props.children}
-		</section>
-	);
-}
-
 export function HomeSection(props: {
 	readonly id: string;
 	readonly title: string;
@@ -100,6 +63,22 @@ export function HomeSection(props: {
 	return (
 		<section aria-labelledby={props.id} className="flex min-w-0 flex-col gap-3 font-ui">
 			<SectionHeader id={props.id} hint={props.hint} link={props.link} title={props.title} />
+			{props.children}
+		</section>
+	);
+}
+
+export function HomeCard(props: {
+	readonly title: string;
+	readonly label: string;
+	readonly hint?: ReactNode;
+	readonly link?: ReactNode;
+	readonly className?: string;
+	readonly children: ReactNode;
+}) {
+	return (
+		<section aria-label={props.label} className={clsx(cardClass, props.className)}>
+			<SectionHeader hint={props.hint} link={props.link} title={props.title} />
 			{props.children}
 		</section>
 	);
@@ -125,4 +104,25 @@ export function QueryBody<A>(props: {
 		);
 	}
 	return <StatusMessage tone="pending">Loading {props.noun}…</StatusMessage>;
+}
+
+function SectionHeader(props: {
+	readonly title: string;
+	readonly hint?: ReactNode;
+	readonly link?: ReactNode;
+	readonly id?: string | undefined;
+}) {
+	return (
+		<div className="flex items-baseline justify-between gap-3">
+			<div className="flex min-w-0 flex-wrap items-baseline gap-x-3 gap-y-0.5">
+				<h2 id={props.id} className={cardHeadingClass}>
+					{props.title}
+				</h2>
+				{props.hint === undefined ? null : (
+					<span className="text-[12.5px] text-text-muted">{props.hint}</span>
+				)}
+			</div>
+			{props.link}
+		</div>
+	);
 }

@@ -108,6 +108,20 @@ const sectionStatus = (
 	return status === "loading" ? { kind: "pending" } : { retry, kind: "error" };
 };
 
+export function ActivitySection(props: { readonly today: string; readonly compact: boolean }) {
+	const timeZone = resolveTimeZone(new Intl.DateTimeFormat().resolvedOptions().timeZone);
+	const window = activityWindow(props.today, timeZone);
+	const result = useRyotQuery(mediaActivityQuery, { ...window, timeZone });
+	return (
+		<ActivitySectionView
+			window={window}
+			result={result}
+			timeZone={timeZone}
+			compact={props.compact}
+		/>
+	);
+}
+
 export function ActivitySectionView(props: {
 	readonly compact: boolean;
 	readonly timeZone: string;
@@ -135,19 +149,5 @@ export function ActivitySectionView(props: {
 				/>
 			) : null}
 		</MediaSectionFrame>
-	);
-}
-
-export function ActivitySection(props: { readonly compact: boolean; readonly today: string }) {
-	const timeZone = resolveTimeZone(new Intl.DateTimeFormat().resolvedOptions().timeZone);
-	const window = activityWindow(props.today, timeZone);
-	const result = useRyotQuery(mediaActivityQuery, { ...window, timeZone });
-	return (
-		<ActivitySectionView
-			window={window}
-			result={result}
-			timeZone={timeZone}
-			compact={props.compact}
-		/>
 	);
 }

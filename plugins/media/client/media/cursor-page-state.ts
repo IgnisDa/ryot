@@ -1,14 +1,14 @@
 import type { MappedRyotQueryState } from "./query-state";
 
-export type MediaCursorPage<Item> = {
-	readonly items: readonly Item[];
-	readonly pageInfo: { readonly hasMore?: boolean; readonly nextCursor: string | null };
-};
-
 export type MediaCursorPageFailure = Pick<
-	Extract<MappedRyotQueryState<never>, { status: "transport-error" | "malformed" }>,
+	Extract<MappedRyotQueryState<never>, { status: "malformed" | "transport-error" }>,
 	"status"
 >;
+
+export type MediaCursorPage<Item> = {
+	readonly items: readonly Item[];
+	readonly pageInfo: { readonly hasMore?: boolean; readonly nextCursor: null | string };
+};
 
 export const mediaCursorPageError = (input: {
 	readonly noun: string;

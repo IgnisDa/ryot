@@ -58,7 +58,7 @@ export default defineWorkflow({
 	output: genericImportWorkflowResultSchema,
 	run: (input, replay) =>
 		Effect.gen(function* () {
-			let expected: string | null = null;
+			let expected: null | string = null;
 			if (input.source === "hevy") {
 				expected = "import.hevy";
 			}
@@ -105,7 +105,7 @@ export default defineWorkflow({
 				});
 			const activity = (
 				id: string,
-				kind: "reading" | "preparing" | "writing",
+				kind: "reading" | "writing" | "preparing",
 				completed: number,
 				state: "running" | "completed",
 				unit: string,
@@ -140,7 +140,7 @@ export default defineWorkflow({
 			let offset = 0;
 			let itemIndex = 0;
 			let header = "";
-			let runs: Array<FitnessSortedRun | undefined> = [];
+			let runs: Array<undefined | FitnessSortedRun> = [];
 			const sort = (initial: FitnessSortedRun[], prefix: string) =>
 				Effect.gen(function* () {
 					let current = initial;
@@ -217,8 +217,8 @@ export default defineWorkflow({
 				});
 			const pendingRuns = () => runs.flatMap((run) => (run ? [run] : []));
 			yield* activity("collection", "reading", 0, "running", "bytes");
-			let sourceCarry: string | null = null;
-			let sourceSize: number | null = null;
+			let sourceCarry: null | string = null;
+			let sourceSize: null | number = null;
 			for (let page = 0; ; page++) {
 				const collected: typeof FitnessStageResult.Type = yield* stage(`collect:${page}`, {
 					offset,
@@ -274,7 +274,7 @@ export default defineWorkflow({
 			yield* activity("normalization", "preparing", 0, "running", "records");
 			const sourceRun = yield* sort(pendingRuns(), "group-final");
 			runs = [];
-			let carry: string | null = null;
+			let carry: null | string = null;
 			let normalizedRows = 0;
 			for (let page = 0; page < (sourceRun?.pages ?? 0); page++) {
 				if (!sourceRun) {

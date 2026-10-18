@@ -59,7 +59,7 @@ export const episodeNumber = (episode: typeof Episode.Type) => {
 	const parsed = Number.parseInt(value.trim(), 10);
 	return Number.isFinite(parsed) ? parsed : null;
 };
-export const itemRef = (item: typeof Item.Type): ImportEntityRef | null => {
+export const itemRef = (item: typeof Item.Type): null | ImportEntityRef => {
 	const metadata = item.media?.metadata;
 	if (!metadata) {
 		return null;

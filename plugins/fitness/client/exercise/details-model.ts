@@ -7,11 +7,11 @@ import type { PersonalBest } from "../../shared/workout-records";
 import { formatClock, formatDuration, formatNumber, parseDate } from "../workout/format";
 
 export type ExerciseRecord = NonNullable<ExerciseDetails["exercise"]>;
-type Month = ExerciseDetails["months"][number];
-type Totals = ExerciseDetails["totals"];
 export type PersonalBestRow = ExerciseDetails["personalBests"][number];
-type Target = ExerciseRecord["targets"]["items"][number];
+type Totals = ExerciseDetails["totals"];
+type Month = ExerciseDetails["months"][number];
 type SetNote = ExerciseDetails["setNotes"][number];
+type Target = ExerciseRecord["targets"]["items"][number];
 type WorkoutNoteRow = ExerciseDetails["workoutNotes"][number];
 
 export const isCustomExercise = (exercise: ExerciseRecord) => exercise.userId !== null;
@@ -37,7 +37,7 @@ type FactRow = { readonly label: string; readonly value: string };
 
 export const exerciseFacts = (exercise: ExerciseRecord): readonly FactRow[] => {
 	const equipment = exercise.equipment.items.map((item) => item.name).join(", ");
-	const rows: ReadonlyArray<FactRow | null> = [
+	const rows: ReadonlyArray<null | FactRow> = [
 		equipment === "" ? null : { value: equipment, label: "Equipment" },
 		exercise.kind === null ? null : { label: "Tracked as", value: kindLabels[exercise.kind] },
 		exercise.mechanic === null
@@ -49,7 +49,7 @@ export const exerciseFacts = (exercise: ExerciseRecord): readonly FactRow[] => {
 	return rows.filter((row) => row !== null);
 };
 
-type MuscleGroup = { readonly label: string | null; readonly names: readonly string[] };
+type MuscleGroup = { readonly label: null | string; readonly names: readonly string[] };
 
 const roleGroups = [
 	{ role: "primary", label: "Primary" },
@@ -73,26 +73,26 @@ export const groupTargets = (targets: readonly Target[]): readonly MuscleGroup[]
 		.filter((group) => group.names.length > 0);
 };
 
-type MetricUnit = "kg" | "km" | "kmh" | "reps" | "seconds" | "sessions";
-type MetricKey =
-	| "distance"
-	| "duration"
-	| "maxDuration"
-	| "maxReps"
-	| "maxWeight"
-	| "oneRm"
-	| "pace"
-	| "reps"
-	| "sessions"
-	| "volume";
-
 export type Metric = {
-	readonly key: MetricKey;
 	readonly label: string;
 	readonly title: string;
+	readonly key: MetricKey;
 	readonly unit: MetricUnit;
-	readonly value: (month: Month) => number | null;
+	readonly value: (month: Month) => null | number;
 };
+type MetricUnit = "kg" | "km" | "kmh" | "reps" | "seconds" | "sessions";
+
+type MetricKey =
+	| "pace"
+	| "reps"
+	| "oneRm"
+	| "volume"
+	| "maxReps"
+	| "distance"
+	| "duration"
+	| "sessions"
+	| "maxWeight"
+	| "maxDuration";
 
 const secondsPerHour = 3600;
 
@@ -178,14 +178,14 @@ const metricKeysByKind: Readonly<Record<ExerciseKind, readonly MetricKey[]>> = {
 	reps_and_duration_and_distance: ["distance", "duration", "reps"],
 };
 
-export const metricsForKind = (kind: ExerciseKind | null): readonly Metric[] =>
+export const metricsForKind = (kind: null | ExerciseKind): readonly Metric[] =>
 	(kind === null ? (["sessions"] as const) : metricKeysByKind[kind]).map(
 		(key) => metricDefinitions[key],
 	);
 
 export type SeriesRange = "1y" | "3y" | "all";
 
-export const seriesRanges: ReadonlyArray<{ readonly value: SeriesRange; readonly label: string }> =
+export const seriesRanges: ReadonlyArray<{ readonly label: string; readonly value: SeriesRange }> =
 	[
 		{ value: "1y", label: "1Y" },
 		{ value: "3y", label: "3Y" },
@@ -197,7 +197,7 @@ const rangeMonths = { "1y": 12, "3y": 36 } as const;
 export type MonthPoint = {
 	readonly label: string;
 	readonly index: number;
-	readonly value: number | null;
+	readonly value: null | number;
 };
 
 const monthIndexOf = (date: Date, timeZone: string) => {
@@ -223,7 +223,7 @@ export const buildMonthSeries = (input: {
 	readonly months: readonly Month[];
 }): readonly MonthPoint[] => {
 	const { now, range, months, metric, timeZone } = input;
-	const values = new Map<number, number | null>();
+	const values = new Map<number, null | number>();
 	for (const month of months) {
 		const date = parseDate(month.month);
 		if (date !== null) {
@@ -243,7 +243,7 @@ export const buildMonthSeries = (input: {
 };
 
 export const peakPoint = (points: readonly MonthPoint[]) =>
-	points.reduce<MonthPoint | null>(
+	points.reduce<null | MonthPoint>(
 		(peak, point) =>
 			point.value !== null && point.value > 0 && (peak === null || point.value > (peak.value ?? 0))
 				? point
@@ -251,15 +251,15 @@ export const peakPoint = (points: readonly MonthPoint[]) =>
 		null,
 	);
 
-type StatTile = { readonly label: string; readonly value: string; readonly detail: string | null };
+type StatTile = { readonly label: string; readonly value: string; readonly detail: null | string };
 
 const oneDecimal = (value: number) => formatNumber(Math.round(value * 10) / 10);
 
-const maxMonth = (months: readonly Month[], pick: (month: Month) => number | null) =>
+const maxMonth = (months: readonly Month[], pick: (month: Month) => null | number) =>
 	months.reduce((best, month) => Math.max(best, pick(month) ?? 0), 0);
 
 export const buildStatTiles = (
-	kind: ExerciseKind | null,
+	kind: null | ExerciseKind,
 	totals: Totals,
 	months: readonly Month[],
 ): readonly StatTile[] => {
@@ -390,12 +390,12 @@ export const bestWeightByReps = (totals: Totals) => {
 
 const dayMs = 86_400_000;
 
-export const daysSince = (value: string | null, now: Date) => {
+export const daysSince = (value: null | string, now: Date) => {
 	const date = parseDate(value);
 	return date === null ? null : Math.floor((now.getTime() - date.getTime()) / dayMs);
 };
 
-export const isLapsed = (lastAt: string | null, now: Date) => {
+export const isLapsed = (lastAt: null | string, now: Date) => {
 	const days = daysSince(lastAt, now);
 	return days !== null && days > 365;
 };
@@ -422,10 +422,10 @@ export type WorkoutNote = {
 	readonly text: string;
 	readonly count: number;
 	readonly source: string;
-	readonly latestAt: string | null;
+	readonly latestAt: null | string;
 };
 
-const timeOrNegative = (value: string | null) =>
+const timeOrNegative = (value: null | string) =>
 	parseDate(value)?.getTime() ?? Number.NEGATIVE_INFINITY;
 
 const workoutNoteOccurrences = (
@@ -476,7 +476,7 @@ export const dedupeWorkoutNotes = (
 export const ratingSteps = 5;
 const ratingStep = 20;
 
-export const ratingToStars = (rating: number | null) => {
+export const ratingToStars = (rating: null | number) => {
 	if (rating === null) {
 		return null;
 	}

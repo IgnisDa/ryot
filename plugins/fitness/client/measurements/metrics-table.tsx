@@ -22,17 +22,17 @@ const sortOptions = [
 	{ value: "az", label: "A–Z", content: "A–Z" },
 ] as const satisfies readonly {
 	readonly label: string;
-	readonly value: MetricSort;
 	readonly content: string;
+	readonly value: MetricSort;
 }[];
 
 export function MetricsTable(props: {
 	readonly range: RangeKey;
 	readonly sort: MetricSort;
 	readonly timeZone: string;
-	readonly rows: readonly MetricRow[];
 	readonly pinPending: boolean;
-	readonly selectedId: string | null;
+	readonly selectedId: null | string;
+	readonly rows: readonly MetricRow[];
 	readonly pinError: string | undefined;
 	readonly pinnedIds: ReadonlySet<string>;
 	readonly onSelect: (metricId: string) => void;

@@ -35,7 +35,7 @@ const createMetricMutation = createRyotMutation<
 export function AddMetricDialog(props: {
 	readonly onClose: () => void;
 	readonly metrics: readonly MeasurementSummary[];
-	readonly triggerRef: RefObject<HTMLButtonElement | null>;
+	readonly triggerRef: RefObject<null | HTMLButtonElement>;
 }) {
 	const { onClose } = props;
 	const nameRef = useRef<HTMLInputElement>(null);

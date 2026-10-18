@@ -11,7 +11,7 @@ import { toIso } from "./clock";
 import { historySetForOccurrence, previousSetIndex } from "./history-model";
 import { readPreviousSets } from "./queries";
 
-type PreviousSetsQuery = ReturnType<typeof previousSetsInput> & { readonly count: number };
+type PreviousSetsQuery = { readonly count: number } & ReturnType<typeof previousSetsInput>;
 
 const previousSetsQuery = createRyotQuery(
 	({ input, client }: { readonly client: RyotClient; readonly input: PreviousSetsQuery }) =>

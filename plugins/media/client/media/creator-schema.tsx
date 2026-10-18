@@ -45,46 +45,46 @@ import {
 const CREDIT_LIMIT = 12;
 const ALIAS_CHIP_LIMIT = 4;
 
-type CreatorSummary = MediaEntitySummaryValue & {
-	readonly alternateNames: readonly string[] | null;
-	readonly collections: { readonly items: readonly { readonly id: string }[] };
-};
-
-type CreatorSummaryResult<Summary> = {
-	readonly summary: Summary | null;
-	readonly entitySchemaSlug: string | null;
-};
-
 export type MediaCreatorSchemaDescriptor<
 	Summary extends CreatorSummary,
 	Slug extends string,
 	Overview extends MediaCreditRailsOverview<Slug>,
 > = {
+	readonly artwork: MediaSummaryArtwork;
+	readonly creditSections: readonly MediaCreditSection<Slug>[];
+	readonly facts: (summary: Summary) => readonly MediaSummaryFact[];
+	readonly links: (summary: Summary) => readonly MediaSummaryLink[];
+	readonly nouns: { readonly title: string; readonly plural: string; readonly singular: string };
 	readonly recipes: {
+		readonly historyRecipe: MediaHistoryRecipe<MediaReviewActivityEvent>;
 		readonly creditsRecipe: MediaCreditsRecipe<{ readonly target: Slug }>;
-		readonly summaryRecipe: (input: {
-			readonly reference: PluginIdentityReference;
-			readonly entityId: string;
-			readonly collectionLimit: number;
-		}) => PreparedRecipe<CreatorSummaryResult<Summary>>;
 		readonly overviewRecipe: (input: {
-			readonly reference: PluginIdentityReference;
 			readonly entityId: string;
 			readonly creditLimit: number;
-		}) => PreparedRecipe<Overview>;
-		readonly activityRecipe: (input: {
 			readonly reference: PluginIdentityReference;
+		}) => PreparedRecipe<Overview>;
+		readonly summaryRecipe: (input: {
+			readonly entityId: string;
+			readonly collectionLimit: number;
+			readonly reference: PluginIdentityReference;
+		}) => PreparedRecipe<CreatorSummaryResult<Summary>>;
+		readonly activityRecipe: (input: {
 			readonly entityId: string;
 			readonly eventLimit: number;
 			readonly collectionEventLimit: number;
+			readonly reference: PluginIdentityReference;
 		}) => PreparedRecipe<MediaReviewActivityResult>;
-		readonly historyRecipe: MediaHistoryRecipe<MediaReviewActivityEvent>;
 	};
-	readonly artwork: MediaSummaryArtwork;
-	readonly creditSections: readonly MediaCreditSection<Slug>[];
-	readonly nouns: { readonly title: string; readonly singular: string; readonly plural: string };
-	readonly facts: (summary: Summary) => readonly MediaSummaryFact[];
-	readonly links: (summary: Summary) => readonly MediaSummaryLink[];
+};
+
+type CreatorSummaryResult<Summary> = {
+	readonly summary: null | Summary;
+	readonly entitySchemaSlug: null | string;
+};
+
+type CreatorSummary = MediaEntitySummaryValue & {
+	readonly alternateNames: null | readonly string[];
+	readonly collections: { readonly items: readonly { readonly id: string }[] };
 };
 
 const TABS: readonly TabOption<"overview" | "activity">[] = [
@@ -166,7 +166,7 @@ export const defineCreatorMediaSchema = <
 		readonly overviewRefreshStatus?: ReactNode;
 		readonly state: MediaSummaryState<Summary>;
 		readonly overview: MediaOverviewState<Overview>;
-		readonly settled: EntitySettleReason | undefined;
+		readonly settled: undefined | EntitySettleReason;
 	}) {
 		return (
 			<MediaDetailBody

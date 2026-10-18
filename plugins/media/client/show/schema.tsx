@@ -25,9 +25,9 @@ type ShowSummary = MediaSummaryOf<typeof showRecipes>;
 
 type ShowActivity = MediaActivityOf<typeof showRecipes>;
 
-type ShowPresentation = MediaPresentationDataOf<typeof showRecipes>;
-
 type ShowCoverageRow = ShowActivity["coverage"][number];
+
+type ShowPresentation = MediaPresentationDataOf<typeof showRecipes>;
 
 const seasonCoverageRow = (season: ShowCoverageRow) => ({
 	key: season.id,

@@ -30,37 +30,19 @@ import {
 	optionalText,
 } from "./activity-timeline";
 
-export type MediaFlatActivityBeat = Exclude<
-	MediaFlatActivityMediaEvent["eventSchemaSlug"],
-	"review" | "complete" | "progress" | "add-to-media-library" | "list-state"
->;
-
-type MediaFlatActivityProgressRow<Extra> = ActivityAnchor & {
-	readonly type: "progress";
-	readonly extra: Extra;
-	readonly source: string | undefined;
-	readonly percent: number | undefined;
-	readonly run?: MediaActivityProgressRun;
-	readonly events: readonly MediaActivityEventRef[];
-};
-
-type MediaFlatActivitySnapshotRow<Extra> = ActivityAnchor & {
-	readonly type: "snapshot";
-	readonly extra: Extra;
-};
-
-export type MediaFlatActivityRow<Subject, Extra = unknown> =
-	| MediaActivityCollectionRow
-	| MediaActivityCompletionRow
-	| MediaActivityLibraryRow
-	| MediaActivityReviewRow<Subject>
-	| MediaFlatActivityProgressRow<Extra>
-	| MediaFlatActivitySnapshotRow<Extra>
-	| MediaActivityBeatRow<MediaFlatActivityBeat>;
-
 export type MediaFlatActivityTimeline<Subject, Extra = unknown> = MediaActivityTimeline<
 	MediaFlatActivityRow<Subject, Extra>
 >;
+
+export type MediaFlatActivityBeat = Exclude<
+	MediaFlatActivityMediaEvent["eventSchemaSlug"],
+	"review" | "complete" | "progress" | "list-state" | "add-to-media-library"
+>;
+
+export type MediaFlatActivityView<Subject, Extra = unknown> = {
+	readonly summary: MediaFlatActivitySummary;
+	readonly timeline: MediaFlatActivityTimeline<Subject, Extra>;
+};
 
 export type MediaFlatActivitySummary = {
 	readonly completions: number;
@@ -69,9 +51,27 @@ export type MediaFlatActivitySummary = {
 	readonly amount: { readonly total: number; readonly missing: number };
 };
 
-export type MediaFlatActivityView<Subject, Extra = unknown> = {
-	readonly summary: MediaFlatActivitySummary;
-	readonly timeline: MediaFlatActivityTimeline<Subject, Extra>;
+export type MediaFlatActivityRow<Subject, Extra = unknown> =
+	| MediaActivityLibraryRow
+	| MediaActivityCollectionRow
+	| MediaActivityCompletionRow
+	| MediaActivityReviewRow<Subject>
+	| MediaFlatActivityProgressRow<Extra>
+	| MediaFlatActivitySnapshotRow<Extra>
+	| MediaActivityBeatRow<MediaFlatActivityBeat>;
+
+type MediaFlatActivitySnapshotRow<Extra> = ActivityAnchor & {
+	readonly extra: Extra;
+	readonly type: "snapshot";
+};
+
+type MediaFlatActivityProgressRow<Extra> = ActivityAnchor & {
+	readonly extra: Extra;
+	readonly type: "progress";
+	readonly source: string | undefined;
+	readonly percent: number | undefined;
+	readonly run?: MediaActivityProgressRun;
+	readonly events: readonly MediaActivityEventRef[];
 };
 
 const parentRow = <Subject, Extra>(
@@ -126,7 +126,7 @@ export const mergeFlatRuns =
 	(
 		current: MediaFlatActivityRow<Subject, Extra>,
 		next: MediaFlatActivityRow<Subject, Extra>,
-	): MediaFlatActivityRow<Subject, Extra> | undefined => {
+	): undefined | MediaFlatActivityRow<Subject, Extra> => {
 		if (current.type === "progress" && next.type === "progress") {
 			return sameTarget(current.extra, next.extra) ? mergeProgressRuns(current, next) : undefined;
 		}
@@ -141,10 +141,10 @@ export const mediaFlatActivityView = <Subject, Extra>(input: {
 	readonly subject: Subject;
 	readonly truncated: boolean;
 	readonly completions: number;
-	readonly merge: MediaActivityRunMerge<MediaFlatActivityRow<Subject, Extra>>;
-	readonly amount: { readonly total: number; readonly missing: number };
 	readonly events: readonly MediaFlatActivityEvent<Extra>[];
-}): MediaFlatActivityView<Subject, Extra> | undefined => {
+	readonly amount: { readonly total: number; readonly missing: number };
+	readonly merge: MediaActivityRunMerge<MediaFlatActivityRow<Subject, Extra>>;
+}): undefined | MediaFlatActivityView<Subject, Extra> => {
 	const rows = input.events.map((event) => mediaFlatActivityRow(event, input.subject));
 	const view = mediaActivityRowsView(
 		rows,

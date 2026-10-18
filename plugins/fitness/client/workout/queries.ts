@@ -15,7 +15,7 @@ const readItems = <A>(read: Parameters<typeof readCursorPages<A>>[0]) =>
 
 export const workoutDetailsQuery = createRyotQuery<
 	{ readonly entityId: string },
-	WorkoutDetails | null
+	null | WorkoutDetails
 >(
 	({ input, client }) =>
 		Effect.gen(function* () {

@@ -32,14 +32,14 @@ const written = (items: readonly CreateEventItem[]) => ({
 });
 
 const recordingHost = (input: {
-	readonly failSettings?: "read" | "write" | undefined;
-	readonly settings?: Record<string, JsonValue> | undefined;
 	readonly schemaSlug?: string | undefined;
-	readonly foreignEpisodeIds?: readonly string[] | undefined;
-	readonly createEvents?: (index: number) => ReturnType<typeof failure> | undefined;
+	readonly failSettings?: "read" | "write" | undefined;
+	readonly settings?: undefined | Record<string, JsonValue>;
+	readonly foreignEpisodeIds?: undefined | readonly string[];
+	readonly createEvents?: (index: number) => undefined | ReturnType<typeof failure>;
 }) => {
 	const creates: (readonly CreateEventItem[])[] = [];
-	const options: (CreateEventOptions | undefined)[] = [];
+	const options: (undefined | CreateEventOptions)[] = [];
 	const patches: Record<string, JsonValue>[] = [];
 	const logs: unknown[] = [];
 	const memberQueries: unknown[] = [];
@@ -109,7 +109,7 @@ const failure = (count: number) =>
 	});
 
 const run = (
-	input: { readonly entry: MediaActivityEntry; readonly submittedAt?: string },
+	input: { readonly submittedAt?: string; readonly entry: MediaActivityEntry },
 	host: ReturnType<typeof recordingHost>["host"],
 ) =>
 	runSandboxTestScript(

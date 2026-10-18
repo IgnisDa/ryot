@@ -174,7 +174,7 @@ describe("anime.anilist sandbox script", () => {
 	});
 	it("requests non-adult media only until the user allows NSFW", () => {
 		const requestBodies: string[] = [];
-		const collectBody = (options: { body?: string | undefined } | undefined) => {
+		const collectBody = (options: undefined | { body?: string | undefined }) => {
 			requestBodies.push(options?.body ?? "");
 			return searchResponse();
 		};

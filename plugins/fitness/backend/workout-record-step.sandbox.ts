@@ -32,9 +32,9 @@ const WorkoutRecordCheckpointSchema = Schema.Struct({
 	maxima: Schema.Record(Schema.String, WorkoutRecordMaximaSchema),
 });
 
-type WorkoutRecordCheckpoint = Schema.Schema.Type<typeof WorkoutRecordCheckpointSchema>;
 type WorkoutRecordRow = WorkoutRecordRowsResult["items"][number];
 type EventStreamStepResult = Schema.Schema.Type<typeof EventStreamStepOutput>;
+type WorkoutRecordCheckpoint = Schema.Schema.Type<typeof WorkoutRecordCheckpointSchema>;
 
 class WorkoutRecordStepError extends Error {
 	readonly _tag = "WorkoutRecordStepError";
@@ -48,7 +48,7 @@ const initialCheckpoint = (): WorkoutRecordCheckpoint => ({
 });
 
 const nextCursor = (page: {
-	readonly pageInfo: { readonly hasMore: boolean; readonly nextCursor: string | null };
+	readonly pageInfo: { readonly hasMore: boolean; readonly nextCursor: null | string };
 }) => (page.pageInfo.hasMore ? page.pageInfo.nextCursor : null);
 
 const measurementsOf = (row: WorkoutRecordRow) => ({
@@ -61,7 +61,7 @@ const measurementsOf = (row: WorkoutRecordRow) => ({
 const recordPage = (
 	rows: readonly WorkoutRecordRow[],
 	checkpoint: WorkoutRecordCheckpoint,
-	dirtyFrom: string | null,
+	dirtyFrom: null | string,
 ) => {
 	const maxima = { ...checkpoint.maxima };
 	let lastOccurredAt = checkpoint.lastOccurredAt;

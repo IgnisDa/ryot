@@ -31,6 +31,16 @@ import {
 import { invalidateWorkoutCountdowns } from "./timers";
 
 type WorkoutEditorController = {
+	readonly dispose: () => void;
+	readonly load: () => Effect.Effect<void, unknown>;
+	readonly flush: () => Effect.Effect<void, unknown>;
+	readonly discard: () => Effect.Effect<boolean, unknown>;
+	readonly subscribe: (listener: () => void) => () => void;
+	readonly getSnapshot: () => WorkoutEditorControllerSnapshot;
+	readonly refreshContext: () => Effect.Effect<void, unknown>;
+	readonly start: (draft: WorkoutEditorDraft) => Effect.Effect<boolean, unknown>;
+	readonly reconcile: (expected?: ExpectedCountdowns) => Effect.Effect<void, unknown>;
+	readonly change: (transform: (draft: WorkoutEditorDraft) => WorkoutEditorDraft) => boolean;
 	readonly setExerciseNames: (
 		exercises: readonly { readonly id: string; readonly name: string }[],
 	) => void;
@@ -43,20 +53,10 @@ type WorkoutEditorController = {
 		prepare: (
 			current: ReadySnapshot & { readonly context: WorkoutEditorContext },
 		) => Effect.Effect<
-			{ readonly draft: WorkoutEditorDraft; readonly input: WorkoutEditorSaveInput } | undefined,
+			undefined | { readonly draft: WorkoutEditorDraft; readonly input: WorkoutEditorSaveInput },
 			unknown
 		>,
-	) => Effect.Effect<WorkoutEditorSaveOutput | undefined, unknown>;
-	readonly change: (transform: (draft: WorkoutEditorDraft) => WorkoutEditorDraft) => boolean;
-	readonly discard: () => Effect.Effect<boolean, unknown>;
-	readonly dispose: () => void;
-	readonly flush: () => Effect.Effect<void, unknown>;
-	readonly getSnapshot: () => WorkoutEditorControllerSnapshot;
-	readonly load: () => Effect.Effect<void, unknown>;
-	readonly reconcile: (expected?: ExpectedCountdowns) => Effect.Effect<void, unknown>;
-	readonly refreshContext: () => Effect.Effect<void, unknown>;
-	readonly start: (draft: WorkoutEditorDraft) => Effect.Effect<boolean, unknown>;
-	readonly subscribe: (listener: () => void) => () => void;
+	) => Effect.Effect<undefined | WorkoutEditorSaveOutput, unknown>;
 };
 
 const initialSnapshot: WorkoutEditorControllerSnapshot = {

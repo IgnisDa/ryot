@@ -52,43 +52,43 @@ import type { InvalidSet } from "./set-grid";
 import { missingMeasurements, startExecution, unconfirmSet } from "./timers";
 import type { useWorkoutEditor } from "./use-workout-editor";
 
-type Context = typeof WorkoutEditorContextOutputSchema.Type;
-type Editor = ReturnType<typeof useWorkoutEditor>;
-
 export type SavedEntityId = Extract<
 	WorkoutEditorSaveOutput,
 	{ readonly kind: "saved" }
 >["entityId"];
+type Editor = ReturnType<typeof useWorkoutEditor>;
+
+type Context = typeof WorkoutEditorContextOutputSchema.Type;
 
 const saveLimitBytes = 64 * 1024;
 
 const saveFailureMessage = (result: Exclude<WorkoutEditorSaveOutput, { kind: "saved" }>) => {
 	let message: string | undefined;
 	switch (result.kind) {
-		case "pro-required":
-			message = "This change requires Pro. Your data has been retained.";
+		case "invalid":
+			message = `This workout could not be saved: ${result.code.replaceAll("-", " ")}.`;
 			break;
 		case "conflict":
 			break;
-		case "invalid":
-			message = `This workout could not be saved: ${result.code.replaceAll("-", " ")}.`;
+		case "pro-required":
+			message = "This change requires Pro. Your data has been retained.";
 			break;
 	}
 	return message;
 };
 
 export function useEditorActions(input: {
+	readonly saved: Editor["saved"];
+	readonly closeMedia: () => void;
 	readonly sounds: Editor["sounds"];
+	readonly closeOverlay: () => void;
 	readonly context: Context | undefined;
 	readonly controller: Editor["controller"];
-	readonly saved: Editor["saved"];
-	readonly draft: WorkoutEditorDraft | undefined;
-	readonly exercises: readonly EditorExercise[] | undefined;
-	readonly closeMedia: () => void;
-	readonly closeOverlay: () => void;
+	readonly draft: undefined | WorkoutEditorDraft;
 	readonly pendingAddExerciseId: string | undefined;
+	readonly exercises: undefined | readonly EditorExercise[];
 	readonly scrollTo: (id: string, contextId?: string) => void;
-	readonly onSaved: ((entityId: SavedEntityId) => void) | undefined;
+	readonly onSaved: undefined | ((entityId: SavedEntityId) => void);
 }) {
 	const { context, exercises, closeMedia, controller, closeOverlay, draft: editorDraft } = input;
 	const { saved, scrollTo } = input;
@@ -336,7 +336,7 @@ export function useEditorActions(input: {
 
 	const applyExercises = (
 		selected: readonly WorkoutExercisePickerResult["items"][number][],
-		replacing: WorkoutEditorOccurrence | undefined,
+		replacing: undefined | WorkoutEditorOccurrence,
 	) => {
 		if (context === undefined) {
 			return;

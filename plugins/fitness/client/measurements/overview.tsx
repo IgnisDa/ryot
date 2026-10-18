@@ -22,7 +22,7 @@ import {
 function LastLogged(props: {
 	readonly now: Date;
 	readonly timeZone: string;
-	readonly latestAt: string | null;
+	readonly latestAt: null | string;
 }) {
 	const { now, latestAt, timeZone } = props;
 	if (latestAt === null) {
@@ -52,8 +52,8 @@ export function MetricTiles(props: {
 	readonly now: Date;
 	readonly range: RangeKey;
 	readonly timeZone: string;
+	readonly selectedId: null | string;
 	readonly rows: readonly MetricRow[];
-	readonly selectedId: string | null;
 	readonly onSelect: (metricId: string) => void;
 }) {
 	const { now, rows, range, timeZone, onSelect, selectedId } = props;
@@ -105,14 +105,14 @@ export function MetricTiles(props: {
 
 export function ChartCard(props: {
 	readonly now: Date;
-	readonly compact: boolean;
 	readonly range: RangeKey;
+	readonly compact: boolean;
 	readonly timeZone: string;
 	readonly selected: MetricRow;
-	readonly compare: MetricRow | null;
+	readonly compare: null | MetricRow;
 	readonly others: readonly MetricRow[];
-	readonly window: { readonly endAt: string; readonly startAt: string };
 	readonly onCompareChange: (metricId: string) => void;
+	readonly window: { readonly endAt: string; readonly startAt: string };
 }) {
 	const { range, others, window, compare, compact, selected, timeZone, onCompareChange } = props;
 	const { name, unit, latestAt } = selected.summary;

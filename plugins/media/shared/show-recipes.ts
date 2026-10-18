@@ -71,9 +71,9 @@ const showSeasonCount = (show: Table) => {
 };
 
 const showSeasonCoverageQuery = (input: {
-	readonly reference: PluginIdentityReference;
 	readonly limit: number;
 	readonly entityId: string;
+	readonly reference: PluginIdentityReference;
 }) => {
 	const season = table("entity", "coverageSeason");
 	const show = table("entity", "coverageShow");
@@ -177,9 +177,9 @@ const showSeasonInclude = (show: Table, seasonLimit: number) => {
 
 export const showSeasonsRecipe = defineRecipe(
 	(input: {
-		readonly reference: PluginIdentityReference;
 		readonly entityId: string;
 		readonly seasonLimit: number;
+		readonly reference: PluginIdentityReference;
 	}) => {
 		const entity = table("entity", "entity");
 		return {
@@ -209,8 +209,8 @@ export const showSeasonsRecipe = defineRecipe(
 const showEpisodesByExternalId = (
 	episode: Table,
 	input: {
-		readonly reference: PluginIdentityReference;
 		readonly entityId: string;
+		readonly reference: PluginIdentityReference;
 		readonly externalIds: readonly [string, ...string[]];
 	},
 	alias: string,
@@ -230,8 +230,8 @@ const showEpisodesByExternalId = (
  */
 export const showOrderEpisodesRecipe = defineRecipe(
 	(input: {
-		readonly reference: PluginIdentityReference;
 		readonly entityId: string;
+		readonly reference: PluginIdentityReference;
 		readonly externalIds: readonly [string, ...string[]];
 	}) => {
 		const episode = table("entity", "orderEpisode");
@@ -262,8 +262,8 @@ export const showOrderEpisodesRecipe = defineRecipe(
 /** A season header's coverage counts over one episode order group's episodes. */
 export const showOrderGroupCoverageRecipe = defineRecipe(
 	(input: {
-		readonly reference: PluginIdentityReference;
 		readonly entityId: string;
+		readonly reference: PluginIdentityReference;
 		readonly externalIds: readonly [string, ...string[]];
 	}) => {
 		const show = table("entity", "orderGroupShow");

@@ -13,7 +13,7 @@ import { createWorkoutEditorController } from "../../client/workout-editor/contr
 import type { WorkoutEditorControllerPorts } from "../../client/workout-editor/controller-types";
 import { preferenceSettings, startTime } from "./draft-fixtures";
 
-const noopSchedule: Pick<RyotSchedule, "after" | "run"> = {
+const noopSchedule: Pick<RyotSchedule, "run" | "after"> = {
 	run: () => () => undefined,
 	after: () => () => undefined,
 };
@@ -29,23 +29,23 @@ const defaultTarget: PluginNavigationTarget = {
 
 export const controllerHarness = (
 	options: {
-		readonly stored?: unknown;
 		readonly pro?: boolean;
+		readonly stored?: unknown;
 		readonly events?: string[];
-		readonly cleanupFails?: boolean;
-		readonly iosLiveActivities?: WorkoutEditorControllerPorts["iosLiveActivities"];
-		readonly foreground?: () => boolean;
-		readonly onRead?: () => unknown;
-		readonly onRemove?: () => void;
-		readonly remove?: Effect.Effect<void, unknown>;
-		readonly save?: WorkoutEditorControllerPorts["save"];
 		readonly pluginId?: PluginId;
-		readonly schedule?: Pick<RyotSchedule, "after" | "run">;
+		readonly onRemove?: () => void;
+		readonly cleanupFails?: boolean;
+		readonly onRead?: () => unknown;
+		readonly foreground?: () => boolean;
 		readonly target?: PluginNavigationTarget;
 		readonly now?: Effect.Effect<number, unknown>;
-		readonly device?: (request: PluginDeviceRequest) => Effect.Effect<PluginDeviceResult>;
+		readonly remove?: Effect.Effect<void, unknown>;
+		readonly save?: WorkoutEditorControllerPorts["save"];
+		readonly schedule?: Pick<RyotSchedule, "run" | "after">;
 		readonly onWrite?: (value: string) => Effect.Effect<void, unknown>;
 		readonly upload?: () => Effect.Effect<ManagedAssetLocator, RyotClientError>;
+		readonly iosLiveActivities?: WorkoutEditorControllerPorts["iosLiveActivities"];
+		readonly device?: (request: PluginDeviceRequest) => Effect.Effect<PluginDeviceResult>;
 	} = {},
 ) => {
 	let stored: unknown = options.stored ?? null;

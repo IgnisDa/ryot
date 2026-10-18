@@ -140,7 +140,7 @@ const collectImages = (image: unknown) => {
 	return url ? [{ url, type: "remote" as const, purpose: "cover" as const }] : [];
 };
 
-const collectSuggestions = (host: MangaUpdatesHost, payload: UnknownRecord | null) => {
+const collectSuggestions = (host: MangaUpdatesHost, payload: null | UnknownRecord) => {
 	const sourceIdValue = numberValue(payload?.["series_id"]);
 	const sourceId = sourceIdValue === null ? null : Math.trunc(sourceIdValue);
 	const seriesIds = new Set<number>();

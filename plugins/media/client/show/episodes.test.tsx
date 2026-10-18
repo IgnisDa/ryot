@@ -99,8 +99,8 @@ const absoluteOrder = {
 const showAdapter = (input: {
 	readonly queries?: string[];
 	readonly activity?: ActivityLogFake;
-	readonly episodeOrders?: readonly Record<string, unknown>[];
 	readonly seasons?: readonly Record<string, unknown>[];
+	readonly episodeOrders?: readonly Record<string, unknown>[];
 	readonly episodes?: (seasonId: string) => readonly Record<string, unknown>[];
 }) => {
 	const adapter: Partial<RyotClientAdapter> = {
@@ -170,7 +170,7 @@ const showAdapter = (input: {
 
 const [summaryNextUp] = decodeShowSeasonEpisodesResult({ episodes: [secondEpisode] }).items;
 
-const renderTab = (adapter: Partial<RyotClientAdapter>, nextUp: ShowEpisode | null = null) =>
+const renderTab = (adapter: Partial<RyotClientAdapter>, nextUp: null | ShowEpisode = null) =>
 	mountRyotClient(
 		adapter,
 		<ShowEpisodesTab

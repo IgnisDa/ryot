@@ -10,14 +10,6 @@ import { formatNumber } from "../workout/format";
 import { changeTone, formatChange, plural, type WeekSection, type WorkoutCard } from "./model";
 import { toneClasses } from "./styles";
 
-function WorkoutName(props: { readonly card: WorkoutCard; readonly className?: string }) {
-	return (
-		<PluginLink to={{ kind: "entity", entityId: props.card.id }}>
-			<span className={clsx("font-semibold text-text", props.className)}>{props.card.name}</span>
-		</PluginLink>
-	);
-}
-
 function RecordBadge(props: { readonly count: number }) {
 	return (
 		<ComputedResults compact>
@@ -31,56 +23,53 @@ function RecordBadge(props: { readonly count: number }) {
 	);
 }
 
+function WorkoutName(props: { readonly card: WorkoutCard; readonly className?: string }) {
+	return (
+		<PluginLink to={{ kind: "entity", entityId: props.card.id }}>
+			<span className={clsx("font-semibold text-text", props.className)}>{props.card.name}</span>
+		</PluginLink>
+	);
+}
+
 const muscleList = (card: WorkoutCard) =>
 	card.moreMuscles > 0 ? [...card.muscles, `+${card.moreMuscles}`] : card.muscles;
 
-function Comparison(props: { readonly card: WorkoutCard }) {
-	const { comparison } = props.card;
-	if (comparison.kind === "none") {
-		return <span className="text-text-subtle">Started empty · nothing to compare</span>;
-	}
+export function WorkoutWeeks(props: {
+	readonly layout: "grid" | "list";
+	readonly sections: readonly WeekSection[];
+}) {
 	return (
-		<>
-			<span className="truncate text-text-subtle">{comparison.label}</span>
-			{comparison.change === null ? null : (
-				<ComputedResults compact>
-					<span
-						className={clsx(
-							"font-semibold whitespace-nowrap tabular-nums",
-							toneClasses[changeTone(comparison.change)],
+		<div className="flex min-w-0 flex-col gap-7 font-ui">
+			{props.sections.map((section) => (
+				<section key={section.key} aria-label={section.title} className="flex flex-col gap-3.5">
+					<div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-2 border-b border-border pb-2.5">
+						<h2 className="text-[18px] font-semibold text-text">
+							{section.title}
+							{section.range === null ? null : (
+								<span className="ml-2 text-[14px] font-normal text-text-subtle">
+									{section.range}
+								</span>
+							)}
+						</h2>
+						{section.totals === null ? null : (
+							<span className="text-[13.5px] text-text-muted tabular-nums">{section.totals}</span>
 						)}
-					>
-						{formatChange(comparison.change)} volume
-					</span>
-				</ComputedResults>
-			)}
-		</>
-	);
-}
-
-function RecordCount(props: { readonly count: number; readonly className?: string }) {
-	return (
-		<ComputedResults compact>
-			<span
-				className={clsx(
-					"font-semibold",
-					props.count > 0 ? "text-accent-text" : "text-text-subtle",
-					props.className,
-				)}
-			>
-				{props.count > 0 ? formatNumber(props.count) : "—"}
-			</span>
-		</ComputedResults>
-	);
-}
-
-function Stat(props: { readonly value: ReactNode; readonly label: string }) {
-	return (
-		<div className="flex min-w-0 flex-col gap-0.5">
-			<span className="text-[18px] font-semibold whitespace-nowrap text-text tabular-nums">
-				{props.value}
-			</span>
-			<span className="text-[12px] text-text-subtle">{props.label}</span>
+					</div>
+					{props.layout === "grid" ? (
+						<div className="grid grid-cols-[repeat(auto-fill,minmax(320px,1fr))] gap-3.5">
+							{section.cards.map((card) => (
+								<WorkoutGridCard card={card} key={card.id} />
+							))}
+						</div>
+					) : (
+						<div className="flex flex-col">
+							{section.cards.map((card) => (
+								<WorkoutListRow card={card} key={card.id} />
+							))}
+						</div>
+					)}
+				</section>
+			))}
 		</div>
 	);
 }
@@ -272,43 +261,54 @@ export function WorkoutListRow(props: { readonly card: WorkoutCard }) {
 	);
 }
 
-export function WorkoutWeeks(props: {
-	readonly layout: "grid" | "list";
-	readonly sections: readonly WeekSection[];
-}) {
+function Stat(props: { readonly label: string; readonly value: ReactNode }) {
 	return (
-		<div className="flex min-w-0 flex-col gap-7 font-ui">
-			{props.sections.map((section) => (
-				<section key={section.key} aria-label={section.title} className="flex flex-col gap-3.5">
-					<div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-2 border-b border-border pb-2.5">
-						<h2 className="text-[18px] font-semibold text-text">
-							{section.title}
-							{section.range === null ? null : (
-								<span className="ml-2 text-[14px] font-normal text-text-subtle">
-									{section.range}
-								</span>
-							)}
-						</h2>
-						{section.totals === null ? null : (
-							<span className="text-[13.5px] text-text-muted tabular-nums">{section.totals}</span>
-						)}
-					</div>
-					{props.layout === "grid" ? (
-						<div className="grid grid-cols-[repeat(auto-fill,minmax(320px,1fr))] gap-3.5">
-							{section.cards.map((card) => (
-								<WorkoutGridCard card={card} key={card.id} />
-							))}
-						</div>
-					) : (
-						<div className="flex flex-col">
-							{section.cards.map((card) => (
-								<WorkoutListRow card={card} key={card.id} />
-							))}
-						</div>
-					)}
-				</section>
-			))}
+		<div className="flex min-w-0 flex-col gap-0.5">
+			<span className="text-[18px] font-semibold whitespace-nowrap text-text tabular-nums">
+				{props.value}
+			</span>
+			<span className="text-[12px] text-text-subtle">{props.label}</span>
 		</div>
+	);
+}
+
+function RecordCount(props: { readonly count: number; readonly className?: string }) {
+	return (
+		<ComputedResults compact>
+			<span
+				className={clsx(
+					"font-semibold",
+					props.count > 0 ? "text-accent-text" : "text-text-subtle",
+					props.className,
+				)}
+			>
+				{props.count > 0 ? formatNumber(props.count) : "—"}
+			</span>
+		</ComputedResults>
+	);
+}
+
+function Comparison(props: { readonly card: WorkoutCard }) {
+	const { comparison } = props.card;
+	if (comparison.kind === "none") {
+		return <span className="text-text-subtle">Started empty · nothing to compare</span>;
+	}
+	return (
+		<>
+			<span className="truncate text-text-subtle">{comparison.label}</span>
+			{comparison.change === null ? null : (
+				<ComputedResults compact>
+					<span
+						className={clsx(
+							"font-semibold whitespace-nowrap tabular-nums",
+							toneClasses[changeTone(comparison.change)],
+						)}
+					>
+						{formatChange(comparison.change)} volume
+					</span>
+				</ComputedResults>
+			)}
+		</>
 	);
 }
 

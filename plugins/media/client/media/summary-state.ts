@@ -24,57 +24,57 @@ import {
 } from "./image";
 import { classifyRyotQueryResult, type MappedRyotQueryState } from "./query-state";
 
-export type MediaEntitySummaryFields = SelectedRow<MediaEntitySummarySelection>;
-
 export type MediaSummaryFields = SelectedRow<MediaSummarySelection>;
 
 export type MediaSummaryUnavailableReason = "missing" | "unsupported";
 
-export type MediaSummaryState<Summary> = MappedRyotQueryState<
-	| { readonly status: "ready"; readonly summary: Summary }
-	| { readonly status: "unavailable"; readonly reason: MediaSummaryUnavailableReason }
->;
+export type MediaEntitySummaryFields = SelectedRow<MediaEntitySummarySelection>;
 
-export type MediaSummaryFailure = Pick<
-	Extract<MediaSummaryState<never>, { status: "transport-error" | "malformed" }>,
-	"status"
->;
+export type MediaSummaryLink = { readonly href: string; readonly label: string };
+
+export type MediaEntitySummaryValue = MediaEntitySummaryFields & {
+	readonly collections: MediaCollectionList;
+};
 
 export type MediaCollectionList = {
 	readonly items: readonly unknown[];
 	readonly pageInfo: { readonly hasMore: boolean };
 };
 
-export type MediaEntitySummaryValue = MediaEntitySummaryFields & {
+export type MediaSummaryFailure = Pick<
+	Extract<MediaSummaryState<never>, { status: "malformed" | "transport-error" }>,
+	"status"
+>;
+
+export type MediaSummaryValue = MediaSummaryFields & {
+	readonly genres: MediaGenresList;
 	readonly collections: MediaCollectionList;
 };
 
-export type MediaSummaryValue = MediaSummaryFields & {
-	readonly collections: MediaCollectionList;
-	readonly genres: MediaGenresList;
+export type MediaSummaryArtwork = {
+	readonly aspect: MediaArtworkAspect;
+	readonly purpose: MediaImagePurposes[number];
+	readonly fit?: "cover" | "contain" | undefined;
 };
 
 export type MediaSummaryFact = {
 	readonly icon: string;
 	readonly label: string;
 	readonly value: string;
-	readonly suffix?: string | undefined;
-	readonly iconClass?: string;
 	readonly inline?: boolean;
+	readonly iconClass?: string;
+	readonly suffix?: string | undefined;
 };
 
-export type MediaSummaryArtwork = {
-	readonly purpose: MediaImagePurposes[number];
-	readonly aspect: MediaArtworkAspect;
-	readonly fit?: "cover" | "contain" | undefined;
-};
-
-export type MediaSummaryLink = { readonly label: string; readonly href: string };
+export type MediaSummaryState<Summary> = MappedRyotQueryState<
+	| { readonly status: "ready"; readonly summary: Summary }
+	| { readonly status: "unavailable"; readonly reason: MediaSummaryUnavailableReason }
+>;
 
 export const mediaSourceLinks = (entity: {
-	readonly website?: string | null | undefined;
-	readonly sourceUrl: string | null;
-	readonly providerName: string | null;
+	readonly sourceUrl: null | string;
+	readonly providerName: null | string;
+	readonly website?: null | string | undefined;
 }): readonly MediaSummaryLink[] =>
 	[
 		{ label: "Website", href: entity.website ?? null },
@@ -85,25 +85,25 @@ export const mediaSourceLinks = (entity: {
 
 export type MediaStatusTone = "accent" | "danger" | "neutral" | "success" | "warning";
 
-export type MediaStatusRailConfig = {
-	readonly logActivity: MediaActivityLogger | undefined;
-	readonly ownership?:
-		{ readonly owned: boolean | null; readonly ownedOn: string | null } | undefined;
-	readonly status?:
-		| {
-				readonly label: string;
-				readonly tone: MediaStatusTone;
-				readonly progress: { readonly percent: number } | undefined;
-		  }
-		| undefined;
-};
-
 export type MediaSummaryHeaderDetail = {
 	readonly chips: readonly string[];
 	readonly rail: MediaStatusRailConfig;
 	readonly links: readonly MediaSummaryLink[];
 	readonly facts: readonly MediaSummaryFact[];
 	readonly identityDetail: string | undefined;
+};
+
+export type MediaStatusRailConfig = {
+	readonly logActivity: undefined | MediaActivityLogger;
+	readonly ownership?:
+		undefined | { readonly owned: null | boolean; readonly ownedOn: null | string };
+	readonly status?:
+		| undefined
+		| {
+				readonly label: string;
+				readonly tone: MediaStatusTone;
+				readonly progress: undefined | { readonly percent: number };
+		  };
 };
 
 const MEDIA_GALLERY_LIMIT = 10;
@@ -126,12 +126,12 @@ export const mediaManagedAssets = (media: MediaImaged) =>
 	collectManagedAssetLocators(mediaImageAssets(media.images));
 
 export const mediaReleaseLabel = (media: {
-	readonly publishDate: string | null;
-	readonly publishYear: number | null;
+	readonly publishDate: null | string;
+	readonly publishYear: null | number;
 }) => (media.publishYear === null ? (media.publishDate ?? undefined) : String(media.publishYear));
 
 export const mediaRatingLabel = (
-	media: { readonly providerRating: number | null },
+	media: { readonly providerRating: null | number },
 	locales?: Intl.LocalesArgument,
 ) =>
 	media.providerRating === null
@@ -139,9 +139,9 @@ export const mediaRatingLabel = (
 		: new Intl.NumberFormat(locales, { maximumFractionDigits: 2 }).format(media.providerRating);
 
 export const mediaRatingFact = (media: {
-	readonly providerName: string | null;
-	readonly providerRating: number | null;
-}): MediaSummaryFact | undefined => {
+	readonly providerName: null | string;
+	readonly providerRating: null | number;
+}): undefined | MediaSummaryFact => {
 	const value = mediaRatingLabel(media);
 	return value === undefined
 		? undefined
@@ -155,13 +155,13 @@ export const mediaRatingFact = (media: {
 };
 
 export const mediaSummaryStateMapper = <
-	Data extends { readonly entitySchemaSlug: string | null },
+	Data extends { readonly entitySchemaSlug: null | string },
 	Summary,
 >(input: {
 	readonly title: string;
 	readonly plural: string;
 	readonly singular: string;
-	readonly select: (value: Data) => Summary | null;
+	readonly select: (value: Data) => null | Summary;
 }) => ({
 	loading: {
 		title: `Loading ${input.singular}...`,
@@ -230,12 +230,12 @@ const MEDIA_LIFECYCLE_TONES: Record<EpisodicLifecycleState, MediaStatusTone> = {
 	in_progress: "accent",
 };
 
-export const mediaOwnedLabel = (ownedOn: string | null) =>
+export const mediaOwnedLabel = (ownedOn: null | string) =>
 	ownedOn === null ? "Owned" : `Owned since ${formatDateOnlyLabel(ownedOn)}`;
 
 export const mediaProductionStatusFact = (media: {
-	readonly productionStatus: string | null;
-}): MediaSummaryFact | undefined =>
+	readonly productionStatus: null | string;
+}): undefined | MediaSummaryFact =>
 	media.productionStatus === null
 		? undefined
 		: { icon: "clapperboard", label: "Production status", value: media.productionStatus };
@@ -244,10 +244,10 @@ export const mediaCountLabel = (count: number, singular: string) =>
 	`${count} ${count === 1 ? singular : `${singular}s`}`;
 
 export const mediaCountFact = (
-	count: number | null,
+	count: null | number,
 	singular: string,
 	icon: string,
-): MediaSummaryFact | undefined =>
+): undefined | MediaSummaryFact =>
 	count === null
 		? undefined
 		: {
@@ -274,7 +274,7 @@ export const mediaEpisodicAiredFact = (summary: {
 	readonly airedEpisodes: number;
 	readonly watchedEpisodes: number;
 	readonly upcomingEpisodes: number;
-}): MediaSummaryFact | undefined => {
+}): undefined | MediaSummaryFact => {
 	const value = mediaEpisodicAiredLabel({
 		aired: summary.airedEpisodes,
 		watched: summary.watchedEpisodes,
@@ -285,15 +285,15 @@ export const mediaEpisodicAiredFact = (summary: {
 		: { value, inline: true, label: "Progress", icon: "circle-check" };
 };
 
-export const mediaCountLabels = (count: number | null, singular: string) =>
+export const mediaCountLabels = (count: null | number, singular: string) =>
 	count === null ? [] : [mediaCountLabel(count, singular)];
 
-export const mediaDurationFact = (duration: number | null, label: string) =>
+export const mediaDurationFact = (duration: null | number, label: string) =>
 	duration === null
 		? undefined
 		: { label, inline: true, icon: "clock", value: mediaActivityDurationLabel(duration) };
 
-export const mediaDurationLabels = (duration: number | null) =>
+export const mediaDurationLabels = (duration: null | number) =>
 	duration === null ? [] : [mediaActivityDurationLabel(duration)];
 
 export const mediaCollectionsLabel = ({ items, pageInfo }: MediaCollectionList) => {
@@ -311,7 +311,7 @@ export const mediaSummaryHeaderDetail =
 		readonly logActivity: MediaActivityLogger;
 		readonly facts: (summary: Summary) => readonly MediaSummaryFact[];
 		readonly progress?:
-			((summary: Summary) => { readonly percent: number } | undefined) | undefined;
+			undefined | ((summary: Summary) => undefined | { readonly percent: number });
 	}) =>
 	(summary: Summary): MediaSummaryHeaderDetail => ({
 		links: [],

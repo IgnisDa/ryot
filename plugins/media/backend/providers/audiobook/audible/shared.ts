@@ -189,7 +189,7 @@ const collectContributors = (
 	}
 };
 
-const providerRatingValue = (rating: Record<string, unknown> | null) => {
+const providerRatingValue = (rating: null | Record<string, unknown>) => {
 	const numReviews = numberValue(rating?.["num_reviews"]) ?? 0;
 	if (numReviews <= 0) {
 		return null;

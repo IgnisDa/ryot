@@ -99,7 +99,7 @@ const loadInBatches = <A, B, Failure>(
 const buildSeason = (
 	parentShowExternalId: string,
 	seasonData: UnknownRecord,
-): ProviderDetailsChildEntity | null => {
+): null | ProviderDetailsChildEntity => {
 	const idValue = numberValue(seasonData["id"]);
 	if (idValue === null || idValue <= 0) {
 		return null;

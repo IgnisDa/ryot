@@ -52,7 +52,7 @@ const correctTime = createRyotMutation<
 	}),
 );
 const timeSourceQuery = () =>
-	createRyotQuery(({ input, client }: { readonly client: RyotClient; readonly input: string }) =>
+	createRyotQuery(({ input, client }: { readonly input: string; readonly client: RyotClient }) =>
 		Effect.gen(function* () {
 			const entity = yield* client.data.query(
 				workoutEditorEntityRecipe({
@@ -70,6 +70,43 @@ const timeSourceQuery = () =>
 			return { entity, properties };
 		}),
 	);
+
+export function AdjustWorkoutTime(props: {
+	readonly entityId: string;
+	readonly onClose: () => void;
+}) {
+	const [query] = useState(timeSourceQuery);
+	const source = useRyotQuery(query, props.entityId, { refreshOnMutation: false });
+	if (source.data) {
+		return (
+			<TimeForm
+				onClose={props.onClose}
+				entity={source.data.entity}
+				properties={source.data.properties}
+			/>
+		);
+	}
+	return (
+		<Dialog onClose={props.onClose} title="Adjust workout time" closeLabel="Close time correction">
+			{source.isError ? (
+				<Notice
+					tone="danger"
+					action={
+						<Button size="sm" variant="secondary" onClick={source.refetch}>
+							Retry times
+						</Button>
+					}
+				>
+					Workout times could not be loaded.
+				</Notice>
+			) : (
+				<p role="status" className="text-text-muted">
+					{source.data === null ? "This workout no longer exists." : "Loading workout times…"}
+				</p>
+			)}
+		</Dialog>
+	);
+}
 
 function TimeForm(props: {
 	readonly onClose: () => void;
@@ -196,43 +233,6 @@ function TimeForm(props: {
 					</Notice>
 				) : null}
 			</div>
-		</Dialog>
-	);
-}
-
-export function AdjustWorkoutTime(props: {
-	readonly entityId: string;
-	readonly onClose: () => void;
-}) {
-	const [query] = useState(timeSourceQuery);
-	const source = useRyotQuery(query, props.entityId, { refreshOnMutation: false });
-	if (source.data) {
-		return (
-			<TimeForm
-				onClose={props.onClose}
-				entity={source.data.entity}
-				properties={source.data.properties}
-			/>
-		);
-	}
-	return (
-		<Dialog onClose={props.onClose} title="Adjust workout time" closeLabel="Close time correction">
-			{source.isError ? (
-				<Notice
-					tone="danger"
-					action={
-						<Button size="sm" variant="secondary" onClick={source.refetch}>
-							Retry times
-						</Button>
-					}
-				>
-					Workout times could not be loaded.
-				</Notice>
-			) : (
-				<p role="status" className="text-text-muted">
-					{source.data === null ? "This workout no longer exists." : "Loading workout times…"}
-				</p>
-			)}
 		</Dialog>
 	);
 }

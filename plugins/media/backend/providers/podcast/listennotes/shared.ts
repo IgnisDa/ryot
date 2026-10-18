@@ -14,11 +14,11 @@ export const manifest = defineManifest({
 	name: "Listen Notes",
 	slug: "podcast.listennotes",
 });
+type UnknownRecord = Record<string, unknown>;
 type ListennotesHost = Pick<
 	ScriptHost,
-	"httpCall" | "getPluginConfig" | "getCachedValue" | "setCachedValue"
+	"httpCall" | "getCachedValue" | "setCachedValue" | "getPluginConfig"
 >;
-type UnknownRecord = Record<string, unknown>;
 const GENRE_CACHE_KEY = "genres";
 const GENRE_CACHE_TTL_SECONDS = 60 * 60 * 24;
 const BASE_URL = "https://listen-api.listennotes.com/api/v2";
@@ -72,7 +72,7 @@ const getApiKey = (host: ListennotesHost) =>
 const listennotesGet = (
 	host: ListennotesHost,
 	path: string,
-	params?: Record<string, string | number | null | undefined>,
+	params?: Record<string, null | string | number | undefined>,
 ) =>
 	getApiKey(host).pipe(
 		Effect.flatMap((apiKey) => {
@@ -95,7 +95,7 @@ const listennotesGet = (
 				);
 		}),
 	);
-const parseGenreMap = (value: unknown): Record<string, string> | null => {
+const parseGenreMap = (value: unknown): null | Record<string, string> => {
 	const record = asRecord(value);
 	if (!record) {
 		return null;
@@ -186,15 +186,15 @@ type MappedEpisode = {
 	title: string;
 	number: number;
 	publishDate: string;
-	runtime: number | null;
-	overview: string | null;
-	thumbnail: string | null;
+	runtime: null | number;
+	overview: null | string;
+	thumbnail: null | string;
 };
 const mapEpisode = (
 	raw: unknown,
 	episodeNumberOffset: number,
 	index: number,
-): MappedEpisode | null => {
+): null | MappedEpisode => {
 	const item = asRecord(raw);
 	const id = trimmedString(item?.["id"]);
 	const title = trimmedString(item?.["title"]);
@@ -225,7 +225,7 @@ const mapRecommendation = (raw: unknown) => {
 const fetchPodcastDetails = (
 	host: ListennotesHost,
 	externalId: string,
-	nextEpisodePubDate: number | null,
+	nextEpisodePubDate: null | number,
 ) =>
 	listennotesGet(host, `/podcasts/${encodeURIComponent(externalId)}`, {
 		sort: "oldest_first",
@@ -285,11 +285,11 @@ export const details = defineProvider({
 			const episodes: MappedEpisode[] = [];
 			const seenEpisodeIds = new Set<string>();
 			const collectPage = (
-				currentPodcast: UnknownRecord | null,
+				currentPodcast: null | UnknownRecord,
 				episodeNumberOffset: number,
-				previousEpisodePubDate: number | null,
+				previousEpisodePubDate: null | number,
 			): Effect.Effect<
-				UnknownRecord | null,
+				null | UnknownRecord,
 				Effect.Error<ReturnType<typeof fetchPodcastDetails>>
 			> => {
 				const pageEpisodes: MappedEpisode[] = [];

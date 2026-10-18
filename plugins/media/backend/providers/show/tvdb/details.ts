@@ -26,7 +26,7 @@ import {
 const buildSeason = (
 	parentShowExternalId: string,
 	season: UnknownRecord,
-): ProviderDetailsChildEntity | null => {
+): null | ProviderDetailsChildEntity => {
 	const idValue = numberValue(season["id"]);
 	if (idValue === null || idValue <= 0) {
 		return null;

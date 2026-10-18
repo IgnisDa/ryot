@@ -3,9 +3,9 @@ import { type RefObject, useCallback, useEffect, useState } from "react";
 
 export function useEditorScroll(input: {
 	readonly active: boolean;
-	readonly editorRoot: RefObject<HTMLElement | null>;
-	readonly scrollRoot: RefObject<HTMLElement | null>;
-	readonly floatingRoot: HTMLElement | null;
+	readonly floatingRoot: null | HTMLElement;
+	readonly editorRoot: RefObject<null | HTMLElement>;
+	readonly scrollRoot: RefObject<null | HTMLElement>;
 }) {
 	const reduced = usePrefersReducedMotion();
 	const [request, setRequest] = useState<{
@@ -96,7 +96,7 @@ export function useEditorScroll(input: {
 		};
 		root.addEventListener("focusin", onFocus);
 		const onKeyDown = (event: KeyboardEvent) => {
-			if (["ArrowDown", "ArrowUp", "PageDown", "PageUp", "Home", "End"].includes(event.key)) {
+			if (["End", "Home", "PageUp", "ArrowUp", "PageDown", "ArrowDown"].includes(event.key)) {
 				cancel();
 			}
 		};

@@ -13,7 +13,7 @@ import disableDefinition, { manifest as disableManifest } from "./media-monitori
 import enableDefinition, { manifest as enableManifest } from "./media-monitoring-enable.sandbox";
 import statusDefinition, { manifest as statusManifest } from "./media-monitoring-status.sandbox";
 
-const target = (entityId: string, monitoringLibraryId: string | null = null) => ({
+const target = (entityId: string, monitoringLibraryId: null | string = null) => ({
 	entityId,
 	entitySchemaSlug: "movie",
 	externalId: `external-${entityId}`,

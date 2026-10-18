@@ -1,14 +1,14 @@
 import { RyotClientError } from "@ryot-app/plugin-client-sdk";
 import type { RyotQueryResult } from "@ryot-app/plugin-client-sdk/react";
 
+export type MappedRyotQueryState<State extends { readonly status: string }> =
+	State | Exclude<RyotQueryState<never>, { readonly status: "ready" }>;
+
 export type RyotQueryState<Value> =
 	| { readonly status: "loading" }
 	| { readonly status: "malformed" }
 	| { readonly status: "transport-error" }
-	| { readonly status: "ready"; readonly value: Value };
-
-export type MappedRyotQueryState<State extends { readonly status: string }> =
-	Exclude<RyotQueryState<never>, { readonly status: "ready" }> | State;
+	| { readonly value: Value; readonly status: "ready" };
 
 export const classifyRyotQueryResult = <Value>(
 	result: RyotQueryResult<Value>,

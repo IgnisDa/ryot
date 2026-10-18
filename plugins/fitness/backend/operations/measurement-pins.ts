@@ -24,7 +24,7 @@ export const measurementMetricIds = (limit: number, executeRyotql: ExecuteRyotql
 
 export const changeMeasurementMetricPin = Effect.fn("changeMeasurementMetricPin")(function* (
 	input: { readonly pinned: boolean; readonly metricId: string },
-	host: Pick<ScriptHost, "changeUserRelationships" | "executeRyotql">,
+	host: Pick<ScriptHost, "executeRyotql" | "changeUserRelationships">,
 ) {
 	const fitnessLibrary = yield* executeRyotqlRecipe(
 		host.executeRyotql,

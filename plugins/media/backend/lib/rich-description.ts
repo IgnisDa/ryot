@@ -6,7 +6,7 @@ import { MediaSandboxError } from "./failures";
 export const normalizeRichDescription = Effect.fn("normalizeRichDescription")(function* (
 	input: unknown,
 	baseUrl?: string,
-): Effect.fn.Return<string | null, MediaSandboxError> {
+): Effect.fn.Return<null | string, MediaSandboxError> {
 	if (typeof input !== "string" || !input.trim()) {
 		return null;
 	}

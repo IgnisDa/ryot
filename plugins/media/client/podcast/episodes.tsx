@@ -41,7 +41,7 @@ const PODCAST_EPISODE_PAGES_COPY: MediaEpisodePagesCopy = {
 	loading: { title: "Loading episodes...", detail: "Fetching this podcast's episodes." },
 };
 
-export const podcastEpisodeCountLine = (summary: PodcastSummary | undefined) => {
+export const podcastEpisodeCountLine = (summary: undefined | PodcastSummary) => {
 	if (summary === undefined) {
 		return undefined;
 	}
@@ -57,10 +57,10 @@ export const podcastEpisodeCountLine = (summary: PodcastSummary | undefined) => 
 
 export function PodcastEpisodesTab(props: {
 	readonly compact: boolean;
-	readonly logger: MediaActivityLogger;
 	readonly entityId: string;
 	readonly safeAreaTop: number;
-	readonly summary: PodcastSummary | undefined;
+	readonly logger: MediaActivityLogger;
+	readonly summary: undefined | PodcastSummary;
 }) {
 	const counts = podcastEpisodeCountLine(props.summary);
 	const { summary } = props;

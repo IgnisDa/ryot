@@ -18,8 +18,8 @@ const StreamingHistoryFile = Schema.Array(
 
 const decodeStreamingHistoryFile = Schema.decodeUnknownOption(StreamingHistoryFile);
 
-type Play = { occurredAt: string; occurredAtMs: number; timeSpent: number };
 type TrackPlays = { name: string; plays: Play[] };
+type Play = { timeSpent: number; occurredAt: string; occurredAtMs: number };
 
 export const adaptSpotifyStreamingHistory = (
 	files: ReadonlyArray<{ name: string; rows: unknown }>,

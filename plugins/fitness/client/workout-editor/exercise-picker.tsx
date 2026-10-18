@@ -37,16 +37,16 @@ import { usePickerPresets } from "./use-picker-presets";
 import { useProviderSearch } from "./use-provider-search";
 
 type ExercisePickerProps = {
+	readonly onClose: () => void;
+	readonly onApply: (exercises: readonly PickerExercise[]) => void;
 	readonly replacement?: {
 		readonly name: string;
-		readonly kind: ExerciseKind;
 		readonly title?: string;
+		readonly kind: ExerciseKind;
 		readonly applyLabel?: string;
 		readonly description?: string;
 		readonly excludeIds?: readonly string[];
 	};
-	readonly onClose: () => void;
-	readonly onApply: (exercises: readonly PickerExercise[]) => void;
 };
 
 const pickerOptionsQuery = createRyotQuery(({ client }) => {
@@ -74,10 +74,10 @@ const pickerExercisesQuery = createRyotQuery(
 	}: {
 		readonly client: ReturnType<typeof useRyot>;
 		readonly input: {
-			readonly after: string | undefined;
 			readonly search: string;
 			readonly sort: PickerSort;
 			readonly filters: PickerFilters;
+			readonly after: string | undefined;
 		};
 	}) =>
 		client.data.query(
@@ -96,55 +96,6 @@ const metaForExercise = (exercise: PickerExercise) =>
 		...exercise.targets.items.map(({ name }) => name),
 		...exercise.equipment.items.map(({ name }) => name),
 	].join(" · ");
-
-function ExerciseOption(props: {
-	readonly exercise: PickerExercise;
-	readonly selected: boolean;
-	readonly disabled: boolean;
-	readonly replacing: boolean;
-	readonly onToggle: () => void;
-}) {
-	const meta = metaForExercise(props.exercise);
-	return (
-		<button
-			type="button"
-			onClick={props.onToggle}
-			disabled={props.disabled}
-			aria-checked={props.selected}
-			aria-label={props.exercise.name}
-			role={props.replacing ? "radio" : "checkbox"}
-			className={clsx(
-				"flex min-h-16 w-full items-center gap-3 border-b border-border px-1 py-2 text-left hover:bg-hover disabled:opacity-50",
-				props.selected && "bg-accent-soft",
-			)}
-		>
-			<AssetArtWell
-				name={props.exercise.name}
-				className="size-11 shrink-0"
-				asset={props.exercise.images?.[0]}
-			/>
-			<span className="min-w-0 flex-1">
-				<span className="block font-semibold text-text [overflow-wrap:anywhere]">
-					{props.exercise.name}
-				</span>
-				<span className="block text-xs text-text-muted">
-					{labelForKind(props.exercise.kind)}
-					{meta === "" ? "" : ` · ${meta}`}
-				</span>
-			</span>
-			<span
-				aria-hidden="true"
-				className={clsx(
-					"grid size-5.5 shrink-0 place-items-center border-[1.5px]",
-					props.replacing ? "rounded-full" : "rounded-sm",
-					props.selected ? "border-accent-deep bg-accent text-accent-ink" : "border-border-strong",
-				)}
-			>
-				{props.selected ? <AppIcon size={14} name="check" /> : null}
-			</span>
-		</button>
-	);
-}
 
 export function ExercisePicker(props: ExercisePickerProps) {
 	const replacement = props.replacement;
@@ -466,5 +417,54 @@ export function ExercisePicker(props: ExercisePickerProps) {
 				</ManagedAssetProvider>
 			</div>
 		</EditorSheet>
+	);
+}
+
+function ExerciseOption(props: {
+	readonly selected: boolean;
+	readonly disabled: boolean;
+	readonly replacing: boolean;
+	readonly onToggle: () => void;
+	readonly exercise: PickerExercise;
+}) {
+	const meta = metaForExercise(props.exercise);
+	return (
+		<button
+			type="button"
+			onClick={props.onToggle}
+			disabled={props.disabled}
+			aria-checked={props.selected}
+			aria-label={props.exercise.name}
+			role={props.replacing ? "radio" : "checkbox"}
+			className={clsx(
+				"flex min-h-16 w-full items-center gap-3 border-b border-border px-1 py-2 text-left hover:bg-hover disabled:opacity-50",
+				props.selected && "bg-accent-soft",
+			)}
+		>
+			<AssetArtWell
+				name={props.exercise.name}
+				className="size-11 shrink-0"
+				asset={props.exercise.images?.[0]}
+			/>
+			<span className="min-w-0 flex-1">
+				<span className="block font-semibold text-text [overflow-wrap:anywhere]">
+					{props.exercise.name}
+				</span>
+				<span className="block text-xs text-text-muted">
+					{labelForKind(props.exercise.kind)}
+					{meta === "" ? "" : ` · ${meta}`}
+				</span>
+			</span>
+			<span
+				aria-hidden="true"
+				className={clsx(
+					"grid size-5.5 shrink-0 place-items-center border-[1.5px]",
+					props.replacing ? "rounded-full" : "rounded-sm",
+					props.selected ? "border-accent-deep bg-accent text-accent-ink" : "border-border-strong",
+				)}
+			>
+				{props.selected ? <AppIcon size={14} name="check" /> : null}
+			</span>
+		</button>
 	);
 }

@@ -38,8 +38,8 @@ export const creatorAlbumCreditRow = {
 };
 
 type CreditRows = {
-	readonly items: readonly Record<string, unknown>[];
 	readonly hasMore?: boolean;
+	readonly items: readonly Record<string, unknown>[];
 };
 
 export const creatorOverviewData = (input: Readonly<Record<string, CreditRows>> = {}) => ({

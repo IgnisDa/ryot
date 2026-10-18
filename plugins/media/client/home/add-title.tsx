@@ -13,7 +13,7 @@ import { PLUGIN_PACKAGE_ID } from "../../shared/plugin-identity";
 const schemaLabel = (slug: string) =>
 	`${slug.charAt(0).toUpperCase()}${slug.slice(1)}`.replace("-", " ");
 
-export function AddTitleMenu(props: { readonly variant: "button" | "icon" }) {
+export function AddTitleMenu(props: { readonly variant: "icon" | "button" }) {
 	const identity = usePluginIdentity(PLUGIN_PACKAGE_ID);
 	const client = useRyot();
 	const schedule = useRyotSchedule();

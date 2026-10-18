@@ -11,7 +11,7 @@ const daysBetween = (from: string, to: string) => dayIndex(to) - dayIndex(from);
 
 export const episodePositionLabel = (episode: {
 	readonly episodeNumber: number;
-	readonly seasonNumber: number | null;
+	readonly seasonNumber: null | number;
 }) =>
 	episode.seasonNumber === null
 		? `Ep ${episode.episodeNumber}`
@@ -19,10 +19,10 @@ export const episodePositionLabel = (episode: {
 
 export const flatProgressLabel = (item: {
 	readonly schemaSlug: string;
-	readonly mangaVolume: number | null;
-	readonly animeEpisode: number | null;
-	readonly mangaChapter: number | null;
-	readonly progressPercent: number | null;
+	readonly mangaVolume: null | number;
+	readonly animeEpisode: null | number;
+	readonly mangaChapter: null | number;
+	readonly progressPercent: null | number;
 }) => {
 	if (item.schemaSlug === "anime" && item.animeEpisode !== null) {
 		return `Episode ${item.animeEpisode}`;
@@ -47,7 +47,7 @@ const RELATIVE_UNITS = [
 
 const relativeFormat = new Intl.RelativeTimeFormat("en-US", { numeric: "auto" });
 
-export const resumeLabel = (latestActivityAt: string | null, today: string) => {
+export const resumeLabel = (latestActivityAt: null | string, today: string) => {
 	if (latestActivityAt === null) {
 		return "Resume";
 	}

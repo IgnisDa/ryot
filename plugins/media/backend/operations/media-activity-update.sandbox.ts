@@ -33,9 +33,9 @@ const FIELD_LABELS: Readonly<Record<string, string>> = {
 	consumedOn: "Where it was consumed",
 };
 
-type PropertiesPatch = { set: Record<string, Schema.Json>; remove: string[] };
+type PropertiesPatch = { remove: string[]; set: Record<string, Schema.Json> };
 
-const assign = (patch: PropertiesPatch, key: string, value: Schema.Json | null) => {
+const assign = (patch: PropertiesPatch, key: string, value: null | Schema.Json) => {
 	if (value === null) {
 		patch.remove.push(key);
 	} else {

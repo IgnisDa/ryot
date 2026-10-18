@@ -37,7 +37,7 @@ export const loadJson = (host: PokeApiHost, url: string) =>
 			),
 		);
 
-const toEntry = (value: unknown): PokeApiEntry | null => {
+const toEntry = (value: unknown): null | PokeApiEntry => {
 	const record = asRecord(value);
 	const url = stringValue(record?.["url"]);
 	const name = stringValue(record?.["name"]);

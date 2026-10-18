@@ -17,10 +17,10 @@ import {
 } from "../shared";
 
 const officialJellyfinEvents = new Set([
-	"playbackstart",
-	"playbackstop",
-	"playbackprogress",
 	"markplayed",
+	"playbackstop",
+	"playbackstart",
+	"playbackprogress",
 ]);
 
 const jellyfinCompletion = (payload: unknown) => {
@@ -64,7 +64,7 @@ export const parseMediaServer = (
 						? nestedString(payload, ["ItemType", "Type", "MediaType"])
 						: undefined)
 				)?.toLowerCase();
-				let entitySchemaSlug: "movie" | "show" | null = null;
+				let entitySchemaSlug: null | "show" | "movie" = null;
 				if (itemType === "movie") {
 					entitySchemaSlug = "movie";
 				}

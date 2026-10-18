@@ -53,7 +53,7 @@ export const choiceRow = (seasonNumber: number, episodeNumber: number, state = "
 	name: `Episode ${episodeNumber} of ${seasonNumber}`,
 });
 
-export const earlierRow = (seasonNumber: number | null, episodeNumber: number) => ({
+export const earlierRow = (seasonNumber: null | number, episodeNumber: number) => ({
 	seasonNumber,
 	episodeNumber,
 	name: `Earlier ${episodeNumber}`,
@@ -70,9 +70,9 @@ export const podcastRow = (episodeNumber: number, state = "untracked") =>
 
 export type ActivityLogFake = {
 	readonly podcast?: Pages;
+	readonly target?: Row | undefined;
 	readonly recent?: readonly string[];
 	readonly consumedOn?: readonly string[];
-	readonly target?: Row | undefined;
 	readonly earlier?: Readonly<Record<string, Pages>>;
 	readonly seasons?: Readonly<Record<number, Pages>>;
 };

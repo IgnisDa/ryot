@@ -27,7 +27,7 @@ export const emptyTotals: ExerciseDetails["totals"] = {
 };
 
 export const exerciseRecord = (
-	overrides: Partial<Omit<ExerciseRecord, "equipment" | "targets">> & {
+	overrides: Partial<Omit<ExerciseRecord, "targets" | "equipment">> & {
 		readonly targets?: ExerciseRecord["targets"]["items"];
 		readonly equipment?: ExerciseRecord["equipment"]["items"];
 	} = {},

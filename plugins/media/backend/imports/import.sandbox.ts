@@ -62,7 +62,7 @@ export default defineWorkflow({
 			let advancedAt = input.command.occurredAt;
 			const activity = (
 				id: string,
-				kind: "reading" | "preparing" | "writing",
+				kind: "reading" | "writing" | "preparing",
 				activityState: "running" | "completed",
 				unit: string,
 				value: number,
@@ -100,7 +100,7 @@ export default defineWorkflow({
 				Effect.gen(function* () {
 					let offset = 0;
 					let header = "";
-					let carry: string | null = null;
+					let carry: null | string = null;
 					let eventOffset = 0;
 					for (;;) {
 						const result: typeof MediaCollectionOutput.Type = yield* replay.child(
@@ -144,7 +144,7 @@ export default defineWorkflow({
 				});
 			if (input.source === "spotify" || input.source === "netflix" || expected === "trakt-export") {
 				const key = expected === "trakt-export" ? "exportUploadToken" : "uploadToken";
-				let after: number | null = null;
+				let after: null | number = null;
 				let fileIndex = 0;
 				let netflixFiles = 0;
 				for (let directory = 0; ; directory++) {
@@ -201,10 +201,10 @@ export default defineWorkflow({
 			} else {
 				yield* collect(0);
 			}
-			if (["anilist", "media_tracker", "netflix", "spotify", "trakt-export"].includes(expected)) {
+			if (["anilist", "netflix", "spotify", "trakt-export", "media_tracker"].includes(expected)) {
 				const raw = yield* runs.finish("raw-final");
 				let header = "";
-				let carry: string | null = null;
+				let carry: null | string = null;
 				let normalizedItems = 0;
 				if (raw) {
 					for (let page = 0; page < raw.pages; page++) {
@@ -256,7 +256,7 @@ export default defineWorkflow({
 				let offset = 0;
 				let batch = 0;
 				let itemIndex = 0;
-				let dedupKey: string | null = null;
+				let dedupKey: null | string = null;
 				for (let segment = 0; ; segment++) {
 					const result: typeof MediaApplicationOutput.Type = yield* replay.child(
 						`application:${segment}`,

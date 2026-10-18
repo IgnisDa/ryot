@@ -8,7 +8,7 @@ const MOUNT_MARGIN = "600px 0px";
  */
 export function LazySection(props: {
 	readonly children: ReactNode;
-	readonly scrollRootRef: RefObject<HTMLElement | null>;
+	readonly scrollRootRef: RefObject<null | HTMLElement>;
 }) {
 	const anchor = useRef<HTMLDivElement>(null);
 	const [mounted, setMounted] = useState(() => typeof IntersectionObserver === "undefined");

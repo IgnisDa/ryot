@@ -23,12 +23,12 @@ import { formatLocalMonthLabel } from "./date";
 
 export type MediaActivityRowRender<Row extends MediaActivityRowBase> = {
 	readonly segmentNoun: string;
-	readonly rowBody: (row: Row) => ReactNode;
 	readonly rowLabel: (row: Row) => string;
+	readonly rowBody: (row: Row) => ReactNode;
 	readonly rowRun?: (row: Row) => string | undefined;
 	readonly rowSource: (row: Row) => string | undefined;
-	readonly rowExpand?: (row: Row) => MediaActivityRowExpand | undefined;
 	readonly monthSummary?: (rows: readonly Row[]) => string | undefined;
+	readonly rowExpand?: (row: Row) => undefined | MediaActivityRowExpand;
 };
 
 type MediaActivityRowExpand = {
@@ -62,23 +62,6 @@ const MARKERS: Partial<Record<string, TimelineMarker>> = {
 
 const markerOf = (type: string): TimelineMarker => MARKERS[type] ?? { tone: "muted" };
 
-function MediaActivityReviewBody(props: { readonly text: string; readonly isSpoiler: boolean }) {
-	const [isRevealed, setIsRevealed] = useState(false);
-	if (props.isSpoiler && !isRevealed) {
-		return (
-			<button
-				type="button"
-				aria-label="Show spoiler review"
-				onClick={() => setIsRevealed(true)}
-				className="self-start rounded-md border border-border bg-surface-2 px-2.5 py-1.5"
-			>
-				<span className="text-label text-text-muted">Spoiler — show review</span>
-			</button>
-		);
-	}
-	return <p className="text-label text-text-muted">{props.text}</p>;
-}
-
 export function MediaActivityReviewDetail<Subject>(props: {
 	readonly row: MediaActivityReviewRow<Subject>;
 }) {
@@ -95,6 +78,23 @@ export function MediaActivityReviewDetail<Subject>(props: {
 			)}
 		</div>
 	);
+}
+
+function MediaActivityReviewBody(props: { readonly text: string; readonly isSpoiler: boolean }) {
+	const [isRevealed, setIsRevealed] = useState(false);
+	if (props.isSpoiler && !isRevealed) {
+		return (
+			<button
+				type="button"
+				aria-label="Show spoiler review"
+				onClick={() => setIsRevealed(true)}
+				className="self-start rounded-md border border-border bg-surface-2 px-2.5 py-1.5"
+			>
+				<span className="text-label text-text-muted">Spoiler — show review</span>
+			</button>
+		);
+	}
+	return <p className="text-label text-text-muted">{props.text}</p>;
 }
 
 function MediaActivityEntry<Row extends MediaActivityRowBase>(props: {
@@ -141,7 +141,7 @@ function MediaActivityEntry<Row extends MediaActivityRowBase>(props: {
 }
 
 const dateGroups = <Row extends MediaActivityRowBase>(rows: readonly Row[]) => {
-	const groups: { readonly rows: Row[]; readonly first: Row }[] = [];
+	const groups: { readonly first: Row; readonly rows: Row[] }[] = [];
 	for (const row of rows) {
 		const last = groups.at(-1);
 		if (last !== undefined && last.first.dateKey === row.dateKey) {
@@ -159,7 +159,7 @@ const monthKeyOf = (row: MediaActivityRowBase) =>
 	row.dateKey === "date-unknown" ? row.dateKey : row.dateKey.slice(0, 7);
 
 const monthGroups = <Row extends MediaActivityRowBase>(rows: readonly Row[]) => {
-	const groups: { readonly key: string; readonly rows: Row[]; readonly first: Row }[] = [];
+	const groups: { readonly first: Row; readonly key: string; readonly rows: Row[] }[] = [];
 	for (const row of rows) {
 		const key = monthKeyOf(row);
 		const last = groups.at(-1);
@@ -200,50 +200,11 @@ const monthDetail = <Row extends MediaActivityRowBase>(
 	return `${summary} · ${days === 1 ? "1 day" : `${days} days`}`;
 };
 
-function MediaActivityMonth<Row extends MediaActivityRowBase>(props: {
-	readonly compact: boolean;
-	readonly initiallyOpen: boolean;
-	readonly rows: readonly Row[];
-	readonly first: Row;
-	readonly render: MediaActivityRowRender<Row>;
-}) {
-	const [open, setOpen] = useState(props.initiallyOpen);
-	const label =
-		props.first.dateKey === "date-unknown"
-			? "Date unknown"
-			: formatLocalMonthLabel(props.first.occurredAt);
-	return (
-		<section aria-label={label} className="grid gap-3">
-			<button
-				type="button"
-				aria-expanded={open}
-				onClick={() => setOpen(!open)}
-				className="flex min-h-9 w-full items-center gap-2 rounded-md px-1 text-left hover:bg-hover pointer-coarse:min-h-11"
-			>
-				<AppIcon
-					size={14}
-					name="chevron-right"
-					className={clsx("shrink-0 text-text-subtle transition-transform", open && "rotate-90")}
-				/>
-				<span className="shrink-0 text-label font-semibold text-text">{label}</span>
-				<span className="min-w-0 flex-1 truncate text-right text-micro text-text-subtle">
-					{monthDetail(props.rows, props.render)}
-				</span>
-			</button>
-			{open ? (
-				<Timeline>
-					<MediaActivityDays rows={props.rows} render={props.render} compact={props.compact} />
-				</Timeline>
-			) : null}
-		</section>
-	);
-}
-
 export function MediaActivityRows<Row extends MediaActivityRowBase>(props: {
 	readonly compact: boolean;
 	readonly rows: readonly Row[];
 	readonly render: MediaActivityRowRender<Row>;
-	readonly monthly?: { readonly openNewest: boolean } | undefined;
+	readonly monthly?: undefined | { readonly openNewest: boolean };
 }) {
 	const months = monthGroups(props.rows);
 	if (
@@ -282,6 +243,45 @@ function MediaActivityWatchSeparator(props: { readonly label: string }) {
 			</p>
 			<div className="h-px flex-1 bg-border" />
 		</div>
+	);
+}
+
+function MediaActivityMonth<Row extends MediaActivityRowBase>(props: {
+	readonly first: Row;
+	readonly compact: boolean;
+	readonly rows: readonly Row[];
+	readonly initiallyOpen: boolean;
+	readonly render: MediaActivityRowRender<Row>;
+}) {
+	const [open, setOpen] = useState(props.initiallyOpen);
+	const label =
+		props.first.dateKey === "date-unknown"
+			? "Date unknown"
+			: formatLocalMonthLabel(props.first.occurredAt);
+	return (
+		<section aria-label={label} className="grid gap-3">
+			<button
+				type="button"
+				aria-expanded={open}
+				onClick={() => setOpen(!open)}
+				className="flex min-h-9 w-full items-center gap-2 rounded-md px-1 text-left hover:bg-hover pointer-coarse:min-h-11"
+			>
+				<AppIcon
+					size={14}
+					name="chevron-right"
+					className={clsx("shrink-0 text-text-subtle transition-transform", open && "rotate-90")}
+				/>
+				<span className="shrink-0 text-label font-semibold text-text">{label}</span>
+				<span className="min-w-0 flex-1 truncate text-right text-micro text-text-subtle">
+					{monthDetail(props.rows, props.render)}
+				</span>
+			</button>
+			{open ? (
+				<Timeline>
+					<MediaActivityDays rows={props.rows} render={props.render} compact={props.compact} />
+				</Timeline>
+			) : null}
+		</section>
 	);
 }
 

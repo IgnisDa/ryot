@@ -27,11 +27,16 @@ import { ExerciseGroups } from "./exercise-card";
 import { WorkoutComment, WorkoutHeader, WorkoutSession, WorkoutSummaryRow } from "./overview";
 import { workoutDetailsQuery } from "./queries";
 
+export default function WorkoutDetailsPage() {
+	const location = usePluginLocation();
+	return location.kind === "entity" ? <WorkoutDetailsScreen entityId={location.entityId} /> : null;
+}
+
 export function WorkoutDetailsView(props: {
-	readonly settings: Pick<WorkoutPreferenceSettings, "unitSystem" | "energyUnit">;
-	readonly proAvailable: boolean;
 	readonly compact: boolean;
+	readonly proAvailable: boolean;
 	readonly workout: WorkoutDetails;
+	readonly settings: Pick<WorkoutPreferenceSettings, "unitSystem" | "energyUnit">;
 }) {
 	const { compact, workout } = props;
 	const imperial = props.settings.unitSystem === "imperial";
@@ -91,11 +96,32 @@ export function WorkoutDetailsView(props: {
 	);
 }
 
+function WorkoutDetailsScreen(props: { readonly entityId: string }) {
+	const { compact } = useRyotViewport();
+	const result = useRyotQuery(workoutDetailsQuery, { entityId: props.entityId });
+	return (
+		<WorkoutProcessing workoutId={props.entityId}>
+			<PluginScreenFrame hideTitle title={result.data?.name ?? null}>
+				<DisplayPreferences>
+					{(context) => (
+						<WorkoutDetailsBody
+							result={result}
+							compact={compact}
+							settings={context.settings}
+							proAvailable={context.proAvailable}
+						/>
+					)}
+				</DisplayPreferences>
+			</PluginScreenFrame>
+		</WorkoutProcessing>
+	);
+}
+
 function WorkoutDetailsBody(props: {
-	readonly settings: Pick<WorkoutPreferenceSettings, "unitSystem" | "energyUnit">;
-	readonly proAvailable: boolean;
 	readonly compact: boolean;
-	readonly result: RyotQueryResult<WorkoutDetails | null>;
+	readonly proAvailable: boolean;
+	readonly result: RyotQueryResult<null | WorkoutDetails>;
+	readonly settings: Pick<WorkoutPreferenceSettings, "unitSystem" | "energyUnit">;
 }) {
 	const { result, compact } = props;
 	const workout = result.data;
@@ -124,30 +150,4 @@ function WorkoutDetailsBody(props: {
 			{workout === null ? "This workout no longer exists." : "Loading workout…"}
 		</StatusMessage>
 	);
-}
-
-function WorkoutDetailsScreen(props: { readonly entityId: string }) {
-	const { compact } = useRyotViewport();
-	const result = useRyotQuery(workoutDetailsQuery, { entityId: props.entityId });
-	return (
-		<WorkoutProcessing workoutId={props.entityId}>
-			<PluginScreenFrame hideTitle title={result.data?.name ?? null}>
-				<DisplayPreferences>
-					{(context) => (
-						<WorkoutDetailsBody
-							result={result}
-							compact={compact}
-							settings={context.settings}
-							proAvailable={context.proAvailable}
-						/>
-					)}
-				</DisplayPreferences>
-			</PluginScreenFrame>
-		</WorkoutProcessing>
-	);
-}
-
-export default function WorkoutDetailsPage() {
-	const location = usePluginLocation();
-	return location.kind === "entity" ? <WorkoutDetailsScreen entityId={location.entityId} /> : null;
 }

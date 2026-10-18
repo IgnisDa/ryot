@@ -27,7 +27,7 @@ export const manifest = defineManifest({
 });
 
 type JellyfinSession = { readonly userId: string; readonly accessToken: string };
-type JellyfinItem = { readonly tmdbId: string | null; readonly title: string | null };
+type JellyfinItem = { readonly title: null | string; readonly tmdbId: null | string };
 
 const authenticateJellyfin = (
 	host: IntegrationPushHost,
@@ -44,7 +44,7 @@ const authenticateJellyfin = (
 			}),
 		})
 		.pipe(
-			Effect.map((result): JellyfinSession | null => {
+			Effect.map((result): null | JellyfinSession => {
 				const payload = asRecord(parseJsonBody(result));
 				const user = asRecord(payload?.["User"]);
 				const accessToken = payload?.["AccessToken"];

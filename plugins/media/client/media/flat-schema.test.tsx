@@ -96,8 +96,8 @@ const renderBody = (
 	state: SummaryState,
 	options: {
 		readonly refresh?: () => void;
-		readonly overview?: ReturnType<typeof overviewOf>;
 		readonly adapter?: Partial<RyotClientAdapter>;
+		readonly overview?: ReturnType<typeof overviewOf>;
 	} = {},
 ) =>
 	mountRyotClient(

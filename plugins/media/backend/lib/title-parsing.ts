@@ -23,8 +23,8 @@ const SHOW_INDICATOR_PATTERNS = [
 	/\bLimited\s+Series\b/i,
 ];
 
+type GeneralSource = "sxxexx" | "season_episode";
 type EpisodeSource = "chapter" | "episode" | "parentheses";
-type GeneralSource = "season_episode" | "sxxexx";
 
 const wordToNumberMap: Record<string, number> = {
 	one: 1,
@@ -155,7 +155,7 @@ const parseLabelledEpisode = (segment: string): number | undefined => {
 
 const extractEpisode = (
 	segment: string,
-): { episode: number; source: EpisodeSource } | undefined => {
+): undefined | { episode: number; source: EpisodeSource } => {
 	const parenthesesMatch = segment.match(/\(Episode\s+([A-Za-z0-9]+)\)/i)?.[1];
 	const parenthesesEpisode = parenthesesMatch ? parseNumberToken(parenthesesMatch) : undefined;
 	if (parenthesesEpisode !== undefined) {
@@ -234,7 +234,7 @@ const parseNumericSegment = (segment: string): number | undefined =>
 
 const extractGeneralSeasonEpisode = (
 	title: string,
-): { episode: number; season: number; source: GeneralSource } | undefined => {
+): undefined | { season: number; episode: number; source: GeneralSource } => {
 	const sxxExxMatch = title.match(/\bS(\d{1,3})\s*E(\d{1,3})\b/i);
 	if (sxxExxMatch) {
 		const season = parseNumberToken(sxxExxMatch[1] ?? "");
@@ -294,9 +294,9 @@ const constructBaseTitle = (title: string, baseSegments: string[]): string => {
 const resolveSeasonEpisode = (input: {
 	season?: number | undefined;
 	episode?: number | undefined;
-	episodeSource?: EpisodeSource | undefined;
-	generalPair?: { episode: number; season: number; source: GeneralSource } | undefined;
-}): MetadataLookupEpisodeInfo | undefined => {
+	episodeSource?: undefined | EpisodeSource;
+	generalPair?: undefined | { season: number; episode: number; source: GeneralSource };
+}): undefined | MetadataLookupEpisodeInfo => {
 	let resolvedSeason = input.season;
 	let resolvedEpisode = input.episode;
 	if (input.generalPair) {
@@ -323,7 +323,7 @@ const resolveSeasonEpisode = (input: {
 
 const parseNetflixTitle = (
 	title: string,
-): { baseTitle: string; episodeInfo?: MetadataLookupEpisodeInfo | undefined } => {
+): { baseTitle: string; episodeInfo?: undefined | MetadataLookupEpisodeInfo } => {
 	const trimmed = title.trim();
 	const segments = splitSegments(trimmed);
 	if (segments.length === 0) {
@@ -335,7 +335,7 @@ const parseNetflixTitle = (
 	const baseSegments: string[] = [];
 	let season: number | undefined;
 	let episode: number | undefined;
-	let episodeSource: EpisodeSource | undefined;
+	let episodeSource: undefined | EpisodeSource;
 	let encounteredStructure = false;
 
 	for (const segment of segments) {
@@ -390,7 +390,7 @@ export const extractMetadataLookupBaseTitle = (title: string): string =>
 
 export const extractMetadataLookupSeasonEpisode = (
 	title: string,
-): MetadataLookupEpisodeInfo | undefined => parseNetflixTitle(title).episodeInfo;
+): undefined | MetadataLookupEpisodeInfo => parseNetflixTitle(title).episodeInfo;
 
 export const hasMetadataLookupShowIndicators = (title: string): boolean =>
 	SHOW_INDICATOR_PATTERNS.some((pattern) => pattern.test(title));

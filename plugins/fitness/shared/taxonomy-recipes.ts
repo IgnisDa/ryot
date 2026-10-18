@@ -24,13 +24,13 @@ import { property } from "./entity-selections";
 import { exerciseTargetKindSchema, exerciseTargetRoleSchema } from "./taxonomy";
 
 type Table = ReturnType<typeof table>;
-type TaxonomyListInput = Pick<Parameters<typeof selectedRows>[1], "after" | "limit"> & {
-	readonly reference: PluginIdentityReference;
-	readonly name?: string | undefined;
-};
 type ExerciseTaxonomyInput = Pick<Parameters<typeof selectedRows>[1], "after" | "limit"> & {
-	readonly reference: PluginIdentityReference;
 	readonly exerciseId: string;
+	readonly reference: PluginIdentityReference;
+};
+type TaxonomyListInput = Pick<Parameters<typeof selectedRows>[1], "after" | "limit"> & {
+	readonly name?: string | undefined;
+	readonly reference: PluginIdentityReference;
 };
 
 const taxonomyWhere = (entity: Table, schemaSlug: string, input: TaxonomyListInput) =>

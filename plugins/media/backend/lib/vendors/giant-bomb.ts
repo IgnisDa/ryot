@@ -121,12 +121,12 @@ export const collectNames = (items: unknown) => {
 	});
 };
 
-export const readTotalItems = (payload: UnknownRecord | null) => {
+export const readTotalItems = (payload: null | UnknownRecord) => {
 	const total = numberValue(payload?.["number_of_total_results"]);
 	return total === null ? 0 : Math.max(0, Math.trunc(total));
 };
 
-export const readResults = (payload: UnknownRecord | null) => {
+export const readResults = (payload: null | UnknownRecord) => {
 	const results = payload?.["results"];
 	return Array.isArray(results) ? results : [];
 };

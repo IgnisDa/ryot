@@ -48,24 +48,13 @@ const progressFields = (entitySchemaSlug: string): readonly string[] => {
 export const mediaActivityDeclaredProperties = (
 	entitySchemaSlug: string,
 	eventSchemaSlug: string,
-): readonly string[] | undefined => {
+): undefined | readonly string[] => {
 	if (!activityEntities.has(entitySchemaSlug)) {
 		return undefined;
 	}
 	const episode = episodeEntities.has(entitySchemaSlug);
 	const parent = episodicParents.has(entitySchemaSlug);
 	switch (eventSchemaSlug) {
-		case "complete":
-			return [
-				"consumedOn",
-				"timeSpent",
-				"startedOn",
-				"dateUnknown",
-				"completionKey",
-				"completionSilent",
-			];
-		case "progress":
-			return parent ? undefined : progressFields(entitySchemaSlug);
 		case "dropped":
 		case "on_hold":
 			if (episode) {
@@ -78,6 +67,17 @@ export const mediaActivityDeclaredProperties = (
 			];
 		case "backlog":
 			return episode ? undefined : [];
+		case "complete":
+			return [
+				"consumedOn",
+				"timeSpent",
+				"startedOn",
+				"dateUnknown",
+				"completionKey",
+				"completionSilent",
+			];
+		case "progress":
+			return parent ? undefined : progressFields(entitySchemaSlug);
 		default:
 			return undefined;
 	}
@@ -89,7 +89,7 @@ export const mediaProgressPositionProperty = (entitySchemaSlug: string) =>
 /** Progress is a cumulative position on positional media and a percent everywhere else. */
 export const mediaProgressRuleError = (
 	entitySchemaSlug: string,
-	progress: { readonly position: boolean; readonly percent: boolean },
+	progress: { readonly percent: boolean; readonly position: boolean },
 	requirePosition: boolean,
 ) => {
 	const positional = mediaProgressPositionProperty(entitySchemaSlug) !== undefined;

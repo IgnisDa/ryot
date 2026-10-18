@@ -37,152 +37,16 @@ const sectionHeading = "text-[11px] font-semibold tracking-wider text-text-subtl
 const validRest = (value: string | undefined) =>
 	value === undefined || value.trim() === "" || /^\d+$/.test(value.trim());
 
+type ExerciseDefaults = ReturnType<typeof useExerciseDefaults>;
+
 type ExerciseDefaultsProps = {
 	readonly exerciseId: string;
+	readonly onSaved: () => void;
+	readonly onClose: () => void;
 	readonly exerciseName: string;
 	readonly exerciseKind: ExerciseKind;
 	readonly overrides: WorkoutExerciseOverrides;
-	readonly onSaved: () => void;
-	readonly onClose: () => void;
 };
-
-function useExerciseDefaults(
-	props: Pick<ExerciseDefaultsProps, "exerciseId" | "overrides" | "onSaved" | "onClose">,
-) {
-	const client = useRyot();
-	const schedule = useRyotSchedule();
-	const [values, setValues] = useState(() =>
-		Object.fromEntries(
-			workoutRestFields.map((field) => [
-				field,
-				props.overrides[field] == null ? "" : String(props.overrides[field]),
-			]),
-		),
-	);
-	const [duration, setDuration] = useState(props.overrides.defaultDurationUnit ?? "inherited");
-	const [pending, setPending] = useState(false);
-	const [error, setError] = useState<string>();
-	const save = () => {
-		const overrides = Schema.decodeUnknownResult(WorkoutExerciseOverridesSchema)({
-			...Object.fromEntries(
-				workoutRestFields.map((field) => [
-					field,
-					values[field]?.trim() ? Number(values[field].trim()) : null,
-				]),
-			),
-			defaultDurationUnit: duration === "inherited" ? null : duration,
-		});
-		if (overrides._tag === "Failure") {
-			setError(
-				"Enter whole seconds of 0 or more, or leave a field blank to use your Fitness settings.",
-			);
-			return;
-		}
-		const decoded = Schema.decodeResult(ExerciseOverrideUpdateInputSchema)({
-			overrides: overrides.success,
-			exerciseId: props.exerciseId,
-		});
-		if (decoded._tag === "Failure") {
-			setError("These defaults are invalid.");
-			return;
-		}
-		setPending(true);
-		schedule.run(
-			client.operations
-				.invoke({
-					input: decoded.success,
-					packageId: PLUGIN_PACKAGE_ID,
-					slug: exerciseOverrideUpdateOperationSlug,
-					output: ExerciseOverrideUpdateOutputSchema,
-					inputSchema: ExerciseOverrideUpdateInputSchema,
-				})
-				.pipe(
-					Effect.match({
-						onFailure: () => setError("Defaults could not be saved. Try again."),
-						onSuccess: (result) => {
-							if (result.kind === "saved") {
-								props.onSaved();
-								props.onClose();
-							} else {
-								setError("This exercise is unavailable.");
-							}
-						},
-					}),
-					Effect.asVoid,
-				),
-			() => setPending(false),
-		);
-	};
-	return { save, error, values, pending, duration, setValues, setDuration };
-}
-
-type ExerciseDefaults = ReturnType<typeof useExerciseDefaults>;
-
-function ExerciseDefaultsForm(props: {
-	readonly defaults: ExerciseDefaults;
-	readonly exerciseKind: ExerciseKind;
-}) {
-	const { error, values, pending, duration, setValues, setDuration } = props.defaults;
-	return (
-		<>
-			<fieldset disabled={pending} className="grid min-w-0 gap-3 border-0 p-0">
-				<legend className={sectionHeading}>Defaults for every workout</legend>
-				<p className="text-xs text-text-muted">
-					Blank uses your Fitness settings. 0 turns rest off. Sets with their own rest keep it.
-				</p>
-				{workoutRestFields.map((field) => (
-					<Field key={field} label={restLabels[field]}>
-						{(control) => (
-							<TextField
-								{...control}
-								inputMode="numeric"
-								value={values[field] ?? ""}
-								invalid={error !== undefined && !validRest(values[field])}
-								onChange={(event) =>
-									setValues((previous) => ({ ...previous, [field]: event.target.value }))
-								}
-							/>
-						)}
-					</Field>
-				))}
-				{requiredWorkoutMeasurementsByKind[props.exerciseKind].includes("duration") ? (
-					<div className="grid gap-1.5">
-						<span className="text-[13px] font-medium">Default duration unit</span>
-						<SegmentedControl
-							fill
-							value={duration}
-							onChange={setDuration}
-							optionClassName="px-2"
-							label="Default duration unit"
-							options={[
-								{ value: "inherited", label: "Fitness setting", content: "Fitness setting" },
-								{ value: "seconds", label: "Seconds", content: "Seconds" },
-								{ value: "minutes", label: "Minutes", content: "Minutes" },
-							]}
-						/>
-					</div>
-				) : null}
-			</fieldset>
-			{error === undefined ? null : <FieldMessage>{error}</FieldMessage>}
-		</>
-	);
-}
-
-function DefaultsActions(props: {
-	readonly defaults: ExerciseDefaults;
-	readonly onClose: () => void;
-}) {
-	return (
-		<>
-			<Button variant="secondary" onClick={props.onClose} disabled={props.defaults.pending}>
-				Cancel
-			</Button>
-			<Button onClick={props.defaults.save} loading={props.defaults.pending}>
-				Save defaults
-			</Button>
-		</>
-	);
-}
 
 export function ExerciseDefaultsSheet(props: ExerciseDefaultsProps) {
 	const defaults = useExerciseDefaults(props);
@@ -204,11 +68,11 @@ export function ExerciseDefaultsSheet(props: ExerciseDefaultsProps) {
 }
 
 export function UnitsAndDefaultsSheet(props: {
+	readonly onClose: () => void;
+	readonly onSaved: () => void;
 	readonly exercise: EditorExercise;
 	readonly occurrence: WorkoutEditorOccurrence;
 	readonly onDisplay: (display: WorkoutEditorDisplay) => void;
-	readonly onClose: () => void;
-	readonly onSaved: () => void;
 }) {
 	const defaults = useExerciseDefaults({
 		onSaved: props.onSaved,
@@ -278,4 +142,140 @@ export function UnitsAndDefaultsSheet(props: {
 			</div>
 		</EditorSheet>
 	);
+}
+
+function DefaultsActions(props: {
+	readonly onClose: () => void;
+	readonly defaults: ExerciseDefaults;
+}) {
+	return (
+		<>
+			<Button variant="secondary" onClick={props.onClose} disabled={props.defaults.pending}>
+				Cancel
+			</Button>
+			<Button onClick={props.defaults.save} loading={props.defaults.pending}>
+				Save defaults
+			</Button>
+		</>
+	);
+}
+
+function ExerciseDefaultsForm(props: {
+	readonly defaults: ExerciseDefaults;
+	readonly exerciseKind: ExerciseKind;
+}) {
+	const { error, values, pending, duration, setValues, setDuration } = props.defaults;
+	return (
+		<>
+			<fieldset disabled={pending} className="grid min-w-0 gap-3 border-0 p-0">
+				<legend className={sectionHeading}>Defaults for every workout</legend>
+				<p className="text-xs text-text-muted">
+					Blank uses your Fitness settings. 0 turns rest off. Sets with their own rest keep it.
+				</p>
+				{workoutRestFields.map((field) => (
+					<Field key={field} label={restLabels[field]}>
+						{(control) => (
+							<TextField
+								{...control}
+								inputMode="numeric"
+								value={values[field] ?? ""}
+								invalid={error !== undefined && !validRest(values[field])}
+								onChange={(event) =>
+									setValues((previous) => ({ ...previous, [field]: event.target.value }))
+								}
+							/>
+						)}
+					</Field>
+				))}
+				{requiredWorkoutMeasurementsByKind[props.exerciseKind].includes("duration") ? (
+					<div className="grid gap-1.5">
+						<span className="text-[13px] font-medium">Default duration unit</span>
+						<SegmentedControl
+							fill
+							value={duration}
+							onChange={setDuration}
+							optionClassName="px-2"
+							label="Default duration unit"
+							options={[
+								{ value: "inherited", label: "Fitness setting", content: "Fitness setting" },
+								{ value: "seconds", label: "Seconds", content: "Seconds" },
+								{ value: "minutes", label: "Minutes", content: "Minutes" },
+							]}
+						/>
+					</div>
+				) : null}
+			</fieldset>
+			{error === undefined ? null : <FieldMessage>{error}</FieldMessage>}
+		</>
+	);
+}
+
+function useExerciseDefaults(
+	props: Pick<ExerciseDefaultsProps, "onSaved" | "onClose" | "overrides" | "exerciseId">,
+) {
+	const client = useRyot();
+	const schedule = useRyotSchedule();
+	const [values, setValues] = useState(() =>
+		Object.fromEntries(
+			workoutRestFields.map((field) => [
+				field,
+				props.overrides[field] == null ? "" : String(props.overrides[field]),
+			]),
+		),
+	);
+	const [duration, setDuration] = useState(props.overrides.defaultDurationUnit ?? "inherited");
+	const [pending, setPending] = useState(false);
+	const [error, setError] = useState<string>();
+	const save = () => {
+		const overrides = Schema.decodeUnknownResult(WorkoutExerciseOverridesSchema)({
+			...Object.fromEntries(
+				workoutRestFields.map((field) => [
+					field,
+					values[field]?.trim() ? Number(values[field].trim()) : null,
+				]),
+			),
+			defaultDurationUnit: duration === "inherited" ? null : duration,
+		});
+		if (overrides._tag === "Failure") {
+			setError(
+				"Enter whole seconds of 0 or more, or leave a field blank to use your Fitness settings.",
+			);
+			return;
+		}
+		const decoded = Schema.decodeResult(ExerciseOverrideUpdateInputSchema)({
+			overrides: overrides.success,
+			exerciseId: props.exerciseId,
+		});
+		if (decoded._tag === "Failure") {
+			setError("These defaults are invalid.");
+			return;
+		}
+		setPending(true);
+		schedule.run(
+			client.operations
+				.invoke({
+					input: decoded.success,
+					packageId: PLUGIN_PACKAGE_ID,
+					slug: exerciseOverrideUpdateOperationSlug,
+					output: ExerciseOverrideUpdateOutputSchema,
+					inputSchema: ExerciseOverrideUpdateInputSchema,
+				})
+				.pipe(
+					Effect.match({
+						onFailure: () => setError("Defaults could not be saved. Try again."),
+						onSuccess: (result) => {
+							if (result.kind === "saved") {
+								props.onSaved();
+								props.onClose();
+							} else {
+								setError("This exercise is unavailable.");
+							}
+						},
+					}),
+					Effect.asVoid,
+				),
+			() => setPending(false),
+		);
+	};
+	return { save, error, values, pending, duration, setValues, setDuration };
 }

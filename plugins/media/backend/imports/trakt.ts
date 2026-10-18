@@ -61,9 +61,9 @@ const exportReviewTarget = (item: ExportItem) =>
 		: { type: "show-season" as const, seasonNumber: item.season.number });
 
 export type TraktRecordContext =
-	| { type: "history" | "rating" | "comment" }
-	| { type: "collection"; name: string }
-	| { type: "backlog"; importedAt: string };
+	| { name: string; type: "collection" }
+	| { type: "backlog"; importedAt: string }
+	| { type: "rating" | "history" | "comment" };
 
 export const TraktApiKind = Schema.Literals([
 	"lists",
@@ -146,7 +146,7 @@ export const normalizeTraktRecord = (
 		const unresolvedEpisode = exportReviewTarget(item);
 		events.push(unresolvedEpisode ? { ...review, unresolvedEpisode } : review);
 	}
-	let entitySchemaSlug: "movie" | "show" | undefined;
+	let entitySchemaSlug: "show" | "movie" | undefined;
 	if (item.movie) {
 		entitySchemaSlug = "movie";
 	} else if (item.show) {
@@ -215,7 +215,7 @@ export const parseListUrl = (value: string) => {
 	return `/users/${encodeURIComponent(username)}/lists/${encodeURIComponent(slug)}/items`;
 };
 
-export const ref = (item: Item, entitySchemaSlug: "movie" | "show"): ImportEntityRef | null => {
+export const ref = (item: Item, entitySchemaSlug: "show" | "movie"): null | ImportEntityRef => {
 	const sourceLabel =
 		item.title ??
 		`${entitySchemaSlug === "movie" ? "Movie" : "Show"} ${item.ids.trakt ?? "unknown"}`;

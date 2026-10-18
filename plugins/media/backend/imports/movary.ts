@@ -84,7 +84,7 @@ const rating = (value: string) => {
 
 const movieGroup = (
 	groups: Map<string, ImportMediaEntityGroupBuilder>,
-	input: { itemIndex: number; sourceLabel: string; tmdbId: string },
+	input: { tmdbId: string; itemIndex: number; sourceLabel: string },
 ) =>
 	getOrCreateMediaEntityGroup(
 		groups,

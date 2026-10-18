@@ -7,7 +7,7 @@ export const toDateTimeInput = (
 
 export const resolveDateTimeInput = (
 	value: string,
-	original: string | null | undefined,
+	original: null | string | undefined,
 	occurrence?: string,
 	timeZone: string | DateTime.TimeZone = DateTime.zoneMakeLocal(),
 ) => {
@@ -41,7 +41,7 @@ export const resolveDateTimeInput = (
 	if (selected === undefined && previousLocal?.slice(0, 10) === value.slice(0, 10)) {
 		selected = choices.find((choice) => choice.offset === previousOffset);
 	}
-	let iso: string | null = selected?.value ?? null;
+	let iso: null | string = selected?.value ?? null;
 	if (
 		selected !== undefined &&
 		original != null &&

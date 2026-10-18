@@ -92,13 +92,13 @@ const releaseQuery = (release: Deferred.Deferred<void>) =>
 const watchEntities = () => ({ update: () => undefined, dispose: () => undefined });
 
 const mountLog = (options: {
-	readonly logger: MediaActivityLogger;
 	readonly compact?: boolean;
 	readonly fake?: ActivityLogFake;
+	readonly logger: MediaActivityLogger;
 	readonly settings?: (read: number) => Record<string, unknown>;
-	readonly query?: (document: unknown) => Effect.Effect<unknown, RyotClientError> | undefined;
-	readonly refresh?: (document: unknown) => Effect.Effect<unknown, RyotClientError>;
 	readonly accept?: (attempt: number) => Effect.Effect<string, RyotClientError>;
+	readonly refresh?: (document: unknown) => Effect.Effect<unknown, RyotClientError>;
+	readonly query?: (document: unknown) => undefined | Effect.Effect<unknown, RyotClientError>;
 }) => {
 	const background = createTestBackgroundSubmissions(
 		() =>

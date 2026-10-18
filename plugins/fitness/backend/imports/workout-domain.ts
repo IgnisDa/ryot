@@ -67,8 +67,8 @@ const hasMeaningfulValue = (value: number | undefined) =>
 	value !== undefined && Number.isFinite(value) && value > 0;
 
 export const determineWorkoutExerciseKind = (
-	sets: Array<Pick<WorkoutImportSet, "distance" | "duration" | "reps" | "weight">>,
-): ExerciseKind | null => {
+	sets: Array<Pick<WorkoutImportSet, "reps" | "weight" | "distance" | "duration">>,
+): null | ExerciseKind => {
 	if (sets.length === 0) {
 		return null;
 	}

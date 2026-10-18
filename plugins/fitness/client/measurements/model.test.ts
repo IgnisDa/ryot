@@ -41,7 +41,7 @@ const reading = (
 	metricId: string,
 	value: number,
 	occurredAt: string,
-	comment: string | null = null,
+	comment: null | string = null,
 ): MeasurementLogEntry => ({
 	id,
 	comment,

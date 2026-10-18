@@ -56,9 +56,9 @@ export const selectedPresentationSource = <
 export const mediaPresentationSourceRecipe = <Data>(
 	source: MediaPresentationSource<Data>,
 	input: {
-		readonly reference: PluginIdentityReference;
-		readonly entityIds: readonly string[];
 		readonly entitySchemaSlug: string;
+		readonly entityIds: readonly string[];
+		readonly reference: PluginIdentityReference;
 	},
 ) => {
 	const entity = table("entity", "entity");
@@ -125,13 +125,9 @@ const primaryExpression = (media: Table, slug: string) => {
 
 const secondaryExpression = (media: Table, slug: string) => {
 	switch (slug) {
-		case "person":
-			return propertyText(media, "birthDate");
 		case "book":
 		case "show":
 			return propertyText(media, "productionStatus");
-		case "comic-book":
-			return withUnit(media, "pages", " pages");
 		case "movie":
 		case "audiobook":
 			return withUnit(media, "runtime", " min");
@@ -139,8 +135,12 @@ const secondaryExpression = (media: Table, slug: string) => {
 			return withUnit(media, "chapters", " ch");
 		case "anime":
 			return withUnit(media, "episodes", " eps");
+		case "person":
+			return propertyText(media, "birthDate");
 		case "podcast":
 			return withUnit(media, "totalEpisodes", " eps");
+		case "comic-book":
+			return withUnit(media, "pages", " pages");
 		case "visual-novel":
 			return withUnit(media, "lengthMinutes", " min");
 		default:

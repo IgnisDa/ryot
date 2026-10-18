@@ -182,7 +182,7 @@ function ProgressChart(props: {
 	);
 }
 
-const personalBestValues: Readonly<Record<PersonalBest, (row: PersonalBestRow) => string | null>> =
+const personalBestValues: Readonly<Record<PersonalBest, (row: PersonalBestRow) => null | string>> =
 	{
 		reps: (row) => (row.reps === null ? null : formatNumber(row.reps)),
 		time: (row) => (row.duration === null ? null : formatDuration(row.duration)),
@@ -196,69 +196,48 @@ const personalBestValues: Readonly<Record<PersonalBest, (row: PersonalBestRow) =
 				: formatMetric((row.distance / row.duration) * 3600, "kmh"),
 	};
 
-function PersonalBests(props: {
-	readonly rows: ExerciseDetails["personalBests"];
+export function RecentSessions(props: {
+	readonly compact: boolean;
+	readonly details: ExerciseDetails;
 	readonly kind: ExerciseRecord["kind"];
 }) {
-	const entries = latestPersonalBests(props.rows)
-		.map((entry) => ({ entry, value: personalBestValues[entry.type](entry.row) }))
-		.filter(({ value }) => value !== null);
-	if (entries.length === 0) {
+	if (props.details.sessions.length === 0) {
 		return null;
 	}
 	return (
-		<div className={cardClass}>
-			<h3 className={cardHeadingClass}>Personal bests</h3>
-			<ul className="flex flex-col divide-y divide-border">
-				{entries.map(({ entry, value }) => (
-					<li key={entry.type} className="flex items-baseline justify-between gap-4 py-2">
-						<div className="flex min-w-0 flex-col">
-							<span className="text-[14px] text-text">{personalBestTitles[entry.type]}</span>
-							<PluginLink
-								className="truncate text-[13px] text-accent-text"
-								to={{ kind: "entity", entityId: entry.row.workoutId }}
-							>
-								{formatSetMain(props.kind, entry.row)} ·{" "}
-								{formatShortDate(entry.row.occurredAt, null)}
-							</PluginLink>
-						</div>
-						<span className="font-semibold text-[16px] text-text tabular-nums">{value}</span>
-					</li>
-				))}
-			</ul>
-		</div>
-	);
-}
-
-function BestWeightByReps(props: { readonly details: ExerciseDetails }) {
-	const rows = bestWeightByReps(props.details.totals);
-	if (rows.length === 0) {
-		return null;
-	}
-	return (
-		<div className={cardClass}>
-			<div className="flex flex-col gap-1">
-				<h3 className={cardHeadingClass}>Best weight by rep count</h3>
-				<span className="text-[13px] text-text-muted">
-					Heaviest set completed for at least that many reps
-				</span>
-			</div>
-			<ul className="grid grid-cols-[repeat(auto-fit,minmax(6rem,1fr))] gap-2">
-				{rows.map(({ reps, weight }) => (
+		<section className="flex flex-col gap-4" aria-labelledby="exercise-sessions">
+			<h2 id="exercise-sessions" className={sectionHeadingClass}>
+				Recent sessions
+			</h2>
+			<ul className="flex flex-col divide-y divide-border rounded-xl border border-border bg-surface font-ui">
+				{props.details.sessions.map((session) => (
 					<li
-						key={reps}
-						className="flex flex-col gap-1 rounded-lg border border-border bg-surface-2 p-3"
+						key={session.id}
+						className={clsx(
+							"flex gap-3 p-4",
+							props.compact ? "flex-col" : "items-center justify-between",
+						)}
 					>
-						<span className="text-[13px] text-text-muted">
-							{reps} {reps === 1 ? "rep" : "reps"}
-						</span>
-						<span className="font-semibold text-[16px] text-text tabular-nums">
-							{formatMeasure(weight, "kg")}
-						</span>
+						<div className="flex min-w-0 flex-col">
+							<PluginLink
+								to={{ kind: "entity", entityId: session.id }}
+								className="truncate font-semibold text-[15px] text-accent-text"
+							>
+								{session.name}
+							</PluginLink>
+							<span className="text-[13px] text-text-muted">
+								{session.startedAt === null ? null : formatShortDate(session.startedAt, null)}
+							</span>
+						</div>
+						<ul className="flex flex-wrap gap-2" aria-label={`Sets in ${session.name}`}>
+							{session.sets.items.map((set) => (
+								<SessionSet set={set} key={set.id} kind={props.kind} />
+							))}
+						</ul>
 					</li>
 				))}
 			</ul>
-		</div>
+		</section>
 	);
 }
 
@@ -346,47 +325,68 @@ function SessionSet(props: {
 	);
 }
 
-export function RecentSessions(props: {
-	readonly compact: boolean;
-	readonly details: ExerciseDetails;
-	readonly kind: ExerciseRecord["kind"];
-}) {
-	if (props.details.sessions.length === 0) {
+function BestWeightByReps(props: { readonly details: ExerciseDetails }) {
+	const rows = bestWeightByReps(props.details.totals);
+	if (rows.length === 0) {
 		return null;
 	}
 	return (
-		<section className="flex flex-col gap-4" aria-labelledby="exercise-sessions">
-			<h2 id="exercise-sessions" className={sectionHeadingClass}>
-				Recent sessions
-			</h2>
-			<ul className="flex flex-col divide-y divide-border rounded-xl border border-border bg-surface font-ui">
-				{props.details.sessions.map((session) => (
+		<div className={cardClass}>
+			<div className="flex flex-col gap-1">
+				<h3 className={cardHeadingClass}>Best weight by rep count</h3>
+				<span className="text-[13px] text-text-muted">
+					Heaviest set completed for at least that many reps
+				</span>
+			</div>
+			<ul className="grid grid-cols-[repeat(auto-fit,minmax(6rem,1fr))] gap-2">
+				{rows.map(({ reps, weight }) => (
 					<li
-						key={session.id}
-						className={clsx(
-							"flex gap-3 p-4",
-							props.compact ? "flex-col" : "items-center justify-between",
-						)}
+						key={reps}
+						className="flex flex-col gap-1 rounded-lg border border-border bg-surface-2 p-3"
 					>
-						<div className="flex min-w-0 flex-col">
-							<PluginLink
-								to={{ kind: "entity", entityId: session.id }}
-								className="truncate font-semibold text-[15px] text-accent-text"
-							>
-								{session.name}
-							</PluginLink>
-							<span className="text-[13px] text-text-muted">
-								{session.startedAt === null ? null : formatShortDate(session.startedAt, null)}
-							</span>
-						</div>
-						<ul className="flex flex-wrap gap-2" aria-label={`Sets in ${session.name}`}>
-							{session.sets.items.map((set) => (
-								<SessionSet set={set} key={set.id} kind={props.kind} />
-							))}
-						</ul>
+						<span className="text-[13px] text-text-muted">
+							{reps} {reps === 1 ? "rep" : "reps"}
+						</span>
+						<span className="font-semibold text-[16px] text-text tabular-nums">
+							{formatMeasure(weight, "kg")}
+						</span>
 					</li>
 				))}
 			</ul>
-		</section>
+		</div>
+	);
+}
+
+function PersonalBests(props: {
+	readonly kind: ExerciseRecord["kind"];
+	readonly rows: ExerciseDetails["personalBests"];
+}) {
+	const entries = latestPersonalBests(props.rows)
+		.map((entry) => ({ entry, value: personalBestValues[entry.type](entry.row) }))
+		.filter(({ value }) => value !== null);
+	if (entries.length === 0) {
+		return null;
+	}
+	return (
+		<div className={cardClass}>
+			<h3 className={cardHeadingClass}>Personal bests</h3>
+			<ul className="flex flex-col divide-y divide-border">
+				{entries.map(({ entry, value }) => (
+					<li key={entry.type} className="flex items-baseline justify-between gap-4 py-2">
+						<div className="flex min-w-0 flex-col">
+							<span className="text-[14px] text-text">{personalBestTitles[entry.type]}</span>
+							<PluginLink
+								className="truncate text-[13px] text-accent-text"
+								to={{ kind: "entity", entityId: entry.row.workoutId }}
+							>
+								{formatSetMain(props.kind, entry.row)} ·{" "}
+								{formatShortDate(entry.row.occurredAt, null)}
+							</PluginLink>
+						</div>
+						<span className="font-semibold text-[16px] text-text tabular-nums">{value}</span>
+					</li>
+				))}
+			</ul>
+		</div>
 	);
 }

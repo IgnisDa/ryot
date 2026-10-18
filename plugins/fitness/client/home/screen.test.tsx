@@ -95,9 +95,9 @@ const pinnedMetric = {
 
 type Scenario = {
 	readonly workouts: boolean;
-	readonly goal?: number | null;
-	readonly metrics?: readonly Record<string, unknown>[];
+	readonly goal?: null | number;
 	readonly storedDraft?: string;
+	readonly metrics?: readonly Record<string, unknown>[];
 };
 
 const respond = (

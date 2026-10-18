@@ -29,7 +29,7 @@ import { createYoutubeMusicClient } from "./youtube-music";
 configureApprovedDependencyRuntime((operation) => operation());
 
 const recordedClient = (path: string, responses: readonly unknown[], language = "en") => {
-	const requests: { method: string; path: string; body: unknown }[] = [];
+	const requests: { path: string; body: unknown; method: string }[] = [];
 	const host: YoutubeiHost = {
 		httpCall: (method, url, options) =>
 			Effect.gen(function* () {

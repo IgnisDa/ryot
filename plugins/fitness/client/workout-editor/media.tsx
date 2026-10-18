@@ -12,13 +12,13 @@ import { EditorSheet } from "./editor-sheet";
 import { targetMedia, type WorkoutMediaKind, type WorkoutMediaTarget } from "./media-state";
 
 export function WorkoutMediaOverlay(props: {
-	readonly draft: WorkoutEditorDraft;
-	readonly target: WorkoutMediaTarget;
 	readonly label: string;
-	readonly canUpload: boolean;
 	readonly disabled: boolean;
+	readonly canUpload: boolean;
 	readonly uploading: boolean;
 	readonly onClose: () => void;
+	readonly draft: WorkoutEditorDraft;
+	readonly target: WorkoutMediaTarget;
 	readonly onRemove: (kind: WorkoutMediaKind, asset: WorkoutSetAssetLocator) => void;
 	readonly onUpload: (kind: WorkoutMediaKind, file: File) => Effect.Effect<void, unknown>;
 }) {

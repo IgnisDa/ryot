@@ -6,17 +6,17 @@ import type { MediaImageAsset } from "./image";
 export const imageAssetKey = (asset: MediaImageAsset) =>
 	asset.type === "remote" ? `remote:${asset.url}` : managedAssetKey(asset);
 
-type AssetShape = "rounded" | "circle";
-
 type AssetFit = "cover" | "contain";
+
+type AssetShape = "circle" | "rounded";
 
 export function ManagedAssetImage(props: {
 	readonly monogram: string;
 	readonly className: string;
 	readonly state: FieldSyncState;
 	readonly fit?: AssetFit | undefined;
-	readonly shape?: AssetShape | undefined;
-	readonly asset: MediaImageAsset | undefined;
+	readonly shape?: undefined | AssetShape;
+	readonly asset: undefined | MediaImageAsset;
 }) {
 	const url = useAssetUrl(props.asset);
 	return (

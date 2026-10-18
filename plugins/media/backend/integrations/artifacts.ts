@@ -10,7 +10,7 @@ import type { MediaIntegrationAdapterResult } from "../imports/schemas";
 
 export const captureIntegrationRecords = Effect.fn(function* (
 	source: string,
-	result: MediaIntegrationAdapterResult | SandboxScratchManifest,
+	result: SandboxScratchManifest | MediaIntegrationAdapterResult,
 ) {
 	if ("chunkFiles" in result) {
 		return result;
@@ -30,7 +30,7 @@ export const captureIntegrationRecords = Effect.fn(function* (
 export const captureIntegrationWindow = Effect.fn(function* (
 	source: string,
 	result: MediaIntegrationAdapterResult,
-	carry: string | null,
+	carry: null | string,
 	eventIndexBase = 0,
 ) {
 	const chunks = [

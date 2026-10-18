@@ -67,7 +67,7 @@ const Cursor = Schema.Struct({
 });
 const cursorJson = Schema.fromJsonString(Cursor);
 
-const refFor = (item: typeof Item.Type, lot: "movie" | "show"): ImportEntityRef | null => {
+const refFor = (item: typeof Item.Type, lot: "show" | "movie"): null | ImportEntityRef => {
 	const ids = Object.fromEntries((item.Guid ?? []).map(({ id }) => id.split("://")));
 	return movieOrShowImportRef({
 		entitySchemaSlug: lot,
@@ -287,7 +287,7 @@ export default defineScript({
 					}
 				}
 			}
-			let next: typeof Cursor.Type | null = null;
+			let next: null | typeof Cursor.Type = null;
 			if (
 				continuation.phase === "episodes" ||
 				(continuation.phase === "listing" &&

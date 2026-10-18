@@ -14,8 +14,8 @@ type BuiltinRelationshipSchema = {
 	slug: string;
 	name: string;
 	propertiesSchema: AppSchema;
-	sourceEntitySchemaSlug: string | null;
-	targetEntitySchemaSlug: string | null;
+	sourceEntitySchemaSlug: null | string;
+	targetEntitySchemaSlug: null | string;
 	userWritePolicy?: PluginRelationshipSchema["userWritePolicy"];
 };
 

@@ -18,6 +18,7 @@ import {
 } from "../../tests/backend/automations/automation-test-utils";
 import definition, { manifest } from "./jellyfin-push.sandbox";
 
+type HttpCall = { url: string; method: string; options: Record<string, unknown> };
 type JellyfinHost = Pick<
 	ScriptHost,
 	| "log"
@@ -27,7 +28,6 @@ type JellyfinHost = Pick<
 	| "listIntegrations"
 	| "getUserPreferences"
 >;
-type HttpCall = { url: string; method: string; options: Record<string, unknown> };
 
 const movieEntity = entityRecord({
 	id: "movie-1",
@@ -81,9 +81,9 @@ const createLog =
 		});
 
 const createHost = (options: {
+	log?: JellyfinHost["log"];
 	disableIntegrations?: boolean;
 	httpCall: JellyfinHost["httpCall"];
-	log?: JellyfinHost["log"];
 	entity?: ReturnType<typeof entityRecord>;
 	integrations?: ReturnType<typeof integrationRecord>[];
 }) =>

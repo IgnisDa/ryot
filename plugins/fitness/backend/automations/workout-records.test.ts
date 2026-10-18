@@ -89,7 +89,7 @@ const workoutUpdateInput = (changedProperties: readonly string[]) =>
 
 const workoutSetExercisePage = (
 	entityIds: readonly string[],
-	options: { readonly hasMore?: boolean; readonly nextCursor?: string | null } = {},
+	options: { readonly hasMore?: boolean; readonly nextCursor?: null | string } = {},
 ) => ({
 	type: "rows" as const,
 	items: entityIds.map((entityId) => ({ entityId })),

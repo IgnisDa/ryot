@@ -70,7 +70,7 @@ const Cursor = Schema.Union([
 ]);
 const cursorJson = Schema.fromJsonString(Cursor);
 
-const itemRef = (item: typeof Item.Type, ownership: boolean): ImportEntityRef | null => {
+const itemRef = (item: typeof Item.Type, ownership: boolean): null | ImportEntityRef => {
 	const metadata = item.media?.metadata;
 	if (!metadata) {
 		return null;
@@ -147,7 +147,7 @@ export default defineScript({
 			}
 			const failures: Array<MediaIntegrationAdapterResult["failures"][number]> = [];
 			const entityGroups: Array<MediaIntegrationAdapterResult["entityGroups"][number]> = [];
-			let next: typeof Cursor.Type | null = null;
+			let next: null | typeof Cursor.Type = null;
 			let itemIndex = cursor.itemIndex;
 			if (cursor.kind === "progress") {
 				const item = cursor.items[cursor.offset];

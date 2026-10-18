@@ -18,8 +18,8 @@ import { LocalAssetLocator, RemoteAssetLocator, S3AssetLocator } from "@ryot-app
 import type { PluginIdentityReference } from "@ryot-app/plugin-kit/schema";
 
 const selectedPresentationSource = <const Selection extends SelectedSelection>(input: {
-	readonly selection: Selection;
 	readonly slug: string;
+	readonly selection: Selection;
 }) => {
 	const entity = table("entity", "entity");
 	const source = selectedRowsSource(entity, { selection: input.selection });

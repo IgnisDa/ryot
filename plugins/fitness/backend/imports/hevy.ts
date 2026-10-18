@@ -157,7 +157,7 @@ const toWorkoutSet = (row: HevyRow): WorkoutImportSet => {
 };
 
 const sourceLabelForWorkout = (row: HevyRow) => `${row.title} (${row.startTime})`;
-const sourceIdentifierForWorkout = (row: Pick<HevyRow, "startTime" | "title">) =>
+const sourceIdentifierForWorkout = (row: Pick<HevyRow, "title" | "startTime">) =>
 	`${row.startTime}:${row.title}`;
 
 export const hevyWorkoutKey = (row: Record<string, string>) =>
@@ -167,7 +167,7 @@ export const hevyWorkoutKey = (row: Record<string, string>) =>
 	});
 
 export const adaptHevyRows = (
-	rows: ReadonlyArray<{ row: Record<string, string>; itemIndex: number }>,
+	rows: ReadonlyArray<{ itemIndex: number; row: Record<string, string> }>,
 	timezone: string,
 ): WorkoutAdapterResult => {
 	const failures: WorkoutAdapterFailure[] = [];

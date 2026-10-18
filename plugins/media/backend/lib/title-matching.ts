@@ -7,9 +7,9 @@ import {
 export type MetadataLookupTitleMatchCandidate = {
 	title: string;
 	externalId: string;
-	publishYear: number | null;
-	entitySchemaSlug: "movie" | "show";
-	providerSlug: "movie.tmdb" | "show.tmdb";
+	publishYear: null | number;
+	entitySchemaSlug: "show" | "movie";
+	providerSlug: "show.tmdb" | "movie.tmdb";
 };
 
 const EXACT_MATCH_BONUS = 1;
@@ -102,8 +102,8 @@ const calculateMatchScore = (input: {
 export const chooseBestMetadataLookupTitleMatch = (input: {
 	title: string;
 	results: MetadataLookupTitleMatchCandidate[];
-	preferredEntitySchemaSlug?: "movie" | "show" | undefined;
-}): MetadataLookupTitleMatchCandidate | undefined => {
+	preferredEntitySchemaSlug?: "show" | "movie" | undefined;
+}): undefined | MetadataLookupTitleMatchCandidate => {
 	const filteredResults = input.preferredEntitySchemaSlug
 		? input.results.filter((result) => result.entitySchemaSlug === input.preferredEntitySchemaSlug)
 		: input.results;
@@ -114,7 +114,7 @@ export const chooseBestMetadataLookupTitleMatch = (input: {
 	const cleanedOriginal = extractMetadataLookupBaseTitle(input.title);
 	const publishYear = extractMetadataLookupYearFromTitle(input.title);
 	const hasShowIndicators = hasMetadataLookupShowIndicators(input.title);
-	let bestMatch: { result: MetadataLookupTitleMatchCandidate; score: number } | undefined;
+	let bestMatch: undefined | { score: number; result: MetadataLookupTitleMatchCandidate };
 	filteredResults.forEach((result, index) => {
 		const score = calculateMatchScore({
 			result,

@@ -34,7 +34,7 @@ type MediaEntityEditor = {
 	readonly deletable?: boolean;
 	readonly relationships: ReadonlyArray<{
 		readonly slug: string;
-		readonly direction: "outgoing" | "incoming" | "parent";
+		readonly direction: "parent" | "outgoing" | "incoming";
 	}>;
 };
 
@@ -101,7 +101,7 @@ export const mediaChildCreateSearch = (
 
 export const mediaChildCreateInput = (
 	entitySchemaSlug: string,
-	search: { readonly get: (key: string) => string | null },
+	search: { readonly get: (key: string) => null | string },
 ) => {
 	const parent = search.get("parent");
 	if (!isMediaChildEntitySchemaSlug(entitySchemaSlug) || parent === null) {
@@ -120,7 +120,7 @@ export const mediaChildCreateInput = (
 
 const editorRoutes: Record<
 	string,
-	{ readonly entitySchemaSlug: string; readonly kind: "create" | "edit" }
+	{ readonly kind: "edit" | "create"; readonly entitySchemaSlug: string }
 > = {};
 for (const entitySchemaSlug of Object.keys(mediaEntityEditors)) {
 	editorRoutes[mediaEntityCreateRoute(entitySchemaSlug)] = { kind: "create", entitySchemaSlug };

@@ -29,17 +29,90 @@ import { ChartCard, MetricTiles } from "./overview";
 import { seriesQuery, summaryQuery } from "./queries";
 import { ReadingLog } from "./reading-log";
 
+export default function MeasurementsPage() {
+	const { view } = usePageContext();
+	const { compact } = useRyotViewport();
+	const [now, setNow] = useState(() => new Date());
+	usePageRefresh(() =>
+		DateTime.now.pipe(
+			Effect.flatMap((currentTime) => Effect.sync(() => setNow(DateTime.toDate(currentTime)))),
+		),
+	);
+	const [timeZone] = useState(() => Intl.DateTimeFormat().resolvedOptions().timeZone);
+	const [range, setRange] = useState<RangeKey>("1Y");
+	const [dialog, setDialog] = useState<MeasurementDialogState>();
+	const addMetricTrigger = useRef<HTMLButtonElement>(null);
+	const logTrigger = useRef<HTMLButtonElement>(null);
+	const result = useRyotQuery(summaryQuery, { range });
+	const openDialog = (kind: MeasurementDialogState["kind"]) => {
+		if (result.data !== undefined) {
+			setDialog({ kind, metrics: result.data });
+		}
+	};
+	const controls = (
+		<div className={clsx("flex flex-wrap items-center gap-2.5", compact && "pb-4")}>
+			<SegmentedControl
+				value={range}
+				label="Time range"
+				onChange={setRange}
+				optionClassName="px-3"
+				options={rangeOptions.map(({ key }) => ({ value: key, label: key, content: key }))}
+			/>
+			<Button
+				ref={logTrigger}
+				className="min-h-9 px-3.5 py-1.5"
+				onClick={() => openDialog("log")}
+				disabled={result.data === undefined || result.data.length === 0}
+			>
+				Log measurement
+			</Button>
+			<Button
+				variant="secondary"
+				ref={addMetricTrigger}
+				className="min-h-9 px-3 py-1.5"
+				onClick={() => openDialog("add-metric")}
+				disabled={result.data === undefined || result.isFetching || result.isError}
+			>
+				Add metric
+			</Button>
+		</div>
+	);
+	return (
+		<PluginScreenFrame
+			title={view?.name ?? "Measurements"}
+			actions={compact ? undefined : controls}
+			titleIcon={
+				<AppIcon size={20} name={view?.icon ?? "ruler"} className="shrink-0 text-text-muted" />
+			}
+		>
+			{compact ? controls : null}
+			<MeasurementsBody
+				now={now}
+				range={range}
+				result={result}
+				compact={compact}
+				timeZone={timeZone}
+			/>
+			<MeasurementDialogs
+				dialog={dialog}
+				onClose={() => setDialog(undefined)}
+				trigger={dialog?.kind === "log" ? logTrigger : addMetricTrigger}
+			/>
+		</PluginScreenFrame>
+	);
+}
+
 export function MeasurementsView(props: {
 	readonly now: Date;
-	readonly compact: boolean;
 	readonly range: RangeKey;
+	readonly compact: boolean;
 	readonly timeZone: string;
 	readonly series: readonly MeasurementSeries[];
 	readonly summaries: readonly MeasurementSummary[];
 }) {
 	const { now, range, series, compact, timeZone, summaries } = props;
 	const [sort, setSort] = useState<MetricSort>("recent");
-	const [selectedChoice, setSelectedChoice] = useState<string | null>(null);
+	const [selectedChoice, setSelectedChoice] = useState<null | string>(null);
 	const [compareChoice, setCompareChoice] = useState("");
 	const pin = useRyotMutation(pinMetricMutation);
 	const rows = useMemo(() => buildMetricRows(summaries, series), [summaries, series]);
@@ -111,10 +184,44 @@ export function MeasurementsView(props: {
 	);
 }
 
+function MeasurementsBody(props: {
+	readonly now: Date;
+	readonly range: RangeKey;
+	readonly compact: boolean;
+	readonly timeZone: string;
+	readonly result: RyotQueryResult<readonly MeasurementSummary[]>;
+}) {
+	const { result } = props;
+	if (result.data === undefined) {
+		return result.isError ? (
+			<div className="flex flex-col items-start gap-3 font-ui">
+				<StatusMessage tone="error">Your measurements couldn't be loaded.</StatusMessage>
+				<Button variant="secondary" onClick={result.refetch}>
+					Try again
+				</Button>
+			</div>
+		) : (
+			<StatusMessage tone="pending" className="font-ui">
+				Loading measurements…
+			</StatusMessage>
+		);
+	}
+	if (result.data.length === 0) {
+		return (
+			<EmptyState
+				className="font-ui"
+				title="No measurements yet"
+				description="Add a metric to track, or import your history from OpenScale, to get started."
+			/>
+		);
+	}
+	return <MeasurementsContent {...props} summaries={result.data} />;
+}
+
 function MeasurementsContent(props: {
 	readonly now: Date;
-	readonly compact: boolean;
 	readonly range: RangeKey;
+	readonly compact: boolean;
 	readonly timeZone: string;
 	readonly summaries: readonly MeasurementSummary[];
 }) {
@@ -151,112 +258,5 @@ function MeasurementsContent(props: {
 		<StatusMessage tone="pending" className="font-ui">
 			Loading trends…
 		</StatusMessage>
-	);
-}
-
-function MeasurementsBody(props: {
-	readonly now: Date;
-	readonly compact: boolean;
-	readonly range: RangeKey;
-	readonly timeZone: string;
-	readonly result: RyotQueryResult<readonly MeasurementSummary[]>;
-}) {
-	const { result } = props;
-	if (result.data === undefined) {
-		return result.isError ? (
-			<div className="flex flex-col items-start gap-3 font-ui">
-				<StatusMessage tone="error">Your measurements couldn't be loaded.</StatusMessage>
-				<Button variant="secondary" onClick={result.refetch}>
-					Try again
-				</Button>
-			</div>
-		) : (
-			<StatusMessage tone="pending" className="font-ui">
-				Loading measurements…
-			</StatusMessage>
-		);
-	}
-	if (result.data.length === 0) {
-		return (
-			<EmptyState
-				className="font-ui"
-				title="No measurements yet"
-				description="Add a metric to track, or import your history from OpenScale, to get started."
-			/>
-		);
-	}
-	return <MeasurementsContent {...props} summaries={result.data} />;
-}
-
-export default function MeasurementsPage() {
-	const { view } = usePageContext();
-	const { compact } = useRyotViewport();
-	const [now, setNow] = useState(() => new Date());
-	usePageRefresh(() =>
-		DateTime.now.pipe(
-			Effect.flatMap((currentTime) => Effect.sync(() => setNow(DateTime.toDate(currentTime)))),
-		),
-	);
-	const [timeZone] = useState(() => Intl.DateTimeFormat().resolvedOptions().timeZone);
-	const [range, setRange] = useState<RangeKey>("1Y");
-	const [dialog, setDialog] = useState<MeasurementDialogState>();
-	const addMetricTrigger = useRef<HTMLButtonElement>(null);
-	const logTrigger = useRef<HTMLButtonElement>(null);
-	const result = useRyotQuery(summaryQuery, { range });
-	const openDialog = (kind: MeasurementDialogState["kind"]) => {
-		if (result.data !== undefined) {
-			setDialog({ kind, metrics: result.data });
-		}
-	};
-	const controls = (
-		<div className={clsx("flex flex-wrap items-center gap-2.5", compact && "pb-4")}>
-			<SegmentedControl
-				value={range}
-				label="Time range"
-				onChange={setRange}
-				optionClassName="px-3"
-				options={rangeOptions.map(({ key }) => ({ value: key, label: key, content: key }))}
-			/>
-			<Button
-				ref={logTrigger}
-				className="min-h-9 px-3.5 py-1.5"
-				onClick={() => openDialog("log")}
-				disabled={result.data === undefined || result.data.length === 0}
-			>
-				Log measurement
-			</Button>
-			<Button
-				variant="secondary"
-				ref={addMetricTrigger}
-				className="min-h-9 px-3 py-1.5"
-				onClick={() => openDialog("add-metric")}
-				disabled={result.data === undefined || result.isFetching || result.isError}
-			>
-				Add metric
-			</Button>
-		</div>
-	);
-	return (
-		<PluginScreenFrame
-			title={view?.name ?? "Measurements"}
-			actions={compact ? undefined : controls}
-			titleIcon={
-				<AppIcon size={20} name={view?.icon ?? "ruler"} className="shrink-0 text-text-muted" />
-			}
-		>
-			{compact ? controls : null}
-			<MeasurementsBody
-				now={now}
-				range={range}
-				result={result}
-				compact={compact}
-				timeZone={timeZone}
-			/>
-			<MeasurementDialogs
-				dialog={dialog}
-				onClose={() => setDialog(undefined)}
-				trigger={dialog?.kind === "log" ? logTrigger : addMetricTrigger}
-			/>
-		</PluginScreenFrame>
 	);
 }

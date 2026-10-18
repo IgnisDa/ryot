@@ -11,9 +11,9 @@ import {
 } from "../../shared/workout-editor-preferences";
 import { durationDisplayUnit, storageWorkoutDisplay } from "../../shared/workout-units";
 
-type Superset = WorkoutEditorDraft["supersets"][number];
-
 export type DraftChange = (transform: (draft: WorkoutEditorDraft) => WorkoutEditorDraft) => void;
+
+type Superset = WorkoutEditorDraft["supersets"][number];
 
 const defaultOccurrenceDisplay: WorkoutEditorDisplay = {
 	...storageWorkoutDisplay,
@@ -24,7 +24,7 @@ export const occurrenceDisplay = (occurrence: WorkoutEditorOccurrence) =>
 	occurrence.display ?? defaultOccurrenceDisplay;
 
 export const resolveSetRestTime = (
-	set: Pick<WorkoutEditorSet, "restChoice" | "setLot">,
+	set: Pick<WorkoutEditorSet, "setLot" | "restChoice">,
 	settings: Partial<WorkoutRestSettings>,
 	overrides: WorkoutExerciseOverrides,
 ) =>

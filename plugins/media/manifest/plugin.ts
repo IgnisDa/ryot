@@ -34,7 +34,7 @@ import { mediaSignalSchemas } from "./schemas/signal";
 const entitySchemas = mediaEntitySchemas().map(
 	(
 		schema,
-	): ReturnType<typeof mediaEntitySchemas>[number] & { readonly editor?: PluginEntityEditor } => {
+	): { readonly editor?: PluginEntityEditor } & ReturnType<typeof mediaEntitySchemas>[number] => {
 		const editor = Object.hasOwn(mediaEntityEditors, schema.slug)
 			? mediaEntityEditors[schema.slug]
 			: undefined;

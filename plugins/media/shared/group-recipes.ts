@@ -55,8 +55,8 @@ const isCreditGroup = (slug: MediaGroupSlug): slug is CreditGroupSlug =>
 /** Drops the member artwork, falling back to the first member's covers when the group has no images. */
 export const withMemberCoverFallback = <
 	Row extends {
-		readonly images: readonly MediaImage[] | null;
-		readonly memberImages: readonly MediaImage[] | null;
+		readonly images: null | readonly MediaImage[];
+		readonly memberImages: null | readonly MediaImage[];
 	},
 >({
 	memberImages,
@@ -157,9 +157,9 @@ export const mediaGroupRecipes = <
 
 	const summaryRecipe = defineRecipe(
 		(input: {
-			readonly reference: PluginIdentityReference;
 			readonly entityId: string;
 			readonly collectionLimit: number;
+			readonly reference: PluginIdentityReference;
 		}) => ({
 			map: ({ summary, requested }) =>
 				mediaSummaryResult({
@@ -182,10 +182,10 @@ export const mediaGroupRecipes = <
 	/** Members of one group as a top-level row query, so the list pages by cursor. */
 	const membersRecipe = defineRecipe(
 		(query: {
-			readonly reference: PluginIdentityReference;
 			readonly limit: number;
 			readonly groupId: string;
 			readonly after?: string | undefined;
+			readonly reference: PluginIdentityReference;
 		}) => {
 			const member = table("entity", `${config.alias}Member`);
 			const relationship = table("relationship", `${config.alias}MemberRelationship`);
@@ -259,10 +259,10 @@ export const mediaGroupRecipes = <
 
 	const overviewRecipe = defineRecipe(
 		(input: {
-			readonly reference: PluginIdentityReference;
 			readonly entityId: string;
 			readonly peopleLimit: number;
 			readonly companyLimit: number;
+			readonly reference: PluginIdentityReference;
 		}) => ({
 			queries: mediaCreditQueries({
 				...input,

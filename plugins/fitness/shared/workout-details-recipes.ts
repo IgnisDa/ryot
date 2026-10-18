@@ -101,7 +101,7 @@ const setOrdering = (set: Table) =>
 
 const recordStatus = (set: Table) => column(set, "projectionStatus");
 
-const priorSession = (workout: Table, exercise: Table, pick: "sessionEntityId" | "startedAt") => {
+const priorSession = (workout: Table, exercise: Table, pick: "startedAt" | "sessionEntityId") => {
 	const priorSet = table("event", "priorWorkoutSet");
 	const priorWorkout = table("entity", "priorWorkout");
 	const priorStartedAt = propertyDate(priorWorkout, "startedAt");
@@ -128,9 +128,9 @@ const priorSession = (workout: Table, exercise: Table, pick: "sessionEntityId" |
 
 export const workoutDetailsExercisesRecipe = defineRecipe(
 	(input: {
-		readonly reference: PluginIdentityReference;
 		readonly workoutId: string;
 		readonly after?: string | undefined;
+		readonly reference: PluginIdentityReference;
 	}) => {
 		const workout = table("entity", "workout");
 		const exercise = table("entity", "exercise");
@@ -209,10 +209,10 @@ export const workoutDetailsExercisesRecipe = defineRecipe(
 
 export const workoutDetailsSetsRecipe = defineRecipe(
 	(input: {
-		readonly reference: PluginIdentityReference;
 		readonly workoutId: string;
-		readonly exerciseId?: string | undefined;
 		readonly after?: string | undefined;
+		readonly exerciseId?: string | undefined;
+		readonly reference: PluginIdentityReference;
 	}) => {
 		const set = table("event", "workoutSet");
 		const exercise = table("entity", "exercise");
@@ -261,7 +261,7 @@ export const workoutDetailsSetsRecipe = defineRecipe(
 );
 
 export const workoutDetailsRecipe = defineRecipe(
-	(input: { readonly reference: PluginIdentityReference; readonly workoutId: string }) => {
+	(input: { readonly workoutId: string; readonly reference: PluginIdentityReference }) => {
 		const workout = table("entity", "workout");
 		return {
 			map: ({ workout: result }) => Result.succeed(result ?? null),
@@ -317,8 +317,6 @@ export const workoutDetailsRecipe = defineRecipe(
 	},
 );
 
-type DetailsSetPage = Recipe.Success<typeof workoutDetailsSetsRecipe>;
-type DetailsExercise = Recipe.Success<typeof workoutDetailsExercisesRecipe>["items"][number];
 export type WorkoutDetails = NonNullable<Recipe.Success<typeof workoutDetailsRecipe>> & {
 	readonly exercises: {
 		readonly items: ReadonlyArray<
@@ -336,3 +334,5 @@ export type WorkoutDetails = NonNullable<Recipe.Success<typeof workoutDetailsRec
 		>;
 	};
 };
+type DetailsSetPage = Recipe.Success<typeof workoutDetailsSetsRecipe>;
+type DetailsExercise = Recipe.Success<typeof workoutDetailsExercisesRecipe>["items"][number];
