@@ -32,6 +32,7 @@ import {
 } from "~/fixtures/plugins/media";
 import { assertPresent, assertTaggedError } from "~/support/assertions";
 import { describe, expect, it } from "~/support/effect-test";
+import { nowIso } from "~/support/time";
 
 const insertUserRelationship = (input: {
 	client: Client;
@@ -201,10 +202,11 @@ describe("DELETE /entity-user-data/clear/:id", () => {
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
 			const libraryEntityId = yield* getMediaLibraryEntityId(client);
+			const payload = { submittedAt: nowIso(), idempotencyKey: crypto.randomUUID() };
 
 			const error = yield* Effect.flip(
 				client.call((c) =>
-					c.entityUserData.clearEntityUserData({ params: { entityId: libraryEntityId } }),
+					c.entityUserData.clearEntityUserData({ payload, params: { entityId: libraryEntityId } }),
 				),
 			);
 
@@ -216,10 +218,14 @@ describe("DELETE /entity-user-data/clear/:id", () => {
 	it.live("rejects unauthenticated requests", () =>
 		Effect.gen(function* () {
 			const client = getApiClient();
+			const payload = { submittedAt: nowIso(), idempotencyKey: crypto.randomUUID() };
 
 			const error = yield* Effect.flip(
 				client.call((c) =>
-					c.entityUserData.clearEntityUserData({ params: { entityId: EntityId.make("entity_1") } }),
+					c.entityUserData.clearEntityUserData({
+						payload,
+						params: { entityId: EntityId.make("entity_1") },
+					}),
 				),
 			);
 
@@ -332,13 +338,15 @@ describe("POST /entity-user-data/merge", () => {
 			const { client } = yield* createAuthenticatedClient();
 			const first = yield* createPluginSchemaAndEntity(client);
 			const second = yield* createPluginSchemaAndEntity(client);
+			const payload = {
+				submittedAt: nowIso(),
+				mergeFrom: first.entityId,
+				mergeInto: second.entityId,
+				idempotencyKey: crypto.randomUUID(),
+			};
 
 			const error = yield* Effect.flip(
-				client.call((c) =>
-					c.entityUserData.mergeEntityUserData({
-						payload: { mergeFrom: first.entityId, mergeInto: second.entityId },
-					}),
-				),
+				client.call((c) => c.entityUserData.mergeEntityUserData({ payload })),
 			);
 
 			assertTaggedError(error, "EntityUserDataBadRequest");

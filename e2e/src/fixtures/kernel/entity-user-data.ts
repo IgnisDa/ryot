@@ -15,13 +15,21 @@ import { eventHistoryRecipe } from "@ryot-app/ryotql-recipes/events";
 import { Effect } from "effect";
 
 import { requirePresent } from "~/support/assertions";
+import { nowIso } from "~/support/time";
 
 import type { Client } from "./auth";
 import { executeRyotQL, requireRyotQLValue } from "./ryotql";
 
 type RelationshipRoot = { schema: string; sourceSchema: string; targetSchema: string };
 
-type MergeEntityUserDataBody = ContractPayload<"entityUserData", "mergeEntityUserData">;
+type MergeEntityUserDataBody = Omit<
+	ContractPayload<"entityUserData", "mergeEntityUserData">,
+	"submittedAt" | "idempotencyKey"
+>;
+type EntityUserDataSubmission = Pick<
+	ContractPayload<"entityUserData", "clearEntityUserData">,
+	"submittedAt" | "idempotencyKey"
+>;
 
 const aggregateCount = (result: { data: Record<string, unknown> }, key: string) => {
 	const value = result.data[key];
@@ -33,13 +41,30 @@ const aggregateCount = (result: { data: Record<string, unknown> }, key: string) 
 	return item ? Number(requireRyotQLValue(item, "count")) : 0;
 };
 
-export const mergeEntityUserData = (client: Client, payload: MergeEntityUserDataBody) =>
-	client.call((c) => c.entityUserData.mergeEntityUserData({ payload }));
-
-export const clearEntityUserData = (client: Client, entityId: string) =>
-	client.call((c) =>
-		c.entityUserData.clearEntityUserData({ params: { entityId: EntityId.make(entityId) } }),
+export const mergeEntityUserData = (
+	client: Client,
+	payload: MergeEntityUserDataBody,
+	submission?: EntityUserDataSubmission,
+) => {
+	const mutation = submission ?? { submittedAt: nowIso(), idempotencyKey: crypto.randomUUID() };
+	return client.call((c) =>
+		c.entityUserData.mergeEntityUserData({ payload: { ...payload, ...mutation } }),
 	);
+};
+
+export const clearEntityUserData = (
+	client: Client,
+	entityId: string,
+	submission?: EntityUserDataSubmission,
+) => {
+	const mutation = submission ?? { submittedAt: nowIso(), idempotencyKey: crypto.randomUUID() };
+	return client.call((c) =>
+		c.entityUserData.clearEntityUserData({
+			payload: mutation,
+			params: { entityId: EntityId.make(entityId) },
+		}),
+	);
+};
 
 export const queryUserEntityStateCounts = (input: {
 	client: Client;

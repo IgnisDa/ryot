@@ -144,7 +144,7 @@ resources, not host calls.
 | Valid subjects            | Diagnostics, HTTP, cache/persistent values, and pinned plugin configuration                                              |
 | User/user automation      | Events, schema/integration/preference reads, managed-asset verification, relationships, and RyotQL                       |
 | Designated user bootstrap | `ensureUserEntities` within its plugin schemas, in either plugin scope                                                   |
-| User-subject plugin       | User-owned entity create/update/delete/save/merge within pinned plugin ownership                                         |
+| User-subject plugin       | User-owned entity create/update/delete/save/clear/merge within pinned plugin ownership                                   |
 | Pinned system plugin      | Global entity/relationship upserts and RyotQL within owned definitions; entity upsert also requires provider association |
 | User/system automation    | Signals; notification delivery requires a user automation run                                                            |
 | Own integration run       | Access/invalidation of OAuth fields declared by its current settings schema                                              |
@@ -182,6 +182,7 @@ policies, and receipts. Scripts cannot set global scope, provider provenance, ow
 | --------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
 | `createUserEntity` / `updateUserEntity` | Create one owned entity or update against expected name, time, and properties                                                                   |
 | `deleteUserEntity`                      | Delete the owned schema-matching entity through lifecycle handling, including referencing events                                                |
+| `clearUserEntityData`                   | Delete the user's events and relationships for an entity in a pinned plugin schema and return deleted counts                                    |
 | `mergeUserEntityData`                   | Move the user's events/relationships into a same-schema entity using merge policy and return moved counts                                       |
 | `updateEvents` / `deleteEvents`         | Atomic batches of at most 100; updates use `{ eventId, patch }` with properties `{ remove, set }`, occurrence time, entity, or nullable session |
 | `changeUserRelationships`               | Each create chooses merge (preserve unspecified fields/union arrays) or replace (full property record); membership writes use merge             |

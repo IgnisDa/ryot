@@ -18,22 +18,26 @@ import { sha256Hex } from "@ryot-app/ts-utils/crypto";
 import { stableStringify } from "@ryot-app/ts-utils/json";
 import { and, asc, eq, gt, inArray, or, sql } from "drizzle-orm";
 import { Context, DateTime, Effect, Layer, Schema } from "effect";
+import { chunksOf } from "effect/Array";
 
+import { STATEMENT_CHUNK_SIZE } from "#modules/entities/repository";
 import { MutationReceipts } from "#modules/mutations/receipts";
 import { DatabaseSession } from "#platform/db/session";
 import * as schema from "#schema/tables/combined";
 
 import { EventStreamRepository, type StreamKey } from "./stream-repository";
 
-export type UpdateEventEntityReferencesInput = EventIdentityInput & {
-	readonly mergeFrom: EntityId;
-	readonly mergeInto: EntityId;
-};
-
 export type EventIdentityInput = {
 	readonly userId: UserId;
 	readonly eventId: EventId;
 	readonly expected?: undefined | EventWritePrecondition;
+};
+
+export type UpdateEventEntityReferencesInput = EventIdentityInput & {
+	readonly mergeFrom: EntityId;
+	readonly mergeInto: EntityId;
+	readonly properties?: Readonly<Record<string, unknown>>;
+	readonly references?: ReadonlyArray<{ readonly from: EntityId; readonly into: EntityId }>;
 };
 
 type EventRow = { readonly eventSchemaName: string } & Pick<
@@ -283,25 +287,44 @@ export class EventsRepository extends Context.Service<EventsRepository>()("Event
 			return toListedEvent({ ...row, eventSchemaName: input.eventSchemaName });
 		});
 
-		const listUserEventIdsForEntity = Effect.fn("EventsRepository.listUserEventIdsForEntity")(
-			function* (input: { userId: UserId; entityId: EntityId }) {
-				const rows = yield* session.run((db) =>
-					db
-						.select({ id: schema.event.id })
-						.from(schema.event)
-						.where(
-							and(
-								eq(schema.event.userId, input.userId),
-								or(
-									eq(schema.event.entityId, input.entityId),
-									eq(schema.event.sessionEntityId, input.entityId),
-								),
-							),
-						)
-						.for("update"),
-				);
-
-				return rows.map((row) => EventId.make(row.id));
+		const listUserDataEventReferences = Effect.fn("EventsRepository.listUserDataEventReferences")(
+			function* (input: { userId: UserId; entityIds: ReadonlyArray<EntityId> }) {
+				const rows = (yield* Effect.forEach(
+					chunksOf(input.entityIds, STATEMENT_CHUNK_SIZE),
+					(ids) =>
+						session.run((db) =>
+							db
+								.select({
+									id: schema.event.id,
+									entityId: schema.event.entityId,
+									sessionEntityId: schema.event.sessionEntityId,
+								})
+								.from(schema.event)
+								.where(
+									and(
+										eq(schema.event.userId, input.userId),
+										or(
+											inArray(schema.event.entityId, ids),
+											inArray(schema.event.sessionEntityId, ids),
+										),
+									),
+								)
+								.orderBy(asc(schema.event.id)),
+						),
+				)).flat();
+				return [
+					...new Map(
+						rows.map((row) => [
+							row.id,
+							{
+								id: EventId.make(row.id),
+								entityId: EntityId.make(row.entityId),
+								sessionEntityId:
+									row.sessionEntityId === null ? null : EntityId.make(row.sessionEntityId),
+							},
+						]),
+					).values(),
+				].sort((left, right) => left.id.localeCompare(right.id));
 			},
 		);
 		const listSessionEventIds = Effect.fn("EventsRepository.listSessionEventIds")(
@@ -672,7 +695,7 @@ export class EventsRepository extends Context.Service<EventsRepository>()("Event
 			updatePreparedEvent,
 			listSessionEventIds,
 			listUserEventsForBackup,
-			listUserEventIdsForEntity,
+			listUserDataEventReferences,
 			updateEventEntityReferences,
 			listEventIdentitiesForEntities,
 		};

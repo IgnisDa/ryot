@@ -330,6 +330,20 @@ export class EntitiesRepository extends Context.Service<EntitiesRepository>()(
 					}
 				},
 			);
+			const lockUserDataReferences = Effect.fn("EntitiesRepository.lockUserDataReferences")(
+				function* (entityIds: ReadonlyArray<EntityId>) {
+					for (const ids of chunksOf([...new Set(entityIds)].sort(), STATEMENT_CHUNK_SIZE)) {
+						yield* session.run((db) =>
+							db
+								.select({ id: schema.entity.id })
+								.from(schema.entity)
+								.where(inArray(schema.entity.id, ids))
+								.orderBy(sql`${schema.entity.id} collate "C"`)
+								.for("update"),
+						);
+					}
+				},
+			);
 			const listMatchCandidatesBySchema = Effect.fn(
 				"EntitiesRepository.listMatchCandidatesBySchema",
 			)(function* (input: { userId: UserId; entitySchema: EntitySchemaReference }) {
@@ -1104,6 +1118,7 @@ export class EntitiesRepository extends Context.Service<EntitiesRepository>()(
 				hasUserCollectionNamed,
 				findEntityByExternalId,
 				getEntityScopesForUser,
+				lockUserDataReferences,
 				findEntitySchemaForUser,
 				findEntitiesByExternalIds,
 				listEntityReferencesByIds,

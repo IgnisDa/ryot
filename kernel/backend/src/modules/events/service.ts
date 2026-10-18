@@ -924,17 +924,26 @@ export class EventsService extends Context.Service<EventsService>()("EventsServi
 					let propertiesSchema: AppSchema | undefined;
 					let capturedReferences: undefined | CapturedEventReferences;
 					if (move) {
+						const references = new Map([
+							[move.mergeFrom, move.mergeInto],
+							...(move.references ?? []).map(({ from, into }) => [from, into] as const),
+						]);
 						if (
 							move.mergeFrom === move.mergeInto ||
-							(before.entityId !== move.mergeFrom && before.sessionEntityId !== move.mergeFrom)
+							(!references.has(before.entityId) &&
+								(before.sessionEntityId === null || !references.has(before.sessionEntityId)) &&
+								move.properties === undefined)
 						) {
 							return inline ? yield* recordNoopWork : null;
 						}
-						const draftInput = yield* Schema.decodeEffect(AutomationEventDraft)({
+						const draftInput = yield* Schema.decodeUnknownEffect(AutomationEventDraft)({
 							...eventDraft(before),
-							entityId: before.entityId === move.mergeFrom ? move.mergeInto : before.entityId,
+							entityId: references.get(before.entityId) ?? before.entityId,
 							sessionEntityId:
-								before.sessionEntityId === move.mergeFrom ? move.mergeInto : before.sessionEntityId,
+								before.sessionEntityId === null
+									? null
+									: (references.get(before.sessionEntityId) ?? before.sessionEntityId),
+							...(move.properties === undefined ? {} : { properties: move.properties }),
 						}).pipe(Effect.mapError(() => new DbError({ message: "Invalid event update draft" })));
 						const context = yield* resolveEditContext(
 							input.userId,

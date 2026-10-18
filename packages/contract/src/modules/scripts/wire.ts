@@ -30,6 +30,7 @@ export const DOMAIN_SANDBOX_HOST_CAPABILITIES = [
 	"commitUserChanges",
 	"deleteUserEntity",
 	"updateUserEntity",
+	"clearUserEntityData",
 	"mergeUserEntityData",
 	"upsertGlobalEntities",
 	"getCurrentIntegration",

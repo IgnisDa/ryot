@@ -350,6 +350,55 @@ const validateDefinitionSource = (
 				);
 			}
 		}
+		for (const child of entitySchema.userState?.children ?? []) {
+			let parent = entitySchema.slug;
+			for (const slug of child.path) {
+				const relationship = source.relationshipSchemas.find(
+					(candidate) => candidate.pluginId === entitySchema.pluginId && candidate.slug === slug,
+				);
+				if (
+					relationship?.sourceEntitySchemaSlug !== parent ||
+					relationship.targetEntitySchemaSlug === null
+				) {
+					throw new Error(
+						`Entity schema ${entitySchema.slug} user-state path ${slug} must follow owned outgoing relationships`,
+					);
+				}
+				parent = relationship.targetEntitySchemaSlug;
+			}
+			const target = source.entitySchemas.find(
+				(candidate) =>
+					candidate.pluginId === entitySchema.pluginId && candidate.slug === child.entitySchemaSlug,
+			);
+			if (
+				!target ||
+				parent !== target.slug ||
+				child.identityProperties.some((property) => !target.propertiesSchema.fields[property])
+			) {
+				throw new Error(
+					`Entity schema ${entitySchema.slug} user-state child must declare a matching target and identity properties`,
+				);
+			}
+		}
+		for (const evidence of entitySchema.userState?.evidence ?? []) {
+			if (evidence.eventSchema.owner.kind !== "self") {
+				continue;
+			}
+			const target = source.entitySchemas.find(
+				(candidate) =>
+					candidate.pluginId === entitySchema.pluginId &&
+					candidate.slug === evidence.eventSchema.entitySchemaSlug,
+			);
+			const event = target?.eventSchemas.find(
+				(candidate) => candidate.slug === evidence.eventSchema.slug,
+			);
+			const property = event?.propertiesSchema.fields[evidence.subjectProperty];
+			if (property?.type !== "string" || property.reference?.kind !== "entity-id") {
+				throw new Error(
+					`Entity schema ${entitySchema.slug} user-state evidence must select a declared entity reference`,
+				);
+			}
+		}
 		assertUniqueEventSlugs(entitySchema.slug, entitySchema.eventSchemas);
 		for (const eventSchema of entitySchema.eventSchemas) {
 			if (eventSchema.pluginId !== entitySchema.pluginId) {

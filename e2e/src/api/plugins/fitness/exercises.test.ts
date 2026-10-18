@@ -33,6 +33,7 @@ import {
 	requirePresent,
 } from "~/support/assertions";
 import { describe, expect, it } from "~/support/effect-test";
+import { nowIso } from "~/support/time";
 
 describe("Exercises E2E", () => {
 	it.live("links the built-in exercise schema to the fitness plugin", () =>
@@ -381,13 +382,15 @@ describe("Exercises E2E", () => {
 				properties: { kind: "duration" },
 				entitySchema: exerciseSchema.reference,
 			});
+			const payload = {
+				mergeFrom: source.id,
+				mergeInto: target.id,
+				submittedAt: nowIso(),
+				idempotencyKey: crypto.randomUUID(),
+			};
 
 			const error = yield* Effect.flip(
-				client.call((c) =>
-					c.entityUserData.mergeEntityUserData({
-						payload: { mergeFrom: source.id, mergeInto: target.id },
-					}),
-				),
+				client.call((c) => c.entityUserData.mergeEntityUserData({ payload })),
 			);
 
 			assertTaggedError(error, "EntityUserDataBadRequest");

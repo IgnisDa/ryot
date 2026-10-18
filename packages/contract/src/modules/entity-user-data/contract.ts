@@ -4,21 +4,23 @@ import { AuthMiddleware } from "../../auth-middleware";
 import { AuthenticatedMutationEndpoint } from "../../authenticated-mutation-endpoint";
 import { EntityId } from "../../schema/brands";
 import {
+	ClearEntityUserDataRequest,
 	ClearEntityUserDataResponse,
 	EntityUserDataBadRequest,
 	EntityUserDataNotFound,
-	MergeEntityUserDataBody,
+	MergeEntityUserDataRequest,
 	MergeEntityUserDataResponse,
 } from "./schemas";
 
 export const EntityUserDataGroup = HttpApiGroup.make("entityUserData")
 	.annotate(OpenApi.Description, "Manage user state for entities.")
 	.add(
-		AuthenticatedMutationEndpoint.delete("allowed")(
+		AuthenticatedMutationEndpoint.delete("protected")(
 			"clearEntityUserData",
 			"/entity-user-data/clear/:entityId",
 			{
 				params: { entityId: EntityId },
+				payload: ClearEntityUserDataRequest,
 				success: ClearEntityUserDataResponse,
 				error: [
 					EntityUserDataBadRequest.pipe(HttpApiSchema.status(400)),
@@ -28,11 +30,11 @@ export const EntityUserDataGroup = HttpApiGroup.make("entityUserData")
 		).annotate(OpenApi.Description, "Clear the user's state for an entity."),
 	)
 	.add(
-		AuthenticatedMutationEndpoint.post("allowed")(
+		AuthenticatedMutationEndpoint.post("protected")(
 			"mergeEntityUserData",
 			"/entity-user-data/merge",
 			{
-				payload: MergeEntityUserDataBody,
+				payload: MergeEntityUserDataRequest,
 				success: MergeEntityUserDataResponse,
 				error: [
 					EntityUserDataBadRequest.pipe(HttpApiSchema.status(400)),

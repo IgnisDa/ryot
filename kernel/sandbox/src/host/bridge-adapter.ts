@@ -5,6 +5,10 @@ import {
 	EntityStale,
 } from "@ryot-app/contract/modules/entities/schemas";
 import {
+	EntityUserDataBadRequest,
+	EntityUserDataNotFound,
+} from "@ryot-app/contract/modules/entity-user-data/schemas";
+import {
 	EventBadRequest,
 	EventNotFound,
 	EventStale,
@@ -127,6 +131,8 @@ const preserveWriteFailure = preserveFailure(
 		EntityStale.fields.reason,
 		EntityBadRequest.fields.reason,
 		EntityNotFound.fields.reason,
+		EntityUserDataBadRequest.fields.reason,
+		EntityUserDataNotFound.fields.reason,
 		RelationshipBadRequest.fields.reason,
 		RelationshipNotFound.fields.reason,
 	]),
@@ -345,6 +351,12 @@ export const bindSandboxHostFunctions = <Input>(
 			"mergeUserEntityData",
 			domainSandboxHostContracts.mergeUserEntityData,
 			implementations.mergeUserEntityData,
+			{ failure: preserveWriteFailure },
+		),
+		clearUserEntityData: bind(
+			"clearUserEntityData",
+			domainSandboxHostContracts.clearUserEntityData,
+			implementations.clearUserEntityData,
 			{ failure: preserveWriteFailure },
 		),
 		httpCall: bind("httpCall", coreSandboxHostContracts.httpCall, implementations.httpCall, {

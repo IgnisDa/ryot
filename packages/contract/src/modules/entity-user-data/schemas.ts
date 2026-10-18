@@ -1,6 +1,7 @@
 import { Schema } from "effect";
 
 import { EntityId } from "../../schema/brands";
+import { IsoUtcString } from "../../schema/utils";
 import { AutomationWarning } from "../automations/lifecycle";
 
 const EntityUserDataBadRequestReason = Schema.Union([
@@ -8,6 +9,12 @@ const EntityUserDataBadRequestReason = Schema.Union([
 	Schema.Struct({ code: Schema.Literal("same-entity-merge") }),
 	Schema.Struct({ code: Schema.Literal("entity-schema-mismatch") }),
 	Schema.Struct({ code: Schema.Literal("relationship-merge-failed") }),
+	Schema.Struct({ message: Schema.String, code: Schema.Literal("state-conflict") }),
+	Schema.Struct({
+		message: Schema.String,
+		entityIds: Schema.Array(EntityId),
+		code: Schema.Literal("child-mapping-conflict"),
+	}),
 	Schema.Struct({ property: Schema.String, code: Schema.Literal("identity-property-mismatch") }),
 	Schema.Struct({
 		code: Schema.Literal("required-field"),
@@ -45,9 +52,24 @@ export const ClearEntityUserDataResponse = Schema.Struct({
 
 export type ClearEntityUserDataResponse = typeof ClearEntityUserDataResponse.Type;
 
+export const ClearEntityUserDataRequest = Schema.Struct({
+	submittedAt: IsoUtcString,
+	idempotencyKey: Schema.NonEmptyString,
+});
+
+export type ClearEntityUserDataRequest = typeof ClearEntityUserDataRequest.Type;
+
 export const MergeEntityUserDataBody = Schema.Struct({ mergeFrom: EntityId, mergeInto: EntityId });
 
 export type MergeEntityUserDataBody = typeof MergeEntityUserDataBody.Type;
+
+export const MergeEntityUserDataRequest = Schema.Struct({
+	...MergeEntityUserDataBody.fields,
+	submittedAt: IsoUtcString,
+	idempotencyKey: Schema.NonEmptyString,
+});
+
+export type MergeEntityUserDataRequest = typeof MergeEntityUserDataRequest.Type;
 
 export const MergeEntityUserDataResponse = Schema.Struct({
 	mergeFrom: EntityId,

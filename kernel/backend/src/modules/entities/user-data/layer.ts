@@ -10,6 +10,7 @@ import { PluginRuntimeResolverLive } from "#modules/plugins/catalog/runtime-reso
 import { RelationshipsServiceLive } from "#modules/relationships/layer";
 import { RelationshipsRepository } from "#modules/relationships/repository";
 
+import { EntityUserDataGraphRepository } from "./graph-repository";
 import { EntityUserDataService } from "./service";
 
 export const EntityUserDataServiceLive = EntityUserDataService.layer.pipe(
@@ -22,6 +23,7 @@ export const EntityUserDataServiceLive = EntityUserDataService.layer.pipe(
 			EntitiesRepositoryLive,
 			RelationshipsRepository.layer,
 			MutationReceipts.layer,
+			EntityUserDataGraphRepository.layer,
 		),
 	),
 	Layer.provide(PluginRuntimeResolverLive),

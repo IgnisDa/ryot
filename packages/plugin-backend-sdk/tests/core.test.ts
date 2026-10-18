@@ -1,6 +1,8 @@
 import {
 	changeUserRelationshipsArgsSchema,
 	claimPersistentValueResultSchema,
+	clearUserEntityDataArgsSchema,
+	clearUserEntityDataResultSchema,
 	deleteEventsArgsSchema,
 	ensureUserEntitiesArgsSchema,
 	httpCallArgsSchema,
@@ -80,6 +82,30 @@ describe("shared value contracts", () => {
 				data: { claimed: false, value: { owner: "other" } },
 			}),
 		).toEqual({ success: true, data: { claimed: false, value: { owner: "other" } } });
+	});
+
+	test("validates user entity data clearing requests and counts", () => {
+		const args = [
+			{ entityId: "entity-1", entitySchemaSlug: "workspace" },
+			{ idempotencyKey: "clear-1", submittedAt: "2026-01-02T00:00:00.000Z" },
+		] as const;
+		expect(decode(clearUserEntityDataArgsSchema)(args)).toEqual(args);
+		expect(() =>
+			decode(clearUserEntityDataArgsSchema)([{ entityId: "entity-1", entitySchemaSlug: "" }]),
+		).toThrow();
+		const result = {
+			success: true,
+			data: { deletedEventsCount: 2, deletedRelationshipsCount: 3 },
+		} as const;
+		expect(decode(clearUserEntityDataResultSchema)(result)).toEqual(result);
+		for (const count of [-1, 1.5]) {
+			expect(() =>
+				decode(clearUserEntityDataResultSchema)({
+					success: true,
+					data: { deletedEventsCount: count, deletedRelationshipsCount: 0 },
+				}),
+			).toThrow();
+		}
 	});
 
 	test("acknowledges user settings updates without returning settings", () => {

@@ -122,6 +122,21 @@ export const updateUserEntityArgsSchema = Schema.Tuple([
 export const updateUserEntityDataSchema = strictStruct({ entityId: sandboxIdSchema });
 export const entityStaleReasonSchema = EntityStale.fields.reason;
 export const updateUserEntityResultSchema = hostResultSchema(updateUserEntityDataSchema);
+export const clearUserEntityDataArgsSchema = Schema.Tuple([
+	strictStruct({ entityId: sandboxIdSchema, entitySchemaSlug: sandboxIdSchema }),
+	optionalSubmissionOptions,
+]);
+export const clearUserEntityDataDataSchema = strictStruct({
+	deletedEventsCount: Schema.Number.pipe(
+		Schema.check(Schema.isInt()),
+		Schema.check(Schema.isGreaterThanOrEqualTo(0)),
+	),
+	deletedRelationshipsCount: Schema.Number.pipe(
+		Schema.check(Schema.isInt()),
+		Schema.check(Schema.isGreaterThanOrEqualTo(0)),
+	),
+});
+export const clearUserEntityDataResultSchema = hostResultSchema(clearUserEntityDataDataSchema);
 export const mergeUserEntityDataArgsSchema = Schema.Tuple([
 	strictStruct({
 		mergeFrom: sandboxIdSchema,

@@ -18,6 +18,9 @@ import {
 	sendNotificationArgsSchema,
 } from "./automation";
 import {
+	clearUserEntityDataArgsSchema,
+	clearUserEntityDataDataSchema,
+	clearUserEntityDataResultSchema,
 	createUserEntityArgsSchema,
 	createUserEntityDataSchema,
 	createUserEntityResultSchema,
@@ -272,6 +275,11 @@ export const domainSandboxHostContracts = {
 		args: mergeUserEntityDataArgsSchema,
 		success: mergeUserEntityDataDataSchema,
 		result: mergeUserEntityDataResultSchema,
+	},
+	clearUserEntityData: {
+		args: clearUserEntityDataArgsSchema,
+		success: clearUserEntityDataDataSchema,
+		result: clearUserEntityDataResultSchema,
 	},
 	getCurrentIntegration: {
 		success: integrationRecordSchema,

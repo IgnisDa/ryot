@@ -1,6 +1,7 @@
 import { definitionKey, definitionOwner } from "@ryot-app/contract/modules/plugins/references";
 import { EntityId, EntitySchemaSlug, UserId } from "@ryot-app/contract/schema/brands";
 import {
+	clearUserEntityDataArgsSchema,
 	createUserEntityArgsSchema,
 	deleteUserEntityArgsSchema,
 	mergeUserEntityDataArgsSchema,
@@ -146,6 +147,33 @@ export const makeEntityScriptHost = Effect.gen(function* () {
 			);
 		});
 	});
+	const userDataCommand = Effect.fnUntraced(function* (
+		input: UserSandboxRunInput,
+		operation: "clearUserEntityData" | "mergeUserEntityData",
+		entitySchemaSlug: string,
+		submission: Parameters<typeof submissions.commandFor>[2],
+	) {
+		if (!input.principal.pluginRevision) {
+			return yield* sandboxHostFailure(
+				operation === "clearUserEntityData"
+					? "Entity clearing requires a pinned plugin"
+					: "Entity merge requires a pinned plugin",
+			);
+		}
+		if ((yield* findForeignEntitySchemaSlug(input, [entitySchemaSlug])) !== undefined) {
+			return yield* sandboxHostFailure("Entity schema is not owned by the executing plugin", {
+				operation,
+				code: "unavailable-operation",
+			});
+		}
+		return yield* submissions.commandFor(
+			input,
+			kernelCollectionLifecycleCommand(
+				yield* sandboxLifecycleCommand(input, userLifecycleSource(input), operation),
+			),
+			submission,
+		);
+	});
 
 	return {
 		upsertGlobalEntities: (rawInput, items, options) =>
@@ -159,6 +187,69 @@ export const makeEntityScriptHost = Effect.gen(function* () {
 					});
 					yield* reportSandboxLifecycleWarnings("upsertGlobalEntities", warnings);
 					return lifecycle.upsertGlobalEntities.value(result);
+				}),
+			),
+		clearUserEntityData: (
+			rawInput,
+			rawItem,
+			options?: Parameters<AdditionalScriptHostImplementationMap["clearUserEntityData"]>[2],
+		) =>
+			sandboxHostEffect(
+				Effect.gen(function* () {
+					const input = yield* requireSandboxCapabilityInput(rawInput, "clearUserEntityData");
+					const [item, submission] = yield* Schema.decodeEffect(clearUserEntityDataArgsSchema)([
+						rawItem,
+						options,
+					]);
+					const command = yield* userDataCommand(
+						input,
+						"clearUserEntityData",
+						item.entitySchemaSlug,
+						submission,
+					);
+					const { warnings, deletedEventsCount, deletedRelationshipsCount } =
+						yield* userData.clearEntityUserDataForCommand(
+							UserId.make(userSandboxRunUserId(input)),
+							{
+								entityId: EntityId.make(item.entityId),
+								entitySchemaSlug: EntitySchemaSlug.make(item.entitySchemaSlug),
+							},
+							command,
+						);
+					yield* reportSandboxLifecycleWarnings("clearUserEntityData", warnings);
+					return { deletedEventsCount, deletedRelationshipsCount };
+				}),
+			),
+		mergeUserEntityData: (
+			rawInput,
+			rawItem,
+			options?: Parameters<AdditionalScriptHostImplementationMap["mergeUserEntityData"]>[2],
+		) =>
+			sandboxHostEffect(
+				Effect.gen(function* () {
+					const input = yield* requireSandboxCapabilityInput(rawInput, "mergeUserEntityData");
+					const [item, submission] = yield* Schema.decodeEffect(mergeUserEntityDataArgsSchema)([
+						rawItem,
+						options,
+					]);
+					const command = yield* userDataCommand(
+						input,
+						"mergeUserEntityData",
+						item.entitySchemaSlug,
+						submission,
+					);
+					const { warnings, movedEventsCount, movedRelationshipsCount } =
+						yield* userData.mergeEntityUserDataForCommand(
+							UserId.make(userSandboxRunUserId(input)),
+							{
+								mergeFrom: EntityId.make(item.mergeFrom),
+								mergeInto: EntityId.make(item.mergeInto),
+								entitySchemaSlug: EntitySchemaSlug.make(item.entitySchemaSlug),
+							},
+							command,
+						);
+					yield* reportSandboxLifecycleWarnings("mergeUserEntityData", warnings);
+					return { movedEventsCount, movedRelationshipsCount };
 				}),
 			),
 		deleteUserEntity: (rawInput, rawItem, options) =>
@@ -301,58 +392,13 @@ export const makeEntityScriptHost = Effect.gen(function* () {
 					return { entityId: entity.id };
 				}),
 			),
-		mergeUserEntityData: (
-			rawInput,
-			rawItem,
-			options?: Parameters<AdditionalScriptHostImplementationMap["mergeUserEntityData"]>[2],
-		) =>
-			sandboxHostEffect(
-				Effect.gen(function* () {
-					const input = yield* requireSandboxCapabilityInput(rawInput, "mergeUserEntityData");
-					const [item, submission] = yield* Schema.decodeEffect(mergeUserEntityDataArgsSchema)([
-						rawItem,
-						options,
-					]);
-					if (!input.principal.pluginRevision) {
-						return yield* sandboxHostFailure("Entity merge requires a pinned plugin");
-					}
-					if ((yield* findForeignEntitySchemaSlug(input, [item.entitySchemaSlug])) !== undefined) {
-						return yield* sandboxHostFailure("Entity schema is not owned by the executing plugin", {
-							code: "unavailable-operation",
-							operation: "mergeUserEntityData",
-						});
-					}
-					const command = yield* submissions.commandFor(
-						input,
-						kernelCollectionLifecycleCommand(
-							yield* sandboxLifecycleCommand(
-								input,
-								userLifecycleSource(input),
-								"mergeUserEntityData",
-							),
-						),
-						submission,
-					);
-					const { warnings, movedEventsCount, movedRelationshipsCount } =
-						yield* userData.mergeEntityUserDataForCommand(
-							UserId.make(userSandboxRunUserId(input)),
-							{
-								mergeFrom: EntityId.make(item.mergeFrom),
-								mergeInto: EntityId.make(item.mergeInto),
-								entitySchemaSlug: EntitySchemaSlug.make(item.entitySchemaSlug),
-							},
-							command,
-						);
-					yield* reportSandboxLifecycleWarnings("mergeUserEntityData", warnings);
-					return { movedEventsCount, movedRelationshipsCount };
-				}),
-			),
 	} satisfies Pick<
 		AdditionalScriptHostImplementationMap,
 		| "createUserEntity"
 		| "deleteUserEntity"
 		| "updateUserEntity"
 		| "ensureUserEntities"
+		| "clearUserEntityData"
 		| "mergeUserEntityData"
 		| "upsertGlobalEntities"
 	>;

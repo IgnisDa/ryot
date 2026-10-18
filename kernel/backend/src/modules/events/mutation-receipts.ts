@@ -95,6 +95,8 @@ export const eventMutationReceiptIdentity = (
 			eventId: input.eventId,
 			mergeFrom: mutation.move.mergeFrom,
 			mergeInto: mutation.move.mergeInto,
+			...(mutation.move.references === undefined ? {} : { references: mutation.move.references }),
+			...(mutation.move.properties === undefined ? {} : { properties: mutation.move.properties }),
 		};
 	} else {
 		commandKind = "event:delete";

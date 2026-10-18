@@ -7,6 +7,7 @@ import { DemoAccessPolicy } from "./http-annotations";
 import { LocalUploadsGroup, UploadsGroup } from "./modules/assets/contract";
 import { CalendarSourcesGroup } from "./modules/calendar-sources/contract";
 import { EntitiesGroup } from "./modules/entities/contract";
+import { EntityUserDataGroup } from "./modules/entity-user-data/contract";
 import { IntegrationsGroup } from "./modules/integrations/contract";
 import { PluginsGroup } from "./modules/plugins/contract";
 import { RelationshipsGroup } from "./modules/relationships/contract";
@@ -44,6 +45,12 @@ describe("authenticated mutation endpoints", () => {
 		expect(Context.get(EntitiesGroup.endpoints.create.annotations, DemoAccessPolicy)).toBe(
 			"protected",
 		);
+		for (const endpoint of [
+			EntityUserDataGroup.endpoints.clearEntityUserData,
+			EntityUserDataGroup.endpoints.mergeEntityUserData,
+		]) {
+			expect(Context.get(endpoint.annotations, DemoAccessPolicy)).toBe("protected");
+		}
 		expect(
 			Context.get(EntitiesGroup.endpoints.requestEnrichment.annotations, DemoAccessPolicy),
 		).toBe("allowed");

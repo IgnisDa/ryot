@@ -559,25 +559,33 @@ export class RelationshipsRepository extends Context.Service<RelationshipsReposi
 				});
 				return rows.map(toRelationship);
 			});
-			const listUserRelationshipsForEntityWithProvenance = Effect.fn(
-				"RelationshipsRepository.listUserRelationshipsForEntityWithProvenance",
-			)(function* (input: { userId: UserId; entityId: EntityId }) {
-				const rows = yield* session.run((db) =>
-					db
-						.select(relationshipSnapshotWithProvenanceSelection)
-						.from(schema.relationship)
-						.where(
-							and(
-								eq(schema.relationship.userId, input.userId),
-								or(
-									eq(schema.relationship.sourceEntityId, input.entityId),
-									eq(schema.relationship.targetEntityId, input.entityId),
-								),
-							),
-						)
-						.for("update"),
+			const listUserRelationshipsForEntitiesWithProvenance = Effect.fn(
+				"RelationshipsRepository.listUserRelationshipsForEntitiesWithProvenance",
+			)(function* (input: { userId: UserId; entityIds: ReadonlyArray<EntityId> }) {
+				const rows = yield* Effect.forEach(
+					chunksOf(input.entityIds, STATEMENT_CHUNK_SIZE),
+					(entityIds) =>
+						session.run((db) =>
+							db
+								.select(relationshipSnapshotWithProvenanceSelection)
+								.from(schema.relationship)
+								.where(
+									and(
+										eq(schema.relationship.userId, input.userId),
+										or(
+											inArray(schema.relationship.sourceEntityId, entityIds),
+											inArray(schema.relationship.targetEntityId, entityIds),
+										),
+									),
+								)
+								.orderBy(asc(schema.relationship.id))
+								.for("update"),
+						),
 				);
-				return rows.map(toRelationship);
+				const byId = new Map(rows.flat().map((row) => [row.id, row]));
+				return [...byId.values()]
+					.sort((left, right) => left.id.localeCompare(right.id))
+					.map(toRelationship);
 			});
 
 			const listEnabledOwnersForSubject = Effect.fn(
@@ -737,7 +745,7 @@ export class RelationshipsRepository extends Context.Service<RelationshipsReposi
 				claimRelationshipSyncGeneration,
 				listRelationshipsForReconciliation,
 				listRelationshipsOutsideGeneration,
-				listUserRelationshipsForEntityWithProvenance,
+				listUserRelationshipsForEntitiesWithProvenance,
 			};
 		}),
 	},

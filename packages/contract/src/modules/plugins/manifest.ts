@@ -25,7 +25,12 @@ import {
 import { SandboxExecutionMetadata } from "./execution-metadata";
 import { pluginConfigEnvironmentKey } from "./plugin-config";
 import { ProviderTranslationInputs } from "./provider-inputs";
-import { KernelDefinitionOwner, PluginPackageReference } from "./references";
+import {
+	AuthoredEventSchemaReference,
+	AuthoredRelationshipSchemaReference,
+	KernelDefinitionOwner,
+	PluginPackageReference,
+} from "./references";
 
 export const CLIENT_API_VERSION = 1 as const;
 
@@ -269,6 +274,26 @@ export type PluginEventSchema = Schema.Schema.Type<typeof PluginEventSchema>;
 
 export const PluginEntityUserStatePolicy = strictStruct({
 	deniedOperations: Schema.Array(Schema.Literals(["clear", "merge"])),
+	relationships: Schema.optional(Schema.Array(AuthoredRelationshipSchemaReference)),
+	evidence: Schema.optional(
+		Schema.Array(
+			strictStruct({
+				subjectProperty: Schema.NonEmptyString,
+				eventSchema: AuthoredEventSchemaReference,
+				resetOnMerge: Schema.optional(Schema.Boolean),
+			}),
+		),
+	),
+	children: Schema.optional(
+		Schema.Array(
+			strictStruct({
+				entitySchemaSlug: pluginManifestSlug,
+				matchName: Schema.optional(Schema.Boolean),
+				path: Schema.NonEmptyArray(pluginManifestSlug),
+				identityProperties: Schema.NonEmptyArray(Schema.NonEmptyString),
+			}),
+		),
+	),
 });
 
 export type PluginEntityUserStatePolicy = Schema.Schema.Type<typeof PluginEntityUserStatePolicy>;

@@ -73,7 +73,10 @@ import {
 	RelationshipsRepository,
 } from "#modules/relationships/repository";
 import { RyotQLService } from "#modules/ryotql/service";
-import type { ScriptRunInput } from "#modules/scripts/authorization/capabilities";
+import type {
+	AdditionalScriptHostImplementationMap,
+	ScriptRunInput,
+} from "#modules/scripts/authorization/capabilities";
 import type { ScriptExecutionPrincipal } from "#modules/scripts/authorization/principal";
 import { SandboxSubmissionCommands } from "#modules/scripts/host/submission-command";
 import { SandboxRepository } from "#modules/scripts/registry/repository";
@@ -321,6 +324,11 @@ const builtinEntityScope = ({ entityId }: { userId: UserId; entityId: EntityId }
 		entitySchemaSlug: EntitySchemaSlug.make(entityId === "collection-1" ? "collection" : "entity"),
 	});
 
+type RecordedUserDataClear = {
+	readonly userId: UserId;
+	readonly command: DomainLifecycleCommand;
+	readonly payload: { entityId: string; entitySchemaSlug: string };
+};
 type RecordedUserDataMerge = {
 	readonly userId: UserId;
 	readonly command: DomainLifecycleCommand;
@@ -347,6 +355,7 @@ class HostFunctionCalls extends Context.Service<
 		readonly integrationLookups: Effect.Effect<ReadonlyArray<GetForUserInput>>;
 		readonly useDefinitions: (source: DefinitionSource) => Effect.Effect<void>;
 		readonly userDataMerges: Effect.Effect<ReadonlyArray<RecordedUserDataMerge>>;
+		readonly userDataClears: Effect.Effect<ReadonlyArray<RecordedUserDataClear>>;
 	}
 >()("test/HostFunctionCalls") {}
 
@@ -386,6 +395,7 @@ const hostFunctionsLayer = (
 		Effect.gen(function* () {
 			const createdEntities = yield* Ref.make<ReadonlyArray<unknown>>([]);
 			const userDataMerges = yield* Ref.make<ReadonlyArray<RecordedUserDataMerge>>([]);
+			const userDataClears = yield* Ref.make<ReadonlyArray<RecordedUserDataClear>>([]);
 			const ensuredEntities = yield* Ref.make<ReadonlyArray<unknown>>([]);
 			const ryotqlUserCalls = yield* Ref.make<ReadonlyArray<unknown>>([]);
 			const ryotqlPluginCalls = yield* Ref.make<ReadonlyArray<unknown>>([]);
@@ -448,6 +458,7 @@ const hostFunctionsLayer = (
 					lookupOrder: Ref.get(lookupOrder),
 					eventMutations: Ref.get(eventMutations),
 					userDataMerges: Ref.get(userDataMerges),
+					userDataClears: Ref.get(userDataClears),
 					createdEntities: Ref.get(createdEntities),
 					ensuredEntities: Ref.get(ensuredEntities),
 					ryotqlUserCalls: Ref.get(ryotqlUserCalls),
@@ -549,6 +560,15 @@ const hostFunctionsLayer = (
 								movedRelationshipsCount: 3,
 							}),
 						),
+					clearEntityUserDataForCommand: (userId, payload, command) =>
+						append(userDataClears, { userId, payload, command }).pipe(
+							Effect.as({
+								warnings: [],
+								deletedEventsCount: 2,
+								entityId: payload.entityId,
+								deletedRelationshipsCount: 3,
+							}),
+						),
 				}),
 				Layer.mock(OAuthConnectionsService)({
 					accessTokenForIntegrationRun: (input) =>
@@ -578,6 +598,22 @@ const hostFunctionsLayer = (
 									: Effect.die("unused plugin config"),
 							),
 						),
+					findPluginAvailableToUser: (_userId, pluginId) =>
+						Effect.succeed({
+							id: pluginId,
+							isHidden: false,
+							scope: "system",
+							health: "ready",
+							ownerUserId: null,
+							clientImports: [],
+							compiledHashes: {},
+							contentHash: "content-hash",
+							manifest: fixtureManifest(),
+							pluginRevisionId: "revision-1",
+							installationId: "installation-1",
+							pluginConfigRevisionId: "config-1",
+							packageId: fixtureManifest().metadata.packageId,
+						}),
 				}),
 				Layer.mock(RyotQLService)({
 					executeForPlugin: (scope, doc) =>
@@ -2230,6 +2266,138 @@ describe("mergeUserEntityData", () => {
 					operation: "mergeUserEntityData",
 				});
 				expect(yield* (yield* HostFunctionCalls).userDataMerges).toEqual([]);
+			}),
+		);
+	});
+});
+
+const runClearUserEntityData = (
+	overrides: Partial<ScriptRunInput> = {},
+	item: { entityId: string; entitySchemaSlug: string } = {
+		entityId: "entity-1",
+		entitySchemaSlug: "workspace",
+	},
+	options?: Parameters<AdditionalScriptHostImplementationMap["clearUserEntityData"]>[2],
+) =>
+	makeAdditionalScriptHostFunctions.pipe(
+		Effect.flatMap((functions) =>
+			functions.clearUserEntityData(
+				{
+					...runInput(
+						{
+							type: "user",
+							userId: UserId.make("trusted-user"),
+							accountGeneration: testAccountGeneration(UserId.make("trusted-user")),
+						},
+						["clearUserEntityData"],
+						{
+							pluginRevision: {
+								...systemPluginRevision,
+								schemaScope: {
+									...systemPluginRevision.schemaScope,
+									entitySchemaSlugs: ["workspace"],
+								},
+							},
+						},
+					),
+					...overrides,
+				},
+				item,
+				options,
+			),
+		),
+	);
+
+describe("clearUserEntityData", () => {
+	layer(hostFunctionsLayer({ definitions: workspaceDefinitions() }))((test) => {
+		test.effect("clears under the sandbox principal with replay command options", () =>
+			Effect.gen(function* () {
+				const functions = yield* makeAdditionalScriptHostFunctions;
+				const userId = UserId.make("trusted-user");
+				const input = runInput(
+					{ userId, type: "user", accountGeneration: testAccountGeneration(userId) },
+					["clearUserEntityData"],
+					{
+						pluginRevision: {
+							...systemPluginRevision,
+							schemaScope: {
+								...systemPluginRevision.schemaScope,
+								entitySchemaSlugs: ["workspace"],
+							},
+						},
+					},
+				);
+				const submittedAt = "2026-01-02T00:00:00.000Z";
+				expect(
+					yield* functions.clearUserEntityData(
+						input,
+						{ entityId: "entity-1", entitySchemaSlug: "workspace" },
+						{ submittedAt, idempotencyKey: "clear-workspace" },
+					),
+				).toEqual({ deletedEventsCount: 2, deletedRelationshipsCount: 3 });
+				const [clear] = yield* (yield* HostFunctionCalls).userDataClears;
+				expect(clear).toMatchObject({
+					userId,
+					payload: { entityId: "entity-1", entitySchemaSlug: "workspace" },
+					command: {
+						kernelCollection: true,
+						occurredAt: submittedAt,
+						itemIdentity: "clearUserEntityData",
+					},
+				});
+				expect(clear?.command.writeContext).toBe(input.principal);
+			}),
+		);
+	});
+
+	layer(hostFunctionsLayer({ definitions: workspaceDefinitions() }))((test) => {
+		test.effect("rejects invalid subjects, unpinned plugins, and foreign schemas", () =>
+			Effect.gen(function* () {
+				const subject = {
+					type: "user",
+					userId: UserId.make("trusted-user"),
+					accountGeneration: testAccountGeneration(UserId.make("trusted-user")),
+				} as const;
+				const pinned = {
+					...systemPluginRevision,
+					schemaScope: { ...systemPluginRevision.schemaScope, entitySchemaSlugs: ["workspace"] },
+				};
+				for (const principal of [
+					runInput(subject, [], { pluginRevision: pinned }).principal,
+					runInput({ type: "system" }, ["clearUserEntityData"], { pluginRevision: pinned })
+						.principal,
+					runInput(automationSubject({ kind: "api" }), ["clearUserEntityData"], {
+						pluginRevision: pinned,
+					}).principal,
+				]) {
+					const error = yield* Effect.flip(runClearUserEntityData({ principal }));
+					expect(error.data).toEqual({
+						code: "unavailable-operation",
+						operation: "clearUserEntityData",
+					});
+				}
+				const unpinned = yield* Effect.flip(
+					runClearUserEntityData({
+						principal: runInput(subject, ["clearUserEntityData"]).principal,
+					}),
+				);
+				expect(unpinned).toEqual({ message: "Entity clearing requires a pinned plugin" });
+				for (const entitySchemaSlug of ["collection", "other"]) {
+					const error = yield* Effect.flip(
+						runClearUserEntityData({}, { entitySchemaSlug, entityId: "entity-1" }),
+					);
+					expect(error.data).toEqual({
+						code: "unavailable-operation",
+						operation: "clearUserEntityData",
+					});
+				}
+				yield* (yield* HostFunctionCalls).useDefinitions(workspaceDefinitions("foreign-plugin"));
+				const foreign = yield* Effect.flip(runClearUserEntityData());
+				expect(foreign.data).toEqual({
+					code: "unavailable-operation",
+					operation: "clearUserEntityData",
+				});
+				expect(yield* (yield* HostFunctionCalls).userDataClears).toEqual([]);
 			}),
 		);
 	});

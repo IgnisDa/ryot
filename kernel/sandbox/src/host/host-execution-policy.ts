@@ -31,6 +31,7 @@ export const SANDBOX_HOST_EXECUTION_POLICY = {
 	invalidateOAuthAccessToken: { resultBytes: KiB, dispatch: "activity" },
 	ensureUserEntities: { resultBytes: null, dispatch: "service-workflow" },
 	mergeUserEntityData: { resultBytes: null, dispatch: "service-workflow" },
+	clearUserEntityData: { resultBytes: null, dispatch: "service-workflow" },
 	requestEventStreamWork: { resultBytes: KiB, dispatch: "service-workflow" },
 	sendNotification: { resultBytes: null, dispatch: "notification-workflow" },
 	setCachedValue: { permit: "small", resultBytes: KiB, dispatch: "activity" },

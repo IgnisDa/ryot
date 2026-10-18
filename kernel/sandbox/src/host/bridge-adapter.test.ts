@@ -51,6 +51,7 @@ const makeImplementations = (
 	getProAvailability: () => Effect.fail({ message: "unused" }),
 	ensureUserEntities: () => Effect.fail({ message: "unused" }),
 	mergeUserEntityData: () => Effect.fail({ message: "unused" }),
+	clearUserEntityData: () => Effect.fail({ message: "unused" }),
 	verifyManagedAssets: () => Effect.fail({ message: "unused" }),
 	getOAuthAccessToken: () => Effect.fail({ message: "unused" }),
 	claimPersistentValue: () => Effect.fail({ message: "unused" }),
@@ -536,6 +537,33 @@ describe("bindSandboxHostFunctions", () => {
 				error: "0.userId: Expected no excess property",
 			});
 			expect(calls).toHaveLength(1);
+		}),
+	);
+
+	it.effect("preserves user-data conflicts for operation refusal handling", () =>
+		Effect.gen(function* () {
+			const state = { code: "state-conflict", message: "Refresh and retry" };
+			const mapping = {
+				entityIds: ["child"],
+				code: "child-mapping-conflict",
+				message: "Match the child first",
+			};
+			const bound = bindSandboxHostFunctions(
+				makeImplementations({
+					clearUserEntityData: () => Effect.fail({ data: state, message: "state-conflict" }),
+					mergeUserEntityData: () =>
+						Effect.fail({ data: mapping, message: "child-mapping-conflict" }),
+				}),
+				input,
+			);
+			expect(
+				yield* bound.clearUserEntityData([{ entityId: "entity", entitySchemaSlug: "record" }]),
+			).toEqual({ data: state, success: false, error: "state-conflict" });
+			expect(
+				yield* bound.mergeUserEntityData([
+					{ mergeFrom: "source", mergeInto: "target", entitySchemaSlug: "record" },
+				]),
+			).toEqual({ data: mapping, success: false, error: "child-mapping-conflict" });
 		}),
 	);
 

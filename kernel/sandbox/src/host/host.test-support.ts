@@ -79,6 +79,7 @@ const unusedSandboxHostFunctionMap = (
 	getUserPreferences: unusedHostCall,
 	getProAvailability: unusedHostCall,
 	mergeUserEntityData: unusedHostCall,
+	clearUserEntityData: unusedHostCall,
 	verifyManagedAssets: unusedHostCall,
 	getOAuthAccessToken: unusedHostCall,
 	claimPersistentValue: unusedHostCall,
