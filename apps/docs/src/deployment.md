@@ -64,6 +64,13 @@ Console logs always use the `info` level. `SERVER_LOG_LEVEL` controls file logs 
 logs sent to `OTEL_EXPORTER_OTLP_ENDPOINT`; it does not disable traces or metrics. Each server
 instance must write to its own log file.
 
+## Reverse proxies
+
+Set `FRONTEND_URL` to the public origin used by the browser. Configure your
+reverse proxy to preserve the public `Host` header and set `X-Forwarded-Proto`
+to the client-facing protocol. The proxy must overwrite forwarding headers
+supplied by clients.
+
 ## Railway
 
 1. Create an empty Railway project.
