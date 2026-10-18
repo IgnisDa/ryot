@@ -12,6 +12,7 @@ import {
 	waitForEventCount,
 	waitForEventWithSchema,
 } from "~/fixtures/kernel";
+import { pollUntil } from "~/fixtures/kernel/polling";
 import {
 	createBuiltinMediaLifecycleFixture,
 	findMediaEntitySchema,
@@ -115,7 +116,15 @@ describe("Event automations", () => {
 				}),
 			);
 
-			yield* waitForEventCount(client, entityId, 4);
+			yield* pollUntil(
+				"two completion events after repeated 100% progress",
+				Effect.gen(function* () {
+					const events = yield* listEventsForEntity(client, entityId, undefined, 100);
+					return events.filter((row) => row.eventSchemaSlug === "complete").length === 2
+						? events
+						: null;
+				}),
+			);
 
 			const allEvents = yield* listEventsForEntity(client, entityId, undefined, 100);
 			const completeEvents = allEvents.filter((event) => event.eventSchemaSlug === "complete");
@@ -532,7 +541,15 @@ describe("Event automations", () => {
 				}),
 			);
 
-			yield* waitForEventCount(client, entityId, 4);
+			yield* pollUntil(
+				"two completion events after repeated 100% progress",
+				Effect.gen(function* () {
+					const events = yield* listEventsForEntity(client, entityId, undefined, 100);
+					return events.filter((row) => row.eventSchemaSlug === "complete").length === 2
+						? events
+						: null;
+				}),
+			);
 
 			const events = yield* listEventsForEntity(client, entityId, undefined, 100);
 			expect(events.filter((event) => event.eventSchemaSlug === "complete")).toHaveLength(2);

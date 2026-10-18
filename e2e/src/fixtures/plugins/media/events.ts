@@ -62,6 +62,7 @@ export const createBuiltinMediaLifecycleFixture = (
 		const entity = yield* seedMediaEntity({
 			providerId,
 			userId: null,
+			target: client.target,
 			entitySchemaSlug: selectedSchema.id,
 			externalId: `${entitySchemaSlug}-${crypto.randomUUID()}`,
 			name: `Built-in ${entitySchemaSlug} ${crypto.randomUUID()}`,
