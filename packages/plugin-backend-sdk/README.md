@@ -116,6 +116,12 @@ step and returns `{ workId }`; the common kernel background-work owner dispatche
 dispatch a separate event-stream workflow. Processor output and publication rules are described in
 [events and projections](../../kernel/backend/src/modules/events/README.md#stream-work-and-freshness).
 
+`requestRelationshipProjections({ relationshipSchemaSlug, sourceEntityIds })` marks the execution
+user's links from those sources for the schema's declared projection processor and returns
+`{ workId }`. The owning plugin's `requestRelationshipProjectionsForAllUsers` takes the same request
+and returns `{ users }`. See
+[relationship projections](../../kernel/backend/src/modules/relationships/README.md#projections).
+
 Before-stage policies receive one batch envelope: `automation` holds shared invocation metadata and
 projected entity references; `items` holds `{ itemIdentity, payload }` requests. Return
 `{ items: [{ itemIdentity, decision }] }` with exactly one decision for each supplied identity.

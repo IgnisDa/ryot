@@ -21,3 +21,4 @@ export * from "./event-projections";
 export * from "./migration-reports";
 export * from "./oauth-connections";
 export * from "./workflow-executions";
+export * from "./relationship-projections";

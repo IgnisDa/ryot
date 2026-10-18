@@ -1,3 +1,4 @@
+import { RelationshipProjectionRequest } from "@ryot-app/contract/modules/relationships/projections";
 import { Schema } from "@ryot-app/plugin-backend-sdk/effect";
 
 import { hostResultSchema, strictStruct } from "../wire";
@@ -102,4 +103,20 @@ export const changeUserRelationshipsArgsSchema = Schema.Tuple([
 export const changeUserRelationshipsDataSchema = Schema.Array(changeUserRelationshipResultSchema);
 export const changeUserRelationshipsResultSchema = hostResultSchema(
 	changeUserRelationshipsDataSchema,
+);
+export const requestRelationshipProjectionsArgsSchema = Schema.Tuple([
+	RelationshipProjectionRequest,
+]);
+export const requestRelationshipProjectionsDataSchema = strictStruct({ workId: nonEmptyString });
+export const requestRelationshipProjectionsResultSchema = hostResultSchema(
+	requestRelationshipProjectionsDataSchema,
+);
+export const requestRelationshipProjectionsForAllUsersDataSchema = strictStruct({
+	users: Schema.Number.pipe(
+		Schema.check(Schema.isInt()),
+		Schema.check(Schema.isGreaterThanOrEqualTo(0)),
+	),
+});
+export const requestRelationshipProjectionsForAllUsersResultSchema = hostResultSchema(
+	requestRelationshipProjectionsForAllUsersDataSchema,
 );

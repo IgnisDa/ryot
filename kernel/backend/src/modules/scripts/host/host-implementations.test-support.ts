@@ -74,5 +74,7 @@ export const unusedSandboxHostImplementations = (
 		changeUserRelationships: unusedHostCall,
 		upsertGlobalRelationships: unusedHostCall,
 		invalidateOAuthAccessToken: unusedHostCall,
+		requestRelationshipProjections: unusedHostCall,
+		requestRelationshipProjectionsForAllUsers: unusedHostCall,
 	},
 });

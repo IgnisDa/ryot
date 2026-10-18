@@ -29,6 +29,7 @@ import {
 	type LifecyclePlanningResult,
 } from "#modules/automations/lifecycle/planning";
 import type { BackgroundWorkInput } from "#modules/background-work/model";
+import { ProjectionBindings } from "#modules/background-work/model";
 import { BackgroundWorkService, BackgroundWorkWorkflow } from "#modules/background-work/service";
 import { EventSchemaReader } from "#modules/definitions/event-schemas";
 import { EntitiesRepository } from "#modules/entities/repository";
@@ -37,7 +38,7 @@ import { EventProjectionRepository } from "#modules/events/projection-repository
 import { EventsRepository } from "#modules/events/repository";
 import { EventsService } from "#modules/events/service";
 import { EventStreamRepository } from "#modules/events/stream-repository";
-import { EventProjectionBindings, EventStreamWorkService } from "#modules/events/stream-work";
+import { EventStreamWorkService } from "#modules/events/stream-work";
 import { PluginRuntimeResolver } from "#modules/plugins/catalog/runtime-resolver";
 import {
 	installRevisionPackage,
@@ -137,7 +138,7 @@ const fixturePackage = (): NormalizedPlugin => {
 };
 
 type ProjectionBinding = NonNullable<
-	Effect.Success<ReturnType<EventProjectionBindings["Service"]["resolve"]>>
+	Effect.Success<ReturnType<ProjectionBindings["Service"]["resolve"]>>
 >;
 
 type ProcessorAction = (
@@ -281,7 +282,7 @@ const projectionBindingsLayer = Layer.unwrap(
 			accountGeneration: fixture.accountGeneration,
 		});
 		return Layer.merge(
-			Layer.succeed(EventProjectionBindings, { resolve: () => Ref.get(current) }),
+			Layer.succeed(ProjectionBindings, { resolve: () => Ref.get(current) }),
 			Layer.succeed(ProjectionBindingControl, { set: (binding) => Ref.set(current, binding) }),
 		);
 	}),
@@ -628,7 +629,7 @@ layer(streamWorkTestLayer)((test) => {
 
 			const job = yield* processCurrent(id);
 			expect(job.purpose).toBe("event-projection");
-			expect(job.execution.subject.type).toBe("event-projection");
+			expect(job.execution.subject.type).toBe("projection");
 			expect(job.id).toBe(before.currentJobId);
 			expect(yield* backgroundJob(job.id)).toEqual({ error: null, status: "succeeded" });
 
@@ -652,7 +653,7 @@ layer(streamWorkTestLayer)((test) => {
 			yield* background.dispatch(checkpointed.currentJobId);
 			const nextJob = yield* background.start(checkpointed.currentJobId);
 			assert(nextJob);
-			expect(nextJob.execution.subject.type).toBe("event-projection");
+			expect(nextJob.execution.subject.type).toBe("projection");
 			expect(
 				(yield* Schema.decodeUnknownEffect(EventStreamStepInput)(nextJob.execution.input))
 					.checkpoint,

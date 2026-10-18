@@ -131,6 +131,7 @@ const toRelationshipSchema = (row: RelationshipSchemaRow): RelationshipSchemaDef
 	propertiesSchema: row.propertiesSchema,
 	sourceEntitySchemaSlug: row.sourceEntitySchemaSlug,
 	targetEntitySchemaSlug: row.targetEntitySchemaSlug,
+	...(row.projection === null ? {} : { projection: row.projection }),
 	...(row.userWritePolicy === null ? {} : { userWritePolicy: row.userWritePolicy }),
 });
 
@@ -348,6 +349,7 @@ export class DefinitionRepository extends Context.Service<DefinitionRepository>(
 										name: definition.name,
 										slug: definition.slug,
 										retention: definition.retention ?? null,
+										projection: definition.projection ?? null,
 										propertiesSchema: definition.propertiesSchema,
 										userWritePolicy: definition.userWritePolicy ?? null,
 										sourceEntitySchemaSlug: definition.sourceEntitySchemaSlug,
@@ -605,6 +607,7 @@ export class DefinitionRepository extends Context.Service<DefinitionRepository>(
 										slug: definition.slug,
 										pluginRevisionId: null,
 										retention: definition.retention ?? null,
+										projection: definition.projection ?? null,
 										propertiesSchema: definition.propertiesSchema,
 										userWritePolicy: definition.userWritePolicy ?? null,
 										sourceEntitySchemaSlug: definition.sourceEntitySchemaSlug,
@@ -620,6 +623,7 @@ export class DefinitionRepository extends Context.Service<DefinitionRepository>(
 										name: sql`excluded.name`,
 										position: sql`excluded.position`,
 										retention: sql`excluded.retention`,
+										projection: sql`excluded.projection`,
 										userWritePolicy: sql`excluded.user_write_policy`,
 										propertiesSchema: sql`excluded.properties_schema`,
 										sourceEntitySchemaSlug: sql`excluded.source_entity_schema_slug`,
@@ -1010,6 +1014,7 @@ export class DefinitionRepository extends Context.Service<DefinitionRepository>(
 							.select({
 								name: schema.definitionRelationshipSchema.name,
 								slug: schema.definitionRelationshipSchema.slug,
+								projection: schema.definitionRelationshipSchema.projection,
 								userWritePolicy: schema.definitionRelationshipSchema.userWritePolicy,
 								propertiesSchema: schema.definitionRelationshipSchema.propertiesSchema,
 								sourceEntitySchemaSlug: schema.definitionRelationshipSchema.sourceEntitySchemaSlug,
@@ -1027,8 +1032,12 @@ export class DefinitionRepository extends Context.Service<DefinitionRepository>(
 					if (!row) {
 						return undefined;
 					}
-					const { userWritePolicy, ...definition } = row;
-					return { ...definition, ...(userWritePolicy === null ? {} : { userWritePolicy }) };
+					const { projection, userWritePolicy, ...definition } = row;
+					return {
+						...definition,
+						...(projection === null ? {} : { projection }),
+						...(userWritePolicy === null ? {} : { userWritePolicy }),
+					};
 				}),
 			};
 			const findRevisionDeclaration = Effect.fn("DefinitionRepository.findRevisionDeclaration")(

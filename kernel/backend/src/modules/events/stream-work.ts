@@ -23,10 +23,7 @@ import { Context, DateTime, Effect, Layer, Schema } from "effect";
 
 import { ManagedAssetReferenceLocker } from "#lib/domain/managed-asset-writes";
 import { rootLifecycleCausation } from "#modules/automations/lifecycle/command";
-import {
-	type BackgroundWorkInput,
-	BackgroundWorkProjectionFinalizer,
-} from "#modules/background-work/model";
+import { type BackgroundWorkInput, ProjectionBindings } from "#modules/background-work/model";
 import { BackgroundWorkService } from "#modules/background-work/service";
 import { EventSchemaReader } from "#modules/definitions/event-schemas";
 import { parseAppSchemaProperties } from "#modules/definitions/properties/runtime";
@@ -61,24 +58,6 @@ const EventStreamClaim = Schema.Struct({
 	}),
 });
 
-export class EventProjectionBindings extends Context.Service<
-	EventProjectionBindings,
-	{
-		resolve: (input: {
-			userId: UserId;
-			pluginId: string;
-			scriptSlug: string;
-		}) => Effect.Effect<
-			null | {
-				pluginPin: ScriptPluginRevision;
-				principal: ScriptExecutionPrincipal;
-				accountGeneration: AccountGeneration;
-			},
-			DbError
-		>;
-	}
->()("EventProjectionBindings") {}
-
 export class EventStreamWorkService extends Context.Service<EventStreamWorkService>()(
 	"EventStreamWorkService",
 	{
@@ -90,7 +69,7 @@ export class EventStreamWorkService extends Context.Service<EventStreamWorkServi
 			const entities = yield* EntitiesRepository;
 			const eventSchemas = yield* EventSchemaReader;
 			const background = yield* BackgroundWorkService;
-			const bindings = yield* EventProjectionBindings;
+			const bindings = yield* ProjectionBindings;
 			const redis = yield* RedisService;
 			const assets = yield* ManagedAssetReferenceLocker.make;
 			const publishUpdate = (entityId: EntityId, userId: UserId) =>
@@ -175,11 +154,7 @@ export class EventStreamWorkService extends Context.Service<EventStreamWorkServi
 						resolutionMode: "exact",
 						executionId: `${jobId}-script`,
 						scriptId: claim.processorScriptId,
-						subject: {
-							userId: account.userId,
-							type: "event-projection",
-							accountGeneration: account,
-						},
+						subject: { type: "projection", userId: account.userId, accountGeneration: account },
 					},
 				});
 				yield* repository.reserve(id, jobId);
@@ -572,11 +547,3 @@ export class EventStreamWorkService extends Context.Service<EventStreamWorkServi
 ) {
 	static readonly layer = Layer.effect(this, this.make);
 }
-
-export const EventProjectionFinalizerLive = Layer.effect(
-	BackgroundWorkProjectionFinalizer,
-	Effect.gen(function* () {
-		const service = yield* EventStreamWorkService;
-		return { failed: service.failed, publish: service.process };
-	}),
-);

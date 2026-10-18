@@ -363,6 +363,11 @@ export const bindSandboxHostFunctions = <Input>(
 			failure: preserveHttpFailureDetails,
 			normalize: (args) => normalizeOptionalNull(args, 2),
 		}),
+		requestRelationshipProjections: bind(
+			"requestRelationshipProjections",
+			domainSandboxHostContracts.requestRelationshipProjections,
+			implementations.requestRelationshipProjections,
+		),
 		listIntegrations: bind(
 			"listIntegrations",
 			domainSandboxHostContracts.listIntegrations,
@@ -374,6 +379,11 @@ export const bindSandboxHostFunctions = <Input>(
 			domainSandboxHostContracts.changeUserRelationships,
 			implementations.changeUserRelationships,
 			{ failure: preserveWriteFailure },
+		),
+		requestRelationshipProjectionsForAllUsers: bind(
+			"requestRelationshipProjectionsForAllUsers",
+			domainSandboxHostContracts.requestRelationshipProjectionsForAllUsers,
+			implementations.requestRelationshipProjectionsForAllUsers,
 		),
 	};
 };

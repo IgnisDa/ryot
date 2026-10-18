@@ -39,7 +39,9 @@ export const SANDBOX_HOST_EXECUTION_POLICY = {
 	changeUserRelationships: { resultBytes: null, dispatch: "lifecycle-workflow" },
 	verifyManagedAssets: { wireBytes: KiB, resultBytes: KiB, dispatch: "activity" },
 	upsertGlobalRelationships: { resultBytes: null, dispatch: "lifecycle-workflow" },
+	requestRelationshipProjections: { resultBytes: KiB, dispatch: "service-workflow" },
 	httpCall: { dispatch: "activity", resultBytes: 2 * SANDBOX_LIMITS.http.responseBytes },
+	requestRelationshipProjectionsForAllUsers: { resultBytes: KiB, dispatch: "service-workflow" },
 	executeRyotql: {
 		dispatch: "activity",
 		wireBytes: SANDBOX_LIMITS.ryotqlResultBytes + KiB,

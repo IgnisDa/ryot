@@ -17,7 +17,6 @@ export const backgroundWork = snakeCase.table(
 		payload: jsonb().$type<JsonValue>().notNull(),
 		createdAt: timestamptz().defaultNow().notNull(),
 		updatedAt: timestamptz().defaultNow().notNull(),
-		purpose: text().$type<"user-script" | "event-projection">().notNull(),
 		status: text().$type<"queued" | "failed" | "running" | "succeeded">().notNull(),
 		userId: text()
 			.notNull()
@@ -25,6 +24,9 @@ export const backgroundWork = snakeCase.table(
 		pluginId: text()
 			.notNull()
 			.references(() => plugin.id, { onDelete: "cascade" }),
+		purpose: text()
+			.$type<"user-script" | "event-projection" | "relationship-projection">()
+			.notNull(),
 	},
 	(table) => [
 		index("background_work_scope_idx").on(

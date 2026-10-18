@@ -12,7 +12,7 @@ schema must be strict, non-empty, contain at most 20 fields, and have no field n
 the source event schema. The processor must be a script owned by that plugin; validation limits it to
 read-only host capabilities and disallows workflow dependencies.
 
-The processor runs with the user-scoped `event-projection` subject and that account generation. This
+The processor runs with the user-scoped `projection` subject and that account generation. This
 subject has read-only authority. The `event_projection` RyotQL table is also a read-only subject,
 visible through its parent event's ownership.
 

@@ -41,7 +41,7 @@ describe("requireSandboxCapabilityInput", () => {
 		const userId = UserId.make("user_1");
 		const subject = {
 			userId,
-			type: "event-projection" as const,
+			type: "projection" as const,
 			accountGeneration: { userId, token: "test-account-generation" },
 		};
 		const input = makeSubjectRunInput(subject);
@@ -188,7 +188,7 @@ describe("requireSandboxCapabilityInput", () => {
 			automationRunSubject("before", userId),
 			automationRunSubject("after", null),
 			{ type: "system" as const },
-			{ ...subject, type: "event-projection" as const },
+			{ ...subject, type: "projection" as const },
 		]) {
 			expect(isSandboxCapabilityAllowed(makeSubjectRunInput(other), "updateUserSettings")).toBe(
 				false,

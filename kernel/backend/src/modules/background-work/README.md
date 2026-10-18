@@ -1,7 +1,7 @@
 # Background work
 
 `BackgroundWorkService` and `BackgroundWorkWorkflow` own durable admission and settlement for
-independent pinned user scripts and event-projection steps. `background_work` is the canonical job
+independent pinned user scripts, event-projection steps, and relationship-projection steps. `background_work` is the canonical job
 record; feature-owned tables retain application state and checkpoints.
 
 ## Admission and dispatch
@@ -24,7 +24,7 @@ job holds its scope until its workflow expires.
 The workflow starts only a `running` row, so a row settled by recovery is never revived, runs the
 pinned script through `ScriptExecutionWorkflow`, registering its child ownership before execution, and
 after settlement dispatches its own scope from the workflow body so the next queued job starts.
-Plugins do not separately dispatch the generic worker. User work and event projections use the same
+Plugins do not separately dispatch the generic worker. User work and projections use the same
 owner, while their admission rules and feature state remain with their respective modules.
 
 `requestUserWork` is the script-host adapter for independent user work. Its identity is keyed by
@@ -49,7 +49,7 @@ cannot change a terminal result; settling also releases retained execution refer
 
 The frequent cron deletes succeeded and failed rows 168 hours after settlement in bounded batches.
 It keeps the newest row of each scope, which plugins read as the scope's latest status, and any row an
-`event_stream_work` record still names as its current job.
+`event_stream_work` or `relationship_projection_work` record still names as its current job.
 
 Projection-specific freshness and discovery remain event-owned: reconciliation finds missing or stale
 bindings and dirty streams, and projection values are visible only while their source revision,

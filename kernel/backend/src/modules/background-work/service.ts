@@ -50,8 +50,7 @@ export class BackgroundWorkService extends Context.Service<BackgroundWorkService
 					!pin ||
 					execution.resolutionMode !== "exact" ||
 					execution.lane !== "background" ||
-					execution.subject.type !==
-						(input.purpose === "user-script" ? "user" : "event-projection") ||
+					execution.subject.type !== (input.purpose === "user-script" ? "user" : "projection") ||
 					!("accountGeneration" in execution.subject) ||
 					execution.subject.accountGeneration.token !== account.token ||
 					execution.subject.accountGeneration.userId !== account.userId ||

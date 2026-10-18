@@ -44,7 +44,7 @@ export const sandboxRunIntegrationId = (input: UserSandboxRunInput) => {
 	if (input.principal.subject.type === "user") {
 		return input.principal.subject.integrationId ?? null;
 	}
-	if (input.principal.subject.type === "event-projection") {
+	if (input.principal.subject.type === "projection") {
 		return null;
 	}
 	return input.principal.subject.causation.integrationId ?? null;

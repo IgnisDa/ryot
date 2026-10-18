@@ -18,6 +18,8 @@ export type CoreSandboxHostCapability = (typeof CORE_SANDBOX_HOST_CAPABILITIES)[
 export const DOMAIN_SANDBOX_HOST_CAPABILITIES = [
 	"createEvents",
 	"requestEventStreamWork",
+	"requestRelationshipProjections",
+	"requestRelationshipProjectionsForAllUsers",
 	"requestUserWork",
 	"updateEvents",
 	"deleteEvents",

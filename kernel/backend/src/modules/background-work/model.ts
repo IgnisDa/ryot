@@ -1,10 +1,15 @@
 import type { DbError } from "@ryot-app/contract/errors";
 import { AccountGeneration } from "@ryot-app/contract/schema/account-generation";
+import type { UserId } from "@ryot-app/contract/schema/brands";
 import { JsonValue } from "@ryot-app/contract/schema/json";
 import type { Effect } from "effect";
 import { Context, Schema } from "effect";
 import type { WorkflowEngine, WorkflowInstance } from "effect/workflow/WorkflowEngine";
 
+import type {
+	ScriptExecutionPrincipal,
+	ScriptPluginRevision,
+} from "#modules/scripts/authorization/principal";
 import { ScriptExecutionWorkflowPayload } from "#modules/scripts/executions/workflow-payload";
 
 export const BackgroundWorkInput = Schema.Struct({
@@ -15,7 +20,7 @@ export const BackgroundWorkInput = Schema.Struct({
 	contentHash: Schema.String,
 	accountGeneration: AccountGeneration,
 	execution: ScriptExecutionWorkflowPayload,
-	purpose: Schema.Literals(["user-script", "event-projection"]),
+	purpose: Schema.Literals(["user-script", "event-projection", "relationship-projection"]),
 });
 export type BackgroundWorkInput = typeof BackgroundWorkInput.Type;
 
@@ -34,3 +39,21 @@ export class BackgroundWorkProjectionFinalizer extends Context.Service<
 		) => Effect.Effect<void, DbError, WorkflowEngine | WorkflowInstance>;
 	}
 >()("BackgroundWorkProjectionFinalizer") {}
+
+export class ProjectionBindings extends Context.Service<
+	ProjectionBindings,
+	{
+		resolve: (input: {
+			userId: UserId;
+			pluginId: string;
+			scriptSlug: string;
+		}) => Effect.Effect<
+			null | {
+				pluginPin: ScriptPluginRevision;
+				principal: ScriptExecutionPrincipal;
+				accountGeneration: AccountGeneration;
+			},
+			DbError
+		>;
+	}
+>()("ProjectionBindings") {}

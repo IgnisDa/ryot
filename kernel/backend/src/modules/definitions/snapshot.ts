@@ -5,7 +5,7 @@ import {
 import {
 	PluginEntityEditor,
 	PluginEntityUserStatePolicy,
-	PluginEventProjection,
+	PluginProjection,
 	PluginRelationshipRetention,
 	PluginRelationshipUserWritePolicy,
 	PluginSignalAudiencePolicy,
@@ -50,7 +50,7 @@ export const EventSchemaDefinition = Schema.Struct({
 	name: Schema.String,
 	slug: Schema.String,
 	propertiesSchema: AppSchema,
-	projection: Schema.optional(PluginEventProjection),
+	projection: Schema.optional(PluginProjection),
 });
 
 export type EventSchemaDefinition = typeof EventSchemaDefinition.Type;
@@ -78,6 +78,7 @@ export const RelationshipSchemaDefinition = Schema.Struct({
 	name: Schema.String,
 	slug: Schema.String,
 	propertiesSchema: AppSchema,
+	projection: Schema.optional(PluginProjection),
 	sourceEntitySchemaSlug: Schema.NullOr(Schema.String),
 	targetEntitySchemaSlug: Schema.NullOr(Schema.String),
 	retention: Schema.optional(PluginRelationshipRetention),
@@ -427,6 +428,13 @@ const validateDefinitionSource = (
 			relationshipSchema.slug,
 			relationshipSchema.propertiesSchema,
 		);
+		if (relationshipSchema.projection) {
+			assertSchemaDefinition(
+				"relationship projection",
+				relationshipSchema.slug,
+				relationshipSchema.projection.propertiesSchema,
+			);
+		}
 		for (const entitySchemaSlug of [
 			relationshipSchema.sourceEntitySchemaSlug,
 			relationshipSchema.targetEntitySchemaSlug,

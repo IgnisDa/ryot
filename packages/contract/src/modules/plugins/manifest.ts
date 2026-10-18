@@ -256,18 +256,18 @@ export const PluginMetadata = strictStruct({
 
 export type PluginMetadata = Schema.Schema.Type<typeof PluginMetadata>;
 
-export const PluginEventProjection = strictStruct({
+export const PluginProjection = strictStruct({
 	scriptSlug: Schema.NonEmptyString,
 	propertiesSchema: PluginAppSchema,
 });
 
-export type PluginEventProjection = Schema.Schema.Type<typeof PluginEventProjection>;
+export type PluginProjection = Schema.Schema.Type<typeof PluginProjection>;
 
 export const PluginEventSchema = strictStruct({
 	name: Schema.String,
 	slug: pluginManifestSlug,
 	propertiesSchema: PluginAppSchema,
-	projection: Schema.optional(PluginEventProjection),
+	projection: Schema.optional(PluginProjection),
 });
 
 export type PluginEventSchema = Schema.Schema.Type<typeof PluginEventSchema>;
@@ -341,6 +341,7 @@ export const PluginRelationshipSchema = strictStruct({
 	name: Schema.String,
 	slug: pluginManifestSlug,
 	propertiesSchema: PluginAppSchema,
+	projection: Schema.optional(PluginProjection),
 	sourceEntitySchemaSlug: Schema.NullOr(Schema.String),
 	targetEntitySchemaSlug: Schema.NullOr(Schema.String),
 	retention: Schema.optional(PluginRelationshipRetention),

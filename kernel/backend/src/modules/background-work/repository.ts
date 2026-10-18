@@ -7,6 +7,7 @@ import { Context, DateTime, Effect, Layer } from "effect";
 import { DatabaseSession } from "#platform/db/session";
 import { backgroundWork } from "#schema/tables/background-work";
 import { eventStreamWork } from "#schema/tables/event-streams";
+import { relationshipProjectionWork } from "#schema/tables/relationship-projections";
 import { workflowExecution } from "#schema/tables/workflow-executions";
 
 export type BackgroundWorkScopeKey = Pick<
@@ -226,6 +227,10 @@ export class BackgroundWorkRepository extends Context.Service<BackgroundWorkRepo
 								)
 								and not exists (
 									select 1 from ${eventStreamWork} stream where stream.current_job_id = work.id
+								)
+								and not exists (
+									select 1 from ${relationshipProjectionWork} projection
+									where projection.current_job_id = work.id
 								)
 							order by work.updated_at
 							limit ${limit}

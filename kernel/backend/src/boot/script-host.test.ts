@@ -68,6 +68,7 @@ import { PluginInstallationRepository } from "#modules/plugins/installations/rep
 import { PluginUserSettingsWriter } from "#modules/plugins/preferences/user-settings-writer";
 import { fixtureManifest } from "#modules/plugins/test-support";
 import { RelationshipMutationPipeline } from "#modules/relationships/mutation-pipeline";
+import { RelationshipProjectionService } from "#modules/relationships/projections/service";
 import {
 	relationshipMutationLockKey,
 	RelationshipsRepository,
@@ -449,6 +450,7 @@ const hostFunctionsLayer = (
 					options.eventStreamRequest ??
 						(() => Effect.die("Unexpected EventStreamWorkService.request")),
 				),
+				Layer.mock(RelationshipProjectionService)({}),
 				Layer.mock(SandboxRepository)({
 					resolveWorkflowCallScript:
 						options.resolveWorkflowCallScript ?? (() => Effect.succeed(null)),

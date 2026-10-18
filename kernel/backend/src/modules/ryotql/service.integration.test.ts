@@ -86,12 +86,16 @@ import {
 	definitionSavedView,
 	definitionSignalSchema,
 } from "#schema/tables/definitions";
-import { entity } from "#schema/tables/entities";
+import { entity, relationship } from "#schema/tables/entities";
 import { eventProjection } from "#schema/tables/event-projections";
 import { eventStream, eventStreamWork } from "#schema/tables/event-streams";
 import { event } from "#schema/tables/events";
 import { migrationReport } from "#schema/tables/migration-reports";
 import { oauthConnection } from "#schema/tables/oauth-connections";
+import {
+	relationshipProjection,
+	relationshipProjectionWork,
+} from "#schema/tables/relationship-projections";
 import { savedView, savedViewOverride } from "#schema/tables/views";
 import { makeConfigProviderLayer } from "#testing/effect";
 import { isolatedDatabaseLayer } from "#testing/isolated-database";
@@ -813,6 +817,92 @@ layer(catalogDatabaseLayer)((test) => {
 					{ projection: null, id: "projection-gate", projectionStatus: "none" },
 				]);
 			}),
+	);
+});
+
+layer(catalogDatabaseLayer)((test) => {
+	test.effect("hides relationship projections until their note and binding are current", () =>
+		Effect.gen(function* () {
+			const session = yield* DatabaseSession;
+			const fields = ["id", "projection", "projectionStatus"];
+			yield* session.run((db) =>
+				db
+					.update(pluginInstallation)
+					.set({ health: "ready" })
+					.where(eq(pluginInstallation.id, "owner-system")),
+			);
+			yield* session.run((db) =>
+				db
+					.insert(relationship)
+					.values({
+						userId: "owner",
+						id: "projected-link",
+						sourceEntityId: "stream-entity-owner",
+						targetEntityId: "stream-entity-owner",
+						relationshipSchemaSlug: "projected-link",
+						relationshipSchemaPluginId: "system-plugin",
+					}),
+			);
+			yield* session.run((db) =>
+				db
+					.insert(relationshipProjectionWork)
+					.values({
+						userId: "owner",
+						id: "projected-link-work",
+						accountToken: "generation",
+						outputSchema: { fields: {} },
+						processorScriptId: "processor",
+						relationshipSchemaSlug: "projected-link",
+						pluginRevisionId: "system-plugin-revision",
+						relationshipSchemaPluginId: "system-plugin",
+						pluginPin: { configRevisionId: "system-env" },
+					}),
+			);
+			yield* session.run((db) =>
+				db
+					.insert(relationshipProjection)
+					.values({
+						revision: 1,
+						projectedRevision: 1,
+						properties: { score: 4 },
+						workId: "projected-link-work",
+						relationshipId: "projected-link",
+					}),
+			);
+			expect(yield* readRows(owner, "relationship", fields)).toContainEqual({
+				id: "projected-link",
+				projection: { score: 4 },
+				projectionStatus: "ready",
+			});
+			yield* session.run((db) =>
+				db
+					.update(relationshipProjection)
+					.set({ revision: 2 })
+					.where(eq(relationshipProjection.relationshipId, "projected-link")),
+			);
+			expect(yield* readRows(owner, "relationship", fields)).toContainEqual({
+				projection: null,
+				id: "projected-link",
+				projectionStatus: "pending",
+			});
+			yield* session.run((db) =>
+				db
+					.update(relationshipProjection)
+					.set({ projectedRevision: 2 })
+					.where(eq(relationshipProjection.relationshipId, "projected-link")),
+			);
+			yield* session.run((db) =>
+				db
+					.update(relationshipProjectionWork)
+					.set({ pluginRevisionId: "retired-revision" })
+					.where(eq(relationshipProjectionWork.id, "projected-link-work")),
+			);
+			expect(yield* readRows(owner, "relationship", fields)).toContainEqual({
+				projection: null,
+				id: "projected-link",
+				projectionStatus: "none",
+			});
+		}),
 	);
 });
 const other = { userId: "other", audience: "kernel" } as const;

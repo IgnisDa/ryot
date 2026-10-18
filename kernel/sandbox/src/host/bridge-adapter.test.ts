@@ -61,6 +61,8 @@ const makeImplementations = (
 	changeUserRelationships: () => Effect.fail({ message: "unused" }),
 	upsertGlobalRelationships: () => Effect.fail({ message: "unused" }),
 	invalidateOAuthAccessToken: () => Effect.fail({ message: "unused" }),
+	requestRelationshipProjections: () => Effect.fail({ message: "unused" }),
+	requestRelationshipProjectionsForAllUsers: () => Effect.fail({ message: "unused" }),
 	...overrides,
 });
 

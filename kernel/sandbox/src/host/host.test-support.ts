@@ -89,6 +89,8 @@ const unusedSandboxHostFunctionMap = (
 	changeUserRelationships: unusedHostCall,
 	upsertGlobalRelationships: unusedHostCall,
 	invalidateOAuthAccessToken: unusedHostCall,
+	requestRelationshipProjections: unusedHostCall,
+	requestRelationshipProjectionsForAllUsers: unusedHostCall,
 	...overrides,
 });
 

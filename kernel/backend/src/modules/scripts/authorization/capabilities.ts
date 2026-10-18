@@ -11,7 +11,7 @@ import { Effect } from "effect";
 import type { ScriptExecutionPrincipal } from "./principal";
 
 type SandboxCapabilitySystemKind = "script" | "automation";
-type SandboxCapabilitySubject = "user" | "system" | "automation-run" | "event-projection";
+type SandboxCapabilitySubject = "user" | "system" | "projection" | "automation-run";
 type SandboxCapabilityRequirement = {
 	readonly bridge: boolean;
 	readonly requiresProvider?: boolean;
@@ -42,64 +42,49 @@ const SANDBOX_CAPABILITY_REQUIREMENTS = {
 	verifyManagedAssets: { bridge: true, subjects: ["user", "automation-run"] as const },
 	changeUserRelationships: { bridge: true, subjects: ["user", "automation-run"] as const },
 	setCachedValue: { bridge: true, subjects: ["user", "automation-run", "system"] as const },
+	log: { bridge: true, subjects: ["user", "automation-run", "system", "projection"] as const },
 	getPersistentValue: { bridge: true, subjects: ["user", "automation-run", "system"] as const },
+	span: { bridge: true, subjects: ["user", "automation-run", "system", "projection"] as const },
 	ensureUserEntities: { bridge: true, subjects: ["user"] as const, requiresUserBootstrap: true },
+	getUserSettings: { bridge: true, subjects: ["user", "automation-run", "projection"] as const },
 	claimPersistentValue: { bridge: true, subjects: ["user", "automation-run", "system"] as const },
-	log: {
+	listIntegrations: { bridge: true, subjects: ["user", "automation-run", "projection"] as const },
+	listEventSchemas: { bridge: true, subjects: ["user", "automation-run", "projection"] as const },
+	getEntitySchemas: { bridge: true, subjects: ["user", "automation-run", "projection"] as const },
+	requestRelationshipProjections: { bridge: true, subjects: ["user", "automation-run"] as const },
+	getUserPreferences: { bridge: true, subjects: ["user", "automation-run", "projection"] as const },
+	getCurrentIntegration: {
 		bridge: true,
-		subjects: ["user", "automation-run", "system", "event-projection"] as const,
-	},
-	span: {
-		bridge: true,
-		subjects: ["user", "automation-run", "system", "event-projection"] as const,
-	},
-	getUserSettings: {
-		bridge: true,
-		subjects: ["user", "automation-run", "event-projection"] as const,
-	},
-	listIntegrations: {
-		bridge: true,
-		subjects: ["user", "automation-run", "event-projection"] as const,
-	},
-	listEventSchemas: {
-		bridge: true,
-		subjects: ["user", "automation-run", "event-projection"] as const,
-	},
-	getEntitySchemas: {
-		bridge: true,
-		subjects: ["user", "automation-run", "event-projection"] as const,
+		subjects: ["user", "automation-run", "projection"] as const,
 	},
 	requestUserWork: {
 		bridge: true,
 		requiresSystemPlugin: true,
 		subjects: ["user", "automation-run"],
 	},
-	getUserPreferences: {
+	getCachedValue: {
 		bridge: true,
-		subjects: ["user", "automation-run", "event-projection"] as const,
+		subjects: ["user", "automation-run", "system", "projection"] as const,
 	},
-	getCurrentIntegration: {
+	getPluginConfig: {
 		bridge: true,
-		subjects: ["user", "automation-run", "event-projection"] as const,
+		subjects: ["user", "automation-run", "system", "projection"] as const,
 	},
 	requestEventStreamWork: {
 		bridge: true,
 		requiresSystemPlugin: true,
 		subjects: ["user", "automation-run"],
 	},
-	getCachedValue: {
-		bridge: true,
-		subjects: ["user", "automation-run", "system", "event-projection"] as const,
-	},
-	getPluginConfig: {
-		bridge: true,
-		subjects: ["user", "automation-run", "system", "event-projection"] as const,
-	},
 	upsertGlobalRelationships: {
 		bridge: true,
 		requiresSystemPlugin: true,
 		subjects: ["system"] as const,
 		systemKinds: ["script"] as const,
+	},
+	requestRelationshipProjectionsForAllUsers: {
+		bridge: true,
+		requiresSystemPlugin: true,
+		subjects: ["user", "automation-run", "system"] as const,
 	},
 	emitSignal: {
 		bridge: true,
@@ -118,7 +103,7 @@ const SANDBOX_CAPABILITY_REQUIREMENTS = {
 		bridge: true,
 		requiresSystemPlugin: true,
 		systemKinds: ["script", "automation"] as const,
-		subjects: ["user", "automation-run", "system", "event-projection"],
+		subjects: ["user", "automation-run", "system", "projection"],
 	},
 } satisfies Record<SandboxHostCapability, SandboxCapabilityRequirement>;
 
@@ -149,7 +134,7 @@ export type UserSandboxRunInput<Input extends ScriptRunInput = ScriptRunInput> =
 	readonly principal: Input["principal"] & {
 		readonly subject:
 			| Extract<ScriptExecutionPrincipal["subject"], { readonly type: "user" }>
-			| Extract<ScriptExecutionPrincipal["subject"], { readonly type: "event-projection" }>
+			| Extract<ScriptExecutionPrincipal["subject"], { readonly type: "projection" }>
 			| ({ readonly executionUserId: UserId } & Extract<
 					ScriptExecutionPrincipal["subject"],
 					{ readonly type: "automation-run" }
@@ -204,12 +189,12 @@ type SandboxRunInputForCapability<
 
 type SandboxRunInputForSubject<Input extends ScriptRunInput, Subject> = Subject extends "user"
 	? DirectUserSandboxRunInput<Input>
-	: Subject extends "event-projection"
+	: Subject extends "projection"
 		? Input & {
 				readonly principal: Input["principal"] & {
 					readonly subject: Extract<
 						ScriptExecutionPrincipal["subject"],
-						{ readonly type: "event-projection" }
+						{ readonly type: "projection" }
 					>;
 				};
 			}
@@ -226,10 +211,10 @@ const sandboxCapabilityError = (
 	const requirement = sandboxCapabilityRequirement(capability);
 	const subject = input.principal.subject;
 	if (
-		subject.type === "event-projection" &&
+		subject.type === "projection" &&
 		!POLICY_SAFE_SANDBOX_CAPABILITIES.some((safe) => safe === capability)
 	) {
-		return `${capability} is not available to event projection runs`;
+		return `${capability} is not available to projection runs`;
 	}
 	if (!input.principal.metadata.capabilities?.includes(capability)) {
 		return `${capability} is not declared by this script`;

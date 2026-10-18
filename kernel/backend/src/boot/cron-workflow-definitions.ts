@@ -27,6 +27,7 @@ import type { PluginCatalogInvalidator } from "#modules/plugins/catalog/events";
 import { pluginCatalogFrequentTask } from "#modules/plugins/catalog/frequent-task";
 import type { PluginInstallationService } from "#modules/plugins/installations/service";
 import { pluginInstallationFrequentTask } from "#modules/plugins/installations/sweep";
+import { RelationshipProjectionService } from "#modules/relationships/projections/service";
 import {
 	type CronRunPayload,
 	FrequentCronWorkflow,
@@ -57,6 +58,7 @@ const frequentCronTasks: ReadonlyArray<
 		| PluginCatalogInvalidator
 		| WorkflowGarbageCollector
 		| PluginInstallationService
+		| RelationshipProjectionService
 	>
 > = [
 	{
@@ -109,6 +111,15 @@ const frequentCronTasks: ReadonlyArray<
 			Effect.flatMap(EventStreamWorkService, (service) => service.reconcile()).pipe(
 				Effect.catchCause(() =>
 					Effect.logWarning("event stream work reconciliation listing failed"),
+				),
+			),
+	},
+	{
+		name: "relationship-projection-reconcile",
+		run: () =>
+			Effect.flatMap(RelationshipProjectionService, (service) => service.reconcile()).pipe(
+				Effect.catchCause((cause) =>
+					Effect.logWarning("relationship projection reconciliation failed", cause),
 				),
 			),
 	},

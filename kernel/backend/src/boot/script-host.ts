@@ -33,7 +33,10 @@ import { PluginInstallationRepository } from "#modules/plugins/installations/rep
 import { PluginRepository } from "#modules/plugins/packages/repository";
 import { PluginUserSettingsWriter } from "#modules/plugins/preferences/user-settings-writer";
 import { makePluginScriptHost } from "#modules/plugins/script-host";
-import { RelationshipMutationPipelineLive } from "#modules/relationships/layer";
+import {
+	RelationshipMutationPipelineLive,
+	RelationshipProjectionServiceLive,
+} from "#modules/relationships/layer";
 import { RelationshipMutationPipeline } from "#modules/relationships/mutation-pipeline";
 import {
 	makeRelationshipScriptHost,
@@ -43,7 +46,7 @@ import { makeRyotQLScriptHost } from "#modules/ryotql/script-host";
 import { RyotQLService } from "#modules/ryotql/service";
 import { SandboxExecutionAuthorityLive } from "#modules/scripts/authorization/authority";
 import type { AdditionalScriptHostImplementationMap } from "#modules/scripts/authorization/capabilities";
-import { EventProjectionBindingsLive } from "#modules/scripts/executions/event-projection-bindings";
+import { ProjectionBindingsLive } from "#modules/scripts/executions/projection-bindings";
 import { makeUserWorkScriptHost } from "#modules/scripts/executions/user-work";
 import { sandboxHttpRedirectClassifier } from "#modules/scripts/host/durable-dispatcher";
 import {
@@ -114,7 +117,8 @@ export const ScriptHostImplementationsLive = Layer.effect(
 			BackgroundWorkService.layer,
 			EventsServiceLive,
 			ManagedAssetsServiceLive,
-			EventStreamWorkServiceLive.pipe(Layer.provide(EventProjectionBindingsLive)),
+			EventStreamWorkServiceLive.pipe(Layer.provide(ProjectionBindingsLive)),
+			RelationshipProjectionServiceLive.pipe(Layer.provide(ProjectionBindingsLive)),
 			RyotQLService.layer,
 			RelationshipMutationPipelineLive,
 			EntityUserDataServiceLive,

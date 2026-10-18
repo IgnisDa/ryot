@@ -29,7 +29,7 @@ export const runBackgroundWorkWorkflow = Effect.fn("BackgroundWorkWorkflow")(fun
 	const result = yield* Effect.exit(
 		Effect.gen(function* () {
 			const output = yield* executor.execute(job);
-			if (job.purpose === "event-projection") {
+			if (job.purpose !== "user-script") {
 				yield* projection.publish(job, output);
 			}
 		}),
@@ -52,7 +52,7 @@ export const runBackgroundWorkWorkflow = Effect.fn("BackgroundWorkWorkflow")(fun
 			)
 			.pipe(Effect.asVoid),
 	});
-	if (result._tag === "Failure" && job.purpose === "event-projection") {
+	if (result._tag === "Failure" && job.purpose !== "user-script") {
 		yield* projection.failed(job);
 	}
 	yield* service

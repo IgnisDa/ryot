@@ -186,7 +186,7 @@ entry can therefore leave otherwise unreachable shared files unchecked.
 | `integrationProviders` | Push, sink, or yank integrations                                        |
 | `oauthProviders`       | Optional kernel-managed OAuth clients for integration settings (system) |
 | `entitySchemas`        | Entities, events, editors, entity-user-data policy, and merge identity  |
-| `relationshipSchemas`  | Typed relationship endpoints, user-write ownership and graph retention  |
+| `relationshipSchemas`  | Relationship endpoints, user-write ownership, retention and projections |
 | `signalSchemas`        | Signal audience, catalog, and formatter definitions                     |
 | `calendarSources`      | Optional dated occurrences listed by the kernel calendar                |
 
@@ -208,6 +208,17 @@ how its global links affect that:
   is marked incomplete so the next foreground interest refetches it.
 
 User-scoped links, events, and `entity-id` properties in user-owned data always keep an entity.
+
+Set `projection: { scriptSlug, propertiesSchema }` on a relationship schema to keep derived,
+per-user values next to each user-owned link, such as a library title's status. The processor is a
+read-only script of the same plugin with a strict output schema of at most 20 fields disjoint from
+the relationship properties. Call `host.requestRelationshipProjections({ relationshipSchemaSlug,
+sourceEntityIds })` from a user execution when source data changes; the owning plugin may call
+`host.requestRelationshipProjectionsForAllUsers` with the same arguments when shared data changes.
+Each processor step receives at most 100 `{ relationshipId, sourceEntityId, targetEntityId }` items
+and returns one `{ relationshipId, properties }` update per item. RyotQL reads the values through
+`relationship.projection` and `relationship.projectionStatus`. See
+[relationship projections](../../kernel/backend/src/modules/relationships/README.md#projections).
 | `client` | Version 1 public exports, routes, entities, dependencies, and home view |
 | `savedViews` | Renderer, settings, and optional named RyotQL data sources |
 | `hooks` | Stable before/after lifecycle hooks |
@@ -255,7 +266,7 @@ kernel selects the installation from the executing plugin and user, never from t
 top-level key replaces the stored value; keys must exist in the pinned manifest schema, and the merged
 document must validate against the active schema and stay within 64 KiB. The call returns
 `{ saved: true }`; re-read with `getUserSettings` when needed. Integration, import, bootstrap,
-automation, event-projection, and system executions cannot write settings, and one execution may make
+automation, projection, and system executions cannot write settings, and one execution may make
 at most four calls.
 
 There is no compare-and-set. Saves from the settings page replace the whole document, a durable run's

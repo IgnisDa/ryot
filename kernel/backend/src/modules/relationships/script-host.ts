@@ -1,9 +1,10 @@
 import { definitionOwner } from "@ryot-app/contract/modules/plugins/references";
+import { RelationshipProjectionRequest } from "@ryot-app/contract/modules/relationships/projections";
 import { EntityId, RelationshipSchemaSlug, UserId } from "@ryot-app/contract/schema/brands";
 import type { SandboxHostError } from "@ryot-app/plugin-backend-sdk/wire";
 import { sandboxHostEffect } from "@ryot-app/sandbox/host/invocation";
 import { SANDBOX_LIMITS } from "@ryot-app/sandbox/protocol/limits";
-import { Effect } from "effect";
+import { Effect, Schema } from "effect";
 
 import { LifecycleExecution } from "#modules/automations/lifecycle/execution";
 import type { DomainLifecycleCommand } from "#modules/entities/write-context";
@@ -32,6 +33,7 @@ import {
 	RelationshipMutationPipeline,
 	RelationshipReconciliationSummary,
 } from "./mutation-pipeline";
+import { RelationshipProjectionService } from "./projections/service";
 
 const toSandboxRelationshipIdentity = <
 	T extends {
@@ -214,6 +216,7 @@ export type RelationshipLifecycleHostSteps = ReturnType<typeof relationshipLifec
 
 export const makeRelationshipScriptHost = Effect.gen(function* () {
 	const lifecycleExecution = yield* LifecycleExecution;
+	const projections = yield* RelationshipProjectionService;
 	const lifecycle = relationshipLifecycleHostSteps(
 		yield* RelationshipMutationPipeline,
 		yield* SandboxSubmissionCommands,
@@ -250,8 +253,68 @@ export const makeRelationshipScriptHost = Effect.gen(function* () {
 					return lifecycle.changeUserRelationships.value(results);
 				}),
 			),
+		requestRelationshipProjectionsForAllUsers: (rawInput, request) =>
+			sandboxHostEffect(
+				Effect.gen(function* () {
+					const input = yield* requireSandboxCapabilityInput(
+						rawInput,
+						"requestRelationshipProjectionsForAllUsers",
+					);
+					const pluginPin = input.principal.pluginRevision;
+					if (!pluginPin) {
+						return yield* Effect.fail(
+							"requestRelationshipProjectionsForAllUsers requires a pinned plugin script",
+						);
+					}
+					const users = yield* projections
+						.requestForAllUsers({
+							pluginPin,
+							request: yield* Schema.decodeEffect(RelationshipProjectionRequest)(request),
+						})
+						.pipe(Effect.mapError((error) => error.message));
+					return { users };
+				}),
+			),
+		requestRelationshipProjections: (rawInput, request) =>
+			sandboxHostEffect(
+				Effect.gen(function* () {
+					const input = yield* requireSandboxCapabilityInput(
+						rawInput,
+						"requestRelationshipProjections",
+					);
+					const accountGeneration = input.principal.subject.accountGeneration;
+					const userId = userSandboxRunUserId(input);
+					if (!accountGeneration || accountGeneration.userId !== userId) {
+						return yield* Effect.fail(
+							"requestRelationshipProjections requires an active user account",
+						);
+					}
+					const pluginPin = input.principal.pluginRevision;
+					if (!pluginPin) {
+						return yield* Effect.fail(
+							"requestRelationshipProjections requires a pinned plugin script",
+						);
+					}
+					const workId = yield* projections
+						.request({
+							pluginPin,
+							accountGeneration,
+							request: yield* Schema.decodeEffect(RelationshipProjectionRequest)(request),
+							command: yield* sandboxLifecycleCommand(
+								input,
+								userLifecycleSource(input),
+								"requestRelationshipProjections",
+							),
+						})
+						.pipe(Effect.mapError((error) => error.message));
+					return { workId };
+				}),
+			),
 	} satisfies Pick<
 		AdditionalScriptHostImplementationMap,
-		"changeUserRelationships" | "upsertGlobalRelationships"
+		| "changeUserRelationships"
+		| "upsertGlobalRelationships"
+		| "requestRelationshipProjections"
+		| "requestRelationshipProjectionsForAllUsers"
 	>;
 });

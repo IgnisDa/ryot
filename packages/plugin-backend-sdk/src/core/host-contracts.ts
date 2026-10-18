@@ -80,6 +80,11 @@ import {
 	changeUserRelationshipsArgsSchema,
 	changeUserRelationshipsDataSchema,
 	changeUserRelationshipsResultSchema,
+	requestRelationshipProjectionsArgsSchema,
+	requestRelationshipProjectionsDataSchema,
+	requestRelationshipProjectionsForAllUsersDataSchema,
+	requestRelationshipProjectionsForAllUsersResultSchema,
+	requestRelationshipProjectionsResultSchema,
 	upsertGlobalRelationshipsArgsSchema,
 	upsertGlobalRelationshipsDataSchema,
 	upsertGlobalRelationshipsResultSchema,
@@ -315,6 +320,16 @@ export const domainSandboxHostContracts = {
 		args: upsertGlobalRelationshipsArgsSchema,
 		success: upsertGlobalRelationshipsDataSchema,
 		result: upsertGlobalRelationshipsResultSchema,
+	},
+	requestRelationshipProjections: {
+		args: requestRelationshipProjectionsArgsSchema,
+		success: requestRelationshipProjectionsDataSchema,
+		result: requestRelationshipProjectionsResultSchema,
+	},
+	requestRelationshipProjectionsForAllUsers: {
+		args: requestRelationshipProjectionsArgsSchema,
+		success: requestRelationshipProjectionsForAllUsersDataSchema,
+		result: requestRelationshipProjectionsForAllUsersResultSchema,
 	},
 } as const;
 export type DomainSandboxHostMethodMap = SandboxHostMethodMapFromContracts<

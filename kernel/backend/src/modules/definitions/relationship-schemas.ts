@@ -1,4 +1,7 @@
-import type { PluginRelationshipUserWritePolicy } from "@ryot-app/contract/modules/plugins/manifest";
+import type {
+	PluginProjection,
+	PluginRelationshipUserWritePolicy,
+} from "@ryot-app/contract/modules/plugins/manifest";
 import {
 	definitionKey,
 	type RelationshipSchemaReference,
@@ -21,6 +24,7 @@ type RelationshipSchemaScope = {
 	readonly pluginId: null | string;
 	readonly id: RelationshipSchemaSlug;
 	readonly propertiesSchema: AppSchema;
+	readonly projection?: undefined | PluginProjection;
 	readonly sourceEntitySchemaSlug: null | EntitySchemaSlug;
 	readonly targetEntitySchemaSlug: null | EntitySchemaSlug;
 	readonly userWritePolicy?: undefined | PluginRelationshipUserWritePolicy;
@@ -73,6 +77,7 @@ const toScope = (definition: RelationshipSchemaDefinition): RelationshipSchemaSc
 	targetEntitySchemaSlug: definition.targetEntitySchemaSlug
 		? EntitySchemaSlug.make(definition.targetEntitySchemaSlug)
 		: null,
+	...(definition.projection === undefined ? {} : { projection: definition.projection }),
 	...(definition.userWritePolicy === undefined
 		? {}
 		: { userWritePolicy: definition.userWritePolicy }),

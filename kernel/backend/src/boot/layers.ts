@@ -79,7 +79,6 @@ import {
 	EventsServiceLive,
 	EventStreamWorkServiceLive,
 } from "#modules/events/layer";
-import { EventProjectionFinalizerLive } from "#modules/events/stream-work";
 import { WorkflowGarbageCollector } from "#modules/garbage-collection/workflows";
 import { CancelImportRunWorkflowDefinitionsLive } from "#modules/imports/cancel-workflow";
 import { ImportRunCancellationService } from "#modules/imports/cancellation-service";
@@ -130,14 +129,17 @@ import {
 	PluginInstallationWorkflowOperationsProvidedLive,
 } from "#modules/plugins/operations/layer";
 import { PluginRepository } from "#modules/plugins/packages/repository";
-import { RelationshipsServiceLive } from "#modules/relationships/layer";
+import {
+	RelationshipProjectionServiceLive,
+	RelationshipsServiceLive,
+} from "#modules/relationships/layer";
 import { RyotQLService } from "#modules/ryotql/service";
 import { SavedViewsServiceLive } from "#modules/saved-views/layer";
 import { FrequentCronSchedulerLive } from "#modules/scheduler/frequent-cron";
 import { PluginCronSchedulerProvidedLive, PluginCronServiceLive } from "#modules/scheduler/layer";
 import { SandboxExecutionAuthorityLive } from "#modules/scripts/authorization/authority";
 import { BackgroundWorkExecutorLive } from "#modules/scripts/executions/background-work";
-import { EventProjectionBindingsLive } from "#modules/scripts/executions/event-projection-bindings";
+import { ProjectionBindingsLive } from "#modules/scripts/executions/projection-bindings";
 import { SandboxExecutionQueueStoreLive } from "#modules/scripts/executions/queues";
 import { SandboxWorkflowDefinitionsLive } from "#modules/scripts/executions/workflow-live";
 import { SandboxHostConfigLive } from "#modules/scripts/host/sandbox-host-live";
@@ -164,6 +166,7 @@ import { AdmittedWorkflowCatalogueLive } from "./admitted-workflows";
 import { FrequentCronWorkflowDefinitionsLive } from "./cron-workflow-definitions";
 import { ImportRunExecutionControllerLive } from "./import-run-execution-controller";
 import { KernelWorkflowReferencesLive } from "./kernel-workflow-references";
+import { ProjectionFinalizerLive } from "./projection-finalizer";
 import { RuntimeSandboxExecutorLive, SandboxDurableHostServicesLive } from "./script-host";
 import { ServerLive } from "./server";
 
@@ -223,7 +226,8 @@ const ServicesLive = Layer.mergeAll(
 	EntityImportServiceLive,
 	EntityEnrichmentServiceLive,
 	EventsServiceLive,
-	EventStreamWorkServiceLive.pipe(Layer.provide(EventProjectionBindingsLive)),
+	EventStreamWorkServiceLive.pipe(Layer.provide(ProjectionBindingsLive)),
+	RelationshipProjectionServiceLive.pipe(Layer.provide(ProjectionBindingsLive)),
 	InstanceAdminServiceLive,
 	ImportsServiceLive,
 	ImportRunCancellationService.layer.pipe(Layer.provide(ImportsRepository.layer)),
@@ -291,7 +295,7 @@ const RuntimeWorkflowDefinitionsLive = Layer.mergeAll(
 	EntityImportWorkflowDefinitionsLive,
 	EventCreateWorkflowDefinitionsProvidedLive,
 	BackgroundWorkWorkflowLive.pipe(
-		Layer.provide(Layer.merge(BackgroundWorkExecutorLive, EventProjectionFinalizerLive)),
+		Layer.provide(Layer.merge(BackgroundWorkExecutorLive, ProjectionFinalizerLive)),
 	),
 	NotificationDeliveryWorkflowDefinitionsProvidedLive,
 	IntegrationSyncWorkflowDefinitionsProvidedLive,
