@@ -270,6 +270,24 @@ const translationUpserts = recordingServiceLayer<unknown>((record) => ({
 	translations: {
 		upsertOverlay: (input) =>
 			record({ input }).pipe(Effect.as({ entityId: input.entityId, language: input.language })),
+		findEntityById: (id) =>
+			Effect.succeed({
+				id,
+				userId: null,
+				properties: {},
+				name: "Entity",
+				providerId: null,
+				externalId: null,
+				entitySchemaSlug,
+				populatedAt: null,
+				entitySchemaPluginId,
+				contentGeneration: 7,
+				createdAt: new Date(0),
+				updatedAt: new Date(0),
+				relatedPopulatedAt: null,
+				relatedPopulationStartedAt: null,
+				relatedPopulationGeneration: null,
+			}),
 	},
 }));
 
@@ -284,7 +302,7 @@ layer(translationUpserts.layer)((test) => {
 			});
 			expect(result).toEqual({ entityId, language: "es" });
 			expect((yield* translationUpserts.recorded).at(-1)).toMatchObject({
-				input: { entityId, language: "es", name: "Nombre" },
+				input: { entityId, language: "es", name: "Nombre", sourceContentGeneration: 7 },
 			});
 		}),
 	);
