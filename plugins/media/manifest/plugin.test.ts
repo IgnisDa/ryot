@@ -670,6 +670,13 @@ it("declares the complete media-owned source", () => {
 	expect(mediaPlugin.operations).toEqual([
 		{
 			auth: "user",
+			demoAccess: "protected",
+			slug: "media-review-create",
+			description: "Create a media review",
+			scriptSlug: "operation.media-review-create",
+		},
+		{
+			auth: "user",
 			demoAccess: "allowed",
 			slug: "media-monitoring-status",
 			description: "Read media monitoring status",
