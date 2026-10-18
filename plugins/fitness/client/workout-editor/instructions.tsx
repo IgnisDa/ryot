@@ -1,6 +1,9 @@
 import { Schema } from "@ryot-app/plugin-client-sdk/effect";
 import { ManagedAssetProvider } from "@ryot-app/plugin-client-sdk/react";
+import { Button, Dialog, Field, TextArea } from "@ryot-app/plugin-ui-sdk";
+import { AppIcon } from "@ryot-app/plugin-ui-sdk/icon";
 
+import type { WorkoutEditorOccurrence } from "../../shared/workout-editor-draft";
 import { WorkoutEditorMediaSchema, type WorkoutSetAssetLocator } from "../../shared/workout-set";
 import { managedAssetBatch, useAssetUrl } from "../asset-urls";
 import type { EditorExercise } from "./queries";
@@ -54,7 +57,7 @@ export function ExerciseInstructions(props: { readonly exercise: EditorExercise 
 				})
 			: [];
 	return (
-		<div className="my-3 flex flex-col gap-3">
+		<div className="flex flex-col gap-3">
 			{images._tag === "Success" ? (
 				<ManagedAssetProvider assets={managedAssetBatch(images.success)}>
 					<div className="flex gap-3 overflow-x-auto">
@@ -65,7 +68,7 @@ export function ExerciseInstructions(props: { readonly exercise: EditorExercise 
 				</ManagedAssetProvider>
 			) : null}
 			{instructions._tag === "Success" && instructions.success.length > 0 ? (
-				<ol className="list-inside list-decimal space-y-2 text-sm text-text-subtle">
+				<ol className="list-decimal space-y-2 pl-5 text-sm text-text">
 					{instructionItems.map(({ key, instruction }) => (
 						<li key={key}>{instruction}</li>
 					))}
@@ -74,5 +77,51 @@ export function ExerciseInstructions(props: { readonly exercise: EditorExercise 
 				<p className="text-sm text-text-subtle">No instructions are available.</p>
 			)}
 		</div>
+	);
+}
+
+export function ExerciseNotesSheet(props: {
+	readonly compact: boolean;
+	readonly disabled: boolean;
+	readonly safeAreaBottom: number;
+	readonly occurrence: WorkoutEditorOccurrence;
+	readonly exercise: EditorExercise | undefined;
+	readonly onNotes: (notes: readonly string[]) => void;
+	readonly onClose: () => void;
+}) {
+	return (
+		<Dialog
+			onClose={props.onClose}
+			title="Instructions and notes"
+			safeAreaBottom={props.safeAreaBottom}
+			closeLabel="Close instructions and notes"
+			closeIcon={<AppIcon name="x" size={18} />}
+			placement={props.compact ? "sheet" : "side"}
+			footer={<Button onClick={props.onClose}>Done</Button>}
+			description={props.exercise?.name ?? "Unavailable exercise"}
+		>
+			<div className="grid gap-5">
+				<section className="grid gap-2">
+					<h3 className="text-[11px] font-semibold tracking-wider text-text-subtle uppercase">
+						How to perform
+					</h3>
+					<ExerciseInstructions exercise={props.exercise} />
+				</section>
+				<Field
+					label="Notes for this workout"
+					hint="Saved with this workout. Set notes live on each set."
+				>
+					{(control) => (
+						<TextArea
+							{...control}
+							rows={4}
+							disabled={props.disabled}
+							value={props.occurrence.notes.join("\n")}
+							onChange={(event) => props.onNotes(event.target.value.split("\n"))}
+						/>
+					)}
+				</Field>
+			</div>
+		</Dialog>
 	);
 }

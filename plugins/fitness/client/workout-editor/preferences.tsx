@@ -1,6 +1,14 @@
 import { Effect, Schema } from "@ryot-app/plugin-client-sdk/effect";
 import { useRyot, useRyotSchedule } from "@ryot-app/plugin-client-sdk/react";
-import { Button, Modal, StatusMessage } from "@ryot-app/plugin-ui-sdk";
+import {
+	Button,
+	Dialog,
+	Field,
+	FieldMessage,
+	SegmentedControl,
+	TextField,
+} from "@ryot-app/plugin-ui-sdk";
+import { AppIcon } from "@ryot-app/plugin-ui-sdk/icon";
 import { useState } from "react";
 
 import { PLUGIN_PACKAGE_ID } from "../../shared/plugin-identity";
@@ -9,14 +17,34 @@ import {
 	ExerciseOverrideUpdateOutputSchema,
 	exerciseOverrideUpdateOperationSlug,
 } from "../../shared/workout-editor-context-operations";
+import type {
+	WorkoutEditorDisplay,
+	WorkoutEditorOccurrence,
+} from "../../shared/workout-editor-draft";
 import { WorkoutExerciseOverridesSchema } from "../../shared/workout-editor-preferences";
-import { EditorField, EditorSelect, editorModalClass } from "./controls";
+import { requiredWorkoutMeasurementsByKind } from "../../shared/workout-set";
 import type { EditorExercise } from "./queries";
 
 const restFields = ["normalRestTime", "warmUpRestTime", "dropRestTime", "failureRestTime"] as const;
 
-export function ExerciseDefaultsOverlay(props: {
+const restLabels: Record<(typeof restFields)[number], string> = {
+	dropRestTime: "Drop set rest (seconds)",
+	normalRestTime: "Normal rest (seconds)",
+	warmUpRestTime: "Warm-up rest (seconds)",
+	failureRestTime: "Failure rest (seconds)",
+};
+
+const sectionHeading = "text-[11px] font-semibold tracking-wider text-text-subtle uppercase";
+
+const validRest = (value: string | undefined) =>
+	value === undefined || value.trim() === "" || /^\d+$/.test(value.trim());
+
+export function UnitsAndDefaultsSheet(props: {
+	readonly compact: boolean;
+	readonly safeAreaBottom: number;
 	readonly exercise: EditorExercise;
+	readonly occurrence: WorkoutEditorOccurrence;
+	readonly onDisplay: (display: WorkoutEditorDisplay) => void;
 	readonly onClose: () => void;
 	readonly onSaved: () => void;
 }) {
@@ -45,7 +73,9 @@ export function ExerciseDefaultsOverlay(props: {
 			...(duration === "inherited" ? {} : { defaultDurationUnit: duration }),
 		});
 		if (set._tag === "Failure") {
-			setError("Enter nonnegative whole seconds, or leave a field blank to inherit.");
+			setError(
+				"Enter whole seconds of 0 or more, or leave a field blank to use your Fitness settings.",
+			);
 			return;
 		}
 		const decoded = Schema.decodeUnknownResult(ExerciseOverrideUpdateInputSchema)({
@@ -89,47 +119,119 @@ export function ExerciseDefaultsOverlay(props: {
 			() => setPending(false),
 		);
 	};
+	const fields = requiredWorkoutMeasurementsByKind[props.occurrence.exerciseKind];
+	const display = props.occurrence.display ?? {
+		weightUnit: "kg",
+		distanceUnit: "km",
+		durationUnit: "minutes",
+	};
 	return (
-		<Modal
+		<Dialog
 			dismissible={!pending}
 			onClose={props.onClose}
-			label="Exercise defaults"
-			closeLabel="Close defaults"
-			className={editorModalClass}
+			title="Units and rest defaults"
+			description={props.exercise.name}
+			safeAreaBottom={props.safeAreaBottom}
+			closeLabel="Close units and rest defaults"
+			closeIcon={<AppIcon name="x" size={18} />}
+			placement={props.compact ? "sheet" : "side"}
+			footer={
+				<>
+					<Button disabled={pending} variant="secondary" onClick={props.onClose}>
+						Cancel
+					</Button>
+					<Button onClick={save} loading={pending}>
+						Save defaults
+					</Button>
+				</>
+			}
 		>
-			<h2 className="text-xl font-semibold">Defaults for {props.exercise.name}</h2>
-			<p>
-				Blank rest values inherit your Fitness settings. Zero disables rest. Existing explicit set
-				values will not change.
-			</p>
-			<fieldset disabled={pending} className="flex flex-col gap-3">
-				{restFields.map((field) => (
-					<EditorField
-						numeric
-						key={field}
-						value={values[field]}
-						label={field.replaceAll(/([A-Z])/g, " $1")}
-						onChange={(value) => setValues((previous) => ({ ...previous, [field]: value }))}
-					/>
-				))}
-				<EditorSelect
-					value={duration}
-					onChange={setDuration}
-					label="Default duration unit"
-					choices={[
-						{ label: "Inherit", value: "inherited" },
-						{ value: "seconds", label: "Seconds" },
-						{ value: "minutes", label: "Minutes" },
-					]}
-				/>
-			</fieldset>
-			{error ? <StatusMessage tone="error">{error}</StatusMessage> : null}
-			<Button onClick={save} disabled={pending}>
-				{pending ? "Saving…" : "Save defaults"}
-			</Button>
-			<Button disabled={pending} variant="secondary" onClick={props.onClose}>
-				Cancel
-			</Button>
-		</Modal>
+			<div className="grid gap-6">
+				<section className="grid gap-2.5">
+					<h3 className={sectionHeading}>Units in this workout</h3>
+					{fields.includes("weight") ? (
+						<SegmentedControl
+							className="w-full"
+							label="Weight unit"
+							value={display.weightUnit}
+							optionClassName="flex-1 px-3"
+							onChange={(weightUnit) => props.onDisplay({ ...display, weightUnit })}
+							options={[
+								{ value: "kg", label: "Kilograms", content: "Kilograms" },
+								{ value: "lb", label: "Pounds", content: "Pounds" },
+							]}
+						/>
+					) : null}
+					{fields.includes("distance") ? (
+						<SegmentedControl
+							className="w-full"
+							label="Distance unit"
+							value={display.distanceUnit}
+							optionClassName="flex-1 px-3"
+							onChange={(distanceUnit) => props.onDisplay({ ...display, distanceUnit })}
+							options={[
+								{ value: "km", label: "Kilometres", content: "Kilometres" },
+								{ value: "mi", label: "Miles", content: "Miles" },
+							]}
+						/>
+					) : null}
+					{fields.includes("duration") ? (
+						<SegmentedControl
+							className="w-full"
+							label="Duration unit"
+							value={display.durationUnit}
+							optionClassName="flex-1 px-3"
+							onChange={(durationUnit) => props.onDisplay({ ...display, durationUnit })}
+							options={[
+								{ value: "minutes", label: "Minutes", content: "Minutes" },
+								{ value: "seconds", label: "Seconds", content: "Seconds" },
+							]}
+						/>
+					) : null}
+					<p className="text-xs text-text-muted">
+						Changes how values show here. Entered values are converted, not changed.
+					</p>
+				</section>
+				<fieldset disabled={pending} className="grid min-w-0 gap-3 border-0 p-0">
+					<legend className={sectionHeading}>Defaults for every workout</legend>
+					<p className="text-xs text-text-muted">
+						Blank uses your Fitness settings. 0 turns rest off. Sets with their own rest keep it.
+					</p>
+					{restFields.map((field) => (
+						<Field key={field} label={restLabels[field]}>
+							{(control) => (
+								<TextField
+									{...control}
+									inputMode="numeric"
+									value={values[field] ?? ""}
+									invalid={error !== undefined && !validRest(values[field])}
+									onChange={(event) =>
+										setValues((previous) => ({ ...previous, [field]: event.target.value }))
+									}
+								/>
+							)}
+						</Field>
+					))}
+					{fields.includes("duration") ? (
+						<div className="grid gap-1.5">
+							<span className="text-[13px] font-medium">Default duration unit</span>
+							<SegmentedControl
+								value={duration}
+								className="w-full"
+								onChange={setDuration}
+								label="Default duration unit"
+								optionClassName="flex-1 px-2"
+								options={[
+									{ value: "inherited", label: "Fitness setting", content: "Fitness setting" },
+									{ value: "seconds", label: "Seconds", content: "Seconds" },
+									{ value: "minutes", label: "Minutes", content: "Minutes" },
+								]}
+							/>
+						</div>
+					) : null}
+				</fieldset>
+				{error === undefined ? null : <FieldMessage>{error}</FieldMessage>}
+			</div>
+		</Dialog>
 	);
 }

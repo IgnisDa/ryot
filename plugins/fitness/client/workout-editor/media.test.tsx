@@ -48,8 +48,10 @@ it.live(
 					<WorkoutMediaOverlay
 						canUpload
 						draft={draft}
+						compact={false}
 						disabled={false}
 						uploading={false}
+						safeAreaBottom={0}
 						label="first exercise"
 						onClose={() => undefined}
 						onRemove={() => undefined}
