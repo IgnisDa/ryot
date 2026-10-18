@@ -119,8 +119,8 @@ it("infers one kind per scalar expression variant", () => {
 		{
 			kind: "date",
 			expr: jsonArrayFirst(jsonPath(column(entity, "properties"), "schedule"), {
-				select: castDate(jsonPath(jsonElement(), "airingAt")),
-				orderBy: [ascending(castDate(jsonPath(jsonElement(), "airingAt")))],
+				select: castDate(jsonPath(jsonElement(), "startsAt")),
+				orderBy: [ascending(castDate(jsonPath(jsonElement(), "startsAt")))],
 			}),
 		},
 		{

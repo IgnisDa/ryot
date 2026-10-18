@@ -139,7 +139,7 @@ test("streams expanded gzip ranges, replays them, and uses exact artifact grants
 			const compressed = gzipSync(content);
 			const artifactKeys: Array<string | undefined> = [];
 			const readLengths: number[] = [];
-			const namedArtifacts = new Map<string, Uint8Array>([["myanimelist-export.gz", compressed]]);
+			const namedArtifacts = new Map<string, Uint8Array>([["provider-export.gz", compressed]]);
 			activeBinding = makeBinding({
 				readArtifactRange: (offset: number, length: number, key?: string) => {
 					artifactKeys.push(key);
@@ -155,16 +155,16 @@ test("streams expanded gzip ranges, replays them, and uses exact artifact grants
 			});
 
 			const offset = 5 * 1024 * 1024 + 17;
-			const page = yield* readGzipRange({ offset, length: 4096, key: "myanimelist-export.gz" });
+			const page = yield* readGzipRange({ offset, length: 4096, key: "provider-export.gz" });
 			expect(page.bytes).toEqual(content.slice(offset, offset + 4096));
 			expect(page.next).toBe(offset + 4096);
-			expect(yield* readGzipRange({ offset, length: 4096, key: "myanimelist-export.gz" })).toEqual(
+			expect(yield* readGzipRange({ offset, length: 4096, key: "provider-export.gz" })).toEqual(
 				page,
 			);
 			const last = yield* readGzipRange({
 				length: 32,
+				key: "provider-export.gz",
 				offset: content.length - 17,
-				key: "myanimelist-export.gz",
 			});
 			expect(last).toEqual({ next: null, bytes: content.slice(-17) });
 			const namedReadCount = artifactKeys.length;
@@ -173,14 +173,14 @@ test("streams expanded gzip ranges, replays them, and uses exact artifact grants
 				bytes: content.slice(0, 32),
 			});
 			const missing = yield* Effect.flip(
-				readGzipRange({ offset: 0, length: 1, key: "myanimelist-export.gz.backup" }),
+				readGzipRange({ offset: 0, length: 1, key: "provider-export.gz.backup" }),
 			);
 			expect(missing.message).toBe("Sandbox artifact grant is unavailable");
 			expect(
-				artifactKeys.slice(0, namedReadCount).every((key) => key === "myanimelist-export.gz"),
+				artifactKeys.slice(0, namedReadCount).every((key) => key === "provider-export.gz"),
 			).toBe(true);
 			expect(artifactKeys.slice(namedReadCount, -1).every((key) => key === undefined)).toBe(true);
-			expect(artifactKeys.at(-1)).toBe("myanimelist-export.gz.backup");
+			expect(artifactKeys.at(-1)).toBe("provider-export.gz.backup");
 			expect(readLengths.every((length) => length <= 65536)).toBe(true);
 		}),
 	));

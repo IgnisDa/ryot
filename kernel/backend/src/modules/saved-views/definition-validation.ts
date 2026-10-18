@@ -154,7 +154,7 @@ export const validateEntityBrowserSavedViewDefinition = Effect.fn(
 	return undefined;
 });
 
-const invalidResultsTableDefinition = (message: string) =>
+const settingsIncompatible = (message: string) =>
 	new SavedViewBadRequest({ reason: { message, code: "settings-incompatible" } });
 
 type CustomRendererRecord = {
@@ -180,7 +180,7 @@ export const validateSavedViewDefinition = Effect.fn("validateSavedViewDefinitio
 	pluginPage: PluginPageRecord | null = null,
 ) {
 	if (renderer.kind === "kernel" && renderer.name === "calendar") {
-		return yield* invalidResultsTableDefinition("Calendar views are kernel built-ins only");
+		return yield* settingsIncompatible("Calendar views are kernel built-ins only");
 	}
 	if (isEntityBrowserRenderer(renderer)) {
 		yield* validateEntityBrowserSavedViewDefinition({ settings, dataSources });
@@ -193,11 +193,11 @@ export const validateSavedViewDefinition = Effect.fn("validateSavedViewDefinitio
 	if (dataSources !== null) {
 		const semanticError = validateRyotQLDocument(dataSources, savedViewDataSourceAccess);
 		if (semanticError) {
-			return yield* invalidResultsTableDefinition(semanticError);
+			return yield* settingsIncompatible(semanticError);
 		}
 		for (const [name, query] of Object.entries(dataSources.queries)) {
 			if (query.output.type === "rows" && "after" in query.output.pagination) {
-				return yield* invalidResultsTableDefinition(
+				return yield* settingsIncompatible(
 					`Stored data source '${name}' must not contain a cursor`,
 				);
 			}
@@ -250,31 +250,29 @@ export const validateResultsTableSavedViewDefinition = Effect.fn(
 }) {
 	const decoded = Schema.decodeUnknownResult(ResultsTableSavedViewSettings)(input.settings);
 	if (Result.isFailure(decoded)) {
-		return yield* invalidResultsTableDefinition("Invalid results-table settings");
+		return yield* settingsIncompatible("Invalid results-table settings");
 	}
 	const settings = decoded.success;
 	if (input.dataSources === null) {
-		return yield* invalidResultsTableDefinition("Results-table dataSources are required");
+		return yield* settingsIncompatible("Results-table dataSources are required");
 	}
 	const semanticError = validateRyotQLDocument(input.dataSources, savedViewDataSourceAccess);
 	if (semanticError) {
-		return yield* invalidResultsTableDefinition(semanticError);
+		return yield* settingsIncompatible(semanticError);
 	}
 	for (const [name, query] of Object.entries(input.dataSources.queries)) {
 		if (query.output.type === "rows" && "after" in query.output.pagination) {
-			return yield* invalidResultsTableDefinition(
-				`Stored data source '${name}' must not contain a cursor`,
-			);
+			return yield* settingsIncompatible(`Stored data source '${name}' must not contain a cursor`);
 		}
 	}
 	const query = input.dataSources.queries[settings.sourceName];
 	if (!query) {
-		return yield* invalidResultsTableDefinition(
+		return yield* settingsIncompatible(
 			`Results-table source '${settings.sourceName}' does not exist`,
 		);
 	}
 	if (query.output.type !== "rows") {
-		return yield* invalidResultsTableDefinition(
+		return yield* settingsIncompatible(
 			`Results-table source '${settings.sourceName}' must produce rows`,
 		);
 	}
@@ -284,7 +282,7 @@ export const validateResultsTableSavedViewDefinition = Effect.fn(
 	];
 	for (const field of configuredFields) {
 		if (!projectedField(query, field)) {
-			return yield* invalidResultsTableDefinition(
+			return yield* settingsIncompatible(
 				`Results-table field '${field}' must be a projected scalar field`,
 			);
 		}
@@ -301,14 +299,14 @@ export const validateResultsTableSavedViewDefinition = Effect.fn(
 				(sourceTable?.name === "event" && field.expr.field === "entityId")
 			)
 		) {
-			return yield* invalidResultsTableDefinition(
+			return yield* settingsIncompatible(
 				`Results-table entity link field '${settings.entityLink.entityIdField}' must project entity.id`,
 			);
 		}
 	}
 	const filterIssue = filterFieldIssues({ query, settings, renderer: "results-table" });
 	if (filterIssue) {
-		return yield* invalidResultsTableDefinition(filterIssue);
+		return yield* settingsIncompatible(filterIssue);
 	}
 	return undefined;
 });

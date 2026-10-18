@@ -30,7 +30,7 @@ import { Result, Schema } from "effect";
 
 import { subjectSchemaPredicate, unusedFieldKey } from "./saved-views";
 
-export const CALENDAR_OCCURRENCE_PAGE_SIZE = 100;
+const CALENDAR_OCCURRENCE_PAGE_SIZE = 100;
 
 const OCCURRENCES_QUERY = "calendarOccurrences";
 
@@ -89,7 +89,7 @@ const nextMonth = (month: string) => {
 		: `${String(year).padStart(4, "0")}-${String(index + 1).padStart(2, "0")}`;
 };
 
-export const calendarWindowBounds = (precision: CalendarSourcePrecision, window: CalendarWindow) =>
+const calendarWindowBounds = (precision: CalendarSourcePrecision, window: CalendarWindow) =>
 	precision === "date"
 		? {
 				start: `${window.month}-01T00:00:00.000Z`,
@@ -113,7 +113,7 @@ export type CalendarOccurrence = {
 	};
 };
 
-export type CalendarOccurrencePage = {
+type CalendarOccurrencePage = {
 	readonly items: readonly CalendarOccurrence[];
 	readonly pageInfo: { readonly hasMore: boolean; readonly nextCursor: string | null };
 };
