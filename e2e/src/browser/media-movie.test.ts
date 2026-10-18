@@ -135,11 +135,9 @@ it.live("renders a populated Movie detail with its collection rail", () =>
 		expect(yield* body.getByText("Seasons", { exact: true }).count).toBe(0);
 		expect(yield* body.getByText("Episodes", { exact: true }).count).toBe(0);
 
-		yield* body.getByText("Your status", { exact: true }).waitFor({ state: "visible" });
-		yield* body.getByText("Complete", { exact: true }).first().waitFor({ state: "visible" });
-		yield* body.getByText("In media library", { exact: true }).waitFor({ state: "visible" });
-		yield* body.getByText("Ownership", { exact: true }).waitFor({ state: "visible" });
-		yield* body.getByText("Collections", { exact: true }).waitFor({ state: "visible" });
+		const library = media.getByRole("group", { name: "Your library" });
+		yield* library.getByText("Status: Complete", { exact: true }).waitFor({ state: "visible" });
+		yield* library.getByText("In your library", { exact: true }).waitFor({ state: "visible" });
 
 		expect(yield* media.getByRole("tab").allTextContents()).toEqual(["Overview", "Activity"]);
 
@@ -216,11 +214,9 @@ it.live("keeps the collection rail for a Movie with no credits or recommendation
 			.getByRole("heading", { level: 1, exact: true, name: movieName })
 			.waitFor({ state: "visible", timeout: 150_000 });
 
-		const body = media.locator("body");
-		yield* body
-			.getByText("Your status", { exact: true })
-			.locator("../..")
-			.getByText("In progress", { exact: true })
+		yield* media
+			.getByRole("group", { name: "Your library" })
+			.getByText("Status: In progress", { exact: true })
 			.waitFor({ state: "visible" });
 		yield* media
 			.getByRole("heading", { level: 2, name: `Part of ${collectionName}` })
@@ -307,17 +303,19 @@ it.live("logs a finished Movie from the Log activity sheet without a reload", ()
 			.waitFor({ state: "visible" });
 		yield* dialog.getByRole("radio", { name: "Just now" }).waitFor({ state: "visible" });
 		yield* dialog.getByRole("button", { exact: true, name: "Mark as watched" }).click();
-		yield* dialog
+		yield* media
+			.getByRole("dialog", { name: "Write review" })
+			.getByRole("button", { exact: true, name: "Close review" })
+			.click();
+		yield* dialog.waitFor({ state: "hidden" });
+		yield* page
+			.getByRole("region", { name: "Background activity" })
 			.getByText(`${movieName} marked as watched.`, { exact: true })
 			.waitFor({ state: "visible" });
-		yield* dialog.getByRole("button", { exact: true, name: "Done" }).click();
-		yield* dialog.waitFor({ state: "hidden" });
 
-		const body = media.locator("body");
-		yield* body
-			.getByText("Your status", { exact: true })
-			.locator("../..")
-			.getByText("Complete", { exact: true })
+		yield* media
+			.getByRole("group", { name: "Your library" })
+			.getByText("Status: Complete", { exact: true })
 			.waitFor({ state: "visible" });
 		yield* media.getByRole("tab", { name: "Activity" }).click();
 		const record = media.getByRole("list", { name: "Watch record" });
@@ -364,11 +362,16 @@ it.live("suggests the user's Where you consume list in the Log activity sheet an
 		expect(yield* dialog.getByRole("button", { exact: true, name: source }).count).toBe(0);
 		yield* dialog.getByLabel("Where did you watch it?").fill(source);
 		yield* dialog.getByRole("button", { exact: true, name: "Mark as watched" }).click();
-		yield* dialog
-			.getByText(`${movieName} marked as watched.`, { exact: true })
-			.waitFor({ state: "visible" });
-		yield* dialog.getByRole("button", { exact: true, name: "Done" }).click();
+		yield* media
+			.getByRole("dialog", { name: "Write review" })
+			.getByRole("button", { exact: true, name: "Close review" })
+			.click();
 		yield* dialog.waitFor({ state: "hidden" });
+		yield* page
+			.getByRole("region", { name: "Background activity" })
+			.getByRole("article", { name: `Media: ${movieName} marked as watched.` })
+			.getByText("Saved", { exact: true })
+			.waitFor({ state: "visible" });
 
 		const mediaSettings = requirePresent(
 			(yield* listPluginUserSettings(client)).find(({ name }) => name === "Media"),

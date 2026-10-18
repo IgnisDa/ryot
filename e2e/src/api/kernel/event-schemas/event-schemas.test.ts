@@ -357,7 +357,7 @@ describe("GET /event-schemas", () => {
 				fields: {
 					animeEpisode: {
 						type: "integer",
-						label: "Anime Episode",
+						label: "Anime episode",
 						description: "Episode number of the anime being tracked",
 					},
 					progressPercent: {
@@ -373,12 +373,12 @@ describe("GET /event-schemas", () => {
 				fields: {
 					mangaVolume: {
 						type: "integer",
-						label: "Manga Volume",
+						label: "Manga volume",
 						description: "Volume number of the manga being tracked",
 					},
 					mangaChapter: {
 						type: "number",
-						label: "Manga Chapter",
+						label: "Manga chapter",
 						description: "Chapter number of the manga being tracked",
 					},
 					progressPercent: {

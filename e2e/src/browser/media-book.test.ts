@@ -146,9 +146,9 @@ it.live("renders a populated Book detail with its series rail and unlinked creat
 		expect(yield* body.getByText("Length", { exact: true }).count).toBe(0);
 		expect(yield* body.getByText("Seasons", { exact: true }).count).toBe(0);
 
-		yield* body.getByText("Your status", { exact: true }).waitFor({ state: "visible" });
-		yield* body.getByText("Complete", { exact: true }).first().waitFor({ state: "visible" });
-		yield* body.getByText("In media library", { exact: true }).waitFor({ state: "visible" });
+		const library = media.getByRole("group", { name: "Your library" });
+		yield* library.getByText("Status: Complete", { exact: true }).waitFor({ state: "visible" });
+		yield* library.getByText("In your library", { exact: true }).waitFor({ state: "visible" });
 
 		expect(yield* media.getByRole("tab").allTextContents()).toEqual(["Overview", "Activity"]);
 
@@ -276,11 +276,11 @@ it.live("logs Book progress from the empty Activity tab without a reload", () =>
 		yield* dialog.getByRole("button", { exact: true, name: "Add an amount" }).click();
 		yield* dialog.getByLabel("How far along?").fill("40");
 		yield* dialog.getByRole("button", { exact: true, name: "Save progress" }).click();
-		yield* dialog
+		yield* dialog.waitFor({ state: "hidden" });
+		yield* page
+			.getByRole("region", { name: "Background activity" })
 			.getByText("Progress saved at 40%.", { exact: true })
 			.waitFor({ state: "visible" });
-		yield* dialog.getByRole("button", { exact: true, name: "Done" }).click();
-		yield* dialog.waitFor({ state: "hidden" });
 
 		const progress = yield* waitForEventWithSchema(client, seeded.book.id, events.progress);
 		expect(progress.properties.progressPercent).toBe(40);

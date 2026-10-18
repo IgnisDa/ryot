@@ -19,7 +19,7 @@ const openShow = (input: { email: string; password: string; showId: string }) =>
 		yield* media
 			.getByRole("heading", { level: 1, name: /^Activity Log Show / })
 			.waitFor({ state: "visible", timeout: 150_000 });
-		return media;
+		return { page, media };
 	});
 
 const seedShowWithFirstEpisodeWatched = Effect.gen(function* () {
@@ -46,11 +46,11 @@ const seedShowWithFirstEpisodeWatched = Effect.gen(function* () {
 it.live("marks the next episode watched from the header without a reload", () =>
 	Effect.gen(function* () {
 		const { email, client, seeded, password } = yield* seedShowWithFirstEpisodeWatched;
-		const media = yield* openShow({ email, password, showId: seeded.show.id });
+		const { page, media } = yield* openShow({ email, password, showId: seeded.show.id });
 
 		yield* media.getByRole("button", { exact: true, name: "Mark S1·E2 watched" }).click();
-		yield* media
-			.getByRole("status")
+		yield* page
+			.getByRole("region", { name: "Background activity" })
 			.getByText("S1·E2 watched.", { exact: true })
 			.waitFor({ state: "visible" });
 		yield* media
@@ -65,7 +65,7 @@ it.live("marks the next episode watched from the header without a reload", () =>
 it.live("marks an episode watched from its details", () =>
 	Effect.gen(function* () {
 		const { email, client, seeded, password } = yield* seedShowWithFirstEpisodeWatched;
-		const media = yield* openShow({ email, password, showId: seeded.show.id });
+		const { page, media } = yield* openShow({ email, password, showId: seeded.show.id });
 
 		yield* media.getByRole("tab", { name: "Episodes" }).click();
 		yield* media
@@ -74,7 +74,10 @@ it.live("marks an episode watched from its details", () =>
 			.click();
 		const details = media.getByRole("dialog", { name: /^S1E3 / });
 		yield* details.getByRole("button", { exact: true, name: "Mark watched" }).click();
-		yield* details.getByText("Marked watched.", { exact: true }).waitFor({ state: "visible" });
+		yield* page
+			.getByRole("region", { name: "Background activity" })
+			.getByText(/^Marked .+ watched\.$/)
+			.waitFor({ state: "visible" });
 		yield* details.getByText("Watched", { exact: true }).waitFor({ state: "visible" });
 
 		const complete = yield* waitForEventWithSchema(client, seeded.episodeId(1, 3), "complete");
@@ -85,13 +88,13 @@ it.live("marks an episode watched from its details", () =>
 it.live("opens the Log activity sheet from episode details with that episode selected", () =>
 	Effect.gen(function* () {
 		const { email, seeded, password } = yield* seedShowWithFirstEpisodeWatched;
-		const media = yield* openShow({ email, password, showId: seeded.show.id });
+		const { media } = yield* openShow({ email, password, showId: seeded.show.id });
 
 		yield* media.getByRole("tab", { name: "Episodes" }).click();
 		yield* media.getByRole("button", { name: /^Open S1E4 / }).click();
 		yield* media
 			.getByRole("dialog", { name: /^S1E4 / })
-			.getByRole("button", { exact: true, name: "Log…" })
+			.getByRole("button", { exact: true, name: "Log with details…" })
 			.click();
 		const sheet = media.getByRole("dialog", { name: "Log activity" });
 		yield* sheet.waitFor({ state: "visible" });
