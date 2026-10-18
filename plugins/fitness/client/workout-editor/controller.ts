@@ -190,9 +190,7 @@ export const createWorkoutEditorController = (
 		ports.device === undefined
 			? Effect.as(Effect.void, undefined)
 			: Effect.match(ports.device(request), {
-					onSuccess: (result) => {
-						return result;
-					},
+					onSuccess: (result) => result,
 					onFailure: (error) => {
 						updateReady((current) => ({ ...current, deviceError: error }));
 						return undefined;
@@ -752,8 +750,7 @@ export const createWorkoutEditorController = (
 			if (next === snapshot.draft) {
 				return false;
 			}
-			const changed = setDraft(next);
-			return changed;
+			return setDraft(next);
 		},
 		rejectSubmission: (result) =>
 			Effect.gen(function* () {
