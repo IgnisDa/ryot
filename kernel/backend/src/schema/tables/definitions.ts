@@ -237,13 +237,59 @@ export const globalPlugin = snakeCase
 	})
 	.as(globalPluginQuery);
 
-const userPluginQuery = sql`
-	select i.user_id, p.id as plugin_id, p.package_id, i.id as installation_id, case when p.owner_user_id is null then 'system' else 'user' end as scope, p.owner_user_id, p.active_revision_id, case when p.owner_user_id is null then p.environment_config_revision_id else i.active_config_revision_id end as config_revision_id, i.health, i.is_hidden, i.sort_order, i.health <> 'incompatible' as is_listed, not i.is_hidden and (i.health = 'ready' or (p.owner_user_id is null and i.health = 'installing')) as is_definition_effective, coalesce(not i.is_hidden and i.health = 'ready' and c.plugin_revision_id = p.active_revision_id and c.encrypted_payload is not null and case when p.owner_user_id is null then c.owner_user_id is null else c.owner_user_id = i.user_id and c.plugin_installation_id = i.id end, false) as is_executable
-	from plugin_installation i
-	join plugin p on p.id = i.plugin_id
-	left join plugin_config_revision c on c.id = case when p.owner_user_id is null then p.environment_config_revision_id else i.active_config_revision_id end
-	where i.uninstalled_at is null and p.status = 'active' and (p.owner_user_id is null or p.owner_user_id = i.user_id)
-`;
+export const userPluginState = snakeCase.table(
+	"user_plugin_state",
+	{
+		ownerUserId: text(),
+		sortOrder: integer(),
+		pluginStatus: text(),
+		activeRevisionId: text(),
+		environmentConfigRevisionId: text(),
+		installationConfigRevisionId: text(),
+		packageId: text().$type<PluginPackageId>(),
+		health: text().$type<InstallationHealth>(),
+		installationConfigPluginRevisionId: text(),
+		isHidden: boolean().notNull().default(false),
+		isUninstalled: boolean().notNull().default(false),
+		environmentConfigIsUsable: boolean().notNull().default(false),
+		installationConfigIsUsable: boolean().notNull().default(false),
+		isListed: boolean().generatedAlwaysAs(sql`health <> 'incompatible'`),
+		userId: text()
+			.notNull()
+			.references(() => user.id, { onDelete: "cascade" }),
+		pluginId: text()
+			.notNull()
+			.references(() => plugin.id, { onDelete: "cascade" }),
+		installationId: text()
+			.notNull()
+			.unique()
+			.references(() => pluginInstallation.id, { onDelete: "cascade" }),
+		scope: text()
+			.$type<PluginScope>()
+			.generatedAlwaysAs(sql`case when owner_user_id is null then 'system' else 'user' end`),
+		isDefinitionEffective: boolean().generatedAlwaysAs(
+			sql`not is_hidden and (health = 'ready' or (owner_user_id is null and health = 'installing'))`,
+		),
+		isPresent: boolean().generatedAlwaysAs(
+			sql`not is_uninstalled and plugin_status = 'active' and (owner_user_id is null or owner_user_id = user_id)`,
+		),
+		configRevisionId: text().generatedAlwaysAs(
+			sql`case when owner_user_id is null then environment_config_revision_id else installation_config_revision_id end`,
+		),
+		isExecutable: boolean().generatedAlwaysAs(
+			sql`coalesce(not is_hidden and health = 'ready' and case when owner_user_id is null then environment_config_is_usable else installation_config_plugin_revision_id = active_revision_id and installation_config_is_usable end, false)`,
+		),
+	},
+	(table) => [
+		primaryKey({ columns: [table.userId, table.pluginId] }),
+		index("user_plugin_state_plugin_user_idx").on(table.pluginId, table.userId),
+		index("user_plugin_state_user_listed_idx")
+			.on(table.userId, table.isListed)
+			.where(sql`${table.isPresent}`),
+		index("user_plugin_state_environment_config_idx").on(table.environmentConfigRevisionId),
+		index("user_plugin_state_installation_config_idx").on(table.installationConfigRevisionId),
+	],
+);
 
 export const userPlugin = snakeCase
 	.view("user_plugin", {
@@ -262,7 +308,13 @@ export const userPlugin = snakeCase
 		packageId: text().$type<PluginPackageId>().notNull(),
 		health: text().$type<InstallationHealth>().notNull(),
 	})
-	.as(userPluginQuery);
+	.as(
+		sql`
+			select user_id, plugin_id, package_id, installation_id, scope, owner_user_id, active_revision_id, config_revision_id, health, is_hidden, sort_order, is_listed, is_definition_effective, is_executable
+			from ${userPluginState}
+			where is_present
+		`,
+	);
 
 const globalColumns = () => ({
 	pluginId: text(),
@@ -388,9 +440,9 @@ export const userEntitySchema = snakeCase
 			where d.plugin_revision_id is null
 			union all
 			select p.user_id, d.id, p.plugin_id, p.package_id, d.plugin_revision_id, p.scope, d.slug, d.name, d.position, d.icon, d.properties_schema, d.user_state, d.merge_identity_properties, p.is_definition_effective
-			from (${userPluginQuery}) p
+			from ${userPluginState} p
 			join definition_entity_schema d on d.plugin_revision_id = p.active_revision_id
-			where p.is_listed
+			where p.is_present and p.is_listed
 		`,
 	);
 
@@ -417,10 +469,10 @@ export const userRelationshipSchema = snakeCase
 			cross join "user" u
 			where d.plugin_revision_id is null
 			union all
-			select p.user_id, d.id, p.plugin_id, p.package_id, d.plugin_revision_id, p.scope, d.slug, d.name, d.position, d.source_entity_schema_slug, d.target_entity_schema_slug, d.properties_schema, p.is_definition_effective and (d.source_entity_schema_slug is null or exists (select 1 from ${userEntitySchema} e where e.user_id = p.user_id and e.plugin_id = p.plugin_id and e.slug = d.source_entity_schema_slug and e.is_effective)) and (d.target_entity_schema_slug is null or exists (select 1 from ${userEntitySchema} e where e.user_id = p.user_id and e.plugin_id = p.plugin_id and e.slug = d.target_entity_schema_slug and e.is_effective))
+			select p.user_id, d.id, p.plugin_id, p.package_id, d.plugin_revision_id, p.scope, d.slug, d.name, d.position, d.source_entity_schema_slug, d.target_entity_schema_slug, d.properties_schema, p.is_definition_effective and (d.source_entity_schema_slug is null or exists (select 1 from definition_entity_schema e where e.plugin_revision_id = p.active_revision_id and e.slug = d.source_entity_schema_slug)) and (d.target_entity_schema_slug is null or exists (select 1 from definition_entity_schema e where e.plugin_revision_id = p.active_revision_id and e.slug = d.target_entity_schema_slug))
 			from ${userPlugin} p
 			join definition_relationship_schema d on d.plugin_revision_id = p.active_revision_id
-			where p.is_listed and (d.source_entity_schema_slug is null or exists (select 1 from ${userEntitySchema} e where e.user_id = p.user_id and e.plugin_id = p.plugin_id and e.slug = d.source_entity_schema_slug)) and (d.target_entity_schema_slug is null or exists (select 1 from ${userEntitySchema} e where e.user_id = p.user_id and e.plugin_id = p.plugin_id and e.slug = d.target_entity_schema_slug))
+			where p.is_listed and (d.source_entity_schema_slug is null or exists (select 1 from definition_entity_schema e where e.plugin_revision_id = p.active_revision_id and e.slug = d.source_entity_schema_slug)) and (d.target_entity_schema_slug is null or exists (select 1 from definition_entity_schema e where e.plugin_revision_id = p.active_revision_id and e.slug = d.target_entity_schema_slug))
 		`,
 	);
 
@@ -578,7 +630,7 @@ export const userSandboxProvider = snakeCase
 			from ${userPlugin} p
 			join sandbox_provider s on s.plugin_id = p.plugin_id
 			join definition_provider d on d.plugin_revision_id = p.active_revision_id and d.slug = s.slug and d.root_entity_schema_slug = s.root_entity_schema_slug
-			where p.is_executable and exists (select 1 from ${userEntitySchema} e where e.user_id = p.user_id and e.plugin_id = s.plugin_id and e.slug = s.root_entity_schema_slug and e.is_effective)
+			where p.is_executable and exists (select 1 from definition_entity_schema e where e.plugin_revision_id = p.active_revision_id and e.slug = s.root_entity_schema_slug)
 		`,
 	);
 

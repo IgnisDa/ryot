@@ -4,6 +4,7 @@ import { Context, Effect, Layer } from "effect";
 
 import { immutableRevisionStatements } from "./immutable-revisions";
 import { DatabaseSession } from "./session";
+import { userPluginStateStatements } from "./user-plugin-state";
 import {
 	runWorkflowMessageMigrations,
 	workflowMessageFenceStatements,
@@ -22,7 +23,11 @@ const migrateDB = Effect.gen(function* () {
 			yield* session.run((database) =>
 				database.execute(sql`select pg_advisory_xact_lock(hashtext('ryot:immutable-revisions'))`),
 			);
-			for (const statement of [...immutableRevisionStatements, ...workflowMessageFenceStatements]) {
+			for (const statement of [
+				...immutableRevisionStatements,
+				...userPluginStateStatements,
+				...workflowMessageFenceStatements,
+			]) {
 				yield* session.run((database) => database.execute(sql.raw(statement)));
 			}
 		}),

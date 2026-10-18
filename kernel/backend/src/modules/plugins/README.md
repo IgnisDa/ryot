@@ -16,6 +16,15 @@ executes their code.
 
 `packages/repository-layer.ts` owns `PluginRepositoryLive`, which provides the repository's client-artifact dependency. Automations planner, retention, and signal Layers use this focused composition without importing the plugins runtime Layer. Reusing the Layer preserves Effect's shared-resource composition.
 
+## User plugin state
+
+`user_plugin` and the plugin rows of `user_entity_schema` read `user_plugin_state`, one row per
+installation whose availability, listing, definition effectiveness, and executability are stored
+generated columns. Database triggers on `plugin_installation`, `plugin`, and `plugin_config_revision`
+maintain it (`platform/db/user-plugin-state.ts`) because its inputs are written by the installation,
+package, and configuration repositories, backup restore, raw-SQL one-time migrations, and foreign key
+cascades; only triggers observe all of them.
+
 ## Plugin artifacts and revision identity
 
 System archives and private uploads contain a manifest, compiled backend JavaScript artifacts, and
