@@ -3,6 +3,7 @@ import { motion, useIsPresent, useReducedMotion } from "motion/react";
 import { useEffect, useLayoutEffect, useRef, type ReactNode, type RefObject } from "react";
 import { createPortal } from "react-dom";
 
+import { revealFocusedField } from "./focused-field";
 import { motionTransition } from "./motion";
 import {
 	focusableElements,
@@ -118,6 +119,11 @@ export function Modal({
 					animate={{ x: 0, y: 0, opacity: 1 }}
 					transition={reduced ? { duration: 0 } : motionTransition}
 					className={clsx("relative motion-reduce:transform-none", className)}
+					onAnimationComplete={() => {
+						if (present) {
+							revealFocusedField();
+						}
+					}}
 				>
 					{children}
 				</motion.div>

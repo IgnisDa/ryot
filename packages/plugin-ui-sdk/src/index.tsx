@@ -29,6 +29,7 @@ export { Select } from "./select";
 export { StatusMessage } from "./status-message";
 export type { MenuItem } from "./menu";
 export { useFieldEscape } from "./field-escape";
+export { useFocusedFieldVisibility } from "./focused-field";
 export { useValueChange } from "./value-change";
 export { RadioGroup } from "./radio-group";
 export { MultiSelect } from "./multi-select";
