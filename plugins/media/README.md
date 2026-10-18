@@ -262,9 +262,17 @@ association notifications for imported media therefore arrive when the media is 
 foreground (which populates its `full` level) or at the next monitoring sweep, not at import time.
 
 `media-review-create` saves a review on a visible media, group, creator, season, or episode owned by
-this plugin. It requires nonblank text, accepts an optional 0–100 rating and a spoiler flag, and is
-protected in demo sessions. The header and empty review activity tab open the same composer;
-successful writes refresh active queries through the client SDK mutation notification.
+this plugin. Create and update accept a rating, nonblank text, or both; an empty review is rejected.
+Both inputs carry nullable `text` and `rating` fields. Ratings use the finite 0–100 scale, including
+zero and decimals. Text is trimmed; absent content is omitted from event properties. The spoiler
+flag is stored only with text. Updates remove cleared content and preserve other declared fields,
+including imported positional metadata. Imported rating-only reviews need no placeholder text.
+The header and empty review activity tab open the same **Rate or review** composer, with the rating
+first and spoiler controls shown only when text exists. Clearing both fields while editing asks the
+user to retain content or delete the review. Writes remain protected in demo sessions and use the
+existing replay receipts and stale-update snapshots. Successful writes refresh active queries
+through the client SDK mutation notification. Review changes do not log consumption, and deleting
+the last review does not remove library membership.
 
 `media-activity-log` writes one logged activity for a builtin media item: a completion, progress
 (percent for flat media, cumulative position for anime and manga), a backlog/on-hold/dropped status,

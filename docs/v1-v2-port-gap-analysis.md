@@ -78,19 +78,22 @@ The sequence below is the recommended backlog, not an effort estimate or authori
 implement it all at once. Dependencies are hard prerequisites; row order otherwise states
 product priority. Independent work can proceed without waiting for every earlier row.
 An item closes only when its intended behavior has a usable client path, not just an API.
+Completion status tracks this roadmap, not the inventory's parity labels: **Pending** means the
+completion gate is still open, **In progress** means implementation or validation is underway,
+and **Done** means the accepted behavior and validation results are recorded below.
 
 ### Phase 1 — Correctness and daily use
 
-| Order | Feature to implement | Depends on | Completion criteria |
-| --- | --- | --- | --- |
-| 1 | **Settle and implement history-correction behavior** | Agreement on manual versus automatic completion semantics | Define which consequences of an edit/delete must be repaired. Preserve explicit user records; repair affected derived state without duplicate completions, notifications or pushes. Cover date/percent edits, child deletion, rewatch boundaries, retries and concurrent writes. Keep documented creation-only behavior only where explicitly accepted; do not classify every V1 difference as a bug. Check import tie-order differences here if they change lifecycle results. |
-| 2 | **Wire existing custom-media/person/group editing** | Existing entity editor/save capability | Add owner-only edit entry points and update-mode routes; reuse the shared editor, declared outgoing links and stale baselines. Derive publish year when absent and a date is supplied. Existing fields/assets survive unrelated edits. This does not require building custom episode authoring first. |
-| 3 | **Support rating-only Media reviews** | Existing review events and operations | Create, read, edit and delete a rating without requiring text. Keep at least one of rating/text, the 0–100 storage scale, ownership checks and retry safety. Imported rating-only records are editable without inventing review text. Alternate display scales are a separate decision. |
-| 4 | **Add explicit provider refresh** | Existing population/enrichment workflows | Users can refresh successfully populated provider data, not only retry failures. Expose progress/failure/retry in the client; preserve user-owned history/annotations and prevent stale translation overlays from replacing newer data. Bound and deduplicate refresh work. Define freshness requirements for later release alerts without reinstating a blanket daily partial reset. |
-| 5 | **Add collection member reordering** | Existing memberships and rank reads | Ship a server-owned reorder command and client control with stable pagination, concurrency handling and shared haptic feedback. Choose the ordering strategy first; add rank compaction/rebalancing only if that strategy needs it. Test repeated moves and retries, not V1's decimal thresholds as an end in themselves. |
-| 6 | **Finish everyday library and collection browsing** | Existing recipes/filter primitives | Expose useful source, lifecycle state, rated/unrated and date filters; add title, rating, release/consumption and activity sorts where applicable. Extend collection domain filters through plugin-owned selections, not kernel branches on Media/Fitness IDs. Search, count and all loaded pages must use the same filter/sort. Preserve V2's cycle-aware state semantics. |
-| 7 | **Complete custom relationship and episodic authoring** | 2; 1 for changes affecting recorded coverage | Add user-owned custom seasons/episodes and the missing creator/group association controls, with ordering and ownership validation. Define what happens when an edited/deleted child has history; do not silently delete history. Keep provider-owned inventories read-only to ordinary custom editors. |
-| 8 | **Expose Media merge and explicit removal/clear controls** | 1; agreed persistent-membership policy | Give users a scoped, confirmed path to merge data and clear it using existing owning services. Distinguish removing library membership from destructive clearing of history/reviews/relationships; specify which action also disables monitoring or removes collection links. Never make a simple library-remove action silently call full clear. Keep same-schema/identity rules and prevent pending work from restoring explicitly cleared data. |
+| Order | Completion status | Feature to implement | Depends on | Completion criteria |
+| --- | --- | --- | --- | --- |
+| 1 | Pending | **Settle and implement history-correction behavior** | Agreement on manual versus automatic completion semantics | Define which consequences of an edit/delete must be repaired. Preserve explicit user records; repair affected derived state without duplicate completions, notifications or pushes. Cover date/percent edits, child deletion, rewatch boundaries, retries and concurrent writes. Keep documented creation-only behavior only where explicitly accepted; do not classify every V1 difference as a bug. Check import tie-order differences here if they change lifecycle results. |
+| 2 | Pending | **Wire existing custom-media/person/group editing** | Existing entity editor/save capability | Add owner-only edit entry points and update-mode routes; reuse the shared editor, declared outgoing links and stale baselines. Derive publish year when absent and a date is supplied. Existing fields/assets survive unrelated edits. This does not require building custom episode authoring first. |
+| 3 | Done | **Support rating-only Media reviews** | Existing review events and operations | Create, read, edit and delete a rating without requiring text. Keep at least one of rating/text, the 0–100 storage scale, ownership checks and retry safety. Imported rating-only records are editable without inventing review text. Alternate display scales are a separate decision. |
+| 4 | Pending | **Add explicit provider refresh** | Existing population/enrichment workflows | Users can refresh successfully populated provider data, not only retry failures. Expose progress/failure/retry in the client; preserve user-owned history/annotations and prevent stale translation overlays from replacing newer data. Bound and deduplicate refresh work. Define freshness requirements for later release alerts without reinstating a blanket daily partial reset. |
+| 5 | Pending | **Add collection member reordering** | Existing memberships and rank reads | Ship a server-owned reorder command and client control with stable pagination, concurrency handling and shared haptic feedback. Choose the ordering strategy first; add rank compaction/rebalancing only if that strategy needs it. Test repeated moves and retries, not V1's decimal thresholds as an end in themselves. |
+| 6 | Pending | **Finish everyday library and collection browsing** | Existing recipes/filter primitives | Expose useful source, lifecycle state, rated/unrated and date filters; add title, rating, release/consumption and activity sorts where applicable. Extend collection domain filters through plugin-owned selections, not kernel branches on Media/Fitness IDs. Search, count and all loaded pages must use the same filter/sort. Preserve V2's cycle-aware state semantics. |
+| 7 | Pending | **Complete custom relationship and episodic authoring** | 2; 1 for changes affecting recorded coverage | Add user-owned custom seasons/episodes and the missing creator/group association controls, with ordering and ownership validation. Define what happens when an edited/deleted child has history; do not silently delete history. Keep provider-owned inventories read-only to ordinary custom editors. |
+| 8 | Pending | **Expose Media merge and explicit removal/clear controls** | 1; agreed persistent-membership policy | Give users a scoped, confirmed path to merge data and clear it using existing owning services. Distinguish removing library membership from destructive clearing of history/reviews/relationships; specify which action also disables monitoring or removes collection links. Never make a simple library-remove action silently call full clear. Keep same-schema/identity rules and prevent pending work from restoring explicitly cleared data. |
 
 Rows 2, 3 and 4 can proceed independently once any relevant correctness contract is settled;
 there is no technical dependency between rating-only reviews and collection ordering.
@@ -98,10 +101,10 @@ Phase 1 does not require completion of the later analytics or notification work.
 
 ### Phase 2 — Safe cleanup
 
-| Order | Feature to implement | Depends on | Completion criteria |
-| --- | --- | --- | --- |
-| 9 | **Clean up removed and abandoned managed assets** | 2 and 7 for editor integration; existing managed-reference checks | Schedule or request cleanup after committed edits/deletions, not before them. Recheck ownership and live references, including retained workflow evidence. Shared/retained assets survive; unused uploads and previously saved removed assets eventually disappear. Failure is retryable and does not turn a successful edit into data loss. |
-| 10 | **Collect genuinely unreferenced provider graphs** | 8 and the explicit-membership policy | Define graph roots and traversal before deletion. All users' library memberships and owned data, current relations, active work and retained dependencies must be considered. Collect eligible unused provider entities/children/genres and associated runtime data in bounded, retry-safe batches. Do not infer that an entity is disposable merely because it has no events, and do not port V1's association-join deletion rule literally. |
+| Order | Completion status | Feature to implement | Depends on | Completion criteria |
+| --- | --- | --- | --- | --- |
+| 9 | Pending | **Clean up removed and abandoned managed assets** | 2 and 7 for editor integration; existing managed-reference checks | Schedule or request cleanup after committed edits/deletions, not before them. Recheck ownership and live references, including retained workflow evidence. Shared/retained assets survive; unused uploads and previously saved removed assets eventually disappear. Failure is retryable and does not turn a successful edit into data loss. |
+| 10 | Pending | **Collect genuinely unreferenced provider graphs** | 8 and the explicit-membership policy | Define graph roots and traversal before deletion. All users' library memberships and owned data, current relations, active work and retained dependencies must be considered. Collect eligible unused provider entities/children/genres and associated runtime data in bounded, retry-safe batches. Do not infer that an entity is disposable merely because it has no events, and do not port V1's association-join deletion rule literally. |
 
 These are storage-maintenance tasks, not a reason to postpone usable Phase 1 features.
 Asset-reference and entity-reachability rules are different; one collector must not borrow
@@ -111,12 +114,12 @@ that cleanup must respect.
 
 ### Phase 3 — Upcoming content and alerts
 
-| Order | Feature to implement | Depends on | Completion criteria |
-| --- | --- | --- | --- |
-| 11 | **Complete the upcoming feed** | 4; existing Calendar sources | Reuse source data/recipes for monitored upcoming items across supported media, next-N/day windows, deduplication and home presentation. Keep Calendar query-based; no nightly calendar table. Define timezone, missing-date and freshness behavior before using this data for delivery. |
-| 12 | **Add entity reminders** | Existing durable scheduling, subscriptions and delivery | Persist due state and expose create/edit/cancel controls. Deduplicate delivery admission per reminder occurrence across restart/retry, then record the outcome and settle reminder state. Report uncertain external delivery without automatically sending a duplicate; do not promise exactly-once delivery by third-party channels. Do not recreate a mandatory Reminders collection; preserve ordinary library membership. Resolve missed-deadline and timezone behavior before shipping. |
-| 13 | **Add release-day notifications** | 4 and 11; existing monitoring/subscriptions | Notify eligible monitoring users from release dates, not provider episode-discovery signals. Deduplicate each occurrence/recipient, handle date changes and bounded catch-up, and keep display/query refresh separate from delivery. |
-| 14 | **Add stale-progress and newly-available-episode alerts** | 1; defined schedule/deduplication rules, reusing 13 where useful | Add opt-in in-progress/on-hold nudges (V1 defaults: 7/14 days) from current state and latest relevant activity. Agree Pro gating and repeat frequency. Use a “more episodes available” signal instead of moving an ordinary Completed collection to Watchlist. Do not turn monitoring on implicitly when logging progress. |
+| Order | Completion status | Feature to implement | Depends on | Completion criteria |
+| --- | --- | --- | --- | --- |
+| 11 | Pending | **Complete the upcoming feed** | 4; existing Calendar sources | Reuse source data/recipes for monitored upcoming items across supported media, next-N/day windows, deduplication and home presentation. Keep Calendar query-based; no nightly calendar table. Define timezone, missing-date and freshness behavior before using this data for delivery. |
+| 12 | Pending | **Add entity reminders** | Existing durable scheduling, subscriptions and delivery | Persist due state and expose create/edit/cancel controls. Deduplicate delivery admission per reminder occurrence across restart/retry, then record the outcome and settle reminder state. Report uncertain external delivery without automatically sending a duplicate; do not promise exactly-once delivery by third-party channels. Do not recreate a mandatory Reminders collection; preserve ordinary library membership. Resolve missed-deadline and timezone behavior before shipping. |
+| 13 | Pending | **Add release-day notifications** | 4 and 11; existing monitoring/subscriptions | Notify eligible monitoring users from release dates, not provider episode-discovery signals. Deduplicate each occurrence/recipient, handle date changes and bounded catch-up, and keep display/query refresh separate from delivery. |
+| 14 | Pending | **Add stale-progress and newly-available-episode alerts** | 1; defined schedule/deduplication rules, reusing 13 where useful | Add opt-in in-progress/on-hold nudges (V1 defaults: 7/14 days) from current state and latest relevant activity. Agree Pro gating and repeat frequency. Use a “more episodes available” signal instead of moving an ordinary Completed collection to Watchlist. Do not turn monitoring on implicitly when logging progress. |
 
 Reminders are independent of the upcoming feed and can proceed in parallel with row 11.
 Use current feature-owned workflows; extract shared scheduling machinery only when the
@@ -125,11 +128,11 @@ delivery, which already exists.
 
 ### Phase 4 — Discovery, analytics and lower-priority account controls
 
-| Order | Feature to implement | Depends on | Completion criteria |
-| --- | --- | --- | --- |
-| 15 | **Ship collection recommendations** | 4 and 6 | Add a reusable Media-owned recipe and paged/searchable client surface over the existing suggestion graph. Specify exclusions and empty-result behavior. Keep the current latest-completion home recommendation design unless a separate product decision changes it; do not copy V1 random sampling simply for parity. |
-| 16 | **Complete the analytics experience** | 1; a metric contract and the exclusion decisions below | Inventory each missing media/fitness metric and ship in slices: consumption totals by type, workout/measurement totals, period comparisons and grouping, then hourly timelines and frequency breakdowns. Define units, unknown dates/durations, rewatches, episodic counts, timezone and exclusions before implementing queries. Reuse current recipes/projections; introduce precomputation only for demonstrated query/scale limits. A complete screen, not a generic aggregate API, closes the gap. |
-| 17 | **Add account rename controls** | Existing hosted auth and admin authorization | Ship self-service rename, then admin-on-behalf rename if required. Keep server-token administration; do not reintroduce V1 roles or the onboarding-tour flag. This is independent work and may move earlier without delaying the main feature sequence. |
+| Order | Completion status | Feature to implement | Depends on | Completion criteria |
+| --- | --- | --- | --- | --- |
+| 15 | Pending | **Ship collection recommendations** | 4 and 6 | Add a reusable Media-owned recipe and paged/searchable client surface over the existing suggestion graph. Specify exclusions and empty-result behavior. Keep the current latest-completion home recommendation design unless a separate product decision changes it; do not copy V1 random sampling simply for parity. |
+| 16 | Pending | **Complete the analytics experience** | 1; a metric contract and the exclusion decisions below | Inventory each missing media/fitness metric and ship in slices: consumption totals by type, workout/measurement totals, period comparisons and grouping, then hourly timelines and frequency breakdowns. Define units, unknown dates/durations, rewatches, episodic counts, timezone and exclusions before implementing queries. Reuse current recipes/projections; introduce precomputation only for demonstrated query/scale limits. A complete screen, not a generic aggregate API, closes the gap. |
+| 17 | Pending | **Add account rename controls** | Existing hosted auth and admin authorization | Ship self-service rename, then admin-on-behalf rename if required. Keep server-token administration; do not reintroduce V1 roles or the onboarding-tour flag. This is independent work and may move earlier without delaying the main feature sequence. |
 
 ### Differences that need a decision, not an automatic implementation slot
 
@@ -157,6 +160,31 @@ stale writes, replay/restart and failure outcomes where applicable. Make affecte
 before affected tests; use focused browser/API coverage for the actual user flow. Follow the
 repository's final validation requirements for code changes. Update this inventory and close
 the numbered item only when those results and the accepted behavior are recorded.
+
+### Phase 1, Order 3 — Rating-only review acceptance
+
+Accepted behavior: one private `review` event can contain a finite 0–100 rating, trimmed
+nonblank text, or both. Zero and decimal ratings are valid. Missing content is omitted from
+stored properties. Removing text also removes its spoiler flag; removing both fields is
+rejected, with deletion kept separate. The **Rate or review** composer puts the rating first
+and shows spoiler controls only with text. Existing imported positional fields survive edits.
+Ownership, demo protection, stale-update snapshots, replay safety, and persistent library
+membership remain unchanged. Alternate rating scales remain outside this item.
+
+Owners: `plugins/media/shared/media-review-operations.ts`, the Media review create/update/delete
+operations, `shared/media-recipes.ts` review selections, and `client/media/{review,activity-rows,activity-row-menu}.tsx`.
+No kernel schema change or compatibility path is needed.
+
+Validation on **2026-10-26**, in an isolated worktree based on `4d334567d9` plus these changes:
+
+- Media and e2e package `bun run check`: passed.
+- Repository `bun run check`: passed in the isolated worktree.
+- Focused Media operation/composer/row-menu/entry-point tests: **114 passed** across seven files.
+- `e2e/src/api/plugins/media/reviews.test.ts`: **3 passed**, covering concurrent creation and
+  replayed edits/deletes, stale edits, imported records, content transitions, invalid content,
+  ownership, and retained library history.
+- `e2e/src/browser/{media-reviews,media-movie}.test.ts`: **7 passed**, including rating-only
+  create/read/edit/delete, empty-edit rejection, and existing Movie logging entry points.
 
 ## Functional inventory
 
@@ -199,7 +227,7 @@ Primary evidence: `packages/contract/src/modules/{account,instance-admin,system,
 | Seen/progress/status history | Reshaped | `backlog`, `progress`, `complete`, `dropped`, `on_hold`, plus integration `list-state` snapshots; plugin `media-activity-log`, history UI, and RyotQL lifecycle recipes. Events can be edited and deleted. |
 | Completion, rewatch, episodic progress | Reshaped | Required full-progress and episodic-parent hooks, per-cycle coverage, session assignment, season/episode queries and next-up. Shows/podcasts distinguish `caught_up` from terminal `complete`; specials do not block completion. Anime/manga progress is cumulative position, not per-chapter/episode history expansion. |
 | Correct/delete existing history or reviews | Covered with limits | Kernel `PATCH`/`DELETE /events/:eventId`; Media activity/review update/delete operations and row menus. Snapshot preconditions detect stale edits. Creation-only completion hooks do not undo or replay their derived parent completion after an edit/delete. |
-| Ratings and review text/spoilers | Partial | Schema-owned private `review` events, Media composer and activity UI. Normalized ratings are 0–100. The shipped Media composer/update operation requires nonblank text; imported/generic rating-only events are supported. V1 rating-only input, alternate display scales and some review-position controls are not equivalent. |
+| Ratings and review text/spoilers | Partial | Schema-owned private `review` events support rating-only, text-only, or combined content through the Media composer and create/update/delete operations. Ratings remain 0–100, including zero and decimals. Imported rating-only records are editable without placeholder text. Alternate display scales and some review-position controls remain separate decisions. |
 | Collections and membership metadata | Partial | Kernel collections CRUD, strict member-field schemas, add/remove/upsert membership, paged browser/detail renderer, search/type/property/cross-collection filters. Rank reads exist; user reordering does not. Details below. |
 | Owned and Monitoring default collections | Reshaped | Owned/ownedOn annotations on `in-media-library`; `media-monitoring` relationships and explicit status/enable/disable operations. Both have client controls. They are not protected kernel collections. |
 | Watchlist, In-Progress, Completed smart collections | Reshaped / partial | Lifecycle-derived home lists replace the state-list role. V2 does not maintain ordinary named collections or automatically enable monitoring when logging progress. New aired episodes affect live coverage without a collection-moving job. |
@@ -509,9 +537,11 @@ Evidence: `modules/collections/service.ts`, `packages/contract/src/modules/colle
 - V1 custom `is_partial` inference is not a field to restore blindly: provider availability and
   related completeness now have separate stamps/statuses, and custom entities have no provider
   population. This does not solve the missing custom episode editor.
-- The Media review composer cannot create or update a rating-only record without adding text.
-  The generic event schema and import path can store one. Review scale preferences and V1's
-  anime/manga positional review annotations are not reproduced by the current composer.
+- Media review creation and editing accept a rating, nonblank text, or both. Clearing text removes
+  its spoiler flag; clearing both content fields is rejected, with deletion kept separate. The
+  **Rate or review** composer shows rating first and spoiler controls only with text. Review scale
+  preferences and V1's anime/manga positional review controls are not reproduced; existing imported
+  positional fields survive edits.
 - V1 seen rows can link a review, correct the episode identity, and retain a consumption-source
   array. Current Media operations do not link a review to a consumption record or retarget an
   event to another episode; `consumedOn` is one string per event. Progress logging is separate
@@ -684,7 +714,8 @@ in the integration inventory, not an additional GraphQL port.
 
 ## Existing validation coverage to use for future ports
 
-These suites exist in the audited tree; they were **not run** for this document-only change:
+These suites existed in the audited tree; they were **not run** for the original document-only
+audit. Later implementation runs are recorded separately above:
 
 - API Media: `e2e/src/api/plugins/media/{activity-log,calendar-sources,discovery-recipes,activity-recipes,media-genres,lifecycle-query-recipes}.test.ts`, plus `events`, `imports`, `integrations` and `media-monitoring` suites.
 - API Fitness: `e2e/src/api/plugins/fitness/{workout-editor,workout-records,exercise-details,exercise-notes,measurements,workout-templates,preferences,calendar-sources}.test.ts` and import suites.
