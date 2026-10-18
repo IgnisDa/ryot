@@ -757,6 +757,13 @@ export const mediaPlugin = definePlugin({
 		{
 			auth: "user",
 			demoAccess: "protected",
+			slug: "media-history-correction-retry",
+			description: "Retry media history correction",
+			scriptSlug: "operation.media-history-correction-retry",
+		},
+		{
+			auth: "user",
+			demoAccess: "protected",
 			slug: "media-review-update",
 			description: "Update a media review",
 			scriptSlug: "operation.media-review-update",
@@ -850,11 +857,13 @@ export const mediaPlugin = definePlugin({
 			slug: "media.ensure-media-library-membership-on-events",
 			scriptSlug: "automation.ensure-media-library-membership",
 			targets: [
-				...entitySchemas.flatMap((schema) =>
-					schema.eventSchemas
-						.filter(({ slug }) => slug !== "add-to-media-library")
-						.map(({ slug }) => eventHookTarget(`${schema.slug}:${slug}`)),
-				),
+				...entitySchemas
+					.filter((schema) => schema.slug !== "media-library")
+					.flatMap((schema) =>
+						schema.eventSchemas
+							.filter(({ slug }) => slug !== "add-to-media-library")
+							.map(({ slug }) => eventHookTarget(`${schema.slug}:${slug}`)),
+					),
 				kernelCollectionEventHookTarget("add-entity-to-collection"),
 			],
 		},
@@ -938,13 +947,20 @@ export const mediaPlugin = definePlugin({
 		},
 		{
 			stage: "after",
+			batchMaxItems: 60,
 			frequency: "batch",
 			delivery: "required",
-			name: "Complete full progress",
-			slug: "media.auto-complete-on-full-progress",
-			metadata: { inheritedProperties: ["consumedOn"] },
-			scriptSlug: "trigger.auto-complete-on-full-progress",
-			targets: eventSlugs("progress").map(eventHookTarget),
+			executionScope: "user",
+			name: "Reconcile media history",
+			slug: "media.reconcile-history",
+			scriptSlug: "automation.reconcile-media-history",
+			targets: ["progress", "complete", "backlog", "on_hold", "dropped"].flatMap((slug) =>
+				eventSlugs(slug).flatMap((qualified) =>
+					(["create", "update", "delete"] as const).map((operation) =>
+						Object.assign({}, eventHookTarget(qualified), { operation }),
+					),
+				),
+			),
 		},
 		{
 			position: 200,
@@ -969,22 +985,11 @@ export const mediaPlugin = definePlugin({
 		},
 		{
 			stage: "after",
-			batchMaxItems: 60,
-			frequency: "batch",
-			delivery: "required",
-			executionScope: "user",
-			name: "Complete episodic parent",
-			slug: "media.auto-complete-episodic-parent",
-			scriptSlug: "automation.media-auto-complete-episodic-parent",
-			targets: ["show-episode:complete", "podcast-episode:complete"].map(eventHookTarget),
-		},
-		{
-			stage: "after",
 			delivery: "async",
 			executionScope: "user",
 			slug: "media.auto-complete-on-status-change",
+			scriptSlug: "automation.reconcile-media-history",
 			name: "Complete episodic parent on status change",
-			scriptSlug: "automation.media-auto-complete-episodic-parent",
 			targets: [
 				{ operation: "emit", resource: "signal", signalSchemaSlug: "media.status.changed" },
 			],

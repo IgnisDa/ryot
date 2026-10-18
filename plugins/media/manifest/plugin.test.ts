@@ -694,6 +694,13 @@ it("declares the complete media-owned source", () => {
 		{
 			auth: "user",
 			demoAccess: "protected",
+			slug: "media-history-correction-retry",
+			description: "Retry media history correction",
+			scriptSlug: "operation.media-history-correction-retry",
+		},
+		{
+			auth: "user",
+			demoAccess: "protected",
 			slug: "media-review-update",
 			description: "Update a media review",
 			scriptSlug: "operation.media-review-update",
@@ -937,16 +944,18 @@ it("keeps entity and import membership immediate and groups event membership by 
 		slug: "media.ensure-media-library-membership-on-events",
 		scriptSlug: "automation.ensure-media-library-membership",
 		targets: [
-			...mediaPlugin.entitySchemas.flatMap((schema) =>
-				schema.eventSchemas
-					.filter(({ slug }) => slug !== "add-to-media-library")
-					.map(({ slug }) => ({
-						resource: "event",
-						operation: "create",
-						eventSchemaSlug: slug,
-						entitySchemaSlug: schema.slug,
-					})),
-			),
+			...mediaPlugin.entitySchemas
+				.filter((schema) => schema.slug !== "media-library")
+				.flatMap((schema) =>
+					schema.eventSchemas
+						.filter(({ slug }) => slug !== "add-to-media-library")
+						.map(({ slug }) => ({
+							resource: "event",
+							operation: "create",
+							eventSchemaSlug: slug,
+							entitySchemaSlug: schema.slug,
+						})),
+				),
 			{
 				resource: "event",
 				operation: "create",
@@ -1071,47 +1080,40 @@ it("binds deterministic episodic sessions at policy position 200", () => {
 	);
 });
 
-it("binds episodic parent completion to child completions and per-user status changes", () => {
-	expect(
-		mediaPlugin.hooks.filter(
-			({ scriptSlug }) => scriptSlug === "automation.media-auto-complete-episodic-parent",
-		),
-	).toEqual([
-		{
-			stage: "after",
-			batchMaxItems: 60,
-			frequency: "batch",
-			delivery: "required",
-			executionScope: "user",
-			name: "Complete episodic parent",
-			slug: "media.auto-complete-episodic-parent",
-			scriptSlug: "automation.media-auto-complete-episodic-parent",
-			targets: [
+it("binds media history reconciliation to lifecycle changes and status signals", () => {
+	const historyHook = mediaPlugin.hooks.find(({ slug }) => slug === "media.reconcile-history");
+	assert(historyHook);
+	expect(historyHook).toMatchObject({
+		stage: "after",
+		batchMaxItems: 60,
+		frequency: "batch",
+		delivery: "required",
+		executionScope: "user",
+		scriptSlug: "automation.reconcile-media-history",
+		targets: expect.arrayContaining(
+			["create", "update", "delete"].flatMap((operation) => [
 				{
+					operation,
 					resource: "event",
-					operation: "create",
 					eventSchemaSlug: "complete",
 					entitySchemaSlug: "show-episode",
 				},
-				{
-					resource: "event",
-					operation: "create",
-					eventSchemaSlug: "complete",
-					entitySchemaSlug: "podcast-episode",
-				},
-			],
-		},
-		{
-			stage: "after",
-			delivery: "async",
-			executionScope: "user",
-			slug: "media.auto-complete-on-status-change",
-			name: "Complete episodic parent on status change",
-			scriptSlug: "automation.media-auto-complete-episodic-parent",
-			targets: [
-				{ operation: "emit", resource: "signal", signalSchemaSlug: "media.status.changed" },
-			],
-		},
+				{ operation, resource: "event", entitySchemaSlug: "movie", eventSchemaSlug: "progress" },
+			]),
+		),
+	});
+	const statusHook = mediaPlugin.hooks.find(
+		({ slug }) => slug === "media.auto-complete-on-status-change",
+	);
+	assert(statusHook);
+	expect(statusHook).toMatchObject({
+		stage: "after",
+		delivery: "async",
+		executionScope: "user",
+		scriptSlug: "automation.reconcile-media-history",
+	});
+	expect(statusHook.targets).toEqual([
+		{ operation: "emit", resource: "signal", signalSchemaSlug: "media.status.changed" },
 	]);
 });
 
@@ -1186,17 +1188,16 @@ it("declares one bounded where-you-consume list per media type after allowNsfw",
 	});
 });
 
-it("completes media only from created events, so edits and deletes never re-derive completion", () => {
-	const completionHooks = mediaPlugin.hooks.filter((hook) =>
-		["media.auto-complete-on-full-progress", "media.auto-complete-episodic-parent"].includes(
-			hook.slug,
-		),
-	);
-	expect(completionHooks).toHaveLength(2);
-	for (const hook of completionHooks) {
-		expect(hook.targets.length).toBeGreaterThan(0);
-		for (const target of hook.targets) {
-			expect(target).toMatchObject({ resource: "event", operation: "create" });
-		}
+it("reconciles media history from create, update, and delete events", () => {
+	const historyHook = mediaPlugin.hooks.find(({ slug }) => slug === "media.reconcile-history");
+	assert(historyHook);
+	expect(historyHook.targets.length).toBeGreaterThan(0);
+	for (const target of historyHook.targets) {
+		expect(target.resource).toBe("event");
 	}
+	expect([...new Set(historyHook.targets.map(({ operation }) => operation))].sort()).toEqual([
+		"create",
+		"delete",
+		"update",
+	]);
 });

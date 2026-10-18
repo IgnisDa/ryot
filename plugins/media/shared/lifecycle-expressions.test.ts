@@ -4,8 +4,6 @@ import {
 } from "@ryot-app/kernel-backend/modules/ryotql/validator";
 import { describe, expect, it } from "vitest";
 
-import { episodicLifecycleSnapshotRecipe } from "../backend/contracts/lifecycle-recipes";
-import { podcastEpisodicKindConfig, showEpisodicKindConfig } from "./lifecycle-expressions";
 import { podcastEpisodesRecipe, podcastRecipes } from "./podcast-recipes";
 import { showRecipes, showSeasonEpisodesRecipe, showSeasonsRecipe } from "./show-recipes";
 
@@ -20,8 +18,6 @@ const ACTIVITY_INPUT = {
 	episodeProgressLimit: 100,
 };
 
-// The real kernel validator enforces MAX_CORRELATED_DEPTH and duplicate aliases in scope; the
-// next-up anchor with its display state is the deepest correlated chain these documents build.
 describe("episodic lifecycle documents", () => {
 	it.each([
 		[
@@ -63,16 +59,4 @@ describe("episodic lifecycle documents", () => {
 	])("validates the %s document", (_name, recipe) => {
 		expect(validateRyotQLDocument(recipe.document, savedViewDataSourceAccess).error).toBeNull();
 	});
-
-	it.each([showEpisodicKindConfig, podcastEpisodicKindConfig])(
-		"validates the $kind lifecycle snapshot for sandbox execution",
-		(config) => {
-			const recipe = episodicLifecycleSnapshotRecipe({
-				config,
-				parentEntityId: "parent-1",
-				reference: { kind: "self" },
-			});
-			expect(validateRyotQLDocument(recipe.document, { type: "plugin" }).error).toBeNull();
-		},
-	);
 });

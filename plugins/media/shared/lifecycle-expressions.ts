@@ -20,7 +20,6 @@ import {
 	isNull,
 	join,
 	jsonPath,
-	latestEventField,
 	literal,
 	lte,
 	multiply,
@@ -97,7 +96,7 @@ export const podcastEpisodicKindConfig = {
 	parentEpisodeRelationshipSlug: "podcast-to-podcast-episode",
 } as const satisfies EpisodicKindConfig;
 
-export type EventOrderExpressions = {
+type EventOrderExpressions = {
 	readonly id: ScalarExpression;
 	readonly createdAt: ScalarExpression;
 	readonly occurredAt: ScalarExpression;
@@ -151,12 +150,42 @@ export const eventSlugIsOneOf = (event: TableReference, slugs: readonly string[]
 		slugs.map((slug) => literal(slug)),
 	);
 
+const mediaEventOrderExpressions = (event: TableReference): EventOrderExpressions => ({
+	id: column(event, "orderKey"),
+	occurredAt: column(event, "occurredAt"),
+	createdAt: column(event, "orderCreatedAt"),
+});
+
+const mediaEventOrderDescending = (event: TableReference) => {
+	const order = mediaEventOrderExpressions(event);
+	return [descending(order.occurredAt), descending(order.createdAt), descending(order.id)] as const;
+};
+
+const latestLifecycleField = (
+	event: TableReference,
+	options: {
+		where: Predicate;
+		select: ScalarExpression;
+		joins?: readonly ReturnType<typeof join>[];
+	},
+) => first(event, { ...options, orderBy: mediaEventOrderDescending(event) });
+
 const latestField = (
 	event: TableReference,
 	field: string,
 	where: Predicate,
 	joins?: readonly ReturnType<typeof join>[],
-) => latestEventField(event, { where, select: column(event, field), ...(joins ? { joins } : {}) });
+) => {
+	const order = mediaEventOrderExpressions(event);
+	let select: ScalarExpression = column(event, field);
+	if (field === "id") {
+		select = order.id;
+	}
+	if (field === "createdAt") {
+		select = order.createdAt;
+	}
+	return latestLifecycleField(event, { where, select, ...(joins ? { joins } : {}) });
+};
 
 const latestEventOrderExpressions = (where: Predicate, alias: string): EventOrderExpressions => {
 	const event = table("event", alias);
@@ -167,7 +196,7 @@ const latestEventOrderExpressions = (where: Predicate, alias: string): EventOrde
 	};
 };
 
-export const latestParentCompletionExpressions = (
+const latestParentCompletionExpressions = (
 	parent: TableReference,
 	alias: string,
 ): EventOrderExpressions => {
@@ -196,7 +225,7 @@ export const orderExpressionsAreAfter = (
 		),
 	);
 
-export const latestEntityCompletionExpressions = (
+const latestEntityCompletionExpressions = (
 	entity: TableReference,
 	alias: string,
 ): EventOrderExpressions => {
@@ -247,7 +276,7 @@ export const mediaLifecycleExpressions = (entity: TableReference, alias = "media
 		...latestEventOrderExpressions(signalWhere, signalAlias),
 		entityId: latestField(signalEvent, "entityId", signalWhere),
 		eventSchemaSlug: latestField(signalEvent, "eventSchemaSlug", signalWhere),
-		listState: latestEventField(signalEvent, {
+		listState: latestLifecycleField(signalEvent, {
 			where: signalWhere,
 			select: castText(jsonPath(column(signalEvent, "properties"), "state")),
 		}),
@@ -267,7 +296,7 @@ export const mediaLifecycleExpressions = (entity: TableReference, alias = "media
 		isNotNull(progressProperty("animeEpisode")),
 		isNotNull(progressProperty("mangaChapter")),
 	);
-	const latestPosition = latestEventField(progressEvent, {
+	const latestPosition = latestLifecycleField(progressEvent, {
 		where: and(progressWhere, hasPosition),
 		select: coalesce(progressProperty("animeEpisode"), progressProperty("mangaChapter")),
 	});
@@ -315,7 +344,7 @@ export const mediaLifecycleExpressions = (entity: TableReference, alias = "media
 						),
 						literal(100),
 					),
-					latestEventField(progressEvent, {
+					latestLifecycleField(progressEvent, {
 						where: progressWhere,
 						select: progressProperty("progressPercent"),
 					}),

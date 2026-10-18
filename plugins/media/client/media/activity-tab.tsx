@@ -24,6 +24,7 @@ import {
 	type MediaActivityTimeline,
 } from "./activity-timeline";
 import type { MediaCursorPage } from "./cursor-page-state";
+import { MediaHistoryCorrectionStatus } from "./history-correction-status";
 import { MediaRefreshStatus, MediaStatusMessage } from "./primitives";
 import { MediaReviewButton } from "./review";
 
@@ -219,6 +220,12 @@ export const defineMediaActivityTab = <Result, View, Event>(input: {
 			) : null;
 		return (
 			<>
+				{input.emptyAction === "write-review" ? null : (
+					<MediaHistoryCorrectionStatus
+						entityId={props.entityId}
+						refreshActivity={result.refetch}
+					/>
+				)}
 				<MediaRefreshStatus result={result} />
 				<Activity
 					history={history}

@@ -32,7 +32,10 @@ export const manifest = defineManifest({
 	inputProjection: {
 		providerEntityImport: true,
 		entity: { properties: [], compareProperties: [], parentEntityProperties: [] },
-		event: { compareProperties: [], properties: ["entityId", "entitySchemaSlug"] },
+		event: {
+			compareProperties: [],
+			properties: ["entityId", "entitySchemaSlug", "completionSilent"],
+		},
 	},
 });
 
@@ -109,6 +112,9 @@ const mediaLibraryTargets = (
 				return [];
 			}
 			const event = item.after;
+			if (event.properties["completionSilent"] === true) {
+				return [];
+			}
 			const target = isKernelCollectionMembershipEvent(event)
 				? collectionMembershipTarget(event)
 				: { entityId: event.entityId, entitySchemaSlug: event.entitySchemaSlug };

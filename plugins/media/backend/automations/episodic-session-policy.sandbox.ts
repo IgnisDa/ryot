@@ -16,7 +16,7 @@ import {
 import {
 	type EpisodeParentResolution,
 	resolveEpisodeParentRecipe,
-} from "../contracts/lifecycle-recipes";
+} from "../contracts/episode-parent-recipe";
 
 export const manifest = defineManifest({
 	kind: "automation",

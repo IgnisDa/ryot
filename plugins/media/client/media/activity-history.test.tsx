@@ -35,8 +35,13 @@ describe("complete activity history", () => {
 		Effect.gen(function* () {
 			const view = mountRyotClient(
 				{
-					query: () => Effect.succeed(activity(false)),
 					watchEntities: () => ({ update: () => undefined, dispose: () => undefined }),
+					query: (document) =>
+						Effect.succeed(
+							"work" in document.queries
+								? { data: { work: rows([]), active: rows([]), checkpoint: rows([]) } }
+								: activity(false),
+						),
 				},
 				<fixtureSchema.ActivityTab compact safeAreaTop={12} entityId="media-1" />,
 			);
@@ -60,6 +65,11 @@ describe("complete activity history", () => {
 					{
 						watchEntities: () => ({ update: () => undefined, dispose: () => undefined }),
 						query: (document) => {
+							if ("work" in document.queries) {
+								return Effect.succeed({
+									data: { work: rows([]), active: rows([]), checkpoint: rows([]) },
+								});
+							}
 							documents.push(document);
 							if ("totals" in document.queries) {
 								return Effect.succeed(activity(true));

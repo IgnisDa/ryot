@@ -114,6 +114,11 @@ it("ignores irrelevant entity and event inputs", () => {
 		entitySchemaSlug: "book",
 		eventSchemaSlug: "add-to-media-library",
 	});
+	const automaticCompletionInput = eventBatchContext({
+		entitySchemaSlug: "movie",
+		eventSchemaSlug: "complete",
+		properties: { completionSilent: true },
+	});
 	const untargetedCollectionInput = eventBatchContext({
 		eventSchemaPluginId: null,
 		entitySchemaPluginId: null,
@@ -128,6 +133,7 @@ it("ignores irrelevant entity and event inputs", () => {
 			expect(yield* definition.run(eventInput, host)).toBeNull();
 			expect(yield* definition.run(mediaLibraryInput, host)).toBeNull();
 			expect(yield* definition.run(membershipEventInput, host)).toBeNull();
+			expect(yield* definition.run(automaticCompletionInput, host)).toBeNull();
 			expect(yield* definition.run(untargetedCollectionInput, host)).toBeNull();
 			expect(yield* definition.run(irrelevantInput, host)).toBeNull();
 			expect(calls).toBe(0);

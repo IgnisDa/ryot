@@ -1,5 +1,6 @@
 import type { AppSchema } from "@ryot-app/contract/schema/property-schema";
 
+import { historyCorrectionEventSchemas } from "./history-correction";
 import {
 	animePropertiesSchema,
 	audiobookPropertiesSchema,
@@ -330,11 +331,22 @@ const mediaLifecycleEventSchemas = (entitySchemaSlug?: string) => [
 				...consumedOnField,
 				timeSpent: timeSpentField,
 				startedOn: startedOnField,
+				completionSilent: {
+					type: "boolean" as const,
+					label: "Silent history correction",
+					description: "Whether creating this derived record must skip external delivery",
+				},
 				dateUnknown: {
 					label: "Date unknown",
 					type: "boolean" as const,
 					description:
 						"Whether the completion date is unknown; occurredAt is the real completion time otherwise",
+				},
+				completionKey: {
+					type: "string" as const,
+					label: "Automatic completion identity",
+					reference: { kind: "event-id" as const },
+					description: "Stable identity of the completion evidence",
 				},
 			},
 		},
@@ -357,10 +369,10 @@ const buildMediaGroupEntitySchema = (slug: string, name: string, icon: string) =
 export const mediaEntitySchemas = () => [
 	{
 		icon: "library",
-		eventSchemas: [],
 		slug: "media-library",
 		name: "Media Library",
 		propertiesSchema: { fields: {} },
+		eventSchemas: historyCorrectionEventSchemas,
 		userState: { deniedOperations: ["clear", "merge"] as const },
 	},
 	{

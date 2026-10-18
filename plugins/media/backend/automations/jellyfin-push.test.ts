@@ -100,6 +100,20 @@ const createHost = (options: {
 	});
 
 describe("jellyfin-push sandbox script", () => {
+	it("does not contact Jellyfin for a completion created by history correction", () => {
+		const calls: HttpCall[] = [];
+		const host = createHost({
+			entity: movieEntity,
+			integrations: [jellyfinIntegration],
+			httpCall: createHttpCall(calls, []),
+		});
+		return Effect.runPromise(
+			definition
+				.run(createAutomation({ properties: { completionSilent: true } }), host)
+				.pipe(Effect.tap(() => Effect.sync(() => expect(calls).toEqual([])))),
+		);
+	});
+
 	it("authenticates and marks the matching item as played", () => {
 		const calls: HttpCall[] = [];
 		const host = createHost({

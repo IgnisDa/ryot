@@ -1,7 +1,5 @@
 import { expect, it } from "vitest";
 
-import { manifest as autoCompleteParent } from "./auto-complete-episodic-parent.sandbox";
-import { manifest as autoCompleteProgress } from "./auto-complete-on-full-progress.sandbox";
 import { manifest as customPublishYear } from "./custom-publish-year-policy.sandbox";
 import { manifest as ensureMediaLibrary } from "./ensure-media-library-membership.sandbox";
 import { manifest as episodicPolicy } from "./episodic-session-policy.sandbox";
@@ -11,6 +9,7 @@ import { manifest as entityUpdated } from "./media-entity-updated.sandbox";
 import { manifest as relationshipSync } from "./media-relationship-sync.sandbox";
 import { manifest as notification } from "./notification.sandbox";
 import { manifest as radarr } from "./radarr-push.sandbox";
+import { manifest as reconcileMediaHistory } from "./reconcile-media-history.sandbox";
 import { manifest as recordMediaLibraryMembership } from "./record-media-library-membership-event.sandbox";
 import { manifest as reviewCreated } from "./review-created.sandbox";
 import { manifest as sonarr } from "./sonarr-push.sandbox";
@@ -28,14 +27,13 @@ it("declares the media automation input projections", () => {
 		[relationshipSync.slug]: relationshipSync.inputProjection,
 		[customPublishYear.slug]: customPublishYear.inputProjection,
 		[ensureMediaLibrary.slug]: ensureMediaLibrary.inputProjection,
-		[autoCompleteParent.slug]: autoCompleteParent.inputProjection,
-		[autoCompleteProgress.slug]: autoCompleteProgress.inputProjection,
+		[reconcileMediaHistory.slug]: reconcileMediaHistory.inputProjection,
 		[recordMediaLibraryMembership.slug]: recordMediaLibraryMembership.inputProjection,
 	}).toEqual({
 		"policy.media-episodic-session": { event: { properties: [] } },
-		"trigger.jellyfin-push": { event: { properties: [], compareProperties: [] } },
 		"automation.review-created": { event: { properties: [], compareProperties: [] } },
 		"policy.media-custom-publish-year": { entity: { properties: ["publishDate", "publishYear"] } },
+		"trigger.jellyfin-push": { event: { compareProperties: [], properties: ["completionSilent"] } },
 		"trigger.sonarr-push": {
 			event: { compareProperties: [], properties: ["entitySchemaSlug", "entityId"] },
 		},
@@ -55,20 +53,17 @@ it("declares the media automation input projections", () => {
 				parentEntityProperties: ["seasonNumber"],
 			},
 		},
-		"trigger.auto-complete-on-full-progress": {
-			event: {
-				compareProperties: [],
-				properties: ["progressPercent", "animeEpisode", "mangaChapter", "consumedOn"],
-			},
-		},
-		"automation.media-auto-complete-episodic-parent": {
-			event: { properties: [], compareProperties: [] },
+		"automation.reconcile-media-history": {
+			event: { compareProperties: [], properties: ["completionKey"] },
 			signal: { properties: ["entitySchemaSlug", "oldStatus", "newStatus"] },
 		},
 		"automation.ensure-media-library-membership": {
 			providerEntityImport: true,
 			entity: { properties: [], compareProperties: [], parentEntityProperties: [] },
-			event: { compareProperties: [], properties: ["entityId", "entitySchemaSlug"] },
+			event: {
+				compareProperties: [],
+				properties: ["entityId", "entitySchemaSlug", "completionSilent"],
+			},
 		},
 		"automation.media-entity-updated": {
 			entity: {

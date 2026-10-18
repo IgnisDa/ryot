@@ -324,11 +324,13 @@ progress update, or review, and opens the Log activity fields or the review comp
 daily watches in an episodic summary carry no record IDs and are edited from complete history.
 Collection, library, and synced list-state rows have no menu.
 
-Completion hooks run only for created events. Therefore deleting an episode completion leaves an
-auto-created parent completion, which can be deleted on its own; after deleting that parent
-completion, completing the last episode again within the one-hour claim does not complete the
-parent again; editing progress to 100% does not complete; and editing episode dates does not move
-the parent's completion time.
+History creation, edits, and deletions reconcile automatic completions. Full-progress corrections
+can create or remove their derived completion; episode corrections repair the affected parent and
+subsequent consumption cycles. Explicit completions are never removed by inference. Editing an
+automatic completion makes it explicit; deleting one suppresses that occurrence without deleting its
+supporting history. A later independent repeat can complete again. Correction-created completions
+skip Jellyfin delivery; repairing history never replays notifications or retracts external messages.
+Library membership and monitoring are unchanged by history correction.
 
 ## Imports
 
@@ -413,8 +415,10 @@ Integration and metadata requests share the declared GraphQL-origin budget.
 
 ## Lifecycle
 
-Support is declared by `manifest/schemas/entity.ts`. State comes from append-only history ordered by
-`occurredAt`, `createdAt`, then ID, not a separately stored state. Hooks use pinned projections of
+Support is declared by `manifest/schemas/entity.ts`. State comes from editable history ordered by
+`occurredAt`, source creation time, then source order, not a separately stored state. Automatic
+completions retain their source-order keys so their later insertion or repair cannot move them past
+same-time activity. Explicit records use their own creation time and ID. Hooks use pinned projections of
 immutable trigger evidence; current-state RyotQL cannot reconstruct omitted historical values.
 
 | Hook family                     | Responsibility                                                                                                                                                                                                                                                                                                              |
@@ -423,7 +427,7 @@ immutable trigger evidence; current-state RyotQL cannot reconstruct omitted hist
 | Association / relationship sync | Batch hooks filter projected changes; association resolves credits together, and sync uses the population batch leader. Item-count chunks remain subject to the separate invocation byte limit.                                                                                                                             |
 | Entity updated                  | Async population hook compares projected trigger-time fields, treating image order as irrelevant, and emits monitoring signals.                                                                                                                                                                                             |
 | Episodic session                | Before-event policy patches only `sessionEntityId`; missing/ambiguous parents reject the event and caller session IDs are replaced.                                                                                                                                                                                         |
-| Episodic completion             | A required batch hook (`batchMaxItems` 60) groups episode completions by parent and evaluates each parent once from its latest trigger; the async terminal-status hook shares the script, and status signals fan out per monitoring user. The per-parent claim keeps repeated or chunked batches idempotent.                |
+| Completion reconciliation       | A required batch hook (`batchMaxItems` 60) groups history creates, updates, and deletes by entity/session and requests durable user work. The async terminal-status hook uses the same worker. Atomic evidence/output/checkpoint writes and scalar source/data revisions reject stale repair.                               |
 | Review / collection pushes      | Review includes kernel collection reviews; Radarr/Sonarr observe collection additions. Notifications/pushes have one attempt and no automatic external retry.                                                                                                                                                               |
 
 Membership batch hooks run after the written prefix, so later items in that request cannot depend on
@@ -459,14 +463,27 @@ after completion reopens an episode. Next-up prefers an in-progress episode, the
 untracked episode after its highest completed position, or a podcast's newest untracked episode.
 Shows without a completion anchor have no next-up; earlier gaps are skipped.
 
-Auto-completion reads one bounded parent snapshot, finds each required episode's completion after
-both the parent boundary and its latest progress, and rereads after acquiring its completion claim.
-Terminal production status (`Ended`, `Canceled`, or `Cancelled`, case-insensitive) is required for
-Show/Podcast completion. Relationship changes recompute coverage but do not create completion.
-Completion time is the latest false-to-true coverage transition and does not move on repeated
-evaluation; consumption source is copied only when all required completions agree.
+Auto-completion replays paged source history in order, resetting coverage at each explicit or inferred
+cycle boundary. Terminal production status (`Ended`, `Canceled`, or `Cancelled`, case-insensitive)
+is required for a new Show/Podcast completion. User-owned events on the media library retain the
+checkpoint (`history-correction`), occurrences (`completion-occurrence`), individual required episodes
+(`completion-episode`), and temporary cycle coverage (`history-coverage`). These events do not cause
+library admission. Evidence is pageable, never one history-sized JSON value. Later provider changes
+do not rewrite frozen episode inventories or positional totals. Relationship changes still affect live
+coverage without creating history.
+Completion time follows the closing coverage event; consumption source is copied only when all
+supporting completions agree. Source corrections can change that time or invalidate the completion.
+Each step commits evidence, outputs, and its checkpoint atomically against both the subject and library
+event-scope revisions and the plugin's global/owned data revisions. The unchanged library entity is
+not rewritten, so independent checkpoint writes do not invalidate inventory capture. Entity and
+relationship triggers advance data revisions in the source transaction, including cascading deletes.
+An unfrozen inventory restarts capture if provider or owned data changes between pages. A retained
+inventory is not recaptured. Each invocation runs at most eight steps, then admits a deterministic
+continuation. Source and evidence reads are paged; inventory writes contain at most 50 episodes.
+Conflicts reread and retry up to five times, then yield to a fresh durable continuation. Large repairs can become visible in stages. The Activity
+tab shows pending or failed work and offers Try again without rolling back the recorded source facts.
 
-100% progress completes other flat media. Anime/Manga complete when a created progress event's
+100% progress completes other flat media. Anime/Manga complete when a progress event's
 position reaches the episode or chapter total, or its percent is 100; no completion is written when
 an equal-or-later completion exists, so repeated delivery stays idempotent and a later repeat
 completes again. Completion needs no preceding progress. Percentages use half-up rounding to two

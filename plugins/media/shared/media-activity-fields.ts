@@ -56,7 +56,14 @@ export const mediaActivityDeclaredProperties = (
 	const parent = episodicParents.has(entitySchemaSlug);
 	switch (eventSchemaSlug) {
 		case "complete":
-			return ["consumedOn", "timeSpent", "startedOn", "dateUnknown"];
+			return [
+				"consumedOn",
+				"timeSpent",
+				"startedOn",
+				"dateUnknown",
+				"completionKey",
+				"completionSilent",
+			];
 		case "progress":
 			return parent ? undefined : progressFields(entitySchemaSlug);
 		case "dropped":

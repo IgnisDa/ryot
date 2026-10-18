@@ -23,7 +23,7 @@ export const manifest = defineManifest({
 	name: "Jellyfin Push",
 	automationType: "automation",
 	slug: "trigger.jellyfin-push",
-	inputProjection: { event: { properties: [], compareProperties: [] } },
+	inputProjection: { event: { compareProperties: [], properties: ["completionSilent"] } },
 });
 
 type JellyfinSession = { readonly userId: string; readonly accessToken: string };
@@ -154,6 +154,9 @@ export default defineAutomation({
 
 		return Effect.gen(function* () {
 			const event = payload.after;
+			if (event.properties["completionSilent"] === true) {
+				return null;
+			}
 			const entitySchemaSlug = event.entitySchemaSlug;
 			if (entitySchemaSlug !== "movie" && entitySchemaSlug !== "show") {
 				return null;

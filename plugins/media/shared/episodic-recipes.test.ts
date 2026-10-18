@@ -238,6 +238,7 @@ describe("episodic media recipes", () => {
 			"images",
 			"isMonitored",
 			"isInMediaLibrary",
+			"isCustom",
 			"publishDate",
 			"publishYear",
 			"providerRating",
