@@ -17,7 +17,11 @@ const rows = (items: readonly unknown[]) => ({
 });
 
 const mountManager = (
-	options: { readonly collectionId?: string; readonly failFirstSave?: boolean } = {},
+	options: {
+		readonly collectionId?: string;
+		readonly failFirstSave?: boolean;
+		readonly membershipFields?: readonly unknown[];
+	} = {},
 ) => {
 	let properties: unknown;
 	let attempts = 0;
@@ -73,7 +77,7 @@ const mountManager = (
 									name: "Favourites",
 									entityId: "collection-1",
 									properties: {
-										membershipFields: [
+										membershipFields: options.membershipFields ?? [
 											{ key: "notes", type: "text", label: "Notes", required: true },
 										],
 									},
@@ -219,6 +223,53 @@ it.live("keeps membership inputs after a failed save and reports the change only
 			yield* Effect.promise(() => screen.findByRole("button", { name: /Favourites\s*Added/ }));
 			fireEvent.click(screen.getByRole("button", { name: "Done" }));
 			expect(view.outcomes).toEqual(["saved"]);
+		} finally {
+			yield* Effect.promise(view.disposeView);
+		}
+	}),
+);
+
+it.live("adds and removes members of a collection without member fields", () =>
+	Effect.gen(function* () {
+		const view = mountManager({ membershipFields: [] });
+		try {
+			fireEvent.click(
+				yield* Effect.promise(() => screen.findByRole("button", { name: "Favourites" })),
+			);
+			fireEvent.click(
+				yield* Effect.promise(() => screen.findByRole("button", { name: "Add to collection" })),
+			);
+			fireEvent.click(
+				yield* Effect.promise(() => screen.findByRole("button", { name: /Favourites\s*Added/ })),
+			);
+			const dialog = yield* Effect.promise(() =>
+				screen.findByRole("dialog", { name: "Favourites" }),
+			);
+			expect(dialog.textContent).toContain("This item is in this collection.");
+			expect(within(dialog).queryByRole("button", { name: "Save details" })).toBeNull();
+			fireEvent.click(within(dialog).getByRole("button", { name: "Remove from collection" }));
+			fireEvent.click(
+				within(screen.getByRole("dialog", { name: "Remove from Favourites?" })).getByRole(
+					"button",
+					{ name: "Remove from collection" },
+				),
+			);
+			yield* Effect.promise(() => screen.findByRole("button", { name: "Favourites" }));
+			expect(view.requests).toEqual([
+				{
+					action: "upsert-membership",
+					input: {
+						properties: {},
+						entityId: "entity-1",
+						mode: "add-if-absent",
+						collectionId: "collection-1",
+					},
+				},
+				{
+					action: "remove-membership",
+					input: { entityId: "entity-1", collectionId: "collection-1" },
+				},
+			]);
 		} finally {
 			yield* Effect.promise(view.disposeView);
 		}

@@ -336,46 +336,23 @@ function MembershipForm(props: {
 	}, [onRemoved, remove.data]);
 	const busy = save.isPending || remove.isPending;
 	const editing = membership !== null;
-	return (
-		<Dialog
-			dismissible={!busy}
-			onClose={props.onClose}
-			closeLabel="Close collection membership"
-			title={editing ? `Details in ${header.name}` : `Add to ${header.name}`}
-			footer={
-				<>
-					{editing ? (
-						<Button
-							variant="ghost"
-							disabled={busy}
-							ref={removeTrigger}
-							className="mr-auto"
-							onClick={() => setConfirmingRemove(true)}
-						>
-							Remove from collection
-						</Button>
-					) : null}
-					<Button disabled={busy} variant="secondary" onClick={props.onClose}>
-						Back to collections
-					</Button>
-					<Button disabled={busy} loading={save.isPending} onClick={() => void form.handleSubmit()}>
-						{editing ? "Save details" : "Add to collection"}
-					</Button>
-				</>
-			}
-		>
-			<fieldset disabled={busy} className="min-w-0 border-0 p-0">
-				<SchemaForm
-					form={form}
-					schema={schema}
-					uploadFile={uploadFile}
-					icons={schemaFormIcons}
-					uploadAsset={uploadAsset}
-					onChange={() => undefined}
-					renderAsset={renderSchemaAsset}
-					onReorder={schemaFormReorderFeedback}
-				/>
-			</fieldset>
+	const hasFields = Object.keys(schema.fields).length > 0;
+	const body = (
+		<>
+			{hasFields ? (
+				<fieldset disabled={busy} className="min-w-0 border-0 p-0">
+					<SchemaForm
+						form={form}
+						schema={schema}
+						uploadFile={uploadFile}
+						icons={schemaFormIcons}
+						uploadAsset={uploadAsset}
+						onChange={() => undefined}
+						renderAsset={renderSchemaAsset}
+						onReorder={schemaFormReorderFeedback}
+					/>
+				</fieldset>
+			) : null}
 			{save.error ? (
 				<Notice tone="danger">
 					{editing ? "The details could not be saved." : "The item could not be added."} Try again.
@@ -394,6 +371,55 @@ function MembershipForm(props: {
 					errorMessage={remove.error ? "The item could not be removed. Try again." : undefined}
 				/>
 			) : null}
+		</>
+	);
+	let title = `Add to ${header.name}`;
+	if (editing) {
+		title = hasFields ? `Details in ${header.name}` : header.name;
+	}
+	return (
+		<Dialog
+			title={title}
+			dismissible={!busy}
+			onClose={props.onClose}
+			closeLabel="Close collection membership"
+			description={editing && !hasFields ? "This item is in this collection." : undefined}
+			footer={
+				<>
+					<Button
+						variant="ghost"
+						disabled={busy}
+						className="mr-auto"
+						onClick={props.onClose}
+						aria-label="Back to collections"
+					>
+						<AppIcon size={16} name="chevron-left" />
+						Back
+					</Button>
+					{editing ? (
+						<Button
+							disabled={busy}
+							ref={removeTrigger}
+							variant="dangerGhost"
+							aria-label="Remove from collection"
+							onClick={() => setConfirmingRemove(true)}
+						>
+							Remove
+						</Button>
+					) : null}
+					{editing && !hasFields ? null : (
+						<Button
+							disabled={busy}
+							loading={save.isPending}
+							onClick={() => void form.handleSubmit()}
+						>
+							{editing ? "Save details" : "Add to collection"}
+						</Button>
+					)}
+				</>
+			}
+		>
+			{hasFields || save.error || confirmingRemove ? body : undefined}
 		</Dialog>
 	);
 }
