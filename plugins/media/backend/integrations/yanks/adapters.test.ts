@@ -403,10 +403,10 @@ describe("Komga yank", () => {
 	it("maps a MangaUpdates link to manga.manga-updates", () => {
 		expect(
 			extractMangaRef(
-				[{ label: "MangaUpdates", url: "https://www.mangaupdates.com/series/abc123/berserk" }],
+				[{ label: "MangaUpdates", url: "https://www.mangaupdates.com/series/pb8uwds/one-piece" }],
 				"Berserk",
 			),
-		).toMatchObject({ externalId: "abc123", providerSlug: "manga.manga-updates" });
+		).toMatchObject({ externalId: "55099564912", providerSlug: "manga.manga-updates" });
 	});
 
 	it("returns null for links without a supported manga resolver", () => {
@@ -437,6 +437,12 @@ describe("Komga yank", () => {
 				komgaDefinition,
 				{},
 				defineSandboxTestHost(komgaManifest, {
+					httpCall: httpCall({
+						"/api/v1/books/list?page=0&size=500": {
+							totalPages: 1,
+							content: [book, { ...book, id: "unread", readProgress: { page: 0 } }],
+						},
+					}),
 					getCurrentIntegration: () =>
 						hostSuccess(
 							integrationRecord({
@@ -445,18 +451,12 @@ describe("Komga yank", () => {
 								providerSpecifics: { apiKey: "key", baseUrl: "http://komga.test" },
 							}),
 						),
-					httpCall: httpCall({
-						"/api/v1/books?page=0&size=500": { totalPages: 1, content: [book] },
-						"/api/v1/books?page=0&size=500&read_status=IN_PROGRESS": {
-							totalPages: 1,
-							content: [book, { ...book, id: "unread", readProgress: { page: 0 } }],
-						},
-					}),
 				}),
 				execution,
 			);
 			expect(result.failures).toEqual([]);
 			expect(result.entityGroups).toEqual([
+				expect.objectContaining({ events: [], ownershipProvider: "komga" }),
 				expect.objectContaining({ events: [], ownershipProvider: "komga" }),
 			]);
 		}),
