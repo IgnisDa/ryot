@@ -1,7 +1,7 @@
 import {
 	FILESYSTEM_GRANT_SANDBOX_CAPABILITIES,
 	type FilesystemGrantSandboxCapability,
-} from "@ryot-app/plugin-backend-sdk/core";
+} from "@ryot-app/contract/modules/scripts/wire";
 import { sandboxScratchManifestSchema } from "@ryot-app/plugin-backend-sdk/filesystem";
 import { Effect, Schema, FileSystem, Path } from "effect";
 

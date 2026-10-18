@@ -5,13 +5,14 @@ import {
 	httpCallArgsSchema,
 	httpCallResultSchema,
 	logArgsSchema,
+	partialCreateEventsResult,
 	spanArgsSchema,
 	updateEventsArgsSchema,
 	deleteEventsArgsSchema,
 	upsertGlobalEntitiesArgsSchema,
 	upsertGlobalRelationshipsArgsSchema,
 } from "@ryot-app/plugin-backend-sdk/core";
-import { Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
+import { Effect, Option, Schema } from "@ryot-app/plugin-backend-sdk/effect";
 import { defineSandboxTestHost, runSandboxTestScript } from "@ryot-app/plugin-backend-sdk/testing";
 import { describe, expect, test } from "vitest";
 
@@ -276,5 +277,33 @@ describe("domain host contracts", () => {
 				sandboxScriptId: "script-1",
 			}).pipe(Effect.map((value) => expect(value).toEqual({ rows: 2 }))),
 		);
+	});
+});
+
+describe("partialCreateEventsResult", () => {
+	const outcomes = [{ index: 0, status: "written", eventId: "event-1" }];
+
+	test("recovers the written outcomes from a partial createEvents failure", () => {
+		const recovered = partialCreateEventsResult({
+			outcomes,
+			count: 1,
+			partial: true,
+			code: "validation-failed",
+		});
+
+		expect(Option.getOrUndefined(recovered)).toMatchObject({ count: 1, outcomes });
+	});
+
+	test("ignores a non-partial failure", () => {
+		expect(
+			Option.isNone(
+				partialCreateEventsResult({
+					outcomes,
+					count: 1,
+					partial: false,
+					code: "mutation-conflict",
+				}),
+			),
+		).toBe(true);
 	});
 });
