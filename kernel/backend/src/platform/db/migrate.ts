@@ -2,6 +2,7 @@ import { sql } from "drizzle-orm";
 import { migrate } from "drizzle-orm/effect-postgres/migrator";
 import { Context, Effect, Layer } from "effect";
 
+import { collectionOrderStatements } from "./collection-order";
 import { immutableRevisionStatements } from "./immutable-revisions";
 import { DatabaseSession } from "./session";
 import { userPluginStateStatements } from "./user-plugin-state";
@@ -26,6 +27,7 @@ const migrateDB = Effect.gen(function* () {
 			for (const statement of [
 				...immutableRevisionStatements,
 				...userPluginStateStatements,
+				...collectionOrderStatements,
 				...workflowMessageFenceStatements,
 			]) {
 				yield* session.run((database) => database.execute(sql.raw(statement)));

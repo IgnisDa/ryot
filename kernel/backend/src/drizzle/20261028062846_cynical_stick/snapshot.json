@@ -1,8 +1,8 @@
 {
 	"version": "8",
 	"dialect": "postgres",
-	"id": "0310f20d-f73a-4648-988d-f92437c9990a",
-	"prevIds": ["a7cc2877-9ce1-4b22-8d17-04664a15890c"],
+	"id": "1df2a3e4-c1ba-4487-bbcd-df970579579b",
+	"prevIds": ["00000000-0000-0000-0000-000000000000"],
 	"ddl": [
 		{ "isRlsEnabled": false, "name": "account", "entityType": "tables", "schema": "public" },
 		{ "isRlsEnabled": false, "name": "apikey", "entityType": "tables", "schema": "public" },
@@ -290,6 +290,18 @@
 			"schema": "public"
 		},
 		{ "isRlsEnabled": false, "name": "relationship", "entityType": "tables", "schema": "public" },
+		{
+			"isRlsEnabled": false,
+			"name": "relationship_projection",
+			"entityType": "tables",
+			"schema": "public"
+		},
+		{
+			"isRlsEnabled": false,
+			"name": "relationship_projection_work",
+			"entityType": "tables",
+			"schema": "public"
+		},
 		{
 			"isRlsEnabled": false,
 			"name": "relationship_sync_generation",
@@ -3220,6 +3232,19 @@
 			"generated": null,
 			"identity": null,
 			"name": "properties_schema",
+			"entityType": "columns",
+			"schema": "public",
+			"table": "definition_relationship_schema"
+		},
+		{
+			"type": "jsonb",
+			"typeSchema": null,
+			"notNull": false,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
+			"name": "projection",
 			"entityType": "columns",
 			"schema": "public",
 			"table": "definition_relationship_schema"
@@ -9543,6 +9568,240 @@
 			"table": "relationship"
 		},
 		{
+			"type": "integer",
+			"typeSchema": null,
+			"notNull": false,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
+			"name": "projected_revision",
+			"entityType": "columns",
+			"schema": "public",
+			"table": "relationship_projection"
+		},
+		{
+			"type": "integer",
+			"typeSchema": null,
+			"notNull": true,
+			"dimensions": 0,
+			"default": "1",
+			"generated": null,
+			"identity": null,
+			"name": "revision",
+			"entityType": "columns",
+			"schema": "public",
+			"table": "relationship_projection"
+		},
+		{
+			"type": "timestamp(3) with time zone",
+			"typeSchema": null,
+			"notNull": true,
+			"dimensions": 0,
+			"default": "now()",
+			"generated": null,
+			"identity": null,
+			"name": "updated_at",
+			"entityType": "columns",
+			"schema": "public",
+			"table": "relationship_projection"
+		},
+		{
+			"type": "jsonb",
+			"typeSchema": null,
+			"notNull": false,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
+			"name": "properties",
+			"entityType": "columns",
+			"schema": "public",
+			"table": "relationship_projection"
+		},
+		{
+			"type": "text",
+			"typeSchema": null,
+			"notNull": true,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
+			"name": "work_id",
+			"entityType": "columns",
+			"schema": "public",
+			"table": "relationship_projection"
+		},
+		{
+			"type": "text",
+			"typeSchema": null,
+			"notNull": true,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
+			"name": "relationship_id",
+			"entityType": "columns",
+			"schema": "public",
+			"table": "relationship_projection"
+		},
+		{
+			"type": "text",
+			"typeSchema": null,
+			"notNull": true,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
+			"name": "id",
+			"entityType": "columns",
+			"schema": "public",
+			"table": "relationship_projection_work"
+		},
+		{
+			"type": "text",
+			"typeSchema": null,
+			"notNull": false,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
+			"name": "current_job_id",
+			"entityType": "columns",
+			"schema": "public",
+			"table": "relationship_projection_work"
+		},
+		{
+			"type": "text",
+			"typeSchema": null,
+			"notNull": true,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
+			"name": "relationship_schema_slug",
+			"entityType": "columns",
+			"schema": "public",
+			"table": "relationship_projection_work"
+		},
+		{
+			"type": "text",
+			"typeSchema": null,
+			"notNull": true,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
+			"name": "account_token",
+			"entityType": "columns",
+			"schema": "public",
+			"table": "relationship_projection_work"
+		},
+		{
+			"type": "text",
+			"typeSchema": null,
+			"notNull": true,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
+			"name": "plugin_revision_id",
+			"entityType": "columns",
+			"schema": "public",
+			"table": "relationship_projection_work"
+		},
+		{
+			"type": "text",
+			"typeSchema": null,
+			"notNull": true,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
+			"name": "processor_script_id",
+			"entityType": "columns",
+			"schema": "public",
+			"table": "relationship_projection_work"
+		},
+		{
+			"type": "integer",
+			"typeSchema": null,
+			"notNull": true,
+			"dimensions": 0,
+			"default": "0",
+			"generated": null,
+			"identity": null,
+			"name": "step",
+			"entityType": "columns",
+			"schema": "public",
+			"table": "relationship_projection_work"
+		},
+		{
+			"type": "jsonb",
+			"typeSchema": null,
+			"notNull": true,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
+			"name": "plugin_pin",
+			"entityType": "columns",
+			"schema": "public",
+			"table": "relationship_projection_work"
+		},
+		{
+			"type": "timestamp(3) with time zone",
+			"typeSchema": null,
+			"notNull": true,
+			"dimensions": 0,
+			"default": "now()",
+			"generated": null,
+			"identity": null,
+			"name": "updated_at",
+			"entityType": "columns",
+			"schema": "public",
+			"table": "relationship_projection_work"
+		},
+		{
+			"type": "jsonb",
+			"typeSchema": null,
+			"notNull": true,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
+			"name": "output_schema",
+			"entityType": "columns",
+			"schema": "public",
+			"table": "relationship_projection_work"
+		},
+		{
+			"type": "text",
+			"typeSchema": null,
+			"notNull": true,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
+			"name": "user_id",
+			"entityType": "columns",
+			"schema": "public",
+			"table": "relationship_projection_work"
+		},
+		{
+			"type": "text",
+			"typeSchema": null,
+			"notNull": true,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
+			"name": "relationship_schema_plugin_id",
+			"entityType": "columns",
+			"schema": "public",
+			"table": "relationship_projection_work"
+		},
+		{
 			"type": "text",
 			"typeSchema": null,
 			"notNull": true,
@@ -14108,6 +14367,55 @@
 			"nameExplicit": true,
 			"columns": [
 				{
+					"value": "work_id",
+					"isExpression": false,
+					"asc": true,
+					"nullsFirst": false,
+					"opclass": null
+				},
+				{
+					"value": "relationship_id",
+					"isExpression": false,
+					"asc": true,
+					"nullsFirst": false,
+					"opclass": null
+				}
+			],
+			"isUnique": false,
+			"where": "\"projected_revision\" is distinct from \"revision\"",
+			"with": "",
+			"method": "btree",
+			"concurrently": false,
+			"name": "relationship_projection_dirty_idx",
+			"entityType": "indexes",
+			"schema": "public",
+			"table": "relationship_projection"
+		},
+		{
+			"nameExplicit": true,
+			"columns": [
+				{
+					"value": "current_job_id",
+					"isExpression": false,
+					"asc": true,
+					"nullsFirst": false,
+					"opclass": null
+				}
+			],
+			"isUnique": false,
+			"where": null,
+			"with": "",
+			"method": "btree",
+			"concurrently": false,
+			"name": "relationship_projection_work_current_job_idx",
+			"entityType": "indexes",
+			"schema": "public",
+			"table": "relationship_projection_work"
+		},
+		{
+			"nameExplicit": true,
+			"columns": [
+				{
 					"value": "plugin_id",
 					"isExpression": false,
 					"asc": true,
@@ -16138,6 +16446,58 @@
 		},
 		{
 			"nameExplicit": false,
+			"columns": ["work_id"],
+			"schemaTo": "public",
+			"tableTo": "relationship_projection_work",
+			"columnsTo": ["id"],
+			"onUpdate": "NO ACTION",
+			"onDelete": "CASCADE",
+			"name": "relationship_projection_78lhxH1dX7UF_fkey",
+			"entityType": "fks",
+			"schema": "public",
+			"table": "relationship_projection"
+		},
+		{
+			"nameExplicit": false,
+			"columns": ["relationship_id"],
+			"schemaTo": "public",
+			"tableTo": "relationship",
+			"columnsTo": ["id"],
+			"onUpdate": "NO ACTION",
+			"onDelete": "CASCADE",
+			"name": "relationship_projection_relationship_id_relationship_id_fkey",
+			"entityType": "fks",
+			"schema": "public",
+			"table": "relationship_projection"
+		},
+		{
+			"nameExplicit": false,
+			"columns": ["user_id"],
+			"schemaTo": "public",
+			"tableTo": "user",
+			"columnsTo": ["id"],
+			"onUpdate": "NO ACTION",
+			"onDelete": "CASCADE",
+			"name": "relationship_projection_work_user_id_user_id_fkey",
+			"entityType": "fks",
+			"schema": "public",
+			"table": "relationship_projection_work"
+		},
+		{
+			"nameExplicit": false,
+			"columns": ["relationship_schema_plugin_id"],
+			"schemaTo": "public",
+			"tableTo": "plugin",
+			"columnsTo": ["id"],
+			"onUpdate": "NO ACTION",
+			"onDelete": "CASCADE",
+			"name": "relationship_projection_work_hez9NpadMCpN_fkey",
+			"entityType": "fks",
+			"schema": "public",
+			"table": "relationship_projection_work"
+		},
+		{
+			"nameExplicit": false,
 			"columns": ["relationship_schema_plugin_id"],
 			"schemaTo": "public",
 			"tableTo": "plugin",
@@ -16857,6 +17217,22 @@
 			"name": "relationship_pkey",
 			"schema": "public",
 			"table": "relationship",
+			"entityType": "pks"
+		},
+		{
+			"columns": ["relationship_id"],
+			"nameExplicit": false,
+			"name": "relationship_projection_pkey",
+			"schema": "public",
+			"table": "relationship_projection",
+			"entityType": "pks"
+		},
+		{
+			"columns": ["id"],
+			"nameExplicit": false,
+			"name": "relationship_projection_work_pkey",
+			"schema": "public",
+			"table": "relationship_projection_work",
 			"entityType": "pks"
 		},
 		{
@@ -17745,7 +18121,7 @@
 			"schema": "public"
 		},
 		{
-			"definition": "\n\t\t\tselect d.id, r.plugin_id, g.package_id, d.plugin_revision_id, d.slug, d.name, d.position, d.source_entity_schema_slug, d.target_entity_schema_slug, d.properties_schema, d.user_write_policy\n\t\t\tfrom definition_relationship_schema d\n\t\t\tleft join plugin_revision r on r.id = d.plugin_revision_id\n\t\t\tleft join \"global_plugin\" g on g.plugin_id = r.plugin_id and g.active_revision_id = d.plugin_revision_id\n\t\t\twhere d.plugin_revision_id is null or g.plugin_id is not null\n\t\t",
+			"definition": "\n\t\t\tselect d.id, r.plugin_id, g.package_id, d.plugin_revision_id, d.slug, d.name, d.position, d.source_entity_schema_slug, d.target_entity_schema_slug, d.properties_schema, d.user_write_policy, d.projection\n\t\t\tfrom definition_relationship_schema d\n\t\t\tleft join plugin_revision r on r.id = d.plugin_revision_id\n\t\t\tleft join \"global_plugin\" g on g.plugin_id = r.plugin_id and g.active_revision_id = d.plugin_revision_id\n\t\t\twhere d.plugin_revision_id is null or g.plugin_id is not null\n\t\t",
 			"with": null,
 			"withNoData": null,
 			"using": null,
@@ -17844,7 +18220,7 @@
 			"schema": "public"
 		},
 		{
-			"definition": "\n\t\t\tselect u.id as user_id, d.id, null::text as plugin_id, null::text as package_id, d.plugin_revision_id, null::text as plugin_scope, d.slug, d.name, d.position, d.source_entity_schema_slug, d.target_entity_schema_slug, d.properties_schema, true as is_effective, d.user_write_policy\n\t\t\tfrom definition_relationship_schema d\n\t\t\tcross join \"user\" u\n\t\t\twhere d.plugin_revision_id is null\n\t\t\tunion all\n\t\t\tselect p.user_id, d.id, p.plugin_id, p.package_id, d.plugin_revision_id, p.scope, d.slug, d.name, d.position, d.source_entity_schema_slug, d.target_entity_schema_slug, d.properties_schema, p.is_definition_effective and (d.source_entity_schema_slug is null or exists (select 1 from definition_entity_schema e where e.plugin_revision_id = p.active_revision_id and e.slug = d.source_entity_schema_slug)) and (d.target_entity_schema_slug is null or exists (select 1 from definition_entity_schema e where e.plugin_revision_id = p.active_revision_id and e.slug = d.target_entity_schema_slug)), d.user_write_policy\n\t\t\tfrom \"user_plugin\" p\n\t\t\tjoin definition_relationship_schema d on d.plugin_revision_id = p.active_revision_id\n\t\t\twhere p.is_listed and (d.source_entity_schema_slug is null or exists (select 1 from definition_entity_schema e where e.plugin_revision_id = p.active_revision_id and e.slug = d.source_entity_schema_slug)) and (d.target_entity_schema_slug is null or exists (select 1 from definition_entity_schema e where e.plugin_revision_id = p.active_revision_id and e.slug = d.target_entity_schema_slug))\n\t\t",
+			"definition": "\n\t\t\tselect u.id as user_id, d.id, null::text as plugin_id, null::text as package_id, d.plugin_revision_id, null::text as plugin_scope, d.slug, d.name, d.position, d.source_entity_schema_slug, d.target_entity_schema_slug, d.properties_schema, true as is_effective, d.user_write_policy, d.projection\n\t\t\tfrom definition_relationship_schema d\n\t\t\tcross join \"user\" u\n\t\t\twhere d.plugin_revision_id is null\n\t\t\tunion all\n\t\t\tselect p.user_id, d.id, p.plugin_id, p.package_id, d.plugin_revision_id, p.scope, d.slug, d.name, d.position, d.source_entity_schema_slug, d.target_entity_schema_slug, d.properties_schema, p.is_definition_effective and (d.source_entity_schema_slug is null or exists (select 1 from definition_entity_schema e where e.plugin_revision_id = p.active_revision_id and e.slug = d.source_entity_schema_slug)) and (d.target_entity_schema_slug is null or exists (select 1 from definition_entity_schema e where e.plugin_revision_id = p.active_revision_id and e.slug = d.target_entity_schema_slug)), d.user_write_policy, d.projection\n\t\t\tfrom \"user_plugin\" p\n\t\t\tjoin definition_relationship_schema d on d.plugin_revision_id = p.active_revision_id\n\t\t\twhere p.is_listed and (d.source_entity_schema_slug is null or exists (select 1 from definition_entity_schema e where e.plugin_revision_id = p.active_revision_id and e.slug = d.source_entity_schema_slug)) and (d.target_entity_schema_slug is null or exists (select 1 from definition_entity_schema e where e.plugin_revision_id = p.active_revision_id and e.slug = d.target_entity_schema_slug))\n\t\t",
 			"with": null,
 			"withNoData": null,
 			"using": null,

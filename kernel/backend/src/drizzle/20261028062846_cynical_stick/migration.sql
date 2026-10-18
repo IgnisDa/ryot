@@ -307,6 +307,8 @@ CREATE TABLE "definition_relationship_schema" (
 	"source_entity_schema_slug" text,
 	"target_entity_schema_slug" text,
 	"properties_schema" jsonb NOT NULL,
+	"projection" jsonb,
+	"retention" text,
 	"user_write_policy" text,
 	"plugin_revision_id" text,
 	CONSTRAINT "definition_relationship_schema_revision_slug_unique" UNIQUE NULLS NOT DISTINCT("plugin_revision_id","slug")
@@ -350,10 +352,12 @@ CREATE TABLE "entity" (
 	"related_population_started_at" timestamp(3) with time zone,
 	"created_at" timestamp(3) with time zone DEFAULT now() NOT NULL,
 	"content_generation" integer DEFAULT 1 NOT NULL,
+	"collection_order_revision" integer DEFAULT 0 NOT NULL,
 	"user_id" text,
 	"properties" jsonb DEFAULT '{}' NOT NULL,
 	"provider_id" text,
 	"entity_schema_plugin_id" text,
+	"check_after" timestamp(3) with time zone DEFAULT now() + interval '7 days' NOT NULL,
 	"id" text PRIMARY KEY
 );
 --> statement-breakpoint
@@ -619,6 +623,7 @@ CREATE TABLE "managed_asset" (
 	"content_type" text NOT NULL,
 	"created_at" timestamp(3) with time zone DEFAULT now() NOT NULL,
 	"provider" text,
+	"check_after" timestamp(3) with time zone DEFAULT now() + interval '24 hours' NOT NULL,
 	"owner_user_id" text NOT NULL,
 	CONSTRAINT "managed_asset_pkey" PRIMARY KEY("provider","key")
 );
@@ -984,7 +989,32 @@ CREATE TABLE "relationship" (
 	"id" text PRIMARY KEY,
 	"source_entity_id" text NOT NULL,
 	"target_entity_id" text NOT NULL,
-	CONSTRAINT "relationship_identity_unique" UNIQUE NULLS NOT DISTINCT("user_id","source_entity_id","target_entity_id","relationship_schema_slug","relationship_schema_plugin_id")
+	CONSTRAINT "relationship_identity_unique" UNIQUE NULLS NOT DISTINCT("user_id","source_entity_id","target_entity_id","relationship_schema_slug","relationship_schema_plugin_id"),
+	CONSTRAINT "relationship_collection_rank_valid" CHECK ("relationship_schema_slug" <> 'member-of' or "relationship_schema_plugin_id" is not null or coalesce(("user_id" is not null and jsonb_typeof("properties" -> 'rank') = 'number' and ("properties" ->> 'rank')::numeric = trunc(("properties" ->> 'rank')::numeric) and abs(("properties" ->> 'rank')::numeric) < 4503599627370496), false))
+);
+--> statement-breakpoint
+CREATE TABLE "relationship_projection" (
+	"projected_revision" integer,
+	"revision" integer DEFAULT 1 NOT NULL,
+	"updated_at" timestamp(3) with time zone DEFAULT now() NOT NULL,
+	"properties" jsonb,
+	"work_id" text NOT NULL,
+	"relationship_id" text PRIMARY KEY
+);
+--> statement-breakpoint
+CREATE TABLE "relationship_projection_work" (
+	"id" text PRIMARY KEY,
+	"current_job_id" text,
+	"relationship_schema_slug" text NOT NULL,
+	"account_token" text NOT NULL,
+	"plugin_revision_id" text NOT NULL,
+	"processor_script_id" text NOT NULL,
+	"step" integer DEFAULT 0 NOT NULL,
+	"plugin_pin" jsonb NOT NULL,
+	"updated_at" timestamp(3) with time zone DEFAULT now() NOT NULL,
+	"output_schema" jsonb NOT NULL,
+	"user_id" text NOT NULL,
+	"relationship_schema_plugin_id" text NOT NULL
 );
 --> statement-breakpoint
 CREATE TABLE "relationship_sync_generation" (
@@ -1218,6 +1248,7 @@ CREATE INDEX "entity_provider_id_idx" ON "entity" ("provider_id");--> statement-
 CREATE INDEX "entity_entity_schema_slug_idx" ON "entity" ("entity_schema_slug");--> statement-breakpoint
 CREATE INDEX "entity_entity_schema_plugin_id_idx" ON "entity" ("entity_schema_plugin_id");--> statement-breakpoint
 CREATE INDEX "entity_properties_idx" ON "entity" USING gin ("properties");--> statement-breakpoint
+CREATE INDEX "entity_check_after_idx" ON "entity" ("check_after") WHERE "provider_id" is not null;--> statement-breakpoint
 CREATE UNIQUE INDEX "entity_collection_name_unique" ON "entity" ("user_id","name") WHERE "entity_schema_slug" = 'collection' and "entity_schema_plugin_id" is null;--> statement-breakpoint
 CREATE UNIQUE INDEX "entity_external_identity_unique" ON "entity" ("external_id","entity_schema_slug",(case when "user_id" is null then '0' else '1' || "user_id" end),(case when "provider_id" is null then '0' else '1' || "provider_id" end),(case when "entity_schema_plugin_id" is null then '0' else '1' || "entity_schema_plugin_id" end)) WHERE "external_id" is not null and ("user_id" is null or "provider_id" is not null);--> statement-breakpoint
 CREATE INDEX "entity_enrichment_request_entity_idx" ON "entity_enrichment_request" ("entity_id","created_at");--> statement-breakpoint
@@ -1235,6 +1266,7 @@ CREATE INDEX "event_properties_idx" ON "event" USING gin ("properties");--> stat
 CREATE INDEX "event_user_entity_schema_order_idx" ON "event" ("user_id","entity_id","event_schema_slug","occurred_at" DESC NULLS LAST,"created_at" DESC NULLS LAST,"id" DESC NULLS LAST);--> statement-breakpoint
 CREATE INDEX "event_user_session_order_idx" ON "event" ("user_id","session_entity_id","occurred_at" DESC NULLS LAST,"created_at" DESC NULLS LAST,"id" DESC NULLS LAST);--> statement-breakpoint
 CREATE INDEX "event_projection_stream_id_idx" ON "event_projection" ("stream_id");--> statement-breakpoint
+CREATE INDEX "event_stream_work_current_job_idx" ON "event_stream_work" ("current_job_id");--> statement-breakpoint
 CREATE INDEX "import_run_block_deadline_idx" ON "import_run" ("block_deadline") WHERE "status" = 'blocked';--> statement-breakpoint
 CREATE INDEX "import_run_user_id_created_at_idx" ON "import_run" ("user_id","created_at" DESC NULLS LAST);--> statement-breakpoint
 CREATE INDEX "import_run_integration_id_created_at_idx" ON "import_run" ("integration_id","created_at" DESC NULLS LAST);--> statement-breakpoint
@@ -1248,6 +1280,8 @@ CREATE INDEX "integration_provider_is_disabled_idx" ON "integration" ("provider"
 CREATE UNIQUE INDEX "integration_webhook_token_unique" ON "integration" ("webhook_token");--> statement-breakpoint
 CREATE INDEX "integration_auto_disable_claim_integration_id_idx" ON "integration_auto_disable_claim" ("integration_id");--> statement-breakpoint
 CREATE INDEX "managed_asset_owner_user_id_idx" ON "managed_asset" ("owner_user_id");--> statement-breakpoint
+CREATE INDEX "managed_asset_check_after_idx" ON "managed_asset" ("check_after") WHERE "retired_at" is null;--> statement-breakpoint
+CREATE INDEX "managed_asset_retired_at_idx" ON "managed_asset" ("retired_at") WHERE "retired_at" is not null;--> statement-breakpoint
 CREATE INDEX "migration_report_detail_report_seq_seq_idx" ON "migration_report_detail" ("report_seq","seq");--> statement-breakpoint
 CREATE INDEX "mutation_receipt_execution_idx" ON "mutation_receipt" ("execution_id","receipt_type");--> statement-breakpoint
 CREATE INDEX "mutation_receipt_owner_idx" ON "mutation_receipt" ("owner_user_id","execution_id");--> statement-breakpoint
@@ -1256,6 +1290,7 @@ CREATE INDEX "mutation_receipt_batch_idx" ON "mutation_receipt" ("batch_id","rec
 CREATE INDEX "mutation_receipt_revision_idx" ON "mutation_receipt" ("plugin_revision_id");--> statement-breakpoint
 CREATE INDEX "mutation_receipt_config_idx" ON "mutation_receipt" ("plugin_config_revision_id");--> statement-breakpoint
 CREATE INDEX "mutation_receipt_script_idx" ON "mutation_receipt" ("sandbox_script_id");--> statement-breakpoint
+CREATE INDEX "mutation_receipt_recorded_at_idx" ON "mutation_receipt" ("recorded_at");--> statement-breakpoint
 CREATE INDEX "notification_channel_user_id_created_at_idx" ON "notification_channel" ("user_id","created_at" DESC NULLS LAST);--> statement-breakpoint
 CREATE INDEX "notification_channel_user_id_is_disabled_idx" ON "notification_channel" ("user_id","is_disabled");--> statement-breakpoint
 CREATE INDEX "notification_subscription_user_id_idx" ON "notification_subscription" ("user_id");--> statement-breakpoint
@@ -1292,6 +1327,9 @@ CREATE INDEX "relationship_schema_plugin_id_idx" ON "relationship" ("relationshi
 CREATE INDEX "relationship_source_entity_id_idx" ON "relationship" ("source_entity_id");--> statement-breakpoint
 CREATE INDEX "relationship_target_entity_id_idx" ON "relationship" ("target_entity_id");--> statement-breakpoint
 CREATE INDEX "relationship_properties_idx" ON "relationship" USING gin ("properties");--> statement-breakpoint
+CREATE INDEX "relationship_collection_order_idx" ON "relationship" ("target_entity_id",(case when "relationship_schema_slug" = 'member-of' and "relationship_schema_plugin_id" is null then ("properties" ->> 'rank')::double precision end),"source_entity_id") WHERE "relationship_schema_slug" = 'member-of' and "relationship_schema_plugin_id" is null;--> statement-breakpoint
+CREATE INDEX "relationship_projection_dirty_idx" ON "relationship_projection" ("work_id","relationship_id") WHERE "projected_revision" is distinct from "revision";--> statement-breakpoint
+CREATE INDEX "relationship_projection_work_current_job_idx" ON "relationship_projection_work" ("current_job_id");--> statement-breakpoint
 CREATE INDEX "sandbox_provider_plugin_id_idx" ON "sandbox_provider" ("plugin_id");--> statement-breakpoint
 CREATE INDEX "sandbox_provider_root_entity_schema_slug_idx" ON "sandbox_provider" ("root_entity_schema_slug");--> statement-breakpoint
 CREATE INDEX "sandbox_script_provider_id_idx" ON "sandbox_script" ("provider_id");--> statement-breakpoint
@@ -1312,6 +1350,7 @@ CREATE INDEX "user_plugin_state_user_listed_idx" ON "user_plugin_state" ("user_i
 CREATE INDEX "user_plugin_state_environment_config_idx" ON "user_plugin_state" ("environment_config_revision_id");--> statement-breakpoint
 CREATE INDEX "user_plugin_state_installation_config_idx" ON "user_plugin_state" ("installation_config_revision_id");--> statement-breakpoint
 CREATE INDEX "verification_identifier_idx" ON "verification" ("identifier");--> statement-breakpoint
+CREATE INDEX "workflow_execution_execution_id_idx" ON "workflow_execution" ("execution_id");--> statement-breakpoint
 CREATE INDEX "workflow_execution_root_idx" ON "workflow_execution" ("root_workflow_name","root_execution_id");--> statement-breakpoint
 CREATE INDEX "workflow_execution_cleanup_idx" ON "workflow_execution" ("expired_at") WHERE "expired_at" is not null and "cleared_at" is null;--> statement-breakpoint
 ALTER TABLE "account" ADD CONSTRAINT "account_user_id_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "user"("id") ON DELETE CASCADE;--> statement-breakpoint
@@ -1429,6 +1468,10 @@ ALTER TABLE "relationship" ADD CONSTRAINT "relationship_user_id_user_id_fkey" FO
 ALTER TABLE "relationship" ADD CONSTRAINT "relationship_relationship_schema_plugin_id_plugin_id_fkey" FOREIGN KEY ("relationship_schema_plugin_id") REFERENCES "plugin"("id") ON DELETE RESTRICT;--> statement-breakpoint
 ALTER TABLE "relationship" ADD CONSTRAINT "relationship_source_entity_id_entity_id_fkey" FOREIGN KEY ("source_entity_id") REFERENCES "entity"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "relationship" ADD CONSTRAINT "relationship_target_entity_id_entity_id_fkey" FOREIGN KEY ("target_entity_id") REFERENCES "entity"("id") ON DELETE CASCADE;--> statement-breakpoint
+ALTER TABLE "relationship_projection" ADD CONSTRAINT "relationship_projection_78lhxH1dX7UF_fkey" FOREIGN KEY ("work_id") REFERENCES "relationship_projection_work"("id") ON DELETE CASCADE;--> statement-breakpoint
+ALTER TABLE "relationship_projection" ADD CONSTRAINT "relationship_projection_relationship_id_relationship_id_fkey" FOREIGN KEY ("relationship_id") REFERENCES "relationship"("id") ON DELETE CASCADE;--> statement-breakpoint
+ALTER TABLE "relationship_projection_work" ADD CONSTRAINT "relationship_projection_work_user_id_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "user"("id") ON DELETE CASCADE;--> statement-breakpoint
+ALTER TABLE "relationship_projection_work" ADD CONSTRAINT "relationship_projection_work_hez9NpadMCpN_fkey" FOREIGN KEY ("relationship_schema_plugin_id") REFERENCES "plugin"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "relationship_sync_generation" ADD CONSTRAINT "relationship_sync_generation_Rk8B2C4LFptu_fkey" FOREIGN KEY ("relationship_schema_plugin_id") REFERENCES "plugin"("id") ON DELETE RESTRICT;--> statement-breakpoint
 ALTER TABLE "relationship_sync_generation" ADD CONSTRAINT "relationship_sync_generation_anchor_entity_id_entity_id_fkey" FOREIGN KEY ("anchor_entity_id") REFERENCES "entity"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "sandbox_provider" ADD CONSTRAINT "sandbox_provider_plugin_id_plugin_id_fkey" FOREIGN KEY ("plugin_id") REFERENCES "plugin"("id") ON DELETE CASCADE;--> statement-breakpoint
@@ -1479,7 +1522,7 @@ CREATE VIEW "global_plugin" AS (
 	where p.owner_user_id is null and p.status = 'active'
 );--> statement-breakpoint
 CREATE VIEW "global_relationship_schema" AS (
-			select d.id, r.plugin_id, g.package_id, d.plugin_revision_id, d.slug, d.name, d.position, d.source_entity_schema_slug, d.target_entity_schema_slug, d.properties_schema, d.user_write_policy
+			select d.id, r.plugin_id, g.package_id, d.plugin_revision_id, d.slug, d.name, d.position, d.source_entity_schema_slug, d.target_entity_schema_slug, d.properties_schema, d.user_write_policy, d.projection
 			from definition_relationship_schema d
 			left join plugin_revision r on r.id = d.plugin_revision_id
 			left join "global_plugin" g on g.plugin_id = r.plugin_id and g.active_revision_id = d.plugin_revision_id
@@ -1548,12 +1591,12 @@ CREATE VIEW "user_integration_provider" AS (
 			from "user" u
 		);--> statement-breakpoint
 CREATE VIEW "user_relationship_schema" AS (
-			select u.id as user_id, d.id, null::text as plugin_id, null::text as package_id, d.plugin_revision_id, null::text as plugin_scope, d.slug, d.name, d.position, d.source_entity_schema_slug, d.target_entity_schema_slug, d.properties_schema, true as is_effective, d.user_write_policy
+			select u.id as user_id, d.id, null::text as plugin_id, null::text as package_id, d.plugin_revision_id, null::text as plugin_scope, d.slug, d.name, d.position, d.source_entity_schema_slug, d.target_entity_schema_slug, d.properties_schema, true as is_effective, d.user_write_policy, d.projection
 			from definition_relationship_schema d
 			cross join "user" u
 			where d.plugin_revision_id is null
 			union all
-			select p.user_id, d.id, p.plugin_id, p.package_id, d.plugin_revision_id, p.scope, d.slug, d.name, d.position, d.source_entity_schema_slug, d.target_entity_schema_slug, d.properties_schema, p.is_definition_effective and (d.source_entity_schema_slug is null or exists (select 1 from definition_entity_schema e where e.plugin_revision_id = p.active_revision_id and e.slug = d.source_entity_schema_slug)) and (d.target_entity_schema_slug is null or exists (select 1 from definition_entity_schema e where e.plugin_revision_id = p.active_revision_id and e.slug = d.target_entity_schema_slug)), d.user_write_policy
+			select p.user_id, d.id, p.plugin_id, p.package_id, d.plugin_revision_id, p.scope, d.slug, d.name, d.position, d.source_entity_schema_slug, d.target_entity_schema_slug, d.properties_schema, p.is_definition_effective and (d.source_entity_schema_slug is null or exists (select 1 from definition_entity_schema e where e.plugin_revision_id = p.active_revision_id and e.slug = d.source_entity_schema_slug)) and (d.target_entity_schema_slug is null or exists (select 1 from definition_entity_schema e where e.plugin_revision_id = p.active_revision_id and e.slug = d.target_entity_schema_slug)), d.user_write_policy, d.projection
 			from "user_plugin" p
 			join definition_relationship_schema d on d.plugin_revision_id = p.active_revision_id
 			where p.is_listed and (d.source_entity_schema_slug is null or exists (select 1 from definition_entity_schema e where e.plugin_revision_id = p.active_revision_id and e.slug = d.source_entity_schema_slug)) and (d.target_entity_schema_slug is null or exists (select 1 from definition_entity_schema e where e.plugin_revision_id = p.active_revision_id and e.slug = d.target_entity_schema_slug))

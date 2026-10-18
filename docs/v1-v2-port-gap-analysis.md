@@ -343,7 +343,7 @@ freshness window and require completed inventory where needed. No daily partial 
 
 Owners: kernel entity enrichment, provider population and localization; contract entity schemas;
 client bridge/SDK; Media detail controls and summary recipes. Generated migration:
-`kernel/backend/src/drizzle/20261027014201_open_johnny_storm/`. No user guide was added, as requested.
+`kernel/backend/src/drizzle/20261028062846_cynical_stick/`. No user guide was added, as requested.
 
 Validation on **2026-10-27**:
 
@@ -386,7 +386,8 @@ entity deletion locks and collection-revision trigger, RyotQL catalog/collection
 bridge/SDK and collection renderer. Haptic requests are owner-neutral through the existing device
 capability; other device actions retain plugin ownership checks. User documentation:
 `apps/docs/src/concepts/collections.md`. Migration:
-`kernel/backend/src/drizzle/20261027150457_warm_zaran/`.
+`kernel/backend/src/drizzle/20261028062846_cynical_stick/` (collection order trigger:
+`kernel/backend/src/platform/db/collection-order.ts`).
 
 Validation on **2026-10-27**:
 
