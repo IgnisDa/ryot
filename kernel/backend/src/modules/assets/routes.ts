@@ -110,13 +110,6 @@ export const UploadsRoutesLive = HttpApiBuilder.group(AppContract, "uploads", (h
 				const service = yield* ManagedAssetsService;
 				return yield* service.resolveDownloads(user, payload.assets).pipe(mapUploadError);
 			}),
-		)
-		.handle("cleanup", ({ payload }) =>
-			Effect.gen(function* () {
-				const user = yield* CurrentUser;
-				const service = yield* ManagedAssetsService;
-				return yield* service.cleanupManagedAsset(user, payload.asset).pipe(mapUploadError);
-			}),
 		),
 );
 

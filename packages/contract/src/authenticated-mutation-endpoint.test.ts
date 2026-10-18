@@ -4,7 +4,7 @@ import { describe, expect, it } from "vitest";
 import { AuthMiddleware } from "./auth-middleware";
 import { AppContract } from "./contract";
 import { DemoAccessPolicy } from "./http-annotations";
-import { LocalUploadsGroup, UploadsGroup } from "./modules/assets/contract";
+import { LocalUploadsGroup } from "./modules/assets/contract";
 import { CalendarSourcesGroup } from "./modules/calendar-sources/contract";
 import { EntitiesGroup } from "./modules/entities/contract";
 import { EntityUserDataGroup } from "./modules/entity-user-data/contract";
@@ -35,9 +35,6 @@ describe("authenticated mutation endpoints", () => {
 		);
 		expect(Context.get(PluginsGroup.endpoints.invoke.annotations, DemoAccessPolicy)).toBe(
 			"allowed",
-		);
-		expect(Context.get(UploadsGroup.endpoints.cleanup.annotations, DemoAccessPolicy)).toBe(
-			"protected",
 		);
 		expect(Context.get(EntitiesGroup.endpoints.saveEditor.annotations, DemoAccessPolicy)).toBe(
 			"protected",

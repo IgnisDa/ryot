@@ -67,7 +67,7 @@ layer(testLayer)((test) => {
 		}),
 	);
 
-	test.effect("a writer is rejected after cleanup commits its tombstone", () =>
+	test.effect("a writer is rejected after the collector commits a retirement", () =>
 		Effect.gen(function* () {
 			const session = yield* DatabaseSession;
 			const assetReferences = yield* ManagedAssetReferenceLocker.make;
@@ -88,20 +88,20 @@ layer(testLayer)((test) => {
 						key: locator.key,
 						provider: locator.type,
 						sha256: "a".repeat(64),
+						checkAfter: new Date(0),
 						contentType: "image/png",
 					}),
 			);
 			const locked = yield* Deferred.make<void>();
-			const releaseCleanup = yield* Deferred.make<void>();
+			const releaseCollector = yield* Deferred.make<void>();
 			const writerStarted = yield* Deferred.make<void>();
-			const cleanup = yield* Effect.forkScoped(
+			const collector = yield* Effect.forkScoped(
 				session.transaction(
 					Effect.gen(function* () {
-						const asset = yield* repository.lockByLocator(locator);
-						expect(asset?.retiredAt).toBeNull();
-						expect(yield* repository.retireOwned(ownerUserId, locator)).toBe(true);
+						expect(yield* repository.lockDue(ownerUserId, [locator])).toEqual([locator]);
+						yield* repository.retire([locator]);
 						yield* Deferred.succeed(locked, undefined);
-						yield* Deferred.await(releaseCleanup);
+						yield* Deferred.await(releaseCollector);
 					}),
 				),
 			);
@@ -120,10 +120,10 @@ layer(testLayer)((test) => {
 			);
 			yield* Deferred.await(writerStarted);
 			yield* Effect.yieldNow;
-			yield* Deferred.succeed(releaseCleanup, undefined);
-			yield* Fiber.join(cleanup);
+			yield* Deferred.succeed(releaseCollector, undefined);
+			yield* Fiber.join(collector);
 			assertExitFails(yield* Fiber.join(writer), new ManagedAssetReferenceRejected());
-			const tombstone = yield* session.run((db) =>
+			const retired = yield* session.run((db) =>
 				db
 					.select({ retiredAt: tables.managedAsset.retiredAt })
 					.from(tables.managedAsset)
@@ -134,13 +134,13 @@ layer(testLayer)((test) => {
 						),
 					),
 			);
-			expect(tombstone[0]?.retiredAt).toBeInstanceOf(Date);
+			expect(retired[0]?.retiredAt).toBeInstanceOf(Date);
 		}),
 	);
 });
 
 layer(referenceTestLayer)((test) => {
-	test.effect("cleanup reports referenced when the reference writer commits first", () =>
+	test.effect("the collector skips an asset while its reference writer is in flight", () =>
 		Effect.gen(function* () {
 			const session = yield* DatabaseSession;
 			const assetReferences = yield* ManagedAssetReferenceLocker.make;
@@ -163,6 +163,7 @@ layer(referenceTestLayer)((test) => {
 						key: locator.key,
 						provider: locator.type,
 						sha256: "a".repeat(64),
+						checkAfter: new Date(0),
 						contentType: "image/png",
 					}),
 			);
@@ -181,7 +182,6 @@ layer(referenceTestLayer)((test) => {
 			);
 			const locked = yield* Deferred.make<void>();
 			const releaseWriter = yield* Deferred.make<void>();
-			const cleanupStarted = yield* Deferred.make<void>();
 			const writer = yield* Effect.forkScoped(
 				session.transaction(
 					Effect.gen(function* () {
@@ -206,22 +206,16 @@ layer(referenceTestLayer)((test) => {
 				),
 			);
 			yield* Deferred.await(locked);
-			const cleanup = yield* Effect.forkScoped(
-				session.transaction(
-					Effect.gen(function* () {
-						yield* Deferred.succeed(cleanupStarted, undefined);
-						const asset = yield* repository.lockByLocator(locator);
-						return { asset, referenced: yield* references.hasReference(ownerUserId, locator) };
-					}),
-				),
-			);
-			yield* Deferred.await(cleanupStarted);
-			yield* Effect.yieldNow;
+			expect(yield* session.transaction(repository.lockDue(ownerUserId, [locator]))).toEqual([]);
 			yield* Deferred.succeed(releaseWriter, undefined);
 			yield* Fiber.join(writer);
-			const result = yield* Fiber.join(cleanup);
-			expect(result.asset?.retiredAt).toBeNull();
-			expect(result.referenced).toBe(true);
+			const due = yield* session.transaction(
+				Effect.gen(function* () {
+					const dueLocators = yield* repository.lockDue(ownerUserId, [locator]);
+					return yield* references.referencedLocators(ownerUserId, dueLocators);
+				}),
+			);
+			expect(due).toEqual([locator]);
 		}),
 	);
 
@@ -273,7 +267,7 @@ layer(referenceTestLayer)((test) => {
 						entitySchemaSlug: "shared-asset-reference",
 					}),
 			);
-			expect(yield* references.hasReference(ownerUserId, locator)).toBe(true);
+			expect(yield* references.referencedLocators(ownerUserId, [locator])).toEqual([locator]);
 		}),
 	);
 });

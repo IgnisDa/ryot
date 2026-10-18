@@ -27,14 +27,6 @@ export type RemoteAssetLocator = typeof RemoteAssetLocator.Type;
 export const ManagedAssetLocator = Schema.Union([LocalAssetLocator, S3AssetLocator]);
 export type ManagedAssetLocator = typeof ManagedAssetLocator.Type;
 
-export const CleanupManagedAssetInput = Schema.Struct({ asset: ManagedAssetLocator });
-export type CleanupManagedAssetInput = typeof CleanupManagedAssetInput.Type;
-
-export const CleanupManagedAssetOutput = Schema.Struct({
-	status: Schema.Literals(["deleted", "referenced"]),
-});
-export type CleanupManagedAssetOutput = typeof CleanupManagedAssetOutput.Type;
-
 export const AssetLocator = Schema.Union([LocalAssetLocator, RemoteAssetLocator, S3AssetLocator]);
 export type AssetLocator = typeof AssetLocator.Type;
 

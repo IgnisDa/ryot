@@ -20,7 +20,11 @@ import {
 	UserBootstrapWorkflowDefinitionsLive,
 	UserBootstrapWorkflowOperationsLive,
 } from "#modules/accounts/provisioning/workflow";
-import { ObjectStorageServiceLive, UploadServicesLive } from "#modules/assets/layer";
+import {
+	ManagedAssetCollectorLive,
+	ObjectStorageServiceLive,
+	UploadServicesLive,
+} from "#modules/assets/layer";
 import { ManagedAssetsRepository } from "#modules/assets/storage/managed-assets-repository";
 import {
 	AutomationHistoryServiceLive,
@@ -239,6 +243,7 @@ const ServicesLive = Layer.mergeAll(
 	SignalEmissionServiceLive,
 	TranslationsServiceLive,
 	UploadServicesLive,
+	ManagedAssetCollectorLive,
 	UserLifecycleServiceLive,
 	UserSettingsServiceLive,
 	EntityUserDataServiceLive,

@@ -54,6 +54,12 @@ ephemeral local working space. Permanent uploads prefer fully configured S3 and 
 persistent local storage. A completed permanent upload intent replays its result only for the
 upload URL window.
 
+Clients never delete managed assets. The frequent cron rechecks each asset's references 24 hours
+after registration and every 24 hours after that, so in-flight work and open editors keep their
+uploads. A check locks the row, so a concurrent writer either commits its reference first or sees the
+retirement and is rejected. Unreferenced assets are retired, their object is deleted, and only then is
+the row removed; a failed deletion is retried on the next run.
+
 Redis infrastructure owns backend keys, channels, codecs, and parsing; the sandbox owns its
 `ryot:sandbox:*` recovery and quarantine keys. See the [entity-watch protocol](src/modules/entities/watches/README.md)
 and [authentication/proxy rules](src/modules/accounts/auth/README.md) for those boundaries.

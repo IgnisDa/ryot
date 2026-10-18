@@ -5,7 +5,8 @@ import { userLifecycleFrequentTask } from "#modules/accounts/lifecycle/frequent-
 import type { UserLifecycleService } from "#modules/accounts/lifecycle/service";
 import { userBootstrapFrequentTask } from "#modules/accounts/provisioning/frequent-task";
 import type { UserBootstrapScheduling } from "#modules/accounts/provisioning/scheduling";
-import { uploadsFrequentTask } from "#modules/assets/frequent-task";
+import { managedAssetsFrequentTask, uploadsFrequentTask } from "#modules/assets/frequent-task";
+import type { ManagedAssetCollector } from "#modules/assets/storage/managed-asset-collector";
 import type { UploadIntentsService } from "#modules/assets/uploads/intents";
 import type { AutomationReconciliation } from "#modules/automations/reconciliation";
 import { automationsFrequentTask } from "#modules/automations/reconciliation";
@@ -42,6 +43,7 @@ const frequentCronTasks: ReadonlyArray<
 		| AutomationRetention
 		| UploadIntentsService
 		| UserLifecycleService
+		| ManagedAssetCollector
 		| BackgroundWorkService
 		| EventStreamWorkService
 		| OAuthConnectionsService
@@ -105,6 +107,7 @@ const frequentCronTasks: ReadonlyArray<
 	ingestionFrequentTask,
 	oauthConnectionsFrequentTask,
 	uploadsFrequentTask,
+	managedAssetsFrequentTask,
 	userBootstrapFrequentTask,
 	userLifecycleFrequentTask,
 	pluginCatalogFrequentTask,

@@ -329,9 +329,9 @@ layer(testLayer)((test) => {
 				const locator = yield* insertManagedAsset(ownerUserId);
 				yield* insertManagedAsset(otherUserId);
 				yield* insertReferenceSource(source, otherUserId, locator);
-				expect(yield* references.hasReference(ownerUserId, locator)).toBe(false);
+				expect(yield* references.referencedLocators(ownerUserId, [locator])).toEqual([]);
 				yield* insertReferenceSource(source, ownerUserId, locator);
-				expect(yield* references.hasReference(ownerUserId, locator)).toBe(true);
+				expect(yield* references.referencedLocators(ownerUserId, [locator])).toEqual([locator]);
 			}),
 		);
 	}
@@ -350,7 +350,7 @@ layer(testLayer)((test) => {
 				const ownerUserId = UserId.make(crypto.randomUUID());
 				const locator = yield* insertManagedAsset(ownerUserId);
 				yield* insertReferenceSource(source, null, locator);
-				expect(yield* references.hasReference(ownerUserId, locator)).toBe(true);
+				expect(yield* references.referencedLocators(ownerUserId, [locator])).toEqual([locator]);
 			}),
 		);
 	}
@@ -400,7 +400,7 @@ layer(testLayer)((test) => {
 								.set({ properties: sql`${JSON.stringify(value)}::jsonb` })
 								.where(eq(tables.entity.id, entityId)),
 						);
-						expect(yield* references.hasReference(ownerUserId, locator)).toBe(false);
+						expect(yield* references.referencedLocators(ownerUserId, [locator])).toEqual([]);
 					}
 					for (const value of [
 						locator,
@@ -416,7 +416,7 @@ layer(testLayer)((test) => {
 								.set({ properties: sql`${JSON.stringify(value)}::jsonb` })
 								.where(eq(tables.entity.id, entityId)),
 						);
-						expect(yield* references.hasReference(ownerUserId, locator)).toBe(true);
+						expect(yield* references.referencedLocators(ownerUserId, [locator])).toEqual([locator]);
 					}
 				}
 			}),
@@ -430,7 +430,7 @@ layer(testLayer)((test) => {
 				const references = yield* ManagedAssetReferencesRepository;
 				const ownerUserId = UserId.make(crypto.randomUUID());
 				const locator = yield* insertManagedAsset(ownerUserId);
-				expect(yield* references.hasReference(ownerUserId, locator)).toBe(false);
+				expect(yield* references.referencedLocators(ownerUserId, [locator])).toEqual([]);
 				yield* session.run((db) =>
 					db.insert(tables.entity).values(
 						Array.from({ length: 250 }, () => {
@@ -445,8 +445,26 @@ layer(testLayer)((test) => {
 						}),
 					),
 				);
-				expect(yield* references.hasReference(ownerUserId, locator)).toBe(false);
+				expect(yield* references.referencedLocators(ownerUserId, [locator])).toEqual([]);
 			}),
+	);
+
+	test.effect("returns only the referenced locators from one batch", () =>
+		Effect.gen(function* () {
+			const references = yield* ManagedAssetReferencesRepository;
+			const ownerUserId = UserId.make(crypto.randomUUID());
+			const referenced = yield* insertManagedAsset(ownerUserId);
+			const unreferenced = yield* insertManagedAsset(ownerUserId);
+			const otherProvider: ManagedAssetLocator = { type: "local", key: referenced.key };
+			yield* insertReferenceSource("event", ownerUserId, referenced);
+			expect(
+				yield* references.referencedLocators(ownerUserId, [
+					unreferenced,
+					referenced,
+					otherProvider,
+				]),
+			).toEqual([referenced]);
+		}),
 	);
 
 	test.effect("run history belongs to its trigger scope, not its execution user", () =>
@@ -465,7 +483,7 @@ layer(testLayer)((test) => {
 				executionUserId: ownerUserId,
 				historyPayload: { image: locator },
 			});
-			expect(yield* references.hasReference(ownerUserId, locator)).toBe(false);
+			expect(yield* references.referencedLocators(ownerUserId, [locator])).toEqual([]);
 		}),
 	);
 
@@ -505,14 +523,14 @@ layer(testLayer)((test) => {
 					.insert(tables.eventProjection)
 					.values({ eventId, streamId, properties: { image: locator } }),
 			);
-			expect(yield* references.hasReference(ownerUserId, locator)).toBe(false);
+			expect(yield* references.referencedLocators(ownerUserId, [locator])).toEqual([]);
 			yield* session.run((db) =>
 				db.update(tables.entity).set({ userId: otherUserId }).where(eq(tables.entity.id, entityId)),
 			);
 			yield* session.run((db) =>
 				db.update(tables.event).set({ userId: ownerUserId }).where(eq(tables.event.id, eventId)),
 			);
-			expect(yield* references.hasReference(ownerUserId, locator)).toBe(true);
+			expect(yield* references.referencedLocators(ownerUserId, [locator])).toEqual([locator]);
 		}),
 	);
 });
@@ -560,25 +578,25 @@ layer(ManagedAssetReferencesRepository.layer.pipe(Layer.provideMerge(makeRevisio
 						.set({ encryptedPayload: null, payloadPrunedAt: new Date() })
 						.where(eq(tables.pluginConfigRevision.pluginRevisionId, revisionId)),
 				);
-				expect(yield* references.hasReference(ownerUserId, locator)).toBe(false);
+				expect(yield* references.referencedLocators(ownerUserId, [locator])).toEqual([]);
 				yield* insertEncryptedConfig(revisionId, otherUserId);
-				expect(yield* references.hasReference(ownerUserId, locator)).toBe(false);
+				expect(yield* references.referencedLocators(ownerUserId, [locator])).toEqual([]);
 				const configId = yield* insertEncryptedConfig(revisionId, ownerUserId);
-				expect(yield* references.hasReference(ownerUserId, locator)).toBe(true);
+				expect(yield* references.referencedLocators(ownerUserId, [locator])).toEqual([locator]);
 				yield* session.run((db) =>
 					db
 						.update(tables.pluginConfigRevision)
 						.set({ encryptedPayload: null, payloadPrunedAt: new Date() })
 						.where(eq(tables.pluginConfigRevision.id, configId)),
 				);
-				expect(yield* references.hasReference(ownerUserId, locator)).toBe(false);
+				expect(yield* references.referencedLocators(ownerUserId, [locator])).toEqual([]);
 				yield* session.run((db) =>
 					db
 						.update(tables.pluginInstallation)
 						.set({ activeConfigRevisionId: configId })
 						.where(eq(tables.pluginInstallation.id, installation.id)),
 				);
-				expect(yield* references.hasReference(ownerUserId, locator)).toBe(true);
+				expect(yield* references.referencedLocators(ownerUserId, [locator])).toEqual([locator]);
 			}),
 		);
 
@@ -593,21 +611,21 @@ layer(ManagedAssetReferencesRepository.layer.pipe(Layer.provideMerge(makeRevisio
 					ownerUserId,
 				);
 				const configId = yield* insertEncryptedConfig(revisionId, ownerUserId);
-				expect(yield* references.hasReference(ownerUserId, locator)).toBe(false);
+				expect(yield* references.referencedLocators(ownerUserId, [locator])).toEqual([]);
 				yield* session.run((db) =>
 					db
 						.update(tables.pluginInstallation)
 						.set({ activeConfigRevisionId: configId })
 						.where(eq(tables.pluginInstallation.id, installation.id)),
 				);
-				expect(yield* references.hasReference(ownerUserId, locator)).toBe(false);
+				expect(yield* references.referencedLocators(ownerUserId, [locator])).toEqual([]);
 				yield* session.run((db) =>
 					db
 						.update(tables.plugin)
 						.set({ status: "inactive", activeRevisionId: null })
 						.where(eq(tables.plugin.id, pluginId)),
 				);
-				expect(yield* references.hasReference(ownerUserId, locator)).toBe(true);
+				expect(yield* references.referencedLocators(ownerUserId, [locator])).toEqual([locator]);
 			}),
 		);
 
@@ -643,16 +661,16 @@ layer(ManagedAssetReferencesRepository.layer.pipe(Layer.provideMerge(makeRevisio
 						.set({ encryptedPayload: null, payloadPrunedAt: new Date() })
 						.where(eq(tables.pluginConfigRevision.pluginRevisionId, revisionId)),
 				);
-				expect(yield* references.hasReference(ownerUserId, locator)).toBe(false);
+				expect(yield* references.referencedLocators(ownerUserId, [locator])).toEqual([]);
 				yield* insertEncryptedConfig(revisionId, null);
-				expect(yield* references.hasReference(ownerUserId, locator)).toBe(true);
+				expect(yield* references.referencedLocators(ownerUserId, [locator])).toEqual([locator]);
 				yield* session.run((db) =>
 					db
 						.update(tables.pluginConfigRevision)
 						.set({ encryptedPayload: null, payloadPrunedAt: new Date() })
 						.where(eq(tables.pluginConfigRevision.pluginRevisionId, revisionId)),
 				);
-				expect(yield* references.hasReference(ownerUserId, locator)).toBe(false);
+				expect(yield* references.referencedLocators(ownerUserId, [locator])).toEqual([]);
 			}),
 		);
 
@@ -737,7 +755,9 @@ layer(ManagedAssetReferencesRepository.layer.pipe(Layer.provideMerge(makeRevisio
 						}),
 					);
 					const configId = yield* insertEncryptedConfig(id, ownerUserId);
-					expect(yield* references.hasReference(ownerUserId, locator)).toBe(assetBearing);
+					expect(yield* references.referencedLocators(ownerUserId, [locator])).toEqual(
+						assetBearing ? [locator] : [],
+					);
 					yield* session.run((db) =>
 						db
 							.update(tables.pluginConfigRevision)
@@ -756,8 +776,8 @@ layer(ManagedAssetReferencesRepository.layer.pipe(Layer.provideMerge(makeRevisio
 							.set({ activeConfigRevisionId: configId })
 							.where(eq(tables.pluginInstallation.id, installation.id)),
 					);
-					expect(yield* references.hasReference(ownerUserId, locator)).toBe(
-						schema === null || assetBearing,
+					expect(yield* references.referencedLocators(ownerUserId, [locator])).toEqual(
+						schema === null || assetBearing ? [locator] : [],
 					);
 					yield* session.run((db) =>
 						db
@@ -807,11 +827,11 @@ layer(testLayer)((test) => {
 					.insert(tables.eventProjection)
 					.values({ eventId, streamId, properties: { image: locator } }),
 			);
-			expect(yield* references.hasReference(ownerUserId, locator)).toBe(true);
+			expect(yield* references.referencedLocators(ownerUserId, [locator])).toEqual([locator]);
 			yield* session.run((db) =>
 				db.delete(tables.eventProjection).where(eq(tables.eventProjection.eventId, eventId)),
 			);
-			expect(yield* references.hasReference(ownerUserId, locator)).toBe(false);
+			expect(yield* references.referencedLocators(ownerUserId, [locator])).toEqual([]);
 		}),
 	);
 
@@ -883,7 +903,7 @@ layer(testLayer)((test) => {
 						extraSettings: { disableOnContinuousErrors: false },
 					}),
 			);
-			expect(yield* references.hasReference(ownerUserId, locator)).toBe(false);
+			expect(yield* references.referencedLocators(ownerUserId, [locator])).toEqual([]);
 		}),
 	);
 
@@ -896,7 +916,7 @@ layer(testLayer)((test) => {
 				scopeUserId: null,
 				payload: signalPayload({ image: unregisteredLocator() }),
 			});
-			expect(yield* references.hasReference(ownerUserId, locator)).toBe(false);
+			expect(yield* references.referencedLocators(ownerUserId, [locator])).toEqual([]);
 		}),
 	);
 
@@ -910,7 +930,7 @@ layer(testLayer)((test) => {
 				properties: { image: locator },
 				entitySchemaSlug: yield* insertKernelAssetSchema(),
 			});
-			expect(yield* references.hasReference(ownerUserId, locator)).toBe(true);
+			expect(yield* references.referencedLocators(ownerUserId, [locator])).toEqual([locator]);
 		}),
 	);
 
@@ -924,7 +944,7 @@ layer(testLayer)((test) => {
 				properties: { notes: [{ attachment: locator }] },
 				entitySchemaSlug: yield* insertKernelAssetSchema(),
 			});
-			expect(yield* references.hasReference(ownerUserId, locator)).toBe(true);
+			expect(yield* references.referencedLocators(ownerUserId, [locator])).toEqual([locator]);
 		}),
 	);
 
@@ -948,7 +968,7 @@ layer(testLayer)((test) => {
 						properties: { image: locator },
 					}),
 			);
-			expect(yield* references.hasReference(ownerUserId, locator)).toBe(true);
+			expect(yield* references.referencedLocators(ownerUserId, [locator])).toEqual([locator]);
 		}),
 	);
 
@@ -968,7 +988,7 @@ layer(testLayer)((test) => {
 				executionUserId: otherUserId,
 				historyPayload: { image: locator },
 			});
-			expect(yield* references.hasReference(ownerUserId, locator)).toBe(true);
+			expect(yield* references.referencedLocators(ownerUserId, [locator])).toEqual([locator]);
 		}),
 	);
 
@@ -991,7 +1011,7 @@ layer(testLayer)((test) => {
 						renderer: { kind: "kernel", name: "entity-browser" },
 					}),
 			);
-			expect(yield* references.hasReference(ownerUserId, locator)).toBe(true);
+			expect(yield* references.referencedLocators(ownerUserId, [locator])).toEqual([locator]);
 		}),
 	);
 
@@ -1006,14 +1026,14 @@ layer(testLayer)((test) => {
 				properties: { image: unregisteredLocator() },
 				entitySchemaSlug: `unknown-${crypto.randomUUID()}`,
 			});
-			expect(yield* references.hasReference(ownerUserId, locator)).toBe(false);
+			expect(yield* references.referencedLocators(ownerUserId, [locator])).toEqual([]);
 			yield* session.run((db) =>
 				db
 					.update(tables.entity)
 					.set({ properties: { nested: [{ image: locator }] } })
 					.where(eq(tables.entity.id, entityId)),
 			);
-			expect(yield* references.hasReference(ownerUserId, locator)).toBe(true);
+			expect(yield* references.referencedLocators(ownerUserId, [locator])).toEqual([locator]);
 		}),
 	);
 
@@ -1038,7 +1058,7 @@ layer(testLayer)((test) => {
 						encryptedPayload: Buffer.alloc(16),
 					}),
 			);
-			expect(yield* references.hasReference(ownerUserId, locator)).toBe(false);
+			expect(yield* references.referencedLocators(ownerUserId, [locator])).toEqual([]);
 		}),
 	);
 });

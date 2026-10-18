@@ -2,6 +2,7 @@ import { Layer } from "effect";
 
 import { LifecycleWriteGuard } from "#modules/accounts/auth/lifecycle-write-guard";
 
+import { ManagedAssetCollector } from "./storage/managed-asset-collector";
 import { ManagedAssetReferencesRepository } from "./storage/managed-asset-references-repository";
 import { ManagedAssetsService } from "./storage/managed-assets";
 import { ManagedAssetsRepository } from "./storage/managed-assets-repository";
@@ -14,7 +15,6 @@ export const ManagedAssetsServiceLive = ManagedAssetsService.layer.pipe(
 	Layer.provide(
 		Layer.mergeAll(
 			ManagedAssetsRepository.layer,
-			ManagedAssetReferencesRepository.layer,
 			ObjectStorageServiceLive,
 			LifecycleWriteGuard.layer,
 		),
@@ -25,5 +25,15 @@ export const UploadServicesLive = Layer.merge(
 	ManagedAssetsServiceLive,
 	UploadIntentsService.layer.pipe(
 		Layer.provide(Layer.merge(ManagedAssetsServiceLive, ObjectStorageServiceLive)),
+	),
+);
+
+export const ManagedAssetCollectorLive = ManagedAssetCollector.layer.pipe(
+	Layer.provide(
+		Layer.mergeAll(
+			ManagedAssetsRepository.layer,
+			ManagedAssetReferencesRepository.layer,
+			ObjectStorageServiceLive,
+		),
 	),
 );

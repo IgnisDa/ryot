@@ -4,7 +4,7 @@ import {
 	UploadBadRequest,
 } from "@ryot-app/contract/modules/assets/schemas";
 import { UserId } from "@ryot-app/contract/schema/brands";
-import { and, eq, isNull, or } from "drizzle-orm";
+import { and, asc, eq, isNotNull, isNull, lte, or, sql } from "drizzle-orm";
 import { Context, Effect, Layer } from "effect";
 
 import { DatabaseSession } from "#platform/db/session";
@@ -12,18 +12,21 @@ import * as schema from "#schema/tables/uploads";
 
 export type RegisterManagedAssetInput = { ownerUserId: UserId } & Omit<
 	typeof schema.managedAsset.$inferInsert,
-	"createdAt" | "retiredAt" | "ownerUserId"
+	"createdAt" | "retiredAt" | "checkAfter" | "ownerUserId"
 >;
 
 type ManagedAssetRecord = { ownerUserId: UserId } & Omit<
 	typeof schema.managedAsset.$inferSelect,
-	"ownerUserId"
+	"checkAfter" | "ownerUserId"
 >;
 
 const locatorWhere = (locator: ManagedAssetLocator) =>
 	and(eq(schema.managedAsset.provider, locator.type), eq(schema.managedAsset.key, locator.key));
 
-const toRecord = (row: typeof schema.managedAsset.$inferSelect): ManagedAssetRecord => ({
+const toRecord = ({
+	checkAfter: _checkAfter,
+	...row
+}: typeof schema.managedAsset.$inferSelect): ManagedAssetRecord => ({
 	...row,
 	ownerUserId: UserId.make(row.ownerUserId),
 });
@@ -59,25 +62,105 @@ export class ManagedAssetsRepository extends Context.Service<ManagedAssetsReposi
 				return row ? toRecord(row) : null;
 			});
 
-			const retireOwned = Effect.fn("ManagedAssetsRepository.retireOwned")(function* (
-				ownerUserId: UserId,
-				locator: ManagedAssetLocator,
-			) {
-				yield* session.requireTransaction;
-				const [row] = yield* session.run((db) =>
+			const listDue = Effect.fn("ManagedAssetsRepository.listDue")(function* (limit: number) {
+				const rows = yield* session.run((db) =>
 					db
-						.update(schema.managedAsset)
-						.set({ retiredAt: new Date() })
+						.select({
+							key: schema.managedAsset.key,
+							type: schema.managedAsset.provider,
+							ownerUserId: schema.managedAsset.ownerUserId,
+						})
+						.from(schema.managedAsset)
 						.where(
 							and(
-								locatorWhere(locator),
-								eq(schema.managedAsset.ownerUserId, ownerUserId),
 								isNull(schema.managedAsset.retiredAt),
+								lte(schema.managedAsset.checkAfter, sql`now()`),
 							),
 						)
-						.returning({ key: schema.managedAsset.key }),
+						.orderBy(asc(schema.managedAsset.checkAfter))
+						.limit(limit),
 				);
-				return row !== undefined;
+				return rows.map((row) => ({
+					ownerUserId: UserId.make(row.ownerUserId),
+					locator: { key: row.key, type: row.type } satisfies ManagedAssetLocator,
+				}));
+			});
+
+			const lockDue = Effect.fn("ManagedAssetsRepository.lockDue")(function* (
+				ownerUserId: UserId,
+				locators: ReadonlyArray<ManagedAssetLocator>,
+			) {
+				yield* session.requireTransaction;
+				if (locators.length === 0) {
+					return [];
+				}
+				const rows = yield* session.run((db) =>
+					db
+						.select({ key: schema.managedAsset.key, type: schema.managedAsset.provider })
+						.from(schema.managedAsset)
+						.where(
+							and(
+								or(...locators.map(locatorWhere)),
+								eq(schema.managedAsset.ownerUserId, ownerUserId),
+								isNull(schema.managedAsset.retiredAt),
+								lte(schema.managedAsset.checkAfter, sql`now()`),
+							),
+						)
+						.orderBy(asc(schema.managedAsset.provider), asc(schema.managedAsset.key))
+						.for("update", { skipLocked: true }),
+				);
+				return rows satisfies ReadonlyArray<ManagedAssetLocator>;
+			});
+
+			const deferChecks = Effect.fn("ManagedAssetsRepository.deferChecks")(function* (
+				locators: ReadonlyArray<ManagedAssetLocator>,
+			) {
+				if (locators.length === 0) {
+					return;
+				}
+				yield* session.run((db) =>
+					db
+						.update(schema.managedAsset)
+						.set({ checkAfter: sql`now() + interval '24 hours'` })
+						.where(or(...locators.map(locatorWhere))),
+				);
+			});
+
+			const retire = Effect.fn("ManagedAssetsRepository.retire")(function* (
+				locators: ReadonlyArray<ManagedAssetLocator>,
+			) {
+				if (locators.length === 0) {
+					return;
+				}
+				yield* session.run((db) =>
+					db
+						.update(schema.managedAsset)
+						.set({ retiredAt: sql`now()` })
+						.where(and(or(...locators.map(locatorWhere)), isNull(schema.managedAsset.retiredAt))),
+				);
+			});
+
+			const listRetired = Effect.fn("ManagedAssetsRepository.listRetired")(function* (
+				limit: number,
+			) {
+				return yield* session.run((db) =>
+					db
+						.select({ key: schema.managedAsset.key, type: schema.managedAsset.provider })
+						.from(schema.managedAsset)
+						.where(isNotNull(schema.managedAsset.retiredAt))
+						.orderBy(asc(schema.managedAsset.retiredAt))
+						.limit(limit),
+				);
+			});
+
+			const deleteRetired = Effect.fn("ManagedAssetsRepository.deleteRetired")(function* (
+				locator: ManagedAssetLocator,
+			) {
+				yield* session.run((db) =>
+					db
+						.delete(schema.managedAsset)
+						.where(and(locatorWhere(locator), isNotNull(schema.managedAsset.retiredAt))),
+				);
 			});
 
 			const registerPermanentOwnedObject = Effect.fn(
@@ -147,10 +230,14 @@ export class ManagedAssetsRepository extends Context.Service<ManagedAssetsReposi
 			);
 
 			return {
+				retire,
+				listDue,
+				lockDue,
 				listByOwner,
-				retireOwned,
+				deferChecks,
+				listRetired,
 				getByLocator,
-				lockByLocator,
+				deleteRetired,
 				listByOwnerAndLocators,
 				registerPermanentOwnedObject,
 			};

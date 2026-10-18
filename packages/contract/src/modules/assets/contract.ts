@@ -4,8 +4,6 @@ import { HttpApiEndpoint, HttpApiGroup, HttpApiSchema, OpenApi } from "effect/ht
 import { AuthMiddleware } from "../../auth-middleware";
 import { AuthenticatedMutationEndpoint } from "../../authenticated-mutation-endpoint";
 import {
-	CleanupManagedAssetInput,
-	CleanupManagedAssetOutput,
 	CompleteUploadResponse,
 	DownloadResolutionInput,
 	DownloadResolutionResponse,
@@ -42,13 +40,6 @@ export const UploadsGroup = HttpApiGroup.make("uploads")
 			payload: DownloadResolutionInput,
 			success: DownloadResolutionResponse,
 		}).annotate(OpenApi.Description, "Resolves download URLs for stored files"),
-	)
-	.add(
-		AuthenticatedMutationEndpoint.post("protected")("cleanup", "/uploads/cleanup", {
-			error: uploadErrors,
-			payload: CleanupManagedAssetInput,
-			success: CleanupManagedAssetOutput,
-		}).annotate(OpenApi.Description, "Deletes an unreferenced managed upload"),
 	)
 	.middleware(AuthMiddleware);
 

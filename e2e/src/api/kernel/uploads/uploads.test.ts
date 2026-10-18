@@ -2,14 +2,7 @@ import { UPLOAD_MAX_FILE_BYTES } from "@ryot-app/contract/modules/assets/upload-
 import { imagesField } from "@ryot-app/contract/schema/core";
 import { Effect } from "effect";
 
-import {
-	createAuthenticatedClient,
-	createEntity,
-	createEntitySchema,
-	listAutomationTriggers,
-	uploadPermanentAsset,
-} from "~/fixtures/kernel";
-import { findMediaEntitySchema } from "~/fixtures/plugins/media";
+import { createAuthenticatedClient, createEntity, createEntitySchema } from "~/fixtures/kernel";
 import { assertTaggedError } from "~/support/assertions";
 import { afterAll, beforeAll, describe, expect, it, runPromise } from "~/support/effect-test";
 import { getSharedHarnessTarget } from "~/support/harness-target";
@@ -66,76 +59,10 @@ const uploadAndComplete = (
 		return { asset, client, intentId: intent.intentId };
 	});
 
-describe("POST /uploads/cleanup", () => {
-	it.live("protects foreign uploads and retires abandoned local and S3 assets idempotently", () =>
+describe("managed asset references", () => {
+	it.live("rejects another user's locator", () =>
 		Effect.gen(function* () {
-			for (const target of [getSharedHarnessTarget(), fallbackTarget]) {
-				const { asset, client } = yield* uploadAndComplete(
-					"abandoned.png",
-					"image/png",
-					target,
-					"synthetic-image",
-				);
-				const stranger = yield* createAuthenticatedClient(target);
-				const forbidden = yield* Effect.flip(
-					stranger.client.call((c) => c.uploads.cleanup({ payload: { asset } })),
-				);
-				assertTaggedError(forbidden, "UploadBadRequest");
-				expect(forbidden.reason).toEqual({ code: "asset-forbidden" });
-				expect(yield* client.call((c) => c.uploads.cleanup({ payload: { asset } }))).toEqual({
-					status: "deleted",
-				});
-				expect(yield* client.call((c) => c.uploads.cleanup({ payload: { asset } }))).toEqual({
-					status: "deleted",
-				});
-				const unavailable = yield* Effect.flip(
-					client.call((c) => c.uploads.resolveDownloads({ payload: { assets: [asset] } })),
-				);
-				assertTaggedError(unavailable, "UploadBadRequest");
-				expect(unavailable.reason).toEqual({ code: "asset-forbidden" });
-			}
-		}),
-	);
-	it.live("retains referenced media and rejects a new reference to a cleaned locator", () =>
-		Effect.gen(function* () {
-			const { asset, client } = yield* uploadAndComplete("referenced.png", "image/png");
-			const schema = yield* createEntitySchema(client, {
-				pluginSlug: `asset-reference-${crypto.randomUUID()}`,
-				propertiesSchema: { fields: { images: imagesField("Attached images") } },
-			});
-			yield* createEntity(client, {
-				name: "Attachment owner",
-				entitySchema: schema.reference,
-				properties: { images: [asset] },
-			});
-			expect(yield* client.call((c) => c.uploads.cleanup({ payload: { asset } }))).toEqual({
-				status: "referenced",
-			});
-			const resolutions = yield* client.call((c) =>
-				c.uploads.resolveDownloads({ payload: { assets: [asset] } }),
-			);
-			expect(resolutions[0]?.asset).toEqual(asset);
-			const retired = yield* uploadPermanentAsset(client, {
-				fileName: "retired.png",
-				contentType: "image/png",
-			});
-			expect(yield* client.call((c) => c.uploads.cleanup({ payload: { asset: retired } }))).toEqual(
-				{ status: "deleted" },
-			);
-			const rejected = yield* Effect.flip(
-				createEntity(client, {
-					name: "Stale attachment",
-					entitySchema: schema.reference,
-					properties: { images: [retired] },
-				}),
-			);
-			assertTaggedError(rejected, "EntityBadRequest");
-			expect(rejected.reason).toEqual({ code: "asset-forbidden" });
-		}),
-	);
-	it.live("rejects another user's locator so its owner can still clean it up", () =>
-		Effect.gen(function* () {
-			const { asset, client } = yield* uploadAndComplete("owned.png", "image/png");
+			const { asset } = yield* uploadAndComplete("owned.png", "image/png");
 			const stranger = yield* createAuthenticatedClient();
 			const schema = yield* createEntitySchema(stranger.client, {
 				pluginSlug: `foreign-asset-${crypto.randomUUID()}`,
@@ -150,47 +77,6 @@ describe("POST /uploads/cleanup", () => {
 			);
 			assertTaggedError(rejected, "EntityBadRequest");
 			expect(rejected.reason).toEqual({ code: "asset-forbidden" });
-			expect(yield* client.call((c) => c.uploads.cleanup({ payload: { asset } }))).toEqual({
-				status: "deleted",
-			});
-			const unregistered = yield* Effect.flip(
-				client.call((c) =>
-					c.uploads.cleanup({
-						payload: { asset: { type: asset.type, key: `permanent/${crypto.randomUUID()}.png` } },
-					}),
-				),
-			);
-			assertTaggedError(unregistered, "UploadBadRequest");
-			expect(unregistered.reason).toEqual({ code: "asset-forbidden" });
-		}),
-	);
-	it.live("ignores another user's automation payload holding a different locator", () =>
-		Effect.gen(function* () {
-			const other = yield* createAuthenticatedClient();
-			const otherAsset = yield* uploadPermanentAsset(other.client, {
-				fileName: "poster.png",
-				contentType: "image/png",
-			});
-			const { schema } = yield* findMediaEntitySchema(other.client, "movie");
-			const movie = yield* createEntity(other.client, {
-				name: "Poster owner",
-				entitySchema: schema.reference,
-				properties: { images: [{ ...otherAsset, purpose: "cover" }] },
-			});
-			const triggers = yield* listAutomationTriggers({
-				sourceRecord: { id: movie.id, resource: "entity" },
-			});
-			expect(triggers.map(({ payload }) => payload)).toContainEqual(
-				expect.objectContaining({
-					after: expect.objectContaining({
-						properties: expect.objectContaining({ images: [{ ...otherAsset, purpose: "cover" }] }),
-					}),
-				}),
-			);
-			const { asset, client } = yield* uploadAndComplete("unrelated.png", "image/png");
-			expect(yield* client.call((c) => c.uploads.cleanup({ payload: { asset } }))).toEqual({
-				status: "deleted",
-			});
 		}),
 	);
 });
