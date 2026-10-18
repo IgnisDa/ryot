@@ -123,8 +123,10 @@ headers from the application's origin. Signed downloads used by browser code als
 given; edit, field changes, and delete behind a kernel confirmation otherwise) and returns
 `{ kind: "saved", collectionId }`, `{ kind: "deleted" }`, or `{ kind: "cancelled" }`.
 `screens.addToCollection({ entityId, collectionId? })` opens the kernel collection picker, which can
-create a collection inline, or, with a `collectionId`, that membership's details; it returns
-`{ kind: "saved" }`, `{ kind: "removed" }`, or `{ kind: "cancelled" }`. Both accept IDs only;
+create a collection inline, or, with a `collectionId`, that membership's details. Membership changes
+return to the list; closing reports the last change as `{ kind: "saved" }` or `{ kind: "removed" }`,
+or `{ kind: "cancelled" }` when unchanged. Both screens hint a page refresh after non-cancelled
+outcomes. Both accept IDs only;
 collection update and delete are not otherwise exposed to plugins.
 
 `calendarSources.setVisibility({ pluginId, slug, isHidden })` hides or shows one calendar source for

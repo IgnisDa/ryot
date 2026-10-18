@@ -126,6 +126,9 @@ stored locally, with explicit URL state taking precedence. Plugin routes host th
 screen (`modules/provider-add`); plugin, entity, and saved-view documents host the collection editor
 and add-to-collection screens (`modules/collections`). The bridge allows one pending host screen per
 frame across types, and the document is inert while any screen is open.
+The collection membership screen stays open after adds, detail edits, and removals, returning to its
+searchable collection list. Closing it reports the last membership change, or cancellation if none
+was made. Collection-specific requests open that membership first; Back returns to the list.
 Saved views accept only library picks matching their explicit `addAction` owner and schema; that
 modal remains open after import and refreshes the page when it closes. Library picks create through
 the catalog `createRoute` when one exists; otherwise, and always for plain picks, creation uses the

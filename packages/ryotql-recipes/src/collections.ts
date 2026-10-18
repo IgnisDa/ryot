@@ -353,6 +353,22 @@ export const allCollectionsRecipe = defineRecipe(
 
 export type AllCollectionsResult = Recipe.Success<typeof allCollectionsRecipe>;
 
+export const collectionMembershipTargetRecipe = defineRecipe(
+	(input: { readonly entityId: string }) => {
+		const entity = table("entity", "collectionMembershipTarget");
+		return {
+			map: ({ target }) => Result.succeed(target ?? null),
+			queries: {
+				target: selectedOptionalRow(entity, {
+					orderBy: [ascending(column(entity, "id"))],
+					where: eq(column(entity, "id"), literal(input.entityId)),
+					selection: { name: selectedField(column(entity, "name"), Schema.String) },
+				}),
+			},
+		};
+	},
+);
+
 export const collectionPickerRecipe = defineRecipe(
 	(input: { readonly entityId: string; readonly search: string; readonly after?: string }) => {
 		const collection = table("entity", "collectionOption");

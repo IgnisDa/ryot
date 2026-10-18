@@ -24,6 +24,41 @@ const resolution = {
 };
 
 describe("Effect-native client capabilities", () => {
+	it.effect("refreshes collection screens only after saved changes", () =>
+		Effect.gen(function* () {
+			let refreshes = 0;
+			for (const outcome of [
+				{ kind: "saved" },
+				{ kind: "removed" },
+				{ kind: "cancelled" },
+			] as const) {
+				const client = createRyotClient(
+					createTestRyotAdapter({ addToCollection: () => Effect.succeed(outcome) }),
+				);
+				const unsubscribe = client.mutationCompleted.subscribe(() => {
+					refreshes++;
+				});
+				yield* client.screens.addToCollection({ entityId: "entity-1" });
+				unsubscribe();
+			}
+			expect(refreshes).toBe(2);
+			for (const outcome of [
+				{ kind: "saved", collectionId: "collection-1" },
+				{ kind: "deleted" },
+				{ kind: "cancelled" },
+			] as const) {
+				const client = createRyotClient(
+					createTestRyotAdapter({ editCollection: () => Effect.succeed(outcome) }),
+				);
+				const unsubscribe = client.mutationCompleted.subscribe(() => {
+					refreshes++;
+				});
+				yield* client.screens.editCollection({});
+				unsubscribe();
+			}
+			expect(refreshes).toBe(4);
+		}),
+	);
 	it.effect("does not publish mutation refresh for read-only context operations", () =>
 		Effect.gen(function* () {
 			let refreshes = 0;

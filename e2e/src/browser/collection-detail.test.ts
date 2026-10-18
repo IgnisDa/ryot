@@ -9,6 +9,69 @@ import { getFrontendUrl } from "~/support/harness-target";
 
 const encodeFilter = Schema.encodeSync(Schema.fromJsonString(Schema.Unknown));
 
+it.live("manages collection memberships without closing after each change", () =>
+	Effect.gen(function* () {
+		const frontendUrl = getFrontendUrl();
+		const { email, client, password } = yield* createAuthenticatedClient();
+		const id = crypto.randomUUID();
+		const member = yield* createCollection(client, { name: `Member ${id}` });
+		const collection = yield* createCollection(client, {
+			name: `Collection ${id}`,
+			fields: [{ type: "text", label: "Notes", required: true }],
+		});
+		yield* client.call((contract) =>
+			contract.collections.createMembership({
+				payload: {
+					entityId: member.id,
+					collectionId: collection.id,
+					properties: { notes: "First note" },
+				},
+			}),
+		);
+		const browser = yield* Playwright.Browser;
+		const page = yield* browser.newPage();
+		yield* signInThroughHostedOAuth(page, email, password);
+		yield* page.goto(`${frontendUrl}/e/${collection.id}`);
+		const detail = page.locator("iframe").contentFrame();
+		yield* detail.getByRole("radio", { name: "Table view" }).click();
+		yield* detail.getByRole("button", { name: `Collection details for ${member.name}` }).click();
+		const membership = page.getByRole("dialog", {
+			exact: true,
+			name: `Details in ${collection.name}`,
+		});
+		yield* membership.getByRole("textbox", { exact: true, name: "Notes" }).fill("Updated note");
+		yield* membership.getByRole("button", { exact: true, name: "Save details" }).click();
+		const manager = page.getByRole("dialog", {
+			exact: true,
+			name: `Collections for ${member.name}`,
+		});
+		yield* manager.waitFor({ state: "visible" });
+		yield* manager
+			.getByRole("button", { name: new RegExp(`${collection.name}.*Added`) })
+			.waitFor({ state: "visible" });
+		yield* manager.getByRole("button", { exact: true, name: "Done" }).click();
+		yield* manager.waitFor({ state: "hidden" });
+		yield* detail.getByText("Updated note", { exact: true }).waitFor({ state: "visible" });
+		yield* detail.getByRole("button", { name: `Collection details for ${member.name}` }).click();
+		yield* membership.getByRole("button", { exact: true, name: "Remove from collection" }).click();
+		const confirmation = page.getByRole("dialog", {
+			exact: true,
+			name: `Remove from ${collection.name}?`,
+		});
+		yield* confirmation
+			.getByRole("button", { exact: true, name: "Remove from collection" })
+			.click();
+		yield* manager.waitFor({ state: "visible" });
+		yield* manager
+			.getByRole("button", { exact: true, name: collection.name })
+			.waitFor({ state: "visible" });
+		yield* manager.getByRole("button", { exact: true, name: "Done" }).click();
+		yield* detail
+			.getByText("This collection is empty.", { exact: true })
+			.waitFor({ state: "visible" });
+	}).pipe(PlaywrightSpawner.withBrowser),
+);
+
 it.live("opens a kernel-owned collection instead of reporting an unavailable plugin", () =>
 	Effect.gen(function* () {
 		const frontendUrl = getFrontendUrl();

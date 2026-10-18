@@ -12,6 +12,7 @@ import {
 	collectionMembersCountRecipe,
 	collectionMembersCountsRecipe,
 	collectionMembershipRecipe,
+	collectionMembershipTargetRecipe,
 	type CollectionMemberSort,
 	collectionMembersRecipe,
 	collectionMemberTableColumns,
@@ -63,6 +64,23 @@ const membershipPropertiesSchema = Schema.decodeSync(AppSchema)({
 /* oxlint-enable perfectionist/sort-objects */
 
 describe("collections recipes", () => {
+	it("selects the membership target name for the collection manager", () => {
+		const recipe = collectionMembershipTargetRecipe({ entityId: "entity-1" });
+		expect(recipe.document.queries.target?.where).toMatchObject({
+			left: { field: "id" },
+			right: { value: "entity-1" },
+		});
+		expect(
+			Result.getOrThrow(
+				recipe.decode({
+					data: { target: { pageInfo, type: "rows", items: [{ name: "Example item" }] } },
+				}),
+			),
+		).toEqual({ name: "Example item" });
+		expect(
+			Result.getOrThrow(recipe.decode({ data: { target: { pageInfo, items: [], type: "rows" } } })),
+		).toBeNull();
+	});
 	it("prepares and decodes the paginated collection list", () => {
 		const recipe = allCollectionsRecipe({ limit: 7, after: "cursor" });
 		const query = recipe.document.queries.collections;
