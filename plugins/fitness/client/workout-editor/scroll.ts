@@ -1,18 +1,5 @@
-import { useMotionPreference } from "@ryot-app/plugin-ui-sdk";
+import { editableSelector, revealOffset, usePrefersReducedMotion } from "@ryot-app/plugin-ui-sdk";
 import { useCallback, useEffect, useState, type RefObject } from "react";
-
-export const editorScrollOffset = (input: {
-	readonly top: number;
-	readonly bottom: number;
-	readonly targetTop: number;
-	readonly targetBottom: number;
-}) => {
-	const above = input.targetTop - input.top - 16;
-	const below = input.targetBottom - input.bottom + 16;
-	return above < 0 || input.targetBottom - input.targetTop > input.bottom - input.top
-		? above
-		: Math.max(0, below);
-};
 
 export function useEditorScroll(input: {
 	readonly active: boolean;
@@ -20,7 +7,7 @@ export function useEditorScroll(input: {
 	readonly scrollRoot: RefObject<HTMLElement | null>;
 	readonly floatingRoot: HTMLElement | null;
 }) {
-	const reduced = useMotionPreference();
+	const reduced = usePrefersReducedMotion();
 	const [request, setRequest] = useState<{
 		readonly id: string;
 		readonly contextId: string | undefined;
@@ -82,7 +69,10 @@ export function useEditorScroll(input: {
 			previous = sample;
 			// Layout projection can start after the first stable frames of a collapse.
 			if (reduced || (elapsed >= 250 && stable >= 3)) {
-				const offset = editorScrollOffset({ top, bottom, targetTop, targetBottom: bounds.bottom });
+				const offset = revealOffset(
+					{ top: top + 16, bottom: bottom - 16 },
+					{ top: targetTop, bottom: bounds.bottom },
+				);
 				if (Math.abs(offset) > 1) {
 					scrolled = true;
 					root.scrollTo({
@@ -100,10 +90,7 @@ export function useEditorScroll(input: {
 		root.addEventListener("wheel", cancel, { passive: true });
 		root.addEventListener("pointerdown", cancel, { passive: true });
 		const onFocus = (event: FocusEvent) => {
-			if (
-				event.target instanceof HTMLElement &&
-				event.target.matches("input, textarea, [contenteditable]")
-			) {
+			if (event.target instanceof HTMLElement && event.target.matches(editableSelector)) {
 				cancel();
 			}
 		};

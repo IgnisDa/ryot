@@ -145,7 +145,7 @@ kernel-only reduced-motion CSS.
 ## Shortcuts And Overlays
 
 `MotionList` animates keyed insertions, removals, and position changes. `Collapse` animates intrinsic
-height without scaling its contents; `MotionSwap` handles keyed state changes such as timer modes.
+height without scaling its contents; `MotionSwap` handles keyed state changes such as mode changes.
 These primitives use Motion and respect reduced motion inside each document. Use CSS transitions for
 control colors and press feedback. Keep ticking numbers and input values outside animation keys.
 

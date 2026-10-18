@@ -1,5 +1,9 @@
 import { useCallback, useEffect, useEffectEvent, useMemo, useRef, type RefObject } from "react";
 
+export const editableSelector =
+	'input:not([type="hidden"]), textarea, [contenteditable]:not([contenteditable="false"])';
+export const interactiveSelector = "button, input, textarea, a, select, [contenteditable]";
+
 const focusable =
 	'button:not([disabled]), a[href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), summary, iframe, [contenteditable]:not([contenteditable="false"]), audio[controls], video[controls], [tabindex]:not([tabindex="-1"])';
 

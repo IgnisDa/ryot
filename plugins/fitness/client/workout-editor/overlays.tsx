@@ -12,7 +12,7 @@ import {
 	RadioGroup,
 	ReorderableList,
 	Skeleton,
-	useMotionPreference,
+	usePrefersReducedMotion,
 } from "@ryot-app/plugin-ui-sdk";
 import { AppIcon } from "@ryot-app/plugin-ui-sdk/icon";
 import clsx from "clsx";
@@ -55,7 +55,7 @@ const useRevealInitial = (
 	ref: RefObject<HTMLElement | null>,
 	initialOccurrenceId: string | undefined,
 ) => {
-	const reduced = useMotionPreference();
+	const reduced = usePrefersReducedMotion();
 	useLayoutEffect(() => {
 		const element = ref.current;
 		if (
