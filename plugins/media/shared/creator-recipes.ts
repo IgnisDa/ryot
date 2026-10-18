@@ -14,6 +14,7 @@ import {
 	selectedInclude,
 	selectedOptionalRow,
 	type SelectedRow,
+	selectedRows,
 	type SelectedSelection,
 	table,
 } from "@ryot-app/plugin-kit/ryotql";
@@ -26,6 +27,7 @@ import {
 	mediaReviewActivityRecipe,
 	mediaSummaryQueries,
 	mediaSummaryResult,
+	relatedRows,
 } from "./media-recipes";
 import {
 	builtinMediaEntitySchemaSlugs,
@@ -205,6 +207,45 @@ export const mediaCreatorRecipes = <
 	);
 
 	const activityRecipe = mediaReviewActivityRecipe(config);
+	const creditsRecipe = defineRecipe(
+		(input: {
+			readonly reference: PluginIdentityReference;
+			readonly entityId: string;
+			readonly target: MediaCreatorCreditSlug;
+			readonly limit: number;
+			readonly after?: string | undefined;
+		}) => {
+			const credit = table("entity", "credit");
+			const relationship = table("relationship", "creditRelationship");
+			return {
+				map: ({ credits }) => Result.succeed(credits),
+				queries: {
+					credits: selectedRows(relationship, {
+						...relatedRows({
+							...input,
+							relationship,
+							related: credit,
+							relatedSide: "targetEntityId",
+							relatedSchemaSlug: input.target,
+							relationshipSchemaSlug: `${config.slug}-to-${input.target}`,
+							orderBy: [
+								...(isGroupTarget(input.target)
+									? []
+									: [descending(propertyNumber(credit, "publishYear"))]),
+								ascending(column(credit, "name")),
+								ascending(column(credit, "id")),
+							],
+						}),
+						...(input.after === undefined ? {} : { after: input.after }),
+						selection: {
+							...creditSelection(credit, relationship),
+							...(isGroupTarget(input.target) ? {} : creditFields(relationship)),
+						},
+					}),
+				},
+			};
+		},
+	);
 
-	return { summaryRecipe, overviewRecipe, activityRecipe };
+	return { summaryRecipe, creditsRecipe, overviewRecipe, activityRecipe };
 };

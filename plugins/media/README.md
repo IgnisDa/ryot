@@ -91,7 +91,10 @@ Person and Company retain shared media cards/rows and supply detail pages. Their
 source-side credit relationships in one creator-rooted document with an include per target, avoiding
 the named-query limit. Rails are ordered/titled by `client/creator/credit-sections.ts`; media credits
 sort by descending year, then name/ID, and yearless group credits by name/ID. Only person-to-media
-credits select characters. Rails are bounded and expose View all when more results exist.
+credits select characters. Rails are bounded and expose View all when more results exist. View all
+opens a cursor-paged credits modal. Media and group overviews use the same modal for their full
+people lists, including unlinked contributors. Credit pages preserve overview ordering, roles, and
+declared character fields. The credits and image gallery share the detail modal frame.
 
 Creators have no lifecycle, ownership toggle, or Log activity action. Activity combines reviews and
 collection changes. Person facts use provider birth/death data without inventing ages for partial or

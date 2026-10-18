@@ -16,6 +16,7 @@ import {
 	type MediaCreditRailsOverview,
 	type MediaCreditSection,
 } from "./credit-rails";
+import { createMediaCreditsQuery, type MediaCreditsRecipe } from "./credits";
 import { createMediaEntityQuery, createMediaSummaryQuery } from "./detail-queries";
 import {
 	MediaDetailBody,
@@ -56,6 +57,7 @@ export type MediaCreatorSchemaDescriptor<
 	Overview extends MediaCreditRailsOverview<Slug>,
 > = {
 	readonly recipes: {
+		readonly creditsRecipe: MediaCreditsRecipe<{ readonly target: Slug }>;
 		readonly summaryRecipe: (input: {
 			readonly reference: PluginIdentityReference;
 			readonly entityId: string;
@@ -98,6 +100,7 @@ export const defineCreatorMediaSchema = <
 	const { nouns, recipes } = descriptor;
 
 	const summaryQuery = createMediaSummaryQuery(recipes.summaryRecipe);
+	const creditsQuery = createMediaCreditsQuery(recipes.creditsRecipe);
 
 	const overviewQuery = createMediaEntityQuery(
 		(input) =>
@@ -132,11 +135,18 @@ export const defineCreatorMediaSchema = <
 	const overviewManagedAssets = (overview: Overview) =>
 		mediaCreditRailsManagedAssets<Slug>(overview);
 
-	const overviewRelations: MediaOverviewRelationsRender<Overview> = ({ compact, overview }) => (
+	const overviewRelations: MediaOverviewRelationsRender<Overview> = ({
+		compact,
+		overview,
+		entityId,
+		safeAreaTop,
+	}) => (
 		<MediaCreditRails
 			compact={compact}
+			entityId={entityId}
 			overview={overview}
-			noun={nouns.singular}
+			safeAreaTop={safeAreaTop}
+			creditsQuery={creditsQuery}
 			sections={descriptor.creditSections}
 		/>
 	);

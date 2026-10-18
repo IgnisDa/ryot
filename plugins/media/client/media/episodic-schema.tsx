@@ -19,6 +19,7 @@ import {
 	MediaActivityRecord,
 } from "./activity-tab";
 import { mediaActivitySpanLabel, mediaActivityTimeLabel } from "./activity-timeline";
+import { createMediaCreditsQuery, MediaCreditsButton, type MediaCreditsRecipe } from "./credits";
 import { createMediaEntityQuery, createMediaSummaryQuery } from "./detail-queries";
 import {
 	MediaDetailBody,
@@ -56,6 +57,7 @@ import {
 	type MediaOverviewState,
 	mediaRelationsAreEmpty,
 	mediaUnlinkedCreators,
+	mediaUnlinkedCredits,
 } from "./overview-state";
 import {
 	mediaEpisodicAiredFact,
@@ -117,6 +119,7 @@ export type MediaEpisodicSchemaDescriptor<
 	Activity extends EpisodicActivityValue<Origin>,
 > = {
 	readonly recipes: {
+		readonly peopleRecipe: MediaCreditsRecipe;
 		readonly summaryRecipe: (input: {
 			readonly reference: PluginIdentityReference;
 			readonly entityId: string;
@@ -192,6 +195,7 @@ export const defineEpisodicMediaSchema = <
 	const summaryQuery = createMediaSummaryQuery(recipes.summaryRecipe, ({ nextUp }) =>
 		nextUp === null ? [] : [nextUp.id],
 	);
+	const peopleQuery = createMediaCreditsQuery(recipes.peopleRecipe);
 
 	const overviewQuery = createMediaEntityQuery(
 		(input) =>
@@ -311,14 +315,31 @@ export const defineEpisodicMediaSchema = <
 			),
 	});
 
-	const overviewRelations: MediaOverviewRelationsRender<Overview> = ({ compact, overview }) => (
+	const overviewRelations: MediaOverviewRelationsRender<Overview> = ({
+		compact,
+		entityId,
+		overview,
+		safeAreaTop,
+	}) => (
 		<MediaOverviewRelations
 			compact={compact}
 			overview={overview}
 			aspect={descriptor.aspect}
 			copy={descriptor.creditCopy}
 			unlinked={mediaUnlinkedCreators(overview)}
-			onViewAllPeople={() => console.log(`TODO: open all ${nouns.singular} credits`)}
+			peopleAction={
+				<MediaCreditsButton
+					aspect="square"
+					compact={compact}
+					purpose="profile"
+					query={peopleQuery}
+					input={{ entityId }}
+					label="View all people"
+					safeAreaTop={safeAreaTop}
+					title={descriptor.creditCopy.people}
+					unlinked={mediaUnlinkedCredits(mediaUnlinkedCreators(overview)).people}
+				/>
+			}
 		/>
 	);
 

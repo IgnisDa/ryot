@@ -65,6 +65,7 @@ import {
 import { MediaImageListSchema } from "./media-image";
 import {
 	compareMediaActivityDescending,
+	creditCharacterSelection,
 	eventSchemaIsOneOf,
 	extraOverviewQueries,
 	mediaActivityEventSelection,
@@ -75,6 +76,7 @@ import {
 	type MediaExtraQueries,
 	mediaGenresInclude,
 	mediaOverviewQueries,
+	mediaPeopleRecipe,
 	mediaSummaryQueries,
 	mediaSummaryResult,
 	mediaSummarySelection,
@@ -830,5 +832,6 @@ export const mediaEpisodicRecipes = <
 		},
 	});
 
-	return { summaryRecipe, overviewRecipe, activityRecipe, presentationSource };
+	const peopleRecipe = mediaPeopleRecipe({ ...config, personFields: creditCharacterSelection });
+	return { peopleRecipe, summaryRecipe, overviewRecipe, activityRecipe, presentationSource };
 };

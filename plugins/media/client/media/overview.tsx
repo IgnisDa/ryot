@@ -47,7 +47,7 @@ const CREDIT_COLUMN_CLASS = "min-w-0 flex-1";
 
 const COMPANY_COLUMN_CLASS = "w-72 shrink-0";
 
-export type MediaOverviewSubject = Pick<MediaSummaryFields, "name" | "images">;
+export type MediaOverviewSubject = Pick<MediaSummaryFields, "id" | "name" | "images">;
 
 export type MediaCreditCopy = {
 	readonly people: string;
@@ -57,6 +57,8 @@ export type MediaCreditCopy = {
 
 export type MediaOverviewRelationsRender<Overview> = (input: {
 	readonly compact: boolean;
+	readonly entityId: string;
+	readonly safeAreaTop: number;
 	readonly overview: Overview;
 }) => ReactNode;
 
@@ -185,7 +187,7 @@ export const mediaWatchProvidersTrailing =
 export function MediaPeopleSection(props: {
 	readonly title: string;
 	readonly compact: boolean;
-	readonly onViewAll: () => void;
+	readonly action: ReactNode;
 	readonly people: readonly MediaCreditPerson[];
 	readonly unlinked?: readonly MediaUnlinkedCreator[] | undefined;
 }) {
@@ -196,9 +198,9 @@ export function MediaPeopleSection(props: {
 	return (
 		<MediaOverviewSection
 			title={props.title}
+			action={props.action}
 			sync={mediaSyncCounts(props.people, mediaPersonAsset)}
 			className={props.compact ? undefined : CREDIT_COLUMN_CLASS}
-			action={<MediaLinkButton label="View all people" onClick={props.onViewAll} />}
 		>
 			<MediaRail compact={props.compact}>
 				{props.people.map((person) => {
@@ -371,7 +373,7 @@ function MediaOverviewNotice(props: {
 export function MediaCreditColumns(props: {
 	readonly compact: boolean;
 	readonly copy: MediaCreditCopy;
-	readonly onViewAllPeople: () => void;
+	readonly peopleAction: ReactNode;
 	readonly companies: readonly MediaCompany[];
 	readonly people: readonly MediaCreditPerson[];
 	readonly unlinked?: readonly MediaUnlinkedCreator[] | undefined;
@@ -393,7 +395,7 @@ export function MediaCreditColumns(props: {
 				compact={props.compact}
 				title={props.copy.people}
 				unlinked={unlinked.people}
-				onViewAll={props.onViewAllPeople}
+				action={props.peopleAction}
 			/>
 			<MediaCompaniesSection
 				compact={props.compact}
@@ -410,7 +412,7 @@ export function MediaOverviewRelations(props: {
 	readonly copy: MediaCreditCopy;
 	readonly trailing?: ReactNode;
 	readonly aspect: MediaArtworkAspect;
-	readonly onViewAllPeople: () => void;
+	readonly peopleAction: ReactNode;
 	readonly overview: MediaOverviewRows;
 	readonly unlinked?: readonly MediaUnlinkedCreator[] | undefined;
 }) {
@@ -423,7 +425,7 @@ export function MediaOverviewRelations(props: {
 				compact={props.compact}
 				unlinked={props.unlinked}
 				companies={companies.items}
-				onViewAllPeople={props.onViewAllPeople}
+				peopleAction={props.peopleAction}
 			/>
 			<MediaRecommendationsSection
 				aspect={props.aspect}
@@ -437,6 +439,8 @@ export function MediaOverviewRelations(props: {
 
 function MediaOverviewBody<Overview>(props: {
 	readonly compact: boolean;
+	readonly entityId: string;
+	readonly safeAreaTop: number;
 	readonly noticeTitle: string;
 	readonly refresh: () => void;
 	readonly loadingDetail: string;
@@ -464,7 +468,12 @@ function MediaOverviewBody<Overview>(props: {
 			/>
 		);
 	}
-	return props.relations({ compact: props.compact, overview: state.overview });
+	return props.relations({
+		compact: props.compact,
+		entityId: props.entityId,
+		overview: state.overview,
+		safeAreaTop: props.safeAreaTop,
+	});
 }
 
 export function MediaOverview<Overview>(props: {
@@ -504,7 +513,9 @@ export function MediaOverview<Overview>(props: {
 			<MediaOverviewBody
 				state={props.overview}
 				compact={props.compact}
+				entityId={props.media.id}
 				relations={props.relations}
+				safeAreaTop={props.safeAreaTop}
 				noticeTitle={props.noticeTitle}
 				refresh={props.refreshOverview}
 				loadingDetail={props.loadingDetail}

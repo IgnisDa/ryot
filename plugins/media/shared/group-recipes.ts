@@ -34,6 +34,7 @@ import { MediaImageAssetSchema, MediaImageListSchema } from "./media-image";
 import {
 	mediaCreditQueries,
 	mediaEntitySummarySelection,
+	mediaPeopleRecipe,
 	mediaReviewActivityRecipe,
 	mediaSummaryQueries,
 	mediaSummaryResult,
@@ -264,7 +265,17 @@ export const mediaGroupRecipes = <
 		}),
 	);
 
-	const recipes = { summaryRecipe, membersRecipe, activityRecipe, presentationSource };
+	const peopleRecipe = mediaPeopleRecipe({
+		...config,
+		personFields: (): Record<never, never> => ({}),
+	});
+	const recipes = {
+		peopleRecipe,
+		summaryRecipe,
+		membersRecipe,
+		activityRecipe,
+		presentationSource,
+	};
 
 	type Credits = Slug extends CreditGroupSlug
 		? { readonly overviewRecipe: typeof overviewRecipe }
