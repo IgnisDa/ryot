@@ -3,6 +3,7 @@ import type { Playwright } from "effect-playwright";
 
 import { requirePresent } from "~/support/assertions";
 import { pluginFrame } from "~/support/browser";
+import { expect } from "~/support/effect-test";
 import { getFrontendUrl } from "~/support/harness-target";
 
 export const openFitnessPage = (page: Playwright.Page, path: string, frontendUrl?: string) =>
@@ -14,9 +15,14 @@ export const draftHeading = (frame: Playwright.FrameLocator, name: string) =>
 export const renameDraft = (frame: Playwright.FrameLocator, dialogTitle: string, name: string) =>
 	Effect.gen(function* () {
 		yield* frame.getByRole("button", { exact: true, name: "Details" }).click();
-		const details = frame.getByRole("dialog", { exact: true, name: dialogTitle });
+		const details = frame.getByRole("dialog", {
+			exact: true,
+			name: dialogTitle,
+			includeHidden: true,
+		});
 		yield* details.getByRole("textbox", { exact: true, name: "Name" }).fill(name);
 		yield* details.getByRole("button", { exact: true, name: "Done" }).click();
+		yield* details.waitFor({ state: "hidden" });
 	});
 
 export const discardDraft = (frame: Playwright.FrameLocator) =>
@@ -50,7 +56,18 @@ export const saveDraft = (
 	},
 ) =>
 	Effect.gen(function* () {
-		yield* submitDraft(frame, input);
+		const [response] = yield* Effect.all(
+			[
+				page.use((raw) =>
+					raw.waitForResponse((result) =>
+						new URL(result.url()).pathname.endsWith("/operations/workout-editor-save"),
+					),
+				),
+				submitDraft(frame, input),
+			],
+			{ concurrency: "unbounded" },
+		);
+		expect(response.status(), yield* Effect.promise(() => response.text())).toBe(200);
 		yield* page.waitForURL((url) => url.pathname.startsWith("/e/"));
 		yield* draftHeading(frame, input.name).waitFor({ state: "visible" });
 		return requirePresent(new URL(page.url()).pathname.split("/").at(-1), "Expected a saved URL");

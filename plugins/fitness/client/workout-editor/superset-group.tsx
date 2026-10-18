@@ -1,3 +1,4 @@
+import { MotionList } from "@ryot-app/plugin-ui-sdk";
 import { AppIcon } from "@ryot-app/plugin-ui-sdk/icon";
 import type { ReactNode } from "react";
 
@@ -72,7 +73,7 @@ export function SupersetGroup(props: {
 				</span>
 				<span className="text-xs text-text-muted">Alternate · {props.count} exercises</span>
 			</div>
-			{props.children}
+			<MotionList className="grid gap-2">{props.children}</MotionList>
 		</section>
 	);
 }

@@ -12,13 +12,14 @@ import {
 	type WorkoutPreferenceSettings,
 	type WorkoutRestSettings,
 } from "../../shared/workout-editor-preferences";
+import { requiredWorkoutMeasurementsByKind } from "../../shared/workout-set";
 import {
 	kilogramsToPounds,
 	kilometersToMiles,
 	milesToKilometers,
 	poundsToKilograms,
 } from "../../shared/workout-units";
-import { confirmSet, pauseWorkout, startRest } from "./timers";
+import { confirmSet, pauseWorkout, startRest, unconfirmSet } from "./timers";
 
 export const emptyWorkoutDraft = (input: {
 	readonly id: string;
@@ -77,11 +78,20 @@ export const updateSet = (
 	occurrenceId: string,
 	setId: string,
 	change: (set: WorkoutEditorSet) => WorkoutEditorSet,
-) =>
-	updateOccurrence(draft, occurrenceId, (occurrence) => ({
+) => {
+	const next = updateOccurrence(draft, occurrenceId, (occurrence) => ({
 		...occurrence,
 		sets: occurrence.sets.map((set) => (set.clientId === setId ? change(set) : set)),
 	}));
+	const set = next.occurrences
+		.find(({ clientId }) => clientId === occurrenceId)
+		?.sets.find(({ clientId }) => clientId === setId);
+	return draft.mode.kind === "live" &&
+		set?.included &&
+		requiredWorkoutMeasurementsByKind[set.exerciseKind].some((field) => !set[field]?.trim())
+		? unconfirmSet(next, occurrenceId, setId).draft
+		: next;
+};
 
 const convert = (text: string | undefined, factor: (number: number) => number) => {
 	if (text === undefined || text.trim() === "" || !Number.isFinite(Number(text))) {
@@ -227,7 +237,43 @@ export const nextWorkoutOccurrence = (draft: WorkoutEditorDraft, occurrenceId: s
 			return occurrence.clientId;
 		}
 	}
-	return occurrenceId;
+	return undefined;
+};
+
+export const workoutProgressTarget = (draft: WorkoutEditorDraft) => {
+	if (draft.mode.kind !== "live") {
+		return undefined;
+	}
+	const active = draft.occurrences.find(({ clientId }) => clientId === draft.activeOccurrenceId);
+	const occurrence = active?.sets.some(({ included }) => !included)
+		? active
+		: draft.occurrences.find(({ sets }) => sets.some(({ included }) => !included));
+	const set =
+		occurrence?.sets.find(
+			({ clientId, included }) => clientId === draft.activeSetId && !included,
+		) ?? occurrence?.sets.find(({ included }) => !included);
+	return occurrence === undefined || set === undefined ? undefined : { set, occurrence };
+};
+
+const advanceWorkout = (draft: WorkoutEditorDraft, occurrenceId: string): WorkoutEditorDraft => {
+	const target = nextWorkoutOccurrence(draft, occurrenceId);
+	return {
+		...draft,
+		activeOccurrenceId: target,
+		activeSetId: draft.occurrences
+			.find(({ clientId }) => clientId === target)
+			?.sets.find(({ included }) => !included)?.clientId,
+		occurrences: draft.occurrences.map((occurrence) => {
+			if (
+				occurrence.clientId === occurrenceId &&
+				occurrence.sets.length > 0 &&
+				occurrence.sets.every(({ included }) => included)
+			) {
+				return { ...occurrence, isCollapsed: true };
+			}
+			return occurrence.clientId === target ? { ...occurrence, isCollapsed: false } : occurrence;
+		}),
+	};
 };
 
 export const completeWorkoutSet = (
@@ -266,15 +312,18 @@ export const completeWorkoutSet = (
 		restChoice: { kind: "explicit", seconds: String(rest.seconds) },
 	}));
 	if (input.prompt && rest.seconds > 0) {
-		return {
-			...next,
-			pendingRest: {
-				setId: input.setId,
-				seconds: rest.seconds,
-				occurrenceId: input.occurrenceId,
-				exerciseId: occurrence.exerciseId,
+		return advanceWorkout(
+			{
+				...next,
+				pendingRest: {
+					setId: input.setId,
+					seconds: rest.seconds,
+					occurrenceId: input.occurrenceId,
+					exerciseId: occurrence.exerciseId,
+				},
 			},
-		};
+			input.occurrenceId,
+		);
 	}
 	next = startRest(
 		next,
@@ -291,20 +340,7 @@ export const completeWorkoutSet = (
 	) {
 		next = { ...next, restCountdown: undefined };
 	}
-	const target = nextWorkoutOccurrence(next, input.occurrenceId);
-	return {
-		...next,
-		pendingRest: undefined,
-		activeOccurrenceId: target,
-		activeSetId: next.occurrences
-			.find(({ clientId }) => clientId === target)
-			?.sets.find(({ included }) => !included)?.clientId,
-		occurrences: next.occurrences.map((candidateOccurrence) =>
-			candidateOccurrence.clientId === target
-				? Object.assign({}, candidateOccurrence, { isCollapsed: false })
-				: candidateOccurrence,
-		),
-	};
+	return advanceWorkout({ ...next, pendingRest: undefined }, input.occurrenceId);
 };
 
 export const resolvePendingRest = (
@@ -320,20 +356,7 @@ export const resolvePendingRest = (
 	const next = skip
 		? draft
 		: startRest(draft, pending.occurrenceId, pending.setId, pending.seconds, now, id).draft;
-	const target = nextWorkoutOccurrence(next, pending.occurrenceId);
-	return {
-		...next,
-		pendingRest: undefined,
-		activeOccurrenceId: target,
-		activeSetId: next.occurrences
-			.find(({ clientId }) => clientId === target)
-			?.sets.find(({ included }) => !included)?.clientId,
-		occurrences: next.occurrences.map((candidateOccurrence) =>
-			candidateOccurrence.clientId === target
-				? Object.assign({}, candidateOccurrence, { isCollapsed: false })
-				: candidateOccurrence,
-		),
-	};
+	return { ...next, pendingRest: undefined };
 };
 
 export const finishWorkoutDraft = (draft: WorkoutEditorDraft, now: number): WorkoutEditorDraft =>

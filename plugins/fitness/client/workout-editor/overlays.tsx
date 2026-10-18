@@ -6,14 +6,16 @@ import {
 	Checkbox,
 	EmptyState,
 	IconButton,
+	MotionPresence,
 	Notice,
 	RadioGroup,
 	ReorderableList,
 	Skeleton,
+	useMotionPreference,
 } from "@ryot-app/plugin-ui-sdk";
 import { AppIcon } from "@ryot-app/plugin-ui-sdk/icon";
 import clsx from "clsx";
-import { useRef, useState } from "react";
+import { useLayoutEffect, useRef, useState } from "react";
 
 import { supersetColor, supersetColors, type SupersetColor } from "../../shared/superset-colors";
 import type { WorkoutEditorDraft } from "../../shared/workout-editor-draft";
@@ -25,6 +27,7 @@ import { supersetColorVariable, supersetSoftColorVariable } from "../group-color
 import { removeWorkoutItems } from "./actions";
 import { editorHistoryQuery, readHistorySets } from "./queries";
 import { supersetNames } from "./superset-group";
+import { ConfirmDialog } from "./workout-sheets";
 
 const historySetsQuery = createRyotQuery<
 	{ readonly workoutId: string; readonly exerciseId: string },
@@ -43,11 +46,18 @@ const historySetText = (set: WorkoutHistorySetResult["items"][number]) =>
 		.filter(Boolean)
 		.join(" · ");
 
+const scrollIntoView = (element: HTMLElement | null, reduced: boolean) => {
+	if (element !== null && element.getBoundingClientRect().height > 0) {
+		element.scrollIntoView({ block: "nearest", behavior: reduced ? "instant" : "smooth" });
+	}
+};
+
 function HistorySession(props: {
 	readonly session: WorkoutHistoryResult["items"][number];
 	readonly exerciseId: string;
 	readonly onAppend: (sets: WorkoutHistorySetResult["items"]) => void;
 }) {
+	const [confirming, setConfirming] = useState(false);
 	const result = useRyotQuery(historySetsQuery, {
 		workoutId: props.session.id,
 		exerciseId: props.exerciseId,
@@ -64,12 +74,8 @@ function HistorySession(props: {
 				<Button
 					size="sm"
 					variant="secondary"
+					onClick={() => setConfirming(true)}
 					disabled={result.data === undefined}
-					onClick={() => {
-						if (result.data !== undefined) {
-							props.onAppend(result.data);
-						}
-					}}
 				>
 					<AppIcon size={14} name="plus" />
 					Add sets
@@ -104,6 +110,25 @@ function HistorySession(props: {
 					History sets could not be loaded.
 				</Notice>
 			) : null}
+			<MotionPresence>
+				{confirming ? (
+					<ConfirmDialog
+						key="append-history"
+						cancelLabel="Cancel"
+						confirmLabel="Add sets"
+						disabled={result.data === undefined}
+						onClose={() => setConfirming(false)}
+						title={`Add sets from ${props.session.name}?`}
+						description={`${result.data?.length ?? 0} ${result.data?.length === 1 ? "set" : "sets"} from this session will be added to the exercise.`}
+						onConfirm={() => {
+							if (result.data !== undefined) {
+								props.onAppend(result.data);
+							}
+							setConfirming(false);
+						}}
+					/>
+				) : null}
+			</MotionPresence>
 		</Card>
 	);
 }
@@ -251,14 +276,23 @@ type DraftOverlayProps = {
 	readonly safeAreaBottom: number;
 	readonly draft: WorkoutEditorDraft;
 	readonly names: ReadonlyMap<string, string>;
+	readonly initialOccurrenceId?: string | undefined;
 	readonly onChange: (transform: (draft: WorkoutEditorDraft) => WorkoutEditorDraft) => void;
 	readonly onClose: () => void;
+	readonly onMoved?: (occurrenceId: string) => void;
 };
 
 const sectionHeading = "text-[11px] font-semibold tracking-wider text-text-subtle uppercase";
 
 export function ReorderOverlay(props: DraftOverlayProps) {
 	const scrollRef = useRef<HTMLDivElement>(null);
+	const initialOccurrenceRef = useRef<HTMLDivElement>(null);
+	const reduced = useMotionPreference();
+	useLayoutEffect(() => {
+		if (props.initialOccurrenceId !== undefined) {
+			scrollIntoView(initialOccurrenceRef.current, reduced);
+		}
+	}, [props.initialOccurrenceId, reduced]);
 	const groups = supersetNames(props.draft);
 	return (
 		<Dialog
@@ -280,27 +314,46 @@ export function ReorderOverlay(props: DraftOverlayProps) {
 					itemKey={(item) => item.clientId}
 					handleIcon={<AppIcon size={18} name="grip-vertical" />}
 					itemLabel={(item) => props.names.get(item.exerciseId) ?? "Unavailable exercise"}
-					onReorder={(from, to) =>
+					onReorder={(from, to) => {
+						const item = props.draft.occurrences[from];
+						if (item === undefined) {
+							return;
+						}
 						props.onChange((draft) => {
 							const occurrences = [...draft.occurrences];
-							const item = occurrences.splice(from, 1)[0];
-							if (item === undefined) {
+							const reordered = occurrences.splice(from, 1)[0];
+							if (reordered === undefined) {
 								return draft;
 							}
-							occurrences.splice(to, 0, item);
+							occurrences.splice(to, 0, reordered);
 							return { ...draft, occurrences };
-						})
-					}
+						});
+						props.onMoved?.(item.clientId);
+					}}
 					renderItem={({ item, handle }) => {
+						const completedSets = item.sets.filter(({ included }) => included).length;
+						let progress = "Not started";
+						if (completedSets > 0) {
+							progress = completedSets === item.sets.length ? "Complete" : "In progress";
+						}
 						const group = props.draft.supersets.find(({ occurrenceIds }) =>
 							occurrenceIds.includes(item.clientId),
 						);
 						return (
-							<div className="flex h-14 items-center gap-3 border-b border-border">
+							<div
+								ref={item.clientId === props.initialOccurrenceId ? initialOccurrenceRef : undefined}
+								className={clsx(
+									"flex h-14 items-center gap-3 border-b border-border",
+									item.clientId === props.initialOccurrenceId && "rounded-md bg-accent-soft",
+								)}
+							>
 								{handle}
-								<span className="min-w-0 flex-1 truncate text-sm font-semibold">
-									{props.names.get(item.exerciseId) ?? "Unavailable exercise"}
-								</span>
+								<div className="min-w-0 flex-1">
+									<p className="truncate text-sm font-semibold">
+										{props.names.get(item.exerciseId) ?? "Unavailable exercise"}
+									</p>
+									<p className="text-xs text-text-muted">{progress}</p>
+								</div>
 								{group === undefined ? null : (
 									<span
 										className="rounded-pill px-2 py-0.5 text-xs font-semibold"
@@ -325,9 +378,26 @@ const toggleSelection = (values: readonly string[], id: string) =>
 	values.includes(id) ? values.filter((value) => value !== id) : [...values, id];
 
 export function BulkDeleteOverlay(props: DraftOverlayProps) {
-	const [occurrences, setOccurrences] = useState<readonly string[]>([]);
+	const [occurrences, setOccurrences] = useState<readonly string[]>(() =>
+		props.initialOccurrenceId === undefined ? [] : [props.initialOccurrenceId],
+	);
 	const [sets, setSets] = useState<readonly string[]>([]);
-	const count = occurrences.length + sets.length;
+	const initialOccurrenceRef = useRef<HTMLFieldSetElement>(null);
+	const [confirming, setConfirming] = useState(false);
+	const reduced = useMotionPreference();
+	useLayoutEffect(() => {
+		if (props.initialOccurrenceId !== undefined) {
+			scrollIntoView(initialOccurrenceRef.current, reduced);
+		}
+	}, [props.initialOccurrenceId, reduced]);
+	const selectedExercises = props.draft.occurrences.filter(({ clientId }) =>
+		occurrences.includes(clientId),
+	);
+	const selectedSetCount = props.draft.occurrences
+		.filter(({ clientId }) => !occurrences.includes(clientId))
+		.flatMap(({ sets: occurrenceSets }) => occurrenceSets)
+		.filter(({ clientId }) => sets.includes(clientId)).length;
+	const count = selectedExercises.length + selectedSetCount;
 	return (
 		<Dialog
 			onClose={props.onClose}
@@ -341,14 +411,7 @@ export function BulkDeleteOverlay(props: DraftOverlayProps) {
 					<Button variant="secondary" onClick={props.onClose}>
 						Cancel
 					</Button>
-					<Button
-						variant="danger"
-						disabled={count === 0}
-						onClick={() => {
-							props.onChange((draft) => removeWorkoutItems(draft, occurrences, sets));
-							props.onClose();
-						}}
-					>
+					<Button variant="danger" disabled={count === 0} onClick={() => setConfirming(true)}>
 						{count === 0 ? "Delete selected" : `Delete ${count} selected`}
 					</Button>
 				</>
@@ -362,6 +425,9 @@ export function BulkDeleteOverlay(props: DraftOverlayProps) {
 						<fieldset
 							key={occurrence.clientId}
 							className="grid min-w-0 gap-1 rounded-lg border border-border-card bg-surface px-3 py-2"
+							ref={
+								occurrence.clientId === props.initialOccurrenceId ? initialOccurrenceRef : undefined
+							}
 						>
 							<legend className="sr-only">{name}</legend>
 							<Checkbox
@@ -391,14 +457,44 @@ export function BulkDeleteOverlay(props: DraftOverlayProps) {
 					);
 				})}
 			</div>
+			<MotionPresence>
+				{confirming ? (
+					<ConfirmDialog
+						cancelLabel="Cancel"
+						disabled={count === 0}
+						key="bulk-delete-confirm"
+						title="Delete selected items?"
+						confirmLabel="Delete selected"
+						onClose={() => setConfirming(false)}
+						onConfirm={() => {
+							props.onChange((draft) => removeWorkoutItems(draft, occurrences, sets));
+							setConfirming(false);
+							props.onClose();
+						}}
+						description={`Delete ${selectedExercises.length} ${selectedExercises.length === 1 ? "exercise" : "exercises"} and ${selectedSetCount} individual ${selectedSetCount === 1 ? "set" : "sets"}?`}
+					/>
+				) : null}
+			</MotionPresence>
 		</Dialog>
 	);
 }
 
 export function SupersetOverlay(props: DraftOverlayProps) {
-	const [editing, setEditing] = useState<string>();
-	const [selected, setSelected] = useState<readonly string[]>([]);
-	const [color, setColor] = useState<SupersetColor>("blue");
+	const initialOccurrenceId = props.initialOccurrenceId;
+	const initialGroup =
+		initialOccurrenceId === undefined
+			? undefined
+			: props.draft.supersets.find(({ occurrenceIds }) =>
+					occurrenceIds.includes(initialOccurrenceId),
+				);
+	const [editing, setEditing] = useState<string | undefined>(() => initialGroup?.clientId);
+	const [selected, setSelected] = useState<readonly string[]>(() =>
+		initialOccurrenceId === undefined ? [] : (initialGroup?.occurrenceIds ?? [initialOccurrenceId]),
+	);
+	const [color, setColor] = useState<SupersetColor>(() =>
+		initialGroup === undefined ? "blue" : supersetColor(initialGroup.color),
+	);
+	const [deleting, setDeleting] = useState<string>();
 	const groups = supersetNames(props.draft);
 	const memberNames = (occurrenceIds: readonly string[]) =>
 		occurrenceIds
@@ -486,14 +582,7 @@ export function SupersetOverlay(props: DraftOverlayProps) {
 										size="sm"
 										tone="danger"
 										label={`Delete ${name}`}
-										onClick={() =>
-											props.onChange((draft) => ({
-												...draft,
-												supersets: draft.supersets.filter(
-													({ clientId }) => clientId !== group.clientId,
-												),
-											}))
-										}
+										onClick={() => setDeleting(group.clientId)}
 									>
 										<AppIcon size={16} name="trash-2" />
 									</IconButton>
@@ -569,6 +658,30 @@ export function SupersetOverlay(props: DraftOverlayProps) {
 					</p>
 				</section>
 			</div>
+			<MotionPresence>
+				{deleting === undefined ? null : (
+					<ConfirmDialog
+						cancelLabel="Cancel"
+						key="superset-delete-confirm"
+						confirmLabel="Delete superset"
+						onClose={() => setDeleting(undefined)}
+						title={`Delete ${groups.get(deleting) ?? "superset"}?`}
+						description="The superset will be removed. Its exercises and sets will remain in the workout."
+						onConfirm={() => {
+							const groupId = deleting;
+							props.onChange((draft) => ({
+								...draft,
+								supersets: draft.supersets.filter(({ clientId }) => clientId !== groupId),
+							}));
+							if (editing === groupId) {
+								setEditing(undefined);
+								setSelected([]);
+							}
+							setDeleting(undefined);
+						}}
+					/>
+				)}
+			</MotionPresence>
 		</Dialog>
 	);
 }

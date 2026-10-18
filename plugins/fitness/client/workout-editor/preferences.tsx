@@ -92,30 +92,28 @@ export function UnitsAndDefaultsSheet(props: {
 		}
 		setPending(true);
 		schedule.run(
-			Schema.encodeEffect(Schema.toCodecJson(ExerciseOverrideUpdateInputSchema))(
-				decoded.success,
-			).pipe(
-				Effect.flatMap((input) =>
-					client.operations.invoke({
-						input,
-						packageId: PLUGIN_PACKAGE_ID,
-						slug: exerciseOverrideUpdateOperationSlug,
-						output: ExerciseOverrideUpdateOutputSchema,
+			client.operations
+				.invoke({
+					input: decoded.success,
+					packageId: PLUGIN_PACKAGE_ID,
+					slug: exerciseOverrideUpdateOperationSlug,
+					output: ExerciseOverrideUpdateOutputSchema,
+					inputSchema: ExerciseOverrideUpdateInputSchema,
+				})
+				.pipe(
+					Effect.match({
+						onFailure: () => setError("Defaults could not be saved. Try again."),
+						onSuccess: (result) => {
+							if (result.kind === "saved") {
+								props.onSaved();
+								props.onClose();
+							} else {
+								setError("This exercise is unavailable or the defaults are invalid.");
+							}
+						},
 					}),
+					Effect.asVoid,
 				),
-				Effect.match({
-					onFailure: () => setError("Defaults could not be saved. Try again."),
-					onSuccess: (result) => {
-						if (result.kind === "saved") {
-							props.onSaved();
-							props.onClose();
-						} else {
-							setError("This exercise is unavailable or the defaults are invalid.");
-						}
-					},
-				}),
-				Effect.asVoid,
-			),
 			() => setPending(false),
 		);
 	};

@@ -136,6 +136,28 @@ const rows = (items: readonly Record<string, unknown>[]) => ({
 
 type EditorStorage = { value: JsonValue | null };
 
+const previousWeightSet = {
+	rpe: 8,
+	reps: 7,
+	pace: null,
+	note: null,
+	weight: 80,
+	oneRm: null,
+	setOrder: 0,
+	volume: null,
+	restTime: null,
+	duration: null,
+	distance: null,
+	setLot: "normal",
+	exerciseOrder: 0,
+	id: "previous-set",
+	workoutId: "previous-workout",
+	recordedKind: "reps_and_weight",
+	occurredAt: "2026-10-10T10:00:00.000Z",
+	exerciseId: "exercise-reps-and-weight",
+	workoutStartedAt: "2026-10-10T10:00:00.000Z",
+};
+
 const openEditor = (
 	clock: ReturnType<typeof createTestRyotClock>,
 	storage: EditorStorage,
@@ -143,6 +165,7 @@ const openEditor = (
 	screenProps: Omit<Parameters<typeof WorkoutEditorScreen>[0], "target"> = {},
 	proAvailable = true,
 	previousSets: readonly Record<string, unknown>[] = [],
+	historySessions: readonly Record<string, unknown>[] = [],
 ) => {
 	let respond: (() => void) | undefined;
 	const page = mountPluginPage(() => <WorkoutEditorScreen target={target} {...screenProps} />, {
@@ -235,6 +258,8 @@ const openEditor = (
 						data[queryName] = rows(metrics);
 					} else if (queryName === "sets") {
 						data[queryName] = rows(previousSets);
+					} else if (queryName === "workouts") {
+						data[queryName] = rows(historySessions);
 					} else {
 						data[queryName] = rows([]);
 					}
@@ -463,7 +488,7 @@ describe("WorkoutEditorScreen", () => {
 				change(within(dialog).getByRole("textbox", { name: "Weight (kg)" }), "0");
 				change(within(dialog).getByRole("textbox", { name: "Waist (cm)" }), "82");
 				change(
-					within(dialog).getByRole("textbox", { name: "Comment (optional)" }),
+					within(dialog).getByRole("textbox", { name: /Comment\s*\(optional\)/ }),
 					"During workout",
 				);
 				click(within(dialog).getByRole("button", { name: "Save" }));
@@ -856,29 +881,7 @@ describe("WorkoutEditorScreen", () => {
 					[],
 					{},
 					true,
-					[
-						{
-							rpe: 8,
-							reps: 7,
-							pace: null,
-							note: null,
-							weight: 80,
-							oneRm: null,
-							setOrder: 0,
-							volume: null,
-							restTime: null,
-							duration: null,
-							distance: null,
-							setLot: "normal",
-							exerciseOrder: 0,
-							id: "previous-set",
-							workoutId: "previous-workout",
-							recordedKind: "reps_and_weight",
-							occurredAt: "2026-10-10T10:00:00.000Z",
-							exerciseId: "exercise-reps-and-weight",
-							workoutStartedAt: "2026-10-10T10:00:00.000Z",
-						},
-					],
+					[previousWeightSet],
 				);
 				yield* waitForEditor(answerPending);
 				const set = within(screen.getByRole("region", { name: "Weight exercise" })).getByRole(
@@ -918,6 +921,154 @@ describe("WorkoutEditorScreen", () => {
 					}),
 				);
 				expect(within(set).queryByRole("alert")).toBeNull();
+				page.dispose();
+			} finally {
+				disposePluginBridges();
+				yield* Effect.promise(() => clock.dispose());
+			}
+		}),
+	);
+
+	it.live(
+		"copies the displayed Previous values into the following set without changing a completed row",
+		() =>
+			Effect.gen(function* () {
+				const clock = createTestRyotClock();
+				try {
+					yield* Effect.promise(() => clock.setTime(startedAtMillis));
+					const draft = editorDraft([
+						editorOccurrence("reps_and_weight", [
+							editorSet("done", "reps_and_weight", { included: true, confirmedAt: startedAt }),
+							editorSet("next", "reps_and_weight"),
+						]),
+					]);
+					const { page, answerPending } = openEditor(
+						clock,
+						{ value: encodeWorkoutEditorDraft(draft) },
+						[],
+						{},
+						true,
+						[
+							previousWeightSet,
+							{
+								...previousWeightSet,
+								reps: 10,
+								weight: 100,
+								setOrder: 1,
+								id: "other-previous-set",
+							},
+						],
+					);
+					yield* waitForEditor(answerPending);
+					yield* Effect.promise(() =>
+						waitFor(() => {
+							answerPending();
+							expect(
+								screen.getByRole("button", { name: "Set 1: copy previous 80 kg × 7" }),
+							).toBeTruthy();
+						}),
+					);
+					click(screen.getByRole("button", { name: "Set 1: copy previous 80 kg × 7" }));
+					yield* Effect.promise(() =>
+						waitFor(() => {
+							answerPending();
+							expect(inputValue(screen.getByRole("textbox", { name: "Set 2 reps" }))).toBe("7");
+							expect(inputValue(screen.getByRole("textbox", { name: "Set 2 weight (kg)" }))).toBe(
+								"80",
+							);
+						}),
+					);
+					expect(inputValue(screen.getByRole("textbox", { name: "Set 1 weight (kg)" }))).toBe("20");
+					expect(
+						screen.getByRole("button", { pressed: true, name: "Complete set 1" }),
+					).toBeTruthy();
+					change(screen.getByRole("textbox", { name: "Set 1 reps" }), "");
+					expect(
+						screen.getByRole("button", { pressed: false, name: "Complete set 1" }),
+					).toBeTruthy();
+					page.dispose();
+				} finally {
+					disposePluginBridges();
+					yield* Effect.promise(() => clock.dispose());
+				}
+			}),
+	);
+
+	it.live("asks before appending history and leaves the draft unchanged on cancellation", () =>
+		Effect.gen(function* () {
+			const clock = createTestRyotClock();
+			try {
+				yield* Effect.promise(() => clock.setTime(startedAtMillis));
+				const draft = editorDraft([editorOccurrence("reps_and_weight")]);
+				const { page, answerPending } = openEditor(
+					clock,
+					{ value: encodeWorkoutEditorDraft(draft) },
+					[],
+					{},
+					true,
+					[previousWeightSet],
+					[
+						{
+							comment: null,
+							id: "previous-workout",
+							name: "Earlier session",
+							startedAt: "2026-10-10T10:00:00.000Z",
+						},
+					],
+				);
+				yield* waitForEditor(answerPending);
+				click(
+					within(screen.getByRole("region", { name: "Weight exercise" })).getByRole("button", {
+						name: "History",
+					}),
+				);
+				yield* Effect.promise(() =>
+					waitFor(() => {
+						answerPending();
+						expect(screen.getByRole("button", { name: "Add sets" }).hasAttribute("disabled")).toBe(
+							false,
+						);
+					}),
+				);
+				click(screen.getByRole("button", { name: "Add sets" }));
+				const confirmation = screen.getByRole("dialog", { name: "Add sets from Earlier session?" });
+				expect(confirmation.textContent).toContain("1 set from this session");
+				click(within(confirmation).getByRole("button", { name: "Cancel" }));
+				yield* Effect.promise(() =>
+					waitFor(() => expect(document.body.contains(confirmation)).toBe(false)),
+				);
+				click(
+					within(screen.getByRole("dialog", { name: "History" })).getByRole("button", {
+						name: "Close history",
+					}),
+				);
+				yield* Effect.promise(() =>
+					waitFor(() => expect(screen.getAllByRole("group", { name: /^Set \d/ })).toHaveLength(1)),
+				);
+				click(
+					within(screen.getByRole("region", { name: "Weight exercise" })).getByRole("button", {
+						name: "History",
+					}),
+				);
+				yield* Effect.promise(() =>
+					waitFor(() => {
+						answerPending();
+						expect(screen.getByRole("button", { name: "Add sets" }).hasAttribute("disabled")).toBe(
+							false,
+						);
+					}),
+				);
+				click(screen.getByRole("button", { name: "Add sets" }));
+				click(
+					within(screen.getByRole("dialog", { name: "Add sets from Earlier session?" })).getByRole(
+						"button",
+						{ name: "Add sets" },
+					),
+				);
+				yield* Effect.promise(() =>
+					waitFor(() => expect(screen.getAllByRole("group", { name: /^Set \d/ })).toHaveLength(2)),
+				);
+				expect(inputValue(screen.getByRole("textbox", { name: "Set 2 weight (kg)" }))).toBe("80");
 				page.dispose();
 			} finally {
 				disposePluginBridges();
@@ -981,8 +1132,11 @@ describe("WorkoutEditorScreen", () => {
 					}),
 				);
 				expect(
-					within(exercise).getAllByRole("button", { pressed: true, name: /^Complete set/ }),
-				).toHaveLength(2);
+					within(exercise)
+						.getByRole("button", { name: "Expand Weight exercise" })
+						.getAttribute("aria-expanded"),
+				).toBe("false");
+				expect(within(exercise).getByText("2/2 done")).toBeTruthy();
 				page.dispose();
 			} finally {
 				disposePluginBridges();

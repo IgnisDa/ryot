@@ -75,7 +75,43 @@ it("omits blank session energy rather than converting it to zero", () => {
 	assert(result.input !== undefined);
 	assert(result.input.data.kind === "workout");
 	expect(result.input.data.caloriesBurnt).toBeUndefined();
+	expect(result.input.data).not.toHaveProperty("caloriesBurnt");
 });
+
+it.each(["historical", "template-create"] as const)(
+	"omits absent optional fields from a %s save",
+	(kind) => {
+		const result = buildWorkoutEditorSaveInput(
+			makeDraft({
+				comment: undefined,
+				endedAt: undefined,
+				caloriesBurnt: undefined,
+				mode:
+					kind === "historical"
+						? { kind, entityId: "workout-1", conflictToken: "source-token" }
+						: { kind },
+			}),
+			{ submittedAt: timestamp, submissionId: "optional-fields" },
+			{
+				unitSystem: "metric",
+				exerciseOverridesById: {},
+				restSettings: {
+					dropRestTime: 0,
+					warmUpRestTime: 0,
+					normalRestTime: 60,
+					failureRestTime: 0,
+				},
+			},
+		);
+		assert(result.input !== undefined);
+		expect(result.input.data).not.toHaveProperty("comment");
+		expect(result.input.data.occurrences[0]).not.toHaveProperty("sourceExerciseOrder");
+		if (result.input.data.kind === "workout") {
+			expect(result.input.data).not.toHaveProperty("endedAt");
+			expect(result.input.data).not.toHaveProperty("caloriesBurnt");
+		}
+	},
+);
 
 it("reuses the complete frozen submission after recovery or context changes", () => {
 	const source = makeDraft();

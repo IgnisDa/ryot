@@ -11,6 +11,7 @@ import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import { PLUGIN_PACKAGE_ID } from "../../shared/plugin-identity";
 import {
 	WorkoutEditorContextOutputSchema,
+	WorkoutEditorContextInputSchema,
 	workoutEditorContextOperationSlug,
 } from "../../shared/workout-editor-context-operations";
 import { createWorkoutEditorController } from "./controller";
@@ -58,18 +59,19 @@ const createEditorSession = (
 		cleanup: (asset) => client.uploads.cleanup(asset),
 		foreground: () => document.visibilityState === "visible",
 		upload: (request) => client.uploads.uploadPermanent(request),
+		storage: {
+			read: client.storage.get(pluginId, DRAFT_STORAGE_KEY),
+			remove: client.storage.remove(pluginId, DRAFT_STORAGE_KEY),
+			write: (value) => client.storage.set(pluginId, DRAFT_STORAGE_KEY, value),
+		},
 		refreshContext: client.operations.invoke({
 			input: {},
 			refreshOnSuccess: false,
 			packageId: PLUGIN_PACKAGE_ID,
 			slug: workoutEditorContextOperationSlug,
 			output: WorkoutEditorContextOutputSchema,
+			inputSchema: WorkoutEditorContextInputSchema,
 		}),
-		storage: {
-			read: client.storage.get(pluginId, DRAFT_STORAGE_KEY),
-			remove: client.storage.remove(pluginId, DRAFT_STORAGE_KEY),
-			write: (value) => client.storage.set(pluginId, DRAFT_STORAGE_KEY, value),
-		},
 	});
 	const synchronizeAwake = () =>
 		schedule.run(
