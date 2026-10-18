@@ -20,6 +20,7 @@ import {
 	makeEntitySchemaSlug,
 	pollUntil,
 	savedViewRecordPath,
+	seedEntity,
 	setUserLanguage,
 	uninstallTestProvider,
 } from "~/fixtures/kernel";
@@ -154,9 +155,9 @@ beforeAll(() =>
 				tableColumns: null,
 				sourceName: "entities",
 				searchFields: ["name"],
-				summary: { image: null, subtitle: null },
 				defaultLayout: "grid" as const,
 				layouts: ["grid", "list"] as const,
+				summary: { image: null, subtitle: null },
 				subject: {
 					entityAlias: "browserEntity",
 					schemas: [
@@ -210,11 +211,10 @@ it.live("automatically populates and translates entities rendered by a saved vie
 		const id = crypto.randomUUID();
 		const schemaSlug = `browser-interest-${id}`;
 		const translatedName = `Registro traducido ${id}`;
-		const user = yield* createAuthenticatedClient();
-		const client = user.client;
-		yield* setUserLanguage(client, "es");
+		const installer = yield* createAuthenticatedClient();
 		const offlineProvider = yield* installTestProvider({
-			client,
+			scope: "system",
+			client: installer.client,
 			rootEntitySchemaSlug: schemaSlug,
 			information: { source: "e2e", canonicalLanguage: "en" },
 			translations: fakeProviderTranslations({ es: { properties: {}, name: translatedName } }),
@@ -237,7 +237,11 @@ it.live("automatically populates and translates entities rendered by a saved vie
 			],
 		});
 		yield* Effect.addFinalizer(() => uninstallTestProvider(offlineProvider));
-		const entity = yield* createEntity(client, {
+		const user = yield* createAuthenticatedClient();
+		const client = user.client;
+		yield* setUserLanguage(client, "es");
+		const entity = yield* seedEntity({
+			userId: null,
 			properties: {},
 			externalId: id,
 			name: `Partial record ${id}`,
@@ -251,12 +255,16 @@ it.live("automatically populates and translates entities rendered by a saved vie
 			name: `Interest View ${id}`,
 			settings: entityBrowserSettings(offlineProvider.pluginId, schemaSlug),
 			dataSources: buildSavedViewDataSources([schemaSlug], {
-				kind: "local",
-				pluginId: offlineProvider.pluginId,
+				kind: "package",
+				scope: "system",
+				packageId: offlineProvider.manifest.metadata.packageId,
 			}),
 		});
 		const viewRecord = yield* findSavedViewById(client, view.id);
-		expect((yield* getEntity(client, entity.id)).populationStatus).toBe("pending");
+		expect((yield* getEntity(client, entity.id)).populationStatus).toEqual({
+			state: "idle",
+			availability: "missing",
+		});
 		const browser = yield* Playwright.Browser;
 		const page = yield* browser.newPage({ locale: "en-US" });
 		yield* signInThroughHostedOAuth(page, user.email, user.password);
@@ -286,16 +294,15 @@ it.live("automatically populates and translates entities rendered by a saved vie
 	}).pipe(PlaywrightSpawner.withBrowser),
 );
 
-it.live("keeps source data visible when saved-view translation is outstanding", () =>
+it.live("keeps source data visible when the provider has no translation", () =>
 	Effect.gen(function* () {
 		const id = crypto.randomUUID();
-		const user = yield* createAuthenticatedClient();
 		const schemaSlug = `browser-translating-${id}`;
 		const sourceName = `Untranslated record ${id}`;
-		const client = user.client;
-		yield* setUserLanguage(client, "es");
+		const installer = yield* createAuthenticatedClient();
 		const untranslatedProvider = yield* installTestProvider({
-			client,
+			scope: "system",
+			client: installer.client,
 			rootEntitySchemaSlug: schemaSlug,
 			information: { source: "e2e", canonicalLanguage: "en" },
 			details: fakeProviderDetailsResult({ name: sourceName, properties: { publishYear: 2043 } }),
@@ -314,7 +321,11 @@ it.live("keeps source data visible when saved-view translation is outstanding", 
 			],
 		});
 		yield* Effect.addFinalizer(() => uninstallTestProvider(untranslatedProvider));
-		const entity = yield* createEntity(client, {
+		const user = yield* createAuthenticatedClient();
+		const client = user.client;
+		yield* setUserLanguage(client, "es");
+		const entity = yield* seedEntity({
+			userId: null,
 			properties: {},
 			externalId: id,
 			name: sourceName,
@@ -328,8 +339,9 @@ it.live("keeps source data visible when saved-view translation is outstanding", 
 			name: `Translating View ${id}`,
 			settings: entityBrowserSettings(untranslatedProvider.pluginId, schemaSlug),
 			dataSources: buildSavedViewDataSources([schemaSlug], {
-				kind: "local",
-				pluginId: untranslatedProvider.pluginId,
+				kind: "package",
+				scope: "system",
+				packageId: untranslatedProvider.manifest.metadata.packageId,
 			}),
 		});
 		const viewRecord = yield* findSavedViewById(client, view.id);
@@ -339,11 +351,11 @@ it.live("keeps source data visible when saved-view translation is outstanding", 
 		yield* page.goto(`${getFrontendUrl()}${savedViewRecordPath(viewRecord)}`);
 		const runtime = page.locator("iframe").contentFrame();
 		yield* pollUntil(
-			"saved-view entity population with pending translation",
+			"saved-view entity population without a translation",
 			getEntity(client, entity.id).pipe(
 				Effect.map((current) =>
 					current.populationStatus.availability === "complete" &&
-					current.translationStatus.availability === "missing"
+					current.translationStatus.availability === "none"
 						? current
 						: null,
 				),
@@ -357,7 +369,7 @@ it.live("keeps source data visible when saved-view translation is outstanding", 
 		yield* runtime
 			.getByText("2,043", { exact: true })
 			.waitFor({ state: "visible", timeout: IMPORT_TIMEOUT });
-		expect((yield* getEntity(client, entity.id)).translationStatus.availability).toBe("missing");
+		expect((yield* getEntity(client, entity.id)).translationStatus.availability).toBe("none");
 		expect(yield* runtime.getByText(sourceName, { exact: true }).isVisible()).toBe(true);
 	}).pipe(PlaywrightSpawner.withBrowser),
 );

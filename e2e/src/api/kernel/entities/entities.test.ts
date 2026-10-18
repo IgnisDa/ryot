@@ -86,49 +86,23 @@ describe("POST /entities", () => {
 		}),
 	);
 
-	it.live("creates entity with externalId and providerId", () =>
+	it.live("rejects provider-backed creation from the API", () =>
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
 			const { reference, providerId } = yield* createPrivateProvider(client);
-			const externalId = `external-${crypto.randomUUID()}`;
 
-			const entity = yield* createEntity(client, {
-				providerId,
-				externalId,
-				properties: {},
-				name: "External Entity",
-				entitySchema: reference,
-			});
+			const error = yield* Effect.flip(
+				createEntity(client, {
+					providerId,
+					properties: {},
+					name: "External Entity",
+					entitySchema: reference,
+					externalId: `external-${crypto.randomUUID()}`,
+				}),
+			);
 
-			expect(entity.id).toBeDefined();
-			expect(entity.externalId).toBe(externalId);
-			expect(entity.providerId).toBe(providerId);
-		}),
-	);
-
-	it.live("returns the existing entity on duplicate externalId + providerId", () =>
-		Effect.gen(function* () {
-			const { client } = yield* createAuthenticatedClient();
-			const { reference, providerId } = yield* createPrivateProvider(client);
-			const externalId = `idempotent-${crypto.randomUUID()}`;
-
-			const first = yield* createEntity(client, {
-				providerId,
-				externalId,
-				properties: {},
-				entitySchema: reference,
-				name: "Idempotent Entity",
-			});
-
-			const second = yield* createEntity(client, {
-				providerId,
-				externalId,
-				properties: {},
-				entitySchema: reference,
-				name: "Idempotent Entity",
-			});
-
-			expect(second.id).toBe(first.id);
+			assertTaggedError(error, "EntityBadRequest");
+			expect(error.reason).toEqual({ code: "provider-owned" });
 		}),
 	);
 
@@ -153,7 +127,7 @@ describe("POST /entities", () => {
 			);
 
 			assertTaggedError(error, "EntityBadRequest");
-			expect(error.reason).toEqual({ code: "provider-scope-mismatch" });
+			expect(error.reason).toEqual({ code: "provider-owned" });
 			expect(yield* getEntity(client, global.id)).toMatchObject({
 				externalId,
 				providerId,
@@ -227,37 +201,6 @@ describe("POST /entities", () => {
 		}),
 	);
 
-	it.live("returns 400 when only providerId is provided without externalId", () =>
-		Effect.gen(function* () {
-			const { client } = yield* createAuthenticatedClient();
-			const { reference } = yield* createPluginSchema(client);
-			const { schema } = yield* findBuiltinSchemaWithProviders(client);
-			const providerId = schema.providers[0]?.providerId;
-			assertPresent(providerId, "Expected a provider for the built-in schema");
-
-			const error = yield* Effect.flip(
-				client.call((c) =>
-					c.entities.create({
-						payload: {
-							providerId,
-							entitySchema: reference,
-							properties: { title: "Partial" },
-							name: "Partial Provenance Entity",
-						},
-					}),
-				),
-			);
-
-			assertTaggedError(error, "EntityBadRequest");
-			expect(error.reason).toEqual({
-				code: "incomplete-provenance",
-				fields: ["externalId", "providerId"],
-			});
-		}),
-	);
-});
-
-describe("global entity read access", () => {
 	it.live(
 		"returns the entity for the importing user and for a second user who never imported",
 		() =>

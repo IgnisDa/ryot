@@ -134,17 +134,23 @@ it.live("shows a failed Media population and repopulates it after Try again", ()
 			.getByRole("alert")
 			.filter({ hasText: `Couldn't load details from ${providerName}.` });
 		yield* failure.waitFor({ state: "visible", timeout: 150_000 });
-		expect((yield* getEntity(client, show.id)).populationStatus).toBe("failed");
+		expect((yield* getEntity(client, show.id)).populationStatus).toEqual({
+			state: "failed",
+			availability: "missing",
+		});
 
 		yield* mediaProviders.update(provider.providerSlug, { detailsFailure: undefined });
 		yield* page.getByRole("button", { name: "Reload updated page" }).click();
 		yield* failure.waitFor({ state: "visible" });
-		yield* media.getByRole("button", { name: "Try again" }).click();
+		yield* failure.locator("xpath=..").getByRole("button", { name: "Try again" }).click();
 		yield* media
 			.getByRole("heading", { level: 1, exact: true, name: populatedName })
 			.waitFor({ state: "visible", timeout: 150_000 });
 		expect(yield* media.getByRole("alert").count).toBe(0);
-		expect((yield* getEntity(client, show.id)).populationStatus).toBe("ready");
+		expect((yield* getEntity(client, show.id)).populationStatus).toEqual({
+			state: "succeeded",
+			availability: "complete",
+		});
 	}).pipe(PlaywrightSpawner.withBrowser),
 );
 
@@ -190,7 +196,10 @@ it.live("opens a base-populated Media Movie and shows its credits once they arri
 			providerId: movieProvider.providerId,
 		});
 		yield* markEntityPopulated(movie.id, "base", target);
-		expect((yield* getEntity(client, movie.id)).relatedPopulationStatus).toBe("pending");
+		expect((yield* getEntity(client, movie.id)).relatedPopulationStatus).toEqual({
+			state: "idle",
+			availability: "missing",
+		});
 
 		const browser = yield* Playwright.Browser;
 		const page = yield* browser.newPage();
@@ -202,7 +211,10 @@ it.live("opens a base-populated Media Movie and shows its credits once they arri
 		yield* media
 			.getByRole("link", { name: `Open ${personName}` })
 			.waitFor({ state: "visible", timeout: 150_000 });
-		expect((yield* getEntity(client, movie.id)).relatedPopulationStatus).toBe("ready");
+		expect((yield* getEntity(client, movie.id)).relatedPopulationStatus).toEqual({
+			state: "succeeded",
+			availability: "complete",
+		});
 	}).pipe(PlaywrightSpawner.withBrowser),
 );
 
