@@ -29,7 +29,7 @@ it.live("reorders a kernel collection with keyboard and absolute-end controls", 
 		yield* signInThroughHostedOAuth(page, email, password);
 		yield* page.goto(`${getFrontendUrl()}/e/${collection.id}`);
 		const detail = page.locator("iframe").contentFrame();
-		yield* detail.getByRole("button", { exact: true, name: "Reorder members" }).click();
+		yield* detail.getByRole("button", { exact: true, name: "Reorder" }).click();
 		yield* detail
 			.getByRole("button", { exact: true, name: `Reorder Gamma ${suffix}` })
 			.press("ArrowDown");
@@ -65,7 +65,7 @@ it.live("reorders a kernel collection with keyboard and absolute-end controls", 
 			`Gamma ${suffix}`,
 			`Beta ${suffix}`,
 		]);
-		yield* detail.getByRole("button", { exact: true, name: "Reorder members" }).click();
+		yield* detail.getByRole("button", { exact: true, name: "Reorder" }).click();
 		yield* order
 			.getByRole("button", { exact: true, name: `Reorder Beta ${suffix}` })
 			.waitFor({ state: "visible" });

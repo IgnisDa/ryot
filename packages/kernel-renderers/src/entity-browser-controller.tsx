@@ -111,13 +111,13 @@ type EntityBrowserControllerProps<Meta> = {
 	readonly emptyMessage?: string | undefined;
 	readonly defaultLayout: EntityBrowserLayout;
 	readonly defaultSortLabel?: string | undefined;
-	readonly headerAction?: undefined | HeaderAction;
 	readonly layouts: readonly EntityBrowserLayout[];
 	readonly filterFields: readonly ViewFilterField[];
 	readonly name: (meta: Meta | undefined) => string;
 	readonly sortChoices: readonly BrowserSortChoice[];
 	readonly renderItemActions?: undefined | BrowserItemActions;
 	readonly renderResults?: undefined | BrowserResultsRenderer;
+	readonly headerActions?: undefined | readonly HeaderAction[];
 	readonly query: RyotQuery<BrowserQueryInput, BrowserQueryPage<Meta>>;
 	readonly viewContext: ComponentProps<typeof EntityResults>["viewContext"];
 	readonly renderSummary?: undefined | ((meta: Meta, loaded: number) => ReactNode);
@@ -166,11 +166,11 @@ export function EntityBrowserController<Meta>({
 	tableColumns,
 	errorMessage,
 	emptyMessage,
-	headerAction,
 	filterFields,
 	renderResults,
 	renderSummary,
 	defaultLayout,
+	headerActions,
 	canSearch = true,
 	renderItemActions,
 	layouts: availableLayouts,
@@ -480,15 +480,16 @@ export function EntityBrowserController<Meta>({
 				}
 				barActions={
 					<>
-						{headerAction && (
+						{headerActions?.map((action) => (
 							<ScreenBarButton
-								label={headerAction.label}
-								onClick={headerAction.run}
+								key={action.label}
+								label={action.label}
+								onClick={action.run}
 								className="text-text-muted"
 							>
-								<AppIcon size={22} name={headerAction.icon} />
+								<AppIcon size={22} name={action.icon} />
 							</ScreenBarButton>
-						)}
+						))}
 						{canSearch && (
 							<ScreenBarButton
 								ref={searchTrigger}
@@ -556,12 +557,12 @@ export function EntityBrowserController<Meta>({
 							activeCount={filterCount}
 							onClick={() => setOptionsOpen(true)}
 						/>
-						{headerAction && (
-							<Button variant="secondary" onClick={headerAction.run}>
-								<AppIcon size={15} name={headerAction.icon} />
-								{headerAction.label}
+						{headerActions?.map((action) => (
+							<Button key={action.label} variant="secondary" onClick={action.run}>
+								<AppIcon size={15} name={action.icon} />
+								{action.label}
 							</Button>
-						)}
+						))}
 						{add && (
 							<button
 								type="button"

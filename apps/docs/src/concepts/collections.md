@@ -11,7 +11,7 @@ Removing an item from a collection does not remove it from your library or delet
 
 ## Change collection order
 
-1. Open the collection and select **Reorder members**.
+1. Open the collection and select **Reorder**.
 2. Drag a handle, or focus it and use the up/down arrow keys. Home and End move within the loaded list.
 3. Use **Move to start** or **Move to end** to move across the whole collection without loading every item.
 4. Select **Done** to return to browsing.

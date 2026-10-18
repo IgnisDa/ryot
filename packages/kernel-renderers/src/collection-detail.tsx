@@ -160,7 +160,10 @@ const CollectionBrowser = ({
 			name={() => header?.name ?? "Collection"}
 			errorMessage="The collection could not be loaded."
 			tableColumns={collectionMemberTableColumns(membershipPropertiesSchema)}
-			headerAction={{ icon: "pencil", run: editCollection, label: "Edit collection" }}
+			headerActions={[
+				{ run: onReorder, label: "Reorder", icon: "arrow-up-down" },
+				{ icon: "pencil", run: editCollection, label: "Edit collection" },
+			]}
 			sortChoices={[
 				{ label: "Name A-Z", value: "name-asc" },
 				{ label: "Name Z-A", value: "name-desc" },
@@ -173,7 +176,7 @@ const CollectionBrowser = ({
 					onClick={() => memberDetails(item.entityId)}
 					label={`Collection details for ${item.name ?? "item"}`}
 				>
-					<AppIcon size={16} name="ellipsis" />
+					<AppIcon size={16} name="more-horizontal" />
 				</IconButton>
 			)}
 			// oxlint-disable-next-line react/no-unstable-nested-components -- The slot needs this collection ID.
@@ -189,17 +192,19 @@ const CollectionBrowser = ({
 			)}
 			renderSummary={() => (
 				<>
-					<Button onClick={onReorder}>Reorder members</Button>
 					{header?.description ? (
 						<p className="text-sm text-text-muted">{header.description}</p>
 					) : null}
 					<section
 						aria-label="Collection summary"
-						className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-text-muted"
+						className="flex flex-wrap items-center gap-1.5 text-xs text-text-muted"
 					>
-						<strong className="font-semibold text-text">{total.toLocaleString()} total</strong>
+						<strong className="mr-1 font-semibold text-text">{total.toLocaleString()} total</strong>
 						{groups.items.map((group) => (
-							<span key={JSON.stringify([group.ownerPluginId, group.entitySchemaSlug])}>
+							<span
+								className="rounded-pill bg-surface-2 px-2 py-0.5"
+								key={JSON.stringify([group.ownerPluginId, group.entitySchemaSlug])}
+							>
 								{group.count.toLocaleString()} {group.typeLabel}
 							</span>
 						))}

@@ -198,7 +198,7 @@ describe("collection detail", () => {
 			const members = [itemMember, second, third];
 			yield* answerCollection(page, { members, revision: 7, name: "Shelf" });
 			fireEvent.click(
-				yield* Effect.promise(() => screen.findByRole("button", { name: "Reorder members" })),
+				yield* Effect.promise(() => screen.findByRole("button", { name: "Reorder" })),
 			);
 			const initial = yield* request(page, "members", 1);
 			replyMembers(page, initial.requestId, { members, revision: 7 });
@@ -248,7 +248,7 @@ describe("collection detail", () => {
 				revision: 8,
 				members: [second, itemMember, third],
 			});
-			yield* Effect.promise(() => screen.findByRole("button", { name: "Reorder members" }));
+			yield* Effect.promise(() => screen.findByRole("button", { name: "Reorder" }));
 		}),
 	);
 
@@ -259,7 +259,7 @@ describe("collection detail", () => {
 				const members = [itemMember, { ...itemMember, name: "Second", entityId: "item-2" }];
 				yield* answerCollection(page, { members, revision: 4, name: "Shelf" });
 				fireEvent.click(
-					yield* Effect.promise(() => screen.findByRole("button", { name: "Reorder members" })),
+					yield* Effect.promise(() => screen.findByRole("button", { name: "Reorder" })),
 				);
 				const initial = yield* request(page, "members", 1);
 				replyMembers(page, initial.requestId, { members, revision: 4 });
@@ -312,7 +312,7 @@ describe("collection detail", () => {
 				members: [itemMember],
 			});
 			fireEvent.click(
-				yield* Effect.promise(() => screen.findByRole("button", { name: "Reorder members" })),
+				yield* Effect.promise(() => screen.findByRole("button", { name: "Reorder" })),
 			);
 			const initial = yield* request(page, "members", 1);
 			replyMembers(page, initial.requestId, { revision: 2, hasMore: true, members: [itemMember] });
