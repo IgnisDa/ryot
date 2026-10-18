@@ -19,6 +19,7 @@ import {
 	collectionMembersRecipe,
 	type CollectionMembersResult,
 } from "@ryot-app/ryotql-recipes/collections";
+import clsx from "clsx";
 import { useEffect, useState } from "react";
 
 type Move = Omit<
@@ -117,7 +118,7 @@ export const CollectionOrder = ({
 			}
 		>
 			<p className="text-sm text-text-muted">
-				Drag a handle or use the arrow keys to change collection order. Changes save immediately.
+				Drag the handle or use the arrow keys. Changes save automatically.
 			</p>
 			{move.error !== null && (
 				<StatusMessage tone="error">
@@ -139,11 +140,14 @@ export const CollectionOrder = ({
 			)}
 			{result.isPending && <p role="status">Loading collection...</p>}
 			{move.isPending && <p role="status">Saving order...</p>}
-			<fieldset disabled={busy} className="m-0 min-w-0 border-0 p-0">
+			<fieldset
+				disabled={busy}
+				className="m-0 min-w-0 overflow-hidden rounded-lg border border-border bg-raised p-0"
+			>
 				<legend className="sr-only">Collection order</legend>
 				<ReorderableList
 					items={items}
-					itemHeight={64}
+					itemHeight={60}
 					label="Collection order"
 					scrollRef={scrollRootRef}
 					itemLabel={(item) => item.name}
@@ -168,30 +172,45 @@ export const CollectionOrder = ({
 						}
 						submit(member.entityId, destination);
 					}}
-					renderItem={({ item, handle }) => (
-						<div className="flex h-16 items-center gap-3 border-b border-border px-2">
+					renderItem={({ item, index, handle, isDragging }) => (
+						<div
+							className={clsx(
+								"group flex h-15 items-center gap-2 border-b border-border bg-raised pr-2 pl-1 [li:last-child>&]:border-b-0",
+								isDragging ? "rounded-md" : "hover:bg-hover",
+							)}
+						>
 							{handle}
-							<span className="min-w-0 flex-1 truncate">{item.name}</span>
-							<IconButton
-								size="sm"
-								label={`Move ${item.name} to start`}
-								onClick={() => {
-									feedback("selection");
-									submit(item.entityId, { kind: "start" });
-								}}
-							>
-								<AppIcon size={16} name="arrow-up-to-line" />
-							</IconButton>
-							<IconButton
-								size="sm"
-								label={`Move ${item.name} to end`}
-								onClick={() => {
-									feedback("selection");
-									submit(item.entityId, { kind: "end" });
-								}}
-							>
-								<AppIcon size={16} name="arrow-down-to-line" />
-							</IconButton>
+							<span className="w-7 shrink-0 text-right text-xs text-text-subtle tabular-nums">
+								{index + 1}
+							</span>
+							<div className="grid min-w-0 flex-1 gap-0.5 pl-2">
+								<span className="truncate text-sm font-medium text-text">{item.name}</span>
+								<span className="truncate text-[11px] font-semibold tracking-wide text-text-subtle uppercase">
+									{item.entitySchemaSlug.split("-").join(" ")}
+								</span>
+							</div>
+							<div className="flex shrink-0 items-center gap-0.5 transition-opacity pointer-fine:opacity-0 pointer-fine:group-focus-within:opacity-100 pointer-fine:group-hover:opacity-100">
+								<IconButton
+									size="sm"
+									label={`Move ${item.name} to start`}
+									onClick={() => {
+										feedback("selection");
+										submit(item.entityId, { kind: "start" });
+									}}
+								>
+									<AppIcon size={16} name="arrow-up-to-line" />
+								</IconButton>
+								<IconButton
+									size="sm"
+									label={`Move ${item.name} to end`}
+									onClick={() => {
+										feedback("selection");
+										submit(item.entityId, { kind: "end" });
+									}}
+								>
+									<AppIcon size={16} name="arrow-down-to-line" />
+								</IconButton>
+							</div>
 						</div>
 					)}
 				/>
