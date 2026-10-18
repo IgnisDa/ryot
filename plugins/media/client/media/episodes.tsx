@@ -1,16 +1,17 @@
 import { ManagedAssetProvider, type RyotQuery } from "@ryot-app/plugin-client-sdk/react";
 import { fieldSyncState, isTitleProvisional, SyncPip } from "@ryot-app/plugin-ui-sdk/sync";
 import clsx from "clsx";
+import { useRef, useState } from "react";
 
 import type { MediaCursorPage } from "./cursor-page-state";
 import { MediaCursorPages, type MediaCursorPagesCopy } from "./cursor-pages";
 import { type MediaArtworkAspect, mediaAspectClass } from "./entity-presentation";
+import { MediaEpisodeDetails } from "./episode-details";
 import {
 	type MediaEpisode,
-	mediaEpisodeAirDateLabel,
 	mediaEpisodeAsset,
 	type MediaEpisodeImagePurpose,
-	mediaEpisodeRuntimeLabel,
+	mediaEpisodeMetadataLabel,
 	mediaEpisodesManagedAssets,
 	mediaEpisodeStateLabel,
 	type MediaEpisodeStateLabels,
@@ -41,9 +42,6 @@ type MediaEpisodePageQuery<Episode, Scope extends object> = RyotQuery<
 	MediaCursorPage<Episode>
 >;
 
-const metaLabel = (parts: readonly (string | undefined)[]) =>
-	parts.filter((part) => part !== undefined).join(" • ");
-
 const ARTWORK_WIDTH_CLASS: Record<MediaEpisodeArtworkAspect, { compact: string; regular: string }> =
 	{ still: { compact: "w-28", regular: "w-44" }, square: { compact: "w-20", regular: "w-24" } };
 
@@ -52,65 +50,85 @@ const artworkClass = (aspect: MediaEpisodeArtworkAspect, compact: boolean) =>
 
 function MediaEpisodeRow<Episode extends MediaEpisode>(props: {
 	readonly compact: boolean;
+	readonly safeAreaTop: number;
 	readonly divided: boolean;
 	readonly episode: Episode;
 	readonly render: MediaEpisodeRender<Episode>;
 }) {
 	const { render, episode } = props;
+	const [open, setOpen] = useState(false);
+	const triggerRef = useRef<HTMLButtonElement>(null);
 	const asset = mediaEpisodeAsset(episode, render.purpose);
 	const synopsis = mediaEpisodeSynopsis(episode);
 	const lifecycle = mediaEpisodeStateLabel(episode.state, render.stateLabels);
-	const meta = metaLabel([mediaEpisodeAirDateLabel(episode), mediaEpisodeRuntimeLabel(episode)]);
+	const meta = mediaEpisodeMetadataLabel(episode);
 	return (
-		<button
-			type="button"
-			aria-label={`Open ${episode.name}`}
-			onClick={() => console.log("TODO: open episode details")}
-			className={clsx(
-				"flex w-full items-start text-left focus-visible:outline-2 focus-visible:outline-accent",
-				props.compact ? "gap-3 py-3" : "gap-4 py-4",
-				props.divided && "border-t border-border",
-			)}
-		>
-			<ManagedAssetImage
-				asset={asset}
-				monogram={episode.name}
-				state={fieldSyncState(asset, episode)}
-				className={clsx("shrink-0", artworkClass(render.aspect, props.compact))}
-			/>
-			<div className="flex min-w-0 flex-1 flex-col gap-1">
-				<div className="flex items-baseline gap-2">
-					<span className="font-ui font-medium text-[12px] text-text-subtle">
-						{render.numberLabel(episode)}
-					</span>
-					<span className="line-clamp-1 min-w-0 flex-1 font-ui font-medium text-[14px] text-text">
-						{episode.name}
-						{isTitleProvisional(episode) && <SyncPip className="ml-1.5" reason="translating" />}
-					</span>
-					{lifecycle === undefined ? null : (
-						<span
-							className={clsx(
-								"font-ui text-[12px]",
-								episode.state === "complete" ? "text-success" : "text-accent-text",
-							)}
-						>
-							{lifecycle}
+		<>
+			<button
+				type="button"
+				ref={triggerRef}
+				aria-haspopup="dialog"
+				onClick={() => setOpen(true)}
+				aria-label={`Open ${episode.name}`}
+				className={clsx(
+					"flex w-full items-start text-left focus-visible:outline-2 focus-visible:outline-accent",
+					props.compact ? "gap-3 py-3" : "gap-4 py-4",
+					props.divided && "border-t border-border",
+				)}
+			>
+				<ManagedAssetImage
+					asset={asset}
+					monogram={episode.name}
+					state={fieldSyncState(asset, episode)}
+					className={clsx("shrink-0", artworkClass(render.aspect, props.compact))}
+				/>
+				<div className="flex min-w-0 flex-1 flex-col gap-1">
+					<div className="flex items-baseline gap-2">
+						<span className="font-ui font-medium text-[12px] text-text-subtle">
+							{render.numberLabel(episode)}
+						</span>
+						<span className="line-clamp-1 min-w-0 flex-1 font-ui font-medium text-[14px] text-text">
+							{episode.name}
+							{isTitleProvisional(episode) && <SyncPip className="ml-1.5" reason="translating" />}
+						</span>
+						{lifecycle === undefined ? null : (
+							<span
+								className={clsx(
+									"font-ui text-[12px]",
+									episode.state === "complete" ? "text-success" : "text-accent-text",
+								)}
+							>
+								{lifecycle}
+							</span>
+						)}
+					</div>
+					{meta === "" ? null : (
+						<span className="font-ui text-[12px] text-text-subtle">{meta}</span>
+					)}
+					{synopsis === undefined ? null : (
+						<span className="line-clamp-2 font-ui text-[13px] leading-5 text-text-muted">
+							{synopsis}
 						</span>
 					)}
 				</div>
-				{meta === "" ? null : <span className="font-ui text-[12px] text-text-subtle">{meta}</span>}
-				{synopsis === undefined ? null : (
-					<span className="line-clamp-2 font-ui text-[13px] leading-5 text-text-muted">
-						{synopsis}
-					</span>
-				)}
-			</div>
-		</button>
+			</button>
+			{open ? (
+				<MediaEpisodeDetails
+					render={render}
+					episode={episode}
+					compact={props.compact}
+					triggerRef={triggerRef}
+					onClose={() => setOpen(false)}
+					safeAreaTop={props.safeAreaTop}
+				/>
+			) : null}
+		</>
 	);
 }
 
 function MediaNextUpCard<Episode extends MediaEpisode>(props: {
 	readonly compact: boolean;
+	readonly safeAreaTop: number;
 	readonly episode: Episode;
 	readonly render: MediaEpisodeRender<Episode>;
 }) {
@@ -134,6 +152,7 @@ function MediaNextUpCard<Episode extends MediaEpisode>(props: {
 				render={props.render}
 				episode={props.episode}
 				compact={props.compact}
+				safeAreaTop={props.safeAreaTop}
 			/>
 		</div>
 	);
@@ -141,6 +160,7 @@ function MediaNextUpCard<Episode extends MediaEpisode>(props: {
 
 function MediaEpisodeList<Episode extends MediaEpisode>(props: {
 	readonly compact: boolean;
+	readonly safeAreaTop: number;
 	readonly leadingDivider: boolean;
 	readonly episodes: readonly Episode[];
 	readonly render: MediaEpisodeRender<Episode>;
@@ -153,6 +173,7 @@ function MediaEpisodeList<Episode extends MediaEpisode>(props: {
 					episode={episode}
 					render={props.render}
 					compact={props.compact}
+					safeAreaTop={props.safeAreaTop}
 					divided={props.leadingDivider || index > 0}
 				/>
 			))}
@@ -170,6 +191,7 @@ export function MediaEpisodePages<
 >(props: {
 	readonly scope?: Scope;
 	readonly compact: boolean;
+	readonly safeAreaTop: number;
 	readonly entityId: string;
 	readonly containerId: string;
 	readonly copy: MediaEpisodePagesCopy;
@@ -191,7 +213,12 @@ export function MediaEpisodePages<
 					<>
 						{index !== 0 || nextUp === null ? null : (
 							<ManagedAssetProvider assets={mediaEpisodesManagedAssets([nextUp], render.purpose)}>
-								<MediaNextUpCard render={render} episode={nextUp} compact={props.compact} />
+								<MediaNextUpCard
+									render={render}
+									episode={nextUp}
+									compact={props.compact}
+									safeAreaTop={props.safeAreaTop}
+								/>
 							</ManagedAssetProvider>
 						)}
 						<MediaEpisodeList
@@ -199,6 +226,7 @@ export function MediaEpisodePages<
 							episodes={episodes}
 							compact={props.compact}
 							leadingDivider={index > 0}
+							safeAreaTop={props.safeAreaTop}
 						/>
 					</>
 				);

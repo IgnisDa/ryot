@@ -47,5 +47,10 @@ export const mediaEpisodeAirDateLabel = (episode: MediaEpisode) =>
 export const mediaEpisodeRuntimeLabel = (episode: MediaEpisode) =>
 	episode.runtime === null ? undefined : `${episode.runtime} min`;
 
+export const mediaEpisodeMetadataLabel = (episode: MediaEpisode) =>
+	[mediaEpisodeAirDateLabel(episode), mediaEpisodeRuntimeLabel(episode)]
+		.filter((part) => part !== undefined)
+		.join(" · ");
+
 export const mediaEpisodeNumberLabel = (episode: { readonly episodeNumber: number }) =>
 	`E${episode.episodeNumber}`;

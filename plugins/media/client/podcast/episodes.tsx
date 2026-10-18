@@ -77,6 +77,7 @@ export const podcastEpisodeCountLine = (summary: PodcastSummary | undefined) => 
 export function PodcastEpisodesTab(props: {
 	readonly compact: boolean;
 	readonly entityId: string;
+	readonly safeAreaTop: number;
 	readonly summary: PodcastSummary | undefined;
 }) {
 	const counts = podcastEpisodeCountLine(props.summary);
@@ -90,6 +91,7 @@ export function PodcastEpisodesTab(props: {
 				entityId={props.entityId}
 				containerId={props.entityId}
 				query={podcastEpisodesQuery}
+				safeAreaTop={props.safeAreaTop}
 				render={PODCAST_EPISODE_RENDER}
 				copy={PODCAST_EPISODE_PAGES_COPY}
 				nextUp={props.summary?.nextUp ?? null}
