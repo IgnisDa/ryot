@@ -14,5 +14,6 @@ Run it with `bun run assemble` from `apps/server`; its output matches the `/home
 built release image with no network. It loads the precompiled fixtures and executes real definitions through the supervisor and host-call
 gate on all six trust × snapshot keys. It verifies alias identity and mediated host calls without
 loading compiler workers. Linux uses the root-owned installation and separate sidecar UID; macOS
-reports unconfined development. `apps/server/dev.ts` coordinates local
-rebuilds and server restarts.
+reports unconfined development. Run `bun turbo --filter=@ryot-app/server dev` from the repository
+root. Turbo builds or restores dependency artifacts before server dev; `apps/server/dev.ts` assembles
+artifacts, watches local changes, and restarts the server.

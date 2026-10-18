@@ -4,6 +4,7 @@
 		"dev": { "cache": false, "persistent": true },
 		"check": { "dependsOn": ["^check", "^build"], "outputLogs": "errors-only" },
 		"test": { "outputLogs": "errors-only", "dependsOn": ["^build", "^check", "^test"] },
+		"@ryot-app/server#dev": { "cache": false, "persistent": true, "dependsOn": ["^build"] },
 		"build": {
 			"dependsOn": ["^build"],
 			"outputLogs": "errors-only",

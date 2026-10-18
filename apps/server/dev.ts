@@ -66,21 +66,6 @@ const program = Effect.gen(function* () {
 	const fs = yield* FileSystem.FileSystem;
 	const version = yield* resolveVersion;
 
-	const generated = yield* runCommand(
-		turboBuild("@ryot-app/sandbox", "@ryot-app/kernel-backend", "@ryot-app/kernel-renderers"),
-	);
-	if (generated !== 0) {
-		yield* failWith(generated);
-		return;
-	}
-	const built = yield* Effect.forEach(plugins, ({ root }) => runCommand(buildPlugin(root)), {
-		concurrency: "unbounded",
-	});
-	const failedBuild = built.find((exitCode) => exitCode !== 0);
-	if (failedBuild !== undefined) {
-		yield* failWith(failedBuild);
-		return;
-	}
 	yield* assemble;
 
 	const archiveAssembled = Stream.mergeAll(
