@@ -35,6 +35,10 @@
 			"types": "./src/event-streams.ts",
 			"default": "./src/event-streams.ts"
 		},
+		"./relationship-projections": {
+			"types": "./src/relationship-projections.ts",
+			"default": "./src/relationship-projections.ts"
+		},
 		"./fast-xml-parser": {
 			"types": "./src/fast-xml-parser.ts",
 			"default": "./src/fast-xml-parser.ts"

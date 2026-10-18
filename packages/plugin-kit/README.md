@@ -216,7 +216,9 @@ the relationship properties. Call `host.requestRelationshipProjections({ relatio
 sourceEntityIds })` from a user execution when source data changes; the owning plugin may call
 `host.requestRelationshipProjectionsForAllUsers` with the same arguments when shared data changes.
 Each processor step receives at most 100 `{ relationshipId, sourceEntityId, targetEntityId }` items
-and returns one `{ relationshipId, properties }` update per item. RyotQL reads the values through
+and returns one `{ relationshipId, properties }` update per item; use
+`RelationshipProjectionStepInput`/`RelationshipProjectionStepOutput` from
+`@ryot-app/plugin-backend-sdk/relationship-projections`. RyotQL reads the values through
 `relationship.projection` and `relationship.projectionStatus`. See
 [relationship projections](../../kernel/backend/src/modules/relationships/README.md#projections).
 | `client` | Version 1 public exports, routes, entities, dependencies, and home view |

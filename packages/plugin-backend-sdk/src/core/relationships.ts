@@ -1,4 +1,4 @@
-import { RelationshipProjectionRequest } from "@ryot-app/contract/modules/relationships/projections";
+import { RELATIONSHIP_PROJECTION_LIMITS } from "@ryot-app/contract/modules/relationships/projections";
 import { Schema } from "@ryot-app/plugin-backend-sdk/effect";
 
 import { hostResultSchema, strictStruct } from "../wire";
@@ -104,8 +104,17 @@ export const changeUserRelationshipsDataSchema = Schema.Array(changeUserRelation
 export const changeUserRelationshipsResultSchema = hostResultSchema(
 	changeUserRelationshipsDataSchema,
 );
+export const relationshipProjectionRequestSchema = strictStruct({
+	relationshipSchemaSlug: nonEmptyString,
+	sourceEntityIds: Schema.Array(sandboxIdSchema).pipe(
+		Schema.check(
+			Schema.isMinLength(1),
+			Schema.isMaxLength(RELATIONSHIP_PROJECTION_LIMITS.sourceEntities),
+		),
+	),
+});
 export const requestRelationshipProjectionsArgsSchema = Schema.Tuple([
-	RelationshipProjectionRequest,
+	relationshipProjectionRequestSchema,
 ]);
 export const requestRelationshipProjectionsDataSchema = strictStruct({ workId: nonEmptyString });
 export const requestRelationshipProjectionsResultSchema = hostResultSchema(
