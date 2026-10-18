@@ -49,11 +49,11 @@ const compilerLayer = Layer.mergeAll(
 const entry = `
 import { WorkoutEditorDraftSchema } from "../shared/workout-editor-draft";
 import { WorkoutEditorSaveInputSchema, WorkoutEditorSaveOutputSchema } from "../shared/workout-editor-operations";
-import { buildWorkoutEditorSaveInput, cloneWorkoutForRepeat, validateWorkoutDraft } from "../shared/workout-editor-transformations";
+import { buildWorkoutEditorSaveInput, cloneWorkoutEditorSource, validateWorkoutDraft } from "../shared/workout-editor-transformations";
 import { workoutEditorEntityRecipe, workoutEditorSetsRecipe, encodeWorkoutEditorBaseline, decodeWorkoutEditorBaseline } from "../shared/workout-editor-recipes";
-import { hydrateWorkoutEditorSource, cloneWorkoutEditorSource } from "../shared/workout-editor-source";
+import { hydrateWorkoutEditorSource } from "../shared/workout-editor-source";
 
-export const contracts = [WorkoutEditorDraftSchema, WorkoutEditorSaveInputSchema, WorkoutEditorSaveOutputSchema, buildWorkoutEditorSaveInput, cloneWorkoutForRepeat, validateWorkoutDraft, workoutEditorEntityRecipe, workoutEditorSetsRecipe, encodeWorkoutEditorBaseline, decodeWorkoutEditorBaseline, hydrateWorkoutEditorSource, cloneWorkoutEditorSource];
+export const contracts = [WorkoutEditorDraftSchema, WorkoutEditorSaveInputSchema, WorkoutEditorSaveOutputSchema, buildWorkoutEditorSaveInput, cloneWorkoutEditorSource, validateWorkoutDraft, workoutEditorEntityRecipe, workoutEditorSetsRecipe, encodeWorkoutEditorBaseline, decodeWorkoutEditorBaseline, hydrateWorkoutEditorSource];
 export default function WorkoutEditorContractPage() { return null; }
 `;
 

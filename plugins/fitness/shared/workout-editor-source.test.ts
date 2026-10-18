@@ -8,7 +8,8 @@ import {
 	WorkoutEditorPropertiesSchema,
 	type WorkoutEditorExercise,
 } from "./workout-editor-recipes";
-import { cloneWorkoutEditorSource, hydrateWorkoutEditorSource } from "./workout-editor-source";
+import { hydrateWorkoutEditorSource } from "./workout-editor-source";
+import { cloneWorkoutEditorSource } from "./workout-editor-transformations";
 
 const startedAt = "2026-10-15T10:00:00.000Z";
 const confirmedAt = "2026-10-15T10:10:00.000Z";

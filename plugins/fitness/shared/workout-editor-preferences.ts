@@ -30,15 +30,9 @@ export const WorkoutPreferenceSettingsSchema = Schema.Struct({
 	unitSystem: Schema.Literals(["metric", "imperial"]),
 });
 
-export const WorkoutPreferenceContextSchema = Schema.Struct({
-	global: WorkoutPreferenceSettingsSchema,
-	exerciseOverrides: WorkoutExerciseOverridesSchema,
-});
-
 export type WorkoutRestSettings = typeof WorkoutRestSettingsSchema.Type;
 export type WorkoutExerciseOverrides = typeof WorkoutExerciseOverridesSchema.Type;
 export type WorkoutPreferenceSettings = typeof WorkoutPreferenceSettingsSchema.Type;
-export type WorkoutPreferenceContext = typeof WorkoutPreferenceContextSchema.Type;
 
 const restFieldBySetLot: Record<WorkoutSetLot, keyof WorkoutRestSettings> = {
 	drop: "dropRestTime",
