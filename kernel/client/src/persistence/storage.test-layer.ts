@@ -1,5 +1,6 @@
 import { Context, Effect, Layer } from "effect";
 
+import { emptyDeviceState } from "#/modules/device/state";
 import { ClientStorage, clientStorageLayer, type BrowserStorage } from "#/persistence/storage";
 
 export const makeClientStorageStub = (
@@ -7,6 +8,7 @@ export const makeClientStorageStub = (
 ): ClientStorage["Service"] => ({
 	remove: () => Effect.void,
 	clearServerSelection: Effect.void,
+	setDeviceState: () => Effect.void,
 	setPluginValue: () => Effect.void,
 	setLastWorkspace: () => Effect.void,
 	removePluginValue: () => Effect.void,
@@ -17,6 +19,7 @@ export const makeClientStorageStub = (
 	getServerSelection: Effect.succeed(null),
 	getPluginValue: () => Effect.succeed(null),
 	getLastWorkspace: () => Effect.succeed(null),
+	getDeviceState: Effect.succeed(emptyDeviceState),
 	getRememberedProvider: () => Effect.succeed(null),
 	getThemePreference: Effect.succeed("system" as const),
 	getSavedViewLayout: () => Effect.succeed("grid" as const),

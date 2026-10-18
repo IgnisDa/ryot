@@ -151,7 +151,7 @@ shortcuts. The root registers native listeners once; the authenticated shell sup
 server/user scope. Scope changes cancel departing alerts. Notification taps wait for matching
 authentication and navigate through semantic page targets. Frame disposal releases awake demand but
 does not cancel intentional alerts. Local metadata contains only scope, installation, key/native-ID
-mapping, and shortcut targets; Fitness owns all draft data and deadline reconciliation.
+mapping, and shortcut targets; plugins own their draft data and deadline reconciliation.
 
 iOS suppresses notification presentation while foregrounded; plugins own foreground feedback.
 Returning to the app clears delivered local alerts without cancelling pending alerts or their tap

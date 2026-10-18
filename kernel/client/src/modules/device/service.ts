@@ -1,56 +1,37 @@
 import type { PreparedClientPage } from "@ryot-app/contract/modules/pages/schemas";
-import { PluginId } from "@ryot-app/contract/schema/brands";
-import {
+import type {
+	PluginDeviceOutcome,
+	PluginDeviceRequest,
+	PluginDeviceResult,
 	PluginNavigationTarget,
-	type PluginDeviceOutcome,
-	type PluginDeviceRequest,
-	type PluginDeviceResult,
 } from "@ryot-app/plugin-client-contract";
-import { Context, Data, Effect, Layer, Schema, Semaphore } from "effect";
+import { Context, Data, Effect, Layer, Semaphore } from "effect";
 
 import type { ApiScope } from "#/api/scope";
 import { apiScopeKey } from "#/api/scope";
+import {
+	emptyDeviceState,
+	MAX_ALERTS,
+	MAX_NATIVE_ALERT_ID,
+	type DeviceState,
+} from "#/modules/device/state";
 import { validatePluginLocation } from "#/modules/plugins/catalog/location";
+import { ClientStorage } from "#/persistence/storage";
 
-const nativeId = Schema.Int.check(
-	Schema.isGreaterThanOrEqualTo(1),
-	Schema.isLessThanOrEqualTo(2147483647),
-);
-const Alert = Schema.Struct({
-	id: nativeId,
-	key: Schema.String,
-	pluginId: PluginId,
-	scope: Schema.String,
-	installationId: Schema.String,
-	target: PluginNavigationTarget,
-});
-const Shortcut = Schema.Struct({
-	pluginId: PluginId,
-	scope: Schema.String,
-	label: Schema.String,
-	installationId: Schema.String,
-	target: PluginNavigationTarget,
-});
-export const DeviceState = Schema.Struct({
-	alerts: Schema.Array(Alert),
-	shortcuts: Schema.Array(Shortcut),
-	nextId: Schema.Int.check(
-		Schema.isGreaterThanOrEqualTo(1),
-		Schema.isLessThanOrEqualTo(2147483648),
-	),
-});
-export type DeviceState = typeof DeviceState.Type;
+const MAX_PATH_LENGTH = 512;
+const MAX_SEARCH_LENGTH = 1024;
+
 type ScheduleRequest = Extract<PluginDeviceRequest, { action: "schedule" }>;
 
 export class DevicePlatformError extends Data.TaggedError("DevicePlatformError")<{
 	readonly cause: unknown;
 }> {}
 
+const platformError = (cause: unknown) => new DevicePlatformError({ cause });
+
 export class DevicePlatform extends Context.Service<
 	DevicePlatform,
 	{
-		readonly read: Effect.Effect<DeviceState, DevicePlatformError>;
-		readonly write: (state: DeviceState) => Effect.Effect<void, DevicePlatformError>;
 		readonly schedule: (
 			id: number,
 			request: ScheduleRequest,
@@ -69,12 +50,13 @@ export class DevicePlatform extends Context.Service<
 export class DeviceService extends Context.Service<DeviceService>()("DeviceService", {
 	make: Effect.gen(function* () {
 		const platform = yield* DevicePlatform;
+		const storage = yield* ClientStorage;
 		const runFork = Effect.runForkWith(yield* Effect.context());
 		const mutex = Semaphore.makeUnsafe(1);
 		const listeners = new Set<() => void>();
 		const alertListeners = new Set<() => void>();
 		const demands = new Map<string, { enabled: boolean; active: boolean }>();
-		let state: DeviceState = { nextId: 1, alerts: [], shortcuts: [] };
+		let state: DeviceState = emptyDeviceState;
 		let loaded = false;
 		let activeScope: string | undefined;
 		let foreground = true;
@@ -85,12 +67,12 @@ export class DeviceService extends Context.Service<DeviceService>()("DeviceServi
 		const publish = () => listeners.forEach((listener) => listener());
 		const load = Effect.gen(function* () {
 			if (!loaded) {
-				state = yield* platform.read;
+				state = yield* storage.getDeviceState.pipe(Effect.mapError(platformError));
 				loaded = true;
 			}
 		});
 		const commit = Effect.fn("DeviceService.commit")(function* (next: DeviceState) {
-			yield* platform.write(next);
+			yield* storage.setDeviceState(next).pipe(Effect.mapError(platformError));
 			state = next;
 			publish();
 		});
@@ -207,8 +189,8 @@ export class DeviceService extends Context.Service<DeviceService>()("DeviceServi
 						}
 						if (
 							target?.kind === "plugin-route" &&
-							(target.path.length > 512 ||
-								target.search.length > 1024 ||
+							(target.path.length > MAX_PATH_LENGTH ||
+								target.search.length > MAX_SEARCH_LENGTH ||
 								!validatePluginLocation({ ...target, kind: "route" }))
 						) {
 							return { outcome: "failure", reason: "invalid-request" } as const;
@@ -252,7 +234,7 @@ export class DeviceService extends Context.Service<DeviceService>()("DeviceServi
 								yield* commit({ ...state, alerts });
 							} else {
 								const id = state.nextId;
-								if (id > 2147483647 || alerts.length >= 64) {
+								if (id > MAX_NATIVE_ALERT_ID || alerts.length >= MAX_ALERTS) {
 									return { outcome: "failure", reason: "invalid-request" } as const;
 								}
 								yield* commit({
