@@ -10,6 +10,7 @@ import {
 	fakeProviderTranslations,
 	getEntity,
 	markEntityPopulated,
+	pollUntil,
 	setUserLanguage,
 	shippedPluginTestProviders,
 } from "~/fixtures/kernel";
@@ -147,10 +148,13 @@ it.live("shows a failed Media population and repopulates it after Try again", ()
 			.getByRole("heading", { level: 1, exact: true, name: populatedName })
 			.waitFor({ state: "visible", timeout: 150_000 });
 		expect(yield* media.getByRole("alert").count).toBe(0);
-		expect((yield* getEntity(client, show.id)).populationStatus).toEqual({
-			state: "succeeded",
-			availability: "complete",
-		});
+		const populated = yield* pollUntil(
+			`show '${show.id}' population settled`,
+			getEntity(client, show.id).pipe(
+				Effect.map((entity) => (entity.populationStatus.state === "running" ? null : entity)),
+			),
+		);
+		expect(populated.populationStatus).toEqual({ state: "succeeded", availability: "complete" });
 	}).pipe(PlaywrightSpawner.withBrowser),
 );
 

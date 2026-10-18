@@ -170,12 +170,9 @@ it.live("saves exercise preferences and focuses the note composer for a review",
 
 		yield* openActionsMenu(detail);
 		yield* detail.getByRole("menuitem", { exact: true, name: "Preferences" }).click();
-		yield* visible(sheet);
-		expect(
-			yield* sheet
-				.getByRole("textbox", { exact: true, name: "Normal rest (seconds)" })
-				.inputValue(),
-		).toBe("45");
+		const rest = sheet.getByRole("textbox", { exact: true, name: "Normal rest (seconds)" });
+		yield* rest.waitForFunction((input) => input instanceof HTMLInputElement && input.value !== "");
+		expect(yield* rest.inputValue()).toBe("45");
 		yield* sheet.getByRole("button", { exact: true, name: "Cancel" }).click();
 		yield* sheet.waitFor({ state: "hidden" });
 
