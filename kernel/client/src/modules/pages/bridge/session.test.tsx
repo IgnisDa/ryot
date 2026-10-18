@@ -1898,6 +1898,7 @@ describe("plugin bridge", () => {
 					name: "Item",
 					properties: {},
 					relationships: [],
+					action: "save" as const,
 					target: { kind: "create" as const },
 					entitySchema: { slug: "item", owner: { pluginId: "fixture", kind: "plugin" as const } },
 				},

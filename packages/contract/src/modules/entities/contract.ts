@@ -42,7 +42,7 @@ export const EntitiesGroup = HttpApiGroup.make("entities")
 			],
 		}).annotate(
 			OpenApi.Description,
-			"Save a user entity and its declared outgoing relationships through its schema editor.",
+			"Save or delete a user entity and its declared relationships through its schema editor.",
 		),
 	)
 	.add(

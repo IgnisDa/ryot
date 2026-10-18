@@ -34,28 +34,39 @@ because the provider owns that data.
 
 # Entity editor saves
 
-`POST /entities/editor` saves one user-owned entity and its outgoing user relationships in one
-transaction. It is a kernel capability gated by the manifest-declared `editor` on a plugin entity
-schema (persisted with the definition and exposed as `entitySchema.editor` in RyotQL). Kernel-owned
-schemas and schemas without an editor return `invalid`. Demo users are refused.
+`POST /entities/editor` saves or deletes one user-owned entity together with its declared user
+relationships in one transaction. It is a kernel capability gated by the manifest-declared `editor`
+on a plugin entity schema (persisted with the definition and exposed as `entitySchema.editor` in
+RyotQL). Kernel-owned schemas and schemas without an editor return `invalid`. Demo users are refused.
+
+An editor lists relationships with a direction: `outgoing` links start at the edited entity,
+`incoming` links end at it, and a `parent` link is an incoming link that needs exactly one related
+entity at creation and cannot change afterwards. Relationship write policies apply to the stored
+source, so a `source-owner` parent must belong to the user. `deletable: true` allows the `delete`
+action.
 
 Authority is the authenticated user: commands use `source: "api"`, a user initiator, and a null
 write context, so writes never borrow a script principal or kernel collection authority. The owner
 is resolved with `PluginRuntimeResolver.findPluginAvailableToUser`; unavailable, not-ready,
 incompatible, or quarantined installations, other users' private plugins, and relationship slugs
-that the user-effective `editor` does not list (or that the owner does not source from this schema)
-return `invalid`. The check runs before preparation and again inside the commit transaction under
-the shared ingestion lock.
+that the user-effective `editor` does not list (or whose declared end is not this schema) return
+`invalid`. The check runs before preparation and again inside the commit transaction under the
+shared ingestion lock.
 
 The request carries `idempotencyKey` and `submittedAt`. The execution ID hashes the account
-generation, `entity-editor:save`, the schema reference, and the key; `submittedAt` becomes the
-command's `occurredAt`. The single `entity-editor:save` receipt retains the entity ID and dispatch
-list, so an identical retry replays the result and re-dispatches, while the same key with a
-different body fails with `EntityEditorRefused` (409). Updates carry the loaded entity snapshot
-and the original outgoing user relationship groups for every submitted schema, including empty
-groups. Relationship baselines compare targets and properties independently of array order.
-Changes since loading or during save preparation return `stale`; no entity or relationship diff
-is committed. Baseline and submitted schemas must match. Invalid properties/assets, immutable changes,
-duplicate targets, over 200 targets, or over 100 changes return `invalid`. Update targets that are
-not the user's own entity of the schema fail with `EntityNotFound`; other declared entity and
-relationship failures are typed endpoint errors.
+generation, the action, the schema reference, and the key; `submittedAt` becomes the command's
+`occurredAt`. The single `entity-editor:save` receipt retains the entity ID and dispatch list, so an
+identical retry replays the result and re-dispatches, while the same key with a different body fails
+with `EntityEditorRefused` (409). Updates carry the loaded entity snapshot and the original user
+relationship groups for every submitted schema, including empty groups. Relationship baselines
+compare related entities and properties independently of array order. Changes since loading or
+during save preparation return `stale`; no entity or relationship diff is committed. Baseline and
+submitted schemas must match. Invalid properties/assets, immutable changes, duplicate targets, over
+200 targets, or over 100 changes return `invalid`. Update targets that are not the user's own entity
+of the schema fail with `EntityNotFound`; other declared entity and relationship failures are typed
+endpoint errors.
+
+A delete carries the loaded `updatedAt`; a newer entity returns `stale`. It returns `invalid` when the
+entity has any history or any user relationship other than its declared editor links, so children
+must be removed first. Entity deletion re-checks history in its commit transaction and never cascades
+events. Identical retries replay through the entity delete receipts.

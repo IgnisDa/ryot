@@ -232,14 +232,24 @@ indexes fail the workflow. Episode lookup uses one database query per reference 
 unambiguous visible candidate. Podcast references can match an episode number or an exact title
 within the resolved podcast; local source episode indexes are not provider episode numbers.
 
-Every editable media/group/creator schema declares `/<schema>/new`, `/<schema>/$entityId/edit`, and a manifest `editor` generated
-from `shared/media-entity-editors.ts`, listing only its owned outgoing relationships; seasons,
-episodes, and incoming credits are not editable. The shared entity editor saves through the kernel
-editor save; the existing creation hook adds library membership. Relationship targets are chosen in
-the kernel entity picker for the target schema. Custom media, creator, and group details expose
-**Edit** only for owned, non-provider entities with an editor declaration. Saves retain declared
-fields, nested values, assets, and untouched links. Entity and outgoing-link baselines reject stale
-edits without overwriting newer work. Duplicate actions are not provided.
+Every editable media/group/creator/child schema declares `/<schema>/new`, `/<schema>/$entityId/edit`,
+and a manifest `editor` generated from `shared/media-entity-editors.ts`. Media and group editors own
+their outgoing genre, related-game, and member links; media and credit-bearing group editors also own
+incoming person and company credits, so creator editors declare no links. Show seasons, show episodes,
+and podcast episodes declare their container link as a `parent` and are deletable. The shared entity
+editor saves through the kernel editor save; the creation hook adds library membership except for
+these children. Relationship targets are chosen in the kernel entity picker for the related schema.
+Custom media, creator, and group details expose **Edit** only for owned, non-provider entities with an
+editor declaration. Saves retain declared fields, nested values, assets, and untouched links. Entity
+and relationship baselines reject stale edits without overwriting newer work. Duplicate actions are
+not provided.
+
+Container links declare `userWritePolicy: source-owner`, so only owned custom shows, seasons, and
+podcasts receive user children; provider inventories stay read-only. Episodes tabs of owned custom
+parents offer **Add season**, **Add episode**, **Edit season**, and **Edit episode**; create routes
+carry `parent` plus starting `seasonNumber`/`episodeNumber` search values. Season numbers are
+immutable after creation, so episode season numbers match their season. Deletion is refused while
+an episode has history or a season has episodes.
 
 The API-source before policy `media.custom-publish-year` derives a missing `publishYear` from a
 valid full `publishDate` on custom media creation and update, including direct API writes. An

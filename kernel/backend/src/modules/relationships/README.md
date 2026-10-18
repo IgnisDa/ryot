@@ -12,8 +12,8 @@ A relationship schema may declare `userWritePolicy: "source-owner"`. User-scoped
 and deletes then require the source entity to belong to the writing user; a visible global target
 is allowed. Omitted policy retains annotation-style relationships from visible global sources.
 The shared mutation validator enforces the restriction during preparation and commit, using the
-stricter of pinned and active declarations. Prepared editor sources use their verified creation
-token until persistence can read the stored source. Authorized global writes remain governed by
+stricter of pinned and active declarations. A prepared editor endpoint created in the same commit uses its verified
+creation token until persistence can read the stored entity. Authorized global writes remain governed by
 their existing plugin and execution authority; this rule neither grants global authority nor runs
 a sandbox policy during provider reconciliation.
 

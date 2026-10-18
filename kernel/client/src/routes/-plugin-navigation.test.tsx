@@ -1119,6 +1119,7 @@ describe("client page routes", () => {
 			expect(form.isConnected).toBe(false);
 			expect(requests).toHaveLength(2);
 			expect(requests[0]?.submission).toEqual({
+				action: "save",
 				name: "Rotator",
 				relationships: [],
 				entitySchema: unitSchema,

@@ -107,6 +107,44 @@ const editorPackage = (options: { readonly policy?: boolean } = {}) => {
 				{ ...declaration("item", itemProperties), editor: itemEditor },
 				{ ...declaration("part", titleProperties), editor: partEditor },
 			],
+			hooks: [
+				...source.manifest.hooks.map((hook) =>
+					Object.assign({}, hook, {
+						targets: [
+							{ resource: "entity", operation: "create", entitySchemaSlug: "item" },
+							{ resource: "entity", operation: "update", entitySchemaSlug: "item" },
+							{
+								operation: "create",
+								resource: "relationship",
+								relationshipSchemaSlug: "item-part",
+							},
+							{
+								operation: "delete",
+								resource: "relationship",
+								relationshipSchemaSlug: "item-part",
+							},
+							{ operation: "emit", resource: "signal", signalSchemaSlug: "editor.signal" },
+						] as const,
+					}),
+				),
+				...(options.policy
+					? [
+							{
+								name: "Policy",
+								slug: "editor-policy",
+								scriptSlug: policy.slug,
+								stage: "before" as const,
+								targets: [
+									{
+										entitySchemaSlug: "item",
+										resource: "entity" as const,
+										operation: "update" as const,
+									},
+								],
+							},
+						]
+					: []),
+			],
 			relationshipSchemas: [
 				{
 					name: "Parts",
@@ -150,44 +188,6 @@ const editorPackage = (options: { readonly policy?: boolean } = {}) => {
 					targetEntitySchemaSlug: null,
 					propertiesSchema: { fields: {} },
 				},
-			],
-			hooks: [
-				...source.manifest.hooks.map((hook) =>
-					Object.assign({}, hook, {
-						targets: [
-							{ resource: "entity", operation: "create", entitySchemaSlug: "item" },
-							{ resource: "entity", operation: "update", entitySchemaSlug: "item" },
-							{
-								operation: "create",
-								resource: "relationship",
-								relationshipSchemaSlug: "item-part",
-							},
-							{
-								operation: "delete",
-								resource: "relationship",
-								relationshipSchemaSlug: "item-part",
-							},
-							{ operation: "emit", resource: "signal", signalSchemaSlug: "editor.signal" },
-						] as const,
-					}),
-				),
-				...(options.policy
-					? [
-							{
-								name: "Policy",
-								slug: "editor-policy",
-								scriptSlug: policy.slug,
-								stage: "before" as const,
-								targets: [
-									{
-										entitySchemaSlug: "item",
-										resource: "entity" as const,
-										operation: "update" as const,
-									},
-								],
-							},
-						]
-					: []),
 			],
 		},
 	};
@@ -258,8 +258,8 @@ const submission = (
 	owner: PluginId,
 	input: Partial<EntityEditorSaveSubmission> & Pick<EntityEditorSaveSubmission, "target">,
 ): EntityEditorSaveSubmission => ({
-	action: "save",
 	name: "Item",
+	action: "save",
 	relationships: [],
 	properties: { code: "c", title: "Item" },
 	entitySchema: { slug: item, owner: definitionOwner(owner) },
@@ -289,8 +289,8 @@ const partSubmission = (
 	});
 
 const childGroup = (id: string) => ({
-	relationshipSchemaSlug: "item-child",
 	targets: [target(id)],
+	relationshipSchemaSlug: "item-child",
 });
 
 const extraGroup = (...ids: ReadonlyArray<string>) => ({
@@ -1397,7 +1397,7 @@ describe("EntityEditorService", () => {
 				state.relationshipRows
 					.filter(({ targetEntityId }) => targetEntityId === partId)
 					.map((row) => [row.relationshipSchemaSlug, row.sourceEntityId, row.userId])
-					.sort(),
+					.sort((left, right) => left.join(",").localeCompare(right.join(","))),
 			);
 			expect(yield* incoming).toEqual([
 				["item-child", "parent-a", userId],
@@ -1473,18 +1473,22 @@ describe("EntityEditorService", () => {
 			const afterDelete = yield* tablesState;
 			expect(afterDelete.entityRows.some(({ id }) => id === clean.entityId)).toBe(false);
 			expect(
-				afterDelete.relationshipRows.some(({ targetEntityId }) => targetEntityId === clean.entityId),
+				afterDelete.relationshipRows.some(
+					({ targetEntityId }) => targetEntityId === clean.entityId,
+				),
 			).toBe(false);
 
 			const historied = yield* createChild("historied-child");
 			yield* session.run((db) =>
-				db.insert(tables.event).values({
-					userId,
-					id: "history-event",
-					occurredAt: new Date(),
-					eventSchemaSlug: "unknown",
-					entityId: historied.entityId,
-				}),
+				db
+					.insert(tables.event)
+					.values({
+						userId,
+						id: "history-event",
+						occurredAt: new Date(),
+						eventSchemaSlug: "unknown",
+						entityId: historied.entityId,
+					}),
 			);
 			expect(
 				(yield* submitDelete(editor, "historied-delete", { owner, ...historied })).output,
@@ -1496,13 +1500,15 @@ describe("EntityEditorService", () => {
 
 			const linked = yield* createChild("linked-child");
 			yield* session.run((db) =>
-				db.insert(tables.relationship).values({
-					userId,
-					sourceEntityId: linked.entityId,
-					targetEntityId: linked.entityId,
-					relationshipSchemaSlug: "part-link",
-					relationshipSchemaPluginId: owner,
-				}),
+				db
+					.insert(tables.relationship)
+					.values({
+						userId,
+						sourceEntityId: linked.entityId,
+						targetEntityId: linked.entityId,
+						relationshipSchemaPluginId: owner,
+						relationshipSchemaSlug: "part-link",
+					}),
 			);
 			expect((yield* submitDelete(editor, "linked-delete", { owner, ...linked })).output).toEqual({
 				kind: "invalid",

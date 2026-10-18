@@ -674,6 +674,7 @@ describe("plugin client bridge contract", () => {
 			type: "entity-editor-save-request" as const,
 			submission: {
 				name: "Item",
+				action: "save",
 				properties: {},
 				relationships: [],
 				target: { kind: "create" },
@@ -685,7 +686,23 @@ describe("plugin client bridge contract", () => {
 		expect(Result.isFailure(decodeClient({ ...request, userId: "user-controlled" }))).toBe(true);
 		expect(Result.isFailure(decodeClient({ ...request, submittedAt: "yesterday" }))).toBe(true);
 		expect(Result.isFailure(decodeClient({ ...request, idempotencyKey: "" }))).toBe(true);
+		expect(
+			Result.isSuccess(
+				decodeClient({
+					...request,
+					submission: {
+						entityId: "e-1",
+						action: "delete",
+						expectedUpdatedAt: "2026-10-19T00:00:00.000Z",
+						entitySchema: request.submission.entitySchema,
+					},
+				}),
+			),
+		).toBe(true);
 		const result = { requestId: "save-1", type: "entity-editor-save-result" };
+		expect(
+			Result.isSuccess(decodeHost({ ...result, outcome: "success", output: { kind: "deleted" } })),
+		).toBe(true);
 		expect(
 			Result.isSuccess(
 				decodeHost({ ...result, outcome: "success", output: { kind: "saved", entityId: "e-1" } }),
