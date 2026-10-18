@@ -18,20 +18,17 @@ import { fitnessPlugin } from "./plugin";
 const expectedImportSources = [
 	{
 		slug: "hevy",
-		timezone: true,
 		label: "Hevy export",
 		docsUrl: "https://docs.ryot.io/importing/hevy.html",
 		description: "Import workouts from a Hevy CSV export",
 	},
 	{
-		timezone: true,
 		slug: "strong_app",
 		label: "Strong App export",
 		description: "Import workouts from a Strong CSV export",
 		docsUrl: "https://docs.ryot.io/importing/strong-app.html",
 	},
 	{
-		timezone: false,
 		slug: "open_scale",
 		label: "OpenScale export",
 		docsUrl: "https://docs.ryot.io/importing/open-scale.html",
@@ -326,6 +323,14 @@ it("declares the complete fitness-owned source", () => {
 		expect(source.inputSchema).toEqual({
 			unknownKeys: "strict",
 			fields: {
+				timezone: {
+					position: 1,
+					type: "string",
+					label: "Timezone",
+					format: { kind: "timezone" },
+					validation: { required: true },
+					description: expect.any(String),
+				},
 				uploadToken: {
 					position: 0,
 					type: "string",
@@ -334,25 +339,13 @@ it("declares the complete fitness-owned source", () => {
 					validation: { minLength: 1, required: true },
 					format: { kind: "upload", allowedFileExtensions: ["csv"] },
 				},
-				...(expected.timezone
-					? {
-							timezone: {
-								position: 1,
-								type: "string",
-								label: "Timezone",
-								format: { kind: "timezone" },
-								validation: { required: true },
-								description: expect.any(String),
-							},
-						}
-					: {}),
 			},
 		});
 		expect(() =>
-			Schema.decodeUnknownSync(FitnessCreateImportRunBody)({
+			Schema.decodeSync(FitnessCreateImportRunBody)({
 				source: source.slug,
 				uploadToken: "upload-1",
-				...(expected.timezone ? { timezone: "Asia/Kolkata" } : {}),
+				timezone: "Asia/Kolkata",
 			}),
 		).not.toThrow();
 	}

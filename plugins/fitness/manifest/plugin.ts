@@ -153,7 +153,10 @@ export const fitnessPlugin = definePlugin({
 				workflowSlug: "import",
 				exportHelp: importDocs("open-scale"),
 				description: "Import measurements from an OpenScale CSV export",
-				inputSchema: uploadInputSchema("OpenScale export", "OpenScale measurements export CSV"),
+				inputSchema: timezoneUploadInputSchema(
+					"OpenScale export",
+					"OpenScale measurements export CSV",
+				),
 			},
 		] as const
 	).map((source) =>

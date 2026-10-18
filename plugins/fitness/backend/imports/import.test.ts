@@ -457,6 +457,25 @@ it("applies more than one OpenScale batch with original row identities and measu
 		),
 	));
 
+it("pins the admitted OpenScale timezone through normalization and application", () =>
+	Effect.runPromise(
+		runImport("open_scale", "dateTime,Weight\n2026-04-01 08:00:00,75").pipe(
+			Effect.map((result) => {
+				expect(result.requests).toContainEqual(
+					expect.objectContaining({
+						kind: "activity",
+						args: expect.objectContaining({
+							input: expect.objectContaining({ action: "normalize", timezone: "Asia/Kolkata" }),
+						}),
+					}),
+				);
+				expect(result.chunks.flatMap((chunk) => chunk.items)[0]?.events).toMatchObject([
+					{ occurredAt: "2026-04-01T02:30:00.000Z" },
+				]);
+			}),
+		),
+	));
+
 it("keeps failures of one workout distinct when its only exercise cannot be imported", () =>
 	Effect.runPromise(
 		runImport(

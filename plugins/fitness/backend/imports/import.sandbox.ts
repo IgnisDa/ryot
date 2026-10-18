@@ -79,7 +79,6 @@ export default defineWorkflow({
 			}
 			const parser = selectExecutable(fitnessParsers, input.plan.selection["source-parser"]);
 			const settings = yield* replay.activity("settings", settingsReference, {
-				source: input.source,
 				artifactHandle: input.sourcePayloadHandle,
 			});
 			let ordinal = 64;

@@ -18,10 +18,39 @@ import {
 	startOpenScaleImport,
 	findFitnessEntitySchema,
 } from "~/fixtures/plugins/fitness";
-import { assertTaggedError, requirePresent } from "~/support/assertions";
+import { assertCompleted, assertTaggedError, requirePresent } from "~/support/assertions";
 import { describe, expect, it } from "~/support/effect-test";
 
 describe("OpenScale Import E2E", () => {
+	it.live("uses the admitted export timezone and preserves explicit timestamp offsets", () =>
+		Effect.gen(function* () {
+			const { token, client } = yield* createAuthenticatedClient();
+			const { pluginId } = yield* findFitnessEntitySchema(client, "measurement-metric");
+			const uploadToken = yield* uploadImportFile(
+				token,
+				"dateTime,weight\n2026-04-01 08:00:00,75\n2026-04-02T08:00:00+02:00,76\n",
+				"openscale-timezones.csv",
+				"text/csv",
+			);
+			const runId = yield* startOpenScaleImport(client, pluginId, {
+				uploadToken,
+				timezone: "Asia/Kolkata",
+			});
+			assertCompleted(
+				yield* pollImportRunUntilTerminal(client, runId),
+				"OpenScale timezone import",
+			);
+			const readings = yield* executeRyotQLRecipe(
+				client,
+				measurementReadingListRecipe({ limit: 20, reference: { pluginId, kind: "local" } }),
+			);
+			expect(readings.items.map(({ occurredAt }) => occurredAt)).toEqual([
+				"2026-04-02T06:00:00.000Z",
+				"2026-04-01T02:30:00.000Z",
+			]);
+		}),
+	);
+
 	it.live("reuses a manually created weight metric", () =>
 		Effect.gen(function* () {
 			const { token, client } = yield* createAuthenticatedClient();
@@ -166,6 +195,7 @@ describe("OpenScale Import E2E", () => {
 
 			const error = yield* Effect.flip(
 				createFitnessImportRun(client, pluginId, {
+					timezone: "UTC",
 					source: "open_scale",
 					uploadToken: "bogus-token",
 				}),
@@ -188,7 +218,11 @@ describe("OpenScale Import E2E", () => {
 			);
 
 			const error = yield* Effect.flip(
-				createFitnessImportRun(client, pluginId, { uploadToken, source: "open_scale" }),
+				createFitnessImportRun(client, pluginId, {
+					uploadToken,
+					timezone: "UTC",
+					source: "open_scale",
+				}),
 			);
 
 			assertTaggedError(error, "ImportRequestError");
@@ -217,7 +251,7 @@ describe("OpenScale Import E2E", () => {
 
 			const uploadToken = yield* uploadImportFile(token, badCsv, "openscale-bad.csv", "text/csv");
 
-			const runId = yield* startOpenScaleImport(client, pluginId, { uploadToken });
+			const runId = yield* startOpenScaleImport(client, pluginId, { uploadToken, timezone: "UTC" });
 			const completedRun = yield* pollImportRunUntilTerminal(client, runId);
 
 			expect(completedRun.status).toBe("completed");

@@ -342,7 +342,7 @@ const normalize = Effect.fn(function* (
 		} else if (source === "strong_app") {
 			result = adaptStrongAppRows(rows, input.timezone);
 		} else {
-			result = adaptOpenScaleRows(rows, Object.keys(rows[0]?.row ?? {}));
+			result = adaptOpenScaleRows(rows, Object.keys(rows[0]?.row ?? {}), input.timezone);
 		}
 		const unit = source === "open_scale" ? "measurements" : "workouts";
 		for (const failure of result.failures) {

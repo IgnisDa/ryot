@@ -12,7 +12,7 @@ const createFitnessImportRunBody = <const Source extends FitnessCreateImportRunB
 	body: Extract<FitnessCreateImportRunBody, { readonly source: Source }>,
 ) => ({ ...body, source: { slug: body.source, owner: definitionOwner("fitness-owner") } });
 const sources = [
-	["open_scale", { uploadToken, source: "open_scale" }],
+	["open_scale", { timezone, uploadToken, source: "open_scale" }],
 	["hevy", { timezone, uploadToken, source: "hevy" }],
 	["strong_app", { timezone, uploadToken, source: "strong_app" }],
 ] as const;
@@ -31,7 +31,7 @@ it.each(sources)(
 	},
 );
 
-it.each(["hevy", "strong_app"] as const)("requires a timezone for %s", (source) => {
+it.each(["open_scale", "hevy", "strong_app"] as const)("requires a timezone for %s", (source) => {
 	expect(() =>
 		Schema.decodeUnknownSync(FitnessCreateImportRunBody)({ source, uploadToken }),
 	).toThrow();
