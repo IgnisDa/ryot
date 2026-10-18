@@ -6,7 +6,7 @@ import { DatabaseSession } from "#platform/db/session";
 import * as tables from "#schema/tables/combined";
 import { isolatedDatabaseLayer } from "#testing/isolated-database";
 
-import { EventStreamRepository, type StreamKey } from "./stream-repository";
+import { eventStreamId, EventStreamRepository, type StreamKey } from "./stream-repository";
 
 const streamKey = (userId: UserId, entityId: EntityId, eventSchemaSlug = "review"): StreamKey => ({
 	userId,
@@ -52,6 +52,32 @@ const seed = (suffix: string) =>
 const databaseLayer = EventStreamRepository.layer.pipe(
 	Layer.provideMerge(isolatedDatabaseLayer("event_stream_repository")),
 );
+
+layer(
+	EventStreamRepository.layer.pipe(
+		Layer.provideMerge(isolatedDatabaseLayer("event_stream_candidate_batch")),
+	),
+)((test) => {
+	test.effect("selects up to 500 pending streams per default dispatch batch", () =>
+		Effect.gen(function* () {
+			const session = yield* DatabaseSession;
+			const repository = yield* EventStreamRepository;
+			const { key, ...work } = requestInput((yield* seed("candidate-batch")).key);
+			const streams = Array.from({ length: 501 }, (_, index) => {
+				const stream = { ...key, eventSchemaSlug: EventSchemaSlug.make(`batch-${index}`) };
+				return { ...stream, id: eventStreamId(stream) };
+			}).sort((left, right) => left.id.localeCompare(right.id));
+			yield* session.run((db) => db.insert(tables.eventStream).values(streams));
+			yield* session.run((db) =>
+				db.insert(tables.eventStreamWork).values(streams.map(({ id }) => ({ ...work, id }))),
+			);
+
+			expect((yield* repository.listCandidates()).map(({ id }) => id)).toEqual(
+				streams.slice(0, 500).map(({ id }) => id),
+			);
+		}),
+	);
+});
 
 layer(databaseLayer)((test) => {
 	test.effect("rebuilds completed projections when only their configuration pin changes", () =>
