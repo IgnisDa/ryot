@@ -105,7 +105,7 @@ export function TwoFactorManagement(props: {
 	}
 
 	const doneButton = (
-		<Button type="button" variant="text" onClick={props.onDone}>
+		<Button type="button" variant="ghost" onClick={props.onDone}>
 			Done
 		</Button>
 	);
@@ -115,7 +115,7 @@ export function TwoFactorManagement(props: {
 			<ManagementPanel subtitle="Scan this QR code with your authenticator app, then enter the 6-digit code it shows.">
 				<TotpEnrollmentDetails enrollment={view.enrollment} />
 				<TotpCodeForm onSubmit={(code) => confirmEnrollment(view.enrollment, code)} />
-				<Button type="button" variant="text" onClick={() => setView({ kind: "overview" })}>
+				<Button type="button" variant="ghost" onClick={() => setView({ kind: "overview" })}>
 					Cancel
 				</Button>
 			</ManagementPanel>
@@ -130,7 +130,7 @@ export function TwoFactorManagement(props: {
 					pending={content.pending}
 					onSubmit={() => confirmAction(view.action)}
 				/>
-				<Button type="button" variant="text" onClick={() => setView({ kind: "overview" })}>
+				<Button type="button" variant="ghost" onClick={() => setView({ kind: "overview" })}>
 					Cancel
 				</Button>
 			</ManagementPanel>

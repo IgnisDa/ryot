@@ -22,9 +22,9 @@ type ModalProps = {
 	readonly backEnabled?: boolean;
 	readonly scrimClassName?: string;
 	readonly containerClassName?: string;
-	readonly onInterceptBack?: () => boolean;
-	readonly triggerRef?: RefObject<HTMLElement | null>;
-	readonly initialFocusRef?: RefObject<HTMLElement | null>;
+	readonly onInterceptBack?: (() => boolean) | undefined;
+	readonly triggerRef?: RefObject<HTMLElement | null> | undefined;
+	readonly initialFocusRef?: RefObject<HTMLElement | null> | undefined;
 };
 
 export function Modal({

@@ -534,7 +534,7 @@ export function EntityBrowserController<Meta>({
 						</span>
 						{current.pageInfo?.hasMore && !showCount && count && (
 							<Button
-								variant="text"
+								variant="ghost"
 								onClick={() => setShowCount(true)}
 								className="text-sm text-accent-text"
 							>
@@ -596,7 +596,7 @@ export function EntityBrowserController<Meta>({
 							className="flex items-center justify-center gap-3 text-sm text-danger"
 						>
 							<span>More results could not be loaded.</span>
-							<Button variant="text" className="text-sm" onClick={result.refetch}>
+							<Button variant="ghost" className="text-sm" onClick={result.refetch}>
 								Retry
 							</Button>
 						</div>

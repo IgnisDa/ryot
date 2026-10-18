@@ -34,6 +34,56 @@ accept upload transport as a prop, keeping this package independent of auth, ser
 capabilities. Tint extraction requires CORS-readable images and silently returns no tint when image,
 canvas, or CORS access fails.
 
+## Visual Foundations
+
+Structure comes from spacing first, then hairline dividers, then a surface. A filled surface marks a
+real object (an exercise, a settings group, a dialog), and surfaces nest at most one level. Shadows are
+reserved for things that float: menus, tooltips, and dialogs.
+
+| Role       | Tokens                                                                       |
+| ---------- | ---------------------------------------------------------------------------- |
+| Canvas     | `bg` page, `surface` cards and inputs, `raised` overlays                     |
+| Fills      | `surface-2` neutral buttons, cells, tracks; `surface-3` their hover; `hover` |
+| Lines      | `border` dividers, `border-card` card edges, `border-emphasis` outlines      |
+| Boundaries | `border-strong` input and control edges (3:1)                                |
+| Text       | `text`, `text-muted`, `text-subtle`                                          |
+| Accent     | `accent` fill with `accent-ink`, `accent-text` text, `accent-deep` controls  |
+| Status     | `success`, `danger`, `warning`, `info`, each with a `-soft` background       |
+
+Both themes use the same warm neutral family. Dark cards drop their edge (`border-card` matches the
+surface) and rely on tone. `palette-contrast.test.ts` keeps text pairs at 4.5:1 and boundaries at 3:1.
+
+Type uses Geist for UI and Lora only for page and media titles. Roles: `text-display` (36/42),
+`text-title` (28/34), `text-heading` (18/24), `text-metric` (22/26), and `text-timer` (32/36); body
+copy is `text-sm`, labels 13px medium, captions `text-xs`. Digits that change use `tabular-nums`.
+
+Controls are 36px (`md`) and 32px (`sm`) on fine pointers and grow to 44px and 40px under
+`pointer-coarse:`, which also raises text inputs to 16px. Size by pointer, never by viewport, because a
+plugin iframe's width does not describe the device. Radii are `sm` 6 (small buttons, cells, menu
+items), `md` 8 (buttons, inputs, artwork), `lg` 12 (cards, groups, menus), and `xl` 16 (dialogs).
+Motion is 100ms for state, 150ms for toggles, and 200–240ms for entering overlays, with one ease-out
+curve.
+
+## Component Usage
+
+- `Button`: `primary` is the single next step in a region; `secondary` (neutral fill) is for frequent
+  actions; `outline` sits on artwork or tinted rows; `ghost` is for toolbars and tertiary actions;
+  `danger` is the final destructive confirmation and `dangerGhost` the destructive entry in a list.
+  `loading` keeps the label for assistive technology and blocks activation. `IconButton` requires a
+  label.
+- `Field` labels one control and wires its hint and error through `aria-describedby`. `TextField` and
+  `TextArea` are form inputs; `CellInput` is the borderless filled cell for repeated numeric entry.
+- `Switch` applies immediately; `Checkbox` and `Radio` belong to saved forms; `SegmentedControl`
+  switches 2–4 modes; `Tabs` switches content areas of one object, and the caller renders one
+  `tabpanel` with the given `panelId`, labelled by `tabId(panelId, value)`.
+- `Card` frames an object; `RowGroup` with `Row` holds settings and fact lists as divided rows.
+- `Badge` tones encode status with a dot and text, never color alone. `Notice` is persistent inline
+  feedback; danger notices are alerts. `EmptyState` and `Skeleton` cover empty and loading content.
+- `Dialog` is the standard modal panel, centred or as a side sheet, built on `Modal`. `Tooltip` names
+  icon-only controls for fine pointers and is hidden on touch.
+- `DataTable` stays unstyled; tables use 12px subtle headers, divided rows, `hover` row fill, and
+  right-aligned tabular numbers.
+
 ## Markdown
 
 `MarkdownContent` takes `text` and an `onOpenLink(url)` callback. It renders paragraphs, emphasis,

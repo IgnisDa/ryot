@@ -33,15 +33,17 @@ export function SegmentedControl<T extends string>({
 			options={options}
 			onChange={onChange}
 			className={clsx(
-				"flex h-9 items-center rounded-full bg-surface-2 p-0.75 md:h-8.5 md:items-stretch md:rounded-md md:border md:border-border-strong",
+				"inline-flex h-9 items-stretch gap-0.5 rounded-md bg-surface-2 p-0.5 pointer-coarse:h-11",
 				className,
 			)}
 			renderOption={(option, selected) => ({
 				content: option.content,
 				className: clsx(
-					"flex h-7 items-center justify-center rounded-full border border-transparent md:rounded-sm",
-					optionClassName ?? "w-9.5 md:w-7.5",
-					selected ? "bg-raised text-accent-text shadow-sm" : "text-text-muted",
+					"flex items-center justify-center gap-1.5 rounded-sm text-[13px] font-medium transition-colors duration-100 motion-reduce:transition-none",
+					optionClassName ?? "w-8 pointer-coarse:w-10",
+					selected
+						? "bg-raised text-text shadow-sm ring-1 ring-border"
+						: "text-text-muted hover:text-text",
 				),
 			})}
 		/>

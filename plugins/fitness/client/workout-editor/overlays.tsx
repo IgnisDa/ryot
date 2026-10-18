@@ -309,7 +309,7 @@ export function SupersetOverlay(props: {
 						Edit superset
 					</Button>
 					<Button
-						variant="text"
+						variant="ghost"
 						onClick={() =>
 							props.onChange((draft) => ({
 								...draft,
