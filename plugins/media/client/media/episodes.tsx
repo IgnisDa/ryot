@@ -187,7 +187,6 @@ function MediaEpisodeList<Episode extends MediaEpisode>(props: {
 	readonly log: MediaEpisodeLog;
 	readonly compact: boolean;
 	readonly safeAreaTop: number;
-	readonly leadingDivider: boolean;
 	readonly episodes: readonly Episode[];
 	readonly render: MediaEpisodeRender<Episode>;
 }) {
@@ -198,10 +197,10 @@ function MediaEpisodeList<Episode extends MediaEpisode>(props: {
 					log={props.log}
 					key={episode.id}
 					episode={episode}
+					divided={index > 0}
 					render={props.render}
 					compact={props.compact}
 					safeAreaTop={props.safeAreaTop}
-					divided={props.leadingDivider || index > 0}
 				/>
 			))}
 		</div>
@@ -236,10 +235,10 @@ export function MediaEpisodePages<
 			getPageInput={(input, after) => ({ ...input, after })}
 			assets={(episodes) => mediaEpisodesManagedAssets(episodes, render.purpose)}
 			input={{ ...props.scope, entityId: props.entityId, containerId: props.containerId }}
-			renderPage={(episodes, index) => {
+			renderItems={(episodes) => {
 				return (
 					<>
-						{index !== 0 || nextUp === null ? null : (
+						{nextUp === null ? null : (
 							<ManagedAssetProvider assets={mediaEpisodesManagedAssets([nextUp], render.purpose)}>
 								<MediaNextUpCard
 									log={props.log}
@@ -255,7 +254,6 @@ export function MediaEpisodePages<
 							render={render}
 							episodes={episodes}
 							compact={props.compact}
-							leadingDivider={index > 0}
 							safeAreaTop={props.safeAreaTop}
 						/>
 					</>

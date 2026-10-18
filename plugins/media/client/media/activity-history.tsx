@@ -8,6 +8,8 @@ import { type MediaCursorPage, mediaCursorPageError } from "./cursor-page-state"
 import { MediaCursorPages } from "./cursor-pages";
 import { MediaDetailModalButton } from "./detail-modal";
 
+const HISTORY_PAGE_SIZE = 100;
+
 type HistoryPageInput = { readonly entityId: string; readonly after: string | null };
 
 export type MediaHistoryRecipe<Event> = (
@@ -22,7 +24,7 @@ export const createMediaHistoryQuery = <Event,>(
 		({ input, client }) =>
 			client.data.query(
 				recipe({
-					limit: 60,
+					limit: HISTORY_PAGE_SIZE,
 					entityId: input.entityId,
 					before: input.after ?? undefined,
 					reference: client.pluginIdentity(PLUGIN_PACKAGE_ID),
@@ -41,7 +43,7 @@ export function MediaHistoryButton<Event>(props: {
 	readonly compact: boolean;
 	readonly safeAreaTop: number;
 	readonly query: RyotQuery<HistoryPageInput, MediaCursorPage<Event>>;
-	readonly renderPage: (items: readonly Event[], compact: boolean) => ReactNode;
+	readonly renderItems: (items: readonly Event[], compact: boolean) => ReactNode;
 }) {
 	return (
 		<MediaDetailModalButton
@@ -57,7 +59,7 @@ export function MediaHistoryButton<Event>(props: {
 					query={props.query}
 					input={{ entityId: props.entityId }}
 					getPageInput={(input, after) => ({ ...input, after })}
-					renderPage={(items) => props.renderPage(items, props.compact)}
+					renderItems={(items) => props.renderItems(items, props.compact)}
 					copy={{
 						empty: "No activity found.",
 						error: (state) => mediaCursorPageError({ state, noun: "activities" }),

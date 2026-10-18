@@ -25,7 +25,7 @@ type MediaCursorPagesProps<Item, Selection, Input> = {
 	readonly getPageInput: (input: Selection, after: string | null) => Input;
 	readonly query: RyotQuery<Input, MediaCursorPage<Item>>;
 	readonly assets: (items: readonly Item[]) => readonly ManagedAssetLocator[];
-	readonly renderPage: (items: readonly Item[], index: number) => ReactNode;
+	readonly renderItems: (items: readonly Item[]) => ReactNode;
 };
 
 const mediaCursorPageFailure = (error: Error | null): MediaCursorPageFailure => ({
@@ -55,20 +55,16 @@ export function MediaCursorPages<Item, Selection, Input>(
 			/>
 		);
 	}
-	if (result.pages[0]?.items.length === 0) {
+	const items = result.pages.flatMap((page) => page.items);
+	if (items.length === 0) {
 		return <p className="font-ui text-[13px] text-text-muted">{props.copy.empty}</p>;
 	}
 	return (
 		<>
 			{result.errorOperation === "refresh" ? <MediaRefreshStatus result={result} /> : null}
-			{result.pages.map((page, index) => (
-				<ManagedAssetProvider
-					assets={props.assets(page.items)}
-					key={JSON.stringify(result.pageParams[index])}
-				>
-					{props.renderPage(page.items, index)}
-				</ManagedAssetProvider>
-			))}
+			<ManagedAssetProvider assets={props.assets(items)}>
+				{props.renderItems(items)}
+			</ManagedAssetProvider>
 			{result.errorOperation === "append" && result.isError ? (
 				<MediaStatusMessage
 					{...props.copy.error(mediaCursorPageFailure(result.error))}
@@ -81,6 +77,7 @@ export function MediaCursorPages<Item, Selection, Input>(
 						label="Load more"
 						disabled={result.isFetching}
 						onClick={result.fetchNextPage}
+						onVisible={result.fetchNextPage}
 						isFetchingNextPage={result.isFetchingNextPage}
 					/>
 				</div>

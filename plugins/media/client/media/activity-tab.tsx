@@ -203,7 +203,7 @@ export const defineMediaActivityTab = <Result, View, Event>(input: {
 					entityId={props.entityId}
 					query={input.historyQuery}
 					safeAreaTop={props.safeAreaTop}
-					renderPage={input.renderHistory}
+					renderItems={input.renderHistory}
 				/>
 			) : null;
 		return (

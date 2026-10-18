@@ -123,7 +123,7 @@ export function MediaCreditsButton<Scope extends object>(props: {
 						error: (state) => mediaCursorPageError({ state, noun: "credits" }),
 						loading: { title: "Loading credits...", detail: "Fetching the complete credit list." },
 					}}
-					renderPage={(items) => (
+					renderItems={(items) => (
 						<div className="divide-y divide-border">
 							{items.map((credit) => (
 								<CreditRow
