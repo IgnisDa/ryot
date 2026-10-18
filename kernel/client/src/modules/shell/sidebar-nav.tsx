@@ -53,21 +53,25 @@ function SidebarRow(props: {
 			onClick={activateLink(props.onNavigate)}
 			aria-current={props.active ? "page" : undefined}
 			className={clsx(
-				"flex min-h-8 items-center gap-2.5 rounded-lg px-2.5",
-				props.active ? "bg-nav-indicator" : "hover:bg-surface-2",
+				"group/row flex min-h-8 items-center gap-2.5 rounded-md px-2.5 transition-colors duration-100 motion-reduce:transition-none",
+				props.active ? "bg-nav-indicator" : "hover:bg-hover",
 			)}
 		>
 			<AppIcon size={16} name={props.item.icon} className="text-text-muted" />
 			<span
 				className={clsx(
-					"min-w-0 flex-1 truncate text-base",
-					props.active ? "font-medium text-text" : "text-text-muted",
+					"min-w-0 flex-1 truncate text-sm font-medium",
+					props.active ? "text-text" : "text-text-muted",
 				)}
 			>
 				{props.item.name}
 			</span>
 			{props.item.kind !== "home" && (
-				<AppIcon size={15} name="chevron-right" className="text-text-subtle" />
+				<AppIcon
+					size={14}
+					name="chevron-right"
+					className="text-text-subtle pointer-fine:opacity-0 pointer-fine:group-hover/row:opacity-100"
+				/>
 			)}
 		</a>
 	);
@@ -83,13 +87,13 @@ function SidebarSection(props: {
 	readonly onEdit?: (() => void) | undefined;
 }) {
 	return (
-		<section className="group flex flex-col gap-1.5">
+		<section className="group flex flex-col gap-1">
 			<header className="flex items-center gap-2 px-1">
-				<h2 className="text-xs font-semibold uppercase tracking-[1.6px] text-text-subtle">
+				<h2 className="text-[11px] font-semibold tracking-[0.07em] text-text-subtle uppercase">
 					{props.title}
 				</h2>
 				{props.count !== undefined && (
-					<span className="font-mono text-xs text-text-subtle">{props.count}</span>
+					<span className="text-[11px] text-text-subtle tabular-nums">{props.count}</span>
 				)}
 				{props.onEdit !== undefined && (
 					<button
@@ -124,7 +128,7 @@ export function SidebarNav(props: SidebarNavProps) {
 		item.kind === "home" ? props.onNavigateHome() : props.onNavigateItem(item);
 
 	return (
-		<nav aria-label="Workspace" className="flex flex-col gap-2.5 px-3 pt-4.5 pb-5">
+		<nav aria-label="Workspace" className="flex flex-col gap-4 px-3 pt-4 pb-5">
 			<WorkspaceSwitcher
 				current={props.current}
 				catalog={props.catalog}
@@ -141,12 +145,12 @@ export function SidebarNav(props: SidebarNavProps) {
 				onClick={props.onOpenSearch}
 				aria-label="Open command center"
 				aria-keyshortcuts={props.showSearchShortcut ? KERNEL_SHORTCUTS.commandCenter : undefined}
-				className="flex h-10 items-center gap-2.5 rounded-lg border border-border bg-bg px-2.5 text-left"
+				className="flex h-8 items-center gap-2.5 rounded-md bg-surface-2 px-2.5 text-left transition-colors duration-100 hover:bg-surface-3 motion-reduce:transition-none"
 			>
 				<AppIcon size={16} name="search" className="text-text-muted" />
 				<span className="min-w-0 flex-1 text-sm text-text-subtle">Search</span>
 				{props.showSearchShortcut && (
-					<span className="rounded border border-border px-1.5 py-0.5 font-mono text-xs text-text-subtle">
+					<span className="rounded border border-border-emphasis px-1.5 py-0.5 font-mono text-[11px] text-text-subtle">
 						⌘K
 					</span>
 				)}
@@ -174,7 +178,6 @@ export function SidebarNav(props: SidebarNavProps) {
 					))}
 			</SidebarSection>
 
-			<div className="my-2 h-px bg-border" />
 			<SidebarSection
 				title="Saved Views"
 				className="max-h-52"
@@ -196,7 +199,6 @@ export function SidebarNav(props: SidebarNavProps) {
 				))}
 			</SidebarSection>
 
-			<div className="my-2 h-px bg-border" />
 			<SidebarSection
 				title="Collections"
 				className="max-h-52"
