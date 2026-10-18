@@ -122,9 +122,11 @@ that cleanup must respect.
 | 14 | Pending | **Add stale-progress and newly-available-episode alerts** | 1; defined schedule/deduplication rules, reusing 13 where useful | Add opt-in in-progress/on-hold nudges (V1 defaults: 7/14 days) from current state and latest relevant activity. Agree Pro gating and repeat frequency. Use a “more episodes available” signal instead of moving an ordinary Completed collection to Watchlist. Do not turn monitoring on implicitly when logging progress. |
 
 Reminders are independent of the upcoming feed and can proceed in parallel with row 11.
+The approved [Order 12 implementation plan](order-12-entity-reminders-plan.md) records the scheduling,
+restore, V1 conversion and retention decisions, implementation sequence, and real-dump acceptance gate.
 Use current feature-owned workflows; extract shared scheduling machinery only when the
-implementations show a real common need. None of these tasks requires rebuilding channel
-delivery, which already exists.
+implementations show a real common need. Reuse existing channel adapters; Order 12 strengthens the
+shared notification admission and delivery-outcome path for all callers.
 
 ### Phase 4 — Discovery, analytics and lower-priority account controls
 
