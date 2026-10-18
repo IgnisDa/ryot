@@ -233,7 +233,7 @@ describe("group activity tab", () => {
 		);
 
 		expect(container.textContent).toContain("No activity yet");
-		expect(container.textContent).toContain("Write review");
+		expect(container.textContent).toContain("Rate or review");
 		unmount();
 	});
 });

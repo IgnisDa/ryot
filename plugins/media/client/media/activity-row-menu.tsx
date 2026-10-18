@@ -150,9 +150,9 @@ export function MediaActivityRowMenu(props: { readonly row: MediaActivityRowBase
 					record={review.event}
 					triggerRef={triggerRef}
 					initial={{
-						text: review.body?.text ?? "",
+						rating: review.rating ?? null,
+						text: review.body?.text ?? null,
 						isSpoiler: review.body?.isSpoiler ?? false,
-						...(review.rating === undefined ? {} : { rating: review.rating }),
 					}}
 				/>
 			) : null}

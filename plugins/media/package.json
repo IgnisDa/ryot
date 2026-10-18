@@ -86,6 +86,10 @@
 			"types": "./shared/media-activity-operations.ts",
 			"default": "./shared/media-activity-operations.ts"
 		},
+		"./shared/media-review-operations": {
+			"types": "./shared/media-review-operations.ts",
+			"default": "./shared/media-review-operations.ts"
+		},
 		"./shared/activity-recipes": {
 			"types": "./shared/activity-recipes.ts",
 			"default": "./shared/activity-recipes.ts"

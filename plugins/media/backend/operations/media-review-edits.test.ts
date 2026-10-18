@@ -76,7 +76,7 @@ const recordingHost = (input: {
 };
 
 const update = (
-	input: { readonly rating: number | null; readonly text?: string },
+	input: { readonly rating: number | null; readonly text?: string | null },
 	host: ReturnType<typeof recordingHost>["host"],
 ) =>
 	runSandboxTestScript(
@@ -139,7 +139,29 @@ describe("media review edits", () => {
 		}),
 	);
 
-	it.live("rejects blank text before reaching the host", () =>
+	it.live("clears text and its spoiler flag while keeping a zero rating", () =>
+		Effect.gen(function* () {
+			const { host, updates } = recordingHost({ allowed: true });
+			yield* update({ rating: 0, text: null }, host);
+			expect(updates[0]?.items[0]?.patch.properties).toEqual({
+				set: { rating: 0 },
+				remove: ["text", "isSpoiler"],
+			});
+		}),
+	);
+
+	it.live("edits an imported rating-only record without inventing text", () =>
+		Effect.gen(function* () {
+			const { host, updates } = recordingHost({ allowed: true, properties: { rating: 60 } });
+			yield* update({ text: "  ", rating: 85 }, host);
+			expect(updates[0]?.items[0]?.patch.properties).toEqual({
+				set: { rating: 85 },
+				remove: ["text", "isSpoiler"],
+			});
+		}),
+	);
+
+	it.live("rejects clearing both rating and text before reaching the host", () =>
 		Effect.gen(function* () {
 			const { host, updates } = recordingHost({ allowed: true });
 			const result = yield* Effect.result(update({ text: "   ", rating: null }, host));

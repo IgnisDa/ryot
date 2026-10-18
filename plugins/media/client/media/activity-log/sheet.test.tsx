@@ -355,7 +355,7 @@ it.live("refreshes the user's list when the page refreshes after a log", () =>
 			const reads = mounted.settingsReads();
 			press(dialog, "Mark as watched");
 			yield* submitted(mounted);
-			press(getByRole(document.body, "dialog", { name: "Write review" }), "Cancel");
+			press(getByRole(document.body, "dialog", { name: "Rate or review" }), "Cancel");
 			act(() => mounted.view.client.mutationCompleted.hint());
 			yield* Effect.promise(() => mounted.view.advance(250));
 			yield* eventually(() => expect(mounted.settingsReads()).toBeGreaterThan(reads));
@@ -481,7 +481,7 @@ it.live("hands a finished log over to the review composer once the shell accepts
 			const dialog = yield* openLog(mounted);
 			press(dialog, "Mark as watched");
 			yield* closedWith(mounted, "Heat marked as watched.");
-			expect(getByRole(document.body, "dialog", { name: "Write review" })).toBeDefined();
+			expect(getByRole(document.body, "dialog", { name: "Rate or review" })).toBeDefined();
 		} finally {
 			mounted.view.unmount();
 		}
@@ -647,7 +647,7 @@ it.live("records a status without a source and keeps the progress note", () =>
 				operation({ kind: "status", status: "dropped", entityId: "entity-1" }),
 			]);
 			yield* closedWith(mounted, "Marked as dropped.");
-			expect(queryByRole(document.body, "dialog", { name: "Write review" })).toBeNull();
+			expect(queryByRole(document.body, "dialog", { name: "Rate or review" })).toBeNull();
 		} finally {
 			mounted.view.unmount();
 		}
@@ -733,7 +733,7 @@ it.live("marks the next-up show episode with its earlier unwatched episodes", ()
 				}),
 			]);
 			yield* closedWith(mounted, "3 episodes marked watched.");
-			expect(queryByRole(document.body, "dialog", { name: "Write review" })).toBeNull();
+			expect(queryByRole(document.body, "dialog", { name: "Rate or review" })).toBeNull();
 		} finally {
 			mounted.view.unmount();
 		}
@@ -1368,7 +1368,7 @@ it.live(
 					expect(queryByRole(document.body, "dialog", { name: "Log activity" })).toBeNull(),
 				);
 				mounted.rerender(activity({ status: "transport-error" }));
-				press(getByRole(document.body, "dialog", { name: "Write review" }), "Cancel");
+				press(getByRole(document.body, "dialog", { name: "Rate or review" }), "Cancel");
 				yield* eventually(() =>
 					expect(queryByText(mounted.container, "No activity yet")).toBeNull(),
 				);

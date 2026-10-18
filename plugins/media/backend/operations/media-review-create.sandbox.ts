@@ -18,6 +18,7 @@ import {
 
 import { MediaReviewCreateInput, MediaReviewOutput } from "../../shared/media-review-operations";
 import { mediaLibraryMemberEntitySchemaSlugs } from "../../shared/media-schema-slugs";
+import { mediaReviewProperties } from "./media-review-properties";
 
 const reviewTargetRecipe = defineRecipe((entityId: string) => {
 	const entity = table("entity", "reviewTarget");
@@ -63,11 +64,7 @@ export default defineOperation({
 				{
 					entityId: target.id,
 					eventSchemaSlug: "review",
-					properties: {
-						text: input.text,
-						isSpoiler: input.isSpoiler,
-						...(input.rating === undefined ? {} : { rating: input.rating }),
-					},
+					properties: mediaReviewProperties(input),
 				},
 			]);
 		}),

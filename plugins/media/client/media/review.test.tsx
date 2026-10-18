@@ -63,17 +63,16 @@ it.live(
 				/>,
 			);
 			try {
-				const trigger = getByRole(mounted.container, "button", { name: "Write review" });
+				const trigger = getByRole(mounted.container, "button", { name: "Rate or review" });
 				clickRyotElement(trigger);
-				const dialog = getByRole(document.body, "dialog", { name: "Write review" });
-				expect(within(dialog).getByRole("form", { name: "Write review" }).tagName).toBe("DIV");
-				expect(within(dialog).getByText("Contains spoilers").textContent).toBe("Contains spoilers");
+				const dialog = getByRole(document.body, "dialog", { name: "Rate or review" });
+				expect(within(dialog).getByRole("form", { name: "Rate or review" }).tagName).toBe("DIV");
 				const save = within(dialog).getByRole("button", { name: "Save review" });
 				expect(save.getAttribute("type")).toBe("button");
 				expect(save.hasAttribute("disabled")).toBe(true);
-				input(getByLabelText(dialog, "Review"), "   ");
+				input(getByLabelText(dialog, "Review (optional)"), "   ");
 				expect(save.hasAttribute("disabled")).toBe(true);
-				input(getByLabelText(dialog, "Review"), "  Great ending  ");
+				input(getByLabelText(dialog, "Review (optional)"), "  Great ending  ");
 				input(getByLabelText(dialog, "Rating (0–100, optional)"), "101");
 				expect(save.hasAttribute("disabled")).toBe(true);
 				input(getByLabelText(dialog, "Rating (0–100, optional)"), "82.5");
@@ -99,7 +98,7 @@ it.live(
 				);
 				clickRyotElement(trigger);
 				const reopened = getByRole(document.body, "dialog");
-				expect(getByLabelText(reopened, "Review")).toHaveProperty("value", "");
+				expect(getByLabelText(reopened, "Review (optional)")).toHaveProperty("value", "");
 			} finally {
 				mounted.unmount();
 			}
@@ -121,9 +120,9 @@ it.live("saves with Enter in the rating field without submitting a native form",
 			<MediaReviewButton entityId="media-1" />,
 		);
 		try {
-			clickRyotElement(getByRole(mounted.container, "button", { name: "Write review" }));
+			clickRyotElement(getByRole(mounted.container, "button", { name: "Rate or review" }));
 			const dialog = getByRole(document.body, "dialog");
-			const text = getByLabelText(dialog, "Review");
+			const text = getByLabelText(dialog, "Review (optional)");
 			input(text, "Thoughts");
 			act(() => {
 				fireEvent.keyDown(text, { key: "Enter" });
@@ -152,6 +151,30 @@ it.live("saves with Enter in the rating field without submitting a native form",
 	}),
 );
 
+it.live("saves a zero rating without text and keeps spoiler controls hidden", () =>
+	Effect.gen(function* () {
+		const background = createTestBackgroundSubmissions();
+		const mounted = mountRyotClient(background.adapter, <MediaReviewButton entityId="media-1" />);
+		try {
+			clickRyotElement(getByRole(mounted.container, "button", { name: "Rate or review" }));
+			const dialog = getByRole(document.body, "dialog");
+			const rating = getByLabelText(dialog, "Rating (0–100, optional)");
+			expect(document.activeElement).toBe(rating);
+			expect(queryByRole(dialog, "switch", { name: "Contains spoilers" })).toBeNull();
+			input(getByLabelText(dialog, "Review (optional)"), "   ");
+			input(rating, "0");
+			clickRyotElement(getByRole(dialog, "button", { name: "Save review" }));
+			yield* Effect.promise(() => waitFor(() => expect(background.requests).toHaveLength(1)));
+			expect(background.requests[0]).toMatchObject({
+				slug: "media-review-create",
+				input: { rating: 0, text: null, isSpoiler: false, entityId: "media-1" },
+			});
+		} finally {
+			mounted.unmount();
+		}
+	}),
+);
+
 for (const invalidRating of ["not a number", "1e", "-1", "101"]) {
 	it.live(`shows an inline error and blocks saving the invalid rating ${invalidRating}`, () =>
 		Effect.gen(function* () {
@@ -168,9 +191,9 @@ for (const invalidRating of ["not a number", "1e", "-1", "101"]) {
 				<MediaReviewButton entityId="media-1" />,
 			);
 			try {
-				clickRyotElement(getByRole(mounted.container, "button", { name: "Write review" }));
+				clickRyotElement(getByRole(mounted.container, "button", { name: "Rate or review" }));
 				const dialog = getByRole(document.body, "dialog");
-				input(getByLabelText(dialog, "Review"), "Thoughts");
+				input(getByLabelText(dialog, "Review (optional)"), "Thoughts");
 				const rating = getByLabelText(dialog, "Rating (0–100, optional)");
 				input(rating, invalidRating);
 				expect(rating).toHaveProperty("value", invalidRating);
@@ -227,9 +250,9 @@ it.live("opens from empty activity and cancels without saving", () =>
 			/>,
 		);
 		try {
-			clickRyotElement(getByRole(mounted.container, "button", { name: "Write review" }));
+			clickRyotElement(getByRole(mounted.container, "button", { name: "Rate or review" }));
 			const dialog = getByRole(document.body, "dialog");
-			input(getByLabelText(dialog, "Review"), "Draft");
+			input(getByLabelText(dialog, "Review (optional)"), "Draft");
 			clickRyotElement(within(dialog).getByRole("button", { name: "Cancel" }));
 			expect(queryByRole(document.body, "dialog")).toBeNull();
 			expect(requests).toEqual([]);
@@ -257,16 +280,16 @@ it.live("keeps the draft and allows another try when the shell refuses the revie
 			<MediaReviewButton link entityId="creator-1" />,
 		);
 		try {
-			clickRyotElement(getByRole(mounted.container, "button", { name: "Write review" }));
+			clickRyotElement(getByRole(mounted.container, "button", { name: "Rate or review" }));
 			const dialog = getByRole(document.body, "dialog");
-			input(getByLabelText(dialog, "Review"), "Thoughts");
+			input(getByLabelText(dialog, "Review (optional)"), "Thoughts");
 			clickRyotElement(within(dialog).getByRole("button", { name: "Save review" }));
 			yield* Effect.promise(() =>
 				waitFor(() =>
 					expect(getByRole(dialog, "alert").textContent).toContain("Couldn't start saving"),
 				),
 			);
-			expect(getByLabelText(dialog, "Review")).toHaveProperty("value", "Thoughts");
+			expect(getByLabelText(dialog, "Review (optional)")).toHaveProperty("value", "Thoughts");
 			clickRyotElement(within(dialog).getByRole("button", { name: "Save review" }));
 			yield* Effect.promise(() =>
 				waitFor(() => expect(queryByRole(document.body, "dialog")).toBeNull()),
@@ -277,7 +300,7 @@ it.live("keeps the draft and allows another try when the shell refuses the revie
 					packageId: "ryot/media",
 					slug: "media-review-create",
 					idempotencyKey: expect.any(String),
-					input: { text: "Thoughts", isSpoiler: false, entityId: "creator-1" },
+					input: { rating: null, text: "Thoughts", isSpoiler: false, entityId: "creator-1" },
 				})),
 			);
 		} finally {

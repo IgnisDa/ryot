@@ -17,8 +17,8 @@ import { AppIcon } from "@ryot-app/plugin-ui-sdk/icon";
 import { type RefObject, useId, useRef, useState } from "react";
 
 import { mediaReviewPatchableKeys } from "../../shared/media-activity-fields";
-import type { MediaEventSnapshot } from "../../shared/media-activity-operations";
 import {
+	type MediaReviewContent,
 	MediaReviewCreateInput,
 	MediaReviewDeleteInput,
 	MediaReviewUpdateInput,
@@ -44,13 +44,11 @@ const updateReview = createRyotBackgroundSubmission({
 		input,
 		submittedAt,
 		submissionId,
-	}: RyotSubmission<{
-		readonly text: string;
-		readonly eventId: string;
-		readonly isSpoiler: boolean;
-		readonly rating: number | null;
-		readonly expected: MediaEventSnapshot;
-	}>) => ({ ...input, submittedAt, submissionId }),
+	}: RyotSubmission<Omit<MediaReviewUpdateInput, "submittedAt" | "submissionId">>) => ({
+		...input,
+		submittedAt,
+		submissionId,
+	}),
 });
 
 export const deleteReviewSubmission = createRyotBackgroundSubmission({
@@ -65,22 +63,20 @@ export const deleteReviewSubmission = createRyotBackgroundSubmission({
 	}),
 });
 
-type ReviewDraft = { readonly text: string; readonly isSpoiler: boolean; readonly rating?: number };
-
 function MediaReviewComposer(props: {
 	readonly title: string;
 	readonly onClose: () => void;
 	readonly isSending: boolean;
 	readonly failed: boolean;
-	readonly initial?: ReviewDraft;
-	readonly onSave: (review: ReviewDraft) => void;
+	readonly initial?: typeof MediaReviewContent.Type;
+	readonly onSave: (review: typeof MediaReviewContent.Type) => void;
 	readonly triggerRef: RefObject<HTMLButtonElement | null>;
 }) {
 	const id = useId();
-	const textRef = useRef<HTMLTextAreaElement>(null);
+	const ratingRef = useRef<HTMLInputElement>(null);
 	const [text, setText] = useState(props.initial?.text ?? "");
 	const [rating, setRating] = useState(
-		props.initial?.rating === undefined ? "" : String(props.initial.rating),
+		props.initial?.rating == null ? "" : String(props.initial.rating),
 	);
 	const [isSpoiler, setIsSpoiler] = useState(props.initial?.isSpoiler ?? false);
 	const { onClose, isSending } = props;
@@ -88,14 +84,17 @@ function MediaReviewComposer(props: {
 	const validRating =
 		ratingValue === undefined ||
 		(Number.isFinite(ratingValue) && ratingValue >= 0 && ratingValue <= 100);
+	const hasText = text.trim().length > 0;
+	const hasContent = hasText || ratingValue !== undefined;
+	const canSave = hasContent && validRating && !isSending;
 	const save = () => {
-		if (text.trim() === "" || !validRating || isSending) {
+		if (!canSave) {
 			return;
 		}
 		props.onSave({
-			isSpoiler,
-			text: text.trim(),
-			...(ratingValue === undefined ? {} : { rating: ratingValue }),
+			rating: ratingValue ?? null,
+			isSpoiler: hasText && isSpoiler,
+			text: hasText ? text.trim() : null,
 		});
 	};
 	return (
@@ -104,23 +103,16 @@ function MediaReviewComposer(props: {
 			title={props.title}
 			dismissible={!isSending}
 			closeLabel="Close review"
-			initialFocusRef={textRef}
+			initialFocusRef={ratingRef}
 			triggerRef={props.triggerRef}
 		>
 			<ActionForm onSubmit={save} label={props.title} className="flex flex-col gap-4">
-				<label htmlFor={`${id}-text`}>Review</label>
-				<TextArea
-					rows={5}
-					value={text}
-					ref={textRef}
-					id={`${id}-text`}
-					disabled={isSending}
-					onChange={(event) => setText(event.currentTarget.value)}
-				/>
+				<p className="text-label text-text-muted">Add a rating, a review, or both.</p>
 				<label htmlFor={`${id}-rating`}>Rating (0–100, optional)</label>
 				<TextField
 					type="text"
 					value={rating}
+					ref={ratingRef}
 					inputMode="decimal"
 					id={`${id}-rating`}
 					disabled={isSending}
@@ -133,26 +125,37 @@ function MediaReviewComposer(props: {
 						Enter a number from 0 to 100.
 					</StatusMessage>
 				)}
-				<Row
-					title="Contains spoilers"
-					trailing={
-						<Switch
-							checked={isSpoiler}
-							disabled={isSending}
-							onChange={setIsSpoiler}
-							label="Contains spoilers"
-						/>
-					}
+				<label htmlFor={`${id}-text`}>Review (optional)</label>
+				<TextArea
+					rows={5}
+					value={text}
+					id={`${id}-text`}
+					disabled={isSending}
+					onChange={(event) => setText(event.currentTarget.value)}
 				/>
+				{hasText ? (
+					<Row
+						title="Contains spoilers"
+						trailing={
+							<Switch
+								checked={isSpoiler}
+								disabled={isSending}
+								onChange={setIsSpoiler}
+								label="Contains spoilers"
+							/>
+						}
+					/>
+				) : null}
+				{props.initial !== undefined && !hasContent ? (
+					<StatusMessage tone="error">
+						Keep a rating or review text, or delete this review.
+					</StatusMessage>
+				) : null}
 				{props.failed ? (
 					<StatusMessage tone="error">Couldn't start saving your review. Try again.</StatusMessage>
 				) : null}
 				<div className="flex gap-2">
-					<Button
-						type="button"
-						onClick={save}
-						disabled={text.trim() === "" || !validRating || isSending}
-					>
+					<Button type="button" onClick={save} disabled={!canSave}>
 						{isSending ? "Saving…" : "Save review"}
 					</Button>
 					<Button type="button" onClick={onClose} variant="secondary" disabled={isSending}>
@@ -172,7 +175,7 @@ export function MediaReviewForm(props: {
 	const review = useBackgroundSubmission(createReview);
 	return (
 		<MediaReviewComposer
-			title="Write review"
+			title="Rate or review"
 			onClose={props.onClose}
 			isSending={review.isSending}
 			triggerRef={props.triggerRef}
@@ -184,11 +187,10 @@ export function MediaReviewForm(props: {
 	);
 }
 
-/** Rewrites one stored review, guarded by the record as the row last saw it. */
 export function MediaReviewEditForm(props: {
 	readonly onClose: () => void;
 	readonly record: MediaActivityEventRef;
-	readonly initial: ReviewDraft;
+	readonly initial: typeof MediaReviewContent.Type;
 	readonly triggerRef: RefObject<HTMLButtonElement | null>;
 }) {
 	const review = useBackgroundSubmission(updateReview);
@@ -203,10 +205,8 @@ export function MediaReviewEditForm(props: {
 			onSave={(draft) =>
 				review.submit(
 					{
-						text: draft.text,
+						...draft,
 						eventId: props.record.id,
-						isSpoiler: draft.isSpoiler,
-						rating: draft.rating ?? null,
 						expected: eventPrecondition(props.record, mediaReviewPatchableKeys),
 					},
 					{ onAccepted: props.onClose },
@@ -223,12 +223,12 @@ export function MediaReviewButton(props: { readonly entityId: string; readonly l
 		<>
 			{props.link ? (
 				<Button variant="link" ref={triggerRef} onClick={() => setOpen(true)}>
-					Write review
+					Rate or review
 				</Button>
 			) : (
 				<Button ref={triggerRef} variant="secondary" onClick={() => setOpen(true)}>
 					<AppIcon size={15} name="star" />
-					Write review
+					Rate or review
 				</Button>
 			)}
 			{open ? (

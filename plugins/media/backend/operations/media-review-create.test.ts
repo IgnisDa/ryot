@@ -80,7 +80,7 @@ describe("create media review", () => {
 			});
 			yield* runSandboxTestScript(
 				definition,
-				{ isSpoiler: false, text: "Good work", entityId: "creator-1" },
+				{ rating: null, isSpoiler: false, text: "Good work", entityId: "creator-1" },
 				host,
 				execution,
 			);
@@ -110,13 +110,55 @@ describe("create media review", () => {
 			const result = yield* Effect.result(
 				runSandboxTestScript(
 					definition,
-					{ text: "Review", isSpoiler: false, entityId: "missing" },
+					{ rating: null, text: "Review", isSpoiler: false, entityId: "missing" },
 					host,
 					execution,
 				),
 			);
 			expect(result._tag).toBe("Failure");
 			expect(writes).toEqual([]);
+		}),
+	);
+
+	for (const rating of [0, 82.5, 100]) {
+		it.live(`saves a rating-only review of ${rating} without text or a spoiler flag`, () =>
+			Effect.gen(function* () {
+				const creates: unknown[] = [];
+				const host = defineSandboxTestHost(manifest, {
+					executeRyotql: () => Effect.succeed(targetRows([{ id: "media-1" }])),
+					createEvents: (items) =>
+						Effect.sync(() => {
+							creates.push(items);
+							return { count: 1, outcomes: [] };
+						}),
+				});
+				expect(
+					yield* runSandboxTestScript(
+						definition,
+						{ rating, text: "   ", isSpoiler: true, entityId: "media-1" },
+						host,
+						execution,
+					),
+				).toEqual({ count: 1 });
+				expect(creates).toEqual([
+					[{ entityId: "media-1", properties: { rating }, eventSchemaSlug: "review" }],
+				]);
+			}),
+		);
+	}
+
+	it.live("rejects an empty review before reading or writing", () =>
+		Effect.gen(function* () {
+			const host = defineSandboxTestHost(manifest, {});
+			const result = yield* Effect.result(
+				runSandboxTestScript(
+					definition,
+					{ text: "   ", rating: null, isSpoiler: false, entityId: "media-1" },
+					host,
+					execution,
+				),
+			);
+			expect(result).toMatchObject({ _tag: "Failure", failure: { _tag: "SchemaError" } });
 		}),
 	);
 });

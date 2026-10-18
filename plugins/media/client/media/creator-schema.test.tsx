@@ -92,7 +92,7 @@ describe("creator detail screen", () => {
 		expect(text).toContain("Monitor");
 		expect(text).toContain("In your library");
 		expect(text).toContain("1 collection");
-		expect(text).toContain("Write review");
+		expect(text).toContain("Rate or review");
 		expect(text).not.toContain("Status: ");
 		expect(text).not.toContain("Mark owned");
 		expect(text).not.toContain("Log activity");
@@ -240,7 +240,7 @@ describe("creator activity tab", () => {
 		);
 
 		expect(container.textContent).toContain("No activity yet");
-		expect(container.textContent).toContain("Write review");
+		expect(container.textContent).toContain("Rate or review");
 		expect(container.textContent).not.toContain("Log activity");
 		unmount();
 	});

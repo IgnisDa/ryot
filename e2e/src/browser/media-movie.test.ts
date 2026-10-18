@@ -304,7 +304,7 @@ it.live("logs a finished Movie from the Log activity sheet without a reload", ()
 		yield* dialog.getByRole("radio", { name: "Just now" }).waitFor({ state: "visible" });
 		yield* dialog.getByRole("button", { exact: true, name: "Mark as watched" }).click();
 		yield* media
-			.getByRole("dialog", { name: "Write review" })
+			.getByRole("dialog", { name: "Rate or review" })
 			.getByRole("button", { exact: true, name: "Close review" })
 			.click();
 		yield* dialog.waitFor({ state: "hidden" });
@@ -363,7 +363,7 @@ it.live("suggests the user's Where you consume list in the Log activity sheet an
 		yield* dialog.getByLabel("Where did you watch it?").fill(source);
 		yield* dialog.getByRole("button", { exact: true, name: "Mark as watched" }).click();
 		yield* media
-			.getByRole("dialog", { name: "Write review" })
+			.getByRole("dialog", { name: "Rate or review" })
 			.getByRole("button", { exact: true, name: "Close review" })
 			.click();
 		yield* dialog.waitFor({ state: "hidden" });

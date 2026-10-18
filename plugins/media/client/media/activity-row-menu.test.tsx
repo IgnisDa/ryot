@@ -240,7 +240,7 @@ describe("activity row menu", () => {
 			}
 			choose(menu, "Edit");
 			const dialog = getByRole(document.body, "dialog", { name: "Edit review" });
-			const text = getByLabelText(dialog, "Review");
+			const text = getByLabelText(dialog, "Review (optional)");
 			expect(text).toHaveProperty("value", "The twist still lands.");
 			act(() => {
 				fireEvent.change(text, { target: { value: "Even better twice." } });
@@ -262,6 +262,78 @@ describe("activity row menu", () => {
 						occurredAt: flatReviewEventRow.occurredAt,
 					},
 				},
+			});
+		}),
+	);
+
+	it.live("edits an imported rating-only review without adding text", () =>
+		Effect.gen(function* () {
+			const properties = { rating: 60 };
+			const { view, background } = mount([
+				{ ...flatReviewEventRow, properties, rating: 60, text: null, isSpoiler: null },
+			]);
+			expect(view.container.textContent).toContain("60 / 100");
+			const [menu] = menus(view.container);
+			if (menu === undefined) {
+				throw new Error("Expected a review row menu");
+			}
+			choose(menu, "Edit");
+			const dialog = getByRole(document.body, "dialog", { name: "Edit review" });
+			expect(getByLabelText(dialog, "Review (optional)")).toHaveProperty("value", "");
+			expect(queryByRole(dialog, "switch", { name: "Contains spoilers" })).toBeNull();
+			act(() => {
+				fireEvent.change(getByLabelText(dialog, "Rating (0–100, optional)"), {
+					target: { value: "0" },
+				});
+			});
+			clickRyotElement(getByRole(dialog, "button", { name: "Save review" }));
+			yield* eventually(() => expect(background.requests).toHaveLength(1));
+			expect(background.requests[0]).toMatchObject({
+				slug: "media-review-update",
+				input: {
+					rating: 0,
+					text: null,
+					isSpoiler: false,
+					eventId: "media-review",
+					expected: { properties, absentProperties: ["text", "isSpoiler"] },
+				},
+			});
+		}),
+	);
+
+	it.live("requires content when clearing a review and allows keeping only its rating", () =>
+		Effect.gen(function* () {
+			const { view, background } = mount([flatReviewEventRow]);
+			const [menu] = menus(view.container);
+			if (menu === undefined) {
+				throw new Error("Expected a review row menu");
+			}
+			choose(menu, "Edit");
+			const dialog = getByRole(document.body, "dialog", { name: "Edit review" });
+			act(() => {
+				fireEvent.change(getByLabelText(dialog, "Review (optional)"), { target: { value: "  " } });
+				fireEvent.change(getByLabelText(dialog, "Rating (0–100, optional)"), {
+					target: { value: "" },
+				});
+			});
+			const save = getByRole(dialog, "button", { name: "Save review" });
+			expect(save.hasAttribute("disabled")).toBe(true);
+			expect(getByRole(dialog, "alert").textContent).toBe(
+				"Keep a rating or review text, or delete this review.",
+			);
+			expect(background.requests).toEqual([]);
+			act(() => {
+				fireEvent.change(getByLabelText(dialog, "Rating (0–100, optional)"), {
+					target: { value: "91" },
+				});
+			});
+			expect(queryByRole(dialog, "alert")).toBeNull();
+			clickRyotElement(save);
+			yield* eventually(() => expect(background.requests).toHaveLength(1));
+			expect(background.requests[0]?.input).toMatchObject({
+				text: null,
+				rating: 91,
+				isSpoiler: false,
 			});
 		}),
 	);

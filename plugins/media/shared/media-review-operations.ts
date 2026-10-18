@@ -2,29 +2,34 @@ import { Schema } from "@ryot-app/plugin-kit/effect";
 
 import { MediaEventSnapshot, mediaSubmissionFields } from "./media-activity-operations";
 
-const ReviewText = Schema.Trim.pipe(Schema.check(Schema.isMinLength(1)));
-
 const ReviewRating = Schema.Finite.pipe(
 	Schema.check(Schema.isBetween({ minimum: 0, maximum: 100 })),
 );
 
-export const MediaReviewCreateInput = Schema.Struct({
-	text: ReviewText,
+export const MediaReviewContent = Schema.Struct({
 	isSpoiler: Schema.Boolean,
-	entityId: Schema.NonEmptyString,
-	rating: Schema.optional(ReviewRating),
+	text: Schema.NullOr(Schema.Trim),
+	rating: Schema.NullOr(ReviewRating),
 });
+
+const requireReviewContent = Schema.makeFilter<typeof MediaReviewContent.Type>(
+	({ text, rating }) =>
+		(text !== null && text.length > 0) || rating !== null || "Add a rating, a review, or both.",
+);
+
+export const MediaReviewCreateInput = Schema.Struct({
+	...MediaReviewContent.fields,
+	entityId: Schema.NonEmptyString,
+}).pipe(Schema.check(requireReviewContent));
 
 export type MediaReviewCreateInput = Schema.Schema.Type<typeof MediaReviewCreateInput>;
 
 export const MediaReviewUpdateInput = Schema.Struct({
 	...mediaSubmissionFields,
-	text: ReviewText,
-	isSpoiler: Schema.Boolean,
+	...MediaReviewContent.fields,
 	expected: MediaEventSnapshot,
 	eventId: Schema.NonEmptyString,
-	rating: Schema.NullOr(ReviewRating),
-});
+}).pipe(Schema.check(requireReviewContent));
 
 export type MediaReviewUpdateInput = typeof MediaReviewUpdateInput.Type;
 
