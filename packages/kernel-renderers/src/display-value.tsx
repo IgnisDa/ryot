@@ -1,4 +1,4 @@
-import { useManagedAssetUrl } from "@ryot-app/plugin-client-sdk/react";
+import { useAssetUrl } from "@ryot-app/plugin-client-sdk/react";
 import { EntityArtWell, type FieldSyncState } from "@ryot-app/plugin-ui-sdk/sync";
 import type { EntityBrowserResult } from "@ryot-app/ryotql-recipes/saved-views";
 
@@ -51,17 +51,8 @@ export function CellThumbnail({
 	readonly state: FieldSyncState;
 	readonly asset: SavedViewCellAsset | undefined;
 }) {
-	const managed =
-		asset === undefined || asset === null || asset.type === "remote" ? undefined : asset;
-	const managedUrl = useManagedAssetUrl(managed);
-	return (
-		<EntityArtWell
-			state={state}
-			monogram={monogram}
-			className={className}
-			url={asset?.type === "remote" ? asset.url : managedUrl}
-		/>
-	);
+	const url = useAssetUrl(asset ?? undefined);
+	return <EntityArtWell url={url} state={state} monogram={monogram} className={className} />;
 }
 
 export function CellValue({

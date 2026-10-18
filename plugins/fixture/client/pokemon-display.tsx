@@ -1,4 +1,4 @@
-import { useManagedAssetUrl } from "@ryot-app/plugin-client-sdk/react";
+import { useAssetUrl } from "@ryot-app/plugin-client-sdk/react";
 import { EntityArtWell, type FieldSyncState } from "@ryot-app/plugin-ui-sdk/sync";
 
 import type { PokemonArtworkAsset, PokemonDetailsData } from "./pokemon-schema";
@@ -14,15 +14,9 @@ export const PokemonArtwork = ({
 	readonly state: FieldSyncState;
 	readonly asset: PokemonArtworkAsset | undefined;
 }) => {
-	const managedUrl = useManagedAssetUrl(asset?.type === "remote" ? undefined : asset);
+	const url = useAssetUrl(asset);
 	return (
-		<EntityArtWell
-			state={state}
-			shape="rounded"
-			monogram={name}
-			className={className}
-			url={asset?.type === "remote" ? asset.url : managedUrl}
-		/>
+		<EntityArtWell url={url} state={state} shape="rounded" monogram={name} className={className} />
 	);
 };
 
