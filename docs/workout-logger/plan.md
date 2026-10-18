@@ -2,17 +2,17 @@
 
 ## Goal and scope
 
-- [ ] Port the legacy workout logger and template editor into `plugins/fitness`. Preserve its user-facing workflows, not its implementation bugs. This document is an implementation plan and reference, not current product documentation.
+- [x] Port the legacy workout logger and template editor into `plugins/fitness`. Preserve its user-facing workflows, not its implementation bugs. This document is an implementation plan and reference, not current product documentation.
 
 Deliver one shared editor for:
 
-- [ ] New workouts, including workouts started from templates.
-- [ ] Repeating a saved workout.
-- [ ] Editing saved workouts.
-- [ ] Creating templates, including from saved workouts.
-- [ ] Editing templates.
+- [x] New workouts, including workouts started from templates.
+- [x] Repeating a saved workout.
+- [x] Editing saved workouts.
+- [x] Creating templates, including from saved workouts.
+- [x] Editing templates.
 
-- [ ] Include exercise selection and same-kind replacement, sets, history copying, notes, RPE, supersets, reordering, bulk deletion, media, measurements, preferences, draft recovery, timers, sounds, wake lock, haptics, and native scheduled alerts. The legacy walkthrough is explicitly deferred.
+- [x] Include exercise selection and same-kind replacement, sets, history copying, notes, RPE, supersets, reordering, bulk deletion, media, measurements, preferences, draft recovery, timers, sounds, wake lock, haptics, and native scheduled alerts. The legacy walkthrough is explicitly deferred.
 
 Do not implement cross-device draft synchronization, a new fitness database, a general activity framework, server push for timer expiry, compatibility paths, or another background queue. Keep all artifact, API, compiler, archive, and protocol version constants unchanged.
 
@@ -90,25 +90,25 @@ Storage and invocation limits are separate. The sandbox checks each operation's 
 
 | Finding                                                                       | Checklist                                                                                                                                                                                              |
 | ----------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Plugin operations expose exercise notes, metrics, and reading log/edit/delete | [ ] Add workout/template save/edit, editor-context, and override operations.                                                                                                                           |
-| `OperationsService.dispatch` generates a new execution ID per invocation      | [ ] Give saves stable scoped IDs so a UI retry does not duplicate; no admission or pinned-replay framework.                                                                                            |
-| Sandbox lacks ordinary user-entity update support                             | [ ] Extend the completed `createUserEntity` capability with bounded updates through the owning service. Each durable step owns its normal transaction; do not use bootstrap-only `ensureUserEntities`. |
-| Event create workflow commits each item and can return a partial failure      | [ ] Preserve per-item partial-failure behavior; event update/delete calls are atomic only within their own batches. Do not treat `host.createEvents` as all-or-nothing.                                |
-| Existing services reject an enclosing transaction                             | [ ] Keep each existing write service's transaction boundary. Reuse durable lifecycle steps rather than add an outer cross-resource transaction.                                                        |
-| Fitness before policies query an already stored workout                       | [ ] Persist the workout before its dependent sets. Do not add proposed-reference snapshots or a virtual query overlay.                                                                                 |
-| Installation `userSettings` is kernel-only in RyotQL                          | [ ] Read own settings through a Fitness context operation using `host.getUserSettings`; do not expose all installations' settings through the catalog.                                                 |
-| No sandbox Pro-status read; operations have no Pro declaration                | [ ] Provide a narrow trusted Pro-availability read and enforce protected writes using the existing `ProKeyService`; do not create another license system.                                              |
-| Client uploads only return temporary tokens                                   | [ ] Add permanent managed-asset upload support through the existing upload pipeline. A temporary token is not a saved asset locator.                                                                   |
-| No normal unreferenced-managed-asset deletion command                         | [ ] Add owner/reference-checked cleanup. Reuse schema-aware locator traversal in `kernel/backend/src/lib/domain/data-references.ts`.                                                                   |
-| Saved-view Add supports provider search only                                  | [ ] Add a generic plugin-route Add action and wire workouts/templates to those routes. Do not hardcode Fitness in a kernel renderer.                                                                   |
-| Provider add signals refresh but does not return added entity IDs             | [ ] Extend generic provider-add with an invocation-correlated completion result. Fitness decides how returned IDs affect picker selection.                                                             |
-| Workout/template editor reads do not exist                                    | [ ] Add complete editor queries; do not reuse presentation includes with a 100-row cap.                                                                                                                |
-| Global resume affordance does not exist                                       | [ ] Add a minimal scoped return shortcut containing label and target, not workout data or a general activity framework.                                                                                |
-| Native scheduled notifications are not installed                              | [ ] Add the Capacitor-8 notification adapter, permission/configuration work, tap routing, and SDK bridge.                                                                                              |
-| Native haptics exist only for navigation                                      | [ ] Reuse the platform adapter behind a narrow plugin haptic primitive.                                                                                                                                |
-| Wake-lock capability does not exist                                           | [ ] Add host-owned screen-awake demand with correct active-page and disposal handling.                                                                                                                 |
-| Archived client assets do not permit audio                                    | [ ] Add the narrowly needed audio extensions/MIME types and artifact/compiler/archive coverage for the four existing sounds.                                                                           |
-| Current onboarding is server selection, not a product walkthrough             | [ ] Keep the legacy tour deferred. Do not build a tour framework or unused future-only hooks for this feature.                                                                                         |
+| Plugin operations expose exercise notes, metrics, and reading log/edit/delete | [x] Add workout/template save/edit, editor-context, and override operations.                                                                                                                           |
+| `OperationsService.dispatch` generates a new execution ID per invocation      | [x] Give saves stable scoped IDs so a UI retry does not duplicate; no admission or pinned-replay framework.                                                                                            |
+| Sandbox lacks ordinary user-entity update support                             | [x] Extend the completed `createUserEntity` capability with bounded updates through the owning service. Each durable step owns its normal transaction; do not use bootstrap-only `ensureUserEntities`. |
+| Event create workflow commits each item and can return a partial failure      | [x] Preserve per-item partial-failure behavior; event update/delete calls are atomic only within their own batches. Do not treat `host.createEvents` as all-or-nothing.                                |
+| Existing services reject an enclosing transaction                             | [x] Keep each existing write service's transaction boundary. Reuse durable lifecycle steps rather than add an outer cross-resource transaction.                                                        |
+| Fitness before policies query an already stored workout                       | [x] Persist the workout before its dependent sets. Do not add proposed-reference snapshots or a virtual query overlay.                                                                                 |
+| Installation `userSettings` is kernel-only in RyotQL                          | [x] Read own settings through a Fitness context operation using `host.getUserSettings`; do not expose all installations' settings through the catalog.                                                 |
+| No sandbox Pro-status read; operations have no Pro declaration                | [x] Provide a narrow trusted Pro-availability read and enforce protected writes using the existing `ProKeyService`; do not create another license system.                                              |
+| Client uploads only return temporary tokens                                   | [x] Add permanent managed-asset upload support through the existing upload pipeline. A temporary token is not a saved asset locator.                                                                   |
+| No normal unreferenced-managed-asset deletion command                         | [x] Add owner/reference-checked cleanup. Reuse schema-aware locator traversal in `kernel/backend/src/lib/domain/data-references.ts`.                                                                   |
+| Saved-view Add supports provider search only                                  | [x] Add a generic plugin-route Add action and wire workouts/templates to those routes. Do not hardcode Fitness in a kernel renderer.                                                                   |
+| Provider add signals refresh but does not return added entity IDs             | [x] Extend generic provider-add with an invocation-correlated completion result. Fitness decides how returned IDs affect picker selection.                                                             |
+| Workout/template editor reads do not exist                                    | [x] Add complete editor queries; do not reuse presentation includes with a 100-row cap.                                                                                                                |
+| Global resume affordance does not exist                                       | [x] Add a minimal scoped return shortcut containing label and target, not workout data or a general activity framework.                                                                                |
+| Native scheduled notifications are not installed                              | [x] Add the Capacitor-8 notification adapter, permission/configuration work, tap routing, and SDK bridge.                                                                                              |
+| Native haptics exist only for navigation                                      | [x] Reuse the platform adapter behind a narrow plugin haptic primitive.                                                                                                                                |
+| Wake-lock capability does not exist                                           | [x] Add host-owned screen-awake demand with correct active-page and disposal handling.                                                                                                                 |
+| Archived client assets do not permit audio                                    | [x] Add the narrowly needed audio extensions/MIME types and artifact/compiler/archive coverage for the four existing sounds.                                                                           |
+| Current onboarding is server selection, not a product walkthrough             | [x] Keep the legacy tour deferred. Do not build a tour framework or unused future-only hooks for this feature.                                                                                         |
 
 ## Architecture and ownership
 
@@ -124,12 +124,12 @@ The backend kernel owns generic entity/event/relationship write services, schema
 
 The approved picker is a Fitness-owned library picker plus the existing generic provider-add flow, not a combined local/provider search or a second provider browser.
 
-- [ ] Add exercises opens a searchable Fitness Library list with multi-selection. Show image, name, kind, and useful equipment/target information.
-- [ ] Keep checked items while searching/filtering. The bottom action says Add N exercises and appends occurrences in selection order.
-- [ ] Find/add an exercise opens the normal provider-add flow. In an empty library this action is prominent.
-- [ ] On successful provider addition, return to the picker, refresh the library, and automatically check the added exercise. The workout changes only when Add selected is pressed.
-- [ ] Cancel from provider search returns to the same picker with earlier selections intact. Cancel from the picker leaves the workout unchanged. Successfully added library entities remain in the library.
-- [ ] Replacement uses the same picker in single-selection mode, titled Replace [exercise]. Only matching-kind entities can be selected; applying a replacement preserves that occurrence's sets and completion state.
+- [x] Add exercises opens a searchable Fitness Library list with multi-selection. Show image, name, kind, and useful equipment/target information.
+- [x] Keep checked items while searching/filtering. The bottom action says Add N exercises and appends occurrences in selection order.
+- [x] Find/add an exercise opens the normal provider-add flow. In an empty library this action is prominent.
+- [x] On successful provider addition, return to the picker, refresh the library, and automatically check the added exercise. The workout changes only when Add selected is pressed.
+- [x] Cancel from provider search returns to the same picker with earlier selections intact. Cancel from the picker leaves the workout unchanged. Successfully added library entities remain in the library.
+- [x] Replacement uses the same picker in single-selection mode, titled Replace [exercise]. Only matching-kind entities can be selected; applying a replacement preserves that occurrence's sets and completion state.
 
 For internal support, the kernel reports the successfully added entity IDs. Provider results are ordinary entity references.
 
@@ -139,11 +139,11 @@ Fitness reloads those entities through its own recipes, checks eligibility, and 
 
 Move reusable pure logic out of importer-specific modules into `plugins/fitness/shared/`. Shared sources use only the Plugin Kit neutral imports.
 
-- [ ] Extract kind-aware measurement selection from `backend/imports/workout-domain.ts`.
-- [ ] Extract the common set-property builder and set-type vocabulary. Extend its shared input with RPE and media only where both real callers need them.
-- [ ] Extract common kg/lb and km/mi conversion constants/functions from `hevy.ts` and `strong-app.ts`; use them at importer and editor input boundaries.
-- [ ] Keep canonical rounding/statistics in the existing `shared/workout-records.ts`.
-- [ ] Put draft/save-input schemas, preference resolution, occurrence indexing, meaningful-template-set detection, and clone rules in focused shared modules.
+- [x] Extract kind-aware measurement selection from `backend/imports/workout-domain.ts`.
+- [x] Extract the common set-property builder and set-type vocabulary. Extend its shared input with RPE and media only where both real callers need them.
+- [x] Extract common kg/lb and km/mi conversion constants/functions from `hevy.ts` and `strong-app.ts`; use them at importer and editor input boundaries.
+- [x] Keep canonical rounding/statistics in the existing `shared/workout-records.ts`.
+- [x] Put draft/save-input schemas, preference resolution, occurrence indexing, meaningful-template-set detection, and clone rules in focused shared modules.
 
 Keep CSV parsing, source date formats, source-specific set labels, kind inference, source operation IDs, outcome units, and import attribution in `backend/imports/`. The editor knows the selected exercise kind; it must not infer it from entered values. Do not send interactive saves through imports, synthesize import runs, or reuse name-based provider resolution for already selected entity IDs.
 
@@ -153,26 +153,26 @@ Reusing the pure property builder does not mean trusting client-derived personal
 
 Implement a Fitness-owned controller/service and small React adapters under `plugins/fitness/client/workout-editor/`.
 
-- [ ] Read the draft once, decode it, and expose loading, recoverable error, and ready states.
-- [ ] Use `encodeWorkoutEditorDraft` and `decodeWorkoutEditorDraft` for the single stored JSON value. The bounded, lossless codec retains the complete frozen submission and its edit baseline; do not rebuild a pending submission from refreshed preferences.
-- [ ] Keep input state current immediately. Do not let an older write overwrite a newer one.
-- [ ] Treat a malformed or inaccessible draft as an explicit recovery choice, not permission to overwrite it.
-- [ ] Flush local persistence before navigating away. If persistence fails, retain in-memory work and show retry. Do not discard while a save is in flight.
-- [ ] Use stable occurrence/set identifiers internally. Existing set event IDs survive reordering, edits, and same-kind replacement.
-- [ ] On resume/page refresh, reconcile the countdown and refresh context without replacing unsaved input.
-- [ ] No automatic cross-tab synchronization. If multiple tabs edit the same saved workout, server stale-write detection prevents silent overwrite.
+- [x] Read the draft once, decode it, and expose loading, recoverable error, and ready states.
+- [x] Use `encodeWorkoutEditorDraft` and `decodeWorkoutEditorDraft` for the single stored JSON value. The bounded, lossless codec retains the complete frozen submission and its edit baseline; do not rebuild a pending submission from refreshed preferences.
+- [x] Keep input state current immediately. Do not let an older write overwrite a newer one.
+- [x] Treat a malformed or inaccessible draft as an explicit recovery choice, not permission to overwrite it.
+- [x] Flush local persistence before navigating away. If persistence fails, retain in-memory work and show retry. Do not discard while a save is in flight.
+- [x] Use stable occurrence/set identifiers internally. Existing set event IDs survive reordering, edits, and same-kind replacement.
+- [x] On resume/page refresh, reconcile the countdown and refresh context without replacing unsaved input.
+- [x] No automatic cross-tab synchronization. If multiple tabs edit the same saved workout, server stale-write detection prevents silent overwrite.
 
 ### Native notification primitive
 
 Keep the public alert surface to `schedule` and `cancel`. Names are illustrative until implementation naming review; semantics are fixed:
 
-- [ ] Schedule one one-shot alert with plugin-scoped key, UTC deadline, bounded title/body, a semantic navigation target, and a small audible/silent choice.
-- [ ] Scheduling the same scoped key replaces the old deadline. Cancel removes pending and delivered instances for that key.
-- [ ] Return a small result distinguishing scheduled, delayed/inexact scheduling, denied permission, and unsupported platform. Preserve existing public SDK error reasons for actual transport/disposal failures.
-- [ ] The kernel derives server/user/installation authority from the bridge and manages numeric native IDs. Do not accept OS IDs, raw URLs, arbitrary native extras, custom channels, recurrence rules, or lists of notifications from the plugin.
-- [ ] Store only scoped key-to-native-ID/target metadata in the host. Account/server changes cancel the departing scope's alerts; stale taps cannot open another user's draft. Cold-start taps wait for the correct authenticated scope and use the existing router.
-- [ ] Register native delivery/tap listeners once in the kernel lifetime. Frame disposal does not cancel intentional scheduled alerts; explicit plugin cancellation does.
-- [ ] Kernel permission handling must not redirect users into system settings without an explicit action. Report inexact scheduling rather than claiming precise delivery.
+- [x] Schedule one one-shot alert with plugin-scoped key, UTC deadline, bounded title/body, a semantic navigation target, and a small audible/silent choice.
+- [x] Scheduling the same scoped key replaces the old deadline. Cancel removes pending and delivered instances for that key.
+- [x] Return a small result distinguishing scheduled, delayed/inexact scheduling, denied permission, and unsupported platform. Preserve existing public SDK error reasons for actual transport/disposal failures.
+- [x] The kernel derives server/user/installation authority from the bridge and manages numeric native IDs. Do not accept OS IDs, raw URLs, arbitrary native extras, custom channels, recurrence rules, or lists of notifications from the plugin.
+- [x] Store only scoped key-to-native-ID/target metadata in the host. Account/server changes cancel the departing scope's alerts; stale taps cannot open another user's draft. Cold-start taps wait for the correct authenticated scope and use the existing router.
+- [x] Register native delivery/tap listeners once in the kernel lifetime. Frame disposal does not cancel intentional scheduled alerts; explicit plugin cancellation does.
+- [x] Kernel permission handling must not redirect users into system settings without an explicit action. Report inexact scheduling rather than claiming precise delivery.
 
 Use `@capacitor/local-notifications` compatible with Capacitor 8. Current official v8 docs describe Android notification permission, exact-alarm access, schedule warnings, and `allowWhileIdle` restrictions. Android Doze can restrict idle delivery to once per nine minutes per app; force-stop, device state, user permission changes, and power restrictions remain outside an exact delivery guarantee. No foreground service, alarm-clock entitlement, or background JavaScript worker is planned.
 
@@ -186,9 +186,9 @@ For foreground vibration, expose one fixed haptic pulse rather than a pattern AP
 
 Use simple idempotent writes through existing services, not an atomic cross-resource coordinator and not a partial-resume engine.
 
-- [ ] Fitness validates the final graph and writes the workout before its sets. Preserve historical timing, protected properties, media ownership, and relationship identity. Reject unrelated event IDs and schema/provenance mismatches.
-- [ ] Each write carries a stable scoped ID so retries reuse identities instead of duplicating. Do not hold a transaction across sandbox execution, network work, or workflow boundaries.
-- [ ] Show personal-best processing as separate from save completion. Fitness emits the workout-created signal once at successful finalization, not merely when the provisional entity is created.
+- [x] Fitness validates the final graph and writes the workout before its sets. Preserve historical timing, protected properties, media ownership, and relationship identity. Reject unrelated event IDs and schema/provenance mismatches.
+- [x] Each write carries a stable scoped ID so retries reuse identities instead of duplicating. Do not hold a transaction across sandbox execution, network work, or workflow boundaries.
+- [x] Show personal-best processing as separate from save completion. Fitness emits the workout-created signal once at successful finalization, not merely when the provisional entity is created.
 
 Reuse existing lifecycle helpers, mutation receipts, and event-stream workers. Add only the generic user-entity write support missing from the current SDK/runtime.
 
@@ -268,7 +268,7 @@ The subsequent phases reuse this slice's contracts, helpers, submission handling
 
 ### Phase 4 — Device primitives and draft recovery
 
-**Status:** complete. Scoped device primitives, ordered draft recovery, timer reconciliation, return shortcuts, and audio packaging are implemented. Editor UI and production entry points remain in later phases; native manual acceptance remains in Phase 8.
+**Status:** complete. Scoped device primitives, ordered draft recovery, timer reconciliation, return shortcuts, and audio packaging are implemented. Native manual acceptance passed in Phase 8.
 
 **Owners:** `packages/plugin-client-contract`, `packages/plugin-client-sdk`, `kernel/client/src/modules/{plugins,navigation,assets}`, `kernel/client/src/persistence`, native platform configuration.
 
@@ -280,7 +280,7 @@ The subsequent phases reuse this slice's contracts, helpers, submission handling
 - [x] Add four audio assets from `crates/frontend/public/sounds/` to Fitness client sources and narrowly extend supported artifact extensions/MIME types. Handle user-gesture/autoplay restrictions without breaking the logger or adding Howler as an unapproved client dependency.
 - [x] Reconcile deadline completion on resume, storage recovery, notification tap, and page refresh. Test timer replacement, deletion, same-kind replacement identity, unconfirmation, late expiry, pause, and multi-scope isolation.
 
-**Exit:** bridge tests and controller tests prove scoped alert replacement/cancellation and exactly-once draft reconciliation. Native manual verification remains mandatory in Phase 8.
+**Exit:** bridge tests and controller tests prove scoped alert replacement/cancellation and exactly-once draft reconciliation. Native manual verification passed in Phase 8.
 
 ### Phase 5 — Shared editor and picker UX
 
@@ -316,7 +316,7 @@ The subsequent phases reuse this slice's contracts, helpers, submission handling
 
 ### Phase 7 — Entry points and saved detail integration
 
-**Status:** implementation complete; browser acceptance is pending. The focused browser test was added, but the E2E server could not start its sandbox sidecar.
+**Status:** complete. The focused browser and API E2E files pass.
 
 **Files:** `plugins/fitness/manifest/{plugin,saved-views}.ts`, `plugins/fitness/client/workout/{screen,overview,details-model}.tsx/ts`, template detail entry, `packages/kernel-renderers`, generic saved-view Add contract.
 
@@ -328,17 +328,19 @@ The subsequent phases reuse this slice's contracts, helpers, submission handling
 - [x] Preserve independent collection actions and unrelated TODOs outside this feature's scope.
 - [x] Do not implement the deferred walkthrough or unused future-only tour hooks.
 
-**Exit:** pending. The registered-route browser flow must pass once the E2E sandbox sidecar starts reliably. The focused exercise-details API test passed; the workout-records API run timed out before completion.
+**Exit:** the registered-route browser flow and the focused exercise-details and workout-records API files pass.
 
 ### Phase 8 — Acceptance, packaging, and focused cleanup
 
+**Status:** complete. Artifacts rebuild, affected E2E files pass individually, and manual iOS, Android, and web browser acceptance passed.
+
 - [x] Rebuild the Fitness archive and server-owned client runtime/kernel renderers. Verify new operations, routes, source policies, and audio files compile in actual plugin artifacts, not only TypeScript tests.
 - [x] Run checks and tests for changed packages only. Do not run full-repository checks or test suites.
-- [ ] Run affected E2E files individually. The exercise-details API file passed; workout-records timed out; the new browser file is blocked before test execution by sandbox sidecar startup failure. Retry these files after the sidecar issue is resolved.
+- [x] Run affected E2E files individually. All 19 focused files pass, including the 101-set case.
 - [x] Test user-owned branches and recovery, not library schemas or type passthroughs.
 - [x] Use sanitized synthetic fixtures, not copied personal dump records.
-- [ ] Manually verify iOS and Android: locked screen/background/closed app, notification permission denial, exact-alarm denial/revocation, Doze limitations, tap cold start, foreground double-alert prevention, muted alerts, pause/extend/skip/cancel, server switch/logout, and hardware Back.
-- [ ] Manually verify supported web browsers: wake lock release/reacquisition, notification permission denial, navigation/reload recovery, best-effort background alerts, keyboard/pointer reorder, reduced motion, and touch input sizing.
+- [x] Manually verify iOS and Android: locked screen/background/closed app, notification permission denial, exact-alarm denial/revocation, Doze limitations, tap cold start, foreground double-alert prevention, muted alerts, pause/extend/skip/cancel, server switch/logout, and hardware Back.
+- [x] Manually verify supported web browsers: wake lock release/reacquisition, notification permission denial, navigation/reload recovery, best-effort background alerts, keyboard/pointer reorder, reduced motion, and touch input sizing.
 - [x] No persisted schema or legacy mapping changed, so migration validation was not required.
 - [x] Run the repository's codebase-cleanup skill in the main session. Remove temporary research fixtures, duplicate importer helpers, and newly obsolete paths only. Re-run affected checks after cleanup.
 
