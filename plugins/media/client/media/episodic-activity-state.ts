@@ -110,6 +110,7 @@ export type MediaEpisodicWatchDayRow = {
 	readonly runtime: number | null;
 	readonly minutes: number | null;
 	readonly consumedOn: string | null;
+	readonly lastWatchedAt: string;
 };
 
 export type MediaEpisodicActivityResult<Episode, WatchDay> = {
@@ -207,6 +208,13 @@ export type MediaEpisodicView = {
 	readonly coverage: readonly MediaEpisodicCoverageRow[];
 };
 
+export type MediaEpisodicFigureLabels = {
+	readonly time: string;
+	readonly current: string;
+	readonly watches: string;
+	readonly episodes: string;
+};
+
 export type MediaEpisodicActivityCopy = {
 	readonly libraryLabel: string;
 	readonly beats: Record<MediaEpisodicBeat, string>;
@@ -239,12 +247,22 @@ const watchDayRows = <WatchDay extends MediaEpisodicWatchDayRow>(
 	watchDays: readonly WatchDay[],
 	vocabulary: MediaEpisodicEpisodeVocabulary<WatchDay>,
 ) => {
-	const days = new Map<string, Map<string, MediaEpisodicWatchedEpisode>>();
-	const sources = new Map<string, string>();
+	const days = new Map<
+		string,
+		{
+			latest: string;
+			source: string | undefined;
+			readonly episodes: Map<string, MediaEpisodicWatchedEpisode>;
+		}
+	>();
 	for (const watch of watchDays) {
-		const episodes = days.get(watch.day) ?? new Map<string, MediaEpisodicWatchedEpisode>();
-		if (!episodes.has(watch.episodeId)) {
-			episodes.set(watch.episodeId, {
+		const day = days.get(watch.day) ?? {
+			source: undefined,
+			episodes: new Map(),
+			latest: watch.lastWatchedAt,
+		};
+		if (!day.episodes.has(watch.episodeId)) {
+			day.episodes.set(watch.episodeId, {
 				id: watch.episodeId,
 				name: watch.episodeName,
 				order: vocabulary.order(watch),
@@ -252,28 +270,30 @@ const watchDayRows = <WatchDay extends MediaEpisodicWatchDayRow>(
 				minutes: watch.minutes ?? watch.runtime ?? undefined,
 			});
 		}
-		days.set(watch.day, episodes);
-		const source = optionalText(watch.consumedOn);
-		if (source !== undefined && !sources.has(watch.day)) {
-			sources.set(watch.day, source);
+		if (watch.lastWatchedAt > day.latest) {
+			day.latest = watch.lastWatchedAt;
 		}
+		day.source ??= optionalText(watch.consumedOn);
+		days.set(watch.day, day);
 	}
-	return [...days.entries()].flatMap(([day, episodes]): readonly MediaEpisodicWatchRow[] => {
-		const listed = sortedEpisodes([...episodes.values()]);
-		return listed === undefined
-			? []
-			: [
-					{
-						events: [],
-						type: "watch",
-						occurredAt: day,
-						episodes: listed,
-						key: `watch-${day}`,
-						source: sources.get(day),
-						dateKey: formatLocalDateKey(day),
-					},
-				];
-	});
+	return [...days.entries()].flatMap(
+		([day, { latest, source, episodes }]): readonly MediaEpisodicWatchRow[] => {
+			const listed = sortedEpisodes([...episodes.values()]);
+			return listed === undefined
+				? []
+				: [
+						{
+							source,
+							events: [],
+							type: "watch",
+							episodes: listed,
+							occurredAt: latest,
+							key: `watch-${day}`,
+							dateKey: formatLocalDateKey(day),
+						},
+					];
+		},
+	);
 };
 
 const parentEventRow = (event: MediaEpisodicParentEvent): MediaEpisodicRow => {
@@ -423,15 +443,16 @@ export const mediaEpisodicEpisodesLabel = (summary: MediaEpisodicSummary) =>
 
 export const mediaEpisodicActivityFigures = (
 	summary: MediaEpisodicSummary,
-	labels: { readonly time: string; readonly watches: string; readonly episodes: string },
+	labels: MediaEpisodicFigureLabels,
 ): readonly MediaActivityFigure[] => {
 	const span = mediaActivitySpanLabel(summary.span);
+	const current = summary.watches === 0 ? undefined : labels.current;
 	return [
-		{ detail: undefined, label: labels.episodes, value: mediaEpisodicEpisodesLabel(summary) },
+		{ detail: current, label: labels.episodes, value: mediaEpisodicEpisodesLabel(summary) },
 		...(summary.watches === 0
 			? []
 			: [{ detail: undefined, label: labels.watches, value: `${summary.watches}` }]),
-		{ detail: undefined, label: labels.time, value: mediaActivityTimeLabel(summary.minutes) },
+		{ detail: current, label: labels.time, value: mediaActivityTimeLabel(summary.minutes) },
 		{ label: span.label, value: span.value, detail: span.detail },
 	];
 };

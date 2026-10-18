@@ -93,6 +93,7 @@ const WATCH_DAY_ROW = {
 	consumedOn: "Jellyfin",
 	episodeName: "The Arrest",
 	day: "2024-02-01T00:00:00.000Z",
+	lastWatchedAt: "2024-02-01T20:00:00.000Z",
 };
 
 const aggregateRows = (items: readonly Record<string, unknown>[]) => ({

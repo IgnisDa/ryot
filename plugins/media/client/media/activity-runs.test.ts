@@ -303,7 +303,7 @@ describe("episodic summary figures", () => {
 		episodes: { total: 4, watched: 2 },
 		span: { bound: "partial", latest: "2026-01-05T10:00:00.000Z" },
 	} as const;
-	const labels = { time: "Time", watches: "Watches", episodes: "Episodes" };
+	const labels = { time: "Time", watches: "Watches", episodes: "Episodes", current: "This watch" };
 
 	it("hides the watches figure until a watch is completed", () => {
 		expect(mediaEpisodicActivityFigures(summary, labels).map(({ label }) => label)).toEqual([
@@ -314,6 +314,17 @@ describe("episodic summary figures", () => {
 		expect(
 			mediaEpisodicActivityFigures({ ...summary, watches: 2 }, labels).map(({ label }) => label),
 		).toContain("Watches");
+	});
+
+	it("marks episodes and time as this watch's once a watch is completed", () => {
+		expect(mediaEpisodicActivityFigures(summary, labels).map(({ detail }) => detail)).toEqual([
+			undefined,
+			undefined,
+			undefined,
+		]);
+		expect(
+			mediaEpisodicActivityFigures({ ...summary, watches: 1 }, labels).map(({ detail }) => detail),
+		).toEqual(["This watch", undefined, "This watch", undefined]);
 	});
 });
 

@@ -6,12 +6,14 @@ import { scaleBand } from "@tanstack/charts/scales/band";
 import { scaleLinear } from "@tanstack/charts/scales/linear";
 import { tooltip } from "@tanstack/charts/tooltip";
 import { portal } from "@tanstack/charts/tooltip/portal";
-import { useLayoutEffect, useMemo, useRef } from "react";
+import { useMemo } from "react";
 
 const DAY_MS = 86_400_000;
 const LEVELS = [0, 1, 2, 3, 4, 5] as const;
 const LEVEL_COLORS = LEVELS.map((level) => `var(--chart-seq-${level})`);
 const WEEKDAYS = [0, 1, 2, 3, 4, 5, 6] as const;
+const MIN_MONTH_LABEL_GAP_WEEKS = 3;
+const calendarMonthFormat = new Intl.DateTimeFormat(undefined, { month: "short", timeZone: "UTC" });
 
 /** One calendar day: `date` is `YYYY-MM-DD`, `value` is the day's activity amount. */
 export type CalendarHeatmapDay = { readonly date: string; readonly value: number };
@@ -72,7 +74,24 @@ const calendarCells = (
 	});
 };
 
-/** A 7-row by N-week activity calendar that scrolls to show the newest week. */
+const monthLabels = (cells: ReadonlyArray<CalendarCell>) => {
+	const labels: { readonly week: number; readonly label: string }[] = [];
+	for (const day of cells) {
+		const previous = labels.at(-1);
+		if (
+			day.date.endsWith("-01") &&
+			(previous === undefined || day.week - previous.week >= MIN_MONTH_LABEL_GAP_WEEKS)
+		) {
+			labels.push({
+				week: day.week,
+				label: calendarMonthFormat.format(new Date(`${day.date}T00:00:00Z`)),
+			});
+		}
+	}
+	return labels;
+};
+
+/** A 7-row by N-week activity calendar with month labels and a level legend, opening on the newest week. */
 export function CalendarHeatmap({
 	days,
 	compact,
@@ -80,8 +99,8 @@ export function CalendarHeatmap({
 	weekStart,
 	formatTooltip,
 }: CalendarHeatmapProps) {
-	const scrollerRef = useRef<HTMLDivElement>(null);
 	const cells = useMemo(() => calendarCells(days, weekStart), [days, weekStart]);
+	const months = useMemo(() => monthLabels(cells), [cells]);
 	const weeks = (cells.at(-1)?.week ?? -1) + 1;
 	const pitch = compact ? 12 : 15;
 	const definition = useMemo(
@@ -112,28 +131,44 @@ export function CalendarHeatmap({
 
 	const width = pitch * weeks;
 
-	useLayoutEffect(() => {
-		const scroller = scrollerRef.current;
-		if (scroller) {
-			scroller.scrollLeft = width;
-		}
-	}, [width]);
-
 	if (cells.length === 0) {
 		return null;
 	}
 	return (
-		<div ref={scrollerRef} className="overflow-x-auto text-text">
-			<Chart
-				width={width}
-				height={pitch * 7}
-				ariaLabel={ariaLabel}
-				definition={definition}
-				renderTooltipBody={({ points }) => {
-					const day = points[0]?.datum;
-					return day === undefined ? null : formatTooltip(day);
-				}}
-			/>
+		<div className="flex flex-col gap-2 text-text">
+			{/* Reversed flow makes the scroller start at its end, so the newest week shows without measuring layout. */}
+			<div className="flex w-fit max-w-full flex-row-reverse overflow-x-auto">
+				<div style={{ width }} className="shrink-0">
+					<div aria-hidden="true" className="relative h-4 text-xs text-text-subtle">
+						{months.map(({ week, label }) => (
+							<span
+								key={`${week}-${label}`}
+								className="absolute top-0"
+								style={{ left: week * pitch }}
+							>
+								{label}
+							</span>
+						))}
+					</div>
+					<Chart
+						width={width}
+						height={pitch * 7}
+						ariaLabel={ariaLabel}
+						definition={definition}
+						renderTooltipBody={({ points }) => {
+							const day = points[0]?.datum;
+							return day === undefined ? null : formatTooltip(day);
+						}}
+					/>
+				</div>
+			</div>
+			<div aria-hidden="true" className="flex items-center gap-1 text-xs text-text-subtle">
+				<span className="mr-1">Less</span>
+				{LEVEL_COLORS.map((color) => (
+					<span key={color} className="size-2.5 rounded-xs" style={{ backgroundColor: color }} />
+				))}
+				<span className="ml-1">More</span>
+			</div>
 		</div>
 	);
 }

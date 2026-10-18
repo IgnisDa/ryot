@@ -257,14 +257,14 @@ export const mediaCountFact = (
 				value: mediaCountLabel(count, singular.toLowerCase()),
 			};
 
-/** Episode progress over the aired set, e.g. "10/10 aired · 3 upcoming". */
+/** Episode progress over the aired set, e.g. "10 of 10 complete · 3 upcoming". */
 export const mediaEpisodicAiredLabel = (counts: {
 	readonly aired: number;
 	readonly watched: number;
 	readonly upcoming: number;
 }) => {
 	const parts = [
-		counts.aired === 0 ? undefined : `${counts.watched}/${counts.aired} aired`,
+		counts.aired === 0 ? undefined : `${counts.watched} of ${counts.aired} complete`,
 		counts.upcoming === 0 ? undefined : `${counts.upcoming} upcoming`,
 	].filter((part) => part !== undefined);
 	return parts.length === 0 ? undefined : parts.join(" · ");

@@ -43,7 +43,10 @@ export function Tabs<T extends string>(props: {
 			role="tablist"
 			onKeyDown={onKeyDown}
 			aria-label={props.label}
-			className={clsx("flex gap-5 overflow-x-auto border-b border-border", props.className)}
+			className={clsx(
+				"flex gap-5 overflow-x-auto shadow-[inset_0_-1px_0_var(--color-border)]",
+				props.className,
+			)}
 		>
 			{props.options.map((option, index) => {
 				const selected = option.value === props.value;
@@ -61,7 +64,7 @@ export function Tabs<T extends string>(props: {
 							tabs.current[index] = element;
 						}}
 						className={clsx(
-							"-mb-px flex shrink-0 items-center gap-1.5 border-b-2 py-2.5 text-sm font-medium whitespace-nowrap transition-colors duration-100 motion-reduce:transition-none",
+							"flex shrink-0 items-center gap-1.5 border-b-2 py-2.5 text-sm font-medium whitespace-nowrap transition-colors duration-100 motion-reduce:transition-none",
 							selected
 								? "border-text text-text"
 								: "border-transparent text-text-muted hover:text-text",

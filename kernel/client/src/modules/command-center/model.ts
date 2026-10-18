@@ -202,6 +202,30 @@ const searchLibraryView = <Failure>(
 
 export type LibraryGroupResult = Result.Result<readonly CommandOption[], "failed">;
 
+export type LibraryViewsState =
+	| { readonly status: "pending" | "failed" }
+	| { readonly status: "ready"; readonly views: readonly LibraryView[] };
+
+export const LIBRARY_VIEWS_KEY = "library-views";
+
+export const libraryGroups = (
+	state: LibraryViewsState,
+	resultFor: (view: LibraryView) => LibraryGroupResult | undefined,
+): readonly CommandGroup[] => {
+	if (state.status !== "ready") {
+		return [{ options: [], heading: "Library", status: state.status, key: LIBRARY_VIEWS_KEY }];
+	}
+	return state.views.map((view): CommandGroup => {
+		const result = resultFor(view);
+		if (result === undefined) {
+			return { options: [], key: view.id, status: "pending", heading: view.name };
+		}
+		return Result.isFailure(result)
+			? { options: [], key: view.id, status: "failed", heading: view.name }
+			: { key: view.id, status: "ready", heading: view.name, options: result.success };
+	});
+};
+
 export const runLibrarySearch = <Failure>(input: {
 	readonly query: string;
 	readonly views: readonly LibraryView[];

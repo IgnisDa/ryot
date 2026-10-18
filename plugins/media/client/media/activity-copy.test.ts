@@ -52,7 +52,12 @@ describe("media activity copy", () => {
 			segmentNoun: "Listen",
 			recordLabel: "Listen record",
 			rowLabels: { watched: "Played", review: "Reviewed the podcast" },
-			figures: { time: "Time", watches: "Listens", episodes: "Episodes" },
+			figures: {
+				time: "Time",
+				episodes: "Episodes",
+				current: "This listen",
+				watches: "Completed listens",
+			},
 			beats: {
 				backlog: "Added to backlog",
 				dropped: "Stopped listening",

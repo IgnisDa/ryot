@@ -128,6 +128,7 @@ export const episodicFirstWatchDayRow = {
 	consumedOn: "Jellyfin",
 	day: "2025-11-04T00:00:00.000Z",
 	episodeName: "Episode 1: The Arrest",
+	lastWatchedAt: "2025-11-04T21:00:00.000Z",
 };
 
 export const episodicSecondWatchDayRow = {
@@ -138,11 +139,13 @@ export const episodicSecondWatchDayRow = {
 	consumedOn: "Jellyfin",
 	day: "2025-11-05T00:00:00.000Z",
 	episodeName: "Episode 2: The Interview",
+	lastWatchedAt: "2025-11-05T21:00:00.000Z",
 };
 
 export const episodicSameDayWatchRow = {
 	...episodicSecondWatchDayRow,
 	day: episodicFirstWatchDayRow.day,
+	lastWatchedAt: "2025-11-04T22:00:00.000Z",
 };
 
 export const episodicRewatchWatchDayRow = {
@@ -150,6 +153,7 @@ export const episodicRewatchWatchDayRow = {
 	minutes: null,
 	consumedOn: "Netflix",
 	day: "2026-03-01T00:00:00.000Z",
+	lastWatchedAt: "2026-03-01T21:00:00.000Z",
 };
 
 export const episodicRewatchCompletionEventRow = {

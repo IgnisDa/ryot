@@ -54,7 +54,7 @@ export const episodicFixtureSchema = defineEpisodicMediaSchema({
 		libraryLabel: "Added to media library",
 		loadingDetail: "Fetching the item record.",
 		emptyDetail: "Nothing has been recorded for this item.",
-		figures: { time: "Time", watches: "Passes", episodes: "Episodes" },
+		figures: { time: "Time", watches: "Passes", current: "This pass", episodes: "Episodes" },
 		rowLabels: { watched: "Heard", review: "Reviewed the item", completion: "Finished the item" },
 		beats: {
 			backlog: "Added to backlog",

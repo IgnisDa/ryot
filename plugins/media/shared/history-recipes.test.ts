@@ -60,6 +60,7 @@ describe("complete activity history recipes", () => {
 			episodeName: "Pilot",
 			episodeId: "episode-1",
 			day: "2025-11-04T00:00:00.000Z",
+			lastWatchedAt: "2025-11-04T21:00:00.000Z",
 		};
 		expect(
 			Result.getOrThrow(

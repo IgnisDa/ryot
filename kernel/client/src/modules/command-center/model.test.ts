@@ -16,7 +16,9 @@ import { TestClock } from "effect/testing";
 import {
 	destinationOptions,
 	filterOptions,
+	LIBRARY_VIEWS_KEY,
 	type LibraryGroupResult,
+	libraryGroups,
 	type LibraryView,
 	libraryViews,
 	providerAddOptions,
@@ -228,6 +230,33 @@ describe("command center library views", () => {
 		const options = providerAddOptions(found, "dune", matched);
 
 		expect(options.map(({ description }) => description)).toEqual(["View d", "View a", "View b"]);
+	});
+
+	it("reports loading and failed library views as their own group instead of no matches", () => {
+		expect(libraryGroups({ status: "pending" }, () => undefined)).toEqual([
+			{ options: [], status: "pending", heading: "Library", key: LIBRARY_VIEWS_KEY },
+		]);
+		expect(libraryGroups({ status: "failed" }, () => undefined)).toEqual([
+			{ options: [], status: "failed", heading: "Library", key: LIBRARY_VIEWS_KEY },
+		]);
+	});
+
+	it("groups each loaded view by its search result", () => {
+		const loaded = libraryViews([record("a"), record("b"), record("c")]);
+		const results = new Map<string, LibraryGroupResult>([
+			["a", Result.succeed([])],
+			["b", Result.fail("failed")],
+		]);
+
+		expect(
+			libraryGroups({ views: loaded, status: "ready" }, (view) => results.get(view.id)).map(
+				({ key, status }) => [key, status],
+			),
+		).toEqual([
+			["a", "ready"],
+			["b", "failed"],
+			["c", "pending"],
+		]);
 	});
 });
 

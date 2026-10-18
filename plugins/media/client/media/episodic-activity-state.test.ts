@@ -77,6 +77,39 @@ describe("episodic activity state", () => {
 		expect(episodicFixtureSchema.activityRowLabel(row)).toBe("Heard 2 episodes");
 	});
 
+	it("orders a day of completions by its latest watch, not the start of the day", () => {
+		const day = view({
+			episodeEvents: [],
+			episodeProgress: [],
+			collectionEvents: [],
+			watchDays: [episodicFirstWatchDayRow, episodicSameDayWatchRow],
+			parentEvents: [
+				{
+					text: null,
+					rating: null,
+					properties: {},
+					timeSpent: null,
+					startedOn: null,
+					isSpoiler: null,
+					consumedOn: null,
+					dateUnknown: null,
+					entityId: "entity-1",
+					id: "parent-library",
+					sessionEntityId: null,
+					createdAt: "2025-11-04T12:00:05.000Z",
+					occurredAt: "2025-11-04T12:00:00.000Z",
+					eventSchemaSlug: "add-to-media-library",
+				},
+			],
+		});
+		assert(day.timeline.layout === "flat");
+
+		expect(day.timeline.rows.map((row) => [row.type, row.occurredAt])).toEqual([
+			["watch", "2025-11-04T22:00:00.000Z"],
+			["media-library", "2025-11-04T12:00:00.000Z"],
+		]);
+	});
+
 	it("names the episode a single-episode day belongs to", () => {
 		const single = view({
 			parentEvents: [],

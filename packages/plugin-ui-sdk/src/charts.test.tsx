@@ -43,6 +43,25 @@ describe("CalendarHeatmap", () => {
 		);
 	});
 
+	it("labels the weeks where months begin and shows the level legend", () => {
+		const { container } = renderHeatmap([
+			{ value: 1, date: "2026-09-07" },
+			{ value: 2, date: "2026-11-08" },
+		]);
+
+		expect(
+			[...container.querySelectorAll<HTMLElement>(".relative > span")].map((label) => [
+				label.textContent,
+				label.style.left,
+			]),
+		).toEqual([
+			["Oct", "45px"],
+			["Nov", "105px"],
+		]);
+		expect(container.textContent).toContain("Less");
+		expect(container.textContent).toContain("More");
+	});
+
 	it("places the first day in its weekday row for the chosen week start", () => {
 		const week = [
 			{ value: 1, date: "2026-09-20" },

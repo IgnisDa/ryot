@@ -466,6 +466,10 @@ export const episodicWatchDaysQuery = <const EpisodeFields extends SelectedSelec
 			groupAscending("episodeNumber"),
 		],
 		measures: {
+			lastWatchedAt: selectedMeasure(
+				{ function: "maximum", expr: column(event, "occurredAt") },
+				IsoDateString,
+			),
 			minutes: selectedMeasure(
 				{ function: "sum", expr: propertyNumber(event, "timeSpent") },
 				Schema.NullOr(Schema.Finite),

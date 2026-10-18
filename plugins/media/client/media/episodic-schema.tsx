@@ -51,6 +51,7 @@ import {
 	type MediaEpisodicCoverage,
 	mediaEpisodicEpisodesAreCollapsed,
 	type MediaEpisodicEpisodeValue,
+	type MediaEpisodicFigureLabels,
 	type MediaEpisodicHistoryEvent,
 	mediaEpisodicMonthSummary,
 	mediaEpisodicRangeSummary,
@@ -155,11 +156,7 @@ export type MediaEpisodicSchemaDescriptor<
 	readonly activityCopy: MediaActivityCopy &
 		MediaEpisodicActivityCopy & {
 			readonly segmentNoun: string;
-			readonly figures: {
-				readonly time: string;
-				readonly watches: string;
-				readonly episodes: string;
-			};
+			readonly figures: MediaEpisodicFigureLabels;
 		};
 	readonly coverage: (result: Activity) => MediaEpisodicCoverage;
 	readonly episodeOrigin: (episode: Origin) => string;

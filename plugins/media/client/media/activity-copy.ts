@@ -118,8 +118,13 @@ export const mediaEpisodicActivityCopy = (input: {
 	return {
 		...copy,
 		rowLabels: { ...rowLabels, watched: input.watchedLabel },
-		figures: { time: "Time", episodes: "Episodes", watches: verb.completionsLabel },
 		beats: { ...mediaActivityBeats(verb, input.noun), backlog: "Added to backlog" },
+		figures: {
+			time: "Time",
+			episodes: "Episodes",
+			current: `This ${verb.segmentNoun.toLowerCase()}`,
+			watches: `Completed ${verb.completionsLabel.toLowerCase()}`,
+		},
 	};
 };
 
