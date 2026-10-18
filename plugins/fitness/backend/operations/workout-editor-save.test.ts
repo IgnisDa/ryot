@@ -346,16 +346,15 @@ describe("workout editor save", () => {
 	it("returns typed conflicts rather than parsing diagnostic text", () =>
 		Effect.runPromise(
 			Effect.gen(function* () {
-				const fixture = harness();
-				const host: ScriptHost = {
-					...fixture.host,
-					createUserEntity: () =>
-						Effect.fail({
-							message: "Not a business contract",
-							data: { code: "mutation-conflict" },
-						}),
-				};
-				expect(yield* definition.run(input(), host)).toEqual({ kind: "conflict" });
+				for (const code of ["entity-stale", "mutation-conflict"]) {
+					const fixture = harness();
+					const host: ScriptHost = {
+						...fixture.host,
+						createUserEntity: () =>
+							Effect.fail({ data: { code }, message: "Not a business contract" }),
+					};
+					expect(yield* definition.run(input(), host)).toEqual({ kind: "conflict" });
+				}
 			}),
 		));
 	it("keeps conflicts after writes retry-only", () =>

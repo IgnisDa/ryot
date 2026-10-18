@@ -66,7 +66,8 @@ export default defineOperation({
 						const reason = Schema.decodeUnknownResult(Schema.Struct({ code: Schema.String }))(
 							error.data,
 						);
-						return reason._tag === "Success" && reason.success.code === "mutation-conflict"
+						return reason._tag === "Success" &&
+							["entity-stale", "mutation-conflict"].includes(reason.success.code)
 							? Effect.succeed(false)
 							: Effect.fail(error);
 					}),

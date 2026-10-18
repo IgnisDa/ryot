@@ -30,9 +30,13 @@ export default defineOperation({
 					);
 					if (
 						reason._tag === "Success" &&
-						["mutation-conflict", "event-stale", "event-not-found", "entity-not-found"].includes(
-							reason.success.code,
-						)
+						[
+							"mutation-conflict",
+							"entity-stale",
+							"event-stale",
+							"event-not-found",
+							"entity-not-found",
+						].includes(reason.success.code)
 					) {
 						return Effect.succeed({ kind: "conflict" } as const);
 					}
