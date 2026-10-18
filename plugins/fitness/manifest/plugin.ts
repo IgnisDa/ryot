@@ -23,6 +23,7 @@ import {
 	workoutTimeCorrectionOperationSlug,
 } from "../shared/workout-editor-context-operations";
 import { fitnessClientRoutes } from "../shared/workout-editor-routes";
+import { fitnessCalendarSources } from "./calendar-sources";
 import { fitnessConfigSchema } from "./config";
 import { fitnessSavedViews } from "./saved-views";
 import { fitnessEntitySchemas } from "./schemas/entity";
@@ -68,6 +69,7 @@ export const fitnessPlugin = definePlugin({
 	configSchema: fitnessConfigSchema,
 	entitySchemas: fitnessEntitySchemas,
 	signalSchemas: fitnessSignalSchemas(),
+	calendarSources: fitnessCalendarSources(),
 	userSettingsSchema: fitnessUserSettingsSchema,
 	relationshipSchemas: fitnessRelationshipSchemas(),
 	userBootstrap: [

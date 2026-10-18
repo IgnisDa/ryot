@@ -57,7 +57,7 @@ const nullableNumber = Schema.NullOr(Schema.Finite);
 const nullableString = Schema.NullOr(Schema.String);
 const templateSlug = "workout-to-workout-template";
 
-const startedAt = (workout: Table) => propertyDate(workout, "startedAt");
+export const startedAt = (workout: Table) => propertyDate(workout, "startedAt");
 
 const workoutSets = (set: Table, workout: Table) =>
 	and(
@@ -69,7 +69,7 @@ const workoutSets = (set: Table, workout: Table) =>
 const personalBestCount = (set: Table) =>
 	jsonArrayCount(jsonPath(column(set, "properties"), "personalBests"));
 
-const workoutTotals = (workout: Table, setAlias: string) => {
+export const workoutTotals = (workout: Table, setAlias: string) => {
 	const set = table("event", setAlias);
 	const sets = workoutSets(set, workout);
 	return {
