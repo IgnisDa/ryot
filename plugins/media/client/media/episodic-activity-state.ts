@@ -50,6 +50,42 @@ export type MediaEpisodicCollectionEvent = {
 export type MediaEpisodicActivityEvent<Episode> =
 	MediaEpisodicParentEvent | MediaEpisodicEpisodeEvent<Episode> | MediaEpisodicCollectionEvent;
 
+export type MediaEpisodicHistoryEvent<Episode> =
+	| MediaEpisodicParentEvent
+	| MediaEpisodicCollectionEvent
+	| (Omit<MediaEpisodicEpisodeEvent<Episode>, "eventSchemaSlug"> & {
+			readonly eventSchemaSlug: "review" | "progress" | "complete";
+	  });
+
+export const mediaEpisodicActivityRow = <Episode extends MediaEpisodicEpisodeValue>(
+	event: MediaEpisodicHistoryEvent<Episode>,
+	episodeOrigin: (episode: Episode) => string,
+): MediaEpisodicRow => {
+	if (event.kind === "parent") {
+		return parentEventRow(event);
+	}
+	if (event.kind === "collection") {
+		return mediaCollectionRow(event);
+	}
+	const origin = episodeOrigin(event.episode);
+	if (event.eventSchemaSlug === "complete") {
+		return {
+			...anchorOf(event, "watch"),
+			type: "watch",
+			source: optionalText(event.consumedOn),
+			episodes: [
+				{
+					origin,
+					id: event.episode.id,
+					name: event.episode.name,
+					minutes: event.timeSpent ?? event.episode.runtime ?? undefined,
+				},
+			],
+		};
+	}
+	return episodeEventRow({ ...event, eventSchemaSlug: event.eventSchemaSlug }, origin);
+};
+
 export type MediaEpisodicWatchDayRow = {
 	readonly day: string;
 	readonly episodeId: string;
@@ -248,15 +284,9 @@ export const mediaEpisodicActivityView = <Origin>(input: {
 	>;
 }): MediaEpisodicView | undefined => {
 	const { result, coverage } = input;
-	const eventRows = result.events.map((event): MediaEpisodicRow => {
-		if (event.kind === "parent") {
-			return parentEventRow(event);
-		}
-		if (event.kind === "collection") {
-			return mediaCollectionRow(event);
-		}
-		return episodeEventRow(event, input.episodeOrigin(event.episode));
-	});
+	const eventRows = result.events.map((event) =>
+		mediaEpisodicActivityRow(event, input.episodeOrigin),
+	);
 	const view = mediaActivityRowsView(
 		[...watchDayRows(result.watchDays, input.episodeOrigin), ...eventRows],
 		episodicPredicates,

@@ -14,7 +14,7 @@ import {
 	readyQueryResult,
 	transportErrorQueryResult,
 } from "../../tests/client/query-result-fixture";
-import { mediaEpisodicEpisodesLabel } from "./episodic-activity-state";
+import { mediaEpisodicActivityRow, mediaEpisodicEpisodesLabel } from "./episodic-activity-state";
 
 const view = (input: Parameters<typeof decodeEpisodicActivity>[0] = {}) => {
 	const mapped = episodicFixtureSchema.activityView(decodeEpisodicActivity(input));
@@ -23,6 +23,29 @@ const view = (input: Parameters<typeof decodeEpisodicActivity>[0] = {}) => {
 };
 
 describe("episodic activity state", () => {
+	it("keeps each completion and progress log separate in complete history", () => {
+		const episode = decodeEpisodicActivity().events.find((event) => event.kind === "episode");
+		assert(episode?.kind === "episode");
+		const complete = mediaEpisodicActivityRow(
+			{ ...episode, timeSpent: 25, eventSchemaSlug: "complete" },
+			() => "E1",
+		);
+		expect(complete).toMatchObject({
+			type: "watch",
+			key: `watch-${episode.id}`,
+			episodes: [{ minutes: 25, origin: "E1", id: episode.episode.id }],
+		});
+		const progress = mediaEpisodicActivityRow(
+			{ ...episode, progressPercent: 45, eventSchemaSlug: "progress" },
+			() => "E1",
+		);
+		expect(progress).toMatchObject({
+			percent: 45,
+			type: "progress",
+			key: `progress-${episode.id}`,
+			episode: { origin: "E1", id: episode.episode.id },
+		});
+	});
 	it("maps query failures apart and reports an unrecorded history as empty", () => {
 		expect(episodicFixtureSchema.mapActivity(pendingQueryResult())).toEqual({ status: "loading" });
 		expect(episodicFixtureSchema.mapActivity(malformedQueryResult()).status).toBe("malformed");

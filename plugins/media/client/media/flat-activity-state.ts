@@ -1,5 +1,4 @@
 import type {
-	MediaFlatActivityCollectionEvent,
 	MediaFlatActivityEvent,
 	MediaFlatActivityMediaEvent,
 } from "../../shared/media-recipes";
@@ -91,9 +90,11 @@ const parentRow = <Subject, Extra>(
 	return mediaBeatRow(event, event.eventSchemaSlug);
 };
 
-const collectionRow = <Subject, Extra>(
-	event: MediaFlatActivityCollectionEvent,
-): MediaFlatActivityRow<Subject, Extra> => mediaCollectionRow(event);
+export const mediaFlatActivityRow = <Subject, Extra>(
+	event: MediaFlatActivityEvent<Extra>,
+	subject: Subject,
+) =>
+	event.kind === "media" ? parentRow<Subject, Extra>(event, subject) : mediaCollectionRow(event);
 
 const mediaFlatActivityPredicates = {
 	isWatching: (row: MediaFlatActivityRow<unknown>) => row.type === "progress",
@@ -108,11 +109,7 @@ export const mediaFlatActivityView = <Subject, Extra>(input: {
 	readonly events: readonly MediaFlatActivityEvent<Extra>[];
 }): MediaFlatActivityView<Subject, Extra> | undefined => {
 	const view = mediaActivityRowsView(
-		input.events.map((event) =>
-			event.kind === "media"
-				? parentRow<Subject, Extra>(event, input.subject)
-				: collectionRow<Subject, Extra>(event),
-		),
+		input.events.map((event) => mediaFlatActivityRow(event, input.subject)),
 		mediaFlatActivityPredicates,
 		input.truncated,
 	);

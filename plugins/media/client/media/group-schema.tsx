@@ -10,8 +10,12 @@ import clsx from "clsx";
 import { createElement, type ReactNode } from "react";
 
 import type { MediaPresentationSource } from "../../shared/entity-presentations";
-import type { MediaReviewActivityResult } from "../../shared/media-recipes";
+import type {
+	MediaReviewActivityEvent,
+	MediaReviewActivityResult,
+} from "../../shared/media-recipes";
 import { PLUGIN_PACKAGE_ID } from "../../shared/plugin-identity";
+import type { MediaHistoryRecipe } from "./activity-history";
 import { createMediaCreditsQuery, MediaCreditsButton, type MediaCreditsRecipe } from "./credits";
 import { type MediaCursorPage, mediaCursorPageError } from "./cursor-page-state";
 import { MediaCursorPages, type MediaCursorPagesCopy } from "./cursor-pages";
@@ -105,6 +109,7 @@ type MediaGroupSchemaRecipes<Summary, Presentation, Member> = {
 		readonly eventLimit: number;
 		readonly collectionEventLimit: number;
 	}) => PreparedRecipe<MediaReviewActivityResult>;
+	readonly historyRecipe: MediaHistoryRecipe<MediaReviewActivityEvent>;
 	readonly presentationSource: MediaPresentationSource<Presentation>;
 };
 
@@ -234,6 +239,7 @@ export const defineGroupMediaSchema = <
 
 	const { Activity, ActivityTab, mapActivity, activityQuery } = defineMediaReviewActivityTab({
 		noun: nouns.singular,
+		historyRecipe: recipes.historyRecipe,
 		activityRecipe: recipes.activityRecipe,
 	});
 
@@ -376,7 +382,11 @@ export const defineGroupMediaSchema = <
 		<ScreenBody
 			{...input}
 			members={createElement(MembersTab, { compact: input.compact, entityId: input.entityId })}
-			activity={createElement(ActivityTab, { compact: input.compact, entityId: input.entityId })}
+			activity={createElement(ActivityTab, {
+				compact: input.compact,
+				entityId: input.entityId,
+				safeAreaTop: input.safeAreaTop,
+			})}
 		/>
 	);
 

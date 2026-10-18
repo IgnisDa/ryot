@@ -6,6 +6,7 @@ import {
 import clsx from "clsx";
 import type { ReactNode } from "react";
 
+import { MediaHistoryButton } from "./activity-history";
 import {
 	type MediaActivityFigure,
 	type MediaActivityRowRender,
@@ -19,6 +20,7 @@ import {
 	type MediaActivityState,
 	type MediaActivityTimeline,
 } from "./activity-timeline";
+import type { MediaCursorPage } from "./cursor-page-state";
 import { MediaLinkButton, MediaRefreshStatus, MediaStatusMessage } from "./primitives";
 
 export type MediaActivityCopy = {
@@ -29,7 +31,10 @@ export type MediaActivityCopy = {
 
 export type MediaActivityEmptyAction = "log-activity" | "write-review";
 
-function MediaActivityFooter(props: { readonly partial: boolean }) {
+function MediaActivityFooter(props: { readonly partial: boolean; readonly history?: ReactNode }) {
+	if (!props.partial && !props.history) {
+		return null;
+	}
 	return (
 		<div className="flex flex-col items-start gap-2 border-t border-border pt-4">
 			{props.partial ? (
@@ -37,10 +42,7 @@ function MediaActivityFooter(props: { readonly partial: boolean }) {
 					Only your most recent activity is shown here.
 				</p>
 			) : null}
-			<MediaLinkButton
-				label="View complete history"
-				onClick={() => console.log("TODO: open complete activity history")}
-			/>
+			{props.history}
 		</div>
 	);
 }
@@ -76,6 +78,7 @@ export function MediaActivityRecord<Row extends MediaActivityRowBase>(props: {
 	readonly render: MediaActivityRowRender<Row>;
 	readonly timeline: MediaActivityTimeline<Row>;
 	readonly figures: readonly MediaActivityFigure[];
+	readonly history?: ReactNode;
 }) {
 	const { compact } = props;
 	return (
@@ -95,7 +98,7 @@ export function MediaActivityRecord<Row extends MediaActivityRowBase>(props: {
 				className={clsx("flex min-w-0 flex-col gap-5", !compact && "max-w-2xl flex-1")}
 			>
 				<MediaActivityTimelineView render={props.render} timeline={props.timeline} />
-				<MediaActivityFooter partial={props.partial} />
+				<MediaActivityFooter partial={props.partial} history={props.history} />
 			</div>
 		</div>
 	);
@@ -107,7 +110,12 @@ export function MediaActivity<View>(props: {
 	readonly copy: MediaActivityCopy;
 	readonly state: MediaActivityState<View>;
 	readonly emptyAction: MediaActivityEmptyAction;
-	readonly Record: (input: { readonly compact: boolean; readonly view: View }) => ReactNode;
+	readonly history?: ReactNode;
+	readonly Record: (input: {
+		readonly compact: boolean;
+		readonly view: View;
+		readonly history?: ReactNode;
+	}) => ReactNode;
 }) {
 	const { state } = props;
 	if (state.status === "loading") {
@@ -119,16 +127,26 @@ export function MediaActivity<View>(props: {
 	if (state.status === "empty") {
 		return <MediaActivityEmpty action={props.emptyAction} detail={props.copy.emptyDetail} />;
 	}
-	return <props.Record view={state.view} compact={props.compact} />;
+	return <props.Record view={state.view} compact={props.compact} history={props.history} />;
 }
 
 /** The activity state mapper, its screen, and the tab that loads it for one entity. */
-export const defineMediaActivityTab = <Result, View>(input: {
+export const defineMediaActivityTab = <Result, View, Event>(input: {
 	readonly copy: MediaActivityCopy;
 	readonly emptyAction: MediaActivityEmptyAction;
 	readonly view: (result: Result) => View | undefined;
 	readonly query: RyotQuery<{ readonly entityId: string }, Result>;
-	readonly Record: (props: { readonly compact: boolean; readonly view: View }) => ReactNode;
+	readonly Record: (props: {
+		readonly compact: boolean;
+		readonly view: View;
+		readonly history?: ReactNode;
+	}) => ReactNode;
+	readonly historyQuery: RyotQuery<
+		{ readonly entityId: string; readonly after: string | null },
+		MediaCursorPage<Event>
+	>;
+	readonly renderHistory: (items: readonly Event[]) => ReactNode;
+	readonly hasMoreActivities: (result: Result) => boolean;
 }) => {
 	const mapActivity = (result: RyotQueryResult<Result>) => mapMediaActivity(result, input.view);
 
@@ -136,12 +154,14 @@ export const defineMediaActivityTab = <Result, View>(input: {
 		readonly compact: boolean;
 		readonly refresh: () => void;
 		readonly state: MediaActivityState<View>;
+		readonly history?: ReactNode;
 	}) {
 		return (
 			<MediaActivity
 				copy={input.copy}
 				state={props.state}
 				Record={input.Record}
+				history={props.history}
 				compact={props.compact}
 				refresh={props.refresh}
 				emptyAction={input.emptyAction}
@@ -149,12 +169,32 @@ export const defineMediaActivityTab = <Result, View>(input: {
 		);
 	}
 
-	function ActivityTab(props: { readonly compact: boolean; readonly entityId: string }) {
+	function ActivityTab(props: {
+		readonly compact: boolean;
+		readonly entityId: string;
+		readonly safeAreaTop: number;
+	}) {
 		const result = useRyotQuery(input.query, { entityId: props.entityId });
+		const history =
+			result.data !== undefined && input.hasMoreActivities(result.data) ? (
+				<MediaHistoryButton
+					key={props.entityId}
+					compact={props.compact}
+					entityId={props.entityId}
+					query={input.historyQuery}
+					safeAreaTop={props.safeAreaTop}
+					renderPage={input.renderHistory}
+				/>
+			) : null;
 		return (
 			<>
 				<MediaRefreshStatus result={result} />
-				<Activity compact={props.compact} refresh={result.refetch} state={mapActivity(result)} />
+				<Activity
+					history={history}
+					compact={props.compact}
+					refresh={result.refetch}
+					state={mapActivity(result)}
+				/>
 			</>
 		);
 	}

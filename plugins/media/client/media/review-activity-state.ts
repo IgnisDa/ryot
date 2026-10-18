@@ -28,7 +28,7 @@ export type MediaReviewActivityView = {
 
 const FLAT_PREDICATES = { isWatching: () => false, isCompletion: () => false };
 
-const activityRow = (event: MediaReviewActivityEvent): MediaReviewActivityRow => {
+export const mediaReviewActivityRow = (event: MediaReviewActivityEvent): MediaReviewActivityRow => {
 	if (event.kind !== "media") {
 		return mediaCollectionRow(event);
 	}
@@ -43,7 +43,7 @@ export const mediaReviewActivityView = (
 	result: MediaReviewActivityResult,
 ): MediaReviewActivityView | undefined => {
 	const view = mediaActivityRowsView<MediaReviewActivityRow>(
-		result.events.map(activityRow),
+		result.events.map(mediaReviewActivityRow),
 		FLAT_PREDICATES,
 		result.truncated,
 	);

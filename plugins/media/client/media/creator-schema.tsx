@@ -7,7 +7,11 @@ import type { PreparedRecipe } from "@ryot-app/plugin-client-sdk/ryotql";
 import type { TabOption } from "@ryot-app/plugin-ui-sdk";
 import { createElement, type ReactNode } from "react";
 
-import type { MediaReviewActivityResult } from "../../shared/media-recipes";
+import type {
+	MediaReviewActivityEvent,
+	MediaReviewActivityResult,
+} from "../../shared/media-recipes";
+import type { MediaHistoryRecipe } from "./activity-history";
 import {
 	mediaCreditItems,
 	MediaCreditRails,
@@ -74,6 +78,7 @@ export type MediaCreatorSchemaDescriptor<
 			readonly eventLimit: number;
 			readonly collectionEventLimit: number;
 		}) => PreparedRecipe<MediaReviewActivityResult>;
+		readonly historyRecipe: MediaHistoryRecipe<MediaReviewActivityEvent>;
 	};
 	readonly artwork: MediaSummaryArtwork;
 	readonly heroHeight: (compact: boolean) => number;
@@ -119,6 +124,7 @@ export const defineCreatorMediaSchema = <
 
 	const { Activity, ActivityTab, mapActivity, activityQuery } = defineMediaReviewActivityTab({
 		noun: nouns.singular,
+		historyRecipe: recipes.historyRecipe,
 		activityRecipe: recipes.activityRecipe,
 	});
 
@@ -194,7 +200,11 @@ export const defineCreatorMediaSchema = <
 	const DetailBody = (input: MediaDetailBodyInput<Summary, Overview>) => (
 		<ScreenBody
 			{...input}
-			activity={createElement(ActivityTab, { compact: input.compact, entityId: input.entityId })}
+			activity={createElement(ActivityTab, {
+				compact: input.compact,
+				entityId: input.entityId,
+				safeAreaTop: input.safeAreaTop,
+			})}
 		/>
 	);
 
