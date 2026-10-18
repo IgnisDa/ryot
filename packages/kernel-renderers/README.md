@@ -40,10 +40,16 @@ the current workspace does not supply schema ownership.
 
 Renderer queries return Effects from `createRyotQuery` callbacks. Collection detail loads the
 header, type aggregate, and unfiltered total as separate page-refreshed queries and mounts the
-controller only when all three have data; the infinite members query then requests members alone. The
+controller only when all three have data; the infinite members query reads members and their order revision together. The
 controller remounts, with a fresh members query and filter fields, when the membership schema or the
 presence of member types changes. Query cancellation follows Effect interruption when the page
 unmounts.
+
+Collection detail offers an unfiltered reorder mode using the shared pointer/keyboard list and bridged
+platform haptics. Moves save immediately through the canonical collection command. Start/end actions
+span unloaded pages; dragging to a loaded page's boundary uses an anchor, not a guessed global position.
+Failed transport submissions retain their identity for retry. Changed order revisions reject continuation
+pages and require a refresh, so pages from different collection orders are never appended together.
 
 ## Filters
 

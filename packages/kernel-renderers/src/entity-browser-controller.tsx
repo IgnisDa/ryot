@@ -1,3 +1,4 @@
+import { RyotClientError } from "@ryot-app/plugin-client-sdk";
 import {
 	activeFiltersPhrase,
 	FilterChips,
@@ -226,6 +227,8 @@ export function EntityBrowserController<Meta>({
 			}),
 		},
 	);
+	const staleCollection =
+		result.error instanceof RyotClientError && result.error.reason === "collection-stale";
 	const state = useMemo(
 		() =>
 			result.data === undefined
@@ -586,9 +589,17 @@ export function EntityBrowserController<Meta>({
 							role="alert"
 							className="flex items-center justify-center gap-3 text-sm text-danger"
 						>
-							<span>More results could not be loaded.</span>
-							<Button variant="ghost" className="text-sm" onClick={result.retry}>
-								Retry
+							<span>
+								{staleCollection
+									? "This collection changed. Reload to continue."
+									: "More results could not be loaded."}
+							</span>
+							<Button
+								variant="ghost"
+								className="text-sm"
+								onClick={staleCollection ? result.refetch : result.retry}
+							>
+								{staleCollection ? "Reload collection" : "Retry"}
 							</Button>
 						</div>
 					)}

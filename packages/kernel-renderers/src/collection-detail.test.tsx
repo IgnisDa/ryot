@@ -1,5 +1,6 @@
 import { afterEach, assert, describe, expect, it } from "@effect/vitest";
 import type { KeyedCollectionField } from "@ryot-app/contract/modules/collections/fields";
+import { EntityId } from "@ryot-app/contract/schema/brands";
 import type { JsonValue } from "@ryot-app/contract/schema/json";
 import {
 	disposePluginBridges,
@@ -36,6 +37,7 @@ const request = (page: ReturnType<typeof mountPluginPage>, name: string, index =
 
 type CollectionAnswer = {
 	readonly name: string;
+	readonly revision?: number;
 	readonly total?: number | undefined;
 	readonly hasMore?: boolean | undefined;
 	readonly description?: string | undefined;
@@ -48,12 +50,17 @@ type CollectionAnswer = {
 const replyMembers = (
 	page: ReturnType<typeof mountPluginPage>,
 	requestId: string,
-	input: Pick<CollectionAnswer, "members" | "hasMore">,
+	input: Pick<CollectionAnswer, "members" | "hasMore" | "revision">,
 ) =>
 	page.replyQuery(requestId, {
 		outcome: "success",
 		response: {
 			data: {
+				order: {
+					type: "rows",
+					items: [{ revision: input.revision ?? 0 }],
+					pageInfo: { limit: 2, hasMore: false, nextCursor: null },
+				},
 				members: {
 					type: "rows",
 					items: input.members ?? [],
@@ -182,6 +189,148 @@ const itemMember = {
 
 describe("collection detail", () => {
 	afterEach(disposePluginBridges);
+
+	it.live("reorders with keyboard controls through the server command and shared haptics", () =>
+		Effect.gen(function* () {
+			const page = openCollection();
+			const second = { ...itemMember, name: "Second", entityId: "item-2" };
+			const third = { ...itemMember, name: "Third", entityId: "item-3" };
+			const members = [itemMember, second, third];
+			yield* answerCollection(page, { members, revision: 7, name: "Shelf" });
+			fireEvent.click(
+				yield* Effect.promise(() => screen.findByRole("button", { name: "Reorder members" })),
+			);
+			const initial = yield* request(page, "members", 1);
+			replyMembers(page, initial.requestId, { members, revision: 7 });
+			fireEvent.keyDown(
+				yield* Effect.promise(() => screen.findByRole("button", { name: "Reorder Sample" })),
+				{ key: "ArrowDown" },
+			);
+			const command = yield* Effect.promise(() =>
+				waitFor(() => {
+					const found = page
+						.clientMessages()
+						.find((message) => message.type === "collection-request");
+					assert(found?.type === "collection-request" && found.action === "reorder-membership");
+					return found;
+				}),
+			);
+			expect(command.input).toMatchObject({
+				entityId: "item-1",
+				expectedRevision: 7,
+				collectionId: "col-1",
+				destination: { kind: "before", entityId: "item-3" },
+			});
+			expect(page.clientMessages()).toContainEqual(
+				expect.objectContaining({ action: "haptic", kind: "selection", type: "device-request" }),
+			);
+			page.send({
+				outcome: "success",
+				type: "collection-result",
+				requestId: command.requestId,
+				response: { orderRevision: 8, collectionId: EntityId.make("col-1") },
+			});
+			const refresh = yield* request(page, "members", 2);
+			replyMembers(page, refresh.requestId, { revision: 8, members: [second, itemMember, third] });
+			yield* Effect.promise(() =>
+				waitFor(() =>
+					expect(
+						screen
+							.getAllByRole("button", { name: /^Reorder / })
+							.map((button) => button.getAttribute("aria-label")),
+					).toEqual(["Reorder Second", "Reorder Sample", "Reorder Third"]),
+				),
+			);
+			const requestsBeforeClose = page.queryRequests("members").length;
+			fireEvent.click(screen.getByRole("button", { name: "Done" }));
+			const browserReload = yield* request(page, "members", requestsBeforeClose);
+			replyMembers(page, browserReload.requestId, {
+				revision: 8,
+				members: [second, itemMember, third],
+			});
+			yield* Effect.promise(() => screen.findByRole("button", { name: "Reorder members" }));
+		}),
+	);
+
+	for (const reason of ["transport", "malformed-result"] as const) {
+		it.live(`retains a ${reason}-failed move identity for retry`, () =>
+			Effect.gen(function* () {
+				const page = openCollection();
+				const members = [itemMember, { ...itemMember, name: "Second", entityId: "item-2" }];
+				yield* answerCollection(page, { members, revision: 4, name: "Shelf" });
+				fireEvent.click(
+					yield* Effect.promise(() => screen.findByRole("button", { name: "Reorder members" })),
+				);
+				const initial = yield* request(page, "members", 1);
+				replyMembers(page, initial.requestId, { members, revision: 4 });
+				fireEvent.click(
+					yield* Effect.promise(() => screen.findByRole("button", { name: "Move Sample to end" })),
+				);
+				const findCommand = (index: number) =>
+					Effect.promise(() =>
+						waitFor(() => {
+							const found = page
+								.clientMessages()
+								.filter((message) => message.type === "collection-request")[index];
+							assert(found?.type === "collection-request" && found.action === "reorder-membership");
+							return found;
+						}),
+					);
+				const first = yield* findCommand(0);
+				page.send({
+					reason,
+					outcome: "failure",
+					type: "collection-result",
+					requestId: first.requestId,
+				});
+				fireEvent.click(
+					yield* Effect.promise(() => screen.findByRole("button", { name: "Retry move" })),
+				);
+				const retry = yield* findCommand(1);
+				expect(retry.input).toEqual(first.input);
+				page.send({
+					outcome: "failure",
+					type: "collection-result",
+					requestId: retry.requestId,
+					reason: "collection-stale",
+				});
+				yield* Effect.promise(() =>
+					screen.findByText("This collection changed. Reload before moving another item."),
+				);
+				expect(screen.queryByRole("button", { name: "Retry move" })).toBeNull();
+			}),
+		);
+	}
+
+	it.live("rejects stale continuation pages without appending changed members", () =>
+		Effect.gen(function* () {
+			const page = openCollection();
+			yield* answerCollection(page, {
+				revision: 2,
+				name: "Shelf",
+				hasMore: true,
+				members: [itemMember],
+			});
+			fireEvent.click(
+				yield* Effect.promise(() => screen.findByRole("button", { name: "Reorder members" })),
+			);
+			const initial = yield* request(page, "members", 1);
+			replyMembers(page, initial.requestId, { revision: 2, hasMore: true, members: [itemMember] });
+			fireEvent.click(
+				yield* Effect.promise(() => screen.findByRole("button", { name: "Load more" })),
+			);
+			const next = yield* request(page, "members", 2);
+			replyMembers(page, next.requestId, {
+				revision: 3,
+				members: [{ ...itemMember, name: "Changed", entityId: "changed" }],
+			});
+			yield* Effect.promise(() =>
+				screen.findByText("The collection changed or could not be loaded."),
+			);
+			expect(screen.queryByText("Changed")).toBeNull();
+			expect(screen.getByText("Sample")).toBeTruthy();
+		}),
+	);
 
 	it.live("shows the description and opens the kernel editor for the collection", () =>
 		Effect.gen(function* () {

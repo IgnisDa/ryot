@@ -23,6 +23,7 @@ const RESULTS_TABLE_PATHS = [
 const COLLECTION_PATHS = [
 	...BROWSER_PATHS,
 	"client/host-screen.ts",
+	"client/collection-order.tsx",
 ] as const satisfies readonly KernelRendererPath[];
 
 const COLLECTION_BROWSER_PATHS = [

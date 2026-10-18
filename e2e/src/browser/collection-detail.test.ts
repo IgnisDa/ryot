@@ -9,6 +9,74 @@ import { getFrontendUrl } from "~/support/harness-target";
 
 const encodeFilter = Schema.encodeSync(Schema.fromJsonString(Schema.Unknown));
 
+it.live("reorders a kernel collection with keyboard and absolute-end controls", () =>
+	Effect.gen(function* () {
+		const { email, client, password } = yield* createAuthenticatedClient();
+		const suffix = crypto.randomUUID();
+		const collection = yield* createCollection(client, { name: `Order ${suffix}` });
+		const members = yield* Effect.forEach(["Alpha", "Beta", "Gamma"], (name) =>
+			createCollection(client, { name: `${name} ${suffix}` }),
+		);
+		for (const member of members) {
+			yield* client.call((api) =>
+				api.collections.createMembership({
+					payload: { entityId: member.id, collectionId: collection.id },
+				}),
+			);
+		}
+		const browser = yield* Playwright.Browser;
+		const page = yield* browser.newPage();
+		yield* signInThroughHostedOAuth(page, email, password);
+		yield* page.goto(`${getFrontendUrl()}/e/${collection.id}`);
+		const detail = page.locator("iframe").contentFrame();
+		yield* detail.getByRole("button", { exact: true, name: "Reorder members" }).click();
+		yield* detail
+			.getByRole("button", { exact: true, name: `Reorder Gamma ${suffix}` })
+			.press("ArrowDown");
+		const order = detail.getByRole("list", { name: "Collection order" });
+		yield* order
+			.locator("li")
+			.first()
+			.getByText(`Beta ${suffix}`, { exact: true })
+			.waitFor({ state: "visible" });
+		yield* detail
+			.getByRole("button", { exact: true, name: `Move Alpha ${suffix} to start` })
+			.click();
+		yield* order
+			.locator("li")
+			.first()
+			.getByText(`Alpha ${suffix}`, { exact: true })
+			.waitFor({ state: "visible" });
+		yield* detail.getByRole("button", { exact: true, name: `Move Beta ${suffix} to end` }).click();
+		yield* order
+			.locator("li")
+			.last()
+			.getByText(`Beta ${suffix}`, { exact: true })
+			.waitFor({ state: "visible" });
+		yield* detail.getByRole("button", { exact: true, name: "Done" }).click();
+		yield* detail.getByRole("radio", { name: "Table view" }).click();
+		yield* detail
+			.locator("tbody tr")
+			.first()
+			.getByText(`Alpha ${suffix}`, { exact: true })
+			.waitFor({ state: "visible" });
+		expect(yield* detail.locator("tbody tr td:first-child").allInnerTexts()).toEqual([
+			`Alpha ${suffix}`,
+			`Gamma ${suffix}`,
+			`Beta ${suffix}`,
+		]);
+		yield* detail.getByRole("button", { exact: true, name: "Reorder members" }).click();
+		yield* order
+			.getByRole("button", { exact: true, name: `Reorder Beta ${suffix}` })
+			.waitFor({ state: "visible" });
+		expect((yield* order.locator("li").allInnerTexts()).map((text) => text.trim())).toEqual([
+			`Alpha ${suffix}`,
+			`Gamma ${suffix}`,
+			`Beta ${suffix}`,
+		]);
+	}).pipe(PlaywrightSpawner.withBrowser),
+);
+
 it.live("manages collection memberships without closing after each change", () =>
 	Effect.gen(function* () {
 		const frontendUrl = getFrontendUrl();

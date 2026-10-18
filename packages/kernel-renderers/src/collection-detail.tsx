@@ -1,3 +1,4 @@
+import { RyotClientError } from "@ryot-app/plugin-client-sdk";
 import { DateTime, Effect, Schema } from "@ryot-app/plugin-client-sdk/effect";
 import { usePluginLocation } from "@ryot-app/plugin-client-sdk/plugin";
 import { createRyotQuery, useRyot, useRyotQuery } from "@ryot-app/plugin-client-sdk/react";
@@ -18,6 +19,7 @@ import {
 import { useEffect, useEffectEvent, useState } from "react";
 
 import { BrowserInlineError } from "./browser-states";
+import { CollectionOrder } from "./collection-order";
 import {
 	type BrowserQueryInput,
 	type BrowserQueryPage,
@@ -92,12 +94,14 @@ const CollectionBrowser = ({
 	total,
 	groups,
 	header,
+	onReorder,
 	identityKey,
 	collectionId,
 }: {
 	readonly total: number;
 	readonly identityKey: string;
 	readonly collectionId: string;
+	readonly onReorder: () => void;
 	readonly header: CollectionHeaderResult;
 	readonly groups: CollectionMembersAggregateResult;
 }) => {
@@ -132,6 +136,9 @@ const CollectionBrowser = ({
 							...(filter === null ? {} : { now, filter }),
 						}),
 					);
+					if (members.stale) {
+						return yield* new RyotClientError("collection-stale");
+					}
 					return { meta: null, result: members };
 				}),
 			{ cancelOnUnmount: true },
@@ -182,6 +189,7 @@ const CollectionBrowser = ({
 			)}
 			renderSummary={() => (
 				<>
+					<Button onClick={onReorder}>Reorder members</Button>
 					{header?.description ? (
 						<p className="text-sm text-text-muted">{header.description}</p>
 					) : null}
@@ -204,6 +212,7 @@ const CollectionBrowser = ({
 };
 
 const CollectionDetail = ({ collectionId }: { readonly collectionId: string }) => {
+	const [reordering, setReordering] = useState(false);
 	const header = useRyotQuery(headerQuery, collectionId);
 	const groups = useRyotQuery(groupsQuery, collectionId);
 	const total = useRyotQuery(totalQuery, collectionId);
@@ -226,6 +235,15 @@ const CollectionDetail = ({ collectionId }: { readonly collectionId: string }) =
 		groups.data.items.length > 0,
 	]);
 	const identityKey = JSON.stringify([collectionId, schemaKey]);
+	if (reordering) {
+		return (
+			<CollectionOrder
+				collectionId={collectionId}
+				onClose={() => setReordering(false)}
+				name={header.data?.name ?? "Collection"}
+			/>
+		);
+	}
 	return (
 		<CollectionBrowser
 			key={identityKey}
@@ -234,6 +252,7 @@ const CollectionDetail = ({ collectionId }: { readonly collectionId: string }) =
 			groups={groups.data}
 			identityKey={identityKey}
 			collectionId={collectionId}
+			onReorder={() => setReordering(true)}
 		/>
 	);
 };
