@@ -1,4 +1,3 @@
-import type { ScriptHost } from "@ryot-app/plugin-backend-sdk/core";
 import { Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
 
 import { resolvedMediaRef } from "../../imports/source-helpers";
@@ -15,7 +14,6 @@ import {
 	textValue,
 	truthy,
 } from "../shared";
-import { findJellyfinShow } from "./jellyfin-episode";
 
 const officialJellyfinEvents = new Set([
 	"playbackstart",
@@ -50,7 +48,10 @@ export const parseMediaServer = (
 	rawBody: string,
 	integrationSpecifics: unknown,
 	occurredAt: string,
-	host: Pick<ScriptHost, "httpCall" | "getPluginConfig" | "getCachedValue" | "setCachedValue">,
+	findShow: (
+		payload: unknown,
+		provider: "tmdb" | "tvdb",
+	) => Effect.Effect<string | undefined, { readonly message: string }>,
 ) =>
 	Schema.decodeEffect(Schema.fromJsonString(Schema.Unknown))(rawBody).pipe(
 		Effect.flatMap((payload) =>
@@ -62,7 +63,8 @@ export const parseMediaServer = (
 				const itemType = (
 					provider === "Jellyfin"
 						? jellyfinString(payload, [["ItemType"], ["Item", "Type"]])
-						: nestedString(payload, ["ItemType", "Type", "MediaType"])
+						: (jellyfinString(payload, [["ItemType"], ["Item", "Type"]]) ??
+							nestedString(payload, ["ItemType", "Type", "MediaType"]))
 				)?.toLowerCase();
 				let entitySchemaSlug: "movie" | "show" | null = null;
 				if (itemType === "movie") {
@@ -110,6 +112,7 @@ export const parseMediaServer = (
 					provider === "Jellyfin" &&
 					entitySchemaSlug === "show" &&
 					textValue(pathValue(payload, ["NotificationType"])) !== undefined;
+				const embyEpisode = provider === "Emby" && entitySchemaSlug === "show";
 				const payloadId =
 					entitySchemaSlug === "show"
 						? (nestedString(payload, [
@@ -119,25 +122,28 @@ export const parseMediaServer = (
 							textValue(pathValue(payload, ["Series", "ProviderIds", metadataProvider])) ??
 							nestedString(payload, itemKeys))
 						: nestedString(payload, itemKeys);
-				const id = officialEpisode
-					? yield* findJellyfinShow(payload, metadataProvider, host).pipe(
-							Effect.catch((error) =>
-								Effect.succeed(
-									failureResult(
-										`Could not look up Jellyfin episode on ${metadataProvider.toUpperCase()}: ${error.message}`,
-										"provider_resolution",
+				const id =
+					officialEpisode || embyEpisode
+						? yield* findShow(payload, metadataProvider).pipe(
+								Effect.catch((error) =>
+									Effect.succeed(
+										failureResult(
+											`Could not look up ${provider} episode on ${metadataProvider.toUpperCase()}: ${error.message}`,
+											"provider_resolution",
+										),
 									),
 								),
-							),
-						)
-					: payloadId;
+							)
+						: payloadId;
 				if (typeof id === "object") {
 					return id;
 				}
 				if (!id) {
 					return failureResult(
-						`${provider} webhook payload is missing a ${metadataProvider.toUpperCase()} identifier`,
-						officialEpisode ? "provider_resolution" : "input_transformation",
+						embyEpisode
+							? "Could not resolve Emby episode to a TMDB show"
+							: `${provider} webhook payload is missing a ${metadataProvider.toUpperCase()} identifier`,
+						officialEpisode || embyEpisode ? "provider_resolution" : "input_transformation",
 					);
 				}
 				const label =

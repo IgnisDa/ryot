@@ -4,6 +4,7 @@ import { Effect } from "@ryot-app/plugin-backend-sdk/effect";
 import { captureIntegrationRecords } from "../artifacts";
 import { IntegrationArtifactOutput } from "../schemas";
 import { executionStartedAt, SinkInput } from "../shared";
+import { findEmbyShow } from "./emby-episode";
 import { parseMediaServer } from "./shared";
 
 export const manifest = defineManifest({
@@ -28,7 +29,7 @@ export default defineScript({
 				input.rawBody,
 				integration.providerSpecifics,
 				occurredAt,
-				host,
+				(payload) => findEmbyShow(payload, host),
 			);
 		}).pipe(Effect.flatMap((result) => captureIntegrationRecords(manifest.slug, result))),
 });
