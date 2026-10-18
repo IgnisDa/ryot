@@ -23,7 +23,9 @@ import type { PluginIdentityReference } from "@ryot-app/plugin-kit/schema";
 import { entityId, propertyJson, propertyNumber, type Table } from "./entity-selections";
 import {
 	creditSelection,
+	mediaEntityHistoryRecipe,
 	mediaEntitySummarySelection,
+	mediaReviewActivityEventSelection,
 	mediaReviewActivityRecipe,
 	mediaSummaryQueries,
 	mediaSummaryResult,
@@ -207,6 +209,11 @@ export const mediaCreatorRecipes = <
 	);
 
 	const activityRecipe = mediaReviewActivityRecipe(config);
+	const historyRecipe = mediaEntityHistoryRecipe({
+		alias: config.alias,
+		slugs: ["review", "add-to-media-library"],
+		selection: mediaReviewActivityEventSelection,
+	});
 	const creditsRecipe = defineRecipe(
 		(input: {
 			readonly reference: PluginIdentityReference;
@@ -247,5 +254,5 @@ export const mediaCreatorRecipes = <
 		},
 	);
 
-	return { summaryRecipe, creditsRecipe, overviewRecipe, activityRecipe };
+	return { summaryRecipe, creditsRecipe, historyRecipe, overviewRecipe, activityRecipe };
 };

@@ -80,6 +80,7 @@ export const episodicEpisodeReviewEventRow = {
 	isSpoiler: true,
 	episodeNumber: 1,
 	episodeRuntime: 55,
+	progressPercent: null,
 	episodeId: "episode-1",
 	id: "episode-1-review",
 	eventSchemaSlug: "review",
@@ -181,9 +182,9 @@ export const decodeEpisodicActivity = (input: ActivityRows = {}) => {
 	return Result.getOrThrow(
 		episodicActivityFixtureRecipe.decode({
 			data: {
-				totals: activityRows([{ watchCount: input.watchCount ?? 1 }], false),
 				coverage: activityRows(input.coverage ?? [episodicCoverageRow], false),
 				episodeProgress: progressRows(input.episodeProgress ?? [episodicProgressRow]),
+				totals: activityRows([{ historyEventCount: 0, watchCount: input.watchCount ?? 1 }], false),
 				episodeEvents: activityRows(input.episodeEvents ?? [episodicEpisodeReviewEventRow], false),
 				collectionEvents: activityRows(
 					input.collectionEvents ?? [episodicCollectionAddedEventRow],

@@ -3,6 +3,7 @@ import {
 	and,
 	ascending,
 	castBoolean,
+	castDate,
 	coalesce,
 	column,
 	conditional,
@@ -20,7 +21,9 @@ import {
 	join,
 	jsonPath,
 	literal,
+	lt,
 	neq,
+	or,
 	type Recipe,
 	relationshipSchemaPredicate,
 	schemaOwnerPredicate,
@@ -633,6 +636,7 @@ export const mediaActivityEventSelection = (event: Table) => ({
 export const mediaCollectionEventsQuery = (input: {
 	readonly limit: number;
 	readonly entityId: string;
+	readonly before?: string | undefined;
 }) => {
 	const collectionEvent = table("event", "collectionEvent");
 	const eventCollection = table("entity", "eventCollection");
@@ -647,6 +651,7 @@ export const mediaCollectionEventsQuery = (input: {
 			),
 		],
 		where: and(
+			...(input.before === undefined ? [] : [mediaHistoryBefore(collectionEvent, input.before)]),
 			entitySchemaPredicate(eventCollection, "collection", { kind: "kernel" }),
 			schemaOwnerPredicate(collectionEvent, "eventSchemaPluginId", { kind: "kernel" }),
 			eventSchemaIsOneOf(collectionEvent, mediaActivityCollectionSlugs),
@@ -694,6 +699,7 @@ export const mediaEntityEventsQuery = <const Selection extends SelectedSelection
 	readonly entityId: string;
 	readonly slugs: readonly string[];
 	readonly selection: (event: Table) => Selection;
+	readonly before?: string | undefined;
 }) => {
 	const event = table("event", input.alias);
 	return selectedRows(event, {
@@ -701,6 +707,7 @@ export const mediaEntityEventsQuery = <const Selection extends SelectedSelection
 		selection: input.selection(event),
 		orderBy: eventOrderDescending(event),
 		where: and(
+			...(input.before === undefined ? [] : [mediaHistoryBefore(event, input.before)]),
 			schemaOwnerPredicate(event, "eventSchemaPluginId", input.reference),
 			eq(column(event, "entityId"), literal(input.entityId)),
 			eventSchemaIsOneOf(event, input.slugs),
@@ -721,6 +728,87 @@ type MediaActivityOrdered = {
 	readonly createdAt: string;
 	readonly occurredAt: string;
 };
+
+const HistoryCursor = Schema.fromJsonString(
+	Schema.Struct({ id: Schema.String, createdAt: IsoDateString, occurredAt: IsoDateString }),
+);
+
+export type MediaHistoryInput = {
+	readonly reference: PluginIdentityReference;
+	readonly entityId: string;
+	readonly limit: number;
+	readonly before?: string | undefined;
+};
+
+export const mediaHistoryBefore = (event: Table, before: string) => {
+	const cursor = Schema.decodeSync(HistoryCursor)(before);
+	const occurredAt = castDate(literal(cursor.occurredAt));
+	const createdAt = castDate(literal(cursor.createdAt));
+	return or(
+		lt(column(event, "occurredAt"), occurredAt),
+		and(eq(column(event, "occurredAt"), occurredAt), lt(column(event, "createdAt"), createdAt)),
+		and(
+			eq(column(event, "occurredAt"), occurredAt),
+			eq(column(event, "createdAt"), createdAt),
+			lt(column(event, "id"), literal(cursor.id)),
+		),
+	);
+};
+
+export const mediaHistoryPage = <Event extends MediaActivityOrdered>(
+	events: readonly Event[],
+	limit: number,
+	hasMore: boolean,
+) => {
+	const items = [...events].sort(compareMediaActivityDescending).slice(0, limit);
+	const last = items.at(-1);
+	const more = hasMore || events.length > limit;
+	return {
+		items,
+		pageInfo: {
+			hasMore: more,
+			nextCursor:
+				more && last !== undefined
+					? Schema.encodeSync(HistoryCursor)({
+							id: last.id,
+							createdAt: last.createdAt,
+							occurredAt: last.occurredAt,
+						})
+					: null,
+		},
+	};
+};
+
+export const mediaEntityHistoryRecipe = <const Selection extends SelectedSelection>(config: {
+	readonly alias: string;
+	readonly slugs: readonly string[];
+	readonly selection: (event: Table) => Selection;
+}) =>
+	defineRecipe((input: MediaHistoryInput) => ({
+		map: ({ events, collectionEvents }) =>
+			Result.succeed(
+				mediaHistoryPage(
+					mergeMediaActivityEvents({
+						parentEvents: events.items,
+						collectionEvents: collectionEvents.items,
+					}),
+					input.limit,
+					events.pageInfo.hasMore || collectionEvents.pageInfo.hasMore,
+				),
+			),
+		queries: {
+			collectionEvents: mediaCollectionEventsQuery(input),
+			events: mediaEntityEventsQuery({
+				...input,
+				...config,
+				alias: `${config.alias}HistoryEvent`,
+				selection: (event) => ({
+					...mediaReviewActivityEventSelection(event),
+					...config.selection(event),
+				}),
+			}),
+		},
+	}));
 
 type MediaCollectionActivityRow = MediaActivityOrdered & {
 	readonly collectionId: string;
@@ -986,6 +1074,16 @@ export const mediaFlatRecipes = <
 		queries: overviewQueries(input),
 	}));
 	const peopleRecipe = mediaPeopleRecipe({ ...config, personFields: creditCharacterSelection });
+	const activitySelection = (event: Table) => ({
+		...mediaFlatActivityEventSelection(event),
+		// oxlint-disable-next-line typescript/no-unsafe-type-assertion
+		...(config.activityEventFields?.(event) ?? ({} as ActivityEventFields)),
+	});
+	const historyRecipe = mediaEntityHistoryRecipe({
+		alias: config.alias,
+		selection: activitySelection,
+		slugs: mediaFlatActivityParentSlugs,
+	});
 
 	const activityRecipe = defineRecipe(
 		(input: {
@@ -1012,6 +1110,14 @@ export const mediaFlatRecipes = <
 						entityId: input.entityId,
 						limit: input.collectionEventLimit,
 					}),
+					events: mediaEntityEventsQuery({
+						limit: input.eventLimit,
+						entityId: input.entityId,
+						reference: input.reference,
+						selection: activitySelection,
+						alias: `${config.alias}Event`,
+						slugs: mediaFlatActivityParentSlugs,
+					}),
 					totals: selectedOptionalRow(entity, {
 						orderBy: [ascending(column(entity, "id"))],
 						selection: mediaFlatConsumptionTotals({
@@ -1022,18 +1128,6 @@ export const mediaFlatRecipes = <
 							entitySchemaPredicate(entity, config.slug, input.reference),
 							entityId(entity, input.entityId),
 						),
-					}),
-					events: mediaEntityEventsQuery({
-						limit: input.eventLimit,
-						entityId: input.entityId,
-						reference: input.reference,
-						alias: `${config.alias}Event`,
-						slugs: mediaFlatActivityParentSlugs,
-						selection: (event) => ({
-							...mediaFlatActivityEventSelection(event),
-							// oxlint-disable-next-line typescript/no-unsafe-type-assertion
-							...(config.activityEventFields?.(event) ?? ({} as ActivityEventFields)),
-						}),
 					}),
 				},
 			};
@@ -1056,6 +1150,7 @@ export const mediaFlatRecipes = <
 	return {
 		peopleRecipe,
 		summaryRecipe,
+		historyRecipe,
 		overviewRecipe,
 		activityRecipe,
 		presentationSource,
