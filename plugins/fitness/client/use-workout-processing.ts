@@ -28,6 +28,7 @@ export const useWorkoutProcessing = (input: ProcessingScope = {}) => {
 		previous.current = pending;
 	}, [pending, client]);
 	return {
+		loading: result.isPending,
 		pending: result.data?.pending ?? !result.isError,
 		failed: result.isError || (result.data?.failed ?? false),
 	};
