@@ -302,9 +302,9 @@ export function WorkoutSummaryRow(props: {
 
 const segmentTone = (segment: TimelineSegment, index: number) => {
 	if (segment.superset) {
-		return "bg-info";
+		return "bg-info text-surface";
 	}
-	return index % 2 === 0 ? "bg-chart-seq-4" : "bg-chart-seq-3";
+	return index % 2 === 0 ? "bg-chart-seq-4 text-accent-ink" : "bg-chart-seq-3 text-accent-ink";
 };
 
 function SessionTimeline(props: { readonly timeline: WorkoutTimeline }) {
@@ -324,7 +324,7 @@ function SessionTimeline(props: { readonly timeline: WorkoutTimeline }) {
 						style={{ flexGrow: Math.max(segment.seconds, 1) }}
 						title={`${segment.label} · ${formatDuration(segment.seconds)}`}
 						className={clsx(
-							"flex min-w-0 basis-0 items-center justify-center overflow-hidden rounded-sm px-1 text-[12px] font-semibold whitespace-nowrap text-accent-ink",
+							"flex min-w-0 basis-0 items-center justify-center overflow-hidden rounded-sm px-1 text-[12px] font-semibold whitespace-nowrap",
 							segmentTone(segment, index),
 						)}
 					>
