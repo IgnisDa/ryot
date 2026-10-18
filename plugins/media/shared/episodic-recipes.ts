@@ -35,7 +35,7 @@ import {
 	table,
 } from "@ryot-app/plugin-kit/ryotql";
 import type { PluginIdentityReference } from "@ryot-app/plugin-kit/schema";
-import { EntityId, EventId } from "@ryot-app/plugin-kit/schema";
+import { EntityId } from "@ryot-app/plugin-kit/schema";
 
 import {
 	mediaPresentationImageSelection,
@@ -75,6 +75,7 @@ import {
 	mediaCollectionActivityEvents,
 	mediaCollectionEventsQuery,
 	mediaEntityEventsQuery,
+	mediaEventSnapshotSelection,
 	type MediaExtraQueries,
 	mediaGenresInclude,
 	mediaHistoryBefore,
@@ -428,9 +429,8 @@ export const episodicEpisodeProgressQuery = <const EpisodeFields extends Selecte
 				where: isProgressOf(event),
 				orderBy: eventOrderDescending(event),
 				selection: {
-					id: selectedField(column(event, "id"), EventId),
+					...mediaEventSnapshotSelection(event),
 					createdAt: selectedField(column(event, "createdAt"), IsoDateString),
-					occurredAt: selectedField(column(event, "occurredAt"), IsoDateString),
 					consumedOn: selectedField(
 						propertyText(event, "consumedOn"),
 						Schema.NullOr(Schema.String),
@@ -746,13 +746,16 @@ export const mediaEpisodicRecipes = <
 						text: row.text,
 						rating: row.rating,
 						progressPercent: null,
+						entityId: row.entityId,
 						isSpoiler: row.isSpoiler,
 						createdAt: row.createdAt,
 						timeSpent: row.timeSpent,
 						kind: "episode" as const,
+						properties: row.properties,
 						occurredAt: row.occurredAt,
 						consumedOn: row.consumedOn,
 						eventSchemaSlug: "review" as const,
+						sessionEntityId: row.sessionEntityId,
 						episode: config.activityEpisode(row),
 					})),
 					...episodeProgress.items.flatMap((row) =>

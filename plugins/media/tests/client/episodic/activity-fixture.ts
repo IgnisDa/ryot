@@ -22,9 +22,12 @@ export const episodicActivityFixtureRecipe = episodicFixtureRecipes.activityReci
 const emptyEventProperties = {
 	text: null,
 	rating: null,
+	properties: {},
 	timeSpent: null,
 	isSpoiler: null,
 	consumedOn: null,
+	entityId: "entity-1",
+	sessionEntityId: null,
 };
 
 const emptyParentProperties = { ...emptyEventProperties, startedOn: null, dateUnknown: null };
@@ -66,8 +69,11 @@ export const episodicCompletionEventRow = {
 export const episodicReviewEventRow = {
 	...emptyParentProperties,
 	rating: 82,
+	properties: {},
 	isSpoiler: false,
 	id: "parent-review",
+	entityId: "entity-1",
+	sessionEntityId: null,
 	eventSchemaSlug: "review",
 	text: "A devastating listen.",
 	createdAt: "2025-11-07T12:00:05.000Z",
@@ -77,9 +83,12 @@ export const episodicReviewEventRow = {
 export const episodicEpisodeReviewEventRow = {
 	...emptyEventProperties,
 	rating: 90,
+	properties: {},
 	isSpoiler: true,
 	episodeNumber: 1,
 	episodeRuntime: 55,
+	entityId: "entity-1",
+	sessionEntityId: null,
 	progressPercent: null,
 	episodeId: "episode-1",
 	id: "episode-1-review",
@@ -171,7 +180,18 @@ const progressRows = (items: readonly Record<string, unknown>[]) =>
 			...episode,
 			milestone: {
 				pageInfo: { limit: 1, hasMore: false },
-				items: [{ id, createdAt, occurredAt, consumedOn, progressPercent }],
+				items: [
+					{
+						id,
+						createdAt,
+						occurredAt,
+						consumedOn,
+						properties: {},
+						progressPercent,
+						sessionEntityId: null,
+						entityId: "episode-entity",
+					},
+				],
 			},
 		})),
 		false,

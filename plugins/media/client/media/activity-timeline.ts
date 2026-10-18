@@ -3,6 +3,7 @@ import type { SelectedRow } from "@ryot-app/plugin-client-sdk/ryotql";
 
 import type {
 	mediaActivityEventSelection,
+	mediaEventSnapshotSelection,
 	mediaReviewEventSelection,
 } from "../../shared/media-recipes";
 import {
@@ -26,7 +27,13 @@ export type ActivityAnchor = {
 	readonly occurredAt: string;
 };
 
-export type MediaActivityRowBase = ActivityAnchor & { readonly type: string };
+/** A stored event as a row last saw it, enough to edit or delete it under a precondition. */
+export type MediaActivityEventRef = SelectedRow<ReturnType<typeof mediaEventSnapshotSelection>>;
+
+export type MediaActivityRowBase = ActivityAnchor & {
+	readonly type: string;
+	readonly events?: readonly MediaActivityEventRef[];
+};
 
 export type MediaActivityFigure = {
 	readonly label: string;
@@ -46,6 +53,7 @@ export type MediaActivityEventRow = SelectedRow<ReturnType<typeof mediaActivityE
 export type MediaActivityBeatRow<Beat extends string> = ActivityAnchor & {
 	readonly beat: Beat;
 	readonly type: "beat";
+	readonly events: readonly MediaActivityEventRef[];
 };
 
 export type MediaActivityCompletionRow = ActivityAnchor & {
@@ -54,11 +62,14 @@ export type MediaActivityCompletionRow = ActivityAnchor & {
 	readonly startedOn: string | undefined;
 	readonly dateUnknown: boolean;
 	readonly run?: MediaActivityProgressRun;
+	readonly events: readonly MediaActivityEventRef[];
 };
 
 export type MediaActivityReviewRow<Subject> = ActivityAnchor & {
 	readonly type: "review";
 	readonly subject: Subject;
+	readonly event: MediaActivityEventRef;
+	readonly events: readonly MediaActivityEventRef[];
 	readonly rating: number | undefined;
 	readonly body: { readonly text: string; readonly isSpoiler: boolean } | undefined;
 };
@@ -111,6 +122,20 @@ export const nonEmpty = <Value>(values: readonly Value[]): NonEmpty<Value> | und
 	return head === undefined ? undefined : [head, ...tail];
 };
 
+export const eventRef = (event: MediaActivityEventRef): MediaActivityEventRef => ({
+	id: event.id,
+	entityId: event.entityId,
+	occurredAt: event.occurredAt,
+	properties: event.properties,
+	sessionEntityId: event.sessionEntityId,
+});
+
+/** Rows without record IDs, such as aggregated daily watches, stay unactionable when folded. */
+export const joinEvents = (
+	current: readonly MediaActivityEventRef[],
+	next: readonly MediaActivityEventRef[],
+) => (current.length === 0 || next.length === 0 ? [] : [...current, ...next]);
+
 export const anchorOf = (
 	event: { readonly id: string; readonly occurredAt: string },
 	prefix: string,
@@ -140,6 +165,7 @@ export const mediaCompletionRow = (
 		...anchor,
 		dateUnknown,
 		type: "completion",
+		events: [eventRef(event)],
 		minutes: event.timeSpent ?? undefined,
 		startedOn: event.startedOn ?? undefined,
 		dateKey: dateUnknown ? "date-unknown" : anchor.dateKey,
@@ -153,14 +179,21 @@ export const mediaReviewRow = <Subject>(
 	...anchorOf(event, "review"),
 	subject,
 	type: "review",
+	event: eventRef(event),
 	body: reviewBody(event),
+	events: [eventRef(event)],
 	rating: event.rating ?? undefined,
 });
 
 export const mediaBeatRow = <Beat extends string>(
-	event: { readonly id: string; readonly occurredAt: string },
+	event: MediaActivityEventRef,
 	beat: Beat,
-): MediaActivityBeatRow<Beat> => ({ ...anchorOf(event, "beat"), beat, type: "beat" });
+): MediaActivityBeatRow<Beat> => ({
+	...anchorOf(event, "beat"),
+	beat,
+	type: "beat",
+	events: [eventRef(event)],
+});
 
 export const mediaCollectionRow = (event: {
 	readonly id: string;
@@ -286,12 +319,14 @@ export const mergeProgressRuns = <
 	Row extends {
 		readonly percent: number | undefined;
 		readonly run?: MediaActivityProgressRun | undefined;
+		readonly events: readonly MediaActivityEventRef[];
 	},
 >(
 	current: Row,
 	next: Row,
 ): Row => ({
 	...current,
+	events: joinEvents(current.events, next.events),
 	run: {
 		updates: (current.run?.updates ?? 1) + (next.run?.updates ?? 1),
 		fromPercent: next.run === undefined ? next.percent : next.run.fromPercent,
@@ -299,14 +334,21 @@ export const mergeProgressRuns = <
 });
 
 /** Folds an older progress update into the row that finished it, such as a watch or completion. */
-export const absorbProgressRun = <Row extends { readonly run?: MediaActivityProgressRun }>(
+export const absorbProgressRun = <
+	Row extends {
+		readonly run?: MediaActivityProgressRun;
+		readonly events: readonly MediaActivityEventRef[];
+	},
+>(
 	current: Row,
 	next: {
 		readonly percent: number | undefined;
 		readonly run?: MediaActivityProgressRun | undefined;
+		readonly events: readonly MediaActivityEventRef[];
 	},
 ): Row => ({
 	...current,
+	events: joinEvents(current.events, next.events),
 	run: {
 		updates: (current.run?.updates ?? 0) + (next.run?.updates ?? 1),
 		fromPercent: next.run === undefined ? next.percent : next.run.fromPercent,

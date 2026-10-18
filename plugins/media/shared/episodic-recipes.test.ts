@@ -67,7 +67,18 @@ const progressRows = (items: readonly Record<string, unknown>[]) =>
 			...episode,
 			milestone: {
 				pageInfo: { limit: 1, hasMore: false },
-				items: [{ id, createdAt, occurredAt, consumedOn, progressPercent }],
+				items: [
+					{
+						id,
+						createdAt,
+						occurredAt,
+						consumedOn,
+						properties: {},
+						progressPercent,
+						sessionEntityId: null,
+						entityId: "episode-entity",
+					},
+				],
 			},
 		})),
 	);
@@ -98,11 +109,14 @@ const activityRecipe = () =>
 const PARENT_EVENT_ROW = {
 	text: null,
 	rating: null,
+	properties: {},
 	timeSpent: null,
 	isSpoiler: null,
 	startedOn: null,
 	consumedOn: null,
 	dateUnknown: null,
+	entityId: "entity-1",
+	sessionEntityId: null,
 	id: "parent-complete",
 	eventSchemaSlug: "complete",
 	createdAt: "2024-02-02T10:00:00.000Z",
@@ -112,11 +126,14 @@ const PARENT_EVENT_ROW = {
 const EPISODE_EVENT_ROW = {
 	text: null,
 	rating: null,
+	properties: {},
 	timeSpent: null,
 	isSpoiler: null,
 	episodeNumber: 1,
 	episodeRuntime: 66,
+	entityId: "entity-1",
 	id: "episode-review",
+	sessionEntityId: null,
 	progressPercent: null,
 	consumedOn: "Jellyfin",
 	episodeId: "episode-1",
@@ -299,7 +316,7 @@ describe("episodic media recipes", () => {
 			throw new Error("Expected episode membership existence predicates");
 		}
 
-		expect(JSON.stringify(flat)).not.toContain("sessionEntityId");
+		expect(JSON.stringify(flat.where)).not.toContain("sessionEntityId");
 		expect(flatMembership.query.joins).toBeUndefined();
 		expect(nestedMembership.query.joins).toHaveLength(2);
 	});
@@ -336,7 +353,16 @@ describe("episodic media recipes", () => {
 			milestone && "fields" in milestone
 				? milestone.fields.map((field) => ("key" in field ? field.key : null))
 				: [],
-		).toEqual(["id", "createdAt", "occurredAt", "consumedOn", "progressPercent"]);
+		).toEqual([
+			"id",
+			"entityId",
+			"occurredAt",
+			"sessionEntityId",
+			"properties",
+			"createdAt",
+			"consumedOn",
+			"progressPercent",
+		]);
 	});
 
 	it("honours the caller's limits on every activity page", () => {

@@ -452,8 +452,11 @@ describe("media flat recipes", () => {
 
 		expect(fieldKeys(events.output.fields)).toEqual([
 			"id",
-			"createdAt",
+			"entityId",
 			"occurredAt",
+			"sessionEntityId",
+			"properties",
+			"createdAt",
 			"text",
 			"rating",
 			"isSpoiler",
@@ -476,6 +479,7 @@ describe("media flat recipes", () => {
 						{
 							text: null,
 							rating: null,
+							properties: {},
 							timeSpent: null,
 							isSpoiler: null,
 							startedOn: null,
@@ -483,7 +487,9 @@ describe("media flat recipes", () => {
 							dateUnknown: null,
 							fixtureChapter: 45,
 							progressPercent: 62,
+							entityId: "entity-1",
 							id: "media-progress",
+							sessionEntityId: null,
 							eventSchemaSlug: "progress",
 							createdAt: "2024-02-03T10:00:00.000Z",
 							occurredAt: "2024-02-03T09:00:00.000Z",
@@ -572,12 +578,15 @@ describe("media flat recipes", () => {
 						{
 							text: null,
 							rating: null,
+							properties: {},
 							timeSpent: null,
 							isSpoiler: null,
 							startedOn: null,
 							dateUnknown: null,
 							progressPercent: 42,
+							entityId: "entity-1",
 							id: "media-progress",
+							sessionEntityId: null,
 							consumedOn: "Jellyfin",
 							eventSchemaSlug: "progress",
 							createdAt: "2024-02-03T10:00:00.000Z",
@@ -683,20 +692,6 @@ const decodeReviewActivity = (input: { readonly hasMore: boolean }) =>
 	REVIEW_ACTIVITY_RECIPE.decode({
 		data: {
 			totals: reviewActivityRows([{ reviewCount: 1 }]),
-			events: reviewActivityRows(
-				[
-					{
-						rating: 80,
-						text: "Great.",
-						isSpoiler: false,
-						id: "entity-review",
-						eventSchemaSlug: "review",
-						createdAt: "2024-02-03T10:00:00.000Z",
-						occurredAt: "2024-02-03T09:00:00.000Z",
-					},
-				],
-				input.hasMore,
-			),
 			collectionEvents: reviewActivityRows([
 				{
 					id: "collection-added",
@@ -707,6 +702,23 @@ const decodeReviewActivity = (input: { readonly hasMore: boolean }) =>
 					eventSchemaSlug: "add-entity-to-collection",
 				},
 			]),
+			events: reviewActivityRows(
+				[
+					{
+						rating: 80,
+						text: "Great.",
+						properties: {},
+						isSpoiler: false,
+						id: "entity-review",
+						entityId: "entity-1",
+						sessionEntityId: null,
+						eventSchemaSlug: "review",
+						createdAt: "2024-02-03T10:00:00.000Z",
+						occurredAt: "2024-02-03T09:00:00.000Z",
+					},
+				],
+				input.hasMore,
+			),
 		},
 	});
 
@@ -731,8 +743,11 @@ describe("media review activity recipe", () => {
 		expect(JSON.stringify(totals.output.fields)).toContain('"value":"review"');
 		expect(fieldKeys(events.output.fields)).toEqual([
 			"id",
-			"createdAt",
+			"entityId",
 			"occurredAt",
+			"sessionEntityId",
+			"properties",
+			"createdAt",
 			"text",
 			"rating",
 			"isSpoiler",

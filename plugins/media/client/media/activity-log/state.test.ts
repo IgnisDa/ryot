@@ -1,4 +1,5 @@
 import { Result, Schema } from "@ryot-app/plugin-kit/effect";
+import { EntityId, EventId } from "@ryot-app/plugin-kit/schema";
 import { describe, expect, it } from "vitest";
 
 import { mediaActivityLogContextRecipe } from "../../../shared/activity-log-recipes";
@@ -9,6 +10,8 @@ import {
 	activityCopyLabels,
 	type ActivityDraft,
 	activityDraftErrors,
+	activityEditDraft,
+	activityEditPatch,
 	activityEntryDraft,
 	activityIntents,
 	activityLogInput,
@@ -561,5 +564,89 @@ describe("quick actions", () => {
 
 	it("never offers a quick action for flat media", () => {
 		expect(activityQuickAction(flat, loaded({ runtime: 120 }))).toBeNull();
+	});
+});
+
+const stored = (properties: Record<string, string | number | boolean>, entityId = "entity-1") => ({
+	properties,
+	occurredAt: noon(10),
+	sessionEntityId: null,
+	id: EventId.make("event-1"),
+	entityId: EntityId.make(entityId),
+});
+
+const edit = (input: {
+	readonly logger?: MediaActivityLogger;
+	readonly intent: "finished" | "episode" | "progress";
+	readonly record: ReturnType<typeof stored>;
+	readonly change: Partial<ActivityDraft>;
+	readonly schemaSlug?: string;
+}) => {
+	const logger = input.logger ?? flat;
+	const target = loaded(input.schemaSlug === undefined ? {} : { schemaSlug: input.schemaSlug });
+	const initial = activityEditDraft({
+		logger,
+		today: TODAY,
+		context: target,
+		ref: input.record,
+		intent: input.intent,
+	});
+	return activityEditPatch({
+		logger,
+		initial,
+		context: target,
+		ref: input.record,
+		submittedAt: submittedAt(9),
+		draft: { ...initial, ...input.change },
+	});
+};
+
+describe("activity edits", () => {
+	it("sends nothing when the draft still matches the stored record", () => {
+		expect(
+			edit({
+				change: {},
+				intent: "finished",
+				record: stored({ timeSpent: 95, consumedOn: "Plex" }),
+			}),
+		).toBeUndefined();
+	});
+
+	it("marks the date unknown and keeps the stored time when only the start day moves", () => {
+		expect(edit({ intent: "finished", record: stored({}), change: { when: "unknown" } })).toEqual({
+			when: { kind: "unknown" },
+		});
+		expect(
+			edit({ intent: "finished", record: stored({}), change: { startedDay: "2026-10-08" } }),
+		).toEqual({ when: { kind: "date", startedOn: noon(8), finishedOn: noon(10) } });
+	});
+
+	it("clears a source and a time spent that were emptied", () => {
+		expect(
+			edit({
+				intent: "finished",
+				change: { hours: "", minutes: "", consumedOn: " " },
+				record: stored({ timeSpent: 95, consumedOn: "Plex" }),
+			}),
+		).toEqual({ timeSpent: null, consumedOn: null });
+	});
+
+	it("edits a percent, or a position on positional media", () => {
+		expect(
+			edit({
+				intent: "progress",
+				change: { progressMode: "started" },
+				record: stored({ progressPercent: 40 }),
+			}),
+		).toEqual({ progressPercent: null });
+		expect(
+			edit({
+				intent: "progress",
+				logger: positional,
+				schemaSlug: "anime",
+				change: { position: 7 },
+				record: stored({ animeEpisode: 5 }),
+			}),
+		).toEqual({ position: 7 });
 	});
 });

@@ -34,7 +34,18 @@ const progressRows = (items: readonly Record<string, unknown>[]) =>
 			...episode,
 			milestone: {
 				pageInfo: { limit: 1, hasMore: false },
-				items: [{ id, createdAt, occurredAt, consumedOn, progressPercent }],
+				items: [
+					{
+						id,
+						createdAt,
+						occurredAt,
+						consumedOn,
+						properties: {},
+						progressPercent,
+						sessionEntityId: null,
+						entityId: "episode-entity",
+					},
+				],
 			},
 		})),
 	);
@@ -42,12 +53,15 @@ const progressRows = (items: readonly Record<string, unknown>[]) =>
 const EPISODE_EVENT_ROW = {
 	text: null,
 	rating: null,
+	properties: {},
 	seasonNumber: 1,
 	timeSpent: null,
 	isSpoiler: null,
 	episodeNumber: 1,
 	episodeRuntime: 66,
+	entityId: "entity-1",
 	id: "episode-review",
+	sessionEntityId: null,
 	progressPercent: null,
 	consumedOn: "Jellyfin",
 	episodeId: "episode-1",
@@ -1249,8 +1263,11 @@ describe("media show query recipes", () => {
 		expect(episodeProgress.output.pagination).toMatchObject({ limit: 100 });
 		expect(parentEvents.output.fields.map((field) => ("key" in field ? field.key : null))).toEqual([
 			"id",
-			"createdAt",
+			"entityId",
 			"occurredAt",
+			"sessionEntityId",
+			"properties",
+			"createdAt",
 			"text",
 			"rating",
 			"isSpoiler",
@@ -1263,8 +1280,11 @@ describe("media show query recipes", () => {
 		expect(episodeEvents.output.fields.map((field) => ("key" in field ? field.key : null))).toEqual(
 			[
 				"id",
-				"createdAt",
+				"entityId",
 				"occurredAt",
+				"sessionEntityId",
+				"properties",
+				"createdAt",
 				"text",
 				"rating",
 				"isSpoiler",
@@ -1324,7 +1344,7 @@ describe("media show query recipes", () => {
 			throw new Error("Expected an episode membership existence predicate");
 		}
 
-		expect(JSON.stringify(episodeEvents)).not.toContain("sessionEntityId");
+		expect(JSON.stringify(episodeEvents.where)).not.toContain("sessionEntityId");
 		expect(JSON.stringify(membership)).not.toContain("seasonNumber");
 		expect(membership.query.from).toMatchObject({ table: "relationship" });
 		expect(

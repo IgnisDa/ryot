@@ -2,9 +2,12 @@ import {
 	absorbProgressRun,
 	anchorOf,
 	decimalLabel,
+	eventRef,
+	joinEvents,
 	type MediaActivityBeatRow,
 	type MediaActivityCollectionRow,
 	type MediaActivityCompletionRow,
+	type MediaActivityEventRef,
 	type MediaActivityEventRow,
 	type MediaActivityFigure,
 	type MediaActivityLibraryRow,
@@ -84,6 +87,7 @@ export const mediaEpisodicActivityRow = <Episode extends MediaEpisodicEpisodeVal
 		return {
 			...anchorOf(event, "watch"),
 			type: "watch",
+			events: [eventRef(event)],
 			source: optionalText(event.consumedOn),
 			episodes: [
 				{
@@ -140,6 +144,7 @@ export type MediaEpisodicReviewSubject =
 	| { readonly on: "episode"; readonly name: string; readonly origin: string };
 
 export type MediaEpisodicWatchRow = {
+	readonly events: readonly MediaActivityEventRef[];
 	readonly key: string;
 	readonly dateKey: string;
 	readonly type: "watch";
@@ -150,6 +155,7 @@ export type MediaEpisodicWatchRow = {
 };
 
 export type MediaEpisodicProgressRow = {
+	readonly events: readonly MediaActivityEventRef[];
 	readonly key: string;
 	readonly dateKey: string;
 	readonly type: "progress";
@@ -257,6 +263,7 @@ const watchDayRows = <WatchDay extends MediaEpisodicWatchDayRow>(
 			? []
 			: [
 					{
+						events: [],
 						type: "watch",
 						occurredAt: day,
 						episodes: listed,
@@ -292,6 +299,7 @@ const episodeEventRow = (
 	return {
 		...anchorOf(event, "progress"),
 		type: "progress",
+		events: [eventRef(event)],
 		source: optionalText(event.consumedOn),
 		percent: event.progressPercent ?? undefined,
 		episode: {
@@ -324,7 +332,9 @@ export const mergeEpisodicRuns = (
 			...current.episodes,
 			...next.episodes.filter((episode) => !known.has(episode.id)),
 		]);
-		return episodes === undefined ? undefined : { ...current, episodes };
+		return episodes === undefined
+			? undefined
+			: { ...current, episodes, events: joinEvents(current.events, next.events) };
 	}
 	if (
 		current.type === "progress" &&

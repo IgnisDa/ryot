@@ -18,11 +18,14 @@ const ungroupedActivityRecipe = flatUngroupedFixtureRecipes.activityRecipe({
 const emptyEventProperties = {
 	text: null,
 	rating: null,
+	properties: {},
 	startedOn: null,
 	timeSpent: null,
 	isSpoiler: null,
 	consumedOn: null,
 	dateUnknown: null,
+	entityId: "entity-1",
+	sessionEntityId: null,
 	progressPercent: null,
 };
 

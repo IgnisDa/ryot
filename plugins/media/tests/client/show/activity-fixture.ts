@@ -18,9 +18,12 @@ const showActivityFixtureRecipe = showRecipes.activityRecipe({
 const emptyEventProperties = {
 	text: null,
 	rating: null,
+	properties: {},
 	timeSpent: null,
 	isSpoiler: null,
 	consumedOn: null,
+	entityId: "entity-1",
+	sessionEntityId: null,
 };
 
 const emptyParentProperties = { ...emptyEventProperties, startedOn: null, dateUnknown: null };
@@ -61,8 +64,11 @@ export const showCompletionEventRow = {
 export const showReviewEventRow = {
 	...emptyParentProperties,
 	rating: 82,
+	properties: {},
 	isSpoiler: false,
 	id: "show-review",
+	entityId: "entity-1",
+	sessionEntityId: null,
 	eventSchemaSlug: "review",
 	text: "A devastating watch.",
 	createdAt: "2025-11-07T12:00:05.000Z",
@@ -73,7 +79,10 @@ export const episodeReviewEventRow = {
 	...emptyEventProperties,
 	...firstEpisode,
 	rating: 90,
+	properties: {},
 	isSpoiler: true,
+	entityId: "entity-1",
+	sessionEntityId: null,
 	progressPercent: null,
 	id: "episode-1-review",
 	eventSchemaSlug: "review",
@@ -204,7 +213,18 @@ const progressRows = (items: readonly Record<string, unknown>[]) =>
 			...episode,
 			milestone: {
 				pageInfo: { limit: 1, hasMore: false },
-				items: [{ id, createdAt, occurredAt, consumedOn, progressPercent }],
+				items: [
+					{
+						id,
+						createdAt,
+						occurredAt,
+						consumedOn,
+						properties: {},
+						progressPercent,
+						sessionEntityId: null,
+						entityId: "episode-entity",
+					},
+				],
 			},
 		})),
 		false,

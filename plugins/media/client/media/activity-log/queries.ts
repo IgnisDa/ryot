@@ -8,7 +8,13 @@ import {
 	type ShowSeasonEpisodeChoices,
 	showSeasonEpisodeChoicesRecipe,
 } from "../../../shared/activity-log-recipes";
-import { MediaActivityLogInput } from "../../../shared/media-activity-operations";
+import {
+	MediaActivityDeleteInput,
+	MediaActivityLogInput,
+	type MediaActivityPatch,
+	MediaActivityUpdateInput,
+	type MediaEventSnapshot,
+} from "../../../shared/media-activity-operations";
 import { PLUGIN_PACKAGE_ID } from "../../../shared/plugin-identity";
 import { type ActivityEntryDraft, activityLogInput, EARLIER_PAGE_LIMIT } from "./state";
 
@@ -71,4 +77,49 @@ export const logActivitySubmission = createRyotBackgroundSubmission({
 	label: (input: { readonly label: string; readonly entry: ActivityEntryDraft }) => input.label,
 	input: ({ input, submittedAt, submissionId }) =>
 		activityLogInput(input.entry, { submittedAt, submissionId }),
+});
+
+export const updateActivitySubmission = createRyotBackgroundSubmission({
+	packageId: PLUGIN_PACKAGE_ID,
+	label: () => "Edit activity",
+	slug: "media-activity-update",
+	inputSchema: MediaActivityUpdateInput,
+	input: ({
+		input,
+		submittedAt,
+		submissionId,
+	}: {
+		readonly submittedAt: string;
+		readonly submissionId: string;
+		readonly input: {
+			readonly eventId: string;
+			readonly patch: MediaActivityPatch;
+			readonly expected: MediaEventSnapshot;
+		};
+	}) => ({ ...input, submittedAt, submissionId }),
+});
+
+export const deleteActivitySubmission = createRyotBackgroundSubmission({
+	packageId: PLUGIN_PACKAGE_ID,
+	slug: "media-activity-delete",
+	inputSchema: MediaActivityDeleteInput,
+	label: (input: { readonly eventIds: readonly string[] }) =>
+		input.eventIds.length === 1 ? "Delete record" : `Delete ${input.eventIds.length} records`,
+	input: ({
+		input,
+		submittedAt,
+		submissionId,
+	}: {
+		readonly submittedAt: string;
+		readonly submissionId: string;
+		readonly input: {
+			readonly eventIds: readonly string[];
+			readonly expected?: MediaEventSnapshot | undefined;
+		};
+	}) => ({
+		submittedAt,
+		submissionId,
+		eventIds: input.eventIds,
+		...(input.expected === undefined ? {} : { expected: input.expected }),
+	}),
 });

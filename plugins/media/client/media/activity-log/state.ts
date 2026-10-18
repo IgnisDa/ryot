@@ -2,14 +2,17 @@ import { localDay } from "@ryot-app/plugin-client-sdk/react";
 
 import type { MediaActivityLogContext } from "../../../shared/activity-log-recipes";
 import type { EpisodeLifecycleState } from "../../../shared/lifecycle-expressions";
+import { mediaProgressPositionProperty } from "../../../shared/media-activity-fields";
 import {
 	MAX_ACTIVITY_EPISODES,
 	type MediaActivityEntry,
 	type MediaActivityLogInput,
+	type MediaActivityPatch,
 	type mediaActivityStatuses,
 	type MediaActivityWhen,
+	type MediaEventSnapshot,
 } from "../../../shared/media-activity-operations";
-import { mediaActivityDurationLabel } from "../activity-timeline";
+import { mediaActivityDurationLabel, type MediaActivityEventRef } from "../activity-timeline";
 
 type MediaActivityStatus = (typeof mediaActivityStatuses)[number];
 
@@ -600,3 +603,142 @@ export const consumedOnSuggestions = (userList: unknown, history: readonly strin
 		return true;
 	});
 };
+
+export type ActivityEditIntent = Extract<ActivityIntent, "finished" | "episode" | "progress">;
+
+const numberProperty = (ref: MediaActivityEventRef, key: string | undefined) => {
+	const value = key === undefined ? undefined : ref.properties[key];
+	return typeof value === "number" ? value : undefined;
+};
+
+const textProperty = (ref: MediaActivityEventRef, key: string) => {
+	const value = ref.properties[key];
+	return typeof value === "string" ? value : undefined;
+};
+
+const dayOf = (instant: string) => localDay(Date.parse(instant));
+
+/** The Log activity draft that shows a stored completion or progress update as it is now. */
+export const activityEditDraft = (input: {
+	readonly today: string;
+	readonly ref: MediaActivityEventRef;
+	readonly intent: ActivityEditIntent;
+	readonly logger: MediaActivityLogger;
+	readonly context: MediaActivityLogContext;
+}): ActivityDraft => {
+	const { ref } = input;
+	const base = initialActivityDraft(input.logger, input.context, input.today);
+	const minutes = numberProperty(ref, "timeSpent");
+	const percent = numberProperty(ref, "progressPercent");
+	const startedOn = textProperty(ref, "startedOn");
+	const rounded = minutes === undefined ? undefined : Math.round(minutes);
+	return {
+		...base,
+		intent: input.intent,
+		amountUnit: "percent",
+		finishedDay: dayOf(ref.occurredAt),
+		consumedOn: textProperty(ref, "consumedOn") ?? "",
+		progressMode: percent === undefined ? "started" : "amount",
+		minutes: rounded === undefined ? "" : String(rounded % 60),
+		startedDay: startedOn === undefined ? "" : dayOf(startedOn),
+		amount: percent === undefined ? base.amount : String(percent),
+		when: ref.properties["dateUnknown"] === true ? "unknown" : "date",
+		hours: rounded === undefined ? "" : String(Math.floor(rounded / 60)),
+		position:
+			numberProperty(ref, mediaProgressPositionProperty(input.context.schemaSlug)) ?? base.position,
+	};
+};
+
+const editWhen = (
+	draft: ActivityDraft,
+	initial: ActivityDraft,
+	ref: MediaActivityEventRef,
+	submittedAt: string,
+): MediaActivityPatch["when"] => {
+	const startedDay = draft.intent === "finished" ? draft.startedDay : "";
+	const unchanged =
+		draft.when === initial.when &&
+		(draft.when === "unknown" ||
+			(draft.finishedDay === initial.finishedDay && startedDay === initial.startedDay));
+	if (unchanged) {
+		return undefined;
+	}
+	if (draft.when === "unknown") {
+		return { kind: "unknown" };
+	}
+	const resolved = resolveActivityWhen(
+		{ kind: "date", finishedDay: draft.finishedDay, ...(startedDay === "" ? {} : { startedDay }) },
+		submittedAt,
+	);
+	if (resolved.kind !== "date") {
+		return undefined;
+	}
+	const keepFinished = initial.when === "date" && draft.finishedDay === initial.finishedDay;
+	const finishedOn = keepFinished ? ref.occurredAt : resolved.finishedOn;
+	const storedStart = textProperty(ref, "startedOn");
+	const startedOn =
+		startedDay !== "" && startedDay === initial.startedDay ? storedStart : resolved.startedOn;
+	return {
+		finishedOn,
+		kind: "date",
+		...(startedOn === undefined
+			? {}
+			: { startedOn: Date.parse(startedOn) > Date.parse(finishedOn) ? finishedOn : startedOn }),
+	};
+};
+
+/** The fields the edit changed, or `undefined` when nothing differs from the stored record. */
+export const activityEditPatch = (input: {
+	readonly draft: ActivityDraft;
+	readonly initial: ActivityDraft;
+	readonly submittedAt: string;
+	readonly ref: MediaActivityEventRef;
+	readonly logger: MediaActivityLogger;
+	readonly context: MediaActivityLogContext;
+}): MediaActivityPatch | undefined => {
+	const { ref, draft, initial } = input;
+	const patch: { -readonly [Key in keyof MediaActivityPatch]: MediaActivityPatch[Key] } = {};
+	if (draft.intent === "progress") {
+		if (input.logger.family === "positional" && ref.entityId === input.context.id) {
+			if (draft.position !== undefined && draft.position !== initial.position) {
+				patch.position = draft.position;
+			}
+		} else {
+			const percent =
+				draft.progressMode === "amount"
+					? (draftProgressPercent(draft, activityUnitTotal(input.logger, input.context)) ?? null)
+					: null;
+			if (percent !== (numberProperty(ref, "progressPercent") ?? null)) {
+				patch.progressPercent = percent;
+			}
+		}
+	} else {
+		const when = editWhen(draft, initial, ref, input.submittedAt);
+		if (when !== undefined) {
+			patch.when = when;
+		}
+	}
+	if (
+		draft.intent === "finished" &&
+		(draft.hours !== initial.hours || draft.minutes !== initial.minutes)
+	) {
+		patch.timeSpent = parseTimeSpent(draft.hours, draft.minutes) ?? null;
+	}
+	const consumedOn = draft.consumedOn.trim();
+	if (consumedOn !== initial.consumedOn.trim()) {
+		patch.consumedOn = consumedOn === "" ? null : consumedOn;
+	}
+	return Object.keys(patch).length === 0 ? undefined : patch;
+};
+
+/** The stored record's fields as a precondition, with every editable key it lacks marked absent. */
+export const eventPrecondition = (
+	ref: MediaActivityEventRef,
+	editableKeys: readonly string[],
+): MediaEventSnapshot => ({
+	entityId: ref.entityId,
+	occurredAt: ref.occurredAt,
+	properties: ref.properties,
+	sessionEntityId: ref.sessionEntityId,
+	absentProperties: editableKeys.filter((key) => !Object.hasOwn(ref.properties, key)),
+});

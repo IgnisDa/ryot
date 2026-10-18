@@ -616,10 +616,17 @@ export const eventSchemaIsOneOf = (event: Table, slugs: readonly string[]) =>
 		slugs.map((slug) => literal(slug)),
 	);
 
-export const mediaReviewEventSelection = (event: Table) => ({
+export const mediaEventSnapshotSelection = (event: Table) => ({
 	id: selectedField(column(event, "id"), EventId),
-	createdAt: selectedField(column(event, "createdAt"), IsoDateString),
+	entityId: selectedField(column(event, "entityId"), EntityId),
 	occurredAt: selectedField(column(event, "occurredAt"), IsoDateString),
+	sessionEntityId: selectedField(column(event, "sessionEntityId"), Schema.NullOr(EntityId)),
+	properties: selectedField(column(event, "properties"), Schema.Record(Schema.String, Schema.Json)),
+});
+
+export const mediaReviewEventSelection = (event: Table) => ({
+	...mediaEventSnapshotSelection(event),
+	createdAt: selectedField(column(event, "createdAt"), IsoDateString),
 	text: selectedField(propertyText(event, "text"), Schema.NullOr(Schema.String)),
 	rating: selectedField(propertyNumber(event, "rating"), Schema.NullOr(Schema.Finite)),
 	isSpoiler: selectedField(propertyBoolean(event, "isSpoiler"), Schema.NullOr(Schema.Boolean)),

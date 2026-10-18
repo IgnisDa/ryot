@@ -12,8 +12,11 @@ const creatorActivityRecipe = creatorFixtureRecipes.activityRecipe({
 
 export const creatorReviewEventRow = {
 	rating: 88,
+	properties: {},
 	isSpoiler: false,
+	entityId: "entity-1",
 	id: "creator-review",
+	sessionEntityId: null,
 	eventSchemaSlug: "review",
 	text: "A generational talent.",
 	createdAt: "2025-11-05T12:00:05.000Z",
@@ -23,7 +26,10 @@ export const creatorReviewEventRow = {
 export const creatorLibraryEventRow = {
 	text: null,
 	rating: null,
+	properties: {},
 	isSpoiler: null,
+	entityId: "entity-1",
+	sessionEntityId: null,
 	id: "creator-library",
 	createdAt: "2025-11-01T00:00:05.000Z",
 	occurredAt: "2025-11-01T00:00:00.000Z",

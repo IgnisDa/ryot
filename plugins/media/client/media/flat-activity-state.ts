@@ -7,9 +7,11 @@ import {
 	type ActivityAnchor,
 	anchorOf,
 	decimalLabel,
+	eventRef,
 	type MediaActivityBeatRow,
 	type MediaActivityCollectionRow,
 	type MediaActivityCompletionRow,
+	type MediaActivityEventRef,
 	type MediaActivityFigure,
 	type MediaActivityLibraryRow,
 	type MediaActivityProgressRun,
@@ -39,6 +41,7 @@ type MediaFlatActivityProgressRow<Extra> = ActivityAnchor & {
 	readonly source: string | undefined;
 	readonly percent: number | undefined;
 	readonly run?: MediaActivityProgressRun;
+	readonly events: readonly MediaActivityEventRef[];
 };
 
 type MediaFlatActivitySnapshotRow<Extra> = ActivityAnchor & {
@@ -89,6 +92,7 @@ const parentRow = <Subject, Extra>(
 			...anchorOf(event, "progress"),
 			extra: event,
 			type: "progress",
+			events: [eventRef(event)],
 			source: optionalText(event.consumedOn),
 			percent: event.progressPercent ?? undefined,
 		};

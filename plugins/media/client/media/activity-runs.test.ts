@@ -1,5 +1,5 @@
 import { Schema } from "@ryot-app/plugin-kit/effect";
-import { EventId } from "@ryot-app/plugin-kit/schema";
+import { EntityId, EventId } from "@ryot-app/plugin-kit/schema";
 import { assert, describe, expect, it } from "vitest";
 
 import {
@@ -112,15 +112,18 @@ const historyEvent = (input: {
 }): MediaEpisodicHistoryEvent<TestEpisode> => ({
 	text: null,
 	rating: null,
+	properties: {},
 	kind: "episode",
 	timeSpent: null,
 	isSpoiler: null,
+	sessionEntityId: null,
 	eventSchemaSlug: input.slug,
 	createdAt: input.occurredAt,
 	occurredAt: input.occurredAt,
 	consumedOn: input.consumedOn ?? null,
 	id: Schema.decodeSync(EventId)(input.id),
 	progressPercent: input.progressPercent ?? null,
+	entityId: Schema.decodeSync(EntityId)(`s${input.season}e${input.number}`),
 	episode: {
 		runtime: null,
 		season: input.season,

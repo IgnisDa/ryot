@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it } from "@effect/vitest";
 import { RyotClientError } from "@ryot-app/plugin-client-sdk";
 import { Effect } from "@ryot-app/plugin-client-sdk/effect";
-import { getByRole, queryByRole, waitFor } from "@testing-library/dom";
+import { getAllByRole, getByRole, queryByRole, waitFor } from "@testing-library/dom";
 
 import {
 	flatCollectionAddedEventRow,
@@ -113,6 +113,7 @@ describe("complete activity history", () => {
 				);
 				expect(dialog.textContent).toContain("The twist still lands.");
 				expect(dialog.textContent).toContain("Watchlist");
+				expect(getAllByRole(dialog, "button", { name: "Record actions" })).toHaveLength(2);
 				expect(queryByRole(dialog, "button", { name: "Load more" })).toBeNull();
 				expect(appendAttempts).toBe(2);
 				clickRyotElement(getByRole(dialog, "button", { name: "Close activity history" }));

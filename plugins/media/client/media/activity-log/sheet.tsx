@@ -293,7 +293,7 @@ function EpisodeList(props: {
 	);
 }
 
-function SourceField(props: {
+export function SourceField(props: {
 	readonly value: string;
 	readonly error: string | undefined;
 	readonly logger: MediaActivityLogger;
@@ -331,7 +331,7 @@ function SourceField(props: {
 	);
 }
 
-function TimeSpentField(props: {
+export function TimeSpentField(props: {
 	readonly label: string;
 	readonly hint: string;
 	readonly draft: ActivityDraft;
@@ -374,7 +374,8 @@ function TimeSpentField(props: {
 	);
 }
 
-function WhenField(props: {
+export function WhenField(props: {
+	readonly kinds?: readonly ActivityWhenKind[];
 	readonly today: string;
 	readonly draft: ActivityDraft;
 	readonly error: string | undefined;
@@ -393,8 +394,10 @@ function WhenField(props: {
 				label="When"
 				value={draft.when}
 				optionClassName="px-3"
-				options={whenOptions(episode)}
 				onChange={(when) => props.onChange({ when })}
+				options={whenOptions(episode).filter(
+					(option) => props.kinds === undefined || props.kinds.includes(option.value),
+				)}
 			/>
 			{draft.when === "date" ? (
 				<div className="grid grid-cols-[repeat(2,minmax(0,1fr))] gap-3">
@@ -434,7 +437,7 @@ function WhenField(props: {
 	);
 }
 
-function FlatProgress(props: {
+export function FlatProgress(props: {
 	readonly draft: ActivityDraft;
 	readonly logger: MediaActivityLogger;
 	readonly error: string | undefined;
@@ -501,7 +504,7 @@ function FlatProgress(props: {
 	);
 }
 
-function PositionProgress(props: {
+export function PositionProgress(props: {
 	readonly draft: ActivityDraft;
 	readonly error: string | undefined;
 	readonly context: MediaActivityLogContext;

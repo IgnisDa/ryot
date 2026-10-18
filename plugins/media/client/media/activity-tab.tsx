@@ -9,6 +9,7 @@ import { type ReactNode, useState } from "react";
 import { MediaHistoryButton } from "./activity-history";
 import { MediaLogActivityButton } from "./activity-log/button";
 import type { MediaActivityLogger } from "./activity-log/state";
+import { MediaActivityActionsContext } from "./activity-row-menu";
 import {
 	type MediaActivityRowRender,
 	MediaActivitySummaryFigures,
@@ -145,7 +146,17 @@ export function MediaActivity<View>(props: {
 	if (state.status === "transport-error" || state.status === "malformed") {
 		return <MediaStatusMessage {...mediaActivityError(state)} onRetry={props.refresh} />;
 	}
-	return <props.Record view={state.view} compact={props.compact} history={props.history} />;
+	return (
+		<MediaActivityActionsContext
+			value={{
+				compact: props.compact,
+				entityId: props.entityId,
+				logger: props.emptyAction === "write-review" ? undefined : props.emptyAction,
+			}}
+		>
+			<props.Record view={state.view} compact={props.compact} history={props.history} />
+		</MediaActivityActionsContext>
+	);
 }
 
 /** The activity state mapper, its screen, and the tab that loads it for one entity. */

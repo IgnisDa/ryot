@@ -273,6 +273,38 @@ close once the kernel accepts, a finished completion opens the review composer i
 shell tray owns the outcome and Retry. Toggles show the requested state optimistically and roll back
 visibly when the settled outcome is a failure.
 
+`media-activity-update`, `media-activity-delete`, `media-review-update`, and `media-review-delete`
+edit or remove recorded history and are protected in demo sessions. The host scopes event writes to
+the caller and to this plugin's event schemas but not to particular schemas, so each operation first
+reads its targets through an explicit allow-list: `complete`, `progress`, `dropped`, `on_hold`, and
+`backlog` on built-in media and episodes for activity, and `review` on library members for reviews.
+`list-state`, `add-to-media-library`, kernel collection events, and other plugins' events are
+refused. Inputs carry `submittedAt` and the background submission ID; edits use the
+`<submissionId>:write` key. Updates and single-record deletes send the row's full snapshot as a
+`fields` precondition (every current property and every absent editable one), so a concurrent
+change is reported as stale instead of merged. Edits never touch `entityId` or `sessionEntityId`.
+The field matrix in `shared/media-activity-fields.ts` mirrors the declared event schemas; a field
+the schema does not declare, and a stored record carrying keys its schema no longer declares, are
+refused. Progress follows the logging rules: a position on Anime/Manga, a percent elsewhere. Moving
+a date sets `occurredAt` (and `startedOn` where declared); an unknown date keeps `occurredAt` so
+history is not reordered. Deletes accept up to 500 unique IDs, validate every 100-ID chunk before
+the first write, and delete chunks in input order with `<submissionId>:<chunk>` keys. IDs that
+resolve to nothing pass through as host no-ops, so a retry after a partial commit replays the same
+chunks. A failure after a committed chunk returns `incomplete` for Retry; an earlier failure is a
+rejection.
+
+Activity and review rows in the Activity tab and complete history offer a row menu. Delete names
+the number of records a folded row stands for; Edit appears only when the row is one completion,
+progress update, or review, and opens the Log activity fields or the review composer. Aggregated
+daily watches in an episodic summary carry no record IDs and are edited from complete history.
+Collection, library, and synced list-state rows have no menu.
+
+Completion hooks run only for created events. Therefore deleting an episode completion leaves an
+auto-created parent completion, which can be deleted on its own; after deleting that parent
+completion, completing the last episode again within the one-hour claim does not complete the
+parent again; editing progress to 100% does not complete; and editing episode dates does not move
+the parent's completion time.
+
 ## Imports
 
 `workflow.media-import` uses its admitted `source-parser` selection. Generic admission, capture,

@@ -9,6 +9,7 @@ import { AppIcon } from "@ryot-app/plugin-ui-sdk/icon";
 import clsx from "clsx";
 import { type ReactNode, useState } from "react";
 
+import { MediaActivityRowMenu } from "./activity-row-menu";
 import {
 	type MediaActivityCompletedWatch,
 	mediaActivityDateLabel,
@@ -110,6 +111,7 @@ function MediaActivityEntry<Row extends MediaActivityRowBase>(props: {
 		<TimelineEntry
 			marker={markerOf(row.type)}
 			title={render.rowLabel(row)}
+			actions={<MediaActivityRowMenu row={row} />}
 			expand={
 				expand === undefined
 					? undefined
