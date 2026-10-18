@@ -103,7 +103,7 @@ Phase 1 does not require completion of the later analytics or notification work.
 
 | Order | Completion status | Feature to implement | Depends on | Completion criteria |
 | --- | --- | --- | --- | --- |
-| 9 | Pending | **Clean up removed and abandoned managed assets** | 2 and 7 for editor integration; existing managed-reference checks | Schedule or request cleanup after committed edits/deletions, not before them. Recheck ownership and live references, including retained workflow evidence. Shared/retained assets survive; unused uploads and previously saved removed assets eventually disappear. Failure is retryable and does not turn a successful edit into data loss. |
+| 9 | Done | **Clean up removed and abandoned managed assets** | 2 and 7 for editor integration; existing managed-reference checks | Schedule or request cleanup after committed edits/deletions, not before them. Recheck ownership and live references, including retained workflow evidence. Shared/retained assets survive; unused uploads and previously saved removed assets eventually disappear. Failure is retryable and does not turn a successful edit into data loss. See the Order 9 acceptance record below. |
 | 10 | Pending | **Collect genuinely unreferenced provider graphs** | 8 and the explicit-membership policy | Define graph roots and traversal before deletion. All users' library memberships and owned data, current relations, active work and retained dependencies must be considered. Collect eligible unused provider entities/children/genres and associated runtime data in bounded, retry-safe batches. Do not infer that an entity is disposable merely because it has no events, and do not port V1's association-join deletion rule literally. |
 
 These are storage-maintenance tasks, not a reason to postpone usable Phase 1 features.
@@ -445,6 +445,35 @@ Validation on **2026-10-27**:
   client-page picker/collection wiring. Redundant schema tests, a single-use wrapper and temporary
   diagnostics were removed. No compatibility path, migration, version change or type-checker bypass
   was added. This item is **Done**.
+
+### Phase 2 Order 9 acceptance — Managed asset collection
+
+Clients no longer delete permanent uploads. The `uploads/cleanup` endpoint, the bridge `cleanup`
+upload action, the SDK `uploads.cleanup` method and the editor, schema-form and workout-draft upload
+tracking that fed them are removed. `managed_asset.check_after` defaults to 24 hours after
+registration. The frequent `managed-asset-collection` cron takes due rows in bounded batches and
+locks each owner's due rows with `SKIP LOCKED`. A row that a writer has share-locked is skipped
+until the next run. One set-based query per batch finds referenced locators across the existing
+reference sources. Referenced rows are deferred 24 hours. Unreferenced rows are retired; the object is
+then deleted and the row removed, so a content-addressed key can be registered again. A failed
+object deletion leaves the retired row for the next run, and a save racing a retirement is rejected
+by the existing reference lock. Removed or replaced saved assets, cancelled uploads and abandoned
+uploads disappear within about 48 hours. An editor or workout draft left unsaved for more than
+24 hours after an upload must upload the file again.
+
+Validation on **2026-10-28**:
+
+- Focused kernel suites: **258 tests** across 22 asset, backup, script-host and domain-write files,
+  including collector deletion, deferral, retry, skipped in-flight writers and batched reference
+  lookup. Affected package suites passed: contract **283**, plugin-client-contract **52**,
+  plugin-client-sdk **256**, kernel client **1,186**, Fitness **565**, fixture **18**.
+- Affected e2e files `api/kernel/uploads/uploads.test.ts` and `browser/client-plugin.test.ts`:
+  **15 tests** passed.
+- Final repository `bun run check`: **38 successful tasks**, **30 projects / 7,491 files**. Then
+  `bun turbo --filter='!@ryot-app/e2e' test`: **51 successful tasks**. A first run that overlapped
+  the e2e browser run had four Fitness DOM `waitFor` misses; the rerun passed without changes.
+- One additive migration adds `check_after` and two partial indexes. No compatibility path, version
+  change or type-checker bypass was added. This item is **Done**.
 
 ## Functional inventory
 
@@ -867,10 +896,11 @@ Evidence: `crates/models/user/src/lib.rs`,
 
 - Object deletion, byte streaming, stat, managed ownership and unreferenced cleanup exist.
   Public arbitrary S3 delete/list/metadata operations are not the managed-asset contract.
-- V1 deleted removed custom-entity S3 assets while updating. The shared V2 entity editor
-  cleans newly uploaded unused/cancelled assets, but does not sweep previously saved removed
-  assets. No periodic general unreferenced-managed-asset collector was found. Workflow and
-  historical references can correctly prevent a requested cleanup.
+- V1 deleted removed custom-entity S3 assets while updating. V2 has no client-requested deletion:
+  a server collector rechecks every managed asset's references 24 hours after registration and
+  every 24 hours after that, then retires, deletes and forgets unreferenced assets. Automation
+  history and other retained records keep assets referenced; the grace period protects in-flight
+  work and open editors.
 - S3 prefix listing, custom S3 metadata read/write and a bucket-accessibility probe are absent
   from `platform/storage/s3.ts`. Backup listing and metadata are database-owned now, so those
   old internal helpers are not all standalone user-feature gaps.
@@ -878,8 +908,7 @@ Evidence: `crates/models/user/src/lib.rs`,
   Current upload limits are 50 MiB normally and 1,088 MiB for temporary ZIPs, not one universal
   50 MB cap. Limits are constants, not V1's configurable max-file-size setting.
 
-Evidence: `modules/assets/{uploads/intents,storage/managed-assets,storage/object-storage}.ts`,
-`packages/plugin-client-sdk/src/entity-editor/entity-editor.tsx`,
+Evidence: `modules/assets/{uploads/intents,storage/managed-assets,storage/managed-asset-collector,storage/object-storage}.ts`,
 `packages/contract/src/modules/assets/upload-policy.ts`,
 `crates/services/file-storage/src/lib.rs`.
 
