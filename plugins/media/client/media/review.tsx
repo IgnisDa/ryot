@@ -2,8 +2,10 @@ import { RyotClientError } from "@ryot-app/plugin-client-sdk";
 import { Effect } from "@ryot-app/plugin-client-sdk/effect";
 import { createRyotMutation, useRyotMutation } from "@ryot-app/plugin-client-sdk/react";
 import {
+	ActionForm,
 	Button,
 	Dialog,
+	Row,
 	StatusMessage,
 	Switch,
 	TextArea,
@@ -59,6 +61,17 @@ function MediaReviewForm(props: {
 	const validRating =
 		ratingValue === undefined ||
 		(Number.isFinite(ratingValue) && ratingValue >= 0 && ratingValue <= 100);
+	const save = () => {
+		if (text.trim() === "" || !validRating || mutation.isPending) {
+			return;
+		}
+		mutation.mutate({
+			isSpoiler,
+			text: text.trim(),
+			entityId: props.entityId,
+			...(ratingValue === undefined ? {} : { rating: ratingValue }),
+		});
+	};
 	return (
 		<Dialog
 			onClose={onClose}
@@ -68,21 +81,7 @@ function MediaReviewForm(props: {
 			triggerRef={props.triggerRef}
 			dismissible={!mutation.isPending}
 		>
-			<form
-				className="flex flex-col gap-4"
-				onSubmit={(event) => {
-					event.preventDefault();
-					if (text.trim() === "" || !validRating || mutation.isPending) {
-						return;
-					}
-					mutation.mutate({
-						isSpoiler,
-						text: text.trim(),
-						entityId: props.entityId,
-						...(ratingValue === undefined ? {} : { rating: ratingValue }),
-					});
-				}}
-			>
+			<ActionForm onSubmit={save} label="Write review" className="flex flex-col gap-4">
 				<label htmlFor={`${id}-text`}>Review</label>
 				<TextArea
 					rows={5}
@@ -103,24 +102,33 @@ function MediaReviewForm(props: {
 					disabled={mutation.isPending}
 					onChange={(event) => setRating(event.currentTarget.value)}
 				/>
-				<Switch
-					checked={isSpoiler}
-					onChange={setIsSpoiler}
-					label="Contains spoilers"
-					disabled={mutation.isPending}
+				<Row
+					title="Contains spoilers"
+					trailing={
+						<Switch
+							checked={isSpoiler}
+							onChange={setIsSpoiler}
+							label="Contains spoilers"
+							disabled={mutation.isPending}
+						/>
+					}
 				/>
 				{mutation.error === null ? null : (
 					<StatusMessage tone="error">Unable to save your review. Try again.</StatusMessage>
 				)}
 				<div className="flex gap-2">
-					<Button type="submit" disabled={text.trim() === "" || !validRating || mutation.isPending}>
+					<Button
+						type="button"
+						onClick={save}
+						disabled={text.trim() === "" || !validRating || mutation.isPending}
+					>
 						{mutation.isPending ? "Saving…" : "Save review"}
 					</Button>
 					<Button type="button" onClick={onClose} variant="secondary" disabled={mutation.isPending}>
 						Cancel
 					</Button>
 				</div>
-			</form>
+			</ActionForm>
 		</Dialog>
 	);
 }

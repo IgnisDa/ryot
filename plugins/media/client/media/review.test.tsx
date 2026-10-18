@@ -59,7 +59,10 @@ it.live(
 				const trigger = getByRole(mounted.container, "button", { name: "Write review" });
 				clickRyotElement(trigger);
 				const dialog = getByRole(document.body, "dialog", { name: "Write review" });
+				expect(within(dialog).getByRole("form", { name: "Write review" }).tagName).toBe("DIV");
+				expect(within(dialog).getByText("Contains spoilers").textContent).toBe("Contains spoilers");
 				const save = within(dialog).getByRole("button", { name: "Save review" });
+				expect(save.getAttribute("type")).toBe("button");
 				expect(save.hasAttribute("disabled")).toBe(true);
 				input(getByLabelText(dialog, "Review"), "   ");
 				expect(save.hasAttribute("disabled")).toBe(true);
@@ -92,6 +95,49 @@ it.live(
 				mounted.unmount();
 			}
 		}),
+);
+
+it.live("saves with Enter in the rating field without submitting a native form", () =>
+	Effect.gen(function* () {
+		const requests: unknown[] = [];
+		const mounted = mountRyotClient(
+			{
+				invokeOperation: (request) =>
+					Effect.sync(() => {
+						requests.push(request);
+						return { count: 1 };
+					}),
+			},
+			<MediaReviewButton entityId="media-1" />,
+		);
+		try {
+			clickRyotElement(getByRole(mounted.container, "button", { name: "Write review" }));
+			const dialog = getByRole(document.body, "dialog");
+			const text = getByLabelText(dialog, "Review");
+			input(text, "Thoughts");
+			act(() => {
+				fireEvent.keyDown(text, { key: "Enter" });
+			});
+			expect(requests).toEqual([]);
+			const rating = getByLabelText(dialog, "Rating (0–100, optional)");
+			input(rating, "80");
+			act(() => {
+				fireEvent.keyDown(rating, { key: "Enter" });
+			});
+			yield* Effect.promise(() =>
+				waitFor(() => expect(queryByRole(document.body, "dialog")).toBeNull()),
+			);
+			expect(requests).toEqual([
+				{
+					packageId: "ryot/media",
+					slug: "media-review-create",
+					input: { rating: 80, text: "Thoughts", isSpoiler: false, entityId: "media-1" },
+				},
+			]);
+		} finally {
+			mounted.unmount();
+		}
+	}),
 );
 
 it.live("opens from empty activity and cancels without saving", () =>
