@@ -33,6 +33,7 @@ export type MediaActivityEventRef = SelectedRow<ReturnType<typeof mediaEventSnap
 export type MediaActivityRowBase = ActivityAnchor & {
 	readonly type: string;
 	readonly events?: readonly MediaActivityEventRef[];
+	readonly absorbed?: number;
 };
 
 export type MediaActivityFigure = {
@@ -62,6 +63,7 @@ export type MediaActivityCompletionRow = ActivityAnchor & {
 	readonly startedOn: string | undefined;
 	readonly dateUnknown: boolean;
 	readonly run?: MediaActivityProgressRun;
+	readonly absorbed?: number;
 	readonly events: readonly MediaActivityEventRef[];
 };
 
@@ -337,6 +339,7 @@ export const mergeProgressRuns = <
 export const absorbProgressRun = <
 	Row extends {
 		readonly run?: MediaActivityProgressRun;
+		readonly absorbed?: number;
 		readonly events: readonly MediaActivityEventRef[];
 	},
 >(
@@ -349,6 +352,7 @@ export const absorbProgressRun = <
 ): Row => ({
 	...current,
 	events: joinEvents(current.events, next.events),
+	absorbed: (current.absorbed ?? 0) + next.events.length,
 	run: {
 		updates: (current.run?.updates ?? 0) + (next.run?.updates ?? 1),
 		fromPercent: next.run === undefined ? next.percent : next.run.fromPercent,

@@ -114,7 +114,7 @@ describe("activity row menu", () => {
 			if (menu === undefined) {
 				throw new Error("Expected a completion row menu");
 			}
-			expect(menuItems(menu)).toEqual(["Delete"]);
+			expect(menuItems(menu)).toEqual(["Edit", "Delete"]);
 			choose(menu, "Delete");
 			const dialog = getByRole(document.body, "dialog", { name: "Delete 3 records?" });
 			clickRyotElement(getByRole(dialog, "button", { name: "Delete 3 records" }));
@@ -194,6 +194,38 @@ describe("activity row menu", () => {
 			});
 			expect(background.requests[0]?.input).toMatchObject({
 				submissionId: background.requests[0]?.idempotencyKey,
+			});
+		}),
+	);
+
+	it.live("edits only the completion a folded row stands for", () =>
+		Effect.gen(function* () {
+			const properties = { timeSpent: 169 };
+			const { view, background } = mount([
+				sameDayProgress("progress-early", 10),
+				{ ...flatCompletionEventRow, properties },
+			]);
+			yield* Effect.promise(() => view.setTime(Date.parse("2026-10-20T09:00:00.000Z")));
+			const [menu] = menus(view.container);
+			if (menu === undefined) {
+				throw new Error("Expected a completion row menu");
+			}
+			choose(menu, "Edit");
+			yield* eventually(() =>
+				expect(queryByRole(document.body, "dialog", { name: "Edit activity" })).not.toBeNull(),
+			);
+			const dialog = getByRole(document.body, "dialog", { name: "Edit activity" });
+			act(() => {
+				fireEvent.change(getByLabelText(dialog, /Where did you use it\?/), {
+					target: { value: "Plex" },
+				});
+			});
+			clickRyotElement(getByRole(dialog, "button", { name: "Save changes" }));
+			yield* eventually(() => expect(background.requests).toHaveLength(1));
+			expect(background.requests[0]?.input).toMatchObject({
+				eventId: "media-complete",
+				patch: { consumedOn: "Plex" },
+				expected: snapshot(flatCompletionEventRow, properties),
 			});
 		}),
 	);

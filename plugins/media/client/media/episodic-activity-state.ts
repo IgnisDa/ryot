@@ -152,6 +152,7 @@ export type MediaEpisodicWatchRow = {
 	readonly source: string | undefined;
 	readonly episodes: NonEmpty<MediaEpisodicWatchedEpisode>;
 	readonly run?: MediaActivityProgressRun;
+	readonly absorbed?: number;
 };
 
 export type MediaEpisodicProgressRow = {

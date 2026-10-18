@@ -110,7 +110,7 @@ export function MediaActivityRowMenu(props: { readonly row: MediaActivityRowBase
 		return null;
 	}
 	const review = isReviewRow(row) ? row : undefined;
-	const intent = events.length === 1 ? EDIT_INTENTS[row.type] : undefined;
+	const intent = events.length - (row.absorbed ?? 0) === 1 ? EDIT_INTENTS[row.type] : undefined;
 	const { logger } = actions;
 	const editable = review !== undefined || (intent !== undefined && logger !== undefined);
 	const close = () => setOpen(undefined);
