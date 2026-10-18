@@ -152,7 +152,7 @@ export function MediaEntityArtwork(props: {
 	readonly data: MediaSavedViewPresentationSubject;
 }) {
 	const poster = props.data.image ?? undefined;
-	return (
+	const image = (
 		<ManagedAssetImage
 			asset={poster}
 			monogram={props.data.name}
@@ -162,6 +162,12 @@ export function MediaEntityArtwork(props: {
 				mediaArtworkClass({ aspect: props.aspect, layout: props.layout, compact: props.compact }),
 			)}
 		/>
+	);
+	// Grids mix media types, so every card reserves a poster frame to keep titles aligned.
+	return props.layout === "grid" && props.aspect !== "poster" ? (
+		<div className={clsx("flex w-full items-end", mediaAspectClass("poster"))}>{image}</div>
+	) : (
+		image
 	);
 }
 

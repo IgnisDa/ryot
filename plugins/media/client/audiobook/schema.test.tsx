@@ -65,7 +65,8 @@ describe("audiobook schema", () => {
 			<audiobookSchema.CardContent compact data={data} entityId="media-1" />,
 		);
 		expect(container.textContent).toContain("42% listened");
-		expect(container.querySelector("article > a > *")?.className).toContain("aspect-square");
+		expect(container.querySelector("article > a > *")?.className).toContain("aspect-2/3");
+		expect(container.querySelector("article > a > * > *")?.className).toContain("aspect-square");
 		unmount();
 	});
 });

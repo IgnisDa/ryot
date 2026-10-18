@@ -63,7 +63,9 @@ describe("music schema", () => {
 			noopAdapter,
 			<musicSchema.CardContent compact data={data} entityId="media-1" />,
 		);
-		expect(card.container.querySelector("article > a > *")?.className).toContain("aspect-square");
+		expect(card.container.querySelector("article > a > * > *")?.className).toContain(
+			"aspect-square",
+		);
 		expect(card.container.textContent).toContain("42% listened");
 		card.unmount();
 

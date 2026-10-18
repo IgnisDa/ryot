@@ -121,7 +121,9 @@ describe("podcast schema", () => {
 			noopAdapter,
 			<podcastSchema.CardContent compact data={data} entityId="podcast-1" />,
 		);
-		expect(card.container.querySelector("article > a > *")?.className).toContain("aspect-square");
+		expect(card.container.querySelector("article > a > * > *")?.className).toContain(
+			"aspect-square",
+		);
 		card.unmount();
 
 		const row = mountRyotClient(
