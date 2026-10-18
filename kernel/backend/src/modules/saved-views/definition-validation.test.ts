@@ -296,3 +296,23 @@ it.effect("rejects stored cursors", () =>
 		);
 	}),
 );
+
+it.effect("rejects the kernel calendar renderer for user-owned views", () =>
+	Effect.gen(function* () {
+		const renderer = { kind: "kernel" as const, name: "calendar" as const };
+		const failure = new SavedViewBadRequest({
+			reason: {
+				code: "settings-incompatible",
+				message: "Calendar views are kernel built-ins only",
+			},
+		});
+		assertExitFails(
+			yield* Effect.exit(validateSavedViewDefinition(renderer, {}, null, null)),
+			failure,
+		);
+		assertExitFails(
+			yield* Effect.exit(validateSavedViewDefinition(renderer, {}, dataSources, null)),
+			failure,
+		);
+	}),
+);

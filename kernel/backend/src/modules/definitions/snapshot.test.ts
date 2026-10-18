@@ -4,6 +4,7 @@ import type { JsonValue } from "@ryot-app/contract/schema/json";
 import { column, document, field, rows, table } from "@ryot-app/ryotql";
 import { assert, expect, it } from "vitest";
 
+import { kernelDefinitionSource } from "./kernel-source";
 import {
 	buildDefinitionSnapshot,
 	definitionLookup,
@@ -177,4 +178,46 @@ it("throws for invalid saved-view filter fields during snapshot validation", () 
 	expect(() => build([{ ...nameField, field: "missing" }])).toThrow(
 		"Invalid saved view bottles: Filter field 'name' must reference a projected scalar field",
 	);
+});
+
+it("builds the kernel source with its calendar view", () => {
+	const snapshot = buildDefinitionSnapshot(kernelDefinitionSource());
+	expect(
+		snapshot.savedViews[definitionKey("saved-view", definitionOwner(null), "calendar")],
+	).toEqual(
+		expect.objectContaining({
+			settings: {},
+			dataSources: null,
+			renderer: { kind: "kernel", name: "calendar" },
+		}),
+	);
+});
+
+const buildKernelView = (savedView: SavedViewDefinition) =>
+	buildDefinitionSnapshot({ ...source(null), savedViews: [savedView] });
+
+it("rejects calendar views with settings or data sources", () => {
+	const calendar: SavedViewDefinition = {
+		settings: {},
+		sortOrder: 0,
+		pluginId: null,
+		icon: "calendar",
+		slug: "calendar",
+		name: "Calendar",
+		dataSources: null,
+		renderer: { kind: "kernel", name: "calendar" },
+	};
+	const entity = table("entity", "entity");
+	expect(() => buildKernelView(calendar)).not.toThrow();
+	expect(() => buildKernelView({ ...calendar, settings: { layout: "month" } })).toThrow(
+		"Invalid saved view calendar: calendar views take no settings or data sources",
+	);
+	expect(() =>
+		buildKernelView({
+			...calendar,
+			dataSources: document({
+				source: rows(entity, { fields: [field("name", column(entity, "name"))] }),
+			}),
+		}),
+	).toThrow("Invalid saved view calendar: calendar views take no settings or data sources");
 });

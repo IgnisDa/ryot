@@ -39,3 +39,9 @@ materialization and validation, backup restore) decode with the typed settings a
 do not re-decode: the repository, definitions, page preparation, and the RyotQL saved-view source pass
 the stored record through, so one malformed row never fails the list or navigation. It fails only where
 a typed consumer, such as backup export, the kernel renderer, or the client saved-view route, decodes it.
+
+The kernel `calendar` renderer is built-in only: definition snapshots require it to take no data
+sources and empty settings, and neither manifests nor create, update, or clone bodies can name it.
+The user-view validator, shared by create, update, and backup restore, rejects it outright, so a
+custom calendar view cannot be written. Cloning the built-in Calendar fails with
+`settings-incompatible`; hiding it uses the ordinary built-in override.

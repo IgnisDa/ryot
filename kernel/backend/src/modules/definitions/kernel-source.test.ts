@@ -6,8 +6,14 @@ it("keeps source zero limited to generic kernel definitions", () => {
 	const source = kernelDefinitionSource();
 	expect(source.entitySchemas.map(({ slug }) => slug)).toEqual(["collection"]);
 	expect(source.relationshipSchemas.map(({ slug }) => slug)).toEqual(["member-of"]);
-	expect(source.savedViews.map(({ name }) => name)).toEqual(["All Collections"]);
-	expect(source.savedViews.map(({ slug }) => slug)).toEqual(["collections"]);
+	expect(source.savedViews.map(({ name }) => name)).toEqual(["All Collections", "Calendar"]);
+	expect(source.savedViews.map(({ slug }) => slug)).toEqual(["collections", "calendar"]);
+	expect(source.savedViews[1]).toMatchObject({
+		settings: {},
+		icon: "calendar",
+		dataSources: null,
+		renderer: { kind: "kernel", name: "calendar" },
+	});
 	const savedView = source.savedViews[0];
 	assert(savedView);
 	expect(savedView.renderer).toEqual({ kind: "kernel", name: "collection-browser" });

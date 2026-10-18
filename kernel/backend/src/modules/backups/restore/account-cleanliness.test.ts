@@ -174,9 +174,10 @@ layer(SavedViewsRepository.layer.pipe(Layer.provideMerge(revisionDatabaseLayer))
 				Object.values(global.savedViews)
 					.map(({ slug }) => slug)
 					.sort(),
-			).toEqual(["catalog", "collections"]);
+			).toEqual(["calendar", "catalog", "collections"]);
 			expect(actual.map(({ reference }) => reference)).toEqual([
 				{ kind: "kernel", slug: "collections" },
+				{ kind: "kernel", slug: "calendar" },
 			]);
 			expect(yield* installations.listHydratedForUser(userId)).toEqual([]);
 			expect(

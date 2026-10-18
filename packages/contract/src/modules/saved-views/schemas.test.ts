@@ -192,4 +192,26 @@ describe("saved-view schemas", () => {
 		expect(Result.isFailure(decode({ settings: {}, isHidden: false }))).toBe(true);
 		expect(Result.isFailure(decode({ renderer, settings: {}, isHidden: false }))).toBe(true);
 	});
+
+	it("rejects calendar renderer configs in create and update bodies", () => {
+		const config = {
+			settings: {},
+			dataSources: null,
+			renderer: { kind: "kernel", name: "calendar" },
+		};
+		expect(
+			Result.isFailure(
+				Schema.decodeUnknownResult(CreateSavedViewBody)({
+					...config,
+					name: "Mine",
+					icon: "calendar",
+				}),
+			),
+		).toBe(true);
+		const update: unknown = { ...config, isHidden: false };
+		expect(Result.isFailure(Schema.decodeUnknownResult(UpdateSavedViewBody)(update))).toBe(true);
+		expect(Result.isFailure(Schema.decodeUnknownResult(SavedViewRendererConfig)(config))).toBe(
+			true,
+		);
+	});
 });

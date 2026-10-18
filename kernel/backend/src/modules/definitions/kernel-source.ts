@@ -191,7 +191,18 @@ export const kernelDefinitionSource = (): DefinitionSource => ({
 				},
 			},
 		},
+		{
+			sortOrder: 1,
+			settings: {},
+			pluginId: null,
+			slug: "calendar",
+			name: "Calendar",
+			icon: "calendar",
+			dataSources: null,
+			renderer: { kind: "kernel", name: "calendar" },
+		},
 	],
+
 	signalSchemas: [
 		{
 			pluginId: null,

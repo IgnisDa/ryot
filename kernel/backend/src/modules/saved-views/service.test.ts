@@ -248,6 +248,46 @@ layer(
 	);
 });
 
+const calendarView = {
+	...baseView,
+	settings: {},
+	createdAt: null,
+	updatedAt: null,
+	slug: "calendar",
+	name: "Calendar",
+	icon: "calendar",
+	dataSources: null,
+	isBuiltin: true as const,
+	reference: { slug: "calendar", kind: "kernel" as const },
+	renderer: { kind: "kernel" as const, name: "calendar" as const },
+};
+
+layer(
+	makeLayer({
+		repository: {
+			create: () => Effect.succeed({ id: SavedViewId.make("calendar-copy-id") }),
+			findByReference: (_userId, reference) =>
+				Effect.succeed(Bun.deepEquals(reference, calendarView.reference) ? calendarView : null),
+		},
+	}),
+)((test) => {
+	test.effect("refuses to clone the kernel calendar and creates no custom view", () =>
+		Effect.gen(function* () {
+			const service = yield* SavedViewsService;
+			const exit = yield* Effect.exit(service.clone(user, calendarView.reference));
+			assertExitFails(
+				exit,
+				new SavedViewBadRequest({
+					reason: { code: "settings-incompatible", message: "Saved view definition is invalid" },
+				}),
+			);
+			const calls = yield* SavedViewsCalls;
+			expect(yield* calls.created).toEqual([]);
+			expect(yield* calls.events).toEqual([]);
+		}),
+	);
+});
+
 layer(
 	makeLayer({
 		repository: {

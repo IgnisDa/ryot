@@ -7,6 +7,7 @@ import {
 	SavedViewBadRequest,
 	SavedViewNotFound,
 	SavedViewRendererConfig,
+	type SavedViewRenderer,
 	type CreateSavedViewBody,
 	type ReorderSavedViewsBody,
 	type UpdateSavedViewBody,
@@ -70,7 +71,7 @@ export class SavedViewsService extends Context.Service<SavedViewsService>()("Sav
 		});
 		const prepareDefinition = Effect.fn(function* (
 			userId: UserId,
-			renderer: CreateSavedViewBody["renderer"],
+			renderer: SavedViewRenderer,
 			settings: CreateSavedViewBody["settings"],
 			document: CreateSavedViewBody["dataSources"],
 		) {
