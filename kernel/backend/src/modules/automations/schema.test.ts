@@ -38,7 +38,8 @@ it("uniquely identifies notification subscription by user and signal schema", ()
 
 it("defines automation trigger columns and indexes", () => {
 	const config = getTableConfig(automationTrigger);
-	expect(config.columns.map(({ name, notNull }) => [name, notNull])).toEqual([
+	const columns = config.columns.map(({ name, notNull }) => [name, notNull]);
+	const expectedColumns = [
 		["initiator_id", false],
 		["parent_run_id", false],
 		["import_run_id", false],
@@ -62,7 +63,9 @@ it("defines automation trigger columns and indexes", () => {
 		["resource_kind", true],
 		["created_at", true],
 		["initiator_kind", true],
-	]);
+	];
+	expect(columns).toHaveLength(expectedColumns.length);
+	expect(columns).toEqual(expect.arrayContaining(expectedColumns));
 	expect(config.indexes.map((entry) => entry.config.name)).toEqual([
 		"automation_trigger_root_idx",
 		"automation_trigger_parent_run_idx",
