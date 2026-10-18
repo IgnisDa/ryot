@@ -331,6 +331,7 @@ export class CollectionsService extends Context.Service<CollectionsService>()(
 					userId: UserId;
 					entityId: EntityId;
 					command: DomainLifecycleCommand;
+					mode?: CreateMembershipBody["mode"];
 					properties?: unknown;
 					collectionId: EntityId;
 				}) {
@@ -390,6 +391,7 @@ export class CollectionsService extends Context.Service<CollectionsService>()(
 						sourceEntityId: input.entityId,
 						properties: validatedProperties,
 						targetEntityId: input.collectionId,
+						ifAbsent: input.mode === "add-if-absent",
 						relationshipSchema: {
 							owner: { kind: "kernel" },
 							slug: RelationshipSchemaSlug.make(memberOfRelationshipSchema.slug),
@@ -439,6 +441,7 @@ export class CollectionsService extends Context.Service<CollectionsService>()(
 							command,
 							executionId,
 							userId: user.id,
+							mode: payload.mode,
 							entityId: payload.entityId,
 							properties: payload.properties,
 							collectionId: payload.collectionId,

@@ -94,6 +94,7 @@ export const CreateMembershipBody = Schema.Struct({
 	entityId: EntityId,
 	collectionId: EntityId,
 	properties: Schema.optional(Schema.Unknown),
+	mode: Schema.optional(Schema.Literals(["upsert", "add-if-absent"])),
 });
 
 export type CreateMembershipBody = typeof CreateMembershipBody.Type;

@@ -102,6 +102,7 @@ export const runAddEntityToCollectionWorkflow = Effect.fn("AddEntityToCollection
 			applyPolicies: operations.applyMembershipPolicies,
 			prepare: operations.prepareMembership({
 				command,
+				mode: payload.mode,
 				userId: payload.userId,
 				entityId: payload.entityId,
 				properties: payload.properties,
@@ -110,7 +111,7 @@ export const runAddEntityToCollectionWorkflow = Effect.fn("AddEntityToCollection
 		});
 
 		let eventWarnings: ReadonlyArray<AutomationWarning> = [];
-		if (result.addEventSchemaSlug) {
+		if (result.operation === "create" && result.addEventSchemaSlug) {
 			const eventExecutionId = `collection-membership-added-${result.memberOf.id}`;
 			const eventAttempt = yield* dispatchAdmittedWorkflow(
 				receipts,
