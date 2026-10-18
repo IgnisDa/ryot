@@ -78,14 +78,31 @@
 		"effecttsgo/promise-in-effect-success": "error",
 		"effecttsgo/abort-controller-in-effect": "error",
 		"typescript/no-import-type-side-effects": "warn",
+		"effecttsgo/any-unknown-in-error-context": "off",
 		"react/jsx-no-constructed-context-values": "warn",
 		"typescript/switch-exhaustiveness-check": "error",
-		"typescript/no-unnecessary-type-assertion": "warn",
-		"effecttsgo/any-unknown-in-error-context": "off",
 		"effecttsgo/unsafe-effect-type-assertion": "error",
+		"typescript/no-unnecessary-type-assertion": "warn",
 		"effecttsgo/global-error-in-effect-failure": "error",
 		"effecttsgo/layer-merge-all-with-dependencies": "error",
 		"eslint/no-underscore-dangle": ["error", { "allow": ["_tag"] }],
+		"perfectionist/sort-sets": ["error", { "type": "line-length", "order": "asc" }],
+		"perfectionist/sort-maps": ["error", { "type": "line-length", "order": "asc" }],
+		"perfectionist/sort-enums": ["error", { "type": "line-length", "order": "asc" }],
+		"perfectionist/sort-classes": ["error", { "type": "line-length", "order": "asc" }],
+		"perfectionist/sort-exports": ["error", { "type": "line-length", "order": "asc" }],
+		"perfectionist/sort-modules": ["error", { "type": "line-length", "order": "asc" }],
+		"perfectionist/sort-decorators": ["error", { "type": "line-length", "order": "asc" }],
+		"perfectionist/sort-interfaces": ["error", { "type": "line-length", "order": "asc" }],
+		"perfectionist/sort-union-types": ["error", { "type": "line-length", "order": "asc" }],
+		"perfectionist/sort-switch-case": ["error", { "type": "line-length", "order": "asc" }],
+		"perfectionist/sort-object-types": ["error", { "type": "line-length", "order": "asc" }],
+		"perfectionist/sort-named-exports": ["error", { "type": "line-length", "order": "asc" }],
+		"perfectionist/sort-array-includes": ["error", { "type": "line-length", "order": "asc" }],
+		"perfectionist/sort-heritage-clauses": ["error", { "type": "line-length", "order": "asc" }],
+		"perfectionist/sort-import-attributes": ["error", { "type": "line-length", "order": "asc" }],
+		"perfectionist/sort-export-attributes": ["error", { "type": "line-length", "order": "asc" }],
+		"perfectionist/sort-intersection-types": ["error", { "type": "line-length", "order": "asc" }],
 		"typescript/no-unused-vars": [
 			"error",
 			{ "varsIgnorePattern": "^_", "argsIgnorePattern": "^_", "caughtErrorsIgnorePattern": "^_" }
@@ -97,6 +114,10 @@
 		"perfectionist/sort-jsx-props": [
 			"error",
 			{ "type": "line-length", "order": "asc", "partitionByNewLine": true }
+		],
+		"perfectionist/sort-variable-declarations": [
+			"error",
+			{ "type": "line-length", "order": "asc" }
 		],
 		"no-restricted-properties": [
 			"error",
