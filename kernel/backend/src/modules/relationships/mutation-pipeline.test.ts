@@ -221,6 +221,36 @@ const concurrentChange = new RelationshipBadRequest({
 
 describe("Relationship set-based mutation pipeline", () => {
 	layer(relationshipDatabaseLayer())((test) => {
+		test.effect("keeps a concurrent ensure from overwriting existing relationship metadata", () =>
+			Effect.gen(function* () {
+				const repository = yield* RelationshipsRepository;
+				const policyInput = yield* installPolicyFixture();
+				const pipeline = yield* pipelineWith(yield* policyLifecycle());
+				const [mutation] = yield* userMutations(
+					policyInput,
+					[policyInput.targetEntityId],
+					"ensure-race",
+					{ rank: 2 },
+				);
+				assert(mutation);
+				const prepared = yield* pipeline.prepareMutations([{ ...mutation, mode: "ensure" }]);
+				assert(prepared._tag === "PoliciesRequired");
+				const [pendingItem] = prepared.pending.items;
+				expect(pendingItem?.receipt.commandKind).toBe("relationship:ensure");
+
+				const existingProperties = { rank: 9, labels: ["saved"] };
+				yield* repository.createRelationship({ ...mutation.input, properties: existingProperties });
+				const pending = yield* pipeline.applyPolicies(prepared.pending);
+				const committed = yield* pipeline.commitProjected(pending, (results) => results);
+				assert(committed._tag === "Committed");
+				expect(committed.result).toMatchObject([
+					{ operation: "noop", relationship: { properties: existingProperties } },
+				]);
+			}),
+		);
+	});
+
+	layer(relationshipDatabaseLayer())((test) => {
 		test.effect(
 			"keeps write-check statements constant in every relationship writing transaction",
 			() =>

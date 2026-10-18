@@ -61,12 +61,14 @@ export const CreateRelationshipInput = Schema.Union([
 		...CreateRelationshipBody.fields,
 		properties: Schema.Unknown,
 		scope: Schema.Literal("global"),
+		ifAbsent: Schema.optional(Schema.Boolean),
 	}),
 	Schema.Struct({
 		...CreateRelationshipBody.fields,
 		userId: UserId,
 		properties: Schema.Unknown,
 		scope: Schema.Literal("user"),
+		ifAbsent: Schema.optional(Schema.Boolean),
 	}),
 ]);
 export type CreateRelationshipInput = typeof CreateRelationshipInput.Type;
@@ -109,8 +111,8 @@ export const RelationshipMutation = Schema.Struct({
 	properties: Schema.optional(Schema.Unknown),
 	propertiesSchema: Schema.optional(AppSchema),
 	receipt: Schema.optional(MutationReceiptIdentity),
-	mode: Schema.Literals(["upsert", "update", "delete", "merge"]),
 	schemaFingerprint: Schema.optional(CatalogDefinitionFingerprint),
+	mode: Schema.Literals(["upsert", "update", "delete", "merge", "ensure"]),
 });
 export type Mutation = typeof RelationshipMutation.Type;
 
