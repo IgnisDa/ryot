@@ -19,6 +19,7 @@ const EntityBadRequestReason = Schema.Union([
 	}),
 	Schema.Struct({ code: Schema.Literal("asset-forbidden") }),
 	Schema.Struct({ code: Schema.Literal("global-scope-forbidden") }),
+	Schema.Struct({ code: Schema.Literal("provider-scope-mismatch") }),
 	Schema.Struct({ code: Schema.Literal("kernel-owned-schema") }),
 	Schema.Struct({ code: Schema.Literal("duplicate-collection-name") }),
 	Schema.Struct({ property: Schema.String, code: Schema.Literal("immutable-property") }),

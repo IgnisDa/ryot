@@ -16,6 +16,14 @@ Prepared policy inputs still retain the source snapshot needed to detect concurr
 Provider root-write activities retain the entity snapshot and dispatch references.
 Collection preparation projects the entity result to its identifier before journaling it.
 
+# Provider ownership
+
+Provider-backed entity ownership follows the provider's plugin: system-plugin providers write global
+entities, and private-plugin providers write entities owned by that plugin's user. Shared draft
+validation rejects a different scope with `provider-scope-mismatch` during preparation and commit,
+including ordinary and planned upserts. Entities without provider provenance remain user-owned when
+created through the user API.
+
 # Immutable properties
 
 A top-level entity property marked `immutable` keeps its stored value on user-scope updates:
