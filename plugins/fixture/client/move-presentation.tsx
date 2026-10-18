@@ -11,7 +11,7 @@ import {
 	useRyotViewport,
 } from "@ryot-app/plugin-client-sdk/plugin";
 import { defineRecipe } from "@ryot-app/plugin-client-sdk/ryotql";
-import { Badge } from "@ryot-app/plugin-ui-sdk";
+import { Badge, Eyebrow } from "@ryot-app/plugin-ui-sdk";
 import { isTitleProvisional, SyncPip } from "@ryot-app/plugin-ui-sdk/sync";
 import clsx from "clsx";
 
@@ -122,9 +122,7 @@ function MovePresentation(props: {
 			)}
 		>
 			<div className="grid min-w-0 gap-1">
-				<span className="truncate text-[11px] font-semibold tracking-wide text-text-subtle uppercase">
-					{props.data.type ?? "Move"}
-				</span>
+				<Eyebrow>{props.data.type ?? "Move"}</Eyebrow>
 				<span className="flex min-w-0 items-baseline gap-1.5">
 					<PluginLink
 						className="min-w-0"

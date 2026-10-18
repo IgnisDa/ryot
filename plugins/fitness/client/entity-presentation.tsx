@@ -12,6 +12,7 @@ import {
 } from "@ryot-app/plugin-client-sdk/plugin";
 import { ManagedAssetProvider, useAssetUrl } from "@ryot-app/plugin-client-sdk/react";
 import { defineRecipe } from "@ryot-app/plugin-client-sdk/ryotql";
+import { Eyebrow, schemaSlugLabel } from "@ryot-app/plugin-ui-sdk";
 import {
 	EntityArtWell,
 	fieldSyncState,
@@ -111,8 +112,6 @@ export const loadFitnessPresentations: EntityPresentationLoader<FitnessPresentat
 	return client.data.query(recipe);
 };
 
-const schemaLabel = (entitySchemaSlug: string) => entitySchemaSlug.split("-").join(" ");
-
 const artworkSize = (layout: "grid" | "list", compact: boolean) => {
 	if (layout === "grid") {
 		return "aspect-3/4 w-full";
@@ -161,9 +160,7 @@ function FitnessFacts(props: {
 }) {
 	return (
 		<div className="grid min-w-0 gap-1">
-			<span className="truncate text-[11px] font-semibold tracking-wide text-text-subtle uppercase">
-				{schemaLabel(props.reference.entitySchemaSlug)}
-			</span>
+			<Eyebrow>{schemaSlugLabel(props.reference.entitySchemaSlug)}</Eyebrow>
 			<span className="flex min-w-0 items-baseline gap-1.5">
 				<PluginLink className="min-w-0" to={{ kind: "entity", entityId: props.reference.entityId }}>
 					<span className="line-clamp-2 min-w-0 text-[15px] font-semibold text-text">

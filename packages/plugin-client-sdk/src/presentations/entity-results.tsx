@@ -1,6 +1,12 @@
 import type { EntitySyncState } from "@ryot-app/contract/modules/entities/schemas";
 import type { JsonValue } from "@ryot-app/contract/schema/json";
-import { Button, resultsLayoutClasses, StatusMessage } from "@ryot-app/plugin-ui-sdk";
+import {
+	Button,
+	Eyebrow,
+	resultsLayoutClasses,
+	schemaSlugLabel,
+	StatusMessage,
+} from "@ryot-app/plugin-ui-sdk";
 import {
 	EntityArtWell,
 	fieldSyncState,
@@ -207,8 +213,6 @@ const BasicEntityLink = ({ reference }: { readonly reference: EntityReference })
 	</PluginLink>
 );
 
-const schemaLabel = (entitySchemaSlug: string) => entitySchemaSlug.split("-").join(" ");
-
 const GenericEntityCard = ({
 	layout,
 	reference,
@@ -216,7 +220,7 @@ const GenericEntityCard = ({
 	readonly reference: EntityReference;
 	readonly layout: EntityResultsLayout;
 }) => {
-	const title = reference.name ?? schemaLabel(reference.entitySchemaSlug);
+	const title = reference.name ?? schemaSlugLabel(reference.entitySchemaSlug);
 	return (
 		<article
 			data-layout={layout}
@@ -238,9 +242,7 @@ const GenericEntityCard = ({
 				/>
 			</PluginLink>
 			<div className="grid min-w-0 flex-1 gap-1">
-				<span className="truncate text-[11px] font-semibold tracking-wide text-text-subtle uppercase">
-					{schemaLabel(reference.entitySchemaSlug)}
-				</span>
+				<Eyebrow>{schemaSlugLabel(reference.entitySchemaSlug)}</Eyebrow>
 				<span className="flex min-w-0 items-baseline gap-1.5">
 					<PluginLink className="min-w-0" to={{ kind: "entity", entityId: reference.entityId }}>
 						<span className="line-clamp-2 min-w-0 text-[15px] font-semibold text-text">

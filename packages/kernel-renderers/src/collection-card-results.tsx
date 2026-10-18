@@ -4,7 +4,7 @@ import {
 	type EntityReference,
 	PluginLink,
 } from "@ryot-app/plugin-client-sdk/plugin";
-import { resultsLayoutClasses } from "@ryot-app/plugin-ui-sdk";
+import { Eyebrow, resultsLayoutClasses, schemaSlugLabel } from "@ryot-app/plugin-ui-sdk";
 import {
 	EntityArtWell,
 	fieldSyncState,
@@ -34,7 +34,6 @@ const CollectionCard = ({
 	readonly layout: Exclude<EntityBrowserLayout, "table">;
 }) => {
 	const title = reference.name ?? "collection";
-	const schemaLabel = reference.entitySchemaSlug.split("-").join(" ");
 	return (
 		<article
 			data-layout={layout}
@@ -56,9 +55,7 @@ const CollectionCard = ({
 				/>
 			</PluginLink>
 			<div className="grid min-w-0 flex-1 gap-1">
-				<span className="truncate text-[11px] font-semibold tracking-wide text-text-subtle uppercase">
-					{schemaLabel}
-				</span>
+				<Eyebrow>{schemaSlugLabel(reference.entitySchemaSlug)}</Eyebrow>
 				<span className="flex min-w-0 items-baseline gap-1.5">
 					<PluginLink className="min-w-0" to={{ kind: "entity", entityId: reference.entityId }}>
 						<span className="line-clamp-2 min-w-0 text-[15px] font-semibold text-text">

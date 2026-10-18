@@ -8,6 +8,7 @@ import {
 	useRyotViewport,
 } from "@ryot-app/plugin-client-sdk/plugin";
 import { ManagedAssetProvider } from "@ryot-app/plugin-client-sdk/react";
+import { Eyebrow, schemaSlugLabel } from "@ryot-app/plugin-ui-sdk";
 import { fieldSyncState, isTitleProvisional, SyncPip } from "@ryot-app/plugin-ui-sdk/sync";
 import clsx from "clsx";
 
@@ -52,52 +53,6 @@ export const loadMediaPresentations: EntityPresentationLoader<MediaPresentationV
 const ratingLabel = (rating: null | number) =>
 	rating === null ? undefined : rating.toLocaleString(undefined, { maximumFractionDigits: 1 });
 
-function MediaArtwork(props: {
-	readonly compact: boolean;
-	readonly layout: "grid" | "list";
-	readonly data: MediaPresentationViewData;
-}) {
-	const poster = posterAsset(props.data);
-	return (
-		<ManagedAssetImage
-			asset={poster}
-			monogram={props.data.name}
-			state={fieldSyncState(poster, props.data)}
-			className={clsx("shrink-0", artworkSize(props.layout, props.compact))}
-		/>
-	);
-}
-
-function MediaFacts(props: { readonly schemaName: string; readonly data: MediaPresentationData }) {
-	const rating = ratingLabel(props.data.rating);
-	return (
-		<div className="grid min-w-0 gap-1">
-			<span className="truncate text-[11px] font-semibold tracking-wide text-text-subtle uppercase">
-				{props.schemaName}
-			</span>
-			<span className="flex min-w-0 items-baseline gap-1.5">
-				<PluginLink className="min-w-0" to={{ kind: "entity", entityId: props.data.id }}>
-					<span className="line-clamp-2 min-w-0 text-[15px] font-semibold text-text">
-						{props.data.name}
-					</span>
-				</PluginLink>
-				{isTitleProvisional(props.data) && <SyncPip reason="translating" />}
-			</span>
-			{props.data.primary !== null && (
-				<span className="truncate text-xs text-text-muted">{props.data.primary}</span>
-			)}
-			{props.data.secondary !== null && (
-				<span className="truncate text-xs text-text-subtle">{props.data.secondary}</span>
-			)}
-			{rating !== undefined && (
-				<span className="truncate text-xs font-semibold text-accent-text">{rating}</span>
-			)}
-		</div>
-	);
-}
-
-const schemaLabel = (entitySchemaSlug: string) => entitySchemaSlug.split("-").join(" ");
-
 export function MediaCardContent(props: {
 	readonly compact: boolean;
 	readonly data: MediaPresentationViewData;
@@ -116,7 +71,7 @@ export function MediaCardContent(props: {
 				>
 					<MediaArtwork layout="grid" data={props.data} compact={props.compact} />
 				</PluginLink>
-				<MediaFacts data={props.data} schemaName={schemaLabel(props.data.schemaSlug)} />
+				<MediaFacts data={props.data} schemaName={schemaSlugLabel(props.data.schemaSlug)} />
 			</article>
 		</ManagedAssetProvider>
 	);
@@ -144,7 +99,7 @@ export function MediaRowContent(props: {
 					<MediaArtwork layout="list" data={props.data} compact={props.compact} />
 				</PluginLink>
 				<div className="min-w-0 flex-1">
-					<MediaFacts data={props.data} schemaName={schemaLabel(props.data.schemaSlug)} />
+					<MediaFacts data={props.data} schemaName={schemaSlugLabel(props.data.schemaSlug)} />
 				</div>
 			</article>
 		</ManagedAssetProvider>
@@ -159,6 +114,48 @@ function MediaRow({ data }: EntityPresentationComponentProps<MediaPresentationVi
 function MediaCard({ data }: EntityPresentationComponentProps<MediaPresentationViewData>) {
 	const { compact } = useRyotViewport();
 	return <MediaCardContent data={data} compact={compact} />;
+}
+
+function MediaArtwork(props: {
+	readonly compact: boolean;
+	readonly layout: "grid" | "list";
+	readonly data: MediaPresentationViewData;
+}) {
+	const poster = posterAsset(props.data);
+	return (
+		<ManagedAssetImage
+			asset={poster}
+			monogram={props.data.name}
+			state={fieldSyncState(poster, props.data)}
+			className={clsx("shrink-0", artworkSize(props.layout, props.compact))}
+		/>
+	);
+}
+
+function MediaFacts(props: { readonly schemaName: string; readonly data: MediaPresentationData }) {
+	const rating = ratingLabel(props.data.rating);
+	return (
+		<div className="grid min-w-0 gap-1">
+			<Eyebrow>{props.schemaName}</Eyebrow>
+			<span className="flex min-w-0 items-baseline gap-1.5">
+				<PluginLink className="min-w-0" to={{ kind: "entity", entityId: props.data.id }}>
+					<span className="line-clamp-2 min-w-0 text-[15px] font-semibold text-text">
+						{props.data.name}
+					</span>
+				</PluginLink>
+				{isTitleProvisional(props.data) && <SyncPip reason="translating" />}
+			</span>
+			{props.data.primary !== null && (
+				<span className="truncate text-xs text-text-muted">{props.data.primary}</span>
+			)}
+			{props.data.secondary !== null && (
+				<span className="truncate text-xs text-text-subtle">{props.data.secondary}</span>
+			)}
+			{rating !== undefined && (
+				<span className="truncate text-xs font-semibold text-accent-text">{rating}</span>
+			)}
+		</div>
+	);
 }
 
 export const mediaCardPresentation = defineEntityPresentation({

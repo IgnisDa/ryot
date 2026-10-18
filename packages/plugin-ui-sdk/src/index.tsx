@@ -31,6 +31,7 @@ export type { GroupColor } from "./group-colors";
 export { StatusMessage } from "./status-message";
 export { ChipRadioGroup } from "./chip-radio-group";
 export { LoadMoreButton } from "./load-more-button";
+export { Eyebrow, schemaSlugLabel } from "./eyebrow";
 export { ReorderableList } from "./reorderable-list";
 export type { OverlayBackAdapter } from "./shortcut";
 export { Toast, ActivityTray } from "./activity-tray";
