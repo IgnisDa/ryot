@@ -1,6 +1,7 @@
-import { index, jsonb, snakeCase, text, timestamp, uniqueIndex } from "drizzle-orm/pg-core";
+import { index, jsonb, snakeCase, text, uniqueIndex } from "drizzle-orm/pg-core";
 
 import { user } from "./auth";
+import { timestamptz } from "./timestamps";
 
 export type ProviderImportAdmissionStatus = "queued" | "running";
 
@@ -11,14 +12,14 @@ export type ProviderImportAdmissionStatus = "queued" | "running";
 export const providerImportAdmission = snakeCase.table(
 	"provider_import_admission",
 	{
+		admittedAt: timestamptz(),
 		payload: jsonb().notNull(),
 		externalId: text().notNull(),
 		providerId: text().notNull(),
 		id: text().notNull().primaryKey(),
 		entitySchemaSlug: text().notNull(),
-		admittedAt: timestamp({ precision: 3, withTimezone: true }),
+		createdAt: timestamptz().defaultNow().notNull(),
 		status: text().notNull().$type<ProviderImportAdmissionStatus>(),
-		createdAt: timestamp({ precision: 3, withTimezone: true }).defaultNow().notNull(),
 		userId: text()
 			.notNull()
 			.references(() => user.id, { onDelete: "cascade" }),

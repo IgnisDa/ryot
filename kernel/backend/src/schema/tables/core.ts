@@ -22,7 +22,6 @@ import {
 	smallint,
 	snakeCase,
 	text,
-	timestamp,
 	unique,
 	uniqueIndex,
 } from "drizzle-orm/pg-core";
@@ -31,6 +30,7 @@ import type { PluginSandboxAuthority } from "#modules/scripts/authorization/plug
 
 import { user } from "./auth";
 import { clientArtifact } from "./client-artifacts";
+import { timestamptz, updatedAtColumn } from "./timestamps";
 
 export const pluginConfigEncryptionKey = snakeCase.table(
 	"plugin_config_encryption_key",
@@ -38,7 +38,7 @@ export const pluginConfigEncryptionKey = snakeCase.table(
 		id: text().notNull(),
 		key: bytea().notNull(),
 		singleton: boolean().primaryKey().default(true),
-		createdAt: timestamp({ precision: 3, withTimezone: true }).defaultNow().notNull(),
+		createdAt: timestamptz().defaultNow().notNull(),
 	},
 	(table) => [
 		check("plugin_config_encryption_key_singleton_check", sql`${table.singleton} = true`),
@@ -52,8 +52,8 @@ export const plugin = snakeCase.table(
 		status: text().notNull(),
 		activeRevisionId: text(),
 		environmentConfigRevisionId: text(),
+		createdAt: timestamptz().defaultNow().notNull(),
 		packageId: text().$type<PluginPackageId>().notNull(),
-		createdAt: timestamp({ precision: 3, withTimezone: true }).defaultNow().notNull(),
 		ownerId: text("owner_user_id").references(() => user.id, { onDelete: "cascade" }),
 		activationId: text()
 			.notNull()
@@ -113,6 +113,7 @@ export const pluginRevision = snakeCase.table(
 		clientArtifactHash: text(),
 		pluginId: text().notNull(),
 		contentHash: text().notNull(),
+		createdAt: timestamptz().defaultNow().notNull(),
 		client: jsonb().$type<PluginManifest["client"]>(),
 		packageId: text().$type<PluginPackageId>().notNull(),
 		clientConfigSchema: jsonb().$type<AppSchema>().notNull(),
@@ -133,7 +134,6 @@ export const pluginRevision = snakeCase.table(
 		userBootstrap: jsonb().$type<PluginManifest["userBootstrap"]>().notNull(),
 		userSettingsSchema: jsonb().$type<PluginManifest["userSettingsSchema"]>(),
 		httpRateLimits: jsonb().$type<PluginManifest["httpRateLimits"]>().notNull(),
-		createdAt: timestamp({ precision: 3, withTimezone: true }).defaultNow().notNull(),
 		relationshipSchemas: jsonb().$type<PluginManifest["relationshipSchemas"]>().notNull(),
 		integrationProviders: jsonb().$type<PluginManifest["integrationProviders"]>().notNull(),
 	},
@@ -166,17 +166,18 @@ export const pluginInstallation = snakeCase.table(
 	"plugin_installation",
 	{
 		healthReason: text(),
+		uninstalledAt: timestamptz(),
+		updatedAt: updatedAtColumn(),
 		sortOrder: integer().notNull().default(0),
 		isHidden: boolean().notNull().default(false),
+		createdAt: timestamptz().defaultNow().notNull(),
 		isInitialized: boolean().notNull().default(false),
 		homeSavedView: jsonb().$type<SavedViewReference>(),
 		ingestionRetiring: boolean().notNull().default(false),
 		configuredSecretPaths: text().array().notNull().default([]),
-		uninstalledAt: timestamp({ precision: 3, withTimezone: true }),
 		incompatibilityReason: text().$type<"package-identity-conflict">(),
 		clientConfig: jsonb().$type<Record<string, JsonValue>>().notNull().default({}),
 		userSettings: jsonb().$type<Record<string, JsonValue>>().notNull().default({}),
-		createdAt: timestamp({ precision: 3, withTimezone: true }).defaultNow().notNull(),
 		userId: text()
 			.notNull()
 			.references(() => user.id, { onDelete: "cascade" }),
@@ -188,10 +189,6 @@ export const pluginInstallation = snakeCase.table(
 			.notNull()
 			.primaryKey()
 			.$defaultFn(() => /* @__PURE__ */ generateId()),
-		updatedAt: timestamp({ precision: 3, withTimezone: true })
-			.defaultNow()
-			.$onUpdate(() => /* @__PURE__ */ new Date())
-			.notNull(),
 		health: text()
 			.$type<"installing" | "ready" | "needs-configuration" | "incompatible" | "failed">()
 			.notNull()
@@ -214,15 +211,15 @@ export const pluginConfigRevision = snakeCase.table(
 	{
 		nonce: bytea().notNull(),
 		encryptedPayload: bytea(),
+		payloadPrunedAt: timestamptz(),
 		encryptionKeyId: text().notNull(),
 		payloadFingerprint: text().notNull(),
 		configuredKeys: text().array().notNull(),
+		createdAt: timestamptz().defaultNow().notNull(),
 		id: text()
 			.primaryKey()
 			.$defaultFn(() => generateId()),
-		payloadPrunedAt: timestamp({ precision: 3, withTimezone: true }),
 		ownerUserId: text().references(() => user.id, { onDelete: "cascade" }),
-		createdAt: timestamp({ precision: 3, withTimezone: true }).defaultNow().notNull(),
 		pluginRevisionId: text()
 			.notNull()
 			.references(() => pluginRevision.id, { onDelete: "cascade" }),
@@ -255,9 +252,10 @@ export const sandboxProvider = snakeCase.table(
 	{
 		slug: text().notNull(),
 		name: text().notNull(),
+		updatedAt: updatedAtColumn(),
 		rootEntitySchemaSlug: text().notNull(),
+		createdAt: timestamptz().defaultNow().notNull(),
 		information: jsonb().$type<ProviderInformation>().notNull(),
-		createdAt: timestamp({ precision: 3, withTimezone: true }).defaultNow().notNull(),
 		pluginId: text()
 			.notNull()
 			.references(() => plugin.id, { onDelete: "cascade" }),
@@ -265,10 +263,6 @@ export const sandboxProvider = snakeCase.table(
 			.notNull()
 			.primaryKey()
 			.$defaultFn(() => /* @__PURE__ */ generateId()),
-		updatedAt: timestamp({ precision: 3, withTimezone: true })
-			.defaultNow()
-			.$onUpdate(() => /* @__PURE__ */ new Date())
-			.notNull(),
 	},
 	(table) => [
 		index("sandbox_provider_plugin_id_idx").on(table.pluginId),
@@ -286,9 +280,9 @@ export const sandboxScript = snakeCase.table(
 		contentHash: text().notNull(),
 		compiledCode: text().notNull(),
 		compiledFormat: smallint().notNull().default(1),
+		createdAt: timestamptz().defaultNow().notNull(),
 		metadata: jsonb().$type<SandboxScriptMetadata>().notNull(),
 		providerId: text().references(() => sandboxProvider.id, { onDelete: "cascade" }),
-		createdAt: timestamp({ precision: 3, withTimezone: true }).defaultNow().notNull(),
 		pluginRevisionId: text().references(() => pluginRevision.id, { onDelete: "cascade" }),
 		id: text()
 			.notNull()

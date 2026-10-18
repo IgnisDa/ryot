@@ -1,19 +1,21 @@
 import { generateId } from "better-auth";
-import { index, integer, jsonb, snakeCase, text, timestamp } from "drizzle-orm/pg-core";
+import { index, integer, jsonb, snakeCase, text } from "drizzle-orm/pg-core";
 
 import { user } from "./auth";
 import { plugin } from "./core";
 import { entity } from "./entities";
+import { timestamptz, updatedAtColumn } from "./timestamps";
 
 export const event = snakeCase.table(
 	"event",
 	{
+		updatedAt: updatedAtColumn(),
 		eventSchemaSlug: text().notNull(),
+		occurredAt: timestamptz().notNull(),
 		revision: integer().notNull().default(0),
-		occurredAt: timestamp({ precision: 3, withTimezone: true }).notNull(),
+		createdAt: timestamptz().defaultNow().notNull(),
 		properties: jsonb().$type<Record<string, unknown>>().notNull().default({}),
 		sessionEntityId: text().references(() => entity.id, { onDelete: "cascade" }),
-		createdAt: timestamp({ precision: 3, withTimezone: true }).defaultNow().notNull(),
 		eventSchemaPluginId: text().references(() => plugin.id, { onDelete: "restrict" }),
 		userId: text()
 			.notNull()
@@ -25,10 +27,6 @@ export const event = snakeCase.table(
 			.notNull()
 			.primaryKey()
 			.$defaultFn(() => /* @__PURE__ */ generateId()),
-		updatedAt: timestamp({ precision: 3, withTimezone: true })
-			.defaultNow()
-			.$onUpdate(() => /* @__PURE__ */ new Date())
-			.notNull(),
 	},
 	(table) => [
 		index("event_user_id_idx").on(table.userId),
