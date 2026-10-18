@@ -6,6 +6,7 @@ import { useState } from "react";
 import type { ExerciseDetails } from "../../shared/exercise-details-recipes";
 import type { PersonalBest } from "../../shared/workout-records";
 import { setLots } from "../set-lots";
+import { ComputedResults } from "../workout-processing";
 import {
 	formatDuration,
 	formatMeasure,
@@ -272,15 +273,17 @@ export function HistorySection(props: {
 	const { totals } = details;
 	if (totals.sets === 0) {
 		return (
-			<section className="flex flex-col gap-4" aria-labelledby="exercise-history">
-				<h2 id="exercise-history" className={sectionHeadingClass}>
-					Your history
-				</h2>
-				<p className={clsx(cardClass, "text-[15px] text-text-muted")}>
-					You haven't logged this exercise yet. Your sessions, personal bests and progress will show
-					up here after your first set.
-				</p>
-			</section>
+			<ComputedResults>
+				<section className="flex flex-col gap-4" aria-labelledby="exercise-history">
+					<h2 id="exercise-history" className={sectionHeadingClass}>
+						Your history
+					</h2>
+					<p className={clsx(cardClass, "text-[15px] text-text-muted")}>
+						You haven't logged this exercise yet. Your sessions, personal bests and progress will
+						show up here after your first set.
+					</p>
+				</section>
+			</ComputedResults>
 		);
 	}
 	const lapsed = isLapsed(totals.lastAt, now);
@@ -288,32 +291,36 @@ export function HistorySection(props: {
 	const since = totals.firstAt === null ? null : formatShortDate(totals.firstAt, null);
 	const lastDate = totals.lastAt === null ? null : formatShortDate(totals.lastAt, null);
 	return (
-		<section className="flex flex-col gap-4" aria-labelledby="exercise-history">
-			<div className="flex flex-wrap items-baseline justify-between gap-2 font-ui">
-				<h2 id="exercise-history" className={sectionHeadingClass}>
-					Your history
-				</h2>
-				<span className="text-[14px] text-text-muted">
-					{since === null ? null : `Since ${since}`}
-					{days === null ? null : ` · last trained ${describeAgo(days)}`}
-				</span>
-			</div>
-			{lapsed ? (
-				<p
-					role="status"
-					className="rounded-xl border border-accent-border bg-accent-soft p-4 font-ui text-[15px] text-text"
+		<ComputedResults>
+			<section className="flex flex-col gap-4" aria-labelledby="exercise-history">
+				<div className="flex flex-wrap items-baseline justify-between gap-2 font-ui">
+					<h2 id="exercise-history" className={sectionHeadingClass}>
+						Your history
+					</h2>
+					<span className="text-[14px] text-text-muted">
+						{since === null ? null : `Since ${since}`}
+						{days === null ? null : ` · last trained ${describeAgo(days)}`}
+					</span>
+				</div>
+				{lapsed ? (
+					<p
+						role="status"
+						className="rounded-xl border border-accent-border bg-accent-soft p-4 font-ui text-[15px] text-text"
+					>
+						<strong>Last done {days === null ? "" : describeAgo(days)}.</strong>
+						{lastDate === null ? null : ` Your last session was on ${lastDate}.`}
+					</p>
+				) : null}
+				<StatTiles compact={compact} details={details} kind={exercise.kind} />
+				<div
+					className={clsx("grid gap-4", !compact && "lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]")}
 				>
-					<strong>Last done {days === null ? "" : describeAgo(days)}.</strong>
-					{lastDate === null ? null : ` Your last session was on ${lastDate}.`}
-				</p>
-			) : null}
-			<StatTiles compact={compact} details={details} kind={exercise.kind} />
-			<div className={clsx("grid gap-4", !compact && "lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]")}>
-				<ProgressChart now={now} details={details} timeZone={timeZone} kind={exercise.kind} />
-				<PersonalBests kind={exercise.kind} rows={details.personalBests} />
-			</div>
-			{exercise.kind === "reps_and_weight" ? <BestWeightByReps details={details} /> : null}
-		</section>
+					<ProgressChart now={now} details={details} timeZone={timeZone} kind={exercise.kind} />
+					<PersonalBests kind={exercise.kind} rows={details.personalBests} />
+				</div>
+				{exercise.kind === "reps_and_weight" ? <BestWeightByReps details={details} /> : null}
+			</section>
+		</ComputedResults>
 	);
 }
 

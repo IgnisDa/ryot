@@ -13,7 +13,7 @@ export type RecipeEncodedInput<Recipe extends { readonly input: { readonly Encod
 	Recipe["input"]["Encoded"];
 
 const operationTransport =
-	(client: Client) =>
+	(client: Client, idempotencyKey?: string) =>
 	(
 		request: Pick<ContractPayload<"plugins", "invoke">, "payload"> & {
 			readonly packageId: PluginPackageId;
@@ -23,10 +23,13 @@ const operationTransport =
 		client
 			.call((contract) =>
 				contract.plugins.invoke({
-					payload: { payload: request.payload },
 					params: {
 						...pluginPackageSegments(request.packageId),
 						operationSlug: request.operationSlug,
+					},
+					payload: {
+						payload: request.payload,
+						...(idempotencyKey === undefined ? {} : { idempotencyKey }),
 					},
 				}),
 			)
@@ -41,7 +44,8 @@ export const invokeFitnessOperation = <
 	client: Client,
 	recipe: OperationRecipe<Input, InputEncoded, Output, OutputEncoded>,
 	input: Input,
-) => invokeOperationRecipe(recipe, input, operationTransport(client));
+	options?: Pick<ContractPayload<"plugins", "invoke">, "idempotencyKey">,
+) => invokeOperationRecipe(recipe, input, operationTransport(client, options?.idempotencyKey));
 
 export const invokeEncodedFitnessOperation = <
 	Input,

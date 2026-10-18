@@ -87,8 +87,6 @@ export const createWorkoutEditorController = (
 	let discarding = false;
 	let disposed = false;
 	const isDisposed = () => disposed;
-	let firstSubmissionAttempt = false;
-	let canReleaseRejection = false;
 	let exerciseNames: ReadonlyMap<string, string> = new Map();
 	const iosActivity = createWorkoutIosActivityPublisher(ports);
 
@@ -457,17 +455,22 @@ export const createWorkoutEditorController = (
 			disposed = true;
 			alerts.dispose();
 		},
+		setSaving: (saving) => {
+			updateReady((current) => ({ ...current, saving }));
+		},
 		subscribe: (listener) => {
 			listeners.add(listener);
 			return () => listeners.delete(listener);
 		},
-		setSaving: (saving) => {
-			if (saving) {
-				canReleaseRejection = firstSubmissionAttempt;
-				firstSubmissionAttempt = false;
-			}
-			updateReady((current) => ({ ...current, saving }));
-		},
+		rejectSubmission: (result) =>
+			Effect.gen(function* () {
+				if (!isReady(snapshot) || snapshot.saving || result.kind === "saved") {
+					return false;
+				}
+				setDraft({ ...snapshot.draft, submission: undefined }, true);
+				yield* flush();
+				return true;
+			}),
 		start: (draft) =>
 			Effect.gen(function* () {
 				if (snapshot.status !== "empty" || discarding) {
@@ -507,30 +510,10 @@ export const createWorkoutEditorController = (
 			exerciseNames = next;
 			ports.schedule.run(flushDraft().pipe(Effect.ignore), () => undefined);
 		},
-		rejectSubmission: (result) =>
-			Effect.gen(function* () {
-				const firstAttempt = canReleaseRejection;
-				canReleaseRejection = false;
-				if (
-					!isReady(snapshot) ||
-					snapshot.saving ||
-					!firstAttempt ||
-					!("canEdit" in result) ||
-					result.canEdit !== true
-				) {
-					return false;
-				}
-				setDraft({ ...snapshot.draft, submission: undefined }, true);
-				yield* flush();
-				return true;
-			}),
 		beginSubmission: (input) =>
 			Effect.gen(function* () {
 				if (!isReady(snapshot) || snapshot.saving || snapshot.uploading || discarding) {
 					return yield* new RyotClientError("invalid-input");
-				}
-				if (snapshot.draft.submission === undefined) {
-					firstSubmissionAttempt = true;
 				}
 				const submission = snapshot.draft.submission ?? input;
 				setDraft(

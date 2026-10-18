@@ -2,6 +2,7 @@ import { Button, Card, SegmentedControl, StatusMessage } from "@ryot-app/plugin-
 import clsx from "clsx";
 
 import type { WorkoutSummary } from "../../shared/workout-list-recipes";
+import { ComputedResults } from "../workout-processing";
 import { buildHeatmap, buildSummaryTiles, periodOptions, type PeriodKey } from "./model";
 import { toneClasses } from "./styles";
 
@@ -119,7 +120,7 @@ export function WorkoutSummarySection(props: {
 					options={periodOptions.map(({ key }) => ({ value: key, label: key, content: key }))}
 				/>
 			</div>
-			{content}
+			<ComputedResults>{content}</ComputedResults>
 		</section>
 	);
 }

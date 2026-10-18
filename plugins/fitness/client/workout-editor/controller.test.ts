@@ -177,7 +177,6 @@ describe("workout editor controller", () => {
 			);
 			expect(
 				yield* harness.controller.rejectSubmission({
-					canEdit: true,
 					kind: "invalid",
 					code: "missing-measurement",
 				}),
@@ -195,7 +194,7 @@ describe("workout editor controller", () => {
 		}),
 	);
 
-	it.live("does not unlock an earlier uncertain save when a retry fails preflight", () =>
+	it.live("unlocks a retry once its atomic rejection is known", () =>
 		Effect.gen(function* () {
 			const harness = createController();
 			yield* harness.controller.load();
@@ -206,12 +205,10 @@ describe("workout editor controller", () => {
 			yield* harness.controller.beginSubmission(saveInput());
 			harness.controller.setSaving(true);
 			harness.controller.setSaving(false);
+			expect(yield* harness.controller.rejectSubmission({ kind: "pro-required" })).toBe(true);
 			expect(
-				yield* harness.controller.rejectSubmission({ canEdit: true, kind: "pro-required" }),
-			).toBe(false);
-			expect(
-				harness.controller.change((current) => ({ ...current, name: "Must remain frozen" })),
-			).toBe(false);
+				harness.controller.change((current) => ({ ...current, name: "Corrected retry" })),
+			).toBe(true);
 		}),
 	);
 

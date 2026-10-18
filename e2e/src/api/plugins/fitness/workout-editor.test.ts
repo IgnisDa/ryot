@@ -40,7 +40,7 @@ import {
 	workoutReference,
 	workoutSet,
 } from "~/fixtures/plugins/fitness";
-import { assertCondition, requirePresent } from "~/support/assertions";
+import { assertCondition, assertTaggedError, requirePresent } from "~/support/assertions";
 import { afterAll, beforeAll, describe, expect, it, runPromise } from "~/support/effect-test";
 import { startIsolatedApiServer } from "~/support/isolated-harness";
 
@@ -173,7 +173,12 @@ describe("Workout editor E2E", () => {
 			expect(concurrent).toEqual(saved);
 
 			const changed = { ...input, data: { ...input.data, name: `${name} changed` } };
-			expect(yield* saveWorkoutEditor(client, changed)).toEqual({ kind: "conflict" });
+			const rejected = yield* Effect.flip(saveWorkoutEditor(client, changed));
+			assertTaggedError(rejected, "PluginRequestError");
+			expect(rejected.reason).toMatchObject({
+				code: "validation-failed",
+				diagnostics: [{ code: "operation-idempotency-conflict" }],
+			});
 
 			const reference = yield* workoutReference(client);
 			const workouts = yield* executeRyotQLRecipe(
@@ -454,25 +459,18 @@ describe("Workout editor E2E", () => {
 				],
 			});
 			expect(yield* saveWorkoutEditor(client, operationInput(template))).toEqual({
-				canEdit: true,
 				kind: "pro-required",
 			});
 
 			const notedSet = workoutData({
 				occurrences: [workoutOccurrence(exerciseId, [workoutSet({ note: "New set note" })])],
 			});
-			expect(yield* saveWorkoutData(client, notedSet)).toEqual({
-				canEdit: true,
-				kind: "pro-required",
-			});
+			expect(yield* saveWorkoutData(client, notedSet)).toEqual({ kind: "pro-required" });
 
 			const mediaWorkout = workoutData({
 				images: [{ type: "remote", url: "https://example.com/workout.jpg" }],
 			});
-			expect(yield* saveWorkoutData(client, mediaWorkout)).toEqual({
-				canEdit: true,
-				kind: "pro-required",
-			});
+			expect(yield* saveWorkoutData(client, mediaWorkout)).toEqual({ kind: "pro-required" });
 
 			const occurrenceMediaWorkout = workoutData({
 				occurrences: [
@@ -523,10 +521,7 @@ describe("Workout editor E2E", () => {
 					}),
 				],
 			});
-			expect(yield* saveWorkoutData(client, replacement)).toEqual({
-				canEdit: true,
-				kind: "pro-required",
-			});
+			expect(yield* saveWorkoutData(client, replacement)).toEqual({ kind: "pro-required" });
 
 			const unrelatedEvent = workoutData({
 				target: editTarget(baseline),
@@ -545,7 +540,6 @@ describe("Workout editor E2E", () => {
 				],
 			});
 			expect(yield* saveWorkoutData(client, unrelatedEvent)).toEqual({
-				canEdit: true,
 				kind: "invalid",
 				code: "unrelated-event",
 			});
@@ -594,10 +588,7 @@ describe("Workout editor E2E", () => {
 					),
 				],
 			});
-			expect(yield* saveWorkoutData(other, foreignEdit)).toEqual({
-				canEdit: true,
-				kind: "conflict",
-			});
+			expect(yield* saveWorkoutData(other, foreignEdit)).toEqual({ kind: "conflict" });
 		}),
 	);
 

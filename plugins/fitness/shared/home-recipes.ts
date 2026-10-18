@@ -39,6 +39,7 @@ import {
 	propertyDate,
 	propertyJson,
 	propertyNumber,
+	projectionProperty,
 } from "./entity-selections";
 import { exerciseKindSchema } from "./exercise-kinds";
 import { exerciseTargetRoleSchema } from "./taxonomy";
@@ -171,7 +172,7 @@ const recentPersonalBestSelection = (
 	distance: selectedField(propertyNumber(set, "distance"), nullableNumber),
 	exerciseKind: selectedField(property(set, "exerciseKind"), exerciseKindSchema),
 	personalBests: selectedField(
-		jsonPath(column(set, "properties"), "personalBests"),
+		projectionProperty(set, "personalBests"),
 		Schema.Array(PersonalBestSchema),
 	),
 });
@@ -185,7 +186,7 @@ export const recentPersonalBestsRecipe = defineRecipe(
 			and(
 				schemaOwnerPredicate(source, "eventSchemaPluginId", input.reference),
 				eq(column(source, "eventSchemaSlug"), literal("workout-set")),
-				jsonArrayExists(jsonPath(column(source, "properties"), "personalBests")),
+				jsonArrayExists(projectionProperty(source, "personalBests")),
 			);
 		return {
 			map: ({ recent, recentCount }) =>

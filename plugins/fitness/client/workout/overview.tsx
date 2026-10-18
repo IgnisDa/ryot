@@ -14,6 +14,7 @@ import {
 import { useAddToCollection } from "../collections";
 import { DeleteFitnessEntity } from "../entity-delete";
 import { HeaderActionsMenu } from "../header-actions-menu";
+import { ComputedResults } from "../workout-processing";
 import { AdjustWorkoutTime } from "./adjust-time";
 import type {
 	MuscleCount,
@@ -238,42 +239,46 @@ export function WorkoutSummaryRow(props: {
 	readonly workout: WorkoutDetails;
 }) {
 	return (
-		<section
-			aria-label="Summary"
-			className={clsx(
-				"grid gap-px overflow-hidden rounded-lg border border-border-card bg-border",
-				props.compact ? "grid-cols-3" : "grid-cols-[repeat(auto-fit,minmax(9rem,1fr))]",
-			)}
-		>
-			{summaryStats(props.workout, props.summary, props.imperial, props.energyUnit).map((stat) => (
-				<div key={stat.label} className="flex flex-col gap-1 bg-surface p-4 font-ui">
-					<span className="text-[13px] text-text-muted">{stat.label}</span>
-					<span
-						className={clsx(
-							"font-semibold leading-tight text-text tabular-nums",
-							props.compact ? "text-xl" : "text-[28px]",
-						)}
-					>
-						{stat.value}
-						{stat.unit === undefined ? null : (
-							<span className="ml-1 font-medium text-[14px] text-text-muted">{stat.unit}</span>
-						)}
-					</span>
-					{stat.detail === undefined || stat.detail === null || props.compact ? null : (
-						<span
-							className={clsx(
-								"text-[13px]",
-								stat.tone === "success" && "text-success",
-								stat.tone === "accent" && "text-accent-text",
-								stat.tone === undefined && "text-text-muted",
+		<ComputedResults>
+			<section
+				aria-label="Summary"
+				className={clsx(
+					"grid gap-px overflow-hidden rounded-lg border border-border-card bg-border",
+					props.compact ? "grid-cols-3" : "grid-cols-[repeat(auto-fit,minmax(9rem,1fr))]",
+				)}
+			>
+				{summaryStats(props.workout, props.summary, props.imperial, props.energyUnit).map(
+					(stat) => (
+						<div key={stat.label} className="flex flex-col gap-1 bg-surface p-4 font-ui">
+							<span className="text-[13px] text-text-muted">{stat.label}</span>
+							<span
+								className={clsx(
+									"font-semibold leading-tight text-text tabular-nums",
+									props.compact ? "text-xl" : "text-[28px]",
+								)}
+							>
+								{stat.value}
+								{stat.unit === undefined ? null : (
+									<span className="ml-1 font-medium text-[14px] text-text-muted">{stat.unit}</span>
+								)}
+							</span>
+							{stat.detail === undefined || stat.detail === null || props.compact ? null : (
+								<span
+									className={clsx(
+										"text-[13px]",
+										stat.tone === "success" && "text-success",
+										stat.tone === "accent" && "text-accent-text",
+										stat.tone === undefined && "text-text-muted",
+									)}
+								>
+									{stat.detail}
+								</span>
 							)}
-						>
-							{stat.detail}
-						</span>
-					)}
-				</div>
-			))}
-		</section>
+						</div>
+					),
+				)}
+			</section>
+		</ComputedResults>
 	);
 }
 

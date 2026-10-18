@@ -313,11 +313,7 @@ describe("Workout editor with a valid Pro key", () => {
 				client,
 				operationInput(replacementData(incompatibleExerciseId, replacedBaseline)),
 			);
-			expect(incompatible).toEqual({
-				canEdit: true,
-				kind: "invalid",
-				code: "invalid-exercise-kind",
-			});
+			expect(incompatible).toEqual({ kind: "invalid", code: "invalid-exercise-kind" });
 			const unchanged = yield* loadWorkoutBaseline(client, created.entityId);
 			expect(unchanged.baseline.sets[0]?.entityId).toBe(replacementExerciseId);
 		}),

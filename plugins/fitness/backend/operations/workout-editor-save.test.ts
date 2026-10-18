@@ -7,7 +7,6 @@ import { assert, describe, expect, it } from "vitest";
 import { WorkoutEditorSaveInputSchema } from "../../shared/workout-editor-operations";
 import {
 	encodeWorkoutEditorBaseline,
-	WorkoutEditorPropertiesSchema,
 	type WorkoutEditorBaseline,
 	type WorkoutEditorEvent,
 	type WorkoutEditorExercise,
@@ -109,7 +108,6 @@ const harness = (
 	const events = new Map<string, WorkoutEditorEvent>(
 		(options.baseline?.sets ?? []).map((set) => [set.id, set]),
 	);
-	let entityWritten = false;
 	let partial = options.partial ?? false;
 	const rowsFor = (key: string): readonly unknown[] => {
 		if (key === "entity") {
@@ -132,7 +130,7 @@ const harness = (
 			return [{ entityId: "library-1" }];
 		}
 		if (key === "sets") {
-			return options.lateConflict && entityWritten ? [] : [...events.values()];
+			return [...events.values()];
 		}
 		if (key === "identities") {
 			return [...events.values()].map((set) =>
@@ -152,72 +150,31 @@ const harness = (
 				calls.push({ args: [assets], method: "assets" });
 				return null;
 			}),
-		updateEvents: (...args) =>
-			Effect.sync(() => {
-				calls.push({ args, method: "updateSets" });
-				return { count: args[0].length };
-			}),
-		changeUserRelationships: (...args) =>
-			Effect.sync(() => {
-				calls.push({ args, method: "relationships" });
-				return [{ created: 1, deleted: 0 }];
-			}),
-		createUserEntity: (...args) =>
-			Effect.sync(() => {
-				entityWritten = true;
-				calls.push({ args, method: "createEntity" });
-				return { entityId };
-			}),
-		updateUserEntity: (...args) =>
-			Effect.sync(() => {
-				entityWritten = true;
-				calls.push({ args, method: "updateEntity" });
-				return { entityId };
-			}),
 		executeRyotql: (document) =>
 			Effect.succeed({
 				data: Object.fromEntries(
 					Object.keys(document.queries).map((key) => [key, page(rowsFor(key))]),
 				),
 			}),
-		deleteEvents: (...args) =>
-			Effect.sync(() => {
-				calls.push({ args, method: "deleteSets" });
-				for (const id of args[0]) {
-					events.delete(id);
-				}
-				return { count: args[0].length };
-			}),
-		createEvents: (items, identity) =>
+		commitUserChanges: (command, submission) =>
 			Effect.suspend(() => {
-				calls.push({
-					args: [items, identity],
-					method: items[0]?.eventSchemaSlug === "workout-completed" ? "finalize" : "createSets",
-				});
+				calls.push({ method: "commit", args: [command, submission] });
 				if (partial) {
 					partial = false;
+					return Effect.fail({ message: "Interrupted" });
+				}
+				if (options.lateConflict) {
 					return Effect.fail({
-						message: "Interrupted",
-						data: { count: 0, outcomes: [], partial: true },
+						data: { code: "entity-stale" },
+						message: "Not a business contract",
 					});
 				}
 				return Effect.succeed({
-					count: items.length,
-					outcomes: items.map((item, index) => {
-						const id = EventId.make(`new-set-${index}`);
-						if (item.eventSchemaSlug === "workout-set") {
-							events.set(id, {
-								id,
-								entityId: exerciseId,
-								sessionEntityId: entityId,
-								occurredAt: item.occurredAt ?? time,
-								properties: Schema.decodeUnknownSync(WorkoutEditorPropertiesSchema)(
-									item.properties,
-								),
-							});
-						}
-						return { index, eventId: id, status: "written" as const };
-					}),
+					entityId,
+					events: command.events.creates.map((item, index) => ({
+						itemIdentity: item.itemIdentity,
+						eventId: EventId.make(`new-set-${index}`),
+					})),
 				});
 			}),
 	});
@@ -225,7 +182,7 @@ const harness = (
 };
 
 describe("workout editor save", () => {
-	it("writes the workout before sets and finalizes only after a complete save, accepting zeros", () =>
+	it("commits the workout, sets, and completion atomically, accepting zeros", () =>
 		Effect.runPromise(
 			Effect.gen(function* () {
 				const { host, calls } = harness();
@@ -235,15 +192,36 @@ describe("workout editor save", () => {
 					kind: "saved",
 					sets: [{ eventId: "new-set-0", clientId: "client-set-1" }],
 				});
-				expect(calls.map(({ method }) => method)).toEqual([
-					"createEntity",
-					"relationships",
-					"createSets",
-					"finalize",
-				]);
-				expect(calls.find(({ method }) => method === "createSets")?.args[0]).toMatchObject([
-					{ sessionEntityId: entityId, properties: { reps: 0, weight: 0 } },
-				]);
+				expect(calls.map(({ method }) => method)).toEqual(["commit"]);
+				const command = calls[0]?.args[0];
+				expect(command).toMatchObject({
+					entity: {
+						name: "Workout",
+						target: { kind: "create" },
+						entitySchemaSlug: "workout",
+						properties: { startedAt: time },
+					},
+					events: {
+						creates: [
+							{
+								session: { kind: "root" },
+								eventSchemaSlug: "workout-set",
+								itemIdentity: "set:client-set-1",
+								properties: { reps: 0, weight: 0 },
+								entity: { kind: "existing", entityId: exerciseId },
+							},
+							{
+								itemIdentity: "complete",
+								entity: { kind: "root" },
+								eventSchemaSlug: "workout-completed",
+							},
+						],
+					},
+				});
+				expect(calls[0]?.args[1]).toEqual({
+					submittedAt: input().submittedAt,
+					idempotencyKey: "submission-1:save",
+				});
 			}),
 		));
 	it("verifies both media kinds attached to workout occurrences", () =>
@@ -266,20 +244,22 @@ describe("workout editor save", () => {
 				expect(calls.find(({ method }) => method === "assets")?.args[0]).toEqual([image, video]);
 			}),
 		));
-	it("keeps immutable write arguments on retry and does not finalize an incomplete save", () =>
+	it("retries an atomic commit with identical arguments after a failed Effect", () =>
 		Effect.runPromise(
 			Effect.gen(function* () {
 				const { host, calls } = harness({ partial: true });
 				const submitted = input();
-				expect(yield* definition.run(submitted, host)).toEqual({
-					entityId,
-					kind: "incomplete",
-					committedSetIds: [],
+				expect(yield* Effect.result(definition.run(submitted, host))).toMatchObject({
+					_tag: "Failure",
 				});
-				expect(calls.some(({ method }) => method === "finalize")).toBe(false);
 				expect(yield* definition.run(submitted, host)).toMatchObject({ kind: "saved" });
-				const writes = calls.filter(({ method }) => method === "createSets");
-				expect(writes[0]?.args).toEqual(writes[1]?.args);
+				const commits = calls.filter(({ method }) => method === "commit");
+				expect(commits).toHaveLength(2);
+				expect(commits[0]?.args).toEqual(commits[1]?.args);
+				expect(commits[0]?.args[1]).toEqual({
+					submittedAt: submitted.submittedAt,
+					idempotencyKey: "submission-1:save",
+				});
 			}),
 		));
 	it("preserves imported notes, occurrence media, set times, and active duration on a free historical edit", () =>
@@ -287,30 +267,63 @@ describe("workout editor save", () => {
 			Effect.gen(function* () {
 				const { host, calls } = harness({ baseline });
 				expect(yield* definition.run(input(true), host)).toMatchObject({ kind: "saved" });
-				expect(calls.find(({ method }) => method === "updateEntity")?.args[0]).toMatchObject({
-					expected: {
-						name: baseline.entity.name,
-						updatedAt: baseline.entity.updatedAt,
-						properties: baseline.entity.properties,
-					},
-					properties: {
-						activeDuration: 3000,
-						images: [{ type: "s3", key: "existing.jpg" }],
-						exerciseMedia: [
-							{ exerciseOrder: 0, images: occurrenceImages, videos: occurrenceVideos },
+				const commit = calls.find(({ method }) => method === "commit");
+				expect(commit?.args[0]).toMatchObject({
+					events: {
+						creates: [],
+						changes: [
+							{
+								kind: "update",
+								itemIdentity: "update:set-1",
+								item: {
+									eventId: "set-1",
+									expected: { kind: "fields", properties: { note: "Imported note" } },
+									patch: { occurredAt: setTime, properties: { set: { note: "Imported note" } } },
+								},
+							},
 						],
 					},
-				});
-				expect(calls.find(({ method }) => method === "updateSets")?.args[0]).toMatchObject([
-					{
-						eventId: "set-1",
-						expected: { kind: "fields", properties: { note: "Imported note" } },
-						patch: { occurredAt: setTime, properties: { set: { note: "Imported note" } } },
+					entity: {
+						target: {
+							kind: "update",
+							expected: {
+								name: baseline.entity.name,
+								updatedAt: baseline.entity.updatedAt,
+								properties: baseline.entity.properties,
+							},
+						},
+						properties: {
+							activeDuration: 3000,
+							images: [{ type: "s3", key: "existing.jpg" }],
+							exerciseMedia: [
+								{ exerciseOrder: 0, images: occurrenceImages, videos: occurrenceVideos },
+							],
+						},
 					},
-				]);
-				expect(calls.some(({ method }) => method === "finalize" || method === "assets")).toBe(
-					false,
-				);
+				});
+				expect(calls.some(({ method }) => method === "assets")).toBe(false);
+				const unchanged = harness({ baseline });
+				const unchangedSource = input(true);
+				assert(unchangedSource.data.kind === "workout");
+				const unchangedInput = {
+					...unchangedSource,
+					data: {
+						...unchangedSource.data,
+						occurrences: unchangedSource.data.occurrences.map((occurrence) =>
+							Object.assign({}, occurrence, {
+								sets: occurrence.sets.map((set) =>
+									Object.assign({}, set, { measurements: { reps: 10, weight: 50 } }),
+								),
+							}),
+						),
+					},
+				};
+				expect(yield* definition.run(unchangedInput, unchanged.host)).toMatchObject({
+					kind: "saved",
+				});
+				expect(unchanged.calls.find(({ method }) => method === "commit")?.args[0]).toMatchObject({
+					events: { changes: [] },
+				});
 			}),
 		));
 	it("allows protected removals but rejects changed notes before any writes", () =>
@@ -333,6 +346,30 @@ describe("workout editor save", () => {
 				expect(yield* definition.run({ ...source, data }, allowed.host)).toMatchObject({
 					kind: "saved",
 				});
+				expect(allowed.calls.find(({ method }) => method === "commit")?.args[0]).toMatchObject({
+					events: {
+						changes: [
+							{
+								kind: "update",
+								item: {
+									eventId: "set-1",
+									patch: { properties: { remove: expect.arrayContaining(["note"]) } },
+								},
+							},
+						],
+					},
+				});
+				const removedSet = harness({ baseline });
+				const removalData = {
+					...data,
+					occurrences: data.occurrences.map((occurrence) => ({ ...occurrence, sets: [] })),
+				};
+				expect(
+					yield* definition.run({ ...source, data: removalData }, removedSet.host),
+				).toMatchObject({ kind: "saved" });
+				expect(removedSet.calls.find(({ method }) => method === "commit")?.args[0]).toMatchObject({
+					events: { changes: [{ kind: "delete", eventId: "set-1", itemIdentity: "delete:set-1" }] },
+				});
 				const denied = harness({ baseline });
 				const changed = {
 					...data,
@@ -343,7 +380,6 @@ describe("workout editor save", () => {
 					),
 				};
 				expect(yield* definition.run({ ...source, data: changed }, denied.host)).toEqual({
-					canEdit: true,
 					kind: "pro-required",
 				});
 				expect(denied.calls).toEqual([]);
@@ -356,23 +392,19 @@ describe("workout editor save", () => {
 					const fixture = harness();
 					const host: ScriptHost = {
 						...fixture.host,
-						createUserEntity: () =>
+						commitUserChanges: () =>
 							Effect.fail({ data: { code }, message: "Not a business contract" }),
 					};
 					expect(yield* definition.run(input(), host)).toEqual({ kind: "conflict" });
 				}
 			}),
 		));
-	it("keeps conflicts after writes retry-only", () =>
+	it("reports atomic commit conflicts without partial results", () =>
 		Effect.runPromise(
 			Effect.gen(function* () {
 				const { host, calls } = harness({ lateConflict: true });
 				expect(yield* definition.run(input(), host)).toEqual({ kind: "conflict" });
-				expect(calls.map(({ method }) => method)).toEqual([
-					"createEntity",
-					"relationships",
-					"createSets",
-				]);
+				expect(calls.map(({ method }) => method)).toEqual(["commit"]);
 			}),
 		));
 	it("retains historical set identity and completion when replacing with a same-kind exercise", () =>
@@ -400,19 +432,23 @@ describe("workout editor save", () => {
 					},
 				};
 				const free = harness({ baseline, exercises });
-				expect(yield* definition.run(submitted, free.host)).toEqual({
-					canEdit: true,
-					kind: "pro-required",
-				});
+				expect(yield* definition.run(submitted, free.host)).toEqual({ kind: "pro-required" });
 				expect(free.calls).toEqual([]);
 				const allowed = harness({ baseline, exercises, pro: true });
 				expect(yield* definition.run(submitted, allowed.host)).toMatchObject({
 					kind: "saved",
 					sets: [{ eventId: "set-1", clientId: "client-set-1" }],
 				});
-				expect(allowed.calls.find(({ method }) => method === "updateSets")?.args[0]).toMatchObject([
-					{ eventId: "set-1", patch: { occurredAt: setTime, entityId: replacementId } },
-				]);
+				expect(allowed.calls.find(({ method }) => method === "commit")?.args[0]).toMatchObject({
+					events: {
+						changes: [
+							{
+								kind: "update",
+								item: { eventId: "set-1", patch: { occurredAt: setTime, entityId: replacementId } },
+							},
+						],
+					},
+				});
 				const wrongKind = harness({
 					baseline,
 					pro: true,
@@ -428,7 +464,6 @@ describe("workout editor save", () => {
 					],
 				});
 				expect(yield* definition.run(submitted, wrongKind.host)).toEqual({
-					canEdit: true,
 					kind: "invalid",
 					code: "invalid-exercise-kind",
 				});
@@ -473,10 +508,7 @@ describe("workout editor save", () => {
 					},
 				});
 				const free = harness();
-				expect(yield* definition.run(submitted, free.host)).toEqual({
-					canEdit: true,
-					kind: "pro-required",
-				});
+				expect(yield* definition.run(submitted, free.host)).toEqual({ kind: "pro-required" });
 				expect(free.calls).toEqual([]);
 				const allowed = harness({ pro: true });
 				expect(yield* definition.run(submitted, allowed.host)).toEqual({
@@ -484,20 +516,23 @@ describe("workout editor save", () => {
 					sets: [],
 					kind: "saved",
 				});
-				expect(allowed.calls.map(({ method }) => method)).toEqual(["createEntity"]);
+				expect(allowed.calls.map(({ method }) => method)).toEqual(["commit"]);
 				expect(allowed.calls[0]?.args[0]).toMatchObject({
-					entitySchemaSlug: "workout-template",
-					properties: {
-						exercises: [
-							{
-								exerciseOrder: 0,
-								sets: [
-									{ weight: 50, setOrder: 0, setLot: "normal" },
-									{ restTime: 0, setOrder: 1, setLot: "normal" },
-								],
-							},
-							{ sets: [], exerciseOrder: 1, notes: ["Exercise-only plan"] },
-						],
+					events: { creates: [], changes: [] },
+					entity: {
+						entitySchemaSlug: "workout-template",
+						properties: {
+							exercises: [
+								{
+									exerciseOrder: 0,
+									sets: [
+										{ weight: 50, setOrder: 0, setLot: "normal" },
+										{ restTime: 0, setOrder: 1, setLot: "normal" },
+									],
+								},
+								{ sets: [], exerciseOrder: 1, notes: ["Exercise-only plan"] },
+							],
+						},
 					},
 				});
 			}),

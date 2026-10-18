@@ -5,6 +5,7 @@ import {
 	measurementReadingPropertiesSchema,
 	workoutPropertiesSchema,
 	workoutSetPropertiesSchema,
+	workoutRecordPropertiesSchema,
 	workoutTemplatePropertiesSchema,
 } from "./property";
 
@@ -42,7 +43,15 @@ export const fitnessEntitySchemas = [
 		propertiesSchema: exercisePropertiesSchema,
 		editor: { relationships: ["exercise-targets", "exercise-uses-equipment"] },
 		eventSchemas: [
-			{ name: "Workout Set", slug: "workout-set", propertiesSchema: workoutSetPropertiesSchema },
+			{
+				name: "Workout Set",
+				slug: "workout-set",
+				propertiesSchema: workoutSetPropertiesSchema,
+				projection: {
+					scriptSlug: "script.workout-record-step",
+					propertiesSchema: workoutRecordPropertiesSchema,
+				},
+			},
 			{ name: "Review", slug: "review", propertiesSchema: exerciseReviewPropertiesSchema },
 		],
 	},

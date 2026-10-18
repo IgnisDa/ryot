@@ -32,11 +32,17 @@ export const propertyDate = (source: Table, path: string) =>
 export const propertyJson = (source: Table, path: string) =>
 	castJson(jsonPath(column(source, "properties"), path));
 
+export const projectionProperty = (source: Table, path: string) =>
+	jsonPath(column(source, "projection"), path);
+
 export const nullableEquals = (left: ReturnType<typeof column>, right: ReturnType<typeof column>) =>
 	or(and(isNull(left), isNull(right)), eq(left, right));
 
 export const propertyNumber = (source: Table, path: string) =>
 	castNumber(jsonPath(column(source, "properties"), path));
+
+export const projectionNumber = (source: Table, path: string) =>
+	castNumber(projectionProperty(source, path));
 
 export const workoutDatesSelection = (entity: Table) => ({
 	endedAt: selectedField(propertyDate(entity, "endedAt"), Schema.NullOr(Schema.String)),

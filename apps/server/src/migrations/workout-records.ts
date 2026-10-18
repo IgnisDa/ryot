@@ -1,12 +1,13 @@
 import type { MigrationReportDetail } from "@ryot-app/contract/modules/instance-admin/migration-report";
-import { exerciseKindSchema, type ExerciseKind } from "@ryot-app/fitness-plugin/exercise-kinds";
+import { exerciseKindSchema } from "@ryot-app/fitness-plugin/exercise-kinds";
 import {
 	WorkoutSetMeasurementsSchema,
-	awardWorkoutPersonalBests,
-	calculateWorkoutSetStatistics,
 	normalizeWorkoutMeasurements,
-	type WorkoutRecordMaxima,
 } from "@ryot-app/fitness-plugin/workout-records";
+import {
+	eventStreamId,
+	StreamKeySchema,
+} from "@ryot-app/kernel-backend/modules/events/stream-repository";
 import { Clock, Effect, Schema } from "effect";
 import type * as SqlConnection from "effect/sql/SqlConnection";
 
@@ -187,15 +188,13 @@ const sameValue = (left: unknown, right: unknown) =>
 const buildPropertyPatch = (
 	row: WorkoutRecordRow,
 	measurements: ReturnType<typeof normalizeWorkoutMeasurements>,
-	statistics: ReturnType<typeof calculateWorkoutSetStatistics>,
-	personalBests: ReturnType<typeof awardWorkoutPersonalBests>["personalBests"],
 ) => {
 	const recalculated: Record<string, unknown> = {
-		personalBests,
-		pace: statistics.pace,
+		pace: undefined,
+		oneRm: undefined,
+		volume: undefined,
 		reps: measurements.reps,
-		oneRm: statistics.oneRm,
-		volume: statistics.volume,
+		personalBests: undefined,
 		weight: measurements.weight,
 		duration: measurements.duration,
 		distance: measurements.distance,
@@ -292,7 +291,22 @@ export const migrateWorkoutRecords = Effect.fn("migrateWorkoutRecords")(function
 
 		for (const stream of streams) {
 			let eventCursor: WorkoutRecordRow | undefined;
-			const maxima: Partial<Record<ExerciseKind, WorkoutRecordMaxima>> = {};
+			const key = yield* Schema.decodeEffect(StreamKeySchema)({
+				...stream,
+				eventSchemaSlug: eventSchema.slug,
+				eventSchemaPluginId: eventSchema.pluginId,
+			}).pipe(Effect.orDie);
+			yield* connection.execute(
+				`insert into "event_stream" ("id", "user_id", "entity_id", "event_schema_slug", "event_schema_plugin_id") values ($1, $2, $3, $4, $5) on conflict do nothing`,
+				[
+					eventStreamId(key),
+					stream.userId,
+					stream.entityId,
+					eventSchema.slug,
+					eventSchema.pluginId,
+				],
+				undefined,
+			);
 			let eventsExhausted = false;
 
 			while (!eventsExhausted) {
@@ -338,7 +352,7 @@ export const migrateWorkoutRecords = Effect.fn("migrateWorkoutRecords")(function
 						return yield* Effect.die(invalidWorkoutRecord(row, "has an invalid workout interval"));
 					}
 
-					const kind = yield* Schema.decodeUnknownEffect(exerciseKindSchema)(row.kind).pipe(
+					yield* Schema.decodeUnknownEffect(exerciseKindSchema)(row.kind).pipe(
 						Effect.mapError(() =>
 							invalidWorkoutRecord(
 								row,
@@ -355,10 +369,7 @@ export const migrateWorkoutRecords = Effect.fn("migrateWorkoutRecords")(function
 						Effect.orDie,
 					);
 					const normalized = normalizeWorkoutMeasurements(measurements);
-					const statistics = calculateWorkoutSetStatistics(kind, normalized);
-					const awarded = awardWorkoutPersonalBests(kind, normalized, maxima[kind] ?? {});
-					maxima[kind] = awarded.maxima;
-					const patch = buildPropertyPatch(row, normalized, statistics, awarded.personalBests);
+					const patch = buildPropertyPatch(row, normalized);
 					if (patch) {
 						patches.push(patch);
 					}

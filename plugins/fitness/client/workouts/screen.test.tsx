@@ -65,6 +65,7 @@ const listWorkout = (id: string, name: string, startedAt: string) => ({
 
 type Answers = {
 	readonly total?: number;
+	readonly processingPending?: boolean;
 	readonly list?: (after: string | undefined) => ReturnType<typeof rows>;
 };
 
@@ -73,6 +74,9 @@ type Queries = ReturnType<
 >[number]["document"]["queries"];
 
 const respond = (queries: Queries, answers: Answers) => {
+	if ("processing" in queries) {
+		return { processing: aggregate([{ failed: 0, pending: answers.processingPending ? 1 : 0 }]) };
+	}
 	const list = queries["workouts"];
 	if (list?.output.type === "rows" && list.output.include !== undefined) {
 		return {
@@ -174,6 +178,18 @@ const settle = (assert: () => void) =>
 let answerCurrent = () => {};
 
 describe("all workouts page", () => {
+	it.live("hides computed records and volume while workout processing is pending", () =>
+		Effect.gen(function* () {
+			answerCurrent = openPage({ processingPending: true }).answerPending;
+			yield* settle(() => {
+				const card = body.getByRole("article", { name: "Legs" });
+				expect(card.textContent).toContain("Updating calculated results…");
+				expect(card.textContent).not.toContain("1 PR");
+				expect(card.textContent).not.toContain("1,000 kg");
+			});
+		}),
+	);
+
 	it.live("groups workouts into weeks with a summary, muscles, best sets and comparisons", () =>
 		Effect.gen(function* () {
 			answerCurrent = openPage().answerPending;

@@ -45,6 +45,7 @@ import { useEffect, useEffectEvent, useMemo, useRef, useState } from "react";
 import { PLUGIN_PACKAGE_ID } from "../../shared/plugin-identity";
 import { fitnessRoute } from "../../shared/workout-editor-routes";
 import { DisplayPreferences } from "../display-preferences";
+import { WorkoutProcessing } from "../workout-processing";
 import { workoutFilterFields } from "./filters";
 import {
 	buildWorkoutCards,
@@ -263,6 +264,14 @@ function SummaryLoader(props: {
 }
 
 export default function WorkoutsPage() {
+	return (
+		<WorkoutProcessing>
+			<WorkoutsBody />
+		</WorkoutProcessing>
+	);
+}
+
+function WorkoutsBody() {
 	const ryot = useRyot();
 	const schedule = useRyotSchedule();
 	const { view } = usePageContext();

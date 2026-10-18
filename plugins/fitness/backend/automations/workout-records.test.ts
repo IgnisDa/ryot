@@ -166,15 +166,11 @@ describe("workout start change", () => {
 					expect(requests).toEqual(
 						["exercise-1", "exercise-2", "exercise-3"].map((entityId) =>
 							expect.objectContaining({
+								request: { entityId, eventSchemaSlug: "workout-set" },
 								reference: expect.objectContaining({
 									referenceKind: "script",
 									scriptSlug: "script.workout-record-step",
 								}),
-								request: {
-									entityId,
-									eventSchemaSlug: "workout-set",
-									outputProperties: ["personalBests", "oneRm", "volume", "pace"],
-								},
 							}),
 						),
 					);
@@ -243,15 +239,11 @@ describe("workout record automation", () => {
 					expect(requests).toEqual(
 						["exercise-1", "exercise-2", "exercise-3"].map((entityId) =>
 							expect.objectContaining({
+								request: { entityId, eventSchemaSlug: "workout-set" },
 								reference: expect.objectContaining({
 									referenceKind: "script",
 									scriptSlug: "script.workout-record-step",
 								}),
-								request: {
-									entityId,
-									eventSchemaSlug: "workout-set",
-									outputProperties: ["personalBests", "oneRm", "volume", "pace"],
-								},
 							}),
 						),
 					);
@@ -269,46 +261,17 @@ describe("workout record automation", () => {
 		);
 	});
 
-	it("skips only trusted output-only event stream updates and declares the batch hook", () => {
+	it("requests work for source updates with event stream causation and declares the batch hook", () => {
 		const before = eventSnapshot("event-1", "exercise-1");
-		const after = eventSnapshot("event-1", "exercise-1", {
-			properties: { oneRm: 40, personalBests: ["one_rm"] },
-		});
-		const ownOutput = automationInput(
-			[
-				{
-					after,
-					before,
-					resource: "event",
-					category: "change",
-					operation: "update",
-					changedProperties: ["oneRm", "personalBests"],
-				},
-			],
-			"stream-work-1",
-		);
-		const ordinaryOutput = automationInput([
-			{
-				after,
-				before,
-				resource: "event",
-				category: "change",
-				operation: "update",
-				changedProperties: ["oneRm", "personalBests"],
-			},
-		]);
-		const markedTimeChange = automationInput(
+		const sourceUpdate = automationInput(
 			[
 				{
 					before,
 					resource: "event",
 					category: "change",
 					operation: "update",
-					changedProperties: ["oneRm"],
-					after: eventSnapshot("event-1", "exercise-1", {
-						properties: { oneRm: 40 },
-						occurredAt: "2026-01-01T09:00:00.000Z",
-					}),
+					changedProperties: ["weight"],
+					after: eventSnapshot("event-1", "exercise-1", { properties: { weight: 30 } }),
 				},
 			],
 			"stream-work-1",
@@ -317,13 +280,14 @@ describe("workout record automation", () => {
 
 		return Effect.runPromise(
 			Effect.gen(function* () {
-				expect(yield* definition.run(ownOutput, host)).toBeNull();
-				expect(requests).toEqual([]);
-				expect(yield* definition.run(markedTimeChange, host)).toBeNull();
+				expect(yield* definition.run(sourceUpdate, host)).toBeNull();
 				expect(requests).toHaveLength(1);
-				expect(yield* definition.run(ordinaryOutput, host)).toBeNull();
-				expect(requests).toHaveLength(2);
-				expect(workflows).toHaveLength(2);
+				expect(requests).toEqual([
+					expect.objectContaining({
+						request: { entityId: "exercise-1", eventSchemaSlug: "workout-set" },
+					}),
+				]);
+				expect(workflows).toHaveLength(1);
 				const hook = fitnessPlugin.hooks.find(({ slug }) => slug === "fitness.workout-records");
 				expect(hook).toMatchObject({
 					stage: "after",
@@ -341,12 +305,8 @@ describe("workout record automation", () => {
 						{ equality: "json", property: "duration" },
 						{ equality: "json", property: "exerciseKind" },
 						{ equality: "json", property: "exerciseOrder" },
-						{ equality: "json", property: "oneRm" },
-						{ property: "pace", equality: "json" },
-						{ equality: "json", property: "personalBests" },
 						{ property: "reps", equality: "json" },
 						{ equality: "json", property: "setOrder" },
-						{ equality: "json", property: "volume" },
 						{ equality: "json", property: "weight" },
 					],
 				});

@@ -5,9 +5,7 @@ import {
 	EventStreamStepOutput,
 } from "@ryot-app/plugin-backend-sdk/event-streams";
 import { executeRyotqlRecipe, IsoDateString } from "@ryot-app/plugin-backend-sdk/ryotql";
-import type { JsonValue } from "@ryot-app/plugin-backend-sdk/wire";
 
-import { jsonValueEquals } from "../shared/json-value-equals";
 import {
 	workoutRecordRowsRecipe,
 	type WorkoutRecordRowsResult,
@@ -15,7 +13,6 @@ import {
 import {
 	awardWorkoutPersonalBests,
 	calculateWorkoutSetStatistics,
-	type PersonalBest,
 	WorkoutRecordMaximaSchema,
 } from "../shared/workout-records";
 
@@ -31,7 +28,7 @@ const pageLimit = 50;
 const WorkoutRecordCheckpointSchema = Schema.Struct({
 	after: Schema.NullOr(Schema.String),
 	lastOccurredAt: Schema.NullOr(IsoDateString),
-	phase: Schema.Literals(["normalize", "records", "complete"]),
+	phase: Schema.Literals(["records", "complete"]),
 	maxima: Schema.Record(Schema.String, WorkoutRecordMaximaSchema),
 });
 
@@ -46,7 +43,7 @@ class WorkoutRecordStepError extends Error {
 const initialCheckpoint = (): WorkoutRecordCheckpoint => ({
 	maxima: {},
 	after: null,
-	phase: "normalize",
+	phase: "records",
 	lastOccurredAt: null,
 });
 
@@ -54,45 +51,12 @@ const nextCursor = (page: {
 	readonly pageInfo: { readonly hasMore: boolean; readonly nextCursor: string | null };
 }) => (page.pageInfo.hasMore ? page.pageInfo.nextCursor : null);
 
-const normalizePage = (rows: readonly WorkoutRecordRow[]): EventStreamStepResult["updates"] =>
-	rows.flatMap((row) => {
-		const occurredAt = row.confirmedAt;
-		return occurredAt === null || row.occurredAt === occurredAt
-			? []
-			: [{ eventId: row.id, patch: { occurredAt } }];
-	});
-
 const measurementsOf = (row: WorkoutRecordRow) => ({
 	reps: row.reps ?? undefined,
 	weight: row.weight ?? undefined,
 	duration: row.duration ?? undefined,
 	distance: row.distance ?? undefined,
 });
-
-const outputProperties = (
-	row: WorkoutRecordRow,
-	statistics: ReturnType<typeof calculateWorkoutSetStatistics>,
-	personalBests: readonly PersonalBest[],
-) => {
-	const set: Record<string, JsonValue> = {};
-	const remove: string[] = [];
-	const values = [
-		{ key: "oneRm", current: row.oneRm, value: statistics.oneRm },
-		{ key: "volume", current: row.volume, value: statistics.volume },
-		{ key: "pace", current: row.pace, value: statistics.pace },
-		{ key: "personalBests", value: personalBests, current: row.personalBests },
-	] as const;
-	for (const { key, value, current } of values) {
-		if (value === undefined) {
-			if (current !== null) {
-				remove.push(key);
-			}
-		} else if (!jsonValueEquals(current, value)) {
-			set[key] = value;
-		}
-	}
-	return Object.keys(set).length === 0 && remove.length === 0 ? undefined : { set, remove };
-};
 
 const recordPage = (
 	rows: readonly WorkoutRecordRow[],
@@ -115,10 +79,10 @@ const recordPage = (
 		if (dirtyFrom !== null && row.occurredAt < dirtyFrom) {
 			continue;
 		}
-		const properties = outputProperties(row, statistics, awarded.personalBests);
-		if (properties) {
-			updates.push({ eventId: row.id, patch: { properties } });
-		}
+		updates.push({
+			eventId: row.id,
+			properties: { ...statistics, personalBests: [...awarded.personalBests] },
+		});
 	}
 	return { maxima, updates, lastOccurredAt };
 };
@@ -174,23 +138,8 @@ export default defineScript({
 					exerciseId: input.entityId,
 					reference: { kind: "self" },
 					after: checkpoint.after ?? undefined,
-					order: checkpoint.phase === "normalize" ? "id" : "records",
 				}),
 			);
-			if (checkpoint.phase === "normalize") {
-				const updates = normalizePage(page.items);
-				const cursor = nextCursor(page);
-				if (page.pageInfo.hasMore && cursor === null) {
-					return yield* Effect.fail(
-						new WorkoutRecordStepError("Workout record normalization page has no cursor"),
-					);
-				}
-				const nextCheckpoint = page.pageInfo.hasMore
-					? { ...checkpoint, after: cursor, phase: "normalize" as const }
-					: { ...checkpoint, after: null, phase: "records" as const };
-				return yield* makeOutput(false, nextCheckpoint, updates);
-			}
-
 			const pageStart = checkpoint;
 			const processed = recordPage(page.items, checkpoint, input.dirtyFrom);
 			const cursor = nextCursor(page);
