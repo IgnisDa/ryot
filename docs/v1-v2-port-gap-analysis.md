@@ -89,7 +89,7 @@ and **Done** means the accepted behavior and validation results are recorded bel
 | 1 | Done | **Settle and implement history-correction behavior** | Agreed: repair automatic consequences; preserve explicit records and overrides; suppress explicitly deleted automatic occurrences; keep corrections silent and retain provider-time completion evidence | The bounded, resumable implementation replaces the unbounded ledger. Runtime acceptance, status/retry controls, and final validation pass. See the Order 1 acceptance record below. |
 | 2 | Done | **Wire existing custom-media/person/group editing** | Existing entity editor/save capability | Add owner-only edit entry points and update-mode routes; reuse the shared editor, declared outgoing links and stale baselines. Derive publish year when absent and a date is supplied. Existing fields/assets survive unrelated edits. This does not require building custom episode authoring first. |
 | 3 | Done | **Support rating-only Media reviews** | Existing review events and operations | Create, read, edit and delete a rating without requiring text. Keep at least one of rating/text, the 0–100 storage scale, ownership checks and retry safety. Imported rating-only records are editable without inventing review text. Alternate display scales are a separate decision. |
-| 4 | Pending | **Add explicit provider refresh** | Existing population/enrichment workflows | Users can refresh successfully populated provider data, not only retry failures. Expose progress/failure/retry in the client; preserve user-owned history/annotations and prevent stale translation overlays from replacing newer data. Bound and deduplicate refresh work. Define freshness requirements for later release alerts without reinstating a blanket daily partial reset. |
+| 4 | Done | **Add explicit provider refresh** | Existing population/enrichment workflows | Successful provider data can be refreshed from Media detail screens with progress, failure and retry controls. Shared bounded admission, write fences, current-language translation refresh, and successful-check freshness evidence preserve saved data and user intent. See the Order 4 acceptance record below. |
 | 5 | Pending | **Add collection member reordering** | Existing memberships and rank reads | Ship a server-owned reorder command and client control with stable pagination, concurrency handling and shared haptic feedback. Choose the ordering strategy first; add rank compaction/rebalancing only if that strategy needs it. Test repeated moves and retries, not V1's decimal thresholds as an end in themselves. |
 | 6 | Pending | **Finish everyday library and collection browsing** | Existing recipes/filter primitives | Expose useful source, lifecycle state, rated/unrated and date filters; add title, rating, release/consumption and activity sorts where applicable. Extend collection domain filters through plugin-owned selections, not kernel branches on Media/Fitness IDs. Search, count and all loaded pages must use the same filter/sort. Preserve V2's cycle-aware state semantics. |
 | 7 | Pending | **Complete custom relationship and episodic authoring** | 2; 1 for changes affecting recorded coverage | Add user-owned custom seasons/episodes and the missing creator/group association controls, with ordering and ownership validation. Define what happens when an edited/deleted child has history; do not silently delete history. Keep provider-owned inventories read-only to ordinary custom editors. |
@@ -315,6 +315,50 @@ Validation on **2026-10-26**, in an isolated worktree based on `4d334567d9` plus
 - `e2e/src/browser/{media-reviews,media-movie}.test.ts`: **7 passed**, including rating-only
   create/read/edit/delete, empty-edit rejection, and existing Movie logging entry points.
 
+### Phase 1, Order 4 — Explicit provider refresh acceptance
+
+Accepted behavior: Media detail screens offer **Refresh provider data** for eligible provider roots,
+including media, people, companies and groups. Full population refreshes the root, its children and
+declared related groups, not the recursive graph. Saved data stays readable during work and after
+failure. User history, annotations, collection/library membership, ownership and monitoring choices
+remain unchanged; existing provider-change detectors and notifications still run.
+
+`POST /entities/:entityId/enrichment` takes `operation`, `action` and an immutable `idempotencyKey`,
+and returns `enrichmentRequestId`. The SDK and bridge use `requestEnrichment`; the old failure-only
+endpoint and capability are removed. Transport retries retain the submission identity, completed
+submissions replay, and queued/running/retrying states remain visible through watches and polling.
+
+All population callers share admission. Compatible work coalesces across users; incompatible work
+queues. Limits are eight running owners, 1,000 active requester rows globally and 50 per user.
+Successful manual refreshes have a one-minute cooldown. Request/attempt fences reject late writes;
+bounded deterministic execution IDs keep paged retries within existing workflow-store limits.
+
+Manual refresh also refreshes the caller's current-language translation when canonical content is
+unchanged, not every language. Canonical-generation and same-generation supersession guards reject
+stale overlays. Translation admission failure is visible and retryable without invalidating canonical
+success. `providerCheckedAt` retains the last successful details check, including unchanged responses;
+related completion is separate. Unmonitored successful data refreshes only on request; monitoring
+remains automatic. Future release delivery must refresh or defer stale candidates under a declared
+freshness window and require completed inventory where needed. No daily partial reset or alerts are added.
+
+Owners: kernel entity enrichment, provider population and localization; contract entity schemas;
+client bridge/SDK; Media detail controls and summary recipes. Generated migration:
+`kernel/backend/src/drizzle/20261027014201_open_johnny_storm/`. No user guide was added, as requested.
+
+Validation on **2026-10-27**:
+
+- Affected package checks passed before tests. Post-cleanup focused kernel suites: **271 tests**
+  across 35 files; full client SDK suite: **254 tests** across 24 files. Full Media suite:
+  **1,703 tests** across 232 files.
+- Selected API/browser suites: **19 tests passed** across provider refresh, paged related retry,
+  population failure, translation and Movie detail files. Both shipped plugins and the client built.
+- The full test run found one stale approved-field expectation for `providerCheckedAt`; it was fixed,
+  and all **39 validator tests** passed. No test timeout or workflow-storage limit was raised.
+- Final repository `bun run check`: passed across **30 projects / 7,429 files**. Then
+  `bun turbo --filter='!@ryot-app/e2e' test`: **51 successful tasks**, no failures.
+- Main-session review and scoped cleanup are complete. Duplicate SDK types and an unused request
+  patch field were removed; no compatibility path or type-checker bypass was added. This item is **Done**.
+
 ## Functional inventory
 
 Paths abbreviated as `modules/...` in the tables below are under
@@ -338,7 +382,7 @@ Paths abbreviated as `modules/...` in the tables below are under
 | File upload/download/delete | Reshaped | `modules/assets`: upload intents/completion, owned managed assets, download resolution, safe unreferenced cleanup, local permanent-storage fallback and S3. Temporary imports use local working storage. See [asset lifecycle](#asset-lifecycle). |
 | User data export and listing | Reshaped | `modules/backups`: durable export, RyotQL `backupRun` listing, short-lived download URL and deletion; kernel Backup settings. It replaces V1's S3 JSON export/list-by-prefix mechanism. |
 | Restore | Covered; additional V2 behavior | Atomic clean-account restore of validated backup archives, dependencies, private compiled plugins and assets. Secrets are redacted where required. Backup is not a credentials/session dump and is not the V1 Generic JSON format. |
-| Manual cache expiration / arbitrary background-job dispatch | Reshaped / partial | Owning workflows, mutation invalidation, entity watches, automatic reconciliation, automation retry UI, and scheduler replace the global V1 controls. No general user `expireCacheKey` or `deployBackgroundJob` equivalent. Forced refresh of already successful provider data remains a separate gap. |
+| Manual cache expiration / arbitrary background-job dispatch | Reshaped | Owning workflows, mutation invalidation, entity watches, automatic reconciliation, automation retry UI, and scheduler replace the global V1 controls. Explicit entity enrichment refreshes successful provider data. No general user `expireCacheKey` or `deployBackgroundJob` equivalent. |
 
 Primary evidence: `packages/contract/src/modules/{account,instance-admin,system,assets,backups}`;
 `kernel/backend/src/modules/{accounts/auth,backups}/README.md`;
@@ -375,7 +419,7 @@ Primary evidence: `packages/contract/src/modules/{account,instance-admin,system,
 
 Primary evidence: `plugins/media/{README.md,manifest/plugin.ts,manifest/saved-views.ts}`;
 `plugins/media/shared/{lifecycle-expressions,episodic-recipes,lifecycle-list-recipes,discovery-recipes,activity-recipes,airing-recipes,media-entity-editors}.ts`;
-`kernel/backend/src/modules/entities/{user-data/service,providers/population-retry}.ts`;
+`kernel/backend/src/modules/entities/{user-data/service,providers/enrichment}.ts`;
 `packages/ryotql-recipes/src/{collections,calendar}.ts`;
 `packages/kernel-renderers/{README.md,src/collection-detail.tsx,src/calendar.tsx}`.
 
@@ -555,12 +599,12 @@ V1 dispatch is in `crates/backend/src/job.rs`; its background implementation roo
 | `remove_useless_data` | No general unreferenced entity/genre graph collector. V2 does have workflow, automation, plugin-artifact, backup and upload cleanup; do not call all garbage collection missing. Legacy cache/access-link rows no longer exist. |
 | `cleanup_user_and_metadata_association` | Accepted redesign: no reason recomputation or automatic deletion after the last history/review/collection reason disappears. Membership persists until explicit removal; full clear removes user data. |
 | `remove_cached_metadata_after_updates`, `expire_cache_keys` | Direct RyotQL reads, mutation refresh hints, entity watches, TTL caches and trending refresh replace V1 recommendation-cache invalidation. No need to recreate obsolete application-cache rows. |
-| `put_entities_in_partial_state` | No daily invalidation of every library provider entity. Watches fill missing base/related data; monitoring refreshes monitored data. Successfully populated unmonitored data has no equivalent periodic refresh policy. |
+| `put_entities_in_partial_state` | No daily invalidation of every library provider entity. Watches fill missing base/related data; monitoring refreshes monitored data. Successfully populated unmonitored data refreshes only on explicit request. |
 | `revoke_invalid_access_tokens` | This function revokes expired/exhausted **access links**, not all login tokens. Excluded with sharing links; OAuth/API-key expiry is handled by auth. |
 | `rebalance_collection_ranks` | Missing, together with user collection reordering. Current insertion prepends using integer ranks; V1's fractional-fragmentation thresholds are not a V2 requirement yet. |
 | `UpdateExerciseLibrary`, `UpdateGithubExercises` | Free Exercise DB search/details and watched population replace eager whole-library loading. No exposed refresh-all-dataset command. |
 | Scheduled / explicit `ReviseUserWorkouts` | Replaced by source-preserving event-stream record processors and reconciliation, including migrated stream seeding. It is incorrect to call fitness recalculation unbuilt because the V1 destructive replay scheduler is absent. |
-| `UpdateMediaDetails`, post-import person/group enrichment | Provider import/population now fetches base details; foreground interest completes related data, monitoring refreshes. No separate missing stub-enrichment job. Manual refresh of successful data is not supplied by failure-only retry. |
+| `UpdateMediaDetails`, post-import person/group enrichment | Provider import/population fetches base details; foreground interest completes related data, monitoring refreshes. Explicit enrichment refreshes successful data through the same population owner. No separate stub-enrichment job. |
 | `UpdateMediaTranslations` | Generation-bound, language-scoped on-demand translation and explicit failed/cancelled-request retry; covered/reshaped. |
 | `ReviewPosted` | Media `review.created` signal exists, but its actor audience replaces V1 notification to monitoring users of a public review. Not social-alert parity. |
 | `PerformBackgroundTasks` | Owning V2 schedulers/reconcilers replace one global maintenance job. Missing domain jobs are the specific rows above. |
@@ -624,11 +668,11 @@ resolved export, genre, Calendar, editor or projection work.
   behavior:** membership persists until explicit removal; deleting the last event, review or
   collection entry must not remove it. Do not build a reason-based membership cleanup job.
   Safe graph collection must treat library memberships as roots.
-- No V1-style daily partial reset or normal user command forces a successful populated
-  entity to refresh. `providers/population-retry.ts` retries only failed/cancelled requests;
-  entity interest upgrades missing details/related data, not successful stale canonical data.
-  Monitoring refreshes eligible monitored providers. This matters for unmonitored releases,
-  person/group changes, and incomplete future schedules.
+- Explicit enrichment refreshes successful provider data; entity interest only fills missing
+  details/related data. Monitoring remains automatic; unmonitored successful data refreshes only
+  on request. `providerCheckedAt` records successful canonical/inventory checks, not generic edits
+  or translation. Future release delivery must refresh or defer stale candidates under its declared
+  freshness window and require completed related inventory where needed. No daily reset is added.
 
 ### Collections and browse controls
 
@@ -780,8 +824,8 @@ exclusions or have explicit current migration/design evidence:
 - **Public/private review visibility, cross-user reviews, comment threads and likes:** events
   are user-owned; migration omits visibility and comments. Actor-only review notification is
   not a port of the old public-review audience.
-- **Manual partial-state flag:** provider population/related status replaces it. A failure-only
-  retry does not replace forced refresh of already successful data.
+- **Manual partial-state flag:** provider population/related status and explicit enrichment refresh
+  replace it without invalidating saved data first.
 - **V1 Generic JSON wire formats:** replaced by owner-qualified Data JSON and deterministic
   account backups. Removed `generic_json` integrations are reported/skipped in V1 migration.
 - **V1 default-collection identity:** Owned/Monitoring use annotations/links and lifecycle
@@ -830,7 +874,7 @@ their lower-camel-case forms. Every row refers to the corresponding
 | `miscellaneous/metadata` | `metadata_details`, `user_metadata_list`, `user_metadata_details`, `user_entity_recently_consumed` | `merge_metadata`, `disassociate_metadata`, `mark_entity_as_partial` | Media/entity recipes and user-data commands; debounce flag absent, partial flag replaced. |
 | `miscellaneous/media-translation` | `media_translation` | `deploy_update_media_translations_job` | Language-scoped entity resolution and durable translation work. |
 | `miscellaneous/tracking` | `user_calendar_events`, `user_upcoming_calendar_events` | `delete_seen_item`, `update_seen_item`, `deploy_bulk_metadata_progress_update` | Calendar sources, home airing subset and activity commands; edit/delete are implemented. |
-| `miscellaneous/system` | `core_details` | `expire_cache_key`, `deploy_background_job`, `deploy_update_media_entity_job`, `generate_log_download_url`, `development_mutation` (debug only) | System config/catalogs, owning schedulers, provider workflows, admin logs; no general cache/job control or successful-data force refresh; test support replaces development-only hooks. |
+| `miscellaneous/system` | `core_details` | `expire_cache_key`, `deploy_background_job`, `deploy_update_media_entity_job`, `generate_log_download_url`, `development_mutation` (debug only) | System config/catalogs, owning schedulers, explicit provider enrichment, admin logs; no general cache/job control; test support replaces development-only hooks. |
 | `miscellaneous/social` | `person_details`, `user_person_details`, `user_people_list` | `create_or_update_review`, `delete_review`, `create_review_comment` | Creator recipes/screens and private review commands; public/comment features excluded. |
 | `miscellaneous/search` | `metadata_search`, `people_search`, `metadata_group_search`, `trending_metadata`, `metadata_lookup` | — | Provider operations, Media trending/home and integration metadata lookup. |
 | `miscellaneous/filter_preset` | `filter_presets` | `create_filter_preset`, `delete_filter_preset`, `update_filter_preset_last_used` | Saved-view CRUD/clone/visibility/order and URL filters; Fitness picker has device-local presets. Not the same context-keyed, last-used-ranked preset/quota contract. |
