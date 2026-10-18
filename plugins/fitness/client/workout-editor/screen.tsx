@@ -237,6 +237,7 @@ export function WorkoutEditorScreen(props: {
 }) {
 	const { onStarted, prepareDraft } = props;
 	const client = useRyot();
+	const pluginId = client.pluginIdentity(PLUGIN_PACKAGE_ID).pluginId;
 	const schedule = useRyotSchedule();
 	const { compact, safeAreaBottom } = useRyotViewport();
 	const { isActive, floatingRoot, scrollRootRef } = usePluginScreenSurface();
@@ -1696,6 +1697,18 @@ export function WorkoutEditorScreen(props: {
 								close();
 								scrollToEditorTarget(`occurrence-${id}`);
 							}}
+							onPickUp={() =>
+								run(
+									client.device({ pluginId, kind: "impact", action: "haptic" }).pipe(Effect.ignore),
+								)
+							}
+							onDrop={() =>
+								run(
+									client
+										.device({ pluginId, action: "haptic", kind: "selection" })
+										.pipe(Effect.ignore),
+								)
+							}
 						/>
 					) : null}
 					{overlay === "bulk-delete" && editorDraft !== undefined ? (

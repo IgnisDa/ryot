@@ -22,8 +22,8 @@ it.live("does not cancel alerts when navigation replaces an equivalent scope obj
 		let stored: DeviceState = emptyDeviceState;
 		const cancelled: number[] = [];
 		const platform = Layer.succeed(DevicePlatform, {
-			haptic: Effect.void,
 			awake: () => Effect.void,
+			haptic: () => Effect.void,
 			listen: () => Effect.succeed(() => {}),
 			schedule: () => Effect.succeed({ status: "scheduled" }),
 			cancel: (id) =>
@@ -92,8 +92,8 @@ it.live(
 		Effect.gen(function* () {
 			let stored: DeviceState = emptyDeviceState;
 			const platform = Layer.succeed(DevicePlatform, {
-				haptic: Effect.void,
 				awake: () => Effect.void,
+				haptic: () => Effect.void,
 				cancel: () => Effect.void,
 				listen: () => Effect.succeed(() => {}),
 				schedule: () => Effect.succeed({ status: "unsupported" }),

@@ -43,9 +43,9 @@ type ReorderableListProps<T> = {
 	readonly itemHeight: number;
 	readonly className?: string;
 	readonly items: readonly T[];
-	readonly onDrop?: () => void;
+	readonly onDrop: () => void;
 	readonly handleIcon: ReactNode;
-	readonly onPickUp?: () => void;
+	readonly onPickUp: () => void;
 	readonly itemKey: (item: T) => string;
 	readonly itemLabel: (item: T) => string;
 	readonly scrollRef?: RefObject<HTMLElement | null>;
@@ -154,7 +154,7 @@ export function ReorderableList<T>(props: ReorderableListProps<T>) {
 		setDragKey(key);
 		setOffset(index * props.itemHeight);
 		setPositions(createReorderPositions(props.items.map(props.itemKey)));
-		props.onPickUp?.();
+		props.onPickUp();
 		if (props.scrollRef !== undefined && frame.current === null) {
 			frame.current = requestAnimationFrame(autoScroll);
 		}
@@ -181,7 +181,7 @@ export function ReorderableList<T>(props: ReorderableListProps<T>) {
 		}
 		setDragKey(null);
 		setPositions({});
-		props.onDrop?.();
+		props.onDrop();
 		if (toIndex !== active.startIndex) {
 			focusKey.current = active.key;
 			props.onReorder(active.startIndex, toIndex);
@@ -208,6 +208,7 @@ export function ReorderableList<T>(props: ReorderableListProps<T>) {
 		}
 		focusKey.current = props.itemKey(item);
 		setAnnouncement(`${props.itemLabel(item)}, position ${toIndex + 1} of ${count}`);
+		props.onDrop();
 		props.onReorder(index, toIndex);
 	};
 

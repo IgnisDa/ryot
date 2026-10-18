@@ -37,6 +37,7 @@
 - Resolve implementation dependencies in service constructors and Layers; service methods must not require their repositories or database session from callers.
 - Use `Effect.fn` or `Effect.fnUntraced` for reusable effectful operations, `Effect.gen` for local control flow, and `pipe` for short transformations.
 - Feature modules own their canonical Layers; boot modules compose feature Layers.
+- Reorder interactions must give haptic feedback through the shared platform capability; plugins must not invoke native APIs.
 
 ## Testing
 

@@ -284,7 +284,9 @@ type DraftOverlayProps = {
 
 const sectionHeading = "text-[11px] font-semibold tracking-wider text-text-subtle uppercase";
 
-export function ReorderOverlay(props: DraftOverlayProps) {
+export function ReorderOverlay(
+	props: DraftOverlayProps & { readonly onPickUp: () => void; readonly onDrop: () => void },
+) {
 	const scrollRef = useRef<HTMLDivElement>(null);
 	const initialOccurrenceRef = useRef<HTMLDivElement>(null);
 	const reduced = useMotionPreference();
@@ -308,8 +310,10 @@ export function ReorderOverlay(props: DraftOverlayProps) {
 			<div ref={scrollRef} className="max-h-[60vh] overflow-y-auto">
 				<ReorderableList
 					itemHeight={56}
+					onDrop={props.onDrop}
 					scrollRef={scrollRef}
 					label="Exercise order"
+					onPickUp={props.onPickUp}
 					items={props.draft.occurrences}
 					itemKey={(item) => item.clientId}
 					handleIcon={<AppIcon size={18} name="grip-vertical" />}

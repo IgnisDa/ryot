@@ -10,7 +10,7 @@ import {
 	scheduleNativeAlert,
 } from "#/modules/device/native-alerts";
 import { DevicePlatform, DevicePlatformError } from "#/modules/device/service";
-import { lightImpact } from "#/modules/navigation/haptics";
+import { lightImpact, selectionChange } from "#/modules/navigation/haptics";
 
 const platformError = (cause: unknown) => new DevicePlatformError({ cause });
 
@@ -37,7 +37,7 @@ export const DevicePlatformLive = Layer.effect(
 			delivered.delete(id);
 		};
 		return {
-			haptic: lightImpact,
+			haptic: (kind) => (kind === "selection" ? selectionChange : lightImpact),
 			cancel: (id) =>
 				native
 					? cancelNativeAlert(LocalNotifications, id).pipe(Effect.mapError(platformError))
