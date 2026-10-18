@@ -29,7 +29,7 @@ export function resolveEdge(input: {
 }): EdgeResolution {
 	const compact = !input.isDesktop;
 	const hasDrawer = hasWorkspaceChrome(input.pathname);
-	const intent = resolveIntent(input, hasDrawer);
+	const intent = input.hasIframeOverlay ? "back" : resolveIntent(input, hasDrawer);
 	let owner: EdgeOwner = "kernel";
 	if (intent === "back" && input.hasIframeOverlay) {
 		owner = "iframe-overlay";

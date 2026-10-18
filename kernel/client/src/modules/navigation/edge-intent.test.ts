@@ -60,6 +60,22 @@ describe("resolveEdge", () => {
 			name: "plugin child with a blocked artifact",
 			expected: { compact: true, intent: "back", owner: "kernel" },
 		},
+		{
+			name: "iframe overlay at the root in a compact viewport",
+			expected: { compact: true, intent: "back", owner: "iframe-overlay" },
+			input: { atRoot: true, canGoBack: false, pathname: "/media", hasIframeOverlay: true },
+		},
+		{
+			name: "iframe overlay at the root on desktop",
+			expected: { compact: false, intent: "back", owner: "iframe-overlay" },
+			input: {
+				atRoot: true,
+				isDesktop: true,
+				canGoBack: false,
+				pathname: "/media",
+				hasIframeOverlay: true,
+			},
+		},
 	] as const)("resolves $name", ({ input, expected }) => {
 		expect(resolve(input)).toEqual(expected);
 	});
@@ -69,7 +85,7 @@ describe("resolveEdge", () => {
 		expect(resolve({ atRoot: true, isDesktop: true, pathname: "/media" }).compact).toBe(false);
 	});
 
-	it("suspends edge Back while an iframe overlay owns Back and resumes afterward", () => {
+	it("routes edge Back to an iframe overlay and restores ownership after it closes", () => {
 		expect(resolve({ hasIframeOverlay: true })).toEqual({
 			compact: true,
 			intent: "back",

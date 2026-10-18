@@ -795,6 +795,51 @@ describe("bootstrapClientPlugin", () => {
 				pressMod("k");
 				yield* waitForMessagePortMacrotask;
 				expect(shortcuts()).toHaveLength(3);
+
+				const previousOpen = document.querySelector("button");
+				assert(previousOpen instanceof HTMLButtonElement);
+				channel.port1.postMessage({
+					type: "document",
+					documentKey: "page-2",
+					page: replacementPage("Music"),
+					navigation: {
+						index: 0,
+						key: "k0",
+						compact: true,
+						edgeBack: false,
+						type: "location",
+						leading: "drawer",
+						location: routeLocation("/"),
+					},
+				});
+				yield* Effect.promise(() =>
+					waitFor(() => {
+						const remountedOpen = document.querySelector("button");
+						expect(remountedOpen).not.toBe(previousOpen);
+						expect(remountedOpen?.textContent).toBe("Open");
+					}),
+				);
+
+				const remountedOpen = document.querySelector("button");
+				assert(remountedOpen instanceof HTMLButtonElement);
+				fireEvent.click(remountedOpen);
+				yield* Effect.promise(() =>
+					waitFor(() => expect(document.querySelector('[role="dialog"]')).not.toBeNull()),
+				);
+				channel.port1.postMessage({
+					type: "dismiss-overlay",
+					requestId: "overlay-after-replacement",
+				});
+				yield* Effect.promise(() =>
+					waitFor(() => {
+						expect(document.querySelector('[role="dialog"]')).toBeNull();
+						expect(messages).toContainEqual({
+							dismissed: true,
+							type: "dismiss-overlay-result",
+							requestId: "overlay-after-replacement",
+						});
+					}),
+				);
 			}),
 	);
 

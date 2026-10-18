@@ -11,7 +11,7 @@ describe("EdgeGesture", () => {
 		expect(completesEdgeGesture(101, 300, 0)).toBe(true);
 	});
 
-	it("renders only when the kernel owns an available edge", () => {
+	it("renders when the kernel or an iframe overlay owns an available edge", () => {
 		const progress = motionValue(0);
 		const common = { progress, onBack: () => undefined, onOpenChange: () => undefined };
 		const { rerender } = render(
@@ -28,6 +28,15 @@ describe("EdgeGesture", () => {
 				{...common}
 				isOpen={false}
 				edge={{ compact: true, intent: "back", owner: "kernel" }}
+			/>,
+		);
+		expect(screen.getByTestId("edge-gesture")).toBeTruthy();
+
+		rerender(
+			<EdgeGesture
+				{...common}
+				isOpen={false}
+				edge={{ compact: true, intent: "back", owner: "iframe-overlay" }}
 			/>,
 		);
 		expect(screen.getByTestId("edge-gesture")).toBeTruthy();
