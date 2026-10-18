@@ -248,6 +248,12 @@ export const contains = (left: ScalarExpression, right: ScalarExpression): Predi
 	type: "contains",
 });
 
+export const startsWith = (left: ScalarExpression, right: ScalarExpression): Predicate => ({
+	left,
+	right,
+	type: "startsWith",
+});
+
 export const isNull = (expr: ScalarExpression): Predicate => ({ expr, type: "isNull" });
 export const isNotNull = (expr: ScalarExpression): Extract<Predicate, { type: "isNotNull" }> => ({
 	expr,

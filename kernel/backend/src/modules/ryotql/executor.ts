@@ -452,6 +452,20 @@ const expressionNullable = (expr: ScalarExpression, scope: CompileScope): boolea
 	return true;
 };
 
+const likePattern = (
+	operand: ScalarExpression,
+	scope: CompileScope,
+	match: "contains" | "startsWith",
+): SqlFragment => {
+	const leading = match === "contains" ? "%" : "";
+	if (operand.type === "literal" && typeof operand.value === "string") {
+		const escaped = operand.value.replace(/\\/g, "\\\\").replace(/%/g, "\\%").replace(/_/g, "\\_");
+		return sql`${`${leading}${escaped}%`}`;
+	}
+	const escaped = sql`replace(replace(replace(${compileExpression(operand, scope)}, ${"\\"}, ${"\\\\"}), ${"%"}, ${"\\%"}), ${"_"}, ${"\\_"})`;
+	return sql`(${leading} || ${escaped} || ${"%"})`;
+};
+
 const compilePredicate = (
 	predicate: Predicate,
 	scope: CompileScope,
@@ -508,33 +522,32 @@ const compilePredicate = (
 			const containment = sql`${compileJsonValue(predicate.left, scope)} @> ${compileJsonValue(predicate.right, scope)}`;
 			return total ? sql`COALESCE(${containment}, false)` : containment;
 		}
-		const left = compileExpression(predicate.left, scope);
-		const right = compileExpression(predicate.right, scope);
-		const pattern =
-			predicate.right.type === "literal" && typeof predicate.right.value === "string"
-				? sql`${`%${predicate.right.value.replace(/\\/g, "\\\\").replace(/%/g, "\\%").replace(/_/g, "\\_")}%`}`
-				: sql`('%' || replace(replace(replace(${right}, '\\', '\\\\'), '%', '\\%'), '_', '\\_') || '%')`;
-		const match = sql`${left} COLLATE "C" ILIKE ${pattern}`;
+		const match = sql`${compileExpression(predicate.left, scope)} COLLATE "C" ILIKE ${likePattern(predicate.right, scope, "contains")}`;
 		return total ? sql`COALESCE(${match}, false)` : match;
 	}
-	if (predicate.values.length === 0) {
+	if (predicate.type === "startsWith") {
+		const match = sql`${compileExpression(predicate.left, scope)} COLLATE "C" ILIKE ${likePattern(predicate.right, scope, "startsWith")}`;
+		return total ? sql`COALESCE(${match}, false)` : match;
+	}
+	const membership = predicate satisfies Extract<Predicate, { type: "in" }>;
+	if (membership.values.length === 0) {
 		return sql`false`;
 	}
-	const kind = expressionKind(predicate.expr, scope);
+	const kind = expressionKind(membership.expr, scope);
 	if (kind === "json") {
-		const jsonMembership = sql`${compileJsonValue(predicate.expr, scope)} IN (${sql.join(
-			predicate.values.map((value) => compileJsonValue(value, scope)),
+		const jsonMembership = sql`${compileJsonValue(membership.expr, scope)} IN (${sql.join(
+			membership.values.map((value) => compileJsonValue(value, scope)),
 			sql`, `,
 		)})`;
 		return total ? sql`COALESCE(${jsonMembership}, false)` : jsonMembership;
 	}
-	const comparison = sql`${compileExpression(predicate.expr, scope)} IN (${sql.join(
-		predicate.values.map((value) => compileExpression(value, scope)),
+	const comparison = sql`${compileExpression(membership.expr, scope)} IN (${sql.join(
+		membership.values.map((value) => compileExpression(value, scope)),
 		sql`, `,
 	)})`;
 	return total &&
-		(expressionNullable(predicate.expr, scope) ||
-			predicate.values.some((value) => expressionNullable(value, scope)))
+		(expressionNullable(membership.expr, scope) ||
+			membership.values.some((value) => expressionNullable(value, scope)))
 		? sql`COALESCE(${comparison}, false)`
 		: comparison;
 };

@@ -250,6 +250,12 @@ const ContainsPredicate = strictStruct({
 	type: Schema.Literal("contains"),
 });
 
+const StartsWithPredicate = strictStruct({
+	left: ScalarExpression,
+	right: ScalarExpression,
+	type: Schema.Literal("startsWith"),
+});
+
 const ComparisonOperator = Schema.Literals(["eq", "gt", "gte", "lt", "lte", "neq"]);
 
 const ComparisonPredicate = strictStruct({
@@ -265,6 +271,7 @@ export type Predicate =
 	| typeof InPredicate.Type
 	| typeof IsNullPredicate.Type
 	| typeof ContainsPredicate.Type
+	| typeof StartsWithPredicate.Type
 	| typeof IsNotNullPredicate.Type
 	| typeof ComparisonPredicate.Type
 	| { readonly type: "not"; readonly predicate: Predicate }
@@ -278,6 +285,7 @@ export const Predicate: Schema.Codec<Predicate, unknown> = Schema.suspend(() =>
 		ExistsExpression,
 		JsonArrayExistsExpression,
 		ContainsPredicate,
+		StartsWithPredicate,
 		IsNotNullPredicate,
 		ComparisonPredicate,
 		strictStruct({ predicate: Predicate, type: Schema.Literal("not") }),
@@ -589,6 +597,7 @@ export const mapPluginIdentityReferences = <Selection extends RowSelection>(
 				return { ...value, predicate: predicate(value.predicate) };
 			case "comparison":
 			case "contains":
+			case "startsWith":
 				return { ...value, left: expression(value.left), right: expression(value.right) };
 			case "in":
 				return { ...value, expr: expression(value.expr), values: value.values.map(expression) };

@@ -8,9 +8,11 @@ import {
 import { pluginConfigEnvironmentKey } from "@ryot-app/contract/modules/plugins/plugin-config";
 import { builtinSavedViewId, definitionOwner } from "@ryot-app/contract/modules/plugins/references";
 import type {
+	Predicate,
 	RowItem,
 	RyotQLDocument,
 	RyotQLResponse,
+	ScalarExpression,
 } from "@ryot-app/contract/modules/ryotql/language";
 import type { SavedViewRenderer } from "@ryot-app/contract/modules/saved-views/schemas";
 import {
@@ -19,7 +21,21 @@ import {
 	SavedViewId,
 	SignalSchemaSlug,
 } from "@ryot-app/contract/schema/brands";
-import { ascending, column, descending, field, rows, star, table } from "@ryot-app/ryotql";
+import {
+	and,
+	ascending,
+	column,
+	contains,
+	descending,
+	field,
+	inArray,
+	literal,
+	not,
+	rows,
+	star,
+	startsWith,
+	table,
+} from "@ryot-app/ryotql";
 import {
 	automationHistoryRunRecipe,
 	automationHistoryRunsRecipe,
@@ -1667,6 +1683,138 @@ layer(catalogDatabaseLayer)((test) => {
 			for (const item of items) {
 				expect(Object.values(item)).not.toContain("private-source");
 				expect(Object.values(item)).not.toContain("private-code");
+			}
+		}),
+	);
+});
+
+const matchSource = table("entity", "source");
+
+const matchingIds = Effect.fn(function* (userId: string, where: Predicate) {
+	const service = yield* RyotQLService;
+	const response = yield* service.executeForUser(userId, null, "kernel", {
+		queries: {
+			rows: rows(matchSource, {
+				orderBy: [ascending(column(matchSource, "id"))],
+				fields: [field("id", column(matchSource, "id"))],
+				where: and(inArray(column(matchSource, "userId"), [literal(userId)]), where),
+			}),
+		},
+	});
+	return rowsOf(response).items;
+});
+
+const ids = (values: readonly string[]) => values.map((id) => ({ id }));
+
+layer(catalogDatabaseLayer)((test) => {
+	test.effect("matches text prefixes and substrings with literal pattern characters", () =>
+		Effect.gen(function* () {
+			const session = yield* DatabaseSession;
+			yield* session.run((db) =>
+				db.insert(entity).values([
+					...(
+						[
+							["a", "Alphabet"],
+							["b", "the alphabet"],
+							["c", "a\\%b tail"],
+							["d", "a%b tail"],
+							["e", "a\\Zb tail"],
+							["f", "\\lead"],
+							["g", "_x tail"],
+							["h", "yx tail"],
+							["i", "%pct"],
+							["j", "mid a\\%b _x"],
+						] as const
+					).map(([id, name]) => ({ id, name, userId: "plain", entitySchemaSlug: "probe" })),
+					...(
+						[
+							["p01", "Alphabet", "ALPHA"],
+							["p02", "the alphabet", "alpha"],
+							["p03", "a\\%b tail", "a\\%b"],
+							["p04", "a%b tail", "a\\%b"],
+							["p05", "a\\Zb tail", "a\\%b"],
+							["p06", "x a\\%b", "a\\%b"],
+							["p07", "\\lead", "\\"],
+							["p08", "%lead", "\\"],
+							["p09", "_x tail", "_x"],
+							["p10", "yx tail", "_x"],
+							["p11", "%pct", "%"],
+							["p12", "no pct", "%"],
+							["p13", "a %", "%"],
+						] as const
+					).map(([id, name, entitySchemaSlug]) => ({
+						id,
+						name,
+						userId: "mixed",
+						entitySchemaSlug,
+						externalId: id === "p01" ? "ext-1" : null,
+					})),
+				]),
+			);
+			const name = column(matchSource, "name");
+			const slug = column(matchSource, "entitySchemaSlug");
+			const externalId = column(matchSource, "externalId");
+			const pairs = [
+				"p01",
+				"p02",
+				"p03",
+				"p04",
+				"p05",
+				"p06",
+				"p07",
+				"p08",
+				"p09",
+				"p10",
+				"p11",
+				"p12",
+				"p13",
+			];
+			const cases: readonly {
+				readonly match: (left: ScalarExpression, right: ScalarExpression) => Predicate;
+				readonly literals: readonly (readonly [string, readonly string[]])[];
+				readonly columns: readonly string[];
+				readonly nullNeedle: string;
+			}[] = [
+				{
+					match: startsWith,
+					nullNeedle: "ext",
+					columns: ["p01", "p03", "p07", "p09", "p11"],
+					literals: [
+						["alpha", ["a"]],
+						["ALPHA", ["a"]],
+						["a\\%b", ["c"]],
+						["\\", ["f"]],
+						["_x", ["g"]],
+						["%", ["i"]],
+					],
+				},
+				{
+					match: contains,
+					nullNeedle: "xt-",
+					columns: ["p01", "p02", "p03", "p06", "p07", "p09", "p11", "p13"],
+					literals: [
+						["alpha", ["a", "b"]],
+						["ALPHA", ["a", "b"]],
+						["a\\%b", ["c", "j"]],
+						["\\", ["c", "e", "f", "j"]],
+						["_x", ["g", "j"]],
+						["%", ["c", "d", "i", "j"]],
+					],
+				},
+			];
+			for (const { match, columns, literals, nullNeedle } of cases) {
+				for (const [needle, expected] of literals) {
+					expect(yield* matchingIds("plain", match(name, literal(needle)))).toEqual(ids(expected));
+				}
+				expect(yield* matchingIds("mixed", match(name, slug))).toEqual(ids(columns));
+				expect(yield* matchingIds("mixed", match(externalId, literal(nullNeedle)))).toEqual(
+					ids(["p01"]),
+				);
+				expect(yield* matchingIds("mixed", not(match(externalId, literal(nullNeedle))))).toEqual(
+					ids(pairs.slice(1)),
+				);
+				expect(yield* matchingIds("mixed", not(match(externalId, slug)))).toEqual(ids(pairs));
+				expect(yield* matchingIds("mixed", not(match(name, externalId)))).toEqual(ids(pairs));
 			}
 		}),
 	);

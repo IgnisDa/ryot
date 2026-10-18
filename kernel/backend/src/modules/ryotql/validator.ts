@@ -391,9 +391,22 @@ const validatePredicate = (
 			? null
 			: "Containment operands must both be text or JSON";
 	}
+	if (predicate.type === "startsWith") {
+		const expressionError =
+			validateExpression(predicate.left, scope, correlatedDepth, executionScope, elementDepth) ??
+			validateExpression(predicate.right, scope, correlatedDepth, executionScope, elementDepth);
+		if (expressionError) {
+			return expressionError;
+		}
+		return expressionKind(predicate.left, scope, executionScope) === "text" &&
+			expressionKind(predicate.right, scope, executionScope) === "text"
+			? null
+			: "Prefix operands must both be text";
+	}
+	const membership = predicate satisfies Extract<Predicate, { type: "in" }>;
 	const expressionError =
-		validateExpression(predicate.expr, scope, correlatedDepth, executionScope, elementDepth) ??
-		predicate.values
+		validateExpression(membership.expr, scope, correlatedDepth, executionScope, elementDepth) ??
+		membership.values
 			.map((value) =>
 				validateExpression(value, scope, correlatedDepth, executionScope, elementDepth),
 			)
@@ -402,8 +415,8 @@ const validatePredicate = (
 	if (expressionError) {
 		return expressionError;
 	}
-	const expressionType = expressionKind(predicate.expr, scope, executionScope);
-	return predicate.values.every((value) =>
+	const expressionType = expressionKind(membership.expr, scope, executionScope);
+	return membership.values.every((value) =>
 		compatibleKinds(expressionType, expressionKind(value, scope, executionScope)),
 	)
 		? null

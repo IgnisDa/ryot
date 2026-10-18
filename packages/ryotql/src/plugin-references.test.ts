@@ -35,6 +35,7 @@ import {
 	round,
 	rows,
 	schemaOwnerPredicate,
+	startsWith,
 	sum,
 	table,
 	timeSeries,
@@ -107,6 +108,7 @@ const pluginReferenceDocument = (reference: PluginIdentityReference) => {
 				field("jsonPath", jsonPath(plugin(), "owner")),
 				field("dateBucket", dateBucket(plugin(), { bucket: "day", timeZone: "UTC" })),
 				field("transform", transform("titleCase", plugin())),
+				field("startsWith", conditional(startsWith(plugin(), plugin()), plugin(), plugin())),
 				field(
 					"exists",
 					exists(event, {
@@ -155,8 +157,8 @@ describe("RyotQL plugin identity references", () => {
 			return localOwner;
 		});
 
-		expect(transformedReferences).toHaveLength(54);
-		expect(transformedReferences).toEqual(Array.from({ length: 54 }, () => selfReference));
+		expect(transformedReferences).toHaveLength(58);
+		expect(transformedReferences).toEqual(Array.from({ length: 58 }, () => selfReference));
 		expect(mapped).toEqual(pluginReferenceDocument(localOwner));
 	});
 

@@ -1,4 +1,5 @@
 import { assert, expect, it } from "@effect/vitest";
+import type { ScalarExpression } from "@ryot-app/contract/modules/ryotql/language";
 import {
 	aggregate,
 	and,
@@ -39,6 +40,7 @@ import {
 	round,
 	rows,
 	star,
+	startsWith,
 	sum,
 	table,
 	timeSeries,
@@ -751,6 +753,48 @@ it("hides kernel-only fields from the plugin audience", () => {
 			validateRyotQLDocument(query, { type: "user", audience: "plugin", accessClass: "standard" })
 				.error,
 		).toBe(`Query 'rows': Unknown field '${fieldName}' on table '${tableName}'`);
+	}
+});
+
+it("requires text prefix operands visible to the execution audience", () => {
+	const pluginAccess = { type: "user", audience: "plugin", accessClass: "standard" } as const;
+	const entity = table("entity", "entity");
+	const prefixQuery = (left: ScalarExpression, right: ScalarExpression) =>
+		document({ entities: rows(entity, { fields: [], where: startsWith(left, right) }) });
+	expect(
+		validateRyotQLDocument(
+			prefixQuery(column(entity, "name"), column(entity, "externalId")),
+			pluginAccess,
+		).error,
+	).toBeNull();
+	for (const [left, right] of [
+		[column(entity, "properties"), literal("a")],
+		[column(entity, "name"), jsonPath(column(entity, "properties"), "title")],
+		[column(entity, "name"), literal(1)],
+		[literal(null), literal("a")],
+		[column(entity, "name"), literal(null)],
+	] as const) {
+		expect(validateRyotQLDocument(prefixQuery(left, right), userAccess).error).toBe(
+			"Query 'entities': Prefix operands must both be text",
+		);
+	}
+
+	const installation = table("pluginInstallation", "installation");
+	const integration = table("integration", "integration");
+	for (const [source, fieldName, kernelError] of [
+		[installation, "config", "Query 'rows': Prefix operands must both be text"],
+		[integration, "webhookToken", null],
+	] as const) {
+		const query = document({
+			rows: rows(source, {
+				fields: [],
+				where: startsWith(literal("a"), column(source, fieldName)),
+			}),
+		});
+		expect(validateRyotQLDocument(query, userAccess).error).toBe(kernelError);
+		expect(validateRyotQLDocument(query, pluginAccess).error).toBe(
+			`Query 'rows': Unknown field '${fieldName}' on table '${source.table}'`,
+		);
 	}
 });
 
