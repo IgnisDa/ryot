@@ -667,15 +667,15 @@ const seedCatalog = Effect.gen(function* () {
 					{
 						phase: "import",
 						message: "uncounted",
+						code: "record-skipped",
 						level: "warning" as const,
-						code: "seen-episode-absent" as const,
 					},
 					{
 						count: 5,
 						phase: "import",
 						message: "counted",
+						code: "record-skipped",
 						level: "warning" as const,
-						code: "seen-episode-absent" as const,
 					},
 				]);
 			yield* db

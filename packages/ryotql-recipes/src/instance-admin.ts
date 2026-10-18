@@ -1,5 +1,4 @@
 import {
-	MigrationReportAnomalyCode,
 	MigrationReportDetail,
 	MigrationReportLevel,
 } from "@ryot-app/contract/modules/instance-admin/migration-report";
@@ -101,8 +100,8 @@ export const migrationReportRecipe = defineRecipe(
 					message: selectedField(column(report, "message"), Schema.String),
 					level: selectedField(column(report, "level"), MigrationReportLevel),
 					createdAt: selectedField(column(report, "createdAt"), IsoDateString),
+					code: selectedField(column(report, "code"), Schema.NullOr(Schema.String)),
 					count: selectedField(column(report, "count"), Schema.NullOr(Schema.Finite)),
-					code: selectedField(column(report, "code"), Schema.NullOr(MigrationReportAnomalyCode)),
 					totalDetails: selectedField(column(report, "totalDetails"), Schema.NullOr(Schema.Finite)),
 					elapsedSeconds: selectedField(
 						column(report, "elapsedSeconds"),

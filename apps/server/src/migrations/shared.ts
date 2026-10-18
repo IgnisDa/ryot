@@ -1,6 +1,5 @@
 import { PgClient } from "@effect/sql-pg/PgClient";
 import {
-	MigrationReportAnomalyCode,
 	MigrationReportDetail,
 	MigrationReportLevel,
 } from "@ryot-app/contract/modules/instance-admin/migration-report";
@@ -71,29 +70,7 @@ const detailTable = "migration_report_detail";
 
 const elapsedSecondsSql = "round(extract(epoch from clock_timestamp() - started_at)::numeric, 1)";
 
-const ReportRow = Schema.Struct({
-	seq: Schema.Finite,
-	phase: Schema.String,
-	message: Schema.String,
-	level: MigrationReportLevel,
-	count: Schema.NullOr(Schema.Finite),
-	elapsedSeconds: Schema.NullOr(Schema.Finite),
-	code: Schema.NullOr(MigrationReportAnomalyCode),
-});
-
-export type ReportEntry =
-	| { count?: string; message: string; level?: "info" }
-	| { count?: string; message: string; level: "warning"; code: MigrationReportAnomalyCode };
-
-const decodeReportRows = Schema.decodeUnknownEffect(Schema.Array(ReportRow));
-
-const decodeReportDetails = Schema.decodeUnknownEffect(
-	Schema.Array(Schema.Struct({ detail: MigrationReportDetail })),
-);
-
-// Anomalies are allowed by code, never by message text, so report copy can be rewritten freely
-// without silently turning a documented omission into a startup abort.
-const allowedWarningCodes: ReadonlySet<MigrationReportAnomalyCode> = new Set([
+const AnomalyCode = Schema.Literals([
 	"seen-episode-absent",
 	"seen-episode-ambiguous",
 	"seen-episode-malformed",
@@ -109,14 +86,35 @@ const allowedWarningCodes: ReadonlySet<MigrationReportAnomalyCode> = new Set([
 	"workout-energy-invalid",
 ]);
 
+type AnomalyCode = typeof AnomalyCode.Type;
+
+const ReportRow = Schema.Struct({
+	seq: Schema.Finite,
+	phase: Schema.String,
+	message: Schema.String,
+	level: MigrationReportLevel,
+	code: Schema.NullOr(Schema.String),
+	count: Schema.NullOr(Schema.Finite),
+	elapsedSeconds: Schema.NullOr(Schema.Finite),
+});
+
+export type ReportEntry =
+	| { count?: string; message: string; level?: "info" }
+	| { count?: string; message: string; level: "warning"; code: AnomalyCode };
+
+const decodeReportRows = Schema.decodeUnknownEffect(Schema.Array(ReportRow));
+
+const decodeReportDetails = Schema.decodeUnknownEffect(
+	Schema.Array(Schema.Struct({ detail: MigrationReportDetail })),
+);
+
+// Anomalies are allowed by code, never by message text, so report copy can be rewritten freely
+// without silently turning a documented omission into a startup abort.
+const isAllowedWarningCode = Schema.is(AnomalyCode);
+
 class UnexpectedLegacyBootstrapWarning extends Data.TaggedError(
 	"UnexpectedLegacyBootstrapWarning",
-)<{
-	phase: string;
-	message: string;
-	count: number | null;
-	code: MigrationReportAnomalyCode | null;
-}> {}
+)<{ phase: string; message: string; count: number | null; code: string | null }> {}
 
 const reportSequenceSql = `SELECT COALESCE(MAX("seq"), 0) AS "seq" FROM "${reportTable}";`;
 
@@ -156,7 +154,7 @@ export const buildAnomalyReportSql = (input: {
 	message: string;
 	seqVariable: string;
 	countVariable: string;
-	code: MigrationReportAnomalyCode;
+	code: AnomalyCode;
 }) => `
 	SELECT count(*) INTO ${input.countVariable} FROM ${input.source};
 	IF ${input.countVariable} > 0 THEN
@@ -172,6 +170,25 @@ export const buildAnomalyReportSql = (input: {
 		SELECT ${input.seqVariable}, ${input.detail} FROM ${input.source};
 	END IF;
 `;
+
+// Every argument except `provenance` keys is a SQL expression over the anomaly source, so the text
+// is rendered where the legacy values are still available and no client needs to interpret them.
+export const buildReportDetailSql = (input: {
+	key: string;
+	label: string;
+	sentence: string;
+	provenance: ReadonlyArray<readonly [string, string]>;
+}) => `jsonb_build_object(
+		'key', (${input.key})::text,
+		'label', (${input.label})::text,
+		'sentence', (${input.sentence})::text,
+		'provenance', jsonb_build_array(${input.provenance
+			.map(
+				([key, value]) =>
+					`jsonb_build_object('key', ${quoteSqlString(key)}, 'value', (${value})::text)`,
+			)
+			.join(", ")})
+	)`;
 
 const insertAnomalyReportSql = `
 WITH summary AS (
@@ -191,7 +208,7 @@ export const insertAnomalyReport = (
 		count: number;
 		message: string;
 		elapsedSeconds: number | null;
-		code: MigrationReportAnomalyCode;
+		code: AnomalyCode;
 		details: ReadonlyArray<MigrationReportDetail>;
 	},
 ) =>
@@ -222,7 +239,7 @@ export const insertReportRows = (
 	rows: ReadonlyArray<
 		{ phase: string; message: string; count: number | null; elapsedSeconds: number | null } & (
 			| { level?: "info" }
-			| { level: "warning"; code: MigrationReportAnomalyCode }
+			| { level: "warning"; code: AnomalyCode }
 		)
 	>,
 ) =>
@@ -270,9 +287,7 @@ const logDetailSample = (
 			const encoded = yield* Schema.encodeEffect(Schema.fromJsonString(MigrationReportDetail))(
 				detail,
 			).pipe(Effect.orDie);
-			yield* Effect.logWarning(`  ${encoded}`).pipe(
-				Effect.annotateLogs({ phase: row.phase, code: detail.code }),
-			);
+			yield* Effect.logWarning(`  ${encoded}`).pipe(Effect.annotateLogs({ phase: row.phase }));
 		}
 		// Codes that record no per-record detail must not claim there are more to look at.
 		const remaining = (row.count ?? sampled.length) - sampled.length;
@@ -305,7 +320,7 @@ export const logReportRows = (connection: SqlConnection.Connection, afterSequenc
 			if (row.level !== "warning") {
 				continue;
 			}
-			if (row.code === null || !allowedWarningCodes.has(row.code)) {
+			if (row.code === null || !isAllowedWarningCode(row.code)) {
 				return yield* new UnexpectedLegacyBootstrapWarning({
 					code: row.code,
 					count: row.count,

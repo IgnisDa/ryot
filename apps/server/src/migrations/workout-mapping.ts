@@ -7,10 +7,14 @@ import {
 	buildAbortOnRowsSql,
 	buildAnomalyReportSql,
 	buildRequireLegacyTableSql,
+	buildReportDetailSql,
 	buildReportSql,
 	quoteNullableSqlString,
 	quoteSqlString,
 } from "./shared";
+
+const workoutValueOmittedSentence =
+	"The original negative value was omitted so this property remains unknown. The workout timestamps are unchanged, and the value was not clamped.";
 
 const buildDecimalStatField = (statAlias: string, field: string) =>
 	`NULLIF(${statAlias} -> 'statistic' ->> '${field}', '')::numeric`;
@@ -275,14 +279,18 @@ BEGIN
 		source: '(SELECT * FROM "workout" WHERE duration < 0) invalid_workout',
 		message:
 			"Negative recorded workout durations were omitted as unknown. Original values and timestamps are retained in report details; timestamps were not changed.",
-		detail: `jsonb_build_object(
-			'code', 'workout-active-duration-invalid',
-			'userId', invalid_workout.user_id,
-			'workoutId', invalid_workout.id,
-			'legacyValue', invalid_workout.duration::text,
-			'startedAt', invalid_workout.start_time::text,
-			'endedAt', invalid_workout.end_time::text
-		)`,
+		detail: buildReportDetailSql({
+			key: "invalid_workout.id",
+			sentence: quoteSqlString(workoutValueOmittedSentence),
+			label: "'Workout ' || invalid_workout.id || ' — active duration'",
+			provenance: [
+				["Workout", "invalid_workout.id"],
+				["User", "invalid_workout.user_id"],
+				["Original active duration (seconds)", "invalid_workout.duration"],
+				["Started at", "invalid_workout.start_time"],
+				["Ended at", "invalid_workout.end_time"],
+			],
+		}),
 	})}
 	${buildAnomalyReportSql({
 		phase: "workout -> entity",
@@ -294,15 +302,19 @@ BEGIN
 		source: `(SELECT w.*, legacy_user.preferences #>> '{fitness,logging,calories_burnt_unit}' AS legacy_energy_unit
 			FROM "workout" w JOIN "old_user" legacy_user ON legacy_user.id = w.user_id
 			WHERE w.calories_burnt < 0) invalid_workout`,
-		detail: `jsonb_build_object(
-			'code', 'workout-energy-invalid',
-			'userId', invalid_workout.user_id,
-			'workoutId', invalid_workout.id,
-			'legacyValue', invalid_workout.calories_burnt::text,
-			'legacyEnergyUnit', invalid_workout.legacy_energy_unit,
-			'startedAt', invalid_workout.start_time::text,
-			'endedAt', invalid_workout.end_time::text
-		)`,
+		detail: buildReportDetailSql({
+			key: "invalid_workout.id",
+			sentence: quoteSqlString(workoutValueOmittedSentence),
+			label: "'Workout ' || invalid_workout.id || ' — energy'",
+			provenance: [
+				["Workout", "invalid_workout.id"],
+				["User", "invalid_workout.user_id"],
+				["Original energy", "invalid_workout.calories_burnt"],
+				["Original energy unit", "invalid_workout.legacy_energy_unit"],
+				["Started at", "invalid_workout.start_time"],
+				["Ended at", "invalid_workout.end_time"],
+			],
+		}),
 	})}
 
 	${buildReportSql("workout -> entity", [{ count: "rows_inserted", message: "row(s) migrated total" }])}

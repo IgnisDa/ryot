@@ -81,19 +81,6 @@ export type ProviderEntityLinksInput = {
 	readonly librarySchemaSlug: string;
 };
 
-export const resolveLibraryMembership = (
-	ownerPluginId: string | undefined,
-	entitySchemaSlug: EntitySchemaSlug,
-) => {
-	if (ownerPluginId === "fitness" && entitySchemaSlug === "exercise") {
-		return {
-			librarySchemaSlug: "fitness-library",
-			relationshipSlug: "in-fitness-library",
-		} as const;
-	}
-	return { librarySchemaSlug: "media-library", relationshipSlug: "in-media-library" } as const;
-};
-
 type ProviderSearchPanelProps = {
 	readonly onClose: () => void;
 	readonly onImported: (entityId: EntityId) => void;

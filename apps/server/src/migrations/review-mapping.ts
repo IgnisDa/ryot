@@ -13,9 +13,9 @@ import { buildRequireLegacyTableSql, buildAnomalyReportSql, buildReportSql } fro
 
 const reviewReportPhase = "review -> event";
 
-const reviewAbsentDetailSql = buildEpisodeAbsentDetailSql("review-episode-absent", "u");
+const reviewAbsentDetailSql = buildEpisodeAbsentDetailSql("this review", "u");
 
-const reviewAmbiguousDetailSql = buildEpisodeAmbiguousDetailSql("review-episode-ambiguous", "u");
+const reviewAmbiguousDetailSql = buildEpisodeAmbiguousDetailSql("u");
 
 export const buildReviewMigrationSql = (mediaPluginId: string) => `
 DO $$

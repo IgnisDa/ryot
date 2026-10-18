@@ -30,6 +30,7 @@ export const browserSettings = {
 	addAction: {
 		type: "provider-search",
 		schema: { slug: "book", owner: { kind: "plugin", pluginId: "media" } },
+		library: { librarySchemaSlug: "media-library", relationshipSlug: "in-media-library" },
 	},
 	tableColumns: [
 		{ label: "Image", field: "image", displayKind: "managed-asset" },

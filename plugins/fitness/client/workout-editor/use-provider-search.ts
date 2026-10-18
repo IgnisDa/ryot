@@ -6,6 +6,7 @@ import { useRyot, useRyotSchedule } from "@ryot-app/plugin-client-sdk/react";
 import { useEffect, useRef, useState } from "react";
 
 import type { ExerciseKind } from "../../shared/exercise-kinds";
+import { fitnessLibraryMembership } from "../../shared/library-recipes";
 import { PLUGIN_PACKAGE_ID } from "../../shared/plugin-identity";
 import { workoutExercisePickerRecipe } from "../../shared/workout-exercise-recipes";
 import type { PickerExercise } from "./picker-model";
@@ -51,6 +52,7 @@ export function useProviderSearch(input: {
 			Effect.gen(function* () {
 				const outcome = yield* client.screens.openProviderSearch({
 					initialQuery: input.search,
+					library: fitnessLibraryMembership,
 					schema: { owner: { pluginId, kind: "plugin" }, slug: EntitySchemaSlug.make("exercise") },
 				});
 				if (outcome.kind === "cancelled") {

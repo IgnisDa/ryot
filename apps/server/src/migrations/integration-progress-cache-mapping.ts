@@ -26,12 +26,10 @@ const LegacyProgressCacheRow = Schema.Struct({
 	entityId: Schema.NullOr(Schema.String),
 	parentName: Schema.NullOr(Schema.String),
 	metadataId: Schema.NullOr(Schema.String),
-	showSeason: Schema.NullOr(Schema.String),
 	mangaVolume: Schema.NullOr(Schema.String),
 	animeEpisode: Schema.NullOr(Schema.String),
 	mangaChapter: Schema.NullOr(Schema.String),
 	entitySchemaSlug: Schema.NullOr(Schema.String),
-	requestedEpisode: Schema.NullOr(Schema.String),
 	providersConsumedOn: Schema.NullOr(Schema.Array(Schema.String)),
 });
 
@@ -67,8 +65,6 @@ SELECT
 	cr.user_id AS "userId",
 	cr.metadata_id AS "metadataId",
 	e."name" AS "parentName",
-	cr.common->>'show_season_number' AS "showSeason",
-	COALESCE(cr.common->>'show_episode_number', cr.common->>'podcast_episode_number') AS "requestedEpisode",
 	CASE
 		WHEN e."entity_schema_slug" = 'show' THEN show_episode.entity_id
 		WHEN e."entity_schema_slug" = 'podcast' THEN podcast_episode.entity_id
@@ -235,6 +231,24 @@ export const migrateIntegrationProgressCache = (input: {
 		return undefined;
 	});
 
+const unmappedProviderDetail = (
+	row: LegacyProgressCacheRow,
+	legacyProvider: string | null,
+	providersConsumedOn: ReadonlyArray<string>,
+): MigrationReportDetail => ({
+	key: row.cacheId,
+	label: `Progress marker ${row.cacheId}`,
+	provenance: [
+		{ key: "Cache row", value: row.cacheId },
+		{ key: "User", value: row.userId },
+		{ key: "Services", value: providersConsumedOn.join(", ") },
+	],
+	sentence:
+		providersConsumedOn.length === 1
+			? `The service "${legacyProvider}" that produced this marker has no equivalent in V2, so its claim could not be recreated.`
+			: `This marker names ${providersConsumedOn.length} services, and a V2 claim needs exactly one.`,
+});
+
 export const resolveIntegrationProgressClaims = (input: {
 	cacheRows: ReadonlyArray<LegacyProgressCacheRow>;
 	integrations: ReadonlyArray<{ id: string; provider: string; userId: string }>;
@@ -260,25 +274,22 @@ export const resolveIntegrationProgressClaims = (input: {
 		}
 		if (row.entityId === null || row.entitySchemaSlug === null) {
 			unresolvedDetails.push({
-				userId: row.userId,
-				legacyCacheId: row.cacheId,
-				parentName: row.parentName,
-				requestedSeason: row.showSeason,
-				legacyMetadataId: row.metadataId,
-				requestedEpisode: row.requestedEpisode,
-				code: "integration-cache-entity-unresolved",
+				key: row.cacheId,
+				label: row.parentName ?? `Progress marker ${row.cacheId}`,
+				sentence: "The item this marker points at was not migrated, so nothing in V2 can hold it.",
+				provenance: [
+					{ key: "Cache row", value: row.cacheId },
+					{ key: "User", value: row.userId },
+					{ key: "Legacy item", value: row.metadataId },
+				],
 			});
 			continue;
 		}
 		const [legacyProvider] = row.providersConsumedOn ?? [];
 		if (row.providersConsumedOn?.length !== 1 || legacyProvider === undefined) {
-			unsupportedProviderDetails.push({
-				userId: row.userId,
-				legacyCacheId: row.cacheId,
-				legacyProvider: legacyProvider ?? null,
-				code: "integration-cache-provider-unmapped",
-				providersConsumedOn: row.providersConsumedOn ?? [],
-			});
+			unsupportedProviderDetails.push(
+				unmappedProviderDetail(row, legacyProvider ?? null, row.providersConsumedOn ?? []),
+			);
 			continue;
 		}
 		const target = targetByLegacyProvider.get(legacyProvider);
@@ -290,13 +301,9 @@ export const resolveIntegrationProgressClaims = (input: {
 			: [];
 		const integration = integrations[0];
 		if (!target || integrations.length !== 1 || !integration) {
-			unsupportedProviderDetails.push({
-				legacyProvider,
-				userId: row.userId,
-				legacyCacheId: row.cacheId,
-				code: "integration-cache-provider-unmapped",
-				providersConsumedOn: row.providersConsumedOn,
-			});
+			unsupportedProviderDetails.push(
+				unmappedProviderDetail(row, legacyProvider, row.providersConsumedOn),
+			);
 			continue;
 		}
 

@@ -18,6 +18,11 @@ import { EntityId, type PluginIdentityReference } from "@ryot-app/plugin-kit/sch
 
 const entityFitnessLibrary = table("entity", "fitnessLibrary");
 
+export const fitnessLibraryMembership = {
+	librarySchemaSlug: "fitness-library",
+	relationshipSlug: "in-fitness-library",
+} as const;
+
 export const userFitnessLibraryRecipe = defineRecipe((reference: PluginIdentityReference) => ({
 	map: ({ fitnessLibrary }) => Result.succeed(fitnessLibrary),
 	queries: {

@@ -1,4 +1,4 @@
-import { quoteSqlString } from "./shared";
+import { buildReportDetailSql, quoteSqlString } from "./shared";
 
 // Rebuilds the episode resolution temp tables from the migrated V2 entity graph when the episodic
 // sub-entity phase has not left them behind, so each consuming phase stays runnable on its own.
@@ -149,29 +149,57 @@ export const buildEpisodeResolutionFallbackSql = (mediaPluginId: string) => `
 	END IF;
 `;
 
-// `jsonb_build_object`, not the `jsonb_strip_nulls` the neighbouring mappings use: the report schema
-// models a missing season as an explicit null, and stripping it would drop the key and fail decoding.
-const episodeIdentityJson = (alias: string) => `
-	'kind', ${alias}.kind,
-	'userId', ${alias}.user_id,
-	'parentName', ${alias}.parent_name,
-	'parentEntityId', ${alias}.parent_entity_id,
-	'legacyRecordId', ${alias}.legacy_record_id,
-	'requestedSeason', ${alias}.requested_season,
-	'requestedEpisode', ${alias}.requested_episode`;
+const requestedPositionSql = (alias: string) => `CASE WHEN ${alias}.kind = 'podcast'
+		THEN 'episode ' || COALESCE(${alias}.requested_episode, 'unknown')
+		ELSE 'season ' || COALESCE(${alias}.requested_season, 'unknown')
+			|| ', episode ' || COALESCE(${alias}.requested_episode, 'unknown')
+	END`;
 
-export const buildEpisodeAbsentDetailSql = (code: string, alias: string) =>
-	`jsonb_build_object(
-		'code', '${code}',${episodeIdentityJson(alias)},
-		'seasonExists', ${alias}.season_exists,
-		'availableSummary', ${alias}.available_summary
-	)`;
+const episodeIdentity = (alias: string) => ({
+	key: `${alias}.legacy_record_id`,
+	label: `${alias}.parent_name || ' — ' || ${requestedPositionSql(alias)}`,
+	provenance: [
+		["Title", `${alias}.parent_name`],
+		["Entity", `${alias}.parent_entity_id`],
+		["Legacy row", `${alias}.legacy_record_id`],
+		["User", `${alias}.user_id`],
+	] as const,
+});
 
-export const buildEpisodeAmbiguousDetailSql = (code: string, alias: string) =>
-	`jsonb_build_object(
-		'code', '${code}',${episodeIdentityJson(alias)},
-		'candidateCount', ${alias}.candidate_count
-	)`;
+export const buildEpisodeAbsentDetailSql = (subject: string, alias: string) =>
+	buildReportDetailSql({
+		...episodeIdentity(alias),
+		sentence: `CASE
+			WHEN ${alias}.kind = 'podcast' THEN format(
+				'The podcast''s stored episode list has no episode %s — it has %s — so there was no episode to attach ${subject} to.',
+				COALESCE(${alias}.requested_episode, 'with that number'), ${alias}.available_summary)
+			WHEN ${alias}.season_exists THEN format(
+				'Season %s is in the show''s stored season list but has no episode %s, so there was no episode to attach ${subject} to.',
+				${alias}.requested_season, ${alias}.requested_episode)
+			ELSE format(
+				'The show''s stored season list has no season %s — it has %s — so there was no episode to attach ${subject} to.',
+				${alias}.requested_season, ${alias}.available_summary)
+		END`,
+	});
 
-export const buildEpisodeMalformedDetailSql = (code: string, alias: string) =>
-	`jsonb_build_object('code', '${code}',${episodeIdentityJson(alias)})`;
+export const buildEpisodeAmbiguousDetailSql = (alias: string) =>
+	buildReportDetailSql({
+		...episodeIdentity(alias),
+		sentence: `format(
+			'%s stored episodes claim that position, so there was no way to tell which one was meant.',
+			${alias}.candidate_count)`,
+	});
+
+const jsonTextSql = (expression: string) => `COALESCE(to_jsonb(${expression})::text, 'null')`;
+
+export const buildEpisodeMalformedDetailSql = (alias: string) =>
+	buildReportDetailSql({
+		...episodeIdentity(alias),
+		sentence: `format(
+			'The legacy row stored %s, which is not a usable episode number.',
+			CASE WHEN ${alias}.kind = 'podcast'
+				THEN 'episode ' || ${jsonTextSql(`${alias}.requested_episode`)}
+				ELSE 'season ' || ${jsonTextSql(`${alias}.requested_season`)}
+					|| ' and episode ' || ${jsonTextSql(`${alias}.requested_episode`)}
+			END)`,
+	});

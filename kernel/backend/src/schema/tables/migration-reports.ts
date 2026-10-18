@@ -1,5 +1,4 @@
 import type {
-	MigrationReportAnomalyCode,
 	MigrationReportDetail,
 	MigrationReportLevel,
 } from "@ryot-app/contract/modules/instance-admin/migration-report";
@@ -20,13 +19,13 @@ import { timestamptz } from "./timestamps";
 export const migrationReport = snakeCase.table(
 	"migration_report",
 	{
+		code: text(),
 		count: integer(),
 		phase: text().notNull(),
 		message: text().notNull(),
 		seq: serial().primaryKey(),
 		elapsedSeconds: doublePrecision(),
 		createdAt: timestamptz().defaultNow().notNull(),
-		code: text().$type<MigrationReportAnomalyCode>(),
 		level: text().notNull().$type<MigrationReportLevel>(),
 	},
 	(table) => [
