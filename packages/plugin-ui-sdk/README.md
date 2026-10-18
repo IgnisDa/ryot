@@ -37,7 +37,7 @@ canvas, or CORS access fails.
 ## Visual Foundations
 
 Structure comes from spacing first, then hairline dividers, then a surface. A filled surface marks a
-real object (an exercise, a settings group, a dialog), and surfaces nest at most one level. Shadows are
+real object (a record, a settings group, a dialog), and surfaces nest at most one level. Shadows are
 reserved for things that float: menus, tooltips, and dialogs.
 
 | Role       | Tokens                                                                       |
@@ -72,7 +72,9 @@ curve.
   `loading` keeps the label for assistive technology and blocks activation. `IconButton` requires a
   label.
 - `MultiSelect` opens a searchable checklist from a field, or from a pill with `variant="chip"` for
-  rows of filters.
+  rows of filters. It is generic over its choice values and draws default icons that props override.
+- `MenuButton` opens a `Menu` from an icon button, or from `renderTrigger`, and restores focus to the
+  trigger when the menu closes. `renderTrigger` receives the props and ref to spread onto its button.
 - `Field` labels one control and wires its hint and error through `aria-describedby`. `TextField` and
   `TextArea` are form inputs; `CellInput` is the borderless filled cell for repeated numeric entry.
 - `Switch` applies immediately; `Checkbox` and `Radio` belong to saved forms; `SegmentedControl`
@@ -89,13 +91,12 @@ curve.
   floating root, pass `safeAreaBottom`, and pad the scrolled content so the dock never covers the end.
 - `Stepper` edits a whole number with − and + buttons; Arrow keys step and Page keys step four times.
   Pass `clockFormat.format` and `clockFormat.parse` to show and type seconds as m:ss.
-- `ProgressBar` is a thin determinate bar for timers, in `accent` or `info`.
-- `CompletionToggle` is the repeated row check: `complete` is a pressed toggle with a success fill,
-  `start` an accent outline that starts work, and `include` a checkbox. Keep its label stable and let
-  pressed state carry the change.
+- `ProgressBar` is a thin determinate bar in `accent`, `info`, or `success`. Its fill animates width
+  briefly; pass `fillClassName` to change the transition.
 - `group-*` colors (`blue`, `purple`, `teal`, `orange`, `crimson`) and their `-soft` fills mark
-  superset and grouping identity in both themes. Pair a color with its name or a label, never color
-  alone.
+  group identity in both themes. `groupColors` lists the names, `groupColorVariable(color, { soft })`
+  returns the CSS variable, and `Card` marks its edge with `groupColor`. Pair a color with its name or a
+  label, never color alone.
 - `DataTable` stays unstyled; tables use 12px subtle headers, divided rows, `hover` row fill, and
   right-aligned tabular numbers.
 

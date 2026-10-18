@@ -1,40 +1,49 @@
 import clsx from "clsx";
+import { Check, ChevronDown, Search, X } from "lucide-react";
 import { useDeferredValue, useRef, useState, type ReactNode } from "react";
 
 import { useFieldEscape } from "./field-escape";
 import { Modal } from "./modal";
 
-export type MultiSelectChoice = { readonly value: string; readonly label?: string | undefined };
+export type MultiSelectChoice<Value extends string = string> = {
+	readonly value: Value;
+	readonly label?: string | undefined;
+};
 
-type MultiSelectProps = {
+type MultiSelectProps<Value extends string> = {
 	readonly label: string;
-	readonly checkIcon: ReactNode;
-	readonly closeIcon: ReactNode;
-	readonly searchIcon: ReactNode;
-	readonly chevronIcon: ReactNode;
+	readonly checkIcon?: ReactNode;
+	readonly closeIcon?: ReactNode;
+	readonly searchIcon?: ReactNode;
+	readonly chevronIcon?: ReactNode;
 	readonly placeholder?: string;
 	readonly variant?: "chip" | "field" | undefined;
-	readonly selected: ReadonlyArray<string>;
+	readonly selected: ReadonlyArray<Value>;
 	readonly onInterceptBack?: () => boolean;
-	readonly choices: ReadonlyArray<MultiSelectChoice>;
-	readonly onChange: (value: ReadonlyArray<string>) => void;
+	readonly choices: ReadonlyArray<MultiSelectChoice<Value>>;
+	readonly onChange: (value: ReadonlyArray<Value>) => void;
 };
+
+const defaultCheckIcon = <Check size={14} />;
+const defaultCloseIcon = <X size={18} />;
+const defaultSearchIcon = <Search size={16} />;
+const defaultChevronIcon = <ChevronDown size={16} />;
 
 const choiceLabel = (choice: MultiSelectChoice) => choice.label ?? choice.value;
 
-export function MultiSelect({
+export function MultiSelect<Value extends string>({
 	label,
 	choices,
 	onChange,
-	checkIcon,
-	closeIcon,
-	searchIcon,
-	chevronIcon,
 	placeholder,
 	onInterceptBack,
 	variant = "field",
 	selected: selectedValues,
-}: MultiSelectProps) {
+	closeIcon = defaultCloseIcon,
+	checkIcon = defaultCheckIcon,
+	searchIcon = defaultSearchIcon,
+	chevronIcon = defaultChevronIcon,
+}: MultiSelectProps<Value>) {
 	const [open, setOpen] = useState(false);
 	const [query, setQuery] = useState("");
 	const search = useRef<HTMLInputElement>(null);
@@ -54,7 +63,7 @@ export function MultiSelect({
 		setOpen(false);
 		setQuery("");
 	};
-	const toggle = (value: string) =>
+	const toggle = (value: Value) =>
 		onChange(
 			selected.has(value)
 				? selectedValues.filter((current) => current !== value)

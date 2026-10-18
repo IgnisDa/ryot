@@ -20,4 +20,14 @@ describe("ProgressBar", () => {
 
 		expect(screen.getByRole("progressbar").getAttribute("aria-valuenow")).toBe(expected);
 	});
+
+	it("applies the success tone and caller fill classes to the fill", () => {
+		render(
+			<ProgressBar max={10} value={5} label="Done" tone="success" fillClassName="duration-1000" />,
+		);
+
+		const fill = screen.getByRole("progressbar").firstElementChild;
+		expect(fill?.className).toContain("bg-success");
+		expect(fill?.className).toContain("duration-1000");
+	});
 });
