@@ -7,12 +7,16 @@ use dependent_models::{MetadataPersonRelated, PersonDetails, SearchResults};
 use enum_models::{MediaLot, MediaSource};
 use itertools::Itertools;
 use media_models::{EntityTranslationDetails, PartialMetadataWithoutId, PeopleSearchItem};
+use reqwest::StatusCode;
 use supporting_service::SupportingService;
 use traits::MediaProvider;
 
 use crate::{
     base::TvdbService,
-    models::{TvdbCompanyExtendedResponse, TvdbPersonExtendedResponse, URL},
+    models::{
+        TvdbApiResponse, TvdbCompanyExtendedResponse, TvdbEpisodeSeries,
+        TvdbPersonExtendedResponse, URL,
+    },
 };
 
 pub struct NonMediaTvdbService(TvdbService);
@@ -20,6 +24,20 @@ pub struct NonMediaTvdbService(TvdbService);
 impl NonMediaTvdbService {
     pub async fn new(ss: Arc<SupportingService>) -> Result<Self> {
         Ok(Self(TvdbService::new(ss).await?))
+    }
+
+    pub async fn find_series_by_episode_id(&self, episode_id: &str) -> Result<Option<String>> {
+        let rsp = self
+            .0
+            .client
+            .get(format!("{URL}/episodes/{episode_id}"))
+            .send()
+            .await?;
+        if rsp.status() == StatusCode::NOT_FOUND {
+            return Ok(None);
+        }
+        let episode: TvdbApiResponse<TvdbEpisodeSeries> = rsp.error_for_status()?.json().await?;
+        Ok(episode.data.series_id.map(|id| id.to_string()))
     }
 }
 
