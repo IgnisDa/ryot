@@ -16,3 +16,6 @@ validates its generic document through import admission.
 the module. Contract clients encode through its first entry, so `application/json` remains first.
 Execution receives no request headers except `content-type`; Data admission consumes
 `idempotency-key` without forwarding it.
+
+Plugin admission failures log the integration ID and, for database failures, SQLSTATE and constraint
+name. Request bodies, webhook tokens, and database error messages are not logged.

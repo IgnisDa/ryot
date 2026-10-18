@@ -9,8 +9,8 @@ import { ImportRunId, IntegrationId, UserId } from "@ryot-app/contract/schema/br
 import { genericImportChunkOperationIds } from "@ryot-app/plugin-backend-sdk/imports";
 import { assertExitFails } from "@ryot-app/testing/effect-assertions";
 import { stableStringify } from "@ryot-app/ts-utils/json";
-import { eq } from "drizzle-orm";
-import { Effect, Layer } from "effect";
+import { eq, sql } from "drizzle-orm";
+import { DateTime, Effect, Layer } from "effect";
 
 import { IntegrationsRepository } from "#modules/integrations/repository";
 import { PluginConfigEncryptionKey } from "#modules/plugins/configuration/encryption-key";
@@ -131,6 +131,103 @@ layer(
 		Layer.provideMerge(isolatedDatabaseLayer("ingestion_repository")),
 	),
 )((test) => {
+	test.effect.each([
+		{
+			timezone: "UTC",
+			deadline: "2026-10-29T06:27:50.994Z",
+			acceptedAt: new Date("2026-10-22T06:27:50.994Z"),
+		},
+		{
+			timezone: "Europe/Berlin",
+			deadline: "2026-10-29T06:27:50.994Z",
+			acceptedAt: new Date("2026-10-22T06:27:50.994Z"),
+		},
+		{
+			timezone: "Europe/Berlin",
+			deadline: "2026-04-01T06:27:50.994Z",
+			acceptedAt: new Date("2026-03-25T06:27:50.994Z"),
+		},
+		{
+			timezone: "America/New_York",
+			deadline: "2026-11-05T06:27:50.994Z",
+			acceptedAt: new Date("2026-10-29T06:27:50.994Z"),
+		},
+		{
+			timezone: "America/New_York",
+			deadline: "2026-03-12T06:27:50.994Z",
+			acceptedAt: new Date("2026-03-05T06:27:50.994Z"),
+		},
+		{
+			timezone: "Pacific/Auckland",
+			deadline: "2026-10-01T06:27:50.994Z",
+			acceptedAt: new Date("2026-09-24T06:27:50.994Z"),
+		},
+		{
+			timezone: "Australia/Lord_Howe",
+			deadline: "2026-10-08T06:27:50.994Z",
+			acceptedAt: new Date("2026-10-01T06:27:50.994Z"),
+		},
+	])(
+		"$timezone acceptance at $acceptedAt preserves the exact seven-day blocked deadline",
+		({ timezone, acceptedAt: receivedAt, deadline: expectedDeadline }) =>
+			Effect.gen(function* () {
+				const database = yield* DatabaseSession;
+				const repository = yield* ImportsRepository;
+				const accountGeneration = { userId, token: "generation" };
+				const runId = yield* database.transaction(
+					Effect.gen(function* () {
+						yield* database.run((db) =>
+							db.execute(sql`select set_config('TimeZone', ${timezone}, true)`),
+						);
+						return yield* repository.createBlockedRun({
+							userId,
+							integrationId,
+							inputSummary: {},
+							accountGeneration,
+							source: "data-json",
+							blockReasons: reasons,
+							acceptedAt: receivedAt,
+							pluginInstallationId: null,
+						});
+					}),
+				);
+				const scope = { runId, userId, accountGeneration } satisfies IngestionScope;
+				const deadlineAt = DateTime.makeUnsafe(expectedDeadline);
+
+				expect(yield* repository.getIngestionRun(scope)).toMatchObject({
+					status: "blocked",
+					blockDeadline: expectedDeadline,
+				});
+				expect(
+					yield* repository.expireBlocked({
+						scope,
+						now: DateTime.toDateUtc(DateTime.subtract(deadlineAt, { milliseconds: 1 })),
+					}),
+				).toBe(false);
+				expect(
+					yield* repository.expireBlocked({ scope, now: DateTime.toDateUtc(deadlineAt) }),
+				).toBe(true);
+			}),
+	);
+	test.effect("rejects extending a blocked run acceptance deadline", () =>
+		Effect.gen(function* () {
+			const scope = yield* blockedRun();
+			const database = yield* DatabaseSession;
+			const error = yield* Effect.flip(
+				database.run((db) =>
+					db
+						.update(tables.importRun)
+						.set({ blockDeadline: new Date(deadline.getTime() + 1) })
+						.where(eq(tables.importRun.id, scope.runId)),
+				),
+			);
+			expect(error).toMatchObject({
+				code: "23514",
+				_tag: "DbError",
+				constraint: "import_run_block_check",
+			});
+		}),
+	);
 	test.effect("encrypts prepared release state and binds it to its ingestion scope", () =>
 		Effect.gen(function* () {
 			const database = yield* DatabaseSession;

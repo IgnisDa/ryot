@@ -262,7 +262,7 @@ layer(
 				);
 				yield* database.run((db) =>
 					db.execute(
-						sql`update import_run set created_at = ${`2026-10-03T11:00:00.000${microseconds}Z`}::timestamptz, block_deadline = ${`2026-10-03T11:00:00.000${microseconds}Z`}::timestamptz + interval '7 days' where id = ${id}`,
+						sql`update import_run set created_at = ${`2026-10-03T11:00:00.000${microseconds}Z`}::timestamptz, block_deadline = ${`2026-10-03T11:00:00.000${microseconds}Z`}::timestamptz + interval '168 hours' where id = ${id}`,
 					),
 				);
 				runIds.push(id);

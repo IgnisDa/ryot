@@ -1,0 +1,1 @@
+ALTER TABLE "import_run" DROP CONSTRAINT "import_run_block_check", ADD CONSTRAINT "import_run_block_check" CHECK ("status" <> 'blocked' or ("integration_lot" = 'sink' and "block_deadline" = "created_at" + interval '168 hours'));
