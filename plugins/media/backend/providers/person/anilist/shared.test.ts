@@ -42,8 +42,12 @@ describe("person.anilist sandbox script", () => {
 							pageInfo: { hasNextPage: false },
 							edges: [
 								{
-									characters: [{ name: { full: "Hero" } }],
 									node: { id: 2, type: "ANIME", title: { userPreferred: "Anime Credit" } },
+									characters: [
+										{ name: { full: "Hero" } },
+										{ name: { full: "Villain" } },
+										{ name: { full: "Hero" } },
+									],
 								},
 							],
 						},
@@ -64,7 +68,7 @@ describe("person.anilist sandbox script", () => {
 								externalId: "2",
 								name: "Anime Credit",
 								providerSlug: "anime.anilist",
-								relationshipProperties: { roles: ["Voicing (Hero)"] },
+								relationshipProperties: { roles: ["Voicing"], character: "Hero / Villain" },
 							},
 						],
 					},

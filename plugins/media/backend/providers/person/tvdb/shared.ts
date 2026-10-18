@@ -4,7 +4,7 @@ import { defineProvider } from "@ryot-app/plugin-backend-sdk/provider";
 
 import { normalizePlainDescription } from "../../../lib/plain-description";
 import { asRecord, numberValue, recordsValue, stringValue } from "../../../lib/records";
-import type { RoleRelatedEntity } from "../../../lib/role-accumulator";
+import { createRoleAccumulator } from "../../../lib/role-accumulator";
 import {
 	bcp47ToTvdb,
 	buildTranslationResult,
@@ -25,18 +25,6 @@ export const search = defineProvider({
 const toExternalId = (value: unknown) => {
 	const parsed = numberValue(value);
 	return parsed !== null ? String(Math.trunc(parsed)) : stringValue(value);
-};
-
-const addMedia = (entities: Map<string, RoleRelatedEntity>, entity: RoleRelatedEntity) => {
-	const existing = entities.get(entity.externalId);
-	if (!existing) {
-		entities.set(entity.externalId, entity);
-		return;
-	}
-	const [role] = entity.relationshipProperties.roles;
-	if (role !== undefined && !existing.relationshipProperties.roles.includes(role)) {
-		existing.relationshipProperties.roles.push(role);
-	}
 };
 
 const TVDB_GENDER_MAP: Readonly<Record<number, string>> = { 1: "Male", 3: "Other", 2: "Female" };
@@ -75,31 +63,38 @@ export const details = defineProvider({
 					: null;
 				const description = normalizePlainDescription(translation.description ?? firstBiography);
 				const slug = stringValue(person["slug"]);
-				const movieById = new Map<string, RoleRelatedEntity>();
-				const showById = new Map<string, RoleRelatedEntity>();
+				const movies = createRoleAccumulator();
+				const shows = createRoleAccumulator();
 				for (const character of recordsValue(person["characters"])) {
 					const role =
 						stringValue(character["peopleType"]) ??
 						stringValue(character["people_type"]) ??
 						"Actor";
+					const characterName = stringValue(character["name"]);
 					const movieExternalId = toExternalId(character["movieId"] ?? character["movie_id"]);
 					if (movieExternalId !== null) {
 						const movieName = stringValue(asRecord(character["movie"])?.["name"]) ?? "Loading...";
-						addMedia(movieById, {
+						movies.add({
 							name: movieName,
 							providerSlug: "movie.tvdb",
 							externalId: movieExternalId,
-							relationshipProperties: { roles: [role] },
+							relationshipProperties: {
+								roles: [role],
+								...(characterName === null ? {} : { character: characterName }),
+							},
 						});
 					}
 					const seriesExternalId = toExternalId(character["seriesId"] ?? character["series_id"]);
 					if (seriesExternalId !== null) {
 						const showName = stringValue(asRecord(character["series"])?.["name"]) ?? "Loading...";
-						addMedia(showById, {
+						shows.add({
 							name: showName,
 							providerSlug: "show.tvdb",
 							externalId: seriesExternalId,
-							relationshipProperties: { roles: [role] },
+							relationshipProperties: {
+								roles: [role],
+								...(characterName === null ? {} : { character: characterName }),
+							},
 						});
 					}
 				}
@@ -107,14 +102,14 @@ export const details = defineProvider({
 					name,
 					relatedEntityGroups: [
 						{
+							entities: movies.entities,
 							direction: "outgoing" as const,
-							entities: [...movieById.values()],
 							synchronization: "authoritative" as const,
 							relationshipSchemaSlug: "person-to-movie",
 						},
 						{
+							entities: shows.entities,
 							direction: "outgoing" as const,
-							entities: [...showById.values()],
 							relationshipSchemaSlug: "person-to-show",
 							synchronization: "authoritative" as const,
 						},

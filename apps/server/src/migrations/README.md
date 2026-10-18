@@ -28,6 +28,10 @@ Users are inserted first. Deterministic IDs, exact installation identities, conf
 
 ## Mappings And Omissions
 
+Person-to-media credits preserve legacy character names as a `character` string. When legacy rows
+collapse onto one credit, nonblank trimmed names are deduplicated, sorted, and joined with `/`.
+Company and group credits do not receive character fields.
+
 Genres of custom and populated media become shared, populated `genre.media-catalog` entities and
 typed media-to-genre relationships. Custom media links retain the media owner's user scope;
 provider media links are global. Skeleton media still omit genres. Identity normalization and

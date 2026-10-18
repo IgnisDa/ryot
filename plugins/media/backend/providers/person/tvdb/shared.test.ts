@@ -36,11 +36,14 @@ describe("person.tvdb sandbox script", () => {
 		const host = detailsHost({
 			name: "Person Name",
 			characters: [
-				{ movieId: 10, peopleType: "Actor", movie: { name: "Film A" } },
-				{ movie_id: 10, people_type: "Director" },
-				{ movieId: 10, peopleType: "Actor" },
-				{ seriesId: 20, peopleType: "Writer", series: { name: "Show B" } },
+				{ movieId: 10, name: "Hero", peopleType: "Actor", movie: { name: "Film A" } },
+				{ movie_id: 10, name: "Villain", people_type: "Director" },
+				{ movieId: 10, name: "Hero", peopleType: "Actor" },
+				{ seriesId: 20, name: "Hero", peopleType: "Writer", series: { name: "Show B" } },
+				{ series_id: 20, name: "Villain", people_type: "Producer" },
+				{ seriesId: 20, name: "Hero", peopleType: "Writer" },
 				{ series_id: 30 },
+				{ name: "  ", seriesId: 40, peopleType: "Actor" },
 			],
 		});
 
@@ -56,7 +59,10 @@ describe("person.tvdb sandbox script", () => {
 								name: "Film A",
 								externalId: "10",
 								providerSlug: "movie.tvdb",
-								relationshipProperties: { roles: ["Actor", "Director"] },
+								relationshipProperties: {
+									character: "Hero / Villain",
+									roles: ["Actor", "Director"],
+								},
 							},
 						],
 					},
@@ -69,10 +75,19 @@ describe("person.tvdb sandbox script", () => {
 								name: "Show B",
 								externalId: "20",
 								providerSlug: "show.tvdb",
-								relationshipProperties: { roles: ["Writer"] },
+								relationshipProperties: {
+									character: "Hero / Villain",
+									roles: ["Writer", "Producer"],
+								},
 							},
 							{
 								externalId: "30",
+								name: "Loading...",
+								providerSlug: "show.tvdb",
+								relationshipProperties: { roles: ["Actor"] },
+							},
+							{
+								externalId: "40",
 								name: "Loading...",
 								providerSlug: "show.tvdb",
 								relationshipProperties: { roles: ["Actor"] },

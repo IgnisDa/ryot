@@ -12,7 +12,7 @@ import {
 	stringValue,
 	type UnknownRecord,
 } from "../records";
-import type { RoleRelatedEntity } from "../role-accumulator";
+import { createRoleAccumulator, type RoleRelatedEntity } from "../role-accumulator";
 
 export type TmdbHost = Pick<ScriptHost, "httpCall" | "getPluginConfig">;
 
@@ -203,35 +203,18 @@ export const collectSuggestions = (
 };
 
 export const collectPeople = (cast: unknown, crew: unknown, createdBy?: unknown) => {
-	const relatedEntities = new Map<string, RoleRelatedEntity>();
-	const addRelatedEntity = (relatedEntity: RoleRelatedEntity) => {
-		const key = `${relatedEntity.providerSlug}:${relatedEntity.externalId}`;
-		const existing = relatedEntities.get(key);
-		if (!existing) {
-			relatedEntities.set(key, relatedEntity);
-			return;
-		}
-		existing.relationshipProperties.roles = [
-			...new Set([
-				...existing.relationshipProperties.roles,
-				...relatedEntity.relationshipProperties.roles,
-			]),
-		];
-		if (existing.name === "Loading..." && relatedEntity.name !== "Loading...") {
-			existing.name = relatedEntity.name;
-		}
-	};
-	const addPerson = (person: UnknownRecord, role: string) => {
+	const related = createRoleAccumulator();
+	const addPerson = (person: UnknownRecord, role: string, character: string | null = null) => {
 		const name = stringValue(person["name"]) ?? "Loading...";
 		const id = numberValue(person["id"]);
 		if (id === null) {
 			return;
 		}
-		addRelatedEntity({
+		related.add({
 			name,
 			providerSlug: "person.tmdb",
 			externalId: String(Math.trunc(id)),
-			relationshipProperties: { roles: [role] },
+			relationshipProperties: { roles: [role], ...(character === null ? {} : { character }) },
 		});
 	};
 
@@ -239,7 +222,11 @@ export const collectPeople = (cast: unknown, crew: unknown, createdBy?: unknown)
 		addPerson(creator, "Creator");
 	}
 	for (const member of recordsValue(cast).slice(0, 15)) {
-		addPerson(member, stringValue(member["known_for_department"]) ?? "Acting");
+		addPerson(
+			member,
+			stringValue(member["known_for_department"]) ?? "Acting",
+			stringValue(member["character"]),
+		);
 	}
 	const notableJobs = new Set(["Director", "Producer", "Screenplay", "Writer", "Story"]);
 	for (const member of recordsValue(crew)) {
@@ -248,7 +235,7 @@ export const collectPeople = (cast: unknown, crew: unknown, createdBy?: unknown)
 			addPerson(member, job);
 		}
 	}
-	return [...relatedEntities.values()];
+	return related.entities;
 };
 
 export const collectCompanies = (companyGroups: ReadonlyArray<readonly [unknown, string]>) => {

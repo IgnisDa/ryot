@@ -108,10 +108,10 @@ BEGIN
 		SELECT
 			metadata_id, person_id, relationship_schema_slug, relationship_schema_plugin_id, user_id,
 			MIN(COALESCE(credit_index, 2147483647)) AS relationship_order,
-			(
-				array_agg("character" ORDER BY COALESCE(credit_index, 2147483647), role)
-				FILTER (WHERE "character" IS NOT NULL)
-			)[1] AS character
+			string_agg(
+				DISTINCT NULLIF(BTRIM("character"), ''), ' / '
+				ORDER BY NULLIF(BTRIM("character"), '')
+			) AS character
 		FROM legacy_relationships
 		GROUP BY metadata_id, person_id, relationship_schema_slug, relationship_schema_plugin_id, user_id
 	)

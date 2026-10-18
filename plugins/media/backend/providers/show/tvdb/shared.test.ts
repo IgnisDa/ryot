@@ -258,16 +258,19 @@ describe("show.tvdb sandbox script", () => {
 					year: "not-a-year",
 					name: "Canonical Name",
 					firstAired: "2015-06-01",
-					characters: [
-						{ peopleId: 5, personName: "Alice", peopleType: "Actor" },
-						{ peopleId: 5, personName: "Alice", peopleType: "Director" },
-						{ personName: "Bob", peopleType: "Writer" },
-					],
 					companies: [
 						{ id: 7, name: "Studio X", primaryCompanyType: 1 },
 						{ id: 7, name: "Studio X", primaryCompanyType: 2 },
 						{ id: 8, name: "Company Y", primaryCompanyType: 99 },
 						{ name: "Missing ID", primaryCompanyType: 1 },
+					],
+					characters: [
+						{ peopleId: 5, name: "Hero", personName: "Alice", peopleType: "Actor" },
+						{ peopleId: 5, name: "Villain", personName: "Alice", peopleType: "Director" },
+						{ peopleId: 5, name: "Hero", personName: "Alice", peopleType: "Actor" },
+						{ personName: "Bob", peopleType: "Writer" },
+						{ name: " ", peopleId: 6, peopleType: "Actor", personName: "Blank Character" },
+						{ peopleId: 7, peopleType: "Actor", personName: "Missing Character" },
 					],
 				},
 			});
@@ -297,7 +300,22 @@ describe("show.tvdb sandbox script", () => {
 									name: "Alice",
 									externalId: "5",
 									providerSlug: "person.tvdb",
-									relationshipProperties: { roles: ["Actor", "Director"] },
+									relationshipProperties: {
+										character: "Hero / Villain",
+										roles: ["Actor", "Director"],
+									},
+								},
+								{
+									externalId: "6",
+									name: "Blank Character",
+									providerSlug: "person.tvdb",
+									relationshipProperties: { roles: ["Actor"] },
+								},
+								{
+									externalId: "7",
+									name: "Missing Character",
+									providerSlug: "person.tvdb",
+									relationshipProperties: { roles: ["Actor"] },
 								},
 							],
 						},

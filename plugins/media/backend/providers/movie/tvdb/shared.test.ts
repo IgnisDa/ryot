@@ -47,16 +47,19 @@ describe("movie.tvdb sandbox script", () => {
 						data: {
 							name: "Movie",
 							companies: { studio: [{ id: 5, name: "Studio X" }] },
-							characters: [
-								{ peopleId: 1, peopleType: "Actor", personName: "Actor A" },
-								{ peopleId: 1, personName: "Actor A", peopleType: "Director" },
-								{ peopleType: "Writer", personName: "Unlinked Person" },
-							],
 							lists: [
 								{ id: 10, is_official: true, name: "Official List" },
 								{ id: "20", isOfficial: true, name: "String Id List" },
 								{ id: 30, name: "Unofficial", is_official: false },
 								{ name: "No Id", is_official: true },
+							],
+							characters: [
+								{ peopleId: 1, name: "Hero", peopleType: "Actor", personName: "Actor A" },
+								{ peopleId: 1, name: "Villain", personName: "Actor A", peopleType: "Director" },
+								{ peopleId: 1, name: "Hero", peopleType: "Actor", personName: "Actor A" },
+								{ name: "  ", peopleId: 2, peopleType: "Writer", personName: "Actor B" },
+								{ peopleId: 3, personName: "Actor C" },
+								{ peopleType: "Writer", personName: "Unlinked Person" },
 							],
 						},
 					}),
@@ -74,7 +77,22 @@ describe("movie.tvdb sandbox script", () => {
 									name: "Actor A",
 									externalId: "1",
 									providerSlug: "person.tvdb",
-									relationshipProperties: { roles: ["Actor", "Director"] },
+									relationshipProperties: {
+										character: "Hero / Villain",
+										roles: ["Actor", "Director"],
+									},
+								},
+								{
+									name: "Actor B",
+									externalId: "2",
+									providerSlug: "person.tvdb",
+									relationshipProperties: { roles: ["Writer"] },
+								},
+								{
+									name: "Actor C",
+									externalId: "3",
+									providerSlug: "person.tvdb",
+									relationshipProperties: { roles: ["Cast"] },
 								},
 							],
 						},

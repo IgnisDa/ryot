@@ -11,7 +11,7 @@ import {
 	stringValue,
 	type UnknownRecord,
 } from "../records";
-import type { RoleRelatedEntity } from "../role-accumulator";
+import { createRoleAccumulator, type RoleRelatedEntity } from "../role-accumulator";
 
 export type TvdbHost = Pick<
 	ScriptHost,
@@ -354,37 +354,29 @@ export const collectCompanies = (
 };
 
 export const collectPeople = (characters: unknown) => {
-	const relatedEntityByKey = new Map<string, RoleRelatedEntity>();
+	const related = createRoleAccumulator();
 	const characterRecords = Array.isArray(characters) ? recordsValue(characters.slice(0, 20)) : [];
 	for (const character of characterRecords) {
 		const name = stringValue(character["personName"]) ?? "Loading...";
 		const role = stringValue(character["peopleType"]) ?? "Cast";
+		const characterName = stringValue(character["name"]);
 		const peopleId = numberValue(character["peopleId"]);
 		if (peopleId === null) {
 			continue;
 		}
 
-		const externalId = String(Math.trunc(peopleId));
-		const key = `person.tvdb:${externalId}`;
-		const existing = relatedEntityByKey.get(key);
-		if (existing) {
-			existing.relationshipProperties.roles = [
-				...new Set([...existing.relationshipProperties.roles, role]),
-			];
-			if (existing.name === "Loading..." && name !== "Loading...") {
-				existing.name = name;
-			}
-			continue;
-		}
-		relatedEntityByKey.set(key, {
+		related.add({
 			name,
-			externalId,
 			providerSlug: "person.tvdb",
-			relationshipProperties: { roles: [role] },
+			externalId: String(Math.trunc(peopleId)),
+			relationshipProperties: {
+				roles: [role],
+				...(characterName === null ? {} : { character: characterName }),
+			},
 		});
 	}
 
-	return [...relatedEntityByKey.values()];
+	return related.entities;
 };
 
 export const searchTvdb = (
