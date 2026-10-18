@@ -93,7 +93,7 @@ and **Done** means the accepted behavior and validation results are recorded bel
 | 5 | Pending | **Add collection member reordering** | Existing memberships and rank reads | Ship a server-owned reorder command and client control with stable pagination, concurrency handling and shared haptic feedback. Choose the ordering strategy first; add rank compaction/rebalancing only if that strategy needs it. Test repeated moves and retries, not V1's decimal thresholds as an end in themselves. |
 | 6 | Pending | **Finish everyday library and collection browsing** | Existing recipes/filter primitives | Expose useful source, lifecycle state, rated/unrated and date filters; add title, rating, release/consumption and activity sorts where applicable. Extend collection domain filters through plugin-owned selections, not kernel branches on Media/Fitness IDs. Search, count and all loaded pages must use the same filter/sort. Preserve V2's cycle-aware state semantics. |
 | 7 | Done | **Complete custom relationship and episodic authoring** | 2; 1 for changes affecting recorded coverage | Add user-owned custom seasons/episodes and the missing creator/group association controls, with ordering and ownership validation. Define what happens when an edited/deleted child has history; do not silently delete history. Keep provider-owned inventories read-only to ordinary custom editors. |
-| 8 | Pending | **Expose Media merge and explicit removal/clear controls** | 1; agreed persistent-membership policy | Give users a scoped, confirmed path to merge data and clear it using existing owning services. Distinguish removing library membership from destructive clearing of history/reviews/relationships; specify which action also disables monitoring or removes collection links. Never make a simple library-remove action silently call full clear. Keep same-schema/identity rules and prevent pending work from restoring explicitly cleared data. |
+| 8 | Done | **Expose Media merge and explicit removal/clear controls** | 1; agreed persistent-membership policy | Ship one confirmed destructive **Remove from library** action that clears the caller's history, reviews, annotations, monitoring, collection memberships and correction evidence, including child data. Preserve metadata and structural links. Already-running and future imports/integrations may restore data normally; add no exclusion state. Merge keeps same-schema/identity rules, destination conflict values and explicit records; missing or ambiguous child mappings reject before any writes with actionable errors. See the Order 8 acceptance record below. |
 
 Rows 2, 3 and 4 can proceed independently once any relevant correctness contract is settled;
 there is no technical dependency between rating-only reviews and collection ordering.
@@ -359,6 +359,36 @@ Validation on **2026-10-27**:
 - Main-session review and scoped cleanup are complete. Duplicate SDK types and an unused request
   patch field were removed; no compatibility path or type-checker bypass was added. This item is **Done**.
 
+### Phase 1 Order 8 acceptance — Media removal and merge
+
+Media detail screens expose **Your data** with confirmed **Remove from library** and
+**Merge my data into…** actions. Removal and clear are one destructive operation. Metadata,
+provider inventories and custom structural links remain. There are no tombstones or integration
+exclusions; ordinary writers may restore data after removal.
+
+The generic `EntityUserDataService` owns HTTP and sandbox commands. Media declares relationship,
+child and correction-evidence scopes through its manifest. Scope checks include detached historical
+children. Merge preserves explicit events without heuristic deduplication, combines memberships,
+keeps destination conflict values, transfers source-only fields, rewrites typed evidence references,
+and resets temporary correction checkpoints and coverage. Missing or ambiguous child matches reject
+before writes with actionable errors. Submission identities and timestamps remain immutable on retry.
+
+Validation on **2026-10-27**:
+
+- Focused kernel suites: **124 tests** across seven files; backup reference suites: **8 tests**.
+  Focused Media suites: **31 tests**; shared client-page/navigation suites: **48 tests**.
+  The sandbox TypeScript suites passed **226 tests**, including typed user-data failure preservation.
+- Affected API suites passed **22 tests** across Media user data, generic entity user data, demo access
+  and Fitness exercise merge. Browser acceptance passed **3 tests** for cancel/confirm removal,
+  same-schema merge/navigation, and a visible episodic mapping refusal without partial writes.
+  The final Media API/browser run used one worker; no timeout or capacity limit was raised.
+- Final repository `bun run check`: **38 successful tasks**, **30 projects / 7,474 files**.
+  Then `bun turbo --filter='!@ryot-app/e2e' test --concurrency=1`: **51 successful tasks**, no failures.
+- DRY and cleanup passes share commit/replay, host command setup, HTTP fixture submissions and
+  client-page picker/collection wiring. Redundant schema tests, a single-use wrapper and temporary
+  diagnostics were removed. No compatibility path, migration, version change or type-checker bypass
+  was added. This item is **Done**.
+
 ## Functional inventory
 
 Paths abbreviated as `modules/...` in the tables below are under
@@ -414,7 +444,7 @@ Primary evidence: `packages/contract/src/modules/{account,instance-admin,system,
 | Provider-change monitoring | Covered; reshaped | Media monitoring sweep refreshes eligible global provider entities; entity/relationship detectors emit persisted signals, catalog subscriptions and notification formatters. Includes monitored people/company associations. No global V1 periodic partial-state reset. |
 | Calendar and upcoming | Partial / reshaped | Kernel Calendar with month/agenda and source visibility; Media show/podcast episodes, anime airings and flat releases; Fitness workouts. Dates come directly from entities/JSON via recipes, so nightly `calendar_event` materialization is unnecessary. Home airing panels cover shows/anime, not V1's full monitored next-N feed. |
 | Analytics | Partial | Media activity heatmap/counts/minutes/reviews, per-entity consumption summaries; Fitness summaries/history/measurements. No unified V1 analytics screen or full metric set. |
-| Merge/disassociate user data | Covered at service/API level; reshaped | `/entity-user-data/merge` and `/entity-user-data/clear/:entityId` move/remove owned events and incident user relationships, **including `member-of` collection membership**. Schema/identity restrictions apply; global provider data remains. No dedicated Media merge/disassociate UI was found. |
+| Merge/disassociate user data | Covered; reshaped | Media detail **Your data** controls confirm removal or same-schema merge through `media-user-data` and the canonical `/entity-user-data/merge` and `/entity-user-data/clear/:entityId` owner. Scope includes child history, reviews, annotations, monitoring, collections and correction evidence; metadata and structural links remain. Merge preserves explicit records and destination conflict values; missing or ambiguous child mappings reject atomically. Imports and integrations may restore removed data normally. |
 | Recently-consumed flag | Partial / reshaped | V1 `userEntityRecentlyConsumed` reads a time-limited debounce cache marker, not a recently-consumed list. Integration admission now has persistent debounce/duplicate checks, but there is no corresponding public flag or V1 dashboard badge. |
 
 Primary evidence: `plugins/media/{README.md,manifest/plugin.ts,manifest/saved-views.ts}`;
