@@ -1,8 +1,4 @@
-import {
-	createRyotMutation,
-	createRyotQuery,
-	type RyotSubmission,
-} from "@ryot-app/plugin-client-sdk/react";
+import { createRyotBackgroundSubmission, createRyotQuery } from "@ryot-app/plugin-client-sdk/react";
 
 import {
 	type EpisodicEarlierUnwatched,
@@ -12,10 +8,7 @@ import {
 	type ShowSeasonEpisodeChoices,
 	showSeasonEpisodeChoicesRecipe,
 } from "../../../shared/activity-log-recipes";
-import {
-	MediaActivityLogInput,
-	MediaActivityLogOutput,
-} from "../../../shared/media-activity-operations";
+import { MediaActivityLogInput } from "../../../shared/media-activity-operations";
 import { PLUGIN_PACKAGE_ID } from "../../../shared/plugin-identity";
 import { type ActivityEntryDraft, activityLogInput, EARLIER_PAGE_LIMIT } from "./state";
 
@@ -71,16 +64,11 @@ export const earlierEpisodesQuery = createRyotQuery<
 	),
 );
 
-export const logActivityMutation = createRyotMutation<
-	RyotSubmission<ActivityEntryDraft>,
-	MediaActivityLogOutput
->(({ client, input: { input, submittedAt, submissionId } }) =>
-	client.operations.invoke({
-		slug: "media-activity-log",
-		packageId: PLUGIN_PACKAGE_ID,
-		idempotencyKey: submissionId,
-		output: MediaActivityLogOutput,
-		inputSchema: MediaActivityLogInput,
-		input: activityLogInput(input, { submittedAt, submissionId }),
-	}),
-);
+export const logActivitySubmission = createRyotBackgroundSubmission({
+	slug: "media-activity-log",
+	packageId: PLUGIN_PACKAGE_ID,
+	inputSchema: MediaActivityLogInput,
+	label: (input: { readonly label: string; readonly entry: ActivityEntryDraft }) => input.label,
+	input: ({ input, submittedAt, submissionId }) =>
+		activityLogInput(input.entry, { submittedAt, submissionId }),
+});

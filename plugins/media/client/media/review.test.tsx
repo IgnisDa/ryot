@@ -1,6 +1,7 @@
 import { expect, it } from "@effect/vitest";
 import { RyotClientError } from "@ryot-app/plugin-client-sdk";
 import { Effect } from "@ryot-app/plugin-client-sdk/effect";
+import { createTestBackgroundSubmissions } from "@ryot-app/plugin-client-sdk/testing";
 import {
 	fireEvent,
 	getByLabelText,
@@ -27,18 +28,19 @@ const input = (element: HTMLElement, value: string) =>
 	});
 
 it.live(
-	"opens from the header, saves one review, blocks duplicate writes and closes on success",
+	"opens from the header, hands one review to the shell, blocks duplicates and closes on acceptance",
 	() =>
 		Effect.gen(function* () {
 			const release = yield* Deferred.make<void>();
 			const requests: unknown[] = [];
 			const mounted = mountRyotClient(
 				{
-					invokeOperation: (request) =>
+					...createTestBackgroundSubmissions().adapter,
+					submitBackground: (request) =>
 						Effect.gen(function* () {
 							requests.push(request);
 							yield* Deferred.await(release);
-							return { count: 1 };
+							return "submission-1";
 						}),
 				},
 				<MediaSummaryHeader
@@ -84,8 +86,10 @@ it.live(
 				expect(queryByRole(document.body, "dialog")).not.toBeNull();
 				expect(requests).toEqual([
 					{
+						label: "Review",
 						packageId: "ryot/media",
 						slug: "media-review-create",
+						idempotencyKey: expect.any(String),
 						input: { rating: 82.5, isSpoiler: true, entityId: "media-1", text: "Great ending" },
 					},
 				]);
@@ -107,10 +111,11 @@ it.live("saves with Enter in the rating field without submitting a native form",
 		const requests: unknown[] = [];
 		const mounted = mountRyotClient(
 			{
-				invokeOperation: (request) =>
+				...createTestBackgroundSubmissions().adapter,
+				submitBackground: (request) =>
 					Effect.sync(() => {
 						requests.push(request);
-						return { count: 1 };
+						return "submission-1";
 					}),
 			},
 			<MediaReviewButton entityId="media-1" />,
@@ -134,8 +139,10 @@ it.live("saves with Enter in the rating field without submitting a native form",
 			);
 			expect(requests).toEqual([
 				{
+					label: "Review",
 					packageId: "ryot/media",
 					slug: "media-review-create",
+					idempotencyKey: expect.any(String),
 					input: { rating: 80, text: "Thoughts", isSpoiler: false, entityId: "media-1" },
 				},
 			]);
@@ -151,10 +158,11 @@ for (const invalidRating of ["not a number", "1e", "-1", "101"]) {
 			const requests: unknown[] = [];
 			const mounted = mountRyotClient(
 				{
-					invokeOperation: (request) =>
+					...createTestBackgroundSubmissions().adapter,
+					submitBackground: (request) =>
 						Effect.sync(() => {
 							requests.push(request);
-							return { count: 1 };
+							return "submission-1";
 						}),
 				},
 				<MediaReviewButton entityId="media-1" />,
@@ -185,8 +193,10 @@ for (const invalidRating of ["not a number", "1e", "-1", "101"]) {
 				);
 				expect(requests).toEqual([
 					{
+						label: "Review",
 						packageId: "ryot/media",
 						slug: "media-review-create",
+						idempotencyKey: expect.any(String),
 						input: { rating: 0, text: "Thoughts", isSpoiler: false, entityId: "media-1" },
 					},
 				]);
@@ -202,10 +212,11 @@ it.live("opens from empty activity and cancels without saving", () =>
 		const requests: unknown[] = [];
 		const mounted = mountRyotClient(
 			{
-				invokeOperation: (request) =>
+				...createTestBackgroundSubmissions().adapter,
+				submitBackground: (request) =>
 					Effect.sync(() => {
 						requests.push(request);
-						return { count: 1 };
+						return "submission-1";
 					}),
 			},
 			<creatorFixtureSchema.Activity
@@ -228,49 +239,49 @@ it.live("opens from empty activity and cancels without saving", () =>
 	}),
 );
 
-for (const failure of ["transport", "zero-count"] as const) {
-	it.live(`keeps the draft and allows retry after ${failure}`, () =>
-		Effect.gen(function* () {
-			const requests: unknown[] = [];
-			const mounted = mountRyotClient(
-				{
-					invokeOperation: (request) =>
-						Effect.gen(function* () {
-							requests.push(request);
-							if (requests.length === 1) {
-								if (failure === "transport") {
-									return yield* new RyotClientError("operation-failed");
-								}
-								return { count: 0 };
-							}
-							return { count: 1 };
-						}),
-				},
-				<MediaReviewButton link entityId="creator-1" />,
+it.live("keeps the draft and allows another try when the shell refuses the review", () =>
+	Effect.gen(function* () {
+		const requests: unknown[] = [];
+		const mounted = mountRyotClient(
+			{
+				...createTestBackgroundSubmissions().adapter,
+				submitBackground: (request) =>
+					Effect.gen(function* () {
+						requests.push(request);
+						if (requests.length === 1) {
+							return yield* new RyotClientError("operation-failed");
+						}
+						return "submission-2";
+					}),
+			},
+			<MediaReviewButton link entityId="creator-1" />,
+		);
+		try {
+			clickRyotElement(getByRole(mounted.container, "button", { name: "Write review" }));
+			const dialog = getByRole(document.body, "dialog");
+			input(getByLabelText(dialog, "Review"), "Thoughts");
+			clickRyotElement(within(dialog).getByRole("button", { name: "Save review" }));
+			yield* Effect.promise(() =>
+				waitFor(() =>
+					expect(getByRole(dialog, "alert").textContent).toContain("Couldn't start saving"),
+				),
 			);
-			try {
-				clickRyotElement(getByRole(mounted.container, "button", { name: "Write review" }));
-				const dialog = getByRole(document.body, "dialog");
-				input(getByLabelText(dialog, "Review"), "Thoughts");
-				clickRyotElement(within(dialog).getByRole("button", { name: "Save review" }));
-				yield* Effect.promise(() =>
-					waitFor(() => expect(getByRole(dialog, "alert").textContent).toContain("Unable to save")),
-				);
-				expect(getByLabelText(dialog, "Review")).toHaveProperty("value", "Thoughts");
-				clickRyotElement(within(dialog).getByRole("button", { name: "Save review" }));
-				yield* Effect.promise(() =>
-					waitFor(() => expect(queryByRole(document.body, "dialog")).toBeNull()),
-				);
-				expect(requests).toEqual(
-					[1, 2].map(() => ({
-						packageId: "ryot/media",
-						slug: "media-review-create",
-						input: { text: "Thoughts", isSpoiler: false, entityId: "creator-1" },
-					})),
-				);
-			} finally {
-				mounted.unmount();
-			}
-		}),
-	);
-}
+			expect(getByLabelText(dialog, "Review")).toHaveProperty("value", "Thoughts");
+			clickRyotElement(within(dialog).getByRole("button", { name: "Save review" }));
+			yield* Effect.promise(() =>
+				waitFor(() => expect(queryByRole(document.body, "dialog")).toBeNull()),
+			);
+			expect(requests).toEqual(
+				[1, 2].map(() => ({
+					label: "Review",
+					packageId: "ryot/media",
+					slug: "media-review-create",
+					idempotencyKey: expect.any(String),
+					input: { text: "Thoughts", isSpoiler: false, entityId: "creator-1" },
+				})),
+			);
+		} finally {
+			mounted.unmount();
+		}
+	}),
+);

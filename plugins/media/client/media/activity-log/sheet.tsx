@@ -1,14 +1,13 @@
-import { RyotClientError } from "@ryot-app/plugin-client-sdk";
 import {
 	localDay,
 	nextPageCursor,
 	paginationItems,
+	useBackgroundSubmission,
 	usePluginIdentity,
 	usePluginUserSettings,
 	useRyotInfiniteQuery,
 	useRyotQuery,
 	useRyotSchedule,
-	useRyotSubmission,
 } from "@ryot-app/plugin-client-sdk/react";
 import {
 	ActionForm,
@@ -38,7 +37,7 @@ import { podcastEpisodesQuery } from "../../podcast/episodes-query";
 import {
 	activityLogContextQuery,
 	earlierEpisodesQuery,
-	logActivityMutation,
+	logActivitySubmission,
 	showSeasonChoicesQuery,
 } from "./queries";
 import {
@@ -807,21 +806,11 @@ function ActivityLogForm(
 	const { pager, episodeId, seasonNumber } = props;
 	const schedule = useRyotSchedule();
 	const today = localDay(schedule.now());
-	const log = useRyotSubmission(logActivityMutation, {
-		isComplete: (result) => result.status === "saved",
-	});
+	const log = useBackgroundSubmission(logActivitySubmission);
 	const [draft, setDraft] = useState(() => initialActivityDraft(logger, context, today));
 	const [backfill, setBackfill] = useState(true);
-	const [done, setDone] = useState<{ text: string; offerReview: boolean } | undefined>(undefined);
 	const patch = (next: Partial<ActivityDraft>) => setDraft((current) => ({ ...current, ...next }));
-	const locked = log.status !== "idle";
-	const saved = log.data?.status === "saved";
-	const rejection =
-		log.status === "retained" &&
-		log.error instanceof RyotClientError &&
-		log.error.reason === "operation-rejected"
-			? log.error.message
-			: undefined;
+	const locked = log.isSending;
 	const settings = usePluginUserSettings(usePluginIdentity(PLUGIN_PACKAGE_ID).pluginId);
 	const settingKey = consumedOnSettingKey(context.schemaSlug);
 	const suggestions = consumedOnSuggestions(
@@ -841,7 +830,6 @@ function ActivityLogForm(
 				});
 	const special = logger.family === "show" && selected?.seasonNumber === 0;
 	const checking =
-		!saved &&
 		draft.intent === "episode" &&
 		selected !== undefined &&
 		!special &&
@@ -866,105 +854,76 @@ function ActivityLogForm(
 		episodeCount: episodeEntityIds.length,
 		episodeCode: selected === undefined ? undefined : episodeCode(logger, selected),
 	});
-	const retainedAction =
-		rejection === undefined ? (
-			<Button onClick={log.retry}>Retry</Button>
-		) : (
-			<Button onClick={log.abandon}>Edit</Button>
-		);
-	const retainedMessage =
-		rejection === undefined ? (
-			<StatusMessage tone="error">
-				This may already be saved. Retry the same submission to finish without duplicates. Cancel
-				closes this form but does not undo anything already saved.
-			</StatusMessage>
-		) : (
-			<StatusMessage tone="error">{rejection}</StatusMessage>
-		);
 	const submit = () => {
-		if (waiting || hasActivityErrors(errors) || log.status !== "idle") {
+		if (waiting || hasActivityErrors(errors) || log.isSending) {
 			return;
 		}
-		setDone({ text: labels.success, offerReview: labels.offerReview });
-		log.submit(activityEntryDraft({ draft, logger, context, entityId, episodeEntityIds }));
+		const onReview = labels.offerReview ? props.onReview : undefined;
+		log.submit(
+			{
+				label: labels.success,
+				entry: activityEntryDraft({ draft, logger, context, entityId, episodeEntityIds }),
+			},
+			{ onAccepted: onReview ?? props.onClose },
+		);
 	};
 	return (
 		<Dialog
 			title="Log activity"
 			onClose={props.onClose}
-			dismissible={!log.isPending}
+			dismissible={!log.isSending}
 			triggerRef={props.triggerRef}
 			closeLabel="Close log activity"
 			placement={props.compact ? "sheet" : "center"}
 			footer={
-				saved ? (
-					<Button onClick={props.onClose}>Done</Button>
-				) : (
-					<>
-						<Button variant="secondary" onClick={props.onClose} disabled={log.isPending}>
-							Cancel
-						</Button>
-						{log.status === "retained" ? (
-							retainedAction
-						) : (
-							<Button
-								onClick={submit}
-								loading={log.isPending}
-								disabled={waiting || hasActivityErrors(errors)}
-							>
-								{labels.submit}
-							</Button>
-						)}
-					</>
-				)
+				<>
+					<Button variant="secondary" onClick={props.onClose} disabled={log.isSending}>
+						Cancel
+					</Button>
+					<Button
+						onClick={submit}
+						loading={log.isSending}
+						disabled={waiting || hasActivityErrors(errors)}
+					>
+						{labels.submit}
+					</Button>
+				</>
 			}
 		>
-			{saved ? (
-				<div className="flex flex-col items-start gap-3">
-					<StatusMessage tone="success">{done?.text}</StatusMessage>
-					{done?.offerReview === true && props.onReview !== undefined ? (
-						<p className="text-text-muted">
-							Want to say what you thought?{" "}
-							<Button variant="link" onClick={props.onReview}>
-								Write a review
-							</Button>
-						</p>
-					) : null}
-				</div>
-			) : (
-				<ActionForm onSubmit={submit} label="Log activity" className="flex flex-col gap-4">
-					{activityIntents(logger).length < 2 ? null : (
-						<SegmentedControl
-							fill
-							value={draft.intent}
-							label="What happened"
-							optionClassName="px-3"
-							options={activityIntents(logger)}
-							onChange={(intent) => patch({ intent })}
-						/>
-					)}
-					<fieldset disabled={locked} className="flex min-w-0 flex-col gap-4">
-						<ActivityLogFields
-							draft={draft}
-							today={today}
-							pager={pager}
-							locked={locked}
-							logger={logger}
-							onChange={patch}
-							earlier={earlier}
-							context={context}
-							backfill={backfill}
-							selected={selected}
-							onBackfill={setBackfill}
-							onSelect={props.onSelect}
-							suggestions={suggestions}
-							onSeason={props.onSeason}
-							seasonNumber={seasonNumber}
-						/>
-					</fieldset>
-					{log.status === "retained" ? retainedMessage : null}
-				</ActionForm>
-			)}
+			<ActionForm onSubmit={submit} label="Log activity" className="flex flex-col gap-4">
+				{activityIntents(logger).length < 2 ? null : (
+					<SegmentedControl
+						fill
+						value={draft.intent}
+						label="What happened"
+						optionClassName="px-3"
+						options={activityIntents(logger)}
+						onChange={(intent) => patch({ intent })}
+					/>
+				)}
+				<fieldset disabled={locked} className="flex min-w-0 flex-col gap-4">
+					<ActivityLogFields
+						draft={draft}
+						today={today}
+						pager={pager}
+						locked={locked}
+						logger={logger}
+						onChange={patch}
+						earlier={earlier}
+						context={context}
+						backfill={backfill}
+						selected={selected}
+						onBackfill={setBackfill}
+						onSelect={props.onSelect}
+						suggestions={suggestions}
+						onSeason={props.onSeason}
+						seasonNumber={seasonNumber}
+					/>
+				</fieldset>
+				{log.error === null ? null : (
+					<StatusMessage tone="error">Couldn't start saving. Try again.</StatusMessage>
+				)}
+			</ActionForm>
 		</Dialog>
 	);
 }

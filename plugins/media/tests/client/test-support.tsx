@@ -2,7 +2,10 @@ import { PluginId } from "@ryot-app/contract/schema/brands";
 import type { RyotClientAdapter } from "@ryot-app/plugin-client-sdk";
 import { DateTime, Effect } from "@ryot-app/plugin-client-sdk/effect";
 import { RyotProvider } from "@ryot-app/plugin-client-sdk/react";
-import { createTestRyotClock } from "@ryot-app/plugin-client-sdk/testing";
+import {
+	createTestBackgroundSubmissions,
+	createTestRyotClock,
+} from "@ryot-app/plugin-client-sdk/testing";
 import { fireEvent } from "@testing-library/dom";
 import { act, type ReactNode } from "react";
 import { createRoot, type Root } from "react-dom/client";
@@ -30,6 +33,7 @@ globalThis.IS_REACT_ACT_ENVIRONMENT = true;
 
 export const mountRyotClient = (adapter: Partial<RyotClientAdapter>, children: ReactNode) => {
 	const { client, runtime, advance, setTime, dispose } = createTestRyotClock({
+		...createTestBackgroundSubmissions().adapter,
 		pluginIdentity: (packageId) => {
 			if (packageId !== PLUGIN_PACKAGE_ID) {
 				throw new Error("Unexpected contributor package");

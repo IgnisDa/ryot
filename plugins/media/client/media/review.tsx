@@ -1,6 +1,7 @@
-import { RyotClientError } from "@ryot-app/plugin-client-sdk";
-import { Effect } from "@ryot-app/plugin-client-sdk/effect";
-import { createRyotMutation, useRyotMutation } from "@ryot-app/plugin-client-sdk/react";
+import {
+	createRyotBackgroundSubmission,
+	useBackgroundSubmission,
+} from "@ryot-app/plugin-client-sdk/react";
 import {
 	ActionForm,
 	Button,
@@ -12,32 +13,18 @@ import {
 	TextField,
 } from "@ryot-app/plugin-ui-sdk";
 import { AppIcon } from "@ryot-app/plugin-ui-sdk/icon";
-import { type RefObject, useEffect, useId, useRef, useState } from "react";
+import { type RefObject, useId, useRef, useState } from "react";
 
-import {
-	MediaReviewCreateInput,
-	MediaReviewCreateOutput,
-} from "../../shared/media-review-operations";
+import { MediaReviewCreateInput } from "../../shared/media-review-operations";
 import { PLUGIN_PACKAGE_ID } from "../../shared/plugin-identity";
 
-const createReview = createRyotMutation<
-	MediaReviewCreateInput,
-	typeof MediaReviewCreateOutput.Type
->(({ input, client }) =>
-	Effect.gen(function* () {
-		const result = yield* client.operations.invoke({
-			input,
-			slug: "media-review-create",
-			packageId: PLUGIN_PACKAGE_ID,
-			output: MediaReviewCreateOutput,
-			inputSchema: MediaReviewCreateInput,
-		});
-		if (result.count !== 1) {
-			return yield* new RyotClientError("malformed-result");
-		}
-		return result;
-	}),
-);
+const createReview = createRyotBackgroundSubmission({
+	label: () => "Review",
+	slug: "media-review-create",
+	packageId: PLUGIN_PACKAGE_ID,
+	inputSchema: MediaReviewCreateInput,
+	input: ({ input }: { readonly input: MediaReviewCreateInput }) => input,
+});
 
 export function MediaReviewForm(props: {
 	readonly entityId: string;
@@ -49,27 +36,25 @@ export function MediaReviewForm(props: {
 	const [text, setText] = useState("");
 	const [rating, setRating] = useState("");
 	const [isSpoiler, setIsSpoiler] = useState(false);
-	const mutation = useRyotMutation(createReview);
+	const review = useBackgroundSubmission(createReview);
 	const { onClose } = props;
-	useEffect(() => {
-		if (mutation.data !== undefined) {
-			onClose();
-		}
-	}, [mutation.data, onClose]);
 	const ratingValue = rating.trim() === "" ? undefined : Number(rating);
 	const validRating =
 		ratingValue === undefined ||
 		(Number.isFinite(ratingValue) && ratingValue >= 0 && ratingValue <= 100);
 	const save = () => {
-		if (text.trim() === "" || !validRating || mutation.isPending) {
+		if (text.trim() === "" || !validRating || review.isSending) {
 			return;
 		}
-		mutation.mutate({
-			isSpoiler,
-			text: text.trim(),
-			entityId: props.entityId,
-			...(ratingValue === undefined ? {} : { rating: ratingValue }),
-		});
+		review.submit(
+			{
+				isSpoiler,
+				text: text.trim(),
+				entityId: props.entityId,
+				...(ratingValue === undefined ? {} : { rating: ratingValue }),
+			},
+			{ onAccepted: onClose },
+		);
 	};
 	return (
 		<Dialog
@@ -78,7 +63,7 @@ export function MediaReviewForm(props: {
 			closeLabel="Close review"
 			initialFocusRef={textRef}
 			triggerRef={props.triggerRef}
-			dismissible={!mutation.isPending}
+			dismissible={!review.isSending}
 		>
 			<ActionForm onSubmit={save} label="Write review" className="flex flex-col gap-4">
 				<label htmlFor={`${id}-text`}>Review</label>
@@ -87,7 +72,7 @@ export function MediaReviewForm(props: {
 					value={text}
 					ref={textRef}
 					id={`${id}-text`}
-					disabled={mutation.isPending}
+					disabled={review.isSending}
 					onChange={(event) => setText(event.currentTarget.value)}
 				/>
 				<label htmlFor={`${id}-rating`}>Rating (0–100, optional)</label>
@@ -97,7 +82,7 @@ export function MediaReviewForm(props: {
 					inputMode="decimal"
 					id={`${id}-rating`}
 					invalid={!validRating}
-					disabled={mutation.isPending}
+					disabled={review.isSending}
 					onChange={(event) => setRating(event.currentTarget.value)}
 					aria-describedby={validRating ? undefined : `${id}-rating-error`}
 				/>
@@ -113,22 +98,22 @@ export function MediaReviewForm(props: {
 							checked={isSpoiler}
 							onChange={setIsSpoiler}
 							label="Contains spoilers"
-							disabled={mutation.isPending}
+							disabled={review.isSending}
 						/>
 					}
 				/>
-				{mutation.error === null ? null : (
-					<StatusMessage tone="error">Unable to save your review. Try again.</StatusMessage>
+				{review.error === null ? null : (
+					<StatusMessage tone="error">Couldn't start saving your review. Try again.</StatusMessage>
 				)}
 				<div className="flex gap-2">
 					<Button
 						type="button"
 						onClick={save}
-						disabled={text.trim() === "" || !validRating || mutation.isPending}
+						disabled={text.trim() === "" || !validRating || review.isSending}
 					>
-						{mutation.isPending ? "Saving…" : "Save review"}
+						{review.isSending ? "Saving…" : "Save review"}
 					</Button>
-					<Button type="button" onClick={onClose} variant="secondary" disabled={mutation.isPending}>
+					<Button type="button" onClick={onClose} variant="secondary" disabled={review.isSending}>
 						Cancel
 					</Button>
 				</div>

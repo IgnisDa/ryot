@@ -1,10 +1,10 @@
 import { localDay, useRyotSchedule } from "@ryot-app/plugin-client-sdk/react";
-import { Badge, Button } from "@ryot-app/plugin-ui-sdk";
+import { Badge, Button, StatusMessage } from "@ryot-app/plugin-ui-sdk";
 import { fieldSyncState, isTitleProvisional, SyncPip } from "@ryot-app/plugin-ui-sdk/sync";
 import clsx from "clsx";
 import type { RefObject } from "react";
 
-import { MediaSubmissionFeedback, useQuickLog } from "./activity-log/submission-feedback";
+import { useQuickLog } from "./activity-log/quick-log";
 import { MediaDetailModal } from "./detail-modal";
 import { mediaAspectClass } from "./entity-presentation";
 import type { MediaEpisodeLog, MediaEpisodeRender } from "./episodes";
@@ -37,20 +37,25 @@ function MediaEpisodeActions(props: {
 					disabled={locked}
 					onClick={() =>
 						mark.submit({
-							kind: "episodes",
-							when: { kind: "now" },
-							episodeEntityIds: [episode.id],
-							parentEntityId: log.parentEntityId,
+							label: `Marked ${episode.name} ${participle}.`,
+							entry: {
+								kind: "episodes",
+								when: { kind: "now" },
+								episodeEntityIds: [episode.id],
+								parentEntityId: log.parentEntityId,
+							},
 						})
 					}
 				>
-					{mark.isPending ? "Saving…" : `Mark ${participle}`}
+					{mark.isSending ? "Saving…" : `Mark ${participle}`}
 				</Button>
 				<Button variant="secondary" onClick={props.onLog}>
 					Log with details…
 				</Button>
 			</div>
-			<MediaSubmissionFeedback log={mark} doneText={`Marked ${participle}.`} />
+			{mark.error === null ? null : (
+				<StatusMessage tone="error">Couldn't start saving. Try again.</StatusMessage>
+			)}
 		</div>
 	);
 }

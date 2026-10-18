@@ -1,9 +1,7 @@
-import { RyotClientError } from "@ryot-app/plugin-client-sdk";
-import { Effect } from "@ryot-app/plugin-client-sdk/effect";
 import {
-	createRyotMutation,
+	createRyotBackgroundSubmission,
 	localDay,
-	useRyotMutation,
+	useBackgroundSubmission,
 	useRyotSchedule,
 } from "@ryot-app/plugin-client-sdk/react";
 import {
@@ -16,68 +14,44 @@ import {
 	TextField,
 } from "@ryot-app/plugin-ui-sdk";
 import { AppIcon } from "@ryot-app/plugin-ui-sdk/icon";
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
 
-import {
-	MediaOwnershipOutput,
-	MediaOwnershipSetInput,
-} from "../../shared/media-ownership-operations";
+import { MediaOwnershipSetInput } from "../../shared/media-ownership-operations";
 import { PLUGIN_PACKAGE_ID } from "../../shared/plugin-identity";
 import { mediaOwnedLabel } from "./summary-state";
 
-const setOwnership = createRyotMutation<MediaOwnershipSetInput, void>(({ input, client }) =>
-	Effect.gen(function* () {
-		const { results } = yield* client.operations.invoke({
-			input,
-			slug: "media-ownership-set",
-			packageId: PLUGIN_PACKAGE_ID,
-			output: MediaOwnershipOutput,
-			inputSchema: MediaOwnershipSetInput,
-		});
-		const result = results[0];
-		if (
-			results.length !== 1 ||
-			result?.status !== "found" ||
-			result.entityId !== input.entityIds[0] ||
-			result.owned !== input.owned ||
-			result.ownedOn !== (input.owned ? input.ownedOn : null)
-		) {
-			return yield* new RyotClientError("malformed-result");
-		}
-		return undefined;
-	}),
-);
+const setOwnership = createRyotBackgroundSubmission({
+	slug: "media-ownership-set",
+	packageId: PLUGIN_PACKAGE_ID,
+	inputSchema: MediaOwnershipSetInput,
+	input: ({ input }: { readonly input: MediaOwnershipSetInput }) => input,
+	label: (input: MediaOwnershipSetInput) =>
+		input.owned ? "Marked as owned" : "Marked as not owned",
+});
 
-function MediaOwnedOnDialog(props: { readonly entityId: string; readonly onClose: () => void }) {
+function MediaOwnedOnDialog(props: {
+	readonly sending: boolean;
+	readonly failed: boolean;
+	readonly onClose: () => void;
+	readonly onSave: (ownedOn: string | null) => void;
+}) {
 	const schedule = useRyotSchedule();
 	const today = localDay(schedule.now());
 	const dateRef = useRef<HTMLInputElement>(null);
 	const [ownedOn, setOwnedOn] = useState(today);
-	const mutation = useRyotMutation(setOwnership);
-	const { onClose } = props;
-	useEffect(() => {
-		if (mutation.status === "success") {
-			onClose();
-		}
-	}, [mutation.status, onClose]);
 	const invalid = ownedOn > today;
 	const save = () => {
-		if (invalid || mutation.isPending) {
-			return;
+		if (!invalid && !props.sending) {
+			props.onSave(ownedOn === "" ? null : ownedOn);
 		}
-		mutation.mutate({
-			owned: true,
-			entityIds: [props.entityId],
-			ownedOn: ownedOn === "" ? null : ownedOn,
-		});
 	};
 	return (
 		<Dialog
-			onClose={onClose}
 			title="Mark as owned"
+			onClose={props.onClose}
 			initialFocusRef={dateRef}
 			closeLabel="Close ownership"
-			dismissible={!mutation.isPending}
+			dismissible={!props.sending}
 		>
 			<ActionForm onSubmit={save} label="Mark as owned" className="flex flex-col gap-4">
 				<Field
@@ -92,19 +66,24 @@ function MediaOwnedOnDialog(props: { readonly entityId: string; readonly onClose
 							max={today}
 							ref={dateRef}
 							value={ownedOn}
-							disabled={mutation.isPending}
+							disabled={props.sending}
 							onChange={(event) => setOwnedOn(event.currentTarget.value)}
 						/>
 					)}
 				</Field>
-				{mutation.error === null ? null : (
-					<StatusMessage tone="error">Unable to save ownership. Try again.</StatusMessage>
-				)}
+				{props.failed ? (
+					<StatusMessage tone="error">Couldn't start saving ownership. Try again.</StatusMessage>
+				) : null}
 				<div className="flex gap-2">
-					<Button type="button" onClick={save} disabled={invalid || mutation.isPending}>
-						{mutation.isPending ? "Saving…" : "Save"}
+					<Button type="button" onClick={save} disabled={invalid || props.sending}>
+						{props.sending ? "Saving…" : "Save"}
 					</Button>
-					<Button type="button" onClick={onClose} variant="secondary" disabled={mutation.isPending}>
+					<Button
+						type="button"
+						variant="secondary"
+						onClick={props.onClose}
+						disabled={props.sending}
+					>
 						Cancel
 					</Button>
 				</div>
@@ -119,29 +98,50 @@ export function MediaOwnershipControl(props: {
 	readonly ownedOn: string | null;
 }) {
 	const [dialogOpen, setDialogOpen] = useState(false);
-	const mutation = useRyotMutation(setOwnership);
-	const owned = props.owned === true;
+	const ownership = useBackgroundSubmission(setOwnership);
+	const [optimistic, setOptimistic] = useState<MediaOwnershipSetInput | null>(null);
+	const rolledBack = ownership.last?.status === "failed" || ownership.error !== null;
+	if (
+		(props.owned === true) === optimistic?.owned &&
+		(!optimistic.owned || props.ownedOn === optimistic.ownedOn)
+	) {
+		setOptimistic(null);
+	}
+	const intent = rolledBack ? null : optimistic;
+	const owned = intent === null ? props.owned === true : intent.owned;
+	const ownedOn = intent?.owned === true ? intent.ownedOn : props.ownedOn;
+	const submit = (input: MediaOwnershipSetInput, onAccepted?: () => void) => {
+		setOptimistic(input);
+		ownership.submit(input, onAccepted === undefined ? {} : { onAccepted });
+	};
 	return (
 		<>
 			<ChipButton
 				pressed={owned}
-				disabled={mutation.isPending}
+				disabled={ownership.isSending}
 				icon={<AppIcon size={13} name="box" />}
 				onClick={() =>
-					owned
-						? mutation.mutate({ owned: false, entityIds: [props.entityId] })
-						: setDialogOpen(true)
+					owned ? submit({ owned: false, entityIds: [props.entityId] }) : setDialogOpen(true)
 				}
 			>
-				{owned ? mediaOwnedLabel(props.ownedOn) : "Mark owned"}
+				{owned ? mediaOwnedLabel(ownedOn) : "Mark owned"}
 			</ChipButton>
-			{mutation.error === null ? null : (
+			{rolledBack && !dialogOpen ? (
 				<span role="alert" className="text-xs text-danger">
 					Unable to change ownership. Try again.
 				</span>
-			)}
+			) : null}
 			{dialogOpen ? (
-				<MediaOwnedOnDialog entityId={props.entityId} onClose={() => setDialogOpen(false)} />
+				<MediaOwnedOnDialog
+					sending={ownership.isSending}
+					failed={ownership.error !== null}
+					onClose={() => setDialogOpen(false)}
+					onSave={(date) =>
+						submit({ owned: true, ownedOn: date, entityIds: [props.entityId] }, () =>
+							setDialogOpen(false),
+						)
+					}
+				/>
 			) : null}
 		</>
 	);

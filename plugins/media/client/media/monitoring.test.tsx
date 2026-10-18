@@ -1,9 +1,9 @@
 import { expect, it } from "@effect/vitest";
-import { RyotClientError } from "@ryot-app/plugin-client-sdk";
 import { Effect } from "@ryot-app/plugin-client-sdk/effect";
 import { createRyotQuery, useRyotQuery } from "@ryot-app/plugin-client-sdk/react";
+import { createTestBackgroundSubmissions } from "@ryot-app/plugin-client-sdk/testing";
 import { getByRole, queryByRole, waitFor } from "@testing-library/dom";
-import { Deferred } from "effect";
+import { act } from "react";
 
 import {
 	decodeFlatSummary,
@@ -31,14 +31,21 @@ function Header(props: { readonly media: MediaEntitySummaryValue }) {
 	);
 }
 
+const monitoringRequest = (enable: boolean) => ({
+	packageId: "ryot/media",
+	input: { entityIds: ["media-1"] },
+	idempotencyKey: expect.any(String),
+	label: enable ? "Started monitoring" : "Stopped monitoring",
+	slug: enable ? "media-monitoring-enable" : "media-monitoring-disable",
+});
+
 it.live(
-	"enables and disables monitoring, prevents duplicate writes, and refreshes library state",
+	"enables and disables monitoring optimistically and keeps library state from refreshes",
 	() =>
 		Effect.gen(function* () {
-			const release = yield* Deferred.make<void>();
-			const requests: unknown[] = [];
 			let monitored = false;
 			let inLibrary = false;
+			const background = createTestBackgroundSubmissions();
 			const query = createRyotQuery(() =>
 				Effect.sync(() =>
 					decodeFlatSummary(fixtureSummaryRecipe, {
@@ -52,56 +59,33 @@ it.live(
 				const result = useRyotQuery(query);
 				return result.data === undefined ? null : <Header media={result.data} />;
 			}
-			const mounted = mountRyotClient(
-				{
-					invokeOperation: (request) =>
-						Effect.gen(function* () {
-							requests.push(request);
-							yield* Deferred.await(release);
-							monitored = request.slug === "media-monitoring-enable";
-							inLibrary ||= monitored;
-							return {
-								results: [{ status: "found", entityId: "media-1", isMediaMonitored: monitored }],
-							};
-						}),
-				},
-				<View />,
-			);
+			const mounted = mountRyotClient(background.adapter, <View />);
+			const commit = (attempt: number, enable: boolean) =>
+				Effect.gen(function* () {
+					monitored = enable;
+					inLibrary ||= enable;
+					background.settle(`submission-${attempt}`, { status: "succeeded" });
+					act(() => mounted.client.mutationCompleted.hint());
+					yield* Effect.promise(() => mounted.advance(250));
+				});
 			try {
 				yield* Effect.promise(() => mounted.advance(0));
 				const control = getByRole(mounted.container, "button", { name: "Monitor" });
 				expect(control.getAttribute("aria-pressed")).toBe("false");
 				clickRyotElement(control);
-				yield* Effect.promise(() =>
-					waitFor(() => expect(control.hasAttribute("disabled")).toBe(true)),
-				);
-				clickRyotElement(control);
-				expect(requests).toEqual([
-					{
-						packageId: "ryot/media",
-						slug: "media-monitoring-enable",
-						input: { entityIds: ["media-1"] },
-					},
-				]);
-				yield* Deferred.succeed(release, undefined);
-				yield* Effect.promise(() =>
-					waitFor(() => expect(control.hasAttribute("disabled")).toBe(false)),
-				);
-				yield* Effect.promise(() => mounted.advance(250));
+				yield* Effect.promise(() => waitFor(() => expect(background.requests).toHaveLength(1)));
+				expect(background.requests).toEqual([monitoringRequest(true)]);
 				expect(control.getAttribute("aria-pressed")).toBe("true");
 				expect(control.textContent).toBe("Monitoring");
+				yield* commit(1, true);
+				expect(control.getAttribute("aria-pressed")).toBe("true");
 				expect(mounted.container.textContent).toContain("In your library");
+
 				clickRyotElement(control);
-				yield* Effect.promise(() => waitFor(() => expect(requests).toHaveLength(2)));
-				expect(requests[1]).toEqual({
-					packageId: "ryot/media",
-					slug: "media-monitoring-disable",
-					input: { entityIds: ["media-1"] },
-				});
-				yield* Effect.promise(() =>
-					waitFor(() => expect(control.hasAttribute("disabled")).toBe(false)),
-				);
-				yield* Effect.promise(() => mounted.advance(250));
+				yield* Effect.promise(() => waitFor(() => expect(background.requests).toHaveLength(2)));
+				expect(background.requests[1]).toEqual(monitoringRequest(false));
+				expect(control.getAttribute("aria-pressed")).toBe("false");
+				yield* commit(2, false);
 				expect(control.getAttribute("aria-pressed")).toBe("false");
 				expect(mounted.container.textContent).toContain("In your library");
 			} finally {
@@ -110,61 +94,35 @@ it.live(
 		}),
 );
 
-for (const failure of ["transport", "missing", "mismatched", "unchanged"] as const) {
-	it.live(`keeps the current monitoring state and allows retry after a ${failure} result`, () =>
-		Effect.gen(function* () {
-			let attempts = 0;
-			const mounted = mountRyotClient(
-				{
-					invokeOperation: () =>
-						Effect.gen(function* () {
-							attempts++;
-							if (attempts === 1) {
-								if (failure === "transport") {
-									return yield* new RyotClientError("unsupported-capability");
-								}
-								return {
-									results: [
-										failure === "missing"
-											? { status: "notFound", entityId: "media-1" }
-											: {
-													status: "found",
-													isMediaMonitored: failure !== "unchanged",
-													entityId: failure === "mismatched" ? "other" : "media-1",
-												},
-									],
-								};
-							}
-							return {
-								results: [{ status: "found", entityId: "media-1", isMediaMonitored: true }],
-							};
-						}),
-				},
-				<Header media={decodeFlatSummary(fixtureSummaryRecipe, { images: [] })} />,
+it.live("rolls monitoring back visibly when the shell reports a failure", () =>
+	Effect.gen(function* () {
+		const background = createTestBackgroundSubmissions();
+		const mounted = mountRyotClient(
+			background.adapter,
+			<Header media={decodeFlatSummary(fixtureSummaryRecipe, { images: [] })} />,
+		);
+		try {
+			const control = getByRole(mounted.container, "button", { name: "Monitor" });
+			clickRyotElement(control);
+			yield* Effect.promise(() => waitFor(() => expect(background.requests).toHaveLength(1)));
+			expect(control.getAttribute("aria-pressed")).toBe("true");
+			background.settle("submission-1", {
+				status: "failed",
+				reason: "operation-rejected",
+				message: "Monitoring needs a provider",
+			});
+			expect(control.getAttribute("aria-pressed")).toBe("false");
+			expect(getByRole(mounted.container, "alert").textContent).toBe(
+				"Unable to change monitoring. Try again.",
 			);
-			try {
-				const control = getByRole(mounted.container, "button", { name: "Monitor" });
-				clickRyotElement(control);
-				yield* Effect.promise(() =>
-					waitFor(() =>
-						expect(getByRole(mounted.container, "alert").textContent).toBe(
-							"Unable to change monitoring. Try again.",
-						),
-					),
-				);
-				expect(control.getAttribute("aria-pressed")).toBe("false");
-				expect(control.hasAttribute("disabled")).toBe(false);
-				clickRyotElement(control);
-				yield* Effect.promise(() => waitFor(() => expect(attempts).toBe(2)));
-				yield* Effect.promise(() =>
-					waitFor(() => expect(queryByRole(mounted.container, "alert")).toBeNull()),
-				);
-			} finally {
-				mounted.unmount();
-			}
-		}),
-	);
-}
+			clickRyotElement(control);
+			yield* Effect.promise(() => waitFor(() => expect(background.requests).toHaveLength(2)));
+			expect(queryByRole(mounted.container, "alert")).toBeNull();
+		} finally {
+			mounted.unmount();
+		}
+	}),
+);
 
 it("hides monitoring for media without a provider", () => {
 	const mounted = mountRyotClient(

@@ -2,6 +2,7 @@ import { expect, it } from "@effect/vitest";
 import { RyotClientError } from "@ryot-app/plugin-client-sdk";
 import { DateTime, Effect, Schema } from "@ryot-app/plugin-client-sdk/effect";
 import { createRyotQuery, useRyotQuery } from "@ryot-app/plugin-client-sdk/react";
+import { createTestBackgroundSubmissions } from "@ryot-app/plugin-client-sdk/testing";
 import { fireEvent, getByLabelText, getByRole, queryByRole, waitFor } from "@testing-library/dom";
 import { act } from "react";
 
@@ -48,11 +49,19 @@ const ownershipDialog = () => getByRole(document.body, "dialog", { name: "Mark a
 const ownedOnInput = () =>
 	getByLabelText(ownershipDialog(), "Owned on", { exact: false, selector: "input" });
 
-it.live("asks for an ownership date, validates it, and clears it when ownership is removed", () =>
+const ownershipRequest = (request: MediaOwnershipSetInput) => ({
+	input: request,
+	packageId: "ryot/media",
+	slug: "media-ownership-set",
+	idempotencyKey: expect.any(String),
+	label: request.owned ? "Marked as owned" : "Marked as not owned",
+});
+
+it.live("asks for an ownership date and applies set and unset optimistically", () =>
 	Effect.gen(function* () {
-		const requests: unknown[] = [];
 		let owned: boolean | null = null;
 		let ownedOn: string | null = null;
+		const background = createTestBackgroundSubmissions();
 		const query = createRyotQuery(() =>
 			Effect.sync(() => decodeFlatSummary(fixtureSummaryRecipe, { owned, ownedOn, images: [] })),
 		);
@@ -62,28 +71,25 @@ it.live("asks for an ownership date, validates it, and clears it when ownership 
 				<Header media={result.data} owned={result.data.owned} ownedOn={result.data.ownedOn} />
 			);
 		}
-		const mounted = mountRyotClient(
-			{
-				invokeOperation: (request) =>
-					Effect.gen(function* () {
-						requests.push(request);
-						const decoded = yield* Schema.decodeUnknownEffect(MediaOwnershipSetInput)(
-							request.input,
-						).pipe(Effect.orDie);
-						owned = decoded.owned;
-						ownedOn = decoded.owned ? decoded.ownedOn : null;
-						return { results: [{ owned, ownedOn, status: "found", entityId: "media-1" }] };
-					}),
-			},
-			<View />,
-		);
+		const mounted = mountRyotClient(background.adapter, <View />);
+		const commit = (attempt: number) =>
+			Effect.gen(function* () {
+				const decoded = yield* Schema.decodeUnknownEffect(MediaOwnershipSetInput)(
+					background.requests[attempt]?.input,
+				).pipe(Effect.orDie);
+				owned = decoded.owned;
+				ownedOn = decoded.owned ? decoded.ownedOn : null;
+				background.settle(`submission-${attempt + 1}`, { status: "succeeded" });
+				act(() => mounted.client.mutationCompleted.hint());
+				yield* Effect.promise(() => mounted.advance(250));
+			});
 		try {
 			yield* Effect.promise(() => mounted.setTime(NOW));
 			yield* Effect.promise(() => mounted.advance(0));
 			const control = getByRole(mounted.container, "button", { name: "Mark owned" });
 			expect(control.getAttribute("aria-pressed")).toBe("false");
 			clickRyotElement(control);
-			expect(requests).toEqual([]);
+			expect(background.requests).toEqual([]);
 			expect(ownedOnInput()).toHaveProperty("value", "2026-10-20");
 			input(ownedOnInput(), "2026-10-21");
 			const save = getByRole(ownershipDialog(), "button", { name: "Save" });
@@ -93,51 +99,39 @@ it.live("asks for an ownership date, validates it, and clears it when ownership 
 			yield* Effect.promise(() =>
 				waitFor(() => expect(queryByRole(document.body, "dialog")).toBeNull()),
 			);
-			expect(requests).toEqual([
-				{
-					packageId: "ryot/media",
-					slug: "media-ownership-set",
-					input: { owned: true, ownedOn: "2024-03-04", entityIds: ["media-1"] },
-				},
+			expect(background.requests).toEqual([
+				ownershipRequest({ owned: true, ownedOn: "2024-03-04", entityIds: ["media-1"] }),
 			]);
-			yield* Effect.promise(() => mounted.advance(250));
 			expect(control.getAttribute("aria-pressed")).toBe("true");
 			expect(control.textContent).toBe("Owned since Mar 4, 2024");
+			yield* commit(0);
+			expect(control.textContent).toBe("Owned since Mar 4, 2024");
+
 			clickRyotElement(control);
-			yield* Effect.promise(() => waitFor(() => expect(requests).toHaveLength(2)));
-			expect(requests[1]).toEqual({
-				packageId: "ryot/media",
-				slug: "media-ownership-set",
-				input: { owned: false, entityIds: ["media-1"] },
-			});
-			yield* Effect.promise(() =>
-				waitFor(() => expect(control.hasAttribute("disabled")).toBe(false)),
+			yield* Effect.promise(() => waitFor(() => expect(background.requests).toHaveLength(2)));
+			expect(background.requests[1]).toEqual(
+				ownershipRequest({ owned: false, entityIds: ["media-1"] }),
 			);
-			yield* Effect.promise(() => mounted.advance(250));
 			expect(control.getAttribute("aria-pressed")).toBe("false");
 			expect(control.textContent).toBe("Mark owned");
+			yield* commit(1);
+			expect(control.getAttribute("aria-pressed")).toBe("false");
+			expect(queryByRole(mounted.container, "alert")).toBeNull();
 		} finally {
 			mounted.unmount();
 		}
 	}),
 );
 
-it.live("records ownership without a date and keeps the dialog open after a failure", () =>
+it.live("keeps the dialog open when the shell refuses ownership without a date", () =>
 	Effect.gen(function* () {
-		const requests: unknown[] = [];
+		const background = createTestBackgroundSubmissions((request) =>
+			background.requests.length === 1
+				? Effect.fail(new RyotClientError("operation-failed"))
+				: Effect.succeed(`submission-${request.idempotencyKey}`),
+		);
 		const mounted = mountRyotClient(
-			{
-				invokeOperation: (request) =>
-					Effect.gen(function* () {
-						requests.push(request);
-						if (requests.length === 1) {
-							return yield* new RyotClientError("unsupported-capability");
-						}
-						return {
-							results: [{ owned: true, ownedOn: null, status: "found", entityId: "media-1" }],
-						};
-					}),
-			},
+			background.adapter,
 			<Header
 				owned={null}
 				ownedOn={null}
@@ -150,88 +144,58 @@ it.live("records ownership without a date and keeps the dialog open after a fail
 			clickRyotElement(getByRole(ownershipDialog(), "button", { name: "Save" }));
 			yield* Effect.promise(() =>
 				waitFor(() =>
-					expect(ownershipDialog().textContent).toContain("Unable to save ownership. Try again."),
+					expect(ownershipDialog().textContent).toContain(
+						"Couldn't start saving ownership. Try again.",
+					),
 				),
 			);
+			expect(
+				getByRole(mounted.container, "button", { name: "Mark owned" }).getAttribute("aria-pressed"),
+			).toBe("false");
 			clickRyotElement(getByRole(ownershipDialog(), "button", { name: "Save" }));
 			yield* Effect.promise(() =>
 				waitFor(() => expect(queryByRole(document.body, "dialog")).toBeNull()),
 			);
-			expect(requests).toEqual([
-				{
-					packageId: "ryot/media",
-					slug: "media-ownership-set",
-					input: { owned: true, ownedOn: null, entityIds: ["media-1"] },
-				},
-				{
-					packageId: "ryot/media",
-					slug: "media-ownership-set",
-					input: { owned: true, ownedOn: null, entityIds: ["media-1"] },
-				},
+			expect(background.requests).toEqual([
+				ownershipRequest({ owned: true, ownedOn: null, entityIds: ["media-1"] }),
+				ownershipRequest({ owned: true, ownedOn: null, entityIds: ["media-1"] }),
 			]);
+			expect(background.requests[1]?.idempotencyKey).not.toBe(
+				background.requests[0]?.idempotencyKey,
+			);
 		} finally {
 			mounted.unmount();
 		}
 	}),
 );
 
-for (const failure of ["transport", "missing", "mismatched", "unchanged"] as const) {
-	it.live(`keeps ownership and allows retry after a ${failure} result when removing it`, () =>
-		Effect.gen(function* () {
-			let attempts = 0;
-			const mounted = mountRyotClient(
-				{
-					invokeOperation: () =>
-						Effect.gen(function* () {
-							attempts++;
-							if (attempts === 1) {
-								if (failure === "transport") {
-									return yield* new RyotClientError("unsupported-capability");
-								}
-								return {
-									results: [
-										failure === "missing"
-											? { status: "notFound", entityId: "media-1" }
-											: {
-													ownedOn: null,
-													status: "found",
-													owned: failure === "unchanged",
-													entityId: failure === "mismatched" ? "other" : "media-1",
-												},
-									],
-								};
-							}
-							return {
-								results: [{ owned: false, ownedOn: null, status: "found", entityId: "media-1" }],
-							};
-						}),
-				},
-				<Header
-					owned
-					ownedOn="2024-03-04"
-					media={decodeFlatSummary(fixtureSummaryRecipe, { images: [] })}
-				/>,
+it.live("rolls an optimistic removal back visibly when the shell reports a failure", () =>
+	Effect.gen(function* () {
+		const background = createTestBackgroundSubmissions();
+		const mounted = mountRyotClient(
+			background.adapter,
+			<Header
+				owned
+				ownedOn="2024-03-04"
+				media={decodeFlatSummary(fixtureSummaryRecipe, { images: [] })}
+			/>,
+		);
+		try {
+			const control = getByRole(mounted.container, "button", { name: "Owned since Mar 4, 2024" });
+			clickRyotElement(control);
+			yield* Effect.promise(() => waitFor(() => expect(background.requests).toHaveLength(1)));
+			expect(control.getAttribute("aria-pressed")).toBe("false");
+			background.settle("submission-1", { status: "failed", reason: "transport" });
+			expect(control.getAttribute("aria-pressed")).toBe("true");
+			expect(control.textContent).toBe("Owned since Mar 4, 2024");
+			expect(getByRole(mounted.container, "alert").textContent).toBe(
+				"Unable to change ownership. Try again.",
 			);
-			try {
-				const control = getByRole(mounted.container, "button", { name: "Owned since Mar 4, 2024" });
-				clickRyotElement(control);
-				yield* Effect.promise(() =>
-					waitFor(() =>
-						expect(getByRole(mounted.container, "alert").textContent).toBe(
-							"Unable to change ownership. Try again.",
-						),
-					),
-				);
-				expect(control.getAttribute("aria-pressed")).toBe("true");
-				expect(control.hasAttribute("disabled")).toBe(false);
-				clickRyotElement(control);
-				yield* Effect.promise(() => waitFor(() => expect(attempts).toBe(2)));
-				yield* Effect.promise(() =>
-					waitFor(() => expect(queryByRole(mounted.container, "alert")).toBeNull()),
-				);
-			} finally {
-				mounted.unmount();
-			}
-		}),
-	);
-}
+			clickRyotElement(control);
+			yield* Effect.promise(() => waitFor(() => expect(background.requests).toHaveLength(2)));
+			expect(queryByRole(mounted.container, "alert")).toBeNull();
+		} finally {
+			mounted.unmount();
+		}
+	}),
+);

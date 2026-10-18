@@ -267,7 +267,11 @@ writes nothing twice. After a `saved` write of an entry with a source, it append
 to the settings list of the item's type (a show or podcast for episodes) unless a case-insensitive
 match exists or the list holds 30; status entries never do. A settings read or write failure is
 logged and never changes the result. It is protected in demo sessions. The header and the empty activity tab open
-the same Log activity sheet.
+the same Log activity sheet. The sheet, quick log button, episode quick mark, review composer, and
+ownership and monitoring toggles hand their writes to the kernel's background submissions: dialogs
+close once the kernel accepts, a finished completion opens the review composer instead, and the
+shell tray owns the outcome and Retry. Toggles show the requested state optimistically and roll back
+visibly when the settled outcome is a failure.
 
 ## Imports
 

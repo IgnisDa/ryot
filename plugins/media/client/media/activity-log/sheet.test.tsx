@@ -1,6 +1,7 @@
 import { afterEach, expect, it } from "@effect/vitest";
 import { RyotClientError } from "@ryot-app/plugin-client-sdk";
 import { DateTime, Effect } from "@ryot-app/plugin-client-sdk/effect";
+import { createTestBackgroundSubmissions } from "@ryot-app/plugin-client-sdk/testing";
 import {
 	fireEvent,
 	getByLabelText,
@@ -88,11 +89,7 @@ const releaseQuery = (release: Deferred.Deferred<void>) =>
 		act(() => Effect.runPromise(Deferred.succeed(release, undefined).pipe(Effect.asVoid))),
 	);
 
-type Request = { readonly slug: string; readonly packageId: string; readonly input: unknown };
-
 const watchEntities = () => ({ update: () => undefined, dispose: () => undefined });
-
-const SAVED = { count: 1, status: "saved" } as const;
 
 const mountLog = (options: {
 	readonly logger: MediaActivityLogger;
@@ -101,9 +98,13 @@ const mountLog = (options: {
 	readonly settings?: (read: number) => Record<string, unknown>;
 	readonly query?: (document: unknown) => Effect.Effect<unknown, RyotClientError> | undefined;
 	readonly refresh?: (document: unknown) => Effect.Effect<unknown, RyotClientError>;
-	readonly result?: (attempt: number) => Effect.Effect<unknown, RyotClientError>;
+	readonly accept?: (attempt: number) => Effect.Effect<string, RyotClientError>;
 }) => {
-	const requests: Request[] = [];
+	const background = createTestBackgroundSubmissions(
+		() =>
+			options.accept?.(background.requests.length) ??
+			Effect.succeed(`submission-${background.requests.length}`),
+	);
 	const queries: string[] = [];
 	let settingsReads = 0;
 	const answer = activityLogQuery({ target: contextTarget(), ...options.fake }, queries);
@@ -115,10 +116,7 @@ const mountLog = (options: {
 					settingsReads += 1;
 					return options.settings?.(settingsReads) ?? {};
 				}),
-			invokeOperation: (request) => {
-				requests.push(request);
-				return options.result?.(requests.length) ?? Effect.succeed(SAVED);
-			},
+			...background.adapter,
 			query: (document) => {
 				if (
 					options.refresh !== undefined &&
@@ -137,7 +135,14 @@ const mountLog = (options: {
 			compact={options.compact ?? true}
 		/>,
 	);
-	return { view, queries, requests, settingsReads: () => settingsReads };
+	return {
+		view,
+		queries,
+		requests: background.requests,
+		settingsReads: () => settingsReads,
+		saved: () =>
+			background.settle(`submission-${background.requests.length}`, { status: "succeeded" }),
+	};
 };
 
 const openLog = (mounted: ReturnType<typeof mountLog>) =>
@@ -163,10 +168,21 @@ const submitted = (mounted: ReturnType<typeof mountLog>, count = 1) =>
 
 const operation = (entry: unknown, submissionId: unknown = expect.any(String)) => ({
 	packageId: "ryot/media",
+	label: expect.any(String),
 	slug: "media-activity-log",
 	idempotencyKey: submissionId,
 	input: { entry, submissionId, submittedAt: SUBMITTED_AT },
 });
+
+const lastLabel = (mounted: ReturnType<typeof mountLog>) => mounted.requests.at(-1)?.label;
+
+const closedWith = (mounted: ReturnType<typeof mountLog>, label: string) =>
+	Effect.gen(function* () {
+		yield* eventually(() =>
+			expect(queryByRole(document.body, "dialog", { name: "Log activity" })).toBeNull(),
+		);
+		expect(lastLabel(mounted)).toBe(label);
+	});
 
 const intentLabels = (dialog: HTMLElement) =>
 	within(getByRole(dialog, "radiogroup", { name: "What happened" }))
@@ -261,7 +277,7 @@ it.live("records a finished movie just now with its source and time under more d
 					when: { kind: "now" },
 				}),
 			]);
-			yield* eventually(() => expect(getByText(dialog, "Heat marked as watched.")).toBeDefined());
+			yield* closedWith(mounted, "Heat marked as watched.");
 		} finally {
 			mounted.view.unmount();
 		}
@@ -324,7 +340,7 @@ it.live("suggests the user's list first, then history, without case-insensitive 
 	}),
 );
 
-it.live("refreshes the user's list after a successful log", () =>
+it.live("refreshes the user's list when the page refreshes after a log", () =>
 	Effect.gen(function* () {
 		const mounted = mountLog({
 			logger: movie,
@@ -339,9 +355,10 @@ it.live("refreshes the user's list after a successful log", () =>
 			const reads = mounted.settingsReads();
 			press(dialog, "Mark as watched");
 			yield* submitted(mounted);
+			press(getByRole(document.body, "dialog", { name: "Write review" }), "Cancel");
+			act(() => mounted.view.client.mutationCompleted.hint());
 			yield* Effect.promise(() => mounted.view.advance(250));
 			yield* eventually(() => expect(mounted.settingsReads()).toBeGreaterThan(reads));
-			press(dialog, "Done");
 			const reopened = yield* openLog(mounted);
 			yield* eventually(() => expect(getByText(reopened, "Criterion")).toBeDefined());
 		} finally {
@@ -450,24 +467,20 @@ it.live("records an unknown finish date", () =>
 			expect(mounted.requests).toEqual([
 				operation({ kind: "complete", entityId: "entity-1", when: { kind: "unknown" } }),
 			]);
-			yield* eventually(() =>
-				expect(getByText(dialog, "Heat marked as watched (date unknown).")).toBeDefined(),
-			);
+			yield* closedWith(mounted, "Heat marked as watched (date unknown).");
 		} finally {
 			mounted.view.unmount();
 		}
 	}),
 );
 
-it.live("closes the sheet and opens the review composer from a finished success", () =>
+it.live("hands a finished log over to the review composer once the shell accepts it", () =>
 	Effect.gen(function* () {
 		const mounted = mountLog({ logger: movie });
 		try {
 			const dialog = yield* openLog(mounted);
 			press(dialog, "Mark as watched");
-			yield* eventually(() => expect(getByText(dialog, "Heat marked as watched.")).toBeDefined());
-			press(dialog, "Write a review");
-			expect(queryByRole(document.body, "dialog", { name: "Log activity" })).toBeNull();
+			yield* closedWith(mounted, "Heat marked as watched.");
 			expect(getByRole(document.body, "dialog", { name: "Write review" })).toBeDefined();
 		} finally {
 			mounted.view.unmount();
@@ -485,7 +498,7 @@ it.live("records just started and an amount in either unit for flat progress", (
 			press(dialog, "Start reading");
 			yield* submitted(started);
 			expect(started.requests).toEqual([operation({ kind: "progress", entityId: "entity-1" })]);
-			yield* eventually(() => expect(getByText(dialog, "Marked as reading.")).toBeDefined());
+			yield* closedWith(started, "Marked as reading.");
 		} finally {
 			started.view.unmount();
 		}
@@ -589,9 +602,7 @@ it.live("records a positional progress step from the next position", () =>
 					consumedOn: "Crunchyroll",
 				}),
 			]);
-			yield* eventually(() =>
-				expect(getByText(dialog, "Now watched through episode 14.")).toBeDefined(),
-			);
+			yield* closedWith(mounted, "Now watched through episode 14.");
 		} finally {
 			mounted.view.unmount();
 		}
@@ -635,8 +646,8 @@ it.live("records a status without a source and keeps the progress note", () =>
 			expect(mounted.requests).toEqual([
 				operation({ kind: "status", status: "dropped", entityId: "entity-1" }),
 			]);
-			yield* eventually(() => expect(getByText(dialog, "Marked as dropped.")).toBeDefined());
-			expect(queryByText(dialog, "Write a review")).toBeNull();
+			yield* closedWith(mounted, "Marked as dropped.");
+			expect(queryByRole(document.body, "dialog", { name: "Write review" })).toBeNull();
 		} finally {
 			mounted.view.unmount();
 		}
@@ -721,10 +732,8 @@ it.live("marks the next-up show episode with its earlier unwatched episodes", ()
 					episodeEntityIds: ["s1e8", "s1e9", "s2e5"],
 				}),
 			]);
-			yield* eventually(() =>
-				expect(getByText(dialog, "3 episodes marked watched.")).toBeDefined(),
-			);
-			expect(queryByText(dialog, "Write a review")).toBeNull();
+			yield* closedWith(mounted, "3 episodes marked watched.");
+			expect(queryByRole(document.body, "dialog", { name: "Write review" })).toBeNull();
 		} finally {
 			mounted.view.unmount();
 		}
@@ -1220,64 +1229,32 @@ it.live("logs a podcast episode newest first with backfill and load more", () =>
 	}),
 );
 
-for (const failure of ["incomplete", "transport"] as const) {
-	it.live(`keeps the submission for a retry after ${failure}`, () =>
-		Effect.gen(function* () {
-			const mounted = mountLog({
-				logger: movie,
-				result: (attempt) => {
-					if (attempt > 1) {
-						return Effect.succeed(SAVED);
-					}
-					return failure === "incomplete"
-						? Effect.succeed({ count: 1, status: "incomplete" })
-						: Effect.fail(new RyotClientError("operation-failed"));
-				},
-			});
-			try {
-				const dialog = yield* openLog(mounted);
-				press(dialog, "Mark as watched");
-				yield* eventually(() =>
-					expect(getByRole(dialog, "alert").textContent).toContain("This may already be saved"),
-				);
-				expect(getByRole(dialog, "alert").textContent).toContain("does not undo anything");
-				expect(dialog.querySelector("fieldset")?.hasAttribute("disabled")).toBe(true);
-				expect(queryByRole(dialog, "button", { name: "Mark as watched" })).toBeNull();
-				press(dialog, "Retry");
-				yield* submitted(mounted, 2);
-				expect(mounted.requests[1]).toEqual(mounted.requests[0]);
-				yield* eventually(() => expect(getByText(dialog, "Heat marked as watched.")).toBeDefined());
-			} finally {
-				mounted.view.unmount();
-			}
-		}),
-	);
-}
-
-it.live("shows an operation rejection message without claiming the activity may be saved", () =>
+it.live("keeps the form open with its draft when the shell refuses the submission", () =>
 	Effect.gen(function* () {
 		const mounted = mountLog({
-			logger: movie,
-			result: () =>
-				Effect.fail(
-					new RyotClientError("operation-rejected", "This media type cannot be completed directly"),
-				),
+			logger: book,
+			fake: { target: contextTarget({ pages: 300 }) },
+			accept: (attempt) =>
+				attempt === 1
+					? Effect.fail(new RyotClientError("operation-failed"))
+					: Effect.succeed(`submission-${attempt}`),
 		});
 		try {
 			const dialog = yield* openLog(mounted);
-			press(dialog, "Mark as watched");
+			clickRyotElement(radio(dialog, "Status"));
+			clickRyotElement(radio(dialog, "Dropped"));
+			press(dialog, "Mark as dropped");
 			yield* eventually(() =>
-				expect(getByRole(dialog, "alert").textContent).toBe(
-					"This media type cannot be completed directly",
-				),
+				expect(getByRole(dialog, "alert").textContent).toBe("Couldn't start saving. Try again."),
 			);
-			expect(dialog.textContent).not.toContain("may already be saved");
-			expect(queryByRole(dialog, "button", { name: "Retry" })).toBeNull();
-			press(dialog, "Edit");
-			yield* eventually(() =>
-				expect(dialog.querySelector("fieldset")?.hasAttribute("disabled")).toBe(false),
+			expect(dialog.querySelector("fieldset")?.hasAttribute("disabled")).toBe(false);
+			press(dialog, "Mark as dropped");
+			yield* submitted(mounted, 2);
+			expect(mounted.requests[1]?.idempotencyKey).not.toBe(mounted.requests[0]?.idempotencyKey);
+			expect(mounted.requests[1]).toEqual(
+				operation({ kind: "status", status: "dropped", entityId: "entity-1" }),
 			);
-			expect(mounted.requests).toHaveLength(1);
+			yield* closedWith(mounted, "Marked as dropped.");
 		} finally {
 			mounted.view.unmount();
 		}
@@ -1368,33 +1345,37 @@ const activity = (state: { readonly status: "empty" } | { readonly status: "tran
 	<fixtureSchema.Activity compact state={state} entityId="entity-1" refresh={() => undefined} />
 );
 
-it.live("keeps the empty state's sheet open after its log replaces the empty state", () =>
-	Effect.gen(function* () {
-		const mounted = mountRyotClient(
-			{
-				watchEntities,
-				invokeOperation: () => Effect.succeed(SAVED),
-				query: activityLogQuery({ target: contextTarget() }),
-			},
-			activity({ status: "empty" }),
-		);
-		try {
-			yield* Effect.promise(() => mounted.setTime(NOW));
-			clickRyotElement(getByRole(mounted.container, "button", { name: "Log activity" }));
-			yield* eventually(() =>
-				expect(queryByRole(dialogOf(), "radiogroup", { name: "What happened" })).not.toBeNull(),
+it.live(
+	"hands the empty state's finished log to the review composer before the state is replaced",
+	() =>
+		Effect.gen(function* () {
+			const mounted = mountRyotClient(
+				{
+					watchEntities,
+					...createTestBackgroundSubmissions().adapter,
+					query: activityLogQuery({ target: contextTarget() }),
+				},
+				activity({ status: "empty" }),
 			);
-			clickRyotElement(getByRole(dialogOf(), "button", { name: /^Mark as / }));
-			yield* eventually(() =>
-				expect(getByRole(dialogOf(), "button", { name: "Done" })).toBeDefined(),
-			);
-			mounted.rerender(activity({ status: "transport-error" }));
-			press(dialogOf(), "Done");
-			yield* eventually(() => expect(queryByText(mounted.container, "No activity yet")).toBeNull());
-		} finally {
-			mounted.unmount();
-		}
-	}),
+			try {
+				yield* Effect.promise(() => mounted.setTime(NOW));
+				clickRyotElement(getByRole(mounted.container, "button", { name: "Log activity" }));
+				yield* eventually(() =>
+					expect(queryByRole(dialogOf(), "radiogroup", { name: "What happened" })).not.toBeNull(),
+				);
+				clickRyotElement(getByRole(dialogOf(), "button", { name: /^Mark as / }));
+				yield* eventually(() =>
+					expect(queryByRole(document.body, "dialog", { name: "Log activity" })).toBeNull(),
+				);
+				mounted.rerender(activity({ status: "transport-error" }));
+				press(getByRole(document.body, "dialog", { name: "Write review" }), "Cancel");
+				yield* eventually(() =>
+					expect(queryByText(mounted.container, "No activity yet")).toBeNull(),
+				);
+			} finally {
+				mounted.unmount();
+			}
+		}),
 );
 
 const manga: MediaActivityLogger = {
@@ -1465,9 +1446,7 @@ it.live("logs the next show episode in one click", () =>
 					episodeEntityIds: ["s2e5"],
 				}),
 			]);
-			yield* eventually(() =>
-				expect(getByText(mounted.view.container, "S2·E5 watched.")).toBeDefined(),
-			);
+			expect(lastLabel(mounted)).toBe("S2·E5 watched.");
 			expect(queryByRole(document.body, "dialog")).toBeNull();
 		} finally {
 			mounted.view.unmount();
@@ -1502,9 +1481,7 @@ it.live("logs the next podcast episode in one click", () =>
 					parentEntityId: "entity-1",
 				}),
 			]);
-			yield* eventually(() =>
-				expect(getByText(mounted.view.container, "Episode 72 listened.")).toBeDefined(),
-			);
+			expect(lastLabel(mounted)).toBe("Episode 72 listened.");
 		} finally {
 			mounted.view.unmount();
 		}
@@ -1539,7 +1516,7 @@ for (const [name, logger, target, label, text, position] of [
 				expect(mounted.requests).toEqual([
 					operation({ position, kind: "progress", entityId: "entity-1" }),
 				]);
-				yield* eventually(() => expect(getByText(mounted.view.container, text)).toBeDefined());
+				expect(lastLabel(mounted)).toBe(text);
 			} finally {
 				mounted.view.unmount();
 			}
@@ -1549,7 +1526,7 @@ for (const [name, logger, target, label, text, position] of [
 
 it.live("shows Saving while the quick action is in flight", () =>
 	Effect.gen(function* () {
-		const mounted = mountLog({ logger: show, fake: showFake(), result: () => Effect.never });
+		const mounted = mountLog({ logger: show, fake: showFake(), accept: () => Effect.never });
 		try {
 			yield* Effect.promise(() => mounted.view.setTime(NOW));
 			clickRyotElement(yield* quickButton(mounted, "Mark S2·E5 watched"));
@@ -1561,42 +1538,40 @@ it.live("shows Saving while the quick action is in flight", () =>
 	}),
 );
 
-for (const failure of ["incomplete", "transport"] as const) {
-	it.live(`retries the same quick submission after ${failure}`, () =>
-		Effect.gen(function* () {
-			const mounted = mountLog({
-				logger: show,
-				fake: showFake(),
-				result: (attempt) => {
-					if (attempt > 1) {
-						return Effect.succeed(SAVED);
-					}
-					return failure === "incomplete"
-						? Effect.succeed({ count: 1, status: "incomplete" })
-						: Effect.fail(new RyotClientError("operation-failed"));
-				},
-			});
-			try {
-				yield* Effect.promise(() => mounted.view.setTime(NOW));
-				clickRyotElement(yield* quickButton(mounted, "Mark S2·E5 watched"));
-				yield* eventually(() =>
-					expect(getByRole(mounted.view.container, "alert").textContent).toBe(
-						"Couldn't save. Try again.",
-					),
-				);
-				press(mounted.view.container, "Retry");
-				yield* submitted(mounted, 2);
-				expect(mounted.requests[1]).toEqual(mounted.requests[0]);
-				yield* eventually(() =>
-					expect(getByText(mounted.view.container, "S2·E5 watched.")).toBeDefined(),
-				);
-				expect(queryByRole(mounted.view.container, "alert")).toBeNull();
-			} finally {
-				mounted.view.unmount();
-			}
-		}),
-	);
-}
+it.live("shows a refused quick submission and lets the user try again", () =>
+	Effect.gen(function* () {
+		const mounted = mountLog({
+			logger: show,
+			fake: showFake(),
+			accept: (attempt) =>
+				attempt === 1
+					? Effect.fail(new RyotClientError("operation-failed"))
+					: Effect.succeed(`submission-${attempt}`),
+		});
+		try {
+			yield* Effect.promise(() => mounted.view.setTime(NOW));
+			clickRyotElement(yield* quickButton(mounted, "Mark S2·E5 watched"));
+			yield* eventually(() =>
+				expect(getByRole(mounted.view.container, "alert").textContent).toBe(
+					"Couldn't start saving. Try again.",
+				),
+			);
+			clickRyotElement(yield* quickButton(mounted, "Mark S2·E5 watched"));
+			yield* submitted(mounted, 2);
+			yield* eventually(() => expect(queryByRole(mounted.view.container, "alert")).toBeNull());
+			expect(mounted.requests[1]).toEqual(
+				operation({
+					kind: "episodes",
+					when: { kind: "now" },
+					parentEntityId: "entity-1",
+					episodeEntityIds: ["s2e5"],
+				}),
+			);
+		} finally {
+			mounted.view.unmount();
+		}
+	}),
+);
 
 const QUICK = "Mark S2·E5 watched";
 
@@ -1608,9 +1583,8 @@ const saveQuick = (mounted: ReturnType<typeof mountLog>) =>
 		yield* Effect.promise(() => mounted.view.setTime(NOW));
 		clickRyotElement(yield* quickButton(mounted, QUICK));
 		yield* submitted(mounted);
-		yield* eventually(() =>
-			expect(getByText(mounted.view.container, "S2·E5 watched.")).toBeDefined(),
-		);
+		expect(lastLabel(mounted)).toBe("S2·E5 watched.");
+		mounted.saved();
 	});
 
 const contextFetches = (mounted: ReturnType<typeof mountLog>) =>
@@ -1661,41 +1635,6 @@ it.live("re-enables the quick action when the context refresh fails", () =>
 			expect(quickDisabled(mounted)).toBe(true);
 			yield* Deferred.succeed(release, undefined);
 			yield* eventually(() => expect(quickDisabled(mounted)).toBe(false));
-		} finally {
-			mounted.view.unmount();
-		}
-	}),
-);
-
-it.live("keeps the retained error and Retry once the refreshed context has no quick target", () =>
-	Effect.gen(function* () {
-		const empty = activityLogQuery({ target: undefined });
-		const mounted = mountLog({
-			logger: show,
-			refresh: empty,
-			fake: showFake(),
-			result: (attempt) =>
-				attempt === 1 ? Effect.succeed({ count: 1, status: "incomplete" }) : Effect.succeed(SAVED),
-		});
-		try {
-			yield* Effect.promise(() => mounted.view.setTime(NOW));
-			clickRyotElement(yield* quickButton(mounted, QUICK));
-			yield* eventually(() =>
-				expect(getByRole(mounted.view.container, "alert").textContent).toBe(
-					"Couldn't save. Try again.",
-				),
-			);
-			yield* Effect.promise(() => mounted.view.advance(250));
-			yield* eventually(() => expect(contextFetches(mounted)).toBe(2));
-			yield* eventually(() =>
-				expect(queryByRole(mounted.view.container, "button", { name: QUICK })).toBeNull(),
-			);
-			expect(getByRole(mounted.view.container, "alert").textContent).toBe(
-				"Couldn't save. Try again.",
-			);
-			press(mounted.view.container, "Retry");
-			yield* submitted(mounted, 2);
-			yield* eventually(() => expect(queryByRole(mounted.view.container, "alert")).toBeNull());
 		} finally {
 			mounted.view.unmount();
 		}

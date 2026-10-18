@@ -1,62 +1,67 @@
-import { RyotClientError } from "@ryot-app/plugin-client-sdk";
-import { Effect } from "@ryot-app/plugin-client-sdk/effect";
-import { createRyotMutation, useRyotMutation } from "@ryot-app/plugin-client-sdk/react";
+import {
+	createRyotBackgroundSubmission,
+	useBackgroundSubmission,
+} from "@ryot-app/plugin-client-sdk/react";
 import { ChipButton } from "@ryot-app/plugin-ui-sdk";
 import { AppIcon } from "@ryot-app/plugin-ui-sdk/icon";
+import { useState } from "react";
 
 import {
 	MediaMonitoringDisableInput,
 	MediaMonitoringEnableInput,
-	MediaMonitoringOutput,
 } from "../../shared/media-monitoring-operations";
 import { PLUGIN_PACKAGE_ID } from "../../shared/plugin-identity";
 
-const toggleMonitoring = createRyotMutation<
-	{ readonly entityId: string; readonly monitored: boolean },
-	void
->(({ client, input: { entityId, monitored } }) =>
-	Effect.gen(function* () {
-		const { results } = yield* client.operations.invoke({
-			packageId: PLUGIN_PACKAGE_ID,
-			output: MediaMonitoringOutput,
-			input: { entityIds: [entityId] },
-			slug: monitored ? "media-monitoring-enable" : "media-monitoring-disable",
-			inputSchema: monitored ? MediaMonitoringEnableInput : MediaMonitoringDisableInput,
-		});
-		const result = results[0];
-		if (
-			results.length !== 1 ||
-			result?.entityId !== entityId ||
-			result.status !== "found" ||
-			result.isMediaMonitored !== monitored
-		) {
-			return yield* new RyotClientError("malformed-result");
-		}
-		return undefined;
-	}),
-);
+type MonitoringTarget = { readonly entityId: string };
+
+const enableMonitoring = createRyotBackgroundSubmission({
+	packageId: PLUGIN_PACKAGE_ID,
+	slug: "media-monitoring-enable",
+	label: () => "Started monitoring",
+	inputSchema: MediaMonitoringEnableInput,
+	input: ({ input }: { readonly input: MonitoringTarget }) => ({ entityIds: [input.entityId] }),
+});
+
+const disableMonitoring = createRyotBackgroundSubmission({
+	packageId: PLUGIN_PACKAGE_ID,
+	slug: "media-monitoring-disable",
+	label: () => "Stopped monitoring",
+	inputSchema: MediaMonitoringDisableInput,
+	input: ({ input }: { readonly input: MonitoringTarget }) => ({ entityIds: [input.entityId] }),
+});
 
 export function MediaMonitoringControl(props: {
 	readonly entityId: string;
 	readonly monitored: boolean;
 }) {
-	const mutation = useRyotMutation(toggleMonitoring);
+	const enable = useBackgroundSubmission(enableMonitoring);
+	const disable = useBackgroundSubmission(disableMonitoring);
+	const [optimistic, setOptimistic] = useState<boolean | null>(null);
+	const latest = optimistic === false ? disable : enable;
+	const rolledBack = latest.last?.status === "failed" || latest.error !== null;
+	if (optimistic !== null && optimistic === props.monitored) {
+		setOptimistic(null);
+	}
+	const monitored = optimistic === null || rolledBack ? props.monitored : optimistic;
 	return (
 		<>
 			<ChipButton
-				pressed={props.monitored}
-				disabled={mutation.isPending}
+				pressed={monitored}
 				title="Keep provider details up to date"
 				icon={<AppIcon size={13} name="refresh-cw" />}
-				onClick={() => mutation.mutate({ entityId: props.entityId, monitored: !props.monitored })}
+				disabled={enable.isSending || disable.isSending}
+				onClick={() => {
+					setOptimistic(!monitored);
+					(monitored ? disable : enable).submit({ entityId: props.entityId });
+				}}
 			>
-				{props.monitored ? "Monitoring" : "Monitor"}
+				{monitored ? "Monitoring" : "Monitor"}
 			</ChipButton>
-			{mutation.error === null ? null : (
+			{optimistic !== null && rolledBack ? (
 				<span role="alert" className="text-xs text-danger">
 					Unable to change monitoring. Try again.
 				</span>
-			)}
+			) : null}
 		</>
 	);
 }

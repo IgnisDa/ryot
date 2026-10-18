@@ -1,7 +1,8 @@
 import { afterEach, describe, expect, it } from "@effect/vitest";
 import { RyotClientError } from "@ryot-app/plugin-client-sdk";
 import { DateTime, Effect } from "@ryot-app/plugin-client-sdk/effect";
-import { getByRole, getByText, queryByRole, waitFor } from "@testing-library/dom";
+import { createTestBackgroundSubmissions } from "@ryot-app/plugin-client-sdk/testing";
+import { getByRole, queryByRole, waitFor } from "@testing-library/dom";
 import { Deferred } from "effect";
 
 import {
@@ -160,8 +161,6 @@ describe("episode details", () => {
 
 const NOW = DateTime.toEpochMillis(localDateTime({ day: 20, hour: 9, month: 10, year: 2026 }));
 
-type Operation = { readonly slug: string; readonly input: unknown };
-
 const mountDetails = (options: {
 	readonly state?: string;
 	readonly publishDate?: string | null;
@@ -169,9 +168,13 @@ const mountDetails = (options: {
 		answer: Effect.Effect<unknown, RyotClientError>,
 	) => Effect.Effect<unknown, RyotClientError>;
 	readonly podcast?: Parameters<typeof activityLogQuery>[0]["podcast"];
-	readonly result?: (attempt: number) => Effect.Effect<unknown, RyotClientError>;
+	readonly accept?: (attempt: number) => Effect.Effect<string, RyotClientError>;
 }) => {
-	const requests: Operation[] = [];
+	const background = createTestBackgroundSubmissions(
+		() =>
+			options.accept?.(background.requests.length) ??
+			Effect.succeed(`submission-${background.requests.length}`),
+	);
 	const contexts: number[] = [];
 	const logQuery = activityLogQuery({
 		podcast: options.podcast ?? [],
@@ -187,10 +190,7 @@ const mountDetails = (options: {
 	const view = mountRyotClient(
 		{
 			watchEntities: () => ({ update: () => undefined, dispose: () => undefined }),
-			invokeOperation: (request) => {
-				requests.push(request);
-				return options.result?.(requests.length) ?? Effect.succeed({ count: 1, status: "saved" });
-			},
+			...background.adapter,
 			query: (document) => {
 				if (JSON.stringify(document).includes("fixtureEpisode")) {
 					return Effect.succeed(
@@ -225,7 +225,13 @@ const mountDetails = (options: {
 			query={episodicFixtureEpisodesQuery}
 		/>,
 	);
-	return { view, requests, contexts };
+	return {
+		view,
+		contexts,
+		requests: background.requests,
+		saved: () =>
+			background.settle(`submission-${background.requests.length}`, { status: "succeeded" }),
+	};
 };
 
 const openDetails = (mounted: ReturnType<typeof mountDetails>) =>
@@ -248,6 +254,7 @@ describe("episode details actions", () => {
 			yield* Effect.promise(() => waitFor(() => expect(mounted.requests).toHaveLength(1)));
 			expect(mounted.requests[0]).toMatchObject({
 				slug: "media-activity-log",
+				label: "Marked The Arrival listened.",
 				input: {
 					entry: {
 						kind: "episodes",
@@ -257,9 +264,6 @@ describe("episode details actions", () => {
 					},
 				},
 			});
-			yield* Effect.promise(() =>
-				waitFor(() => expect(getByText(dialog, "Marked listened.")).toBeDefined()),
-			);
 			mounted.view.unmount();
 		}),
 	);
@@ -282,10 +286,9 @@ describe("episode details actions", () => {
 				const dialog = yield* openDetails(mounted);
 				const mark = () => getByRole(dialog, "button", { name: "Mark listened" });
 				clickRyotElement(mark());
-				yield* Effect.promise(() =>
-					waitFor(() => expect(getByText(dialog, "Marked listened.")).toBeDefined()),
-				);
+				yield* Effect.promise(() => waitFor(() => expect(mounted.requests).toHaveLength(1)));
 				expect(mark().hasAttribute("disabled")).toBe(true);
+				mounted.saved();
 				yield* Effect.promise(() => mounted.view.advance(250));
 				yield* Effect.promise(() => waitFor(() => expect(mounted.contexts).toHaveLength(2)));
 				clickRyotElement(mark());
@@ -300,27 +303,25 @@ describe("episode details actions", () => {
 		);
 	}
 
-	it.live("retries the same submission after a failure", () =>
+	it.live("shows a refused mark and lets the user try again", () =>
 		Effect.gen(function* () {
 			const mounted = mountDetails({
-				result: (attempt) =>
+				accept: (attempt) =>
 					attempt === 1
 						? Effect.fail(new RyotClientError("operation-failed"))
-						: Effect.succeed({ count: 1, status: "saved" }),
+						: Effect.succeed(`submission-${attempt}`),
 			});
 			const dialog = yield* openDetails(mounted);
 			clickRyotElement(getByRole(dialog, "button", { name: "Mark listened" }));
 			yield* Effect.promise(() =>
 				waitFor(() =>
-					expect(getByRole(dialog, "alert").textContent).toBe("Couldn't save. Try again."),
+					expect(getByRole(dialog, "alert").textContent).toBe("Couldn't start saving. Try again."),
 				),
 			);
-			clickRyotElement(getByRole(dialog, "button", { name: "Retry" }));
+			clickRyotElement(getByRole(dialog, "button", { name: "Mark listened" }));
 			yield* Effect.promise(() => waitFor(() => expect(mounted.requests).toHaveLength(2)));
-			expect(mounted.requests[1]).toEqual(mounted.requests[0]);
-			yield* Effect.promise(() =>
-				waitFor(() => expect(getByText(dialog, "Marked listened.")).toBeDefined()),
-			);
+			expect(mounted.requests[1]?.idempotencyKey).not.toBe(mounted.requests[0]?.idempotencyKey);
+			yield* Effect.promise(() => waitFor(() => expect(queryByRole(dialog, "alert")).toBeNull()));
 			mounted.view.unmount();
 		}),
 	);

@@ -2,13 +2,14 @@ import { afterEach, describe, expect, it } from "@effect/vitest";
 import { RyotClientError } from "@ryot-app/plugin-client-sdk";
 import { Effect } from "@ryot-app/plugin-client-sdk/effect";
 import { useRyotQuery } from "@ryot-app/plugin-client-sdk/react";
+import { createTestBackgroundSubmissions } from "@ryot-app/plugin-client-sdk/testing";
 import { getByRole, getByText, waitFor } from "@testing-library/dom";
 import { Deferred } from "effect";
 
 import { activityLogQuery, contextTarget } from "../../../tests/client/activity-log/fixtures";
 import { clickRyotElement, mountRyotClient } from "../../../tests/client/test-support";
 import { activityLogContextQuery } from "./queries";
-import { useQuickLog } from "./submission-feedback";
+import { useQuickLog } from "./quick-log";
 
 function Probe() {
 	const quick = useQuickLog("entity-1");
@@ -23,7 +24,10 @@ function Probe() {
 				type="button"
 				disabled={quick.locked}
 				onClick={() =>
-					quick.log.submit({ kind: "status", status: "dropped", entityId: "entity-1" })
+					quick.log.submit({
+						label: "Marked as dropped.",
+						entry: { kind: "status", status: "dropped", entityId: "entity-1" },
+					})
 				}
 			>
 				Log
@@ -37,15 +41,12 @@ const named = (name: string) => activityLogQuery({ target: contextTarget({ name 
 const mountProbe = (
 	answers: readonly ((document: unknown) => Effect.Effect<unknown, RyotClientError>)[],
 ) => {
-	const requests: unknown[] = [];
+	const background = createTestBackgroundSubmissions();
 	let contexts = 0;
 	const view = mountRyotClient(
 		{
+			...background.adapter,
 			watchEntities: () => ({ update: () => undefined, dispose: () => undefined }),
-			invokeOperation: (request) => {
-				requests.push(request);
-				return Effect.succeed({ count: 1, status: "saved" });
-			},
 			query: (document) => {
 				const answer = answers[contexts] ?? answers[answers.length - 1];
 				contexts += 1;
@@ -55,7 +56,12 @@ const mountProbe = (
 		<Probe />,
 	);
 	const log = () => getByRole(view.container, "button", { name: "Log" });
-	return { log, view, requests };
+	return {
+		log,
+		view,
+		requests: background.requests,
+		saved: () => background.settle("submission-1", { status: "succeeded" }),
+	};
 };
 
 let unmount: (() => void) | undefined;
@@ -85,6 +91,7 @@ describe("useQuickLog", () => {
 			yield* Effect.promise(() =>
 				waitFor(() => expect(mounted.log().hasAttribute("disabled")).toBe(true)),
 			);
+			mounted.saved();
 			yield* Deferred.succeed(stale, undefined);
 			expect(mounted.log().hasAttribute("disabled")).toBe(true);
 			yield* Deferred.succeed(fresh, undefined);
@@ -124,6 +131,7 @@ describe("useQuickLog", () => {
 				yield* Effect.promise(() =>
 					waitFor(() => expect(mounted.log().hasAttribute("disabled")).toBe(true)),
 				);
+				mounted.saved();
 				yield* Deferred.succeed(release, undefined);
 				yield* Effect.promise(() =>
 					waitFor(() => {
