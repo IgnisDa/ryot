@@ -268,7 +268,13 @@ describe("anime.anilist sandbox script", () => {
 		return Effect.runPromise(
 			runSandboxTestScript(
 				translate,
-				{ externalId: "1", language: "ja-latn", entitySchemaSlug: "anime" },
+				{
+					name: "Anime",
+					properties: {},
+					externalId: "1",
+					language: "ja-latn",
+					entitySchemaSlug: "anime",
+				},
 				host,
 				execution,
 			).pipe(
@@ -276,7 +282,13 @@ describe("anime.anilist sandbox script", () => {
 					expect(result).toEqual({ name: "Romaji" });
 					return runSandboxTestScript(
 						translate,
-						{ language: "fr", externalId: "1", entitySchemaSlug: "anime" },
+						{
+							name: "Anime",
+							language: "fr",
+							properties: {},
+							externalId: "1",
+							entitySchemaSlug: "anime",
+						},
 						host,
 						execution,
 					);

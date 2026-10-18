@@ -209,6 +209,7 @@ for (const scope of ["system", "user"] as const) {
 							"resolve",
 						);
 						expect(recorded).toHaveLength(3);
+						expect(recorded[0]?.input).toEqual({ level: "base", externalId: "remote-record" });
 						for (const [index, slug] of [
 							"retained.details",
 							"custom.related-v1",

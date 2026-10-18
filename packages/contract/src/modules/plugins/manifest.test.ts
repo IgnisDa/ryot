@@ -261,6 +261,59 @@ const editorRelationship = (slug: string, sourceEntitySchemaSlug: string | null)
 });
 
 describe("definePlugin", () => {
+	it("accepts explicit root and child translation selections from the same plugin", () => {
+		const translated = {
+			...emptySandboxExecutionMetadata,
+			kind: "provider",
+			name: "Translate",
+			providerSlug: "provider.test",
+			providerOperation: "translate",
+			slug: "provider.test.translate",
+			entry: "scripts/translate.sandbox.ts",
+			translationInputs: { "entity.test": [], "entity.child": ["parentExternalId"] },
+		};
+		const candidate = {
+			...manifest,
+			scripts: [...manifest.scripts, translated],
+			entitySchemas: [
+				...manifest.entitySchemas,
+				{
+					icon: "box",
+					name: "Child",
+					eventSchemas: [],
+					slug: "entity.child",
+					propertiesSchema: {
+						fields: {
+							parentExternalId: { type: "string", label: "Parent", description: "Parent ID" },
+						},
+					},
+				},
+			],
+		};
+		expect(Schema.decodeUnknownSync(PluginManifest)(candidate).scripts.at(-1)).toMatchObject({
+			translationInputs: translated.translationInputs,
+		});
+		for (const translationInputs of [
+			{ "foreign.entity": [] },
+			{ "entity.child": ["undeclared"] },
+			{ "entity.child": ["parentExternalId", "parentExternalId"] },
+			{},
+		]) {
+			expect(
+				Schema.decodeUnknownResult(PluginManifest)({
+					...candidate,
+					scripts: [...manifest.scripts, { ...translated, translationInputs }],
+				}),
+			).toSatisfy(Result.isFailure);
+		}
+		expect(
+			Schema.decodeUnknownResult(PluginManifest)({
+				...candidate,
+				scripts: [...manifest.scripts, { ...translated, providerOperation: "resolve" }],
+			}),
+		).toSatisfy(Result.isFailure);
+	});
+
 	it("accepts after hooks on plugin-owned collection reviews and membership", () => {
 		const decoded = Schema.decodeUnknownSync(PluginManifest)({
 			...manifest,

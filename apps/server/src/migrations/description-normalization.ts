@@ -151,7 +151,11 @@ const normalizeDescriptions = Effect.fn("normalizeDescriptions")(function* (
 		const updated = yield* connection
 			.execute(
 				`UPDATE "entity" entity
-			SET "properties" = jsonb_set(entity."properties", '{description}', COALESCE(to_jsonb(patch.description), 'null'::jsonb))
+			SET "content_generation" = entity."content_generation" + CASE
+					WHEN entity."properties" -> 'description' IS DISTINCT FROM COALESCE(to_jsonb(patch.description), 'null'::jsonb) THEN 1
+					ELSE 0
+				END,
+				"properties" = jsonb_set(entity."properties", '{description}', COALESCE(to_jsonb(patch.description), 'null'::jsonb))
 			FROM jsonb_to_recordset($1::jsonb) AS patch("entityId" text, description text)
 			WHERE entity.id = patch."entityId" AND entity."properties" ? 'description'
 			RETURNING entity.id`,

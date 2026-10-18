@@ -16,6 +16,8 @@ describe("createSettleTracker", () => {
 				yield* advanceRyotSchedule(600);
 				tracker.stage({ entityId: "a", reason: "projection-updated" });
 				tracker.stage({ entityId: "b", reason: "projection-updated" });
+				tracker.stage({ entityId: "a", reason: "enrichment-updated" });
+				tracker.stage({ entityId: "c", reason: "enrichment-updated" });
 				tracker.commit();
 				expect([...tracker.snapshot()]).toEqual([["a", "populating"]]);
 				yield* advanceRyotSchedule(300);

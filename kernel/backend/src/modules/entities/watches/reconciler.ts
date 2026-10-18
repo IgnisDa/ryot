@@ -2,12 +2,11 @@ import type { EntityUpdatedReason } from "@ryot-app/contract/modules/entity-watc
 import type { AccountGeneration } from "@ryot-app/contract/schema/account-generation";
 import type { EntityId, SandboxProviderId, UserId } from "@ryot-app/contract/schema/brands";
 import { entityWatchRecipe, type EntityWatchResult } from "@ryot-app/ryotql-recipes/entities";
-import { Clock, Context, DateTime, Effect, Layer, Result } from "effect";
+import { Context, Effect, Layer, Result } from "effect";
 
 import { TranslationsService } from "#modules/entities/localization/service";
 import {
 	EntityPopulationTrigger,
-	POPULATION_UPGRADE_BUCKET_MILLISECONDS,
 	type PopulationExecution,
 	userPopulationRequest,
 } from "#modules/entities/population-trigger";
@@ -62,7 +61,11 @@ export class InterestReconciler extends Context.Service<InterestReconciler>()(
 					const { externalId, providerId } = row;
 					if (externalId !== null && providerId !== null) {
 						const provided = { ...row, externalId, providerId };
-						if (row.populationStatus === "pending") {
+						if (
+							(row.populationStatus.availability === "missing" ||
+								row.populationStatus.availability === "partial") &&
+							row.populationStatus.state === "idle"
+						) {
 							yield* requestPopulation(principal, provided, {
 								level: priority === "foreground" ? "full" : "base",
 							});
@@ -71,24 +74,26 @@ export class InterestReconciler extends Context.Service<InterestReconciler>()(
 						if (
 							priority === "foreground" &&
 							row.populatedAt !== null &&
-							row.relatedPopulationStatus === "pending"
+							(row.relatedPopulationStatus.availability === "missing" ||
+								row.relatedPopulationStatus.availability === "partial") &&
+							row.relatedPopulationStatus.state === "idle"
 						) {
-							const now = yield* Clock.currentTimeMillis;
-							yield* requestPopulation(principal, provided, {
-								level: "full",
-								upgrade: {
-									hourBucket: Math.floor(now / POPULATION_UPGRADE_BUCKET_MILLISECONDS),
-									populatedAtMs: DateTime.toEpochMillis(DateTime.makeUnsafe(row.populatedAt)),
-								},
-							});
+							yield* requestPopulation(principal, provided, { level: "full" });
 						}
 					}
 
-					if (row.populationStatus === "failed") {
-						return { entityId: row.id, reason: "population-failed" } satisfies TerminalUpdate;
+					if (
+						row.populationStatus.state === "failed" ||
+						row.relatedPopulationStatus.state === "failed" ||
+						row.translationStatus.state === "failed"
+					) {
+						return { entityId: row.id, reason: "enrichment-updated" } satisfies TerminalUpdate;
 					}
 
-					if (row.translationStatus === "pending") {
+					if (
+						row.translationStatus.availability === "missing" &&
+						row.translationStatus.state === "idle"
+					) {
 						if (
 							principal.preferredLanguage !== null &&
 							row.externalId !== null &&
@@ -100,7 +105,6 @@ export class InterestReconciler extends Context.Service<InterestReconciler>()(
 									lane: "interactive",
 									userId: principal.userId,
 									externalId: row.externalId,
-									properties: row.properties,
 									providerId: row.providerId,
 									language: principal.preferredLanguage,
 									entitySchemaSlug: row.entitySchemaSlug,
@@ -120,7 +124,10 @@ export class InterestReconciler extends Context.Service<InterestReconciler>()(
 
 					return {
 						entityId: row.id,
-						reason: row.translationStatus === "ready" ? "translated" : "populated",
+						reason:
+							row.translationStatus.availability === "complete"
+								? "translated"
+								: "enrichment-updated",
 					} satisfies TerminalUpdate;
 				});
 

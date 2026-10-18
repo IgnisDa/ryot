@@ -6,7 +6,6 @@ import {
 	EventId,
 	EventSchemaSlug,
 	SandboxProviderId,
-	SandboxScriptId,
 	UserId,
 } from "@ryot-app/contract/schema/brands";
 import { eq, inArray } from "drizzle-orm";
@@ -72,64 +71,6 @@ const recordingLayer = <A>(
 	);
 
 const recordedEntries = Effect.flatMap(RecordedQueries, (recorded) => recorded.entries);
-
-const providerId = SandboxProviderId.make("provider-1");
-const detailsScriptId = SandboxScriptId.make("details-script-1");
-
-layer(
-	repositoryWithDatabase(
-		{},
-		makePluginRuntime({
-			findSchemaProviderByReference: () =>
-				Effect.succeed({
-					entitySchemaSlug: EntitySchemaSlug.make("person"),
-					provider: {
-						id: providerId,
-						name: "Fixture",
-						pluginId: "fixture",
-						createdAt: new Date(0),
-						updatedAt: new Date(0),
-						slug: "fixture-provider",
-						rootEntitySchemaSlug: "person",
-						information: { source: "fixture" },
-					},
-				}),
-			findDetailsScript: () =>
-				Effect.succeed({
-					providerId,
-					name: "Details",
-					source: "source",
-					compiledFormat: 1,
-					id: detailsScriptId,
-					optionsSchema: null,
-					pluginId: "fixture",
-					pluginRevisionId: null,
-					createdAt: new Date(0),
-					updatedAt: new Date(0),
-					slug: "fixture.details",
-					compiledCode: "compiled",
-					contentHash: "details-hash",
-					metadata: { runtimeImports: [], kind: "provider" as const },
-				}),
-		}),
-	),
-)((test) => {
-	test.effect("resolves provider identity and its active details executable", () =>
-		Effect.gen(function* () {
-			const repository = yield* EntitiesRepository;
-			const resolved = yield* repository.findEntitySchemaProviderByReference({
-				slug: "fixture-provider",
-				owner: definitionOwner("fixture"),
-			});
-
-			expect(resolved).toEqual({
-				providerId,
-				detailsScriptId,
-				entitySchemaSlug: EntitySchemaSlug.make("person"),
-			});
-		}),
-	);
-});
 
 const dialect = new PgDialect();
 type Statement = Parameters<typeof dialect.sqlToQuery>[0];
@@ -361,6 +302,53 @@ const eventStreamRepositoriesLayer = Layer.mergeAll(
 ).pipe(Layer.provideMerge(isolatedDatabaseLayer("entities_repository_stream_invalidation")));
 
 layer(eventStreamRepositoriesLayer)((test) => {
+	test.effect("increments content generation only for canonical name or property changes", () =>
+		Effect.gen(function* () {
+			const session = yield* DatabaseSession;
+			const repository = yield* EntitiesRepository;
+			const entityId = EntityId.make("content-generation-entity");
+			yield* repository.insertEntities([
+				{
+					id: entityId,
+					scope: "global",
+					name: "Original",
+					populatedAt: null,
+					properties: { a: 1, b: 2 },
+					entitySchemaPluginId: null,
+					entitySchemaSlug: EntitySchemaSlug.make("record"),
+				},
+			]);
+			const generation = session
+				.run((db) =>
+					db
+						.select({ value: tables.entity.contentGeneration })
+						.from(tables.entity)
+						.where(eq(tables.entity.id, entityId)),
+				)
+				.pipe(Effect.map(([row]) => row?.value));
+			const update = (
+				name: string,
+				properties: Record<string, unknown>,
+				populatedAt: Date | null = null,
+			) =>
+				session.transaction(repository.updateEntity({ name, entityId, properties, populatedAt }));
+			expect(yield* generation).toBe(1);
+			yield* update("Renamed", { a: 1, b: 2 });
+			expect(yield* generation).toBe(2);
+			yield* update("Renamed", { a: 1, b: 3 });
+			expect(yield* generation).toBe(3);
+			yield* update("Renamed", { b: 3, a: 1 });
+			expect(yield* generation).toBe(3);
+			const populatedAt = DateTime.toDateUtc(DateTime.makeUnsafe("2026-10-01T00:00:00.000Z"));
+			yield* update("Renamed", { a: 1, b: 3 }, populatedAt);
+			yield* session.transaction(repository.stampRelatedPopulated(entityId, populatedAt));
+			expect(yield* generation).toBe(3);
+			yield* update("Renamed", { a: 1, b: 3 });
+			yield* session.transaction(repository.stampChildRelatedPopulated([entityId]));
+			expect(yield* generation).toBe(3);
+		}),
+	);
+
 	test.effect("invalidates event streams only after entity stream data changes", () =>
 		Effect.gen(function* () {
 			const session = yield* DatabaseSession;
@@ -666,26 +654,19 @@ layer(eventStreamRepositoriesLayer)((test) => {
 		}),
 	);
 
-	test.effect("clears related failures on the related stamp and stamps children once", () =>
+	test.effect("stamps related population without changing content generation", () =>
 		Effect.gen(function* () {
 			const session = yield* DatabaseSession;
 			const repository = yield* EntitiesRepository;
 			const populatedAt = DateTime.toDateUtc(DateTime.makeUnsafe("2026-10-01T00:00:00.000Z"));
 			const earlier = DateTime.toDateUtc(DateTime.makeUnsafe("2026-09-01T00:00:00.000Z"));
-			const root = EntityId.make("related-failed-root");
+			const root = EntityId.make("related-root");
 			const child = EntityId.make("related-child");
 			const stampedChild = EntityId.make("related-stamped-child");
 			const unpopulatedChild = EntityId.make("related-unpopulated-child");
 			yield* session.run((db) =>
 				db.insert(tables.entity).values([
-					{
-						id: root,
-						populatedAt,
-						name: "Root",
-						entitySchemaSlug: "record",
-						relatedPopulationFailedAt: populatedAt,
-						relatedPopulationFailure: "invalid-output",
-					},
+					{ id: root, populatedAt, name: "Root", entitySchemaSlug: "record" },
 					{ id: child, populatedAt, name: "Child", entitySchemaSlug: "record" },
 					{
 						populatedAt,
@@ -704,27 +685,115 @@ layer(eventStreamRepositoriesLayer)((test) => {
 					repository.stampChildRelatedPopulated([child, stampedChild, child, unpopulatedChild]),
 				]),
 			);
+			yield* session.transaction(repository.stampRelatedPopulated(root, earlier));
+			yield* session.transaction(repository.invalidateRelatedPopulated(root, earlier, "older"));
 
 			const rows = yield* session.run((db) =>
 				db
 					.select({
 						id: tables.entity.id,
+						contentGeneration: tables.entity.contentGeneration,
 						relatedPopulatedAt: tables.entity.relatedPopulatedAt,
-						relatedPopulationFailure: tables.entity.relatedPopulationFailure,
-						relatedPopulationFailedAt: tables.entity.relatedPopulationFailedAt,
 					})
 					.from(tables.entity)
 					.where(inArray(tables.entity.id, [root, child, stampedChild, unpopulatedChild])),
 			);
 			const byId = new Map(rows.map((row) => [row.id, row]));
-			expect(byId.get(root)).toMatchObject({
-				relatedPopulationFailure: null,
-				relatedPopulatedAt: populatedAt,
-				relatedPopulationFailedAt: null,
-			});
+			expect(byId.get(root)).toMatchObject({ relatedPopulatedAt: populatedAt });
+			expect(rows.map(({ contentGeneration }) => contentGeneration)).toEqual([1, 1, 1, 1]);
 			expect(byId.get(child)?.relatedPopulatedAt).toEqual(populatedAt);
 			expect(byId.get(stampedChild)?.relatedPopulatedAt).toEqual(earlier);
 			expect(byId.get(unpopulatedChild)?.relatedPopulatedAt).toBeNull();
+			yield* session.transaction(
+				repository.invalidateRelatedPopulated(root, populatedAt, "current"),
+			);
+			const [invalidated] = yield* session.run((db) =>
+				db
+					.select({
+						contentGeneration: tables.entity.contentGeneration,
+						relatedPopulatedAt: tables.entity.relatedPopulatedAt,
+					})
+					.from(tables.entity)
+					.where(eq(tables.entity.id, root)),
+			);
+			expect(invalidated).toEqual({ contentGeneration: 1, relatedPopulatedAt: null });
 		}),
+	);
+
+	test.effect(
+		"requires the current full-population generation and rejects older claims even while incomplete",
+		() =>
+			Effect.gen(function* () {
+				const session = yield* DatabaseSession;
+				const repository = yield* EntitiesRepository;
+				const entityId = EntityId.make("related-generation-root");
+				const earlier = DateTime.toDateUtc(DateTime.makeUnsafe("2026-10-01T00:00:00.000Z"));
+				const later = DateTime.toDateUtc(DateTime.makeUnsafe("2026-10-02T00:00:00.000Z"));
+				yield* session.run((db) =>
+					db
+						.insert(tables.entity)
+						.values({
+							id: entityId,
+							name: "Root",
+							populatedAt: earlier,
+							entitySchemaSlug: "record",
+						}),
+				);
+				const holds = (generation: string) =>
+					session.transaction(repository.holdsRelatedPopulationGeneration(entityId, generation));
+				const read = session
+					.run((db) =>
+						db
+							.select({
+								contentGeneration: tables.entity.contentGeneration,
+								startedAt: tables.entity.relatedPopulationStartedAt,
+								relatedPopulatedAt: tables.entity.relatedPopulatedAt,
+								generation: tables.entity.relatedPopulationGeneration,
+							})
+							.from(tables.entity)
+							.where(eq(tables.entity.id, entityId)),
+					)
+					.pipe(Effect.map(([row]) => row));
+				expect(yield* holds("unclaimed")).toBe(false);
+				yield* session.transaction(
+					repository.invalidateRelatedPopulated(entityId, earlier, "first"),
+				);
+				expect(yield* holds("first")).toBe(true);
+				yield* session.transaction(
+					repository.invalidateRelatedPopulated(entityId, later, "second"),
+				);
+				yield* session.transaction(
+					repository.invalidateRelatedPopulated(entityId, earlier, "first"),
+				);
+				expect(yield* holds("first")).toBe(false);
+				expect(yield* holds("second")).toBe(true);
+				expect(yield* read).toEqual({
+					startedAt: later,
+					generation: "second",
+					contentGeneration: 1,
+					relatedPopulatedAt: null,
+				});
+				yield* session.transaction(repository.stampRelatedPopulated(entityId, later));
+				yield* session.transaction(
+					repository.invalidateRelatedPopulated(entityId, earlier, "first"),
+				);
+				expect(yield* read).toEqual({
+					startedAt: later,
+					generation: "second",
+					contentGeneration: 1,
+					relatedPopulatedAt: later,
+				});
+				yield* session.transaction(
+					repository.invalidateRelatedPopulated(entityId, later, "same-time-new-owner"),
+				);
+				expect(yield* holds("second")).toBe(false);
+				expect(yield* holds("same-time-new-owner")).toBe(true);
+				expect(yield* read).toEqual({
+					startedAt: later,
+					contentGeneration: 1,
+					relatedPopulatedAt: null,
+					generation: "same-time-new-owner",
+				});
+			}),
 	);
 });

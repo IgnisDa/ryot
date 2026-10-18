@@ -436,15 +436,9 @@ export const getExerciseDetails = (
 				new FitnessExerciseError(`Exercise not found: ${input.externalId}`),
 			);
 		}
-		const existingKind = Schema.decodeUnknownResult(Schema.Struct({ kind: exerciseKindSchema }))(
-			input.existingProperties,
-		);
 		return {
 			name: row.name,
-			properties: {
-				...row.properties,
-				kind: existingKind._tag === "Success" ? existingKind.success.kind : row.properties.kind,
-			},
+			properties: row.properties,
 			relatedEntityGroups: [
 				{
 					direction: "outgoing" as const,

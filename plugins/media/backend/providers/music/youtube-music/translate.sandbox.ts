@@ -7,6 +7,7 @@ import { buildTrackTranslate } from "./shared";
 
 export const manifest = defineManifest({
 	kind: "provider",
+	translationInputs: { music: [] },
 	name: "YouTube Music translation",
 	slug: "music.youtube-music.translate",
 });

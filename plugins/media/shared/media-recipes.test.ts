@@ -57,12 +57,12 @@ const SUMMARY_ROW = {
 	schemaSlug: "fixture",
 	progressPercent: null,
 	isInMediaLibrary: true,
-	populationStatus: "ready",
-	translationStatus: "none",
 	productionStatus: "Released",
-	relatedPopulationStatus: "ready",
+	translationStatus: { state: "idle", availability: "none" },
 	genres: { items: [], pageInfo: { limit: 100, hasMore: false } },
+	populationStatus: { state: "succeeded", availability: "complete" },
 	collections: { items: [], pageInfo: { limit: 6, hasMore: false } },
+	relatedPopulationStatus: { state: "succeeded", availability: "complete" },
 };
 
 const fieldKeys = (fields: readonly object[]) =>

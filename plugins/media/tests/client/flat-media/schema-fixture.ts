@@ -51,9 +51,9 @@ export const fixtureSchema = defineFixtureSchema();
 export const railItem = (id: string, name: string): MediaPresentationSubject => ({
 	id,
 	name,
-	populationStatus: "ready",
-	translationStatus: "none",
+	translationStatus: { state: "idle", availability: "none" },
 	images: [{ type: "s3", purpose: "cover", key: `${id}-cover` }],
+	populationStatus: { state: "succeeded", availability: "complete" },
 });
 
 export const railedFixtureSchema = defineFixtureSchema(() => [

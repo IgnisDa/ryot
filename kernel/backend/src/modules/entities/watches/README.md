@@ -22,23 +22,25 @@ Client frames:
 
 Server frames:
 
-| `type`           | Fields                                                                                        |
-| ---------------- | --------------------------------------------------------------------------------------------- |
-| `ready`          | `sessionId`, `maxEntityIds`, `heartbeatIntervalMs`                                            |
-| `applied`        | `revision`                                                                                    |
-| `rejected`       | `revision`, `code: "interest-limit-exceeded"`, `maxEntityIds`                                 |
-| `entity-updated` | `entityId`, `reason`: `populated`, `translated`, `population-failed`, or `projection-updated` |
-| `ping`           | `nonce`                                                                                       |
+| `type`           | Fields                                                                                                              |
+| ---------------- | ------------------------------------------------------------------------------------------------------------------- |
+| `ready`          | `sessionId`, `maxEntityIds`, `heartbeatIntervalMs`                                                                  |
+| `applied`        | `revision`                                                                                                          |
+| `rejected`       | `revision`, `code: "interest-limit-exceeded"`, `maxEntityIds`                                                       |
+| `entity-updated` | `entityId`, `reason`: `populated`, `translated`, `population-failed`, `projection-updated`, or `enrichment-updated` |
+| `ping`           | `nonce`                                                                                                             |
 
 After `ready`, send a complete `replace` at revision 1. Each later `replace` increments the current revision by one and carries both complete sets. Reconnect starts a new session and revision sequence. Keep at most one command unacknowledged and coalesce later changes until `applied`.
 
 IDs are deduplicated. An empty replacement is valid. Membership may contain at most 500 IDs; an over-limit command is rejected without partial mutation or revision advancement (`rejected` with `interest-limit-exceeded`). A frame that lists more than 50 distinct foreground IDs is malformed. `foregroundIds` must be a subset of `entityIds`; a violation is a protocol error. Every other member has visible priority.
 
-Priority chooses the population level. Pending interest in an unpopulated entity requests a `base` population when visible and a `full` population when foreground. Foreground interest in a populated entity whose `relatedPopulationStatus` is `pending` also requests a `full` upgrade, with execution ID `populate-<entityId>-full-<generation>-<populatedAtMs>-<hourBucket>` (the hour bucket comes from the reconciliation clock), so a failed or lost upgrade is requested again at most once per hour per user. Visible interest never requests `full`. Reconciliation never withholds the terminal update for the related level: base and full populations each publish `populated`, and clients read `relatedPopulationStatus` to show related-data placeholders. A related-level failure adds no completion reason; its population publishes `populated` and the status reads `failed`.
+Priority chooses the population level. Pending interest requests `base` when visible and `full` when foreground. Foreground interest in a populated entity with missing or partial related data requests `full`; visible interest never requests `full`. A full population waits for all related pages and required authoritative sweeps before related data is complete. Root data is published earlier, and related pages are visible as they arrive, so clients can show partial data while work continues.
 
-`entity-updated` is a refresh hint, not entity data. `translated` also represents a completed negative-cache result. Localized child entities must be listed explicitly, and a language change requires reconnect because the ticket captures the preferred language.
+`populationStatus`, `relatedPopulationStatus`, and `translationStatus` expose separate data availability and request activity. Availability is `missing`, `partial`, `complete`, or `none`; activity is `idle`, `queued`, `running`, `retrying`, `succeeded`, `failed`, or `cancelled`. Activity is scoped to the applicable requester and account generation. Missing data does not imply that work is running. See [entity enrichment](../enrichment/README.md) for request, retry, and recovery behavior.
 
-`population-failed` is terminal: the population workflow publishes it after recording a provider failure, and reconciliation returns it for interest in a failed entity instead of requesting population again. It does not request translations or start population settling indicators. Translated still wins when completions coalesce.
+`entity-updated` is a refresh hint, not entity data. `enrichment-updated` refreshes status and progress only; it does not start translation progression or settle client progress. `populated` can start translation progression. `translated` can represent a successful empty negative-cache result; inspect status to distinguish it from failure. Localized child entities must be listed explicitly, and a language change requires reconnect because the ticket captures the preferred language.
+
+Population and translation failures appear in their status objects. Reconciliation returns `enrichment-updated` for status refresh rather than treating missing data as proof of an active or terminal population. Translated still wins when completion hints coalesce.
 
 `projection-updated` refreshes computed results after completion or failure. Its internal publication includes the owning user ID, so a shared source entity never sends one user's processing state to another user's session. Public frames omit that ID. Projection hints do not complete population progression or start population settling indicators; pending-result queries also refresh while processing to recover from missed hints.
 

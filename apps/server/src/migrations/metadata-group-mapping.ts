@@ -210,6 +210,11 @@ BEGIN
 			)
 		ON CONFLICT ("id") DO UPDATE
 			SET
+				"content_generation" = entity."content_generation" + CASE
+					WHEN entity."properties" = '{}'::jsonb
+						AND entity."properties" IS DISTINCT FROM EXCLUDED."properties" THEN 1
+					ELSE 0
+				END,
 				"properties" = CASE
 					WHEN entity."properties" = '{}'::jsonb THEN EXCLUDED."properties"
 					ELSE entity."properties"

@@ -835,8 +835,33 @@ export class EntitiesService extends Context.Service<EntitiesService>()("Entitie
 		const commitMutation = Effect.fn("EntitiesService.commitMutation")(
 			(pending: PendingEntityMutation) => transaction(persistAndBatch(pending)),
 		);
-		const persistCheckedUpdate = Effect.fnUntraced(function* (pending: PendingEntityMutation) {
-			yield* assertImmutablePropertiesKept(yield* acceptedMutation(pending));
+		const assertUserEditable = Effect.fnUntraced(function* (prepared: PreparedMutation) {
+			if (prepared.operation !== "update") {
+				return yield* Effect.void;
+			}
+			yield* repository.lockMutationKeys([prepared.entityId]);
+			const current = yield* repository.getMutationEntity(prepared.entityId, true);
+			if (
+				!current ||
+				prepared.scopeUserId === null ||
+				current.userId !== prepared.scopeUserId ||
+				current.entity.providerId !== null
+			) {
+				return yield* new EntityNotFound({
+					reason: { code: "entity-not-found", entityId: prepared.entityId },
+				});
+			}
+			return yield* Effect.void;
+		});
+		const persistCheckedUpdate = Effect.fnUntraced(function* (
+			pending: PendingEntityMutation,
+			requireUserOwned: boolean,
+		) {
+			const prepared = yield* acceptedMutation(pending);
+			if (requireUserOwned) {
+				yield* assertUserEditable(prepared);
+			}
+			yield* assertImmutablePropertiesKept(prepared);
 			return yield* persistAndBatch(pending);
 		});
 		const saveInline = <E, R>(
@@ -1008,6 +1033,9 @@ export class EntitiesService extends Context.Service<EntitiesService>()("Entitie
 		const createFromApi = Effect.fn("EntitiesService.createFromApi")(function* (
 			input: CreateEntityInput,
 		) {
+			if (input.providerId !== undefined) {
+				return yield* new EntityBadRequest({ reason: { code: "provider-owned" } });
+			}
 			if (input.entitySchema.owner.kind === "kernel") {
 				return yield* new EntityBadRequest({ reason: { code: "kernel-owned-schema" } });
 			}
@@ -1227,7 +1255,9 @@ export class EntitiesService extends Context.Service<EntitiesService>()("Entitie
 			const ownedCurrent = yield* repository.getMutationEntity(input.entityId);
 			if (
 				input.requireUserOwned &&
-				(input.scope !== "user" || (ownedCurrent && ownedCurrent.userId !== input.userId))
+				(input.scope !== "user" ||
+					(ownedCurrent &&
+						(ownedCurrent.userId !== input.userId || ownedCurrent.entity.providerId !== null)))
 			) {
 				return yield* new EntityNotFound({
 					reason: { code: "entity-not-found", entityId: input.entityId },
@@ -1285,7 +1315,9 @@ export class EntitiesService extends Context.Service<EntitiesService>()("Entitie
 				!current ||
 				(input.scope === "global"
 					? current.userId !== null
-					: current.userId !== input.userId && (input.requireUserOwned || current.userId !== null))
+					: current.userId !== input.userId &&
+						(input.requireUserOwned || current.userId !== null)) ||
+				(input.requireUserOwned && current.entity.providerId !== null)
 			) {
 				return yield* new EntityNotFound({
 					reason: { code: "entity-not-found", entityId: input.entityId },
@@ -1338,7 +1370,7 @@ export class EntitiesService extends Context.Service<EntitiesService>()("Entitie
 						}
 						return pending.policies.length > 0
 							? { pending, _tag: "PoliciesRequired" as const }
-							: yield* persistCheckedUpdate(pending);
+							: yield* persistCheckedUpdate(pending, input.requireUserOwned === true);
 					}),
 				).pipe(
 					Effect.filterOrFail(
@@ -1346,7 +1378,7 @@ export class EntitiesService extends Context.Service<EntitiesService>()("Entitie
 						() => bad("automation-limit", "Entity request exceeds automation limits"),
 					),
 				),
-				(pending) => transaction(persistCheckedUpdate(pending)),
+				(pending) => transaction(persistCheckedUpdate(pending, input.requireUserOwned === true)),
 			);
 			return { entity, warnings };
 		});
@@ -1393,6 +1425,7 @@ export class EntitiesService extends Context.Service<EntitiesService>()("Entitie
 				if (
 					!current ||
 					current.userId !== userId ||
+					current.entity.providerId !== null ||
 					current.entity.entitySchemaSlug !== reference.slug ||
 					(current.entity.entitySchemaPluginId ?? null) !== definitionOwnerPluginId(reference.owner)
 				) {
@@ -1460,6 +1493,7 @@ export class EntitiesService extends Context.Service<EntitiesService>()("Entitie
 		) {
 			yield* assertActiveTransaction;
 			const prepared = saved[preparedUserEntitySave];
+			yield* assertUserEditable(prepared);
 			yield* assertImmutablePropertiesKept(prepared);
 			const batchScope = { identity: ["batch"], command: prepared.lifecycle };
 			const decision = yield* planner.prepareBatch({

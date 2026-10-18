@@ -7,6 +7,7 @@ export const manifest = defineManifest({
 	kind: "provider",
 	slug: "podcast.itunes.translate",
 	name: "iTunes Podcast Translation",
+	translationInputs: { podcast: [], "podcast-episode": ["parentPodcastExternalId"] },
 });
 
 export default defineProvider({ manifest, run: translate.run, operation: "translate" });

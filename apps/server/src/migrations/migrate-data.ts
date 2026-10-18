@@ -31,6 +31,7 @@ import {
 } from "./exercise-mapping";
 import { buildExerciseTaxonomyMigrationSql } from "./exercise-taxonomy-mapping";
 import { buildHistoricalAutomationCheckSql } from "./historical-automation-check";
+import { buildHistoricalEnrichmentCheckSql } from "./historical-enrichment-check";
 import { buildIntegrationMigrationSql, readLegacyIntegrationSettings } from "./integration-mapping";
 import {
 	migrateIntegrationProgressCache,
@@ -720,6 +721,7 @@ export const migrateLegacyTables = Effect.gen(function* () {
 				eventSchema: workoutSetEventSchema,
 			});
 			yield* connection.executeRaw(buildHistoricalAutomationCheckSql(), []);
+			yield* connection.executeRaw(buildHistoricalEnrichmentCheckSql(), []);
 		}),
 	);
 	reportSequence = yield* withReservedConnection((connection) =>

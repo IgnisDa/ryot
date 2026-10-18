@@ -414,6 +414,7 @@ export type PluginRetryPopulationBridgeErrorReason = Schema.Schema.Type<
 export const PluginRetryPopulationRequest = strictStruct({
 	entityId: EntityId,
 	pluginId: PluginId,
+	operation: Schema.Literals(["population", "translation"]),
 });
 
 export type PluginRetryPopulationRequest = Schema.Schema.Type<typeof PluginRetryPopulationRequest>;

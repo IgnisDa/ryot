@@ -15,9 +15,9 @@ export const mediaIdentity = (id: string, name: string, schemaSlug: string) => (
 	id,
 	name,
 	schemaSlug,
-	populationStatus: "ready",
-	translationStatus: "none",
-	relatedPopulationStatus: "ready",
+	translationStatus: { state: "idle", availability: "none" },
+	populationStatus: { state: "succeeded", availability: "complete" },
+	relatedPopulationStatus: { state: "succeeded", availability: "complete" },
 	images: [{ type: "remote", purpose: "cover", url: `https://images.test/${id}.jpg` }],
 });
 

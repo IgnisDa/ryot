@@ -41,7 +41,7 @@ import {
 	useValueChange,
 } from "@ryot-app/plugin-ui-sdk";
 import { AppIcon } from "@ryot-app/plugin-ui-sdk/icon";
-import { SyncCountLine } from "@ryot-app/plugin-ui-sdk/sync";
+import { isEnrichmentActive, SyncCountLine } from "@ryot-app/plugin-ui-sdk/sync";
 import {
 	activeRuleCount,
 	decodeFilterParam,
@@ -132,8 +132,8 @@ type EntityBrowserControllerProps<Meta> = {
 
 const MAX_TABLE_INTEREST = 500;
 const syncSummary = (items: BrowserResult["items"]) => ({
-	populating: items.filter(({ sync }) => sync.populationStatus === "pending").length,
-	translating: items.filter(({ sync }) => sync.translationStatus === "pending").length,
+	populating: items.filter(({ sync }) => isEnrichmentActive(sync.populationStatus)).length,
+	translating: items.filter(({ sync }) => isEnrichmentActive(sync.translationStatus)).length,
 });
 
 const browserIdentity = (

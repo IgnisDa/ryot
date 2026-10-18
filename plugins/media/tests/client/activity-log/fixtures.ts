@@ -31,11 +31,11 @@ export const contextTarget = (overrides: Row = {}) => ({
 	schemaSlug: "movie",
 	progressPercent: null,
 	seasons: includeRows([]),
-	populationStatus: "ready",
-	translationStatus: "none",
 	showNextUp: includeRows([]),
 	podcastNextUp: includeRows([]),
-	relatedPopulationStatus: "ready",
+	translationStatus: { state: "idle", availability: "none" },
+	populationStatus: { state: "succeeded", availability: "complete" },
+	relatedPopulationStatus: { state: "succeeded", availability: "complete" },
 	...overrides,
 });
 

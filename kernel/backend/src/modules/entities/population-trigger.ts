@@ -14,12 +14,10 @@ import { rootLifecycleCommand } from "#modules/automations/lifecycle/command";
 import type { PopulationLevel } from "./providers/schemas";
 import type { DomainLifecycleCommand } from "./write-context";
 
-export const POPULATION_UPGRADE_BUCKET_MILLISECONDS = 60 * 60 * 1_000;
-
 export type PopulationExecution = {
-	readonly attempt?: number;
+	readonly attempt?: string;
 	readonly level: PopulationLevel;
-	readonly upgrade?: { readonly populatedAtMs: number; readonly hourBucket: number };
+	readonly retryOf?: string;
 };
 
 export const entityPopulationExecutionId = (
@@ -28,11 +26,8 @@ export const entityPopulationExecutionId = (
 	execution: PopulationExecution,
 ) =>
 	[
-		`populate-${entityId}-${execution.level}`,
+		`enrich-populate-${entityId}-${execution.level}`,
 		...(accountGeneration === null ? [] : [accountGeneration.token]),
-		...(execution.upgrade === undefined
-			? []
-			: [execution.upgrade.populatedAtMs, execution.upgrade.hourBucket]),
 		...(execution.attempt === undefined ? [] : [execution.attempt]),
 	].join("-");
 

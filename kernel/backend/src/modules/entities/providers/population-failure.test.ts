@@ -1,715 +1,326 @@
 import { assert, expect, layer } from "@effect/vitest";
 import { SandboxRunError } from "@ryot-app/contract/errors";
-import { encodeEntityUpdatedMessage } from "@ryot-app/contract/modules/entity-watches/messages";
+import type { ListedEntity } from "@ryot-app/contract/modules/entities/schemas";
 import { definitionOwner } from "@ryot-app/contract/modules/plugins/references";
-import type { SandboxExecutionError } from "@ryot-app/contract/modules/scripts/schemas";
 import {
 	AutomationExecutionId,
 	EntityId,
 	EntitySchemaSlug,
 	PluginId,
+	SandboxProviderId,
 	UserId,
 } from "@ryot-app/contract/schema/brands";
 import { IsoUtcString } from "@ryot-app/contract/schema/utils";
 import { assertExitFails } from "@ryot-app/testing/effect-assertions";
-import { and, eq, isNull } from "drizzle-orm";
-import { Cause, Context, Effect, Exit, Layer, Option, Ref, Schema } from "effect";
+import { Context, DateTime, Duration, Effect, Exit, Fiber, Layer, Schema } from "effect";
+import { Workflow } from "effect/workflow";
 import { WorkflowEngine, WorkflowInstance } from "effect/workflow/WorkflowEngine";
 
 import { rootLifecycleCommand } from "#modules/automations/lifecycle/command";
-import { LifecycleExecution } from "#modules/automations/lifecycle/execution";
-import { EntitiesRepository } from "#modules/entities/repository";
-import { EntitiesService } from "#modules/entities/service";
-import { DomainWriteChecksLive } from "#modules/entities/write-context";
+import { EnrichmentRequests } from "#modules/entities/enrichment/requests";
 import { PluginRuntimeResolver } from "#modules/plugins/catalog/runtime-resolver";
 import {
 	installRevisionPackage,
 	revisionDatabaseLayer,
 	revisionPackage,
 } from "#modules/plugins/packages/revision.test-support";
-import { RelationshipsRepository } from "#modules/relationships/repository";
-import { RelationshipsService } from "#modules/relationships/service";
-import { getCatalogTable, resolveCatalogField } from "#modules/ryotql/catalog";
-import { ScriptExecutionPrincipal } from "#modules/scripts/authorization/principal";
-import type { SandboxExecutionResult } from "#modules/scripts/executions/result";
-import { SandboxRepository } from "#modules/scripts/registry/repository";
 import { DatabaseSession } from "#platform/db/session";
 import { RedisService } from "#platform/redis";
 import * as tables from "#schema/tables/combined";
 import { makeRedisService, makeWorkflowActivityEngine } from "#testing/effect";
 
-import { EntityImportWorkflowOperations } from "./operations-workflow";
+import type { ProviderEntityPopulationPayload } from "./provider-entity-population-workflow";
 import {
-	type ProviderEntityPopulationPayload,
+	ProviderEntityPopulationAttemptWorkflow,
 	ProviderEntityPopulationWorkflow,
 	runProviderEntityPopulationWorkflow,
 } from "./provider-entity-population-workflow";
 
-const userId = UserId.make("owner");
-const rootSchemaSlug = EntitySchemaSlug.make("record");
-const occurredAt = IsoUtcString.make("2026-10-23T00:00:00.000Z");
-const occurredAtDate = new Date(occurredAt);
+const now = IsoUtcString.make("2026-10-26T00:00:00.000Z");
+const entity: ListedEntity = {
+	name: "Record",
+	properties: {},
+	createdAt: now,
+	updatedAt: now,
+	populatedAt: now,
+	externalId: "record",
+	id: EntityId.make("populated-record"),
+	entitySchemaPluginId: PluginId.make("plugin"),
+	providerId: SandboxProviderId.make("provider"),
+	entitySchemaSlug: EntitySchemaSlug.make("record"),
+};
 
-type Sandbox = Effect.Effect<SandboxExecutionResult>;
+const payloadFor = (executionId: string): ProviderEntityPopulationPayload => ({
+	executionId,
+	level: "full",
+	mode: "refresh",
+	externalId: "record",
+	pluginId: PluginId.make("plugin"),
+	entityScope: { userId: null, type: "global" },
+	providerId: SandboxProviderId.make("provider"),
+	entitySchemaSlug: EntitySchemaSlug.make("record"),
+	command: {
+		...rootLifecycleCommand({
+			occurredAt: now,
+			lane: "background",
+			accountGeneration: null,
+			itemIdentity: executionId,
+			source: "provider-refresh",
+			initiator: { kind: "system", id: "population" },
+			executionId: AutomationExecutionId.make(executionId),
+		}),
+		writeContext: null,
+	},
+});
 
-class FailureFixture extends Context.Service<
-	FailureFixture,
+class PopulationTarget extends Context.Service<
+	PopulationTarget,
 	{
-		readonly published: Effect.Effect<ReadonlyArray<string>>;
-		readonly seed: (input: {
-			readonly externalId: string;
-			readonly populatedAt?: Date;
-		}) => Effect.Effect<EntityId>;
-		readonly read: (
-			entityId: EntityId,
-		) => Effect.Effect<{
-			readonly populatedAt: Date | null;
-			readonly populationFailure: string | null;
-			readonly populationFailedAt: Date | null;
-			readonly populationStatus: string;
-			readonly relatedPopulatedAt: Date | null;
-			readonly relatedPopulationFailure: string | null;
-			readonly relatedPopulationFailedAt: Date | null;
-			readonly relatedPopulationStatus: string;
-		}>;
-		readonly setSandbox: (sandbox: Sandbox) => Effect.Effect<void>;
-		readonly payload: (
-			externalId: string,
-			mode: "ensure" | "refresh",
-			level: "base" | "full",
-		) => ProviderEntityPopulationPayload;
-		readonly stampRelated: (entityId: EntityId) => Effect.Effect<void>;
-		readonly markPopulated: (entityId: EntityId) => Effect.Effect<void>;
-		readonly stamp: (entityId: EntityId) => Effect.Effect<void>;
-		readonly uninstall: Effect.Effect<void>;
-		readonly rotateAccount: Effect.Effect<void>;
+		readonly entity: ListedEntity;
+		readonly payload: (executionId: string) => ProviderEntityPopulationPayload;
 	}
->()("test/PopulationFailureFixture") {}
+>()("test/PopulationTarget") {}
 
-const failed = (error: Omit<SandboxExecutionError, "phase">): SandboxExecutionResult => ({
-	logs: [],
-	value: null,
-	status: "completed",
-	error: { ...error, phase: "execute" },
-});
-
-const completed = (value: unknown): SandboxExecutionResult => ({
-	value,
-	logs: [],
-	error: null,
-	status: "completed",
-});
-
-const assertPopulationFails = (
-	exit: Exit.Exit<unknown, SandboxRunError>,
-	result: SandboxExecutionResult,
-) => {
-	if (result.error === null) {
-		assert(Exit.isFailure(exit));
-		const failure = Cause.findErrorOption(exit.cause);
-		assert(Option.isSome(failure));
-		expect(failure.value.kind).toBe("invalid-output");
-		return;
-	}
-	const { kind, data, message } = result.error;
-	assertExitFails(
-		exit,
-		new SandboxRunError({ kind, message, ...(data === undefined ? {} : { data }) }),
-	);
-};
-
-const statusSql = (name: "populationStatus" | "relatedPopulationStatus") => {
-	const table = getCatalogTable("entity");
-	assert(table);
-	const field = resolveCatalogField(table, name, {
-		type: "user",
-		audience: "kernel",
-		accessClass: "standard",
-	});
-	assert(field);
-	return field.resolve({ language: null, sqlAlias: "entity" });
-};
-
-const failureLayer = Layer.unwrap(
+const requestLayer = Layer.unwrap(
 	Effect.gen(function* () {
-		const session = yield* DatabaseSession;
 		const installed = yield* installRevisionPackage(
-			revisionPackage("population", "v1", rootSchemaSlug),
+			revisionPackage("population-parent", "one", entity.entitySchemaSlug),
 		);
 		const runtime = yield* PluginRuntimeResolver;
-		const provider = yield* runtime.findProviderAvailableToUserByReference(userId, {
-			slug: "population-provider",
+		const provider = yield* runtime.findProviderAvailableToUserByReference(UserId.make("owner"), {
+			slug: "population-parent-provider",
 			owner: definitionOwner(installed.pluginId),
 		});
 		assert(provider);
-		const script = yield* runtime.resolveUserDetailsScript(userId, provider.id);
-		const subject = {
-			userId,
-			type: "user" as const,
-			accountGeneration: { userId, token: "test-account-generation" },
+		const populated: ListedEntity = {
+			...entity,
+			providerId: provider.id,
+			entitySchemaPluginId: PluginId.make(installed.pluginId),
 		};
-		const pin = yield* (yield* SandboxRepository.make).getScriptPin(script.id, undefined, subject);
-		assert(pin?.pluginRevision);
-		const principal = yield* Schema.decodeEffect(ScriptExecutionPrincipal)({ ...pin, subject });
-		const published = yield* Ref.make<ReadonlyArray<string>>([]);
-		const sandbox = yield* Ref.make<Sandbox>(Effect.die("no sandbox result"));
-		const populationStatusSql = statusSql("populationStatus");
-		const relatedPopulationStatusSql = statusSql("relatedPopulationStatus");
-		const repository = yield* EntitiesRepository;
-		const fixture = FailureFixture.of({
-			published: Ref.get(published),
-			setSandbox: (result) => Ref.set(sandbox, result),
-			stampRelated: (entityId) =>
-				session
-					.transaction(repository.stampRelatedPopulated(entityId, occurredAtDate))
-					.pipe(Effect.orDie),
-			rotateAccount: session
-				.run((db) =>
-					db
-						.update(tables.user)
-						.set({ accountGeneration: "rotated-account-generation" })
-						.where(eq(tables.user.id, userId)),
-				)
-				.pipe(Effect.asVoid, Effect.orDie),
-			markPopulated: (entityId) =>
-				session
-					.run((db) =>
-						db
-							.update(tables.entity)
-							.set({ populatedAt: occurredAtDate })
-							.where(eq(tables.entity.id, entityId)),
-					)
-					.pipe(Effect.asVoid, Effect.orDie),
-			stamp: (entityId) =>
-				session
-					.transaction(
-						repository.updateEntity({
-							entityId,
-							properties: {},
-							name: "Populated",
-							populatedAt: occurredAtDate,
-						}),
-					)
-					.pipe(Effect.asVoid, Effect.orDie),
-			uninstall: session
-				.run((db) =>
-					db
-						.update(tables.pluginInstallation)
-						.set({ uninstalledAt: occurredAtDate })
-						.where(
-							and(
-								eq(tables.pluginInstallation.userId, userId),
-								eq(tables.pluginInstallation.pluginId, installed.pluginId),
-								isNull(tables.pluginInstallation.uninstalledAt),
-							),
-						),
-				)
-				.pipe(Effect.asVoid, Effect.orDie),
-			seed: ({ externalId, populatedAt }) =>
-				session
-					.run((db) =>
-						db
-							.insert(tables.entity)
-							.values({
-								externalId,
-								name: externalId,
-								providerId: provider.id,
-								populatedAt: populatedAt ?? null,
-								entitySchemaSlug: rootSchemaSlug,
-								entitySchemaPluginId: installed.pluginId,
-							})
-							.returning({ id: tables.entity.id }),
-					)
-					.pipe(
-						Effect.map(([row]) => EntityId.make(row?.id ?? "")),
-						Effect.orDie,
-					),
-			payload: (externalId, mode, level) => {
-				const executionId = `population-${externalId}-${level}`;
-				return {
-					mode,
-					level,
-					externalId,
-					executionId,
+		const session = yield* DatabaseSession;
+		yield* session.run((db) =>
+			db
+				.insert(tables.entity)
+				.values({
+					id: populated.id,
+					name: populated.name,
 					providerId: provider.id,
-					entitySchemaSlug: rootSchemaSlug,
-					entityScope: { userId, type: "global" },
-					pluginId: PluginId.make(installed.pluginId),
-					command: {
-						...rootLifecycleCommand({
-							occurredAt,
-							source: "api",
-							lane: "interactive",
-							itemIdentity: executionId,
-							initiator: { id: userId, kind: "user" },
-							executionId: AutomationExecutionId.make(executionId),
-							accountGeneration: { userId, token: "test-account-generation" },
-						}),
-						writeContext: principal,
-					},
-				};
-			},
-			read: (entityId) =>
-				session
-					.run((db) =>
-						db
-							.select({
-								populatedAt: tables.entity.populatedAt,
-								populationFailure: tables.entity.populationFailure,
-								populationFailedAt: tables.entity.populationFailedAt,
-								relatedPopulatedAt: tables.entity.relatedPopulatedAt,
-								populationStatus: populationStatusSql.mapWith(String),
-								relatedPopulationFailure: tables.entity.relatedPopulationFailure,
-								relatedPopulationFailedAt: tables.entity.relatedPopulationFailedAt,
-								relatedPopulationStatus: relatedPopulationStatusSql.mapWith(String),
-							})
-							.from(tables.entity)
-							.where(eq(tables.entity.id, entityId)),
-					)
-					.pipe(
-						Effect.flatMap(([row]) => (row ? Effect.succeed(row) : Effect.die("missing row"))),
-						Effect.orDie,
-					),
-		});
-		return Layer.mergeAll(
-			DomainWriteChecksLive,
-			Layer.succeed(EntitiesRepository, repository),
-			Layer.succeed(FailureFixture, fixture),
-			Layer.succeed(
-				RedisService,
-				makeRedisService({
-					publish: (_channel, message) =>
-						Ref.update(published, (all) => [...all, message]).pipe(Effect.as(1)),
+					externalId: populated.externalId,
+					entitySchemaSlug: populated.entitySchemaSlug,
+					entitySchemaPluginId: populated.entitySchemaPluginId,
+					populatedAt: DateTime.toDateUtc(DateTime.makeUnsafe(now)),
 				}),
-			),
-			Layer.mock(EntitiesService)({}),
-			Layer.mock(LifecycleExecution)({}),
-			Layer.mock(RelationshipsService)({}),
-			Layer.mock(RelationshipsRepository)({}),
-			Layer.mock(EntityImportWorkflowOperations)({
-				processSandbox: () => Effect.flatten(Ref.get(sandbox)),
+		);
+		return Layer.merge(
+			Layer.succeed(PopulationTarget, {
+				entity: populated,
+				payload: (executionId) => ({
+					...payloadFor(executionId),
+					providerId: provider.id,
+					pluginId: PluginId.make(installed.pluginId),
+				}),
 			}),
+			EnrichmentRequests.layer.pipe(
+				Layer.provide(
+					Layer.succeed(RedisService, makeRedisService({ publish: () => Effect.succeed(1) })),
+				),
+			),
 		);
 	}),
-).pipe(Layer.provideMerge(EntitiesRepository.layer), Layer.provideMerge(revisionDatabaseLayer));
+).pipe(Layer.provideMerge(revisionDatabaseLayer));
 
-const populate = (input: {
-	readonly sandbox: Sandbox;
-	readonly externalId: string;
-	readonly mode?: "ensure" | "refresh";
-	readonly level?: "base" | "full";
-}) =>
-	Effect.gen(function* () {
-		const fixture = yield* FailureFixture;
-		const payload = fixture.payload(
-			input.externalId,
-			input.mode ?? "ensure",
-			input.level ?? "full",
-		);
-		const instance = WorkflowInstance.initial(
-			ProviderEntityPopulationWorkflow,
-			payload.executionId,
-		);
-		yield* fixture.setSandbox(input.sandbox);
-		return yield* Effect.exit(
-			runProviderEntityPopulationWorkflow(payload, payload.executionId).pipe(
-				Effect.provideService(WorkflowInstance, instance),
-				Effect.provideService(WorkflowEngine, makeWorkflowActivityEngine(instance)),
-			),
-		);
+const harness = Effect.fnUntraced(function* (
+	executionId: string,
+	outcomes: ReadonlyArray<ListedEntity | SandboxRunError | "suspend">,
+) {
+	const requests = yield* EnrichmentRequests;
+	const target = yield* PopulationTarget;
+	const attempts: Array<{
+		id: string;
+		payload: ProviderEntityPopulationPayload;
+		requestId: string;
+	}> = [];
+	const clocks: Array<{ name: string; duration: number }> = [];
+	const states: Array<{ state: string; attempt: number; nextAttemptAt: Date | null }> = [];
+	const instance = WorkflowInstance.initial(ProviderEntityPopulationWorkflow, executionId);
+	const engine = makeWorkflowActivityEngine(instance, {
+		deferredResult: () => Effect.succeedSome(Exit.void),
+		scheduleClock: (_workflow, options) =>
+			Effect.gen(function* () {
+				clocks.push({
+					name: options.clock.name,
+					duration: Duration.toMillis(options.clock.duration),
+				});
+				const row = yield* requests.get(executionId).pipe(Effect.orDie);
+				assert(row);
+				states.push({ state: row.state, attempt: row.attempt, nextAttemptAt: row.nextAttemptAt });
+			}),
+		execute: (workflow, options) =>
+			Effect.gen(function* () {
+				expect(workflow._tag).toBe(ProviderEntityPopulationAttemptWorkflow._tag);
+				expect(options.discard).not.toBe(true);
+				const payload = yield* Schema.decodeUnknownEffect(
+					ProviderEntityPopulationAttemptWorkflow.payloadSchema,
+				)(options.payload).pipe(Effect.orDie);
+				attempts.push({ payload, id: options.executionId, requestId: payload.requestId });
+				const row = yield* requests.get(executionId).pipe(Effect.orDie);
+				assert(row);
+				states.push({ state: row.state, attempt: row.attempt, nextAttemptAt: row.nextAttemptAt });
+				const outcome = outcomes[attempts.length - 1];
+				assert(outcome);
+				if (outcome === "suspend") {
+					return yield* Workflow.suspend(instance);
+				}
+				return outcome instanceof SandboxRunError ? yield* outcome : target.entity;
+			}),
 	});
+	return {
+		clocks,
+		states,
+		attempts,
+		entity: target.entity,
+		read: requests.get(executionId),
+		payload: target.payload(executionId),
+		run: (payload = target.payload(executionId)) =>
+			runProviderEntityPopulationWorkflow(payload, executionId).pipe(
+				Effect.provideService(WorkflowInstance, instance),
+				Effect.provideService(WorkflowEngine, engine),
+			),
+	};
+});
 
-const publication = (entityId: EntityId) =>
-	encodeEntityUpdatedMessage(entityId, "population-failed");
-
-const scriptFailure = failed({ kind: "script-failure", message: "Provider exploded" });
-
-layer(failureLayer)((test) => {
-	test.effect("marks each deterministic provider failure and publishes population-failed", () =>
+layer(requestLayer)((test) => {
+	test.effect("does not infer cancellation when an awaited child suspends the workflow", () =>
 		Effect.gen(function* () {
-			const fixture = yield* FailureFixture;
-			const cases = [
-				{ result: scriptFailure, failure: "script-failure" },
-				{
-					failure: "invalid-output",
-					result: failed({ kind: "invalid-output", message: "Malformed output" }),
-				},
-				{
-					failure: "execution-limit",
-					result: failed({
+			const h = yield* harness("suspended-child", ["suspend"]);
+			const running = yield* Effect.forkChild(h.run());
+			const exit = yield* Fiber.await(running);
+			expect(Exit.isFailure(exit)).toBe(true);
+			expect(yield* h.read).toMatchObject({ attempt: 1, state: "running" });
+			expect(h.clocks).toEqual([]);
+		}),
+	);
+	test.effect(
+		"retries infrastructure and timeout failures in new admitted attempts with durable delays",
+		() =>
+			Effect.gen(function* () {
+				const h = yield* harness("retry-success", [
+					new SandboxRunError({ kind: "infrastructure", message: "Daemon unavailable" }),
+					new SandboxRunError({ kind: "timeout", message: "Timed out" }),
+					entity,
+				]);
+				expect(yield* h.run()).toEqual(h.entity);
+				expect(h.attempts.map(({ id }) => id)).toEqual(
+					[1, 2, 3].map((attempt) => `retry-success-attempt-${attempt}`),
+				);
+				expect(h.attempts.map(({ payload }) => payload.command.causation.executionId)).toEqual(
+					h.attempts.map(({ id }) => id),
+				);
+				expect(h.attempts.every(({ requestId }) => requestId === "retry-success")).toBe(true);
+				expect(h.clocks).toEqual([
+					{ duration: 5_000, name: "population-retry:1" },
+					{ duration: 30_000, name: "population-retry:2" },
+				]);
+				expect(h.states.map(({ state, attempt }) => ({ state, attempt }))).toEqual([
+					{ attempt: 1, state: "running" },
+					{ attempt: 1, state: "retrying" },
+					{ attempt: 2, state: "running" },
+					{ attempt: 2, state: "retrying" },
+					{ attempt: 3, state: "running" },
+				]);
+				const clock = yield* DateTime.now;
+				expect(h.states[1]?.nextAttemptAt).toEqual(
+					DateTime.toDateUtc(DateTime.add(clock, { seconds: 5 })),
+				);
+				expect(h.states[3]?.nextAttemptAt).toEqual(
+					DateTime.toDateUtc(DateTime.add(clock, { seconds: 30 })),
+				);
+				expect(yield* h.read).toMatchObject({
+					attempt: 3,
+					failureKind: null,
+					state: "succeeded",
+					nextAttemptAt: null,
+					entityId: h.entity.id,
+				});
+			}),
+	);
+
+	test.effect("fails after three attempts without reporting success", () =>
+		Effect.gen(function* () {
+			const failure = new SandboxRunError({ kind: "infrastructure", message: "Still unavailable" });
+			const h = yield* harness("retry-exhausted", [failure, failure, failure]);
+			assertExitFails(yield* Effect.exit(h.run()), failure);
+			expect(h.attempts).toHaveLength(3);
+			expect(h.clocks).toHaveLength(2);
+			expect(yield* h.read).toMatchObject({
+				attempt: 3,
+				state: "failed",
+				nextAttemptAt: null,
+				failureKind: "infrastructure",
+			});
+		}),
+	);
+
+	test.effect(
+		"never retries boundary failures, external uncertainty, or unknown script errors",
+		() =>
+			Effect.gen(function* () {
+				const failures = [
+					new SandboxRunError({ kind: "script-failure", message: "Unknown provider error" }),
+					new SandboxRunError({ kind: "invalid-output", message: "Invalid provider response" }),
+					new SandboxRunError({ kind: "external-uncertain", message: "Unknown external outcome" }),
+					new SandboxRunError({
+						message: "Budget exceeded",
 						kind: "resource-unavailable",
-						message: "httpCall limit reached",
 						data: { operation: "httpCall", code: "execution-limit" },
 					}),
-				},
-				{
-					failure: "execution-limit",
-					result: failed({
-						kind: "script-failure",
-						message: "Sandbox execution exceeds 50 httpCall calls",
-						data: { operation: "httpCall", code: "execution-limit" },
+					new SandboxRunError({
+						kind: "infrastructure",
+						message: "Unavailable boundary",
+						data: { operation: "httpCall", code: "unavailable-operation" },
 					}),
-				},
-				{ failure: "invalid-output", result: completed({ properties: {} }) },
-				{
-					failure: "script-failure",
-					result: failed({
-						kind: "script-failure",
+					new SandboxRunError({
+						kind: "timeout",
+						message: "Boundary timeout",
 						data: { code: "operation-rejected" },
-						message: "Provider rejected the request",
 					}),
-				},
-			] as const;
-			for (const [index, { result, failure }] of cases.entries()) {
-				const externalId = `deterministic-${index}`;
-				const entityId = yield* fixture.seed({ externalId });
-				const exit = yield* populate({ externalId, sandbox: Effect.succeed(result) });
-
-				assertPopulationFails(exit, result);
-				const row = yield* fixture.read(entityId);
-				expect(row.populationFailure).toBe(failure);
-				expect(row.populationFailedAt).toBeInstanceOf(Date);
-				expect(row.populationStatus).toBe("failed");
-				expect(yield* fixture.published).toContain(publication(entityId));
-			}
-		}),
-	);
-
-	test.effect("leaves other failures pending exactly as before", () =>
-		Effect.gen(function* () {
-			const fixture = yield* FailureFixture;
-			const results = [
-				failed({ kind: "timeout", message: "Timed out" }),
-				failed({ kind: "infrastructure", message: "Daemon unavailable" }),
-				failed({ kind: "external-uncertain", message: "Unknown outcome" }),
-				failed({
-					kind: "resource-unavailable",
-					message: "Operation unavailable",
-					data: { operation: "httpCall", code: "unavailable-operation" },
-				}),
-				failed({
-					kind: "script-failure",
-					message: "Grant missing",
-					data: { operation: "httpCall", code: "missing-artifact-grant" },
-				}),
-				failed({
-					kind: "script-failure",
-					message: "Operation unavailable",
-					data: { operation: "httpCall", code: "unavailable-operation" },
-				}),
-			];
-			for (const [index, result] of results.entries()) {
-				const externalId = `pending-${index}`;
-				const entityId = yield* fixture.seed({ externalId });
-				const exit = yield* populate({ externalId, sandbox: Effect.succeed(result) });
-
-				assertPopulationFails(exit, result);
-				expect(yield* fixture.read(entityId)).toMatchObject({
-					populatedAt: null,
-					populationFailure: null,
-					populationFailedAt: null,
-					populationStatus: "pending",
-				});
-				expect(yield* fixture.published).not.toContain(publication(entityId));
-			}
-		}),
-	);
-
-	test.effect("clears the marker when a later population stamps the root", () =>
-		Effect.gen(function* () {
-			const fixture = yield* FailureFixture;
-			const entityId = yield* fixture.seed({ externalId: "later-success" });
-			yield* populate({ externalId: "later-success", sandbox: Effect.succeed(scriptFailure) });
-			expect((yield* fixture.read(entityId)).populationStatus).toBe("failed");
-
-			yield* fixture.stamp(entityId);
-
-			expect(yield* fixture.read(entityId)).toMatchObject({
-				populationFailure: null,
-				populationFailedAt: null,
-				populationStatus: "ready",
-			});
-		}),
-	);
-
-	test.effect("writes nothing when a refresh of a populated entity fails", () =>
-		Effect.gen(function* () {
-			const fixture = yield* FailureFixture;
-			const entityId = yield* fixture.seed({
-				populatedAt: occurredAtDate,
-				externalId: "populated-refresh",
-			});
-			const exit = yield* populate({
-				mode: "refresh",
-				externalId: "populated-refresh",
-				sandbox: Effect.succeed(scriptFailure),
-			});
-
-			assertPopulationFails(exit, scriptFailure);
-			expect(yield* fixture.read(entityId)).toMatchObject({
-				populationFailure: null,
-				populationFailedAt: null,
-				populationStatus: "ready",
-			});
-			expect(yield* fixture.published).not.toContain(publication(entityId));
-		}),
-	);
-
-	test.effect("writes nothing when a newer population succeeded while the script ran", () =>
-		Effect.gen(function* () {
-			const fixture = yield* FailureFixture;
-			const entityId = yield* fixture.seed({ externalId: "stale-failure" });
-			const exit = yield* populate({
-				externalId: "stale-failure",
-				sandbox: fixture.markPopulated(entityId).pipe(Effect.as(scriptFailure)),
-			});
-
-			assertPopulationFails(exit, scriptFailure);
-			expect(yield* fixture.read(entityId)).toMatchObject({
-				populationFailure: null,
-				populationFailedAt: null,
-				populationStatus: "ready",
-			});
-			expect(yield* fixture.published).not.toContain(publication(entityId));
-		}),
-	);
-
-	test.effect("does not expose the stored failure through the catalog", () =>
-		Effect.sync(() => {
-			const table = getCatalogTable("entity");
-			assert(table);
-			for (const access of [
-				{ type: "user", audience: "kernel", accessClass: "standard" },
-				{ type: "user", audience: "plugin", accessClass: "standard" },
-				{ type: "plugin" },
-			] as const) {
-				for (const field of [
-					"populationFailure",
-					"populationFailedAt",
-					"relatedPopulatedAt",
-					"relatedPopulationFailure",
-					"relatedPopulationFailedAt",
-				]) {
-					expect(resolveCatalogField(table, field, access)).toBeUndefined();
-				}
-				expect(resolveCatalogField(table, "relatedPopulationStatus", access)).toBeDefined();
-			}
-		}),
-	);
-});
-
-layer(failureLayer)((test) => {
-	test.effect("does not mark a shared row when the caller's account rotated during the run", () =>
-		Effect.gen(function* () {
-			const fixture = yield* FailureFixture;
-			const entityId = yield* fixture.seed({ externalId: "rotated-account" });
-			const exit = yield* populate({
-				externalId: "rotated-account",
-				sandbox: fixture.rotateAccount.pipe(Effect.as(scriptFailure)),
-			});
-
-			assertPopulationFails(exit, scriptFailure);
-			expect(yield* fixture.read(entityId)).toMatchObject({
-				populationFailure: null,
-				populationStatus: "pending",
-			});
-			expect(yield* fixture.published).toEqual([]);
-		}),
-	);
-});
-
-layer(failureLayer)((test) => {
-	test.effect(
-		"does not mark a shared row when the caller uninstalled the plugin during the run",
-		() =>
-			Effect.gen(function* () {
-				const fixture = yield* FailureFixture;
-				const entityId = yield* fixture.seed({ externalId: "uninstalled" });
-				const exit = yield* populate({
-					externalId: "uninstalled",
-					sandbox: fixture.uninstall.pipe(Effect.as(scriptFailure)),
-				});
-
-				assertPopulationFails(exit, scriptFailure);
-				expect(yield* fixture.read(entityId)).toMatchObject({
-					populationFailure: null,
-					populationStatus: "pending",
-				});
-				expect(yield* fixture.published).toEqual([]);
-			}),
-	);
-});
-
-const populated = (entityId: EntityId) => encodeEntityUpdatedMessage(entityId, "populated");
-
-const invalidOutput = failed({ kind: "invalid-output", message: "Malformed output" });
-const executionLimit = failed({
-	kind: "resource-unavailable",
-	message: "httpCall limit reached",
-	data: { operation: "httpCall", code: "execution-limit" },
-});
-const rateLimited = failed({ kind: "script-failure", message: "provider responded 429" });
-
-layer(failureLayer)((test) => {
-	test.effect(
-		"marks a failed full upgrade only for invalid output or the execution limit and publishes populated",
-		() =>
-			Effect.gen(function* () {
-				const fixture = yield* FailureFixture;
-				const cases = [
-					{ result: invalidOutput, failure: "invalid-output" },
-					{ failure: "invalid-output", result: completed({ properties: {} }) },
-					{ result: executionLimit, failure: "execution-limit" },
-				] as const;
-				for (const [index, { result, failure }] of cases.entries()) {
-					const externalId = `related-${index}`;
-					const entityId = yield* fixture.seed({ externalId, populatedAt: occurredAtDate });
-					const exit = yield* populate({ externalId, sandbox: Effect.succeed(result) });
-
-					assertPopulationFails(exit, result);
-					const row = yield* fixture.read(entityId);
-					expect(row).toMatchObject({
-						populationFailure: null,
-						populationFailedAt: null,
-						relatedPopulatedAt: null,
-						populationStatus: "ready",
-						populatedAt: occurredAtDate,
-						relatedPopulationFailure: failure,
-						relatedPopulationStatus: "failed",
+				];
+				for (const [index, failure] of failures.entries()) {
+					const h = yield* harness(`nonretryable-${index}`, [failure]);
+					assertExitFails(yield* Effect.exit(h.run()), failure);
+					expect(h.attempts).toHaveLength(1);
+					expect(h.clocks).toEqual([]);
+					expect(yield* h.read).toMatchObject({
+						attempt: 1,
+						state: "failed",
+						failureKind: failure.kind,
 					});
-					expect(row.relatedPopulationFailedAt).toBeInstanceOf(Date);
-					const published = yield* fixture.published;
-					expect(published).toContain(populated(entityId));
-					expect(published).not.toContain(publication(entityId));
 				}
 			}),
 	);
 
-	test.effect("never marks a shared entity for a script failure such as an upstream 429", () =>
+	test.effect("uses the persisted request payload rather than a changed replay input", () =>
 		Effect.gen(function* () {
-			const fixture = yield* FailureFixture;
-			const entityId = yield* fixture.seed({
-				populatedAt: occurredAtDate,
-				externalId: "related-rate-limited",
+			const requests = yield* EnrichmentRequests;
+			const h = yield* harness("persisted-request", [entity]);
+			const original = h.payload;
+			yield* requests.ensure({
+				level: "full",
+				entityId: null,
+				language: null,
+				requester: null,
+				payload: original,
+				scopeUserId: null,
+				operation: "population",
+				id: original.executionId,
+				pluginId: original.pluginId,
+				providerId: original.providerId,
+				externalId: original.externalId,
+				entitySchemaSlug: original.entitySchemaSlug,
+				workflowName: ProviderEntityPopulationWorkflow._tag,
 			});
-			const exit = yield* populate({
-				externalId: "related-rate-limited",
-				sandbox: Effect.succeed(rateLimited),
-			});
-
-			assertPopulationFails(exit, rateLimited);
-			expect(yield* fixture.read(entityId)).toMatchObject({
-				populationFailure: null,
-				relatedPopulationFailure: null,
-				relatedPopulationFailedAt: null,
-				relatedPopulationStatus: "pending",
-			});
-			expect(yield* fixture.published).not.toContain(populated(entityId));
-		}),
-	);
-
-	test.effect("never marks the related level from a refresh or a base population", () =>
-		Effect.gen(function* () {
-			const fixture = yield* FailureFixture;
-			const refreshed = yield* fixture.seed({
-				populatedAt: occurredAtDate,
-				externalId: "related-refresh",
-			});
-			const base = yield* fixture.seed({ externalId: "related-base" });
-
-			assertPopulationFails(
-				yield* populate({
-					mode: "refresh",
-					externalId: "related-refresh",
-					sandbox: Effect.succeed(invalidOutput),
-				}),
-				invalidOutput,
-			);
-			assertPopulationFails(
-				yield* populate({
-					level: "base",
-					externalId: "related-base",
-					sandbox: Effect.succeed(invalidOutput),
-				}),
-				invalidOutput,
-			);
-
-			expect(yield* fixture.read(refreshed)).toMatchObject({
-				relatedPopulationFailure: null,
-				relatedPopulationStatus: "pending",
-			});
-			expect(yield* fixture.read(base)).toMatchObject({
-				relatedPopulationFailure: null,
-				relatedPopulationStatus: "pending",
-				populationFailure: "invalid-output",
-			});
-			const published = yield* fixture.published;
-			expect(published).not.toContain(populated(refreshed));
-			expect(published).not.toContain(populated(base));
-		}),
-	);
-
-	test.effect("writes nothing when the related level was stamped while the script ran", () =>
-		Effect.gen(function* () {
-			const fixture = yield* FailureFixture;
-			const entityId = yield* fixture.seed({
-				populatedAt: occurredAtDate,
-				externalId: "related-stamped",
-			});
-			const exit = yield* populate({
-				externalId: "related-stamped",
-				sandbox: fixture.stampRelated(entityId).pipe(Effect.as(invalidOutput)),
-			});
-
-			assertPopulationFails(exit, invalidOutput);
-			expect(yield* fixture.read(entityId)).toMatchObject({
-				relatedPopulationFailure: null,
-				relatedPopulationStatus: "ready",
-			});
-			expect(yield* fixture.published).not.toContain(populated(entityId));
-		}),
-	);
-
-	test.effect("clears the related failure when a later full population stamps it", () =>
-		Effect.gen(function* () {
-			const fixture = yield* FailureFixture;
-			const entityId = yield* fixture.seed({
-				populatedAt: occurredAtDate,
-				externalId: "related-recovered",
-			});
-			yield* populate({ externalId: "related-recovered", sandbox: Effect.succeed(invalidOutput) });
-			expect((yield* fixture.read(entityId)).relatedPopulationStatus).toBe("failed");
-
-			yield* fixture.stampRelated(entityId);
-
-			expect(yield* fixture.read(entityId)).toMatchObject({
-				relatedPopulationFailure: null,
-				relatedPopulationFailedAt: null,
-				relatedPopulationStatus: "ready",
-			});
-		}),
-	);
-});
-
-layer(failureLayer)((test) => {
-	test.effect("does not mark the related level when the caller's account rotated", () =>
-		Effect.gen(function* () {
-			const fixture = yield* FailureFixture;
-			const entityId = yield* fixture.seed({
-				populatedAt: occurredAtDate,
-				externalId: "related-rotated",
-			});
-			const exit = yield* populate({
-				externalId: "related-rotated",
-				sandbox: fixture.rotateAccount.pipe(Effect.as(invalidOutput)),
-			});
-
-			assertPopulationFails(exit, invalidOutput);
-			expect(yield* fixture.read(entityId)).toMatchObject({
-				relatedPopulationFailure: null,
-				relatedPopulationStatus: "pending",
-			});
-			expect(yield* fixture.published).toEqual([]);
+			yield* h.run({ ...original, mode: "ensure" });
+			expect(h.attempts[0]?.payload.mode).toBe("refresh");
 		}),
 	);
 });

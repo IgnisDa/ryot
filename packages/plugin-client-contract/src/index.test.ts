@@ -986,6 +986,7 @@ describe("plugin client bridge contract", () => {
 			pluginId: "fixture",
 			entityId: "entity-1",
 			requestId: "retry-1",
+			operation: "population" as const,
 			type: "retry-population-request" as const,
 		};
 		expect(Result.isSuccess(decodeClient(request))).toBe(true);

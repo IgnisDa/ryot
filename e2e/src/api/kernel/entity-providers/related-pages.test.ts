@@ -204,7 +204,8 @@ describe("paged related-entity groups", () => {
 					pages([{ page: 2 }, "movie-2", null]),
 				);
 				yield* setEntityPopulatedAt(company.id, null);
-				const socket = yield* openInterestWebSocketScoped(auth);
+				const refresher = yield* createAuthenticatedClient();
+				const socket = yield* openInterestWebSocketScoped(refresher);
 				yield* socket.replaceInterest([company.id], [company.id]);
 
 				expect(

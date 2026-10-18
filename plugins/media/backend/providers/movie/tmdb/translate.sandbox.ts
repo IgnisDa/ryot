@@ -7,6 +7,7 @@ export const manifest = defineManifest({
 	kind: "provider",
 	name: "TMDB Movie Translate",
 	slug: "movie.tmdb.translate",
+	translationInputs: { movie: [] },
 });
 
 export default defineProvider({ manifest, run: translate.run, operation: "translate" });

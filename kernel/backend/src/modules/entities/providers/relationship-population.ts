@@ -19,19 +19,14 @@ import { Effect } from "effect";
 import { populationLifecycleCommand } from "#modules/automations/lifecycle/command";
 import { parseAppSchemaProperties } from "#modules/definitions/properties/runtime";
 import type { EntityRelationshipDefinitions } from "#modules/definitions/snapshot";
-import { EntitiesRepository } from "#modules/entities/repository";
 import { EntitiesService } from "#modules/entities/service";
 import type { DomainLifecycleCommand } from "#modules/entities/write-context";
-import { PluginRuntimeResolver } from "#modules/plugins/catalog/runtime-resolver";
 import { RelationshipsRepository } from "#modules/relationships/repository";
 import { retryOnDeadlock } from "#platform/db/errors";
 import { DatabaseSession } from "#platform/db/session";
 
 import { makeProviderExecutionReads } from "./execution-reads";
-import {
-	persistPlannedRelationshipPage,
-	persistPlannedRelationshipSynchronization,
-} from "./relationship-synchronization";
+import { persistPlannedRelationshipPage } from "./relationship-synchronization";
 
 type RelatedGroupPaging = { generation: string; groupIndex: number; pageIndex: number };
 
@@ -196,15 +191,13 @@ export const syncRelatedEntityGroup = Effect.fn("syncRelatedEntityGroup")(functi
 		primaryEntityId: EntityId;
 		primaryEntitySchemaSlug: EntitySchemaSlug;
 		group: Omit<ProviderDetailsRelatedEntityGroup, "continuation">;
-		paging?: RelatedGroupPaging;
+		paging: RelatedGroupPaging;
 	} & ({ scope: "global" } | { scope: "user"; userId: UserId }),
 ) {
 	const session = yield* DatabaseSession;
 	const reads = makeProviderExecutionReads(session);
 	const entities = yield* EntitiesService;
-	const repository = yield* EntitiesRepository;
 	const relationships = yield* RelationshipsRepository;
-	const pluginRuntime = yield* PluginRuntimeResolver;
 	const relationshipSchema = yield* findRelationshipSchema(
 		input.definitions,
 		input.pluginId,
@@ -229,64 +222,41 @@ export const syncRelatedEntityGroup = Effect.fn("syncRelatedEntityGroup")(functi
 		relatedEntity: ProviderDetailsRelatedEntity;
 		schemaProvider: { providerId: SandboxProviderId; entitySchemaSlug: EntitySchemaSlug };
 	}> = [];
-	// One provider resolution per distinct slug, not per related entity: a details payload commonly
-	// carries dozens of cast/crew members from the same provider.
 	const schemaProviderBySlug = new Map<
 		string,
-		(typeof resolvedRelatedEntities)[number]["schemaProvider"] | null
+		(typeof resolvedRelatedEntities)[number]["schemaProvider"]
 	>();
+	const pin = input.command.writeContext?.pluginRevision;
+	if (!pin) {
+		return yield* new SandboxRunError({
+			kind: "invalid-input",
+			message: "Related population requires exact persisted plugin authority",
+		});
+	}
 	const resolveSchemaProvider = Effect.fn(function* (providerSlug: string) {
 		const memoized = schemaProviderBySlug.get(providerSlug);
 		if (memoized !== undefined) {
 			return memoized;
 		}
-		const pin = input.command.writeContext?.pluginRevision;
-		if (pin) {
-			const provider = yield* reads.findPinnedProvider(
-				{ slug: providerSlug, owner: definitionOwner(input.pluginId) },
-				pin.revisionId,
-			);
-			if (!provider) {
-				return yield* new SandboxRunError({
-					kind: "script-failure",
-					message: `Provider is not declared by the pinned owner: ${providerSlug}`,
-				});
-			}
-			const resolved = {
-				providerId: provider.id,
-				entitySchemaSlug: EntitySchemaSlug.make(provider.rootEntitySchemaSlug),
-			};
-			schemaProviderBySlug.set(providerSlug, resolved);
-			return resolved;
+		const provider = yield* reads.findPinnedProvider(
+			{ slug: providerSlug, owner: definitionOwner(input.pluginId) },
+			pin.revisionId,
+		);
+		if (!provider) {
+			return yield* new SandboxRunError({
+				kind: "script-failure",
+				message: `Provider is not declared by the pinned owner: ${providerSlug}`,
+			});
 		}
-		const availableProvider =
-			input.scope === "user"
-				? yield* pluginRuntime.findProviderAvailableToUserByReference(input.userId, {
-						slug: providerSlug,
-						owner: definitionOwner(input.pluginId),
-					})
-				: null;
-		const persistedSchemaProvider =
-			input.scope === "global"
-				? yield* repository.findEntitySchemaProviderByReference({
-						slug: providerSlug,
-						owner: definitionOwner(input.pluginId),
-					})
-				: null;
-		const resolved = availableProvider
-			? ({
-					providerId: availableProvider.id,
-					entitySchemaSlug: EntitySchemaSlug.make(availableProvider.rootEntitySchemaSlug),
-				} as const)
-			: persistedSchemaProvider;
+		const resolved = {
+			providerId: provider.id,
+			entitySchemaSlug: EntitySchemaSlug.make(provider.rootEntitySchemaSlug),
+		};
 		schemaProviderBySlug.set(providerSlug, resolved);
 		return resolved;
 	});
 	for (const relatedEntity of uniqueRelatedEntities.values()) {
 		const schemaProvider = yield* resolveSchemaProvider(relatedEntity.providerSlug);
-		if (!schemaProvider) {
-			continue;
-		}
 		const sourceSchemaId =
 			input.group.direction === "outgoing"
 				? input.primaryEntitySchemaSlug
@@ -330,14 +300,12 @@ export const syncRelatedEntityGroup = Effect.fn("syncRelatedEntityGroup")(functi
 			? ({ scope: "user", userId: input.userId } as const)
 			: ({ scope: "global" } as const);
 	const paging = input.paging;
-	const itemIdentity = paging
-		? pagedItemIdentity(input.primaryEntityId, input.group, paging, `page:${paging.pageIndex}`)
-		: [
-				"related-group",
-				String(input.primaryEntityId),
-				input.group.relationshipSchemaSlug,
-				input.group.direction,
-			];
+	const itemIdentity = pagedItemIdentity(
+		input.primaryEntityId,
+		input.group,
+		paging,
+		`page:${paging.pageIndex}`,
+	);
 	const groupKey = {
 		direction: input.group.direction,
 		anchorEntityId: input.primaryEntityId,
@@ -347,10 +315,7 @@ export const syncRelatedEntityGroup = Effect.fn("syncRelatedEntityGroup")(functi
 	const committed = yield* retryOnDeadlock(
 		session.transaction(
 			Effect.gen(function* () {
-				if (
-					paging &&
-					!(yield* relationships.holdsRelationshipSyncGeneration(groupKey, paging.generation))
-				) {
+				if (!(yield* relationships.holdsRelationshipSyncGeneration(groupKey, paging.generation))) {
 					return { result: [], superseded: true, entityDispatch: [], relationshipDispatch: [] };
 				}
 				const upserts = yield* entities.persistPlannedProviderUpserts({
@@ -400,33 +365,18 @@ export const syncRelatedEntityGroup = Effect.fn("syncRelatedEntityGroup")(functi
 					),
 					writeContext: input.command.writeContext,
 				};
-				const relationshipWork = paging
-					? yield* persistPlannedRelationshipPage({
-							...scope,
-							entries,
-							kind: "page",
-							command: relationshipCommand,
-							generation: paging.generation,
-							direction: input.group.direction,
-							anchorEntityId: input.primaryEntityId,
-							relationshipSchemaSlug: relationshipSchema.id,
-							relationshipSchemaPluginId: relationshipSchema.pluginId,
-							preserveExisting: input.group.synchronization === "additive",
-						})
-					: yield* persistPlannedRelationshipSynchronization({
-							...scope,
-							entries,
-							command: relationshipCommand,
-							direction: input.group.direction,
-							anchorEntityId: input.primaryEntityId,
-							synchronization: input.group.synchronization,
-							relationshipSchemaSlug: relationshipSchema.id,
-							relationshipSchemaPluginId: relationshipSchema.pluginId,
-							onConflict:
-								input.group.synchronization === "additive"
-									? "preserveExisting"
-									: "replaceProperties",
-						});
+				const relationshipWork = yield* persistPlannedRelationshipPage({
+					...scope,
+					entries,
+					kind: "page",
+					command: relationshipCommand,
+					generation: paging.generation,
+					direction: input.group.direction,
+					anchorEntityId: input.primaryEntityId,
+					relationshipSchemaSlug: relationshipSchema.id,
+					relationshipSchemaPluginId: relationshipSchema.pluginId,
+					preserveExisting: input.group.synchronization === "additive",
+				});
 				return {
 					entityDispatch,
 					superseded: false,

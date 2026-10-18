@@ -63,6 +63,7 @@ export const EntitiesRoutesLive = HttpApiBuilder.group(AppContract, "entities", 
 						user: yield* CurrentUser,
 						entityId: params.entityId,
 						pluginId: payload.pluginId,
+						operation: payload.operation,
 					})
 					.pipe(dieOnDbError);
 			}),

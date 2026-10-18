@@ -23,6 +23,7 @@ import {
 } from "./execution";
 import { SandboxExecutionMetadata } from "./execution-metadata";
 import { pluginConfigEnvironmentKey } from "./plugin-config";
+import { ProviderTranslationInputs } from "./provider-inputs";
 import { KernelDefinitionOwner, PluginPackageReference } from "./references";
 
 export const CLIENT_API_VERSION = 1 as const;
@@ -520,13 +521,14 @@ export const PluginScript = Schema.Union([
 			...PluginScriptFields,
 			kind: Schema.Literal("provider"),
 			providerSlug: sandboxManifestSlug,
-			providerOperation: Schema.Literals([
-				"details",
-				"related",
-				"resolve",
-				"translate",
-				"search-options",
-			]),
+			translationInputs: ProviderTranslationInputs,
+			providerOperation: Schema.Literal("translate"),
+		}),
+		strictStruct({
+			...PluginScriptFields,
+			kind: Schema.Literal("provider"),
+			providerSlug: sandboxManifestSlug,
+			providerOperation: Schema.Literals(["details", "related", "resolve", "search-options"]),
 		}),
 	]),
 ]);
@@ -1260,6 +1262,20 @@ const hasValidPluginManifestReferences = (manifest: typeof PluginManifestFields.
 		return false;
 	}
 	const providerScripts = manifest.scripts.filter((script) => script.kind === "provider");
+	for (const script of providerScripts) {
+		if (script.providerOperation !== "translate") {
+			continue;
+		}
+		for (const [schemaSlug, keys] of Object.entries(script.translationInputs)) {
+			const entitySchema = manifest.entitySchemas.find(({ slug }) => slug === schemaSlug);
+			if (
+				!entitySchema ||
+				!keys.every((key) => Object.hasOwn(entitySchema.propertiesSchema.fields, key))
+			) {
+				return false;
+			}
+		}
+	}
 
 	if (
 		new Set(

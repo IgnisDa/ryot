@@ -11,9 +11,9 @@ const presentationRowDefaults = {
 	progressPercent: 42,
 	state: "in_progress",
 	productionStatus: null,
-	populationStatus: "ready",
-	translationStatus: "none",
-	relatedPopulationStatus: "ready",
+	translationStatus: { state: "idle", availability: "none" },
+	populationStatus: { state: "succeeded", availability: "complete" },
+	relatedPopulationStatus: { state: "succeeded", availability: "complete" },
 };
 
 export const decodeFlatPresentation = <Presentation>(

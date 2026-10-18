@@ -2,6 +2,8 @@ import { Layer } from "effect";
 
 import { LifecycleServicesLive } from "#modules/automations/layer";
 import { DefinitionRepository } from "#modules/definitions/repository";
+import { EnrichmentRequests } from "#modules/entities/enrichment/requests";
+import { TranslationsServiceLive } from "#modules/entities/localization/layer";
 import { EntitiesRepositoryLive } from "#modules/entities/repository";
 import { DomainWriteChecksLive } from "#modules/entities/write-context";
 import { PluginRuntimeResolverLive } from "#modules/plugins/catalog/runtime-resolver";
@@ -13,6 +15,7 @@ import { EntityImportWorkflowOperationsLive } from "./operations-workflow";
 import { EntityPopulationRetryService } from "./population-retry";
 import { EntityPopulationTriggerLive } from "./population-trigger-live";
 import {
+	ProviderEntityPopulationAttemptWorkflowDefinitionsLive,
 	ProviderEntityPopulationWorkflowDefinitionsLive,
 	ProviderRelatedPagesWorkflowDefinitionsLive,
 } from "./provider-entity-population-workflow";
@@ -42,9 +45,11 @@ export const EntityPopulationRetryServiceLive = EntityPopulationRetryService.lay
 	Layer.provide(
 		EntityPopulationTriggerLive.pipe(
 			Layer.provide(Layer.merge(ScriptExecutionServiceLive, DomainWriteChecksLive)),
+			Layer.provide(EnrichmentRequests.layer),
 		),
 	),
 	Layer.provide(Layer.merge(EntitiesRepositoryLive, PluginRuntimeResolverLive)),
+	Layer.provide(Layer.merge(EnrichmentRequests.layer, TranslationsServiceLive)),
 );
 
 export const EntityImportWorkflowOperationsProvidedLive = EntityImportWorkflowOperationsLive.pipe(
@@ -55,18 +60,21 @@ export const EntityImportWorkflowOperationsProvidedLive = EntityImportWorkflowOp
 	Layer.provide(DefinitionRepository.layer),
 );
 
-export const ProviderEntityPopulationWorkflowDefinitionsProvidedLive =
-	ProviderEntityPopulationWorkflowDefinitionsLive.pipe(
-		Layer.provide(
-			Layer.mergeAll(
-				DefinitionRepository.layer,
-				EntitiesRepositoryLive,
-				DomainWriteChecksLive,
-				PluginRuntimeResolverLive,
-				RelationshipsRepository.layer,
-			),
+export const ProviderEntityPopulationWorkflowDefinitionsProvidedLive = Layer.merge(
+	ProviderEntityPopulationWorkflowDefinitionsLive,
+	ProviderEntityPopulationAttemptWorkflowDefinitionsLive,
+).pipe(
+	Layer.provide(
+		Layer.mergeAll(
+			DefinitionRepository.layer,
+			EntitiesRepositoryLive,
+			DomainWriteChecksLive,
+			PluginRuntimeResolverLive,
+			RelationshipsRepository.layer,
+			EnrichmentRequests.layer,
 		),
-	);
+	),
+);
 
 export const ProviderRelatedPagesWorkflowDefinitionsProvidedLive =
 	ProviderRelatedPagesWorkflowDefinitionsLive.pipe(

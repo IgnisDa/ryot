@@ -1,20 +1,10 @@
 import { generateId } from "better-auth";
 import { sql } from "drizzle-orm";
-import { check, index, jsonb, snakeCase, text, unique, uniqueIndex } from "drizzle-orm/pg-core";
+import { index, integer, jsonb, snakeCase, text, unique, uniqueIndex } from "drizzle-orm/pg-core";
 
 import { user } from "./auth";
 import { plugin, sandboxProvider } from "./core";
 import { timestamptz, updatedAtColumn } from "./timestamps";
-
-export const ENTITY_POPULATION_FAILURES = [
-	"script-failure",
-	"invalid-output",
-	"execution-limit",
-] as const;
-
-const populationFailureList = sql.raw(
-	ENTITY_POPULATION_FAILURES.map((failure) => `'${failure}'`).join(", "),
-);
 
 export const entity = snakeCase.table(
 	"entity",
@@ -23,14 +13,13 @@ export const entity = snakeCase.table(
 		name: text().notNull(),
 		populatedAt: timestamptz(),
 		updatedAt: updatedAtColumn(),
-		populationFailedAt: timestamptz(),
 		relatedPopulatedAt: timestamptz(),
 		entitySchemaSlug: text().notNull(),
-		relatedPopulationFailedAt: timestamptz(),
+		relatedPopulationGeneration: text(),
+		relatedPopulationStartedAt: timestamptz(),
 		createdAt: timestamptz().defaultNow().notNull(),
-		populationFailure: text({ enum: ENTITY_POPULATION_FAILURES }),
+		contentGeneration: integer().notNull().default(1),
 		userId: text().references(() => user.id, { onDelete: "cascade" }),
-		relatedPopulationFailure: text({ enum: ENTITY_POPULATION_FAILURES }),
 		properties: jsonb().$type<Record<string, unknown>>().notNull().default({}),
 		providerId: text().references(() => sandboxProvider.id, { onDelete: "cascade" }),
 		entitySchemaPluginId: text().references(() => plugin.id, { onDelete: "restrict" }),
@@ -46,14 +35,6 @@ export const entity = snakeCase.table(
 		index("entity_entity_schema_slug_idx").on(table.entitySchemaSlug),
 		index("entity_entity_schema_plugin_id_idx").on(table.entitySchemaPluginId),
 		index("entity_properties_idx").using("gin", table.properties),
-		check(
-			"entity_population_failure_check",
-			sql`(${table.populationFailure} is null) = (${table.populationFailedAt} is null) and (${table.populationFailure} is null or ${table.populationFailure} in (${populationFailureList}))`,
-		),
-		check(
-			"entity_related_population_failure_check",
-			sql`(${table.relatedPopulationFailure} is null) = (${table.relatedPopulationFailedAt} is null) and (${table.relatedPopulationFailure} is null or ${table.relatedPopulationFailure} in (${populationFailureList}))`,
-		),
 		uniqueIndex("entity_collection_name_unique")
 			.on(table.userId, table.name)
 			.where(

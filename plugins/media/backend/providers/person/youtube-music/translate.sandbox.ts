@@ -7,6 +7,7 @@ import { buildArtistTranslate } from "./shared";
 
 export const manifest = defineManifest({
 	kind: "provider",
+	translationInputs: { person: [] },
 	slug: "person.youtube-music.translate",
 	name: "YouTube Music artist translation",
 });

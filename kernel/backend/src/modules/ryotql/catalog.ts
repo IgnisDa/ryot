@@ -12,7 +12,11 @@ import { ingestionActivitiesSql, ingestionSummarySql } from "./ingestion-project
 
 export type CatalogFieldKind = "boolean" | "date" | "json" | "number" | "text";
 
-type CatalogFieldContext = { readonly sqlAlias: string; readonly language: string | null };
+type CatalogFieldContext = {
+	readonly sqlAlias: string;
+	readonly language: string | null;
+	readonly userId?: string | null;
+};
 
 export type CatalogField = {
 	readonly kind: CatalogFieldKind;
@@ -156,7 +160,7 @@ const localizedEntityName: CatalogField = {
 	resolve: ({ language, sqlAlias }) =>
 		language === null
 			? sql.raw(`${sqlAlias}.name`)
-			: sql`COALESCE((SELECT translation.name FROM entity_translation translation WHERE translation.entity_id = ${sql.raw(`${sqlAlias}.id`)} AND translation.language = ${language}), ${sql.raw(`${sqlAlias}.name`)})`,
+			: sql`COALESCE((SELECT translation.name FROM entity_translation translation WHERE translation.entity_id = ${sql.raw(`${sqlAlias}.id`)} AND translation.language = ${language} AND translation.source_content_generation = ${sql.raw(`${sqlAlias}.content_generation`)}), ${sql.raw(`${sqlAlias}.name`)})`,
 };
 
 const localizedEntityProperties: CatalogField = {
@@ -165,63 +169,97 @@ const localizedEntityProperties: CatalogField = {
 	resolve: ({ language, sqlAlias }) =>
 		language === null
 			? sql.raw(`${sqlAlias}.properties`)
-			: sql`${sql.raw(`${sqlAlias}.properties`)} || COALESCE((SELECT translation.properties FROM entity_translation translation WHERE translation.entity_id = ${sql.raw(`${sqlAlias}.id`)} AND translation.language = ${language}), '{}'::jsonb)`,
+			: sql`${sql.raw(`${sqlAlias}.properties`)} || COALESCE((SELECT translation.properties FROM entity_translation translation WHERE translation.entity_id = ${sql.raw(`${sqlAlias}.id`)} AND translation.language = ${language} AND translation.source_content_generation = ${sql.raw(`${sqlAlias}.content_generation`)}), '{}'::jsonb)`,
+};
+
+const enrichmentWorkState = (
+	context: CatalogFieldContext,
+	operation: "population" | "translation",
+	related = false,
+) => {
+	const id = sql.raw(`${context.sqlAlias}.id`);
+	const providerId = sql.raw(`${context.sqlAlias}.provider_id`);
+	const externalId = sql.raw(`${context.sqlAlias}.external_id`);
+	const schemaSlug = sql.raw(`${context.sqlAlias}.entity_schema_slug`);
+	const pluginId = sql.raw(`${context.sqlAlias}.entity_schema_plugin_id`);
+	const scopeUserId = sql.raw(`${context.sqlAlias}.user_id`);
+	return sql`coalesce((select request.state from entity_enrichment_request request
+		where (request.entity_id = ${id} or (request.entity_id is null and request.provider_id = ${providerId} and request.external_id = ${externalId} and request.entity_schema_slug = ${schemaSlug} and request.plugin_id = ${pluginId} and request.scope_user_id is not distinct from ${scopeUserId}))
+		and request.operation = ${operation}
+		and (${related} = false or request.level = 'full')
+		and (${operation} <> 'translation' or request.language = ${context.language})
+		and (${operation} <> 'translation' or request.source_content_generation = ${sql.raw(`${context.sqlAlias}.content_generation`)})
+		and request.requester_user_id is not distinct from ${context.userId ?? null}
+		and request.requester_generation is not distinct from (select account_generation from "user" where id = ${context.userId ?? null})
+		order by request.sequence desc limit 1), 'idle')`;
 };
 
 const entityTranslationStatus: CatalogField = {
-	kind: "text",
+	kind: "json",
 	nullable: false,
-	resolve: ({ language, sqlAlias }) => {
+	resolve: (context) => {
+		const { language, sqlAlias } = context;
 		if (language === null) {
-			return sql`'none'::text`;
+			return sql`jsonb_build_object('availability', 'none', 'state', 'idle')`;
 		}
 		const id = sql.raw(`${sqlAlias}.id`);
 		const providerId = sql.raw(`${sqlAlias}.provider_id`);
 		const populatedAt = sql.raw(`${sqlAlias}.populated_at`);
 		const canonicalLanguage = sql`(SELECT provider.information ->> 'canonicalLanguage' FROM sandbox_provider provider WHERE provider.id = ${providerId})`;
-		return sql`CASE
+		const sourceGeneration = sql.raw(`${sqlAlias}.content_generation`);
+		const supported = sql`exists (select 1 from sandbox_provider provider
+			join plugin owner on owner.id = provider.plugin_id
+			join definition_provider_operation operation on operation.plugin_revision_id = owner.active_revision_id and operation.provider_slug = provider.slug and operation.operation = 'translate'
+			join sandbox_script script on script.plugin_revision_id = operation.plugin_revision_id and script.slug = operation.script_slug and script.provider_id = provider.id
+			where provider.id = ${providerId} and script.metadata -> 'translationInputs' ? ${sql.raw(`${sqlAlias}.entity_schema_slug`)})`;
+		const applicable = sql`${providerId} is not null and ${canonicalLanguage} is not null and ${canonicalLanguage} <> ${language} and ${populatedAt} is not null and ${supported}`;
+		const availability = sql`CASE
 			WHEN ${providerId} IS NULL THEN 'none'
 			WHEN ${canonicalLanguage} IS NULL THEN 'none'
 			WHEN ${canonicalLanguage} = ${language} THEN 'none'
 			WHEN ${populatedAt} IS NULL THEN 'none'
-			WHEN NOT EXISTS (SELECT 1 FROM entity_translation translation WHERE translation.entity_id = ${id} AND translation.language = ${language}) THEN 'pending'
-			WHEN (SELECT translation.name IS NULL AND (translation.properties IS NULL OR translation.properties = '{}'::jsonb) FROM entity_translation translation WHERE translation.entity_id = ${id} AND translation.language = ${language}) THEN 'none'
-			ELSE 'ready'
+			WHEN NOT ${supported} THEN 'none'
+			WHEN NOT EXISTS (SELECT 1 FROM entity_translation translation WHERE translation.entity_id = ${id} AND translation.language = ${language} AND translation.source_content_generation = ${sourceGeneration}) THEN 'missing'
+			WHEN (SELECT translation.name IS NULL AND (translation.properties IS NULL OR translation.properties = '{}'::jsonb) FROM entity_translation translation WHERE translation.entity_id = ${id} AND translation.language = ${language} AND translation.source_content_generation = ${sourceGeneration}) THEN 'none'
+			ELSE 'complete'
 		END`;
+		return sql`jsonb_build_object('availability', ${availability}, 'state', case when ${applicable} then ${enrichmentWorkState(context, "translation")} else 'idle' end)`;
 	},
 };
 
 const entityPopulationStatus: CatalogField = {
-	kind: "text",
+	kind: "json",
 	nullable: false,
-	resolve: ({ sqlAlias }) => {
+	resolve: (context) => {
+		const { sqlAlias } = context;
 		const providerId = sql.raw(`${sqlAlias}.provider_id`);
 		const externalId = sql.raw(`${sqlAlias}.external_id`);
 		const populatedAt = sql.raw(`${sqlAlias}.populated_at`);
-		const populationFailedAt = sql.raw(`${sqlAlias}.population_failed_at`);
-		return sql`CASE
-			WHEN ${populatedAt} IS NOT NULL THEN 'ready'
+		const availability = sql`CASE
+			WHEN ${populatedAt} IS NOT NULL THEN 'complete'
 			WHEN ${providerId} IS NULL OR ${externalId} IS NULL THEN 'none'
-			WHEN ${populationFailedAt} IS NOT NULL THEN 'failed'
-			ELSE 'pending'
+			WHEN ${sql.raw(`${sqlAlias}.properties`)} <> '{}'::jsonb THEN 'partial'
+			ELSE 'missing'
 		END`;
+		return sql`jsonb_build_object('availability', ${availability}, 'state', ${enrichmentWorkState(context, "population")})`;
 	},
 };
 
 const entityRelatedPopulationStatus: CatalogField = {
-	kind: "text",
+	kind: "json",
 	nullable: false,
-	resolve: ({ sqlAlias }) => {
+	resolve: (context) => {
+		const { sqlAlias } = context;
 		const providerId = sql.raw(`${sqlAlias}.provider_id`);
 		const externalId = sql.raw(`${sqlAlias}.external_id`);
 		const relatedPopulatedAt = sql.raw(`${sqlAlias}.related_populated_at`);
-		const relatedPopulationFailedAt = sql.raw(`${sqlAlias}.related_population_failed_at`);
-		return sql`CASE
-			WHEN ${relatedPopulatedAt} IS NOT NULL THEN 'ready'
+		const availability = sql`CASE
+			WHEN ${relatedPopulatedAt} IS NOT NULL THEN 'complete'
 			WHEN ${providerId} IS NULL OR ${externalId} IS NULL THEN 'none'
-			WHEN ${relatedPopulationFailedAt} IS NOT NULL THEN 'failed'
-			ELSE 'pending'
+			WHEN exists (select 1 from relationship related where related.user_id is not distinct from ${sql.raw(`${sqlAlias}.user_id`)} and (related.source_entity_id = ${sql.raw(`${sqlAlias}.id`)} or related.target_entity_id = ${sql.raw(`${sqlAlias}.id`)})) THEN 'partial'
+			ELSE 'missing'
 		END`;
+		return sql`jsonb_build_object('availability', ${availability}, 'state', ${enrichmentWorkState(context, "population", true)})`;
 	},
 };
 

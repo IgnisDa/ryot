@@ -1,31 +1,35 @@
+import type { EnrichmentState, EntitySyncState } from "@ryot-app/contract/modules/entities/schemas";
 import { describe, expect, it } from "vitest";
 
-import {
-	entityMonogram,
-	type EntitySyncState,
-	fieldSyncState,
-	isTitleProvisional,
-	type SyncStatus,
-} from "./sync-state";
+import { entityMonogram, fieldSyncState, isTitleProvisional } from "./sync-state";
 
 const sync = (
-	populationStatus: SyncStatus,
-	translationStatus: SyncStatus = "none",
-): EntitySyncState => ({ populationStatus, translationStatus });
+	population: EnrichmentState["state"],
+	translation: EnrichmentState["state"] = "idle",
+): EntitySyncState => ({
+	populationStatus: { state: population, availability: "partial" },
+	translationStatus: { state: translation, availability: "missing" },
+});
 
 describe("fieldSyncState", () => {
 	it("reports a present value as ready whatever the population status", () => {
-		expect(fieldSyncState("Example", sync("pending"))).toBe("ready");
-		expect(fieldSyncState({ type: "remote" }, sync("pending"))).toBe("ready");
-		expect(fieldSyncState(0, sync("none"))).toBe("ready");
-		expect(fieldSyncState(false, sync("ready"))).toBe("ready");
+		expect(fieldSyncState("Example", sync("running"))).toBe("ready");
+		expect(fieldSyncState({ type: "remote" }, sync("retrying"))).toBe("ready");
+		expect(fieldSyncState(0, sync("idle"))).toBe("ready");
+		expect(fieldSyncState(false, sync("succeeded"))).toBe("ready");
 	});
 
 	it("reports a missing value as pending only while population is pending", () => {
-		expect(fieldSyncState(null, sync("pending"))).toBe("pending");
-		expect(fieldSyncState(undefined, sync("pending"))).toBe("pending");
-		expect(fieldSyncState(null, sync("ready"))).toBe("absent");
-		expect(fieldSyncState(undefined, sync("none"))).toBe("absent");
+		expect(fieldSyncState(null, sync("queued"))).toBe("pending");
+		expect(fieldSyncState(undefined, sync("running"))).toBe("pending");
+		expect(fieldSyncState(null, sync("succeeded"))).toBe("absent");
+		expect(
+			fieldSyncState(undefined, {
+				...sync("idle"),
+				populationStatus: { state: "idle", availability: "missing" },
+			}),
+		).toBe("absent");
+		expect(fieldSyncState(null, sync("cancelled"))).toBe("absent");
 	});
 
 	it("reports a missing value as failed after a failed population", () => {
@@ -36,9 +40,12 @@ describe("fieldSyncState", () => {
 
 describe("isTitleProvisional", () => {
 	it("is true only for a pending translation", () => {
-		expect(isTitleProvisional(sync("ready", "pending"))).toBe(true);
-		expect(isTitleProvisional(sync("ready", "ready"))).toBe(false);
-		expect(isTitleProvisional(sync("pending"))).toBe(false);
+		expect(isTitleProvisional(sync("succeeded", "queued"))).toBe(true);
+		expect(isTitleProvisional(sync("succeeded", "running"))).toBe(true);
+		expect(isTitleProvisional(sync("succeeded", "retrying"))).toBe(true);
+		expect(isTitleProvisional(sync("succeeded", "succeeded"))).toBe(false);
+		expect(isTitleProvisional(sync("succeeded", "failed"))).toBe(false);
+		expect(isTitleProvisional(sync("running"))).toBe(false);
 	});
 });
 

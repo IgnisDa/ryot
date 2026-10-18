@@ -227,7 +227,13 @@ describe("movie.tvdb sandbox script", () => {
 		return Effect.runPromise(
 			runSandboxTestScript(
 				translate,
-				{ language: "es", externalId: "1", entitySchemaSlug: "movie" },
+				{
+					name: "Movie",
+					language: "es",
+					properties: {},
+					externalId: "1",
+					entitySchemaSlug: "movie",
+				},
 				host,
 				execution,
 			).pipe(
@@ -253,7 +259,13 @@ describe("movie.tvdb sandbox script", () => {
 		return Effect.runPromise(
 			runSandboxTestScript(
 				translate,
-				{ language: "es", externalId: "1", entitySchemaSlug: "movie" },
+				{
+					name: "Movie",
+					language: "es",
+					properties: {},
+					externalId: "1",
+					entitySchemaSlug: "movie",
+				},
 				host,
 				execution,
 			).pipe(

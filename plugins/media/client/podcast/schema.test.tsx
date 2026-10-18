@@ -35,11 +35,11 @@ const presentationRow = {
 	state: "in_progress",
 	schemaSlug: "podcast",
 	inProgressEpisodes: 1,
-	populationStatus: "ready",
-	translationStatus: "none",
 	productionStatus: "Ended",
-	relatedPopulationStatus: "ready",
+	translationStatus: { state: "idle", availability: "none" },
+	populationStatus: { state: "succeeded", availability: "complete" },
 	image: { type: "remote", url: "https://images.test/reply-all.jpg" },
+	relatedPopulationStatus: { state: "succeeded", availability: "complete" },
 };
 
 const presentationData = (overrides: Record<string, unknown> = {}) => {
@@ -94,7 +94,7 @@ describe("podcast schema", () => {
 			/>,
 		);
 
-		expect(container.textContent).toContain("183/400 aired · 3 upcoming");
+		expect(container.textContent).toContain("183 of 400 complete · 3 upcoming");
 		unmount();
 	});
 
@@ -170,7 +170,7 @@ describe("podcast schema", () => {
 		);
 
 		expect(container.querySelector('[aria-label="Listen record"]')).not.toBeNull();
-		expect(container.textContent).toContain("Listens");
+		expect(container.textContent).toContain("Completed listens");
 		expect(container.textContent).toContain("Finished the podcast");
 		unmount();
 	});

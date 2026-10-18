@@ -314,8 +314,18 @@ export class TestSupportService extends Context.Service<TestSupportService>()(
 					name: string | null;
 					properties: Record<string, unknown> | null;
 				}) {
+					const entity = yield* translations.findEntityById(input.entityId);
+					if (!entity) {
+						return yield* new TestSupportOperationFailure({
+							reason: { code: "operation-failed", diagnostic: "Translation entity is unavailable" },
+						});
+					}
 					return yield* translations
-						.upsertOverlay({ ...input, populatedAt: yield* DateTime.nowAsDate })
+						.upsertOverlay({
+							...input,
+							populatedAt: yield* DateTime.nowAsDate,
+							sourceContentGeneration: entity.contentGeneration,
+						})
 						.pipe(
 							Effect.mapError(
 								(error) =>

@@ -6,7 +6,11 @@ import type {
 	AutomationPolicyOutput,
 	AutomationWarning,
 } from "@ryot-app/contract/modules/automations/lifecycle";
-import { EntityBadRequest, EntityStale } from "@ryot-app/contract/modules/entities/schemas";
+import {
+	EntityBadRequest,
+	EntityNotFound,
+	EntityStale,
+} from "@ryot-app/contract/modules/entities/schemas";
 import {
 	definitionOwner,
 	type EntitySchemaReference,
@@ -147,6 +151,7 @@ type TestOptions = {
 	failChange?: boolean | number;
 	warnings?: ReadonlyArray<AutomationWarning>;
 	policies?: ReadonlyArray<AutomationPolicyOutput | "fail">;
+	policyEntityProvenance?: { entityId: EntityId; providerId: SandboxProviderId };
 };
 
 class FakeEntityLifecycle extends Context.Service<
@@ -430,6 +435,17 @@ const entitiesLayer = (options: TestOptions = {}) =>
 									}
 									const output = options.policies?.[index];
 									assert(output);
+									if (options.policyEntityProvenance) {
+										const provenance = options.policyEntityProvenance;
+										yield* session
+											.run((db) =>
+												db
+													.update(tables.entity)
+													.set({ externalId: "policy-source", providerId: provenance.providerId })
+													.where(eq(tables.entity.id, provenance.entityId)),
+											)
+											.pipe(Effect.orDie);
+									}
 									if (output === "fail") {
 										return yield* new AutomationPolicyExecutionError({
 											runId,
@@ -1396,6 +1412,152 @@ describe("EntitiesService committed lifecycle", () => {
 		);
 	});
 	layer(entitiesLayer())((test) => {
+		test.effect("rejects ordinary private-provider edits but permits provider corrections", () =>
+			Effect.gen(function* () {
+				yield* installProvider("user");
+				const service = yield* EntitiesService;
+				const repository = yield* EntitiesRepository;
+				const input = {
+					...createInput("private-provider-create"),
+					providerId,
+					populatedAt: null,
+					updateExisting: true,
+					externalId: "private-source",
+					entitySchema: providerEntitySchema,
+					properties: { code: "original", title: "original" },
+				};
+				const { entity } = yield* service.upsert(input);
+				const expected = {
+					name: entity.name,
+					updatedAt: entity.updatedAt,
+					properties: entity.properties,
+				};
+				const refusal = new EntityNotFound({
+					reason: { entityId: entity.id, code: "entity-not-found" },
+				});
+				assertExitFails(
+					yield* Effect.exit(
+						service.update({
+							scope: "user",
+							userId: owner,
+							name: "User edit",
+							entityId: entity.id,
+							requireUserOwned: true,
+							properties: { title: "user" },
+							lifecycle: command("private-provider-edit"),
+						}),
+					),
+					refusal,
+				);
+				assertExitFails(
+					yield* Effect.exit(
+						service.prepareUserSave({
+							userId: owner,
+							name: "Editor edit",
+							properties: { title: "editor" },
+							entitySchema: providerEntitySchema,
+							lifecycle: command("private-provider-editor"),
+							target: { expected, kind: "update", entityId: entity.id },
+						}),
+					),
+					refusal,
+				);
+				expect((yield* repository.getById(entity.id))?.name).toBe(entity.name);
+				const corrected = yield* service.upsert({
+					...input,
+					name: "Source correction",
+					lifecycle: command("private-provider-correction"),
+					properties: { title: "source", code: "corrected" },
+				});
+				expect(corrected.entity).toMatchObject({
+					name: "Source correction",
+					properties: { title: "source", code: "corrected" },
+				});
+			}),
+		);
+	});
+	layer(entitiesLayer())((test) => {
+		test.effect("rechecks provider ownership when committing a prepared user save", () =>
+			Effect.gen(function* () {
+				yield* installProvider("user");
+				const service = yield* EntitiesService;
+				const session = yield* DatabaseSession;
+				const { entity } = yield* service.createFromApi({
+					...createInput("prepared-custom-create"),
+					entitySchema: providerEntitySchema,
+				});
+				const prepared = yield* service.prepareUserSave({
+					userId: owner,
+					name: "User edit",
+					properties: { title: "user" },
+					entitySchema: providerEntitySchema,
+					lifecycle: command("prepared-custom-update"),
+					target: {
+						kind: "update",
+						entityId: entity.id,
+						expected: {
+							name: entity.name,
+							updatedAt: entity.updatedAt,
+							properties: entity.properties,
+						},
+					},
+				});
+				yield* session.run((db) =>
+					db
+						.update(tables.entity)
+						.set({ providerId, externalId: "attached-source" })
+						.where(eq(tables.entity.id, entity.id)),
+				);
+				assertExitFails(
+					yield* Effect.exit(session.transaction(service.persistPreparedUserSave(prepared))),
+					new EntityNotFound({ reason: { entityId: entity.id, code: "entity-not-found" } }),
+				);
+				expect((yield* (yield* EntitiesRepository).getById(entity.id))?.name).toBe(entity.name);
+			}),
+		);
+	});
+	layer(
+		entitiesLayer({
+			policies: [{ action: "allow" }],
+			policyEntityProvenance: { providerId, entityId: EntityId.make("policy-provider-entity") },
+		}),
+	)((test) => {
+		test.effect("rechecks user-only updates after policies change provider ownership", () =>
+			Effect.gen(function* () {
+				yield* installProvider("user");
+				const repository = yield* EntitiesRepository;
+				const service = yield* EntitiesService;
+				const entityId = EntityId.make("policy-provider-entity");
+				yield* repository.insertEntities([
+					{
+						id: entityId,
+						scope: "user",
+						userId: owner,
+						properties: {},
+						name: "Original",
+						entitySchemaSlug: slug,
+						entitySchemaPluginId: "provider-plugin",
+					},
+				]);
+				assertExitFails(
+					yield* Effect.exit(
+						service.update({
+							entityId,
+							scope: "user",
+							userId: owner,
+							properties: {},
+							name: "User edit",
+							requireUserOwned: true,
+							lifecycle: command("policy-provider-update"),
+						}),
+					),
+					new EntityNotFound({ reason: { entityId, code: "entity-not-found" } }),
+				);
+				expect((yield* repository.getById(entityId))?.name).toBe("Original");
+			}),
+		);
+	});
+	layer(entitiesLayer())((test) => {
 		test.effect("rejects private API entities with system-provider provenance", () =>
 			Effect.gen(function* () {
 				yield* installProvider("system");
@@ -1409,10 +1571,7 @@ describe("EntitiesService committed lifecycle", () => {
 						entitySchema: providerEntitySchema,
 					}),
 				);
-				assertExitFails(
-					exit,
-					new EntityBadRequest({ reason: { code: "provider-scope-mismatch" } }),
-				);
+				assertExitFails(exit, new EntityBadRequest({ reason: { code: "provider-owned" } }));
 				expect(yield* session.run((db) => db.select().from(tables.entity))).toEqual([]);
 				expect(yield* session.run((db) => db.select().from(tables.automationTrigger))).toEqual([]);
 			}),
@@ -1473,7 +1632,7 @@ describe("EntitiesService committed lifecycle", () => {
 						};
 						const providerEntity = yield* scope === "system"
 							? service.createGlobal(supplied)
-							: service.createFromApi(supplied);
+							: service.create(supplied);
 						expect(custom.entity.id).not.toBe(providerEntity.entity.id);
 						expect(custom.entity).toMatchObject({ externalId: null, providerId: null });
 						const rows = yield* session.run((db) => db.select().from(tables.entity));

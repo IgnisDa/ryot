@@ -16,7 +16,7 @@ import {
 } from "@ryot-app/contract/schema/brands";
 import type { JsonValue } from "@ryot-app/contract/schema/json";
 import { UserPreferences } from "@ryot-app/contract/schema/user-preferences";
-import { and, eq, isNotNull, isNull } from "drizzle-orm";
+import { and, eq, isNotNull, isNull, sql } from "drizzle-orm";
 import { Context, Effect, Layer, Schema } from "effect";
 
 import type { PortableUserProfile } from "#modules/accounts/auth/repository";
@@ -140,7 +140,10 @@ export class BackupRestorePersistence extends Context.Service<BackupRestorePersi
 					const [row] = yield* session.run((db) =>
 						db
 							.insert(schema.entityTranslation)
-							.values(input)
+							.values({
+								...input,
+								sourceContentGeneration: sql`(select ${schema.entity.contentGeneration} from ${schema.entity} where ${schema.entity.id} = ${input.entityId})`,
+							})
 							.returning({ language: schema.entityTranslation.language }),
 					);
 					return (

@@ -249,6 +249,7 @@ export const createRyotClient = (adapter: RyotClientAdapter) => {
 	const retryPopulation = (request: {
 		readonly entityId: string;
 		readonly packageId: PluginPackageId;
+		readonly operation: "population" | "translation";
 	}): Effect.Effect<{ readonly retried: boolean }, RyotClientError> =>
 		Effect.gen(function* () {
 			const retry = adapter.retryPopulation;
@@ -266,7 +267,9 @@ export const createRyotClient = (adapter: RyotClientAdapter) => {
 			});
 			const result = yield* decodeCapability(
 				Schema.Struct({ retried: Schema.Boolean }),
-				yield* adapterEffect(() => retry({ pluginId, entityId: entityId.success })),
+				yield* adapterEffect(() =>
+					retry({ pluginId, entityId: entityId.success, operation: request.operation }),
+				),
 			);
 			mutationCompleted.hint();
 			return result;

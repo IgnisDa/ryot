@@ -96,19 +96,30 @@ export const declaredScriptMetadata = (script: PluginScript): PluginScriptMetada
 			requiredPluginConfigKeys: script.requiredPluginConfigKeys,
 		};
 	}
-	return {
+	const provider = {
 		...execution,
-		kind: "provider",
 		slug: script.slug,
 		name: script.name,
+		kind: "provider" as const,
 		capabilities: script.capabilities,
 		providerSlug: script.providerSlug,
-		providerOperation: script.providerOperation,
 		requiredPluginConfigKeys: script.requiredPluginConfigKeys,
-		...("searchOptionsSchema" in script && script.searchOptionsSchema
-			? { searchOptionsSchema: script.searchOptionsSchema }
-			: {}),
 	};
+	if (script.providerOperation === "translate") {
+		return {
+			...provider,
+			providerOperation: script.providerOperation,
+			translationInputs: script.translationInputs,
+		};
+	}
+	if (script.providerOperation === "search") {
+		return {
+			...provider,
+			providerOperation: script.providerOperation,
+			...(script.searchOptionsSchema ? { searchOptionsSchema: script.searchOptionsSchema } : {}),
+		};
+	}
+	return { ...provider, providerOperation: script.providerOperation };
 };
 
 const PLUGIN_SANDBOX_ENTRY_SUFFIX = ".sandbox.ts";

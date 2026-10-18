@@ -1,4 +1,5 @@
-import { type EntitySyncState, fieldSyncState } from "@ryot-app/plugin-ui-sdk/sync";
+import type { EntitySyncState } from "@ryot-app/plugin-client-sdk";
+import { fieldSyncState, isEnrichmentActive } from "@ryot-app/plugin-ui-sdk/sync";
 
 import type { MediaImageAsset } from "./image";
 
@@ -8,6 +9,6 @@ export const mediaSyncCounts = <Item extends EntitySyncState>(
 	items: readonly Item[],
 	artOf: (item: Item) => MediaImageAsset | undefined,
 ): MediaSyncCounts => ({
-	translating: items.filter((item) => item.translationStatus === "pending").length,
+	translating: items.filter((item) => isEnrichmentActive(item.translationStatus)).length,
 	populating: items.filter((item) => fieldSyncState(artOf(item), item) === "pending").length,
 });

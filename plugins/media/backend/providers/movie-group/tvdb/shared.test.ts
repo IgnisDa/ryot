@@ -175,7 +175,13 @@ describe("movie-group.tvdb sandbox script", () => {
 		return Effect.runPromise(
 			runSandboxTestScript(
 				translate,
-				{ language: "es", externalId: "9", entitySchemaSlug: "movie-group" },
+				{
+					name: "Group",
+					language: "es",
+					properties: {},
+					externalId: "9",
+					entitySchemaSlug: "movie-group",
+				},
 				host,
 				execution,
 			).pipe(
@@ -194,7 +200,13 @@ describe("movie-group.tvdb sandbox script", () => {
 			Effect.runPromise(
 				runSandboxTestScript(
 					translate,
-					{ language: "es", externalId: "abc", entitySchemaSlug: "movie-group" },
+					{
+						name: "Group",
+						language: "es",
+						properties: {},
+						externalId: "abc",
+						entitySchemaSlug: "movie-group",
+					},
 					makeHost((_method, _url) => httpSuccess({})),
 					execution,
 				),

@@ -16,10 +16,10 @@ export const showPersonRow = {
 	id: "person-1",
 	character: "Jamie",
 	name: "Owen Cooper",
-	populationStatus: "ready",
-	translationStatus: "none",
 	roles: ["Actor", "Guest Star"],
-	relatedPopulationStatus: "ready",
+	translationStatus: { state: "idle", availability: "none" },
+	populationStatus: { state: "succeeded", availability: "complete" },
+	relatedPopulationStatus: { state: "succeeded", availability: "complete" },
 	images: [{ type: "remote", purpose: "profile", url: "https://images.test/owen.jpg" }],
 };
 
@@ -27,19 +27,19 @@ export const showCompanyRow = {
 	order: 1,
 	id: "company-1",
 	name: "Warp Films",
-	populationStatus: "ready",
-	translationStatus: "none",
 	roles: ["Production Company"],
-	relatedPopulationStatus: "ready",
+	translationStatus: { state: "idle", availability: "none" },
+	populationStatus: { state: "succeeded", availability: "complete" },
+	relatedPopulationStatus: { state: "succeeded", availability: "complete" },
 	images: [{ type: "remote", purpose: "logo", url: "https://images.test/warp.png" }],
 };
 
 export const showRecommendationRow = {
 	id: "show-2",
 	name: "Bad Girls",
-	populationStatus: "ready",
-	translationStatus: "none",
-	relatedPopulationStatus: "ready",
+	translationStatus: { state: "idle", availability: "none" },
+	populationStatus: { state: "succeeded", availability: "complete" },
+	relatedPopulationStatus: { state: "succeeded", availability: "complete" },
 	images: [{ type: "remote", purpose: "cover", url: "https://images.test/bad-girls.jpg" }],
 };
 

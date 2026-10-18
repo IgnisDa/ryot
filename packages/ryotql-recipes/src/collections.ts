@@ -3,7 +3,7 @@ import {
 	decodeCollectionFields,
 	type KeyedCollectionField,
 } from "@ryot-app/contract/modules/collections/fields";
-import { PopulationStatus, TranslationStatus } from "@ryot-app/contract/modules/entities/schemas";
+import { EnrichmentState } from "@ryot-app/contract/modules/entities/schemas";
 import type { QueryFilterField } from "@ryot-app/contract/modules/filters/schemas";
 import type { Predicate } from "@ryot-app/contract/modules/ryotql/language";
 import {
@@ -527,8 +527,8 @@ export const collectionMembersRecipe = defineRecipe(
 				name: selectedField(column(entity, "name"), Schema.String),
 				properties: selectedField(column(membership, "properties"), MembershipProperties),
 				entitySchemaSlug: selectedField(column(entity, "entitySchemaSlug"), Schema.String),
-				populationStatus: selectedField(column(entity, "populationStatus"), PopulationStatus),
-				translationStatus: selectedField(column(entity, "translationStatus"), TranslationStatus),
+				populationStatus: selectedField(column(entity, "populationStatus"), EnrichmentState),
+				translationStatus: selectedField(column(entity, "translationStatus"), EnrichmentState),
 				ownerPluginName: selectedField(column(ownerPlugin, "name"), Schema.NullOr(Schema.String)),
 				ownerPluginId: selectedField(
 					column(entity, "entitySchemaPluginId"),

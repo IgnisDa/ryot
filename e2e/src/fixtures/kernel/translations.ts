@@ -1,3 +1,4 @@
+import type { EnrichmentState } from "@ryot-app/contract/modules/entities/schemas";
 import { EntityId } from "@ryot-app/contract/schema/brands";
 import {
 	and,
@@ -78,16 +79,15 @@ export const getEntityTranslationRow = (input: { entityId: string; language: str
 export const countEntityTranslations = (entityId: string) =>
 	executeAdminRyotQLRecipe(entityTranslationCountRecipe(entityId));
 
-/** Re-reads the entity until its translationStatus settles to `target`. */
-export const pollEntityUntilTranslationStatus = (
+export const pollEntityUntilTranslationAvailability = (
 	client: Client,
 	entityId: string,
-	target: "ready" | "none",
+	target: EnrichmentState["availability"],
 ) =>
 	pollUntil(
-		`entity '${entityId}' translationStatus=${target}`,
+		`entity '${entityId}' translation availability=${target}`,
 		Effect.gen(function* () {
 			const entity = yield* getEntity(client, entityId);
-			return entity.translationStatus === target ? entity : null;
+			return entity.translationStatus.availability === target ? entity : null;
 		}),
 	);

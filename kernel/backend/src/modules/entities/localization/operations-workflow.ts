@@ -14,9 +14,15 @@ import {
 import { TranslationsService } from "./service";
 
 export type TranslateEntityWorkflowOperationsValue = {
+	captureExecution: (
+		payload: TranslateEntityWorkflowPayload,
+		executionId: string,
+		attempt: number,
+	) => Effect.Effect<TranslationExecution, SandboxRunError, WorkflowEngine | WorkflowInstance>;
 	processSandbox: (
 		payload: TranslateEntityWorkflowPayload,
 		executionId: string,
+		capturedExecution: TranslationExecution,
 	) => Effect.Effect<
 		{ execution: TranslationExecution; result: SandboxExecutionResult },
 		SandboxRunError,
@@ -36,18 +42,25 @@ export const TranslateEntityWorkflowOperationsLive = Layer.effect(
 		const sandbox = yield* ScriptExecutionService;
 		const translations = yield* TranslationsService;
 
+		const captureExecution = Effect.fn("captureTranslationExecution")(function* (
+			payload: TranslateEntityWorkflowPayload,
+			executionId: string,
+			attempt: number,
+		) {
+			return yield* makeActivity({
+				error: SandboxRunError,
+				success: TranslationExecution satisfies DurableSchema,
+				name: `capture-provider-translation-${executionId}:${attempt}`,
+				execute: translations
+					.admitExecution(payload)
+					.pipe(Effect.mapError((error) => toSandboxRunError(error, "infrastructure"))),
+			});
+		});
 		const processSandboxTranslation = Effect.fn("processSandboxTranslation")(function* (
 			payload: TranslateEntityWorkflowPayload,
 			executionId: string,
+			execution: TranslationExecution,
 		) {
-			const execution = yield* makeActivity({
-				error: SandboxRunError,
-				name: `capture-provider-translation-${executionId}`,
-				success: TranslationExecution satisfies DurableSchema,
-				execute: translations
-					.admitExecution(payload, executionId)
-					.pipe(Effect.mapError((error) => toSandboxRunError(error, "infrastructure"))),
-			});
 			const pluginRevision = execution.principal.pluginRevision;
 			if (!pluginRevision) {
 				return yield* new SandboxRunError({
@@ -63,6 +76,7 @@ export const TranslateEntityWorkflowOperationsLive = Layer.effect(
 					scriptId: execution.principal.scriptId,
 					executionId: `${executionId}-sandbox-translate`,
 					input: {
+						name: execution.name,
 						language: payload.language,
 						externalId: payload.externalId,
 						properties: execution.properties,
@@ -74,6 +88,7 @@ export const TranslateEntityWorkflowOperationsLive = Layer.effect(
 		});
 
 		return {
+			captureExecution,
 			processSandbox: processSandboxTranslation,
 			releaseRegistration: (executionId) =>
 				sandbox

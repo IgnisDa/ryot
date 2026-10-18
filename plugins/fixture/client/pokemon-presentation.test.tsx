@@ -41,8 +41,8 @@ const reference = (entityId: string, name: string) => ({
 	entityId,
 	ownerPluginId: "fixture",
 	entitySchemaSlug: "pokemon",
-	populationStatus: "ready" as const,
-	translationStatus: "ready" as const,
+	populationStatus: { state: "succeeded", availability: "complete" } as const,
+	translationStatus: { state: "succeeded", availability: "complete" } as const,
 });
 
 const presentationSource = (

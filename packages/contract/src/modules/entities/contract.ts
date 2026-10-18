@@ -60,7 +60,7 @@ export const EntitiesGroup = HttpApiGroup.make("entities")
 			},
 		).annotate(
 			OpenApi.Description,
-			"Clear a visible provider entity's failed population and request it again.",
+			"Retry population or translation for a visible provider entity.",
 		),
 	)
 	.middleware(AuthMiddleware);

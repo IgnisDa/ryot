@@ -92,7 +92,9 @@ type TestProviderSpec = {
 	information?: PluginProviderInformation;
 	searchOptions?: ProviderSearchOptionsResult;
 	relatedPages?: Readonly<Record<string, ProviderRelatedResult>>;
+	relatedPageHttpCalls?: Readonly<Record<string, HttpCalls>>;
 	translations?: Readonly<Record<string, ProviderTranslateResult>>;
+	translationInputs?: Readonly<Record<string, readonly string[]>>;
 };
 
 type TestProviderPlugin = {
@@ -151,19 +153,36 @@ const testProviderDeclaration = (input: TestProviderSpec): TestProviderDeclarati
 	}
 	const scripts = operations.map(({ operation, httpCalls }) => {
 		const slug = `${providerSlug}.${operation}`;
-		return {
+		const script = {
 			slug,
 			providerSlug,
 			kind: "provider" as const,
-			providerOperation: operation,
 			requiredPluginConfigKeys: [],
 			name: `${name} ${operation}`,
-			capabilities: httpCalls === undefined ? [] : ["httpCall" as const],
 			entry: `backend/providers/${providerSlug}/${operation}.sandbox.ts`,
-			...(operation === "search" && input.searchOptionsSchema !== undefined
-				? { searchOptionsSchema: input.searchOptionsSchema }
-				: {}),
+			capabilities:
+				httpCalls === undefined &&
+				!(operation === "related" && input.relatedPageHttpCalls !== undefined)
+					? []
+					: ["httpCall" as const],
 		};
+		if (operation === "translate") {
+			return {
+				...script,
+				providerOperation: operation,
+				translationInputs: input.translationInputs ?? { [input.rootEntitySchemaSlug]: [] },
+			};
+		}
+		if (operation === "search") {
+			return {
+				...script,
+				providerOperation: operation,
+				...(input.searchOptionsSchema === undefined
+					? {}
+					: { searchOptionsSchema: input.searchOptionsSchema }),
+			};
+		}
+		return { ...script, providerOperation: operation };
 	});
 	const files = Object.fromEntries(
 		scripts.map((script) => {
@@ -176,6 +195,12 @@ const testProviderDeclaration = (input: TestProviderSpec): TestProviderDeclarati
 					name: script.name,
 					slug: script.slug,
 					operation: script.providerOperation,
+					...(script.providerOperation === "related" && input.relatedPageHttpCalls !== undefined
+						? { relatedPageHttpCalls: input.relatedPageHttpCalls }
+						: {}),
+					...(script.providerOperation === "translate"
+						? { translationInputs: script.translationInputs }
+						: {}),
 					delayMs: operationDefinition?.delayMs,
 					...(operationDefinition?.httpCalls === undefined
 						? {}
@@ -446,9 +471,11 @@ export function providerSandboxSource(input: {
 	readonly delayMs?: number;
 	readonly executionFailure?: string;
 	readonly httpCalls?: HttpCalls;
+	readonly relatedPageHttpCalls?: Readonly<Record<string, HttpCalls>>;
 	readonly operation: ProviderOperation;
 	readonly result: ProviderOperationResult;
 	readonly searchOptionsSchema?: AppSchema;
+	readonly translationInputs?: Readonly<Record<string, readonly string[]>>;
 }) {
 	const resultSchemaByOperation = {
 		search: "providerSearchResultSchema",
@@ -467,6 +494,9 @@ export function providerSandboxSource(input: {
 	let declarations = decoded("result", resultSchema);
 	if (isRelated) {
 		declarations = decoded("pages", "Schema.Record(Schema.String, providerRelatedResultSchema)");
+		if (input.relatedPageHttpCalls !== undefined) {
+			declarations += `\nconst pageHttpCalls: Readonly<Record<string, { readonly url: string; readonly count: number }>> = ${JSON.stringify(input.relatedPageHttpCalls)};`;
+		}
 	} else if (isTranslate) {
 		declarations = decoded(
 			"translations",
@@ -483,12 +513,25 @@ export function providerSandboxSource(input: {
     { discard: true },
   ).pipe(Effect.as(result))`;
 	} else if (isRelated) {
-		run = `({ continuation }) => {
+		run =
+			input.relatedPageHttpCalls === undefined
+				? `({ continuation }) => {
     const page = pages[JSON.stringify(continuation)];
     return page === undefined
       ? Effect.die("No fixture related page for " + JSON.stringify(continuation))
       : Effect.succeed(page);
-  }`;
+  }`
+				: `({ continuation }, host) => Effect.gen(function* () {
+    const key = JSON.stringify(continuation);
+    const calls = pageHttpCalls[key];
+    if (calls !== undefined) {
+      yield* Effect.forEach(Array.from({ length: calls.count }), () => host.httpCall("GET", calls.url), { discard: true });
+    }
+    const page = pages[key];
+    return page === undefined
+      ? yield* Effect.die("No fixture related page for " + key)
+      : page;
+  })`;
 	} else if (isTranslate) {
 		run = "({ language }) => Effect.succeed(translations[language] ?? {})";
 	} else {
@@ -512,6 +555,7 @@ export const manifest = defineManifest({
   name: ${JSON.stringify(input.name)},
   slug: ${JSON.stringify(input.slug)},
 ${searchOptionsSchema}
+${input.translationInputs === undefined ? "" : `translationInputs: ${JSON.stringify(input.translationInputs)},`}
 });
 
 ${declarations}
@@ -522,14 +566,25 @@ export default defineProvider({
   operation: ${JSON.stringify(input.operation)},
 });
 `;
-	providerMetadataBySource.set(source, {
+	const metadata = {
 		name: input.name,
 		slug: input.slug,
 		kind: "provider",
 		requiredPluginConfigKeys: [],
-		providerOperation: input.operation,
-		capabilities: input.httpCalls === undefined ? [] : ["httpCall"],
 		providerSlug: input.slug.slice(0, -(input.operation.length + 1)),
-	});
+		capabilities:
+			input.httpCalls === undefined && input.relatedPageHttpCalls === undefined
+				? []
+				: ["httpCall" as const],
+	} as const;
+	if (input.operation === "translate") {
+		providerMetadataBySource.set(source, {
+			...metadata,
+			providerOperation: input.operation,
+			translationInputs: input.translationInputs ?? {},
+		});
+	} else {
+		providerMetadataBySource.set(source, { ...metadata, providerOperation: input.operation });
+	}
 	return source;
 }

@@ -159,7 +159,9 @@ const insertReferenceSource = Effect.fn(function* (
 			return;
 		case "translation":
 			yield* session.run((db) =>
-				db.insert(tables.entityTranslation).values({ entityId, properties, language: "en" }),
+				db
+					.insert(tables.entityTranslation)
+					.values({ entityId, properties, language: "en", sourceContentGeneration: 1 }),
 			);
 			return;
 		case "relationship":
@@ -829,7 +831,12 @@ layer(testLayer)((test) => {
 			yield* session.run((db) =>
 				db
 					.insert(tables.entityTranslation)
-					.values({ entityId, language: "en", properties: { image: otherLocator } }),
+					.values({
+						entityId,
+						language: "en",
+						sourceContentGeneration: 1,
+						properties: { image: otherLocator },
+					}),
 			);
 			const triggerId = yield* insertTrigger({
 				scopeUserId: otherUserId,
@@ -934,7 +941,12 @@ layer(testLayer)((test) => {
 			yield* (yield* DatabaseSession).run((db) =>
 				db
 					.insert(tables.entityTranslation)
-					.values({ entityId, language: "en", properties: { image: locator } }),
+					.values({
+						entityId,
+						language: "en",
+						sourceContentGeneration: 1,
+						properties: { image: locator },
+					}),
 			);
 			expect(yield* references.hasReference(ownerUserId, locator)).toBe(true);
 		}),

@@ -147,6 +147,18 @@ export const validateSandboxEntry = Effect.fn("validateSandboxEntry")(function* 
 			pluginBackendCompilerDiagnostic("RYOT_DEFINITION", definitionMismatch),
 		]);
 	}
+	if (
+		extracted.manifest.kind === "provider" &&
+		(inspection.providerOperation === "translate") !==
+			(extracted.manifest.translationInputs !== undefined)
+	) {
+		return yield* sandboxCompilationFailure([
+			pluginBackendCompilerDiagnostic(
+				"RYOT_MANIFEST",
+				"Only translate providers must declare translationInputs",
+			),
+		]);
+	}
 	if (extracted.manifest.kind === "workflow") {
 		const diagnostics = workflowSourceFiles(sourceFile, sourceFiles).flatMap((file) =>
 			inspectWorkflowImports(file).concat(inspectWorkflowDeterminism(file)),

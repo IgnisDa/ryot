@@ -54,10 +54,13 @@ describe("plugin population retries", () => {
 		test.effect("refuses plugins that do not contribute to the document", () =>
 			Effect.gen(function* () {
 				calls.length = 0;
-				expect(yield* outcome({ entityId, pluginId: PluginId.make("plugin-2") })).toEqual({
-					outcome: "failure",
-					reason: "invalid-request",
-				});
+				expect(
+					yield* outcome({
+						entityId,
+						operation: "population",
+						pluginId: PluginId.make("plugin-2"),
+					}),
+				).toEqual({ outcome: "failure", reason: "invalid-request" });
 				expect(calls).toEqual([]);
 			}),
 		);
@@ -65,11 +68,19 @@ describe("plugin population retries", () => {
 		test.effect("calls the retry route for a contributing plugin and maps failures", () =>
 			Effect.gen(function* () {
 				calls.length = 0;
-				expect(yield* outcome({ entityId, pluginId: contributor })).toEqual({
-					retried: true,
-					outcome: "success",
+				expect(
+					yield* outcome({ entityId, pluginId: contributor, operation: "population" }),
+				).toEqual({ retried: true, outcome: "success" });
+				expect(calls).toEqual([
+					{ params: { entityId }, payload: { pluginId: contributor, operation: "population" } },
+				]);
+				expect(
+					yield* outcome({ entityId, pluginId: contributor, operation: "translation" }),
+				).toEqual({ retried: true, outcome: "success" });
+				expect(calls.at(-1)).toEqual({
+					params: { entityId },
+					payload: { pluginId: contributor, operation: "translation" },
 				});
-				expect(calls).toEqual([{ params: { entityId }, payload: { pluginId: contributor } }]);
 
 				failures.push(
 					new EntityNotFound({ reason: { entityId, code: "entity-not-found" } }),
@@ -83,10 +94,9 @@ describe("plugin population retries", () => {
 					"invalid-request",
 					"transport",
 				] as const) {
-					expect(yield* outcome({ entityId, pluginId: contributor })).toEqual({
-						reason,
-						outcome: "failure",
-					});
+					expect(
+						yield* outcome({ entityId, pluginId: contributor, operation: "population" }),
+					).toEqual({ reason, outcome: "failure" });
 				}
 			}),
 		);

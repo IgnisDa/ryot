@@ -7,6 +7,11 @@ export const manifest = defineManifest({
 	kind: "provider",
 	slug: "show.tvdb.translate",
 	name: "TVDB Show Translation",
+	translationInputs: {
+		show: [],
+		"show-season": ["parentShowExternalId"],
+		"show-episode": ["parentShowExternalId"],
+	},
 });
 
 export default defineProvider({ manifest, run: translate.run, operation: "translate" });

@@ -20,10 +20,10 @@ export const creatorMovieCreditRow = {
 	roles: ["Actor"],
 	name: "Fight Club",
 	character: "The Narrator",
-	populationStatus: "ready",
-	translationStatus: "none",
-	relatedPopulationStatus: "ready",
+	translationStatus: { state: "idle", availability: "none" },
 	images: [{ type: "s3", purpose: "cover", key: "fight-club" }],
+	populationStatus: { state: "succeeded", availability: "complete" },
+	relatedPopulationStatus: { state: "succeeded", availability: "complete" },
 };
 
 export const creatorAlbumCreditRow = {
@@ -31,10 +31,10 @@ export const creatorAlbumCreditRow = {
 	id: "album-1",
 	roles: ["Artist"],
 	name: "Night Songs",
-	populationStatus: "ready",
-	translationStatus: "none",
-	relatedPopulationStatus: "ready",
+	translationStatus: { state: "idle", availability: "none" },
 	images: [{ type: "s3", purpose: "cover", key: "night-songs" }],
+	populationStatus: { state: "succeeded", availability: "complete" },
+	relatedPopulationStatus: { state: "succeeded", availability: "complete" },
 };
 
 type CreditRows = {

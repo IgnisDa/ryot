@@ -18,6 +18,17 @@ export const entityTransport = <A>(run: () => A) => {
 	}
 };
 
+const mergeUpdate = (updates: Map<string, EntityUpdate>, update: EntityUpdate) => {
+	const previous = updates.get(update.entityId);
+	if (
+		update.reason !== "enrichment-updated" ||
+		previous === undefined ||
+		previous.reason === "enrichment-updated"
+	) {
+		updates.set(update.entityId, update);
+	}
+};
+
 export const createEntityRefresh = <E>(
 	schedule: RyotSchedule,
 	refresh: (updates: readonly EntityUpdate[]) => Effect.Effect<void, E>,
@@ -31,8 +42,8 @@ export const createEntityRefresh = <E>(
 	let immediate = false;
 	const requeue = (batch: readonly EntityUpdate[]) => {
 		const restored = new Map(batch.map((update) => [update.entityId, update]));
-		for (const [entityId, update] of queued ?? []) {
-			restored.set(entityId, update);
+		for (const update of queued?.values() ?? []) {
+			mergeUpdate(restored, update);
 		}
 		queued = restored;
 	};
@@ -100,7 +111,7 @@ export const createEntityRefresh = <E>(
 		hint: (update?: EntityUpdate) => {
 			queued ??= new Map();
 			if (update !== undefined) {
-				queued.set(update.entityId, update);
+				mergeUpdate(queued, update);
 			}
 			arm();
 		},

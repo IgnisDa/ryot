@@ -37,10 +37,13 @@ const operationsLayer = Layer.unwrap(
 		const calls = yield* Ref.make<ReadonlyArray<ScriptInput>>([]);
 		const upgraded = {
 			...translationExecution,
+			properties: {},
+			name: "Changed after admission",
 			principal: {
 				...translationExecution.principal,
 				contentHash: "upgraded-content",
 				scriptId: SandboxScriptId.make("upgraded-translation-script"),
+				metadata: { ...translationExecution.principal.metadata, translationInputs: { record: [] } },
 				pluginRevision: {
 					...translationExecution.principal.pluginRevision,
 					compiledHashes: { translate: "upgraded-content" },
@@ -81,15 +84,18 @@ layer(operationsLayer)((test) => {
 				const first = yield* operations.processSandbox(
 					translationPayload,
 					"admitted-before-upgrade",
+					yield* operations.captureExecution(translationPayload, "admitted-before-upgrade", 1),
 				);
 				yield* effects.upgrade;
 				const retry = yield* operations.processSandbox(
-					{ ...translationPayload, properties: { title: "Changed after admission" } },
+					translationPayload,
 					"admitted-before-upgrade",
+					yield* operations.captureExecution(translationPayload, "admitted-before-upgrade", 1),
 				);
 				const fresh = yield* operations.processSandbox(
 					translationPayload,
 					"admitted-after-upgrade",
+					yield* operations.captureExecution(translationPayload, "admitted-after-upgrade", 1),
 				);
 				expect(retry.execution).toEqual(first.execution);
 				expect(fresh.execution.principal.pluginRevision?.revisionId).toBe(
@@ -98,16 +104,17 @@ layer(operationsLayer)((test) => {
 				expect(yield* effects.calls).toMatchObject([
 					{
 						scriptId: "translation-script",
-						input: { properties: translationExecution.properties },
 						pluginRevision: translationExecution.principal.pluginRevision,
+						input: { name: translationExecution.name, properties: translationExecution.properties },
 					},
 					{
 						scriptId: "translation-script",
-						input: { properties: translationExecution.properties },
 						pluginRevision: translationExecution.principal.pluginRevision,
+						input: { name: translationExecution.name, properties: translationExecution.properties },
 					},
 					{
 						scriptId: "upgraded-translation-script",
+						input: { properties: {}, name: "Changed after admission" },
 						pluginRevision: {
 							configRevisionId: "upgraded-config",
 							revisionId: "compatible-additive-revision",

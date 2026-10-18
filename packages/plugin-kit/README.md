@@ -84,10 +84,11 @@ provider-associated ordinary scripts.
 
 ### Population levels
 
-`details` receives `{ externalId, existingProperties?, level? }`. `level` is `"base"` or `"full"`;
-absent means `full`. At `base`, return the entity fields and child entities and skip fetching related
-data: the kernel ignores any `relatedEntityGroups` returned at `base`. At `full`, return related
-groups as well.
+`details` receives `{ externalId, level? }`. `level` is `"base"` or `"full"`;
+absent means `full`. The provider result is authoritative: the kernel does not pass existing
+properties to `details` or preserve omitted old property keys when provider data is updated. At
+`base`, return entity fields and child entities and skip fetching related data; the kernel ignores any
+`relatedEntityGroups` returned at `base`. At `full`, return related groups as well.
 
 ### Paged related groups
 
@@ -97,7 +98,18 @@ entities exist than one run can fetch. The provider must then declare a `related
 `{ entities, continuation }`; a `null` continuation ends the group. Each run is its own sandbox
 execution with its own host-call budget. The kernel writes each page as it arrives, so a page must be
 self-contained, and it removes stale relationships of an `authoritative` group only after the final
-page succeeds. See the [provider population](../../kernel/backend/src/modules/entities/providers/README.md#paged-related-groups).
+page succeeds. A full population waits for all related pages and authoritative sweeps before marking
+related data complete; root data is published earlier and pages remain visible while partial. See the
+[provider population](../../kernel/backend/src/modules/entities/providers/README.md#paged-related-groups).
+
+Each `translate` provider script declares `translationInputs`, a map from supported entity-schema
+slugs to the canonical property keys the script needs. The kernel pins this declaration with the
+provider script revision. Its required input is `{ name, externalId, entitySchemaSlug, language,
+properties }`: `name` is the captured canonical name, and `properties` contains only the selected
+canonical properties. The full input, including the name, is bounded. Missing selected data or
+an oversized translation input fails closed; the kernel never falls back to the full properties
+object. A successful empty translation result is a negative-cache result, distinct from workflow
+failure.
 
 ## Script Discovery
 
@@ -110,9 +122,10 @@ Renaming a script slug requires updating its manifest references. See the
 Each entry default-exports exactly one direct definition with static manifest, input schema, output
 schema, and Effect-returning `run`. `defineManifest` contains the script identity and kind plus its
 kind-specific authored fields, such as an automation `inputProjection` or provider
-`searchOptionsSchema`. It does not contain capabilities, configuration requirements, OAuth fields, or
-executable dependencies. The compiler derives those from the entry's used code and writes them to the
-build-derived script metadata. There are no driver maps or runtime kind selection.
+`searchOptionsSchema` or `translationInputs`. It does not contain capabilities, configuration
+requirements, OAuth fields, or executable dependencies. The compiler derives those from the entry's
+used code and writes them to the build-derived script metadata. There are no driver maps or runtime
+kind selection.
 
 | Kind         | Helper                   | Use                                                             |
 | ------------ | ------------------------ | --------------------------------------------------------------- |

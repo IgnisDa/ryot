@@ -95,7 +95,7 @@ const makeLayer = (input: {
 							requestFill: (request) =>
 								Ref.update(requests, (all) => [...all, request]).pipe(
 									Effect.andThen(
-										input.requestError ? Effect.fail(input.requestError) : Effect.void,
+										input.requestError ? Effect.fail(input.requestError) : Effect.succeed(true),
 									),
 								),
 						}),

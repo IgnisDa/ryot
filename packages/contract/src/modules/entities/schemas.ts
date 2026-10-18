@@ -21,6 +21,7 @@ const EntityBadRequestReason = Schema.Union([
 	Schema.Struct({ code: Schema.Literal("global-scope-forbidden") }),
 	Schema.Struct({ code: Schema.Literal("provider-scope-mismatch") }),
 	Schema.Struct({ code: Schema.Literal("kernel-owned-schema") }),
+	Schema.Struct({ code: Schema.Literal("provider-owned") }),
 	Schema.Struct({ code: Schema.Literal("duplicate-collection-name") }),
 	Schema.Struct({ property: Schema.String, code: Schema.Literal("immutable-property") }),
 	Schema.Struct({
@@ -80,7 +81,10 @@ export class EntityPopulationRetryRefused extends Schema.TaggedError<
 	}),
 }) {}
 
-export const RetryEntityPopulationBody = strictStruct({ pluginId: PluginId });
+export const RetryEntityPopulationBody = strictStruct({
+	pluginId: PluginId,
+	operation: Schema.Literals(["population", "translation"]),
+});
 
 export const RetryEntityPopulationResult = Schema.Struct({ retried: Schema.Boolean });
 
@@ -107,17 +111,24 @@ export const EntityMutationResult = Schema.Struct({
 });
 export type EntityMutationResult = typeof EntityMutationResult.Type;
 
-export const TranslationStatus = Schema.Literals(["pending", "ready", "none"]);
+export const EnrichmentState = Schema.Struct({
+	availability: Schema.Literals(["missing", "partial", "complete", "none"]),
+	state: Schema.Literals([
+		"idle",
+		"queued",
+		"running",
+		"retrying",
+		"succeeded",
+		"failed",
+		"cancelled",
+	]),
+});
 
-export type TranslationStatus = typeof TranslationStatus.Type;
-
-export const PopulationStatus = Schema.Literals(["pending", "ready", "failed", "none"]);
-
-export type PopulationStatus = typeof PopulationStatus.Type;
+export type EnrichmentState = typeof EnrichmentState.Type;
 
 export const EntitySyncState = Schema.Struct({
-	populationStatus: PopulationStatus,
-	translationStatus: TranslationStatus,
+	populationStatus: EnrichmentState,
+	translationStatus: EnrichmentState,
 });
 
 export type EntitySyncState = typeof EntitySyncState.Type;

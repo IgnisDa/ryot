@@ -101,7 +101,6 @@ export const providerSearchOptionsResultSchema = strictStruct({
 });
 export const providerDetailsInputSchema = strictStruct({
 	externalId: trimmedNonEmptyString,
-	existingProperties: Schema.optional(jsonValueSchema),
 	level: Schema.optional(Schema.Literals(["base", "full"])),
 });
 export const providerDetailsRelatedEntitySchema = strictStruct({
@@ -176,10 +175,11 @@ export const providerResolveResultSchema = strictStruct({
 	externalId: Schema.NullOr(Schema.String),
 });
 export const providerTranslateInputSchema = strictStruct({
+	name: Schema.String,
 	language: trimmedNonEmptyString,
 	externalId: trimmedNonEmptyString,
 	entitySchemaSlug: trimmedNonEmptyString,
-	properties: Schema.optional(jsonValueSchema),
+	properties: Schema.Record(Schema.String, jsonValueSchema),
 });
 export const providerTranslateResultSchema = strictStruct({
 	name: Schema.optional(Schema.NullOr(Schema.String)),

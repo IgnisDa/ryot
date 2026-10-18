@@ -67,8 +67,8 @@ export const browserRow = (entityId: string, name: string) => ({
 	__entityBrowserId: entityId,
 	__entityBrowserSchemaSlug: "item",
 	__entityBrowserOwnerPluginId: "fixture",
-	__entityBrowserPopulationStatus: "ready",
-	__entityBrowserTranslationStatus: "ready",
+	__entityBrowserPopulationStatus: { state: "succeeded", availability: "complete" },
+	__entityBrowserTranslationStatus: { state: "succeeded", availability: "complete" },
 });
 
 export const browserPage = (

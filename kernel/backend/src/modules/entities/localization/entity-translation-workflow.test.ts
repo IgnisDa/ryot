@@ -7,20 +7,22 @@ import { WorkflowEngine, WorkflowInstance } from "effect/workflow/WorkflowEngine
 import { RedisService } from "#platform/redis";
 import { databaseLayer, makeRedisService, makeWorkflowActivityEngine } from "#testing/effect";
 
-import { TranslateEntityWorkflowPayload } from "./entity-translation-workflow";
-import { runTranslateEntityWorkflow } from "./entity-translation-workflow-live";
+import { TranslateEntityAttemptWorkflowPayload } from "./entity-translation-workflow";
+import { runTranslateEntityAttemptWorkflow } from "./entity-translation-workflow-live";
 import {
 	TranslateEntityWorkflowOperations,
 	type TranslateEntityWorkflowOperationsValue,
 } from "./operations-workflow";
 import type { TranslationOverlayInput } from "./repository";
 import { TranslationsService } from "./service";
-import { translationExecution, translationPayload as payload } from "./translation.test-support";
+import { translationExecution, translationPayload } from "./translation.test-support";
+
+const payload = { ...translationPayload, requestId: "request-1", execution: translationExecution };
 
 const TestTranslateEntityWorkflow = Workflow.make("TestTranslateEntityWorkflow", {
 	success: Schema.Void,
 	error: SandboxRunError,
-	payload: TranslateEntityWorkflowPayload,
+	payload: TranslateEntityAttemptWorkflowPayload,
 	idempotencyKey: ({ executionId }) => executionId,
 });
 
@@ -53,11 +55,12 @@ const makeTestLayer = (processSandbox: TranslateEntityWorkflowOperationsValue["p
 				),
 				Layer.succeed(TranslateEntityWorkflowOperations, {
 					processSandbox,
+					captureExecution: () => Effect.succeed(translationExecution),
 					releaseRegistration: (executionId) =>
 						Ref.update(released, (all) => [...all, executionId]),
 				}),
 				Layer.mock(TranslationsService)({
-					requestFill: () => Effect.void,
+					requestFill: () => Effect.succeed(true),
 					upsert: (input) =>
 						Ref.update(upserts, (all) => [...all, input]).pipe(
 							Effect.as({ entityId: input.entityId, language: input.language }),
@@ -87,7 +90,7 @@ layer(
 )((test) => {
 	test.effect("upserts the translation overlay and publishes an update on success", () =>
 		Effect.gen(function* () {
-			yield* runTranslateEntityWorkflow(payload, payload.executionId);
+			yield* runTranslateEntityAttemptWorkflow(payload, payload.executionId);
 
 			const effects = yield* FakeTranslationEffects;
 			const [upsertedInput] = yield* effects.upserts;
@@ -98,7 +101,7 @@ layer(
 				properties: { title: "Libro de Prueba" },
 			});
 			expect(yield* effects.published).toHaveLength(1);
-			expect(yield* effects.released).toEqual([payload.executionId]);
+			expect(yield* effects.released).toEqual([]);
 		}),
 	);
 });
@@ -122,7 +125,9 @@ layer(
 )((test) => {
 	test.effect("fails with the sandbox's reported error", () =>
 		Effect.gen(function* () {
-			const exit = yield* Effect.exit(runTranslateEntityWorkflow(payload, payload.executionId));
+			const exit = yield* Effect.exit(
+				runTranslateEntityAttemptWorkflow(payload, payload.executionId),
+			);
 
 			assert(Exit.isFailure(exit));
 			const failure = Cause.findErrorOption(exit.cause);
@@ -144,13 +149,33 @@ layer(
 )((test) => {
 	test.effect("fails when the sandbox result does not decode as a translate result", () =>
 		Effect.gen(function* () {
-			const exit = yield* Effect.exit(runTranslateEntityWorkflow(payload, payload.executionId));
+			const exit = yield* Effect.exit(
+				runTranslateEntityAttemptWorkflow(payload, payload.executionId),
+			);
 
 			assert(Exit.isFailure(exit));
 			const failure = Cause.findErrorOption(exit.cause);
 			assert(Option.isSome(failure));
 			assert(failure.value instanceof Error);
 			expect(failure.value.message).toContain("Invalid translate result");
+		}),
+	);
+});
+
+layer(
+	makeTestLayer(() =>
+		Effect.succeed({
+			execution: translationExecution,
+			result: { logs: [], value: {}, error: null, status: "completed" as const },
+		}),
+	),
+)((test) => {
+	test.effect("writes a successful empty negative cache with its captured content generation", () =>
+		Effect.gen(function* () {
+			yield* runTranslateEntityAttemptWorkflow(payload, payload.executionId);
+			expect(yield* (yield* FakeTranslationEffects).upserts).toMatchObject([
+				{ name: null, properties: null, sourceContentGeneration: 1 },
+			]);
 		}),
 	);
 });

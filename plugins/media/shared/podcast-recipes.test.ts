@@ -13,11 +13,11 @@ const PODCAST_EPISODE_ROW = {
 	state: "untracked",
 	name: "The Interview",
 	publishDate: "2025-03-13",
-	populationStatus: "ready",
-	translationStatus: "none",
 	schemaSlug: "podcast-episode",
-	relatedPopulationStatus: "ready",
 	description: "A long conversation.",
+	translationStatus: { state: "idle", availability: "none" },
+	populationStatus: { state: "succeeded", availability: "complete" },
+	relatedPopulationStatus: { state: "succeeded", availability: "complete" },
 	images: [{ type: "remote", purpose: "cover", url: "https://images.test/episode-9.jpg" }],
 };
 

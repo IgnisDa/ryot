@@ -14,10 +14,36 @@ export function MediaPopulationFailure(props: {
 			action={{
 				label: "Try again",
 				disabled: retry.isPending,
-				onClick: () => retry.mutate({ entityId: props.entityId, packageId: PLUGIN_PACKAGE_ID }),
+				onClick: () =>
+					retry.mutate({
+						operation: "population",
+						entityId: props.entityId,
+						packageId: PLUGIN_PACKAGE_ID,
+					}),
 			}}
 		>
 			{`Couldn't load details from ${props.providerName ?? "the provider"}.`}
+		</StatusMessage>
+	);
+}
+
+export function MediaTranslationFailure(props: { readonly entityId: string }) {
+	const retry = useRetryEntityPopulation();
+	return (
+		<StatusMessage
+			tone="error"
+			action={{
+				disabled: retry.isPending,
+				label: "Retry translation",
+				onClick: () =>
+					retry.mutate({
+						entityId: props.entityId,
+						operation: "translation",
+						packageId: PLUGIN_PACKAGE_ID,
+					}),
+			}}
+		>
+			Translation failed. Showing available text.
 		</StatusMessage>
 	);
 }

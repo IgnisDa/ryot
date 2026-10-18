@@ -36,10 +36,12 @@ participate in visible IDs, managed assets, and emptiness checks. Summary-source
 `mediaWatchProvidersTrailing`. `mediaSummaryHeaderDetail` adds rating before descriptor facts and
 production status afterward; creator headers have neither.
 
-The canonical sync selection includes `relatedPopulationStatus`. While it is `pending` (and the base
-population has not failed), the overview's relation sections (credits, companies, recommendations,
-groups and extra rails) show their loading notice; when it is `failed` they show "Couldn't load" with
-Try again, which retries the population through the kernel.
+The canonical sync selection includes `relatedPopulationStatus` as `{ availability, state }`.
+Queued, running, and retrying related work shows a progress notice. Failed work shows "Couldn't load"
+with Try again, which retries population through the kernel. Saved credits, companies,
+recommendations, groups, and extra rails stay visible beside either notice, including partial data.
+Idle missing data is not actively loading. Translation failures keep available text visible and
+offer a separate translation retry using the user's trusted language preference.
 
 Header artwork purpose and aspect come from descriptors and `mediaSchemaAspects`. Detail screens
 have no hero and register every managed image locator once, including images beyond the gallery
@@ -213,6 +215,12 @@ the recorded names as `as <character>`. Consumers use normalized properties, not
 translations use canonical `restrictedMarkdown`; provider boundaries normalize rich input, including
 VNDB BBCode and AniList spoilers. Clients never guess source syntax. See
 [Markdown conversion](../../packages/plugin-backend-sdk/README.md#markdown-conversion).
+
+Translation entry manifests declare each supported entity schema and the canonical properties
+needed to address it. Root translations select no properties. TMDB show children select the parent
+show ID and season number, plus the episode number for episodes. TVDB show children select the
+parent show ID; iTunes episodes select the parent podcast ID. No other canonical properties enter
+translation execution snapshots.
 
 ## Operations
 

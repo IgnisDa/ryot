@@ -7,10 +7,9 @@ export {
 	entityMonogram,
 	fieldSyncState,
 	isTitleProvisional,
-	type EntitySyncState,
+	isEnrichmentActive,
 	type FieldSyncState,
 	type SyncReason,
-	type SyncStatus,
 } from "./sync-state";
 
 export const SETTLE_RING_DURATION_MS = 900;

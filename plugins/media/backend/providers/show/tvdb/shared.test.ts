@@ -372,6 +372,7 @@ describe("show.tvdb sandbox script", () => {
 				translate,
 				{
 					language: "en",
+					name: "Season",
 					externalId: "555",
 					entitySchemaSlug: "show-season",
 					properties: { parentShowExternalId: "10" },
@@ -396,6 +397,7 @@ describe("show.tvdb sandbox script", () => {
 						translate,
 						{
 							language: "en",
+							name: "Episode",
 							externalId: "777",
 							entitySchemaSlug: "show-episode",
 							properties: { parentShowExternalId: "10" },
@@ -431,6 +433,7 @@ describe("show.tvdb sandbox script", () => {
 					{
 						language: "en",
 						externalId: "1",
+						name: "Canonical record",
 						entitySchemaSlug: "person",
 						properties: { parentShowExternalId: "10" },
 					},

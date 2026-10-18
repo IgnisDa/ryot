@@ -66,6 +66,7 @@ describe("podcast.itunes sandbox script", () => {
 					translate,
 					{
 						language: "fr",
+						name: "Episode",
 						externalId: "55",
 						entitySchemaSlug,
 						properties: { parentPodcastExternalId: "p1" },
@@ -225,7 +226,13 @@ describe("podcast.itunes sandbox script", () => {
 		return Effect.runPromise(
 			runSandboxTestScript(
 				translate,
-				{ externalId: "p1", language: "es-ES", entitySchemaSlug: "podcast" },
+				{
+					properties: {},
+					name: "Podcast",
+					externalId: "p1",
+					language: "es-ES",
+					entitySchemaSlug: "podcast",
+				},
 				host,
 				execution,
 			).pipe(
@@ -249,6 +256,7 @@ describe("podcast.itunes sandbox script", () => {
 			runSandboxTestScript(
 				translate,
 				{
+					name: "Episode",
 					externalId: "55",
 					language: "fr-FR",
 					entitySchemaSlug: "podcast-episode",

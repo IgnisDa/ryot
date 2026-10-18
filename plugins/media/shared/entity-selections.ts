@@ -14,12 +14,7 @@ import {
 	selectedField,
 	table,
 } from "@ryot-app/plugin-kit/ryotql";
-import {
-	EntityId,
-	EntitySchemaSlug,
-	PopulationStatus,
-	TranslationStatus,
-} from "@ryot-app/plugin-kit/schema";
+import { EnrichmentState, EntityId, EntitySchemaSlug } from "@ryot-app/plugin-kit/schema";
 
 import { entitySchemaIs, sameSchemaOwner } from "./lifecycle-expressions";
 
@@ -28,11 +23,11 @@ export type Table = ReturnType<typeof table>;
 export const entityId = (entity: Table, id: string) => eq(column(entity, "id"), literal(id));
 
 export const entitySyncSelection = (entity: Table) => ({
-	populationStatus: selectedField(column(entity, "populationStatus"), PopulationStatus),
-	translationStatus: selectedField(column(entity, "translationStatus"), TranslationStatus),
+	populationStatus: selectedField(column(entity, "populationStatus"), EnrichmentState),
+	translationStatus: selectedField(column(entity, "translationStatus"), EnrichmentState),
 	relatedPopulationStatus: selectedField(
 		column(entity, "relatedPopulationStatus"),
-		PopulationStatus,
+		EnrichmentState,
 	),
 });
 

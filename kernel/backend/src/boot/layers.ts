@@ -44,8 +44,13 @@ import {
 import { CollectionsServiceLive } from "#modules/collections/layer";
 import { DefinitionRepository } from "#modules/definitions/repository";
 import { EntityEditorServiceLive } from "#modules/entities/editor/layer";
+import { EnrichmentRecovery } from "#modules/entities/enrichment/recovery";
+import { EnrichmentRequests } from "#modules/entities/enrichment/requests";
 import { EntitiesServiceMigrationLive, EntitiesServiceRuntimeLive } from "#modules/entities/layer";
-import { TranslateEntityWorkflowDefinitionsLive } from "#modules/entities/localization/entity-translation-workflow-live";
+import {
+	TranslateEntityAttemptWorkflowDefinitionsLive,
+	TranslateEntityWorkflowDefinitionsLive,
+} from "#modules/entities/localization/entity-translation-workflow-live";
 import { TranslationsServiceLive } from "#modules/entities/localization/layer";
 import { TranslateEntityWorkflowOperationsLive } from "#modules/entities/localization/operations-workflow";
 import { EntityImportWorkflowDefinitionsLive } from "#modules/entities/providers/entity-import-workflow";
@@ -315,13 +320,19 @@ const RuntimeWorkflowDefinitionsLive = Layer.mergeAll(
 			),
 		),
 	),
-	TranslateEntityWorkflowDefinitionsLive,
+	Layer.merge(
+		TranslateEntityWorkflowDefinitionsLive,
+		TranslateEntityAttemptWorkflowDefinitionsLive,
+	).pipe(Layer.provide(EnrichmentRequests.layer)),
 ).pipe(Layer.provide(AdmittedWorkflowCatalogueLive));
 
 const RuntimeSchedulersLive = Layer.mergeAll(
 	FrequentCronSchedulerLive,
 	PluginInstallationSweepDispatcherLive,
 	PluginCronSchedulerProvidedLive,
+	EnrichmentRecovery.liveLayer.pipe(
+		Layer.provide(Layer.merge(EnrichmentRequests.layer, ScriptExecutionServiceLive)),
+	),
 );
 
 const RuntimeWorkLive = Layer.merge(

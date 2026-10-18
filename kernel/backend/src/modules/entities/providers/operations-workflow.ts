@@ -53,7 +53,6 @@ type EntityImportWorkflowOperationsValue = {
 		payload: EntityImportPayload,
 		executionId: string,
 		level: PopulationLevel,
-		existingProperties?: unknown,
 	) => Effect.Effect<SandboxExecutionResult, SandboxRunError, WorkflowEngine | WorkflowInstance>;
 	requireRelatedScript: (
 		payload: EntityImportPayload,
@@ -203,12 +202,10 @@ export const EntityImportWorkflowOperationsLive = Layer.effect(
 			payload: EntityImportPayload,
 			executionId: string,
 			level: PopulationLevel,
-			existingProperties?: unknown,
 		) =>
 			executePinnedProviderOperation(payload, "details", `${executionId}-sandbox-details`, {
 				level,
 				externalId: payload.externalId,
-				...(existingProperties === undefined ? {} : { existingProperties }),
 			});
 
 		const processSandboxRelatedPage = (

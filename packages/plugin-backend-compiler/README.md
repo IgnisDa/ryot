@@ -41,7 +41,7 @@ add grants to their parent. Workflow replay has no local host capabilities; work
 its own analyzed configuration and executable-dependency facts.
 
 The authored `defineManifest` contains static identity and kind plus kind-specific fields such as an
-automation `inputProjection` or provider `searchOptionsSchema`; capabilities and execution
+automation `inputProjection`, provider `searchOptionsSchema`, or translate-only `translationInputs`; capabilities and execution
 requirements are not authored there. Source-authored fields and compiler-derived execution metadata
 remain separate when local plugin builds derive and validate script records. Runtime installation
 validates archive metadata and hashes without recompiling or proving that metadata came from source.

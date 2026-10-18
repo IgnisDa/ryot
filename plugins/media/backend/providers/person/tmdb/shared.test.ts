@@ -109,7 +109,13 @@ describe("person.tmdb sandbox script", () => {
 		return Effect.runPromise(
 			runSandboxTestScript(
 				translate,
-				{ language: "fr", externalId: "1", entitySchemaSlug: "person" },
+				{
+					name: "Person",
+					language: "fr",
+					properties: {},
+					externalId: "1",
+					entitySchemaSlug: "person",
+				},
 				host,
 				execution,
 			).pipe(

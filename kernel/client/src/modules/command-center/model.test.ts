@@ -156,7 +156,10 @@ const result = (...names: readonly string[]): EntityBrowserResult => ({
 		ownerPluginId: null,
 		entityId: `id-${name}`,
 		entitySchemaSlug: "item",
-		sync: { populationStatus: "ready", translationStatus: "none" },
+		sync: {
+			translationStatus: { state: "idle", availability: "none" },
+			populationStatus: { state: "succeeded", availability: "complete" },
+		},
 	})),
 });
 

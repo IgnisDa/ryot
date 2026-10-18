@@ -1,5 +1,5 @@
 import type { ContractPayload, ContractSuccess } from "@ryot-app/contract/client";
-import { PopulationStatus, TranslationStatus } from "@ryot-app/contract/modules/entities/schemas";
+import { EnrichmentState } from "@ryot-app/contract/modules/entities/schemas";
 import {
 	EntityId,
 	EntitySchemaSlug,
@@ -98,14 +98,14 @@ export const getEntity = (client: Client, entityId: string) =>
 			providerId: providerId === null ? null : SandboxProviderId.make(providerId),
 			properties: requireObjectRecord(properties, "Entity properties must be an object"),
 			entitySchemaSlug: EntitySchemaSlug.make(requireRyotQLText(row, "entitySchemaSlug")),
-			populationStatus: yield* Schema.decodeUnknownEffect(PopulationStatus)(
-				requireRyotQLText(row, "populationStatus"),
+			populationStatus: yield* Schema.decodeUnknownEffect(EnrichmentState)(
+				requireRyotQLValue(row, "populationStatus"),
 			),
-			translationStatus: yield* Schema.decodeUnknownEffect(TranslationStatus)(
-				requireRyotQLText(row, "translationStatus"),
+			translationStatus: yield* Schema.decodeUnknownEffect(EnrichmentState)(
+				requireRyotQLValue(row, "translationStatus"),
 			),
-			relatedPopulationStatus: yield* Schema.decodeUnknownEffect(PopulationStatus)(
-				requireRyotQLText(row, "relatedPopulationStatus"),
+			relatedPopulationStatus: yield* Schema.decodeUnknownEffect(EnrichmentState)(
+				requireRyotQLValue(row, "relatedPopulationStatus"),
 			),
 			entitySchemaPluginId:
 				optionalText("entitySchemaPluginId") === null

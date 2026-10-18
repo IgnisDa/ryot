@@ -8,6 +8,7 @@ export const EntityUpdatedReason = Schema.Literals([
 	"translated",
 	"population-failed",
 	"projection-updated",
+	"enrichment-updated",
 ]);
 export type EntityUpdatedReason = typeof EntityUpdatedReason.Type;
 

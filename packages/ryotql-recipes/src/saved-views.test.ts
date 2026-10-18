@@ -147,8 +147,8 @@ describe("saved-view recipes", () => {
 			__entityBrowserName: "Example",
 			__entityBrowserSchemaSlug: "item",
 			__entityBrowserOwnerPluginId: null,
-			__entityBrowserPopulationStatus: "ready",
-			__entityBrowserTranslationStatus: "pending",
+			__entityBrowserTranslationStatus: { state: "queued", availability: "missing" },
+			__entityBrowserPopulationStatus: { state: "succeeded", availability: "complete" },
 		};
 		const decoded = Result.getOrThrow(
 			prepared.decode({ data: { entityBrowser: { pageInfo, type: "rows", items: [row] } } }),
@@ -163,7 +163,10 @@ describe("saved-view recipes", () => {
 					entityId: "item-1",
 					ownerPluginId: null,
 					entitySchemaSlug: "item",
-					sync: { populationStatus: "ready", translationStatus: "pending" },
+					sync: {
+						translationStatus: { state: "queued", availability: "missing" },
+						populationStatus: { state: "succeeded", availability: "complete" },
+					},
 				},
 			],
 		});
@@ -205,8 +208,8 @@ describe("saved-view recipes", () => {
 								__entityBrowserName: "Example",
 								__entityBrowserSchemaSlug: "item",
 								__entityBrowserOwnerPluginId: null,
-								__entityBrowserPopulationStatus: "ready",
-								__entityBrowserTranslationStatus: "none",
+								__entityBrowserTranslationStatus: { state: "idle", availability: "none" },
+								__entityBrowserPopulationStatus: { state: "succeeded", availability: "complete" },
 							},
 						],
 					},

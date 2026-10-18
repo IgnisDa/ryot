@@ -8,6 +8,7 @@ import { buildAlbumTranslate } from "./shared";
 export const manifest = defineManifest({
 	kind: "provider",
 	name: "YouTube Music album translation",
+	translationInputs: { "music-group": [] },
 	slug: "music-group.youtube-music.translate",
 });
 

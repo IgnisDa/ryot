@@ -109,15 +109,18 @@ describe("entity population levels", () => {
 				const anime = yield* importAnime;
 				const imported = yield* getEntity(auth.client, anime.id);
 				expect(imported.populatedAt).not.toBeNull();
-				expect(imported.relatedPopulationStatus).toBe("pending");
+				expect(imported.relatedPopulationStatus).toEqual({
+					state: "idle",
+					availability: "missing",
+				});
 				expect(Exit.isFailure(yield* companyRelationship(anime.id))).toBe(true);
 
 				const socket = yield* openInterestWebSocketScoped(auth);
 				expect(yield* socket.replaceInterest([anime.id])).toEqual({ revision: 1, type: "applied" });
-				yield* socket.waitForEntityUpdated(anime.id, "populated", { timeoutMs: 30_000 });
+				yield* socket.waitForEntityUpdated(anime.id, "enrichment-updated", { timeoutMs: 30_000 });
 				const visible = yield* getEntity(auth.client, anime.id);
 				expect(visible.populatedAt).toBe(imported.populatedAt);
-				expect(visible.relatedPopulationStatus).toBe("pending");
+				expect(visible.relatedPopulationStatus).toEqual({ state: "idle", availability: "missing" });
 				expect(yield* socket.replaceInterest([anime.id], [anime.id])).toEqual({
 					revision: 2,
 					type: "applied",
@@ -125,7 +128,12 @@ describe("entity population levels", () => {
 				const upgraded = yield* pollUntil(
 					`anime '${anime.id}' related level ready`,
 					getEntity(auth.client, anime.id).pipe(
-						Effect.map((entity) => (entity.relatedPopulationStatus === "ready" ? entity : null)),
+						Effect.map((entity) =>
+							entity.relatedPopulationStatus.availability === "complete" &&
+							entity.relatedPopulationStatus.state === "succeeded"
+								? entity
+								: null,
+						),
 					),
 				);
 				expect(upgraded.populatedAt).toBe(imported.populatedAt);
@@ -144,10 +152,13 @@ describe("entity population levels", () => {
 			const anime = yield* importAnime;
 			const socket = yield* openInterestWebSocketScoped(auth);
 			yield* socket.replaceInterest([anime.id]);
-			yield* socket.waitForEntityUpdated(anime.id, "populated", { timeoutMs: 30_000 });
+			yield* socket.waitForEntityUpdated(anime.id, "enrichment-updated", { timeoutMs: 30_000 });
 			yield* waitOutGraceWindow;
 
-			expect((yield* getEntity(auth.client, anime.id)).relatedPopulationStatus).toBe("pending");
+			expect((yield* getEntity(auth.client, anime.id)).relatedPopulationStatus).toEqual({
+				state: "idle",
+				availability: "missing",
+			});
 			expect(Exit.isFailure(yield* companyRelationship(anime.id))).toBe(true);
 		}),
 	);

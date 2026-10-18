@@ -1,13 +1,17 @@
 import { SandboxRunError, toSandboxRunError } from "@ryot-app/contract/errors";
 import { definitionKey, definitionOwner } from "@ryot-app/contract/modules/plugins/references";
 import { AutomationExecutionId, UserId } from "@ryot-app/contract/schema/brands";
+import { JsonValue } from "@ryot-app/contract/schema/json";
 import { IsoUtcString } from "@ryot-app/contract/schema/utils";
-import { Context, DateTime, Effect, Layer, Ref } from "effect";
+import { sandboxContextError } from "@ryot-app/sandbox/protocol/limits";
+import { generateId } from "better-auth";
+import { Context, DateTime, Effect, Layer, Ref, Schema } from "effect";
 import { WorkflowEngine } from "effect/workflow/WorkflowEngine";
 
 import { ManagedAssetReferenceLocker } from "#lib/domain/managed-asset-writes";
 import { rootLifecycleCommand } from "#modules/automations/lifecycle/command";
 import { DefinitionRepository } from "#modules/definitions/repository";
+import { EnrichmentRequests } from "#modules/entities/enrichment/requests";
 import { DomainWriteChecks } from "#modules/entities/write-context";
 import { PluginRuntimeResolver } from "#modules/plugins/catalog/runtime-resolver";
 import { ScriptExecutionService } from "#modules/scripts/executions/service";
@@ -17,12 +21,15 @@ import type * as schema from "#schema/tables/combined";
 import {
 	translateEntityExecutionId,
 	TranslateEntityWorkflow,
-	type TranslateEntityWorkflowPayload,
+	TranslateEntityWorkflowPayload,
 	type TranslationExecution,
 } from "./entity-translation-workflow";
 import { type TranslationOverlayInput, TranslationsRepository } from "./repository";
 
-export type RequestFillInput = Omit<TranslateEntityWorkflowPayload, "command" | "executionId">;
+export type RequestFillInput = Omit<
+	TranslateEntityWorkflowPayload,
+	"command" | "principal" | "executionId" | "contentGeneration" | "entityScopeUserId"
+> & { readonly retryOf?: string };
 
 const entityMatchesPayload = (
 	entity: Pick<
@@ -51,13 +58,40 @@ export class TranslationsService extends Context.Service<TranslationsService>()(
 			const definitions = yield* DefinitionRepository;
 			const sandbox = yield* ScriptExecutionService;
 			const checks = yield* DomainWriteChecks;
+			const requests = yield* EnrichmentRequests;
 			const requestFill = Effect.fn("TranslationsService.requestFill")(function* (
 				input: RequestFillInput,
 			) {
-				const executionId = translateEntityExecutionId({
-					language: input.language,
-					entityId: input.entityId,
-				});
+				const entity = yield* repository
+					.findEntityForUser(input)
+					.pipe(Effect.mapError((error) => toSandboxRunError(error, "infrastructure")));
+				if (
+					!entity ||
+					!entityMatchesPayload(entity, input) ||
+					input.entitySchemaPluginId === null
+				) {
+					return yield* new SandboxRunError({
+						kind: "invalid-input",
+						message: "Translation entity identity is unavailable",
+					});
+				}
+				const pluginId = input.entitySchemaPluginId;
+				const executionId =
+					input.retryOf === undefined
+						? translateEntityExecutionId({
+								userId: input.userId,
+								language: input.language,
+								entityId: input.entityId,
+								accountGeneration: input.accountGeneration,
+								contentGeneration: entity.contentGeneration,
+							})
+						: `translate-${generateId()}`;
+				const existing = yield* requests
+					.get(executionId)
+					.pipe(Effect.mapError((error) => toSandboxRunError(error, "infrastructure")));
+				if (existing !== null) {
+					return false;
+				}
 				const command = {
 					...rootLifecycleCommand({
 						source: "api",
@@ -70,14 +104,93 @@ export class TranslationsService extends Context.Service<TranslationsService>()(
 					}),
 					writeContext: null,
 				};
-				return yield* engine
-					.execute(TranslateEntityWorkflow, {
+				const script = yield* runtime
+					.resolveUserTranslateScript(input.userId, input.providerId)
+					.pipe(Effect.mapError((error) => toSandboxRunError(error, "invalid-input")));
+				const duplicate = new SandboxRunError({
+					kind: "invalid-input",
+					message: "Translation request is already admitted",
+				});
+				const captured = yield* Ref.make<TranslateEntityWorkflowPayload | null>(null);
+				const registered = yield* sandbox
+					.preRegisterPluginWorkflow({
 						executionId,
-						discard: true,
-						payload: { ...input, command, executionId },
+						scriptId: script.id,
+						executingUserId: input.userId,
+						pluginId: input.entitySchemaPluginId,
+						accountGeneration: input.accountGeneration,
+						retain: (principal) =>
+							Effect.gen(function* () {
+								yield* requests.lockTarget(`translation-admission:${input.retryOf ?? executionId}`);
+								if ((yield* requests.get(executionId)) !== null) {
+									return yield* duplicate;
+								}
+								const payload = {
+									command,
+									principal,
+									executionId,
+									lane: input.lane,
+									userId: input.userId,
+									entityId: input.entityId,
+									language: input.language,
+									externalId: input.externalId,
+									providerId: input.providerId,
+									entitySchemaSlug: input.entitySchemaSlug,
+									accountGeneration: input.accountGeneration,
+									contentGeneration: entity.contentGeneration,
+									entitySchemaPluginId: input.entitySchemaPluginId,
+									entityScopeUserId: entity.userId === null ? null : UserId.make(entity.userId),
+								};
+								const admitted = yield* requests.ensure({
+									payload,
+									pluginId,
+									level: null,
+									id: executionId,
+									dispatchRoot: true,
+									entityId: input.entityId,
+									operation: "translation",
+									language: input.language,
+									providerId: input.providerId,
+									externalId: input.externalId,
+									requester: input.accountGeneration,
+									entitySchemaSlug: input.entitySchemaSlug,
+									workflowName: TranslateEntityWorkflow._tag,
+									sourceContentGeneration: entity.contentGeneration,
+									scopeUserId: entity.userId === null ? null : UserId.make(entity.userId),
+									...(input.retryOf === undefined ? {} : { retryOf: input.retryOf }),
+								});
+								if (admitted.id !== executionId || admitted.state !== "queued") {
+									return yield* duplicate;
+								}
+								return yield* Ref.set(
+									captured,
+									yield* Schema.decodeUnknownEffect(TranslateEntityWorkflowPayload)(
+										admitted.payload,
+									).pipe(Effect.mapError((error) => toSandboxRunError(error, "invalid-input"))),
+								);
+							}).pipe(Effect.mapError((error) => toSandboxRunError(error, "infrastructure"))),
 					})
 					.pipe(
-						Effect.asVoid,
+						Effect.as(true),
+						Effect.catchIf(
+							(error) => error === duplicate,
+							() => Effect.succeed(false),
+						),
+					);
+				if (!registered) {
+					return false;
+				}
+				const storedPayload = yield* Ref.get(captured);
+				if (storedPayload === null) {
+					return yield* new SandboxRunError({
+						kind: "infrastructure",
+						message: "Translation admission returned no payload",
+					});
+				}
+				return yield* engine
+					.execute(TranslateEntityWorkflow, { executionId, discard: true, payload: storedPayload })
+					.pipe(
+						Effect.as(true),
 						Effect.tapCause((cause) => Effect.logWarning("translation fill enqueue failed", cause)),
 						Effect.mapError((error) => toSandboxRunError(error, "infrastructure")),
 					);
@@ -85,7 +198,6 @@ export class TranslationsService extends Context.Service<TranslationsService>()(
 
 			const admitExecution = Effect.fn("TranslationsService.admitExecution")(function* (
 				payload: TranslateEntityWorkflowPayload,
-				executionId: string,
 			) {
 				const pluginId = payload.entitySchemaPluginId;
 				if (pluginId === null) {
@@ -94,18 +206,9 @@ export class TranslationsService extends Context.Service<TranslationsService>()(
 						message: "Translation entity is not owned by a plugin",
 					});
 				}
-				const script = yield* runtime.resolveUserTranslateScript(
-					payload.userId,
-					payload.providerId,
-				);
-				const captured = yield* Ref.make<TranslationExecution | null>(null);
-				yield* sandbox.preRegisterPluginWorkflow({
-					pluginId,
-					executionId,
-					scriptId: script.id,
-					executingUserId: payload.userId,
-					accountGeneration: payload.accountGeneration,
-					retain: (principal) =>
+				const principal = payload.principal;
+				return yield* session
+					.transaction(
 						Effect.gen(function* () {
 							const owner = definitionOwner(payload.entitySchemaPluginId);
 							const entity = yield* repository.findEntityForUser(payload);
@@ -113,19 +216,21 @@ export class TranslationsService extends Context.Service<TranslationsService>()(
 								payload.userId,
 								payload.providerId,
 							);
-							const activeScript = yield* runtime.resolveUserTranslateScript(
-								payload.userId,
-								payload.providerId,
-							);
+							const selectedKeys = principal.metadata.translationInputs?.[payload.entitySchemaSlug];
 							if (
 								!entity ||
 								entity.populatedAt === null ||
+								entity.contentGeneration !== payload.contentGeneration ||
+								entity.userId !== payload.entityScopeUserId ||
 								!entityMatchesPayload(entity, payload) ||
 								!provider ||
 								provider.pluginId !== entity.entitySchemaPluginId ||
-								provider.rootEntitySchemaSlug !== entity.entitySchemaSlug ||
+								selectedKeys === undefined ||
+								principal.pluginRevision?.id !== pluginId ||
 								principal.providerId !== provider.id ||
-								activeScript.id !== principal.scriptId
+								principal.subject.type !== "user" ||
+								principal.subject.userId !== payload.userId ||
+								principal.subject.accountGeneration.token !== payload.accountGeneration.token
 							) {
 								return yield* new SandboxRunError({
 									kind: "invalid-input",
@@ -134,21 +239,51 @@ export class TranslationsService extends Context.Service<TranslationsService>()(
 							}
 							yield* checks.check({ writeContext: principal }, owner, entity.userId, true);
 							yield* checks.check(payload.command, owner, entity.userId, true);
-							return yield* Ref.set(captured, {
-								principal,
-								properties: entity.properties,
-								entityScopeUserId: entity.userId === null ? null : UserId.make(entity.userId),
+							for (const key of selectedKeys) {
+								if (
+									!Object.hasOwn(entity.properties, key) ||
+									entity.properties[key] === undefined
+								) {
+									return yield* new SandboxRunError({
+										kind: "invalid-input",
+										message: `Translation input property '${key}' is unavailable`,
+									});
+								}
+							}
+							const selected = Object.fromEntries(
+								selectedKeys.map((key) => [key, entity.properties[key]]),
+							);
+							const properties = yield* Schema.decodeUnknownEffect(
+								Schema.Record(Schema.String, JsonValue),
+							)(selected).pipe(
+								Effect.mapError(
+									() =>
+										new SandboxRunError({
+											kind: "invalid-input",
+											message: "Translation input properties must be JSON",
+										}),
+								),
+							);
+							const contextError = sandboxContextError({
+								properties,
+								name: entity.name,
+								language: payload.language,
+								externalId: payload.externalId,
+								entitySchemaSlug: payload.entitySchemaSlug,
 							});
-						}).pipe(Effect.mapError((error) => toSandboxRunError(error, "infrastructure"))),
-				});
-				const execution = yield* Ref.get(captured);
-				if (!execution) {
-					return yield* new SandboxRunError({
-						kind: "infrastructure",
-						message: "Translation capture returned no execution",
-					});
-				}
-				return execution;
+							if (contextError) {
+								return yield* new SandboxRunError({ kind: "invalid-input", message: contextError });
+							}
+							return {
+								principal,
+								properties,
+								name: entity.name,
+								contentGeneration: entity.contentGeneration,
+								entityScopeUserId: entity.userId === null ? null : UserId.make(entity.userId),
+							} satisfies TranslationExecution;
+						}),
+					)
+					.pipe(Effect.mapError((error) => toSandboxRunError(error, "infrastructure")));
 			});
 
 			const upsert = Effect.fn("TranslationsService.upsert")(function* (
@@ -172,7 +307,10 @@ export class TranslationsService extends Context.Service<TranslationsService>()(
 							!entity ||
 							entity.userId !== execution.entityScopeUserId ||
 							!entityMatchesPayload(entity, payload) ||
-							provider.rootEntitySchemaSlug !== entity.entitySchemaSlug ||
+							provider.pluginId !== entity.entitySchemaPluginId ||
+							execution.principal.pluginRevision?.id !== entity.entitySchemaPluginId ||
+							execution.principal.metadata.translationInputs?.[entity.entitySchemaSlug] ===
+								undefined ||
 							execution.principal.providerId !== payload.providerId ||
 							input.entityId !== payload.entityId ||
 							input.language !== payload.language
@@ -180,6 +318,16 @@ export class TranslationsService extends Context.Service<TranslationsService>()(
 							return yield* new SandboxRunError({
 								kind: "invalid-input",
 								message: "Translation commit entity or provider identity changed",
+							});
+						}
+						if (
+							entity.contentGeneration !== execution.contentGeneration ||
+							execution.contentGeneration !== payload.contentGeneration ||
+							input.sourceContentGeneration !== execution.contentGeneration
+						) {
+							return yield* new SandboxRunError({
+								kind: "invalid-input",
+								message: "Translation source content changed before commit",
 							});
 						}
 						const schemaKey = definitionKey("entity", owner, payload.entitySchemaSlug);

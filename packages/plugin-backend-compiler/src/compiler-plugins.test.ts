@@ -1,8 +1,10 @@
 import { expect, it } from "@effect/vitest";
+import { SandboxScriptMetadata } from "@ryot-app/contract/modules/scripts/schemas";
 import { sha256Hex } from "@ryot-app/ts-utils/crypto";
-import { Effect } from "effect";
+import { Effect, Schema } from "effect";
 
 import { pluginBackendCompilerPlatformLayer } from "./compiler-platform";
+import { declaredScriptMetadata, derivePluginSandboxScripts } from "./compiler-plugin-manifest";
 import { compilePluginSandboxEntries, compilePluginSandboxSourceEntries } from "./compiler-plugins";
 
 const digest = sha256Hex;
@@ -554,6 +556,68 @@ export default defineProvider({
 			});
 		}),
 	);
+
+	test.effect("preserves selected translation schemas and fields in generated metadata", () =>
+		Effect.gen(function* () {
+			const source = `
+import { defineManifest } from "@ryot-app/plugin-backend-sdk/driver";
+import { Effect } from "@ryot-app/plugin-backend-sdk/effect";
+import { defineProvider } from "@ryot-app/plugin-backend-sdk/provider";
+export const manifest = defineManifest({
+  kind: "provider", name: "Translation", slug: "record.catalog.translate",
+  translationInputs: { record: [], "record-part": ["parentExternalId", "position"] },
+});
+export default defineProvider({ manifest, operation: "translate", run: () => Effect.succeed({}) });
+`;
+			const [compiled] = yield* derivePluginSandboxScripts({
+				"backend/providers/record/catalog/translate.sandbox.ts": source,
+			});
+			expect(compiled?.compiled.manifest).toMatchObject({
+				translationInputs: { record: [], "record-part": ["parentExternalId", "position"] },
+			});
+			if (!compiled) {
+				throw new Error("Expected a compiled translation");
+			}
+			expect(declaredScriptMetadata(compiled.script)).toMatchObject({
+				providerSlug: "record.catalog",
+				providerOperation: "translate",
+				translationInputs: { record: [], "record-part": ["parentExternalId", "position"] },
+			});
+			const storedMetadata = yield* Schema.decodeEffect(SandboxScriptMetadata)(
+				declaredScriptMetadata(compiled.script),
+			);
+			expect(storedMetadata).toMatchObject({
+				translationInputs: { record: [], "record-part": ["parentExternalId", "position"] },
+			});
+		}),
+	);
+
+	for (const operation of ["details", "translate"] as const) {
+		test.effect(`rejects ${operation} with invalid translation selection ownership`, () =>
+			Effect.gen(function* () {
+				const source = `
+import { defineManifest } from "@ryot-app/plugin-backend-sdk/driver";
+import { Effect } from "@ryot-app/plugin-backend-sdk/effect";
+import { defineProvider } from "@ryot-app/plugin-backend-sdk/provider";
+export const manifest = defineManifest({
+  kind: "provider", name: "Provider", slug: "record.catalog.${operation}",
+  ${operation === "details" ? "translationInputs: { record: [] }," : ""}
+});
+export default defineProvider({ manifest, operation: "${operation}", run: () => Effect.die("unused") });
+`;
+				const failure = yield* compilePluginSandboxSourceEntries(
+					{ "provider.sandbox.ts": source },
+					[{ kind: "provider", providerOperation: operation, entry: "provider.sandbox.ts" }],
+				).pipe(Effect.flip);
+				expect(failure.diagnostics).toEqual([
+					expect.objectContaining({
+						code: "RYOT_MANIFEST",
+						message: "Only translate providers must declare translationInputs",
+					}),
+				]);
+			}),
+		);
+	}
 
 	test.effect("rejects obsolete multi-driver definitions with a clear diagnostic", () =>
 		Effect.gen(function* () {

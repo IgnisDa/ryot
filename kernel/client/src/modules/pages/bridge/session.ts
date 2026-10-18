@@ -669,7 +669,11 @@ export function openPluginBridge(options: PluginBridgeOptions): PluginBridgeSess
 
 	function handleRetryPopulation(request: PluginBridgeRetryPopulationRequest) {
 		runRequest(request.requestId, "retry-population", () =>
-			options.onRetryPopulation({ pluginId: request.pluginId, entityId: request.entityId }),
+			options.onRetryPopulation({
+				pluginId: request.pluginId,
+				entityId: request.entityId,
+				operation: request.operation,
+			}),
 		);
 	}
 

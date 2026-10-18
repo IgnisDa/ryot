@@ -6,10 +6,11 @@ import {
 	PluginId,
 } from "@ryot-app/contract/schema/brands";
 import { and, eq } from "drizzle-orm";
-import { DateTime, Effect, Exit, Schema } from "effect";
+import { DateTime, Effect, Exit, Layer, Schema } from "effect";
 import { WorkflowEngine, WorkflowInstance } from "effect/workflow/WorkflowEngine";
 
 import { rootLifecycleCommand } from "#modules/automations/lifecycle/command";
+import { EnrichmentRequests } from "#modules/entities/enrichment/requests";
 import { PluginRuntimeResolver } from "#modules/plugins/catalog/runtime-resolver";
 import {
 	installRevisionPackage,
@@ -30,8 +31,8 @@ import { makeRedisService, makeWorkflowActivityEngine } from "#testing/effect";
 import type { DomainLifecycleCommand } from "../write-context";
 import { EntityImportWorkflowOperations } from "./operations-workflow";
 import {
-	ProviderEntityPopulationWorkflow,
-	runProviderEntityPopulationWorkflow,
+	ProviderEntityPopulationAttemptWorkflow,
+	runProviderEntityPopulationAttemptWorkflow,
 } from "./provider-entity-population-workflow";
 import type { PopulationLevel } from "./schemas";
 
@@ -155,13 +156,17 @@ const setup = Effect.gen(function* () {
 		readonly occurredAt?: DomainLifecycleCommand["occurredAt"];
 		readonly details: Effect.Effect<unknown>;
 	}) => {
-		const instance = WorkflowInstance.initial(ProviderEntityPopulationWorkflow, input.executionId);
-		return runProviderEntityPopulationWorkflow(
+		const instance = WorkflowInstance.initial(
+			ProviderEntityPopulationAttemptWorkflow,
+			input.executionId,
+		);
+		return runProviderEntityPopulationAttemptWorkflow(
 			{
 				level: input.level,
 				externalId: "root",
 				providerId: provider.id,
 				entitySchemaSlug: bottle,
+				requestId: input.executionId,
 				mode: input.mode ?? "ensure",
 				executionId: input.executionId,
 				pluginId: PluginId.make(installed.pluginId),
@@ -238,7 +243,13 @@ const setup = Effect.gen(function* () {
 
 const given = (value: unknown) => Effect.succeed(value);
 
-layer(relationshipDatabaseLayer())((test) => {
+const populationDatabaseLayer = () =>
+	Layer.merge(
+		relationshipDatabaseLayer(),
+		Layer.mock(EnrichmentRequests)({ attachEntity: () => Effect.void }),
+	);
+
+layer(populationDatabaseLayer())((test) => {
 	test.effect(
 		"keeps mixed-case provider siblings attached to their own subtrees and stamps new children",
 		() =>
@@ -316,7 +327,7 @@ layer(relationshipDatabaseLayer())((test) => {
 	);
 });
 
-layer(relationshipDatabaseLayer())((test) => {
+layer(populationDatabaseLayer())((test) => {
 	test.effect(
 		"imports at base, then upgrades at full without clearing populated_at or refreshing children",
 		() =>
@@ -389,7 +400,7 @@ layer(relationshipDatabaseLayer())((test) => {
 	);
 });
 
-layer(relationshipDatabaseLayer())((test) => {
+layer(populationDatabaseLayer())((test) => {
 	test.effect(
 		"keeps a base stamp committed after a successful full run read its target unpopulated",
 		() =>
@@ -424,7 +435,7 @@ layer(relationshipDatabaseLayer())((test) => {
 	);
 });
 
-layer(relationshipDatabaseLayer())((test) => {
+layer(populationDatabaseLayer())((test) => {
 	test.effect("keeps populated_at when a full upgrade fails after its root upsert", () =>
 		Effect.gen(function* () {
 			const { entity, populate, relationships } = yield* setup;
@@ -449,17 +460,15 @@ layer(relationshipDatabaseLayer())((test) => {
 			expect(Exit.isFailure(exit)).toBe(true);
 
 			expect(yield* entity("root")).toMatchObject({
-				populationFailure: null,
 				relatedPopulatedAt: null,
 				populatedAt: base.populatedAt,
-				relatedPopulationFailure: null,
 			});
 			expect(yield* relationships("credits")).toEqual([]);
 		}),
 	);
 });
 
-layer(relationshipDatabaseLayer())((test) => {
+layer(populationDatabaseLayer())((test) => {
 	test.effect(
 		"keeps an overlapping base stamp through full runs that read the entity unpopulated and then fail",
 		() =>
@@ -511,12 +520,7 @@ layer(relationshipDatabaseLayer())((test) => {
 				yield* observe;
 				expect(observed).toHaveLength(3);
 				expect(observed.every((value) => value !== null)).toBe(true);
-				expect(yield* entity("root")).toMatchObject({
-					populationFailure: null,
-					populationFailedAt: null,
-					relatedPopulatedAt: null,
-					relatedPopulationFailure: "invalid-output",
-				});
+				expect(yield* entity("root")).toMatchObject({ relatedPopulatedAt: null });
 			}),
 	);
 });

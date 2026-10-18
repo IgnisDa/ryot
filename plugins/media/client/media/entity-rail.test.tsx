@@ -11,8 +11,8 @@ const noopAdapter = { query: () => Effect.succeed({}) };
 const subject = (id: string, name: string): MediaPresentationSubject => ({
 	id,
 	name,
-	populationStatus: "ready",
-	translationStatus: "none",
+	translationStatus: { state: "idle", availability: "none" },
+	populationStatus: { state: "succeeded", availability: "complete" },
 	images: [{ type: "remote", purpose: "cover", url: `https://images.test/${id}-cover.jpg` }],
 });
 

@@ -15,7 +15,6 @@ import {
 	PluginId,
 	RelationshipSchemaSlug,
 	SandboxProviderId,
-	SandboxScriptId,
 	UserId,
 } from "@ryot-app/contract/schema/brands";
 import { JsonValue } from "@ryot-app/contract/schema/json";
@@ -29,6 +28,7 @@ import { LifecycleExecution } from "#modules/automations/lifecycle/execution";
 import { toLifecycleDispatchPlan } from "#modules/automations/lifecycle/planning";
 import { DefinitionRepository } from "#modules/definitions/repository";
 import type { EntityRelationshipDefinitions } from "#modules/definitions/snapshot";
+import { EnrichmentRequests } from "#modules/entities/enrichment/requests";
 import { EntitiesRepository } from "#modules/entities/repository";
 import { EntitiesService } from "#modules/entities/service";
 import {
@@ -54,11 +54,10 @@ import { makeRedisService, makeWorkflowActivityEngine } from "#testing/effect";
 import { EntityImportWorkflowOperations } from "./operations-workflow";
 import { writeChildEntitySet } from "./population";
 import {
-	type ProviderEntityPopulationPayload,
-	ProviderEntityPopulationWorkflow,
-	runProviderEntityPopulationWorkflow,
+	type ProviderEntityPopulationAttemptPayload,
+	ProviderEntityPopulationAttemptWorkflow,
+	runProviderEntityPopulationAttemptWorkflow,
 } from "./provider-entity-population-workflow";
-import { syncRelatedEntityGroup } from "./relationship-population";
 
 const now = IsoUtcString.make("2026-09-16T00:00:00.000Z");
 const userId = UserId.make("user-1");
@@ -69,7 +68,6 @@ const rootEntityId = EntityId.make("root-1");
 const rootSchemaSlug = EntitySchemaSlug.make("record");
 const childSchemaSlug = EntitySchemaSlug.make("part");
 const relationshipSchemaSlug = RelationshipSchemaSlug.make("record-part");
-const epoch = new Date(0);
 
 const command = {
 	...rootLifecycleCommand({
@@ -209,7 +207,6 @@ type Reconciliation = {
 	readonly scope: Parameters<Reconcile>[2];
 };
 
-/** A failed transaction discards the rows persisted so far, like a rollback. */
 const makeTransaction = <Row>(provided?: DatabaseSession["Service"]) =>
 	Effect.gen(function* () {
 		const session =
@@ -242,50 +239,24 @@ class FakeProviderWrites extends Context.Service<
 	}
 >()("test/FakeProviderWrites") {}
 
-/** Entity upserts and reconciliation must run inside the transaction and provider lookups outside it. */
 const providerWritesLayer = (options: {
 	readonly reconciled: Effect.Success<ReturnType<Reconcile>> | "fail";
-	readonly relationshipsRepository?: Layer.Layer<RelationshipsRepository>;
-	readonly entitiesRepository?: Layer.Layer<EntitiesRepository>;
-	readonly privateProvider?: SandboxProviderId;
 }) =>
 	Layer.unwrap(
 		Effect.gen(function* () {
 			const transaction = yield* makeTransaction<UpsertInput>();
 			const reconciliations = yield* Ref.make<ReadonlyArray<Reconciliation>>([]);
 			const stampedChildren = yield* Ref.make<ReadonlyArray<ReadonlyArray<EntityId>>>([]);
-			const { reconciled, privateProvider } = options;
+			const { reconciled } = options;
 			return Layer.mergeAll(
 				transaction.database,
 				definitionsLayer,
-				Layer.mock(PluginRuntimeResolver)({
-					...(privateProvider && {
-						findProviderAvailableToUserByReference: () =>
-							transaction
-								.expectTransaction(false)
-								.pipe(
-									Effect.as({
-										name: "Private",
-										createdAt: epoch,
-										updatedAt: epoch,
-										id: privateProvider,
-										slug: "private.person",
-										pluginId: "private-plugin",
-										providerId: privateProvider,
-										pluginScope: "user" as const,
-										rootEntitySchemaSlug: "person",
-										information: { source: "provider" },
-									}),
-								),
-					}),
+				Layer.mock(EntitiesRepository)({
+					stampChildRelatedPopulated: (ids) =>
+						transaction
+							.expectTransaction(true)
+							.pipe(Effect.andThen(Ref.update(stampedChildren, (all) => [...all, ids]))),
 				}),
-				options.entitiesRepository ??
-					Layer.mock(EntitiesRepository)({
-						stampChildRelatedPopulated: (ids) =>
-							transaction
-								.expectTransaction(true)
-								.pipe(Effect.andThen(Ref.update(stampedChildren, (all) => [...all, ids]))),
-					}),
 				Layer.mock(EntitiesService)({
 					persistPlannedProviderUpserts: (input) =>
 						Effect.forEach(input.items, (item) =>
@@ -302,10 +273,9 @@ const providerWritesLayer = (options: {
 							})),
 						),
 				}),
-				options.relationshipsRepository ??
-					Layer.mock(RelationshipsRepository)({
-						listRelationshipsForReconciliation: () => Effect.succeed([]),
-					}),
+				Layer.mock(RelationshipsRepository)({
+					listRelationshipsForReconciliation: () => Effect.succeed([]),
+				}),
 				Layer.mock(RelationshipsService)({
 					persistPlannedReconciliation: (groups, receivedCommand, scope) =>
 						reconciled === "fail"
@@ -475,136 +445,12 @@ layer(providerWritesLayer({ reconciled: { result: [], dispatch: [] } }))((it) =>
 	);
 });
 
-layer(
-	providerWritesLayer({
-		privateProvider: SandboxProviderId.make("private-provider"),
-		reconciled: {
-			result: [{ created: 2, updated: 0, deleted: 0, upserted: 2 }],
-			dispatch: [toLifecycleDispatchPlan(planFixture("relationships"))],
-		},
-	}),
-)((it) => {
-	it.effect("deduplicates related entities in provider order in one private transaction", () =>
-		Effect.gen(function* () {
-			const result = yield* syncRelatedEntityGroup({
-				userId,
-				command,
-				pluginId,
-				population,
-				definitions,
-				scope: "user",
-				primaryEntityId: rootEntityId,
-				primaryEntitySchemaSlug: rootSchemaSlug,
-				group: {
-					direction: "outgoing",
-					synchronization: "additive",
-					relationshipSchemaSlug: "credits",
-					entities: [
-						{
-							name: "Person",
-							externalId: "zeta",
-							providerSlug: "private.person",
-							relationshipProperties: { role: "actor" },
-						},
-						{
-							name: "Alpha",
-							externalId: "Alpha",
-							providerSlug: "private.person",
-							relationshipProperties: { role: "writer" },
-						},
-						{
-							name: "Last Zeta",
-							externalId: "zeta",
-							providerSlug: "private.person",
-							relationshipProperties: { role: "director" },
-						},
-					],
-				},
-			});
-			const fake = yield* FakeProviderWrites;
-			const entityScopes = (yield* fake.persisted).map((item) => ({
-				scope: item.scope,
-				userId: item.scope === "user" ? item.userId : null,
-			}));
-			const [reconciliation] = yield* fake.reconciliations;
-			expect(result.result).toEqual([{ created: 2, updated: 0, deleted: 0, upserted: 2 }]);
-			expect(entityScopes).toEqual([
-				{ userId, scope: "user" },
-				{ userId, scope: "user" },
-			]);
-			expect((yield* fake.persisted).map(({ name, externalId }) => ({ name, externalId }))).toEqual(
-				[
-					{ name: "Last Zeta", externalId: "zeta" },
-					{ name: "Alpha", externalId: "Alpha" },
-				],
-			);
-			expect(reconciliation?.groups[0]?.relationships).toMatchObject([
-				{ targetEntityId: "entity-zeta", properties: { role: "director" } },
-				{ targetEntityId: "entity-Alpha", properties: { role: "writer" } },
-			]);
-			expect(result.dispatch.map(({ triggerId }) => triggerId)).toEqual([
-				"entity-zeta",
-				"entity-Alpha",
-				"entities-batch",
-				"relationships",
-			]);
-			expect(reconciliation?.scope).toEqual({ userId, scope: "user" });
-			expect(reconciliation?.command).toMatchObject({
-				causation: command.causation,
-				population: { rootPreviouslyPopulated: true, scopeEntity: population.scopeEntity },
-			});
-		}),
-	);
-});
-
-layer(
-	providerWritesLayer({
-		reconciled: "fail",
-		relationshipsRepository: Layer.mock(RelationshipsRepository)({}),
-		entitiesRepository: Layer.mock(EntitiesRepository)({
-			findEntitySchemaProviderByReference: () =>
-				Effect.succeed({
-					entitySchemaSlug: EntitySchemaSlug.make("person"),
-					providerId: SandboxProviderId.make("person-provider"),
-					detailsScriptId: SandboxScriptId.make("person-details"),
-				}),
-		}),
-	}),
-)((it) => {
-	it.effect("rolls back a complete related group when reconciliation fails", () =>
-		Effect.gen(function* () {
-			const exit = yield* Effect.exit(
-				syncRelatedEntityGroup({
-					command,
-					pluginId,
-					population,
-					definitions,
-					scope: "global",
-					primaryEntityId: rootEntityId,
-					primaryEntitySchemaSlug: rootSchemaSlug,
-					group: {
-						direction: "outgoing",
-						synchronization: "authoritative",
-						relationshipSchemaSlug: "credits",
-						entities: [
-							{ name: "First", externalId: "person-1", providerSlug: "person.provider" },
-							{ name: "Second", externalId: "person-2", providerSlug: "person.provider" },
-						],
-					},
-				}),
-			);
-			expect(Exit.isFailure(exit)).toBe(true);
-			expect(yield* persistedExternalIds).toEqual([]);
-		}),
-	);
-});
-
 class FakeRootPopulation extends Context.Service<
 	FakeRootPopulation,
 	{
 		readonly commands: Effect.Effect<ReadonlyArray<DomainLifecycleCommand>>;
 		readonly postCommitCount: Effect.Effect<number>;
-		readonly payload: ProviderEntityPopulationPayload;
+		readonly payload: ProviderEntityPopulationAttemptPayload;
 	}
 >()("test/FakeRootPopulation") {}
 
@@ -645,11 +491,12 @@ const rootPopulationLayer = Layer.unwrap(
 		}
 		const { readPinnedRows } = yield* DefinitionRepository.make;
 		const principal = yield* Schema.decodeEffect(ScriptExecutionPrincipal)({ ...pin, subject });
-		const payload: ProviderEntityPopulationPayload = {
+		const payload: ProviderEntityPopulationAttemptPayload = {
 			level: "full",
 			mode: "refresh",
 			externalId: "record-1",
 			providerId: provider.id,
+			requestId: "population-root",
 			executionId: "population-root",
 			entitySchemaSlug: rootSchemaSlug,
 			entityScope: { userId, type: "user" },
@@ -658,8 +505,12 @@ const rootPopulationLayer = Layer.unwrap(
 		};
 		const transaction = yield* makeTransaction<DomainLifecycleCommand>(session);
 		const postCommitCount = yield* Ref.make(0);
-		const instance = WorkflowInstance.initial(ProviderEntityPopulationWorkflow, "population-root");
+		const instance = WorkflowInstance.initial(
+			ProviderEntityPopulationAttemptWorkflow,
+			"population-root",
+		);
 		return Layer.mergeAll(
+			Layer.mock(EnrichmentRequests)({ attachEntity: () => Effect.void }),
 			transaction.database,
 			DomainWriteChecksLive.pipe(Layer.provide(transaction.database)),
 			Layer.mock(DefinitionRepository)({ ...definitionMethods, readPinnedRows }),
@@ -692,9 +543,12 @@ const rootPopulationLayer = Layer.unwrap(
 						),
 			}),
 			Layer.mock(EntitiesRepository)({
+				lockMutationKeys: () => Effect.void,
 				stampRelatedPopulated: () => Effect.void,
+				invalidateRelatedPopulated: () => Effect.void,
 				stampChildRelatedPopulated: () => Effect.void,
 				findPopulationTarget: () => Effect.succeed(null),
+				holdsRelatedPopulationGeneration: () => Effect.succeed(true),
 			}),
 			Layer.mock(EntitiesService)({
 				persistPlannedProviderUpsert: (input) =>
@@ -746,7 +600,10 @@ layer(rootPopulationLayer)((it) => {
 		return Effect.gen(function* () {
 			const fake = yield* FakeRootPopulation;
 			const payload = fake.payload;
-			const result = yield* runProviderEntityPopulationWorkflow(payload, payload.executionId);
+			const result = yield* runProviderEntityPopulationAttemptWorkflow(
+				payload,
+				payload.executionId,
+			);
 			const commands = yield* fake.commands;
 			expect(result.populatedAt).not.toBeNull();
 			expect(commands).toHaveLength(2);

@@ -71,7 +71,6 @@ export class EntityWatchProgression extends Context.Service<EntityWatchProgressi
 									lane: "interactive",
 									language: preferredLanguage,
 									externalId: entity.externalId,
-									properties: entity.properties,
 									providerId: entity.providerId,
 									entitySchemaSlug: entity.entitySchemaSlug,
 									entitySchemaPluginId: entity.entitySchemaPluginId,

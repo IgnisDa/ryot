@@ -871,6 +871,7 @@ describe("plugin Effect request engine", () => {
 				(yield* Effect.flip(
 					runtime.client.entities.retryPopulation({
 						entityId: "entity-1",
+						operation: "population",
 						packageId: PluginPackageId.make("test/foreign"),
 					}),
 				)).reason,
@@ -880,6 +881,7 @@ describe("plugin Effect request engine", () => {
 			const retried = yield* Effect.forkChild(
 				runtime.client.entities.retryPopulation({
 					entityId: "entity-1",
+					operation: "translation",
 					packageId: PluginPackageId.make("test/fixture"),
 				}),
 				{ startImmediately: true },
@@ -889,6 +891,7 @@ describe("plugin Effect request engine", () => {
 				{
 					pluginId: "fixture",
 					entityId: "entity-1",
+					operation: "translation",
 					requestId: "retry-population-1",
 					type: "retry-population-request",
 				},
@@ -906,6 +909,7 @@ describe("plugin Effect request engine", () => {
 				Effect.flip(
 					runtime.client.entities.retryPopulation({
 						entityId: "entity-1",
+						operation: "population",
 						packageId: PluginPackageId.make("test/fixture"),
 					}),
 				),

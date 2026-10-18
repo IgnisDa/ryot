@@ -1,4 +1,5 @@
 import { assert, expect, layer } from "@effect/vitest";
+import { SandboxRunError } from "@ryot-app/contract/errors";
 import type { ListedEntity } from "@ryot-app/contract/modules/entities/schemas";
 import {
 	definitionOwner,
@@ -14,7 +15,7 @@ import {
 	UserId,
 } from "@ryot-app/contract/schema/brands";
 import { IsoUtcString } from "@ryot-app/contract/schema/utils";
-import { Context, Effect, Layer, Ref, Schema } from "effect";
+import { Context, DateTime, Effect, Layer, Ref, Schema } from "effect";
 import { WorkflowEngine, WorkflowInstance } from "effect/workflow/WorkflowEngine";
 
 import { planFixture } from "#modules/automations/lifecycle.test-support";
@@ -25,6 +26,8 @@ import {
 	toLifecycleDispatchPlan,
 } from "#modules/automations/lifecycle/planning";
 import type { EntityRelationshipDefinitions } from "#modules/definitions/snapshot";
+import { EnrichmentRequestsRepository } from "#modules/entities/enrichment/repository";
+import { EnrichmentRequests } from "#modules/entities/enrichment/requests";
 import { EntitiesRepository } from "#modules/entities/repository";
 import { EntitiesService } from "#modules/entities/service";
 import { DomainWriteChecksLive } from "#modules/entities/write-context";
@@ -51,8 +54,10 @@ import {
 import { RecordedLogAnnotations, recordLogAnnotationsLayer } from "./log-annotations.test-support";
 import { EntityImportWorkflowOperations } from "./operations-workflow";
 import {
-	type ProviderEntityPopulationPayload,
+	type ProviderEntityPopulationAttemptPayload,
+	ProviderEntityPopulationAttemptWorkflow,
 	ProviderEntityPopulationWorkflow,
+	runProviderEntityPopulationAttemptWorkflow,
 	runProviderEntityPopulationWorkflow,
 } from "./provider-entity-population-workflow";
 
@@ -153,7 +158,7 @@ class FakePopulationWrites extends Context.Service<
 	FakePopulationWrites,
 	{
 		readonly recorded: Effect.Effect<ReadonlyArray<string>>;
-		readonly payload: ProviderEntityPopulationPayload;
+		readonly payload: ProviderEntityPopulationAttemptPayload;
 	}
 >()("test/FakePopulationWrites") {}
 
@@ -248,9 +253,10 @@ const populationLayer = (options: {
 			);
 			assert(pin?.pluginRevision);
 			const principal = yield* Schema.decodeEffect(ScriptExecutionPrincipal)({ ...pin, subject });
-			const payload: ProviderEntityPopulationPayload = {
+			const payload: ProviderEntityPopulationAttemptPayload = {
 				...payloadFields,
 				providerId: provider.id,
+				requestId: payloadFields.executionId,
 				pluginId: PluginId.make(installed.pluginId),
 				command: { ...command, writeContext: principal },
 			};
@@ -273,13 +279,17 @@ const populationLayer = (options: {
 				);
 			};
 			return Layer.mergeAll(
+				Layer.mock(EnrichmentRequests)({ attachEntity: () => Effect.void }),
 				Layer.succeed(RedisService, makeRedisService({ publish: () => Effect.succeed(1) })),
 				Layer.succeed(PluginRuntimeResolver, runtime),
 				DomainWriteChecksLive,
 				Layer.mock(EntitiesRepository)({
+					lockMutationKeys: () => Effect.void,
+					invalidateRelatedPopulated: () => Effect.void,
 					stampChildRelatedPopulated: () => Effect.void,
 					findPopulationTarget: () => Effect.succeed(null),
 					stampRelatedPopulated: () => record("related-stamp"),
+					holdsRelatedPopulationGeneration: () => Effect.succeed(true),
 				}),
 				Layer.mock(EntitiesService)({
 					persistPlannedProviderUpsert: upsertItem,
@@ -295,6 +305,8 @@ const populationLayer = (options: {
 						),
 				}),
 				Layer.mock(RelationshipsRepository)({
+					claimRelationshipSyncGeneration: () => Effect.void,
+					holdsRelationshipSyncGeneration: () => Effect.succeed(true),
 					listRelationshipsForReconciliation: () => Effect.succeed([]),
 				}),
 				Layer.mock(RelationshipsService)({
@@ -350,11 +362,11 @@ layer(
 		Effect.gen(function* () {
 			const payload = (yield* FakePopulationWrites).payload;
 			const instance = WorkflowInstance.initial(
-				ProviderEntityPopulationWorkflow,
+				ProviderEntityPopulationAttemptWorkflow,
 				payload.executionId,
 			);
 
-			return yield* runProviderEntityPopulationWorkflow(payload, payload.executionId).pipe(
+			return yield* runProviderEntityPopulationAttemptWorkflow(payload, payload.executionId).pipe(
 				Effect.tap(() =>
 					Effect.gen(function* () {
 						expect(yield* (yield* FakePopulationWrites).recorded).toEqual([
@@ -364,12 +376,12 @@ layer(
 							"child-entity",
 							"relationships",
 							"dispatch:child-entity,entities-batch,relationships",
+							"root-write",
+							"dispatch:root-write",
 							"child-entity",
 							"relationships",
 							"dispatch:child-entity,entities-batch,relationships",
-							"root-write",
 							"related-stamp",
-							"dispatch:root-write",
 						]);
 						const warningLogs = yield* (yield* RecordedLogAnnotations).annotations;
 						expect(warningLogs.map((annotations) => annotations["phase"])).toEqual(["root-upsert"]);
@@ -389,11 +401,11 @@ layer(populationLayer({ dispatch: () => ({ warnings: [], entry: "dispatch" }) })
 			const payload = (yield* FakePopulationWrites).payload;
 			const activityRuns: string[] = [];
 			const instance = WorkflowInstance.initial(
-				ProviderEntityPopulationWorkflow,
+				ProviderEntityPopulationAttemptWorkflow,
 				payload.executionId,
 			);
 			const engine = makeMemoizingWorkflowEngine(instance, activityRuns);
-			const run = runProviderEntityPopulationWorkflow(payload, payload.executionId).pipe(
+			const run = runProviderEntityPopulationAttemptWorkflow(payload, payload.executionId).pipe(
 				Effect.provideService(WorkflowInstance, instance),
 				Effect.provideService(WorkflowEngine, engine),
 			);
@@ -408,12 +420,12 @@ layer(populationLayer({ dispatch: () => ({ warnings: [], entry: "dispatch" }) })
 				"child-entity",
 				"relationships",
 				"dispatch",
+				"root-write",
+				"dispatch",
 				"child-entity",
 				"relationships",
 				"dispatch",
-				"root-write",
 				"related-stamp",
-				"dispatch",
 				"details:full",
 				"dispatch",
 				"dispatch",
@@ -431,10 +443,13 @@ layer(populationLayer({ dispatch: () => ({ warnings: [], entry: "dispatch" }) })
 		Effect.gen(function* () {
 			const payload = (yield* FakePopulationWrites).payload;
 			const executionId = "population-missing-root-schema";
-			const instance = WorkflowInstance.initial(ProviderEntityPopulationWorkflow, executionId);
+			const instance = WorkflowInstance.initial(
+				ProviderEntityPopulationAttemptWorkflow,
+				executionId,
+			);
 			return yield* Effect.gen(function* () {
 				const error = yield* Effect.flip(
-					runProviderEntityPopulationWorkflow(
+					runProviderEntityPopulationAttemptWorkflow(
 						{ ...payload, executionId, entitySchemaSlug: childSchemaSlug },
 						executionId,
 					),
@@ -455,10 +470,10 @@ layer(populationLayer({ dispatch: () => ({ warnings: [], entry: "dispatch" }) })
 			Effect.gen(function* () {
 				const payload = { ...(yield* FakePopulationWrites).payload, level: "base" as const };
 				const instance = WorkflowInstance.initial(
-					ProviderEntityPopulationWorkflow,
+					ProviderEntityPopulationAttemptWorkflow,
 					payload.executionId,
 				);
-				yield* runProviderEntityPopulationWorkflow(payload, payload.executionId).pipe(
+				yield* runProviderEntityPopulationAttemptWorkflow(payload, payload.executionId).pipe(
 					Effect.provideService(WorkflowInstance, instance),
 					Effect.provideService(WorkflowEngine, makeWorkflowActivityEngine(instance)),
 				);
@@ -473,5 +488,182 @@ layer(populationLayer({ dispatch: () => ({ warnings: [], entry: "dispatch" }) })
 					"dispatch",
 				]);
 			}),
+	);
+});
+
+const existingRequestFixture = Effect.fnUntraced(function* (
+	populatedAt: ListedEntity["populatedAt"],
+) {
+	const original = (yield* FakePopulationWrites).payload;
+	const executionId = `${original.executionId}-${populatedAt === null ? "stub" : "ready"}`;
+	const payload: ProviderEntityPopulationAttemptPayload = {
+		...original,
+		executionId,
+		level: "base",
+		mode: "ensure",
+		requestId: executionId,
+		externalId: executionId,
+	};
+	const stub = {
+		populatedAt,
+		properties: {},
+		createdAt: now,
+		updatedAt: now,
+		name: "Existing",
+		externalId: payload.externalId,
+		providerId: payload.providerId,
+		entitySchemaPluginId: payload.pluginId,
+		id: EntityId.make(`${executionId}-entity`),
+		entitySchemaSlug: payload.entitySchemaSlug,
+	} satisfies ListedEntity;
+	const session = yield* DatabaseSession;
+	yield* session.run((db) =>
+		db
+			.insert(tables.entity)
+			.values({
+				id: stub.id,
+				name: stub.name,
+				externalId: stub.externalId,
+				providerId: stub.providerId,
+				entitySchemaSlug: stub.entitySchemaSlug,
+				entitySchemaPluginId: stub.entitySchemaPluginId,
+				populatedAt:
+					populatedAt === null ? null : DateTime.toDateUtc(DateTime.makeUnsafe(populatedAt)),
+			}),
+	);
+	const requestsRepository = yield* EnrichmentRequestsRepository.make;
+	const requests = yield* EnrichmentRequests.make.pipe(
+		Effect.provideService(EnrichmentRequestsRepository, requestsRepository),
+	);
+	yield* requests.ensure({
+		payload,
+		level: "base",
+		entityId: null,
+		language: null,
+		id: executionId,
+		scopeUserId: null,
+		operation: "population",
+		pluginId: payload.pluginId,
+		externalId: payload.externalId,
+		providerId: payload.providerId,
+		entitySchemaSlug: payload.entitySchemaSlug,
+		requester: payload.command.accountGeneration,
+		workflowName: ProviderEntityPopulationWorkflow._tag,
+	});
+	const repository = yield* EntitiesRepository;
+	return {
+		stub,
+		payload,
+		requests,
+		repository: {
+			...repository,
+			findPopulationTarget: () =>
+				Effect.succeed({ entity: stub, relatedPopulated: populatedAt !== null }),
+		},
+	};
+});
+
+layer(populationLayer({ dispatch: () => ({ warnings: [], entry: "dispatch" }) }))((test) => {
+	test.effect(
+		"attaches an existing stub before details fail so exact-entity retry lookup finds the request",
+		() =>
+			Effect.gen(function* () {
+				const fixture = yield* existingRequestFixture(null);
+				const operations = yield* EntityImportWorkflowOperations;
+				const failure = new SandboxRunError({ kind: "script-failure", message: "Details failed" });
+				const runAttempt = (payload: ProviderEntityPopulationAttemptPayload, executionId: string) =>
+					runProviderEntityPopulationAttemptWorkflow(payload, executionId).pipe(
+						Effect.provideService(EnrichmentRequests, fixture.requests),
+						Effect.provideService(EntitiesRepository, fixture.repository),
+						Effect.provideService(EntityImportWorkflowOperations, {
+							...operations,
+							processSandbox: () =>
+								fixture.requests.get(fixture.payload.requestId).pipe(
+									Effect.orDie,
+									Effect.tap((row) =>
+										Effect.sync(() => expect(row?.entityId).toBe(fixture.stub.id)),
+									),
+									Effect.andThen(Effect.fail(failure)),
+								),
+						}),
+					);
+				const context =
+					yield* Effect.context<
+						Exclude<
+							Effect.Services<ReturnType<typeof runAttempt>>,
+							WorkflowEngine | WorkflowInstance
+						>
+					>();
+				const instance = WorkflowInstance.initial(
+					ProviderEntityPopulationWorkflow,
+					fixture.payload.executionId,
+				);
+				const engine = makeWorkflowActivityEngine(instance, {
+					execute: (_workflow, options) =>
+						Effect.gen(function* () {
+							const payload = yield* Schema.decodeUnknownEffect(
+								ProviderEntityPopulationAttemptWorkflow.payloadSchema,
+							)(options.payload).pipe(Effect.orDie);
+							const child = WorkflowInstance.initial(
+								ProviderEntityPopulationAttemptWorkflow,
+								payload.executionId,
+							);
+							return yield* runAttempt(payload, payload.executionId).pipe(
+								Effect.provideService(WorkflowInstance, child),
+								Effect.provideService(WorkflowEngine, makeWorkflowActivityEngine(child)),
+								Effect.provide(context),
+							);
+						}),
+				});
+				const error = yield* runProviderEntityPopulationWorkflow(
+					fixture.payload,
+					fixture.payload.executionId,
+				).pipe(
+					Effect.provideService(EnrichmentRequests, fixture.requests),
+					Effect.provideService(WorkflowInstance, instance),
+					Effect.provideService(WorkflowEngine, engine),
+					Effect.flip,
+				);
+				expect(error.message).toBe(failure.message);
+				const requester = fixture.payload.command.accountGeneration;
+				assert(requester);
+				expect(
+					yield* fixture.requests.latest({
+						requester,
+						operation: "population",
+						entityId: fixture.stub.id,
+					}),
+				).toMatchObject({
+					state: "failed",
+					entityId: fixture.stub.id,
+					id: fixture.payload.requestId,
+					failureKind: "script-failure",
+				});
+			}),
+	);
+
+	test.effect("attaches an existing entity before returning its cached population", () =>
+		Effect.gen(function* () {
+			const fixture = yield* existingRequestFixture(now);
+			const instance = WorkflowInstance.initial(
+				ProviderEntityPopulationAttemptWorkflow,
+				fixture.payload.executionId,
+			);
+			expect(
+				yield* runProviderEntityPopulationAttemptWorkflow(
+					fixture.payload,
+					fixture.payload.executionId,
+				).pipe(
+					Effect.provideService(EnrichmentRequests, fixture.requests),
+					Effect.provideService(EntitiesRepository, fixture.repository),
+					Effect.provideService(WorkflowInstance, instance),
+					Effect.provideService(WorkflowEngine, makeWorkflowActivityEngine(instance)),
+				),
+			).toEqual(fixture.stub);
+			expect(yield* fixture.requests.get(fixture.payload.requestId)).toMatchObject({
+				entityId: fixture.stub.id,
+			});
+			expect(yield* (yield* FakePopulationWrites).recorded).toEqual([]);
+		}),
 	);
 });

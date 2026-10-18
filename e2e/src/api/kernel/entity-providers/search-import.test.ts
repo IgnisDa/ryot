@@ -276,9 +276,10 @@ describe("GET /entity-providers/imports/{jobId}", () => {
 				);
 				expect(properties).not.toEqual({});
 				expect(properties.populatedAt).toBeUndefined();
-				expect((yield* getEntity(providerClient, result.data.id)).relatedPopulationStatus).toBe(
-					"pending",
-				);
+				expect((yield* getEntity(providerClient, result.data.id)).relatedPopulationStatus).toEqual({
+					state: "idle",
+					availability: "missing",
+				});
 				const unrelated = yield* Effect.exit(
 					getVisibleEntityByProvenance(providerClient, {
 						entitySchemaSlug: "company",

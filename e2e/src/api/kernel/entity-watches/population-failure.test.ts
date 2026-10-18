@@ -61,22 +61,41 @@ describe("failed entity population", () => {
 				const socket = yield* openInterestWebSocketScoped(auth);
 				yield* socket.replaceInterest([seeded.id]);
 				expect(
-					yield* socket.waitForEntityUpdated(seeded.id, "population-failed", { timeoutMs: 30_000 }),
-				).toEqual({ entityId: seeded.id, type: "entity-updated", reason: "population-failed" });
-				expect((yield* getEntity(client, seeded.id)).populationStatus).toBe("failed");
+					yield* socket.waitForEntityUpdated(seeded.id, "enrichment-updated", {
+						timeoutMs: 30_000,
+					}),
+				).toEqual({ entityId: seeded.id, type: "entity-updated", reason: "enrichment-updated" });
+				yield* pollUntil(
+					"population request failed",
+					getEntity(client, seeded.id).pipe(
+						Effect.map((entity) => (entity.populationStatus.state === "failed" ? entity : null)),
+					),
+				);
+				expect((yield* getEntity(client, seeded.id)).populationStatus).toEqual({
+					state: "failed",
+					availability: "missing",
+				});
 
 				const reconnected = yield* openInterestWebSocketScoped(auth);
 				yield* reconnected.replaceInterest([seeded.id]);
-				expect(yield* reconnected.waitForEntityUpdated(seeded.id, "population-failed")).toEqual({
+				expect(yield* reconnected.waitForEntityUpdated(seeded.id, "enrichment-updated")).toEqual({
 					entityId: seeded.id,
 					type: "entity-updated",
-					reason: "population-failed",
+					reason: "enrichment-updated",
 				});
 				yield* reconnected.expectNoEntityUpdated(seeded.id, {
 					reason: "populated",
 					windowMs: GRACE_WINDOW_MS,
 				});
-				expect((yield* getEntity(client, seeded.id)).populationStatus).toBe("failed");
+				expect((yield* getEntity(client, seeded.id)).populationStatus).toEqual({
+					state: "failed",
+					availability: "missing",
+				});
+				const otherReader = yield* createAuthenticatedClient();
+				expect((yield* getEntity(otherReader.client, seeded.id)).populationStatus).toEqual({
+					state: "idle",
+					availability: "missing",
+				});
 
 				yield* replaceSandboxScriptCompiledRepresentation(
 					client,
@@ -91,18 +110,22 @@ describe("failed entity population", () => {
 				const retry = () =>
 					client.call((contract) =>
 						contract.entities.retryPopulation({
-							payload: { pluginId: provider.pluginId },
 							params: { entityId: EntityId.make(seeded.id) },
+							payload: { operation: "population", pluginId: provider.pluginId },
 						}),
 					);
 				expect(yield* retry()).toEqual({ retried: true });
-				expect(yield* retry()).toEqual({ retried: false });
 
 				yield* reconnected.waitForEntityUpdated(seeded.id, "populated", { timeoutMs: 30_000 });
 				const populated = yield* pollUntil(
 					`entity '${seeded.id}' populated after retry`,
 					getEntity(client, seeded.id).pipe(
-						Effect.map((entity) => (entity.populationStatus === "ready" ? entity : null)),
+						Effect.map((entity) =>
+							entity.populationStatus.availability === "complete" &&
+							entity.populationStatus.state === "succeeded"
+								? entity
+								: null,
+						),
 					),
 				);
 				expect(populated.name).toBe(POPULATED_NAME);
@@ -135,9 +158,15 @@ describe("failed entity population", () => {
 			const socket = yield* openInterestWebSocketScoped(auth);
 			yield* socket.replaceInterest([seeded.id]);
 			expect(
-				yield* socket.waitForEntityUpdated(seeded.id, "population-failed", { timeoutMs: 30_000 }),
-			).toEqual({ entityId: seeded.id, type: "entity-updated", reason: "population-failed" });
-			expect((yield* getEntity(auth.client, seeded.id)).populationStatus).toBe("failed");
+				yield* socket.waitForEntityUpdated(seeded.id, "enrichment-updated", { timeoutMs: 30_000 }),
+			).toEqual({ entityId: seeded.id, type: "entity-updated", reason: "enrichment-updated" });
+			const failed = yield* pollUntil(
+				"over-budget population failed",
+				getEntity(auth.client, seeded.id).pipe(
+					Effect.map((entity) => (entity.populationStatus.state === "failed" ? entity : null)),
+				),
+			);
+			expect(failed.populationStatus).toEqual({ state: "failed", availability: "missing" });
 			expect(upstream.requests).toHaveLength(HTTP_CALL_LIMIT);
 		}),
 	);

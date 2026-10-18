@@ -20,6 +20,11 @@ are optional. Adding a target or equipment opens the kernel entity picker for th
 taxonomies, Fitness Catalog results not yet imported (importing one selects it), and inline creation
 of a private target or equipment through its editor, where a target's `kind` is required.
 
+Provider exercises are read-only in ordinary user editors, including private-provider exercises.
+Provider refreshes own their canonical name and properties, including the source-derived `kind`.
+Existing workout sets retain their recorded `exerciseKind`; a provider correction does not rewrite
+historical set meaning or measurements.
+
 `exercise-merge` requires distinct same-kind entities and a custom source. It detaches source
 membership/taxonomy links, moves events/notes/collection membership through `mergeUserEntityData`,
 then replaces template references. These steps are not atomic: retry-to-complete works after partial

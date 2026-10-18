@@ -1,4 +1,4 @@
-import { PopulationStatus, TranslationStatus } from "@ryot-app/contract/modules/entities/schemas";
+import { EnrichmentState } from "@ryot-app/contract/modules/entities/schemas";
 import {
 	EntityId,
 	EntitySchemaSlug,
@@ -39,21 +39,18 @@ export const entityWatchRecipe = defineRecipe(
 						id: selectedField(column(entity, "id"), EntityId),
 						properties: selectedField(column(entity, "properties"), JsonValue),
 						userId: selectedField(column(entity, "userId"), Schema.NullOr(UserId)),
+						populationStatus: selectedField(column(entity, "populationStatus"), EnrichmentState),
 						externalId: selectedField(column(entity, "externalId"), Schema.NullOr(Schema.String)),
 						entitySchemaSlug: selectedField(column(entity, "entitySchemaSlug"), EntitySchemaSlug),
-						populationStatus: selectedField(column(entity, "populationStatus"), PopulationStatus),
+						translationStatus: selectedField(column(entity, "translationStatus"), EnrichmentState),
 						populatedAt: selectedField(column(entity, "populatedAt"), Schema.NullOr(IsoDateString)),
-						translationStatus: selectedField(
-							column(entity, "translationStatus"),
-							TranslationStatus,
-						),
 						providerId: selectedField(
 							column(entity, "providerId"),
 							Schema.NullOr(SandboxProviderId),
 						),
 						relatedPopulationStatus: selectedField(
 							column(entity, "relatedPopulationStatus"),
-							PopulationStatus,
+							EnrichmentState,
 						),
 						entitySchemaPluginId: selectedField(
 							column(entity, "entitySchemaPluginId"),

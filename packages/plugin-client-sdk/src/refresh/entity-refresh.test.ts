@@ -5,6 +5,7 @@ import type { EntityUpdate } from "../client/adapter";
 import { RyotScheduleService } from "../schedule";
 import { advanceRyotSchedule } from "../testing";
 import { createEntityRefresh } from "./entity-refresh";
+import { createSettleTracker } from "./settle";
 
 const populated = (entityId: string): EntityUpdate => ({ entityId, reason: "populated" });
 
@@ -89,6 +90,75 @@ describe("createEntityRefresh", () => {
 	});
 
 	layer(RyotScheduleService.layer)((test) => {
+		test.effect("keeps completion reasons when enrichment status arrives in the same window", () =>
+			Effect.gen(function* () {
+				const schedule = yield* RyotScheduleService;
+				const batches: EntityUpdate[][] = [];
+				const refresh = createEntityRefresh(schedule, (updates) => {
+					batches.push([...updates]);
+					return Effect.void;
+				});
+
+				refresh.hint(populated("a"));
+				refresh.hint({ entityId: "b", reason: "translated" });
+				yield* advanceRyotSchedule(100);
+				refresh.hint({ entityId: "a", reason: "enrichment-updated" });
+				refresh.hint({ entityId: "b", reason: "enrichment-updated" });
+				yield* advanceRyotSchedule(149);
+				expect(batches).toEqual([]);
+				yield* advanceRyotSchedule(1);
+
+				expect(batches).toEqual([[populated("a"), { entityId: "b", reason: "translated" }]]);
+			}),
+		);
+	});
+
+	layer(RyotScheduleService.layer)((test) => {
+		test.effect("refreshes enrichment status without adding or extending settle highlights", () =>
+			Effect.gen(function* () {
+				const schedule = yield* RyotScheduleService;
+				const batches: EntityUpdate[][] = [];
+				const tracker = createSettleTracker(schedule, 900);
+				const refresh = createEntityRefresh(schedule, (updates) => {
+					batches.push([...updates]);
+					for (const update of updates) {
+						tracker.stage(update);
+					}
+					tracker.commit();
+					return Effect.void;
+				});
+
+				refresh.hint(populated("a"));
+				refresh.hint({ entityId: "b", reason: "translated" });
+				yield* advanceRyotSchedule(250);
+				yield* advanceRyotSchedule(100);
+				const status: EntityUpdate[] = [
+					{ entityId: "a", reason: "enrichment-updated" },
+					{ entityId: "b", reason: "enrichment-updated" },
+					{ entityId: "c", reason: "enrichment-updated" },
+				];
+				for (const update of status) {
+					refresh.hint(update);
+				}
+				yield* advanceRyotSchedule(250);
+
+				expect(batches).toEqual([
+					[populated("a"), { entityId: "b", reason: "translated" }],
+					status,
+				]);
+				expect([...tracker.snapshot()]).toEqual([
+					["a", "populating"],
+					["b", "translating"],
+				]);
+				yield* advanceRyotSchedule(549);
+				expect(tracker.snapshot().size).toBe(2);
+				yield* advanceRyotSchedule(1);
+				expect([...tracker.snapshot()]).toEqual([]);
+			}),
+		);
+	});
+
+	layer(RyotScheduleService.layer)((test) => {
 		test.effect("delivers an empty batch for a hint that carries no update", () =>
 			Effect.gen(function* () {
 				const schedule = yield* RyotScheduleService;
@@ -121,6 +191,7 @@ describe("createEntityRefresh", () => {
 				yield* advanceRyotSchedule(1_000);
 				expect(batches).toEqual([]);
 
+				refresh.hint({ entityId: "a", reason: "enrichment-updated" });
 				refresh.hint(populated("b"));
 				refresh.block(false);
 				yield* advanceRyotSchedule(250);

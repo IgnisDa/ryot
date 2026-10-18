@@ -34,11 +34,11 @@ const presentationRow = {
 	watchedEpisodes: 11,
 	state: "in_progress",
 	inProgressEpisodes: 1,
-	populationStatus: "ready",
-	translationStatus: "none",
-	relatedPopulationStatus: "ready",
 	productionStatus: "Returning Series",
+	translationStatus: { state: "idle", availability: "none" },
+	populationStatus: { state: "succeeded", availability: "complete" },
 	image: { type: "remote", url: "https://images.test/severance.jpg" },
+	relatedPopulationStatus: { state: "succeeded", availability: "complete" },
 };
 
 const presentationData = (overrides: Record<string, unknown> = {}) => {
@@ -149,7 +149,8 @@ describe("show schema", () => {
 		);
 
 		expect(container.querySelector('[aria-label="Watch record"]')).not.toBeNull();
-		expect(container.textContent).toContain("Watches");
+		expect(container.textContent).toContain("Completed watches");
+		expect(container.textContent).toContain("This watch");
 		expect(container.textContent).toContain("Coverage");
 		expect(container.textContent).toContain("Finished the show");
 		unmount();

@@ -266,7 +266,8 @@ it.live("automatically populates and translates entities rendered by a saved vie
 			"saved-view entity population and translation",
 			getEntity(client, entity.id).pipe(
 				Effect.map((current) =>
-					current.populationStatus === "ready" && current.translationStatus === "ready"
+					current.populationStatus.availability === "complete" &&
+					current.translationStatus.availability === "complete"
 						? current
 						: null,
 				),
@@ -340,7 +341,8 @@ it.live("keeps source data visible when saved-view translation is outstanding", 
 			"saved-view entity population with pending translation",
 			getEntity(client, entity.id).pipe(
 				Effect.map((current) =>
-					current.populationStatus === "ready" && current.translationStatus === "pending"
+					current.populationStatus.availability === "complete" &&
+					current.translationStatus.availability === "missing"
 						? current
 						: null,
 				),
@@ -354,7 +356,7 @@ it.live("keeps source data visible when saved-view translation is outstanding", 
 		yield* runtime
 			.getByText("2,043", { exact: true })
 			.waitFor({ state: "visible", timeout: IMPORT_TIMEOUT });
-		expect((yield* getEntity(client, entity.id)).translationStatus).toBe("pending");
+		expect((yield* getEntity(client, entity.id)).translationStatus.availability).toBe("missing");
 		expect(yield* runtime.getByText(sourceName, { exact: true }).isVisible()).toBe(true);
 	}).pipe(PlaywrightSpawner.withBrowser),
 );

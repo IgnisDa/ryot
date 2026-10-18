@@ -1,3 +1,4 @@
+import { EntitySchemaSlug } from "@ryot-app/contract/schema/brands";
 import { Effect } from "effect";
 
 import {
@@ -7,12 +8,15 @@ import {
 	enqueueSandboxScript,
 	fakeProviderDetailsResult,
 	fakeProviderTranslations,
+	getApiClient,
 	getEntity,
 	getEntityTranslationRow,
 	installTestProvider,
+	namespaceInstallation,
 	openInterestWebSocketScoped,
-	pollEntityUntilTranslationStatus,
+	pollEntityUntilTranslationAvailability,
 	pollSandboxResult,
+	pollUntil,
 	requireCompletedSandboxValue,
 	seedEntity,
 	seedEntityTranslation,
@@ -22,6 +26,7 @@ import {
 	uninstallTestProvider,
 } from "~/fixtures/kernel";
 import type { InstalledTestProvider } from "~/fixtures/kernel/sandbox-provider";
+import { testPluginEntitySchema } from "~/fixtures/kernel/test-plugin";
 import { assertPresent, requireObjectRecord } from "~/support/assertions";
 import { afterAll, beforeAll, describe, expect, it, runPromise } from "~/support/effect-test";
 
@@ -108,7 +113,7 @@ describe("entity translation via client-declared interest", () => {
 			yield* setUserLanguage(client, "es");
 
 			const beforeInterest = yield* getEntity(client, movie.id);
-			expect(beforeInterest.translationStatus).toBe("pending");
+			expect(beforeInterest.translationStatus.availability).toBe("missing");
 			expect(beforeInterest.name).toBe("Canonical Fight Club");
 
 			const { socket, applied } = yield* openInterestSocket(auth, [movie.id]);
@@ -118,13 +123,17 @@ describe("entity translation via client-declared interest", () => {
 			});
 			expect(event.reason).toBe("translated");
 
-			const localizedRead = yield* pollEntityUntilTranslationStatus(client, movie.id, "ready");
+			const localizedRead = yield* pollEntityUntilTranslationAvailability(
+				client,
+				movie.id,
+				"complete",
+			);
 			expect(localizedRead.name).toBe(TRANSLATED_ES_NAME);
 
 			const { client: clientB } = yield* createAuthenticatedClient();
 			yield* setUserLanguage(clientB, "es");
 			const sharedRead = yield* getEntity(clientB, movie.id);
-			expect(sharedRead.translationStatus).toBe("ready");
+			expect(sharedRead.translationStatus.availability).toBe("complete");
 			expect(sharedRead.name).toBe(TRANSLATED_ES_NAME);
 			expect(yield* countEntityTranslations(movie.id)).toBe(1);
 		}),
@@ -139,7 +148,7 @@ describe("entity translation via client-declared interest", () => {
 			yield* setUserLanguage(client, "xx");
 
 			const firstRead = yield* getEntity(client, movie.id);
-			expect(firstRead.translationStatus).toBe("pending");
+			expect(firstRead.translationStatus.availability).toBe("missing");
 
 			const { socket, applied } = yield* openInterestSocket(auth, [movie.id]);
 			expect(applied).toEqual({ revision: 1, type: "applied" });
@@ -148,7 +157,18 @@ describe("entity translation via client-declared interest", () => {
 			});
 			expect(event.reason).toBe("translated");
 
-			const settledRead = yield* pollEntityUntilTranslationStatus(client, movie.id, "none");
+			const settledRead = yield* pollUntil(
+				"negative-cache translation request succeeded",
+				getEntity(client, movie.id).pipe(
+					Effect.map((entity) =>
+						entity.translationStatus.availability === "none" &&
+						entity.translationStatus.state === "succeeded"
+							? entity
+							: null,
+					),
+				),
+			);
+			expect(settledRead.translationStatus.state).toBe("succeeded");
 			expect(settledRead.name).toBe("Canonical The Godfather");
 
 			const overlay = yield* getEntityTranslationRow({ language: "xx", entityId: movie.id });
@@ -156,6 +176,72 @@ describe("entity translation via client-declared interest", () => {
 			expect(overlay?.properties?.description ?? null).toBeNull();
 			expect(yield* countEntityTranslations(movie.id)).toBe(1);
 		}),
+	);
+
+	it.live(
+		"translates an explicitly supported child schema with large unselected canonical content",
+		() =>
+			Effect.gen(function* () {
+				const auth = yield* createAuthenticatedClient();
+				const childProvider = yield* Effect.acquireRelease(
+					installTestProvider({
+						scope: "system",
+						client: auth.client,
+						rootEntitySchemaSlug: "record",
+						translations: { es: { name: "Parte traducida" } },
+						information: { source: "e2e", canonicalLanguage: "en" },
+						details: fakeProviderDetailsResult({ name: "Canonical parent" }),
+						translationInputs: { record: [], "record-part": ["parentExternalId", "position"] },
+						entitySchemas: [
+							testPluginEntitySchema({ slug: "record" }),
+							testPluginEntitySchema({
+								slug: "record-part",
+								propertiesSchema: {
+									fields: {
+										position: { type: "integer", label: "Position", description: "Position" },
+										parentExternalId: { type: "string", label: "Parent", description: "Parent ID" },
+										description: {
+											type: "string",
+											translatable: true,
+											label: "Description",
+											description: "Description",
+										},
+									},
+								},
+							}),
+						],
+					}),
+					uninstallTestProvider,
+				);
+				yield* getApiClient().adminCall((contract) =>
+					contract.testSupport.reconcilePluginInstallations(),
+				);
+				yield* namespaceInstallation(auth.client, childProvider.pluginId);
+				const child = yield* seedPopulatedEntity({
+					name: "Canonical child",
+					providerId: childProvider.providerId,
+					externalId: `child-${crypto.randomUUID()}`,
+					properties: {
+						position: 1,
+						parentExternalId: "parent-1",
+						description: "x".repeat(100_000),
+					},
+					entitySchema: {
+						...testProviderEntitySchema(childProvider),
+						slug: EntitySchemaSlug.make("record-part"),
+					},
+				});
+				yield* setUserLanguage(auth.client, "es");
+				const { socket } = yield* openInterestSocket(auth, [child.id]);
+				yield* socket.waitForEntityUpdated(child.id, "translated", { timeoutMs: 30_000 });
+				const localized = yield* pollEntityUntilTranslationAvailability(
+					auth.client,
+					child.id,
+					"complete",
+				);
+				expect(localized.name).toBe("Parte traducida");
+				expect(yield* countEntityTranslations(child.id)).toBe(1);
+			}),
 	);
 
 	it.live(
@@ -168,26 +254,26 @@ describe("entity translation via client-declared interest", () => {
 
 				yield* setUserLanguage(client, CANONICAL_LANGUAGE);
 				const canonicalPreferenceRead = yield* getEntity(client, movie.id);
-				expect(canonicalPreferenceRead.translationStatus).toBe("none");
+				expect(canonicalPreferenceRead.translationStatus.availability).toBe("none");
 				expect(canonicalPreferenceRead.name).toBe("Canonical The Shawshank Redemption");
 				expect(yield* countEntityTranslations(movie.id)).toBe(0);
 				const canonicalInterest = yield* openInterestSocket(canonical, [movie.id]);
 				expect(canonicalInterest.applied).toEqual({ revision: 1, type: "applied" });
-				expect(yield* canonicalInterest.socket.waitForEntityUpdated(movie.id, "populated")).toEqual(
-					{ entityId: movie.id, reason: "populated", type: "entity-updated" },
-				);
+				expect(
+					yield* canonicalInterest.socket.waitForEntityUpdated(movie.id, "enrichment-updated"),
+				).toEqual({ entityId: movie.id, type: "entity-updated", reason: "enrichment-updated" });
 
 				const noPreference = yield* createAuthenticatedClient();
 				const { client: noPreferenceClient } = noPreference;
 				const noPreferenceRead = yield* getEntity(noPreferenceClient, movie.id);
-				expect(noPreferenceRead.translationStatus).toBe("none");
+				expect(noPreferenceRead.translationStatus.availability).toBe("none");
 				expect(noPreferenceRead.name).toBe("Canonical The Shawshank Redemption");
 				expect(yield* countEntityTranslations(movie.id)).toBe(0);
 				const noPreferenceInterest = yield* openInterestSocket(noPreference, [movie.id]);
 				expect(noPreferenceInterest.applied).toEqual({ revision: 1, type: "applied" });
 				expect(
-					yield* noPreferenceInterest.socket.waitForEntityUpdated(movie.id, "populated"),
-				).toEqual({ entityId: movie.id, reason: "populated", type: "entity-updated" });
+					yield* noPreferenceInterest.socket.waitForEntityUpdated(movie.id, "enrichment-updated"),
+				).toEqual({ entityId: movie.id, type: "entity-updated", reason: "enrichment-updated" });
 			}),
 	);
 
@@ -253,11 +339,19 @@ describe("entity translation via client-declared interest", () => {
 				.getEntityUpdatedMessages()
 				.filter((frame) => frame.entityId === seeded.id)
 				.map((frame) => frame.reason);
-			expect(reasons).toEqual(["populated", "translated"]);
+			expect(reasons).toContain("enrichment-updated");
+			expect(reasons.filter((reason) => reason !== "enrichment-updated")).toEqual([
+				"populated",
+				"translated",
+			]);
 
 			const populated = yield* getEntity(client, seeded.id);
 			expect(populated.populatedAt).not.toBeNull();
-			const localized = yield* pollEntityUntilTranslationStatus(client, seeded.id, "ready");
+			const localized = yield* pollEntityUntilTranslationAvailability(
+				client,
+				seeded.id,
+				"complete",
+			);
 			expect(localized.name).toBe(TRANSLATED_ES_NAME);
 			expect(yield* countEntityTranslations(seeded.id)).toBe(1);
 		}),

@@ -358,7 +358,9 @@ export const populateRelatedThroughForegroundInterest = (
 			return yield* pollUntil(
 				`entity '${entityId}' related level populated`,
 				getEntity(auth.client, entityId).pipe(
-					Effect.map((entity) => (entity.relatedPopulationStatus === "ready" ? entity : null)),
+					Effect.map((entity) =>
+						entity.relatedPopulationStatus.availability === "complete" ? entity : null,
+					),
 				),
 			);
 		}),

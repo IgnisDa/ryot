@@ -1974,6 +1974,7 @@ describe("plugin bridge", () => {
 			const request = {
 				pluginId: "fixture",
 				entityId: "entity-1",
+				operation: "translation" as const,
 				type: "retry-population-request" as const,
 			};
 			pluginPort.postMessage({ ...request, requestId: "retry-1" });
@@ -1994,8 +1995,8 @@ describe("plugin bridge", () => {
 			});
 			pluginPort.postMessage({ ...request, userId: "other", requestId: "retry-3" });
 			expect(calls).toEqual([
-				{ pluginId: "fixture", entityId: "entity-1" },
-				{ pluginId: "fixture", entityId: "entity-1" },
+				{ pluginId: "fixture", entityId: "entity-1", operation: "translation" },
+				{ pluginId: "fixture", entityId: "entity-1", operation: "translation" },
 			]);
 		}),
 	);

@@ -16,6 +16,9 @@ export const preRegisterProviderDetails = (
 		readonly executionId: string;
 		readonly providerId: SandboxProviderId;
 		readonly accountGeneration: AccountGeneration;
+		readonly retain?: Parameters<
+			ScriptExecutionService["Service"]["preRegisterPluginWorkflow"]
+		>[0]["retain"];
 	},
 ) =>
 	services.pluginRuntime
@@ -28,6 +31,7 @@ export const preRegisterProviderDetails = (
 					executingUserId: input.userId,
 					executionId: input.executionId,
 					accountGeneration: input.accountGeneration,
+					...(input.retain ? { retain: input.retain } : {}),
 				}),
 			),
 		);

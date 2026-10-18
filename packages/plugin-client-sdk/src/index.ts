@@ -4,11 +4,7 @@ export type {
 	TemporaryUploadToken,
 } from "@ryot-app/contract/modules/assets/schemas";
 export { AssetLocator } from "@ryot-app/contract/modules/assets/schemas";
-export {
-	EntitySyncState,
-	PopulationStatus,
-	TranslationStatus,
-} from "@ryot-app/contract/modules/entities/schemas";
+export { EntitySyncState, EnrichmentState } from "@ryot-app/contract/modules/entities/schemas";
 export type { EntityWatch, RyotClientErrorReason } from "@ryot-app/plugin-client-contract";
 export type {
 	BackgroundOperationAdapterRequest,

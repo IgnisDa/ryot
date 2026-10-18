@@ -322,6 +322,11 @@ BEGIN
 	)
 	ON CONFLICT ("id") DO UPDATE
 		SET
+			"content_generation" = entity."content_generation" + CASE
+				WHEN entity."name" IS DISTINCT FROM EXCLUDED."name"
+					OR entity."properties" IS DISTINCT FROM EXCLUDED."properties" THEN 1
+				ELSE 0
+			END,
 			"name" = EXCLUDED."name",
 			"properties" = EXCLUDED."properties",
 			"populated_at" = EXCLUDED."populated_at",
@@ -376,6 +381,11 @@ BEGIN
 	)
 	ON CONFLICT ("id") DO UPDATE
 		SET
+			"content_generation" = entity."content_generation" + CASE
+				WHEN entity."name" IS DISTINCT FROM EXCLUDED."name"
+					OR entity."properties" IS DISTINCT FROM EXCLUDED."properties" THEN 1
+				ELSE 0
+			END,
 			"name" = EXCLUDED."name",
 			"properties" = EXCLUDED."properties",
 			"populated_at" = EXCLUDED."populated_at",
@@ -427,6 +437,11 @@ BEGIN
 	)
 	ON CONFLICT ("id") DO UPDATE
 		SET
+			"content_generation" = entity."content_generation" + CASE
+				WHEN entity."name" IS DISTINCT FROM EXCLUDED."name"
+					OR entity."properties" IS DISTINCT FROM EXCLUDED."properties" THEN 1
+				ELSE 0
+			END,
 			"name" = EXCLUDED."name",
 			"properties" = EXCLUDED."properties",
 			"populated_at" = EXCLUDED."populated_at",

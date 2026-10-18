@@ -9,9 +9,9 @@ const reference = (entityId: string): EntityReference => ({
 	entityId,
 	name: entityId,
 	ownerPluginId: "media",
-	populationStatus: "ready",
-	translationStatus: "none",
 	entitySchemaSlug: "person",
+	translationStatus: { state: "idle", availability: "none" },
+	populationStatus: { state: "succeeded", availability: "complete" },
 });
 
 const source = (
@@ -25,9 +25,9 @@ const source = (
 	secondary: null,
 	name: `Person ${id}`,
 	schemaSlug: "person",
-	populationStatus: "ready",
-	translationStatus: "none",
-	relatedPopulationStatus: "ready",
+	translationStatus: { state: "idle", availability: "none" },
+	populationStatus: { state: "succeeded", availability: "complete" },
+	relatedPopulationStatus: { state: "succeeded", availability: "complete" },
 });
 
 describe("media entity presentation preparation", () => {
@@ -51,9 +51,9 @@ describe("media entity presentation preparation", () => {
 				name: "Person one",
 				schemaSlug: "person",
 				batchAssets: [managed],
-				populationStatus: "ready",
-				translationStatus: "none",
-				relatedPopulationStatus: "ready",
+				translationStatus: { state: "idle", availability: "none" },
+				populationStatus: { state: "succeeded", availability: "complete" },
+				relatedPopulationStatus: { state: "succeeded", availability: "complete" },
 			},
 			two: {
 				id: "two",
@@ -64,9 +64,9 @@ describe("media entity presentation preparation", () => {
 				name: "Person two",
 				schemaSlug: "person",
 				batchAssets: [managed],
-				populationStatus: "ready",
-				translationStatus: "none",
-				relatedPopulationStatus: "ready",
+				translationStatus: { state: "idle", availability: "none" },
+				populationStatus: { state: "succeeded", availability: "complete" },
+				relatedPopulationStatus: { state: "succeeded", availability: "complete" },
 			},
 		});
 	});

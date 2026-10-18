@@ -7,7 +7,6 @@ import {
 	getApiClient,
 	getEntity,
 	getGlobalEntityByProvenance,
-	GRACE_WINDOW_MS,
 	installTestProvider,
 	openInterestWebSocketScoped,
 	pollUntil,
@@ -90,6 +89,46 @@ describe("entity population via client-declared interest", () => {
 		}),
 	);
 
+	it.live("fully populates a root whose stored properties exceed 64 KiB", () =>
+		Effect.gen(function* () {
+			const auth = yield* createAuthenticatedClient();
+			const description = "x".repeat(96 * 1024);
+			const seeded = yield* seedEntity({
+				userId: null,
+				name: "Large partial root",
+				properties: { description },
+				providerId: provider.providerId,
+				externalId: `large-root-${crypto.randomUUID()}`,
+				entitySchema: testProviderEntitySchema(provider),
+			});
+			const stored = yield* getEntity(auth.client, seeded.id);
+			expect(stored.properties.description).toBe(description);
+			expect(stored.populationStatus).toEqual({ state: "idle", availability: "partial" });
+			const socket = yield* openInterestWebSocketScoped(auth);
+			yield* socket.replaceInterest([seeded.id], [seeded.id]);
+			const populated = yield* pollUntil(
+				"large stored root fully populated",
+				getEntity(auth.client, seeded.id).pipe(
+					Effect.map((entity) =>
+						entity.populationStatus.state === "succeeded" &&
+						entity.relatedPopulationStatus.availability === "complete"
+							? entity
+							: null,
+					),
+				),
+			);
+			expect(populated.populationStatus).toEqual({ state: "succeeded", availability: "complete" });
+			expect(populated.relatedPopulationStatus).toEqual({
+				state: "succeeded",
+				availability: "complete",
+			});
+			expect(populated.name).toBe(POPULATED_NAME);
+			expect(populated.properties).toEqual({ description: "Populated by the e2e fake provider." });
+			yield* socket.waitForEntityUpdated(seeded.id, "populated");
+			yield* socket.waitForEntityUpdated(seeded.id, "enrichment-updated");
+		}),
+	);
+
 	it.live("removes interest on disconnect and returns terminal catch-up after reconnect", () =>
 		Effect.gen(function* () {
 			const auth = yield* createAuthenticatedClient();
@@ -104,8 +143,8 @@ describe("entity population via client-declared interest", () => {
 
 			const socket = yield* openInterestWebSocketScoped(auth);
 			expect(yield* socket.replaceInterest([entity.id])).toEqual({ revision: 1, type: "applied" });
-			const event = yield* socket.waitForEntityUpdated(entity.id, "populated");
-			expect(event.reason).toBe("populated");
+			const event = yield* socket.waitForEntityUpdated(entity.id, "enrichment-updated");
+			expect(event.reason).toBe("enrichment-updated");
 
 			yield* socket.close();
 			yield* pollUntil(
@@ -130,10 +169,10 @@ describe("entity population via client-declared interest", () => {
 				revision: 1,
 				type: "applied",
 			});
-			expect(yield* reconnected.waitForEntityUpdated(entity.id, "populated")).toEqual({
+			expect(yield* reconnected.waitForEntityUpdated(entity.id, "enrichment-updated")).toEqual({
 				entityId: entity.id,
-				reason: "populated",
 				type: "entity-updated",
+				reason: "enrichment-updated",
 			});
 		}),
 	);
@@ -162,11 +201,13 @@ describe("entity population via client-declared interest", () => {
 				type: "applied",
 			});
 			expect(yield* replaced.replaceInterest([])).toEqual({ revision: 2, type: "applied" });
+			const beforePopulation = replaced.getEntityUpdatedMessages();
 
 			const active = yield* openInterestWebSocketScoped(auth);
 			yield* active.replaceInterest([entity.id]);
 			yield* active.waitForEntityUpdated(entity.id, "populated", { timeoutMs: 30_000 });
-			yield* replaced.expectNoEntityUpdated(entity.id, { windowMs: GRACE_WINDOW_MS });
+			yield* waitOutGraceWindow;
+			expect(replaced.getEntityUpdatedMessages()).toEqual(beforePopulation);
 
 			const populated = yield* waitForEntityPopulated(client, provenance);
 			expect(populated.populatedAt).not.toBeNull();

@@ -17,7 +17,7 @@ import { type ReactNode, useEffect, useMemo, useState } from "react";
 
 import { MediaOverview, type MediaOverviewRelationsRender } from "./overview";
 import { mapMediaOverview, type MediaOverviewState } from "./overview-state";
-import { MediaPopulationFailure } from "./population-failure";
+import { MediaPopulationFailure, MediaTranslationFailure } from "./population-failure";
 import { MediaRefreshStatus, MediaStatusMessage } from "./primitives";
 import { MediaSummaryHeader, MediaSummarySkeleton } from "./summary-header";
 import {
@@ -107,8 +107,11 @@ export function MediaDetailBody<
 	return (
 		<div className="grid grid-cols-[minmax(0,1fr)] gap-7">
 			{props.summaryRefreshStatus}
-			{summary.populationStatus === "failed" ? (
+			{summary.populationStatus.state === "failed" ? (
 				<MediaPopulationFailure entityId={summary.id} providerName={summary.providerName} />
+			) : null}
+			{summary.translationStatus.state === "failed" ? (
+				<MediaTranslationFailure entityId={summary.id} />
 			) : null}
 			<MediaSummaryHeader
 				media={summary}

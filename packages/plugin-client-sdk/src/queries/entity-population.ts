@@ -4,7 +4,11 @@ import { createRyotMutation } from "./definitions";
 import { useRyotMutation } from "./hooks";
 
 const retryEntityPopulationMutation = createRyotMutation<
-	{ readonly entityId: string; readonly packageId: PluginPackageId },
+	{
+		readonly entityId: string;
+		readonly packageId: PluginPackageId;
+		readonly operation: "population" | "translation";
+	},
 	{ readonly retried: boolean }
 >(({ input, client }) => client.entities.retryPopulation(input));
 

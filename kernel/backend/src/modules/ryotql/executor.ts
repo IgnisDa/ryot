@@ -419,7 +419,12 @@ const compileExpression = (expr: ScalarExpression, scope: CompileScope): SqlFrag
 	if (!field) {
 		throw new Error(`RyotQL compiler received unknown field '${expr.field}'`);
 	}
-	return field.resolve({ sqlAlias: compileTable.alias, language: scopeLanguage(scope) });
+	const execution = scopeExecution(scope);
+	return field.resolve({
+		sqlAlias: compileTable.alias,
+		language: scopeLanguage(scope),
+		userId: execution.type === "user" ? execution.userId : null,
+	});
 };
 
 const expressionNullable = (expr: ScalarExpression, scope: CompileScope): boolean => {

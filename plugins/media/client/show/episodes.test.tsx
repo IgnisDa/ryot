@@ -154,11 +154,11 @@ const showAdapter = (input: {
 							id: "show-1",
 							schemaSlug: "show",
 							name: "Adolescence",
-							populationStatus: "ready",
-							translationStatus: "none",
-							relatedPopulationStatus: "ready",
 							episodeOrders: input.episodeOrders ?? null,
 							seasons: rows(input.seasons ?? [showSeasonRow]),
+							translationStatus: { state: "idle", availability: "none" },
+							populationStatus: { state: "succeeded", availability: "complete" },
+							relatedPopulationStatus: { state: "succeeded", availability: "complete" },
 						},
 					]),
 				},
@@ -284,7 +284,7 @@ describe("show season browser", () => {
 				waitFor(() => expect(view.container.textContent).toContain("Season 1")),
 			);
 			expect(
-				textOf(view.container, "Released Mar 13, 2025 • 2/6 aired · 3 upcoming"),
+				textOf(view.container, "Released Mar 13, 2025 • 2 of 6 complete · 3 upcoming"),
 			).not.toBeUndefined();
 			expect(view.container.textContent).toContain("The complete limited series.");
 			expect(view.container.textContent).toContain("Episode 1: The Arrest");
@@ -502,7 +502,7 @@ describe("show episode orders", () => {
 			expect(view.container.querySelector('[aria-label="Season"]')).toBeNull();
 			expect(textOf(view.container, "Volume 1")).not.toBeUndefined();
 			expect(textOf(view.container, "S2 • E3")).not.toBeUndefined();
-			expect(textOf(view.container, "1/2 aired")).not.toBeUndefined();
+			expect(textOf(view.container, "1 of 2 complete")).not.toBeUndefined();
 
 			yield* Effect.promise(() => click(radio(view.container, "Volume 2")));
 

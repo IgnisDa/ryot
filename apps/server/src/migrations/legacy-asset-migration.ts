@@ -216,7 +216,13 @@ export const migrateLegacyS3Assets = Effect.gen(function* () {
 		}
 		if (row.source === "entity") {
 			yield* session.run((database) =>
-				database.update(entity).set({ properties }).where(eq(entity.id, row.id)),
+				database
+					.update(entity)
+					.set({
+						properties,
+						contentGeneration: sql`${entity.contentGeneration} + CASE WHEN ${entity.properties} IS DISTINCT FROM ${JSON.stringify(properties)}::jsonb THEN 1 ELSE 0 END`,
+					})
+					.where(eq(entity.id, row.id)),
 			);
 		} else {
 			yield* session.run((database) =>

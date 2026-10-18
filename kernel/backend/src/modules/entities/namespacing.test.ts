@@ -13,7 +13,7 @@ import {
 } from "@ryot-app/contract/schema/brands";
 import { sortBy } from "@ryot-app/ts-utils/lodash";
 import { and, eq, inArray } from "drizzle-orm";
-import { DateTime, Effect, Schema } from "effect";
+import { DateTime, Effect, Layer, Schema } from "effect";
 import { WorkflowEngine, WorkflowInstance } from "effect/workflow/WorkflowEngine";
 
 import { rootLifecycleCommand } from "#modules/automations/lifecycle/command";
@@ -26,10 +26,11 @@ import {
 import { EventSchemaReader } from "#modules/definitions/event-schemas";
 import { kernelDefinitionSource } from "#modules/definitions/kernel-source";
 import { DefinitionRepository } from "#modules/definitions/repository";
+import { EnrichmentRequests } from "#modules/entities/enrichment/requests";
 import { EntityImportWorkflowOperations } from "#modules/entities/providers/operations-workflow";
 import {
-	ProviderEntityPopulationWorkflow,
-	runProviderEntityPopulationWorkflow,
+	ProviderEntityPopulationAttemptWorkflow,
+	runProviderEntityPopulationAttemptWorkflow,
 } from "#modules/entities/providers/provider-entity-population-workflow";
 import {
 	EventCreateWorkflow,
@@ -242,7 +243,14 @@ const createEvents = (
 	);
 };
 
-layer(relationshipDatabaseLayer())((test) => {
+layer(
+	EnrichmentRequests.layer.pipe(
+		Layer.provide(
+			Layer.succeed(RedisService, makeRedisService({ publish: () => Effect.succeed(1) })),
+		),
+		Layer.provideMerge(relationshipDatabaseLayer()),
+	),
+)((test) => {
 	test.effect(
 		"retries user entity writes across durable attempts without duplicate rows or hooks",
 		() =>
@@ -1804,12 +1812,16 @@ layer(relationshipDatabaseLayer())((test) => {
 					executionId: string,
 					mode: "ensure" | "refresh",
 				) => {
-					const instance = WorkflowInstance.initial(ProviderEntityPopulationWorkflow, executionId);
-					return runProviderEntityPopulationWorkflow(
+					const instance = WorkflowInstance.initial(
+						ProviderEntityPopulationAttemptWorkflow,
+						executionId,
+					);
+					return runProviderEntityPopulationAttemptWorkflow(
 						{
 							mode,
 							executionId,
 							level: "full",
+							requestId: executionId,
 							entitySchemaSlug: bottle,
 							externalId: "shared-root",
 							providerId: admission.providerId,

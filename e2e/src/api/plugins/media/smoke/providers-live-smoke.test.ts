@@ -7,7 +7,7 @@ import {
 	enqueueProviderEntityImport,
 	getEntity,
 	openInterestWebSocketScoped,
-	pollEntityUntilTranslationStatus,
+	pollEntityUntilTranslationAvailability,
 	pollProviderEntityImportResult,
 	searchProviderEntities,
 	setUserLanguage,
@@ -74,7 +74,7 @@ describe.skipIf(!RUN_LIVE)("live provider smoke (real external APIs)", () => {
 
 			yield* setUserLanguage(client, "es");
 			const beforeInterest = yield* getEntity(client, movie.id);
-			expect(beforeInterest.translationStatus).toBe("pending");
+			expect(beforeInterest.translationStatus.availability).toBe("missing");
 
 			const socket = yield* openInterestWebSocketScoped(auth);
 			yield* socket.replaceInterest([movie.id]);
@@ -84,7 +84,7 @@ describe.skipIf(!RUN_LIVE)("live provider smoke (real external APIs)", () => {
 			});
 			expect(event.reason).toBe("translated");
 
-			const localized = yield* pollEntityUntilTranslationStatus(client, movie.id, "ready");
+			const localized = yield* pollEntityUntilTranslationAvailability(client, movie.id, "complete");
 			expect(localized.name).not.toBe("Canonical Fight Club");
 			expect(localized.name.length).toBeGreaterThan(0);
 			expect(yield* countEntityTranslations(movie.id)).toBe(1);

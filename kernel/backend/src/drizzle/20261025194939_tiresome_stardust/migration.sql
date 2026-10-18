@@ -328,20 +328,50 @@ CREATE TABLE "entity" (
 	"name" text NOT NULL,
 	"populated_at" timestamp(3) with time zone,
 	"updated_at" timestamp(3) with time zone DEFAULT now() NOT NULL,
-	"population_failed_at" timestamp(3) with time zone,
 	"related_populated_at" timestamp(3) with time zone,
 	"entity_schema_slug" text NOT NULL,
-	"related_population_failed_at" timestamp(3) with time zone,
+	"related_population_generation" text,
+	"related_population_started_at" timestamp(3) with time zone,
 	"created_at" timestamp(3) with time zone DEFAULT now() NOT NULL,
-	"population_failure" text,
+	"content_generation" integer DEFAULT 1 NOT NULL,
 	"user_id" text,
-	"related_population_failure" text,
 	"properties" jsonb DEFAULT '{}' NOT NULL,
 	"provider_id" text,
 	"entity_schema_plugin_id" text,
+	"id" text PRIMARY KEY
+);
+--> statement-breakpoint
+CREATE TABLE "entity_enrichment_request" (
+	"retry_of" text,
+	"language" text,
 	"id" text PRIMARY KEY,
-	CONSTRAINT "entity_population_failure_check" CHECK (("population_failure" is null) = ("population_failed_at" is null) and ("population_failure" is null or "population_failure" in ('script-failure', 'invalid-output', 'execution-limit'))),
-	CONSTRAINT "entity_related_population_failure_check" CHECK (("related_population_failure" is null) = ("related_population_failed_at" is null) and ("related_population_failure" is null or "related_population_failure" in ('script-failure', 'invalid-output', 'execution-limit')))
+	"plugin_id" text NOT NULL,
+	"completed_at" timestamp(3) with time zone,
+	"requester_generation" text,
+	"sequence" serial,
+	"external_id" text NOT NULL,
+	"next_attempt_at" timestamp(3) with time zone,
+	"workflow_name" text NOT NULL,
+	"entity_schema_slug" text NOT NULL,
+	"source_content_generation" integer,
+	"registration_released_at" timestamp(3) with time zone,
+	"level" text,
+	"attempt" integer DEFAULT 0 NOT NULL,
+	"payload" jsonb NOT NULL,
+	"failure_kind" text,
+	"created_at" timestamp(3) with time zone DEFAULT now() NOT NULL,
+	"observed_at" timestamp(3) with time zone DEFAULT now() NOT NULL,
+	"dispatch_root" boolean DEFAULT false NOT NULL,
+	"operation" text NOT NULL,
+	"entity_id" text,
+	"scope_user_id" text,
+	"state" text DEFAULT 'queued' NOT NULL,
+	"requester_user_id" text,
+	"provider_id" text NOT NULL,
+	CONSTRAINT "entity_enrichment_request_attempt_check" CHECK ("attempt" between 0 and 3),
+	CONSTRAINT "entity_enrichment_request_state_check" CHECK ("state" in ('queued', 'running', 'retrying', 'succeeded', 'failed', 'cancelled')),
+	CONSTRAINT "entity_enrichment_request_requester_check" CHECK (("requester_user_id" is null) = ("requester_generation" is null)),
+	CONSTRAINT "entity_enrichment_request_operation_check" CHECK (("operation" = 'population' and "level" in ('base', 'full') and "language" is null) or ("operation" = 'translation' and "level" is null and "language" is not null))
 );
 --> statement-breakpoint
 CREATE TABLE "entity_translation" (
@@ -349,6 +379,7 @@ CREATE TABLE "entity_translation" (
 	"language" text,
 	"populated_at" timestamp(3) with time zone,
 	"updated_at" timestamp(3) with time zone DEFAULT now() NOT NULL,
+	"source_content_generation" integer NOT NULL,
 	"created_at" timestamp(3) with time zone DEFAULT now() NOT NULL,
 	"properties" jsonb,
 	"entity_id" text,
@@ -617,10 +648,10 @@ CREATE TABLE "notification_channel" (
 	"description" text NOT NULL,
 	"is_disabled" boolean DEFAULT false NOT NULL,
 	"created_at" timestamp(3) with time zone DEFAULT now() NOT NULL,
-	"platform" text GENERATED ALWAYS AS (platform_specifics->>'kind') STORED NOT NULL,
 	"user_id" text NOT NULL,
 	"id" text PRIMARY KEY,
-	"platform_specifics" jsonb NOT NULL
+	"platform_specifics" jsonb NOT NULL,
+	"platform" text GENERATED ALWAYS AS (platform_specifics->>'kind') STORED NOT NULL
 );
 --> statement-breakpoint
 CREATE TABLE "notification_subscription" (
@@ -1159,6 +1190,9 @@ CREATE INDEX "entity_entity_schema_plugin_id_idx" ON "entity" ("entity_schema_pl
 CREATE INDEX "entity_properties_idx" ON "entity" USING gin ("properties");--> statement-breakpoint
 CREATE UNIQUE INDEX "entity_collection_name_unique" ON "entity" ("user_id","name") WHERE "entity_schema_slug" = 'collection' and "entity_schema_plugin_id" is null;--> statement-breakpoint
 CREATE UNIQUE INDEX "entity_external_identity_unique" ON "entity" ("external_id","entity_schema_slug",(case when "user_id" is null then '0' else '1' || "user_id" end),(case when "provider_id" is null then '0' else '1' || "provider_id" end),(case when "entity_schema_plugin_id" is null then '0' else '1' || "entity_schema_plugin_id" end)) WHERE "external_id" is not null and ("user_id" is null or "provider_id" is not null);--> statement-breakpoint
+CREATE INDEX "entity_enrichment_request_entity_idx" ON "entity_enrichment_request" ("entity_id","created_at");--> statement-breakpoint
+CREATE INDEX "entity_enrichment_request_pending_idx" ON "entity_enrichment_request" ("state","created_at");--> statement-breakpoint
+CREATE UNIQUE INDEX "entity_enrichment_request_retry_unique" ON "entity_enrichment_request" ("retry_of");--> statement-breakpoint
 CREATE INDEX "entity_translation_entity_id_idx" ON "entity_translation" ("entity_id");--> statement-breakpoint
 CREATE INDEX "event_user_id_idx" ON "event" ("user_id");--> statement-breakpoint
 CREATE INDEX "event_entity_id_idx" ON "event" ("entity_id");--> statement-breakpoint
@@ -1281,6 +1315,10 @@ ALTER TABLE "definition_signal_schema" ADD CONSTRAINT "definition_signal_schema_
 ALTER TABLE "entity" ADD CONSTRAINT "entity_user_id_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "user"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "entity" ADD CONSTRAINT "entity_provider_id_sandbox_provider_id_fkey" FOREIGN KEY ("provider_id") REFERENCES "sandbox_provider"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "entity" ADD CONSTRAINT "entity_entity_schema_plugin_id_plugin_id_fkey" FOREIGN KEY ("entity_schema_plugin_id") REFERENCES "plugin"("id") ON DELETE RESTRICT;--> statement-breakpoint
+ALTER TABLE "entity_enrichment_request" ADD CONSTRAINT "entity_enrichment_request_entity_id_entity_id_fkey" FOREIGN KEY ("entity_id") REFERENCES "entity"("id") ON DELETE CASCADE;--> statement-breakpoint
+ALTER TABLE "entity_enrichment_request" ADD CONSTRAINT "entity_enrichment_request_scope_user_id_user_id_fkey" FOREIGN KEY ("scope_user_id") REFERENCES "user"("id") ON DELETE CASCADE;--> statement-breakpoint
+ALTER TABLE "entity_enrichment_request" ADD CONSTRAINT "entity_enrichment_request_requester_user_id_user_id_fkey" FOREIGN KEY ("requester_user_id") REFERENCES "user"("id") ON DELETE CASCADE;--> statement-breakpoint
+ALTER TABLE "entity_enrichment_request" ADD CONSTRAINT "entity_enrichment_request_provider_id_sandbox_provider_id_fkey" FOREIGN KEY ("provider_id") REFERENCES "sandbox_provider"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "entity_translation" ADD CONSTRAINT "entity_translation_entity_id_entity_id_fkey" FOREIGN KEY ("entity_id") REFERENCES "entity"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "event" ADD CONSTRAINT "event_session_entity_id_entity_id_fkey" FOREIGN KEY ("session_entity_id") REFERENCES "entity"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "event" ADD CONSTRAINT "event_event_schema_plugin_id_plugin_id_fkey" FOREIGN KEY ("event_schema_plugin_id") REFERENCES "plugin"("id") ON DELETE RESTRICT;--> statement-breakpoint

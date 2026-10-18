@@ -233,8 +233,8 @@ continue, such as wizards, entity-editor creation, and navigation after a save.
 
 `ryot.entities.watch({ foreground, visible }, onUpdate)` returns
 `{ update(interest), dispose() }`. The callback receives
-`{ entityId, reason }`, where `reason` is `populated`, `translated`, `population-failed`, or
-`projection-updated`. A failed population never starts a settle highlight. Disposal is idempotent, suppresses later
+`{ entityId, reason }`, where `reason` is `populated`, `translated`, `population-failed`,
+`enrichment-updated`, or `projection-updated`. Progress and failure updates never start a settle highlight. Disposal is idempotent, suppresses later
 callbacks, and makes later updates fail with `disposed`. Invalid declarations fail synchronously with
 `invalid-input`, a missing adapter fails with `unsupported-capability`, and transport failures use
 `RyotClientError("transport")`.
@@ -242,8 +242,11 @@ callbacks, and makes later updates fail with `disposed`. Invalid declarations fa
 Declarations may exceed 500 IDs. The runtime normalizes and deduplicates them, gives foreground
 priority, sorts within each priority, and sends at most 500 selected IDs, marking at most 50 IDs of
 the active page as foreground. Foreground interest populates an entity with its related groups;
-visible interest populates only its base level, and `relatedPopulationStatus` (`pending`, `ready`,
-`failed`, or `none`) tells pages whether related data has landed. The strict version 1 state
+visible interest populates only its base level. `populationStatus`, `relatedPopulationStatus`, and
+`translationStatus` each contain `{ availability, state }`. Availability is `missing`, `partial`,
+`complete`, or `none`; state is `idle`, `queued`, `running`, `retrying`, `succeeded`, `failed`, or
+`cancelled`. Available data stays visible during work or after failure. Idle missing data is not
+actively loading. The strict version 1 state
 messages contain no request IDs, acknowledgements, credentials, tickets, user IDs, or server fields.
 The host owns connectivity and reconnection.
 
@@ -254,13 +257,14 @@ and reactivation requests catch-up without discarding cached data.
 
 ## Population Retry
 
-`ryot.entities.retryPopulation({ packageId, entityId })` asks the kernel to repopulate an entity
-whose `populationStatus` or `relatedPopulationStatus` is `failed`. The runtime supplies the plugin ID through `pluginIdentity`,
+`ryot.entities.retryPopulation({ packageId, entityId, operation })` asks the kernel to retry
+`population` or `translation`. Translation uses the trusted user's preferred language, never a
+language supplied by the frame. The runtime supplies the plugin ID through `pluginIdentity`,
 refuses a package that does not contribute to the frame with `invalid-request`, and returns
 `{ retried }`: `false` when the entity no longer has a failure to retry. Refusals by the kernel
 (missing or invisible entity, foreign owner, no provider or an unavailable one) also fail with
 `invalid-request`. A successful call notifies mutation listeners, so the page reads the entity as
-`pending` again. `useRetryEntityPopulation()` is the matching mutation hook.
+queued again. `useRetryEntityPopulation()` is the matching mutation hook.
 
 ## Entity Editor
 

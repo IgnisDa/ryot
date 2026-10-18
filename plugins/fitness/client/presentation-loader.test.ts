@@ -12,8 +12,8 @@ const reference = (entityId: string, entitySchemaSlug: string, name: string) => 
 	entityId,
 	entitySchemaSlug,
 	ownerPluginId: "fitness",
-	populationStatus: "ready" as const,
-	translationStatus: "ready" as const,
+	populationStatus: { state: "succeeded", availability: "complete" } as const,
+	translationStatus: { state: "succeeded", availability: "complete" } as const,
 });
 
 const rows = (items: readonly Record<string, unknown>[]) => ({

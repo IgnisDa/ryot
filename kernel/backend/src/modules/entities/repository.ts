@@ -24,8 +24,7 @@ import {
 	type SQL,
 	sql,
 } from "drizzle-orm";
-import { alias } from "drizzle-orm/pg-core";
-import { Context, Effect, Layer, Schema } from "effect";
+import { Context, Effect, Layer } from "effect";
 import { chunksOf } from "effect/Array";
 
 import { DefinitionRepository } from "#modules/definitions/repository";
@@ -39,7 +38,6 @@ import { DatabaseSession } from "#platform/db/session";
 import * as schema from "#schema/tables/combined";
 
 import {
-	type EntitySchemaProviderDetailsScope,
 	type EntitySchemaScope,
 	entitySelection,
 	entityVisibleToUserClause,
@@ -90,11 +88,6 @@ export type ProviderEntityMutationLockInput = {
 	providerId: SandboxProviderId;
 	entitySchemaSlug: EntitySchemaSlug;
 } & ({ scope: "global" } | { scope: "user"; userId: UserId });
-
-export const EntityPopulationFailure = Schema.Literals(schema.ENTITY_POPULATION_FAILURES);
-export type EntityPopulationFailure = typeof EntityPopulationFailure.Type;
-
-const previousEntity = alias(schema.entity, "previous_entity");
 
 type StoredEntity = ReturnType<typeof toListedEntity>;
 export const STATEMENT_CHUNK_SIZE = 1_000;
@@ -869,24 +862,6 @@ export class EntitiesRepository extends Context.Service<EntitiesRepository>()(
 					}),
 				);
 
-			const findEntitySchemaProviderByReference = Effect.fn(
-				"EntitiesRepository.findEntitySchemaProviderByReference",
-			)(function* (reference: DeclarationReference) {
-				const resolved = yield* pluginRuntime.findSchemaProviderByReference(reference);
-				if (!resolved) {
-					return null;
-				}
-
-				const detailsScript = yield* pluginRuntime.findDetailsScript(resolved.provider.id);
-				return detailsScript
-					? ({
-							providerId: resolved.provider.id,
-							detailsScriptId: detailsScript.id,
-							entitySchemaSlug: resolved.entitySchemaSlug,
-						} satisfies EntitySchemaProviderDetailsScope)
-					: null;
-			});
-
 			const insertEntities = Effect.fn("EntitiesRepository.insertEntities")(function* (
 				inputs: ReadonlyArray<InsertEntityInput>,
 			) {
@@ -937,7 +912,7 @@ export class EntitiesRepository extends Context.Service<EntitiesRepository>()(
 				if (!current) {
 					return yield* new DbError({ message: "Entity update returned no row" });
 				}
-				const streamDataChanged =
+				const contentChanged =
 					current.name !== input.name ||
 					stableStringify(current.properties) !== stableStringify(input.properties);
 				const [updated] = yield* session.run((db) =>
@@ -946,12 +921,12 @@ export class EntitiesRepository extends Context.Service<EntitiesRepository>()(
 						.set({
 							name: input.name,
 							properties: input.properties,
+							...(contentChanged
+								? { contentGeneration: sql`${schema.entity.contentGeneration} + 1` }
+								: {}),
 							populatedAt: input.preservePopulatedAt
 								? sql`coalesce(${schema.entity.populatedAt}, ${input.populatedAt?.toISOString() ?? null}::timestamptz)`
-								: input.populatedAt,
-							...(input.populatedAt === null
-								? {}
-								: { populationFailure: null, populationFailedAt: null }),
+								: sql`case when ${schema.entity.providerId} is not null and ${input.populatedAt?.toISOString() ?? null}::timestamptz is not null then greatest(${schema.entity.populatedAt}, ${input.populatedAt?.toISOString() ?? null}::timestamptz) else ${input.populatedAt?.toISOString() ?? null}::timestamptz end`,
 						})
 						.where(eq(schema.entity.id, input.entityId))
 						.returning(entitySelection),
@@ -960,63 +935,12 @@ export class EntitiesRepository extends Context.Service<EntitiesRepository>()(
 				if (!updated) {
 					return yield* new DbError({ message: "Entity update returned no row" });
 				}
-				if (streamDataChanged) {
+				if (contentChanged) {
 					yield* eventStreams.invalidateEntity(input.entityId);
 				}
 
 				return toListedEntity(updated);
 			});
-
-			const markFailed = Effect.fnUntraced(function* (
-				input: { entityId: EntityId; failedAt: Date; failure: EntityPopulationFailure },
-				set: (
-					failure: EntityPopulationFailure,
-					failedAt: Date,
-				) => Partial<typeof schema.entity.$inferInsert>,
-				conditions: readonly SQL[],
-			) {
-				yield* session.requireTransaction;
-				const failure = yield* Schema.decodeEffect(EntityPopulationFailure)(input.failure).pipe(
-					Effect.mapError((error) => new DbError({ message: error.message })),
-				);
-				const rows = yield* session.run((db) =>
-					db
-						.update(schema.entity)
-						.set(set(failure, input.failedAt))
-						.where(
-							and(
-								eq(schema.entity.id, input.entityId),
-								...conditions,
-								isNotNull(schema.entity.providerId),
-								isNotNull(schema.entity.externalId),
-							),
-						)
-						.returning({ id: schema.entity.id }),
-				);
-				return rows.length > 0;
-			});
-
-			const markPopulationFailed = Effect.fn("EntitiesRepository.markPopulationFailed")(
-				(input: { entityId: EntityId; failedAt: Date; failure: EntityPopulationFailure }) =>
-					markFailed(
-						input,
-						(populationFailure, populationFailedAt) => ({ populationFailure, populationFailedAt }),
-						[isNull(schema.entity.populatedAt)],
-					),
-			);
-
-			const markRelatedPopulationFailed = Effect.fn(
-				"EntitiesRepository.markRelatedPopulationFailed",
-			)((input: { entityId: EntityId; failedAt: Date; failure: EntityPopulationFailure }) =>
-				markFailed(
-					input,
-					(relatedPopulationFailure, relatedPopulationFailedAt) => ({
-						relatedPopulationFailure,
-						relatedPopulationFailedAt,
-					}),
-					[isNotNull(schema.entity.populatedAt), isNull(schema.entity.relatedPopulatedAt)],
-				),
-			);
 
 			const stampRelatedPopulated = Effect.fn("EntitiesRepository.stampRelatedPopulated")(
 				function* (entityId: EntityId, relatedPopulatedAt: Date) {
@@ -1025,14 +949,52 @@ export class EntitiesRepository extends Context.Service<EntitiesRepository>()(
 						db
 							.update(schema.entity)
 							.set({
-								relatedPopulatedAt,
-								relatedPopulationFailure: null,
-								relatedPopulationFailedAt: null,
+								relatedPopulatedAt: sql`greatest(${schema.entity.relatedPopulatedAt}, ${relatedPopulatedAt.toISOString()}::timestamptz)`,
 							})
 							.where(eq(schema.entity.id, entityId)),
 					);
 				},
 			);
+			const invalidateRelatedPopulated = Effect.fn("EntitiesRepository.invalidateRelatedPopulated")(
+				function* (entityId: EntityId, startedAt: Date, generation: string) {
+					yield* session.requireTransaction;
+					yield* session.run((db) =>
+						db
+							.update(schema.entity)
+							.set({
+								relatedPopulatedAt: null,
+								relatedPopulationStartedAt: startedAt,
+								relatedPopulationGeneration: generation,
+							})
+							.where(
+								and(
+									eq(schema.entity.id, entityId),
+									or(
+										isNull(schema.entity.relatedPopulatedAt),
+										sql`${schema.entity.relatedPopulatedAt} <= ${startedAt.toISOString()}::timestamptz`,
+									),
+									or(
+										isNull(schema.entity.relatedPopulationStartedAt),
+										sql`${schema.entity.relatedPopulationStartedAt} <= ${startedAt.toISOString()}::timestamptz`,
+									),
+								),
+							),
+					);
+				},
+			);
+			const holdsRelatedPopulationGeneration = Effect.fn(
+				"EntitiesRepository.holdsRelatedPopulationGeneration",
+			)(function* (entityId: EntityId, generation: string) {
+				yield* session.requireTransaction;
+				const [row] = yield* session.run((db) =>
+					db
+						.select({ generation: schema.entity.relatedPopulationGeneration })
+						.from(schema.entity)
+						.where(eq(schema.entity.id, entityId))
+						.for("update"),
+				);
+				return row?.generation === generation;
+			});
 
 			const stampChildRelatedPopulated = Effect.fn("EntitiesRepository.stampChildRelatedPopulated")(
 				function* (entityIds: ReadonlyArray<EntityId>) {
@@ -1051,49 +1013,6 @@ export class EntitiesRepository extends Context.Service<EntitiesRepository>()(
 								),
 						);
 					}
-				},
-			);
-
-			const clearPopulationFailure = Effect.fn("EntitiesRepository.clearPopulationFailure")(
-				function* (entityId: EntityId) {
-					yield* session.requireTransaction;
-					const relatedFailureClearable = and(
-						isNotNull(schema.entity.relatedPopulationFailedAt),
-						isNull(schema.entity.relatedPopulatedAt),
-					);
-					const [row] = yield* session.run((db) =>
-						db
-							.update(schema.entity)
-							.set({
-								populationFailure: null,
-								populationFailedAt: null,
-								relatedPopulationFailure: sql`case when ${schema.entity.relatedPopulatedAt} is null then null else ${schema.entity.relatedPopulationFailure} end`,
-								relatedPopulationFailedAt: sql`case when ${schema.entity.relatedPopulatedAt} is null then null else ${schema.entity.relatedPopulationFailedAt} end`,
-							})
-							.from(previousEntity)
-							.where(
-								and(
-									eq(schema.entity.id, entityId),
-									eq(previousEntity.id, schema.entity.id),
-									or(isNotNull(schema.entity.populationFailedAt), relatedFailureClearable),
-								),
-							)
-							.returning({
-								userId: schema.entity.userId,
-								failedAt: previousEntity.populationFailedAt,
-								relatedPopulatedAt: previousEntity.relatedPopulatedAt,
-								relatedFailedAt: previousEntity.relatedPopulationFailedAt,
-							}),
-					);
-					if (row === undefined) {
-						return null;
-					}
-					const relatedFailedAt = row.relatedPopulatedAt === null ? row.relatedFailedAt : null;
-					return {
-						relatedFailedAt,
-						failedAt: row.failedAt,
-						userId: row.userId === null ? null : UserId.make(row.userId),
-					};
 				},
 			);
 
@@ -1174,12 +1093,10 @@ export class EntitiesRepository extends Context.Service<EntitiesRepository>()(
 				getMutationEntity,
 				lockSchemaCatalog,
 				getMutationEntities,
-				markPopulationFailed,
 				findPopulationTarget,
 				findGlobalEntityById,
 				stampRelatedPopulated,
 				getEntityScopeForUser,
-				clearPopulationFailure,
 				hasUserCollectionNamed,
 				findEntityByExternalId,
 				getEntityScopesForUser,
@@ -1188,20 +1105,20 @@ export class EntitiesRepository extends Context.Service<EntitiesRepository>()(
 				listEntityReferencesByIds,
 				listUserEntitiesForBackup,
 				lockEntityReferencesByIds,
+				invalidateRelatedPopulated,
 				getClientPageEntityForUser,
 				lockUserEntityEnsureScopes,
 				getEntityMergeScopeForUser,
 				stampChildRelatedPopulated,
 				findGlobalEntityForRestore,
-				markRelatedPopulationFailed,
 				lockProviderEntityMutations,
 				listMatchCandidatesBySchema,
 				findUserEntityWithoutProvenance,
+				holdsRelatedPopulationGeneration,
 				lockGlobalEntityProvenanceScopes,
 				listGlobalEntitiesByIdsForBackup,
 				findUserEntitiesWithoutProvenance,
 				findSystemEntitySchemaByReference,
-				findEntitySchemaProviderByReference,
 				countGlobalEntitiesByProvenanceScopes,
 				listReferencedGlobalEntitiesForBackup,
 			};

@@ -26,7 +26,7 @@ export class PluginPopulationRetries extends Context.Service<PluginPopulationRet
 				return api
 					.retryPopulation(scope, {
 						params: { entityId: request.entityId },
-						payload: { pluginId: request.pluginId },
+						payload: { pluginId: request.pluginId, operation: request.operation },
 					})
 					.pipe(
 						Effect.match({

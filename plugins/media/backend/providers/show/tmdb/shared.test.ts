@@ -563,7 +563,7 @@ describe("show.tmdb sandbox script", () => {
 		return Effect.runPromise(
 			runSandboxTestScript(
 				translate,
-				{ language: "fr", externalId: "1", entitySchemaSlug: "show" },
+				{ name: "Show", language: "fr", properties: {}, externalId: "1", entitySchemaSlug: "show" },
 				host,
 				execution,
 			).pipe(
@@ -582,6 +582,7 @@ describe("show.tmdb sandbox script", () => {
 						{
 							language: "fr",
 							externalId: "2",
+							name: "Episode",
 							entitySchemaSlug: "show-episode",
 							properties: { seasonNumber: 1, episodeNumber: 2, parentShowExternalId: "1" },
 						},

@@ -7,6 +7,7 @@ export const manifest = defineManifest({
 	kind: "provider",
 	name: "Anilist Translate",
 	slug: "anime.anilist.translate",
+	translationInputs: { anime: [] },
 });
 
 export default defineProvider({ manifest, run: translate.run, operation: "translate" });

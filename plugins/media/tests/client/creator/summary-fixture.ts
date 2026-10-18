@@ -18,10 +18,10 @@ export const creatorSummaryRow = {
 	name: "Edward Norton",
 	schemaSlug: "creator",
 	isInMediaLibrary: true,
-	populationStatus: "ready",
-	translationStatus: "none",
-	relatedPopulationStatus: "ready",
 	description: "An American actor.",
+	translationStatus: { state: "idle", availability: "none" },
+	populationStatus: { state: "succeeded", availability: "complete" },
+	relatedPopulationStatus: { state: "succeeded", availability: "complete" },
 	alternateNames: ["Ed Norton", "Eddie", "E. Norton", "Edward H. Norton", "Norton"],
 	collections: {
 		pageInfo: { limit: 6, hasMore: false },

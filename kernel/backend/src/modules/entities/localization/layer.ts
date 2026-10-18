@@ -1,6 +1,7 @@
 import { Layer } from "effect";
 
 import { DefinitionRepository } from "#modules/definitions/repository";
+import { EnrichmentRequests } from "#modules/entities/enrichment/requests";
 import { DomainWriteChecksLive } from "#modules/entities/write-context";
 import { PluginRuntimeResolverLive } from "#modules/plugins/catalog/runtime-resolver";
 import { ScriptExecutionServiceLive } from "#modules/scripts/layer";
@@ -14,4 +15,5 @@ export const TranslationsServiceLive = TranslationsService.layer.pipe(
 	Layer.provide(DomainWriteChecksLive),
 	Layer.provide(ScriptExecutionServiceLive),
 	Layer.provide(PluginRuntimeResolverLive),
+	Layer.provide(EnrichmentRequests.layer),
 );

@@ -351,7 +351,13 @@ describe("movie.tmdb sandbox script", () => {
 		return Effect.runPromise(
 			runSandboxTestScript(
 				translate,
-				{ externalId: "1", language: "fr-FR", entitySchemaSlug: "movie" },
+				{
+					name: "Movie",
+					properties: {},
+					externalId: "1",
+					language: "fr-FR",
+					entitySchemaSlug: "movie",
+				},
 				host,
 				execution,
 			).pipe(

@@ -19,6 +19,29 @@ const decode = <A, I>(schema: Schema.Codec<A, I>) => Schema.decodeUnknownSync(sc
 const manifest = defineManifest({ kind: "provider", name: "Test provider", slug: "test.provider" });
 
 describe("provider definitions", () => {
+	test("requires and preserves the canonical name in translation input", () => {
+		const definition = defineProvider({
+			manifest,
+			operation: "translate",
+			run: (input) => Effect.succeed({ name: input.name }),
+		});
+		const input = {
+			properties: {},
+			language: "es",
+			externalId: "record-1",
+			name: " Canonical record ",
+			entitySchemaSlug: "record",
+		};
+		expect(decode(definition.input)(input)).toEqual(input);
+		expect(() =>
+			decode(definition.input)({
+				properties: {},
+				language: "es",
+				externalId: "record-1",
+				entitySchemaSlug: "record",
+			}),
+		).toThrow();
+	});
 	test("selects standard schemas for a provider operation", () => {
 		const definition = defineProvider({
 			manifest,

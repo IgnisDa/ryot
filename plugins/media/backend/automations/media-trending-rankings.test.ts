@@ -17,9 +17,9 @@ const mediaRow = (id: string, rank: number, fetchedAt: string) => ({
 	images: null,
 	schemaSlug: "show",
 	name: `Media ${id}`,
-	populationStatus: "ready",
-	translationStatus: "none",
-	relatedPopulationStatus: "ready",
+	translationStatus: { state: "idle", availability: "none" },
+	populationStatus: { state: "succeeded", availability: "complete" },
+	relatedPopulationStatus: { state: "succeeded", availability: "complete" },
 });
 
 type Input = Parameters<typeof definition.run>[0];

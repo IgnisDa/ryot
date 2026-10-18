@@ -1,4 +1,4 @@
-import { index, jsonb, primaryKey, snakeCase, text } from "drizzle-orm/pg-core";
+import { index, integer, jsonb, primaryKey, snakeCase, text } from "drizzle-orm/pg-core";
 
 import { entity } from "./entities";
 import { timestamptz, updatedAtColumn } from "./timestamps";
@@ -10,6 +10,7 @@ export const entityTranslation = snakeCase.table(
 		language: text().notNull(),
 		populatedAt: timestamptz(),
 		updatedAt: updatedAtColumn(),
+		sourceContentGeneration: integer().notNull(),
 		createdAt: timestamptz().defaultNow().notNull(),
 		properties: jsonb().$type<Record<string, unknown>>(),
 		entityId: text()

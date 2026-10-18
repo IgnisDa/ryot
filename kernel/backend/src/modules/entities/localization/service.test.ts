@@ -1,14 +1,22 @@
 import { assert, expect, layer } from "@effect/vitest";
 import { DbError, SandboxRunError } from "@ryot-app/contract/errors";
 import { definitionKey, definitionOwner } from "@ryot-app/contract/modules/plugins/references";
-import { EntityId, PluginId } from "@ryot-app/contract/schema/brands";
+import {
+	EntityId,
+	PluginConfigRevisionId,
+	PluginId,
+	PluginRevisionId,
+	SandboxScriptId,
+} from "@ryot-app/contract/schema/brands";
 import { assertExitFails } from "@ryot-app/testing/effect-assertions";
 import type { SQLWrapper } from "drizzle-orm";
 import { PgDialect } from "drizzle-orm/pg-core";
-import { Context, Effect, Exit, Layer, Ref } from "effect";
+import { Context, Effect, Exit, Layer, Ref, Schema } from "effect";
 import { WorkflowEngine } from "effect/workflow/WorkflowEngine";
 
 import { DefinitionRepository } from "#modules/definitions/repository";
+import type { EnrichmentRequestInput } from "#modules/entities/enrichment/repository";
+import { EnrichmentRequests } from "#modules/entities/enrichment/requests";
 import { DomainWriteChecksLive } from "#modules/entities/write-context";
 import { PluginRuntimeResolver } from "#modules/plugins/catalog/runtime-resolver";
 import { fixtureManifest } from "#modules/plugins/test-support";
@@ -17,17 +25,23 @@ import { DatabaseSession } from "#platform/db/session";
 import * as tables from "#schema/tables/combined";
 import { fakeDatabaseSession, makeWorkflowEngine } from "#testing/effect";
 
+import {
+	translateEntityExecutionId,
+	TranslateEntityWorkflowPayload,
+} from "./entity-translation-workflow";
 import { type TranslationOverlayInput, TranslationsRepository } from "./repository";
 import { TranslationsService } from "./service";
 import {
 	translationExecution as execution,
 	translationPayload as payload,
+	translationRequestRow,
 } from "./translation.test-support";
 
 const overlay = {
 	name: "Libro",
 	language: payload.language,
 	entityId: payload.entityId,
+	sourceContentGeneration: 1,
 	properties: { title: "Libro" },
 	populatedAt: new Date("2026-07-16T00:00:00.000Z"),
 } satisfies TranslationOverlayInput;
@@ -48,11 +62,21 @@ class TranslationEffects extends Context.Service<
 	TranslationEffects,
 	{
 		readonly executions: Effect.Effect<ReadonlyArray<ExecuteOptions>>;
+		readonly admissions: Effect.Effect<ReadonlyArray<EnrichmentRequestInput>>;
 		readonly installationOwners: Effect.Effect<ReadonlyArray<ReadonlyArray<unknown>>>;
 		readonly upserts: Effect.Effect<ReadonlyArray<TranslationOverlayInput>>;
 		readonly quarantine: Effect.Effect<void>;
+		readonly changeContent: Effect.Effect<void>;
+		readonly pinnedPayload: Effect.Effect<TranslateEntityWorkflowPayload>;
+		readonly upgrade: Effect.Effect<void>;
+		readonly registrations: Effect.Effect<ReadonlyArray<string>>;
+		readonly released: Effect.Effect<ReadonlyArray<string>>;
+		readonly startRequest: Effect.Effect<void>;
+		readonly finishRequest: Effect.Effect<void>;
 	}
 >()("test/TranslationEffects") {}
+
+const pinnedPayload = Effect.flatMap(TranslationEffects, (effects) => effects.pinnedPayload);
 
 const dialect = new PgDialect();
 
@@ -63,6 +87,14 @@ const makeServiceLayer = (
 		globalEntity?: boolean;
 		systemPlugin?: boolean;
 		enqueueFailure?: boolean;
+		rootSchemaSlug?: string;
+		selectedKeys?: readonly string[];
+		storedProperties?: Record<string, unknown>;
+		storedName?: string;
+		unsupportedSchema?: boolean;
+		requestState?: "queued" | "succeeded";
+		reusedRetry?: boolean;
+		requestFailure?: boolean;
 	} = {},
 ) =>
 	Layer.unwrap(
@@ -70,19 +102,47 @@ const makeServiceLayer = (
 			const entitySchema = translationManifest().entitySchemas[0];
 			assert(entitySchema);
 			const executions = yield* Ref.make<ReadonlyArray<ExecuteOptions>>([]);
+			const admissions = yield* Ref.make<ReadonlyArray<EnrichmentRequestInput>>([]);
+			const requests = yield* Ref.make<
+				ReadonlyArray<typeof tables.entityEnrichmentRequest.$inferSelect>
+			>([]);
+			const registrations = yield* Ref.make<ReadonlyArray<string>>([]);
+			const released = yield* Ref.make<ReadonlyArray<string>>([]);
 			const installationOwners = yield* Ref.make<ReadonlyArray<ReadonlyArray<unknown>>>([]);
 			const upserts = yield* Ref.make<ReadonlyArray<TranslationOverlayInput>>([]);
 			const quarantined = yield* Ref.make(false);
+			const contentGeneration = yield* Ref.make(1);
+			const basePrincipal = {
+				...execution.principal,
+				metadata: {
+					...execution.principal.metadata,
+					translationInputs: {
+						[options.unsupportedSchema ? "another-record" : payload.entitySchemaSlug]:
+							options.selectedKeys ?? ["title"],
+					},
+				},
+			};
 			const principal = options.systemPlugin
 				? {
-						...execution.principal,
+						...basePrincipal,
 						pluginRevision: {
 							...execution.principal.pluginRevision,
 							ownerId: null,
 							scope: "system" as const,
 						},
 					}
-				: execution.principal;
+				: basePrincipal;
+			const activePrincipal = yield* Ref.make(principal);
+			const upgrade = Ref.set(activePrincipal, {
+				...principal,
+				scriptId: SandboxScriptId.make("upgraded-translation-script"),
+				metadata: { ...principal.metadata, translationInputs: { record: [] } },
+				pluginRevision: {
+					...principal.pluginRevision,
+					revisionId: PluginRevisionId.make("upgraded-translation-revision"),
+					configRevisionId: PluginConfigRevisionId.make("upgraded-translation-config"),
+				},
+			});
 			const sandboxAuthority = {
 				packageId: execution.principal.pluginRevision.packageId,
 				schemaScope: execution.principal.pluginRevision.schemaScope,
@@ -99,6 +159,7 @@ const makeServiceLayer = (
 						const rows = Effect.gen(function* () {
 							if (table === tables.sandboxScript) {
 								const quarantine = yield* Ref.get(quarantined);
+								const current = yield* Ref.get(activePrincipal);
 								return [
 									{
 										kernelSlug: null,
@@ -110,13 +171,13 @@ const makeServiceLayer = (
 										configPayloadPresent: true,
 										installationIsHidden: false,
 										installationDisabledAt: null,
+										metadata: principal.metadata,
 										installationIsInitialized: true,
 										installationUninstalledAt: null,
 										id: execution.principal.scriptId,
 										installationUserId: payload.userId,
 										slug: execution.principal.scriptSlug,
 										pluginId: principal.pluginRevision.id,
-										metadata: execution.principal.metadata,
 										installationId: "existing-installation",
 										activationId: "existing-principal-state",
 										providerId: execution.principal.providerId,
@@ -127,12 +188,12 @@ const makeServiceLayer = (
 										configId: principal.pluginRevision.configRevisionId,
 										configOwnerUserId: principal.pluginRevision.ownerId,
 										pluginPackageId: principal.pluginRevision.packageId,
-										activeRevisionId: principal.pluginRevision.revisionId,
+										activeRevisionId: current.pluginRevision.revisionId,
 										pluginRevisionId: principal.pluginRevision.revisionId,
 										installationHealth: quarantine ? "incompatible" : "ready",
 										configPluginRevisionId: principal.pluginRevision.revisionId,
-										environmentConfigRevisionId: principal.pluginRevision.configRevisionId,
-										installationActiveConfigRevisionId: principal.pluginRevision.configRevisionId,
+										environmentConfigRevisionId: current.pluginRevision.configRevisionId,
+										installationActiveConfigRevisionId: current.pluginRevision.configRevisionId,
 										installationIncompatibilityReason: quarantine
 											? "package-identity-conflict"
 											: null,
@@ -197,7 +258,7 @@ const makeServiceLayer = (
 										slug: "catalog",
 										id: payload.providerId,
 										pluginId: payload.entitySchemaPluginId,
-										rootEntitySchemaSlug: payload.entitySchemaSlug,
+										rootEntitySchemaSlug: options.rootSchemaSlug ?? payload.entitySchemaSlug,
 									},
 								];
 							}
@@ -228,26 +289,34 @@ const makeServiceLayer = (
 			};
 			const database = fakeDatabaseSession(db);
 			const storedEntity = {
-				name: "Record",
 				createdAt: storedAt,
 				updatedAt: storedAt,
 				id: payload.entityId,
+				contentGeneration: 1,
 				populatedAt: storedAt,
-				populationFailure: null,
-				populationFailedAt: null,
 				relatedPopulatedAt: null,
-				relatedPopulationFailure: null,
 				providerId: payload.providerId,
 				externalId: payload.externalId,
-				relatedPopulationFailedAt: null,
-				properties: execution.properties,
+				relatedPopulationStartedAt: null,
+				relatedPopulationGeneration: null,
+				name: options.storedName ?? execution.name,
 				entitySchemaSlug: payload.entitySchemaSlug,
 				entitySchemaPluginId: payload.entitySchemaPluginId,
 				userId: options.globalEntity ? null : payload.userId,
+				properties: options.storedProperties ?? {
+					...execution.properties,
+					largeUnselected: "x".repeat(100_000),
+				},
 			};
 			const repository = Layer.mock(TranslationsRepository)({
-				findEntityById: () => Effect.succeed(storedEntity),
-				findEntityForUser: () => Effect.succeed(storedEntity),
+				findEntityById: () =>
+					Ref.get(contentGeneration).pipe(
+						Effect.map((generation) => ({ ...storedEntity, contentGeneration: generation })),
+					),
+				findEntityForUser: () =>
+					Ref.get(contentGeneration).pipe(
+						Effect.map((generation) => ({ ...storedEntity, contentGeneration: generation })),
+					),
 				upsertOverlay: (input) =>
 					Ref.update(upserts, (all) => [...all, input]).pipe(
 						Effect.as({ entityId: input.entityId, language: input.language }),
@@ -256,17 +325,19 @@ const makeServiceLayer = (
 			const runtime = Layer.mock(PluginRuntimeResolver)({
 				lockCatalog: () => Effect.void,
 				resolveUserTranslateScript: () =>
-					Effect.succeed({
-						slug: "translate",
-						name: "Translate",
-						optionsSchema: null,
-						providerId: payload.providerId,
-						id: execution.principal.scriptId,
-						metadata: execution.principal.metadata,
-						pluginId: payload.entitySchemaPluginId,
-						contentHash: execution.principal.contentHash,
-						pluginRevisionId: execution.principal.pluginRevision.revisionId,
-					}),
+					Ref.get(activePrincipal).pipe(
+						Effect.map((active) => ({
+							slug: "translate",
+							name: "Translate",
+							optionsSchema: null,
+							id: active.scriptId,
+							metadata: active.metadata,
+							providerId: payload.providerId,
+							pluginId: payload.entitySchemaPluginId,
+							contentHash: execution.principal.contentHash,
+							pluginRevisionId: active.pluginRevision.revisionId,
+						})),
+					),
 				findProviderAvailableToUser: () =>
 					Effect.succeed({
 						slug: "catalog",
@@ -275,8 +346,8 @@ const makeServiceLayer = (
 						id: payload.providerId,
 						createdAt: new Date(0),
 						updatedAt: new Date(0),
-						rootEntitySchemaSlug: payload.entitySchemaSlug,
 						information: { source: "Test", canonicalLanguage: "en" },
+						rootEntitySchemaSlug: options.rootSchemaSlug ?? payload.entitySchemaSlug,
 						pluginId: options.foreignProvider ? "foreign-plugin" : payload.entitySchemaPluginId,
 					}),
 				findPluginAvailableToUser: () =>
@@ -315,20 +386,25 @@ const makeServiceLayer = (
 							getResult: () => Effect.die("unused"),
 							executeScript: () => Effect.die("unused"),
 							executeWorkflow: () => Effect.die("unused"),
-							releaseWorkflowRegistration: () => Effect.void,
 							resolveWorkflowScript: () => Effect.die("unused"),
 							enqueuePluginWorkflow: () => Effect.die("unused"),
 							getPluginWorkflowResult: () => Effect.die("unused"),
+							releaseWorkflowRegistration: (id) => Ref.update(released, (all) => [...all, id]),
 							preRegisterPluginWorkflow: (input) =>
 								session
 									.transaction(
-										(input.retain ? input.retain(principal) : Effect.void).pipe(
-											Effect.as({
-												principal,
-												pluginRevision: principal.pluginRevision,
+										Effect.gen(function* () {
+											const current = yield* Ref.get(activePrincipal);
+											if (input.retain) {
+												yield* input.retain(current);
+											}
+											yield* Ref.update(registrations, (all) => [...all, input.executionId]);
+											return {
+												principal: current,
+												pluginRevision: current.pluginRevision,
 												registrationStatus: "registered" as const,
-											}),
-										),
+											};
+										}),
 									)
 									.pipe(
 										Effect.mapError((error) =>
@@ -346,6 +422,30 @@ const makeServiceLayer = (
 					Layer.mergeAll(
 						database,
 						repository,
+						Layer.mock(EnrichmentRequests)({
+							lockTarget: () => Effect.void,
+							get: (id) =>
+								Ref.get(requests).pipe(
+									Effect.map((rows) => rows.find((row) => row.id === id) ?? null),
+								),
+							ensure: (input) =>
+								Effect.gen(function* () {
+									yield* Ref.update(admissions, (all) => [...all, input]);
+									if (options.requestFailure) {
+										return yield* new SandboxRunError({
+											kind: "infrastructure",
+											message: "Admission failed",
+										});
+									}
+									const row = {
+										...translationRequestRow(input),
+										state: options.requestState ?? "queued",
+										id: options.reusedRetry ? "prior-retry" : input.id,
+									} satisfies typeof tables.entityEnrichmentRequest.$inferSelect;
+									yield* Ref.update(requests, (rows) => [...rows, row]);
+									return row;
+								}),
+						}),
 						Layer.mock(DefinitionRepository, {
 							findUserEntitySchemas: () =>
 								Effect.succeed({
@@ -390,10 +490,26 @@ const makeServiceLayer = (
 							}),
 						),
 						Layer.succeed(TranslationEffects, {
+							upgrade,
 							upserts: Ref.get(upserts),
+							released: Ref.get(released),
+							admissions: Ref.get(admissions),
 							executions: Ref.get(executions),
+							registrations: Ref.get(registrations),
 							quarantine: Ref.set(quarantined, true),
 							installationOwners: Ref.get(installationOwners),
+							changeContent: Ref.update(contentGeneration, (generation) => generation + 1),
+							startRequest: Ref.update(requests, (rows) =>
+								rows.map((row) => ({ ...row, state: "running" as const })),
+							),
+							finishRequest: Ref.update(requests, (rows) =>
+								rows.map((row) => ({ ...row, state: "succeeded" as const })),
+							),
+							pinnedPayload: Effect.succeed({
+								...payload,
+								principal,
+								entityScopeUserId: options.globalEntity ? null : payload.entityScopeUserId,
+							}),
 						}),
 					),
 				),
@@ -409,7 +525,7 @@ layer(makeServiceLayer())((test) => {
 			expect(yield* (yield* TranslationEffects).executions).toMatchObject([
 				{
 					discard: true,
-					executionId: "translate-entity-1-es",
+					executionId: translateEntityExecutionId(payload),
 					payload: {
 						providerId: payload.providerId,
 						command: { writeContext: null },
@@ -417,6 +533,13 @@ layer(makeServiceLayer())((test) => {
 					},
 				},
 			]);
+			const [admission] = yield* (yield* TranslationEffects).admissions;
+			expect(admission).toMatchObject({
+				dispatchRoot: true,
+				sourceContentGeneration: 1,
+				scopeUserId: payload.userId,
+			});
+			expect(admission?.payload).not.toHaveProperty("properties");
 		}),
 	);
 });
@@ -427,7 +550,7 @@ layer(makeServiceLayer())((test) => {
 		() =>
 			Effect.gen(function* () {
 				const service = yield* TranslationsService;
-				const captured = yield* service.admitExecution(payload, payload.executionId);
+				const captured = yield* service.admitExecution(yield* pinnedPayload);
 				expect(captured).toEqual(execution);
 				yield* service.upsert(overlay, payload, captured);
 				expect(yield* (yield* TranslationEffects).upserts).toEqual([overlay]);
@@ -445,7 +568,7 @@ layer(makeServiceLayer())((test) => {
 	test.effect("rejects quarantine after execution before overlay commit", () =>
 		Effect.gen(function* () {
 			const service = yield* TranslationsService;
-			const captured = yield* service.admitExecution(payload, payload.executionId);
+			const captured = yield* service.admitExecution(yield* pinnedPayload);
 			yield* (yield* TranslationEffects).quarantine;
 			assertExitFails(
 				yield* Effect.exit(service.upsert(overlay, payload, captured)),
@@ -460,7 +583,7 @@ layer(makeServiceLayer())((test) => {
 	test.effect("rejects committing an overlay to a different entity ID", () =>
 		Effect.gen(function* () {
 			const service = yield* TranslationsService;
-			const captured = yield* service.admitExecution(payload, payload.executionId);
+			const captured = yield* service.admitExecution(yield* pinnedPayload);
 			expect(
 				yield* Effect.exit(
 					service.upsert(
@@ -479,9 +602,7 @@ layer(makeServiceLayer({ foreignProvider: true }))((test) => {
 	test.effect("rejects a foreign same-schema provider at capture", () =>
 		Effect.gen(function* () {
 			assertExitFails(
-				yield* Effect.exit(
-					(yield* TranslationsService).admitExecution(payload, payload.executionId),
-				),
+				yield* Effect.exit((yield* TranslationsService).admitExecution(yield* pinnedPayload)),
 				new SandboxRunError({
 					kind: "invalid-input",
 					message: "Translation entity or provider identity is unavailable",
@@ -504,10 +625,10 @@ layer(makeServiceLayer())((test) => {
 			};
 			expect(
 				yield* Effect.exit(
-					(yield* TranslationsService).admitExecution(
-						{ ...payload, command: { ...payload.command, writeContext: caller } },
-						payload.executionId,
-					),
+					(yield* TranslationsService).admitExecution({
+						...(yield* pinnedPayload),
+						command: { ...payload.command, writeContext: caller },
+					}),
 				),
 			).toSatisfy(Exit.isFailure);
 			expect(yield* (yield* TranslationEffects).upserts).toEqual([]);
@@ -519,9 +640,7 @@ layer(makeServiceLayer({ globalEntity: true }))((test) => {
 	test.effect("rejects a private translation for a global entity", () =>
 		Effect.gen(function* () {
 			expect(
-				yield* Effect.exit(
-					(yield* TranslationsService).admitExecution(payload, payload.executionId),
-				),
+				yield* Effect.exit((yield* TranslationsService).admitExecution(yield* pinnedPayload)),
 			).toSatisfy(Exit.isFailure);
 		}),
 	);
@@ -533,11 +652,12 @@ layer(makeServiceLayer({ globalEntity: true, systemPlugin: true }))((test) => {
 		() =>
 			Effect.gen(function* () {
 				const service = yield* TranslationsService;
-				const captured = yield* service.admitExecution(payload, payload.executionId);
+				const globalPayload = yield* pinnedPayload;
+				const captured = yield* service.admitExecution(globalPayload);
 				expect(captured.entityScopeUserId).toBeNull();
 				expect(captured.principal.pluginRevision?.scope).toBe("system");
 				const negativeOverlay = { ...overlay, name: null, properties: null };
-				yield* service.upsert(negativeOverlay, payload, captured);
+				yield* service.upsert(negativeOverlay, globalPayload, captured);
 				expect(yield* (yield* TranslationEffects).upserts).toEqual([negativeOverlay]);
 			}),
 	);
@@ -551,7 +671,258 @@ layer(makeServiceLayer({ enqueueFailure: true }))((test) => {
 			);
 			expect(
 				(yield* (yield* TranslationEffects).executions).map(({ executionId }) => executionId),
-			).toEqual(["translate-entity-1-es"]);
+			).toEqual([translateEntityExecutionId(payload)]);
+			expect(yield* (yield* TranslationEffects).released).toEqual([]);
+			expect((yield* (yield* TranslationEffects).admissions)[0]?.payload).toMatchObject({
+				principal: execution.principal,
+			});
+		}),
+	);
+});
+
+layer(makeServiceLayer({ rootSchemaSlug: "parent-record" }))((test) => {
+	test.effect("authorizes a declared child schema without requiring the provider root", () =>
+		Effect.gen(function* () {
+			const service = yield* TranslationsService;
+			const captured = yield* service.admitExecution(yield* pinnedPayload);
+			expect(captured.properties).toEqual({ title: "Stored Record" });
+			yield* service.upsert(overlay, payload, captured);
+			expect(yield* (yield* TranslationEffects).upserts).toEqual([overlay]);
+		}),
+	);
+});
+
+layer(makeServiceLayer({ selectedKeys: [] }))((test) => {
+	test.effect("captures no canonical properties for an empty selection", () =>
+		Effect.gen(function* () {
+			const captured = yield* (yield* TranslationsService).admitExecution(yield* pinnedPayload);
+			expect(captured.properties).toEqual({});
+			expect(captured.name).toBe(execution.name);
+			expect(captured.contentGeneration).toBe(1);
+		}),
+	);
+});
+
+layer(makeServiceLayer({ unsupportedSchema: true }))((test) => {
+	test.effect("rejects an undeclared schema even when it is the provider root", () =>
+		Effect.gen(function* () {
+			assertExitFails(
+				yield* Effect.exit((yield* TranslationsService).admitExecution(yield* pinnedPayload)),
+				new SandboxRunError({
+					kind: "invalid-input",
+					message: "Translation entity or provider identity is unavailable",
+				}),
+			);
+		}),
+	);
+});
+
+layer(makeServiceLayer())((test) => {
+	test.effect(
+		"uses a new initial identity for changed canonical content and account generations",
+		() =>
+			Effect.gen(function* () {
+				const service = yield* TranslationsService;
+				const effects = yield* TranslationEffects;
+				expect(yield* service.requestFill(payload)).toBe(true);
+				yield* effects.changeContent;
+				expect(yield* service.requestFill(payload)).toBe(true);
+				expect(
+					yield* service.requestFill({
+						...payload,
+						accountGeneration: { ...payload.accountGeneration, token: "new-generation" },
+					}),
+				).toBe(true);
+				const ids = (yield* effects.executions).map(({ executionId }) => executionId);
+				expect(new Set(ids).size).toBe(3);
+				expect(
+					(yield* effects.admissions).map(({ sourceContentGeneration }) => sourceContentGeneration),
+				).toEqual([1, 2, 2]);
+			}),
+	);
+
+	test.effect("admits a manual retry as fresh work and links its predecessor", () =>
+		Effect.gen(function* () {
+			const accepted = yield* (yield* TranslationsService).requestFill({
+				...payload,
+				retryOf: "failed-request",
+			});
+			expect(accepted).toBe(true);
+			const admission = (yield* (yield* TranslationEffects).admissions).find(
+				({ retryOf }) => retryOf === "failed-request",
+			);
+			expect(admission).toMatchObject({ dispatchRoot: true, retryOf: "failed-request" });
+			expect(admission?.id).not.toBe(translateEntityExecutionId(payload));
+		}),
+	);
+});
+
+layer(makeServiceLayer())((test) => {
+	test.effect(
+		"captures queued recovery and repeated capture attempts from the admitted historical pin",
+		() =>
+			Effect.gen(function* () {
+				const service = yield* TranslationsService;
+				const effects = yield* TranslationEffects;
+				yield* service.requestFill(payload);
+				const [admission] = yield* effects.admissions;
+				assert(admission);
+				const queued = yield* Schema.decodeUnknownEffect(TranslateEntityWorkflowPayload)(
+					admission.payload,
+				);
+				yield* effects.upgrade;
+				expect(yield* service.requestFill(payload)).toBe(false);
+				const recovered = yield* service.admitExecution(queued);
+				const retried = yield* service.admitExecution(queued);
+				expect(recovered).toEqual(execution);
+				expect(retried).toEqual(recovered);
+				expect(retried.principal.pluginRevision?.configRevisionId).toBe(
+					execution.principal.pluginRevision.configRevisionId,
+				);
+				yield* service.upsert(overlay, queued, retried);
+				expect(yield* effects.registrations).toEqual([queued.executionId]);
+				expect(yield* effects.released).toEqual([]);
+				yield* effects.changeContent;
+				yield* service.requestFill(payload);
+				expect((yield* effects.admissions).at(-1)?.payload).toMatchObject({
+					principal: {
+						scriptId: "upgraded-translation-script",
+						pluginRevision: {
+							revisionId: "upgraded-translation-revision",
+							configRevisionId: "upgraded-translation-config",
+						},
+					},
+				});
+			}),
+	);
+});
+
+layer(makeServiceLayer())((test) => {
+	test.effect("does not allocate another pin for a known queued request", () =>
+		Effect.gen(function* () {
+			const service = yield* TranslationsService;
+			const effects = yield* TranslationEffects;
+			expect(yield* service.requestFill(payload)).toBe(true);
+			expect(yield* service.requestFill(payload)).toBe(false);
+			yield* effects.startRequest;
+			expect(yield* service.requestFill(payload)).toBe(false);
+			expect(yield* effects.registrations).toHaveLength(1);
+			expect(yield* effects.admissions).toHaveLength(1);
+			expect(yield* effects.executions).toHaveLength(1);
+			expect(yield* effects.released).toEqual([]);
+		}),
+	);
+});
+
+layer(makeServiceLayer({ requestFailure: true }))((test) => {
+	test.effect("does not register a pin when request admission fails", () =>
+		Effect.gen(function* () {
+			assertExitFails(
+				yield* Effect.exit((yield* TranslationsService).requestFill(payload)),
+				new SandboxRunError({ kind: "infrastructure", message: "Admission failed" }),
+			);
+			const effects = yield* TranslationEffects;
+			expect(yield* effects.released).toEqual(yield* effects.registrations);
+			expect(yield* effects.registrations).toEqual([]);
+			expect(yield* effects.executions).toEqual([]);
+		}),
+	);
+});
+
+layer(makeServiceLayer())((test) => {
+	test.effect("does not allocate another pin for a known terminal initial request", () =>
+		Effect.gen(function* () {
+			const service = yield* TranslationsService;
+			const effects = yield* TranslationEffects;
+			expect(yield* service.requestFill(payload)).toBe(true);
+			yield* effects.finishRequest;
+			expect(yield* service.requestFill(payload)).toBe(false);
+			expect(yield* effects.registrations).toHaveLength(1);
+			expect(yield* effects.released).toEqual([]);
+			expect(yield* effects.admissions).toHaveLength(1);
+		}),
+	);
+});
+
+for (const options of [{ requestState: "succeeded" as const }, { reusedRetry: true }]) {
+	layer(makeServiceLayer(options))((test) => {
+		test.effect("does not dispatch terminal or reused retry admissions", () =>
+			Effect.gen(function* () {
+				expect(
+					yield* (yield* TranslationsService).requestFill({
+						...payload,
+						retryOf: "failed-request",
+					}),
+				).toBe(false);
+				expect(yield* (yield* TranslationEffects).executions).toEqual([]);
+				const effects = yield* TranslationEffects;
+				expect(yield* effects.released).toEqual(yield* effects.registrations);
+				expect(yield* effects.registrations).toEqual([]);
+			}),
+		);
+	});
+}
+
+layer(makeServiceLayer({ storedProperties: {} }))((test) => {
+	test.effect("fails closed when a selected canonical field is missing", () =>
+		Effect.gen(function* () {
+			expect(yield* (yield* TranslationsService).requestFill(payload)).toBe(true);
+			assertExitFails(
+				yield* Effect.exit((yield* TranslationsService).admitExecution(yield* pinnedPayload)),
+				new SandboxRunError({
+					kind: "invalid-input",
+					message: "Translation input property 'title' is unavailable",
+				}),
+			);
+			expect(yield* (yield* TranslationEffects).admissions).toHaveLength(1);
+		}),
+	);
+});
+
+layer(makeServiceLayer({ storedProperties: { title: "x".repeat(65_450) } }))((test) => {
+	test.effect("bounds the full translation context before capturing execution", () =>
+		Effect.gen(function* () {
+			expect(yield* (yield* TranslationsService).requestFill(payload)).toBe(true);
+			const failure = yield* (yield* TranslationsService)
+				.admitExecution(yield* pinnedPayload)
+				.pipe(Effect.flip);
+			expect(failure.message).toContain("exceeds 65536 UTF-8 bytes");
+		}),
+	);
+});
+
+layer(makeServiceLayer({ selectedKeys: [], storedName: "x".repeat(65_536) }))((test) => {
+	test.effect("tracks an oversized canonical name only after queue admission", () =>
+		Effect.gen(function* () {
+			expect(yield* (yield* TranslationsService).requestFill(payload)).toBe(true);
+			const failure = yield* (yield* TranslationsService)
+				.admitExecution(yield* pinnedPayload)
+				.pipe(Effect.flip);
+			expect(failure).toMatchObject({ kind: "invalid-input" });
+			expect(failure.message).toContain("exceeds 65536 UTF-8 bytes");
+			const [admitted] = yield* (yield* TranslationEffects).admissions;
+			expect(admitted).toBeDefined();
+			expect(admitted?.payload).not.toHaveProperty("name");
+		}),
+	);
+});
+
+layer(makeServiceLayer())((test) => {
+	test.effect("rejects stale content without writing a success or negative-cache overlay", () =>
+		Effect.gen(function* () {
+			const service = yield* TranslationsService;
+			const captured = yield* service.admitExecution(yield* pinnedPayload);
+			yield* (yield* TranslationEffects).changeContent;
+			for (const input of [overlay, { ...overlay, name: null, properties: null }]) {
+				assertExitFails(
+					yield* Effect.exit(service.upsert(input, payload, captured)),
+					new SandboxRunError({
+						kind: "invalid-input",
+						message: "Translation source content changed before commit",
+					}),
+				);
+			}
+			expect(yield* (yield* TranslationEffects).upserts).toEqual([]);
 		}),
 	);
 });
@@ -560,7 +931,7 @@ layer(makeServiceLayer({ assetOwnerUserId: "foreign-user" }))((test) => {
 	test.effect("rejects a translation that references another user's managed asset", () =>
 		Effect.gen(function* () {
 			const service = yield* TranslationsService;
-			const captured = yield* service.admitExecution(payload, payload.executionId);
+			const captured = yield* service.admitExecution(yield* pinnedPayload);
 			assertExitFails(
 				yield* Effect.exit(service.upsert(assetOverlay, payload, captured)),
 				new SandboxRunError({
@@ -578,9 +949,10 @@ layer(makeServiceLayer({ globalEntity: true, systemPlugin: true }))((test) => {
 	test.effect("rejects a global-entity translation that references a user's own asset", () =>
 		Effect.gen(function* () {
 			const service = yield* TranslationsService;
-			const captured = yield* service.admitExecution(payload, payload.executionId);
+			const globalPayload = yield* pinnedPayload;
+			const captured = yield* service.admitExecution(globalPayload);
 			assertExitFails(
-				yield* Effect.exit(service.upsert(assetOverlay, payload, captured)),
+				yield* Effect.exit(service.upsert(assetOverlay, globalPayload, captured)),
 				new SandboxRunError({
 					kind: "invalid-input",
 					data: { code: "asset-forbidden" },

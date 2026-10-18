@@ -69,6 +69,8 @@ Client page compositions are derived from restored compiled artifacts and curren
 
 Private plugin backups contain no authoring source. Only manifest configuration and integration settings fields may be redacted. Managed assets use content-addressed locators.
 
+Account restore retains canonical entity data, relationships, and translation overlays, but enrichment request and workflow state is runtime state and is not included. Restored translation overlays bind their `sourceContentGeneration` to the destination entity's current canonical content generation, so restore does not carry a source generation from another database. Restored dependencies have no related-completion stamp; foreground interest rechecks them lazily. The archive version and layout are unchanged.
+
 A restore target is clean only when every existing entity looks bootstrap-created: no provider, no external ID, and at most one such entity per entity schema, which is what a user-bootstrap ensure produces. Archived bootstrap entities match destination rows by schema and plugin ownership, never by name or initial properties. Every archived entity schema must exist in the current kernel or declared-plugin definition snapshot.
 
 ## Failure Contract

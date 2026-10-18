@@ -86,14 +86,18 @@ const providerScriptFields = {
 const providerScript = (
 	providerSlug: string,
 	providerOperation: "details" | "resolve" | "search-options" | "translate",
-) => ({
-	...providerScriptFields,
-	providerSlug,
-	providerOperation,
-	name: providerOperation,
-	slug: `${providerSlug}.${providerOperation}`,
-	entry: `backend/${providerSlug}-${providerOperation}.sandbox.ts`,
-});
+) => {
+	const common = {
+		...providerScriptFields,
+		providerSlug,
+		name: providerOperation,
+		slug: `${providerSlug}.${providerOperation}`,
+		entry: `backend/${providerSlug}-${providerOperation}.sandbox.ts`,
+	};
+	return providerOperation === "translate"
+		? { ...common, providerOperation, translationInputs: { "multi-entity": [] } }
+		: { ...common, providerOperation };
+};
 
 const multiProvider = (slug: string) => ({
 	slug,

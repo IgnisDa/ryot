@@ -20,13 +20,13 @@ export const groupSummaryRow = {
 	isInMediaLibrary: true,
 	completedMemberCount: 2,
 	schemaSlug: "movie-group",
-	populationStatus: "ready",
-	translationStatus: "none",
 	name: "The Matrix Collection",
-	relatedPopulationStatus: "ready",
 	description: "Humanity against the machines.",
 	sourceUrl: "https://tmdb.test/collection/2344",
+	translationStatus: { state: "idle", availability: "none" },
+	populationStatus: { state: "succeeded", availability: "complete" },
 	collections: { items: [], pageInfo: { limit: 6, hasMore: false } },
+	relatedPopulationStatus: { state: "succeeded", availability: "complete" },
 	memberImages: [{ type: "remote", purpose: "cover", url: "https://images.test/matrix.jpg" }],
 };
 
@@ -64,9 +64,9 @@ export const groupMemberRow = (overrides: Record<string, unknown>) => ({
 	progressPercent: null,
 	schemaSlug: "fixture",
 	productionStatus: null,
-	populationStatus: "ready",
-	translationStatus: "none",
-	relatedPopulationStatus: "ready",
+	translationStatus: { state: "idle", availability: "none" },
+	populationStatus: { state: "succeeded", availability: "complete" },
+	relatedPopulationStatus: { state: "succeeded", availability: "complete" },
 	...overrides,
 });
 
@@ -91,10 +91,10 @@ export const groupArtistCreditRow = {
 	id: "person-1",
 	roles: ["Artist"],
 	name: "Nina Simone",
-	populationStatus: "ready",
-	translationStatus: "none",
-	relatedPopulationStatus: "ready",
 	images: [{ type: "s3", key: "nina", purpose: "profile" }],
+	translationStatus: { state: "idle", availability: "none" },
+	populationStatus: { state: "succeeded", availability: "complete" },
+	relatedPopulationStatus: { state: "succeeded", availability: "complete" },
 };
 
 export const groupLabelCreditRow = {
@@ -102,10 +102,10 @@ export const groupLabelCreditRow = {
 	name: "Verve",
 	id: "company-1",
 	roles: ["Label"],
-	populationStatus: "ready",
-	translationStatus: "none",
-	relatedPopulationStatus: "ready",
 	images: [{ type: "s3", key: "verve", purpose: "logo" }],
+	translationStatus: { state: "idle", availability: "none" },
+	populationStatus: { state: "succeeded", availability: "complete" },
+	relatedPopulationStatus: { state: "succeeded", availability: "complete" },
 };
 
 export const decodeCreditGroupOverviewOf = <Overview>(recipes: {

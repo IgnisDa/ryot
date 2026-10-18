@@ -13,9 +13,9 @@ const mediaRow = (id: string) => ({
 	images: null,
 	name: `Media ${id}`,
 	schemaSlug: "movie",
-	populationStatus: "ready",
-	translationStatus: "none",
-	relatedPopulationStatus: "ready",
+	translationStatus: { state: "idle", availability: "none" },
+	populationStatus: { state: "succeeded", availability: "complete" },
+	relatedPopulationStatus: { state: "succeeded", availability: "complete" },
 });
 
 const page = (items: readonly unknown[], limit: number) =>

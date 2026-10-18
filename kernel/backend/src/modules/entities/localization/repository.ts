@@ -1,6 +1,6 @@
 import { DbError } from "@ryot-app/contract/errors";
 import { EntityId, type UserId } from "@ryot-app/contract/schema/brands";
-import { and, asc, eq, inArray, sql } from "drizzle-orm";
+import { and, asc, eq, getTableColumns, inArray, sql } from "drizzle-orm";
 import { Context, Effect, Layer } from "effect";
 
 import { AuthRepository } from "#modules/accounts/auth/repository";
@@ -14,6 +14,7 @@ export type TranslationOverlayInput = {
 	entityId: EntityId;
 	name: string | null;
 	properties: Record<string, unknown> | null;
+	sourceContentGeneration: number;
 };
 
 export class TranslationsRepository extends Context.Service<TranslationsRepository>()(
@@ -60,8 +61,18 @@ export class TranslationsRepository extends Context.Service<TranslationsReposito
 				}
 				return yield* session.run((db) =>
 					db
-						.select()
+						.select(getTableColumns(schema.entityTranslation))
 						.from(schema.entityTranslation)
+						.innerJoin(
+							schema.entity,
+							and(
+								eq(schema.entity.id, schema.entityTranslation.entityId),
+								eq(
+									schema.entity.contentGeneration,
+									schema.entityTranslation.sourceContentGeneration,
+								),
+							),
+						)
 						.where(inArray(schema.entityTranslation.entityId, [...entityIds]))
 						.orderBy(
 							asc(schema.entityTranslation.entityId),
@@ -82,6 +93,7 @@ export class TranslationsRepository extends Context.Service<TranslationsReposito
 							language: input.language,
 							properties: input.properties,
 							populatedAt: input.populatedAt,
+							sourceContentGeneration: input.sourceContentGeneration,
 						})
 						.onConflictDoUpdate({
 							target: [schema.entityTranslation.entityId, schema.entityTranslation.language],
@@ -90,6 +102,7 @@ export class TranslationsRepository extends Context.Service<TranslationsReposito
 								name: sql`excluded.name`,
 								properties: sql`excluded.properties`,
 								populatedAt: sql`excluded.populated_at`,
+								sourceContentGeneration: sql`excluded.source_content_generation`,
 							},
 						})
 						.returning({

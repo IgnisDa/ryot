@@ -31,9 +31,9 @@ const reference = (
 	entityId,
 	ownerPluginId: "owner",
 	entitySchemaSlug: "item",
-	populationStatus: "ready",
 	name: `Entity ${entityId}`,
-	translationStatus: "ready",
+	populationStatus: { state: "succeeded", availability: "complete" },
+	translationStatus: { state: "succeeded", availability: "complete" },
 	...overrides,
 });
 
@@ -379,8 +379,8 @@ describe("EntityResults", () => {
 			Effect.gen(function* () {
 				const requests: (readonly EntityReference[])[] = [];
 				const failed = reference("one", {
-					populationStatus: "failed",
-					translationStatus: "failed",
+					populationStatus: { state: "failed", availability: "missing" },
+					translationStatus: { state: "failed", availability: "missing" },
 				});
 				const registration: EntityPresentationRegistration = {
 					layout: "grid",
@@ -831,7 +831,7 @@ describe("EntityResults", () => {
 			const fallback = reference("fallback", {
 				ownerPluginId: null,
 				name: "Fallback name",
-				populationStatus: "pending",
+				populationStatus: { state: "queued", availability: "missing" },
 			});
 			const { clock, container } = render([], gridFor([fallback]));
 			yield* flush(clock);

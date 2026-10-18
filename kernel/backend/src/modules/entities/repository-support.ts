@@ -1,4 +1,4 @@
-import type { SandboxScriptId, UserId } from "@ryot-app/contract/schema/brands";
+import type { UserId } from "@ryot-app/contract/schema/brands";
 import {
 	EntityId,
 	EntitySchemaSlug,
@@ -37,12 +37,6 @@ export type EntityScope = {
 	readonly entityId: EntityId;
 	readonly isBuiltin: boolean;
 	readonly entityUserId: UserId | null;
-	readonly entitySchemaSlug: EntitySchemaSlug;
-};
-
-export type EntitySchemaProviderDetailsScope = {
-	readonly providerId: SandboxProviderId;
-	readonly detailsScriptId: SandboxScriptId;
 	readonly entitySchemaSlug: EntitySchemaSlug;
 };
 

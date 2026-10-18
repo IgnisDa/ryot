@@ -136,11 +136,11 @@ const presentationData = (overrides: Record<string, unknown> = {}) => {
 		progressPercent: 42,
 		state: "in_progress",
 		schemaSlug: "fixture",
-		populationStatus: "ready",
-		translationStatus: "none",
 		productionStatus: "Released",
-		relatedPopulationStatus: "ready",
+		translationStatus: { state: "idle", availability: "none" },
 		image: { type: "remote", url: "https://images.test/fc.jpg" },
+		populationStatus: { state: "succeeded", availability: "complete" },
+		relatedPopulationStatus: { state: "succeeded", availability: "complete" },
 		...overrides,
 	});
 	if (decoded._tag === "Failure") {
@@ -249,30 +249,70 @@ describe("flat media detail screen", () => {
 	it.live("reports a failed population and asks the kernel to retry it", () =>
 		Effect.gen(function* () {
 			const retries: unknown[] = [];
-			const { unmount, container } = renderBody(readyState({ populationStatus: "failed" }), {
-				adapter: {
-					...noopAdapter,
-					retryPopulation: (request) =>
-						Effect.sync(() => {
-							retries.push(request);
-							return { retried: true };
-						}),
+			const { unmount, container } = renderBody(
+				readyState({ populationStatus: { state: "failed", availability: "missing" } }),
+				{
+					adapter: {
+						...noopAdapter,
+						retryPopulation: (request) =>
+							Effect.sync(() => {
+								retries.push(request);
+								return { retried: true };
+							}),
+					},
 				},
-			});
+			);
 
 			expect(getByRole(container, "alert").textContent).toBe("Couldn't load details from TMDB.");
 			clickRyotElement(getByRole(container, "button", { name: "Try again" }));
 
 			yield* Effect.promise(() =>
-				waitFor(() => expect(retries).toEqual([{ entityId: "media-1", pluginId: "media-owner" }])),
+				waitFor(() =>
+					expect(retries).toEqual([
+						{ entityId: "media-1", pluginId: "media-owner", operation: "population" },
+					]),
+				),
+			);
+			unmount();
+		}),
+	);
+
+	it.live("keeps canonical text on translation failure and forwards a translation retry", () =>
+		Effect.gen(function* () {
+			const retries: unknown[] = [];
+			const { unmount, container } = renderBody(
+				readyState({ translationStatus: { state: "failed", availability: "missing" } }),
+				{
+					adapter: {
+						...noopAdapter,
+						retryPopulation: (request) =>
+							Effect.sync(() => {
+								retries.push(request);
+								return { retried: true };
+							}),
+					},
+				},
+			);
+			expect(container.textContent).toContain("Translation failed. Showing available text.");
+			expect(container.textContent).toContain(flatSummaryRow.name);
+			expect(container.textContent).not.toContain("Translating...");
+			clickRyotElement(getByRole(container, "button", { name: "Retry translation" }));
+			yield* Effect.promise(() =>
+				waitFor(() =>
+					expect(retries).toEqual([
+						{ entityId: "media-1", pluginId: "media-owner", operation: "translation" },
+					]),
+				),
 			);
 			unmount();
 		}),
 	);
 
 	it("shows no population failure while the details are ready or pending", () => {
-		for (const populationStatus of ["ready", "pending"]) {
-			const { unmount, container } = renderBody(readyState({ populationStatus }));
+		for (const state of ["succeeded", "running"] as const) {
+			const { unmount, container } = renderBody(
+				readyState({ populationStatus: { state, availability: "partial" } }),
+			);
 			expect(container.textContent).not.toContain("Couldn't load details");
 			unmount();
 		}
@@ -350,49 +390,63 @@ describe("flat media detail screen", () => {
 });
 
 describe("flat media overview", () => {
-	it("holds the related sections on their loading notice while the related level is pending", () => {
-		const pending = renderBody(readyState({ relatedPopulationStatus: "pending" }));
+	it("keeps partial related data beside its progress notice", () => {
+		const pending = renderBody(
+			readyState({ relatedPopulationStatus: { state: "running", availability: "partial" } }),
+		);
 		expect(pending.container.textContent).toContain("Loading details...");
 		expect(pending.container.textContent).toContain("Fetching the credits for this item.");
-		expect(pending.container.textContent).not.toContain(flatPersonRow.name);
-		expect(pending.container.textContent).not.toContain(`Part of ${flatGroupRow.name}`);
+		expect(pending.container.textContent).toContain(flatPersonRow.name);
+		expect(pending.container.textContent).toContain(`Part of ${flatGroupRow.name}`);
 		pending.unmount();
 
 		const emptyOverview = overviewOf({ group: [], people: [], companies: [], recommendations: [] });
-		const pendingEmpty = renderBody(readyState({ relatedPopulationStatus: "pending" }), {
-			overview: emptyOverview,
-		});
+		const pendingEmpty = renderBody(
+			readyState({ relatedPopulationStatus: { state: "queued", availability: "missing" } }),
+			{ overview: emptyOverview },
+		);
 		expect(pendingEmpty.container.textContent).toContain("Loading details...");
 		pendingEmpty.unmount();
 
 		const failedBase = renderBody(
-			readyState({ populationStatus: "failed", relatedPopulationStatus: "pending" }),
+			readyState({
+				populationStatus: { state: "failed", availability: "missing" },
+				relatedPopulationStatus: { state: "queued", availability: "missing" },
+			}),
 		);
-		expect(failedBase.container.textContent).not.toContain("Loading details...");
+		expect(failedBase.container.textContent).toContain("Loading details...");
+		expect(failedBase.container.textContent).toContain(flatPersonRow.name);
 		failedBase.unmount();
 	});
 
 	it.live("reports a failed related level and retries it through the kernel", () =>
 		Effect.gen(function* () {
 			const retries: unknown[] = [];
-			const { unmount, container } = renderBody(readyState({ relatedPopulationStatus: "failed" }), {
-				adapter: {
-					...noopAdapter,
-					retryPopulation: (request) =>
-						Effect.sync(() => {
-							retries.push(request);
-							return { retried: true };
-						}),
+			const { unmount, container } = renderBody(
+				readyState({ relatedPopulationStatus: { state: "failed", availability: "partial" } }),
+				{
+					adapter: {
+						...noopAdapter,
+						retryPopulation: (request) =>
+							Effect.sync(() => {
+								retries.push(request);
+								return { retried: true };
+							}),
+					},
 				},
-			});
+			);
 
 			expect(container.textContent).toContain("Couldn't load");
-			expect(container.textContent).not.toContain(flatPersonRow.name);
+			expect(container.textContent).toContain(flatPersonRow.name);
 			expect(container.textContent).not.toContain("Couldn't load details from");
 			clickRyotElement(getByRole(container, "button", { name: "Try again" }));
 
 			yield* Effect.promise(() =>
-				waitFor(() => expect(retries).toEqual([{ entityId: "media-1", pluginId: "media-owner" }])),
+				waitFor(() =>
+					expect(retries).toEqual([
+						{ entityId: "media-1", pluginId: "media-owner", operation: "population" },
+					]),
+				),
 			);
 			unmount();
 		}),

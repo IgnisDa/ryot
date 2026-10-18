@@ -262,6 +262,11 @@ BEGIN
 
 	UPDATE "entity" existing
 	SET
+		"content_generation" = existing."content_generation" + CASE
+			WHEN existing."name" IS DISTINCT FROM node.name
+				OR existing."properties" IS DISTINCT FROM node.properties THEN 1
+			ELSE 0
+		END,
 		"name" = node.name,
 		"properties" = node.properties,
 		"populated_at" = NOW(),

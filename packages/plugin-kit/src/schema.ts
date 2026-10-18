@@ -6,7 +6,7 @@ export {
 	PluginPackageId,
 } from "@ryot-app/contract/schema/brands";
 export { PluginIdentityReference } from "@ryot-app/contract/modules/plugins/references";
-export { PopulationStatus, TranslationStatus } from "@ryot-app/contract/modules/entities/schemas";
+export { EnrichmentState } from "@ryot-app/contract/modules/entities/schemas";
 export {
 	LocalAssetLocator,
 	RemoteAssetLocator,

@@ -176,7 +176,7 @@ layer(
 		sessionUsers: { "owner-session": "owner", "other-session": "other" },
 	}),
 )((test) => {
-	test.effect("routes scoped projection updates to the owning user's session", () =>
+	test.effect("routes scoped projection and enrichment updates only to the owning user", () =>
 		Effect.gen(function* () {
 			const sessions = yield* LocalInterestSessions;
 			const interestSubscriber = yield* EntityWatchSubscriber;
@@ -185,16 +185,15 @@ layer(
 			yield* sessions.add("owner-session", (frame) => ownerFrames.push(frame));
 			yield* sessions.add("other-session", (frame) => otherFrames.push(frame));
 
-			yield* interestSubscriber.dispatch(
-				encodeEntityUpdatedMessage(
-					EntityId.make("global-entity"),
-					"projection-updated",
-					UserId.make("owner"),
-				),
-			);
+			for (const reason of ["projection-updated", "enrichment-updated"] as const) {
+				yield* interestSubscriber.dispatch(
+					encodeEntityUpdatedMessage(EntityId.make("global-entity"), reason, UserId.make("owner")),
+				);
+			}
 
 			expect(ownerFrames).toEqual([
 				{ type: "entity-updated", entityId: "global-entity", reason: "projection-updated" },
+				{ type: "entity-updated", entityId: "global-entity", reason: "enrichment-updated" },
 			]);
 			expect(otherFrames).toEqual([]);
 			expect(yield* (yield* FakeSubscriberDependencies).progressed).toEqual([]);

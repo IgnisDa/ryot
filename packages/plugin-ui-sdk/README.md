@@ -135,6 +135,9 @@ right axis. Root theme variables also apply to portaled tooltips.
 
 `fieldSyncState` returns `ready`, `pending`, `failed`, or `absent` from a selected value and entity
 sync state. Present values are always ready; status matters only when a selected value is missing.
+Sync fields use the shared `{ availability, state }` contract. `isEnrichmentActive` is true only for
+queued, running, or retrying work. Missing idle values are absent, not loading. `isTitleProvisional`
+uses active translation work; failed translation leaves canonical text usable without a progress pip.
 `EntityArtWell` shows a plain monogram, without pip or shimmer, for `failed`, and failed items are not
 counted as populating.
 

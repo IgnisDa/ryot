@@ -207,16 +207,15 @@ describe("exercise.free-exercise-db sandbox script", () => {
 		);
 	});
 
-	it("keeps an existing exercise kind when returning details", () => {
-		const { host } = makeStatefulHost();
+	it("returns the source exercise kind when the source classification changes", () => {
+		const { host } = makeStatefulHost(
+			{},
+			dataset.map((exercise) => ({ ...exercise, category: "cardio" })),
+		);
 		return Effect.runPromise(
 			Effect.gen(function* () {
-				const result = yield* details.run(
-					{ externalId: "Bench Press", existingProperties: { kind: "reps" } },
-					host,
-					execution,
-				);
-				expect(result.properties.kind).toBe("reps");
+				const result = yield* details.run({ externalId: "Bench Press" }, host, execution);
+				expect(result.properties.kind).toBe("distance_and_duration");
 			}),
 		);
 	});

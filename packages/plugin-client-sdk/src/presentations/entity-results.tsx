@@ -1,8 +1,8 @@
+import type { EntitySyncState } from "@ryot-app/contract/modules/entities/schemas";
 import type { JsonValue } from "@ryot-app/contract/schema/json";
 import { Button, resultsLayoutClasses, StatusMessage } from "@ryot-app/plugin-ui-sdk";
 import {
 	EntityArtWell,
-	type EntitySyncState,
 	fieldSyncState,
 	isTitleProvisional,
 	SettleHighlight,
