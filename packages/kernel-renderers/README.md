@@ -1,7 +1,7 @@
 # Kernel Renderers
 
 The saved-view and collection renderers the kernel ships: `entity-browser`, `collection-browser`,
-`results-table`, and `collection-detail`. They are ordinary
+`results-table`, `calendar`, and `collection-detail`. They are ordinary
 client-plugin sources — typechecked, formatted, linted, and unit-tested here — not string literals
 embedded in backend code.
 
@@ -73,3 +73,21 @@ reads `now` from the Effect clock for relative-date rules.
 Collection detail builds its fields in `collectionMemberFilterFields`: Type (from the loaded member
 groups), Also in collection, and one `membership.<key>` field per supported membership property.
 With no search or filter applied the controller shows the known total instead of offering Count all.
+
+## Calendar
+
+The calendar renders the kernel `calendar` saved view over every effective calendar source that
+installed plugins contribute. `calendarSourcesRecipe` lists the sources with their plugin name and
+hidden state; each visible source then loads through its own `calendarOccurrencesPageRecipe`
+document under one kernel-generated query name, paging 100 rows at a time up to 1,000 per source per
+month. A failing source shows its own error and a capped source a truncation notice; the others keep
+rendering. Date sources are bounded by UTC calendar dates and grouped by their UTC date; instant
+sources are bounded by the viewer's local month and grouped by local day.
+
+Rows are kernel-owned rather than entity presentations, because one subject can occur many times in
+a month. A row shows the decoded `art` locator, or an icon tile in the source's group colour, with
+the subject name, caption, time (blank for date-only), and done mark, and links to the subject.
+`month=YYYY-MM` and `layout=month` live in the URL. Source chips (or the compact Sources sheet) call
+`calendarSources.setVisibility`, then refetch the sources; the server persists the hidden state.
+The renderer display name is `CALENDAR_KERNEL_RENDERER_DISPLAY_NAME` from the contract, which the
+kernel host compares to gate that capability, so kernel renderer display names must stay unique.

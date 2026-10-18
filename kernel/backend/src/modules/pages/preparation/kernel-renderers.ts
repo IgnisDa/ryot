@@ -1,4 +1,5 @@
 import {
+	kernelCalendarRenderer,
 	kernelCollectionBrowserRenderer,
 	kernelCollectionDetailRenderer,
 	kernelEntityBrowserRenderer,
@@ -8,6 +9,7 @@ import {
 type KernelClientRenderer = typeof kernelEntityBrowserRenderer;
 
 const kernelRenderers = new Map<string, KernelClientRenderer>([
+	["calendar", kernelCalendarRenderer],
 	["collection-browser", kernelCollectionBrowserRenderer],
 	["entity-browser", kernelEntityBrowserRenderer],
 	["results-table", kernelResultsTableRenderer],
