@@ -62,6 +62,28 @@ const invalid = (message: string): EntityEditorSaveOutput => ({ message, kind: "
 const stale: EntityEditorSaveOutput = { kind: "stale" };
 const noWarnings: ReadonlyArray<AutomationWarning> = [];
 
+const relationshipBasis = (
+	rows: ReadonlyArray<{
+		readonly relationshipSchemaSlug: string;
+		readonly targetEntityId: string;
+		readonly properties: unknown;
+	}>,
+) =>
+	stableStringify(
+		rows
+			.map((row) => [row.relationshipSchemaSlug, row.targetEntityId, row.properties])
+			.sort((left, right) => stableStringify(left).localeCompare(stableStringify(right))),
+	);
+
+const relationshipRows = (groups: EntityEditorSubmission["relationships"]) =>
+	groups.flatMap(({ targets, relationshipSchemaSlug }) =>
+		targets.map(({ entityId, properties }) => ({
+			properties,
+			relationshipSchemaSlug,
+			targetEntityId: entityId,
+		})),
+	);
+
 const itemCommand = (
 	command: DomainLifecycleCommand,
 	identity: string,
@@ -186,6 +208,25 @@ export class EntityEditorService extends Context.Service<EntityEditorService>()(
 					(total, { targets }) => total + targets.length,
 					0,
 				);
+				if (submission.target.kind === "update") {
+					const expected = submission.target.expected.relationships;
+					if (
+						stableStringify(
+							expected.map(({ relationshipSchemaSlug }) => relationshipSchemaSlug).sort(),
+						) !== stableStringify([...slugs].sort()) ||
+						expected.some(
+							({ targets }) =>
+								new Set(targets.map(({ entityId }) => entityId)).size !== targets.length,
+						)
+					) {
+						return {
+							warnings: noWarnings,
+							output: invalid(
+								"Relationship baselines must match the submitted schemas without duplicate targets",
+							),
+						};
+					}
+				}
 				if (
 					new Set(slugs).size !== slugs.length ||
 					submission.relationships.some(
@@ -244,8 +285,12 @@ export class EntityEditorService extends Context.Service<EntityEditorService>()(
 							? { kind: "create" }
 							: {
 									kind: "update",
-									expected: submission.target.expected,
 									entityId: EntityId.make(submission.target.entityId),
+									expected: {
+										name: submission.target.expected.name,
+										updatedAt: submission.target.expected.updatedAt,
+										properties: submission.target.expected.properties,
+									},
 								},
 				});
 				const currentRelationships = (lock: boolean) =>
@@ -258,12 +303,14 @@ export class EntityEditorService extends Context.Service<EntityEditorService>()(
 								sourceEntityId: prepared.entityId,
 								relationshipSchemaSlugs: relationshipSlugs,
 							});
-				const basisOf = (rows: Effect.Success<ReturnType<typeof currentRelationships>>) =>
-					stableStringify(
-						rows.map((row) => [row.relationshipSchemaSlug, row.targetEntityId, row.properties]),
-					);
 				const current = yield* currentRelationships(false);
-				const basis = basisOf(current);
+				const basis = relationshipBasis(current);
+				if (
+					submission.target.kind === "update" &&
+					basis !== relationshipBasis(relationshipRows(submission.target.expected.relationships))
+				) {
+					return { output: stale, warnings: noWarnings };
+				}
 
 				const changes: Array<
 					| {
@@ -358,7 +405,7 @@ export class EntityEditorService extends Context.Service<EntityEditorService>()(
 						if (committedRefusal !== null) {
 							return { kind: "refused" as const, message: committedRefusal };
 						}
-						if (basisOf(yield* currentRelationships(true)) !== basis) {
+						if (relationshipBasis(yield* currentRelationships(true)) !== basis) {
 							return { kind: "stale" as const };
 						}
 						const saved = yield* entities.persistPreparedUserSave(prepared);

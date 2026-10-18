@@ -279,7 +279,9 @@ document with `invalid-request`, and server refusals of the request itself fail 
 plugin `packageId`, `entitySchemaSlug`, and edit/create `mode`. They read the editable relationship
 slugs from the schema's manifest-declared `editor` and refuse schemas without one. "Add" on a
 relationship opens `screens.pickEntity` for the relationship's target schema; selected entities become
-targets with empty relationship properties. One form
+targets with empty relationship properties. Edit mode refuses provider-owned sources and carries
+the loaded entity and outgoing relationship snapshots as its stale-write baseline, including empty
+declared groups. Removing the last target still submits that group. One form
 submission keeps its idempotency key and SDK-clock `submittedAt` across retries of the same body; an
 edited body starts a new submission.
 

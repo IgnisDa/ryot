@@ -51,8 +51,11 @@ The request carries `idempotencyKey` and `submittedAt`. The execution ID hashes 
 generation, `entity-editor:save`, the schema reference, and the key; `submittedAt` becomes the
 command's `occurredAt`. The single `entity-editor:save` receipt retains the entity ID and dispatch
 list, so an identical retry replays the result and re-dispatches, while the same key with a
-different body fails with `EntityEditorRefused` (409). Changed relationship sets, expected
-snapshots, or concurrent state return `stale`. Invalid properties/assets, immutable changes,
+different body fails with `EntityEditorRefused` (409). Updates carry the loaded entity snapshot
+and the original outgoing user relationship groups for every submitted schema, including empty
+groups. Relationship baselines compare targets and properties independently of array order.
+Changes since loading or during save preparation return `stale`; no entity or relationship diff
+is committed. Baseline and submitted schemas must match. Invalid properties/assets, immutable changes,
 duplicate targets, over 200 targets, or over 100 changes return `invalid`. Update targets that are
 not the user's own entity of the schema fail with `EntityNotFound`; other declared entity and
 relationship failures are typed endpoint errors.

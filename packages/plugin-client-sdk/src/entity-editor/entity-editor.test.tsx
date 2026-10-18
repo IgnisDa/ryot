@@ -40,6 +40,8 @@ const adapterFor = (
 		readonly editor?: unknown;
 		readonly picks?: PickEntityRequest[];
 		readonly picked?: readonly string[];
+		readonly canEdit?: boolean;
+		readonly relationships?: readonly unknown[];
 	} = {},
 ): Partial<RyotClientAdapter> => ({
 	saveEntity: save,
@@ -77,20 +79,23 @@ const adapterFor = (
 				data[key] = rows([
 					{
 						name: "Curl",
+						canEdit: options.canEdit ?? true,
 						updatedAt: "2026-01-01T00:00:00.000Z",
 						properties: { kind: "reps", title: "Curl" },
 					},
 				]);
 			} else if (key === "relationships") {
-				data[key] = rows([
-					{
-						name: "Biceps",
-						slug: "targets",
-						userId: "user-1",
-						entityId: "target-1",
-						properties: { role: "primary" },
-					},
-				]);
+				data[key] = rows(
+					options.relationships ?? [
+						{
+							name: "Biceps",
+							slug: "targets",
+							userId: "user-1",
+							entityId: "target-1",
+							properties: { role: "primary" },
+						},
+					],
+				);
 			} else {
 				data[key] = rows([{ id: "target-2", name: "Triceps" }]);
 			}
@@ -190,6 +195,12 @@ describe("EntityEditor", () => {
 						name: "Curl",
 						updatedAt: "2026-01-01T00:00:00.000Z",
 						properties: { kind: "reps", title: "Curl" },
+						relationships: [
+							{
+								relationshipSchemaSlug: "targets",
+								targets: [{ entityId: "target-1", properties: { role: "primary" } }],
+							},
+						],
 					},
 				},
 			});
@@ -222,6 +233,68 @@ describe("EntityEditor", () => {
 				{ entityId: "target-1", properties: { role: "primary" } },
 				{ properties: {}, entityId: "target-2" },
 			]);
+		}),
+	);
+
+	it.live("retains the original relationship baseline when removing the last target", () =>
+		Effect.gen(function* () {
+			const saves = recording({ kind: "saved", entityId: EntityId.make("part-1") });
+			const view = within(
+				mount({ mode: { kind: "edit", entityId: "part-1" } }, adapterFor(saves.save)),
+			);
+			yield* Effect.promise(() => view.findByLabelText("Name"));
+			fireEvent.click(view.getByRole("button", { name: "Remove Biceps from Targets" }));
+			fireEvent.click(view.getByRole("button", { name: "Save" }));
+			yield* Effect.promise(() => waitFor(() => expect(saves.requests).toHaveLength(1)));
+			expect(saves.requests[0]?.submission).toMatchObject({
+				relationships: [{ targets: [], relationshipSchemaSlug: "targets" }],
+				target: {
+					expected: {
+						relationships: [
+							{
+								relationshipSchemaSlug: "targets",
+								targets: [{ entityId: "target-1", properties: { role: "primary" } }],
+							},
+						],
+					},
+				},
+			});
+		}),
+	);
+
+	it.live("submits empty declared relationship groups and their baseline", () =>
+		Effect.gen(function* () {
+			const saves = recording({ kind: "saved", entityId: EntityId.make("part-1") });
+			const view = within(
+				mount(
+					{ mode: { kind: "edit", entityId: "part-1" } },
+					adapterFor(saves.save, { relationships: [] }),
+				),
+			);
+			yield* Effect.promise(() => view.findByLabelText("Name"));
+			fireEvent.click(view.getByRole("button", { name: "Save" }));
+			yield* Effect.promise(() => waitFor(() => expect(saves.requests).toHaveLength(1)));
+			expect(saves.requests[0]?.submission).toMatchObject({
+				relationships: [{ targets: [], relationshipSchemaSlug: "targets" }],
+				target: {
+					expected: { relationships: [{ targets: [], relationshipSchemaSlug: "targets" }] },
+				},
+			});
+		}),
+	);
+
+	it.live("does not open a writable form for a non-editable source", () =>
+		Effect.gen(function* () {
+			const saves = recording({ kind: "saved", entityId: EntityId.make("part-1") });
+			const view = within(
+				mount(
+					{ mode: { kind: "edit", entityId: "part-1" } },
+					adapterFor(saves.save, { canEdit: false }),
+				),
+			);
+			yield* Effect.promise(() => view.findByText("This item cannot be edited here."));
+			expect(view.queryByRole("button", { name: "Save" })).toBeNull();
+			expect(saves.requests).toEqual([]);
 		}),
 	);
 

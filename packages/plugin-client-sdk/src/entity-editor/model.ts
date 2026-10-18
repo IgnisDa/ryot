@@ -108,11 +108,16 @@ export const buildSubmission = (input: {
 	name: input.name.trim(),
 	properties: input.properties,
 	entitySchema: input.entitySchema,
-	relationships: Object.entries(input.relationships).map(([relationshipSchemaSlug, targets]) => ({
+	relationships: entityRelationshipPayload(input.relationships),
+});
+
+export const entityRelationshipPayload = (
+	relationships: EditorRelationshipTargets,
+): EntityEditorSubmission["relationships"] =>
+	Object.entries(relationships).map(([relationshipSchemaSlug, targets]) => ({
 		relationshipSchemaSlug,
 		targets: targets.map(({ entityId, properties }) => ({
 			entityId,
 			properties: { ...properties },
 		})),
-	})),
-});
+	}));

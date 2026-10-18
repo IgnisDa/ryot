@@ -30,7 +30,11 @@ import {
 	revisionPackage,
 } from "#modules/plugins/packages/revision.test-support";
 import { testPluginPackageId } from "#modules/plugins/test-support";
-import { relationshipDatabaseLayer, userId } from "#modules/relationships/lifecycle.test-support";
+import {
+	command,
+	relationshipDatabaseLayer,
+	userId,
+} from "#modules/relationships/lifecycle.test-support";
 import { RelationshipsRepository } from "#modules/relationships/repository";
 import { RelationshipsService } from "#modules/relationships/service";
 import { RyotQLService } from "#modules/ryotql/service";
@@ -272,7 +276,11 @@ const tablesState = Effect.gen(function* () {
 	};
 });
 
-const expectedOf = (entity: { name: string; updatedAt: string; properties: unknown }) => ({
+const expectedOf = (
+	entity: { name: string; updatedAt: string; properties: unknown },
+	relationships: EntityEditorSubmission["relationships"] = [],
+) => ({
+	relationships,
 	name: entity.name,
 	updatedAt: entity.updatedAt,
 	properties: Schema.decodeUnknownSync(Schema.Record(Schema.String, Schema.Unknown))(
@@ -396,11 +404,19 @@ describe("EntityEditorService", () => {
 					target: {
 						kind: "update",
 						entityId: sourceId,
-						expected: expectedOf({
-							name: stored.name,
-							properties: stored.properties,
-							updatedAt: stored.updatedAt.toISOString(),
-						}),
+						expected: expectedOf(
+							{
+								name: stored.name,
+								properties: stored.properties,
+								updatedAt: stored.updatedAt.toISOString(),
+							},
+							[
+								{
+									relationshipSchemaSlug: "item-part",
+									targets: [target("diff-b", "two"), target("diff-a", "one")],
+								},
+							],
+						),
 					},
 				}),
 			);
@@ -433,7 +449,12 @@ describe("EntityEditorService", () => {
 					target: {
 						kind: "update",
 						entityId: entity.id,
-						expected: { name: "Old", properties: { code: "c" }, updatedAt: entity.updatedAt },
+						expected: {
+							name: "Old",
+							relationships: [],
+							properties: { code: "c" },
+							updatedAt: entity.updatedAt,
+						},
 					},
 				}),
 			);
@@ -541,6 +562,7 @@ describe("EntityEditorService", () => {
 			const mismatching = yield* run("foreign-mismatch", foreign.id, {
 				name: "x",
 				properties: {},
+				relationships: [],
 				updatedAt: "2020-01-01T00:00:00.000Z",
 			});
 			expect(matching).toMatchObject({ _tag: "EntityNotFound" });
@@ -610,7 +632,16 @@ describe("EntityEditorService", () => {
 				"deletes",
 				submission(owner, {
 					relationships: [{ targets: [], relationshipSchemaSlug: "item-part" }],
-					target: { kind: "update", entityId: entity.id, expected: expectedOf(entity) },
+					target: {
+						kind: "update",
+						entityId: entity.id,
+						expected: expectedOf(entity, [
+							{
+								relationshipSchemaSlug: "item-part",
+								targets: Array.from({ length: 101 }, (_, index) => target(`delete-part-${index}`)),
+							},
+						]),
+					},
 				}),
 			);
 			expect(deletes.output).toMatchObject({ kind: "invalid" });
@@ -661,7 +692,13 @@ describe("EntityEditorService", () => {
 				"incoming",
 				submission(owner, {
 					relationships: [{ targets: [], relationshipSchemaSlug: "item-link" }],
-					target: { kind: "update", entityId: entity.id, expected: expectedOf(entity) },
+					target: {
+						kind: "update",
+						entityId: entity.id,
+						expected: expectedOf(entity, [
+							{ targets: [target("incoming-peer")], relationshipSchemaSlug: "item-link" },
+						]),
+					},
 				}),
 			);
 			expect(result.output.kind).toBe("saved");
@@ -717,8 +754,14 @@ describe("EntityEditorService", () => {
 			const update = submission(owner, {
 				name: "After",
 				properties: { code: "c", title: "After" },
-				target: { kind: "update", entityId: entity.id, expected: expectedOf(entity) },
 				relationships: [{ targets: [target("atomic-part")], relationshipSchemaSlug: "item-part" }],
+				target: {
+					kind: "update",
+					entityId: entity.id,
+					expected: expectedOf(entity, [
+						{ targets: [target("atomic-old")], relationshipSchemaSlug: "item-part" },
+					]),
+				},
 			});
 			expect(yield* submitEdit(failing, "atomic-update", update).pipe(Effect.flip)).toMatchObject({
 				message: expect.stringContaining("injected"),
@@ -729,6 +772,95 @@ describe("EntityEditorService", () => {
 			expect(after.editorReceipts).toEqual([]);
 			expect(after.entityReceipts).toEqual(before.entityReceipts);
 			expect(yield* log.calls).toEqual([]);
+		}),
+	);
+
+	editorCase(
+		"rejects relationship changes made after loading without changing the entity or newer links",
+		Effect.gen(function* () {
+			const { owner, insert } = yield* setup();
+			const relationships = yield* RelationshipsService;
+			const editor = yield* makeEditor();
+			for (const change of ["added", "updated", "deleted"] as const) {
+				const entity = yield* insert(`loaded-${change}`, item, userId);
+				const partEntity = yield* insert(`loaded-part-${change}`, part, userId);
+				assert(entity && partEntity);
+				const identity = {
+					sourceEntityId: entity.id,
+					targetEntityId: partEntity.id,
+					relationshipSchema: { slug: itemPart, owner: definitionOwner(owner) },
+				};
+				if (change !== "added") {
+					yield* relationships.createUser(
+						userId,
+						{ ...identity, properties: { role: "old" } },
+						command(`loaded-seed-${change}`),
+					);
+				}
+				const baseline = [
+					{
+						relationshipSchemaSlug: "item-part",
+						targets: change === "added" ? [] : [target(partEntity.id, "old")],
+					},
+				];
+				if (change === "deleted") {
+					yield* relationships.delete(
+						{ ...identity, userId, scope: "user" },
+						command(`loaded-change-${change}`),
+					);
+				} else {
+					yield* relationships.createUser(
+						userId,
+						{ ...identity, properties: { role: "new" } },
+						command(`loaded-change-${change}`),
+					);
+				}
+				const before = yield* tablesState;
+				const input = submission(owner, {
+					name: "Should not save",
+					relationships: baseline,
+					target: { kind: "update", entityId: entity.id, expected: expectedOf(entity, baseline) },
+				});
+				for (let attempt = 0; attempt < 2; attempt += 1) {
+					expect((yield* submitEdit(editor, `loaded-save-${change}`, input)).output).toEqual({
+						kind: "stale",
+					});
+				}
+				const after = yield* tablesState;
+				expect(after.entityRows).toEqual(before.entityRows);
+				expect(after.relationshipRows).toEqual(before.relationshipRows);
+				expect(after.editorReceipts).toEqual([]);
+			}
+		}),
+	);
+
+	editorCase(
+		"rejects missing or duplicate relationship baselines",
+		Effect.gen(function* () {
+			const { owner, insert } = yield* setup();
+			const entity = yield* insert("invalid-baseline", item, userId);
+			assert(entity);
+			const editor = yield* makeEditor();
+			for (const [index, baseline] of [
+				[],
+				[
+					{
+						relationshipSchemaSlug: "item-part",
+						targets: [target("duplicate"), target("duplicate")],
+					},
+				],
+			].entries()) {
+				const result = yield* submitEdit(
+					editor,
+					`invalid-baseline-${index}`,
+					submission(owner, {
+						relationships: [{ targets: [], relationshipSchemaSlug: "item-part" }],
+						target: { kind: "update", entityId: entity.id, expected: expectedOf(entity, baseline) },
+					}),
+				);
+				expect(result.output).toMatchObject({ kind: "invalid" });
+			}
+			expect((yield* tablesState).editorReceipts).toEqual([]);
 		}),
 	);
 
@@ -770,7 +902,11 @@ describe("EntityEditorService", () => {
 					name: "Drifted",
 					properties: { code: "c", title: "Drifted" },
 					relationships: [{ targets: [], relationshipSchemaSlug: "item-part" }],
-					target: { kind: "update", entityId: entity.id, expected: expectedOf(entity) },
+					target: {
+						kind: "update",
+						entityId: entity.id,
+						expected: expectedOf(entity, [{ targets: [], relationshipSchemaSlug: "item-part" }]),
+					},
 				}),
 			);
 			expect(result.output).toEqual({ kind: "stale" });
@@ -834,9 +970,9 @@ describe("EntityEditorService", () => {
 						),
 				},
 				relationships: {
-					prepareUserCreate: (input, command, created) =>
-						Ref.update(seen, (all) => [...all, command]).pipe(
-							Effect.andThen(relationships.prepareUserCreate(input, command, created)),
+					prepareUserCreate: (input, lifecycle, created) =>
+						Ref.update(seen, (all) => [...all, lifecycle]).pipe(
+							Effect.andThen(relationships.prepareUserCreate(input, lifecycle, created)),
 						),
 				},
 			});
@@ -852,11 +988,11 @@ describe("EntityEditorService", () => {
 			);
 			const commands = yield* Ref.get(seen);
 			expect(commands).toHaveLength(2);
-			for (const command of commands) {
-				expect(command.writeContext).toBeNull();
-				expect(command.causation.source).toBe("api");
-				expect(command.causation.initiator).toEqual({ id: userId, kind: "user" });
-				expect(command.kernelCollection).toBeUndefined();
+			for (const lifecycle of commands) {
+				expect(lifecycle.writeContext).toBeNull();
+				expect(lifecycle.causation.source).toBe("api");
+				expect(lifecycle.causation.initiator).toEqual({ id: userId, kind: "user" });
+				expect(lifecycle.kernelCollection).toBeUndefined();
 			}
 		}),
 	);
@@ -1065,14 +1201,14 @@ describe("EntityEditorService", () => {
 			assert(first.output.kind === "saved");
 			const retry = yield* submitAs(userId, request(owner));
 			expect(retry.output).toEqual(first.output);
-			const [command] = yield* Ref.get(seen);
-			expect(command?.writeContext).toBeNull();
-			expect(command?.occurredAt).toBe("2026-10-14T00:00:00.000Z");
-			expect(command?.causation).toMatchObject({
+			const [lifecycle] = yield* Ref.get(seen);
+			expect(lifecycle?.writeContext).toBeNull();
+			expect(lifecycle?.occurredAt).toBe("2026-10-14T00:00:00.000Z");
+			expect(lifecycle?.causation).toMatchObject({
 				source: "api",
 				initiator: { id: userId, kind: "user" },
 			});
-			expect(command?.causation.executionId).toMatch(/^entity-editor-/);
+			expect(lifecycle?.causation.executionId).toMatch(/^entity-editor-/);
 			expect(
 				yield* submitAs(userId, request(owner, { name: "Changed" })).pipe(Effect.flip),
 			).toBeInstanceOf(EntityEditorRefused);

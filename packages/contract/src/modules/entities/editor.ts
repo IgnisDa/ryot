@@ -10,24 +10,31 @@ const properties = Schema.Record(Schema.String, Schema.Unknown);
 export const EntityEditorRelationshipTarget = strictStruct({ properties, entityId: EntityId });
 export type EntityEditorRelationshipTarget = typeof EntityEditorRelationshipTarget.Type;
 
+const relationships = Schema.Array(
+	strictStruct({
+		relationshipSchemaSlug: Schema.String,
+		targets: Schema.Array(EntityEditorRelationshipTarget),
+	}),
+);
+
 export const EntityEditorSubmission = strictStruct({
 	properties,
+	relationships,
 	entitySchema: EntitySchemaReference,
 	name: Schema.String.pipe(
 		Schema.check(Schema.makeFilter((name) => name.trim().length > 0 || "Expected a name")),
-	),
-	relationships: Schema.Array(
-		strictStruct({
-			relationshipSchemaSlug: Schema.String,
-			targets: Schema.Array(EntityEditorRelationshipTarget),
-		}),
 	),
 	target: Schema.Union([
 		strictStruct({ kind: Schema.Literal("create") }),
 		strictStruct({
 			entityId: EntityId,
 			kind: Schema.Literal("update"),
-			expected: strictStruct({ properties, name: Schema.String, updatedAt: Schema.String }),
+			expected: strictStruct({
+				properties,
+				relationships,
+				name: Schema.String,
+				updatedAt: Schema.String,
+			}),
 		}),
 	]),
 });

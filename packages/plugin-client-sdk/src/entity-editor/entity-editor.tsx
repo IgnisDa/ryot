@@ -33,6 +33,7 @@ import {
 	type EditorRelationshipTargets,
 	entityFormValues,
 	entityPropertiesPayload,
+	entityRelationshipPayload,
 	managedAssetsOf,
 	unreferencedUploads,
 } from "./model";
@@ -130,7 +131,9 @@ const sourceQuery = createRyotQuery(
 			const visible = input.forEdit
 				? rows.items.filter(({ userId }) => userId !== null)
 				: rows.items;
-			const relationships: Record<string, EditorRelationshipTarget[]> = {};
+			const relationships: Record<string, EditorRelationshipTarget[]> = Object.fromEntries(
+				input.relationshipSlugs.map((slug) => [slug, []]),
+			);
 			for (const row of [...visible].sort(
 				(left, right) => Number(left.userId === null) - Number(right.userId === null),
 			)) {
@@ -254,6 +257,7 @@ function EntityEditorForm(
 								name: source.entity.name,
 								updatedAt: source.entity.updatedAt,
 								properties: { ...source.entity.properties },
+								relationships: entityRelationshipPayload(source.relationships),
 							},
 						}
 					: { kind: "create" },
@@ -409,6 +413,9 @@ function EntityEditorSource(
 	}
 	if (entityId !== null && source.data.entity === null) {
 		return <StatusMessage tone="error">This item is unavailable.</StatusMessage>;
+	}
+	if (forEdit && source.data.entity?.canEdit !== true) {
+		return <StatusMessage tone="error">This item cannot be edited here.</StatusMessage>;
 	}
 	return <EntityEditorForm {...props} source={source.data} definitions={definitions} />;
 }
