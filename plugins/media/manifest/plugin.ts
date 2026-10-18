@@ -30,6 +30,7 @@ import { mediaSavedViews } from "./saved-views";
 import { mediaEntitySchemas } from "./schemas/entity";
 import { builtinRelationshipSchemas } from "./schemas/relationship";
 import { mediaSignalSchemas } from "./schemas/signal";
+import { mediaUserStatePolicy } from "./user-state";
 
 const entitySchemas = mediaEntitySchemas().map(
 	(
@@ -38,7 +39,10 @@ const entitySchemas = mediaEntitySchemas().map(
 		const editor = Object.hasOwn(mediaEntityEditors, schema.slug)
 			? mediaEntityEditors[schema.slug]
 			: undefined;
-		return editor === undefined ? schema : Object.assign({}, schema, { editor });
+		const definition = mediaLibraryMemberEntitySchemaSlugs.some((slug) => slug === schema.slug)
+			? Object.assign({}, schema, { userState: mediaUserStatePolicy(schema.slug) })
+			: schema;
+		return editor === undefined ? definition : Object.assign({}, definition, { editor });
 	},
 );
 
@@ -725,6 +729,13 @@ export const mediaPlugin = definePlugin({
 		},
 	},
 	operations: [
+		{
+			auth: "user",
+			demoAccess: "protected",
+			slug: "media-user-data",
+			scriptSlug: "operation.media-user-data",
+			description: "Remove or merge media user data",
+		},
 		{
 			auth: "user",
 			demoAccess: "protected",

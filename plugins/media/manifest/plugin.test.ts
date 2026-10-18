@@ -673,6 +673,13 @@ it("declares the complete media-owned source", () => {
 		{
 			auth: "user",
 			demoAccess: "protected",
+			slug: "media-user-data",
+			scriptSlug: "operation.media-user-data",
+			description: "Remove or merge media user data",
+		},
+		{
+			auth: "user",
+			demoAccess: "protected",
 			slug: "media-review-create",
 			description: "Create a media review",
 			scriptSlug: "operation.media-review-create",

@@ -290,6 +290,25 @@ Imports populate media at the `base` level, without credits or other relationshi
 association notifications for imported media therefore arrive when the media is first opened in the
 foreground (which populates its `full` level) or at the next monitoring sweep, not at import time.
 
+The detail header's **Your data** menu uses the protected `media-user-data` operation. **Remove from
+library** is a confirmed destructive clear, not a membership-only toggle: it removes the caller's
+history, reviews, ownership, monitoring, collection memberships, and correction evidence. Shows,
+seasons and podcasts include their child data, including sessionless specials and retained historical
+children. Provider metadata, custom metadata, and structural relationships remain. Imports and
+integrations, including runs already in progress, can add the item and its events again; there is no
+blocked-item state. Retrying a completed removal replays its result without deleting newly added data.
+
+**Merge my data into…** selects an existing item of the same schema and definition owner. Explicit
+history and reviews keep their IDs and dates; similar records are not deduplicated. Collection and
+monitoring memberships combine, with destination property values and ranks winning conflicts and
+source-only values retained. Recorded show children match by season/episode number; podcast children
+also require a matching trimmed, case-insensitive title. Missing or ambiguous matches reject the
+whole operation with the affected identities and instructions to refresh or correct metadata before
+trying again. Frozen completion evidence and explicit correction decisions transfer with remapped
+entity references; temporary correction checkpoints and coverage are reset. Both actions use the
+kernel's [entity user-data owner](../../kernel/backend/src/modules/entities/user-data/README.md),
+immutable submission identities, and atomic stale-state checks.
+
 `media-review-create` saves a review on a visible media, group, creator, season, or episode owned by
 this plugin. Create and update accept a rating, nonblank text, or both; an empty review is rejected.
 Both inputs carry nullable `text` and `rating` fields. Ratings use the finite 0–100 scale, including

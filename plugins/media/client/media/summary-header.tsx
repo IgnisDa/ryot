@@ -32,6 +32,7 @@ import {
 	type MediaSummaryFact,
 	type MediaSummaryHeaderDetail,
 } from "./summary-state";
+import { MediaUserDataControl } from "./user-data";
 
 export function MediaSummarySkeleton(props: {
 	readonly title: string;
@@ -297,6 +298,7 @@ function MediaLibraryStrip(props: {
 				key={`collections:${media.id}`}
 				collections={media.collections}
 			/>
+			<MediaUserDataControl media={media} key={`user-data:${media.id}`} />
 			{media.providerName === null ? null : (
 				<MediaMonitoringControl
 					entityId={media.id}
