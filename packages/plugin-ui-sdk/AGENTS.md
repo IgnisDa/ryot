@@ -20,3 +20,4 @@ Rationale lives in `README.md`.
 - Register shortcuts through `useShortcut` and wrap each overlay in `OverlayScope`. Its scope stack is a module singleton, so each realm suppresses only its own registrations. `useFocusTrap` handles Tab only; `useFieldEscape` is only for search-shaped fields.
 - Keep `ReorderableList` pointer and keyboard operable. Its handle is a button supporting Arrow/Home/End with live-region announcements and no drag-and-drop dependency.
 - Keep focused editable fields visible through shared focus/viewport handling, including keyboard resize and overlay scroll containers.
+- The shared modal primitive owns sheet placement and downward drag-to-dismiss, respecting dismissibility and content scrolling.

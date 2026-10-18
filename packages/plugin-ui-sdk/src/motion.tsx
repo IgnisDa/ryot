@@ -34,6 +34,7 @@ function ListItem({ children }: { readonly children: ReactNode }) {
 			animate={{ opacity: 1 }}
 			exit={{ height: 0, opacity: 0 }}
 			aria-hidden={present ? undefined : true}
+			style={present ? {} : { overflow: "hidden" }}
 			className="min-w-0 motion-reduce:transform-none"
 			transition={reduced ? { duration: 0 } : motionTransition}
 		>

@@ -57,12 +57,17 @@ export function Dialog(props: {
 			{placement === "sheet" && (
 				<div
 					aria-hidden="true"
-					className="mx-auto mt-2 h-1.25 w-9 shrink-0 rounded-pill bg-border-emphasis"
-				/>
+					data-sheet-drag-region
+					className="flex h-7 shrink-0 touch-none items-center justify-center"
+				>
+					<div className="h-1.25 w-9 rounded-pill bg-border-emphasis" />
+				</div>
 			)}
 			<header
+				data-sheet-drag-region={placement === "sheet" ? "" : undefined}
 				className={clsx(
 					"flex items-start gap-3 px-5 pt-5",
+					placement === "sheet" && "touch-none select-none pt-2",
 					props.children === undefined ? "pb-5" : "pb-1",
 				)}
 			>
@@ -77,9 +82,14 @@ export function Dialog(props: {
 				{props.closeIcon !== undefined && (
 					<IconButton
 						size="sm"
-						onClick={props.onClose}
 						className="-mt-1 -mr-2"
 						label={props.closeLabel}
+						disabled={props.dismissible === false}
+						onClick={() => {
+							if (props.onInterceptBack?.() !== true) {
+								props.onClose();
+							}
+						}}
 					>
 						{props.closeIcon}
 					</IconButton>
