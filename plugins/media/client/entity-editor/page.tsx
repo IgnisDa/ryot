@@ -6,6 +6,7 @@ import {
 } from "@ryot-app/plugin-client-sdk/plugin";
 
 import {
+	mediaChildCreateInput,
 	mediaEntityCreateRoute,
 	mediaEntityEditorRoutes,
 	mediaEntityEditRoute,
@@ -49,7 +50,11 @@ export default function MediaEntityEditorPage() {
 		<EntityEditorScreen
 			packageId={PLUGIN_PACKAGE_ID}
 			entitySchemaSlug={matchingRoute.entitySchemaSlug}
-			mode={{ kind: "create", ...(initialName === undefined ? {} : { initialName }) }}
+			mode={{
+				kind: "create",
+				...mediaChildCreateInput(matchingRoute.entitySchemaSlug, search),
+				...(initialName === undefined ? {} : { initialName }),
+			}}
 		/>
 	);
 }

@@ -5,6 +5,7 @@ import { createTestBackgroundSubmissions } from "@ryot-app/plugin-client-sdk/tes
 import { getByRole, queryByRole, waitFor } from "@testing-library/dom";
 import { Deferred } from "effect";
 
+import { PLUGIN_PACKAGE_ID as EPISODIC_FIXTURE_PACKAGE_ID } from "../../shared/plugin-identity";
 import {
 	activityLogQuery,
 	contextTarget,
@@ -73,6 +74,7 @@ describe("episode details", () => {
 						<MediaEpisodePages
 							copy={COPY}
 							nextUp={null}
+							editable={false}
 							safeAreaTop={12}
 							compact={compact}
 							entityId="parent-1"
@@ -107,6 +109,68 @@ describe("episode details", () => {
 		);
 	}
 
+	for (const editable of [true, false]) {
+		it.live(
+			`${editable ? "offers" : "hides"} episode editing for ${editable ? "custom" : "provider"} parents`,
+			() =>
+				Effect.gen(function* () {
+					const navigations: unknown[] = [];
+					const view = mountRyotClient(
+						{
+							watchEntities,
+							navigate: (_mode, target) => {
+								navigations.push(target);
+							},
+							query: (document) =>
+								JSON.stringify(document).includes("fixtureEpisode")
+									? Effect.succeed(
+											episodicEpisodePageData({
+												episodes: [episodicEpisode({ name: "Pilot", id: "episode/1" })],
+											}),
+										)
+									: contextQuery(document),
+						},
+						<MediaEpisodePages
+							compact
+							copy={COPY}
+							nextUp={null}
+							safeAreaTop={0}
+							editable={editable}
+							entityId="parent-1"
+							containerId="parent-1"
+							log={EPISODIC_FIXTURE_LOG}
+							render={EPISODIC_FIXTURE_RENDER}
+							query={episodicFixtureEpisodesQuery}
+						/>,
+					);
+					yield* Effect.promise(() => flushRyotClient());
+					yield* Effect.promise(() =>
+						waitFor(() =>
+							expect(getByRole(view.container, "button", { name: "Open Pilot" })).toBeDefined(),
+						),
+					);
+					clickRyotElement(getByRole(view.container, "button", { name: "Open Pilot" }));
+					const dialog = getByRole(document.body, "dialog", { name: "Pilot" });
+					const edit = queryByRole(dialog, "button", { name: "Edit episode" });
+					if (editable) {
+						expect(edit).not.toBeNull();
+						clickRyotElement(getByRole(dialog, "button", { name: "Edit episode" }));
+						expect(navigations).toEqual([
+							{
+								search: {},
+								kind: "plugin-route",
+								packageId: EPISODIC_FIXTURE_PACKAGE_ID,
+								path: "/podcast-episode/episode%2F1/edit",
+							},
+						]);
+					} else {
+						expect(edit).toBeNull();
+					}
+					view.unmount();
+				}),
+		);
+	}
+
 	it.live("opens next-up details with missing optional metadata", () =>
 		Effect.gen(function* () {
 			const [nextUp] = decodeEpisodicEpisodePage({
@@ -136,6 +200,7 @@ describe("episode details", () => {
 					copy={COPY}
 					safeAreaTop={0}
 					nextUp={nextUp}
+					editable={false}
 					entityId="parent-1"
 					containerId="parent-1"
 					log={EPISODIC_FIXTURE_LOG}
@@ -218,6 +283,7 @@ const mountDetails = (options: {
 			copy={COPY}
 			nextUp={null}
 			safeAreaTop={0}
+			editable={false}
 			entityId="parent-1"
 			containerId="parent-1"
 			log={EPISODIC_FIXTURE_LOG}

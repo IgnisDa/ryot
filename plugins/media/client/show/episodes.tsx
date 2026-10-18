@@ -22,6 +22,7 @@ import {
 	showSeasonEpisodesRecipe,
 	showSeasonsRecipe,
 } from "../../shared/show-recipes";
+import { MediaChildCreateAction, MediaEntityEditAction } from "../entity-editor/edit-action";
 import type { MediaActivityLogger } from "../media/activity-log/state";
 import { type MediaCursorPage, mediaCursorPageError } from "../media/cursor-page-state";
 import {
@@ -172,6 +173,7 @@ const showActivityEpisode = (episode: ShowEpisode | ShowOrderEpisode) => ({
 const SHOW_EPISODE_RENDER: MediaEpisodeRender<ShowEpisode> = {
 	aspect: "still",
 	purpose: "still",
+	entitySchemaSlug: "show-episode",
 	originLabel: showEpisodeOriginLabel,
 	activityEpisode: showActivityEpisode,
 	numberLabel: mediaEpisodeNumberLabel,
@@ -226,7 +228,11 @@ function ShowEpisodeOrderSelector(props: {
 	);
 }
 
-function ShowSeasonHeader(props: { readonly compact: boolean; readonly season: ShowSeason }) {
+function ShowSeasonHeader(props: {
+	readonly compact: boolean;
+	readonly editable: boolean;
+	readonly season: ShowSeason;
+}) {
 	const { season } = props;
 	const release = showSeasonReleaseLabel(season);
 	const percent = showCoverageCompletionPercent(season);
@@ -257,6 +263,25 @@ function ShowSeasonHeader(props: { readonly compact: boolean; readonly season: S
 					{meta === "" ? null : <p className="font-ui text-[12px] text-text-subtle">{meta}</p>}
 				</div>
 			</div>
+			{props.editable ? (
+				<div className="flex flex-wrap gap-2">
+					<MediaEntityEditAction
+						isCustom
+						label="Edit season"
+						entityId={season.id}
+						entitySchemaSlug="show-season"
+					/>
+					<MediaChildCreateAction
+						label="Add episode"
+						parentEntityId={season.id}
+						childSchemaSlug="show-episode"
+						initialProperties={{
+							seasonNumber: season.seasonNumber,
+							episodeNumber: season.episodeTotal + season.upcomingTotal + 1,
+						}}
+					/>
+				</div>
+			) : null}
 			{percent === undefined ? null : <MediaProgressBar percent={percent} />}
 			{description === undefined ? null : (
 				<p className="line-clamp-2 font-ui text-[13px] leading-5 text-text">
@@ -267,7 +292,26 @@ function ShowSeasonHeader(props: { readonly compact: boolean; readonly season: S
 	);
 }
 
+function ShowAddSeasonAction(props: {
+	readonly entityId: string;
+	readonly seasons: ShowSeasonList | readonly [];
+}) {
+	return (
+		<div className="flex">
+			<MediaChildCreateAction
+				label="Add season"
+				childSchemaSlug="show-season"
+				parentEntityId={props.entityId}
+				initialProperties={{
+					seasonNumber: Math.max(0, ...props.seasons.map(({ seasonNumber }) => seasonNumber)) + 1,
+				}}
+			/>
+		</div>
+	);
+}
+
 function ShowSeasonBrowser(props: {
+	readonly editable: boolean;
 	readonly compact: boolean;
 	readonly logger: MediaActivityLogger;
 	readonly entityId: string;
@@ -293,10 +337,14 @@ function ShowSeasonBrowser(props: {
 					}))}
 				/>
 			)}
-			<ShowSeasonHeader season={season} compact={props.compact} />
+			{props.editable ? (
+				<ShowAddSeasonAction seasons={props.seasons} entityId={props.entityId} />
+			) : null}
+			<ShowSeasonHeader season={season} compact={props.compact} editable={props.editable} />
 			<MediaEpisodePages
 				containerId={season.id}
 				compact={props.compact}
+				editable={props.editable}
 				entityId={props.entityId}
 				render={SHOW_EPISODE_RENDER}
 				copy={SHOW_EPISODE_PAGES_COPY}
@@ -376,6 +424,7 @@ function ShowOrderBrowser(props: {
 			<ShowOrderGroupHeader group={group} compact={props.compact} entityId={props.entityId} />
 			<MediaEpisodePages
 				nextUp={null}
+				editable={false}
 				compact={props.compact}
 				entityId={props.entityId}
 				query={showOrderEpisodesQuery}
@@ -391,6 +440,7 @@ function ShowOrderBrowser(props: {
 }
 
 export function ShowEpisodes(props: {
+	readonly editable: boolean;
 	readonly compact: boolean;
 	readonly logger: MediaActivityLogger;
 	readonly entityId: string;
@@ -417,10 +467,13 @@ export function ShowEpisodes(props: {
 	}
 	if (state.status === "empty") {
 		return (
-			<MediaStatusMessage
-				title="No episodes yet"
-				detail="This show has no seasons or episodes recorded yet."
-			/>
+			<div className={clsx("flex flex-col", props.compact ? "gap-5 pt-6" : "gap-6 pt-8")}>
+				<MediaStatusMessage
+					title="No episodes yet"
+					detail="This show has no seasons or episodes recorded yet."
+				/>
+				{props.editable ? <ShowAddSeasonAction seasons={[]} entityId={props.entityId} /> : null}
+			</div>
 		);
 	}
 	return (
@@ -436,6 +489,7 @@ export function ShowEpisodes(props: {
 					nextUp={props.nextUp}
 					seasons={state.seasons}
 					compact={props.compact}
+					editable={props.editable}
 					entityId={props.entityId}
 					onSelect={props.onSelect}
 					selectedId={props.selectedId}
@@ -460,6 +514,7 @@ const persistOrder = (write: Promise<void>) => {
 };
 
 function ShowEpisodesWithOrder(props: {
+	readonly editable: boolean;
 	readonly compact: boolean;
 	readonly logger: MediaActivityLogger;
 	readonly entityId: string;
@@ -491,6 +546,7 @@ function ShowEpisodesWithOrder(props: {
 				compact={props.compact}
 				onSelect={setSelectedId}
 				refresh={result.refetch}
+				editable={props.editable}
 				entityId={props.entityId}
 				safeAreaTop={props.safeAreaTop}
 				order={resolved?.order ?? null}
@@ -508,7 +564,7 @@ export function ShowEpisodesTab(props: {
 	readonly logger: MediaActivityLogger;
 	readonly entityId: string;
 	readonly safeAreaTop: number;
-	readonly summary: { readonly nextUp: ShowEpisode | null } | undefined;
+	readonly summary: { readonly nextUp: ShowEpisode | null; readonly isCustom: boolean } | undefined;
 }) {
 	const identity = usePluginIdentity(PLUGIN_PACKAGE_ID);
 	const storage = usePluginStorage({
@@ -529,6 +585,7 @@ export function ShowEpisodesTab(props: {
 			entityId={props.entityId}
 			safeAreaTop={props.safeAreaTop}
 			nextUp={props.summary?.nextUp ?? null}
+			editable={props.summary?.isCustom === true}
 		/>
 	);
 }

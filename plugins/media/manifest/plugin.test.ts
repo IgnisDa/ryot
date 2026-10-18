@@ -94,8 +94,11 @@ it("declares the complete media-owned source", () => {
 			"/video-game/new": "media-entity-editor",
 			"/movie-group/new": "media-entity-editor",
 			"/music-group/new": "media-entity-editor",
+			"/show-season/new": "media-entity-editor",
 			"/visual-novel/new": "media-entity-editor",
+			"/show-episode/new": "media-entity-editor",
 			"/audiobook-group/new": "media-entity-editor",
+			"/podcast-episode/new": "media-entity-editor",
 			"/comic-book-group/new": "media-entity-editor",
 			"/video-game-group/new": "media-entity-editor",
 			...Object.fromEntries(
@@ -900,17 +903,13 @@ it("declares genres as provider-backed entities with outgoing media relationship
 			slug: `${sourceEntitySchemaSlug}-to-genre`,
 		})),
 	);
-	expect(
-		Object.fromEntries(
-			builtinMediaEntitySchemaSlugs.map((slug) => [slug, mediaEntityEditors[slug]]),
-		),
-	).toEqual({
-		...Object.fromEntries(
-			builtinMediaEntitySchemaSlugs.map((slug) => [slug, [`${slug}-to-genre`]]),
-		),
-		"video-game": ["video-game-to-video-game", "video-game-to-genre"],
-	});
-	expect(mediaEntityEditors.genre).toEqual([]);
+	for (const slug of builtinMediaEntitySchemaSlugs) {
+		expect(mediaEntityEditors[slug]?.relationships).toContainEqual({
+			direction: "outgoing",
+			slug: `${slug}-to-genre`,
+		});
+	}
+	expect(mediaEntityEditors.genre).toEqual({ relationships: [] });
 	expect(mediaLibraryMemberEntitySchemaSlugs).not.toContain("genre");
 	expect(mediaPlugin.savedViews.map(({ name }) => name)).not.toContain("All Genres");
 	expect(mediaPlugin.client.entities).not.toHaveProperty("genre");
@@ -927,10 +926,16 @@ it("keeps entity and import membership immediate and groups event membership by 
 		name: "Ensure media library membership",
 		slug: "media.ensure-media-library-membership",
 		scriptSlug: "automation.ensure-media-library-membership",
-		targets: mediaLibraryMemberEntitySchemaSlugs.flatMap((entitySchemaSlug) => [
-			{ entitySchemaSlug, resource: "entity", operation: "create" },
-			{ entitySchemaSlug, operation: "complete", resource: "provider-entity-import" },
-		]),
+		targets: mediaLibraryMemberEntitySchemaSlugs.flatMap((entitySchemaSlug) => {
+			const imported = {
+				entitySchemaSlug,
+				operation: "complete",
+				resource: "provider-entity-import",
+			};
+			return ["show-season", "show-episode", "podcast-episode"].includes(entitySchemaSlug)
+				? [imported]
+				: [{ entitySchemaSlug, resource: "entity", operation: "create" }, imported];
+		}),
 	});
 	const batchHook = mediaPlugin.hooks.find(
 		({ slug }) => slug === "media.ensure-media-library-membership-on-events",
@@ -1136,21 +1141,39 @@ it("does not automatically retry external pushes or notifications", () => {
 	}
 });
 
-it("declares media entity editors that link only relationships the edited schema sources", () => {
-	expect(
-		Object.fromEntries(
-			mediaPlugin.entitySchemas.flatMap(({ slug, editor }) =>
-				editor ? [[slug, editor.relationships]] : [],
-			),
-		),
-	).toEqual(mediaEntityEditors);
-	for (const [entitySchemaSlug, relationshipSlugs] of Object.entries(mediaEntityEditors)) {
-		for (const relationshipSlug of relationshipSlugs) {
-			expect(
-				mediaPlugin.relationshipSchemas.find(({ slug }) => slug === relationshipSlug)
-					?.sourceEntitySchemaSlug,
-			).toBe(entitySchemaSlug);
-		}
+it("edits credits from media, membership from groups, and children under a fixed parent", () => {
+	const editors = Object.fromEntries(
+		mediaPlugin.entitySchemas.flatMap(({ slug, editor }) => (editor ? [[slug, editor]] : [])),
+	);
+	expect(editors).toEqual(mediaEntityEditors);
+	expect(editors["person"]).toEqual({ relationships: [] });
+	expect(editors["company"]).toEqual({ relationships: [] });
+	expect(editors["movie"]?.relationships).toEqual([
+		{ direction: "outgoing", slug: "movie-to-genre" },
+		{ direction: "incoming", slug: "person-to-movie" },
+		{ direction: "incoming", slug: "company-to-movie" },
+	]);
+	expect(editors["music-group"]?.relationships).toEqual([
+		{ direction: "outgoing", slug: "music-group-to-music" },
+		{ direction: "incoming", slug: "person-to-music-group" },
+		{ direction: "incoming", slug: "company-to-music-group" },
+	]);
+	expect(editors["movie-group"]?.relationships).toEqual([
+		{ direction: "outgoing", slug: "movie-group-to-movie" },
+	]);
+	for (const [slug, relationshipSlug] of [
+		["show-season", "show-to-show-season"],
+		["show-episode", "show-season-to-show-episode"],
+		["podcast-episode", "podcast-to-podcast-episode"],
+	] as const) {
+		expect(editors[slug]).toEqual({
+			deletable: true,
+			relationships: [{ direction: "parent", slug: relationshipSlug }],
+		});
+		expect(
+			mediaPlugin.relationshipSchemas.find((schema) => schema.slug === relationshipSlug)
+				?.userWritePolicy,
+		).toBe("source-owner");
 	}
 });
 

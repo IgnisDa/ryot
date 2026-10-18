@@ -186,6 +186,7 @@ export const showSeasonPropertiesSchema: AppSchema = {
 			"Season summary. Supports basic Markdown formatting and spoilers",
 		),
 		seasonNumber: {
+			immutable: true,
 			type: "integer",
 			label: "Season number",
 			validation: { minimum: 0, required: true },
@@ -214,6 +215,7 @@ export const showEpisodePropertiesSchema: AppSchema = {
 			description: "Episode number within the season",
 		},
 		seasonNumber: {
+			immutable: true,
 			type: "integer",
 			label: "Season number",
 			validation: { minimum: 0, required: true },

@@ -78,6 +78,7 @@ export const episodicFixtureEpisodesQuery = createRyotQuery<
 export const EPISODIC_FIXTURE_RENDER: MediaEpisodeRender<EpisodicFixtureEpisode> = {
 	aspect: "square",
 	purpose: "cover",
+	entitySchemaSlug: "podcast-episode",
 	numberLabel: mediaEpisodeNumberLabel,
 	originLabel: (episode) => `Ep ${episode.episodeNumber}`,
 	stateLabels: { complete: "Played", untracked: undefined, in_progress: "In progress" },

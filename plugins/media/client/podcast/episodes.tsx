@@ -2,6 +2,7 @@ import clsx from "clsx";
 
 import type { MediaSummaryOf } from "../../shared/media-recipes";
 import type { podcastRecipes } from "../../shared/podcast-recipes";
+import { MediaChildCreateAction } from "../entity-editor/edit-action";
 import type { MediaActivityLogger } from "../media/activity-log/state";
 import { mediaCursorPageError } from "../media/cursor-page-state";
 import {
@@ -21,6 +22,7 @@ export const podcastEpisodeOriginLabel = (episode: { readonly episodeNumber: num
 const PODCAST_EPISODE_RENDER: MediaEpisodeRender<PodcastEpisode> = {
 	aspect: "square",
 	purpose: "cover",
+	entitySchemaSlug: "podcast-episode",
 	numberLabel: mediaEpisodeNumberLabel,
 	originLabel: podcastEpisodeOriginLabel,
 	stateLabels: { complete: "Played", untracked: undefined, in_progress: "In progress" },
@@ -61,12 +63,27 @@ export function PodcastEpisodesTab(props: {
 	readonly summary: PodcastSummary | undefined;
 }) {
 	const counts = podcastEpisodeCountLine(props.summary);
+	const { summary } = props;
+	const editable = summary?.isCustom === true;
 	return (
 		<div className={clsx("flex flex-col", props.compact ? "gap-5 pt-6" : "gap-6 pt-8")}>
 			{counts === undefined ? null : (
 				<p className="font-ui text-[12px] text-text-subtle">{counts}</p>
 			)}
+			{summary?.isCustom === true ? (
+				<div className="flex">
+					<MediaChildCreateAction
+						label="Add episode"
+						parentEntityId={props.entityId}
+						childSchemaSlug="podcast-episode"
+						initialProperties={{
+							episodeNumber: summary.airedEpisodes + summary.upcomingEpisodes + 1,
+						}}
+					/>
+				</div>
+			) : null}
 			<MediaEpisodePages
+				editable={editable}
 				compact={props.compact}
 				entityId={props.entityId}
 				containerId={props.entityId}

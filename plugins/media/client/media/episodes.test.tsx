@@ -38,6 +38,7 @@ function Pages(props: { readonly nextUp?: EpisodicFixtureEpisode | null }) {
 		<MediaEpisodePages
 			compact
 			copy={COPY}
+			editable={false}
 			safeAreaTop={12}
 			entityId="parent-1"
 			containerId="parent-1"

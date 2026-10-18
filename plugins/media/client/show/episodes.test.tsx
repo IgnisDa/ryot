@@ -178,7 +178,7 @@ const renderTab = (adapter: Partial<RyotClientAdapter>, nextUp: ShowEpisode | nu
 			safeAreaTop={0}
 			entityId="show-1"
 			logger={SHOW_LOGGER}
-			summary={{ nextUp }}
+			summary={{ nextUp, isCustom: false }}
 		/>,
 	);
 

@@ -12,6 +12,7 @@ import {
 	consumedOnSettingKeys,
 } from "../shared/consumed-on-settings";
 import {
+	isMediaChildEntitySchemaSlug,
 	mediaEntityCreateRoute,
 	mediaEntityEditorRoutes,
 	mediaEntityEditors,
@@ -34,12 +35,10 @@ const entitySchemas = mediaEntitySchemas().map(
 	(
 		schema,
 	): ReturnType<typeof mediaEntitySchemas>[number] & { readonly editor?: PluginEntityEditor } => {
-		const relationships = Object.hasOwn(mediaEntityEditors, schema.slug)
+		const editor = Object.hasOwn(mediaEntityEditors, schema.slug)
 			? mediaEntityEditors[schema.slug]
 			: undefined;
-		return relationships === undefined
-			? schema
-			: Object.assign({}, schema, { editor: { relationships } });
+		return editor === undefined ? schema : Object.assign({}, schema, { editor });
 	},
 );
 
@@ -839,14 +838,19 @@ export const mediaPlugin = definePlugin({
 			name: "Ensure media library membership",
 			slug: "media.ensure-media-library-membership",
 			scriptSlug: "automation.ensure-media-library-membership",
-			targets: mediaLibraryMemberEntitySchemaSlugs.flatMap((entitySchemaSlug) => [
-				{ entitySchemaSlug, resource: "entity" as const, operation: "create" as const },
-				{
+			targets: mediaLibraryMemberEntitySchemaSlugs.flatMap((entitySchemaSlug) => {
+				const imported = {
 					entitySchemaSlug,
 					operation: "complete" as const,
 					resource: "provider-entity-import" as const,
-				},
-			]),
+				};
+				return isMediaChildEntitySchemaSlug(entitySchemaSlug)
+					? [imported]
+					: [
+							{ entitySchemaSlug, resource: "entity" as const, operation: "create" as const },
+							imported,
+						];
+			}),
 		},
 		{
 			stage: "after",

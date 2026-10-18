@@ -75,7 +75,7 @@ it("hides edit for provider-backed entities and unsupported custom schemas", () 
 				decodeFlatSummary(fixtureSummaryRecipe, {
 					images: [],
 					isCustom: true,
-					schemaSlug: "podcast-episode",
+					schemaSlug: "media-library",
 				}),
 			),
 		);

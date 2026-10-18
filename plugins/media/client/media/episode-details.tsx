@@ -4,6 +4,7 @@ import { fieldSyncState, isTitleProvisional, SyncPip } from "@ryot-app/plugin-ui
 import clsx from "clsx";
 import type { RefObject } from "react";
 
+import { MediaEntityEditAction } from "../entity-editor/edit-action";
 import { useQuickLog } from "./activity-log/quick-log";
 import { MediaDetailModal } from "./detail-modal";
 import { mediaAspectClass } from "./entity-presentation";
@@ -63,6 +64,7 @@ function MediaEpisodeActions(props: {
 export function MediaEpisodeDetails<Episode extends MediaEpisode>(props: {
 	readonly episode: Episode;
 	readonly log: MediaEpisodeLog;
+	readonly editable: boolean;
 	readonly render: MediaEpisodeRender<Episode>;
 	readonly compact: boolean;
 	readonly safeAreaTop: number;
@@ -118,6 +120,16 @@ export function MediaEpisodeDetails<Episode extends MediaEpisode>(props: {
 						</div>
 					)}
 					<MediaEpisodeActions log={props.log} episode={episode} onLog={props.onLog} />
+					{props.editable ? (
+						<div className="flex">
+							<MediaEntityEditAction
+								isCustom
+								label="Edit episode"
+								entityId={episode.id}
+								entitySchemaSlug={render.entitySchemaSlug}
+							/>
+						</div>
+					) : null}
 					{synopsis === undefined ? null : (
 						<div className="border-t border-border pt-4 text-body text-text-muted">
 							<MediaMarkdown text={synopsis} />

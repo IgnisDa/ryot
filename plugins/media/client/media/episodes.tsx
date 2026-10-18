@@ -31,6 +31,7 @@ export type MediaEpisodeLog = {
 };
 
 export type MediaEpisodeRender<Episode extends MediaEpisode> = {
+	readonly entitySchemaSlug: string;
 	readonly aspect: MediaEpisodeArtworkAspect;
 	readonly purpose: MediaEpisodeImagePurpose;
 	readonly stateLabels: MediaEpisodeStateLabels;
@@ -60,6 +61,7 @@ const artworkClass = (aspect: MediaEpisodeArtworkAspect, compact: boolean) =>
 
 function MediaEpisodeRow<Episode extends MediaEpisode>(props: {
 	readonly log: MediaEpisodeLog;
+	readonly editable: boolean;
 	readonly compact: boolean;
 	readonly safeAreaTop: number;
 	readonly divided: boolean;
@@ -132,6 +134,7 @@ function MediaEpisodeRow<Episode extends MediaEpisode>(props: {
 					episode={episode}
 					compact={props.compact}
 					triggerRef={triggerRef}
+					editable={props.editable}
 					onLog={() => setOverlay("log")}
 					safeAreaTop={props.safeAreaTop}
 					onClose={() => setOverlay(undefined)}
@@ -153,6 +156,7 @@ function MediaEpisodeRow<Episode extends MediaEpisode>(props: {
 
 function MediaNextUpCard<Episode extends MediaEpisode>(props: {
 	readonly log: MediaEpisodeLog;
+	readonly editable: boolean;
 	readonly compact: boolean;
 	readonly safeAreaTop: number;
 	readonly episode: Episode;
@@ -177,6 +181,7 @@ function MediaNextUpCard<Episode extends MediaEpisode>(props: {
 				render={props.render}
 				episode={props.episode}
 				compact={props.compact}
+				editable={props.editable}
 				safeAreaTop={props.safeAreaTop}
 			/>
 		</div>
@@ -185,6 +190,7 @@ function MediaNextUpCard<Episode extends MediaEpisode>(props: {
 
 function MediaEpisodeList<Episode extends MediaEpisode>(props: {
 	readonly log: MediaEpisodeLog;
+	readonly editable: boolean;
 	readonly compact: boolean;
 	readonly safeAreaTop: number;
 	readonly episodes: readonly Episode[];
@@ -200,6 +206,7 @@ function MediaEpisodeList<Episode extends MediaEpisode>(props: {
 					divided={index > 0}
 					render={props.render}
 					compact={props.compact}
+					editable={props.editable}
 					safeAreaTop={props.safeAreaTop}
 				/>
 			))}
@@ -217,6 +224,7 @@ export function MediaEpisodePages<
 >(props: {
 	readonly scope?: Scope;
 	readonly log: MediaEpisodeLog;
+	readonly editable: boolean;
 	readonly compact: boolean;
 	readonly safeAreaTop: number;
 	readonly entityId: string;
@@ -245,6 +253,7 @@ export function MediaEpisodePages<
 									render={render}
 									episode={nextUp}
 									compact={props.compact}
+									editable={props.editable}
 									safeAreaTop={props.safeAreaTop}
 								/>
 							</ManagedAssetProvider>
@@ -254,6 +263,7 @@ export function MediaEpisodePages<
 							render={render}
 							episodes={episodes}
 							compact={props.compact}
+							editable={props.editable}
 							safeAreaTop={props.safeAreaTop}
 						/>
 					</>

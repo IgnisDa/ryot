@@ -150,6 +150,8 @@ export const builtinRelationshipSchemas = (): BuiltinRelationshipSchema[] => [
 		sourceEntitySchemaSlug: "show",
 		propertiesSchema: { fields: {} },
 		targetEntitySchemaSlug: "show-season",
+
+		userWritePolicy: "source-owner",
 	},
 	{
 		propertiesSchema: { fields: {} },
@@ -157,6 +159,8 @@ export const builtinRelationshipSchemas = (): BuiltinRelationshipSchema[] => [
 		name: "Show Season to Show Episode",
 		sourceEntitySchemaSlug: "show-season",
 		targetEntitySchemaSlug: "show-episode",
+
+		userWritePolicy: "source-owner",
 	},
 	{
 		propertiesSchema: { fields: {} },
@@ -164,6 +168,8 @@ export const builtinRelationshipSchemas = (): BuiltinRelationshipSchema[] => [
 		slug: "podcast-to-podcast-episode",
 		name: "Podcast to Podcast Episode",
 		targetEntitySchemaSlug: "podcast-episode",
+
+		userWritePolicy: "source-owner",
 	},
 	...builtinMediaEntitySchemaSlugs.map((sourceEntitySchemaSlug) => ({
 		name: "Genres",
