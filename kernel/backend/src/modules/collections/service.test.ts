@@ -315,7 +315,6 @@ const makeServiceLayer = (
 				}),
 				mockCollections({
 					findMembership: () => Effect.succeed(null),
-					findLowestMemberRank: () => Effect.succeed(null),
 					findCollectionByNameForUser: () => Effect.succeed(null),
 					getCollectionById: () => Effect.succeed(collectionEntity),
 					getBuiltinCollectionSchema: () => Effect.succeed(collectionEntitySchema),
@@ -1146,18 +1145,13 @@ layer(
 });
 
 layer(
-	makeServiceLayer({
-		collections: {
-			findLowestMemberRank: () => Effect.succeed(-2),
-			getCollectionById: () => Effect.succeed(noteCollection),
-		},
-	}),
+	makeServiceLayer({ collections: { getCollectionById: () => Effect.succeed(noteCollection) } }),
 )((test) => {
-	test.effect("places a new member before the current first member", () =>
+	test.effect("defers new member rank allocation to commit during preparation", () =>
 		Effect.gen(function* () {
 			yield* runMembershipWorkflow({ properties: { note: "first" } });
 			const [relationshipInput] = yield* (yield* CollectionCalls).relationshipInputs;
-			expect(relationshipInput?.properties).toEqual({ rank: -3, note: "first" });
+			expect(relationshipInput?.properties).toEqual({ rank: 0, note: "first" });
 		}),
 	);
 });

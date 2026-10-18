@@ -35,6 +35,7 @@ import {
 import { MutationReceiptIdentityConflict } from "#modules/mutations/receipts";
 import { catalogDefinitionFingerprint } from "#modules/plugins/catalog/runtime-resolver";
 
+import { isCollectionMember } from "./collection-order";
 import {
 	badProperties,
 	equal,
@@ -264,16 +265,19 @@ export const makeRelationshipMutationPrimitives = ({
 			mutation.mode === "merge"
 				? mergeProperties(before?.properties, mutation.properties)
 				: mutation.properties;
+		const parsed = yield* parseProperties(
+			properties,
+			validated.pinned.propertiesSchema,
+			Boolean(mutation.command.writeContext?.pluginRevision),
+		);
 		const value = yield* Schema.decodeUnknownEffect(AutomationRelationshipDraft)({
 			sourceEntityId: mutation.input.sourceEntityId,
 			targetEntityId: mutation.input.targetEntityId,
 			relationshipSchemaSlug: mutation.input.relationshipSchemaSlug,
 			relationshipSchemaPluginId: mutation.input.relationshipSchemaPluginId,
-			properties: yield* parseProperties(
-				properties,
-				validated.pinned.propertiesSchema,
-				Boolean(mutation.command.writeContext?.pluginRevision),
-			),
+			properties: isCollectionMember(mutation.input)
+				? { ...parsed, rank: before?.properties["rank"] ?? 0 }
+				: parsed,
 		}).pipe(Effect.mapError(() => badProperties([])));
 		if (before && equal(before.properties, value.properties)) {
 			return null;
@@ -396,7 +400,13 @@ export const makeRelationshipMutationPrimitives = ({
 		if (!equal(stored, properties)) {
 			return yield* concurrentChange();
 		}
-		return { ...request, draft: yield* draft(request, properties) };
+		const protectedProperties = isCollectionMember(mutation.input)
+			? {
+					...properties,
+					rank: request.operation === "update" ? (request.before.properties["rank"] ?? 0) : 0,
+				}
+			: properties;
+		return { ...request, draft: yield* draft(request, protectedProperties) };
 	});
 	const persistSources = Effect.fnUntraced(function* (
 		items: ReadonlyArray<{

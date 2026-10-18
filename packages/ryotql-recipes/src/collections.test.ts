@@ -20,6 +20,7 @@ import {
 import type { FilterInput } from "./filters";
 
 const pageInfo = { limit: 7, hasMore: false, nextCursor: null };
+const order = { type: "rows", items: [{ revision: 3 }], pageInfo: { ...pageInfo, limit: 2 } };
 
 /* oxlint-disable perfectionist/sort-objects -- field declaration order is test input */
 const membershipPropertiesSchema = Schema.decodeSync(AppSchema)({
@@ -180,6 +181,7 @@ describe("collections recipes", () => {
 		const result = Result.getOrThrow(
 			recipe.decode({
 				data: {
+					order,
 					members: {
 						pageInfo,
 						type: "rows",
@@ -208,10 +210,10 @@ describe("collections recipes", () => {
 	it("maps member rows to entity-browser fields and schema-declared cells", () => {
 		const recipe = collectionMembersRecipe({
 			limit: 7,
-			after: "cursor",
 			searchText: " sample ",
 			membershipPropertiesSchema,
 			collectionId: "collection-1",
+			after: JSON.stringify({ revision: 3, cursor: "cursor" }),
 		});
 		const query = recipe.document.queries.members;
 		assert(query?.output.type === "rows");
@@ -224,14 +226,14 @@ describe("collections recipes", () => {
 			]),
 		});
 		expect(query.output.orderBy).toMatchObject([
-			{ direction: "asc", expr: { type: "cast", expr: { path: ["rank"], type: "jsonPath" } } },
-			{ direction: "asc", expr: { field: "name" } },
+			{ direction: "asc", expr: { field: "collectionRank" } },
 			{ direction: "asc", expr: { field: "id" } },
 		]);
 
 		const result = Result.getOrThrow(
 			recipe.decode({
 				data: {
+					order,
 					members: {
 						pageInfo,
 						type: "rows",
@@ -308,9 +310,9 @@ describe("collections recipes", () => {
 		});
 		expect(
 			Result.getOrThrow(
-				emptyRecipe.decode({ data: { members: { pageInfo, items: [], type: "rows" } } }),
+				emptyRecipe.decode({ data: { order, members: { pageInfo, items: [], type: "rows" } } }),
 			),
-		).toEqual({ pageInfo, items: [] });
+		).toEqual({ pageInfo, items: [], stale: false, orderRevision: 3 });
 		expect(collectionMemberTableColumns(null)).toEqual([
 			{ field: "name", label: "Name", displayKind: "text" },
 			{ field: "type", label: "Type", displayKind: "text" },
@@ -355,6 +357,7 @@ describe("collections recipes", () => {
 		const result = Result.getOrThrow(
 			recipe.decode({
 				data: {
+					order,
 					members: {
 						pageInfo,
 						items: [
@@ -399,6 +402,45 @@ describe("collections recipes", () => {
 			{ direction, expr: { field } },
 			{ direction: "asc", expr: { field: "id" } },
 		]);
+	});
+
+	it("binds continuation pages to their collection order and refuses changed pages", () => {
+		const first = collectionMembersRecipe({
+			collectionId: "shelf",
+			membershipPropertiesSchema: null,
+		});
+		const firstPage = Result.getOrThrow(
+			first.decode({
+				data: {
+					order,
+					members: {
+						items: [],
+						type: "rows",
+						pageInfo: { ...pageInfo, hasMore: true, nextCursor: "next" },
+					},
+				},
+			}),
+		);
+		assert(firstPage.pageInfo.nextCursor);
+		const next = collectionMembersRecipe({
+			collectionId: "shelf",
+			membershipPropertiesSchema: null,
+			after: firstPage.pageInfo.nextCursor,
+		});
+		expect(next.document.queries.members?.output).toMatchObject({ pagination: { after: "next" } });
+		const current = Result.getOrThrow(
+			next.decode({ data: { order, members: { pageInfo, items: [], type: "rows" } } }),
+		);
+		expect(current).toMatchObject({ stale: false, orderRevision: 3 });
+		const changed = Result.getOrThrow(
+			next.decode({
+				data: {
+					order: { ...order, items: [{ revision: 4 }] },
+					members: { pageInfo, items: [], type: "rows" },
+				},
+			}),
+		);
+		expect(changed).toMatchObject({ items: [], stale: true, orderRevision: 4 });
 	});
 
 	it("counts the filtered members before pagination", () => {

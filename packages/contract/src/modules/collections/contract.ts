@@ -4,6 +4,7 @@ import { AuthMiddleware } from "../../auth-middleware";
 import { AuthenticatedMutationEndpoint } from "../../authenticated-mutation-endpoint";
 import {
 	CollectionBadRequest,
+	CollectionConflict,
 	CollectionNotFound,
 	CollectionResponse,
 	CreateCollectionBody,
@@ -12,6 +13,8 @@ import {
 	DeleteCollectionResponse,
 	DeleteMembershipBody,
 	MembershipResponse,
+	ReorderMembershipBody,
+	ReorderMembershipResponse,
 	UpdateCollectionBody,
 } from "./schemas";
 
@@ -56,6 +59,20 @@ export const CollectionsGroup = HttpApiGroup.make("collections")
 				CollectionNotFound.pipe(HttpApiSchema.status(404)),
 			],
 		}).annotate(OpenApi.Description, "Adds an entity to a collection"),
+	)
+	.add(
+		AuthenticatedMutationEndpoint.post("allowed")(
+			"reorderMembership",
+			"/collections/memberships/reorder",
+			{
+				payload: ReorderMembershipBody,
+				success: ReorderMembershipResponse,
+				error: [
+					CollectionNotFound.pipe(HttpApiSchema.status(404)),
+					CollectionConflict.pipe(HttpApiSchema.status(409)),
+				],
+			},
+		).annotate(OpenApi.Description, "Moves a member in the collection's manual order"),
 	)
 	.add(
 		AuthenticatedMutationEndpoint.delete("allowed")(

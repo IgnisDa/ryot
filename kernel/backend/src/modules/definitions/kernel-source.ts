@@ -163,7 +163,7 @@ export const kernelDefinitionSource = (): DefinitionSource => ({
 				fields: {
 					rank: {
 						label: "Rank",
-						type: "number",
+						type: "integer",
 						defaultValue: 0,
 						description: "Sort order of this entity within the collection",
 					},

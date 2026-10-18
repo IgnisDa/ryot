@@ -10,7 +10,7 @@ import {
 	RelationshipId,
 	SandboxProviderId,
 } from "@ryot-app/contract/schema/brands";
-import { and, eq, isNull, or, sql } from "drizzle-orm";
+import { and, eq, isNull, or } from "drizzle-orm";
 import { Context, Effect, Layer } from "effect";
 
 import { DefinitionRepository } from "#modules/definitions/repository";
@@ -125,23 +125,6 @@ export class CollectionsRepository extends Context.Service<CollectionsRepository
 				return row ? { ...row, id: RelationshipId.make(row.id) } : null;
 			});
 
-			const findLowestMemberRank = Effect.fn("CollectionsRepository.findLowestMemberRank")(
-				function* (input: { userId: UserId; collectionId: EntityId }) {
-					const [row] = yield* session.run((db) =>
-						db
-							.select({
-								rank: sql<
-									null | number
-								>`min(case when jsonb_typeof(${schema.relationship.properties} -> 'rank') = 'number' then (${schema.relationship.properties} ->> 'rank')::double precision end)`,
-							})
-							.from(schema.relationship)
-							.where(membershipWhere(input)),
-					);
-
-					return row?.rank ?? null;
-				},
-			);
-
 			const getCollectionById = Effect.fn("CollectionsRepository.getCollectionById")(function* (
 				collectionId: EntityId,
 				userId: UserId,
@@ -155,6 +138,19 @@ export class CollectionsRepository extends Context.Service<CollectionsRepository
 				);
 
 				return row ? toCollectionResponse(row) : null;
+			});
+			const getOrderRevision = Effect.fn("CollectionsRepository.getOrderRevision")(function* (
+				collectionId: EntityId,
+				userId: UserId,
+			) {
+				const [row] = yield* session.run((db) =>
+					db
+						.select({ revision: schema.entity.collectionOrderRevision })
+						.from(schema.entity)
+						.where(and(eq(schema.entity.id, collectionId), userCollectionWhere(userId)))
+						.limit(1),
+				);
+				return row?.revision ?? null;
 			});
 
 			const getEntityForMembership = Effect.fn("CollectionsRepository.getEntityForMembership")(
@@ -190,8 +186,8 @@ export class CollectionsRepository extends Context.Service<CollectionsRepository
 
 			return {
 				findMembership,
+				getOrderRevision,
 				getCollectionById,
-				findLowestMemberRank,
 				getEntityForMembership,
 				getBuiltinCollectionSchema,
 				findCollectionByNameForUser,

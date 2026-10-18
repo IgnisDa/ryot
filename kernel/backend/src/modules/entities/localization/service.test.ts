@@ -297,6 +297,7 @@ const makeServiceLayer = (
 				contentGeneration: 1,
 				populatedAt: storedAt,
 				relatedPopulatedAt: null,
+				collectionOrderRevision: 0,
 				providerId: payload.providerId,
 				externalId: payload.externalId,
 				relatedPopulationStartedAt: null,

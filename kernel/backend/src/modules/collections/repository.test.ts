@@ -212,37 +212,35 @@ const insertCollectionRows = Effect.gen(function* () {
 			};
 			yield* db.insert(tables.relationship).values([
 				{ ...membership, id: "a", properties: { rank: -2 }, sourceEntityId: "member-a" },
-				{ ...membership, id: "b", sourceEntityId: "member-b", properties: { rank: "-99" } },
-				{ ...membership, id: "c", sourceEntityId: "member-c", properties: { note: "unranked" } },
+				{ ...membership, id: "b", properties: { rank: -99 }, sourceEntityId: "member-b" },
+				{
+					...membership,
+					id: "c",
+					sourceEntityId: "member-c",
+					properties: { rank: 0, note: "unranked" },
+				},
 			]);
 		}),
 	);
 });
 
 layer(CollectionsRepository.layer.pipe(Layer.provideMerge(revisionDatabaseLayer)))((test) => {
-	test.effect("reads memberships and the lowest numeric member rank of one collection", () =>
+	test.effect("checks collection order revision ownership and reads memberships", () =>
 		Effect.gen(function* () {
 			yield* insertCollectionRows;
 			const repository = yield* CollectionsRepository;
 			const userId = UserId.make("owner");
 			const shelf = EntityId.make("shelf");
-			expect(yield* repository.findLowestMemberRank({ userId, collectionId: shelf })).toBe(-2);
-			expect(
-				yield* repository.findLowestMemberRank({ userId, collectionId: EntityId.make("empty") }),
-			).toBeNull();
-			expect(
-				yield* repository.findLowestMemberRank({
-					collectionId: shelf,
-					userId: UserId.make("recipient"),
-				}),
-			).toBeNull();
+			expect(yield* repository.getOrderRevision(shelf, userId)).toBe(3);
+			expect(yield* repository.getOrderRevision(EntityId.make("empty"), userId)).toBe(0);
+			expect(yield* repository.getOrderRevision(shelf, UserId.make("recipient"))).toBeNull();
 			expect(
 				yield* repository.findMembership({
 					userId,
 					collectionId: shelf,
 					entityId: EntityId.make("member-c"),
 				}),
-			).toEqual({ id: "c", properties: { note: "unranked" } });
+			).toEqual({ id: "c", properties: { rank: 0, note: "unranked" } });
 			expect(
 				yield* repository.findCollectionByNameForUser({ userId, name: "Shelf" }),
 			).toMatchObject({ id: shelf });

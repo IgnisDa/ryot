@@ -447,18 +447,6 @@ export class CollectionsService extends Context.Service<CollectionsService>()(
 				return { entity, collection };
 			});
 
-			const memberRank = Effect.fnUntraced(function* (
-				input: MembershipTarget,
-				existing: null | { readonly properties: Record<string, unknown> },
-			) {
-				const stored = existing?.properties["rank"];
-				if (typeof stored === "number") {
-					return stored;
-				}
-				const lowest = yield* repository.findLowestMemberRank(input);
-				return (lowest ?? 1) - 1;
-			});
-
 			const prepareMembership = Effect.fn("CollectionsService.prepareMembership")(function* (
 				input: MembershipTarget & { properties?: unknown; mode?: CreateMembershipBody["mode"] },
 			) {
@@ -485,7 +473,8 @@ export class CollectionsService extends Context.Service<CollectionsService>()(
 					),
 				);
 				const existing = yield* repository.findMembership(input);
-				const rank = yield* memberRank(input, existing);
+				const storedRank = existing?.properties["rank"];
+				const rank = typeof storedRank === "number" ? storedRank : 0;
 				const addEvent = yield* addEventSchema;
 				const prepared = yield* relationships
 					.prepareCreate(

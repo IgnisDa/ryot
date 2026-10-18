@@ -1037,6 +1037,19 @@ export class EntitiesRepository extends Context.Service<EntitiesRepository>()(
 			const deleteByIds = Effect.fn("EntitiesRepository.deleteByIds")(function* (
 				ids: readonly [EntityId, ...EntityId[]],
 			) {
+				yield* session.run((db) =>
+					db
+						.select({ id: schema.entity.id })
+						.from(schema.entity)
+						.where(
+							sql`exists (select 1 from ${schema.relationship} member where member.target_entity_id = ${schema.entity.id} and member.source_entity_id = any(array[${sql.join(
+								ids.map((id) => sql`${id}`),
+								sql`, `,
+							)}]::text[]) and member.relationship_schema_slug = 'member-of' and member.relationship_schema_plugin_id is null)`,
+						)
+						.orderBy(sql`${schema.entity.id} collate "C"`)
+						.for("no key update"),
+				);
 				const rows = yield* Effect.forEach(chunksOf(ids, STATEMENT_CHUNK_SIZE), (chunk) =>
 					session.run((db) =>
 						db

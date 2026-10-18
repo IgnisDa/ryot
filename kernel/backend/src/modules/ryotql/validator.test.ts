@@ -194,6 +194,7 @@ it("exposes only approved entity fields", () => {
 			"translationStatus",
 			"entitySchemaPluginId",
 			"relatedPopulationStatus",
+			"collectionOrderRevision",
 		]),
 	);
 });
@@ -259,6 +260,7 @@ it("exposes only approved relationship fields", () => {
 			"properties",
 			"sourceEntityId",
 			"targetEntityId",
+			"collectionRank",
 			"relationshipSchemaSlug",
 			"relationshipSchemaPluginId",
 		]),

@@ -285,6 +285,7 @@ const translationUpserts = recordingServiceLayer<unknown>((record) => ({
 				createdAt: new Date(0),
 				updatedAt: new Date(0),
 				relatedPopulatedAt: null,
+				collectionOrderRevision: 0,
 				relatedPopulationStartedAt: null,
 				relatedPopulationGeneration: null,
 			}),

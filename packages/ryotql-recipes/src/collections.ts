@@ -21,7 +21,6 @@ import type { Recipe } from "@ryot-app/ryotql";
 import {
 	and,
 	ascending,
-	castNumber,
 	castText,
 	coalesce,
 	column,
@@ -312,11 +311,7 @@ const collectionMemberOrder = (
 	const name = column(entity, "name");
 	const entityId = column(entity, "id");
 	if (sort === "collection-order") {
-		return [
-			ascending(castNumber(jsonPath(column(membership, "properties"), "rank"))),
-			ascending(name),
-			ascending(entityId),
-		];
+		return [ascending(column(membership, "collectionRank")), ascending(entityId)];
 	}
 	if (sort === "name-desc") {
 		return [descending(name), ascending(entityId)];
@@ -491,6 +486,12 @@ export const collectionMembershipRecipe = defineRecipe(
 
 export type CollectionMembershipResult = Recipe.Success<typeof collectionMembershipRecipe>;
 
+const CollectionCursor = Schema.fromJsonString(
+	Schema.Struct({ revision: Schema.Int, cursor: Schema.String }),
+);
+const decodeCollectionCursor = Schema.decodeUnknownSync(CollectionCursor);
+const encodeCollectionCursor = Schema.encodeSync(CollectionCursor);
+
 export const collectionMembersRecipe = defineRecipe(
 	(
 		input: FilterInput & {
@@ -503,6 +504,8 @@ export const collectionMembersRecipe = defineRecipe(
 			readonly filterFields?: undefined | readonly QueryFilterField[];
 		},
 	) => {
+		const cursor = input.after === undefined ? undefined : decodeCollectionCursor(input.after);
+		const collection = table("entity", "collectionOrder");
 		const tables = collectionMembershipTables();
 		const { entity, membership, entityJoin, ownerPlugin, ownerPluginJoin } = tables;
 		const { predicate, projections } = collectionMemberFilter(
@@ -511,8 +514,8 @@ export const collectionMembersRecipe = defineRecipe(
 			input,
 		);
 		const members = selectedRows(membership, {
-			after: input.after,
 			limit: input.limit,
+			after: cursor?.cursor,
 			joins: [entityJoin, ownerPluginJoin],
 			orderBy: collectionMemberOrder(input.sort ?? "collection-order", membership, entity),
 			where: collectionMembershipWhere(
@@ -548,11 +551,36 @@ export const collectionMembersRecipe = defineRecipe(
 						},
 					},
 				},
+				order: selectedOptionalRow(collection, {
+					orderBy: [ascending(column(collection, "id"))],
+					selection: {
+						revision: selectedField(column(collection, "collectionOrderRevision"), Schema.Int),
+					},
+					where: and(
+						eq(column(collection, "id"), literal(input.collectionId)),
+						eq(column(collection, "entitySchemaSlug"), literal("collection")),
+						isNull(column(collection, "entitySchemaPluginId")),
+					),
+				}),
 			},
-			map: ({ members: page }) =>
+			map: ({ order, members: page }) =>
 				Result.succeed({
-					pageInfo: page.pageInfo,
-					items: page.items.map((member) => ({
+					orderRevision: order?.revision ?? 0,
+					stale: cursor !== undefined && cursor.revision !== order?.revision,
+					pageInfo: {
+						...page.pageInfo,
+						nextCursor:
+							page.pageInfo.nextCursor === null
+								? null
+								: encodeCollectionCursor({
+										revision: order?.revision ?? 0,
+										cursor: page.pageInfo.nextCursor,
+									}),
+					},
+					items: (cursor !== undefined && cursor.revision !== order?.revision
+						? []
+						: page.items
+					).map((member) => ({
 						name: member.name,
 						presentation: null,
 						entityId: member.entityId,

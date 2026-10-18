@@ -292,6 +292,7 @@ const entity: CatalogTable = {
 		relatedPopulationStatus: entityRelatedPopulationStatus,
 		entitySchemaSlug: physicalField("entity_schema_slug", "text", false),
 		entitySchemaPluginId: physicalField("entity_schema_plugin_id", "text"),
+		collectionOrderRevision: physicalField("collection_order_revision", "number", false),
 		providerCheckedAt: {
 			kind: "date",
 			nullable: true,
@@ -481,6 +482,14 @@ const relationship: CatalogTable = {
 		targetEntityId: physicalField("target_entity_id", "text", false),
 		relationshipSchemaSlug: physicalField("relationship_schema_slug", "text", false),
 		relationshipSchemaPluginId: physicalField("relationship_schema_plugin_id", "text"),
+		collectionRank: {
+			kind: "number",
+			nullable: true,
+			resolve: ({ sqlAlias }) =>
+				sql.raw(
+					`(case when ${sqlAlias}.relationship_schema_slug = 'member-of' and ${sqlAlias}.relationship_schema_plugin_id is null then (${sqlAlias}.properties ->> 'rank')::double precision end)`,
+				),
+		},
 	},
 };
 

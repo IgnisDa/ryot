@@ -3,6 +3,8 @@ import { AppContract } from "@ryot-app/contract/contract";
 import { dieOnDbError } from "@ryot-app/contract/errors";
 import { AutomationExecutionId } from "@ryot-app/contract/schema/brands";
 import { IsoUtcString } from "@ryot-app/contract/schema/utils";
+import { sha256Hex } from "@ryot-app/ts-utils/crypto";
+import { stableStringify } from "@ryot-app/ts-utils/json";
 import { generateId } from "better-auth";
 import { DateTime, Effect } from "effect";
 import { HttpApiBuilder } from "effect/http-api";
@@ -10,6 +12,7 @@ import { HttpApiBuilder } from "effect/http-api";
 import { rootLifecycleCommand } from "#modules/automations/lifecycle/command";
 import type { DomainLifecycleCommand } from "#modules/entities/write-context";
 
+import { CollectionOrderingService } from "./ordering-service";
 import { CollectionsService } from "./service";
 
 const apiLifecycleCommand = Effect.fnUntraced(function* (
@@ -32,6 +35,27 @@ const apiLifecycleCommand = Effect.fnUntraced(function* (
 
 export const CollectionsRoutesLive = HttpApiBuilder.group(AppContract, "collections", (handlers) =>
 	handlers
+		.handle("reorderMembership", ({ payload }) =>
+			Effect.gen(function* () {
+				const user = yield* CurrentUser;
+				const service = yield* CollectionOrderingService;
+				const command = {
+					...rootLifecycleCommand({
+						source: "api",
+						lane: "interactive",
+						occurredAt: payload.submittedAt,
+						itemIdentity: "collection:reorder",
+						initiator: { id: user.id, kind: "user" },
+						accountGeneration: user.accountGeneration,
+						executionId: AutomationExecutionId.make(
+							`collection-reorder-${sha256Hex(stableStringify([user.id, payload.idempotencyKey]))}`,
+						),
+					}),
+					writeContext: null,
+				} satisfies DomainLifecycleCommand;
+				return yield* service.reorder(user, payload, command).pipe(dieOnDbError);
+			}),
+		)
 		.handle("create", ({ payload }) =>
 			Effect.gen(function* () {
 				const user = yield* CurrentUser;

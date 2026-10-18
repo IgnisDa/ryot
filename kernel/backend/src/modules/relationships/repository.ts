@@ -16,6 +16,8 @@ import { pluginIdWhere } from "#platform/db/definition-owner";
 import { DatabaseSession } from "#platform/db/session";
 import * as schema from "#schema/tables/combined";
 
+import { makeCollectionOrderPersistence } from "./collection-order";
+
 type RelationshipRow = RelationshipSnapshotRow & { readonly wasInserted: boolean };
 
 type RelationshipSnapshotRow = Pick<
@@ -146,6 +148,9 @@ const relationshipValues = (input: CreateRelationshipInput) => ({
 	relationshipSchemaPluginId: input.relationshipSchemaPluginId ?? null,
 });
 
+const preserveCollectionRank = (properties: ReturnType<typeof sql>) =>
+	sql`case when ${schema.relationship.relationshipSchemaSlug} = 'member-of' and ${schema.relationship.relationshipSchemaPluginId} is null then (${properties} - 'rank') || jsonb_build_object('rank', ${schema.relationship.properties} -> 'rank') else ${properties} end`;
+
 const relationshipSchemaPluginWhere = (pluginId: null | string) =>
 	pluginIdWhere(schema.relationship.relationshipSchemaPluginId, pluginId);
 
@@ -241,6 +246,7 @@ export class RelationshipsRepository extends Context.Service<RelationshipsReposi
 	{
 		make: Effect.gen(function* () {
 			const session = yield* DatabaseSession;
+			const collectionOrder = makeCollectionOrderPersistence(session);
 			const findRelationship = Effect.fn("RelationshipsRepository.findRelationship")(function* (
 				input: RelationshipIdentityInput,
 			) {
@@ -289,6 +295,7 @@ export class RelationshipsRepository extends Context.Service<RelationshipsReposi
 			const lockRelationshipMutations = Effect.fn(
 				"RelationshipsRepository.lockRelationshipMutations",
 			)(function* (inputs: ReadonlyArray<RelationshipIdentityInput>) {
+				yield* collectionOrder.lock(inputs);
 				yield* lockSortedAdvisoryKeys(
 					session,
 					inputs.map(relationshipMutationLockKey),
@@ -330,10 +337,14 @@ export class RelationshipsRepository extends Context.Service<RelationshipsReposi
 			const createRelationship = Effect.fn("RelationshipsRepository.createRelationship")(function* (
 				input: CreateRelationshipInput,
 			) {
+				const [prepared] = yield* collectionOrder.prepareCreates([input]);
+				if (!prepared) {
+					return yield* Effect.die("Missing relationship create input");
+				}
 				const [inserted] = yield* session.run((db) =>
 					db
 						.insert(schema.relationship)
-						.values(relationshipValues(input))
+						.values(relationshipValues(prepared))
 						.onConflictDoNothing(relationshipConflictTarget)
 						.returning(relationshipSelection),
 				);
@@ -360,14 +371,17 @@ export class RelationshipsRepository extends Context.Service<RelationshipsReposi
 
 			const createRelationships = Effect.fn("RelationshipsRepository.createRelationships")(
 				function* (inputs: ReadonlyArray<CreateRelationshipInput>) {
-					const inserted = yield* Effect.forEach(chunksOf(inputs, STATEMENT_CHUNK_SIZE), (chunk) =>
-						session.run((db) =>
-							db
-								.insert(schema.relationship)
-								.values(chunk.map(relationshipValues))
-								.onConflictDoNothing(relationshipConflictTarget)
-								.returning({ ...relationshipSelection, userId: schema.relationship.userId }),
-						),
+					const prepared = yield* collectionOrder.prepareCreates(inputs);
+					const inserted = yield* Effect.forEach(
+						chunksOf(prepared, STATEMENT_CHUNK_SIZE),
+						(chunk) =>
+							session.run((db) =>
+								db
+									.insert(schema.relationship)
+									.values(chunk.map(relationshipValues))
+									.onConflictDoNothing(relationshipConflictTarget)
+									.returning({ ...relationshipSelection, userId: schema.relationship.userId }),
+							),
 					);
 					const saved = new Map(
 						inserted.flat().map((row) => [storedRelationshipKey(row), toSavedRelationship(row)]),
@@ -397,13 +411,15 @@ export class RelationshipsRepository extends Context.Service<RelationshipsReposi
 							db
 								.update(schema.relationship)
 								.set({
-									properties: sql`(case ${schema.relationship.id} ${sql.join(
-										chunk.map(
-											({ id, properties }) =>
-												sql`when ${id} then ${JSON.stringify(properties)}::jsonb`,
-										),
-										sql` `,
-									)} end)`,
+									properties: preserveCollectionRank(
+										sql`(case ${schema.relationship.id} ${sql.join(
+											chunk.map(
+												({ id, properties }) =>
+													sql`when ${id} then ${JSON.stringify(properties)}::jsonb`,
+											),
+											sql` `,
+										)} end)`,
+									),
 								})
 								.where(
 									inArray(
@@ -447,7 +463,9 @@ export class RelationshipsRepository extends Context.Service<RelationshipsReposi
 				const [row] = yield* session.run((db) =>
 					db
 						.update(schema.relationship)
-						.set({ properties: input.properties })
+						.set({
+							properties: preserveCollectionRank(sql`${JSON.stringify(input.properties)}::jsonb`),
+						})
 						.where(and(relationshipIdentityWhere(input), preparedRelationshipWhere(input.before)))
 						.returning(relationshipSnapshotSelection),
 				);
@@ -745,6 +763,8 @@ export class RelationshipsRepository extends Context.Service<RelationshipsReposi
 				claimRelationshipSyncGeneration,
 				listRelationshipsForReconciliation,
 				listRelationshipsOutsideGeneration,
+				lockCollectionOrders: collectionOrder.lock,
+				moveCollectionMember: collectionOrder.move,
 				listUserRelationshipsForEntitiesWithProvenance,
 			};
 		}),

@@ -7,6 +7,7 @@ import {
 	RelationshipSchemaSlug,
 	SandboxProviderId,
 } from "../../schema/brands";
+import { IsoUtcString } from "../../schema/utils";
 import { AutomationWarning } from "../automations/lifecycle";
 import { CollectionField } from "./fields";
 
@@ -52,6 +53,34 @@ export class CollectionBadRequest extends Schema.TaggedError<
 	CollectionBadRequest,
 	{ readonly brand: unique symbol }
 >()("CollectionBadRequest", { reason: CollectionBadRequestReason }) {}
+
+export class CollectionConflict extends Schema.TaggedError<
+	CollectionConflict,
+	{ readonly brand: unique symbol }
+>()("CollectionConflict", {
+	reason: Schema.Struct({ code: Schema.Literals(["order-stale", "command-identity-conflict"]) }),
+}) {}
+
+export const ReorderMembershipBody = Schema.Struct({
+	entityId: EntityId,
+	collectionId: EntityId,
+	submittedAt: IsoUtcString,
+	expectedRevision: Schema.Int.pipe(Schema.check(Schema.isGreaterThanOrEqualTo(0))),
+	idempotencyKey: Schema.String.pipe(Schema.check(Schema.isMinLength(1), Schema.isMaxLength(200))),
+	destination: Schema.Union([
+		Schema.Struct({ kind: Schema.Literals(["start", "end"]) }),
+		Schema.Struct({ entityId: EntityId, kind: Schema.Literals(["before", "after"]) }),
+	]),
+});
+export type ReorderMembershipBody = typeof ReorderMembershipBody.Type;
+
+export const ReorderMembershipResponse = Schema.Struct({
+	collectionId: EntityId,
+	orderRevision: Schema.Int,
+});
+export type ReorderMembershipResponse = typeof ReorderMembershipResponse.Type;
+
+export const collectionRankStep = 2 ** 32;
 
 export const CollectionResponse = Schema.Struct({
 	id: EntityId,

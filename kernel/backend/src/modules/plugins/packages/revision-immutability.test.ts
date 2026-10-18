@@ -275,6 +275,7 @@ describe("immutable plugin revisions", () => {
 					),
 				);
 				expect(triggers.map(({ name }) => name)).toEqual([
+					"collection_order_changed",
 					"ryot_plugin_revision_immutable",
 					"ryot_plugin_revision_manifest_immutable",
 					"ryot_plugin_revision_manifest_truncate",

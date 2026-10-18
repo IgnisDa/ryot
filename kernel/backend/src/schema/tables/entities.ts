@@ -1,6 +1,15 @@
 import { generateId } from "better-auth";
 import { sql } from "drizzle-orm";
-import { index, integer, jsonb, snakeCase, text, unique, uniqueIndex } from "drizzle-orm/pg-core";
+import {
+	check,
+	index,
+	integer,
+	jsonb,
+	snakeCase,
+	text,
+	unique,
+	uniqueIndex,
+} from "drizzle-orm/pg-core";
 
 import { user } from "./auth";
 import { plugin, sandboxProvider } from "./core";
@@ -19,6 +28,7 @@ export const entity = snakeCase.table(
 		relatedPopulationStartedAt: timestamptz(),
 		createdAt: timestamptz().defaultNow().notNull(),
 		contentGeneration: integer().notNull().default(1),
+		collectionOrderRevision: integer().notNull().default(0),
 		userId: text().references(() => user.id, { onDelete: "cascade" }),
 		properties: jsonb().$type<Record<string, unknown>>().notNull().default({}),
 		providerId: text().references(() => sandboxProvider.id, { onDelete: "cascade" }),
@@ -77,10 +87,23 @@ export const relationship = snakeCase.table(
 	},
 	(table) => [
 		index("relationship_schema_slug_idx").on(table.relationshipSchemaSlug),
+		check(
+			"relationship_collection_rank_valid",
+			sql`${table.relationshipSchemaSlug} <> 'member-of' or ${table.relationshipSchemaPluginId} is not null or coalesce((${table.userId} is not null and jsonb_typeof(${table.properties} -> 'rank') = 'number' and (${table.properties} ->> 'rank')::numeric = trunc((${table.properties} ->> 'rank')::numeric) and abs((${table.properties} ->> 'rank')::numeric) < 4503599627370496), false)`,
+		),
 		index("relationship_schema_plugin_id_idx").on(table.relationshipSchemaPluginId),
 		index("relationship_source_entity_id_idx").on(table.sourceEntityId),
 		index("relationship_target_entity_id_idx").on(table.targetEntityId),
 		index("relationship_properties_idx").using("gin", table.properties),
+		index("relationship_collection_order_idx")
+			.on(
+				table.targetEntityId,
+				sql`(case when ${table.relationshipSchemaSlug} = 'member-of' and ${table.relationshipSchemaPluginId} is null then (${table.properties} ->> 'rank')::double precision end)`,
+				table.sourceEntityId,
+			)
+			.where(
+				sql`${table.relationshipSchemaSlug} = 'member-of' and ${table.relationshipSchemaPluginId} is null`,
+			),
 		unique("relationship_identity_unique")
 			.on(
 				table.userId,

@@ -2,7 +2,10 @@ import {
 	collectionFieldLimits,
 	reservedCollectionFieldKeys,
 } from "@ryot-app/contract/modules/collections/fields";
-import { maximumCollectionNameLength } from "@ryot-app/contract/modules/collections/schemas";
+import {
+	collectionRankStep,
+	maximumCollectionNameLength,
+} from "@ryot-app/contract/modules/collections/schemas";
 
 import type { QualifiedSchema } from "./migration-resolution";
 import {
@@ -55,7 +58,9 @@ BEGIN
 					'{}'::jsonb
 				)
 			ELSE '{}'::jsonb
-		END || jsonb_build_object('rank', cte.rank),
+		END || jsonb_build_object('rank',
+			(row_number() OVER (PARTITION BY cte.collection_id ORDER BY cte.rank, cte.created_on, cte.id) - 1)
+			* least(${collectionRankStep}::numeric, floor(4503599627370495::numeric / count(*) OVER (PARTITION BY cte.collection_id)))),
 		cte.created_on
 	FROM "collection_to_entity" cte
 	INNER JOIN "entity" src_entity ON src_entity.id = cte.entity_id
