@@ -289,3 +289,58 @@ for (const [slug, label] of [
 		}).pipe(PlaywrightSpawner.withBrowser),
 	);
 }
+
+it.live("authors, tracks, and protects custom seasons and episodes from the Episodes tab", () =>
+	Effect.gen(function* () {
+		const { email, client, password } = yield* createAuthenticatedClient();
+		const { schema } = yield* findMediaEntitySchema(client, "show");
+		const showName = `Custom show ${crypto.randomUUID()}`;
+		const show = yield* createEntity(client, {
+			name: showName,
+			properties: {},
+			entitySchema: schema.reference,
+		});
+		const page = yield* (yield* Playwright.Browser).newPage({
+			viewport: { width: 1280, height: 900 },
+		});
+		yield* signInThroughHostedOAuth(page, email, password);
+		yield* page.goto(`${getFrontendUrl()}/e/${show.id}`);
+		const media = () => mediaPluginFrame(page, { visible: true }).contentFrame();
+
+		yield* media().getByRole("tab", { name: "Episodes" }).click();
+		yield* media().getByRole("button", { exact: true, name: "Add season" }).click();
+		const seasonForm = media().getByRole("form", { exact: true, name: "New Show Season" });
+		yield* seasonForm.getByText(showName, { exact: true }).waitFor({ state: "visible" });
+		expect(yield* seasonForm.getByLabel("Season number", { exact: true }).inputValue()).toBe("1");
+		expect(
+			yield* seasonForm.getByRole("button", { name: `Remove ${showName} from Show to Show Season` })
+				.count,
+		).toBe(0);
+		yield* seasonForm.getByLabel("Name", { exact: true }).fill("First season");
+		yield* seasonForm.getByRole("button", { exact: true, name: "Save" }).click();
+		yield* page.waitForURL((url) => url.pathname === `/e/${show.id}`);
+
+		yield* media().getByRole("tab", { name: "Episodes" }).click();
+		yield* media().getByRole("button", { exact: true, name: "Add episode" }).click();
+		const episodeForm = media().getByRole("form", { exact: true, name: "New Show Episode" });
+		yield* episodeForm.getByText("First season", { exact: true }).waitFor({ state: "visible" });
+		expect(yield* episodeForm.getByLabel("Season number", { exact: true }).inputValue()).toBe("1");
+		expect(yield* episodeForm.getByLabel("Episode number", { exact: true }).inputValue()).toBe("1");
+		yield* episodeForm.getByLabel("Name", { exact: true }).fill("Pilot");
+		yield* episodeForm.getByRole("button", { exact: true, name: "Save" }).click();
+		yield* page.waitForURL((url) => url.pathname === `/e/${show.id}`);
+
+		yield* media().getByRole("tab", { name: "Episodes" }).click();
+		yield* media().getByRole("button", { exact: true, name: "Open Pilot" }).click();
+		const details = media().getByRole("dialog", { name: "Pilot" });
+		yield* details.getByRole("button", { exact: true, name: "Mark watched" }).click();
+		yield* details.getByText("Watched", { exact: true }).waitFor({ state: "visible" });
+		yield* details.getByRole("button", { exact: true, name: "Edit episode" }).click();
+
+		const editForm = media().getByRole("form", { exact: true, name: "Edit Show Episode" });
+		yield* editForm.getByRole("button", { exact: true, name: "Delete" }).click();
+		const confirmation = media().getByRole("dialog", { name: "Delete this show episode?" });
+		yield* confirmation.getByRole("button", { exact: true, name: "Delete" }).click();
+		yield* confirmation.getByRole("alert").waitFor({ state: "visible" });
+	}).pipe(PlaywrightSpawner.withBrowser),
+);

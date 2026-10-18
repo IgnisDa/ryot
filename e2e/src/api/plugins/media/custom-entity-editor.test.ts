@@ -6,14 +6,20 @@ import {
 	createAuthenticatedClient,
 	createEntity,
 	createRelationship,
+	findRelationshipBySchema,
 	getEntity,
 } from "~/fixtures/kernel";
 import { findMediaEntitySchema } from "~/fixtures/plugins/media";
-import { assertTaggedError } from "~/support/assertions";
+import { assertCondition, assertTaggedError } from "~/support/assertions";
 import { describe, expect, it } from "~/support/effect-test";
 import { nowIso } from "~/support/time";
 
-type EditorRequest = ContractPayload<"entities", "saveEditor">;
+type EditorRequest = ContractPayload<"entities", "saveEditor"> & {
+	readonly submission: Extract<
+		ContractPayload<"entities", "saveEditor">["submission"],
+		{ readonly action: "save" }
+	>;
+};
 
 describe("custom Media editor", () => {
 	it.live(
@@ -35,6 +41,7 @@ describe("custom Media editor", () => {
 					idempotencyKey: crypto.randomUUID(),
 					submission: {
 						name,
+						action: "save",
 						relationships: [],
 						entitySchema: schema.reference,
 						properties: { description: "Keep this", publishDate: "2026-10-26" },
@@ -117,6 +124,7 @@ describe("custom Media editor", () => {
 					submittedAt: nowIso(),
 					idempotencyKey: crypto.randomUUID(),
 					submission: {
+						action: "save",
 						relationships: empty,
 						name: `${movie.name} edited`,
 						properties: movie.properties,
@@ -181,5 +189,81 @@ describe("custom Media editor", () => {
 					(yield* owner.client.call((c) => c.entities.saveEditor({ payload: fresh }))).output,
 				).toEqual({ kind: "saved", entityId: movie.id });
 			}),
+	);
+
+	it.live("edits credits from the media editor and no longer from creators", () =>
+		Effect.gen(function* () {
+			const { client } = yield* createAuthenticatedClient();
+			const [{ schema }, { schema: personSchema }] = yield* Effect.all([
+				findMediaEntitySchema(client, "movie"),
+				findMediaEntitySchema(client, "person"),
+			]);
+			const person = yield* createEntity(client, {
+				properties: {},
+				entitySchema: personSchema.reference,
+				name: `Custom person ${crypto.randomUUID()}`,
+			});
+			const credit = { order: 1, roles: ["Director"], character: "Narrator" };
+			const created = yield* client.call((c) =>
+				c.entities.saveEditor({
+					payload: {
+						submittedAt: nowIso(),
+						idempotencyKey: crypto.randomUUID(),
+						submission: {
+							properties: {},
+							action: "save",
+							target: { kind: "create" },
+							entitySchema: schema.reference,
+							name: `Credited movie ${crypto.randomUUID()}`,
+							relationships: [
+								{
+									relationshipSchemaSlug: "person-to-movie",
+									targets: [{ properties: credit, entityId: person.id }],
+								},
+							],
+						},
+					},
+				}),
+			);
+			assertCondition(created.output.kind === "saved", "Expected the credited movie to save");
+			expect(
+				yield* findRelationshipBySchema(client, {
+					sourceEntityId: person.id,
+					owner: schema.reference.owner,
+					targetEntityId: created.output.entityId,
+					relationshipSchemaSlug: "person-to-movie",
+				}),
+			).toEqual({
+				properties: credit,
+				sourceEntityId: person.id,
+				targetEntityId: created.output.entityId,
+			});
+			const fromPerson = yield* client.call((c) =>
+				c.entities.saveEditor({
+					payload: {
+						submittedAt: nowIso(),
+						idempotencyKey: crypto.randomUUID(),
+						submission: {
+							action: "save",
+							name: person.name,
+							properties: person.properties,
+							entitySchema: personSchema.reference,
+							relationships: [{ targets: [], relationshipSchemaSlug: "person-to-movie" }],
+							target: {
+								kind: "update",
+								entityId: person.id,
+								expected: {
+									name: person.name,
+									updatedAt: person.updatedAt,
+									properties: person.properties,
+									relationships: [{ targets: [], relationshipSchemaSlug: "person-to-movie" }],
+								},
+							},
+						},
+					},
+				}),
+			);
+			expect(fromPerson.output).toMatchObject({ kind: "invalid" });
+		}),
 	);
 });
