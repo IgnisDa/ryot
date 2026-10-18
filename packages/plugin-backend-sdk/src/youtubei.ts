@@ -99,6 +99,9 @@ const makeFetch = (host: YoutubeiHost): typeof fetch =>
 		(input: Request | string | URL, init?: RequestInit): Promise<Response> =>
 			resolveRequestParts(input, init).pipe(
 				Effect.flatMap((parts) => {
+					if (new URL(parts.url).origin === "https://www.youtube.com") {
+						parts.headers["origin"] = "https://www.youtube.com";
+					}
 					const options: { body?: string; headers?: Record<string, string> } = {};
 					if (parts.body !== undefined) {
 						options.body = parts.body;

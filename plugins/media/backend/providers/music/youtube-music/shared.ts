@@ -236,7 +236,7 @@ export const buildHistory = (client: HistoryClient, timezone: string, startedAt:
 		return lower.includes(localDate);
 	};
 	return client.getHistory().pipe(
-		Effect.map((history) => {
+		Effect.flatMap((history) => {
 			const songs: { videoId: string; title: string }[] = [];
 			const rootContents = asRecord(asRecord(history)?.["contents"]);
 			const browseResults = asRecord(rootContents?.["singleColumnBrowseResultsRenderer"]);
@@ -244,9 +244,32 @@ export const buildHistory = (client: HistoryClient, timezone: string, startedAt:
 			const tab = asRecord(Array.isArray(tabs) ? tabs[0] : null);
 			const tabContent = asRecord(asRecord(tab?.["tabRenderer"])?.["content"]);
 			const sections = asRecord(tabContent?.["sectionListRenderer"])?.["contents"];
-			for (const section of Array.isArray(sections) ? sections : []) {
+			if (!Array.isArray(sections)) {
+				return Effect.fail(
+					new MediaSandboxError({ message: "Unrecognized YouTube Music history response" }),
+				);
+			}
+			let shelfCount = 0;
+			for (const section of sections) {
 				const shelf = asRecord(asRecord(section)?.["musicShelfRenderer"]);
-				if (!shelf || !isTodayHeader(nodeTitle(shelf["title"]))) {
+				if (!shelf) {
+					const items = asRecord(asRecord(section)?.["itemSectionRenderer"])?.["contents"];
+					for (const item of Array.isArray(items) ? items : []) {
+						const message = asRecord(asRecord(item)?.["messageRenderer"]);
+						const button = asRecord(asRecord(message?.["button"])?.["buttonRenderer"]);
+						if (asRecord(button?.["navigationEndpoint"])?.["signInEndpoint"]) {
+							return Effect.fail(
+								new MediaSandboxError({
+									message:
+										"YouTube Music history requires sign-in; authentication was not accepted",
+								}),
+							);
+						}
+					}
+					continue;
+				}
+				shelfCount += 1;
+				if (!isTodayHeader(nodeTitle(shelf["title"]))) {
 					continue;
 				}
 				const contents = shelf["contents"];
@@ -265,7 +288,12 @@ export const buildHistory = (client: HistoryClient, timezone: string, startedAt:
 				}
 				break;
 			}
-			return { songs };
+			if (sections.length > 0 && shelfCount === 0) {
+				return Effect.fail(
+					new MediaSandboxError({ message: "Unrecognized YouTube Music history sections" }),
+				);
+			}
+			return Effect.succeed({ songs });
 		}),
 	);
 };
