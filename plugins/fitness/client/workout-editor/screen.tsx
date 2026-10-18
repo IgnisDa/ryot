@@ -38,6 +38,7 @@ import {
 	workoutHistoryRecipe,
 	type WorkoutHistorySetResult,
 } from "../../shared/workout-history-recipes";
+import { requiredWorkoutMeasurementsByKind } from "../../shared/workout-set";
 import { MeasurementLogger } from "../measurements/measurement-logger";
 import {
 	changeOccurrenceDisplay,
@@ -68,6 +69,7 @@ import {
 	readHistorySets,
 	readPreviousSets,
 } from "./queries";
+import { missingMeasurements, type InvalidSet } from "./set-grid";
 import { EditorSummary } from "./summary";
 import { startExecution, unconfirmSet } from "./timers";
 import { useWorkoutEditor } from "./use-workout-editor";
@@ -79,7 +81,6 @@ type EditorOverlay =
 	| "supersets"
 	| "finish"
 	| "discard"
-	| "rpe"
 	| "reload"
 	| { readonly kind: "history" | "replace" | "defaults"; readonly occurrenceId: string };
 type SavedEntityId = Extract<WorkoutEditorSaveOutput, { readonly kind: "saved" }>["entityId"];
@@ -177,6 +178,7 @@ export function WorkoutEditorScreen(props: {
 	const [useExisting, setUseExisting] = useState(false);
 	const [requestHandled, setRequestHandled] = useState(false);
 	const [conflict, setConflict] = useState(false);
+	const [invalid, setInvalid] = useState<InvalidSet>();
 	const starting = useRef(false);
 	const active = useRef(isActive);
 	useEffect(() => {
@@ -458,11 +460,7 @@ export function WorkoutEditorScreen(props: {
 			),
 		);
 	};
-	const copyPrevious = (
-		occurrence: WorkoutEditorOccurrence,
-		set: WorkoutEditorSet,
-		field: "reps" | "weight" | "duration" | "distance",
-	) => {
+	const copyPrevious = (occurrence: WorkoutEditorOccurrence, set: WorkoutEditorSet) => {
 		const latest = controller.getSnapshot();
 		if (latest.status !== "ready") {
 			return;
@@ -501,11 +499,22 @@ export function WorkoutEditorScreen(props: {
 							: {
 									...current,
 									sets: current.sets.map((candidate) =>
-										candidate !== set ? candidate : { ...candidate, [field]: previous[field] },
+										candidate.clientId !== set.clientId
+											? candidate
+											: Object.assign(
+													{},
+													candidate,
+													Object.fromEntries(
+														requiredWorkoutMeasurementsByKind[candidate.exerciseKind].map(
+															(field) => [field, previous[field]],
+														),
+													),
+												),
 									),
 								};
 					}),
 				);
+				setInvalid(undefined);
 			}),
 		);
 	};
@@ -639,6 +648,7 @@ export function WorkoutEditorScreen(props: {
 		}
 		const exercise = exercises.data?.find(({ id }) => id === occurrence.exerciseId);
 		const time = schedule.now();
+		setInvalid(undefined);
 		if (set.included) {
 			change((draft) => unconfirmSet(draft, occurrence.clientId, set.clientId).draft);
 			return;
@@ -672,7 +682,7 @@ export function WorkoutEditorScreen(props: {
 					crypto.randomUUID(),
 				);
 				if (!next.changed) {
-					setMessage("Enter all required measurements before starting execution.");
+					setInvalid({ setId: set.clientId, fields: missingMeasurements(set) });
 					return draft;
 				}
 				return next.draft;
@@ -693,7 +703,7 @@ export function WorkoutEditorScreen(props: {
 				overrides: exercise?.overrides ?? {},
 			});
 			if (next === draft) {
-				setMessage("Enter all required measurements before confirming this set. Zero is allowed.");
+				setInvalid({ setId: set.clientId, fields: missingMeasurements(set) });
 			}
 			return next;
 		});
@@ -702,6 +712,11 @@ export function WorkoutEditorScreen(props: {
 		}
 	};
 	const close = () => setOverlay(undefined);
+	const currentSetId =
+		editorDraft?.mode.kind === "live"
+			? editorDraft.occurrences.flatMap(({ sets }) => sets).find(({ included }) => !included)
+					?.clientId
+			: undefined;
 	const screenTitle = editorDraft?.name.trim();
 	return (
 		<PluginScreenFrame
@@ -994,19 +1009,23 @@ export function WorkoutEditorScreen(props: {
 							) : null}
 							{editorDraft.occurrences.map((occurrence) => (
 								<ExerciseCard
+									now={now}
 									onChange={change}
+									compact={compact}
+									invalid={invalid}
 									draft={editorDraft}
 									disabled={disabled}
 									occurrence={occurrence}
 									key={occurrence.clientId}
 									pro={context.proAvailable}
 									settings={context.settings}
-									onRpeHelp={() => setOverlay("rpe")}
+									currentSetId={currentSetId}
+									safeAreaBottom={safeAreaBottom}
 									onAddedSet={() => feedback("add-set")}
+									onPrevious={(set) => copyPrevious(occurrence, set)}
 									onConfirm={(set) => confirm(occurrence, set, true)}
 									onStartExecution={(set) => confirm(occurrence, set, false)}
 									countdownEnabled={local?.startTimerForDurationExercises ?? false}
-									onPrevious={(set, field) => copyPrevious(occurrence, set, field)}
 									exercise={exercises.data?.find(({ id }) => id === occurrence.exerciseId)}
 									onReplace={() =>
 										setOverlay({ kind: "replace", occurrenceId: occurrence.clientId })
@@ -1019,6 +1038,9 @@ export function WorkoutEditorScreen(props: {
 									}
 									onMedia={() =>
 										setMediaTarget({ kind: "occurrence", occurrenceId: occurrence.clientId })
+									}
+									onSetChanged={(setId) =>
+										setInvalid((current) => (current?.setId === setId ? undefined : current))
 									}
 									onSkipRest={() =>
 										change((draft) =>
@@ -1189,22 +1211,6 @@ export function WorkoutEditorScreen(props: {
 								editorDraft?.mode.kind === "historical" ? editorDraft.mode.entityId : undefined
 							}
 						/>
-					) : null}
-					{overlay === "rpe" ? (
-						<Modal
-							onClose={close}
-							label="RPE instructions"
-							closeLabel="Close RPE help"
-							className={editorModalClass}
-						>
-							<h2>Rate of perceived exertion</h2>
-							<p>
-								RPE is a whole number from 0 (no effort) to 10 (maximum effort). 10 means no more
-								repetitions were possible; 9 means about one repetition remained; 8 means about two
-								remained. It is optional.
-							</p>
-							<Button onClick={close}>Close</Button>
-						</Modal>
 					) : null}
 					{overlay === "reload" ? (
 						<Modal

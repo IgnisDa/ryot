@@ -35,11 +35,17 @@ it.live(
 			const exercise = frame.getByRole("region", { exact: true, name: exerciseName });
 			yield* exercise.getByRole("textbox", { exact: true, name: "Set 1 reps" }).fill("8");
 			yield* exercise.getByRole("textbox", { exact: true, name: "Set 1 weight (kg)" }).fill("40");
-			yield* exercise.getByText("Notes and RPE", { exact: false }).click();
-			yield* exercise.getByRole("textbox", { exact: true, name: "Set 1 rest seconds" }).fill("0");
 			yield* exercise
-				.getByRole("textbox", { exact: true, name: "Set 1 note" })
+				.getByRole("button", { exact: true, name: "Set 1, Normal. Set options" })
+				.click();
+			const setOptions = frame.getByRole("dialog", { exact: true, name: "Set 1" });
+			yield* setOptions
+				.getByRole("textbox", { exact: true, name: "Rest after this set" })
+				.fill("0");
+			yield* setOptions
+				.getByRole("textbox", { exact: true, name: "Set note" })
 				.fill("Keep the planned note");
+			yield* setOptions.getByRole("button", { exact: true, name: "Done" }).click();
 			yield* frame.getByRole("button", { exact: true, name: "Template attachments (0)" }).click();
 			const attachments = frame.getByRole("dialog", {
 				exact: true,
@@ -101,7 +107,7 @@ it.live(
 				.waitForFunction((image) => image instanceof HTMLImageElement && image.naturalWidth > 0);
 			yield* frame.getByRole("button", { exact: true, name: "Start workout" }).click();
 			yield* frame.getByRole("textbox", { exact: true, name: "Name" }).fill(`${name} performed`);
-			yield* exercise.getByRole("button", { exact: true, name: "Confirm" }).click();
+			yield* exercise.getByRole("button", { exact: true, name: "Complete set 1" }).click();
 			yield* exercise.getByRole("button", { exact: true, name: "Replace" }).click();
 			const replace = frame.getByRole("dialog", { exact: true, name: `Replace ${exerciseName}` });
 			yield* replace.getByRole("checkbox", { exact: true, name: replacementName }).check();
@@ -113,7 +119,7 @@ it.live(
 					.inputValue(),
 			).toBe("40");
 			yield* replaced
-				.getByRole("button", { exact: true, name: "Unconfirm" })
+				.getByRole("button", { exact: true, pressed: true, name: "Complete set 1" })
 				.waitFor({ state: "visible" });
 			yield* frame.getByRole("button", { exact: true, name: "Finish" }).click();
 			yield* frame.getByRole("button", { exact: true, name: "Save workout" }).click();

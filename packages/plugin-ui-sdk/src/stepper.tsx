@@ -25,16 +25,16 @@ const plainFormat = {
 
 type StepperProps = {
 	readonly step: number;
-	readonly min?: number;
+	readonly min?: number | undefined;
 	readonly label: string;
-	readonly id?: string;
-	readonly className?: string;
-	readonly disabled?: boolean;
-	readonly invalid?: boolean;
+	readonly id?: string | undefined;
+	readonly className?: string | undefined;
+	readonly disabled?: boolean | undefined;
+	readonly invalid?: boolean | undefined;
 	readonly incrementIcon: ReactNode;
 	readonly decrementIcon: ReactNode;
 	readonly value: number | undefined;
-	readonly "aria-describedby"?: string;
+	readonly "aria-describedby"?: string | undefined;
 	readonly format?: (value: number) => string;
 	readonly parse?: (text: string) => number | undefined;
 	readonly onChange: (value: number | undefined) => void;
