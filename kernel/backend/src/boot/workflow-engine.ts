@@ -27,6 +27,10 @@ const storage = WorkflowGarbageCollectionStorageLive.pipe(
 
 // TODO: https://github.com/Effect-TS/effect/issues/9335
 // Effect 4.0.5 reads every local reply back from storage, which roughly doubles workflow replays.
+// TODO: https://github.com/Effect-TS/effect/issues/9934
+// Cluster abandonment retries can block shard reacquisition after storage recovery. Once fixed,
+// upgrade Effect, verify recovery with a waiting parent/child workflow and a brief storage outage,
+// then remove this TODO.
 export const WorkflowEngineLive = ClusterWorkflowEngine.layer.pipe(
 	Layer.provideMerge(
 		Sharding.layer.pipe(

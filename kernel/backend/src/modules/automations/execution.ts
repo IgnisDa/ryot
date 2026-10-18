@@ -264,8 +264,9 @@ export const LifecycleExecutionLive = Layer.effect(
 					}),
 				],
 			});
-			// TODO: Remove this deletion and the WorkflowInstance lookup once
-			// https://github.com/Effect-TS/effect/issues/8995 is fixed in the installed effect release.
+			// TODO: https://github.com/Effect-TS/effect/issues/8995
+			// Remove this deletion and the WorkflowInstance lookup once the issue is
+			// fixed in the installed effect release.
 			instance.awaitedDeferreds.delete(deadlineClock.deferred.name);
 			return yield* makeActivity({
 				error: DbError,

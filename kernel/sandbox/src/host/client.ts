@@ -1,4 +1,5 @@
-// TODO: Use ChildProcessSpawner once it can pass one duplex socket (https://github.com/Effect-TS/effect/issues/8902).
+// TODO: https://github.com/Effect-TS/effect/issues/8902
+// Use ChildProcessSpawner once it can pass one duplex socket.
 // oxlint-disable-next-line effecttsgo/node-builtin-import
 import { spawn } from "node:child_process";
 
