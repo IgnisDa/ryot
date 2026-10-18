@@ -497,7 +497,7 @@ describe("calendar renderer", () => {
 
 	it.live("stops paging a source at its occurrence cap and says so", () =>
 		Effect.gen(function* () {
-			const page = yield* open({ now: march14 });
+			const page = yield* open({ now: march14, search: "layout=month" });
 			yield* answerSources(page, [source("tasks")]);
 			const pages = MAX_SOURCE_OCCURRENCES / 100;
 			for (let index = 0; index < pages; index += 1) {
@@ -522,6 +522,9 @@ describe("calendar renderer", () => {
 				),
 			);
 			expect(occurrenceRequests(page, "tasks")).toHaveLength(pages);
+			expect(
+				screen.getByRole("button", { name: `+${MAX_SOURCE_OCCURRENCES - 3} more` }),
+			).toBeDefined();
 		}),
 	);
 

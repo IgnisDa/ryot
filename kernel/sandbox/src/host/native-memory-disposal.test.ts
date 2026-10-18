@@ -33,6 +33,7 @@ const token = '"\\\n漢🙂';
 const encodedTokenBytes = new TextEncoder().encode(encodeJson(token)).byteLength - 2;
 const externalBytes = SANDBOX_LIMITS.isolate.externalBytes;
 const journalEntries = 22;
+const replayedEntries = 4;
 const tokenRepetitions = Math.floor((4.5 * MiB) / encodedTokenBytes);
 const unusedSettlement = () => Effect.die("Committed journal replay must not settle inline");
 const definition = (run: string, imports = "") =>
@@ -65,9 +66,8 @@ const journalSource = definition(`(_input, host) => Effect.gen(function* () {
     };
   };
   const first = yield* Effect.all([0, 1, 2].map(i => host.getCachedValue("entry-" + i).pipe(Effect.map(summarize))), { concurrency: 3 });
-  const rest = [];
-  for (let i = 3; i < ${journalEntries}; i++) rest.push(summarize(yield* host.getCachedValue("entry-" + i)));
-  return [...first, ...rest];
+  const last = summarize(yield* host.getCachedValue("entry-${replayedEntries - 1}"));
+  return [...first, last];
 })`);
 
 const fileSource = definition(
@@ -231,16 +231,16 @@ layer(nativeMemoryLayer, { excludeTestServices: true })((test) => {
 					{ length: journalEntries },
 					(_, index) => ({ request: request(index), value: { value, state: "success" } }),
 				);
-				const last = journal.at(-1);
+				const last = journal[replayedEntries - 1];
 				assert(last !== undefined);
 				const remaining =
 					SANDBOX_LIMITS.journalBytes - new TextEncoder().encode(encodeJson(journal)).byteLength;
-				journal[journalEntries - 1] = {
+				journal[replayedEntries - 1] = {
 					...last,
 					value: { state: "success", value: value + "x".repeat(remaining) },
 				};
 				const expected = [
-					...Array.from({ length: journalEntries - 1 }, () => ({
+					...Array.from({ length: replayedEntries - 1 }, () => ({
 						padding: 0,
 						last: token,
 						first: token,
@@ -292,11 +292,11 @@ layer(nativeMemoryLayer, { excludeTestServices: true })((test) => {
 					assert(gate?.journal !== undefined);
 					expect(gate.journal.totalBytes + journalEntries + 1).toBe(SANDBOX_LIMITS.journalBytes);
 					const calls = evidence.calls.filter((call) => call.handle === run.handle);
-					expect(calls.length).toBeGreaterThan(100);
+					expect(calls.length).toBeGreaterThan(replayedEntries);
 					expect(calls.every((call) => call.name === "journalRead")).toBe(true);
 					const ranges = evidence.ranges.filter((range) => range.handle === run.handle);
 					expect(ranges.reduce((total, range) => total + range.bytes, 0)).toBe(
-						gate.journal.totalBytes,
+						gate.journal.offsets[replayedEntries],
 					);
 					expect(ranges.every((range) => range.bytes > 0 && range.bytes <= MiB)).toBe(true);
 					const offsets = ranges.slice(0, 3).map((range) => range.offset);

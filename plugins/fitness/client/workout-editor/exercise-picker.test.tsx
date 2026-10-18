@@ -8,6 +8,7 @@ import {
 	pluginContributor,
 	routeLocation,
 	savedViewPageContext,
+	waitForMessagePortMacrotask,
 } from "@ryot-app/plugin-client-sdk/testing";
 import { fireEvent, screen, waitFor, within } from "@testing-library/dom";
 import { act, useState } from "react";
@@ -192,29 +193,22 @@ describe("ExercisePicker", () => {
 			const applied: Array<readonly PickerExercise[]> = [];
 			const page = createPage({ onApply: (items) => applied.push(items) });
 			const answerRequests = createRequestAnswerer();
-			yield* Effect.promise(() =>
-				waitFor(() => {
+			const exerciseCheckbox = Effect.fnUntraced(function* (name: string) {
+				for (;;) {
 					answerRequests(page, { exercisePage: orderedExercisePage });
-					expect(screen.getByRole("checkbox", { name: "Bench press" })).toBeTruthy();
-				}),
-			);
+					const checkbox = screen.queryByRole("checkbox", { name });
+					if (checkbox !== null) {
+						return checkbox;
+					}
+					yield* waitForMessagePortMacrotask;
+				}
+			});
 
-			click(screen.getByRole("checkbox", { name: "Bench press" }));
+			click(yield* exerciseCheckbox("Bench press"));
 			click(screen.getByRole("button", { name: "Show more" }));
-			yield* Effect.promise(() =>
-				waitFor(() => {
-					answerRequests(page, { exercisePage: orderedExercisePage });
-					expect(screen.getByRole("checkbox", { name: "Deadlift" })).toBeTruthy();
-				}),
-			);
-			click(screen.getByRole("checkbox", { name: "Deadlift" }));
+			click(yield* exerciseCheckbox("Deadlift"));
 			change(screen.getByRole("searchbox", { name: "Search exercises" }), "Cable");
-			yield* Effect.promise(() =>
-				waitFor(() => {
-					answerRequests(page, { exercisePage: orderedExercisePage });
-					expect(screen.getByRole("checkbox", { name: "Cable row" })).toBeTruthy();
-				}),
-			);
+			yield* exerciseCheckbox("Cable row");
 			click(screen.getByRole("button", { name: "Add 2 exercises" }));
 
 			expect(applied).toHaveLength(1);
