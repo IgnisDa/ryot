@@ -1,5 +1,5 @@
 import { Schema } from "@ryot-app/plugin-client-sdk/effect";
-import { Button, Card, Notice } from "@ryot-app/plugin-ui-sdk";
+import { Button, Card, MenuButton, Notice } from "@ryot-app/plugin-ui-sdk";
 import { AppIcon } from "@ryot-app/plugin-ui-sdk/icon";
 import { EntityArtWell } from "@ryot-app/plugin-ui-sdk/sync";
 import { useState } from "react";
@@ -16,7 +16,6 @@ import {
 import { WorkoutEditorMediaSchema, type WorkoutSetLot } from "../../shared/workout-set";
 import { useAssetUrl } from "../asset-urls";
 import { newWorkoutSet, updateOccurrence, updateSet } from "./actions";
-import { MenuButton } from "./menu-button";
 import { usePreviousSets } from "./previous-sets";
 import type { EditorExercise } from "./queries";
 import { formatEditorSeconds } from "./session-timers";
@@ -177,6 +176,7 @@ export function ExerciseCard(props: {
 				) : null}
 				<MenuButton
 					label={`${name} actions`}
+					icon={<AppIcon size={18} name="more-horizontal" />}
 					items={[
 						...(props.compact && !template
 							? [{ key: "history", label: "History", onSelect: () => props.onSheet("history") }]

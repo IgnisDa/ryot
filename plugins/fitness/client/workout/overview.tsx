@@ -1,9 +1,9 @@
 import { PluginLink } from "@ryot-app/plugin-client-sdk/plugin";
 import { useRyot } from "@ryot-app/plugin-client-sdk/react";
-import { Button, Card, Menu } from "@ryot-app/plugin-ui-sdk";
+import { Button, Card, MenuButton } from "@ryot-app/plugin-ui-sdk";
 import { AppIcon } from "@ryot-app/plugin-ui-sdk/icon";
 import clsx from "clsx";
-import { useRef, useState } from "react";
+import { useState } from "react";
 
 import type { WorkoutDetails } from "../../shared/workout-details-recipes";
 import { fitnessRoute } from "../../shared/workout-editor-routes";
@@ -24,6 +24,10 @@ import {
 	formatTimeRange,
 } from "./format";
 
+const later = (action: string) => () => {
+	console.log(`TODO: ${action}`);
+};
+
 function WorkoutActions(props: {
 	readonly compact: boolean;
 	readonly entityId: string;
@@ -31,15 +35,7 @@ function WorkoutActions(props: {
 }) {
 	const client = useRyot();
 	const [adjustingTime, setAdjustingTime] = useState(false);
-	const trigger = useRef<HTMLButtonElement>(null);
-	const [menuOpen, setMenuOpen] = useState(false);
-	const [activeIndex, setActiveIndex] = useState(0);
-	const later = (action: string) => () => {
-		setMenuOpen(false);
-		console.log(`TODO: ${action}`);
-	};
 	const openEditor = (action: string) => () => {
-		setMenuOpen(false);
 		client.navigation.push(
 			fitnessRoute(`/workouts/${encodeURIComponent(props.entityId)}/${action}`),
 		);
@@ -52,56 +48,33 @@ function WorkoutActions(props: {
 			<Button variant="secondary" onClick={openEditor("edit")}>
 				Edit
 			</Button>
-			<Button
-				ref={trigger}
-				variant="secondary"
-				aria-haspopup="menu"
-				aria-expanded={menuOpen}
-				aria-label="More workout actions"
-				onClick={() => setMenuOpen((open) => !open)}
-			>
-				<AppIcon size={18} name="more-horizontal" />
-			</Button>
-			{menuOpen ? (
-				<Menu
-					triggerRef={trigger}
-					activeIndex={activeIndex}
-					label="More workout actions"
-					onActiveIndexChange={setActiveIndex}
-					onClose={(restoreFocus) => {
-						setMenuOpen(false);
-						if (restoreFocus) {
-							trigger.current?.focus();
-						}
-					}}
-					items={[
-						{
-							key: "adjust-time",
-							label: "Adjust time",
-							onSelect: () => {
-								setMenuOpen(false);
-								setAdjustingTime(true);
-							},
-						},
-						{
-							key: "create-template",
-							onSelect: openEditor("create-template"),
-							label: props.proAvailable ? "Create template" : "Create template (Pro)",
-						},
-						{
-							key: "collections",
-							label: "Add to collection",
-							onSelect: later("add workout to collection"),
-						},
-						{
-							key: "delete",
-							destructive: true,
-							label: "Delete workout",
-							onSelect: later("delete workout"),
-						},
-					]}
-				/>
-			) : null}
+			<MenuButton
+				label="More workout actions"
+				renderTrigger={(trigger) => (
+					<Button {...trigger} variant="secondary" aria-label="More workout actions">
+						<AppIcon size={18} name="more-horizontal" />
+					</Button>
+				)}
+				items={[
+					{ key: "adjust-time", label: "Adjust time", onSelect: () => setAdjustingTime(true) },
+					{
+						key: "create-template",
+						onSelect: openEditor("create-template"),
+						label: props.proAvailable ? "Create template" : "Create template (Pro)",
+					},
+					{
+						key: "collections",
+						label: "Add to collection",
+						onSelect: later("add workout to collection"),
+					},
+					{
+						key: "delete",
+						destructive: true,
+						label: "Delete workout",
+						onSelect: later("delete workout"),
+					},
+				]}
+			/>
 			{adjustingTime ? (
 				<AdjustWorkoutTime entityId={props.entityId} onClose={() => setAdjustingTime(false)} />
 			) : null}
