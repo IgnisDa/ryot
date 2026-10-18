@@ -10,9 +10,9 @@ const encodeFailureReason = Schema.encodeSync(
 );
 
 export const createIssuesExport = <E>(input: {
-	readonly runId: ImportRunId;
 	readonly source: string;
-	readonly failureReason: ImportRunFailureReason | null;
+	readonly runId: ImportRunId;
+	readonly failureReason: null | ImportRunFailureReason;
 	readonly listPage: (
 		after?: string,
 	) => Effect.Effect<readonly { readonly data: IngestionIssue }[], E>;

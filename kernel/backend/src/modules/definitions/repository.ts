@@ -48,11 +48,25 @@ import {
 } from "./snapshot";
 import type { RevisionDefinitions } from "./source";
 
-type EntitySchemaRow = InferSelectViewModel<typeof schema.globalEntitySchema>;
-type EventSchemaRow = InferSelectViewModel<typeof schema.globalEventSchema>;
-type RelationshipSchemaRow = InferSelectViewModel<typeof schema.globalRelationshipSchema>;
-type SignalSchemaRow = InferSelectViewModel<typeof schema.globalSignalSchema>;
+type ListedOption = { readonly listed: boolean };
 type SavedViewRow = InferSelectViewModel<typeof schema.globalSavedView>;
+type EventSchemaRow = InferSelectViewModel<typeof schema.globalEventSchema>;
+type EntitySchemaRow = InferSelectViewModel<typeof schema.globalEntitySchema>;
+type SignalSchemaRow = InferSelectViewModel<typeof schema.globalSignalSchema>;
+type RelationshipSchemaRow = InferSelectViewModel<typeof schema.globalRelationshipSchema>;
+
+type EventSchemaFields = Pick<
+	EventSchemaRow,
+	"name" | "slug" | "projection" | "entitySchemaId" | "propertiesSchema"
+>;
+
+type RevisionDeclarationQuery<K extends keyof RevisionDeclarations> = {
+	readonly kind: K;
+	readonly slug: string;
+	readonly revisionId: string;
+	readonly entitySchemaSlug?: string;
+};
+
 type CalendarSourceRow = Pick<
 	InferSelectViewModel<typeof schema.globalCalendarSource>,
 	| "art"
@@ -68,37 +82,23 @@ type CalendarSourceRow = Pick<
 	| "precision"
 >;
 
-type EventSchemaFields = Pick<
-	EventSchemaRow,
-	"entitySchemaId" | "name" | "propertiesSchema" | "projection" | "slug"
->;
+type RevisionDeclarations = {
+	readonly entity: Pick<EntitySchemaRow, "propertiesSchema">;
+	readonly relationship: Omit<RelationshipSchemaDefinition, "pluginId">;
+	readonly event: Pick<EventSchemaDefinition, "projection" | "propertiesSchema">;
+};
 
 type DefinitionRows = {
 	readonly savedViews: ReadonlyArray<SavedViewRow>;
-	readonly calendarSources: ReadonlyArray<CalendarSourceRow>;
 	readonly entitySchemas: ReadonlyArray<EntitySchemaRow>;
-	readonly eventSchemas: ReadonlyArray<EventSchemaFields>;
 	readonly signalSchemas: ReadonlyArray<SignalSchemaRow>;
+	readonly eventSchemas: ReadonlyArray<EventSchemaFields>;
+	readonly calendarSources: ReadonlyArray<CalendarSourceRow>;
 	readonly relationshipSchemas: ReadonlyArray<RelationshipSchemaRow>;
 };
 
-type ListedOption = { readonly listed: boolean };
-
-type RevisionDeclarations = {
-	readonly event: Pick<EventSchemaDefinition, "propertiesSchema" | "projection">;
-	readonly entity: Pick<EntitySchemaRow, "propertiesSchema">;
-	readonly relationship: Omit<RelationshipSchemaDefinition, "pluginId">;
-};
-
-type RevisionDeclarationQuery<K extends keyof RevisionDeclarations> = {
-	readonly kind: K;
-	readonly slug: string;
-	readonly revisionId: string;
-	readonly entitySchemaSlug?: string;
-};
-
 const toEventSchema = (
-	row: Pick<EventSchemaRow, "name" | "pluginId" | "propertiesSchema" | "projection" | "slug">,
+	row: Pick<EventSchemaRow, "name" | "slug" | "pluginId" | "projection" | "propertiesSchema">,
 ): EventSchemaDefinition => ({
 	name: row.name,
 	slug: row.slug,
@@ -170,7 +170,7 @@ const toCalendarSource = (row: CalendarSourceRow): CalendarSourceDefinition => (
 });
 
 const recordByIdentity = <
-	Definition extends { readonly slug: string; readonly pluginId: string | null },
+	Definition extends { readonly slug: string; readonly pluginId: null | string },
 >(
 	kind: DefinitionKind,
 	definitions: ReadonlyArray<Definition>,
@@ -205,8 +205,8 @@ const toSnapshot = Effect.fn(function* (rows: DefinitionRows) {
 });
 
 const toEntityRelationshipDefinitions = Effect.fn(function* (rows: {
-	readonly entitySchemas: ReadonlyArray<Pick<EntitySchemaRow, "pluginId" | "slug">>;
 	readonly relationshipSchemas: ReadonlyArray<RelationshipSchemaRow>;
+	readonly entitySchemas: ReadonlyArray<Pick<EntitySchemaRow, "slug" | "pluginId">>;
 }) {
 	const definitions: EntityRelationshipDefinitions = {
 		relationshipSchemas: yield* recordByIdentity(
@@ -237,7 +237,7 @@ const scopeRank = (pluginScope: PgColumn) =>
 const globalRank = (pluginId: PgColumn) => sql`${pluginId} is not null`;
 
 const userDefinitionOrder = (
-	view: { pluginScope: PgColumn; packageId: PgColumn; position: PgColumn },
+	view: { position: PgColumn; packageId: PgColumn; pluginScope: PgColumn },
 	pluginsFirst = false,
 ) => [
 	pluginsFirst ? desc(scopeRank(view.pluginScope)) : asc(scopeRank(view.pluginScope)),
@@ -246,7 +246,7 @@ const userDefinitionOrder = (
 ];
 
 const globalDefinitionOrder = (
-	view: { pluginId: PgColumn; packageId: PgColumn; position: PgColumn },
+	view: { pluginId: PgColumn; position: PgColumn; packageId: PgColumn },
 	pluginsFirst = false,
 ) => [
 	pluginsFirst ? desc(globalRank(view.pluginId)) : asc(globalRank(view.pluginId)),
@@ -275,10 +275,10 @@ export class DefinitionRepository extends Context.Service<DefinitionRepository>(
 			const session = yield* DatabaseSession;
 			const pruneKernelRows = Effect.fn(function* (
 				table:
+					| typeof schema.definitionSavedView
 					| typeof schema.definitionEntitySchema
-					| typeof schema.definitionRelationshipSchema
 					| typeof schema.definitionSignalSchema
-					| typeof schema.definitionSavedView,
+					| typeof schema.definitionRelationshipSchema,
 				slugs: ReadonlyArray<string>,
 			) {
 				yield* session.run((db) =>
@@ -815,8 +815,8 @@ export class DefinitionRepository extends Context.Service<DefinitionRepository>(
 					db
 						.select({
 							...getTableColumns(schema.definitionEntitySchema),
-							pluginId: sql<string | null>`null::text`,
-							packageId: sql<PluginPackageId | null>`null::text`,
+							pluginId: sql<null | string>`null::text`,
+							packageId: sql<null | PluginPackageId>`null::text`,
 						})
 						.from(schema.definitionEntitySchema)
 						.where(isNull(schema.definitionEntitySchema.pluginRevisionId))
@@ -841,8 +841,8 @@ export class DefinitionRepository extends Context.Service<DefinitionRepository>(
 					db
 						.select({
 							...getTableColumns(schema.definitionRelationshipSchema),
-							pluginId: sql<string | null>`null::text`,
-							packageId: sql<PluginPackageId | null>`null::text`,
+							pluginId: sql<null | string>`null::text`,
+							packageId: sql<null | PluginPackageId>`null::text`,
 						})
 						.from(schema.definitionRelationshipSchema)
 						.where(isNull(schema.definitionRelationshipSchema.pluginRevisionId))
@@ -852,8 +852,8 @@ export class DefinitionRepository extends Context.Service<DefinitionRepository>(
 					db
 						.select({
 							...getTableColumns(schema.definitionSignalSchema),
-							pluginId: sql<string | null>`null::text`,
-							packageId: sql<PluginPackageId | null>`null::text`,
+							pluginId: sql<null | string>`null::text`,
+							packageId: sql<null | PluginPackageId>`null::text`,
 						})
 						.from(schema.definitionSignalSchema)
 						.where(isNull(schema.definitionSignalSchema.pluginRevisionId))
@@ -863,8 +863,8 @@ export class DefinitionRepository extends Context.Service<DefinitionRepository>(
 					db
 						.select({
 							...getTableColumns(schema.definitionSavedView),
-							pluginId: sql<string | null>`null::text`,
-							packageId: sql<PluginPackageId | null>`null::text`,
+							pluginId: sql<null | string>`null::text`,
+							packageId: sql<null | PluginPackageId>`null::text`,
 						})
 						.from(schema.definitionSavedView)
 						.where(isNull(schema.definitionSavedView.pluginRevisionId))
@@ -951,7 +951,7 @@ export class DefinitionRepository extends Context.Service<DefinitionRepository>(
 			const revisionDeclarationReaders: {
 				readonly [K in keyof RevisionDeclarations]: (
 					input: RevisionDeclarationQuery<K>,
-				) => Effect.Effect<RevisionDeclarations[K] | undefined, DbError>;
+				) => Effect.Effect<undefined | RevisionDeclarations[K], DbError>;
 			} = {
 				entity: Effect.fnUntraced(function* (input) {
 					const [row] = yield* session.run((db) =>
@@ -1035,7 +1035,7 @@ export class DefinitionRepository extends Context.Service<DefinitionRepository>(
 			);
 
 			const getSnapshotForContext = Effect.fn("DefinitionRepository.getSnapshotForContext")(
-				function* (context: DefinitionReadContext, userId: UserId | null) {
+				function* (context: DefinitionReadContext, userId: null | UserId) {
 					const available =
 						userId === null
 							? yield* session.run((db) =>

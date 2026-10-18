@@ -35,11 +35,11 @@ const rootCase = (
 	status: IngestionRun["status"],
 	failure: "none" | "source" | "suspend" = "none",
 	options: {
-		issues?: readonly IngestionIssue[];
 		runId?: ImportRunId;
-		start?: (runId: ImportRunId) => Effect.Effect<boolean>;
-		execute?: Effect.Effect<void>;
 		settle?: () => void;
+		execute?: Effect.Effect<void>;
+		issues?: readonly IngestionIssue[];
+		start?: (runId: ImportRunId) => Effect.Effect<boolean>;
 		beforeSettle?: () => Effect.Effect<void, IntegrationConfirmationError>;
 	} = {},
 ) =>
@@ -52,7 +52,7 @@ const rootCase = (
 		let run = ingestionTestRun({ status, integrationId, collectionSealed: true });
 		const executions: unknown[] = [];
 		const settlements: string[] = [];
-		const reasons: Array<ImportRunFailureReason | undefined> = [];
+		const reasons: Array<undefined | ImportRunFailureReason> = [];
 		const issues: IngestionIssue[] = [];
 		const finished: unknown[] = [];
 		const storedInputs: Array<{ owner: string; outputs: ReadonlyArray<Uint8Array> }> = [];
@@ -307,7 +307,7 @@ it.effect(
 			const entered = yield* Deferred.make<void>();
 			const release = yield* Deferred.make<void>();
 			const waiting = yield* Deferred.make<void>();
-			let owner: ImportRunId | null = null;
+			let owner: null | ImportRunId = null;
 			let executions = 0;
 			const start = Effect.fnUntraced(function* (runId: ImportRunId) {
 				if (owner !== null && owner !== runId) {

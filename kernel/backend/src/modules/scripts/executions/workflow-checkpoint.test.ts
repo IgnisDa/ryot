@@ -143,15 +143,15 @@ const makeHarness = (harnessOptions: HarnessOptions = {}) => {
 	const appends: string[] = [];
 	const clockSchedules: Array<ReturnType<typeof DurableClock.make>> = [];
 	const state: {
+		value: unknown;
 		blocked: boolean;
 		retired: boolean;
-		beforeStoreCrash: boolean;
-		afterStoreCrash: boolean;
 		hideReads: number;
-		value: unknown;
 		waitInChild: boolean;
-		forceCacheMiss: boolean;
 		childFailure: boolean;
+		forceCacheMiss: boolean;
+		afterStoreCrash: boolean;
+		beforeStoreCrash: boolean;
 	} = {
 		value: null,
 		hideReads: 0,
@@ -258,7 +258,7 @@ const makeHarness = (harnessOptions: HarnessOptions = {}) => {
 		const instance = WorkflowInstance.initial(ScriptExecutionWorkflow, executionId);
 		function execute<Discard extends boolean>(
 			workflow: Parameters<Encoded["execute"]>[0],
-			options: Omit<Parameters<Encoded["execute"]>[1], "discard"> & { discard: Discard },
+			options: { discard: Discard } & Omit<Parameters<Encoded["execute"]>[1], "discard">,
 		): Effect.Effect<Discard extends true ? void : Workflow.Result<unknown, unknown>>;
 		function execute(
 			_workflow: Parameters<Encoded["execute"]>[0],
@@ -343,7 +343,7 @@ const makeHarness = (harnessOptions: HarnessOptions = {}) => {
 						const encoded: Effect.Effect<
 							unknown,
 							SandboxRunError,
-							Layer.Success<typeof dependencies> | WorkflowEngine | WorkflowInstance | Scope.Scope
+							Scope.Scope | WorkflowEngine | WorkflowInstance | Layer.Success<typeof dependencies>
 						> = activity.executeEncoded;
 						const context = yield* Layer.build(dependencies);
 						const exit = yield* encoded.pipe(
@@ -488,7 +488,7 @@ it.effect.each(retainedHttpPhases)(
 	(phase) =>
 		Effect.gen(function* () {
 			const progress = { ...httpProgress, phase };
-			const dispatchProgress: Array<SandboxHttpProgress | undefined> = [];
+			const dispatchProgress: Array<undefined | SandboxHttpProgress> = [];
 			const dispatcher = SandboxDurableHostDispatcher.of({
 				cancelInline: () => Effect.void,
 				settleInline: () => Effect.die("unused"),
@@ -578,7 +578,7 @@ type Harness = ReturnType<typeof makeHarness>;
 
 const primed = (h: Harness) => Effect.asVoid(h.fresh().body);
 const settledSlot =
-	(request: unknown, targetScriptId: string | null = null) =>
+	(request: unknown, targetScriptId: null | string = null) =>
 	(h: Harness) =>
 		Effect.sync(() => {
 			h.slots.set(
@@ -597,7 +597,7 @@ const divergedTraceCases: ReadonlyArray<{
 	readonly message: string;
 	readonly dispatches: ReadonlyArray<number>;
 	readonly setup: (h: Harness) => Effect.Effect<void, never, Scope.Scope>;
-	readonly requests?: ReadonlyArray<typeof firstRequest | typeof sleepAtZero>;
+	readonly requests?: ReadonlyArray<typeof sleepAtZero | typeof firstRequest>;
 }> = [
 	{
 		setup: primed,

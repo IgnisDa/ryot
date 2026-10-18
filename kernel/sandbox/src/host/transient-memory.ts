@@ -17,9 +17,9 @@ export const SANDBOX_TRANSIENT_MEMORY = {
 } as const;
 
 const controlResultBytes = new Map<string, number>([
+	["scratchWrite", SANDBOX_TRANSIENT_MEMORY.smallBytes],
 	["inlineBatch", SANDBOX_TRANSIENT_MEMORY.inlineBatchBytes],
 	["journalRead", SANDBOX_TRANSIENT_MEMORY.journalReadBytes],
-	["scratchWrite", SANDBOX_TRANSIENT_MEMORY.smallBytes],
 	["artifactReadRange", SANDBOX_TRANSIENT_MEMORY.smallBytes],
 ]);
 

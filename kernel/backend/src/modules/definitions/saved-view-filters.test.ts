@@ -48,7 +48,7 @@ const logged: FilterField = {
 };
 
 const issue = (
-	filterFields: readonly FilterField[] | undefined,
+	filterFields: undefined | readonly FilterField[],
 	renderer: KernelSavedViewRendererName = "entity-browser",
 ) => filterFieldIssues({ query, renderer, settings: { filterFields } });
 

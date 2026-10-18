@@ -13,7 +13,7 @@ const now = DateTime.makeUnsafe("2026-03-10T12:00:00.000Z");
 
 const valueField = (
 	key: string,
-	type: "enum" | "enum-list" | "text" | "text-list" | "number" | "date" | "boolean",
+	type: "enum" | "text" | "date" | "number" | "boolean" | "enum-list" | "text-list",
 ): FilterField =>
 	type === "enum" || type === "enum-list"
 		? { key, type, label: key, field: key, kind: "value", choices: [{ value: "a", label: "A" }] }

@@ -32,7 +32,7 @@ const umamiAnalytics = (config: AppConfigValue) => {
 export const publicSystemConfig = (
 	config: AppConfigValue,
 	isServerKeyValidated: boolean,
-	permanentUploadProvider: "local" | "s3",
+	permanentUploadProvider: "s3" | "local",
 ) =>
 	({
 		version: RYOT_VERSION,

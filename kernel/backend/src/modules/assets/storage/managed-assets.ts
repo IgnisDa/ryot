@@ -72,8 +72,8 @@ const ownerNamespace = (ownerUserId: UserId) =>
 	new CryptoHasher("sha256").update(ownerUserId).digest("hex");
 
 const storedMetadataMatches = (
-	stored: { contentType: string | null; size: number },
-	metadata: Pick<RegisterManagedAssetInput, "contentType" | "size">,
+	stored: { size: number; contentType: null | string },
+	metadata: Pick<RegisterManagedAssetInput, "size" | "contentType">,
 ) =>
 	stored.size === metadata.size &&
 	(stored.contentType === null ||
@@ -261,7 +261,7 @@ export class ManagedAssetsService extends Context.Service<ManagedAssetsService>(
 
 			const resolveDownloads = Effect.fn("ManagedAssetsService.resolveDownloads")(function* (
 				user: CurrentUserValue,
-				assets: ReadonlyArray<{ key: string; type: "local" | "s3" }>,
+				assets: ReadonlyArray<{ key: string; type: "s3" | "local" }>,
 			) {
 				const owned = yield* verifyManagedAssetOwnership(user.id, assets);
 				const ownedByLocator = new Map(

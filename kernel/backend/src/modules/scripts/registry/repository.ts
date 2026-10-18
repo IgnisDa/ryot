@@ -318,7 +318,7 @@ export class SandboxRepository extends Context.Service<SandboxRepository>()("San
 		});
 
 		const resolveWorkflowCallScript = Effect.fn("SandboxRepository.resolveWorkflowCallScript")(
-			function* (revision: ScriptPluginRevision | null, request: WorkflowDurableCallRequest) {
+			function* (revision: null | ScriptPluginRevision, request: WorkflowDurableCallRequest) {
 				if (
 					request.kind === "host" ||
 					request.kind === "sleep" ||

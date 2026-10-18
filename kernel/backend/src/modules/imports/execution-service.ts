@@ -66,7 +66,7 @@ export class IngestionExecution extends Context.Service<IngestionExecution>()(
 			});
 			const cleanup = Effect.fn("IngestionExecution.cleanup")(function* (scope: IngestionScope) {
 				const run = yield* repository.getIngestionRunControl(scope);
-				if (!run || !["completed", "failed", "cancelled", "expired"].includes(run.status)) {
+				if (!run || !["failed", "expired", "completed", "cancelled"].includes(run.status)) {
 					return;
 				}
 				if (!(yield* canCleanup(scope))) {
@@ -85,8 +85,8 @@ export class IngestionExecution extends Context.Service<IngestionExecution>()(
 				ConfirmationServices = never,
 			>(input: {
 				scope: IngestionScope;
-				status: "completed" | "failed" | "cancelled";
 				failureReason?: ImportRunFailureReason;
+				status: "failed" | "completed" | "cancelled";
 				retirementPolicy?: PluginIngestionRetirementPolicy;
 				reconcile: (batch: IngestionBatch) => Effect.Effect<IngestionSummary, E, R>;
 				confirm?: (
@@ -105,7 +105,7 @@ export class IngestionExecution extends Context.Service<IngestionExecution>()(
 								reason: { ...run.failureReason, code: "package-identity-conflict" },
 							}
 						: { kind: "removal" });
-				if (["completed", "failed", "cancelled", "expired"].includes(run.status)) {
+				if (["failed", "expired", "completed", "cancelled"].includes(run.status)) {
 					if (policy.kind === "removal") {
 						yield* cleanup(input.scope);
 					}
@@ -199,8 +199,8 @@ export class IngestionExecution extends Context.Service<IngestionExecution>()(
 				);
 			});
 			const retire = Effect.fn("IngestionExecution.retire")(function* (input: {
-				userId: IngestionScope["userId"];
 				runId?: IngestionScope["runId"];
+				userId: IngestionScope["userId"];
 			}) {
 				for (const { pins: retained } of yield* repository.listCleanupPins(input)) {
 					if (retained?.pluginRevisionId) {

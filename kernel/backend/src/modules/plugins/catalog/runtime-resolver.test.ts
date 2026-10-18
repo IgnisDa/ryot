@@ -85,7 +85,7 @@ const providerScriptFields = {
 
 const providerScript = (
 	providerSlug: string,
-	providerOperation: "details" | "resolve" | "search-options" | "translate",
+	providerOperation: "details" | "resolve" | "translate" | "search-options",
 ) => {
 	const common = {
 		...providerScriptFields,

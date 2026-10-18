@@ -162,13 +162,13 @@ const historyDatabaseLayer = (submit?: SubmitBehavior) =>
 
 const seedRun = (
 	id: string,
-	executionUserId: UserId | null = owner.id,
-	stage: "before" | "after" = "after",
-	pin: {
+	executionUserId: null | UserId = owner.id,
+	stage: "after" | "before" = "after",
+	pin: null | {
 		readonly pluginId: string;
 		readonly pluginRevisionId: string;
 		readonly pluginConfigRevisionId: string;
-	} | null = null,
+	} = null,
 ) =>
 	Effect.gen(function* () {
 		const trigger = yield* (yield* AutomationTriggerRepository).findById(

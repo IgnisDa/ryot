@@ -41,8 +41,8 @@ import {
 	validateSignalSchemaFormatterReferences,
 } from "./validation";
 
-type SystemSetEntry = Pick<StoredPlugin, "id" | "manifest" | "scripts">;
 type EnvironmentResolutionTiming = "deferred" | "immediate";
+type SystemSetEntry = Pick<StoredPlugin, "id" | "scripts" | "manifest">;
 
 const toSystemPluginItem = (plugin: Pick<NormalizedPlugin, "manifest" | "contentHash">) => ({
 	...plugin.manifest.metadata,

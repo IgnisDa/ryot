@@ -40,14 +40,14 @@ type NativeServiceControlValue = {
 	readonly releaseHost: Deferred.Deferred<{ readonly key: string; readonly source: string }>;
 };
 
+class NativeServiceTempRoot extends Context.Service<NativeServiceTempRoot, string>()(
+	"test/SandboxNativeServiceTempRoot",
+) {}
+
 class NativeServiceControl extends Context.Service<
 	NativeServiceControl,
 	NativeServiceControlValue
 >()("test/SandboxNativeServiceControl") {}
-
-class NativeServiceTempRoot extends Context.Service<NativeServiceTempRoot, string>()(
-	"test/SandboxNativeServiceTempRoot",
-) {}
 
 const withRecoveryCleanup = <A, E, R>(
 	executionIds: ReadonlyArray<string>,
@@ -467,8 +467,8 @@ layer(nativeServiceLayer, { excludeTestServices: true })((test) => {
 						Effect.map(
 							(exit) =>
 								({ exit, started: false }) satisfies {
-									readonly exit: typeof exit;
 									readonly started: false;
+									readonly exit: typeof exit;
 								},
 						),
 					),
@@ -516,7 +516,7 @@ layer(nativeServiceLayer, { excludeTestServices: true })((test) => {
 				const compiled = yield* compileTestScript(capsDefinitionSource);
 				const resultBytes = 4 * 1024 * 1024;
 				const contextBytes = 64 * 1024;
-				const run = (context: { unit: string; count: number; tail: number; pad: string }) =>
+				const run = (context: { pad: string; unit: string; tail: number; count: number }) =>
 					service.run(makeRunInput(compiled, nextExecutionId(), context, ownerId));
 
 				for (const unit of ["a", "🙂", '"']) {

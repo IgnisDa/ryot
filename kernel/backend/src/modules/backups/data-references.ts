@@ -88,7 +88,7 @@ const rewritePropertyValueReferences = (
 	value: JsonValue,
 	entityIds: ReferenceMap,
 	relationshipIds: ReferenceMap,
-	eventId: ((id: string) => string) | undefined,
+	eventId: undefined | ((id: string) => string),
 ): Effect.Effect<JsonValue, DataReferenceError> =>
 	Effect.gen(function* () {
 		if (definition.type === "string" && definition.reference && typeof value === "string") {
@@ -167,7 +167,7 @@ export const rewritePropertyReferences = Effect.fn(function* (
 	return rewritten;
 });
 
-const readAssetLocator = (value: JsonValue): AssetLocator | null => {
+const readAssetLocator = (value: JsonValue): null | AssetLocator => {
 	if (!isArchiveJsonObject(value)) {
 		return null;
 	}

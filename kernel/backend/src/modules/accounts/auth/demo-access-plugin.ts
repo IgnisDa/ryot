@@ -3,18 +3,18 @@ import { APIError, createAuthEndpoint, getSessionFromCtx } from "better-auth/api
 import { deleteSessionCookie, setSessionCookie } from "better-auth/cookies";
 import { Effect } from "effect";
 
-type DemoSession = Session & { readonly accessClass?: unknown } & Record<string, unknown>;
+type DemoUser = User & Record<string, unknown> & { readonly disabledAt?: Date | null };
 
-type DemoUser = User & { readonly disabledAt?: Date | null } & Record<string, unknown>;
+type DemoSession = Session & Record<string, unknown> & { readonly accessClass?: unknown };
 
 type DemoSignInOperations = {
-	readonly demoAccountId: string | null;
-	readonly existingSession: DemoSession | null;
-	readonly findUserById: (userId: string) => Promise<DemoUser | null>;
-	readonly createSession: (userId: string, accessClass: "demo") => Promise<DemoSession>;
-	readonly deleteSession: (token: string) => Promise<void>;
 	readonly deleteCookie: () => void;
+	readonly demoAccountId: null | string;
+	readonly existingSession: null | DemoSession;
+	readonly deleteSession: (token: string) => Promise<void>;
+	readonly findUserById: (userId: string) => Promise<null | DemoUser>;
 	readonly setCookie: (session: DemoSession, user: DemoUser) => Promise<void>;
+	readonly createSession: (userId: string, accessClass: "demo") => Promise<DemoSession>;
 };
 
 export const runDemoSignIn = Effect.fn("runDemoSignIn")(function* (
@@ -53,7 +53,7 @@ export const runDemoSignIn = Effect.fn("runDemoSignIn")(function* (
 	return { mode: "demo" as const };
 });
 
-export const demoAccessPlugin = (demoAccountId: string | null): BetterAuthPlugin => ({
+export const demoAccessPlugin = (demoAccountId: null | string): BetterAuthPlugin => ({
 	id: "demo-access",
 	endpoints: {
 		signInDemo: createAuthEndpoint(

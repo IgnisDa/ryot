@@ -69,7 +69,7 @@ const invalidArchiveIssues = {
 	entry_count_exceeded: "entry-count-exceeded",
 	missing_reference_mapping: "missing-reference-mapping",
 } as const satisfies Record<
-	Exclude<BackupArchiveErrorReason, "unsupported_compression" | "unsupported_format">,
+	Exclude<BackupArchiveErrorReason, "unsupported_format" | "unsupported_compression">,
 	InvalidArchiveIssue
 >;
 

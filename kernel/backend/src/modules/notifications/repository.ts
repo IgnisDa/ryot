@@ -62,7 +62,7 @@ const toRecord = (row: NotificationChannelRow) => {
 
 export type NotificationChannelRecord = ReturnType<typeof toRecord>;
 
-const ownedChannelWhere = (input: { channelId: NotificationChannelId; userId: UserId }) =>
+const ownedChannelWhere = (input: { userId: UserId; channelId: NotificationChannelId }) =>
 	and(
 		eq(schema.notificationChannel.id, input.channelId),
 		eq(schema.notificationChannel.userId, input.userId),

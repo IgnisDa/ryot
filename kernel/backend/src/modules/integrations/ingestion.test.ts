@@ -35,14 +35,14 @@ const integration = makeIntegration({
 });
 const runCase = (
 	options: {
-		status?: IngestionRun["status"];
 		ready?: boolean;
-		released?: boolean;
-		expired?: boolean;
-		interruptPreparation?: boolean;
-		workflowId?: string;
 		adapter?: string;
+		expired?: boolean;
+		released?: boolean;
+		workflowId?: string;
 		lot?: "sink" | "yank";
+		interruptPreparation?: boolean;
+		status?: IngestionRun["status"];
 		writeEnvelope?: (envelope: IntegrationWebhookDelivery) => Effect.Effect<void>;
 	} = {},
 ) =>
@@ -53,10 +53,10 @@ const runCase = (
 			plan: options.status === "pending" ? ingestionTestRun().plan : null,
 			pins: options.status === "pending" ? ingestionTestRun().pins : null,
 		});
-		let prepared: PreparedIngestionRelease | null = null;
+		let prepared: null | PreparedIngestionRelease = null;
 		let interrupted = false;
-		let envelopeCapture: IngestionCapture | null = null;
-		let envelopeValue: IntegrationWebhookDelivery | null = null;
+		let envelopeCapture: null | IngestionCapture = null;
+		let envelopeValue: null | IntegrationWebhookDelivery = null;
 		const calls: { method: string; input: unknown }[] = [];
 		const record = (method: string, input: unknown) =>
 			Effect.sync(() => {

@@ -19,7 +19,7 @@ export const ingestionOperationCommand = <Command extends LifecycleCommand>(
 });
 
 export const summarizeIngestionOutcomes = (
-	outcomes: ReadonlyArray<Pick<IngestionOutcome, "recordKind" | "unit" | "result">>,
+	outcomes: ReadonlyArray<Pick<IngestionOutcome, "unit" | "result" | "recordKind">>,
 ): IngestionSummary => {
 	const summary: Array<IngestionSummary[number]> = [];
 	for (const outcome of outcomes) {

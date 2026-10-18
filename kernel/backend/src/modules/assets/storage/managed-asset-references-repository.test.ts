@@ -46,9 +46,9 @@ const signalPayload = (properties: Record<string, JsonValue>): AutomationSignalP
 });
 
 const insertEntity = Effect.fn(function* (input: {
+	readonly userId: null | UserId;
 	readonly entitySchemaSlug: string;
 	readonly properties: Record<string, unknown>;
-	readonly userId: UserId | null;
 }) {
 	const id = crypto.randomUUID();
 	yield* (yield* DatabaseSession).run((db) =>
@@ -76,8 +76,8 @@ const insertKernelAssetSchema = Effect.fn(function* () {
 });
 
 const insertTrigger = Effect.fn(function* (input: {
+	readonly scopeUserId: null | UserId;
 	readonly payload: AutomationSignalPayload;
-	readonly scopeUserId: UserId | null;
 }) {
 	const id = crypto.randomUUID();
 	yield* (yield* DatabaseSession).run((db) =>
@@ -102,9 +102,9 @@ const insertTrigger = Effect.fn(function* (input: {
 });
 
 const insertRun = Effect.fn(function* (input: {
+	readonly triggerId: string;
 	readonly executionUserId: UserId;
 	readonly historyPayload: JsonValue;
-	readonly triggerId: string;
 }) {
 	const id = crypto.randomUUID();
 	yield* (yield* DatabaseSession).run((db) =>
@@ -144,7 +144,7 @@ const referenceSources = [
 
 const insertReferenceSource = Effect.fn(function* (
 	source: (typeof referenceSources)[number],
-	ownerUserId: UserId | null,
+	ownerUserId: null | UserId,
 	locator: ManagedAssetLocator,
 ) {
 	const session = yield* DatabaseSession;
@@ -155,28 +155,21 @@ const insertReferenceSource = Effect.fn(function* (
 		properties: source === "entity" ? properties : {},
 	});
 	switch (source) {
-		case "entity":
+		case "run":
+		case "trigger": {
+			const triggerId = yield* insertTrigger({
+				scopeUserId: ownerUserId,
+				payload: signalPayload(source === "trigger" ? properties : {}),
+			});
+			if (source === "run") {
+				yield* insertRun({
+					triggerId,
+					historyPayload: properties,
+					executionUserId: UserId.make("owner"),
+				});
+			}
 			return;
-		case "translation":
-			yield* session.run((db) =>
-				db
-					.insert(tables.entityTranslation)
-					.values({ entityId, properties, language: "en", sourceContentGeneration: 1 }),
-			);
-			return;
-		case "relationship":
-			yield* session.run((db) =>
-				db
-					.insert(tables.relationship)
-					.values({
-						properties,
-						userId: ownerUserId,
-						sourceEntityId: entityId,
-						targetEntityId: entityId,
-						relationshipSchemaSlug: "unknown",
-					}),
-			);
-			return;
+		}
 		case "event":
 		case "projection": {
 			const id = crypto.randomUUID();
@@ -210,9 +203,18 @@ const insertReferenceSource = Effect.fn(function* (
 			}
 			return;
 		}
+		case "entity":
+			return;
+		case "translation":
+			yield* session.run((db) =>
+				db
+					.insert(tables.entityTranslation)
+					.values({ entityId, properties, language: "en", sourceContentGeneration: 1 }),
+			);
+			return;
+		case "integration":
 		case "clientConfig":
 		case "userSettings":
-		case "integration":
 		case "savedViewDefinition": {
 			const { revisionId, installation } = yield* installRevisionPackage(
 				revisionPackage(`source-${crypto.randomUUID()}`),
@@ -258,6 +260,19 @@ const insertReferenceSource = Effect.fn(function* (
 			}
 			return;
 		}
+		case "relationship":
+			yield* session.run((db) =>
+				db
+					.insert(tables.relationship)
+					.values({
+						properties,
+						userId: ownerUserId,
+						sourceEntityId: entityId,
+						targetEntityId: entityId,
+						relationshipSchemaSlug: "unknown",
+					}),
+			);
+			return;
 		case "subscription":
 			yield* session.run((db) =>
 				db
@@ -269,21 +284,6 @@ const insertReferenceSource = Effect.fn(function* (
 					}),
 			);
 			return;
-		case "trigger":
-		case "run": {
-			const triggerId = yield* insertTrigger({
-				scopeUserId: ownerUserId,
-				payload: signalPayload(source === "trigger" ? properties : {}),
-			});
-			if (source === "run") {
-				yield* insertRun({
-					triggerId,
-					historyPayload: properties,
-					executionUserId: UserId.make("owner"),
-				});
-			}
-			return;
-		}
 		case "savedView":
 			yield* session.run((db) =>
 				db
@@ -300,7 +300,7 @@ const insertReferenceSource = Effect.fn(function* (
 	}
 });
 
-const insertEncryptedConfig = Effect.fn(function* (revisionId: string, ownerUserId: UserId | null) {
+const insertEncryptedConfig = Effect.fn(function* (revisionId: string, ownerUserId: null | UserId) {
 	const id = crypto.randomUUID();
 	yield* (yield* DatabaseSession).run((db) =>
 		db

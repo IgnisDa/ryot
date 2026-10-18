@@ -18,19 +18,19 @@ import { AutomationRunWorkflow, type AutomationRunWorkflowResult } from "./run-w
 export const policyPatch = { resource: "entity", draft: { name: "Changed" } } as const;
 export const policyOutput = { patch: policyPatch, action: "transform" } as const;
 export interface RunBehavior {
-	readonly closed?: true;
 	readonly fail?: true;
 	readonly hold?: true;
-	readonly lateExit?: true;
+	readonly closed?: true;
 	readonly policy?: true;
+	readonly lateExit?: true;
 	readonly rejectSubmission?: true;
 }
 
 const runResult = (
 	runId: AutomationRunId,
-	status: "succeeded" | "failed",
+	status: "failed" | "succeeded",
 	finishedAt: number,
-	behavior: RunBehavior | undefined,
+	behavior: undefined | RunBehavior,
 ): AutomationRunWorkflowResult => ({
 	policyOutput: behavior?.policy && status === "succeeded" ? policyOutput : null,
 	attempt: {
@@ -48,7 +48,7 @@ const runResult = (
 export const requiredRun = (
 	id: string,
 	triggerId: AutomationTriggerId,
-	delivery: "required" | "async" = "required",
+	delivery: "async" | "required" = "required",
 ) =>
 	Schema.decodeSync(LifecycleDispatchRun)({
 		id,
@@ -64,15 +64,15 @@ export const executionIdOf = (runId: string) =>
 export class RunControl extends Context.Service<
 	RunControl,
 	{
-		readonly behaviors: Ref.Ref<ReadonlyMap<string, RunBehavior>>;
-		readonly started: Ref.Ref<ReadonlySet<string>>;
-		readonly submitted: Ref.Ref<ReadonlyArray<string>>;
-		readonly transactionActive: Ref.Ref<boolean>;
-		readonly skipped: Ref.Ref<ReadonlyArray<string>>;
-		readonly parentStarts: Ref.Ref<ReadonlyMap<string, number>>;
 		readonly lateExitMs: number;
+		readonly transactionActive: Ref.Ref<boolean>;
+		readonly started: Ref.Ref<ReadonlySet<string>>;
+		readonly skipped: Ref.Ref<ReadonlyArray<string>>;
+		readonly submitted: Ref.Ref<ReadonlyArray<string>>;
+		readonly parentStarts: Ref.Ref<ReadonlyMap<string, number>>;
+		readonly behaviors: Ref.Ref<ReadonlyMap<string, RunBehavior>>;
 		readonly finished: Ref.Ref<
-			ReadonlyMap<string, { status: "succeeded" | "failed"; finishedAt: number }>
+			ReadonlyMap<string, { finishedAt: number; status: "failed" | "succeeded" }>
 		>;
 	}
 >()("test/RunControl") {}
@@ -185,7 +185,7 @@ export const runControlLayer = (lateExitMs: number) =>
 			parentStarts: Ref.make<ReadonlyMap<string, number>>(new Map()),
 			behaviors: Ref.make<ReadonlyMap<string, RunBehavior>>(new Map()),
 			finished: Ref.make<
-				ReadonlyMap<string, { status: "succeeded" | "failed"; finishedAt: number }>
+				ReadonlyMap<string, { finishedAt: number; status: "failed" | "succeeded" }>
 			>(new Map()),
 		}),
 	);

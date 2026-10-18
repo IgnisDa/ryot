@@ -16,7 +16,7 @@ export class IngestionReadinessError extends Data.TaggedError("IngestionReadines
 
 const parseSettings = Effect.fn("parseIngestionReadinessSettings")(function* (
 	settingsSchema: AppSchema,
-	settings: Readonly<Record<string, unknown>> | undefined,
+	settings: undefined | Readonly<Record<string, unknown>>,
 ) {
 	if (settings === undefined) {
 		return undefined;
@@ -56,8 +56,8 @@ export class IngestionReadinessService extends Context.Service<IngestionReadines
 					readonly userId: UserId;
 					readonly sourceSlug: string;
 					readonly installationId: string;
-					readonly settings?: Readonly<Record<string, unknown>>;
 					readonly acceptedPlan?: IngestionPlan;
+					readonly settings?: Readonly<Record<string, unknown>>;
 				}) {
 					const resolved = yield* imports.resolveOwnedForUser(
 						input.userId,
@@ -96,9 +96,9 @@ export class IngestionReadinessService extends Context.Service<IngestionReadines
 					readonly userId: UserId;
 					readonly providerSlug: string;
 					readonly installationId: string;
-					readonly settings?: Readonly<Record<string, unknown>>;
-					readonly integrationId?: IntegrationId;
 					readonly acceptedPlan?: IngestionPlan;
+					readonly integrationId?: IntegrationId;
+					readonly settings?: Readonly<Record<string, unknown>>;
 				}) {
 					const resolved = yield* integrations.resolveOwnedForUser(
 						input.userId,

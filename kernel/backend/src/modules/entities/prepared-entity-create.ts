@@ -2,14 +2,14 @@ import type { EntityId, EntitySchemaSlug, UserId } from "@ryot-app/contract/sche
 
 const preparedEntityCreate = Symbol("PreparedEntityCreate");
 
+export type PreparedEntityCreate = { readonly [preparedEntityCreate]: PreparedEntityCreateData };
+
 type PreparedEntityCreateData = {
 	readonly userId: UserId;
 	readonly entityId: EntityId;
 	readonly entitySchemaSlug: EntitySchemaSlug;
-	readonly entitySchemaPluginId: string | null;
+	readonly entitySchemaPluginId: null | string;
 };
-
-export type PreparedEntityCreate = { readonly [preparedEntityCreate]: PreparedEntityCreateData };
 
 export const makePreparedEntityCreate = (data: PreparedEntityCreateData): PreparedEntityCreate =>
 	Object.freeze({ [preparedEntityCreate]: data });

@@ -47,9 +47,9 @@ export const reconcileIngestionBatch = Effect.fn("imports.reconcileIngestionBatc
 		itemIdentities: operations.map((operation) => operation.itemIdentity),
 	});
 	const outcomes: Array<{
-		recordKind: string;
 		unit: string;
-		result: "created" | "updated" | "unchanged" | "skipped" | "unsuccessful";
+		recordKind: string;
+		result: "created" | "updated" | "skipped" | "unchanged" | "unsuccessful";
 	}> = [];
 	for (const operation of operations) {
 		const recorded = yield* repository.getOutcome(scope, operation.operationId);

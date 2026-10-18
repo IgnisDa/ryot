@@ -25,7 +25,7 @@ export const mutationReceipt = snakeCase.table(
 		recordedAt: timestamptz().defaultNow().notNull(),
 		evidence: jsonb().$type<AutomationTriggerPayload>(),
 		accountGeneration: jsonb().$type<AccountGeneration>(),
-		mutationScope: text().$type<"global" | "user">().notNull(),
+		mutationScope: text().$type<"user" | "global">().notNull(),
 		ownerUserId: text().references(() => user.id, { onDelete: "cascade" }),
 		scopeUserId: text().references(() => user.id, { onDelete: "cascade" }),
 		pluginId: text().references(() => plugin.id, { onDelete: "restrict" }),
@@ -35,7 +35,7 @@ export const mutationReceipt = snakeCase.table(
 			onDelete: "restrict",
 		}),
 		receiptType: text()
-			.$type<"item" | "batch-decision" | "batch-candidate" | "workflow-owner">()
+			.$type<"item" | "batch-decision" | "workflow-owner" | "batch-candidate">()
 			.notNull(),
 	},
 	(table) => [

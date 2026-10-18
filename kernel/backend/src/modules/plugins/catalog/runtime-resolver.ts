@@ -37,10 +37,10 @@ import { PluginRepository } from "../packages/repository";
 export class UnsupportedProviderOperationError extends Data.TaggedError(
 	"UnsupportedProviderOperationError",
 )<{
+	readonly providerSlug: null | string;
 	readonly providerId: SandboxProviderId;
-	readonly providerSlug: string | null;
 	readonly operation: PluginProviderOperation;
-	readonly reason: "inactive_provider" | "unsupported_operation" | "script_unavailable";
+	readonly reason: "inactive_provider" | "script_unavailable" | "unsupported_operation";
 }> {}
 
 const AvailablePluginSections = Schema.Struct({
@@ -52,18 +52,18 @@ const AvailablePluginSections = Schema.Struct({
 
 export type AvailablePlugin = {
 	readonly id: string;
-	readonly packageId: PluginPackageId;
-	readonly contentHash: string;
-	readonly clientArtifactHash?: string | null;
-	readonly clientImports: readonly PluginClientImport[];
-	readonly pluginRevisionId: string;
-	readonly pluginConfigRevisionId: string | null;
 	readonly isHidden: boolean;
+	readonly contentHash: string;
 	readonly installationId: string;
-	readonly scope: "system" | "user";
-	readonly ownerUserId: UserId | null;
-	readonly manifest: typeof AvailablePluginSections.Type;
+	readonly pluginRevisionId: string;
+	readonly scope: "user" | "system";
+	readonly packageId: PluginPackageId;
+	readonly ownerUserId: null | UserId;
 	readonly health: PluginInstallationHealth;
+	readonly clientArtifactHash?: null | string;
+	readonly pluginConfigRevisionId: null | string;
+	readonly clientImports: readonly PluginClientImport[];
+	readonly manifest: typeof AvailablePluginSections.Type;
 	readonly compiledHashes: Readonly<Record<string, string>>;
 };
 
@@ -74,7 +74,7 @@ export const CatalogDefinitionFingerprint = Schema.Struct({
 export type CatalogDefinitionFingerprint = typeof CatalogDefinitionFingerprint.Type;
 
 export const catalogDefinitionFingerprint = (definition: {
-	readonly pluginId?: string | null | undefined;
+	readonly pluginId?: null | string | undefined;
 }) =>
 	Schema.decodeSync(CatalogDefinitionFingerprint)({
 		pluginId: definition.pluginId ?? null,
@@ -82,7 +82,7 @@ export const catalogDefinitionFingerprint = (definition: {
 	});
 
 export const pluginConfigContextFor = (
-	plugin: Pick<AvailablePlugin, "ownerUserId" | "pluginConfigRevisionId" | "pluginRevisionId">,
+	plugin: Pick<AvailablePlugin, "ownerUserId" | "pluginRevisionId" | "pluginConfigRevisionId">,
 	configSchema: PluginConfigSchema,
 ) => ({
 	configSchema,
@@ -183,7 +183,7 @@ export class PluginRuntimeResolver extends Context.Service<PluginRuntimeResolver
 
 			const queryAvailablePlugins = Effect.fn(function* (
 				userId: UserId,
-				visibility: "executable" | "listed",
+				visibility: "listed" | "executable",
 				predicate?: SQL,
 			) {
 				const rows = yield* database.run((db) =>
@@ -339,7 +339,7 @@ export class PluginRuntimeResolver extends Context.Service<PluginRuntimeResolver
 			});
 			const findActiveScriptById = Effect.fn(function* (
 				scriptId: SandboxScriptId,
-				executingUserId: UserId | null,
+				executingUserId: null | UserId,
 			) {
 				const [row] = yield* executingUserId === null
 					? database.run((db) =>
@@ -438,8 +438,8 @@ export class PluginRuntimeResolver extends Context.Service<PluginRuntimeResolver
 				);
 			});
 			const resolvePrivatePluginCron = Effect.fn(function* (input: {
-				installationId: string;
 				cronSlug: string;
+				installationId: string;
 			}) {
 				const [row] = yield* database.run((db) =>
 					db
@@ -482,7 +482,7 @@ export class PluginRuntimeResolver extends Context.Service<PluginRuntimeResolver
 							activationId: schema.plugin.activationId,
 							userBootstrap: schema.pluginRevision.userBootstrap,
 							scope: sql<
-								"system" | "user"
+								"user" | "system"
 							>`case when ${schema.plugin.ownerId} is null then 'system' else 'user' end`,
 						})
 						.from(schema.plugin)
@@ -674,8 +674,8 @@ export class PluginRuntimeResolver extends Context.Service<PluginRuntimeResolver
 					: null;
 			});
 			const findAuthorizedSchemaProviderById = Effect.fn(function* (input: {
-				entitySchema: EntitySchemaReference;
 				providerId: SandboxProviderId;
+				entitySchema: EntitySchemaReference;
 			}) {
 				const provider = yield* findActiveProviderById(input.providerId);
 				if (
@@ -703,7 +703,7 @@ export class PluginRuntimeResolver extends Context.Service<PluginRuntimeResolver
 			});
 			const resolveProviderOperation = (
 				operation: PluginProviderOperation,
-				userId: UserId | null,
+				userId: null | UserId,
 				providerId: SandboxProviderId,
 			) =>
 				Effect.gen(function* () {
@@ -777,7 +777,7 @@ export class PluginRuntimeResolver extends Context.Service<PluginRuntimeResolver
 					};
 				});
 			const resolveConfigKeyLabels = Effect.fn(function* (
-				pluginRevisionId: string | null,
+				pluginRevisionId: null | string,
 				keys: ReadonlyArray<string>,
 			) {
 				const [row] =

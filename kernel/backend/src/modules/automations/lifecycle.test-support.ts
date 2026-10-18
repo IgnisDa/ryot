@@ -154,7 +154,7 @@ export const queuedRunFixture = (id: string) =>
 		artifactsExpireAt: "2026-09-22T00:00:00.000Z",
 	});
 
-export const triggerFixture = (id = "trigger-test", signalSchemaPluginId: PluginId | null = null) =>
+export const triggerFixture = (id = "trigger-test", signalSchemaPluginId: null | PluginId = null) =>
 	Schema.decodeSync(AutomationTrigger)({
 		id,
 		scopeUserId: null,

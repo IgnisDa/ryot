@@ -59,24 +59,24 @@ type ActiveChange = Parameters<
 class NotificationStore extends Context.Service<
 	NotificationStore,
 	{
-		readonly subscription: Effect.Effect<StoredNotificationSubscription | null>;
-		readonly inserts: Effect.Effect<ReadonlyArray<InsertNotificationSubscriptionInput>>;
 		readonly activeChanges: Effect.Effect<ReadonlyArray<ActiveChange>>;
+		readonly subscription: Effect.Effect<null | StoredNotificationSubscription>;
 		readonly setCatalogState: (catalogState: CatalogState) => Effect.Effect<void>;
+		readonly inserts: Effect.Effect<ReadonlyArray<InsertNotificationSubscriptionInput>>;
 	}
 >()("test/NotificationStore") {}
 
 const notificationStoreLayer = (
 	options: {
-		readonly initial?: StoredNotificationSubscription;
 		readonly catalogState?: CatalogState;
 		readonly includeDefinition?: boolean;
 		readonly pluginIds?: ReadonlyArray<PluginId>;
+		readonly initial?: StoredNotificationSubscription;
 	} = {},
 ) =>
 	Layer.unwrap(
 		Effect.gen(function* () {
-			const subscription = yield* Ref.make<StoredNotificationSubscription | null>(
+			const subscription = yield* Ref.make<null | StoredNotificationSubscription>(
 				options.initial ?? null,
 			);
 			const inserts = yield* Ref.make<ReadonlyArray<InsertNotificationSubscriptionInput>>([]);

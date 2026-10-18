@@ -35,8 +35,8 @@ export const internalOAuthRecords = (frontendOrigin: string, now: Date, demoEnab
 	const client = (
 		clientId:
 			| typeof OAUTH_WEB_CLIENT_ID
-			| typeof OAUTH_DEMO_WEB_CLIENT_ID
 			| typeof OAUTH_NATIVE_CLIENT_ID
+			| typeof OAUTH_DEMO_WEB_CLIENT_ID
 			| typeof OAUTH_IMPERSONATION_WEB_CLIENT_ID
 			| typeof OAUTH_IMPERSONATION_NATIVE_CLIENT_ID,
 		applicationType: "web" | "native",

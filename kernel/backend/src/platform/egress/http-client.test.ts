@@ -12,12 +12,12 @@ import { EgressResolver } from "./resolver";
 type CapturedFetch = Readonly<{
 	url: string;
 	body: string;
-	host: string | null;
 	tls: unknown;
 	proxy: unknown;
 	method: string;
 	redirect: unknown;
 	keepalive: unknown;
+	host: null | string;
 	headers: Readonly<Record<string, string>>;
 }>;
 
@@ -42,7 +42,7 @@ const recordingLayer = Layer.effectContext(
 		const fetches = yield* Ref.make<ReadonlyArray<CapturedFetch>>([]);
 		const lookups = yield* Ref.make<ReadonlyArray<string>>([]);
 		const run = Effect.runPromiseWith(yield* Effect.context());
-		const recordingFetch = (input: string | Request | URL, init?: BunFetchRequestInit) =>
+		const recordingFetch = (input: URL | string | Request, init?: BunFetchRequestInit) =>
 			run(
 				Effect.gen(function* () {
 					const body = yield* Effect.promise(() => new Response(init?.body).text());

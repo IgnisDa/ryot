@@ -68,38 +68,38 @@ const RESET_PASSWORD_TOKEN_TTL_SECONDS = 30 * 60;
 const TrackedResetReply = Schema.Union([Schema.Literals([0, 1]), Schema.String]);
 
 const lifecycleProtectedAuthPaths = new Set([
+	"/delete-user",
+	"/link-social",
+	"/update-user",
+	"/change-email",
+	"/set-password",
 	"/api-key/create",
 	"/api-key/delete",
 	"/api-key/update",
-	"/change-email",
-	"/change-password",
-	"/delete-user",
-	"/link-social",
-	"/set-password",
-	"/revoke-other-sessions",
 	"/revoke-session",
-	"/revoke-sessions",
-	"/two-factor/disable",
-	"/two-factor/enable",
-	"/two-factor/generate-backup-codes",
 	"/unlink-account",
 	"/update-session",
-	"/update-user",
+	"/change-password",
+	"/revoke-sessions",
+	"/two-factor/enable",
+	"/two-factor/disable",
+	"/revoke-other-sessions",
+	"/two-factor/generate-backup-codes",
 ]);
 
 export const isLifecycleProtectedAuthPath = (path: string) => lifecycleProtectedAuthPaths.has(path);
 
 const demoProtectedAuthPaths = new Set([
 	...lifecycleProtectedAuthPaths,
-	"/account-info",
 	"/api-key/get",
+	"/account-info",
 	"/api-key/list",
-	"/get-access-token",
 	"/list-accounts",
 	"/list-sessions",
 	"/refresh-token",
-	"/two-factor/get-totp-uri",
+	"/get-access-token",
 	"/two-factor/verify-totp",
+	"/two-factor/get-totp-uri",
 ]);
 
 export const isDemoProtectedAuthRequest = (path: string, accessClass: unknown, clientId?: string) =>
@@ -110,8 +110,8 @@ export const isDemoProtectedAuthRequest = (path: string, accessClass: unknown, c
 			clientId !== OAUTH_DEMO_WEB_CLIENT_ID));
 
 const requestClientId = (ctx: {
-	readonly query?: unknown;
 	readonly body?: unknown;
+	readonly query?: unknown;
 	readonly request?: Request | undefined;
 }) => {
 	for (const value of [ctx.query, ctx.body]) {
@@ -183,7 +183,7 @@ const makeResetCaptureTransport = (redis: Redis): ResetCaptureTransport => ({
 		),
 	subscriber: () => {
 		const subscriber = redis.duplicate();
-		let onMessage: ((channel: string, message: string) => void) | undefined;
+		let onMessage: undefined | ((channel: string, message: string) => void);
 		let activeId = "";
 		return {
 			quit: () => Effect.tryPromise({ catch: unknownToDbError, try: () => subscriber.quit() }),
@@ -216,15 +216,15 @@ const makeResetCaptureTransport = (redis: Redis): ResetCaptureTransport => ({
 	},
 });
 
-export class AuthUserBootstrapScheduler extends Context.Service<
-	AuthUserBootstrapScheduler,
-	{ schedule: (userId: string) => Effect.Effect<void, AuthBootstrapScheduleError> }
->()("AuthUserBootstrapScheduler") {}
-
 export class AuthBootstrapScheduleError extends Schema.TaggedError<
 	AuthBootstrapScheduleError,
 	{ readonly brand: unique symbol }
 >()("AuthBootstrapScheduleError", { message: Schema.String }) {}
+
+export class AuthUserBootstrapScheduler extends Context.Service<
+	AuthUserBootstrapScheduler,
+	{ schedule: (userId: string) => Effect.Effect<void, AuthBootstrapScheduleError> }
+>()("AuthUserBootstrapScheduler") {}
 
 const makeOAuthProviderPlugin = (
 	frontendUrl: string,
@@ -264,7 +264,7 @@ const makeAuthInstance = (args: {
 	readonly handoffs: ImpersonationHandoffs["Service"];
 	readonly sessionGate: SessionCreationGate["Service"];
 	readonly impersonationSessions: ImpersonationSessions["Service"];
-	readonly runtime: Context.Context<DatabaseSession | RedisService>;
+	readonly runtime: Context.Context<RedisService | DatabaseSession>;
 	readonly revokeResetToken: (token: string) => Effect.Effect<void, DbError>;
 	readonly revokePasswordResetAccess: (userId: UserId) => Effect.Effect<void, DbError>;
 	readonly scheduleUserBootstrap: (
@@ -548,6 +548,13 @@ const makeAuthInstance = (args: {
 	return auth;
 };
 
+export type AuthUserInput = {
+	id: string;
+	name: string;
+	email: string;
+	emailVerified: boolean;
+	disabledAt?: Date | null;
+};
 type AuthInstance = ReturnType<typeof makeAuthInstance>;
 type AuthContextValue = Awaited<AuthInstance["$context"]>;
 type AuthUserRecord = Pick<
@@ -557,17 +564,10 @@ type AuthUserRecord = Pick<
 	| "email"
 	| "image"
 	| "disabledAt"
-	| "bootstrapCompletedAt"
 	| "preferences"
 	| "accountGeneration"
+	| "bootstrapCompletedAt"
 >;
-export type AuthUserInput = {
-	id: string;
-	name: string;
-	email: string;
-	emailVerified: boolean;
-	disabledAt?: Date | null;
-};
 
 const authenticationRequired = () =>
 	new AuthUnauthorized({ reason: { code: "authentication-required" } });
@@ -579,9 +579,9 @@ export type ResolvedCredential = {
 
 type CredentialInput =
 	| { readonly kind: "oauth"; readonly token: string }
-	| { readonly kind: "api-key"; readonly key: string };
+	| { readonly key: string; readonly kind: "api-key" };
 
-export const credentialFromHeaders = (headers: Headers): CredentialInput | null => {
+export const credentialFromHeaders = (headers: Headers): null | CredentialInput => {
 	const authorization = headers.get("authorization");
 	if (authorization?.startsWith("Bearer ") && authorization.length > "Bearer ".length) {
 		return { kind: "oauth", token: authorization.slice("Bearer ".length) };
@@ -590,13 +590,13 @@ export const credentialFromHeaders = (headers: Headers): CredentialInput | null 
 	return key ? { key, kind: "api-key" } : null;
 };
 
+type VerifiedCredential = Omit<AuthorizationContextValue, "accessClass">;
+
 type ApiKeyVerification = {
 	readonly valid: boolean;
 	readonly error: unknown;
-	readonly key: { readonly id: string; readonly referenceId: string } | null;
+	readonly key: null | { readonly id: string; readonly referenceId: string };
 };
-
-type VerifiedCredential = Omit<AuthorizationContextValue, "accessClass">;
 
 const rateLimitError = Schema.Struct({
 	code: Schema.Literal("RATE_LIMITED"),
@@ -669,8 +669,8 @@ export const resolveCredential = <E>(
 	credential: CredentialInput,
 	verifyOAuth: (token: string) => Promise<unknown>,
 	verifyApiKey: (key: string) => Promise<ApiKeyVerification>,
-	findUserById: (userId: string) => Effect.Effect<AuthUserRecord | null, E>,
-	demoAccountId: string | null = null,
+	findUserById: (userId: string) => Effect.Effect<null | AuthUserRecord, E>,
+	demoAccountId: null | string = null,
 	impersonationSessions?: ImpersonationSessions["Service"],
 ) =>
 	Effect.gen(function* () {
@@ -752,7 +752,7 @@ export class AuthService extends Context.Service<AuthService>()("AuthService", {
 		const sessionGate = yield* SessionCreationGate;
 		const impersonationSessions = yield* ImpersonationSessions;
 		const handoffs = yield* ImpersonationHandoffs;
-		const runtime = yield* Effect.context<DatabaseSession | RedisService>();
+		const runtime = yield* Effect.context<RedisService | DatabaseSession>();
 		const auth = makeAuthInstance({
 			config,
 			session,
@@ -897,7 +897,7 @@ export class AuthService extends Context.Service<AuthService>()("AuthService", {
 			}) => withInternalAdapter(({ internalAdapter }) => internalAdapter.linkAccount(account)),
 			updateAuthUserDisabled: (
 				userId: UserId,
-				data: { disabledAt: Date | null; updatedAt: Date },
+				data: { updatedAt: Date; disabledAt: Date | null },
 			) =>
 				withInternalAdapter(({ internalAdapter }) => internalAdapter.updateUser(userId, data)).pipe(
 					Effect.asVoid,
@@ -915,14 +915,14 @@ export class AuthService extends Context.Service<AuthService>()("AuthService", {
 }
 
 export const makeAuthMiddleware = (
-	auth: Pick<AuthService["Service"], "apiKeyUser" | "oauthUser">,
+	auth: Pick<AuthService["Service"], "oauthUser" | "apiKeyUser">,
 	lifecycle: Pick<LifecycleWriteGuard["Service"], "isActive">,
 ) => {
 	const authenticate = <E, R>(
 		httpEffect: Effect.Effect<
 			HttpServerResponse.HttpServerResponse,
 			E,
-			AuthorizationContext | CurrentUser | R
+			R | CurrentUser | AuthorizationContext
 		>,
 		resolved: Effect.Effect<
 			ResolvedCredential,

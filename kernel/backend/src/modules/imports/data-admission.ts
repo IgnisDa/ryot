@@ -53,12 +53,12 @@ export class DataImportAdmission extends Context.Service<DataImportAdmission>()(
 			const execution = yield* IngestionExecution;
 			const admit = Effect.fn("DataImportAdmission.admit")(
 				function* (input: {
-					accountGeneration: IngestionScope["accountGeneration"];
 					userId: UserId;
 					rawBody: string;
-					submissionKey: string | null;
-					integrationId: IntegrationId | null;
 					uploadTokenHash?: string;
+					submissionKey: null | string;
+					integrationId: null | IntegrationId;
+					accountGeneration: IngestionScope["accountGeneration"];
 				}) {
 					if (new TextEncoder().encode(input.rawBody).byteLength > maximumDocumentBytes) {
 						return yield* new ImportRequestError({

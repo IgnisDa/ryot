@@ -1,10 +1,10 @@
 import { dataJsonIntegrationSettingsSchema } from "@ryot-app/contract/modules/imports/data-json";
 
 export const resolveIntegrationSettingsSchema = <Lot, Schema>(
-	integration: { readonly packageKey: string | null; readonly provider: string; readonly lot: Lot },
+	integration: { readonly lot: Lot; readonly provider: string; readonly packageKey: null | string },
 	providers:
-		| ReadonlyArray<{ readonly slug: string; readonly lot: Lot; readonly settingsSchema: Schema }>
-		| undefined,
+		| undefined
+		| ReadonlyArray<{ readonly lot: Lot; readonly slug: string; readonly settingsSchema: Schema }>,
 ) =>
 	integration.packageKey === null
 		? dataJsonIntegrationSettingsSchema

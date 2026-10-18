@@ -22,8 +22,8 @@ type ScriptInput = Parameters<ScriptExecutionService["Service"]["executeScript"]
 class PinnedTranslationEffects extends Context.Service<
 	PinnedTranslationEffects,
 	{
-		readonly calls: Effect.Effect<ReadonlyArray<ScriptInput>>;
 		readonly upgrade: Effect.Effect<void>;
+		readonly calls: Effect.Effect<ReadonlyArray<ScriptInput>>;
 	}
 >()("test/PinnedTranslationEffects") {}
 

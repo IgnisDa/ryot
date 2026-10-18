@@ -127,7 +127,7 @@ const makeRelationshipsService = (overrides: MockOverrides<typeof mockRelationsh
 const makeDefinitionsLayer = (
 	mergeIdentityProperties: ReadonlyArray<string> = [],
 	deniedOperationsBySchema: Readonly<Record<string, ReadonlyArray<"clear" | "merge">>> = {},
-	pluginIds: ReadonlyArray<string | null> = [null],
+	pluginIds: ReadonlyArray<null | string> = [null],
 ) =>
 	Layer.mock(DefinitionRepository)({
 		findUserEntitySchemas: () =>
@@ -170,14 +170,14 @@ const makeDefinitionsLayer = (
 
 const makeServiceLayer = (
 	options: {
+		planner?: Layer.Layer<LifecyclePlanner>;
 		eventsService?: ReturnType<typeof makeEventsService>;
+		lifecycleExecution?: Layer.Layer<LifecycleExecution>;
 		definitions?: ReturnType<typeof makeDefinitionsLayer>;
 		eventsRepository?: ReturnType<typeof makeEventsRepository>;
 		entitiesRepository?: ReturnType<typeof makeEntitiesRepository>;
 		relationshipsService?: ReturnType<typeof makeRelationshipsService>;
 		relationshipsRepository?: ReturnType<typeof makeRelationshipsRepository>;
-		lifecycleExecution?: Layer.Layer<LifecycleExecution>;
-		planner?: Layer.Layer<LifecyclePlanner>;
 	} = {},
 ) =>
 	EntityUserDataService.layer.pipe(
@@ -220,9 +220,9 @@ const makeServiceLayer = (
 
 const recordingServiceLayer = <A>(
 	options: (tools: {
-		readonly record: (observation: A) => Effect.Effect<void>;
-		readonly recorded: Effect.Effect<ReadonlyArray<A>>;
 		readonly session: DatabaseSession["Service"];
+		readonly recorded: Effect.Effect<ReadonlyArray<A>>;
+		readonly record: (observation: A) => Effect.Effect<void>;
 	}) => Parameters<typeof makeServiceLayer>[0],
 ) => {
 	const Recorded = Context.Service<Effect.Effect<ReadonlyArray<A>>>(
@@ -249,7 +249,7 @@ const recordingServiceLayer = <A>(
 const makeMergeScope = (overrides: {
 	entityId: EntityId;
 	entitySchemaSlug?: string;
-	entitySchemaPluginId?: string | null;
+	entitySchemaPluginId?: null | string;
 	properties?: Record<string, unknown>;
 }) => ({
 	isBuiltin: false,
@@ -967,7 +967,7 @@ const pluginCommand = {
 };
 const pluginMergeScope = (
 	entityId: EntityId,
-	overrides: { entityUserId?: UserId | null } = {},
+	overrides: { entityUserId?: null | UserId } = {},
 ) => ({
 	...makeMergeScope({
 		entityId,

@@ -186,7 +186,7 @@ end
 return watching
 `;
 
-export type InterestPriority = "foreground" | "visible";
+export type InterestPriority = "visible" | "foreground";
 
 export type PendingInterest = {
 	readonly revision: number;
@@ -208,8 +208,8 @@ type InterestCommandOutcome =
 	| { readonly status: "missing-session" }
 	| { readonly status: "revision-mismatch" }
 	| {
-			readonly status: "applied";
 			readonly revision: number;
+			readonly status: "applied";
 			readonly pending: readonly PendingInterest[];
 	  };
 
@@ -273,9 +273,9 @@ export class EntityWatchStore extends Context.Service<EntityWatchStore>()("Entit
 			);
 		const openSession = Effect.fn("EntityWatchStore.openSession")(function* (input: {
 			readonly userId: UserId;
-			readonly accountGeneration: AccountGeneration;
 			readonly sessionId: string;
-			readonly preferredLanguage: string | null;
+			readonly preferredLanguage: null | string;
+			readonly accountGeneration: AccountGeneration;
 		}) {
 			const result = yield* evaluate(
 				OPEN_SESSION_SCRIPT,
@@ -294,7 +294,7 @@ export class EntityWatchStore extends Context.Service<EntityWatchStore>()("Entit
 		});
 
 		const replaceInterest = Effect.fn("EntityWatchStore.replaceInterest")(function* (
-			input: Omit<EntityWatchReplaceMessage, "type"> & { readonly sessionId: string },
+			input: { readonly sessionId: string } & Omit<EntityWatchReplaceMessage, "type">,
 		) {
 			const expiresAt = (yield* Clock.currentTimeMillis) + SESSION_TTL_MILLISECONDS;
 			return parseCommandOutcome(

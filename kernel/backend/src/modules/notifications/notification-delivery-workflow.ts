@@ -28,10 +28,10 @@ export const NotificationDeliveryWorkflowPayload = Schema.Struct({
 
 export type NotificationDeliveryWorkflowPayload = typeof NotificationDeliveryWorkflowPayload.Type;
 
-type NotificationDeliveryWorkflowInput = Omit<
+type NotificationDeliveryWorkflowInput = { executionId?: string | undefined } & Omit<
 	NotificationDeliveryWorkflowPayload,
 	"executionId"
-> & { executionId?: string | undefined };
+>;
 
 export const NotificationDeliveryWorkflow = Workflow.make("NotificationDeliveryWorkflow", {
 	error: DbError satisfies DurableSchema,

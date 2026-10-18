@@ -30,7 +30,7 @@ const owner = UserId.make("owner");
 const recipient = UserId.make("recipient");
 const generation = (userId: UserId) => ({ userId, token: "test-account-generation" });
 
-type Invalidation = { readonly kind: "record" | "publish"; readonly userId: UserId };
+type Invalidation = { readonly userId: UserId; readonly kind: "record" | "publish" };
 
 class RecordedInvalidations extends Context.Service<
 	RecordedInvalidations,
@@ -52,7 +52,7 @@ const recordedInvalidationsLayer = Layer.effectContext(
 	}),
 );
 
-type IngestionLock = "exclusive" | "shared";
+type IngestionLock = "shared" | "exclusive";
 
 class RecordedIngestionLocks extends Context.Service<
 	RecordedIngestionLocks,

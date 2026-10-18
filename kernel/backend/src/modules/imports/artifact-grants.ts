@@ -16,7 +16,7 @@ import { ImportsRepository } from "./repository";
 export const ingestionArtifactGrants = Effect.fn("imports.ingestionArtifactGrants")(function* (
 	input: unknown,
 	subject: SandboxExecutionSubject,
-	grants: SandboxExecutionGrants | undefined,
+	grants: undefined | SandboxExecutionGrants,
 ) {
 	if (!isObjectRecord(input)) {
 		return grants;

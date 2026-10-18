@@ -54,8 +54,8 @@ export const redisKeys = {
 	providerSearchOptions: (providerId: string, scriptId: string) =>
 		`ryot:provider:search-options:${providerId}:${scriptId}`,
 	sandboxPersistentCache: (
-		userId: string | null,
-		pluginScope: readonly ["plugin", string] | readonly ["kernel"],
+		userId: null | string,
+		pluginScope: readonly ["kernel"] | readonly ["plugin", string],
 		operationScope: readonly [string, string],
 		key: string,
 	): string =>

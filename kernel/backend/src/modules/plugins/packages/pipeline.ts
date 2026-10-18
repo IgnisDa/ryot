@@ -192,7 +192,7 @@ export const normalizePluginSource = Effect.fn("PluginPipeline.normalizePluginSo
 			],
 		});
 	}
-	let compiledClient: PluginClientArtifact | undefined;
+	let compiledClient: undefined | PluginClientArtifact;
 	if (source.compiledClient) {
 		const client = manifest.client;
 		if (!client) {
@@ -296,8 +296,8 @@ type StructurablePluginFailure =
 	| UploadBadRequest
 	| PluginArchiveError
 	| PluginSurfaceError
-	| PluginConflictError
 	| PluginRequestError
+	| PluginConflictError
 	| SchemaEvolutionError
 	| PluginValidationError
 	| PluginPackageReservedError

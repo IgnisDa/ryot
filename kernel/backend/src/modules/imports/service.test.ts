@@ -91,7 +91,7 @@ const script = {
 	metadata: { runtimeImports: [], kind: "workflow" as const },
 };
 const serviceCase = (
-	mode: "success" | "dispatch-failed" | "store-failed" | "pin-failed" | "not-ready",
+	mode: "success" | "not-ready" | "pin-failed" | "store-failed" | "dispatch-failed",
 	userSettings: Record<string, string> = {},
 ) =>
 	Effect.gen(function* () {

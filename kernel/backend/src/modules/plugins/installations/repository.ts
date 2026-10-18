@@ -12,39 +12,39 @@ import * as schema from "#schema/tables/combined";
 import { redactPluginConfig } from "../configuration/redaction";
 import { PluginConfigRevisions } from "../configuration/revisions";
 
-type StoredInstallationRow = Omit<
-	typeof schema.pluginInstallation.$inferSelect,
-	"clientConfig" | "configuredSecretPaths" | "ingestionRetiring"
->;
+export type PluginInstallationHealth = PluginInstallationRow["health"];
+export type PluginInstallationHydratedState = PluginInstallationState &
+	Pick<PluginInstallationRow, "config" | "configSchema">;
+
+export type PluginInstallationState = StoredInstallationRow & {
+	readonly pluginScope: "user" | "system";
+	readonly packageId: PluginRow["packageId"];
+};
+
 export type PluginInstallationRow = StoredInstallationRow & {
 	readonly config: Record<string, unknown>;
 	readonly configSchema?: (typeof schema.pluginRevision.$inferSelect)["configSchema"];
 };
 
-export type PluginInstallationHealth = PluginInstallationRow["health"];
-
-type PluginRow = typeof schema.plugin.$inferSelect;
-
 export type PluginPrivateInstallationRow = Pick<
 	PluginInstallationRow,
-	"userId" | "health" | "healthReason" | "incompatibilityReason" | "isInitialized"
+	"userId" | "health" | "healthReason" | "isInitialized" | "incompatibilityReason"
 > & {
 	readonly pluginId: PluginRow["id"];
 	readonly packageId: PluginRow["packageId"];
-	readonly manifest: (typeof schema.pluginRevisionManifest.$inferSelect)["manifest"];
 	readonly installationId: PluginInstallationRow["id"];
+	readonly manifest: (typeof schema.pluginRevisionManifest.$inferSelect)["manifest"];
 };
 
-export type PluginInstallationState = StoredInstallationRow & {
-	readonly packageId: PluginRow["packageId"];
-	readonly pluginScope: "system" | "user";
-};
+type PluginRow = typeof schema.plugin.$inferSelect;
 
-export type PluginInstallationHydratedState = PluginInstallationState &
-	Pick<PluginInstallationRow, "config" | "configSchema">;
+type StoredInstallationRow = Omit<
+	typeof schema.pluginInstallation.$inferSelect,
+	"clientConfig" | "ingestionRetiring" | "configuredSecretPaths"
+>;
 
 const provisionSystemInstallations = (
-	userId: UserId | null,
+	userId: null | UserId,
 	health: PluginInstallationHealth,
 ) => sql`
 	insert into ${schema.pluginInstallation} (id, user_id, plugin_id, health, is_initialized)
@@ -93,7 +93,7 @@ const installationState = {
 	incompatibilityReason: schema.pluginInstallation.incompatibilityReason,
 	activeConfigRevisionId: schema.pluginInstallation.activeConfigRevisionId,
 	pluginScope: sql<
-		"system" | "user"
+		"user" | "system"
 	>`case when ${schema.plugin.ownerId} is null then 'system' else 'user' end`,
 };
 
@@ -389,7 +389,7 @@ export class PluginInstallationRepository extends Context.Service<PluginInstalla
 			const updateHealth = Effect.fn("PluginInstallationRepository.updateHealth")(
 				function* (input: {
 					id: string;
-					healthReason: string | null;
+					healthReason: null | string;
 					health: PluginInstallationHealth;
 					incompatibilityReason?: PluginInstallationRow["incompatibilityReason"];
 				}) {
@@ -407,7 +407,7 @@ export class PluginInstallationRepository extends Context.Service<PluginInstalla
 			);
 			const updateHealthForActivation = Effect.fn(
 				"PluginInstallationRepository.updateHealthForActivation",
-			)(function* (input: Parameters<typeof updateHealth>[0] & { activationId: string }) {
+			)(function* (input: { activationId: string } & Parameters<typeof updateHealth>[0]) {
 				yield* database.requireTransaction;
 				yield* lockPluginIngestionShared(database);
 				const [updated] = yield* database.run((db) =>
@@ -460,9 +460,9 @@ export class PluginInstallationRepository extends Context.Service<PluginInstalla
 			const completeSystemInitialization = Effect.fn(
 				"PluginInstallationRepository.completeSystemInitialization",
 			)(function* (input: {
-				readonly installationId: string;
-				readonly activationId: string;
 				readonly userId: UserId;
+				readonly activationId: string;
+				readonly installationId: string;
 			}) {
 				const [updated] = yield* markSystemInstallationsInitialized(
 					input.userId,
@@ -476,8 +476,8 @@ export class PluginInstallationRepository extends Context.Service<PluginInstalla
 			)(function* (input: {
 				readonly userId: UserId;
 				readonly installations: ReadonlyArray<{
-					readonly installationId: string;
 					readonly activationId: string;
+					readonly installationId: string;
 				}>;
 			}) {
 				if (input.installations.length === 0) {
@@ -497,7 +497,7 @@ export class PluginInstallationRepository extends Context.Service<PluginInstalla
 			});
 
 			const setHomeSavedView = Effect.fn("PluginInstallationRepository.setHomeSavedView")(
-				function* (userId: UserId, id: string, homeSavedView: SavedViewReference | null) {
+				function* (userId: UserId, id: string, homeSavedView: null | SavedViewReference) {
 					const [row] = yield* database.run((db) =>
 						db
 							.update(schema.pluginInstallation)
@@ -765,8 +765,8 @@ export class PluginInstallationRepository extends Context.Service<PluginInstalla
 			const findUserSettingsForRevision = Effect.fn(function* (input: {
 				userId: UserId;
 				pluginId: string;
-				pluginRevisionId: string;
 				installationId?: string;
+				pluginRevisionId: string;
 			}) {
 				const [row] = yield* database.run((db) =>
 					db

@@ -47,13 +47,13 @@ export const savedViewDataSourceAccess: RyotQLAccess = {
 	accessClass: "standard",
 };
 
-type AliasEntry = { readonly key: string; readonly table: CatalogTable };
-type AliasScope = ReadonlyMap<string, AliasEntry>;
-
 export type ExpandedInclude = IncludeWithSelections<FieldSelection>;
 export type ExpandedRowsOutput = RowsOutputWithSelections<FieldSelection>;
+
 export type ExpandedNamedQuery = NamedQueryWithSelections<FieldSelection>;
 export type ExpandedRyotQLDocument = RyotQLDocumentWithSelections<FieldSelection>;
+type AliasScope = ReadonlyMap<string, AliasEntry>;
+type AliasEntry = { readonly key: string; readonly table: CatalogTable };
 
 type Validation<A> =
 	{ readonly value: A; readonly error: null } | { readonly value: null; readonly error: string };
@@ -65,10 +65,10 @@ const isNonEmpty = <A>(values: readonly A[]): values is readonly [A, ...A[]] => 
 const requiredNameError = (value: string, label: string) =>
 	value.trim().length === 0 ? `${label} must not be empty` : null;
 
-const isNumericOperand = (kind: ScalarKind | undefined) =>
+const isNumericOperand = (kind: undefined | ScalarKind) =>
 	kind === "json" || kind === "null" || kind === "number";
 
-const isTextOperand = (kind: ScalarKind | undefined) =>
+const isTextOperand = (kind: undefined | ScalarKind) =>
 	kind === "json" || kind === "null" || kind === "text";
 
 const kindResolver = (access: RyotQLAccess): KindResolver<AliasScope> => ({
@@ -88,7 +88,7 @@ const validateExpression = (
 	correlatedDepth: number,
 	executionScope: RyotQLAccess,
 	elementDepth = 0,
-): string | null => {
+): null | string => {
 	if (expr.type === "literal" || expr.type === "currentDate" || expr.type === "pluginId") {
 		return null;
 	}
@@ -271,17 +271,17 @@ const validateExpression = (
 		: `Unknown field '${expr.field}' on table '${entry.key}'`;
 };
 
-const compatibleKinds = (left: ScalarKind | undefined, right: ScalarKind | undefined) =>
+const compatibleKinds = (left: undefined | ScalarKind, right: undefined | ScalarKind) =>
 	left === "null" || right === "null" || left === right;
 
 const validateJsonArray = (
-	expr: Extract<ScalarExpression, { type: "jsonExists" | "jsonFirst" | "jsonCount" }>,
+	expr: Extract<ScalarExpression, { type: "jsonFirst" | "jsonCount" | "jsonExists" }>,
 	scope: AliasScope,
 	correlatedDepth: number,
 	executionScope: RyotQLAccess,
 	elementDepth: number,
-	projection: { readonly select: ScalarExpression; readonly orderBy: readonly OrderBy[] } | null,
-): string | null => {
+	projection: null | { readonly select: ScalarExpression; readonly orderBy: readonly OrderBy[] },
+): null | string => {
 	if (elementDepth >= MAX_JSON_ELEMENT_DEPTH) {
 		return `JSON array depth must not exceed ${MAX_JSON_ELEMENT_DEPTH}`;
 	}
@@ -337,7 +337,7 @@ const validatePredicate = (
 	correlatedDepth: number,
 	executionScope: RyotQLAccess,
 	elementDepth = 0,
-): string | null => {
+): null | string => {
 	if (predicate.type === "exists" || predicate.type === "jsonExists") {
 		return validateExpression(predicate, scope, correlatedDepth, executionScope, elementDepth);
 	}
@@ -427,7 +427,7 @@ const addTable = (
 	scope: Map<string, AliasEntry>,
 	reference: TableReference,
 	executionScope: RyotQLAccess,
-): string | null => {
+): null | string => {
 	const aliasError = requiredNameError(reference.alias, "Table alias");
 	if (aliasError) {
 		return aliasError;
@@ -453,7 +453,7 @@ const addJsonElements = (
 	join: JsonElementsJoin,
 	correlatedDepth: number,
 	executionScope: RyotQLAccess,
-): string | null => {
+): null | string => {
 	const aliasError = requiredNameError(join.alias, "Table alias");
 	if (aliasError) {
 		return aliasError;
@@ -472,7 +472,7 @@ const addJsonElements = (
 	return null;
 };
 
-type QuerySet = Pick<NamedQuery, "from" | "joins" | "where"> | CorrelatedQuerySet | Include;
+type QuerySet = Include | CorrelatedQuerySet | Pick<NamedQuery, "from" | "joins" | "where">;
 
 const expressionScope = (query: CorrelatedQuerySet, ancestors: AliasScope) => {
 	const scope = new Map(ancestors);
@@ -621,9 +621,9 @@ const validateAggregateOutput = (
 	output: AggregateOutput,
 	scope: AliasScope,
 	executionScope: RyotQLAccess,
-): string | null => {
+): null | string => {
 	const outputKeys = new Set<string>();
-	const groupKinds = new Map<string, ScalarKind | undefined>();
+	const groupKinds = new Map<string, undefined | ScalarKind>();
 	for (const group of output.groupBy ?? []) {
 		const keyError = requiredNameError(group.key, "Aggregate output key");
 		if (keyError) {
@@ -740,7 +740,7 @@ const validateTimeSeriesOutput = (
 	output: TimeSeriesOutput,
 	scope: AliasScope,
 	executionScope: RyotQLAccess,
-): string | null => {
+): null | string => {
 	const range = countTimeSeriesBuckets(output);
 	if (Option.isNone(range.startAt) || Option.isNone(range.endAt)) {
 		return "Time-series range startAt and endAt must be valid dates";

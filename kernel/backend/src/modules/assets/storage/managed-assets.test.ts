@@ -62,11 +62,6 @@ type PresignedDownload = {
 	readonly contentDisposition: string | undefined;
 };
 
-class FakeObjectStorage extends Context.Service<
-	FakeObjectStorage,
-	{ readonly deletes: Effect.Effect<number>; readonly stored: Effect.Effect<Uint8Array | null> }
->()("test/FakeObjectStorage") {}
-
 class FakeLifecycleOperation extends Context.Service<
 	FakeLifecycleOperation,
 	{ readonly activate: Effect.Effect<void> }
@@ -76,6 +71,11 @@ class FakeS3Presigner extends Context.Service<
 	FakeS3Presigner,
 	{ readonly presigned: Effect.Effect<ReadonlyArray<PresignedDownload>> }
 >()("test/FakeS3Presigner") {}
+
+class FakeObjectStorage extends Context.Service<
+	FakeObjectStorage,
+	{ readonly deletes: Effect.Effect<number>; readonly stored: Effect.Effect<null | Uint8Array> }
+>()("test/FakeObjectStorage") {}
 
 class CleanupEffects extends Context.Service<
 	CleanupEffects,
@@ -90,7 +90,7 @@ const missingObject = () => Effect.fail(new BadRequest({ message: "missing" }));
 
 const inMemoryObjectStorageLayer = Layer.unwrap(
 	Effect.gen(function* () {
-		const stored = yield* Ref.make<Uint8Array | null>(null);
+		const stored = yield* Ref.make<null | Uint8Array>(null);
 		const deletes = yield* Ref.make(0);
 		return Layer.merge(
 			Layer.succeed(FakeObjectStorage, { stored: Ref.get(stored), deletes: Ref.get(deletes) }),
@@ -177,18 +177,18 @@ const recordingPresignerLayer = Layer.unwrap(
 );
 
 const cleanupLayer = (options: {
-	readonly record: {
-		readonly key: string;
-		readonly size: number;
-		readonly ownerUserId: UserId;
-		readonly provider: "local" | "s3";
-		readonly sha256: string;
-		readonly contentType: string;
-		readonly createdAt: Date;
-		readonly retiredAt: Date | null;
-	} | null;
 	readonly referenced?: boolean;
 	readonly deleteFails?: boolean;
+	readonly record: null | {
+		readonly key: string;
+		readonly size: number;
+		readonly sha256: string;
+		readonly createdAt: Date;
+		readonly ownerUserId: UserId;
+		readonly contentType: string;
+		readonly retiredAt: Date | null;
+		readonly provider: "s3" | "local";
+	};
 }) =>
 	Layer.unwrap(
 		Effect.gen(function* () {
@@ -228,7 +228,7 @@ const cleanupLayer = (options: {
 		}),
 	);
 
-const makeLayer = (locators: ReadonlyArray<{ key: string; type: "local" | "s3" }>) =>
+const makeLayer = (locators: ReadonlyArray<{ key: string; type: "s3" | "local" }>) =>
 	ManagedAssetsService.layer.pipe(
 		Layer.provideMerge(
 			Layer.mergeAll(

@@ -191,7 +191,7 @@ const completeRun = Effect.fnUntraced(function* (
 
 const counts = Effect.fnUntraced(function* () {
 	return yield* (yield* DatabaseSession).run((db) =>
-		db.execute<{ messages: number; replies: number }>(
+		db.execute<{ replies: number; messages: number }>(
 			sql`
 			select (select count(*)::integer from cluster_messages) as messages,
 				(select count(*)::integer from cluster_replies) as replies

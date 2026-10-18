@@ -63,7 +63,7 @@ const defaultExtraSettings = {
 
 const validateRegisteredSettings = (
 	provider: IntegrationProvider,
-	registered: RegisteredIntegrationProvider | null,
+	registered: null | RegisteredIntegrationProvider,
 	settings: unknown,
 ) =>
 	registered
@@ -104,7 +104,7 @@ const buildIntegrationInputSummary = (
 export const validateProgressThresholds = (
 	minimumProgress: number,
 	maximumProgress: number,
-): IntegrationRequestFailureReason | null => {
+): null | IntegrationRequestFailureReason => {
 	if (minimumProgress < 0 || minimumProgress > 100) {
 		return { value: minimumProgress, field: "minimumProgress", code: "progress-out-of-range" };
 	}
@@ -170,8 +170,8 @@ export class IntegrationsService extends Context.Service<IntegrationsService>()(
 			const bindOAuthConnections = (input: {
 				readonly userId: UserId;
 				readonly integrationId: IntegrationId;
-				readonly registered: RegisteredIntegrationProvider;
 				readonly settings: IntegrationProviderSettings;
+				readonly registered: RegisteredIntegrationProvider;
 			}) =>
 				oauthConnections
 					.bindIntegrationSettings({
@@ -306,7 +306,7 @@ export class IntegrationsService extends Context.Service<IntegrationsService>()(
 					yield* requireProKeyFor(registered);
 				}
 
-				let providerSpecifics: IntegrationProviderSettings | undefined;
+				let providerSpecifics: undefined | IntegrationProviderSettings;
 				if (body.providerSpecifics !== undefined) {
 					const merged = {
 						...existing.providerSpecifics,
@@ -480,7 +480,7 @@ export class IntegrationsService extends Context.Service<IntegrationsService>()(
 								Effect.logError("Data webhook payload cleanup failed", cause),
 							),
 						);
-					let disabled: "integration-disabled" | "integrations-disabled" | null = null;
+					let disabled: null | "integration-disabled" | "integrations-disabled" = null;
 					if (integration.isDisabled) {
 						disabled = "integration-disabled";
 					} else if (yield* repository.getUserDisableIntegrations({ userId: integration.userId })) {
@@ -529,7 +529,7 @@ export class IntegrationsService extends Context.Service<IntegrationsService>()(
 					});
 				}
 
-				let failureReason: ImportRunFailureReason | undefined;
+				let failureReason: undefined | ImportRunFailureReason;
 				if (integration.isDisabled) {
 					failureReason = { code: "integration-disabled" };
 				} else if (yield* repository.getUserDisableIntegrations({ userId: integration.userId })) {
@@ -603,8 +603,8 @@ export class IntegrationsService extends Context.Service<IntegrationsService>()(
 			});
 
 			const prepareYankRuns = Effect.fn("IntegrationsService.prepareYankRuns")(function* (
-				userId: UserId | null,
-				accountGeneration: AccountGeneration | null,
+				userId: null | UserId,
+				accountGeneration: null | AccountGeneration,
 			) {
 				const integrations = yield* repository.listEnabledYankIntegrations({ userId });
 				const isPro = yield* proKey.isValidated;

@@ -157,7 +157,7 @@ export const makeServerLogs = Effect.fn("makeServerLogs")(function* (logPath: st
 		const stream = Stream.unwrap(
 			Effect.gen(function* () {
 				const output: Uint8Array[] = [];
-				let failure: Error | null = null;
+				let failure: null | Error = null;
 				const zip = yield* Effect.acquireRelease(
 					Effect.sync(
 						() =>

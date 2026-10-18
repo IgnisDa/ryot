@@ -23,8 +23,8 @@ const systemPlugin = {
 const accountGeneration = { userId: UserId.make("user-1"), token: "test-account-generation" };
 const userSubject = { type: "user", userId: "user-1", accountGeneration };
 const automationSubject = (
-	executionUserId: string | null,
-	plugin: Pick<typeof userPlugin, "id" | "revisionId" | "configRevisionId"> | null,
+	executionUserId: null | string,
+	plugin: null | Pick<typeof userPlugin, "id" | "revisionId" | "configRevisionId">,
 ) => ({
 	runId: "run-1",
 	stage: "after",
@@ -51,7 +51,7 @@ const automationSubject = (
 const encodeQueueElement = (
 	subject: unknown,
 	pluginRevision: unknown,
-	lane: "interactive" | "background",
+	lane: "background" | "interactive",
 	kernelScript?: true,
 ) =>
 	Effect.gen(function* () {

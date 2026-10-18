@@ -209,7 +209,7 @@ const setup = Effect.fnUntraced(function* (options: { readonly policy?: boolean 
 	const installed = yield* installRevisionPackage(editorPackage(options), userId);
 	const owner = PluginId.make(installed.pluginId);
 	const entities = yield* EntitiesRepository;
-	const insert = (id: string, slug: EntitySchemaSlug, ownerUserId: UserId | null, name = id) =>
+	const insert = (id: string, slug: EntitySchemaSlug, ownerUserId: null | UserId, name = id) =>
 		entities
 			.insertEntities([
 				{
@@ -230,11 +230,11 @@ const setup = Effect.fnUntraced(function* (options: { readonly policy?: boolean 
 
 const makeEditor = Effect.fnUntraced(function* (
 	overrides: {
-		readonly execution?: Partial<LifecycleExecution["Service"]>;
 		readonly entities?: Partial<EntitiesService["Service"]>;
+		readonly receipts?: Partial<MutationReceipts["Service"]>;
+		readonly execution?: Partial<LifecycleExecution["Service"]>;
 		readonly relationships?: Partial<RelationshipsService["Service"]>;
 		readonly relationshipsRepository?: Partial<RelationshipsRepository["Service"]>;
-		readonly receipts?: Partial<MutationReceipts["Service"]>;
 	} = {},
 ) {
 	const execution = { ...(yield* LifecycleExecution), ...overrides.execution };
@@ -316,7 +316,7 @@ const storedExpected = Effect.fnUntraced(function* (
 const submitDelete = (
 	editor: EntityEditorService["Service"],
 	idempotencyKey: string,
-	input: { owner: PluginId; entityId: string; expectedUpdatedAt: string; slug?: EntitySchemaSlug },
+	input: { owner: PluginId; entityId: string; slug?: EntitySchemaSlug; expectedUpdatedAt: string },
 	user: UserId = userId,
 ) =>
 	editor.submit({

@@ -33,23 +33,23 @@ import {
 } from "../authorization/principal";
 import { SandboxRepository } from "./repository";
 
+type Scope = "user" | "system";
+
+type ExpectedRevision = Pick<ScriptPluginRevision, "id" | "revisionId" | "configRevisionId">;
+
 type ScriptPin = NonNullable<
 	Effect.Success<ReturnType<SandboxRepository["Service"]["getScriptPin"]>>
 >;
 
-type ExpectedRevision = Pick<ScriptPluginRevision, "id" | "revisionId" | "configRevisionId">;
-
-type Scope = "system" | "user";
-
 type World = {
+	readonly slug: string;
+	readonly scope: Scope;
 	readonly userId: UserId;
 	readonly pluginId: string;
-	readonly slug: string;
-	readonly installationId: string;
 	readonly revisionId: string;
 	readonly activationId: string;
+	readonly installationId: string;
 	readonly packageId: PluginPackageId;
-	readonly scope: Scope;
 	readonly scripts: { readonly task: SandboxScriptId; readonly details: SandboxScriptId };
 };
 
@@ -153,7 +153,7 @@ const createWorld = Effect.fn(function* (scope: Scope) {
 const userSubject = (userId: UserId, token = `generation-${userId}`) =>
 	({ userId, type: "user", accountGeneration: { token, userId } }) as const;
 
-const automationSubject = (executionUserId: UserId | null) =>
+const automationSubject = (executionUserId: null | UserId) =>
 	Schema.decodeSync(SandboxExecutionSubject)({
 		stage: "after",
 		pluginId: null,
@@ -180,7 +180,7 @@ const automationSubject = (executionUserId: UserId | null) =>
 		},
 	});
 
-const subjectsFor = (world: World): ReadonlyArray<SandboxExecutionSubject | undefined> => [
+const subjectsFor = (world: World): ReadonlyArray<undefined | SandboxExecutionSubject> => [
 	undefined,
 	{ type: "system" },
 	userSubject(world.userId),
@@ -200,7 +200,7 @@ const modes = [
 
 type Mode = (typeof modes)[number];
 
-const outcomeCode = (exit: Exit.Exit<ScriptPin | null, unknown>) => {
+const outcomeCode = (exit: Exit.Exit<null | ScriptPin, unknown>) => {
 	if (Exit.isSuccess(exit)) {
 		return exit.value === null ? "-" : "P";
 	}
@@ -223,11 +223,11 @@ const expectedFor = (
 };
 
 const outcomesFor = Effect.fn(function* (input: {
-	readonly scripts: Readonly<Record<string, SandboxScriptId>>;
-	readonly subjects: ReadonlyArray<SandboxExecutionSubject | undefined>;
 	readonly expected: ExpectedRevision;
 	readonly binding: ScriptInstallationInitialization;
 	readonly foreignConfigRevisionId: PluginConfigRevisionId;
+	readonly scripts: Readonly<Record<string, SandboxScriptId>>;
+	readonly subjects: ReadonlyArray<undefined | SandboxExecutionSubject>;
 	readonly verifyPin: (pin: ScriptPin, scriptName: string, mode: Mode) => void;
 }) {
 	const repository = yield* SandboxRepository;

@@ -229,7 +229,7 @@ export const revisionPackage = (
 
 export const installRevisionPackage = Effect.fn(function* (
 	packageValue: NormalizedPlugin,
-	owner: UserId | null = null,
+	owner: null | UserId = null,
 ) {
 	const session = yield* DatabaseSession;
 	const plugins = yield* PluginRepository;
@@ -275,9 +275,9 @@ export const oauthRevisionPackage = (
 	slug: string,
 	integrationProviderSlug: string,
 	options: {
-		readonly accessTokenLifetimeSeconds?: number;
 		readonly pkce?: "S256" | "none";
 		readonly requiresProKey?: boolean;
+		readonly accessTokenLifetimeSeconds?: number;
 	} = {},
 ) => {
 	const plugin = revisionPackage(slug, "v1");

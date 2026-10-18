@@ -11,9 +11,9 @@ import { canonicalClientArtifactFileName, CLIENT_ARTIFACT_HASH_PATTERN } from ".
 
 const missing = () => new PageBundleFileNotFound({ reason: { code: "client-asset-not-found" } });
 export const servePageBundleFile = Effect.fn("servePageBundleFile")(function* (input: {
-	readonly artifactHash: string;
-	readonly accessKey: string;
 	readonly fileName: string;
+	readonly accessKey: string;
+	readonly artifactHash: string;
 }) {
 	const fileName = canonicalClientArtifactFileName(input.fileName);
 	if (!CLIENT_ARTIFACT_HASH_PATTERN.test(input.artifactHash) || fileName === null) {

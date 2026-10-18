@@ -73,8 +73,8 @@ const projectedField = (query: NamedQuery, key: string) =>
 export const validateEntityBrowserSavedViewDefinition = Effect.fn(
 	"validateEntityBrowserSavedViewDefinition",
 )(function* (input: {
+	readonly dataSources: null | RyotQLDocument;
 	readonly settings: Readonly<Record<string, unknown>>;
-	readonly dataSources: RyotQLDocument | null;
 }) {
 	const decoded = Schema.decodeUnknownResult(EntityBrowserSavedViewSettings)(input.settings);
 	if (Result.isFailure(decoded)) {
@@ -165,19 +165,19 @@ export const isEntityBrowserRenderer = (renderer: {
 export const validateSavedViewDefinition = Effect.fn("validateSavedViewDefinition")(function* (
 	renderer: SavedViewRenderer,
 	settings: Readonly<Record<string, unknown>>,
-	dataSources: RyotQLDocument | null,
-	pluginPage: PluginPageRecord | null,
+	dataSources: null | RyotQLDocument,
+	pluginPage: null | PluginPageRecord,
 ) {
 	switch (renderer.kind) {
 		case "kernel":
 			switch (renderer.name) {
 				case "calendar":
 					return yield* settingsIncompatible("Calendar views are kernel built-ins only");
+				case "results-table":
+					return yield* validateResultsTableSavedViewDefinition({ settings, dataSources });
 				case "entity-browser":
 				case "collection-browser":
 					return yield* validateEntityBrowserSavedViewDefinition({ settings, dataSources });
-				case "results-table":
-					return yield* validateResultsTableSavedViewDefinition({ settings, dataSources });
 			}
 		case "plugin":
 			if (dataSources !== null) {
@@ -208,8 +208,8 @@ export const validateSavedViewDefinition = Effect.fn("validateSavedViewDefinitio
 export const validateResultsTableSavedViewDefinition = Effect.fn(
 	"validateResultsTableSavedViewDefinition",
 )(function* (input: {
+	readonly dataSources: null | RyotQLDocument;
 	readonly settings: Readonly<Record<string, unknown>>;
-	readonly dataSources: RyotQLDocument | null;
 }) {
 	const decoded = Schema.decodeUnknownResult(ResultsTableSavedViewSettings)(input.settings);
 	if (Result.isFailure(decoded)) {

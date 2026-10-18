@@ -18,13 +18,13 @@ import type { PopulationLevel } from "./providers/schemas";
 import type { DomainLifecycleCommand } from "./write-context";
 
 export type PopulationExecution = {
+	readonly attempt?: string;
+	readonly retryOf?: string;
 	readonly inputHash?: string;
+	readonly level: PopulationLevel;
 	readonly manualRefresh?: boolean;
 	readonly mode?: "ensure" | "refresh";
 	readonly translationLanguage?: string;
-	readonly attempt?: string;
-	readonly level: PopulationLevel;
-	readonly retryOf?: string;
 };
 
 export const populationRequestPin = (command: DomainLifecycleCommand) =>
@@ -35,7 +35,7 @@ export const populationRequestPin = (command: DomainLifecycleCommand) =>
 
 export const entityPopulationExecutionId = (
 	entityId: EntityId,
-	accountGeneration: AccountGeneration | null,
+	accountGeneration: null | AccountGeneration,
 	execution: PopulationExecution,
 ) =>
 	`enrich-populate-${sha256Base64Url(stableStringify([entityId, accountGeneration, execution.level, execution.attempt ?? null]))}`;
@@ -43,12 +43,12 @@ export const entityPopulationExecutionId = (
 export type PopulationRequest = {
 	entityId: EntityId;
 	externalId: string;
-	userId: UserId | null;
+	userId: null | UserId;
 	providerId: SandboxProviderId;
 	execution: PopulationExecution;
 	command: DomainLifecycleCommand;
 	entitySchemaSlug: EntitySchemaSlug;
-	entitySchemaPluginId: string | null;
+	entitySchemaPluginId: null | string;
 };
 
 export const userPopulationRequest = Effect.fnUntraced(function* (

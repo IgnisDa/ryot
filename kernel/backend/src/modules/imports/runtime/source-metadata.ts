@@ -102,7 +102,7 @@ export const registryImportSourceMissingConfigKeys = (source: RegisteredImportSo
 export const buildImportSourcePayload = (
 	properties: Readonly<Record<string, unknown>>,
 	source: RegisteredImportSource,
-): Record<string, JsonValue> | undefined => {
+): undefined | Record<string, JsonValue> => {
 	const fileInputs = registryImportSourceFileInputs(source, properties);
 	const uploadFieldKeys = new Set(fileInputs.map(({ key }) => key));
 	const payload = Object.fromEntries(

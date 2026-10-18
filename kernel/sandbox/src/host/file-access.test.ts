@@ -38,7 +38,7 @@ type FileServiceTestControl = {
 	failNextWrite: boolean;
 	blockNextWrite: boolean;
 	maxObservedBytes: number;
-	symlinkAfterStat: SymlinkSwap | undefined;
+	symlinkAfterStat: undefined | SymlinkSwap;
 	readonly writeStarted: Deferred.Deferred<void>;
 	readonly releaseWrite: Deferred.Deferred<void>;
 };

@@ -34,7 +34,7 @@ const normalizeRun = (row: BackupRunRow) => ({
 	finishedAt: row.finishedAt?.toISOString() ?? null,
 });
 
-const normalizeArtifact = (row: BackupRunRow): BackupRunArtifactRecord | null => {
+const normalizeArtifact = (row: BackupRunRow): null | BackupRunArtifactRecord => {
 	if (row.artifactProvider === null || row.artifactKey === null || row.expiresAt === null) {
 		return null;
 	}
@@ -92,8 +92,8 @@ export class BackupsRepository extends Context.Service<BackupsRepository>()("Bac
 		});
 
 		const getArtifactById = Effect.fn("BackupsRepository.getArtifactById")(function* (input: {
-			runId: BackupRunId;
 			userId: UserId;
+			runId: BackupRunId;
 		}) {
 			const [row] = yield* database.run((db) =>
 				db
@@ -140,9 +140,9 @@ export class BackupsRepository extends Context.Service<BackupsRepository>()("Bac
 		});
 
 		const updateProgress = Effect.fn("BackupsRepository.updateProgress")(function* (input: {
-			runId: BackupRunId;
 			userId: UserId;
 			progress: number;
+			runId: BackupRunId;
 		}) {
 			const [row] = yield* database.run((db) =>
 				db
@@ -162,7 +162,7 @@ export class BackupsRepository extends Context.Service<BackupsRepository>()("Bac
 
 		const completeRun = Effect.fn("BackupsRepository.completeRun")(function* (
 			input:
-				| { runId: BackupRunId; userId: UserId }
+				| { userId: UserId; runId: BackupRunId }
 				| {
 						userId: UserId;
 						expiresAt: Date;
@@ -197,9 +197,9 @@ export class BackupsRepository extends Context.Service<BackupsRepository>()("Bac
 		});
 
 		const failRun = Effect.fn("BackupsRepository.failRun")(function* (input: {
-			failure: BackupRunFailure;
 			userId: UserId;
 			runId: BackupRunId;
+			failure: BackupRunFailure;
 		}) {
 			const finishedAt = yield* DateTime.nowAsDate;
 			const [row] = yield* database.run((db) =>

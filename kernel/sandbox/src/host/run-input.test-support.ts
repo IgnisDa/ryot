@@ -72,8 +72,8 @@ export const makeSubjectRunInput = (
 });
 
 export const automationRunSubject = (
-	stage: "before" | "after",
-	executionUserId: UserId | null,
+	stage: "after" | "before",
+	executionUserId: null | UserId,
 ): Extract<SandboxExecutionSubject, { type: "automation-run" }> => ({
 	stage,
 	pluginId: null,

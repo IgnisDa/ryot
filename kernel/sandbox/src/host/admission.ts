@@ -22,6 +22,17 @@ const laneSchema = Schema.Struct({
 });
 const encodeLane = Schema.encodeSync(Schema.fromJsonString(laneSchema));
 
+type LeaseState = {
+	bytes: number;
+	closed: boolean;
+	instance: string;
+	entering: boolean;
+	lane: ExecutionLane;
+	startupBytes: number;
+	startup: string | undefined;
+	entered: string | undefined;
+};
+
 export class SandboxAdmissionLease extends Context.Service<
 	SandboxAdmissionLease,
 	{
@@ -30,17 +41,6 @@ export class SandboxAdmissionLease extends Context.Service<
 		) => Effect.Effect<void, SandboxRunError, Scope.Scope>;
 	}
 >()("SandboxAdmissionLease") {}
-
-type LeaseState = {
-	bytes: number;
-	instance: string;
-	startupBytes: number;
-	closed: boolean;
-	entering: boolean;
-	startup: string | undefined;
-	entered: string | undefined;
-	lane: ExecutionLane;
-};
 
 const limitError = (message: string) =>
 	new SandboxRunError({ message, kind: "resource-unavailable" });
@@ -68,7 +68,7 @@ export class SandboxSidecarAdmission extends Context.Service<SandboxSidecarAdmis
 			const admissionChanged = new Set<Deferred.Deferred<void>>();
 			const instances = new Map<
 				string,
-				{ bytes: number; generation: number; lane: ExecutionLane | undefined }
+				{ bytes: number; generation: number; lane: undefined | ExecutionLane }
 			>();
 			const leases = new WeakMap<SandboxAdmissionLease["Service"], LeaseState>();
 			const open = new Set<LeaseState>();
@@ -97,7 +97,7 @@ export class SandboxSidecarAdmission extends Context.Service<SandboxSidecarAdmis
 				}
 				return bytes;
 			};
-			const fits = (lane: ExecutionLane | undefined, amount: number) =>
+			const fits = (lane: undefined | ExecutionLane, amount: number) =>
 				state.bytes + amount <=
 				budget -
 					(plan.mode === "lane" && lane === "background"
@@ -115,7 +115,7 @@ export class SandboxSidecarAdmission extends Context.Service<SandboxSidecarAdmis
 				);
 			};
 			const reserveBytes = Effect.fnUntraced(function* (
-				lane: ExecutionLane | undefined,
+				lane: undefined | ExecutionLane,
 				amount: number,
 				commit: () => void,
 				valid: () => boolean,

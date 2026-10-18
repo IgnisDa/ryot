@@ -94,39 +94,39 @@ const payload: EventCreateWorkflowPayload = {
 	command,
 	payload: [{ entityId, eventSchemaSlug, properties: { rating: 1 } }],
 };
+type CreatedEvent = Parameters<EventsRepository["Service"]["createEvent"]>[0];
+
+type RecordedActivity = { readonly name: string; readonly executionId: string };
+
 type Policy = {
 	slug: string;
 	plugin?: string;
 	position: number;
 	frequency?: LifecyclePlannedPolicy["batchFrequency"];
 };
-
 type HarnessOptions = {
-	unreadableEntity?: EntityId;
-	revokeEntityBeforeWrite?: EntityId;
-	changeEntityMetadataDuringPolicy?: EntityId;
-	policies?: Policy[];
-	execute?: (
-		input: Parameters<LifecycleExecution["Service"]["executePolicy"]>[0] & {
-			payload: AutomationRequestPayload;
-			index: number;
-		},
-	) => Effect.Effect<AutomationPolicyOutput, AutomationPolicyExecutionError>;
-	blocked?: "request" | "change";
 	noHooks?: boolean;
-	policyRatings?: number[];
-	blockedRatings?: number[];
-	afterHookRatings?: number[];
-	foreignEntity?: EntityId;
-	retryActivity?: string;
-	warnings?: AutomationWarning[];
+	policies?: Policy[];
 	failChange?: boolean;
+	retryActivity?: string;
+	policyRatings?: number[];
+	foreignEntity?: EntityId;
+	blockedRatings?: number[];
+	unreadableEntity?: EntityId;
+	afterHookRatings?: number[];
+	blocked?: "change" | "request";
+	warnings?: AutomationWarning[];
+	revokeEntityBeforeWrite?: EntityId;
 	activateSchemaBeforeWrite?: boolean;
 	replayWriteAfterSchemaDisable?: boolean;
+	changeEntityMetadataDuringPolicy?: EntityId;
+	execute?: (
+		input: Parameters<LifecycleExecution["Service"]["executePolicy"]>[0] & {
+			index: number;
+			payload: AutomationRequestPayload;
+		},
+	) => Effect.Effect<AutomationPolicyOutput, AutomationPolicyExecutionError>;
 };
-
-type CreatedEvent = Parameters<EventsRepository["Service"]["createEvent"]>[0];
-type RecordedActivity = { readonly executionId: string; readonly name: string };
 
 const foreignPluginId = "foreign";
 
@@ -135,7 +135,7 @@ const visibleEntity = (
 		options,
 		lockedEntityIds,
 		changedEntityMetadata,
-	}: Pick<HarnessState, "changedEntityMetadata" | "lockedEntityIds" | "options">,
+	}: Pick<HarnessState, "options" | "lockedEntityIds" | "changedEntityMetadata">,
 	requestedId: EntityId,
 ) =>
 	requestedId === options.unreadableEntity ||
@@ -242,27 +242,27 @@ const hookRun = (
 
 type HarnessState = {
 	readonly options: HarnessOptions;
-	readonly calls: ReadonlyArray<string>;
-	readonly triggers: ReadonlyArray<AutomationTrigger>;
-	readonly created: ReadonlyArray<CreatedEvent>;
-	readonly inputs: ReadonlyArray<AutomationRequestPayload>;
-	readonly exclusions: ReadonlyArray<unknown>;
+	readonly activeActivity: boolean;
+	readonly schemaDisabled: boolean;
+	readonly schemaActivated: boolean;
+	readonly activeTransaction: boolean;
 	readonly queued: ReadonlySet<string>;
+	readonly calls: ReadonlyArray<string>;
+	readonly executed: ReadonlyArray<string>;
+	readonly exclusions: ReadonlyArray<unknown>;
+	readonly created: ReadonlyArray<CreatedEvent>;
+	readonly checkedOwners: ReadonlyArray<string>;
 	readonly identities: ReadonlyMap<string, string>;
+	readonly triggers: ReadonlyArray<AutomationTrigger>;
+	readonly activities: ReadonlyArray<RecordedActivity>;
+	readonly planned: ReadonlyMap<string, LifecyclePlan>;
+	readonly changedEntityMetadata: ReadonlySet<EntityId>;
+	readonly inputs: ReadonlyArray<AutomationRequestPayload>;
+	readonly lockedEntityIds: ReadonlyArray<ReadonlyArray<EntityId>>;
 	readonly policyRequests: ReadonlyMap<
 		string,
 		AutomationRequestPayload | AutomationBatchRequestPayload
 	>;
-	readonly executed: ReadonlyArray<string>;
-	readonly activities: ReadonlyArray<RecordedActivity>;
-	readonly checkedOwners: ReadonlyArray<string>;
-	readonly planned: ReadonlyMap<string, LifecyclePlan>;
-	readonly lockedEntityIds: ReadonlyArray<ReadonlyArray<EntityId>>;
-	readonly activeTransaction: boolean;
-	readonly activeActivity: boolean;
-	readonly schemaActivated: boolean;
-	readonly schemaDisabled: boolean;
-	readonly changedEntityMetadata: ReadonlySet<EntityId>;
 };
 
 const initialState = (options: HarnessOptions): HarnessState => ({
@@ -290,17 +290,17 @@ const initialState = (options: HarnessOptions): HarnessState => ({
 class EventCreateHarness extends Context.Service<
 	EventCreateHarness,
 	{
-		readonly calls: Effect.Effect<ReadonlyArray<string>>;
-		readonly triggers: Effect.Effect<ReadonlyArray<AutomationTrigger>>;
-		readonly created: Effect.Effect<ReadonlyArray<CreatedEvent>>;
-		readonly inputs: Effect.Effect<ReadonlyArray<AutomationRequestPayload>>;
-		readonly exclusions: Effect.Effect<ReadonlyArray<unknown>>;
 		readonly queued: Effect.Effect<ReadonlySet<string>>;
+		readonly calls: Effect.Effect<ReadonlyArray<string>>;
 		readonly executed: Effect.Effect<ReadonlyArray<string>>;
-		readonly activities: Effect.Effect<ReadonlyArray<RecordedActivity>>;
+		readonly exclusions: Effect.Effect<ReadonlyArray<unknown>>;
+		readonly created: Effect.Effect<ReadonlyArray<CreatedEvent>>;
 		readonly checkedOwners: Effect.Effect<ReadonlyArray<string>>;
-		readonly lockedEntityIds: Effect.Effect<ReadonlyArray<ReadonlyArray<EntityId>>>;
 		readonly reset: (options: HarnessOptions) => Effect.Effect<void>;
+		readonly triggers: Effect.Effect<ReadonlyArray<AutomationTrigger>>;
+		readonly activities: Effect.Effect<ReadonlyArray<RecordedActivity>>;
+		readonly inputs: Effect.Effect<ReadonlyArray<AutomationRequestPayload>>;
+		readonly lockedEntityIds: Effect.Effect<ReadonlyArray<ReadonlyArray<EntityId>>>;
 	}
 >()("test/EventCreateHarness") {}
 

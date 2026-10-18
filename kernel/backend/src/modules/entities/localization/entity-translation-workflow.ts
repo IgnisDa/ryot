@@ -43,7 +43,7 @@ export type TranslationExecution = typeof TranslationExecution.Type;
 export const translateEntityExecutionId = (
 	input: Pick<
 		TranslateEntityWorkflowPayload,
-		"entityId" | "contentGeneration" | "userId" | "accountGeneration" | "language"
+		"userId" | "entityId" | "language" | "contentGeneration" | "accountGeneration"
 	>,
 ) =>
 	`translate-${sha256Hex(

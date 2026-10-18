@@ -48,98 +48,98 @@ import { SandboxSidecarQuarantine } from "./quarantine";
 import { type SandboxRecoveryIdentity, SandboxRecoveryStore } from "./recovery-store";
 import { selectSnapshotTier } from "./snapshot-tier";
 
-type Connection = Effect.Success<ReturnType<SandboxSidecarClient["Service"]["connect"]>>;
+export type SandboxSidecarRun<A = void> = {
+	readonly pinHash: string;
+	readonly lane: ExecutionLane;
+	readonly executionId: string;
+	readonly principal: SandboxPrincipal;
+	readonly lease: SandboxAdmissionLease["Service"];
+	readonly prepare: (identity: {
+		readonly handle: string;
+		readonly instance: string;
+		readonly generation: number;
+	}) => Effect.Effect<
+		{
+			readonly input: RunFrame["input"];
+			readonly module: RunFrame["module"];
+			readonly gate: SandboxHostCallGateRegistration;
+			readonly finish: (done: DoneFrame) => Effect.Effect<A, TimeoutError | SandboxRunError>;
+		},
+		SandboxRunError,
+		Scope.Scope
+	>;
+};
 type RunFrame = typeof SidecarRunFrame.Type;
 type DoneFrame = typeof SidecarDoneFrame.Type;
+type Connection = Effect.Success<ReturnType<SandboxSidecarClient["Service"]["connect"]>>;
+type Protection = Effect.Success<ReturnType<SandboxSidecarQuarantine["Service"]["open"]>>;
+
+type LogicalRun = { cancelled: boolean; handle: string | undefined; ticket: string | undefined };
+
 type ProcessKey = {
 	readonly instance: string;
-	readonly trust: typeof SandboxTrust.Type;
 	readonly tier: typeof SidecarTier.Type;
+	readonly trust: typeof SandboxTrust.Type;
+};
+
+type RecoveryRound = {
+	changed: Deferred.Deferred<void>;
+	readonly candidates: LogicalRun[];
+	readonly complete: Deferred.Deferred<void>;
 };
 type RunResult = {
 	readonly done: DoneFrame;
 	readonly inline: ReadonlyArray<WorkflowReplayJournalEntry>;
 	readonly pendingInline: ReadonlyArray<SandboxInlineProgress>;
 };
+type Generation = {
+	closing: boolean;
+	draining: boolean;
+	lastActiveAt: number;
+	readonly readyAt: number;
+	readonly connection: Connection;
+	readonly scope: Scope.Closeable;
+	readonly runs: Map<string, ActiveRun>;
+	readonly stopped: Deferred.Deferred<void>;
+};
 
-export class SidecarGenerationError extends Data.TaggedError("SidecarGenerationError")<{
-	readonly instance: string;
-	readonly generation: number;
-	readonly culprit: string | undefined;
-	readonly eventId: string;
-	readonly reason: "transport" | "exit" | "backstop" | "shutdown";
-}> {}
+type Instance = {
+	waiting: number;
+	failures: number;
+	nextStartAt: number;
+	startupFailed: boolean;
+	readonly key: ProcessKey;
+	current: undefined | Generation;
+	healthyEpoch: string | undefined;
+	recovery: undefined | RecoveryRound;
+	readonly starts: Semaphore.Semaphore;
+};
+
+type ActiveRun = {
+	sent: boolean;
+	pending: number;
+	invalid: boolean;
+	extendedMs: number;
+	completed: boolean;
+	readonly scope: Scope.Scope;
+	cancel: Effect.Effect<void>;
+	readonly logical: LogicalRun;
+	readonly writes: Semaphore.Semaphore;
+	readonly gate: SandboxHostCallGateRegistration;
+	readonly result: Deferred.Deferred<RunResult, SidecarGenerationError>;
+};
 
 export class SidecarRecoverySuspended extends Data.TaggedError("SidecarRecoverySuspended")<{
 	readonly instance: string;
 }> {}
 
-type LogicalRun = { handle: string | undefined; ticket: string | undefined; cancelled: boolean };
-type RecoveryRound = {
-	readonly candidates: LogicalRun[];
-	readonly complete: Deferred.Deferred<void>;
-	changed: Deferred.Deferred<void>;
-};
-type Protection = Effect.Success<ReturnType<SandboxSidecarQuarantine["Service"]["open"]>>;
-
-type ActiveRun = {
-	readonly logical: LogicalRun;
-	readonly gate: SandboxHostCallGateRegistration;
-	readonly scope: Scope.Scope;
-	readonly result: Deferred.Deferred<RunResult, SidecarGenerationError>;
-	readonly writes: Semaphore.Semaphore;
-	pending: number;
-	extendedMs: number;
-	sent: boolean;
-	completed: boolean;
-	invalid: boolean;
-	cancel: Effect.Effect<void>;
-};
-
-type Generation = {
-	readonly connection: Connection;
-	readonly scope: Scope.Closeable;
-	readonly readyAt: number;
-	readonly stopped: Deferred.Deferred<void>;
-	readonly runs: Map<string, ActiveRun>;
-	closing: boolean;
-	draining: boolean;
-	lastActiveAt: number;
-};
-
-type Instance = {
-	readonly key: ProcessKey;
-	readonly starts: Semaphore.Semaphore;
-	current: Generation | undefined;
-	failures: number;
-	nextStartAt: number;
-	waiting: number;
-	startupFailed: boolean;
-	recovery: RecoveryRound | undefined;
-	healthyEpoch: string | undefined;
-};
-
-export type SandboxSidecarRun<A = void> = {
-	readonly lane: ExecutionLane;
-	readonly executionId: string;
-	readonly pinHash: string;
-	readonly principal: SandboxPrincipal;
-	readonly lease: SandboxAdmissionLease["Service"];
-	readonly prepare: (identity: {
-		readonly instance: string;
-		readonly generation: number;
-		readonly handle: string;
-	}) => Effect.Effect<
-		{
-			readonly gate: SandboxHostCallGateRegistration;
-			readonly input: RunFrame["input"];
-			readonly module: RunFrame["module"];
-			readonly finish: (done: DoneFrame) => Effect.Effect<A, SandboxRunError | TimeoutError>;
-		},
-		SandboxRunError,
-		Scope.Scope
-	>;
-};
+export class SidecarGenerationError extends Data.TaggedError("SidecarGenerationError")<{
+	readonly eventId: string;
+	readonly instance: string;
+	readonly generation: number;
+	readonly culprit: string | undefined;
+	readonly reason: "exit" | "backstop" | "shutdown" | "transport";
+}> {}
 
 const resident = (key: ProcessKey) => isResidentInstance(key.instance);
 
@@ -173,8 +173,8 @@ export class SandboxSidecarSupervisor extends Context.Service<SandboxSidecarSupe
 			const protections = new WeakMap<
 				SandboxAdmissionLease["Service"],
 				{
-					readonly lane: ExecutionLane;
 					readonly principal: string;
+					readonly lane: ExecutionLane;
 					readonly protection: Protection;
 				}
 			>();
@@ -493,7 +493,7 @@ export class SandboxSidecarSupervisor extends Context.Service<SandboxSidecarSupe
 									result.value !== null &&
 									"success" in result.value &&
 									result.value["success"] === false);
-							let outcome: "interrupted" | "failure" | "success";
+							let outcome: "failure" | "success" | "interrupted";
 							if (Exit.isFailure(exit) && Cause.hasInterrupts(exit.cause)) {
 								outcome = "interrupted";
 							} else if (Exit.isFailure(exit) || failed) {
@@ -1012,7 +1012,7 @@ export class SandboxSidecarSupervisor extends Context.Service<SandboxSidecarSupe
 				}
 			});
 			const reclaim = Effect.gen(function* () {
-				let oldest: { readonly entry: Instance; readonly generation: Generation } | undefined;
+				let oldest: undefined | { readonly entry: Instance; readonly generation: Generation };
 				for (const entry of instances.values()) {
 					const generation = entry.current;
 					if (

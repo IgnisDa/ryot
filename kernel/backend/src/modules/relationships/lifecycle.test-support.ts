@@ -90,7 +90,7 @@ export const command = (id: string, actorUserId: UserId = userId) => ({
 export const ownedEndpoints = Effect.fnUntraced(function* (
 	installed: Pick<Effect.Success<ReturnType<typeof installRevisionPackage>>, "pluginId">,
 	slug: string,
-	scope: "global" | "user",
+	scope: "user" | "global",
 ) {
 	const entities = yield* EntitiesRepository;
 	const identity = {
@@ -111,7 +111,7 @@ export const ownedEndpoints = Effect.fnUntraced(function* (
 });
 
 export const installPolicyFixture = Effect.fn(function* (
-	owner: UserId | null = userId,
+	owner: null | UserId = userId,
 	afterHooks = false,
 ) {
 	const fixture = revisionPackage(
@@ -207,10 +207,10 @@ export class RelationshipFixture extends Context.Service<
 	RelationshipFixture,
 	{
 		readonly observer: Client;
-		readonly runLimitedPlanner: LifecyclePlanner["Service"];
-		readonly globalRelationshipSchemaCalls: Effect.Effect<ReadonlyArray<ReadonlyArray<string>>>;
 		readonly updateRelationshipSchema: Effect.Effect<void>;
+		readonly runLimitedPlanner: LifecyclePlanner["Service"];
 		readonly disableRelationshipSchema: Effect.Effect<void>;
+		readonly globalRelationshipSchemaCalls: Effect.Effect<ReadonlyArray<ReadonlyArray<string>>>;
 	}
 >()("test/RelationshipFixture") {}
 
@@ -288,7 +288,7 @@ export const relationshipDatabaseLayer = (
 				RelationshipsRepository.layer,
 			);
 			const schemaActivated = yield* Ref.make(false);
-			const schemaState = yield* Ref.make<"active" | "disabled" | "updated">("active");
+			const schemaState = yield* Ref.make<"active" | "updated" | "disabled">("active");
 			const globalRelationshipSchemaCalls = yield* Ref.make<Array<ReadonlyArray<string>>>([]);
 			const runtimeOnly =
 				options.activateSchemaOnWrite ||

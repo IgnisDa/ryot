@@ -69,11 +69,11 @@ export class EventProjectionBindings extends Context.Service<
 			pluginId: string;
 			scriptSlug: string;
 		}) => Effect.Effect<
-			{
-				principal: ScriptExecutionPrincipal;
+			null | {
 				pluginPin: ScriptPluginRevision;
+				principal: ScriptExecutionPrincipal;
 				accountGeneration: AccountGeneration;
-			} | null,
+			},
 			DbError
 		>;
 	}
@@ -187,11 +187,11 @@ export class EventStreamWorkService extends Context.Service<EventStreamWorkServi
 			});
 
 			const request = Effect.fn("EventStreamWorkService.request")(function* (input: {
-				request: typeof EventStreamWorkRequest.Type;
-				processorScriptId: SandboxScriptId;
 				pluginPin: ScriptPluginRevision;
-				accountGeneration: AccountGeneration;
 				command: DomainLifecycleCommand;
+				processorScriptId: SandboxScriptId;
+				accountGeneration: AccountGeneration;
+				request: typeof EventStreamWorkRequest.Type;
 			}) {
 				if (
 					!input.command.writeContext?.pluginRevision ||

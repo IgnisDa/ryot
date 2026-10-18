@@ -188,12 +188,12 @@ it("exposes only approved entity fields", () => {
 			"externalId",
 			"providerId",
 			"populatedAt",
-			"providerCheckedAt",
 			"populationStatus",
-			"translationStatus",
-			"relatedPopulationStatus",
 			"entitySchemaSlug",
+			"providerCheckedAt",
+			"translationStatus",
 			"entitySchemaPluginId",
+			"relatedPopulationStatus",
 		]),
 	);
 });
@@ -204,18 +204,18 @@ it("exposes only approved event fields", () => {
 			"id",
 			"userId",
 			"entityId",
+			"revision",
+			"orderKey",
 			"createdAt",
 			"updatedAt",
 			"properties",
 			"occurredAt",
-			"eventSchemaSlug",
-			"eventSchemaPluginId",
 			"projection",
-			"projectionStatus",
-			"sessionEntityId",
-			"revision",
 			"orderCreatedAt",
-			"orderKey",
+			"eventSchemaSlug",
+			"sessionEntityId",
+			"projectionStatus",
+			"eventSchemaPluginId",
 		]),
 	);
 });
@@ -227,7 +227,7 @@ it("exposes only user-owned event streams and safe work fields", () => {
 	expect(eventStream?.name).toBe("event_stream");
 	expect(eventStream?.primaryKey).toEqual(["id"]);
 	expect(new Set(Object.keys(eventStream?.fields ?? {}))).toEqual(
-		new Set(["id", "entityId", "eventSchemaSlug", "eventSchemaPluginId", "revision"]),
+		new Set(["id", "entityId", "revision", "eventSchemaSlug", "eventSchemaPluginId"]),
 	);
 	expect(eventStream?.visibility).toEqual({
 		user: { type: "owned", column: "user_id", includeGlobal: false, pluginReadable: true },
@@ -272,39 +272,39 @@ it("exposes only approved application-table fields", () => {
 			"icon",
 			"name",
 			"scope",
-			"packageId",
 			"status",
-			"activationId",
 			"version",
-			"contentHash",
+			"packageId",
 			"ingestedAt",
+			"contentHash",
 			"description",
+			"activationId",
 			"configSchema",
-			"userSettingsSchema",
+			"clientEntities",
 			"activeRevisionId",
 			"clientApiVersion",
-			"clientEntities",
+			"userSettingsSchema",
 			"environmentConfigRevisionId",
 		]),
 	);
 	expect(new Set(Object.keys(getCatalogTable("pluginInstallation")?.fields ?? {}))).toEqual(
 		new Set([
 			"id",
-			"activeConfigRevisionId",
 			"health",
-			"isInitialized",
-			"pluginId",
-			"homeSavedView",
-			"sortOrder",
-			"isHidden",
-			"healthReason",
-			"incompatibilityReason",
-			"conflictingSystemPluginId",
 			"config",
-			"configuredSecrets",
-			"userSettings",
+			"pluginId",
+			"isHidden",
+			"sortOrder",
 			"createdAt",
 			"updatedAt",
+			"healthReason",
+			"userSettings",
+			"isInitialized",
+			"homeSavedView",
+			"configuredSecrets",
+			"incompatibilityReason",
+			"activeConfigRevisionId",
+			"conflictingSystemPluginId",
 		]),
 	);
 	expect(new Set(Object.keys(getCatalogTable("sandboxProvider")?.fields ?? {}))).toEqual(
@@ -313,11 +313,11 @@ it("exposes only approved application-table fields", () => {
 			"slug",
 			"name",
 			"pluginId",
-			"rootEntitySchemaSlug",
 			"packageId",
-			"information",
 			"createdAt",
 			"updatedAt",
+			"information",
+			"rootEntitySchemaSlug",
 		]),
 	);
 	expect(getCatalogTable("sandboxProvider")?.name).toBe("user_sandbox_provider");
@@ -326,7 +326,7 @@ it("exposes only approved application-table fields", () => {
 		user: { type: "owned", column: "user_id", includeGlobal: false, pluginReadable: true },
 	});
 	expect(new Set(Object.keys(getCatalogTable("sandboxProviderOperation")?.fields ?? {}))).toEqual(
-		new Set(["providerId", "operation", "optionsSchema", "pluginId", "packageId"]),
+		new Set(["pluginId", "operation", "packageId", "providerId", "optionsSchema"]),
 	);
 	expect(getCatalogTable("sandboxProviderOperation")?.name).toBe("user_sandbox_provider_operation");
 	expect(getCatalogTable("sandboxProviderOperation")?.primaryKey).toEqual([
@@ -342,23 +342,23 @@ it("exposes only approved application-table fields", () => {
 			"slug",
 			"name",
 			"icon",
-			"sortOrder",
-			"isBuiltin",
 			"isHidden",
 			"renderer",
 			"settings",
-			"dataSources",
-			"reference",
 			"revision",
 			"pluginId",
+			"sortOrder",
+			"isBuiltin",
+			"reference",
 			"packageId",
-			"pluginInstallationId",
 			"createdAt",
 			"updatedAt",
+			"dataSources",
+			"pluginInstallationId",
 		]),
 	);
 	expect(new Set(Object.keys(getCatalogTable("notificationChannel")?.fields ?? {}))).toEqual(
-		new Set(["id", "channel", "description", "isDisabled", "createdAt", "updatedAt"]),
+		new Set(["id", "channel", "createdAt", "updatedAt", "isDisabled", "description"]),
 	);
 	const notificationChannel = getCatalogTable("notificationChannel");
 	expect(notificationChannel?.name).toBe("notification_channel");
@@ -397,18 +397,18 @@ it("exposes only approved application-table fields", () => {
 			"lot",
 			"name",
 			"provider",
-			"packageId",
-			"isDisabled",
 			"pluginId",
-			"syncOwnership",
-			"minimumProgress",
-			"maximumProgress",
-			"extraSettings",
-			"lastFinishedAt",
-			"webhookToken",
-			"providerSpecifics",
+			"packageId",
 			"createdAt",
 			"updatedAt",
+			"isDisabled",
+			"webhookToken",
+			"syncOwnership",
+			"extraSettings",
+			"lastFinishedAt",
+			"minimumProgress",
+			"maximumProgress",
+			"providerSpecifics",
 		]),
 	);
 	const integration = getCatalogTable("integration");
@@ -420,26 +420,26 @@ it("exposes only approved application-table fields", () => {
 	expect(integration && "plugin" in integration.visibility).toBe(false);
 	expect(new Set(Object.keys(getCatalogTable("importRun")?.fields ?? {}))).toEqual(
 		new Set([
-			"summary",
-			"activities",
-			"blockReasons",
-			"expiryReason",
-			"blockDeadline",
 			"id",
 			"source",
 			"status",
-			"failureReason",
-			"inputSummary",
-			"integrationId",
-			"pluginInstallationId",
+			"summary",
 			"startedAt",
-			"finishedAt",
 			"createdAt",
 			"updatedAt",
+			"activities",
+			"finishedAt",
+			"blockReasons",
+			"expiryReason",
+			"inputSummary",
+			"blockDeadline",
+			"failureReason",
+			"integrationId",
+			"pluginInstallationId",
 		]),
 	);
 	expect(new Set(Object.keys(getCatalogTable("importIssue")?.fields ?? {}))).toEqual(
-		new Set(["id", "runId", "data"]),
+		new Set(["id", "data", "runId"]),
 	);
 	const importRun = getCatalogTable("importRun");
 	const importIssue = getCatalogTable("importIssue");

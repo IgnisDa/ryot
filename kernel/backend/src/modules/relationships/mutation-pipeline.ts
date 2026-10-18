@@ -152,16 +152,16 @@ export const RelationshipReconciliationSummary = Schema.Struct(
 export type RelationshipReconciliationSummary = typeof RelationshipReconciliationSummary.Type;
 
 type RelationshipCommitShape<Result> = {
-	readonly lookup: (
-		receipt: MutationReceiptIdentity,
-	) => Effect.Effect<
-		{ readonly result: Result; readonly dispatch: ReadonlyArray<LifecycleDispatchPlan> } | null,
-		RelationshipBadRequest | DbError
-	>;
 	readonly summarize: (
 		pending: PendingRelationshipMutations,
 		outcomes: ReadonlyArray<RelationshipSingleResult>,
 	) => Effect.Effect<Result>;
+	readonly lookup: (
+		receipt: MutationReceiptIdentity,
+	) => Effect.Effect<
+		null | { readonly result: Result; readonly dispatch: ReadonlyArray<LifecycleDispatchPlan> },
+		DbError | RelationshipBadRequest
+	>;
 };
 
 const summarizeRelationshipMutations = (
@@ -237,10 +237,10 @@ export class RelationshipMutationPipeline extends Context.Service<RelationshipMu
 
 			const planMutationsInTransaction = Effect.fn("RelationshipsService.planMutations")(function* (
 				mutations: ReadonlyArray<Mutation>,
-				selector: GlobalRelationshipListInput | null = null,
-				expectedSelection: ReadonlyArray<{ id: RelationshipId }> | null = null,
+				selector: null | GlobalRelationshipListInput = null,
+				expectedSelection: null | ReadonlyArray<{ id: RelationshipId }> = null,
 				aggregate: PendingRelationshipMutations["aggregate"] = null,
-				rootDecision: MutationReceiptIdentity | null = null,
+				rootDecision: null | MutationReceiptIdentity = null,
 				rootFinal = false,
 			) {
 				const pinOf = yield* primitives.verifyWrites(mutations.map(mutationWriteCheck));
@@ -395,8 +395,8 @@ export class RelationshipMutationPipeline extends Context.Service<RelationshipMu
 				shape: RelationshipCommitShape<Result>,
 				pending: PendingRelationshipMutations,
 				planned?: {
+					readonly validated: ReadonlyArray<null | ValidatedMutation>;
 					readonly pinOf: Effect.Success<ReturnType<typeof primitives.verifyWrites>>;
-					readonly validated: ReadonlyArray<ValidatedMutation | null>;
 				},
 			) {
 				const pinOf =
@@ -451,7 +451,7 @@ export class RelationshipMutationPipeline extends Context.Service<RelationshipMu
 					UserId,
 					Readonly<Record<string, RelationshipSchemaDefinition>>
 				>();
-				const globalSchemas = new Map<string, RelationshipSchemaDefinition | null>();
+				const globalSchemas = new Map<string, null | RelationshipSchemaDefinition>();
 				const revalidated = yield* Effect.forEach(pending.items, (item, index) =>
 					Effect.gen(function* () {
 						const { request, mutation } = item;
@@ -471,7 +471,7 @@ export class RelationshipMutationPipeline extends Context.Service<RelationshipMu
 						}
 						const reference = relationshipSchemaReference(mutation.input);
 						const key = definitionKey("relationship", reference.owner, reference.slug);
-						let definition: RelationshipSchemaDefinition | null | undefined;
+						let definition: null | undefined | RelationshipSchemaDefinition;
 						if (mutation.input.scope === "user") {
 							const userId = mutation.input.userId;
 							let catalog = userCatalogs.get(userId);
@@ -627,7 +627,7 @@ export class RelationshipMutationPipeline extends Context.Service<RelationshipMu
 				selector?: GlobalRelationshipListInput,
 				expectedSelection?: ReadonlyArray<{ id: RelationshipId }>,
 				aggregate: PendingRelationshipMutations["aggregate"] = null,
-				rootDecision: MutationReceiptIdentity | null = null,
+				rootDecision: null | MutationReceiptIdentity = null,
 				rootFinal = false,
 			) {
 				yield* assertRootTransaction;

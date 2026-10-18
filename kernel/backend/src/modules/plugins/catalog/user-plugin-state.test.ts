@@ -11,7 +11,7 @@ import { DatabaseSession } from "#platform/db/session";
 import * as tables from "#schema/tables/combined";
 import { isolatedDatabaseLayer } from "#testing/isolated-database";
 
-type Scope = "system" | "user";
+type Scope = "user" | "system";
 
 const epoch = new Date(0);
 
@@ -94,9 +94,9 @@ const insertUser = Effect.fn(function* (id: string) {
 
 const insertConfig = Effect.fn(function* (config: {
 	readonly id: string;
-	readonly ownerUserId: string | null;
 	readonly pluginRevisionId: string;
-	readonly pluginInstallationId: string | null;
+	readonly ownerUserId: null | string;
+	readonly pluginInstallationId: null | string;
 }) {
 	yield* (yield* DatabaseSession).run((db) =>
 		db

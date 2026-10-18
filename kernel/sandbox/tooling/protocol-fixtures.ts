@@ -15,11 +15,11 @@ import {
 	type SidecarOutboundFrame,
 } from "../src/protocol/messages";
 
-class FixtureError extends Data.TaggedError("FixtureError")<{ message: string }> {}
-
-type Expectation = "framing" | "payload" | "valid";
 type Direction = "inbound" | "outbound";
+
+type Expectation = "valid" | "framing" | "payload";
 type Fixture = { name: string; bytes: Uint8Array; expect: Expectation; direction: Direction };
+class FixtureError extends Data.TaggedError("FixtureError")<{ message: string }> {}
 
 const sha256 = "9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08";
 const limits = { cpuMs: 2_000, deadlineMs: 30_000, heapBytes: 64 * MiB, externalBytes: 16 * MiB };

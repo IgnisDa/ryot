@@ -172,7 +172,7 @@ layer(live, { excludeTestServices: true })((test) => {
 					expect(call).toMatchObject({ handle, name: "park" });
 					return call;
 				});
-				const answer = (call: { readonly handle: string; readonly seq: number }) =>
+				const answer = (call: { readonly seq: number; readonly handle: string }) =>
 					connection.send({
 						generation: 9,
 						seq: call.seq,

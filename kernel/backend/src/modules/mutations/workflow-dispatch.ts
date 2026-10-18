@@ -10,7 +10,7 @@ type Registration = ReturnType<MutationReceipts["Service"]["registerWorkflow"]>;
 export const admitWorkflow = Effect.fnUntraced(function* (
 	receipts: Pick<MutationReceipts["Service"], "registerWorkflow">,
 	workflow: Workflow.Any,
-	account: AccountGeneration | null,
+	account: null | AccountGeneration,
 	executionId: string,
 ) {
 	return yield* receipts.registerWorkflow(account, workflow._tag, executionId);
@@ -31,11 +31,11 @@ export const dispatchAdmittedWorkflow = Effect.fnUntraced(function* <
 	receipts: Pick<MutationReceipts["Service"], "registerWorkflow">,
 	engine: WorkflowEngine["Service"],
 	workflow: Workflow.Workflow<Name, Payload, Success, Error>,
-	account: AccountGeneration | null,
+	account: null | AccountGeneration,
 	options: {
-		readonly payload: Payload["Type"];
-		readonly executionId?: string;
 		readonly discard?: Discard;
+		readonly executionId?: string;
+		readonly payload: Payload["Type"];
 		readonly suspendedRetrySchedule?: Parameters<
 			WorkflowEngine["Service"]["execute"]
 		>[1]["suspendedRetrySchedule"];
@@ -45,7 +45,7 @@ export const dispatchAdmittedWorkflow = Effect.fnUntraced(function* <
 		execution: Effect.Effect<
 			Discard extends true ? string : Success["Type"],
 			Error["Type"],
-			Payload["EncodingServices"] | Success["DecodingServices"] | Error["DecodingServices"]
+			Error["DecodingServices"] | Payload["EncodingServices"] | Success["DecodingServices"]
 		>,
 	) => Effect.Effect<Result, DispatchError, DispatchServices>,
 ) {

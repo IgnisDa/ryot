@@ -24,15 +24,15 @@ import * as schema from "#schema/tables/combined";
 import { redactIntegrationForClient } from "./client-redaction";
 import { integrationHealthExcludedFailureCodes } from "./health";
 
-type IntegrationRow = Omit<
-	typeof schema.integration.$inferSelect,
-	"clientProviderSpecifics" | "retiring"
->;
-
 export type IntegrationRecord = IntegrationSnapshot & {
 	readonly userId: UserId;
-	readonly pluginInstallationId: string | null;
+	readonly pluginInstallationId: null | string;
 };
+
+type IntegrationRow = Omit<
+	typeof schema.integration.$inferSelect,
+	"retiring" | "clientProviderSpecifics"
+>;
 
 const integrationSelection = {
 	id: schema.integration.id,
@@ -96,7 +96,7 @@ const normalizeIntegration = (row: IntegrationRow): IntegrationRecord => {
 const webhookTokenForLot = (lot: IntegrationLot) =>
 	lot === "sink" ? IntegrationWebhookToken.make(crypto.randomUUID()) : null;
 
-const ownedIntegrationWhere = (input: { integrationId: IntegrationId; userId: UserId }) =>
+const ownedIntegrationWhere = (input: { userId: UserId; integrationId: IntegrationId }) =>
 	and(eq(schema.integration.id, input.integrationId), eq(schema.integration.userId, input.userId));
 
 export class IntegrationsRepository extends Context.Service<IntegrationsRepository>()(
@@ -119,7 +119,7 @@ export class IntegrationsRepository extends Context.Service<IntegrationsReposito
 				return row !== undefined;
 			});
 
-			const lockInstallationPlugin = Effect.fn(function* (pluginInstallationId: string | null) {
+			const lockInstallationPlugin = Effect.fn(function* (pluginInstallationId: null | string) {
 				if (pluginInstallationId === null) {
 					return;
 				}
@@ -137,8 +137,8 @@ export class IntegrationsRepository extends Context.Service<IntegrationsReposito
 			});
 
 			const clientProviderSpecifics = Effect.fn(function* (input: {
-				pluginInstallationId: string | null;
 				provider: IntegrationProvider;
+				pluginInstallationId: null | string;
 				providerSpecifics: IntegrationProviderSettings;
 			}) {
 				if (input.pluginInstallationId === null) {
@@ -231,12 +231,12 @@ export class IntegrationsRepository extends Context.Service<IntegrationsReposito
 				userId: UserId;
 				lot: IntegrationLot;
 				isDisabled: boolean;
-				name?: string | null;
+				name?: null | string;
 				syncOwnership: boolean;
 				minimumProgress: string;
 				maximumProgress: string;
-				pluginInstallationId: string | null;
 				provider: IntegrationProvider;
+				pluginInstallationId: null | string;
 				extraSettings: IntegrationExtraSettings;
 				providerSpecifics: IntegrationProviderSettings;
 			}) {
@@ -358,7 +358,7 @@ export class IntegrationsRepository extends Context.Service<IntegrationsReposito
 
 			const listEnabledYankIntegrations = Effect.fn(
 				"IntegrationsRepository.listEnabledYankIntegrations",
-			)(function* (input: { userId: UserId | null }) {
+			)(function* (input: { userId: null | UserId }) {
 				const conditions = [
 					eq(schema.integration.lot, "yank"),
 					eq(schema.integration.isDisabled, false),
@@ -381,7 +381,7 @@ export class IntegrationsRepository extends Context.Service<IntegrationsReposito
 			const listForUser = Effect.fn("IntegrationsRepository.listForUser")(function* (input: {
 				userId: UserId;
 				isDisabled?: boolean | undefined;
-				provider?: IntegrationProvider | undefined;
+				provider?: undefined | IntegrationProvider;
 			}) {
 				const conditions = [eq(schema.integration.userId, input.userId)];
 				if (input.provider !== undefined) {
@@ -417,14 +417,14 @@ export class IntegrationsRepository extends Context.Service<IntegrationsReposito
 			const updateForUser = Effect.fn("IntegrationsRepository.updateForUser")(function* (input: {
 				userId: UserId;
 				integrationId: IntegrationId;
-				name?: string | null | undefined;
+				name?: null | string | undefined;
 				isDisabled?: boolean | undefined;
 				syncOwnership?: boolean | undefined;
 				minimumProgress?: string | undefined;
 				maximumProgress?: string | undefined;
 				lastFinishedAt?: Date | null | undefined;
-				extraSettings?: IntegrationExtraSettings | undefined;
-				providerSpecifics?: IntegrationProviderSettings | undefined;
+				extraSettings?: undefined | IntegrationExtraSettings;
+				providerSpecifics?: undefined | IntegrationProviderSettings;
 			}) {
 				type UpdateSet = Partial<typeof schema.integration.$inferInsert>;
 				const updates: UpdateSet = {};
@@ -514,7 +514,7 @@ export class IntegrationsRepository extends Context.Service<IntegrationsReposito
 			);
 
 			const recordRunFinished = Effect.fn("IntegrationsRepository.recordRunFinished")(
-				function* (input: { userId: UserId; integrationId: IntegrationId; finishedAt: Date }) {
+				function* (input: { userId: UserId; finishedAt: Date; integrationId: IntegrationId }) {
 					yield* database.run((db) =>
 						db
 							.update(schema.integration)

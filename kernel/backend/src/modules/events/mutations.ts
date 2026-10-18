@@ -121,7 +121,7 @@ export const eventPolicyItems = Effect.fnUntraced(function* (prepared: PreparedE
 });
 
 const bad = (
-	code: "invalid-properties" | "invalid-policy-transform" | "policy-rejected" | "mutation-conflict",
+	code: "policy-rejected" | "mutation-conflict" | "invalid-properties" | "invalid-policy-transform",
 	message: string,
 ) => new EventBadRequest({ reason: { code, message } });
 const commandFor = (
@@ -134,7 +134,7 @@ const commandFor = (
 const scopeKey = (
 	draft: Pick<
 		AutomationEventDraft,
-		"entitySchemaPluginId" | "entitySchemaSlug" | "eventSchemaSlug"
+		"eventSchemaSlug" | "entitySchemaSlug" | "entitySchemaPluginId"
 	>,
 ) => stableStringify([draft.entitySchemaPluginId, draft.entitySchemaSlug, draft.eventSchemaSlug]);
 const sameExpected = (
@@ -163,11 +163,11 @@ export class EventMutations extends Context.Service<EventMutations>()("EventMuta
 		const assets = yield* ManagedAssetReferenceLocker.make;
 		const prepare = Effect.fn("EventMutations.prepare")(function* (input: {
 			userId: UserId;
+			independent?: boolean;
+			positionOffset?: number;
 			command: DomainLifecycleCommand;
 			changes: ReadonlyArray<EventMutationChange>;
 			proposedEntities?: Readonly<Record<string, AutomationEntityDraft>>;
-			independent?: boolean;
-			positionOffset?: number;
 		}) {
 			const writer = input.command.writeContext?.pluginRevision;
 			if (writer) {
@@ -330,12 +330,12 @@ export class EventMutations extends Context.Service<EventMutations>()("EventMuta
 		});
 		const persist = Effect.fn("EventMutations.persist")(function* (input: {
 			userId: UserId;
-			command: DomainLifecycleCommand;
-			prepared: PreparedEventChanges;
-			validated: PolicyBatchResult;
-			batch?: LifecycleBatchInput;
-			batchIndexOffset?: number;
 			sealBatch?: boolean;
+			batchIndexOffset?: number;
+			batch?: LifecycleBatchInput;
+			validated: PolicyBatchResult;
+			prepared: PreparedEventChanges;
+			command: DomainLifecycleCommand;
 		}) {
 			yield* session.requireTransaction.pipe(Effect.orDie);
 			const prior = yield* receipts
@@ -444,7 +444,7 @@ export class EventMutations extends Context.Service<EventMutations>()("EventMuta
 			const results = [];
 			const dispatch = [];
 			const recorded: Array<Parameters<typeof receipts.insertMany>[0][number]> = [];
-			const checkedOwners = new Set<string | null>();
+			const checkedOwners = new Set<null | string>();
 			for (const [index, row] of rows.entries()) {
 				const replay = prior[index];
 				if (replay) {

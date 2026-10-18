@@ -6,7 +6,7 @@ import type { Workflow } from "effect/workflow";
 export const toEntityImportRunResult = <
 	E extends { readonly stage: "population" | "provider-import-automation" },
 >(
-	result: Workflow.Result<ListedEntity, E> | undefined,
+	result: undefined | Workflow.Result<ListedEntity, E>,
 ): ImportEntityRunResult => {
 	if (result === undefined || result._tag === "Suspended") {
 		return { status: "running" };

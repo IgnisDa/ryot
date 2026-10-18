@@ -77,18 +77,18 @@ type SubmitInput = Parameters<Admission["submit"]>[0];
 class FakeAdmission extends Context.Service<
 	FakeAdmission,
 	{
-		readonly submitted: Effect.Effect<ReadonlyArray<SubmitInput>>;
 		readonly statusRead: Effect.Effect<void>;
+		readonly submitted: Effect.Effect<ReadonlyArray<SubmitInput>>;
 	}
 >()("test/FakeAdmission") {}
 
 const makeServiceLayer = (
 	options: {
-		readonly entitiesRepo?: Layer.Layer<EntitiesRepository>;
-		readonly engine?: WorkflowEngine["Service"];
-		readonly activeProvider?: typeof provider | null;
-		readonly submit?: (input: SubmitInput) => Effect.Success<ReturnType<Admission["submit"]>>;
 		readonly status?: Admission["status"];
+		readonly engine?: WorkflowEngine["Service"];
+		readonly activeProvider?: null | typeof provider;
+		readonly entitiesRepo?: Layer.Layer<EntitiesRepository>;
+		readonly submit?: (input: SubmitInput) => Effect.Success<ReturnType<Admission["submit"]>>;
 	} = {},
 ) =>
 	Layer.unwrap(
@@ -329,7 +329,7 @@ layer(makeServiceLayer())((test) => {
 });
 
 const importResultLayer = (
-	admitted: "queued" | "running" | null | Admission["status"],
+	admitted: null | "queued" | "running" | Admission["status"],
 	poll: ReturnType<typeof makeWorkflowEngine>["poll"],
 ) =>
 	makeServiceLayer({

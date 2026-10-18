@@ -18,14 +18,14 @@ export const LifecyclePreparedStep = <Result, Pending>(
 		Schema.TaggedStruct("PoliciesRequired", { pending }),
 	]);
 
+export type LifecyclePreparedStep<Result, Pending> =
+	LifecycleCommittedStep<Result> | { readonly pending: Pending; readonly _tag: "PoliciesRequired" };
+
 export type LifecycleCommittedStep<Result> = {
-	readonly _tag: "Committed";
 	readonly result: Result;
+	readonly _tag: "Committed";
 	readonly dispatch: ReadonlyArray<LifecycleDispatchPlan>;
 };
-
-export type LifecyclePreparedStep<Result, Pending> =
-	LifecycleCommittedStep<Result> | { readonly _tag: "PoliciesRequired"; readonly pending: Pending };
 
 export const mapCommittedResult = <Result, Mapped, Pending>(
 	step: LifecyclePreparedStep<Result, Pending>,
@@ -52,8 +52,8 @@ export type LifecycleWriteStep<
 	RPolicies,
 	RCommit,
 > = {
-	readonly prepare: Effect.Effect<LifecyclePreparedStep<Result, Pending>, EPrepare, RPrepare>;
 	readonly applyPolicies: (pending: Pending) => Effect.Effect<Pending, EPolicies, RPolicies>;
+	readonly prepare: Effect.Effect<LifecyclePreparedStep<Result, Pending>, EPrepare, RPrepare>;
 	readonly commit: (
 		pending: Pending,
 	) => Effect.Effect<LifecyclePreparedStep<Result, Pending>, ECommit, RCommit>;
@@ -102,8 +102,8 @@ type DurableLifecycleWriteStep<Result, Pending, Failure, RPrepare, RPolicies, RC
 	> & {
 		readonly name: string;
 		readonly result: DurableCodec<Result>;
-		readonly pending: DurableCodec<Pending>;
 		readonly error: DurableCodec<Failure>;
+		readonly pending: DurableCodec<Pending>;
 	};
 
 export const runLifecycleWriteStepWith = <Result, Pending, Failure, RPrepare, RPolicies, RCommit>(

@@ -3,15 +3,15 @@ import type { Workflow } from "effect/workflow";
 
 export type WorkflowRunResult<Completed extends object> =
 	| { readonly status: "pending" }
-	| { readonly error: string; readonly status: "failed" }
-	| ({ readonly status: "completed" } & Completed);
+	| (Completed & { readonly status: "completed" })
+	| { readonly error: string; readonly status: "failed" };
 
 export const toWorkflowRunResult = <
 	A,
 	E extends { readonly message: string },
 	Completed extends object,
 >(
-	result: Workflow.Result<A, E> | undefined,
+	result: undefined | Workflow.Result<A, E>,
 	options: {
 		readonly failurePrefix?: string;
 		readonly onFailure?: (error: E) => string;

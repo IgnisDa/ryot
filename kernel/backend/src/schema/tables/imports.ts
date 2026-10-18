@@ -234,7 +234,7 @@ export const importPayloadReservation = snakeCase.table(
 		retiring: boolean().notNull().default(false),
 		writeStarted: boolean().notNull().default(false),
 		payload: jsonb().$type<IngestionPayload>().notNull(),
-		captureState: text().$type<"captured" | "sealed">().notNull(),
+		captureState: text().$type<"sealed" | "captured">().notNull(),
 		capturePhase: text().$type<IngestionCapture["phase"]>().notNull(),
 		checkpoint: jsonb().$type<IngestionCapture["checkpoint"]>().notNull(),
 		runId: text()

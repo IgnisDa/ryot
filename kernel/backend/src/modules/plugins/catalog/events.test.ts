@@ -40,7 +40,7 @@ layer(PluginCatalogHub.layer)((test) => {
 			const hub = yield* PluginCatalogHub;
 			const firstUser = UserId.make("user-1");
 			const secondUser = UserId.make("user-2");
-			let released: Queue.Queue<Uint8Array> | undefined;
+			let released: undefined | Queue.Queue<Uint8Array>;
 
 			yield* Effect.scoped(
 				Effect.gen(function* () {
@@ -106,8 +106,8 @@ type PublishedMessage = { readonly channel: string; readonly message: string };
 class RecordedPublications extends Context.Service<
 	RecordedPublications,
 	{
-		readonly published: Effect.Effect<ReadonlyArray<PublishedMessage>>;
 		readonly failingInvalidator: PluginCatalogInvalidator["Service"];
+		readonly published: Effect.Effect<ReadonlyArray<PublishedMessage>>;
 	}
 >()("test/RecordedPublications") {}
 

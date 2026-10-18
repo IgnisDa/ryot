@@ -25,8 +25,8 @@ type CollectionRow = Pick<
 	| "updatedAt"
 	| "externalId"
 	| "properties"
-	| "entitySchemaSlug"
 	| "providerId"
+	| "entitySchemaSlug"
 >;
 
 const collectionSelection = {
@@ -131,7 +131,7 @@ export class CollectionsRepository extends Context.Service<CollectionsRepository
 						db
 							.select({
 								rank: sql<
-									number | null
+									null | number
 								>`min(case when jsonb_typeof(${schema.relationship.properties} -> 'rank') = 'number' then (${schema.relationship.properties} ->> 'rank')::double precision end)`,
 							})
 							.from(schema.relationship)

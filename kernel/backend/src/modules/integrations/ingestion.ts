@@ -116,7 +116,7 @@ export class IntegrationIngestion extends Context.Service<IntegrationIngestion>(
 						message: "Integration confirmation does not match its retained pins",
 					});
 				}
-				for (let start = 0, part = 0; start < result.confirmed.length; part++) {
+				for (let part = 0, start = 0; start < result.confirmed.length; part++) {
 					let end = start;
 					let bytes = 2;
 					while (end < result.confirmed.length) {
@@ -210,7 +210,7 @@ export class IntegrationIngestion extends Context.Service<IntegrationIngestion>(
 			});
 			const settle = Effect.fn("IntegrationIngestion.settle")(function* (
 				scope: IngestionScope,
-				status: "completed" | "failed" | "cancelled",
+				status: "failed" | "completed" | "cancelled",
 				failureReason?: ImportRunFailureReason,
 			) {
 				const run = yield* repository.getIngestionRunControl(scope);
@@ -444,7 +444,7 @@ export class IntegrationIngestion extends Context.Service<IntegrationIngestion>(
 			});
 			const recoverable = Effect.fn("IntegrationIngestion.recoverable")(function* (input: {
 				before: string;
-				after: IngestionRecoveryCursor | null;
+				after: null | IngestionRecoveryCursor;
 			}) {
 				const rows = yield* repository.listIntegrationRecoveryRuns({
 					limit: 100,

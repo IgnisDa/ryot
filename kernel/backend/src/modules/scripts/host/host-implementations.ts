@@ -16,10 +16,10 @@ export type ScriptLifecycleHostSteps = EventLifecycleHostSteps &
 	RelationshipLifecycleHostSteps;
 
 export type ScriptHostImplementationMaps = {
+	readonly lifecycle: ScriptLifecycleHostSteps;
 	readonly runtime: RuntimeSandboxHostImplementationMap;
 	readonly additional: AdditionalScriptHostImplementationMap;
 	readonly automation: AutomationSandboxHostImplementationMap<ScriptRunInput>;
-	readonly lifecycle: ScriptLifecycleHostSteps;
 };
 
 export class ScriptHostImplementations extends Context.Service<

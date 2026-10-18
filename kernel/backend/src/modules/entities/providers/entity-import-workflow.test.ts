@@ -157,10 +157,10 @@ const listedEntity = (input: {
 	id: EntityId;
 	name: string;
 	externalId: string;
-	properties?: Record<string, JsonValue>;
-	populatedAt?: string | null;
-	entitySchemaSlug: EntitySchemaSlug;
+	populatedAt?: null | string;
 	providerId?: SandboxProviderId;
+	entitySchemaSlug: EntitySchemaSlug;
+	properties?: Record<string, JsonValue>;
 	entitySchemaPluginId?: ListedEntity["entitySchemaPluginId"];
 }) =>
 	({
@@ -196,15 +196,15 @@ const childEntityWork = (
 	};
 };
 
+type Reconcile = RelationshipsService["Service"]["persistPlannedReconciliation"];
+type UpsertInput = Parameters<EntitiesService["Service"]["persistPlannedProviderUpsert"]>[0];
 type PlannedEntityWork = Effect.Success<
 	ReturnType<EntitiesService["Service"]["persistPlannedProviderUpsert"]>
 >;
-type UpsertInput = Parameters<EntitiesService["Service"]["persistPlannedProviderUpsert"]>[0];
-type Reconcile = RelationshipsService["Service"]["persistPlannedReconciliation"];
 type Reconciliation = {
+	readonly scope: Parameters<Reconcile>[2];
 	readonly groups: Parameters<Reconcile>[0];
 	readonly command: Parameters<Reconcile>[1];
-	readonly scope: Parameters<Reconcile>[2];
 };
 
 const makeTransaction = <Row>(provided?: DatabaseSession["Service"]) =>
@@ -240,7 +240,7 @@ class FakeProviderWrites extends Context.Service<
 >()("test/FakeProviderWrites") {}
 
 const providerWritesLayer = (options: {
-	readonly reconciled: Effect.Success<ReturnType<Reconcile>> | "fail";
+	readonly reconciled: "fail" | Effect.Success<ReturnType<Reconcile>>;
 }) =>
 	Layer.unwrap(
 		Effect.gen(function* () {
@@ -448,9 +448,9 @@ layer(providerWritesLayer({ reconciled: { result: [], dispatch: [] } }))((it) =>
 class FakeRootPopulation extends Context.Service<
 	FakeRootPopulation,
 	{
-		readonly commands: Effect.Effect<ReadonlyArray<DomainLifecycleCommand>>;
 		readonly postCommitCount: Effect.Effect<number>;
 		readonly payload: ProviderEntityPopulationAttemptPayload;
+		readonly commands: Effect.Effect<ReadonlyArray<DomainLifecycleCommand>>;
 	}
 >()("test/FakeRootPopulation") {}
 

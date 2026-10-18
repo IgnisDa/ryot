@@ -136,18 +136,18 @@ const fixturePackage = (): NormalizedPlugin => {
 	};
 };
 
+type ProjectionBinding = NonNullable<
+	Effect.Success<ReturnType<EventProjectionBindings["Service"]["resolve"]>>
+>;
+
 type ProcessorAction = (
 	input: typeof EventStreamStepInput.Type,
 	jobId: string,
 ) => Effect.Effect<unknown, DbError>;
 
-type ProjectionBinding = NonNullable<
-	Effect.Success<ReturnType<EventProjectionBindings["Service"]["resolve"]>>
->;
-
 type StreamWorkCall =
-	| { operation: "lockAccount"; inTransaction: boolean }
-	| { operation: "prepare"; id: string; inTransaction: boolean };
+	| { inTransaction: boolean; operation: "lockAccount" }
+	| { id: string; operation: "prepare"; inTransaction: boolean };
 
 class StreamWorkRecorder extends Context.Service<
 	StreamWorkRecorder,
@@ -164,35 +164,35 @@ class StreamWorkFixture extends Context.Service<
 	{
 		pluginId: PluginId;
 		pluginPin: ScriptPluginRevision;
-		principal: ScriptExecutionPrincipal;
 		processorScriptId: SandboxScriptId;
-		accountGeneration: { userId: UserId; token: string };
+		principal: ScriptExecutionPrincipal;
 		entitySchemaSlug: typeof entitySchemaSlug;
+		accountGeneration: { token: string; userId: UserId };
 	}
 >()("test/StreamWorkFixture") {}
 
 class StreamWorkControls extends Context.Service<
 	StreamWorkControls,
 	{
+		failProjectionFor: (streamId: string) => Effect.Effect<void>;
+		admissionCalls: Effect.Effect<ReadonlyArray<StreamWorkCall>>;
+		clearProjectionFailureFor: (streamId: string) => Effect.Effect<void>;
 		setProcessor: (id: string, action: ProcessorAction) => Effect.Effect<void>;
+		processorCalls: Effect.Effect<ReadonlyArray<{ id: string; jobId: string }>>;
 		runProcessor: (
 			streamId: string,
 			input: typeof EventStreamStepInput.Type,
 			jobId: string,
 		) => Effect.Effect<unknown, DbError>;
-		failProjectionFor: (streamId: string) => Effect.Effect<void>;
-		clearProjectionFailureFor: (streamId: string) => Effect.Effect<void>;
-		processorCalls: Effect.Effect<ReadonlyArray<{ id: string; jobId: string }>>;
 		workflowCalls: Effect.Effect<
 			ReadonlyArray<{
 				name: string;
-				executionId: string;
 				payload: unknown;
-				parentExecutionId: string | null;
+				executionId: string;
 				inTransaction: boolean;
+				parentExecutionId: null | string;
 			}>
 		>;
-		admissionCalls: Effect.Effect<ReadonlyArray<StreamWorkCall>>;
 	}
 >()("test/StreamWorkControls") {}
 
@@ -295,10 +295,10 @@ const streamWorkTestLayer = Layer.unwrap(
 		const workflowCalls = yield* Ref.make<
 			ReadonlyArray<{
 				name: string;
-				executionId: string;
 				payload: unknown;
-				parentExecutionId: string | null;
+				executionId: string;
 				inTransaction: boolean;
+				parentExecutionId: null | string;
 			}>
 		>([]);
 		const admissionCalls = yield* Ref.make<ReadonlyArray<StreamWorkCall>>([]);

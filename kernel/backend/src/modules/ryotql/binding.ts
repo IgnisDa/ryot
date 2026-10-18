@@ -20,7 +20,7 @@ import type { RyotQLExecutionScope } from "./catalog";
 
 export type PluginBinding = Pick<
 	InferSelectViewModel<typeof userPlugin>,
-	"pluginId" | "packageId" | "scope"
+	"scope" | "pluginId" | "packageId"
 >;
 
 export const definitionReadContext = (scope: RyotQLExecutionScope) => {
@@ -77,7 +77,7 @@ export const bindRyotQLDocument = Effect.fn("bindRyotQLDocument")(function* <
 		}
 		return "missing";
 	};
-	let diagnostic: RyotQLBadRequest["reason"] | undefined;
+	let diagnostic: undefined | RyotQLBadRequest["reason"];
 	const bound = mapPluginIdentityReferences(document, (reference) => {
 		let pluginId: string | undefined;
 		if (reference.kind === "local") {

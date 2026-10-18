@@ -210,7 +210,7 @@ export class SavedViewsService extends Context.Service<SavedViewsService>()("Sav
 							"renderer" in payload || (!payload.isHidden && current.isHidden)
 								? yield* prepareDefinition(user.id, renderer, settings, config.dataSources)
 								: current.dataSources;
-						let pluginInstallationId: string | null;
+						let pluginInstallationId: null | string;
 						if (payload.workspaceInstallationId === undefined) {
 							pluginInstallationId = current.pluginInstallationId;
 						} else if (payload.workspaceInstallationId === null) {

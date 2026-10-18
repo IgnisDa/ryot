@@ -35,21 +35,21 @@ import { implementWorkflow } from "#platform/workflow/scope";
 const frequentCronTasks: ReadonlyArray<
 	CronTask<
 		never,
-		| AutomationReconciliation
-		| AutomationRetention
 		| BackupsService
-		| BackgroundWorkService
-		| DatabaseSession
-		| EventStreamWorkService
-		| OAuthConnectionsService
-		| UploadIntentsService
-		| PluginCatalogInvalidator
-		| PluginInstallationService
-		| UserBootstrapScheduling
-		| UserLifecycleService
 		| WorkflowEngine
 		| ImportsService
+		| DatabaseSession
+		| AutomationRetention
+		| UploadIntentsService
+		| UserLifecycleService
+		| BackgroundWorkService
+		| EventStreamWorkService
+		| OAuthConnectionsService
+		| UserBootstrapScheduling
+		| AutomationReconciliation
+		| PluginCatalogInvalidator
 		| WorkflowGarbageCollector
+		| PluginInstallationService
 	>
 > = [
 	{

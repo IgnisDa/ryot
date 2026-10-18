@@ -50,7 +50,7 @@ const openRotatingStream = (
 	logFileName: string,
 	options: Pick<
 		AppConfigValue["observability"]["logging"]["file"],
-		"rotationInterval" | "rotationSize"
+		"rotationSize" | "rotationInterval"
 	>,
 ) =>
 	Effect.callback<RotatingFileStream, FileLoggerOpenError>((resume) => {

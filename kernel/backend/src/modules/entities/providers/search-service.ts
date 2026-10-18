@@ -34,7 +34,7 @@ import {
 const decodeProviderSearchResult = Schema.decodeUnknownEffect(providerSearchResultSchema);
 const providerNotFound = (providerId: SearchProviderEntitiesBody["providerId"]) =>
 	new ProviderEntityNotFound({ reason: { providerId, code: "provider-not-found" } });
-const decodeCachedSources = (value: string | null) => {
+const decodeCachedSources = (value: null | string) => {
 	if (value === null) {
 		return null;
 	}
@@ -171,7 +171,7 @@ export class ProviderEntitySearchService extends Context.Service<ProviderEntityS
 				input: SearchProviderEntitiesBody,
 			) {
 				const { provider, resolved } = yield* resolveSearch(user.id, input.providerId);
-				let options: Record<string, unknown> | undefined;
+				let options: undefined | Record<string, unknown>;
 				if (resolved.optionsSchema === null) {
 					if (input.options !== undefined) {
 						return yield* new ProviderEntityBadRequest({

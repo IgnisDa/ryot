@@ -564,8 +564,8 @@ export const runImportWriteStep = <Result, Pending, E1, E2, E3, R1, R2, R3>(opti
 	readonly name: string;
 	readonly result: Schema.Codec<Result, unknown>;
 	readonly pending: Schema.Codec<Pending, unknown>;
-	readonly prepare: Effect.Effect<LifecyclePreparedStep<Result, Pending>, E1, R1>;
 	readonly applyPolicies: (pending: Pending) => Effect.Effect<Pending, E2, R2>;
+	readonly prepare: Effect.Effect<LifecyclePreparedStep<Result, Pending>, E1, R1>;
 	readonly commit: (
 		pending: Pending,
 	) => Effect.Effect<LifecyclePreparedStep<Result, Pending>, E3, R3>;
@@ -694,8 +694,8 @@ const writeGenericItem = Effect.fn("imports.writeGenericItem")(function* (
 		const events: CreateEventItem[] = [];
 		const collectionMemberships: Array<{
 			entityId: EntityId;
-			collectionId: EntityId;
 			operationId: string;
+			collectionId: EntityId;
 		}> = [];
 		for (const intent of item.events) {
 			const entityId =
@@ -931,7 +931,7 @@ export const runProcessGenericImportChunksWorkflow = Effect.fn(
 				sourceState.pluginRevision,
 			);
 			let message = outcome._tag === "failed" ? outcome.message : null;
-			let failureCode: string | null =
+			let failureCode: null | string =
 				outcome._tag === "failed" ? failureReasonByStage[outcome.stage].code : null;
 			const warnings = [...outcome.warnings];
 			if (outcome._tag === "ready") {

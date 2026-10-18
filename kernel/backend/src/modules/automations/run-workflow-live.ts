@@ -101,7 +101,7 @@ export const prepareAutomationInvocation = (
 	trigger: AutomationTrigger,
 	payload: AutomationRunWorkflowPayload,
 	script: Extract<SandboxScriptManifestType, { kind: "automation" }>,
-	accountGeneration: AccountGeneration | null,
+	accountGeneration: null | AccountGeneration,
 	hookMetadata?: JsonValue,
 	hookTargets: PluginHook["targets"] = [],
 	batchFrequency: "item" | "once-per-subject" = "item",
@@ -124,7 +124,7 @@ export const prepareAutomationInvocation = (
 			return yield* workflowMismatch();
 		}
 		let projected;
-		let policyItemIdentity: string | null = null;
+		let policyItemIdentity: null | string = null;
 		if (run.stage === "before") {
 			if (payload.attemptNumber !== 1 || trigger.payload.category !== "request") {
 				return yield* workflowMismatch();
@@ -314,6 +314,7 @@ export const prepareAutomationInvocation = (
 export class AutomationRunWorkflowOperations extends Context.Service<
 	AutomationRunWorkflowOperations,
 	{
+		finalize: (input: FinalizeAutomationAttempt) => Effect.Effect<AutomationRunAttempt, DbError>;
 		claim: (
 			payload: AutomationRunWorkflowPayload,
 		) => Effect.Effect<typeof ClaimedAutomationAttempt.Type, DbError>;
@@ -323,7 +324,6 @@ export class AutomationRunWorkflowOperations extends Context.Service<
 		runSandbox: (
 			input: PreparedAutomationRun & { executionId: string },
 		) => Effect.Effect<SandboxExecutionResult, SandboxRunError>;
-		finalize: (input: FinalizeAutomationAttempt) => Effect.Effect<AutomationRunAttempt, DbError>;
 	}
 >()("AutomationRunWorkflowOperations") {}
 

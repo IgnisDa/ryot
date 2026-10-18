@@ -24,7 +24,7 @@ const makeSocket = Effect.fn(function* (
 	autoPong = false,
 ) {
 	const opened = yield* Deferred.make<void>();
-	const inbound = yield* Queue.unbounded<string | Uint8Array | null>();
+	const inbound = yield* Queue.unbounded<null | string | Uint8Array>();
 	const writes = yield* Queue.unbounded<string | Socket.CloseEvent>();
 	let gateReady = readyWriteGate !== undefined;
 	let shouldFailReadyWrite = failReadyWrite;
@@ -95,24 +95,24 @@ const makeSocket = Effect.fn(function* (
 class FakeSessionDependencies extends Context.Service<
 	FakeSessionDependencies,
 	{
-		readonly activity: Effect.Effect<ReadonlyArray<string>>;
 		readonly replacements: Effect.Effect<number>;
 		readonly replaceStarted: Effect.Effect<void>;
+		readonly activity: Effect.Effect<ReadonlyArray<string>>;
 	}
 >()("test/FakeSessionDependencies") {}
 
 /** Reconciliation never finishes; `holdReplace` keeps every replacement waiting after it starts. */
 const makeLayer = (
 	options: {
-		readonly activeImpersonation?: "active" | "missing";
-		readonly impersonationExpiresInMs?: number;
 		readonly holdReplace?: boolean;
+		readonly impersonationExpiresInMs?: number;
+		readonly activeImpersonation?: "active" | "missing";
 		readonly replaceOutcome?: "applied" | "limit-exceeded" | "revision-mismatch";
 	} = {},
 ) =>
 	Layer.unwrap(
 		Effect.gen(function* () {
-			const impersonationExpiresAt = yield* Ref.make<number | null>(null);
+			const impersonationExpiresAt = yield* Ref.make<null | number>(null);
 			const activity = yield* Ref.make<ReadonlyArray<string>>([]);
 			const replacements = yield* Ref.make(0);
 			const reconciliationGate = yield* Deferred.make<void>();

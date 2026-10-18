@@ -129,7 +129,7 @@ const trigger = (id: string) => ({
 
 const manifest = (
 	slug: string,
-	homeView: string | null,
+	homeView: null | string,
 	packageId: PluginPackageId,
 ): PluginManifest => ({
 	...fixtureManifest(),
@@ -193,8 +193,8 @@ const manifest = (
 const insertPlugin = Effect.fn(function* (input: {
 	readonly id: string;
 	readonly slug: string;
-	readonly ownerId: string | null;
-	readonly homeView: string | null;
+	readonly ownerId: null | string;
+	readonly homeView: null | string;
 	readonly configSchema?: PluginConfigSchema;
 }) {
 	const revisionId = `${input.id}-revision`;
@@ -231,7 +231,7 @@ const configRevision = (
 	id: string,
 	pluginRevisionId: string,
 	configuredKeys: string[],
-	installation: { readonly ownerUserId: string; readonly pluginInstallationId: string } | null,
+	installation: null | { readonly ownerUserId: string; readonly pluginInstallationId: string },
 ) => ({
 	id,
 	configuredKeys,
@@ -244,7 +244,7 @@ const configRevision = (
 	pluginInstallationId: installation?.pluginInstallationId ?? null,
 });
 
-const script = (id: string, slug: string, pluginRevisionId: string | null) => ({
+const script = (id: string, slug: string, pluginRevisionId: null | string) => ({
 	id,
 	slug,
 	name: slug,
@@ -255,7 +255,7 @@ const script = (id: string, slug: string, pluginRevisionId: string | null) => ({
 	source: pluginRevisionId === null ? "private-source" : null,
 });
 
-const definition = (id: string, pluginId: string | null, position = 0) => ({
+const definition = (id: string, pluginId: null | string, position = 0) => ({
 	id,
 	position,
 	pluginId,
@@ -270,7 +270,7 @@ const pluginDefinition = (id: string, pluginId: string, position = 0) => ({
 	pluginRevisionId: `${pluginId}-revision`,
 });
 
-const entitySchemaDefinition = (id: string, pluginId: string | null) => ({
+const entitySchemaDefinition = (id: string, pluginId: null | string) => ({
 	...definition(id, pluginId),
 	icon: "box",
 	propertiesSchema: { fields: {} },
@@ -725,7 +725,7 @@ const rowsOf = (response: RyotQLResponse) => {
 	return result;
 };
 
-type Reader = { readonly userId: string; readonly audience: RyotQLAudience } | "admin";
+type Reader = "admin" | { readonly userId: string; readonly audience: RyotQLAudience };
 
 const owner = { userId: "owner", audience: "kernel" } as const;
 
@@ -1770,10 +1770,10 @@ layer(catalogDatabaseLayer)((test) => {
 				"p13",
 			];
 			const cases: readonly {
-				readonly match: (left: ScalarExpression, right: ScalarExpression) => Predicate;
-				readonly literals: readonly (readonly [string, readonly string[]])[];
-				readonly columns: readonly string[];
 				readonly nullNeedle: string;
+				readonly columns: readonly string[];
+				readonly literals: readonly (readonly [string, readonly string[]])[];
+				readonly match: (left: ScalarExpression, right: ScalarExpression) => Predicate;
 			}[] = [
 				{
 					match: startsWith,

@@ -214,7 +214,7 @@ const entity = (): ArchiveRecords["entities"][number] => ({
 	entitySchemaPluginKey: null,
 });
 
-const integration = (packageKey: string | null): ArchiveRecords["integrations"][number] => ({
+const integration = (packageKey: null | string): ArchiveRecords["integrations"][number] => ({
 	packageKey,
 	name: null,
 	lot: "sink",

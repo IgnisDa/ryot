@@ -46,7 +46,7 @@ layer(testRedisServiceLayer)((test) => {
 			yield* Effect.promise(() => redis.client.expire(journalKey(executionId), 10));
 			yield* appendWorkflowJournalWithRedis(redis, executionId, 0, journal);
 
-			expect(new Set(Object.keys(projected))).toEqual(new Set(["c:0:0", "c:1:0", "m:0", "m:1"]));
+			expect(new Set(Object.keys(projected))).toEqual(new Set(["m:0", "m:1", "c:0:0", "c:1:0"]));
 			expect(yield* Effect.promise(() => redis.client.hgetall(journalKey(executionId)))).toEqual(
 				projected,
 			);

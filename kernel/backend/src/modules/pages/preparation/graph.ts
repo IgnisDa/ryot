@@ -37,15 +37,15 @@ export type ResolvedClientPageGraph = {
 export type GraphPlugin = Pick<
 	AvailablePlugin,
 	| "id"
-	| "packageId"
 	| "scope"
-	| "pluginRevisionId"
-	| "clientImports"
-	| "contentHash"
-	| "clientArtifactHash"
-	| "manifest"
 	| "health"
+	| "manifest"
 	| "isHidden"
+	| "packageId"
+	| "contentHash"
+	| "clientImports"
+	| "pluginRevisionId"
+	| "clientArtifactHash"
 >;
 
 export const clientPageCodeContributors = (
@@ -81,21 +81,21 @@ export const clientPageCodeContributors = (
 };
 
 type Common = {
-	readonly plugins: ReadonlyArray<GraphPlugin>;
 	readonly runtimeArtifactHash: string;
-};
-type KernelInput = Common & {
-	readonly clientImports: ReadonlyArray<PluginClientImport>;
-	readonly kernel: true;
-	readonly sourceHash: string;
-	readonly rendererArtifactHash: string;
-	readonly rendererName: string;
-	readonly definition: ClientRendererDefinition;
+	readonly plugins: ReadonlyArray<GraphPlugin>;
 };
 type PluginInput = Common & {
 	readonly exportName: string;
 	readonly plugin: GraphPlugin;
 	readonly application: "page" | "plugin-route";
+};
+type KernelInput = Common & {
+	readonly kernel: true;
+	readonly sourceHash: string;
+	readonly rendererName: string;
+	readonly rendererArtifactHash: string;
+	readonly definition: ClientRendererDefinition;
+	readonly clientImports: ReadonlyArray<PluginClientImport>;
 };
 
 const ordered = <T>(values: Iterable<T>, key: (value: T) => string) => sortBy([...values], key);

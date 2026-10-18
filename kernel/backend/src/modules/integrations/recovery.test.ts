@@ -268,10 +268,10 @@ layer(
 				);
 				runIds.push(id);
 			}
-			const page = (after: IngestionRecoveryCursor | null) =>
+			const page = (after: null | IngestionRecoveryCursor) =>
 				repository.listIntegrationRecoveryRuns({ after, before, limit: 1 });
 			const paged = [];
-			let after: IngestionRecoveryCursor | null = null;
+			let after: null | IngestionRecoveryCursor = null;
 			for (let attempt = 0; attempt < 5; attempt++) {
 				const rows: ReadonlyArray<{ run: typeof tables.importRun.$inferSelect }> =
 					yield* page(after);
@@ -336,7 +336,7 @@ layer(
 				expect(before >= owner.createdAt).toBe(true);
 				expect(before > (yield* DateTime.nowAsDate).toISOString()).toBe(true);
 				const recovered = [];
-				let after: IngestionRecoveryCursor | null = null;
+				let after: null | IngestionRecoveryCursor = null;
 				do {
 					const page: Effect.Success<ReturnType<typeof ingestion.recoverable>> =
 						yield* ingestion.recoverable({ after, before });

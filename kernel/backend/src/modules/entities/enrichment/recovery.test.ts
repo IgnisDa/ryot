@@ -31,8 +31,8 @@ import { EnrichmentRecovery } from "./recovery";
 import type { EnrichmentRequestPatch } from "./repository";
 import { EnrichmentRequests } from "./requests";
 
-type RequestRow = NonNullable<Effect.Success<ReturnType<EnrichmentRequests["Service"]["get"]>>>;
 type ExecuteOptions = Parameters<WorkflowEngine["Service"]["execute"]>[1];
+type RequestRow = NonNullable<Effect.Success<ReturnType<EnrichmentRequests["Service"]["get"]>>>;
 const now = new Date("2026-10-26T00:00:00.000Z");
 const userId = UserId.make("recovery-user");
 const account = { userId, token: "test-account-generation" };
@@ -120,11 +120,11 @@ const request = (id: string, patch: Partial<RequestRow> = {}): RequestRow => ({
 });
 
 const harness = Effect.fnUntraced(function* (input: {
+	readonly accountError?: DbError;
+	readonly releaseFailsOnce?: boolean;
 	readonly rows: ReadonlyArray<RequestRow>;
 	readonly outcomes?: ReadonlyMap<string, Workflow.Result<unknown, SandboxRunError>>;
 	readonly account?: Effect.Success<ReturnType<EnrichmentRequests["Service"]["account"]>>;
-	readonly accountError?: DbError;
-	readonly releaseFailsOnce?: boolean;
 	readonly expired?: ReadonlyMap<
 		string,
 		NonNullable<Effect.Success<ReturnType<EnrichmentRequests["Service"]["expiredExecutionStatus"]>>>
@@ -134,7 +134,7 @@ const harness = Effect.fnUntraced(function* (input: {
 	const observed: string[] = [];
 	const releases: string[] = [];
 	const released: string[] = [];
-	const polls: Array<{ workflow: string; id: string }> = [];
+	const polls: Array<{ id: string; workflow: string }> = [];
 	const executions: Array<{ workflow: string; options: ExecuteOptions }> = [];
 	const updates: Array<{ id: string; patch: EnrichmentRequestPatch }> = [];
 	const events: string[] = [];
@@ -236,8 +236,8 @@ layer(mutationAdmissionTestLayer)((it) => {
 			const h = yield* harness({
 				rows: [request("collected-success"), request("collected-failure")],
 				expired: new Map([
-					["collected-success", "succeeded"],
 					["collected-failure", "failed"],
+					["collected-success", "succeeded"],
 				]),
 			});
 			yield* h.reconcile();

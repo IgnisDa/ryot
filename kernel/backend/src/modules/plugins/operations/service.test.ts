@@ -76,15 +76,15 @@ const privateInstallation = (
 });
 
 type AvailableOperation = (
-	| Pick<Extract<PluginOperation, { auth: "user" }>, "auth" | "demoAccess">
 	| Pick<Extract<PluginOperation, { auth: "integration" }>, "auth">
+	| Pick<Extract<PluginOperation, { auth: "user" }>, "auth" | "demoAccess">
 ) & {
 	readonly ownerId: UserId;
-	readonly pluginId: PluginId;
-	readonly packageId?: PluginPackageId;
 	readonly scriptId?: string;
+	readonly pluginId: PluginId;
 	readonly installationId: string;
-	readonly scope: "system" | "user";
+	readonly scope: "user" | "system";
+	readonly packageId?: PluginPackageId;
 };
 
 const availablePackageId = (available: AvailableOperation) =>
@@ -147,9 +147,9 @@ const resolvedOperation = (available: AvailableOperation) => ({
 
 const makeIntegration = (input: {
 	userId: UserId;
-	lot?: IntegrationRecord["lot"];
 	isDisabled?: boolean;
 	pluginInstallationId: string;
+	lot?: IntegrationRecord["lot"];
 }) =>
 	integrationRecord({
 		userId: input.userId,
@@ -159,32 +159,32 @@ const makeIntegration = (input: {
 		pluginInstallationId: input.pluginInstallationId,
 	});
 
-class FakeOperationDependencies extends Context.Service<
-	FakeOperationDependencies,
-	{
-		readonly events: Effect.Effect<ReadonlyArray<string>>;
-		readonly captured: Effect.Effect<ReadonlyArray<unknown>>;
-		readonly referenceRegistrations: Effect.Effect<ReadonlyArray<string>>;
-		readonly packageLookups: Effect.Effect<ReadonlyArray<string>>;
-		readonly availableLookups: Effect.Effect<number>;
-		readonly offerOperations: (available: ReadonlyArray<AvailableOperation>) => Effect.Effect<void>;
-		readonly useIntegration: (integration: IntegrationRecord | null) => Effect.Effect<void>;
-	}
->()("test/FakeOperationDependencies") {}
-
 class OperationFakeState extends Context.Service<
 	OperationFakeState,
 	{
+		readonly availableLookups: Ref.Ref<number>;
 		readonly events: Ref.Ref<ReadonlyArray<string>>;
 		readonly captured: Ref.Ref<ReadonlyArray<unknown>>;
-		readonly referenceRegistrations: Ref.Ref<ReadonlyArray<string>>;
-		readonly integration: Ref.Ref<IntegrationRecord | null>;
-		readonly available: Ref.Ref<ReadonlyArray<AvailableOperation>>;
-		readonly privateInstallation: Ref.Ref<PluginInstallationHydratedState | null>;
+		readonly integration: Ref.Ref<null | IntegrationRecord>;
 		readonly packageLookups: Ref.Ref<ReadonlyArray<string>>;
-		readonly availableLookups: Ref.Ref<number>;
+		readonly available: Ref.Ref<ReadonlyArray<AvailableOperation>>;
+		readonly referenceRegistrations: Ref.Ref<ReadonlyArray<string>>;
+		readonly privateInstallation: Ref.Ref<null | PluginInstallationHydratedState>;
 	}
 >()("test/OperationFakeState") {}
+
+class FakeOperationDependencies extends Context.Service<
+	FakeOperationDependencies,
+	{
+		readonly availableLookups: Effect.Effect<number>;
+		readonly events: Effect.Effect<ReadonlyArray<string>>;
+		readonly captured: Effect.Effect<ReadonlyArray<unknown>>;
+		readonly packageLookups: Effect.Effect<ReadonlyArray<string>>;
+		readonly referenceRegistrations: Effect.Effect<ReadonlyArray<string>>;
+		readonly useIntegration: (integration: null | IntegrationRecord) => Effect.Effect<void>;
+		readonly offerOperations: (available: ReadonlyArray<AvailableOperation>) => Effect.Effect<void>;
+	}
+>()("test/FakeOperationDependencies") {}
 
 const makeLayer = (input: {
 	sandboxError?: string;
@@ -192,9 +192,9 @@ const makeLayer = (input: {
 	currentUserId?: UserId;
 	accessClass?: AccessClass;
 	activeSourceHash?: string;
-	integration?: IntegrationRecord | null;
+	integration?: null | IntegrationRecord;
 	available?: ReadonlyArray<AvailableOperation>;
-	privateInstallation?: PluginInstallationHydratedState | null;
+	privateInstallation?: null | PluginInstallationHydratedState;
 }) => {
 	const stateLayer = Layer.effect(
 		OperationFakeState,
@@ -421,11 +421,11 @@ const expectError = (
 };
 
 const invoke = (input: {
-	packageId: PluginPackageId;
 	payload?: JsonValue;
 	contentHash?: string;
-	idempotencyKey?: string;
 	operationSlug?: string;
+	idempotencyKey?: string;
+	packageId: PluginPackageId;
 }) =>
 	Effect.flatMap(OperationsService, (service) =>
 		service.invoke({

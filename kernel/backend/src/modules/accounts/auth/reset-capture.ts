@@ -12,7 +12,7 @@ export type ResetCaptureTransport = {
 		id: string,
 		userId: string,
 		token: string,
-	) => Effect.Effect<{ readonly tracked: boolean; readonly previous: string | null }, DbError>;
+	) => Effect.Effect<{ readonly tracked: boolean; readonly previous: null | string }, DbError>;
 	readonly subscriber: () => {
 		readonly quit: () => Effect.Effect<unknown, DbError>;
 		readonly subscribe: (id: string) => Effect.Effect<unknown, DbError>;

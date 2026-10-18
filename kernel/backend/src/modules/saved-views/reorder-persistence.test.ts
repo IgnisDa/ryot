@@ -45,7 +45,7 @@ const plugin = (owner: string, slug: string): SavedViewReference => ({
 	pluginId: PluginId.make(owner),
 });
 const renderer = { kind: "kernel", name: "calendar" } as const;
-const definition = (slug: string, sortOrder: number, pluginRevisionId: string | null = null) => ({
+const definition = (slug: string, sortOrder: number, pluginRevisionId: null | string = null) => ({
 	slug,
 	renderer,
 	sortOrder,
@@ -58,7 +58,7 @@ const definition = (slug: string, sortOrder: number, pluginRevisionId: string | 
 const customView = (
 	id: string,
 	sortOrder: number,
-	pluginInstallationId: string | null = null,
+	pluginInstallationId: null | string = null,
 	owner = user.id,
 ) => ({
 	id,

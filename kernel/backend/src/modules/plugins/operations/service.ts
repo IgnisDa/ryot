@@ -37,35 +37,35 @@ import { DatabaseSession } from "#platform/db/session";
 import { PluginRuntimeResolver } from "../catalog/runtime-resolver";
 import { PluginRepository } from "../packages/repository";
 
+type AdmittedDispatch = DispatchInput & {
+	readonly admissionIdentity: null | MutationReceiptIdentity;
+};
+
 type IntegrationOperationScope = {
 	readonly userId: UserId;
 	readonly integrationId: IntegrationId;
 	readonly pluginInstallationId: string;
 };
 
+type DispatchInput = {
+	readonly userId: UserId;
+	readonly payload: JsonValue;
+	readonly pluginId: PluginId;
+	readonly executionId: string;
+	readonly operationSlug: string;
+	readonly scriptId: SandboxScriptId;
+	readonly integrationId?: IntegrationId;
+	readonly accountGeneration: AccountGeneration;
+	readonly pluginRevision: ScriptPluginRevision;
+};
 export class IntegrationOperationScopeResolver extends Context.Service<
 	IntegrationOperationScopeResolver,
 	{
 		resolve: (
 			payload: unknown,
-		) => Effect.Effect<IntegrationOperationScope, BadRequest | DbError | NotFound>;
+		) => Effect.Effect<IntegrationOperationScope, DbError | NotFound | BadRequest>;
 	}
 >()("IntegrationOperationScopeResolver") {}
-
-type DispatchInput = {
-	readonly accountGeneration: AccountGeneration;
-	readonly userId: UserId;
-	readonly payload: JsonValue;
-	readonly pluginId: PluginId;
-	readonly executionId: string;
-	readonly pluginRevision: ScriptPluginRevision;
-	readonly operationSlug: string;
-	readonly scriptId: SandboxScriptId;
-	readonly integrationId?: IntegrationId;
-};
-type AdmittedDispatch = DispatchInput & {
-	readonly admissionIdentity: MutationReceiptIdentity | null;
-};
 
 export class OperationsService extends Context.Service<OperationsService>()("OperationsService", {
 	make: Effect.gen(function* () {
@@ -138,8 +138,8 @@ export class OperationsService extends Context.Service<OperationsService>()("Ope
 		const invoke = Effect.fn("OperationsService.invoke")(function* (input: {
 			readonly payload: JsonValue;
 			readonly contentHash?: string;
-			readonly idempotencyKey?: string;
 			readonly operationSlug: string;
+			readonly idempotencyKey?: string;
 			readonly packageId: PluginPackageId;
 			readonly headers: PlatformHeaders.Headers;
 		}) {
@@ -193,7 +193,7 @@ export class OperationsService extends Context.Service<OperationsService>()("Ope
 				Effect.catchTag("AuthUnauthorized", (error) => Effect.succeed(Result.fail(error))),
 			);
 			const pinDispatch = Effect.fn("OperationsService.pinDispatch")(function* (
-				dispatchInput: Omit<DispatchInput, "pluginRevision" | "executionId">,
+				dispatchInput: Omit<DispatchInput, "executionId" | "pluginRevision">,
 				resolved: NonNullable<Effect.Success<ReturnType<typeof resolveOperation>>>,
 			) {
 				const executionId = AutomationExecutionId.make(

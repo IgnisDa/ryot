@@ -41,7 +41,7 @@ const toSandboxRelationshipIdentity = <
 	},
 >(
 	relationship: T,
-	pluginId: string | null,
+	pluginId: null | string,
 ) => {
 	const { relationshipSchemaSlug, ...identity } = relationship;
 	return {

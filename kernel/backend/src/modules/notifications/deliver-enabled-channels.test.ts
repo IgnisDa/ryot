@@ -33,9 +33,9 @@ const makeChannel = (
 class FakeNotificationChannels extends Context.Service<
 	FakeNotificationChannels,
 	{
-		readonly requests: Effect.Effect<ReadonlyArray<{ userId: UserId }>>;
 		readonly deliveredKinds: Effect.Effect<ReadonlyArray<string>>;
 		readonly deliveredMessages: Effect.Effect<ReadonlyArray<string>>;
+		readonly requests: Effect.Effect<ReadonlyArray<{ userId: UserId }>>;
 	}
 >()("test/FakeNotificationChannels") {}
 

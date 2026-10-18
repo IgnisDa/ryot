@@ -31,14 +31,14 @@ const HEARTBEAT_ERROR = new Socket.CloseEvent(4000, "Heartbeat timeout");
 const AUTHENTICATION_ERROR = new Socket.CloseEvent(1008, "Authentication failed");
 
 type Outbound = Effect.Success<ReturnType<typeof makeOutbound>>;
-type Completion = EntityWatchEntityUpdatedMessage | ReconciledCompletion;
+type Completion = ReconciledCompletion | EntityWatchEntityUpdatedMessage;
 type Control =
 	| Socket.CloseEvent
 	| { readonly message: EntityWatchServerMessage; readonly written?: Deferred.Deferred<void> };
 
 const makeOutbound = Effect.fn("EntityWatchSocketSession.makeOutbound")(function* (
 	write: (
-		chunk: Uint8Array | string | Socket.CloseEvent,
+		chunk: string | Uint8Array | Socket.CloseEvent,
 	) => Effect.Effect<void, Socket.SocketError>,
 	store: EntityWatchStore["Service"],
 	sessionId: string,
@@ -165,7 +165,7 @@ const makeOutbound = Effect.fn("EntityWatchSocketSession.makeOutbound")(function
 
 const closeBeforeAuthentication = (
 	write: (
-		chunk: Uint8Array | string | Socket.CloseEvent,
+		chunk: string | Uint8Array | Socket.CloseEvent,
 	) => Effect.Effect<void, Socket.SocketError>,
 	event: Socket.CloseEvent,
 ) => write(event).pipe(Effect.ignore);
@@ -386,7 +386,7 @@ const runSocketSession = Effect.fn("EntityWatchSocketSession.run")(function* (
 			return true;
 		},
 	);
-	let heartbeatNonce: string | null = null;
+	let heartbeatNonce: null | string = null;
 	const heartbeatWorker = Effect.forever(
 		Effect.sleep(ENTITY_WATCH_HEARTBEAT_INTERVAL).pipe(
 			Effect.andThen(

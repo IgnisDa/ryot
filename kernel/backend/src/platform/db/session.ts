@@ -9,11 +9,11 @@ import { mapDatabaseErrors } from "./errors";
 import { PgClientLive } from "./postgres";
 
 export const DatabaseConnectionLimit = Context.Reference<
-	Pool.Pool<PgClient.PgClient, SqlError> | undefined
+	undefined | Pool.Pool<PgClient.PgClient, SqlError>
 >("DatabaseSession.ConnectionLimit", { defaultValue: () => undefined });
 
 export class DatabaseSessionStateError extends Data.TaggedError("DatabaseSessionStateError")<{
-	readonly reason: "transaction-already-active" | "transaction-required";
+	readonly reason: "transaction-required" | "transaction-already-active";
 }> {}
 
 export const userWriteLockStatement = (userId: UserId) => (db: PgDrizzle.EffectPgDatabase) =>
@@ -22,11 +22,11 @@ export const userWriteLockStatement = (userId: UserId) => (db: PgDrizzle.EffectP
 export class DatabaseSession extends Context.Service<DatabaseSession>()("DatabaseSession", {
 	make: Effect.gen(function* () {
 		const root = yield* PgDrizzle.makeWithDefaults();
-		const connectionExecutor = Context.Reference<PgDrizzle.EffectPgDatabase | null>(
+		const connectionExecutor = Context.Reference<null | PgDrizzle.EffectPgDatabase>(
 			"DatabaseSession.ConnectionExecutor",
 			{ defaultValue: () => null },
 		);
-		const transactionExecutor = Context.Reference<PgDrizzle.EffectPgDatabase | null>(
+		const transactionExecutor = Context.Reference<null | PgDrizzle.EffectPgDatabase>(
 			"DatabaseSession.TransactionExecutor",
 			{ defaultValue: () => null },
 		);

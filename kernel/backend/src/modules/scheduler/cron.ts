@@ -2,7 +2,7 @@ import { Duration } from "effect";
 
 export const DEFAULT_FREQUENT_INTERVAL = Duration.minutes(5);
 
-export const parseFrequentSchedule = (value: string | undefined): Duration.Duration | null => {
+export const parseFrequentSchedule = (value: string | undefined): null | Duration.Duration => {
 	if (!value) {
 		return null;
 	}

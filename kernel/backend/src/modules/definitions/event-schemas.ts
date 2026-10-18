@@ -8,8 +8,8 @@ import { PluginRuntimeResolver } from "#modules/plugins/catalog/runtime-resolver
 
 type EventSchemaScopeInput = {
 	readonly eventSchemaSlug: EventSchemaSlug;
-	readonly entitySchemaPluginId: string | null;
 	readonly entitySchemaSlug: EntitySchemaSlug;
+	readonly entitySchemaPluginId: null | string;
 };
 
 const toListed = (entitySchemaSlug: string, event: EventSchemaDefinition) => ({
@@ -55,7 +55,7 @@ export class EventSchemaReader extends Context.Service<EventSchemaReader>()("Eve
 				),
 			);
 		};
-		const getScopeForUser = (input: EventSchemaScopeInput & { userId: UserId }) =>
+		const getScopeForUser = (input: { userId: UserId } & EventSchemaScopeInput) =>
 			getScopesForUser(input.userId, [input]).pipe(Effect.map(([scope]) => scope ?? null));
 
 		return { lockCatalog, getScopeForUser, getScopesForUser };

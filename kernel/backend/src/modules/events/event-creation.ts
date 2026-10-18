@@ -47,7 +47,7 @@ const eventReferences = (
 const capturedEventReference = (entity: {
 	readonly properties: unknown;
 	readonly entitySchemaSlug: string;
-	readonly entitySchemaPluginId: string | null;
+	readonly entitySchemaPluginId: null | string;
 }) =>
 	stableStringify({
 		properties: entity.properties,
@@ -107,22 +107,22 @@ const resolveOccurredAt = (occurredAt?: string) => {
 type EventCreateEntityScope = {
 	readonly entityId: EntityId;
 	readonly entitySchemaSlug: EntitySchemaSlug;
-	readonly entitySchemaPluginId: string | null;
+	readonly entitySchemaPluginId: null | string;
 };
 
 type EventCreateSchemaInput = {
 	readonly eventSchemaSlug: EventSchemaSlug;
 	readonly entitySchemaSlug: EntitySchemaSlug;
-	readonly entitySchemaPluginId: string | null;
+	readonly entitySchemaPluginId: null | string;
 };
 
 type EventCreateScopeReads = {
 	readonly entityScope: (
 		entityId: EntityId,
-	) => Effect.Effect<EventCreateEntityScope | null, DbError>;
+	) => Effect.Effect<null | EventCreateEntityScope, DbError>;
 	readonly check: (
 		owner: DefinitionOwner,
-	) => Effect.Effect<DomainWritePin | null, DbError | DomainWriteConflict>;
+	) => Effect.Effect<null | DomainWritePin, DbError | DomainWriteConflict>;
 	readonly eventSchemaScope: (
 		input: EventCreateSchemaInput,
 	) => Effect.Effect<
@@ -132,7 +132,7 @@ type EventCreateScopeReads = {
 	readonly pinnedDeclaration: (
 		pinId: string,
 		slugs: { readonly eventSchemaSlug: string; readonly entitySchemaSlug: string },
-	) => Effect.Effect<{ readonly propertiesSchema: AppSchema } | undefined, DbError>;
+	) => Effect.Effect<undefined | { readonly propertiesSchema: AppSchema }, DbError>;
 };
 
 const requireReadableEntity = Effect.fnUntraced(function* (
@@ -238,10 +238,10 @@ const resolveScopes = Effect.fnUntraced(function* (
 
 export const resolveEventCreateItemScopes = Effect.fn("resolveEventCreateItemScopes")(
 	function* (input: {
-		readonly item: CreateEventItem;
 		readonly userId: UserId;
-		readonly command: DomainLifecycleCommand;
 		readonly commit?: boolean;
+		readonly item: CreateEventItem;
+		readonly command: DomainLifecycleCommand;
 	}) {
 		const eventSchemasRepository = yield* EventSchemaReader;
 		const entitiesRepository = yield* EntitiesRepository;
@@ -263,9 +263,9 @@ const schemaInputKey = (input: EventCreateSchemaInput) =>
 export const readEventCreateChunkScopes = Effect.fn("readEventCreateChunkScopes")(
 	function* (input: {
 		readonly userId: UserId;
+		readonly writeCommand: DomainLifecycleCommand;
 		readonly items: ReadonlyArray<CreateEventItem>;
 		readonly commands: ReadonlyArray<DomainLifecycleCommand>;
-		readonly writeCommand: DomainLifecycleCommand;
 		readonly proposedEntities?: Readonly<Record<string, AutomationEntityDraft>>;
 	}) {
 		const eventSchemasRepository = yield* EventSchemaReader;
@@ -300,7 +300,7 @@ export const readEventCreateChunkScopes = Effect.fn("readEventCreateChunkScopes"
 		);
 		const checked = new Map<
 			string,
-			Result.Result<DomainWritePin | null, DbError | DomainWriteConflict>
+			Result.Result<null | DomainWritePin, DbError | DomainWriteConflict>
 		>();
 		const check = Effect.fnUntraced(function* (
 			command: DomainLifecycleCommand,
@@ -334,7 +334,7 @@ export const readEventCreateChunkScopes = Effect.fn("readEventCreateChunkScopes"
 				yield* precheck(input.writeCommand, definitionOwner(scope.pluginId));
 			}
 		}
-		const declarations = new Map<string, { readonly propertiesSchema: AppSchema } | undefined>();
+		const declarations = new Map<string, undefined | { readonly propertiesSchema: AppSchema }>();
 		const reads = (command: DomainLifecycleCommand): EventCreateScopeReads => ({
 			check: (owner) => check(command, owner),
 			eventSchemaScope: (scope) =>

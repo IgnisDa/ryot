@@ -22,7 +22,7 @@ const background = "background";
 const decodeFlow = Schema.decodeUnknownEffect(FairQueueFlow);
 
 const entry = (
-	lane: typeof interactive | typeof background,
+	lane: typeof background | typeof interactive,
 	tenant: string,
 	plugin: string,
 	n = 0,
@@ -44,16 +44,16 @@ const call = <A>(run: () => Promise<A>) => Effect.tryPromise(run).pipe(Effect.or
 const readKey = Effect.fnUntraced(function* (client: Client, key: string) {
 	const type = yield* call(() => client.type(key));
 	switch (type) {
-		case "string":
-			return yield* call(() => client.get(key));
+		case "set":
+			return sortBy(yield* call(() => client.smembers(key)));
 		case "list":
 			return yield* call(() => client.lrange(key, 0, -1));
 		case "hash":
 			return yield* call(() => client.hgetall(key));
-		case "set":
-			return sortBy(yield* call(() => client.smembers(key)));
 		case "zset":
 			return yield* call(() => client.zrange(key, 0, -1, "WITHSCORES"));
+		case "string":
+			return yield* call(() => client.get(key));
 		default:
 			return type;
 	}

@@ -14,17 +14,17 @@ import { RyotQLService } from "#modules/ryotql/service";
 
 import type { InterestPriority } from "./store";
 
+export type InterestPrincipal = {
+	readonly userId: UserId;
+	readonly preferredLanguage: null | string;
+	readonly accountGeneration: AccountGeneration;
+};
+
 type TerminalUpdate = { readonly entityId: EntityId; readonly reason: EntityUpdatedReason };
 
 type ReconciliationResult = {
 	readonly terminal: readonly TerminalUpdate[];
 	readonly reconciledEntityIds: readonly EntityId[];
-};
-
-export type InterestPrincipal = {
-	readonly userId: UserId;
-	readonly accountGeneration: AccountGeneration;
-	readonly preferredLanguage: string | null;
 };
 
 export class InterestReconciler extends Context.Service<InterestReconciler>()(

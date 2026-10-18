@@ -34,10 +34,10 @@ const payload = {
 
 const run = (input: {
 	id: string;
-	status: "queued" | "running" | "failed" | "succeeded";
 	queuedAt: Date;
 	triggerId: string;
 	artifactsExpireAt: Date;
+	status: "queued" | "failed" | "running" | "succeeded";
 }) => ({
 	...input,
 	hookSlug: input.id,

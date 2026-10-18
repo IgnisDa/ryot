@@ -20,7 +20,7 @@ import {
 
 const encoder = new TextEncoder();
 const decoder = new TextDecoder("utf-8", { fatal: true });
-const activeHandles = new Set(["first", "second", "duplicate", "envelope", "unknown-test"]);
+const activeHandles = new Set(["first", "second", "envelope", "duplicate", "unknown-test"]);
 
 const required = <Value>(value: Value | undefined) => {
 	if (value === undefined) {
@@ -367,7 +367,7 @@ describe("sidecar framing", () => {
 			),
 		).toBe(true);
 		expect(
-			invalid.every(({ handle }) => ["duplicate", "envelope", "second"].includes(handle)),
+			invalid.every(({ handle }) => ["second", "envelope", "duplicate"].includes(handle)),
 		).toBe(true);
 
 		const dropReader = makeSidecarFrameReader({
@@ -635,8 +635,8 @@ it("keeps Rust assemblies within the connection bound through lane pools", () =>
 					]
 				: [["interactive", plan.pools.interactive]];
 		const lanes = new Map<string, ExecutionLane>([
-			["run-interactive", "interactive"],
 			["run-background", "background"],
+			["run-interactive", "interactive"],
 		]);
 		const frames: SidecarInboundLogicalMessage[] = [
 			runFrame("run-interactive", 0, runText),

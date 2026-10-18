@@ -306,7 +306,7 @@ it.effect(
 	() =>
 		Effect.gen(function* () {
 			const captured = new Map<string, Parameters<IngestionCaptures["Service"]["publish"]>[0]>();
-			const owners: { workflowName: string; executionId: string }[] = [];
+			const owners: { executionId: string; workflowName: string }[] = [];
 			const segments: (typeof ProcessDataImportSegmentWorkflow.payloadSchema.Type)[] = [];
 			const outcomes = new Map<string, IngestionOutcome>();
 			let sealed = false;

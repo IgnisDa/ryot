@@ -65,8 +65,8 @@ export const SANDBOX_HOST_EXECUTION_POLICY = {
 	{
 		readonly dispatch: string;
 		readonly permit?: "small";
-		readonly resultBytes: number | null;
 		readonly wireBytes?: number;
+		readonly resultBytes: null | number;
 	}
 >;
 

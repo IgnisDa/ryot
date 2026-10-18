@@ -158,10 +158,36 @@ type PublishedMessage = { readonly channel: string; readonly message: string };
 
 type ContentionRound = {
 	readonly acquired: Deferred.Deferred<void>;
-	readonly inspection: Deferred.Deferred<void>;
 	readonly released: Deferred.Deferred<void>;
+	readonly inspection: Deferred.Deferred<void>;
 	readonly sharedAttempted: Deferred.Deferred<void>;
 };
+
+class IngestionFakeState extends Context.Service<
+	IngestionFakeState,
+	{
+		readonly active: Ref.Ref<boolean>;
+		readonly exclusive: Ref.Ref<boolean>;
+		readonly round: Ref.Ref<ContentionRound>;
+		readonly hasEntityReferences: Ref.Ref<boolean>;
+		readonly events: Ref.Ref<ReadonlyArray<string>>;
+		readonly activated: Ref.Ref<ReadonlyArray<string>>;
+		readonly deactivated: Ref.Ref<ReadonlyArray<string>>;
+		readonly installed: Ref.Ref<ReadonlyArray<StoredPlugin>>;
+		readonly integrationFences: Ref.Ref<ReadonlyArray<unknown>>;
+		readonly persisted: Ref.Ref<ReadonlyArray<NormalizedPlugin>>;
+		readonly published: Ref.Ref<ReadonlyArray<PublishedMessage>>;
+		readonly receipts: Ref.Ref<
+			ReadonlyArray<{
+				pluginId: string;
+				activationId: string;
+				ownerId: null | string;
+				packageId: PluginPackageId;
+				installationId: null | string;
+			}>
+		>;
+	}
+>()("test/IngestionFakeState") {}
 
 class FakeIngestionDependencies extends Context.Service<
 	FakeIngestionDependencies,
@@ -169,17 +195,17 @@ class FakeIngestionDependencies extends Context.Service<
 		readonly events: Effect.Effect<ReadonlyArray<string>>;
 		readonly activated: Effect.Effect<ReadonlyArray<string>>;
 		readonly deactivated: Effect.Effect<ReadonlyArray<string>>;
+		readonly integrationFences: Effect.Effect<ReadonlyArray<unknown>>;
 		readonly persisted: Effect.Effect<ReadonlyArray<NormalizedPlugin>>;
 		readonly published: Effect.Effect<ReadonlyArray<PublishedMessage>>;
-		readonly integrationFences: Effect.Effect<ReadonlyArray<unknown>>;
-		readonly setEntityReferences: (hasReferences: boolean) => Effect.Effect<void>;
 		readonly replaceInstalled: (plugin: StoredPlugin) => Effect.Effect<void>;
+		readonly setEntityReferences: (hasReferences: boolean) => Effect.Effect<void>;
 		readonly contention: {
 			readonly beginRound: Effect.Effect<void>;
-			readonly exclusiveAcquired: Effect.Effect<void>;
 			readonly sharedAttempted: Effect.Effect<void>;
 			readonly allowInspection: Effect.Effect<void>;
 			readonly releaseExclusive: Effect.Effect<void>;
+			readonly exclusiveAcquired: Effect.Effect<void>;
 			readonly registerWorkflowReference: Effect.Effect<
 				{ readonly status: "registered" },
 				SandboxWorkflowReferenceRegistrationError
@@ -187,32 +213,6 @@ class FakeIngestionDependencies extends Context.Service<
 		};
 	}
 >()("test/FakeIngestionDependencies") {}
-
-class IngestionFakeState extends Context.Service<
-	IngestionFakeState,
-	{
-		readonly active: Ref.Ref<boolean>;
-		readonly exclusive: Ref.Ref<boolean>;
-		readonly events: Ref.Ref<ReadonlyArray<string>>;
-		readonly activated: Ref.Ref<ReadonlyArray<string>>;
-		readonly deactivated: Ref.Ref<ReadonlyArray<string>>;
-		readonly installed: Ref.Ref<ReadonlyArray<StoredPlugin>>;
-		readonly persisted: Ref.Ref<ReadonlyArray<NormalizedPlugin>>;
-		readonly receipts: Ref.Ref<
-			ReadonlyArray<{
-				activationId: string;
-				ownerId: string | null;
-				packageId: PluginPackageId;
-				pluginId: string;
-				installationId: string | null;
-			}>
-		>;
-		readonly published: Ref.Ref<ReadonlyArray<PublishedMessage>>;
-		readonly integrationFences: Ref.Ref<ReadonlyArray<unknown>>;
-		readonly hasEntityReferences: Ref.Ref<boolean>;
-		readonly round: Ref.Ref<ContentionRound>;
-	}
->()("test/IngestionFakeState") {}
 
 const append = <A>(ref: Ref.Ref<ReadonlyArray<A>>, value: A) =>
 	Ref.update(ref, (all) => [...all, value]);
@@ -267,11 +267,11 @@ const makeLayer = (input?: {
 				installed: yield* Ref.make<ReadonlyArray<StoredPlugin>>(input?.initialInstalled ?? []),
 				receipts: yield* Ref.make<
 					ReadonlyArray<{
-						activationId: string;
-						ownerId: string | null;
-						packageId: PluginPackageId;
 						pluginId: string;
-						installationId: string | null;
+						activationId: string;
+						ownerId: null | string;
+						packageId: PluginPackageId;
+						installationId: null | string;
 					}>
 				>([]),
 			};

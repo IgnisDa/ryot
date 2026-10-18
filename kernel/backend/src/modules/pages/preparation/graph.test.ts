@@ -276,8 +276,8 @@ it.effect("binds exports by their declared names including punctuation", () => {
 			identity: graph.identity,
 			runtimeEntries: { bootstrap: "bootstrap.js" },
 			artifacts: new Map([
-				["runtime", { files: [{ name: "bootstrap.js", contentType: "text/javascript" }] }],
 				["page-hash", { files: [{ name: "module.js", contentType: "text/javascript" }] }],
+				["runtime", { files: [{ name: "bootstrap.js", contentType: "text/javascript" }] }],
 			]),
 		});
 		expect(manifest.descriptor.application).toBe("page");

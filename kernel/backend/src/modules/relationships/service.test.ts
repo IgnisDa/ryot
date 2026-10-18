@@ -1153,18 +1153,18 @@ describe("Relationships lifecycle owner", () => {
 							})).create(policyInput, command(mode)),
 						);
 						switch (mode) {
+							case "limit":
+								assertExitFails(
+									exit,
+									new RelationshipBadRequest({ reason: { code: "automation-limit-reached" } }),
+								);
+								break;
 							case "reject":
 								assertExitFails(
 									exit,
 									new RelationshipBadRequest({
 										reason: { code: "policy-rejected", runId: AutomationRunId.make(mode) },
 									}),
-								);
-								break;
-							case "limit":
-								assertExitFails(
-									exit,
-									new RelationshipBadRequest({ reason: { code: "automation-limit-reached" } }),
 								);
 								break;
 							case "invalid":

@@ -11,8 +11,8 @@ import { makeAssetsScriptHost } from "./script-host";
 import { ManagedAssetsService } from "./storage/managed-assets";
 
 type AssetVerificationCall = {
-	readonly locators: ReadonlyArray<ManagedAssetLocator>;
 	readonly ownerUserId: UserId;
+	readonly locators: ReadonlyArray<ManagedAssetLocator>;
 };
 
 const makeManagedAssetsService = (calls: Ref.Ref<ReadonlyArray<AssetVerificationCall>>) =>

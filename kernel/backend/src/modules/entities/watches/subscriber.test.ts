@@ -36,8 +36,8 @@ class FakeSubscriberDependencies extends Context.Service<
 >()("test/FakeSubscriberDependencies") {}
 
 const subscriberLayer = (options: {
-	readonly watching: ReadonlyArray<string>;
 	readonly failProgression?: boolean;
+	readonly watching: ReadonlyArray<string>;
 	readonly sessionUsers?: Readonly<Record<string, string>>;
 }) =>
 	Layer.unwrap(

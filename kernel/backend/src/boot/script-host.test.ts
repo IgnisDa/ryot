@@ -150,7 +150,7 @@ const hostDatabaseLayer = Layer.mergeAll(
 	}),
 );
 
-type GetForUserInput = { readonly integrationId: IntegrationId; readonly userId: UserId };
+type GetForUserInput = { readonly userId: UserId; readonly integrationId: IntegrationId };
 
 const ownedIntegration = (input: GetForUserInput): IntegrationRecord => ({
 	name: null,
@@ -306,13 +306,13 @@ type EntityScope = {
 	entityId: EntityId;
 	isBuiltin: boolean;
 	entityName: string;
-	entityUserId: UserId | null;
-	entitySchemaPluginId: string | null;
+	entityUserId: null | UserId;
 	entitySchemaSlug: EntitySchemaSlug;
+	entitySchemaPluginId: null | string;
 };
 
 const builtinEntityScope = ({ entityId }: { userId: UserId; entityId: EntityId }) =>
-	Effect.succeed<EntityScope | null>({
+	Effect.succeed<null | EntityScope>({
 		entityId,
 		isBuiltin: true,
 		entityUserId: null,
@@ -330,23 +330,23 @@ type RecordedUserDataMerge = {
 class HostFunctionCalls extends Context.Service<
 	HostFunctionCalls,
 	{
-		readonly createdEntities: Effect.Effect<ReadonlyArray<unknown>>;
-		readonly userDataMerges: Effect.Effect<ReadonlyArray<RecordedUserDataMerge>>;
-		readonly ensuredEntities: Effect.Effect<ReadonlyArray<unknown>>;
+		readonly lookupOrder: Effect.Effect<ReadonlyArray<string>>;
 		readonly eventMutations: Effect.Effect<ReadonlyArray<unknown>>;
+		readonly createdEntities: Effect.Effect<ReadonlyArray<unknown>>;
+		readonly ensuredEntities: Effect.Effect<ReadonlyArray<unknown>>;
 		readonly ryotqlUserCalls: Effect.Effect<ReadonlyArray<unknown>>;
 		readonly ryotqlPluginCalls: Effect.Effect<ReadonlyArray<unknown>>;
-		readonly pluginConfigLookups: Effect.Effect<ReadonlyArray<unknown>>;
-		readonly createdRelationships: Effect.Effect<ReadonlyArray<unknown>>;
-		readonly deletedRelationships: Effect.Effect<ReadonlyArray<unknown>>;
-		readonly integrationLookups: Effect.Effect<ReadonlyArray<GetForUserInput>>;
 		readonly sourceStateLookups: Effect.Effect<ReadonlyArray<unknown>>;
+		readonly oauthTokenRequests: Effect.Effect<ReadonlyArray<unknown>>;
+		readonly pluginConfigLookups: Effect.Effect<ReadonlyArray<unknown>>;
 		readonly installationLookups: Effect.Effect<ReadonlyArray<unknown>>;
 		readonly userSettingsPatches: Effect.Effect<ReadonlyArray<unknown>>;
-		readonly lookupOrder: Effect.Effect<ReadonlyArray<string>>;
-		readonly oauthTokenRequests: Effect.Effect<ReadonlyArray<unknown>>;
+		readonly createdRelationships: Effect.Effect<ReadonlyArray<unknown>>;
+		readonly deletedRelationships: Effect.Effect<ReadonlyArray<unknown>>;
 		readonly oauthTokenInvalidations: Effect.Effect<ReadonlyArray<unknown>>;
+		readonly integrationLookups: Effect.Effect<ReadonlyArray<GetForUserInput>>;
 		readonly useDefinitions: (source: DefinitionSource) => Effect.Effect<void>;
+		readonly userDataMerges: Effect.Effect<ReadonlyArray<RecordedUserDataMerge>>;
 	}
 >()("test/HostFunctionCalls") {}
 
@@ -366,20 +366,20 @@ const eventStreamWorkServiceLayer = (request: EventStreamWorkService["Service"][
 
 const hostFunctionsLayer = (
 	options: {
+		readonly sourceStateRunId?: string;
 		readonly definitions?: DefinitionSource;
+		readonly sourceStateUnavailable?: boolean;
+		readonly installationUnavailable?: boolean;
 		readonly forbidRelationshipWrites?: boolean;
 		readonly entityScope?: typeof builtinEntityScope;
-		readonly integration?: (input: GetForUserInput) => Effect.Effect<IntegrationRecord | null>;
-		readonly pluginConfig?: PluginRuntimeResolver["Service"]["resolvePluginConfigContext"];
-		readonly oauthAccessToken?: OAuthConnectionsService["Service"]["accessTokenForIntegrationRun"];
-		readonly oauthAccessTokenInvalidation?: OAuthConnectionsService["Service"]["invalidateAccessTokenForIntegrationRun"];
-		readonly executionSettings?: (runId: string) => ImportSourceExecutionSettings;
-		readonly liveUserSettings?: Record<string, JsonValue> | (() => Record<string, JsonValue>);
-		readonly sourceStateUnavailable?: boolean;
-		readonly sourceStateRunId?: string;
-		readonly installationUnavailable?: boolean;
 		readonly eventStreamRequest?: EventStreamWorkService["Service"]["request"];
+		readonly executionSettings?: (runId: string) => ImportSourceExecutionSettings;
+		readonly pluginConfig?: PluginRuntimeResolver["Service"]["resolvePluginConfigContext"];
+		readonly liveUserSettings?: Record<string, JsonValue> | (() => Record<string, JsonValue>);
+		readonly integration?: (input: GetForUserInput) => Effect.Effect<null | IntegrationRecord>;
+		readonly oauthAccessToken?: OAuthConnectionsService["Service"]["accessTokenForIntegrationRun"];
 		readonly resolveWorkflowCallScript?: SandboxRepository["Service"]["resolveWorkflowCallScript"];
+		readonly oauthAccessTokenInvalidation?: OAuthConnectionsService["Service"]["invalidateAccessTokenForIntegrationRun"];
 	} = {},
 ) =>
 	Layer.unwrap(
@@ -1962,8 +1962,8 @@ const workspaceDefinitions = (schemaPluginId: string = systemPluginRevision.id) 
 });
 
 const runEnsureUserEntities = (options: {
-	subject: SandboxExecutionSubject;
 	caller: true | null;
+	subject: SandboxExecutionSubject;
 	allowedHostFunctions?: readonly string[];
 	pinnedEntitySchemaSlugs?: readonly string[];
 }) =>

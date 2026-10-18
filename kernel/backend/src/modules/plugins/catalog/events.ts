@@ -17,6 +17,29 @@ const connected = encoder.encode(`event: ${PLUGIN_CATALOG_CONNECTED_EVENT}\ndata
 const invalidated = encoder.encode(`event: ${PLUGIN_CATALOG_INVALIDATED_EVENT}\ndata:\n\n`);
 const heartbeat = encoder.encode(": ping\n\n");
 
+type PluginCatalogInvalidatorValue = {
+	readonly all: Effect.Effect<void>;
+	readonly recordAll: Effect.Effect<void>;
+	readonly user: (userId: UserId) => Effect.Effect<void>;
+	readonly recordUser: (userId: UserId) => Effect.Effect<void>;
+	readonly deliverPending: (limit: number) => Effect.Effect<void>;
+};
+
+export class PluginCatalogInvalidator extends Context.Service<
+	PluginCatalogInvalidator,
+	PluginCatalogInvalidatorValue
+>()("PluginCatalogInvalidator", {
+	make: Effect.succeed({
+		all: Effect.void,
+		recordAll: Effect.void,
+		user: (_userId: UserId) => Effect.void,
+		recordUser: (_userId: UserId) => Effect.void,
+		deliverPending: (_limit: number) => Effect.void,
+	}),
+}) {
+	static readonly layer = Layer.effect(this, this.make);
+}
+
 export class PluginCatalogHub extends Context.Service<PluginCatalogHub>()("PluginCatalogHub", {
 	make: Effect.sync(() => {
 		const queues = new Map<UserId, Set<Queue.Queue<Uint8Array>>>();
@@ -75,29 +98,6 @@ export class PluginCatalogHub extends Context.Service<PluginCatalogHub>()("Plugi
 	static readonly layer = Layer.effect(this, this.make);
 }
 
-type PluginCatalogInvalidatorValue = {
-	readonly all: Effect.Effect<void>;
-	readonly user: (userId: UserId) => Effect.Effect<void>;
-	readonly recordAll: Effect.Effect<void>;
-	readonly recordUser: (userId: UserId) => Effect.Effect<void>;
-	readonly deliverPending: (limit: number) => Effect.Effect<void>;
-};
-
-export class PluginCatalogInvalidator extends Context.Service<
-	PluginCatalogInvalidator,
-	PluginCatalogInvalidatorValue
->()("PluginCatalogInvalidator", {
-	make: Effect.succeed({
-		all: Effect.void,
-		recordAll: Effect.void,
-		user: (_userId: UserId) => Effect.void,
-		recordUser: (_userId: UserId) => Effect.void,
-		deliverPending: (_limit: number) => Effect.void,
-	}),
-}) {
-	static readonly layer = Layer.effect(this, this.make);
-}
-
 const logPublishFailure = Effect.catchCause((cause) =>
 	Effect.logError("plugin catalog invalidation publish failed", cause),
 );
@@ -107,12 +107,12 @@ export const PluginCatalogInvalidatorLive = Layer.effect(
 	Effect.gen(function* () {
 		const redis = yield* RedisService;
 		const session = yield* DatabaseSession;
-		const record = (userId: UserId | null) =>
+		const record = (userId: null | UserId) =>
 			Effect.gen(function* () {
 				yield* session.requireTransaction;
 				yield* session.run((db) => db.insert(schema.pluginCatalogChange).values({ userId }));
 			});
-		const publish = (userId: UserId | null) =>
+		const publish = (userId: null | UserId) =>
 			userId === null
 				? redis.publish(redisKeys.pluginCatalogChannel, "plugin-catalog-invalidated")
 				: redis.publish(
@@ -120,7 +120,7 @@ export const PluginCatalogInvalidatorLive = Layer.effect(
 						encodePluginCatalogInvalidatedMessage({ userId }),
 					);
 		const deliver = Effect.fn("PluginCatalogInvalidator.deliver")(function* (
-			userId: UserId | null,
+			userId: null | UserId,
 			limit: number,
 		) {
 			const rows = yield* session.run((db) =>

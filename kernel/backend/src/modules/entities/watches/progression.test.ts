@@ -48,18 +48,18 @@ class FakeProgressionEffects extends Context.Service<
 	FakeProgressionEffects,
 	{
 		readonly events: Effect.Effect<ReadonlyArray<string>>;
-		readonly acquired: Effect.Effect<ReadonlyArray<readonly [string, number]>>;
 		readonly released: Effect.Effect<ReadonlyArray<string>>;
 		readonly requests: Effect.Effect<ReadonlyArray<RequestFillInput>>;
+		readonly acquired: Effect.Effect<ReadonlyArray<readonly [string, number]>>;
 	}
 >()("test/FakeProgressionEffects") {}
 
 const makeLayer = (input: {
-	readonly sessions: ReadonlyArray<string>;
-	readonly metadata: (sessionIds: ReadonlyArray<string>) => SessionMetadata;
-	readonly grantLease?: (attempt: number) => boolean;
-	readonly requestError?: SandboxRunError;
 	readonly foreignProvider?: boolean;
+	readonly requestError?: SandboxRunError;
+	readonly sessions: ReadonlyArray<string>;
+	readonly grantLease?: (attempt: number) => boolean;
+	readonly metadata: (sessionIds: ReadonlyArray<string>) => SessionMetadata;
 }) =>
 	Layer.unwrap(
 		Effect.gen(function* () {

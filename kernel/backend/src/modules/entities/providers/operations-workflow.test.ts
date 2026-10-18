@@ -93,7 +93,7 @@ const makeRun = (trigger: AutomationTrigger) =>
 	});
 
 const planned: AutomationTrigger[] = [];
-const executed: Array<{ triggerId: string; runIds: string[] }> = [];
+const executed: Array<{ runIds: string[]; triggerId: string }> = [];
 let inTransaction = false;
 const database = DatabaseSession.of({
 	requireRoot: Effect.void,

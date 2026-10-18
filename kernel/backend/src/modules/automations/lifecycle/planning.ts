@@ -37,7 +37,7 @@ export const lifecycleTriggerId = (input: {
 	);
 
 export const lifecycleRunId = (
-	input: Pick<AutomationRun, "triggerId" | "pluginId" | "hookSlug" | "executionUserId">,
+	input: Pick<AutomationRun, "pluginId" | "hookSlug" | "triggerId" | "executionUserId">,
 ) =>
 	AutomationRunId.make(
 		`run_${sha256Base64Url(
@@ -67,8 +67,8 @@ export type LifecyclePlan = {
 export type LifecyclePlanningResult =
 	| LifecyclePlan
 	| {
-			readonly _tag: "NoHooks";
 			readonly trigger: null;
+			readonly _tag: "NoHooks";
 			readonly wasCreated: false;
 			readonly runs: readonly [];
 			readonly policies: readonly [];
@@ -117,21 +117,21 @@ export const toLifecycleDispatchPlan = ({
 
 export type LifecycleBatchResource = AutomationBatchChangePayload["resource"];
 
-export type LifecycleBatchInput = {
-	readonly command: LifecycleCommand;
-	readonly identity: ReadonlyArray<string>;
-	readonly resource: LifecycleBatchResource;
-	readonly commandInput?: unknown;
-};
-
-export type LifecycleBatchChange = {
-	readonly scopeUserId: UserId | null;
-	readonly payload: AutomationBatchChangePayload["items"][number];
-};
-
 export type CommittedLifecycleWork<A> = {
 	readonly result: A;
 	readonly dispatch: ReadonlyArray<LifecycleDispatchPlan>;
+};
+
+export type LifecycleBatchChange = {
+	readonly scopeUserId: null | UserId;
+	readonly payload: AutomationBatchChangePayload["items"][number];
+};
+
+export type LifecycleBatchInput = {
+	readonly commandInput?: unknown;
+	readonly command: LifecycleCommand;
+	readonly identity: ReadonlyArray<string>;
+	readonly resource: LifecycleBatchResource;
 };
 
 export class LifecyclePersistenceError extends Schema.TaggedError<
@@ -144,16 +144,16 @@ export class LifecyclePersistenceError extends Schema.TaggedError<
 export class LifecyclePlanner extends Context.Service<
 	LifecyclePlanner,
 	{
+		planBatch: (
+			input: LifecycleBatchInput,
+		) => Effect.Effect<ReadonlyArray<LifecycleDispatchPlan>, DbError>;
+		prepareBatch: (
+			input: LifecycleBatchInput & { scopes: ReadonlyArray<null | UserId> },
+		) => Effect.Effect<{ id: string; hasCandidates: boolean }, DbError>;
 		plan: (input: {
 			trigger: AutomationTrigger;
 			recipients?: ReadonlyArray<UserId>;
 			excludedOncePerSubjectPolicies?: ReadonlyArray<AutomationHookIdentity>;
 		}) => Effect.Effect<LifecyclePlanningResult, DbError>;
-		prepareBatch: (
-			input: LifecycleBatchInput & { scopes: ReadonlyArray<UserId | null> },
-		) => Effect.Effect<{ id: string; hasCandidates: boolean }, DbError>;
-		planBatch: (
-			input: LifecycleBatchInput,
-		) => Effect.Effect<ReadonlyArray<LifecycleDispatchPlan>, DbError>;
 	}
 >()("LifecyclePlanner") {}

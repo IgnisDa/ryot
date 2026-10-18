@@ -32,29 +32,29 @@ const missingArtifactGrant = (operation: string): SandboxHostError => ({
 const failedHostRequest = (message: string): SandboxHostError => ({ message });
 const sandboxFailure = (
 	error: unknown,
-	kind: "infrastructure" | "invalid-input" | "script-failure",
+	kind: "invalid-input" | "infrastructure" | "script-failure",
 ) =>
 	error instanceof SandboxRunError
 		? error
 		: new SandboxRunError({ kind, message: unknownToMessage(error) });
 
+type PinnedFile = { readonly size: number; readonly handle: FileSystem.File };
+
 type PathSnapshot = {
-	readonly path: string;
 	readonly dev: bigint;
 	readonly ino: bigint;
+	readonly path: string;
 	readonly type: string;
 };
 
-type PinnedFile = { readonly handle: FileSystem.File; readonly size: number };
-
 type ScratchUpload = {
-	readonly name: string;
-	readonly temporaryPath: string;
-	readonly targetPath: string;
 	bytes: number;
-	complete: boolean;
-	started: boolean;
 	valid: boolean;
+	started: boolean;
+	complete: boolean;
+	readonly name: string;
+	readonly targetPath: string;
+	readonly temporaryPath: string;
 };
 
 const isPlainFileName = (name: string) =>
@@ -80,6 +80,8 @@ const samePathIdentity = (
 			entry.type === next.type
 		);
 	});
+
+export type SandboxFileAccess = Effect.Success<ReturnType<ExecutionFiles["Service"]["open"]>>;
 
 export class ExecutionFiles extends Context.Service<ExecutionFiles>()("ExecutionFiles", {
 	make: Effect.gen(function* () {
@@ -110,7 +112,7 @@ export class ExecutionFiles extends Context.Service<ExecutionFiles>()("Execution
 		const inspectPath = Effect.fnUntraced(function* (
 			candidate: string,
 			label: string,
-			expectedType: "Directory" | "File",
+			expectedType: "File" | "Directory",
 		) {
 			const pathError = sandboxGrantPathError(path, label, candidate, localTempRoot);
 			if (pathError) {
@@ -471,7 +473,7 @@ export class ExecutionFiles extends Context.Service<ExecutionFiles>()("Execution
 			const harvest = Effect.fn("ExecutionFiles.harvest")(function* (
 				output: unknown,
 			): Effect.fn.Return<
-				{ readonly chunkHandles: ReadonlyArray<string> } | null,
+				null | { readonly chunkHandles: ReadonlyArray<string> },
 				SandboxRunError
 			> {
 				if (harvested || scratchDirectory === undefined) {
@@ -585,5 +587,3 @@ export class ExecutionFiles extends Context.Service<ExecutionFiles>()("Execution
 		Layer.provide(ExecutionFileStore.layer),
 	);
 }
-
-export type SandboxFileAccess = Effect.Success<ReturnType<ExecutionFiles["Service"]["open"]>>;

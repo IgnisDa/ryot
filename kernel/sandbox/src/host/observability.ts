@@ -39,7 +39,7 @@ const redactValue = (value: unknown, key?: string): unknown => {
 	return value;
 };
 
-const redactAttributes = (attributes: Readonly<Record<string, unknown>> | undefined) =>
+const redactAttributes = (attributes: undefined | Readonly<Record<string, unknown>>) =>
 	Object.fromEntries(
 		Object.entries(attributes ?? {}).map(([key, value]) => [key, redactValue(value, key)]),
 	);
@@ -65,8 +65,8 @@ export const makeSandboxObservabilityCollector = () => {
 	const logs: string[] = [];
 	let totalBytes = 0;
 
-	function record(kind: "log", entries: ReadonlyArray<LogEntry>): string | null;
-	function record(kind: "span", entries: ReadonlyArray<SpanEntry>): string | null;
+	function record(kind: "log", entries: ReadonlyArray<LogEntry>): null | string;
+	function record(kind: "span", entries: ReadonlyArray<SpanEntry>): null | string;
 	function record(_kind: ObservabilityKind, entries: ReadonlyArray<ObservabilityEntry>) {
 		const serialized = entries.map(serializeObservabilityEntry);
 		const oversized = serialized.find(

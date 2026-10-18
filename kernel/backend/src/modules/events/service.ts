@@ -114,30 +114,30 @@ type EventRequest = Extract<
 	{ resource: "event"; operation: "update" | "delete" }
 >;
 type PreparedEventMutationData = {
+	readonly expectedRevision: number;
+	readonly input: EventIdentityInput;
 	readonly before: AutomationEventSnapshot;
 	readonly command: DomainLifecycleCommand;
-	readonly input: EventIdentityInput;
-	readonly expectedRevision: number;
-	readonly requestId: AutomationTriggerId | null;
+	readonly requestId: null | AutomationTriggerId;
 } & (
 	| { readonly operation: "delete"; readonly cascadeEntityIds?: ReadonlyArray<EntityId> }
-	| {
-			readonly operation: "move";
-			readonly move: UpdateEventEntityReferencesInput;
-			readonly draft: AutomationEventDraft;
-			readonly referenceContextFingerprint: string;
-			readonly eventSchemaFingerprint: CatalogDefinitionFingerprint;
-			readonly propertiesSchema: AppSchema;
-			readonly capturedReferences: CapturedEventReferences;
-	  }
 	| {
 			readonly operation: "edit";
 			readonly submitted: UpdateEventItem;
 			readonly draft: AutomationEventDraft;
-			readonly referenceContextFingerprint: string;
-			readonly eventSchemaFingerprint: CatalogDefinitionFingerprint;
 			readonly propertiesSchema: AppSchema;
+			readonly referenceContextFingerprint: string;
 			readonly capturedReferences: CapturedEventReferences;
+			readonly eventSchemaFingerprint: CatalogDefinitionFingerprint;
+	  }
+	| {
+			readonly operation: "move";
+			readonly draft: AutomationEventDraft;
+			readonly propertiesSchema: AppSchema;
+			readonly referenceContextFingerprint: string;
+			readonly move: UpdateEventEntityReferencesInput;
+			readonly capturedReferences: CapturedEventReferences;
+			readonly eventSchemaFingerprint: CatalogDefinitionFingerprint;
 	  }
 );
 const preparedEventUpdate = Symbol("PreparedEventUpdate");
@@ -146,24 +146,24 @@ const preparedEventDelete = Symbol("PreparedEventDelete");
 export type PreparedEventUpdate = {
 	readonly [preparedEventUpdate]: Extract<PreparedEventMutationData, { operation: "edit" }>;
 };
-export type PreparedEventMoveReferences = {
-	readonly [preparedEventMoveReferences]: Extract<PreparedEventMutationData, { operation: "move" }>;
-};
 export type PreparedEventDelete = {
 	readonly [preparedEventDelete]: Extract<PreparedEventMutationData, { operation: "delete" }>;
 };
+export type PreparedEventMoveReferences = {
+	readonly [preparedEventMoveReferences]: Extract<PreparedEventMutationData, { operation: "move" }>;
+};
 
+type PreparedEventMutationResult =
+	| PreparedEventMutationData
+	| { readonly _tag: "Committed"; readonly work: CommittedLifecycleWork<null | EventId> };
+type EventMutationBatchReplay = {
+	readonly dispatch: ReadonlyArray<LifecycleDispatchPlan>;
+	readonly result: typeof EventMutationBatchReceiptResult.Type;
+};
 type EventMutationReceiptInput =
 	| { readonly operation: "delete" }
 	| { readonly operation: "edit"; readonly submitted: UpdateEventItem }
 	| { readonly operation: "move"; readonly move: UpdateEventEntityReferencesInput };
-type EventMutationBatchReplay = {
-	readonly result: typeof EventMutationBatchReceiptResult.Type;
-	readonly dispatch: ReadonlyArray<LifecycleDispatchPlan>;
-};
-type PreparedEventMutationResult =
-	| PreparedEventMutationData
-	| { readonly _tag: "Committed"; readonly work: CommittedLifecycleWork<EventId | null> };
 
 const eventDraft = ({
 	id: _id,
@@ -174,14 +174,14 @@ const eventDraft = ({
 
 const eventBadRequest = (
 	code:
-		| "automation-limit"
-		| "invalid-policy-transform"
-		| "invalid-properties"
-		| "mutation-conflict"
-		| "policy-execution-failed"
-		| "policy-rejected"
 		| "owner-mismatch"
-		| "global-scope-forbidden",
+		| "policy-rejected"
+		| "automation-limit"
+		| "mutation-conflict"
+		| "invalid-properties"
+		| "global-scope-forbidden"
+		| "policy-execution-failed"
+		| "invalid-policy-transform",
 	message: string,
 ) => new EventBadRequest({ reason: { code, message } });
 const receiptConflict = (error: DbError | MutationReceiptIdentityConflict) =>
@@ -317,7 +317,7 @@ export class EventsService extends Context.Service<EventsService>()("EventsServi
 		});
 		const validateEventDeleteValue = Effect.fnUntraced(function* (
 			before: AutomationEventSnapshot,
-			pin: DomainWritePin | null,
+			pin: null | DomainWritePin,
 		) {
 			if (!pin || before.eventSchemaPluginId === null) {
 				return yield* Effect.void;
@@ -415,8 +415,8 @@ export class EventsService extends Context.Service<EventsService>()("EventsServi
 		const create = Effect.fn("EventsService.create")(function* (
 			input: {
 				readonly userId: UserId;
-				readonly payload: ReadonlyArray<CreateEventItem>;
 				readonly itemIdentities?: ReadonlyArray<string>;
+				readonly payload: ReadonlyArray<CreateEventItem>;
 			},
 			command: DomainLifecycleCommand,
 		) {
@@ -523,8 +523,8 @@ export class EventsService extends Context.Service<EventsService>()("EventsServi
 			command: DomainLifecycleCommand,
 			previousReferences: CapturedEventReferences = {},
 			pinnedSchema?: {
-				eventSchemaFingerprint: CatalogDefinitionFingerprint;
 				propertiesSchema: AppSchema;
+				eventSchemaFingerprint: CatalogDefinitionFingerprint;
 			},
 			commit = false,
 		) {
@@ -850,8 +850,8 @@ export class EventsService extends Context.Service<EventsService>()("EventsServi
 			inline = false,
 			cascadeEntityIds?: ReadonlyArray<EntityId>,
 		): Effect.fn.Return<
-			PreparedEventMutationResult | null,
-			DbError | EventBadRequest | EventStale | LifecyclePersistenceError
+			null | PreparedEventMutationResult,
+			DbError | EventStale | EventBadRequest | LifecyclePersistenceError
 		> {
 			yield* assertRootTransaction;
 			const command = yield* Schema.decodeEffect(DomainLifecycleCommand)(commandInput).pipe(
@@ -862,7 +862,7 @@ export class EventsService extends Context.Service<EventsService>()("EventsServi
 				: { operation: "delete" };
 			const planned = yield* transaction(
 				Effect.gen(function* () {
-					let scopeUserId: UserId | null = input.userId;
+					let scopeUserId: null | UserId = input.userId;
 					if (cascadeEntityIds) {
 						const pluginRevision = command.writeContext?.pluginRevision;
 						if (pluginRevision) {
@@ -918,11 +918,11 @@ export class EventsService extends Context.Service<EventsService>()("EventsServi
 						yield* validateEventDeleteValue(before, pin);
 					}
 					let request: EventRequest;
-					let draft: AutomationEventDraft | undefined;
+					let draft: undefined | AutomationEventDraft;
 					let referenceContextFingerprint: string | undefined;
-					let eventSchemaFingerprint: CatalogDefinitionFingerprint | undefined;
+					let eventSchemaFingerprint: undefined | CatalogDefinitionFingerprint;
 					let propertiesSchema: AppSchema | undefined;
-					let capturedReferences: CapturedEventReferences | undefined;
+					let capturedReferences: undefined | CapturedEventReferences;
 					if (move) {
 						if (
 							move.mergeFrom === move.mergeInto ||
@@ -986,8 +986,8 @@ export class EventsService extends Context.Service<EventsService>()("EventsServi
 						);
 					}
 					const makePrepared = (
-						parentTriggerId: AutomationTriggerId | null,
-					): PreparedEventMutationData | null => {
+						parentTriggerId: null | AutomationTriggerId,
+					): null | PreparedEventMutationData => {
 						if (!move) {
 							return {
 								input,
@@ -1254,10 +1254,10 @@ export class EventsService extends Context.Service<EventsService>()("EventsServi
 		const persist = Effect.fnUntraced(function* (
 			prepared: PreparedEventMutationData,
 			batchInput?: {
-				command: DomainLifecycleCommand;
-				identity: ReadonlyArray<string>;
 				index: number;
 				commandInput?: unknown;
+				command: DomainLifecycleCommand;
+				identity: ReadonlyArray<string>;
 			},
 		) {
 			yield* assertActiveTransaction;
@@ -1316,7 +1316,7 @@ export class EventsService extends Context.Service<EventsService>()("EventsServi
 				return {
 					dispatch: replay.dispatch,
 					result: replay.result.eventId,
-				} satisfies CommittedLifecycleWork<EventId | null>;
+				} satisfies CommittedLifecycleWork<null | EventId>;
 			}
 			let eventId: EventId;
 			let change: AutomationEventChangePayload;
@@ -1399,16 +1399,16 @@ export class EventsService extends Context.Service<EventsService>()("EventsServi
 				batchIndex: batchInput?.index ?? 0,
 				...(batch.hasCandidates ? { evidence: change } : {}),
 			});
-			return { dispatch, result: eventId } satisfies CommittedLifecycleWork<EventId | null>;
+			return { dispatch, result: eventId } satisfies CommittedLifecycleWork<null | EventId>;
 		});
 
 		const persistPreparedUpdate = Effect.fn("EventsService.persistPreparedUpdate")(function* (
 			prepared: PreparedEventUpdate,
 			batch?: {
-				command: DomainLifecycleCommand;
-				identity: ReadonlyArray<string>;
 				index: number;
 				commandInput?: unknown;
+				command: DomainLifecycleCommand;
+				identity: ReadonlyArray<string>;
 			},
 		) {
 			return yield* persist(prepared[preparedEventUpdate], batch);
@@ -1416,21 +1416,21 @@ export class EventsService extends Context.Service<EventsService>()("EventsServi
 		const persistPreparedMoveReferences = Effect.fn("EventsService.persistPreparedMoveReferences")(
 			function* (
 				prepared: PreparedEventMoveReferences,
-				batch?: { command: DomainLifecycleCommand; identity: ReadonlyArray<string>; index: number },
+				batch?: { index: number; command: DomainLifecycleCommand; identity: ReadonlyArray<string> },
 			) {
 				return yield* persist(prepared[preparedEventMoveReferences], batch);
 			},
 		);
 		const persistPreparedDelete = Effect.fn("EventsService.persistPreparedDelete")(function* (
 			prepared: PreparedEventDelete,
-			batch?: { command: DomainLifecycleCommand; identity: ReadonlyArray<string>; index: number },
+			batch?: { index: number; command: DomainLifecycleCommand; identity: ReadonlyArray<string> },
 		) {
 			return yield* persist(prepared[preparedEventDelete], batch);
 		});
 		const withBatch = Effect.fnUntraced(function* (
 			command: DomainLifecycleCommand,
 			persisted: Effect.Effect<
-				CommittedLifecycleWork<EventId | null>,
+				CommittedLifecycleWork<null | EventId>,
 				Effect.Error<ReturnType<typeof persist>>
 			>,
 			commandInput?: unknown,
@@ -1535,17 +1535,17 @@ export class EventsService extends Context.Service<EventsService>()("EventsServi
 			input:
 				| {
 						userId: UserId;
+						submitted: unknown;
+						operation: "delete";
 						command: DomainLifecycleCommand;
-						items: ReadonlyArray<UpdateEventItem>;
-						operation: "edit";
-						submitted: ReadonlyArray<UpdateEventItem>;
+						items: ReadonlyArray<EventIdentityInput>;
 				  }
 				| {
 						userId: UserId;
+						operation: "edit";
 						command: DomainLifecycleCommand;
-						items: ReadonlyArray<EventIdentityInput>;
-						operation: "delete";
-						submitted: unknown;
+						items: ReadonlyArray<UpdateEventItem>;
+						submitted: ReadonlyArray<UpdateEventItem>;
 				  },
 		) {
 			const batchIdentity = eventMutationBatchReceiptIdentity({
@@ -1761,7 +1761,7 @@ export class EventsService extends Context.Service<EventsService>()("EventsServi
 					if (prior) {
 						return yield* dispatchBatchResult(prior);
 					}
-					const prepared: Array<PreparedEventDelete | null> = [];
+					const prepared: Array<null | PreparedEventDelete> = [];
 					for (const [index, input] of items.entries()) {
 						const value = yield* prepareDelete(input, indexedCommand(command, index));
 						if (!value) {

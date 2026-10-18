@@ -46,10 +46,10 @@ it("derives a stable and distinct workflow execution id", () => {
 class RecordedSchedules extends Context.Service<
 	RecordedSchedules,
 	{
+		readonly parents: Effect.Effect<ReadonlyArray<null | string>>;
 		readonly options: Effect.Effect<
 			ReadonlyArray<Parameters<WorkflowEngine["Service"]["execute"]>[1]>
 		>;
-		readonly parents: Effect.Effect<ReadonlyArray<string | null>>;
 	}
 >()("test/RecordedSchedules") {}
 
@@ -58,7 +58,7 @@ const recordingSchedulingLayer = Layer.unwrap(
 		const options = yield* Ref.make<
 			ReadonlyArray<Parameters<WorkflowEngine["Service"]["execute"]>[1]>
 		>([]);
-		const parents = yield* Ref.make<ReadonlyArray<string | null>>([]);
+		const parents = yield* Ref.make<ReadonlyArray<null | string>>([]);
 		const engine = makeWorkflowEngine({
 			execute: (_workflow, input) =>
 				Effect.gen(function* () {
@@ -153,14 +153,14 @@ layer(recordingSchedulingLayer.pipe(Layer.provideMerge(mutationAdmissionTestLaye
 class RecordedReconciliation extends Context.Service<
 	RecordedReconciliation,
 	{
-		readonly limit: Effect.Effect<number | null>;
+		readonly limit: Effect.Effect<null | number>;
 		readonly executionIds: Effect.Effect<ReadonlyArray<string>>;
 	}
 >()("test/RecordedReconciliation") {}
 
 const reconciliationLayer = Layer.unwrap(
 	Effect.gen(function* () {
-		const limit = yield* Ref.make<number | null>(null);
+		const limit = yield* Ref.make<null | number>(null);
 		const executionIds = yield* Ref.make<ReadonlyArray<string>>([]);
 		const failedUserId = UserId.make("user-2");
 		const incomplete = [userId, failedUserId, UserId.make("user-3")];

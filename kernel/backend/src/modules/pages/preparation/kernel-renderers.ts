@@ -11,9 +11,9 @@ type KernelClientRenderer = typeof kernelEntityBrowserRenderer;
 
 const kernelRenderers = new Map<string, KernelClientRenderer>([
 	["calendar", kernelCalendarRenderer],
-	["collection-browser", kernelCollectionBrowserRenderer],
-	["entity-browser", kernelEntityBrowserRenderer],
 	["results-table", kernelResultsTableRenderer],
+	["entity-browser", kernelEntityBrowserRenderer],
+	["collection-browser", kernelCollectionBrowserRenderer],
 ]);
 
 export const kernelRendererModule = (name: string): ClientCompositionModuleReference => ({

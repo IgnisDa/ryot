@@ -18,18 +18,18 @@ import {
 class FakeTicketStore extends Context.Service<
 	FakeTicketStore,
 	{
+		readonly clear: Effect.Effect<void>;
 		readonly values: Effect.Effect<ReadonlyMap<string, string>>;
 		readonly expiries: Effect.Effect<ReadonlyMap<string, number>>;
-		readonly clear: Effect.Effect<void>;
 		readonly put: (key: string, value: string) => Effect.Effect<void>;
 	}
 >()("test/FakeTicketStore") {}
 
 const makeLayer = (
 	options: {
-		readonly activeImpersonation?: { readonly expiresAt: number } | null;
-		readonly consumeUnavailable?: boolean;
 		readonly createUnavailable?: boolean;
+		readonly consumeUnavailable?: boolean;
+		readonly activeImpersonation?: null | { readonly expiresAt: number };
 	} = {},
 ) =>
 	Layer.unwrap(

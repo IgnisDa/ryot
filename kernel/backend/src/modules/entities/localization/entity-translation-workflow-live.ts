@@ -155,7 +155,7 @@ export const runTranslateEntityWorkflow = Effect.fn("TranslateEntityWorkflow")(f
 				})
 				.pipe(Effect.asVoid),
 		});
-		let execution: TranslationExecution | undefined;
+		let execution: undefined | TranslationExecution;
 		for (let attempt = 1; attempt <= 3; attempt += 1) {
 			yield* makeActivity({
 				name: `translation-running:${attempt}`,

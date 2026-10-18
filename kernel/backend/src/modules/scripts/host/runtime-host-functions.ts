@@ -39,7 +39,7 @@ const defaultHeaders = { "User-Agent": "Ryot ( https://github.com/ignisda/ryot )
 
 export type RuntimeSandboxHostImplementationMap = Pick<
 	ScriptHostImplementationMap,
-	"claimPersistentValue" | "getPersistentValue" | "getCachedValue" | "httpCall" | "setCachedValue"
+	"httpCall" | "getCachedValue" | "setCachedValue" | "getPersistentValue" | "claimPersistentValue"
 >;
 
 const persistentClaimEnvelopeSchema = Schema.Struct({
@@ -162,17 +162,17 @@ const HttpHopResult = Schema.Union([
 	Schema.TaggedStruct("completed", { result: httpCallResponseSchema }),
 	SandboxHttpRedirect,
 ]);
-type HttpHopResult = typeof HttpHopResult.Type;
-
 /** `follow` only for a hop proven unmatched by rate-limit policy; `stop` otherwise. */
-export type SandboxHttpClassify = (url: string) => Effect.Effect<"follow" | "stop">;
+export type SandboxHttpClassify = (url: string) => Effect.Effect<"stop" | "follow">;
+
+type HttpHopResult = typeof HttpHopResult.Type;
 
 type SandboxHttpOptions = typeof httpCallOptionsSchema.Type;
 
 export const prepareSandboxHttpRequest = (
 	method: string,
 	url: string,
-	options: SandboxHttpOptions | undefined,
+	options: undefined | SandboxHttpOptions,
 ): Effect.Effect<SandboxHttpHop, SandboxHostError> => {
 	if (!method.trim()) {
 		return sandboxHostFailure("httpCall expects a non-empty method string");
@@ -329,7 +329,7 @@ export const makeRuntimeSandboxApiFunctions = (
 ): Effect.Effect<
 	RuntimeSandboxHostImplementationMap,
 	never,
-	RedisService | ServerRun | HttpClient.HttpClient
+	ServerRun | RedisService | HttpClient.HttpClient
 > =>
 	Effect.gen(function* () {
 		const redis = yield* RedisService;

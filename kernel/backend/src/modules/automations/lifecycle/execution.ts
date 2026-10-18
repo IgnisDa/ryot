@@ -26,23 +26,23 @@ export class AutomationPolicyExecutionError extends Schema.TaggedError<
 export class LifecycleExecution extends Context.Service<
 	LifecycleExecution,
 	{
-		executeBatchPolicy: (input: {
-			runId: AutomationRunId;
-			acceptedBatchPatches: Readonly<Record<string, ReadonlyArray<AutomationPolicyPatch>>>;
-			activeItemIdentities: ReadonlyArray<string>;
-			acceptedReferences: Readonly<Record<string, AutomationEntityDraft>>;
-		}) => Effect.Effect<AutomationPolicyBatchOutput, AutomationPolicyExecutionError>;
-		executePolicy: (input: {
-			runId: AutomationRunId;
-			acceptedPatches: ReadonlyArray<AutomationPolicyPatch>;
-		}) => Effect.Effect<AutomationPolicyOutput, AutomationPolicyExecutionError>;
 		skipQueuedPolicies: (input: { triggerId: AutomationTriggerId }) => Effect.Effect<void, DbError>;
+		dispatch: (
+			plans: ReadonlyArray<LifecycleDispatchPlan>,
+		) => Effect.Effect<ReadonlyArray<AutomationWarning>, DbError | LifecyclePersistenceError>;
 		after: (input: {
 			triggerId: AutomationTriggerId;
 			runs: ReadonlyArray<LifecycleDispatchRun>;
 		}) => Effect.Effect<ReadonlyArray<AutomationWarning>, DbError>;
-		dispatch: (
-			plans: ReadonlyArray<LifecycleDispatchPlan>,
-		) => Effect.Effect<ReadonlyArray<AutomationWarning>, DbError | LifecyclePersistenceError>;
+		executePolicy: (input: {
+			runId: AutomationRunId;
+			acceptedPatches: ReadonlyArray<AutomationPolicyPatch>;
+		}) => Effect.Effect<AutomationPolicyOutput, AutomationPolicyExecutionError>;
+		executeBatchPolicy: (input: {
+			runId: AutomationRunId;
+			activeItemIdentities: ReadonlyArray<string>;
+			acceptedReferences: Readonly<Record<string, AutomationEntityDraft>>;
+			acceptedBatchPatches: Readonly<Record<string, ReadonlyArray<AutomationPolicyPatch>>>;
+		}) => Effect.Effect<AutomationPolicyBatchOutput, AutomationPolicyExecutionError>;
 	}
 >()("LifecycleExecution") {}

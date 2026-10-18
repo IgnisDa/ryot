@@ -43,15 +43,15 @@ export const UserLifecycleWorkflow = Workflow.make("UserLifecycleWorkflow", {
 });
 
 type UserLifecycleWorkflowOperationsValue = {
-	begin: (operationId: string) => Effect.Effect<UserLifecycleOperationKind | null, InternalError>;
+	bootstrapResetUser: (userId: UserId) => Effect.Effect<void, InternalError>;
 	cleanupObjects: (operationId: string) => Effect.Effect<void, InternalError>;
 	deleteDatabaseUser: (operationId: string) => Effect.Effect<void, InternalError>;
 	recreateResetUser: (operationId: string) => Effect.Effect<UserId, InternalError>;
-	bootstrapResetUser: (userId: UserId) => Effect.Effect<void, InternalError>;
 	finishResetUser: (operationId: string) => Effect.Effect<UserResetResult, InternalError>;
+	begin: (operationId: string) => Effect.Effect<null | UserLifecycleOperationKind, InternalError>;
 	complete: (
 		operationId: string,
-		result: UserResetResult | null,
+		result: null | UserResetResult,
 	) => Effect.Effect<void, InternalError>;
 	fail: (
 		operationId: string,
@@ -236,7 +236,7 @@ export const UserLifecycleWorkflowOperationsLive = Layer.effect(
 				"Reset user completion failed",
 			);
 
-		const complete = (operationId: string, result: UserResetResult | null) =>
+		const complete = (operationId: string, result: null | UserResetResult) =>
 			asInternal(
 				database.transaction(repository.markCompleted(operationId, result)),
 				"User lifecycle completion could not be recorded",
@@ -314,7 +314,7 @@ export const runUserLifecycleWorkflow = Effect.fn("UserLifecycleWorkflow")(
 			return;
 		}
 
-		let resetResult: UserResetResult | null = null;
+		let resetResult: null | UserResetResult = null;
 		if (started.success === "reset") {
 			const recreated = yield* makeActivity({
 				name: "recreate-reset-user",

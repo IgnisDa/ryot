@@ -88,15 +88,15 @@ const availablePlugin = {
 class FakeWorkflowLoad extends Context.Service<
 	FakeWorkflowLoad,
 	{
-		readonly enqueued: Effect.Effect<ReadonlyArray<unknown>>;
-		readonly updates: Effect.Effect<ReadonlyArray<unknown>>;
-		readonly polledExecutionIds: Effect.Effect<ReadonlyArray<string>>;
 		readonly completeExecutions: Effect.Effect<void>;
+		readonly updates: Effect.Effect<ReadonlyArray<unknown>>;
+		readonly enqueued: Effect.Effect<ReadonlyArray<unknown>>;
+		readonly polledExecutionIds: Effect.Effect<ReadonlyArray<string>>;
 	}
 >()("test/FakeWorkflowLoad") {}
 
 const workflowLoadLayer = (
-	options: { database?: Layer.Layer<DatabaseSession>; redis?: RedisService["Service"] } = {},
+	options: { redis?: RedisService["Service"]; database?: Layer.Layer<DatabaseSession> } = {},
 ) =>
 	Layer.unwrap(
 		Effect.gen(function* () {
@@ -234,12 +234,12 @@ layer(workflowLoadLayer())((test) => {
 
 const journalReads: string[] = [];
 const projections = new Map<string, ReadonlyArray<string>>([
-	[redisKeys.sandboxWorkflowJournal("valid"), ["m:0", "c:0:0", "m:1", "c:1:0", "c:1:1"]],
-	[redisKeys.sandboxWorkflowJournal("longest"), ["m:0", "c:0:0", "m:1", "c:1:0", "m:2", "c:2:0"]],
-	[redisKeys.sandboxWorkflowJournal("hole"), ["m:0", "c:0:0", "m:2", "c:2:0"]],
 	[redisKeys.sandboxWorkflowJournal("missing-first"), ["m:1", "c:1:0"]],
 	[redisKeys.sandboxWorkflowJournal("stray"), ["m:0", "c:0:0", "other"]],
+	[redisKeys.sandboxWorkflowJournal("hole"), ["m:0", "c:0:0", "m:2", "c:2:0"]],
+	[redisKeys.sandboxWorkflowJournal("valid"), ["m:0", "c:0:0", "m:1", "c:1:0", "c:1:1"]],
 	[`${redisKeys.sandboxWorkflowJournal("valid")}:unrelated`, ["m:0", "m:1", "m:2", "m:3"]],
+	[redisKeys.sandboxWorkflowJournal("longest"), ["m:0", "c:0:0", "m:1", "c:1:0", "m:2", "c:2:0"]],
 ]);
 
 layer(

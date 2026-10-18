@@ -79,20 +79,20 @@ export const identity = (): ClientPageCompositionIdentity => ({
 export const descriptions = () =>
 	new Map([
 		[
-			"a".repeat(64),
-			{
-				files: [
-					{ name: "bootstrap.js", contentType: "text/javascript" },
-					{ name: "runtime.js", contentType: "text/javascript" },
-				],
-			},
-		],
-		[
 			"b".repeat(64),
 			{
 				files: [
 					{ name: "module.js", contentType: "text/javascript" },
 					{ name: "module.css", contentType: "text/css" },
+				],
+			},
+		],
+		[
+			"a".repeat(64),
+			{
+				files: [
+					{ name: "bootstrap.js", contentType: "text/javascript" },
+					{ name: "runtime.js", contentType: "text/javascript" },
 				],
 			},
 		],

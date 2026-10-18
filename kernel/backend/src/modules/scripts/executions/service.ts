@@ -61,10 +61,10 @@ const sandboxExecutionFailure = (error: SandboxRunError) => ({
 	},
 });
 
-const toPluginWorkflowResult = (result: Workflow.Result<JsonValue, SandboxRunError> | undefined) =>
+const toPluginWorkflowResult = (result: undefined | Workflow.Result<JsonValue, SandboxRunError>) =>
 	toWorkflowRunResult(result, { onFailure: String, onSuccess: (output) => ({ output }) });
 
-const toSandboxRunResult = (result: Workflow.Result<JsonValue, SandboxRunError> | undefined) =>
+const toSandboxRunResult = (result: undefined | Workflow.Result<JsonValue, SandboxRunError>) =>
 	toWorkflowRunResult(result, {
 		onFailure: String,
 		onSuccess: (value) => {
@@ -233,8 +233,8 @@ export class ScriptExecutionService extends Context.Service<ScriptExecutionServi
 					executionId: string;
 					scriptId: SandboxScriptId;
 					grants?: SandboxExecutionGrants;
-					pluginRevision?: ScriptPluginRevision;
 					subject: SandboxExecutionSubject;
+					pluginRevision?: ScriptPluginRevision;
 				}) {
 					const contextError = sandboxContextError(input.input);
 					if (contextError) {
@@ -275,10 +275,10 @@ export class ScriptExecutionService extends Context.Service<ScriptExecutionServi
 				lane: ExecutionLane;
 				executionId: string;
 				scriptId: SandboxScriptId;
-				pluginRevision?: ScriptPluginRevision;
-				initialization?: ScriptInstallationInitialization;
 				grants?: SandboxExecutionGrants;
 				subject: SandboxExecutionSubject;
+				pluginRevision?: ScriptPluginRevision;
+				initialization?: ScriptInstallationInitialization;
 			}) {
 				return yield* Effect.gen(function* () {
 					const contextError = sandboxContextError(input.input);
@@ -322,8 +322,8 @@ export class ScriptExecutionService extends Context.Service<ScriptExecutionServi
 				pluginId: string;
 				executionId: string;
 				executingUserId: UserId;
-				accountGeneration: AccountGeneration;
 				scriptId: SandboxScriptId;
+				accountGeneration: AccountGeneration;
 				retain?: (principal: ScriptExecutionPrincipal) => Effect.Effect<void, SandboxRunError>;
 			}) {
 				const pin = yield* pinning.establish(
@@ -357,14 +357,14 @@ export class ScriptExecutionService extends Context.Service<ScriptExecutionServi
 
 			const enqueuePluginWorkflow = Effect.fn("ScriptExecutionService.enqueuePluginWorkflow")(
 				function* (input: {
-					accountGeneration: AccountGeneration;
 					input: JsonValue;
-					lane: ExecutionLane;
 					pluginId: string;
+					lane: ExecutionLane;
 					executionId: string;
 					workflowSlug: string;
 					executingUserId: UserId;
 					pluginInstallationId: string;
+					accountGeneration: AccountGeneration;
 				}) {
 					const contextError = sandboxContextError(input.input);
 					if (contextError) {

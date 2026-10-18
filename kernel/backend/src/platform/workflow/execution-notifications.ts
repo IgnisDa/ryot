@@ -140,11 +140,11 @@ export class WorkflowExecutionNotifications extends Context.Service<WorkflowExec
 }
 
 export const awaitWorkflowSettled = Effect.fn("workflow.awaitSettled")(function* <A, E, R>(input: {
+	timeout?: Duration.Input;
+	backstop: Duration.Input;
 	read: Effect.Effect<A, E, R>;
 	isSettled: (value: A) => boolean;
 	identities: ReadonlyArray<WorkflowIdentity>;
-	timeout?: Duration.Input;
-	backstop: Duration.Input;
 }) {
 	const notifications = yield* WorkflowExecutionNotifications;
 	const settle = Effect.gen(function* () {

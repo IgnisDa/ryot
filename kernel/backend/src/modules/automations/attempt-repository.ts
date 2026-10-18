@@ -51,10 +51,10 @@ const boundedPreview = <A>(serialized: string, wrap: (preview: string) => A): A 
 
 export type FinalizeAutomationAttempt = Pick<
 	AutomationRunAttempt,
-	"runId" | "attemptNumber" | "logs" | "error" | "returnedValue" | "timing"
+	"logs" | "runId" | "error" | "timing" | "attemptNumber" | "returnedValue"
 > &
 	(
-		| { status: "succeeded"; failureKind: null }
+		| { failureKind: null; status: "succeeded" }
 		| { status: "failed"; failureKind: NonNullable<AutomationRunAttempt["failureKind"]> }
 	);
 
@@ -89,9 +89,9 @@ const DiagnosticLog = Schema.Struct(AutomationRunAttempt.fields.logs.members[0].
 export const projectAutomationAttemptHistory = (
 	attempt: Pick<AutomationRunAttempt, "logs" | "error" | "failureKind">,
 ): {
+	historyArtifactsTruncated: boolean;
 	historyLogs: AutomationHistoryAttempt["logs"];
 	historyError: AutomationHistoryAttempt["error"];
-	historyArtifactsTruncated: boolean;
 } => {
 	const limit = AUTOMATION_HISTORY_LIMITS.attemptBytes;
 	const collector = makeSandboxObservabilityCollector();
@@ -240,7 +240,7 @@ const retryEligibility = (session: DatabaseSession["Service"], runId: Automation
 
 const queueRetry = (
 	session: DatabaseSession["Service"],
-	input: { runId: AutomationRunId; expectedAttemptCount: number; now: Date },
+	input: { now: Date; runId: AutomationRunId; expectedAttemptCount: number },
 ) =>
 	atomic(
 		session,
@@ -289,9 +289,9 @@ export class AutomationAttemptRepository extends Context.Service<AutomationAttem
 				return row ? yield* decodeRow(row) : null;
 			});
 			const claimNextAttempt = (input: {
-				runId: AutomationRunId;
-				attemptNumber: number;
 				now: Date;
+				attemptNumber: number;
+				runId: AutomationRunId;
 			}) =>
 				atomic(
 					session,
@@ -473,8 +473,8 @@ export class AutomationAttemptRepository extends Context.Service<AutomationAttem
 				);
 			const pruneArtifacts = Effect.fn(function* (input: {
 				before: Date;
-				prunedAt: Date;
 				limit: number;
+				prunedAt: Date;
 			}) {
 				return yield* session.run((db) => {
 					const candidates = db

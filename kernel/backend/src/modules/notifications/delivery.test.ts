@@ -28,7 +28,7 @@ const recordingFetchLayer = Layer.effectContext(
 	Effect.gen(function* () {
 		const requests = yield* Ref.make<ReadonlyArray<CapturedRequest>>([]);
 		const run = Effect.runPromiseWith(yield* Effect.context());
-		const stubFetch = (input: string | Request | URL, init?: RequestInit) => {
+		const stubFetch = (input: URL | string | Request, init?: RequestInit) => {
 			const request =
 				input instanceof Request
 					? input

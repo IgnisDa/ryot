@@ -14,6 +14,7 @@ import {
 import { TranslationsService } from "./service";
 
 export type TranslateEntityWorkflowOperationsValue = {
+	releaseRegistration: (executionId: string) => Effect.Effect<void, SandboxRunError>;
 	captureExecution: (
 		payload: TranslateEntityWorkflowPayload,
 		executionId: string,
@@ -24,11 +25,10 @@ export type TranslateEntityWorkflowOperationsValue = {
 		executionId: string,
 		capturedExecution: TranslationExecution,
 	) => Effect.Effect<
-		{ execution: TranslationExecution; result: SandboxExecutionResult },
+		{ result: SandboxExecutionResult; execution: TranslationExecution },
 		SandboxRunError,
 		WorkflowEngine | WorkflowInstance
 	>;
-	releaseRegistration: (executionId: string) => Effect.Effect<void, SandboxRunError>;
 };
 
 export class TranslateEntityWorkflowOperations extends Context.Service<

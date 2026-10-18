@@ -4,7 +4,7 @@ const separator = ".";
 const keyDomain = "sandbox-job-id";
 const textEncoder = new TextEncoder();
 
-export type WorkflowJob = { readonly executionId: string; readonly itemCount?: number };
+export type WorkflowJob = { readonly itemCount?: number; readonly executionId: string };
 
 const itemCountText = (job: WorkflowJob) => job.itemCount?.toString() ?? "";
 
@@ -34,7 +34,7 @@ export const resolveWorkflowJob = (
 	secret: string,
 	userId: string,
 	jobId: string,
-): WorkflowJob | null => {
+): null | WorkflowJob => {
 	const signatureStart = jobId.lastIndexOf(separator);
 	const countStart = jobId.lastIndexOf(separator, signatureStart - 1);
 	if (countStart <= 0 || signatureStart === jobId.length - 1) {

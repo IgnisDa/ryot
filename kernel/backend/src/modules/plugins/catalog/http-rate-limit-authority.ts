@@ -25,8 +25,8 @@ export type HttpRateLimitAuthorityResolution =
 const requestOrigin = (
 	requestUrl: string,
 ):
-	| Readonly<{ matched: false; reason: "invalid-url" | "non-http-url" }>
-	| Readonly<{ origin: string }> => {
+	| Readonly<{ origin: string }>
+	| Readonly<{ matched: false; reason: "invalid-url" | "non-http-url" }> => {
 	const parsed = Result.try(() => new URL(requestUrl));
 	if (Result.isFailure(parsed)) {
 		return { matched: false, reason: "invalid-url" };

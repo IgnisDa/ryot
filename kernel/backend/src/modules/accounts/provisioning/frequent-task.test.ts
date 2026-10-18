@@ -6,12 +6,12 @@ import { UserBootstrapScheduling } from "./scheduling";
 
 class RecordedReconcileLimit extends Context.Service<
 	RecordedReconcileLimit,
-	{ readonly limit: Effect.Effect<number | null> }
+	{ readonly limit: Effect.Effect<null | number> }
 >()("test/RecordedReconcileLimit") {}
 
 const recordingSchedulingLayer = Layer.unwrap(
 	Effect.gen(function* () {
-		const limit = yield* Ref.make<number | null>(null);
+		const limit = yield* Ref.make<null | number>(null);
 		return Layer.merge(
 			Layer.mock(UserBootstrapScheduling)({ reconcile: (value) => Ref.set(limit, value) }),
 			Layer.succeed(RecordedReconcileLimit, { limit: Ref.get(limit) }),

@@ -29,9 +29,9 @@ const SANDBOX_METRIC_KINDS = [
 	"unknown",
 ] as const;
 
-export type SandboxMetricKind = (typeof SANDBOX_METRIC_KINDS)[number];
-
 export type SandboxHostCallOutcome = "success" | "failure";
+
+export type SandboxMetricKind = (typeof SANDBOX_METRIC_KINDS)[number];
 
 export type SandboxExecutionOutcome = "success" | "failure" | "timeout";
 
@@ -216,22 +216,22 @@ export const recordSandboxExecution = (input: {
 };
 
 export const recordSandboxSidecarEvent = (input: {
-	readonly trust: typeof SandboxTrust.Type;
-	readonly tier: typeof SidecarTier.Type;
-	readonly event:
-		| "start"
-		| "stop"
-		| "ready"
-		| "released"
-		| "restart"
-		| "probe"
-		| "collateral"
-		| "quarantine"
-		| "probation"
-		| "limit"
-		| "disposal";
 	readonly reason: string;
 	readonly durationMs?: number;
+	readonly tier: typeof SidecarTier.Type;
+	readonly trust: typeof SandboxTrust.Type;
+	readonly event:
+		| "stop"
+		| "start"
+		| "ready"
+		| "probe"
+		| "limit"
+		| "restart"
+		| "released"
+		| "disposal"
+		| "probation"
+		| "collateral"
+		| "quarantine";
 }) => {
 	const attributes = {
 		trust: input.trust,
@@ -256,11 +256,11 @@ export const recordSandboxSidecarEvent = (input: {
 };
 
 export const recordSandboxSidecarGauges = (input: {
-	readonly trust: typeof SandboxTrust.Type;
-	readonly tier: typeof SidecarTier.Type;
 	readonly runs: number;
 	readonly hostCalls: number;
 	readonly backoffMs: number;
+	readonly tier: typeof SidecarTier.Type;
+	readonly trust: typeof SandboxTrust.Type;
 }) => {
 	const attributes = { trust: input.trust, snapshot: input.tier };
 	return Effect.forEach(
@@ -275,9 +275,9 @@ export const recordSandboxSidecarGauges = (input: {
 };
 
 export const recordSandboxAdmission = (input: {
-	readonly waiting: number;
 	readonly bytes: number;
 	readonly budget: number;
+	readonly waiting: number;
 	readonly mode: SandboxMemoryPlan["mode"];
 }) =>
 	Effect.all(
@@ -305,14 +305,14 @@ export const recordSandboxHostCall = (input: {
 	);
 
 export const recordSandboxExecutionUsage = (input: {
-	readonly kind: SandboxMetricKind;
-	readonly trust: typeof SandboxTrust.Type;
-	readonly tier: typeof SidecarTier.Type;
-	readonly outcome: "completed" | "cancelled" | "limit" | "failed";
-	readonly lane: ExecutionLane;
 	readonly heapBytes: number;
 	readonly cpuWaitMs: number;
+	readonly lane: ExecutionLane;
 	readonly externalBytes: number;
+	readonly kind: SandboxMetricKind;
+	readonly tier: typeof SidecarTier.Type;
+	readonly trust: typeof SandboxTrust.Type;
+	readonly outcome: "limit" | "failed" | "completed" | "cancelled";
 }) => {
 	const attributes = {
 		kind: input.kind,
@@ -331,9 +331,9 @@ export const recordSandboxExecutionUsage = (input: {
 };
 
 export const recordSandboxSidecarHostCall = (input: {
-	readonly trust: typeof SandboxTrust.Type;
-	readonly tier: typeof SidecarTier.Type;
 	readonly function: string;
+	readonly tier: typeof SidecarTier.Type;
+	readonly trust: typeof SandboxTrust.Type;
 	readonly outcome: "success" | "failure" | "interrupted";
 }) =>
 	Metric.update(
@@ -373,10 +373,10 @@ export const recordSandboxAggregateRss = (bytes: number, sampledProcesses: numbe
 	);
 
 export const recordSandboxSidecarProcesses = (input: {
-	readonly trust: typeof SandboxTrust.Type;
-	readonly tier: typeof SidecarTier.Type;
-	readonly processes: number;
 	readonly bytes: number;
+	readonly processes: number;
+	readonly tier: typeof SidecarTier.Type;
+	readonly trust: typeof SandboxTrust.Type;
 }) => {
 	const attributes = { trust: input.trust, snapshot: input.tier };
 	return Effect.all(

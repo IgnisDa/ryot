@@ -405,11 +405,11 @@ export type ArchiveRecords = {
 	readonly profile: ArchiveProfile;
 	readonly entities: ReadonlyArray<ArchiveUserEntity>;
 	readonly savedViews: ReadonlyArray<ArchiveSavedView>;
-	readonly calendarSourceOverrides: ReadonlyArray<ArchiveCalendarSourceOverride>;
 	readonly integrations: ReadonlyArray<ArchiveIntegration>;
 	readonly installations: ReadonlyArray<ArchiveInstallation>;
 	readonly relationships: ReadonlyArray<ArchiveRelationship>;
 	readonly privatePlugins: ReadonlyArray<ArchivePrivatePlugin>;
 	readonly entityDependencies: ReadonlyArray<ArchiveEntityDependency>;
+	readonly calendarSourceOverrides: ReadonlyArray<ArchiveCalendarSourceOverride>;
 	readonly notificationSubscriptions: ReadonlyArray<ArchiveNotificationSubscription>;
 };

@@ -30,17 +30,17 @@ const restoreEventInput = (id: string) => ({
 class RecordedDatabaseCalls extends Context.Service<
 	RecordedDatabaseCalls,
 	{
-		readonly inserts: Effect.Effect<ReadonlyArray<ReadonlyArray<Record<string, unknown>>>>;
 		readonly limits: Effect.Effect<ReadonlyArray<number>>;
+		readonly inserts: Effect.Effect<ReadonlyArray<ReadonlyArray<Record<string, unknown>>>>;
 	}
 >()("test/RecordedDatabaseCalls") {}
 
 const recordingDatabaseLayer = <A, E, R>(
 	make: (db: {
+		readonly select: () => unknown;
 		readonly insert: () => {
 			readonly values: (values: ReadonlyArray<Record<string, unknown>>) => Effect.Effect<void>;
 		};
-		readonly select: () => unknown;
 	}) => Layer.Layer<A, E, R>,
 	rows: ReadonlyArray<Record<string, unknown>> = [],
 ) =>

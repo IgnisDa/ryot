@@ -65,8 +65,8 @@ type RelationshipBase = {
 
 const insertEntities = Effect.fnUntraced(function* (
 	ids: ReadonlyArray<string>,
-	owner: UserId | null = null,
-	entitySchemaPluginId: string | null = null,
+	owner: null | UserId = null,
+	entitySchemaPluginId: null | string = null,
 ) {
 	const session = yield* DatabaseSession;
 	yield* session.run((db) =>

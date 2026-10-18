@@ -53,6 +53,11 @@ export const OAUTH_ACCESS_TOKEN_MESSAGES = {
 	unavailable: "OAuth connection is not available to this integration run",
 } as const;
 
+type CipherOwner = { readonly id: string; readonly userId: string };
+
+type CipherColumn = "code" | "accessToken" | "codeVerifier" | "refreshToken";
+
+type OAuthConfigAuthority = Pick<RegisteredIntegrationProvider, "configContext" | "installationId">;
 class OAuthAccessTokenError extends Data.TaggedError("OAuthAccessTokenError")<{
 	readonly message: (typeof OAUTH_ACCESS_TOKEN_MESSAGES)[keyof typeof OAUTH_ACCESS_TOKEN_MESSAGES];
 }> {}
@@ -60,11 +65,6 @@ class OAuthAccessTokenError extends Data.TaggedError("OAuthAccessTokenError")<{
 export class OAuthConnectionBindingError extends Data.TaggedError("OAuthConnectionBindingError")<{
 	readonly field: string;
 }> {}
-
-type CipherColumn = "accessToken" | "code" | "codeVerifier" | "refreshToken";
-type OAuthConfigAuthority = Pick<RegisteredIntegrationProvider, "configContext" | "installationId">;
-
-type CipherOwner = { readonly id: string; readonly userId: string };
 
 const randomToken = () =>
 	Buffer.from(crypto.getRandomValues(new Uint8Array(32))).toString("base64url");
@@ -206,7 +206,7 @@ export class OAuthConnectionsService extends Context.Service<OAuthConnectionsSer
 					reason: { code: "provider-not-found", provider: body.integrationProvider.slug },
 				});
 				const reference = body.integrationProvider;
-				let registered: RegisteredIntegrationProvider | null;
+				let registered: null | RegisteredIntegrationProvider;
 				if (body.integrationId === undefined) {
 					registered = yield* catalog.findForUser(user.id, reference);
 				} else {
@@ -465,8 +465,8 @@ export class OAuthConnectionsService extends Context.Service<OAuthConnectionsSer
 				function* (input: {
 					readonly userId: UserId;
 					readonly settingsSchema: AppSchema;
-					readonly integrationId: IntegrationId;
 					readonly integrationProvider: string;
+					readonly integrationId: IntegrationId;
 					readonly pluginInstallationId: string;
 					readonly settings: Readonly<Record<string, unknown>>;
 				}) {
@@ -502,11 +502,11 @@ export class OAuthConnectionsService extends Context.Service<OAuthConnectionsSer
 			type ConnectionRow = NonNullable<Effect.Success<ReturnType<typeof repository.findById>>>;
 			type IntegrationRunInput = {
 				readonly field: string;
-				readonly connectionId: OAuthConnectionId;
 				readonly userId: UserId;
 				readonly pluginId: string;
 				readonly integrationId: IntegrationId;
 				readonly integrationRunId: ImportRunId;
+				readonly connectionId: OAuthConnectionId;
 			};
 			const unavailable = accessTokenError(OAUTH_ACCESS_TOKEN_MESSAGES.unavailable);
 

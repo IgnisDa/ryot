@@ -24,14 +24,14 @@ import { ingestionReadinessMetadata } from "./readiness-metadata";
 import type { pluginConfigContextFor } from "./runtime-resolver";
 
 export type RegisteredImportSource = PluginImportSource & {
+	readonly pluginId: string;
+	readonly installationId: string;
+	readonly packageId: PluginPackageId;
+	readonly pluginScope: "user" | "system";
+	readonly reference: DeclarationReference;
+	readonly configSchema: PluginConfigSchema;
 	readonly readinessMetadata: IngestionReadinessMetadata;
 	readonly requiredPluginConfigKeys: ReadonlyArray<string>;
-	readonly pluginId: string;
-	readonly packageId: PluginPackageId;
-	readonly reference: DeclarationReference;
-	readonly installationId: string;
-	readonly pluginScope: "system" | "user";
-	readonly configSchema: PluginConfigSchema;
 	readonly configuredPluginConfigKeys: ReadonlyArray<string>;
 	readonly configContext: ReturnType<typeof pluginConfigContextFor>;
 };
@@ -102,7 +102,7 @@ const querySourcesForSession = (database: DatabaseSession["Service"]) =>
 					pluginRevisionId,
 					...row
 				}): ReadonlyArray<{
-					readonly script: CatalogScript | null;
+					readonly script: null | CatalogScript;
 					readonly source: RegisteredImportSource;
 				}> => {
 					if (
@@ -115,7 +115,7 @@ const querySourcesForSession = (database: DatabaseSession["Service"]) =>
 					}
 
 					const result: {
-						readonly script: CatalogScript | null;
+						readonly script: null | CatalogScript;
 						readonly source: RegisteredImportSource;
 					} = {
 						script: script && { ...script, pluginId, id: SandboxScriptId.make(script.id) },

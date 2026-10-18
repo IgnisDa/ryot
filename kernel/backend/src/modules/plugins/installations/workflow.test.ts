@@ -48,26 +48,26 @@ it("keeps lifecycle executions distinct for each installation and activation", (
 	);
 });
 
-type ResolvedBootstrap = Effect.Success<
-	ReturnType<PluginRuntimeResolver["Service"]["resolveInstallationBootstrap"]>
->;
-
 type ScriptPinLookupArguments = Parameters<SandboxRepository["Service"]["getScriptPin"]>;
-type ScriptPinLookup = {
-	readonly scriptId: ScriptPinLookupArguments[0];
-	readonly expectedRevision: ScriptPinLookupArguments[1];
-	readonly subject: ScriptPinLookupArguments[2];
-	readonly initialization: ScriptPinLookupArguments[3];
-};
+
+type HealthUpdate = Parameters<PluginInstallationRepository["Service"]["updateHealth"]>[0];
 type WorkflowRegistration = Parameters<
 	SandboxWorkflowReferenceRepository["Service"]["registerInTransaction"]
 >[0];
+type ResolvedBootstrap = Effect.Success<
+	ReturnType<PluginRuntimeResolver["Service"]["resolveInstallationBootstrap"]>
+>;
 type Execution = Pick<
 	Parameters<ScriptExecutionService["Service"]["executeScript"]>[0],
-	"executionId" | "scriptId" | "subject" | "pluginRevision" | "initialization"
+	"subject" | "scriptId" | "executionId" | "pluginRevision" | "initialization"
 >;
 
-type HealthUpdate = Parameters<PluginInstallationRepository["Service"]["updateHealth"]>[0];
+type ScriptPinLookup = {
+	readonly subject: ScriptPinLookupArguments[2];
+	readonly scriptId: ScriptPinLookupArguments[0];
+	readonly initialization: ScriptPinLookupArguments[3];
+	readonly expectedRevision: ScriptPinLookupArguments[1];
+};
 
 const bootstrapEntry = (slug: string) => ({ slug, scriptId: SandboxScriptId.make(`${slug}-id`) });
 
@@ -80,42 +80,42 @@ const resolved = (overrides: Partial<NonNullable<ResolvedBootstrap>> = {}) => ({
 	...overrides,
 });
 
+class InstallationWorkflowFakeState extends Context.Service<
+	InstallationWorkflowFakeState,
+	{
+		readonly isInitialized: Ref.Ref<boolean>;
+		readonly didQuarantine: Ref.Ref<boolean>;
+		readonly bootstrap: Ref.Ref<ResolvedBootstrap>;
+		readonly seeds: Ref.Ref<ReadonlyArray<string>>;
+		readonly executions: Ref.Ref<ReadonlyArray<Execution>>;
+		readonly pushOrder: (entry: string) => Effect.Effect<void>;
+		readonly healthUpdates: Ref.Ref<ReadonlyArray<HealthUpdate>>;
+		readonly scriptPinLookups: Ref.Ref<ReadonlyArray<ScriptPinLookup>>;
+		readonly registrations: Ref.Ref<ReadonlyArray<WorkflowRegistration>>;
+	}
+>()("test/InstallationWorkflowFakeState") {}
+
 class FakeInstallationWorkflow extends Context.Service<
 	FakeInstallationWorkflow,
 	{
+		readonly isInitialized: Effect.Effect<boolean>;
 		readonly order: Effect.Effect<ReadonlyArray<string>>;
+		readonly seeds: Effect.Effect<ReadonlyArray<string>>;
 		readonly executions: Effect.Effect<ReadonlyArray<Execution>>;
+		readonly healthUpdates: Effect.Effect<ReadonlyArray<HealthUpdate>>;
 		readonly scriptPinLookups: Effect.Effect<ReadonlyArray<ScriptPinLookup>>;
 		readonly registrations: Effect.Effect<ReadonlyArray<WorkflowRegistration>>;
-		readonly healthUpdates: Effect.Effect<ReadonlyArray<HealthUpdate>>;
-		readonly isInitialized: Effect.Effect<boolean>;
-		readonly seeds: Effect.Effect<ReadonlyArray<string>>;
 		readonly resolveBootstrapWith: (bootstrap: ResolvedBootstrap) => Effect.Effect<void>;
 	}
 >()("test/FakeInstallationWorkflow") {}
 
-class InstallationWorkflowFakeState extends Context.Service<
-	InstallationWorkflowFakeState,
-	{
-		readonly bootstrap: Ref.Ref<ResolvedBootstrap>;
-		readonly executions: Ref.Ref<ReadonlyArray<Execution>>;
-		readonly scriptPinLookups: Ref.Ref<ReadonlyArray<ScriptPinLookup>>;
-		readonly registrations: Ref.Ref<ReadonlyArray<WorkflowRegistration>>;
-		readonly healthUpdates: Ref.Ref<ReadonlyArray<HealthUpdate>>;
-		readonly isInitialized: Ref.Ref<boolean>;
-		readonly seeds: Ref.Ref<ReadonlyArray<string>>;
-		readonly didQuarantine: Ref.Ref<boolean>;
-		readonly pushOrder: (entry: string) => Effect.Effect<void>;
-	}
->()("test/InstallationWorkflowFakeState") {}
-
 const workflowLayer = (input: {
 	readonly bootstrap: ResolvedBootstrap;
 	readonly hiddenInstallation?: boolean;
-	readonly scriptErrors?: Record<string, string>;
 	readonly quarantineOnExecution?: boolean;
-	readonly bootstrapAfterExecution?: ResolvedBootstrap;
 	readonly quarantineAfterFirstSeed?: boolean;
+	readonly scriptErrors?: Record<string, string>;
+	readonly bootstrapAfterExecution?: ResolvedBootstrap;
 }) => {
 	const fakes = Layer.effectContext(
 		Effect.gen(function* () {

@@ -39,7 +39,7 @@ export const filterFieldIssues = ({
 }: {
 	readonly query: NamedQuery;
 	readonly renderer: KernelSavedViewRendererName;
-	readonly settings: { readonly filterFields?: readonly FilterField[] | undefined };
+	readonly settings: { readonly filterFields?: undefined | readonly FilterField[] };
 }): string | undefined => {
 	const projected = projectedKeys(query);
 	const keys = new Set<string>();

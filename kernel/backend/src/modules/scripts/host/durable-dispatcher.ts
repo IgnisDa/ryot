@@ -77,10 +77,10 @@ export const sandboxHttpRedirectClassifier =
 
 export interface HostCallScope {
 	readonly context: unknown;
+	readonly startedAt: string;
 	readonly executionId: string;
 	readonly lane: ExecutionLane;
 	readonly principal: ScriptExecutionPrincipal;
-	readonly startedAt: string;
 }
 
 export const hostCallScopeOf = (
@@ -392,6 +392,10 @@ export const runSandboxDurableHostServiceWorkflow = Effect.fn("SandboxDurableHos
 );
 
 type SandboxDurableHostDispatcherValue = {
+	readonly cancelInline: (
+		executionId: string,
+		progress: ReadonlyArray<SandboxInlineProgress>,
+	) => Effect.Effect<void>;
 	readonly dispatch: (
 		request: HostRequest,
 		payload: PinnedScriptExecutionWorkflowPayload,
@@ -408,11 +412,7 @@ type SandboxDurableHostDispatcherValue = {
 		startedAt: string,
 		wait: SandboxShortWait,
 		checkpoint: (progress: SandboxInlineProgress) => Effect.Effect<void>,
-	) => Effect.Effect<ReadonlyArray<WorkflowDurableResult | null> | null>;
-	readonly cancelInline: (
-		executionId: string,
-		progress: ReadonlyArray<SandboxInlineProgress>,
-	) => Effect.Effect<void>;
+	) => Effect.Effect<null | ReadonlyArray<null | WorkflowDurableResult>>;
 };
 
 export class SandboxDurableHostDispatcher extends Context.Service<

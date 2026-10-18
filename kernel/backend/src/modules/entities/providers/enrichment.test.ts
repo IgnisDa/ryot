@@ -53,38 +53,38 @@ const currentUser = (id: string): CurrentUserValue => ({
 const owner = currentUser("owner");
 const recipient = currentUser("recipient");
 
+type RequestRow = Effect.Success<ReturnType<EnrichmentRequests["Service"]["get"]>>;
 type SeedInput = {
-	readonly externalId: string;
-	readonly failed?: boolean;
-	readonly relatedPopulated?: boolean;
-	readonly basePopulated?: boolean;
 	readonly userId?: UserId;
+	readonly failed?: boolean;
+	readonly externalId: string;
+	readonly basePopulated?: boolean;
+	readonly level?: "base" | "full";
 	readonly providerBacked?: boolean;
+	readonly relatedPopulated?: boolean;
 	readonly operation?: "population" | "translation";
 	readonly state?: "failed" | "cancelled" | "succeeded";
-	readonly level?: "base" | "full";
 };
-type RequestRow = Effect.Success<ReturnType<EnrichmentRequests["Service"]["get"]>>;
 
 class RetryFixture extends Context.Service<
 	RetryFixture,
 	{
 		readonly pluginId: PluginId;
 		readonly runs: Effect.Effect<ReadonlyArray<string>>;
-		readonly translations: Effect.Effect<ReadonlyArray<RequestFillInput>>;
 		readonly seed: (input: SeedInput) => Effect.Effect<EntityId>;
+		readonly markFailed: (entityId: EntityId) => Effect.Effect<void>;
+		readonly translations: Effect.Effect<ReadonlyArray<RequestFillInput>>;
+		readonly reconcilerRequest: (entityId: EntityId, externalId: string) => Effect.Effect<void>;
 		readonly latest: (
 			entityId: EntityId,
 			user?: CurrentUserValue,
 			operation?: "population" | "translation",
 			level?: "base" | "full",
 		) => Effect.Effect<RequestRow>;
-		readonly markFailed: (entityId: EntityId) => Effect.Effect<void>;
-		readonly reconcilerRequest: (entityId: EntityId, externalId: string) => Effect.Effect<void>;
 	}
 >()("test/PopulationRetryFixture") {}
 
-const retryLayer = (pluginOwner: UserId | null = null) =>
+const retryLayer = (pluginOwner: null | UserId = null) =>
 	Layer.unwrap(
 		Effect.gen(function* () {
 			const session = yield* DatabaseSession;

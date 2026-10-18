@@ -28,11 +28,11 @@ import { DatabaseSession } from "#platform/db/session";
 import { makeProviderExecutionReads } from "./execution-reads";
 import { persistPlannedRelationshipPage } from "./relationship-synchronization";
 
-type RelatedGroupPaging = { generation: string; groupIndex: number; pageIndex: number };
+type RelatedGroupPaging = { pageIndex: number; generation: string; groupIndex: number };
 
 const pagedItemIdentity = (
 	primaryEntityId: EntityId,
-	group: Pick<ProviderDetailsRelatedEntityGroup, "relationshipSchemaSlug" | "direction">,
+	group: Pick<ProviderDetailsRelatedEntityGroup, "direction" | "relationshipSchemaSlug">,
 	paging: Pick<RelatedGroupPaging, "groupIndex">,
 	step: string,
 ) => [
@@ -86,13 +86,13 @@ const populationBatch = (population: AutomationPopulationContext, id: string) =>
 
 export const claimRelatedGroupGeneration = Effect.fn("claimRelatedGroupGeneration")(
 	function* (input: {
-		beforeWrite?: Effect.Effect<void, SandboxRunError>;
-		generation: string;
 		startedAt: Date;
+		generation: string;
 		pluginId: PluginId;
 		primaryEntityId: EntityId;
 		definitions: EntityRelationshipDefinitions;
-		group: Pick<ProviderDetailsRelatedEntityGroup, "relationshipSchemaSlug" | "direction">;
+		beforeWrite?: Effect.Effect<void, SandboxRunError>;
+		group: Pick<ProviderDetailsRelatedEntityGroup, "direction" | "relationshipSchemaSlug">;
 	}) {
 		const session = yield* DatabaseSession;
 		const repository = yield* RelationshipsRepository;
@@ -120,17 +120,17 @@ export const claimRelatedGroupGeneration = Effect.fn("claimRelatedGroupGeneratio
 );
 
 export const sweepRelatedEntityGroup = Effect.fn("sweepRelatedEntityGroup")(function* (
-	input: {
-		beforeWrite?: Effect.Effect<void, SandboxRunError>;
+	input: ({ scope: "global" } | { scope: "user"; userId: UserId }) & {
 		generation: string;
 		groupIndex: number;
 		pluginId: PluginId;
-		command: DomainLifecycleCommand;
 		primaryEntityId: EntityId;
+		command: DomainLifecycleCommand;
 		population: AutomationPopulationContext;
 		definitions: EntityRelationshipDefinitions;
-		group: Pick<ProviderDetailsRelatedEntityGroup, "relationshipSchemaSlug" | "direction">;
-	} & ({ scope: "global" } | { scope: "user"; userId: UserId }),
+		beforeWrite?: Effect.Effect<void, SandboxRunError>;
+		group: Pick<ProviderDetailsRelatedEntityGroup, "direction" | "relationshipSchemaSlug">;
+	},
 ) {
 	const session = yield* DatabaseSession;
 	const repository = yield* RelationshipsRepository;
@@ -189,17 +189,17 @@ export const sweepRelatedEntityGroup = Effect.fn("sweepRelatedEntityGroup")(func
 });
 
 export const syncRelatedEntityGroup = Effect.fn("syncRelatedEntityGroup")(function* (
-	input: {
-		beforeWrite?: Effect.Effect<void, SandboxRunError>;
-		command: DomainLifecycleCommand;
+	input: ({ scope: "global" } | { scope: "user"; userId: UserId }) & {
 		pluginId: PluginId;
-		definitions: EntityRelationshipDefinitions;
-		population: AutomationPopulationContext;
 		primaryEntityId: EntityId;
-		primaryEntitySchemaSlug: EntitySchemaSlug;
-		group: Omit<ProviderDetailsRelatedEntityGroup, "continuation">;
 		paging: RelatedGroupPaging;
-	} & ({ scope: "global" } | { scope: "user"; userId: UserId }),
+		command: DomainLifecycleCommand;
+		population: AutomationPopulationContext;
+		primaryEntitySchemaSlug: EntitySchemaSlug;
+		definitions: EntityRelationshipDefinitions;
+		beforeWrite?: Effect.Effect<void, SandboxRunError>;
+		group: Omit<ProviderDetailsRelatedEntityGroup, "continuation">;
+	},
 ) {
 	const session = yield* DatabaseSession;
 	const reads = makeProviderExecutionReads(session);

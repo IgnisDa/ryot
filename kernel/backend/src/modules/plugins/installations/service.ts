@@ -64,6 +64,10 @@ import { PluginInstallationLifecycleDispatcher } from "./workflow";
 
 type PrivatePluginPackageInput = PluginArchivePackage | { readonly uploadToken: string };
 
+type HomeSavedViewTarget = NonNullable<
+	Effect.Success<ReturnType<PluginInstallationRepository["Service"]["findHomeSavedView"]>>
+>;
+
 type InstallPrivatePluginInput = PrivatePluginPackageInput & {
 	readonly userId: UserId;
 	readonly config: Record<string, unknown>;
@@ -79,10 +83,6 @@ type UpdatePrivatePluginInput = PrivatePluginPackageInput &
 		readonly userId: UserId;
 		readonly installationId: string;
 	};
-
-type HomeSavedViewTarget = NonNullable<
-	Effect.Success<ReturnType<PluginInstallationRepository["Service"]["findHomeSavedView"]>>
->;
 
 const isUsableHomeSavedView = (
 	target: HomeSavedViewTarget,
@@ -267,8 +267,8 @@ export class PluginInstallationService extends Context.Service<PluginInstallatio
 					manifest: PluginManifest,
 					stored: Record<string, unknown>,
 					payload: {
-						config?: Record<string, unknown> | undefined;
-						unsetConfigKeys?: ReadonlyArray<string> | undefined;
+						config?: undefined | Record<string, unknown>;
+						unsetConfigKeys?: undefined | ReadonlyArray<string>;
 					},
 				) {
 					const merged = { ...stored, ...payload.config };

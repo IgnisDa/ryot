@@ -27,8 +27,8 @@ const createdAt = new Date(0);
 const runtimeHash = "a".repeat(64);
 const pluginHash = "b".repeat(64);
 const artifacts = new Map([
-	[runtimeHash, { files: [{ name: "bootstrap.js", contentType: "text/javascript" }] }],
 	[pluginHash, { files: [{ name: "module.js", contentType: "text/javascript" }] }],
+	[runtimeHash, { files: [{ name: "bootstrap.js", contentType: "text/javascript" }] }],
 ]);
 const manifest = fixtureManifest();
 const routeTarget = {
@@ -102,23 +102,23 @@ const savedView = (id: SavedViewId, revision: number, exportName = "main") => ({
 type SavedView = ReturnType<typeof savedView>;
 const savedViewReferenceKey = (reference: SavedViewReference) => JSON.stringify(reference);
 
-class PageSelections extends Context.Service<
-	PageSelections,
-	{
-		readonly setHome: (reference: SavedViewReference | null) => Effect.Effect<void>;
-		readonly setView: (reference: SavedViewReference, view: SavedView) => Effect.Effect<void>;
-	}
->()("test/PageSelections") {}
+class AvailablePlugins extends Context.Service<
+	AvailablePlugins,
+	{ readonly revoke: Effect.Effect<void> }
+>()("test/AvailablePlugins") {}
 
 class RecordedPrepareCalls extends Context.Service<
 	RecordedPrepareCalls,
 	{ readonly calls: Effect.Effect<ReadonlyArray<string>> }
 >()("test/RecordedPrepareCalls") {}
 
-class AvailablePlugins extends Context.Service<
-	AvailablePlugins,
-	{ readonly revoke: Effect.Effect<void> }
->()("test/AvailablePlugins") {}
+class PageSelections extends Context.Service<
+	PageSelections,
+	{
+		readonly setHome: (reference: null | SavedViewReference) => Effect.Effect<void>;
+		readonly setView: (reference: SavedViewReference, view: SavedView) => Effect.Effect<void>;
+	}
+>()("test/PageSelections") {}
 
 const stored = (graph: ResolvedClientPageGraph) => ({
 	createdAt,
@@ -196,7 +196,7 @@ const pagesLayer = PagesService.layer.pipe(
 			),
 			Layer.effectContext(
 				Effect.gen(function* () {
-					const home = yield* Ref.make<SavedViewReference | null>(null);
+					const home = yield* Ref.make<null | SavedViewReference>(null);
 					const views = yield* Ref.make<ReadonlyMap<string, SavedView>>(new Map());
 					return Context.make(
 						PagesRepository,

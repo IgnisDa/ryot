@@ -102,7 +102,7 @@ export class WorkflowGarbageCollectionRepository extends Context.Service<Workflo
 					envelope.payload,
 				))["~effect/cluster/ClusterWorkflowEngine/payloadParentKey"];
 				let locked = yield* lockExecution(identity);
-				let parent: ExecutionRow | undefined;
+				let parent: undefined | ExecutionRow;
 				if (parentIdentity) {
 					const lockedParent = locked
 						? { rootExpiredAt: null, execution: yield* find(parentIdentity) }

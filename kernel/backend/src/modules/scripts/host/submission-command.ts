@@ -16,7 +16,7 @@ export class SandboxSubmissionCommands extends Context.Service<SandboxSubmission
 			const commandFor = Effect.fn("SandboxSubmissionCommands.commandFor")(function* (
 				input: ScriptRunInput,
 				command: DomainLifecycleCommand,
-				options: typeof submissionOptionsSchema.Type | undefined,
+				options: undefined | typeof submissionOptionsSchema.Type,
 			) {
 				if (options === undefined) {
 					return command;

@@ -19,7 +19,7 @@ import type { ScriptExecutionPrincipal, ScriptPluginRevision } from "./principal
 
 export const makeUserPluginRevision = (input: {
 	readonly slug: string;
-	readonly ownerId: UserId | null;
+	readonly ownerId: null | UserId;
 	readonly compiledHashes: Readonly<Record<string, string>>;
 }): ScriptPluginRevision => ({
 	scope: "user",
@@ -71,7 +71,7 @@ export const makeUserRunInput = ({
 
 export const makeSubjectRunInput = (
 	subject: SandboxExecutionSubject,
-	providerId: SandboxProviderId | null = null,
+	providerId: null | SandboxProviderId = null,
 	metadata: Omit<SandboxScriptMetadata, "runtimeImports"> = {},
 	principalFacts: Partial<ScriptExecutionPrincipal> = {},
 ): ScriptRunInput => ({

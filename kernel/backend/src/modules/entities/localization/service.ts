@@ -27,19 +27,23 @@ import {
 } from "./entity-translation-workflow";
 import { type TranslationOverlayInput, TranslationsRepository } from "./repository";
 
-export type RequestFillInput = Omit<
+export type RequestFillInput = {
+	readonly retryOf?: string;
+	readonly inputHash?: string;
+	readonly refreshKey?: string;
+} & Omit<
 	TranslateEntityWorkflowPayload,
 	"command" | "principal" | "executionId" | "contentGeneration" | "entityScopeUserId"
-> & { readonly retryOf?: string; readonly refreshKey?: string; readonly inputHash?: string };
+>;
 
 const entityMatchesPayload = (
 	entity: Pick<
 		typeof schema.entity.$inferSelect,
-		"entitySchemaPluginId" | "entitySchemaSlug" | "externalId" | "providerId"
+		"externalId" | "providerId" | "entitySchemaSlug" | "entitySchemaPluginId"
 	>,
 	payload: Pick<
 		TranslateEntityWorkflowPayload,
-		"entitySchemaPluginId" | "entitySchemaSlug" | "externalId" | "providerId"
+		"externalId" | "providerId" | "entitySchemaSlug" | "entitySchemaPluginId"
 	>,
 ) =>
 	entity.providerId === payload.providerId &&
@@ -172,7 +176,7 @@ export class TranslationsService extends Context.Service<TranslationsService>()(
 					kind: "invalid-input",
 					message: "Translation request is already admitted",
 				});
-				const captured = yield* Ref.make<TranslateEntityWorkflowPayload | null>(null);
+				const captured = yield* Ref.make<null | TranslateEntityWorkflowPayload>(null);
 				const registered = yield* sandbox
 					.preRegisterPluginWorkflow({
 						executionId,

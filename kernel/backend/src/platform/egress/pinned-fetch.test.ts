@@ -96,9 +96,9 @@ const testCertificates = Effect.gen(function* () {
 	return { ca: yield* read("ca.pem"), key: yield* read("key.pem"), cert: yield* read("cert.pem") };
 });
 
-const serveOrigin = (tls?: Readonly<{ cert: string; key: string }>) =>
+const serveOrigin = (tls?: Readonly<{ key: string; cert: string }>) =>
 	Effect.gen(function* () {
-		const hosts: Array<string | null> = [];
+		const hosts: Array<null | string> = [];
 		const server = yield* Effect.acquireRelease(
 			Effect.sync(() =>
 				Bun.serve({

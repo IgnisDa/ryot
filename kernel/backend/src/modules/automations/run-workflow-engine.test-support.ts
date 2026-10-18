@@ -6,10 +6,10 @@ import { makeWorkflowEngine } from "#testing/effect";
 import { AutomationRunWorkflowPayload } from "./run-workflow";
 
 type RunWorkflowSubmission = {
-	payload: AutomationRunWorkflowPayload;
-	workflowName: string;
-	executionId: string;
 	discard: boolean;
+	executionId: string;
+	workflowName: string;
+	payload: AutomationRunWorkflowPayload;
 };
 
 export class RunWorkflowSubmissions extends Context.Service<

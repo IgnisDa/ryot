@@ -15,7 +15,10 @@ import { Context, Effect, Layer } from "effect";
 import { DatabaseSession } from "#platform/db/session";
 import * as schema from "#schema/tables/combined";
 
-type NotificationSubscriptionRow = typeof schema.notificationSubscription.$inferSelect;
+export type InsertNotificationSubscriptionInput = Pick<
+	StoredNotificationSubscription,
+	"userId" | "isActive" | "metadata" | "signalSchemaSlug" | "signalSchemaPluginId"
+>;
 
 export type StoredNotificationSubscription = {
 	userId: UserId;
@@ -24,14 +27,11 @@ export type StoredNotificationSubscription = {
 	isActive: boolean;
 	id: NotificationSubscriptionId;
 	signalSchemaSlug: SignalSchemaSlug;
-	signalSchemaPluginId: string | null;
-	metadata: AutomationRuleMetadataValue | null;
+	signalSchemaPluginId: null | string;
+	metadata: null | AutomationRuleMetadataValue;
 };
 
-export type InsertNotificationSubscriptionInput = Pick<
-	StoredNotificationSubscription,
-	"isActive" | "metadata" | "signalSchemaPluginId" | "signalSchemaSlug" | "userId"
->;
+type NotificationSubscriptionRow = typeof schema.notificationSubscription.$inferSelect;
 
 const toStoredNotificationSubscription: (
 	row: NotificationSubscriptionRow,
@@ -58,7 +58,7 @@ const toStoredNotificationSubscription: (
 	};
 });
 
-const signalSchemaPluginWhere = (pluginId: string | null) =>
+const signalSchemaPluginWhere = (pluginId: null | string) =>
 	pluginId === null
 		? isNull(schema.notificationSubscription.signalSchemaPluginId)
 		: eq(schema.notificationSubscription.signalSchemaPluginId, pluginId);
@@ -86,7 +86,7 @@ export class AutomationsRepository extends Context.Service<AutomationsRepository
 			)(function* (input: {
 				userId: UserId;
 				signalSchemaSlug: SignalSchemaSlug;
-				signalSchemaPluginId: string | null;
+				signalSchemaPluginId: null | string;
 			}) {
 				const rows = yield* session.run((db) =>
 					db
@@ -140,8 +140,8 @@ export class AutomationsRepository extends Context.Service<AutomationsRepository
 				"AutomationsRepository.setNotificationSubscriptionActive",
 			)(function* (input: {
 				userId: UserId;
-				ruleId: NotificationSubscriptionId;
 				isActive: boolean;
+				ruleId: NotificationSubscriptionId;
 			}) {
 				const [row] = yield* session.run((db) =>
 					db

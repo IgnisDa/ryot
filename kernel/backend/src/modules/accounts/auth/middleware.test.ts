@@ -211,7 +211,7 @@ const oauth = (clientId: string, userId = "user-1") =>
 		"user-1",
 	);
 
-const apiKey = (userId: string, demoAccountId: string | null) =>
+const apiKey = (userId: string, demoAccountId: null | string) =>
 	resolveCredential(
 		{ key: "key", kind: "api-key" },
 		() => Effect.die("unused").pipe(Effect.runPromise),
@@ -411,11 +411,11 @@ it.effect("rejects authenticated writes while a lifecycle operation is active", 
 });
 
 const request = (
-	accessClass: "standard" | "demo",
+	accessClass: "demo" | "standard",
 	endpoint:
-		| typeof EntitiesGroup.endpoints.saveEditor
 		| typeof PluginsGroup.endpoints.events
 		| typeof PluginsGroup.endpoints.install
+		| typeof EntitiesGroup.endpoints.saveEditor
 		| typeof PluginsGroup.endpoints.updatePluginState,
 ) => {
 	let handlerCalled = false;
@@ -485,7 +485,7 @@ it.effect("accepts only the configured admin token", () =>
 		const admin = makeAdminMiddleware(Redacted.make("test-admin-token"));
 		const authorize = (
 			token: string,
-		): Effect.Effect<HttpServerResponse.HttpServerResponse, AuthUnauthorized | unhandled> =>
+		): Effect.Effect<HttpServerResponse.HttpServerResponse, unhandled | AuthUnauthorized> =>
 			admin.adminToken(Effect.succeed(HttpServerResponse.empty()), {
 				credential: Redacted.make(token),
 			});

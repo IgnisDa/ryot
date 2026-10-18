@@ -25,10 +25,10 @@ type CreateSavedViewInput = {
 	readonly name: string;
 	readonly icon: string;
 	readonly userId: UserId;
-	readonly pluginInstallationId?: string | null | undefined;
-	readonly dataSources?: (typeof schema.savedView.$inferSelect)["dataSources"];
+	readonly pluginInstallationId?: null | string | undefined;
 	readonly renderer: (typeof schema.savedView.$inferSelect)["renderer"];
 	readonly settings: (typeof schema.savedView.$inferSelect)["settings"];
+	readonly dataSources?: (typeof schema.savedView.$inferSelect)["dataSources"];
 };
 
 type UpdateSavedViewData = {
@@ -36,7 +36,7 @@ type UpdateSavedViewData = {
 	readonly name: string;
 	readonly isHidden: boolean;
 	readonly sortOrder?: number | undefined;
-	readonly pluginInstallationId: string | null;
+	readonly pluginInstallationId: null | string;
 	readonly renderer: (typeof schema.savedView.$inferSelect)["renderer"];
 	readonly settings: (typeof schema.savedView.$inferSelect)["settings"];
 	readonly dataSources?: (typeof schema.savedView.$inferSelect)["dataSources"];
@@ -71,7 +71,7 @@ const toListedSavedView = (row: ListedSavedViewRow): ListedSavedView => {
 };
 
 const savedViewReference = (
-	row: Pick<ListedSavedViewRow, "id" | "isBuiltin" | "pluginId" | "slug">,
+	row: Pick<ListedSavedViewRow, "id" | "slug" | "pluginId" | "isBuiltin">,
 ): SavedViewReference => {
 	if (!row.isBuiltin) {
 		return { kind: "custom", savedViewId: SavedViewId.make(row.id) };
@@ -120,7 +120,7 @@ const overrideKeyMatches = (entry: Pick<OverrideInsert, "slug" | "pluginId">) =>
 const isDefaultOverride = (entry: {
 	isHidden: boolean;
 	sortOrder: number;
-	defaultSortOrder: number | null;
+	defaultSortOrder: null | number;
 }) => !entry.isHidden && entry.sortOrder === entry.defaultSortOrder;
 
 const withSavedViewScope = (pluginInstallationId?: string) =>
@@ -168,7 +168,7 @@ export class SavedViewsRepository extends Context.Service<SavedViewsRepository>(
 
 			const listByUser = Effect.fn("SavedViewsRepository.listByUser")(function* (
 				userId: UserId,
-				input: { pluginInstallationId?: string | undefined; includeHidden: boolean },
+				input: { includeHidden: boolean; pluginInstallationId?: string | undefined },
 			) {
 				const clauses = [eq(schema.userSavedViewEffective.userId, userId)];
 
@@ -292,7 +292,7 @@ export class SavedViewsRepository extends Context.Service<SavedViewsRepository>(
 				userId: UserId,
 				savedViewId: SavedViewId,
 				data: UpdateSavedViewData,
-				currentPluginInstallationId: string | null,
+				currentPluginInstallationId: null | string,
 			) {
 				return yield* session.run((db) =>
 					Effect.gen(function* () {
@@ -384,7 +384,7 @@ export class SavedViewsRepository extends Context.Service<SavedViewsRepository>(
 
 			const listReorderScope = Effect.fn("SavedViewsRepository.listReorderScope")(function* (
 				userId: UserId,
-				pluginInstallationId: string | null,
+				pluginInstallationId: null | string,
 			) {
 				const view = schema.userSavedViewEffective;
 				const definition = schema.userSavedView;
@@ -429,7 +429,7 @@ export class SavedViewsRepository extends Context.Service<SavedViewsRepository>(
 
 			const persistReorder = Effect.fn("SavedViewsRepository.persistReorder")(function* (
 				userId: UserId,
-				pluginInstallationId: string | null,
+				pluginInstallationId: null | string,
 				plan: SavedViewReorderPlan,
 			) {
 				const custom: Array<Pick<typeof schema.savedView.$inferSelect, "id" | "sortOrder">> = [];
@@ -541,7 +541,7 @@ export class SavedViewsRepository extends Context.Service<SavedViewsRepository>(
 const getNextSortOrder = Effect.fn(function* (
 	db: EffectPgDatabase,
 	userId: UserId,
-	pluginInstallationId: string | null,
+	pluginInstallationId: null | string,
 ) {
 	const [orderRow] = yield* mapDatabaseErrors(
 		db

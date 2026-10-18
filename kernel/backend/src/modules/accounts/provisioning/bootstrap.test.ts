@@ -20,13 +20,13 @@ const append =
 	(value: A) =>
 		Ref.update(ref, (all) => [...all, value]);
 
-type BootstrapStep = "provision" | "dispatch" | "complete";
+type BootstrapStep = "dispatch" | "complete" | "provision";
 
 class FakeBootstrapDependencies extends Context.Service<
 	FakeBootstrapDependencies,
 	{
-		readonly order: Effect.Effect<ReadonlyArray<BootstrapStep>>;
 		readonly completed: Effect.Effect<boolean>;
+		readonly order: Effect.Effect<ReadonlyArray<BootstrapStep>>;
 		readonly dispatchedUserIds: Effect.Effect<ReadonlyArray<UserId>>;
 		readonly provisionedUserIds: Effect.Effect<ReadonlyArray<UserId>>;
 		readonly defaultRuleUserIds: Effect.Effect<ReadonlyArray<UserId>>;

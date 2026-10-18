@@ -124,7 +124,7 @@ const fakeLayer = Layer.unwrap(
 	}),
 );
 
-const invoke = (mode: "reject" | "crash") =>
+const invoke = (mode: "crash" | "reject") =>
 	Effect.flatMap(OperationsService, (service) =>
 		service.invoke({
 			packageId,

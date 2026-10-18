@@ -169,43 +169,43 @@ type SidecarHostResultFrameType = typeof SidecarHostResultFrame.Type;
 type SandboxInvocationJournal = (typeof SandboxInvocationSchema.Type)["journal"];
 const scriptBudgetSchema = Schema.Struct({ settledMs: Schema.Finite, remainingMs: Schema.Finite });
 
-class GateError extends Data.TaggedError("SandboxHostCallGateError")<{ readonly reason: string }> {}
-
-export type SandboxHostCallGateOptions = {
-	readonly instance: string;
-	readonly generation: number;
-	readonly handle: string;
-	readonly input: SandboxRunInput;
-	readonly apiFunctions: Readonly<Record<string, BoundHostFunction>>;
-	readonly files: SandboxFileAccess;
-	readonly parentSpan: Tracer.AnySpan;
-};
-
 // Takes ownership of `released`, which must run once the reply is written or will never be.
 export type SandboxHostResultDelivery = (
 	reply: SidecarHostResultFrameType,
 	released: () => void,
 ) => Effect.Effect<void>;
 
+export type SandboxHostCallGateOptions = {
+	readonly handle: string;
+	readonly instance: string;
+	readonly generation: number;
+	readonly input: SandboxRunInput;
+	readonly files: SandboxFileAccess;
+	readonly parentSpan: Tracer.AnySpan;
+	readonly apiFunctions: Readonly<Record<string, BoundHostFunction>>;
+};
+
 export type SandboxHostCallGateRegistration = {
+	readonly handoff: () => void;
+	readonly close: Effect.Effect<void>;
+	readonly journal: SandboxInvocationJournal;
+	readonly extend: (ms: number) => Effect.Effect<void, GateError>;
+	readonly pendingEntries: () => ReadonlyArray<SandboxInlineProgress>;
 	readonly scriptBudget: Effect.Effect<typeof scriptBudgetSchema.Type>;
+	readonly inlineEntries: () => ReadonlyArray<WorkflowReplayJournalEntry>;
 	readonly dispatch: (
 		frame: SidecarHostCallFrameType,
 		deliver?: SandboxHostResultDelivery,
 	) => Effect.Effect<SidecarHostResultFrameType, GateError>;
-	readonly inlineEntries: () => ReadonlyArray<WorkflowReplayJournalEntry>;
-	readonly pendingEntries: () => ReadonlyArray<SandboxInlineProgress>;
-	readonly handoff: () => void;
-	readonly journal: SandboxInvocationJournal;
-	readonly extend: (ms: number) => Effect.Effect<void, GateError>;
-	readonly close: Effect.Effect<void>;
 };
+
+class GateError extends Data.TaggedError("SandboxHostCallGateError")<{ readonly reason: string }> {}
 
 const gateError = (reason: string) => new GateError({ reason });
 
 const pinJournal = (
 	source: NonNullable<SandboxRunInput["replayJournal"]>,
-): SandboxInvocationJournal | undefined => {
+): undefined | SandboxInvocationJournal => {
 	if (
 		source.entries.length > SANDBOX_LIMITS.hostCalls.total ||
 		source.bytes > SANDBOX_LIMITS.journalBytes
@@ -281,36 +281,6 @@ const frameFailure = (
 const ownerKey = (options: SandboxHostCallGateOptions) =>
 	encodeUnknownJson([options.instance, options.generation, options.handle]);
 
-type RunState = {
-	readonly closed: Deferred.Deferred<void>;
-	readonly drained: Deferred.Deferred<void>;
-	readonly evidence: TransientPermit[];
-	readonly hostCallBudget: SandboxHostCallBudget;
-	readonly inlineEncodedEntries: Uint8Array[];
-	readonly journal: SandboxInvocationJournal | undefined;
-	readonly journalSource: SandboxRunInput["replayJournal"];
-	readonly pendingEncodedEntries: Map<number, Uint8Array>;
-	readonly pinnedCount: number;
-	readonly scriptStartedAt: number;
-	readonly seenSequences: Set<number>;
-	readonly semaphore: Semaphore.Semaphore;
-	readonly shortWait: ReturnType<typeof makeSandboxShortWait>;
-	expiresAt: number;
-	gateFiles: SandboxFileAccess | undefined;
-	gateFunctions: Readonly<Record<string, BoundHostFunction>> | undefined;
-	gateInput: SandboxRunInput | undefined;
-	handedOff: boolean;
-	isClosed: boolean;
-	outstanding: number;
-	pendingExtensionMs: number;
-	readBytes: number;
-	readCount: number;
-	settledMs: number;
-	settlementStartedAt: number | undefined;
-	totalJournalJsonBytes: number;
-	waiting: number;
-};
-
 type GateAction = (
 	state: RunState,
 	options: SandboxHostCallGateOptions,
@@ -319,6 +289,36 @@ type GateAction = (
 	retain: (bytes: number) => void,
 ) => Effect.Effect<SidecarHostResultFrameType, GateError>;
 
+type RunState = {
+	waiting: number;
+	expiresAt: number;
+	isClosed: boolean;
+	readBytes: number;
+	readCount: number;
+	settledMs: number;
+	handedOff: boolean;
+	outstanding: number;
+	pendingExtensionMs: number;
+	readonly pinnedCount: number;
+	totalJournalJsonBytes: number;
+	readonly scriptStartedAt: number;
+	readonly seenSequences: Set<number>;
+	readonly evidence: TransientPermit[];
+	gateInput: undefined | SandboxRunInput;
+	readonly semaphore: Semaphore.Semaphore;
+	settlementStartedAt: number | undefined;
+	readonly closed: Deferred.Deferred<void>;
+	gateFiles: undefined | SandboxFileAccess;
+	readonly drained: Deferred.Deferred<void>;
+	readonly inlineEncodedEntries: Uint8Array[];
+	readonly hostCallBudget: SandboxHostCallBudget;
+	readonly journal: undefined | SandboxInvocationJournal;
+	readonly pendingEncodedEntries: Map<number, Uint8Array>;
+	readonly journalSource: SandboxRunInput["replayJournal"];
+	readonly shortWait: ReturnType<typeof makeSandboxShortWait>;
+	gateFunctions: undefined | Readonly<Record<string, BoundHostFunction>>;
+};
+
 const closeResult = (frame: SidecarHostCallFrameType) =>
 	frameFailure(frame, "Sandbox execution is no longer active");
 
@@ -326,7 +326,7 @@ const releaseOnReturn: SandboxHostResultDelivery = (_reply, released) => Effect.
 
 const makeRunState = Effect.fnUntraced(function* (
 	options: SandboxHostCallGateOptions,
-	journal: SandboxInvocationJournal | undefined,
+	journal: undefined | SandboxInvocationJournal,
 ) {
 	const journalSource = options.input.replayJournal;
 	const closed = yield* Deferred.make<void>();
@@ -436,7 +436,7 @@ const boundedHostCall = (
 	name: string,
 	effect: Effect.Effect<
 		unknown,
-		Schema.SchemaError | { readonly message: string; readonly data?: unknown }
+		Schema.SchemaError | { readonly data?: unknown; readonly message: string }
 	>,
 ) =>
 	effect.pipe(

@@ -69,7 +69,7 @@ export type MutationEntities = {
 };
 
 export const mutationWriteCheck = (
-	mutation: Pick<Mutation, "command" | "input">,
+	mutation: Pick<Mutation, "input" | "command">,
 ): DomainWriteCheck => ({
 	command: mutation.command,
 	owner: relationshipSchemaReference(mutation.input).owner,
@@ -84,7 +84,7 @@ const assetForbidden = () => new RelationshipBadRequest({ reason: { code: "asset
 const assertStableSource = (
 	mutation: Mutation,
 	validated: ValidatedMutation,
-	source: AutomationRelationshipSnapshot | null,
+	source: null | AutomationRelationshipSnapshot,
 ) =>
 	source && mutation.command.writeContext?.pluginRevision
 		? assertStableUnder(
@@ -148,7 +148,7 @@ export const makeRelationshipMutationPrimitives = ({
 	const validateMutation = Effect.fnUntraced(function* (
 		mutation: Mutation,
 		reads: MutationEntities,
-		verified?: DomainWritePin | null,
+		verified?: null | DomainWritePin,
 	) {
 		const reference = relationshipSchemaReference(mutation.input);
 		if (
@@ -182,7 +182,7 @@ export const makeRelationshipMutationPrimitives = ({
 			reference.owner,
 			reference.slug,
 		);
-		let active: RelationshipSchemaDefinition | null = activeDeclaration
+		let active: null | RelationshipSchemaDefinition = activeDeclaration
 			? { ...activeDeclaration, pluginId: mutation.input.relationshipSchemaPluginId }
 			: null;
 		if (!activeDeclaration) {
@@ -236,7 +236,7 @@ export const makeRelationshipMutationPrimitives = ({
 	});
 	const prepareRequest = Effect.fnUntraced(function* (
 		mutation: Mutation,
-		before: AutomationRelationshipSnapshot | null,
+		before: null | AutomationRelationshipSnapshot,
 		validated: ValidatedMutation,
 	) {
 		yield* assertActiveTransaction;
@@ -355,13 +355,13 @@ export const makeRelationshipMutationPrimitives = ({
 		mutation: Mutation,
 		request: AutomationRelationshipRequestPayload,
 		validated: ValidatedMutation,
-		resolved?: { definition: RelationshipSchemaDefinition | null | undefined },
+		resolved?: { definition: null | undefined | RelationshipSchemaDefinition },
 	) {
 		yield* assertActiveTransaction;
 		if (request.operation === "delete") {
 			return request;
 		}
-		let definition: RelationshipSchemaDefinition | null | undefined;
+		let definition: null | undefined | RelationshipSchemaDefinition;
 		if (resolved) {
 			definition = resolved.definition;
 		} else if (mutation.input.scope === "user") {
@@ -402,8 +402,8 @@ export const makeRelationshipMutationPrimitives = ({
 		items: ReadonlyArray<{
 			readonly mutation: Mutation;
 			readonly validated: ValidatedMutation;
-			readonly before: AutomationRelationshipSnapshot | null;
-			readonly request: AutomationRelationshipRequestPayload | null;
+			readonly before: null | AutomationRelationshipSnapshot;
+			readonly request: null | AutomationRelationshipRequestPayload;
 		}>,
 	) {
 		yield* assertActiveTransaction;
@@ -511,7 +511,7 @@ export const makeRelationshipMutationPrimitives = ({
 	const persistPreparedSource = Effect.fnUntraced(function* (
 		mutation: Mutation,
 		request: AutomationRelationshipRequestPayload,
-		before: AutomationRelationshipSnapshot | null,
+		before: null | AutomationRelationshipSnapshot,
 		validated: ValidatedMutation,
 	) {
 		yield* assertActiveTransaction;
@@ -562,9 +562,9 @@ export const makeRelationshipMutationPrimitives = ({
 	});
 	const planChange = Effect.fnUntraced(function* (input: {
 		mutation: Mutation;
-		requestId: DomainLifecycleCommand["causation"]["parentTriggerId"];
 		payload: ReturnType<typeof relationshipChange>;
 		population?: DomainLifecycleCommand["population"];
+		requestId: DomainLifecycleCommand["causation"]["parentTriggerId"];
 	}) {
 		yield* assertActiveTransaction;
 		const { command } = input.mutation;

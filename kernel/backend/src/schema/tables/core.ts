@@ -190,7 +190,7 @@ export const pluginInstallation = snakeCase.table(
 			.primaryKey()
 			.$defaultFn(() => /* @__PURE__ */ generateId()),
 		health: text()
-			.$type<"installing" | "ready" | "needs-configuration" | "incompatible" | "failed">()
+			.$type<"ready" | "failed" | "installing" | "incompatible" | "needs-configuration">()
 			.notNull()
 			.default("ready"),
 	},

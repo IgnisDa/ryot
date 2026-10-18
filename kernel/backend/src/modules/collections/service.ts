@@ -140,7 +140,7 @@ const requireName = (name: string) => {
 };
 
 const collectionProperties = (
-	description: string | null | undefined,
+	description: null | string | undefined,
 	fields: ReadonlyArray<KeyedCollectionField>,
 ) => {
 	const trimmed = trimToNull(description ?? "");
@@ -449,7 +449,7 @@ export class CollectionsService extends Context.Service<CollectionsService>()(
 
 			const memberRank = Effect.fnUntraced(function* (
 				input: MembershipTarget,
-				existing: { readonly properties: Record<string, unknown> } | null,
+				existing: null | { readonly properties: Record<string, unknown> },
 			) {
 				const stored = existing?.properties["rank"];
 				if (typeof stored === "number") {
@@ -460,7 +460,7 @@ export class CollectionsService extends Context.Service<CollectionsService>()(
 			});
 
 			const prepareMembership = Effect.fn("CollectionsService.prepareMembership")(function* (
-				input: MembershipTarget & { mode?: CreateMembershipBody["mode"]; properties?: unknown },
+				input: MembershipTarget & { properties?: unknown; mode?: CreateMembershipBody["mode"] },
 			) {
 				if (input.collectionId === input.entityId) {
 					return yield* new CollectionBadRequest({ reason: { code: "circular-membership" } });
@@ -561,7 +561,7 @@ export class CollectionsService extends Context.Service<CollectionsService>()(
 
 			const dispatchMembership = (
 				user: CurrentUserValue,
-				payload: Omit<CollectionMembershipWorkflowPayload, "userId" | "executionId" | "command">,
+				payload: Omit<CollectionMembershipWorkflowPayload, "userId" | "command" | "executionId">,
 				command: DomainLifecycleCommand,
 			) => {
 				const executionId = command.causation.executionId;

@@ -35,20 +35,6 @@ export const ARCHIVE_LIMITS = {
 	maxTotalUncompressedBytes: 1024 * 1024 * 1024,
 } as const;
 
-type ArchiveLimits = { readonly [K in keyof typeof ARCHIVE_LIMITS]: number };
-
-type ArchiveAssetInput = {
-	readonly metadata: ArchiveAssetManifest;
-	readonly chunks: Iterable<Uint8Array> | AsyncIterable<Uint8Array>;
-};
-
-type ArchiveEventsInput = {
-	readonly count: number;
-	readonly bytes: number;
-	readonly sha256: string;
-	readonly chunks: Iterable<Uint8Array> | AsyncIterable<Uint8Array>;
-};
-
 export type CreateArchiveInput = {
 	readonly archiveId: string;
 	readonly createdAt: string;
@@ -56,14 +42,28 @@ export type CreateArchiveInput = {
 	readonly records: ArchiveRecords;
 	readonly events: ArchiveEventsInput;
 	readonly redactions: ReadonlyArray<string>;
-	readonly compression?: "deflate" | "store";
+	readonly compression?: "store" | "deflate";
 	readonly assets: ReadonlyArray<ArchiveAssetInput>;
 	readonly requiredPlugins: ReadonlyArray<ArchiveRequiredPlugin>;
 };
 
+type ArchiveLimits = { readonly [K in keyof typeof ARCHIVE_LIMITS]: number };
+
+type ArchiveAssetInput = {
+	readonly metadata: ArchiveAssetManifest;
+	readonly chunks: Iterable<Uint8Array> | AsyncIterable<Uint8Array>;
+};
+
 type ZipEntryInput = {
 	readonly path: string;
-	readonly compression: "deflate" | "store";
+	readonly compression: "store" | "deflate";
+	readonly chunks: Iterable<Uint8Array> | AsyncIterable<Uint8Array>;
+};
+
+type ArchiveEventsInput = {
+	readonly count: number;
+	readonly bytes: number;
+	readonly sha256: string;
 	readonly chunks: Iterable<Uint8Array> | AsyncIterable<Uint8Array>;
 };
 
@@ -94,7 +94,7 @@ const sortedIfNeeded = <A>(values: ReadonlyArray<A>, compare: (left: A, right: A
 };
 
 const sortDependencies = (values: ArchiveRecords["entityDependencies"]) => {
-	let updated: ArchiveEntityDependency[] | undefined;
+	let updated: undefined | ArchiveEntityDependency[];
 	for (const [index, entity] of values.entries()) {
 		const translations = sortedIfNeeded(entity.translations, (left, right) =>
 			left.language.localeCompare(right.language),
@@ -144,7 +144,7 @@ const profileChunk = (profile: ArchiveProfile) =>
 type ArchiveSection = {
 	readonly bytes: number;
 	readonly manifest: ArchiveSectionManifest;
-	readonly payload?: Uint8Array | undefined;
+	readonly payload?: undefined | Uint8Array;
 };
 
 const bufferSection = (
@@ -452,10 +452,10 @@ class ZipChunkIterator implements AsyncIterableIterator<Uint8Array> {
 	#ended = false;
 	readonly #zip: Zip;
 	readonly #output: Uint8Array[] = [];
-	#failure: BackupArchiveError | null = null;
-	#chunks: AsyncIterator<Uint8Array> | null = null;
-	#file: ZipPassThrough | ZipDeflate | null = null;
+	#failure: null | BackupArchiveError = null;
 	readonly #entries: AsyncIterator<ZipEntryInput>;
+	#chunks: null | AsyncIterator<Uint8Array> = null;
+	#file: null | ZipDeflate | ZipPassThrough = null;
 
 	constructor(entries: Iterable<ZipEntryInput> | AsyncIterable<ZipEntryInput>) {
 		this.#entries = asyncIterator(entries);
@@ -474,6 +474,12 @@ class ZipChunkIterator implements AsyncIterableIterator<Uint8Array> {
 
 	next(): Promise<IteratorResult<Uint8Array, void>> {
 		return Effect.runPromise(this.#next());
+	}
+
+	return(): Promise<IteratorResult<Uint8Array, void>> {
+		this.#zip.terminate();
+		this.#ended = true;
+		return Promise.resolve({ done: true, value: undefined });
 	}
 
 	#next(): Effect.Effect<IteratorResult<Uint8Array, void>, BackupArchiveError> {
@@ -536,12 +542,6 @@ class ZipChunkIterator implements AsyncIterableIterator<Uint8Array> {
 				return this.#next();
 			}),
 		);
-	}
-
-	return(): Promise<IteratorResult<Uint8Array, void>> {
-		this.#zip.terminate();
-		this.#ended = true;
-		return Promise.resolve({ done: true, value: undefined });
 	}
 }
 
@@ -662,13 +662,10 @@ export const createArchiveStream = (
 		}),
 	);
 
-type ExtractedEntry = {
-	readonly path: string;
-	readonly bytes: number;
+export type ValidatedArchiveEvents = {
+	readonly count: number;
 	readonly sha256: string;
-	readonly filePath?: string;
-	readonly compression: number;
-	chunks?: Uint8Array[] | undefined;
+	readonly read: () => Stream.Stream<ArchiveEvent, BackupArchiveError>;
 };
 
 type ValidatedArchiveAsset = ArchiveAssetManifest & {
@@ -676,15 +673,18 @@ type ValidatedArchiveAsset = ArchiveAssetManifest & {
 	readonly stream: Stream.Stream<Uint8Array, PlatformError.PlatformError>;
 };
 
-export type ValidatedArchiveEvents = {
-	readonly count: number;
+type ExtractedEntry = {
+	readonly path: string;
+	readonly bytes: number;
 	readonly sha256: string;
-	readonly read: () => Stream.Stream<ArchiveEvent, BackupArchiveError>;
+	readonly filePath?: string;
+	readonly compression: number;
+	chunks?: undefined | Uint8Array[];
 };
 
 type ValidatedArchive = {
-	readonly manifest: ArchiveManifest;
 	readonly records: ArchiveRecords;
+	readonly manifest: ArchiveManifest;
 	readonly events: ValidatedArchiveEvents;
 	readonly assets: ReadonlyArray<ValidatedArchiveAsset>;
 };
@@ -1036,6 +1036,16 @@ class BoundedTail {
 		this.#buffer = new Uint8Array(capacity);
 	}
 
+	bytes() {
+		const output = new Uint8Array(this.#length);
+		const start =
+			(this.#position - this.#length + this.#buffer.byteLength) % this.#buffer.byteLength;
+		const first = Math.min(this.#length, this.#buffer.byteLength - start);
+		output.set(this.#buffer.subarray(start, start + first));
+		output.set(this.#buffer.subarray(0, this.#length - first), first);
+		return output;
+	}
+
 	update(chunk: Uint8Array) {
 		if (chunk.byteLength >= this.#buffer.byteLength) {
 			this.#buffer.set(chunk.subarray(chunk.byteLength - this.#buffer.byteLength));
@@ -1051,16 +1061,6 @@ class BoundedTail {
 			this.#length = Math.min(this.#length + size, this.#buffer.byteLength);
 			offset += size;
 		}
-	}
-
-	bytes() {
-		const output = new Uint8Array(this.#length);
-		const start =
-			(this.#position - this.#length + this.#buffer.byteLength) % this.#buffer.byteLength;
-		const first = Math.min(this.#length, this.#buffer.byteLength - start);
-		output.set(this.#buffer.subarray(start, start + first));
-		output.set(this.#buffer.subarray(0, this.#length - first), first);
-		return output;
 	}
 }
 
@@ -1222,7 +1222,7 @@ const extractArchive = Effect.fn(function* <E>(
 	const pendingWrites: Promise<unknown>[] = [];
 	let totalBytes = 0;
 	let archiveBytes = 0;
-	let failure: BackupArchiveError | null = null;
+	let failure: null | BackupArchiveError = null;
 	let entryCount = 0;
 	const tail = new BoundedTail(
 		limits.maxEntryCount * (ZIP_CENTRAL_HEADER_BYTES + MAX_ZIP_PATH_BYTES) +
@@ -1382,7 +1382,7 @@ const extractArchive = Effect.fn(function* <E>(
 
 type ValidateArchiveOptions = {
 	readonly directory?: string | undefined;
-	readonly limits?: Partial<ArchiveLimits> | undefined;
+	readonly limits?: undefined | Partial<ArchiveLimits>;
 };
 
 // The spool directory backs the event and asset streams the caller consumes, so it is owned by the

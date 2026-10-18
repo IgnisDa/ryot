@@ -59,31 +59,31 @@ import type { ImportSourceState } from "./runtime/source-state";
 import { ImportSourceStateStore } from "./runtime/source-state-store";
 import { ImportWorkflowPinning } from "./workflow-pinning";
 
-export type CreateManualImportRunInput = {
-	accountGeneration: IngestionScope["accountGeneration"];
-	userId: UserId;
-	source: ImportRunSource;
-	pluginInstallationId: string | null;
-	inputSummary: Record<string, unknown>;
-};
-
 export type DeleteImportRunInput = { userId: UserId; runId: ImportRunId };
 
+export type CreateManualImportRunInput = {
+	userId: UserId;
+	source: ImportRunSource;
+	pluginInstallationId: null | string;
+	inputSummary: Record<string, unknown>;
+	accountGeneration: IngestionScope["accountGeneration"];
+};
+
+type CreateImportRunResult = { readonly id: string };
+
+type CreateImportRunError = DbError | ImportRequestError | ImportConflictError;
 type DispatchImportRunInput = {
-	plan: IngestionPlan;
-	pins: Omit<IngestionPins, "executionId">;
 	runId: ImportRunId;
+	plan: IngestionPlan;
 	user: CurrentUserValue;
 	source: ImportRunSource;
 	workflowScriptId: SandboxScriptId;
 	registered: RegisteredImportSource;
-	sourcePayload: ImportSourceState["sourcePayload"];
 	uploadIntentIds: ReadonlyArray<string>;
+	pins: Omit<IngestionPins, "executionId">;
+	sourcePayload: ImportSourceState["sourcePayload"];
 	namedArtifactPaths: ImportSourceState["namedArtifactPaths"];
 };
-
-type CreateImportRunResult = { readonly id: string };
-type CreateImportRunError = DbError | ImportConflictError | ImportRequestError;
 
 const isTerminalStatus = (status: ImportRunStatus): boolean =>
 	status === "completed" || status === "failed" || status === "cancelled" || status === "expired";
@@ -521,8 +521,8 @@ export class ImportsService extends Context.Service<ImportsService>()("ImportsSe
 			userId: UserId;
 			source: ImportRunSource;
 			integrationId: IntegrationId;
-			pluginInstallationId: string | null;
 			integrationLot: IntegrationLot;
+			pluginInstallationId: null | string;
 			inputSummary: Record<string, unknown>;
 		}) =>
 			database
@@ -552,7 +552,7 @@ export class ImportsService extends Context.Service<ImportsService>()("ImportsSe
 					yield* execution.abortAdmission(scope);
 					continue;
 				}
-				if (["completed", "failed", "cancelled", "expired"].includes(run.status)) {
+				if (["failed", "expired", "completed", "cancelled"].includes(run.status)) {
 					yield* execution.cleanup(scope);
 					continue;
 				}

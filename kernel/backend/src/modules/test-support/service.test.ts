@@ -64,13 +64,13 @@ const makeServiceLayer = (
 		entities?: MockOverrides<typeof mockEntities>;
 		interest?: MockOverrides<typeof mockInterest>;
 		pluginCrons?: MockOverrides<typeof mockPluginCrons>;
-		pluginIngestion?: MockOverrides<typeof mockPluginIngestion>;
-		pluginInstallations?: MockOverrides<typeof mockPluginInstallations>;
-		pluginRepository?: MockOverrides<typeof mockPluginRepository>;
 		translations?: MockOverrides<typeof mockTranslations>;
 		relationships?: MockOverrides<typeof mockRelationships>;
-		relationshipSchemas?: MockOverrides<typeof mockRelationshipSchemas>;
+		pluginIngestion?: MockOverrides<typeof mockPluginIngestion>;
+		pluginRepository?: MockOverrides<typeof mockPluginRepository>;
 		entitiesRepository?: MockOverrides<typeof mockEntitiesRepository>;
+		pluginInstallations?: MockOverrides<typeof mockPluginInstallations>;
+		relationshipSchemas?: MockOverrides<typeof mockRelationshipSchemas>;
 	} = {},
 ) => {
 	return TestSupportService.layer.pipe(
@@ -161,8 +161,8 @@ type SystemPluginObservation =
 	| { kind: "install"; input: PluginSource }
 	| { kind: "update"; input: PluginSource & { pluginId: string; contentHash: string } }
 	| {
-			identity: Parameters<PluginRepository["Service"]["findTestSupportOperationResult"]>[0];
 			kind: "result";
+			identity: Parameters<PluginRepository["Service"]["findTestSupportOperationResult"]>[0];
 	  };
 
 const systemPluginIngestion = recordingServiceLayer<SystemPluginObservation>(
@@ -508,11 +508,11 @@ const relationship = {
 };
 
 const mutationCommands = recordingServiceLayer<{
-	kind: "relationship" | "delete" | "relationship-schema";
-	command?: DomainLifecycleCommand;
 	input?: unknown;
+	userId?: null | UserId;
+	command?: DomainLifecycleCommand;
+	kind: "delete" | "relationship" | "relationship-schema";
 	reference?: ContractPayload<"testSupport", "upsertGlobalRelationship">["relationshipSchema"];
-	userId?: UserId | null;
 }>((record) => ({
 	entities: {
 		deleteByIds: (_ids, command) =>
@@ -563,7 +563,7 @@ layer(mutationCommands.layer)((test) => {
 				scope: "global",
 				relationshipSchema,
 			});
-			const commandFor = (kind: "relationship" | "delete") =>
+			const commandFor = (kind: "delete" | "relationship") =>
 				commands.findLast((entry) => entry.kind === kind)?.command;
 			expect(commandFor("relationship")?.causation).toMatchObject({
 				source: "api",

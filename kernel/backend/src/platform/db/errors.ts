@@ -18,7 +18,7 @@ const unwrapDatabaseFailure = (failure: unknown): unknown => {
 
 export const databaseError = (failure: unknown) => unknownToDbError(unwrapDatabaseFailure(failure));
 
-type NativeDatabaseError = EffectDrizzleQueryError | SqlError;
+type NativeDatabaseError = SqlError | EffectDrizzleQueryError;
 
 type MappedDatabaseError<E> = E extends NativeDatabaseError ? DbError : E;
 

@@ -9,9 +9,9 @@ export type SandboxPrincipal = {
 	readonly scriptId: SandboxScriptId;
 	readonly metadata: SandboxScriptMetadata;
 	readonly subject: SandboxExecutionSubject;
-	readonly pluginRevision: {
-		readonly ownerId: UserId | null;
-		readonly scope: "system" | "user";
+	readonly pluginRevision: null | {
+		readonly ownerId: null | UserId;
+		readonly scope: "user" | "system";
 		readonly compiledHashes: Readonly<Record<string, string>>;
-	} | null;
+	};
 };

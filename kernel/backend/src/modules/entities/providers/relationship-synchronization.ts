@@ -15,16 +15,16 @@ type RelationshipEntry = { entityId: EntityId; properties: Record<string, unknow
 export const persistPlannedRelationshipSynchronization = Effect.fn(
 	"persistPlannedRelationshipSynchronization",
 )(function* (
-	input: {
-		command: DomainLifecycleCommand;
+	input: ({ scope: "global" } | { scope: "user"; userId: UserId }) & {
 		anchorEntityId: EntityId;
+		command: DomainLifecycleCommand;
 		direction: "incoming" | "outgoing";
+		relationshipSchemaPluginId: null | string;
+		entries: ReadonlyArray<RelationshipEntry>;
 		synchronization: "additive" | "authoritative";
 		relationshipSchemaSlug: RelationshipSchemaSlug;
 		onConflict: "preserveExisting" | "replaceProperties";
-		relationshipSchemaPluginId: string | null;
-		entries: ReadonlyArray<RelationshipEntry>;
-	} & ({ scope: "global" } | { scope: "user"; userId: UserId }),
+	},
 ) {
 	const relationships = yield* RelationshipsService;
 	const repository = yield* RelationshipsRepository;
@@ -74,17 +74,17 @@ export const persistPlannedRelationshipSynchronization = Effect.fn(
 
 export const persistPlannedRelationshipPage = Effect.fn("persistPlannedRelationshipPage")(
 	function* (
-		input: {
+		input: ({ scope: "global" } | { scope: "user"; userId: UserId }) & {
 			generation: string;
 			kind: "page" | "sweep";
-			command: DomainLifecycleCommand;
 			anchorEntityId: EntityId;
 			preserveExisting: boolean;
+			command: DomainLifecycleCommand;
 			direction: "incoming" | "outgoing";
-			relationshipSchemaSlug: RelationshipSchemaSlug;
-			relationshipSchemaPluginId: string | null;
+			relationshipSchemaPluginId: null | string;
 			entries: ReadonlyArray<RelationshipEntry>;
-		} & ({ scope: "global" } | { scope: "user"; userId: UserId }),
+			relationshipSchemaSlug: RelationshipSchemaSlug;
+		},
 	) {
 		const relationships = yield* RelationshipsService;
 		const scope =

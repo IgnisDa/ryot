@@ -82,8 +82,8 @@ export const normalizeOptionalNull = (args: ReadonlyArray<unknown>, index: numbe
 };
 
 type HostContract<Args extends ReadonlyArray<unknown>, Result> = {
-	readonly args: Schema.ConstraintCodec<Readonly<Args>, unknown>;
 	readonly result: Schema.ConstraintCodec<Result, unknown>;
+	readonly args: Schema.ConstraintCodec<Readonly<Args>, unknown>;
 };
 
 export const decodeSandboxHostArguments =

@@ -60,14 +60,6 @@ const mockManagedAssets = Layer.mock(ManagedAssetsService);
 const mockObjectStorage = Layer.mock(ObjectStorageService);
 const mockCleanliness = Layer.mock(BackupAccountCleanliness);
 
-class FakeRestoreDependencies extends Context.Service<
-	FakeRestoreDependencies,
-	{
-		readonly calls: Effect.Effect<ReadonlyArray<string>>;
-		readonly stagedObjects: Effect.Effect<ReadonlySet<string>>;
-	}
->()("test/FakeRestoreDependencies") {}
-
 type RestoreFake = {
 	readonly session: DatabaseSession["Service"];
 	readonly record: (call: string) => Effect.Effect<void>;
@@ -78,12 +70,20 @@ type RestoreFake = {
 type RestoreDependencyOverrides = {
 	writer?: MockOverrides<typeof mockWriter>;
 	repository?: MockOverrides<typeof mockRepository>;
-	pluginRestore?: MockOverrides<typeof mockPluginRestore>;
 	cleanliness?: MockOverrides<typeof mockCleanliness>;
+	pluginRestore?: MockOverrides<typeof mockPluginRestore>;
 	uploadIntents?: MockOverrides<typeof mockUploadIntents>;
 	managedAssets?: MockOverrides<typeof mockManagedAssets>;
 	objectStorage?: MockOverrides<typeof mockObjectStorage>;
 };
+
+class FakeRestoreDependencies extends Context.Service<
+	FakeRestoreDependencies,
+	{
+		readonly calls: Effect.Effect<ReadonlyArray<string>>;
+		readonly stagedObjects: Effect.Effect<ReadonlySet<string>>;
+	}
+>()("test/FakeRestoreDependencies") {}
 
 const makeLayer = (
 	overrides: (fake: RestoreFake) => RestoreDependencyOverrides,

@@ -89,9 +89,9 @@ const noWarnings: ReadonlyArray<AutomationWarning> = [];
 
 const relationshipBasis = (
 	rows: ReadonlyArray<{
-		readonly relationshipSchemaSlug: string;
-		readonly targetEntityId: string;
 		readonly properties: unknown;
+		readonly targetEntityId: string;
+		readonly relationshipSchemaSlug: string;
 	}>,
 ) =>
 	stableStringify(
@@ -225,10 +225,10 @@ export class EntityEditorService extends Context.Service<EntityEditorService>()(
 			const editorRelationships = (input: {
 				lock: boolean;
 				userId: UserId;
-				entityId: EntityId;
 				pluginId: string;
-				directions: ReadonlyMap<string, Direction>;
+				entityId: EntityId;
 				slugs: ReadonlyArray<string>;
+				directions: ReadonlyMap<string, Direction>;
 			}) => {
 				const slugsIn = (outgoing: boolean) =>
 					input.slugs
@@ -405,13 +405,13 @@ export class EntityEditorService extends Context.Service<EntityEditorService>()(
 				}
 
 				const changes: Array<
+					| { kind: "delete"; targetEntityId: EntityId; slug: RelationshipSchemaSlug }
 					| {
 							kind: "create";
-							slug: RelationshipSchemaSlug;
-							targetEntityId: EntityId;
 							properties: unknown;
+							targetEntityId: EntityId;
+							slug: RelationshipSchemaSlug;
 					  }
-					| { kind: "delete"; slug: RelationshipSchemaSlug; targetEntityId: EntityId }
 				> = [];
 				for (const group of submission.relationships) {
 					const slug = RelationshipSchemaSlug.make(group.relationshipSchemaSlug);
@@ -645,8 +645,8 @@ export class EntityEditorService extends Context.Service<EntityEditorService>()(
 
 			const submit = Effect.fn("EntityEditorService.submit")(function* (input: {
 				userId: UserId;
-				accountGeneration: AccountGeneration;
 				request: EntityEditorSaveRequest;
+				accountGeneration: AccountGeneration;
 			}) {
 				const { userId, request, accountGeneration } = input;
 				const { submission } = request;

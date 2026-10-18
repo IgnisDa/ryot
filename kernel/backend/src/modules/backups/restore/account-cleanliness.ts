@@ -37,38 +37,38 @@ import { SavedViewsRepository } from "#modules/saved-views/repository";
 import { BackupExportRepository } from "../export/repository";
 import { isDefaultSystemInstallation } from "../installation-state";
 
-type StructuralRelationship = Pick<
-	Effect.Success<
-		ReturnType<RelationshipsRepository["Service"]["listUserRelationshipsForBackup"]>
-	>[number],
-	| "sourceEntityId"
-	| "targetEntityId"
-	| "relationshipSchemaSlug"
-	| "relationshipSchemaPluginId"
-	| "properties"
->;
-
-type SavedViewRecord = Effect.Success<
-	ReturnType<SavedViewsRepository["Service"]["listForBackup"]>
->[number];
-
 export type AccountCleanlinessState = {
 	readonly hasEvents: boolean;
 	readonly hasIntegrations: boolean;
 	readonly hasManagedAssets: boolean;
 	readonly hasNotificationChannels: boolean;
 	readonly hasCalendarSourceOverrides: boolean;
-	readonly profile: PortableUserProfile | null;
+	readonly profile: null | PortableUserProfile;
 	readonly savedViews: ReadonlyArray<SavedViewRecord>;
 	readonly defaultPreferences: Record<string, unknown>;
 	readonly entities: ReadonlyArray<PortableEntityRecord>;
-	readonly pluginState: ReadonlyArray<PluginInstallationHydratedState>;
 	readonly relationships: ReadonlyArray<StructuralRelationship>;
 	readonly expectedSavedViews: ReadonlyArray<SavedViewDefinition>;
-	readonly expectedNotificationSubscriptions: ReadonlyArray<SignalSchemaReference>;
+	readonly pluginState: ReadonlyArray<PluginInstallationHydratedState>;
 	readonly expectedBootstrapRelationships: ReadonlyArray<StructuralRelationship>;
+	readonly expectedNotificationSubscriptions: ReadonlyArray<SignalSchemaReference>;
 	readonly notificationSubscriptions: ReadonlyArray<StoredNotificationSubscription>;
 };
+
+type SavedViewRecord = Effect.Success<
+	ReturnType<SavedViewsRepository["Service"]["listForBackup"]>
+>[number];
+
+type StructuralRelationship = Pick<
+	Effect.Success<
+		ReturnType<RelationshipsRepository["Service"]["listUserRelationshipsForBackup"]>
+	>[number],
+	| "properties"
+	| "sourceEntityId"
+	| "targetEntityId"
+	| "relationshipSchemaSlug"
+	| "relationshipSchemaPluginId"
+>;
 
 const sameUnorderedRecords = (actual: ReadonlyArray<unknown>, expected: ReadonlyArray<unknown>) => {
 	if (actual.length !== expected.length) {
@@ -87,7 +87,7 @@ const sameUnorderedRecords = (actual: ReadonlyArray<unknown>, expected: Readonly
 
 export const classifyAccountCleanliness = (
 	state: AccountCleanlinessState,
-): BackupAccountDataCategory | null => {
+): null | BackupAccountDataCategory => {
 	if (!state.profile || !isEqual(state.profile.preferences, state.defaultPreferences)) {
 		return "preferences";
 	}

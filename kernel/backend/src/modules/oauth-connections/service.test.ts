@@ -73,7 +73,7 @@ const currentUser = (id: UserId): CurrentUserValue => ({
 	accountGeneration: { userId: id, token: "test-account-generation" },
 });
 
-type TokenResponse = { readonly status: number; readonly body: unknown };
+type TokenResponse = { readonly body: unknown; readonly status: number };
 
 type RecordedTokenRequest = {
 	readonly form: URLSearchParams;
@@ -84,10 +84,10 @@ class FakeTokenEndpoint extends Context.Service<
 	FakeTokenEndpoint,
 	{
 		readonly requests: Effect.Effect<ReadonlyArray<RecordedTokenRequest>>;
+		readonly handle: (request: RecordedTokenRequest) => Effect.Effect<TokenResponse>;
 		readonly respond: (
 			responder: (form: URLSearchParams) => Effect.Effect<TokenResponse>,
 		) => Effect.Effect<void>;
-		readonly handle: (request: RecordedTokenRequest) => Effect.Effect<TokenResponse>;
 	}
 >()("test/FakeTokenEndpoint") {}
 
@@ -291,7 +291,7 @@ const createIntegration = (
 
 const startRun = Effect.fn(function* (
 	integrationId: IntegrationId,
-	status: "completed" | "running" = "running",
+	status: "running" | "completed" = "running",
 ) {
 	const session = yield* DatabaseSession;
 	const [integration] = yield* session.run((db) =>
@@ -338,23 +338,23 @@ const connectionRow = (id: OAuthConnectionId) =>
 	).pipe(Effect.map(([row]) => row));
 
 const accessToken = (input: {
-	readonly connectionId: OAuthConnectionId;
+	readonly userId?: UserId;
 	readonly pluginId: string;
 	readonly integrationId: IntegrationId;
 	readonly integrationRunId: ImportRunId;
-	readonly userId?: UserId;
+	readonly connectionId: OAuthConnectionId;
 }) =>
 	Effect.flatMap(OAuthConnectionsService, (service) =>
 		service.accessTokenForIntegrationRun({ userId: owner, field: "account", ...input }),
 	);
 
 const invalidateAccessToken = (input: {
-	readonly connectionId: OAuthConnectionId;
+	readonly userId?: UserId;
 	readonly pluginId: string;
+	readonly accessToken: string;
 	readonly integrationId: IntegrationId;
 	readonly integrationRunId: ImportRunId;
-	readonly accessToken: string;
-	readonly userId?: UserId;
+	readonly connectionId: OAuthConnectionId;
 }) =>
 	Effect.flatMap(OAuthConnectionsService, (service) =>
 		service.invalidateAccessTokenForIntegrationRun({ userId: owner, field: "account", ...input }),

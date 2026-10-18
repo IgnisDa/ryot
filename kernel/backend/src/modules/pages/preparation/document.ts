@@ -12,7 +12,7 @@ import { buildPageBundleFileUrl } from "#modules/pages/bundles/url";
 
 import type { ArtifactDescription } from "./composition";
 
-type Plan = Pick<ClientCompositionDocument, "modulepreloads" | "preloads" | "stylesheets">;
+type Plan = Pick<ClientCompositionDocument, "preloads" | "stylesheets" | "modulepreloads">;
 
 const otherPreload = (type: string): Plan["preloads"][number]["as"] => {
 	if (type.startsWith("font/")) {

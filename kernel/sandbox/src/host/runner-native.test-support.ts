@@ -27,20 +27,8 @@ import { makeUserPrincipal, makeUserSubject } from "./run-input.test-support";
 import { selectSnapshotTier } from "./snapshot-tier";
 
 export type RunnerCompiled = Effect.Success<ReturnType<typeof compileTestScript>>;
-export type RunnerOptions = Partial<
-	Pick<SandboxRunInput, "executionId" | "inlineDurableHost" | "lane" | "workflowExecutionId">
-> & {
-	readonly replayJournal?: ReadonlyArray<WorkflowReplayJournalEntry>;
-	readonly functions?: Readonly<Record<string, BoundHostFunction>>;
-	readonly filesystem?: { readonly artifact: boolean };
-	readonly reply?: (
-		frame: typeof SidecarHostCallFrame.Type,
-	) => (typeof SidecarHostResultFrame.Type)["result"] | undefined;
-};
-
-type SidecarSettings = Parameters<SandboxSidecarClient["Service"]["connect"]>[0];
-type SidecarConnection = Effect.Success<ReturnType<SandboxSidecarClient["Service"]["connect"]>>;
 export type SidecarRecorder = {
+	readonly retired?: (handle: string) => void;
 	readonly connected?: (settings: SidecarSettings, connection: SidecarConnection) => void;
 	readonly received?: (
 		frame: Effect.Success<SidecarConnection["next"]>,
@@ -50,8 +38,20 @@ export type SidecarRecorder = {
 		frame: SidecarInboundLogicalMessage,
 		settings: SidecarSettings,
 	) => SidecarInboundLogicalMessage;
-	readonly retired?: (handle: string) => void;
 };
+
+export type RunnerOptions = Partial<
+	Pick<SandboxRunInput, "lane" | "executionId" | "inlineDurableHost" | "workflowExecutionId">
+> & {
+	readonly filesystem?: { readonly artifact: boolean };
+	readonly functions?: Readonly<Record<string, BoundHostFunction>>;
+	readonly replayJournal?: ReadonlyArray<WorkflowReplayJournalEntry>;
+	readonly reply?: (
+		frame: typeof SidecarHostCallFrame.Type,
+	) => undefined | (typeof SidecarHostResultFrame.Type)["result"];
+};
+type SidecarSettings = Parameters<SandboxSidecarClient["Service"]["connect"]>[0];
+type SidecarConnection = Effect.Success<ReturnType<SandboxSidecarClient["Service"]["connect"]>>;
 
 const definitionEntryPoint = (kind: string | undefined) => {
 	if (kind === "operation") {
@@ -75,7 +75,7 @@ export const defineNativeScript = (
 		readonly output?: string;
 		readonly imports?: string;
 		readonly topLevel?: string;
-		readonly kind?: "script" | "operation" | "workflow" | "provider" | "automation";
+		readonly kind?: "script" | "workflow" | "provider" | "operation" | "automation";
 	} = {},
 ) => `
 ${options.kind === "workflow" ? 'import { Effect, Schema } from "@ryot-app/plugin-backend-sdk/workflow";' : 'import { Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";'}

@@ -29,7 +29,7 @@ it.effect(
 			let owner: string | undefined;
 			let attempts = 0;
 			const receipts = {
-				registerWorkflow: (identity: typeof account | null, name: string, executionId: string) =>
+				registerWorkflow: (identity: null | typeof account, name: string, executionId: string) =>
 					Effect.sync(() => {
 						expect(identity).toEqual(account);
 						expect(name).toBe(workflow._tag);

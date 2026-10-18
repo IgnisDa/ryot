@@ -13,11 +13,11 @@ export class EventProjectionRepository extends Context.Service<EventProjectionRe
 		make: Effect.gen(function* () {
 			const session = yield* DatabaseSession;
 			const publish = Effect.fn("EventProjectionRepository.publish")(function* (input: {
-				streamId: string;
 				userId: string;
+				streamId: string;
 				entityId: string;
-				eventSchemaPluginId: string;
 				eventSchemaSlug: string;
+				eventSchemaPluginId: string;
 				updates: (typeof EventStreamStepOutput.Type)["updates"];
 			}) {
 				yield* session.requireTransaction.pipe(Effect.orDie);

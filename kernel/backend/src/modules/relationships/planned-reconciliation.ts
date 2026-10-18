@@ -137,9 +137,9 @@ export const makePlannedRelationshipReconciliation = (
 					: new Map();
 			const seen = new Set<string>();
 			const desired: Array<
-				ReconcileGlobalRelationshipGroup["relationships"][number] & {
+				{
 					properties: Record<string, unknown>;
-				}
+				} & ReconcileGlobalRelationshipGroup["relationships"][number]
 			> = [];
 			for (const relationship of group.relationships) {
 				let matches = relationship.sourceEntityId === relationship.targetEntityId;
@@ -179,10 +179,10 @@ export const makePlannedRelationshipReconciliation = (
 				? ("ensure" as const)
 				: ("upsert" as const);
 			const mutations: Array<{
-				input: RelationshipIdentityInput;
-				mode: "upsert" | "ensure" | "delete";
 				command: DomainLifecycleCommand;
+				input: RelationshipIdentityInput;
 				properties: Record<string, unknown>;
+				mode: "upsert" | "ensure" | "delete";
 			}> = [
 				...desired.map((input) => ({ input, mode: upsertMode, properties: input.properties })),
 				...deletions
@@ -225,12 +225,12 @@ export const makePlannedRelationshipReconciliation = (
 			const reads = yield* primitives.readEntities(unrecorded);
 			const rows = yield* repository.findRelationships(unrecorded.map(({ input }) => input));
 			const prepared: Array<{
-				input: RelationshipIdentityInput;
-				mode: "upsert" | "ensure" | "delete";
 				command: DomainLifecycleCommand;
-				validated: ValidatedMutation | null;
-				before: AutomationRelationshipSnapshot | null;
-				request: AutomationRelationshipRequestPayload | null;
+				input: RelationshipIdentityInput;
+				validated: null | ValidatedMutation;
+				mode: "upsert" | "ensure" | "delete";
+				before: null | AutomationRelationshipSnapshot;
+				request: null | AutomationRelationshipRequestPayload;
 			}> = [];
 			for (const [index, mutation] of mutations.entries()) {
 				if (itemReplays[index]) {

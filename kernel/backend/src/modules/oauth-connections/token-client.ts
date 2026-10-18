@@ -11,13 +11,13 @@ export const OAUTH_TOKEN_RESPONSE_MAX_BYTES = 64 * 1024;
 type OAuthClientCredentials = { readonly clientId: string; readonly clientSecret: string };
 
 type OAuthTokenGrant =
+	| { readonly refreshToken: string; readonly grantType: "refresh_token" }
 	| {
 			readonly code: string;
 			readonly redirectUri: string;
 			readonly codeVerifier?: string;
 			readonly grantType: "authorization_code";
-	  }
-	| { readonly refreshToken: string; readonly grantType: "refresh_token" };
+	  };
 
 export class OAuthTokenEndpointError extends Data.TaggedError("OAuthTokenEndpointError")<{
 	readonly reason: "failed" | "invalid-grant";

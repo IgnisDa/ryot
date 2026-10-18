@@ -80,7 +80,7 @@ export class SandboxCrashStore extends Context.Service<SandboxCrashStore>()("San
 		const redis = yield* SandboxRedis;
 		const execute = Effect.fn("SandboxCrashStore.execute")(function* (
 			identities: ReadonlyArray<string>,
-			operation: "acquire" | "strike" | "survived" | "release",
+			operation: "strike" | "acquire" | "release" | "survived",
 			argument: string,
 		) {
 			const validated = yield* decodeIdentities(identities).pipe(

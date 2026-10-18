@@ -213,12 +213,12 @@ const redact = (message: string, secret: string | undefined) =>
 const sanitizeMessage = (
 	message: string,
 	invocation:
+		| undefined
 		| {
 				readonly executionId: string;
 				readonly scriptId?: string | undefined;
 				readonly workflowExecutionId?: string | undefined;
-		  }
-		| undefined,
+		  },
 	specifier: string,
 	phase: SandboxExecutionError["phase"],
 	hasMappedFrames: boolean,
@@ -252,12 +252,12 @@ export const executionError = (
 	error: unknown,
 	phase: SandboxExecutionError["phase"],
 	invocation:
+		| undefined
 		| {
 				readonly executionId: string;
 				readonly scriptId?: string | undefined;
 				readonly workflowExecutionId?: string | undefined;
-		  }
-		| undefined,
+		  },
 	specifier: string,
 	kind: SandboxExecutionError["kind"],
 ): SandboxExecutionError => {

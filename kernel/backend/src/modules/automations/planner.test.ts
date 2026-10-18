@@ -77,9 +77,9 @@ const asDescendant = <T extends ReturnType<typeof entityTrigger>>(trigger: T) =>
 	causation: { ...trigger.causation, depth: 1 },
 });
 const entityTrigger = (
-	pluginId: string | null,
+	pluginId: null | string,
 	id = "entity",
-	category: "request" | "change" = "change",
+	category: "change" | "request" = "change",
 	operation: "create" | "update" | "delete" = "create",
 ) => {
 	const snapshot = {
@@ -118,7 +118,7 @@ const entityTrigger = (
 };
 
 const entityChange = (
-	pluginId: string | null,
+	pluginId: null | string,
 	id: string,
 	entitySchemaSlug = "fixture-entity",
 ) => ({
@@ -138,7 +138,7 @@ const entityChange = (
 		updatedAt: "2026-09-15T00:00:00.000Z",
 	},
 });
-const eventChange = (pluginId: string | null, id: string, eventSchemaSlug = "changed") =>
+const eventChange = (pluginId: null | string, id: string, eventSchemaSlug = "changed") =>
 	Schema.decodeSync(AutomationEventChangePayload)({
 		resource: "event",
 		category: "change",
@@ -249,9 +249,9 @@ const hookPackage = (
 const afterHookPackage = (
 	version: string,
 	addition: {
+		batchMaxItems?: number;
 		frequency?: "item" | "batch";
 		executionScope?: "user" | "global";
-		batchMaxItems?: number;
 	},
 	packageId?: PluginPackageId,
 ) => {
@@ -270,7 +270,7 @@ const afterHookPackage = (
 const eventPolicyPackage = (
 	version: string,
 	position: number,
-	batchFrequency: "once-per-subject" | "item",
+	batchFrequency: "item" | "once-per-subject",
 	packageId?: PluginPackageId,
 ) => {
 	const value = hookPackage(version, packageId);
@@ -297,7 +297,7 @@ const eventPolicyPackage = (
 		},
 	};
 };
-const eventPolicyTrigger = (pluginId: string | null, id = "event-policy") =>
+const eventPolicyTrigger = (pluginId: null | string, id = "event-policy") =>
 	Schema.decodeEffect(AutomationTrigger)({
 		...triggerFixture(id),
 		scopeUserId: owner,
@@ -627,7 +627,7 @@ describe("LifecyclePlanner PostgreSQL", () => {
 						manifest: yield* Schema.decodeEffect(PluginManifest)(candidate.manifest),
 					});
 					const planner = yield* LifecyclePlanner;
-					const makePayload = (pluginId: string | null) => {
+					const makePayload = (pluginId: null | string) => {
 						const change = eventChange(pluginId, "collection-item", target.eventSchemaSlug);
 						assert(change.operation === "create");
 						return { ...change, after: { ...change.after, entitySchemaSlug: "collection" } };

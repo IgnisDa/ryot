@@ -54,8 +54,8 @@ export class RealSandboxScripts extends Context.Service<
 			source: string,
 		) => Effect.Effect<{
 			readonly contentHash: string;
-			readonly scriptId: SandboxScriptId;
 			readonly compiled: CompiledSource;
+			readonly scriptId: SandboxScriptId;
 			readonly pluginRevision: ReturnType<typeof makeUserPluginRevision>;
 		}>;
 	}

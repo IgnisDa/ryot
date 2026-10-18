@@ -556,7 +556,7 @@ const observeWorkflowReplay = Effect.fnUntraced(function* (
 
 export const performSandboxWorkflowRequest = Effect.fn("performSandboxWorkflowRequest")(function* (
 	request: WorkflowDurableCallRequest,
-	targetScriptId: SandboxScriptId | undefined,
+	targetScriptId: undefined | SandboxScriptId,
 	payload: PinnedScriptExecutionWorkflowPayload,
 	principal: ScriptExecutionPrincipal,
 	executionId: string,
@@ -615,7 +615,7 @@ export const performSandboxWorkflowRequest = Effect.fn("performSandboxWorkflowRe
 
 export const performSandboxWorkflowChild = Effect.fn("performSandboxWorkflowChild")(function* (
 	request: Extract<WorkflowDurableCallRequest, { readonly kind: "child" | "workflow-child" }>,
-	targetScriptId: SandboxScriptId | undefined,
+	targetScriptId: undefined | SandboxScriptId,
 	payload: ScriptExecutionWorkflowPayloadValue,
 	executionId: string,
 	callerAuthority: ScriptExecutionPrincipal,
@@ -633,7 +633,7 @@ export const performSandboxWorkflowChild = Effect.fn("performSandboxWorkflowChil
 	const usesArtifacts =
 		!kernel || request.args.workflowSlug === KERNEL_PROCESS_IMPORT_CHUNKS_WORKFLOW;
 	const dispatchReferenceExecutionId = `${childExecutionId}-artifact-dispatch`;
-	const artifactReference = (operation: "release" | "retain") =>
+	const artifactReference = (operation: "retain" | "release") =>
 		makeActivity({
 			error: SandboxRunError,
 			name: `${operation}-sandbox-child-artifacts-${request.index}`,
@@ -702,15 +702,15 @@ type ObservedRequest = Extract<ObservedWorkflowReplay, { state: "pending" }>["re
 
 interface WorkflowRunScope {
 	readonly executionId: string;
-	readonly instance: Context.Service.Shape<typeof WorkflowInstance>;
-	readonly payload: ScriptExecutionWorkflowPayloadValue;
 	readonly pin: typeof SandboxWorkflowPin.Type;
+	readonly payload: ScriptExecutionWorkflowPayloadValue;
+	readonly instance: Context.Service.Shape<typeof WorkflowInstance>;
 }
 
 const settleSandboxRequest = Effect.fnUntraced(function* (
 	{ pin, payload, instance, executionId }: WorkflowRunScope,
 	{ request, targetScriptId }: ObservedRequest,
-	pending: ScriptInlineProgress | undefined,
+	pending: undefined | ScriptInlineProgress,
 ) {
 	const engine = yield* WorkflowEngine;
 	const deferred = DurableDeferred.make(`sandbox-request-${request.index}`, {

@@ -10,8 +10,8 @@ import { Effect } from "effect";
 
 import type { ScriptExecutionPrincipal } from "./principal";
 
-type SandboxCapabilitySystemKind = "automation" | "script";
-type SandboxCapabilitySubject = "user" | "automation-run" | "system" | "event-projection";
+type SandboxCapabilitySystemKind = "script" | "automation";
+type SandboxCapabilitySubject = "user" | "system" | "automation-run" | "event-projection";
 type SandboxCapabilityRequirement = {
 	readonly bridge: boolean;
 	readonly requiresProvider?: boolean;
@@ -125,11 +125,11 @@ const sandboxCapabilityRequirement = (
 	capability: SandboxHostCapability,
 ): SandboxCapabilityRequirement => SANDBOX_CAPABILITY_REQUIREMENTS[capability];
 
+export type ScriptHostImplementationMap = SandboxHostImplementationMap<ScriptRunInput>;
+
 export type ScriptRunInput = Omit<SandboxRunInput, "principal"> & {
 	readonly principal: ScriptExecutionPrincipal;
 };
-
-export type ScriptHostImplementationMap = SandboxHostImplementationMap<ScriptRunInput>;
 
 export type AdditionalScriptHostImplementationMap = Omit<
 	ScriptHostImplementationMap,
@@ -140,8 +140,8 @@ export type AdditionalScriptHostImplementationMap = Omit<
 	| "setCachedValue"
 	| "getCachedValue"
 	| "sendNotification"
-	| "claimPersistentValue"
 	| "getPersistentValue"
+	| "claimPersistentValue"
 >;
 
 export type UserSandboxRunInput<Input extends ScriptRunInput = ScriptRunInput> = Input & {
@@ -149,25 +149,19 @@ export type UserSandboxRunInput<Input extends ScriptRunInput = ScriptRunInput> =
 		readonly subject:
 			| Extract<ScriptExecutionPrincipal["subject"], { readonly type: "user" }>
 			| Extract<ScriptExecutionPrincipal["subject"], { readonly type: "event-projection" }>
-			| (Extract<ScriptExecutionPrincipal["subject"], { readonly type: "automation-run" }> & {
-					readonly executionUserId: UserId;
-			  });
+			| ({ readonly executionUserId: UserId } & Extract<
+					ScriptExecutionPrincipal["subject"],
+					{ readonly type: "automation-run" }
+			  >);
 	};
 };
+
+type CapabilitySubject<Capability extends SandboxHostCapability> =
+	(typeof SANDBOX_CAPABILITY_REQUIREMENTS)[Capability]["subjects"][number];
 
 type DirectUserSandboxRunInput<Input extends ScriptRunInput = ScriptRunInput> = Input & {
 	readonly principal: Input["principal"] & {
 		readonly subject: Extract<ScriptExecutionPrincipal["subject"], { readonly type: "user" }>;
-	};
-};
-
-type SystemSandboxRunInput<Input extends ScriptRunInput = ScriptRunInput> = Input & {
-	readonly principal: Input["principal"] & {
-		readonly subject:
-			| Extract<ScriptExecutionPrincipal["subject"], { readonly type: "system" }>
-			| (Extract<ScriptExecutionPrincipal["subject"], { readonly type: "automation-run" }> & {
-					readonly executionUserId: null;
-			  });
 	};
 };
 
@@ -187,8 +181,25 @@ type AutomationRunSandboxRunInput<Input extends ScriptRunInput = ScriptRunInput>
 	};
 };
 
-type CapabilitySubject<Capability extends SandboxHostCapability> =
-	(typeof SANDBOX_CAPABILITY_REQUIREMENTS)[Capability]["subjects"][number];
+type SystemSandboxRunInput<Input extends ScriptRunInput = ScriptRunInput> = Input & {
+	readonly principal: Input["principal"] & {
+		readonly subject:
+			| Extract<ScriptExecutionPrincipal["subject"], { readonly type: "system" }>
+			| ({ readonly executionUserId: null } & Extract<
+					ScriptExecutionPrincipal["subject"],
+					{ readonly type: "automation-run" }
+			  >);
+	};
+};
+
+type SandboxRunInputForCapability<
+	Capability extends SandboxHostCapability,
+	Input extends ScriptRunInput = ScriptRunInput,
+> = (typeof SANDBOX_CAPABILITY_REQUIREMENTS)[Capability] extends { readonly requiresProvider: true }
+	? SystemProviderSandboxRunInput<Input>
+	: "system" extends CapabilitySubject<Capability>
+		? SandboxRunInputForSubject<Input, CapabilitySubject<Capability>>
+		: UserSandboxRunInput<Input> & SandboxRunInputForSubject<Input, CapabilitySubject<Capability>>;
 
 type SandboxRunInputForSubject<Input extends ScriptRunInput, Subject> = Subject extends "user"
 	? DirectUserSandboxRunInput<Input>
@@ -206,15 +217,6 @@ type SandboxRunInputForSubject<Input extends ScriptRunInput, Subject> = Subject 
 			: Subject extends "system"
 				? SystemSandboxRunInput<Input>
 				: never;
-
-type SandboxRunInputForCapability<
-	Capability extends SandboxHostCapability,
-	Input extends ScriptRunInput = ScriptRunInput,
-> = (typeof SANDBOX_CAPABILITY_REQUIREMENTS)[Capability] extends { readonly requiresProvider: true }
-	? SystemProviderSandboxRunInput<Input>
-	: "system" extends CapabilitySubject<Capability>
-		? SandboxRunInputForSubject<Input, CapabilitySubject<Capability>>
-		: SandboxRunInputForSubject<Input, CapabilitySubject<Capability>> & UserSandboxRunInput<Input>;
 
 const sandboxCapabilityError = (
 	input: Pick<ScriptRunInput, "principal">,

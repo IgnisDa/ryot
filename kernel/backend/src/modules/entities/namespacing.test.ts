@@ -2053,7 +2053,7 @@ layer(relationshipDatabaseLayer())((test) => {
 							accountGeneration: "test-account-generation",
 						}),
 				);
-				const shared = (id: string, userId: UserId | null) => ({
+				const shared = (id: string, userId: null | UserId) => ({
 					id,
 					userId,
 					name: id,
@@ -2125,7 +2125,7 @@ layer(relationshipDatabaseLayer())((test) => {
 			const recordEvent = Effect.fnUntraced(function* (
 				command: DomainLifecycleCommand,
 				userId: UserId,
-				entity: { readonly entitySchema: UpsertEntityInput["entitySchema"] } | "collection",
+				entity: "collection" | { readonly entitySchema: UpsertEntityInput["entitySchema"] },
 				eventSchemaSlug: EventSchemaSlug,
 				identity: string,
 			) {

@@ -48,12 +48,12 @@ const repositoryWithDatabase = (db: object, pluginRuntime = makePluginRuntime())
 	);
 };
 
+type Recorder = (entry: unknown) => Effect.Effect<void>;
+
 class RecordedQueries extends Context.Service<
 	RecordedQueries,
 	{ readonly entries: Effect.Effect<ReadonlyArray<unknown>> }
 >()("test/RecordedQueries") {}
-
-type Recorder = (entry: unknown) => Effect.Effect<void>;
 
 const recordingLayer = <A>(
 	provide: (db: object) => Layer.Layer<A>,

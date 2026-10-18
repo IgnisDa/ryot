@@ -50,19 +50,19 @@ const authorization = (
 class HandoffTestState extends Context.Service<
 	HandoffTestState,
 	{
-		readonly setUser: (user: HandoffTarget | null) => Effect.Effect<void>;
-		readonly setLifecycleActive: (active: boolean) => Effect.Effect<void>;
 		readonly userReads: Effect.Effect<ReadonlyArray<string>>;
-		readonly lifecycleReads: Effect.Effect<ReadonlyArray<string>>;
 		readonly values: Effect.Effect<ReadonlyMap<string, string>>;
+		readonly lifecycleReads: Effect.Effect<ReadonlyArray<string>>;
 		readonly expiries: Effect.Effect<ReadonlyMap<string, number>>;
+		readonly setUser: (user: null | HandoffTarget) => Effect.Effect<void>;
+		readonly setLifecycleActive: (active: boolean) => Effect.Effect<void>;
 	}
 >()("test/HandoffTestState") {}
 
 const makeLayer = () =>
 	Layer.unwrap(
 		Effect.gen(function* () {
-			const user = yield* Ref.make<HandoffTarget | null>(targetUser);
+			const user = yield* Ref.make<null | HandoffTarget>(targetUser);
 			const lifecycleActive = yield* Ref.make(false);
 			const userReads = yield* Ref.make<ReadonlyArray<string>>([]);
 			const lifecycleReads = yield* Ref.make<ReadonlyArray<string>>([]);

@@ -6,9 +6,9 @@ import { DatabaseSession } from "#platform/db/session";
 import * as schema from "#schema/tables/combined";
 
 type CalendarSourceIdentity = {
+	readonly slug: string;
 	readonly userId: UserId;
 	readonly pluginId: string;
-	readonly slug: string;
 };
 
 export class CalendarSourcesRepository extends Context.Service<CalendarSourcesRepository>()(

@@ -66,19 +66,19 @@ const relationshipBatch = (
 });
 
 export const writeChildEntitySet = Effect.fn("writeChildEntitySet")(function* (
-	input: {
-		beforeWrite?: Effect.Effect<void, SandboxRunError>;
-		command: DomainLifecycleCommand;
+	input: ({ scope: "global" } | { scope: "user"; userId: UserId }) & {
 		pluginId: PluginId;
-		definitions: EntityRelationshipDefinitions;
-		population: AutomationPopulationContext;
 		syncExisting?: boolean;
 		parentEntityId: EntityId;
 		providerId: SandboxProviderId;
+		command: DomainLifecycleCommand;
+		population: AutomationPopulationContext;
 		parentEntitySchemaSlug: EntitySchemaSlug;
+		definitions: EntityRelationshipDefinitions;
+		beforeWrite?: Effect.Effect<void, SandboxRunError>;
 		expectedChildEntitySchemaSlug?: string | undefined;
 		childEntities: ReadonlyArray<ProviderDetailsChildEntity>;
-	} & ({ scope: "global" } | { scope: "user"; userId: UserId }),
+	},
 ) {
 	const session = yield* DatabaseSession;
 	const entities = yield* EntitiesService;

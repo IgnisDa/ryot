@@ -14,7 +14,7 @@ export const workflowExecution = snakeCase.table(
 		workflowName: text().notNull(),
 		rootExecutionId: text().notNull(),
 		rootWorkflowName: text().notNull(),
-		status: text().$type<"active" | "succeeded" | "failed">().notNull(),
+		status: text().$type<"active" | "failed" | "succeeded">().notNull(),
 	},
 	(table) => [
 		primaryKey({ columns: [table.workflowName, table.executionId] }),

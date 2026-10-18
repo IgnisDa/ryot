@@ -12,28 +12,12 @@ import * as schema from "#schema/tables/combined";
 
 export type PortableUserProfile = Pick<
 	typeof schema.user.$inferSelect,
-	"image" | "name" | "preferences"
+	"name" | "image" | "preferences"
 >;
 
-export type InternalOAuthClient = Pick<
-	typeof schema.oauthClient.$inferInsert,
-	| "id"
-	| "scopes"
-	| "clientId"
-	| "disabled"
-	| "grantTypes"
-	| "createdAt"
-	| "updatedAt"
-	| "redirectUris"
-	| "requirePKCE"
-	| "skipConsent"
-	| "clientSecret"
-	| "responseTypes"
-	| "applicationType"
-	| "enableEndSession"
-	| "postLogoutRedirectUris"
-	| "tokenEndpointAuthMethod"
-	| "clientCredentialsScopes"
+export type InternalOAuthClientResource = Pick<
+	typeof schema.oauthClientResource.$inferInsert,
+	"id" | "clientId" | "createdAt" | "resourceId"
 >;
 
 export type InternalOAuthResource = Pick<
@@ -49,9 +33,25 @@ export type InternalOAuthResource = Pick<
 	| "refreshTokenTtl"
 >;
 
-export type InternalOAuthClientResource = Pick<
-	typeof schema.oauthClientResource.$inferInsert,
-	"id" | "clientId" | "createdAt" | "resourceId"
+export type InternalOAuthClient = Pick<
+	typeof schema.oauthClient.$inferInsert,
+	| "id"
+	| "scopes"
+	| "clientId"
+	| "disabled"
+	| "createdAt"
+	| "updatedAt"
+	| "grantTypes"
+	| "requirePKCE"
+	| "skipConsent"
+	| "redirectUris"
+	| "clientSecret"
+	| "responseTypes"
+	| "applicationType"
+	| "enableEndSession"
+	| "postLogoutRedirectUris"
+	| "tokenEndpointAuthMethod"
+	| "clientCredentialsScopes"
 >;
 
 export class AuthRepository extends Context.Service<AuthRepository>()("AuthRepository", {
@@ -333,7 +333,7 @@ export class AuthRepository extends Context.Service<AuthRepository>()("AuthRepos
 		);
 		const markBootstrapComplete = Effect.fn("AuthRepository.markBootstrapComplete")(function* (
 			userId: string,
-			image: string | null,
+			image: null | string,
 		) {
 			const completedAt = yield* DateTime.nowAsDate;
 			yield* database.run((db) =>

@@ -68,7 +68,7 @@ const properties = (schema: AppSchema | undefined, values: Readonly<Record<strin
 
 export const redactAutomationHistoryPayload = (
 	payload: AutomationTriggerPayload,
-	manifest: PinnedSchemas | null,
+	manifest: null | PinnedSchemas,
 	pluginId: AutomationRun["pluginId"],
 ): JsonValue => {
 	const entitySchema = (slug: string) =>
@@ -222,7 +222,7 @@ export class AutomationRunRepository extends Context.Service<AutomationRunReposi
 				const schemas = new Map(revisions.map((revision) => [revision.id, revision]));
 				const histories = new Map<
 					string,
-					Pick<typeof table.$inferSelect, "historyPayloadTruncated" | "historyPayload">
+					Pick<typeof table.$inferSelect, "historyPayload" | "historyPayloadTruncated">
 				>();
 				const rows = values.map((value) => {
 					const key = stableStringify([value.pluginRevisionId, value.pluginId]);

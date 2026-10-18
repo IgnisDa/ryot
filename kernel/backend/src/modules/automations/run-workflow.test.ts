@@ -242,11 +242,11 @@ type HarnessOptions = {
 };
 
 type HarnessState = {
+	readonly finalizeCalls: number;
 	readonly options: HarnessOptions;
 	readonly attempt: AutomationRunAttempt;
-	readonly outcomes: ReadonlyArray<FinalizeAutomationAttempt>;
 	readonly children: ReadonlyArray<string>;
-	readonly finalizeCalls: number;
+	readonly outcomes: ReadonlyArray<FinalizeAutomationAttempt>;
 };
 
 const initialState = (options: HarnessOptions): HarnessState => ({
@@ -260,9 +260,9 @@ const initialState = (options: HarnessOptions): HarnessState => ({
 class RunWorkflowHarness extends Context.Service<
 	RunWorkflowHarness,
 	{
-		readonly outcomes: Effect.Effect<ReadonlyArray<FinalizeAutomationAttempt>>;
 		readonly children: Effect.Effect<ReadonlyArray<string>>;
 		readonly reset: (options: HarnessOptions) => Effect.Effect<void>;
+		readonly outcomes: Effect.Effect<ReadonlyArray<FinalizeAutomationAttempt>>;
 	}
 >()("test/RunWorkflowHarness") {}
 

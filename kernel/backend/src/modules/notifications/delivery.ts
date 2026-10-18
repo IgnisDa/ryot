@@ -10,14 +10,14 @@ const PUSHOVER_DEFAULT_APP_TOKEN = "abd1semr21hv1i5j5kfkm23wf1kd4u";
 const AVATAR_URL =
 	"https://raw.githubusercontent.com/IgnisDa/ryot/main/packages/assets/icon-512x512.png";
 
-export class NotificationDeliveryError extends Data.TaggedError("NotificationDeliveryError")<{
-	message: string;
-}> {}
-
 type NotificationMailerInput = {
 	credentials: { user: string; server: string; password: string };
 	mail: { to: string; from: string; html: string; text: string; subject: string };
 };
+
+export class NotificationDeliveryError extends Data.TaggedError("NotificationDeliveryError")<{
+	message: string;
+}> {}
 
 const encodePathSegment = (value: string) => encodeURIComponent(value);
 

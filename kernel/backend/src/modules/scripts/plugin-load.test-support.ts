@@ -30,11 +30,11 @@ class PluginLoadVerificationSlots extends Context.Service<
 const maximumDiagnosticLength = 2_048;
 const fixedStartedAt = "2026-08-06T00:00:00.000Z";
 const internalControlNames = new Set([
-	"artifactReadRange",
 	"inlineBatch",
 	"journalRead",
-	"replayJournal",
 	"scratchWrite",
+	"replayJournal",
+	"artifactReadRange",
 ]);
 const excludedApiFunctions = new Set<string>(["filesystem", "replayJournal"]);
 const generationByTier = { core: 1, data: 2, full: 3 } satisfies Record<SnapshotTier, number>;

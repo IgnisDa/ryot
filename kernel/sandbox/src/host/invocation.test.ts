@@ -13,7 +13,7 @@ describe("selectSandboxHostFunctions", () => {
 		readonly [
 			name: string,
 			kind: "script" | "workflow",
-			capabilities: ReadonlyArray<string> | undefined,
+			capabilities: undefined | ReadonlyArray<string>,
 			bound: ReadonlyArray<string>,
 			expected: ReadonlyArray<string>,
 		]

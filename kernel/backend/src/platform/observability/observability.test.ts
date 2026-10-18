@@ -81,7 +81,7 @@ layer(BunServices.layer)((test) => {
 			const fs = yield* FileSystem.FileSystem;
 			const root = yield* fs.makeTempDirectoryScoped({ prefix: "ryot-otlp-headers-" });
 			const requests = yield* Ref.make<
-				ReadonlyArray<{ path: string; authorization: string | null }>
+				ReadonlyArray<{ path: string; authorization: null | string }>
 			>([]);
 			const server = yield* Effect.acquireRelease(
 				Effect.sync(() =>

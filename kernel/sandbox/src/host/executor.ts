@@ -94,12 +94,12 @@ export class SandboxExecutor extends Context.Service<SandboxExecutor>()("Sandbox
 			const executionStartedAt = yield* Clock.currentTimeMillis;
 			const kind = sandboxMetricKind(input.principal.metadata);
 			let terminal:
+				| undefined
 				| {
 						readonly durationMs: number;
 						readonly responseBytes: number;
 						readonly outcome: SandboxExecutionOutcome;
-				  }
-				| undefined;
+				  };
 			return yield* Effect.scoped(
 				Effect.gen(function* () {
 					const existingLease = yield* Effect.serviceOption(SandboxAdmissionLease);

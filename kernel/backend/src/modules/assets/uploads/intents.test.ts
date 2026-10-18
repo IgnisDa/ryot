@@ -74,19 +74,19 @@ const makeIntentRecord = (overrides: Record<string, unknown> = {}) =>
 class FakeUploadStore extends Context.Service<
 	FakeUploadStore,
 	{
+		readonly awaitStat: Effect.Effect<void>;
+		readonly releaseStat: Effect.Effect<boolean>;
 		readonly leased: Effect.Effect<ReadonlyArray<string>>;
+		readonly writes: Effect.Effect<ReadonlyArray<string>>;
 		readonly released: Effect.Effect<ReadonlyArray<string>>;
 		readonly deletedKeys: Effect.Effect<ReadonlyArray<string>>;
+		readonly registrations: Effect.Effect<ReadonlyArray<string>>;
 		readonly removedMembers: Effect.Effect<ReadonlyArray<string>>;
 		readonly storedValues: Effect.Effect<ReadonlyMap<string, string>>;
 		readonly deletedObjects: Effect.Effect<ReadonlyArray<ManagedAssetLocator>>;
+		readonly tokenWrites: Effect.Effect<ReadonlyArray<{ key: string; ttl: number }>>;
 		readonly reindexed: Effect.Effect<ReadonlyArray<{ score: number; member: string }>>;
 		readonly indexed: Effect.Effect<ReadonlyArray<{ key: string; score: number; member: string }>>;
-		readonly tokenWrites: Effect.Effect<ReadonlyArray<{ key: string; ttl: number }>>;
-		readonly writes: Effect.Effect<ReadonlyArray<string>>;
-		readonly registrations: Effect.Effect<ReadonlyArray<string>>;
-		readonly awaitStat: Effect.Effect<void>;
-		readonly releaseStat: Effect.Effect<boolean>;
 	}
 >()("test/FakeUploadStore") {}
 
@@ -94,11 +94,11 @@ const append = <A>(ref: Ref.Ref<ReadonlyArray<A>>, ...values: ReadonlyArray<A>) 
 	Ref.update(ref, (all) => [...all, ...values]);
 
 const makeUploadIntentsLayer = (options: {
-	readonly intentRecord?: string;
-	readonly objectDeletionFails?: boolean;
-	readonly provider?: "local" | "s3";
 	readonly blockStat?: boolean;
+	readonly intentRecord?: string;
 	readonly missingObject?: boolean;
+	readonly provider?: "s3" | "local";
+	readonly objectDeletionFails?: boolean;
 }) =>
 	UploadIntentsService.layer.pipe(
 		Layer.provideMerge(

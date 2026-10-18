@@ -46,8 +46,8 @@ const canonicalizeHttpRateLimitDeclaration = (declaration: PluginHttpRateLimit) 
 
 export const buildHttpRateLimitLookups = (
 	plugins: ReadonlyArray<{
-		readonly owner: DefinitionOwner;
 		readonly packageId: string;
+		readonly owner: DefinitionOwner;
 		readonly httpRateLimits: ReadonlyArray<PluginHttpRateLimit>;
 	}>,
 ): HttpRateLimitLookups => {

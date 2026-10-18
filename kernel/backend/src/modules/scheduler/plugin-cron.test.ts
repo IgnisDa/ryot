@@ -25,11 +25,11 @@ import {
 	privatePluginCronExecutionId,
 } from "./plugin-cron";
 
-type CapturedRun = Parameters<WorkflowEngine["Service"]["execute"]>[1];
+type Catalog = Readonly<Record<string, PluginRegistryEntry>>;
 
 type PluginRegistryEntry = PluginRevision & StoredPluginIdentity;
 
-type Catalog = Readonly<Record<string, PluginRegistryEntry>>;
+type CapturedRun = Parameters<WorkflowEngine["Service"]["execute"]>[1];
 
 type ResolveActivePluginCron = PluginRuntimeResolver["Service"]["resolveActivePluginCron"];
 
@@ -173,9 +173,9 @@ const resolveFromCatalog =
 
 const makeLayer = (
 	options: {
-		plugins?: ReadonlyArray<PluginRegistryEntry>;
 		failingExecutionId?: string;
 		infrequentCronJobsSchedule?: string;
+		plugins?: ReadonlyArray<PluginRegistryEntry>;
 		resolveActivePluginCron?: (plugins: Effect.Effect<Catalog>) => ResolveActivePluginCron;
 		listPrivateCronSchedules?: PluginRuntimeResolver["Service"]["listPrivateCronSchedules"];
 	} = {},
@@ -231,7 +231,7 @@ const makeLayer = (
 
 class SelectionGate extends Context.Service<
 	SelectionGate,
-	{ readonly selected: Deferred.Deferred<void>; readonly release: Deferred.Deferred<void> }
+	{ readonly release: Deferred.Deferred<void>; readonly selected: Deferred.Deferred<void> }
 >()("test/SelectionGate") {}
 
 const gatedSelectionLayer = (plugins: ReadonlyArray<PluginRegistryEntry>) =>

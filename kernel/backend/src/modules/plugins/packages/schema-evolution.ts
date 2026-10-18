@@ -5,6 +5,7 @@ import { stableStringify } from "@ryot-app/ts-utils/json";
 import { Data, Effect } from "effect";
 
 export type SchemaEvolutionIssue = {
+	readonly path: string;
 	readonly code:
 		| "enum_narrowed"
 		| "schema_changed"
@@ -13,14 +14,13 @@ export type SchemaEvolutionIssue = {
 		| "property_removed"
 		| "property_type_changed"
 		| "required_property_added";
-	readonly path: string;
 };
+
+type PropertySchemaDefinition = { readonly slug: string; readonly propertiesSchema: AppSchema };
 
 export class SchemaEvolutionError extends Data.TaggedError("SchemaEvolutionError")<{
 	readonly issues: ReadonlyArray<SchemaEvolutionIssue>;
 }> {}
-
-type PropertySchemaDefinition = { readonly slug: string; readonly propertiesSchema: AppSchema };
 
 const structuralProperty = (property: AppPropertyDefinition) => {
 	if (property.type === "enum" || property.type === "enum-array") {

@@ -28,12 +28,12 @@ import { ImportsRepository } from "./repository";
 import { ImportRunError } from "./runtime/workflow-errors";
 
 const fixture = Effect.fnUntraced(function* (
-	mode: "failure" | "recovery" | "retirement" | "fenced" | "quarantine",
+	mode: "fenced" | "failure" | "recovery" | "retirement" | "quarantine",
 ) {
 	let run = ingestionTestRun();
-	let reservation: typeof importPayloadReservation.$inferSelect | undefined;
-	let capture: IngestionCapture | null = null;
-	let stored: Uint8Array | null = null;
+	let reservation: undefined | typeof importPayloadReservation.$inferSelect;
+	let capture: null | IngestionCapture = null;
+	let stored: null | Uint8Array = null;
 	const bytes = new TextEncoder().encode("captured records");
 	const started = yield* Deferred.make<void>();
 	const continueWrite = yield* Deferred.make<void>();

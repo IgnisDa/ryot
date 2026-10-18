@@ -78,7 +78,7 @@ export const orderDataGraph = (document: DataJsonDocument, definitions: Definiti
 	const entityKeys = new Set(document.entities.map(({ key }) => key));
 	const relationshipKeys = new Set(document.relationships.map(({ key }) => key));
 	const allKeys = new Set<string>();
-	const failures: Array<{ item: DataGraphRecord; message: string }> = [];
+	const failures: Array<{ message: string; item: DataGraphRecord }> = [];
 	const validRecords = new Map<
 		string,
 		{ item: DataGraphRecord; dependencies: ReadonlyArray<string> }

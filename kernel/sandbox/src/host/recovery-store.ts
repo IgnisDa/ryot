@@ -81,7 +81,7 @@ export class SandboxRecoveryStore extends Context.Service<SandboxRecoveryStore>(
 		make: Effect.gen(function* () {
 			const redis = yield* SandboxRedis;
 			const execute = Effect.fn("SandboxRecoveryStore.execute")(function* (
-				operation: "read" | "collateral" | "resume" | "clear",
+				operation: "read" | "clear" | "resume" | "collateral",
 				input: SandboxRecoveryIdentity,
 				argument?: string,
 			) {

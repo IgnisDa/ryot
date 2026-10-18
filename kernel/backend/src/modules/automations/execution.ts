@@ -35,12 +35,12 @@ export const AUTOMATION_IMMEDIATE_TIMEOUT_MS =
 	SANDBOX_LIMITS.execution.timeoutMs + AUTOMATION_IMMEDIATE_TIMEOUT_SLACK_MS;
 export const AUTOMATION_IMMEDIATE_CONCURRENCY = 8;
 
-export type AutomationDispatchState = "claimed" | "closed" | "fresh";
+export type AutomationDispatchState = "fresh" | "closed" | "claimed";
 
 export type AutomationDispatch = { readonly state: AutomationDispatchState };
 
 export const dispatchStateOf = (
-	row: { readonly attemptCount: number; readonly status: string } | undefined,
+	row: undefined | { readonly status: string; readonly attemptCount: number },
 ): AutomationDispatchState => {
 	if (!row || (row.attemptCount === 0 && row.status !== "queued")) {
 		return "closed";
@@ -56,15 +56,15 @@ const rootTransactionRequired = () =>
 export class AutomationExecutionOperations extends Context.Service<
 	AutomationExecutionOperations,
 	{
-		dispatchStates: (
-			runIds: ReadonlyArray<AutomationRunId>,
-		) => Effect.Effect<ReadonlyMap<AutomationRunId, AutomationDispatch>, DbError>;
 		skipQueuedPolicies: LifecycleExecution["Service"]["skipQueuedPolicies"];
 		submit: (payload: AutomationRunWorkflowPayload) => Effect.Effect<void, DbError>;
 		settle: (
 			payload: AutomationRunWorkflowPayload,
 			deadline: number,
 		) => Effect.Effect<AutomationRunSettlement, DbError>;
+		dispatchStates: (
+			runIds: ReadonlyArray<AutomationRunId>,
+		) => Effect.Effect<ReadonlyMap<AutomationRunId, AutomationDispatch>, DbError>;
 	}
 >()("AutomationExecutionOperations") {}
 

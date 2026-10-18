@@ -18,7 +18,7 @@ export class IngestionPayloadError extends Schema.TaggedError<
 	kind: Schema.Literals(["unavailable", "corrupt"]),
 }) {}
 
-export const ingestionPayloadDigest = (bytes: Uint8Array | string) =>
+export const ingestionPayloadDigest = (bytes: string | Uint8Array) =>
 	new Bun.CryptoHasher("sha256").update(bytes).digest("hex");
 
 export class IngestionPayloads extends Context.Service<IngestionPayloads>()("IngestionPayloads", {
@@ -78,9 +78,9 @@ export class IngestionPayloads extends Context.Service<IngestionPayloads>()("Ing
 				),
 		);
 		const describe = Effect.fn("IngestionPayloads.describe")(function* (input: {
-			scope: IngestionScope;
 			id: string;
 			bytes: Uint8Array;
+			scope: IngestionScope;
 		}) {
 			const checksum = ingestionPayloadDigest(input.bytes);
 			const key = `permanent/ingestion-${ingestionPayloadDigest(stableStringify([input.scope, input.id]))}.bin`;
@@ -93,9 +93,9 @@ export class IngestionPayloads extends Context.Service<IngestionPayloads>()("Ing
 			return payload;
 		});
 		const write = Effect.fn("IngestionPayloads.write")(function* (input: {
-			payload: IngestionPayload;
-			bytes: Uint8Array;
 			maxBytes: number;
+			bytes: Uint8Array;
+			payload: IngestionPayload;
 		}) {
 			const payload = input.payload;
 			const locator = yield* decodeLocator(payload.locator);

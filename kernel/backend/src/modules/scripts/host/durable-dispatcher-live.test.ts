@@ -180,13 +180,13 @@ const unusedAdmission = {
 const dispatcherLayer = (options: {
 	readonly script: typeof script;
 	readonly engine: WorkflowEngine["Service"];
-	readonly instance: WorkflowInstance["Service"];
 	readonly httpClient?: HttpClient.HttpClient;
-	readonly implementations?: ScriptHostImplementations["Service"];
+	readonly instance: WorkflowInstance["Service"];
+	readonly authority?: SandboxExecutionAuthority["Service"];
 	readonly lifecycleExecution?: Layer.Layer<LifecycleExecution>;
+	readonly implementations?: ScriptHostImplementations["Service"];
 	readonly resolve?: PluginHttpRateLimitAuthority["Service"]["resolve"];
 	readonly admission?: Partial<ProviderHttpAdmissionService["Service"]>;
-	readonly authority?: SandboxExecutionAuthority["Service"];
 }) =>
 	SandboxDurableHostDispatcherLive.pipe(
 		Layer.provideMerge(
@@ -431,9 +431,9 @@ const unmatched = (origin = providerOrigin) =>
 		reason: "undeclared-origin",
 	}) as const satisfies HttpRateLimitAuthorityResolution;
 
-type HttpOutcome = Readonly<{ status: number; headers?: Readonly<Record<string, string>> }>;
+type ScriptedResolution = "fail" | HttpRateLimitAuthorityResolution;
 
-type ScriptedResolution = HttpRateLimitAuthorityResolution | "fail";
+type HttpOutcome = Readonly<{ status: number; headers?: Readonly<Record<string, string>> }>;
 
 type CapturedLog = Readonly<{
 	message: string;
@@ -444,24 +444,24 @@ type CapturedLog = Readonly<{
 type SentHttpRequest = Readonly<{
 	url: string;
 	method: string;
-	body: string | null;
+	body: null | string;
+	requestInit: undefined | RequestInit;
 	headers: Readonly<Record<string, string>>;
-	requestInit: RequestInit | undefined;
 }>;
 
 class HttpDispatchHarness extends Context.Service<
 	HttpDispatchHarness,
 	{
 		readonly instance: WorkflowInstance["Service"];
+		readonly requestInterrupt: Effect.Effect<void>;
 		readonly events: Effect.Effect<ReadonlyArray<string>>;
 		readonly logs: Effect.Effect<ReadonlyArray<CapturedLog>>;
 		readonly clockNames: Effect.Effect<ReadonlyArray<string>>;
-		readonly activityNames: Effect.Effect<ReadonlyArray<string>>;
-		readonly clockDurations: Effect.Effect<ReadonlyArray<number>>;
-		readonly requestInterrupt: Effect.Effect<void>;
-		readonly registered: Effect.Effect<ReadonlyArray<ProviderHttpTicket>>;
-		readonly sent: Effect.Effect<ReadonlyArray<SentHttpRequest>>;
 		readonly resolvedUrls: Effect.Effect<ReadonlyArray<string>>;
+		readonly activityNames: Effect.Effect<ReadonlyArray<string>>;
+		readonly sent: Effect.Effect<ReadonlyArray<SentHttpRequest>>;
+		readonly clockDurations: Effect.Effect<ReadonlyArray<number>>;
+		readonly registered: Effect.Effect<ReadonlyArray<ProviderHttpTicket>>;
 	}
 >()("test/HttpDispatchHarness") {}
 
@@ -474,16 +474,16 @@ const at = <A>(items: ReadonlyArray<A>, index: number) => items[Math.min(index, 
 const unavailable = new ProviderHttpAdmissionUnavailable({ message: "Redis is down" });
 
 const httpDispatchLayer = (options: {
+	readonly staleBlock?: boolean;
+	readonly blockFailures?: number;
+	readonly cancelFailures?: number;
 	readonly blockObservedAtMs?: number;
 	readonly outcomes: ReadonlyArray<HttpOutcome>;
-	readonly claims?: ReadonlyArray<ProviderHttpClaim>;
-	readonly polls?: ReadonlyArray<ProviderHttpPoll | "fail">;
-	readonly registrations?: ReadonlyArray<ProviderHttpRegistration | "fail">;
-	readonly resolutions?: Readonly<Record<string, ReadonlyArray<ScriptedResolution>>>;
-	readonly cancelFailures?: number;
-	readonly blockFailures?: number;
-	readonly staleBlock?: boolean;
 	readonly cachedInterruptedAdmission?: boolean;
+	readonly claims?: ReadonlyArray<ProviderHttpClaim>;
+	readonly polls?: ReadonlyArray<"fail" | ProviderHttpPoll>;
+	readonly registrations?: ReadonlyArray<"fail" | ProviderHttpRegistration>;
+	readonly resolutions?: Readonly<Record<string, ReadonlyArray<ScriptedResolution>>>;
 }) =>
 	Layer.unwrap(
 		Effect.gen(function* () {
@@ -592,7 +592,7 @@ const httpDispatchLayer = (options: {
 				});
 			const scriptedAdmission = <A extends { readonly status: string }>(
 				label: string,
-				scripted: ReadonlyArray<A | "fail"> | undefined,
+				scripted: undefined | ReadonlyArray<A | "fail">,
 				cursor: Ref.Ref<number>,
 				fallback: A,
 			) =>
@@ -715,7 +715,7 @@ const httpCase = (
 	body: () => Effect.Effect<
 		void,
 		unknown,
-		Layer.Success<ReturnType<typeof httpDispatchLayer>> | Scope.Scope
+		Scope.Scope | Layer.Success<ReturnType<typeof httpDispatchLayer>>
 	>,
 ) =>
 	layer(httpDispatchLayer(options))((test) => {
@@ -1910,8 +1910,8 @@ const lifecycleDispatchLayer = (options: {
 
 const runLifecycleDispatch = (options: {
 	readonly args: ReadonlyArray<JsonValue>;
-	readonly capability: (typeof lifecycleCapabilities)[number];
 	readonly principal?: ScriptExecutionPrincipal;
+	readonly capability: (typeof lifecycleCapabilities)[number];
 }) =>
 	Effect.flatMap(SandboxDurableHostDispatcher, (dispatcher) =>
 		dispatcher.dispatch(

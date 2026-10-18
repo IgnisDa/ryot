@@ -100,12 +100,12 @@ type UserSubject = Extract<SandboxExecutionSubject, { readonly type: "user" }>;
 
 type UserWorkFixtureValue = {
 	readonly userId: UserId;
-	readonly accountGeneration: UserSubject["accountGeneration"];
-	readonly subject: UserSubject;
 	readonly pluginId: PluginId;
-	readonly targetScriptId: SandboxScriptId;
 	readonly targetSlug: string;
+	readonly subject: UserSubject;
+	readonly targetScriptId: SandboxScriptId;
 	readonly principal: ScriptExecutionPrincipalType;
+	readonly accountGeneration: UserSubject["accountGeneration"];
 };
 
 class UserWorkFixture extends Context.Service<UserWorkFixture, UserWorkFixtureValue>()(
@@ -248,15 +248,15 @@ type DispatchRecord = {
 	readonly inTransaction: boolean;
 };
 
-class UserWorkHostCalls extends Context.Service<
-	UserWorkHostCalls,
-	{ readonly dispatches: Effect.Effect<ReadonlyArray<DispatchRecord>> }
->()("test/UserWorkHostCalls") {}
-
 class UserWorkChildCalls extends Context.Service<
 	UserWorkChildCalls,
 	{ readonly executions: Effect.Effect<ReadonlyArray<string>> }
 >()("test/UserWorkChildCalls") {}
+
+class UserWorkHostCalls extends Context.Service<
+	UserWorkHostCalls,
+	{ readonly dispatches: Effect.Effect<ReadonlyArray<DispatchRecord>> }
+>()("test/UserWorkHostCalls") {}
 
 const userWorkHostLayer = () =>
 	Layer.mergeAll(DomainWriteChecksLive, BackgroundWorkService.layer).pipe(

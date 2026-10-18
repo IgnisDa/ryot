@@ -416,12 +416,12 @@ const provenanceQuery = document({
 const provenanceRecords = (
 	input: {
 		readonly builtinView?: boolean;
-		readonly viewKey?: string | null;
-		readonly entityKey?: string | null;
-		readonly dependencyKey?: string | null;
-		readonly relationshipKey?: string | null;
-		readonly subscriptionKey?: string | null;
+		readonly viewKey?: null | string;
+		readonly entityKey?: null | string;
 		readonly calendarSourceKey?: string;
+		readonly dependencyKey?: null | string;
+		readonly relationshipKey?: null | string;
+		readonly subscriptionKey?: null | string;
 	} = {},
 ): ArchiveRecords => ({
 	integrations: [],
@@ -609,7 +609,7 @@ const provenanceDefinitions: DefinitionSnapshot = {
 	},
 };
 
-const provenanceEvent = (eventSchemaPluginKey: string | null = "owner-key"): ArchiveEvent => ({
+const provenanceEvent = (eventSchemaPluginKey: null | string = "owner-key"): ArchiveEvent => ({
 	properties: {},
 	id: "event-id",
 	eventSchemaPluginKey,
@@ -1017,7 +1017,7 @@ const bootstrapEntity = (
 	overrides: Partial<
 		Pick<
 			ArchiveRecords["entities"][number],
-			"entitySchemaPluginKey" | "entitySchemaSlug" | "name" | "properties" | "externalId"
+			"name" | "properties" | "externalId" | "entitySchemaSlug" | "entitySchemaPluginKey"
 		>
 	> = {},
 ) => ({
@@ -1599,9 +1599,9 @@ describe("account backup restore in PostgreSQL", () => {
 						const sourceUser = UserId.make("owner");
 						const destinationUser = UserId.make("recipient");
 						const sources: Array<{
-							readonly packageValue: NormalizedPlugin;
 							readonly sourceId: string;
 							readonly entityId: EntityId;
+							readonly packageValue: NormalizedPlugin;
 						}> = [];
 						for (const label of ["A", "B"]) {
 							const base = revisionPackage("whiskey", "v1", "bottle");
@@ -1894,7 +1894,7 @@ describe("account backup restore in PostgreSQL", () => {
 						);
 						const first = sources[0];
 						assert(first);
-						let systemId: string | null = null;
+						let systemId: null | string = null;
 						if (mode === "destination-conflict") {
 							systemId = yield* session.transaction(
 								plugins

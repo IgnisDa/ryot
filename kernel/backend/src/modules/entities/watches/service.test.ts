@@ -28,11 +28,11 @@ class FakeInterestCalls extends Context.Service<
 >()("test/FakeInterestCalls") {}
 
 const serviceLayer = (replies: {
-	readonly reconcile: InterestReconciler["Service"]["reconcile"];
-	readonly markReconciled?: Reply<Store["markReconciled"]>;
 	readonly removePending?: Reply<Store["removePending"]>;
-	readonly replaceInterest?: Reply<Store["replaceInterest"]>;
+	readonly markReconciled?: Reply<Store["markReconciled"]>;
 	readonly getSessionMetadata?: Store["getSessionMetadata"];
+	readonly replaceInterest?: Reply<Store["replaceInterest"]>;
+	readonly reconcile: InterestReconciler["Service"]["reconcile"];
 }) =>
 	Layer.unwrap(
 		Effect.gen(function* () {

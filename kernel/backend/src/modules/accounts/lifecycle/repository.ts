@@ -535,7 +535,7 @@ export class UserLifecycleRepository extends Context.Service<UserLifecycleReposi
 
 			const markCompleted = Effect.fn("UserLifecycleRepository.markCompleted")(function* (
 				operationId: string,
-				resetResult: UserResetResult | null,
+				resetResult: null | UserResetResult,
 			) {
 				const now = yield* DateTime.nowAsDate;
 				const [completed] = yield* database.run((db) =>

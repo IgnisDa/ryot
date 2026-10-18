@@ -16,12 +16,12 @@ export const AUTOMATION_RECONCILIATION_BATCH_SIZE = 100;
 export class AutomationReconciliationOperations extends Context.Service<
 	AutomationReconciliationOperations,
 	{
+		submit: AutomationExecutionOperations["Service"]["submit"];
 		listQueuedCandidates: (input: {
 			now: Date;
 			limit: number;
 			initialQueuedBefore: Date;
 		}) => Effect.Effect<ReadonlyArray<Pick<AutomationRun, "id" | "attemptCount">>, DbError>;
-		submit: AutomationExecutionOperations["Service"]["submit"];
 	}
 >()("AutomationReconciliationOperations") {}
 

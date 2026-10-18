@@ -22,7 +22,7 @@ type AppSchemaDefinitionValidationOptions = { readonly allowUpload?: boolean };
 
 const isComparableType = (
 	type: AppPropertyDefinition["type"],
-): AppPropertyPrimitiveType | undefined => {
+): undefined | AppPropertyPrimitiveType => {
 	if (type === "enum") {
 		return "string";
 	}

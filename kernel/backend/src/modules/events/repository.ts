@@ -25,7 +25,18 @@ import * as schema from "#schema/tables/combined";
 
 import { EventStreamRepository, type StreamKey } from "./stream-repository";
 
-type EventRow = Pick<
+export type UpdateEventEntityReferencesInput = EventIdentityInput & {
+	readonly mergeFrom: EntityId;
+	readonly mergeInto: EntityId;
+};
+
+export type EventIdentityInput = {
+	readonly userId: UserId;
+	readonly eventId: EventId;
+	readonly expected?: undefined | EventWritePrecondition;
+};
+
+type EventRow = { readonly eventSchemaName: string } & Pick<
 	typeof schema.event.$inferSelect,
 	| "id"
 	| "entityId"
@@ -33,21 +44,10 @@ type EventRow = Pick<
 	| "updatedAt"
 	| "occurredAt"
 	| "properties"
-	| "eventSchemaPluginId"
 	| "eventSchemaSlug"
 	| "sessionEntityId"
-> & { readonly eventSchemaName: string };
-
-export type EventIdentityInput = {
-	readonly eventId: EventId;
-	readonly userId: UserId;
-	readonly expected?: EventWritePrecondition | undefined;
-};
-
-export type UpdateEventEntityReferencesInput = EventIdentityInput & {
-	readonly mergeFrom: EntityId;
-	readonly mergeInto: EntityId;
-};
+	| "eventSchemaPluginId"
+>;
 
 export const BACKUP_EVENT_PAGE_SIZE = 500;
 export const RESTORE_EVENT_BATCH_SIZE = 1_000;
@@ -84,7 +84,7 @@ const eventStreamKey = (row: {
 	readonly userId: string;
 	readonly entityId: string;
 	readonly eventSchemaSlug: string;
-	readonly eventSchemaPluginId: string | null;
+	readonly eventSchemaPluginId: null | string;
 }): StreamKey => ({
 	userId: UserId.make(row.userId),
 	entityId: EntityId.make(row.entityId),
@@ -107,9 +107,9 @@ export class EventsRepository extends Context.Service<EventsRepository>()("Event
 		const touchScopes = Effect.fn("EventsRepository.touchScopes")(function* (
 			rows: ReadonlyArray<{
 				userId: string;
-				eventSchemaPluginId: string | null;
 				entityId: string;
-				sessionEntityId: string | null;
+				sessionEntityId: null | string;
+				eventSchemaPluginId: null | string;
 			}>,
 		) {
 			const scopes = new Map(
@@ -166,10 +166,10 @@ export class EventsRepository extends Context.Service<EventsRepository>()("Event
 			return row ?? null;
 		});
 		const touchEventMutation = Effect.fn("EventsRepository.touchEventMutation")(function* (input: {
-			before: StreamKey;
 			after: StreamKey;
-			beforeOccurredAt: Date;
+			before: StreamKey;
 			afterOccurredAt: Date;
+			beforeOccurredAt: Date;
 		}) {
 			const occurredAt = minimumOccurredAt(input.beforeOccurredAt, input.afterOccurredAt);
 			yield* eventStreams.touch([
@@ -213,10 +213,10 @@ export class EventsRepository extends Context.Service<EventsRepository>()("Event
 			entityId: EntityId;
 			eventSchemaName: string;
 			eventSchemaSlug: EventSchemaSlug;
-			eventSchemaPluginId: string | null;
+			eventSchemaPluginId: null | string;
 			properties: Record<string, unknown>;
-			order?: { createdAt: string; key: string } | undefined;
 			sessionEntityId?: EntityId | undefined;
+			order?: undefined | { key: string; createdAt: string };
 		}) {
 			yield* requireTransaction;
 			const streamKey = eventStreamKey({
@@ -307,8 +307,8 @@ export class EventsRepository extends Context.Service<EventsRepository>()("Event
 		const listSessionEventIds = Effect.fn("EventsRepository.listSessionEventIds")(
 			function* (input: {
 				userId: UserId;
-				sessionEntityId: EntityId;
 				eventSchemaSlug: string;
+				sessionEntityId: EntityId;
 				eventSchemaPluginId: string;
 			}) {
 				return yield* session
@@ -459,7 +459,7 @@ export class EventsRepository extends Context.Service<EventsRepository>()("Event
 		});
 
 		const updateEventEntityReferences = Effect.fn("EventsRepository.updateEventEntityReferences")(
-			function* (input: UpdateEventEntityReferencesInput & { updatedAt: Date }) {
+			function* (input: { updatedAt: Date } & UpdateEventEntityReferencesInput) {
 				yield* requireTransaction;
 				const current = yield* getEventForMutation(input);
 				if (
@@ -524,10 +524,10 @@ export class EventsRepository extends Context.Service<EventsRepository>()("Event
 
 		const updatePreparedEvent = Effect.fn("EventsRepository.updatePreparedEvent")(function* (
 			input: EventIdentityInput & {
-				draft: AutomationEventDraft;
-				order?: { createdAt: string; key: string } | null | undefined;
-				expectedRevision: number;
 				updatedAt: Date;
+				expectedRevision: number;
+				draft: AutomationEventDraft;
+				order?: null | undefined | { key: string; createdAt: string };
 			},
 		) {
 			yield* requireTransaction;

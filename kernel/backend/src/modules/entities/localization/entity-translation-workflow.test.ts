@@ -29,8 +29,8 @@ const TestTranslateEntityWorkflow = Workflow.make("TestTranslateEntityWorkflow",
 class FakeTranslationEffects extends Context.Service<
 	FakeTranslationEffects,
 	{
-		readonly upserts: Effect.Effect<ReadonlyArray<TranslationOverlayInput>>;
 		readonly released: Effect.Effect<ReadonlyArray<string>>;
+		readonly upserts: Effect.Effect<ReadonlyArray<TranslationOverlayInput>>;
 		readonly published: Effect.Effect<ReadonlyArray<{ channel: string; message: string }>>;
 	}
 >()("test/FakeTranslationEffects") {}

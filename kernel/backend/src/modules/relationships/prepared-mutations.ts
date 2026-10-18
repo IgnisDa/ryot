@@ -47,11 +47,11 @@ type CommittedRelationship = {
 	readonly relationship: NonNullable<typeof RelationshipRecordedResult.Type.relationship>;
 };
 type PreparedData =
-	| { readonly committed: CommittedRelationship; readonly mutation: Mutation }
+	| { readonly mutation: Mutation; readonly committed: CommittedRelationship }
 	| {
 			readonly mutation: Mutation;
 			readonly request: AutomationRelationshipRequestPayload;
-			readonly before: AutomationRelationshipSnapshot | null;
+			readonly before: null | AutomationRelationshipSnapshot;
 			readonly requestId: DomainLifecycleCommand["causation"]["parentTriggerId"];
 	  };
 const preparedUserRelationshipCreate = Symbol("PreparedUserRelationshipCreate");
@@ -112,7 +112,7 @@ export const restoreUserRelationshipCreate = Effect.fnUntraced(function* (
 const withCreatedEndpoint = (
 	reads: MutationEntities,
 	mutation: Mutation,
-	createdEntity: PreparedEntityCreate | undefined,
+	createdEntity: undefined | PreparedEntityCreate,
 ): MutationEntities => {
 	if (!createdEntity || mutation.input.scope !== "user") {
 		return reads;
@@ -312,9 +312,9 @@ export const makePreparedRelationshipMutations = (
 	const persistPreparedUserMutation = Effect.fnUntraced(function* (
 		prepared: PreparedData,
 		batchInput?: {
+			index: number;
 			command: DomainLifecycleCommand;
 			identity: ReadonlyArray<string>;
-			index: number;
 		},
 	) {
 		yield* assertActiveTransaction;
@@ -375,13 +375,13 @@ export const makePreparedRelationshipMutations = (
 	const persistPreparedUserCreate = Effect.fn("RelationshipsService.persistPreparedUserCreate")(
 		(
 			prepared: PreparedUserRelationshipCreate,
-			batch?: { command: DomainLifecycleCommand; identity: ReadonlyArray<string>; index: number },
+			batch?: { index: number; command: DomainLifecycleCommand; identity: ReadonlyArray<string> },
 		) => persistPreparedUserMutation(prepared[preparedUserRelationshipCreate], batch),
 	);
 	const persistPreparedUserDelete = Effect.fn("RelationshipsService.persistPreparedUserDelete")(
 		(
 			prepared: PreparedUserRelationshipDelete,
-			batch?: { command: DomainLifecycleCommand; identity: ReadonlyArray<string>; index: number },
+			batch?: { index: number; command: DomainLifecycleCommand; identity: ReadonlyArray<string> },
 		) => persistPreparedUserMutation(prepared[preparedUserRelationshipDelete], batch),
 	);
 	return {

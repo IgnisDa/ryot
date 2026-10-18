@@ -6,20 +6,20 @@ import type {
 
 export const isRetryableAutomationFailure = (
 	kind: AutomationFailureKind,
-	policy: AutomationRetryPolicy | null,
+	policy: null | AutomationRetryPolicy,
 ) => {
 	switch (kind) {
+		case "invalid-input":
+		case "invalid-output":
+		case "business-failure":
+		case "missing-artifact":
+			return false;
 		case "sandbox-timeout":
-		case "sandbox-infrastructure":
 		case "resource-unavailable":
+		case "sandbox-infrastructure":
 			return true;
 		case "external-uncertain-outcome":
 			return policy?.externalIdempotency === "run-id";
-		case "business-failure":
-		case "invalid-input":
-		case "invalid-output":
-		case "missing-artifact":
-			return false;
 		default:
 			return false;
 	}

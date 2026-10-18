@@ -92,8 +92,8 @@ const group = (
 	entities: ReadonlyArray<ReturnType<typeof related>>,
 	options: {
 		continuation?: JsonValue;
-		synchronization?: "additive" | "authoritative";
 		relationshipSchemaSlug?: string;
+		synchronization?: "additive" | "authoritative";
 	} = {},
 ) => ({
 	entities,
@@ -110,7 +110,7 @@ const completed = (value: unknown) => ({
 	status: "completed" as const,
 });
 
-type PageResult = SandboxExecutionResult | "fail";
+type PageResult = "fail" | SandboxExecutionResult;
 type RelatedPageHandler = (continuation: JsonValue) => PageResult | Effect.Effect<PageResult>;
 
 const harness = Effect.fnUntraced(function* (
@@ -146,7 +146,7 @@ const harness = Effect.fnUntraced(function* (
 		}),
 		writeContext: principal,
 	});
-	const dispatched: Array<{ discard: boolean | undefined; payload: unknown; tag: string }> = [];
+	const dispatched: Array<{ tag: string; payload: unknown; discard: boolean | undefined }> = [];
 	const published = yield* Ref.make<ReadonlyArray<string>>([]);
 	const relatedRuns = yield* Ref.make<
 		ReadonlyArray<{ executionId: string; continuation: JsonValue }>
@@ -360,7 +360,7 @@ const rootDetails = (groups: ReadonlyArray<ReturnType<typeof group>>) => ({
 
 const page = (
 	entities: ReadonlyArray<ReturnType<typeof related>>,
-	continuation: JsonValue | null,
+	continuation: null | JsonValue,
 ) => completed({ entities, continuation });
 
 const seedRoot = (h: Effect.Success<ReturnType<typeof harness>>) =>
@@ -593,7 +593,7 @@ layer(
 			]);
 
 			const observed: Array<
-				{ populatedAt: Date | null; relatedPopulatedAt: Date | null } | undefined
+				undefined | { populatedAt: Date | null; relatedPopulatedAt: Date | null }
 			> = [];
 			const refreshed = yield* h.populate("refresh", "refresh", details, (continuation) =>
 				h.status(anchor.id).pipe(

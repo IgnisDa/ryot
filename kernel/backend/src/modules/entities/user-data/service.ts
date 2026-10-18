@@ -51,7 +51,7 @@ const itemCommand = (
 const lifecyclePersistenceFailure = (error: LifecyclePersistenceError) =>
 	new DbError({ message: `User-state lifecycle persistence failed: ${error.code}` });
 const relationshipFailure =
-	(operation: "clear" | "merge") => (error: RelationshipBadRequest | RelationshipNotFound) =>
+	(operation: "clear" | "merge") => (error: RelationshipNotFound | RelationshipBadRequest) =>
 		Effect.logWarning(`relationship ${operation} failed`, error).pipe(
 			Effect.andThen(
 				new EntityUserDataBadRequest({ reason: { code: "relationship-merge-failed" } }),
@@ -120,9 +120,9 @@ export class EntityUserDataService extends Context.Service<EntityUserDataService
 			});
 
 			const prepareRelationshipMove = Effect.fnUntraced(function* (input: {
-				relationship: RelationshipRow;
 				mergeFrom: EntityId;
 				mergeInto: EntityId;
+				relationship: RelationshipRow;
 				userId: CurrentUserValue["id"];
 				command: DomainLifecycleCommand;
 			}) {
@@ -131,7 +131,7 @@ export class EntityUserDataService extends Context.Service<EntityUserDataService
 					relationship.sourceEntityId === mergeFrom ? mergeInto : relationship.sourceEntityId;
 				const targetEntityId =
 					relationship.targetEntityId === mergeFrom ? mergeInto : relationship.targetEntityId;
-				let create: PreparedUserRelationshipCreate | null = null;
+				let create: null | PreparedUserRelationshipCreate = null;
 				if (sourceEntityId !== targetEntityId) {
 					create = yield* relationships
 						.prepareUserCreate(
@@ -461,8 +461,8 @@ export class EntityUserDataService extends Context.Service<EntityUserDataService
 						entityId: mergeFrom,
 					});
 				const preparedRelationships: Array<{
-					create: PreparedUserRelationshipCreate | null;
-					deletion: PreparedUserRelationshipDelete | null;
+					create: null | PreparedUserRelationshipCreate;
+					deletion: null | PreparedUserRelationshipDelete;
 				}> = [];
 				for (const relationship of relationshipRows) {
 					preparedRelationships.push(
@@ -565,7 +565,7 @@ export class EntityUserDataService extends Context.Service<EntityUserDataService
 					),
 				mergeEntityUserDataForCommand: (
 					userId: UserId,
-					payload: MergeEntityUserDataBody & MergeAuthority,
+					payload: MergeAuthority & MergeEntityUserDataBody,
 					command: DomainLifecycleCommand,
 				) =>
 					mergeEntityUserData(

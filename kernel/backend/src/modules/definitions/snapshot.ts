@@ -69,7 +69,7 @@ export const EntitySchemaDefinition = Schema.Struct({
 export type EntitySchemaDefinition = typeof EntitySchemaDefinition.Type;
 
 type EntitySchemaSourceDefinition = Omit<EntitySchemaDefinition, "mergeIdentityProperties"> & {
-	readonly mergeIdentityProperties?: ReadonlyArray<string> | undefined;
+	readonly mergeIdentityProperties?: undefined | ReadonlyArray<string>;
 };
 
 export const RelationshipSchemaDefinition = Schema.Struct({
@@ -127,8 +127,8 @@ export type CalendarSourceDefinition = typeof CalendarSourceDefinition.Type;
 
 export type DefinitionSource = {
 	readonly savedViews: ReadonlyArray<SavedViewDefinition>;
-	readonly calendarSources: ReadonlyArray<CalendarSourceDefinition>;
 	readonly signalSchemas: ReadonlyArray<SignalSchemaDefinition>;
+	readonly calendarSources: ReadonlyArray<CalendarSourceDefinition>;
 	readonly relationshipSchemas: ReadonlyArray<RelationshipSchemaDefinition>;
 	readonly entitySchemas: ReadonlyArray<
 		Omit<EntitySchemaSourceDefinition, "eventSchemas"> & {
@@ -194,7 +194,7 @@ const definitionLabels = {
 export type DefinitionKind = keyof typeof definitionLabels;
 
 export const definitionRecord = <
-	Definition extends { readonly slug: string; readonly pluginId: string | null },
+	Definition extends { readonly slug: string; readonly pluginId: null | string },
 >(
 	kind: DefinitionKind,
 	definitions: ReadonlyArray<Definition>,

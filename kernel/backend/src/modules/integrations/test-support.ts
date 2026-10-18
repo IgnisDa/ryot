@@ -30,7 +30,7 @@ export const makeIntegration = (overrides: Partial<IntegrationRecord> = {}): Int
 	...overrides,
 });
 
-export const makeRun = (status: "completed" | "failed") => ({
+export const makeRun = (status: "failed" | "completed") => ({
 	status,
 	progress: 0,
 	failedItems: 0,

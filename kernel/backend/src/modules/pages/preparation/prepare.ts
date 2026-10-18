@@ -23,7 +23,7 @@ import { getKernelEntityRenderer } from "./kernel-renderers";
 type PageEntity = {
 	readonly entityId: EntityId;
 	readonly entitySchemaSlug: EntitySchemaSlug;
-	readonly entitySchemaPluginId: string | null;
+	readonly entitySchemaPluginId: null | string;
 };
 
 const failure = (reason: ClientPagePreparationError["reason"]) =>
@@ -85,24 +85,24 @@ const matchRoute = (pattern: string, path: string) => {
 
 export type ResolvedPluginPageTarget =
 	| {
-			readonly kind: "plugin";
-			readonly exportName: string;
-			readonly plugin: AvailablePlugin;
-			readonly params: Readonly<Record<string, string>>;
-			readonly entity: {
-				readonly entityId: EntityId;
-				readonly ownerPluginId: string;
-				readonly entitySchemaSlug: EntitySchemaSlug;
-			} | null;
-	  }
-	| {
-			readonly kind: "kernel-entity";
-			readonly rendererName: string;
 			readonly sourceHash: string;
+			readonly rendererName: string;
+			readonly kind: "kernel-entity";
 			readonly params: Readonly<Record<string, string>>;
 			readonly entity: {
 				readonly entityId: EntityId;
 				readonly ownerPluginId: null;
+				readonly entitySchemaSlug: EntitySchemaSlug;
+			};
+	  }
+	| {
+			readonly kind: "plugin";
+			readonly exportName: string;
+			readonly plugin: AvailablePlugin;
+			readonly params: Readonly<Record<string, string>>;
+			readonly entity: null | {
+				readonly entityId: EntityId;
+				readonly ownerPluginId: string;
 				readonly entitySchemaSlug: EntitySchemaSlug;
 			};
 	  };
@@ -113,8 +113,8 @@ type ResolveUserPackage = (
 
 export const resolvePluginRoutePlugin = Effect.fn(function* (input: {
 	readonly packageId: PluginPackageId;
-	readonly plugins: ReadonlyArray<AvailablePlugin>;
 	readonly resolvePackage: ResolveUserPackage;
+	readonly plugins: ReadonlyArray<AvailablePlugin>;
 }) {
 	const selected = yield* input.resolvePackage(input.packageId);
 	if (selected.kind !== "effective") {
@@ -128,11 +128,11 @@ export const resolvePluginRoutePlugin = Effect.fn(function* (input: {
 });
 
 export const resolvePluginPageTarget = <E, R>(input: {
-	readonly plugins: ReadonlyArray<AvailablePlugin>;
 	readonly resolvePackage: ResolveUserPackage;
+	readonly plugins: ReadonlyArray<AvailablePlugin>;
 	readonly target: Exclude<ClientPageTarget, { readonly kind: "saved-view" }>;
-	readonly findEntity: (entityId: EntityId) => Effect.Effect<PageEntity | null, E, R>;
-}): Effect.Effect<ResolvedPluginPageTarget, ClientPagePreparationError | DbError | E, R> =>
+	readonly findEntity: (entityId: EntityId) => Effect.Effect<null | PageEntity, E, R>;
+}): Effect.Effect<ResolvedPluginPageTarget, E | DbError | ClientPagePreparationError, R> =>
 	Effect.gen(function* () {
 		if (input.target.kind === "plugin-route") {
 			const target = input.target;

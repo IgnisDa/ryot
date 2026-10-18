@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 
 import { redisKeys } from "./redis";
 
-const persistentKey = (userId: string | null) =>
+const persistentKey = (userId: null | string) =>
 	redisKeys.sandboxPersistentCache(userId, ["kernel"], ["kernel", "script-1"], "key");
 
 describe("sandbox cache keys", () => {

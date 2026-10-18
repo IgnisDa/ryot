@@ -12,12 +12,12 @@ import type { ScriptExecutionPrincipal } from "#modules/scripts/authorization/pr
 import { infrastructureRunError } from "../executions/run-error";
 import { SandboxRepository } from "./repository";
 
+type CompiledArtifact = Pick<ScriptRunInput, "compiledCode" | "compiledFormat">;
+
 class SandboxCompiledArtifactScriptId extends Context.Service<
 	SandboxCompiledArtifactScriptId,
 	SandboxScriptId
 >()("SandboxCompiledArtifactScriptId") {}
-
-type CompiledArtifact = Pick<ScriptRunInput, "compiledCode" | "compiledFormat">;
 
 const missingArtifact = () =>
 	new SandboxRunError({

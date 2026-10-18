@@ -24,10 +24,10 @@ const makeUser = (preferences: UserPreferences): CurrentUserValue => ({
 class FakeAuthSettings extends Context.Service<
 	FakeAuthSettings,
 	{
+		readonly imageUpdates: Effect.Effect<ReadonlyArray<{ image: string; userId: UserId }>>;
 		readonly preferenceUpdates: Effect.Effect<
 			ReadonlyArray<{ userId: UserId; preferences: UserPreferencesPatch }>
 		>;
-		readonly imageUpdates: Effect.Effect<ReadonlyArray<{ userId: UserId; image: string }>>;
 	}
 >()("test/FakeAuthSettings") {}
 
@@ -39,7 +39,7 @@ const serviceLayer = () =>
 					const preferenceUpdates = yield* Ref.make<
 						ReadonlyArray<{ userId: UserId; preferences: UserPreferencesPatch }>
 					>([]);
-					const imageUpdates = yield* Ref.make<ReadonlyArray<{ userId: UserId; image: string }>>(
+					const imageUpdates = yield* Ref.make<ReadonlyArray<{ image: string; userId: UserId }>>(
 						[],
 					);
 					return Context.make(

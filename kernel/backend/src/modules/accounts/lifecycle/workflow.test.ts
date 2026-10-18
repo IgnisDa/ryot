@@ -27,6 +27,11 @@ import {
 
 const userId = UserId.make("user-1");
 
+type OperationRecorder = {
+	readonly record: (call: string) => Effect.Effect<void>;
+	readonly recordFailure: (failure: unknown) => Effect.Effect<void>;
+};
+
 class RecordedWorkflowOperations extends Context.Service<
 	RecordedWorkflowOperations,
 	{
@@ -34,11 +39,6 @@ class RecordedWorkflowOperations extends Context.Service<
 		readonly failures: Effect.Effect<ReadonlyArray<unknown>>;
 	}
 >()("test/RecordedWorkflowOperations") {}
-
-type OperationRecorder = {
-	readonly record: (call: string) => Effect.Effect<void>;
-	readonly recordFailure: (failure: unknown) => Effect.Effect<void>;
-};
 
 const scriptedOperationsLayer = (
 	operations: (

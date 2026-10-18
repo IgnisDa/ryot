@@ -22,6 +22,18 @@ const maximumPartBytes = SIDECAR_PROTOCOL_LIMITS.partBytes;
 const maximumHandleAssemblies = { done: 1, hostCall: SANDBOX_LIMITS.bridge.outstandingHostCalls };
 const encoder = new TextEncoder();
 
+type FrameEnvelope = { readonly seq: number; readonly handle: string; readonly generation: number };
+
+type Assembly = {
+	bytes: number;
+	index: number;
+	readonly count: number;
+	readonly byteLength: number;
+	readonly buffer: Uint8Array;
+	readonly envelope: FrameEnvelope;
+	readonly frameType: "done" | "hostCall";
+};
+
 type SidecarFrameReaderOptions = {
 	readonly generation: number;
 	readonly maximumAssemblies: number;
@@ -32,23 +44,11 @@ type SidecarFrameReaderOptions = {
 };
 
 type SidecarFrameWriterOptions = {
-	readonly lane: (handle: string) => ExecutionLane | undefined;
 	readonly maximumRunMessages: number;
-	readonly maximumControlMessages: number;
 	readonly maximumQueuedBytes: number;
+	readonly maximumControlMessages: number;
+	readonly lane: (handle: string) => undefined | ExecutionLane;
 	readonly write: (bytes: Uint8Array) => { readonly written: number; readonly blocked: boolean };
-};
-
-type FrameEnvelope = { readonly generation: number; readonly handle: string; readonly seq: number };
-
-type Assembly = {
-	readonly envelope: FrameEnvelope;
-	readonly frameType: "done" | "hostCall";
-	readonly count: number;
-	readonly byteLength: number;
-	readonly buffer: Uint8Array;
-	bytes: number;
-	index: number;
 };
 
 const protocolError = (reason: "framing" | "payload", message: string) =>
@@ -57,9 +57,9 @@ const protocolError = (reason: "framing" | "payload", message: string) =>
 const readEnvelope = (
 	value: unknown,
 ): {
-	readonly handle: string | undefined;
-	readonly generation: unknown;
 	readonly type: unknown;
+	readonly generation: unknown;
+	readonly handle: string | undefined;
 } => {
 	if (!isObjectRecord(value)) {
 		return { type: undefined, handle: undefined, generation: undefined };
@@ -95,11 +95,11 @@ export const makeSidecarFrameReader = ({
 	const header = new Uint8Array(frameHeaderBytes);
 	const assemblies = new Map<string, Assembly>();
 	let headerBytes = 0;
-	let body: Uint8Array | undefined;
+	let body: undefined | Uint8Array;
 	let bodyBytes = 0;
 	let bufferedBytes = 0;
 	let closed = false;
-	let failure: SidecarProtocolError | undefined;
+	let failure: undefined | SidecarProtocolError;
 
 	const clearAssembly = (key: string) => {
 		const assembly = assemblies.get(key);
@@ -293,7 +293,7 @@ export const makeSidecarFrameReader = ({
 		parsed: unknown,
 		byteLength: number,
 		handle: string | undefined,
-	): SidecarOutboundFrame | undefined => {
+	): undefined | SidecarOutboundFrame => {
 		try {
 			return decodeSidecarOutboundFrame(parsed, byteLength);
 		} catch (error) {
@@ -372,21 +372,21 @@ export const makeSidecarFrameReader = ({
 	};
 };
 
+type CurrentFrame = { offset: number; readonly bytes: Uint8Array; readonly message: QueuedMessage };
+
 type QueuedMessage = {
-	readonly handle: string;
-	readonly lane: ExecutionLane | undefined;
-	readonly queue: "run" | "control" | ExecutionLane;
-	readonly frame: SidecarInboundLogicalMessage;
-	readonly payload: Uint8Array;
-	readonly count: number;
-	readonly released: (() => void) | undefined;
 	next: number;
 	counted: boolean;
 	retired: boolean;
 	assembling: boolean;
+	readonly count: number;
+	readonly handle: string;
+	readonly payload: Uint8Array;
+	readonly lane: undefined | ExecutionLane;
+	readonly released: undefined | (() => void);
+	readonly frame: SidecarInboundLogicalMessage;
+	readonly queue: "run" | "control" | ExecutionLane;
 };
-
-type CurrentFrame = { readonly message: QueuedMessage; readonly bytes: Uint8Array; offset: number };
 
 const partCount = (frame: SidecarInboundLogicalMessage, payload: Uint8Array) =>
 	(frame.type === "run" || frame.type === "hostResult") && payload.byteLength > maximumFrameBytes
@@ -430,7 +430,7 @@ export const makeSidecarFrameWriter = ({
 	let runMessages = 0;
 	let controlMessages = 0;
 	let queuedBytes = 0;
-	let current: CurrentFrame | undefined;
+	let current: undefined | CurrentFrame;
 	let closed = false;
 
 	const dropMessage = (message: QueuedMessage) => {

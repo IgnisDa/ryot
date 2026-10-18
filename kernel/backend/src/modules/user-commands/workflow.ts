@@ -273,9 +273,9 @@ export const UserCommandWorkflowDefinitionsLive = Layer.mergeAll(
 				}
 			}
 			const preparedBatches: Array<{
-				command: DomainLifecycleCommand;
-				prepared: PreparedEventChanges;
 				validated: PolicyBatchResult;
+				prepared: PreparedEventChanges;
+				command: DomainLifecycleCommand;
 			}> = [];
 			for (let offset = 0; offset < changes.length; offset += 50) {
 				const command = {

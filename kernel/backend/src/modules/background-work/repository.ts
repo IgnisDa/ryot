@@ -10,7 +10,7 @@ import { workflowExecution } from "#schema/tables/workflow-executions";
 
 export type BackgroundWorkScopeKey = Pick<
 	typeof backgroundWork.$inferSelect,
-	"userId" | "pluginId" | "purpose" | "scope"
+	"scope" | "userId" | "purpose" | "pluginId"
 >;
 
 export const backgroundWorkScopeIdentity = (key: BackgroundWorkScopeKey) =>
@@ -18,7 +18,7 @@ export const backgroundWorkScopeIdentity = (key: BackgroundWorkScopeKey) =>
 
 const sameScope = (
 	table: Record<keyof BackgroundWorkScopeKey, AnyPgColumn>,
-	key: { [K in keyof BackgroundWorkScopeKey]: BackgroundWorkScopeKey[K] | AnyPgColumn },
+	key: { [K in keyof BackgroundWorkScopeKey]: AnyPgColumn | BackgroundWorkScopeKey[K] },
 ) =>
 	and(
 		eq(table.userId, key.userId),
@@ -125,8 +125,8 @@ export class BackgroundWorkRepository extends Context.Service<BackgroundWorkRepo
 			});
 			const settle = Effect.fn("BackgroundWorkRepository.settle")(function* (
 				id: string,
-				status: "succeeded" | "failed",
-				error: string | null = null,
+				status: "failed" | "succeeded",
+				error: null | string = null,
 			) {
 				const updatedAt = yield* DateTime.nowAsDate;
 				const rows = yield* session.run((db) =>

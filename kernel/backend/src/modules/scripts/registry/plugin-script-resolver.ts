@@ -2,20 +2,20 @@ import type { DbError } from "@ryot-app/contract/errors";
 import type { SandboxScriptId, UserId } from "@ryot-app/contract/schema/brands";
 import { Context, type Effect } from "effect";
 
-type ActiveSandboxScript = { readonly id: SandboxScriptId };
-
 export type SandboxPluginScriptResolverValue = {
 	findActiveScriptById: (
 		scriptId: SandboxScriptId,
-		executingUserId: UserId | null,
-	) => Effect.Effect<ActiveSandboxScript | null, DbError>;
+		executingUserId: null | UserId,
+	) => Effect.Effect<null | ActiveSandboxScript, DbError>;
 	findWorkflowScriptAvailableToUser: (
 		userId: UserId,
 		pluginId: string,
 		workflowSlug: string,
 		pluginInstallationId: string,
-	) => Effect.Effect<ActiveSandboxScript | null, DbError>;
+	) => Effect.Effect<null | ActiveSandboxScript, DbError>;
 };
+
+type ActiveSandboxScript = { readonly id: SandboxScriptId };
 
 export class SandboxPluginScriptResolver extends Context.Service<
 	SandboxPluginScriptResolver,

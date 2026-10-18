@@ -42,7 +42,7 @@ const causation = {
 };
 
 const runInput = (
-	executionUserId: UserId | null = userId,
+	executionUserId: null | UserId = userId,
 	parentCausation: LifecycleCommand["causation"] = causation,
 ): ScriptRunInput => ({
 	compiledCode: "",

@@ -3,7 +3,7 @@ import { HttpServerError, HttpServerRequest, type HttpServerResponse } from "eff
 
 const responseLoggerDisabledRequests = new WeakSet<object>();
 
-const logResponse = (status: number, message: unknown, level: "Debug" | "Info") => {
+const logResponse = (status: number, message: unknown, level: "Info" | "Debug") => {
 	if (status >= 500) {
 		return Effect.logError(message);
 	}
@@ -18,7 +18,7 @@ const logHttpResponseEffect = <E, R>(
 	url: string,
 	disableParentLogger: boolean,
 	annotations: Readonly<Record<string, unknown>> = {},
-	level: "Debug" | "Info" = "Info",
+	level: "Info" | "Debug" = "Info",
 ) =>
 	Effect.gen(function* () {
 		const request = yield* HttpServerRequest.HttpServerRequest;
@@ -61,7 +61,7 @@ export const logHttpResponse = Effect.fn("logHttpResponse")(function* <E, R>(
 	httpEffect: Effect.Effect<HttpServerResponse.HttpServerResponse, E, R>,
 	url: string,
 	annotations: Readonly<Record<string, unknown>> = {},
-	level: "Debug" | "Info" = "Info",
+	level: "Info" | "Debug" = "Info",
 ) {
 	return yield* logHttpResponseEffect(httpEffect, url, true, annotations, level);
 });
@@ -70,7 +70,7 @@ export const logHttpResponseAtRoot = Effect.fn("logHttpResponseAtRoot")(function
 	httpEffect: Effect.Effect<HttpServerResponse.HttpServerResponse, E, R>,
 	url: string,
 	annotations: Readonly<Record<string, unknown>> = {},
-	level: "Debug" | "Info" = "Info",
+	level: "Info" | "Debug" = "Info",
 ) {
 	return yield* logHttpResponseEffect(httpEffect, url, false, annotations, level);
 });

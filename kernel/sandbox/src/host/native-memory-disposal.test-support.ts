@@ -40,13 +40,13 @@ export class NativeMemoryEvidence extends Context.Service<NativeMemoryEvidence>(
 		make: Effect.gen(function* () {
 			const fs = yield* FileSystem.FileSystem;
 			const root = yield* fs.makeTempDirectoryScoped({ prefix: "ryot-native-memory-" });
-			const calls: Array<Pick<CallFrame, "handle" | "name"> & { readonly args: unknown }> = [];
+			const calls: Array<{ readonly args: unknown } & Pick<CallFrame, "name" | "handle">> = [];
 			const ranges: Array<{
+				readonly bytes: number;
 				readonly handle: string;
 				readonly offset: number;
-				readonly bytes: number;
 			}> = [];
-			const failures: Array<{ readonly handle: string; readonly error: string }> = [];
+			const failures: Array<{ readonly error: string; readonly handle: string }> = [];
 			const reservations: Array<ReturnType<SandboxSidecarAdmission["Service"]["snapshot"]>> = [];
 			return {
 				calls,
@@ -60,7 +60,7 @@ export class NativeMemoryEvidence extends Context.Service<NativeMemoryEvidence>(
 				shortDeadline: new Set<string>(),
 				registrations: new Map<string, SandboxHostCallGateRegistration>(),
 				done: new Map<string, (typeof SidecarDoneFrame.Type)["outcome"]>(),
-				events: yield* Queue.unbounded<{ readonly handle: string; readonly name: string }>(),
+				events: yield* Queue.unbounded<{ readonly name: string; readonly handle: string }>(),
 				files: new Map<string, Effect.Success<ReturnType<ExecutionFiles["Service"]["open"]>>>(),
 				blocked: new Map<
 					string,

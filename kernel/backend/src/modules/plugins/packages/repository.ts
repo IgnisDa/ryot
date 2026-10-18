@@ -53,7 +53,7 @@ import type {
 
 type PluginPointerRow = typeof schema.plugin.$inferSelect;
 
-type PersistedScript = Omit<NormalizedPluginScript, "entry"> & { readonly source: string };
+type PersistedScript = { readonly source: string } & Omit<NormalizedPluginScript, "entry">;
 
 const retainedScriptExecution = (now: Date) => sql<boolean>`(exists (
 	select 1 from ${schema.automationRun} r
@@ -87,13 +87,11 @@ const revisionFields = {
 	manifest: schema.pluginRevisionManifest.manifest,
 };
 
-type RevisionRow = Pick<
-	typeof schema.pluginRevision.$inferSelect,
-	"id" | "pluginId" | "contentHash"
+type RevisionRow = { readonly packageId: PluginPackageId } & Pick<
+	typeof schema.pluginRevisionManifest.$inferSelect,
+	"manifest"
 > &
-	Pick<typeof schema.pluginRevisionManifest.$inferSelect, "manifest"> & {
-		readonly packageId: PluginPackageId;
-	};
+	Pick<typeof schema.pluginRevision.$inferSelect, "id" | "pluginId" | "contentHash">;
 
 const decodeStoredManifest = (manifest: unknown, packageId: string) =>
 	Schema.decodeUnknownEffect(PluginManifest)(manifest).pipe(
@@ -1253,8 +1251,8 @@ export class PluginRepository extends Context.Service<PluginRepository>()("Plugi
 		});
 		const rotatePrivateActivation = Effect.fn("PluginRepository.rotatePrivateActivation")(
 			function* (input: {
-				readonly pluginId: string;
 				readonly ownerId: string;
+				readonly pluginId: string;
 				readonly expectedActivationId: string;
 			}) {
 				yield* database.requireTransaction;

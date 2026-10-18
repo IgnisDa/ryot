@@ -49,9 +49,9 @@ type CreateGlobalEntityInput = {
 	readonly externalId?: string | undefined;
 	readonly entitySchema: EntitySchemaReference;
 	readonly properties: Record<string, unknown>;
-	readonly populatedAt?: string | null | undefined;
 	readonly level?: "base" | "full" | undefined;
-	readonly providerId?: SandboxProviderId | undefined;
+	readonly populatedAt?: null | string | undefined;
+	readonly providerId?: undefined | SandboxProviderId;
 };
 
 const parseDate = (value: string) => {
@@ -224,7 +224,7 @@ export class TestSupportService extends Context.Service<TestSupportService>()(
 
 			const setEntityPopulatedAt = Effect.fn("TestSupportService.setEntityPopulatedAt")(function* (
 				entityId: EntityId,
-				populatedAt: string | null,
+				populatedAt: null | string,
 				level: "base" | "full",
 			) {
 				const entity = yield* entities.getByIdAnyScope(entityId);
@@ -311,8 +311,8 @@ export class TestSupportService extends Context.Service<TestSupportService>()(
 				function* (input: {
 					language: string;
 					entityId: EntityId;
-					name: string | null;
-					properties: Record<string, unknown> | null;
+					name: null | string;
+					properties: null | Record<string, unknown>;
 				}) {
 					const entity = yield* translations.findEntityById(input.entityId);
 					if (!entity) {

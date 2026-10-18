@@ -22,15 +22,15 @@ import { fakeDatabaseSession, makeAppConfigLayer, makeRedisService } from "#test
 import { InstanceAdminRepository } from "./repository";
 import { checkResetEligibility, InstanceAdminService } from "./service";
 
-type DisabledUpdate = { disabledAt: Date | null; updatedAt: Date };
+type DisabledUpdate = { updatedAt: Date; disabledAt: Date | null };
 
 class FakeInstanceAdminAuth extends Context.Service<
 	FakeInstanceAdminAuth,
 	{
 		readonly sessionsDeleted: Effect.Effect<boolean>;
-		readonly lastDisabledUpdate: Effect.Effect<DisabledUpdate | undefined>;
-		readonly createdUser: Effect.Effect<Record<string, unknown> | null>;
-		readonly createdAccount: Effect.Effect<Record<string, unknown> | null>;
+		readonly createdUser: Effect.Effect<null | Record<string, unknown>>;
+		readonly lastDisabledUpdate: Effect.Effect<undefined | DisabledUpdate>;
+		readonly createdAccount: Effect.Effect<null | Record<string, unknown>>;
 	}
 >()("test/FakeInstanceAdminAuth") {}
 
@@ -49,16 +49,16 @@ const failWith = (message: string | undefined) =>
 	message === undefined ? Effect.void : Effect.fail(new DbError({ message }));
 
 const fakeAuthLayer = (errors: {
-	readonly updateAuthUserDisabled?: string;
 	readonly createUser?: string;
 	readonly createAccount?: string;
+	readonly updateAuthUserDisabled?: string;
 }) =>
 	Layer.effectContext(
 		Effect.gen(function* () {
 			const sessionsDeleted = yield* Ref.make(false);
-			const lastDisabledUpdate = yield* Ref.make<DisabledUpdate | undefined>(undefined);
-			const createdUser = yield* Ref.make<Record<string, unknown> | null>(null);
-			const createdAccount = yield* Ref.make<Record<string, unknown> | null>(null);
+			const lastDisabledUpdate = yield* Ref.make<undefined | DisabledUpdate>(undefined);
+			const createdUser = yield* Ref.make<null | Record<string, unknown>>(null);
+			const createdAccount = yield* Ref.make<null | Record<string, unknown>>(null);
 			return Context.make(
 				AuthService,
 				Object.assign(Object.create(null), {
@@ -109,10 +109,10 @@ const defaultUserLifecycleServiceLayer = Layer.mock(UserLifecycleService)({
 });
 
 const instanceAdminLayer = (options: {
-	readonly rows: ReadonlyArray<object>;
 	readonly disableLocalAuth?: boolean;
-	readonly lifecycle?: Layer.Layer<UserLifecycleService>;
+	readonly rows: ReadonlyArray<object>;
 	readonly errors?: Parameters<typeof fakeAuthLayer>[0];
+	readonly lifecycle?: Layer.Layer<UserLifecycleService>;
 }) =>
 	InstanceAdminService.layer.pipe(
 		Layer.provideMerge(

@@ -21,12 +21,17 @@ const graph = {
 const files = descriptions();
 
 type CompositionRow = {
-	compositionHash: string;
+	createdAt: Date;
 	compositionKey: string;
+	compositionHash: string;
 	identity: typeof graphIdentity;
 	manifest: ReturnType<typeof composeClientPage>;
-	createdAt: Date;
 };
+
+class DescribedArtifacts extends Context.Service<
+	DescribedArtifacts,
+	{ readonly hashes: Effect.Effect<ReadonlyArray<string>> }
+>()("test/DescribedArtifacts") {}
 
 class FakeCompositionRepository extends Context.Service<
 	FakeCompositionRepository,
@@ -36,14 +41,9 @@ class FakeCompositionRepository extends Context.Service<
 	}
 >()("test/FakeCompositionRepository") {}
 
-class DescribedArtifacts extends Context.Service<
-	DescribedArtifacts,
-	{ readonly hashes: Effect.Effect<ReadonlyArray<string>> }
->()("test/DescribedArtifacts") {}
-
 const fakeRepositoryLayer = Layer.effectContext(
 	Effect.gen(function* () {
-		const row = yield* Ref.make<CompositionRow | null>(null);
+		const row = yield* Ref.make<null | CompositionRow>(null);
 		const writes = yield* Ref.make<ReadonlyArray<string>>([]);
 		return Context.make(
 			PagesRepository,

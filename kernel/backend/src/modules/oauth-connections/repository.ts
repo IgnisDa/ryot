@@ -64,11 +64,11 @@ export class OAuthConnectionsRepository extends Context.Service<OAuthConnections
 
 			const insertPending = Effect.fn("OAuthConnectionsRepository.insertPending")(
 				function* (input: {
-					readonly id: OAuthConnectionId;
 					readonly field: string;
 					readonly userId: UserId;
 					readonly expiresAt: Date;
 					readonly stateHash: string;
+					readonly id: OAuthConnectionId;
 					readonly tokenUrlOrigin: string;
 					readonly oauthProviderSlug: string;
 					readonly pluginInstallationId: string;
@@ -104,8 +104,8 @@ export class OAuthConnectionsRepository extends Context.Service<OAuthConnections
 			const authorize = Effect.fn("OAuthConnectionsRepository.authorize")(function* (input: {
 				readonly now: Date;
 				readonly stateHash: string;
-				readonly code: SubkeyCiphertext;
 				readonly id: OAuthConnectionId;
+				readonly code: SubkeyCiphertext;
 				readonly completionSecretHash: string;
 			}) {
 				const rows = yield* database.run((db) =>
@@ -131,7 +131,7 @@ export class OAuthConnectionsRepository extends Context.Service<OAuthConnections
 
 			const markFailed = Effect.fn("OAuthConnectionsRepository.markFailed")(function* (input: {
 				readonly id: OAuthConnectionId;
-				readonly from: "authorized" | "pending";
+				readonly from: "pending" | "authorized";
 			}) {
 				yield* database.run((db) =>
 					db
@@ -184,7 +184,7 @@ export class OAuthConnectionsRepository extends Context.Service<OAuthConnections
 					readonly id: OAuthConnectionId;
 					readonly accessTokenExpiresAt: Date;
 					readonly accessToken: SubkeyCiphertext;
-					readonly refreshToken: SubkeyCiphertext | null;
+					readonly refreshToken: null | SubkeyCiphertext;
 				}) {
 					const rows = yield* database.run((db) =>
 						db

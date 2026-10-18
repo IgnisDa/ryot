@@ -233,7 +233,7 @@ layer(SavedViewsRepository.layer.pipe(Layer.provideMerge(revisionDatabaseLayer))
 });
 
 const subscription = (
-	owner: string | null,
+	owner: null | string,
 ): AccountCleanlinessState["notificationSubscriptions"][number] => ({
 	metadata: null,
 	isActive: true,

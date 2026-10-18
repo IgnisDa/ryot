@@ -71,7 +71,7 @@ const canonicalAddress = (address: NetAddress.IpAddress): NetAddress.IpAddress =
 export const classifyAddress = (
 	ip: string,
 	allowedNetworks: ReadonlyArray<IpNetwork.IpNetwork>,
-): "allowed" | "denied" =>
+): "denied" | "allowed" =>
 	Option.match(Option.map(Result.getSuccess(NetAddress.ipFromString(ip)), canonicalAddress), {
 		onNone: () => "denied",
 		onSome: (address) => {

@@ -9,19 +9,19 @@ import type { PgColumn } from "drizzle-orm/pg-core";
 
 import { userSavedViewEffective } from "#schema/tables/definitions";
 
-export const pluginIdWhere = (column: PgColumn, pluginId: string | null) =>
+export const pluginIdWhere = (column: PgColumn, pluginId: null | string) =>
 	pluginId === null ? isNull(column) : eq(column, pluginId);
 
 export const ownerWhere = (column: PgColumn, owner: DefinitionOwner) =>
 	pluginIdWhere(column, definitionOwnerPluginId(owner));
 
 export const referenceWhere = (
-	view: { pluginId: PgColumn; slug: PgColumn },
+	view: { slug: PgColumn; pluginId: PgColumn },
 	reference: DeclarationReference,
 ) => and(ownerWhere(view.pluginId, reference.owner), eq(view.slug, reference.slug));
 
 export const referencesWhere = (
-	view: { pluginId: PgColumn; slug: PgColumn },
+	view: { slug: PgColumn; pluginId: PgColumn },
 	references: ReadonlyArray<DeclarationReference>,
 ) => or(...references.map((reference) => referenceWhere(view, reference)));
 

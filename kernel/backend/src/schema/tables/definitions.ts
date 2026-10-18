@@ -51,10 +51,10 @@ import {
 	savedViewOverride,
 } from "./views";
 
-type PluginScope = "system" | "user";
-type InstallationHealth =
-	"installing" | "ready" | "needs-configuration" | "incompatible" | "failed";
+type PluginScope = "user" | "system";
 type SavedViewSettings = Readonly<Record<string, JsonValue>>;
+type InstallationHealth =
+	"ready" | "failed" | "installing" | "incompatible" | "needs-configuration";
 
 const definitionColumns = () => ({
 	slug: text().notNull(),

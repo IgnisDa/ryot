@@ -15,9 +15,9 @@ import { installationExecutionGate } from "../authorization/installation-gate";
 type WorkflowReferenceRow = typeof schema.sandboxWorkflowReference.$inferSelect;
 
 type SandboxWorkflowReference = Omit<WorkflowReferenceRow, "scriptId"> & {
-	readonly scriptId: SandboxScriptId;
 	readonly pluginId: string;
 	readonly contentHash: string;
+	readonly scriptId: SandboxScriptId;
 };
 
 export class SandboxWorkflowReferenceRegistrationError extends Schema.TaggedError<
@@ -47,13 +47,13 @@ export class SandboxWorkflowReferenceRepository extends Context.Service<SandboxW
 				"SandboxWorkflowReferenceRepository.registerInTransaction",
 			)(function* (input: {
 				userId?: string;
-				allowInactive?: boolean;
-				expectedRevision?: Pick<ScriptPluginRevision, "id" | "revisionId" | "configRevisionId">;
-				initialization?: ScriptInstallationInitialization;
 				pluginId: string;
 				executionId: string;
 				contentHash: string;
+				allowInactive?: boolean;
 				scriptId: SandboxScriptId;
+				initialization?: ScriptInstallationInitialization;
+				expectedRevision?: Pick<ScriptPluginRevision, "id" | "revisionId" | "configRevisionId">;
 			}) {
 				const [plugin] = yield* database.run((db) =>
 					db

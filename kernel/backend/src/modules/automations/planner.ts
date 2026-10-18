@@ -41,7 +41,7 @@ import { AutomationPlannerResolver, matchesTarget } from "./planner-resolver";
 import { AutomationRunRepository } from "./run-repository";
 import { AutomationTriggerRepository } from "./trigger-repository";
 
-const compareText = (a: string | null, b: string | null) => {
+const compareText = (a: null | string, b: null | string) => {
 	if (a === b) {
 		return 0;
 	}
@@ -151,8 +151,8 @@ export const LifecyclePlannerLive = Layer.effect(
 		const plan = Effect.fn("LifecyclePlanner.plan")(function* (input: {
 			trigger: AutomationTrigger;
 			recipients?: ReadonlyArray<UserId>;
-			excludedOncePerSubjectPolicies?: ReadonlyArray<AutomationHookIdentity>;
 			pinnedBatchCandidates?: ReadonlyArray<BatchHookPin>;
+			excludedOncePerSubjectPolicies?: ReadonlyArray<AutomationHookIdentity>;
 		}): Effect.fn.Return<LifecyclePlanningResult, DbError> {
 			const suppliedTrigger = yield* decodeStoredSchema(
 				input.trigger,
@@ -376,7 +376,7 @@ export const LifecyclePlannerLive = Layer.effect(
 		const batchIdentity = (input: LifecycleBatchInput) =>
 			receipts.batchIdentity({ ...input, ownerUserId: mutationReceiptOwner(input.command, null) });
 		const prepareBatch = Effect.fn("LifecyclePlanner.prepareBatch")(function* (
-			input: LifecycleBatchInput & { scopes: ReadonlyArray<UserId | null> },
+			input: LifecycleBatchInput & { scopes: ReadonlyArray<null | UserId> },
 		) {
 			const identity = batchIdentity(input);
 			const existing = yield* receipts

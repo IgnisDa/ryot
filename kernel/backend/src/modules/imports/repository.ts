@@ -53,7 +53,7 @@ const IngestionRunControl = Schema.Struct(
 
 export type ImportRunExecutionKind = "source" | "integration";
 
-const executionKind = (row: { integrationId: string | null }) =>
+const executionKind = (row: { integrationId: null | string }) =>
 	row.integrationId === null ? ("source" as const) : ("integration" as const);
 
 const normalizeRun = (row: ImportRunRow): ListedImportRun => ({
@@ -120,8 +120,8 @@ export class ImportsRepository extends Context.Service<ImportsRepository>()("Imp
 		const assertAdmissionOwner = Effect.fn("ImportsRepository.assertAdmissionOwner")(
 			function* (input: {
 				userId: UserId;
-				integrationId: IntegrationId | null;
-				pluginInstallationId: string | null;
+				integrationId: null | IntegrationId;
+				pluginInstallationId: null | string;
 			}) {
 				yield* database.requireTransaction;
 				if (input.pluginInstallationId !== null) {
@@ -174,10 +174,10 @@ export class ImportsRepository extends Context.Service<ImportsRepository>()("Imp
 		const insertRun = Effect.fn("ImportsRepository.insertRun")(function* (input: {
 			userId: UserId;
 			source: ImportRunSource;
-			pluginInstallationId: string | null;
+			pluginInstallationId: null | string;
+			integrationId: null | IntegrationId;
 			inputSummary: Record<string, unknown>;
-			integrationId: IntegrationId | null;
-			integrationLot: IntegrationLot | null;
+			integrationLot: null | IntegrationLot;
 		}) {
 			yield* assertAdmissionOwner(input);
 			const [row] = yield* database.run((db) =>
@@ -203,7 +203,7 @@ export class ImportsRepository extends Context.Service<ImportsRepository>()("Imp
 		const createManualRun = Effect.fn("ImportsRepository.createManualRun")(function* (input: {
 			userId: UserId;
 			source: ImportRunSource;
-			pluginInstallationId: string | null;
+			pluginInstallationId: null | string;
 			inputSummary: Record<string, unknown>;
 		}) {
 			return yield* insertRun({ ...input, integrationId: null, integrationLot: null });
@@ -215,7 +215,7 @@ export class ImportsRepository extends Context.Service<ImportsRepository>()("Imp
 				source: ImportRunSource;
 				integrationId: IntegrationId;
 				integrationLot: IntegrationLot;
-				pluginInstallationId: string | null;
+				pluginInstallationId: null | string;
 				inputSummary: Record<string, unknown>;
 			}) {
 				return yield* insertRun(input);
@@ -240,15 +240,15 @@ export class ImportsRepository extends Context.Service<ImportsRepository>()("Imp
 
 		const admitDataSubmission = Effect.fn("ImportsRepository.admitDataSubmission")(
 			function* (input: {
-				runId: ImportRunId;
-				payload: IngestionCapture["payload"];
-				accountGeneration: IngestionScope["accountGeneration"];
 				userId: UserId;
 				digest: string;
-				submissionKey: string | null;
-				uploadTokenHash: string | null;
-				integrationId: IntegrationId | null;
+				runId: ImportRunId;
+				submissionKey: null | string;
+				uploadTokenHash: null | string;
+				integrationId: null | IntegrationId;
+				payload: IngestionCapture["payload"];
 				inputSummary: Record<string, unknown>;
+				accountGeneration: IngestionScope["accountGeneration"];
 			}) {
 				yield* assertAdmissionOwner({
 					userId: input.userId,
@@ -343,7 +343,7 @@ export class ImportsRepository extends Context.Service<ImportsRepository>()("Imp
 		);
 
 		const findDataUploadRetry = Effect.fn("ImportsRepository.findDataUploadRetry")(
-			function* (input: { userId: UserId; key: string; uploadTokenHash: string }) {
+			function* (input: { key: string; userId: UserId; uploadTokenHash: string }) {
 				const [row] = yield* database.run((db) =>
 					db
 						.select({ runId: schema.dataImportSubmission.runId })
@@ -401,7 +401,7 @@ export class ImportsRepository extends Context.Service<ImportsRepository>()("Imp
 
 		const listRecentStatusesByIntegrationId = Effect.fn(
 			"ImportsRepository.listRecentStatusesByIntegrationId",
-		)(function* (input: { integrationId: IntegrationId; limit: number }) {
+		)(function* (input: { limit: number; integrationId: IntegrationId }) {
 			return yield* database.run((db) =>
 				db
 					.select({ status: schema.importRun.status })
@@ -536,10 +536,10 @@ export class ImportsRepository extends Context.Service<ImportsRepository>()("Imp
 		});
 		const reservePayload = Effect.fn("ImportsRepository.reservePayload")(function* (
 			scope: IngestionScope,
-			input: Omit<
+			input: { ordinal: null | number } & Omit<
 				typeof schema.importPayloadReservation.$inferInsert,
-				"runId" | "released" | "ordinal"
-			> & { ordinal: number | null },
+				"runId" | "ordinal" | "released"
+			>,
 		) {
 			yield* checkCaptureOwner(scope);
 			yield* lockProjection(scope, ["pending", "blocked", "running"]);
@@ -751,14 +751,14 @@ export class ImportsRepository extends Context.Service<ImportsRepository>()("Imp
 			},
 		);
 		const createBlockedRun = Effect.fn("ImportsRepository.createBlockedRun")(function* (input: {
-			accountGeneration: IngestionScope["accountGeneration"];
 			userId: UserId;
+			acceptedAt: Date;
 			source: ImportRunSource;
 			integrationId: IntegrationId;
-			pluginInstallationId: string | null;
+			pluginInstallationId: null | string;
 			inputSummary: Record<string, unknown>;
-			acceptedAt: Date;
 			blockReasons: ReadonlyArray<IngestionBlockReason>;
+			accountGeneration: IngestionScope["accountGeneration"];
 		}) {
 			yield* database.requireTransaction;
 			yield* database.acquireUserWriteLock(input.userId);
@@ -803,10 +803,10 @@ export class ImportsRepository extends Context.Service<ImportsRepository>()("Imp
 			return ImportRunId.make(run.id);
 		});
 		const releaseBlocked = Effect.fn("ImportsRepository.releaseBlocked")(function* (input: {
-			scope: IngestionScope;
 			now: Date;
 			plan: IngestionPlan;
 			pins: IngestionPins;
+			scope: IngestionScope;
 		}) {
 			const plan = yield* Schema.decodeEffect(IngestionPlan)(input.plan);
 			const pins = yield* Schema.decodeEffect(IngestionPins)(input.pins);
@@ -828,8 +828,8 @@ export class ImportsRepository extends Context.Service<ImportsRepository>()("Imp
 			return rows.length > 0;
 		});
 		const expireBlocked = Effect.fn("ImportsRepository.expireBlocked")(function* (input: {
-			scope: IngestionScope;
 			now: Date;
+			scope: IngestionScope;
 		}) {
 			const rows = yield* database.run((db) =>
 				db
@@ -847,8 +847,8 @@ export class ImportsRepository extends Context.Service<ImportsRepository>()("Imp
 			return rows.length > 0;
 		});
 		const rejectBlocked = Effect.fn("ImportsRepository.rejectBlocked")(function* (input: {
-			scope: IngestionScope;
 			finishedAt: Date;
+			scope: IngestionScope;
 			failureReason: ImportRunFailureReason;
 		}) {
 			yield* database.requireTransaction;
@@ -866,8 +866,8 @@ export class ImportsRepository extends Context.Service<ImportsRepository>()("Imp
 			return rows.length > 0;
 		});
 		const startIngestion = Effect.fn("ImportsRepository.startIngestion")(function* (input: {
-			scope: IngestionScope;
 			startedAt: Date;
+			scope: IngestionScope;
 		}) {
 			const rows = yield* database.run((db) =>
 				db
@@ -886,7 +886,7 @@ export class ImportsRepository extends Context.Service<ImportsRepository>()("Imp
 			return rows.length > 0;
 		});
 		const startIntegrationIngestion = Effect.fn("ImportsRepository.startIntegrationIngestion")(
-			function* (input: { scope: IngestionScope; integrationId: IntegrationId; startedAt: Date }) {
+			function* (input: { startedAt: Date; scope: IngestionScope; integrationId: IntegrationId }) {
 				return yield* database.transaction(
 					Effect.gen(function* () {
 						yield* database.acquireUserWriteLock(input.scope.userId);
@@ -959,7 +959,7 @@ export class ImportsRepository extends Context.Service<ImportsRepository>()("Imp
 			scope: IngestionScope,
 			batch: IngestionBatch,
 			operationIds: ReadonlyArray<string>,
-			execution: Pick<typeof schema.importBatch.$inferInsert, "workflowName" | "executionId">,
+			execution: Pick<typeof schema.importBatch.$inferInsert, "executionId" | "workflowName">,
 		) {
 			const data = yield* Schema.decodeEffect(IngestionBatch)(batch);
 			yield* lockProjection(scope);
@@ -1309,9 +1309,9 @@ export class ImportsRepository extends Context.Service<ImportsRepository>()("Imp
 			return rows.length > 0;
 		});
 		const pinIngestion = Effect.fn("ImportsRepository.pinIngestion")(function* (input: {
-			scope: IngestionScope;
 			plan: IngestionPlan;
 			pins: IngestionPins;
+			scope: IngestionScope;
 		}) {
 			const plan = yield* Schema.decodeEffect(IngestionPlan)(input.plan);
 			const pins = yield* Schema.decodeEffect(IngestionPins)(input.pins);
@@ -1357,10 +1357,10 @@ export class ImportsRepository extends Context.Service<ImportsRepository>()("Imp
 			return rows.length > 0;
 		});
 		const settleIngestion = Effect.fn("ImportsRepository.settleIngestion")(function* (input: {
-			scope: IngestionScope;
-			status: "completed" | "failed" | "cancelled";
 			finishedAt: Date;
+			scope: IngestionScope;
 			failureReason?: ImportRunFailureReason;
+			status: "failed" | "completed" | "cancelled";
 		}) {
 			const rows = yield* database.run((db) =>
 				db
@@ -1384,7 +1384,7 @@ export class ImportsRepository extends Context.Service<ImportsRepository>()("Imp
 		});
 		const finishActivities = Effect.fn("ImportsRepository.finishActivities")(function* (
 			scope: IngestionScope,
-			status: "completed" | "failed" | "cancelled",
+			status: "failed" | "completed" | "cancelled",
 		) {
 			const run = yield* lockProjection(scope, [
 				"running",
@@ -1394,7 +1394,7 @@ export class ImportsRepository extends Context.Service<ImportsRepository>()("Imp
 				"cancelled",
 				"expired",
 			]);
-			if (["completed", "failed", "cancelled", "expired"].includes(run.status)) {
+			if (["failed", "expired", "completed", "cancelled"].includes(run.status)) {
 				return null;
 			}
 			const state = run.status === "cancelling" ? "cancelled" : status;
@@ -1492,7 +1492,7 @@ export class ImportsRepository extends Context.Service<ImportsRepository>()("Imp
 		});
 		const pageCaptures = Effect.fn("ImportsRepository.pageCaptures")(function* (
 			scope: IngestionScope,
-			after: number | null,
+			after: null | number,
 			limit: number,
 		) {
 			return yield* database.run((db) =>
@@ -1513,9 +1513,9 @@ export class ImportsRepository extends Context.Service<ImportsRepository>()("Imp
 			);
 		});
 		const listIssues = Effect.fn("ImportsRepository.listIssues")(function* (input: {
-			scope: IngestionScope;
-			after?: string;
 			limit: number;
+			after?: string;
+			scope: IngestionScope;
 		}) {
 			return yield* database.run((db) =>
 				db
@@ -1639,7 +1639,7 @@ export class ImportsRepository extends Context.Service<ImportsRepository>()("Imp
 			return row.cutoff;
 		});
 		const listIntegrationRecoveryRuns = Effect.fn("ImportsRepository.listIntegrationRecoveryRuns")(
-			function* (input: { limit: number; before: Date; after: IngestionRecoveryCursor | null }) {
+			function* (input: { before: Date; limit: number; after: null | IngestionRecoveryCursor }) {
 				return yield* database.run((db) =>
 					db
 						.select({ run: schema.importRun })

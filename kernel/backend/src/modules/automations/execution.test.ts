@@ -54,7 +54,7 @@ import {
 
 const trigger = triggerFixture();
 const laterTrigger = triggerFixture("trigger-later");
-const run = (id: string, delivery: "required" | "async" = "required", triggerId = trigger.id) =>
+const run = (id: string, delivery: "async" | "required" = "required", triggerId = trigger.id) =>
 	requiredRun(id, triggerId, delivery);
 const ParentWorkflow = Workflow.make("LifecycleRequiredHooksParent", {
 	idempotencyKey: ({ id }) => id,

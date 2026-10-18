@@ -96,8 +96,8 @@ export class BackgroundWorkService extends Context.Service<BackgroundWorkService
 			});
 			const settle = Effect.fn("BackgroundWorkService.settle")(function* (
 				id: string,
-				status: "succeeded" | "failed",
-				error: string | null = null,
+				status: "failed" | "succeeded",
+				error: null | string = null,
 			) {
 				yield* session.requireTransaction.pipe(
 					Effect.mapError(
@@ -108,7 +108,7 @@ export class BackgroundWorkService extends Context.Service<BackgroundWorkService
 				yield* references.release(id);
 				return changed;
 			});
-			const finish = (id: string, status: "succeeded" | "failed", error: string | null = null) =>
+			const finish = (id: string, status: "failed" | "succeeded", error: null | string = null) =>
 				session
 					.transaction(settle(id, status, error))
 					.pipe(Effect.catchTag("DatabaseSessionStateError", Effect.die));
@@ -146,7 +146,7 @@ export class BackgroundWorkService extends Context.Service<BackgroundWorkService
 				key: BackgroundWorkScopeKey,
 			) {
 				yield* session.requireRoot.pipe(Effect.catchTag("DatabaseSessionStateError", Effect.die));
-				let failure: DbError | null = null;
+				let failure: null | DbError = null;
 				for (;;) {
 					const head = yield* session
 						.transaction(

@@ -58,7 +58,7 @@ const makeInput = (
 		...metadataCapabilities,
 	],
 	options: Partial<
-		Pick<SandboxRunInput, "lane" | "workflowExecutionId" | "replayJournal" | "inlineDurableHost">
+		Pick<SandboxRunInput, "lane" | "replayJournal" | "inlineDurableHost" | "workflowExecutionId">
 	> = {},
 ): SandboxRunInput =>
 	makeUserRunInput({

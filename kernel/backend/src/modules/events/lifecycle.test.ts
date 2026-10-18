@@ -145,10 +145,10 @@ const updateEventProperties = (
 class LifecycleDatabase extends Context.Service<
 	LifecycleDatabase,
 	{
-		readonly observer: Client;
 		readonly url: string;
-		readonly failChangePlanning: (fail: boolean) => Effect.Effect<void>;
+		readonly observer: Client;
 		readonly planTransactions: Effect.Effect<ReadonlyArray<string>>;
+		readonly failChangePlanning: (fail: boolean) => Effect.Effect<void>;
 	}
 >()("test/LifecycleDatabase") {}
 
@@ -331,8 +331,8 @@ const runCreate = (
 	instance = WorkflowInstance.initial(EventCreateWorkflow, executionId),
 	activityEngine?: WorkflowEngine["Service"],
 	dependencies: {
-		repository?: EventsRepository["Service"];
 		schemas?: EventSchemaReader["Service"];
+		repository?: EventsRepository["Service"];
 	} = {},
 ) => {
 	const original = activityEngine ?? makeWorkflowActivityEngine(instance);
@@ -383,8 +383,8 @@ const lifecycleDatabaseLayer = (
 		executePolicy?: (
 			input: Parameters<LifecycleExecution["Service"]["executePolicy"]>[0],
 			dependencies: {
-				readonly repository: EventsRepository["Service"];
 				readonly session: DatabaseSession["Service"];
+				readonly repository: EventsRepository["Service"];
 			},
 		) => ReturnType<LifecycleExecution["Service"]["executePolicy"]>;
 	} = {},
@@ -1523,11 +1523,11 @@ describe("Event lifecycle PostgreSQL", () => {
 					});
 					const sourceContext = (yield* Effect.context<
 						| DatabaseSession
-						| DomainWriteChecks
-						| EntitiesRepository
-						| EventSchemaReader
 						| EventsRepository
 						| LifecyclePlanner
+						| DomainWriteChecks
+						| EventSchemaReader
+						| EntitiesRepository
 						| LifecycleExecution
 					>()).pipe(Context.add(LifecycleExecution, gatedExecution));
 					const baseEngine = yield* WorkflowEngine;

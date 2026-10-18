@@ -22,7 +22,7 @@ import { captureWriteExecutionId, ProcessIngestionCaptureWorkflow } from "./capt
 import { ImportsRepository } from "./repository";
 import { ImportRunError, toWorkflowError } from "./runtime/workflow-errors";
 
-const inactiveCaptureOwner = (run: Pick<IngestionRun, "failureReason"> | null) =>
+const inactiveCaptureOwner = (run: null | Pick<IngestionRun, "failureReason">) =>
 	new ImportRunError({
 		message: "Ingestion capture owner is not active",
 		...(run?.failureReason?.code === "package-identity-conflict"
@@ -44,7 +44,7 @@ export class IngestionCaptures extends Context.Service<IngestionCaptures>()("Ing
 			scope: IngestionScope,
 			id: string,
 			maxBytes: number,
-			temporaryPath: string | null,
+			temporaryPath: null | string,
 		) =>
 			dispatchAdmittedWorkflow(
 				receipts,
@@ -59,15 +59,15 @@ export class IngestionCaptures extends Context.Service<IngestionCaptures>()("Ing
 				(dispatch) => dispatch,
 			);
 		const publish = Effect.fn("IngestionCaptures.publish")(function* (input: {
-			scope: IngestionScope;
 			id: string;
 			ordinal: number;
-			checkpoint: JsonValue;
-			bytes: Uint8Array;
 			maxBytes: number;
-			state: "captured" | "sealed";
-			phase: "collection" | "application";
+			bytes: Uint8Array;
+			scope: IngestionScope;
+			checkpoint: JsonValue;
 			inputFingerprint?: string;
+			state: "sealed" | "captured";
+			phase: "collection" | "application";
 		}) {
 			if (yield* ActivityBody) {
 				return yield* new ImportRunError({
@@ -108,7 +108,7 @@ export class IngestionCaptures extends Context.Service<IngestionCaptures>()("Ing
 			);
 			return yield* Effect.scoped(
 				Effect.gen(function* () {
-					let temporaryPath: string | null = null;
+					let temporaryPath: null | string = null;
 					if (
 						reserved.recoveryBytes === null &&
 						!(yield* repository.getCapture(input.scope, input.id))
@@ -177,12 +177,12 @@ export class IngestionCaptures extends Context.Service<IngestionCaptures>()("Ing
 			);
 		});
 		const stage = Effect.fn("IngestionCaptures.stage")(function* (input: {
+			bytes: Uint8Array;
+			outputIndex: number;
 			scope: IngestionScope;
 			ownerExecutionId: string;
 			workflowExecutionId: string;
 			activityExecutionId: string;
-			outputIndex: number;
-			bytes: Uint8Array;
 		}) {
 			const run = yield* repository.getIngestionRunControl(input.scope);
 			if (!run || !["pending", "blocked", "running"].includes(run.status)) {
@@ -259,7 +259,7 @@ export class IngestionCaptures extends Context.Service<IngestionCaptures>()("Ing
 			return path;
 		});
 		const stopWrites = Effect.fn("IngestionCaptures.stopWrites")(function* (
-			input: { userId: IngestionScope["userId"]; runId?: IngestionScope["runId"] },
+			input: { runId?: IngestionScope["runId"]; userId: IngestionScope["userId"] },
 			policy: PluginIngestionRetirementPolicy = { kind: "removal" },
 		) {
 			for (const { runId, reservation, accountGeneration } of yield* database.transaction(
@@ -300,7 +300,7 @@ export class IngestionCaptures extends Context.Service<IngestionCaptures>()("Ing
 		});
 		const cleanup = Effect.fn("IngestionCaptures.cleanup")(function* (scope: IngestionScope) {
 			const run = yield* repository.getIngestionRunControl(scope);
-			if (!run || !["completed", "failed", "cancelled", "expired"].includes(run.status)) {
+			if (!run || !["failed", "expired", "completed", "cancelled"].includes(run.status)) {
 				return;
 			}
 			yield* stopWrites(scope);
@@ -327,8 +327,8 @@ export class IngestionCaptures extends Context.Service<IngestionCaptures>()("Ing
 			return yield* payloads.materialize(capture.payload, maxBytes);
 		});
 		const retire = Effect.fn("IngestionCaptures.retire")(function* (input: {
-			userId: IngestionScope["userId"];
 			runId?: IngestionScope["runId"];
+			userId: IngestionScope["userId"];
 		}) {
 			yield* stopWrites(input);
 			for (const {

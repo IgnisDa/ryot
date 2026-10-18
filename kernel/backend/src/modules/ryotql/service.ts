@@ -124,7 +124,7 @@ export class RyotQLService extends Context.Service<RyotQLService>()("RyotQLServi
 
 		const executeForUser = (
 			userId: string,
-			language: string | null,
+			language: null | string,
 			audience: RyotQLAudience,
 			document: RyotQLDocument,
 			accessClass: AccessClass = "standard",

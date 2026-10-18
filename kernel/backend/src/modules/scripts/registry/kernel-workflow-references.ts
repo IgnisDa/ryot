@@ -16,8 +16,8 @@ export class KernelWorkflowReferences extends Context.Service<
 		readonly resolveArtifactGrants: (
 			input: unknown,
 			subject: SandboxExecutionSubject,
-			grants: SandboxExecutionGrants | undefined,
-		) => Effect.Effect<SandboxExecutionGrants | undefined, SandboxRunError, Scope.Scope>;
+			grants: undefined | SandboxExecutionGrants,
+		) => Effect.Effect<undefined | SandboxExecutionGrants, SandboxRunError, Scope.Scope>;
 		readonly execute: (
 			workflowSlug: string,
 			input: JsonValue,

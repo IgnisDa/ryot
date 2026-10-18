@@ -59,15 +59,15 @@ const repositoryLayer = Layer.unwrap(
 	}),
 );
 
+type CollectionQuery = { readonly sql: string; readonly columns: ReadonlyArray<string> };
+
 class DefinitionLookups extends Context.Service<
 	DefinitionLookups,
 	{
-		readonly entityReferences: Effect.Effect<ReadonlyArray<DeclarationReference>>;
 		readonly eventReferences: Effect.Effect<ReadonlyArray<EventSchemaReference>>;
+		readonly entityReferences: Effect.Effect<ReadonlyArray<DeclarationReference>>;
 	}
 >()("test/DefinitionLookups") {}
-
-type CollectionQuery = { readonly sql: string; readonly columns: ReadonlyArray<string> };
 
 const pluginCollectionRow = {
 	properties: {},
@@ -104,7 +104,7 @@ const collectionQueriesLayer = Layer.unwrap(
 						limit: () => {
 							const { sql } = dialect.sqlToQuery(condition.getSQL());
 							const columns = Object.keys(selection);
-							let rows: ReadonlyArray<typeof pluginCollectionRow | typeof memberEntityRow> = [
+							let rows: ReadonlyArray<typeof memberEntityRow | typeof pluginCollectionRow> = [
 								memberEntityRow,
 							];
 							if (columns.includes("providerId")) {
@@ -252,7 +252,7 @@ layer(CollectionsRepository.layer.pipe(Layer.provideMerge(revisionDatabaseLayer)
 	test.effect("enforces unique kernel collection names per user only", () =>
 		Effect.gen(function* () {
 			const session = yield* DatabaseSession;
-			const insert = (row: Partial<typeof tables.entity.$inferInsert> & { id: string }) =>
+			const insert = (row: { id: string } & Partial<typeof tables.entity.$inferInsert>) =>
 				Effect.result(
 					session.transaction(
 						session.run((db) =>

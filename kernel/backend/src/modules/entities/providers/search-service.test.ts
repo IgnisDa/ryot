@@ -102,18 +102,18 @@ const searchOptionsScript = {
 	},
 };
 
-type ResolutionCounts = { provider: number; search: number; searchOptions: number };
+type ExecuteInput = Parameters<Execute>[0];
 
 type Execute = ScriptExecutionService["Service"]["executeScript"];
-type ExecuteInput = Parameters<Execute>[0];
+type ResolutionCounts = { search: number; provider: number; searchOptions: number };
 
 class FakeProviderSearch extends Context.Service<
 	FakeProviderSearch,
 	{
-		readonly executions: Effect.Effect<ReadonlyArray<ExecuteInput>>;
-		readonly resolutions: Effect.Effect<ResolutionCounts>;
-		readonly cachedOptions: Effect.Effect<string | null>;
 		readonly cacheWrites: Effect.Effect<number>;
+		readonly cachedOptions: Effect.Effect<null | string>;
+		readonly resolutions: Effect.Effect<ResolutionCounts>;
+		readonly executions: Effect.Effect<ReadonlyArray<ExecuteInput>>;
 		readonly respondWith: (execute: Execute) => Effect.Effect<void>;
 	}
 >()("test/FakeProviderSearch") {}
@@ -128,14 +128,14 @@ const defaultExecute: Execute = (run) =>
 
 /** Without `cached`, the cache dies when used; any `cached` value (even `null`) enables it. */
 const makeLayer = (input?: {
-	readonly cached?: string | null;
-	readonly optionsSchema?: AppSchema | null;
-	readonly provider?: typeof provider | null;
+	readonly execute?: Execute;
+	readonly cached?: null | string;
+	readonly optionsSchema?: null | AppSchema;
+	readonly provider?: null | typeof provider;
 	readonly optionsScript?: typeof searchOptionsScript;
 	readonly searchError?: "inactive_provider" | "unsupported_operation";
-	readonly execute?: Execute;
 	readonly searchOptionsError?:
-		"inactive_provider" | "unsupported_operation" | "script_unavailable";
+		"inactive_provider" | "script_unavailable" | "unsupported_operation";
 }) =>
 	Layer.unwrap(
 		Effect.gen(function* () {
@@ -226,7 +226,7 @@ const makeLayer = (input?: {
 
 const assertFailureInstance = <A, E>(
 	exit: Exit.Exit<A, E>,
-	error: typeof ProviderEntityBadRequest | typeof ProviderEntityNotFound,
+	error: typeof ProviderEntityNotFound | typeof ProviderEntityBadRequest,
 ) => {
 	assert(Exit.isFailure(exit));
 	const failure = Cause.findErrorOption(exit.cause);

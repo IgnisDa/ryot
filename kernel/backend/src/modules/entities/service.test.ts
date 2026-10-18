@@ -142,15 +142,15 @@ const warning: AutomationWarning = {
 type TestOptions = {
 	noHooks?: boolean;
 	blocked?: boolean;
-	blockedRequiredChange?: boolean;
-	activateSchemaOnLock?: number;
-	extraEntitySchemas?: number;
-	recordStatements?: { holdLocks?: RegExp };
 	deadlockOnce?: boolean;
+	extraEntitySchemas?: number;
 	lateEventOnDelete?: boolean;
-	failChange?: boolean | number;
+	activateSchemaOnLock?: number;
+	failChange?: number | boolean;
+	blockedRequiredChange?: boolean;
+	recordStatements?: { holdLocks?: RegExp };
 	warnings?: ReadonlyArray<AutomationWarning>;
-	policies?: ReadonlyArray<AutomationPolicyOutput | "fail">;
+	policies?: ReadonlyArray<"fail" | AutomationPolicyOutput>;
 	policyEntityProvenance?: { entityId: EntityId; providerId: SandboxProviderId };
 };
 
@@ -305,7 +305,7 @@ const entitiesLayer = (options: TestOptions = {}) =>
 												wasCreated: false as const,
 											};
 										}
-										let blockedReason: AutomationBlockedReason | null = null;
+										let blockedReason: null | AutomationBlockedReason = null;
 										if (trigger.kind.category === "request" && options.blocked) {
 											blockedReason = {
 												omittedHooks: [],
@@ -1394,7 +1394,7 @@ describe("EntitiesService committed lifecycle", () => {
 			definitions: revisionDefinitions("provider-plugin", manifest),
 		});
 	});
-	const installProvider = Effect.fn(function* (scope: "system" | "user") {
+	const installProvider = Effect.fn(function* (scope: "user" | "system") {
 		yield* seedProvider;
 		const session = yield* DatabaseSession;
 		yield* session.run((db) =>
@@ -2634,7 +2634,7 @@ describe("EntitiesService committed lifecycle", () => {
 						}),
 				);
 				const populatedAt = DateTime.toDateUtc(DateTime.makeUnsafe("2026-09-14T00:00:00.000Z"));
-				const row = (id: string, userId: UserId | null, entitySchemaPluginId: string | null) => ({
+				const row = (id: string, userId: null | UserId, entitySchemaPluginId: null | string) => ({
 					id,
 					userId,
 					name: id,

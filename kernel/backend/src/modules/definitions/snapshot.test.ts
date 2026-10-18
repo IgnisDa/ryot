@@ -12,7 +12,7 @@ import {
 	type SavedViewDefinition,
 } from "./snapshot";
 
-const source = (pluginId: string | null): DefinitionSource => ({
+const source = (pluginId: null | string): DefinitionSource => ({
 	savedViews: [],
 	calendarSources: [],
 	relationshipSchemas: [

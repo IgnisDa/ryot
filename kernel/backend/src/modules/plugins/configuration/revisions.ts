@@ -22,18 +22,18 @@ import { concretePluginConfigSecretPaths, redactPluginConfig } from "./redaction
 type ConfigRow = typeof tables.pluginConfigRevision.$inferSelect;
 type CreateConfigRevisionInput = {
 	pluginRevisionId: string;
-	pluginInstallationId: string | null;
-	ownerUserId: string | null;
+	ownerUserId: null | string;
+	pluginInstallationId: null | string;
 	scope: "environment" | "installation";
 	properties: Readonly<Record<string, unknown>>;
 };
 const Properties = Schema.Record(Schema.String, JsonValue);
-const scopeForOwner = (ownerUserId: string | null) =>
+const scopeForOwner = (ownerUserId: null | string) =>
 	ownerUserId === null ? ("environment" as const) : ("installation" as const);
 const attribution = (
 	row: Pick<
 		ConfigRow,
-		"id" | "pluginRevisionId" | "ownerUserId" | "encryptionKeyId" | "payloadFingerprint"
+		"id" | "ownerUserId" | "encryptionKeyId" | "pluginRevisionId" | "payloadFingerprint"
 	>,
 ) => ({
 	id: row.id,
@@ -58,7 +58,7 @@ const decodePointer = (pointer: string) => {
 };
 
 const definitionAtPointer = (schema: AppSchema, path: ReadonlyArray<string>) => {
-	let definition: AppPropertyDefinition | undefined = schema.fields[path[0] ?? ""];
+	let definition: undefined | AppPropertyDefinition = schema.fields[path[0] ?? ""];
 	for (const segment of path.slice(1)) {
 		if (definition?.type === "object") {
 			definition = definition.properties[segment];
@@ -306,8 +306,8 @@ export class PluginConfigRevisions extends Context.Service<PluginConfigRevisions
 			const read = Effect.fn("PluginConfigRevisions.read")(function* (input: {
 				id: string;
 				pluginRevisionId: string;
-				ownerUserId: string | null;
-				pluginInstallationId?: string | null;
+				ownerUserId: null | string;
+				pluginInstallationId?: null | string;
 			}) {
 				const [row] = yield* database.run((db) =>
 					db
@@ -472,8 +472,8 @@ export class PluginConfigRevisions extends Context.Service<PluginConfigRevisions
 			);
 			const createForRestore = Effect.fn("PluginConfigRevisions.createForRestore")((
 				input: CreateConfigRevisionInput & {
-					configuredSecretPaths: ReadonlyArray<string>;
 					allowMissingRequiredSecrets: boolean;
+					configuredSecretPaths: ReadonlyArray<string>;
 				},
 			) => {
 				const { configuredSecretPaths, allowMissingRequiredSecrets, ...revisionInput } = input;

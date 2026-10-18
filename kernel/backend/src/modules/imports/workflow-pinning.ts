@@ -13,14 +13,15 @@ import type { ScriptPluginRevision } from "#modules/scripts/authorization/princi
 import type { ImportSourceState } from "./runtime/source-state";
 
 export type ImportWorkflowPinningValue = {
+	release: (executionId: string) => Effect.Effect<void, DbError>;
 	preRegister: (input: {
-		readonly scope: IngestionScope;
 		readonly pluginId: string;
 		readonly executionId: string;
+		readonly scope: IngestionScope;
 		readonly executingUserId: UserId;
-		readonly accountGeneration: AccountGeneration;
 		readonly scriptId: SandboxScriptId;
 		readonly expectedPins: IngestionPins;
+		readonly accountGeneration: AccountGeneration;
 		readonly preparedRelease?: {
 			readonly plan: IngestionPlan;
 			readonly requiresProKey: boolean;
@@ -29,11 +30,10 @@ export type ImportWorkflowPinningValue = {
 	}) => Effect.Effect<
 		{
 			readonly pluginRevision: ScriptPluginRevision;
-			readonly registrationStatus: "registered" | "already-registered" | "not-required";
+			readonly registrationStatus: "registered" | "not-required" | "already-registered";
 		},
 		SandboxRunError
 	>;
-	release: (executionId: string) => Effect.Effect<void, DbError>;
 };
 
 export class ImportWorkflowPinning extends Context.Service<

@@ -36,7 +36,7 @@ export const projectEventIngestionReceipt = (commandKind: string, result: unknow
 export const eventCreateBatchInput = (input: {
 	command: DomainLifecycleCommand;
 	payload: ReadonlyArray<CreateEventItem>;
-	itemIdentities?: ReadonlyArray<string> | undefined;
+	itemIdentities?: undefined | ReadonlyArray<string>;
 }) => ({
 	identity: ["events"],
 	command: input.command,
@@ -114,9 +114,9 @@ export const eventMutationReceiptIdentity = (
 
 export const eventMutationBatchReceiptIdentity = (input: {
 	userId: UserId;
-	command: DomainLifecycleCommand;
-	operation: "delete" | "edit";
 	submitted: unknown;
+	operation: "edit" | "delete";
+	command: DomainLifecycleCommand;
 }) =>
 	mutationReceiptIdentity({
 		command: input.command,

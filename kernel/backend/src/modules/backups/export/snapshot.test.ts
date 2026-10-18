@@ -167,8 +167,8 @@ it.effect("resolves archive keys from persisted plugin IDs", () =>
 		});
 		const currentKey = pluginPackageKey({ scope: "user", packageId: testPluginPackageId() });
 		const keys = new Map([
-			["persisted-plugin", persistedKey],
 			["current-plugin", currentKey],
+			["persisted-plugin", persistedKey],
 		]);
 		expect(yield* requirePluginKey(keys, "persisted-plugin")).toBe(persistedKey);
 		assertExitFails(
@@ -191,7 +191,7 @@ const installationRow = (input: {
 	readonly id: string;
 	readonly pluginId: string;
 	readonly packageId: PluginPackageId;
-	readonly pluginScope: "system" | "user";
+	readonly pluginScope: "user" | "system";
 }) => ({
 	...input,
 	userId,

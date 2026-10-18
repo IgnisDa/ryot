@@ -128,9 +128,9 @@ export const EntityPopulationTriggerLive = Layer.effect(
 						Effect.mapError((error) => toSandboxRunError(error, "infrastructure")),
 					);
 					const command = existingPayload?.command ?? input.command;
-					const retainedAdmission = yield* Ref.make<Effect.Success<
+					const retainedAdmission = yield* Ref.make<null | Effect.Success<
 						ReturnType<typeof retainRequest>
-					> | null>(null);
+					>>(null);
 					if (command.writeContext === null) {
 						if (executingUserId === null || input.command.accountGeneration === null) {
 							return false;

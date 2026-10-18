@@ -32,9 +32,9 @@ export type ProviderImportOutcome = "success" | "failure";
 export type ProviderImportPhase = "population" | "provider-import-automation";
 
 /** A body attempt interrupted by workflow suspension is neither a success nor a failure. */
-export type ProviderImportAttemptOutcome = ProviderImportOutcome | "interrupted";
+export type ProviderImportAttemptOutcome = "interrupted" | ProviderImportOutcome;
 
-export type SandboxReplayOutcome = "completed" | "failed" | "missing" | "pending";
+export type SandboxReplayOutcome = "failed" | "missing" | "pending" | "completed";
 
 const sandboxWorkflowReplays = Metric.counter("ryot.sandbox.workflow_replays", {
 	incremental: true,
@@ -127,9 +127,9 @@ export const recordDurableQueueDispatch = (input: {
 
 /** Labelled by lane, policy key and outcome only; tickets never carry user, tenant or plugin. */
 export const recordHttpAdmissionTicket = (input: {
-	readonly lane: ExecutionLane;
 	readonly policy: string;
 	readonly waitedMs?: number;
+	readonly lane: ExecutionLane;
 	readonly outcome: "granted" | "expired" | "overloaded";
 }) => {
 	const attributes = { lane: input.lane, policy: input.policy, outcome: input.outcome };
@@ -175,7 +175,7 @@ export const recordProviderImportBodySettled = Metric.modify(providerImportExecu
 
 export const recordProviderImportBodyOutcome = (input: {
 	readonly outcome: ProviderImportOutcome;
-	readonly failureStage: ProviderImportPhase | "none";
+	readonly failureStage: "none" | ProviderImportPhase;
 }) =>
 	Metric.update(
 		Metric.withAttributes(providerImportBodyOutcomes, {

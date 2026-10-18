@@ -69,7 +69,7 @@ const maxInvocationBytes = SANDBOX_LIMITS.execution.requestBytes;
 const journalReads = SANDBOX_LIMITS.journalReads;
 const scratchChunkBytes = SANDBOX_LIMITS.scratch.chunkBytes;
 const consoleMethods = ["log", "info", "warn", "debug", "error"] as const;
-let filesystemBinding: SandboxFilesystemBinding | undefined;
+let filesystemBinding: undefined | SandboxFilesystemBinding;
 configureSandboxFilesystem(() => filesystemBinding);
 
 const encoder = new TextEncoder();
@@ -115,16 +115,16 @@ const decodeInvocation = Schema.decodeUnknownEffect(
 	strictOptions,
 );
 
-type SandboxInvocationBridge = {
-	readonly call: (name: string, args: JsonValue) => Promise<JsonValue>;
-	readonly inlineBatch: (args: JsonValue) => JsonValue;
-};
-
 type SandboxRunnerPhase = SandboxExecutionError["phase"];
+
 type RunnerPhaseFailure = {
-	readonly phase: SandboxRunnerPhase;
 	readonly error: unknown;
+	readonly phase: SandboxRunnerPhase;
 	readonly kind?: SandboxExecutionError["kind"];
+};
+type SandboxInvocationBridge = {
+	readonly inlineBatch: (args: JsonValue) => JsonValue;
+	readonly call: (name: string, args: JsonValue) => Promise<JsonValue>;
 };
 type DurableWorkflowReference = Pick<
 	SandboxWorkflowReference<Schema.ConstraintDecoder<unknown>, Schema.ConstraintDecoder<unknown>>,
@@ -342,7 +342,7 @@ const chargeHostCall = (budget: SandboxHostCallBudget, name: string) => {
 const missingGrant = (message: string, operation: string): SandboxHostError =>
 	createFailure(message, { operation, code: "missing-artifact-grant" });
 
-const hostFailureKind = (error: unknown): SandboxExecutionError["kind"] | undefined => {
+const hostFailureKind = (error: unknown): undefined | SandboxExecutionError["kind"] => {
 	const data = readErrorField(error, "data");
 	return isRecord(data) && data["code"] === "external-uncertain" ? "external-uncertain" : undefined;
 };
@@ -395,7 +395,7 @@ const importCompiledModule = (specifier: string) => {
 const createLazyJournalReader = (
 	invocation: SandboxInvocation,
 	bridge: SandboxInvocationBridge,
-): WorkflowReplayJournal | undefined => {
+): undefined | WorkflowReplayJournal => {
 	const journal = invocation.journal;
 	if (!journal) {
 		return undefined;
@@ -533,7 +533,7 @@ const createFilesystemBinding = (
 	bridge: SandboxInvocationBridge,
 ) => {
 	const grants = invocation.filesystem;
-	const artifactHintFailure = (key?: string): SandboxHostError | undefined => {
+	const artifactHintFailure = (key?: string): undefined | SandboxHostError => {
 		if (
 			!grants ||
 			(key === undefined ? !grants.artifact : !includesArray(grants.namedArtifacts, key))
@@ -726,7 +726,7 @@ const sendInlineBatch = <E>(
 const createHost = (
 	invocation: SandboxInvocation,
 	bridge: SandboxInvocationBridge,
-	journal: WorkflowReplayJournal | undefined,
+	journal: undefined | WorkflowReplayJournal,
 ) => {
 	const host: Record<string, unknown> = objectCreate(null);
 	const budget: SandboxHostCallBudget = { http: 0, total: 0, userSettingsWrites: 0 };
@@ -1034,7 +1034,7 @@ const executeDefinition = Effect.fnUntraced(function* (
 	invocation: SandboxInvocation,
 	metadata: Schema.Schema.Type<typeof SandboxExecutionMetadata>,
 	bridge: SandboxInvocationBridge,
-	journal: WorkflowReplayJournal | undefined,
+	journal: undefined | WorkflowReplayJournal,
 	setPhase: (phase: SandboxRunnerPhase) => void,
 ) {
 	if (!isRecord(definitionValue)) {
@@ -1077,7 +1077,7 @@ const executeDefinition = Effect.fnUntraced(function* (
 	);
 
 	setPhase("execute");
-	let durable: ReturnType<typeof createDurableHost> | undefined;
+	let durable: undefined | ReturnType<typeof createDurableHost>;
 	if (invocation.workflowExecutionId !== undefined && manifest.kind !== "workflow") {
 		if (!journal) {
 			return yield* Effect.fail({
@@ -1218,12 +1218,12 @@ const serializeResponse = (response: SandboxInvocationResponse) => {
 type ConsoleMethods = Record<(typeof consoleMethods)[number], (...args: unknown[]) => void>;
 
 type InvocationState = {
-	readonly startedAt: number;
-	readonly previousConsole: ConsoleMethods;
 	phase: SandboxRunnerPhase;
-	invocation?: SandboxInvocation;
 	logs: SandboxLogCollector;
+	readonly startedAt: number;
+	invocation?: SandboxInvocation;
 	restoreWorkflowGlobals?: () => void;
+	readonly previousConsole: ConsoleMethods;
 };
 
 const installConsole = (methods: ConsoleMethods) => {
@@ -1237,7 +1237,7 @@ const installConsole = (methods: ConsoleMethods) => {
 
 const isRunnerPhase = (
 	value: Record<string, unknown>,
-): value is Record<string, unknown> & RunnerPhaseFailure => {
+): value is RunnerPhaseFailure & Record<string, unknown> => {
 	if (
 		(value["phase"] !== "load" &&
 			value["phase"] !== "input" &&

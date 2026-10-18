@@ -31,16 +31,6 @@ import type {
 	ProviderEntityImportWorkflowPayload,
 } from "./schemas";
 
-type ProviderResolveOperationInput = {
-	readonly value: string;
-	readonly lane: ExecutionLane;
-	readonly userId: UserId | null;
-	readonly identifierType: string;
-	readonly providerId: SandboxProviderId;
-	readonly accountGeneration: AccountGeneration | null;
-	readonly writeContext: ScriptExecutionPrincipal | null;
-};
-
 type RelatedPageInput = EntityImportPayload & {
 	readonly group: {
 		readonly relationshipSchemaSlug: string;
@@ -48,23 +38,33 @@ type RelatedPageInput = EntityImportPayload & {
 	};
 };
 
+type ProviderResolveOperationInput = {
+	readonly value: string;
+	readonly lane: ExecutionLane;
+	readonly userId: null | UserId;
+	readonly identifierType: string;
+	readonly providerId: SandboxProviderId;
+	readonly accountGeneration: null | AccountGeneration;
+	readonly writeContext: null | ScriptExecutionPrincipal;
+};
+
 type EntityImportWorkflowOperationsValue = {
+	requireRelatedScript: (
+		payload: EntityImportPayload,
+	) => Effect.Effect<void, SandboxRunError, WorkflowEngine | WorkflowInstance>;
+	processProviderResolve: (
+		input: ProviderResolveOperationInput,
+		executionId: string,
+	) => Effect.Effect<SandboxExecutionResult, SandboxRunError, WorkflowEngine | WorkflowInstance>;
 	processSandbox: (
 		payload: EntityImportPayload,
 		executionId: string,
 		level: PopulationLevel,
 	) => Effect.Effect<SandboxExecutionResult, SandboxRunError, WorkflowEngine | WorkflowInstance>;
-	requireRelatedScript: (
-		payload: EntityImportPayload,
-	) => Effect.Effect<void, SandboxRunError, WorkflowEngine | WorkflowInstance>;
 	processRelatedPage: (
 		payload: RelatedPageInput,
 		executionId: string,
 		continuation: JsonValue,
-	) => Effect.Effect<SandboxExecutionResult, SandboxRunError, WorkflowEngine | WorkflowInstance>;
-	processProviderResolve: (
-		input: ProviderResolveOperationInput,
-		executionId: string,
 	) => Effect.Effect<SandboxExecutionResult, SandboxRunError, WorkflowEngine | WorkflowInstance>;
 	completeProviderEntityImport: (
 		payload: ProviderEntityImportWorkflowPayload,
@@ -76,7 +76,7 @@ type EntityImportWorkflowOperationsValue = {
 			readonly userId: UserId;
 			readonly pluginId: string;
 			readonly providerId: SandboxProviderId;
-			readonly accountGeneration: AccountGeneration | null;
+			readonly accountGeneration: null | AccountGeneration;
 		},
 		executionId: string,
 	) => Effect.Effect<ScriptExecutionPrincipal, SandboxRunError, WorkflowEngine | WorkflowInstance>;
@@ -100,10 +100,10 @@ export const EntityImportWorkflowOperationsLive = Layer.effect(
 		const reads = makeProviderExecutionReads(session);
 
 		const resolvePinnedProviderScript = Effect.fnUntraced(function* (input: {
-			userId: UserId | null;
+			userId: null | UserId;
 			providerId: SandboxProviderId;
-			operation: "details" | "related" | "resolve";
 			command: Parameters<typeof writes.check>[0];
+			operation: "details" | "related" | "resolve";
 			pluginRevision: { id: string; revisionId: string };
 		}) {
 			const owner = definitionOwner(input.pluginRevision.id);

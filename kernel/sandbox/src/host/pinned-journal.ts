@@ -42,10 +42,10 @@ export const chunkSandboxJournalEntry = (text: string) => {
 	return { pin, chunks };
 };
 
-export type SandboxJournalFault = "changed" | "failed" | "missing";
+export type SandboxJournalFault = "failed" | "changed" | "missing";
 
 export type SandboxPinnedJournal = SandboxJournalInspection & {
-	readonly fault: () => SandboxJournalFault | undefined;
+	readonly fault: () => undefined | SandboxJournalFault;
 	// Null once the projection is unavailable; `fault` then says why.
-	readonly readChunk: (index: number, chunk: number) => Effect.Effect<Uint8Array | null>;
+	readonly readChunk: (index: number, chunk: number) => Effect.Effect<null | Uint8Array>;
 };

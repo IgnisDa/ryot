@@ -10,7 +10,7 @@ import { pluginSandboxAuthority } from "#modules/scripts/authorization/plugin-au
 import { pluginRevisionSections } from "#platform/db/immutable-revisions";
 import { pluginRevision, pluginRevisionManifest } from "#schema/tables/core";
 
-export const fixturePackageRoot = (kind: "diagnostic" | "valid" = "valid") =>
+export const fixturePackageRoot = (kind: "valid" | "diagnostic" = "valid") =>
 	new URL(`./test-fixtures/${kind}`, import.meta.url).pathname;
 
 const fixturePackageId = PluginPackageId.make("test/fixture");

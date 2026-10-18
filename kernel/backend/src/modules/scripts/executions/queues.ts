@@ -48,16 +48,16 @@ const SandboxReplayResult = Schema.Struct({
 });
 export type SandboxReplayResult = Schema.Schema.Type<typeof SandboxReplayResult>;
 
-export class SandboxRecoverySuspended extends Schema.TaggedError<
-	SandboxRecoverySuspended,
-	{ readonly brand: unique symbol }
->()("SandboxRecoverySuspended", { instance: Schema.String }) {}
-
 /** The replay's journal projection entries were lost, so the script never ran. */
 export class SandboxProjectionMissing extends Schema.TaggedError<
 	SandboxProjectionMissing,
 	{ readonly brand: unique symbol }
 >()("SandboxProjectionMissing", {}) {}
+
+export class SandboxRecoverySuspended extends Schema.TaggedError<
+	SandboxRecoverySuspended,
+	{ readonly brand: unique symbol }
+>()("SandboxRecoverySuspended", { instance: Schema.String }) {}
 
 export const sandboxRecoveryExecutionId = (executionId: string, attempt: number) =>
 	`${executionId}-recovery-${attempt}`;
@@ -93,7 +93,7 @@ export const processSandboxExecutionQueue = Effect.fn("processSandboxExecutionQu
 	return result;
 });
 
-export type SandboxExecutionResolutionMode = "active" | "exact";
+export type SandboxExecutionResolutionMode = "exact" | "active";
 
 export const executeSandboxExecution = Effect.fn("executeSandboxExecution")(function* (
 	payload: SandboxExecutionQueuePayload,

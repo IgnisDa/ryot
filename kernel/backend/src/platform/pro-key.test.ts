@@ -30,7 +30,7 @@ const fakeUnkeyLayer = (
 	Layer.unwrap(
 		Effect.gen(function* () {
 			const requests = yield* Ref.make<ReadonlyArray<Request>>([]);
-			const fetcher = (input: Request | string | URL, init?: RequestInit) => {
+			const fetcher = (input: URL | string | Request, init?: RequestInit) => {
 				let request: Request;
 				if (input instanceof Request) {
 					request = init == null ? input : new Request(input, init);

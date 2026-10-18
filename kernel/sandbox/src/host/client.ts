@@ -64,7 +64,7 @@ const processSettingsSchema = Schema.Struct({
 
 class SidecarClientError extends Data.TaggedError("SidecarClientError")<{
 	readonly message: string;
-	readonly reason: "startup" | "transport" | "exit" | "disposal";
+	readonly reason: "exit" | "startup" | "disposal" | "transport";
 }> {}
 
 const exitSchema = Schema.Struct({
@@ -97,7 +97,7 @@ export class SandboxSidecarClient extends Context.Service<SandboxSidecarClient>(
 			const fs = yield* FileSystem.FileSystem;
 			const rss = new Map<
 				number,
-				{ readonly trust: typeof SandboxTrust.Type; readonly tier: string; bytes: number | null }
+				{ bytes: null | number; readonly tier: string; readonly trust: typeof SandboxTrust.Type }
 			>();
 			const publishProcesses = (settings: typeof processSettingsSchema.Type) =>
 				Effect.suspend(() => {
@@ -260,10 +260,10 @@ export class SandboxSidecarClient extends Context.Service<SandboxSidecarClient>(
 					);
 				};
 				const events = yield* Schema.decodeUnknownEffect(nativeEvents)(child);
-				events.once("exit", (code: number | null, signal: string | null) => {
+				events.once("exit", (code: null | number, signal: null | string) => {
 					Deferred.doneUnsafe(exited, Effect.succeed({ code, signal }));
 				});
-				events.once("close", (code: number | null, signal: string | null) => {
+				events.once("close", (code: null | number, signal: null | string) => {
 					Deferred.doneUnsafe(exited, Effect.succeed({ code, signal }));
 				});
 				events.on("error", () => {

@@ -29,6 +29,25 @@ import { upsertSavedViewOverride } from "#modules/saved-views/repository";
 import { DatabaseSession } from "#platform/db/session";
 import * as schema from "#schema/tables/combined";
 
+type RestoreTranslationInput = Pick<
+	typeof schema.entityTranslation.$inferInsert,
+	"name" | "entityId" | "language" | "createdAt" | "updatedAt" | "properties" | "populatedAt"
+>;
+type RestoreCustomViewInput = {
+	readonly userId: UserId;
+	readonly pluginInstallationId?: null | string | undefined;
+} & Omit<typeof schema.savedView.$inferSelect, "userId" | "revision" | "pluginInstallationId">;
+type RestoreRelationshipInput = Pick<
+	typeof schema.relationship.$inferInsert,
+	| "id"
+	| "userId"
+	| "createdAt"
+	| "properties"
+	| "sourceEntityId"
+	| "targetEntityId"
+	| "relationshipSchemaSlug"
+	| "relationshipSchemaPluginId"
+>;
 type RestoreEntityInput = Pick<
 	typeof schema.entity.$inferInsert,
 	| "id"
@@ -38,50 +57,34 @@ type RestoreEntityInput = Pick<
 	| "updatedAt"
 	| "properties"
 	| "externalId"
-	| "populatedAt"
 	| "providerId"
-	| "entitySchemaPluginId"
+	| "populatedAt"
 	| "entitySchemaSlug"
->;
-type RestoreRelationshipInput = Pick<
-	typeof schema.relationship.$inferInsert,
-	| "id"
-	| "userId"
-	| "createdAt"
-	| "properties"
-	| "sourceEntityId"
-	| "targetEntityId"
-	| "relationshipSchemaPluginId"
-	| "relationshipSchemaSlug"
+	| "entitySchemaPluginId"
 >;
 type RestoreEventInput = Pick<
 	typeof schema.event.$inferInsert,
 	| "id"
-	| "orderKey"
-	| "orderCreatedAt"
 	| "userId"
+	| "orderKey"
 	| "entityId"
 	| "createdAt"
 	| "updatedAt"
 	| "occurredAt"
 	| "properties"
-	| "eventSchemaPluginId"
+	| "orderCreatedAt"
 	| "eventSchemaSlug"
 	| "sessionEntityId"
+	| "eventSchemaPluginId"
 >;
-type RestoreTranslationInput = Pick<
-	typeof schema.entityTranslation.$inferInsert,
-	"name" | "entityId" | "language" | "properties" | "populatedAt" | "createdAt" | "updatedAt"
->;
-type RestoreCustomViewInput = Omit<
-	typeof schema.savedView.$inferSelect,
-	"userId" | "revision" | "pluginInstallationId"
-> & { readonly userId: UserId; readonly pluginInstallationId?: string | null | undefined };
 type RestoreInstallationInput = Pick<
-	typeof schema.pluginInstallation.$inferInsert,
-	"userId" | "pluginId" | "sortOrder" | "health" | "isHidden" | "createdAt" | "updatedAt"
+	typeof schema.pluginInstallation.$inferSelect,
+	"isInitialized"
 > &
-	Pick<typeof schema.pluginInstallation.$inferSelect, "isInitialized"> & {
+	Pick<
+		typeof schema.pluginInstallation.$inferInsert,
+		"userId" | "health" | "pluginId" | "isHidden" | "sortOrder" | "createdAt" | "updatedAt"
+	> & {
 		readonly id?: string;
 		readonly config: Record<string, unknown>;
 		readonly preserveExistingConfig: boolean;
@@ -182,7 +185,7 @@ export class BackupRestorePersistence extends Context.Service<BackupRestorePersi
 			const restoreBuiltinOverride = Effect.fn("BackupRestorePersistence.restoreBuiltinOverride")(
 				function* (
 					input: typeof schema.savedViewOverride.$inferInsert & {
-						readonly pluginId: string | null;
+						readonly pluginId: null | string;
 					},
 				) {
 					yield* session.run((db) =>
@@ -216,8 +219,8 @@ export class BackupRestorePersistence extends Context.Service<BackupRestorePersi
 				userId: UserId;
 				isActive: boolean;
 				signalSchemaSlug: SignalSchemaSlug;
-				signalSchemaPluginId: string | null;
-				metadata: AutomationRuleMetadata | null;
+				signalSchemaPluginId: null | string;
+				metadata: null | AutomationRuleMetadata;
 			}) {
 				const [row] = yield* session.run((db) =>
 					db
@@ -250,14 +253,14 @@ export class BackupRestorePersistence extends Context.Service<BackupRestorePersi
 					readonly createdAt: Date;
 					readonly updatedAt: Date;
 					readonly lot: IntegrationLot;
-					readonly name: string | null;
+					readonly name: null | string;
 					readonly isDisabled: boolean;
 					readonly syncOwnership: boolean;
 					readonly minimumProgress: string;
 					readonly maximumProgress: string;
 					readonly lastFinishedAt: Date | null;
 					readonly provider: IntegrationProvider;
-					readonly pluginInstallationId: string | null;
+					readonly pluginInstallationId: null | string;
 					readonly extraSettings: IntegrationExtraSettings;
 					readonly providerSpecifics: IntegrationProviderSettings;
 				}) {
@@ -469,9 +472,9 @@ export class BackupRestorePersistence extends Context.Service<BackupRestorePersi
 					readonly id: string;
 					readonly updatedAt: Date;
 					readonly isHidden: boolean;
-					readonly health: "ready" | "needs-configuration" | "incompatible";
-					readonly healthReason: string | null;
-					readonly incompatibilityReason: "package-identity-conflict" | null;
+					readonly healthReason: null | string;
+					readonly health: "ready" | "incompatible" | "needs-configuration";
+					readonly incompatibilityReason: null | "package-identity-conflict";
 				}) {
 					const [row] = yield* session.run((db) =>
 						db

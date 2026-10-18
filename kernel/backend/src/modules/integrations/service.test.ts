@@ -126,18 +126,18 @@ describe("validateProgressThresholds", () => {
 
 type RecordedCall = { readonly method: string; readonly input: unknown };
 
+type FakeTools = {
+	readonly stored: Ref.Ref<undefined | IntegrationRecord>;
+	readonly record: (method: string, input: unknown) => Effect.Effect<void>;
+};
+
 class FakeIntegrationDependencies extends Context.Service<
 	FakeIntegrationDependencies,
 	{
 		readonly calls: Effect.Effect<ReadonlyArray<RecordedCall>>;
-		readonly storedIntegration: Effect.Effect<IntegrationRecord | undefined>;
+		readonly storedIntegration: Effect.Effect<undefined | IntegrationRecord>;
 	}
 >()("test/FakeIntegrationDependencies") {}
-
-type FakeTools = {
-	readonly stored: Ref.Ref<IntegrationRecord | undefined>;
-	readonly record: (method: string, input: unknown) => Effect.Effect<void>;
-};
 
 const mockRepository = Layer.mock(IntegrationsRepository);
 const mockCatalog = Layer.mock(IntegrationProviderCatalog);
@@ -148,17 +148,17 @@ const mockDataAdmission = Layer.mock(DataImportAdmission);
 const mockIngestion = Layer.mock(IntegrationIngestion);
 
 const makeServiceLayer = (options: {
-	database?: Layer.Layer<DatabaseSession, unknown>;
 	proKey?: boolean;
 	stored?: IntegrationRecord;
+	database?: Layer.Layer<DatabaseSession, unknown>;
 	dependencies?: (tools: FakeTools) => {
 		engine?: WorkflowEngineOverrides;
-		dataAdmission?: MockOverrides<typeof mockDataAdmission>;
-		ingestion?: MockOverrides<typeof mockIngestion>;
 		imports?: MockOverrides<typeof mockImports>;
 		catalog?: MockOverrides<typeof mockCatalog>;
+		ingestion?: MockOverrides<typeof mockIngestion>;
 		readiness?: MockOverrides<typeof mockReadiness>;
 		repository?: MockOverrides<typeof mockRepository>;
+		dataAdmission?: MockOverrides<typeof mockDataAdmission>;
 	};
 }) =>
 	integrationsServiceLayer.pipe(

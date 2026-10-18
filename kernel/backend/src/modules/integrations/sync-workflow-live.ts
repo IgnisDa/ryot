@@ -75,7 +75,7 @@ export const runIntegrationSyncWorkflow = Effect.fn("IntegrationSyncWorkflow")(
 					),
 			);
 		});
-		let after: IngestionRecoveryCursor | null = null;
+		let after: null | IngestionRecoveryCursor = null;
 		for (let page = 0; ; page++) {
 			const recovery: typeof IntegrationRecoveryPage.Type = yield* makeActivity({
 				error: Schema.Never,

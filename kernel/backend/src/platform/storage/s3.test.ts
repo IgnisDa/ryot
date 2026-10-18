@@ -13,8 +13,8 @@ const bucketName = "test-bucket";
 class FakeS3Server extends Context.Service<
 	FakeS3Server,
 	{
-		readonly objects: Effect.Effect<ReadonlyMap<string, Uint8Array>>;
 		readonly requests: Effect.Effect<number>;
+		readonly objects: Effect.Effect<ReadonlyMap<string, Uint8Array>>;
 	}
 >()("test/FakeS3Server") {}
 

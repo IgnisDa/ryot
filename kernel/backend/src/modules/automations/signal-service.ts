@@ -26,11 +26,11 @@ import { DatabaseSession } from "#platform/db/session";
 import { AutomationTriggerRepository } from "./trigger-repository";
 
 export type EmitSignalInput = {
+	properties: unknown;
+	subjectEntityId?: EntityId;
 	command: DomainLifecycleCommand;
 	reference: SignalSchemaReference;
-	properties: unknown;
-	principal: { kind: "user"; userId: UserId } | { kind: "system" };
-	subjectEntityId?: EntityId;
+	principal: { kind: "system" } | { kind: "user"; userId: UserId };
 };
 
 export class SignalEmissionService extends Context.Service<SignalEmissionService>()(

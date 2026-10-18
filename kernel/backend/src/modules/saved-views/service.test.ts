@@ -64,8 +64,8 @@ const baseView = {
 		columns: [{ label: "Name", field: "name", displayKind: "text" }],
 	},
 } satisfies ListedSavedView & {
-	readonly pluginInstallationId: string | null;
-	readonly pluginId: string | null;
+	readonly pluginId: null | string;
+	readonly pluginInstallationId: null | string;
 };
 
 const pluginRenderer = {
@@ -117,8 +117,8 @@ const hiddenView = { ...baseView, isHidden: true };
 class SavedViewsCalls extends Context.Service<
 	SavedViewsCalls,
 	{
-		readonly created: Effect.Effect<ReadonlyArray<unknown>>;
 		readonly events: Effect.Effect<ReadonlyArray<string>>;
+		readonly created: Effect.Effect<ReadonlyArray<unknown>>;
 	}
 >()("test/SavedViewsCalls") {}
 

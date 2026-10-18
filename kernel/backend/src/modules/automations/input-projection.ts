@@ -93,7 +93,7 @@ const changedProperties = (
 		.sort(codeUnitCompare);
 
 const projectPopulation = (
-	population: AutomationPopulationContext | undefined,
+	population: undefined | AutomationPopulationContext,
 	projection: ResourceProjection,
 ) => {
 	if (!population?.parentEntity) {
@@ -145,7 +145,7 @@ const projectMutation = (
 export const projectAutomationAfterInput = (
 	payload: AutomationAfterPayload,
 	inputProjection: AutomationAfterInputProjection,
-): AutomationProjectedAfterPayload | null => {
+): null | AutomationProjectedAfterPayload => {
 	if (payload.resource === "provider-entity-import") {
 		return inputProjection.providerEntityImport ? payload : null;
 	}
@@ -166,7 +166,7 @@ export const projectAutomationAfterInput = (
 export const projectAutomationPolicyInput = (
 	payload: AutomationRequestPayload,
 	inputProjection: AutomationPolicyInputProjection,
-): AutomationProjectedRequestPayload | null => {
+): null | AutomationProjectedRequestPayload => {
 	const projection = inputProjection[payload.resource];
 	if (!projection) {
 		return null;

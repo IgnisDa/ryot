@@ -96,7 +96,7 @@ const storedPrivatePlugin = (manifest: PluginManifest): StoredPlugin => ({
 });
 
 const installationRow = (
-	overrides: Partial<PluginInstallationHydratedState> & { pluginId: string },
+	overrides: { pluginId: string } & Partial<PluginInstallationHydratedState>,
 ): PluginInstallationHydratedState => ({
 	userId,
 	config: {},
@@ -124,20 +124,13 @@ type PersistedPlugin = {
 };
 
 type Recordings = {
-	readonly artifactReadScopes: ReadonlyArray<"root" | "transaction">;
-	readonly activationRotations: ReadonlyArray<
-		Parameters<PluginRepository["Service"]["rotatePrivateActivation"]>[0]
-	>;
-	readonly lifecycleDispatches: ReadonlyArray<
-		Parameters<PluginInstallationLifecycleDispatcher["Service"]["dispatch"]>[0]
-	>;
-	readonly retirementEvents: ReadonlyArray<string>;
 	readonly removed: ReadonlyArray<string>;
 	readonly dispatched: ReadonlyArray<string>;
 	readonly deactivated: ReadonlyArray<string>;
 	readonly invalidatedAll: ReadonlyArray<void>;
 	readonly deletedUploads: ReadonlyArray<string>;
 	readonly homeViewEvents: ReadonlyArray<string>;
+	readonly retirementEvents: ReadonlyArray<string>;
 	readonly savedViewFences: ReadonlyArray<unknown>;
 	readonly invalidatedUsers: ReadonlyArray<UserId>;
 	readonly integrationFences: ReadonlyArray<unknown>;
@@ -147,7 +140,14 @@ type Recordings = {
 	readonly healthUpdates: ReadonlyArray<Record<string, unknown>>;
 	readonly claimedUploads: ReadonlyArray<Record<string, unknown>>;
 	readonly homeViewUpdates: ReadonlyArray<Record<string, unknown>>;
+	readonly artifactReadScopes: ReadonlyArray<"root" | "transaction">;
 	readonly homeViewTransactionScopes: ReadonlyArray<"root" | "transaction">;
+	readonly activationRotations: ReadonlyArray<
+		Parameters<PluginRepository["Service"]["rotatePrivateActivation"]>[0]
+	>;
+	readonly lifecycleDispatches: ReadonlyArray<
+		Parameters<PluginInstallationLifecycleDispatcher["Service"]["dispatch"]>[0]
+	>;
 };
 
 const emptyRecordings: Recordings = {
@@ -173,6 +173,37 @@ const emptyRecordings: Recordings = {
 	homeViewTransactionScopes: [],
 };
 
+type FakeInstallationOptions = {
+	readonly dispatchFails?: boolean;
+	readonly archiveBytes?: Uint8Array;
+	readonly openUploadFails?: boolean;
+	readonly cleanupFailsOnce?: boolean;
+	readonly claimUploadFails?: boolean;
+	readonly isolatedDatabase?: boolean;
+	readonly deleteUploadFails?: boolean;
+	readonly missingUpdateState?: boolean;
+	readonly hasEntityReferences?: boolean;
+	readonly activeRevisionChanged?: boolean;
+	readonly hasWorkflowReferences?: boolean;
+	readonly hasSavedViewReferences?: boolean;
+	readonly hasDefinitionReferences?: boolean;
+	readonly hasIntegrationReferences?: boolean;
+	readonly pendingLifecycle?: ReadonlyArray<string>;
+	readonly dispatchFailsFor?: ReadonlyArray<string>;
+	readonly currentPrivatePluginOnLock?: StoredPlugin;
+	readonly systemPlugins?: ReadonlyArray<StoredPlugin>;
+	readonly systemPackageIdAddedOnLock?: PluginPackageId;
+	readonly privatePlugins?: ReadonlyArray<StoredPlugin>;
+	readonly reservedPackageIds?: ReadonlySet<PluginPackageId>;
+	readonly currentInstallationOnLock?: PluginInstallationHydratedState;
+	readonly homeTargets?: ReadonlyMap<string, NonNullable<HomeSavedView>>;
+	readonly installations?: ReadonlyArray<PluginInstallationHydratedState>;
+	readonly privateInstallations?: ReadonlyArray<PluginPrivateInstallationRow>;
+	readonly retainedArtifacts?: Effect.Success<
+		ReturnType<PluginRepository["Service"]["listCompiledPackageArtifacts"]>
+	>;
+};
+
 class FakeInstallationDependencies extends Context.Service<
 	FakeInstallationDependencies,
 	{ readonly [Key in keyof Recordings]: Effect.Effect<Recordings[Key]> } & {
@@ -184,50 +215,19 @@ class InstallationFakeState extends Context.Service<
 	InstallationFakeState,
 	{
 		readonly recordings: Ref.Ref<Recordings>;
+		readonly ingestionLocked: Ref.Ref<boolean>;
+		readonly systemPlugins: Ref.Ref<ReadonlyArray<StoredPlugin>>;
 		readonly receipts: Ref.Ref<
 			ReadonlyArray<{
-				activationId: string;
-				ownerId: string | null;
-				packageId: PluginPackageId;
 				pluginId: string;
-				installationId: string | null;
+				activationId: string;
+				ownerId: null | string;
+				packageId: PluginPackageId;
+				installationId: null | string;
 			}>
 		>;
-		readonly systemPlugins: Ref.Ref<ReadonlyArray<StoredPlugin>>;
-		readonly ingestionLocked: Ref.Ref<boolean>;
 	}
 >()("test/InstallationFakeState") {}
-
-type FakeInstallationOptions = {
-	readonly retainedArtifacts?: Effect.Success<
-		ReturnType<PluginRepository["Service"]["listCompiledPackageArtifacts"]>
-	>;
-	readonly reservedPackageIds?: ReadonlySet<PluginPackageId>;
-	readonly activeRevisionChanged?: boolean;
-	readonly currentPrivatePluginOnLock?: StoredPlugin;
-	readonly currentInstallationOnLock?: PluginInstallationHydratedState;
-	readonly cleanupFailsOnce?: boolean;
-	readonly dispatchFails?: boolean;
-	readonly archiveBytes?: Uint8Array;
-	readonly openUploadFails?: boolean;
-	readonly claimUploadFails?: boolean;
-	readonly deleteUploadFails?: boolean;
-	readonly missingUpdateState?: boolean;
-	readonly hasEntityReferences?: boolean;
-	readonly hasWorkflowReferences?: boolean;
-	readonly hasSavedViewReferences?: boolean;
-	readonly hasDefinitionReferences?: boolean;
-	readonly hasIntegrationReferences?: boolean;
-	readonly pendingLifecycle?: ReadonlyArray<string>;
-	readonly dispatchFailsFor?: ReadonlyArray<string>;
-	readonly systemPackageIdAddedOnLock?: PluginPackageId;
-	readonly systemPlugins?: ReadonlyArray<StoredPlugin>;
-	readonly privatePlugins?: ReadonlyArray<StoredPlugin>;
-	readonly installations?: ReadonlyArray<PluginInstallationHydratedState>;
-	readonly isolatedDatabase?: boolean;
-	readonly homeTargets?: ReadonlyMap<string, NonNullable<HomeSavedView>>;
-	readonly privateInstallations?: ReadonlyArray<PluginPrivateInstallationRow>;
-};
 
 const record = <Key extends keyof Recordings>(
 	recordings: Ref.Ref<Recordings>,
@@ -263,11 +263,11 @@ const makeLayer = (options: FakeInstallationOptions = {}) => {
 				systemPlugins: yield* Ref.make<ReadonlyArray<StoredPlugin>>(options.systemPlugins ?? []),
 				receipts: yield* Ref.make<
 					ReadonlyArray<{
-						activationId: string;
-						ownerId: string | null;
-						packageId: PluginPackageId;
 						pluginId: string;
-						installationId: string | null;
+						activationId: string;
+						ownerId: null | string;
+						packageId: PluginPackageId;
+						installationId: null | string;
 					}>
 				>([]),
 			};
@@ -1946,7 +1946,7 @@ const sharedImportSource = {
 };
 
 const privateInstallationRow = (
-	overrides: Partial<PluginPrivateInstallationRow> & { readonly pluginName: string },
+	overrides: { readonly pluginName: string } & Partial<PluginPrivateInstallationRow>,
 ): PluginPrivateInstallationRow => {
 	const packageId =
 		overrides.packageId ?? overrides.manifest?.metadata.packageId ?? testPluginPackageId();

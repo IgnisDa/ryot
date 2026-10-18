@@ -36,8 +36,8 @@ export const resolveContextConfig = (context: PluginConfigContext, keys: Readonl
 
 export const getPluginConfig = Effect.fn("getPluginConfig")(function* (input: {
 	metadata: unknown;
-	access: { readonly required?: ReadonlyArray<string>; readonly optional?: ReadonlyArray<string> };
 	context: PluginConfigContext;
+	access: { readonly required?: ReadonlyArray<string>; readonly optional?: ReadonlyArray<string> };
 }) {
 	const required = new Set(input.access.required ?? []);
 	const keys = [...new Set([...required, ...(input.access.optional ?? [])])];

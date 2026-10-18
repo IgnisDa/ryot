@@ -36,7 +36,7 @@ const toStreamKey = (row: {
 	readonly userId: string;
 	readonly entityId: string;
 	readonly eventSchemaSlug: string;
-	readonly eventSchemaPluginId: string | null;
+	readonly eventSchemaPluginId: null | string;
 }): StreamKey => ({
 	userId: UserId.make(row.userId),
 	entityId: EntityId.make(row.entityId),
@@ -235,7 +235,7 @@ export class EventStreamRepository extends Context.Service<EventStreamRepository
 				keys: ReadonlyArray<StreamTouch>,
 			) {
 				yield* requireTransaction;
-				const occurredAtById = new Map<string, { readonly key: StreamKey; occurredAt: Date }>();
+				const occurredAtById = new Map<string, { occurredAt: Date; readonly key: StreamKey }>();
 				for (const { occurredAt, ...key } of keys) {
 					const id = eventStreamId(key);
 					const current = occurredAtById.get(id);
@@ -304,11 +304,11 @@ export class EventStreamRepository extends Context.Service<EventStreamRepository
 
 			const request = Effect.fn("EventStreamRepository.request")(function* (input: {
 				key: StreamKey;
-				processorScriptId: string;
-				pluginRevisionId: string;
 				accountToken: string;
-				outputSchema: AppSchema;
 				pluginPin: JsonValue;
+				outputSchema: AppSchema;
+				pluginRevisionId: string;
+				processorScriptId: string;
 			}) {
 				yield* requireTransaction;
 				const id = eventStreamId(input.key);
@@ -421,7 +421,7 @@ export class EventStreamRepository extends Context.Service<EventStreamRepository
 			});
 
 			const bindingCandidates = Effect.fn("EventStreamRepository.bindingCandidates")(
-				function* (input: { after?: string; limit: number }) {
+				function* (input: { limit: number; after?: string }) {
 					return yield* session.run((db) =>
 						db
 							.select({

@@ -11,7 +11,7 @@ import {
 } from "./filesystem-grants";
 
 const withTempRoot = <A, E>(
-	use: (root: string) => Effect.Effect<A, E, FileSystem.FileSystem | Path.Path | Scope.Scope>,
+	use: (root: string) => Effect.Effect<A, E, Path.Path | Scope.Scope | FileSystem.FileSystem>,
 ) =>
 	Effect.gen(function* () {
 		const fs = yield* FileSystem.FileSystem;

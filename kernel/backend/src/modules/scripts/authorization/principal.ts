@@ -49,8 +49,8 @@ export const sameRevisionPin = (left: PluginRevisionPin, right: PluginRevisionPi
 export const samePluginPin = (
 	revision: PluginRevisionPin,
 	pins: {
-		readonly pluginRevisionId: string | null;
-		readonly pluginConfigRevisionId: string | null;
+		readonly pluginRevisionId: null | string;
+		readonly pluginConfigRevisionId: null | string;
 	},
 ) =>
 	revision.revisionId === pins.pluginRevisionId &&
@@ -63,7 +63,7 @@ export const ScriptInstallationInitialization = Schema.Struct({
 export type ScriptInstallationInitialization = typeof ScriptInstallationInitialization.Type;
 
 export const principalOwner = (
-	principal: { readonly pluginRevision: { readonly id: string } | null } | null | undefined,
+	principal: null | undefined | { readonly pluginRevision: null | { readonly id: string } },
 ) => definitionOwner(principal?.pluginRevision?.id ?? null);
 
 export const ScriptExecutionPrincipal = Schema.Struct({

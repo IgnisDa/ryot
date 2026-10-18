@@ -45,7 +45,7 @@ const support = Layer.mergeAll(
 const row = (
 	targetEntityId: typeof relatedEntityId,
 	properties: Record<string, unknown>,
-	pluginId: PluginId | null = null,
+	pluginId: null | PluginId = null,
 ) => ({
 	properties,
 	targetEntityId,
@@ -58,14 +58,14 @@ const row = (
 });
 
 type Reconcile = RelationshipsService["Service"]["persistPlannedReconciliation"];
-type Reconciliation = {
-	readonly groups: Parameters<Reconcile>[0];
-	readonly command: Parameters<Reconcile>[1];
-	readonly scope: Parameters<Reconcile>[2];
-};
 type ListInput = Parameters<
 	RelationshipsRepository["Service"]["listRelationshipsForReconciliation"]
 >[0];
+type Reconciliation = {
+	readonly scope: Parameters<Reconcile>[2];
+	readonly groups: Parameters<Reconcile>[0];
+	readonly command: Parameters<Reconcile>[1];
+};
 
 class FakeRelationshipSynchronization extends Context.Service<
 	FakeRelationshipSynchronization,

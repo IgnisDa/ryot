@@ -142,14 +142,14 @@ const requestLayer = Layer.unwrap(
 
 const harness = Effect.fnUntraced(function* (
 	executionId: string,
-	outcomes: ReadonlyArray<ListedEntity | SandboxRunError | "suspend">,
+	outcomes: ReadonlyArray<"suspend" | ListedEntity | SandboxRunError>,
 ) {
 	const requests = yield* EnrichmentRequests;
 	const target = yield* PopulationTarget;
 	const attempts: Array<{
 		id: string;
-		payload: ProviderEntityPopulationPayload;
 		requestId: string;
+		payload: ProviderEntityPopulationPayload;
 	}> = [];
 	const clocks: Array<{ name: string; duration: number }> = [];
 	const states: Array<{ state: string; attempt: number; nextAttemptAt: Date | null }> = [];

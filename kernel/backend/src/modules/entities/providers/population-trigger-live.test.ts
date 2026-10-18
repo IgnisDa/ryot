@@ -48,18 +48,18 @@ class PopulationFixture extends Context.Service<
 	{
 		readonly request: PopulationRequest;
 		readonly executions: Effect.Effect<ReadonlyArray<ExecuteOptions>>;
-		readonly admissionTransactions: Effect.Effect<ReadonlyArray<boolean>>;
 		readonly dispatchTransactions: Effect.Effect<ReadonlyArray<boolean>>;
+		readonly admissionTransactions: Effect.Effect<ReadonlyArray<boolean>>;
 	}
 >()("test/PopulationFixture") {}
 
 const triggerLayer = (
-	scope: "system" | "user",
+	scope: "user" | "system",
 	options: {
 		readonly unavailable?: boolean;
 		readonly globalEntity?: boolean;
-		readonly systemSubject?: boolean;
 		readonly enqueueFails?: boolean;
+		readonly systemSubject?: boolean;
 		readonly admissionFails?: boolean;
 		readonly staleRequestLookup?: boolean;
 	} = {},

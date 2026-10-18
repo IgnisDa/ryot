@@ -45,8 +45,8 @@ const artifact = {
 type Run =
 	| typeof completedRun
 	| (Omit<typeof completedRun, "status" | "expiresAt"> & {
-			status: "pending" | "running";
 			expiresAt: null;
+			status: "pending" | "running";
 	  });
 
 class FakeBackupRuns extends Context.Service<
@@ -64,8 +64,8 @@ const mockRepository = Layer.mock(BackupsRepository);
 const makeLayer = (input: {
 	run?: Run | null;
 	artifact?: typeof artifact;
-	expiredArtifacts?: ReadonlyArray<typeof artifact>;
 	uploads?: MockOverrides<typeof mockUploads>;
+	expiredArtifacts?: ReadonlyArray<typeof artifact>;
 }) =>
 	BackupsService.layer.pipe(
 		Layer.provideMerge(

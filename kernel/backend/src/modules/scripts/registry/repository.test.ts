@@ -54,7 +54,7 @@ const manifest = {
 	userBootstrap: [{ slug: "bootstrap", description: "Bootstrap", scriptSlug: "plugin.script" }],
 };
 
-const environmentConfigRevisionId = (): string | null => "config-1";
+const environmentConfigRevisionId = (): null | string => "config-1";
 
 const sandboxAuthority = {
 	packageId,
@@ -103,17 +103,17 @@ type StoredInstallation = {
 	readonly health: string;
 	readonly isHidden: boolean;
 	readonly disabledAt: Date | null;
-	readonly uninstalledAt: Date | null;
 	readonly isInitialized?: boolean;
-	readonly incompatibilityReason: string | null;
-	readonly activeConfigRevisionId: string | null;
+	readonly uninstalledAt: Date | null;
+	readonly incompatibilityReason: null | string;
+	readonly activeConfigRevisionId: null | string;
 };
 
 const joinedPinRow = (
 	row: object,
-	account: StoredAccount | null,
-	installation: StoredInstallation | null,
-	storedConfig: Omit<typeof config, "ownerUserId"> & { readonly ownerUserId: string | null },
+	account: null | StoredAccount,
+	installation: null | StoredInstallation,
+	storedConfig: Omit<typeof config, "ownerUserId"> & { readonly ownerUserId: null | string },
 ) => ({
 	...row,
 	configId: storedConfig.id,
@@ -140,8 +140,8 @@ type PinRows = (table: unknown, condition?: SQLCondition) => readonly unknown[];
 class PinDatabase extends Context.Service<
 	PinDatabase,
 	{
-		readonly conditions: Effect.Effect<ReadonlyArray<SQLCondition>>;
 		readonly respondWith: (rows: PinRows) => Effect.Effect<void>;
+		readonly conditions: Effect.Effect<ReadonlyArray<SQLCondition>>;
 	}
 >()("test/PinDatabase") {}
 
@@ -179,7 +179,7 @@ const pinDatabaseLayer = (rows: PinRows) =>
 	);
 
 const pinRows =
-	(row: typeof pluginPinRow | null, storedConfig = config): PinRows =>
+	(row: null | typeof pluginPinRow, storedConfig = config): PinRows =>
 	() =>
 		row ? [joinedPinRow(row, null, null, storedConfig)] : [];
 
@@ -188,7 +188,7 @@ const pinRepositoryLayer = SandboxRepository.layer.pipe(
 );
 
 const getPin = Effect.fnUntraced(function* (
-	row: typeof pluginPinRow | null,
+	row: null | typeof pluginPinRow,
 	expectedRevision?: Pick<ScriptPluginRevision, "id" | "revisionId" | "configRevisionId">,
 	storedConfig = config,
 ) {

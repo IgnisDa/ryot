@@ -6,7 +6,7 @@ import { plugin, pluginRevision, sandboxScript } from "#schema/tables/core";
 export const pluginPointerFields = getColumns(plugin);
 
 export const scriptPluginId = sql<
-	string | null
+	null | string
 >`(select plugin_id from ${pluginRevision} where id = ${sandboxScript.pluginRevisionId})`;
 
 export const storedScriptFields = {
@@ -30,7 +30,7 @@ export const catalogScriptFields = {
 	pluginRevisionId: sandboxScript.pluginRevisionId,
 };
 
-export type CatalogScript = Omit<
+export type CatalogScript = { readonly pluginId: string; readonly id: SandboxScriptId } & Omit<
 	Pick<typeof sandboxScript.$inferSelect, keyof typeof catalogScriptFields>,
 	"id"
-> & { readonly id: SandboxScriptId; readonly pluginId: string };
+>;

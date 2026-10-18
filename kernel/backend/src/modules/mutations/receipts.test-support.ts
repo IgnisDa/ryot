@@ -6,7 +6,7 @@ import { fixtureManifest, insertPluginRevision } from "#modules/plugins/test-sup
 import { DatabaseSession } from "#platform/db/session";
 import * as tables from "#schema/tables/combined";
 
-export const pinReferences = (scopeUserId: UserId | null) => ({
+export const pinReferences = (scopeUserId: null | UserId) => ({
 	scopeUserId,
 	pluginConfigRevisionId: null,
 	sandboxScriptId: "receipt-pin-script",

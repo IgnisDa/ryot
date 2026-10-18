@@ -95,7 +95,7 @@ const failureOrRethrow = (cause: Cause.Cause<unknown>) =>
 
 type DispatchArguments = Parameters<SandboxDurableHostDispatcher["Service"]["dispatch"]>;
 
-const recordHostCall = <A extends WorkflowDurableResult | null, E, R>(
+const recordHostCall = <A extends null | WorkflowDurableResult, E, R>(
 	request: DispatchArguments[0],
 	effect: Effect.Effect<A, E, R>,
 ) =>
@@ -416,7 +416,7 @@ export const SandboxDurableHostDispatcherLive = Layer.effect(
 						(
 							request,
 						): Effect.Effect<
-							{ settled: boolean; value: WorkflowDurableResult | null },
+							{ settled: boolean; value: null | WorkflowDurableResult },
 							SandboxRunError
 						> =>
 							Effect.gen(function* () {

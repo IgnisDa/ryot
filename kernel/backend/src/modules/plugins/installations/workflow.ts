@@ -56,11 +56,6 @@ export const pluginInstallationBootstrapExecutionId = (
 	`plugin-installation-bootstrap-${installationId.length}-${installationId}-${activationId.length}-${activationId}-${entrySlug.length}-${entrySlug}`;
 
 type PluginInstallationWorkflowOperationsValue = {
-	releaseBootstrapEntry: (
-		installationId: string,
-		activationId: string,
-		entrySlug: string,
-	) => Effect.Effect<void, InternalError>;
 	complete: (
 		installationId: string,
 		activationId: string,
@@ -74,14 +69,19 @@ type PluginInstallationWorkflowOperationsValue = {
 	begin: (
 		installationId: string,
 		activationId: string,
-	) => Effect.Effect<PluginInstallationBootstrap | null, InternalError>;
+	) => Effect.Effect<null | PluginInstallationBootstrap, InternalError>;
+	releaseBootstrapEntry: (
+		installationId: string,
+		activationId: string,
+		entrySlug: string,
+	) => Effect.Effect<void, InternalError>;
 	runBootstrapEntry: (input: {
-		readonly accountGeneration: AccountGeneration;
 		readonly userId: UserId;
 		readonly entrySlug: string;
-		readonly installationId: string;
 		readonly activationId: string;
+		readonly installationId: string;
 		readonly scriptId: SandboxScriptId;
+		readonly accountGeneration: AccountGeneration;
 		readonly pluginRevision: ScriptPluginRevision;
 	}) => Effect.Effect<void, InternalError, WorkflowEngine | WorkflowInstance>;
 };

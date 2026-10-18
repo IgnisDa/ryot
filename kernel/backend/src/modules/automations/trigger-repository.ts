@@ -128,8 +128,8 @@ export class AutomationTriggerRepository extends Context.Service<AutomationTrigg
 			});
 			const prunePayloads = Effect.fn(function* (input: {
 				before: Date;
-				prunedAt: Date;
 				limit: number;
+				prunedAt: Date;
 			}) {
 				return yield* session.run((db) => {
 					const candidates = db

@@ -48,14 +48,14 @@ type ReferenceMap = ReadonlyMap<string, string>;
 
 const linkedFieldReferences = <Relationship, Event>(
 	filterFields:
+		| undefined
 		| readonly (
 				| ValueFilterField
+				| { readonly event: Event; readonly kind: "session-event" }
 				| { readonly kind: "relationship"; readonly relationship: Relationship }
-				| { readonly kind: "session-event"; readonly event: Event }
-		  )[]
-		| undefined,
+		  )[],
 ) =>
-	(filterFields ?? []).flatMap((filterField): readonly (Relationship | Event)[] => {
+	(filterFields ?? []).flatMap((filterField): readonly (Event | Relationship)[] => {
 		if (filterField.kind === "value") {
 			return [];
 		}
@@ -139,7 +139,7 @@ export const importRendererSettings = Effect.fn(function* (
 		pluginKey,
 	}: {
 		readonly slug: Slug;
-		readonly pluginKey: string | null;
+		readonly pluginKey: null | string;
 	}) => ({
 		slug,
 		owner: definitionOwner(pluginKey == null ? null : (pluginIds.get(pluginKey) ?? null)),
@@ -176,7 +176,7 @@ const rewriteQueryReferences = Effect.fn(function* (
 });
 
 export const exportQueryPluginReferences = Effect.fn(function* (
-	document: RyotQLDocument | null,
+	document: null | RyotQLDocument,
 	packages: ReadonlyMap<string, PluginPackageReference>,
 ) {
 	if (document === null) {
@@ -207,7 +207,7 @@ export const exportQueryPluginReferences = Effect.fn(function* (
 });
 
 export const importQueryPluginReferences = Effect.fn(function* (
-	document: RyotQLDocument | null,
+	document: null | RyotQLDocument,
 	pluginIds: ReferenceMap,
 ) {
 	if (document === null) {
@@ -239,12 +239,12 @@ const requiredArchiveReference = (
 
 export const collectReferencedPluginKeys = (records: ArchiveRecords) => {
 	const referenced = new Set<string>();
-	const add = (key: string | null) => {
+	const add = (key: null | string) => {
 		if (key !== null) {
 			referenced.add(key);
 		}
 	};
-	const addQueryPackages = (document: RyotQLDocument | null) => {
+	const addQueryPackages = (document: null | RyotQLDocument) => {
 		if (document === null) {
 			return;
 		}

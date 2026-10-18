@@ -27,7 +27,7 @@ const makeWorkerLayer = (input: {
 	disableWins?: boolean;
 	runStatus: ImportRunStatus;
 	failureReason?: ImportRunFailureReason;
-	recentStatuses?: ReadonlyArray<{ status: "completed" | "failed" }>;
+	recentStatuses?: ReadonlyArray<{ status: "failed" | "completed" }>;
 }) =>
 	Layer.mergeAll(
 		databaseLayer,

@@ -75,30 +75,30 @@ export const pinnedSignalSchemaRows = (context: DefinitionReadContext) =>
 		.innerJoin(plugin, eq(plugin.id, pluginRevision.pluginId))
 		.where(pinnedRevisionWhere(context));
 
+export type DefinitionReadKind = "event" | "entity" | "signal" | "relationship";
+
 export class DefinitionReadUnavailable extends Data.TaggedError("DefinitionReadUnavailable")<{
 	readonly context: DefinitionReadContext;
 }> {}
 
-export type DefinitionReadKind = "entity" | "event" | "relationship" | "signal";
-
 export const pinnedDefinitionSource = (
 	kind: DefinitionReadKind,
 	context: DefinitionReadContext,
-	userId: string | null,
+	userId: null | string,
 ) => {
 	let source: SQL;
 	switch (kind) {
-		case "entity":
-			source = pinnedEntitySchemaRows(context).getSQL();
-			break;
 		case "event":
 			source = pinnedEventSchemaRows(context).getSQL();
 			break;
-		case "relationship":
-			source = pinnedRelationshipSchemaRows(context).getSQL();
+		case "entity":
+			source = pinnedEntitySchemaRows(context).getSQL();
 			break;
 		case "signal":
 			source = pinnedSignalSchemaRows(context).getSQL();
+			break;
+		case "relationship":
+			source = pinnedRelationshipSchemaRows(context).getSQL();
 			break;
 		default:
 			throw new Error(String(kind satisfies never));

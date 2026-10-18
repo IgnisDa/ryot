@@ -88,7 +88,7 @@ export const entityLifecycleHostSteps = (entities: EntitiesService["Service"]) =
 			validate: (
 				rawInput: ScriptRunInput,
 				items: LifecycleHostInput<"UpsertGlobalEntities">["items"],
-				options: LifecycleHostInput<"UpsertGlobalEntities">["options"] | undefined,
+				options: undefined | LifecycleHostInput<"UpsertGlobalEntities">["options"],
 			): Effect.Effect<LifecycleHostInput<"UpsertGlobalEntities">, SandboxHostError> =>
 				sandboxHostEffect(
 					Effect.gen(function* () {
@@ -350,10 +350,10 @@ export const makeEntityScriptHost = Effect.gen(function* () {
 	} satisfies Pick<
 		AdditionalScriptHostImplementationMap,
 		| "createUserEntity"
-		| "mergeUserEntityData"
 		| "deleteUserEntity"
 		| "updateUserEntity"
 		| "ensureUserEntities"
+		| "mergeUserEntityData"
 		| "upsertGlobalEntities"
 	>;
 });

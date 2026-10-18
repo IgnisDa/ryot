@@ -45,7 +45,7 @@ export const runPluginImportWorkflow = Effect.fn("runPluginImportWorkflow")(func
 	const reconcile = (batch: Parameters<typeof reconcileGenericIngestionBatch>[1]) =>
 		reconcileGenericIngestionBatch(scope, batch);
 	const settle = (
-		status: "completed" | "failed" | "cancelled",
+		status: "failed" | "completed" | "cancelled",
 		failureReason?: ImportRunFailureReason,
 	) =>
 		makeActivity({
@@ -74,7 +74,7 @@ export const runPluginImportWorkflow = Effect.fn("runPluginImportWorkflow")(func
 	const initial = yield* repository
 		.getIngestionRunControl(scope)
 		.pipe(Effect.mapError(toWorkflowError));
-	if (!initial || ["completed", "failed", "cancelled", "expired"].includes(initial.status)) {
+	if (!initial || ["failed", "expired", "completed", "cancelled"].includes(initial.status)) {
 		yield* execution.cleanup(scope).pipe(Effect.mapError(toWorkflowError));
 		return yield* Effect.void;
 	}

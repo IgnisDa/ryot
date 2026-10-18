@@ -72,43 +72,41 @@ export const CreateRelationshipInput = Schema.Union([
 		ifAbsent: Schema.optional(Schema.Boolean),
 	}),
 ]);
-export type CreateRelationshipInput = typeof CreateRelationshipInput.Type;
 export type UpdateRelationshipInput = CreateRelationshipInput;
+export type CreateRelationshipInput = typeof CreateRelationshipInput.Type;
 export type UserRelationshipIdentity = Omit<CreateRelationshipBody, "properties">;
-export type ChangeUserRelationshipBatch = {
-	creates: ReadonlyArray<
-		UserRelationshipIdentity &
-			Pick<Schema.Schema.Type<typeof createUserRelationshipSchema>, "propertiesMode"> & {
-				properties: unknown;
-			}
-	>;
-	deletes: ReadonlyArray<UserRelationshipIdentity>;
-};
-export type ReconcileGlobalRelationshipGroup = {
-	relationshipSchema: RelationshipSchemaReference;
-	selector:
-		| { type: "self" }
-		| { type: "anchored"; direction: "incoming" | "outgoing"; anchorEntityId: EntityId };
-	relationships: ReadonlyArray<{
-		properties: unknown;
-		sourceEntityId: EntityId;
-		targetEntityId: EntityId;
-	}>;
-	/**
-	 * Paged synchronization: a "page" upserts only its relationships, stamps them with the generation
-	 * and deletes nothing; a "sweep" deletes the relationships not stamped with the generation.
-	 */
-	generation?: { kind: "page" | "sweep"; value: string; preserveExisting: boolean };
-};
+export type DeleteRelationshipInput = UserRelationshipIdentity & RelationshipReconciliationScope;
 export type RelationshipReconciliationScope =
 	{ readonly scope: "global" } | { readonly scope: "user"; readonly userId: UserId };
-export type DeleteRelationshipInput = UserRelationshipIdentity & RelationshipReconciliationScope;
 export type PlannedRelationshipReconciliationResult = ReadonlyArray<{
 	readonly created: number;
 	readonly updated: number;
 	readonly deleted: number;
 	readonly upserted: number;
 }>;
+export type ChangeUserRelationshipBatch = {
+	deletes: ReadonlyArray<UserRelationshipIdentity>;
+	creates: ReadonlyArray<
+		{ properties: unknown } & UserRelationshipIdentity &
+			Pick<Schema.Schema.Type<typeof createUserRelationshipSchema>, "propertiesMode">
+	>;
+};
+export type ReconcileGlobalRelationshipGroup = {
+	relationshipSchema: RelationshipSchemaReference;
+	/**
+	 * Paged synchronization: a "page" upserts only its relationships, stamps them with the generation
+	 * and deletes nothing; a "sweep" deletes the relationships not stamped with the generation.
+	 */
+	generation?: { value: string; kind: "page" | "sweep"; preserveExisting: boolean };
+	relationships: ReadonlyArray<{
+		properties: unknown;
+		sourceEntityId: EntityId;
+		targetEntityId: EntityId;
+	}>;
+	selector:
+		| { type: "self" }
+		| { type: "anchored"; anchorEntityId: EntityId; direction: "incoming" | "outgoing" };
+};
 
 export const RelationshipMutation = Schema.Struct({
 	command: DomainLifecycleCommand,
@@ -133,7 +131,7 @@ export const RelationshipRecordedResult = Schema.Struct({
 });
 
 export const relationshipReceiptIdentity = (
-	mutation: Pick<Mutation, "command" | "input" | "mode" | "properties" | "receipt">,
+	mutation: Pick<Mutation, "mode" | "input" | "command" | "receipt" | "properties">,
 ) =>
 	mutation.receipt ??
 	mutationReceiptIdentity({
@@ -338,7 +336,7 @@ export const validateUserRelationshipEntities = Effect.fnUntraced(function* (
 });
 
 export const relationshipSchemaReference = (
-	input: Pick<RelationshipIdentityInput, "relationshipSchemaPluginId" | "relationshipSchemaSlug">,
+	input: Pick<RelationshipIdentityInput, "relationshipSchemaSlug" | "relationshipSchemaPluginId">,
 ): RelationshipSchemaReference => ({
 	slug: input.relationshipSchemaSlug,
 	owner: definitionOwner(input.relationshipSchemaPluginId),
@@ -353,15 +351,15 @@ export const relationshipIdentity = (
 });
 
 export type RelationshipMutationDependencies = {
-	readonly writes: DomainWriteChecks["Service"];
 	readonly session: DatabaseSession["Service"];
-	readonly execution: LifecycleExecution["Service"];
+	readonly writes: DomainWriteChecks["Service"];
 	readonly planner: LifecyclePlanner["Service"];
 	readonly receipts: MutationReceipts["Service"];
-	readonly repository: RelationshipsRepository["Service"];
+	readonly entities: EntitiesRepository["Service"];
+	readonly execution: LifecycleExecution["Service"];
 	readonly runtime: PluginRuntimeResolver["Service"];
 	readonly definitions: DefinitionRepository["Service"];
-	readonly entities: EntitiesRepository["Service"];
+	readonly repository: RelationshipsRepository["Service"];
 	readonly assetReferences: ManagedAssetReferenceLocker["Service"];
 };
 

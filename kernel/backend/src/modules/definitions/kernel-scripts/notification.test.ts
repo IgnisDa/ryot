@@ -6,7 +6,7 @@ import { Cause, Exit } from "effect";
 
 import definition, { manifest } from "./notification.sandbox";
 
-const inputFor = (executionUserId: string | null) =>
+const inputFor = (executionUserId: null | string) =>
 	Schema.decodeSync(automationInputSchema)({
 		automation: {
 			runId: "run-1",

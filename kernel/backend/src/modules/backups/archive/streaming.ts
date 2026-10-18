@@ -5,30 +5,20 @@ import { archiveError, BackupArchiveError } from "./error";
 const encoder = new TextEncoder();
 
 export class IncrementalSha256 {
-	readonly #hasher = new Bun.CryptoHasher("sha256");
-	#bytes = 0;
-
-	update(chunk: Uint8Array) {
-		this.#bytes += chunk.byteLength;
-		this.#hasher.update(chunk);
-	}
-
 	get bytes() {
 		return this.#bytes;
 	}
+	#bytes = 0;
+
+	readonly #hasher = new Bun.CryptoHasher("sha256");
 
 	digest() {
 		return { bytes: this.#bytes, sha256: this.#hasher.digest("hex") };
 	}
-}
 
-export function* encodeNdjson<A, I>(
-	values: Iterable<A>,
-	codec: Schema.Codec<A, I>,
-): Generator<Uint8Array> {
-	for (const value of values) {
-		const encoded = Schema.encodeUnknownSync(codec)(value);
-		yield encoder.encode(`${JSON.stringify(encoded)}\n`);
+	update(chunk: Uint8Array) {
+		this.#bytes += chunk.byteLength;
+		this.#hasher.update(chunk);
 	}
 }
 
@@ -42,6 +32,17 @@ export class NdjsonDecoder<A, I> {
 	constructor(codec: Schema.Codec<A, I>, path: string) {
 		this.#path = path;
 		this.#codec = codec;
+	}
+
+	end() {
+		try {
+			this.#buffered += this.#decoder.decode();
+		} catch {
+			throw archiveError("invalid_entry", `Invalid NDJSON at line ${this.#line + 1}`, this.#path);
+		}
+		if (this.#buffered.length > 0) {
+			throw archiveError("truncated_ndjson", "NDJSON must end with a newline", this.#path);
+		}
 	}
 
 	*push(chunk: Uint8Array): Generator<A, void, undefined> {
@@ -65,16 +66,15 @@ export class NdjsonDecoder<A, I> {
 			throw archiveError("invalid_entry", `Invalid NDJSON at line ${this.#line + 1}`, this.#path);
 		}
 	}
+}
 
-	end() {
-		try {
-			this.#buffered += this.#decoder.decode();
-		} catch {
-			throw archiveError("invalid_entry", `Invalid NDJSON at line ${this.#line + 1}`, this.#path);
-		}
-		if (this.#buffered.length > 0) {
-			throw archiveError("truncated_ndjson", "NDJSON must end with a newline", this.#path);
-		}
+export function* encodeNdjson<A, I>(
+	values: Iterable<A>,
+	codec: Schema.Codec<A, I>,
+): Generator<Uint8Array> {
+	for (const value of values) {
+		const encoded = Schema.encodeUnknownSync(codec)(value);
+		yield encoder.encode(`${JSON.stringify(encoded)}\n`);
 	}
 }
 

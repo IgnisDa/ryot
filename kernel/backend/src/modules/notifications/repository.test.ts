@@ -13,8 +13,8 @@ layer(NotificationsRepository.layer.pipe(Layer.provideMerge(revisionDatabaseLaye
 			const repository = yield* NotificationsRepository;
 			const userId = UserId.make("owner");
 			const cases: ReadonlyArray<{
-				channelSpecifics: NotificationChannelSpecifics;
 				description: string;
+				channelSpecifics: NotificationChannelSpecifics;
 			}> = [
 				{
 					description: "Apprise at https://apprise.example.com",

@@ -35,7 +35,7 @@ const mapDbToInternal = <A, E, R>(effect: Effect.Effect<A, E, R>) =>
 
 const storageFailure = <A, E, R>(
 	effect: Effect.Effect<A, E, R>,
-	code: "artifact-storage-unavailable" | "artifact-delete-failed",
+	code: "artifact-delete-failed" | "artifact-storage-unavailable",
 ) =>
 	effect.pipe(
 		Effect.catchCauseIf(

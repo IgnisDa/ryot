@@ -10,6 +10,22 @@ import { eq, isNull, or } from "drizzle-orm";
 
 import * as schema from "#schema/tables/combined";
 
+export type EntityScope = {
+	readonly entityId: EntityId;
+	readonly isBuiltin: boolean;
+	readonly entityUserId: null | UserId;
+	readonly entitySchemaSlug: EntitySchemaSlug;
+};
+
+export type EntitySchemaScope = {
+	readonly slug: string;
+	readonly isBuiltin: boolean;
+	readonly id: EntitySchemaSlug;
+	readonly userId: null | UserId;
+	readonly propertiesSchema: AppSchema;
+	readonly pluginId?: null | string | undefined;
+};
+
 type EntityRow = Pick<
 	typeof schema.entity.$inferSelect,
 	| "id"
@@ -18,27 +34,11 @@ type EntityRow = Pick<
 	| "updatedAt"
 	| "properties"
 	| "externalId"
-	| "populatedAt"
 	| "providerId"
+	| "populatedAt"
 	| "entitySchemaSlug"
 	| "entitySchemaPluginId"
 >;
-
-export type EntitySchemaScope = {
-	readonly slug: string;
-	readonly isBuiltin: boolean;
-	readonly id: EntitySchemaSlug;
-	readonly userId: UserId | null;
-	readonly propertiesSchema: AppSchema;
-	readonly pluginId?: string | null | undefined;
-};
-
-export type EntityScope = {
-	readonly entityId: EntityId;
-	readonly isBuiltin: boolean;
-	readonly entityUserId: UserId | null;
-	readonly entitySchemaSlug: EntitySchemaSlug;
-};
 
 export const entitySelection = {
 	id: schema.entity.id,

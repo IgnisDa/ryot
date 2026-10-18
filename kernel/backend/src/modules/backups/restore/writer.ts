@@ -74,7 +74,7 @@ import { BackupRestorePersistence } from "./persistence";
 
 export class RequiredBackupPluginUnavailable extends Data.TaggedError(
 	"RequiredBackupPluginUnavailable",
-)<{ readonly packageId: ArchiveRequiredPlugin["packageId"]; readonly requiredVersion: string }> {}
+)<{ readonly requiredVersion: string; readonly packageId: ArchiveRequiredPlugin["packageId"] }> {}
 
 const archiveReferenceError = (error: DataReferenceError) =>
 	archiveError(error.code, error.message);
@@ -94,12 +94,12 @@ const archivedManifest = (target: StoredPlugin, plugin: ArchiveRequiredPlugin) =
 
 const notSystemOwned =
 	(systemIds: ReadonlySet<string>) =>
-	({ pluginId }: { readonly pluginId: string | null }) =>
+	({ pluginId }: { readonly pluginId: null | string }) =>
 		pluginId === null || !systemIds.has(pluginId);
 
 const mappedPluginId = Effect.fn(function* (
 	pluginIdByKey: ReadonlyMap<string, string>,
-	key: string | null,
+	key: null | string,
 ) {
 	if (key === null) {
 		return null;
@@ -108,7 +108,7 @@ const mappedPluginId = Effect.fn(function* (
 	return pluginId ?? (yield* badRequest(`Backup references unmapped plugin key '${key}'`));
 });
 
-const mappedOwner = (pluginIdByKey: ReadonlyMap<string, string>, key: string | null) =>
+const mappedOwner = (pluginIdByKey: ReadonlyMap<string, string>, key: null | string) =>
 	Effect.map(mappedPluginId(pluginIdByKey, key), definitionOwner);
 
 export const resolveRequiredPluginIds = Effect.fn(function* (
@@ -163,7 +163,7 @@ const decodePointerSegment = (value: string) => value.replaceAll("~1", "/").repl
 
 const isRequiredSecretPath = (path: string, schema: AppSchema) => {
 	const segments = path.startsWith("/") ? path.slice(1).split("/").map(decodePointerSegment) : [];
-	let definition: AppPropertyDefinition | undefined = segments[0]
+	let definition: undefined | AppPropertyDefinition = segments[0]
 		? schema.fields[segments[0]]
 		: undefined;
 	for (const segment of segments.slice(1)) {
@@ -181,11 +181,11 @@ const isRequiredSecretPath = (path: string, schema: AppSchema) => {
 export const resolveRestoredInstallationLifecycle = (
 	state: Pick<
 		ArchiveInstallation,
-		| "configuredSecretPaths"
 		| "hiddenIntent"
-		| "lifecycleIntent"
-		| "incompatibilityReason"
 		| "healthReason"
+		| "lifecycleIntent"
+		| "configuredSecretPaths"
+		| "incompatibilityReason"
 	>,
 	schema: AppSchema,
 	redactedConfigNeedsConfiguration: boolean,
@@ -245,21 +245,21 @@ export const resolveRestoredPluginUserSettings = Effect.fn(function* (
 	).pipe(Effect.mapError((error) => badRequest(error.message)));
 });
 
-const bootstrapSchemaIdentity = (entitySchemaSlug: string, entitySchemaPluginId: string | null) =>
+const bootstrapSchemaIdentity = (entitySchemaSlug: string, entitySchemaPluginId: null | string) =>
 	JSON.stringify([entitySchemaSlug, entitySchemaPluginId]);
 
-type ArchivedBootstrapEntity = Pick<
-	ArchiveRecords["entities"][number],
-	"id" | "provider" | "externalId" | "entitySchemaSlug" | "entitySchemaPluginKey"
->;
 type TargetBootstrapEntity = Pick<
 	PortableEntityRecord,
 	"id" | "provider" | "externalId" | "entitySchemaSlug" | "entitySchemaPluginId"
 >;
+type ArchivedBootstrapEntity = Pick<
+	ArchiveRecords["entities"][number],
+	"id" | "provider" | "externalId" | "entitySchemaSlug" | "entitySchemaPluginKey"
+>;
 
 const isBootstrapEntity = (entity: {
 	readonly provider: unknown;
-	readonly externalId: string | null;
+	readonly externalId: null | string;
 }) => entity.provider === null && entity.externalId === null;
 
 export const resolveBootstrapEntityMappings = Effect.fn(function* (
@@ -273,7 +273,7 @@ export const resolveBootstrapEntityMappings = Effect.fn(function* (
 			continue;
 		}
 		const entitySchemaPluginKey = entity.entitySchemaPluginKey;
-		let entitySchemaPluginId: string | null = null;
+		let entitySchemaPluginId: null | string = null;
 		if (entitySchemaPluginKey !== null) {
 			const resolved = pluginIdByKey.get(entitySchemaPluginKey);
 			if (!resolved) {
@@ -325,7 +325,7 @@ export const resolveBootstrapEntityMappings = Effect.fn(function* (
 
 export const assertDependencySchemaOwnership = Effect.fn(function* (
 	dependency: ArchiveEntityDependency,
-	schemaPluginKey: string | null,
+	schemaPluginKey: null | string,
 ) {
 	if (
 		(dependency.identity.kind === "provider" || dependency.identity.kind === "bootstrap") &&
@@ -372,11 +372,11 @@ export const preflightProvenance = Effect.fn(function* (
 	const entitiesById = new Map(
 		[...records.entities, ...records.entityDependencies].map((entity) => [entity.id, entity]),
 	);
-	const definition = (kind: string, slug: string, key: string | null) =>
+	const definition = (kind: string, slug: string, key: null | string) =>
 		Effect.map(mappedOwner(pluginIdByKey, key), (owner) => definitionKey(kind, owner, slug));
 	const assertOwner = Effect.fn(function* (
-		key: string | null,
-		schemaDefinition: { readonly pluginId?: string | null | undefined } | undefined,
+		key: null | string,
+		schemaDefinition: undefined | { readonly pluginId?: null | string | undefined },
 		kind: string,
 	) {
 		if (!schemaDefinition) {
@@ -407,8 +407,8 @@ export const preflightProvenance = Effect.fn(function* (
 		}
 	}
 	const assertProvider = Effect.fn(function* (
-		provider: { readonly pluginKey: string; readonly providerSlug: string } | null,
-		schemaKey: string | null,
+		provider: null | { readonly pluginKey: string; readonly providerSlug: string },
+		schemaKey: null | string,
 		schemaSlug: string,
 	) {
 		if (provider) {
@@ -759,7 +759,7 @@ export class BackupRestoreWriter extends Context.Service<BackupRestoreWriter>()(
 
 			const resolveProvider = Effect.fn(function* (
 				pluginIdByKey: ReadonlyMap<string, string>,
-				provider: { readonly pluginKey: string; readonly providerSlug: string } | null,
+				provider: null | { readonly pluginKey: string; readonly providerSlug: string },
 			) {
 				if (!provider) {
 					return null;
@@ -830,8 +830,8 @@ export class BackupRestoreWriter extends Context.Service<BackupRestoreWriter>()(
 					readonly id: string;
 					readonly updatedAt: Date;
 					readonly isHidden: boolean;
-					readonly health: "ready" | "needs-configuration" | "incompatible";
-					readonly healthReason: string | null;
+					readonly healthReason: null | string;
+					readonly health: "ready" | "incompatible" | "needs-configuration";
 					readonly incompatibilityReason: ArchiveInstallation["incompatibilityReason"];
 				}> = [];
 				const pluginKeyById = new Map([...pluginIdByKey].map(([key, id]) => [id, key]));
@@ -903,12 +903,12 @@ export class BackupRestoreWriter extends Context.Service<BackupRestoreWriter>()(
 						updatedAt: parseDate(state.updatedAt),
 					});
 				}
-				const getEntitySchema = (slug: string, key: string | null) =>
+				const getEntitySchema = (slug: string, key: null | string) =>
 					Effect.map(
 						mappedOwner(pluginIdByKey, key),
 						(owner) => definitions.entitySchemas[definitionKey("entity", owner, slug)],
 					);
-				const getRelationshipSchema = (slug: string, key: string | null) =>
+				const getRelationshipSchema = (slug: string, key: null | string) =>
 					Effect.map(
 						mappedOwner(pluginIdByKey, key),
 						(owner) => definitions.relationshipSchemas[definitionKey("relationship", owner, slug)],

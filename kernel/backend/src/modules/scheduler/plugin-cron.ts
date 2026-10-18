@@ -11,13 +11,13 @@ import { PluginRuntimeResolver } from "#modules/plugins/catalog/runtime-resolver
 import { ScriptExecutionWorkflow } from "#modules/scripts/executions/workflow";
 import { AppConfig } from "#platform/config/service";
 
+type DueDispatch = readonly [PluginCronTarget, string];
+
 type PluginCronTarget = {
 	readonly cronSlug: string;
 	readonly pluginId: string;
-	readonly installationId: string | null;
+	readonly installationId: null | string;
 };
-
-type DueDispatch = readonly [PluginCronTarget, string];
 
 const MINUTE_MS = Duration.toMillis(Duration.minutes(1));
 

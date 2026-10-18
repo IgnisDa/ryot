@@ -48,90 +48,90 @@ import { type SandboxRecoveryIdentity, SandboxRecoveryStore } from "./recovery-s
 import { makeUserPrincipal, makeUserSubject } from "./run-input.test-support";
 import { type SandboxSidecarRun, SandboxSidecarSupervisor } from "./supervisor";
 
-type Connection = Effect.Success<ReturnType<SandboxSidecarClient["Service"]["connect"]>>;
-type ConnectSettings = Parameters<SandboxSidecarClient["Service"]["connect"]>[0];
 type RunFrame = typeof SidecarRunFrame.Type;
 type DoneFrame = typeof SidecarDoneFrame.Type;
 type HostCallFrame = typeof SidecarHostCallFrame.Type;
-type HostResultFrame = Extract<SidecarInboundFrame, { readonly type: "hostResult" }>;
-type RecoveryOperation = "clear" | "collateral" | "read" | "resume";
 type RecoveryState = { recoveries: number; suspended: boolean };
+type RecoveryOperation = "read" | "clear" | "resume" | "collateral";
+type ConnectSettings = Parameters<SandboxSidecarClient["Service"]["connect"]>[0];
+type HostResultFrame = Extract<SidecarInboundFrame, { readonly type: "hostResult" }>;
+type Connection = Effect.Success<ReturnType<SandboxSidecarClient["Service"]["connect"]>>;
 type MutableRecoveryState = RecoveryState & {
 	readonly eventIds: Set<string>;
 	healthyEpoch: string | undefined;
 };
-type RecoveryCall = RecoveryState & {
-	readonly executionId: string;
-	readonly instance: string;
-	readonly operation: RecoveryOperation;
-	readonly pinHash: string;
-	readonly eventId?: string;
-	readonly healthyEpoch?: string;
-};
-type ProtectionEvent = {
-	readonly principal: SandboxPrincipal;
-	readonly trust: "system" | "user";
-	readonly type: "open" | "strike" | "survived";
-};
 type PreparedInput = {
-	readonly generation: number;
 	readonly handle: string;
+	readonly generation: number;
 	readonly input: RunFrame["input"];
 };
 type HostDispatch = {
-	readonly generation: number;
-	readonly handle: string;
-	readonly name: string;
 	readonly seq: number;
+	readonly name: string;
+	readonly handle: string;
+	readonly generation: number;
 };
-
+type ProtectionEvent = {
+	readonly trust: "user" | "system";
+	readonly principal: SandboxPrincipal;
+	readonly type: "open" | "strike" | "survived";
+};
 type RecordingEvent = {
 	readonly at?: number;
-	readonly frame?: SidecarInboundFrame | OutboundFrame;
-	readonly generation: number;
+	readonly type: string;
 	readonly handle?: string;
 	readonly instance: string;
-	readonly type: string;
+	readonly generation: number;
+	readonly frame?: OutboundFrame | SidecarInboundFrame;
+};
+
+type RecoveryCall = RecoveryState & {
+	readonly pinHash: string;
+	readonly instance: string;
+	readonly eventId?: string;
+	readonly executionId: string;
+	readonly healthyEpoch?: string;
+	readonly operation: RecoveryOperation;
 };
 
 type RecordedConnection = {
-	readonly closeAllowed: Deferred.Deferred<void>;
-	readonly closeRequested: Deferred.Deferred<void>;
-	readonly connectedAt: number;
-	connection?: Connection;
-	readonly exitConfirmed: Deferred.Deferred<void>;
-	readonly generation: number;
-	readonly incoming: Queue.Queue<OutboundFrame>;
-	readonly instance: string;
-	readonly nextCancel: Queue.Queue<Extract<SidecarInboundFrame, { readonly type: "cancel" }>>;
-	readonly nextHostResult: Queue.Queue<HostResultFrame>;
-	readonly nextRun: Queue.Queue<RunFrame>;
-	readonly pid: number;
-	readonly readyConsumed: Deferred.Deferred<void>;
-	readonly drainingReceived: Deferred.Deferred<void>;
-	readonly registered: Set<string>;
-	readonly retired: Array<string>;
-	readonly sent: Array<SidecarInboundFrame>;
-	readonly settings: ConnectSettings;
 	closeHeld: boolean;
 	finalized: boolean;
+	readonly pid: number;
+	connection?: Connection;
+	readonly instance: string;
+	readonly generation: number;
+	readonly connectedAt: number;
+	readonly retired: Array<string>;
+	readonly registered: Set<string>;
+	readonly settings: ConnectSettings;
+	readonly nextRun: Queue.Queue<RunFrame>;
+	readonly sent: Array<SidecarInboundFrame>;
+	readonly incoming: Queue.Queue<OutboundFrame>;
+	readonly closeAllowed: Deferred.Deferred<void>;
+	readonly exitConfirmed: Deferred.Deferred<void>;
+	readonly readyConsumed: Deferred.Deferred<void>;
+	readonly closeRequested: Deferred.Deferred<void>;
+	readonly drainingReceived: Deferred.Deferred<void>;
+	readonly nextHostResult: Queue.Queue<HostResultFrame>;
+	readonly nextCancel: Queue.Queue<Extract<SidecarInboundFrame, { readonly type: "cancel" }>>;
 };
 
 type HarnessService = {
-	readonly connections: Array<RecordedConnection>;
-	readonly connectionsAdded: Queue.Queue<RecordedConnection>;
 	readonly events: Array<RecordingEvent>;
+	readonly recoveryCalls: Array<RecoveryCall>;
 	readonly hostDispatches: Array<HostDispatch>;
 	readonly prepareInputs: Array<PreparedInput>;
+	readonly connections: Array<RecordedConnection>;
 	readonly protectionEvents: Array<ProtectionEvent>;
-	readonly recoveryCalls: Array<RecoveryCall>;
 	readonly recoveryNotifications: Queue.Queue<RecoveryCall>;
+	readonly connectionsAdded: Queue.Queue<RecordedConnection>;
 	readonly recoveryStates: Map<string, MutableRecoveryState>;
-	readonly confirmClose: (generation: number) => Effect.Effect<void>;
 	readonly connect: SandboxSidecarClient["Service"]["connect"];
-	readonly complete: (connection: RecordedConnection, run: RunFrame) => Effect.Effect<void>;
 	readonly delayClose: (generation: number) => Effect.Effect<void>;
+	readonly confirmClose: (generation: number) => Effect.Effect<void>;
 	readonly emit: (generation: number, frame: OutboundFrame) => Effect.Effect<void>;
+	readonly complete: (connection: RecordedConnection, run: RunFrame) => Effect.Effect<void>;
 };
 
 class SupervisorTestHarness extends Context.Service<SupervisorTestHarness, HarnessService>()(
@@ -354,7 +354,7 @@ const copyRecoveryState = (state: MutableRecoveryState): RecoveryState => ({
 });
 const publishRecoveryCall = (
 	harness: HarnessService,
-	call: Omit<RecoveryCall, "recoveries" | "suspended">,
+	call: Omit<RecoveryCall, "suspended" | "recoveries">,
 	state: MutableRecoveryState,
 ) =>
 	Effect.gen(function* () {
@@ -367,7 +367,7 @@ const publishRecoveryCall = (
 const quarantineLayer = Layer.effect(
 	SandboxSidecarQuarantine,
 	Effect.map(SupervisorTestHarness, (harness) => ({
-		open: (principal: SandboxPrincipal, trust: "system" | "user") =>
+		open: (principal: SandboxPrincipal, trust: "user" | "system") =>
 			Effect.sync(() => {
 				harness.protectionEvents.push({ trust, principal, type: "open" });
 				return {
@@ -597,13 +597,13 @@ const startRun = (
 	harness: HarnessService,
 	runtimeImports: ReadonlyArray<string> = [],
 	options: {
-		readonly leaseAcquired?: Deferred.Deferred<void>;
-		readonly lane?: ExecutionLane;
-		readonly runLane?: ExecutionLane;
-		readonly executionId?: string;
 		readonly pinHash?: string;
+		readonly lane?: ExecutionLane;
+		readonly executionId?: string;
+		readonly runLane?: ExecutionLane;
 		readonly principal?: SandboxPrincipal;
 		readonly prepare?: SandboxSidecarRun["prepare"];
+		readonly leaseAcquired?: Deferred.Deferred<void>;
 	} = {},
 ) =>
 	Effect.scoped(
@@ -626,8 +626,8 @@ const startRun = (
 
 const withSupervisor = <A, E, R>(
 	work: (context: {
-		readonly admission: SandboxSidecarAdmission["Service"];
 		readonly harness: HarnessService;
+		readonly admission: SandboxSidecarAdmission["Service"];
 		readonly supervisor: SandboxSidecarSupervisor["Service"];
 	}) => Effect.Effect<A, E, R>,
 ) =>
@@ -660,7 +660,7 @@ const userCoreConnections = (harness: HarnessService) =>
 
 const supervisorTest = <A, E>(
 	name: string,
-	effect: () => Effect.Effect<A, E, Layer.Success<typeof dependencyLayer> | Scope.Scope>,
+	effect: () => Effect.Effect<A, E, Scope.Scope | Layer.Success<typeof dependencyLayer>>,
 ) => layer(Layer.fresh(dependencyLayer))((test) => test.effect(name, effect));
 
 supervisorTest("starts lazy tiers once and stops them only when idle", () =>
@@ -719,7 +719,7 @@ supervisorTest("starts lazy tiers once and stops them only when idle", () =>
 					.filter((metric) => metric.id.startsWith("ryot.sandbox.sidecar."))
 					.every((metric) =>
 						Object.keys(metric.attributes ?? {}).every((key) =>
-							["unit", "trust", "snapshot", "event", "reason"].includes(key),
+							["unit", "trust", "event", "reason", "snapshot"].includes(key),
 						),
 					),
 			).toBe(true);
@@ -1713,7 +1713,7 @@ supervisorTest("admits honest maximum concurrency under per-handle bounds", () =
 	).pipe(Effect.withSpan("sandbox.supervisor.pending-bound-test")),
 );
 
-const owned = (owner: string | null, scriptSlug: string): SandboxPrincipal => {
+const owned = (owner: null | string, scriptSlug: string): SandboxPrincipal => {
 	const principal = makePrincipal([], scriptSlug);
 	return {
 		...principal,

@@ -49,17 +49,17 @@ export class PluginConfigEncryptionKeyRepository extends Context.Service<PluginC
 						database.run((db) =>
 							db
 								.selectDistinct({
-									code: sql<string | null>`${oauthConnection.code} ->> 'keyId'`,
-									accessToken: sql<string | null>`${oauthConnection.accessToken} ->> 'keyId'`,
-									codeVerifier: sql<string | null>`${oauthConnection.codeVerifier} ->> 'keyId'`,
-									refreshToken: sql<string | null>`${oauthConnection.refreshToken} ->> 'keyId'`,
+									code: sql<null | string>`${oauthConnection.code} ->> 'keyId'`,
+									accessToken: sql<null | string>`${oauthConnection.accessToken} ->> 'keyId'`,
+									codeVerifier: sql<null | string>`${oauthConnection.codeVerifier} ->> 'keyId'`,
+									refreshToken: sql<null | string>`${oauthConnection.refreshToken} ->> 'keyId'`,
 								})
 								.from(oauthConnection),
 						),
 						database.run((db) =>
 							db
 								.selectDistinct({
-									id: sql<string | null>`${importRun.preparedRelease} -> 'state' ->> 'keyId'`,
+									id: sql<null | string>`${importRun.preparedRelease} -> 'state' ->> 'keyId'`,
 								})
 								.from(importRun)
 								.where(isNotNull(importRun.preparedRelease)),

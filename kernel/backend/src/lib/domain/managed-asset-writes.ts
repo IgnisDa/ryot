@@ -12,13 +12,13 @@ import {
 import { DatabaseSession } from "#platform/db/session";
 import { managedAsset } from "#schema/tables/uploads";
 
+export type OwnedManagedAssetPropertyRecord = ManagedAssetPropertyRecord & {
+	readonly ownerUserId: null | UserId;
+};
+
 export class ManagedAssetReferenceRejected extends Data.TaggedError(
 	"ManagedAssetReferenceRejected",
 )<{}> {}
-
-export type OwnedManagedAssetPropertyRecord = ManagedAssetPropertyRecord & {
-	readonly ownerUserId: UserId | null;
-};
 
 const locatorWhere = (locator: ManagedAssetLocator) =>
 	and(eq(managedAsset.provider, locator.type), eq(managedAsset.key, locator.key));

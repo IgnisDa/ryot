@@ -92,24 +92,21 @@ import {
 	writerPropertiesSchema,
 } from "./write-context";
 
-type Scope = { scope: "global" } | { scope: "user"; userId: UserId };
-export type CreateEntityInput = Scope & {
+export type UpsertGlobalEntitiesOptions = { maximumTotal?: number };
+export type EnsureUserEntityItem = {
 	name: string;
+	properties: unknown;
 	entitySchema: EntitySchemaReference;
-	properties: unknown;
-	externalId?: string | undefined;
-	populatedAt?: Date | null;
-	lifecycle: DomainLifecycleCommand;
-	providerId?: SandboxProviderId | undefined;
 };
-export type UpdateEntityInput = Scope & {
+export type EntityUpsertBatchScope = Pick<LifecycleBatchInput, "identity"> & {
+	command: DomainLifecycleCommand;
+};
+export type UpsertGlobalEntityItem = {
 	name: string;
-	entityId: EntityId;
+	externalId: string;
 	properties: unknown;
-	populatedAt?: Date | null;
-	requireUserOwned?: boolean;
-	lifecycle: DomainLifecycleCommand;
-	expected?: Pick<EntitySnapshotResult["entity"], "name" | "properties" | "updatedAt">;
+	populatedAt: Date | null;
+	entitySchema: EntitySchemaReference;
 };
 export type UpsertEntityInput = CreateEntityInput & {
 	externalId: string;
@@ -118,26 +115,29 @@ export type UpsertEntityInput = CreateEntityInput & {
 	preservePopulatedAt?: boolean;
 	providerId: SandboxProviderId;
 };
-export type UpsertGlobalEntityItem = {
-	entitySchema: EntitySchemaReference;
-	name: string;
-	externalId: string;
-	properties: unknown;
-	populatedAt: Date | null;
-};
-export type UpsertGlobalEntitiesOptions = { maximumTotal?: number };
-export type EntityUpsertBatchScope = Pick<LifecycleBatchInput, "identity"> & {
-	command: DomainLifecycleCommand;
-};
-export type EnsureUserEntityItem = {
-	entitySchema: EntitySchemaReference;
+export type CreateEntityInput = Scope & {
 	name: string;
 	properties: unknown;
+	populatedAt?: Date | null;
+	externalId?: string | undefined;
+	lifecycle: DomainLifecycleCommand;
+	entitySchema: EntitySchemaReference;
+	providerId?: undefined | SandboxProviderId;
 };
+export type UpdateEntityInput = Scope & {
+	name: string;
+	entityId: EntityId;
+	properties: unknown;
+	populatedAt?: Date | null;
+	requireUserOwned?: boolean;
+	lifecycle: DomainLifecycleCommand;
+	expected?: Pick<EntitySnapshotResult["entity"], "name" | "updatedAt" | "properties">;
+};
+type Scope = { scope: "global" } | { scope: "user"; userId: UserId };
 const preparedUserEntitySave = Symbol("PreparedUserEntitySave");
 type PreparedUserEntitySave = {
 	readonly entityId: EntityId;
-	readonly created: PreparedEntityCreate | null;
+	readonly created: null | PreparedEntityCreate;
 	readonly [preparedUserEntitySave]: PreparedMutation;
 };
 export const SerializedUserEntitySave = Schema.Struct({
@@ -182,17 +182,17 @@ export const restoreUserEntitySave = Effect.fnUntraced(function* (saved: Seriali
 });
 
 type PrepareUserEntitySaveInput = {
-	userId: UserId;
 	name: string;
+	userId: UserId;
 	properties: unknown;
-	entitySchema: EntitySchemaReference;
 	lifecycle: DomainLifecycleCommand;
+	entitySchema: EntitySchemaReference;
 	target:
 		| { kind: "create" }
 		| {
 				kind: "update";
 				entityId: EntityId;
-				expected: Pick<EntitySnapshotResult["entity"], "name" | "properties" | "updatedAt">;
+				expected: Pick<EntitySnapshotResult["entity"], "name" | "updatedAt" | "properties">;
 		  };
 };
 export const PendingEntityMutation = Schema.Struct({
@@ -231,7 +231,7 @@ const GlobalEntityItemReceipt = Schema.Union([
 ]);
 export type GlobalEntityUpsertResults = typeof GlobalEntityUpsertResults.Type;
 export type GlobalEntityUpsertCursor = {
-	readonly accepted: PendingEntityMutation | null;
+	readonly accepted: null | PendingEntityMutation;
 	readonly planned: PendingGlobalEntityUpsert["planned"];
 };
 
@@ -395,7 +395,7 @@ export class EntitiesService extends Context.Service<EntitiesService>()("Entitie
 			);
 
 		const entitySchema = Effect.fnUntraced(function* (
-			scopeUserId: UserId | null,
+			scopeUserId: null | UserId,
 			reference: EntitySchemaReference,
 		) {
 			const definition = yield* scopeUserId === null
@@ -449,14 +449,15 @@ export class EntitiesService extends Context.Service<EntitiesService>()("Entitie
 			},
 		);
 		const validateDraft = Effect.fnUntraced(function* (
-			draft: Omit<AutomationEntityDraft, "properties" | "entitySchemaPluginId"> & {
-				properties: unknown;
-			},
-			scopeUserId: UserId | null,
+			draft: { properties: unknown } & Omit<
+				AutomationEntityDraft,
+				"properties" | "entitySchemaPluginId"
+			>,
+			scopeUserId: null | UserId,
 			owner: DefinitionOwner,
 			lifecycle: DomainLifecycleCommand,
 			commit = false,
-			verified?: DomainWritePin | null,
+			verified?: null | DomainWritePin,
 		) {
 			const entitySchemaPluginId = definitionOwnerPluginId(owner);
 			if (
@@ -568,9 +569,9 @@ export class EntitiesService extends Context.Service<EntitiesService>()("Entitie
 		});
 		const validateExistingEntity = Effect.fnUntraced(function* (
 			entity: EntitySnapshotResult["entity"],
-			scopeUserId: UserId | null,
+			scopeUserId: null | UserId,
 			lifecycle: DomainLifecycleCommand,
-			pin?: DomainWritePin | null,
+			pin?: null | DomainWritePin,
 		) {
 			if (!lifecycle.writeContext?.pluginRevision) {
 				return yield* Effect.void;
@@ -596,7 +597,7 @@ export class EntitiesService extends Context.Service<EntitiesService>()("Entitie
 			return yield* Effect.void;
 		});
 		const planMutationInTransaction = Effect.fnUntraced(function* (
-			input: Omit<PreparedMutation, "requestId" | "receipt"> & {
+			input: Omit<PreparedMutation, "receipt" | "requestId"> & {
 				receiptKind: string;
 				receiptInput: unknown;
 			},
@@ -1620,7 +1621,7 @@ export class EntitiesService extends Context.Service<EntitiesService>()("Entitie
 			const committed = yield* transaction(
 				Effect.gen(function* () {
 					const writeContext = lifecycle.writeContext;
-					let scopeUserId: UserId | null = null;
+					let scopeUserId: null | UserId = null;
 					if (writeContext?.pluginRevision?.scope === "user") {
 						scopeUserId = writeContext.pluginRevision.ownerId;
 					}
@@ -2029,7 +2030,7 @@ export class EntitiesService extends Context.Service<EntitiesService>()("Entitie
 					);
 					const settled = new Map<
 						number,
-						{ dispatch: ReadonlyArray<LifecycleDispatchPlan> } & GlobalEntityUpsertResults[number]
+						GlobalEntityUpsertResults[number] & { dispatch: ReadonlyArray<LifecycleDispatchPlan> }
 					>();
 					const pending = unique.filter((item, position) => {
 						const prior = recorded[position];
@@ -2155,7 +2156,7 @@ export class EntitiesService extends Context.Service<EntitiesService>()("Entitie
 			items: ReadonlyArray<UpsertGlobalEntityItem>,
 			providerId: SandboxProviderId,
 			lifecycle: DomainLifecycleCommand,
-			options: UpsertGlobalEntitiesOptions | undefined,
+			options: undefined | UpsertGlobalEntitiesOptions,
 			cursor: GlobalEntityUpsertCursor,
 		) {
 			yield* assertOwner;

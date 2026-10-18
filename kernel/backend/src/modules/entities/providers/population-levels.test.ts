@@ -153,8 +153,8 @@ const setup = Effect.gen(function* () {
 		readonly executionId: string;
 		readonly level: PopulationLevel;
 		readonly mode?: "ensure" | "refresh";
-		readonly occurredAt?: DomainLifecycleCommand["occurredAt"];
 		readonly details: Effect.Effect<unknown>;
+		readonly occurredAt?: DomainLifecycleCommand["occurredAt"];
 	}) => {
 		const instance = WorkflowInstance.initial(
 			ProviderEntityPopulationAttemptWorkflow,

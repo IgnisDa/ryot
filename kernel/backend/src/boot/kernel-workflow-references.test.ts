@@ -95,7 +95,7 @@ const referencesLayer = (repositories: Layer.Layer<ImportsRepository | Integrati
 
 const populationReferencesLayer = (
 	authorizes: (providerId: SandboxProviderId) => boolean = () => true,
-	scope: "system" | "user" = "system",
+	scope: "user" | "system" = "system",
 ) =>
 	Layer.provide(
 		KernelWorkflowReferencesLive,
@@ -169,8 +169,8 @@ const populationReferencesLayer = (
 		),
 	);
 
-type ExecuteArgs = Parameters<WorkflowEngine["Service"]["execute"]>;
 type ExecuteOptions = ExecuteArgs[1];
+type ExecuteArgs = Parameters<WorkflowEngine["Service"]["execute"]>;
 
 class RecordedWorkflowDispatches extends Context.Service<
 	RecordedWorkflowDispatches,

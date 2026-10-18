@@ -39,11 +39,11 @@ import type { DatabaseSession } from "#platform/db/session";
 import type { RedisService } from "#platform/redis";
 import * as authSchema from "#schema/tables/auth";
 
-type AuthRow = Record<string, unknown>;
 type AuthTable = PgTable;
-type DatabaseExecutor = Parameters<Parameters<DatabaseSession["Service"]["run"]>[0]>[0];
+type AuthRow = Record<string, unknown>;
 type AuthAdapterFactory = ReturnType<typeof createAdapterFactory>;
-type AuthRuntimeContext = Context.Context<DatabaseSession | RedisService>;
+type AuthRuntimeContext = Context.Context<RedisService | DatabaseSession>;
+type DatabaseExecutor = Parameters<Parameters<DatabaseSession["Service"]["run"]>[0]>[0];
 
 const tables: Record<string, AuthTable> = {
 	user: authSchema.user,
@@ -148,7 +148,7 @@ const makePredicate = (column: AnyPgColumn, where: CleanedWhere): SQL => {
 
 const makeWhere = (
 	model: string,
-	where: CleanedWhere[] | undefined,
+	where: undefined | CleanedWhere[],
 	getFieldName: (input: { model: string; field: string }) => string,
 ) => {
 	if (!where?.length) {
@@ -186,7 +186,7 @@ const makeSelection = (
 const run = <A, E, R>(context: Context.Context<R>, effect: Effect.Effect<A, E, R>) =>
 	Effect.runPromiseWith(context)(effect);
 
-const addJoins = (db: DatabaseExecutor, rows: readonly AuthRow[], join: JoinConfig | undefined) =>
+const addJoins = (db: DatabaseExecutor, rows: readonly AuthRow[], join: undefined | JoinConfig) =>
 	Effect.forEach(rows, (row) =>
 		Effect.gen(function* () {
 			const result = { ...row };
@@ -208,11 +208,11 @@ const addJoins = (db: DatabaseExecutor, rows: readonly AuthRow[], join: JoinConf
 	);
 
 export const effectPostgresAuthAdapter = (args: {
-	readonly session: DatabaseSession["Service"];
 	readonly context: AuthRuntimeContext;
+	readonly session: DatabaseSession["Service"];
 }) => {
 	const session = args.session;
-	const contexts = new WeakMap<DBTransactionAdapter | DBAdapter, AuthRuntimeContext>();
+	const contexts = new WeakMap<DBAdapter | DBTransactionAdapter, AuthRuntimeContext>();
 	let rootAdapter: DBAdapter | undefined;
 
 	const createCustomAdapter = (context: AuthRuntimeContext) => {
@@ -412,7 +412,7 @@ export const effectPostgresAuthAdapter = (args: {
 								session.transaction(
 									Effect.gen(function* () {
 										const transactionContext = yield* Effect.context<
-											DatabaseSession | RedisService
+											RedisService | DatabaseSession
 										>();
 										const adapter = makeFactory(transactionContext, false)(options);
 										contexts.set(adapter, transactionContext);
@@ -433,8 +433,8 @@ export const effectPostgresAuthAdapter = (args: {
 	};
 	// oxlint-disable-next-line effecttsgo/async-function -- Better Auth requires a Promise-returning context bridge.
 	const runInCurrentContext = async <A, E>(
-		endpointContext: GenericEndpointContext | null,
-		effect: Effect.Effect<A, E, DatabaseSession | RedisService>,
+		endpointContext: null | GenericEndpointContext,
+		effect: Effect.Effect<A, E, RedisService | DatabaseSession>,
 	) => {
 		if (!rootAdapter) {
 			throw new BetterAuthError("The auth adapter has not been initialized.");

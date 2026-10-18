@@ -11,8 +11,8 @@ const isMissingObjectError = (error: unknown) => {
 	}
 	const details = error as {
 		code?: string;
-		message?: string;
 		status?: number;
+		message?: string;
 		statusCode?: number;
 	};
 	return (

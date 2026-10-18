@@ -18,36 +18,36 @@ import type { SandboxPinnedJournal } from "./pinned-journal";
 import type { SandboxPrincipal } from "./principal";
 import type { SandboxShortWait } from "./short-wait";
 
+export type SandboxHostImplementationMap = SdkSandboxHostImplementationMap<SandboxRunInput>;
+
+export type BoundHostFunction = (
+	args: ReadonlyArray<unknown>,
+) => Effect.Effect<unknown, SandboxHostError | Schema.SchemaError>;
+
 export type SandboxInlineDurableHost = {
 	readonly capabilities: ReadonlyArray<SandboxHostCapability>;
+	readonly cancel: (progress: ReadonlyArray<SandboxInlineProgress>) => Effect.Effect<void>;
 	readonly settle: (
 		requests: ReadonlyArray<WorkflowInlineRequest>,
 		wait: SandboxShortWait,
 		checkpoint: (progress: SandboxInlineProgress) => Effect.Effect<void>,
-	) => Effect.Effect<ReadonlyArray<WorkflowDurableResult | null> | null>;
-	readonly cancel: (progress: ReadonlyArray<SandboxInlineProgress>) => Effect.Effect<void>;
+	) => Effect.Effect<null | ReadonlyArray<null | WorkflowDurableResult>>;
 };
 
 export type SandboxRunInput = {
-	readonly lane: ExecutionLane;
 	readonly context: unknown;
 	readonly startedAt: string;
+	readonly lane: ExecutionLane;
 	readonly executionId: string;
 	readonly compiledCode: string;
 	readonly compiledFormat: number;
+	readonly principal: SandboxPrincipal;
 	readonly workflowExecutionId?: string;
-	readonly replayJournal?: SandboxPinnedJournal;
 	readonly hostCallDiscriminator?: number;
 	readonly grants?: SandboxExecutionGrants;
-	readonly principal: SandboxPrincipal;
+	readonly replayJournal?: SandboxPinnedJournal;
 	readonly inlineDurableHost?: SandboxInlineDurableHost;
 };
-
-export type BoundHostFunction = (
-	args: ReadonlyArray<unknown>,
-) => Effect.Effect<unknown, Schema.SchemaError | SandboxHostError>;
-
-export type SandboxHostImplementationMap = SdkSandboxHostImplementationMap<SandboxRunInput>;
 
 export const toSandboxHostError = (error: unknown): SandboxHostError => {
 	if (

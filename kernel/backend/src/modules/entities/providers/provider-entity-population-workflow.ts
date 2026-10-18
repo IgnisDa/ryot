@@ -71,8 +71,8 @@ export const RELATED_PAGES_MAX_PAGES = 200;
 
 type SynchronizeOptions = {
 	level: PopulationLevel;
-	entitySchemaSlug: EntitySchemaSlug;
 	mode: "initial" | "refresh";
+	entitySchemaSlug: EntitySchemaSlug;
 };
 
 const ValidatedEntityDetails = Schema.Struct({
@@ -108,9 +108,9 @@ type ChildEntitySetScope = {
 	parentProperties: unknown;
 	expectedChildEntitySchemaSlug?: string;
 	parentEntitySchemaSlug: EntitySchemaSlug;
-	parentEntitySchemaPluginId: AutomationPopulationContext["scopeEntity"]["entitySchemaPluginId"];
 	scopeEntity: AutomationPopulationContext["scopeEntity"];
 	childEntities: ReadonlyArray<ProviderDetailsChildEntity>;
+	parentEntitySchemaPluginId: AutomationPopulationContext["scopeEntity"]["entitySchemaPluginId"];
 };
 
 const ProviderEntitySaveEnvelope = Schema.Struct({
@@ -288,7 +288,7 @@ const dispatchPopulationPlans = (
 
 const logEntityWarnings = (
 	dispatch: ReadonlyArray<LifecycleDispatchPlan>,
-	phase: "root-upsert" | "root-stamp",
+	phase: "root-stamp" | "root-upsert",
 ) =>
 	dispatchPopulationPlans(
 		dispatch,
@@ -348,7 +348,7 @@ const syncRelatedEntityGroupScope = Effect.fn("syncProviderRelatedEntityGroupSco
 	group: Omit<ProviderDetailsRelatedEntityGroup, "continuation">,
 	index: number,
 	population: AutomationPopulationContext,
-	paging: { generation: string; pageIndex: number },
+	paging: { pageIndex: number; generation: string },
 ) {
 	const entityScope = getEntityWriteScope(payload);
 	const synchronized = yield* makeActivity({
@@ -532,7 +532,7 @@ const writeChildEntityScopes = Effect.fn("writeChildEntityScopes")(function* (
 	rootScope: ChildEntitySetScope,
 ) {
 	const pending: ChildEntitySetScope[] = [rootScope];
-	let scope: ChildEntitySetScope | undefined;
+	let scope: undefined | ChildEntitySetScope;
 	while ((scope = pending.shift()) !== undefined) {
 		if (!shouldWriteChildEntitySet(options, scope)) {
 			continue;
@@ -620,7 +620,7 @@ const claimRelatedGroupGenerationScope = Effect.fn("claimRelatedGroupGenerationS
 
 const logSupersededRelatedGroup = (
 	entityId: EntityId,
-	group: Pick<ProviderDetailsRelatedEntityGroup, "relationshipSchemaSlug" | "direction">,
+	group: Pick<ProviderDetailsRelatedEntityGroup, "direction" | "relationshipSchemaSlug">,
 	groupIndex: number,
 	pageIndex: number,
 ) =>
@@ -762,7 +762,7 @@ const synchronizeEntityGraph = Effect.fn("synchronizeEntityGraph")(function* (
 	definitions: EntityRelationshipDefinitions,
 	executionId: string,
 	options: SynchronizeOptions,
-	existing: ListedEntity | null,
+	existing: null | ListedEntity,
 	requestId: string,
 ) {
 	const operations = yield* EntityImportWorkflowOperations;

@@ -9,9 +9,14 @@ import { user } from "#schema/tables/auth";
 import { entityEnrichmentRequest as table } from "#schema/tables/enrichment";
 import { workflowExecution } from "#schema/tables/workflow-executions";
 
+export type EnrichmentRequestPatch = {
+	readonly attempt?: number;
+	readonly nextAttemptAt?: Date | null;
+	readonly failureKind?: null | SandboxFailureKind;
+	readonly state: string & (typeof table.$inferInsert)["state"];
+};
+
 export type EnrichmentRequestInput = {
-	readonly inputHash?: string | undefined;
-	readonly cooldown?: boolean | undefined;
 	readonly id: string;
 	readonly payload: unknown;
 	readonly pluginId: string;
@@ -20,23 +25,18 @@ export type EnrichmentRequestInput = {
 	readonly workflowName: string;
 	readonly populationPin?: string;
 	readonly dispatchRoot?: boolean;
-	readonly language: string | null;
+	readonly language: null | string;
 	readonly entitySchemaSlug: string;
-	readonly entityId: EntityId | null;
-	readonly scopeUserId: UserId | null;
-	readonly level: "base" | "full" | null;
+	readonly entityId: null | EntityId;
+	readonly scopeUserId: null | UserId;
+	readonly level: null | "base" | "full";
 	readonly providerId: SandboxProviderId;
+	readonly inputHash?: string | undefined;
+	readonly cooldown?: boolean | undefined;
 	readonly sourceContentGeneration?: number;
-	readonly requester: AccountGeneration | null;
+	readonly requester: null | AccountGeneration;
 	readonly populationMode?: "ensure" | "refresh";
 	readonly operation: "population" | "translation";
-};
-
-export type EnrichmentRequestPatch = {
-	readonly state: (typeof table.$inferInsert)["state"] & string;
-	readonly attempt?: number;
-	readonly nextAttemptAt?: Date | null;
-	readonly failureKind?: SandboxFailureKind | null;
 };
 
 export class EnrichmentRequestsRepository extends Context.Service<EnrichmentRequestsRepository>()(
@@ -62,7 +62,7 @@ export class EnrichmentRequestsRepository extends Context.Service<EnrichmentRequ
 			) {
 				yield* session.requireTransaction;
 				const createdAt = yield* DateTime.nowAsDate;
-				let joinedTo: string | null = null;
+				let joinedTo: null | string = null;
 				const populationPin = input.populationPin;
 				if (input.operation === "population" && populationPin !== undefined) {
 					yield* lockTarget("population-admission");
@@ -315,11 +315,11 @@ export class EnrichmentRequestsRepository extends Context.Service<EnrichmentRequ
 				);
 			});
 			const latest = Effect.fn("EnrichmentRequestsRepository.latest")(function* (input: {
+				language?: string;
 				entityId: EntityId;
+				level?: "base" | "full";
 				requester: AccountGeneration;
 				operation: "population" | "translation";
-				language?: string;
-				level?: "base" | "full";
 			}) {
 				const [row] = yield* session.run((db) =>
 					db

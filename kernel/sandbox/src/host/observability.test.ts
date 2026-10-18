@@ -27,15 +27,15 @@ import {
 import { makeUserRunInput } from "./run-input.test-support";
 
 type CapturedLog = {
-	options: Parameters<LoggerType<unknown, unknown>["log"]>[0];
 	annotations: Readonly<Record<string, unknown>>;
+	options: Parameters<LoggerType<unknown, unknown>["log"]>[0];
 };
 
 class RecordedTelemetry extends Context.Service<
 	RecordedTelemetry,
 	{
-		readonly spans: Effect.Effect<ReadonlyArray<Tracer.Span>>;
 		readonly logs: Effect.Effect<ReadonlyArray<CapturedLog>>;
+		readonly spans: Effect.Effect<ReadonlyArray<Tracer.Span>>;
 	}
 >()("test/RecordedTelemetry") {}
 
@@ -150,7 +150,7 @@ describe("sandbox observability host functions", () => {
 		expect(entryCollector.logs).toEqual([]);
 
 		const totalCollector = makeSandboxObservabilityCollector();
-		let error: string | null = null;
+		let error: null | string = null;
 		for (let index = 0; error === null; index += 1) {
 			error =
 				index % 2 === 0

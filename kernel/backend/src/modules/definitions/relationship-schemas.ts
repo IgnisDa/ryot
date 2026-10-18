@@ -18,15 +18,15 @@ type RelationshipSchemaScope = {
 	readonly name: string;
 	readonly slug: string;
 	readonly isBuiltin: boolean;
+	readonly pluginId: null | string;
 	readonly id: RelationshipSchemaSlug;
 	readonly propertiesSchema: AppSchema;
-	readonly pluginId: string | null;
-	readonly sourceEntitySchemaSlug: EntitySchemaSlug | null;
-	readonly targetEntitySchemaSlug: EntitySchemaSlug | null;
-	readonly userWritePolicy?: PluginRelationshipUserWritePolicy | undefined;
+	readonly sourceEntitySchemaSlug: null | EntitySchemaSlug;
+	readonly targetEntitySchemaSlug: null | EntitySchemaSlug;
+	readonly userWritePolicy?: undefined | PluginRelationshipUserWritePolicy;
 };
 
-const toNullableScope = (definition: RelationshipSchemaDefinition | null | undefined) =>
+const toNullableScope = (definition: null | undefined | RelationshipSchemaDefinition) =>
 	definition ? toScope(definition) : null;
 
 export class RelationshipSchemaReader extends Context.Service<RelationshipSchemaReader>()(
@@ -34,7 +34,7 @@ export class RelationshipSchemaReader extends Context.Service<RelationshipSchema
 	{
 		make: Effect.gen(function* () {
 			const definitions = yield* DefinitionRepository;
-			const findByReference = (reference: RelationshipSchemaReference, userId: UserId | null) =>
+			const findByReference = (reference: RelationshipSchemaReference, userId: null | UserId) =>
 				userId === null
 					? definitions.findGlobalRelationshipSchema(reference).pipe(Effect.map(toNullableScope))
 					: definitions

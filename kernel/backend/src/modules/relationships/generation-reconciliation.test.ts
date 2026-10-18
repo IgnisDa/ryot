@@ -23,8 +23,8 @@ const t4 = EntityId.make("generation-t4");
 const targetIds = [t1, t2, t3, t4];
 
 const group = (
-	relationships: ReadonlyArray<{ target: EntityId | undefined; rank: number }>,
-	generation: { kind: "page" | "sweep"; value: string; preserveExisting?: boolean },
+	relationships: ReadonlyArray<{ rank: number; target: EntityId | undefined }>,
+	generation: { value: string; kind: "page" | "sweep"; preserveExisting?: boolean },
 ) => ({
 	relationshipSchema: baseInput.relationshipSchema,
 	generation: { preserveExisting: false, ...generation },

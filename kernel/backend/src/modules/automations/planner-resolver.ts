@@ -33,19 +33,19 @@ type PlannedAutomationScript = {
 	[Field in keyof typeof plannedScriptFields]: (typeof tables.sandboxScript.$inferSelect)[Field];
 };
 
+type TransactionCatalogMemo = {
+	readonly lockedSets: Set<string>;
+	readonly scripts: Map<string, PlannedAutomationScript>;
+	readonly catalogs: Map<null | UserId, ReadonlyArray<PlannerPlugin>>;
+};
+
 type PlannerPlugin = {
 	readonly id: string;
 	readonly pluginRevisionId: string;
 	readonly hooks: PluginManifest["hooks"];
 	readonly scripts: PluginManifest["scripts"];
-	readonly pluginConfigRevisionId: string | null;
+	readonly pluginConfigRevisionId: null | string;
 	readonly signalSchemas: PluginManifest["signalSchemas"];
-};
-
-type TransactionCatalogMemo = {
-	readonly lockedSets: Set<string>;
-	readonly catalogs: Map<UserId | null, ReadonlyArray<PlannerPlugin>>;
-	readonly scripts: Map<string, PlannedAutomationScript>;
 };
 
 const scriptKey = (pluginRevisionId: string, slug: string) =>
@@ -59,9 +59,9 @@ const plannerPluginFields = {
 	signalSchemas: tables.pluginRevision.signalSchemas,
 };
 
+type ItemPayload = Exclude<LifecyclePayload, BatchPayload>;
 type LifecyclePayload = NonNullable<AutomationTrigger["payload"]>;
 type BatchPayload = Extract<LifecyclePayload, { operation: "batch" }>;
-type ItemPayload = Exclude<LifecyclePayload, BatchPayload>;
 
 const targetSnapshot = (payload: ItemPayload) => {
 	if (payload.category === "request") {
@@ -105,11 +105,6 @@ const matchesItem = (
 	}
 	const snapshot = targetSnapshot(payload);
 	switch (target.resource) {
-		case "entity":
-		case "provider-entity-import":
-			return (
-				"entitySchemaSlug" in snapshot && snapshot.entitySchemaSlug === target.entitySchemaSlug
-			);
 		case "event":
 			return (
 				"eventSchemaSlug" in snapshot &&
@@ -118,14 +113,19 @@ const matchesItem = (
 				snapshot.eventSchemaSlug === target.eventSchemaSlug &&
 				snapshot.entitySchemaSlug === target.entitySchemaSlug
 			);
-		case "relationship":
+		case "entity":
+		case "provider-entity-import":
 			return (
-				"relationshipSchemaSlug" in snapshot &&
-				snapshot.relationshipSchemaSlug === target.relationshipSchemaSlug
+				"entitySchemaSlug" in snapshot && snapshot.entitySchemaSlug === target.entitySchemaSlug
 			);
 		case "signal":
 			return (
 				"signalSchemaSlug" in snapshot && snapshot.signalSchemaSlug === target.signalSchemaSlug
+			);
+		case "relationship":
+			return (
+				"relationshipSchemaSlug" in snapshot &&
+				snapshot.relationshipSchemaSlug === target.relationshipSchemaSlug
 			);
 		default:
 			return false;
@@ -153,7 +153,7 @@ export class AutomationPlannerResolver extends Context.Service<AutomationPlanner
 			const session = yield* DatabaseSession;
 			const repository = yield* PluginRepository;
 			const definitions = yield* DefinitionRepository;
-			const lockCatalogUncached = Effect.fn(function* (users: ReadonlyArray<UserId | null>) {
+			const lockCatalogUncached = Effect.fn(function* (users: ReadonlyArray<null | UserId>) {
 				yield* repository.lockIngestionShared();
 				const userIds = users.filter((id) => id !== null);
 				const rows = yield* session.run((db) =>
@@ -216,7 +216,7 @@ export class AutomationPlannerResolver extends Context.Service<AutomationPlanner
 				}
 			});
 			const catalogUncached = Effect.fn(function* (
-				userId: UserId | null,
+				userId: null | UserId,
 			): Effect.fn.Return<ReadonlyArray<PlannerPlugin>, DbError> {
 				if (userId === null) {
 					return yield* session.run((db) =>
@@ -279,7 +279,7 @@ export class AutomationPlannerResolver extends Context.Service<AutomationPlanner
 				memos.set(db, created);
 				return created;
 			};
-			const lockCatalog = Effect.fn(function* (users: ReadonlyArray<UserId | null>) {
+			const lockCatalog = Effect.fn(function* (users: ReadonlyArray<null | UserId>) {
 				yield* session.run((db) =>
 					Effect.gen(function* () {
 						const memo = memoFor(db);
@@ -292,7 +292,7 @@ export class AutomationPlannerResolver extends Context.Service<AutomationPlanner
 					}),
 				);
 			});
-			const catalog = Effect.fn(function* (userId: UserId | null) {
+			const catalog = Effect.fn(function* (userId: null | UserId) {
 				return yield* session.run((db) =>
 					Effect.gen(function* () {
 						const memo = memoFor(db);
@@ -360,14 +360,14 @@ export class AutomationPlannerResolver extends Context.Service<AutomationPlanner
 			});
 			const resolve = Effect.fn(function* (
 				trigger: AutomationTrigger,
-				executionUserId: UserId | null,
+				executionUserId: null | UserId,
 			) {
 				const available = yield* catalog(executionUserId);
 				const result: Array<{
 					hook: PluginHook;
-					plugin: PlannerPlugin | null;
+					plugin: null | PlannerPlugin;
+					executionUserId: null | UserId;
 					script: PlannedAutomationScript;
-					executionUserId: UserId | null;
 				}> = [];
 				const signal = trigger.payload?.resource === "signal" ? trigger.payload : null;
 				const preferences =
@@ -527,8 +527,8 @@ export class AutomationPlannerResolver extends Context.Service<AutomationPlanner
 				return result;
 			});
 			const resolveBatchCandidates = Effect.fn(function* (input: {
-				userId: UserId | null;
-				resource: "entity" | "event" | "relationship";
+				userId: null | UserId;
+				resource: "event" | "entity" | "relationship";
 				source: AutomationTrigger["causation"]["source"];
 			}) {
 				const available = yield* catalog(input.userId);

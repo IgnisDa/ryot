@@ -62,18 +62,18 @@ type ExecuteOptions = Parameters<WorkflowEngine["Service"]["execute"]>[1];
 class TranslationEffects extends Context.Service<
 	TranslationEffects,
 	{
+		readonly upgrade: Effect.Effect<void>;
+		readonly quarantine: Effect.Effect<void>;
+		readonly startRequest: Effect.Effect<void>;
+		readonly changeContent: Effect.Effect<void>;
+		readonly finishRequest: Effect.Effect<void>;
+		readonly released: Effect.Effect<ReadonlyArray<string>>;
+		readonly registrations: Effect.Effect<ReadonlyArray<string>>;
 		readonly executions: Effect.Effect<ReadonlyArray<ExecuteOptions>>;
+		readonly pinnedPayload: Effect.Effect<TranslateEntityWorkflowPayload>;
+		readonly upserts: Effect.Effect<ReadonlyArray<TranslationOverlayInput>>;
 		readonly admissions: Effect.Effect<ReadonlyArray<EnrichmentRequestInput>>;
 		readonly installationOwners: Effect.Effect<ReadonlyArray<ReadonlyArray<unknown>>>;
-		readonly upserts: Effect.Effect<ReadonlyArray<TranslationOverlayInput>>;
-		readonly quarantine: Effect.Effect<void>;
-		readonly changeContent: Effect.Effect<void>;
-		readonly pinnedPayload: Effect.Effect<TranslateEntityWorkflowPayload>;
-		readonly upgrade: Effect.Effect<void>;
-		readonly registrations: Effect.Effect<ReadonlyArray<string>>;
-		readonly released: Effect.Effect<ReadonlyArray<string>>;
-		readonly startRequest: Effect.Effect<void>;
-		readonly finishRequest: Effect.Effect<void>;
 	}
 >()("test/TranslationEffects") {}
 
@@ -83,20 +83,20 @@ const dialect = new PgDialect();
 
 const makeServiceLayer = (
 	options: {
-		assetOwnerUserId?: string;
-		foreignProvider?: boolean;
+		storedName?: string;
+		reusedRetry?: boolean;
 		globalEntity?: boolean;
 		systemPlugin?: boolean;
-		enqueueFailure?: boolean;
 		rootSchemaSlug?: string;
-		selectedKeys?: readonly string[];
-		storedProperties?: Record<string, unknown>;
-		storedName?: string;
-		unsupportedSchema?: boolean;
-		requestState?: "queued" | "succeeded";
-		reusedRetry?: boolean;
+		enqueueFailure?: boolean;
 		requestFailure?: boolean;
+		assetOwnerUserId?: string;
+		foreignProvider?: boolean;
+		unsupportedSchema?: boolean;
 		registrationFailure?: boolean;
+		selectedKeys?: readonly string[];
+		requestState?: "queued" | "succeeded";
+		storedProperties?: Record<string, unknown>;
 	} = {},
 ) =>
 	Layer.unwrap(
@@ -157,7 +157,7 @@ const makeServiceLayer = (
 				execute: () => Effect.void,
 				select: () => ({
 					from: (table: unknown) => {
-						let predicate: SQLWrapper | undefined;
+						let predicate: undefined | SQLWrapper;
 						const rows = Effect.gen(function* () {
 							if (table === tables.sandboxScript) {
 								const quarantine = yield* Ref.get(quarantined);

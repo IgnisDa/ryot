@@ -133,7 +133,7 @@ export const makeRedisService = (
 		...overrides,
 	});
 
-type ConfigLeafValue = Option.Option<unknown> | Redacted.Redacted<unknown> | ReadonlyArray<unknown>;
+type ConfigLeafValue = Option.Option<unknown> | ReadonlyArray<unknown> | Redacted.Redacted<unknown>;
 
 type DeepPartial<T> = T extends ConfigLeafValue
 	? T

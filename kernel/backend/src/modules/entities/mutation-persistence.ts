@@ -88,7 +88,7 @@ export type PersistItem = {
 	readonly batchIndex: number;
 	readonly input: PreparedMutation;
 	readonly preservePopulatedAt?: boolean;
-	readonly pin: DomainWritePin | null | undefined;
+	readonly pin: null | undefined | DomainWritePin;
 };
 
 const effectiveDraft = (item: PersistItem, before: AutomationEntitySnapshot) =>
@@ -105,9 +105,9 @@ export const mutationReceiptRecord = (input: {
 	readonly index: number;
 	readonly result: unknown;
 	readonly identity: MutationReceiptIdentity;
-	readonly batch: PersistBatch | null | undefined;
-	readonly dispatch: ReadonlyArray<LifecycleDispatchPlan>;
+	readonly batch: null | undefined | PersistBatch;
 	readonly evidence?: MutationReceiptRecord["evidence"];
+	readonly dispatch: ReadonlyArray<LifecycleDispatchPlan>;
 }): MutationReceiptRecord => ({
 	result: input.result,
 	identity: input.identity,
@@ -137,7 +137,7 @@ export const makeReceiptBatches = (receipts: MutationReceipts["Service"]) => ({
 		identities: ReadonlyArray<MutationReceiptIdentity>,
 		codec: Schema.Codec<Result, unknown>,
 	) {
-		const results: Array<CommittedLifecycleWork<Result> | null> = identities.map(() => null);
+		const results: Array<null | CommittedLifecycleWork<Result>> = identities.map(() => null);
 		for (const chunk of receiptChunks(identities, ({ id }) => id)) {
 			const found = yield* receipts.lookupMany(
 				chunk.map(({ item }) => item),
@@ -161,22 +161,22 @@ export const makePersistMutation = <E, R, Result>({
 	assetReferences,
 	authorizeMutation,
 }: {
-	repository: EntitiesRepository["Service"];
 	planner: LifecyclePlanner["Service"];
 	receipts: MutationReceipts["Service"];
-	assetReferences: ManagedAssetReferenceLocker["Service"];
+	repository: EntitiesRepository["Service"];
 	resultCodec: Schema.Codec<Result, unknown>;
+	assetReferences: ManagedAssetReferenceLocker["Service"];
 	resultOf: (entity: ListedEntity, wasInserted: boolean) => Result;
 	authorizeMutation: (mutation: PreparedMutation) => Effect.Effect<void, E, R>;
 	validateDraft: (
 		draft: AutomationEntityDraft,
-		scopeUserId: UserId | null,
+		scopeUserId: null | UserId,
 		owner: DefinitionOwner,
 		lifecycle: DomainLifecycleCommand,
 		commit?: boolean,
-		pin?: DomainWritePin | null,
+		pin?: null | DomainWritePin,
 	) => Effect.Effect<
-		Pick<PreparedMutation, "draft" | "entitySchemaFingerprint"> & { propertiesSchema: AppSchema },
+		{ propertiesSchema: AppSchema } & Pick<PreparedMutation, "draft" | "entitySchemaFingerprint">,
 		E,
 		R
 	>;
@@ -222,7 +222,7 @@ export const makePersistMutation = <E, R, Result>({
 				),
 			);
 		const rows = locked ?? (yield* lockRows(items.map(({ input }) => input)));
-		const writes: Array<{ item: PersistItem; before: AutomationEntitySnapshot | null }> = [];
+		const writes: Array<{ item: PersistItem; before: null | AutomationEntitySnapshot }> = [];
 		for (const item of items) {
 			const { input } = item;
 			const current = rows.get(input.entityId) ?? null;
@@ -313,8 +313,8 @@ export const makePersistMutation = <E, R, Result>({
 		const records: MutationReceiptRecord[] = [];
 		for (const { item, before } of writes) {
 			const { input } = item;
-			let entity: ListedEntity | null = before;
-			let change: AutomationEntityChangePayload | undefined;
+			let entity: null | ListedEntity = before;
+			let change: undefined | AutomationEntityChangePayload;
 			if (input.operation === "delete") {
 				change = before
 					? { before, category: "change", resource: "entity", operation: "delete" }

@@ -33,13 +33,13 @@ import { workflowEngineTestLayer } from "#testing/effect";
 import { UserCommandWorkflow, UserCommandWorkflowDefinitionsLive } from "./workflow";
 
 type StagedWrites = {
+	readonly events: number;
 	readonly entities: number;
 	readonly relationships: number;
-	readonly events: number;
 };
 class AtomicWriteObservation extends Context.Service<
 	AtomicWriteObservation,
-	{ readonly staged: Effect.Effect<StagedWrites | null> }
+	{ readonly staged: Effect.Effect<null | StagedWrites> }
 >()("test/AtomicWriteObservation") {}
 
 const testLayer = (failAfterEvents: boolean) => {
@@ -49,7 +49,7 @@ const testLayer = (failAfterEvents: boolean) => {
 	);
 	const mutations = Layer.unwrap(
 		Effect.gen(function* () {
-			const staged = yield* Ref.make<StagedWrites | null>(null);
+			const staged = yield* Ref.make<null | StagedWrites>(null);
 			return Layer.merge(
 				Layer.effect(
 					EventMutations,

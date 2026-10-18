@@ -10,14 +10,15 @@ import { Context, Effect, Layer } from "effect";
 import { DatabaseSession } from "#platform/db/session";
 import * as schema from "#schema/tables/uploads";
 
-type ManagedAssetRecord = Omit<typeof schema.managedAsset.$inferSelect, "ownerUserId"> & {
-	ownerUserId: UserId;
-};
-
-export type RegisterManagedAssetInput = Omit<
+export type RegisterManagedAssetInput = { ownerUserId: UserId } & Omit<
 	typeof schema.managedAsset.$inferInsert,
-	"createdAt" | "ownerUserId" | "retiredAt"
-> & { ownerUserId: UserId };
+	"createdAt" | "retiredAt" | "ownerUserId"
+>;
+
+type ManagedAssetRecord = { ownerUserId: UserId } & Omit<
+	typeof schema.managedAsset.$inferSelect,
+	"ownerUserId"
+>;
 
 const locatorWhere = (locator: ManagedAssetLocator) =>
 	and(eq(schema.managedAsset.provider, locator.type), eq(schema.managedAsset.key, locator.key));

@@ -80,7 +80,7 @@ export const writerPropertiesSchema = (schema: AppSchema): AppSchema => ({
 type DeclarationSlugs = {
 	readonly entity: string;
 	readonly relationship: string;
-	readonly event: { readonly entitySchemaSlug: string; readonly eventSchemaSlug: string };
+	readonly event: { readonly eventSchemaSlug: string; readonly entitySchemaSlug: string };
 };
 
 export const assertStableUnder = <E>(
@@ -100,13 +100,13 @@ export const assertStableUnder = <E>(
 
 export type DomainWritePin = { readonly id: string };
 
-type DomainWriteCommand = Pick<DomainLifecycleCommand, "writeContext" | "kernelCollection">;
-
 export type DomainWriteCheck = {
 	readonly owner: DefinitionOwner;
+	readonly scopeUserId: null | string;
 	readonly command: DomainWriteCommand;
-	readonly scopeUserId: string | null;
 };
+
+type DomainWriteCommand = Pick<DomainLifecycleCommand, "writeContext" | "kernelCollection">;
 
 export const domainWriteCheckKey = (input: DomainWriteCheck) =>
 	stableStringify([
@@ -133,7 +133,7 @@ export class DomainWriteChecks extends Context.Service<DomainWriteChecks>()("Dom
 		const check = Effect.fnUntraced(function* (
 			command: DomainWriteCommand,
 			owner: DefinitionOwner,
-			scopeUserId: string | null,
+			scopeUserId: null | string,
 			lock = false,
 		) {
 			if (lock) {
@@ -274,7 +274,7 @@ export class DomainWriteChecks extends Context.Service<DomainWriteChecks>()("Dom
 			return owner.kind === "kernel" && command.kernelCollection === true ? null : revision;
 		});
 		const checkMany = Effect.fnUntraced(function* (checks: ReadonlyArray<DomainWriteCheck>) {
-			const pins = new Map<string, DomainWritePin | null>();
+			const pins = new Map<string, null | DomainWritePin>();
 			for (const input of checks) {
 				const key = domainWriteCheckKey(input);
 				if (!pins.has(key)) {
@@ -323,7 +323,7 @@ export class DomainWriteChecks extends Context.Service<DomainWriteChecks>()("Dom
 		});
 		const resolvePinnedDeclaration = Effect.fnUntraced(function* <K extends keyof DeclarationSlugs>(
 			kind: K,
-			pin: DomainWritePin | null,
+			pin: null | DomainWritePin,
 			owner: DefinitionOwner,
 			slug: DeclarationSlugs[K],
 		) {

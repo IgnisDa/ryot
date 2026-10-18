@@ -88,6 +88,6 @@ export const makeIntegrationScriptHost = Effect.gen(function* () {
 			),
 	} satisfies Pick<
 		AdditionalScriptHostImplementationMap,
-		"getCurrentIntegration" | "listIntegrations"
+		"listIntegrations" | "getCurrentIntegration"
 	>;
 });

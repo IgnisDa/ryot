@@ -1,15 +1,15 @@
 import { stableStringify } from "@ryot-app/ts-utils/json";
 import { Data, Effect, Schema } from "effect";
 
-export class PluginConfigCryptoError extends Data.TaggedError("PluginConfigCryptoError")<{
-	readonly message: string;
-}> {}
-
 export type SubkeyCiphertext = {
 	readonly keyId: string;
 	readonly nonce: string;
 	readonly ciphertext: string;
 };
+
+export class PluginConfigCryptoError extends Data.TaggedError("PluginConfigCryptoError")<{
+	readonly message: string;
+}> {}
 
 const encode = (value: unknown) => new TextEncoder().encode(stableStringify(value));
 
@@ -140,7 +140,7 @@ export const createPluginConfigEncryption = (entry: { id: string; key: Uint8Arra
 				return new TextDecoder().decode(plaintext);
 			}),
 		decrypt: (
-			envelope: { encryptionKeyId: string; nonce: Uint8Array; encryptedPayload: Uint8Array | null },
+			envelope: { nonce: Uint8Array; encryptionKeyId: string; encryptedPayload: null | Uint8Array },
 			attribution: unknown,
 		) =>
 			Effect.gen(function* () {

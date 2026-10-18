@@ -18,7 +18,7 @@ export const backgroundWork = snakeCase.table(
 		createdAt: timestamptz().defaultNow().notNull(),
 		updatedAt: timestamptz().defaultNow().notNull(),
 		purpose: text().$type<"user-script" | "event-projection">().notNull(),
-		status: text().$type<"queued" | "running" | "succeeded" | "failed">().notNull(),
+		status: text().$type<"queued" | "failed" | "running" | "succeeded">().notNull(),
 		userId: text()
 			.notNull()
 			.references(() => user.id, { onDelete: "cascade" }),

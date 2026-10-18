@@ -218,7 +218,7 @@ describe("plugin namespaces in the generated migration baseline", () => {
 							);
 						}),
 					);
-					expect(new Set([privateA.pluginId, systemA.pluginId, systemB.pluginId]).size).toBe(3);
+					expect(new Set([systemA.pluginId, systemB.pluginId, privateA.pluginId]).size).toBe(3);
 					const definitions = yield* session.run((db) =>
 						db
 							.select({ pluginId: tables.userEntitySchema.pluginId })

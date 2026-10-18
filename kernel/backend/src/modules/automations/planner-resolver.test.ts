@@ -9,7 +9,7 @@ import { matchesTarget } from "./planner-resolver";
 
 const first = PluginId.make("owner-a");
 const second = PluginId.make("owner-b");
-const eventChange = (pluginId: PluginId | null, entitySchemaSlug = "bottle") => ({
+const eventChange = (pluginId: null | PluginId, entitySchemaSlug = "bottle") => ({
 	resource: "event",
 	category: "change",
 	operation: "create",

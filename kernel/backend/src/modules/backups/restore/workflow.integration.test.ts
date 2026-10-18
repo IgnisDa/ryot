@@ -30,18 +30,18 @@ import { BackupRestoreWriter, preflightProvenance } from "./writer";
 
 type Scenario =
 	| "success"
-	| "write-failure"
-	| "completion-rollback"
+	| "deadlock"
 	| "commit-error"
+	| "write-failure"
 	| "commit-deadlock"
 	| "commit-interrupt"
-	| "deadlock";
+	| "completion-rollback";
 
 class RestoreDatabaseHarness extends Context.Service<
 	RestoreDatabaseHarness,
 	{
-		readonly calls: Effect.Effect<ReadonlyArray<string>>;
 		readonly committed: Effect.Effect<void>;
+		readonly calls: Effect.Effect<ReadonlyArray<string>>;
 		readonly configure: (scenario: Scenario) => Effect.Effect<void>;
 	}
 >()("test/RestoreDatabaseHarness") {}

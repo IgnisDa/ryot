@@ -14,7 +14,7 @@ const user = {
 	emailVerified: true,
 	email: "demo@example.com",
 };
-const session = (token: string, userId: string, accessClass: "standard" | "demo") => ({
+const session = (token: string, userId: string, accessClass: "demo" | "standard") => ({
 	token,
 	userId,
 	id: token,

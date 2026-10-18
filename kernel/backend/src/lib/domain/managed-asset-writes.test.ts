@@ -23,7 +23,7 @@ const assetSchema: AppSchema = { fields: { image: managedAssetProperty } };
 const newUserId = () => UserId.make(crypto.randomUUID());
 
 const record = (
-	ownerUserId: UserId | null,
+	ownerUserId: null | UserId,
 	locator: ManagedAssetLocator,
 ): OwnedManagedAssetPropertyRecord => ({
 	ownerUserId,

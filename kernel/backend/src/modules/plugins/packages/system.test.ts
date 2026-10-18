@@ -12,7 +12,7 @@ import { fixtureManifest, fixturePackageRoot } from "../test-support";
 import { discoverSystemPlugins } from "./system";
 
 const withRoot = <A, E>(
-	run: (root: string) => Effect.Effect<A, E, FileSystem.FileSystem | Path.Path | ViteBuildService>,
+	run: (root: string) => Effect.Effect<A, E, Path.Path | ViteBuildService | FileSystem.FileSystem>,
 ) =>
 	Effect.scoped(
 		Effect.gen(function* () {

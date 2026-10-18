@@ -13,7 +13,7 @@ export const integrationHealthExcludedFailureCodes = [
 
 export const isIntegrationSourceFailure = (run: {
 	readonly status: ImportRunStatus;
-	readonly failureReason: ImportRunFailureReason | null;
+	readonly failureReason: null | ImportRunFailureReason;
 }) =>
 	run.status === "failed" &&
 	!integrationHealthExcludedFailureCodes.some((code) => code === run.failureReason?.code);

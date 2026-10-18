@@ -26,7 +26,7 @@ import {
 } from "./translation.test-support";
 
 const harness = Effect.fnUntraced(function* (
-	outcomes: readonly (SandboxRunError | null)[],
+	outcomes: readonly (null | SandboxRunError)[],
 	captureFailure?: SandboxRunError,
 ) {
 	const attempts: Array<TranslateEntityAttemptWorkflowPayload> = [];

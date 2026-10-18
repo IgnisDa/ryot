@@ -62,15 +62,15 @@ import { ScriptExecutionWorkflowPayload } from "./workflow-payload";
 type CompiledFixture = Effect.Success<ReturnType<SandboxCompiler["Service"]["compile"]>>;
 
 type HeadroomControl = {
-	fixture:
-		| { readonly compiled: CompiledFixture; readonly principal: ScriptExecutionPrincipal }
-		| undefined;
-	readonly callbackStarts: Array<string>;
-	readonly pidPairs: Array<{ readonly root: number; readonly nested: number }>;
 	readonly rootPids: Array<number>;
-	readonly fourCallbacksStarted: Deferred.Deferred<void>;
+	readonly callbackStarts: Array<string>;
 	readonly firstRootEntered: Deferred.Deferred<void>;
 	readonly releaseFirstRoot: Deferred.Deferred<void>;
+	readonly fourCallbacksStarted: Deferred.Deferred<void>;
+	readonly pidPairs: Array<{ readonly root: number; readonly nested: number }>;
+	fixture:
+		| undefined
+		| { readonly compiled: CompiledFixture; readonly principal: ScriptExecutionPrincipal };
 };
 
 class SandboxHeadroomControl extends Context.Service<SandboxHeadroomControl, HeadroomControl>()(

@@ -44,29 +44,13 @@ import {
 	toListedEntity,
 } from "./repository-support";
 
-export type InsertEntityInputBase = {
-	id?: EntityId;
-	createdAt?: Date;
-	name: string;
-	entitySchemaSlug: EntitySchemaSlug;
-	entitySchemaPluginId: string | null;
-} & (
-	| {
-			scope: "global";
-			populatedAt: Date | null;
-			externalId?: string | undefined;
-			providerId?: SandboxProviderId | undefined;
-	  }
-	| {
-			scope: "user";
-			userId: UserId;
-			populatedAt?: Date | null;
-			externalId?: string | undefined;
-			providerId?: SandboxProviderId | undefined;
-	  }
-);
-
 export type InsertEntityInput = InsertEntityInputBase & { properties: Record<string, unknown> };
+
+export type GlobalEntityProvenanceScopeInput = {
+	providerId: SandboxProviderId;
+	entitySchemaSlug: EntitySchemaSlug;
+	entitySchemaPluginId: null | string;
+};
 
 export type UpdateEntityInput = {
 	name: string;
@@ -76,23 +60,41 @@ export type UpdateEntityInput = {
 	properties: Record<string, unknown>;
 };
 
-export type GlobalEntityProvenanceScopeInput = {
-	providerId: SandboxProviderId;
-	entitySchemaSlug: EntitySchemaSlug;
-	entitySchemaPluginId: string | null;
-};
-
-export type ProviderEntityMutationLockInput = {
-	entitySchemaPluginId: string | null;
+export type ProviderEntityMutationLockInput = (
+	{ scope: "global" } | { scope: "user"; userId: UserId }
+) & {
 	externalId: string;
 	providerId: SandboxProviderId;
 	entitySchemaSlug: EntitySchemaSlug;
-} & ({ scope: "global" } | { scope: "user"; userId: UserId });
+	entitySchemaPluginId: null | string;
+};
+
+export type InsertEntityInputBase = {
+	name: string;
+	id?: EntityId;
+	createdAt?: Date;
+	entitySchemaSlug: EntitySchemaSlug;
+	entitySchemaPluginId: null | string;
+} & (
+	| {
+			scope: "global";
+			populatedAt: Date | null;
+			externalId?: string | undefined;
+			providerId?: undefined | SandboxProviderId;
+	  }
+	| {
+			scope: "user";
+			userId: UserId;
+			populatedAt?: Date | null;
+			externalId?: string | undefined;
+			providerId?: undefined | SandboxProviderId;
+	  }
+);
 
 type StoredEntity = ReturnType<typeof toListedEntity>;
 export const STATEMENT_CHUNK_SIZE = 1_000;
 
-export type MutationEntity = { entity: StoredEntity; userId: UserId | null };
+export type MutationEntity = { entity: StoredEntity; userId: null | UserId };
 
 export const lockSortedAdvisoryKeys = Effect.fnUntraced(function* (
 	session: DatabaseSession["Service"],
@@ -122,7 +124,9 @@ export const providerEntityMutationLockKey = (input: ProviderEntityMutationLockI
 		input.externalId,
 	]);
 
-export type PortableEntityRecord = Pick<
+export type PortableEntityRecord = {
+	readonly provider: null | { readonly pluginId: string; readonly providerSlug: string };
+} & Pick<
 	typeof schema.entity.$inferSelect,
 	| "id"
 	| "name"
@@ -131,9 +135,9 @@ export type PortableEntityRecord = Pick<
 	| "properties"
 	| "externalId"
 	| "populatedAt"
-	| "entitySchemaPluginId"
 	| "entitySchemaSlug"
-> & { readonly provider: { readonly pluginId: string; readonly providerSlug: string } | null };
+	| "entitySchemaPluginId"
+>;
 
 const portableEntitySelection = {
 	id: schema.entity.id,
@@ -151,8 +155,8 @@ const portableEntitySelection = {
 
 const toPortableEntity = (
 	row: Omit<PortableEntityRecord, "provider"> & {
-		readonly providerPluginId: string | null;
-		readonly providerSlug: string | null;
+		readonly providerSlug: null | string;
+		readonly providerPluginId: null | string;
 	},
 ): PortableEntityRecord => {
 	const { providerSlug, providerPluginId, ...entity } = row;
@@ -165,15 +169,15 @@ const toPortableEntity = (
 	};
 };
 
-const entitySchemaPluginWhere = (pluginId: string | null) =>
+const entitySchemaPluginWhere = (pluginId: null | string) =>
 	pluginIdWhere(schema.entity.entitySchemaPluginId, pluginId);
 
-type FindEntityByExternalIdInput = {
+type FindEntityByExternalIdInput = ({ scope: "global" } | { scope: "user"; userId: UserId }) & {
 	externalId: string;
 	providerId: SandboxProviderId;
 	entitySchemaSlug: EntitySchemaSlug;
-	entitySchemaPluginId: string | null;
-} & ({ scope: "global" } | { scope: "user"; userId: UserId });
+	entitySchemaPluginId: null | string;
+};
 
 const externalIdentityWhere = (input: FindEntityByExternalIdInput) =>
 	and(
@@ -230,7 +234,7 @@ const provenanceScopeWhere = (input: GlobalEntityProvenanceScopeInput) =>
 
 export const ensureScopeKey = (input: {
 	entitySchemaSlug: EntitySchemaSlug;
-	entitySchemaPluginId: string | null;
+	entitySchemaPluginId: null | string;
 }) => stableStringify([input.entitySchemaSlug, input.entitySchemaPluginId]);
 
 const entityValues = (input: InsertEntityInput) => ({
@@ -474,7 +478,7 @@ export class EntitiesRepository extends Context.Service<EntitiesRepository>()(
 			const findEntitySchemaForUser = Effect.fn("EntitiesRepository.findEntitySchemaForUser")(
 				function* (input: { userId: UserId; entitySchema: EntitySchemaReference }) {
 					const definition = yield* findUserEntitySchema(input.userId, input.entitySchema);
-					const scope: EntitySchemaScope | null = definition
+					const scope: null | EntitySchemaScope = definition
 						? {
 								userId: null,
 								slug: definition.slug,
@@ -493,7 +497,7 @@ export class EntitiesRepository extends Context.Service<EntitiesRepository>()(
 			)(function* (input: {
 				userId: UserId;
 				entitySchemaSlug: EntitySchemaSlug;
-				entitySchemaPluginId: string | null;
+				entitySchemaPluginId: null | string;
 			}) {
 				const [row] = yield* session.run((db) =>
 					db
@@ -520,7 +524,7 @@ export class EntitiesRepository extends Context.Service<EntitiesRepository>()(
 				userId: UserId;
 				scopes: ReadonlyArray<{
 					entitySchemaSlug: EntitySchemaSlug;
-					entitySchemaPluginId: string | null;
+					entitySchemaPluginId: null | string;
 				}>;
 			}) {
 				if (input.scopes.length === 0) {
@@ -756,8 +760,8 @@ export class EntitiesRepository extends Context.Service<EntitiesRepository>()(
 				function* (input: {
 					externalId: string;
 					entitySchemaSlug: EntitySchemaSlug;
-					entitySchemaPluginId: string | null;
-					provider: DeclarationReference | null;
+					entitySchemaPluginId: null | string;
+					provider: null | DeclarationReference;
 				}) {
 					const [row] = yield* session.run((db) =>
 						db
@@ -878,7 +882,7 @@ export class EntitiesRepository extends Context.Service<EntitiesRepository>()(
 			});
 
 			const hasUserCollectionNamed = Effect.fn("EntitiesRepository.hasUserCollectionNamed")(
-				function* (input: { userId: UserId; name: string }) {
+				function* (input: { name: string; userId: UserId }) {
 					const [row] = yield* session.run((db) =>
 						db
 							.select({ id: schema.entity.id })

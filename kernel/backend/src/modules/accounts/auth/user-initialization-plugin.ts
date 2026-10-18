@@ -21,7 +21,7 @@ export const userInitializationPlugin = (): BetterAuthPlugin => ({
 						message: "Authentication is required.",
 					});
 				}
-				const user: InitializationUser | null = await ctx.context.internalAdapter.findUserById(
+				const user: null | InitializationUser = await ctx.context.internalAdapter.findUserById(
 					current.user.id,
 				);
 				const status = user?.bootstrapCompletedAt ? "ready" : "initializing";

@@ -53,6 +53,10 @@ const storedWorkflowScript = {
 
 const mockRepository = Layer.mock(SandboxRepository);
 
+type ExecuteWorkflow = (
+	...args: Parameters<WorkflowEngine["Service"]["execute"]>
+) => Effect.Effect<unknown, string | SandboxRunError>;
+
 type WorkflowExecution = {
 	readonly workflow: unknown;
 	readonly referenceLive: boolean;
@@ -62,15 +66,11 @@ type WorkflowExecution = {
 class SandboxExecutorCalls extends Context.Service<
 	SandboxExecutorCalls,
 	{
-		readonly events: Effect.Effect<ReadonlyArray<string>>;
 		readonly referenceLive: Effect.Effect<boolean>;
+		readonly events: Effect.Effect<ReadonlyArray<string>>;
 		readonly executions: Effect.Effect<ReadonlyArray<WorkflowExecution>>;
 	}
 >()("test/SandboxExecutorCalls") {}
-
-type ExecuteWorkflow = (
-	...args: Parameters<WorkflowEngine["Service"]["execute"]>
-) => Effect.Effect<unknown, SandboxRunError | string>;
 
 const engineLayer =
 	(poll?: WorkflowEngine["Service"]["poll"]) =>
@@ -88,11 +88,11 @@ const activityEngineLayer =
 	};
 
 const makeServiceLayer = <Repository, Workflow = WorkflowEngine>(options: {
+	readonly execute?: ExecuteWorkflow;
 	readonly repository: Layer.Layer<Repository>;
 	readonly workflow?: (execute: ExecuteWorkflow) => Layer.Layer<Workflow>;
 	readonly findActiveScriptById?: SandboxPluginScriptResolverValue["findActiveScriptById"];
 	readonly findWorkflowScriptAvailableToUser?: SandboxPluginScriptResolverValue["findWorkflowScriptAvailableToUser"];
-	readonly execute?: ExecuteWorkflow;
 }) =>
 	Layer.unwrap(
 		Effect.gen(function* () {

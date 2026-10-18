@@ -12,16 +12,16 @@ import { AppConfig } from "../config/service";
 import { classifyAddress } from "./address-policy";
 import { EgressResolver } from "./resolver";
 
-export class EgressDenied extends Data.TaggedError("EgressDenied")<{
-	readonly reason: "address" | "resolution" | "scheme";
-}> {}
-
 export type EgressPolicy = Readonly<{
 	resolver: EgressResolver["Service"];
 	allowedNetworks: ReadonlyArray<IpNetwork.IpNetwork>;
 }>;
 
 type PinnedDestination = Readonly<{ host: string; serverName: string }>;
+
+export class EgressDenied extends Data.TaggedError("EgressDenied")<{
+	readonly reason: "scheme" | "address" | "resolution";
+}> {}
 
 const ALLOWED_PROTOCOLS: ReadonlySet<string> = new Set(["http:", "https:"]);
 
@@ -48,8 +48,8 @@ const denied = (
 // Proxies are bypassed so the connection reaches the address that passed the policy, and redirects
 // come back to the caller so every hop re-enters the policy.
 const pinnedRequestInit = (
-	init: BunFetchRequestInit | undefined,
-	destination: PinnedDestination | undefined,
+	init: undefined | BunFetchRequestInit,
+	destination: undefined | PinnedDestination,
 ): BunFetchRequestInit => {
 	const headers = new Headers(init?.headers);
 	if (destination !== undefined) {
@@ -113,7 +113,7 @@ export const withEgressPolicy = (
 			const destination = literal ? undefined : { host: target.host, serverName: hostname };
 			const fetch = yield* FetchHttpClient.Fetch;
 			const pinnedFetch = Object.assign(
-				(_input: string | URL | Request, fetchInit?: BunFetchRequestInit) =>
+				(_input: URL | string | Request, fetchInit?: BunFetchRequestInit) =>
 					fetch(pinnedUrl, pinnedRequestInit(fetchInit, destination)),
 				{ preconnect: fetch.preconnect },
 			);

@@ -10,20 +10,60 @@ import type { ScriptPluginRevision } from "#modules/scripts/authorization/princi
 
 import { ingestionActivitiesSql, ingestionSummarySql } from "./ingestion-projection";
 
-export type CatalogFieldKind = "boolean" | "date" | "json" | "number" | "text";
+export type RyotQLAudience = "kernel" | "plugin";
+
+export type CatalogFieldKind = "date" | "json" | "text" | "number" | "boolean";
+
+export type RyotQLExecutionScope =
+	UserExecutionScope | PluginExecutionScope | { readonly type: "admin" };
+
+export type RyotQLAccess =
+	| { readonly type: "admin" }
+	| Pick<PluginExecutionScope, "type">
+	| Pick<UserExecutionScope, "type" | "audience" | "accessClass">;
+
+export type CatalogField = {
+	readonly nullable: boolean;
+	readonly demoReadable?: false;
+	readonly kind: CatalogFieldKind;
+	readonly access?: "admin" | "kernel";
+	readonly resolve: (context: CatalogFieldContext) => ReturnType<typeof sql>;
+};
+
+export type CatalogTable = {
+	readonly name: string;
+	readonly visibility: CatalogVisibility;
+	// Small per-user catalogs: an include reads one materialized copy instead of re-evaluating the
+	// view for every parent row.
+	readonly materializedInIncludes?: true;
+	readonly primaryKey: readonly [string, ...string[]];
+	readonly fields: Readonly<Record<string, CatalogField>>;
+};
+
+type ExpandedCatalogSelections = {
+	readonly error: null | string;
+	readonly fields: FieldSelection[];
+};
 
 type CatalogFieldContext = {
 	readonly sqlAlias: string;
-	readonly language: string | null;
-	readonly userId?: string | null;
+	readonly userId?: null | string;
+	readonly language: null | string;
 };
 
-export type CatalogField = {
-	readonly kind: CatalogFieldKind;
-	readonly nullable: boolean;
-	readonly access?: "admin" | "kernel";
-	readonly demoReadable?: false;
-	readonly resolve: (context: CatalogFieldContext) => ReturnType<typeof sql>;
+type PluginExecutionScope = ScriptPluginRevision["schemaScope"] & {
+	readonly type: "plugin";
+	readonly pluginId: ScriptPluginRevision["id"];
+	readonly pluginRevisionId: ScriptPluginRevision["revisionId"];
+};
+
+type UserExecutionScope = {
+	readonly type: "user";
+	readonly userId: string;
+	readonly language: null | string;
+	readonly audience: RyotQLAudience;
+	readonly accessClass: AccessClass;
+	readonly definitionContext?: undefined | DefinitionReadContext;
 };
 
 type CatalogUserPolicy =
@@ -32,8 +72,8 @@ type CatalogUserPolicy =
 	| {
 			readonly type: "owned";
 			readonly column: string;
-			readonly includeGlobal: boolean;
 			readonly where?: string;
+			readonly includeGlobal: boolean;
 	  }
 	| {
 			readonly column: string;
@@ -44,16 +84,16 @@ type CatalogUserPolicy =
 	  };
 
 type CatalogVisibility = {
-	readonly user?: CatalogUserPolicy & {
-		readonly pluginReadable: boolean;
-		readonly demoReadable?: false;
-	};
 	readonly admin?: { readonly type: "all" };
+	readonly user?: CatalogUserPolicy & {
+		readonly demoReadable?: false;
+		readonly pluginReadable: boolean;
+	};
 	readonly plugin?:
 		| { readonly type: "eventDefinition" }
 		| {
 				readonly type: "schemaDefinition";
-				readonly kind: "entity" | "event" | "relationship" | "signal";
+				readonly kind: "event" | "entity" | "signal" | "relationship";
 		  }
 		| {
 				readonly column: string;
@@ -62,46 +102,6 @@ type CatalogVisibility = {
 				readonly type: "discriminator";
 				readonly ownership: "entitySchemaSlugs" | "relationshipSchemaSlugs";
 		  };
-};
-
-export type RyotQLAudience = "kernel" | "plugin";
-
-type UserExecutionScope = {
-	readonly type: "user";
-	readonly userId: string;
-	readonly language: string | null;
-	readonly audience: RyotQLAudience;
-	readonly accessClass: AccessClass;
-	readonly definitionContext?: DefinitionReadContext | undefined;
-};
-
-type PluginExecutionScope = ScriptPluginRevision["schemaScope"] & {
-	readonly type: "plugin";
-	readonly pluginId: ScriptPluginRevision["id"];
-	readonly pluginRevisionId: ScriptPluginRevision["revisionId"];
-};
-
-export type RyotQLExecutionScope =
-	UserExecutionScope | { readonly type: "admin" } | PluginExecutionScope;
-
-export type RyotQLAccess =
-	| Pick<UserExecutionScope, "accessClass" | "audience" | "type">
-	| { readonly type: "admin" }
-	| Pick<PluginExecutionScope, "type">;
-
-export type CatalogTable = {
-	readonly name: string;
-	readonly primaryKey: readonly [string, ...string[]];
-	readonly visibility: CatalogVisibility;
-	readonly fields: Readonly<Record<string, CatalogField>>;
-	// Small per-user catalogs: an include reads one materialized copy instead of re-evaluating the
-	// view for every parent row.
-	readonly materializedInIncludes?: true;
-};
-
-type ExpandedCatalogSelections = {
-	readonly error: string | null;
-	readonly fields: FieldSelection[];
 };
 
 const physicalField = (column: string, kind: CatalogFieldKind, nullable = true): CatalogField => ({
@@ -145,7 +145,7 @@ const pluginActiveRevisionField = (
 		),
 });
 
-const pluginMetadataField = (key: "description" | "icon" | "name"): CatalogField =>
+const pluginMetadataField = (key: "icon" | "name" | "description"): CatalogField =>
 	pluginActiveRevisionField(`revision.${key}`, "text", true);
 
 const pluginClientApiVersion = pluginActiveRevisionField(
@@ -1425,7 +1425,7 @@ export const resolveCatalogField = (table: CatalogTable, name: string, access: R
 
 export const expandCatalogSelections = (
 	selections: readonly RowSelection[],
-	resolveTable: (alias: string) => CatalogTable | undefined,
+	resolveTable: (alias: string) => undefined | CatalogTable,
 	access: RyotQLAccess,
 ): ExpandedCatalogSelections => {
 	const fields: FieldSelection[] = [];

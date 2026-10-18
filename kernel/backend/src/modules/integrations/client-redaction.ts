@@ -31,7 +31,7 @@ const redactSecretValues = (
 };
 
 export const redactIntegrationForClient = (
-	settingsSchema: AppSchema | null,
+	settingsSchema: null | AppSchema,
 	providerSpecifics: IntegrationProviderSettings,
 ): IntegrationProviderSettings => {
 	if (!settingsSchema) {

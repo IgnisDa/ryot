@@ -6,14 +6,14 @@ import type {
 
 import type { CatalogFieldKind } from "./catalog";
 
-export type ScalarKind = CatalogFieldKind | "null";
+export type ScalarKind = "null" | CatalogFieldKind;
 
 export type KindResolver<Scope> = {
-	readonly column: (expr: ColumnExpression, scope: Scope) => ScalarKind | undefined;
 	readonly correlated: (query: CorrelatedQuerySet, scope: Scope) => Scope;
+	readonly column: (expr: ColumnExpression, scope: Scope) => undefined | ScalarKind;
 };
 
-const unifyKinds = (kinds: readonly (ScalarKind | undefined)[]) => {
+const unifyKinds = (kinds: readonly (undefined | ScalarKind)[]) => {
 	const nonNullKinds = kinds.filter((kind) => kind !== "null");
 	if (nonNullKinds.length === 0) {
 		return "null" as const;
@@ -26,7 +26,7 @@ export const scalarExpressionKind = <Scope>(
 	expr: ScalarExpression,
 	scope: Scope,
 	resolver: KindResolver<Scope>,
-): ScalarKind | undefined => {
+): undefined | ScalarKind => {
 	if (expr.type === "pluginId") {
 		return "text";
 	}

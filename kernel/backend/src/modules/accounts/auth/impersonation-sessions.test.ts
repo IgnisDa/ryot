@@ -11,25 +11,25 @@ type SessionRecord = {
 	readonly id: string;
 	readonly userId: string;
 	readonly expiresAt: Date;
-	readonly impersonationExpiresAt: Date | null;
 	readonly disabledAt: Date | null;
 	readonly bootstrapCompletedAt: Date | null;
+	readonly impersonationExpiresAt: Date | null;
 };
 
 class ImpersonationSessionState extends Context.Service<
 	ImpersonationSessionState,
 	{
-		readonly setSession: (session: SessionRecord | null) => Effect.Effect<void>;
-		readonly setLifecycleActive: (active: boolean) => Effect.Effect<void>;
 		readonly sessionReads: Effect.Effect<ReadonlyArray<string>>;
 		readonly lifecycleReads: Effect.Effect<ReadonlyArray<string>>;
+		readonly setLifecycleActive: (active: boolean) => Effect.Effect<void>;
+		readonly setSession: (session: null | SessionRecord) => Effect.Effect<void>;
 	}
 >()("test/ImpersonationSessionState") {}
 
 const makeLayer = () =>
 	Layer.unwrap(
 		Effect.gen(function* () {
-			const session = yield* Ref.make<SessionRecord | null>(null);
+			const session = yield* Ref.make<null | SessionRecord>(null);
 			const lifecycleActive = yield* Ref.make(false);
 			const sessionReads = yield* Ref.make<ReadonlyArray<string>>([]);
 			const lifecycleReads = yield* Ref.make<ReadonlyArray<string>>([]);

@@ -11,13 +11,13 @@ import { SessionCreationGate } from "./session-gate";
 
 const disabledAt = new Date("2026-01-01T00:00:00Z");
 
+type UserRow = { disabledAt: Date | null };
+
 function assertApiError(error: unknown): asserts error is APIError {
 	if (!(error instanceof APIError)) {
 		throw new Error(`Expected APIError, got ${typeof error}`);
 	}
 }
-
-type UserRow = { disabledAt: Date | null };
 
 const gateLayer = (rows: ReadonlyArray<UserRow>, active = false) => {
 	const database = Object.assign(Object.create(null), {

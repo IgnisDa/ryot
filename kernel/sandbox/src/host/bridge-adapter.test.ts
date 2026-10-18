@@ -624,7 +624,7 @@ describe("bindSandboxHostFunctions", () => {
 		() =>
 			Effect.gen(function* () {
 				let calls = 0;
-				let receivedUserId: string | null = "unset";
+				let receivedUserId: null | string = "unset";
 				const implementations = makeImplementations({
 					getCurrentIntegration: (runInput) => {
 						calls += 1;

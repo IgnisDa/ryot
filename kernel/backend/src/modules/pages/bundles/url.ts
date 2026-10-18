@@ -2,7 +2,7 @@ import { canonicalRelativePosixPathIssue } from "@ryot-app/ts-utils/path";
 
 export const CLIENT_ARTIFACT_HASH_PATTERN = /^[a-f0-9]{64}$/;
 
-export const canonicalClientArtifactFileName = (fileName: string): string | null => {
+export const canonicalClientArtifactFileName = (fileName: string): null | string => {
 	let current = fileName;
 	for (let depth = 0; depth < 16; depth++) {
 		if (

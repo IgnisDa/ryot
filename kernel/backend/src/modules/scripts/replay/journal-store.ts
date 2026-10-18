@@ -14,7 +14,7 @@ import { Effect, Schema } from "effect";
 import { redisKeys, type RedisService } from "#platform/redis";
 
 type JournalRedis = {
-	readonly client: Pick<RedisService["Service"]["client"], "callBuffer" | "eval">;
+	readonly client: Pick<RedisService["Service"]["client"], "eval" | "callBuffer">;
 };
 
 const projectionTtlSeconds = 24 * 60 * 60;
@@ -200,7 +200,7 @@ export const pinSandboxJournal = (
 	executionId: string,
 	inspection: SandboxJournalInspection,
 ): SandboxPinnedJournal => {
-	let fault: SandboxJournalFault | undefined;
+	let fault: undefined | SandboxJournalFault;
 	const fail = (next: SandboxJournalFault) =>
 		Effect.sync(() => {
 			fault ??= next;

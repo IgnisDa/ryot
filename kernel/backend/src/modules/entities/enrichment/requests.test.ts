@@ -30,9 +30,9 @@ const scheduledRetry = new Date("2030-01-01T00:00:00.000Z");
 class RequestFixture extends Context.Service<
 	RequestFixture,
 	{
-		readonly input: (id: string, patch?: Partial<EnrichmentRequestInput>) => EnrichmentRequestInput;
 		readonly entityId: EntityId;
 		readonly publications: Effect.Effect<ReadonlyArray<readonly [string, string]>>;
+		readonly input: (id: string, patch?: Partial<EnrichmentRequestInput>) => EnrichmentRequestInput;
 	}
 >()("test/EnrichmentRequestsFixture") {}
 

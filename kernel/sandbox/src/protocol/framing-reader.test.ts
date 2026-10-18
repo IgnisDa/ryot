@@ -54,7 +54,7 @@ const parts = (handle: string, size = logicalBytes, seq = 1) => {
 const readerHarness = (maximumBufferedBytes: number, maximumAssemblies = 8) => {
 	const received: SidecarOutboundFrame[] = [];
 	const invalid: string[] = [];
-	const active = new Set(["first", "second", "third", "fourth"]);
+	const active = new Set(["first", "third", "second", "fourth"]);
 	const reader = makeSidecarFrameReader({
 		generation: 7,
 		maximumAssemblies,
@@ -167,14 +167,14 @@ describe("sidecar reader assembly reservations", () => {
 				feed(reader, [firstVictim]);
 			}
 			switch (failure) {
-				case "duplicate":
-					feed(reader, [firstVictim]);
+				case "size":
+					feed(reader, [{ ...secondVictim, byteLength: logicalBytes - 1 }]);
+					break;
+				case "json":
+					feed(reader, victim.slice(1));
 					break;
 				case "count":
 					feed(reader, [{ ...secondVictim, count: secondVictim.count + 1 }]);
-					break;
-				case "size":
-					feed(reader, [{ ...secondVictim, byteLength: logicalBytes - 1 }]);
 					break;
 				case "short":
 					feed(reader, [{ ...secondVictim, data: Base64.encode(new Uint8Array(partBytes - 1)) }]);
@@ -182,7 +182,9 @@ describe("sidecar reader assembly reservations", () => {
 				case "base64":
 					feed(reader, [{ ...secondVictim, data: "!!!!" }]);
 					break;
-				case "json":
+				case "retire":
+					active.delete("second");
+					reader.retire("second");
 					feed(reader, victim.slice(1));
 					break;
 				case "envelope":
@@ -190,10 +192,8 @@ describe("sidecar reader assembly reservations", () => {
 						feed(reader, [{ ...frame, seq: 2 }]);
 					}
 					break;
-				case "retire":
-					active.delete("second");
-					reader.retire("second");
-					feed(reader, victim.slice(1));
+				case "duplicate":
+					feed(reader, [firstVictim]);
 					break;
 			}
 			expect(invalid).toEqual(failure === "retire" ? [] : ["second"]);

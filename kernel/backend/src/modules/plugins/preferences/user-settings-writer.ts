@@ -58,8 +58,8 @@ export class PluginUserSettingsWriter extends Context.Service<PluginUserSettings
 				readonly userId: UserId;
 				readonly installationId: string;
 				readonly settingsSchema: AppSchema;
-				readonly validated: Readonly<Record<string, unknown>>;
 				readonly stored: Record<string, JsonValue>;
+				readonly validated: Readonly<Record<string, unknown>>;
 			}) {
 				const settings = yield* resolvePluginUserSettings(
 					input.settingsSchema,

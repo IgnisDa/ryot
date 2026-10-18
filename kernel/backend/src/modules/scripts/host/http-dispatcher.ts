@@ -53,6 +53,7 @@ type HostRequest = Extract<WorkflowDurableCallRequest, { readonly kind: "host" }
 type MatchedHttpRateLimit = Extract<HttpRateLimitAuthorityResolution, { readonly matched: true }>;
 
 type SandboxHttpDispatcherValue = {
+	readonly cancel: (executionId: string, progress: SandboxHttpProgress) => Effect.Effect<void>;
 	readonly dispatch: (
 		request: HostRequest,
 		payload: ScriptExecutionWorkflowPayload,
@@ -69,8 +70,7 @@ type SandboxHttpDispatcherValue = {
 		startedAt: string,
 		wait: SandboxShortWait,
 		checkpoint: (progress: SandboxHttpProgress) => Effect.Effect<void>,
-	) => Effect.Effect<WorkflowDurableResult | null, SandboxRunError>;
-	readonly cancel: (executionId: string, progress: SandboxHttpProgress) => Effect.Effect<void>;
+	) => Effect.Effect<null | WorkflowDurableResult, SandboxRunError>;
 };
 
 const HttpRateLimitResolution = Schema.Union([
@@ -100,15 +100,15 @@ const HttpNetworkAttempt = Schema.Struct({
 	]),
 });
 
-class SandboxHttpInlineDeferred extends Schema.TaggedError<
-	SandboxHttpInlineDeferred,
-	{ readonly brand: unique symbol }
->()("SandboxHttpInlineDeferred", {}) {}
-
 type InlineHttpSettlement = {
 	readonly wait: SandboxShortWait;
 	readonly checkpoint: (progress: SandboxHttpProgress) => Effect.Effect<void>;
 };
+
+class SandboxHttpInlineDeferred extends Schema.TaggedError<
+	SandboxHttpInlineDeferred,
+	{ readonly brand: unique symbol }
+>()("SandboxHttpInlineDeferred", {}) {}
 
 class HttpAdmissionCoordinationError extends Schema.TaggedError<
 	HttpAdmissionCoordinationError,
@@ -159,7 +159,7 @@ const coordinator = <PauseE, PauseR>(
 	let failureActive = false;
 	return <A, R>(
 		stage: string,
-		run: () => Effect.Effect<A, HttpAdmissionCoordinationError | SandboxHttpInlineDeferred, R>,
+		run: () => Effect.Effect<A, SandboxHttpInlineDeferred | HttpAdmissionCoordinationError, R>,
 	) =>
 		Effect.gen(function* () {
 			for (;;) {
@@ -406,8 +406,8 @@ const makeSandboxHttpDispatcher = Effect.gen(function* () {
 
 		const step = <Success extends Schema.Top, Failure extends Schema.Top>(operation: {
 			readonly name: string;
-			readonly success: Success;
 			readonly error: Failure;
+			readonly success: Success;
 			readonly execute: Effect.Effect<Success["Type"], Failure["Type"]>;
 		}) => (inline ? operation.execute : makeActivity(operation));
 
@@ -451,7 +451,7 @@ const makeSandboxHttpDispatcher = Effect.gen(function* () {
 		});
 
 		const cancelOnInterrupt = (
-			policy: Ref.Ref<MatchedHttpRateLimit | null>,
+			policy: Ref.Ref<null | MatchedHttpRateLimit>,
 			ticket: ProviderHttpTicket,
 		) => {
 			if (inline) {
@@ -478,7 +478,7 @@ const makeSandboxHttpDispatcher = Effect.gen(function* () {
 			initial: typeof SandboxHttpPolicy.Type,
 			url: string,
 			ticket: ProviderHttpTicket,
-			activePolicy: Ref.Ref<MatchedHttpRateLimit | null>,
+			activePolicy: Ref.Ref<null | MatchedHttpRateLimit>,
 		) =>
 			Effect.suspend(() => {
 				let policy = initial;
@@ -603,7 +603,7 @@ const makeSandboxHttpDispatcher = Effect.gen(function* () {
 						requestIndex: request.index,
 					}),
 				};
-				const activePolicy = yield* Ref.make<MatchedHttpRateLimit | null>(null);
+				const activePolicy = yield* Ref.make<null | MatchedHttpRateLimit>(null);
 				yield* cancelOnInterrupt(activePolicy, ticket);
 				const admitted = yield* coordinateDurably("admission", () => {
 					const name = `sandbox-http-${request.index}-admission-${next("admissionAttempt")}`;
@@ -632,7 +632,7 @@ const makeSandboxHttpDispatcher = Effect.gen(function* () {
 				return admitted;
 			});
 
-		const runNetworkAttempt = (policy: MatchedHttpRateLimit | null, current: SandboxHttpHop) => {
+		const runNetworkAttempt = (policy: null | MatchedHttpRateLimit, current: SandboxHttpHop) => {
 			state = { ...state, networkAttempt: state.networkAttempt + 1 };
 			const attempt = state.networkAttempt;
 			return step({
@@ -690,7 +690,7 @@ const makeSandboxHttpDispatcher = Effect.gen(function* () {
 				continue;
 			}
 			const current = state.current;
-			let policy: MatchedHttpRateLimit | null = null;
+			let policy: null | MatchedHttpRateLimit = null;
 			const admitted = yield* admit(current, state.attempt);
 			if (admitted.resolution.matched) {
 				policy = admitted.resolution;
@@ -754,7 +754,7 @@ const makeSandboxHttpDispatcher = Effect.gen(function* () {
 					const identity = WorkflowInstance.initial(ScriptExecutionWorkflow, executionId, {
 						scope,
 					});
-					let latest: SandboxHttpProgress | undefined;
+					let latest: undefined | SandboxHttpProgress;
 					return yield* run(request, payload, principal, executionId, startedAt, undefined, {
 						wait,
 						checkpoint: (state) =>

@@ -89,7 +89,7 @@ const intentDeadline = (metadata: typeof UploadIntentMetadata.Type) => {
 	return metadata.kind === "permanent" ? null : metadata.completion.expiresAt;
 };
 
-const completionResponse = (completion: typeof TemporaryCompletion.Type | ManagedAssetLocator) =>
+const completionResponse = (completion: ManagedAssetLocator | typeof TemporaryCompletion.Type) =>
 	"token" in completion
 		? {
 				token: completion.token,

@@ -158,7 +158,7 @@ export const runDataImportWorkflow = Effect.fn("runDataImportWorkflow")(
 		const initial = yield* repository
 			.getIngestionRunControl(scope)
 			.pipe(Effect.mapError(toWorkflowError));
-		if (!initial || ["completed", "failed", "cancelled", "expired"].includes(initial.status)) {
+		if (!initial || ["failed", "expired", "completed", "cancelled"].includes(initial.status)) {
 			if (ownsSettlement) {
 				yield* execution.cleanup(scope);
 			}
@@ -513,7 +513,7 @@ export const runDataImportSegmentWorkflow = Effect.fn("runDataImportSegmentWorkf
 		const { totalItems } = input.startingCounters;
 		const report = (
 			item: DataGraphRecord,
-			failure: Pick<DataImportRecordError, "message" | "stage"> | null,
+			failure: null | Pick<DataImportRecordError, "stage" | "message">,
 		) =>
 			makeActivity({
 				error: ImportRunError,
@@ -779,7 +779,7 @@ export const runDataImportSegmentWorkflow = Effect.fn("runDataImportSegmentWorkf
 			const index = processedItems;
 			const result = yield* writeRecord(item, index).pipe(Effect.result);
 			processedItems++;
-			let failure: Pick<DataImportRecordError, "message" | "stage"> | null = null;
+			let failure: null | Pick<DataImportRecordError, "stage" | "message"> = null;
 			if (result._tag === "Failure") {
 				failedItems++;
 				failedKeys.add(item.record.key);

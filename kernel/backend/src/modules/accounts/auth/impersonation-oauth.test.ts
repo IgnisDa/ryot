@@ -36,13 +36,13 @@ const makeEndpointContext = (authContext: TestAuthContext) => ({
 	getSignedCookie: () => Promise.resolve(null),
 	request: new Request("http://localhost/oauth2/userinfo"),
 	error: () => APIError.from("BAD_REQUEST", { code: "unused", message: "unused" }),
-	json: <R extends Record<string, unknown> | null>(value: R) => Promise.resolve(value),
+	json: <R extends null | Record<string, unknown>>(value: R) => Promise.resolve(value),
 	redirect: (url: string) => APIError.from("BAD_REQUEST", { message: url, code: "redirect" }),
 });
 
 it.effect("adds active session metadata only to impersonation OAuth claims", () =>
 	Effect.gen(function* () {
-		const active = yield* Ref.make<{ readonly expiresAt: number } | null>({
+		const active = yield* Ref.make<null | { readonly expiresAt: number }>({
 			expiresAt: 1_800_000_000_000,
 		});
 		const reads: Array<readonly [string, string]> = [];
@@ -111,7 +111,7 @@ it.effect("adds active session metadata only to impersonation OAuth claims", () 
 
 it.effect("rejects inactive impersonation grants and user-info tokens", () =>
 	Effect.gen(function* () {
-		const active = yield* Ref.make<{ readonly expiresAt: number } | null>(null);
+		const active = yield* Ref.make<null | { readonly expiresAt: number }>(null);
 		const extension = impersonationOAuthExtension({ getActive: () => Ref.get(active) });
 		const instance = yield* Effect.promise(() => getTestInstance());
 		const authContext = yield* Effect.promise(() => instance.auth.$context);

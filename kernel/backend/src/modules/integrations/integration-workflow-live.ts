@@ -65,12 +65,12 @@ export const runIntegrationRunWorkflow = Effect.fn("ProcessIntegrationRunWorkflo
 		const artifacts = yield* ExecutionFileStore;
 		const release = () => artifacts.release(owner, reference);
 		const initial = yield* repository.getIngestionRunControl(scope);
-		if (!initial || ["cancelled", "expired"].includes(initial.status)) {
+		if (!initial || ["expired", "cancelled"].includes(initial.status)) {
 			yield* execution.cleanup(scope);
 			yield* release();
 			return;
 		}
-		if (["completed", "failed"].includes(initial.status)) {
+		if (["failed", "completed"].includes(initial.status)) {
 			yield* execution.cleanup(scope);
 			yield* release();
 		}
@@ -78,7 +78,7 @@ export const runIntegrationRunWorkflow = Effect.fn("ProcessIntegrationRunWorkflo
 			return;
 		}
 		const settle = Effect.fnUntraced(function* (
-			status: "completed" | "failed" | "cancelled",
+			status: "failed" | "completed" | "cancelled",
 			failureReason?: ImportRunFailureReason,
 		) {
 			for (let attempt = 0; ; attempt++) {
@@ -234,7 +234,7 @@ export const runIntegrationRunWorkflow = Effect.fn("ProcessIntegrationRunWorkflo
 			yield* release();
 			return yield* Effect.void;
 		});
-		if (!["completed", "failed"].includes(initial.status)) {
+		if (!["failed", "completed"].includes(initial.status)) {
 			yield* process.pipe(
 				Effect.catchCause((cause) =>
 					Effect.flatMap(WorkflowInstance, (instance) =>

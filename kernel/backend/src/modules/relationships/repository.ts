@@ -16,6 +16,8 @@ import { pluginIdWhere } from "#platform/db/definition-owner";
 import { DatabaseSession } from "#platform/db/session";
 import * as schema from "#schema/tables/combined";
 
+type RelationshipRow = RelationshipSnapshotRow & { readonly wasInserted: boolean };
+
 type RelationshipSnapshotRow = Pick<
 	typeof schema.relationship.$inferSelect,
 	| "id"
@@ -27,8 +29,6 @@ type RelationshipSnapshotRow = Pick<
 	| "relationshipSchemaSlug"
 	| "relationshipSchemaPluginId"
 >;
-
-type RelationshipRow = RelationshipSnapshotRow & { readonly wasInserted: boolean };
 
 const relationshipIdentityFields = {
 	sourceEntityId: EntityId,
@@ -126,7 +126,7 @@ const toSavedRelationship = (row: RelationshipRow) => ({
 	wasInserted: row.wasInserted,
 });
 
-const storedRelationshipKey = (row: RelationshipSnapshotRow & { readonly userId: string | null }) =>
+const storedRelationshipKey = (row: RelationshipSnapshotRow & { readonly userId: null | string }) =>
 	relationshipMutationLockKey({
 		sourceEntityId: EntityId.make(row.sourceEntityId),
 		targetEntityId: EntityId.make(row.targetEntityId),
@@ -146,7 +146,7 @@ const relationshipValues = (input: CreateRelationshipInput) => ({
 	relationshipSchemaPluginId: input.relationshipSchemaPluginId ?? null,
 });
 
-const relationshipSchemaPluginWhere = (pluginId: string | null) =>
+const relationshipSchemaPluginWhere = (pluginId: null | string) =>
 	pluginIdWhere(schema.relationship.relationshipSchemaPluginId, pluginId);
 
 const relationshipIdentityWhere = (input: RelationshipIdentityInput) =>
@@ -212,8 +212,8 @@ const relationshipReconciliationLockKey = (input: RelationshipReconciliationList
 export type RelationshipSyncGroupKey = {
 	anchorEntityId: EntityId;
 	direction: "incoming" | "outgoing";
+	relationshipSchemaPluginId: null | string;
 	relationshipSchemaSlug: RelationshipSchemaSlug;
-	relationshipSchemaPluginId: string | null;
 };
 
 const relationshipSyncGroupLockKey = (key: RelationshipSyncGroupKey) =>
@@ -313,8 +313,8 @@ export class RelationshipsRepository extends Context.Service<RelationshipsReposi
 				userId: UserId;
 				sourceEntityId: EntityId;
 				targetEntityId: EntityId;
+				relationshipSchemaPluginId: null | string;
 				relationshipSchemaSlug: RelationshipSchemaSlug;
-				relationshipSchemaPluginId: string | null;
 			}) {
 				const [row] = yield* session.run((db) =>
 					db
@@ -511,10 +511,10 @@ export class RelationshipsRepository extends Context.Service<RelationshipsReposi
 			const listUserEditorRelationships = Effect.fn(
 				"RelationshipsRepository.listUserEditorRelationships",
 			)(function* (input: {
-				userId: UserId;
 				lock: boolean;
+				userId: UserId;
 				entityId: EntityId;
-				pluginId: string | null;
+				pluginId: null | string;
 				outgoingSlugs: ReadonlyArray<RelationshipSchemaSlug>;
 				incomingSlugs: ReadonlyArray<RelationshipSchemaSlug>;
 			}) {
@@ -585,8 +585,8 @@ export class RelationshipsRepository extends Context.Service<RelationshipsReposi
 			)(function* (input: {
 				subjectEntityId: EntityId;
 				subjectSide: "source" | "target";
+				relationshipSchemaPluginId: null | string;
 				relationshipSchemaSlug: RelationshipSchemaSlug;
-				relationshipSchemaPluginId: string | null;
 			}) {
 				const rows = yield* session.run((db) =>
 					db

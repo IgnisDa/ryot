@@ -88,7 +88,7 @@ const makeApprovedDependencyRuntime = (): ApprovedDependencyRuntime => {
 	let randomState = 2_166_136_261;
 	let active = 0;
 	let enabled = false;
-	let globals: ReturnType<typeof makeGlobalReplacements> | undefined;
+	let globals: undefined | ReturnType<typeof makeGlobalReplacements>;
 
 	const configure = (invocation: SandboxInvocation) => {
 		enabled =

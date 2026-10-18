@@ -441,7 +441,7 @@ layer(databaseLayer)((test) => {
 		Effect.gen(function* () {
 			const partner = table("entity", "partner");
 			const partnerItems = jsonPath(column(partner, "properties"), "items");
-			const query = (mode: "inner" | "left") => {
+			const query = (mode: "left" | "inner") => {
 				const partnerElement = jsonElementsJoin(mode, "partnerElement", partnerItems);
 				return rows(entity, {
 					where: eq(column(entity, "id"), literal("three")),

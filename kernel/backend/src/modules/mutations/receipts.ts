@@ -20,11 +20,11 @@ import { mutationReceipt } from "#schema/tables/mutations";
 import { userLifecycleOperation } from "#schema/tables/user-lifecycle";
 
 export const mutationReceiptIdentity = (input: {
-	command: LifecycleCommand;
-	commandKind: string;
-	ownerUserId: UserId | null;
-	scopeUserId: UserId | null;
 	input: unknown;
+	commandKind: string;
+	command: LifecycleCommand;
+	ownerUserId: null | UserId;
+	scopeUserId: null | UserId;
 }) => ({
 	commandKind: input.commandKind,
 	ownerUserId: input.ownerUserId,
@@ -57,7 +57,7 @@ export const mutationReceiptIdentity = (input: {
 	),
 });
 
-export const mutationReceiptOwner = (command: LifecycleCommand, scopeUserId: UserId | null) =>
+export const mutationReceiptOwner = (command: LifecycleCommand, scopeUserId: null | UserId) =>
 	command.accountGeneration?.userId ??
 	(command.causation.source !== "automation" && command.causation.initiator.kind === "user"
 		? command.causation.initiator.id
@@ -85,8 +85,8 @@ const MutationBatchPinReferences = Schema.Struct({
 	pluginConfigRevisionId: Schema.NullOr(Schema.String),
 });
 export type MutationBatchPin<Payload> = {
-	readonly references: typeof MutationBatchPinReferences.Type;
 	readonly payload: Payload;
+	readonly references: typeof MutationBatchPinReferences.Type;
 };
 
 const WorkflowOwnerState = Schema.Struct({
@@ -120,11 +120,11 @@ export class MutationReceiptIdentityConflict extends Schema.TaggedError<
 >()("MutationReceiptIdentityConflict", { receiptId: Schema.String }) {}
 
 const batchIdentity = (input: {
-	command: LifecycleCommand;
-	resource: "entity" | "event" | "relationship";
-	identity: ReadonlyArray<string>;
-	ownerUserId: UserId | null;
 	commandInput?: unknown;
+	command: LifecycleCommand;
+	ownerUserId: null | UserId;
+	identity: ReadonlyArray<string>;
+	resource: "event" | "entity" | "relationship";
 }) =>
 	mutationReceiptIdentity({
 		scopeUserId: null,
@@ -145,8 +145,8 @@ export class MutationReceipts extends Context.Service<MutationReceipts>()("Mutat
 		);
 		const getCommittedItems = Effect.fn("MutationReceipts.getCommittedItems")(function* (input: {
 			userId: UserId;
-			accountGeneration: AccountGeneration;
 			rootExecutionId: string;
+			accountGeneration: AccountGeneration;
 			itemIdentities: ReadonlyArray<string>;
 		}) {
 			if (input.itemIdentities.length === 0) {
@@ -278,7 +278,7 @@ export class MutationReceipts extends Context.Service<MutationReceipts>()("Mutat
 				),
 			);
 		const registerWorkflow = Effect.fn("MutationReceipts.registerWorkflow")(function* (
-			account: AccountGeneration | null,
+			account: null | AccountGeneration,
 			workflowName: string,
 			executionId: string,
 		) {
@@ -390,12 +390,12 @@ export class MutationReceipts extends Context.Service<MutationReceipts>()("Mutat
 			return yield* readItem(identity, result);
 		});
 		const insert = Effect.fn("MutationReceipts.insert")(function* (input: {
-			identity: MutationReceiptIdentity;
 			result: unknown;
-			dispatch: ReadonlyArray<LifecycleDispatchPlan>;
-			evidence?: (typeof mutationReceipt.$inferInsert)["evidence"];
 			batchId?: string;
 			batchIndex?: number;
+			identity: MutationReceiptIdentity;
+			dispatch: ReadonlyArray<LifecycleDispatchPlan>;
+			evidence?: (typeof mutationReceipt.$inferInsert)["evidence"];
 		}) {
 			yield* requireTransaction;
 			yield* requireCurrentGeneration(input.identity);
@@ -538,8 +538,8 @@ export class MutationReceipts extends Context.Service<MutationReceipts>()("Mutat
 			return true;
 		}, inTransaction);
 		const beginBatch = Effect.fn("MutationReceipts.beginBatch")(function* (input: {
-			identity: MutationReceiptIdentity;
 			maxItems: number;
+			identity: MutationReceiptIdentity;
 			pins: ReadonlyArray<{
 				readonly id: string;
 				readonly payload: unknown;

@@ -12,9 +12,9 @@ export type TranslationOverlayInput = {
 	language: string;
 	populatedAt: Date;
 	entityId: EntityId;
-	name: string | null;
-	properties: Record<string, unknown> | null;
+	name: null | string;
 	sourceContentGeneration: number;
+	properties: null | Record<string, unknown>;
 };
 
 export class TranslationsRepository extends Context.Service<TranslationsRepository>()(
@@ -38,7 +38,7 @@ export class TranslationsRepository extends Context.Service<TranslationsReposito
 				return row ?? null;
 			});
 			const findEntityForUser = Effect.fn("TranslationsRepository.findEntityForUser")(function* (
-				input: { entityId: EntityId; userId: UserId },
+				input: { userId: UserId; entityId: EntityId },
 				lock = false,
 			) {
 				const [row] = yield* session.run((db) => {

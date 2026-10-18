@@ -81,7 +81,7 @@ const archiveReferenceError = (error: DataReferenceError) =>
 	archiveError(error.code, error.message);
 
 type BackupEventPage = {
-	readonly nextAfterId: EventId | null;
+	readonly nextAfterId: null | EventId;
 	readonly records: ReadonlyArray<ArchiveEvent>;
 };
 
@@ -127,10 +127,10 @@ export const requirePluginKey = Effect.fn("BackupExportSnapshot.requirePluginKey
 });
 
 export const definitionForPlugin = <
-	Definition extends { readonly pluginId?: string | null | undefined },
+	Definition extends { readonly pluginId?: null | string | undefined },
 >(
-	definition: Definition | undefined,
-	pluginId: string | null | undefined,
+	definition: undefined | Definition,
+	pluginId: null | string | undefined,
 	historical?: Definition,
 ) => {
 	if ((definition?.pluginId ?? null) === pluginId) {
@@ -161,12 +161,12 @@ const privateDefinitionSnapshots = (
 ) => new Map(plugins.map((plugin) => [plugin.id, privateDefinitionSnapshot(plugin)]));
 
 const definitionLookup =
-	<Definition extends { readonly pluginId?: string | null | undefined }>(
+	<Definition extends { readonly pluginId?: null | string | undefined }>(
 		kind: string,
 		current: Readonly<Record<string, Definition>>,
-		historical: (pluginId: string) => Readonly<Record<string, Definition>> | undefined,
+		historical: (pluginId: string) => undefined | Readonly<Record<string, Definition>>,
 	) =>
-	(slug: string, pluginId: string | null | undefined) =>
+	(slug: string, pluginId: null | string | undefined) =>
 		definitionForPlugin(
 			current[definitionKey(kind, definitionOwner(pluginId ?? null), slug)],
 			pluginId,
@@ -305,7 +305,7 @@ export class BackupExportSnapshot extends Context.Service<BackupExportSnapshot>(
 					pluginKeyById,
 					privatePlugins,
 					installedPlugins,
-					pluginIdForKey: (pluginKey: string | null) =>
+					pluginIdForKey: (pluginKey: null | string) =>
 						pluginKey ? pluginByKey.get(pluginKey)?.id : null,
 					...definitionLookups(definitions, privateDefinitionSnapshots(privatePlugins)),
 				};
@@ -433,7 +433,7 @@ export class BackupExportSnapshot extends Context.Service<BackupExportSnapshot>(
 					),
 				);
 				const installationById = new Map(allStoredInstallations.map((state) => [state.id, state]));
-				const requireInstallation = (installationId: string | null, message: string) => {
+				const requireInstallation = (installationId: null | string, message: string) => {
 					if (installationId === null) {
 						return Effect.succeed(null);
 					}

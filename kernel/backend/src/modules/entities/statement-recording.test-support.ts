@@ -7,6 +7,8 @@ import { DatabaseSession } from "#platform/db/session";
 const transactionStart = "<transaction>";
 const transactionEnd = "</transaction>";
 
+export type StatementClass = "lock" | "check" | "lookup" | "receipt";
+
 export class StatementLog extends Context.Service<
 	StatementLog,
 	{
@@ -15,9 +17,7 @@ export class StatementLog extends Context.Service<
 	}
 >()("test/StatementLog") {}
 
-export type StatementClass = "check" | "lock" | "lookup" | "receipt";
-
-export const statementClass = (statement: string): StatementClass | null => {
+export const statementClass = (statement: string): null | StatementClass => {
 	if (
 		statement.includes("pg_advisory_xact_lock_shared") ||
 		statement.includes('from "plugin_revision"') ||

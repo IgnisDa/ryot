@@ -179,7 +179,7 @@ const appendRequest = Effect.fnUntraced(function* (
 const readEntity = Effect.fnUntraced(function* (
 	userId: UserId,
 	entityId: EntityId,
-	language: string | null = null,
+	language: null | string = null,
 ) {
 	const recipe = enrichmentEntityRecipe(entityId);
 	const response = yield* (yield* RyotQLService).executeForUser(

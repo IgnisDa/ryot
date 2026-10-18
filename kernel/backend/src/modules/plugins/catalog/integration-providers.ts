@@ -23,21 +23,21 @@ import { ingestionReadinessMetadata } from "./readiness-metadata";
 import type { pluginConfigContextFor } from "./runtime-resolver";
 
 export type RegisteredIntegrationProvider = {
-	readonly plan?: SourcePlan | undefined;
-	readonly readinessMetadata: IngestionReadinessMetadata;
 	readonly slug: string;
 	readonly name: string;
 	readonly pluginId: string;
-	readonly packageId: PluginPackageId;
-	readonly reference: DeclarationReference;
 	readonly description: string;
 	readonly installationId: string;
 	readonly requiresProKey?: boolean;
 	readonly settingsSchema: AppSchema;
-	readonly scriptSlug: string | null;
-	readonly pluginScope: "system" | "user";
-	readonly configContext: ReturnType<typeof pluginConfigContextFor>;
+	readonly scriptSlug: null | string;
+	readonly packageId: PluginPackageId;
+	readonly plan?: undefined | SourcePlan;
+	readonly pluginScope: "user" | "system";
+	readonly reference: DeclarationReference;
 	readonly lot: PluginIntegrationProvider["lot"];
+	readonly readinessMetadata: IngestionReadinessMetadata;
+	readonly configContext: ReturnType<typeof pluginConfigContextFor>;
 };
 
 const provider = schema.userIntegrationProvider;
@@ -107,7 +107,7 @@ const queryProvidersForSession = (database: DatabaseSession["Service"]) =>
 					integrationProviders,
 					...row
 				}): ReadonlyArray<{
-					readonly script: CatalogScript | null;
+					readonly script: null | CatalogScript;
 					readonly provider: RegisteredIntegrationProvider;
 				}> => {
 					if (
@@ -120,7 +120,7 @@ const queryProvidersForSession = (database: DatabaseSession["Service"]) =>
 					}
 
 					const result: {
-						readonly script: CatalogScript | null;
+						readonly script: null | CatalogScript;
 						readonly provider: RegisteredIntegrationProvider;
 					} = {
 						script: script && { ...script, pluginId, id: SandboxScriptId.make(script.id) },

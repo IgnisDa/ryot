@@ -306,7 +306,7 @@ describe("runtime sandbox host functions", () => {
 		type Sent = Readonly<{
 			url: string;
 			method: string;
-			body: string | null;
+			body: null | string;
 			headers: Readonly<Record<string, string>>;
 		}>;
 

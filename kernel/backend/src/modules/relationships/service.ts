@@ -273,7 +273,7 @@ export class RelationshipsService extends Context.Service<RelationshipsService>(
 					command: DomainLifecycleCommand,
 				) => single(prepareDeleteUserRelationshipById(userId, relationshipId, command)),
 				prepareMergeUserProperties: (
-					input: CreateRelationshipInput & { userId: UserId },
+					input: { userId: UserId } & CreateRelationshipInput,
 					command: DomainLifecycleCommand,
 				) =>
 					prepareSingleWithCatalog(relationshipIdentity(input), command, "merge", input.properties),
@@ -303,7 +303,7 @@ export class RelationshipsService extends Context.Service<RelationshipsService>(
 						input.properties,
 					),
 				mergeUserProperties: (
-					input: CreateRelationshipInput & { userId: UserId },
+					input: { userId: UserId } & CreateRelationshipInput,
 					command: DomainLifecycleCommand,
 				) =>
 					single(

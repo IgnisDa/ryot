@@ -36,16 +36,16 @@ import {
 } from "./runner-native.test-support";
 import { SandboxSidecarSupervisor } from "./supervisor";
 
-type Connection = Effect.Success<ReturnType<SandboxSidecarClient["Service"]["connect"]>>;
 type Event = Effect.Success<Connection["next"]>;
-type NativeConnectionEvidence = {
-	readonly connection: Connection;
-	readonly generation: number;
-	readonly instance: string;
-};
+type Connection = Effect.Success<ReturnType<SandboxSidecarClient["Service"]["connect"]>>;
 type NativeFrameEvidence = {
-	readonly frame: Event | SidecarInboundFrame;
 	readonly instance: string;
+	readonly frame: Event | SidecarInboundFrame;
+};
+type NativeConnectionEvidence = {
+	readonly instance: string;
+	readonly generation: number;
+	readonly connection: Connection;
 };
 
 export const killNativeConnection = Effect.fnUntraced(function* (connection: Connection) {
@@ -90,13 +90,13 @@ export class NativeRecoveryEvidence extends Context.Service<
 	{
 		readonly sent: NativeFrameEvidence[];
 		readonly sentSignal: Queue.Queue<void>;
+		readonly tightenedModules: Set<string>;
 		readonly received: NativeFrameEvidence[];
 		readonly connections: NativeConnectionEvidence[];
-		readonly tightenedModules: Set<string>;
 		readonly timeline: Array<{
+			readonly instance: string;
 			readonly direction: "sent" | "received";
 			readonly frame: Event | SidecarInboundFrame;
-			readonly instance: string;
 		}>;
 	}
 >()("test/NativeRecoveryEvidence") {}

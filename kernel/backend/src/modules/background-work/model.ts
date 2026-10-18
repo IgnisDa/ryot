@@ -27,10 +27,10 @@ export class BackgroundWorkExecutor extends Context.Service<
 export class BackgroundWorkProjectionFinalizer extends Context.Service<
 	BackgroundWorkProjectionFinalizer,
 	{
+		failed: (job: BackgroundWorkInput) => Effect.Effect<void, DbError>;
 		publish: (
 			job: BackgroundWorkInput,
 			output: unknown,
 		) => Effect.Effect<void, DbError, WorkflowEngine | WorkflowInstance>;
-		failed: (job: BackgroundWorkInput) => Effect.Effect<void, DbError>;
 	}
 >()("BackgroundWorkProjectionFinalizer") {}

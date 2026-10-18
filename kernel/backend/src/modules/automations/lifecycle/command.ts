@@ -41,12 +41,12 @@ export const populationLifecycleCommand = (
 });
 
 export const lifecycleActor = (
-	user: {
+	user: null | {
 		userId: UserId;
 		accountGeneration: AccountGeneration;
 		integrationId?: AutomationCausation["integrationId"];
-	} | null,
-): Pick<LifecycleCommand, "accountGeneration"> & { initiator: AutomationInitiator } => {
+	},
+): { initiator: AutomationInitiator } & Pick<LifecycleCommand, "accountGeneration"> => {
 	if (user === null) {
 		return { accountGeneration: null, initiator: { id: null, kind: "system" } };
 	}
@@ -67,7 +67,7 @@ export const automationRunLane = (run: {
 }): ExecutionLane => (run.delivery === "async" ? "background" : run.causation.lane);
 
 export const automationLifecycleCausation = (
-	parent: Pick<AutomationRunSubject, "causation" | "delivery" | "runId" | "triggerId">,
+	parent: Pick<AutomationRunSubject, "runId" | "delivery" | "causation" | "triggerId">,
 	executionId: AutomationExecutionId,
 ): AutomationCausation => ({
 	...parent.causation,
@@ -85,8 +85,8 @@ export const rootLifecycleCausation = (input: {
 	integrationId?: IntegrationId;
 	initiator: AutomationInitiator;
 	executionId: AutomationExecutionId;
-	source: Exclude<AutomationSource, "automation">;
 	providerExecutionId?: AutomationExecutionId;
+	source: Exclude<AutomationSource, "automation">;
 }): AutomationCausation => ({
 	depth: 0,
 	lane: input.lane,
@@ -105,7 +105,7 @@ export const rootLifecycleCausation = (input: {
 
 export const rootLifecycleCommand = (
 	input: Parameters<typeof rootLifecycleCausation>[0] &
-		Pick<LifecycleCommand, "itemIdentity" | "occurredAt" | "accountGeneration">,
+		Pick<LifecycleCommand, "occurredAt" | "itemIdentity" | "accountGeneration">,
 ): LifecycleCommand => ({
 	occurredAt: input.occurredAt,
 	itemIdentity: input.itemIdentity,
@@ -115,7 +115,7 @@ export const rootLifecycleCommand = (
 
 export const lifecycleTrigger = (
 	command: LifecycleCommand,
-	scopeUserId: UserId | null,
+	scopeUserId: null | UserId,
 	payload: AutomationTriggerPayload,
 	discriminator = "lifecycle",
 ): AutomationTrigger => {

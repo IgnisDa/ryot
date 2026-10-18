@@ -59,8 +59,8 @@ const recoveryIdentity = (executionId: string) => ({
 class RecordedRuns extends Context.Service<
 	RecordedRuns,
 	{
-		readonly runs: Effect.Effect<ReadonlyArray<RuntimeRunInput>>;
 		readonly reserved: Effect.Effect<ReadonlyArray<string>>;
+		readonly runs: Effect.Effect<ReadonlyArray<RuntimeRunInput>>;
 	}
 >()("test/RecordedRuns") {}
 

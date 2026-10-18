@@ -39,10 +39,10 @@ class RegistrationDatabase extends Context.Service<
 const makeRegisterLayer = (options: {
 	active: boolean;
 	inserted?: boolean;
-	installationId?: string | null;
-	pluginScope?: "system" | "user";
-	existing?: typeof schema.sandboxWorkflowReference.$inferSelect;
 	matchingScript?: boolean;
+	installationId?: null | string;
+	pluginScope?: "user" | "system";
+	existing?: typeof schema.sandboxWorkflowReference.$inferSelect;
 }) =>
 	Layer.unwrap(
 		Effect.gen(function* () {

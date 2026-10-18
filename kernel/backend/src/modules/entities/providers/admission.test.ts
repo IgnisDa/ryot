@@ -51,14 +51,14 @@ const listedEntity = {
 class FakeImportWorkflows extends Context.Service<
 	FakeImportWorkflows,
 	{
+		readonly nextStarted: Effect.Effect<string>;
 		readonly started: Effect.Effect<ReadonlyArray<string>>;
 		readonly interrupted: Effect.Effect<ReadonlyArray<string>>;
-		readonly nextStarted: Effect.Effect<string>;
+		readonly forget: (executionId: string) => Effect.Effect<void>;
 		readonly settle: (
 			executionId: string,
 			result: Workflow.Result<unknown, unknown>,
 		) => Effect.Effect<void>;
-		readonly forget: (executionId: string) => Effect.Effect<void>;
 	}
 >()("test/FakeImportWorkflows") {}
 

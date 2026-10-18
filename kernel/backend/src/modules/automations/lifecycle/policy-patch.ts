@@ -6,8 +6,8 @@ import type { JsonValue } from "@ryot-app/contract/schema/json";
 import { stableStringify } from "@ryot-app/ts-utils/json";
 
 type LifecyclePolicyPatchResult<Request extends AutomationRequestPayload> =
-	| { readonly ok: true; readonly request: Request }
-	| { readonly ok: false; readonly reason: string };
+	| { readonly ok: false; readonly reason: string }
+	| { readonly ok: true; readonly request: Request };
 
 const codeUnitCompare = (left: string, right: string) => {
 	if (left < right) {
@@ -46,7 +46,7 @@ const propertiesDelta = (
 export const canonicalLifecyclePolicyPatch = (
 	previous: AutomationRequestPayload,
 	successor: AutomationRequestPayload,
-): AutomationPolicyPatch | null => {
+): null | AutomationPolicyPatch => {
 	if (
 		previous.resource !== successor.resource ||
 		previous.operation !== successor.operation ||

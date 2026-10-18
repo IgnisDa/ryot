@@ -155,6 +155,8 @@ const sandboxResult = {
 	},
 };
 
+type DispatchedPlans = Parameters<LifecycleExecution["Service"]["dispatch"]>[0];
+
 class FakePopulationWrites extends Context.Service<
 	FakePopulationWrites,
 	{
@@ -162,8 +164,6 @@ class FakePopulationWrites extends Context.Service<
 		readonly payload: ProviderEntityPopulationAttemptPayload;
 	}
 >()("test/FakePopulationWrites") {}
-
-type DispatchedPlans = Parameters<LifecycleExecution["Service"]["dispatch"]>[0];
 
 const populationLayer = (options: {
 	readonly rootPlans?: ReadonlyArray<LifecyclePlan>;

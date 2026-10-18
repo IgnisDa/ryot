@@ -8,12 +8,13 @@ import {
 } from "@ryot-app/contract/modules/saved-views/schemas";
 import { Effect } from "effect";
 
-type SavedViewOrder = Pick<ListedSavedView, "reference" | "sortOrder" | "isHidden"> & {
-	readonly defaultSortOrder: number | null;
-};
-
 export type SavedViewReorderPlan = ReadonlyArray<
 	SavedViewOrder & { readonly currentSortOrder: number }
+>;
+
+type SavedViewOrder = { readonly defaultSortOrder: null | number } & Pick<
+	ListedSavedView,
+	"isHidden" | "reference" | "sortOrder"
 >;
 
 export const buildSavedViewReorderPlan = Effect.fn(function* (

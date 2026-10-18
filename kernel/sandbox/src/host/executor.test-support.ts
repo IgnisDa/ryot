@@ -5,7 +5,7 @@ import { SandboxExecutor } from "./executor";
 import type { SandboxPrincipal } from "./principal";
 
 export const makeUserPluginRevision = (input: {
-	readonly ownerId: UserId | null;
+	readonly ownerId: null | UserId;
 	readonly compiledHashes: Readonly<Record<string, string>>;
 }): NonNullable<SandboxPrincipal["pluginRevision"]> => ({
 	scope: "user",

@@ -24,16 +24,16 @@ const principal = {
 
 type InterestItem = {
 	readonly id: string;
-	readonly externalId: string | null;
-	readonly providerId: string | null;
 	readonly properties: object;
+	readonly userId: null | string;
 	readonly entitySchemaSlug: string;
-	readonly entitySchemaPluginId: string | null;
-	readonly userId: string | null;
-	readonly populatedAt: string | null;
+	readonly externalId: null | string;
+	readonly providerId: null | string;
+	readonly populatedAt: null | string;
 	readonly populationStatus: EnrichmentState;
-	readonly relatedPopulationStatus: EnrichmentState;
 	readonly translationStatus: EnrichmentState;
+	readonly entitySchemaPluginId: null | string;
+	readonly relatedPopulationStatus: EnrichmentState;
 };
 
 const populatedAt = "2026-10-20T08:30:00.000Z";

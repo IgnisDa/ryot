@@ -30,7 +30,7 @@ layer(testLayer)((test) => {
 		() =>
 			Effect.gen(function* () {
 				const session = yield* DatabaseSession;
-				const runtime = yield* Effect.context<DatabaseSession | RedisService>();
+				const runtime = yield* Effect.context<RedisService | DatabaseSession>();
 				const database = effectPostgresAuthAdapter({ session, context: runtime });
 				const adapter = database.adapter(authOptions);
 				const rollbackEmail = "rollback@auth-adapter.test";

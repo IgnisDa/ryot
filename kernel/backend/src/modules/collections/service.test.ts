@@ -194,17 +194,17 @@ const mockRelationshipSchemas = Layer.mock(RelationshipSchemaReader);
 type EntityCreateInput = Parameters<EntitiesService["Service"]["create"]>[0];
 type EntityUpdateInput = Parameters<EntitiesService["Service"]["update"]>[0];
 type EntityDeleteCall = Parameters<EntitiesService["Service"]["deleteByIds"]>;
+type WorkflowDispatch = { readonly payload: unknown; readonly executionId: string };
 type RelationshipCreateInput = Parameters<RelationshipsService["Service"]["prepareCreate"]>[0];
-type WorkflowDispatch = { readonly executionId: string; readonly payload: unknown };
 
 class CollectionCalls extends Context.Service<
 	CollectionCalls,
 	{
+		readonly deletedEntities: Effect.Effect<ReadonlyArray<EntityDeleteCall>>;
 		readonly createdEntities: Effect.Effect<ReadonlyArray<EntityCreateInput>>;
 		readonly updatedEntities: Effect.Effect<ReadonlyArray<EntityUpdateInput>>;
-		readonly deletedEntities: Effect.Effect<ReadonlyArray<EntityDeleteCall>>;
-		readonly relationshipInputs: Effect.Effect<ReadonlyArray<RelationshipCreateInput>>;
 		readonly workflowDispatches: Effect.Effect<ReadonlyArray<WorkflowDispatch>>;
+		readonly relationshipInputs: Effect.Effect<ReadonlyArray<RelationshipCreateInput>>;
 		readonly lifecycleCommands: Effect.Effect<Readonly<Record<string, DomainLifecycleCommand>>>;
 		readonly dispatchedTriggers: Effect.Effect<ReadonlyArray<ReadonlyArray<AutomationTriggerId>>>;
 	}
@@ -215,8 +215,8 @@ const membershipWorkflowExecutionId = "membership-workflow-execution-id";
 const makeServiceLayer = (
 	options: {
 		readonly entities?: MockOverrides<typeof mockEntities>;
-		readonly relationships?: MockOverrides<typeof mockRelationships>;
 		readonly collections?: MockOverrides<typeof mockCollections>;
+		readonly relationships?: MockOverrides<typeof mockRelationships>;
 		readonly workflow?: {
 			readonly eventFailure?: unknown;
 			readonly eventResult?: CreateEventsResponse;
@@ -398,10 +398,10 @@ const sandboxWriteContext = {
 
 const runMembershipWorkflow = (
 	options: {
-		readonly lifecycle?: DomainLifecycleCommand;
-		readonly mode?: CreateMembershipBody["mode"];
 		readonly properties?: unknown;
 		readonly operation?: "add" | "remove";
+		readonly lifecycle?: DomainLifecycleCommand;
+		readonly mode?: CreateMembershipBody["mode"];
 	} = {},
 ) =>
 	runCollectionMembershipWorkflow(

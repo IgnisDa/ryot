@@ -34,25 +34,25 @@ class FakeIntegrationSync extends Context.Service<
 	FakeIntegrationSync,
 	{
 		readonly executions: Effect.Effect<ReadonlyArray<ExecuteOptions>>;
-		readonly preparedFor: Effect.Effect<ReadonlyArray<UserId | null>>;
+		readonly preparedFor: Effect.Effect<ReadonlyArray<null | UserId>>;
 	}
 >()("test/FakeIntegrationSync") {}
 
 const makeSyncLayer = (options: {
+	journal?: boolean;
 	recovery?: ReadonlyArray<IntegrationSyncRun>;
 	prepare?: IntegrationsService["Service"]["prepareYankRuns"];
-	cutoff?: IntegrationsService["Service"]["captureRecoveryCutoff"];
-	journal?: boolean;
 	page?: IntegrationsService["Service"]["prepareRecoveryRuns"];
 	release?: (run: IntegrationSyncRun) => Effect.Effect<boolean>;
 	execute?: (options: ExecuteOptions) => Effect.Effect<unknown>;
+	cutoff?: IntegrationsService["Service"]["captureRecoveryCutoff"];
 }) =>
 	Layer.mergeAll(
 		mutationAdmissionTestLayer,
 		Layer.unwrap(
 			Effect.gen(function* () {
 				const executions = yield* Ref.make<ReadonlyArray<ExecuteOptions>>([]);
-				const preparedFor = yield* Ref.make<ReadonlyArray<UserId | null>>([]);
+				const preparedFor = yield* Ref.make<ReadonlyArray<null | UserId>>([]);
 				const instance = WorkflowInstance.initial(IntegrationSyncWorkflow, payload.executionId);
 				const execute = options.execute ?? (() => Effect.void);
 				const journal = new Map<string, Workflow.Complete<unknown, unknown>>();
@@ -133,7 +133,7 @@ const recoveryTail = [
 	run({ userId: "user-1", runId: "ready-tail", integrationId: "integration-1" }),
 	run({ userId: "user-1", runId: "cancelling-tail", integrationId: "integration-1" }),
 ];
-const fairnessCalls: { before: string; after: IngestionRecoveryCursor | null }[] = [];
+const fairnessCalls: { before: string; after: null | IngestionRecoveryCursor }[] = [];
 const fairnessReleases: string[] = [];
 layer(
 	makeSyncLayer({

@@ -42,24 +42,24 @@ import type { ExpandedInclude, ExpandedNamedQuery, ExpandedRowsOutput } from "./
 
 type SqlFragment = ReturnType<typeof sql>;
 type CompileScope = ReadonlyMap<string, CompileTable>;
-type RowsQuery = Omit<ExpandedNamedQuery, "output"> & { readonly output: ExpandedRowsOutput };
 type AggregateQuery = NamedQuery & { readonly output: AggregateOutput };
 type TimeSeriesQuery = NamedQuery & { readonly output: TimeSeriesOutput };
-type QuerySet = Pick<NamedQuery, "from" | "joins" | "where"> | CorrelatedQuerySet | Include;
+type Order = { readonly expr: ScalarExpression; readonly direction: "asc" | "desc" };
+type QuerySet = Include | CorrelatedQuerySet | Pick<NamedQuery, "from" | "joins" | "where">;
+type RowsQuery = Omit<ExpandedNamedQuery, "output"> & { readonly output: ExpandedRowsOutput };
 type CompileTable = {
 	readonly alias: string;
 	readonly table: CatalogTable;
 	readonly joinedNullable: boolean;
 	readonly executionScope: RyotQLExecutionScope;
 };
-type Order = { readonly expr: ScalarExpression; readonly direction: "asc" | "desc" };
 type CursorValue =
-	| { readonly kind: "null"; readonly value: null }
-	| { readonly kind: "boolean"; readonly value: boolean }
+	| { readonly value: null; readonly kind: "null" }
 	| { readonly kind: "date"; readonly value: string }
+	| { readonly kind: "text"; readonly value: string }
 	| { readonly kind: "json"; readonly value: unknown }
-	| { readonly kind: "number"; readonly value: number }
-	| { readonly kind: "text"; readonly value: string };
+	| { readonly value: number; readonly kind: "number" }
+	| { readonly value: boolean; readonly kind: "boolean" };
 
 const CURSOR_VERSION = 1;
 const encodeJson = Schema.encodeSync(Schema.fromJsonString(Schema.Unknown));
@@ -304,7 +304,7 @@ const compileConditional = (
 };
 
 const compileUnary = (
-	expr: Extract<ScalarExpression, { type: "floor" | "integer" | "round" }>,
+	expr: Extract<ScalarExpression, { type: "floor" | "round" | "integer" }>,
 	scope: CompileScope,
 ) => {
 	const value = compileCast({ type: "cast", expr: expr.expr, target: "number" }, scope);
@@ -558,7 +558,7 @@ const deniedTable = (table: CatalogTable) =>
 const userVisibilityCondition = (
 	table: CatalogTable,
 	scope: Extract<RyotQLExecutionScope, { type: "user" }>,
-): SqlFragment | null => {
+): null | SqlFragment => {
 	const policy = table.visibility.user;
 	if (!policy) {
 		throw deniedTable(table);
@@ -605,9 +605,6 @@ const pluginVisibilityCondition = (
 	if (policy.type === "schemaDefinition") {
 		let declared: readonly string[];
 		switch (policy.kind) {
-			case "entity":
-				declared = scope.entitySchemaSlugs;
-				break;
 			case "event":
 				if (scope.eventSchemas.length === 0) {
 					return sql`false`;
@@ -619,11 +616,14 @@ const pluginVisibilityCondition = (
 					),
 					sql` OR `,
 				)})`;
-			case "relationship":
-				declared = scope.relationshipSchemaSlugs;
+			case "entity":
+				declared = scope.entitySchemaSlugs;
 				break;
 			case "signal":
 				declared = scope.signalSchemaSlugs;
+				break;
+			case "relationship":
+				declared = scope.relationshipSchemaSlugs;
 				break;
 		}
 		return declared.length === 0
@@ -700,7 +700,7 @@ const authorizedTable = (table: CatalogTable, scope: RyotQLExecutionScope): SqlF
 			}
 		}
 	}
-	let condition: SqlFragment | null = null;
+	let condition: null | SqlFragment = null;
 	if (scope.type === "user") {
 		condition = userVisibilityCondition(table, scope);
 	} else if (scope.type === "plugin") {
@@ -839,7 +839,7 @@ const isColumnOrder = (expr: ScalarExpression, alias: string, field: string) =>
 	expr.type === "column" && expr.tableAlias === alias && expr.field === field;
 
 const orderSql = (
-	orders: readonly { readonly direction: "asc" | "desc"; readonly kind: ScalarKind }[],
+	orders: readonly { readonly kind: ScalarKind; readonly direction: "asc" | "desc" }[],
 ) =>
 	sql.join(
 		orders.map((order, index) => {
@@ -887,7 +887,7 @@ const appendPrimaryKeyOrders = (query: QuerySet, requested: readonly Order[]): O
 
 const cursorError = () => new RyotQLBadRequest({ reason: { code: "invalid-cursor" } });
 
-const makeCursorValue = (kind: ScalarKind, value: unknown): CursorValue | undefined => {
+const makeCursorValue = (kind: ScalarKind, value: unknown): undefined | CursorValue => {
 	if (kind === "null") {
 		return value === null ? { kind, value } : undefined;
 	}
@@ -1149,7 +1149,7 @@ const compileInclude = (
 ): SqlFragment => {
 	const scope = buildScope(include, executionScope, `i${path.join("_")}`, ancestors);
 	const root = requireCompileTable(scope, include.from.alias);
-	let rootSource: SqlFragment | undefined;
+	let rootSource: undefined | SqlFragment;
 	if (root.table.materializedInIncludes) {
 		rootSource = identifier(`i${path.join("_")}source`);
 		hoisted.push(sql`${rootSource} AS MATERIALIZED ${authorizedTable(root.table, executionScope)}`);
@@ -1207,7 +1207,7 @@ const compileCursorColumn = (expr: ScalarExpression, scope: CompileScope) => {
 const compileRowsQuery = (
 	query: RowsQuery,
 	executionScope: RyotQLExecutionScope,
-	cursor: readonly CursorValue[] | undefined,
+	cursor: undefined | readonly CursorValue[],
 ): SqlFragment => {
 	const scope = buildScope(query, executionScope, "");
 	const orders = appendPrimaryKeyOrders(query, query.output.orderBy);
@@ -1301,7 +1301,7 @@ const TIME_SERIES_BUCKET_STEPS: Record<TimeSeriesOutput["time"]["bucket"], strin
 
 const pgDialect = new PgDialect();
 
-type RyotQLResultBudget = { readonly limitBytes: number; remainingBytes: number };
+type RyotQLResultBudget = { remainingBytes: number; readonly limitBytes: number };
 
 // PostgreSQL measures the result as JSON text and withholds every row once the budget is exceeded,
 // so oversized results never reach the backend.
@@ -1312,7 +1312,7 @@ const executeSql = Effect.fn("executeRyotQLSql")(function* (
 	query: SqlFragment,
 	queryName: string,
 	db: EffectPgDatabase,
-	budget: RyotQLResultBudget | undefined,
+	budget: undefined | RyotQLResultBudget,
 ) {
 	const statementQuery = budget === undefined ? query : boundedQuery(query, budget.remainingBytes);
 	const { sql: statement } = pgDialect.sqlToQuery(statementQuery);
@@ -1457,7 +1457,7 @@ const reconstructInclude = (
 const aggregationMeasureKind = (
 	measure: AggregateMeasure,
 	scope: CompileScope,
-): ScalarKind | undefined => {
+): undefined | ScalarKind => {
 	if (measure.aggregation.function === "minimum" || measure.aggregation.function === "maximum") {
 		return scalarExpressionKind(measure.aggregation.expr, scope, kindResolver);
 	}
@@ -1497,7 +1497,7 @@ const executeAggregateQuery = Effect.fn("executeRyotQLAggregateQuery")(function*
 	query: AggregateQuery,
 	queryName: string,
 	db: EffectPgDatabase,
-	budget: RyotQLResultBudget | undefined,
+	budget: undefined | RyotQLResultBudget,
 ) {
 	const raw = yield* executeSql(
 		compileAggregateQuery(query, executionScope),
@@ -1531,7 +1531,7 @@ const executeTimeSeriesQuery = Effect.fn("executeRyotQLTimeSeriesQuery")(functio
 	query: TimeSeriesQuery,
 	queryName: string,
 	db: EffectPgDatabase,
-	budget: RyotQLResultBudget | undefined,
+	budget: undefined | RyotQLResultBudget,
 ) {
 	const raw = yield* executeSql(
 		compileTimeSeriesQuery(query, executionScope),
