@@ -323,7 +323,7 @@ const latestEpisodeEventExpressions = (episode: TableReference, alias: string) =
 	};
 };
 
-const publishDate = (episode: TableReference) =>
+export const publishDate = (episode: TableReference) =>
 	castDate(jsonPath(column(episode, "properties"), "publishDate"));
 
 /** A null or malformed `publishDate` casts to null and counts as aired. */
@@ -343,9 +343,10 @@ const airingFilters = {
 
 /**
  * Joins and predicate selecting a parent's regular episodes - every episode of a regular season
- * (`seasonNumber > 0`) for a show, every related episode for a podcast - narrowed by airing. The
- * aired set is the required set that coverage, counts, and next-up are judged over. `position`
+ * (`seasonNumber > 0`) for a show, every related episode for a podcast - narrowed by airing.
+ * The aired set is the required set that coverage, counts, and next-up are judged over. `position`
  * orders the episodes: `(seasonNumber, episodeNumber)` for a show, `episodeNumber` for a podcast.
+ * `seasons: "all"` also selects season-zero specials; `parentId` links each episode to its parent.
  */
 export const episodicEpisodeQuery = (
 	config: EpisodicKindConfig,
@@ -353,6 +354,7 @@ export const episodicEpisodeQuery = (
 	episode: TableReference,
 	alias: string,
 	airing: EpisodeAiring = "aired",
+	seasons: "regular" | "all" = "regular",
 ) => {
 	const airingFilter = airingFilters[airing](episode);
 	const airingPredicates = airingFilter === undefined ? [] : [airingFilter];
@@ -361,6 +363,7 @@ export const episodicEpisodeQuery = (
 		const relationship = table("relationship", `${alias}Relationship`);
 		return {
 			position: [episodeNumber],
+			parentId: column(relationship, "sourceEntityId"),
 			joins: [
 				join(
 					"inner",
@@ -382,6 +385,7 @@ export const episodicEpisodeQuery = (
 	const seasonNumber = castNumber(jsonPath(column(season, "properties"), "seasonNumber"));
 	return {
 		position: [seasonNumber, episodeNumber],
+		parentId: column(showSeason, "sourceEntityId"),
 		joins: [
 			join(
 				"inner",
@@ -394,7 +398,7 @@ export const episodicEpisodeQuery = (
 		where: and(
 			entitySchemaIs(episode, config.episodeSchemaSlug),
 			entitySchemaIs(season, "show-season"),
-			gt(seasonNumber, literal(0)),
+			...(seasons === "regular" ? [gt(seasonNumber, literal(0))] : []),
 			relationshipConnects(showSeason, parent, season, config.parentSeasonRelationshipSlug),
 			relationshipConnects(seasonEpisode, season, episode, config.seasonEpisodeRelationshipSlug),
 			...airingPredicates,

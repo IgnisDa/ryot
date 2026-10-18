@@ -18,6 +18,7 @@ import {
 	mediaLibraryMemberEntitySchemaSlugs,
 } from "../shared/media-schema-slugs";
 import { PLUGIN_PACKAGE_ID } from "../shared/plugin-identity";
+import { mediaCalendarSources } from "./calendar-sources";
 import { mediaConfigSchema } from "./config";
 import { mediaSavedViews } from "./saved-views";
 import { mediaEntitySchemas } from "./schemas/entity";
@@ -634,6 +635,7 @@ export const mediaPlugin = definePlugin({
 	providers: mediaProviders,
 	savedViews: mediaSavedViews(),
 	configSchema: mediaConfigSchema,
+	calendarSources: mediaCalendarSources(),
 	signalSchemas: mediaSignalSchemas("media-monitoring"),
 	userBootstrap: [
 		{
