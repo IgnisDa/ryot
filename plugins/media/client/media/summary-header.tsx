@@ -1,7 +1,7 @@
 import type { EntitySettleReason } from "@ryot-app/plugin-client-sdk";
 import { Badge, Button, Row, RowGroup } from "@ryot-app/plugin-ui-sdk";
 import { AppIcon } from "@ryot-app/plugin-ui-sdk/icon";
-import { MarkdownContent, markdownPlainText } from "@ryot-app/plugin-ui-sdk/markdown";
+import { markdownPlainText } from "@ryot-app/plugin-ui-sdk/markdown";
 import {
 	fieldSyncState,
 	isTitleProvisional,
@@ -19,8 +19,8 @@ import {
 	MediaExternalLink,
 	MediaFactRow,
 	MediaLinkButton,
+	MediaMarkdown,
 	MediaProgressBar,
-	useMediaOpenLink,
 } from "./primitives";
 import { MediaReviewButton } from "./review";
 import {
@@ -60,22 +60,16 @@ function MediaIdentityLine(props: {
 }
 
 function MediaDescription(props: { readonly text: string }) {
-	const { error, openLink } = useMediaOpenLink();
 	const [isExpanded, setIsExpanded] = useState(false);
 	return (
 		<div className="flex max-w-[62ch] flex-col gap-1">
 			{isExpanded ? (
 				<div className="text-[15px] leading-6 text-text-muted">
-					<MarkdownContent text={props.text} onOpenLink={openLink} />
+					<MediaMarkdown text={props.text} />
 				</div>
 			) : (
 				<p className="line-clamp-3 text-[15px] leading-6 text-text-muted">
 					{markdownPlainText(props.text)}
-				</p>
-			)}
-			{error === null ? null : (
-				<p role="alert" className="text-[13px] text-text-muted">
-					{error}
 				</p>
 			)}
 			<div className="flex items-start">
