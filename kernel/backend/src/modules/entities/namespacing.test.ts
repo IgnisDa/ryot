@@ -11,6 +11,7 @@ import {
 	RelationshipSchemaSlug,
 	UserId,
 } from "@ryot-app/contract/schema/brands";
+import { sortBy } from "@ryot-app/ts-utils/lodash";
 import { and, eq, inArray } from "drizzle-orm";
 import { DateTime, Effect, Schema } from "effect";
 import { WorkflowEngine, WorkflowInstance } from "effect/workflow/WorkflowEngine";
@@ -718,146 +719,6 @@ layer(relationshipDatabaseLayer())((test) => {
 					))[0]?.properties,
 				).toEqual({ title: "Foreign event" });
 			}),
-	);
-
-	test.effect("scopes batch event updates and deletes to the writer's plugin and user", () =>
-		Effect.gen(function* () {
-			yield* ensureKernelCollections;
-			const session = yield* DatabaseSession;
-			const otherUser = UserId.make("batch-event-other-user");
-			yield* session.run((db) =>
-				db
-					.insert(tables.user)
-					.values({
-						id: otherUser,
-						name: "Other",
-						email: "batch-event-other@example.test",
-						accountGeneration: "test-account-generation",
-					}),
-			);
-			const a = yield* installRevisionPackage(namespacePackage(), firstUser);
-			const b = yield* installRevisionPackage(namespacePackage(), firstUser);
-			const c = yield* installRevisionPackage(namespacePackage(), otherUser);
-			const entities = yield* EntitiesService;
-			const events = yield* EventsService;
-			const writer = yield* admittedCommand(a, firstUser, "batch-event-a");
-			const foreignWriter = yield* admittedCommand(b, firstUser, "batch-event-b");
-			const otherWriter = yield* admittedCommand(c, otherUser, "batch-event-c");
-			const tasted = EventSchemaSlug.make("tasted");
-			const recordEvent = Effect.fnUntraced(function* (
-				command: DomainLifecycleCommand,
-				userId: UserId,
-				entity: { readonly entitySchema: UpsertEntityInput["entitySchema"] } | "collection",
-				eventSchemaSlug: EventSchemaSlug,
-				identity: string,
-			) {
-				const created = yield* entities.create({
-					userId,
-					scope: "user",
-					name: identity,
-					properties: entity === "collection" ? {} : { title: identity },
-					entitySchema:
-						entity === "collection"
-							? { owner: { kind: "kernel" }, slug: EntitySchemaSlug.make("collection") }
-							: entity.entitySchema,
-					lifecycle:
-						entity === "collection"
-							? kernelCollectionLifecycleCommand(nextCommand(command, `${identity}-entity`))
-							: nextCommand(command, `${identity}-entity`),
-				});
-				const eventCommand = nextCommand(command, `${identity}-event`);
-				yield* createEvents(
-					entity === "collection" ? kernelCollectionLifecycleCommand(eventCommand) : eventCommand,
-					userId,
-					[{ eventSchemaSlug, entityId: created.entity.id, properties: { text: identity } }],
-					`${identity}-workflow`,
-				);
-				const [row] = yield* session.run((db) =>
-					db.select().from(tables.event).where(eq(tables.event.entityId, created.entity.id)),
-				);
-				assert(row);
-				return EventId.make(row.id);
-			});
-			const ownSchema = (installed: typeof a) => ({
-				entitySchema: { slug: bottle, owner: definitionOwner(installed.pluginId) },
-			});
-			const foreignEvent = yield* recordEvent(
-				foreignWriter.command,
-				firstUser,
-				ownSchema(b),
-				tasted,
-				"foreign",
-			);
-			const collectionReview = yield* recordEvent(
-				writer.command,
-				firstUser,
-				"collection",
-				EventSchemaSlug.make("review"),
-				"collection-review",
-			);
-			const otherUsersEvent = yield* recordEvent(
-				otherWriter.command,
-				otherUser,
-				ownSchema(c),
-				tasted,
-				"other-user",
-			);
-			for (const eventId of [foreignEvent, collectionReview]) {
-				expect(
-					yield* Effect.flip(
-						events.updateBatch(
-							[{ eventId, patch: { properties: { remove: [], set: { text: "Wrong" } } } }],
-							firstUser,
-							nextCommand(writer.command, `update-${eventId}`),
-						),
-					),
-				).toMatchObject({ reason: { code: "owner-mismatch" } });
-				expect(
-					yield* Effect.flip(
-						events.deleteBatch(
-							[eventId],
-							firstUser,
-							nextCommand(writer.command, `delete-${eventId}`),
-						),
-					),
-				).toMatchObject({ reason: { code: "owner-mismatch" } });
-			}
-			expect(
-				yield* Effect.flip(
-					events.updateBatch(
-						[
-							{
-								eventId: otherUsersEvent,
-								patch: { properties: { remove: [], set: { text: "Wrong" } } },
-							},
-						],
-						firstUser,
-						nextCommand(writer.command, "update-other-user"),
-					),
-				),
-			).toMatchObject({ reason: { code: "event-not-found" } });
-			expect(
-				yield* events.deleteBatch(
-					[otherUsersEvent],
-					firstUser,
-					nextCommand(writer.command, "delete-other-user"),
-				),
-			).toMatchObject({ count: 0 });
-			expect(
-				(yield* session.run((db) =>
-					db
-						.select({ properties: tables.event.properties })
-						.from(tables.event)
-						.where(inArray(tables.event.id, [foreignEvent, collectionReview, otherUsersEvent])),
-				)).map(({ properties }) => properties),
-			).toEqual(
-				expect.arrayContaining([
-					{ text: "foreign" },
-					{ text: "collection-review" },
-					{ text: "other-user" },
-				]),
-			);
-		}),
 	);
 
 	test.effect(
@@ -2214,5 +2075,144 @@ layer(relationshipDatabaseLayer())((test) => {
 					),
 				).toHaveLength(1);
 			}),
+	);
+});
+
+layer(relationshipDatabaseLayer())((test) => {
+	test.effect("scopes batch event updates and deletes to the writer's plugin and user", () =>
+		Effect.gen(function* () {
+			yield* ensureKernelCollections;
+			const session = yield* DatabaseSession;
+			const otherUser = UserId.make("batch-event-other-user");
+			yield* session.run((db) =>
+				db
+					.insert(tables.user)
+					.values({
+						id: otherUser,
+						name: "Other",
+						email: "batch-event-other@example.test",
+						accountGeneration: "test-account-generation",
+					}),
+			);
+			const a = yield* installRevisionPackage(namespacePackage(), firstUser);
+			const b = yield* installRevisionPackage(namespacePackage(), firstUser);
+			const c = yield* installRevisionPackage(namespacePackage(), otherUser);
+			const entities = yield* EntitiesService;
+			const events = yield* EventsService;
+			const writer = yield* admittedCommand(a, firstUser, "batch-event-a");
+			const foreignWriter = yield* admittedCommand(b, firstUser, "batch-event-b");
+			const otherWriter = yield* admittedCommand(c, otherUser, "batch-event-c");
+			const tasted = EventSchemaSlug.make("tasted");
+			const recordEvent = Effect.fnUntraced(function* (
+				command: DomainLifecycleCommand,
+				userId: UserId,
+				entity: { readonly entitySchema: UpsertEntityInput["entitySchema"] } | "collection",
+				eventSchemaSlug: EventSchemaSlug,
+				identity: string,
+			) {
+				const created = yield* entities.create({
+					userId,
+					scope: "user",
+					name: identity,
+					properties: entity === "collection" ? {} : { title: identity },
+					entitySchema:
+						entity === "collection"
+							? { owner: { kind: "kernel" }, slug: EntitySchemaSlug.make("collection") }
+							: entity.entitySchema,
+					lifecycle:
+						entity === "collection"
+							? kernelCollectionLifecycleCommand(nextCommand(command, `${identity}-entity`))
+							: nextCommand(command, `${identity}-entity`),
+				});
+				const eventCommand = nextCommand(command, `${identity}-event`);
+				yield* createEvents(
+					entity === "collection" ? kernelCollectionLifecycleCommand(eventCommand) : eventCommand,
+					userId,
+					[{ eventSchemaSlug, entityId: created.entity.id, properties: { text: identity } }],
+					`${identity}-workflow`,
+				);
+				const [row] = yield* session.run((db) =>
+					db.select().from(tables.event).where(eq(tables.event.entityId, created.entity.id)),
+				);
+				assert(row);
+				return EventId.make(row.id);
+			});
+			const ownSchema = (installed: typeof a) => ({
+				entitySchema: { slug: bottle, owner: definitionOwner(installed.pluginId) },
+			});
+			const foreignEvent = yield* recordEvent(
+				foreignWriter.command,
+				firstUser,
+				ownSchema(b),
+				tasted,
+				"foreign",
+			);
+			const collectionReview = yield* recordEvent(
+				writer.command,
+				firstUser,
+				"collection",
+				EventSchemaSlug.make("review"),
+				"collection-review",
+			);
+			const otherUsersEvent = yield* recordEvent(
+				otherWriter.command,
+				otherUser,
+				ownSchema(c),
+				tasted,
+				"other-user",
+			);
+			const storedProperties = session
+				.run((db) =>
+					db
+						.select({ id: tables.event.id, properties: tables.event.properties })
+						.from(tables.event)
+						.where(inArray(tables.event.id, [foreignEvent, collectionReview, otherUsersEvent])),
+				)
+				.pipe(Effect.map((rows) => sortBy(rows, "id")));
+			const before = yield* storedProperties;
+			expect(before).toHaveLength(3);
+			for (const eventId of [foreignEvent, collectionReview]) {
+				expect(
+					yield* Effect.flip(
+						events.updateBatch(
+							[{ eventId, patch: { properties: { remove: [], set: { text: "Wrong" } } } }],
+							firstUser,
+							nextCommand(writer.command, `update-${eventId}`),
+						),
+					),
+				).toMatchObject({ reason: { code: "owner-mismatch" } });
+				expect(
+					yield* Effect.flip(
+						events.deleteBatch(
+							[eventId],
+							firstUser,
+							nextCommand(writer.command, `delete-${eventId}`),
+						),
+					),
+				).toMatchObject({ reason: { code: "owner-mismatch" } });
+			}
+			expect(
+				yield* Effect.flip(
+					events.updateBatch(
+						[
+							{
+								eventId: otherUsersEvent,
+								patch: { properties: { remove: [], set: { text: "Wrong" } } },
+							},
+						],
+						firstUser,
+						nextCommand(writer.command, "update-other-user"),
+					),
+				),
+			).toMatchObject({ reason: { code: "event-not-found" } });
+			expect(
+				yield* events.deleteBatch(
+					[otherUsersEvent],
+					firstUser,
+					nextCommand(writer.command, "delete-other-user"),
+				),
+			).toMatchObject({ count: 0 });
+			expect(yield* storedProperties).toEqual(before);
+		}),
 	);
 });
