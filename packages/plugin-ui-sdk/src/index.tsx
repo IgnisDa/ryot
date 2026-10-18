@@ -17,9 +17,6 @@ export {
 export { ActionDock } from "./action-dock";
 export { ProgressBar } from "./progress-bar";
 export { clockFormat, Stepper } from "./stepper";
-export { Tabs, tabId } from "./tabs";
-export type { TabOption } from "./tabs";
-export { Tooltip } from "./tooltip";
 export { Card, Row, RowGroup } from "./surface";
 export { groupColors, groupColorVariable } from "./group-colors";
 export type { GroupColor } from "./group-colors";
@@ -37,7 +34,7 @@ export type { SelectChoice } from "./select";
 export { SearchField } from "./search-field";
 export { ReorderableList } from "./reorderable-list";
 export type { RadioGroupOption } from "./radio-group";
-export { CellInput, Checkbox, Field, FieldMessage, Radio, TextArea, TextField } from "./text-field";
+export { CellInput, Checkbox, Field, FieldMessage, TextArea, TextField } from "./text-field";
 export { SegmentedControl } from "./segmented-control";
 export { DestructiveConfirmation } from "./destructive-confirmation";
 export { ScreenBarButton, ScreenFrame } from "./screen-frame";

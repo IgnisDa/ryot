@@ -153,16 +153,3 @@ export function Checkbox({ label, className, ...props }: ChoiceProps) {
 		</label>
 	);
 }
-
-export function Radio({ label, className, ...props }: ChoiceProps) {
-	return (
-		<label className={clsx(choiceLabel, className)}>
-			<input
-				{...props}
-				type="radio"
-				className="size-4.5 shrink-0 appearance-none rounded-full border-[1.5px] border-border-strong bg-surface transition-[border-width,border-color] duration-100 checked:border-[5px] checked:border-accent-deep motion-reduce:transition-none"
-			/>
-			{label}
-		</label>
-	);
-}
