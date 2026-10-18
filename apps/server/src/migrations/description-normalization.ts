@@ -2,7 +2,7 @@ import { normalizeAnilistDescription } from "@ryot-app/media-plugin/backend/lib/
 import { normalizePlainDescription } from "@ryot-app/media-plugin/backend/lib/plain-description";
 import { normalizeRichDescription } from "@ryot-app/media-plugin/backend/lib/rich-description";
 import { normalizeVndbDescription } from "@ryot-app/media-plugin/backend/lib/vndb-description";
-import { Clock, Effect, Schema } from "effect";
+import { Clock, Effect, Exit, Schema } from "effect";
 import type * as SqlConnection from "effect/sql/SqlConnection";
 
 import { insertReportRows } from "./shared";
@@ -96,10 +96,31 @@ const normalizeDescription = Effect.fn("normalizeLegacyDescription")(function* (
 	}
 });
 
-export const normalizeLegacyDescriptions = Effect.fn("normalizeLegacyDescriptions")(function* (
+const normalizeDescriptions = Effect.fn("normalizeDescriptions")(function* (
 	connection: SqlConnection.Connection,
 ) {
 	const startedAt = yield* Clock.currentTimeMillis;
+	yield* connection.executeRaw(
+		`DO $$
+		DECLARE index_rec record;
+		BEGIN
+			CREATE TEMP TABLE _legacy_description_indexes ON COMMIT DROP AS
+			SELECT namespace.nspname, index_class.relname, pg_get_indexdef(index_class.oid) AS definition
+			FROM pg_index index_entry
+			INNER JOIN pg_class index_class ON index_class.oid = index_entry.indexrelid
+			INNER JOIN pg_namespace namespace ON namespace.oid = index_class.relnamespace
+			WHERE index_entry.indrelid = '"entity"'::regclass
+				AND NOT index_entry.indisunique
+				AND NOT EXISTS (
+					SELECT 1 FROM pg_constraint constraint_entry
+					WHERE constraint_entry.conindid = index_entry.indexrelid
+				);
+			FOR index_rec IN SELECT * FROM _legacy_description_indexes ORDER BY relname LOOP
+				EXECUTE format('DROP INDEX %I.%I', index_rec.nspname, index_rec.relname);
+			END LOOP;
+		END $$;`,
+		[],
+	);
 	const counts = new Map<string, number>();
 	let cursor: string | null = null;
 	for (;;) {
@@ -156,6 +177,17 @@ export const normalizeLegacyDescriptions = Effect.fn("normalizeLegacyDescription
 			cursor = input.entityId;
 		}
 	}
+	yield* connection.executeRaw(
+		`DO $$
+		DECLARE index_rec record;
+		BEGIN
+			FOR index_rec IN SELECT definition FROM _legacy_description_indexes ORDER BY relname LOOP
+				EXECUTE index_rec.definition;
+			END LOOP;
+			ANALYZE "entity";
+		END $$;`,
+		[],
+	);
 	const elapsedSeconds = ((yield* Clock.currentTimeMillis) - startedAt) / 1000;
 	yield* insertReportRows(connection, [
 		{
@@ -172,4 +204,19 @@ export const normalizeLegacyDescriptions = Effect.fn("normalizeLegacyDescription
 		})),
 	]);
 	return yield* Effect.void;
+});
+
+export const normalizeLegacyDescriptions = Effect.fn("normalizeLegacyDescriptions")(function* (
+	connection: SqlConnection.Connection,
+) {
+	return yield* Effect.acquireUseRelease(
+		connection.executeRaw("BEGIN", []),
+		() =>
+			normalizeDescriptions(connection).pipe(
+				Effect.andThen(connection.executeRaw("COMMIT", [])),
+				Effect.asVoid,
+			),
+		(_, exit) =>
+			Exit.isFailure(exit) ? connection.executeRaw("ROLLBACK", []).pipe(Effect.orDie) : Effect.void,
+	);
 });
