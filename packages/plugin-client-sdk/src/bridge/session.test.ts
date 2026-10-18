@@ -1005,6 +1005,7 @@ describe("plugin Effect request engine", () => {
 					slug: "greet",
 					output: Schema.String,
 					packageId: "test/fixture",
+					idempotencyKey: "submission-1",
 					inputSchema: Schema.Struct({}),
 				}),
 				{ startImmediately: true },
@@ -1017,6 +1018,7 @@ describe("plugin Effect request engine", () => {
 					requestId: "operation-1",
 					packageId: "test/fixture",
 					type: "operation-request",
+					idempotencyKey: "submission-1",
 				},
 			]);
 			channel.port1.postMessage({

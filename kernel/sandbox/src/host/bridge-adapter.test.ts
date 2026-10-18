@@ -43,6 +43,7 @@ const makeImplementations = (
 	createUserEntity: () => Effect.fail({ message: "unused" }),
 	deleteUserEntity: () => Effect.fail({ message: "unused" }),
 	updateUserEntity: () => Effect.fail({ message: "unused" }),
+	commitUserChanges: () => Effect.fail({ message: "unused" }),
 	getPersistentValue: () => Effect.fail({ message: "unused" }),
 	getUserPreferences: () => Effect.fail({ message: "unused" }),
 	getProAvailability: () => Effect.fail({ message: "unused" }),

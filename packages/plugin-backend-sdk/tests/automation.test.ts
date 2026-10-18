@@ -1,7 +1,8 @@
 import {
 	automationInputSchema,
 	automationPolicyInputSchema,
-	automationPolicyResultSchema,
+	automationPolicyBatchInputSchema,
+	automationPolicyBatchResultSchema,
 	automationResultSchema,
 	defineAutomation,
 	defineAutomationPolicy,
@@ -25,7 +26,7 @@ const manifest = defineManifest({
 	},
 });
 const run = () => Effect.succeed(null);
-const policyRun = () => Effect.succeed({ action: "allow" as const });
+const policyRun = () => Effect.succeed({ items: [] });
 
 describe("automation definitions", () => {
 	test("rejects authored capabilities on policy manifests at the SDK boundary", () => {
@@ -130,8 +131,8 @@ describe("automation definitions", () => {
 		expect(policy).toMatchObject({
 			run: policyRun,
 			manifest: policyManifest,
-			input: automationPolicyInputSchema,
-			output: automationPolicyResultSchema,
+			input: automationPolicyBatchInputSchema,
+			output: automationPolicyBatchResultSchema,
 			definitionType: SANDBOX_SCRIPT_DEFINITION,
 		});
 	});

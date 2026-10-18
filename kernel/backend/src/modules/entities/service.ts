@@ -139,6 +139,47 @@ type PreparedUserEntitySave = {
 	readonly created: PreparedEntityCreate | null;
 	readonly [preparedUserEntitySave]: PreparedMutation;
 };
+export const SerializedUserEntitySave = Schema.Struct({
+	entityId: EntityId,
+	mutation: PreparedEntityMutation,
+});
+export type SerializedUserEntitySave = typeof SerializedUserEntitySave.Type;
+
+export const serializeUserEntitySave = (
+	saved: PreparedUserEntitySave,
+): SerializedUserEntitySave => ({
+	entityId: saved.entityId,
+	mutation: saved[preparedUserEntitySave],
+});
+
+export const restoreUserEntitySave = Effect.fnUntraced(function* (saved: SerializedUserEntitySave) {
+	const decoded = yield* Schema.decodeEffect(SerializedUserEntitySave)(saved).pipe(
+		Effect.mapError(() => new DbError({ message: "Invalid serialized user entity save" })),
+	);
+	if (decoded.entityId !== decoded.mutation.entityId) {
+		return yield* new DbError({
+			message: "Serialized user entity save ID does not match its mutation",
+		});
+	}
+	const userId = decoded.mutation.scopeUserId;
+	if (userId === null) {
+		return yield* new DbError({ message: "Serialized user entity save has no user scope" });
+	}
+	return Object.freeze({
+		entityId: decoded.entityId,
+		[preparedUserEntitySave]: decoded.mutation,
+		created:
+			decoded.mutation.operation === "create"
+				? makePreparedEntityCreate({
+						userId,
+						entityId: decoded.entityId,
+						entitySchemaSlug: decoded.mutation.draft.entitySchemaSlug,
+						entitySchemaPluginId: decoded.mutation.entitySchemaPluginId,
+					})
+				: null,
+	});
+});
+
 type PrepareUserEntitySaveInput = {
 	userId: UserId;
 	name: string;

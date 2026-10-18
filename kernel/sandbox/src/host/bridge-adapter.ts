@@ -318,6 +318,12 @@ export const bindSandboxHostFunctions = <Input>(
 			domainSandboxHostContracts.invalidateOAuthAccessToken,
 			implementations.invalidateOAuthAccessToken,
 		),
+		commitUserChanges: bind(
+			"commitUserChanges",
+			domainSandboxHostContracts.commitUserChanges,
+			implementations.commitUserChanges,
+			{ failure: preserveWriteFailure },
+		),
 		verifyManagedAssets: bind(
 			"verifyManagedAssets",
 			coreSandboxHostContracts.verifyManagedAssets,

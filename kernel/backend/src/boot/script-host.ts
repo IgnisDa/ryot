@@ -57,6 +57,8 @@ import { SandboxSubmissionCommands } from "#modules/scripts/host/submission-comm
 import { ScriptExecutionServiceLive } from "#modules/scripts/layer";
 import { makeProKeyScriptHost } from "#modules/scripts/pro-key-script-host";
 import { SandboxRepository } from "#modules/scripts/registry/repository";
+import { makeUserCommandScriptHost } from "#modules/user-commands/script-host";
+import { UserCommands } from "#modules/user-commands/service";
 
 export const makeAdditionalScriptHostFunctions = Effect.gen(function* () {
 	return {
@@ -71,6 +73,7 @@ export const makeAdditionalScriptHostFunctions = Effect.gen(function* () {
 		...(yield* makeRelationshipScriptHost),
 		...(yield* makeRyotQLScriptHost),
 		...(yield* makeProKeyScriptHost),
+		...(yield* makeUserCommandScriptHost),
 	} satisfies AdditionalScriptHostImplementationMap;
 });
 
@@ -115,6 +118,7 @@ export const ScriptHostImplementationsLive = Layer.effect(
 			SignalEmissionServiceLive,
 			NotificationsServiceLive,
 			OAuthConnectionsServiceLive,
+			UserCommands.layer,
 		),
 	),
 	Layer.provide(EntitiesServiceRuntimeLive),

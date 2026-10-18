@@ -38,6 +38,7 @@ import {
 	UserLifecycleWorkflowOperations,
 	UserLifecycleWorkflowOperationsLive,
 } from "#modules/accounts/lifecycle/workflow";
+import { UserBootstrapWorkflow } from "#modules/accounts/provisioning/workflow";
 import { ObjectStorageService } from "#modules/assets/storage/object-storage";
 import {
 	withLifecycleBatchPlanning,
@@ -46,6 +47,11 @@ import {
 import { rootLifecycleCommand } from "#modules/automations/lifecycle/command";
 import { LifecycleExecution } from "#modules/automations/lifecycle/execution";
 import { LifecyclePlanner } from "#modules/automations/lifecycle/planning";
+import {
+	PolicyBatchPayload,
+	PolicyBatchWorkflow,
+	runPolicyBatchWorkflow,
+} from "#modules/automations/lifecycle/policy-batch";
 import { EventSchemaReader } from "#modules/definitions/event-schemas";
 import { EntitiesRepository } from "#modules/entities/repository";
 import type { DomainWriteChecks } from "#modules/entities/write-context";
@@ -58,12 +64,18 @@ import { testPluginPackageId } from "#modules/plugins/test-support";
 import { DatabaseSession } from "#platform/db/session";
 import { WorkflowExecutionNotifications } from "#platform/workflow/execution-notifications";
 import * as tables from "#schema/tables/combined";
-import { makeAppConfigLayer, makeConfigProviderLayer, makeWorkflowEngine } from "#testing/effect";
+import {
+	makeAppConfigLayer,
+	makeConfigProviderLayer,
+	makeWorkflowActivityEngine,
+	makeWorkflowEngine,
+} from "#testing/effect";
 import { IsolatedDatabase, isolatedDatabaseLayer } from "#testing/isolated-database";
 
 import { EventCreateWorkflow, EventCreateWorkflowPayload } from "./event-create-workflow";
 import { runEventCreateWorkflow } from "./event-create-workflow-live";
 import { eventCreateBatchInput } from "./mutation-receipts";
+import { EventMutations } from "./mutations";
 import { EventsRepository } from "./repository";
 import { EventsService } from "./service";
 
@@ -219,7 +231,8 @@ const planner = (
 										parentTriggerId: causation.parentTriggerId,
 										createdAt: DateTime.toDate(DateTime.makeUnsafe(trigger.createdAt)),
 										occurredAt: DateTime.toDate(DateTime.makeUnsafe(trigger.occurredAt)),
-									}),
+									})
+									.onConflictDoNothing(),
 							);
 							if (kind.category === "change") {
 								yield* session.run((db) =>
@@ -237,7 +250,8 @@ const planner = (
 											scriptContentHash: "hash",
 											retryPolicy: DEFAULT_AUTOMATION_RETRY_POLICY,
 											artifactsExpireAt: DateTime.toDate(DateTime.makeUnsafe(now)),
-										}),
+										})
+										.onConflictDoNothing(),
 								);
 								if (yield* Ref.get(failChange)) {
 									return yield* new DbError({ message: "planning failed after run insertion" });
@@ -310,6 +324,56 @@ const engine = makeWorkflowEngine({
 	activityExecute: (activity) =>
 		Effect.map(Effect.exit(activity.execute), (exit) => new Workflow.Complete({ exit })),
 });
+const runCreate = (
+	input: Parameters<typeof runEventCreateWorkflow>[0],
+	executionId: string,
+	instance = WorkflowInstance.initial(EventCreateWorkflow, executionId),
+	activityEngine?: WorkflowEngine["Service"],
+	dependencies: {
+		repository?: EventsRepository["Service"];
+		schemas?: EventSchemaReader["Service"];
+	} = {},
+) => {
+	const original = activityEngine ?? makeWorkflowActivityEngine(instance);
+	return Effect.gen(function* () {
+		const repository = dependencies.repository ?? (yield* EventsRepository);
+		const schemas = dependencies.schemas ?? (yield* EventSchemaReader);
+		const context =
+			yield* Effect.context<Effect.Services<ReturnType<typeof runPolicyBatchWorkflow>>>();
+		const capturedContext = activityEngine
+			? context.pipe(Context.add(WorkflowEngine, activityEngine))
+			: context;
+		const batchCapableEngine = makeWorkflowEngine({
+			...original,
+			execute: (workflow, options) =>
+				workflow._tag === PolicyBatchWorkflow._tag
+					? Schema.decodeUnknownEffect(PolicyBatchPayload)(options.payload).pipe(
+							Effect.orDie,
+							Effect.flatMap((payload) => {
+								const childInstance = WorkflowInstance.initial(
+									PolicyBatchWorkflow,
+									options.executionId,
+								);
+								return runPolicyBatchWorkflow(payload).pipe(
+									Effect.provideService(WorkflowEngine, makeWorkflowActivityEngine(childInstance)),
+									Effect.provideService(WorkflowInstance, childInstance),
+									Effect.provide(capturedContext),
+								);
+							}),
+						)
+					: Effect.die(`Unexpected workflow: ${workflow._tag}`),
+		});
+		return yield* runEventCreateWorkflow(input, executionId).pipe(
+			Effect.provideServiceEffect(EventMutations, EventMutations.make),
+			Effect.provideService(EventsRepository, repository),
+			Effect.provideService(EventSchemaReader, schemas),
+			Effect.provideService(WorkflowEngine, batchCapableEngine),
+		);
+	}).pipe(
+		Effect.provideService(WorkflowEngine, original),
+		Effect.provideService(WorkflowInstance, instance),
+	);
+};
 const lifecycleDatabaseLayer = (
 	noHooks = false,
 	options: {
@@ -514,9 +578,7 @@ describe("Event lifecycle PostgreSQL", () => {
 						Effect.gen(function* () {
 							const input = batchInput(id, system);
 							const instance = WorkflowInstance.initial(EventCreateWorkflow, id);
-							const exit = yield* runEventCreateWorkflow(input, id).pipe(
-								Effect.provideService(WorkflowInstance, instance),
-								Effect.provideService(WorkflowEngine, engine),
+							const exit = yield* runCreate(input, id, instance).pipe(
 								Effect.provideService(LifecyclePlanner, recordingPlanner),
 								Effect.provideService(
 									LifecycleExecution,
@@ -540,24 +602,17 @@ describe("Event lifecycle PostgreSQL", () => {
 						});
 					const suspended = yield* interrupted("event-suspension-prefix", false);
 					expect(suspended?.sealed).toBe(false);
-					const resumed = yield* runEventCreateWorkflow(
+					const resumed = yield* runCreate(
 						batchInput("event-suspension-prefix"),
 						"event-suspension-prefix",
-					).pipe(
-						Effect.provideService(
-							WorkflowInstance,
-							WorkflowInstance.initial(EventCreateWorkflow, "event-suspension-prefix"),
-						),
-						Effect.provideService(WorkflowEngine, engine),
-						Effect.provideService(LifecyclePlanner, recordingPlanner),
-					);
+					).pipe(Effect.provideService(LifecyclePlanner, recordingPlanner));
 					expect(resumed.count).toBe(2);
 					const resumedBatch = yield* session.run((db) =>
 						db
 							.select()
 							.from(tables.automationTrigger)
 							.where(
-								sql`${tables.automationTrigger.executionId} = ${"event-suspension-prefix"} and ${tables.automationTrigger.operation} = 'batch'`,
+								sql`${tables.automationTrigger.executionId} = ${"event-suspension-prefix"} and ${tables.automationTrigger.category} = 'change' and ${tables.automationTrigger.operation} = 'batch'`,
 							),
 					);
 					expect(resumedBatch[0]?.payload).toMatchObject({ items: [{}, {}] });
@@ -594,12 +649,7 @@ describe("Event lifecycle PostgreSQL", () => {
 							],
 						}),
 					);
-					const failed = yield* runEventCreateWorkflow(invalidInput, "invalid-first-event").pipe(
-						Effect.provideService(
-							WorkflowInstance,
-							WorkflowInstance.initial(EventCreateWorkflow, "invalid-first-event"),
-						),
-						Effect.provideService(WorkflowEngine, engine),
+					const failed = yield* runCreate(invalidInput, "invalid-first-event").pipe(
 						Effect.provideService(LifecyclePlanner, recordingPlanner),
 					);
 					expect(failed).toMatchObject({ count: 0, failure: { index: 0 } });
@@ -616,17 +666,19 @@ describe("Event lifecycle PostgreSQL", () => {
 					).toEqual([]);
 					expect(
 						yield* repository.getCreateProgress(userId, "event-cancelled-prefix"),
-					).toMatchObject({ writtenCount: 1 });
+					).toMatchObject({ writtenCount: 2 });
 					const batch = yield* session.run((db) =>
 						db
 							.select()
 							.from(tables.automationTrigger)
 							.where(
-								sql`${tables.automationTrigger.executionId} = ${"event-cancelled-prefix"} and ${tables.automationTrigger.operation} = 'batch'`,
+								sql`${tables.automationTrigger.executionId} = ${"event-cancelled-prefix"} and ${tables.automationTrigger.category} = 'change' and ${tables.automationTrigger.operation} = 'batch'`,
 							),
 					);
 					expect(batch).toHaveLength(1);
-					expect(batch[0]?.payload).toMatchObject({ items: [{ operation: "create" }] });
+					expect(batch[0]?.payload).toMatchObject({
+						items: [{ operation: "create" }, { operation: "create" }],
+					});
 					expect(
 						yield* session.run((db) =>
 							db
@@ -654,15 +706,7 @@ describe("Event lifecycle PostgreSQL", () => {
 						payload: [{ entityId, properties: {}, eventSchemaSlug }],
 					};
 					const run = () =>
-						runEventCreateWorkflow(payload, payload.command.causation.executionId).pipe(
-							Effect.provideService(WorkflowEngine, engine),
-							Effect.provideService(
-								WorkflowInstance,
-								WorkflowInstance.initial(
-									EventCreateWorkflow,
-									payload.command.causation.executionId,
-								),
-							),
+						runCreate(payload, payload.command.causation.executionId).pipe(
 							Effect.provideService(
 								LifecycleExecution,
 								withLifecycleDispatch({
@@ -717,7 +761,7 @@ describe("Event lifecycle PostgreSQL", () => {
 						let dispatched = 0;
 						return failChangePlanning(fail).pipe(
 							Effect.andThen(
-								runEventCreateWorkflow(
+								runCreate(
 									{
 										userId,
 										command: command(id),
@@ -725,11 +769,6 @@ describe("Event lifecycle PostgreSQL", () => {
 									},
 									id,
 								),
-							),
-							Effect.provideService(WorkflowEngine, engine),
-							Effect.provideService(
-								WorkflowInstance,
-								WorkflowInstance.initial(EventCreateWorkflow, id),
 							),
 							Effect.provideService(
 								LifecycleExecution,
@@ -1400,11 +1439,7 @@ describe("Event lifecycle PostgreSQL", () => {
 						Effect.map(
 							Effect.exit(
 								activity.execute.pipe(
-									Effect.provideService(
-										measuring,
-										activity.name.startsWith("prepare-chunk-") ||
-											activity.name.startsWith("write-event-"),
-									),
+									Effect.provideService(measuring, activity.name.startsWith("commit-events-")),
 								),
 							),
 							(exit) => new Workflow.Complete({ exit }),
@@ -1415,16 +1450,13 @@ describe("Event lifecycle PostgreSQL", () => {
 					command: command("source-operation-fixture"),
 					payload: [{ entityId, eventSchemaSlug, properties: { rating: 1 } }],
 				};
-				const result = yield* runEventCreateWorkflow(input, "source-operation-fixture").pipe(
-					Effect.provide(noHooks),
-					Effect.provideService(DatabaseSession, measuredSession),
-					Effect.provideService(EventsRepository, repository),
-					Effect.provideService(WorkflowEngine, measuredEngine),
-					Effect.provideService(
-						WorkflowInstance,
-						WorkflowInstance.initial(EventCreateWorkflow, "source-operation-fixture"),
-					),
-				);
+				const result = yield* runCreate(
+					input,
+					"source-operation-fixture",
+					WorkflowInstance.initial(EventCreateWorkflow, "source-operation-fixture"),
+					measuredEngine,
+					{ repository },
+				).pipe(Effect.provide(noHooks), Effect.provideService(DatabaseSession, measuredSession));
 				expect(result.failure).toBeNull();
 				expect(result.count).toBe(1);
 				expect(yield* Ref.get(transactionCount)).toBe(1);
@@ -1471,6 +1503,14 @@ describe("Event lifecycle PostgreSQL", () => {
 						| LifecyclePlanner
 						| LifecycleExecution
 					>()).pipe(Context.add(LifecycleExecution, gatedExecution));
+					const baseEngine = yield* WorkflowEngine;
+					const policyBatchContext = yield* Effect.context<
+						Effect.Services<ReturnType<typeof runPolicyBatchWorkflow>>
+					>().pipe(
+						Effect.provideService(WorkflowEngine, baseEngine),
+						Effect.provideService(WorkflowInstance, ownerInstance),
+						Effect.map((context) => context.pipe(Context.add(LifecycleExecution, gatedExecution))),
+					);
 					let recordingEngine: WorkflowEngine["Service"];
 					recordingEngine = makeWorkflowEngine({
 						poll: () => Effect.succeedNone,
@@ -1496,39 +1536,67 @@ describe("Event lifecycle PostgreSQL", () => {
 								yield* Ref.update(retired, (ids) => [...ids, executionId]);
 							}).pipe(Effect.orDie),
 						execute: (workflow, options) =>
-							Effect.gen(function* () {
-								if (workflow._tag !== EventCreateWorkflow._tag) {
-									return options.executionId;
-								}
-								const owners = yield* session.run((db) =>
-									db
-										.select()
-										.from(tables.mutationReceipt)
-										.where(
-											and(
-												eq(tables.mutationReceipt.receiptType, "workflow-owner"),
-												eq(tables.mutationReceipt.executionId, options.executionId),
+							workflow._tag === PolicyBatchWorkflow._tag
+								? Schema.decodeUnknownEffect(PolicyBatchPayload)(options.payload).pipe(
+										Effect.orDie,
+										Effect.flatMap((batch) => {
+											const childInstance = WorkflowInstance.initial(
+												PolicyBatchWorkflow,
+												options.executionId,
+											);
+											return runPolicyBatchWorkflow(batch).pipe(
+												Effect.provideService(
+													WorkflowEngine,
+													makeWorkflowActivityEngine(childInstance),
+												),
+												Effect.provideService(WorkflowInstance, childInstance),
+												Effect.provide(
+													policyBatchContext.pipe(Context.add(WorkflowEngine, recordingEngine)),
+												),
+											);
+										}),
+									)
+								: Effect.gen(function* () {
+										if (workflow._tag === UserLifecycleWorkflow._tag) {
+											expect(options.discard).toBe(true);
+											return options.executionId;
+										}
+										if (workflow._tag === UserBootstrapWorkflow._tag) {
+											return undefined;
+										}
+										if (workflow._tag !== EventCreateWorkflow._tag) {
+											return yield* Effect.die(`Unexpected workflow: ${workflow._tag}`);
+										}
+										const owners = yield* session.run((db) =>
+											db
+												.select()
+												.from(tables.mutationReceipt)
+												.where(
+													and(
+														eq(tables.mutationReceipt.receiptType, "workflow-owner"),
+														eq(tables.mutationReceipt.executionId, options.executionId),
+													),
+												),
+										);
+										expect(owners).toHaveLength(1);
+										expect(owners[0]?.workflowName).toBe(EventCreateWorkflow._tag);
+										const decoded = yield* Schema.decodeUnknownEffect(EventCreateWorkflowPayload)(
+											options.payload,
+										);
+										const instance =
+											options.executionId === ownerExecutionId
+												? ownerInstance
+												: WorkflowInstance.initial(EventCreateWorkflow, options.executionId);
+										return yield* runEventCreateWorkflow(decoded, options.executionId).pipe(
+											Effect.provideServiceEffect(EventMutations, EventMutations.make),
+											Effect.provide(
+												sourceContext.pipe(
+													Context.add(WorkflowEngine, recordingEngine),
+													Context.add(WorkflowInstance, instance),
+												),
 											),
-										),
-								);
-								expect(owners).toHaveLength(1);
-								expect(owners[0]?.workflowName).toBe(EventCreateWorkflow._tag);
-								const decoded = yield* Schema.decodeUnknownEffect(EventCreateWorkflowPayload)(
-									options.payload,
-								);
-								const instance =
-									options.executionId === ownerExecutionId
-										? ownerInstance
-										: WorkflowInstance.initial(EventCreateWorkflow, options.executionId);
-								return yield* runEventCreateWorkflow(decoded, options.executionId).pipe(
-									Effect.provide(
-										sourceContext.pipe(
-											Context.add(WorkflowEngine, recordingEngine),
-											Context.add(WorkflowInstance, instance),
-										),
-									),
-								);
-							}),
+										);
+									}),
 					});
 					const events = yield* EventsService.make.pipe(
 						Effect.provideService(WorkflowEngine, recordingEngine),
@@ -1642,6 +1710,7 @@ describe("Event lifecycle PostgreSQL", () => {
 					});
 					expect(
 						yield* runEventCreateWorkflow(payload, ownerExecutionId).pipe(
+							Effect.provideServiceEffect(EventMutations, EventMutations.make),
 							Effect.provideService(WorkflowEngine, recordingEngine),
 							Effect.provideService(
 								WorkflowInstance,
@@ -1659,6 +1728,32 @@ describe("Event lifecycle PostgreSQL", () => {
 					expect((yield* events.create(fresh, fresh.command)).count).toBe(1);
 					expect(yield* session.run((db) => db.select().from(tables.event))).toHaveLength(1);
 				}),
+		);
+	});
+
+	layer(Layer.merge(lifecycleDatabaseLayer(true), workflowLayer))((test) => {
+		test.effect("keeps operation replay receipts separate from imported source-item receipts", () =>
+			Effect.gen(function* () {
+				const lifecycle = command("imported-event-receipt");
+				assert(lifecycle.accountGeneration);
+				const result = yield* runCreate(
+					{
+						userId,
+						command: lifecycle,
+						itemIdentities: [lifecycle.itemIdentity],
+						payload: [{ entityId, eventSchemaSlug, properties: { rating: 2 } }],
+					},
+					lifecycle.causation.executionId,
+				);
+				expect(result.count).toBe(1);
+				const committed = yield* (yield* MutationReceipts.make).getCommittedItems({
+					userId,
+					itemIdentities: [lifecycle.itemIdentity],
+					accountGeneration: lifecycle.accountGeneration,
+					rootExecutionId: lifecycle.causation.rootExecutionId,
+				});
+				expect(committed.map(({ commandKind }) => commandKind)).toEqual(["event:create"]);
+			}),
 		);
 	});
 

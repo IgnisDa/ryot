@@ -1,20 +1,12 @@
 import { Schema } from "effect";
 
-import { EntityId, EventSchemaSlug } from "../../schema/brands";
+import { EntityId, EventId, EventSchemaSlug } from "../../schema/brands";
 import { JsonValue } from "../../schema/json";
 import { IsoUtcString, strictStruct } from "../../schema/utils";
-import { UpdateEventItem } from "./schemas";
 
 export const EventStreamWorkRequest = strictStruct({
 	entityId: EntityId,
 	eventSchemaSlug: EventSchemaSlug,
-	outputProperties: Schema.Array(Schema.NonEmptyString).check(
-		Schema.isMinLength(1),
-		Schema.isMaxLength(20),
-		Schema.makeFilter(
-			(keys) => new Set(keys).size === keys.length || "Expected unique output properties",
-		),
-	),
 });
 
 export const EventStreamProcessorReference = strictStruct({
@@ -32,5 +24,7 @@ export const EventStreamStepInput = strictStruct({
 export const EventStreamStepOutput = strictStruct({
 	done: Schema.Boolean,
 	checkpoint: JsonValue,
-	updates: Schema.Array(UpdateEventItem).check(Schema.isMaxLength(100)),
+	updates: Schema.Array(
+		strictStruct({ eventId: EventId, properties: Schema.Record(Schema.String, JsonValue) }),
+	).check(Schema.isMaxLength(100)),
 });

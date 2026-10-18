@@ -4,8 +4,10 @@ import { EntityId, EventId, EventSchemaSlug, UserId } from "@ryot-app/contract/s
 import { Context, DateTime, Effect, Layer, Ref } from "effect";
 
 import { BackupRestorePersistence } from "#modules/backups/restore/persistence";
-import { restorePersistenceWithDatabase } from "#modules/backups/restore/persistence.test-support";
 import { EventStreamRepository } from "#modules/events/stream-repository";
+import { PluginConfigEncryptionKey } from "#modules/plugins/configuration/encryption-key";
+import { PluginConfigRevisions } from "#modules/plugins/configuration/revisions";
+import { PluginInstallationRepository } from "#modules/plugins/installations/repository";
 import { DatabaseSession } from "#platform/db/session";
 import * as tables from "#schema/tables/combined";
 import { fakeDatabaseSession } from "#testing/effect";
@@ -79,14 +81,110 @@ const backupRows = Array.from({ length: BACKUP_EVENT_PAGE_SIZE }, (_, index) => 
 	id: `event-${index.toString().padStart(4, "0")}`,
 }));
 
-layer(recordingDatabaseLayer(restorePersistenceWithDatabase))((test) => {
-	test.effect("restores archived events as one batched insert and skips empty batches", () =>
+const restorePersistenceLayer = BackupRestorePersistence.layer.pipe(
+	Layer.provideMerge(
+		PluginInstallationRepository.layer.pipe(
+			Layer.provideMerge(
+				PluginConfigRevisions.layer.pipe(Layer.provide(PluginConfigEncryptionKey.layer)),
+			),
+		),
+	),
+	Layer.provideMerge(isolatedDatabaseLayer("event_restore_persistence")),
+);
+
+layer(restorePersistenceLayer)((test) => {
+	test.effect("restores source events and seeds a stream without changing history", () =>
 		Effect.gen(function* () {
+			const session = yield* DatabaseSession;
 			const batch = [restoreEventInput("event-1"), restoreEventInput("event-2")];
 			const persistence = yield* BackupRestorePersistence;
-			yield* persistence.restoreEvents(batch);
-			yield* persistence.restoreEvents([]);
-			expect(yield* (yield* RecordedDatabaseCalls).inserts).toEqual([batch]);
+			yield* session.run((db) =>
+				db
+					.insert(tables.user)
+					.values({ id: "user-id", name: "Restore owner", email: "restore-owner@example.test" }),
+			);
+			yield* session.run((db) =>
+				db
+					.insert(tables.entity)
+					.values({
+						id: "entity-id",
+						userId: "user-id",
+						name: "Restored entity",
+						entitySchemaSlug: "record",
+					}),
+			);
+			yield* session.transaction(persistence.restoreEvents(batch));
+
+			const listEvents = () =>
+				session.run((db) =>
+					db
+						.select({
+							id: tables.event.id,
+							userId: tables.event.userId,
+							entityId: tables.event.entityId,
+							createdAt: tables.event.createdAt,
+							updatedAt: tables.event.updatedAt,
+							occurredAt: tables.event.occurredAt,
+							properties: tables.event.properties,
+							eventSchemaSlug: tables.event.eventSchemaSlug,
+						})
+						.from(tables.event)
+						.orderBy(tables.event.id),
+				);
+			const events = yield* listEvents();
+			expect(events).toHaveLength(2);
+			expect(events).toEqual([
+				{
+					id: "event-1",
+					userId: "user-id",
+					entityId: "entity-id",
+					eventSchemaSlug: "review",
+					properties: { rating: 80 },
+					createdAt: DateTime.toDateUtc(DateTime.makeUnsafe("2024-01-01T00:00:00.000Z")),
+					updatedAt: DateTime.toDateUtc(DateTime.makeUnsafe("2024-02-01T00:00:00.000Z")),
+					occurredAt: DateTime.toDateUtc(DateTime.makeUnsafe("2023-12-01T00:00:00.000Z")),
+				},
+				{
+					id: "event-2",
+					userId: "user-id",
+					entityId: "entity-id",
+					eventSchemaSlug: "review",
+					properties: { rating: 80 },
+					createdAt: DateTime.toDateUtc(DateTime.makeUnsafe("2024-01-01T00:00:00.000Z")),
+					updatedAt: DateTime.toDateUtc(DateTime.makeUnsafe("2024-02-01T00:00:00.000Z")),
+					occurredAt: DateTime.toDateUtc(DateTime.makeUnsafe("2023-12-01T00:00:00.000Z")),
+				},
+			]);
+
+			const listStreams = () =>
+				session.run((db) =>
+					db
+						.select({
+							userId: tables.eventStream.userId,
+							entityId: tables.eventStream.entityId,
+							revision: tables.eventStream.revision,
+							eventSchemaSlug: tables.eventStream.eventSchemaSlug,
+							eventSchemaPluginId: tables.eventStream.eventSchemaPluginId,
+						})
+						.from(tables.eventStream),
+				);
+			const streams = yield* listStreams();
+			expect(streams).toEqual([
+				{
+					revision: 1,
+					userId: "user-id",
+					entityId: "entity-id",
+					eventSchemaSlug: "review",
+					eventSchemaPluginId: null,
+				},
+			]);
+
+			yield* session.transaction(persistence.restoreEvents([]));
+			const eventsAfterEmptyRestore = yield* listEvents();
+			const streamsAfterEmptyRestore = yield* listStreams();
+			expect(eventsAfterEmptyRestore).toHaveLength(2);
+			expect(eventsAfterEmptyRestore).toEqual(events);
+			expect(streamsAfterEmptyRestore).toEqual(streams);
 		}),
 	);
 });
@@ -173,11 +271,14 @@ layer(eventRepositoryStreamLayer)((test) => {
 			const request = (key: typeof sourceKey) =>
 				streams.request({
 					key,
-					outputProperties: ["rating"],
 					accountToken: "event-stream-account",
 					pluginRevisionId: "event-stream-revision",
 					processorScriptId: "event-stream-processor",
 					pluginPin: { revisionId: "event-stream-revision" },
+					outputSchema: {
+						unknownKeys: "strict",
+						fields: { rating: { type: "number", label: "rating", description: "rating" } },
+					},
 				});
 			const sourceStreamId = yield* session.transaction(request(sourceKey));
 			const targetStreamId = yield* session.transaction(request(targetKey));

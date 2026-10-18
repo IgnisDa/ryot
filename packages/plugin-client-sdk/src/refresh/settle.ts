@@ -5,8 +5,12 @@ export type EntitySettleReason = "populating" | "translating";
 
 export type EntitySettle = ReadonlyMap<string, EntitySettleReason>;
 
-const settleReason = (reason: EntityUpdate["reason"]): EntitySettleReason =>
-	reason === "translated" ? "translating" : "populating";
+const settleReason = (reason: EntityUpdate["reason"]): EntitySettleReason | null => {
+	if (reason === "projection-updated") {
+		return null;
+	}
+	return reason === "translated" ? "translating" : "populating";
+};
 
 export const createSettleTracker = (schedule: RyotSchedule, durationMs: number) => {
 	let disposed = false;
@@ -31,16 +35,17 @@ export const createSettleTracker = (schedule: RyotSchedule, durationMs: number) 
 	};
 	return {
 		snapshot: () => visible,
-		stage: (update: EntityUpdate) => {
-			if (!disposed) {
-				staged.set(update.entityId, settleReason(update.reason));
-			}
-		},
 		subscribe: (listener: () => void) => {
 			listeners.add(listener);
 			return () => {
 				listeners.delete(listener);
 			};
+		},
+		stage: (update: EntityUpdate) => {
+			const reason = settleReason(update.reason);
+			if (!disposed && reason !== null) {
+				staged.set(update.entityId, reason);
+			}
 		},
 		dispose: () => {
 			disposed = true;

@@ -38,7 +38,7 @@ import type { ScriptHost } from "@ryot-app/plugin-backend-sdk/core";
 
 const allowed: AutomationPolicyResult = { action: "allow" };
 export const manifest = defineManifest({ kind: "automation", slug: "pure-policy", name: "Pure policy", automationType: "policy", inputProjection: { event: { properties: [] } } });
-export default defineAutomationPolicy({ manifest, run: () => {
+export default defineAutomationPolicy({ manifest, run: ({ items }) => {
   const helpers = {
     nested: {
       pure: () => Effect.succeed(allowed),
@@ -47,7 +47,9 @@ export default defineAutomationPolicy({ manifest, run: () => {
     filesystem: () => readArtifact.pipe(Effect.as(allowed)),
   };
   const { nested } = helpers;
-  return nested.pure();
+  return nested.pure().pipe(Effect.map((decision) => ({
+    items: items.map(({ itemIdentity }) => ({ itemIdentity, decision })),
+  })));
 } });
 `
 						: `
@@ -75,12 +77,15 @@ export default defineWorkflow({ manifest, input: Schema.Struct({}), output: Sche
 						? `
 import { defineAutomationPolicy } from "@ryot-app/plugin-backend-sdk/automation";
 import { defineManifest } from "@ryot-app/plugin-backend-sdk/driver";
+import { Effect } from "@ryot-app/plugin-backend-sdk/effect";
 import { helpers } from "./helpers";
 
 export const manifest = defineManifest({ kind: "automation", slug: "pure-policy", name: "Pure policy", automationType: "policy", inputProjection: { event: { properties: [] } } });
-export default defineAutomationPolicy({ manifest, run: () => {
+export default defineAutomationPolicy({ manifest, run: ({ items }) => {
   const { nested } = helpers;
-  return nested.pure();
+  return nested.pure().pipe(Effect.map((decision) => ({
+    items: items.map(({ itemIdentity }) => ({ itemIdentity, decision })),
+  })));
 } });
 `
 						: `
@@ -229,7 +234,6 @@ export default defineAutomation({
   run: (_input, host) => host.requestEventStreamWork({
     entityId: event.entityId,
     eventSchemaSlug: event.eventSchemaSlug,
-    outputProperties: ["value"],
   }, processor).pipe(Effect.as(null)),
 });
 `,

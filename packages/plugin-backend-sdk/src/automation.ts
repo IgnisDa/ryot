@@ -3,6 +3,8 @@ import {
 	AutomationOutput as automationResultSchema,
 	AutomationPolicyInput as automationPolicyInputSchema,
 	AutomationPolicyOutput as automationPolicyResultSchema,
+	AutomationPolicyBatchInput as automationPolicyBatchInputSchema,
+	AutomationPolicyBatchOutput as automationPolicyBatchResultSchema,
 } from "@ryot-app/contract/modules/automations/lifecycle";
 import type { Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
 
@@ -14,6 +16,8 @@ export {
 	automationResultSchema,
 	automationPolicyInputSchema,
 	automationPolicyResultSchema,
+	automationPolicyBatchInputSchema,
+	automationPolicyBatchResultSchema,
 };
 export const automationContextSchema = automationInputSchema.fields.automation;
 export const automationPolicyContextSchema = automationPolicyInputSchema.fields.automation;
@@ -21,6 +25,12 @@ export type AutomationInput = Schema.Schema.Type<typeof automationInputSchema>;
 export type AutomationContext = Schema.Schema.Type<typeof automationContextSchema>;
 export type AutomationPolicyInput = Schema.Schema.Type<typeof automationPolicyInputSchema>;
 export type AutomationPolicyResult = Schema.Schema.Type<typeof automationPolicyResultSchema>;
+export type AutomationPolicyBatchInput = Schema.Schema.Type<
+	typeof automationPolicyBatchInputSchema
+>;
+export type AutomationPolicyBatchResult = Schema.Schema.Type<
+	typeof automationPolicyBatchResultSchema
+>;
 export type AutomationManifest = Extract<
 	SandboxManifest,
 	{ readonly kind: "automation"; readonly automationType: "automation" }
@@ -44,8 +54,8 @@ export type AutomationPolicyDefinition<
 	Failure,
 > = GenericScriptDefinition<
 	Manifest,
-	typeof automationPolicyInputSchema,
-	typeof automationPolicyResultSchema,
+	typeof automationPolicyBatchInputSchema,
+	typeof automationPolicyBatchResultSchema,
 	Failure
 >;
 
@@ -77,7 +87,7 @@ export const defineAutomationPolicy = <
 } => ({
 	run: definition.run,
 	manifest: definition.manifest,
-	input: automationPolicyInputSchema,
-	output: automationPolicyResultSchema,
+	input: automationPolicyBatchInputSchema,
+	output: automationPolicyBatchResultSchema,
 	definitionType: SANDBOX_SCRIPT_DEFINITION,
 });

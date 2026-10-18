@@ -100,6 +100,8 @@ it("exposes only approved event fields", () => {
 			"occurredAt",
 			"eventSchemaSlug",
 			"eventSchemaPluginId",
+			"projection",
+			"projectionStatus",
 			"sessionEntityId",
 		]),
 	);

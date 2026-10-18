@@ -1,4 +1,5 @@
 import type { JsonValue } from "@ryot-app/contract/schema/json";
+import type { AppSchema } from "@ryot-app/contract/schema/property-schema";
 import { sql } from "drizzle-orm";
 import { check, integer, jsonb, snakeCase, text } from "drizzle-orm/pg-core";
 
@@ -33,8 +34,8 @@ export const eventStreamWork = snakeCase.table(
 		attempt: integer().notNull().default(0),
 		pluginPin: jsonb().$type<JsonValue>().notNull(),
 		updatedAt: timestamptz().defaultNow().notNull(),
+		outputSchema: jsonb().$type<AppSchema>().notNull(),
 		checkpoint: jsonb().$type<JsonValue>().default(null),
-		outputProperties: jsonb().$type<ReadonlyArray<string>>().notNull().default([]),
 		id: text()
 			.notNull()
 			.primaryKey()

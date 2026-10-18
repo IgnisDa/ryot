@@ -26,6 +26,7 @@ export const SANDBOX_HOST_EXECUTION_POLICY = {
 	createUserEntity: { resultBytes: null, dispatch: "service-workflow" },
 	deleteUserEntity: { resultBytes: null, dispatch: "service-workflow" },
 	updateUserEntity: { resultBytes: null, dispatch: "service-workflow" },
+	commitUserChanges: { resultBytes: null, dispatch: "service-workflow" },
 	invalidateOAuthAccessToken: { resultBytes: KiB, dispatch: "activity" },
 	ensureUserEntities: { resultBytes: null, dispatch: "service-workflow" },
 	mergeUserEntityData: { resultBytes: null, dispatch: "service-workflow" },

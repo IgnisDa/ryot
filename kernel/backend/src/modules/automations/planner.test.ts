@@ -1616,7 +1616,11 @@ describe("LifecyclePlanner PostgreSQL", () => {
 						db.select({ payload: tables.automationTrigger.payload }).from(tables.automationTrigger),
 					);
 					const batches = triggers.flatMap(({ payload }) =>
-						payload?.operation === "batch" && payload.resource === "entity" ? [payload] : [],
+						payload?.category === "change" &&
+						payload.operation === "batch" &&
+						payload.resource === "entity"
+							? [payload]
+							: [],
 					);
 					expect(
 						batches.map(({ items }) => items.length).sort((left, right) => left - right),
@@ -1866,6 +1870,7 @@ describe("automation preparation", () => {
 					attemptNumber: 1,
 					acceptedPatches: [],
 				});
+				assert("automation" in prepared.input);
 				expect(prepared.input.automation.hookMetadata).toEqual({ version: "v1" });
 				expect(prepared.subject).toMatchObject({ pluginRevisionId: installed.revisionId });
 			}),

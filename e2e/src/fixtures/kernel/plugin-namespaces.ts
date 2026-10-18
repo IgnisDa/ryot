@@ -388,11 +388,15 @@ import { defineAutomationPolicy } from "@ryot-app/plugin-backend-sdk/automation"
 import { defineManifest } from "@ryot-app/plugin-backend-sdk/driver";
 import { Effect } from "@ryot-app/plugin-backend-sdk/effect";
 export const manifest = defineManifest({ kind: "automation", automationType: "policy", name: "Whiskey policy", slug: "policy", inputProjection: { event: { properties: ["note"] } } });
-export default defineAutomationPolicy({ manifest, run: ({ automation }) => Effect.succeed(
-  automation.payload.resource === "event" && automation.payload.operation === "create"
-    ? { action: "transform" as const, patch: { resource: "event" as const, draft: { properties: { remove: [], set: { note: ${JSON.stringify(`${label} policy`)} } } } } }
-    : { action: "allow" as const },
-) });
+export default defineAutomationPolicy({ manifest, run: ({ automation, items }) => Effect.succeed({ items: items.map(({ itemIdentity, payload }) => {
+  const itemAutomation = { ...automation, payload };
+  return {
+    itemIdentity,
+    decision: itemAutomation.payload.resource === "event" && itemAutomation.payload.operation === "create"
+      ? { action: "transform" as const, patch: { resource: "event" as const, draft: { properties: { remove: [], set: { note: ${JSON.stringify(`${label} policy`)} } } } } }
+      : { action: "allow" as const },
+  };
+}) }) });
 `;
 
 const afterSource = (label: string) => `

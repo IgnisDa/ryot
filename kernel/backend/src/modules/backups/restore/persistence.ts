@@ -11,6 +11,8 @@ import {
 	RelationshipId,
 	type SignalSchemaSlug,
 	UserId,
+	EventSchemaSlug,
+	PluginId,
 } from "@ryot-app/contract/schema/brands";
 import type { JsonValue } from "@ryot-app/contract/schema/json";
 import { UserPreferences } from "@ryot-app/contract/schema/user-preferences";
@@ -18,6 +20,7 @@ import { and, eq, isNotNull, isNull } from "drizzle-orm";
 import { Context, Effect, Layer, Schema } from "effect";
 
 import type { PortableUserProfile } from "#modules/accounts/auth/repository";
+import { EventStreamRepository } from "#modules/events/stream-repository";
 import { redactIntegrationForClient } from "#modules/integrations/client-redaction";
 import { redactPluginConfig } from "#modules/plugins/configuration/redaction";
 import { PluginConfigRevisions } from "#modules/plugins/configuration/revisions";
@@ -92,6 +95,7 @@ export class BackupRestorePersistence extends Context.Service<BackupRestorePersi
 			const session = yield* DatabaseSession;
 			const configs = yield* PluginConfigRevisions;
 			const installations = yield* PluginInstallationRepository;
+			const streams = yield* EventStreamRepository.make;
 
 			const restoreEntity = Effect.fn("BackupRestorePersistence.restoreEntity")(function* (
 				input: RestoreEntityInput,
@@ -120,6 +124,16 @@ export class BackupRestorePersistence extends Context.Service<BackupRestorePersi
 					return;
 				}
 				yield* session.run((db) => db.insert(schema.event).values([...inputs]));
+				yield* streams.touch(
+					inputs.map((input) => ({
+						occurredAt: input.occurredAt,
+						userId: UserId.make(input.userId),
+						entityId: EntityId.make(input.entityId),
+						eventSchemaSlug: EventSchemaSlug.make(input.eventSchemaSlug),
+						eventSchemaPluginId:
+							input.eventSchemaPluginId == null ? null : PluginId.make(input.eventSchemaPluginId),
+					})),
+				);
 			});
 			const restoreTranslation = Effect.fn("BackupRestorePersistence.restoreTranslation")(
 				function* (input: RestoreTranslationInput) {

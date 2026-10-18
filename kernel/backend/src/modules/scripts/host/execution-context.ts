@@ -44,13 +44,16 @@ export const sandboxRunIntegrationId = (input: UserSandboxRunInput) => {
 	if (input.principal.subject.type === "user") {
 		return input.principal.subject.integrationId ?? null;
 	}
+	if (input.principal.subject.type === "event-projection") {
+		return null;
+	}
 	return input.principal.subject.causation.integrationId ?? null;
 };
 
 export const userSandboxRunUserId = (input: UserSandboxRunInput) =>
-	input.principal.subject.type === "user"
-		? input.principal.subject.userId
-		: input.principal.subject.executionUserId;
+	input.principal.subject.type === "automation-run"
+		? input.principal.subject.executionUserId
+		: input.principal.subject.userId;
 
 const decodeAutomationInput = Schema.decodeUnknownEffect(automationInputSchema);
 

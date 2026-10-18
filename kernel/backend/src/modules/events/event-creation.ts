@@ -1,5 +1,8 @@
 import type { DbError } from "@ryot-app/contract/errors";
-import type { AutomationEventDraft } from "@ryot-app/contract/modules/automations/lifecycle";
+import {
+	AutomationEntityDraft,
+	type AutomationEventDraft,
+} from "@ryot-app/contract/modules/automations/lifecycle";
 import {
 	EventCreateItemError,
 	type CreateEventItem,
@@ -263,6 +266,7 @@ export const readEventCreateChunkScopes = Effect.fn("readEventCreateChunkScopes"
 		readonly items: ReadonlyArray<CreateEventItem>;
 		readonly commands: ReadonlyArray<DomainLifecycleCommand>;
 		readonly writeCommand: DomainLifecycleCommand;
+		readonly proposedEntities?: Readonly<Record<string, AutomationEntityDraft>>;
 	}) {
 		const eventSchemasRepository = yield* EventSchemaReader;
 		const entitiesRepository = yield* EntitiesRepository;
@@ -274,9 +278,10 @@ export const readEventCreateChunkScopes = Effect.fn("readEventCreateChunkScopes"
 		);
 		yield* entitiesRepository.lockEntityReferencesByIds(entityIds);
 		const entities = yield* entitiesRepository.getByIdsForUser({ entityIds, userId: input.userId });
+		const referenceOf = (id: EntityId) => input.proposedEntities?.[id] ?? entities.get(id);
 		const schemaInputs = new Map<string, EventCreateSchemaInput>();
 		for (const item of input.items) {
-			const entity = entities.get(EntityId.make(item.entityId.trim()));
+			const entity = referenceOf(EntityId.make(item.entityId.trim()));
 			const eventSchemaSlug = item.eventSchemaSlug.trim();
 			if (entity && eventSchemaSlug) {
 				const schemaInput = {
@@ -317,7 +322,7 @@ export const readEventCreateChunkScopes = Effect.fn("readEventCreateChunkScopes"
 				),
 			);
 		for (const item of input.items) {
-			const entity = entities.get(EntityId.make(item.entityId.trim()));
+			const entity = referenceOf(EntityId.make(item.entityId.trim()));
 			if (entity) {
 				for (const command of input.commands) {
 					yield* precheck(command, definitionOwner(entity.entitySchemaPluginId));
@@ -342,11 +347,11 @@ export const readEventCreateChunkScopes = Effect.fn("readEventCreateChunkScopes"
 				return declarations.get(key);
 			}),
 			entityScope: (entityId) => {
-				const entity = entities.get(entityId);
+				const entity = referenceOf(entityId);
 				return Effect.succeed(
 					entity
 						? {
-								entityId: entity.id,
+								entityId,
 								entitySchemaSlug: entity.entitySchemaSlug,
 								entitySchemaPluginId: entity.entitySchemaPluginId,
 							}
@@ -363,7 +368,7 @@ export const readEventCreateChunkScopes = Effect.fn("readEventCreateChunkScopes"
 			) {
 				const captured: CapturedEventReferences = {};
 				for (const [entityId, code] of new Map(eventReferences(draft))) {
-					const entity = entities.get(entityId);
+					const entity = referenceOf(entityId);
 					if (!entity) {
 						return yield* new EventCreateItemError({ reason: { code, entityId } });
 					}
@@ -371,6 +376,31 @@ export const readEventCreateChunkScopes = Effect.fn("readEventCreateChunkScopes"
 				}
 				return captured;
 			}),
+			references: yield* Schema.decodeUnknownEffect(Schema.Record(EntityId, AutomationEntityDraft))(
+				Object.fromEntries(
+					[...new Set(entityIds)].flatMap((id) => {
+						const entity = referenceOf(id);
+						return entity
+							? [
+									[
+										id,
+										{
+											name: entity.name,
+											properties: entity.properties,
+											providerId: entity.providerId,
+											externalId: entity.externalId,
+											populatedAt: entity.populatedAt,
+											entitySchemaSlug: entity.entitySchemaSlug,
+											entitySchemaPluginId: entity.entitySchemaPluginId,
+										},
+									],
+								]
+							: [];
+					}),
+				),
+			).pipe(
+				Effect.mapError(() => new EventCreateItemError({ reason: { code: "invalid-properties" } })),
+			),
 		};
 	},
 );

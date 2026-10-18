@@ -136,6 +136,11 @@ const automationRunSubjectFields = {
 
 export const SandboxExecutionSubject = Schema.Union([
 	strictStruct({ type: Schema.Literal("system") }),
+	strictStruct({
+		userId: UserId,
+		accountGeneration: AccountGeneration,
+		type: Schema.Literal("event-projection"),
+	}),
 	// Only trusted kernel dispatch sets integration and import run IDs, so scripts cannot widen
 	// credential or snapshot scope by supplying an ID.
 	strictStruct({
@@ -164,7 +169,10 @@ export const SandboxExecutionSubject = Schema.Union([
 			if (subject.type === "system") {
 				return true;
 			}
-			const userId = subject.type === "user" ? subject.userId : subject.executionUserId;
+			const userId =
+				subject.type === "user" || subject.type === "event-projection"
+					? subject.userId
+					: subject.executionUserId;
 			return (
 				(userId === null
 					? subject.accountGeneration === null
@@ -178,7 +186,7 @@ export const SandboxExecutionSubject = Schema.Union([
 export type SandboxExecutionSubject = Schema.Schema.Type<typeof SandboxExecutionSubject>;
 
 export const sandboxSubjectUserId = (subject: SandboxExecutionSubject) => {
-	if (subject.type === "user") {
+	if (subject.type === "user" || subject.type === "event-projection") {
 		return subject.userId;
 	}
 	return subject.type === "automation-run" ? subject.executionUserId : null;

@@ -24,8 +24,18 @@ export class EntityWatchSubscriber extends Context.Service<EntityWatchSubscriber
 					return;
 				}
 				const update = decoded.success;
-				const message = { type: "entity-updated", ...update } as const;
-				const sessionIds = yield* store.listWatchingSessions(update.entityId);
+				const message = {
+					reason: update.reason,
+					type: "entity-updated",
+					entityId: update.entityId,
+				} as const;
+				const watchingSessionIds = yield* store.listWatchingSessions(update.entityId);
+				const sessionIds =
+					update.userId === undefined
+						? watchingSessionIds
+						: (yield* store.getSessionMetadata(watchingSessionIds))
+								.filter((metadata) => metadata.userId === update.userId)
+								.map(({ sessionId }) => sessionId);
 				for (const sessionId of sessionIds) {
 					yield* sessions.enqueue(sessionId, message);
 				}

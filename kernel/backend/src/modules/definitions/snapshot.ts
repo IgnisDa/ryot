@@ -5,6 +5,7 @@ import {
 import {
 	PluginEntityEditor,
 	PluginEntityUserStatePolicy,
+	PluginEventProjection,
 	PluginRelationshipUserWritePolicy,
 	PluginSignalAudiencePolicy,
 } from "@ryot-app/contract/modules/plugins/manifest";
@@ -42,6 +43,7 @@ export const EventSchemaDefinition = Schema.Struct({
 	name: Schema.String,
 	slug: Schema.String,
 	propertiesSchema: AppSchema,
+	projection: Schema.optional(PluginEventProjection),
 });
 
 export type EventSchemaDefinition = typeof EventSchemaDefinition.Type;
@@ -335,6 +337,13 @@ const validateDefinitionSource = (
 				`${entitySchema.slug}:${eventSchema.slug}`,
 				eventSchema.propertiesSchema,
 			);
+			if (eventSchema.projection) {
+				assertSchemaDefinition(
+					"event projection",
+					`${entitySchema.slug}:${eventSchema.slug}`,
+					eventSchema.projection.propertiesSchema,
+				);
+			}
 		}
 	}
 

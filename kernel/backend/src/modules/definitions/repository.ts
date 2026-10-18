@@ -64,7 +64,7 @@ type CalendarSourceRow = Pick<
 
 type EventSchemaFields = Pick<
 	EventSchemaRow,
-	"entitySchemaId" | "name" | "propertiesSchema" | "slug"
+	"entitySchemaId" | "name" | "propertiesSchema" | "projection" | "slug"
 >;
 
 type DefinitionRows = {
@@ -79,7 +79,7 @@ type DefinitionRows = {
 type ListedOption = { readonly listed: boolean };
 
 type RevisionDeclarations = {
-	readonly event: Pick<EventSchemaRow, "propertiesSchema">;
+	readonly event: Pick<EventSchemaDefinition, "propertiesSchema" | "projection">;
 	readonly entity: Pick<EntitySchemaRow, "propertiesSchema">;
 	readonly relationship: Omit<RelationshipSchemaDefinition, "pluginId">;
 };
@@ -92,12 +92,13 @@ type RevisionDeclarationQuery<K extends keyof RevisionDeclarations> = {
 };
 
 const toEventSchema = (
-	row: Pick<EventSchemaRow, "name" | "pluginId" | "propertiesSchema" | "slug">,
+	row: Pick<EventSchemaRow, "name" | "pluginId" | "propertiesSchema" | "projection" | "slug">,
 ): EventSchemaDefinition => ({
 	name: row.name,
 	slug: row.slug,
 	pluginId: row.pluginId,
 	propertiesSchema: row.propertiesSchema,
+	...(row.projection === null ? {} : { projection: row.projection }),
 });
 
 const toEntitySchema = (
@@ -321,6 +322,7 @@ export class DefinitionRepository extends Context.Service<DefinitionRepository>(
 										entitySchemaId,
 										name: event.name,
 										slug: event.slug,
+										projection: event.projection ?? null,
 										propertiesSchema: event.propertiesSchema,
 									}))
 								: [];
@@ -553,6 +555,7 @@ export class DefinitionRepository extends Context.Service<DefinitionRepository>(
 											entitySchemaId,
 											name: event.name,
 											slug: event.slug,
+											projection: event.projection ?? null,
 											propertiesSchema: event.propertiesSchema,
 										})),
 									)
@@ -564,6 +567,7 @@ export class DefinitionRepository extends Context.Service<DefinitionRepository>(
 										set: {
 											name: sql`excluded.name`,
 											position: sql`excluded.position`,
+											projection: sql`excluded.projection`,
 											propertiesSchema: sql`excluded.properties_schema`,
 										},
 									}),
@@ -994,7 +998,10 @@ export class DefinitionRepository extends Context.Service<DefinitionRepository>(
 					}
 					const [row] = yield* session.run((db) =>
 						db
-							.select({ propertiesSchema: schema.definitionEventSchema.propertiesSchema })
+							.select({
+								projection: schema.definitionEventSchema.projection,
+								propertiesSchema: schema.definitionEventSchema.propertiesSchema,
+							})
 							.from(schema.definitionEventSchema)
 							.innerJoin(
 								schema.definitionEntitySchema,
@@ -1009,7 +1016,13 @@ export class DefinitionRepository extends Context.Service<DefinitionRepository>(
 							)
 							.limit(1),
 					);
-					return row;
+					if (!row) {
+						return undefined;
+					}
+					return {
+						propertiesSchema: row.propertiesSchema,
+						...(row.projection === null ? {} : { projection: row.projection }),
+					};
 				}),
 				relationship: Effect.fnUntraced(function* (input) {
 					const [row] = yield* session.run((db) =>

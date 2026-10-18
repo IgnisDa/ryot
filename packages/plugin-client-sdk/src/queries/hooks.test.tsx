@@ -65,6 +65,34 @@ afterEach(() => {
 });
 
 describe("Effect-native React definitions", () => {
+	it.live("refreshes pending results until the query becomes ready", () =>
+		Effect.gen(function* () {
+			const requests: Array<(pending: boolean) => void> = [];
+			const query = createRyotQuery<undefined, { readonly pending: boolean }>(
+				() =>
+					Effect.callback((resume) => {
+						requests.push((pending) => resume(Effect.succeed({ pending })));
+					}),
+				{ refreshWhile: ({ data }) => data.pending },
+			);
+			const View = () => {
+				const result = useRyotQuery(query, undefined);
+				return <p>{result.data?.pending === false ? "ready" : "pending"}</p>;
+			};
+			const clock = makeClock();
+			const { container } = render(<View />, clock);
+			act(() => requests[0]?.(true));
+			yield* Effect.promise(() => clock.advance(999));
+			expect(requests).toHaveLength(1);
+			yield* Effect.promise(() => clock.advance(1));
+			expect(requests).toHaveLength(2);
+			act(() => requests[1]?.(false));
+			yield* Effect.promise(() => waitFor(() => expect(container.textContent).toBe("ready")));
+			yield* Effect.promise(() => clock.advance(3000));
+			expect(requests).toHaveLength(2);
+		}),
+	);
+
 	it.live(
 		"interrupts superseded pagination requests even when the base query normally stays cached",
 		() =>

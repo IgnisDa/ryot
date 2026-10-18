@@ -125,7 +125,11 @@ const automationScript = (
 });
 
 const policySource = `
-import { defineAutomationPolicy } from "@ryot-app/plugin-backend-sdk/automation";
+import {
+  defineAutomationPolicy,
+  type AutomationPolicyInput,
+  type AutomationPolicyResult,
+} from "@ryot-app/plugin-backend-sdk/automation";
 import { defineManifest } from "@ryot-app/plugin-backend-sdk/driver";
 import { Effect } from "@ryot-app/plugin-backend-sdk/effect";
 
@@ -137,31 +141,35 @@ export const manifest = defineManifest({
   inputProjection: { event: { properties: ["marker"] } },
 });
 
+const decide = Effect.fn(function* (automation: AutomationPolicyInput["automation"]): Effect.fn.Return<AutomationPolicyResult, Error> {
+  const payload = automation.payload;
+  if (payload.resource !== "event" || payload.operation !== "create") {
+    return { action: "allow" };
+  }
+  const marker = payload.draft.properties.marker;
+  if (marker === "reject") {
+    return { action: "reject", reason: "fixture-policy-rejection" };
+  }
+  if (marker === "fail") {
+    return yield* Effect.fail(new Error("fixture policy execution failure"));
+  }
+  if (marker === "transform") {
+    return {
+      action: "transform",
+      patch: {
+        resource: "event",
+        draft: { properties: { set: { marker: "transformed" }, remove: [] } },
+      },
+    };
+  }
+  return { action: "allow" };
+});
+
 export default defineAutomationPolicy({
   manifest,
-  run: ({ automation }) => Effect.gen(function* () {
-    const payload = automation.payload;
-    if (payload.resource !== "event" || payload.operation !== "create") {
-      return { action: "allow" };
-    }
-    const marker = payload.draft.properties.marker;
-    if (marker === "reject") {
-      return { action: "reject", reason: "fixture-policy-rejection" };
-    }
-    if (marker === "fail") {
-      return yield* Effect.fail(new Error("fixture policy execution failure"));
-    }
-    if (marker === "transform") {
-      return {
-        action: "transform",
-        patch: {
-          resource: "event",
-          draft: { properties: { set: { marker: "transformed" }, remove: [] } },
-        },
-      };
-    }
-    return { action: "allow" };
-  }),
+  run: ({ automation, items }) => Effect.forEach(items, ({ itemIdentity, payload }) => Effect.gen(function* () {
+    return { itemIdentity, decision: yield* decide({ ...automation, payload }) };
+  })).pipe(Effect.map((items) => ({ items }))),
 });
 `;
 
@@ -549,7 +557,6 @@ const eventRequestPayload = (input: EventInput): EventCreateRequestPayload => {
 		resource: "event",
 		category: "request",
 		operation: "create",
-		excludedOncePerSubjectPolicies: [],
 		draft: {
 			sessionEntityId: null,
 			entityId: input.entityId,
@@ -633,9 +640,57 @@ const inspectPolicyCreate = (sourceRecord: SourceRecord, hookSlug: string) =>
 		const requests = yield* listAutomationTriggers({ triggerId: requestId });
 		expect(requests).toHaveLength(1);
 		const request = requirePresent(requests[0], "Expected the linked policy request trigger");
-		requireCreatePayload(request, "request", sourceRecord.resource);
+		if (sourceRecord.resource === "event") {
+			const payload = request.payload;
+			if (
+				payload?.category !== "request" ||
+				payload.resource !== "event" ||
+				payload.operation !== "batch" ||
+				payload.items.length === 0
+			) {
+				throw new Error(`Expected event batch request trigger '${request.id}'`);
+			}
+		} else {
+			requireCreatePayload(request, "request", sourceRecord.resource);
+		}
 		return { ...inspection, request };
 	});
+
+const listPolicyRequestTriggers = (userId: string) =>
+	Effect.gen(function* () {
+		const runs = yield* listAutomationRuns({
+			executionUserId: UserId.make(userId),
+			hookSlug: AutomationHookSlug.make(slugs.policyHook),
+		});
+		const triggerGroups = yield* Effect.forEach(runs, ({ triggerId }) =>
+			listAutomationTriggers({ triggerId }),
+		);
+		return triggerGroups.flat();
+	});
+
+const requireBatchRequestForEvent = (
+	triggers: ReadonlyArray<AutomationTrigger>,
+	input: EventInput,
+) => {
+	const expected = eventRequestPayload(input);
+	return requirePresent(
+		triggers.find(
+			({ payload }) =>
+				payload?.category === "request" &&
+				payload.resource === "event" &&
+				payload.operation === "batch" &&
+				payload.items.some(
+					(item) =>
+						item.resource === "event" &&
+						item.operation === "create" &&
+						item.draft.entityId === expected.draft.entityId &&
+						item.draft.eventSchemaSlug === expected.draft.eventSchemaSlug &&
+						item.draft.occurredAt === expected.draft.occurredAt,
+				),
+		),
+		"Expected matching event batch request trigger",
+	);
+};
 
 let installed: InstalledTestPlugin | undefined;
 
@@ -706,7 +761,7 @@ describe("automation lifecycle triggers", () => {
 
 	it.live("runs request policies and commits only accepted or transformed event drafts", () =>
 		Effect.gen(function* () {
-			const { client } = yield* createAuthenticatedClient();
+			const { client, userId } = yield* createAuthenticatedClient();
 			const entity = yield* createFixtureEntity(client, "policy-source");
 			const allowed = eventInput(entity.id, slugs.policyEvent, "allow", "2026-09-16T01:00:00.000Z");
 			const transformedInput = eventInput(
@@ -722,22 +777,19 @@ describe("automation lifecycle triggers", () => {
 				"2026-09-16T01:02:00.000Z",
 			);
 			const failed = eventInput(entity.id, slugs.policyEvent, "fail", "2026-09-16T01:03:00.000Z");
-			const payload = [allowed, transformedInput, rejected, failed] satisfies CreateEventsPayload;
-
-			const result = yield* createEvents(client, payload);
-			expect(result).toMatchObject({
+			const acceptedResult = yield* createEvents(client, [allowed, transformedInput]);
+			expect(acceptedResult).toMatchObject({
 				count: 2,
 				warnings: [],
-				failure: { index: 3, reason: { code: "policy-execution-failed" } },
+				failure: null,
 				outcomes: [
 					{ index: 0, status: "written" },
 					{ index: 1, status: "written" },
-					{ index: 2, status: "skipped_by_policy", reason: "fixture-policy-rejection" },
 				],
 			});
 
-			const acceptedId = requireWrittenEventId(result, 0);
-			const transformedId = requireWrittenEventId(result, 1);
+			const acceptedId = requireWrittenEventId(acceptedResult, 0);
+			const transformedId = requireWrittenEventId(acceptedResult, 1);
 			const accepted = yield* inspectPolicyCreate(
 				{ id: acceptedId, resource: "event" },
 				slugs.policyAfterHook,
@@ -746,8 +798,14 @@ describe("automation lifecycle triggers", () => {
 				{ resource: "event", id: transformedId },
 				slugs.policyAfterHook,
 			);
-			expect(accepted.request.payload).toEqual(eventRequestPayload(allowed));
-			expect(transformed.request.payload).toEqual(eventRequestPayload(transformedInput));
+			expect(transformed.request.id).toBe(accepted.request.id);
+			expect(accepted.request.payload).toMatchObject({
+				resource: "event",
+				operation: "batch",
+				category: "request",
+				items: [eventRequestPayload(allowed), eventRequestPayload(transformedInput)],
+			});
+			expect(transformed.request.payload).toEqual(accepted.request.payload);
 			const transformedChange = requireCreatePayload(transformed.change, "change", "event");
 			expect(transformedChange.after).toMatchObject({
 				id: transformedId,
@@ -759,10 +817,23 @@ describe("automation lifecycle triggers", () => {
 				eventSchemaSlug: EventSchemaSlug.make(slugs.policyEvent),
 			});
 
-			const rejectedRequest = requirePresent(
-				(yield* listAutomationTriggers({ payload: eventRequestPayload(rejected) }))[0],
-				"Expected rejected request trigger",
+			const rejectedResult = yield* createEvents(client, [rejected]);
+			expect(rejectedResult).toMatchObject({
+				count: 0,
+				warnings: [],
+				failure: null,
+				outcomes: [{ index: 0, status: "skipped_by_policy", reason: "fixture-policy-rejection" }],
+			});
+			const rejectedRequest = requireBatchRequestForEvent(
+				yield* listPolicyRequestTriggers(userId),
+				rejected,
 			);
+			expect(rejectedRequest.payload).toMatchObject({
+				resource: "event",
+				operation: "batch",
+				category: "request",
+				items: [eventRequestPayload(rejected)],
+			});
 			const rejectedTree = yield* listAutomationTriggers({
 				rootExecutionId: rejectedRequest.causation.rootExecutionId,
 			});
@@ -777,15 +848,28 @@ describe("automation lifecycle triggers", () => {
 			expect(rejectedRuns).toHaveLength(1);
 			expect(rejectedRuns[0]).toMatchObject({
 				stage: "before",
-				status: "rejected",
 				delivery: "policy",
+				status: "succeeded",
 				hookSlug: slugs.policyHook,
 			});
 
-			const failedRequest = requirePresent(
-				(yield* listAutomationTriggers({ payload: eventRequestPayload(failed) }))[0],
-				"Expected failed request trigger",
+			const failedResult = yield* createEvents(client, [failed]);
+			expect(failedResult).toMatchObject({
+				count: 0,
+				warnings: [],
+				failure: { index: 0, reason: { code: "policy-execution-failed" } },
+				outcomes: [{ index: 0, status: "failed", reason: { code: "policy-execution-failed" } }],
+			});
+			const failedRequest = requireBatchRequestForEvent(
+				yield* listPolicyRequestTriggers(userId),
+				failed,
 			);
+			expect(failedRequest.payload).toMatchObject({
+				resource: "event",
+				operation: "batch",
+				category: "request",
+				items: [eventRequestPayload(failed)],
+			});
 			const failedTree = yield* listAutomationTriggers({
 				rootExecutionId: failedRequest.causation.rootExecutionId,
 			});
@@ -867,7 +951,12 @@ describe("automation lifecycle triggers", () => {
 				{ id: eventId, resource: "event" },
 				slugs.policyAfterHook,
 			);
-			expect(eventInspection.request.payload).toEqual(eventRequestPayload(event));
+			expect(eventInspection.request.payload).toMatchObject({
+				resource: "event",
+				operation: "batch",
+				category: "request",
+				items: [eventRequestPayload(event)],
+			});
 			const eventChange = requireCreatePayload(eventInspection.change, "change", "event");
 			const { createdAt, updatedAt, ...eventSnapshot } = eventChange.after;
 			expect(eventSnapshot).toEqual({
@@ -949,7 +1038,12 @@ describe("automation lifecycle triggers", () => {
 				{ resource: "event", id: requireWrittenEventId(rawResult) },
 				slugs.policyAfterHook,
 			);
-			expect(contractInspection.request.payload).toEqual(eventRequestPayload(item));
+			expect(contractInspection.request.payload).toMatchObject({
+				resource: "event",
+				operation: "batch",
+				category: "request",
+				items: [eventRequestPayload(item)],
+			});
 			expect(rawInspection.request.payload).toEqual(contractInspection.request.payload);
 			expect(rawInspection.run).toMatchObject({
 				stage: contractInspection.run.stage,

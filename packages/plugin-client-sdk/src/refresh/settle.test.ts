@@ -7,6 +7,22 @@ import { createSettleTracker } from "./settle";
 
 describe("createSettleTracker", () => {
 	layer(RyotScheduleService.layer)((test) => {
+		test.effect("does not mark projection refreshes as population settling", () =>
+			Effect.gen(function* () {
+				const schedule = yield* RyotScheduleService;
+				const tracker = createSettleTracker(schedule, 900);
+				tracker.stage({ entityId: "a", reason: "populated" });
+				tracker.commit();
+				yield* advanceRyotSchedule(600);
+				tracker.stage({ entityId: "a", reason: "projection-updated" });
+				tracker.stage({ entityId: "b", reason: "projection-updated" });
+				tracker.commit();
+				expect([...tracker.snapshot()]).toEqual([["a", "populating"]]);
+				yield* advanceRyotSchedule(300);
+				expect([...tracker.snapshot()]).toEqual([]);
+			}),
+		);
+
 		test.effect("keeps staged updates invisible until commit and expires them after the ring", () =>
 			Effect.gen(function* () {
 				const schedule = yield* RyotScheduleService;

@@ -227,7 +227,12 @@ defineAutomationPolicy({
 		void host.executeWorkflow;
 		// @ts-expect-error policy hosts expose only policy-safe methods.
 		host.httpCall("GET", "https://example.com");
-		return Effect.succeed({ action: "allow" as const });
+		return Effect.succeed({
+			items: _input.items.map(({ itemIdentity }) => ({
+				itemIdentity,
+				decision: { action: "allow" as const },
+			})),
+		});
 	},
 });
 

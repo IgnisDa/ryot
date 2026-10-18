@@ -124,6 +124,49 @@ const insertRun = Effect.fn(function* (input: {
 });
 
 layer(testLayer)((test) => {
+	test.effect("retains assets referenced only by event projection output", () =>
+		Effect.gen(function* () {
+			const session = yield* DatabaseSession;
+			const references = yield* ManagedAssetReferencesRepository;
+			const ownerUserId = UserId.make(crypto.randomUUID());
+			const locator = yield* insertManagedAsset(ownerUserId);
+			const entityId = yield* insertEntity({
+				properties: {},
+				userId: ownerUserId,
+				entitySchemaSlug: "projection-source",
+			});
+			const eventId = crypto.randomUUID();
+			const streamId = crypto.randomUUID();
+			yield* session.run((db) =>
+				db
+					.insert(tables.event)
+					.values({
+						entityId,
+						id: eventId,
+						properties: {},
+						userId: ownerUserId,
+						occurredAt: new Date(),
+						eventSchemaSlug: "source",
+					}),
+			);
+			yield* session.run((db) =>
+				db
+					.insert(tables.eventStream)
+					.values({ entityId, id: streamId, userId: ownerUserId, eventSchemaSlug: "source" }),
+			);
+			yield* session.run((db) =>
+				db
+					.insert(tables.eventProjection)
+					.values({ eventId, streamId, properties: { image: locator } }),
+			);
+			expect(yield* references.hasReference(ownerUserId, locator)).toBe(true);
+			yield* session.run((db) =>
+				db.delete(tables.eventProjection).where(eq(tables.eventProjection.eventId, eventId)),
+			);
+			expect(yield* references.hasReference(ownerUserId, locator)).toBe(false);
+		}),
+	);
+
 	test.effect("other users' rows holding other locators do not block cleanup", () =>
 		Effect.gen(function* () {
 			const session = yield* DatabaseSession;

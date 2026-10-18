@@ -536,6 +536,7 @@ export function openPluginBridge(options: PluginBridgeOptions): PluginBridgeSess
 				input: request.input,
 				packageId: request.packageId,
 				operationSlug: request.operationSlug,
+				...(request.idempotencyKey === undefined ? {} : { idempotencyKey: request.idempotencyKey }),
 			}),
 		);
 	}

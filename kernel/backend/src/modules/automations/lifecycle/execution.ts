@@ -1,6 +1,8 @@
 import type { DbError } from "@ryot-app/contract/errors";
 import type {
+	AutomationEntityDraft,
 	AutomationPolicyOutput,
+	AutomationPolicyBatchOutput,
 	AutomationPolicyPatch,
 	AutomationWarning,
 } from "@ryot-app/contract/modules/automations/lifecycle";
@@ -24,6 +26,12 @@ export class AutomationPolicyExecutionError extends Schema.TaggedError<
 export class LifecycleExecution extends Context.Service<
 	LifecycleExecution,
 	{
+		executeBatchPolicy: (input: {
+			runId: AutomationRunId;
+			acceptedBatchPatches: Readonly<Record<string, ReadonlyArray<AutomationPolicyPatch>>>;
+			activeItemIdentities: ReadonlyArray<string>;
+			acceptedReferences: Readonly<Record<string, AutomationEntityDraft>>;
+		}) => Effect.Effect<AutomationPolicyBatchOutput, AutomationPolicyExecutionError>;
 		executePolicy: (input: {
 			runId: AutomationRunId;
 			acceptedPatches: ReadonlyArray<AutomationPolicyPatch>;

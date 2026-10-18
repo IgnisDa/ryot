@@ -71,6 +71,7 @@ const unusedSandboxHostFunctionMap = (
 	listEventSchemas: unusedHostCall,
 	listIntegrations: unusedHostCall,
 	sendNotification: unusedHostCall,
+	commitUserChanges: unusedHostCall,
 	ensureUserEntities: unusedHostCall,
 	getPersistentValue: unusedHostCall,
 	getUserPreferences: unusedHostCall,

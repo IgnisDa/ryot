@@ -311,6 +311,7 @@ const populationLayer = (options: {
 					after: () => Effect.die("unexpected after"),
 					executePolicy: () => Effect.die("unexpected policy"),
 					skipQueuedPolicies: () => Effect.die("unexpected policy skip"),
+					executeBatchPolicy: () => Effect.die("Unexpected batch policy"),
 					dispatch: (plans) => {
 						const { entry, warnings } = options.dispatch(plans);
 						return record(entry).pipe(Effect.as(warnings));

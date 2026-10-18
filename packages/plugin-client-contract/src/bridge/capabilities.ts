@@ -299,6 +299,7 @@ export const PluginOperationRequest = strictStruct({
 	input: JsonValue,
 	packageId: PluginPackageId,
 	operationSlug: Schema.String,
+	idempotencyKey: Schema.optional(Schema.NonEmptyString),
 });
 
 export type PluginOperationRequest = Schema.Schema.Type<typeof PluginOperationRequest>;
@@ -309,6 +310,7 @@ export const PluginBridgeOperationRequest = strictStruct({
 	packageId: PluginPackageId,
 	operationSlug: Schema.String,
 	type: Schema.Literal("operation-request"),
+	idempotencyKey: Schema.optional(Schema.NonEmptyString),
 });
 
 export type PluginBridgeOperationRequest = Schema.Schema.Type<typeof PluginBridgeOperationRequest>;

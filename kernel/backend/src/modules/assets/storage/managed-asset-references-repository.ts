@@ -120,6 +120,28 @@ export class ManagedAssetReferencesRepository extends Context.Service<ManagedAss
 				if (eventsReference) {
 					return true;
 				}
+				const projectionsReference = yield* pagesContainLocator(locator, (afterId) =>
+					session.run((db) =>
+						db
+							.select({
+								id: tables.eventProjection.eventId,
+								value: tables.eventProjection.properties,
+							})
+							.from(tables.eventProjection)
+							.innerJoin(tables.event, eq(tables.event.id, tables.eventProjection.eventId))
+							.where(
+								and(
+									eq(tables.event.userId, ownerUserId),
+									after(tables.eventProjection.eventId, afterId),
+								),
+							)
+							.orderBy(asc(tables.eventProjection.eventId))
+							.limit(PAGE_SIZE),
+					),
+				);
+				if (projectionsReference) {
+					return true;
+				}
 
 				const installations = yield* session.run((db) =>
 					db

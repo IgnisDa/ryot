@@ -13,6 +13,7 @@
 		"./modules/definitions/properties/runtime": "./src/modules/definitions/properties/runtime.ts",
 		"./modules/definitions/repository": "./src/modules/definitions/repository.ts",
 		"./modules/definitions/snapshot": "./src/modules/definitions/snapshot.ts",
+		"./modules/events/stream-repository": "./src/modules/events/stream-repository.ts",
 		"./modules/imports/capture-service": "./src/modules/imports/capture-service.ts",
 		"./modules/imports/execution-service": "./src/modules/imports/execution-service.ts",
 		"./modules/imports/ingestion.test-support": "./src/modules/imports/ingestion.test-support.ts",

@@ -28,6 +28,7 @@ import {
 	AutomationRetentionLive,
 	AutomationRunWorkflowOperationsServiceLive,
 	LifecycleServicesLive,
+	PolicyBatchWorkflowProvidedLive,
 	NotificationSubscriptionsServiceLive,
 	SignalEmissionServiceLive,
 } from "#modules/automations/layer";
@@ -127,6 +128,7 @@ import { SandboxRepository } from "#modules/scripts/registry/repository";
 import { SandboxWorkflowReferenceRepository } from "#modules/scripts/registry/workflow-references";
 import { SignalSchemasServiceLive } from "#modules/signals/layer";
 import { TestSupportServicesLive } from "#modules/test-support/layer";
+import { UserCommandWorkflowDefinitionsProvidedLive } from "#modules/user-commands/layer";
 import { AppConfig } from "#platform/config/service";
 import { MigrationsComplete } from "#platform/db/migrate";
 import { PgClientLive } from "#platform/db/postgres";
@@ -263,6 +265,8 @@ const ServicesWithTestSupportLive = Layer.merge(
 const RuntimeWorkflowDefinitionsLive = Layer.mergeAll(
 	CollectionMembershipWorkflowDefinitionsLive,
 	AutomationRunWorkflowDefinitionsLive,
+	PolicyBatchWorkflowProvidedLive,
+	UserCommandWorkflowDefinitionsProvidedLive,
 	ProviderEntityPopulationWorkflowDefinitionsProvidedLive,
 	EntityImportWorkflowDefinitionsLive,
 	EventCreateWorkflowDefinitionsProvidedLive,

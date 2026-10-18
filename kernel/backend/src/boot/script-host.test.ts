@@ -75,6 +75,7 @@ import type { ScriptRunInput } from "#modules/scripts/authorization/capabilities
 import type { ScriptExecutionPrincipal } from "#modules/scripts/authorization/principal";
 import { SandboxSubmissionCommands } from "#modules/scripts/host/submission-command";
 import { SandboxRepository } from "#modules/scripts/registry/repository";
+import { UserCommands } from "#modules/user-commands/service";
 import { DatabaseSession } from "#platform/db/session";
 import { ProKeyService } from "#platform/pro-key";
 import { RedisService } from "#platform/redis";
@@ -657,6 +658,7 @@ const hostFunctionsLayer = (
 			return Layer.mergeAll(
 				RelationshipMutationPipeline.layer,
 				SandboxSubmissionCommands.layer,
+				Layer.succeed(UserCommands, { commit: () => Effect.die("Unexpected atomic command") }),
 			).pipe(Layer.provideMerge(dependencies));
 		}),
 	);
@@ -754,7 +756,6 @@ describe("requestEventStreamWork", () => {
 					},
 				});
 				const request = {
-					outputProperties: ["value"],
 					entityId: EntityId.make("entity-1"),
 					eventSchemaSlug: EventSchemaSlug.make("event-stream"),
 				};

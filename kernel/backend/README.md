@@ -39,7 +39,8 @@ bodies. Public and service-owned event creates await `EventCreateWorkflow`; call
 `discard: true` poll its result.
 
 Detailed behavior belongs to [automations](src/modules/automations/README.md),
-[mutation admission](src/modules/mutations/README.md), [imports](src/modules/imports/README.md),
+[mutation admission](src/modules/mutations/README.md), [events and projections](src/modules/events/README.md),
+[user commands](src/modules/user-commands/README.md), [imports](src/modules/imports/README.md),
 [script execution](src/modules/scripts/README.md), and [sandbox isolation](../sandbox/README.md).
 
 ## Storage And Transport

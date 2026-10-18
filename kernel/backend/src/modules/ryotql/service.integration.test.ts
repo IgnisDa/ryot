@@ -68,7 +68,9 @@ import {
 	definitionSignalSchema,
 } from "#schema/tables/definitions";
 import { entity } from "#schema/tables/entities";
+import { eventProjection } from "#schema/tables/event-projections";
 import { eventStream, eventStreamWork } from "#schema/tables/event-streams";
+import { event } from "#schema/tables/events";
 import { migrationReport } from "#schema/tables/migration-reports";
 import { savedView, savedViewOverride } from "#schema/tables/views";
 import { makeConfigProviderLayer } from "#testing/effect";
@@ -372,6 +374,7 @@ const seedCatalog = Effect.gen(function* () {
 					pluginPin: { private: "owner-plugin-pin" },
 					accountToken: "owner-private-account-token",
 					pluginRevisionId: "owner-private-plugin-revision",
+					outputSchema: { fields: {}, unknownKeys: "strict" },
 					processorScriptId: "owner-private-processor-script",
 				},
 				{
@@ -381,6 +384,7 @@ const seedCatalog = Effect.gen(function* () {
 					pluginPin: { private: "other-plugin-pin" },
 					accountToken: "other-private-account-token",
 					pluginRevisionId: "other-private-plugin-revision",
+					outputSchema: { fields: {}, unknownKeys: "strict" },
 					processorScriptId: "other-private-processor-script",
 				},
 			]);
@@ -706,6 +710,94 @@ const rowsOf = (response: RyotQLResponse) => {
 type Reader = { readonly userId: string; readonly audience: RyotQLAudience } | "admin";
 
 const owner = { userId: "owner", audience: "kernel" } as const;
+
+layer(catalogDatabaseLayer)((test) => {
+	test.effect(
+		"hides projection data and readiness when its installation is unhealthy or plugin is inactive",
+		() =>
+			Effect.gen(function* () {
+				const session = yield* DatabaseSession;
+				yield* session.run((db) =>
+					db
+						.update(pluginInstallation)
+						.set({ health: "ready" })
+						.where(eq(pluginInstallation.id, "owner-system")),
+				);
+				yield* session.run((db) =>
+					db
+						.insert(event)
+						.values({
+							occurredAt,
+							properties: {},
+							userId: "owner",
+							id: "projection-gate",
+							eventSchemaSlug: "projected",
+							entityId: "stream-entity-owner",
+							eventSchemaPluginId: "system-plugin",
+						}),
+				);
+				yield* session.run((db) =>
+					db
+						.insert(eventStream)
+						.values({
+							revision: 1,
+							userId: "owner",
+							id: "projection-gate-stream",
+							eventSchemaSlug: "projected",
+							entityId: "stream-entity-owner",
+							eventSchemaPluginId: "system-plugin",
+						}),
+				);
+				yield* session.run((db) =>
+					db
+						.insert(eventStreamWork)
+						.values({
+							claimedRevision: 1,
+							status: "completed",
+							accountToken: "generation",
+							id: "projection-gate-stream",
+							outputSchema: { fields: {} },
+							processorScriptId: "processor",
+							pluginRevisionId: "system-plugin-revision",
+							pluginPin: { configRevisionId: "system-env" },
+						}),
+				);
+				yield* session.run((db) =>
+					db
+						.insert(eventProjection)
+						.values({
+							properties: { score: 4 },
+							eventId: "projection-gate",
+							streamId: "projection-gate-stream",
+						}),
+				);
+				expect(yield* readRows(owner, "event", ["id", "projection", "projectionStatus"])).toEqual([
+					{ id: "projection-gate", projection: { score: 4 }, projectionStatus: "ready" },
+				]);
+				yield* session.run((db) =>
+					db
+						.update(pluginInstallation)
+						.set({ health: "failed" })
+						.where(eq(pluginInstallation.id, "owner-system")),
+				);
+				expect(yield* readRows(owner, "event", ["id", "projection", "projectionStatus"])).toEqual([
+					{ projection: null, id: "projection-gate", projectionStatus: "none" },
+				]);
+				yield* session.run((db) =>
+					db
+						.update(pluginInstallation)
+						.set({ health: "ready" })
+						.where(eq(pluginInstallation.id, "owner-system")),
+				);
+				yield* session.run((db) =>
+					db.update(plugin).set({ status: "disabled" }).where(eq(plugin.id, "system-plugin")),
+				);
+				expect(yield* readRows(owner, "event", ["id", "projection", "projectionStatus"])).toEqual([
+					{ projection: null, id: "projection-gate", projectionStatus: "none" },
+				]);
+			}),
+	);
+});
 const other = { userId: "other", audience: "kernel" } as const;
 
 const readRows = Effect.fn(function* (
@@ -753,6 +845,28 @@ const collectPages = (query: ReturnType<typeof rows>, reader: Reader = "admin") 
 	});
 
 layer(catalogDatabaseLayer)((test) => {
+	test.effect("reports no projection for source events without a projection declaration", () =>
+		Effect.gen(function* () {
+			const session = yield* DatabaseSession;
+			yield* session.run((db) =>
+				db
+					.insert(event)
+					.values({
+						properties: {},
+						userId: "owner",
+						occurredAt: new Date(),
+						eventSchemaSlug: "source",
+						id: "projection-source-owner",
+						entityId: "stream-entity-owner",
+					}),
+			);
+			expect(yield* readRows(owner, "event", ["id", "projection", "projectionStatus"])).toEqual([
+				{ projection: null, projectionStatus: "none", id: "projection-source-owner" },
+			]);
+			expect(yield* readRows(other, "event", ["id", "projection", "projectionStatus"])).toEqual([]);
+		}),
+	);
+
 	test.effect("executes automation history filters against persisted runs", () =>
 		Effect.gen(function* () {
 			const service = yield* RyotQLService;

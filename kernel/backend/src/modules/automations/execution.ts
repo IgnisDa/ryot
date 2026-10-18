@@ -366,6 +366,47 @@ export const LifecycleExecutionLive = Layer.effect(
 					}
 					return warnings;
 				}),
+			executeBatchPolicy: ({
+				runId,
+				acceptedReferences,
+				acceptedBatchPatches,
+				activeItemIdentities,
+			}) =>
+				requireWorkflowBody("executeBatchPolicy").pipe(
+					Effect.andThen(
+						Effect.gen(function* () {
+							const payload = {
+								runId,
+								attemptNumber: 1,
+								acceptedReferences,
+								acceptedPatches: [],
+								acceptedBatchPatches,
+								activeItemIdentities,
+							};
+							const deadline = yield* startDeadline(`policy-${runId}`);
+							const [dispatch] = yield* dispatchRuns([payload]);
+							const [settlement] = yield* settleRequired(
+								`policy-${runId}`,
+								dispatch ? [{ payload, ...dispatch }] : [],
+								deadline,
+							);
+							const output =
+								settlement?._tag === "completed" &&
+								settlement.result.attempt?.status === "succeeded"
+									? settlement.result.policyOutput
+									: null;
+							return output !== null && "items" in output
+								? output
+								: yield* new AutomationPolicyExecutionError({
+										runId,
+										code: "policy-execution-failed",
+									});
+						}),
+					),
+					Effect.mapError(
+						() => new AutomationPolicyExecutionError({ runId, code: "policy-execution-failed" }),
+					),
+				),
 			executePolicy: ({ runId, acceptedPatches }) =>
 				requireWorkflowBody("executePolicy").pipe(
 					Effect.andThen(
@@ -380,7 +421,8 @@ export const LifecycleExecutionLive = Layer.effect(
 							);
 							return settlement?._tag === "completed" &&
 								settlement.result.attempt?.status === "succeeded" &&
-								settlement.result.policyOutput !== null
+								settlement.result.policyOutput !== null &&
+								"action" in settlement.result.policyOutput
 								? settlement.result.policyOutput
 								: yield* new AutomationPolicyExecutionError({
 										runId,

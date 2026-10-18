@@ -37,6 +37,34 @@ const pluginRevision = (isUserBootstrap = false) => ({
 });
 
 describe("requireSandboxCapabilityInput", () => {
+	it("limits projection processors to declared read-only capabilities", () => {
+		const userId = UserId.make("user_1");
+		const subject = {
+			userId,
+			type: "event-projection" as const,
+			accountGeneration: { userId, token: "test-account-generation" },
+		};
+		const input = makeSubjectRunInput(subject);
+		for (const capability of SANDBOX_HOST_CAPABILITIES) {
+			expect(isSandboxCapabilityAllowed(input, capability)).toBe(
+				POLICY_SAFE_SANDBOX_CAPABILITIES.some((safe) => safe === capability),
+			);
+		}
+		expect(
+			isSandboxCapabilityAllowed(
+				makeSubjectRunInput(subject, null, { capabilities: [] }),
+				"executeRyotql",
+			),
+		).toBe(false);
+		const rejected = Effect.runSync(
+			Effect.flip(requireSandboxCapabilityInput(input, "commitUserChanges")),
+		);
+		expect(rejected.data).toEqual({
+			code: "unavailable-operation",
+			operation: "commitUserChanges",
+		});
+	});
+
 	it("limits before runs to declared policy-safe capabilities", () => {
 		const input = makeSubjectRunInput(automationRunSubject("before", UserId.make("user_1")));
 		for (const capability of SANDBOX_HOST_CAPABILITIES) {
