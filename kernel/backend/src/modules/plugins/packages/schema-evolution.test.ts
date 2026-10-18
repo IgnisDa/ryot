@@ -139,9 +139,14 @@ it("accepts adding, changing, and removing entity editors", () => {
 	const initial = fixtureManifest();
 	const entity = initial.entitySchemas[0];
 	assert(entity);
-	const withEditor = (relationships: readonly string[]) => ({
+	const withEditor = (slugs: readonly string[]) => ({
 		...initial,
-		entitySchemas: [{ ...entity, editor: { relationships } }],
+		entitySchemas: [
+			{
+				...entity,
+				editor: { relationships: slugs.map((slug) => ({ slug, direction: "outgoing" as const })) },
+			},
+		],
 	});
 	for (const [previous, next] of [
 		[initial, withEditor([])],

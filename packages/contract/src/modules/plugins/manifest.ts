@@ -272,8 +272,18 @@ export const PluginEntityUserStatePolicy = strictStruct({
 
 export type PluginEntityUserStatePolicy = Schema.Schema.Type<typeof PluginEntityUserStatePolicy>;
 
+export const PluginEntityEditorRelationship = strictStruct({
+	slug: Schema.NonEmptyString,
+	direction: Schema.Literals(["outgoing", "incoming", "parent"]),
+});
+
+export type PluginEntityEditorRelationship = Schema.Schema.Type<
+	typeof PluginEntityEditorRelationship
+>;
+
 export const PluginEntityEditor = strictStruct({
-	relationships: Schema.Array(Schema.NonEmptyString),
+	deletable: Schema.optional(Schema.Boolean),
+	relationships: Schema.Array(PluginEntityEditorRelationship),
 });
 
 export type PluginEntityEditor = Schema.Schema.Type<typeof PluginEntityEditor>;
@@ -1063,11 +1073,15 @@ const hasValidLocalDeclarations = (manifest: typeof AuthoredPluginManifestFields
 	const relationships = new Set(manifest.relationshipSchemas.map(({ slug }) => slug));
 	const hasValidEditor = ({ slug, editor }: PluginEntitySchema) =>
 		editor === undefined ||
-		(new Set(editor.relationships).size === editor.relationships.length &&
-			editor.relationships.every((relationshipSlug) =>
+		(new Set(editor.relationships.map((relationship) => relationship.slug)).size ===
+			editor.relationships.length &&
+			editor.relationships.every((declared) =>
 				manifest.relationshipSchemas.some(
 					(relationship) =>
-						relationship.slug === relationshipSlug && relationship.sourceEntitySchemaSlug === slug,
+						relationship.slug === declared.slug &&
+						(declared.direction === "outgoing"
+							? relationship.sourceEntitySchemaSlug
+							: relationship.targetEntitySchemaSlug) === slug,
 				),
 			));
 	return (

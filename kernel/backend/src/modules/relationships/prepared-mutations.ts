@@ -107,19 +107,20 @@ export const restoreUserRelationshipCreate = Effect.fnUntraced(function* (
 	return Object.freeze({ [preparedUserRelationshipCreate]: decoded });
 });
 
-// The source of a relationship to an entity that its caller creates in the same commit does not exist yet,
-// so its schema is taken from the creation token. Persistence validates against the stored source.
-const withCreatedSource = (
+// An endpoint that its caller creates in the same commit does not exist yet, so its schema is taken
+// from the creation token. Persistence validates against the stored entity.
+const withCreatedEndpoint = (
 	reads: MutationEntities,
 	mutation: Mutation,
-	sourceCreate: PreparedEntityCreate | undefined,
+	createdEntity: PreparedEntityCreate | undefined,
 ): MutationEntities => {
-	if (!sourceCreate || mutation.input.scope !== "user") {
+	if (!createdEntity || mutation.input.scope !== "user") {
 		return reads;
 	}
-	const created = preparedEntityCreateData(sourceCreate);
+	const created = preparedEntityCreateData(createdEntity);
 	if (
-		created.entityId !== mutation.input.sourceEntityId ||
+		(created.entityId !== mutation.input.sourceEntityId &&
+			created.entityId !== mutation.input.targetEntityId) ||
 		created.userId !== mutation.input.userId
 	) {
 		return reads;
@@ -162,7 +163,7 @@ export const makePreparedRelationshipMutations = (
 		submitted: CreateRelationshipInput | DeleteRelationshipInput,
 		commandInput: DomainLifecycleCommand,
 		mode: "create" | "delete",
-		sourceCreate?: PreparedEntityCreate,
+		createdEntity?: PreparedEntityCreate,
 		propertiesMode?: "merge" | "replace",
 	) {
 		yield* assertRootTransaction;
@@ -237,7 +238,7 @@ export const makePreparedRelationshipMutations = (
 				yield* primitives.lockMutations([mutation]);
 				const validated = yield* primitives.validateMutation(
 					mutation,
-					withCreatedSource(yield* primitives.readEntities([mutation]), mutation, sourceCreate),
+					withCreatedEndpoint(yield* primitives.readEntities([mutation]), mutation, createdEntity),
 					pinOf(mutation),
 				);
 				const row = yield* repository.findRelationship(mutation.input);
@@ -289,14 +290,14 @@ export const makePreparedRelationshipMutations = (
 	const prepareUserCreate = Effect.fn("RelationshipsService.prepareUserCreate")(function* (
 		input: CreateRelationshipInput,
 		command: DomainLifecycleCommand,
-		sourceCreate?: PreparedEntityCreate,
+		createdEntity?: PreparedEntityCreate,
 		propertiesMode: "merge" | "replace" = "replace",
 	) {
 		const value = yield* prepareUserMutation(
 			input,
 			command,
 			"create",
-			sourceCreate,
+			createdEntity,
 			propertiesMode,
 		);
 		return value === null ? null : Object.freeze({ [preparedUserRelationshipCreate]: value });

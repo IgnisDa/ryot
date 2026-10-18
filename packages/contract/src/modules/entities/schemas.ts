@@ -23,6 +23,7 @@ const EntityBadRequestReason = Schema.Union([
 	Schema.Struct({ code: Schema.Literal("kernel-owned-schema") }),
 	Schema.Struct({ code: Schema.Literal("provider-owned") }),
 	Schema.Struct({ code: Schema.Literal("duplicate-collection-name") }),
+	Schema.Struct({ code: Schema.Literal("entity-has-history") }),
 	Schema.Struct({ property: Schema.String, code: Schema.Literal("immutable-property") }),
 	Schema.Struct({
 		message: Schema.String,

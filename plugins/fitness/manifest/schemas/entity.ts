@@ -42,7 +42,12 @@ export const fitnessEntitySchemas = [
 		name: "Exercise",
 		mergeIdentityProperties: ["kind"],
 		propertiesSchema: exercisePropertiesSchema,
-		editor: { relationships: ["exercise-targets", "exercise-uses-equipment"] },
+		editor: {
+			relationships: [
+				{ slug: "exercise-targets", direction: "outgoing" as const },
+				{ direction: "outgoing" as const, slug: "exercise-uses-equipment" },
+			],
+		},
 		eventSchemas: [
 			{
 				name: "Workout Set",

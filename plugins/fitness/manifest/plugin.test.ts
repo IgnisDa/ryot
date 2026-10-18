@@ -90,7 +90,15 @@ it("declares the complete fitness-owned source", () => {
 			"editor" in schema ? [[schema.slug, schema.editor]] : [],
 		),
 	).toEqual([
-		["exercise", { relationships: ["exercise-targets", "exercise-uses-equipment"] }],
+		[
+			"exercise",
+			{
+				relationships: [
+					{ direction: "outgoing", slug: "exercise-targets" },
+					{ direction: "outgoing", slug: "exercise-uses-equipment" },
+				],
+			},
+		],
 		["exercise-target", { relationships: [] }],
 		["exercise-equipment", { relationships: [] }],
 	]);

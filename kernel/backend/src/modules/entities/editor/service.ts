@@ -1,13 +1,20 @@
 import { DbError } from "@ryot-app/contract/errors";
 import type { AutomationWarning } from "@ryot-app/contract/modules/automations/lifecycle";
 import {
+	type EntityEditorDeleteSubmission,
 	EntityEditorRefused,
 	type EntityEditorSaveOutput,
 	type EntityEditorSaveRequest,
-	type EntityEditorSubmission,
+	type EntityEditorSaveSubmission,
 } from "@ryot-app/contract/modules/entities/editor";
 import type { EntityBadRequest } from "@ryot-app/contract/modules/entities/schemas";
-import { definitionKey, definitionOwner } from "@ryot-app/contract/modules/plugins/references";
+import { EntityNotFound } from "@ryot-app/contract/modules/entities/schemas";
+import type { PluginEntityEditorRelationship } from "@ryot-app/contract/modules/plugins/manifest";
+import {
+	definitionKey,
+	definitionOwner,
+	type EntitySchemaReference,
+} from "@ryot-app/contract/modules/plugins/references";
 import type {
 	RelationshipBadRequest,
 	RelationshipNotFound,
@@ -55,6 +62,10 @@ const limits = {
 	relationshipChanges: USER_RELATIONSHIP_WRITE_SANDBOX_LIMITS.changesPerBatch,
 } as const;
 const notEditable = "This entity schema cannot be edited here";
+const notDeletable = "This entity cannot be deleted here";
+const hasLinks = "Remove this entity's linked items before deleting it";
+
+type Direction = PluginEntityEditorRelationship["direction"];
 
 const SaveResult = Schema.Struct({ entityId: EntityId });
 const refused = (message: string) => new EntityEditorRefused({ message });
@@ -75,7 +86,7 @@ const relationshipBasis = (
 			.sort((left, right) => stableStringify(left).localeCompare(stableStringify(right))),
 	);
 
-const relationshipRows = (groups: EntityEditorSubmission["relationships"]) =>
+const relationshipRows = (groups: EntityEditorSaveSubmission["relationships"]) =>
 	groups.flatMap(({ targets, relationshipSchemaSlug }) =>
 		targets.map(({ entityId, properties }) => ({
 			properties,
@@ -99,6 +110,9 @@ const invalidEntityReason = ({ reason }: EntityBadRequest) => {
 	if (reason.code === "invalid-properties") {
 		return "The entity properties are invalid";
 	}
+	if (reason.code === "entity-has-history") {
+		return "Remove this entity's history before deleting it";
+	}
 	return reason.code === "immutable-property"
 		? `${reason.property} cannot be changed after creation`
 		: null;
@@ -109,6 +123,9 @@ const invalidRelationshipReason = ({ reason }: RelationshipBadRequest) => {
 	}
 	if (reason.code === "invalid-properties") {
 		return "The relationship properties are invalid";
+	}
+	if (reason.code === "source-not-owned") {
+		return "A linked entity is not yours to change";
 	}
 	return reason.code === "source-schema-mismatch" || reason.code === "target-schema-mismatch"
 		? "A relationship target does not match the relationship schema"
@@ -148,15 +165,16 @@ export class EntityEditorService extends Context.Service<EntityEditorService>()(
 
 			const authorize = Effect.fn("EntityEditorService.authorize")(function* (
 				userId: UserId,
-				submission: EntityEditorSubmission,
+				reference: EntitySchemaReference,
+				relationshipSlugs: ReadonlyArray<string>,
 			) {
-				const reference = submission.entitySchema;
+				const refusal = (message: string) => ({ message, kind: "refused" as const });
 				if (reference.owner.kind !== "plugin") {
-					return notEditable;
+					return refusal(notEditable);
 				}
 				const { pluginId } = reference.owner;
 				if (!(yield* runtime.findPluginAvailableToUser(userId, pluginId))) {
-					return notEditable;
+					return refusal(notEditable);
 				}
 				const owner = definitionOwner(pluginId);
 				const entitySchema = (yield* definitions.findUserEntitySchemas(userId, [
@@ -164,35 +182,72 @@ export class EntityEditorService extends Context.Service<EntityEditorService>()(
 				]))[definitionKey("entity", owner, reference.slug)];
 				const editor = entitySchema?.pluginId === pluginId ? entitySchema.editor : undefined;
 				if (!editor) {
-					return notEditable;
+					return refusal(notEditable);
 				}
-				const slugs = submission.relationships.map(({ relationshipSchemaSlug }) =>
-					RelationshipSchemaSlug.make(relationshipSchemaSlug),
+				const directions = new Map<string, Direction>(
+					editor.relationships.map(({ slug, direction }) => [slug, direction]),
 				);
-				const undeclared = slugs.find((slug) => !editor.relationships.includes(slug));
+				const undeclared = relationshipSlugs.find((slug) => !directions.has(slug));
 				if (undeclared !== undefined) {
-					return `Relationship ${undeclared} is not editable here`;
+					return refusal(`Relationship ${undeclared} is not editable here`);
 				}
 				const relationshipSchemas = yield* definitions.findUserRelationshipSchemas(
 					userId,
-					slugs.map((slug) => ({ slug, owner })),
+					relationshipSlugs.map((slug) => ({ owner, slug: RelationshipSchemaSlug.make(slug) })),
 				);
-				const unavailable = slugs.find((slug) => {
+				const unavailable = relationshipSlugs.find((slug) => {
 					const definition = relationshipSchemas[definitionKey("relationship", owner, slug)];
 					return (
 						definition?.pluginId !== pluginId ||
-						definition.sourceEntitySchemaSlug !== reference.slug
+						(directions.get(slug) === "outgoing"
+							? definition.sourceEntitySchemaSlug
+							: definition.targetEntitySchemaSlug) !== reference.slug
 					);
 				});
 				return unavailable === undefined
-					? null
-					: `Relationship ${unavailable} is not editable here`;
+					? { directions, kind: "authorized" as const, deletable: editor.deletable === true }
+					: refusal(`Relationship ${unavailable} is not editable here`);
 			}, Effect.orDie);
+
+			const editorRelationships = (input: {
+				lock: boolean;
+				userId: UserId;
+				entityId: EntityId;
+				pluginId: string;
+				directions: ReadonlyMap<string, Direction>;
+				slugs: ReadonlyArray<string>;
+			}) => {
+				const slugsIn = (outgoing: boolean) =>
+					input.slugs
+						.filter((slug) => (input.directions.get(slug) === "outgoing") === outgoing)
+						.map((slug) => RelationshipSchemaSlug.make(slug));
+				return relationshipsRepository
+					.listUserEditorRelationships({
+						lock: input.lock,
+						userId: input.userId,
+						entityId: input.entityId,
+						pluginId: input.pluginId,
+						outgoingSlugs: slugsIn(true),
+						incomingSlugs: slugsIn(false),
+					})
+					.pipe(
+						Effect.map((rows) =>
+							rows.map((row) => ({
+								properties: row.properties,
+								relationshipSchemaSlug: row.relationshipSchemaSlug,
+								targetEntityId:
+									input.directions.get(row.relationshipSchemaSlug) === "outgoing"
+										? row.targetEntityId
+										: row.sourceEntityId,
+							})),
+						),
+					);
+			};
 
 			const save = Effect.fn("EntityEditorService.save")(function* (input: {
 				userId: UserId;
 				lifecycle: DomainLifecycleCommand;
-				submission: EntityEditorSubmission;
+				submission: EntityEditorSaveSubmission;
 			}) {
 				const { userId, submission, lifecycle: command } = input;
 				const schemaOwner = submission.entitySchema.owner;
@@ -266,13 +321,36 @@ export class EntityEditorService extends Context.Service<EntityEditorService>()(
 					};
 				}
 
-				const refusal = yield* authorize(userId, submission);
-				if (refusal !== null) {
-					return { warnings: noWarnings, output: invalid(refusal) };
+				const authorization = yield* authorize(userId, submission.entitySchema, slugs);
+				if (authorization.kind === "refused") {
+					return { warnings: noWarnings, output: invalid(authorization.message) };
+				}
+				const { directions } = authorization;
+				const parentRefusal = [...directions].find(([slug, direction]) => {
+					if (direction !== "parent") {
+						return false;
+					}
+					const submitted = submission.relationships.find(
+						(group) => group.relationshipSchemaSlug === slug,
+					);
+					if (submission.target.kind === "create") {
+						return submitted?.targets.length !== 1;
+					}
+					const expected = submission.target.expected.relationships.find(
+						(group) => group.relationshipSchemaSlug === slug,
+					);
+					return (
+						stableStringify(submitted?.targets.map(({ entityId }) => entityId) ?? null) !==
+						stableStringify(expected?.targets.map(({ entityId }) => entityId) ?? null)
+					);
+				});
+				if (parentRefusal !== undefined) {
+					return {
+						warnings: noWarnings,
+						output: invalid(`Relationship ${parentRefusal[0]} needs one parent set at creation`),
+					};
 				}
 				const owner = definitionOwner(pluginId);
-				const relationshipSlugs = slugs.map((slug) => RelationshipSchemaSlug.make(slug));
-
 				const entityCommand = itemCommand(command, "entity");
 				const prepared = yield* entities.prepareUserSave({
 					userId,
@@ -296,12 +374,13 @@ export class EntityEditorService extends Context.Service<EntityEditorService>()(
 				const currentRelationships = (lock: boolean) =>
 					submission.target.kind === "create"
 						? Effect.succeed([])
-						: relationshipsRepository.listUserOutgoingRelationships({
+						: editorRelationships({
 								lock,
+								slugs,
 								userId,
 								pluginId,
-								sourceEntityId: prepared.entityId,
-								relationshipSchemaSlugs: relationshipSlugs,
+								directions,
+								entityId: prepared.entityId,
 							});
 				const current = yield* currentRelationships(false);
 				const basis = relationshipBasis(current);
@@ -363,12 +442,13 @@ export class EntityEditorService extends Context.Service<EntityEditorService>()(
 					| { kind: "delete"; prepared: PreparedUserRelationshipDelete }
 				> = [];
 				for (const change of changes) {
+					const outgoing = directions.get(change.slug) === "outgoing";
 					const base = {
 						userId,
 						scope: "user" as const,
-						sourceEntityId: prepared.entityId,
-						targetEntityId: change.targetEntityId,
 						relationshipSchema: { owner, slug: change.slug },
+						sourceEntityId: outgoing ? prepared.entityId : change.targetEntityId,
+						targetEntityId: outgoing ? change.targetEntityId : prepared.entityId,
 					};
 					const relationshipCommand = itemCommand(
 						command,
@@ -401,9 +481,13 @@ export class EntityEditorService extends Context.Service<EntityEditorService>()(
 								entityId: prior.result.entityId,
 							};
 						}
-						const committedRefusal = yield* authorize(userId, submission);
-						if (committedRefusal !== null) {
-							return { kind: "refused" as const, message: committedRefusal };
+						const committedAuthorization = yield* authorize(
+							userId,
+							submission.entitySchema,
+							slugs,
+						);
+						if (committedAuthorization.kind === "refused") {
+							return { kind: "refused" as const, message: committedAuthorization.message };
 						}
 						if (relationshipBasis(yield* currentRelationships(true)) !== basis) {
 							return { kind: "stale" as const };
@@ -450,8 +534,66 @@ export class EntityEditorService extends Context.Service<EntityEditorService>()(
 				};
 			});
 
-			const handledSave = (input: Parameters<typeof save>[0]) =>
-				save(input).pipe(
+			const remove = Effect.fn("EntityEditorService.remove")(function* (input: {
+				userId: UserId;
+				lifecycle: DomainLifecycleCommand;
+				submission: EntityEditorDeleteSubmission;
+			}) {
+				const { userId, submission } = input;
+				const entityId = EntityId.make(submission.entityId);
+				const authorization = yield* authorize(userId, submission.entitySchema, []);
+				if (authorization.kind === "refused") {
+					return { warnings: noWarnings, output: invalid(authorization.message) };
+				}
+				if (!authorization.deletable) {
+					return { warnings: noWarnings, output: invalid(notDeletable) };
+				}
+				const entitySchema = {
+					owner: submission.entitySchema.owner,
+					slug: EntitySchemaSlug.make(submission.entitySchema.slug),
+				};
+				const current = yield* entitiesRepository.getMutationEntity(entityId);
+				if (current !== null) {
+					if (current.userId !== userId || current.entity.providerId !== null) {
+						return yield* new EntityNotFound({ reason: { entityId, code: "entity-not-found" } });
+					}
+					if (current.entity.updatedAt !== submission.expectedUpdatedAt) {
+						return { output: stale, warnings: noWarnings };
+					}
+					const links = yield* relationshipsRepository.listUserRelationshipsForEntity({
+						userId,
+						entityId,
+					});
+					const unmanaged = links.some((link) => {
+						const direction = authorization.directions.get(link.relationshipSchemaSlug);
+						return (
+							direction === undefined ||
+							(direction === "outgoing" ? link.sourceEntityId : link.targetEntityId) !== entityId
+						);
+					});
+					if (unmanaged) {
+						return { warnings: noWarnings, output: invalid(hasLinks) };
+					}
+				}
+				const { deletedCount, warnings } = yield* entities.deleteByIds([entityId], input.lifecycle, {
+					userId,
+					entitySchema,
+					preserveHistory: true,
+				});
+				if (deletedCount === 0) {
+					return yield* new EntityNotFound({ reason: { entityId, code: "entity-not-found" } });
+				}
+				return { warnings, output: { kind: "deleted" } satisfies EntityEditorSaveOutput };
+			});
+
+			const handled = <R>(
+				work: Effect.Effect<
+					{ output: EntityEditorSaveOutput; warnings: ReadonlyArray<AutomationWarning> },
+					Effect.Error<ReturnType<typeof save>> | Effect.Error<ReturnType<typeof remove>>,
+					R
+				>,
+			) =>
+				work.pipe(
 					Effect.catchTags({
 						EntityStale: () => Effect.succeed({ output: stale, warnings: noWarnings }),
 						LifecyclePersistenceError: (error: LifecyclePersistenceError) =>
@@ -496,24 +638,25 @@ export class EntityEditorService extends Context.Service<EntityEditorService>()(
 				const { userId, request, accountGeneration } = input;
 				const { submission } = request;
 				const executionId = AutomationExecutionId.make(
-					`entity-editor-${sha256Base64Url(stableStringify([accountGeneration, "entity-editor:save", submission.entitySchema, request.idempotencyKey]))}`,
+					`entity-editor-${sha256Base64Url(stableStringify([accountGeneration, `entity-editor:${submission.action}`, submission.entitySchema, request.idempotencyKey]))}`,
 				);
-				return yield* handledSave({
-					userId,
-					submission,
-					lifecycle: {
-						...rootLifecycleCommand({
-							executionId,
-							source: "api",
-							accountGeneration,
-							lane: "interactive",
-							itemIdentity: "entity-editor",
-							occurredAt: request.submittedAt,
-							initiator: { id: userId, kind: "user" },
-						}),
-						writeContext: null,
-					},
-				});
+				const lifecycle = {
+					...rootLifecycleCommand({
+						executionId,
+						source: "api",
+						accountGeneration,
+						lane: "interactive",
+						itemIdentity: "entity-editor",
+						occurredAt: request.submittedAt,
+						initiator: { id: userId, kind: "user" },
+					}),
+					writeContext: null,
+				};
+				return yield* handled(
+					submission.action === "save"
+						? save({ userId, lifecycle, submission })
+						: remove({ userId, lifecycle, submission }),
+				);
 			});
 
 			return { submit };

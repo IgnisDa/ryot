@@ -335,14 +335,18 @@ const validateDefinitionSource = (
 				);
 			}
 		}
-		for (const relationshipSlug of entitySchema.editor?.relationships ?? []) {
+		for (const declared of entitySchema.editor?.relationships ?? []) {
 			const relationship = source.relationshipSchemas.find(
 				(candidate) =>
-					candidate.slug === relationshipSlug && candidate.pluginId === entitySchema.pluginId,
+					candidate.slug === declared.slug && candidate.pluginId === entitySchema.pluginId,
 			);
-			if (relationship?.sourceEntitySchemaSlug !== entitySchema.slug) {
+			const end =
+				declared.direction === "outgoing"
+					? relationship?.sourceEntitySchemaSlug
+					: relationship?.targetEntitySchemaSlug;
+			if (end !== entitySchema.slug) {
 				throw new Error(
-					`Entity schema ${entitySchema.slug} editor relationship ${relationshipSlug} must be an owned relationship from it`,
+					`Entity schema ${entitySchema.slug} editor relationship ${declared.slug} must be an owned relationship at it`,
 				);
 			}
 		}

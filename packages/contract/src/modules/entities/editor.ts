@@ -17,9 +17,10 @@ const relationships = Schema.Array(
 	}),
 );
 
-export const EntityEditorSubmission = strictStruct({
+export const EntityEditorSaveSubmission = strictStruct({
 	properties,
 	relationships,
+	action: Schema.Literal("save"),
 	entitySchema: EntitySchemaReference,
 	name: Schema.String.pipe(
 		Schema.check(Schema.makeFilter((name) => name.trim().length > 0 || "Expected a name")),
@@ -38,6 +39,20 @@ export const EntityEditorSubmission = strictStruct({
 		}),
 	]),
 });
+export type EntityEditorSaveSubmission = typeof EntityEditorSaveSubmission.Type;
+
+export const EntityEditorDeleteSubmission = strictStruct({
+	entityId: EntityId,
+	expectedUpdatedAt: Schema.String,
+	action: Schema.Literal("delete"),
+	entitySchema: EntitySchemaReference,
+});
+export type EntityEditorDeleteSubmission = typeof EntityEditorDeleteSubmission.Type;
+
+export const EntityEditorSubmission = Schema.Union([
+	EntityEditorSaveSubmission,
+	EntityEditorDeleteSubmission,
+]);
 export type EntityEditorSubmission = typeof EntityEditorSubmission.Type;
 
 export const EntityEditorSaveRequest = strictStruct({
@@ -61,6 +76,7 @@ export const retryableEntityEditorSaveRequest = (
 
 export const EntityEditorSaveOutput = Schema.Union([
 	strictStruct({ entityId: EntityId, kind: Schema.Literal("saved") }),
+	strictStruct({ kind: Schema.Literal("deleted") }),
 	strictStruct({ kind: Schema.Literal("stale") }),
 	strictStruct({ message: Schema.String, kind: Schema.Literal("invalid") }),
 ]);

@@ -3,6 +3,7 @@ import { DbError } from "@ryot-app/contract/errors";
 import {
 	EntityEditorRefused,
 	type EntityEditorSaveRequest,
+	type EntityEditorSaveSubmission,
 	type EntityEditorSubmission,
 } from "@ryot-app/contract/modules/entities/editor";
 import { definitionOwner } from "@ryot-app/contract/modules/plugins/references";
@@ -47,6 +48,19 @@ const item = EntitySchemaSlug.make("item");
 const part = EntitySchemaSlug.make("part");
 const itemPart = RelationshipSchemaSlug.make("item-part");
 const otherUser = UserId.make("editor-other-user");
+const itemEditor = {
+	relationships: [
+		{ slug: "item-part", direction: "outgoing" },
+		{ slug: "item-link", direction: "outgoing" },
+	],
+} as const;
+const partEditor = {
+	deletable: true,
+	relationships: [
+		{ slug: "item-child", direction: "parent" },
+		{ slug: "item-extra", direction: "incoming" },
+	],
+} as const;
 
 const itemProperties = {
 	fields: {
@@ -90,11 +104,8 @@ const editorPackage = (options: { readonly policy?: boolean } = {}) => {
 				? [...source.manifest.scripts, { ...policy.metadata, entry: "backend/policy.sandbox.ts" }]
 				: source.manifest.scripts,
 			entitySchemas: [
-				{
-					...declaration("item", itemProperties),
-					editor: { relationships: ["item-part", "item-link"] },
-				},
-				declaration("part", titleProperties),
+				{ ...declaration("item", itemProperties), editor: itemEditor },
+				{ ...declaration("part", titleProperties), editor: partEditor },
 			],
 			relationshipSchemas: [
 				{
@@ -109,6 +120,13 @@ const editorPackage = (options: { readonly policy?: boolean } = {}) => {
 					slug: "item-link",
 					sourceEntitySchemaSlug: "item",
 					targetEntitySchemaSlug: "item",
+					propertiesSchema: { fields: {} },
+				},
+				{
+					name: "Children",
+					slug: "item-child",
+					sourceEntitySchemaSlug: "item",
+					targetEntitySchemaSlug: "part",
 					propertiesSchema: { fields: {} },
 				},
 				{
@@ -238,8 +256,9 @@ const makeEditor = Effect.fnUntraced(function* (
 
 const submission = (
 	owner: PluginId,
-	input: Partial<EntityEditorSubmission> & Pick<EntityEditorSubmission, "target">,
-): EntityEditorSubmission => ({
+	input: Partial<EntityEditorSaveSubmission> & Pick<EntityEditorSaveSubmission, "target">,
+): EntityEditorSaveSubmission => ({
+	action: "save",
 	name: "Item",
 	relationships: [],
 	properties: { code: "c", title: "Item" },
@@ -256,6 +275,63 @@ const submitEdit = (
 		userId,
 		accountGeneration: { userId, token: "test-account-generation" },
 		request: { idempotencyKey, submission: input, submittedAt: "2026-10-13T00:00:00.000Z" },
+	});
+
+const partSubmission = (
+	owner: PluginId,
+	input: Partial<EntityEditorSaveSubmission> & Pick<EntityEditorSaveSubmission, "target">,
+) =>
+	submission(owner, {
+		name: "Part",
+		properties: { title: "Part" },
+		entitySchema: { slug: part, owner: definitionOwner(owner) },
+		...input,
+	});
+
+const childGroup = (id: string) => ({
+	relationshipSchemaSlug: "item-child",
+	targets: [target(id)],
+});
+
+const extraGroup = (...ids: ReadonlyArray<string>) => ({
+	relationshipSchemaSlug: "item-extra",
+	targets: ids.map((id) => target(id)),
+});
+
+const storedExpected = Effect.fnUntraced(function* (
+	entityId: string,
+	relationships: EntityEditorSaveSubmission["relationships"] = [],
+) {
+	const session = yield* DatabaseSession;
+	const [stored] = yield* session.run((db) =>
+		db.select().from(tables.entity).where(eq(tables.entity.id, entityId)),
+	);
+	assert(stored);
+	return expectedOf(
+		{ name: stored.name, properties: stored.properties, updatedAt: stored.updatedAt.toISOString() },
+		relationships,
+	);
+});
+
+const submitDelete = (
+	editor: EntityEditorService["Service"],
+	idempotencyKey: string,
+	input: { owner: PluginId; entityId: string; expectedUpdatedAt: string; slug?: EntitySchemaSlug },
+	user: UserId = userId,
+) =>
+	editor.submit({
+		userId: user,
+		accountGeneration: { userId: user, token: "test-account-generation" },
+		request: {
+			idempotencyKey,
+			submittedAt: "2026-10-13T00:00:00.000Z",
+			submission: {
+				action: "delete",
+				entityId: EntityId.make(input.entityId),
+				expectedUpdatedAt: input.expectedUpdatedAt,
+				entitySchema: { slug: input.slug ?? part, owner: definitionOwner(input.owner) },
+			},
+		},
 	});
 
 const target = (id: string, role?: string) => ({
@@ -278,7 +354,7 @@ const tablesState = Effect.gen(function* () {
 
 const expectedOf = (
 	entity: { name: string; updatedAt: string; properties: unknown },
-	relationships: EntityEditorSubmission["relationships"] = [],
+	relationships: EntityEditorSaveSubmission["relationships"] = [],
 ) => ({
 	relationships,
 	name: entity.name,
@@ -500,7 +576,7 @@ describe("EntityEditorService", () => {
 			const { owner } = yield* setup();
 			const editor = yield* makeEditor();
 			const run = (id: string, input: EntityEditorSubmission) => submitEdit(editor, id, input);
-			for (const slug of ["nope", "part"]) {
+			for (const slug of ["nope", "loose"]) {
 				const result = yield* run(
 					`schema-${slug}`,
 					submission(owner, {
@@ -874,9 +950,9 @@ describe("EntityEditorService", () => {
 			const repository = yield* RelationshipsRepository;
 			const editor = yield* makeEditor({
 				relationshipsRepository: {
-					listUserOutgoingRelationships: (input) =>
+					listUserEditorRelationships: (input) =>
 						repository
-							.listUserOutgoingRelationships(input)
+							.listUserEditorRelationships(input)
 							.pipe(
 								Effect.tap(() =>
 									input.lock
@@ -1184,7 +1260,7 @@ describe("EntityEditorService", () => {
 			});
 			const request = (
 				pluginId: PluginId,
-				overrides: Partial<EntityEditorSubmission> = {},
+				overrides: Partial<EntityEditorSaveSubmission> = {},
 			): EntityEditorSaveRequest => ({
 				idempotencyKey: "form-submission",
 				submittedAt: "2026-10-14T00:00:00.000Z",
@@ -1266,8 +1342,8 @@ describe("EntityEditorService", () => {
 					.filter((row) => row["slug"] === "item" || row["slug"] === "part")
 					.sort((left, right) => String(left["slug"]).localeCompare(String(right["slug"]))),
 			).toEqual([
-				{ slug: "item", editor: { relationships: ["item-part", "item-link"] } },
-				{ slug: "part", editor: null },
+				{ slug: "item", editor: itemEditor },
+				{ slug: "part", editor: partEditor },
 			]);
 			const editor = yield* makeEditor();
 			const save = (id: string, relationshipSchemaSlug: string) =>
@@ -1286,6 +1362,168 @@ describe("EntityEditorService", () => {
 				kind: "invalid",
 				message: "Relationship item-extra is not editable here",
 			});
+		}),
+	);
+	editorCase(
+		"edits incoming relationships and fixes one parent at creation",
+		Effect.gen(function* () {
+			const { owner, insert } = yield* setup();
+			for (const id of ["parent-a", "parent-b", "extra-a"]) {
+				yield* insert(id, item, userId);
+			}
+			const editor = yield* makeEditor();
+			const parentRefusal = {
+				kind: "invalid",
+				message: "Relationship item-child needs one parent set at creation",
+			};
+			expect(
+				(yield* submitEdit(
+					editor,
+					"orphan",
+					partSubmission(owner, { target: { kind: "create" }, relationships: [extraGroup()] }),
+				)).output,
+			).toEqual(parentRefusal);
+			const created = yield* submitEdit(
+				editor,
+				"child",
+				partSubmission(owner, {
+					target: { kind: "create" },
+					relationships: [childGroup("parent-a"), extraGroup("extra-a")],
+				}),
+			);
+			assert(created.output.kind === "saved");
+			const partId = created.output.entityId;
+			const incoming = Effect.map(tablesState, (state) =>
+				state.relationshipRows
+					.filter(({ targetEntityId }) => targetEntityId === partId)
+					.map((row) => [row.relationshipSchemaSlug, row.sourceEntityId, row.userId])
+					.sort(),
+			);
+			expect(yield* incoming).toEqual([
+				["item-child", "parent-a", userId],
+				["item-extra", "extra-a", userId],
+			]);
+			const expected = yield* storedExpected(partId, [
+				childGroup("parent-a"),
+				extraGroup("extra-a"),
+			]);
+			const update = { expected, entityId: partId, kind: "update" as const };
+			expect(
+				(yield* submitEdit(
+					editor,
+					"move",
+					partSubmission(owner, {
+						target: update,
+						relationships: [childGroup("parent-b"), extraGroup("extra-a")],
+					}),
+				)).output,
+			).toEqual(parentRefusal);
+			expect(
+				(yield* submitEdit(
+					editor,
+					"keep",
+					partSubmission(owner, {
+						target: update,
+						relationships: [childGroup("parent-a"), extraGroup()],
+					}),
+				)).output,
+			).toEqual({ kind: "saved", entityId: partId });
+			expect(yield* incoming).toEqual([["item-child", "parent-a", userId]]);
+		}),
+	);
+
+	editorCase(
+		"deletes declared entities only without history or unmanaged links",
+		Effect.gen(function* () {
+			const { owner, insert } = yield* setup();
+			const parent = yield* insert("delete-parent", item, userId);
+			assert(parent);
+			const foreign = yield* insert("delete-foreign", part, otherUser);
+			assert(foreign);
+			const editor = yield* makeEditor();
+			const session = yield* DatabaseSession;
+			const createChild = Effect.fnUntraced(function* (key: string) {
+				const created = yield* submitEdit(
+					editor,
+					key,
+					partSubmission(owner, {
+						target: { kind: "create" },
+						relationships: [childGroup("delete-parent")],
+					}),
+				);
+				assert(created.output.kind === "saved");
+				const entityId = created.output.entityId;
+				return { entityId, expectedUpdatedAt: (yield* storedExpected(entityId)).updatedAt };
+			});
+
+			const clean = yield* createChild("clean-child");
+			expect(
+				(yield* submitDelete(editor, "stale-delete", {
+					owner,
+					entityId: clean.entityId,
+					expectedUpdatedAt: "2000-01-01T00:00:00.000Z",
+				})).output,
+			).toEqual({ kind: "stale" });
+			expect((yield* submitDelete(editor, "clean-delete", { owner, ...clean })).output).toEqual({
+				kind: "deleted",
+			});
+			expect((yield* submitDelete(editor, "clean-delete", { owner, ...clean })).output).toEqual({
+				kind: "deleted",
+			});
+			const afterDelete = yield* tablesState;
+			expect(afterDelete.entityRows.some(({ id }) => id === clean.entityId)).toBe(false);
+			expect(
+				afterDelete.relationshipRows.some(({ targetEntityId }) => targetEntityId === clean.entityId),
+			).toBe(false);
+
+			const historied = yield* createChild("historied-child");
+			yield* session.run((db) =>
+				db.insert(tables.event).values({
+					userId,
+					id: "history-event",
+					occurredAt: new Date(),
+					eventSchemaSlug: "unknown",
+					entityId: historied.entityId,
+				}),
+			);
+			expect(
+				(yield* submitDelete(editor, "historied-delete", { owner, ...historied })).output,
+			).toEqual({ kind: "invalid", message: "Remove this entity's history before deleting it" });
+			const afterHistory = yield* session.run((db) =>
+				db.select().from(tables.event).where(eq(tables.event.id, "history-event")),
+			);
+			expect(afterHistory).toHaveLength(1);
+
+			const linked = yield* createChild("linked-child");
+			yield* session.run((db) =>
+				db.insert(tables.relationship).values({
+					userId,
+					sourceEntityId: linked.entityId,
+					targetEntityId: linked.entityId,
+					relationshipSchemaSlug: "part-link",
+					relationshipSchemaPluginId: owner,
+				}),
+			);
+			expect((yield* submitDelete(editor, "linked-delete", { owner, ...linked })).output).toEqual({
+				kind: "invalid",
+				message: "Remove this entity's linked items before deleting it",
+			});
+
+			expect(
+				(yield* submitDelete(editor, "item-delete", {
+					owner,
+					slug: item,
+					entityId: parent.id,
+					expectedUpdatedAt: parent.updatedAt,
+				})).output,
+			).toEqual({ kind: "invalid", message: "This entity cannot be deleted here" });
+			expect(
+				yield* submitDelete(editor, "foreign-delete", {
+					owner,
+					entityId: foreign.id,
+					expectedUpdatedAt: foreign.updatedAt,
+				}).pipe(Effect.flip),
+			).toMatchObject({ _tag: "EntityNotFound" });
 		}),
 	);
 });

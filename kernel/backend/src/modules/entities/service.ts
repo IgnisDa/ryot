@@ -1482,7 +1482,11 @@ export class EntitiesService extends Context.Service<EntitiesService>()("Entitie
 		const deleteByIds = Effect.fn("EntitiesService.deleteByIds")(function* (
 			ids: readonly [EntityId, ...EntityId[]],
 			lifecycle: DomainLifecycleCommand,
-			target?: { readonly userId: UserId; readonly entitySchema: EntitySchemaReference },
+			target?: {
+				readonly userId: UserId;
+				readonly preserveHistory?: boolean;
+				readonly entitySchema: EntitySchemaReference;
+			},
 		) {
 			yield* assertOwner;
 			const orderedIds = [...new Set(ids)].sort();
@@ -1527,6 +1531,9 @@ export class EntitiesService extends Context.Service<EntitiesService>()("Entitie
 				};
 			}
 			const eventIdentities = yield* eventsRepository.listEventIdentitiesForEntities(orderedIds);
+			if (target?.preserveHistory === true && eventIdentities.length > 0) {
+				return yield* new EntityBadRequest({ reason: { code: "entity-has-history" } });
+			}
 			const preparedEvents: PreparedEventDelete[] = [];
 			for (const identity of eventIdentities) {
 				const eventCommand = itemCommand(

@@ -509,16 +509,35 @@ export class RelationshipsRepository extends Context.Service<RelationshipsReposi
 
 				return rows.map(toRelationship);
 			});
-			const listUserOutgoingRelationships = Effect.fn(
-				"RelationshipsRepository.listUserOutgoingRelationships",
+			const listUserEditorRelationships = Effect.fn(
+				"RelationshipsRepository.listUserEditorRelationships",
 			)(function* (input: {
 				userId: UserId;
 				lock: boolean;
-				sourceEntityId: EntityId;
+				entityId: EntityId;
 				pluginId: string | null;
-				relationshipSchemaSlugs: ReadonlyArray<RelationshipSchemaSlug>;
+				outgoingSlugs: ReadonlyArray<RelationshipSchemaSlug>;
+				incomingSlugs: ReadonlyArray<RelationshipSchemaSlug>;
 			}) {
-				if (input.relationshipSchemaSlugs.length === 0) {
+				const ends = [
+					...(input.outgoingSlugs.length === 0
+						? []
+						: [
+								and(
+									eq(schema.relationship.sourceEntityId, input.entityId),
+									inArray(schema.relationship.relationshipSchemaSlug, [...input.outgoingSlugs]),
+								),
+							]),
+					...(input.incomingSlugs.length === 0
+						? []
+						: [
+								and(
+									eq(schema.relationship.targetEntityId, input.entityId),
+									inArray(schema.relationship.relationshipSchemaSlug, [...input.incomingSlugs]),
+								),
+							]),
+				];
+				if (ends.length === 0) {
 					return [];
 				}
 				const rows = yield* session.run((db) => {
@@ -528,15 +547,13 @@ export class RelationshipsRepository extends Context.Service<RelationshipsReposi
 						.where(
 							and(
 								eq(schema.relationship.userId, input.userId),
-								eq(schema.relationship.sourceEntityId, input.sourceEntityId),
 								relationshipSchemaPluginWhere(input.pluginId),
-								inArray(schema.relationship.relationshipSchemaSlug, [
-									...input.relationshipSchemaSlugs,
-								]),
+								or(...ends),
 							),
 						)
 						.orderBy(
 							asc(schema.relationship.relationshipSchemaSlug),
+							asc(schema.relationship.sourceEntityId),
 							asc(schema.relationship.targetEntityId),
 						);
 					return input.lock ? query.for("update") : query;
@@ -714,7 +731,7 @@ export class RelationshipsRepository extends Context.Service<RelationshipsReposi
 				findRelationshipProperties,
 				listEnabledOwnersForSubject,
 				stampRelationshipGeneration,
-				listUserOutgoingRelationships,
+				listUserEditorRelationships,
 				listUserRelationshipsForEntity,
 				listUserRelationshipsForBackup,
 				holdsRelationshipSyncGeneration,
