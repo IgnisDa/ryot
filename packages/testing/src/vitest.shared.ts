@@ -1,5 +1,5 @@
 import type { ViteUserConfig } from "vitest/config";
 
-const shared: ViteUserConfig = { test: { reporters: ["agent"] } };
+const shared: ViteUserConfig = {};
 
 export default shared;
