@@ -32,15 +32,15 @@ import {
 	showEpisodicKindConfig,
 } from "../../shared/lifecycle-expressions";
 import {
+	mediaProgressPositionProperty,
+	mediaProgressRuleError,
+} from "../../shared/media-activity-fields";
+import {
 	MediaActivityLogInput,
 	MediaActivityLogOutput,
 	type MediaActivityWhen,
 } from "../../shared/media-activity-operations";
-import {
-	builtinMediaEntitySchemaSlugs,
-	isPositional,
-	positionalProperties,
-} from "../../shared/media-schema-slugs";
+import { builtinMediaEntitySchemaSlugs } from "../../shared/media-schema-slugs";
 
 const reject = (message: string) => Effect.fail(new OperationRejectedError(message));
 
@@ -170,17 +170,14 @@ const buildEvents = (
 			if (!lifecycleSchemaSlugs.has(schemaSlug)) {
 				return yield* reject("This media type has no progress");
 			}
-			const positionProperty = isPositional(schemaSlug)
-				? positionalProperties[schemaSlug].position
-				: undefined;
-			if (positionProperty === undefined && entry.position !== undefined) {
-				return yield* reject("This media type tracks progress as a percent");
-			}
-			if (positionProperty !== undefined && entry.position === undefined) {
-				return yield* reject("This media type tracks progress as a position");
-			}
-			if (positionProperty !== undefined && entry.progressPercent !== undefined) {
-				return yield* reject("This media type tracks progress as a position");
+			const positionProperty = mediaProgressPositionProperty(schemaSlug);
+			const progressError = mediaProgressRuleError(
+				schemaSlug,
+				{ position: entry.position !== undefined, percent: entry.progressPercent !== undefined },
+				true,
+			);
+			if (progressError !== undefined) {
+				return yield* reject(progressError);
 			}
 			return {
 				schemaSlug,

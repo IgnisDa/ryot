@@ -16,10 +16,7 @@ import {
 	table,
 } from "@ryot-app/plugin-backend-sdk/ryotql";
 
-import {
-	MediaReviewCreateInput,
-	MediaReviewCreateOutput,
-} from "../../shared/media-review-operations";
+import { MediaReviewCreateInput, MediaReviewOutput } from "../../shared/media-review-operations";
 import { mediaLibraryMemberEntitySchemaSlugs } from "../../shared/media-schema-slugs";
 
 const reviewTargetRecipe = defineRecipe((entityId: string) => {
@@ -51,8 +48,8 @@ export const manifest = defineManifest({
 
 export default defineOperation({
 	manifest,
+	output: MediaReviewOutput,
 	input: MediaReviewCreateInput,
-	output: MediaReviewCreateOutput,
 	run: (input, host) =>
 		Effect.gen(function* () {
 			const target = yield* executeRyotqlRecipe(

@@ -1,6 +1,14 @@
 import { parseAppSchemaPropertiesSafe } from "@ryot-app/contract/schema/property-values";
+import { sortBy } from "@ryot-app/ts-utils/lodash";
 import { describe, expect, it } from "vitest";
 
+import {
+	mediaActivityDeclaredProperties,
+	mediaActivityEntitySchemaSlugs,
+	mediaActivityEventSchemaSlugs,
+	mediaReviewDeclaredProperties,
+} from "../../shared/media-activity-fields";
+import { mediaLibraryMemberEntitySchemaSlugs } from "../../shared/media-schema-slugs";
 import { mediaEntitySchemas } from "./entity";
 
 const propertiesSchemaOf = (entity: string, event: string) => {
@@ -58,4 +66,32 @@ const validListState = (overrides: Record<string, unknown>) => ({
 	sourceAccountId: "1",
 	sourceUpdatedAt: "2026-01-01T00:00:00.000Z",
 	...overrides,
+});
+
+const declaredFields = (entity: string, event: string) => {
+	const fields = mediaEntitySchemas()
+		.find((schema) => schema.slug === entity)
+		?.eventSchemas.find((schema) => schema.slug === event)?.propertiesSchema.fields;
+	return fields === undefined ? undefined : sortBy(Object.keys(fields));
+};
+
+describe("media activity edit field matrix", () => {
+	it("matches the manifest's declared lifecycle event properties", () => {
+		for (const entity of mediaActivityEntitySchemaSlugs) {
+			for (const event of mediaActivityEventSchemaSlugs) {
+				const declared = mediaActivityDeclaredProperties(entity, event);
+				expect(declared === undefined ? undefined : sortBy(declared), `${entity} ${event}`).toEqual(
+					declaredFields(entity, event),
+				);
+			}
+		}
+	});
+
+	it("matches the manifest's declared review properties", () => {
+		for (const entity of mediaLibraryMemberEntitySchemaSlugs) {
+			expect(sortBy(mediaReviewDeclaredProperties(entity)), entity).toEqual(
+				declaredFields(entity, "review"),
+			);
+		}
+	});
 });

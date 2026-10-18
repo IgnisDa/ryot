@@ -673,6 +673,34 @@ it("declares the complete media-owned source", () => {
 		},
 		{
 			auth: "user",
+			demoAccess: "protected",
+			slug: "media-activity-update",
+			description: "Update media activity",
+			scriptSlug: "operation.media-activity-update",
+		},
+		{
+			auth: "user",
+			demoAccess: "protected",
+			slug: "media-activity-delete",
+			description: "Delete media activity",
+			scriptSlug: "operation.media-activity-delete",
+		},
+		{
+			auth: "user",
+			demoAccess: "protected",
+			slug: "media-review-update",
+			description: "Update a media review",
+			scriptSlug: "operation.media-review-update",
+		},
+		{
+			auth: "user",
+			demoAccess: "protected",
+			slug: "media-review-delete",
+			description: "Delete a media review",
+			scriptSlug: "operation.media-review-delete",
+		},
+		{
+			auth: "user",
 			demoAccess: "allowed",
 			slug: "media-monitoring-status",
 			description: "Read media monitoring status",
@@ -1136,4 +1164,19 @@ it("declares one bounded where-you-consume list per media type after allowNsfw",
 			"Cinema",
 		],
 	});
+});
+
+it("completes media only from created events, so edits and deletes never re-derive completion", () => {
+	const completionHooks = mediaPlugin.hooks.filter((hook) =>
+		["media.auto-complete-on-full-progress", "media.auto-complete-episodic-parent"].includes(
+			hook.slug,
+		),
+	);
+	expect(completionHooks).toHaveLength(2);
+	for (const hook of completionHooks) {
+		expect(hook.targets.length).toBeGreaterThan(0);
+		for (const target of hook.targets) {
+			expect(target).toMatchObject({ resource: "event", operation: "create" });
+		}
+	}
 });

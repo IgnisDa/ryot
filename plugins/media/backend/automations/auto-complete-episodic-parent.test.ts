@@ -852,4 +852,30 @@ describe("auto-complete-episodic-parent sandbox script", () => {
 			expect(repeated.queryCount).toBe(1);
 		}),
 	);
+
+	it.live(
+		"does not complete again within the claim TTL after its auto-created completion is deleted",
+		() =>
+			Effect.gen(function* () {
+				const claimed = new Map<string, number>();
+				const claim = (key: string, _value: boolean, ttl: number) => {
+					if (claimed.has(key)) {
+						return hostSuccess({ value: null, claimed: false as const });
+					}
+					claimed.set(key, ttl);
+					return hostSuccess({ claimed: true as const });
+				};
+				const created: CreateEventItem[][] = [];
+				const first = createHost([completeCoverage(), completeCoverage()], { claim, created });
+				yield* run(eventContext(), first.host);
+				expect(created).toHaveLength(1);
+				const afterDeletion = createHost([completeCoverage()], { claim, created });
+				yield* run(eventContext({ id: "recompleted-last-episode" }), afterDeletion.host);
+				expect(created).toHaveLength(1);
+				expect([...claimed]).toEqual([
+					["media-parent-completion:show-1:initial", PARENT_COMPLETION_CLAIM_TTL_SECONDS],
+				]);
+				expect(PARENT_COMPLETION_CLAIM_TTL_SECONDS).toBe(3600);
+			}),
+	);
 });
