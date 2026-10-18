@@ -210,8 +210,8 @@ layer(relationshipDatabaseLayer())((test) => {
 			yield* Ref.set(planned, []);
 
 			const first = yield* persist("sweep", [], { value: "g1", kind: "sweep" });
-			const deleteRequests = (yield* Ref.get(planned)).filter((entry) => entry.endsWith("delete"));
-			expect(deleteRequests).toEqual(["request:delete", "change:delete"]);
+			const deletePlans = (yield* Ref.get(planned)).filter((entry) => entry.endsWith("delete"));
+			expect(deletePlans).toEqual(["change:delete"]);
 
 			yield* Ref.set(planned, []);
 			const replayed = yield* persist("sweep", [], { value: "g1", kind: "sweep" });

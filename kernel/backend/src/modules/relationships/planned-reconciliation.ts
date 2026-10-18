@@ -9,11 +9,9 @@ import {
 } from "@ryot-app/contract/modules/relationships/schemas";
 import { Effect, Schema } from "effect";
 
-import { lifecycleTrigger } from "#modules/automations/lifecycle/command";
-import {
-	type CommittedLifecycleWork,
-	type LifecycleDispatchPlan,
-	LifecyclePersistenceError,
+import type {
+	CommittedLifecycleWork,
+	LifecycleDispatchPlan,
 } from "#modules/automations/lifecycle/planning";
 import {
 	makeReceiptBatches,
@@ -233,17 +231,10 @@ export const makePlannedRelationshipReconciliation = (
 				validated: ValidatedMutation | null;
 				before: AutomationRelationshipSnapshot | null;
 				request: AutomationRelationshipRequestPayload | null;
-				requestId: DomainLifecycleCommand["causation"]["parentTriggerId"];
 			}> = [];
 			for (const [index, mutation] of mutations.entries()) {
 				if (itemReplays[index]) {
-					prepared.push({
-						...mutation,
-						before: null,
-						request: null,
-						requestId: null,
-						validated: null,
-					});
+					prepared.push({ ...mutation, before: null, request: null, validated: null });
 					continue;
 				}
 				const row = rows.get(relationshipMutationLockKey(mutation.input));
@@ -254,28 +245,7 @@ export const makePlannedRelationshipReconciliation = (
 					before,
 					validated,
 				);
-				if (!request) {
-					prepared.push({ ...mutation, before, validated, request: null, requestId: null });
-					continue;
-				}
-				const requestPlan = yield* planner.plan({
-					trigger: lifecycleTrigger(mutation.command, scopeUserId, request),
-				});
-				if (requestPlan.trigger?.blockedReason) {
-					return yield* new RelationshipBadRequest({
-						reason: { code: "automation-limit-reached" },
-					});
-				}
-				if (requestPlan.policies.length > 0) {
-					return yield* new LifecyclePersistenceError({ code: "before-policy-requires-owner" });
-				}
-				prepared.push({
-					...mutation,
-					before,
-					request,
-					validated,
-					requestId: requestPlan.trigger?.id ?? null,
-				});
+				prepared.push({ ...mutation, before, request, validated });
 			}
 			const counts = {
 				createdCount: prepared.filter(({ request }) => request?.operation === "create").length,
@@ -348,7 +318,7 @@ export const makePlannedRelationshipReconciliation = (
 					payload,
 					population,
 					mutation: item,
-					requestId: item.requestId,
+					requestId: null,
 				});
 				itemRecords.push(
 					mutationReceiptRecord({

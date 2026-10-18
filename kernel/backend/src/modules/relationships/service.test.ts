@@ -1330,11 +1330,10 @@ describe("Relationships lifecycle owner", () => {
 
 	layer(relationshipDatabaseLayer())((test) => {
 		test.effect(
-			"requires an active transaction and rejects unprepared reconciliation policies",
+			"requires an active transaction and persists reconciliation without planning before policies",
 			() =>
 				Effect.gen(function* () {
 					const session = yield* DatabaseSession;
-					const planner = yield* LifecyclePlanner;
 					const service = yield* RelationshipsService;
 					yield* session.run((db) =>
 						db
@@ -1346,20 +1345,6 @@ describe("Relationships lifecycle owner", () => {
 							}),
 					);
 					const globalPolicyInput = yield* installPolicyFixture(null);
-					const policyService = yield* relationshipsServiceWith({
-						planner: withLifecycleBatchPlanning({
-							plan: (input) =>
-								planner.plan(input).pipe(
-									Effect.map((plan) => {
-										assert(plan.trigger);
-										return {
-											...plan,
-											policies: [{ position: 1, runId: AutomationRunId.make("policy") }],
-										};
-									}),
-								),
-						}),
-					});
 					const groups = [
 						{
 							relationshipSchema: globalPolicyInput.relationshipSchema,
@@ -1382,22 +1367,20 @@ describe("Relationships lifecycle owner", () => {
 							.persistPlannedReconciliation(groups, command("outside"), { scope: "global" })
 							.pipe(Effect.flip),
 					).toMatchObject({ code: "active-transaction-required" });
-					const error = yield* session
-						.transaction(
-							policyService.persistPlannedReconciliation(groups, command("policy"), {
-								scope: "global",
-							}),
-						)
-						.pipe(Effect.flip);
-					expect(error).toMatchObject({ code: "before-policy-requires-owner" });
+					const reconciled = yield* session.transaction(
+						service.persistPlannedReconciliation(groups, command("policy"), { scope: "global" }),
+					);
+					expect(reconciled.result).toEqual([{ created: 1, updated: 0, deleted: 0, upserted: 1 }]);
 					const [relationships, triggers] = yield* session.run((db) =>
 						Effect.all([
-							db.select().from(tables.relationship),
-							db.select().from(tables.automationTrigger),
+							db.select({ properties: tables.relationship.properties }).from(tables.relationship),
+							db
+								.select({ category: tables.automationTrigger.category })
+								.from(tables.automationTrigger),
 						]),
 					);
-					expect(relationships).toEqual([]);
-					expect(triggers).toEqual([]);
+					expect(relationships).toEqual([{ properties: { rank: 1 } }]);
+					expect(triggers.filter(({ category }) => category === "request")).toEqual([]);
 				}),
 		);
 	});

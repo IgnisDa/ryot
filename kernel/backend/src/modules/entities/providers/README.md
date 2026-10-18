@@ -35,7 +35,9 @@ deadlock once every slot holds a parent.
 
 ## Population
 
-Provider details are fetched and validated before database work. Population commits the root entity,
+Provider details are fetched and validated before database work. Population writes are provider data,
+not mutation requests: they plan no before-policies, so the provider's `details` script shapes them.
+Population commits the root entity,
 then its child-entity sets, then the base population timestamp in separate short transactions. It
 publishes `populated` before starting related work. Lifecycle dispatch and Redis publication happen
 after the corresponding transactions commit.
@@ -95,7 +97,7 @@ and writes each page in one transaction:
   therefore supersedes an older one without interleaved writes.
 - After the last page, an authoritative group is swept: relationships of the group whose stamp
   differs from the generation are deleted through the normal planned-reconciliation delete path
-  (triggers, policies, receipts, change evidence). Additive groups are never swept.
+  (triggers, receipts, change evidence). Additive groups are never swept.
 - A failed page or reaching the 200-page limit fails the page workflow and skips its sweep. A
   superseded run also skips its sweep and cannot complete the related level. The parent collects
   every group's outcome, so one failed group does not prevent successful sibling groups from

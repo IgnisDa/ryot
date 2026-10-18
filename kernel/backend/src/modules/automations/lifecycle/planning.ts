@@ -138,11 +138,7 @@ export class LifecyclePersistenceError extends Schema.TaggedError<
 	LifecyclePersistenceError,
 	{ readonly brand: unique symbol }
 >()("LifecyclePersistenceError", {
-	code: Schema.Literals([
-		"active-transaction-required",
-		"before-policy-requires-owner",
-		"postcommit-requires-root",
-	]),
+	code: Schema.Literals(["active-transaction-required", "postcommit-requires-root"]),
 }) {}
 
 export class LifecyclePlanner extends Context.Service<

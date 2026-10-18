@@ -397,7 +397,8 @@ observer retains its own plugin's write authority; it must not extend kernel sch
 plugin's domain data. A plugin's own schema named `collection` remains a separate local target. Names
 alone never select kernel ownership.
 
-Before hooks use `defineAutomationPolicy` and `automationType: "policy"`. They execute sequentially
+Before hooks use `defineAutomationPolicy` and `automationType: "policy"`. They apply to submitted
+mutations, never to provider population, whose data the provider's `details` script shapes. They execute sequentially
 by `(position, pluginId, hookSlug)`; omitted `position` means 1000. The compiler and runtime allow
 only the policy-safe host surface: `executeRyotql`, schema/integration/config/preference reads, cache
 reads, and diagnostic `log`/`span`. Each run receives shared automation metadata and optional

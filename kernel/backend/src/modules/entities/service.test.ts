@@ -2142,38 +2142,32 @@ describe("EntitiesService committed lifecycle", () => {
 	});
 
 	layer(entitiesLayer({ policies: [{ action: "allow" }] }))((test) => {
-		test.effect(
-			"rolls back transaction-scoped provider persistence when a before policy matches",
-			() =>
-				Effect.gen(function* () {
-					yield* seedProvider;
-					const service = yield* EntitiesService;
-					const session = yield* DatabaseSession;
-					const error = yield* session
-						.transaction(
-							service.persistPlannedProviderUpsert({
-								providerId,
-								name: "Policy",
-								scope: "global",
-								populatedAt: null,
-								externalId: "policy",
-								updateExisting: true,
-								properties: { title: "policy" },
-								entitySchema: providerEntitySchema,
-								lifecycle: command("planned-policy"),
-							}),
-						)
-						.pipe(Effect.flip);
-					expect(error).toMatchObject({ code: "before-policy-requires-owner" });
-					const [entities, triggers] = yield* session.run((db) =>
-						Effect.all([
-							db.select().from(tables.entity),
-							db.select().from(tables.automationTrigger),
-						]),
-					);
-					expect(entities).toEqual([]);
-					expect(triggers).toEqual([]);
-				}),
+		test.effect("persists provider writes without planning before policies", () =>
+			Effect.gen(function* () {
+				yield* seedProvider;
+				const service = yield* EntitiesService;
+				const session = yield* DatabaseSession;
+				const lifecycle = yield* FakeEntityLifecycle;
+				const work = yield* session.transaction(
+					service.persistPlannedProviderUpsert({
+						providerId,
+						name: "Policy",
+						scope: "global",
+						populatedAt: null,
+						externalId: "policy",
+						updateExisting: true,
+						properties: { title: "policy" },
+						entitySchema: providerEntitySchema,
+						lifecycle: command("planned-policy"),
+					}),
+				);
+				expect(work.result.entity.properties).toEqual({ title: "policy" });
+				const triggers = yield* session.run((db) =>
+					db.select({ category: tables.automationTrigger.category }).from(tables.automationTrigger),
+				);
+				expect(triggers.filter(({ category }) => category === "request")).toEqual([]);
+				expect(yield* lifecycle.policyCalls).toEqual([]);
+			}),
 		);
 	});
 

@@ -1165,39 +1165,13 @@ export class EntitiesService extends Context.Service<EntitiesService>()("Entitie
 					continue;
 				}
 				const before = existing && !replay ? snapshot(existing) : null;
-				let payload: AutomationEntityRequestPayload;
-				if (before === null) {
-					payload = {
-						resource: "entity",
-						category: "request",
-						operation: "create",
-						draft: entry.validated.draft,
-					};
-				} else {
-					payload = {
-						before,
-						resource: "entity",
-						category: "request",
-						operation: "update",
-						draft: entry.validated.draft,
-					};
-				}
-				const requestPlan = yield* planner.plan({
-					trigger: lifecycleTrigger(entry.lifecycle, entry.scopeUserId, payload),
-				});
-				if (requestPlan.trigger?.blockedReason) {
-					return yield* bad("automation-limit", "Entity request exceeds automation limits");
-				}
-				if (requestPlan.policies.length > 0) {
-					return yield* new LifecyclePersistenceError({ code: "before-policy-requires-owner" });
-				}
 				const prepared: PreparedMutation = {
 					before,
+					requestId: null,
 					receipt: entry.receipt,
 					lifecycle: entry.lifecycle,
 					draft: entry.validated.draft,
 					scopeUserId: entry.scopeUserId,
-					requestId: requestPlan.trigger?.id ?? null,
 					operation: before === null ? "create" : "update",
 					entityId: existing?.id ?? commandEntityId(entry.lifecycle),
 					entitySchemaPluginId: entry.validated.entitySchemaPluginId,
