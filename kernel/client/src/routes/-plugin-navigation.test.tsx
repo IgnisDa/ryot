@@ -33,7 +33,7 @@ import {
 import type { PluginClientCatalog } from "@ryot-app/ryotql-recipes/plugin-client-catalog";
 import { createMemoryHistory, RouterProvider } from "@tanstack/react-router";
 import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
-import { Effect, Layer, ManagedRuntime, Schema } from "effect";
+import { Deferred, Effect, Layer, ManagedRuntime, Schema } from "effect";
 
 import { AuthenticatedApiError } from "#/api/authenticated";
 import type { CollectionsApi } from "#/api/collections";
@@ -189,6 +189,7 @@ const collectionResponse = (id: string, name: string) => ({
 
 function mount(options: {
 	readonly entry: string;
+	readonly pendingMs?: number;
 	readonly entries?: PluginClientCatalog;
 	readonly auth?: ReturnType<typeof makeAuthStub>;
 	readonly storage?: ClientStorage["Service"];
@@ -300,6 +301,13 @@ function mount(options: {
 		{ theme, runtime, backInterceptors: createBackInterceptors() },
 		createMemoryHistory({ initialEntries: [options.entry] }),
 	);
+	if (options.pendingMs !== undefined) {
+		router.update({
+			...router.options,
+			defaultPendingMinMs: 0,
+			defaultPendingMs: options.pendingMs,
+		});
+	}
 	const view = render(<RouterProvider router={router} />);
 	return {
 		...view,
@@ -357,6 +365,63 @@ const preparationFailure = (reason: ClientPagePreparationError["reason"]) =>
 	Effect.fail(new AuthenticatedApiError({ cause: new ClientPagePreparationError({ reason }) }));
 
 describe("client page routes", () => {
+	it.live.each([
+		{
+			title: "Opening Fixture",
+			entry: "/p/test/plugin-1",
+			prepared: preparedFor({
+				path: "/",
+				search: "",
+				kind: "plugin-route",
+				packageId: PluginPackageId.make("test/plugin-1"),
+			}),
+		},
+		{
+			title: "Opening Fixture",
+			entry: "/p/test/plugin-1/details/one",
+			prepared: preparedFor({
+				search: "",
+				kind: "plugin-route",
+				path: "/details/one",
+				packageId: PluginPackageId.make("test/plugin-1"),
+			}),
+		},
+		{
+			entry: "/v/c/fixture-view",
+			title: "Opening Fixture View",
+			prepared: preparedSavedView(SavedViewId.make("fixture-view")),
+		},
+		{
+			entry: "/e/entity-1",
+			title: "Opening Fixture",
+			prepared: preparedFor({ kind: "entity", entityId: EntityId.make("entity-1") }),
+		},
+	])("uses the same interstitial while preparing $entry", ({ entry, title, prepared }) =>
+		Effect.gen(function* () {
+			const preparation = yield* Deferred.make<PreparedClientPage, AuthenticatedApiError>();
+			const view = mount({
+				pendingMs: 0,
+				entry: "/settings/preferences",
+				prepare: () => Deferred.await(preparation),
+			});
+			yield* Effect.promise(() => screen.findByRole("heading", { name: "Preferences" }));
+			yield* Effect.forkChild(
+				Effect.promise(() => view.router.navigate({ href: entry })),
+				{ startImmediately: true },
+			);
+			yield* Effect.promise(() => screen.findByRole("heading", { name: "Opening your page" }));
+			expect(screen.getAllByRole("main")).toHaveLength(1);
+			expect(screen.getAllByRole("heading", { level: 1 })).toHaveLength(1);
+			expect(screen.getByRole("status").textContent).toContain("Getting your view ready");
+
+			yield* Deferred.succeed(preparation, prepared);
+			yield* Effect.promise(() => screen.findByRole("heading", { name: title }));
+			expect(screen.getAllByRole("main")).toHaveLength(1);
+			expect(screen.getAllByRole("heading", { level: 1 })).toHaveLength(1);
+			view.unmount();
+		}),
+	);
+
 	it.live("prepares a saved-view slug without loading a saved-view record", () =>
 		Effect.gen(function* () {
 			const view = mount({ entry: "/v/c/fixture-view" });

@@ -5,11 +5,7 @@ import { createFileRoute, Outlet, useNavigate } from "@tanstack/react-router";
 import { useCollectionScreens } from "#/modules/collections/screens";
 import { usePageTitle } from "#/modules/navigation/page-title";
 import { mainContentProps } from "#/modules/navigation/skip-link";
-import {
-	useClearClientPageDocument,
-	useClientPageDocument,
-	useHasPublishedClientPageDocument,
-} from "#/modules/pages/documents/state";
+import { useClearClientPageDocument, useClientPageDocument } from "#/modules/pages/documents/state";
 import type { ClientPagePreparation } from "#/modules/pages/preparation/prepare";
 import { effectiveCatalogPlugin } from "#/modules/plugins/catalog/location";
 import { usePluginCatalog } from "#/modules/plugins/catalog/provider";
@@ -19,9 +15,8 @@ import { AppScreen } from "#/modules/shell/app-screen";
 
 export const Route = createFileRoute("/_authenticated/p/$publisher/$name")({
 	component: Outlet,
-	pendingComponent: PluginPending,
 	notFoundComponent: PluginNotFound,
-	errorComponent: () => <PluginNotice clear title="Plugin page unavailable" />,
+	errorComponent: () => <PluginNotice title="Plugin page unavailable" />,
 });
 
 export function PluginRoutePage({
@@ -33,7 +28,7 @@ export function PluginRoutePage({
 }) {
 	const { catalog } = usePluginCatalog();
 	if (preparation.kind === "unavailable") {
-		return <PluginNotice clear title="Plugin page not found" />;
+		return <PluginNotice title="Plugin page not found" />;
 	}
 	const installation = effectiveCatalogPlugin(catalog, packageId);
 	return <PluginDocument prepared={preparation.prepared} title={installation?.name ?? "Plugin"} />;
@@ -67,18 +62,7 @@ function PluginDocument(props: { readonly title: string; readonly prepared: Prep
 	);
 }
 
-function PluginPending() {
-	return useHasPublishedClientPageDocument() ? null : <PluginNotice title="Plugin loading" />;
-}
-
-function PluginNotice(props: { readonly title: string; readonly clear?: boolean }) {
-	if (props.clear) {
-		return <ClearedPluginNotice title={props.title} />;
-	}
-	return <AppScreen title={props.title}>{null}</AppScreen>;
-}
-
-function ClearedPluginNotice(props: { readonly title: string }) {
+function PluginNotice(props: { readonly title: string }) {
 	useClearClientPageDocument();
 	return <AppScreen title={props.title}>{null}</AppScreen>;
 }
