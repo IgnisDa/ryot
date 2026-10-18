@@ -13,7 +13,11 @@ import { manifest as igdbSearchOptionsManifest } from "../backend/providers/vide
 import { manifest as igdbSearchManifest } from "../backend/providers/video-game/igdb/search.sandbox";
 import { manifest as monitoringTargetsManifest } from "../backend/workflows/media-monitoring-targets.sandbox";
 import { consumedOnSettingKeys } from "../shared/consumed-on-settings";
-import { mediaEntityEditors, mediaEntityEditRoutePattern } from "../shared/media-entity-editors";
+import {
+	isMediaChildEntitySchemaSlug,
+	mediaEntityEditors,
+	mediaEntityEditRoutePattern,
+} from "../shared/media-entity-editors";
 import {
 	builtinMediaEntitySchemaSlugs,
 	mediaLibraryEligibleEntitySchemaSlugs,
@@ -932,7 +936,7 @@ it("keeps entity and import membership immediate and groups event membership by 
 				operation: "complete",
 				resource: "provider-entity-import",
 			};
-			return ["show-season", "show-episode", "podcast-episode"].includes(entitySchemaSlug)
+			return isMediaChildEntitySchemaSlug(entitySchemaSlug)
 				? [imported]
 				: [{ entitySchemaSlug, resource: "entity", operation: "create" }, imported];
 		}),

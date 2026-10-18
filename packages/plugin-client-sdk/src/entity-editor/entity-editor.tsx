@@ -3,6 +3,7 @@ import {
 	type EntityEditorSaveRequest,
 	retryableEntityEditorSaveRequest,
 } from "@ryot-app/contract/modules/entities/editor";
+import { relationshipEnds } from "@ryot-app/contract/modules/relationships/orientation";
 import { EntityId, EntitySchemaSlug, type PluginPackageId } from "@ryot-app/contract/schema/brands";
 import type { AppSchema } from "@ryot-app/contract/schema/property-schema";
 import {
@@ -114,10 +115,7 @@ const definitionsQuery = createRyotQuery(
 				if (definition === undefined) {
 					return [];
 				}
-				const related =
-					direction === "outgoing"
-						? definition.targetEntitySchemaSlug
-						: definition.sourceEntitySchemaSlug;
+				const related = definition[`${relationshipEnds(direction).related}EntitySchemaSlug`];
 				return related === null
 					? []
 					: [

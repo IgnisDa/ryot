@@ -1,4 +1,5 @@
 import { DbError } from "@ryot-app/contract/errors";
+import { relationshipEnds } from "@ryot-app/contract/modules/relationships/orientation";
 import {
 	EntityId,
 	PluginId,
@@ -191,9 +192,7 @@ const relationshipReconciliationWhere = (input: RelationshipReconciliationListIn
 		input.type === "self"
 			? eq(schema.relationship.sourceEntityId, schema.relationship.targetEntityId)
 			: eq(
-					input.direction === "outgoing"
-						? schema.relationship.sourceEntityId
-						: schema.relationship.targetEntityId,
+					schema.relationship[`${relationshipEnds(input.direction).anchor}EntityId`],
 					input.anchorEntityId,
 				),
 	);

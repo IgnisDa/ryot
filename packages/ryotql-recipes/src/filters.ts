@@ -18,6 +18,7 @@ import {
 	type QueryOwnerReference,
 	QueryRelationshipSchemaReference,
 } from "@ryot-app/contract/modules/plugins/references";
+import { relationshipEnds } from "@ryot-app/contract/modules/relationships/orientation";
 import type {
 	FieldSelection,
 	NamedQuery,
@@ -612,7 +613,7 @@ const linkedChoicesSource = (
 		const from = table("relationship", "filterChoiceLink");
 		return {
 			from,
-			farColumn: link.direction === "outgoing" ? "targetEntityId" : "sourceEntityId",
+			farColumn: `${relationshipEnds(link.direction).related}EntityId` as const,
 			where: relationshipSchemaPredicate(from, link.relationship.slug, link.relationship.owner),
 		};
 	}

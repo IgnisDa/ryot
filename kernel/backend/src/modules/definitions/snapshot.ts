@@ -16,6 +16,7 @@ import {
 	definitionOwner,
 	type EventSchemaReference,
 } from "@ryot-app/contract/modules/plugins/references";
+import { relationshipEnds } from "@ryot-app/contract/modules/relationships/orientation";
 import { RyotQLDocument } from "@ryot-app/contract/modules/ryotql/language";
 import {
 	EntityBrowserSavedViewSettings,
@@ -340,11 +341,10 @@ const validateDefinitionSource = (
 				(candidate) =>
 					candidate.slug === declared.slug && candidate.pluginId === entitySchema.pluginId,
 			);
-			const end =
-				declared.direction === "outgoing"
-					? relationship?.sourceEntitySchemaSlug
-					: relationship?.targetEntitySchemaSlug;
-			if (end !== entitySchema.slug) {
+			if (
+				relationship?.[`${relationshipEnds(declared.direction).anchor}EntitySchemaSlug`] !==
+				entitySchema.slug
+			) {
 				throw new Error(
 					`Entity schema ${entitySchema.slug} editor relationship ${declared.slug} must be an owned relationship at it`,
 				);

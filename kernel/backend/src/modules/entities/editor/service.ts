@@ -15,6 +15,10 @@ import {
 	definitionOwner,
 	type EntitySchemaReference,
 } from "@ryot-app/contract/modules/plugins/references";
+import {
+	orientRelationship,
+	relationshipEnds,
+} from "@ryot-app/contract/modules/relationships/orientation";
 import type {
 	RelationshipBadRequest,
 	RelationshipNotFound,
@@ -66,6 +70,16 @@ const notDeletable = "This entity cannot be deleted here";
 const hasLinks = "Remove this entity's linked items before deleting it";
 
 type Direction = PluginEntityEditorRelationship["direction"];
+
+const refusedAuthorization = (message: string) => ({ message, kind: "refused" as const });
+
+const directionOf = (directions: ReadonlyMap<string, Direction>, slug: string) => {
+	const direction = directions.get(slug);
+	if (direction === undefined) {
+		throw new Error(`Relationship ${slug} is not declared by the editor`);
+	}
+	return direction;
+};
 
 const SaveResult = Schema.Struct({ entityId: EntityId });
 const refused = (message: string) => new EntityEditorRefused({ message });
@@ -168,13 +182,12 @@ export class EntityEditorService extends Context.Service<EntityEditorService>()(
 				reference: EntitySchemaReference,
 				relationshipSlugs: ReadonlyArray<string>,
 			) {
-				const refusal = (message: string) => ({ message, kind: "refused" as const });
 				if (reference.owner.kind !== "plugin") {
-					return refusal(notEditable);
+					return refusedAuthorization(notEditable);
 				}
 				const { pluginId } = reference.owner;
 				if (!(yield* runtime.findPluginAvailableToUser(userId, pluginId))) {
-					return refusal(notEditable);
+					return refusedAuthorization(notEditable);
 				}
 				const owner = definitionOwner(pluginId);
 				const entitySchema = (yield* definitions.findUserEntitySchemas(userId, [
@@ -182,14 +195,14 @@ export class EntityEditorService extends Context.Service<EntityEditorService>()(
 				]))[definitionKey("entity", owner, reference.slug)];
 				const editor = entitySchema?.pluginId === pluginId ? entitySchema.editor : undefined;
 				if (!editor) {
-					return refusal(notEditable);
+					return refusedAuthorization(notEditable);
 				}
 				const directions = new Map<string, Direction>(
 					editor.relationships.map(({ slug, direction }) => [slug, direction]),
 				);
 				const undeclared = relationshipSlugs.find((slug) => !directions.has(slug));
 				if (undeclared !== undefined) {
-					return refusal(`Relationship ${undeclared} is not editable here`);
+					return refusedAuthorization(`Relationship ${undeclared} is not editable here`);
 				}
 				const relationshipSchemas = yield* definitions.findUserRelationshipSchemas(
 					userId,
@@ -199,14 +212,14 @@ export class EntityEditorService extends Context.Service<EntityEditorService>()(
 					const definition = relationshipSchemas[definitionKey("relationship", owner, slug)];
 					return (
 						definition?.pluginId !== pluginId ||
-						(directions.get(slug) === "outgoing"
-							? definition.sourceEntitySchemaSlug
-							: definition.targetEntitySchemaSlug) !== reference.slug
+						definition[
+							`${relationshipEnds(directionOf(directions, slug)).anchor}EntitySchemaSlug`
+						] !== reference.slug
 					);
 				});
 				return unavailable === undefined
 					? { directions, kind: "authorized" as const, deletable: editor.deletable === true }
-					: refusal(`Relationship ${unavailable} is not editable here`);
+					: refusedAuthorization(`Relationship ${unavailable} is not editable here`);
 			}, Effect.orDie);
 
 			const editorRelationships = (input: {
@@ -219,7 +232,7 @@ export class EntityEditorService extends Context.Service<EntityEditorService>()(
 			}) => {
 				const slugsIn = (outgoing: boolean) =>
 					input.slugs
-						.filter((slug) => (input.directions.get(slug) === "outgoing") === outgoing)
+						.filter((slug) => (directionOf(input.directions, slug) === "outgoing") === outgoing)
 						.map((slug) => RelationshipSchemaSlug.make(slug));
 				return relationshipsRepository
 					.listUserEditorRelationships({
@@ -236,9 +249,9 @@ export class EntityEditorService extends Context.Service<EntityEditorService>()(
 								properties: row.properties,
 								relationshipSchemaSlug: row.relationshipSchemaSlug,
 								targetEntityId:
-									input.directions.get(row.relationshipSchemaSlug) === "outgoing"
-										? row.targetEntityId
-										: row.sourceEntityId,
+									row[
+										`${relationshipEnds(directionOf(input.directions, row.relationshipSchemaSlug)).related}EntityId`
+									],
 							})),
 						),
 					);
@@ -442,13 +455,15 @@ export class EntityEditorService extends Context.Service<EntityEditorService>()(
 					| { kind: "delete"; prepared: PreparedUserRelationshipDelete }
 				> = [];
 				for (const change of changes) {
-					const outgoing = directions.get(change.slug) === "outgoing";
 					const base = {
 						userId,
 						scope: "user" as const,
 						relationshipSchema: { owner, slug: change.slug },
-						sourceEntityId: outgoing ? prepared.entityId : change.targetEntityId,
-						targetEntityId: outgoing ? change.targetEntityId : prepared.entityId,
+						...orientRelationship(
+							directionOf(directions, change.slug),
+							prepared.entityId,
+							change.targetEntityId,
+						),
 					};
 					const relationshipCommand = itemCommand(
 						command,
@@ -481,11 +496,7 @@ export class EntityEditorService extends Context.Service<EntityEditorService>()(
 								entityId: prior.result.entityId,
 							};
 						}
-						const committedAuthorization = yield* authorize(
-							userId,
-							submission.entitySchema,
-							slugs,
-						);
+						const committedAuthorization = yield* authorize(userId, submission.entitySchema, slugs);
 						if (committedAuthorization.kind === "refused") {
 							return { kind: "refused" as const, message: committedAuthorization.message };
 						}
@@ -568,32 +579,34 @@ export class EntityEditorService extends Context.Service<EntityEditorService>()(
 						const direction = authorization.directions.get(link.relationshipSchemaSlug);
 						return (
 							direction === undefined ||
-							(direction === "outgoing" ? link.sourceEntityId : link.targetEntityId) !== entityId
+							link[`${relationshipEnds(direction).anchor}EntityId`] !== entityId
 						);
 					});
 					if (unmanaged) {
 						return { warnings: noWarnings, output: invalid(hasLinks) };
 					}
 				}
-				const { deletedCount, warnings } = yield* entities.deleteByIds([entityId], input.lifecycle, {
-					userId,
-					entitySchema,
-					preserveHistory: true,
-				});
+				const { warnings, deletedCount } = yield* entities.deleteByIds(
+					[entityId],
+					input.lifecycle,
+					{ userId, entitySchema, preserveHistory: true },
+				);
 				if (deletedCount === 0) {
 					return yield* new EntityNotFound({ reason: { entityId, code: "entity-not-found" } });
 				}
 				return { warnings, output: { kind: "deleted" } satisfies EntityEditorSaveOutput };
 			});
 
-			const handled = <R>(
-				work: Effect.Effect<
-					{ output: EntityEditorSaveOutput; warnings: ReadonlyArray<AutomationWarning> },
-					Effect.Error<ReturnType<typeof save>> | Effect.Error<ReturnType<typeof remove>>,
-					R
-				>,
+			const handled = (
+				input: Omit<Parameters<typeof save>[0], "submission"> & {
+					submission: EntityEditorSaveRequest["submission"];
+				},
 			) =>
-				work.pipe(
+				Effect.suspend(() =>
+					input.submission.action === "save"
+						? save({ ...input, submission: input.submission })
+						: remove({ ...input, submission: input.submission }),
+				).pipe(
 					Effect.catchTags({
 						EntityStale: () => Effect.succeed({ output: stale, warnings: noWarnings }),
 						LifecyclePersistenceError: (error: LifecyclePersistenceError) =>
@@ -652,11 +665,7 @@ export class EntityEditorService extends Context.Service<EntityEditorService>()(
 					}),
 					writeContext: null,
 				};
-				return yield* handled(
-					submission.action === "save"
-						? save({ userId, lifecycle, submission })
-						: remove({ userId, lifecycle, submission }),
-				);
+				return yield* handled({ userId, lifecycle, submission });
 			});
 
 			return { submit };

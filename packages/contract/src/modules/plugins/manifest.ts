@@ -13,6 +13,7 @@ import {
 	AutomationSource,
 } from "../automations/lifecycle";
 import { CalendarSourcePrecision, CalendarSourceQuery } from "../calendar-sources/schemas";
+import { relationshipEnds } from "../relationships/orientation";
 import { OutputFieldKey } from "../ryotql/language";
 import { AuthoredSavedViewSubject, withAuthoredSavedViewConfig } from "../saved-views/schemas";
 import { POLICY_SAFE_SANDBOX_CAPABILITIES } from "../scripts/wire";
@@ -1079,9 +1080,7 @@ const hasValidLocalDeclarations = (manifest: typeof AuthoredPluginManifestFields
 				manifest.relationshipSchemas.some(
 					(relationship) =>
 						relationship.slug === declared.slug &&
-						(declared.direction === "outgoing"
-							? relationship.sourceEntitySchemaSlug
-							: relationship.targetEntitySchemaSlug) === slug,
+						relationship[`${relationshipEnds(declared.direction).anchor}EntitySchemaSlug`] === slug,
 				),
 			));
 	return (

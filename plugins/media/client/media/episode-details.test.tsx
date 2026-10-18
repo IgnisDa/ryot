@@ -5,7 +5,7 @@ import { createTestBackgroundSubmissions } from "@ryot-app/plugin-client-sdk/tes
 import { getByRole, queryByRole, waitFor } from "@testing-library/dom";
 import { Deferred } from "effect";
 
-import { PLUGIN_PACKAGE_ID as EPISODIC_FIXTURE_PACKAGE_ID } from "../../shared/plugin-identity";
+import { PLUGIN_PACKAGE_ID } from "../../shared/plugin-identity";
 import {
 	activityLogQuery,
 	contextTarget,
@@ -159,7 +159,7 @@ describe("episode details", () => {
 							{
 								search: {},
 								kind: "plugin-route",
-								packageId: EPISODIC_FIXTURE_PACKAGE_ID,
+								packageId: PLUGIN_PACKAGE_ID,
 								path: "/podcast-episode/episode%2F1/edit",
 							},
 						]);

@@ -1,5 +1,6 @@
 import { PluginEntityEditor } from "@ryot-app/contract/modules/plugins/manifest";
 import type { PluginIdentityReference } from "@ryot-app/contract/modules/plugins/references";
+import { relationshipEnds } from "@ryot-app/contract/modules/relationships/orientation";
 import { EntityId } from "@ryot-app/contract/schema/brands";
 import { AppSchema } from "@ryot-app/contract/schema/property-schema";
 import {
@@ -131,10 +132,9 @@ export const entityEditorRelationshipsRecipe = defineRecipe(
 	}) => {
 		const relationship = table("relationship", "editorRelationship");
 		const related = table("entity", "editorRelationshipRelated");
-		const [ownEnd, relatedEnd] =
-			input.direction === "outgoing"
-				? (["sourceEntityId", "targetEntityId"] as const)
-				: (["targetEntityId", "sourceEntityId"] as const);
+		const ends = relationshipEnds(input.direction);
+		const ownEnd = `${ends.anchor}EntityId` as const;
+		const relatedEnd = `${ends.related}EntityId` as const;
 		return {
 			map: ({ relationships }) => Result.succeed(relationships),
 			queries: {

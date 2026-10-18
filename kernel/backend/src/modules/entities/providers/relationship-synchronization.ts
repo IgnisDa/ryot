@@ -1,4 +1,8 @@
 import { definitionOwner } from "@ryot-app/contract/modules/plugins/references";
+import {
+	orientRelationship,
+	relationshipEnds,
+} from "@ryot-app/contract/modules/relationships/orientation";
 import type { EntityId, RelationshipSchemaSlug, UserId } from "@ryot-app/contract/schema/brands";
 import { Effect } from "effect";
 
@@ -43,8 +47,7 @@ export const persistPlannedRelationshipSynchronization = Effect.fn(
 			relationshipSchemaPluginId: input.relationshipSchemaPluginId ?? null,
 		});
 		for (const relationship of existing) {
-			const relatedEntityId =
-				input.direction === "outgoing" ? relationship.targetEntityId : relationship.sourceEntityId;
+			const relatedEntityId = relationship[`${relationshipEnds(input.direction).related}EntityId`];
 			if (entries.has(relatedEntityId) || input.synchronization === "additive") {
 				entries.set(relatedEntityId, {
 					entityId: relatedEntityId,
@@ -60,11 +63,11 @@ export const persistPlannedRelationshipSynchronization = Effect.fn(
 			slug: input.relationshipSchemaSlug,
 			owner: definitionOwner(input.relationshipSchemaPluginId),
 		},
-		relationships: [...entries.values()].map(({ entityId, properties }) => ({
-			properties,
-			sourceEntityId: input.direction === "outgoing" ? input.anchorEntityId : entityId,
-			targetEntityId: input.direction === "outgoing" ? entityId : input.anchorEntityId,
-		})),
+		relationships: [...entries.values()].map(({ entityId, properties }) =>
+			Object.assign(orientRelationship(input.direction, input.anchorEntityId, entityId), {
+				properties,
+			}),
+		),
 	};
 	return yield* relationships.persistPlannedReconciliation([group], input.command, scope);
 });
@@ -105,11 +108,11 @@ export const persistPlannedRelationshipPage = Effect.fn("persistPlannedRelations
 						slug: input.relationshipSchemaSlug,
 						owner: definitionOwner(input.relationshipSchemaPluginId),
 					},
-					relationships: input.entries.map(({ entityId, properties }) => ({
-						properties,
-						sourceEntityId: input.direction === "outgoing" ? input.anchorEntityId : entityId,
-						targetEntityId: input.direction === "outgoing" ? entityId : input.anchorEntityId,
-					})),
+					relationships: input.entries.map(({ entityId, properties }) =>
+						Object.assign(orientRelationship(input.direction, input.anchorEntityId, entityId), {
+							properties,
+						}),
+					),
 				},
 			],
 			input.command,
