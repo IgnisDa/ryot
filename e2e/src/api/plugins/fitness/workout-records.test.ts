@@ -12,6 +12,7 @@ import {
 	createExerciseEntityFixture,
 	createWorkoutEntityFixture,
 	findWorkoutSetEventSchema,
+	LARGE_WORKOUT_BUDGET,
 	readWorkoutDetails,
 } from "~/fixtures/plugins/fitness";
 import { assertCondition, assertTaggedError, requirePresent } from "~/support/assertions";
@@ -369,11 +370,25 @@ describe("Workout records E2E", () => {
 						})),
 					}),
 				);
-				const created = yield* waitForCreateEvents(client, createResult, 600_000);
+				const created = yield* waitForCreateEvents(
+					client,
+					createResult,
+					LARGE_WORKOUT_BUDGET.eventsMs,
+				);
 				expect(created.count).toBe(101);
 
-				const earlier = yield* waitForReadyWorkoutSets(client, earlierWorkoutId, 51, 600_000);
-				const later = yield* waitForReadyWorkoutSets(client, laterWorkoutId, 50, 600_000);
+				const earlier = yield* waitForReadyWorkoutSets(
+					client,
+					earlierWorkoutId,
+					51,
+					LARGE_WORKOUT_BUDGET.eventsMs,
+				);
+				const later = yield* waitForReadyWorkoutSets(
+					client,
+					laterWorkoutId,
+					50,
+					LARGE_WORKOUT_BUDGET.eventsMs,
+				);
 				const allSets = [
 					...earlier.workout.exercises.items.flatMap((exercise) => exercise.sets.items),
 					...later.workout.exercises.items.flatMap((exercise) => exercise.sets.items),
@@ -405,6 +420,7 @@ describe("Workout records E2E", () => {
 				const storedLastSet = yield* storedWorkoutSet(client, exerciseId, lastSet.id);
 				expect(isoString(storedLastSet.occurredAt)).toBe(laterStartedAt);
 			}),
+		LARGE_WORKOUT_BUDGET.testMs,
 	);
 
 	it.live("keeps each set's recorded kind and tracks personal bests per kind", () =>

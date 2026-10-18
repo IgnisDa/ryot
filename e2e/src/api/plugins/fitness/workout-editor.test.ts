@@ -1,271 +1,122 @@
-import { SignalSchemaSlug, UserId, type EntityId } from "@ryot-app/contract/schema/brands";
+import { EventId, SignalSchemaSlug, UserId, type EntityId } from "@ryot-app/contract/schema/brands";
 import { workoutListRecipe } from "@ryot-app/fitness-plugin/query-recipes";
 import {
-	encodeWorkoutEditorBaseline,
 	type WorkoutEditorBaseline,
 	workoutEditorEntityRecipe,
 	workoutEditorMembershipRecipe,
 	workoutEditorSetsRecipe,
 } from "@ryot-app/fitness-plugin/workout-editor-recipes";
-import { DateTime, Effect } from "effect";
-import getPort from "get-port";
+import { DateTime, Effect, Exit, Scope } from "effect";
 
 import {
 	createAuthenticatedClient,
-	createEntity,
 	executeRyotQLRecipe,
 	listEventsForEntity,
 	listSignalTriggers,
 	pollSignalTrigger,
 	uploadPermanentAsset,
-	waitForCreateEvents,
 } from "~/fixtures/kernel";
 import type { Client } from "~/fixtures/kernel/auth";
 import {
-	createExerciseEntityFixture,
 	correctWorkoutTimes,
+	createExerciseEntityFixture,
+	editTarget,
 	findFitnessEntitySchema,
-	findWorkoutSetEventSchema,
+	keepSet,
+	LARGE_WORKOUT_BUDGET,
+	loadWorkoutBaseline,
 	loadWorkoutEditorContext,
+	operationInput,
+	saveWorkoutData,
 	saveWorkoutEditor,
+	seedExerciseWorkout,
+	templateData,
 	updateExerciseOverrides,
+	type WorkoutData,
+	type WorkoutOccurrenceInput,
+	workoutData,
+	workoutEditorTimes,
+	workoutOccurrence,
+	workoutReference,
+	workoutSet,
 } from "~/fixtures/plugins/fitness";
 import { assertCondition, requirePresent } from "~/support/assertions";
 import { afterAll, beforeAll, describe, expect, it, runPromise } from "~/support/effect-test";
-import {
-	buildApiEnv,
-	spawnApiProcess,
-	startCoreTestInfrastructure,
-	stopApiProcess,
-	stopCoreTestInfrastructure,
-	waitForHealthCheck,
-} from "~/support/provisioning";
+import { startIsolatedApiServer } from "~/support/isolated-harness";
 
-const startedAt = "2026-10-01T10:00:00.000Z";
-const endedAt = "2026-10-01T11:00:00.000Z";
-const setOccurredAt = "2026-10-01T10:15:00.000Z";
+const { endedAt, startedAt, setOccurredAt } = workoutEditorTimes;
 
-type SaveInput = Parameters<typeof saveWorkoutEditor>[1];
-type WorkoutData = Extract<SaveInput["data"], { kind: "workout" }>;
-type WorkoutSetInput = WorkoutData["occurrences"][number]["sets"][number];
-type TemplateData = Extract<SaveInput["data"], { kind: "template" }>;
-
-const workoutReference = (client: Client) =>
-	findFitnessEntitySchema(client, "workout").pipe(
-		Effect.map(({ pluginId }) => ({ pluginId, kind: "local" as const })),
-	);
-
-const loadWorkoutBaseline = (
-	client: Client,
-	entityId: string,
-	kind: "workout" | "workout-template" = "workout",
-) =>
-	Effect.gen(function* () {
-		const reference = yield* workoutReference(client);
-		const entity = requirePresent(
-			yield* executeRyotQLRecipe(client, workoutEditorEntityRecipe({ kind, entityId, reference })),
-			`Expected workout editor entity ${entityId}`,
-		);
-		const sets: WorkoutEditorBaseline["sets"][number][] = [];
-		let after: string | undefined;
-		let hasMore: boolean;
-		do {
-			const page = yield* executeRyotQLRecipe(
-				client,
-				workoutEditorSetsRecipe({ after, reference, workoutId: entityId }),
-			);
-			sets.push(...page.items);
-			hasMore = page.pageInfo.hasMore;
-			if (hasMore) {
-				after = requirePresent(page.pageInfo.nextCursor, "Expected the next workout set cursor");
-			}
-		} while (hasMore);
-		const baseline = { sets, entity };
-		return { baseline, conflictToken: encodeWorkoutEditorBaseline(baseline) };
-	});
-
-const workoutData = (overrides: Partial<WorkoutData> = {}): WorkoutData => ({
-	startedAt,
-	images: [],
-	videos: [],
-	supersets: [],
-	kind: "workout",
-	occurrences: [],
-	target: { kind: "create" },
-	activeDuration: { kind: "preserve" },
-	name: `Workout Editor ${crypto.randomUUID()}`,
-	...overrides,
-});
-
-const workoutSet = (overrides: Partial<WorkoutSetInput> = {}): WorkoutSetInput => ({
-	setLot: "normal",
-	occurredAt: setOccurredAt,
-	confirmedAt: setOccurredAt,
-	exerciseKind: "reps_and_weight",
-	measurements: { reps: 0, weight: 0 },
-	clientId: `set-${crypto.randomUUID()}`,
-	...overrides,
-});
-
-const workoutOccurrence = (
-	exerciseId: string,
-	sets: WorkoutSetInput[],
-	overrides: Partial<WorkoutData["occurrences"][number]> = {},
-): WorkoutData["occurrences"][number] => ({
-	sets,
-	notes: [],
-	images: [],
-	videos: [],
-	exerciseId,
-	clientId: `occurrence-${crypto.randomUUID()}`,
-	...overrides,
-});
-
-const templateData = (exerciseId: string): TemplateData => ({
-	images: [],
-	videos: [],
-	supersets: [],
-	kind: "template",
-	target: { kind: "create" },
-	name: `Workout Template ${crypto.randomUUID()}`,
-	occurrences: [
-		{
-			notes: [],
-			exerciseId,
-			images: [],
-			videos: [],
-			clientId: `occurrence-${crypto.randomUUID()}`,
-			sets: [
-				{
-					setLot: "normal",
-					measurements: { reps: 8, weight: 30 },
-					clientId: `set-${crypto.randomUUID()}`,
-				},
-			],
-		},
-	],
-});
-
-const operationInput = (
-	data: SaveInput["data"],
-	submissionId: SaveInput["submissionId"] = crypto.randomUUID(),
-	submittedAt = new Date().toISOString(),
-): SaveInput => ({ data, submittedAt, submissionId });
-
-const workoutSave = (client: Client, data: WorkoutData, submissionId?: SaveInput["submissionId"]) =>
-	saveWorkoutEditor(client, operationInput(data, submissionId));
-
-const S3_BUCKET_NAME = "ryot-workout-editor-keyless-test";
-
+const scope = Scope.makeUnsafe();
 let apiUrl: string;
-let apiProcess: ReturnType<typeof spawnApiProcess> | undefined;
-let coreInfrastructure: Effect.Success<ReturnType<typeof startCoreTestInfrastructure>> | undefined;
 
 beforeAll(() =>
 	runPromise(
 		Effect.gen(function* () {
-			coreInfrastructure = yield* startCoreTestInfrastructure({ bucketName: S3_BUCKET_NAME });
-			const infrastructure = requirePresent(
-				coreInfrastructure,
-				"Workout editor keyless test infrastructure is not initialised",
-			);
-			const port = yield* Effect.promise(() => getPort());
-			const apiOrigin = `http://127.0.0.1:${port}`;
-			apiUrl = `${apiOrigin}/api`;
-			apiProcess = spawnApiProcess(
-				buildApiEnv({
-					port,
-					frontendUrl: apiOrigin,
-					dbUrl: infrastructure.dbUrl,
-					s3BucketName: S3_BUCKET_NAME,
-					label: "Workout editor keyless",
-					extraEnv: { SERVER_PRO_KEY: "" },
-					redisUrl: infrastructure.redisUrl,
-					s3Endpoint: infrastructure.s3Endpoint,
-				}),
-			);
-			yield* waitForHealthCheck(
-				`${apiOrigin}/api/system/health`,
-				"Workout editor keyless setup",
-				apiProcess,
-				90,
-			);
-		}),
+			const server = yield* startIsolatedApiServer({
+				label: "Workout editor keyless",
+				extraEnv: { SERVER_PRO_KEY: "" },
+			});
+			apiUrl = server.apiUrl;
+		}).pipe(
+			Effect.provideService(Scope.Scope, scope),
+			Effect.onError(() => Scope.close(scope, Exit.void)),
+		),
 	),
 );
 
-afterAll(() =>
-	runPromise(
-		Effect.gen(function* () {
-			yield* stopApiProcess(apiProcess);
-			yield* stopCoreTestInfrastructure(coreInfrastructure);
-		}),
-	),
-);
+afterAll(() => runPromise(Scope.close(scope, Exit.void)));
 
 const createImportedWorkout = (client: Client, exerciseId: EntityId) =>
 	Effect.gen(function* () {
 		const upload = (fileName: string, contentType: string) =>
-			uploadPermanentAsset(client, { fileName, contentType, baseUrl: apiUrl });
+			uploadPermanentAsset(client, { fileName, contentType });
 		const media = {
 			videos: [yield* upload("imported-workout.mp4", "video/mp4")],
 			images: [yield* upload("imported-workout.jpg", "image/jpeg")],
 			occurrenceVideos: [yield* upload("imported-exercise.mp4", "video/mp4")],
 			occurrenceImages: [yield* upload("imported-exercise.jpg", "image/jpeg")],
 		};
-		const { schema } = yield* findFitnessEntitySchema(client, "workout");
-		const workout = yield* createEntity(client, {
-			entitySchema: schema.reference,
+		const { workoutId } = yield* seedExerciseWorkout(client, {
+			endedAt,
+			startedAt,
+			exerciseId,
 			name: `Imported Workout ${crypto.randomUUID()}`,
+			exerciseNotes: [{ exerciseOrder: 0, notes: ["Imported exercise note"] }],
 			properties: {
-				endedAt,
-				startedAt,
 				activeDuration: 2400,
 				images: media.images,
 				videos: media.videos,
-				exerciseNotes: [{ exerciseOrder: 0, notes: ["Imported exercise note"] }],
 				exerciseMedia: [
 					{ exerciseOrder: 0, images: media.occurrenceImages, videos: media.occurrenceVideos },
 				],
 			},
-		});
-		const { workoutSetEventSchema } = yield* findWorkoutSetEventSchema(client);
-		const response = yield* client.call((contract) =>
-			contract.events.create({
-				payload: [
-					{
-						entityId: exerciseId,
-						occurredAt: setOccurredAt,
-						sessionEntityId: workout.id,
-						eventSchemaSlug: workoutSetEventSchema.id,
-						properties: {
-							reps: 10,
-							weight: 40,
-							setOrder: 0,
-							restTime: 90,
-							setLot: "normal",
-							exerciseOrder: 0,
-							note: "Imported set note",
-							exerciseKind: "reps_and_weight",
-						},
+			sets: [
+				{
+					occurredAt: setOccurredAt,
+					properties: {
+						reps: 10,
+						weight: 40,
+						restTime: 90,
+						setLot: "normal",
+						note: "Imported set note",
+						exerciseKind: "reps_and_weight",
 					},
-				],
-			}),
-		);
-		yield* waitForCreateEvents(client, response);
-		return { media, workoutId: workout.id };
+				},
+			],
+		});
+		return { media, workoutId };
 	});
 
 const updateImportedWorkoutData = (input: {
 	readonly baseline: WorkoutEditorBaseline;
 	readonly conflictToken: string;
-	readonly exerciseId: string;
+	readonly exerciseId: EntityId;
 	readonly note?: string | undefined;
 	readonly reps: number;
 	readonly images: WorkoutData["images"];
 	readonly videos: WorkoutData["videos"];
-	readonly occurrenceImages: WorkoutData["occurrences"][number]["images"];
-	readonly occurrenceVideos: WorkoutData["occurrences"][number]["videos"];
+	readonly occurrenceImages: WorkoutOccurrenceInput["images"];
+	readonly occurrenceVideos: WorkoutOccurrenceInput["videos"];
 }): WorkoutData => {
 	const originalSet = requirePresent(input.baseline.sets[0], "Expected the imported workout set");
 	return workoutData({
@@ -273,22 +124,16 @@ const updateImportedWorkoutData = (input: {
 		startedAt,
 		images: input.images,
 		videos: input.videos,
+		target: editTarget(input),
 		name: input.baseline.entity.name,
 		activeDuration: { kind: "preserve" },
-		target: {
-			kind: "update",
-			entityId: input.baseline.entity.id,
-			conflictToken: input.conflictToken,
-		},
 		occurrences: [
 			workoutOccurrence(
 				input.exerciseId,
 				[
-					workoutSet({
+					keepSet(originalSet, {
 						restTime: 90,
 						confirmedAt: undefined,
-						eventId: originalSet.id,
-						occurredAt: originalSet.occurredAt,
 						measurements: { weight: 40, reps: input.reps },
 						...(input.note === undefined ? {} : { note: input.note }),
 					}),
@@ -357,7 +202,7 @@ describe("Workout editor E2E", () => {
 					slug: SignalSchemaSlug.make("workout.created"),
 				},
 			};
-			const created = yield* workoutSave(
+			const created = yield* saveWorkoutData(
 				client,
 				workoutData({ occurrences: [workoutOccurrence(exerciseId, [workoutSet()])] }),
 			);
@@ -370,25 +215,15 @@ describe("Workout editor E2E", () => {
 			const baseline = yield* loadWorkoutBaseline(client, created.entityId);
 			const originalSet = requirePresent(baseline.baseline.sets[0], "Expected the created set");
 			const editedName = `${baseline.baseline.entity.name} edited`;
-			const edited = yield* workoutSave(
+			const edited = yield* saveWorkoutData(
 				client,
 				workoutData({
 					name: editedName,
-					target: {
-						kind: "update",
-						entityId: created.entityId,
-						conflictToken: baseline.conflictToken,
-					},
+					target: editTarget(baseline),
 					occurrences: [
 						workoutOccurrence(
 							exerciseId,
-							[
-								workoutSet({
-									eventId: originalSet.id,
-									occurredAt: originalSet.occurredAt,
-									measurements: { reps: 5, weight: 20 },
-								}),
-							],
+							[keepSet(originalSet, { measurements: { reps: 5, weight: 20 } })],
 							{ sourceExerciseOrder: 0 },
 						),
 					],
@@ -481,19 +316,19 @@ describe("Workout editor E2E", () => {
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient(apiUrl);
 			const { exerciseId } = yield* createExerciseEntityFixture(client);
-			const firstImages: WorkoutData["occurrences"][number]["images"] = [
+			const firstImages: WorkoutOccurrenceInput["images"] = [
 				{ type: "remote", url: "https://example.com/first.jpg" },
 			];
-			const firstVideos: WorkoutData["occurrences"][number]["videos"] = [
+			const firstVideos: WorkoutOccurrenceInput["videos"] = [
 				{ type: "remote", url: "https://example.com/first.mp4" },
 			];
-			const secondImages: WorkoutData["occurrences"][number]["images"] = [
+			const secondImages: WorkoutOccurrenceInput["images"] = [
 				{ type: "remote", url: "https://example.com/second.jpg" },
 			];
-			const secondVideos: WorkoutData["occurrences"][number]["videos"] = [
+			const secondVideos: WorkoutOccurrenceInput["videos"] = [
 				{ type: "remote", url: "https://example.com/second.mp4" },
 			];
-			const created = yield* workoutSave(
+			const created = yield* saveWorkoutData(
 				client,
 				workoutData({
 					occurrences: [
@@ -518,38 +353,22 @@ describe("Workout editor E2E", () => {
 				original.baseline.sets.find(({ properties }) => properties["exerciseOrder"] === 1),
 				"Expected the second occurrence set",
 			);
-			const reordered = yield* workoutSave(
+			const reordered = yield* saveWorkoutData(
 				client,
 				workoutData({
+					target: editTarget(original),
 					name: original.baseline.entity.name,
-					target: {
-						kind: "update",
-						entityId: created.entityId,
-						conflictToken: original.conflictToken,
-					},
 					occurrences: [
-						workoutOccurrence(
-							exerciseId,
-							[
-								workoutSet({
-									eventId: secondSet.id,
-									confirmedAt: setOccurredAt,
-									occurredAt: secondSet.occurredAt,
-								}),
-							],
-							{ images: secondImages, videos: secondVideos, sourceExerciseOrder: 1 },
-						),
-						workoutOccurrence(
-							exerciseId,
-							[
-								workoutSet({
-									eventId: firstSet.id,
-									confirmedAt: setOccurredAt,
-									occurredAt: firstSet.occurredAt,
-								}),
-							],
-							{ images: firstImages, videos: firstVideos, sourceExerciseOrder: 0 },
-						),
+						workoutOccurrence(exerciseId, [keepSet(secondSet)], {
+							images: secondImages,
+							videos: secondVideos,
+							sourceExerciseOrder: 1,
+						}),
+						workoutOccurrence(exerciseId, [keepSet(firstSet)], {
+							images: firstImages,
+							videos: firstVideos,
+							sourceExerciseOrder: 0,
+						}),
 					],
 				}),
 			);
@@ -561,10 +380,12 @@ describe("Workout editor E2E", () => {
 			]);
 			expect(
 				current.baseline.sets.map(({ id, properties }) => [id, properties["exerciseOrder"]]),
-			).toContainEqual([secondSet.id, 0]);
-			expect(
-				current.baseline.sets.map(({ id, properties }) => [id, properties["exerciseOrder"]]),
-			).toContainEqual([firstSet.id, 1]);
+			).toEqual(
+				expect.arrayContaining([
+					[secondSet.id, 0],
+					[firstSet.id, 1],
+				]),
+			);
 		}),
 	);
 
@@ -588,7 +409,7 @@ describe("Workout editor E2E", () => {
 			});
 
 			const { exerciseId } = yield* createExerciseEntityFixture(client);
-			const membershipWorkout = yield* workoutSave(
+			const membershipWorkout = yield* saveWorkoutData(
 				client,
 				workoutData({ occurrences: [workoutOccurrence(exerciseId, [])] }),
 			);
@@ -612,7 +433,25 @@ describe("Workout editor E2E", () => {
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient(apiUrl);
 			const { exerciseId } = yield* createExerciseEntityFixture(client);
-			expect(yield* saveWorkoutEditor(client, operationInput(templateData(exerciseId)))).toEqual({
+			const template = templateData({
+				occurrences: [
+					{
+						notes: [],
+						exerciseId,
+						images: [],
+						videos: [],
+						clientId: `occurrence-${crypto.randomUUID()}`,
+						sets: [
+							{
+								setLot: "normal",
+								measurements: { reps: 8, weight: 30 },
+								clientId: `set-${crypto.randomUUID()}`,
+							},
+						],
+					},
+				],
+			});
+			expect(yield* saveWorkoutEditor(client, operationInput(template))).toEqual({
 				canEdit: true,
 				kind: "pro-required",
 			});
@@ -620,12 +459,15 @@ describe("Workout editor E2E", () => {
 			const notedSet = workoutData({
 				occurrences: [workoutOccurrence(exerciseId, [workoutSet({ note: "New set note" })])],
 			});
-			expect(yield* workoutSave(client, notedSet)).toEqual({ canEdit: true, kind: "pro-required" });
+			expect(yield* saveWorkoutData(client, notedSet)).toEqual({
+				canEdit: true,
+				kind: "pro-required",
+			});
 
 			const mediaWorkout = workoutData({
 				images: [{ type: "remote", url: "https://example.com/workout.jpg" }],
 			});
-			expect(yield* workoutSave(client, mediaWorkout)).toEqual({
+			expect(yield* saveWorkoutData(client, mediaWorkout)).toEqual({
 				canEdit: true,
 				kind: "pro-required",
 			});
@@ -638,7 +480,7 @@ describe("Workout editor E2E", () => {
 					}),
 				],
 			});
-			const occurrenceMediaSaved = yield* workoutSave(client, occurrenceMediaWorkout);
+			const occurrenceMediaSaved = yield* saveWorkoutData(client, occurrenceMediaWorkout);
 			assertCondition(
 				occurrenceMediaSaved.kind === "saved",
 				"Expected occurrence media to save without Pro",
@@ -662,7 +504,7 @@ describe("Workout editor E2E", () => {
 			const { client } = yield* createAuthenticatedClient(apiUrl);
 			const { exerciseId: originalExerciseId } = yield* createExerciseEntityFixture(client);
 			const { exerciseId: replacementExerciseId } = yield* createExerciseEntityFixture(client);
-			const created = yield* workoutSave(
+			const created = yield* saveWorkoutData(
 				client,
 				workoutData({ occurrences: [workoutOccurrence(originalExerciseId, [workoutSet()])] }),
 			);
@@ -671,55 +513,36 @@ describe("Workout editor E2E", () => {
 			const originalSet = requirePresent(baseline.baseline.sets[0], "Expected the original set");
 			const replacement = workoutData({
 				startedAt,
+				target: editTarget(baseline),
 				name: baseline.baseline.entity.name,
-				target: {
-					kind: "update",
-					entityId: created.entityId,
-					conflictToken: baseline.conflictToken,
-				},
 				occurrences: [
-					workoutOccurrence(
-						replacementExerciseId,
-						[
-							workoutSet({
-								eventId: originalSet.id,
-								confirmedAt: setOccurredAt,
-								occurredAt: originalSet.occurredAt,
-								measurements: { reps: 0, weight: 0 },
-							}),
-						],
-						{ sourceExerciseOrder: 0 },
-					),
+					workoutOccurrence(replacementExerciseId, [keepSet(originalSet)], {
+						sourceExerciseOrder: 0,
+					}),
 				],
 			});
-			expect(yield* workoutSave(client, replacement)).toEqual({
+			expect(yield* saveWorkoutData(client, replacement)).toEqual({
 				canEdit: true,
 				kind: "pro-required",
 			});
 
 			const unrelatedEvent = workoutData({
+				target: editTarget(baseline),
 				name: baseline.baseline.entity.name,
-				target: {
-					kind: "update",
-					entityId: created.entityId,
-					conflictToken: baseline.conflictToken,
-				},
 				occurrences: [
 					workoutOccurrence(
 						originalExerciseId,
 						[
 							workoutSet({
-								eventId: "unrelated-event",
-								confirmedAt: setOccurredAt,
 								occurredAt: originalSet.occurredAt,
-								measurements: { reps: 0, weight: 0 },
+								eventId: EventId.make("unrelated-event"),
 							}),
 						],
 						{ sourceExerciseOrder: 0 },
 					),
 				],
 			});
-			expect(yield* workoutSave(client, unrelatedEvent)).toEqual({
+			expect(yield* saveWorkoutData(client, unrelatedEvent)).toEqual({
 				canEdit: true,
 				kind: "invalid",
 				code: "unrelated-event",
@@ -732,7 +555,7 @@ describe("Workout editor E2E", () => {
 			const { client: owner } = yield* createAuthenticatedClient(apiUrl);
 			const { client: other } = yield* createAuthenticatedClient(apiUrl);
 			const { exerciseId } = yield* createExerciseEntityFixture(owner);
-			const created = yield* workoutSave(
+			const created = yield* saveWorkoutData(
 				owner,
 				workoutData({ occurrences: [workoutOccurrence(exerciseId, [workoutSet()])] }),
 			);
@@ -759,27 +582,20 @@ describe("Workout editor E2E", () => {
 
 			const originalSet = requirePresent(baseline.baseline.sets[0], "Expected owner's set");
 			const foreignEdit = workoutData({
+				target: editTarget(baseline),
 				name: baseline.baseline.entity.name,
-				target: {
-					kind: "update",
-					entityId: created.entityId,
-					conflictToken: baseline.conflictToken,
-				},
 				occurrences: [
 					workoutOccurrence(
 						exerciseId,
-						[
-							workoutSet({
-								eventId: originalSet.id,
-								occurredAt: originalSet.occurredAt,
-								measurements: { reps: 1, weight: 1 },
-							}),
-						],
+						[keepSet(originalSet, { measurements: { reps: 1, weight: 1 } })],
 						{ sourceExerciseOrder: 0 },
 					),
 				],
 			});
-			expect(yield* workoutSave(other, foreignEdit)).toEqual({ canEdit: true, kind: "conflict" });
+			expect(yield* saveWorkoutData(other, foreignEdit)).toEqual({
+				canEdit: true,
+				kind: "conflict",
+			});
 		}),
 	);
 
@@ -842,41 +658,28 @@ describe("Workout editor E2E", () => {
 			}),
 	);
 
-	it.live("pages 101 editor sets from production event writes", () =>
-		Effect.gen(function* () {
-			const { client } = yield* createAuthenticatedClient(apiUrl);
-			const { schema } = yield* findFitnessEntitySchema(client, "workout");
-			const workout = yield* createEntity(client, {
-				properties: { startedAt },
-				entitySchema: schema.reference,
-				name: `Workout Editor Pagination ${crypto.randomUUID()}`,
-			});
-			const { exerciseId } = yield* createExerciseEntityFixture(client);
-			const { workoutSetEventSchema } = yield* findWorkoutSetEventSchema(client);
-			const response = yield* client.call((contract) =>
-				contract.events.create({
-					payload: Array.from({ length: 101 }, (_, setOrder) => ({
-						entityId: exerciseId,
+	it.live(
+		"pages 101 editor sets from production event writes",
+		() =>
+			Effect.gen(function* () {
+				const { client } = yield* createAuthenticatedClient(apiUrl);
+				const { exerciseId } = yield* createExerciseEntityFixture(client);
+				const { created, workoutId } = yield* seedExerciseWorkout(client, {
+					startedAt,
+					exerciseId,
+					timeoutMs: LARGE_WORKOUT_BUDGET.eventsMs,
+					name: `Workout Editor Pagination ${crypto.randomUUID()}`,
+					sets: Array.from({ length: 101 }, (_, reps) => ({
 						occurredAt: setOccurredAt,
-						sessionEntityId: workout.id,
-						eventSchemaSlug: workoutSetEventSchema.id,
-						properties: {
-							setOrder,
-							weight: 20,
-							reps: setOrder,
-							setLot: "normal",
-							exerciseOrder: 0,
-							exerciseKind: "reps_and_weight",
-						},
+						properties: { reps, weight: 20, setLot: "normal", exerciseKind: "reps_and_weight" },
 					})),
-				}),
-			);
-			const created = yield* waitForCreateEvents(client, response, 600_000);
-			expect(created.count).toBe(101);
+				});
+				expect(created.count).toBe(101);
 
-			const baseline = yield* loadWorkoutBaseline(client, workout.id);
-			expect(baseline.baseline.sets).toHaveLength(101);
-			expect(new Set(baseline.baseline.sets.map(({ id }) => id)).size).toBe(101);
-		}),
+				const baseline = yield* loadWorkoutBaseline(client, workoutId);
+				expect(baseline.baseline.sets).toHaveLength(101);
+				expect(new Set(baseline.baseline.sets.map(({ id }) => id)).size).toBe(101);
+			}),
+		LARGE_WORKOUT_BUDGET.testMs,
 	);
 });
