@@ -11,7 +11,7 @@ const choices = [
 	{ value: "comedy", label: "Comedy" },
 ];
 
-function GenreSelect() {
+function GenreSelect(props: { readonly variant?: "chip" | "field" }) {
 	const [selected, setSelected] = useState<ReadonlyArray<string>>(["action"]);
 	return (
 		<MultiSelect
@@ -23,6 +23,7 @@ function GenreSelect() {
 			chevronIcon={null}
 			selected={selected}
 			onChange={setSelected}
+			variant={props.variant}
 		/>
 	);
 }
@@ -36,6 +37,18 @@ describe("MultiSelect", () => {
 
 		expect(screen.getByRole("button", { name: "Clear Genres" })).toBeTruthy();
 		expect(screen.getByRole("button", { name: "Clear selections in Genres" })).toBeTruthy();
+	});
+
+	it("counts selections on a chip trigger that opens the same options", () => {
+		render(<GenreSelect variant="chip" />);
+		const chip = screen.getByRole("button", { name: "Genres" });
+		expect(chip.textContent).toBe("Genres · 1");
+		expect(screen.queryByRole("button", { name: "Clear Genres" })).toBeNull();
+
+		openOptions();
+		fireEvent.click(screen.getByRole("checkbox", { name: "Comedy" }));
+
+		expect(chip.textContent).toBe("Genres · 2");
 	});
 
 	it("clears the selection from inside the modal", () => {

@@ -13,6 +13,7 @@ type MultiSelectProps = {
 	readonly searchIcon: ReactNode;
 	readonly chevronIcon: ReactNode;
 	readonly placeholder?: string;
+	readonly variant?: "chip" | "field" | undefined;
 	readonly selected: ReadonlyArray<string>;
 	readonly onInterceptBack?: () => boolean;
 	readonly choices: ReadonlyArray<MultiSelectChoice>;
@@ -31,6 +32,7 @@ export function MultiSelect({
 	chevronIcon,
 	placeholder,
 	onInterceptBack,
+	variant = "field",
 	selected: selectedValues,
 }: MultiSelectProps) {
 	const [open, setOpen] = useState(false);
@@ -70,38 +72,55 @@ export function MultiSelect({
 
 	return (
 		<>
-			<div className="flex items-center gap-2">
+			{variant === "chip" ? (
 				<button
 					type="button"
 					aria-label={label}
 					aria-expanded={open}
 					onClick={() => setOpen(true)}
-					className="flex h-9 min-w-0 flex-1 items-center justify-between rounded-md border border-border-strong bg-surface px-3 transition-colors duration-100 hover:border-text-subtle motion-reduce:transition-none pointer-coarse:h-11"
+					className={clsx(
+						"inline-flex h-8 shrink-0 items-center gap-1.5 rounded-pill border px-3 text-[13px] font-medium whitespace-nowrap transition-colors duration-100 motion-reduce:transition-none pointer-coarse:h-10",
+						selectedLabels.length === 0
+							? "border-border-emphasis bg-surface text-text hover:bg-hover"
+							: "border-accent-border bg-accent-soft text-accent-text",
+					)}
 				>
-					<span
-						className={clsx(
-							"min-w-0 flex-1 truncate text-left text-sm",
-							selectedLabels.length === 0 ? "text-text-subtle" : "text-text",
-						)}
-					>
-						{triggerText}
-					</span>
-					<span aria-hidden="true" className="text-text-muted">
-						{chevronIcon}
-					</span>
+					{selectedLabels.length === 0 ? label : `${label} · ${selectedLabels.length}`}
+					<span aria-hidden="true">{chevronIcon}</span>
 				</button>
-				{selectedLabels.length > 0 && (
+			) : (
+				<div className="flex items-center gap-2">
 					<button
 						type="button"
-						onClick={() => onChange([])}
-						aria-label={`Clear ${label}`}
-						className="min-h-6 rounded-md px-1.5 py-1 text-xs font-medium text-text-muted"
+						aria-label={label}
+						aria-expanded={open}
+						onClick={() => setOpen(true)}
+						className="flex h-9 min-w-0 flex-1 items-center justify-between rounded-md border border-border-strong bg-surface px-3 transition-colors duration-100 hover:border-text-subtle motion-reduce:transition-none pointer-coarse:h-11"
 					>
-						Clear
+						<span
+							className={clsx(
+								"min-w-0 flex-1 truncate text-left text-sm",
+								selectedLabels.length === 0 ? "text-text-subtle" : "text-text",
+							)}
+						>
+							{triggerText}
+						</span>
+						<span aria-hidden="true" className="text-text-muted">
+							{chevronIcon}
+						</span>
 					</button>
-				)}
-			</div>
-
+					{selectedLabels.length > 0 && (
+						<button
+							type="button"
+							onClick={() => onChange([])}
+							aria-label={`Clear ${label}`}
+							className="min-h-6 rounded-md px-1.5 py-1 text-xs font-medium text-text-muted"
+						>
+							Clear
+						</button>
+					)}
+				</div>
+			)}
 			{open && (
 				<Modal
 					label={label}

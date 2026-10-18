@@ -38,7 +38,7 @@ it.live(
 			yield* page.goto(`${getFrontendUrl()}/p/ryot/fitness/workouts/new`);
 			const frame = page.locator("iframe:visible").contentFrame();
 			yield* frame.getByRole("button", { exact: true, name: "Add exercises" }).click();
-			const picker = frame.getByRole("dialog", { exact: true, name: "Choose exercises" });
+			const picker = frame.getByRole("dialog", { exact: true, name: "Add exercises" });
 			yield* picker.getByRole("checkbox", { exact: true, name: libraryName }).check();
 			yield* picker.getByRole("button", { exact: true, name: "Add from provider" }).click();
 			const provider = page.getByRole("dialog", { exact: true, name: "Add from a provider" });
