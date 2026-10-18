@@ -84,7 +84,7 @@ it.effect("uses inexact Android scheduling without opening system settings", () 
 						id: 7,
 						body: "",
 						sound: "default",
-						foreground: true,
+						foreground: false,
 						title: "Rest complete",
 						isExactMandatory: false,
 						isExactNotification: false,
@@ -163,6 +163,20 @@ it.effect("leaves iOS muted alerts without a sound and never checks Android alar
 			{ status: "scheduled" },
 		);
 		expect(h.calls[0]?.notifications[0]?.sound).toBeUndefined();
+		expect(h.channels).toEqual([]);
+	}),
+);
+
+it.effect("schedules audible iOS alerts in the background without Android settings", () =>
+	Effect.gen(function* () {
+		const h = harness();
+		h.adapter.checkExactNotificationSetting = () => {
+			throw new Error("Android only");
+		};
+		expect(yield* scheduleNativeAlert(h.adapter, false, 7, request)).toEqual({
+			status: "scheduled",
+		});
+		expect(h.calls[0]?.notifications[0]).toMatchObject({ sound: "default", foreground: false });
 		expect(h.channels).toEqual([]);
 	}),
 );

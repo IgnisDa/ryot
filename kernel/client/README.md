@@ -153,6 +153,10 @@ authentication and navigate through semantic page targets. Frame disposal releas
 does not cancel intentional alerts. Local metadata contains only scope, installation, key/native-ID
 mapping, and shortcut targets; Fitness owns all draft data and deadline reconciliation.
 
+iOS suppresses notification presentation while foregrounded; plugins own foreground feedback.
+Returning to the app clears delivered local alerts without cancelling pending alerts or their tap
+targets.
+
 Android scheduling first creates an inexact alert, then upgrades through the non-prompting update
 API when exact-alarm access is available. This avoids an automatic Settings redirect if permission
 changes during scheduling. Revocation and Doze can still delay or remove alerts. Audible alerts use

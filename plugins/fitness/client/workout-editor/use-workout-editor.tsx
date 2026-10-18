@@ -36,7 +36,7 @@ const createEditorSession = (
 	let reconciling = false;
 	const feedback = (): Effect.Effect<void> =>
 		Effect.gen(function* () {
-			if (![...screens.values()].some(Boolean)) {
+			if (document.visibilityState !== "visible" || ![...screens.values()].some(Boolean)) {
 				return;
 			}
 			const current = controller.getSnapshot();
@@ -56,6 +56,7 @@ const createEditorSession = (
 		now: Effect.sync(() => schedule.now()),
 		device: (request) => client.device(request),
 		cleanup: (asset) => client.uploads.cleanup(asset),
+		foreground: () => document.visibilityState === "visible",
 		upload: (request) => client.uploads.uploadPermanent(request),
 		refreshContext: client.operations.invoke({
 			input: {},

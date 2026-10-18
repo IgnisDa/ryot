@@ -53,6 +53,7 @@ const fixture = (
 	let stored: unknown = options.stored ?? null;
 	const cleaned: ManagedAssetLocator[] = [];
 	const controller = createWorkoutEditorController({
+		foreground: () => true,
 		now: Effect.succeed(Date.parse(now)),
 		upload: options.upload ?? (() => Effect.succeed(asset)),
 		cleanup: (locator) =>
