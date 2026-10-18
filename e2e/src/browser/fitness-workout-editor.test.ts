@@ -21,6 +21,26 @@ import { signInThroughHostedOAuth } from "~/support/browser";
 import { expect, it } from "~/support/effect-test";
 import { getFrontendUrl } from "~/support/harness-target";
 
+const renameDraft = (frame: Playwright.FrameLocator, name: string) =>
+	Effect.gen(function* () {
+		yield* frame.getByRole("button", { exact: true, name: "Details" }).click();
+		const details = frame.getByRole("dialog", { exact: true, name: "Workout details" });
+		yield* details.getByRole("textbox", { exact: true, name: "Name" }).fill(name);
+		yield* details.getByRole("button", { exact: true, name: "Done" }).click();
+	});
+
+const draftHeading = (frame: Playwright.FrameLocator, name: string) =>
+	frame.getByRole("heading", { name, level: 1, exact: true });
+
+const discardDraft = (frame: Playwright.FrameLocator) =>
+	Effect.gen(function* () {
+		yield* frame.getByRole("button", { exact: true, name: "Discard workout" }).click();
+		yield* frame
+			.getByRole("dialog", { exact: true, name: "Discard workout?" })
+			.getByRole("button", { exact: true, name: "Discard workout" })
+			.click();
+	});
+
 it.live("dismisses a workout overlay with an edge swipe without leaving the draft", () =>
 	Effect.gen(function* () {
 		const { email, password } = yield* createAuthenticatedClient();
@@ -29,7 +49,10 @@ it.live("dismisses a workout overlay with an edge swipe without leaving the draf
 		yield* signInThroughHostedOAuth(page, email, password);
 		yield* page.goto(`${getFrontendUrl()}/p/ryot/fitness/workouts/new`);
 		const frame = page.locator("iframe:visible").contentFrame();
-		yield* frame.getByRole("textbox", { exact: true, name: "Name" }).fill("Swipe recovery");
+		yield* frame.getByRole("button", { exact: false, name: "Edit workout details" }).click();
+		const details = frame.getByRole("dialog", { exact: true, name: "Workout details" });
+		yield* details.getByRole("textbox", { exact: true, name: "Name" }).fill("Swipe recovery");
+		yield* details.getByRole("button", { exact: true, name: "Done" }).click();
 		yield* frame.getByRole("button", { exact: true, name: "Add exercises" }).click();
 		const picker = frame.getByRole("dialog", { exact: true, name: "Choose exercises" });
 		yield* picker.waitFor({ state: "visible" });
@@ -39,9 +62,9 @@ it.live("dismisses a workout overlay with an edge swipe without leaving the draf
 		yield* page.use((raw) => raw.mouse.move(240, 400, { steps: 12 }));
 		yield* page.use((raw) => raw.mouse.up());
 		yield* picker.waitFor({ state: "hidden" });
-		expect(yield* frame.getByRole("textbox", { exact: true, name: "Name" }).inputValue()).toBe(
-			"Swipe recovery",
-		);
+		yield* frame
+			.getByRole("button", { exact: true, name: "Edit workout details, Swipe recovery" })
+			.waitFor({ state: "visible" });
 		expect(yield* page.getByRole("dialog", { exact: true, name: "Navigation" }).isVisible()).toBe(
 			false,
 		);
@@ -71,7 +94,7 @@ it.live("retains a competing historical edit instead of overwriting a newer save
 			yield* page.goto(`${getFrontendUrl()}/e/${workoutId}`);
 			const frame = page.locator("iframe:visible").contentFrame();
 			yield* frame.getByRole("button", { exact: true, name: "Edit" }).click();
-			yield* frame.getByRole("textbox", { exact: true, name: "Name" }).fill(editName);
+			yield* renameDraft(frame, editName);
 		}
 		const firstFrame = first.locator("iframe:visible").contentFrame();
 		yield* firstFrame.getByRole("button", { exact: true, name: "Save" }).click();
@@ -81,11 +104,9 @@ it.live("retains a competing historical edit instead of overwriting a newer save
 		yield* secondFrame.getByRole("button", { exact: true, name: "Save" }).click();
 		yield* secondFrame.getByRole("button", { exact: true, name: "Save workout" }).click();
 		yield* secondFrame
-			.getByText("The saved record changed.", { exact: false })
+			.getByText("This workout changed elsewhere", { exact: true })
 			.waitFor({ state: "visible" });
-		expect(
-			yield* secondFrame.getByRole("textbox", { exact: true, name: "Name" }).inputValue(),
-		).toBe(`${name} second`);
+		yield* draftHeading(secondFrame, `${name} second`).waitFor({ state: "visible" });
 		expect((yield* readWorkoutDetails(client, workoutId)).name).toBe(`${name} first`);
 	}).pipe(PlaywrightSpawner.withBrowser),
 );
@@ -104,8 +125,7 @@ it.live("keeps independently saved zero measurements when the workout is discard
 		yield* measurement.getByLabel("Comment (optional)").fill("Saved independently");
 		yield* measurement.getByRole("button", { exact: true, name: "Save" }).click();
 		yield* measurement.waitFor({ state: "hidden" });
-		yield* frame.getByRole("button", { exact: true, name: "Cancel and discard" }).click();
-		yield* frame.getByRole("button", { exact: true, name: "Discard draft" }).click();
+		yield* discardDraft(frame);
 		const readings = yield* listEventsForEntity(client, metric.entityId, undefined, 100);
 		expect(readings).toMatchObject([{ properties: { value: 0, comment: "Saved independently" } }]);
 		yield* page.goto(`${getFrontendUrl()}/v/p/ryot/fitness/all-measurements`);
@@ -132,7 +152,7 @@ it.live("retries a committed workout after a lost response and reload without du
 		yield* page.goto(`${getFrontendUrl()}/v/p/ryot/fitness/all-workouts`);
 		const frame = page.locator("iframe:visible").contentFrame();
 		yield* frame.getByRole("button", { exact: true, name: "Add" }).click();
-		yield* frame.getByRole("textbox", { exact: true, name: "Name" }).fill(name);
+		yield* renameDraft(frame, name);
 		yield* frame.getByRole("button", { exact: true, name: "Add exercises" }).click();
 		const picker = frame.getByRole("dialog", { exact: true, name: "Choose exercises" });
 		for (const exerciseName of [first, second]) {
@@ -152,10 +172,7 @@ it.live("retries a committed workout after a lost response and reload without du
 		yield* reorder.getByRole("button", { exact: true, name: "Done" }).click();
 		yield* page.goto(`${getFrontendUrl()}/settings/import-data`);
 		yield* page.getByRole("button", { exact: true, name: "Resume workout" }).click();
-		yield* frame.getByRole("textbox", { exact: true, name: "Name" }).waitFor({ state: "visible" });
-		expect(yield* frame.getByRole("textbox", { exact: true, name: "Name" }).inputValue()).toBe(
-			name,
-		);
+		yield* draftHeading(frame, name).waitFor({ state: "visible" });
 		yield* frame.getByRole("button", { exact: true, name: "Finish" }).click();
 		yield* page.use((native) =>
 			native.route(
@@ -172,8 +189,8 @@ it.live("retries a committed workout after a lost response and reload without du
 		yield* frame
 			.getByText("This action could not be completed.", { exact: false })
 			.waitFor({ state: "visible" });
-		yield* frame.getByRole("button", { exact: true, name: "Continue editing" }).last().click();
-		expect(yield* frame.getByRole("textbox", { exact: true, name: "Name" }).isDisabled()).toBe(
+		yield* frame.getByRole("button", { exact: true, name: "Keep logging" }).last().click();
+		expect(yield* frame.getByRole("button", { exact: true, name: "Details" }).isDisabled()).toBe(
 			true,
 		);
 		const { pluginId } = yield* findFitnessEntitySchema(client, "workout");
@@ -226,17 +243,14 @@ it.live("repeats, recovers, saves and edits a workout through registered Fitness
 		yield* page.goto(`${getFrontendUrl()}/e/${workoutId}`);
 		const frame = page.locator("iframe:visible").contentFrame();
 		yield* frame.getByRole("button", { exact: true, name: "Repeat workout" }).click();
-		yield* frame.getByRole("textbox", { exact: true, name: "Name" }).fill(`${name} repeated`);
+		yield* renameDraft(frame, `${name} repeated`);
 		yield* page.getByRole("link", { exact: true, name: "All Workouts" }).click();
 		yield* page.waitForURL(`${getFrontendUrl()}/v/p/ryot/fitness/all-workouts`);
 		yield* page.getByRole("button", { exact: true, name: "Resume workout" }).click();
 		yield* page.waitForURL(`${getFrontendUrl()}/p/ryot/fitness/workout-editor`);
-		yield* frame.getByRole("textbox", { exact: true, name: "Name" }).waitFor({ state: "visible" });
+		yield* draftHeading(frame, `${name} repeated`).waitFor({ state: "visible" });
 		yield* page.reload;
-		yield* frame.getByRole("textbox", { exact: true, name: "Name" }).waitFor({ state: "visible" });
-		expect(yield* frame.getByRole("textbox", { exact: true, name: "Name" }).inputValue()).toBe(
-			`${name} repeated`,
-		);
+		yield* draftHeading(frame, `${name} repeated`).waitFor({ state: "visible" });
 		yield* frame.getByRole("button", { exact: true, name: "Complete set 1" }).click();
 		yield* frame.getByRole("button", { exact: true, name: "Finish" }).click();
 		yield* frame.getByRole("button", { exact: true, name: "Save workout" }).click();
@@ -249,7 +263,7 @@ it.live("repeats, recovers, saves and edits a workout through registered Fitness
 			.waitFor({ state: "visible" });
 		yield* frame.getByText("Active duration", { exact: true }).waitFor({ state: "visible" });
 		yield* frame.getByRole("button", { exact: true, name: "Edit" }).click();
-		yield* frame.getByRole("textbox", { exact: true, name: "Name" }).fill(`${name} edited`);
+		yield* renameDraft(frame, `${name} edited`);
 		yield* frame.getByRole("button", { exact: true, name: "Save" }).click();
 		yield* frame.getByRole("button", { exact: true, name: "Save workout" }).click();
 		yield* page.waitForURL((url) => url.pathname.startsWith("/e/"));
@@ -294,35 +308,27 @@ it.live("starts workouts from list Add and templates while guarding another draf
 		yield* page.goto(`${getFrontendUrl()}/v/p/ryot/fitness/all-workouts`);
 		const frame = page.locator("iframe:visible").contentFrame();
 		yield* frame.getByRole("button", { exact: true, name: "Add" }).click();
-		yield* frame.getByRole("textbox", { exact: true, name: "Name" }).fill("Retained new workout");
+		yield* renameDraft(frame, "Retained new workout");
 		yield* page.goto(`${getFrontendUrl()}/e/${workoutTemplateId}`);
 		yield* frame.getByRole("button", { exact: true, name: "Start workout" }).click();
-		yield* frame
-			.getByRole("dialog", { exact: true, name: "Existing draft" })
-			.waitFor({ state: "visible" });
-		yield* frame.getByRole("button", { exact: true, name: "Resume draft" }).click();
-		expect(yield* frame.getByRole("textbox", { exact: true, name: "Name" }).inputValue()).toBe(
-			"Retained new workout",
-		);
+		const guard = frame.getByRole("dialog", {
+			exact: true,
+			name: "You have a workout in progress",
+		});
+		yield* guard.waitFor({ state: "visible" });
+		yield* guard.getByRole("button", { exact: true, name: "Resume workout" }).click();
+		yield* draftHeading(frame, "Retained new workout").waitFor({ state: "visible" });
 		yield* page.goto(`${getFrontendUrl()}/e/${workoutTemplateId}`);
 		yield* frame.getByRole("button", { exact: true, name: "Start workout" }).click();
-		yield* frame
-			.getByRole("button", { exact: true, name: "Discard and start requested action" })
-			.click();
-		yield* frame.getByRole("textbox", { exact: true, name: "Name" }).waitFor({ state: "visible" });
-		expect(yield* frame.getByRole("textbox", { exact: true, name: "Name" }).inputValue()).toBe(
-			name,
-		);
-		yield* frame.getByRole("button", { exact: true, name: "Cancel and discard" }).click();
-		yield* frame.getByRole("button", { exact: true, name: "Discard draft" }).click();
-		yield* frame.getByText("No active draft.", { exact: true }).waitFor({ state: "visible" });
+		yield* guard.getByRole("button", { exact: true, name: "Discard and start" }).click();
+		yield* draftHeading(frame, name).waitFor({ state: "visible" });
+		yield* discardDraft(frame);
+		yield* frame.getByText("No workout in progress", { exact: true }).waitFor({ state: "visible" });
 		yield* page.goto(`${getFrontendUrl()}/e/${workoutTemplateId}`);
 		yield* frame.getByRole("button", { exact: false, name: "Edit template" }).click();
 		yield* frame
-			.getByText("Editing a saved workout.", { exact: false })
+			.getByText("Editing a saved workout", { exact: true })
 			.count.pipe(Effect.map((count) => expect(count).toBe(0)));
-		yield* frame
-			.getByText("Plan a reusable session.", { exact: false })
-			.waitFor({ state: "visible" });
+		yield* frame.getByText("Planning a template", { exact: true }).waitFor({ state: "visible" });
 	}).pipe(PlaywrightSpawner.withBrowser),
 );

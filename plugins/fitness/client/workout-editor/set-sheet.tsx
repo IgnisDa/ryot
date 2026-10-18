@@ -18,7 +18,7 @@ import type {
 	WorkoutEditorSet,
 } from "../../shared/workout-editor-draft";
 import { workoutSetLots } from "../../shared/workout-set";
-import { formatEditorSeconds } from "./clocks";
+import { formatEditorSeconds } from "./session-timers";
 import { previousSummary, setLotLabels } from "./set-grid";
 
 const rpeOptions = Array.from({ length: 11 }, (_, value) => ({

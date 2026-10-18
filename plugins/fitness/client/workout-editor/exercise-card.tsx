@@ -16,10 +16,10 @@ import {
 import { WorkoutEditorMediaSchema, type WorkoutSetLot } from "../../shared/workout-set";
 import { useAssetUrl } from "../asset-urls";
 import { newWorkoutSet, updateOccurrence, updateSet } from "./actions";
-import { formatEditorSeconds } from "./clocks";
 import { MenuButton } from "./menu-button";
 import { usePreviousSets } from "./previous-sets";
 import type { EditorExercise } from "./queries";
+import { formatEditorSeconds } from "./session-timers";
 import { SetGrid, type InvalidSet } from "./set-grid";
 import { SetSheet } from "./set-sheet";
 
@@ -56,8 +56,6 @@ export function ExerciseCard(props: {
 	readonly onDelete: () => void;
 	readonly onCycle: () => void;
 	readonly onAddedSet: () => void;
-	readonly onStartRest: () => void;
-	readonly onSkipRest: () => void;
 }) {
 	const { exercise, settings, onChange, occurrence, draft: editorDraft } = props;
 	const disabled = props.disabled || exercise === undefined;
@@ -245,8 +243,6 @@ export function ExerciseCard(props: {
 						invalid={props.invalid}
 						occurrence={occurrence}
 						onComplete={props.onConfirm}
-						onSkipRest={props.onSkipRest}
-						onStartRest={props.onStartRest}
 						onStart={props.onStartExecution}
 						onCopyPrevious={props.onPrevious}
 						currentSetId={props.currentSetId}
