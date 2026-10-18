@@ -77,15 +77,17 @@ curve.
   trigger when the menu closes. `renderTrigger` receives the props and ref to spread onto its button.
 - `Field` labels one control and wires its hint and error through `aria-describedby`. `TextField` and
   `TextArea` are form inputs; `CellInput` is the borderless filled cell for repeated numeric entry.
-- `Switch` applies immediately; `Checkbox` belongs to saved forms; `SegmentedControl` switches 2–4
-  modes.
+- `Switch` applies immediately; `Checkbox` and `Radio` belong to saved forms; `SegmentedControl`
+  switches 2–4 modes; `Tabs` switches content areas of one object, and the caller renders one
+  `tabpanel` with the given `panelId`, labelled by `tabId(panelId, value)`.
 - `Card` frames an object; `RowGroup` with `Row` holds settings and fact lists as divided rows.
 - `Badge` tones encode status with a dot and text, never color alone. `Notice` is persistent inline
   feedback; danger notices are alerts. `EmptyState` and `Skeleton` cover empty and loading content.
 - `Dialog` is the standard modal panel, centred, as a side sheet, or as a bottom sheet, built on
   `Modal`. Callers choose `sheet` when `compact` and pass `safeAreaBottom`, which pads the footer;
   a sheet's footer buttons share its width. The header shows a close button by default; pass
-  `closeIcon={null}` for dialogs that must be answered through their footer.
+  `closeIcon={null}` for dialogs that must be answered through their footer. `Tooltip` names icon-only controls for fine pointers and is
+  hidden on touch.
 - `ActionDock` is the floating bottom bar for a screen's next action. Mount it through the screen's
   floating root, pass `safeAreaBottom`, and pad the scrolled content so the dock never covers the end.
 - `Stepper` edits a whole number with − and + buttons; Arrow keys step and Page keys step four times.

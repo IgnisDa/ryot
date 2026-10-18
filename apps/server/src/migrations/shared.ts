@@ -171,8 +171,6 @@ export const buildAnomalyReportSql = (input: {
 	END IF;
 `;
 
-// Every argument except `provenance` keys is a SQL expression over the anomaly source, so the text
-// is rendered where the legacy values are still available and no client needs to interpret them.
 export const buildReportDetailSql = (input: {
 	key: string;
 	label: string;
